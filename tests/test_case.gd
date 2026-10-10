@@ -61,3 +61,48 @@ func run_until(sim: MatchSim, cond: Callable, limit: int, p0 := 0, p1 := 0) -> b
 		if cond.call():
 			return true
 	return false
+
+
+## Damage from "hit" events this tick, from attacker `a` to target `d`.
+func hit_damage(sim: MatchSim, a: int, d: int) -> float:
+	var total := 0.0
+	for e in sim.events:
+		if e["type"] == "hit" and int(e["attacker"]) == a and int(e["target"]) == d:
+			total += float(e["power"])
+	return total
+
+
+## Plays a combo route for creature `atk` against the other creature, like a player
+## would: mashes each step's button until the expected move starts, then moves on.
+## `steps` is a list of [input bit, expected move id]. `other` is the defender's input.
+## Returns the total combo damage dealt, once the defender has recovered.
+func route(sim: MatchSim, atk: int, steps: Array, other := 0) -> float:
+	var a := sim.creatures[atk]
+	var d := sim.creatures[1 - atk]
+	var dealt := 0.0
+	for s in steps:
+		var bit: int = s[0]
+		var expect: String = s[1]
+		var serial := a.attack_serial
+		var started := false
+		var press := true
+		for i in 120:
+			var inputs := [0, 0]
+			inputs[atk] = bit if press else 0
+			inputs[1 - atk] = other
+			sim.step(PackedInt32Array(inputs))
+			dealt += hit_damage(sim, atk, 1 - atk)
+			press = not press
+			if a.attack_serial != serial and a.move_id == expect:
+				started = true
+				break
+		if not started:
+			fail("route never reached %s (in %s, state %d; target combo %d, state %d)"
+				% [expect, a.move_id, a.state, d.combo_hits, d.state])
+			return dealt
+	for i in 240:
+		sim.step(PackedInt32Array([0, 0]))
+		dealt += hit_damage(sim, atk, 1 - atk)
+		if a.state != CreatureSim.State.ATTACK and not d.is_stunned():
+			break
+	return dealt

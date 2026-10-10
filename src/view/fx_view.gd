@@ -5,8 +5,10 @@ extends Node2D
 
 const SHEET := preload("res://assets/sprites/fx.png")
 
+var sim: MatchSim
 var _parts: Array[Dictionary] = []
 var _font: Font = ThemeDB.fallback_font
+var _tick := 0
 
 
 func clear() -> void:
@@ -21,7 +23,14 @@ func spawn(e: Dictionary) -> void:
 		"hit":
 			var big := power >= 9.0 or bool(e.get("heavy", false))
 			_add({"kind": "spark", "pos": p, "life": 12 if big else 8, "scale": 2.0 if big else 1.0})
-			_text(p + Vector2(0, -6), str(int(round(power))), Color("ffe08a"))
+			var col := Color("ffe08a")
+			if float(e.get("variety", 1.0)) >= 1.5:
+				col = Color("ff9a5a")
+			elif float(e.get("variety", 1.0)) > 1.0:
+				col = Color("ffd166")
+			if bool(e.get("stale", false)):
+				col = Color("b8b8b8")
+			_text(p + Vector2(0, -6), str(int(round(power))), col)
 		"block":
 			_add({"kind": "spark", "pos": p, "life": 6, "scale": 0.75})
 			_text(p + Vector2(0, -6), "BLOCK", Color("9ec5ff"))
@@ -45,10 +54,23 @@ func spawn(e: Dictionary) -> void:
 			_dust(p + Vector2(0, 1), Vector2(0, -0.3))
 		"ko":
 			_add({"kind": "spark", "pos": p + Vector2(0, -16), "life": 16, "scale": 2.5})
-			_text(p + Vector2(0, -40), "K.O.!", Color("ff6b6b"), 10)
+		"slip":
+			_text(p, "SLIP!", Color("9ee6ff"))
+		"grab":
+			_text(p, "GULP!", Color("b6f28a"))
+		"breakaway":
+			_add({"kind": "ring", "pos": p + Vector2(0, 16), "life": 16, "radius": 30.0})
+			_text(p + Vector2(0, -10), "BREAKAWAY", Color("c9a7ff"))
+		"surge":
+			_add({"kind": "ring", "pos": p, "life": 20, "radius": 40.0})
+			_text(p + Vector2(0, -44), String(e.get("name", "SURGE")).to_upper() + "!", Color("ffcf3f"), 10)
+		"land_hard", "projectile", "projectile_end":
+			for i in 3:
+				_dust(p + Vector2(randf_range(-6, 6), randf_range(-2, 2)), Vector2(randf_range(-0.3, 0.3), -0.4))
 
 
 func advance() -> void:
+	_tick += 1
 	for p in _parts:
 		p["t"] = int(p["t"]) + 1
 	_parts = _parts.filter(func(p): return int(p["t"]) < int(p["life"]))
@@ -56,6 +78,14 @@ func advance() -> void:
 
 
 func _draw() -> void:
+	if sim != null:
+		for pr in sim.projectiles:
+			var pp: Vector2 = pr["pos"]
+			var vel: Vector2 = pr["vel"]
+			var frame := (_tick / 4) % 4
+			var w := -16.0 if vel.x < 0.0 else 16.0
+			draw_texture_rect_region(SHEET, Rect2(pp.round() + Vector2(-w * 0.5, -14), Vector2(w, 16)),
+				Rect2(frame * 16, 32, 16, 16))
 	for p in _parts:
 		var t := float(p["t"])
 		var life := float(p["life"])

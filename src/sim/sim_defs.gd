@@ -15,6 +15,16 @@ const IN_LIGHT := 16
 const IN_HEAVY := 32
 const IN_DODGE := 64
 const IN_GUARD := 128
+const IN_SKILL1 := 256
+const IN_SKILL2 := 512
+const IN_SURGE := 1024
+const IN_ALL := 2047
+
+# Attack types. A combo can cancel from a lower rank into a higher one.
+const TYPE_RANK := {"light": 1, "heavy": 2, "skill": 3, "surge": 4}
+const TYPE_BIT := {"light": 1, "heavy": 2, "skill": 4, "surge": 8}
+## Damage multiplier by how many different attack types have landed in the combo.
+const VARIETY := [1.0, 1.0, 1.15, 1.3, 1.5]
 
 # Arena geometry in logical pixels (the game renders at 480x270).
 const VIEW_W := 480
@@ -47,3 +57,11 @@ static func bits_from_dir(d: Vector2) -> int:
 	elif d.y < -0.3:
 		b |= IN_UP
 	return b
+
+
+static func variety_mult(types_mask: int) -> float:
+	var n := 0
+	for b in [1, 2, 4, 8]:
+		if types_mask & b:
+			n += 1
+	return VARIETY[n]

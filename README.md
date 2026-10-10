@@ -1,68 +1,118 @@
 # Creature Arena
 
 A real-time 2D creature brawler. Small pixel-art creatures fight live in a stadium,
-and the floor cracks, breaks and opens into pits as they fight.
+chaining attacks into combos while the floor cracks, breaks and opens into pits.
 
-This repo is the **Phase 0 prototype**: one creature (Culvert) against a training dummy,
-built to answer one question before any content gets made — *is 30 seconds of fighting fun?*
+Two fighters so far, each with a full moveset and a CPU opponent:
 
-![Demo](docs/demo.gif)
+- **Cairn**, a stack of river stones that boxes: fast strings, a counter, and a dash punch.
+- **Culvert**, a toad made of storm-drain concrete: grabs, shockwaves, and pits.
+
+![Demo: CPU Cairn vs CPU Culvert](docs/demo.gif)
 
 ## Run it
 
 1. Install [Godot 4.7](https://godotengine.org/download) (standard build, no .NET needed).
 2. Open Godot, click **Import**, and pick this folder's `project.godot`.
-3. Press **F5** (or the ▶ button).
+3. Press **F5** (or the ▶ button), choose a mode, and fight.
 
 From a terminal:
 
 ```sh
-godot --path .                  # play
-godot --path . -- --autoplay    # watch the scripted demo
+godot --path .                          # menu
+godot --path . -- --mode=0 --level=2    # Cairn vs a Hard CPU Culvert
+godot --path . -- --mode=2              # watch CPU vs CPU
 ```
+
+Modes: 0 Cairn vs CPU, 1 Culvert vs CPU, 2 CPU vs CPU, 3 training as Cairn, 4 training as Culvert.
+CPU levels: 0 Easy, 1 Normal, 2 Hard.
 
 ## Controls
 
 | Action | Keyboard | Gamepad |
 | --- | --- | --- |
 | Move | WASD / arrows | Left stick / D-pad |
-| Light attack (3-hit combo) | J | A |
-| Heavy slam (hold to charge) | K | X |
+| Light attack (chains into a string) | J | A |
+| Heavy (hold to charge) | K | X |
+| Skill 1 | U | Y |
+| Skill 2 | I | B |
+| Surge (needs a full energy bar) | O | RT |
 | Dodge roll | Space | RB |
 | Guard | Shift | LB |
+| Breakaway (while stunned, 50 energy) | Shift + Space | LB + RB |
+| Back to menu | Esc | Back |
 | Hitbox overlay | F1 | — |
-| Cycle dummy: Stand / Guard / Walk / Dodge | F2 | Back |
-| Hide controls strip | F3 | — |
+| Training: cycle dummy behavior / reset | F2 / R | — |
 | Save replay | F6 | — |
-| Reset | R | Start |
 
-## What's in the prototype
+## How combat works
 
-- **Light combo:** three hits that chain if you press again during the recovery window; the finisher knocks the target back hard enough to bounce off walls.
-- **Charged heavy:** hold K to charge (aim while you hold). A tap cracks the floor; a full charge glows, then opens a pit. Anyone standing in it falls in and takes extra damage.
-- **Living terrain:** cracked ground becomes a hole if hit again, and knockback can push you into pits. Walking never steps into a hole, but dodging can roll across a narrow gap. Damage heals back after 12 seconds.
-- **Dodge and guard:** the dodge has invulnerability frames and costs stamina. Guard blocks 80% of damage from the front, drains stamina, and breaks under heavies.
-- **Game feel:** hitstop (freeze-frames on impact), screen shake, hit flash, sparks, dust, shockwave rings, damage numbers, and a crowd that gets louder on big moments.
+Every fighter has five attack types, ranked: **Light (1) → Heavy (2) → Skill (3) → Surge (4)**.
+Lights chain into the next light in their string. Any move that **hits or is blocked** can
+cancel into a move of a higher rank, so combos climb the ranks.
+
+**Mixing types pays.** Each hit is multiplied by how many different types have landed in the
+combo so far: ×1.0, ×1.15, ×1.3, ×1.5. **Limits keep it fair:** a move repeated in the same
+combo does half damage, hitstun shrinks with every hit, launched targets take at most three
+juggle moves, and a stunned fighter can spend 50 energy on a **breakaway**.
+
+Energy fills as you deal and take damage (about one Surge per round).
+
+### Cairn — stacked-stone boxer
+
+| Button | Move | What it does |
+| --- | --- | --- |
+| Light | Jab, Jab, Cross, Hook | Fastest string in the game |
+| Heavy | Haymaker | Uppercut that always launches |
+| Skill 1 | Slip | Weave; if a strike lands in the window, counter with a Cross that crumples. Loses to grabs |
+| Skill 2 | Rockslide Rush | Dash punch; the main combo extender |
+| Surge | Avalanche | Six-punch flurry and a launching uppercut |
+| Passive | Stack | Each landed light adds a stone (max 3); Haymaker and Rush spend them for +4 damage each |
+
+### Culvert — storm-drain toad
+
+| Button | Move | What it does |
+| --- | --- | --- |
+| Light | Jab, Jab, Hook | Slow, heavy string; the Hook can wall-bounce |
+| Heavy | Slam | Cracks the floor; a full charge opens a pit and breaks guard |
+| Skill 1 | Gulp | Unblockable grab; spits the target out behind Culvert |
+| Skill 2 | Runoff | Ground shockwave that cracks the floor and pops the target up |
+| Surge | Storm Drain | Leaping slam that hits all around and leaves a ring of pits |
+
+### Combos to try
+
+| Fighter | Route | Damage |
+| --- | --- | --- |
+| Cairn | Jab, Jab, Cross → Rockslide Rush | 34 |
+| Cairn | Slip counter → Jab, Jab, Cross, Hook → Haymaker | 57 |
+| Cairn | Jab, Jab, Cross → Haymaker → Rockslide Rush → Avalanche | 85 |
+| Culvert | Jab, Jab → Gulp | 23 |
+| Culvert | Jab, Jab, Hook → Slam → Runoff | 39 |
+| Culvert | Jab, Jab, Hook → Slam → Runoff → Storm Drain | 84 |
+
+Every one of these is checked by an automated test (`tests/test_combos.gd`).
 
 ## How it's built
 
 ```
 src/sim/      Deterministic simulation: no nodes, no clock, no randomness
-src/view/     Draws the sim: arena, creatures, effects, HUD, debug overlay
-src/game/     Main scene loop, controls, match setup, scripted demo
-data/         Creature stats, moves and sprite layouts (JSON)
+src/ai/       CPU opponent (presses buttons like a player; seeded randomness)
+src/view/     Draws the sim: arena, creatures, effects, HUD, menu, debug overlay
+src/game/     Scene flow (menu, rounds, training), controls, match setup
+data/         Creature stats, movesets, combo routes and sprite layouts (JSON)
 assets/       Sprite sheets (placeholder art)
 tests/        Headless tests
 tools/        Placeholder sprite generator (Python + Pillow)
 ```
 
-The simulation runs at a fixed 60 ticks per second and only takes **input bitmasks** and **data files**. Given the same inputs it produces the same match every time, which is what makes these possible:
+The simulation runs at a fixed 60 ticks per second and only takes **input bitmasks** and
+**data files**. The same inputs always produce the same match, which is what makes replays
+(F6), regression tests and, later, rollback netcode possible. The CPU reads the match and
+returns button presses, so it plays by exactly the same rules.
 
-- **Replays:** F6 saves every tick's inputs to `user://replays/`. Replaying them on a fresh match reproduces it exactly.
-- **Regression tests:** the tests drive the sim directly and check the results, including a 30-second random button-mash run that must produce an identical state hash twice.
-- **Online play later:** rollback netcode depends on exactly this kind of deterministic sim.
-
-All tuning lives in `data/creatures/*.json`: frame data, damage, knockback, hitstun, dodge, guard, terrain radii. Change numbers there, not in code.
+All tuning lives in `data/creatures/*.json`: frame data, damage, knockback, launches,
+cooldowns, energy costs, dashes, multi-hit timings, terrain effects and the CPU's combo routes.
+Change numbers there, not in code.
 
 ## Tests
 
@@ -71,24 +121,30 @@ godot --headless --path . --import
 godot --headless --path . --script res://tests/run_tests.gd
 ```
 
-The 25 tests cover the combo, charged and uncharged slams, dodge invulnerability, guard and guard breaks, falling into pits, wall bounces, knockouts, terrain healing, determinism, and replay save/load. They also run on every push via GitHub Actions (`.github/workflows/tests.yml`).
+54 tests cover the six example combos, every combo rule (variety bonus, stale moves,
+hitstun decay, juggle cap, cancels on contact, stacks, energy, cooldowns, breakaway), grabs,
+Slip counters, shockwaves, the Storm Drain pit ring, terrain, determinism, replays, and the
+CPU (reproducible matches, uses its whole kit, Hard beats Easy). They run on every push via
+GitHub Actions.
 
 ## Art
 
-Everything in `assets/sprites/` is **placeholder programmer art** generated by `tools/gen_sprites.py`. The plan is to commission final art once the fighting feels right. Sheet layouts are documented in [docs/SPRITES.md](docs/SPRITES.md); replacement art with the same layout drops in without code changes.
-
-```sh
-pip install pillow
-python3 tools/gen_sprites.py
-```
+Everything in `assets/sprites/` is **placeholder programmer art** generated by
+`tools/gen_sprites.py`. Sheet layouts are documented in [docs/SPRITES.md](docs/SPRITES.md);
+replacement art with the same layout drops in without code changes.
 
 ## Roadmap
 
 - [x] **Phase 0 – Prototype:** one creature vs. a dummy; move, dodge, attack, hitstop, knockback, breakable floor
-- [ ] **Phase 1 – Vertical slice:** two creatures with final art, one finished arena, tag swap, basic AI
-- [ ] **Phase 2 – Content:** eight creatures, five arenas, affinity surfaces, local multiplayer
-- [ ] **Phase 3 – Polish and launch:** menus, music and SFX, IP and name review, demo and store page
+- [x] **Combat system:** attack types, cancels, variety bonus, launches, counters, grabs, projectiles, Surges, breakaway
+- [x] **Second fighter and CPU opponent:** Cairn, versus mode, best-of-3 rounds, Easy/Normal/Hard
+- [ ] **Vertical slice:** final art for two fighters, one finished arena, tag-team swap, local 2-player
+- [ ] **Content:** eight creatures, five arenas, affinity surfaces
+- [ ] **Polish and launch:** music and SFX, IP and name review, demo and store page
 
 ## Originality
 
-Creature Arena is an original game. It uses no characters, names, art, sounds or trademarks from any other franchise. There is no capture mechanic and no trainer character: you play as the creature.
+Creature Arena is an original game. It uses no characters, names, art, sounds or trademarks
+from any other franchise. There is no capture mechanic and no trainer character: you play as
+the creature. Designs are checked against existing creatures for look-alikes (for example,
+Cairn is a tall stack of stones rather than a round boulder with arms).

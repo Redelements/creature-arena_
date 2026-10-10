@@ -10,13 +10,18 @@ const BINDINGS := {
 	"move_right": {"keys": [KEY_D, KEY_RIGHT], "buttons": [JOY_BUTTON_DPAD_RIGHT], "axis": [JOY_AXIS_LEFT_X, 1.0]},
 	"light": {"keys": [KEY_J], "buttons": [JOY_BUTTON_A]},
 	"heavy": {"keys": [KEY_K], "buttons": [JOY_BUTTON_X]},
+	"skill_1": {"keys": [KEY_U], "buttons": [JOY_BUTTON_Y]},
+	"skill_2": {"keys": [KEY_I], "buttons": [JOY_BUTTON_B]},
+	"surge": {"keys": [KEY_O], "axis": [JOY_AXIS_TRIGGER_RIGHT, 1.0]},
 	"dodge": {"keys": [KEY_SPACE], "buttons": [JOY_BUTTON_RIGHT_SHOULDER]},
 	"guard": {"keys": [KEY_SHIFT], "buttons": [JOY_BUTTON_LEFT_SHOULDER]},
+	"menu_confirm": {"keys": [KEY_ENTER, KEY_KP_ENTER, KEY_J], "buttons": [JOY_BUTTON_A, JOY_BUTTON_START]},
+	"menu_back": {"keys": [KEY_ESCAPE], "buttons": [JOY_BUTTON_BACK]},
 	"debug_hitboxes": {"keys": [KEY_F1]},
-	"debug_dummy_mode": {"keys": [KEY_F2], "buttons": [JOY_BUTTON_BACK]},
+	"debug_dummy_mode": {"keys": [KEY_F2]},
 	"debug_help": {"keys": [KEY_F3]},
 	"save_replay": {"keys": [KEY_F6]},
-	"reset": {"keys": [KEY_R], "buttons": [JOY_BUTTON_START]},
+	"reset": {"keys": [KEY_R]},
 }
 
 const BITS := {
@@ -26,6 +31,9 @@ const BITS := {
 	"move_right": SimDefs.IN_RIGHT,
 	"light": SimDefs.IN_LIGHT,
 	"heavy": SimDefs.IN_HEAVY,
+	"skill_1": SimDefs.IN_SKILL1,
+	"skill_2": SimDefs.IN_SKILL2,
+	"surge": SimDefs.IN_SURGE,
 	"dodge": SimDefs.IN_DODGE,
 	"guard": SimDefs.IN_GUARD,
 }

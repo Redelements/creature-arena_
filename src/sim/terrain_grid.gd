@@ -7,6 +7,7 @@ const INTACT := 0
 const CRACKED := 1
 const HOLE := 2
 const HEAL_TICKS := 720  # 12 seconds at 60 Hz
+const CRACK_BAND := 10.0
 
 var cols: int
 var rows: int
@@ -84,6 +85,35 @@ func damage_circle(center: Vector2, radius: float, core_radius: float = -1.0) ->
 			if d <= core_radius:
 				damage_cell(c, 2)
 			elif d <= radius:
+				damage_cell(c, 1)
+
+
+## Turns an intact cell into a cracked one (never opens a hole). Used by shockwaves.
+func crack_cell(c: Vector2i) -> void:
+	if not in_bounds(c):
+		return
+	var i := c.y * cols + c.x
+	if cells[i] == INTACT:
+		cells[i] = CRACKED
+		version += 1
+	if cells[i] != INTACT:
+		timers[i] = maxi(timers[i], HEAL_TICKS)
+
+
+## Opens a ring of holes between inner and outer radius, and cracks a band just outside it.
+func damage_ring(center: Vector2, inner: float, outer: float) -> void:
+	var edge := outer + CRACK_BAND
+	var c0 := world_to_cell(center - Vector2(edge, edge))
+	var c1 := world_to_cell(center + Vector2(edge, edge))
+	for cy in range(c0.y, c1.y + 1):
+		for cx in range(c0.x, c1.x + 1):
+			var c := Vector2i(cx, cy)
+			if not in_bounds(c):
+				continue
+			var d := cell_center(c).distance_to(center)
+			if d >= inner and d <= outer:
+				damage_cell(c, 2)
+			elif d > outer and d <= edge:
 				damage_cell(c, 1)
 
 

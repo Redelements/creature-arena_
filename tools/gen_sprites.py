@@ -49,6 +49,16 @@ P = {
     "spark_y": (255, 208, 74, 255),
     "spark_o": (255, 138, 58, 255),
     "dust": (201, 177, 142, 255),
+    # Cairn: four stacked river stones of different tones
+    "s_base_d": (112, 98, 80, 255), "s_base": (148, 132, 108, 255), "s_base_l": (178, 163, 138, 255),
+    "s_mid_d": (90, 98, 110, 255), "s_mid": (120, 129, 140, 255), "s_mid_l": (152, 160, 170, 255),
+    "s_chest_d": (70, 74, 86, 255), "s_chest": (98, 104, 118, 255), "s_chest_l": (128, 135, 148, 255),
+    "s_head_d": (138, 131, 120, 255), "s_head": (174, 168, 157, 255), "s_head_l": (205, 200, 190, 255),
+    "pebble_d": (96, 92, 86, 255), "pebble": (130, 124, 116, 255),
+    "band": (204, 54, 54, 255), "band_d": (150, 34, 42, 255),
+    "tape": (238, 234, 224, 255), "tape_d": (190, 184, 172, 255),
+    "speed": (255, 255, 255, 200),
+    "water": (84, 156, 208, 255), "water_l": (168, 214, 240, 255),
 }
 CLEAR = (0, 0, 0, 0)
 
@@ -184,7 +194,15 @@ def culvert(dx=0, dy=0, rx=15, ry=11, arm="rest", arm_dx=0, leg_dx=0, mouth="clo
             line(img, [(ex - 2, ey + 2), (ex + 2, ey - 2)], P["outline"])
 
     # wide toad mouth
-    if mouth == "open":
+    if mouth == "wide":
+        poly(img, [(cx + 1, cy - 1), (cx + rx + 3, cy - 6), (cx + rx + 2, cy + 8), (cx + 3, cy + 6)], P["mouth"])
+        poly(img, [(cx + 4, cy + 1), (cx + rx, cy - 3), (cx + rx, cy + 5), (cx + 6, cy + 4)], P["outline"])
+        line(img, [(cx + 1, cy - 1), (cx + rx + 3, cy - 6)], P["outline"])
+    elif mouth == "puffed":
+        ellipse(img, cx + 9, cy + 3, 7, 5, P["con_light"])
+        ellipse(img, cx + 8, cy + 2, 4, 2, P["con_hi"])
+        line(img, [(cx + 3, cy + 6), (cx + 14, cy + 6)], P["outline"])
+    elif mouth == "open":
         poly(img, [(cx + 3, cy + 1), (cx + rx, cy - 1), (cx + rx - 1, cy + 5), (cx + 6, cy + 4)], P["mouth"])
         line(img, [(cx + 3, cy + 1), (cx + rx, cy - 1)], P["outline"])
     else:
@@ -267,6 +285,193 @@ def culvert_sheet():
         [culvert(dy=0, ry=11, eyes="x", mouth="open"), culvert(dy=3, ry=8, eyes="x", mouth="open"),
          culvert(dy=5, ry=6, rx=16, eyes="x", mouth="open", arm="flat"),
          culvert(dy=6, ry=5, rx=17, eyes="x", mouth="open", arm="flat")],
+        # row 8: Gulp (4): open wide, lunge, swallowed, spit out
+        [culvert(dx=-2, mouth="wide"), culvert(dx=3, mouth="wide", arm="back"),
+         culvert(dx=1, rx=16, ry=12, mouth="puffed", eyes="closed"), culvert(dx=-2, mouth="open")],
+        # row 9: Runoff (4): raise arm, slap the ground, hold, recover
+        [culvert(dy=-1, arm="up"), culvert(dy=2, rx=17, ry=9, arm="slam"),
+         culvert(dy=2, rx=17, ry=9, arm="slam", mouth="open"), culvert(dy=1, ry=10)],
+        # row 10: Storm Drain (6): crouch, leap, peak, slam, impact, recover
+        [culvert(dy=3, rx=17, ry=9, arm="up", eyes="closed"), culvert(dy=-4, rx=13, ry=12, arm="up"),
+         culvert(dy=-5, rx=13, ry=12, arm="up", mouth="open"), culvert(dy=3, rx=18, ry=8, arm="slam"),
+         culvert(dy=4, rx=19, ry=7, arm="slam", mouth="wide"), culvert(dy=1, ry=10)],
+    ]
+    frames = []
+    for r in rows:
+        frames += r + [None] * (6 - len(r))
+    return sheet(frames, 6, 48, 48)
+
+
+# ---------------------------------------------------------------- Cairn
+# A stack of flat river stones that boxes. Tall and narrow on purpose: four stacked stones,
+# two stubby stone feet, pebble arms ending in taped fists, a red sparring headband.
+# Faces right. Feet sit on y=42..43.
+
+CAIRN_CX = 22
+GUARD_FRONT = (10, 19)
+GUARD_REAR = (5, 21)
+
+
+def stone(img, cx, cy, rx, ry, key):
+    """A flat river stone: dark rim, mid body, a highlight up and to the left."""
+    base = new(img.width, img.height)
+    ellipse(base, cx, cy, rx, ry, P[key + "_d"])
+    shade = base.copy()
+    ellipse(shade, cx - 1, cy - 1, max(rx - 1, 1), max(ry - 1, 1), P[key])
+    ellipse(shade, cx - rx // 3, cy - ry // 2, max(rx // 3, 1), max(ry // 3, 1), P[key + "_l"])
+    rnd = random.Random(cx * 31 + cy)
+    for _ in range(rx // 2):
+        px(shade, rnd.randint(cx - rx + 2, cx + rx - 2), rnd.randint(cy - ry + 1, cy + ry - 1), P[key + "_d"])
+    paste(img, mask_to(shade, base))
+
+
+def fist(img, x, y, swing=False):
+    rect(img, x - 3, y - 3, x + 3, y + 2, P["tape"])
+    rect(img, x - 3, y + 1, x + 3, y + 2, P["tape_d"])
+    line(img, [(x + 1, y - 3), (x + 1, y + 2)], P["tape_d"])
+    rect(img, x - 4, y - 1, x - 4, y, P["pebble"])
+    if swing == "up":
+        line(img, [(x - 2, y + 5), (x - 2, y + 9)], P["speed"])
+        line(img, [(x + 2, y + 5), (x + 2, y + 8)], P["speed"])
+    elif swing:
+        line(img, [(x - 9, y - 1), (x - 5, y - 1)], P["speed"])
+        line(img, [(x - 8, y + 2), (x - 5, y + 2)], P["speed"])
+
+
+def arm(img, sx, sy, fx, fy, swing=False):
+    for k in (0.3, 0.62):
+        px_ = round(sx + (fx - sx) * k)
+        py_ = round(sy + (fy - sy) * k)
+        ellipse(img, px_, py_, 2, 2, P["pebble"])
+        px(img, px_ + 1, py_ + 1, P["pebble_d"])
+    fist(img, fx, fy, swing)
+
+
+def cairn(dx=0, dy=0, shifts=(0, 0, 0, 0), front=GUARD_FRONT, rear=GUARD_REAR, eyes="open",
+          mouth="closed", feet=0, band=0, swing_front=False, swing_rear=False, stones_at=None,
+          rear_on_top=False):
+    img = new(48, 48)
+    cx = CAIRN_CX + dx
+    if stones_at is not None:  # knocked over: the stack lies scattered on the ground
+        for (x, y, rx, ry, key) in stones_at:
+            stone(img, x, y, rx, ry, key)
+        hx, hy = stones_at[-1][0], stones_at[-1][1]
+        rect(img, hx - 5, hy - 3, hx + 5, hy - 2, P["band"])
+        for ex in (hx + 1, hx + 4):
+            line(img, [(ex - 1, hy - 1), (ex + 1, hy + 1)], P["outline"])
+            line(img, [(ex - 1, hy + 1), (ex + 1, hy - 1)], P["outline"])
+        return outline(img)
+
+    b = (cx + shifts[0], 37 + dy)
+    m = (cx + 1 + shifts[1], 30 + dy)
+    c = (cx + shifts[2], 23 + dy)
+    h = (cx + 1 + shifts[3], 14 + dy)
+    rear_sh = (c[0] - 5, c[1] - 1)
+    front_sh = (c[0] + 5, c[1] - 1)
+
+    # rear arm and headband tails behind the body
+    if not rear_on_top:
+        arm(img, rear_sh[0], rear_sh[1], cx + rear[0], rear[1] + dy, swing_rear)
+    tail = 1 if band % 2 else 0
+    line(img, [(h[0] - 6, h[1] - 3), (h[0] - 10, h[1] - 1 + tail)], P["band_d"])
+    line(img, [(h[0] - 6, h[1] - 2), (h[0] - 9, h[1] + 1 + tail)], P["band"])
+
+    # feet and the stack, bottom to top
+    stone(img, cx - 5 - feet, 41, 4, 2, "pebble") if False else None
+    for fx_ in (cx - 5 - feet, cx + 5 + feet):
+        ellipse(img, fx_, 41, 4, 2, P["pebble_d"])
+        ellipse(img, fx_ - 1, 40, 2, 1, P["pebble"])
+    stone(img, b[0], b[1], 10, 4, "s_base")
+    stone(img, m[0], m[1], 8, 4, "s_mid")
+    stone(img, c[0], c[1], 10, 4, "s_chest")
+    stone(img, h[0], h[1], 7, 6, "s_head")
+
+    # headband across the head stone
+    band_img = new(48, 48)
+    rect(band_img, h[0] - 8, h[1] - 4, h[0] + 8, h[1] - 3, P["band"])
+    rect(band_img, h[0] - 8, h[1] - 3, h[0] + 8, h[1] - 3, P["band_d"])
+    head_mask = new(48, 48)
+    ellipse(head_mask, h[0], h[1], 7, 6, P["s_head"])
+    paste(img, mask_to(band_img, head_mask))
+
+    # face, looking right
+    for ex in (h[0] + 2, h[0] + 5):
+        if eyes == "open":
+            rect(img, ex, h[1], ex + 1, h[1] + 1, P["outline"])
+            px(img, ex, h[1], P["tape"])
+        elif eyes == "closed":
+            line(img, [(ex - 1, h[1] + 1), (ex + 1, h[1] + 1)], P["outline"])
+        elif eyes == "x":
+            line(img, [(ex - 1, h[1] - 1), (ex + 1, h[1] + 1)], P["outline"])
+            line(img, [(ex - 1, h[1] + 1), (ex + 1, h[1] - 1)], P["outline"])
+    line(img, [(h[0] + 1, h[1] - 1), (h[0] + 3, h[1] - 1)], P["s_head_d"])
+    line(img, [(h[0] + 5, h[1] - 1), (h[0] + 6, h[1] - 2)], P["s_head_d"])
+    if mouth == "open":
+        rect(img, h[0] + 3, h[1] + 3, h[0] + 5, h[1] + 4, P["outline"])
+    else:
+        line(img, [(h[0] + 3, h[1] + 4), (h[0] + 5, h[1] + 4)], P["s_head_d"])
+
+    # lead arm in front (and the rear arm too, when it swings up past the face)
+    arm(img, front_sh[0], front_sh[1], cx + front[0], front[1] + dy, swing_front)
+    if rear_on_top:
+        arm(img, c[0] + 2, c[1] - 2, cx + rear[0], rear[1] + dy, swing_rear)
+    return outline(img)
+
+
+def cairn_sheet():
+    F, R = GUARD_FRONT, GUARD_REAR
+    lean = lambda k: (0, k // 3, (2 * k) // 3, k)
+    rows = [
+        # 0 idle (4): bounce on the toes, fists bob
+        [cairn(band=0), cairn(band=1, front=(10, 18)), cairn(dy=1, band=0, front=(10, 19), rear=(5, 20)),
+         cairn(dy=1, band=1)],
+        # 1 run (6)
+        [cairn(dy=d, shifts=lean(2), feet=f, band=i, front=(11, 18 + (i % 2)), rear=(6, 21 - (i % 2)))
+         for i, (d, f) in enumerate(zip((0, -1, -2, -1, 0, 0), (0, 2, 1, -1, -2, 0)))],
+        # 2 jab (4): pull, snap, hold, return
+        [cairn(dx=-1, front=(7, 20)), cairn(dx=1, shifts=lean(1), front=(20, 18), swing_front=True),
+         cairn(dx=1, shifts=lean(1), front=(19, 18)), cairn(front=(12, 19))],
+        # 3 power punch, rear hand (4)
+        [cairn(dx=-1, shifts=lean(-1), rear=(1, 21)),
+         cairn(dx=2, shifts=lean(3), rear=(21, 17), front=(8, 21), swing_rear=True),
+         cairn(dx=2, shifts=lean(2), rear=(19, 18), front=(8, 21)), cairn(shifts=lean(1), rear=(8, 20))],
+        # 4 haymaker (6): charge A, charge B, dip, uppercut, follow-through, recover
+        [cairn(dy=3, shifts=(0, -1, -1, -2), rear=(4, 33), eyes="closed"),
+         cairn(dx=-1, dy=3, shifts=(0, -1, -2, -2), rear=(3, 34), front=(9, 20)),
+         cairn(dy=2, shifts=lean(1), rear=(11, 29), rear_on_top=True),
+         cairn(dy=-3, shifts=lean(2), rear=(13, 5), front=(6, 21), swing_rear="up", rear_on_top=True),
+         cairn(dy=-2, shifts=lean(2), rear=(12, 6), front=(6, 21), rear_on_top=True), cairn(dy=0)],
+        # 5 dodge (4): the stones slide sideways as it weaves
+        [cairn(dy=1, shifts=(0, -2, -4, -5)), cairn(dy=2, shifts=(0, -3, -6, -8), front=(6, 22), rear=(1, 24)),
+         cairn(dy=1, shifts=(0, -2, -3, -4)), cairn(shifts=(0, 0, -1, -1))],
+        # 6 hurt (2)
+        [cairn(dx=-1, shifts=(0, -1, -2, -4), eyes="closed", mouth="open", front=(8, 24), rear=(2, 25)),
+         cairn(dx=-2, dy=1, shifts=(0, -2, -3, -5), eyes="closed", mouth="open", front=(7, 26), rear=(1, 27))],
+        # 7 guard (2): fists high in front of the face
+        [cairn(front=(10, 12), rear=(8, 16)), cairn(dx=-2, front=(9, 12), rear=(7, 16), eyes="closed")],
+        # 8 knocked over (4)
+        [cairn(dx=-1, shifts=(0, -2, -4, -7), eyes="x", mouth="open", front=(6, 25), rear=(1, 26)),
+         cairn(dx=-2, dy=2, shifts=(0, -4, -8, -13), eyes="x", mouth="open", front=(4, 30), rear=(0, 30)),
+         cairn(stones_at=[(26, 40, 10, 4, "s_base"), (14, 38, 8, 4, "s_mid"), (34, 33, 10, 4, "s_chest"),
+                          (9, 30, 7, 6, "s_head")]),
+         cairn(stones_at=[(26, 40, 10, 4, "s_base"), (12, 40, 8, 4, "s_mid"), (36, 39, 10, 4, "s_chest"),
+                          (6, 37, 7, 6, "s_head")])],
+        # 9 Slip (4): weave low, deeper, counter cross, recover
+        [cairn(dy=2, shifts=(0, -2, -4, -6), front=(7, 21), rear=(3, 23)),
+         cairn(dy=3, shifts=(0, -3, -6, -9), front=(5, 23), rear=(1, 25)),
+         cairn(dx=2, shifts=lean(3), rear=(21, 17), front=(8, 21), swing_rear=True),
+         cairn(shifts=lean(1), rear=(8, 20))],
+        # 10 Rockslide Rush (4): lean in, dash, punch, recover
+        [cairn(dy=1, shifts=lean(3), front=(6, 21)),
+         cairn(dx=2, dy=1, shifts=lean(5), front=(20, 22), feet=2, swing_front=True),
+         cairn(dx=2, dy=1, shifts=lean(5), front=(21, 21), feet=2), cairn(shifts=lean(1))],
+        # 11 Avalanche (6): flurry, flurry, flurry, wind up, uppercut, recover
+        [cairn(dx=1, shifts=lean(2), front=(20, 16), rear=(8, 22), swing_front=True),
+         cairn(dx=1, shifts=lean(2), front=(9, 19), rear=(21, 20), swing_rear=True),
+         cairn(dx=1, shifts=lean(2), front=(21, 22), rear=(12, 15), swing_front=True),
+         cairn(dy=3, shifts=(0, -1, -1, -2), rear=(4, 33), front=(10, 20)),
+         cairn(dy=-3, shifts=lean(2), rear=(13, 4), front=(6, 21), swing_rear="up", rear_on_top=True),
+         cairn(dy=0)],
     ]
     frames = []
     for r in rows:
@@ -431,8 +636,23 @@ def dust(step):
     return img
 
 
+def shockwave(step):
+    """Culvert's Runoff: a rolling wave of churned dirt and water, facing right."""
+    img = new(16, 16)
+    rise = (0, 1, 2, 1)[step]
+    poly(img, [(1, 14), (5, 8 - rise), (10, 5 - rise), (14, 9 - rise), (15, 14)], P["dirt_dark"])
+    poly(img, [(4, 14), (8, 9 - rise), (12, 7 - rise), (14, 14)], P["dirt"])
+    for x, y in ((9, 4 - rise), (12, 3 - rise), (6, 6 - rise), (14, 6 - rise)):
+        px(img, x + (step % 2), y, P["water_l"])
+    line(img, [(10, 6 - rise), (14, 9 - rise)], P["water"])
+    for x in (2, 6, 11):
+        px(img, x + step, 13, P["crack"])
+    return outline(img)
+
+
 def fx_sheet():
-    return sheet([spark(i) for i in range(4)] + [dust(i) for i in range(4)], 4, 16, 16)
+    return sheet([spark(i) for i in range(4)] + [dust(i) for i in range(4)] + [shockwave(i) for i in range(4)],
+                 4, 16, 16)
 
 
 # ---------------------------------------------------------------- main
@@ -442,6 +662,7 @@ def main():
     os.makedirs(DOCS, exist_ok=True)
     sheets = {
         "culvert.png": culvert_sheet(),
+        "cairn.png": cairn_sheet(),
         "dummy.png": dummy_sheet(),
         "tiles.png": tiles_sheet(),
         "crowd.png": crowd_sheet(),

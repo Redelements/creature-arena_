@@ -1,6 +1,7 @@
 {
   "id": "culvert",
   "name": "Culvert",
+  "title": "Storm-drain toad",
   "affinity": "stone",
   "max_hp": 140,
   "speed": 1.4,
@@ -24,34 +25,75 @@
       "dodge": [4, 0, 4],
       "hurt": [5, 0, 2],
       "guard": [6, 0, 2],
-      "ko": [7, 0, 4]
+      "ko": [7, 0, 4],
+      "gulp": [8, 0, 4],
+      "runoff": [9, 0, 4],
+      "storm": [10, 0, 6]
     }
+  },
+  "ai": {
+    "range": 26,
+    "grab": "skill_1",
+    "poke": "skill_2",
+    "poke_range": [55, 120],
+    "wakeup_charge": true,
+    "surge_range": 50,
+    "routes": [
+      ["light", "light", "light", "heavy", "skill_2", "surge"],
+      ["light", "light", "light", "heavy", "skill_2"],
+      ["light", "light", "skill_1"],
+      ["light", "light", "light"]
+    ]
   },
   "moves": {
     "light_1": {
+      "name": "Jab", "anim": "light",
       "startup": 5, "active": 3, "recovery": 10, "cancel_from": 9,
-      "damage": 4, "knockback": 1.6, "hitstun": 16, "hitstop": 4,
+      "damage": 4, "knockback": 1.2, "hitstun": 16, "hitstop": 4,
       "reach": 16, "hit_radius": 10, "lunge": 0.8, "next": "light_2"
     },
     "light_2": {
+      "name": "Jab", "anim": "light",
       "startup": 5, "active": 3, "recovery": 11, "cancel_from": 9,
-      "damage": 5, "knockback": 1.8, "hitstun": 18, "hitstop": 5,
+      "damage": 5, "knockback": 1.4, "hitstun": 18, "hitstop": 5,
       "reach": 16, "hit_radius": 10, "lunge": 0.9, "next": "light_3"
     },
     "light_3": {
+      "name": "Hook", "anim": "light",
       "startup": 8, "active": 4, "recovery": 20,
-      "damage": 9, "knockback": 5.0, "hitstun": 30, "hitstop": 7,
+      "damage": 9, "knockback": 3.4, "hitstun": 30, "hitstop": 7,
       "reach": 18, "hit_radius": 12, "lunge": 1.4, "next": ""
     },
     "heavy": {
+      "name": "Slam", "anim": "heavy",
       "charge_max": 45, "startup": 7, "active": 4, "recovery": 26,
       "damage": 10, "damage_charged": 24,
-      "knockback": 3.0, "knockback_charged": 7.0,
-      "hitstun": 26, "hitstun_charged": 40,
+      "knockback": 2.2, "knockback_charged": 7.0,
+      "hitstun": 34, "hitstun_charged": 40,
       "hitstop": 8, "hitstop_charged": 14,
-      "reach": 20, "hit_radius": 18, "guard_break": true,
+      "reach": 20, "hit_radius": 18, "guard_break": true, "juggle": true,
       "terrain_radius": 14, "terrain_radius_charged": 30, "terrain_core_charged": 13,
       "lunge": 0
+    },
+    "skill_1": {
+      "name": "Gulp", "anim": "gulp", "cooldown": 300,
+      "startup": 6, "active": 4, "recovery": 24,
+      "damage": 12, "knockback": 1.5, "knockdown": 30, "hitstop": 10,
+      "reach": 14, "hit_radius": 12, "grab": true, "lunge": 1.0
+    },
+    "skill_2": {
+      "name": "Runoff", "anim": "runoff", "cooldown": 240,
+      "startup": 10, "active": 0, "recovery": 20,
+      "damage": 7, "knockback": 1.0, "hitstun": 20, "hitstop": 6, "launch": 28,
+      "projectile": { "speed": 3.2, "life": 40, "radius": 8, "offset": 14 }
+    },
+    "surge": {
+      "name": "Storm Drain", "anim": "storm", "energy_cost": 100,
+      "startup": 14, "active": 4, "recovery": 30,
+      "damage": 30, "knockback": 5.0, "knockdown": 30, "hitstop": 14,
+      "reach": 0, "hit_radius": 46, "juggle": true,
+      "dash": { "speed": 1.4, "from": 1, "to": 14 },
+      "terrain_ring": { "inner": 24, "outer": 40 }
     }
   }
 }

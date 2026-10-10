@@ -17,6 +17,13 @@ func _close_training() -> MatchSim:
 	return sim
 
 
+func _jab_range_training() -> MatchSim:
+	var sim := MatchFactory.training()
+	sim.creatures[0].pos = Vector2(282, 164)
+	sim.creatures[1].pos = Vector2(306, 164)
+	return sim
+
+
 func _saw_event(sim: MatchSim, kind: String) -> bool:
 	for e in sim.events:
 		if e["type"] == kind:
@@ -118,7 +125,7 @@ func test_heavy_breaks_guard() -> void:
 	var hit := run_until(sim, func(): return d.hp < d.max_hp, 40, 0, G)
 	assert_true(hit, "heavy should connect")
 	assert_near(d.hp, d.max_hp - 10.0, 0.001, "full heavy damage through guard:")
-	assert_eq(d.state, CreatureSim.State.HITSTUN, "guard broken into hitstun:")
+	assert_eq(d.state, CreatureSim.State.CRUMPLE, "guard broken into a crumple:")
 
 
 func test_walking_stops_at_a_hole_edge() -> void:
@@ -145,7 +152,7 @@ func test_dodge_rolls_across_a_narrow_hole() -> void:
 
 
 func test_knockback_into_a_hole_causes_a_fall() -> void:
-	var sim := _close_training()
+	var sim := _jab_range_training()
 	var d := sim.creatures[1]
 	for x in range(37, 40):
 		for r in sim.terrain.rows:

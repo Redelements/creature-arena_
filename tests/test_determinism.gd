@@ -16,7 +16,7 @@ func _random_inputs(seed_: int, n: int) -> Array[PackedInt32Array]:
 		var f := PackedInt32Array()
 		for p in 2:
 			if left[p] <= 0:
-				hold[p] = rng.randi() & 255
+				hold[p] = rng.randi() & SimDefs.IN_ALL
 				left[p] = rng.randi_range(1, 20)
 			left[p] -= 1
 			f.append(hold[p])
@@ -25,7 +25,7 @@ func _random_inputs(seed_: int, n: int) -> Array[PackedInt32Array]:
 
 
 func _play(frames: Array[PackedInt32Array]) -> MatchSim:
-	var sim := MatchFactory.versus()
+	var sim := MatchFactory.versus("cairn", "culvert")
 	for f in frames:
 		sim.step(f)
 	return sim
@@ -33,8 +33,8 @@ func _play(frames: Array[PackedInt32Array]) -> MatchSim:
 
 func test_same_inputs_produce_the_same_match() -> void:
 	var frames := _random_inputs(1234, TICKS)
-	var a := MatchFactory.versus()
-	var b := MatchFactory.versus()
+	var a := MatchFactory.versus("cairn", "culvert")
+	var b := MatchFactory.versus("cairn", "culvert")
 	for i in frames.size():
 		a.step(frames[i])
 		b.step(frames[i])
@@ -56,14 +56,14 @@ func test_different_inputs_produce_a_different_match() -> void:
 func test_replay_survives_a_save_and_load_round_trip() -> void:
 	var frames := _random_inputs(99, TICKS)
 	var rec := Replay.new()
-	var live := MatchFactory.versus()
+	var live := MatchFactory.versus("cairn", "culvert")
 	for f in frames:
 		rec.record(f)
 		live.step(f)
 	var parsed = JSON.parse_string(JSON.stringify(rec.to_dict()))
 	var loaded := Replay.from_dict(parsed)
 	assert_eq(loaded.frames.size(), frames.size(), "frame count:")
-	assert_eq(loaded.play(MatchFactory.versus()), live.state_hash(), "replayed hash:")
+	assert_eq(loaded.play(MatchFactory.versus("cairn", "culvert")), live.state_hash(), "replayed hash:")
 
 
 func test_replay_file_on_disk() -> void:
