@@ -69,3 +69,18 @@ func test_hard_beats_easy() -> void:
 		hard_wins += 1 if int(n["winner"]) == 1 else 0
 		games += 2
 	assert_gt(hard_wins, games * 0.66, "Hard wins (of %d):" % games)
+
+
+func test_cpu_tags_out_a_badly_hurt_creature_in_a_duel() -> void:
+	var d := DuelSim.new([["cairn", "culvert", "cairn"], ["culvert", "cairn", "culvert"]])
+	var cpu := CpuController.new(1, 2, 7)
+	cpu.duel = d
+	var hurt := d.active_creature(1)
+	hurt.hp = hurt.max_hp * 0.2
+	var tagged := false
+	for i in 1200:
+		d.step(PackedInt32Array([0, cpu.bits(d.sim)]))
+		if d.active_creature(1) != hurt:
+			tagged = true
+			break
+	assert_true(tagged, "a Hard CPU should tag out a creature on 20% health")

@@ -19,9 +19,12 @@ extends Node2D
 ##   --quit-after=N        exit after N frames
 ##   --layout=league|classic  keyboard layout (saved in the menu otherwise)
 ##   --showcase=NAME       play one scripted demo on a loop: cairn, culvert or counterplay
+##   --teams=a,b,c:d,e,f   Duel / 2-player teams (default cairn,culvert,cairn:culvert,cairn,culvert)
+##   --pick                show the team pick screen even with --mode
+##   --cpu-vs-cpu          every player side is played by the CPU (demos, captures)
 
-enum Flow { MENU, INTRO, FIGHT, ROUND_OVER, MATCH_OVER }
-enum Side { PLAYER, CPU, DUMMY, SCRIPT }
+enum Flow { MENU, INTRO, FIGHT, ROUND_OVER, MATCH_OVER, SELECT }
+enum Side { PLAYER, CPU, DUMMY, SCRIPT, PLAYER2 }
 
 const MODES := [
 	{"label": "Cairn  vs  CPU Culvert", "left": "cairn", "right": "culvert", "sides": [Side.PLAYER, Side.CPU]},
@@ -30,7 +33,13 @@ const MODES := [
 	{"label": "Training: Cairn", "left": "cairn", "training": true},
 	{"label": "Training: Culvert", "left": "culvert", "training": true},
 	{"label": "Watch: combo showcases", "showcase": true},
+	{"label": "Duel: you vs CPU  (3v3 tag)", "duel": true, "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Duel: 2 players  (3v3 tag)", "duel": true, "sides": [Side.PLAYER, Side.PLAYER2]},
+	{"label": "Versus: 2 players", "versus2p": true, "sides": [Side.PLAYER, Side.PLAYER2]},
 ]
+## Menu order (MODES indexes stay stable for --mode=N).
+const MENU_ORDER := [6, 7, 8, 0, 1, 2, 3, 4, 5]
+const DEFAULT_TEAMS := [["cairn", "culvert", "cairn"], ["culvert", "cairn", "culvert"]]
 const LEVEL_NAMES := ["Easy", "Normal", "Hard"]
 const DUMMY_MODES := ["Stand", "Guard", "Walk", "Dodge"]
 const ROUND_TICKS := 90 * 60
@@ -38,8 +47,8 @@ const WINS_NEEDED := 2
 const INTRO_TICKS := 90
 const ROUND_OVER_TICKS := 210
 const SETTINGS_PATH := "user://settings.cfg"
-const MENU_Y0 := 104.0
-const MENU_DY := 16.0
+const MENU_Y0 := 88.0
+const MENU_DY := 13.0
 # Knockouts: the simulation itself freezes and then runs at half speed (MatchSim's
 # ko_freeze / slowmo, so online peers agree); the camera pushes in on the loser.
 const KO_ZOOM := 1.45
@@ -81,6 +90,12 @@ var _ko_focus := Vector2.ZERO
 var _ko_pos := Vector2.ZERO
 var _cam_follow := Vector2.ZERO
 var showcase: Showcase = null
+var duel: DuelSim = null
+var team_select: TeamSelect
+var player2_input := PlayerInput.new()
+var _teams: Array = DEFAULT_TEAMS.duplicate(true)
+var _skip_select := false
+var _cpu_vs_cpu := false
 var _showcase_list: Array = []
 var _showcase_i := 0
 var _showcase_end_t := 0
@@ -134,14 +149,22 @@ func _ready() -> void:
 	layer.add_child(fade_rect)
 	hud = Hud.new()
 	layer.add_child(hud)
+	hud.menu_y0 = MENU_Y0
+	hud.menu_dy = MENU_DY
+	team_select = TeamSelect.new()
+	team_select.visible = false
+	layer.add_child(team_select)
+	team_select.chosen.connect(_on_teams_chosen)
+	team_select.cancelled.connect(_open_menu)
+	player2_input.keyboard = false
+	player2_input.pad_device = PlayerInput.NO_PAD
 
 	_load_settings()
 	var start_mode := _parse_args()
 	_apply_device()
+	_open_menu()  # also starts the background match the pick screen sits on
 	if start_mode >= 0:
 		_start_match(start_mode)
-	else:
-		_open_menu()
 
 
 # ------------------------------------------------------------------ flow
@@ -150,6 +173,9 @@ func _open_menu() -> void:
 	flow = Flow.MENU
 	flow_t = 0
 	_end_showcase()
+	_end_duel()
+	team_select.close()
+	hud.visible = true
 	audio.play_music("menu")
 	# A CPU-vs-CPU match plays behind the menu.
 	_new_sim(MatchFactory.versus("cairn", "culvert"), [Side.CPU, Side.CPU])
@@ -161,8 +187,8 @@ func _open_menu() -> void:
 
 func _refresh_menu() -> void:
 	var items: Array[String] = []
-	for m in MODES:
-		items.append(String(m["label"]))
+	for i in MENU_ORDER:
+		items.append(String(MODES[i]["label"]))
 	items.append("CPU level:  < %s >" % LEVEL_NAMES[level])
 	items.append("Keyboard:  < %s >" % PlayerInput.LAYOUT_NAMES[player_input.layout])
 	hud.menu_items = items
@@ -170,18 +196,61 @@ func _refresh_menu() -> void:
 	hud.menu_footer = "Xbox controller works any time. Keyboard layout applies to keyboard and mouse."
 
 
-func _start_match(m: int) -> void:
+## `keep_teams`: a rematch with the same teams (no pick screen).
+func _start_match(m: int, keep_teams := false) -> void:
 	mode = m
 	wins = [0, 0]
 	round_num = 1
 	hud.menu_visible = false
 	_save_settings()
+	var cfg: Dictionary = MODES[m]
+	var two_players: bool = Side.PLAYER2 in cfg.get("sides", [])
+	_assign_devices(two_players)
+	if (cfg.get("duel", false) or cfg.get("versus2p", false)) and not keep_teams and not _skip_select:
+		flow = Flow.SELECT
+		flow_t = 0
+		hud.visible = false
+		var size := int(DuelSim.load_rules().get("team_size", 3)) if cfg.get("duel", false) else 1
+		var labels := ["PLAYER 1", "PLAYER 2" if two_players else "CPU"]
+		team_select.open("DUEL" if cfg.get("duel", false) else "VERSUS", size, labels, _teams)
+		return
 	_start_round()
+
+
+func _on_teams_chosen(teams: Array) -> void:
+	team_select.close()
+	hud.visible = true
+	_teams = teams
+	audio.play("ui_select", 0.0, 1.0, true)
+	_start_round()
+
+
+## Local 2-player: with two controllers each player gets one (player 1 keeps the
+## keyboard too); with one, player 1 uses keyboard and mouse and player 2 the controller.
+func _assign_devices(two_players: bool) -> void:
+	var pads := Input.get_connected_joypads()
+	player_input.keyboard = true
+	player_input.pad_device = PlayerInput.ANY_PAD
+	player2_input.pad_device = PlayerInput.NO_PAD
+	if not two_players:
+		return
+	if pads.size() >= 2:
+		player_input.pad_device = pads[0]
+		player2_input.pad_device = pads[1]
+	elif pads.size() == 1:
+		player_input.pad_device = PlayerInput.NO_PAD
+		player2_input.pad_device = pads[0]
+	else:
+		hud.show_toast("Connect a controller for player 2")
 
 
 func _start_round() -> void:
 	audio.play_music("fight")
 	var cfg: Dictionary = MODES[mode]
+	_end_duel()
+	if cfg.get("duel", false):
+		_start_duel()
+		return
 	if cfg.get("showcase", false):
 		if _showcase_list.is_empty():
 			_showcase_list = Showcase.names()
@@ -195,12 +264,77 @@ func _start_round() -> void:
 		flow = Flow.FIGHT
 		flow_t = 0
 		return
-	_new_sim(MatchFactory.versus(String(cfg["left"]), String(cfg["right"])), cfg["sides"])
+	if cfg.get("versus2p", false):
+		_new_sim(MatchFactory.versus(String(_teams[0][0]), String(_teams[1][0])), cfg["sides"])
+	else:
+		_new_sim(MatchFactory.versus(String(cfg["left"]), String(cfg["right"])), cfg["sides"])
 	timer = ROUND_TICKS
 	hud.timer_ticks = timer
 	hud.wins = wins
 	flow = Flow.INTRO
 	flow_t = 0
+
+
+## Duel: the rules (intro, tags, swaps, timer, winner) all run inside DuelSim; this
+## only shows them.
+func _start_duel() -> void:
+	var cfg: Dictionary = MODES[mode]
+	duel = DuelSim.new(_teams)
+	_new_sim(duel.sim, cfg["sides"])
+	for i in 2:
+		if cpus[i] != null:
+			(cpus[i] as CpuController).duel = duel
+	hud.duel = duel
+	hud.timer_ticks = duel.timer
+	hud.wins = [0, 0]
+	hud.wins_needed = 0
+	hud.banner = ""
+	flow = Flow.FIGHT
+	flow_t = 0
+
+
+func _end_duel() -> void:
+	duel = null
+	if hud != null:
+		hud.duel = null
+		hud.wins_needed = WINS_NEEDED
+
+
+func _duel_flow() -> void:
+	hud.timer_ticks = maxi(duel.timer, 0)
+	match duel.phase:
+		DuelSim.Phase.INTRO:
+			var t := duel.phase_t
+			hud.banner = "DUEL" if t < 60 else "FIGHT!"
+			hud.banner_sub = "3 v 3  -  tag with %s" % player_input.label("tag") if t < 60 else ""
+			if t == 2 or t == 60:
+				audio.play("round_start", 0.0, 0.75 if t == 2 else 1.0)
+		DuelSim.Phase.FIGHT, DuelSim.Phase.SWAP:
+			hud.banner = ""
+			hud.banner_sub = ""
+		DuelSim.Phase.OVER:
+			if duel.phase_t == 1:
+				hud.banner = "K.O." if duel.timer > 0 else "TIME"
+				hud.banner_sub = ""
+			if duel.phase_t >= int(duel.rules.get("over_ticks", 150)):
+				flow = Flow.MATCH_OVER
+				flow_t = 0
+				if duel.winner < 0:
+					hud.banner = "DRAW"
+				else:
+					hud.banner = "%s WINS!" % _side_name(duel.winner)
+				hud.banner_sub = "Enter / A: rematch     Esc / View: menu"
+
+
+func _side_name(i: int) -> String:
+	match sides[i]:
+		Side.PLAYER:
+			return "PLAYER 1"
+		Side.PLAYER2:
+			return "PLAYER 2"
+		Side.CPU:
+			return "CPU"
+	return "SIDE %d" % (i + 1)
 
 
 ## Scripted demos: both sides follow a Showcase, with captions naming each move.
@@ -232,6 +366,10 @@ func _end_showcase() -> void:
 func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	sim = s
 	sides = p_sides.duplicate()
+	if _cpu_vs_cpu:
+		for i in 2:
+			if sides[i] == Side.PLAYER or sides[i] == Side.PLAYER2:
+				sides[i] = Side.CPU
 	replay = Replay.new()
 	cpus = [null, null]
 	for i in 2:
@@ -263,10 +401,13 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 			Side.SCRIPT:
 				hud.tags[i] = "DEMO"
 				hud.key_labels[i] = ["", ""]
+			Side.PLAYER2:
+				hud.tags[i] = "P2"
 			_:
 				hud.tags[i] = ""
 	shake = 0.0
 	player_input.reset()
+	player2_input.reset()
 	_apply_device()
 
 
@@ -281,9 +422,16 @@ func _physics_process(_delta: float) -> void:
 		inputs = showcase.inputs(sim)
 	if flow == Flow.FIGHT:
 		replay.record(inputs)
-	sim.step(inputs)
+	if duel != null:
+		duel.step(inputs)
+	else:
+		sim.step(inputs)
 	for e in sim.events:
 		_react(e)
+	# A Duel tag or a new teammate: show whoever is in each slot now.
+	for i in views.size():
+		if views[i].c != sim.creatures[i]:
+			views[i].rebind(sim.creatures[i])
 	audio.watch(sim)
 	# Effects freeze with the KO freeze and slow down with the slow motion.
 	fx.time_scale = 0.0 if sim.ko_freeze > 0 else (0.5 if sim.slowmo > 0 else 1.0)
@@ -335,6 +483,9 @@ func _update_flow() -> void:
 				flow = Flow.FIGHT
 				flow_t = 0
 		Flow.FIGHT:
+			if duel != null:
+				_duel_flow()
+				return
 			if showcase != null:
 				if showcase.finished:
 					_showcase_end_t += 1
@@ -361,6 +512,8 @@ func _update_flow() -> void:
 					round_num += 1
 					_start_round()
 		Flow.MATCH_OVER:
+			if duel != null:
+				hud.timer_ticks = maxi(duel.timer, 0)
 			if sides[0] == Side.CPU and sides[1] == Side.CPU and flow_t > 240:
 				seed_base += 1
 				_start_match(mode)
@@ -412,6 +565,8 @@ func _side_bits(i: int, live: bool) -> int:
 			if not ping.is_empty():
 				fx.ping(ping["pos"], bool(ping["attack"]))
 			return b
+		Side.PLAYER2:
+			return player2_input.bits(sim, i, Vector2.ZERO)
 		Side.CPU:
 			return (cpus[i] as CpuController).bits(sim)
 		Side.DUMMY:
@@ -463,6 +618,8 @@ func _react(e: Dictionary) -> void:
 			crowd.cheer(0.6)
 			var who := int(e.get("who", 0))
 			hud.cut_in(sim.creatures[who], who, String(e.get("name", "Surge")))
+		"duel_over":
+			crowd.roar(150)
 		"ko":
 			shake = maxf(shake, 5.0)
 			crowd.cheer(1.0)
@@ -524,6 +681,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		hud.show_toast("Music off (M to turn on)" if muted else "Music on")
 		_save_settings()
 		return
+	if flow == Flow.SELECT:
+		if team_select.handle(event) and flow == Flow.SELECT:
+			audio.play("ui_move", 0.0, 1.0, true)
+		return
 	if flow == Flow.MENU:
 		var before := [menu_index, level, player_input.layout]
 		_menu_input(event)
@@ -536,7 +697,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_open_menu()
 	elif flow == Flow.MATCH_OVER and event.is_action_pressed("menu_confirm"):
 		seed_base += 1
-		_start_match(mode)
+		_start_match(mode, true)
 	elif event.is_action_pressed("debug_hitboxes"):
 		debug.visible = not debug.visible
 		debug.queue_redraw()
@@ -564,12 +725,12 @@ func _menu_input(event: InputEvent) -> void:
 	# Mouse: hover to highlight, click to choose.
 	if event is InputEventMouseMotion or (event is InputEventMouseButton and event.pressed):
 		var p: Vector2 = get_global_mouse_position()
-		var row := int(floor((p.y - (MENU_Y0 - 10.0)) / MENU_DY))
+		var row := int(floor((p.y - (MENU_Y0 - MENU_DY + 4.0)) / MENU_DY))
 		if p.x >= 130.0 and p.x <= 350.0 and row >= 0 and row < count:
 			menu_index = row
 			if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 				if row < MODES.size():
-					_start_match(row)
+					_start_match(MENU_ORDER[row])
 					return
 				_change_option(row, 1)
 		_refresh_menu()
@@ -584,7 +745,7 @@ func _menu_input(event: InputEvent) -> void:
 		_change_option(menu_index, 1)
 	elif event.is_action_pressed("menu_confirm") or event.is_action_pressed("ui_accept"):
 		if menu_index < MODES.size():
-			_start_match(menu_index)
+			_start_match(MENU_ORDER[menu_index])
 			return
 		_change_option(menu_index, 1)
 	elif event.is_action_pressed("menu_back"):
@@ -610,14 +771,20 @@ func _change_option(row: int, dir: int) -> void:
 
 ## Updates prompts, help text and the mouse cursor for the current device and layout.
 func _apply_device() -> void:
-	var labels := [player_input.label("skill_1"), player_input.label("skill_2")]
 	for i in 2:
+		var pin: PlayerInput = null
 		if sides[i] == Side.PLAYER:
-			hud.key_labels[i] = labels
-			hud.surge_labels[i] = player_input.label("surge")
+			pin = player_input
+		elif sides[i] == Side.PLAYER2:
+			pin = player2_input
+		if pin != null:
+			hud.key_labels[i] = [pin.label("skill_1"), pin.label("skill_2")]
+			hud.surge_labels[i] = pin.label("surge")
+			hud.tag_labels[i] = pin.label("tag")
 		else:
 			hud.key_labels[i] = ["", ""]
 			hud.surge_labels[i] = ""
+			hud.tag_labels[i] = ""
 	hud.help_text = player_input.help_text()
 	if player_input.device == PlayerInput.Device.GAMEPAD:
 		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
@@ -694,6 +861,7 @@ func _run_sim_check() -> bool:
 
 func _parse_args() -> int:
 	var start := -1
+	var pick := false
 	for a in OS.get_cmdline_user_args():
 		if a == "--autoplay":
 			autoplay = AutoPlay.new()
@@ -702,6 +870,16 @@ func _parse_args() -> int:
 			debug.visible = true
 		elif a.begins_with("--mode="):
 			start = clampi(int(a.get_slice("=", 1)), 0, MODES.size() - 1)
+			_skip_select = true  # straight into the match with the default teams
+		elif a == "--pick":
+			pick = true
+		elif a == "--cpu-vs-cpu":
+			_cpu_vs_cpu = true
+		elif a.begins_with("--teams="):
+			# --teams=cairn,culvert,cairn:culvert,cairn,culvert
+			var halves := a.get_slice("=", 1).split(":")
+			if halves.size() == 2:
+				_teams = [Array(halves[0].split(",")), Array(halves[1].split(","))]
 		elif a.begins_with("--level="):
 			level = clampi(int(a.get_slice("=", 1)), 0, LEVEL_NAMES.size() - 1)
 		elif a.begins_with("--seed="):
@@ -719,11 +897,15 @@ func _parse_args() -> int:
 			var sc := a.get_slice("=", 1)
 			if sc in Showcase.names():
 				_showcase_list = [sc]
-			start = MODES.size() - 1
+			for i in MODES.size():
+				if MODES[i].get("showcase", false):
+					start = i
 		elif a.begins_with("--layout="):
 			var lay := a.get_slice("=", 1)
 			if lay in PlayerInput.LAYOUTS:
 				player_input.layout = lay
+	if pick:
+		_skip_select = false
 	return start
 
 

@@ -1,8 +1,8 @@
 class_name SimCheck
 extends RefCounted
 ## Cross-platform determinism check. Plays a long seeded match of random button mashing
-## (fighters start in reach, so it's full of hits, combos, Surges, pits and KOs) and
-## returns the exact state fingerprint. CI runs it on the Linux and Windows builds:
+## (fighters start in reach, so it's full of hits, combos, Surges, pits and KOs) plus a
+## Duel full of tags, and returns one exact fingerprint for both. CI runs it on the Linux and Windows builds:
 ## online play only works if every platform gets the same answer.
 ##   CreatureArena --headless -- --sim-check=SEED [--sim-check-out=PATH]
 
@@ -28,7 +28,22 @@ static func run(seed_: int, ticks := 6000) -> String:
 				c.hp = c.max_hp
 				if c.state == CreatureSim.State.KO:
 					c.load_state(_revived(c))
-	return sim.state_digest()
+	return (sim.state_digest() + _duel(seed_ + 1, ticks)).sha256_text()
+
+
+## A Duel with random inputs, tags included.
+static func _duel(seed_: int, ticks: int) -> String:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_
+	var d := DuelSim.new([["cairn", "culvert", "cairn"], ["culvert", "cairn", "culvert"]])
+	d.sim.creatures[0].pos = Vector2(220, 164)
+	d.sim.creatures[1].pos = Vector2(245, 164)
+	var hold := [0, 0]
+	for i in ticks:
+		if i % 9 == 0:
+			hold = [rng.randi() & SimDefs.IN_ALL, rng.randi() & SimDefs.IN_ALL]
+		d.step(PackedInt32Array(hold))
+	return d.state_digest()
 
 
 static func _revived(c: CreatureSim) -> Dictionary:

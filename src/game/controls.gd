@@ -21,6 +21,7 @@ const BINDINGS := {
 	"lol_dodge": {"keys": [KEY_D, KEY_SPACE]},
 	"lol_guard": {"keys": [KEY_F, KEY_SHIFT]},
 	"lol_stop": {"keys": [KEY_S]},
+	"lol_tag": {"keys": [KEY_T]},
 	# Classic keyboard
 	"kb_up": {"keys": [KEY_W, KEY_UP]},
 	"kb_down": {"keys": [KEY_S, KEY_DOWN]},
@@ -33,6 +34,7 @@ const BINDINGS := {
 	"kb_surge": {"keys": [KEY_O]},
 	"kb_dodge": {"keys": [KEY_SPACE]},
 	"kb_guard": {"keys": [KEY_SHIFT]},
+	"kb_tag": {"keys": [KEY_L]},
 	# Xbox-style gamepad
 	"pad_up": {"buttons": [JOY_BUTTON_DPAD_UP], "axis": [JOY_AXIS_LEFT_Y, -1.0]},
 	"pad_down": {"buttons": [JOY_BUTTON_DPAD_DOWN], "axis": [JOY_AXIS_LEFT_Y, 1.0]},
@@ -49,6 +51,7 @@ const BINDINGS := {
 	"pad_surge": {"axis": [JOY_AXIS_TRIGGER_RIGHT, 1.0]},
 	"pad_dodge": {"buttons": [JOY_BUTTON_RIGHT_SHOULDER]},
 	"pad_guard": {"buttons": [JOY_BUTTON_LEFT_SHOULDER]},
+	"pad_tag": {"axis": [JOY_AXIS_TRIGGER_LEFT, 1.0]},
 	# Menus and tools
 	"menu_confirm": {"keys": [KEY_ENTER, KEY_KP_ENTER], "buttons": [JOY_BUTTON_A, JOY_BUTTON_START]},
 	"menu_back": {"keys": [KEY_ESCAPE], "buttons": [JOY_BUTTON_BACK]},
@@ -72,6 +75,7 @@ const CLASSIC_BITS := {
 	"kb_surge": SimDefs.IN_SURGE,
 	"kb_dodge": SimDefs.IN_DODGE,
 	"kb_guard": SimDefs.IN_GUARD,
+	"kb_tag": SimDefs.IN_TAG,
 }
 
 

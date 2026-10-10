@@ -18,7 +18,8 @@ const IN_GUARD := 128
 const IN_SKILL1 := 256
 const IN_SKILL2 := 512
 const IN_SURGE := 1024
-const IN_ALL := 2047
+const IN_TAG := 2048  ## Duel: swap to the next teammate (ignored outside Duel)
+const IN_ALL := 4095
 
 # Attack types. A combo can cancel from a lower rank into a higher one.
 const TYPE_RANK := {"light": 1, "heavy": 2, "skill": 3, "surge": 4}

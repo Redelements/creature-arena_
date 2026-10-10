@@ -30,10 +30,16 @@ godot --path .                          # menu
 godot --path . -- --mode=0 --level=2    # Cairn vs a Hard CPU Culvert
 godot --path . -- --mode=2              # watch CPU vs CPU
 godot --path . -- --showcase=cairn      # scripted demo: cairn, culvert or counterplay
+godot --path . -- --mode=6              # Duel vs CPU with the default teams (add --pick to choose)
 ```
 
 Modes: 0 Cairn vs CPU, 1 Culvert vs CPU, 2 CPU vs CPU, 3 training as Cairn, 4 training as Culvert,
-5 combo showcases (each fighter's full kit, then how to answer the big moves, on a loop).
+5 combo showcases (each fighter's full kit, then how to answer the big moves, on a loop),
+6 Duel vs CPU, 7 Duel for 2 players, 8 Versus for 2 players. `--teams=cairn,culvert,cairn:culvert,cairn,culvert`
+sets Duel teams; `--cpu-vs-cpu` hands every player side to the CPU.
+
+**Local 2-player:** with two controllers, each player gets one (player 1 can also use the
+keyboard). With one controller, player 1 uses keyboard and mouse and player 2 the controller.
 CPU levels: 0 Easy, 1 Normal, 2 Hard.
 
 ## Controls
@@ -55,6 +61,7 @@ whichever device you used last.
 | Dodge roll | RB | D or Space (toward cursor) | Space |
 | Guard | LB | F or Shift | Shift |
 | Breakaway (while stunned) | LB + RB | D + F | Shift + Space |
+| Tag (Duel) | LT | T | L |
 | Stop | — | S | — |
 | Menu / back | View | Esc | Esc |
 
@@ -76,6 +83,25 @@ combo does half damage, hitstun shrinks with every hit, launched targets take at
 juggle moves, and a stunned fighter can spend 50 energy on a **breakaway**.
 
 Energy fills as you deal and take damage (about one Surge per round).
+
+### Duel: 3v3 tag
+
+Each side picks three creatures (repeats allowed while the roster is small); one fights
+at a time.
+
+- **Tag** sends the next living teammate in with its own tag-in strike (Cairn: Rockfall
+  Entry, a dash punch; Culvert: Manhole Drop, a landing slam that launches). Tag from
+  neutral or guard, then it's on a 5-second cooldown.
+- **Tag cancel:** tag out of an attack that hit, for 50 energy, and the tag-in strike
+  carries the combo on.
+- **Bench healing:** a benched creature heals 1.5 HP a second, up to 25% of its max above
+  where it tagged out.
+- **Knockouts:** when your active creature goes down, the next one enters after the death
+  animation. Lose all three and you lose; at the 3-minute time limit, the team with the
+  most health left wins. Energy and stamina belong to the team.
+
+All of this runs in the deterministic simulation (`src/sim/duel_sim.gd`), so a Duel can
+be played online with rollback exactly like a single match. Tuning: `data/rules/duel.json`.
 
 ### Windups: reading the big moves
 

@@ -37,7 +37,24 @@ var _prev_flash := 0
 
 
 func setup(creature: CreatureSim) -> void:
+	mat.shader = FLASH_SHADER
+	sprite.material = mat
+	sprite.centered = false
+	add_child(pivot)
+	pivot.add_child(sprite)
+	rebind(creature)
+
+
+## Shows a different creature in this slot (a Duel tag, or a new teammate entering).
+func rebind(creature: CreatureSim) -> void:
 	c = creature
+	ko_hidden = false
+	_prev_state = -1
+	_prev_seg = -1
+	_prev_flash = 0
+	_sq = Vector2.ONE
+	_sq_vel = Vector2.ZERO
+	_shadow_r = -1.0
 	layout = c.def.get("sprite", {})
 	var tex: Texture2D = load(String(layout["path"]))
 	frame_px = int(layout.get("frame", 48))
@@ -45,13 +62,8 @@ func setup(creature: CreatureSim) -> void:
 	var o: Array = layout.get("origin", [24, 43])
 	origin = Vector2(float(o[0]), float(o[1]))
 	sprite.texture = tex
-	sprite.centered = false
 	sprite.hframes = cols
 	sprite.vframes = maxi(1, int(tex.get_height() / frame_px))
-	mat.shader = FLASH_SHADER
-	sprite.material = mat
-	add_child(pivot)
-	pivot.add_child(sprite)
 	flip = c.facing.x < -0.1
 	refresh()
 

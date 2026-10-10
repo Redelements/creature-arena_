@@ -51,6 +51,14 @@
     ]
   },
   "moves": {
+    "tag_in": {
+      "name": "Rockfall Entry", "type": "skill", "anim": "rush",
+      "startup": 6, "active": 8, "recovery": 14,
+      "damage": 6, "knockback": 3.0, "hitstun": 24, "hitstop": 6,
+      "reach": 14, "hit_radius": 12, "juggle": true,
+      "dash": { "speed": 3.6, "from": 1, "to": 12 },
+      "fx": { "smear": "thrust", "size": 1.5, "afterimage": [0, 12], "ghost_color": "#ffcf9eaa" }
+    },
     "light_1": {
       "name": "Jab", "anim": "jab",
       "startup": 4, "active": 2, "recovery": 9, "cancel_from": 7,

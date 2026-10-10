@@ -53,20 +53,22 @@ xvfb-run -a -s "-screen 0 1600x900x24" $G --fixed-fps 60 --rendering-driver open
 xvfb-run -a ... $G --rendering-driver opengl3 --path . --write-movie /tmp/out.avi --fixed-fps 60 -- --showcase=cairn --quit-after=712
 ```
 
-Useful flags (after `--`): `--mode=0..5`, `--level=0..2`, `--seed=N`,
-`--showcase=cairn|culvert|counterplay`, `--autoplay`, `--hitboxes`. Mode 5 loops all
-showcases. Matches are deterministic, so a seed reproduces a CPU match exactly.
+Useful flags (after `--`): `--mode=0..8`, `--level=0..2`, `--seed=N`,
+`--showcase=cairn|culvert|counterplay`, `--autoplay`, `--hitboxes`, `--cpu-vs-cpu` (CPU
+plays every player side, for captures), `--pick` (show the team pick screen),
+`--teams=a,b,c:d,e,f`. Modes: 5 showcases, 6 Duel vs CPU, 7 Duel 2P, 8 Versus 2P.
+Matches are deterministic, so a seed reproduces a CPU match exactly.
 
 ## Layout
 
 ```
-src/sim/    match_sim, creature_sim, terrain_grid, replay   deterministic rules
+src/sim/    match_sim, creature_sim, duel_sim, terrain_grid, replay   deterministic rules
 src/ai/     cpu_controller                                   CPU opponent (seeded)
 src/input/  player_input, mouse_orders                       keyboard/mouse/gamepad
 src/view/   fx_view (+fx_ground), creature_view, hud, audio_view, arena, crowd, debug
 src/net/    rollback_session (GGPO-style), sim_check (cross-platform fingerprint)
-src/game/   main (flow, camera), showcase, controls, match_factory
-data/       creatures/*.json, audio.json
+src/game/   main (flow, camera), team_select, showcase, controls, match_factory
+data/       creatures/*.json, rules/duel.json, audio.json
 tests/      run_tests.gd auto-runs every tests/test_*.gd
 tools/      gen_sprites.py, gen_audio.py (placeholder generators)
 ```
@@ -88,8 +90,8 @@ tools/      gen_sprites.py, gen_audio.py (placeholder generators)
   animation tags) is still to be agreed. Spec for drop-in art: `docs/SPRITES.md`.
 - **Audio: TODO, all placeholder.** Replace everything in `assets/audio/`; checklist in
   `docs/AUDIO.md` and the "Replace placeholder audio" GitHub issue.
-- **Not built yet:** tag-team 3v3 Duel (the planned launch mode), local 2-player,
-  affinity surfaces, more arenas, online. Game mode plan and priorities: Game Plan doc,
+- **Not built yet:** affinity surfaces, more arenas, online transport (rollback session
+  and determinism are done; see docs/NETCODE.md). Game mode plan and priorities: Game Plan doc,
   "Game modes".
 - **Known issues:** Storm Drain can't be punished even when dodged (its pit ring walls
   Culvert in); a fighter can fall into pits several times in a row after a Storm Drain

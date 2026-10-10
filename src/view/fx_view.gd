@@ -155,6 +155,20 @@ func spawn(e: Dictionary) -> void:
 					_drop(mouth, 10.0, v, randf_range(0.8, 2.2), true)
 		"windup":
 			_windup_tell(e)
+		"tag":
+			# A tag: the partner swaps in with a burst of dust and a call-out.
+			_add({"kind": "ring", "pos": p, "life": 16, "radius": 30.0, "color": Color("9ee6ff")})
+			_add({"kind": "lines", "pos": p + Vector2(0, -18), "life": 10, "size": 1.2, "color": Color("9ee6ff")})
+			for i in 8:
+				var a := TAU * i / 8.0
+				_dust(p + Vector2(cos(a) * 10.0, sin(a) * 4.0), Vector2(cos(a), sin(a) * 0.5 - 0.5) * 0.6)
+			var label := "TAG CANCEL!" if String(e.get("kind", "")) == "cancel" else "TAG!"
+			_text(p + Vector2(0, -44), label, Color("9ee6ff"), 9)
+		"enter":
+			_add({"kind": "ring", "pos": p, "life": 20, "radius": 34.0, "color": Color("ffd166")})
+			for i in 6:
+				_dust(p + Vector2(randf_range(-10, 10), randf_range(-3, 3)), Vector2(randf_range(-0.4, 0.4), -0.5))
+			_text(p + Vector2(0, -46), String(e.get("name", "")).to_upper() + " IN", Color("ffd166"), 9)
 		"breakaway":
 			_add({"kind": "ring", "pos": p + Vector2(0, 16), "life": 16, "radius": 30.0})
 			_text(p + Vector2(0, -10), "BREAKAWAY", Color("c9a7ff"))
@@ -297,9 +311,11 @@ func _physics(p: Dictionary, dt: float) -> void:
 func _watch_all() -> void:
 	for c in sim.creatures:
 		var w: Dictionary = _watch.get(c.id, {})
+		if not w.is_empty() and w.get("obj") != c:
+			w = {}  # a different creature in this slot (Duel tag): start fresh
 		if w.is_empty():
 			w = {"serial": c.attack_serial, "seg": -1, "charging": false, "stack": c.stack,
-				"state": c.state, "anim_t": c.anim_t}
+				"state": c.state, "anim_t": c.anim_t, "obj": c}
 			_watch[c.id] = w
 		var ticked := c.anim_t != int(w["anim_t"])
 		var attacking := c.state == CreatureSim.State.ATTACK
