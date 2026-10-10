@@ -18,6 +18,13 @@ const ENERGY_PER_DAMAGE_TAKEN := 1.0
 
 var tick := 0
 var hitstop := 0
+## Knockout presentation lives in the simulation (not the view) so every player sees it
+## on the same ticks: a full freeze, then slow motion where every other tick is skipped.
+## Inputs are buffered throughout, as in hitstop.
+var ko_freeze := 0
+var slowmo := 0
+var ko_freeze_ticks := 18
+var ko_slowmo_ticks := 70
 var terrain := TerrainGrid.new()
 var creatures: Array[CreatureSim] = []
 var projectiles: Array[Dictionary] = []
@@ -34,11 +41,25 @@ func emit_event(kind: String, p: Vector2, power: float, extra := {}) -> void:
 	var e := {"type": kind, "pos": p, "power": power, "tick": tick}
 	e.merge(extra)
 	events.append(e)
+	if kind == "ko":
+		var who := int(extra.get("who", -1))
+		if who < 0 or who >= creatures.size() or not creatures[who].is_dummy:
+			ko_freeze = maxi(ko_freeze, ko_freeze_ticks)
+			slowmo = maxi(slowmo, ko_slowmo_ticks)
 
 
 func step(inputs: PackedInt32Array) -> void:
 	events.clear()
 	tick += 1
+	if ko_freeze > 0:
+		ko_freeze -= 1
+		_buffer_all(inputs)
+		return
+	if slowmo > 0:
+		slowmo -= 1
+		if slowmo % 2 == 1:
+			_buffer_all(inputs)
+			return
 	if hitstop > 0:
 		# Freeze-frame on impact: nothing moves, but presses are buffered.
 		hitstop -= 1
@@ -54,6 +75,11 @@ func step(inputs: PackedInt32Array) -> void:
 	_check_falls()
 
 
+func _buffer_all(inputs: PackedInt32Array) -> void:
+	for i in creatures.size():
+		creatures[i].buffer_input(_input(inputs, i), self)
+
+
 func nearest_opponent(c: CreatureSim) -> CreatureSim:
 	var best: CreatureSim = null
 	var best_d := INF
@@ -67,18 +93,56 @@ func nearest_opponent(c: CreatureSim) -> CreatureSim:
 	return best
 
 
-## A fingerprint of the full match state, used by the determinism and replay tests.
-func state_hash() -> int:
-	var parts: Array = [tick, hitstop, terrain.version, hash(terrain.cells)]
+## Everything that changes during a match, for rollback netcode: restore(snapshot())
+## puts the match back exactly as it was. Creature definitions aren't copied (they
+## never change), and events aren't either (they're rebuilt every step).
+func snapshot() -> Dictionary:
+	var cs: Array = []
 	for c in creatures:
-		parts.append_array([
-			snappedf(c.pos.x, 0.001), snappedf(c.pos.y, 0.001),
-			snappedf(c.hp, 0.001), snappedf(c.stamina, 0.001), snappedf(c.energy, 0.001),
-			c.state, c.state_t, c.move_id, c.charge, c.stack, c.combo_hits, c.windup_left, c.dodge_buffer])
+		cs.append(c.save_state())
+	return {
+		"tick": tick, "hitstop": hitstop, "ko_freeze": ko_freeze, "slowmo": slowmo,
+		"cells": terrain.cells.duplicate(), "timers": terrain.timers.duplicate(),
+		"terrain_version": terrain.version,
+		"creatures": cs, "projectiles": projectiles.duplicate(true),
+	}
+
+
+func restore(s: Dictionary) -> void:
+	tick = int(s["tick"])
+	hitstop = int(s["hitstop"])
+	ko_freeze = int(s["ko_freeze"])
+	slowmo = int(s["slowmo"])
+	terrain.cells = PackedByteArray(s["cells"]).duplicate()
+	terrain.timers = PackedInt32Array(s["timers"]).duplicate()
+	terrain.version = maxi(terrain.version, int(s["terrain_version"])) + 1  # forces a redraw
+	var cs: Array = s["creatures"]
+	for i in creatures.size():
+		creatures[i].load_state(cs[i])
+	projectiles.assign((s["projectiles"] as Array).duplicate(true))
+	events.clear()
+
+
+## An exact fingerprint of the match state (SHA-256 of its bytes). Floats are hashed
+## bit for bit, so two machines only agree if they computed identical results; this
+## is what online play checks to catch desyncs.
+func state_digest() -> String:
+	var parts: Array = [tick, hitstop, ko_freeze, slowmo, terrain.cells, terrain.timers]
+	for c in creatures:
+		var st := c.save_state()
+		for f in CreatureSim.STATE_FIELDS:
+			parts.append(st[f])
 	for p in projectiles:
-		var pp: Vector2 = p["pos"]
-		parts.append_array([snappedf(pp.x, 0.001), snappedf(pp.y, 0.001), p["life"]])
-	return hash(str(parts))
+		parts.append_array([p["pos"], p["vel"], p["life"], p["owner"], p["serial"]])
+	var ctx := HashingContext.new()
+	ctx.start(HashingContext.HASH_SHA256)
+	ctx.update(var_to_bytes(parts))
+	return ctx.finish().hex_encode()
+
+
+## A short form of state_digest(), used by the determinism and replay tests.
+func state_hash() -> int:
+	return hash(state_digest())
 
 
 static func _input(inputs: PackedInt32Array, i: int) -> int:

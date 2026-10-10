@@ -40,10 +40,8 @@ const ROUND_OVER_TICKS := 210
 const SETTINGS_PATH := "user://settings.cfg"
 const MENU_Y0 := 104.0
 const MENU_DY := 16.0
-# Knockouts: hold the frame, then play the next stretch at half speed while the camera
-# pushes in on the loser. Only affects what's shown after the round is decided.
-const KO_FREEZE := 18
-const KO_SLOWMO := 70
+# Knockouts: the simulation itself freezes and then runs at half speed (MatchSim's
+# ko_freeze / slowmo, so online peers agree); the camera pushes in on the loser.
 const KO_ZOOM := 1.45
 const SHOWCASE_ZOOM := 1.9
 
@@ -78,8 +76,6 @@ var _menu_ko_t := 0
 var player_input := PlayerInput.new()
 var dummy_mode := 0
 var shake := 0.0
-var _freeze := 0
-var _slowmo := 0
 var _ko_cam_t := -1
 var _ko_focus := Vector2.ZERO
 var _ko_pos := Vector2.ZERO
@@ -96,6 +92,8 @@ var _quit_after := 0
 
 
 func _ready() -> void:
+	if _run_sim_check():
+		return
 	Controls.setup()
 	camera = Camera2D.new()
 	camera.position = Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H) * 0.5
@@ -253,8 +251,6 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	fx.sim = sim
 	fx.clear()
 	fx.views = views
-	_freeze = 0
-	_slowmo = 0
 	_ko_cam_t = -1
 	hud.dummy_mode_name = DUMMY_MODES[dummy_mode]
 	for i in 2:
@@ -275,32 +271,22 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 
 
 func _physics_process(_delta: float) -> void:
+	if sim == null:
+		return  # quitting after --sim-check
 	frame_count += 1
 	flow_t += 1
-	# KO freeze and slow motion: the sim simply isn't stepped on some frames. This only
-	# happens after a round is decided, when no inputs are being recorded.
-	var step := true
-	if _freeze > 0:
-		_freeze -= 1
-		step = false
-		fx.time_scale = 0.0
-	elif _slowmo > 0:
-		_slowmo -= 1
-		step = _slowmo % 2 == 0
-		fx.time_scale = 0.5
-	else:
-		fx.time_scale = 1.0
-	if step:
-		var live := flow == Flow.FIGHT or flow == Flow.MENU
-		var inputs := PackedInt32Array([_side_bits(0, live), _side_bits(1, live)])
-		if showcase != null and flow == Flow.FIGHT:
-			inputs = showcase.inputs(sim)
-		if flow == Flow.FIGHT:
-			replay.record(inputs)
-		sim.step(inputs)
-		for e in sim.events:
-			_react(e)
-		audio.watch(sim)
+	var live := flow == Flow.FIGHT or flow == Flow.MENU
+	var inputs := PackedInt32Array([_side_bits(0, live), _side_bits(1, live)])
+	if showcase != null and flow == Flow.FIGHT:
+		inputs = showcase.inputs(sim)
+	if flow == Flow.FIGHT:
+		replay.record(inputs)
+	sim.step(inputs)
+	for e in sim.events:
+		_react(e)
+	audio.watch(sim)
+	# Effects freeze with the KO freeze and slow down with the slow motion.
+	fx.time_scale = 0.0 if sim.ko_freeze > 0 else (0.5 if sim.slowmo > 0 else 1.0)
 	audio.sfx_enabled = flow != Flow.MENU
 	_update_flow()
 	if showcase != null:
@@ -319,7 +305,7 @@ func _physics_process(_delta: float) -> void:
 
 	shake = maxf(shake, fx.shake_out)
 	fx.shake_out = 0.0
-	if _freeze <= 0:
+	if sim.ko_freeze <= 0:
 		shake *= 0.82
 	_update_camera()
 	camera.offset = Vector2(randf_range(-shake, shake), randf_range(-shake, shake)).round() if shake > 0.3 else Vector2.ZERO
@@ -482,8 +468,6 @@ func _react(e: Dictionary) -> void:
 			crowd.cheer(1.0)
 			_flash(Color.WHITE, 0.6)
 			if not MODES[mode].get("training", false) or flow == Flow.MENU:
-				_freeze = KO_FREEZE
-				_slowmo = KO_SLOWMO
 				_ko_cam_t = 0
 				# Frame the loser in the lower third, clear of the K.O. banner.
 				_ko_focus = Vector2(e["pos"]) + Vector2(0, -64)
@@ -681,6 +665,28 @@ func _save_settings() -> void:
 	cfg.set_value("game", "level", level)
 	cfg.set_value("audio", "music_muted", audio.music_muted)
 	cfg.save(SETTINGS_PATH)
+
+
+## --sim-check=SEED: print (and optionally write) the determinism fingerprint, then quit.
+func _run_sim_check() -> bool:
+	var seed_ := -1
+	var out := ""
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--sim-check="):
+			seed_ = int(a.get_slice("=", 1))
+		elif a.begins_with("--sim-check-out="):
+			out = a.get_slice("=", 1)
+	if seed_ < 0:
+		return false
+	var digest := SimCheck.run(seed_)
+	print("SIMCHECK ", digest)
+	if out != "":
+		var f := FileAccess.open(out, FileAccess.WRITE)
+		if f != null:
+			f.store_string(digest)
+			f.close()
+	get_tree().quit()
+	return true
 
 
 func _parse_args() -> int:

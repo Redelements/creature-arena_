@@ -8,9 +8,16 @@ README for controls, combat rules and frame data.
 
 ## Rules that keep the project working
 
-- **`src/sim/` is deterministic.** No randomness, no clock, no nodes, no screen. It only
-  takes input bitmasks and JSON data. This is what makes replays, the combo tests and
-  future rollback netcode possible. Anything cosmetic goes in `src/view/`.
+- **`src/sim/` is deterministic, on every platform.** No randomness, no clock, no nodes,
+  no screen, and no `sin`/`cos`/`atan2`/`pow`/`exp` (platforms round them differently).
+  It only takes input bitmasks and JSON data. Online play will be rollback netcode
+  (docs/NETCODE.md), which depends on this; CI compares a seeded match's exact
+  fingerprint on Linux and Windows. Anything cosmetic goes in `src/view/`.
+- **Every piece of match state is saved by `snapshot()`.** New `CreatureSim` variables
+  go in `STATE_FIELDS` (or `STATIC_FIELDS`); new `MatchSim` variables go in
+  `snapshot()`/`restore()`. `tests/test_rollback.gd` fails otherwise.
+- **Game rules that decide outcomes live in the sim** (timers, KO freeze, tag rules),
+  never in `main.gd`, so online peers agree on every tick.
 - **Views only read the sim.** `FxView`, `CreatureView`, `Hud`, `AudioView` and the camera
   watch simulation state and `sim.events`; they never write back. Randomness is fine there.
 - **Tuning is data, not code.** Frame data, moves, `fx` (effects), `windup`/`tell`,
@@ -32,6 +39,8 @@ unzip -q /tmp/g.zip -d ~/godot && G=~/godot/Godot_v4.7.2-stable_linux.x86_64
 $G --headless --path . --import                                  # after adding a class_name
 $G --headless --path . --script res://tests/run_tests.gd         # all tests
 $G --headless --fixed-fps 60 --path . -- --mode=2 --quit-after=3000   # smoke run, check for SCRIPT ERROR
+$G --headless --path . -- --sim-check=20261010                   # determinism fingerprint
+$G --headless --path . --script res://tests/bench_sim.gd         # rollback cost benchmark
 ```
 
 Seeing what you changed (do this for any visual change; tests can't judge looks):
@@ -55,7 +64,8 @@ src/sim/    match_sim, creature_sim, terrain_grid, replay   deterministic rules
 src/ai/     cpu_controller                                   CPU opponent (seeded)
 src/input/  player_input, mouse_orders                       keyboard/mouse/gamepad
 src/view/   fx_view (+fx_ground), creature_view, hud, audio_view, arena, crowd, debug
-src/game/   main (flow, camera, KO slow-mo), showcase, controls, match_factory
+src/net/    rollback_session (GGPO-style), sim_check (cross-platform fingerprint)
+src/game/   main (flow, camera), showcase, controls, match_factory
 data/       creatures/*.json, audio.json
 tests/      run_tests.gd auto-runs every tests/test_*.gd
 tools/      gen_sprites.py, gen_audio.py (placeholder generators)

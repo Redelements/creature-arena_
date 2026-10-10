@@ -34,6 +34,23 @@ const JUGGLE_MAX := 3
 const JUGGLE_FLOAT := 16
 const LAND_KNOCKDOWN := 24
 const GETUP_INVULN := 12
+const TAN_22_5 := 0.41421356237309503
+
+## Everything that changes during a match, in a fixed order. snapshot()/restore() copy
+## exactly these, which is what rollback netcode saves every frame. A test checks that
+## every variable declared below is either listed here or in STATIC_FIELDS.
+const STATE_FIELDS := [
+	"pos", "walk_vel", "knock_vel", "facing", "hp", "stamina", "energy",
+	"state", "state_t", "anim_t",
+	"move_id", "attack_serial", "charging", "charge", "charge_ratio", "connected", "seg_hit",
+	"cooldowns", "buffered", "buffer_t", "countered", "stack", "stack_t", "windup_left",
+	"windup_total", "stun", "invuln", "flash", "guard_hit", "air_t", "air_total",
+	"combo_hits", "combo_types", "combo_moves", "combo_bounced", "combo_damage", "juggles",
+	"juggle_serials", "last_attacker", "dodge_dir", "prev_buttons", "dodge_buffer",
+	"dodge_buffer_dir",
+]
+## Set once when the creature is made and never changed by the simulation.
+const STATIC_FIELDS := ["id", "def", "is_dummy", "radius", "weight", "max_hp", "max_stamina"]
 
 const ACTION_BITS := [
 	["surge", SimDefs.IN_SURGE],
@@ -141,6 +158,22 @@ static func _normalize_move(mid: String, mv: Dictionary) -> void:
 	mv["_segs"] = segs
 	if not mv.has("length"):
 		mv["length"] = su + ac + int(mv.get("recovery", 0))
+
+
+# ------------------------------------------------------------------ rollback state
+
+func save_state() -> Dictionary:
+	var d := {}
+	for f in STATE_FIELDS:
+		var v = get(f)
+		d[f] = v.duplicate(true) if (v is Dictionary or v is Array) else v
+	return d
+
+
+func load_state(d: Dictionary) -> void:
+	for f in STATE_FIELDS:
+		var v = d[f]
+		set(f, v.duplicate(true) if (v is Dictionary or v is Array) else v)
 
 
 # ------------------------------------------------------------------ queries
@@ -793,7 +826,16 @@ func _on_wall_bounce(sim: MatchSim, at: Vector2, power: float) -> void:
 	sim.emit_event("bounce", at, power)
 
 
+## Snaps a direction to the nearest of 8. Uses only comparisons and one square root
+## (no sin/cos/atan2), because trig functions can round differently on different
+## platforms and online play needs every machine to compute identical results.
 static func _snap8(v: Vector2) -> Vector2:
-	var a := snappedf(v.angle(), PI / 4.0)
-	var d := Vector2.from_angle(a)
-	return Vector2(snappedf(d.x, 0.0001), snappedf(d.y, 0.0001)).normalized()
+	if v.length_squared() < 1e-12:
+		return Vector2.RIGHT
+	var ax := absf(v.x)
+	var ay := absf(v.y)
+	if ay <= ax * TAN_22_5:
+		return Vector2(signf(v.x), 0.0)
+	if ax <= ay * TAN_22_5:
+		return Vector2(0.0, signf(v.y))
+	return Vector2(signf(v.x), signf(v.y)).normalized()

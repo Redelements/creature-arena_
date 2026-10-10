@@ -131,6 +131,7 @@ Every one of these is checked by an automated test (`tests/test_combos.gd`).
 ```
 src/sim/      Deterministic simulation: no nodes, no clock, no randomness
 src/ai/       CPU opponent (presses buttons like a player; seeded randomness)
+src/net/      Rollback netcode session and the cross-platform determinism check
 src/input/    Player input: League-style mouse orders, classic keys, gamepad aiming
 src/view/     Draws the sim: arena, creatures, effects, HUD, menu, debug overlay
 src/game/     Scene flow (menu, rounds, training), controls, match setup
@@ -141,7 +142,8 @@ tools/        Placeholder sprite generator (Python + Pillow)
 ```
 
 The simulation runs at a fixed 60 ticks per second and only takes **input bitmasks** and
-**data files**. The same inputs always produce the same match, which is what makes replays
+**data files**. Online play will use rollback netcode; see [docs/NETCODE.md](docs/NETCODE.md)
+for the design, the measured costs and the rules the simulation follows. The same inputs always produce the same match, which is what makes replays
 (F6), regression tests and, later, rollback netcode possible. The CPU reads the match and
 returns button presses, so it plays by exactly the same rules.
 
@@ -166,7 +168,8 @@ godot --headless --path . --import
 godot --headless --path . --script res://tests/run_tests.gd
 ```
 
-74 tests cover the six example combos, the three showcases, windups and counterplay, every combo rule (variety bonus, stale moves,
+80 tests cover the six example combos, the three showcases, windups and counterplay,
+rollback netcode (snapshots, and two simulated machines over a laggy, lossy connection), every combo rule (variety bonus, stale moves,
 hitstun decay, juggle cap, cancels on contact, stacks, energy, cooldowns, breakaway), grabs,
 Slip counters, shockwaves, the Storm Drain pit ring, terrain, determinism, replays, and the
 CPU (reproducible matches, uses its whole kit, Hard beats Easy), and the mouse and gamepad
