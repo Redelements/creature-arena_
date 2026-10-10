@@ -1,8 +1,8 @@
 class_name CreatureView
 extends Node2D
 ## Shows one CreatureSim: picks the sprite frame from its state, flips it to face,
-## and adds the hit flash, charge glow, invulnerability blink, launch height and
-## falling shrink. Frame layout comes from the "sprite" block in the creature's JSON,
+## and adds the hit flash, charge glow, invulnerability blink, launch height,
+## squash and stretch, and falling shrink. Frame layout comes from the "sprite" block in the creature's JSON,
 ## and each move names its animation with "anim", so new art with the same layout
 ## drops in without code changes.
 
@@ -20,7 +20,17 @@ var cols := 1
 var origin := Vector2(24, 43)
 var flip := false
 var mat := ShaderMaterial.new()
+## Set by FxView when a death animation replaces the sprite (Cairn's stones scatter).
+var ko_hidden := false
 var _shadow_r := -1.0
+## Squash and stretch: the sprite scales around its feet on a damped spring, so a
+## landing squashes it flat and it wobbles back.
+var pivot := Node2D.new()
+var _sq := Vector2.ONE
+var _sq_vel := Vector2.ZERO
+var _prev_state := -1
+var _prev_seg := -1
+var _prev_flash := 0
 
 
 func setup(creature: CreatureSim) -> void:
@@ -37,7 +47,8 @@ func setup(creature: CreatureSim) -> void:
 	sprite.vframes = maxi(1, int(tex.get_height() / frame_px))
 	mat.shader = FLASH_SHADER
 	sprite.material = mat
-	add_child(sprite)
+	add_child(pivot)
+	pivot.add_child(sprite)
 	flip = c.facing.x < -0.1
 	refresh()
 
@@ -57,10 +68,17 @@ func refresh() -> void:
 	sprite.flip_h = flip
 	var ox := float(frame_px) - origin.x if flip else origin.x
 	var lift := c.air_height()
-	sprite.position = Vector2(-ox, -origin.y - round(lift))
+	sprite.position = Vector2(-ox, -origin.y)
+	pivot.position = Vector2(0, -round(lift))
 	if c.state == CreatureSim.State.CRUMPLE:
-		sprite.position.x += 1 if (c.anim_t / 4) % 2 == 0 else -1
-		sprite.position.y += 1
+		pivot.position.x += 1 if (c.anim_t / 4) % 2 == 0 else -1
+		pivot.position.y += 1
+	elif c.state == CreatureSim.State.KO and c.state_t <= 1:
+		# Held on the finishing blow: tremble before the death animation plays.
+		pivot.position.x += 1 if Engine.get_physics_frames() % 2 == 0 else -1
+	_update_squash()
+	pivot.scale = _sq
+	pivot.visible = not ko_hidden
 
 	# Hit flash, or a warm pulse once the heavy is fully charged or a Surge starts.
 	var flash_amt := 0.0
@@ -70,7 +88,7 @@ func refresh() -> void:
 	elif c.is_full_charge():
 		flash_col = Color(1.0, 0.82, 0.35)
 		flash_amt = 0.55 if (c.anim_t / 4) % 2 == 0 else 0.15
-		sprite.position.x += 1 if (c.anim_t / 2) % 2 == 0 else -1
+		pivot.position.x += 1 if (c.anim_t / 2) % 2 == 0 else -1
 	elif c.state == CreatureSim.State.ATTACK and c.move_type() == "surge" and c.state_t < 12:
 		flash_col = Color(1.0, 0.9, 0.4)
 		flash_amt = 0.6 if (c.anim_t / 2) % 2 == 0 else 0.25
@@ -85,15 +103,70 @@ func refresh() -> void:
 		shade = 1.0 - 0.75 * p
 	else:
 		scale = Vector2.ONE
+	# A cracked Culvert greys out as it settles into rubble.
+	if c.state == CreatureSim.State.KO and String(c.def.get("ko_fx", {}).get("style", "")) == "crack":
+		shade = lerpf(1.0, 0.72, clampf(float(c.state_t - 12) / 20.0, 0.0, 1.0))
 	var blink := c.invuln > 0 and c.state != CreatureSim.State.ATTACK and (c.anim_t / 3) % 2 == 0
 	modulate = Color(shade, shade, shade, 0.4 if blink else 1.0)
 
 	var r := -1.0
-	if c.state != CreatureSim.State.FALLING:
+	if c.state != CreatureSim.State.FALLING and not ko_hidden:
 		r = c.radius + 3.0 - minf(lift * 0.15, 4.0)
 	if absf(r - _shadow_r) > 0.25:
 		_shadow_r = r
 		queue_redraw()
+
+
+## Kicks the squash spring on landings, launches, hits, strikes and dodges.
+func _update_squash() -> void:
+	var st := int(c.state)
+	var S := CreatureSim.State
+	if st != _prev_state:
+		if st == S.AIRBORNE:
+			_kick(Vector2(0.8, 1.25))
+		elif _prev_state == S.AIRBORNE or (_prev_state == S.FALLING and st != S.KO):
+			_kick(Vector2(1.35, 0.7))
+		elif st == S.DODGE:
+			_kick(Vector2(1.18, 0.84))
+		elif st == S.KO and _prev_state != S.AIRBORNE:
+			_kick(Vector2(1.2, 0.82))
+	if c.flash > _prev_flash:
+		_kick(Vector2(1.14, 0.88))
+	var seg := c.active_seg()
+	if seg >= 0 and seg != _prev_seg:
+		var heavy := c.move_type() != "light"
+		_kick(Vector2(1.14, 0.88) if heavy else Vector2(1.06, 0.95))
+	_prev_seg = seg
+	_prev_state = st
+	_prev_flash = c.flash
+
+	# Holding a heavy squats lower the longer it charges.
+	var rest := Vector2.ONE
+	if c.charging and c.state == S.ATTACK:
+		var k := float(c.charge) / maxf(1.0, float(c.move_def().get("charge_max", 1)))
+		rest = Vector2(1.0 + 0.08 * k, 1.0 - 0.08 * k)
+	_sq_vel += (rest - _sq) * 0.32
+	_sq_vel *= 0.62
+	_sq += _sq_vel
+
+
+func _kick(to: Vector2) -> void:
+	_sq = to
+	_sq_vel = Vector2.ZERO
+
+
+## What the sprite looks like right now, for afterimages and death animations.
+func snapshot() -> Dictionary:
+	var col := sprite.frame % cols
+	var row := sprite.frame / cols
+	return {
+		"tex": sprite.texture,
+		"region": Rect2(col * frame_px, row * frame_px, frame_px, frame_px),
+		"feet": position + pivot.position,
+		"flip": flip,
+		"origin": origin,
+		"frame_px": frame_px,
+	}
 
 
 func _draw() -> void:

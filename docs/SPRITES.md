@@ -14,6 +14,15 @@ x 22, y 43), which sits on the ground where the shadow is drawn. The game mirror
 sprite to face left and raises it off its shadow when launched. Leave at least 1 px of
 transparent margin on every side. Unused cells stay transparent.
 
+Two effects read the art directly, so check them when sheets are replaced:
+
+- **Cairn's knockout** slices idle frame 0 into horizontal bands, one per stone, and
+  tumbles them separately. The band rows are `ko_fx.pieces` in `cairn.json` (head first),
+  and `ko_fx.x_eyes` marks where the eyes are so they can be drawn as X's. If the final
+  art moves the stones or the face, update those numbers.
+- **Surge cut-ins** show one frame of the Surge animation enlarged, picked by
+  `cut_in_frame` ([row, column]) in each creature's JSON.
+
 How the game plays a move's frames: on 4-frame attacks, frame 0 is the windup, 1 the
 strike, 2 the follow-through and 3 the recovery. Heavies use 6 frames: two charge frames
 (alternating while held), rise, strike, follow-through and recovery.

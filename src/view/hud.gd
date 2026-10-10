@@ -1,7 +1,8 @@
 class_name Hud
 extends Node2D
 ## Fighter panels (health, energy, stamina, skill cooldowns, Cairn's stones), the combo
-## counter with its damage multiplier, the round timer, banners, and the menu.
+## counter with its damage multiplier and attack-type tracker, the Surge cut-in, the
+## round timer, banners, and the menu.
 
 const C_PANEL := Color(0.07, 0.08, 0.1, 0.8)
 const C_TEXT := Color("e8e6df")
@@ -13,6 +14,8 @@ const C_STAMINA := Color("5aa9e6")
 const C_ENERGY := Color("ffcf3f")
 const C_BAR_BG := Color("2a2e38")
 const C_ACCENT := Color("ffd166")
+const CUT_IN_TICKS := 30
+const TYPE_PIPS := [["light", "LT"], ["heavy", "HV"], ["skill", "SK"], ["surge", "SG"]]
 
 var sim: MatchSim
 var tags := ["P1", "CPU"]
@@ -37,6 +40,8 @@ var _toast := ""
 var _toast_t := 0
 var _combo_show := [0, 0]
 var _combo_last := [{}, {}]
+var _combo_pop := [0, 0]
+var _cut := {}
 var _tick := 0
 var _font: Font = ThemeDB.fallback_font
 
@@ -46,6 +51,22 @@ func show_toast(text: String) -> void:
 	_toast_t = 120
 
 
+## A fighting-game super cut-in: a slanted band with the fighter's portrait and the move.
+func cut_in(c: CreatureSim, side: int, move_name: String) -> void:
+	var sp: Dictionary = c.def.get("sprite", {})
+	if sp.is_empty():
+		return
+	var fpx := int(sp.get("frame", 48))
+	var fr: Array = c.def.get("cut_in_frame", [0, 0])
+	var o: Array = sp.get("origin", [24, 43])
+	_cut = {
+		"side": side, "move": move_name.to_upper(), "who": String(c.def.get("name", "")).to_upper(),
+		"tex": load(String(sp["path"])), "region": Rect2(int(fr[1]) * fpx, int(fr[0]) * fpx, fpx, fpx),
+		"origin": Vector2(float(o[0]), float(o[1])), "fpx": fpx,
+		"color": Color(String(c.def.get("fx_color", "#ffcf3f"))), "t": 0,
+	}
+
+
 func advance() -> void:
 	_tick += 1
 	if _toast_t > 0:
@@ -53,12 +74,21 @@ func advance() -> void:
 	if sim != null and sim.creatures.size() >= 2:
 		for side in 2:
 			var d := sim.creatures[1 - side]
+			if _combo_pop[side] > 0:
+				_combo_pop[side] -= 1
 			if d.combo_hits >= 2:
+				var prev: Dictionary = _combo_last[side]
+				if _combo_show[side] < 50 or int(prev.get("hits", 0)) != d.combo_hits:
+					_combo_pop[side] = 8
 				_combo_last[side] = {"hits": d.combo_hits, "mult": SimDefs.variety_mult(d.combo_types),
-					"dmg": d.combo_damage}
+					"dmg": d.combo_damage, "types": d.combo_types}
 				_combo_show[side] = 50
 			elif _combo_show[side] > 0:
 				_combo_show[side] -= 1
+	if not _cut.is_empty():
+		_cut["t"] = int(_cut["t"]) + 1
+		if int(_cut["t"]) > CUT_IN_TICKS:
+			_cut = {}
 	queue_redraw()
 
 
@@ -74,6 +104,8 @@ func _draw() -> void:
 	for side in 2:
 		if _combo_show[side] > 0:
 			_combo(side)
+	if not _cut.is_empty():
+		_draw_cut_in()
 
 	if banner != "":
 		var y := 128.0
@@ -167,10 +199,70 @@ func _combo(side: int) -> void:
 	if mult >= 1.5:
 		col = Color("ff9a5a")
 	col.a = a
-	_text(Vector2(x, 86), "%d HITS" % int(info["hits"]), 14, Color(1, 1, 1, a))
+
+	# The hit count pops each time it goes up, and grows with the combo.
+	var pop := float(_combo_pop[side]) / 8.0
+	var s := 1.0 + 0.35 * pop * pop + minf(0.25, (int(info["hits"]) - 2) * 0.02)
+	var jit := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * pop * 1.5
+	draw_set_transform(Vector2(x, 86) + jit, 0.0, Vector2(s, s))
+	_text(Vector2.ZERO, "%d HITS" % int(info["hits"]), 14, Color(1, 1, 1, a))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	var mult_txt := "x" + ("1.0" if mult <= 1.0 else String.num(mult, 2))
-	_text(Vector2(x + 70, 86), mult_txt, 10, col)
+	_text(Vector2(x + 70 + 20.0 * (s - 1.0), 86), mult_txt, 10, col)
 	_text(Vector2(x, 98), "%d damage" % int(round(float(info["dmg"]))), 7, Color(C_DIM.r, C_DIM.g, C_DIM.b, a))
+
+	# Which attack types have landed: mixing all four is the x1.5 bonus.
+	var types := int(info.get("types", 0))
+	for i in TYPE_PIPS.size():
+		var lit := (types & int(SimDefs.TYPE_BIT[TYPE_PIPS[i][0]])) != 0
+		var r := Rect2(x + i * 15.0, 102, 13, 8)
+		draw_rect(r, Color(col.r, col.g, col.b, a * 0.9) if lit else Color(0.2, 0.22, 0.26, a * 0.8))
+		_text(Vector2(r.position.x, r.position.y + 6.5), String(TYPE_PIPS[i][1]), 5,
+			Color(0.08, 0.08, 0.1, a) if lit else Color(C_DIM.r, C_DIM.g, C_DIM.b, a), HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+	if mult >= 1.5:
+		_text(Vector2(x + 62, 109), "FULL MIX!", 6, col)
+
+
+func _draw_cut_in() -> void:
+	var t := float(_cut["t"])
+	var side := int(_cut["side"])
+	var dir := 1.0 if side == 0 else -1.0
+	var w := float(SimDefs.VIEW_W)
+	# Short on purpose: it has to be gone by the time the move's startup is worth reading.
+	var k_in := clampf(t / 5.0, 0.0, 1.0)
+	var k_out := clampf((t - 20.0) / 9.0, 0.0, 1.0)
+	var off := -pow(1.0 - k_in, 3.0) * (w + 80.0) * dir + k_out * k_out * (w + 80.0) * dir
+	var y0 := 98.0
+	var y1 := 152.0
+	var accent: Color = _cut["color"]
+
+	var band := PackedVector2Array([Vector2(off - 60, y1), Vector2(off - 20, y0), Vector2(off + w + 60, y0),
+		Vector2(off + w + 20, y1)])
+	draw_colored_polygon(band, Color(0.04, 0.045, 0.07, 0.92))
+	draw_line(Vector2(off - 20, y0), Vector2(off + w + 60, y0), accent, 3.0)
+	draw_line(Vector2(off - 60, y1), Vector2(off + w + 20, y1), accent, 3.0)
+	for i in 14:  # speed lines rushing through the band
+		var ly := y0 + 6.0 + fposmod(i * 17.3, y1 - y0 - 12.0)
+		var lx := fposmod(i * 71.0 - t * 22.0 * dir, w + 120.0) - 60.0 + off
+		draw_line(Vector2(lx, ly), Vector2(lx + 40.0 + (i % 3) * 18.0, ly), Color(accent, 0.35), 1.0)
+
+	# The portrait breaks out over the top of the band.
+	var tex: Texture2D = _cut["tex"]
+	var fpx := float(_cut["fpx"])
+	var origin: Vector2 = _cut["origin"]
+	var sc := 2.6
+	var feet := Vector2((96.0 if side == 0 else w - 96.0) + off * 1.25, y1 + 6.0)
+	draw_set_transform(feet, 0.0, Vector2(sc * dir, sc))
+	draw_texture_rect_region(tex, Rect2(-origin.x, -origin.y, fpx, fpx), _cut["region"], Color(0, 0, 0, 0.5))
+	draw_set_transform(feet + Vector2(-3.0 * dir, -2.0), 0.0, Vector2(sc * dir, sc))
+	draw_texture_rect_region(tex, Rect2(-origin.x, -origin.y, fpx, fpx), _cut["region"])
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+	var tx := (170.0 if side == 0 else 20.0) + off
+	_text(Vector2(tx, y0 + 18), String(_cut["who"]), 8, accent, HORIZONTAL_ALIGNMENT_LEFT, 290)
+	_text(Vector2(tx, y0 + 42), String(_cut["move"]) + "!", 24, C_TEXT, HORIZONTAL_ALIGNMENT_LEFT, 290)
+	if t < 3.0:
+		draw_rect(Rect2(0, 0, w, SimDefs.VIEW_H), Color(1, 1, 1, 0.5 * (1.0 - t / 3.0)))
 
 
 func _draw_menu() -> void:

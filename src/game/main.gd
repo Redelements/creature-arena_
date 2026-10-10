@@ -34,10 +34,15 @@ const DUMMY_MODES := ["Stand", "Guard", "Walk", "Dodge"]
 const ROUND_TICKS := 90 * 60
 const WINS_NEEDED := 2
 const INTRO_TICKS := 90
-const ROUND_OVER_TICKS := 160
+const ROUND_OVER_TICKS := 210
 const SETTINGS_PATH := "user://settings.cfg"
 const MENU_Y0 := 104.0
 const MENU_DY := 16.0
+# Knockouts: hold the frame, then play the next stretch at half speed while the camera
+# pushes in on the loser. Only affects what's shown after the round is decided.
+const KO_FREEZE := 18
+const KO_SLOWMO := 70
+const KO_ZOOM := 1.45
 
 var sim: MatchSim
 var replay: Replay
@@ -46,6 +51,7 @@ var crowd: CrowdView
 var entities: Node2D
 var views: Array[CreatureView] = []
 var fx: FxView
+var fx_ground: FxGround
 var debug: DebugView
 var hud: Hud
 var camera: Camera2D
@@ -67,6 +73,10 @@ var _menu_ko_t := 0
 var player_input := PlayerInput.new()
 var dummy_mode := 0
 var shake := 0.0
+var _freeze := 0
+var _slowmo := 0
+var _ko_cam_t := -1
+var _ko_focus := Vector2.ZERO
 var autoplay: AutoPlay = null
 var frame_count := 0
 var _shots := {}
@@ -85,10 +95,13 @@ func _ready() -> void:
 	add_child(arena)
 	crowd = CrowdView.new()
 	add_child(crowd)
+	fx_ground = FxGround.new()
+	add_child(fx_ground)
 	entities = Node2D.new()
 	entities.y_sort_enabled = true
 	add_child(entities)
 	fx = FxView.new()
+	fx.bind_ground(fx_ground)
 	add_child(fx)
 	debug = DebugView.new()
 	debug.visible = false
@@ -185,6 +198,10 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	hud.sim = sim
 	fx.sim = sim
 	fx.clear()
+	fx.views = views
+	_freeze = 0
+	_slowmo = 0
+	_ko_cam_t = -1
 	hud.dummy_mode_name = DUMMY_MODES[dummy_mode]
 	for i in 2:
 		match sides[i]:
@@ -203,13 +220,27 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 func _physics_process(_delta: float) -> void:
 	frame_count += 1
 	flow_t += 1
-	var live := flow == Flow.FIGHT or flow == Flow.MENU
-	var inputs := PackedInt32Array([_side_bits(0, live), _side_bits(1, live)])
-	if flow == Flow.FIGHT:
-		replay.record(inputs)
-	sim.step(inputs)
-	for e in sim.events:
-		_react(e)
+	# KO freeze and slow motion: the sim simply isn't stepped on some frames. This only
+	# happens after a round is decided, when no inputs are being recorded.
+	var step := true
+	if _freeze > 0:
+		_freeze -= 1
+		step = false
+		fx.time_scale = 0.0
+	elif _slowmo > 0:
+		_slowmo -= 1
+		step = _slowmo % 2 == 0
+		fx.time_scale = 0.5
+	else:
+		fx.time_scale = 1.0
+	if step:
+		var live := flow == Flow.FIGHT or flow == Flow.MENU
+		var inputs := PackedInt32Array([_side_bits(0, live), _side_bits(1, live)])
+		if flow == Flow.FIGHT:
+			replay.record(inputs)
+		sim.step(inputs)
+		for e in sim.events:
+			_react(e)
 	_update_flow()
 
 	arena.refresh()
@@ -221,7 +252,11 @@ func _physics_process(_delta: float) -> void:
 	if debug.visible:
 		debug.queue_redraw()
 
-	shake *= 0.82
+	shake = maxf(shake, fx.shake_out)
+	fx.shake_out = 0.0
+	if _freeze <= 0:
+		shake *= 0.82
+	_update_camera()
 	camera.offset = Vector2(randf_range(-shake, shake), randf_range(-shake, shake)).round() if shake > 0.3 else Vector2.ZERO
 	flash_rect.color.a = maxf(0.0, flash_rect.color.a - 0.04)
 	_capture()
@@ -361,12 +396,46 @@ func _react(e: Dictionary) -> void:
 		"guard_break", "breakaway", "slip":
 			crowd.cheer(0.3)
 		"surge":
-			flash_rect.color.a = 0.55
+			_flash(Color(1, 0.95, 0.75), 0.55)
 			shake = maxf(shake, 3.0)
 			crowd.cheer(0.6)
+			var who := int(e.get("who", 0))
+			hud.cut_in(sim.creatures[who], who, String(e.get("name", "Surge")))
 		"ko":
-			shake = maxf(shake, 4.0)
+			shake = maxf(shake, 5.0)
 			crowd.cheer(1.0)
+			_flash(Color.WHITE, 0.6)
+			if not MODES[mode].get("training", false) or flow == Flow.MENU:
+				_freeze = KO_FREEZE
+				_slowmo = KO_SLOWMO
+				_ko_cam_t = 0
+				# Frame the loser in the lower third, clear of the K.O. banner.
+				_ko_focus = Vector2(e["pos"]) + Vector2(0, -64)
+				crowd.roar(150)
+
+
+func _flash(col: Color, amount: float) -> void:
+	flash_rect.color = Color(col, maxf(flash_rect.color.a, amount))
+
+
+## Pushes in on a knocked-out fighter, holds through the slow motion, then eases back.
+func _update_camera() -> void:
+	var size := Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H)
+	var z := 1.0
+	var focus := size * 0.5
+	if _ko_cam_t >= 0:
+		_ko_cam_t += 1
+		var t := float(_ko_cam_t)
+		var k_in := clampf(t / 12.0, 0.0, 1.0)
+		var k_out := clampf((t - 120.0) / 40.0, 0.0, 1.0)
+		var amt := (1.0 - pow(1.0 - k_in, 3.0)) * (1.0 - k_out * k_out * (3.0 - 2.0 * k_out))
+		z = lerpf(1.0, KO_ZOOM, amt)
+		focus = focus.lerp(_ko_focus, amt)
+		if k_out >= 1.0:
+			_ko_cam_t = -1
+	var half := size * 0.5 / z
+	camera.zoom = Vector2(z, z)
+	camera.position = focus.clamp(half, size - half)
 
 
 # ------------------------------------------------------------------ input

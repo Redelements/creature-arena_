@@ -125,6 +125,16 @@ All tuning lives in `data/creatures/*.json`: frame data, damage, knockback, laun
 cooldowns, energy costs, dashes, multi-hit timings, terrain effects and the CPU's combo routes.
 Change numbers there, not in code.
 
+Visual effects are data too. Each move can carry an `fx` block (swipe smears, afterimages,
+charge-up particles, impacts like Avalanche's rock spire or Storm Drain's geysers) and each
+creature a `ko_fx` block that picks its death animation: Cairn's stack breaks apart and
+tumbles across the floor; Culvert cracks, gushes storm water and settles into rubble. The
+keys are listed at the top of `src/view/fx_view.gd`. Effects only read the simulation, so
+they can never change a match, a replay or a test result. Knockouts also get a freeze
+frame, slow motion and a camera push-in, and Surges get a fighting-game cut-in.
+
+![Effects: Runoff and Slip, Storm Drain, Avalanche, and both knockouts](docs/fx_demo.gif)
+
 ## Tests
 
 ```sh
@@ -149,6 +159,7 @@ replacement art with the same layout drops in without code changes.
 - [x] **Phase 0 – Prototype:** one creature vs. a dummy; move, dodge, attack, hitstop, knockback, breakable floor
 - [x] **Combat system:** attack types, cancels, variety bonus, launches, counters, grabs, projectiles, Surges, breakaway
 - [x] **Second fighter and CPU opponent:** Cairn, versus mode, best-of-3 rounds, Easy/Normal/Hard
+- [x] **Effects pass:** per-move effects, knockout animations, Surge cut-ins, squash and stretch, combo tracker, crowd reactions
 - [ ] **Vertical slice:** final art for two fighters, one finished arena, tag-team swap, local 2-player
 - [ ] **Content:** eight creatures, five arenas, affinity surfaces
 - [ ] **Polish and launch:** music and SFX, IP and name review, demo and store page
