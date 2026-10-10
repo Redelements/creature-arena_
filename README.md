@@ -35,7 +35,8 @@ godot --path . -- --mode=6              # Duel vs CPU with the default teams (ad
 
 Modes: 0 Cairn vs CPU, 1 Culvert vs CPU, 2 CPU vs CPU, 3 training as Cairn, 4 training as Culvert,
 5 combo showcases (each fighter's full kit, then how to answer the big moves, on a loop),
-6 Duel vs CPU, 7 Duel for 2 players, 8 Versus for 2 players. `--teams=cairn,culvert,cairn:culvert,cairn,culvert`
+6 Duel vs CPU, 7 Duel for 2 players, 8 Versus for 2 players, 9 Combo Trials,
+10 Reaction Drill (read Culvert), 11 Reaction Drill (read Cairn). `--teams=cairn,culvert,cairn:culvert,cairn,culvert`
 sets Duel teams; `--cpu-vs-cpu` hands every player side to the CPU.
 
 **Local 2-player:** with two controllers, each player gets one (player 1 can also use the
@@ -102,6 +103,19 @@ at a time.
 
 All of this runs in the deterministic simulation (`src/sim/duel_sim.gd`), so a Duel can
 be played online with rollback exactly like a single match. Tuning: `data/rules/duel.json`.
+
+### Learning the game: Combo Trials and Reaction Drills
+
+- **Combo Trials** (`data/trials.json`, 7 so far): each trial plays a demo of the route,
+  then it's your turn. Every move must come out in order and connect, and the combo can't
+  drop. The caption shows the route with your buttons and ticks off each move. F2 shows
+  the demo again, F4 skips to the next trial.
+- **Reaction Drills:** the partner throws random raw big moves; answer red by rolling
+  away (or hitting first) and gold by guarding. 20 reps, scored with your streak and
+  average reaction time from the tell. *Read Culvert* mixes Gulp, Slam and Runoff;
+  *Read Cairn* mixes Rockslide Rush and Haymaker.
+
+`tests/test_trials.gd` clears every trial with real inputs and runs both drills.
 
 ### Windups: reading the big moves
 
@@ -194,7 +208,7 @@ godot --headless --path . --import
 godot --headless --path . --script res://tests/run_tests.gd
 ```
 
-80 tests cover the six example combos, the three showcases, windups and counterplay,
+97 tests cover the six example combos, every Combo Trial, both Reaction Drills, Duel rules, the three showcases, windups and counterplay,
 rollback netcode (snapshots, and two simulated machines over a laggy, lossy connection), every combo rule (variety bonus, stale moves,
 hitstun decay, juggle cap, cancels on contact, stacks, energy, cooldowns, breakaway), grabs,
 Slip counters, shockwaves, the Storm Drain pit ring, terrain, determinism, replays, and the

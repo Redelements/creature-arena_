@@ -191,6 +191,11 @@ func spawn(e: Dictionary) -> void:
 				_dust(p + Vector2(randf_range(-6, 6), randf_range(-2, 2)), Vector2(randf_range(-0.3, 0.3), -0.4))
 
 
+## A floating call-out (Combo Trials and drills: "CLEAR!", "DODGED!").
+func callout(pos: Vector2, text: String, color: Color) -> void:
+	_text(pos, text, color, 9, 60.0)
+
+
 ## A click marker for League-style orders: green for a move, red for an attack.
 func ping(pos: Vector2, attack: bool) -> void:
 	_add({"kind": "ping", "pos": pos, "life": 18, "attack": attack, "real": true})

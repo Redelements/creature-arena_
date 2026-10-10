@@ -143,9 +143,10 @@ static func names() -> Array:
 	return SCRIPTS.keys()
 
 
-func _init(p_name: String) -> void:
+## A named showcase, or a script built on the fly (Combo Trials make their demos this way).
+func _init(p_name: String, p_def: Dictionary = {}) -> void:
 	name = p_name
-	script_def = SCRIPTS[p_name]
+	script_def = p_def if not p_def.is_empty() else SCRIPTS[p_name]
 
 
 ## The match this showcase starts from: two fighters close together, centre stage.

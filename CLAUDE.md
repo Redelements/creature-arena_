@@ -25,7 +25,9 @@ README for controls, combat rules and frame data.
 - **Raw big moves wind up; cancels don't.** A move with `"windup"` gets extra frames only
   when thrown from neutral or guard, so combos stay fast. `tests/test_counterplay.gd`
   enforces at least 15 frames of warning on the big moves.
-- **The CPU and the showcases press buttons** like a player; never give them shortcuts.
+- **The CPU, showcases, trials and drills press buttons** like a player; never give them
+  shortcuts. Coaches (trials, drills) drive the partner and judge the player; they live
+  in `src/game/`, outside the sim.
 - **Legally distinct.** No names, art, sounds or mechanics from Pokémon (no capture, no
   trainer, no type chart). See "Staying legally distinct" in the Game Plan.
 
@@ -56,7 +58,8 @@ xvfb-run -a ... $G --rendering-driver opengl3 --path . --write-movie /tmp/out.av
 Useful flags (after `--`): `--mode=0..8`, `--level=0..2`, `--seed=N`,
 `--showcase=cairn|culvert|counterplay`, `--autoplay`, `--hitboxes`, `--cpu-vs-cpu` (CPU
 plays every player side, for captures), `--pick` (show the team pick screen),
-`--teams=a,b,c:d,e,f`. Modes: 5 showcases, 6 Duel vs CPU, 7 Duel 2P, 8 Versus 2P.
+`--teams=a,b,c:d,e,f`. Modes: 5 showcases, 6 Duel vs CPU, 7 Duel 2P, 8 Versus 2P,
+9 Combo Trials, 10/11 Reaction Drills.
 Matches are deterministic, so a seed reproduces a CPU match exactly.
 
 ## Layout
@@ -67,8 +70,8 @@ src/ai/     cpu_controller                                   CPU opponent (seede
 src/input/  player_input, mouse_orders                       keyboard/mouse/gamepad
 src/view/   fx_view (+fx_ground), creature_view, hud, audio_view, arena, crowd, debug
 src/net/    rollback_session (GGPO-style), sim_check (cross-platform fingerprint)
-src/game/   main (flow, camera), team_select, showcase, controls, match_factory
-data/       creatures/*.json, rules/duel.json, audio.json
+src/game/   main (flow, camera), team_select, showcase, trials, drills, controls, match_factory
+data/       creatures/*.json, rules/duel.json, trials.json, audio.json
 tests/      run_tests.gd auto-runs every tests/test_*.gd
 tools/      gen_sprites.py, gen_audio.py (placeholder generators)
 ```
