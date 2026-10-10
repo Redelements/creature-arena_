@@ -13,11 +13,12 @@ const C_STAMINA := Color("5aa9e6")
 const C_ENERGY := Color("ffcf3f")
 const C_BAR_BG := Color("2a2e38")
 const C_ACCENT := Color("ffd166")
-const HELP := "WASD move  J light  K heavy  U skill 1  I skill 2  O surge  Space dodge  Shift guard  Shift+Space breakaway  F1 hitboxes  Esc menu"
 
 var sim: MatchSim
 var tags := ["P1", "CPU"]
-var key_labels := [["U", "I"], ["", ""]]
+var key_labels := [["", ""], ["", ""]]
+var surge_labels := ["", ""]
+var help_text := ""
 var show_help := true
 var timer_ticks := -1
 var wins := [0, 0]
@@ -87,7 +88,7 @@ func _draw() -> void:
 
 	if show_help:
 		draw_rect(Rect2(0, 259, SimDefs.VIEW_W, 11), C_PANEL)
-		_text(Vector2(0, 267), HELP, 5, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, SimDefs.VIEW_W)
+		_text(Vector2(0, 267), help_text, 5, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, SimDefs.VIEW_W)
 
 
 func _panel(side: int, x: float, right: bool) -> void:
@@ -109,7 +110,8 @@ func _panel(side: int, x: float, right: bool) -> void:
 	_bar(Rect2(x + 5, 24, 100, 3), c.energy / CreatureSim.MAX_ENERGY, ecol, right)
 	_bar(Rect2(x + 5, 30, 60, 2), c.stamina / c.max_stamina, C_STAMINA, right)
 	if full:
-		_text(Vector2(x + 5 if not right else x + 5, 35), "SURGE READY", 5, C_ENERGY,
+		var ready_txt := "SURGE READY" + (" (%s)" % surge_labels[side] if String(surge_labels[side]) != "" else "")
+		_text(Vector2(x + 5, 35), ready_txt, 5, C_ENERGY,
 			HORIZONTAL_ALIGNMENT_RIGHT if right else HORIZONTAL_ALIGNMENT_LEFT, 100 if not right else 100)
 
 	# Cairn's stones.
@@ -184,7 +186,7 @@ func _draw_menu() -> void:
 		_text(Vector2(150, y), menu_items[i], 9, C_ACCENT if sel else C_TEXT)
 		y += 16.0
 	_text(Vector2(0, 232), menu_footer, 6, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, SimDefs.VIEW_W)
-	_text(Vector2(0, 244), "Up/Down choose   Left/Right change CPU level   Enter or J to start", 6, C_DIM,
+	_text(Vector2(0, 244), "Arrows / D-pad / mouse to choose   Left/Right to change   Enter / A / click to start", 6, C_DIM,
 		HORIZONTAL_ALIGNMENT_CENTER, SimDefs.VIEW_W)
 
 

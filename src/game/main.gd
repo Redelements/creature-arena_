@@ -17,6 +17,7 @@ extends Node2D
 ##   --shots=60,120        save screenshots at those frame numbers
 ##   --shot-dir=PATH       where screenshots go (default user://shots)
 ##   --quit-after=N        exit after N frames
+##   --layout=league|classic  keyboard layout (saved in the menu otherwise)
 
 enum Flow { MENU, INTRO, FIGHT, ROUND_OVER, MATCH_OVER }
 enum Side { PLAYER, CPU, DUMMY }
@@ -34,6 +35,9 @@ const ROUND_TICKS := 90 * 60
 const WINS_NEEDED := 2
 const INTRO_TICKS := 90
 const ROUND_OVER_TICKS := 160
+const SETTINGS_PATH := "user://settings.cfg"
+const MENU_Y0 := 104.0
+const MENU_DY := 16.0
 
 var sim: MatchSim
 var replay: Replay
@@ -60,6 +64,7 @@ var seed_base := 1
 var menu_index := 0
 var _menu_ko_t := 0
 
+var player_input := PlayerInput.new()
 var dummy_mode := 0
 var shake := 0.0
 var autoplay: AutoPlay = null
@@ -100,7 +105,9 @@ func _ready() -> void:
 	hud = Hud.new()
 	layer.add_child(hud)
 
+	_load_settings()
 	var start_mode := _parse_args()
+	_apply_device()
 	if start_mode >= 0:
 		_start_match(start_mode)
 	else:
@@ -125,9 +132,10 @@ func _refresh_menu() -> void:
 	for m in MODES:
 		items.append(String(m["label"]))
 	items.append("CPU level:  < %s >" % LEVEL_NAMES[level])
+	items.append("Keyboard:  < %s >" % PlayerInput.LAYOUT_NAMES[player_input.layout])
 	hud.menu_items = items
 	hud.menu_index = menu_index
-	hud.menu_footer = "Cairn: fast counter-puncher, builds stones with lights.   Culvert: grabs, shockwaves, pits."
+	hud.menu_footer = "Xbox controller works any time. Keyboard layout applies to keyboard and mouse."
 
 
 func _start_match(m: int) -> void:
@@ -135,6 +143,7 @@ func _start_match(m: int) -> void:
 	wins = [0, 0]
 	round_num = 1
 	hud.menu_visible = false
+	_save_settings()
 	_start_round()
 
 
@@ -181,13 +190,14 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 		match sides[i]:
 			Side.PLAYER:
 				hud.tags[i] = "P1"
-				hud.key_labels[i] = ["U", "I"]
 			Side.CPU:
 				hud.tags[i] = "CPU " + LEVEL_NAMES[level]
 				hud.key_labels[i] = ["", ""]
 			_:
 				hud.tags[i] = ""
 	shake = 0.0
+	player_input.reset()
+	_apply_device()
 
 
 func _physics_process(_delta: float) -> void:
@@ -251,7 +261,7 @@ func _update_flow() -> void:
 					flow_t = 0
 					var w := 0 if wins[0] >= WINS_NEEDED else 1
 					hud.banner = "%s WINS!" % String(sim.creatures[w].def["name"]).to_upper()
-					hud.banner_sub = "Enter: rematch     Esc: menu"
+					hud.banner_sub = "Enter / A: rematch     Esc / View: menu"
 				else:
 					round_num += 1
 					_start_round()
@@ -301,7 +311,11 @@ func _side_bits(i: int, live: bool) -> int:
 		Side.PLAYER:
 			if autoplay != null:
 				return autoplay.bits(sim.tick + 1)
-			return Controls.read_bits()
+			var b := player_input.bits(sim, i, get_global_mouse_position())
+			var ping: Dictionary = player_input.orders.ping
+			if not ping.is_empty():
+				fx.ping(ping["pos"], bool(ping["attack"]))
+			return b
 		Side.CPU:
 			return (cpus[i] as CpuController).bits(sim)
 		Side.DUMMY:
@@ -329,6 +343,7 @@ func _dummy_bits() -> int:
 func _react(e: Dictionary) -> void:
 	fx.spawn(e)
 	var power: float = e["power"]
+	_rumble(e)
 	match String(e["type"]):
 		"hit":
 			shake = maxf(shake, 1.5 + power * 0.2)
@@ -355,6 +370,13 @@ func _react(e: Dictionary) -> void:
 
 
 # ------------------------------------------------------------------ input
+
+func _input(event: InputEvent) -> void:
+	var before := player_input.label_set()
+	player_input.note_event(event)
+	if player_input.label_set() != before:
+		_apply_device()
+
 
 func _unhandled_input(event: InputEvent) -> void:
 	if flow == Flow.MENU:
@@ -388,26 +410,109 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _menu_input(event: InputEvent) -> void:
-	var count := MODES.size() + 1
-	if event.is_action_pressed("ui_down") or event.is_action_pressed("move_down"):
+	var count := MODES.size() + 2
+	# Mouse: hover to highlight, click to choose.
+	if event is InputEventMouseMotion or (event is InputEventMouseButton and event.pressed):
+		var p: Vector2 = get_global_mouse_position()
+		var row := int(floor((p.y - (MENU_Y0 - 10.0)) / MENU_DY))
+		if p.x >= 130.0 and p.x <= 350.0 and row >= 0 and row < count:
+			menu_index = row
+			if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+				if row < MODES.size():
+					_start_match(row)
+					return
+				_change_option(row, 1)
+		_refresh_menu()
+		return
+	if event.is_action_pressed("ui_down"):
 		menu_index = (menu_index + 1) % count
-	elif event.is_action_pressed("ui_up") or event.is_action_pressed("move_up"):
+	elif event.is_action_pressed("ui_up"):
 		menu_index = (menu_index + count - 1) % count
-	elif event.is_action_pressed("ui_left") or event.is_action_pressed("move_left"):
-		level = maxi(0, level - 1)
-	elif event.is_action_pressed("ui_right") or event.is_action_pressed("move_right"):
-		level = mini(LEVEL_NAMES.size() - 1, level + 1)
-	elif event.is_action_pressed("menu_confirm"):
+	elif event.is_action_pressed("ui_left"):
+		_change_option(menu_index, -1)
+	elif event.is_action_pressed("ui_right"):
+		_change_option(menu_index, 1)
+	elif event.is_action_pressed("menu_confirm") or event.is_action_pressed("ui_accept"):
 		if menu_index < MODES.size():
 			_start_match(menu_index)
 			return
-		level = (level + 1) % LEVEL_NAMES.size()
+		_change_option(menu_index, 1)
 	elif event.is_action_pressed("menu_back"):
 		get_tree().quit()
 		return
 	else:
 		return
 	_refresh_menu()
+
+
+## Left/right on the CPU level or keyboard layout rows.
+func _change_option(row: int, dir: int) -> void:
+	if row == MODES.size():
+		level = (level + dir + LEVEL_NAMES.size()) % LEVEL_NAMES.size()
+		_save_settings()
+	elif row == MODES.size() + 1:
+		var i := PlayerInput.LAYOUTS.find(player_input.layout)
+		player_input.layout = PlayerInput.LAYOUTS[(i + PlayerInput.LAYOUTS.size() + dir) % PlayerInput.LAYOUTS.size()]
+		_save_settings()
+		_apply_device()
+	_refresh_menu()
+
+
+## Updates prompts, help text and the mouse cursor for the current device and layout.
+func _apply_device() -> void:
+	var labels := [player_input.label("skill_1"), player_input.label("skill_2")]
+	for i in 2:
+		if sides[i] == Side.PLAYER:
+			hud.key_labels[i] = labels
+			hud.surge_labels[i] = player_input.label("surge")
+		else:
+			hud.key_labels[i] = ["", ""]
+			hud.surge_labels[i] = ""
+	hud.help_text = player_input.help_text()
+	if player_input.device == PlayerInput.Device.GAMEPAD:
+		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
+	else:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		Input.set_default_cursor_shape(
+			Input.CURSOR_CROSS if player_input.layout == "league" and flow != Flow.MENU else Input.CURSOR_ARROW)
+
+
+## Controller rumble: a light buzz when you land a hit, a heavier one when you get hit.
+func _rumble(e: Dictionary) -> void:
+	if player_input.device != PlayerInput.Device.GAMEPAD or flow != Flow.FIGHT:
+		return
+	var me := sides.find(Side.PLAYER)
+	if me < 0:
+		return
+	match String(e["type"]):
+		"hit":
+			if int(e["target"]) == me:
+				Input.start_joy_vibration(player_input.pad_id, 0.4, 0.6, 0.18)
+			elif int(e["attacker"]) == me:
+				Input.start_joy_vibration(player_input.pad_id, 0.3, 0.0 if float(e["power"]) < 9.0 else 0.4, 0.08)
+		"surge":
+			if int(e.get("who", -1)) == me:
+				Input.start_joy_vibration(player_input.pad_id, 0.5, 0.5, 0.4)
+		"slam":
+			Input.start_joy_vibration(player_input.pad_id, 0.2, 0.5 if float(e["power"]) >= 1.0 else 0.2, 0.15)
+		"ko":
+			Input.start_joy_vibration(player_input.pad_id, 0.8, 0.8, 0.5)
+
+
+func _load_settings() -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load(SETTINGS_PATH) == OK:
+		var lay := String(cfg.get_value("input", "layout", "league"))
+		if lay in PlayerInput.LAYOUTS:
+			player_input.layout = lay
+		level = clampi(int(cfg.get_value("game", "level", level)), 0, LEVEL_NAMES.size() - 1)
+
+
+func _save_settings() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("input", "layout", player_input.layout)
+	cfg.set_value("game", "level", level)
+	cfg.save(SETTINGS_PATH)
 
 
 func _parse_args() -> int:
@@ -433,6 +538,10 @@ func _parse_args() -> int:
 			_shot_dir = a.get_slice("=", 1)
 		elif a.begins_with("--quit-after="):
 			_quit_after = int(a.get_slice("=", 1))
+		elif a.begins_with("--layout="):
+			var lay := a.get_slice("=", 1)
+			if lay in PlayerInput.LAYOUTS:
+				player_input.layout = lay
 	return start
 
 

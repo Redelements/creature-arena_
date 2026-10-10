@@ -69,6 +69,11 @@ func spawn(e: Dictionary) -> void:
 				_dust(p + Vector2(randf_range(-6, 6), randf_range(-2, 2)), Vector2(randf_range(-0.3, 0.3), -0.4))
 
 
+## A click marker for League-style orders: green for a move, red for an attack.
+func ping(pos: Vector2, attack: bool) -> void:
+	_add({"kind": "ping", "pos": pos, "life": 18, "attack": attack})
+
+
 func advance() -> void:
 	_tick += 1
 	for p in _parts:
@@ -101,6 +106,16 @@ func _draw() -> void:
 				var v: Vector2 = p["vel"]
 				var frame := mini(int(k * 4.0), 3)
 				draw_texture_rect_region(SHEET, Rect2((pos + v * t - Vector2(8, 12)).round(), Vector2(16, 16)), Rect2(frame * 16, 16, 16, 16))
+			"ping":
+				var col := Color("ff5a5a") if bool(p["attack"]) else Color("7cf27c")
+				col.a = 1.0 - k
+				var r := lerpf(9.0, 3.0, k)
+				draw_set_transform(pos, 0.0, Vector2(1.0, 0.5))
+				draw_arc(Vector2.ZERO, r, 0.0, TAU, 20, col, 1.5)
+				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+				for ang in [PI * 0.25, PI * 0.75, PI * 1.25, PI * 1.75]:
+					var dir := Vector2.from_angle(ang) * Vector2(1.0, 0.5)
+					draw_line(pos + dir * (r + 4.0), pos + dir * (r + 1.0), col, 1.0)
 			"ring":
 				var r := lerpf(4.0, float(p["radius"]), sqrt(k))
 				draw_set_transform(pos, 0.0, Vector2(1.0, 0.5))

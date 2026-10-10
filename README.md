@@ -29,21 +29,31 @@ CPU levels: 0 Easy, 1 Normal, 2 Hard.
 
 ## Controls
 
-| Action | Keyboard | Gamepad |
-| --- | --- | --- |
-| Move | WASD / arrows | Left stick / D-pad |
-| Light attack (chains into a string) | J | A |
-| Heavy (hold to charge) | K | X |
-| Skill 1 | U | Y |
-| Skill 2 | I | B |
-| Surge (needs a full energy bar) | O | RT |
-| Dodge roll | Space | RB |
-| Guard | Shift | LB |
-| Breakaway (while stunned, 50 energy) | Shift + Space | LB + RB |
-| Back to menu | Esc | Back |
-| Hitbox overlay | F1 | — |
-| Training: cycle dummy behavior / reset | F2 / R | — |
-| Save replay | F6 | — |
+An **Xbox controller** works any time. For keyboard and mouse, pick a layout in the menu
+(**Keyboard: League-style** or **Classic**); the choice is saved. On-screen prompts follow
+whichever device you used last.
+
+| Action | Xbox controller | League-style (mouse + QWER) | Classic keyboard |
+| --- | --- | --- | --- |
+| Move | Left stick / D-pad | Right-click the ground (hold to steer) | WASD / arrows |
+| Aim | Right stick (optional) | Mouse cursor | Movement direction |
+| Light attack | A | A or left-click (toward cursor) | J |
+| Auto-attack | — | Right-click the opponent | — |
+| Heavy (hold to charge) | X | E (aim with the mouse while charging) | K |
+| Skill 1 | Y | Q | U |
+| Skill 2 | B | W | I |
+| Surge | RT | R | O |
+| Dodge roll | RB | D or Space (toward cursor) | Space |
+| Guard | LB | F or Shift | Shift |
+| Breakaway (while stunned) | LB + RB | D + F | Shift + Space |
+| Stop | — | S | — |
+| Menu / back | View | Esc | Esc |
+
+Controllers rumble on hits, slams, Surges and knockouts. The game aims in 8 directions,
+so mouse and right-stick aiming snap to the nearest one.
+
+Tools: F1 hitbox overlay, F2 cycle the training dummy, F3 hide the controls strip,
+F4 reset training, F6 save a replay.
 
 ## How combat works
 
@@ -97,6 +107,7 @@ Every one of these is checked by an automated test (`tests/test_combos.gd`).
 ```
 src/sim/      Deterministic simulation: no nodes, no clock, no randomness
 src/ai/       CPU opponent (presses buttons like a player; seeded randomness)
+src/input/    Player input: League-style mouse orders, classic keys, gamepad aiming
 src/view/     Draws the sim: arena, creatures, effects, HUD, menu, debug overlay
 src/game/     Scene flow (menu, rounds, training), controls, match setup
 data/         Creature stats, movesets, combo routes and sprite layouts (JSON)
@@ -121,11 +132,11 @@ godot --headless --path . --import
 godot --headless --path . --script res://tests/run_tests.gd
 ```
 
-54 tests cover the six example combos, every combo rule (variety bonus, stale moves,
+65 tests cover the six example combos, every combo rule (variety bonus, stale moves,
 hitstun decay, juggle cap, cancels on contact, stacks, energy, cooldowns, breakaway), grabs,
 Slip counters, shockwaves, the Storm Drain pit ring, terrain, determinism, replays, and the
-CPU (reproducible matches, uses its whole kit, Hard beats Easy). They run on every push via
-GitHub Actions.
+CPU (reproducible matches, uses its whole kit, Hard beats Easy), and the mouse and gamepad
+controls. A test that crashes counts as a failure. They run on every push via GitHub Actions.
 
 ## Art
 
