@@ -18,9 +18,10 @@ extends Node2D
 ##   --shot-dir=PATH       where screenshots go (default user://shots)
 ##   --quit-after=N        exit after N frames
 ##   --layout=league|classic  keyboard layout (saved in the menu otherwise)
+##   --showcase=NAME       play one scripted demo on a loop: cairn, culvert or counterplay
 
 enum Flow { MENU, INTRO, FIGHT, ROUND_OVER, MATCH_OVER }
-enum Side { PLAYER, CPU, DUMMY }
+enum Side { PLAYER, CPU, DUMMY, SCRIPT }
 
 const MODES := [
 	{"label": "Cairn  vs  CPU Culvert", "left": "cairn", "right": "culvert", "sides": [Side.PLAYER, Side.CPU]},
@@ -28,6 +29,7 @@ const MODES := [
 	{"label": "Watch: CPU vs CPU", "left": "cairn", "right": "culvert", "sides": [Side.CPU, Side.CPU]},
 	{"label": "Training: Cairn", "left": "cairn", "training": true},
 	{"label": "Training: Culvert", "left": "culvert", "training": true},
+	{"label": "Watch: combo showcases", "showcase": true},
 ]
 const LEVEL_NAMES := ["Easy", "Normal", "Hard"]
 const DUMMY_MODES := ["Stand", "Guard", "Walk", "Dodge"]
@@ -43,6 +45,7 @@ const MENU_DY := 16.0
 const KO_FREEZE := 18
 const KO_SLOWMO := 70
 const KO_ZOOM := 1.45
+const SHOWCASE_ZOOM := 1.9
 
 var sim: MatchSim
 var replay: Replay
@@ -56,6 +59,7 @@ var debug: DebugView
 var hud: Hud
 var camera: Camera2D
 var flash_rect: ColorRect
+var fade_rect: ColorRect
 
 var flow: Flow = Flow.MENU
 var flow_t := 0
@@ -77,6 +81,12 @@ var _freeze := 0
 var _slowmo := 0
 var _ko_cam_t := -1
 var _ko_focus := Vector2.ZERO
+var _ko_pos := Vector2.ZERO
+var _cam_follow := Vector2.ZERO
+var showcase: Showcase = null
+var _showcase_list: Array = []
+var _showcase_i := 0
+var _showcase_end_t := 0
 var autoplay: AutoPlay = null
 var frame_count := 0
 var _shots := {}
@@ -115,6 +125,11 @@ func _ready() -> void:
 	flash_rect.size = Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H)
 	flash_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(flash_rect)
+	fade_rect = ColorRect.new()
+	fade_rect.color = Color(0, 0, 0, 0)
+	fade_rect.size = Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H)
+	fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(fade_rect)
 	hud = Hud.new()
 	layer.add_child(hud)
 
@@ -132,6 +147,7 @@ func _ready() -> void:
 func _open_menu() -> void:
 	flow = Flow.MENU
 	flow_t = 0
+	_end_showcase()
 	# A CPU-vs-CPU match plays behind the menu.
 	_new_sim(MatchFactory.versus("cairn", "culvert"), [Side.CPU, Side.CPU])
 	hud.timer_ticks = -1
@@ -162,6 +178,12 @@ func _start_match(m: int) -> void:
 
 func _start_round() -> void:
 	var cfg: Dictionary = MODES[mode]
+	if cfg.get("showcase", false):
+		if _showcase_list.is_empty():
+			_showcase_list = Showcase.names()
+		_showcase_i = 0
+		_start_showcase()
+		return
 	if cfg.get("training", false):
 		_new_sim(MatchFactory.training(String(cfg["left"])), [Side.PLAYER, Side.DUMMY])
 		hud.timer_ticks = -1
@@ -175,6 +197,32 @@ func _start_round() -> void:
 	hud.wins = wins
 	flow = Flow.INTRO
 	flow_t = 0
+
+
+## Scripted demos: both sides follow a Showcase, with captions naming each move.
+func _start_showcase() -> void:
+	showcase = Showcase.new(String(_showcase_list[_showcase_i % _showcase_list.size()]))
+	_new_sim(showcase.build(), [Side.SCRIPT, Side.SCRIPT])
+	_showcase_end_t = 0
+	_cam_follow = Vector2.ZERO
+	hud.timer_ticks = -1
+	hud.banner = ""
+	hud.show_help = false
+	hud.caption_title = showcase.title()
+	hud.caption_items = showcase.caption_items()
+	hud.caption_index = -1
+	flow = Flow.FIGHT
+	flow_t = 0
+
+
+func _end_showcase() -> void:
+	_showcase_list = []
+	if showcase == null:
+		return
+	showcase = null
+	hud.caption_title = ""
+	hud.show_help = true
+	fade_rect.color.a = 0.0
 
 
 func _new_sim(s: MatchSim, p_sides: Array) -> void:
@@ -210,6 +258,9 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 			Side.CPU:
 				hud.tags[i] = "CPU " + LEVEL_NAMES[level]
 				hud.key_labels[i] = ["", ""]
+			Side.SCRIPT:
+				hud.tags[i] = "DEMO"
+				hud.key_labels[i] = ["", ""]
 			_:
 				hud.tags[i] = ""
 	shake = 0.0
@@ -236,12 +287,18 @@ func _physics_process(_delta: float) -> void:
 	if step:
 		var live := flow == Flow.FIGHT or flow == Flow.MENU
 		var inputs := PackedInt32Array([_side_bits(0, live), _side_bits(1, live)])
+		if showcase != null and flow == Flow.FIGHT:
+			inputs = showcase.inputs(sim)
 		if flow == Flow.FIGHT:
 			replay.record(inputs)
 		sim.step(inputs)
 		for e in sim.events:
 			_react(e)
 	_update_flow()
+	if showcase != null:
+		hud.caption_items = showcase.caption_items()
+		hud.caption_index = showcase.show
+		fade_rect.color.a = showcase.fade
 
 	arena.refresh()
 	crowd.advance()
@@ -282,6 +339,13 @@ func _update_flow() -> void:
 				flow = Flow.FIGHT
 				flow_t = 0
 		Flow.FIGHT:
+			if showcase != null:
+				if showcase.finished:
+					_showcase_end_t += 1
+					if _showcase_end_t > 20:
+						_showcase_i += 1
+						_start_showcase()
+				return
 			if MODES[mode].get("training", false):
 				return
 			timer -= 1
@@ -411,6 +475,7 @@ func _react(e: Dictionary) -> void:
 				_ko_cam_t = 0
 				# Frame the loser in the lower third, clear of the K.O. banner.
 				_ko_focus = Vector2(e["pos"]) + Vector2(0, -64)
+				_ko_pos = Vector2(e["pos"])
 				crowd.roar(150)
 
 
@@ -419,18 +484,28 @@ func _flash(col: Color, amount: float) -> void:
 
 
 ## Pushes in on a knocked-out fighter, holds through the slow motion, then eases back.
+## Showcases also follow the two fighters up close, so every tell is easy to see.
 func _update_camera() -> void:
 	var size := Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H)
-	var z := 1.0
-	var focus := size * 0.5
+	var base_z := 1.0
+	var base_focus := size * 0.5
+	var ko_focus := _ko_focus
+	if showcase != null and sim != null and sim.creatures.size() >= 2:
+		var mid := (sim.creatures[0].pos + sim.creatures[1].pos) * 0.5 + Vector2(0, -8)
+		_cam_follow = mid if _cam_follow == Vector2.ZERO else _cam_follow.lerp(mid, 0.12)
+		base_z = SHOWCASE_ZOOM
+		base_focus = _cam_follow
+		ko_focus = _ko_pos + Vector2(0, -16)  # no K.O. banner in a showcase
+	var z := base_z
+	var focus := base_focus
 	if _ko_cam_t >= 0:
 		_ko_cam_t += 1
 		var t := float(_ko_cam_t)
 		var k_in := clampf(t / 12.0, 0.0, 1.0)
 		var k_out := clampf((t - 120.0) / 40.0, 0.0, 1.0)
 		var amt := (1.0 - pow(1.0 - k_in, 3.0)) * (1.0 - k_out * k_out * (3.0 - 2.0 * k_out))
-		z = lerpf(1.0, KO_ZOOM, amt)
-		focus = focus.lerp(_ko_focus, amt)
+		z = lerpf(base_z, maxf(base_z, KO_ZOOM), amt)
+		focus = base_focus.lerp(ko_focus, amt)
 		if k_out >= 1.0:
 			_ko_cam_t = -1
 	var half := size * 0.5 / z
@@ -607,6 +682,11 @@ func _parse_args() -> int:
 			_shot_dir = a.get_slice("=", 1)
 		elif a.begins_with("--quit-after="):
 			_quit_after = int(a.get_slice("=", 1))
+		elif a.begins_with("--showcase="):
+			var sc := a.get_slice("=", 1)
+			if sc in Showcase.names():
+				_showcase_list = [sc]
+			start = MODES.size() - 1
 		elif a.begins_with("--layout="):
 			var lay := a.get_slice("=", 1)
 			if lay in PlayerInput.LAYOUTS:

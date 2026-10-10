@@ -150,6 +150,8 @@ func spawn(e: Dictionary) -> void:
 				for i in 14:
 					var v := (-a.facing).rotated(randf_range(-0.6, 0.6)) * randf_range(0.8, 2.2)
 					_drop(mouth, 10.0, v, randf_range(0.8, 2.2), true)
+		"windup":
+			_windup_tell(e)
 		"breakaway":
 			_add({"kind": "ring", "pos": p + Vector2(0, 16), "life": 16, "radius": 30.0})
 			_text(p + Vector2(0, -10), "BREAKAWAY", Color("c9a7ff"))
@@ -617,6 +619,28 @@ func _pit_plume(p: Vector2) -> void:
 	shake_out = maxf(shake_out, 2.5)
 
 
+# ------------------------------------------------------------------ windup tells
+
+## A raw big move is winding up: a glint over the head for the length of the windup,
+## a ring at the feet, and a "!" when it can't be blocked.
+func _windup_tell(e: Dictionary) -> void:
+	var who := int(e.get("who", -1))
+	if who < 0 or who >= sim.creatures.size():
+		return
+	var c := sim.creatures[who]
+	var frames := float(e["power"])
+	var tell := String(e.get("tell", "strong"))
+	var red := tell in ["unblockable", "guard_break"]
+	var col := CreatureView.TELL_RED if red else CreatureView.TELL_GOLD
+	var head := c.pos + Vector2(0, -_top(c) - 9.0)
+	_add({"kind": "glint", "pos": head, "life": frames + 2.0, "color": col})
+	_add({"kind": "ring", "pos": c.pos, "life": frames, "radius": 22.0, "color": col})
+	if red:
+		_text(head + Vector2(10, -2), "!", col, 12, frames + 10.0)
+		_text(head + Vector2(0, -12), "UNBLOCKABLE" if tell == "unblockable" else "GUARD BREAK", col, 6,
+			frames + 10.0)
+
+
 # ------------------------------------------------------------------ Cairn's stones
 
 ## Where the stones hover above Cairn's head, as [floor position, height].
@@ -810,8 +834,8 @@ func _drop(pos: Vector2, z: float, vel: Vector2, vz: float, pool: bool, col := C
 		"dsize": size})
 
 
-func _text(pos: Vector2, text: String, color: Color, size := 8) -> void:
-	_add({"kind": "text", "pos": pos, "text": text, "color": color, "size": size, "life": 40})
+func _text(pos: Vector2, text: String, color: Color, size := 8, life := 40.0) -> void:
+	_add({"kind": "text", "pos": pos, "text": text, "color": color, "size": size, "life": life})
 
 
 ## Orbiting pebbles while Haymaker charges: more of them, higher, the longer it's held.
@@ -927,6 +951,16 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 			var fs: int = p["size"]
 			ci.draw_string_outline(_font, at, String(p["text"]), HORIZONTAL_ALIGNMENT_CENTER, 80, fs, 3, Color(0.1, 0.08, 0.1, col.a))
 			ci.draw_string(_font, at, String(p["text"]), HORIZONTAL_ALIGNMENT_CENTER, 80, fs, col)
+		"glint":
+			# A four-point star that flares and shrinks over the windup.
+			var pos: Vector2 = Vector2(p["pos"]).round()
+			var col: Color = p["color"]
+			var r := 3.0 + 7.0 * sin(clampf(k * 1.4, 0.0, 1.0) * PI)
+			var w := 1.5
+			ci.draw_colored_polygon(PackedVector2Array([pos + Vector2(0, -r), pos + Vector2(w, -w),
+				pos + Vector2(r, 0), pos + Vector2(w, w), pos + Vector2(0, r), pos + Vector2(-w, w),
+				pos + Vector2(-r, 0), pos + Vector2(-w, -w)]), col)
+			ci.draw_rect(Rect2(pos - Vector2(1, 1), Vector2(2, 2)), Color.WHITE)
 		"px":
 			var col: Color = p["color"]
 			col.a = 1.0 - k

@@ -74,7 +74,7 @@ func state_hash() -> int:
 		parts.append_array([
 			snappedf(c.pos.x, 0.001), snappedf(c.pos.y, 0.001),
 			snappedf(c.hp, 0.001), snappedf(c.stamina, 0.001), snappedf(c.energy, 0.001),
-			c.state, c.state_t, c.move_id, c.charge, c.stack, c.combo_hits])
+			c.state, c.state_t, c.move_id, c.charge, c.stack, c.combo_hits, c.windup_left, c.dodge_buffer])
 	for p in projectiles:
 		var pp: Vector2 = p["pos"]
 		parts.append_array([snappedf(pp.x, 0.001), snappedf(pp.y, 0.001), p["life"]])

@@ -30,6 +30,11 @@ var banner := ""
 var banner_sub := ""
 var dummy_mode_name := ""
 
+# Showcase captions: a title, the chain of moves, and which one is happening now.
+var caption_title := ""
+var caption_items: Array = []
+var caption_index := -1
+
 # Menu
 var menu_visible := false
 var menu_items: Array[String] = []
@@ -104,6 +109,8 @@ func _draw() -> void:
 	for side in 2:
 		if _combo_show[side] > 0:
 			_combo(side)
+	if caption_title != "":
+		_draw_caption()
 	if not _cut.is_empty():
 		_draw_cut_in()
 
@@ -221,6 +228,37 @@ func _combo(side: int) -> void:
 			Color(0.08, 0.08, 0.1, a) if lit else Color(C_DIM.r, C_DIM.g, C_DIM.b, a), HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
 	if mult >= 1.5:
 		_text(Vector2(x + 62, 109), "FULL MIX!", 6, col)
+
+
+func _draw_caption() -> void:
+	var y := 230.0
+	draw_rect(Rect2(6, y, SimDefs.VIEW_W - 12, 34), C_PANEL)
+	draw_rect(Rect2(6, y, 3, 34), C_ACCENT)
+	_text(Vector2(14, y + 11), caption_title, 7, C_ACCENT)
+	var size := 7
+	var sep := "  >  "
+	var total := 0.0
+	for i in caption_items.size():
+		total += _font.get_string_size(String(caption_items[i]), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		if i > 0:
+			total += _font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	if total > SimDefs.VIEW_W - 30:
+		size = 6
+	var x := 14.0
+	for i in caption_items.size():
+		if i > 0:
+			_text(Vector2(x, y + 26), sep, size, C_DIM)
+			x += _font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		var item := String(caption_items[i])
+		var w := _font.get_string_size(item, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		var col := C_DIM
+		if i < caption_index:
+			col = C_TEXT
+		elif i == caption_index:
+			col = C_ACCENT
+			draw_rect(Rect2(x, y + 28, w, 1), C_ACCENT)
+		_text(Vector2(x, y + 26), item, size, col)
+		x += w
 
 
 func _draw_cut_in() -> void:

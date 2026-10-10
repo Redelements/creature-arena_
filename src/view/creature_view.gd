@@ -7,6 +7,9 @@ extends Node2D
 ## drops in without code changes.
 
 const FLASH_SHADER := preload("res://src/view/flash.gdshader")
+## Windup tell colors: red means it can't be blocked, so get out of the way or hit first.
+const TELL_RED := Color(1.0, 0.22, 0.18)
+const TELL_GOLD := Color(1.0, 0.8, 0.3)
 const FALLBACK := {
 	"run": "idle", "light": "idle", "jab": "light", "power": "jab", "heavy": "light",
 	"dodge": "idle", "hurt": "idle", "guard": "idle", "ko": "hurt",
@@ -85,6 +88,12 @@ func refresh() -> void:
 	var flash_col := Color.WHITE
 	if c.flash > 0:
 		flash_amt = 1.0 if c.flash > 3 else 0.5
+	elif c.is_winding_up():
+		var tell := String(c.move_def().get("tell", "strong"))
+		flash_col = TELL_RED if tell in ["unblockable", "guard_break"] else TELL_GOLD
+		flash_amt = 0.7 if (Engine.get_physics_frames() / 3) % 2 == 0 else 0.3
+		# Lean back into the windup.
+		pivot.position.x += 1.0 if flip else -1.0
 	elif c.is_full_charge():
 		flash_col = Color(1.0, 0.82, 0.35)
 		flash_amt = 0.55 if (c.anim_t / 4) % 2 == 0 else 0.15

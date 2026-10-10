@@ -80,7 +80,7 @@
       "fx": { "smear": "arc" }
     },
     "heavy": {
-      "name": "Haymaker", "anim": "heavy",
+      "name": "Haymaker", "anim": "heavy", "windup": 8, "tell": "strong",
       "charge_max": 30, "startup": 6, "active": 4, "recovery": 22,
       "damage": 9, "damage_charged": 18,
       "knockback": 1.0, "knockback_charged": 1.4,
@@ -104,7 +104,7 @@
       "fx": { "smear": "thrust", "size": 1.6 }
     },
     "skill_2": {
-      "name": "Rockslide Rush", "anim": "rush", "cooldown": 180,
+      "name": "Rockslide Rush", "anim": "rush", "windup": 12, "tell": "strong", "cooldown": 180,
       "startup": 6, "active": 10, "recovery": 16,
       "damage": 8, "knockback": 4.5, "hitstun": 26, "hitstop": 7,
       "reach": 14, "hit_radius": 11, "stack_bonus": 4, "juggle": true,

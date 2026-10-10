@@ -22,9 +22,11 @@ From a terminal:
 godot --path .                          # menu
 godot --path . -- --mode=0 --level=2    # Cairn vs a Hard CPU Culvert
 godot --path . -- --mode=2              # watch CPU vs CPU
+godot --path . -- --showcase=cairn      # scripted demo: cairn, culvert or counterplay
 ```
 
-Modes: 0 Cairn vs CPU, 1 Culvert vs CPU, 2 CPU vs CPU, 3 training as Cairn, 4 training as Culvert.
+Modes: 0 Cairn vs CPU, 1 Culvert vs CPU, 2 CPU vs CPU, 3 training as Cairn, 4 training as Culvert,
+5 combo showcases (each fighter's full kit, then how to answer the big moves, on a loop).
 CPU levels: 0 Easy, 1 Normal, 2 Hard.
 
 ## Controls
@@ -67,6 +69,21 @@ combo does half damage, hitstun shrinks with every hit, launched targets take at
 juggle moves, and a stunned fighter can spend 50 energy on a **breakaway**.
 
 Energy fills as you deal and take damage (about one Surge per round).
+
+### Windups: reading the big moves
+
+The high-reward moves wind up first when thrown **raw** (from neutral or out of guard), so
+there is time to see them coming. Cancelled into from a move that hit, they come out at
+full speed, so every combo below still works.
+
+| Glow | Means | Moves (windup) | Answer |
+| --- | --- | --- | --- |
+| **Red** + "!" | Can't be blocked | Gulp (12f), Slam (10f, breaks guard) | Roll away or through it, or hit them first |
+| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f), Runoff (6f) | Guard, then punish |
+
+That puts at least 15 frames (a quarter second) between the glow and the hit, and a jab
+landed during a windup cancels the move. Surges freeze the screen for their cut-in: a
+dodge pressed during the freeze comes out the moment it ends.
 
 ### Cairn — stacked-stone boxer
 
@@ -142,7 +159,7 @@ godot --headless --path . --import
 godot --headless --path . --script res://tests/run_tests.gd
 ```
 
-65 tests cover the six example combos, every combo rule (variety bonus, stale moves,
+74 tests cover the six example combos, the three showcases, windups and counterplay, every combo rule (variety bonus, stale moves,
 hitstun decay, juggle cap, cancels on contact, stacks, energy, cooldowns, breakaway), grabs,
 Slip counters, shockwaves, the Storm Drain pit ring, terrain, determinism, replays, and the
 CPU (reproducible matches, uses its whole kit, Hard beats Easy), and the mouse and gamepad

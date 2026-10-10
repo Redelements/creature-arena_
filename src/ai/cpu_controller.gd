@@ -213,7 +213,7 @@ func _defend(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float) -> b
 	var grab_threat := false
 	var serial := foe.attack_serial
 	if foe.state == CreatureSim.State.ATTACK and not foe.charging \
-			and foe.state_t >= int(p["reaction"]) - 6 and dist < _threat_range(foe, me):
+			and foe.attack_elapsed() >= int(p["reaction"]) - 6 and dist < _threat_range(foe, me):
 		threat = true
 		grab_threat = bool(foe.move_def().get("grab", false))
 	# Shockwaves heading this way.

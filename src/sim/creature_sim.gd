@@ -6,6 +6,12 @@ extends RefCounted
 ## Moves have a type (light, heavy, skill, surge). Lights chain into the next light in
 ## their string; any move that has connected (hit or blocked) can cancel into a move of a
 ## higher rank. Damage bonuses and limits are applied by MatchSim when a hit lands.
+##
+## Windups: a move with "windup": N spends N extra frames winding up when it is thrown
+## raw (from neutral or guard), so the other player has time to see it coming. Cancelled
+## into from a move that connected, it starts at full speed, so combos are unaffected.
+## A windup can be interrupted by getting hit, and doesn't move or re-aim the creature
+## (charge moves keep charging and aiming through it).
 
 enum State { IDLE, MOVE, ATTACK, DODGE, GUARD, HITSTUN, FALLING, KO, AIRBORNE, CRUMPLE, KNOCKDOWN }
 
@@ -72,6 +78,8 @@ var buffer_t := 0
 var countered := false
 var stack := 0
 var stack_t := 0
+var windup_left := 0  ## raw-move windup frames still to go
+var windup_total := 0  ## windup frames this attack started with (0 when cancelled into)
 
 # Being hit
 var stun := 0
@@ -91,6 +99,8 @@ var last_attacker := -1
 
 var dodge_dir := Vector2.RIGHT
 var prev_buttons := 0
+var dodge_buffer := 0  ## a dodge pressed during hitstop, kept until it can happen
+var dodge_buffer_dir := Vector2.ZERO  ## the direction held when it was pressed
 
 
 func _init(p_id: int, p_def: Dictionary, p_pos: Vector2, p_is_dummy := false) -> void:
@@ -262,6 +272,16 @@ func cooldown_ratio(mid: String) -> float:
 	return float(cooldowns.get(mid, 0)) / total
 
 
+func is_winding_up() -> bool:
+	return state == State.ATTACK and windup_left > 0
+
+
+## Ticks since the current attack began, counting its windup. A charge held in place
+## isn't counted (state_t restarts when the charge is released).
+func attack_elapsed() -> int:
+	return state_t + windup_total - windup_left
+
+
 func in_counter_window() -> bool:
 	if state != State.ATTACK or countered:
 		return false
@@ -301,6 +321,10 @@ func buffer_input(buttons: int, sim: MatchSim) -> void:
 		sim.breakaway(self)
 		return
 	_buffer_presses(pressed)
+	# Without this, a dodge pressed during a freeze (like a Surge's) would be lost.
+	if pressed & SimDefs.IN_DODGE:
+		dodge_buffer = BUFFER_TICKS
+		dodge_buffer_dir = SimDefs.dir_from_bits(buttons)
 
 
 func _buffer_presses(pressed: int) -> void:
@@ -375,6 +399,8 @@ func step(buttons: int, sim: MatchSim) -> void:
 		buffer_t -= 1
 		if buffer_t == 0:
 			buffered = ""
+	if dodge_buffer > 0:
+		dodge_buffer -= 1
 
 
 func _wants_breakaway(buttons: int, pressed: int) -> bool:
@@ -385,7 +411,7 @@ func _wants_breakaway(buttons: int, pressed: int) -> bool:
 
 func _update_free(buttons: int, pressed: int, dir: Vector2, sim: MatchSim) -> void:
 	var dg: Dictionary = def["dodge"]
-	if (pressed & SimDefs.IN_DODGE) and stamina >= float(dg["cost"]):
+	if ((pressed & SimDefs.IN_DODGE) or dodge_buffer > 0) and stamina >= float(dg["cost"]):
 		_start_dodge(dir, sim)
 		return
 	if _try_start_buffered(dir, sim):
@@ -409,6 +435,9 @@ func _update_free(buttons: int, pressed: int, dir: Vector2, sim: MatchSim) -> vo
 func _start_dodge(dir: Vector2, sim: MatchSim) -> void:
 	var dg: Dictionary = def["dodge"]
 	stamina -= float(dg["cost"])
+	if dir == Vector2.ZERO and dodge_buffer > 0:
+		dir = dodge_buffer_dir
+	dodge_buffer = 0
 	dodge_dir = dir if dir != Vector2.ZERO else facing
 	walk_vel = Vector2.ZERO
 	_set_state(State.DODGE)
@@ -424,11 +453,11 @@ func _try_start_buffered(dir: Vector2, sim: MatchSim) -> bool:
 		return false
 	if dir != Vector2.ZERO:
 		facing = dir
-	_start_attack(mid, sim)
+	_start_attack(mid, sim, true)
 	return true
 
 
-func _start_attack(mid: String, sim: MatchSim) -> void:
+func _start_attack(mid: String, sim: MatchSim, raw := false) -> void:
 	move_id = mid
 	attack_serial += 1
 	seg_hit.clear()
@@ -446,6 +475,11 @@ func _start_attack(mid: String, sim: MatchSim) -> void:
 	if mv.has("energy_cost"):
 		energy -= float(mv["energy_cost"])
 	_set_state(State.ATTACK)
+	windup_total = int(mv.get("windup", 0)) if raw else 0
+	windup_left = windup_total
+	if windup_total > 0:
+		sim.emit_event("windup", pos, float(windup_total),
+			{"who": id, "move": mid, "tell": String(mv.get("tell", "strong"))})
 	if String(mv["type"]) == "surge":
 		sim.hitstop = maxi(sim.hitstop, int(mv.get("freeze", 18)))
 		sim.emit_event("surge", pos, 1.0, {"who": id, "name": String(mv.get("name", "SURGE"))})
@@ -453,6 +487,15 @@ func _start_attack(mid: String, sim: MatchSim) -> void:
 
 func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 	var mv := move_def()
+	if windup_left > 0:
+		windup_left -= 1
+		state_t = 0
+		if charging:
+			if dir != Vector2.ZERO:
+				facing = dir
+			if (buttons & SimDefs.IN_HEAVY) and charge < int(mv.get("charge_max", 0)):
+				charge += 1
+		return
 	if charging:
 		if dir != Vector2.ZERO:
 			facing = dir  # aim while charging
@@ -547,7 +590,7 @@ func _update_guard(buttons: int, pressed: int, dir: Vector2, sim: MatchSim) -> v
 		stun -= 1
 		return
 	var dg: Dictionary = def["dodge"]
-	if (pressed & SimDefs.IN_DODGE) and stamina >= float(dg["cost"]):
+	if ((pressed & SimDefs.IN_DODGE) or dodge_buffer > 0) and stamina >= float(dg["cost"]):
 		_start_dodge(dir, sim)
 		return
 	if _try_start_buffered(Vector2.ZERO, sim):
@@ -585,6 +628,7 @@ func _recover() -> void:
 
 func cancel_attack() -> void:
 	charging = false
+	windup_left = 0
 	connected = false
 	buffered = ""
 	buffer_t = 0
