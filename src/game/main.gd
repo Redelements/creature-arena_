@@ -55,6 +55,7 @@ var entities: Node2D
 var views: Array[CreatureView] = []
 var fx: FxView
 var fx_ground: FxGround
+var audio: AudioView
 var debug: DebugView
 var hud: Hud
 var camera: Camera2D
@@ -113,6 +114,9 @@ func _ready() -> void:
 	fx = FxView.new()
 	fx.bind_ground(fx_ground)
 	add_child(fx)
+	audio = AudioView.new()
+	add_child(audio)
+	fx.cue.connect(audio.play)
 	debug = DebugView.new()
 	debug.visible = false
 	add_child(debug)
@@ -148,6 +152,7 @@ func _open_menu() -> void:
 	flow = Flow.MENU
 	flow_t = 0
 	_end_showcase()
+	audio.play_music("menu")
 	# A CPU-vs-CPU match plays behind the menu.
 	_new_sim(MatchFactory.versus("cairn", "culvert"), [Side.CPU, Side.CPU])
 	hud.timer_ticks = -1
@@ -177,6 +182,7 @@ func _start_match(m: int) -> void:
 
 
 func _start_round() -> void:
+	audio.play_music("fight")
 	var cfg: Dictionary = MODES[mode]
 	if cfg.get("showcase", false):
 		if _showcase_list.is_empty():
@@ -294,6 +300,8 @@ func _physics_process(_delta: float) -> void:
 		sim.step(inputs)
 		for e in sim.events:
 			_react(e)
+		audio.watch(sim)
+	audio.sfx_enabled = flow != Flow.MENU
 	_update_flow()
 	if showcase != null:
 		hud.caption_items = showcase.caption_items()
@@ -333,6 +341,8 @@ func _update_flow() -> void:
 				menu_index = keep
 		Flow.INTRO:
 			hud.banner = "ROUND %d" % round_num if flow_t < 60 else "FIGHT!"
+			if flow_t == 2 or flow_t == 60:
+				audio.play("round_start", 0.0, 0.75 if flow_t == 2 else 1.0)
 			hud.banner_sub = ""
 			if flow_t >= INTRO_TICKS:
 				hud.banner = ""
@@ -386,6 +396,7 @@ func _ko_side() -> int:
 func _end_round(ko: int) -> void:
 	flow = Flow.ROUND_OVER
 	flow_t = 0
+	audio.play("round_end")
 	var winner := -1
 	if ko == 0:
 		winner = 1
@@ -441,6 +452,7 @@ func _dummy_bits() -> int:
 
 func _react(e: Dictionary) -> void:
 	fx.spawn(e)
+	audio.on_event(e)
 	var power: float = e["power"]
 	_rumble(e)
 	match String(e["type"]):
@@ -523,8 +535,18 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("mute_music"):
+		var muted := audio.toggle_music()
+		hud.show_toast("Music off (M to turn on)" if muted else "Music on")
+		_save_settings()
+		return
 	if flow == Flow.MENU:
+		var before := [menu_index, level, player_input.layout]
 		_menu_input(event)
+		if flow != Flow.MENU:
+			audio.play("ui_select", 0.0, 1.0, true)
+		elif [menu_index, level, player_input.layout] != before:
+			audio.play("ui_move", 0.0, 1.0, true)
 		return
 	if event.is_action_pressed("menu_back"):
 		_open_menu()
@@ -650,12 +672,14 @@ func _load_settings() -> void:
 		if lay in PlayerInput.LAYOUTS:
 			player_input.layout = lay
 		level = clampi(int(cfg.get_value("game", "level", level)), 0, LEVEL_NAMES.size() - 1)
+		audio.set_music_muted(bool(cfg.get_value("audio", "music_muted", false)))
 
 
 func _save_settings() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("input", "layout", player_input.layout)
 	cfg.set_value("game", "level", level)
+	cfg.set_value("audio", "music_muted", audio.music_muted)
 	cfg.save(SETTINGS_PATH)
 
 

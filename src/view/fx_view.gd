@@ -47,6 +47,9 @@ const C_DIM := Color(0.02, 0.03, 0.07)
 const C_PARRY := Color("9ee6ff")
 const C_WARN := Color(1.0, 0.36, 0.28)
 
+## Asks AudioView for a sound that belongs to a timed effect (a KO scatter, geysers...).
+signal cue(sound: String)
+
 var sim: MatchSim
 var views: Array = []  ## CreatureView per creature, same order as sim.creatures
 var ground: FxGround
@@ -545,6 +548,7 @@ func _spire(at: Vector2, facing: Vector2) -> void:
 		_dust(at + Vector2(randf_range(-8, 8), randf_range(-2, 2)), Vector2(randf_range(-0.4, 0.4), -0.6))
 	_later(30.0, _spire_crumble.bind(at))
 	shake_out = maxf(shake_out, 3.0)
+	cue.emit("spire")
 
 
 func _spire_crumble(at: Vector2) -> void:
@@ -562,6 +566,7 @@ func _geysers(c: CreatureSim, mv: Dictionary) -> void:
 		var at := c.pos + Vector2.from_angle(TAU * i / n + 0.2) * r
 		_later(randf_range(0.0, 6.0), _geyser_start.bind(at))
 	shake_out = maxf(shake_out, 4.0)
+	cue.emit("geysers")
 
 
 func _geyser_start(at: Vector2) -> void:
@@ -617,6 +622,7 @@ func _pit_plume(p: Vector2) -> void:
 		_add({"kind": "dust", "pos": p + Vector2(randf_range(-6, 6), randf_range(-2, 2)), "vel": v, "life": 24})
 	_add({"kind": "ring", "pos": p, "life": 14, "radius": 22.0})
 	shake_out = maxf(shake_out, 2.5)
+	cue.emit("land")
 
 
 # ------------------------------------------------------------------ windup tells
@@ -729,6 +735,7 @@ func _scatter(c: CreatureSim) -> void:
 		_dust(c.pos + Vector2(randf_range(-10, 10), randf_range(-3, 3)), Vector2(randf_range(-0.5, 0.5), -0.4))
 	_add({"kind": "ring", "pos": c.pos, "life": 16, "radius": 30.0})
 	shake_out = maxf(shake_out, 3.0)
+	cue.emit("stones_scatter")
 
 
 ## Culvert's concrete cracks under the final blow. Returns the crack ends, where water
@@ -755,6 +762,7 @@ func _crack_body(c: CreatureSim, ko: Dictionary) -> Array:
 		lines.append(pts)
 		ends.append(cur)
 	_add({"kind": "bodycrack", "id": c.id, "lines": lines, "life": 46, "grow": 14.0, "fade": 28.0, "real": true})
+	cue.emit("crack")
 	return ends
 
 
@@ -769,6 +777,7 @@ func _gush(c: CreatureSim, ko: Dictionary, ends: Array) -> void:
 		"grow": 100.0, "life": FOREVER})
 	_add({"kind": "emit", "life": 80, "every": 1.0, "acc": 0.0, "fn": _gush_tick.bind(c, ends, body_z)})
 	shake_out = maxf(shake_out, 2.5)
+	cue.emit("water_gush")
 
 
 ## Water keeps pouring out of the cracks, weaker over time, lower as the body slumps.

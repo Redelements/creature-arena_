@@ -57,6 +57,7 @@ const BINDINGS := {
 	"debug_help": {"keys": [KEY_F3]},
 	"reset": {"keys": [KEY_F4]},
 	"save_replay": {"keys": [KEY_F6]},
+	"mute_music": {"keys": [KEY_M]},
 }
 
 const CLASSIC_BITS := {
