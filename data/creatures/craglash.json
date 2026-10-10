@@ -1,0 +1,120 @@
+{
+  "id": "craglash",
+  "name": "Craglash",
+  "title": "The mountain that woke up angry",
+  "affinity": "stone",
+  "role": "tank",
+  "max_hp": 150,
+  "speed": 1.55,
+  "accel": 0.28,
+  "radius": 12,
+  "weight": 1.5,
+  "stamina": 100,
+  "stamina_regen": 0.45,
+  "dodge": { "frames": 20, "iframes_start": 3, "iframes_end": 12, "speed": 2.7, "cost": 28 },
+  "guard": { "reduction": 0.82, "drain_per_damage": 1.8, "speed_mult": 0.35, "break_stun": 50 },
+  "stoneskin": { "name": "Stoneskin", "shield": 14, "delay": 240 },
+  "fx_height": 24,
+  "fx_top": 56,
+  "fx_color": "#b5665f",
+  "cut_in_frame": [8, 2],
+  "ko_fx": { "style": "crumble", "body_z": 18, "body_rx": 11, "body_ry": 12, "cracks": 6 },
+  "sprite": {
+    "path": "res://assets/sprites/craglash.png",
+    "frame": 96,
+    "cols": 6,
+    "origin": [34, 90],
+    "anims": {
+      "idle": [0, 0, 4],
+      "run": [1, 0, 6],
+      "claw": [2, 0, 4],
+      "backhand": [3, 0, 4],
+      "headbutt": [4, 0, 4],
+      "stomp": [5, 0, 6],
+      "lash": [6, 0, 6],
+      "bedrock": [7, 0, 4],
+      "coil": [8, 0, 6],
+      "dodge": [9, 0, 4],
+      "hurt": [10, 0, 2],
+      "guard": [11, 0, 2],
+      "ko": [12, 0, 4]
+    }
+  },
+  "ai": {
+    "range": 22,
+    "counter": "skill_2",
+    "poke": "skill_1",
+    "poke_range": [34, 58],
+    "wakeup_charge": true,
+    "routes": [
+      ["light", "light", "light", "heavy", "skill_1", "surge"],
+      ["light", "light", "light", "heavy", "skill_1"],
+      ["light", "light", "light", "skill_1"],
+      ["light", "light", "light"]
+    ]
+  },
+  "moves": {
+    "tag_in": {
+      "name": "Landslide Entry", "type": "skill", "anim": "headbutt",
+      "startup": 6, "active": 6, "recovery": 14,
+      "damage": 6, "knockback": 3.0, "hitstun": 24, "hitstop": 6,
+      "reach": 22, "hit_radius": 12, "juggle": true,
+      "dash": { "speed": 3.2, "from": 1, "to": 10 },
+      "fx": { "smear": "thrust", "size": 1.4, "afterimage": [0, 10], "ghost_color": "#e8a49caa" }
+    },
+    "light_1": {
+      "name": "Rake", "anim": "claw",
+      "startup": 5, "active": 3, "recovery": 11, "cancel_from": 8,
+      "damage": 4, "knockback": 0.9, "hitstun": 18, "hitstop": 4,
+      "reach": 18, "hit_radius": 11, "lunge": 0.8, "next": "light_2", "juggle": true,
+      "fx": { "smear": "arc" }
+    },
+    "light_2": {
+      "name": "Backhand", "anim": "backhand",
+      "startup": 5, "active": 3, "recovery": 11, "cancel_from": 8,
+      "damage": 4, "knockback": 0.9, "hitstun": 18, "hitstop": 4,
+      "reach": 18, "hit_radius": 11, "lunge": 0.8, "next": "light_3", "juggle": true,
+      "fx": { "smear": "arc" }
+    },
+    "light_3": {
+      "name": "Headbutt", "anim": "headbutt",
+      "startup": 8, "active": 3, "recovery": 16,
+      "damage": 7, "knockback": 2.4, "hitstun": 26, "hitstop": 7,
+      "reach": 24, "hit_radius": 11, "lunge": 0.4, "next": "",
+      "fx": { "smear": "thrust", "size": 1.5 }
+    },
+    "heavy": {
+      "name": "Rockslide Stomp", "anim": "stomp", "windup": 10, "tell": "strong",
+      "charge_max": 30, "startup": 8, "active": 4, "recovery": 24,
+      "damage": 8, "damage_charged": 14,
+      "knockback": 0.6, "hitstun": 20,
+      "hitstop": 8, "hitstop_charged": 12,
+      "launch": 34, "launch_charged": 46,
+      "reach": 6, "hit_radius": 26, "juggle": true,
+      "fx": { "charge": "pebbles", "impact": "quake" }
+    },
+    "skill_1": {
+      "name": "Boulder Lash", "anim": "lash", "windup": 8, "tell": "strong", "cooldown": 150,
+      "startup": 12, "active": 4, "recovery": 20,
+      "damage": 7, "knockback": 1.6, "hitstun": 24, "hitstop": 6,
+      "reach": 32, "hit_radius": 15, "juggle": true,
+      "slow_ticks": 120, "slow_mult": 0.55, "juggle_float": 30,
+      "fx": { "smear": "thrust", "size": 2.0, "impact": "lash" }
+    },
+    "skill_2": {
+      "name": "Bedrock", "anim": "bedrock", "cooldown": 300,
+      "startup": 4, "active": 0, "length": 76,
+      "armor": { "from": 4, "to": 64, "reduction": 0.65, "release_from": 18 },
+      "taunt": { "radius": 64, "ticks": 90 },
+      "fx": { "armor": true }
+    },
+    "surge": {
+      "name": "Avalanche Coil", "anim": "coil", "energy_cost": 100,
+      "startup": 20, "active": 4, "recovery": 30,
+      "damage": 16, "knockback": 0.5, "hitstun": 30, "crumple": 70, "hitstop": 14,
+      "reach": 40, "hit_radius": 24, "juggle": true,
+      "terrain_radius": 22,
+      "fx": { "telegraph": true, "speedlines": true, "impact": "avalanche" }
+    }
+  }
+}

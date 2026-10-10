@@ -57,3 +57,14 @@ func test_counterplay_showcase_answers_every_big_move() -> void:
 	assert_gt(float(punished[0]), 3.0, "the Gulp whiff punish should land")
 	assert_true(blocked, "Culvert should block the raw Rush")
 	assert_gt(float(punished[2]), 2.0, "the block punish should land")
+
+
+func test_craglash_showcase_plays_through_to_a_knockout() -> void:
+	var r := _play("craglash")
+	var armored := false
+	for ev in r["parts"]:
+		if int(ev[0]) == 0 and String(ev[1]) == "armor" and int(ev[2]) == 0:
+			armored = true
+	assert_true(armored, "Cairn's jab should hit Bedrock's armor")
+	assert_true(r["ko"][1], "Avalanche Coil should finish Cairn")
+	assert_false(r["ko"][0], "Craglash stays up")

@@ -110,11 +110,20 @@ func refresh() -> void:
 		flash_col = Color(1.0, 0.82, 0.35)
 		flash_amt = 0.55 if (c.anim_t / 4) % 2 == 0 else 0.15
 		pivot.position.x += 1 if (c.anim_t / 2) % 2 == 0 else -1
+	elif c.is_armored():
+		# Bedrock: a slow amber pulse while the armor holds.
+		flash_col = Color(1.0, 0.72, 0.32)
+		flash_amt = 0.22 if (c.anim_t / 6) % 2 == 0 else 0.08
 	elif c.state == CreatureSim.State.ATTACK and c.move_type() == "surge" and c.state_t < 12:
 		flash_col = Color(1.0, 0.9, 0.4)
 		flash_amt = 0.6 if (c.anim_t / 2) % 2 == 0 else 0.25
 	mat.set_shader_parameter("flash", flash_amt)
 	mat.set_shader_parameter("flash_color", flash_col)
+	# Stoneskin: a pale stone rim around the silhouette while the shield holds.
+	var rim := 0.0
+	if c.shield > 0.0 and c.state != CreatureSim.State.KO:
+		rim = 0.75 + 0.2 * sin(c.anim_t * 0.15)
+	mat.set_shader_parameter("rim", rim)
 
 	# Falling shrinks and darkens the creature into the pit.
 	var shade := 1.0
@@ -250,6 +259,16 @@ func _attack_frame() -> Array:
 		if t <= su + act:
 			return [name, mini(3, n - 1), false]
 		return [name, mini(4 if t <= su + act + 8 else 5, n - 1), false]
+
+	if mv.has("armor"):  # Bedrock: brace, hold (roaring as it sets), then stand
+		var ar: Dictionary = mv["armor"]
+		if t < int(ar["from"]):
+			return [name, 0, false]
+		if t <= int(ar["to"]):
+			if t < int(ar["from"]) + 14:
+				return [name, mini(2, n - 1), false]
+			return [name, mini(1 + (t / 10) % 2, n - 1), false]
+		return [name, n - 1, false]
 
 	if mv.has("counter"):  # Slip: weave while the window is open, then recover
 		var w: Dictionary = mv["counter"]

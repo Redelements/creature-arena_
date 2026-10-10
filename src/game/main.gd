@@ -18,8 +18,8 @@ extends Node2D
 ##   --shot-dir=PATH       where screenshots go (default user://shots)
 ##   --quit-after=N        exit after N frames
 ##   --layout=league|classic  keyboard layout (saved in the menu otherwise)
-##   --showcase=NAME       play one scripted demo on a loop: cairn, culvert or counterplay
-##   --teams=a,b,c:d,e,f   Duel / 2-player teams (default cairn,culvert,cairn:culvert,cairn,culvert)
+##   --showcase=NAME       play one scripted demo on a loop: cairn, culvert, craglash or counterplay
+##   --teams=a,b,c:d,e,f   Duel / 2-player teams (default craglash,cairn,culvert:culvert,cairn,craglash)
 ##   --pick                show the team pick screen even with --mode
 ##   --cpu-vs-cpu          every player side is played by the CPU (demos, captures)
 
@@ -39,6 +39,8 @@ const MODES := [
 	{"label": "Combo Trials", "trials": true, "sides": [Side.PLAYER, Side.SCRIPT]},
 	{"label": "Reaction Drill: read Culvert", "drill": "culvert", "sides": [Side.PLAYER, Side.SCRIPT]},
 	{"label": "Reaction Drill: read Cairn", "drill": "cairn", "sides": [Side.PLAYER, Side.SCRIPT]},
+	{"label": "Craglash  vs  CPU Cairn", "left": "craglash", "right": "cairn", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Training: Craglash", "left": "craglash", "training": true},
 ]
 ## The menu. MODES indexes stay stable for --mode=N; rows with choices pick one of
 ## several modes with left/right.
@@ -46,13 +48,13 @@ const MENU_ROWS := [
 	{"label": "Duel: you vs CPU  (3v3 tag)", "modes": [6]},
 	{"label": "Duel: 2 players", "modes": [7]},
 	{"label": "Versus: 2 players", "modes": [8]},
-	{"label": "Versus CPU", "modes": [0, 1], "choices": ["as Cairn", "as Culvert"]},
+	{"label": "Versus CPU", "modes": [0, 1, 12], "choices": ["as Cairn", "as Culvert", "as Craglash"]},
 	{"label": "Combo Trials", "modes": [9]},
 	{"label": "Reaction Drill", "modes": [10, 11], "choices": ["read Culvert", "read Cairn"]},
-	{"label": "Training", "modes": [3, 4], "choices": ["Cairn", "Culvert"]},
+	{"label": "Training", "modes": [3, 4, 13], "choices": ["Cairn", "Culvert", "Craglash"]},
 	{"label": "Watch", "modes": [5, 2], "choices": ["combo showcases", "CPU vs CPU"]},
 ]
-const DEFAULT_TEAMS := [["cairn", "culvert", "cairn"], ["culvert", "cairn", "culvert"]]
+const DEFAULT_TEAMS := [["craglash", "cairn", "culvert"], ["culvert", "cairn", "craglash"]]
 const LEVEL_NAMES := ["Easy", "Normal", "Hard"]
 const DUMMY_MODES := ["Stand", "Guard", "Walk", "Dodge"]
 const ROUND_TICKS := 90 * 60
@@ -113,6 +115,7 @@ var _teams: Array = DEFAULT_TEAMS.duplicate(true)
 var _skip_select := false
 var _cpu_vs_cpu := false
 var _showcase_list: Array = []
+var _showcase_arg := ""  ## --showcase=NAME: loop just that one
 var _showcase_i := 0
 var _showcase_end_t := 0
 var autoplay: AutoPlay = null
@@ -286,7 +289,7 @@ func _start_round() -> void:
 		return
 	if cfg.get("showcase", false):
 		if _showcase_list.is_empty():
-			_showcase_list = Showcase.names()
+			_showcase_list = [_showcase_arg] if _showcase_arg != "" else Showcase.names()
 		_showcase_i = 0
 		_start_showcase()
 		return
@@ -994,7 +997,7 @@ func _parse_args() -> int:
 		elif a.begins_with("--showcase="):
 			var sc := a.get_slice("=", 1)
 			if sc in Showcase.names():
-				_showcase_list = [sc]
+				_showcase_arg = sc
 			for i in MODES.size():
 				if MODES[i].get("showcase", false):
 					start = i

@@ -84,3 +84,13 @@ func test_cpu_tags_out_a_badly_hurt_creature_in_a_duel() -> void:
 			tagged = true
 			break
 	assert_true(tagged, "a Hard CPU should tag out a creature on 20% health")
+
+
+func test_craglash_cpu_uses_its_whole_kit() -> void:
+	var used := {}
+	for s in 6:
+		var m: Dictionary = _cpu_match("craglash", "cairn", 1, 1, 60 + s)
+		for mid in m["moves"][0]:
+			used[mid] = true
+	for mid in ["light_1", "light_3", "heavy", "skill_1", "skill_2"]:
+		assert_true(used.has(mid), "the Craglash CPU should use %s" % mid)

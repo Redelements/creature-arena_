@@ -63,6 +63,39 @@ strike, 2 the follow-through and 3 the recovery. Heavies use 6 frames: two charg
 Design note for Cairn: keep it **tall and stacked**. A round boulder with two arms would
 read as an existing franchise creature.
 
+### Craglash — 96×96 frames, 6 × 13 (576×1248 px)
+
+Craglash is the first creature from the artist's character sheets. His sheet is a
+pixel recreation of that sheet made by `tools/gen_craglash.py`, a small puppet rig
+(torso, legs, arms, segmented neck, maned head) posed frame by frame, with the palette
+sampled from the artwork. Big frames because the neck reaches far: the head is 50 px
+in front of the feet on Boulder Lash and 75 px above them at the top of Avalanche Coil.
+Feet at **x 34, y 90**. Any creature can use a bigger frame by setting `"frame"` in its
+JSON; the game, the cut-in and the team select scale to it.
+
+![Craglash sheet, 3x](craglash_preview.png)
+
+| Row | Animation | Frames | Notes |
+| --- | --- | --- | --- |
+| 0 | idle | 4 | arms up, neck swaying |
+| 1 | run | 6 | stomping walk cycle |
+| 2 | claw | 4 | Rake (light 1): front claw wind, swipe, follow-through, recover |
+| 3 | backhand | 4 | Backhand (light 2): the far arm swings across the body |
+| 4 | headbutt | 4 | Headbutt (light 3) and Landslide Entry: neck pulls back, head snaps forward |
+| 5 | stomp | 6 | Rockslide Stomp: charge A, charge B (foot raised), rise, stomp, impact, recover |
+| 6 | lash | 6 | Boulder Lash: coil back ×3, full extension, retract, recover |
+| 7 | bedrock | 4 | Bedrock: brace, rooted hold (cracks glowing), roar, stand |
+| 8 | coil | 6 | Avalanche Coil: neck rises, hooks overhead ×2, crash, impact, recover |
+| 9 | dodge | 4 | tuck, head pulled in low |
+| 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
+| 11 | guard | 2 | forearms crossed, head tucked behind them |
+| 12 | ko | 4 | stagger, topple, down, neck stones scattered |
+
+When the artist's final Craglash arrives, either keep this layout (then it drops in), or
+change the `"sprite"` block in `data/creatures/craglash.json` to match theirs. Design
+note: keep the neck as flat slabs rimmed in red rather than round grey boulders, so it
+doesn't read as a chain of boulders from an existing franchise.
+
 ## Training dummy — 48×48 frames
 
 4 columns × 2 rows. Row 0: idle, hurt A, hurt B, guard. Row 1: knock-over, 4 frames.
