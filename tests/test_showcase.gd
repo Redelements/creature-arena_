@@ -68,3 +68,15 @@ func test_craglash_showcase_plays_through_to_a_knockout() -> void:
 	assert_true(armored, "Cairn's jab should hit Bedrock's armor")
 	assert_true(r["ko"][1], "Avalanche Coil should finish Cairn")
 	assert_false(r["ko"][0], "Craglash stays up")
+
+
+func test_angles_showcase_lands_up_and_down() -> void:
+	var r := _play("angles")
+	var hits := [0, 0, 0, 0]
+	for ev in r["parts"]:
+		if String(ev[1]) == "hit":
+			hits[int(ev[0])] += 1
+	assert_gt(float(hits[0]), 4.0, "Craglash's combo facing down should land")
+	assert_gt(float(hits[1]), 3.0, "Craglash's combo facing up should land")
+	assert_gt(float(hits[2]), 4.0, "Cairn's combo from above should land")
+	assert_gt(float(hits[3]), 0.0, "Avalanche Coil straight down should land")

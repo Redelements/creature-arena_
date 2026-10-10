@@ -566,10 +566,13 @@ func _smear_rise(c: CreatureSim, seg: int, size: float) -> void:
 	_add({"kind": "smear", "life": 8, "color": Color(1, 0.97, 0.88, 0.9), "pts": outer})
 
 
-## The sprites only face left or right, so a punch aimed straight up or down is drawn
-## angled toward the side the sprite faces.
+## Where a swing is drawn. Fighters with up/down art swing exactly where the hit goes;
+## side-only art can't show a punch straight up or down, so it's drawn angled toward the
+## side the sprite faces.
 func _swing_dir(c: CreatureSim) -> Vector2:
 	var f := c.facing
+	if c.id < views.size() and views[c.id] != null and (views[c.id] as CreatureView).has_vertical_views():
+		return f  # it has up/down art, so the swing goes where the hit goes
 	if absf(f.x) < 0.1:
 		return Vector2(-1.0 if _flip(c) else 1.0, f.y * 0.8).normalized()
 	return f
@@ -856,7 +859,7 @@ func _scatter(c: CreatureSim) -> void:
 	var ko: Dictionary = c.def["ko_fx"]
 	var frame: Array = ko.get("frame", [0, 0])
 	var fpx := int(snap["frame_px"])
-	var origin: Vector2 = snap["origin"]
+	var origin: Vector2 = snap["side_origin"]
 	var flip := bool(snap["flip"])
 	var dir: Vector2 = _last_push.get(c.id, -c.facing)
 	var pieces: Array = ko["pieces"]
@@ -867,7 +870,7 @@ func _scatter(c: CreatureSim) -> void:
 		var head := i == 0
 		var spread := dir.rotated(randf_range(-0.8, 0.8))
 		var speed := randf_range(0.7, 1.6) + (1.3 if head else 0.0)
-		_add({"kind": "chunk", "piece": true, "tex": snap["tex"], "flip": flip,
+		_add({"kind": "chunk", "piece": true, "tex": snap["side_tex"], "flip": flip,
 			"region": Rect2(int(frame[1]) * fpx, int(frame[0]) * fpx + y0, fpx, y1 - y0),
 			"ox": origin.x, "band_c": (y0 + y1) * 0.5,
 			"pos": c.pos + Vector2(randf_range(-2, 2), randf_range(-1, 1)), "z": zc,
@@ -1151,9 +1154,9 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 			tint.a *= 1.0 - k
 			var feet: Vector2 = p["feet"]
 			var origin: Vector2 = p["origin"]
-			var fpx := float(p["frame_px"])
+			var size: Vector2 = p["frame_size"]
 			ci.draw_set_transform(feet, 0.0, Vector2(-1.0 if bool(p["flip"]) else 1.0, 1.0))
-			ci.draw_texture_rect_region(p["tex"], Rect2(-origin.x, -origin.y, fpx, fpx), p["region"], tint)
+			ci.draw_texture_rect_region(p["tex"], Rect2(-origin.x, -origin.y, size.x, size.y), p["region"], tint)
 			ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		"chunk":
 			_draw_chunk(ci, p)
