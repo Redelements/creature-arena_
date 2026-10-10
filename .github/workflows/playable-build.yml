@@ -89,7 +89,8 @@ jobs:
       - name: Determinism fingerprint (Linux build)
         id: simcheck
         run: |
-          timeout 300 build/linux/CreatureArena.x86_64 --headless -- --sim-check=$SIM_CHECK_SEED --sim-check-out=linux_digest.txt
+          # Absolute path: an exported game reads relative paths from inside its own package.
+          timeout 300 build/linux/CreatureArena.x86_64 --headless -- --sim-check=$SIM_CHECK_SEED --sim-check-out="$PWD/linux_digest.txt"
           digest=$(cat linux_digest.txt)
           echo "Linux: $digest"
           test -n "$digest"

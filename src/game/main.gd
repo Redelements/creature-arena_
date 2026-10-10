@@ -681,10 +681,13 @@ func _run_sim_check() -> bool:
 	var digest := SimCheck.run(seed_)
 	print("SIMCHECK ", digest)
 	if out != "":
+		# Use an absolute path: an exported game resolves relative ones inside its package.
 		var f := FileAccess.open(out, FileAccess.WRITE)
 		if f != null:
 			f.store_string(digest)
 			f.close()
+		else:
+			printerr("Could not write ", out, " (use an absolute path)")
 	get_tree().quit()
 	return true
 
