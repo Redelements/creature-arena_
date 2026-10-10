@@ -1,0 +1,27 @@
+{
+  "id": "dummy",
+  "name": "Training Dummy",
+  "affinity": "none",
+  "max_hp": 250,
+  "speed": 0.6,
+  "accel": 0.1,
+  "radius": 10,
+  "weight": 1.0,
+  "stamina": 100,
+  "stamina_regen": 0.6,
+  "dodge": { "frames": 18, "iframes_start": 2, "iframes_end": 11, "speed": 2.6, "cost": 30 },
+  "guard": { "reduction": 0.8, "drain_per_damage": 2.0, "speed_mult": 0.4, "break_stun": 50 },
+  "sprite": {
+    "path": "res://assets/sprites/dummy.png",
+    "frame": 48,
+    "cols": 4,
+    "origin": [24, 43],
+    "anims": {
+      "idle": [0, 0, 1],
+      "hurt": [0, 1, 2],
+      "guard": [0, 3, 1],
+      "ko": [1, 0, 4]
+    }
+  },
+  "moves": {}
+}

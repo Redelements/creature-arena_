@@ -1,0 +1,57 @@
+{
+  "id": "culvert",
+  "name": "Culvert",
+  "affinity": "stone",
+  "max_hp": 140,
+  "speed": 1.4,
+  "accel": 0.25,
+  "radius": 13,
+  "weight": 1.4,
+  "stamina": 100,
+  "stamina_regen": 0.45,
+  "dodge": { "frames": 20, "iframes_start": 2, "iframes_end": 13, "speed": 3.0, "cost": 28 },
+  "guard": { "reduction": 0.8, "drain_per_damage": 2.0, "speed_mult": 0.35, "break_stun": 55 },
+  "sprite": {
+    "path": "res://assets/sprites/culvert.png",
+    "frame": 48,
+    "cols": 6,
+    "origin": [21, 43],
+    "anims": {
+      "idle": [0, 0, 4],
+      "run": [1, 0, 6],
+      "light": [2, 0, 4],
+      "heavy": [3, 0, 6],
+      "dodge": [4, 0, 4],
+      "hurt": [5, 0, 2],
+      "guard": [6, 0, 2],
+      "ko": [7, 0, 4]
+    }
+  },
+  "moves": {
+    "light_1": {
+      "startup": 5, "active": 3, "recovery": 10, "cancel_from": 9,
+      "damage": 4, "knockback": 1.6, "hitstun": 16, "hitstop": 4,
+      "reach": 16, "hit_radius": 10, "lunge": 0.8, "next": "light_2"
+    },
+    "light_2": {
+      "startup": 5, "active": 3, "recovery": 11, "cancel_from": 9,
+      "damage": 5, "knockback": 1.8, "hitstun": 18, "hitstop": 5,
+      "reach": 16, "hit_radius": 10, "lunge": 0.9, "next": "light_3"
+    },
+    "light_3": {
+      "startup": 8, "active": 4, "recovery": 20,
+      "damage": 9, "knockback": 5.0, "hitstun": 30, "hitstop": 7,
+      "reach": 18, "hit_radius": 12, "lunge": 1.4, "next": ""
+    },
+    "heavy": {
+      "charge_max": 45, "startup": 7, "active": 4, "recovery": 26,
+      "damage": 10, "damage_charged": 24,
+      "knockback": 3.0, "knockback_charged": 7.0,
+      "hitstun": 26, "hitstun_charged": 40,
+      "hitstop": 8, "hitstop_charged": 14,
+      "reach": 20, "hit_radius": 18, "guard_break": true,
+      "terrain_radius": 14, "terrain_radius_charged": 30, "terrain_core_charged": 13,
+      "lunge": 0
+    }
+  }
+}

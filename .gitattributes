@@ -1,0 +1,7 @@
+# Normalize line endings so Windows and Mac contributors don't fight over diffs.
+* text=auto eol=lf
+
+*.png binary
+*.wav binary
+*.ogg binary
+*.ttf binary

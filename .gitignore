@@ -1,0 +1,16 @@
+# Godot 4 cache and editor state
+.godot/
+.import/
+
+# Exported builds
+export/
+build/
+*.pck
+*.exe
+*.x86_64
+
+# OS and tooling noise
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
