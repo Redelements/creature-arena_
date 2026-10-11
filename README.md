@@ -31,7 +31,7 @@ unknown publisher: choose **More info → Run anyway**.
 
 ## Play online (1v1)
 
-**Online 1v1** in the menu. Both players need the **same build**.
+**Online** on the title menu. Both players need the **same build**.
 
 1. Pick your fighter.
 2. One player chooses **Host a match**. The screen lists their addresses.
@@ -58,7 +58,9 @@ bad connection: `--net-lag=6 --net-loss=0.1`. Details: [docs/NETCODE.md](docs/NE
 
 1. Install [Godot 4.7](https://godotengine.org/download) (standard build, no .NET needed).
 2. Open Godot, click **Import**, and pick this folder's `project.godot`.
-3. Press **F5** (or the ▶ button), choose a mode, and fight.
+3. Press **F5** (or the ▶ button). The title menu has **Single player** (every mode against
+   the CPU, training, trials and local 2-player), **Online**, **Settings** (CPU level,
+   keyboard layout, music, fullscreen) and **Exit**.
 
 From a terminal:
 
