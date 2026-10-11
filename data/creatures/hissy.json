@@ -1,0 +1,132 @@
+{
+  "id": "hissy",
+  "name": "Hissy Fitz",
+  "title": "Kicked out of the museum for turning the guards to stone",
+  "affinity": "wild",
+  "role": "fighter",
+  "max_hp": 120,
+  "speed": 2.0,
+  "accel": 0.38,
+  "radius": 10,
+  "weight": 1.0,
+  "stamina": 100,
+  "stamina_regen": 0.55,
+  "dodge": { "frames": 16, "iframes_start": 2, "iframes_end": 11, "speed": 3.5, "cost": 20 },
+  "guard": { "reduction": 0.8, "drain_per_damage": 2.0, "speed_mult": 0.45, "break_stun": 56 },
+  "fx_height": 22,
+  "fx_top": 40,
+  "fx_color": "#9be564",
+  "cut_in_frame": [8, 2],
+  "ko_fx": { "style": "hiss" },
+  "sprite": {
+    "path": "res://assets/sprites/hissy.png",
+    "frame": 128,
+    "cols": 8,
+    "origin": [64, 104],
+    "anims": {
+      "idle": [0, 0, 4],
+      "run": [1, 0, 6],
+      "jab": [2, 0, 4],
+      "jab2": [3, 0, 4],
+      "lash": [4, 0, 5],
+      "uppercut": [5, 0, 6],
+      "spit": [6, 0, 5],
+      "gaze": [7, 0, 4],
+      "petrify": [8, 0, 6],
+      "dodge": [9, 0, 4],
+      "hurt": [10, 0, 2],
+      "guard": [11, 0, 2],
+      "ko": [12, 0, 4]
+    },
+    "side_only": ["ko"],
+    "select_scale": 0.5,
+    "views": {
+      "down": { "path": "res://assets/sprites/hissy_down.png", "frame": [112, 128], "origin": [56, 104] },
+      "up": { "path": "res://assets/sprites/hissy_up.png", "frame": [112, 128], "origin": [56, 92] }
+    }
+  },
+  "ai": {
+    "range": 18,
+    "poke": "skill_1",
+    "poke_range": [36, 100],
+    "gaze": "skill_2",
+    "gaze_range": [30, 110],
+    "surge_range": 30,
+    "routes": [
+      ["light", "light", "light", "heavy", "skill_1", "surge"],
+      ["light", "light", "light", "heavy", "skill_1"],
+      ["light", "light", "light", "skill_1"],
+      ["light", "light", "light"]
+    ]
+  },
+  "moves": {
+    "tag_in": {
+      "name": "Hiss Off", "type": "skill", "anim": "uppercut", "anim_from": 3,
+      "startup": 8, "active": 4, "recovery": 16,
+      "damage": 6, "knockback": 2.4, "hitstun": 24, "hitstop": 7, "launch": 22,
+      "reach": 12, "hit_radius": 16, "juggle": true,
+      "fx": { "smear": "rise" }
+    },
+    "light_1": {
+      "name": "Snake Jab", "anim": "jab",
+      "startup": 4, "active": 2, "recovery": 8, "cancel_from": 6,
+      "damage": 4, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
+      "reach": 16, "hit_radius": 10, "lunge": 1.0, "next": "light_2", "juggle": true,
+      "fx": { "smear": "thrust" }
+    },
+    "light_2": {
+      "name": "Snake Jab (other glove)", "anim": "jab2",
+      "startup": 4, "active": 2, "recovery": 9, "cancel_from": 7,
+      "damage": 4, "knockback": 0.9, "hitstun": 17, "hitstop": 4,
+      "reach": 17, "hit_radius": 10, "lunge": 0.8, "next": "light_3", "juggle": true,
+      "fx": { "smear": "thrust" }
+    },
+    "light_3": {
+      "name": "Hair Lash", "anim": "lash",
+      "startup": 7, "active": 3, "recovery": 14,
+      "damage": 6, "knockback": 1.6, "hitstun": 24, "hitstop": 6,
+      "reach": 24, "hit_radius": 12, "lunge": 0.6, "next": "", "juggle": true,
+      "anim_at": [[0, 0], [3, 1], [7, 2], [11, 3], [16, 4]],
+      "fx": { "smear": "arc", "size": 1.2 }
+    },
+    "heavy": {
+      "name": "Coil Uppercut", "anim": "uppercut", "windup": 8, "tell": "strong",
+      "charge_max": 30, "startup": 8, "active": 4, "recovery": 20,
+      "damage": 8, "damage_charged": 12,
+      "knockback": 1.2, "knockback_charged": 2.0,
+      "hitstun": 22, "hitstop": 7, "hitstop_charged": 11,
+      "launch": 32, "launch_charged": 40,
+      "reach": 14, "hit_radius": 14, "hit_radius_charged": 16, "juggle": true,
+      "anim_at": [[0, 2], [5, 3], [9, 4], [20, 5]],
+      "fx": { "charge": "venom", "smear": "rise", "size": 1.3 }
+    },
+    "skill_1": {
+      "name": "Venom Spit", "anim": "spit", "windup": 6, "tell": "strong", "cooldown": 180,
+      "startup": 10, "active": 0, "recovery": 18,
+      "damage": 3, "knockback": 0.4, "hitstun": 28, "hitstop": 4, "juggle": true, "juggle_float": 30,
+      "poison_ticks": 180, "poison_damage": 1.5, "poison_every": 30,
+      "projectile": { "speed": 5.0, "life": 18, "radius": 6, "offset": 14, "crack_trail": false,
+        "sound": "spit", "end_sound": "splat" },
+      "anim_at": [[0, 0], [5, 1], [10, 2], [14, 3], [22, 4]],
+      "fx": { "projectile": "venom" }
+    },
+    "skill_2": {
+      "name": "Stone Gaze", "anim": "gaze", "cooldown": 300,
+      "startup": 8, "active": 0, "recovery": 104, "length": 112,
+      "gaze": { "from": 9, "to": 98, "every": 10, "range": 110, "cone": 0.7, "facing": 0.3,
+        "step": 0.09, "min_mult": 0.35, "slow_ticks": 90, "release_from": 24 },
+      "anim_at": [[0, 0], [8, 1], [12, 2], [16, 1], [20, 2], [24, 1], [28, 2], [32, 1], [36, 2], [40, 1],
+        [44, 2], [48, 1], [52, 2], [56, 1], [60, 2], [64, 1], [68, 2], [72, 1], [76, 2], [80, 1], [84, 2],
+        [88, 1], [92, 2], [99, 3]],
+      "fx": { "gaze": true }
+    },
+    "surge": {
+      "name": "Petrify Punch", "anim": "petrify", "energy_cost": 100,
+      "startup": 22, "active": 4, "recovery": 26,
+      "damage": 18, "knockback": 1.0, "petrify": 90, "hitstop": 16,
+      "reach": 18, "hit_radius": 13, "lunge": 0.6, "juggle": true,
+      "anim_at": [[0, 0], [6, 1], [14, 2], [21, 3], [27, 4], [40, 5]],
+      "fx": { "shout": { "text": "HISS OFF!", "sound": "hiss" }, "smear": "thrust", "size": 1.6, "impact": "petrify" }
+    }
+  }
+}

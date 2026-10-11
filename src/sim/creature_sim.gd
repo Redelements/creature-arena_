@@ -52,6 +52,7 @@ const STATE_FIELDS := [
 	"dodge_buffer_dir", "shield", "calm_t", "slow", "slow_mult", "taunt", "taunt_by",
 	"reel_t", "reel_to", "reel_gap", "reel_speed", "vuln", "vuln_mult",
 	"flip_t", "flip_total", "flip_from", "flip_to",
+	"poison", "poison_every", "poison_dmg", "poison_by", "stone",
 ]
 ## Set once when the creature is made and never changed by the simulation.
 const STATIC_FIELDS := ["id", "def", "is_dummy", "radius", "weight", "max_hp", "max_stamina"]
@@ -140,6 +141,11 @@ var flip_t := 0  ## ticks left of being carried over the attacker's head (Flip O
 var flip_total := 0
 var flip_from := Vector2.ZERO
 var flip_to := Vector2.ZERO
+var poison := 0  ## ticks of poison left (Hissy Fitz's Venom Spit)
+var poison_every := 30  ## a pulse of damage every this many ticks
+var poison_dmg := 0.0
+var poison_by := -1
+var stone := 0  ## ticks left as a statue (Petrify Punch); the next clean hit shatters it
 
 
 func _init(p_id: int, p_def: Dictionary, p_pos: Vector2, p_is_dummy := false) -> void:
@@ -287,6 +293,10 @@ func hit_params(seg: int) -> Dictionary:
 		"vuln_ticks": seg_value(seg, "vuln_ticks"),
 		"vuln_mult": float(mv.get("vuln_mult", 1.0)),
 		"flip": seg_value(seg, "flip"),
+		"poison_ticks": seg_value(seg, "poison_ticks"),
+		"poison_damage": seg_value(seg, "poison_damage"),
+		"poison_every": seg_value(seg, "poison_every"),
+		"petrify": seg_value(seg, "petrify"),
 	}
 
 
@@ -533,6 +543,18 @@ func _tick_status(sim: MatchSim) -> void:
 		taunt -= 1
 	if vuln > 0:
 		vuln -= 1
+	if stone > 0:
+		stone -= 1
+		if state != State.CRUMPLE:
+			stone = 0  # back on its feet: the stone has crumbled away
+	# Poison: a pulse of damage every so often. It isn't part of any combo.
+	if poison > 0 and state != State.KO:
+		poison -= 1
+		if poison % maxi(1, poison_every) == 0:
+			var dealt := take_damage(poison_dmg, sim)
+			flash = maxi(flash, 2)
+			sim.emit_event("poison", pos, dealt, {"who": id, "by": poison_by})
+			check_ko(sim)
 	# Stoneskin: a while without taking damage grows the shield back.
 	var skin: Dictionary = def.get("stoneskin", {})
 	if not skin.is_empty() and state != State.KO:
@@ -691,6 +713,19 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 		if k % every == 0 and k / every < int(vol.get("count", 1)):
 			sim.spawn_projectile(self, mv, k / every == int(vol.get("count", 1)) - 1)
 
+	# A gaze (Stone Gaze): every few ticks, slow whoever is in front and looking back.
+	var gaze: Dictionary = mv.get("gaze", {})
+	if not gaze.is_empty() and t >= int(gaze["from"]) and t <= int(gaze["to"]) \
+			and (t - int(gaze["from"])) % maxi(1, int(gaze.get("every", 10))) == 0:
+		_gaze(gaze, sim)
+	if not gaze.is_empty() and buffered != "" and t >= int(gaze.get("release_from", 9999)) and t <= int(gaze["to"]):
+		var g_rel := action_move(buffered)
+		if g_rel != move_id and can_use(g_rel):
+			if dir != Vector2.ZERO:
+				facing = dir
+			_start_attack(g_rel, sim)
+			return
+
 	# Armored stances (Bedrock): taunt as the armor sets, and let any attack answer
 	# straight out of it once `release_from` is reached.
 	var armor: Dictionary = mv.get("armor", {})
@@ -736,6 +771,29 @@ func _taunt(tn: Dictionary, sim: MatchSim) -> void:
 		o.taunt_by = id
 		sim.emit_event("taunt", o.pos, 1.0, {"who": o.id, "by": id})
 	sim.emit_event("roar", pos, r, {"who": id})
+
+
+## Stone Gaze: anyone within range, in front of her, and facing her is slowed a little
+## more each pulse (down to `min_mult`); the slow wears off `slow_ticks` after the gaze.
+## Turning away (or getting behind her) is the counterplay.
+func _gaze(g: Dictionary, sim: MatchSim) -> void:
+	var r := float(g.get("range", 110))
+	for o in sim.creatures:
+		if o == self or o.state == State.KO or o.state == State.FALLING:
+			continue
+		var to := o.pos - pos
+		var d := to.length()
+		if d > r + o.radius or d < 0.0001:
+			continue
+		var n := to / d
+		if facing.dot(n) < float(g.get("cone", 0.7)):
+			continue  # not in front of her
+		if o.facing.dot(-n) < float(g.get("facing", 0.3)):
+			continue  # looking away: safe
+		var m := o.slow_mult if o.slow > 0 else 1.0
+		o.slow_mult = maxf(float(g.get("min_mult", 0.35)), m - float(g.get("step", 0.08)))
+		o.slow = maxi(o.slow, int(g.get("slow_ticks", 90)))
+		sim.emit_event("gaze", o.pos, o.slow_mult, {"who": o.id, "by": id})
 
 
 func _slam(mv: Dictionary, sim: MatchSim) -> void:

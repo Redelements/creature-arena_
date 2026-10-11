@@ -19,7 +19,7 @@ extends Node2D
 ##   --quit-after=N        exit after N frames
 ##   --layout=league|classic  keyboard layout (saved in the menu otherwise)
 ##   --showcase=NAME       play one scripted demo on a loop: cairn, culvert, craglash, barkley, gillbert,
-##                         cerebro or counterplay
+##                         cerebro, hissy or counterplay
 ##   --teams=a,b,c:d,e,f   Duel / 2-player teams (default cerebro,gillbert,barkley:culvert,cerebro,craglash)
 ##   --pick                show the team pick screen even with --mode
 ##   --cpu-vs-cpu          every player side is played by the CPU (demos, captures)
@@ -56,6 +56,8 @@ const MODES := [
 	{"label": "Chef Cerebro  vs  CPU Gillbert", "left": "cerebro", "right": "gillbert", "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Training: Chef Cerebro", "left": "cerebro", "training": true},
 	{"label": "Online 1v1", "online": true},
+	{"label": "Hissy Fitz  vs  CPU Chef Cerebro", "left": "hissy", "right": "cerebro", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Training: Hissy Fitz", "left": "hissy", "training": true},
 ]
 ## The menus. The title menu (MAIN_ITEMS) opens the single-player list (MENU_ROWS),
 ## the online lobby, or the settings. MODES indexes stay stable for --mode=N; rows with
@@ -83,12 +85,13 @@ const MENU_ROWS := [
 	{"label": "Duel: you vs CPU  (3v3 tag)", "modes": [6]},
 	{"label": "Duel: 2 players", "modes": [7]},
 	{"label": "Versus: 2 players", "modes": [8]},
-	{"label": "Versus CPU", "modes": [0, 1, 12, 14, 16, 18],
-		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert", "as Chef Cerebro"]},
+	{"label": "Versus CPU", "modes": [0, 1, 12, 14, 16, 18, 21],
+		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert", "as Chef Cerebro",
+			"as Hissy Fitz"]},
 	{"label": "Combo Trials", "modes": [9]},
 	{"label": "Reaction Drill", "modes": [10, 11], "choices": ["read Culvert", "read Cairn"]},
-	{"label": "Training", "modes": [3, 4, 13, 15, 17, 19],
-		"choices": ["Cairn", "Culvert", "Craglash", "Barkley", "Gillbert", "Chef Cerebro"]},
+	{"label": "Training", "modes": [3, 4, 13, 15, 17, 19, 22],
+		"choices": ["Cairn", "Culvert", "Craglash", "Barkley", "Gillbert", "Chef Cerebro", "Hissy Fitz"]},
 	{"label": "Watch", "modes": [5, 2], "choices": ["combo showcases", "CPU vs CPU"]},
 ]
 const DEFAULT_TEAMS := [["cerebro", "gillbert", "barkley"], ["culvert", "cerebro", "craglash"]]

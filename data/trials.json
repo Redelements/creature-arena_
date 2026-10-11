@@ -38,6 +38,12 @@
     {"fighter": "cerebro", "name": "Tenderized",
      "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_1", "skill_1"]]},
     {"fighter": "cerebro", "name": "Flip Out, Knife Flurry", "energy": 100,
-     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["skill_2", "skill_2"], ["surge", "surge"]]}
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["skill_2", "skill_2"], ["surge", "surge"]]},
+    {"fighter": "hissy", "name": "One-two, lash, spit",
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["skill_1", "skill_1"]]},
+    {"fighter": "hissy", "name": "Uppercut into venom",
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_1", "skill_1"]]},
+    {"fighter": "hissy", "name": "Petrify Punch", "energy": 100,
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_1", "skill_1"], ["surge", "surge"]]}
   ]
 }
