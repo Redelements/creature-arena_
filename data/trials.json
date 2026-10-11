@@ -44,6 +44,12 @@
     {"fighter": "hissy", "name": "Uppercut into venom",
      "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_1", "skill_1"]]},
     {"fighter": "hissy", "name": "Petrify Punch", "energy": 100,
-     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_1", "skill_1"], ["surge", "surge"]]}
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_1", "skill_1"], ["surge", "surge"]]},
+    {"fighter": "digby", "name": "Claws, pickaxe, flash",
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["skill_1", "skill_1"]]},
+    {"fighter": "digby", "name": "Pop-Up",
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"]]},
+    {"fighter": "digby", "name": "Cave-In", "energy": 100,
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["surge", "surge"]]}
   ]
 }

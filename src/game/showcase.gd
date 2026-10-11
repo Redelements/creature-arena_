@@ -1,7 +1,7 @@
 class_name Showcase
 extends RefCounted
 ## Scripted demos that show each fighter's whole kit, and how to answer the big moves.
-##   godot --path . -- --showcase=cairn | culvert | craglash | barkley | gillbert | cerebro | hissy | counterplay
+##   godot --path . -- --showcase=cairn | culvert | craglash | barkley | gillbert | cerebro | hissy | digby | counterplay
 ## Both fighters are driven by input bitmasks, exactly like players: each "press" step
 ## mashes its button until that move actually starts, so the combos shown are real
 ## inputs through the real rules. tests/test_showcase.gd plays every script headless.
@@ -245,6 +245,45 @@ const SCRIPTS := {
 			{"do": "press", "who": 0, "bit": H, "move": "heavy", "show": 9},
 			{"do": "until", "cond": "settled"},
 			{"do": "wait", "t": 150, "show": 10},
+		],
+	},
+	"digby": {
+		"left": "digby", "right": "cairn", "energy": [100, 0], "gap": 30.0, "hp": [-1, 65],
+		"title": "DIGBY  -  FULL KIT",
+		"captions": [
+			["Headlamp Flash: Cairn is blinded", "His next jab misses", "Claw Swipe", "Claw Swipe",
+				"Pickaxe Swing", "Pickaxe Pop-Up"],
+			["Burrow: tunnels under, out of reach", "Pops up under Cairn"],
+			["Swipe", "Swipe", "Pickaxe", "Pop-Up", "Cave-In: rooted in place"],
+		],
+		"steps": [
+			{"do": "wait", "t": 40, "part": 0},
+			{"do": "press", "who": 0, "bit": S1, "move": "skill_1", "show": 0},
+			{"do": "until", "cond": "free:0"},
+			{"do": "approach", "who": 1, "show": 1},
+			{"do": "press", "who": 1, "bit": L, "move": "light_1"},
+			{"do": "until", "cond": "free:1"},
+			{"do": "press", "who": 0, "bit": L, "move": "light_1", "show": 2},
+			{"do": "press", "who": 0, "bit": L, "move": "light_2", "show": 3},
+			{"do": "press", "who": 0, "bit": L, "move": "light_3", "show": 4},
+			{"do": "press", "who": 0, "bit": H, "move": "heavy", "show": 5},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 40},
+			{"do": "place", "part": 1, "gap": 96.0},
+			{"do": "wait", "t": 20},
+			{"do": "press", "who": 0, "bit": S2, "move": "skill_2", "show": 0},
+			{"do": "wait", "t": 46, "show": 1},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 30},
+			{"do": "place", "part": 2, "gap": 2.0},
+			{"do": "wait", "t": 20},
+			{"do": "press", "who": 0, "bit": L, "move": "light_1", "show": 0},
+			{"do": "press", "who": 0, "bit": L, "move": "light_2", "show": 1},
+			{"do": "press", "who": 0, "bit": L, "move": "light_3", "show": 2},
+			{"do": "press", "who": 0, "bit": H, "move": "heavy", "show": 3},
+			{"do": "press", "who": 0, "bit": SU, "move": "surge", "show": 4},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 150, "show": 5},
 		],
 	},
 	"angles": {

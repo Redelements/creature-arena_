@@ -197,3 +197,23 @@ func test_hissy_petrify_punch() -> void:
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S1, "skill_1"],
 		[SU, "surge"]])
 	assert_near(dmg, 14 + 8 * 1.15 + 3 * 1.3 + 18 * 1.5, 0.05, "... > Venom Spit > Petrify Punch:")
+
+
+## Digby (left) facing Cairn at close range.
+func _digby() -> MatchSim:
+	var sim := MatchFactory.versus("digby", "cairn")
+	sim.creatures[0].pos = Vector2(220, 164)
+	sim.creatures[1].pos = Vector2(220 + sim.creatures[0].radius + sim.creatures[1].radius + 2, 164)
+	return sim
+
+
+func test_digby_claws_and_flash() -> void:
+	var dmg := route(_digby(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [S1, "skill_1"]])
+	assert_near(dmg, 14 + 2 * 1.15, 0.05, "Swipe, Swipe, Pickaxe > Headlamp Flash:")
+
+
+func test_digby_pop_up_cave_in() -> void:
+	var sim := _digby()
+	sim.creatures[0].energy = 100.0
+	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [SU, "surge"]])
+	assert_near(dmg, 14 + 8 * 1.15 + 14 * 1.3, 0.05, "3 lights > Pickaxe Pop-Up > Cave-In:")

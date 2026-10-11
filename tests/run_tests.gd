@@ -3,7 +3,8 @@ extends SceneTree
 ##   godot --headless --path . --import
 ##   godot --headless --path . --script res://tests/run_tests.gd
 ## Exits with code 1 when any test fails, so CI can gate on it. A script error inside a
-## test (a crash, a bad call) also counts as a failure.
+## test (a crash, a bad call) also counts as a failure. TEST_ONLY=digby,combos (an
+## environment variable) runs only the files whose names contain one of those words.
 
 const TEST_DIR := "res://tests/"
 
@@ -30,6 +31,15 @@ func _initialize() -> void:
 		if f.begins_with("test_") and f.ends_with(".gd") and f != "test_case.gd":
 			files.append(f)
 	files.sort()
+	var only := OS.get_environment("TEST_ONLY")
+	if only != "":
+		var keep: Array[String] = []
+		for f in files:
+			for w in only.split(","):
+				if w != "" and f.contains(w):
+					keep.append(f)
+					break
+		files = keep
 
 	var passed := 0
 	var failed := 0
