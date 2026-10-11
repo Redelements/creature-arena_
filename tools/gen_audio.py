@@ -670,6 +670,60 @@ def gaze():
     return (a + b) * trem * env(d, attack=0.25, curve=1.2)
 
 
+# ---------------------------------------------------------------- Digby
+
+def dig():
+    """Burrow: a scrabble of claws in loose dirt, sinking away."""
+    d = 0.6
+    out = np.zeros(int(SR * d))
+    for k in range(9):
+        c = bandpass(noise(0.05), 300, 1800) * env(0.05, curve=2.5) * (0.8 - k * 0.06)
+        out += at(c, k * 0.06 + rng.uniform(0, 0.015), d)
+    return mix(out, lowpass(noise(d), 250) * env(d, attack=0.1, curve=1.5) * 0.4)
+
+
+def pop():
+    """Bursting out of the ground: a soft thump and a spray of dirt."""
+    total = 0.35
+    thud = np.tanh(thump(150, 70, 0.18, 2.0) * 2.0)
+    spray = bandpass(noise(0.25), 500, 3000) * env(0.25, attack=0.01, curve=2.2) * 0.6
+    return mix(at(thud, 0.0, total), at(spray, 0.02, total))
+
+
+def flash():
+    """Headlamp Flash: a switch click and a bright electric zap."""
+    total = 0.3
+    click = highpass(noise(0.01), 3000) * env(0.01) * 0.8
+    zap = osc(sweep(1800, 900, 0.22), 0.22, "square", 0.3) * env(0.22, attack=0.005, curve=2.5) * 0.25
+    return mix(at(click, 0.0, total), at(lowpass(zap, 5000), 0.015, total))
+
+
+def miss():
+    """A blinded attack misses: an empty whoosh and a little falling "womp"."""
+    d = 0.32
+    return mix(swing(400, 1400, 0.18, 0.6), at(osc(sweep(330, 180, 0.2), 0.2, "tri") * env(0.2, curve=2) * 0.3,
+                                                0.1, d))
+
+
+def cave_in():
+    """Cave-In: the floor gives way: a deep crunch, then rocks rumbling down."""
+    total = 1.1
+    rumble = lowpass(noise(total), 220) * env(total, attack=0.02, curve=1.4) * 1.3
+    boom = at(np.tanh(thump(55, 28, 0.6, 1.6) * 3.0), 0.0, total)
+    out = mix(rumble, boom)
+    for k in range(8):
+        out += at(crack() * 0.25, 0.08 + k * 0.1 + rng.uniform(0, 0.03), total)
+    return out
+
+
+def dig_it():
+    """Placeholder for his voice line (a short rising "dig-dig!" of claws); the real one is
+    his voice."""
+    total = 0.4
+    tap = mix(thump(500, 250, 0.05, 3.0), bandpass(noise(0.03), 800, 3000) * env(0.03) * 0.5)
+    return mix(at(tap, 0.0, total), at(tap * 0.9, 0.12, total), at(tap * 1.1, 0.22, total))
+
+
 # Added after the first batch, so they're generated last and the older placeholders
 # (which share one random stream) come out the same as before.
 NEW_SOUNDS = {
@@ -681,6 +735,7 @@ NEW_SOUNDS = {
     "chop_chop": chop_chop, "fizzle": fizzle,
     "hiss": hiss, "spit": spit, "splat": splat, "poison_tick": poison_tick, "petrify": petrify,
     "shatter": shatter, "gaze": gaze,
+    "dig": dig, "pop": pop, "flash": flash, "miss": miss, "cave_in": cave_in, "dig_it": dig_it,
 }
 
 

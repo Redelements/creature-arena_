@@ -84,8 +84,14 @@ buses at start-up; `play(name, ..., ui = true)` sends a sound to Menu sounds.
 | [ ] | `gaze` | Stone Gaze first takes hold of someone | Eerie rising shimmer |
 | [ ] | `petrify` | Petrify Punch turns someone to stone | Deep grinding rumble |
 | [ ] | `shatter` | A statue shatters | Hard crack, a spill of stone chips |
+| [ ] | `dig` | Digby's Burrow starts | Claws scrabbling in loose dirt |
+| [ ] | `pop` | Pickaxe Pop-Up and Burrow burst out of the floor; Digby's knockout | Soft thump, a spray of dirt |
+| [ ] | `flash` | Headlamp Flash blinds someone | Switch click, bright electric zap |
+| [ ] | `miss` | A blinded attack misses | Empty whoosh, a little falling "womp" |
+| [ ] | `cave_in` | Cave-In lands | Deep crunch, rocks rumbling down |
+| [ ] | `dig_it` | Cave-In starts (his voice line, a placeholder "I DIG IT!") | Placeholder claw taps; the real one is his voice |
 
-Craglash, Barkley, Gillbert, Chef Cerebro and Hissy Fitz have signature sounds; Gillbert also has footsteps
+Craglash, Barkley, Gillbert, Chef Cerebro, Hissy Fitz and Digby have signature sounds; Gillbert also has footsteps
 (`"step_sound"` in his JSON). Cries and footsteps don't exist
 yet; when the new roster arrives, add them to `data/audio.json` and this table.
 

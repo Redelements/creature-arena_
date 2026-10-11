@@ -53,6 +53,7 @@ const STATE_FIELDS := [
 	"reel_t", "reel_to", "reel_gap", "reel_speed", "vuln", "vuln_mult",
 	"flip_t", "flip_total", "flip_from", "flip_to",
 	"poison", "poison_every", "poison_dmg", "poison_by", "stone",
+	"blind", "whiff_serial", "root",
 ]
 ## Set once when the creature is made and never changed by the simulation.
 const STATIC_FIELDS := ["id", "def", "is_dummy", "radius", "weight", "max_hp", "max_stamina"]
@@ -146,6 +147,9 @@ var poison_every := 30  ## a pulse of damage every this many ticks
 var poison_dmg := 0.0
 var poison_by := -1
 var stone := 0  ## ticks left as a statue (Petrify Punch); the next clean hit shatters it
+var blind := 0  ## ticks left blinded (Digby's Headlamp Flash): the next attack started misses
+var whiff_serial := 0  ## the attack (attack_serial) that a blind made miss
+var root := 0  ## ticks left rooted in place (Cave-In): no walking, no dodging
 
 
 func _init(p_id: int, p_def: Dictionary, p_pos: Vector2, p_is_dummy := false) -> void:
@@ -297,6 +301,8 @@ func hit_params(seg: int) -> Dictionary:
 		"poison_damage": seg_value(seg, "poison_damage"),
 		"poison_every": seg_value(seg, "poison_every"),
 		"petrify": seg_value(seg, "petrify"),
+		"blind_ticks": seg_value(seg, "blind_ticks"),
+		"root_ticks": seg_value(seg, "root_ticks"),
 	}
 
 
@@ -332,6 +338,8 @@ func take_damage(amount: float, sim: MatchSim) -> float:
 
 
 func walk_speed() -> float:
+	if root > 0:
+		return 0.0
 	var s := float(def["speed"])
 	if slow > 0:
 		s *= slow_mult
@@ -543,6 +551,10 @@ func _tick_status(sim: MatchSim) -> void:
 		taunt -= 1
 	if vuln > 0:
 		vuln -= 1
+	if blind > 0:
+		blind -= 1
+	if root > 0:
+		root -= 1
 	if stone > 0:
 		stone -= 1
 		if state != State.CRUMPLE:
@@ -581,7 +593,7 @@ func _wants_breakaway(buttons: int, pressed: int) -> bool:
 
 func _update_free(buttons: int, pressed: int, dir: Vector2, sim: MatchSim) -> void:
 	var dg: Dictionary = def["dodge"]
-	if ((pressed & SimDefs.IN_DODGE) or dodge_buffer > 0) and stamina >= float(dg["cost"]):
+	if ((pressed & SimDefs.IN_DODGE) or dodge_buffer > 0) and stamina >= float(dg["cost"]) and root <= 0:
 		_start_dodge(dir, sim)
 		return
 	if _try_start_buffered(dir, sim):
@@ -634,6 +646,10 @@ func _try_start_buffered(dir: Vector2, sim: MatchSim) -> bool:
 func _start_attack(mid: String, sim: MatchSim, raw := false) -> void:
 	move_id = mid
 	attack_serial += 1
+	if blind > 0:
+		# Blinded (Headlamp Flash): this attack can't find its target.
+		whiff_serial = attack_serial
+		blind = 0
 	seg_hit.clear()
 	connected = false
 	countered = false
@@ -689,6 +705,9 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 		_move(facing * lunge, sim, true)
 	var dash: Dictionary = mv.get("dash", {})
 	if not dash.is_empty() and t >= int(dash["from"]) and t <= int(dash["to"]) and not connected:
+		# A steerable dash (Burrow): the stick turns it a little each tick.
+		if float(dash.get("steer", 0.0)) > 0.0 and dir != Vector2.ZERO:
+			facing = (facing + dir * float(dash["steer"])).normalized()
 		_move(facing * float(dash["speed"]), sim, not is_leaping())  # a leap sails over pits
 
 	# One-off effects at the first active tick.
@@ -836,7 +855,7 @@ func _update_guard(buttons: int, pressed: int, dir: Vector2, sim: MatchSim) -> v
 		stun -= 1
 		return
 	var dg: Dictionary = def["dodge"]
-	if ((pressed & SimDefs.IN_DODGE) or dodge_buffer > 0) and stamina >= float(dg["cost"]):
+	if ((pressed & SimDefs.IN_DODGE) or dodge_buffer > 0) and stamina >= float(dg["cost"]) and root <= 0:
 		_start_dodge(dir, sim)
 		return
 	if _try_start_buffered(Vector2.ZERO, sim):

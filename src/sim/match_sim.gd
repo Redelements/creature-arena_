@@ -194,6 +194,10 @@ func _resolve_hits() -> void:
 ## Resolves one hit: Slip counters, guarding, then damage with the combo rules.
 ## Returns "slip", "block" or "hit".
 func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, fx_pos: Vector2) -> String:
+	# Blinded when the attack started (Headlamp Flash): it misses.
+	if a.whiff_serial > 0 and int(hit["serial"]) == a.whiff_serial:
+		emit_event("miss", fx_pos, 0.0, {"who": a.id, "target": d.id})
+		return "miss"
 	var same_attack := a.attack_serial == int(hit["serial"]) and a.state == CreatureSim.State.ATTACK
 
 	# Slip: a strike inside the counter window is dodged and answered. Grabs beat it.
@@ -297,6 +301,13 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		d.poison_dmg = float(hit["poison_damage"])
 		d.poison_by = a.id
 		emit_event("poisoned", d.pos, float(hit["poison_ticks"]), {"who": d.id, "by": a.id})
+
+	if float(hit.get("blind_ticks", 0.0)) > 0.0:
+		d.blind = maxi(d.blind, int(hit["blind_ticks"]))
+		emit_event("blinded", d.pos, float(hit["blind_ticks"]), {"who": d.id, "by": a.id})
+	if float(hit.get("root_ticks", 0.0)) > 0.0:
+		d.root = maxi(d.root, int(hit["root_ticks"]))
+		emit_event("rooted", d.pos, float(hit["root_ticks"]), {"who": d.id, "by": a.id})
 
 	if float(hit.get("vuln_ticks", 0.0)) > 0.0:
 		d.vuln = maxi(d.vuln, int(hit["vuln_ticks"]))

@@ -285,6 +285,36 @@
       "file": "res://assets/audio/gaze.wav",
       "volume_db": -8,
       "pitch_jitter": 0.0
+    },
+    "dig": {
+      "file": "res://assets/audio/dig.wav",
+      "volume_db": -5,
+      "pitch_jitter": 0.06
+    },
+    "pop": {
+      "file": "res://assets/audio/pop.wav",
+      "volume_db": -4,
+      "pitch_jitter": 0.1
+    },
+    "flash": {
+      "file": "res://assets/audio/flash.wav",
+      "volume_db": -6,
+      "pitch_jitter": 0.04
+    },
+    "miss": {
+      "file": "res://assets/audio/miss.wav",
+      "volume_db": -6,
+      "pitch_jitter": 0.08
+    },
+    "cave_in": {
+      "file": "res://assets/audio/cave_in.wav",
+      "volume_db": -2,
+      "pitch_jitter": 0.0
+    },
+    "dig_it": {
+      "file": "res://assets/audio/dig_it.wav",
+      "volume_db": -3,
+      "pitch_jitter": 0.0
     }
   }
 }

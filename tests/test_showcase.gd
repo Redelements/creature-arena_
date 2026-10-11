@@ -128,3 +128,14 @@ func test_angles_showcase_lands_up_and_down() -> void:
 	assert_gt(float(hits[1]), 3.0, "Craglash's combo facing up should land")
 	assert_gt(float(hits[2]), 4.0, "Cairn's combo from above should land")
 	assert_gt(float(hits[3]), 0.0, "Avalanche Coil straight down should land")
+
+
+func test_digby_showcase_plays_through_to_a_knockout() -> void:
+	var r := _play("digby")
+	var kinds := {}
+	for ev in r["parts"]:
+		kinds[String(ev[1])] = true
+	for k in ["blinded", "miss", "rooted"]:
+		assert_true(kinds.has(k), "the showcase should show %s" % k)
+	assert_true(r["ko"][1], "Cave-In should finish Cairn")
+	assert_false(r["ko"][0], "Digby stays up")

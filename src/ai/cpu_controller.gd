@@ -164,6 +164,10 @@ func _continue_attack(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: fl
 			_hold_heavy -= 1
 			_hold(SimDefs.IN_HEAVY)
 		return
+	# A steerable dash (Burrow): steer it toward the foe, to come up under them.
+	if float(me.move_def().get("dash", {}).get("steer", 0.0)) > 0.0:
+		_hold(SimDefs.bits_from_dir((foe.pos - me.pos).normalized()))
+		return
 	# Holding a gaze (Stone Gaze): break out with a jab once the foe walks in close.
 	var gz: Dictionary = me.move_def().get("gaze", {})
 	if not gz.is_empty() and dist < float(_ai(me).get("range", 22)) + me.radius + foe.radius \
@@ -367,6 +371,15 @@ func _neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2,
 			and foe.facing.dot(-to_foe.normalized()) > 0.3 and _roll(0.15 + 0.1 * level):
 		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
 		_press(int(ACTION_BIT[gaze]))
+		return
+
+	# A tunnel (Burrow) closes a long gap safely, out of reach while underground.
+	var burrow := String(ai.get("burrow", ""))
+	var br: Array = ai.get("burrow_range", [0, 0])
+	if burrow != "" and me.can_use(burrow) and dist >= float(br[0]) and dist <= float(br[1]) \
+			and _roll(0.08 + 0.06 * level):
+		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
+		_press(int(ACTION_BIT[burrow]))
 		return
 
 	# A line Surge (Knife Flurry) works from neutral when the foe is lined up in range.
