@@ -139,3 +139,14 @@ func test_digby_showcase_plays_through_to_a_knockout() -> void:
 		assert_true(kinds.has(k), "the showcase should show %s" % k)
 	assert_true(r["ko"][1], "Cave-In should finish Cairn")
 	assert_false(r["ko"][0], "Digby stays up")
+
+
+func test_pete_showcase_plays_through_to_a_knockout() -> void:
+	var r := _play("pete")
+	var kinds := {}
+	for ev in r["parts"]:
+		kinds[String(ev[1])] = true
+	for k in ["stealth", "steal", "blink"]:
+		assert_true(kinds.has(k), "the showcase should show %s" % k)
+	assert_true(r["ko"][1], "The Big Heist should finish Cairn")
+	assert_false(r["ko"][0], "Sneaky Pete stays up")

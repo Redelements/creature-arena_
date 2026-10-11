@@ -79,8 +79,8 @@ A snow cone with a red/green syrup top, stick limbs and red boxing gloves.
 - [x] 7 docs
 - [x] 8 PR
 
-### Sneaky Pete
-- [ ] 1–2 · [ ] 3 · [ ] 4 · [ ] 5 · [ ] 6 · [ ] 7 · [ ] 8
+### Sneaky Pete (id `pete`)
+- [x] 1–2 · [x] 3 · [ ] 4 · [ ] 5 · [ ] 6 · [ ] 7 · [ ] 8
 
 ### Sno Mercy
 - [ ] 1–2 · [ ] 3 · [ ] 4 · [ ] 5 · [ ] 6 · [ ] 7 · [ ] 8

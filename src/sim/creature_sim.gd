@@ -54,6 +54,7 @@ const STATE_FIELDS := [
 	"flip_t", "flip_total", "flip_from", "flip_to",
 	"poison", "poison_every", "poison_dmg", "poison_by", "stone",
 	"blind", "whiff_serial", "root",
+	"stealth", "haste", "haste_mult", "atk_buff", "atk_mult",
 ]
 ## Set once when the creature is made and never changed by the simulation.
 const STATIC_FIELDS := ["id", "def", "is_dummy", "radius", "weight", "max_hp", "max_stamina"]
@@ -150,6 +151,11 @@ var stone := 0  ## ticks left as a statue (Petrify Punch); the next clean hit sh
 var blind := 0  ## ticks left blinded (Digby's Headlamp Flash): the next attack started misses
 var whiff_serial := 0  ## the attack (attack_serial) that a blind made miss
 var root := 0  ## ticks left rooted in place (Cave-In): no walking, no dodging
+var stealth := 0  ## ticks left invisible (Sneaky Pete's Tiptoe); attacking or being hit ends it
+var haste := 0  ## ticks left of walking faster
+var haste_mult := 1.0
+var atk_buff := 0  ## ticks left of dealing atk_mult x damage (Pickpocket: up for him, down for them)
+var atk_mult := 1.0
 
 
 func _init(p_id: int, p_def: Dictionary, p_pos: Vector2, p_is_dummy := false) -> void:
@@ -303,6 +309,8 @@ func hit_params(seg: int) -> Dictionary:
 		"petrify": seg_value(seg, "petrify"),
 		"blind_ticks": seg_value(seg, "blind_ticks"),
 		"root_ticks": seg_value(seg, "root_ticks"),
+		"steal_ticks": seg_value(seg, "steal_ticks"),
+		"steal": float(mv.get("steal", 0.0)),
 	}
 
 
@@ -345,6 +353,8 @@ func walk_speed() -> float:
 		s *= slow_mult
 	if taunt > 0:
 		s *= TAUNT_SPEED
+	if haste > 0:
+		s *= haste_mult
 	return s
 
 
@@ -363,7 +373,15 @@ func is_stunned() -> bool:
 ## Whether this creature pushes and gets pushed by other bodies.
 func is_solid() -> bool:
 	return not (state in [State.FALLING, State.KO, State.DODGE, State.AIRBORNE, State.KNOCKDOWN]) \
-		and not is_leaping()
+		and not is_leaping() and not _ghosting()
+
+
+## Slipping through bodies during a "ghost" dash (Pickpocket dashes past the foe).
+func _ghosting() -> bool:
+	if state != State.ATTACK or windup_left > 0:
+		return false
+	var dash: Dictionary = move_def().get("dash", {})
+	return bool(dash.get("ghost", false)) and state_t >= int(dash["from"]) and state_t <= int(dash["to"])
 
 
 ## High in the air during a move's "leap" window (Gillbert's Surge): out of reach of
@@ -555,6 +573,14 @@ func _tick_status(sim: MatchSim) -> void:
 		blind -= 1
 	if root > 0:
 		root -= 1
+	if stealth > 0:
+		stealth -= 1
+	if haste > 0:
+		haste -= 1
+	if atk_buff > 0:
+		atk_buff -= 1
+		if atk_buff == 0:
+			atk_mult = 1.0
 	if stone > 0:
 		stone -= 1
 		if state != State.CRUMPLE:
@@ -660,6 +686,18 @@ func _start_attack(mid: String, sim: MatchSim, raw := false) -> void:
 	walk_vel = Vector2.ZERO
 	var mv := move_def()
 	charging = mv.has("charge_max")
+	# Self buffs as the move starts (Tiptoe: invisible and quicker). Any other attack
+	# gives the stealth away.
+	var buff: Dictionary = mv.get("self", {})
+	if buff.has("stealth"):
+		stealth = maxi(stealth, int(buff["stealth"]))
+		sim.emit_event("stealth", pos, float(buff["stealth"]), {"who": id})
+	elif stealth > 0:
+		stealth = 0
+		sim.emit_event("unstealth", pos, 0.0, {"who": id})
+	if buff.has("haste"):
+		haste = maxi(haste, int(buff["haste"]))
+		haste_mult = float(buff.get("haste_mult", 1.4))
 	if mv.has("cooldown"):
 		cooldowns[mid] = int(mv["cooldown"])
 	if mv.has("energy_cost"):
@@ -704,7 +742,8 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 	if t <= su and lunge > 0.0:
 		_move(facing * lunge, sim, true)
 	var dash: Dictionary = mv.get("dash", {})
-	if not dash.is_empty() and t >= int(dash["from"]) and t <= int(dash["to"]) and not connected:
+	if not dash.is_empty() and t >= int(dash["from"]) and t <= int(dash["to"]) \
+			and (not connected or bool(dash.get("ghost", false))):  # a ghost dash runs on past
 		# A steerable dash (Burrow): the stick turns it a little each tick.
 		if float(dash.get("steer", 0.0)) > 0.0 and dir != Vector2.ZERO:
 			facing = (facing + dir * float(dash["steer"])).normalized()
@@ -731,6 +770,11 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 		var k := t - su - 1
 		if k % every == 0 and k / every < int(vol.get("count", 1)):
 			sim.spawn_projectile(self, mv, k / every == int(vol.get("count", 1)) - 1)
+
+	# A vanish and reappear behind the foe (The Big Heist).
+	var bl: Dictionary = mv.get("blink", {})
+	if not bl.is_empty() and t == int(bl["at"]):
+		_blink(bl, sim)
 
 	# A gaze (Stone Gaze): every few ticks, slow whoever is in front and looking back.
 	var gaze: Dictionary = mv.get("gaze", {})
@@ -790,6 +834,27 @@ func _taunt(tn: Dictionary, sim: MatchSim) -> void:
 		o.taunt_by = id
 		sim.emit_event("taunt", o.pos, 1.0, {"who": o.id, "by": id})
 	sim.emit_event("roar", pos, r, {"who": id})
+
+
+## Reappears behind the nearest foe (opposite the way it faces), or on its far side when
+## that spot is a hole or off the floor; stays put when neither will do. Then faces it.
+func _blink(bl: Dictionary, sim: MatchSim) -> void:
+	var foe := sim.nearest_opponent(self)
+	if foe == null:
+		return
+	var gap := float(foe.radius + radius) + float(bl.get("gap", 2.0))
+	var away := foe.pos - pos
+	away = away.normalized() if away.length_squared() > 0.0001 else facing
+	var room := SimDefs.floor_rect().grow(-float(radius) - 2.0)
+	var from := pos
+	for spot in [foe.pos - foe.facing * gap, foe.pos + away * gap]:
+		if room.has_point(spot) and not sim.terrain.is_hole_at(spot):
+			pos = spot
+			break
+	var to_foe := foe.pos - pos
+	if to_foe.length_squared() > 0.0001:
+		facing = to_foe.normalized()
+	sim.emit_event("blink", pos, 1.0, {"who": id, "from": from})
 
 
 ## Stone Gaze: anyone within range, in front of her, and facing her is slowed a little

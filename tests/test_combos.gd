@@ -217,3 +217,25 @@ func test_digby_pop_up_cave_in() -> void:
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [SU, "surge"]])
 	assert_near(dmg, 14 + 8 * 1.15 + 14 * 1.3, 0.05, "3 lights > Pickaxe Pop-Up > Cave-In:")
+
+
+## Sneaky Pete (left) facing Cairn at close range.
+func _pete() -> MatchSim:
+	var sim := MatchFactory.versus("pete", "cairn")
+	sim.creatures[0].pos = Vector2(220, 164)
+	sim.creatures[1].pos = Vector2(220 + sim.creatures[0].radius + sim.creatures[1].radius + 2, 164)
+	return sim
+
+
+func test_pete_sack_smack_pickpocket() -> void:
+	var dmg := route(_pete(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S2, "skill_2"]])
+	assert_near(dmg, 14 + 9 * 1.15 + 5 * 1.3, 0.05, "3 lights > Sack Smack > Pickpocket:")
+
+
+func test_pete_big_heist() -> void:
+	var sim := _pete()
+	sim.creatures[0].energy = 100.0
+	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S2, "skill_2"],
+		[SU, "surge"]])
+	# After Pickpocket his hits land 20% harder (stolen power): the whole Heist does.
+	assert_near(dmg, 14 + 9 * 1.15 + 5 * 1.3 + (5 * 3 + 10) * 1.5 * 1.2, 0.05, "... > The Big Heist:")
