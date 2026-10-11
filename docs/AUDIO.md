@@ -93,8 +93,13 @@ buses at start-up; `play(name, ..., ui = true)` sends a sound to Menu sounds.
 | [ ] | `coins` | Pickpocket steals; the money bag hits; Pete's knockout | A handful of coins chinking |
 | [ ] | `poof` | Tiptoe and The Big Heist start; Pete reappears | A soft airy puff of smoke |
 | [ ] | `finders` | The Big Heist starts (his voice line, "Finders keepers!") | Placeholder sly whistle; the real one is his voice |
+| [ ] | `freeze` | Flavor Blast freezes someone; an ice statue shatters (pitched up) | Rising crackle of ice, a glassy ping |
+| [ ] | `shards` | Shaved Ice Spray | Icy hiss, crystal tinkles |
+| [ ] | `slosh` | Syrup Slick | A thick sticky glug and splat |
+| [ ] | `melt` | Sno Mercy's knockout | Slow sizzle and drips |
+| [ ] | `chill` | Flavor Blast starts (his voice line, "Chill out.") | Placeholder cold gust; the real one is his voice |
 
-Craglash, Barkley, Gillbert, Chef Cerebro, Hissy Fitz, Digby and Sneaky Pete have signature sounds; Gillbert also has footsteps
+Craglash, Barkley, Gillbert, Chef Cerebro, Hissy Fitz, Digby, Sneaky Pete and Sno Mercy have signature sounds; Gillbert also has footsteps
 (`"step_sound"` in his JSON). Cries and footsteps don't exist
 yet; when the new roster arrives, add them to `data/audio.json` and this table.
 

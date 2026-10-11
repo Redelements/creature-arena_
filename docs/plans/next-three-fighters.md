@@ -7,7 +7,7 @@ time**, each on its own branch and stacked PR, the same way as Hissy Fitz (PR #1
 |---|---|---|---|---|
 | 1 | Digby (sheet #6) | `digby` | `hissy-fitz` | PR open |
 | 2 | Sneaky Pete (sheet #8) | `sneaky-pete` | `digby` | PR open |
-| 3 | Sno Mercy (sheet #10) | `sno-mercy` | `sneaky-pete` | in progress |
+| 3 | Sno Mercy (sheet #10) | `sno-mercy` | `sneaky-pete` | PR open |
 
 Roster order, which also suits the code: Digby reuses Gillbert's `leap` for Burrow;
 Pete and Sno Mercy each need new mechanics.
@@ -83,4 +83,4 @@ A snow cone with a red/green syrup top, stick limbs and red boxing gloves.
 - [x] 1–2 · [x] 3 · [x] 4 · [x] 5 · [x] 6 · [x] 7 · [x] 8
 
 ### Sno Mercy (id `sno`)
-- [x] 1–2 · [x] 3 · [ ] 4 · [ ] 5 · [ ] 6 · [ ] 7 · [ ] 8
+- [x] 1–2 · [x] 3 · [x] 4 · [x] 5 · [x] 6 · [x] 7 · [x] 8

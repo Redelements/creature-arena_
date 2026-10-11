@@ -136,6 +136,7 @@ var _watch := {}
 var _last_push := {}
 var _dark := 0.0
 var _rain := 0.0
+var _slowed_text := {}  ## creature id -> tick its last "SLOWED" call-out showed
 
 
 func bind_ground(g: FxGround) -> void:
@@ -303,7 +304,9 @@ func spawn(e: Dictionary) -> void:
 			if c != null:
 				for i in 4:
 					_dust(c.pos + Vector2(randf_range(-8, 8), randf_range(-2, 2)), Vector2(randf_range(-0.3, 0.3), -0.3))
-				_text(c.pos + Vector2(0, -_top(c) - 14), "SLOWED", Color("b9c6d6"), 7, 40.0)
+				if _tick - int(_slowed_text.get(c.id, -999)) > 45:  # once, not on every slowing hit
+					_slowed_text[c.id] = _tick
+					_text(c.pos + Vector2(0, -_top(c) - 14), "SLOWED", Color("b9c6d6"), 7, 40.0)
 		"taunt":
 			_add({"kind": "ring", "pos": p, "life": 14, "radius": 18.0, "color": C_TAUNT})
 		"roar":

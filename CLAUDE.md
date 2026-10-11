@@ -56,13 +56,13 @@ xvfb-run -a ... $G --rendering-driver opengl3 --path . --write-movie /tmp/out.av
 ```
 
 Useful flags (after `--`): `--mode=0..8`, `--level=0..2`, `--seed=N`,
-`--showcase=cairn|culvert|craglash|barkley|gillbert|cerebro|hissy|digby|pete|angles|counterplay`, `--autoplay`, `--hitboxes`, `--cpu-vs-cpu` (CPU
+`--showcase=cairn|culvert|craglash|barkley|gillbert|cerebro|hissy|digby|pete|sno|angles|counterplay`, `--autoplay`, `--hitboxes`, `--cpu-vs-cpu` (CPU
 plays every player side, for captures), `--pick` (show the team pick screen),
 `--teams=a,b,c:d,e,f`. Modes: 5 showcases, 6 Duel vs CPU, 7 Duel 2P, 8 Versus 2P,
 9 Combo Trials, 10/11 Reaction Drills, 12 Craglash vs CPU, 13 Craglash training,
 14 Barkley vs CPU, 15 Barkley training, 16 Gillbert vs CPU, 17 Gillbert training,
 18 Chef Cerebro vs CPU, 19 Chef Cerebro training, 20 Online 1v1 (the lobby),
-21 Hissy Fitz vs CPU, 22 Hissy Fitz training, 23 Digby vs CPU, 24 Digby training, 25 Sneaky Pete vs CPU, 26 Sneaky Pete training.
+21 Hissy Fitz vs CPU, 22 Hissy Fitz training, 23 Digby vs CPU, 24 Digby training, 25 Sneaky Pete vs CPU, 26 Sneaky Pete training, 27 Sno Mercy vs CPU, 28 Sno Mercy training.
 `--menu=main|single|settings` opens that menu page (captures).
 Online: `--online-host[=PORT]`, `--online-join=ADDR[:PORT]`, `--fighter=ID`, `--net-lag=N`,
 `--net-loss=F`, `--net-delay=N`, `--net-report=PATH`. Two processes on one machine with
@@ -82,7 +82,7 @@ src/game/   main (flow, camera), team_select, online_lobby, showcase, trials, dr
             match_factory
 data/       creatures/*.json, rules/duel.json, trials.json, audio.json
 tests/      run_tests.gd auto-runs every tests/test_*.gd
-tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gillbert/cerebro/hissy/digby/pete.py (sheet recreations),
+tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gillbert/cerebro/hissy/digby/pete/sno.py (sheet recreations),
             splat3d.py (the shared splat renderer new generators import)
 ```
 
@@ -119,13 +119,16 @@ tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gi
   `root_ticks` (no walking or dodging) and `"steer"` on a dash (Burrow turns with the stick); Sneaky Pete added a move's `"self"` buffs (`stealth`:
   invisible, drawn faint, the CPU chases where it last saw him; `haste`/`haste_mult`),
   `steal_ticks`/`steal` (attack power moved from target to attacker), `"ghost"` on a dash
-  (runs on through bodies) and `"blink"` (reappear behind the foe, never into a pit). Projectiles also take `sound`/`end_sound`; any move's `fx` can
+  (runs on through bodies) and `"blink"` (reappear behind the foe, never into a pit); Sno Mercy added `"cone"` (only foes in
+  front are hit), `"zone"` (a ground puddle in `MatchSim.zones`, snapshotted, that slows
+  foes in it) and `freeze_ticks` (Petrify's statue in ice; not `freeze`, which a surge
+  uses for its freeze-frame). Projectiles also take `sound`/`end_sound`; any move's `fx` can
   carry a `shout` (`{text, sound}`, a voice line when it starts). Barkley's generator (`tools/gen_barkley.py`) poses a 3D
   puppet once and projects it into all three views; prefer that for new characters.
   Moves can time their frames with `"anim_at"` and lift the sprite with `"view_lift"`
   (cosmetic; Gillbert's leap); `"step_sound"` gives a creature footsteps. The sheet's "type" maps to the Game
   Plan's affinities, never to a type chart (Barkley's Grass is Wild, Gillbert's Water is Tide,
-  Chef Cerebro's Psychic is Lumen, Hissy Fitz's Poison is Wild, Digby's Ground is Stone, Sneaky Pete's Dark is Lumen, the closest fit; check with Kevin). A thrown light opener
+  Chef Cerebro's Psychic is Lumen, Hissy Fitz's Poison is Wild, Digby's Ground is Stone, Sneaky Pete's Dark is Lumen, Sno Mercy's Ice is Tide, the closest fit; check with Kevin). A thrown light opener
   (`"projectile"` on `light_1`) makes the mouse auto-attack and the CPU fight from range
   (`ai` keys `kite`, `far_routes`/`far_from`, `grab_range`, `surge_line`).
   `tools/gen_cerebro.py` (and `gen_hissy.py`, which adds a face painted in the head's own
