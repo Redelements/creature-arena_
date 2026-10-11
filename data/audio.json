@@ -155,6 +155,31 @@
       "file": "res://assets/audio/round_end.wav",
       "volume_db": -7,
       "pitch_jitter": 0.0
+    },
+    "roar": {
+      "file": "res://assets/audio/roar.wav",
+      "volume_db": -4,
+      "pitch_jitter": 0.06
+    },
+    "stoneskin": {
+      "file": "res://assets/audio/stoneskin.wav",
+      "volume_db": -8,
+      "pitch_jitter": 0.05
+    },
+    "shield_break": {
+      "file": "res://assets/audio/shield_break.wav",
+      "volume_db": -5,
+      "pitch_jitter": 0.08
+    },
+    "lash": {
+      "file": "res://assets/audio/lash.wav",
+      "volume_db": -5,
+      "pitch_jitter": 0.06
+    },
+    "avalanche": {
+      "file": "res://assets/audio/avalanche.wav",
+      "volume_db": -3,
+      "pitch_jitter": 0.04
     }
   }
 }

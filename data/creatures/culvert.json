@@ -34,6 +34,11 @@
       "gulp": [8, 0, 4],
       "runoff": [9, 0, 4],
       "storm": [10, 0, 6]
+    },
+    "side_only": ["ko"],
+    "views": {
+      "down": { "path": "res://assets/sprites/culvert_down.png", "origin": [24, 43] },
+      "up": { "path": "res://assets/sprites/culvert_up.png", "origin": [24, 43] }
     }
   },
   "ai": {

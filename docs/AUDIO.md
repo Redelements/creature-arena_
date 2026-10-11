@@ -51,9 +51,14 @@ sounds from any other game (see "Staying legally distinct" in the Game Plan).
 | [ ] | `ui_select` | Menu choice confirmed | Confirm blip |
 | [ ] | `round_start` | "ROUND n" and "FIGHT!" | Bell |
 | [ ] | `round_end` | Round over | Triple bell |
+| [ ] | `roar` | Craglash's Bedrock sets (taunt) | Low rocky growl; a challenge |
+| [ ] | `stoneskin` | Craglash's Stoneskin shield comes back | Gravel clicking into place |
+| [ ] | `shield_break` | Stoneskin shield breaks | Stone cracking off |
+| [ ] | `lash` | Boulder Lash hits | Whip crack + stone segments clattering |
+| [ ] | `avalanche` | Avalanche Coil crashes down | Deep boom, rocks raining and rolling |
 
-Per-creature sounds (cries, footsteps, signature move sounds) don't exist yet. When the
-new roster arrives, add them to `data/audio.json` and this table.
+Craglash is the first creature with signature sounds. Cries and footsteps don't exist
+yet; when the new roster arrives, add them to `data/audio.json` and this table.
 
 ## Music
 

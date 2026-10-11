@@ -3,10 +3,12 @@
 A real-time 2D creature brawler. Small pixel-art creatures fight live in a stadium,
 chaining attacks into combos while the floor cracks, breaks and opens into pits.
 
-Two fighters so far, each with a full moveset and a CPU opponent:
+Three fighters so far, each with a full moveset and a CPU opponent:
 
 - **Cairn**, a stack of river stones that boxes: fast strings, a counter, and a dash punch.
 - **Culvert**, a toad made of storm-drain concrete: grabs, shockwaves, and pits.
+- **Craglash**, a mountain that woke up angry: a tank with a stone neck that strikes from
+  range, armor, a shield and a taunt. The first roster character from the artist's sheets.
 
 ![Demo: CPU Cairn vs CPU Culvert](docs/demo.gif)
 
@@ -29,13 +31,15 @@ From a terminal:
 godot --path .                          # menu
 godot --path . -- --mode=0 --level=2    # Cairn vs a Hard CPU Culvert
 godot --path . -- --mode=2              # watch CPU vs CPU
-godot --path . -- --showcase=cairn      # scripted demo: cairn, culvert or counterplay
+godot --path . -- --showcase=craglash   # scripted demo: cairn, culvert, craglash or counterplay
 godot --path . -- --mode=6              # Duel vs CPU with the default teams (add --pick to choose)
 ```
 
 Modes: 0 Cairn vs CPU, 1 Culvert vs CPU, 2 CPU vs CPU, 3 training as Cairn, 4 training as Culvert,
 5 combo showcases (each fighter's full kit, then how to answer the big moves, on a loop),
-6 Duel vs CPU, 7 Duel for 2 players, 8 Versus for 2 players. `--teams=cairn,culvert,cairn:culvert,cairn,culvert`
+6 Duel vs CPU, 7 Duel for 2 players, 8 Versus for 2 players, 9 Combo Trials,
+10 Reaction Drill (read Culvert), 11 Reaction Drill (read Cairn), 12 Craglash vs CPU Cairn,
+13 training as Craglash. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
 sets Duel teams; `--cpu-vs-cpu` hands every player side to the CPU.
 
 **Local 2-player:** with two controllers, each player gets one (player 1 can also use the
@@ -84,13 +88,22 @@ juggle moves, and a stunned fighter can spend 50 energy on a **breakaway**.
 
 Energy fills as you deal and take damage (about one Surge per round).
 
+### Fighting from every angle
+
+Fighters move and attack in 8 directions, not just left and right: every hitbox goes
+where the fighter faces. Each fighter has side, front (facing down the screen) and back
+(facing up) art, so a Lash aimed down the screen comes at the camera and one aimed up
+reaches away behind the body. A tall fighter standing in front of a shorter one turns
+see-through so the one behind stays readable. `--showcase=angles` shows it.
+
 ### Duel: 3v3 tag
 
 Each side picks three creatures (repeats allowed while the roster is small); one fights
 at a time.
 
 - **Tag** sends the next living teammate in with its own tag-in strike (Cairn: Rockfall
-  Entry, a dash punch; Culvert: Manhole Drop, a landing slam that launches). Tag from
+  Entry, a dash punch; Culvert: Manhole Drop, a landing slam that launches; Craglash:
+  Landslide Entry, a charging headbutt). Tag from
   neutral or guard, then it's on a 5-second cooldown.
 - **Tag cancel:** tag out of an attack that hit, for 50 energy, and the tag-in strike
   carries the combo on.
@@ -103,6 +116,19 @@ at a time.
 All of this runs in the deterministic simulation (`src/sim/duel_sim.gd`), so a Duel can
 be played online with rollback exactly like a single match. Tuning: `data/rules/duel.json`.
 
+### Learning the game: Combo Trials and Reaction Drills
+
+- **Combo Trials** (`data/trials.json`, 10 so far): each trial plays a demo of the route,
+  then it's your turn. Every move must come out in order and connect, and the combo can't
+  drop. The caption shows the route with your buttons and ticks off each move. F2 shows
+  the demo again, F4 skips to the next trial.
+- **Reaction Drills:** the partner throws random raw big moves; answer red by rolling
+  away (or hitting first) and gold by guarding. 20 reps, scored with your streak and
+  average reaction time from the tell. *Read Culvert* mixes Gulp, Slam and Runoff;
+  *Read Cairn* mixes Rockslide Rush and Haymaker.
+
+`tests/test_trials.gd` clears every trial with real inputs and runs both drills.
+
 ### Windups: reading the big moves
 
 The high-reward moves wind up first when thrown **raw** (from neutral or out of guard), so
@@ -112,7 +138,7 @@ full speed, so every combo below still works.
 | Glow | Means | Moves (windup) | Answer |
 | --- | --- | --- | --- |
 | **Red** + "!" | Can't be blocked | Gulp (12f), Slam (10f, breaks guard) | Roll away or through it, or hit them first |
-| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f), Runoff (6f) | Guard, then punish |
+| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f), Runoff (6f), Rockslide Stomp (10f), Boulder Lash (8f) | Guard, then punish |
 
 That puts at least 15 frames (a quarter second) between the glow and the hit, and a jab
 landed during a windup cancels the move. Surges freeze the screen for their cut-in: a
@@ -139,6 +165,20 @@ dodge pressed during the freeze comes out the moment it ends.
 | Skill 2 | Runoff | Ground shockwave that cracks the floor and pops the target up |
 | Surge | Storm Drain | Leaping slam that hits all around and leaves a ring of pits |
 
+### Craglash — the mountain that woke up angry
+
+A slow tank (150 HP, heavy, hard to push) whose stone neck strikes from a distance while
+the body holds the line.
+
+| Button | Move | What it does |
+| --- | --- | --- |
+| Light | Rake, Backhand, Headbutt | Two claw swipes, then the neck snaps the head forward |
+| Heavy | Rockslide Stomp | Slams the ground and knocks up everyone close, all around him |
+| Skill 1 | Boulder Lash | The neck whips out to long range; hits and **slows** (walk speed ×0.55 for 2 s). Keeps a juggle up |
+| Skill 2 | Bedrock | Roots in place for a second: hits only chip him (65% less damage), nothing moves him, and nearby foes are **taunted** (slower, and their attacks swing at him). Any attack button answers out of it after 18 frames, at full speed. Loses to grabs |
+| Surge | Avalanche Coil | The neck coils high overhead and crashes down on the marked spot ahead, cracking the floor and **stunning** (crumple) everything in it |
+| Passive | Stoneskin | A 14-point stone shield that soaks damage first; it grows back after 4 s without taking damage. Shown as a pale rim |
+
 ### Combos to try
 
 | Fighter | Route | Damage |
@@ -149,6 +189,9 @@ dodge pressed during the freeze comes out the moment it ends.
 | Culvert | Jab, Jab → Gulp | 23 |
 | Culvert | Jab, Jab, Hook → Slam → Runoff | 39 |
 | Culvert | Jab, Jab, Hook → Slam → Runoff → Storm Drain | 84 |
+| Craglash | Rake, Backhand, Headbutt → Boulder Lash | 23 |
+| Craglash | Rake, Backhand, Headbutt → Rockslide Stomp → Boulder Lash | 33 |
+| Craglash | Rake, Backhand, Headbutt → Rockslide Stomp → Boulder Lash → Avalanche Coil | 57 |
 
 Every one of these is checked by an automated test (`tests/test_combos.gd`).
 
@@ -164,7 +207,7 @@ src/game/     Scene flow (menu, rounds, training), controls, match setup
 data/         Creature stats, movesets, combo routes and sprite layouts (JSON)
 assets/       Sprite sheets (placeholder art)
 tests/        Headless tests
-tools/        Placeholder sprite generator (Python + Pillow)
+tools/        Sprite generators (Python + Pillow): placeholders, and Craglash's recreation
 ```
 
 The simulation runs at a fixed 60 ticks per second and only takes **input bitmasks** and
@@ -180,7 +223,8 @@ Change numbers there, not in code.
 Visual effects are data too. Each move can carry an `fx` block (swipe smears, afterimages,
 charge-up particles, impacts like Avalanche's rock spire or Storm Drain's geysers) and each
 creature a `ko_fx` block that picks its death animation: Cairn's stack breaks apart and
-tumbles across the floor; Culvert cracks, gushes storm water and settles into rubble. The
+tumbles across the floor; Culvert cracks, gushes storm water and settles into rubble;
+Craglash's neck comes apart stone by stone. The
 keys are listed at the top of `src/view/fx_view.gd`. Effects only read the simulation, so
 they can never change a match, a replay or a test result. Knockouts also get a freeze
 frame, slow motion and a camera push-in, and Surges get a fighting-game cut-in.
@@ -194,7 +238,7 @@ godot --headless --path . --import
 godot --headless --path . --script res://tests/run_tests.gd
 ```
 
-80 tests cover the six example combos, the three showcases, windups and counterplay,
+97 tests cover the six example combos, every Combo Trial, both Reaction Drills, Duel rules, the three showcases, windups and counterplay,
 rollback netcode (snapshots, and two simulated machines over a laggy, lossy connection), every combo rule (variety bonus, stale moves,
 hitstun decay, juggle cap, cancels on contact, stacks, energy, cooldowns, breakaway), grabs,
 Slip counters, shockwaves, the Storm Drain pit ring, terrain, determinism, replays, and the
@@ -229,4 +273,5 @@ replacement checklist; which file plays for what, and how loud, lives in
 Creature Arena is an original game. It uses no characters, names, art, sounds or trademarks
 from any other franchise. There is no capture mechanic and no trainer character: you play as
 the creature. Designs are checked against existing creatures for look-alikes (for example,
-Cairn is a tall stack of stones rather than a round boulder with arms).
+Cairn is a tall stack of stones rather than a round boulder with arms; Craglash's neck is
+flat slab-like vertebrae rimmed in red, not a chain of round boulders).

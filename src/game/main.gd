@@ -18,8 +18,8 @@ extends Node2D
 ##   --shot-dir=PATH       where screenshots go (default user://shots)
 ##   --quit-after=N        exit after N frames
 ##   --layout=league|classic  keyboard layout (saved in the menu otherwise)
-##   --showcase=NAME       play one scripted demo on a loop: cairn, culvert or counterplay
-##   --teams=a,b,c:d,e,f   Duel / 2-player teams (default cairn,culvert,cairn:culvert,cairn,culvert)
+##   --showcase=NAME       play one scripted demo on a loop: cairn, culvert, craglash or counterplay
+##   --teams=a,b,c:d,e,f   Duel / 2-player teams (default craglash,cairn,culvert:culvert,cairn,craglash)
 ##   --pick                show the team pick screen even with --mode
 ##   --cpu-vs-cpu          every player side is played by the CPU (demos, captures)
 
@@ -36,10 +36,25 @@ const MODES := [
 	{"label": "Duel: you vs CPU  (3v3 tag)", "duel": true, "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Duel: 2 players  (3v3 tag)", "duel": true, "sides": [Side.PLAYER, Side.PLAYER2]},
 	{"label": "Versus: 2 players", "versus2p": true, "sides": [Side.PLAYER, Side.PLAYER2]},
+	{"label": "Combo Trials", "trials": true, "sides": [Side.PLAYER, Side.SCRIPT]},
+	{"label": "Reaction Drill: read Culvert", "drill": "culvert", "sides": [Side.PLAYER, Side.SCRIPT]},
+	{"label": "Reaction Drill: read Cairn", "drill": "cairn", "sides": [Side.PLAYER, Side.SCRIPT]},
+	{"label": "Craglash  vs  CPU Cairn", "left": "craglash", "right": "cairn", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Training: Craglash", "left": "craglash", "training": true},
 ]
-## Menu order (MODES indexes stay stable for --mode=N).
-const MENU_ORDER := [6, 7, 8, 0, 1, 2, 3, 4, 5]
-const DEFAULT_TEAMS := [["cairn", "culvert", "cairn"], ["culvert", "cairn", "culvert"]]
+## The menu. MODES indexes stay stable for --mode=N; rows with choices pick one of
+## several modes with left/right.
+const MENU_ROWS := [
+	{"label": "Duel: you vs CPU  (3v3 tag)", "modes": [6]},
+	{"label": "Duel: 2 players", "modes": [7]},
+	{"label": "Versus: 2 players", "modes": [8]},
+	{"label": "Versus CPU", "modes": [0, 1, 12], "choices": ["as Cairn", "as Culvert", "as Craglash"]},
+	{"label": "Combo Trials", "modes": [9]},
+	{"label": "Reaction Drill", "modes": [10, 11], "choices": ["read Culvert", "read Cairn"]},
+	{"label": "Training", "modes": [3, 4, 13], "choices": ["Cairn", "Culvert", "Craglash"]},
+	{"label": "Watch", "modes": [5, 2], "choices": ["combo showcases", "CPU vs CPU"]},
+]
+const DEFAULT_TEAMS := [["craglash", "cairn", "culvert"], ["culvert", "cairn", "craglash"]]
 const LEVEL_NAMES := ["Easy", "Normal", "Hard"]
 const DUMMY_MODES := ["Stand", "Guard", "Walk", "Dodge"]
 const ROUND_TICKS := 90 * 60
@@ -55,6 +70,7 @@ const KO_ZOOM := 1.45
 const SHOWCASE_ZOOM := 1.9
 
 var sim: MatchSim
+var _cam_zoom := 0.0  ## showcase/coach zoom, eased toward a fit of both fighters
 var replay: Replay
 var arena: ArenaView
 var crowd: CrowdView
@@ -91,12 +107,16 @@ var _ko_pos := Vector2.ZERO
 var _cam_follow := Vector2.ZERO
 var showcase: Showcase = null
 var duel: DuelSim = null
+## Combo Trials or a Reaction Drill: drives the partner and judges the player.
+var coach = null
+var _row_choice: Array = []
 var team_select: TeamSelect
 var player2_input := PlayerInput.new()
 var _teams: Array = DEFAULT_TEAMS.duplicate(true)
 var _skip_select := false
 var _cpu_vs_cpu := false
 var _showcase_list: Array = []
+var _showcase_arg := ""  ## --showcase=NAME: loop just that one
 var _showcase_i := 0
 var _showcase_end_t := 0
 var autoplay: AutoPlay = null
@@ -174,6 +194,7 @@ func _open_menu() -> void:
 	flow_t = 0
 	_end_showcase()
 	_end_duel()
+	_end_coach()
 	team_select.close()
 	hud.visible = true
 	audio.play_music("menu")
@@ -187,8 +208,15 @@ func _open_menu() -> void:
 
 func _refresh_menu() -> void:
 	var items: Array[String] = []
-	for i in MENU_ORDER:
-		items.append(String(MODES[i]["label"]))
+	if _row_choice.size() != MENU_ROWS.size():
+		_row_choice.resize(MENU_ROWS.size())
+		_row_choice.fill(0)
+	for r in MENU_ROWS.size():
+		var row: Dictionary = MENU_ROWS[r]
+		var label := String(row["label"])
+		if row.has("choices"):
+			label += ":  < %s >" % String(row["choices"][_row_choice[r]])
+		items.append(label)
 	items.append("CPU level:  < %s >" % LEVEL_NAMES[level])
 	items.append("Keyboard:  < %s >" % PlayerInput.LAYOUT_NAMES[player_input.layout])
 	hud.menu_items = items
@@ -248,12 +276,21 @@ func _start_round() -> void:
 	audio.play_music("fight")
 	var cfg: Dictionary = MODES[mode]
 	_end_duel()
+	_end_coach()
 	if cfg.get("duel", false):
 		_start_duel()
 		return
+	if cfg.get("trials", false):
+		coach = ComboTrials.new(Callable(player_input, "label"))
+		_start_coach("F2 watch the demo again    F4 next trial    Esc menu")
+		return
+	if cfg.has("drill"):
+		coach = ReactionDrill.new(String(cfg["drill"]), seed_base)
+		_start_coach("Red: roll away (or hit first)    Gold: guard    Esc menu")
+		return
 	if cfg.get("showcase", false):
 		if _showcase_list.is_empty():
-			_showcase_list = Showcase.names()
+			_showcase_list = [_showcase_arg] if _showcase_arg != "" else Showcase.names()
 		_showcase_i = 0
 		_start_showcase()
 		return
@@ -291,6 +328,51 @@ func _start_duel() -> void:
 	hud.banner = ""
 	flow = Flow.FIGHT
 	flow_t = 0
+
+
+func _start_coach(help: String) -> void:
+	_new_sim(coach.build(), MODES[mode]["sides"])
+	hud.timer_ticks = -1
+	hud.banner = ""
+	hud.caption_title = coach.title
+	hud.caption_items = coach.caption_items
+	hud.caption_index = coach.caption_index
+	hud.show_help = true
+	hud.help_text = help
+	flow = Flow.FIGHT
+	flow_t = 0
+
+
+func _end_coach() -> void:
+	if coach == null:
+		return
+	coach = null
+	hud.caption_title = ""
+	hud.banner = ""
+	_apply_device()
+
+
+## After each step: let the coach judge, then show what it wants shown.
+func _coach_step() -> void:
+	coach.after_step()
+	if coach.sim != sim:  # a new trial or drill set built a fresh match
+		_new_sim(coach.sim, MODES[mode]["sides"])
+	if coach.reset_view:
+		coach.reset_view = false
+		fx.clear()
+		_ko_cam_t = -1
+	for c in coach.callouts:
+		fx.callout(c[0], String(c[1]), c[2])
+	coach.callouts.clear()
+	hud.caption_title = coach.title
+	hud.caption_items = coach.caption_items
+	hud.caption_index = coach.caption_index
+	if coach is ReactionDrill and coach.phase == ReactionDrill.Phase.DONE:
+		hud.banner = coach.banner
+		hud.banner_sub = "Average reaction: %s" % String(coach.caption_items[3]).trim_prefix("Avg reaction ")
+	else:
+		hud.banner = ""
+		hud.banner_sub = ""
 
 
 func _end_duel() -> void:
@@ -343,6 +425,7 @@ func _start_showcase() -> void:
 	_new_sim(showcase.build(), [Side.SCRIPT, Side.SCRIPT])
 	_showcase_end_t = 0
 	_cam_follow = Vector2.ZERO
+	_cam_zoom = 0.0
 	hud.timer_ticks = -1
 	hud.banner = ""
 	hud.show_help = false
@@ -420,6 +503,8 @@ func _physics_process(_delta: float) -> void:
 	var inputs := PackedInt32Array([_side_bits(0, live), _side_bits(1, live)])
 	if showcase != null and flow == Flow.FIGHT:
 		inputs = showcase.inputs(sim)
+	elif coach != null and flow == Flow.FIGHT:
+		inputs = coach.inputs(_side_bits(0, true))
 	if flow == Flow.FIGHT:
 		replay.record(inputs)
 	if duel != null:
@@ -428,6 +513,8 @@ func _physics_process(_delta: float) -> void:
 		sim.step(inputs)
 	for e in sim.events:
 		_react(e)
+	if coach != null and flow == Flow.FIGHT:
+		_coach_step()
 	# A Duel tag or a new teammate: show whoever is in each slot now.
 	for i in views.size():
 		if views[i].c != sim.creatures[i]:
@@ -447,6 +534,7 @@ func _physics_process(_delta: float) -> void:
 	fx.advance()
 	hud.advance()
 	for v in views:
+		v.see_through = _hides_someone(v.c)
 		v.refresh()
 	if debug.visible:
 		debug.queue_redraw()
@@ -485,6 +573,8 @@ func _update_flow() -> void:
 		Flow.FIGHT:
 			if duel != null:
 				_duel_flow()
+				return
+			if coach != null:
 				return
 			if showcase != null:
 				if showcase.finished:
@@ -638,15 +728,42 @@ func _flash(col: Color, amount: float) -> void:
 
 ## Pushes in on a knocked-out fighter, holds through the slow motion, then eases back.
 ## Showcases also follow the two fighters up close, so every tell is easy to see.
+## Whether `c` stands in front of another fighter and covers it (a tall fighter facing
+## up at a short one): then it's drawn see-through so the one behind stays readable.
+func _hides_someone(c: CreatureSim) -> bool:
+	if c.state == CreatureSim.State.KO:
+		return false
+	var top := c.pos.y - float(c.def.get("fx_top", 32)) - 6.0  # head and mane included
+	for o in sim.creatures:
+		if o == c or o.state in [CreatureSim.State.KO, CreatureSim.State.FALLING]:
+			continue
+		if o.pos.y >= c.pos.y or absf(c.pos.x - o.pos.x) > c.radius + 6.0:
+			continue
+		# How much of the one behind is inside our height on screen.
+		var o_feet := o.pos.y - o.air_height()
+		var o_top := o_feet - float(o.def.get("fx_top", 32))
+		var covered := minf(o_feet, c.pos.y) - maxf(o_top, top)
+		if covered > (o_feet - o_top) * 0.5:
+			return true
+	return false
+
+
 func _update_camera() -> void:
 	var size := Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H)
 	var base_z := 1.0
 	var base_focus := size * 0.5
 	var ko_focus := _ko_focus
-	if showcase != null and sim != null and sim.creatures.size() >= 2:
-		var mid := (sim.creatures[0].pos + sim.creatures[1].pos) * 0.5 + Vector2(0, -8)
+	if (showcase != null or coach != null) and sim != null and sim.creatures.size() >= 2:
+		var a := sim.creatures[0].pos
+		var b := sim.creatures[1].pos
+		# Fighters stacked up and down the screen: aim a little higher and zoom out to
+		# keep both (and their heads) in shot.
+		var dy := absf(a.y - b.y)
+		var mid := (a + b) * 0.5 + Vector2(0, -8 - minf(dy, 40.0) * 0.3)
 		_cam_follow = mid if _cam_follow == Vector2.ZERO else _cam_follow.lerp(mid, 0.12)
-		base_z = SHOWCASE_ZOOM
+		var fit := lerpf(SHOWCASE_ZOOM, 1.3, clampf(dy / 40.0, 0.0, 1.0))
+		_cam_zoom = fit if _cam_zoom <= 0.0 else lerpf(_cam_zoom, fit, 0.08)
+		base_z = _cam_zoom
 		base_focus = _cam_follow
 		ko_focus = _ko_pos + Vector2(0, -16)  # no K.O. banner in a showcase
 	var z := base_z
@@ -686,11 +803,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			audio.play("ui_move", 0.0, 1.0, true)
 		return
 	if flow == Flow.MENU:
-		var before := [menu_index, level, player_input.layout]
+		var before := [menu_index, level, player_input.layout, _row_choice.duplicate()]
 		_menu_input(event)
 		if flow != Flow.MENU:
 			audio.play("ui_select", 0.0, 1.0, true)
-		elif [menu_index, level, player_input.layout] != before:
+		elif [menu_index, level, player_input.layout, _row_choice] != before:
 			audio.play("ui_move", 0.0, 1.0, true)
 		return
 	if event.is_action_pressed("menu_back"):
@@ -701,6 +818,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("debug_hitboxes"):
 		debug.visible = not debug.visible
 		debug.queue_redraw()
+	elif event.is_action_pressed("debug_dummy_mode") and coach is ComboTrials:
+		coach.replay_demo()
+	elif event.is_action_pressed("reset") and coach is ComboTrials:
+		coach.skip(1)
 	elif event.is_action_pressed("debug_dummy_mode"):
 		dummy_mode = (dummy_mode + 1) % DUMMY_MODES.size()
 		hud.dummy_mode_name = DUMMY_MODES[dummy_mode]
@@ -721,7 +842,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _menu_input(event: InputEvent) -> void:
-	var count := MODES.size() + 2
+	var count := MENU_ROWS.size() + 2
 	# Mouse: hover to highlight, click to choose.
 	if event is InputEventMouseMotion or (event is InputEventMouseButton and event.pressed):
 		var p: Vector2 = get_global_mouse_position()
@@ -729,8 +850,8 @@ func _menu_input(event: InputEvent) -> void:
 		if p.x >= 130.0 and p.x <= 350.0 and row >= 0 and row < count:
 			menu_index = row
 			if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-				if row < MODES.size():
-					_start_match(MENU_ORDER[row])
+				if row < MENU_ROWS.size():
+					_start_row(row)
 					return
 				_change_option(row, 1)
 		_refresh_menu()
@@ -744,8 +865,8 @@ func _menu_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("ui_right"):
 		_change_option(menu_index, 1)
 	elif event.is_action_pressed("menu_confirm") or event.is_action_pressed("ui_accept"):
-		if menu_index < MODES.size():
-			_start_match(MENU_ORDER[menu_index])
+		if menu_index < MENU_ROWS.size():
+			_start_row(menu_index)
 			return
 		_change_option(menu_index, 1)
 	elif event.is_action_pressed("menu_back"):
@@ -757,11 +878,21 @@ func _menu_input(event: InputEvent) -> void:
 
 
 ## Left/right on the CPU level or keyboard layout rows.
+func _start_row(row: int) -> void:
+	var r: Dictionary = MENU_ROWS[row]
+	_start_match(int(r["modes"][_row_choice[row] if row < _row_choice.size() else 0]))
+
+
 func _change_option(row: int, dir: int) -> void:
-	if row == MODES.size():
+	if row < MENU_ROWS.size():
+		var r: Dictionary = MENU_ROWS[row]
+		if r.has("choices"):
+			var n: int = (r["choices"] as Array).size()
+			_row_choice[row] = (int(_row_choice[row]) + dir + n) % n
+	elif row == MENU_ROWS.size():
 		level = (level + dir + LEVEL_NAMES.size()) % LEVEL_NAMES.size()
 		_save_settings()
-	elif row == MODES.size() + 1:
+	elif row == MENU_ROWS.size() + 1:
 		var i := PlayerInput.LAYOUTS.find(player_input.layout)
 		player_input.layout = PlayerInput.LAYOUTS[(i + PlayerInput.LAYOUTS.size() + dir) % PlayerInput.LAYOUTS.size()]
 		_save_settings()
@@ -896,7 +1027,7 @@ func _parse_args() -> int:
 		elif a.begins_with("--showcase="):
 			var sc := a.get_slice("=", 1)
 			if sc in Showcase.names():
-				_showcase_list = [sc]
+				_showcase_arg = sc
 			for i in MODES.size():
 				if MODES[i].get("showcase", false):
 					start = i
