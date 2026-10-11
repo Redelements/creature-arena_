@@ -135,14 +135,17 @@ F4 reset training, F6 save a replay, M mute music.
 
 Every fighter has five attack types, ranked: **Light (1) → Heavy (2) → Skill (3) → Surge (4)**.
 Lights chain into the next light in their string. Any move that **hits or is blocked** can
-cancel into a move of a higher rank, so combos climb the ranks.
+cancel into a move of a higher rank, so combos climb the ranks. The exception: a **blocked
+third light** (or later) can't be cancelled, and leaves the attacker at least 16 frames
+behind the blocker ("OPEN!" pops up over them), time enough to punish with a jab.
 
 **Mixing types pays.** Each hit is multiplied by how many different types have landed in the
 combo so far: ×1.0, ×1.15, ×1.3, ×1.5. **Limits keep it fair:** a move repeated in the same
 combo does half damage, hitstun shrinks with every hit, launched targets take at most three
 juggle moves, and a stunned fighter can spend 50 energy on a **breakaway**.
 
-Energy fills as you deal and take damage (about one Surge per round).
+Energy fills as you deal and take damage (about one Surge per round). A Surge's own hits
+never charge the next Surge.
 
 ### Fighting from every angle
 
@@ -240,15 +243,15 @@ the body holds the line.
 
 ### Barkley — the tree that got up and left
 
-A bruiser (135 HP, Wild affinity) with long branch arms: he pulls foes in, spins, and
-fills the space around him with pinecones and roots.
+A bruiser (145 HP, Wild affinity, slow on his roots) with long branch arms: he pulls foes
+in, spins, and fills the space around him with pinecones and roots.
 
 | Button | Move | What it does |
 | --- | --- | --- |
 | Light | Twig Swipe, Bough Swing, Log Drop | Both branch arms swing across, then he tips forward and bonks with the log on his head |
-| Heavy | Timber Twister | Arms out, he spins on his roots: three hits all around him, the last one knocks up and away. Hold to charge (more damage, throws farther). Can't be cancelled until the last hit |
+| Heavy | Timber Twister | Arms out, he spins on his roots: three hits all around him, the last one knocks up and away. Hold to charge (more damage, throws farther). Can't be cancelled until the last hit. A 2.5 s cooldown |
 | Skill 1 | Branch Grab | A branch arm shoots out to long range, snags, and **reels the target in** to point-blank, still stunned, so a light string links after it. Blockable; a blocked grab pulls nothing |
-| Skill 2 | Pinecone Bomb | Lobs a pinecone **over** anyone close; it lands 56 px ahead and bursts, popping up everything near the spot. A ring on the floor shows where |
+| Skill 2 | Pinecone Bomb | Lobs a pinecone **over** anyone close; it bursts where it lands, popping up everything near the spot. **Tap** for the shortest throw (about 54 px), **hold** to throw it further (up to about 115 px): a ring on the floor slides out to show where it will land. On release it **turns toward a foe** within about 45° of where you aimed |
 | Surge | Root Eruption | Plunges his arms into the floor: roots burst out in three growing rings (26, 40 and 54 px), all around him; the last ring stuns. Cracks the floor but opens no pits |
 
 The sheet gives Barkley no passive, so he has none.
@@ -268,7 +271,7 @@ floor like a landed fish, his rod tumbling behind him on the line.
 | Heavy | Splash Zone | Curls up and slaps the floor with his tail: hits all around him, pops foes up and **slows** them (walk ×0.6 for 2 s). Hold to charge (bigger and harder) |
 | Skill 1 | Flop Dash | A skidding belly-flop forward, kicking up water; keeps a juggle going |
 | Skill 2 | Cast Line | **Throws his rod** on its line, about 110 px. If it hooks someone he's **reeled in to them** at a steady pull, across pits and all, like a fish on a line; arriving ends the cast while they're still stunned, so lights link straight after. Blockable; a miss leaves him stuck in recovery |
-| Surge | The One That Got Away | Leaps straight up off the screen, **out of reach** of everything (he sails over bodies and pits), then belly-flops onto the marked spot ahead in a huge splash that knocks foes down |
+| Surge | The One That Got Away | Leaps straight up off the screen, **out of reach** of everything (he sails over bodies and pits), then belly-flops in a huge splash that knocks foes down. The mark **follows the nearest foe** while he's rising (up to about 70 px), then locks, so a dodge on the landing still beats it |
 
 ![Gillbert's showcase](docs/gillbert_demo.gif)
 
@@ -280,11 +283,11 @@ range; up close he softens them up or flips them away. Voice line: "CHOP CHOP!"
 
 | Button | Move | What it does |
 | --- | --- | --- |
-| Light | Knife Flick, Backhand Flick, Mallet Toss | Two small knives and then the meat mallet, all **thrown** about 110 px. Thrown point-blank they hit at once; from range they still combo, so Flick, Flick, Mallet → Cleaver Toss → Knife Flurry works from across the floor |
+| Light | Knife Flick, Backhand Flick, Mallet Toss | Two small knives and then the meat mallet, all **thrown** about 110 px. The knives only chip: they **don't stagger**. The Mallet Toss at the end of the string is the hit that staggers, so Flick, Flick, Mallet → Cleaver Toss → Knife Flurry works from across the floor |
 | Heavy | Tenderize | Pounds the floor with the mallet: hits everyone close, all around him, pops them up and **tenderizes** them (they take 20% more damage for 4 s; a pink arrow shows it). Hold to charge (bigger and harder) |
 | Skill 1 | Cleaver Toss | Flings the big knife in a straight line, about 120 px; it hits the **first** foe in its path. Keeps a juggle going |
 | Skill 2 | Flip Out | Scoops a close foe with the spatula and **flips them over his head**, to land behind him; he turns to follow. A grab: it beats guard (red tell) |
-| Surge | Knife Flurry | A stream of eight knives in a straight line, about 130 px, that fly **through** everyone in the line; the last one knocks down. A dotted line on the floor shows the lane during the startup |
+| Surge | Knife Flurry | A stream of eight knives in a straight line, about 130 px, that fly **through** everyone in the line; the last one knocks down. It **aims at the nearest foe** within about 65° of where he faces (every knife tracks them), so they needn't be lined up on one of the 8 directions. A dotted line on the floor shows the lane during the startup |
 
 The sheet gives him no passive, so he has none. His victory emote (hibachi tricks) waits
 for a victory-pose system.

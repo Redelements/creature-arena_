@@ -177,7 +177,8 @@ func after_step() -> void:
 	for e in sim.events:
 		if String(e["type"]) in ["hit", "grab"] and int(e.get("attacker", -1)) == 0 and _progress > 0:
 			_landed[_progress - 1] = true
-			_combo_seen = true
+			if not bool(e.get("no_flinch", false)):  # a hit that doesn't stagger starts no combo
+				_combo_seen = true
 	caption_index = _progress
 	if _progress == r.size() and _landed[r.size() - 1]:
 		_clear()

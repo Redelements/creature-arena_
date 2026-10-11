@@ -124,7 +124,7 @@ func test_the_one_that_got_away_is_out_of_reach_then_lands() -> void:
 	assert_near(gill.hp, hp, 0.001, "nothing hits him in the air:")
 	var landed := run_until(sim, func(): return not _events(sim, "hit").is_empty(), 30)
 	assert_true(landed, "the belly-flop lands on Cairn")
-	assert_gt(gill.pos.x - start, 20.0, "he came down further ahead:")
+	assert_gt(gill.pos.x - start, 15.0, "he came down ahead, on Cairn:")
 
 
 func test_the_leap_sails_over_a_pit() -> void:

@@ -55,6 +55,7 @@ const STATE_FIELDS := [
 	"poison", "poison_every", "poison_dmg", "poison_by", "stone",
 	"blind", "whiff_serial", "root",
 	"stealth", "haste", "haste_mult", "atk_buff", "atk_mult", "stone_ice",
+	"block_lag", "punish_serial", "home_speed",
 ]
 ## Set once when the creature is made and never changed by the simulation.
 const STATIC_FIELDS := ["id", "def", "is_dummy", "radius", "weight", "max_hp", "max_stamina"]
@@ -157,6 +158,11 @@ var haste_mult := 1.0
 var atk_buff := 0  ## ticks left of dealing atk_mult x damage (Pickpocket: up for him, down for them)
 var atk_mult := 1.0
 var stone_ice := false  ## the statue is ice, not stone (Sno Mercy's Flavor Blast)
+## A blocked combo ender (the third light) leaves the attacker open: extra recovery ticks
+## on this attack, and no cancelling out of it (punish_serial is the attack's serial).
+var block_lag := 0
+var punish_serial := 0
+var home_speed := 0.0  ## a homing dash's pace once its landing spot is locked
 
 
 func _init(p_id: int, p_def: Dictionary, p_pos: Vector2, p_is_dummy := false) -> void:
@@ -314,6 +320,7 @@ func hit_params(seg: int) -> Dictionary:
 		"steal": float(mv.get("steal", 0.0)),
 		"cone": float(mv.get("cone", 0.0)),
 		"freeze_ticks": seg_value(seg, "freeze_ticks"),
+		"no_flinch": bool(mv.get("no_flinch", false)),
 	}
 
 
@@ -675,6 +682,7 @@ func _try_start_buffered(dir: Vector2, sim: MatchSim) -> bool:
 func _start_attack(mid: String, sim: MatchSim, raw := false) -> void:
 	move_id = mid
 	attack_serial += 1
+	block_lag = 0
 	if blind > 0:
 		# Blinded (Headlamp Flash): this attack can't find its target.
 		whiff_serial = attack_serial
@@ -689,6 +697,8 @@ func _start_attack(mid: String, sim: MatchSim, raw := false) -> void:
 	walk_vel = Vector2.ZERO
 	var mv := move_def()
 	charging = mv.has("charge_max")
+	if mv.has("aim"):
+		_aim(float(mv["aim"]), sim)
 	# Self buffs as the move starts (Tiptoe: invisible and quicker). Any other attack
 	# gives the stealth away.
 	var buff: Dictionary = mv.get("self", {})
@@ -724,18 +734,20 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 		if charging:
 			if dir != Vector2.ZERO:
 				facing = dir
-			if (buttons & SimDefs.IN_HEAVY) and charge < int(mv.get("charge_max", 0)):
+			if (buttons & _charge_bit()) and charge < int(mv.get("charge_max", 0)):
 				charge += 1
 		return
 	if charging:
 		if dir != Vector2.ZERO:
 			facing = dir  # aim while charging
-		if (buttons & SimDefs.IN_HEAVY) and charge < int(mv.get("charge_max", 0)):
+		if (buttons & _charge_bit()) and charge < int(mv.get("charge_max", 0)):
 			charge += 1
 			state_t = 0
 			return
 		charging = false
 		charge_ratio = float(charge) / float(maxi(int(mv.get("charge_max", 1)), 1))
+		if mv.has("aim"):
+			_aim(float(mv["aim"]), sim)  # released: snap to a foe roughly where it was aimed
 
 	var t := state_t
 	var su := int(mv.get("startup", 0))
@@ -745,7 +757,9 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 	if t <= su and lunge > 0.0:
 		_move(facing * lunge, sim, true)
 	var dash: Dictionary = mv.get("dash", {})
-	if not dash.is_empty() and t >= int(dash["from"]) and t <= int(dash["to"]) \
+	if not dash.is_empty() and t >= int(dash["from"]) and t <= int(dash["to"]) and dash.has("home"):
+		_home(dash, t, sim)
+	elif not dash.is_empty() and t >= int(dash["from"]) and t <= int(dash["to"]) \
 			and (not connected or bool(dash.get("ghost", false))):  # a ghost dash runs on past
 		# A steerable dash (Burrow): the stick turns it a little each tick.
 		if float(dash.get("steer", 0.0)) > 0.0 and dir != Vector2.ZERO:
@@ -772,6 +786,8 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 		var every := maxi(1, int(vol.get("every", 1)))
 		var k := t - su - 1
 		if k % every == 0 and k / every < int(vol.get("count", 1)):
+			if mv.has("aim"):
+				_aim(float(mv["aim"]), sim)  # each throw of a volley tracks the foe
 			sim.spawn_projectile(self, mv, k / every == int(vol.get("count", 1)) - 1)
 
 	# A zone left on the floor (Syrup Slick).
@@ -822,14 +838,14 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 		else:
 			var mid := action_move(want)
 			# A multi-hit move can hold its cancel back until its last hit ("rank_cancel_from").
-			if connected and move_rank(mid) > move_rank(move_id) and can_use(mid) \
-					and t >= int(mv.get("rank_cancel_from", 0)):
+			if connected and punish_serial != attack_serial and move_rank(mid) > move_rank(move_id) \
+					and can_use(mid) and t >= int(mv.get("rank_cancel_from", 0)):
 				if dir != Vector2.ZERO:
 					facing = dir
 				_start_attack(mid, sim)
 				return
 
-	if t >= int(mv["length"]):
+	if t >= int(mv["length"]) + block_lag:
 		_set_state(State.IDLE)
 
 
@@ -842,6 +858,50 @@ func _taunt(tn: Dictionary, sim: MatchSim) -> void:
 		o.taunt_by = id
 		sim.emit_event("taunt", o.pos, 1.0, {"who": o.id, "by": id})
 	sim.emit_event("roar", pos, r, {"who": id})
+
+
+## The button that keeps a charge move charging: the one that started it (the Heavy, or a
+## Skill that charges, like Pinecone Bomb).
+func _charge_bit() -> int:
+	if move_id == "skill_1":
+		return SimDefs.IN_SKILL1
+	if move_id == "skill_2":
+		return SimDefs.IN_SKILL2
+	return SimDefs.IN_HEAVY
+
+
+## Turns to face the nearest foe when it's roughly ahead (facing·dir >= `cone`): moves
+## with "aim" (Knife Flurry) don't need the foe lined up on one of the 8 directions.
+func _aim(cone: float, sim: MatchSim) -> void:
+	var foe := sim.nearest_opponent(self)
+	if foe == null:
+		return
+	var to := foe.pos - pos
+	if to.length_squared() < 0.0001:
+		return
+	var n := to.normalized()
+	if facing.dot(n) >= cone:
+		facing = n
+
+
+## A homing dash (The One That Got Away): until "home.until" it steers for the nearest
+## foe and paces itself to arrive as the dash ends (no faster than "home.max"); after that
+## the landing spot is locked, so a late sidestep or dodge still beats it.
+func _home(dash: Dictionary, t: int, sim: MatchSim) -> void:
+	var hm: Dictionary = dash["home"]
+	var spd := float(dash["speed"])
+	var foe := sim.nearest_opponent(self)
+	if foe != null and t <= int(hm.get("until", int(dash["to"]))):
+		var to := foe.pos - pos
+		var dist := to.length()
+		if dist > 0.5:
+			facing = to / dist
+		var left := maxi(1, int(dash["to"]) - t + 1)
+		spd = minf(float(hm.get("max", 3.0)), dist / float(left))
+		home_speed = spd
+	else:
+		spd = minf(home_speed, float(hm.get("max", 3.0)))
+	_move(facing * spd, sim, not is_leaping())
 
 
 ## Reappears behind the nearest foe (opposite the way it faces), or on its far side when

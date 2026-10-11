@@ -349,6 +349,10 @@ func spawn(e: Dictionary) -> void:
 				_text(c.pos + Vector2(0, -_top(c) - 14), "TENDERIZED", C_TENDER, 7, 44.0)
 		"projectile_pierce":
 			_add({"kind": "spark", "pos": p, "life": 6, "scale": 0.8})
+		"punishable":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				_text(c.pos + Vector2(0, -_top(c) - 14), "OPEN!", Color("ffb347"), 8, 36.0)
 		"freeze":
 			var c := _creature(int(e.get("who", -1)))
 			if c != null:
@@ -2291,6 +2295,8 @@ func _draw_creature_extras(ci: CanvasItem, floor_layer: bool) -> void:
 				ci.draw_rect(Rect2(at - Vector2(1, 1), Vector2(2, 2)), col)
 
 		if floor_layer:
+			if attacking and c.charging and bool(mv.get("projectile", {}).get("lob", false)):
+				_draw_lob_mark(ci, c, mv)
 			if attacking and bool(fx.get("telegraph", false)) and c.state_t <= int(mv.get("startup", 0)):
 				_draw_telegraph(ci, c, mv)
 			if attacking and bool(fx.get("telegraph_line", false)) and not c.charging \
@@ -2339,6 +2345,13 @@ func _draw_telegraph(ci: CanvasItem, c: CreatureSim, mv: Dictionary) -> void:
 	if not dash.is_empty():
 		remaining = maxf(0.0, float(dash["to"]) - c.state_t) * float(dash["speed"])
 	var land := c.pos + c.facing * (remaining + float(mv.get("reach", 0)))
+	if dash.has("home"):
+		# A homing leap: the mark follows the foe until the landing spot locks.
+		var foe := sim.nearest_opponent(c)
+		if foe != null and c.state_t <= int(dash["home"].get("until", 0)):
+			land = foe.pos
+		else:
+			land = c.pos + c.facing * maxf(0.0, float(dash["to"]) - c.state_t) * c.home_speed
 	var k := clampf(float(c.state_t) / maxf(1.0, float(mv.get("startup", 1))), 0.0, 1.0)
 	var r := float(mv.get("hit_radius", 40))
 	var pulse := 0.5 + 0.5 * sin(_tick * 0.6)
@@ -2347,6 +2360,25 @@ func _draw_telegraph(ci: CanvasItem, c: CreatureSim, mv: Dictionary) -> void:
 	ci.draw_set_transform(land, 0.0, Vector2(1.0, 0.38))
 	ci.draw_circle(Vector2.ZERO, lerpf(4.0, 16.0, k), Color(0, 0, 0, 0.35))
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## Pinecone Bomb while it's held: a ring on the floor where it will land, sliding out as
+## the throw gets longer.
+func _draw_lob_mark(ci: CanvasItem, c: CreatureSim, mv: Dictionary) -> void:
+	var pr: Dictionary = mv["projectile"]
+	var k := clampf(float(c.charge) / maxf(1.0, float(mv.get("charge_max", 1))), 0.0, 1.0)
+	var rng := lerpf(float(pr["range"]), float(pr.get("range_charged", pr["range"])), k)
+	var land := (c.pos + c.facing * (float(pr.get("offset", 0)) + rng)).round()
+	var r := float(pr.get("burst", 16))
+	var pulse := 0.5 + 0.5 * sin(_tick * 0.5)
+	ci.draw_set_transform(land, 0.0, Vector2(1.0, 0.45))
+	ci.draw_arc(Vector2.ZERO, r, 0.0, TAU, 32, Color(C_CONE[2], 0.45 + 0.35 * pulse), 1.0)
+	ci.draw_circle(Vector2.ZERO, 2.0, Color(C_CONE[2], 0.7))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var n := int(rng / 8.0)
+	for i in n:
+		var at := (c.pos + c.facing * (float(pr.get("offset", 0)) + rng * (i + 0.5) / n)).round()
+		ci.draw_rect(Rect2(at, Vector2.ONE), Color(C_CONE[2], 0.4))
 
 
 ## Knife Flurry: a dotted line along the floor as far as the knives will fly.

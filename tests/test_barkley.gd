@@ -78,7 +78,8 @@ func test_pinecone_burst_hits_a_foe_at_the_landing_spot() -> void:
 	var pr: Dictionary = sim.creatures[0].def["moves"]["skill_2"]["projectile"]
 	sim.creatures[1].pos.x = sim.creatures[0].pos.x + float(pr["offset"]) + float(pr["range"]) - 6.0
 	var hp := sim.creatures[1].hp
-	var burst := run_until(sim, func(): return not _events(sim, "burst").is_empty(), 60, S2)
+	run(sim, S2, 1)  # a tap: the shortest throw
+	var burst := run_until(sim, func(): return not _events(sim, "burst").is_empty(), 60)
 	assert_true(burst, "it bursts")
 	assert_eq(int(_events(sim, "burst")[0]["landed"]), 1, "one foe in the burst:")
 	assert_lt(sim.creatures[1].hp, hp, "the burst hurts")
@@ -129,3 +130,34 @@ func test_rollback_through_a_pinecone_in_flight() -> void:
 	sim.restore(snap)
 	run(sim, 0, 40, L)
 	assert_eq(sim.state_digest(), once, "replaying from the snapshot gives the same state:")
+
+
+func test_holding_the_pinecone_throws_it_further() -> void:
+	var sim := _duel("cairn", 140.0)
+	var barkley := sim.creatures[0]
+	var mv: Dictionary = barkley.def["moves"]["skill_2"]
+	var pr: Dictionary = mv["projectile"]
+	run(sim, S2, int(mv["charge_max"]) + 2)  # held all the way
+	var burst := run_until(sim, func(): return not _events(sim, "burst").is_empty(), 60)
+	assert_true(burst, "it bursts")
+	var at: Vector2 = _events(sim, "burst")[0]["pos"]
+	assert_gt(at.x - barkley.pos.x, float(pr["range_charged"]) - 4.0, "a full hold throws it the furthest:")
+
+
+func test_the_pinecone_snaps_to_a_foe_roughly_ahead() -> void:
+	var sim := _duel("cairn", 30.0)
+	var barkley := sim.creatures[0]
+	var foe := sim.creatures[1]
+	var pr: Dictionary = barkley.def["moves"]["skill_2"]["projectile"]
+	foe.pos = barkley.pos + Vector2(float(pr["range"]) + float(pr["offset"]), 22.0)  # ahead but off his line
+	var hp := foe.hp
+	run(sim, S2, 1)
+	run_until(sim, func(): return not _events(sim, "burst").is_empty(), 60)
+	assert_lt(foe.hp, hp, "the throw turns toward Cairn and lands on him")
+
+
+func test_timber_twister_has_a_cooldown() -> void:
+	var sim := _duel("cairn", 60.0)
+	var barkley := sim.creatures[0]
+	tap(sim, H, 70)
+	assert_false(barkley.can_use("heavy"), "the spin can't be thrown again straight away")

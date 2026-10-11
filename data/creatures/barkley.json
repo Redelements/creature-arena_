@@ -4,9 +4,9 @@
   "title": "A thousand-year-old tree, up and walking",
   "affinity": "wild",
   "role": "bruiser",
-  "max_hp": 135,
-  "speed": 1.75,
-  "accel": 0.3,
+  "max_hp": 145,
+  "speed": 1.45,
+  "accel": 0.26,
   "radius": 11,
   "weight": 1.25,
   "stamina": 100,
@@ -50,7 +50,7 @@
     "poke": "skill_1",
     "poke_range": [36, 60],
     "lob": "skill_2",
-    "lob_range": [46, 68],
+    "lob_range": [48, 114],
     "wakeup_charge": true,
     "routes": [
       ["light", "light", "light", "heavy", "skill_1", "surge"],
@@ -91,7 +91,7 @@
       "fx": { "smear": "rise", "size": 1.3, "impact": "leaves" }
     },
     "heavy": {
-      "name": "Timber Twister", "anim": "twister", "windup": 8, "tell": "strong",
+      "name": "Timber Twister", "anim": "twister", "windup": 8, "tell": "strong", "cooldown": 150,
       "charge_max": 30, "startup": 6, "recovery": 22, "length": 44, "rank_cancel_from": 20,
       "damage": 4, "damage_charged": 6,
       "knockback": 3.4, "knockback_charged": 5.2,
@@ -118,10 +118,10 @@
       "fx": { "branch": true, "impact": "snag" }
     },
     "skill_2": {
-      "name": "Pinecone Bomb", "anim": "pinecone", "cooldown": 180,
+      "name": "Pinecone Bomb", "anim": "pinecone", "cooldown": 180, "charge_max": 36, "aim": 0.7,
       "startup": 9, "active": 0, "recovery": 26,
       "damage": 8, "knockback": 1.4, "hitstun": 24, "hitstop": 7, "launch": 30, "juggle": true,
-      "projectile": { "lob": true, "range": 50, "time": 22, "burst": 16, "offset": 6, "crack": 10 },
+      "projectile": { "lob": true, "range": 48, "range_charged": 110, "time": 22, "burst": 16, "offset": 6, "crack": 10 },
       "anim_at": [[0, 0], [4, 1], [9, 2], [12, 3], [20, 4]],
       "fx": { "projectile": "pinecone" }
     },
