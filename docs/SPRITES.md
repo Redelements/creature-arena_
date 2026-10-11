@@ -171,9 +171,10 @@ side-to-side wiggle, roll onto his side), the red-and-white life ring split into
 half behind him and the half in front, fins, barbels, an orange eye on each side, the
 line tangled round his body, and the **rod as its own rigid piece** with a position and
 spin in every pose. A pose that tips his nose up lifts him so the tail stays on the floor.
-He always wears the ring. Side-on it is drawn whole over his body as a wide oval (his neck shows
-through the hole), however he turns; head-on or from behind he is split at the ring, so the end
-nearer the camera is drawn over it and the far end under it. Feet (belly) at **x 70, y 112**; big frames because the rod flies out in front on Cast Line
+He always wears the ring, and it is much bigger than he is thick (it shows above his back and
+below his belly). Side-on its far half goes behind his body and its near half crosses in front,
+kept wide enough to read however he turns; head-on or from behind he is split at the ring, so
+the end nearer the camera is drawn over it and the far end under it. Feet (belly) at **x 70, y 112**; big frames because the rod flies out in front on Cast Line
 and tumbles far behind on the run. Up and down sheets (`gillbert_down.png`,
 `gillbert_up.png`) are **96×144**, feet at x 48, y 92 (down) and y 76 (up).
 

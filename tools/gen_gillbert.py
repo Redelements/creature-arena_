@@ -236,8 +236,8 @@ class Cam:
 
 LENGTH = 36.0  # head tip to the root of the tail fin
 CENTER_UP = 8.5  # spine height when he rests on his belly
-RING_U = 0.06  # where the life ring sits along the body (1 = nose, -1 = tail)
-RING_R, RING_T = 9.0, 2.4
+RING_U = 0.1  # where the life ring sits along the body (1 = nose, -1 = tail)
+RING_R, RING_T = 12.0, 2.7  # well wider than his body, so it reads as worn round his neck
 
 
 def half_height(u):
@@ -545,7 +545,7 @@ class Painter:
         # so in every pose it reads as the ring he wears round his neck, as on the sheet.
         cx = self.P(c)[0]
         half_w = max(abs(self.P(q)[0] - cx) for _f, q, _c in pts)
-        want = RING_R * (0.82 if self.view == "side" else 0.0)
+        want = RING_R * (0.6 if self.view == "side" else 0.0)
         k = max(1.0, want / max(half_w, 0.5))
         for front, q, col in pts:
             x, y = self.P(q)
@@ -651,13 +651,15 @@ class Painter:
         rings, ring_d = self.ring()
         body = self.body()
         if self.view == "side":
-            # Drawn whole over the body, so his neck shows through the hole and the ring
-            # never slips out of sight behind his head when he turns. That reads as a ring
-            # he is wearing (as on the sheet) better than hiding its far side would.
+            # He wears it: the ring's far half goes behind his body and its near half
+            # crosses in front, and it is much bigger than he is thick, so it shows above
+            # his back and below his belly, as on the sheet. The halves are pinned to the
+            # body's depth, not the ring's own, so a turn can't slip either one out of sight.
+            if rings[0] is not None:
+                parts.append((body_d - 0.05, 3, rings[0]))
             parts.append((body_d, 4, body))
-            for r in rings:
-                if r is not None:
-                    parts.append((body_d + 0.05, 6, r))
+            if rings[1] is not None:
+                parts.append((body_d + 0.05, 6, rings[1]))
         else:
             # Seen head-on or from behind, he passes through the ring: the end of him
             # nearer the camera goes over it, the far end under it, so he is always in it.
