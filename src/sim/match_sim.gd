@@ -201,6 +201,8 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		return "slip"
 
 	var damage := float(hit["damage"])
+	if d.vuln > 0:
+		damage *= d.vuln_mult  # tenderized: every hit lands harder, chip included
 	var gd: Dictionary = d.def["guard"]
 
 	# Armor (Bedrock): the hit only chips, and the target doesn't flinch or move.
@@ -283,7 +285,15 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 			d.juggle_serials[jkey] = true
 			d.juggles += 1
 
-	if bool(hit["grab"]):
+	if float(hit.get("vuln_ticks", 0.0)) > 0.0:
+		d.vuln = maxi(d.vuln, int(hit["vuln_ticks"]))
+		d.vuln_mult = float(hit["vuln_mult"])
+		emit_event("tenderized", d.pos, float(hit["vuln_ticks"]), {"who": d.id})
+
+	if bool(hit["grab"]) and float(hit.get("flip", 0.0)) > 0.0:
+		_flip(a, d, hit)
+		emit_event("grab", a.pos + Vector2(0, -20), total, {"attacker": a.id, "target": d.id, "flip": true})
+	elif bool(hit["grab"]):
 		# Swallow and spit out behind the attacker.
 		d.pos = a.pos - a.facing * (a.radius + d.radius + 6.0)
 		d.clamp_to_floor()
@@ -331,6 +341,18 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	return "hit"
 
 
+## Flip Out: the target is scooped up and carried in an arc over the attacker's head,
+## landing `flip` pixels behind its body, and the attacker turns to face where it lands.
+## The carry takes the first half of the launch; it hangs there for the rest.
+func _flip(a: CreatureSim, d: CreatureSim, hit: Dictionary) -> void:
+	var behind := a.pos - a.facing * (a.radius + d.radius + float(hit["flip"]))
+	behind = behind.clamp(d.floor_min(), d.floor_max())
+	var ticks := maxi(int(hit["launch"]), 2)
+	d.enter_air(ticks, Vector2.ZERO)
+	d.start_flip(behind, ticks / 2)
+	a.facing = -a.facing
+
+
 ## Guard + Dodge while stunned: spend energy to escape the combo.
 func breakaway(d: CreatureSim) -> void:
 	d.energy -= CreatureSim.BREAKAWAY_COST
@@ -358,9 +380,13 @@ func breakaway(d: CreatureSim) -> void:
 ## Two kinds: a ground projectile ("speed", "life") that travels until it hits someone,
 ## and a lob ("lob": true, "range", "time") that arcs over everyone and bursts where it
 ## lands, hitting everything within "burst" of that spot (Pinecone Bomb).
-func spawn_projectile(owner: CreatureSim, mv: Dictionary) -> void:
+func spawn_projectile(owner: CreatureSim, mv: Dictionary, last := true) -> void:
 	var p: Dictionary = mv["projectile"]
 	var hit := owner.hit_params(-1)
+	# The last of a volley can hit differently (Knife Flurry's final knife knocks down).
+	if last and p.has("volley"):
+		for k in p["volley"].get("last", {}):
+			hit[k] = p["volley"]["last"][k]
 	var lob := bool(p.get("lob", false))
 	var life := int(p["time"]) if lob else int(p["life"])
 	var vel := owner.facing * (float(p["range"]) / float(life) if lob else float(p["speed"]))
@@ -373,7 +399,12 @@ func spawn_projectile(owner: CreatureSim, mv: Dictionary) -> void:
 		"radius": float(p.get("radius", 0.0)),
 		"hit": hit,
 		"last_cell": Vector2i(-99, -99),
+		"move": owner.move_id,  # for the view: which move threw it, so it knows what to draw
 	}
+	if bool(p.get("pierce", false)):
+		pr["struck"] = []  # passes through, hitting each body once (Knife Flurry)
+	if p.has("end_sound"):
+		pr["end_sound"] = String(p["end_sound"])  # cosmetic, passed on to the view
 	if not bool(p.get("crack_trail", true)):
 		pr["no_crack"] = true
 	if lob:
@@ -382,7 +413,7 @@ func spawn_projectile(owner: CreatureSim, mv: Dictionary) -> void:
 		pr["burst"] = float(p["burst"])
 		pr["crack"] = float(p.get("crack", 0.0))
 	projectiles.append(pr)
-	emit_event("projectile", owner.pos, 1.0, {"who": owner.id, "lob": lob})
+	emit_event("projectile", owner.pos, 1.0, {"who": owner.id, "lob": lob, "sound": String(p.get("sound", ""))})
 
 
 func _step_projectiles() -> void:
@@ -404,7 +435,7 @@ func _step_projectiles() -> void:
 		p["pos"] = pos
 		p["life"] = int(p["life"]) - 1
 		if int(p["life"]) <= 0 or not fr.grow(-2.0).has_point(pos):
-			emit_event("projectile_end", pos, 0.0, {"who": int(p["owner"])})
+			emit_event("projectile_end", pos, 0.0, {"who": int(p["owner"]), "sound": String(p.get("end_sound", ""))})
 			continue
 		var cell := terrain.world_to_cell(pos)
 		if cell != p["last_cell"] and not bool(p.get("no_crack", false)):
@@ -413,17 +444,24 @@ func _step_projectiles() -> void:
 		var owner := creatures[int(p["owner"])]
 		var hit: Dictionary = p["hit"]
 		var spent := false
+		var pierce := p.has("struck")
 		for d in creatures:
 			if d == owner or not _hittable(d, hit):
+				continue
+			if pierce and (p["struck"] as Array).has(d.id):
 				continue
 			if pos.distance_to(d.pos) > float(p["radius"]) + d.radius:
 				continue
 			var vel: Vector2 = p["vel"]
 			_apply_hit(owner, d, hit, vel.normalized(), pos + Vector2(0, -10))
+			if pierce:
+				(p["struck"] as Array).append(d.id)
+				emit_event("projectile_pierce", pos, 1.0, {"who": int(p["owner"]), "sound": String(p.get("end_sound", ""))})
+				continue
 			spent = true
 			break
 		if spent:
-			emit_event("projectile_end", pos, 1.0, {"who": int(p["owner"])})
+			emit_event("projectile_end", pos, 1.0, {"who": int(p["owner"]), "sound": String(p.get("end_sound", ""))})
 		else:
 			keep.append(p)
 	projectiles = keep

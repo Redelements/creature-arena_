@@ -50,7 +50,8 @@ const STATE_FIELDS := [
 	"combo_hits", "combo_types", "combo_moves", "combo_bounced", "combo_damage", "juggles",
 	"juggle_serials", "last_attacker", "dodge_dir", "prev_buttons", "dodge_buffer",
 	"dodge_buffer_dir", "shield", "calm_t", "slow", "slow_mult", "taunt", "taunt_by",
-	"reel_t", "reel_to", "reel_gap", "reel_speed",
+	"reel_t", "reel_to", "reel_gap", "reel_speed", "vuln", "vuln_mult",
+	"flip_t", "flip_total", "flip_from", "flip_to",
 ]
 ## Set once when the creature is made and never changed by the simulation.
 const STATIC_FIELDS := ["id", "def", "is_dummy", "radius", "weight", "max_hp", "max_stamina"]
@@ -133,6 +134,12 @@ var reel_t := 0  ## ticks left of being reeled in to `reel_to` (Gillbert's Cast 
 var reel_to := -1
 var reel_gap := 0.0
 var reel_speed := 0.0
+var vuln := 0  ## ticks left of taking extra damage (Chef Cerebro's Tenderize)
+var vuln_mult := 1.0
+var flip_t := 0  ## ticks left of being carried over the attacker's head (Flip Out)
+var flip_total := 0
+var flip_from := Vector2.ZERO
+var flip_to := Vector2.ZERO
 
 
 func _init(p_id: int, p_def: Dictionary, p_pos: Vector2, p_is_dummy := false) -> void:
@@ -277,6 +284,9 @@ func hit_params(seg: int) -> Dictionary:
 		"pull": seg_value(seg, "pull"),
 		"reel": seg_value(seg, "reel"),
 		"reel_speed": seg_value(seg, "reel_speed"),
+		"vuln_ticks": seg_value(seg, "vuln_ticks"),
+		"vuln_mult": float(mv.get("vuln_mult", 1.0)),
+		"flip": seg_value(seg, "flip"),
 	}
 
 
@@ -395,6 +405,18 @@ func air_height() -> float:
 	return maxf(0.0, 4.0 * peak * t * (tt - t) / (tt * tt))
 
 
+## How far a move reaches from the body's centre: the strike's reach and radius, or how
+## far its projectile flies. Used by the mouse auto-attack and the CPU to pick range.
+func move_range(mid: String) -> float:
+	var mv: Dictionary = moves().get(mid, {})
+	if mv.has("projectile"):
+		var p: Dictionary = mv["projectile"]
+		if bool(p.get("lob", false)):
+			return float(p.get("offset", 16)) + float(p["range"]) + float(p.get("burst", 0))
+		return float(p.get("offset", 16)) + float(p["speed"]) * float(p["life"]) + float(p.get("radius", 0))
+	return float(mv.get("reach", 14)) + float(mv.get("hit_radius", 9))
+
+
 func move_rank(mid: String) -> int:
 	var mv: Dictionary = moves().get(mid, {})
 	return int(SimDefs.TYPE_RANK.get(String(mv.get("type", "")), 0))
@@ -492,6 +514,8 @@ func step(buttons: int, sim: MatchSim) -> void:
 					_set_state(State.IDLE)
 	if reel_t > 0:
 		_reel_step(sim)
+	if flip_t > 0:
+		_flip_step()
 	_apply_knockback(sim)
 
 	if buffer_t > 0:
@@ -507,6 +531,8 @@ func _tick_status(sim: MatchSim) -> void:
 		slow -= 1
 	if taunt > 0:
 		taunt -= 1
+	if vuln > 0:
+		vuln -= 1
 	# Stoneskin: a while without taking damage grows the shield back.
 	var skin: Dictionary = def.get("stoneskin", {})
 	if not skin.is_empty() and state != State.KO:
@@ -656,8 +682,14 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 		if mv.has("terrain_crack"):
 			# Cracks the floor without opening holes (Root Eruption's roots break the surface).
 			sim.terrain.crack_circle(pos + facing * float(mv.get("reach", 0)), float(mv["terrain_crack"]))
-	if mv.has("projectile") and t == su + 1:
-		sim.spawn_projectile(self, mv)
+	if mv.has("projectile") and t > su:
+		# One projectile at the first active tick, or a "volley" of them (Knife Flurry):
+		# "count" in a row, one every "every" ticks.
+		var vol: Dictionary = mv["projectile"].get("volley", {})
+		var every := maxi(1, int(vol.get("every", 1)))
+		var k := t - su - 1
+		if k % every == 0 and k / every < int(vol.get("count", 1)):
+			sim.spawn_projectile(self, mv, k / every == int(vol.get("count", 1)) - 1)
 
 	# Armored stances (Bedrock): taunt as the armor sets, and let any attack answer
 	# straight out of it once `release_from` is reached.
@@ -819,6 +851,26 @@ func _reel_step(sim: MatchSim) -> void:
 			walk_vel = Vector2.ZERO
 			_set_state(State.IDLE)
 		sim.emit_event("reeled_in", pos, 0.0, {"who": id, "target": t.id})
+
+## Flip Out: carried in an arc over the attacker's head, from where it was scooped to
+## the spot behind, at a steady pace, then left hanging there until it lands. Hits taken
+## on the way (a Knife Flurry) don't knock it off course.
+func start_flip(to: Vector2, ticks: int) -> void:
+	flip_from = pos
+	flip_to = to
+	flip_total = maxi(ticks, 1)
+	flip_t = flip_total
+	knock_vel = Vector2.ZERO
+
+
+func _flip_step() -> void:
+	if state != State.AIRBORNE:
+		flip_t = 0
+		return
+	flip_t -= 1
+	pos = flip_from.lerp(flip_to, 1.0 - float(flip_t) / float(flip_total))
+	knock_vel = Vector2.ZERO
+
 
 func enter_hitstun(ticks: int, kb: Vector2) -> void:
 	cancel_attack()

@@ -220,6 +220,36 @@
       "file": "res://assets/audio/bellyflop.wav",
       "volume_db": -3,
       "pitch_jitter": 0.03
+    },
+    "knife_throw": {
+      "file": "res://assets/audio/knife_throw.wav",
+      "volume_db": -9,
+      "pitch_jitter": 0.1
+    },
+    "knife_hit": {
+      "file": "res://assets/audio/knife_hit.wav",
+      "volume_db": -6,
+      "pitch_jitter": 0.12
+    },
+    "thwack": {
+      "file": "res://assets/audio/thwack.wav",
+      "volume_db": -3,
+      "pitch_jitter": 0.05
+    },
+    "flip": {
+      "file": "res://assets/audio/flip.wav",
+      "volume_db": -4,
+      "pitch_jitter": 0.04
+    },
+    "chop_chop": {
+      "file": "res://assets/audio/chop_chop.wav",
+      "volume_db": -2,
+      "pitch_jitter": 0.0
+    },
+    "fizzle": {
+      "file": "res://assets/audio/fizzle.wav",
+      "volume_db": -5,
+      "pitch_jitter": 0.0
     }
   }
 }

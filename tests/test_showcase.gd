@@ -96,6 +96,17 @@ func test_gillbert_showcase_plays_through_to_a_knockout() -> void:
 	assert_false(r["ko"][0], "Gillbert stays up")
 
 
+func test_cerebro_showcase_plays_through_to_a_knockout() -> void:
+	var r := _play("cerebro")
+	var flips := 0
+	for ev in r["parts"]:
+		if String(ev[1]) == "grab":
+			flips += 1
+	assert_eq(flips, 1, "Flip Out should throw Cairn over his head:")
+	assert_true(r["ko"][1], "Knife Flurry should finish Cairn")
+	assert_false(r["ko"][0], "Chef Cerebro stays up")
+
+
 func test_angles_showcase_lands_up_and_down() -> void:
 	var r := _play("angles")
 	var hits := [0, 0, 0, 0]

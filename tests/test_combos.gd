@@ -149,3 +149,29 @@ func test_gillbert_full_meter() -> void:
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"],
 		[S1, "skill_1"], [SU, "surge"]])
 	assert_near(dmg, 15 + 6 * 1.15 + 8 * 1.3 + 22 * 1.5, 0.05, "... > The One That Got Away:")
+
+
+## Chef Cerebro (left) facing Cairn at close range.
+func _cerebro() -> MatchSim:
+	var sim := MatchFactory.versus("cerebro", "cairn")
+	sim.creatures[0].pos = Vector2(220, 164)
+	sim.creatures[1].pos = Vector2(220 + sim.creatures[0].radius + sim.creatures[1].radius + 2, 164)
+	return sim
+
+
+func test_cerebro_knives_out() -> void:
+	var dmg := route(_cerebro(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [S1, "skill_1"]])
+	assert_near(dmg, 11 + 8 * 1.15, 0.05, "Flick, Flick, Mallet > Cleaver Toss:")
+
+
+func test_cerebro_tenderized() -> void:
+	var dmg := route(_cerebro(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S1, "skill_1"]])
+	# Tenderize softens Cairn up: the Cleaver after it lands 20% harder.
+	assert_near(dmg, 11 + 7 * 1.15 + 8 * 1.2 * 1.3, 0.05, "3 lights > Tenderize > Cleaver Toss:")
+
+
+func test_cerebro_flip_out_knife_flurry() -> void:
+	var sim := _cerebro()
+	sim.creatures[0].energy = 100.0
+	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [S2, "skill_2"], [SU, "surge"]])
+	assert_near(dmg, 11 + 7 * 1.15 + (3 * 7 + 6) * 1.3, 0.05, "3 lights > Flip Out > Knife Flurry:")

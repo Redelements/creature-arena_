@@ -133,14 +133,16 @@ func on_event(e: Dictionary) -> void:
 		"slip":
 			play("parry")
 		"grab":
-			play("grab")
+			play("flip" if bool(e.get("flip", false)) else "grab")
 		"breakaway":
 			play("breakaway")
 		"surge":
 			play("surge")
 			play("crowd_cheer", -2.0)
 		"projectile":
-			if bool(e.get("lob", false)):
+			if String(e.get("sound", "")) != "":
+				play(String(e["sound"]))  # the move's own throw sound (Chef Cerebro's knives)
+			elif bool(e.get("lob", false)):
 				play("swing_heavy", -2.0, 1.3)  # a pinecone tossed up
 			else:
 				play("wave")
@@ -150,8 +152,12 @@ func on_event(e: Dictionary) -> void:
 			play("snag")
 		"reel":
 			play("reel")
-		"projectile_end":
-			play("splash", 0.0 if power >= 1.0 else -6.0)
+		"projectile_end", "projectile_pierce":
+			if String(e.get("sound", "")) != "":
+				if power >= 1.0:  # a thrown utensil is silent when it misses
+					play(String(e["sound"]))
+			elif String(e["type"]) == "projectile_end":
+				play("splash", 0.0 if power >= 1.0 else -6.0)
 		"windup":
 			var red := String(e.get("tell", "")) in ["unblockable", "guard_break"]
 			play("windup_red" if red else "windup_gold")

@@ -122,6 +122,14 @@ func _chase(me: CreatureSim, foe: CreatureSim) -> int:
 	var v := foe.pos - me.pos
 	var lt: Dictionary = me.moves().get("light_1", {})
 	var reach := float(lt.get("reach", 14)) + float(lt.get("hit_radius", 9)) + foe.radius - 4.0
+	if lt.has("projectile"):
+		# A thrown opener (Chef Cerebro's Knife Flick): attack from range, but only once
+		# a straight throw in one of the 8 directions would meet the target.
+		reach = me.move_range("light_1") + foe.radius - 8.0
+		var d := CreatureSim._snap8(v)
+		var off := v.x * d.y - v.y * d.x
+		if v.length() <= reach and absf(off) > foe.radius + 2.0:
+			return _dir_bits(Vector2(-d.y, d.x) * -off, 0.5)  # step sideways to line up
 	if v.length() > reach:
 		return _dir_bits(v, 1.0)
 	if not foe.can_be_hit():
