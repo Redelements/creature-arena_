@@ -164,6 +164,13 @@ func _continue_attack(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: fl
 			_hold_heavy -= 1
 			_hold(SimDefs.IN_HEAVY)
 		return
+	# Holding a gaze (Stone Gaze): break out with a jab once the foe walks in close.
+	var gz: Dictionary = me.move_def().get("gaze", {})
+	if not gz.is_empty() and dist < float(_ai(me).get("range", 22)) + me.radius + foe.radius \
+			and me.state_t >= int(gz.get("release_from", 9999)):
+		_hold(SimDefs.bits_from_dir((foe.pos - me.pos).normalized()))
+		_press(SimDefs.IN_LIGHT)
+		return
 	if not me.connected or _route_drop:
 		return
 	if foe.state == CreatureSim.State.GUARD:
@@ -351,6 +358,15 @@ func _neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2,
 			and _roll(0.25 * float(p["aggression"]) + 0.05):
 		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
 		_press(int(ACTION_BIT[lob]))
+		return
+
+	# A gaze (Stone Gaze) slows a foe who is looking this way: use it at mid range.
+	var gaze := String(ai.get("gaze", ""))
+	var gzr: Array = ai.get("gaze_range", [0, 0])
+	if gaze != "" and me.can_use(gaze) and dist >= float(gzr[0]) and dist <= float(gzr[1]) \
+			and foe.facing.dot(-to_foe.normalized()) > 0.3 and _roll(0.15 + 0.1 * level):
+		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
+		_press(int(ACTION_BIT[gaze]))
 		return
 
 	# A line Surge (Knife Flurry) works from neutral when the foe is lined up in range.

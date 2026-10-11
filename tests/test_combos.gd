@@ -175,3 +175,25 @@ func test_cerebro_flip_out_knife_flurry() -> void:
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [S2, "skill_2"], [SU, "surge"]])
 	assert_near(dmg, 11 + 7 * 1.15 + (3 * 7 + 6) * 1.3, 0.05, "3 lights > Flip Out > Knife Flurry:")
+
+
+## Hissy Fitz (left) facing Cairn at close range.
+func _hissy() -> MatchSim:
+	var sim := MatchFactory.versus("hissy", "cairn")
+	sim.creatures[0].pos = Vector2(220, 164)
+	sim.creatures[1].pos = Vector2(220 + sim.creatures[0].radius + sim.creatures[1].radius + 2, 164)
+	return sim
+
+
+func test_hissy_one_two_venom() -> void:
+	var dmg := route(_hissy(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S1, "skill_1"]])
+	# The poison ticks afterwards aren't hits, so they don't count here.
+	assert_near(dmg, 14 + 8 * 1.15 + 3 * 1.3, 0.05, "Jab, Jab, Hair Lash > Coil Uppercut > Venom Spit:")
+
+
+func test_hissy_petrify_punch() -> void:
+	var sim := _hissy()
+	sim.creatures[0].energy = 100.0
+	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S1, "skill_1"],
+		[SU, "surge"]])
+	assert_near(dmg, 14 + 8 * 1.15 + 3 * 1.3 + 18 * 1.5, 0.05, "... > Venom Spit > Petrify Punch:")

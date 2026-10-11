@@ -15,6 +15,7 @@ const HITSTUN_FLOOR := 0.4
 const STALE_MULT := 0.5
 const ENERGY_PER_DAMAGE := 1.5
 const ENERGY_PER_DAMAGE_TAKEN := 1.0
+const STONE_SHATTER_MULT := 1.25
 
 var tick := 0
 var hitstop := 0
@@ -242,6 +243,11 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		emit_event("guard_break", d.pos, 1.0)
 
 	# --- a clean hit
+	# A statue (Petrify Punch) shatters on the next clean hit, which lands harder.
+	if d.stone > 0:
+		damage *= STONE_SHATTER_MULT
+		d.stone = 0
+		emit_event("shatter", d.pos, damage, {"who": d.id, "by": a.id})
 	var n := d.combo_hits + 1
 	var types := d.combo_types | int(SimDefs.TYPE_BIT[String(hit["type"])])
 	var variety := SimDefs.variety_mult(types)
@@ -285,12 +291,25 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 			d.juggle_serials[jkey] = true
 			d.juggles += 1
 
+	if float(hit.get("poison_ticks", 0.0)) > 0.0:
+		d.poison = maxi(d.poison, int(hit["poison_ticks"]))
+		d.poison_every = maxi(1, int(hit.get("poison_every", 30)))
+		d.poison_dmg = float(hit["poison_damage"])
+		d.poison_by = a.id
+		emit_event("poisoned", d.pos, float(hit["poison_ticks"]), {"who": d.id, "by": a.id})
+
 	if float(hit.get("vuln_ticks", 0.0)) > 0.0:
 		d.vuln = maxi(d.vuln, int(hit["vuln_ticks"]))
 		d.vuln_mult = float(hit["vuln_mult"])
 		emit_event("tenderized", d.pos, float(hit["vuln_ticks"]), {"who": d.id})
 
-	if bool(hit["grab"]) and float(hit.get("flip", 0.0)) > 0.0:
+	if float(hit.get("petrify", 0.0)) > 0.0:
+		# Turned to stone: stunned where it stands (even out of the air), until it wears
+		# off or the next clean hit shatters it.
+		d.enter_crumple(int(hit["petrify"]), kb * 0.3)
+		d.stone = int(hit["petrify"])
+		emit_event("petrify", d.pos, total, {"who": d.id, "by": a.id})
+	elif bool(hit["grab"]) and float(hit.get("flip", 0.0)) > 0.0:
 		_flip(a, d, hit)
 		emit_event("grab", a.pos + Vector2(0, -20), total, {"attacker": a.id, "target": d.id, "flip": true})
 	elif bool(hit["grab"]):

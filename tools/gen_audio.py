@@ -609,6 +609,67 @@ def fizzle():
     return mix(sizzle, lowpass(squeak, 2000))
 
 
+# ---------------------------------------------------------------- Hissy Fitz
+
+def hiss():
+    """Her voice line ("Hiss off!") and her KO: a long snake hiss that swells and fades."""
+    d = 0.8
+    h = bandpass(noise(d), 3500, 9000) * env(d, attack=0.12, curve=1.4) * 0.7
+    rattle = (np.sin(2 * np.pi * 28 * t(d)) > 0.3).astype(float) * 0.35 + 0.65
+    return h * rattle
+
+
+def spit():
+    """Venom Spit: a sharp wet "ptoo", a little hiss in front of it."""
+    total = 0.24
+    hs = bandpass(noise(0.08), 3000, 8000) * env(0.08, attack=0.03, curve=1.0) * 0.4
+    pop = at(thump(500, 180, 0.06, 3.0) * 0.8, 0.07, total)
+    wet = at(bandpass(noise(0.1), 900, 4000) * env(0.1, curve=3.0) * 0.5, 0.07, total)
+    return mix(at(hs, 0.0, total), pop, wet)
+
+
+def splat():
+    """The glob lands: a soft wet splat."""
+    d = 0.18
+    return mix(bandpass(noise(d), 500, 2500) * env(d, attack=0.003, curve=2.5),
+               thump(180, 90, 0.08, 2.5) * 0.6)
+
+
+def poison_tick():
+    """A poison pulse: a small sour bubble pop."""
+    d = 0.12
+    blip = osc(sweep(380, 760, d), d, "tri") * env(d, attack=0.005, curve=3.0) * 0.5
+    return mix(blip, bandpass(noise(0.03), 1500, 4000) * env(0.03, curve=3) * 0.3)
+
+
+def petrify():
+    """Petrify Punch lands: a deep grinding rumble as the target turns to stone."""
+    total = 0.9
+    grind = lowpass(noise(total), 500) * env(total, attack=0.02, curve=1.6) * 1.2
+    crunch = bandpass(noise(0.3), 800, 3000) * env(0.3, curve=2.0) * 0.4
+    boom = np.tanh(thump(70, 35, 0.5, 1.8) * 2.5)
+    return mix(at(boom, 0.0, total), grind, at(crunch, 0.05, total))
+
+
+def shatter():
+    """A statue shatters: a hard crack and a spill of stone chips."""
+    total = 0.7
+    out = at(crack() * 0.9, 0.0, total)
+    for k in range(10):
+        chip = bandpass(noise(0.03), 1800, 6000) * env(0.03, curve=3) * 0.35
+        out = out + at(chip, 0.06 + k * 0.045 + rng.uniform(0, 0.02), total)
+    return out
+
+
+def gaze():
+    """Stone Gaze: an eerie rising shimmer."""
+    d = 0.7
+    a = osc(sweep(600, 900, d), d, "sine") * 0.25
+    b = osc(sweep(905, 1360, d), d, "sine") * 0.18
+    trem = 0.6 + 0.4 * np.sin(2 * np.pi * 9 * t(d))
+    return (a + b) * trem * env(d, attack=0.25, curve=1.2)
+
+
 # Added after the first batch, so they're generated last and the older placeholders
 # (which share one random stream) come out the same as before.
 NEW_SOUNDS = {
@@ -618,6 +679,8 @@ NEW_SOUNDS = {
     "flop": flop, "reel": reel, "bellyflop": bellyflop,
     "knife_throw": knife_throw, "knife_hit": knife_hit, "thwack": thwack, "flip": flip,
     "chop_chop": chop_chop, "fizzle": fizzle,
+    "hiss": hiss, "spit": spit, "splat": splat, "poison_tick": poison_tick, "petrify": petrify,
+    "shatter": shatter, "gaze": gaze,
 }
 
 

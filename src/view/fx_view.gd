@@ -45,15 +45,22 @@ extends Node2D
 ##   flip         true         a spatula arc and "FLIP!" when the move's grab lands
 ##   chop         true         "CHOP CHOP!" when the move starts (Chef Cerebro's voice line)
 ##   telegraph_line true       a dotted line on the floor ahead, as far as the throw reaches
+##   shout        {"text", "sound"}  a voice line over the head when the move starts
+##   charge       also "venom": green venom drips and bubbles while the heavy is held
+##   projectile   also "venom": a glob of green venom with a dripping trail
+##   gaze         true         a glow in her eyes, and a faint beam to each foe it slows
+##   impact       also "petrify": a ring of grey dust where the punch lands
 ## Creature "ko_fx" keys: style "scatter" (the sprite breaks into horizontal pieces that
 ## tumble across the floor), "crack" (cracks, water gushing out, rubble), "crumble"
 ## (cracks, then the neck stones burst loose) or "timber" (a felled tree: "TIMBER!",
 ## leaves shaken loose, and a dust line where the trunk hits the floor) or "flop" (a
 ## last wet flop and a puddle) or "deflate" (the brain fizzles out with a puff of steam and
-## its sunglasses skid away).
+## its sunglasses skid away) or "hiss" (a last long hiss: green puffs and her hair
+## snakes' venom dripping).
 ## Status drawn from creature state: Stoneskin plates while `shield` > 0, a rooted ring
 ## while armored, pebbles at the feet while slowed, a red "!" while taunted, and a pink
-## down-arrow while tenderized (taking extra damage).
+## down-arrow while tenderized (taking extra damage), and green bubbles while poisoned
+## (a petrified statue's grey is CreatureView's shader).
 
 const SHEET := preload("res://assets/sprites/fx.png")
 const GRAVITY := 0.2
@@ -84,6 +91,8 @@ const C_PSY := Color("d58cff")
 const C_TENDER := Color("ff8fa3")
 const C_MALLET: Array[Color] = [Color("8c4c48"), Color("b07a70")]
 const C_BRAIN: Array[Color] = [Color("d6606a"), Color("f88686"), Color("ffb2aa")]
+const C_VENOM: Array[Color] = [Color("3f8a2a"), Color("7fd64e"), Color("c8f59a")]
+const C_GAZE := Color("fff27a")
 
 ## Asks AudioView for a sound that belongs to a timed effect (a KO scatter, geysers...).
 signal cue(sound: String)
@@ -227,6 +236,9 @@ func spawn(e: Dictionary) -> void:
 				_dust(at + Vector2(randf_range(-6, 6), randf_range(-2, 2)), Vector2(randf_range(-0.3, 0.3), -0.4))
 		"projectile_end":
 			var owner_c := _creature(int(e.get("who", -1)))
+			if owner_c != null and _owner_has_venom(owner_c):
+				_venom_splat(p, 10.0, 8 if power >= 1.0 else 5)
+				return
 			if owner_c != null and not _owner_has_wave(owner_c):
 				if power >= 1.0:
 					_add({"kind": "spark", "pos": p, "life": 8, "scale": 1.0})
@@ -309,6 +321,54 @@ func spawn(e: Dictionary) -> void:
 				_text(c.pos + Vector2(0, -_top(c) - 14), "TENDERIZED", C_TENDER, 7, 44.0)
 		"projectile_pierce":
 			_add({"kind": "spark", "pos": p, "life": 6, "scale": 0.8})
+		"poisoned":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				_venom_splat(c.pos, _chest(c), 10)
+				# Under the feet, so it doesn't collide with a call-out over the attacker's head.
+				_text(c.pos + Vector2(0, 14), "POISONED", C_VENOM[2], 7, 44.0)
+		"poison":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				for i in 3:
+					_bubble(c.pos + Vector2(randf_range(-c.radius, c.radius), 0), randf_range(6.0, _top(c) - 4.0))
+				_text(c.pos + Vector2(randf_range(-4, 4), -_top(c) - 4), str(snappedf(power, 0.1)).trim_suffix(".0"),
+					C_VENOM[1], 7, 30.0)
+		"gaze":
+			var c := _creature(int(e.get("who", -1)))
+			var by := _creature(int(e.get("by", -1)))
+			if c != null and by != null:
+				var eyes := by.pos + Vector2(by.facing.x * 4.0, -_top(by) + 12.0)
+				var at := c.pos + Vector2(0, -_chest(c))
+				_add({"kind": "streak", "a": eyes, "b": at, "life": 8, "color": Color(C_GAZE, 0.55)})
+				for i in 2:
+					_px(at + Vector2(randf_range(-6, 6), randf_range(-8, 8)), Vector2(0, -0.2), C_GREY[3], 14)
+				if power <= float(by.move_def().get("gaze", {}).get("min_mult", 0.0)) + 0.001 \
+						and c.anim_t % 40 < 10:
+					_text(c.pos + Vector2(0, -_top(c) - 14), "STONE COLD", C_GREY[3], 7, 30.0)
+		"petrify":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				_add({"kind": "ring", "pos": c.pos, "life": 18, "radius": c.radius + 18.0, "color": C_GREY[3]})
+				_add({"kind": "lines", "pos": c.pos + Vector2(0, -_chest(c)), "life": 12, "size": 1.4, "color": C_GREY[3]})
+				for i in 10:
+					_px(c.pos + Vector2(randf_range(-10, 10), -randf_range(4, _top(c))),
+						Vector2.from_angle(randf() * TAU) * randf_range(0.4, 1.2), C_GREY[randi() % 4], 20)
+				_text(c.pos + Vector2(0, -_top(c) - 14), "PETRIFIED!", C_GREY[3], 9, 50.0)
+				shake_out = maxf(shake_out, 2.5)
+		"shatter":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				var push := _note_push(e)
+				for i in 12:
+					var v := Vector2.from_angle(randf() * TAU) * randf_range(0.6, 2.0) + push * 0.6
+					_chunk(c.pos, randf_range(4, _top(c)), v, randf_range(1.0, 2.4), randf_range(2.0, 3.5),
+						C_GREY[randi() % 3], 50.0)
+				for i in 5:
+					_dust(c.pos + Vector2(randf_range(-10, 10), randf_range(-3, 3)), Vector2(randf_range(-0.4, 0.4), -0.4))
+				_add({"kind": "lines", "pos": c.pos + Vector2(0, -_chest(c)), "life": 10, "size": 1.6, "color": Color.WHITE})
+				_text(c.pos + Vector2(0, -_top(c) - 22), "SHATTER!", Color("ffd166"), 10, 50.0)
+				shake_out = maxf(shake_out, 3.0)
 		"land_hard":
 			for i in 3:
 				_dust(p + Vector2(randf_range(-6, 6), randf_range(-2, 2)), Vector2(randf_range(-0.3, 0.3), -0.4))
@@ -487,6 +547,9 @@ func _watch_all() -> void:
 		if c.shield > 0.0 and ticked and c.anim_t % 26 == 0 and c.state != CreatureSim.State.KO:
 			var at := c.pos + Vector2(randf_range(-c.radius, c.radius), -randf_range(8.0, _top(c) - 8.0))
 			_add({"kind": "glint", "pos": at, "life": 10, "color": C_GREY[3]})
+		# Poisoned: green bubbles rise off it now and then.
+		if c.poison > 0 and ticked and c.anim_t % 9 == 0 and c.state != CreatureSim.State.KO:
+			_bubble(c.pos + Vector2(randf_range(-c.radius, c.radius), 0), randf_range(4.0, _top(c)))
 		if c.state == CreatureSim.State.KO and int(w["state"]) != CreatureSim.State.KO:
 			_ko(c)
 		w["state"] = c.state
@@ -496,6 +559,11 @@ func _watch_all() -> void:
 func _move_started(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 	if String(mv.get("type", "")) == "surge":
 		_dark = maxf(_dark, 0.6)
+	var shout: Dictionary = fx.get("shout", {})
+	if not shout.is_empty():
+		_text(c.pos + Vector2(0, -_top(c) - 12), String(shout.get("text", "")), Color("ffd166"), 10, 60.0)
+		if shout.has("sound"):
+			cue.emit(String(shout["sound"]))
 	if bool(fx.get("chop", false)):
 		_text(c.pos + Vector2(0, -_top(c) - 12), "CHOP CHOP!", Color("ffd166"), 10, 60.0)
 		cue.emit("chop_chop")
@@ -515,6 +583,13 @@ func _charging(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 		"pebbles":
 			if full and c.anim_t % 6 == 0:
 				_dust(c.pos + Vector2(randf_range(-10, 10), randf_range(-2, 2)), Vector2(0, -0.4))
+		"venom":
+			# Venom drips from the hair snakes' mouths, bubbling once fully wound.
+			if c.anim_t % (3 if full else 6) == 0:
+				var at := c.pos + Vector2(randf_range(-14, 14), randf_range(-2, 2))
+				_drop(at, randf_range(_top(c) - 14.0, _top(c) - 4.0), Vector2.ZERO, 0.0, false, C_VENOM[randi() % 2 + 1])
+			if full and c.anim_t % 5 == 0:
+				_bubble(c.pos + Vector2(randf_range(-10, 10), 0), randf_range(10.0, _top(c)))
 		"psychic":
 			# Violet sparks drawn in toward the brain, faster once fully wound.
 			if c.anim_t % (2 if full else 4) == 0:
@@ -587,6 +662,11 @@ func _strike(c: CreatureSim, mv: Dictionary, fx: Dictionary, seg: int) -> void:
 				_twister_gust(c, mv)
 			"tenderize":
 				_tenderize(c, c.hit_center(seg), c.hit_radius(seg))
+			"petrify":
+				var at := c.hit_center(seg)
+				_add({"kind": "ring", "pos": at, "life": 14, "radius": c.hit_radius(seg) + 8.0, "color": C_GREY[2]})
+				for i in 6:
+					_dust(at + Vector2(randf_range(-8, 8), randf_range(-3, 3)), Vector2(randf_range(-0.5, 0.5), -0.4))
 	if String(fx.get("impact", "")) == "roots":
 		_roots(c, c.hit_radius(seg), last)
 
@@ -622,6 +702,14 @@ func _during_move(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 			if t % 4 == 0:
 				_add({"kind": "whirl", "pos": c.pos + Vector2(0, -_chest(c) * 0.6), "life": 8, "radius": r,
 					"start": randf() * TAU})
+	var gz: Dictionary = mv.get("gaze", {})
+	if bool(fx.get("gaze", false)) and not gz.is_empty() and t >= int(gz["from"]) and t <= int(gz["to"]) \
+			and t % 3 == 0:
+		var eyes := c.pos + Vector2(c.facing.x * 4.0, -_top(c) + 12.0)
+		_add({"kind": "glint", "pos": eyes + Vector2(randf_range(-4, 4), randf_range(-2, 2)), "life": 6, "color": C_GAZE})
+		if t % 12 == 0:
+			_add({"kind": "ring", "pos": c.pos + c.facing * 20.0, "life": 14, "radius": 14.0,
+				"color": Color(C_GAZE, 0.5)})
 	if bool(fx.get("suction", false)) and t <= int(mv.get("startup", 0)) + int(mv.get("active", 0)):
 		var mouth := c.pos + c.facing * 12.0 + Vector2(0, -_chest(c))
 		for i in 2:
@@ -843,6 +931,9 @@ func _geyser_tick(k: float, at: Vector2) -> void:
 func _projectile_spray() -> void:
 	for pr in sim.projectiles:
 		if not _is_wave(pr):
+			if _tick % 4 == 0 and not bool(pr.get("lob", false)) and _proj_kind(pr) == "venom":
+				_drop(Vector2(pr["pos"]) - Vector2(pr["vel"]).normalized() * 3.0, 20.0, Vector2.ZERO, 0.0, false,
+					C_VENOM[1])
 			continue
 		var pos: Vector2 = pr["pos"]
 		var vel: Vector2 = pr["vel"]
@@ -1167,6 +1258,8 @@ func _ko(c: CreatureSim) -> void:
 			_later(10.0, _flop_ko.bind(c))
 		"deflate":
 			_later(18.0, _deflate.bind(c))
+		"hiss":
+			_later(12.0, _hiss_ko.bind(c))
 		"timber":
 			_timber(c)
 			_later(16.0, _timber_land.bind(c, float(ko.get("length", 50))))
@@ -1292,6 +1385,41 @@ func _rubble(c: CreatureSim) -> void:
 
 
 # ------------------------------------------------------------------ helpers
+
+## Hissy Fitz goes down with a last long hiss: green puffs and venom dripping.
+func _hiss_ko(c: CreatureSim) -> void:
+	_text(c.pos + Vector2(0, -_top(c) - 6), "hssssss...", C_VENOM[2], 8, 70.0)
+	for i in 8:
+		_bubble(c.pos + Vector2(randf_range(-14, 14), 0), randf_range(4.0, 24.0))
+	for i in 6:
+		_drop(c.pos + Vector2(randf_range(-12, 12), randf_range(-2, 2)), randf_range(8, 20), Vector2.ZERO, 0.0, false,
+			C_VENOM[1])
+	cue.emit("hiss")
+
+
+## A splash of venom: green drops flung out and a spreading green stain.
+func _venom_splat(at: Vector2, z: float, n: int) -> void:
+	for i in n:
+		_drop(at, z, Vector2.from_angle(randf() * TAU) * randf_range(0.3, 1.3), randf_range(0.8, 2.0), false,
+			C_VENOM[randi() % 3])
+	_add({"kind": "puddle", "pos": at, "radius": 4.0, "ry": 0.45, "grow": 4.0, "life": 70.0, "fade": 30.0,
+		"color": Color(C_VENOM[0], 0.7)})
+
+
+## A poison bubble: rises from `z` above `at`, wobbling, and pops.
+func _bubble(at: Vector2, z: float) -> void:
+	_add({"kind": "bubble", "pos": at, "z": z, "life": randf_range(18.0, 28.0), "r": randf_range(1.0, 2.2),
+		"wob": randf() * TAU})
+
+
+func _owner_has_venom(owner: CreatureSim) -> bool:
+	var mvs := owner.moves()
+	for m in mvs:
+		var mv: Dictionary = mvs[m]
+		if mv.has("projectile") and String(mv.get("fx", {}).get("projectile", "")) == "venom":
+			return true
+	return false
+
 
 func _creature(i: int) -> CreatureSim:
 	return sim.creatures[i] if i >= 0 and i < sim.creatures.size() else null
@@ -1471,6 +1599,16 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 			col.a = 1.0 - k
 			var pos: Vector2 = p["pos"]
 			ci.draw_rect(Rect2(pos.round(), Vector2.ONE * (2.0 if k < 0.4 else 1.0)), col)
+		"bubble":
+			var at := Vector2(p["pos"]) + Vector2(sin(float(p["wob"]) + t * 0.35) * 1.5, -float(p["z"]) - t * 0.45)
+			var r := float(p["r"])
+			if k < 0.9:
+				ci.draw_circle(at.round(), r + 1.0, Color(C_OUTLINE, 0.7))
+				ci.draw_circle(at.round(), r, C_VENOM[1])
+				ci.draw_rect(Rect2((at + Vector2(-r * 0.5, -r * 0.5)).round(), Vector2.ONE), C_VENOM[2])
+			else:
+				for d in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+					ci.draw_rect(Rect2((at + d * (r + 1.0)).round(), Vector2.ONE), C_VENOM[2])
 		"streak":
 			var col: Color = p["color"]
 			col.a *= 1.0 - k
@@ -1697,6 +1835,8 @@ func _draw_projectiles(ci: CanvasItem) -> void:
 					_draw_thrown_knife(ci, pr)
 				"mallet", "cleaver":
 					_draw_spinner(ci, pr, _proj_kind(pr))
+				"venom":
+					_draw_venom(ci, pr)
 				_:
 					_draw_thrown_rod(ci, pr)
 			continue
@@ -1716,6 +1856,25 @@ func _proj_kind(pr: Dictionary) -> String:
 		return "rod"
 	var mv: Dictionary = owner.moves().get(String(pr["move"]), {})
 	return String(mv.get("fx", {}).get("projectile", "rod"))
+
+
+## Venom Spit in flight: a wobbling green glob at head height with drips behind it.
+func _draw_venom(ci: CanvasItem, pr: Dictionary) -> void:
+	var pp: Vector2 = Vector2(pr["pos"]).round()
+	var d: Vector2 = Vector2(pr["vel"]).normalized()
+	var at := pp + Vector2(0, -20)
+	ci.draw_set_transform(pp, 0.0, Vector2(1.0, 0.4))
+	ci.draw_circle(Vector2.ZERO, 3.0, Color(0, 0, 0, 0.25))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	for i in 3:
+		var back := at - d * (4.0 + i * 3.5) + Vector2(0, float((i + _tick / 2) % 3) - 1.0)
+		ci.draw_circle(back.round(), 1.6 - i * 0.4, Color(C_VENOM[1], 0.8 - i * 0.2))
+	var wob := 1.0 + 0.15 * float((_tick / 3) % 2)
+	ci.draw_set_transform(at, d.angle(), Vector2(1.25 * wob, 1.0 / wob))
+	ci.draw_circle(Vector2.ZERO, 3.6, C_OUTLINE)
+	ci.draw_circle(Vector2.ZERO, 2.7, C_VENOM[1])
+	ci.draw_circle(Vector2(0.6, -0.9), 1.0, C_VENOM[2])
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 ## Chef Cerebro's thrown knives: point first, a glint along the blade, and a short

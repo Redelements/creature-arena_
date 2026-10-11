@@ -250,6 +250,41 @@
       "file": "res://assets/audio/fizzle.wav",
       "volume_db": -5,
       "pitch_jitter": 0.0
+    },
+    "hiss": {
+      "file": "res://assets/audio/hiss.wav",
+      "volume_db": -4,
+      "pitch_jitter": 0.05
+    },
+    "spit": {
+      "file": "res://assets/audio/spit.wav",
+      "volume_db": -5,
+      "pitch_jitter": 0.08
+    },
+    "splat": {
+      "file": "res://assets/audio/splat.wav",
+      "volume_db": -6,
+      "pitch_jitter": 0.12
+    },
+    "poison_tick": {
+      "file": "res://assets/audio/poison_tick.wav",
+      "volume_db": -10,
+      "pitch_jitter": 0.15
+    },
+    "petrify": {
+      "file": "res://assets/audio/petrify.wav",
+      "volume_db": -2,
+      "pitch_jitter": 0.0
+    },
+    "shatter": {
+      "file": "res://assets/audio/shatter.wav",
+      "volume_db": -2,
+      "pitch_jitter": 0.05
+    },
+    "gaze": {
+      "file": "res://assets/audio/gaze.wav",
+      "volume_db": -8,
+      "pitch_jitter": 0.0
     }
   }
 }

@@ -19,6 +19,10 @@ Six fighters so far, each with a full moveset and a CPU opponent:
   dishes, and his opponents): a mage who fights from range, flicking knives, tossing a
   meat mallet and hurling his cleaver, tenderizes anyone who gets close, flips them over
   his head with a spatula, and finishes with a stream of knives.
+- **Hissy Fitz**, kicked out of the museum for turning the guards to stone: a boxer with a
+  head of hair snakes and a pair of red gloves who jabs up close, spits venom that poisons
+  over time, slows anyone who looks her in the eye, and turns foes to stone with a
+  wound-up haymaker.
 
 ![Demo: CPU Cairn vs CPU Culvert](docs/demo.gif)
 
@@ -68,7 +72,7 @@ From a terminal:
 godot --path .                          # menu
 godot --path . -- --mode=0 --level=2    # Cairn vs a Hard CPU Culvert
 godot --path . -- --mode=2              # watch CPU vs CPU
-godot --path . -- --showcase=cerebro    # scripted demo: cairn, culvert, craglash, barkley, gillbert, cerebro or counterplay
+godot --path . -- --showcase=cerebro    # scripted demo: cairn, culvert, craglash, barkley, gillbert, cerebro, hissy or counterplay
 godot --path . -- --mode=6              # Duel vs CPU with the default teams (add --pick to choose)
 ```
 
@@ -79,7 +83,8 @@ Online from a terminal: `godot --path . -- --online-host` and `godot --path . --
 10 Reaction Drill (read Culvert), 11 Reaction Drill (read Cairn), 12 Craglash vs CPU Cairn,
 13 training as Craglash, 14 Barkley vs CPU Craglash, 15 training as Barkley,
 16 Gillbert vs CPU Barkley, 17 training as Gillbert, 18 Chef Cerebro vs CPU Gillbert,
-19 training as Chef Cerebro. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
+19 training as Chef Cerebro, 20 Online 1v1 (the lobby), 21 Hissy Fitz vs CPU Chef Cerebro,
+22 training as Hissy Fitz. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
 sets Duel teams; `--cpu-vs-cpu` hands every player side to the CPU.
 
 **Local 2-player:** with two controllers, each player gets one (player 1 can also use the
@@ -144,7 +149,8 @@ at a time.
 - **Tag** sends the next living teammate in with its own tag-in strike (Cairn: Rockfall
   Entry, a dash punch; Culvert: Manhole Drop, a landing slam that launches; Craglash:
   Landslide Entry, a charging headbutt; Barkley: Timber Drop, a falling log bonk that launches; Gillbert: Splashdown, a little belly-flop;
-  Chef Cerebro: Order Up, a mallet bonk that launches). Tag from
+  Chef Cerebro: Order Up, a mallet bonk that launches; Hissy Fitz: Hiss Off, an uppercut
+  that launches). Tag from
   neutral or guard, then it's on a 5-second cooldown.
 - **Tag cancel:** tag out of an attack that hit, for 50 energy, and the tag-in strike
   carries the combo on.
@@ -273,6 +279,27 @@ for a victory-pose system.
 
 ![Chef Cerebro's showcase](docs/cerebro_demo.gif)
 
+### Hissy Fitz — kicked out of the museum for turning the guards to stone
+
+A fighter (130 HP, Wild affinity: the sheet says Poison). A big head crowned with hair
+snakes that floats around the arena, two red boxing gloves held up in guard on two more
+snakes. She wins up close with
+quick gloves, and makes foes pay for walking in: the spit poisons them on the way, and the
+gaze slows anyone who comes at her face first. Voice line: "Hiss off!"
+
+| Button | Move | What it does |
+| --- | --- | --- |
+| Light | Snake Jab, Snake Jab, Hair Lash | A fast one-two from the gloved snakes, then her hair snakes whip forward and bite |
+| Heavy | Coil Uppercut | The glove coils low and comes up: launches. Hold to charge (bigger and harder) |
+| Skill 1 | Venom Spit | Her hair snakes spit a glob of venom about 100 px. It **poisons**: 2 damage every half second for 3 s (12 in all), outside any combo, so it keeps ticking after the combo ends. Green bubbles show it. Keeps a juggle going |
+| Skill 2 | Stone Gaze | She stares for about 1.5 s. Anyone within 110 px, **in front of her and facing her**, is slowed, more the longer they look (down to 35% speed), and stays slowed 1.5 s after. **Look away, or get behind her, and it does nothing.** She can break out of the stare with any attack after the first moments |
+| Surge | Petrify Punch | A wound-up haymaker (a long, readable startup). The foe it hits is **turned to stone** for 1.5 s, stunned where it stands, even out of the air. The next clean hit **shatters** the statue for 25% extra damage |
+
+There's no passive on the sheet, so she has none. Her victory emote (a kiss blown while
+the hair snakes bump gloves) waits for a victory-pose system.
+
+![Hissy Fitz's showcase](docs/hissy_demo.gif)
+
 ### Combos to try
 
 | Fighter | Route | Damage |
@@ -295,6 +322,8 @@ for a victory-pose system.
 | Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Cleaver Toss | 20.2 |
 | Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Tenderize → Cleaver Toss (tenderized: +20%) | 31.5 |
 | Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Flip Out → Knife Flurry | 54.2 |
+| Hissy Fitz | Snake Jab, Snake Jab, Hair Lash → Coil Uppercut → Venom Spit (then 12 poison) | 27.1 |
+| Hissy Fitz | Snake Jab, Snake Jab, Hair Lash → Coil Uppercut → Venom Spit → Petrify Punch, then shatter the statue | 54.1 + |
 
 Every one of these is checked by an automated test (`tests/test_combos.gd`).
 
@@ -328,7 +357,8 @@ charge-up particles, impacts like Avalanche's rock spire or Storm Drain's geyser
 creature a `ko_fx` block that picks its death animation: Cairn's stack breaks apart and
 tumbles across the floor; Culvert cracks, gushes storm water and settles into rubble;
 Craglash's neck comes apart stone by stone; Barkley topples like a felled tree ("TIMBER!"); Gillbert gives one last wet flop; Chef
-Cerebro fizzles out in a puff of steam and his sunglasses skid away. The
+Cerebro fizzles out in a puff of steam and his sunglasses skid away; Hissy Fitz goes down
+with a long hiss and a drip of venom. The
 keys are listed at the top of `src/view/fx_view.gd`. Effects only read the simulation, so
 they can never change a match, a replay or a test result. Knockouts also get a freeze
 frame, slow motion and a camera push-in, and Surges get a fighting-game cut-in.
@@ -342,10 +372,10 @@ godot --headless --path . --import
 godot --headless --path . --script res://tests/run_tests.gd
 ```
 
-171 tests cover every example combo, every Combo Trial, both Reaction Drills, Duel rules, every showcase, windups and counterplay,
+184 tests cover every example combo, every Combo Trial, both Reaction Drills, Duel rules, every showcase, windups and counterplay,
 rollback netcode (snapshots, two simulated machines over a laggy, lossy connection, online sessions over memory and real UDP: handshake, time sync, rematch, desync detection), every combo rule (variety bonus, stale moves,
 hitstun decay, juggle cap, cancels on contact, stacks, energy, cooldowns, breakaway), grabs,
-Slip counters, shockwaves, the Storm Drain pit ring, Barkley's pull, lob and root rings, Gillbert's reel and leap, Chef Cerebro's thrown kit (range, tenderizing, the flip, a volley of knives through a line), terrain, determinism, replays, and the
+Slip counters, shockwaves, the Storm Drain pit ring, Barkley's pull, lob and root rings, Gillbert's reel and leap, Chef Cerebro's thrown kit (range, tenderizing, the flip, a volley of knives through a line), Hissy Fitz's poison, gaze and statues, terrain, determinism, replays, and the
 CPU (reproducible matches, uses its whole kit, Hard beats Easy), and the mouse and gamepad
 controls. A test that crashes counts as a failure. They run on every push via GitHub Actions.
 

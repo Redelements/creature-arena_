@@ -107,6 +107,17 @@ func test_cerebro_showcase_plays_through_to_a_knockout() -> void:
 	assert_false(r["ko"][0], "Chef Cerebro stays up")
 
 
+func test_hissy_showcase_plays_through_to_a_knockout() -> void:
+	var r := _play("hissy")
+	var kinds := {}
+	for ev in r["parts"]:
+		kinds[String(ev[1])] = true
+	for k in ["gaze", "poisoned", "petrify", "shatter"]:
+		assert_true(kinds.has(k), "the showcase should show %s" % k)
+	assert_true(r["ko"][1], "the shattering combo should finish Cairn")
+	assert_false(r["ko"][0], "Hissy Fitz stays up")
+
+
 func test_angles_showcase_lands_up_and_down() -> void:
 	var r := _play("angles")
 	var hits := [0, 0, 0, 0]
