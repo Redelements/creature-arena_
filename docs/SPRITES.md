@@ -202,6 +202,50 @@ all three views: [`gillbert_run.gif`](gillbert_run.gif).
 Design note: the life ring, the barbels and the rod on its line are what make him read as
 Gillbert, not as a fish from an existing franchise.
 
+### Chef Cerebro — 128×128 frames, 8 × 13 (1024×1664 px)
+
+Chef Cerebro is the fourth creature from the artist's sheets. `tools/gen_cerebro.py` uses
+the same cameras as Barkley and Gillbert, but renders differently: every piece is sampled
+as 3D points (the brain as ten overlapping lobe ellipsoids, the brain stems as tubes, the
+blades and spatula head as flat plates, the mallet head as a box, the pan as a cylinder)
+and splatted into a depth buffer. Each pixel is then shaded from its normal, outlined
+where the silhouette ends and along every seam between pieces (which draws the lines
+between the lobes, as on the sheet), and decorated in the brain's own coordinates: the
+black half-moon sunglasses (turned out to the sides, so they read from the side and the
+front), their bridge and arms, and a few wrinkle strokes on each lobe. Tools are outlined
+in black and the brain in the sheet's dark maroon.
+
+His kit, as drawn: the big chef's knife on the front stem, the navy spatula on the back
+stem, and a dark brown pan on his back with the meat mallet standing in it; a thinner
+third stem draws small knives and the mallet out of the pan. Feet at **x 62, y 100**. The
+rig is modelled large and drawn at 0.72 scale (`SCALE`). Up and down sheets
+(`cerebro_down.png`, `cerebro_up.png`) are **112×128**, feet at x 56, y 88 (down) and
+y 76 (up).
+
+![Chef Cerebro sheet, 3x](cerebro_preview.png)
+
+Facing down and up: [`cerebro_views_preview.png`](cerebro_views_preview.png).
+
+| Row | Animation | Frames | Notes |
+| --- | --- | --- | --- |
+| 0 | idle | 4 | settled on the floor, breathing, a glint across the sunglasses |
+| 1 | run | 6 | an inchworm scoot on his stems: squash, stretch forward, hop, land |
+| 2 | flick | 4 | Knife Flick (light 1): a small knife drawn from the pan, wound back, flicked; the game draws it in flight |
+| 3 | flick2 | 4 | Backhand Flick (light 2): a sidearm throw across his body |
+| 4 | toss | 5 | Mallet Toss (light 3): the mallet out of the pan, over his head, hurled; back in the pan |
+| 5 | tenderize | 6 | Tenderize: charge A, charge B (mallet high), rise, pound, impact, recover; Order Up plays from frame 3 |
+| 6 | cleaver | 6 | Cleaver Toss: the big knife back over his head, thrown, follow-through without it, a new one in hand |
+| 7 | flipout | 6 | Flip Out: the spatula swings round low, slides under, scoops, carries over his head, recover |
+| 8 | flurry | 6 | Knife Flurry: a fan of knives drawn, set, two alternating throws (looped while the stream flies), recover |
+| 9 | dodge | 4 | a squashed roll onto his side and back |
+| 10 | hurt | 2 | recoil, sunglasses knocked askew; frame 1 doubles as the crumple pose |
+| 11 | guard | 2 | hunkered down behind the spatula, held up like a shield |
+| 12 | ko | 4 | knocked back, tips over, deflates, sunglasses off |
+
+Design note: the sunglasses, the brain stems holding kitchen tools and the pan on his
+back are what make him read as Chef Cerebro. Name check before release: "Cerebro" is
+also the name of a well-known comic-book device (see the PR notes).
+
 ## Training dummy — 48×48 frames
 
 4 columns × 2 rows. Row 0: idle, hurt A, hurt B, guard. Row 1: knock-over, 4 frames.

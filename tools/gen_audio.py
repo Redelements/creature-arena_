@@ -561,6 +561,54 @@ def bellyflop():
     return mix(slap, water, drops)
 
 
+# ---------------------------------------------------------------- Chef Cerebro
+
+def knife_throw():
+    """A small knife flicked: a thin, fast whoosh with a metallic shing."""
+    d = 0.16
+    whoosh = swing(1500, 6000, d, 0.8)
+    shing = (osc(3400, d) * 0.5 + osc(5150, d) * 0.3) * env(d, attack=0.01, curve=4.0) * 0.35
+    return mix(whoosh, shing)
+
+
+def knife_hit():
+    """A knife sinking in: a short, dull chunk."""
+    d = 0.09
+    return mix(thump(420, 160, d, 3.0) * 0.8, bandpass(noise(0.03), 1500, 5000) * env(0.03, curve=3) * 0.6)
+
+
+def thwack():
+    """Tenderize: a wooden meat mallet pounding down, with a meaty slap."""
+    total = 0.3
+    wood = (osc(sweep(520, 300, 0.12), 0.12, "tri") * env(0.12, curve=5)) * 0.8
+    slap = bandpass(noise(0.08), 400, 2500) * env(0.08, curve=3) * 0.9
+    return mix(at(np.tanh(thump(140, 60, 0.2, 2.0) * 2.0), 0.0, total), at(wood, 0.0, total), at(slap, 0.0, total))
+
+
+def flip():
+    """Flip Out: a spatula scrape, then a rising whoosh as they go over his head."""
+    total = 0.5
+    scrape = bandpass(noise(0.1), 2500, 7000) * env(0.1, attack=0.01, curve=2) * 0.5
+    rise = swing(300, 2400, 0.32, 0.9)
+    boing = osc(sweep(220, 520, 0.25), 0.25, "tri") * env(0.25, curve=3) * 0.3
+    return mix(at(scrape, 0.0, total), at(rise, 0.06, total), at(boing, 0.1, total))
+
+
+def chop_chop():
+    """His voice line: two quick knife chops on a cutting board."""
+    total = 0.42
+    chop = mix(thump(300, 120, 0.07, 3.0), highpass(noise(0.02), 2500) * env(0.02) * 0.6)
+    return mix(at(chop, 0.0, total), at(chop * 0.9, 0.18, total))
+
+
+def fizzle():
+    """The brain fizzles out: a sizzle that dies away, and a deflating squeak."""
+    d = 0.9
+    sizzle = highpass(noise(d), 3000) * env(d, attack=0.02, curve=1.5) * 0.4
+    squeak = osc(sweep(700, 180, d, 0.7), d, "square", 0.3) * env(d, attack=0.05, curve=2.0) * 0.18
+    return mix(sizzle, lowpass(squeak, 2000))
+
+
 # Added after the first batch, so they're generated last and the older placeholders
 # (which share one random stream) come out the same as before.
 NEW_SOUNDS = {
@@ -568,6 +616,8 @@ NEW_SOUNDS = {
     "avalanche": avalanche,
     "snag": snag, "pinecone": pinecone, "twister": twister, "roots": roots, "timber": timber,
     "flop": flop, "reel": reel, "bellyflop": bellyflop,
+    "knife_throw": knife_throw, "knife_hit": knife_hit, "thwack": thwack, "flip": flip,
+    "chop_chop": chop_chop, "fizzle": fizzle,
 }
 
 

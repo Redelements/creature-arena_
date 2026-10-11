@@ -64,8 +64,14 @@ sounds from any other game (see "Staying legally distinct" in the Game Plan).
 | [ ] | `flop` | Gillbert's footsteps (every flop of his run) and his knockout | Wet fish slap |
 | [ ] | `reel` | Cast Line hooks someone and reels him in | Zipping reel ratchet |
 | [ ] | `bellyflop` | The One That Got Away lands | Huge slap and a wall of water |
+| [ ] | `knife_throw` | Chef Cerebro throws a knife or his cleaver | Thin whoosh with a metallic shing |
+| [ ] | `knife_hit` | A thrown knife lands | Short dull chunk |
+| [ ] | `thwack` | Mallet Toss lands; Tenderize pounds the floor | Wooden meat mallet on meat |
+| [ ] | `flip` | Flip Out scoops someone over his head | Spatula scrape, rising whoosh |
+| [ ] | `chop_chop` | Knife Flurry starts (his voice line, "CHOP CHOP") | Placeholder is two knife chops on a board; the real one is his voice |
+| [ ] | `fizzle` | Chef Cerebro's knockout | Sizzle dying away, a deflating squeak |
 
-Craglash, Barkley and Gillbert have signature sounds; Gillbert also has footsteps
+Craglash, Barkley, Gillbert and Chef Cerebro have signature sounds; Gillbert also has footsteps
 (`"step_sound"` in his JSON). Cries and footsteps don't exist
 yet; when the new roster arrives, add them to `data/audio.json` and this table.
 

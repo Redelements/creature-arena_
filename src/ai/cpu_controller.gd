@@ -174,7 +174,7 @@ func _continue_attack(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: fl
 		return
 	# On the first contact, pick a route; each new move after that is one step along it.
 	if _route.is_empty():
-		_route = _pick_route(me)
+		_route = _pick_route(me, dist)
 		_route_step = 1
 		_route_serial = me.attack_serial
 		if not _roll(float(p["combo"])):
@@ -192,7 +192,7 @@ func _continue_attack(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: fl
 			_press(int(ACTION_BIT[action]))
 
 
-func _pick_route(me: CreatureSim) -> Array:
+func _pick_route(me: CreatureSim, dist: float) -> Array:
 	if me.move_id != "light_1":
 		# Started with something else (a counter, a poke): finish with whatever ranks higher.
 		var tail: Array = [me.move_id]
@@ -204,6 +204,10 @@ func _pick_route(me: CreatureSim) -> Array:
 				break
 		return tail
 	var routes: Array = _ai(me).get("routes", [["light"]])
+	# A ranged fighter (Chef Cerebro) that landed its opener from afar finishes with
+	# moves that reach that far.
+	if _ai(me).has("far_routes") and dist > float(_ai(me).get("far_from", 9999)):
+		routes = _ai(me)["far_routes"]
 	for r in routes:
 		var ok := true
 		for act in r:
@@ -349,6 +353,14 @@ func _neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2,
 		_press(int(ACTION_BIT[lob]))
 		return
 
+	# A line Surge (Knife Flurry) works from neutral when the foe is lined up in range.
+	var surge_line := float(ai.get("surge_line", 0))
+	if surge_line > 0.0 and dist < surge_line and me.can_use("surge") and _lined_up(to_foe, foe) \
+			and _roll(0.2 + 0.15 * level):
+		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
+		_press(SimDefs.IN_SURGE)
+		return
+
 	# An area Surge (Storm Drain) works straight from neutral when the foe is close.
 	var surge_range := float(ai.get("surge_range", 0))
 	if surge_range > 0.0 and dist < surge_range and me.can_use("surge") and _roll(0.3 + 0.2 * level):
@@ -357,9 +369,23 @@ func _neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2,
 
 	# A guarding foe invites a grab.
 	var grab := String(ai.get("grab", ""))
-	if grab != "" and foe.state == CreatureSim.State.GUARD and dist < want + 8.0 and me.can_use(grab):
+	var grab_reach := float(ai.get("grab_range", want - me.radius - foe.radius + 10.0)) + me.radius + foe.radius
+	if grab != "" and foe.state == CreatureSim.State.GUARD and dist < grab_reach + 8.0 and me.can_use(grab):
 		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
 		_press(int(ACTION_BIT[grab]))
+		return
+
+	# A kiting fighter peels off a foe that walked in close with its grab.
+	if bool(ai.get("kite", false)) and grab != "" and dist < grab_reach and me.can_use(grab) \
+			and _roll(0.3 + 0.15 * level):
+		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
+		_press(int(ACTION_BIT[grab]))
+		return
+
+	# A ranged opener only lands lined up: otherwise step sideways to line up first.
+	var ranged: bool = me.moves().get("light_1", {}).has("projectile")
+	if ranged and dist <= want + 6.0 and not _lined_up(to_foe, foe):
+		_move_toward(Vector2(0.0, signf(to_foe.y)) if absf(to_foe.y) < absf(to_foe.x) else Vector2(signf(to_foe.x), 0.0))
 		return
 
 	if dist <= want + 6.0 and _roll(float(p["aggression"])):
@@ -373,6 +399,8 @@ func _neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2,
 
 	if dist > want + 6.0:
 		_plan = "approach"
+	elif bool(ai.get("kite", false)) and dist < want - 24.0:
+		_plan = "retreat"  # keep the foe at knife range
 	elif _roll(0.4):
 		_plan = "retreat"
 	elif _roll(0.5):
@@ -381,6 +409,13 @@ func _neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2,
 	else:
 		_plan = "wait"
 	_follow_plan(me, foe, to_foe, dist, want)
+
+
+## Whether a straight throw in the nearest of 8 directions would meet the foe.
+func _lined_up(to_foe: Vector2, foe: CreatureSim) -> bool:
+	var d := CreatureSim._snap8(to_foe)
+	var off := absf(to_foe.x * d.y - to_foe.y * d.x)
+	return off < foe.radius + 3.0
 
 
 func _follow_plan(me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float, want: float) -> void:

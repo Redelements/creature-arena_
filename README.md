@@ -3,7 +3,7 @@
 A real-time 2D creature brawler. Small pixel-art creatures fight live in a stadium,
 chaining attacks into combos while the floor cracks, breaks and opens into pits.
 
-Five fighters so far, each with a full moveset and a CPU opponent:
+Six fighters so far, each with a full moveset and a CPU opponent:
 
 - **Cairn**, a stack of river stones that boxes: fast strings, a counter, and a dash punch.
 - **Culvert**, a toad made of storm-drain concrete: grabs, shockwaves, and pits.
@@ -15,6 +15,10 @@ Five fighters so far, each with a full moveset and a CPU opponent:
 - **Gillbert**, a fish who got hooked, yanked out of the river and never stopped flopping:
   a small, quick skirmisher who flops across the floor with his fishing rod tumbling
   behind him, hooks foes and reels himself in, and belly-flops from out of reach.
+- **Chef Cerebro**, a reanimated brain in sunglasses who only wants to cook (the finest
+  dishes, and his opponents): a mage who fights from range, flicking knives, tossing a
+  meat mallet and hurling his cleaver, tenderizes anyone who gets close, flips them over
+  his head with a spatula, and finishes with a stream of knives.
 
 ![Demo: CPU Cairn vs CPU Culvert](docs/demo.gif)
 
@@ -37,7 +41,7 @@ From a terminal:
 godot --path .                          # menu
 godot --path . -- --mode=0 --level=2    # Cairn vs a Hard CPU Culvert
 godot --path . -- --mode=2              # watch CPU vs CPU
-godot --path . -- --showcase=gillbert   # scripted demo: cairn, culvert, craglash, barkley, gillbert or counterplay
+godot --path . -- --showcase=cerebro    # scripted demo: cairn, culvert, craglash, barkley, gillbert, cerebro or counterplay
 godot --path . -- --mode=6              # Duel vs CPU with the default teams (add --pick to choose)
 ```
 
@@ -46,7 +50,8 @@ Modes: 0 Cairn vs CPU, 1 Culvert vs CPU, 2 CPU vs CPU, 3 training as Cairn, 4 tr
 6 Duel vs CPU, 7 Duel for 2 players, 8 Versus for 2 players, 9 Combo Trials,
 10 Reaction Drill (read Culvert), 11 Reaction Drill (read Cairn), 12 Craglash vs CPU Cairn,
 13 training as Craglash, 14 Barkley vs CPU Craglash, 15 training as Barkley,
-16 Gillbert vs CPU Barkley, 17 training as Gillbert. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
+16 Gillbert vs CPU Barkley, 17 training as Gillbert, 18 Chef Cerebro vs CPU Gillbert,
+19 training as Chef Cerebro. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
 sets Duel teams; `--cpu-vs-cpu` hands every player side to the CPU.
 
 **Local 2-player:** with two controllers, each player gets one (player 1 can also use the
@@ -110,7 +115,8 @@ at a time.
 
 - **Tag** sends the next living teammate in with its own tag-in strike (Cairn: Rockfall
   Entry, a dash punch; Culvert: Manhole Drop, a landing slam that launches; Craglash:
-  Landslide Entry, a charging headbutt; Barkley: Timber Drop, a falling log bonk that launches; Gillbert: Splashdown, a little belly-flop). Tag from
+  Landslide Entry, a charging headbutt; Barkley: Timber Drop, a falling log bonk that launches; Gillbert: Splashdown, a little belly-flop;
+  Chef Cerebro: Order Up, a mallet bonk that launches). Tag from
   neutral or guard, then it's on a 5-second cooldown.
 - **Tag cancel:** tag out of an attack that hit, for 50 energy, and the tag-in strike
   carries the combo on.
@@ -125,7 +131,7 @@ be played online with rollback exactly like a single match. Tuning: `data/rules/
 
 ### Learning the game: Combo Trials and Reaction Drills
 
-- **Combo Trials** (`data/trials.json`, 16 so far): each trial plays a demo of the route,
+- **Combo Trials** (`data/trials.json`, 19 so far): each trial plays a demo of the route,
   then it's your turn. Every move must come out in order and connect, and the combo can't
   drop. The caption shows the route with your buttons and ticks off each move. F2 shows
   the demo again, F4 skips to the next trial.
@@ -144,8 +150,8 @@ full speed, so every combo below still works.
 
 | Glow | Means | Moves (windup) | Answer |
 | --- | --- | --- | --- |
-| **Red** + "!" | Can't be blocked | Gulp (12f), Slam (10f, breaks guard) | Roll away or through it, or hit them first |
-| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f), Runoff (6f), Rockslide Stomp (10f), Boulder Lash (8f), Timber Twister (8f), Branch Grab (8f), Splash Zone (8f), Flop Dash (10f), Cast Line (6f) | Guard, then punish |
+| **Red** + "!" | Can't be blocked | Gulp (12f), Slam (10f, breaks guard), Flip Out (12f) | Roll away or through it, or hit them first |
+| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f), Runoff (6f), Rockslide Stomp (10f), Boulder Lash (8f), Timber Twister (8f), Branch Grab (8f), Splash Zone (8f), Flop Dash (10f), Cast Line (6f), Tenderize (8f), Cleaver Toss (6f) | Guard, then punish |
 
 That puts at least 15 frames (a quarter second) between the glow and the hit, and a jab
 landed during a windup cancels the move. Surges freeze the screen for their cut-in: a
@@ -220,6 +226,25 @@ floor like a landed fish, his rod tumbling behind him on the line.
 
 ![Gillbert's showcase](docs/gillbert_demo.gif)
 
+### Chef Cerebro — a reanimated brain that only wants to cook
+
+A mage (105 HP, Lumen affinity, slow on his stems). **Most of his attacks are thrown, and
+they reach about as far as Gillbert's Cast Line (110–130 px)**, so he wants foes at knife
+range; up close he softens them up or flips them away. Voice line: "CHOP CHOP!"
+
+| Button | Move | What it does |
+| --- | --- | --- |
+| Light | Knife Flick, Backhand Flick, Mallet Toss | Two small knives and then the meat mallet, all **thrown** about 110 px. Thrown point-blank they hit at once; from range they still combo, so Flick, Flick, Mallet → Cleaver Toss → Knife Flurry works from across the floor |
+| Heavy | Tenderize | Pounds the floor with the mallet: hits everyone close, all around him, pops them up and **tenderizes** them (they take 20% more damage for 4 s; a pink arrow shows it). Hold to charge (bigger and harder) |
+| Skill 1 | Cleaver Toss | Flings the big knife in a straight line, about 120 px; it hits the **first** foe in its path. Keeps a juggle going |
+| Skill 2 | Flip Out | Scoops a close foe with the spatula and **flips them over his head**, to land behind him; he turns to follow. A grab: it beats guard (red tell) |
+| Surge | Knife Flurry | A stream of eight knives in a straight line, about 130 px, that fly **through** everyone in the line; the last one knocks down. A dotted line on the floor shows the lane during the startup |
+
+The sheet gives him no passive, so he has none. His victory emote (hibachi tricks) waits
+for a victory-pose system.
+
+![Chef Cerebro's showcase](docs/cerebro_demo.gif)
+
 ### Combos to try
 
 | Fighter | Route | Damage |
@@ -239,6 +264,9 @@ floor like a landed fish, his rod tumbling behind him on the line.
 | Gillbert | Snout Jab, Tail Whip, Rod Flail → Flop Dash | 24.2 |
 | Gillbert | Snout Jab, Tail Whip, Rod Flail → Splash Zone → Flop Dash | 32.3 |
 | Gillbert | Snout Jab, Tail Whip, Rod Flail → Splash Zone → Flop Dash → The One That Got Away | 65.3 |
+| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Cleaver Toss | 20.2 |
+| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Tenderize → Cleaver Toss (tenderized: +20%) | 31.5 |
+| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Flip Out → Knife Flurry | 54.2 |
 
 Every one of these is checked by an automated test (`tests/test_combos.gd`).
 
@@ -254,7 +282,7 @@ src/game/     Scene flow (menu, rounds, training), controls, match setup
 data/         Creature stats, movesets, combo routes and sprite layouts (JSON)
 assets/       Sprite sheets (placeholder art)
 tests/        Headless tests
-tools/        Sprite generators (Python + Pillow): placeholders, and Craglash's recreation
+tools/        Sprite generators (Python + Pillow): placeholders, and the recreations of the artist's sheets
 ```
 
 The simulation runs at a fixed 60 ticks per second and only takes **input bitmasks** and
@@ -271,7 +299,8 @@ Visual effects are data too. Each move can carry an `fx` block (swipe smears, af
 charge-up particles, impacts like Avalanche's rock spire or Storm Drain's geysers) and each
 creature a `ko_fx` block that picks its death animation: Cairn's stack breaks apart and
 tumbles across the floor; Culvert cracks, gushes storm water and settles into rubble;
-Craglash's neck comes apart stone by stone; Barkley topples like a felled tree ("TIMBER!"); Gillbert gives one last wet flop. The
+Craglash's neck comes apart stone by stone; Barkley topples like a felled tree ("TIMBER!"); Gillbert gives one last wet flop; Chef
+Cerebro fizzles out in a puff of steam and his sunglasses skid away. The
 keys are listed at the top of `src/view/fx_view.gd`. Effects only read the simulation, so
 they can never change a match, a replay or a test result. Knockouts also get a freeze
 frame, slow motion and a camera push-in, and Surges get a fighting-game cut-in.
@@ -285,10 +314,10 @@ godot --headless --path . --import
 godot --headless --path . --script res://tests/run_tests.gd
 ```
 
-141 tests cover every example combo, every Combo Trial, both Reaction Drills, Duel rules, every showcase, windups and counterplay,
+159 tests cover every example combo, every Combo Trial, both Reaction Drills, Duel rules, every showcase, windups and counterplay,
 rollback netcode (snapshots, and two simulated machines over a laggy, lossy connection), every combo rule (variety bonus, stale moves,
 hitstun decay, juggle cap, cancels on contact, stacks, energy, cooldowns, breakaway), grabs,
-Slip counters, shockwaves, the Storm Drain pit ring, Barkley's pull, lob and root rings, Gillbert's reel and leap, terrain, determinism, replays, and the
+Slip counters, shockwaves, the Storm Drain pit ring, Barkley's pull, lob and root rings, Gillbert's reel and leap, Chef Cerebro's thrown kit (range, tenderizing, the flip, a volley of knives through a line), terrain, determinism, replays, and the
 CPU (reproducible matches, uses its whole kit, Hard beats Easy), and the mouse and gamepad
 controls. A test that crashes counts as a failure. They run on every push via GitHub Actions.
 

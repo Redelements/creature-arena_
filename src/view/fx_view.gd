@@ -38,13 +38,22 @@ extends Node2D
 ##   cast         true         a fishing line out to the thrown rod, then taut to whoever it
 ##                             hooked while it reels the attacker in to them
 ##   projectile   also "rod": a thrown rod spinning end over end
+##   projectile   also "knife" (a small knife, point first), "mallet" and "cleaver" (spinning
+##                end over end); the projectile's "move" picks which move's fx it uses
+##   charge       also "psychic": violet sparks drawn in toward the brain while held
+##   impact       also "tenderize": a mallet thump, meat-mallet tooth marks on the floor
+##   flip         true         a spatula arc and "FLIP!" when the move's grab lands
+##   chop         true         "CHOP CHOP!" when the move starts (Chef Cerebro's voice line)
+##   telegraph_line true       a dotted line on the floor ahead, as far as the throw reaches
 ## Creature "ko_fx" keys: style "scatter" (the sprite breaks into horizontal pieces that
 ## tumble across the floor), "crack" (cracks, water gushing out, rubble), "crumble"
 ## (cracks, then the neck stones burst loose) or "timber" (a felled tree: "TIMBER!",
 ## leaves shaken loose, and a dust line where the trunk hits the floor) or "flop" (a
-## last wet flop and a puddle).
+## last wet flop and a puddle) or "deflate" (the brain fizzles out with a puff of steam and
+## its sunglasses skid away).
 ## Status drawn from creature state: Stoneskin plates while `shield` > 0, a rooted ring
-## while armored, pebbles at the feet while slowed, a red "!" while taunted.
+## while armored, pebbles at the feet while slowed, a red "!" while taunted, and a pink
+## down-arrow while tenderized (taking extra damage).
 
 const SHEET := preload("res://assets/sprites/fx.png")
 const GRAVITY := 0.2
@@ -71,6 +80,10 @@ const C_TAUNT := Color("ff4a3a")
 const C_LEAF: Array[Color] = [Color("16784a"), Color("28b450"), Color("96dcaa")]
 const C_WOOD: Array[Color] = [Color("623736"), Color("804846"), Color("a0625c"), Color("b56664")]
 const C_CONE: Array[Color] = [Color("603820"), Color("966034"), Color("c48c54")]
+const C_PSY := Color("d58cff")
+const C_TENDER := Color("ff8fa3")
+const C_MALLET: Array[Color] = [Color("8c4c48"), Color("b07a70")]
+const C_BRAIN: Array[Color] = [Color("d6606a"), Color("f88686"), Color("ffb2aa")]
 
 ## Asks AudioView for a sound that belongs to a timed effect (a KO scatter, geysers...).
 signal cue(sound: String)
@@ -171,6 +184,9 @@ func spawn(e: Dictionary) -> void:
 				_px(p, Vector2.from_angle(randf() * TAU) * randf_range(1.0, 2.2), Color.WHITE, 12)
 			_text(p, "SLIP!", C_PARRY)
 		"grab":
+			if bool(e.get("flip", false)):
+				_flip_out(e)
+				return
 			_text(p, "GULP!", Color("b6f28a"))
 			if int(e.get("attacker", -1)) >= 0:
 				var a := sim.creatures[int(e["attacker"])]
@@ -287,6 +303,12 @@ func spawn(e: Dictionary) -> void:
 				for i in 6:
 					_drop(at + Vector2(0, 10), 10.0, Vector2.from_angle(randf() * TAU) * randf_range(0.3, 1.0),
 						randf_range(1.0, 2.0), false)
+		"tenderized":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				_text(c.pos + Vector2(0, -_top(c) - 14), "TENDERIZED", C_TENDER, 7, 44.0)
+		"projectile_pierce":
+			_add({"kind": "spark", "pos": p, "life": 6, "scale": 0.8})
 		"land_hard":
 			for i in 3:
 				_dust(p + Vector2(randf_range(-6, 6), randf_range(-2, 2)), Vector2(randf_range(-0.3, 0.3), -0.4))
@@ -474,6 +496,9 @@ func _watch_all() -> void:
 func _move_started(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 	if String(mv.get("type", "")) == "surge":
 		_dark = maxf(_dark, 0.6)
+	if bool(fx.get("chop", false)):
+		_text(c.pos + Vector2(0, -_top(c) - 12), "CHOP CHOP!", Color("ffd166"), 10, 60.0)
+		cue.emit("chop_chop")
 	if bool(fx.get("rain", false)):
 		_rain = 130.0
 
@@ -490,6 +515,14 @@ func _charging(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 		"pebbles":
 			if full and c.anim_t % 6 == 0:
 				_dust(c.pos + Vector2(randf_range(-10, 10), randf_range(-2, 2)), Vector2(0, -0.4))
+		"psychic":
+			# Violet sparks drawn in toward the brain, faster once fully wound.
+			if c.anim_t % (2 if full else 4) == 0:
+				var at := c.pos + Vector2(0, -_chest(c))
+				var from := at + Vector2.from_angle(randf() * TAU) * randf_range(18.0, 28.0)
+				_add({"kind": "suck", "from": from, "to": at, "life": 10, "color": C_PSY})
+			if full and c.anim_t % 10 == 0:
+				_add({"kind": "ring", "pos": c.pos, "life": 12, "radius": 20.0, "color": C_PSY})
 		"leaves":
 			# Leaves drift in and circle him, faster once fully wound.
 			if c.anim_t % (3 if full else 6) == 0:
@@ -552,6 +585,8 @@ func _strike(c: CreatureSim, mv: Dictionary, fx: Dictionary, seg: int) -> void:
 				_splash(c.pos, c.hit_radius(seg), true)
 			"twister":
 				_twister_gust(c, mv)
+			"tenderize":
+				_tenderize(c, c.hit_center(seg), c.hit_radius(seg))
 	if String(fx.get("impact", "")) == "roots":
 		_roots(c, c.hit_radius(seg), last)
 
@@ -985,6 +1020,54 @@ func _draw_cast(ci: CanvasItem, c: CreatureSim, mv: Dictionary) -> void:
 			_drop(mid + Vector2(0, 12), 12.0, Vector2(randf_range(-0.3, 0.3), 0.0), randf_range(0.2, 0.6), false)
 
 
+## Tenderize: the mallet pounds the floor: a thump ring, dust, and the mallet's tooth
+## marks left in the floor for a moment.
+func _tenderize(c: CreatureSim, at: Vector2, r: float) -> void:
+	_add({"kind": "ring", "pos": at, "life": 16, "radius": r, "color": C_TENDER})
+	_add({"kind": "ring", "pos": at, "life": 10, "radius": r * 0.5, "color": Color.WHITE})
+	for i in 8:
+		var a := TAU * i / 8.0 + randf() * 0.3
+		_dust(at + Vector2(cos(a), sin(a) * 0.5) * r * 0.6, Vector2(cos(a), sin(a) * 0.5 - 0.5) * 0.5)
+	for i in 6:
+		var off := Vector2(randf_range(-r, r) * 0.5, randf_range(-r, r) * 0.25)
+		_add({"kind": "puddle", "pos": at + off, "radius": 1.5, "ry": 1.0, "grow": 1.0, "life": 90.0, "fade": 40.0,
+			"color": Color(0, 0, 0, 0.35)})
+	_text(at + Vector2(0, -24), "THWACK!", C_TENDER, 8, 34.0)
+	shake_out = maxf(shake_out, 2.5)
+	cue.emit("thwack")
+
+
+## Flip Out: the spatula's arc over his head, and the call-out.
+func _flip_out(e: Dictionary) -> void:
+	var a := _creature(int(e.get("attacker", -1)))
+	if a == null:
+		return
+	var from := a.pos - a.facing * 22.0  # where the target was (he has already turned)
+	var to := a.pos + a.facing * 26.0
+	var pts := PackedVector2Array()
+	for i in 13:
+		var k := i / 12.0
+		pts.append(from.lerp(to, k) + Vector2(0, -12.0 - sin(k * PI) * 34.0))
+	_add({"kind": "streak", "a": pts[2], "b": pts[6], "life": 12, "color": Color(C_PSY, 0.8)})
+	_add({"kind": "streak", "a": pts[6], "b": pts[10], "life": 12, "color": Color(C_PSY, 0.8)})
+	_text(a.pos + Vector2(0, -_top(a) - 16), "FLIP!", Color("ffd166"), 9, 40.0)
+
+
+## Chef Cerebro's knockout: the brain fizzles out with a puff of steam, and his
+## sunglasses skid off across the floor.
+func _deflate(c: CreatureSim) -> void:
+	for i in 10:
+		var at := c.pos + Vector2(randf_range(-10, 10), -randf_range(6, 20))
+		_px(at, Vector2(randf_range(-0.3, 0.3), -randf_range(0.4, 0.9)), Color(1, 1, 1, 0.7), 30)
+	for i in 6:
+		_chunk(c.pos, 12.0, Vector2.from_angle(randf() * TAU) * randf_range(0.3, 1.0), randf_range(0.6, 1.4),
+			2.0, C_BRAIN[randi() % 3], 40.0)
+	var dir := -c.facing
+	_chunk(c.pos + Vector2(0, -2), 10.0, dir * 1.6, 1.2, 3.0, Color("0c0c10"), 120.0)
+	_text(c.pos + Vector2(0, -_top(c) - 6), "fzzt...", C_PSY, 7, 50.0)
+	cue.emit("fizzle")
+
+
 ## Barkley's knockout: he topples like a felled tree.
 func _timber(c: CreatureSim) -> void:
 	_text(c.pos + Vector2(0, -_top(c) - 6), "TIMBER!", Color("ffd166"), 10, 70.0)
@@ -1082,6 +1165,8 @@ func _ko(c: CreatureSim) -> void:
 			_later(14.0, _crumble.bind(c))
 		"flop":
 			_later(10.0, _flop_ko.bind(c))
+		"deflate":
+			_later(18.0, _deflate.bind(c))
 		"timber":
 			_timber(c)
 			_later(16.0, _timber_land.bind(c, float(ko.get("length", 50))))
@@ -1393,7 +1478,8 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 		"suck":
 			var a: Vector2 = p["from"]
 			var b: Vector2 = p["to"]
-			ci.draw_line(a.lerp(b, k), a.lerp(b, minf(1.0, k + 0.35)), Color(1, 1, 1, 0.7 * (1.0 - k * 0.5)), 1.0)
+			var sc: Color = p.get("color", Color.WHITE)
+			ci.draw_line(a.lerp(b, k), a.lerp(b, minf(1.0, k + 0.35)), Color(sc, 0.7 * (1.0 - k * 0.5)), 1.0)
 		"smear":
 			var col: Color = p["color"]
 			col.a *= pow(1.0 - k, 0.7)
@@ -1430,6 +1516,11 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 			var a := 0.55 * _alpha(p)
 			var ry := float(p["ry"])
 			ci.draw_set_transform(pos, 0.0, Vector2(1.0, ry))
+			if p.has("color"):  # a dark mark rather than water (Tenderize's tooth marks)
+				var mc: Color = p["color"]
+				ci.draw_circle(Vector2.ZERO, r, Color(mc, mc.a * _alpha(p)))
+				ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+				return
 			ci.draw_circle(Vector2.ZERO, r, Color(C_WATER, a))
 			if r > 6.0:
 				ci.draw_arc(Vector2.ZERO, r * 0.7, PI * 1.1, PI * 1.5, 8, Color(C_WATER_L, a), 1.0 / ry)
@@ -1601,7 +1692,13 @@ func _draw_projectiles(ci: CanvasItem) -> void:
 			_draw_pinecone(ci, pr)
 			continue
 		if not _is_wave(pr):
-			_draw_thrown_rod(ci, pr)
+			match _proj_kind(pr):
+				"knife":
+					_draw_thrown_knife(ci, pr)
+				"mallet", "cleaver":
+					_draw_spinner(ci, pr, _proj_kind(pr))
+				_:
+					_draw_thrown_rod(ci, pr)
 			continue
 		if _is_wave(pr):
 			_draw_wave(ci, pp.round(), vel)
@@ -1610,6 +1707,69 @@ func _draw_projectiles(ci: CanvasItem) -> void:
 		var w := -16.0 if vel.x < 0.0 else 16.0
 		ci.draw_texture_rect_region(SHEET, Rect2(pp.round() + Vector2(-w * 0.5, -14), Vector2(w, 16)),
 			Rect2(frame * 16, 32, 16, 16))
+
+
+## Which "projectile" fx the move that threw this uses ("rod" when it can't tell).
+func _proj_kind(pr: Dictionary) -> String:
+	var owner := _creature(int(pr["owner"]))
+	if owner == null or not pr.has("move"):
+		return "rod"
+	var mv: Dictionary = owner.moves().get(String(pr["move"]), {})
+	return String(mv.get("fx", {}).get("projectile", "rod"))
+
+
+## Chef Cerebro's thrown knives: point first, a glint along the blade, and a short
+## streak behind.
+func _draw_thrown_knife(ci: CanvasItem, pr: Dictionary) -> void:
+	var pp: Vector2 = Vector2(pr["pos"]).round()
+	var d: Vector2 = Vector2(pr["vel"]).normalized()
+	var at := pp + Vector2(0, -12)
+	ci.draw_set_transform(pp, 0.0, Vector2(1.0, 0.4))
+	ci.draw_circle(Vector2.ZERO, 2.5, Color(0, 0, 0, 0.25))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	ci.draw_line(at - d * 12.0, at - d * 5.0, Color(1, 1, 1, 0.25), 1.0)
+	var tip := at + d * 5.0
+	var butt := at - d * 4.0
+	ci.draw_line(butt, tip, C_OUTLINE, 3.0)
+	ci.draw_line(at - d * 1.0, tip, C_GREY[3], 1.0)
+	ci.draw_line(butt, at - d * 1.0, Color("2a2628"), 1.0)
+	if (_tick / 3) % 2 == 0:
+		ci.draw_rect(Rect2((at + d * 2.0).round(), Vector2.ONE), Color.WHITE)
+
+
+## The mallet and the cleaver in flight, spinning end over end at chest height.
+func _draw_spinner(ci: CanvasItem, pr: Dictionary, kind: String) -> void:
+	var pp: Vector2 = Vector2(pr["pos"]).round()
+	var at := pp + Vector2(0, -12)
+	ci.draw_set_transform(pp, 0.0, Vector2(1.0, 0.4))
+	ci.draw_circle(Vector2.ZERO, 4.0, Color(0, 0, 0, 0.28))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var spin := -_tick * 0.8 if Vector2(pr["vel"]).x < 0.0 else _tick * 0.8
+	var d := Vector2.from_angle(spin)
+	var n := d.orthogonal()
+	if kind == "mallet":
+		var butt := at - d * 6.0
+		var head := at + d * 5.0
+		ci.draw_line(butt, head, C_OUTLINE, 3.0)
+		ci.draw_line(butt, head, C_MALLET[1], 1.0)
+		var quad := PackedVector2Array([head - n * 4.0 - d * 2.0, head + n * 4.0 - d * 2.0,
+			head + n * 4.0 + d * 2.5, head - n * 4.0 + d * 2.5])
+		ci.draw_colored_polygon(quad, C_MALLET[0])
+		ci.draw_polyline(quad + PackedVector2Array([quad[0]]), C_OUTLINE, 1.0)
+	else:
+		# the big chef's knife: a long blade and a black handle
+		var butt := at - d * 8.0
+		var heel := at - d * 2.0
+		var tip := at + d * 11.0
+		ci.draw_line(butt, heel, C_OUTLINE, 4.0)
+		ci.draw_line(butt, heel, Color("2a2628"), 2.0)
+		var blade := PackedVector2Array([heel, heel + n * 4.5, tip + n * 1.0, tip, heel - n * 0.5])
+		ci.draw_colored_polygon(blade, C_GREY[3])
+		ci.draw_polyline(blade + PackedVector2Array([blade[0]]), C_OUTLINE, 1.0)
+		ci.draw_line(heel + n * 0.5, tip, Color.WHITE, 1.0)
+	# a whoosh behind it
+	var back: Vector2 = -Vector2(pr["vel"]).normalized()
+	ci.draw_arc(at + back * 3.0, 9.0, back.angle() - 0.6, back.angle() + 0.6, 8, Color(1, 1, 1, 0.2), 1.0)
 
 
 ## Cast Line's rod in flight: it spins end over end on its line, flying at hip height.
@@ -1711,6 +1871,9 @@ func _draw_creature_extras(ci: CanvasItem, floor_layer: bool) -> void:
 		if floor_layer:
 			if attacking and bool(fx.get("telegraph", false)) and c.state_t <= int(mv.get("startup", 0)):
 				_draw_telegraph(ci, c, mv)
+			if attacking and bool(fx.get("telegraph_line", false)) and not c.charging \
+					and c.state_t <= int(mv.get("startup", 0)) + 6:
+				_draw_line_telegraph(ci, c)
 			if c.is_armored():
 				_draw_rooted(ci, c)
 			continue
@@ -1764,6 +1927,21 @@ func _draw_telegraph(ci: CanvasItem, c: CreatureSim, mv: Dictionary) -> void:
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
+## Knife Flurry: a dotted line along the floor as far as the knives will fly.
+func _draw_line_telegraph(ci: CanvasItem, c: CreatureSim) -> void:
+	var reach := c.move_range(c.move_id)
+	var k := clampf(float(c.state_t + 4) / maxf(1.0, float(c.move_def().get("startup", 1))), 0.0, 1.0)
+	var pulse := 0.5 + 0.5 * sin(_tick * 0.6)
+	var n := int(reach / 6.0)
+	for i in n:
+		if float(i) / n > k:
+			break
+		var at := (c.pos + c.facing * (c.radius + 4.0 + i * 6.0)).round()
+		ci.draw_rect(Rect2(at - Vector2(1, 0), Vector2(3, 1)), Color(C_WARN, 0.35 + 0.35 * pulse))
+	var end := (c.pos + c.facing * reach).round()
+	ci.draw_arc(end, 5.0, 0.0, TAU, 16, Color(C_WARN, 0.3 + 0.4 * pulse * k), 1.0)
+
+
 ## Bedrock: a glowing ring where the feet are planted, cracks pulsing outward.
 func _draw_rooted(ci: CanvasItem, c: CreatureSim) -> void:
 	var pulse := 0.5 + 0.5 * sin(_tick * 0.4)
@@ -1789,6 +1967,16 @@ func _draw_status(ci: CanvasItem, c: CreatureSim) -> void:
 	if c.taunt > 0 and (c.taunt > 30 or (_tick / 4) % 2 == 0):
 		var top := (c.pos + Vector2(0, -_top(c) - 10.0 - lift)).round()
 		_bang(ci, top)
+	if c.vuln > 0 and (c.vuln > 40 or (_tick / 4) % 2 == 0):
+		# tenderized: a pink down-arrow bobbing over the head
+		var bob := float((_tick / 8) % 2)
+		var at := (c.pos + Vector2(c.radius + 4.0, -_top(c) - 4.0 - lift + bob)).round()
+		ci.draw_rect(Rect2(at + Vector2(-1, -6), Vector2(3, 5)), C_OUTLINE)
+		ci.draw_rect(Rect2(at + Vector2(0, -5), Vector2(1, 4)), C_TENDER)
+		var tri := PackedVector2Array([at + Vector2(-3, -1), at + Vector2(4, -1), at + Vector2(0.5, 3)])
+		ci.draw_colored_polygon(tri, C_OUTLINE)
+		var tri2 := PackedVector2Array([at + Vector2(-2, -1), at + Vector2(3, -1), at + Vector2(0.5, 2)])
+		ci.draw_colored_polygon(tri2, C_TENDER)
 
 
 func _bang(ci: CanvasItem, at: Vector2) -> void:
