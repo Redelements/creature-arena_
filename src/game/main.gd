@@ -617,6 +617,25 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	fx.views = views
 	_ko_cam_t = -1
 	hud.dummy_mode_name = DUMMY_MODES[dummy_mode]
+	# Red for the left side (P1), blue for the right (P2 or the CPU): a marker over each
+	# fighter and a stripe on its health panel.
+	fx.side_marks = []
+	for i in 2:
+		var label := ""
+		match sides[i]:
+			Side.PLAYER:
+				label = "P1"
+			Side.PLAYER2:
+				label = "P2"
+			Side.CPU:
+				label = "CPU"
+			Side.REMOTE:
+				label = "ONLINE"
+			Side.SCRIPT:
+				label = ""
+		if sim.creatures[i].is_dummy:
+			label = ""
+		fx.side_marks.append({"color": Hud.SIDE_COLORS[i], "label": label})
 	for i in 2:
 		match sides[i]:
 			Side.PLAYER:

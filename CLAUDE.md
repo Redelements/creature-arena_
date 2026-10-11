@@ -129,7 +129,12 @@ tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gi
   ticks behind; a Surge's hits give its user no energy; `"no_flinch"` hits only deal
   damage (no hitstun, no knockback, no new combo on a free foe: Chef Cerebro's knife flicks). A Skill
   can charge too (`charge_max` charges on its own button); a lob's `range_charged` is how far
-  a full hold throws it, and `aim` also snaps on release (Pinecone Bomb). Projectiles also take `sound`/`end_sound`; any move's `fx` can
+  a full hold throws it, and `aim` also snaps on release (Pinecone Bomb). Craglash is a crowd-control
+  tank: Landslide Charge (a dash with a 15-tick `crumple`), Bedrock's taunt drags foes in
+  (`TAUNT_PULL`), and Mountain Maw is a `guard_break` projectile with `pull` + `launch`
+  (drawn as his neck, fx projectile "head"). Each side has a colour, red left and blue
+  right: `FxView.side_marks` (set by main) draws a marker over each fighter, and the HUD
+  stripes its panel. `tests/test_scripts_load.gd` compiles every script under `src/`. Projectiles also take `sound`/`end_sound`; any move's `fx` can
   carry a `shout` (`{text, sound}`, a voice line when it starts). Barkley's generator (`tools/gen_barkley.py`) poses a 3D
   puppet once and projects it into all three views; prefer that for new characters.
   Moves can time their frames with `"anim_at"` and lift the sprite with `"view_lift"`

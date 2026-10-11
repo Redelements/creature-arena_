@@ -22,6 +22,7 @@ var duel: DuelSim = null  ## set during a Duel: draws the team strip under each 
 var tag_labels := ["", ""]
 var tags := ["P1", "CPU"]
 var key_labels := [["", ""], ["", ""]]
+const SIDE_COLORS: Array[Color] = [Color("ff5a5a"), Color("5aa0ff")]
 var surge_labels := ["", ""]
 var help_text := ""
 var show_help := true
@@ -145,6 +146,7 @@ func _draw() -> void:
 func _panel(side: int, x: float, right: bool) -> void:
 	var c := sim.creatures[side]
 	draw_rect(Rect2(x, 3, 160, 34), C_PANEL)
+	draw_rect(Rect2(x, 3, 160, 2), SIDE_COLORS[side])  # red left, blue right, like the markers
 	var name := String(c.def.get("name", "?")).to_upper()
 	var tag := String(tags[side])
 	if c.is_dummy:
@@ -152,6 +154,15 @@ func _panel(side: int, x: float, right: bool) -> void:
 	_text(Vector2(x + 5, 12), name, 7, C_TEXT)
 	_text(Vector2(x + 5, 12), tag, 6, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, 150)
 	_bar(Rect2(x + 5, 15, 150, 6), c.hp / c.max_hp, _hp_color(c.hp / c.max_hp), right)
+	# A shield (Craglash's Stoneskin): pale stone over the end of the health bar, and its name.
+	if c.shield > 0.0:
+		var sw := minf(1.0, c.shield / c.max_hp) * 150.0
+		var hw := c.hp / c.max_hp * 150.0
+		var sx := x + 5 + (150.0 - hw - sw if right else hw)
+		sx = clampf(sx, x + 5, x + 155 - sw)
+		draw_rect(Rect2(sx, 15, sw, 6), Color("d8d4cc"))
+		draw_rect(Rect2(sx, 15, sw, 6), Color(0, 0, 0, 0.5), false, 1.0)
+		_text(Vector2(x + 5, 12), "STONESKIN  ", 5, Color("d8d4cc"), HORIZONTAL_ALIGNMENT_RIGHT, 118)
 	if duel != null:
 		_team_strip(side, x, right)
 

@@ -87,11 +87,13 @@ const SCRIPTS := {
 		],
 	},
 	"craglash": {
-		"left": "craglash", "right": "cairn", "energy": [100, 0], "gap": 2.0, "hp": [-1, 70],
+		"left": "craglash", "right": "cairn", "energy": [100, 0], "gap": 2.0, "hp": [-1, 55],
 		"title": "CRAGLASH  -  FULL KIT",
 		"captions": [
-			["Stoneskin", "Bedrock: armor + taunt", "Rockslide Stomp", "Boulder Lash"],
-			["Rake", "Backhand", "Headbutt", "Rockslide Stomp", "Boulder Lash", "Avalanche Coil"],
+			["Stoneskin (shown on his health bar)", "Bedrock: armor, and the taunted are dragged in",
+				"Rockslide Stomp", "Landslide Charge: a short stun"],
+			["Rake", "Backhand", "Headbutt", "Rockslide Stomp", "Landslide Charge"],
+			["Mountain Maw: an unblockable bite from far away", "Pulled in and knocked up"],
 		],
 		"steps": [
 			{"do": "wait", "t": 50, "part": 0, "show": 0},
@@ -109,9 +111,14 @@ const SCRIPTS := {
 			{"do": "press", "who": 0, "bit": L, "move": "light_3", "show": 2},
 			{"do": "press", "who": 0, "bit": H, "move": "heavy", "show": 3},
 			{"do": "press", "who": 0, "bit": S1, "move": "skill_1", "show": 4},
-			{"do": "press", "who": 0, "bit": SU, "move": "surge", "show": 5},
 			{"do": "until", "cond": "settled"},
-			{"do": "wait", "t": 150, "show": 6},
+			{"do": "wait", "t": 40},
+			{"do": "place", "part": 2, "gap": 150.0},
+			{"do": "wait", "t": 30},
+			{"do": "press", "who": 0, "bit": SU, "move": "surge", "show": 0},
+			{"do": "wait", "t": 40, "show": 1},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 150, "show": 2},
 		],
 	},
 	"barkley": {
