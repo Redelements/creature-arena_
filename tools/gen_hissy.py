@@ -524,8 +524,12 @@ class Pose:
         self.limp = kw.get("limp", 0.0)                  # knocked out: hair droops (0..1)
 
 
-NEAR_REST = ((10.0, 4.6, 4.0), (-50.0, 0.0))
-FAR_REST = ((-10.0, 4.6, 2.0), (-50.0, 0.0))
+# She floats: the gloves never touch the floor. At rest they're up in a boxer's guard,
+# just under her chin and a little in front, tipped up.
+NEAR_REST = ((10.0, 20.0, 13.0), (30.0, 0.0))
+FAR_REST = ((-10.0, 21.5, 10.0), (30.0, 0.0))
+# ...and floating, her head rides this much higher than when she's attacking or hit.
+FLOAT = 3.0
 
 
 # In the side view her head turns this far toward the camera (a cheat, as cartoons do),
@@ -787,28 +791,37 @@ def G(lat, up, fwd, pitch=0.0, yaw=0.0):
     return ((lat, up, fwd), (pitch, yaw))
 
 
+def guard_up(lift=0.0, near_dy=0.0, far_dy=0.0, near_df=0.0, far_df=0.0, **kw):
+    """A floating pose with the gloves up in guard; `lift` raises head and gloves together."""
+    (nl, nu, nf), (np_, ny) = NEAR_REST
+    (fl, fu, ff), (fp, fy) = FAR_REST
+    hx, hy, hz = kw.pop("head", (0.0, 0.0, 0.0))
+    return P(head=(hx, hy + lift + FLOAT, hz),
+             near=G(nl, nu + lift + FLOAT + near_dy, nf + near_df, np_, ny),
+             far=G(fl, fu + lift + FLOAT + far_dy, ff + far_df, fp, fy), **kw)
+
+
 def idle():
-    """A boxer's bounce on her gloves, hair snakes swaying."""
+    """Floating in place, gloves up: a slow bob, the gloves trailing it a little, hair swaying."""
     return [
-        P(phase=0.0, head=(0, 0.0, 0)),
-        P(phase=0.8, head=(0, -0.8, 0), near=G(10.0, 4.3, 4.0, -50), far=G(-10.0, 4.3, 2.0, -50), squash=0.97),
-        P(phase=1.6, head=(0, -1.2, 0), near=G(10.0, 4.2, 4.0, -50), far=G(-10.0, 4.2, 2.0, -50), squash=0.95),
-        P(phase=2.4, head=(0, -0.5, 0), squash=0.98),
+        guard_up(0.0, phase=0.0),
+        guard_up(1.4, near_dy=-0.4, far_dy=-0.3, phase=0.8),
+        guard_up(2.2, near_dy=-0.2, far_dy=-0.5, phase=1.6),
+        guard_up(1.2, near_dy=0.4, far_dy=0.3, phase=2.4),
     ]
 
 
 def run():
-    """Bounding on the gloves: one glove reaches forward and plants, the other pushes."""
+    """Gliding forward through the air, gloves up: she leans in, the hair streams back, and the
+    gloves weave like a boxer's shuffle while she bobs."""
+    k = dict(pitch=-8, rear=0.55, amp=0.8)
     return [
-        P(phase=0.0, near=G(7.5, 7.0, 10.0, 20), far=G(-7.5, 4.6, -4.0, -10), head=(0, 1.5, 2), pitch=-6,
-          rear=0.3),
-        P(phase=0.6, near=G(7.5, 4.6, 8.0), far=G(-7.5, 6.0, -6.0, -20), head=(0, 2.5, 3), pitch=-6,
-          rear=0.4),
-        P(phase=1.2, near=G(7.5, 4.6, 2.0), far=G(-7.5, 6.5, 4.0, 10), head=(0, 1.0, 2), pitch=-4, rear=0.3),
-        P(phase=1.8, near=G(7.5, 5.5, -4.0, -10), far=G(-7.5, 7.0, 10.0, 20), head=(0, 1.5, 2), pitch=-6,
-          rear=0.3),
-        P(phase=2.4, near=G(7.5, 6.0, -6.0, -20), far=G(-7.5, 4.6, 8.0), head=(0, 2.5, 3), pitch=-6, rear=0.4),
-        P(phase=3.0, near=G(7.5, 6.5, 4.0, 10), far=G(-7.5, 4.6, 2.0), head=(0, 1.0, 2), pitch=-4, rear=0.3),
+        guard_up(1.0, near_df=1.5, far_df=-0.5, near_dy=0.6, head=(0, 0, 2), phase=0.0, **k),
+        guard_up(2.0, near_df=1.0, far_df=0.0, near_dy=0.2, far_dy=-0.4, head=(0, 0, 2.5), phase=0.6, **k),
+        guard_up(2.4, near_df=0.0, far_df=1.0, far_dy=0.2, head=(0, 0, 2), phase=1.2, **k),
+        guard_up(1.6, near_df=-0.5, far_df=1.5, far_dy=0.6, head=(0, 0, 1.5), phase=1.8, **k),
+        guard_up(0.6, near_df=0.0, far_df=1.0, near_dy=-0.4, far_dy=0.2, head=(0, 0, 2), phase=2.4, **k),
+        guard_up(0.2, near_df=1.0, far_df=0.0, near_dy=0.0, far_dy=-0.2, head=(0, 0, 2.5), phase=3.0, **k),
     ]
 
 
@@ -847,8 +860,8 @@ def uppercut():
     """Coil Uppercut: charge A/B (the near glove coiled low), rise, the uppercut, the
     follow-through, recover. Hiss Off (the tag-in) plays from frame 3."""
     return [
-        P(near=G(6.0, 4.6, -2.0, -30), far=G(-6.5, 16.0, 6.0, 20), head=(0, -3.0, -1), squash=0.9, pitch=8),
-        P(near=G(6.0, 4.6, -4.0, -40), far=G(-6.5, 16.0, 6.0, 20), head=(0, -4.0, -2), squash=0.87, pitch=10,
+        P(near=G(6.0, 10.0, -2.0, -30), far=G(-6.5, 16.0, 6.0, 20), head=(0, -3.0, -1), squash=0.9, pitch=8),
+        P(near=G(6.0, 9.0, -4.0, -40), far=G(-6.5, 16.0, 6.0, 20), head=(0, -4.0, -2), squash=0.87, pitch=10,
           face="shout"),
         P(near=G(5.5, 8.0, 8.0, 40), far=G(-6.5, 15.0, 6.0, 20), head=(0, -2.0, 1), squash=0.95),
         P(near=G(4.0, 34.0, 16.0, 80), far=G(-6.5, 14.0, 4.0, 10), head=(0, 3.0, 3), pitch=-10, face="shout",
@@ -875,9 +888,9 @@ def gaze():
     return [
         P(head=(0, 0.0, 2), pitch=-6, raise_=0.4, face="grin"),
         P(head=(0, 0.0, 3), pitch=-8, raise_=0.9, face="gaze", phase=0.5, amp=0.5,
-          near=G(7.5, 4.6, 6.0), far=G(-7.5, 4.6, 4.0)),
+          near=G(10.5, 20.0, 12.0, 30), far=G(-10.5, 21.0, 10.0, 30)),
         P(head=(0, -0.5, 3), pitch=-8, raise_=1.0, face="gaze", phase=1.1, amp=0.5,
-          near=G(7.5, 4.6, 6.0), far=G(-7.5, 4.6, 4.0)),
+          near=G(10.5, 20.0, 12.0, 30), far=G(-10.5, 21.0, 10.0, 30)),
         P(head=(0, 0.0, 1), raise_=0.3, face="grin"),
     ]
 
@@ -886,11 +899,11 @@ def petrify():
     """Petrify Punch: the near glove winds far back (a wound-up haymaker), holds, then
     the punch lands at full stretch; follow-through, recover."""
     return [
-        P(near=G(9.0, 14.0, -14.0, 10, -20), far=G(-6.0, 18.0, 10.0, 20), yaw=20, head=(0, 0, -3), pitch=6,
+        P(near=G(9.0, 19.0, -14.0, 10, -20), far=G(-7.0, 21.0, 11.0, 30), yaw=20, head=(0, 0, -3), pitch=6,
           rear=0.4),
-        P(near=G(10.0, 18.0, -20.0, 20, -30), far=G(-6.0, 18.0, 10.0, 20), yaw=28, head=(0, 1.0, -4),
+        P(near=G(10.0, 22.0, -20.0, 20, -30), far=G(-7.0, 21.0, 11.0, 30), yaw=28, head=(0, 1.0, -4),
           pitch=8, rear=0.6, face="shout"),
-        P(near=G(10.0, 18.0, -21.0, 20, -30), far=G(-6.0, 18.0, 10.0, 20), yaw=30, head=(0, 1.0, -4),
+        P(near=G(10.0, 22.0, -21.0, 20, -30), far=G(-7.0, 21.0, 11.0, 30), yaw=30, head=(0, 1.0, -4),
           pitch=8, rear=0.7, face="gaze", raise_=0.6),
         P(near=G(3.0, 22.0, 26.0, 0), far=G(-7.0, 14.0, 0.0, 10), yaw=-14, head=(0, 0, 4), pitch=-10,
           face="shout", lash=0.4),
@@ -903,18 +916,18 @@ def petrify():
 def dodge():
     """Ducks and rolls: the head drops between the gloves and tips over."""
     return [
-        P(head=(0, -8.0, 0), squash=0.8, rear=0.5),
-        P(head=(0, -10.0, 0), roll=-60, squash=0.75, rear=0.6, near=G(8, 8, 2), far=G(-8, 8, 0)),
-        P(head=(0, -9.0, 0), roll=-120, squash=0.78, rear=0.6, near=G(8, 9, 0), far=G(-8, 9, 0)),
+        P(head=(0, -8.0, 0), squash=0.8, rear=0.5, near=G(8, 12, 7, 25), far=G(-8, 13, 5, 25)),
+        P(head=(0, -10.0, 0), roll=-60, squash=0.75, rear=0.6, near=G(8, 12, 4, 25), far=G(-8, 12, 2, 25)),
+        P(head=(0, -9.0, 0), roll=-120, squash=0.78, rear=0.6, near=G(8, 12, 2, 25), far=G(-8, 12, 2, 25)),
         P(head=(0, -2.0, 0), squash=0.95),
     ]
 
 
 def hurt():
     return [
-        P(head=(0, 0.0, -4), pitch=16, face="hurt", rear=0.8, near=G(8, 10, 0, -20), far=G(-8, 10, -2, -20)),
-        P(head=(0, -6.0, -5), pitch=24, roll=20, face="hurt", rear=1.0, squash=0.85, near=G(8, 7, -2, -30),
-          far=G(-8, 7, -3, -30), limp=0.3),
+        P(head=(0, 0.0, -4), pitch=16, face="hurt", rear=0.8, near=G(8, 14, 2, -10), far=G(-8, 15, 0, -10)),
+        P(head=(0, -6.0, -5), pitch=24, roll=20, face="hurt", rear=1.0, squash=0.85, near=G(8, 11, -1, -20),
+          far=G(-8, 12, -2, -20), limp=0.3),
     ]
 
 

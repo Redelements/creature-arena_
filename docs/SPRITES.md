@@ -251,7 +251,8 @@ also the name of a well-known comic-book device (see the PR notes).
 Hissy Fitz is the fifth creature from the artist's sheets. `tools/gen_hissy.py` renders
 like Chef Cerebro's generator (3D points splatted into a depth buffer, three-tone shading,
 outlines round the silhouette and along seams), with black outlines as on the sheet. The
-rig: a big round head floating over the floor, nine spotted green hair snakes (each a
+rig: a big round head floating over the floor (she never touches it: the gloves stay up
+in a guard under her chin, `NEAR_REST`/`FAR_REST`, everywhere but the knockout), nine spotted green hair snakes (each a
 wavy tapered tube ending in a little head with eyes and a forked red tongue) fanned out
 in a sunburst, two purple crystal earrings, and two more snakes from under her chin down
 to the red boxing gloves. The face (big yellow slit eyes with blue eyeshadow and lashes,
@@ -269,8 +270,8 @@ Facing down and up: [`hissy_views_preview.png`](hissy_views_preview.png).
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
-| 0 | idle | 4 | a boxer's bounce on her gloves, hair snakes swaying |
-| 1 | run | 6 | bounding on the gloves, one reaching forward as the other pushes |
+| 0 | idle | 4 | floating in place with her gloves up in guard: a slow bob, hair snakes swaying |
+| 1 | run | 6 | gliding forward through the air, gloves up and weaving, hair streaming back |
 | 2 | jab | 4 | Snake Jab (light 1): the near glove snaps out at head height |
 | 3 | jab2 | 4 | Snake Jab (light 2): the far glove crosses in |
 | 4 | lash | 5 | Hair Lash (light 3): she ducks, then the hair snakes whip forward and bite |

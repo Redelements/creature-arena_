@@ -282,7 +282,8 @@ for a victory-pose system.
 ### Hissy Fitz — kicked out of the museum for turning the guards to stone
 
 A fighter (130 HP, Wild affinity: the sheet says Poison). A big head crowned with hair
-snakes, floating over two red boxing gloves on two more snakes. She wins up close with
+snakes that floats around the arena, two red boxing gloves held up in guard on two more
+snakes. She wins up close with
 quick gloves, and makes foes pay for walking in: the spit poisons them on the way, and the
 gaze slows anyone who comes at her face first. Voice line: "Hiss off!"
 
