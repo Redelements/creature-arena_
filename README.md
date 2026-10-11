@@ -29,6 +29,31 @@ and a Linux download (sign in to GitHub, unzip, run). Builds of `main` are on th
 [Actions page](../../actions/workflows/playable-build.yml). Windows may warn about an
 unknown publisher: choose **More info → Run anyway**.
 
+## Play online (1v1)
+
+**Online 1v1** in the menu. Both players need the **same build**.
+
+1. Pick your fighter.
+2. One player chooses **Host a match**. The screen lists their addresses.
+3. The other types the host's address on the **Join** row (or pastes it with Ctrl+V) and presses Enter.
+
+How the joiner reaches the host:
+
+- **Same home network:** join the host's `192.168…` address.
+- **Over the internet, easiest:** both install [Tailscale](https://tailscale.com) (free for
+  personal use); the host invites the other player to their tailnet (or shares their PC
+  with them). Join the host's `100.x` address, which shows in the host's list. No router
+  changes.
+- **Over the internet, port forwarding:** the host forwards **UDP port 7777** on their
+  router to their PC, and the joiner uses the host's public IP.
+- Windows asks whether to let the game use the network the first time you host: allow it.
+
+It uses rollback netcode: your own inputs respond at once (after 1–3 frames of delay,
+picked from the ping), and the other player's late inputs are corrected in a frame or
+two. The bottom corner shows ping, delay and the deepest rollback. Enter / A after the
+match asks for a rematch; Esc / View leaves. For testing on one network you can fake a
+bad connection: `--net-lag=6 --net-loss=0.1`. Details: [docs/NETCODE.md](docs/NETCODE.md).
+
 ## Run it
 
 1. Install [Godot 4.7](https://godotengine.org/download) (standard build, no .NET needed).
@@ -45,7 +70,8 @@ godot --path . -- --showcase=cerebro    # scripted demo: cairn, culvert, craglas
 godot --path . -- --mode=6              # Duel vs CPU with the default teams (add --pick to choose)
 ```
 
-Modes: 0 Cairn vs CPU, 1 Culvert vs CPU, 2 CPU vs CPU, 3 training as Cairn, 4 training as Culvert,
+Online from a terminal: `godot --path . -- --online-host` and `godot --path . -- --online-join=192.168.1.20`
+(`--fighter=gillbert` picks yours). Modes: 0 Cairn vs CPU, 1 Culvert vs CPU, 2 CPU vs CPU, 3 training as Cairn, 4 training as Culvert,
 5 combo showcases (each fighter's full kit, then how to answer the big moves, on a loop),
 6 Duel vs CPU, 7 Duel for 2 players, 8 Versus for 2 players, 9 Combo Trials,
 10 Reaction Drill (read Culvert), 11 Reaction Drill (read Cairn), 12 Craglash vs CPU Cairn,
@@ -314,8 +340,8 @@ godot --headless --path . --import
 godot --headless --path . --script res://tests/run_tests.gd
 ```
 
-159 tests cover every example combo, every Combo Trial, both Reaction Drills, Duel rules, every showcase, windups and counterplay,
-rollback netcode (snapshots, and two simulated machines over a laggy, lossy connection), every combo rule (variety bonus, stale moves,
+171 tests cover every example combo, every Combo Trial, both Reaction Drills, Duel rules, every showcase, windups and counterplay,
+rollback netcode (snapshots, two simulated machines over a laggy, lossy connection, online sessions over memory and real UDP: handshake, time sync, rematch, desync detection), every combo rule (variety bonus, stale moves,
 hitstun decay, juggle cap, cancels on contact, stacks, energy, cooldowns, breakaway), grabs,
 Slip counters, shockwaves, the Storm Drain pit ring, Barkley's pull, lob and root rings, Gillbert's reel and leap, Chef Cerebro's thrown kit (range, tenderizing, the flip, a volley of knives through a line), terrain, determinism, replays, and the
 CPU (reproducible matches, uses its whole kit, Hard beats Easy), and the mouse and gamepad

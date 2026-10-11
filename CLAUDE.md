@@ -61,7 +61,10 @@ plays every player side, for captures), `--pick` (show the team pick screen),
 `--teams=a,b,c:d,e,f`. Modes: 5 showcases, 6 Duel vs CPU, 7 Duel 2P, 8 Versus 2P,
 9 Combo Trials, 10/11 Reaction Drills, 12 Craglash vs CPU, 13 Craglash training,
 14 Barkley vs CPU, 15 Barkley training, 16 Gillbert vs CPU, 17 Gillbert training,
-18 Chef Cerebro vs CPU, 19 Chef Cerebro training.
+18 Chef Cerebro vs CPU, 19 Chef Cerebro training, 20 Online 1v1 (the lobby).
+Online: `--online-host[=PORT]`, `--online-join=ADDR[:PORT]`, `--fighter=ID`, `--net-lag=N`,
+`--net-loss=F`, `--net-delay=N`, `--net-report=PATH`. Two processes on one machine with
+`--cpu-vs-cpu` play each other; compare their reports (docs/NETCODE.md).
 Matches are deterministic, so a seed reproduces a CPU match exactly.
 
 ## Layout
@@ -71,8 +74,10 @@ src/sim/    match_sim, creature_sim, duel_sim, terrain_grid, replay   determinis
 src/ai/     cpu_controller                                   CPU opponent (seeded)
 src/input/  player_input, mouse_orders                       keyboard/mouse/gamepad
 src/view/   fx_view (+fx_ground), creature_view, hud, audio_view, arena, crowd, debug
-src/net/    rollback_session (GGPO-style), sim_check (cross-platform fingerprint)
-src/game/   main (flow, camera), team_select, showcase, trials, drills, controls, match_factory
+src/net/    rollback_session (GGPO-style), sim_check (cross-platform fingerprint),
+            net_link (+enet/loop/lag links), netplay (handshake, rematch), online_match
+src/game/   main (flow, camera), team_select, online_lobby, showcase, trials, drills, controls,
+            match_factory
 data/       creatures/*.json, rules/duel.json, trials.json, audio.json
 tests/      run_tests.gd auto-runs every tests/test_*.gd
 tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gillbert/cerebro.py (sheet recreations)
@@ -119,8 +124,10 @@ tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gi
   draw all three.
 - **Audio: TODO, all placeholder.** Replace everything in `assets/audio/`; checklist in
   `docs/AUDIO.md` and the "Replace placeholder audio" GitHub issue.
-- **Not built yet:** affinity surfaces, more arenas, online transport (rollback session
-  and determinism are done; see docs/NETCODE.md). Game mode plan and priorities: Game Plan doc,
+- **Online:** direct 1v1 over UDP is built (docs/NETCODE.md). Not yet: a relay or Steam
+  transport (behind `NetLink`), 3v3 online, spectators, matchmaking. Online matches are a
+  DuelSim with one creature per side, so match rules stay in the sim.
+- **Not built yet:** affinity surfaces, more arenas. Game mode plan and priorities: Game Plan doc,
   "Game modes".
 - **Planned:** dodge timing. Kevin wants to leave a combo at any time to dodge; today
   Dodge isn't buffered during attacks and can't cancel them (issue #9 has the options).

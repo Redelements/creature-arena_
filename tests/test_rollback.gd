@@ -130,3 +130,47 @@ func test_online_match_survives_jitter_and_packet_loss() -> void:
 func test_input_delay_covering_latency_means_no_rollbacks() -> void:
 	var s := _online(2, 0, 0.0, 2, 600)
 	assert_eq(s[0].rollbacks + s[1].rollbacks, 0, "inputs always arrive in time:")
+
+
+## The other machine can run ahead (this one hitched: a window drag, a slow frame) and
+## its packets only repeat the last 8 inputs. Inputs it sent earlier must not be thrown
+## away before they're used, or this machine would play the wrong ones and desync.
+func test_inputs_from_a_machine_running_ahead_are_kept_until_used() -> void:
+	var games := [MatchFactory.versus("cairn", "culvert"), MatchFactory.versus("cairn", "culvert")]
+	var ss := [RollbackSession.new(games[0], 0, 2), RollbackSession.new(games[1], 1, 2)]
+	for s in ss:
+		s.keep_history = true
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 9
+	var packets_for_a: Array = []
+	for t in 400:
+		var bits := [rng.randi() & SimDefs.IN_ALL, rng.randi() & SimDefs.IN_ALL]
+		# Machine A freezes for ticks 100-129 while B keeps going as far as it can.
+		var a_frozen := t >= 100 and t < 130
+		if not a_frozen:
+			ss[1].receive(ss[0].add_local_input(bits[0]))
+		packets_for_a.append(ss[1].add_local_input(bits[1]))
+		if not a_frozen:
+			for p in packets_for_a:
+				ss[0].receive(p)
+			packets_for_a.clear()
+			ss[0].advance()
+		ss[1].advance()
+	# A catches up (time sync's job in a real match), then both settle.
+	for t in 120:
+		ss[1].receive(ss[0].add_local_input(0))
+		ss[0].receive(ss[1].add_local_input(0))
+		ss[0].advance()
+		if ss[1].frame < ss[0].frame:
+			ss[1].advance()
+	for t in 3:
+		ss[1].receive(ss[0].add_local_input(0))
+		ss[0].receive(ss[1].add_local_input(0))
+	for s in ss:
+		s.sync()
+	assert_eq(ss[0].frame, ss[1].frame, "both caught up to the same frame:")
+	var offline := MatchFactory.versus("cairn", "culvert")
+	for f in ss[0].frame:
+		offline.step(PackedInt32Array([int(ss[0].history.get(f, 0)), int(ss[1].history.get(f, 0))]))
+	assert_eq(games[0].state_digest(), offline.state_digest(), "machine A played the right inputs:")
+	assert_eq(games[1].state_digest(), offline.state_digest(), "machine B played the right inputs:")

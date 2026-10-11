@@ -31,6 +31,8 @@ var wins_needed := 2
 var banner := ""
 var banner_sub := ""
 var dummy_mode_name := ""
+## Online: ping, input delay, rollback; drawn small in the bottom corner.
+var net_info := ""
 
 # Showcase captions: a title, the chain of moves, and which one is happening now.
 var caption_title := ""
@@ -128,6 +130,9 @@ func _draw() -> void:
 	if _toast_t > 0:
 		var a := minf(1.0, _toast_t / 20.0)
 		_text(Vector2(90, 236), _toast, 8, Color(1, 1, 1, a), HORIZONTAL_ALIGNMENT_CENTER, 300)
+
+	if net_info != "":
+		_text(Vector2(SimDefs.VIEW_W - 304, 255), net_info, 6, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, 300)
 
 	if show_help:
 		draw_rect(Rect2(0, 259, SimDefs.VIEW_W, 11), C_PANEL)
