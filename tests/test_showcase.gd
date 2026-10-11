@@ -85,6 +85,17 @@ func test_barkley_showcase_plays_through_to_a_knockout() -> void:
 	assert_false(r["ko"][0], "Barkley stays up")
 
 
+func test_gillbert_showcase_plays_through_to_a_knockout() -> void:
+	var r := _play("gillbert")
+	var reels := 0
+	for ev in r["parts"]:
+		if String(ev[1]) == "reel":
+			reels += 1
+	assert_eq(reels, 1, "Cast Line should hook Cairn and reel Gillbert in:")
+	assert_true(r["ko"][1], "The One That Got Away should finish Cairn")
+	assert_false(r["ko"][0], "Gillbert stays up")
+
+
 func test_angles_showcase_lands_up_and_down() -> void:
 	var r := _play("angles")
 	var hits := [0, 0, 0, 0]

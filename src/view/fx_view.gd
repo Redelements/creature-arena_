@@ -32,10 +32,16 @@ extends Node2D
 ##   charge       also "leaves": leaves gather and circle while the heavy is held
 ##   spin         true         leaves and wind arcs whirl around a spinning move
 ##   projectile   also "pinecone": a lobbed pinecone with a shadow and a landing mark
+##   impact       also "splash" (a ring of water and drops), "droplets" (a small spray),
+##                "bellyflop" (a huge splash where a leap comes down)
+##   trail        also "splash": drops kicked up behind a dash
+##   cast         true         a fishing line flies out to the move's reach, and stays hooked
+##                             to whoever it reels the attacker in to
 ## Creature "ko_fx" keys: style "scatter" (the sprite breaks into horizontal pieces that
 ## tumble across the floor), "crack" (cracks, water gushing out, rubble), "crumble"
 ## (cracks, then the neck stones burst loose) or "timber" (a felled tree: "TIMBER!",
-## leaves shaken loose, and a dust line where the trunk hits the floor).
+## leaves shaken loose, and a dust line where the trunk hits the floor) or "flop" (a
+## last wet flop and a puddle).
 ## Status drawn from creature state: Stoneskin plates while `shield` > 0, a rooted ring
 ## while armored, pebbles at the feet while slowed, a red "!" while taunted.
 
@@ -82,6 +88,7 @@ var _watch := {}
 var _last_push := {}
 var _dark := 0.0
 var _rain := 0.0
+var _reels := {}  ## attacker id -> {target, serial}: a Cast Line hooked onto someone
 
 
 func bind_ground(g: FxGround) -> void:
@@ -94,6 +101,7 @@ func clear() -> void:
 	_incoming.clear()
 	_watch.clear()
 	_last_push.clear()
+	_reels.clear()
 	_dark = 0.0
 	_rain = 0.0
 	time_scale = 1.0
@@ -265,6 +273,16 @@ func spawn(e: Dictionary) -> void:
 				_text(from + Vector2(0, -14), "SNAG!", C_LEAF[2], 8, 34.0)
 		"burst":
 			_pinecone_burst(p, power)
+		"reel":
+			var a := _creature(int(e.get("attacker", -1)))
+			var tgt := _creature(int(e.get("target", -1)))
+			if a != null and tgt != null:
+				_reels[a.id] = {"target": tgt.id, "serial": a.attack_serial}
+				var at := tgt.pos + Vector2(0, -_chest(tgt))
+				_text(at + Vector2(0, -12), "HOOKED!", C_WATER_L, 8, 34.0)
+				for i in 6:
+					_drop(at + Vector2(0, 10), 10.0, Vector2.from_angle(randf() * TAU) * randf_range(0.3, 1.0),
+						randf_range(1.0, 2.0), false)
 		"land_hard":
 			for i in 3:
 				_dust(p + Vector2(randf_range(-6, 6), randf_range(-2, 2)), Vector2(randf_range(-0.3, 0.3), -0.4))
@@ -519,6 +537,15 @@ func _strike(c: CreatureSim, mv: Dictionary, fx: Dictionary, seg: int) -> void:
 				_avalanche(c.hit_center(seg))
 			"leaves":
 				_leaves(c.hit_center(seg) + Vector2(0, -_chest(c) * 0.7), 8, 1.5)
+			"splash":
+				_splash(c.hit_center(seg), c.hit_radius(seg), false)
+			"droplets":
+				var at := c.hit_center(seg)
+				for i in 6:
+					_drop(at, randf_range(6, 14), c.facing.rotated(randf_range(-1.0, 1.0)) * randf_range(0.4, 1.2),
+						randf_range(0.8, 1.8), true)
+			"bellyflop":
+				_splash(c.pos, c.hit_radius(seg), true)
 			"twister":
 				_twister_gust(c, mv)
 	if String(fx.get("impact", "")) == "roots":
@@ -532,6 +559,13 @@ func _during_move(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 		if t >= int(win[0]) and t <= int(win[1]):
 			if t % 3 == 0:
 				_ghost(c, Color(String(fx.get("ghost_color", "#ffffff"))), 14.0)
+			if String(fx.get("trail", "")) == "splash" and not c.connected:
+				var back := c.pos - c.facing * 8.0 + Vector2(randf_range(-3, 3), randf_range(-2, 2))
+				_drop(back, 2.0, -c.facing * randf_range(0.2, 0.7) + Vector2(randf_range(-0.4, 0.4), randf_range(-0.2, 0.2)),
+					randf_range(1.0, 2.0), true)
+				if t % 3 == 0:
+					_add({"kind": "puddle", "pos": back, "radius": randf_range(2.5, 4.5), "ry": 0.4, "grow": 3.0,
+						"life": 70.0, "fade": 35.0})
 			if String(fx.get("trail", "")) == "gravel" and not c.connected:
 				var back := c.pos - c.facing * 7.0 + Vector2(randf_range(-4, 4), randf_range(-2, 2))
 				_chunk(back, 1.0, -c.facing * randf_range(0.2, 0.8) + Vector2(randf_range(-0.4, 0.4), randf_range(-0.3, 0.3)),
@@ -875,6 +909,76 @@ func _pinecone_burst(at: Vector2, r: float) -> void:
 	_slam_debris(at, false)
 
 
+## Gillbert's splashes: a ring of water, drops thrown up, and puddles left behind. A
+## belly-flop is the same, much bigger, with a column of spray.
+func _splash(at: Vector2, r: float, huge: bool) -> void:
+	_add({"kind": "ripple", "pos": at, "life": 24 if huge else 18, "radius": r + (14.0 if huge else 6.0)})
+	_add({"kind": "ring", "pos": at, "life": 14, "radius": r, "color": C_WATER_L})
+	var n := 30 if huge else 14
+	for i in n:
+		var a := randf() * TAU
+		var v := Vector2(cos(a), sin(a) * 0.5) * randf_range(0.6, 2.2 if huge else 1.5)
+		_drop(at + v * 3.0, 2.0, v, randf_range(1.5, 4.0 if huge else 2.6), true, Color(0, 0, 0, 0),
+			Vector2(2, 2) if randf() < 0.4 else Vector2(1, 2))
+	for i in (6 if huge else 3):
+		_add({"kind": "puddle", "pos": at + Vector2(randf_range(-r, r) * 0.7, randf_range(-r, r) * 0.3),
+			"radius": randf_range(4.0, 8.0 if huge else 6.0), "ry": 0.4, "grow": 4.0, "life": 140.0, "fade": 50.0})
+	if huge:
+		_add({"kind": "emit", "life": 14, "every": 1.0, "acc": 0.0, "fn": _spray_tick.bind(at)})
+		_text(at + Vector2(0, -40), "SPLASH!", C_WATER_L, 10, 50.0)
+		shake_out = maxf(shake_out, 6.0)
+		cue.emit("bellyflop")
+	else:
+		shake_out = maxf(shake_out, 2.0)
+		cue.emit("splash")
+
+
+func _spray_tick(k: float, at: Vector2) -> void:
+	for j in 3:
+		var col := C_FOAM if randf() < 0.35 else (C_WATER_L if randf() < 0.5 else C_WATER)
+		_drop(at + Vector2(randf_range(-6, 6), randf_range(-2, 2)), 2.0,
+			Vector2(randf_range(-0.6, 0.6), randf_range(-0.3, 0.3)), randf_range(3.5, 5.5) * (1.0 - k * 0.6), true, col,
+			Vector2(2, 3) if randf() < 0.5 else Vector2(1, 2))
+
+
+## Gillbert's knockout: one last wet flop and a puddle.
+func _flop_ko(c: CreatureSim) -> void:
+	for i in 10:
+		_drop(c.pos, 6.0, Vector2.from_angle(randf() * TAU) * randf_range(0.3, 1.0), randf_range(0.8, 1.8), true)
+	_add({"kind": "puddle", "pos": c.pos + Vector2(0, 2), "radius": 16.0, "ry": 0.35, "grow": 60.0, "life": FOREVER})
+	cue.emit("flop")
+
+
+## Cast Line: the line flies out to the move's reach; once it hooks someone it stays
+## taut between them while it reels the caster in.
+func _draw_cast(ci: CanvasItem, c: CreatureSim, mv: Dictionary) -> void:
+	var from := c.pos + c.facing * 10.0 + Vector2(0, -_chest(c) + 2.0)
+	var su := float(mv.get("startup", 10))
+	var act := float(mv.get("active", 4))
+	var t := float(c.state_t)
+	var end := Vector2.ZERO
+	var reel: Dictionary = _reels.get(c.id, {})
+	var hooked := not reel.is_empty() and int(reel["serial"]) == c.attack_serial
+	if hooked:
+		var tgt := _creature(int(reel["target"]))
+		if tgt == null:
+			return
+		end = tgt.pos + Vector2(0, -_chest(tgt))
+	elif t >= su * 0.5 and t <= su + act + 4.0:
+		var k := clampf((t - su * 0.5) / maxf(1.0, su * 0.5 + 1.0), 0.0, 1.0)
+		if t > su + act:
+			k = 1.0 - (t - su - act) / 4.0
+		var reach := float(mv.get("reach", 40)) + float(mv.get("hit_radius", 8)) * 0.5
+		end = c.pos + c.facing * reach * k + Vector2(0, -_chest(c) - 6.0 * sin(k * PI))
+	else:
+		return
+	ci.draw_line(from, end, Color(C_GREY[2], 0.9), 1.0)
+	# the hook
+	var hd := (end - from).normalized() if end.distance_squared_to(from) > 1.0 else c.facing
+	ci.draw_line(end, end + hd * 2.0 + Vector2(0, 2), C_GREY[3], 1.0)
+	ci.draw_line(end + hd * 2.0 + Vector2(0, 2), end + Vector2(0, 3), C_GREY[3], 1.0)
+
+
 ## Barkley's knockout: he topples like a felled tree.
 func _timber(c: CreatureSim) -> void:
 	_text(c.pos + Vector2(0, -_top(c) - 6), "TIMBER!", Color("ffd166"), 10, 70.0)
@@ -970,6 +1074,8 @@ func _ko(c: CreatureSim) -> void:
 		"crumble":
 			_crack_body(c, ko)
 			_later(14.0, _crumble.bind(c))
+		"flop":
+			_later(10.0, _flop_ko.bind(c))
 		"timber":
 			_timber(c)
 			_later(16.0, _timber_land.bind(c, float(ko.get("length", 50))))
@@ -1597,6 +1703,9 @@ func _draw_creature_extras(ci: CanvasItem, floor_layer: bool) -> void:
 			if c.stack >= int(stack_def.get("max", 3)) and (c.anim_t / 6) % 2 == 0:
 				var top := (c.pos + Vector2(0, -_top(c) - 7.0 - c.air_height() - 6.0)).round()
 				ci.draw_rect(Rect2(top, Vector2.ONE), C_SPARK[0])
+
+		if attacking and bool(fx.get("cast", false)):
+			_draw_cast(ci, c, mv)
 
 		if attacking and bool(fx.get("speedlines", false)):
 			var segs: Array = mv.get("_segs", [])

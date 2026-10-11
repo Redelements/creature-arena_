@@ -315,6 +315,12 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		var fr := CreatureSim.AIR_FRICTION if d.is_airborne() else CreatureSim.FRICTION
 		d.knock_vel = (a.pos - d.pos).normalized() * maxf(0.0, gap) * (1.0 - fr)
 		emit_event("pull", d.pos, gap, {"attacker": a.id, "target": d.id})
+	# A reel (Cast Line) is the other way round: the attacker is hauled in to the target.
+	var reel := float(hit.get("reel", 0.0))
+	if reel > 0.0 and d.pos.distance_squared_to(a.pos) > 0.0001:
+		var gap := d.pos.distance_to(a.pos) - (a.radius + d.radius + reel)
+		a.knock_vel = (d.pos - a.pos).normalized() * maxf(0.0, gap) * (1.0 - CreatureSim.FRICTION)
+		emit_event("reel", a.pos, gap, {"attacker": a.id, "target": d.id})
 
 	hitstop = maxi(hitstop, int(hit["hitstop"]))
 	emit_event("hit", fx_pos, total, {
@@ -468,7 +474,7 @@ func _separate() -> void:
 func _check_falls() -> void:
 	for c in creatures:
 		if c.state in [CreatureSim.State.FALLING, CreatureSim.State.KO,
-				CreatureSim.State.DODGE, CreatureSim.State.AIRBORNE]:
+				CreatureSim.State.DODGE, CreatureSim.State.AIRBORNE] or c.is_leaping():
 			continue
 		if c.invuln > 0 and c.state != CreatureSim.State.KNOCKDOWN:
 			continue

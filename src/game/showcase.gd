@@ -1,7 +1,7 @@
 class_name Showcase
 extends RefCounted
 ## Scripted demos that show each fighter's whole kit, and how to answer the big moves.
-##   godot --path . -- --showcase=cairn | culvert | craglash | barkley | counterplay
+##   godot --path . -- --showcase=cairn | culvert | craglash | barkley | gillbert | counterplay
 ## Both fighters are driven by input bitmasks, exactly like players: each "press" step
 ## mashes its button until that move actually starts, so the combos shown are real
 ## inputs through the real rules. tests/test_showcase.gd plays every script headless.
@@ -130,6 +130,36 @@ const SCRIPTS := {
 			{"do": "press", "who": 0, "bit": L, "move": "light_3", "show": 3},
 			{"do": "press", "who": 0, "bit": H, "move": "heavy", "show": 4},
 			{"do": "press", "who": 0, "bit": S2, "move": "skill_2", "show": 5},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 40},
+			{"do": "place", "part": 1, "gap": 2.0},
+			{"do": "wait", "t": 20},
+			{"do": "press", "who": 0, "bit": L, "move": "light_1", "show": 0},
+			{"do": "press", "who": 0, "bit": L, "move": "light_2", "show": 1},
+			{"do": "press", "who": 0, "bit": L, "move": "light_3", "show": 2},
+			{"do": "press", "who": 0, "bit": H, "move": "heavy", "show": 3},
+			{"do": "press", "who": 0, "bit": S1, "move": "skill_1", "show": 4},
+			{"do": "press", "who": 0, "bit": SU, "move": "surge", "show": 5},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 150, "show": 6},
+		],
+	},
+	"gillbert": {
+		"left": "gillbert", "right": "cairn", "energy": [100, 0], "gap": 30.0, "hp": [-1, 75],
+		"title": "GILLBERT  -  FULL KIT",
+		"captions": [
+			["Cast Line: reels him in", "Snout Jab", "Tail Whip", "Rod Flail", "Splash Zone", "Flop Dash"],
+			["Jab", "Whip", "Rod Flail", "Splash Zone", "Flop Dash", "The One That Got Away"],
+		],
+		"steps": [
+			{"do": "wait", "t": 45, "part": 0},
+			{"do": "press", "who": 0, "bit": S2, "move": "skill_2", "show": 0},
+			{"do": "until", "cond": "free:0"},
+			{"do": "press", "who": 0, "bit": L, "move": "light_1", "show": 1},
+			{"do": "press", "who": 0, "bit": L, "move": "light_2", "show": 2},
+			{"do": "press", "who": 0, "bit": L, "move": "light_3", "show": 3},
+			{"do": "press", "who": 0, "bit": H, "move": "heavy", "show": 4},
+			{"do": "press", "who": 0, "bit": S1, "move": "skill_1", "show": 5},
 			{"do": "until", "cond": "settled"},
 			{"do": "wait", "t": 40},
 			{"do": "place", "part": 1, "gap": 2.0},

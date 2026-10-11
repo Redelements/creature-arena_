@@ -530,12 +530,44 @@ def timber():
     return creak(0.9, 150, 70)
 
 
+# ---------------------------------------------------------------- Gillbert
+
+def flop():
+    """A wet fish slapping the floor: a soft smack with a splash on top."""
+    total = 0.22
+    smack = at(np.tanh(thump(260, 110, 0.08, 2.0) * 2.5) * 0.7, 0.0, total)
+    wet = at(bandpass(noise(0.16), 900, 5000) * env(0.16, attack=0.002, curve=3.0) * 0.7, 0.005, total)
+    return mix(smack, wet)
+
+
+def reel():
+    """Cast Line hooks on: a zipping reel, ratcheting fast."""
+    d = 0.45
+    tick = (np.sin(2 * np.pi * 70 * t(d) * (1 + t(d) * 2)) > 0.6).astype(float)
+    click = bandpass(noise(d), 2500, 7000) * tick * env(d, attack=0.01, curve=1.2)
+    whir = osc(sweep(900, 1400, d), d, "tri") * env(d, attack=0.02, curve=2.0) * 0.25
+    return mix(click, whir, at(swing(800, 2600, 0.12) * 0.6, 0.0, d))
+
+
+def bellyflop():
+    """The One That Got Away comes down: a huge slap and a wall of water."""
+    total = 1.2
+    slap = at(np.tanh(thump(90, 40, 0.4, 1.6) * 3.0), 0.0, total)
+    water = lowpass(noise(total), 2600) * env(total, attack=0.01, curve=1.6) * 1.1
+    drops = np.zeros(int(SR * total))
+    for k in range(14):
+        c = bandpass(noise(0.04), 1200, 4500) * env(0.04, curve=3) * 0.5
+        drops += at(c, 0.25 + k * 0.05 + rng.uniform(0, 0.02), total)
+    return mix(slap, water, drops)
+
+
 # Added after the first batch, so they're generated last and the older placeholders
 # (which share one random stream) come out the same as before.
 NEW_SOUNDS = {
     "roar": roar, "stoneskin": stoneskin, "shield_break": shield_break, "lash": lash,
     "avalanche": avalanche,
     "snag": snag, "pinecone": pinecone, "twister": twister, "roots": roots, "timber": timber,
+    "flop": flop, "reel": reel, "bellyflop": bellyflop,
 }
 
 

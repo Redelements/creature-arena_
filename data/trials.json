@@ -26,6 +26,12 @@
     {"fighter": "barkley", "name": "Reel them back",
      "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_1", "skill_1"]]},
     {"fighter": "barkley", "name": "Root Eruption finish", "energy": 100,
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_1", "skill_1"], ["surge", "surge"]]},
+    {"fighter": "gillbert", "name": "Flop chain",
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["skill_1", "skill_1"]]},
+    {"fighter": "gillbert", "name": "Splash and dash",
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_1", "skill_1"]]},
+    {"fighter": "gillbert", "name": "The One That Got Away", "energy": 100,
      "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_1", "skill_1"], ["surge", "surge"]]}
   ]
 }

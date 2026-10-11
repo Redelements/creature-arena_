@@ -270,11 +270,12 @@ func hit_params(seg: int) -> Dictionary:
 		"slow_mult": float(mv.get("slow_mult", 1.0)),
 		"juggle_float": seg_value(seg, "juggle_float"),
 		"pull": seg_value(seg, "pull"),
+		"reel": seg_value(seg, "reel"),
 	}
 
 
 func is_invulnerable() -> bool:
-	if invuln > 0 or state == State.KNOCKDOWN:
+	if invuln > 0 or state == State.KNOCKDOWN or is_leaping():
 		return true
 	if state == State.DODGE:
 		var dg: Dictionary = def["dodge"]
@@ -327,7 +328,17 @@ func is_stunned() -> bool:
 
 ## Whether this creature pushes and gets pushed by other bodies.
 func is_solid() -> bool:
-	return not (state in [State.FALLING, State.KO, State.DODGE, State.AIRBORNE, State.KNOCKDOWN])
+	return not (state in [State.FALLING, State.KO, State.DODGE, State.AIRBORNE, State.KNOCKDOWN]) \
+		and not is_leaping()
+
+
+## High in the air during a move's "leap" window (Gillbert's Surge): out of reach of
+## every hit, passing over bodies and pits.
+func is_leaping() -> bool:
+	if state != State.ATTACK or windup_left > 0:
+		return false
+	var lp: Dictionary = move_def().get("leap", {})
+	return not lp.is_empty() and state_t >= int(lp["from"]) and state_t <= int(lp["to"])
 
 
 func is_full_charge() -> bool:
@@ -622,7 +633,7 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 		_move(facing * lunge, sim, true)
 	var dash: Dictionary = mv.get("dash", {})
 	if not dash.is_empty() and t >= int(dash["from"]) and t <= int(dash["to"]) and not connected:
-		_move(facing * float(dash["speed"]), sim, true)
+		_move(facing * float(dash["speed"]), sim, not is_leaping())  # a leap sails over pits
 
 	# One-off effects at the first active tick.
 	var segs: Array = mv["_segs"]
