@@ -145,10 +145,11 @@ const SCRIPTS := {
 		],
 	},
 	"gillbert": {
-		"left": "gillbert", "right": "cairn", "energy": [100, 0], "gap": 30.0, "hp": [-1, 75],
+		"left": "gillbert", "right": "cairn", "energy": [100, 0], "gap": 80.0, "hp": [-1, 75],
 		"title": "GILLBERT  -  FULL KIT",
 		"captions": [
-			["Cast Line: reels him in", "Snout Jab", "Tail Whip", "Rod Flail", "Splash Zone", "Flop Dash"],
+			["Cast Line: throws the rod, reels him in", "Snout Jab", "Tail Whip", "Rod Flail", "Splash Zone",
+				"Flop Dash"],
 			["Jab", "Whip", "Rod Flail", "Splash Zone", "Flop Dash", "The One That Got Away"],
 		],
 		"steps": [

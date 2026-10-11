@@ -338,6 +338,9 @@ func _attack_frame() -> Array:
 	if mv.has("charge_max") and c.charging:  # heavies: two charge frames while held
 		return [name, (c.anim_t / 6) % 2, false]
 
+	if mv.has("anim_reel") and c.reel_t > 0:  # being reeled in on the line (Cast Line)
+		return [name, mini(int(mv["anim_reel"]), n - 1), false]
+
 	if mv.has("anim_at"):  # an explicit timeline: [[tick, frame], ...], each from its tick on
 		var f := 0
 		for pair in mv["anim_at"]:

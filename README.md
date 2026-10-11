@@ -215,7 +215,7 @@ floor like a landed fish, his rod tumbling behind him on the line.
 | Light | Snout Jab, Tail Whip, Rod Flail | A nose bonk, a half turn that lashes the tail across, then a jerk of the head swings the rod over him onto the foe |
 | Heavy | Splash Zone | Curls up and slaps the floor with his tail: hits all around him, pops foes up and **slows** them (walk ×0.6 for 2 s). Hold to charge (bigger and harder) |
 | Skill 1 | Flop Dash | A skidding belly-flop forward, kicking up water; keeps a juggle going |
-| Skill 2 | Cast Line | Flings the rod out on its line to long range; on hit it hooks the foe and **reels Gillbert in** to them, while they stay stunned, so lights link after it. Blockable |
+| Skill 2 | Cast Line | **Throws his rod** on its line, about 110 px. If it hooks someone he's **reeled in to them** at a steady pull, across pits and all, like a fish on a line; arriving ends the cast while they're still stunned, so lights link straight after. Blockable; a miss leaves him stuck in recovery |
 | Surge | The One That Got Away | Leaps straight up off the screen, **out of reach** of everything (he sails over bodies and pits), then belly-flops onto the marked spot ahead in a huge splash that knocks foes down |
 
 ![Gillbert's showcase](docs/gillbert_demo.gif)

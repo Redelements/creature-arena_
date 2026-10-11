@@ -49,7 +49,7 @@
   "ai": {
     "range": 18,
     "poke": "skill_2",
-    "poke_range": [38, 62],
+    "poke_range": [40, 110],
     "surge_range": 46,
     "routes": [
       ["light", "light", "light", "heavy", "skill_1", "surge"],
@@ -70,21 +70,21 @@
       "name": "Snout Jab", "anim": "jab",
       "startup": 4, "active": 2, "recovery": 9, "cancel_from": 7,
       "damage": 4, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
-      "reach": 14, "hit_radius": 9, "lunge": 1.2, "next": "light_2", "juggle": true,
+      "reach": 16, "hit_radius": 10, "lunge": 1.2, "next": "light_2", "juggle": true,
       "fx": { "smear": "thrust" }
     },
     "light_2": {
       "name": "Tail Whip", "anim": "whip",
       "startup": 5, "active": 3, "recovery": 10, "cancel_from": 8,
       "damage": 5, "knockback": 1.0, "hitstun": 18, "hitstop": 4,
-      "reach": 15, "hit_radius": 11, "lunge": 0.6, "next": "light_3", "juggle": true,
+      "reach": 17, "hit_radius": 12, "lunge": 0.6, "next": "light_3", "juggle": true,
       "fx": { "smear": "arc", "impact": "droplets" }
     },
     "light_3": {
       "name": "Rod Flail", "anim": "flail",
       "startup": 8, "active": 3, "recovery": 15,
       "damage": 6, "knockback": 1.6, "hitstun": 24, "hitstop": 6,
-      "reach": 21, "hit_radius": 11, "lunge": 0.4, "next": "",
+      "reach": 24, "hit_radius": 11, "lunge": 0.4, "next": "",
       "anim_at": [[0, 0], [3, 1], [6, 2], [9, 3], [13, 4], [20, 5]],
       "fx": { "smear": "rise", "size": 1.2 }
     },
@@ -110,12 +110,13 @@
     },
     "skill_2": {
       "name": "Cast Line", "anim": "cast", "windup": 6, "tell": "strong", "cooldown": 210,
-      "startup": 10, "active": 4, "recovery": 16,
-      "damage": 4, "knockback": 0.2, "hitstun": 36, "hitstop": 6,
-      "reach": 44, "hit_radius": 10,
-      "reel": 2,
-      "anim_at": [[0, 0], [5, 1], [10, 2], [15, 3], [20, 4], [26, 5]],
-      "fx": { "cast": true }
+      "startup": 10, "active": 0, "recovery": 28,
+      "damage": 4, "knockback": 0.2, "hitstun": 46, "hitstop": 6,
+      "reel": 2, "reel_speed": 5.0,
+      "projectile": { "speed": 5.5, "life": 18, "radius": 8, "offset": 12, "crack_trail": false },
+      "anim_at": [[0, 0], [5, 1], [9, 2], [13, 3], [32, 5]],
+      "anim_reel": 4,
+      "fx": { "cast": true, "projectile": "rod" }
     },
     "surge": {
       "name": "The One That Got Away", "anim": "leap", "energy_cost": 100,

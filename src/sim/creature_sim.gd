@@ -50,6 +50,7 @@ const STATE_FIELDS := [
 	"combo_hits", "combo_types", "combo_moves", "combo_bounced", "combo_damage", "juggles",
 	"juggle_serials", "last_attacker", "dodge_dir", "prev_buttons", "dodge_buffer",
 	"dodge_buffer_dir", "shield", "calm_t", "slow", "slow_mult", "taunt", "taunt_by",
+	"reel_t", "reel_to", "reel_gap", "reel_speed",
 ]
 ## Set once when the creature is made and never changed by the simulation.
 const STATIC_FIELDS := ["id", "def", "is_dummy", "radius", "weight", "max_hp", "max_stamina"]
@@ -128,6 +129,10 @@ var slow := 0  ## ticks of slowed walking left
 var slow_mult := 1.0
 var taunt := 0  ## ticks left of being taunted by `taunt_by`
 var taunt_by := -1
+var reel_t := 0  ## ticks left of being reeled in to `reel_to` (Gillbert's Cast Line)
+var reel_to := -1
+var reel_gap := 0.0
+var reel_speed := 0.0
 
 
 func _init(p_id: int, p_def: Dictionary, p_pos: Vector2, p_is_dummy := false) -> void:
@@ -271,6 +276,7 @@ func hit_params(seg: int) -> Dictionary:
 		"juggle_float": seg_value(seg, "juggle_float"),
 		"pull": seg_value(seg, "pull"),
 		"reel": seg_value(seg, "reel"),
+		"reel_speed": seg_value(seg, "reel_speed"),
 	}
 
 
@@ -484,6 +490,8 @@ func step(buttons: int, sim: MatchSim) -> void:
 					reset_combo()
 					invuln = 20
 					_set_state(State.IDLE)
+	if reel_t > 0:
+		_reel_step(sim)
 	_apply_knockback(sim)
 
 	if buffer_t > 0:
@@ -780,7 +788,37 @@ func cancel_attack() -> void:
 	connected = false
 	buffered = ""
 	buffer_t = 0
+	reel_t = 0
 
+
+## Cast Line hooked someone: get hauled in to them at a steady speed, like a fish on a
+## line, until `reel_gap` short of their body. Arriving ends the cast, so a light can
+## follow straight away while they're still stunned.
+func start_reel(target: CreatureSim, gap: float, speed: float) -> void:
+	reel_to = target.id
+	reel_gap = gap
+	reel_speed = speed
+	reel_t = 60
+	knock_vel = Vector2.ZERO
+
+
+func _reel_step(sim: MatchSim) -> void:
+	reel_t -= 1
+	if reel_to < 0 or reel_to >= sim.creatures.size() or sim.creatures[reel_to].state == State.KO:
+		reel_t = 0
+		return
+	var t := sim.creatures[reel_to]
+	var to := t.pos - pos
+	var left := to.length() - (radius + t.radius + reel_gap)
+	if left > 0.01:
+		_move(to.normalized() * minf(reel_speed, left), sim, false)
+		left -= reel_speed
+	if left <= 0.01 or reel_t <= 0:
+		reel_t = 0
+		if state == State.ATTACK and move_def().has("reel"):
+			walk_vel = Vector2.ZERO
+			_set_state(State.IDLE)
+		sim.emit_event("reeled_in", pos, 0.0, {"who": id, "target": t.id})
 
 func enter_hitstun(ticks: int, kb: Vector2) -> void:
 	cancel_attack()

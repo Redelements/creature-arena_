@@ -97,7 +97,7 @@ tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gi
   mapped onto Light/Heavy/Skill 1/Skill 2/Surge plus a passive (only when the sheet has
   one), and new mechanics added to the sim as data keys (`stoneskin`, `armor`, `taunt`,
   `slow_ticks`, `juggle_float`; Barkley added `pull`, lobbed `projectile`s, `terrain_crack`
-  and `rank_cancel_from`; Gillbert added `reel` (the attacker is hauled to the target)
+  and `rank_cancel_from`; Gillbert added `reel`/`reel_speed` (the attacker is hauled to the target at a steady speed)
   and `leap` (an invulnerable, bodiless window that sails over pits)). Barkley's generator (`tools/gen_barkley.py`) poses a 3D
   puppet once and projects it into all three views; prefer that for new characters.
   Moves can time their frames with `"anim_at"` and lift the sprite with `"view_lift"`

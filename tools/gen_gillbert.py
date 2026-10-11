@@ -213,7 +213,9 @@ class Cam:
 
     @staticmethod
     def depth_y(f):
-        k, near = 0.35, 8.0
+        # Barkley's flattening, but across a fish's whole length (he lies along the
+        # depth axis in these views), so his body stays inside the life ring.
+        k, near = 0.35, 20.0
         a = abs(f)
         g = a * k if a <= near else near * k + (a - near)
         return math.copysign(g, f)
@@ -262,7 +264,7 @@ class Pose:
         self.gill = kw.get("gill", 0.0)          # gill cover flared open
         self.fins = kw.get("fins", 1.0)          # fin spread (0 tucked .. 1.4 splayed)
         # The rod: centre (lat, up, fwd), its pitch (0 = level, butt behind) and turn.
-        self.rod = kw.get("rod", ((3.0, 1.5, -38.0), -6.0, 18.0))
+        self.rod = kw.get("rod", ((3.0, 1.5, -38.0), -6.0, 18.0))  # None: thrown, off in flight
         self.sag = kw.get("sag", 1.0)            # how much the line hangs (0 = taut)
 
 
@@ -414,7 +416,8 @@ class Painter:
         o = C["outline"]
         f = self.p.face
         for side in (78, -78):
-            if self.facing(self.f.normal(0.7, side)) < 0.1:
+            # head-on, his bulging eyes still show at the sides of his head
+            if self.facing(self.f.normal(0.7, side)) < (0.1 if self.view == "side" else -0.35):
                 continue
             e = self.P(self.f.surface(0.72, side - (14 if side > 0 else -14)))
             x, y = round(e[0]), round(e[1])
@@ -610,16 +613,27 @@ class Painter:
         return img
 
     # -- assemble
+    def _part_mask(self, u0, u1):
+        """Where the body samples between u0 and u1 land, grown by its outline."""
+        img = layer()
+        d = ImageDraw.Draw(img)
+        n = 44
+        for k in range(n + 1):
+            u = -1.0 + 2.0 * k / n
+            if u0 - 1e-6 <= u <= u1 + 1e-6:
+                d.polygon([self.P(self.f.surface(u, a)) for a in range(0, 360, 20)], fill=C["body"])
+        m = _mask(img)
+        return m | _shift(m, 1, 0) | _shift(m, -1, 0) | _shift(m, 0, 1) | _shift(m, 0, -1)
+
     def render(self):
         parts = []  # (depth, order, image)
         body_d = self.D(self.f.frame(0.0)[0])
-        line = self.line()
-        parts.append((body_d - 30.0, 0, line))
-        rod, rod_d = self.rod()
-        parts.append((rod_d, 1, rod))
+        if self.p.rod is not None:
+            parts.append((body_d - 30.0, 0, self.line()))
+            rod, rod_d = self.rod()
+            parts.append((rod_d, 1, rod))
         tail = self.tail()
         parts.append((self.D(self.f.frame(-1.0)[0]) - 0.5, 2, tail))
-        fins_behind = []
         for fin in (self.dorsal(), self.anal(), self.pelvic()):
             parts.append((body_d - 0.3, 3, fin))
         for s in (90, -90):
@@ -627,16 +641,37 @@ class Painter:
             front = self.facing(self.f.normal(0.5, s)) > 0
             parts.append((body_d + (0.4 if front else -0.4), 5 if front else 2, pec))
         rings, ring_d = self.ring()
-        if rings[0] is not None:
-            parts.append((ring_d - 0.2, 3, rings[0]))
-        parts.append((body_d, 4, self.body()))
-        if rings[1] is not None:
-            parts.append((ring_d + 0.2, 6, rings[1]))
+        body = self.body()
+        if self.view == "side":
+            # Seen side-on the ring's near half crosses in front of him, the far half behind.
+            if rings[0] is not None:
+                parts.append((ring_d - 0.2, 3, rings[0]))
+            parts.append((body_d, 4, body))
+            if rings[1] is not None:
+                parts.append((ring_d + 0.2, 6, rings[1]))
+        else:
+            # Seen head-on or from behind, he passes through the ring: the end of him
+            # nearer the camera goes over it, the far end under it, so he is always in it.
+            whole = [r for r in rings if r is not None]
+            ring_img = layer()
+            for r in whole:
+                ring_img.alpha_composite(r)
+            front = self._part_mask(RING_U, 1.0)
+            a = np.array(body)
+            head = a.copy()
+            head[~front] = 0
+            rest = a.copy()
+            rest[front] = 0
+            head_d = self.D(self.f.frame(0.6)[0])
+            tail_d = self.D(self.f.frame(-0.4)[0])
+            parts.append((tail_d, 4, Image.fromarray(rest)))
+            parts.append((ring_d, 6, ring_img))
+            parts.append((head_d, 4, Image.fromarray(head)))
+            body_d = head_d  # the barbels come off the snout
         parts.append((body_d + 0.1, 7, self.barbels()))
         img = layer()
         for _d, _o, lay in sorted(parts, key=lambda t: (t[0], t[1])):
             img.alpha_composite(lay)
-        del fins_behind
         return img
 
 
@@ -692,8 +727,8 @@ def jab():
     """Light 1, Snout Jab: rear back, then bonk forward with the nose."""
     return [
         P(curl=0.5, pitch=10, shift=-3, rod=REST_ROD, face="calm"),
-        P(curl=-0.3, pitch=-6, shift=6, lift=2, stretch=1.08, rod=REST_ROD, face="shout"),
-        P(curl=-0.2, pitch=-4, shift=5, lift=1, stretch=1.05, rod=REST_ROD, face="shout"),
+        P(curl=-0.3, pitch=-6, shift=8, lift=2, stretch=1.08, rod=REST_ROD, face="shout"),
+        P(curl=-0.2, pitch=-4, shift=7, lift=1, stretch=1.05, rod=REST_ROD, face="shout"),
         P(curl=0.3, rod=REST_ROD),
     ]
 
@@ -715,8 +750,8 @@ def flail():
         P(curl=0.4, pitch=8, rod=REST_ROD, face="calm"),
         P(curl=-0.4, pitch=20, rod=rod_at(2, 18, -22, 70), sag=0.0, face="shout"),
         P(curl=-0.6, pitch=24, lift=2, rod=rod_at(1, 34, 0, 160), sag=0.0, face="shout"),
-        P(curl=0.3, pitch=-14, rod=rod_at(1, 8, 22, 200, 0), sag=0.0, face="shout"),
-        P(curl=0.3, pitch=-8, rod=rod_at(1, 2.5, 20, 182, 0), sag=0.3),
+        P(curl=0.3, pitch=-14, rod=rod_at(1, 8, 25, 200, 0), sag=0.0, face="shout"),
+        P(curl=0.3, pitch=-8, rod=rod_at(1, 2.5, 23, 182, 0), sag=0.3),
         P(curl=0.3, pitch=0, rod=rod_at(2, 12, -16, 40), sag=0.4),
     ]
 
@@ -751,10 +786,12 @@ def cast():
     return [
         P(curl=0.5, pitch=14, rod=rod_at(2, 12, -26, 60), sag=0.2, face="calm"),
         P(curl=-0.5, pitch=26, lift=2, rod=rod_at(0, 30, -6, 150), sag=0.0, face="shout"),
-        P(curl=-0.2, pitch=-10, rod=rod_at(0, 16, 26, 190, 0), sag=0.0, face="shout"),
-        P(curl=-0.1, pitch=-8, rod=rod_at(0, 9, 34, 186, 0), sag=0.0, face="shout"),
-        P(curl=-0.4, pitch=-6, lift=3, shift=4, stretch=1.12, rod=rod_at(0, 8, 32, 180, 0), sag=0.0, face="shout"),
-        P(curl=0.3, rod=rod_at(2, 14, -12, 60), sag=0.5),
+        # thrown: the rod leaves him, spinning off on its line (the game draws it in flight)
+        P(curl=-0.2, pitch=-10, rod=rod_at(0, 18, 30, 200, 0), sag=0.0, face="shout"),
+        P(curl=-0.1, pitch=-6, rod=None, face="shout", fins=1.2),
+        # hooked: hauled in nose first, stretched out, fins swept back, tail trailing
+        P(curl=-0.5, pitch=-5, lift=3, stretch=1.15, wiggle=0.5, fins=0.7, rod=None, face="shout", gill=1.0),
+        P(curl=0.3, rod=None, face="calm"),
     ]
 
 

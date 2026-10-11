@@ -33,25 +33,56 @@ func _events(sim: MatchSim, kind: String) -> Array:
 
 
 func test_cast_line_reels_gillbert_in_to_the_target() -> void:
-	var sim := _duel("cairn", 34.0)
+	var sim := _duel("cairn", 90.0)
+	var gill := sim.creatures[0]
 	var foe_x := sim.creatures[1].pos.x
 	var reeled := run_until(sim, func(): return not _events(sim, "reel").is_empty(), 60, S2)
-	assert_true(reeled, "Cast Line should hook Cairn from 34 px away")
-	run(sim, 0, 30)
-	var want := float(sim.creatures[0].def["moves"]["skill_2"]["reel"])
-	assert_lt(_gap(sim), want + 1.5, "Gillbert hauled in to point-blank:")
+	assert_true(reeled, "the thrown rod should hook Cairn from 90 px away")
+	# Hauled in at a steady speed, not flung: no tick moves him more than reel_speed.
+	var speed := float(gill.def["moves"]["skill_2"]["reel_speed"])
+	var arrived := false
+	for i in 40:
+		var before := gill.pos
+		run(sim, 0, 1)
+		assert_lt(gill.pos.distance_to(before), speed + 0.01, "steady reel speed:")
+		if not _events(sim, "reeled_in").is_empty():
+			arrived = true
+			break
+	assert_true(arrived, "he arrives")
+	var want := float(gill.def["moves"]["skill_2"]["reel"])
+	assert_lt(_gap(sim), want + 0.5, "Gillbert reeled in to point-blank:")
 	assert_lt(absf(sim.creatures[1].pos.x - foe_x), 3.0, "the target stays where it was")
-	assert_true(sim.creatures[1].is_stunned(), "still stunned when he arrives, so a light links")
+	assert_eq(gill.state, CreatureSim.State.IDLE, "arriving ends the cast, so he can act at once:")
+	assert_true(sim.creatures[1].is_stunned(), "and the target is still stunned")
+
+
+func test_a_whiffed_cast_reels_nobody() -> void:
+	var sim := _duel("cairn", 160.0)
+	var start := sim.creatures[0].pos.x
+	tap(sim, S2, 60)
+	assert_true(_events(sim, "reel").is_empty(), "out of range: nothing hooked")
+	assert_lt(sim.creatures[0].pos.x - start, 1.0, "and he stays put")
+
+
+func test_the_reel_does_not_drop_him_in_a_pit() -> void:
+	var sim := _duel("cairn", 80.0)
+	var gill := sim.creatures[0]
+	for x in range(int(gill.pos.x) + 24, int(gill.pos.x) + 60, 4):
+		sim.terrain.damage_circle(Vector2(x, gill.pos.y), 4.0, 4.0)
+	var arrived := run_until(sim, func(): return not _events(sim, "reeled_in").is_empty(), 80, S2)
+	assert_true(arrived, "hooked and reeled across the pit")
+	run(sim, 0, 2)
+	assert_true(gill.state != CreatureSim.State.FALLING, "the line carries him over it")
 
 
 func test_cast_line_links_into_his_string() -> void:
-	var sim := _duel("cairn", 30.0)
+	var sim := _duel("cairn", 80.0)
 	var dmg := route(sim, 0, [[S2, "skill_2"], [L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"]])
 	assert_gt(dmg, 24.0, "Cast Line, the light string and Splash Zone should all connect")
 
 
 func test_a_guarded_cast_line_reels_nobody() -> void:
-	var sim := _duel("cairn", 30.0)
+	var sim := _duel("cairn", 60.0)
 	var start := sim.creatures[0].pos
 	var blocked := run_until(sim, func(): return not _events(sim, "block").is_empty(), 60, S2, GUARD)
 	assert_true(blocked, "Cairn blocks the hook")
