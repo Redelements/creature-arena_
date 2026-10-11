@@ -7,6 +7,27 @@ animation by name with its `"anim"` field.
 
 ![Current placeholder sheets](sprite_preview.png)
 
+## Three directions per creature
+
+Fighters face any of 8 ways, so every creature has **three sheets with the same rows**:
+
+| Sheet | Shows | Used when facing |
+| --- | --- | --- |
+| `name.png` | the side, facing **right** (mirrored for left) | left, right and the four diagonals |
+| `name_down.png` | the **front**, walking toward the camera | down the screen |
+| `name_up.png` | the **back**, walking away from the camera | up the screen |
+
+In the up and down sheets, "forward" is depth: a punch that reaches 20 px in front of
+the feet on the side sheet should land about 20 px below the feet (front view) or above
+them (back view), because that's where the hit lands in the game. Arms and heads that
+reach away from the camera go behind the body.
+
+Each view can have its own frame size and feet origin (`"views"` in the creature's JSON
+`"sprite"` block). Animations listed in `"side_only"` (all three use it for the knockout,
+which falls over sideways) always come from the side sheet, so those rows can stay empty
+in the other two. Preview: [`sprite_views_preview.png`](sprite_views_preview.png) (Cairn
+and Culvert, side/down/up) and [`craglash_views_preview.png`](craglash_views_preview.png).
+
 ## Creatures — 48×48 frames, 6 columns
 
 Creatures face **right**. Feet rest at the **origin** pixel (Culvert: x 21, y 43; Cairn:
@@ -71,7 +92,10 @@ pixel recreation of that sheet made by `tools/gen_craglash.py`, a small puppet r
 sampled from the artwork. Big frames because the neck reaches far: the head is 50 px
 in front of the feet on Boulder Lash and 75 px above them at the top of Avalanche Coil.
 Feet at **x 34, y 90**. Any creature can use a bigger frame by setting `"frame"` in its
-JSON; the game, the cut-in and the team select scale to it.
+JSON; the game, the cut-in and the team select scale to it. His up and down sheets
+(`craglash_down.png`, `craglash_up.png`) are **128×160** frames with the same rows minus
+the knockout, feet at x 64, y 112 (down) and y 124 (up); the same rig draws them from
+the front and from behind.
 
 ![Craglash sheet, 3x](craglash_preview.png)
 

@@ -88,6 +88,14 @@ juggle moves, and a stunned fighter can spend 50 energy on a **breakaway**.
 
 Energy fills as you deal and take damage (about one Surge per round).
 
+### Fighting from every angle
+
+Fighters move and attack in 8 directions, not just left and right: every hitbox goes
+where the fighter faces. Each fighter has side, front (facing down the screen) and back
+(facing up) art, so a Lash aimed down the screen comes at the camera and one aimed up
+reaches away behind the body. A tall fighter standing in front of a shorter one turns
+see-through so the one behind stays readable. `--showcase=angles` shows it.
+
 ### Duel: 3v3 tag
 
 Each side picks three creatures (repeats allowed while the roster is small); one fights

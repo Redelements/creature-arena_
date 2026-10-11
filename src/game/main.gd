@@ -70,6 +70,7 @@ const KO_ZOOM := 1.45
 const SHOWCASE_ZOOM := 1.9
 
 var sim: MatchSim
+var _cam_zoom := 0.0  ## showcase/coach zoom, eased toward a fit of both fighters
 var replay: Replay
 var arena: ArenaView
 var crowd: CrowdView
@@ -424,6 +425,7 @@ func _start_showcase() -> void:
 	_new_sim(showcase.build(), [Side.SCRIPT, Side.SCRIPT])
 	_showcase_end_t = 0
 	_cam_follow = Vector2.ZERO
+	_cam_zoom = 0.0
 	hud.timer_ticks = -1
 	hud.banner = ""
 	hud.show_help = false
@@ -532,6 +534,7 @@ func _physics_process(_delta: float) -> void:
 	fx.advance()
 	hud.advance()
 	for v in views:
+		v.see_through = _hides_someone(v.c)
 		v.refresh()
 	if debug.visible:
 		debug.queue_redraw()
@@ -725,15 +728,42 @@ func _flash(col: Color, amount: float) -> void:
 
 ## Pushes in on a knocked-out fighter, holds through the slow motion, then eases back.
 ## Showcases also follow the two fighters up close, so every tell is easy to see.
+## Whether `c` stands in front of another fighter and covers it (a tall fighter facing
+## up at a short one): then it's drawn see-through so the one behind stays readable.
+func _hides_someone(c: CreatureSim) -> bool:
+	if c.state == CreatureSim.State.KO:
+		return false
+	var top := c.pos.y - float(c.def.get("fx_top", 32)) - 6.0  # head and mane included
+	for o in sim.creatures:
+		if o == c or o.state in [CreatureSim.State.KO, CreatureSim.State.FALLING]:
+			continue
+		if o.pos.y >= c.pos.y or absf(c.pos.x - o.pos.x) > c.radius + 6.0:
+			continue
+		# How much of the one behind is inside our height on screen.
+		var o_feet := o.pos.y - o.air_height()
+		var o_top := o_feet - float(o.def.get("fx_top", 32))
+		var covered := minf(o_feet, c.pos.y) - maxf(o_top, top)
+		if covered > (o_feet - o_top) * 0.5:
+			return true
+	return false
+
+
 func _update_camera() -> void:
 	var size := Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H)
 	var base_z := 1.0
 	var base_focus := size * 0.5
 	var ko_focus := _ko_focus
 	if (showcase != null or coach != null) and sim != null and sim.creatures.size() >= 2:
-		var mid := (sim.creatures[0].pos + sim.creatures[1].pos) * 0.5 + Vector2(0, -8)
+		var a := sim.creatures[0].pos
+		var b := sim.creatures[1].pos
+		# Fighters stacked up and down the screen: aim a little higher and zoom out to
+		# keep both (and their heads) in shot.
+		var dy := absf(a.y - b.y)
+		var mid := (a + b) * 0.5 + Vector2(0, -8 - minf(dy, 40.0) * 0.3)
 		_cam_follow = mid if _cam_follow == Vector2.ZERO else _cam_follow.lerp(mid, 0.12)
-		base_z = SHOWCASE_ZOOM
+		var fit := lerpf(SHOWCASE_ZOOM, 1.3, clampf(dy / 40.0, 0.0, 1.0))
+		_cam_zoom = fit if _cam_zoom <= 0.0 else lerpf(_cam_zoom, fit, 0.08)
+		base_z = _cam_zoom
 		base_focus = _cam_follow
 		ko_focus = _ko_pos + Vector2(0, -16)  # no K.O. banner in a showcase
 	var z := base_z

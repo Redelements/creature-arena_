@@ -38,6 +38,11 @@
       "hurt": [10, 0, 2],
       "guard": [11, 0, 2],
       "ko": [12, 0, 4]
+    },
+    "side_only": ["ko"],
+    "views": {
+      "down": { "path": "res://assets/sprites/craglash_down.png", "frame": [128, 160], "origin": [64, 112] },
+      "up": { "path": "res://assets/sprites/craglash_up.png", "frame": [128, 160], "origin": [64, 124] }
     }
   },
   "ai": {

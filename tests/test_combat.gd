@@ -201,3 +201,25 @@ func test_knocked_out_player_stays_down() -> void:
 	b.hp = 2.0
 	tap(sim, L, 200)
 	assert_eq(b.state, CreatureSim.State.KO, "player KO is final:")
+
+
+## Fires Cairn's Rockslide Rush straight right at a dummy placed `ahead` px forward and
+## `side` px off the line. Returns whether it connected.
+func _rush_hits(ahead: float, side: float) -> bool:
+	var sim := MatchFactory.training("cairn")
+	var a := sim.creatures[0]
+	var d := sim.creatures[1]
+	a.pos = Vector2(150, 150)
+	a.facing = Vector2.RIGHT
+	d.pos = a.pos + Vector2(ahead, side)
+	var hp := d.hp
+	tap(sim, SimDefs.IN_SKILL2, 45)
+	return d.hp < hp
+
+
+func test_rush_catches_a_glancing_target() -> void:
+	# Bodies just brush at 20 px off the line; the Rush should still connect there.
+	assert_true(_rush_hits(48.0, 22.0), "Rush hits a target it grazes")
+	assert_true(_rush_hits(24.0, 18.0), "Rush hits a close target slightly off the line")
+	assert_true(_rush_hits(96.0, 0.0), "Rush reaches a target 96 px away")
+	assert_false(_rush_hits(48.0, 30.0), "Rush still misses a target well off the line")
