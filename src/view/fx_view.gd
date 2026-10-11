@@ -55,13 +55,18 @@ extends Node2D
 ##                caves in: rocks falling, dust, a shake)
 ##   flash        true         a blaze of light fanning out ahead (Headlamp Flash)
 ##   burrow       true         a dirt mound's trail of clods while the move tunnels
+##   charge       also "coins": coins spilling from the bag while the heavy is held
+##   impact       also "cash": coins and bills burst out where it hits
+##   smoke        true         a puff of smoke as the move starts (and where a blink lands)
+##   steal        true         coins fly from the foe to the attacker when it steals
 ## Creature "ko_fx" keys: style "scatter" (the sprite breaks into horizontal pieces that
 ## tumble across the floor), "crack" (cracks, water gushing out, rubble), "crumble"
 ## (cracks, then the neck stones burst loose) or "timber" (a felled tree: "TIMBER!",
 ## leaves shaken loose, and a dust line where the trunk hits the floor) or "flop" (a
 ## last wet flop and a puddle) or "deflate" (the brain fizzles out with a puff of steam and
 ## its sunglasses skid away) or "hiss" (a last long hiss: green puffs and her hair
-## snakes' venom dripping) or "dirt" (a puff of dust and clods as he flops over).
+## snakes' venom dripping) or "dirt" (a puff of dust and clods as he flops over) or
+## "cash" (the bag bursts: bills flutter down, coins roll away).
 ## Status drawn from creature state: Stoneskin plates while `shield` > 0, a rooted ring
 ## while armored, pebbles at the feet while slowed, a red "!" while taunted, and a pink
 ## down-arrow while tenderized (taking extra damage), green bubbles while poisoned,
@@ -101,6 +106,8 @@ const C_VENOM: Array[Color] = [Color("3f8a2a"), Color("7fd64e"), Color("c8f59a")
 const C_GAZE := Color("fff27a")
 const C_DIRT: Array[Color] = [Color("56391f"), Color("7a5634"), Color("9c744c")]
 const C_LAMP := Color("fff6b0")
+const C_GOLD: Array[Color] = [Color("c89a1e"), Color("f2c94c"), Color("fff0a0")]
+const C_CASH: Array[Color] = [Color("3f8f3f"), Color("7fd67f")]
 
 ## Asks AudioView for a sound that belongs to a timed effect (a KO scatter, geysers...).
 signal cue(sound: String)
@@ -329,6 +336,18 @@ func spawn(e: Dictionary) -> void:
 				_text(c.pos + Vector2(0, -_top(c) - 14), "TENDERIZED", C_TENDER, 7, 44.0)
 		"projectile_pierce":
 			_add({"kind": "spark", "pos": p, "life": 6, "scale": 0.8})
+		"steal":
+			var c := _creature(int(e.get("who", -1)))
+			var by := _creature(int(e.get("by", -1)))
+			if c != null and by != null:
+				_text(c.pos + Vector2(0, -_top(c) - 14), "STOLEN!", C_GOLD[1], 8, 44.0)
+				for i in 6:
+					_add({"kind": "suck", "from": c.pos + Vector2(randf_range(-6, 6), -_chest(c) + randf_range(-6, 6)),
+						"to": by.pos + Vector2(0, -_chest(by)), "life": 14, "color": C_GOLD[1]})
+		"blink":
+			_smoke(p, 8)
+			var from: Vector2 = e.get("from", p)
+			_smoke(from, 5)
 		"blinded":
 			var c := _creature(int(e.get("who", -1)))
 			if c != null:
@@ -582,6 +601,9 @@ func _move_started(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 		_dark = maxf(_dark, 0.6)
 	if bool(fx.get("burrow", false)):
 		cue.emit("dig")
+	if bool(fx.get("smoke", false)):
+		_smoke(c.pos, 8)
+		cue.emit("poof")
 	var shout: Dictionary = fx.get("shout", {})
 	if not shout.is_empty():
 		_text(c.pos + Vector2(0, -_top(c) - 12), String(shout.get("text", "")), Color("ffd166"), 10, 60.0)
@@ -606,6 +628,11 @@ func _charging(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 		"pebbles":
 			if full and c.anim_t % 6 == 0:
 				_dust(c.pos + Vector2(randf_range(-10, 10), randf_range(-2, 2)), Vector2(0, -0.4))
+		"coins":
+			# Wound up: coins spill from the bag, more once fully wound.
+			if c.anim_t % (3 if full else 6) == 0:
+				_chunk(c.pos - c.facing * 6.0, randf_range(28, 40), Vector2(randf_range(-0.6, 0.6), randf_range(-0.3, 0.3)),
+					randf_range(0.5, 1.2), 1.5, C_GOLD[randi() % 3], 40.0)
 		"dirt":
 			# Digging in: dirt kicked up behind him, faster once fully wound.
 			if c.anim_t % (2 if full else 4) == 0:
@@ -691,6 +718,8 @@ func _strike(c: CreatureSim, mv: Dictionary, fx: Dictionary, seg: int) -> void:
 				_twister_gust(c, mv)
 			"tenderize":
 				_tenderize(c, c.hit_center(seg), c.hit_radius(seg))
+			"cash":
+				_cash_burst(c.hit_center(seg) + Vector2(0, -_chest(c)), 10)
 			"popup":
 				_dirt_burst(c.hit_center(seg), c.hit_radius(seg))
 				cue.emit("pop")
@@ -1308,6 +1337,8 @@ func _ko(c: CreatureSim) -> void:
 			_later(12.0, _hiss_ko.bind(c))
 		"dirt":
 			_later(10.0, _dirt_ko.bind(c))
+		"cash":
+			_later(10.0, _cash_ko.bind(c))
 		"timber":
 			_timber(c)
 			_later(16.0, _timber_land.bind(c, float(ko.get("length", 50))))
@@ -1433,6 +1464,34 @@ func _rubble(c: CreatureSim) -> void:
 
 
 # ------------------------------------------------------------------ helpers
+
+## A puff of smoke: dust clouds and grey wisps.
+func _smoke(at: Vector2, n: int) -> void:
+	for i in n:
+		var a := TAU * i / n + randf() * 0.4
+		_dust(at + Vector2(cos(a) * 6.0, sin(a) * 3.0 - 10.0), Vector2(cos(a), sin(a) * 0.5 - 0.3) * 0.5)
+	for i in n:
+		_px(at + Vector2(randf_range(-8, 8), -randf_range(4, 28)), Vector2(randf_range(-0.3, 0.3), -0.4), C_GREY[2], 18)
+
+
+## Coins and bills bursting out of the bag.
+func _cash_burst(at: Vector2, n: int) -> void:
+	for i in n:
+		var v := Vector2.from_angle(randf() * TAU) * randf_range(0.5, 1.6)
+		_chunk(at + Vector2(0, 10), 10.0, v, randf_range(1.2, 2.4), 1.5, C_GOLD[randi() % 3], 50.0)
+	for i in n / 2:
+		_px(at + Vector2(randf_range(-6, 6), randf_range(-6, 6)), Vector2(randf_range(-0.8, 0.8), randf_range(-1.2, -0.3)),
+			C_CASH[randi() % 2], 30)
+	cue.emit("coins")
+
+
+## Sneaky Pete goes down and the bag bursts: bills flutter, coins roll away.
+func _cash_ko(c: CreatureSim) -> void:
+	_cash_burst(c.pos + Vector2(0, -10), 16)
+	for i in 6:
+		_chunk(c.pos, randf_range(4, 12), Vector2.from_angle(randf() * TAU) * randf_range(0.4, 1.2),
+			randf_range(0.8, 1.6), 1.5, C_GOLD[randi() % 3], FOREVER, true)
+
 
 ## Dirt bursting up out of the floor (Pickaxe Pop-Up, Burrow's exit).
 func _dirt_burst(at: Vector2, r: float) -> void:

@@ -267,6 +267,10 @@ func on_event(e: Dictionary) -> void:
 			play("shatter")
 		"blinded":
 			play("flash")
+		"steal":
+			play("coins", 0.0, 1.2)
+		"blink":
+			play("poof")
 		"miss":
 			play("miss")
 
