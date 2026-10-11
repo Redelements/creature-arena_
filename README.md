@@ -199,8 +199,8 @@ full speed, so every combo below still works.
 
 | Glow | Means | Moves (windup) | Answer |
 | --- | --- | --- | --- |
-| **Red** + "!" | Can't be blocked | Gulp (12f), Slam (10f, breaks guard), Flip Out (12f) | Roll away or through it, or hit them first |
-| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f), Runoff (6f), Rockslide Stomp (10f), Boulder Lash (8f), Timber Twister (8f), Branch Grab (8f), Splash Zone (8f), Flop Dash (10f), Cast Line (6f), Tenderize (8f), Cleaver Toss (6f) | Guard, then punish |
+| **Red** + "!" | Can't be blocked | Gulp (12f), Slam (10f, breaks guard), Flip Out (12f), Mountain Maw (12f) | Roll away or through it, or hit them first |
+| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f), Runoff (6f), Rockslide Stomp (10f), Landslide Charge (8f), Timber Twister (8f), Branch Grab (8f), Splash Zone (8f), Flop Dash (10f), Cast Line (6f), Tenderize (8f), Cleaver Toss (6f) | Guard, then punish |
 
 That puts at least 15 frames (a quarter second) between the glow and the hit, and a jab
 landed during a windup cancels the move. Surges freeze the screen for their cut-in: a
@@ -229,17 +229,18 @@ dodge pressed during the freeze comes out the moment it ends.
 
 ### Craglash — the mountain that woke up angry
 
-A slow tank (150 HP, heavy, hard to push) whose stone neck strikes from a distance while
-the body holds the line.
+A crowd-control tank (180 HP, heavy, hard to push). His slow, heavy swings don't win
+races, so he controls where the fight happens instead: he stuns, drags foes in, launches
+them, and bites from across the arena.
 
 | Button | Move | What it does |
 | --- | --- | --- |
-| Light | Rake, Backhand, Headbutt | Two claw swipes, then the neck snaps the head forward |
+| Light | Rake, Backhand, Headbutt | Two claw swipes, then the neck snaps the head forward. **Slow and heavy** (7, 7 and 10 frames to hit, against 4–5 for most fighters) but they hit harder |
 | Heavy | Rockslide Stomp | Slams the ground and knocks up everyone close, all around him |
-| Skill 1 | Boulder Lash | The neck whips out to long range; hits and **slows** (walk speed ×0.55 for 2 s). Keeps a juggle up |
-| Skill 2 | Bedrock | Roots in place for a second: hits only chip him (65% less damage), nothing moves him, and nearby foes are **taunted** (slower, and their attacks swing at him). Any attack button answers out of it after 18 frames, at full speed. Loses to grabs |
-| Surge | Avalanche Coil | The neck coils high overhead and crashes down on the marked spot ahead, cracking the floor and **stunning** (crumple) everything in it |
-| Passive | Stoneskin | A 14-point stone shield that soaks damage first; it grows back after 4 s without taking damage. Shown as a pale rim |
+| Skill 1 | Landslide Charge | A shoulder charge about 60 px forward that **stuns** whoever it hits for a quarter second (crumple), long enough to follow up. A gold windup tell |
+| Skill 2 | Bedrock | Roots in place for a second: hits only chip him (65% less damage) and nothing moves him. Foes within 90 px are **taunted** for 2 s: they walk at 60% speed, their attacks swing at him, and they're **dragged in** toward him. Any attack button answers out of it after 18 frames. Loses to grabs |
+| Surge | Mountain Maw | His head shoots out on its stone neck, **extremely far** (about 230 px), and **can't be blocked**: it has to be dodged. It bites the first foe it reaches, **hauls them back** to him and **knocks them up**. A red tell and a dotted lane show it coming |
+| Passive | Stoneskin | A 20-point stone shield that soaks damage first; it grows back after 4 s without taking damage. Shown as a pale rim on him and as pale stone on the end of his health bar ("STONESKIN") |
 
 ### Barkley — the tree that got up and left
 
@@ -384,9 +385,9 @@ shivering) waits for a victory-pose system.
 | Culvert | Jab, Jab → Gulp | 23 |
 | Culvert | Jab, Jab, Hook → Slam → Runoff | 39 |
 | Culvert | Jab, Jab, Hook → Slam → Runoff → Storm Drain | 84 |
-| Craglash | Rake, Backhand, Headbutt → Boulder Lash | 23 |
-| Craglash | Rake, Backhand, Headbutt → Rockslide Stomp → Boulder Lash | 33 |
-| Craglash | Rake, Backhand, Headbutt → Rockslide Stomp → Boulder Lash → Avalanche Coil | 57 |
+| Craglash | Rake, Backhand, Headbutt → Landslide Charge | 24.9 |
+| Craglash | Rake, Backhand, Headbutt → Rockslide Stomp → Landslide Charge | 35 |
+| Craglash | Rake, Backhand, Headbutt → Rockslide Stomp → Landslide Charge → Mountain Maw | 56 |
 | Barkley | Twig, Bough, Log Drop → Timber Twister → Branch Grab | 38.6 |
 | Barkley | Twig, Bough, Log Drop → Timber Twister → Pinecone Bomb | 41.2 |
 | Barkley | Twig, Bough, Log Drop → Timber Twister → Branch Grab → Root Eruption | 74.6 |

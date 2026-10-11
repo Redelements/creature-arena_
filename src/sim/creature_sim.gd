@@ -36,7 +36,9 @@ const LAND_KNOCKDOWN := 24
 const GETUP_INVULN := 12
 const TAN_22_5 := 0.41421356237309503
 ## Walking speed while taunted (see a move's "taunt").
-const TAUNT_SPEED := 0.8
+const TAUNT_SPEED := 0.6
+## A taunted fighter is dragged this many pixels a tick toward its taunter (Bedrock).
+const TAUNT_PULL := 0.6
 
 ## Everything that changes during a match, in a fixed order. snapshot()/restore() copy
 ## exactly these, which is what rollback netcode saves every frame. A test checks that
@@ -573,6 +575,12 @@ func step(buttons: int, sim: MatchSim) -> void:
 
 
 func _tick_status(sim: MatchSim) -> void:
+	# Taunted (Bedrock): dragged in toward the taunter while free on its feet.
+	var tt := taunter(sim)
+	if tt != null and (state == State.IDLE or state == State.MOVE or state == State.GUARD):
+		var to := tt.pos - pos
+		if to.length() > float(radius + tt.radius) + 6.0:
+			_move(to.normalized() * TAUNT_PULL, sim, true)
 	if slow > 0:
 		slow -= 1
 	if taunt > 0:

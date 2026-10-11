@@ -80,15 +80,15 @@ func _craglash() -> MatchSim:
 	return sim
 
 
-func test_craglash_rake_to_lash() -> void:
+func test_craglash_rake_to_charge() -> void:
 	var dmg := route(_craglash(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [S1, "skill_1"]])
-	assert_near(dmg, 4 + 4 + 7 + 7 * 1.15, 0.05, "Rake, Backhand, Headbutt > Boulder Lash:")
+	assert_near(dmg, 5 + 5 + 8 + 6 * 1.15, 0.05, "Rake, Backhand, Headbutt > Landslide Charge:")
 
 
 func test_craglash_stomp_launcher() -> void:
 	var dmg := route(_craglash(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"],
 		[S1, "skill_1"]])
-	assert_near(dmg, 15 + 8 * 1.15 + 7 * 1.3, 0.05, "3 lights > Rockslide Stomp > Boulder Lash:")
+	assert_near(dmg, 18 + 8 * 1.15 + 6 * 1.3, 0.05, "3 lights > Rockslide Stomp > Landslide Charge:")
 
 
 func test_craglash_full_meter() -> void:
@@ -96,7 +96,7 @@ func test_craglash_full_meter() -> void:
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"],
 		[S1, "skill_1"], [SU, "surge"]])
-	assert_near(dmg, 15 + 8 * 1.15 + 7 * 1.3 + 16 * 1.5, 0.05, "... > Avalanche Coil:")
+	assert_near(dmg, 18 + 8 * 1.15 + 6 * 1.3 + 14 * 1.5, 0.05, "... > Mountain Maw:")
 
 
 ## Barkley (left) facing Cairn at close range.

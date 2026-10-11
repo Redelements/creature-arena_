@@ -66,7 +66,7 @@ func test_craglash_showcase_plays_through_to_a_knockout() -> void:
 		if int(ev[0]) == 0 and String(ev[1]) == "armor" and int(ev[2]) == 0:
 			armored = true
 	assert_true(armored, "Cairn's jab should hit Bedrock's armor")
-	assert_true(r["ko"][1], "Avalanche Coil should finish Cairn")
+	assert_true(r["ko"][1], "Mountain Maw should finish Cairn")
 	assert_false(r["ko"][0], "Craglash stays up")
 
 

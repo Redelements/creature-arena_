@@ -136,7 +136,9 @@ var _watch := {}
 var _last_push := {}
 var _dark := 0.0
 var _rain := 0.0
-var _slowed_text := {}  ## creature id -> tick its last "SLOWED" call-out showed
+var _slowed_text := {}
+## Set by main: per side, {"color", "label"} for the marker over its fighter.
+var side_marks: Array = []  ## creature id -> tick its last "SLOWED" call-out showed
 
 
 func bind_ground(g: FxGround) -> void:
@@ -1788,6 +1790,7 @@ func _paint(ci: CanvasItem, floor_layer: bool) -> void:
 		_draw_part(ci, p)
 	if sim != null:
 		_draw_creature_extras(ci, false)
+		_draw_side_marks(ci)
 	if _rain > 0.0:
 		_draw_rain(ci)
 
@@ -2102,6 +2105,8 @@ func _draw_projectiles(ci: CanvasItem) -> void:
 					_draw_spinner(ci, pr, _proj_kind(pr))
 				"venom":
 					_draw_venom(ci, pr)
+				"head":
+					_draw_long_bite(ci, pr)
 				_:
 					_draw_thrown_rod(ci, pr)
 			continue
@@ -2121,6 +2126,67 @@ func _proj_kind(pr: Dictionary) -> String:
 		return "rod"
 	var mv: Dictionary = owner.moves().get(String(pr["move"]), {})
 	return String(mv.get("fx", {}).get("projectile", "rod"))
+
+
+## Mountain Maw in flight: Craglash's stone neck stretched out from his shoulders to the
+## flying head, jaws open, slab by slab.
+func _draw_long_bite(ci: CanvasItem, pr: Dictionary) -> void:
+	var owner := _creature(int(pr["owner"]))
+	var pp: Vector2 = Vector2(pr["pos"]).round()
+	var d: Vector2 = Vector2(pr["vel"]).normalized()
+	var head := pp + Vector2(0, -18)
+	ci.draw_set_transform(pp, 0.0, Vector2(1.0, 0.4))
+	ci.draw_circle(Vector2.ZERO, 6.0, Color(0, 0, 0, 0.28))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	if owner != null:
+		var root := owner.pos + Vector2(owner.facing.x * 6.0, -_top(owner) + 12.0)
+		var n := maxi(2, int(root.distance_to(head) / 6.0))
+		for i in n:
+			var k := float(i) / n
+			var at := root.lerp(head, k) + Vector2(0, sin(k * PI) * -6.0)
+			var w := 3.5 - k
+			ci.draw_rect(Rect2((at - Vector2(w + 1, w + 1)).round(), Vector2(w * 2 + 2, w * 2 + 2)), C_OUTLINE)
+			ci.draw_rect(Rect2((at - Vector2(w, w)).round(), Vector2(w * 2, w * 2)), C_CRAG[(i % 2) + 1])
+	# the head: a heavy stone block with its jaws wide, teeth showing
+	var side := Vector2(-d.y, d.x) * 1.7
+	d = d * 1.7  # the head is drawn bigger than the neck slabs
+	var jaw := 4.0 + 1.5 * float((_tick / 3) % 2)
+	var top := PackedVector2Array([head - d * 6.0 - side * 5.0, head + d * 7.0 - side * 1.0 - side * jaw * 0.5,
+		head + d * 7.0 - side * 0.5, head - d * 6.0 + side * 1.0])
+	var bot := PackedVector2Array([head - d * 6.0 + side * 1.5, head + d * 6.0 + side * jaw * 0.5,
+		head + d * 6.0 + side * (jaw * 0.5 + 2.5), head - d * 6.0 + side * 5.0])
+	for poly: PackedVector2Array in [top, bot]:
+		var grown := PackedVector2Array()
+		var c: Vector2 = (poly[0] + poly[1] + poly[2] + poly[3]) / 4.0
+		for q in poly:
+			grown.append(c + (q - c) * 1.25)
+		ci.draw_colored_polygon(grown, C_OUTLINE)
+		ci.draw_colored_polygon(poly, C_CRAG[1])
+	for k in 3:
+		var tooth := head + d * (1.0 + k * 2.2) - side * 0.3
+		ci.draw_rect(Rect2(tooth.round(), Vector2.ONE), Color.WHITE)
+	ci.draw_rect(Rect2((head - d * 2.5 - side * 3.0).round(), Vector2(2, 1)), C_AMBER)  # the eye
+
+
+## Who's who: a coloured marker over each side's fighter (red for the left side, P1;
+## blue for the right, P2 or the CPU) with its label.
+func _draw_side_marks(ci: CanvasItem) -> void:
+	for i in mini(side_marks.size(), sim.creatures.size()):
+		var c := sim.creatures[i]
+		if c.state == CreatureSim.State.KO or c.stealth > 0:
+			continue
+		var mk: Dictionary = side_marks[i]
+		var col: Color = mk["color"]
+		var bob := float((_tick / 20) % 2)
+		var at := (c.pos + Vector2(0, -_top(c) - 6.0 - c.air_height() - CreatureView.view_lift(c) - bob)).round()
+		var tri := PackedVector2Array([at + Vector2(-4, -4), at + Vector2(5, -4), at + Vector2(0.5, 1)])
+		var out := PackedVector2Array([at + Vector2(-6, -5), at + Vector2(7, -5), at + Vector2(0.5, 2.5)])
+		ci.draw_colored_polygon(out, C_OUTLINE)
+		ci.draw_colored_polygon(tri, col)
+		var label := String(mk.get("label", ""))
+		if label != "":
+			ci.draw_string_outline(_font, at + Vector2(-20, -7), label, HORIZONTAL_ALIGNMENT_CENTER, 41, 6, 2, C_OUTLINE)
+			ci.draw_string(_font, at + Vector2(-20, -7), label, HORIZONTAL_ALIGNMENT_CENTER, 41, 6, col)
 
 
 ## Venom Spit in flight: a wobbling green glob at head height with drips behind it.
