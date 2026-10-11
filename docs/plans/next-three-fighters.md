@@ -71,8 +71,8 @@ A snow cone with a red/green syrup top, stick limbs and red boxing gloves.
 ## Progress
 
 ### Digby
-- [ ] 1–2 sim + data + tests
-- [ ] 3 CPU, menus, showcase, trials
+- [x] 1–2 sim + data + tests
+- [x] 3 CPU, menus, showcase, trials
 - [ ] 4 sprites
 - [ ] 5 effects + sounds
 - [ ] 6 checks

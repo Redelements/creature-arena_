@@ -50,16 +50,22 @@ extends Node2D
 ##   projectile   also "venom": a glob of green venom with a dripping trail
 ##   gaze         true         a glow in her eyes, and a faint beam to each foe it slows
 ##   impact       also "petrify": a ring of grey dust where the punch lands
+##   charge       also "dirt": dirt kicked up behind while the heavy is held
+##   impact       also "popup" (dirt bursting up where it hits) and "cavein" (the floor
+##                caves in: rocks falling, dust, a shake)
+##   flash        true         a blaze of light fanning out ahead (Headlamp Flash)
+##   burrow       true         a dirt mound's trail of clods while the move tunnels
 ## Creature "ko_fx" keys: style "scatter" (the sprite breaks into horizontal pieces that
 ## tumble across the floor), "crack" (cracks, water gushing out, rubble), "crumble"
 ## (cracks, then the neck stones burst loose) or "timber" (a felled tree: "TIMBER!",
 ## leaves shaken loose, and a dust line where the trunk hits the floor) or "flop" (a
 ## last wet flop and a puddle) or "deflate" (the brain fizzles out with a puff of steam and
 ## its sunglasses skid away) or "hiss" (a last long hiss: green puffs and her hair
-## snakes' venom dripping).
+## snakes' venom dripping) or "dirt" (a puff of dust and clods as he flops over).
 ## Status drawn from creature state: Stoneskin plates while `shield` > 0, a rooted ring
 ## while armored, pebbles at the feet while slowed, a red "!" while taunted, and a pink
-## down-arrow while tenderized (taking extra damage), and green bubbles while poisoned
+## down-arrow while tenderized (taking extra damage), green bubbles while poisoned,
+## spinning stars while blinded, and rubble round the feet while rooted
 ## (a petrified statue's grey is CreatureView's shader).
 
 const SHEET := preload("res://assets/sprites/fx.png")
@@ -93,6 +99,8 @@ const C_MALLET: Array[Color] = [Color("8c4c48"), Color("b07a70")]
 const C_BRAIN: Array[Color] = [Color("d6606a"), Color("f88686"), Color("ffb2aa")]
 const C_VENOM: Array[Color] = [Color("3f8a2a"), Color("7fd64e"), Color("c8f59a")]
 const C_GAZE := Color("fff27a")
+const C_DIRT: Array[Color] = [Color("56391f"), Color("7a5634"), Color("9c744c")]
+const C_LAMP := Color("fff6b0")
 
 ## Asks AudioView for a sound that belongs to a timed effect (a KO scatter, geysers...).
 signal cue(sound: String)
@@ -321,6 +329,19 @@ func spawn(e: Dictionary) -> void:
 				_text(c.pos + Vector2(0, -_top(c) - 14), "TENDERIZED", C_TENDER, 7, 44.0)
 		"projectile_pierce":
 			_add({"kind": "spark", "pos": p, "life": 6, "scale": 0.8})
+		"blinded":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				_add({"kind": "lines", "pos": c.pos + Vector2(0, -_chest(c)), "life": 10, "size": 1.2, "color": C_LAMP})
+				_text(c.pos + Vector2(0, -_top(c) - 14), "BLINDED", C_LAMP, 7, 44.0)
+		"miss":
+			_text(p + Vector2(0, -6), "MISS", Color("b8b8b8"), 8, 36.0)
+			for i in 3:
+				_px(p, Vector2.from_angle(randf() * TAU) * 0.8, Color("d8d8d8"), 10)
+		"rooted":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				_text(c.pos + Vector2(0, 14), "ROOTED", C_DIRT[2], 7, 44.0)
 		"poisoned":
 			var c := _creature(int(e.get("who", -1)))
 			if c != null:
@@ -559,6 +580,8 @@ func _watch_all() -> void:
 func _move_started(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 	if String(mv.get("type", "")) == "surge":
 		_dark = maxf(_dark, 0.6)
+	if bool(fx.get("burrow", false)):
+		cue.emit("dig")
 	var shout: Dictionary = fx.get("shout", {})
 	if not shout.is_empty():
 		_text(c.pos + Vector2(0, -_top(c) - 12), String(shout.get("text", "")), Color("ffd166"), 10, 60.0)
@@ -583,6 +606,12 @@ func _charging(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 		"pebbles":
 			if full and c.anim_t % 6 == 0:
 				_dust(c.pos + Vector2(randf_range(-10, 10), randf_range(-2, 2)), Vector2(0, -0.4))
+		"dirt":
+			# Digging in: dirt kicked up behind him, faster once fully wound.
+			if c.anim_t % (2 if full else 4) == 0:
+				var back := c.pos - c.facing * 6.0
+				_chunk(back, 2.0, -c.facing.rotated(randf_range(-0.6, 0.6)) * randf_range(0.6, 1.4),
+					randf_range(1.0, 2.2), randf_range(1.0, 2.0), C_DIRT[randi() % 3], 30.0)
 		"venom":
 			# Venom drips from the hair snakes' mouths, bubbling once fully wound.
 			if c.anim_t % (3 if full else 6) == 0:
@@ -662,11 +691,18 @@ func _strike(c: CreatureSim, mv: Dictionary, fx: Dictionary, seg: int) -> void:
 				_twister_gust(c, mv)
 			"tenderize":
 				_tenderize(c, c.hit_center(seg), c.hit_radius(seg))
+			"popup":
+				_dirt_burst(c.hit_center(seg), c.hit_radius(seg))
+				cue.emit("pop")
+			"cavein":
+				_cave_in(c.hit_center(seg), c.hit_radius(seg))
 			"petrify":
 				var at := c.hit_center(seg)
 				_add({"kind": "ring", "pos": at, "life": 14, "radius": c.hit_radius(seg) + 8.0, "color": C_GREY[2]})
 				for i in 6:
 					_dust(at + Vector2(randf_range(-8, 8), randf_range(-3, 3)), Vector2(randf_range(-0.5, 0.5), -0.4))
+	if bool(fx.get("flash", false)):
+		_headlamp(c, c.hit_radius(seg) + float(mv.get("reach", 0)))
 	if String(fx.get("impact", "")) == "roots":
 		_roots(c, c.hit_radius(seg), last)
 
@@ -702,6 +738,16 @@ func _during_move(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 			if t % 4 == 0:
 				_add({"kind": "whirl", "pos": c.pos + Vector2(0, -_chest(c) * 0.6), "life": 8, "radius": r,
 					"start": randf() * TAU})
+	var lp: Dictionary = mv.get("leap", {})
+	if bool(fx.get("burrow", false)) and not lp.is_empty() and t >= int(lp["from"]) and t <= int(lp["to"]):
+		if t % 2 == 0:
+			_chunk(c.pos + Vector2(randf_range(-6, 6), randf_range(-2, 2)), 3.0,
+				Vector2(randf_range(-0.6, 0.6), randf_range(-0.3, 0.3)) - c.facing * 0.4, randf_range(1.0, 2.0),
+				randf_range(1.0, 2.0), C_DIRT[randi() % 3], 26.0)
+		if t % 5 == 0:
+			_dust(c.pos - c.facing * 6.0, Vector2(-c.facing.x * 0.3, -0.3))
+			_add({"kind": "puddle", "pos": c.pos - c.facing * 4.0, "radius": randf_range(3.0, 4.5), "ry": 0.45,
+				"grow": 2.0, "life": 90.0, "fade": 40.0, "color": Color(C_DIRT[0], 0.6)})
 	var gz: Dictionary = mv.get("gaze", {})
 	if bool(fx.get("gaze", false)) and not gz.is_empty() and t >= int(gz["from"]) and t <= int(gz["to"]) \
 			and t % 3 == 0:
@@ -1260,6 +1306,8 @@ func _ko(c: CreatureSim) -> void:
 			_later(18.0, _deflate.bind(c))
 		"hiss":
 			_later(12.0, _hiss_ko.bind(c))
+		"dirt":
+			_later(10.0, _dirt_ko.bind(c))
 		"timber":
 			_timber(c)
 			_later(16.0, _timber_land.bind(c, float(ko.get("length", 50))))
@@ -1385,6 +1433,55 @@ func _rubble(c: CreatureSim) -> void:
 
 
 # ------------------------------------------------------------------ helpers
+
+## Dirt bursting up out of the floor (Pickaxe Pop-Up, Burrow's exit).
+func _dirt_burst(at: Vector2, r: float) -> void:
+	for i in 12:
+		var v := Vector2.from_angle(randf() * TAU) * randf_range(0.3, 1.2)
+		_chunk(at + v * 4.0, 2.0, v, randf_range(1.8, 3.2), randf_range(1.5, 3.0), C_DIRT[randi() % 3], 50.0)
+	for i in 5:
+		_dust(at + Vector2(randf_range(-r, r) * 0.6, randf_range(-3, 3)), Vector2(randf_range(-0.4, 0.4), -0.5))
+	_add({"kind": "ring", "pos": at, "life": 14, "radius": r + 6.0, "color": C_DIRT[2]})
+	_add({"kind": "puddle", "pos": at, "radius": r * 0.6, "ry": 0.45, "grow": 3.0, "life": 120.0, "fade": 50.0,
+		"color": Color(C_DIRT[0], 0.7)})
+
+
+## Cave-In: the floor gives way, rocks rain into the hole, dust rolls out.
+func _cave_in(at: Vector2, r: float) -> void:
+	_add({"kind": "ring", "pos": at, "life": 20, "radius": r + 10.0, "color": C_DIRT[2]})
+	_add({"kind": "puddle", "pos": at, "radius": r * 0.9, "ry": 0.45, "grow": 6.0, "life": 160.0, "fade": 60.0,
+		"color": Color(C_DIRT[0], 0.8)})
+	for i in 14:
+		var off := Vector2(randf_range(-r, r), randf_range(-r, r) * 0.5)
+		_chunk(at + off, randf_range(30, 70), Vector2(randf_range(-0.3, 0.3), randf_range(-0.2, 0.2)), 0.0,
+			randf_range(2.0, 4.0), C_STONE[randi() % 3], 60.0)
+	for i in 10:
+		var a := TAU * i / 10.0
+		_dust(at + Vector2(cos(a) * r * 0.8, sin(a) * r * 0.4), Vector2(cos(a), sin(a) * 0.5) * 0.6)
+	shake_out = maxf(shake_out, 4.0)
+	cue.emit("cave_in")
+
+
+## Headlamp Flash: a fan of light from the helmet across the reach.
+func _headlamp(c: CreatureSim, reach: float) -> void:
+	var head := c.pos + Vector2(c.facing.x * 8.0, -_top(c) + 6.0)
+	for i in 7:
+		var d := c.facing.rotated(randf_range(-0.5, 0.5))
+		_add({"kind": "streak", "a": head + d * 4.0, "b": head + d * reach * randf_range(0.8, 1.2), "life": 10,
+			"color": Color(C_LAMP, 0.85)})
+	_add({"kind": "glint", "pos": head, "life": 10, "color": C_LAMP})
+	_add({"kind": "lines", "pos": head + c.facing * 10.0, "life": 8, "size": 1.0, "color": C_LAMP})
+
+
+## Digby goes down in a puff of dust, clods of dirt scattering.
+func _dirt_ko(c: CreatureSim) -> void:
+	for i in 8:
+		_dust(c.pos + Vector2(randf_range(-12, 12), randf_range(-3, 3)), Vector2(randf_range(-0.5, 0.5), -0.4))
+	for i in 8:
+		_chunk(c.pos, randf_range(4, 14), Vector2.from_angle(randf() * TAU) * randf_range(0.4, 1.2),
+			randf_range(1.0, 2.0), randf_range(1.5, 2.5), C_DIRT[randi() % 3], FOREVER, true)
+	cue.emit("pop")
+
 
 ## Hissy Fitz goes down with a last long hiss: green puffs and venom dripping.
 func _hiss_ko(c: CreatureSim) -> void:
@@ -2126,6 +2223,20 @@ func _draw_status(ci: CanvasItem, c: CreatureSim) -> void:
 	if c.taunt > 0 and (c.taunt > 30 or (_tick / 4) % 2 == 0):
 		var top := (c.pos + Vector2(0, -_top(c) - 10.0 - lift)).round()
 		_bang(ci, top)
+	if c.blind > 0:
+		# blinded: little stars circling the head
+		for i in 3:
+			var a := _tick * 0.15 + TAU * i / 3.0
+			var at := (c.pos + Vector2(cos(a) * 7.0, -_top(c) - 2.0 - lift + sin(a) * 2.0)).round()
+			ci.draw_rect(Rect2(at - Vector2(1, 0), Vector2(3, 1)), C_LAMP)
+			ci.draw_rect(Rect2(at - Vector2(0, 1), Vector2(1, 3)), C_LAMP)
+	if c.root > 0:
+		# rooted: rubble heaped round the feet
+		for i in 6:
+			var a := TAU * i / 6.0 + 0.4
+			var at := (c.pos + Vector2(cos(a) * (c.radius + 1.0), sin(a) * 3.0)).round()
+			ci.draw_rect(Rect2(at - Vector2(2, 1), Vector2(4, 3)), C_OUTLINE)
+			ci.draw_rect(Rect2(at - Vector2(1, 1), Vector2(2, 2)), C_DIRT[1 + i % 2])
 	if c.vuln > 0 and (c.vuln > 40 or (_tick / 4) % 2 == 0):
 		# tenderized: a pink down-arrow bobbing over the head
 		var bob := float((_tick / 8) % 2)

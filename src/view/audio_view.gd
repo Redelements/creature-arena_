@@ -265,6 +265,10 @@ func on_event(e: Dictionary) -> void:
 			play("crowd_cheer", -4.0)
 		"shatter":
 			play("shatter")
+		"blinded":
+			play("flash")
+		"miss":
+			play("miss")
 
 
 ## A swing sound each time a strike becomes active (once per hit of a multi-hit move),
