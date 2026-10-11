@@ -70,6 +70,32 @@ func test_craglash_showcase_plays_through_to_a_knockout() -> void:
 	assert_false(r["ko"][0], "Craglash stays up")
 
 
+func test_barkley_showcase_plays_through_to_a_knockout() -> void:
+	var r := _play("barkley")
+	var pulls := 0
+	var bursts := 0
+	for ev in r["parts"]:
+		if String(ev[1]) == "pull":
+			pulls += 1
+		if String(ev[1]) == "burst":
+			bursts += 1
+	assert_eq(pulls, 2, "Branch Grab should snag Cairn in both parts:")
+	assert_eq(bursts, 1, "one Pinecone Bomb:")
+	assert_true(r["ko"][1], "Root Eruption should finish Cairn")
+	assert_false(r["ko"][0], "Barkley stays up")
+
+
+func test_gillbert_showcase_plays_through_to_a_knockout() -> void:
+	var r := _play("gillbert")
+	var reels := 0
+	for ev in r["parts"]:
+		if String(ev[1]) == "reel":
+			reels += 1
+	assert_eq(reels, 1, "Cast Line should hook Cairn and reel Gillbert in:")
+	assert_true(r["ko"][1], "The One That Got Away should finish Cairn")
+	assert_false(r["ko"][0], "Gillbert stays up")
+
+
 func test_angles_showcase_lands_up_and_down() -> void:
 	var r := _play("angles")
 	var hits := [0, 0, 0, 0]

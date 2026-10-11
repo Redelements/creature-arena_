@@ -180,6 +180,46 @@
       "file": "res://assets/audio/avalanche.wav",
       "volume_db": -3,
       "pitch_jitter": 0.04
+    },
+    "snag": {
+      "file": "res://assets/audio/snag.wav",
+      "volume_db": -5,
+      "pitch_jitter": 0.06
+    },
+    "pinecone": {
+      "file": "res://assets/audio/pinecone.wav",
+      "volume_db": -5,
+      "pitch_jitter": 0.08
+    },
+    "twister": {
+      "file": "res://assets/audio/twister.wav",
+      "volume_db": -6,
+      "pitch_jitter": 0.05
+    },
+    "roots": {
+      "file": "res://assets/audio/roots.wav",
+      "volume_db": -3,
+      "pitch_jitter": 0.04
+    },
+    "timber": {
+      "file": "res://assets/audio/timber.wav",
+      "volume_db": -4,
+      "pitch_jitter": 0.0
+    },
+    "flop": {
+      "file": "res://assets/audio/flop.wav",
+      "volume_db": -8,
+      "pitch_jitter": 0.12
+    },
+    "reel": {
+      "file": "res://assets/audio/reel.wav",
+      "volume_db": -6,
+      "pitch_jitter": 0.04
+    },
+    "bellyflop": {
+      "file": "res://assets/audio/bellyflop.wav",
+      "volume_db": -3,
+      "pitch_jitter": 0.03
     }
   }
 }

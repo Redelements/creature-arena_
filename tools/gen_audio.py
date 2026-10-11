@@ -475,11 +475,99 @@ def avalanche():
     return mix(boom, rumble, rocks)
 
 
+# ---------------------------------------------------------------- Barkley
+
+def creak(d=0.4, f0=180, f1=120):
+    """Old wood bending: a slow, grainy squeak with a rough edge."""
+    grain = 1 + 0.5 * np.sign(np.sin(2 * np.pi * 38 * t(d)))
+    v = osc(sweep(f0, f1, d) * (1 + 0.03 * np.sin(2 * np.pi * 7 * t(d))), d, "saw") * grain
+    v = bandpass(np.tanh(v * 1.5), 250, 2200) * env(d, attack=0.05, curve=1.4)
+    return v * 0.8
+
+
+def snag():
+    """Branch Grab: a whip of a branch, a creak as it hooks on, a yank back."""
+    total = 0.5
+    out = at(swing(500, 2000, 0.14), 0.0, total)
+    out += at(creak(0.3, 260, 170), 0.1, total) * 0.8
+    out += at(thump(140, 70, 0.12) * 0.5, 0.12, total)
+    return out
+
+
+def pinecone():
+    """Pinecone Bomb lands: a dry crunchy pop and scattering scales."""
+    total = 0.45
+    pop = at(np.tanh(thump(220, 90, 0.18, 2.5) * 2.0) * 0.7, 0.0, total)
+    out = pop
+    for k in range(9):
+        c = (bandpass(noise(0.02), 1500, 5000) + osc(900 + 160 * k, 0.02) * 0.3) * env(0.02, curve=3)
+        out += at(c * 0.5, 0.03 + k * 0.03 + rng.uniform(0, 0.01), total)
+    return out
+
+
+def twister():
+    """Timber Twister's last hit: a gust of wind and a rush of rustling leaves."""
+    d = 0.7
+    gust = bandpass(noise(d), 300, 1800) * env(d, attack=0.15, curve=1.8)
+    rustle = bandpass(noise(d), 2500, 7000) * (0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 23 * t(d)))) \
+        * env(d, attack=0.05, curve=2.2) * 0.6
+    return mix(gust, rustle, at(thump(120, 60, 0.2) * 0.5, 0.0, d))
+
+
+def roots():
+    """Root Eruption: a deep rumble and wood splitting as roots burst out of the floor."""
+    total = 1.2
+    rumble = lowpass(noise(total), 180) * env(total, attack=0.05, curve=1.5) * 1.5
+    boom = at(np.tanh(thump(60, 30, 0.7, 1.6) * 3.0), 0.0, total)
+    out = mix(rumble, boom)
+    for k in range(6):
+        out += at(crack() * 0.35, 0.05 + k * 0.12, total)
+    return out
+
+
+def timber():
+    """A felled tree: a long creak as it leans over."""
+    return creak(0.9, 150, 70)
+
+
+# ---------------------------------------------------------------- Gillbert
+
+def flop():
+    """A wet fish slapping the floor: a soft smack with a splash on top."""
+    total = 0.22
+    smack = at(np.tanh(thump(260, 110, 0.08, 2.0) * 2.5) * 0.7, 0.0, total)
+    wet = at(bandpass(noise(0.16), 900, 5000) * env(0.16, attack=0.002, curve=3.0) * 0.7, 0.005, total)
+    return mix(smack, wet)
+
+
+def reel():
+    """Cast Line hooks on: a zipping reel, ratcheting fast."""
+    d = 0.45
+    tick = (np.sin(2 * np.pi * 70 * t(d) * (1 + t(d) * 2)) > 0.6).astype(float)
+    click = bandpass(noise(d), 2500, 7000) * tick * env(d, attack=0.01, curve=1.2)
+    whir = osc(sweep(900, 1400, d), d, "tri") * env(d, attack=0.02, curve=2.0) * 0.25
+    return mix(click, whir, at(swing(800, 2600, 0.12) * 0.6, 0.0, d))
+
+
+def bellyflop():
+    """The One That Got Away comes down: a huge slap and a wall of water."""
+    total = 1.2
+    slap = at(np.tanh(thump(90, 40, 0.4, 1.6) * 3.0), 0.0, total)
+    water = lowpass(noise(total), 2600) * env(total, attack=0.01, curve=1.6) * 1.1
+    drops = np.zeros(int(SR * total))
+    for k in range(14):
+        c = bandpass(noise(0.04), 1200, 4500) * env(0.04, curve=3) * 0.5
+        drops += at(c, 0.25 + k * 0.05 + rng.uniform(0, 0.02), total)
+    return mix(slap, water, drops)
+
+
 # Added after the first batch, so they're generated last and the older placeholders
 # (which share one random stream) come out the same as before.
 NEW_SOUNDS = {
     "roar": roar, "stoneskin": stoneskin, "shield_break": shield_break, "lash": lash,
     "avalanche": avalanche,
+    "snag": snag, "pinecone": pinecone, "twister": twister, "roots": roots, "timber": timber,
+    "flop": flop, "reel": reel, "bellyflop": bellyflop,
 }
 
 

@@ -306,6 +306,22 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	else:
 		d.enter_hitstun(stun, kb)
 
+	# A pull (Branch Grab) reels the target in until it stops `pull` pixels short of the
+	# attacker's body. Knockback slows by a fixed factor each tick, so the starting speed
+	# that covers a distance is that distance times (1 - friction).
+	var pull := float(hit.get("pull", 0.0))
+	if pull > 0.0 and not bool(hit["grab"]) and d.pos.distance_squared_to(a.pos) > 0.0001:
+		var gap := d.pos.distance_to(a.pos) - (a.radius + d.radius + pull)
+		var fr := CreatureSim.AIR_FRICTION if d.is_airborne() else CreatureSim.FRICTION
+		d.knock_vel = (a.pos - d.pos).normalized() * maxf(0.0, gap) * (1.0 - fr)
+		emit_event("pull", d.pos, gap, {"attacker": a.id, "target": d.id})
+	# A reel (Cast Line) is the other way round: the attacker is hauled in to the target.
+	var reel := float(hit.get("reel", 0.0))
+	if reel > 0.0 and same_attack and d.pos.distance_squared_to(a.pos) > 0.0001:
+		var gap := d.pos.distance_to(a.pos) - (a.radius + d.radius + reel)
+		a.start_reel(d, reel, maxf(1.0, float(hit.get("reel_speed", 5.0))))
+		emit_event("reel", a.pos, gap, {"attacker": a.id, "target": d.id})
+
 	hitstop = maxi(hitstop, int(hit["hitstop"]))
 	emit_event("hit", fx_pos, total, {
 		"attacker": a.id, "target": d.id, "type": String(hit["type"]),
@@ -339,20 +355,34 @@ func breakaway(d: CreatureSim) -> void:
 
 # ------------------------------------------------------------------ projectiles
 
+## Two kinds: a ground projectile ("speed", "life") that travels until it hits someone,
+## and a lob ("lob": true, "range", "time") that arcs over everyone and bursts where it
+## lands, hitting everything within "burst" of that spot (Pinecone Bomb).
 func spawn_projectile(owner: CreatureSim, mv: Dictionary) -> void:
 	var p: Dictionary = mv["projectile"]
 	var hit := owner.hit_params(-1)
-	projectiles.append({
+	var lob := bool(p.get("lob", false))
+	var life := int(p["time"]) if lob else int(p["life"])
+	var vel := owner.facing * (float(p["range"]) / float(life) if lob else float(p["speed"]))
+	var pr := {
 		"owner": owner.id,
 		"serial": owner.attack_serial,
 		"pos": owner.pos + owner.facing * float(p.get("offset", 16)),
-		"vel": owner.facing * float(p["speed"]),
-		"life": int(p["life"]),
-		"radius": float(p["radius"]),
+		"vel": vel,
+		"life": life,
+		"radius": float(p.get("radius", 0.0)),
 		"hit": hit,
 		"last_cell": Vector2i(-99, -99),
-	})
-	emit_event("projectile", owner.pos, 1.0)
+	}
+	if not bool(p.get("crack_trail", true)):
+		pr["no_crack"] = true
+	if lob:
+		pr["lob"] = true
+		pr["time"] = life
+		pr["burst"] = float(p["burst"])
+		pr["crack"] = float(p.get("crack", 0.0))
+	projectiles.append(pr)
+	emit_event("projectile", owner.pos, 1.0, {"who": owner.id, "lob": lob})
 
 
 func _step_projectiles() -> void:
@@ -360,14 +390,24 @@ func _step_projectiles() -> void:
 	var fr := SimDefs.floor_rect()
 	for p in projectiles:
 		var pos: Vector2 = p["pos"]
+		if bool(p.get("lob", false)):
+			# In the air until it lands: stop at the wall, burst when the time runs out.
+			var nxt := (pos + Vector2(p["vel"])).clamp(fr.position + Vector2(4, 4), fr.end - Vector2(4, 4))
+			p["pos"] = nxt
+			p["life"] = int(p["life"]) - 1
+			if int(p["life"]) <= 0:
+				_burst(p)
+			else:
+				keep.append(p)
+			continue
 		pos += p["vel"]
 		p["pos"] = pos
 		p["life"] = int(p["life"]) - 1
 		if int(p["life"]) <= 0 or not fr.grow(-2.0).has_point(pos):
-			emit_event("projectile_end", pos, 0.0)
+			emit_event("projectile_end", pos, 0.0, {"who": int(p["owner"])})
 			continue
 		var cell := terrain.world_to_cell(pos)
-		if cell != p["last_cell"]:
+		if cell != p["last_cell"] and not bool(p.get("no_crack", false)):
 			p["last_cell"] = cell
 			terrain.crack_cell(cell)
 		var owner := creatures[int(p["owner"])]
@@ -383,10 +423,30 @@ func _step_projectiles() -> void:
 			spent = true
 			break
 		if spent:
-			emit_event("projectile_end", pos, 1.0)
+			emit_event("projectile_end", pos, 1.0, {"who": int(p["owner"])})
 		else:
 			keep.append(p)
 	projectiles = keep
+
+
+## A lob lands: everything within the burst radius is hit, pushed away from the spot.
+func _burst(p: Dictionary) -> void:
+	var at: Vector2 = p["pos"]
+	var owner := creatures[int(p["owner"])]
+	var hit: Dictionary = p["hit"]
+	if float(p.get("crack", 0.0)) > 0.0:
+		terrain.crack_circle(at, float(p["crack"]))
+	var landed := 0
+	for d in creatures:
+		if d == owner or not _hittable(d, hit):
+			continue
+		if at.distance_to(d.pos) > float(p["burst"]) + d.radius:
+			continue
+		var push := d.pos - at
+		push = push.normalized() if push.length_squared() > 0.0001 else Vector2(p["vel"]).normalized()
+		_apply_hit(owner, d, hit, push, d.pos + Vector2(0, -10))
+		landed += 1
+	emit_event("burst", at, float(p["burst"]), {"who": owner.id, "landed": landed})
 
 
 # ------------------------------------------------------------------ bodies and pits
@@ -416,7 +476,7 @@ func _separate() -> void:
 func _check_falls() -> void:
 	for c in creatures:
 		if c.state in [CreatureSim.State.FALLING, CreatureSim.State.KO,
-				CreatureSim.State.DODGE, CreatureSim.State.AIRBORNE]:
+				CreatureSim.State.DODGE, CreatureSim.State.AIRBORNE] or c.is_leaping() or c.reel_t > 0:
 			continue
 		if c.invuln > 0 and c.state != CreatureSim.State.KNOCKDOWN:
 			continue

@@ -143,8 +143,9 @@ func _draw_idle(def: Dictionary, feet: Vector2, face_left: bool) -> void:
 	var idle: Array = sp.get("anims", {}).get("idle", [0, 0, 1])
 	var frame := int(idle[1]) + (_tick / 10) % int(idle[2])
 	var region := Rect2(frame * fpx, int(idle[0]) * fpx, fpx, fpx)
-	# Big sheets (Craglash's 96 px frames) shrink to fit the slot.
-	var k := minf(1.0, 55.0 / fpx)
+	# Big sheets (Craglash's 96 px frames) shrink to fit the slot; a sheet can set its own
+	# "select_scale" when the creature fills its frame more than most (Barkley's log).
+	var k := float(sp.get("select_scale", minf(1.0, 55.0 / fpx)))
 	var sx := -k if face_left else k
 	draw_set_transform(feet, 0.0, Vector2(sx, k))
 	draw_texture_rect_region(tex, Rect2(-float(o[0]), -float(o[1]), fpx, fpx), region)

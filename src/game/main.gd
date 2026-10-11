@@ -18,8 +18,9 @@ extends Node2D
 ##   --shot-dir=PATH       where screenshots go (default user://shots)
 ##   --quit-after=N        exit after N frames
 ##   --layout=league|classic  keyboard layout (saved in the menu otherwise)
-##   --showcase=NAME       play one scripted demo on a loop: cairn, culvert, craglash or counterplay
-##   --teams=a,b,c:d,e,f   Duel / 2-player teams (default craglash,cairn,culvert:culvert,cairn,craglash)
+##   --showcase=NAME       play one scripted demo on a loop: cairn, culvert, craglash, barkley, gillbert
+##                         or counterplay
+##   --teams=a,b,c:d,e,f   Duel / 2-player teams (default gillbert,barkley,craglash:culvert,cairn,gillbert)
 ##   --pick                show the team pick screen even with --mode
 ##   --cpu-vs-cpu          every player side is played by the CPU (demos, captures)
 
@@ -41,6 +42,10 @@ const MODES := [
 	{"label": "Reaction Drill: read Cairn", "drill": "cairn", "sides": [Side.PLAYER, Side.SCRIPT]},
 	{"label": "Craglash  vs  CPU Cairn", "left": "craglash", "right": "cairn", "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Training: Craglash", "left": "craglash", "training": true},
+	{"label": "Barkley  vs  CPU Craglash", "left": "barkley", "right": "craglash", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Training: Barkley", "left": "barkley", "training": true},
+	{"label": "Gillbert  vs  CPU Barkley", "left": "gillbert", "right": "barkley", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Training: Gillbert", "left": "gillbert", "training": true},
 ]
 ## The menu. MODES indexes stay stable for --mode=N; rows with choices pick one of
 ## several modes with left/right.
@@ -48,13 +53,14 @@ const MENU_ROWS := [
 	{"label": "Duel: you vs CPU  (3v3 tag)", "modes": [6]},
 	{"label": "Duel: 2 players", "modes": [7]},
 	{"label": "Versus: 2 players", "modes": [8]},
-	{"label": "Versus CPU", "modes": [0, 1, 12], "choices": ["as Cairn", "as Culvert", "as Craglash"]},
+	{"label": "Versus CPU", "modes": [0, 1, 12, 14, 16],
+		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert"]},
 	{"label": "Combo Trials", "modes": [9]},
 	{"label": "Reaction Drill", "modes": [10, 11], "choices": ["read Culvert", "read Cairn"]},
-	{"label": "Training", "modes": [3, 4, 13], "choices": ["Cairn", "Culvert", "Craglash"]},
+	{"label": "Training", "modes": [3, 4, 13, 15, 17], "choices": ["Cairn", "Culvert", "Craglash", "Barkley", "Gillbert"]},
 	{"label": "Watch", "modes": [5, 2], "choices": ["combo showcases", "CPU vs CPU"]},
 ]
-const DEFAULT_TEAMS := [["craglash", "cairn", "culvert"], ["culvert", "cairn", "craglash"]]
+const DEFAULT_TEAMS := [["gillbert", "barkley", "craglash"], ["culvert", "cairn", "gillbert"]]
 const LEVEL_NAMES := ["Easy", "Normal", "Hard"]
 const DUMMY_MODES := ["Stand", "Guard", "Walk", "Dodge"]
 const ROUND_TICKS := 90 * 60

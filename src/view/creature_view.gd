@@ -4,7 +4,9 @@ extends Node2D
 ## and adds the hit flash, charge glow, invulnerability blink, launch height,
 ## squash and stretch, and falling shrink. Frame layout comes from the "sprite" block in the creature's JSON,
 ## and each move names its animation with "anim", so new art with the same layout
-## drops in without code changes.
+## drops in without code changes. A move can also give "anim_at": [[tick, frame], ...]
+## to time its frames exactly (Barkley's spin and lob), and "view_lift" to raise the
+## sprite off its shadow (Gillbert's leap).
 ##
 ## Views: fighters can face any of 8 ways. The "sprite" block is the side view (facing
 ## right, mirrored for left). Optional "views": {"up": {...}, "down": {...}} add sheets
@@ -136,6 +138,10 @@ func refresh() -> void:
 	var o: Vector2 = v["origin"]
 	var ox: float = v["size"].x - o.x if flip else o.x
 	var lift := c.air_height()
+	var leap := view_lift(c)
+	if leap > 0.0:
+		lift += leap
+		z_index = 2  # high in the air: over everyone
 	sprite.position = Vector2(-ox, -o.y)
 	pivot.position = Vector2(0, -round(lift))
 	if c.state == CreatureSim.State.CRUMPLE:
@@ -194,10 +200,29 @@ func refresh() -> void:
 
 	var r := -1.0
 	if c.state != CreatureSim.State.FALLING and not ko_hidden:
-		r = c.radius + 3.0 - minf(lift * 0.15, 4.0)
+		r = c.radius + 3.0 - minf(lift * 0.15, 4.0 if lift < 30.0 else 7.0)
 	if absf(r - _shadow_r) > 0.25:
 		_shadow_r = r
 		queue_redraw()
+
+
+## How high a move lifts the sprite off its shadow, from the move's "view_lift"
+## ([[tick, height], ...], straight lines between): Gillbert's leap out of reach.
+## Cosmetic only; the simulation's "leap" window is what makes him untouchable.
+static func view_lift(cr: CreatureSim) -> float:
+	if cr.state != CreatureSim.State.ATTACK or cr.windup_left > 0:
+		return 0.0
+	var keys: Array = cr.move_def().get("view_lift", [])
+	if keys.is_empty():
+		return 0.0
+	var t := float(cr.state_t)
+	for i in range(keys.size() - 1):
+		var a: Array = keys[i]
+		var b: Array = keys[i + 1]
+		if t >= float(a[0]) and t <= float(b[0]):
+			var k := (t - float(a[0])) / maxf(1.0, float(b[0]) - float(a[0]))
+			return lerpf(float(a[1]), float(b[1]), k)
+	return 0.0
 
 
 ## Kicks the squash spring on landings, launches, hits, strikes and dodges.
@@ -310,9 +335,20 @@ func _attack_frame() -> Array:
 	var segs: Array = mv.get("_segs", [])
 	var length := int(mv.get("length", 1))
 
-	if mv.has("charge_max"):  # heavies: two charge frames, then rise, strike, follow, recover
-		if c.charging:
-			return [name, (c.anim_t / 6) % 2, false]
+	if mv.has("charge_max") and c.charging:  # heavies: two charge frames while held
+		return [name, (c.anim_t / 6) % 2, false]
+
+	if mv.has("anim_reel") and c.reel_t > 0:  # being reeled in on the line (Cast Line)
+		return [name, mini(int(mv["anim_reel"]), n - 1), false]
+
+	if mv.has("anim_at"):  # an explicit timeline: [[tick, frame], ...], each from its tick on
+		var f := 0
+		for pair in mv["anim_at"]:
+			if t >= int(pair[0]):
+				f = int(pair[1])
+		return [name, mini(f, n - 1), false]
+
+	if mv.has("charge_max"):  # then rise, strike, follow, recover
 		if t <= su:
 			return [name, mini(2, n - 1), false]
 		var act := int(mv.get("active", 1))
