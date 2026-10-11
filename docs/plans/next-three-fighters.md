@@ -82,5 +82,5 @@ A snow cone with a red/green syrup top, stick limbs and red boxing gloves.
 ### Sneaky Pete (id `pete`)
 - [x] 1–2 · [x] 3 · [x] 4 · [x] 5 · [x] 6 · [x] 7 · [x] 8
 
-### Sno Mercy
-- [ ] 1–2 · [ ] 3 · [ ] 4 · [ ] 5 · [ ] 6 · [ ] 7 · [ ] 8
+### Sno Mercy (id `sno`)
+- [x] 1–2 · [x] 3 · [ ] 4 · [ ] 5 · [ ] 6 · [ ] 7 · [ ] 8

@@ -29,6 +29,9 @@ var ko_slowmo_ticks := 70
 var terrain := TerrainGrid.new()
 var creatures: Array[CreatureSim] = []
 var projectiles: Array[Dictionary] = []
+## Ground zones (Sno Mercy's Syrup Slick): {owner, pos, radius, ticks, slow_mult}. Foes of
+## the owner standing in one are slowed.
+var zones: Array[Dictionary] = []
 var events: Array[Dictionary] = []
 
 
@@ -71,6 +74,7 @@ func step(inputs: PackedInt32Array) -> void:
 	for i in creatures.size():
 		creatures[i].step(_input(inputs, i), self)
 	_step_projectiles()
+	_step_zones()
 	_resolve_hits()
 	_separate()
 	_check_falls()
@@ -105,7 +109,7 @@ func snapshot() -> Dictionary:
 		"tick": tick, "hitstop": hitstop, "ko_freeze": ko_freeze, "slowmo": slowmo,
 		"cells": terrain.cells.duplicate(), "timers": terrain.timers.duplicate(),
 		"terrain_version": terrain.version,
-		"creatures": cs, "projectiles": projectiles.duplicate(true),
+		"creatures": cs, "projectiles": projectiles.duplicate(true), "zones": zones.duplicate(true),
 	}
 
 
@@ -121,6 +125,7 @@ func restore(s: Dictionary) -> void:
 	for i in creatures.size():
 		creatures[i].load_state(cs[i])
 	projectiles.assign((s["projectiles"] as Array).duplicate(true))
+	zones.assign((s.get("zones", []) as Array).duplicate(true))
 	events.clear()
 
 
@@ -135,6 +140,8 @@ func state_digest() -> String:
 			parts.append(st[f])
 	for p in projectiles:
 		parts.append_array([p["pos"], p["vel"], p["life"], p["owner"], p["serial"]])
+	for z in zones:
+		parts.append_array([z["pos"], z["radius"], z["ticks"], z["owner"], z["slow_mult"]])
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(var_to_bytes(parts))
@@ -185,6 +192,11 @@ func _resolve_hits() -> void:
 				continue
 			if center.distance_to(d.pos) > reach + d.radius:
 				continue
+			# A cone (Shaved Ice Spray): only foes in front of the attacker.
+			if float(hit.get("cone", 0.0)) > 0.0:
+				var to := d.pos - a.pos
+				if to.length_squared() > 0.0001 and a.facing.dot(to.normalized()) < float(hit["cone"]):
+					continue
 			a.seg_hit[key] = true
 			var push := d.pos - a.pos
 			push = push.normalized() if push.length_squared() > 0.0001 else a.facing
@@ -253,7 +265,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	if d.stone > 0:
 		damage *= STONE_SHATTER_MULT
 		d.stone = 0
-		emit_event("shatter", d.pos, damage, {"who": d.id, "by": a.id})
+		emit_event("shatter", d.pos, damage, {"who": d.id, "by": a.id, "ice": d.stone_ice})
 	var n := d.combo_hits + 1
 	var types := d.combo_types | int(SimDefs.TYPE_BIT[String(hit["type"])])
 	var variety := SimDefs.variety_mult(types)
@@ -326,12 +338,15 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		d.vuln_mult = float(hit["vuln_mult"])
 		emit_event("tenderized", d.pos, float(hit["vuln_ticks"]), {"who": d.id})
 
-	if float(hit.get("petrify", 0.0)) > 0.0:
-		# Turned to stone: stunned where it stands (even out of the air), until it wears
-		# off or the next clean hit shatters it.
-		d.enter_crumple(int(hit["petrify"]), kb * 0.3)
-		d.stone = int(hit["petrify"])
-		emit_event("petrify", d.pos, total, {"who": d.id, "by": a.id})
+	if float(hit.get("petrify", 0.0)) > 0.0 or float(hit.get("freeze_ticks", 0.0)) > 0.0:
+		# Turned to stone, or frozen solid in ice: stunned where it stands (even out of
+		# the air), until it wears off or the next clean hit shatters it.
+		var ice := float(hit.get("freeze_ticks", 0.0)) > 0.0
+		var ticks := int(hit["freeze_ticks"]) if ice else int(hit["petrify"])
+		d.enter_crumple(ticks, kb * 0.3)
+		d.stone = ticks
+		d.stone_ice = ice
+		emit_event("freeze" if ice else "petrify", d.pos, total, {"who": d.id, "by": a.id})
 	elif bool(hit["grab"]) and float(hit.get("flip", 0.0)) > 0.0:
 		_flip(a, d, hit)
 		emit_event("grab", a.pos + Vector2(0, -20), total, {"attacker": a.id, "target": d.id, "flip": true})
@@ -415,6 +430,36 @@ func breakaway(d: CreatureSim) -> void:
 		a._set_state(CreatureSim.State.IDLE)
 		a.knock_vel = -away * 2.4
 	emit_event("breakaway", d.pos + Vector2(0, -16), 1.0, {"who": d.id})
+
+
+# ------------------------------------------------------------------ zones
+
+## Leaves a zone on the floor (a move's "zone": {radius, ticks, slow_mult}).
+func add_zone(owner: CreatureSim, at: Vector2, z: Dictionary) -> void:
+	zones.append({"owner": owner.id, "pos": at, "radius": float(z.get("radius", 32)),
+		"ticks": int(z.get("ticks", 240)), "slow_mult": float(z.get("slow_mult", 0.5))})
+	emit_event("zone", at, float(z.get("radius", 32)), {"who": owner.id})
+
+
+## Zones wear off; foes standing in one are slowed while they do (and a moment after).
+func _step_zones() -> void:
+	var keep: Array[Dictionary] = []
+	for z in zones:
+		z["ticks"] = int(z["ticks"]) - 1
+		if int(z["ticks"]) <= 0:
+			continue
+		keep.append(z)
+		var at: Vector2 = z["pos"]
+		for c in creatures:
+			if c.id == int(z["owner"]) or c.state == CreatureSim.State.KO or c.state == CreatureSim.State.FALLING \
+					or c.is_airborne():
+				continue
+			if c.pos.distance_to(at) > float(z["radius"]):
+				continue
+			var m := c.slow_mult if c.slow > 0 else 1.0
+			c.slow_mult = minf(m, float(z["slow_mult"]))
+			c.slow = maxi(c.slow, 8)
+	zones = keep
 
 
 # ------------------------------------------------------------------ projectiles
