@@ -236,7 +236,7 @@ class Cam:
 
 LENGTH = 36.0  # head tip to the root of the tail fin
 CENTER_UP = 8.5  # spine height when he rests on his belly
-RING_U = 0.16  # where the life ring sits along the body (1 = nose, -1 = tail)
+RING_U = 0.06  # where the life ring sits along the body (1 = nose, -1 = tail)
 RING_R, RING_T = 9.0, 2.4
 
 
@@ -540,8 +540,16 @@ class Painter:
                 col = "strap"
             front = 1 if self.D(q) >= cd else 0
             pts.append((front, q, col))
+        # Seen side-on (and whenever a turn or roll puts it edge-on) the ring would shrink
+        # to a thin band across his flank. Draw it as an oval at least this wide instead,
+        # so in every pose it reads as the ring he wears round his neck, as on the sheet.
+        cx = self.P(c)[0]
+        half_w = max(abs(self.P(q)[0] - cx) for _f, q, _c in pts)
+        want = RING_R * (0.82 if self.view == "side" else 0.0)
+        k = max(1.0, want / max(half_w, 0.5))
         for front, q, col in pts:
-            disc(draws[front], self.P(q), RING_T, col)
+            x, y = self.P(q)
+            disc(draws[front], (cx + (x - cx) * k, y), RING_T, col)
         out = []
         for k, h in enumerate(halves):
             if not _mask(h).any():
@@ -643,12 +651,13 @@ class Painter:
         rings, ring_d = self.ring()
         body = self.body()
         if self.view == "side":
-            # Seen side-on the ring's near half crosses in front of him, the far half behind.
-            if rings[0] is not None:
-                parts.append((ring_d - 0.2, 3, rings[0]))
+            # Drawn whole over the body, so his neck shows through the hole and the ring
+            # never slips out of sight behind his head when he turns. That reads as a ring
+            # he is wearing (as on the sheet) better than hiding its far side would.
             parts.append((body_d, 4, body))
-            if rings[1] is not None:
-                parts.append((ring_d + 0.2, 6, rings[1]))
+            for r in rings:
+                if r is not None:
+                    parts.append((body_d + 0.05, 6, r))
         else:
             # Seen head-on or from behind, he passes through the ring: the end of him
             # nearer the camera goes over it, the far end under it, so he is always in it.
