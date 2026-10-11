@@ -18,6 +18,8 @@ const CUT_IN_TICKS := 30
 const TYPE_PIPS := [["light", "LT"], ["heavy", "HV"], ["skill", "SK"], ["surge", "SG"]]
 
 var sim: MatchSim
+var duel: DuelSim = null  ## set during a Duel: draws the team strip under each panel
+var tag_labels := ["", ""]
 var tags := ["P1", "CPU"]
 var key_labels := [["", ""], ["", ""]]
 var surge_labels := ["", ""]
@@ -30,11 +32,18 @@ var banner := ""
 var banner_sub := ""
 var dummy_mode_name := ""
 
+# Showcase captions: a title, the chain of moves, and which one is happening now.
+var caption_title := ""
+var caption_items: Array = []
+var caption_index := -1
+
 # Menu
 var menu_visible := false
 var menu_items: Array[String] = []
 var menu_index := 0
 var menu_footer := ""
+var menu_y0 := 104.0
+var menu_dy := 16.0
 
 var _toast := ""
 var _toast_t := 0
@@ -104,6 +113,8 @@ func _draw() -> void:
 	for side in 2:
 		if _combo_show[side] > 0:
 			_combo(side)
+	if caption_title != "":
+		_draw_caption()
 	if not _cut.is_empty():
 		_draw_cut_in()
 
@@ -133,6 +144,8 @@ func _panel(side: int, x: float, right: bool) -> void:
 	_text(Vector2(x + 5, 12), name, 7, C_TEXT)
 	_text(Vector2(x + 5, 12), tag, 6, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, 150)
 	_bar(Rect2(x + 5, 15, 150, 6), c.hp / c.max_hp, _hp_color(c.hp / c.max_hp), right)
+	if duel != null:
+		_team_strip(side, x, right)
 
 	# Energy, with a pulse when a Surge is ready.
 	var full := c.energy >= CreatureSim.MAX_ENERGY
@@ -173,6 +186,39 @@ func _panel(side: int, x: float, right: bool) -> void:
 				lbl = "S%d" % (i + 1)
 			_text(Vector2(r.position.x, r.position.y + 8), lbl, 6, C_TEXT if ready else C_DIM,
 				HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+
+
+## Duel: each teammate's health (active one outlined, knocked-out ones crossed out)
+## and whether a tag is ready.
+func _team_strip(side: int, x: float, right: bool) -> void:
+	draw_rect(Rect2(x, 38, 160, 12), C_PANEL)
+	var team: Array = duel.teams[side]
+	for i in team.size():
+		var m: CreatureSim = team[i]
+		var bx := x + 5.0 + i * 26.0
+		if right:
+			bx = x + 160.0 - 5.0 - 22.0 - i * 26.0
+		var r := Rect2(bx, 41, 22, 6)
+		var ratio := clampf(m.hp / m.max_hp, 0.0, 1.0)
+		draw_rect(r, C_BAR_BG)
+		var down := m.hp <= 0.0 or m.state == CreatureSim.State.KO
+		if not down:
+			var fill := Rect2(r.position, Vector2(round(r.size.x * ratio), r.size.y))
+			draw_rect(fill, _hp_color(ratio))
+		else:
+			draw_line(r.position, r.end, C_HP_LO, 1.0)
+			draw_line(Vector2(r.position.x, r.end.y), Vector2(r.end.x, r.position.y), C_HP_LO, 1.0)
+		if i == int(duel.active[side]):
+			draw_rect(r.grow(1), C_ACCENT, false, 1.0)
+	var cd := int(duel.tag_cd[side])
+	var lbl := String(tag_labels[side])
+	var tx := x + 86.0 if not right else x + 6.0
+	if duel.can_tag(side):
+		_text(Vector2(tx, 47), "TAG READY" + (" (%s)" % lbl if lbl != "" else ""), 5, Color("9ee6ff"))
+	elif cd > 0:
+		var total := float(duel.rules.get("tag_cooldown", 300))
+		_bar(Rect2(tx, 43, 50, 2), 1.0 - cd / total, Color(0.4, 0.55, 0.7), right)
+		_text(Vector2(tx + 54, 47), "TAG", 5, C_DIM)
 
 
 func _center() -> void:
@@ -223,6 +269,37 @@ func _combo(side: int) -> void:
 		_text(Vector2(x + 62, 109), "FULL MIX!", 6, col)
 
 
+func _draw_caption() -> void:
+	var y := 230.0
+	draw_rect(Rect2(6, y, SimDefs.VIEW_W - 12, 34), C_PANEL)
+	draw_rect(Rect2(6, y, 3, 34), C_ACCENT)
+	_text(Vector2(14, y + 11), caption_title, 7, C_ACCENT)
+	var size := 7
+	var sep := "  >  "
+	var total := 0.0
+	for i in caption_items.size():
+		total += _font.get_string_size(String(caption_items[i]), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		if i > 0:
+			total += _font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	if total > SimDefs.VIEW_W - 30:
+		size = 6
+	var x := 14.0
+	for i in caption_items.size():
+		if i > 0:
+			_text(Vector2(x, y + 26), sep, size, C_DIM)
+			x += _font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		var item := String(caption_items[i])
+		var w := _font.get_string_size(item, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		var col := C_DIM
+		if i < caption_index:
+			col = C_TEXT
+		elif i == caption_index:
+			col = C_ACCENT
+			draw_rect(Rect2(x, y + 28, w, 1), C_ACCENT)
+		_text(Vector2(x, y + 26), item, size, col)
+		x += w
+
+
 func _draw_cut_in() -> void:
 	var t := float(_cut["t"])
 	var side := int(_cut["side"])
@@ -250,7 +327,7 @@ func _draw_cut_in() -> void:
 	var tex: Texture2D = _cut["tex"]
 	var fpx := float(_cut["fpx"])
 	var origin: Vector2 = _cut["origin"]
-	var sc := 2.6
+	var sc := 2.6 * minf(1.0, 64.0 / fpx)  # big frames (Craglash's 96 px) scale down to fit
 	var feet := Vector2((96.0 if side == 0 else w - 96.0) + off * 1.25, y1 + 6.0)
 	draw_set_transform(feet, 0.0, Vector2(sc * dir, sc))
 	draw_texture_rect_region(tex, Rect2(-origin.x, -origin.y, fpx, fpx), _cut["region"], Color(0, 0, 0, 0.5))
@@ -267,16 +344,17 @@ func _draw_cut_in() -> void:
 
 func _draw_menu() -> void:
 	draw_rect(Rect2(0, 0, SimDefs.VIEW_W, SimDefs.VIEW_H), Color(0.05, 0.06, 0.08, 0.82))
-	_text(Vector2(0, 58), "CREATURE ARENA", 24, C_TEXT, HORIZONTAL_ALIGNMENT_CENTER, SimDefs.VIEW_W)
-	_text(Vector2(0, 74), "prototype build", 7, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, SimDefs.VIEW_W)
-	var y := 104.0
+	_text(Vector2(0, menu_y0 - 46), "CREATURE ARENA", 24, C_TEXT, HORIZONTAL_ALIGNMENT_CENTER, SimDefs.VIEW_W)
+	_text(Vector2(0, menu_y0 - 31), "prototype build", 7, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, SimDefs.VIEW_W)
+	var y := menu_y0
+	var fs := 9 if menu_dy >= 15.0 else 8
 	for i in menu_items.size():
 		var sel := i == menu_index
 		if sel:
-			draw_rect(Rect2(130, y - 10, 220, 14), Color(1, 1, 1, 0.08))
-			_text(Vector2(136, y), ">", 9, C_ACCENT)
-		_text(Vector2(150, y), menu_items[i], 9, C_ACCENT if sel else C_TEXT)
-		y += 16.0
+			draw_rect(Rect2(130, y - menu_dy + 4, 220, menu_dy - 1), Color(1, 1, 1, 0.08))
+			_text(Vector2(136, y), ">", fs, C_ACCENT)
+		_text(Vector2(150, y), menu_items[i], fs, C_ACCENT if sel else C_TEXT)
+		y += menu_dy
 	_text(Vector2(0, 232), menu_footer, 6, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, SimDefs.VIEW_W)
 	_text(Vector2(0, 244), "Arrows / D-pad / mouse to choose   Left/Right to change   Enter / A / click to start", 6, C_DIM,
 		HORIZONTAL_ALIGNMENT_CENTER, SimDefs.VIEW_W)

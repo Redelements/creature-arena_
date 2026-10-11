@@ -62,6 +62,11 @@ P = {
 }
 CLEAR = (0, 0, 0, 0)
 
+# Which way the creature faces: "side" (right; the game mirrors it for left), "down"
+# (toward the camera, seen from the front) or "up" (away, seen from behind). The up and
+# down sheets keep the side sheet's rows, so the same poses describe all three.
+VIEW = "side"
+
 
 # ---------------------------------------------------------------- helpers
 
@@ -144,6 +149,8 @@ BASE_CX, BASE_CY = 21, 31
 
 def culvert(dx=0, dy=0, rx=15, ry=11, arm="rest", arm_dx=0, leg_dx=0, mouth="closed",
             eyes="open", tuck=None):
+    if VIEW != "side":
+        return culvert_v(VIEW, dx, dy, rx, ry, arm, leg_dx, mouth, eyes, tuck)
     img = new(48, 48)
     cx, cy = BASE_CX + dx, BASE_CY + dy
     ground = 43
@@ -263,6 +270,116 @@ def culvert_roll(step):
     return img
 
 
+def _culvert_arm(img, view, side, kind, cx, cy, bw, ground, lead):
+    """One arm seen from the front or back. `side` is -1/+1 on screen."""
+    sx = cx + side * (bw - 1)
+    near = view == "down"
+    if kind == "rest":
+        rect(img, sx - 2, cy + 3, sx + 2, ground - 1, P["con_mid"])
+        rect(img, sx + (1 if side > 0 else -2), cy + 3, sx + (2 if side > 0 else -1), ground - 1, P["con_dark"])
+        rect(img, sx - 3, ground - 1, sx + 3, ground, P["con_dark"])
+    elif kind == "back":  # wound up: raised out to the side
+        poly(img, [(sx - 2, cy + 2), (sx + 2, cy + 2), (sx + side * 6 + 2, cy - 10), (sx + side * 6 - 2, cy - 10)],
+             P["con_mid"])
+        rect(img, sx + side * 6 - 3, cy - 14, sx + side * 6 + 3, cy - 9, P["con_dark"])
+    elif kind in ("punch", "punch_low"):
+        drop = 3 if kind == "punch_low" else 0
+        fx_, fy_ = cx + side * 5, (cy + 6 + drop) if near else (cy - 7 - drop)
+        rect(img, fx_ - 4, fy_ - 4, fx_ + 4, fy_ + 4, P["con_light"])
+        rect(img, fx_ - 4, fy_ + 3, fx_ + 4, fy_ + 4, P["con_dark"])
+        if near:
+            line(img, [(fx_ - 2, fy_ - 9), (fx_ - 2, fy_ - 6)], P["speed"])
+            line(img, [(fx_ + 2, fy_ - 8), (fx_ + 2, fy_ - 6)], P["speed"])
+    elif kind == "up":
+        rect(img, sx - 2, cy - 20, sx + 2, cy - 2, P["con_mid"])
+        rect(img, sx - 3, cy - 24, sx + 3, cy - 19, P["con_light"])
+    elif kind == "slam":
+        fx_, fy_ = cx + side * 7, (ground + 1) if near else (cy - 4)
+        rect(img, fx_ - 5, fy_ - 4, fx_ + 5, fy_, P["con_light"])
+        rect(img, fx_ - 5, fy_ - 1, fx_ + 5, fy_, P["con_dark"])
+    elif kind == "guard":
+        y = cy - 3
+        rect(img, cx - bw + 3, y - 3, cx + bw - 3, y + 2, P["con_light"])
+        rect(img, cx - bw + 3, y + 1, cx + bw - 3, y + 2, P["con_dark"])
+    elif kind == "flat":
+        rect(img, sx - 5, ground - 2, sx + 5, ground, P["con_mid"])
+
+
+def culvert_v(view, dx, dy, rx, ry, arm, leg_dx, mouth, eyes, tuck):
+    """Culvert facing the camera (down) or away from it (up)."""
+    if tuck is not None:
+        return outline(culvert_roll(tuck))
+    img = new(48, 48)
+    sgn = 1 if view == "down" else -1
+    cx = 24
+    cy = BASE_CY + dy + round(dx * 0.6 * sgn)
+    ground = 43
+    bw = rx + 1
+    lead = 1 if view == "down" else -1  # the lead arm, on screen
+    other = arm if arm in ("up", "slam", "flat") else "rest"
+    # Reaching away from the camera puts an arm behind the body.
+    behind = view == "up" and arm in ("punch", "punch_low", "slam", "guard")
+    # haunches and feet out to the sides
+    for side in (-1, 1):
+        paste(img, shaded_ellipse(cx + side * (bw - 4), cy + 6, 5, 4))
+        rect(img, cx + side * (bw - 4) - 4, ground - 1, cx + side * (bw - 4) + 4, ground, P["con_dark"])
+    if behind:
+        _culvert_arm(img, view, lead, arm, cx, cy, bw, ground, True)
+    body = shaded_ellipse(cx, cy, bw, ry)
+    marks = new(48, 48)
+    # the pipe rings wrap around the body
+    for k in (-1, 1):
+        x = cx + k * (bw // 2)
+        line(marks, [(x, cy - ry + 2), (x + k, cy), (x, cy + ry - 2)], P["con_dark"])
+        line(marks, [(x + 1, cy - ry + 2), (x + 1 + k, cy), (x + 1, cy + ry - 2)], P["con_hi"])
+    rnd = random.Random(11)
+    for _ in range(22):
+        sx_, sy_ = rnd.randint(cx - bw, cx + bw), rnd.randint(cy - ry, cy + ry)
+        px(marks, sx_, sy_, P["con_dark"] if rnd.random() < 0.6 else P["con_hi"])
+    if view == "up":  # the drain grate set into its back, and moss along the top
+        rect(marks, cx - 5, cy - 5, cx + 5, cy - 1, P["grate"])
+        for gx in range(cx - 4, cx + 5, 2):
+            line(marks, [(gx, cy - 4), (gx, cy - 2)], P["con_dark"])
+    for mx, my in ((cx - 9, cy - ry + 2), (cx + 2, cy - ry + 1), (cx + 9, cy - ry + 3)):
+        rect(marks, mx, my, mx + 2, my, P["moss"])
+        px(marks, mx + 1, my + 1, P["moss_dark"])
+    body.alpha_composite(mask_to(marks, body))
+    paste(img, body)
+    # eye bumps on top
+    for ex in (cx - 6, cx + 6):
+        ey = cy - ry + 1
+        ellipse(img, ex, ey, 3, 3, P["con_light"])
+        if view == "up":
+            continue
+        if eyes == "open":
+            ellipse(img, ex, ey, 2, 2, P["eye"])
+            rect(img, ex, ey, ex, ey + 1, P["pupil"])
+        elif eyes == "closed":
+            rect(img, ex - 2, ey, ex + 2, ey, P["outline"])
+        else:
+            line(img, [(ex - 2, ey - 2), (ex + 2, ey + 2)], P["outline"])
+            line(img, [(ex - 2, ey + 2), (ex + 2, ey - 2)], P["outline"])
+    if view == "down":  # the wide toad mouth, straight on
+        my = cy + 2
+        if mouth == "wide":
+            ellipse(img, cx, my + 2, bw - 4, 6, P["mouth"])
+            ellipse(img, cx, my + 3, bw - 7, 3, P["outline"])
+        elif mouth == "open":
+            ellipse(img, cx, my + 1, 6, 3, P["mouth"])
+            line(img, [(cx - 7, my), (cx + 7, my)], P["outline"])
+        elif mouth == "puffed":
+            for k in (-1, 1):
+                ellipse(img, cx + k * (bw - 3), my + 1, 5, 5, P["con_light"])
+                ellipse(img, cx + k * (bw - 3) - 1, my, 2, 2, P["con_hi"])
+            line(img, [(cx - 6, my + 3), (cx + 6, my + 3)], P["outline"])
+        else:
+            line(img, [(cx - 10, my), (cx - 4, my + 2), (cx + 4, my + 2), (cx + 10, my)], P["outline"])
+    if not behind:
+        _culvert_arm(img, view, lead, arm, cx, cy, bw, ground, True)
+    _culvert_arm(img, view, -lead, other, cx, cy, bw, ground, False)
+    return outline(img)
+
+
 def culvert_sheet():
     rows = [
         # row 0: idle (4)
@@ -350,6 +467,8 @@ def arm(img, sx, sy, fx, fy, swing=False):
 def cairn(dx=0, dy=0, shifts=(0, 0, 0, 0), front=GUARD_FRONT, rear=GUARD_REAR, eyes="open",
           mouth="closed", feet=0, band=0, swing_front=False, swing_rear=False, stones_at=None,
           rear_on_top=False):
+    if VIEW != "side" and stones_at is None:
+        return cairn_v(VIEW, dx, dy, shifts, front, rear, eyes, mouth, feet, band, swing_front, swing_rear)
     img = new(48, 48)
     cx = CAIRN_CX + dx
     if stones_at is not None:  # knocked over: the stack lies scattered on the ground
@@ -415,6 +534,79 @@ def cairn(dx=0, dy=0, shifts=(0, 0, 0, 0), front=GUARD_FRONT, rear=GUARD_REAR, e
     arm(img, front_sh[0], front_sh[1], cx + front[0], front[1] + dy, swing_front)
     if rear_on_top:
         arm(img, c[0] + 2, c[1] - 2, cx + rear[0], rear[1] + dy, swing_rear)
+    return outline(img)
+
+
+def cairn_v(view, dx, dy, shifts, front, rear, eyes, mouth, feet, band, swing_front, swing_rear):
+    """Cairn facing the camera (down) or away from it (up). A fist's distance in front
+    of the stack in the side pose becomes depth: toward the camera is lower on screen."""
+    img = new(48, 48)
+    sgn = 1 if view == "down" else -1
+    cx = 24
+    lunge = round(dx * 0.6 * sgn)
+    ys = (37, 30, 23, 14)
+    # leaning and weaving read as a sway from the front
+    xs = [cx - round(shifts[k] * 0.5) for k in range(4)]
+    b, m, c, h = [(xs[k], ys[k] + dy + lunge) for k in range(4)]
+    lead = 1 if view == "down" else -1
+
+    def fist_at(pose, side, rest_x):
+        depth = pose[0] - rest_x
+        lat = 7 - max(0, depth) * 0.3
+        return (cx + round(side * lat), pose[1] + dy + lunge + round(depth * sgn)), depth
+
+    fists = [(fist_at(front, lead, GUARD_FRONT[0]), swing_front, (c[0] + 7 * lead, c[1] - 1)),
+             (fist_at(rear, -lead, GUARD_REAR[0]), swing_rear, (c[0] - 7 * lead, c[1] - 1))]
+
+    def draw_arm(f):
+        (pos, depth), swing, sh = f
+        trail = ("down" if view == "down" else "up") if (swing and depth > 4) else swing
+        arm(img, sh[0], sh[1], pos[0], pos[1], False)
+        if trail in ("down", "up"):
+            for k in (-2, 2):
+                y0 = pos[1] - 9 if trail == "down" else pos[1] + 5
+                line(img, [(pos[0] + k, y0), (pos[0] + k, y0 + 3)], P["speed"])
+
+    # a fist punching away from the camera disappears behind the stack
+    for f in fists:
+        if view == "up" and f[0][1] > 2:
+            draw_arm(f)
+    if view == "up":  # headband tails hang down the back of the head
+        tail = 1 if band % 2 else 0
+        for k in (-1, 1):
+            line(img, [(h[0] + k, h[1] - 2), (h[0] + k * 2, h[1] + 5 + tail)], P["band_d" if k < 0 else "band"])
+    for fx_ in (cx - 5 - feet, cx + 5 + feet):
+        ellipse(img, fx_, 41, 4, 2, P["pebble_d"])
+        ellipse(img, fx_ - 1, 40, 2, 1, P["pebble"])
+    stone(img, b[0], b[1], 10, 4, "s_base")
+    stone(img, m[0], m[1], 8, 4, "s_mid")
+    stone(img, c[0], c[1], 10, 4, "s_chest")
+    stone(img, h[0], h[1], 7, 6, "s_head")
+    band_img = new(48, 48)
+    rect(band_img, h[0] - 8, h[1] - 4, h[0] + 8, h[1] - 3, P["band"])
+    rect(band_img, h[0] - 8, h[1] - 3, h[0] + 8, h[1] - 3, P["band_d"])
+    head_mask = new(48, 48)
+    ellipse(head_mask, h[0], h[1], 7, 6, P["s_head"])
+    paste(img, mask_to(band_img, head_mask))
+    if view == "up":
+        rect(img, h[0] - 1, h[1] - 4, h[0] + 1, h[1] - 2, P["band_d"])  # the knot
+    else:
+        for ex in (h[0] - 3, h[0] + 2):
+            if eyes == "open":
+                rect(img, ex, h[1], ex + 1, h[1] + 1, P["outline"])
+                px(img, ex, h[1], P["tape"])
+            elif eyes == "closed":
+                line(img, [(ex - 1, h[1] + 1), (ex + 1, h[1] + 1)], P["outline"])
+            else:
+                line(img, [(ex - 1, h[1] - 1), (ex + 1, h[1] + 1)], P["outline"])
+                line(img, [(ex - 1, h[1] + 1), (ex + 1, h[1] - 1)], P["outline"])
+        if mouth == "open":
+            rect(img, h[0] - 1, h[1] + 3, h[0] + 1, h[1] + 4, P["outline"])
+        else:
+            line(img, [(h[0] - 1, h[1] + 4), (h[0] + 1, h[1] + 4)], P["s_head_d"])
+    for f in fists:
+        if not (view == "up" and f[0][1] > 2):
+            draw_arm(f)
     return outline(img)
 
 
@@ -671,6 +863,30 @@ def main():
     for name, img in sheets.items():
         img.save(os.path.join(OUT, name))
         print("wrote", os.path.relpath(os.path.join(OUT, name), ROOT), img.size)
+
+    # Facing up and down the screen: same rows, seen from behind and from the front.
+    global VIEW
+    views = {}
+    for view in ("down", "up"):
+        VIEW = view
+        for who, make in (("cairn", cairn_sheet), ("culvert", culvert_sheet)):
+            img = make()
+            name = "%s_%s.png" % (who, view)
+            img.save(os.path.join(OUT, name))
+            views[name] = img
+            print("wrote", os.path.relpath(os.path.join(OUT, name), ROOT), img.size)
+    VIEW = "side"
+    scale, pad = 4, 16
+    order = ["cairn.png", "cairn_down.png", "cairn_up.png", "culvert.png", "culvert_down.png", "culvert_up.png"]
+    imgs = [sheets.get(n) or views[n] for n in order]
+    prev = Image.new("RGBA", (sum(i.width * scale + pad for i in imgs) + pad, max(i.height for i in imgs) * scale + pad * 2),
+                     (40, 44, 52, 255))
+    x = pad
+    for img in imgs:
+        prev.alpha_composite(img.resize((img.width * scale, img.height * scale), Image.NEAREST), (x, pad))
+        x += img.width * scale + pad
+    prev.save(os.path.join(DOCS, "sprite_views_preview.png"))
+    print("wrote docs/sprite_views_preview.png")
 
     # 4x preview of every sheet on one image, for the README
     scale, pad = 4, 16

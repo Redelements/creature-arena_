@@ -35,6 +35,10 @@ func test_same_inputs_produce_the_same_match() -> void:
 	var frames := _random_inputs(1234, TICKS)
 	var a := MatchFactory.versus("cairn", "culvert")
 	var b := MatchFactory.versus("cairn", "culvert")
+	# Start them in reach of each other so random mashing reliably lands hits.
+	for sim in [a, b]:
+		sim.creatures[0].pos = Vector2(220, 164)
+		sim.creatures[1].pos = Vector2(245, 164)
 	for i in frames.size():
 		a.step(frames[i])
 		b.step(frames[i])

@@ -5,8 +5,19 @@ extends Node2D
 ## squash and stretch, and falling shrink. Frame layout comes from the "sprite" block in the creature's JSON,
 ## and each move names its animation with "anim", so new art with the same layout
 ## drops in without code changes.
+##
+## Views: fighters can face any of 8 ways. The "sprite" block is the side view (facing
+## right, mirrored for left). Optional "views": {"up": {...}, "down": {...}} add sheets
+## for facing up the screen (seen from behind) and down it (seen from the front), each
+## with its own "path", "frame" (a size, or [width, height]), "origin" and "cols". They
+## use the side sheet's row layout unless they list their own "anims"; animations named
+## in "side_only" (say, a knockout that falls over sideways) always use the side sheet.
+## Facing more up/down than sideways picks the up/down view; diagonals stay side-on.
 
 const FLASH_SHADER := preload("res://src/view/flash.gdshader")
+## Windup tell colors: red means it can't be blocked, so get out of the way or hit first.
+const TELL_RED := Color(1.0, 0.22, 0.18)
+const TELL_GOLD := Color(1.0, 0.8, 0.3)
 const FALLBACK := {
 	"run": "idle", "light": "idle", "jab": "light", "power": "jab", "heavy": "light",
 	"dodge": "idle", "hurt": "idle", "guard": "idle", "ko": "hurt",
@@ -19,9 +30,14 @@ var frame_px := 48
 var cols := 1
 var origin := Vector2(24, 43)
 var flip := false
+var view := "side"  ## "side", "up" or "down": which sheet is showing
 var mat := ShaderMaterial.new()
+var _views := {}  ## view name -> {tex, size, cols, origin, anims}
+var _cur: Dictionary = {}  ## the view whose sheet the sprite is showing
 ## Set by FxView when a death animation replaces the sprite (Cairn's stones scatter).
 var ko_hidden := false
+## Set by main when this fighter stands in front of a shorter one and covers it.
+var see_through := false
 var _shadow_r := -1.0
 ## Squash and stretch: the sprite scales around its feet on a damped spring, so a
 ## landing squashes it flat and it wobbles back.
@@ -34,23 +50,63 @@ var _prev_flash := 0
 
 
 func setup(creature: CreatureSim) -> void:
-	c = creature
-	layout = c.def.get("sprite", {})
-	var tex: Texture2D = load(String(layout["path"]))
-	frame_px = int(layout.get("frame", 48))
-	cols = int(layout.get("cols", 1))
-	var o: Array = layout.get("origin", [24, 43])
-	origin = Vector2(float(o[0]), float(o[1]))
-	sprite.texture = tex
-	sprite.centered = false
-	sprite.hframes = cols
-	sprite.vframes = maxi(1, int(tex.get_height() / frame_px))
 	mat.shader = FLASH_SHADER
 	sprite.material = mat
+	sprite.centered = false
 	add_child(pivot)
 	pivot.add_child(sprite)
+	rebind(creature)
+
+
+## Shows a different creature in this slot (a Duel tag, or a new teammate entering).
+func rebind(creature: CreatureSim) -> void:
+	c = creature
+	ko_hidden = false
+	_prev_state = -1
+	_prev_seg = -1
+	_prev_flash = 0
+	_sq = Vector2.ONE
+	_sq_vel = Vector2.ZERO
+	_shadow_r = -1.0
+	layout = c.def.get("sprite", {})
+	var side := _load_view(layout, layout, [])
+	frame_px = int(side["size"].x)
+	cols = int(side["cols"])
+	origin = side["origin"]
+	_views = {"side": side}
+	var extra: Dictionary = layout.get("views", {})
+	for vname in extra:
+		_views[vname] = _load_view(extra[vname], layout, layout.get("side_only", []))
+	_cur = {}
+	view = "side"
 	flip = c.facing.x < -0.1
 	refresh()
+
+
+static func _load_view(v: Dictionary, side: Dictionary, side_only: Array) -> Dictionary:
+	var tex: Texture2D = load(String(v["path"]))
+	var fr = v.get("frame", side.get("frame", 48))
+	var size := Vector2(float(fr[0]), float(fr[1])) if fr is Array else Vector2(float(fr), float(fr))
+	var o: Array = v.get("origin", side.get("origin", [24, 43]))
+	var anims: Dictionary = v.get("anims", side.get("anims", {})).duplicate()
+	for n in side_only:
+		anims.erase(n)
+	return {"tex": tex, "size": size, "cols": int(v.get("cols", side.get("cols", 1))),
+		"origin": Vector2(float(o[0]), float(o[1])), "anims": anims}
+
+
+## Whether this fighter has up/down art (otherwise vertical swings are drawn side-on).
+func has_vertical_views() -> bool:
+	return _views.has("up") or _views.has("down")
+
+
+func _pick_view() -> String:
+	var f := c.facing
+	if absf(f.y) > absf(f.x) + 0.05:
+		var want := "down" if f.y > 0.0 else "up"
+		if _views.has(want):
+			return want
+	return "side"
 
 
 func refresh() -> void:
@@ -60,15 +116,27 @@ func refresh() -> void:
 	elif c.facing.x > 0.1:
 		flip = false
 
+	view = _pick_view()
+	# Attacking toward the camera: draw over whoever is in front, so a swing that reaches
+	# down the screen isn't hidden behind its target.
+	z_index = 1 if c.state == CreatureSim.State.ATTACK and c.facing.y > 0.5 else 0
 	var pick := _pick()
-	var anim := _anim(pick[0])
+	var res := _resolve(pick[0])
+	var v: Dictionary = res[0]
+	var anim: Array = res[1]
+	if v != _cur:
+		_cur = v
+		sprite.texture = v["tex"]
+		sprite.hframes = int(v["cols"])
+		sprite.vframes = maxi(1, int(v["tex"].get_height() / v["size"].y))
 	var count := int(anim[2])
 	var idx: int = pick[1] % count if pick[2] else clampi(pick[1], 0, count - 1)
-	sprite.frame = int(anim[0]) * cols + int(anim[1]) + idx
+	sprite.frame = int(anim[0]) * int(v["cols"]) + int(anim[1]) + idx
 	sprite.flip_h = flip
-	var ox := float(frame_px) - origin.x if flip else origin.x
+	var o: Vector2 = v["origin"]
+	var ox: float = v["size"].x - o.x if flip else o.x
 	var lift := c.air_height()
-	sprite.position = Vector2(-ox, -origin.y)
+	sprite.position = Vector2(-ox, -o.y)
 	pivot.position = Vector2(0, -round(lift))
 	if c.state == CreatureSim.State.CRUMPLE:
 		pivot.position.x += 1 if (c.anim_t / 4) % 2 == 0 else -1
@@ -85,15 +153,30 @@ func refresh() -> void:
 	var flash_col := Color.WHITE
 	if c.flash > 0:
 		flash_amt = 1.0 if c.flash > 3 else 0.5
+	elif c.is_winding_up():
+		var tell := String(c.move_def().get("tell", "strong"))
+		flash_col = TELL_RED if tell in ["unblockable", "guard_break"] else TELL_GOLD
+		flash_amt = 0.7 if (Engine.get_physics_frames() / 3) % 2 == 0 else 0.3
+		# Lean back into the windup.
+		pivot.position.x += 1.0 if flip else -1.0
 	elif c.is_full_charge():
 		flash_col = Color(1.0, 0.82, 0.35)
 		flash_amt = 0.55 if (c.anim_t / 4) % 2 == 0 else 0.15
 		pivot.position.x += 1 if (c.anim_t / 2) % 2 == 0 else -1
+	elif c.is_armored():
+		# Bedrock: a slow amber pulse while the armor holds.
+		flash_col = Color(1.0, 0.72, 0.32)
+		flash_amt = 0.22 if (c.anim_t / 6) % 2 == 0 else 0.08
 	elif c.state == CreatureSim.State.ATTACK and c.move_type() == "surge" and c.state_t < 12:
 		flash_col = Color(1.0, 0.9, 0.4)
 		flash_amt = 0.6 if (c.anim_t / 2) % 2 == 0 else 0.25
 	mat.set_shader_parameter("flash", flash_amt)
 	mat.set_shader_parameter("flash_color", flash_col)
+	# Stoneskin: a pale stone rim around the silhouette while the shield holds.
+	var rim := 0.0
+	if c.shield > 0.0 and c.state != CreatureSim.State.KO:
+		rim = 0.75 + 0.2 * sin(c.anim_t * 0.15)
+	mat.set_shader_parameter("rim", rim)
 
 	# Falling shrinks and darkens the creature into the pit.
 	var shade := 1.0
@@ -107,7 +190,7 @@ func refresh() -> void:
 	if c.state == CreatureSim.State.KO and String(c.def.get("ko_fx", {}).get("style", "")) == "crack":
 		shade = lerpf(1.0, 0.72, clampf(float(c.state_t - 12) / 20.0, 0.0, 1.0))
 	var blink := c.invuln > 0 and c.state != CreatureSim.State.ATTACK and (c.anim_t / 3) % 2 == 0
-	modulate = Color(shade, shade, shade, 0.4 if blink else 1.0)
+	modulate = Color(shade, shade, shade, 0.4 if blink else (0.55 if see_through else 1.0))
 
 	var r := -1.0
 	if c.state != CreatureSim.State.FALLING and not ko_hidden:
@@ -156,15 +239,22 @@ func _kick(to: Vector2) -> void:
 
 
 ## What the sprite looks like right now, for afterimages and death animations.
+## "side_*" always describe the side sheet (Cairn's scatter cuts its idle frame).
 func snapshot() -> Dictionary:
-	var col := sprite.frame % cols
-	var row := sprite.frame / cols
+	var v: Dictionary = _cur if not _cur.is_empty() else _views["side"]
+	var vc := int(v["cols"])
+	var size: Vector2 = v["size"]
+	var col := sprite.frame % vc
+	var row := sprite.frame / vc
 	return {
 		"tex": sprite.texture,
-		"region": Rect2(col * frame_px, row * frame_px, frame_px, frame_px),
+		"region": Rect2(col * size.x, row * size.y, size.x, size.y),
 		"feet": position + pivot.position,
 		"flip": flip,
-		"origin": origin,
+		"origin": v["origin"],
+		"frame_size": size,
+		"side_tex": _views["side"]["tex"],
+		"side_origin": origin,
 		"frame_px": frame_px,
 	}
 
@@ -230,6 +320,16 @@ func _attack_frame() -> Array:
 			return [name, mini(3, n - 1), false]
 		return [name, mini(4 if t <= su + act + 8 else 5, n - 1), false]
 
+	if mv.has("armor"):  # Bedrock: brace, hold (roaring as it sets), then stand
+		var ar: Dictionary = mv["armor"]
+		if t < int(ar["from"]):
+			return [name, 0, false]
+		if t <= int(ar["to"]):
+			if t < int(ar["from"]) + 14:
+				return [name, mini(2, n - 1), false]
+			return [name, mini(1 + (t / 10) % 2, n - 1), false]
+		return [name, n - 1, false]
+
 	if mv.has("counter"):  # Slip: weave while the window is open, then recover
 		var w: Dictionary = mv["counter"]
 		if t <= int(w["to"]):
@@ -264,9 +364,27 @@ func _attack_frame() -> Array:
 	return [name, n - 2 if t - rec_start < rec_len / 2 else n - 1, false]
 
 
+## The frame count of an animation, from whichever sheet will show it.
 func _anim(anim_name: String) -> Array:
-	var anims: Dictionary = layout.get("anims", {})
+	return _resolve(anim_name)[1]
+
+
+## [view, [row, col, count]]: the current view's animation, or the side one when the
+## view doesn't have it.
+func _resolve(anim_name: String) -> Array:
+	# Name it the way the side sheet does (fallbacks included), then use the current
+	# view's version of that animation if it has one. A side-only knockout stays a
+	# knockout instead of falling back to the view's hurt frames.
+	var side: Dictionary = _views["side"]
+	var n := _named(anim_name, side["anims"])
+	var v: Dictionary = _views.get(view, side)
+	if v["anims"].has(n):
+		return [v, v["anims"][n]]
+	return [side, side["anims"].get(n, [0, 0, 1])]
+
+
+static func _named(anim_name: String, anims: Dictionary) -> String:
 	var n := anim_name
 	while not anims.has(n) and FALLBACK.has(n):
 		n = FALLBACK[n]
-	return anims.get(n, [0, 0, 1])
+	return n
