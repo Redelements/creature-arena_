@@ -17,6 +17,13 @@
 Everything must be original or properly licensed: no samples, cries, jingles or menu
 sounds from any other game (see "Staying legally distinct" in the Game Plan).
 
+## Volume groups
+
+Every sound plays on one of three audio buses under Master, and each has a volume in
+**Settings** (saved): **Music** (the tracks), **Sound effects** (everything in a fight)
+and **Menu sounds** (`ui_move`, `ui_select`: menu navigation). `AudioView` creates the
+buses at start-up; `play(name, ..., ui = true)` sends a sound to Menu sounds.
+
 ## Effects
 
 | Done | File | Plays when | Direction for the real version |

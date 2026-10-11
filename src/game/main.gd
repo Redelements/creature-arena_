@@ -69,10 +69,15 @@ const MAIN_ITEMS := [
 const SETTINGS_ITEMS := [
 	{"setting": "level"},
 	{"setting": "layout"},
-	{"setting": "music"},
+	{"setting": "volume", "bus": "Master", "label": "Master volume"},
+	{"setting": "volume", "bus": "Music", "label": "Music"},
+	{"setting": "volume", "bus": "Effects", "label": "Sound effects"},
+	{"setting": "volume", "bus": "Menu", "label": "Menu sounds"},
 	{"setting": "fullscreen"},
 	{"label": "Back", "go": "main"},
 ]
+## Volume steps in Settings (10 steps of 10%).
+const VOLUME_STEP := 0.1
 const ONLINE_MODE := 20
 const MENU_ROWS := [
 	{"label": "Duel: you vs CPU  (3v3 tag)", "modes": [6]},
@@ -295,8 +300,12 @@ func _menu_label(item: Dictionary) -> String:
 			return "CPU level:  < %s >" % LEVEL_NAMES[level]
 		"layout":
 			return "Keyboard:  < %s >" % PlayerInput.LAYOUT_NAMES[player_input.layout]
-		"music":
-			return "Music:  < %s >" % ("Off" if audio.music_muted else "On")
+		"volume":
+			var v := audio.volume(String(item["bus"]))
+			var txt := "Off" if v <= 0.001 else "%d%%" % roundi(v * 100.0)
+			if String(item["bus"]) == "Music" and audio.music_muted and v > 0.001:
+				txt = "muted (M)"
+			return "%s:  < %s >" % [String(item["label"]), txt]
 		"fullscreen":
 			return "Fullscreen:  < %s >" % ("On" if fullscreen else "Off")
 	return String(item.get("label", ""))
@@ -307,8 +316,11 @@ func _refresh_menu() -> void:
 		_row_choice.resize(MENU_ROWS.size())
 		_row_choice.fill(0)
 	var items: Array[String] = []
+	var values: Array = []
 	for item in _menu_page_items():
 		items.append(_menu_label(item))
+		values.append(audio.volume(String(item["bus"])) if String(item.get("setting", "")) == "volume" else -1.0)
+	hud.menu_values = values
 	menu_index = clampi(menu_index, 0, items.size() - 1)
 	hud.menu_items = items
 	hud.menu_index = menu_index
@@ -319,12 +331,12 @@ func _refresh_menu() -> void:
 	match menu_page:
 		"main":
 			hud.menu_footer = ["Fight the CPU, train, take on Combo Trials, or play 2 players on one screen",
-				"Play someone on another computer, 1 v 1", "CPU level, keyboard layout, music, fullscreen",
+				"Play someone on another computer, 1 v 1", "CPU level, keyboard layout, volume, fullscreen",
 				"Close the game"][menu_index]
 		"single":
 			hud.menu_footer = "Fights, training, trials and local 2-player.   Esc / View: back"
 		"settings":
-			hud.menu_footer = "Xbox controller works any time. Keyboard layout applies to keyboard and mouse.   Esc: back"
+			hud.menu_footer = "Left/Right sets a volume (Enter / click steps it up).  M mutes the music any time.   Esc: back"
 
 
 ## Goes to a menu page, with the cursor on `index`.
@@ -1045,7 +1057,7 @@ func _menu_choose(index: int, dir: int) -> void:
 	elif bool(item.get("exit", false)):
 		get_tree().quit()
 	elif item.has("setting"):
-		_change_option(index, dir)
+		_change_option(index, dir, true)
 
 
 func _start_row(row: int) -> void:
@@ -1054,7 +1066,9 @@ func _start_row(row: int) -> void:
 
 
 ## Left/right on a row with choices, or on a setting.
-func _change_option(index: int, dir: int) -> void:
+## `wrap`: Enter / click steps a volume past 100% back round to Off (left/right stop at
+## the ends).
+func _change_option(index: int, dir: int, wrap := false) -> void:
 	var items := _menu_page_items()
 	if index < 0 or index >= items.size():
 		return
@@ -1074,8 +1088,20 @@ func _change_option(index: int, dir: int) -> void:
 			player_input.layout = PlayerInput.LAYOUTS[(i + PlayerInput.LAYOUTS.size() + dir) % PlayerInput.LAYOUTS.size()]
 			_save_settings()
 			_apply_device()
-		"music":
-			audio.toggle_music()
+		"volume":
+			var bus := String(item["bus"])
+			var v := snappedf(audio.volume(bus) + dir * VOLUME_STEP, VOLUME_STEP)
+			if wrap and v > 1.0 + 0.001:
+				v = 0.0
+			v = clampf(v, 0.0, 1.0)
+			audio.set_volume(bus, v)
+			if bus == "Music" and v > 0.0 and audio.music_muted:
+				audio.set_music_muted(false)  # turning the music up unmutes it
+			# Let the player hear the new level (the music is already playing).
+			if bus == "Effects":
+				audio.preview("hit_light", "Effects")
+			elif bus != "Music":
+				audio.preview("ui_select", "Menu")
 			_save_settings()
 		"fullscreen":
 			fullscreen = not fullscreen
@@ -1149,6 +1175,9 @@ func _load_settings() -> void:
 		if not (_online_fighter in MatchFactory.FIGHTERS):
 			_online_fighter = "cairn"
 		_online_address = String(cfg.get_value("online", "address", ""))
+		for bus in AudioView.DEFAULT_VOLUMES:
+			audio.set_volume(bus, float(cfg.get_value("audio", "volume_" + String(bus).to_lower(),
+				AudioView.DEFAULT_VOLUMES[bus])))
 		fullscreen = bool(cfg.get_value("video", "fullscreen", false))
 		if fullscreen:
 			_apply_fullscreen()
@@ -1162,6 +1191,8 @@ func _save_settings() -> void:
 	cfg.set_value("online", "fighter", _online_fighter)
 	cfg.set_value("online", "address", _online_address)
 	cfg.set_value("video", "fullscreen", fullscreen)
+	for bus in AudioView.DEFAULT_VOLUMES:
+		cfg.set_value("audio", "volume_" + String(bus).to_lower(), audio.volume(bus))
 	cfg.save(SETTINGS_PATH)
 
 

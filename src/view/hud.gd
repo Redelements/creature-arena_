@@ -44,7 +44,9 @@ var menu_visible := false
 var menu_items: Array[String] = []
 var menu_index := 0
 var menu_footer := ""
-var menu_title := ""  ## the page's name under the logo ("SINGLE PLAYER"); empty on the title menu
+var menu_title := ""
+## Per menu row: a 0..1 level drawn as a bar (volumes), or -1 for none.
+var menu_values: Array = []  ## the page's name under the logo ("SINGLE PLAYER"); empty on the title menu
 var menu_y0 := 104.0
 var menu_dy := 16.0
 
@@ -370,6 +372,14 @@ func _draw_menu() -> void:
 				draw_rect(Rect2(130, y - menu_dy + 4, 220, menu_dy - 1), Color(1, 1, 1, 0.08))
 				_text(Vector2(136, y), ">", fs, C_ACCENT)
 			_text(Vector2(150, y), menu_items[i], fs, C_ACCENT if sel else C_TEXT)
+			if i < menu_values.size() and float(menu_values[i]) >= 0.0:
+				var bar := Rect2(298, y - 6, 44, 4)
+				draw_rect(bar, C_BAR_BG)
+				draw_rect(Rect2(bar.position, Vector2(bar.size.x * float(menu_values[i]), bar.size.y)),
+					C_ACCENT if sel else C_DIM)
+				for k in range(1, 10):
+					draw_rect(Rect2(bar.position.x + bar.size.x * k / 10.0, bar.position.y, 1, bar.size.y),
+						Color(0, 0, 0, 0.35))
 		y += menu_dy
 	_text(Vector2(0, 232), menu_footer, 6, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, SimDefs.VIEW_W)
 	_text(Vector2(0, 244), "Arrows / D-pad / mouse to choose   Left/Right to change   Enter / A / click to start", 6, C_DIM,
