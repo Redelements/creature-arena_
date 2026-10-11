@@ -26,10 +26,16 @@ extends Node2D
 ##   telegraph    true         marks where a leaping move will land
 ##   projectile   "wave"       draws the move's projectile as water
 ##   impact       also "lash" (stone chips), "quake" (a stomp's shockwave),
-##                "avalanche" (boulders raining onto the strike)
+##                "avalanche" (boulders raining onto the strike), "leaves" (a burst of
+##                leaves), "twister" (a gust of leaves on a spin's last hit), "roots"
+##                (roots shooting up out of the floor in a ring on every hit)
+##   charge       also "leaves": leaves gather and circle while the heavy is held
+##   spin         true         leaves and wind arcs whirl around a spinning move
+##   projectile   also "pinecone": a lobbed pinecone with a shadow and a landing mark
 ## Creature "ko_fx" keys: style "scatter" (the sprite breaks into horizontal pieces that
-## tumble across the floor), "crack" (cracks, water gushing out, rubble) or "crumble"
-## (cracks, then the neck stones burst loose).
+## tumble across the floor), "crack" (cracks, water gushing out, rubble), "crumble"
+## (cracks, then the neck stones burst loose) or "timber" (a felled tree: "TIMBER!",
+## leaves shaken loose, and a dust line where the trunk hits the floor).
 ## Status drawn from creature state: Stoneskin plates while `shield` > 0, a rooted ring
 ## while armored, pebbles at the feet while slowed, a red "!" while taunted.
 
@@ -55,6 +61,9 @@ const C_GREY: Array[Color] = [Color("5a585c"), Color("7f7f7f"), Color("aaa8a6"),
 const C_CRAG: Array[Color] = [Color("8c4547"), Color("b5665f"), Color("d08c84")]
 const C_AMBER := Color("ffc45c")
 const C_TAUNT := Color("ff4a3a")
+const C_LEAF: Array[Color] = [Color("16784a"), Color("28b450"), Color("96dcaa")]
+const C_WOOD: Array[Color] = [Color("623736"), Color("804846"), Color("a0625c"), Color("b56664")]
+const C_CONE: Array[Color] = [Color("603820"), Color("966034"), Color("c48c54")]
 
 ## Asks AudioView for a sound that belongs to a timed effect (a KO scatter, geysers...).
 signal cue(sound: String)
@@ -182,6 +191,8 @@ func spawn(e: Dictionary) -> void:
 			_add({"kind": "ring", "pos": p + Vector2(0, 16), "life": 16, "radius": 30.0})
 			_text(p + Vector2(0, -10), "BREAKAWAY", Color("c9a7ff"))
 		"projectile":
+			if bool(e.get("lob", false)):
+				return  # a pinecone just leaves the hand; it's drawn in flight
 			# Runoff leaves the hand: a slap of water.
 			var owner := _owner_near(p)
 			var at := p + (owner.facing * 14.0 if owner != null else Vector2.ZERO)
@@ -239,6 +250,21 @@ func spawn(e: Dictionary) -> void:
 				_text(c.pos + Vector2(0, -_top(c) + 2), "BEDROCK!", C_AMBER, 9, 40.0)
 				_slam_debris(c.pos, false)
 				shake_out = maxf(shake_out, 2.0)
+		"pull":
+			# Branch Grab snags: a streak back toward Barkley and a few leaves torn off.
+			var a := _creature(int(e.get("attacker", -1)))
+			var tgt := _creature(int(e.get("target", -1)))
+			if a != null and tgt != null:
+				var from := tgt.pos + Vector2(0, -_chest(tgt))
+				var to := a.pos + Vector2(0, -_chest(a))
+				for i in 5:
+					var off := Vector2(randf_range(-4, 4), randf_range(-5, 5))
+					_add({"kind": "streak", "a": from + off, "b": from.lerp(to, 0.5) + off, "life": 10,
+						"color": Color(C_WOOD[3], 0.8)})
+				_leaves(from, 6, 1.4)
+				_text(from + Vector2(0, -14), "SNAG!", C_LEAF[2], 8, 34.0)
+		"burst":
+			_pinecone_burst(p, power)
 		"land_hard":
 			for i in 3:
 				_dust(p + Vector2(randf_range(-6, 6), randf_range(-2, 2)), Vector2(randf_range(-0.3, 0.3), -0.4))
@@ -276,6 +302,12 @@ func advance() -> void:
 		p["t"] = float(p["t"]) + dt
 		if p.has("vz"):
 			_physics(p, dt)
+		elif p.has("orbit"):
+			var oc := _creature(int(p["orbit"]))
+			p["ang"] = float(p["ang"]) + float(p["spin"]) * dt
+			if oc != null:
+				var a := float(p["ang"])
+				p["pos"] = oc.pos + Vector2(cos(a), sin(a) * 0.5) * float(p["r"])
 		elif String(p["kind"]) == "px":
 			p["pos"] = Vector2(p["pos"]) + Vector2(p["vel"]) * dt
 			p["vel"] = Vector2(p["vel"]) + Vector2(0, 0.12 * dt)
@@ -436,6 +468,13 @@ func _charging(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 		"pebbles":
 			if full and c.anim_t % 6 == 0:
 				_dust(c.pos + Vector2(randf_range(-10, 10), randf_range(-2, 2)), Vector2(0, -0.4))
+		"leaves":
+			# Leaves drift in and circle him, faster once fully wound.
+			if c.anim_t % (3 if full else 6) == 0:
+				var a := randf() * TAU
+				_add({"kind": "leaf", "pos": c.pos + Vector2(cos(a), sin(a) * 0.5) * 30.0, "z": randf_range(8, 30),
+					"orbit": c.id, "ang": a, "r": 30.0, "spin": 0.12 if full else 0.06, "life": 26,
+					"color": C_LEAF[randi() % 3]})
 
 
 func _charge_released(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
@@ -478,6 +517,12 @@ func _strike(c: CreatureSim, mv: Dictionary, fx: Dictionary, seg: int) -> void:
 				_quake(c, mv)
 			"avalanche":
 				_avalanche(c.hit_center(seg))
+			"leaves":
+				_leaves(c.hit_center(seg) + Vector2(0, -_chest(c) * 0.7), 8, 1.5)
+			"twister":
+				_twister_gust(c, mv)
+	if String(fx.get("impact", "")) == "roots":
+		_roots(c, c.hit_radius(seg), last)
 
 
 func _during_move(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
@@ -493,6 +538,17 @@ func _during_move(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 					randf_range(0.6, 1.5), randf_range(1.0, 2.0), C_PEBBLE[randi() % 2], 26.0)
 				if t % 4 == 0:
 					_dust(back, Vector2(-c.facing.x * 0.3, -0.3))
+	if bool(fx.get("spin", false)) and not c.charging:
+		var segs: Array = mv.get("_segs", [])
+		if segs.size() > 0 and t >= int(segs[0]["at"]) - 2 and t <= int(segs[segs.size() - 1]["at"]) + 3:
+			var r := c.hit_radius(segs.size() - 1)
+			if t % 2 == 0:
+				var a := randf() * TAU
+				_add({"kind": "leaf", "pos": c.pos, "z": randf_range(10, 34), "orbit": c.id, "ang": a,
+					"r": r * randf_range(0.6, 1.0), "spin": 0.35, "life": 14, "color": C_LEAF[randi() % 3]})
+			if t % 4 == 0:
+				_add({"kind": "whirl", "pos": c.pos + Vector2(0, -_chest(c) * 0.6), "life": 8, "radius": r,
+					"start": randf() * TAU})
 	if bool(fx.get("suction", false)) and t <= int(mv.get("startup", 0)) + int(mv.get("active", 0)):
 		var mouth := c.pos + c.facing * 12.0 + Vector2(0, -_chest(c))
 		for i in 2:
@@ -754,6 +810,92 @@ func _pit_plume(p: Vector2) -> void:
 	cue.emit("land")
 
 
+# ------------------------------------------------------------------ Barkley
+
+## A puff of leaves: they flutter out, then drift down.
+func _leaves(at: Vector2, n: int, speed: float) -> void:
+	for i in n:
+		var v := Vector2.from_angle(randf() * TAU) * randf_range(0.4, 1.0) * speed
+		_add({"kind": "leaf", "pos": at + Vector2(0, 14), "z": 14.0, "vel": Vector2(v.x, v.y * 0.5), "vz": randf_range(0.6, 1.6),
+			"g": 0.05, "life": randf_range(40, 70), "color": C_LEAF[randi() % 3], "rot": randf() * TAU,
+			"vrot": randf_range(-0.3, 0.3), "bounce": 0.0})
+
+
+## Timber Twister's last hit: a ring of wind and a gust of leaves thrown outward.
+func _twister_gust(c: CreatureSim, mv: Dictionary) -> void:
+	var r := float(mv.get("hit_radius", 24))
+	_add({"kind": "ring", "pos": c.pos, "life": 14, "radius": r + 10.0, "color": C_LEAF[2]})
+	_add({"kind": "ring", "pos": c.pos, "life": 20, "radius": r + 22.0})
+	for i in 14:
+		var a := TAU * i / 14.0
+		var v := Vector2(cos(a), sin(a) * 0.5) * randf_range(1.2, 2.4)
+		_add({"kind": "leaf", "pos": c.pos + v * 6.0, "z": randf_range(10, 28), "vel": v, "vz": randf_range(0.4, 1.2),
+			"g": 0.05, "life": randf_range(40, 70), "color": C_LEAF[randi() % 3], "rot": randf() * TAU,
+			"vrot": randf_range(-0.4, 0.4), "bounce": 0.0})
+	for i in 6:
+		var a := TAU * i / 6.0 + 0.3
+		_dust(c.pos + Vector2(cos(a), sin(a) * 0.5) * r * 0.8, Vector2(cos(a), sin(a) * 0.5 - 0.4) * 0.8)
+	shake_out = maxf(shake_out, 2.0)
+	cue.emit("twister")
+
+
+## Root Eruption: roots punch up through the floor in a ring at the reach of each hit.
+func _roots(c: CreatureSim, r: float, last: bool) -> void:
+	var n := int(clampf(r / 4.5, 6.0, 14.0))
+	var off := randf() * TAU
+	for i in n:
+		var a := off + TAU * i / n + randf_range(-0.15, 0.15)
+		var at := c.pos + Vector2(cos(a), sin(a) * 0.55) * r * randf_range(0.82, 1.0)
+		var h := randf_range(12.0, 20.0) * (1.3 if last else 1.0)
+		_add({"kind": "root", "pos": at, "life": 30 if last else 22, "h": h, "w": randf_range(2.5, 3.6),
+			"lean": cos(a) * randf_range(0.2, 0.5), "delay": randf_range(0.0, 3.0), "front": sin(a) > 0.0})
+		if i % 2 == 0:
+			_chunk(at, 2.0, Vector2(cos(a), sin(a) * 0.5) * randf_range(0.3, 0.9), randf_range(1.2, 2.2),
+				randf_range(1.5, 2.5), C_CON[randi() % 3], 40.0)
+	_add({"kind": "ring", "pos": c.pos, "life": 12, "radius": r, "color": C_LEAF[1]})
+	shake_out = maxf(shake_out, 4.0 if last else 2.0)
+	if last:
+		_leaves(c.pos + Vector2(0, -20), 10, 1.2)
+		cue.emit("roots")
+
+
+## Pinecone Bomb lands: scales and needles burst out of the spot.
+func _pinecone_burst(at: Vector2, r: float) -> void:
+	_add({"kind": "spark", "pos": at + Vector2(0, -6), "life": 10, "scale": 1.4})
+	_add({"kind": "ring", "pos": at, "life": 14, "radius": r + 4.0, "color": C_CONE[2]})
+	for i in 10:
+		var v := Vector2.from_angle(randf() * TAU) * randf_range(0.6, 1.8)
+		_chunk(at, 4.0, Vector2(v.x, v.y * 0.5), randf_range(1.0, 2.4), randf_range(1.5, 2.5), C_CONE[randi() % 3], 36.0)
+	for i in 8:
+		var v := Vector2.from_angle(TAU * i / 8.0 + randf() * 0.4)
+		_add({"kind": "streak", "a": at + Vector2(v.x, v.y * 0.5) * 4.0 + Vector2(0, -4),
+			"b": at + Vector2(v.x, v.y * 0.5) * randf_range(12.0, 18.0) + Vector2(0, -6), "life": 8, "color": C_LEAF[1]})
+	for i in 4:
+		_dust(at + Vector2(randf_range(-6, 6), randf_range(-2, 2)), Vector2(randf_range(-0.4, 0.4), -0.5))
+	_slam_debris(at, false)
+
+
+## Barkley's knockout: he topples like a felled tree.
+func _timber(c: CreatureSim) -> void:
+	_text(c.pos + Vector2(0, -_top(c) - 6), "TIMBER!", Color("ffd166"), 10, 70.0)
+	_leaves(c.pos + Vector2(0, -_top(c) + 10), 12, 1.0)
+	cue.emit("timber")
+
+
+func _timber_land(c: CreatureSim, length: float) -> void:
+	# The knockout art falls over backward, so the trunk lands behind where he faced.
+	var back := Vector2(-1.0 if c.facing.x >= -0.1 else 1.0, 0.0)
+	for i in 9:
+		var k := lerpf(-0.35, 0.85, float(i) / 8.0)
+		_dust(c.pos + back * length * k + Vector2(randf_range(-2, 2), randf_range(-2, 2)), Vector2(randf_range(-0.4, 0.4), -0.5))
+	_leaves(c.pos + back * length * 0.8 + Vector2(0, -8), 8, 1.3)
+	for i in 5:
+		_chunk(c.pos + back * length * randf_range(-0.3, 0.8), 4.0, Vector2(randf_range(-0.6, 0.6), randf_range(-0.3, 0.3)),
+			randf_range(0.8, 1.6), 2.0, C_WOOD[randi() % 4], 50.0)
+	shake_out = maxf(shake_out, 4.0)
+	cue.emit("slam")
+
+
 # ------------------------------------------------------------------ windup tells
 
 ## A raw big move is winding up: a glint over the head for the length of the windup,
@@ -828,6 +970,9 @@ func _ko(c: CreatureSim) -> void:
 		"crumble":
 			_crack_body(c, ko)
 			_later(14.0, _crumble.bind(c))
+		"timber":
+			_timber(c)
+			_later(16.0, _timber_land.bind(c, float(ko.get("length", 50))))
 
 
 ## Craglash: the stone neck comes apart and its pieces bounce away, then the body
@@ -1030,7 +1175,7 @@ func _paint(ci: CanvasItem, floor_layer: bool) -> void:
 				_draw_part(ci, p)
 		for p in _parts:
 			var kind := String(p["kind"])
-			if kind == "ghost" or (kind == "spire" and not bool(p.get("front", false))):
+			if kind == "ghost" or (kind in ["spire", "root"] and not bool(p.get("front", false))):
 				_draw_part(ci, p)
 			elif p.has("vz") and float(p["z"]) > 1.0:
 				_draw_shadow(ci, p)
@@ -1046,7 +1191,7 @@ func _paint(ci: CanvasItem, floor_layer: bool) -> void:
 		var kind := String(p["kind"])
 		if kind in ["puddle", "decal", "ripple", "ghost", "later", "emit"]:
 			continue
-		if kind == "spire" and not bool(p.get("front", false)):
+		if kind in ["spire", "root"] and not bool(p.get("front", false)):
 			continue
 		if kind == "chunk" and bool(p.get("grounded", false)):
 			continue
@@ -1186,6 +1331,24 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 				_draw_partial_line(ci, pts, grow, col)
 		"spire":
 			_draw_spire(ci, p)
+		"root":
+			_draw_root(ci, p)
+		"leaf":
+			var at := (Vector2(p["pos"]) + Vector2(0, -float(p.get("z", 0.0)))).round()
+			var col: Color = p["color"]
+			col.a = clampf((life - t) / 12.0, 0.0, 1.0)
+			var flat := int(float(p.get("rot", t * 0.3)) * 2.0) % 2 == 0
+			ci.draw_rect(Rect2(at, Vector2(2, 1) if flat else Vector2(1, 2)), col)
+			ci.draw_rect(Rect2(at + (Vector2(2, 0) if flat else Vector2(0, 2)), Vector2.ONE), Color(C_LEAF[0], col.a))
+		"whirl":
+			# A curved gust of wind sweeping round a spin.
+			var pos: Vector2 = p["pos"]
+			var r := float(p["radius"])
+			var a0 := float(p["start"]) + k * 2.5
+			ci.draw_set_transform(pos, 0.0, Vector2(1.0, 0.45))
+			ci.draw_arc(Vector2.ZERO, r, a0, a0 + 1.6, 12, Color(1, 1, 1, 0.55 * (1.0 - k)), 1.5 / 0.45)
+			ci.draw_arc(Vector2.ZERO, r * 0.7, a0 + 2.6, a0 + 3.8, 10, Color(C_LEAF[2], 0.5 * (1.0 - k)), 1.0 / 0.45)
+			ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		"bodycrack":
 			if int(p["id"]) >= sim.creatures.size():
 				return
@@ -1288,10 +1451,43 @@ func _draw_spire(ci: CanvasItem, p: Dictionary) -> void:
 		b + Vector2(w * 0.55, -h * 0.5 + 1), b + Vector2(w, 0), b + Vector2(w * 0.3, 0)]), C_STONE[0])
 
 
+## A root shooting up out of the floor: a tapered, bending wooden spike with a dirt ring.
+func _draw_root(ci: CanvasItem, p: Dictionary) -> void:
+	var t := float(p["t"]) - float(p.get("delay", 0.0))
+	if t < 0.0:
+		return
+	var life := float(p["life"]) - float(p.get("delay", 0.0))
+	var rise := clampf(t / 3.0, 0.0, 1.0)
+	var sink := clampf((life - t) / 8.0, 0.0, 1.0)
+	var h := float(p["h"]) * (1.0 - pow(1.0 - rise, 3.0)) * sink
+	if h < 2.0:
+		return
+	var w := float(p["w"])
+	var lean := float(p["lean"])
+	var b: Vector2 = Vector2(p["pos"]).round()
+	ci.draw_set_transform(b, 0.0, Vector2(1.0, 0.4))
+	ci.draw_circle(Vector2.ZERO, w + 2.5, Color(0, 0, 0, 0.35))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var tip := b + Vector2(lean * h, -h)
+	var mid := b + Vector2(lean * h * 0.3 + w * 0.4, -h * 0.55)
+	var outline := PackedVector2Array([b + Vector2(-w - 1, 1), mid + Vector2(-w * 0.6 - 1, 0), tip + Vector2(0, -1),
+		mid + Vector2(w * 0.6 + 1, 0), b + Vector2(w + 1, 1)])
+	ci.draw_colored_polygon(outline, C_OUTLINE)
+	ci.draw_colored_polygon(PackedVector2Array([b + Vector2(-w, 0), mid + Vector2(-w * 0.6, 0), tip,
+		mid + Vector2(w * 0.6, 0), b + Vector2(w, 0)]), C_WOOD[2])
+	ci.draw_colored_polygon(PackedVector2Array([b + Vector2(-w, 0), mid + Vector2(-w * 0.6, 0), tip,
+		mid + Vector2(-w * 0.1, 0), b + Vector2(-w * 0.2, 0)]), C_WOOD[3])
+	if h > 10.0:
+		ci.draw_rect(Rect2((mid + Vector2(w * 0.3, 2)).round(), Vector2(2, 1)), C_LEAF[1])
+
+
 func _draw_projectiles(ci: CanvasItem) -> void:
 	for pr in sim.projectiles:
 		var pp: Vector2 = pr["pos"]
 		var vel: Vector2 = pr["vel"]
+		if bool(pr.get("lob", false)):
+			_draw_pinecone(ci, pr)
+			continue
 		if _is_wave(pr):
 			_draw_wave(ci, pp.round(), vel)
 			continue
@@ -1299,6 +1495,35 @@ func _draw_projectiles(ci: CanvasItem) -> void:
 		var w := -16.0 if vel.x < 0.0 else 16.0
 		ci.draw_texture_rect_region(SHEET, Rect2(pp.round() + Vector2(-w * 0.5, -14), Vector2(w, 16)),
 			Rect2(frame * 16, 32, 16, 16))
+
+
+## Pinecone Bomb in flight: an arc over everyone, its shadow on the floor, and a ring
+## where it will land.
+func _draw_pinecone(ci: CanvasItem, pr: Dictionary) -> void:
+	var pp: Vector2 = pr["pos"]
+	var vel: Vector2 = pr["vel"]
+	var total := float(pr["time"])
+	var left := float(pr["life"])
+	var k := clampf(1.0 - left / total, 0.0, 1.0)
+	var land := pp + vel * left
+	var pulse := 0.5 + 0.5 * sin(_tick * 0.7)
+	ci.draw_set_transform(land, 0.0, Vector2(1.0, 0.42))
+	ci.draw_arc(Vector2.ZERO, float(pr["burst"]), 0.0, TAU, 32, Color(C_CONE[2], 0.25 + 0.35 * pulse * k), 1.0 / 0.42)
+	ci.draw_circle(Vector2.ZERO, lerpf(2.0, 6.0, k), Color(0, 0, 0, 0.25))
+	ci.draw_set_transform(pp, 0.0, Vector2(1.0, 0.42))
+	ci.draw_circle(Vector2.ZERO, 3.5, Color(0, 0, 0, 0.3))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var z := 12.0 + 4.0 * 26.0 * k * (1.0 - k)  # leaves the hand at about head height
+	z *= 1.0 - k * 0.55
+	var at := (pp + Vector2(0, -z)).round()
+	var rot := _tick * 0.35
+	ci.draw_set_transform(at, rot, Vector2.ONE)
+	ci.draw_rect(Rect2(-3, -4, 6, 8), C_OUTLINE)
+	ci.draw_rect(Rect2(-2, -3, 4, 6), C_CONE[1])
+	ci.draw_rect(Rect2(-2, -2, 4, 1), C_CONE[0])
+	ci.draw_rect(Rect2(-2, 1, 4, 1), C_CONE[0])
+	ci.draw_rect(Rect2(-1, -3, 1, 1), C_CONE[2])
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 ## Runoff as a rolling wave: a low swell with a curling crest and foam.

@@ -475,11 +475,67 @@ def avalanche():
     return mix(boom, rumble, rocks)
 
 
+# ---------------------------------------------------------------- Barkley
+
+def creak(d=0.4, f0=180, f1=120):
+    """Old wood bending: a slow, grainy squeak with a rough edge."""
+    grain = 1 + 0.5 * np.sign(np.sin(2 * np.pi * 38 * t(d)))
+    v = osc(sweep(f0, f1, d) * (1 + 0.03 * np.sin(2 * np.pi * 7 * t(d))), d, "saw") * grain
+    v = bandpass(np.tanh(v * 1.5), 250, 2200) * env(d, attack=0.05, curve=1.4)
+    return v * 0.8
+
+
+def snag():
+    """Branch Grab: a whip of a branch, a creak as it hooks on, a yank back."""
+    total = 0.5
+    out = at(swing(500, 2000, 0.14), 0.0, total)
+    out += at(creak(0.3, 260, 170), 0.1, total) * 0.8
+    out += at(thump(140, 70, 0.12) * 0.5, 0.12, total)
+    return out
+
+
+def pinecone():
+    """Pinecone Bomb lands: a dry crunchy pop and scattering scales."""
+    total = 0.45
+    pop = at(np.tanh(thump(220, 90, 0.18, 2.5) * 2.0) * 0.7, 0.0, total)
+    out = pop
+    for k in range(9):
+        c = (bandpass(noise(0.02), 1500, 5000) + osc(900 + 160 * k, 0.02) * 0.3) * env(0.02, curve=3)
+        out += at(c * 0.5, 0.03 + k * 0.03 + rng.uniform(0, 0.01), total)
+    return out
+
+
+def twister():
+    """Timber Twister's last hit: a gust of wind and a rush of rustling leaves."""
+    d = 0.7
+    gust = bandpass(noise(d), 300, 1800) * env(d, attack=0.15, curve=1.8)
+    rustle = bandpass(noise(d), 2500, 7000) * (0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 23 * t(d)))) \
+        * env(d, attack=0.05, curve=2.2) * 0.6
+    return mix(gust, rustle, at(thump(120, 60, 0.2) * 0.5, 0.0, d))
+
+
+def roots():
+    """Root Eruption: a deep rumble and wood splitting as roots burst out of the floor."""
+    total = 1.2
+    rumble = lowpass(noise(total), 180) * env(total, attack=0.05, curve=1.5) * 1.5
+    boom = at(np.tanh(thump(60, 30, 0.7, 1.6) * 3.0), 0.0, total)
+    out = mix(rumble, boom)
+    for k in range(6):
+        out += at(crack() * 0.35, 0.05 + k * 0.12, total)
+    return out
+
+
+def timber():
+    """A felled tree: a long creak as it leans over."""
+    return creak(0.9, 150, 70)
+
+
 # Added after the first batch, so they're generated last and the older placeholders
 # (which share one random stream) come out the same as before.
 NEW_SOUNDS = {
     "roar": roar, "stoneskin": stoneskin, "shield_break": shield_break, "lash": lash,
     "avalanche": avalanche,
+    "snag": snag, "pinecone": pinecone, "twister": twister, "roots": roots, "timber": timber,
 }
 
 

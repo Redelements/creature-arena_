@@ -56,8 +56,13 @@ sounds from any other game (see "Staying legally distinct" in the Game Plan).
 | [ ] | `shield_break` | Stoneskin shield breaks | Stone cracking off |
 | [ ] | `lash` | Boulder Lash hits | Whip crack + stone segments clattering |
 | [ ] | `avalanche` | Avalanche Coil crashes down | Deep boom, rocks raining and rolling |
+| [ ] | `snag` | Barkley's Branch Grab hooks someone | Branch whip, a creak, a yank |
+| [ ] | `pinecone` | Pinecone Bomb lands and bursts | Dry crunchy pop, scales scattering |
+| [ ] | `twister` | Timber Twister's last hit | Gust of wind, rustling leaves |
+| [ ] | `roots` | Root Eruption's roots burst out | Deep rumble, wood splitting |
+| [ ] | `timber` | Barkley's knockout | Long creak of a tree leaning over |
 
-Craglash is the first creature with signature sounds. Cries and footsteps don't exist
+Craglash and Barkley have signature sounds. Cries and footsteps don't exist
 yet; when the new roster arrives, add them to `data/audio.json` and this table.
 
 ## Music

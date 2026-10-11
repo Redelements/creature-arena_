@@ -3,12 +3,15 @@
 A real-time 2D creature brawler. Small pixel-art creatures fight live in a stadium,
 chaining attacks into combos while the floor cracks, breaks and opens into pits.
 
-Three fighters so far, each with a full moveset and a CPU opponent:
+Four fighters so far, each with a full moveset and a CPU opponent:
 
 - **Cairn**, a stack of river stones that boxes: fast strings, a counter, and a dash punch.
 - **Culvert**, a toad made of storm-drain concrete: grabs, shockwaves, and pits.
 - **Craglash**, a mountain that woke up angry: a tank with a stone neck that strikes from
   range, armor, a shield and a taunt. The first roster character from the artist's sheets.
+- **Barkley**, a thousand-year-old tree that got up and walked off: a bruiser who reels foes
+  in with a branch arm, spins, lobs pinecones and bursts roots out of the floor. The second
+  character from the artist's sheets.
 
 ![Demo: CPU Cairn vs CPU Culvert](docs/demo.gif)
 
@@ -31,7 +34,7 @@ From a terminal:
 godot --path .                          # menu
 godot --path . -- --mode=0 --level=2    # Cairn vs a Hard CPU Culvert
 godot --path . -- --mode=2              # watch CPU vs CPU
-godot --path . -- --showcase=craglash   # scripted demo: cairn, culvert, craglash or counterplay
+godot --path . -- --showcase=barkley    # scripted demo: cairn, culvert, craglash, barkley or counterplay
 godot --path . -- --mode=6              # Duel vs CPU with the default teams (add --pick to choose)
 ```
 
@@ -39,7 +42,7 @@ Modes: 0 Cairn vs CPU, 1 Culvert vs CPU, 2 CPU vs CPU, 3 training as Cairn, 4 tr
 5 combo showcases (each fighter's full kit, then how to answer the big moves, on a loop),
 6 Duel vs CPU, 7 Duel for 2 players, 8 Versus for 2 players, 9 Combo Trials,
 10 Reaction Drill (read Culvert), 11 Reaction Drill (read Cairn), 12 Craglash vs CPU Cairn,
-13 training as Craglash. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
+13 training as Craglash, 14 Barkley vs CPU Craglash, 15 training as Barkley. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
 sets Duel teams; `--cpu-vs-cpu` hands every player side to the CPU.
 
 **Local 2-player:** with two controllers, each player gets one (player 1 can also use the
@@ -103,7 +106,7 @@ at a time.
 
 - **Tag** sends the next living teammate in with its own tag-in strike (Cairn: Rockfall
   Entry, a dash punch; Culvert: Manhole Drop, a landing slam that launches; Craglash:
-  Landslide Entry, a charging headbutt). Tag from
+  Landslide Entry, a charging headbutt; Barkley: Timber Drop, a falling log bonk that launches). Tag from
   neutral or guard, then it's on a 5-second cooldown.
 - **Tag cancel:** tag out of an attack that hit, for 50 energy, and the tag-in strike
   carries the combo on.
@@ -118,7 +121,7 @@ be played online with rollback exactly like a single match. Tuning: `data/rules/
 
 ### Learning the game: Combo Trials and Reaction Drills
 
-- **Combo Trials** (`data/trials.json`, 10 so far): each trial plays a demo of the route,
+- **Combo Trials** (`data/trials.json`, 13 so far): each trial plays a demo of the route,
   then it's your turn. Every move must come out in order and connect, and the combo can't
   drop. The caption shows the route with your buttons and ticks off each move. F2 shows
   the demo again, F4 skips to the next trial.
@@ -138,7 +141,7 @@ full speed, so every combo below still works.
 | Glow | Means | Moves (windup) | Answer |
 | --- | --- | --- | --- |
 | **Red** + "!" | Can't be blocked | Gulp (12f), Slam (10f, breaks guard) | Roll away or through it, or hit them first |
-| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f), Runoff (6f), Rockslide Stomp (10f), Boulder Lash (8f) | Guard, then punish |
+| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f), Runoff (6f), Rockslide Stomp (10f), Boulder Lash (8f), Timber Twister (8f), Branch Grab (8f) | Guard, then punish |
 
 That puts at least 15 frames (a quarter second) between the glow and the hit, and a jab
 landed during a windup cancels the move. Surges freeze the screen for their cut-in: a
@@ -179,6 +182,23 @@ the body holds the line.
 | Surge | Avalanche Coil | The neck coils high overhead and crashes down on the marked spot ahead, cracking the floor and **stunning** (crumple) everything in it |
 | Passive | Stoneskin | A 14-point stone shield that soaks damage first; it grows back after 4 s without taking damage. Shown as a pale rim |
 
+### Barkley — the tree that got up and left
+
+A bruiser (135 HP, Wild affinity) with long branch arms: he pulls foes in, spins, and
+fills the space around him with pinecones and roots.
+
+| Button | Move | What it does |
+| --- | --- | --- |
+| Light | Twig Swipe, Bough Swing, Log Drop | Both branch arms swing across, then he tips forward and bonks with the log on his head |
+| Heavy | Timber Twister | Arms out, he spins on his roots: three hits all around him, the last one knocks up and away. Hold to charge (more damage, throws farther). Can't be cancelled until the last hit |
+| Skill 1 | Branch Grab | A branch arm shoots out to long range, snags, and **reels the target in** to point-blank, still stunned, so a light string links after it. Blockable; a blocked grab pulls nothing |
+| Skill 2 | Pinecone Bomb | Lobs a pinecone **over** anyone close; it lands 56 px ahead and bursts, popping up everything near the spot. A ring on the floor shows where |
+| Surge | Root Eruption | Plunges his arms into the floor: roots burst out in three growing rings (26, 40 and 54 px), all around him; the last ring stuns. Cracks the floor but opens no pits |
+
+The sheet gives Barkley no passive, so he has none.
+
+![Barkley's showcase: Branch Grab, the light string, Timber Twister, Pinecone Bomb, Root Eruption](docs/barkley_demo.gif)
+
 ### Combos to try
 
 | Fighter | Route | Damage |
@@ -192,6 +212,9 @@ the body holds the line.
 | Craglash | Rake, Backhand, Headbutt → Boulder Lash | 23 |
 | Craglash | Rake, Backhand, Headbutt → Rockslide Stomp → Boulder Lash | 33 |
 | Craglash | Rake, Backhand, Headbutt → Rockslide Stomp → Boulder Lash → Avalanche Coil | 57 |
+| Barkley | Twig, Bough, Log Drop → Timber Twister → Branch Grab | 38.6 |
+| Barkley | Twig, Bough, Log Drop → Timber Twister → Pinecone Bomb | 41.2 |
+| Barkley | Twig, Bough, Log Drop → Timber Twister → Branch Grab → Root Eruption | 74.6 |
 
 Every one of these is checked by an automated test (`tests/test_combos.gd`).
 
@@ -224,7 +247,7 @@ Visual effects are data too. Each move can carry an `fx` block (swipe smears, af
 charge-up particles, impacts like Avalanche's rock spire or Storm Drain's geysers) and each
 creature a `ko_fx` block that picks its death animation: Cairn's stack breaks apart and
 tumbles across the floor; Culvert cracks, gushes storm water and settles into rubble;
-Craglash's neck comes apart stone by stone. The
+Craglash's neck comes apart stone by stone; Barkley topples like a felled tree ("TIMBER!"). The
 keys are listed at the top of `src/view/fx_view.gd`. Effects only read the simulation, so
 they can never change a match, a replay or a test result. Knockouts also get a freeze
 frame, slow motion and a camera push-in, and Surges get a fighting-game cut-in.
@@ -238,10 +261,10 @@ godot --headless --path . --import
 godot --headless --path . --script res://tests/run_tests.gd
 ```
 
-97 tests cover the six example combos, every Combo Trial, both Reaction Drills, Duel rules, the three showcases, windups and counterplay,
+128 tests cover every example combo, every Combo Trial, both Reaction Drills, Duel rules, every showcase, windups and counterplay,
 rollback netcode (snapshots, and two simulated machines over a laggy, lossy connection), every combo rule (variety bonus, stale moves,
 hitstun decay, juggle cap, cancels on contact, stacks, energy, cooldowns, breakaway), grabs,
-Slip counters, shockwaves, the Storm Drain pit ring, terrain, determinism, replays, and the
+Slip counters, shockwaves, the Storm Drain pit ring, Barkley's pull, lob and root rings, terrain, determinism, replays, and the
 CPU (reproducible matches, uses its whole kit, Hard beats Easy), and the mouse and gamepad
 controls. A test that crashes counts as a failure. They run on every push via GitHub Actions.
 

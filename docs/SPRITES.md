@@ -26,7 +26,8 @@ Each view can have its own frame size and feet origin (`"views"` in the creature
 `"sprite"` block). Animations listed in `"side_only"` (all three use it for the knockout,
 which falls over sideways) always come from the side sheet, so those rows can stay empty
 in the other two. Preview: [`sprite_views_preview.png`](sprite_views_preview.png) (Cairn
-and Culvert, side/down/up) and [`craglash_views_preview.png`](craglash_views_preview.png).
+and Culvert, side/down/up), [`craglash_views_preview.png`](craglash_views_preview.png) and
+[`barkley_views_preview.png`](barkley_views_preview.png).
 
 ## Creatures — 48×48 frames, 6 columns
 
@@ -119,6 +120,47 @@ When the artist's final Craglash arrives, either keep this layout (then it drops
 change the `"sprite"` block in `data/creatures/craglash.json` to match theirs. Design
 note: keep the neck as flat slabs rimmed in red rather than round grey boulders, so it
 doesn't read as a chain of boulders from an existing franchise.
+
+### Barkley — 96×96 frames, 8 × 13 (768×1248 px)
+
+Barkley is the second creature from the artist's sheets. `tools/gen_barkley.py`
+recreates him as a small **3D puppet** (a trunk that forks into two leg-trunks with
+splayed roots, two long branch arms with twig fingers and leaf sprouts, a face with
+small blue eyes and a long nose, a moss beard, and the log across his head with its
+rings on the cut end), posed once and projected into all three sheets. That keeps the
+views in step, including Timber Twister, where the whole tree turns on its roots. The
+side sheet is a cheated 3/4 view: forward is drawn one to one so reach on screen
+matches reach in the simulation, while his sideways span is turned toward the camera
+so the arms and the log across his head still read. Feet at **x 40, y 90**. Up and down
+sheets (`barkley_down.png`, `barkley_up.png`) are **128×160** with the same rows minus
+the knockout, feet at x 64, y 112 (down) and y 124 (up). Eight columns because the
+spin needs them; `"select_scale"` in the sprite block shrinks his portrait on the team
+select (the log makes him tall for his frame).
+
+![Barkley sheet, 3x](barkley_preview.png)
+
+Facing down and up: [`barkley_views_preview.png`](barkley_views_preview.png).
+
+| Row | Animation | Frames | Notes |
+| --- | --- | --- | --- |
+| 0 | idle | 4 | the sheet's pose: one arm low, one raised in a curl; slow sway |
+| 1 | run | 6 | lumbering stride, arms swinging like boughs |
+| 2 | twig | 4 | Twig Swipe (light 1): right arm whips across |
+| 3 | bough | 4 | Bough Swing (light 2): left arm swings back the other way |
+| 4 | logdrop | 4 | Log Drop (light 3) and Timber Drop: rear back, tip forward, bonk with the log |
+| 5 | twister | 8 | Timber Twister: coil ×2 (charge), spin at 0°, 90°, 180°, 270°, slow, recover |
+| 6 | grab | 6 | Branch Grab: wind back, reach, full extension ×2, reel in, recover |
+| 7 | pinecone | 5 | Pinecone Bomb: pinecone in hand, overhead, throw, follow-through, recover |
+| 8 | eruption | 6 | Root Eruption: arms up ×3 (leaves glowing), plunge into the floor ×2, recover |
+| 9 | dodge | 4 | bow low under the swing |
+| 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
+| 11 | guard | 2 | branch arms crossed in front |
+| 12 | ko | 4 | stagger, then topples over backward like a felled tree, roots torn up |
+
+Moves time their frames with `"anim_at"` (`[[tick, frame], ...]` in the move's JSON),
+so the spin and the lob play exactly in step with the hits. Design note: the log across
+the head, the moss beard and the root feet are what make him read as Barkley; a round
+tree body with leafy hands would drift toward existing franchise creatures.
 
 ## Training dummy — 48×48 frames
 

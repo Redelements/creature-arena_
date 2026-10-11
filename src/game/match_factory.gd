@@ -3,7 +3,7 @@ extends RefCounted
 ## Builds matches from the creature definitions in data/creatures/.
 
 const CREATURE_DIR := "res://data/creatures/"
-const FIGHTERS := ["cairn", "culvert", "craglash"]
+const FIGHTERS := ["cairn", "culvert", "craglash", "barkley"]
 
 const SPAWN_LEFT := Vector2(170, 164)
 const SPAWN_RIGHT := Vector2(310, 164)

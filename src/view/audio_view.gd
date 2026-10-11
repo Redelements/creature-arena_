@@ -140,7 +140,14 @@ func on_event(e: Dictionary) -> void:
 			play("surge")
 			play("crowd_cheer", -2.0)
 		"projectile":
-			play("wave")
+			if bool(e.get("lob", false)):
+				play("swing_heavy", -2.0, 1.3)  # a pinecone tossed up
+			else:
+				play("wave")
+		"burst":
+			play("pinecone")
+		"pull":
+			play("snag")
 		"projectile_end":
 			play("splash", 0.0 if power >= 1.0 else -6.0)
 		"windup":

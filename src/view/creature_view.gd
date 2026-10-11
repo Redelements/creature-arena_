@@ -4,7 +4,8 @@ extends Node2D
 ## and adds the hit flash, charge glow, invulnerability blink, launch height,
 ## squash and stretch, and falling shrink. Frame layout comes from the "sprite" block in the creature's JSON,
 ## and each move names its animation with "anim", so new art with the same layout
-## drops in without code changes.
+## drops in without code changes. A move can also give "anim_at": [[tick, frame], ...]
+## to time its frames exactly (Barkley's spin and lob).
 ##
 ## Views: fighters can face any of 8 ways. The "sprite" block is the side view (facing
 ## right, mirrored for left). Optional "views": {"up": {...}, "down": {...}} add sheets
@@ -310,9 +311,17 @@ func _attack_frame() -> Array:
 	var segs: Array = mv.get("_segs", [])
 	var length := int(mv.get("length", 1))
 
-	if mv.has("charge_max"):  # heavies: two charge frames, then rise, strike, follow, recover
-		if c.charging:
-			return [name, (c.anim_t / 6) % 2, false]
+	if mv.has("charge_max") and c.charging:  # heavies: two charge frames while held
+		return [name, (c.anim_t / 6) % 2, false]
+
+	if mv.has("anim_at"):  # an explicit timeline: [[tick, frame], ...], each from its tick on
+		var f := 0
+		for pair in mv["anim_at"]:
+			if t >= int(pair[0]):
+				f = int(pair[1])
+		return [name, mini(f, n - 1), false]
+
+	if mv.has("charge_max"):  # then rise, strike, follow, recover
 		if t <= su:
 			return [name, mini(2, n - 1), false]
 		var act := int(mv.get("active", 1))

@@ -269,6 +269,7 @@ func hit_params(seg: int) -> Dictionary:
 		"slow_ticks": seg_value(seg, "slow_ticks"),
 		"slow_mult": float(mv.get("slow_mult", 1.0)),
 		"juggle_float": seg_value(seg, "juggle_float"),
+		"pull": seg_value(seg, "pull"),
 	}
 
 
@@ -633,6 +634,9 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 			var r: Dictionary = mv["terrain_ring"]
 			sim.terrain.damage_ring(pos, float(r["inner"]), float(r["outer"]))
 			sim.emit_event("slam", pos, 1.0)
+		if mv.has("terrain_crack"):
+			# Cracks the floor without opening holes (Root Eruption's roots break the surface).
+			sim.terrain.crack_circle(pos + facing * float(mv.get("reach", 0)), float(mv["terrain_crack"]))
 	if mv.has("projectile") and t == su + 1:
 		sim.spawn_projectile(self, mv)
 
@@ -660,7 +664,9 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 				return
 		else:
 			var mid := action_move(want)
-			if connected and move_rank(mid) > move_rank(move_id) and can_use(mid):
+			# A multi-hit move can hold its cancel back until its last hit ("rank_cancel_from").
+			if connected and move_rank(mid) > move_rank(move_id) and can_use(mid) \
+					and t >= int(mv.get("rank_cancel_from", 0)):
 				if dir != Vector2.ZERO:
 					facing = dir
 				_start_attack(mid, sim)

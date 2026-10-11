@@ -20,6 +20,12 @@
     {"fighter": "craglash", "name": "Stomp launcher",
      "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_1", "skill_1"]]},
     {"fighter": "craglash", "name": "Avalanche Coil finish", "energy": 100,
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_1", "skill_1"], ["surge", "surge"]]},
+    {"fighter": "barkley", "name": "Pinecone payoff",
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_2", "skill_2"]]},
+    {"fighter": "barkley", "name": "Reel them back",
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_1", "skill_1"]]},
+    {"fighter": "barkley", "name": "Root Eruption finish", "energy": 100,
      "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_1", "skill_1"], ["surge", "surge"]]}
   ]
 }

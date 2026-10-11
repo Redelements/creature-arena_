@@ -340,6 +340,15 @@ func _neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2,
 		_press(int(ACTION_BIT[poke]))
 		return
 
+	# A lob (Pinecone Bomb) lands a fixed distance ahead: throw it when the foe is about there.
+	var lob := String(ai.get("lob", ""))
+	var lr: Array = ai.get("lob_range", [0, 0])
+	if lob != "" and me.can_use(lob) and dist >= float(lr[0]) and dist <= float(lr[1]) \
+			and _roll(0.25 * float(p["aggression"]) + 0.05):
+		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
+		_press(int(ACTION_BIT[lob]))
+		return
+
 	# An area Surge (Storm Drain) works straight from neutral when the foe is close.
 	var surge_range := float(ai.get("surge_range", 0))
 	if surge_range > 0.0 and dist < surge_range and me.can_use("surge") and _roll(0.3 + 0.2 * level):
