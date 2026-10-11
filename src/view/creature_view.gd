@@ -190,6 +190,7 @@ func refresh() -> void:
 	if c.stone > 0 and c.state != CreatureSim.State.KO:
 		stone = 1.0 if c.stone > 20 or (c.anim_t / 3) % 2 == 0 else 0.5
 	mat.set_shader_parameter("stone", stone)
+	mat.set_shader_parameter("ice", c.stone_ice)
 
 	# Falling shrinks and darkens the creature into the pit.
 	var shade := 1.0

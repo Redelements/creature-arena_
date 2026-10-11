@@ -752,6 +752,57 @@ def finders():
     return mix(at(a, 0.0, total), at(b, 0.2, total))
 
 
+# ---------------------------------------------------------------- Sno Mercy
+
+def freeze():
+    """Frozen solid: a rising crackle of ice forming, a glassy ping on top."""
+    d = 0.7
+    out = np.zeros(int(SR * d))
+    for k in range(14):
+        c = highpass(noise(0.02), 4000) * env(0.02, curve=3) * (0.3 + k * 0.03)
+        out += at(c, k * 0.035 + rng.uniform(0, 0.01), d)
+    ping = (osc(2600, 0.5) * 0.4 + osc(3900, 0.5) * 0.2) * env(0.5, attack=0.01, curve=3.0) * 0.4
+    return mix(out, at(ping, 0.2, d))
+
+
+def shards():
+    """Shaved Ice Spray: an icy hiss with little crystal tinkles."""
+    d = 0.45
+    hiss = bandpass(noise(d), 4000, 10000) * env(d, attack=0.02, curve=1.8) * 0.5
+    out = hiss
+    for k in range(6):
+        f = rng.uniform(3500, 6000)
+        out = out + at(osc(f, 0.05) * env(0.05, curve=4) * 0.25, k * 0.06 + 0.03, d)
+    return out
+
+
+def slosh():
+    """Syrup Slick: a thick, sticky glug and splat."""
+    total = 0.45
+    glug = osc(sweep(220, 120, 0.25), 0.25, "sine") * env(0.25, attack=0.02, curve=2.0) * 0.6
+    splat = bandpass(noise(0.2), 300, 1500) * env(0.2, attack=0.005, curve=2.5) * 0.6
+    return mix(at(glug, 0.0, total), at(splat, 0.15, total))
+
+
+def melt():
+    """Sno Mercy's knockout: a slow sizzle and drip as he melts away."""
+    d = 1.0
+    sizzle = highpass(noise(d), 2500) * env(d, attack=0.05, curve=1.3) * 0.3
+    out = sizzle
+    for k in range(4):
+        out = out + at(osc(sweep(900, 500, 0.08), 0.08, "sine") * env(0.08, curve=3) * 0.4, 0.15 + k * 0.2, d)
+    return out
+
+
+def chill():
+    """Placeholder for his voice line ("Chill out."): a cold whistling gust; the real one is
+    his voice."""
+    d = 0.6
+    gust = bandpass(noise(d), 600, 2400) * env(d, attack=0.15, curve=1.5) * 0.6
+    tone = osc(sweep(900, 600, d), d, "sine") * env(d, attack=0.15, curve=1.5) * 0.2
+    return mix(gust, tone)
+
+
 # Added after the first batch, so they're generated last and the older placeholders
 # (which share one random stream) come out the same as before.
 NEW_SOUNDS = {
@@ -765,6 +816,7 @@ NEW_SOUNDS = {
     "shatter": shatter, "gaze": gaze,
     "dig": dig, "pop": pop, "flash": flash, "miss": miss, "cave_in": cave_in, "dig_it": dig_it,
     "coins": coins, "poof": poof, "finders": finders,
+    "freeze": freeze, "shards": shards, "slosh": slosh, "melt": melt, "chill": chill,
 }
 
 

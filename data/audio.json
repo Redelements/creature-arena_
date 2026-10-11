@@ -330,6 +330,31 @@
       "file": "res://assets/audio/finders.wav",
       "volume_db": -3,
       "pitch_jitter": 0.0
+    },
+    "freeze": {
+      "file": "res://assets/audio/freeze.wav",
+      "volume_db": -3,
+      "pitch_jitter": 0.04
+    },
+    "shards": {
+      "file": "res://assets/audio/shards.wav",
+      "volume_db": -6,
+      "pitch_jitter": 0.06
+    },
+    "slosh": {
+      "file": "res://assets/audio/slosh.wav",
+      "volume_db": -5,
+      "pitch_jitter": 0.08
+    },
+    "melt": {
+      "file": "res://assets/audio/melt.wav",
+      "volume_db": -5,
+      "pitch_jitter": 0.0
+    },
+    "chill": {
+      "file": "res://assets/audio/chill.wav",
+      "volume_db": -3,
+      "pitch_jitter": 0.0
     }
   }
 }
