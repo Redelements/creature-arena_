@@ -7,12 +7,42 @@ animation by name with its `"anim"` field.
 
 ![Current placeholder sheets](sprite_preview.png)
 
+## Three directions per creature
+
+Fighters face any of 8 ways, so every creature has **three sheets with the same rows**:
+
+| Sheet | Shows | Used when facing |
+| --- | --- | --- |
+| `name.png` | the side, facing **right** (mirrored for left) | left, right and the four diagonals |
+| `name_down.png` | the **front**, walking toward the camera | down the screen |
+| `name_up.png` | the **back**, walking away from the camera | up the screen |
+
+In the up and down sheets, "forward" is depth: a punch that reaches 20 px in front of
+the feet on the side sheet should land about 20 px below the feet (front view) or above
+them (back view), because that's where the hit lands in the game. Arms and heads that
+reach away from the camera go behind the body.
+
+Each view can have its own frame size and feet origin (`"views"` in the creature's JSON
+`"sprite"` block). Animations listed in `"side_only"` (all three use it for the knockout,
+which falls over sideways) always come from the side sheet, so those rows can stay empty
+in the other two. Preview: [`sprite_views_preview.png`](sprite_views_preview.png) (Cairn
+and Culvert, side/down/up) and [`craglash_views_preview.png`](craglash_views_preview.png).
+
 ## Creatures — 48×48 frames, 6 columns
 
 Creatures face **right**. Feet rest at the **origin** pixel (Culvert: x 21, y 43; Cairn:
 x 22, y 43), which sits on the ground where the shadow is drawn. The game mirrors the
 sprite to face left and raises it off its shadow when launched. Leave at least 1 px of
 transparent margin on every side. Unused cells stay transparent.
+
+Two effects read the art directly, so check them when sheets are replaced:
+
+- **Cairn's knockout** slices idle frame 0 into horizontal bands, one per stone, and
+  tumbles them separately. The band rows are `ko_fx.pieces` in `cairn.json` (head first),
+  and `ko_fx.x_eyes` marks where the eyes are so they can be drawn as X's. If the final
+  art moves the stones or the face, update those numbers.
+- **Surge cut-ins** show one frame of the Surge animation enlarged, picked by
+  `cut_in_frame` ([row, column]) in each creature's JSON.
 
 How the game plays a move's frames: on 4-frame attacks, frame 0 is the windup, 1 the
 strike, 2 the follow-through and 3 the recovery. Heavies use 6 frames: two charge frames
@@ -53,6 +83,42 @@ strike, 2 the follow-through and 3 the recovery. Heavies use 6 frames: two charg
 
 Design note for Cairn: keep it **tall and stacked**. A round boulder with two arms would
 read as an existing franchise creature.
+
+### Craglash — 96×96 frames, 6 × 13 (576×1248 px)
+
+Craglash is the first creature from the artist's character sheets. His sheet is a
+pixel recreation of that sheet made by `tools/gen_craglash.py`, a small puppet rig
+(torso, legs, arms, segmented neck, maned head) posed frame by frame, with the palette
+sampled from the artwork. Big frames because the neck reaches far: the head is 50 px
+in front of the feet on Boulder Lash and 75 px above them at the top of Avalanche Coil.
+Feet at **x 34, y 90**. Any creature can use a bigger frame by setting `"frame"` in its
+JSON; the game, the cut-in and the team select scale to it. His up and down sheets
+(`craglash_down.png`, `craglash_up.png`) are **128×160** frames with the same rows minus
+the knockout, feet at x 64, y 112 (down) and y 124 (up); the same rig draws them from
+the front and from behind.
+
+![Craglash sheet, 3x](craglash_preview.png)
+
+| Row | Animation | Frames | Notes |
+| --- | --- | --- | --- |
+| 0 | idle | 4 | arms up, neck swaying |
+| 1 | run | 6 | stomping walk cycle |
+| 2 | claw | 4 | Rake (light 1): front claw wind, swipe, follow-through, recover |
+| 3 | backhand | 4 | Backhand (light 2): the far arm swings across the body |
+| 4 | headbutt | 4 | Headbutt (light 3) and Landslide Entry: neck pulls back, head snaps forward |
+| 5 | stomp | 6 | Rockslide Stomp: charge A, charge B (foot raised), rise, stomp, impact, recover |
+| 6 | lash | 6 | Boulder Lash: coil back ×3, full extension, retract, recover |
+| 7 | bedrock | 4 | Bedrock: brace, rooted hold (cracks glowing), roar, stand |
+| 8 | coil | 6 | Avalanche Coil: neck rises, hooks overhead ×2, crash, impact, recover |
+| 9 | dodge | 4 | tuck, head pulled in low |
+| 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
+| 11 | guard | 2 | forearms crossed, head tucked behind them |
+| 12 | ko | 4 | stagger, topple, down, neck stones scattered |
+
+When the artist's final Craglash arrives, either keep this layout (then it drops in), or
+change the `"sprite"` block in `data/creatures/craglash.json` to match theirs. Design
+note: keep the neck as flat slabs rimmed in red rather than round grey boulders, so it
+doesn't read as a chain of boulders from an existing franchise.
 
 ## Training dummy — 48×48 frames
 

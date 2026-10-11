@@ -1,0 +1,25 @@
+{
+  "_doc": "Combo Trials. Each step names the button to press (light, heavy, skill_1, skill_2, surge) and the move that must come out; 'via' is a move allowed on the way (Slip before its counter). 'partner_jab' makes the partner throw jabs to counter. Every route here is also checked by tests/test_trials.gd.",
+  "trials": [
+    {"fighter": "cairn", "name": "Bread and butter",
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["skill_2", "skill_2"]]},
+    {"fighter": "cairn", "name": "Full string into launcher",
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["light", "light_4"], ["heavy", "heavy"]]},
+    {"fighter": "cairn", "name": "Counter punish", "partner_jab": true,
+     "route": [["skill_1", "slip_counter", "skill_1"], ["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["light", "light_4"], ["heavy", "heavy"]]},
+    {"fighter": "cairn", "name": "Avalanche finish", "energy": 100,
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_2", "skill_2"], ["surge", "surge"]]},
+    {"fighter": "culvert", "name": "Guard breaker",
+     "route": [["light", "light_1"], ["light", "light_2"], ["skill_1", "skill_1"]]},
+    {"fighter": "culvert", "name": "Shockwave",
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_2", "skill_2"]]},
+    {"fighter": "culvert", "name": "Storm Drain finish", "energy": 100,
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_2", "skill_2"], ["surge", "surge"]]},
+    {"fighter": "craglash", "name": "Rake to Lash",
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["skill_1", "skill_1"]]},
+    {"fighter": "craglash", "name": "Stomp launcher",
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_1", "skill_1"]]},
+    {"fighter": "craglash", "name": "Avalanche Coil finish", "energy": 100,
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_1", "skill_1"], ["surge", "surge"]]}
+  ]
+}

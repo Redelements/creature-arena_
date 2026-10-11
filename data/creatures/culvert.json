@@ -12,6 +12,11 @@
   "stamina_regen": 0.45,
   "dodge": { "frames": 20, "iframes_start": 2, "iframes_end": 13, "speed": 3.0, "cost": 28 },
   "guard": { "reduction": 0.8, "drain_per_damage": 2.0, "speed_mult": 0.35, "break_stun": 55 },
+  "fx_height": 14,
+  "fx_top": 26,
+  "fx_color": "#549cd0",
+  "cut_in_frame": [10, 2],
+  "ko_fx": { "style": "crack", "body_z": 12, "body_rx": 13, "body_ry": 9, "cracks": 6, "puddle": 30 },
   "sprite": {
     "path": "res://assets/sprites/culvert.png",
     "frame": 48,
@@ -29,6 +34,11 @@
       "gulp": [8, 0, 4],
       "runoff": [9, 0, 4],
       "storm": [10, 0, 6]
+    },
+    "side_only": ["ko"],
+    "views": {
+      "down": { "path": "res://assets/sprites/culvert_down.png", "origin": [24, 43] },
+      "up": { "path": "res://assets/sprites/culvert_up.png", "origin": [24, 43] }
     }
   },
   "ai": {
@@ -46,26 +56,37 @@
     ]
   },
   "moves": {
+    "tag_in": {
+      "name": "Manhole Drop", "type": "skill", "anim": "storm", "anim_from": 3,
+      "startup": 8, "active": 4, "recovery": 18,
+      "damage": 7, "knockback": 2.4, "hitstun": 26, "hitstop": 8, "launch": 22,
+      "reach": 6, "hit_radius": 20, "juggle": true,
+      "terrain_radius": 10,
+      "fx": { "smear": "arc", "size": 1.4 }
+    },
     "light_1": {
       "name": "Jab", "anim": "light",
       "startup": 5, "active": 3, "recovery": 10, "cancel_from": 9,
       "damage": 4, "knockback": 1.2, "hitstun": 16, "hitstop": 4,
-      "reach": 16, "hit_radius": 10, "lunge": 0.8, "next": "light_2"
+      "reach": 16, "hit_radius": 10, "lunge": 0.8, "next": "light_2",
+      "fx": { "smear": "thrust", "size": 1.1 }
     },
     "light_2": {
       "name": "Jab", "anim": "light",
       "startup": 5, "active": 3, "recovery": 11, "cancel_from": 9,
       "damage": 5, "knockback": 1.4, "hitstun": 18, "hitstop": 5,
-      "reach": 16, "hit_radius": 10, "lunge": 0.9, "next": "light_3"
+      "reach": 16, "hit_radius": 10, "lunge": 0.9, "next": "light_3",
+      "fx": { "smear": "thrust", "size": 1.1 }
     },
     "light_3": {
       "name": "Hook", "anim": "light",
       "startup": 8, "active": 4, "recovery": 20,
       "damage": 9, "knockback": 3.4, "hitstun": 30, "hitstop": 7,
-      "reach": 18, "hit_radius": 12, "lunge": 1.4, "next": ""
+      "reach": 18, "hit_radius": 12, "lunge": 1.4, "next": "",
+      "fx": { "smear": "arc", "size": 1.3 }
     },
     "heavy": {
-      "name": "Slam", "anim": "heavy",
+      "name": "Slam", "anim": "heavy", "windup": 10, "tell": "guard_break",
       "charge_max": 45, "startup": 7, "active": 4, "recovery": 26,
       "damage": 10, "damage_charged": 24,
       "knockback": 2.2, "knockback_charged": 7.0,
@@ -73,19 +94,22 @@
       "hitstop": 8, "hitstop_charged": 14,
       "reach": 20, "hit_radius": 18, "guard_break": true, "juggle": true,
       "terrain_radius": 14, "terrain_radius_charged": 30, "terrain_core_charged": 13,
-      "lunge": 0
+      "lunge": 0,
+      "fx": { "charge": "drips" }
     },
     "skill_1": {
-      "name": "Gulp", "anim": "gulp", "cooldown": 300,
+      "name": "Gulp", "anim": "gulp", "windup": 12, "tell": "unblockable", "cooldown": 300,
       "startup": 6, "active": 4, "recovery": 24,
       "damage": 12, "knockback": 1.5, "knockdown": 30, "hitstop": 10,
-      "reach": 14, "hit_radius": 12, "grab": true, "lunge": 1.0
+      "reach": 14, "hit_radius": 12, "grab": true, "lunge": 1.0,
+      "fx": { "suction": true }
     },
     "skill_2": {
-      "name": "Runoff", "anim": "runoff", "cooldown": 240,
+      "name": "Runoff", "anim": "runoff", "windup": 6, "tell": "strong", "cooldown": 240,
       "startup": 10, "active": 0, "recovery": 20,
       "damage": 7, "knockback": 1.0, "hitstun": 20, "hitstop": 6, "launch": 28,
-      "projectile": { "speed": 3.2, "life": 40, "radius": 8, "offset": 14 }
+      "projectile": { "speed": 3.2, "life": 40, "radius": 8, "offset": 14 },
+      "fx": { "projectile": "wave" }
     },
     "surge": {
       "name": "Storm Drain", "anim": "storm", "energy_cost": 100,
@@ -93,7 +117,8 @@
       "damage": 30, "knockback": 5.0, "knockdown": 30, "hitstop": 14,
       "reach": 0, "hit_radius": 46, "juggle": true,
       "dash": { "speed": 1.4, "from": 1, "to": 14 },
-      "terrain_ring": { "inner": 24, "outer": 40 }
+      "terrain_ring": { "inner": 24, "outer": 40 },
+      "fx": { "rain": true, "telegraph": true, "impact": "geysers" }
     }
   }
 }

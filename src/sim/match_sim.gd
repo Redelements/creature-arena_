@@ -18,6 +18,13 @@ const ENERGY_PER_DAMAGE_TAKEN := 1.0
 
 var tick := 0
 var hitstop := 0
+## Knockout presentation lives in the simulation (not the view) so every player sees it
+## on the same ticks: a full freeze, then slow motion where every other tick is skipped.
+## Inputs are buffered throughout, as in hitstop.
+var ko_freeze := 0
+var slowmo := 0
+var ko_freeze_ticks := 18
+var ko_slowmo_ticks := 70
 var terrain := TerrainGrid.new()
 var creatures: Array[CreatureSim] = []
 var projectiles: Array[Dictionary] = []
@@ -34,11 +41,25 @@ func emit_event(kind: String, p: Vector2, power: float, extra := {}) -> void:
 	var e := {"type": kind, "pos": p, "power": power, "tick": tick}
 	e.merge(extra)
 	events.append(e)
+	if kind == "ko":
+		var who := int(extra.get("who", -1))
+		if who < 0 or who >= creatures.size() or not creatures[who].is_dummy:
+			ko_freeze = maxi(ko_freeze, ko_freeze_ticks)
+			slowmo = maxi(slowmo, ko_slowmo_ticks)
 
 
 func step(inputs: PackedInt32Array) -> void:
 	events.clear()
 	tick += 1
+	if ko_freeze > 0:
+		ko_freeze -= 1
+		_buffer_all(inputs)
+		return
+	if slowmo > 0:
+		slowmo -= 1
+		if slowmo % 2 == 1:
+			_buffer_all(inputs)
+			return
 	if hitstop > 0:
 		# Freeze-frame on impact: nothing moves, but presses are buffered.
 		hitstop -= 1
@@ -54,6 +75,11 @@ func step(inputs: PackedInt32Array) -> void:
 	_check_falls()
 
 
+func _buffer_all(inputs: PackedInt32Array) -> void:
+	for i in creatures.size():
+		creatures[i].buffer_input(_input(inputs, i), self)
+
+
 func nearest_opponent(c: CreatureSim) -> CreatureSim:
 	var best: CreatureSim = null
 	var best_d := INF
@@ -67,18 +93,56 @@ func nearest_opponent(c: CreatureSim) -> CreatureSim:
 	return best
 
 
-## A fingerprint of the full match state, used by the determinism and replay tests.
-func state_hash() -> int:
-	var parts: Array = [tick, hitstop, terrain.version, hash(terrain.cells)]
+## Everything that changes during a match, for rollback netcode: restore(snapshot())
+## puts the match back exactly as it was. Creature definitions aren't copied (they
+## never change), and events aren't either (they're rebuilt every step).
+func snapshot() -> Dictionary:
+	var cs: Array = []
 	for c in creatures:
-		parts.append_array([
-			snappedf(c.pos.x, 0.001), snappedf(c.pos.y, 0.001),
-			snappedf(c.hp, 0.001), snappedf(c.stamina, 0.001), snappedf(c.energy, 0.001),
-			c.state, c.state_t, c.move_id, c.charge, c.stack, c.combo_hits])
+		cs.append(c.save_state())
+	return {
+		"tick": tick, "hitstop": hitstop, "ko_freeze": ko_freeze, "slowmo": slowmo,
+		"cells": terrain.cells.duplicate(), "timers": terrain.timers.duplicate(),
+		"terrain_version": terrain.version,
+		"creatures": cs, "projectiles": projectiles.duplicate(true),
+	}
+
+
+func restore(s: Dictionary) -> void:
+	tick = int(s["tick"])
+	hitstop = int(s["hitstop"])
+	ko_freeze = int(s["ko_freeze"])
+	slowmo = int(s["slowmo"])
+	terrain.cells = PackedByteArray(s["cells"]).duplicate()
+	terrain.timers = PackedInt32Array(s["timers"]).duplicate()
+	terrain.version = maxi(terrain.version, int(s["terrain_version"])) + 1  # forces a redraw
+	var cs: Array = s["creatures"]
+	for i in creatures.size():
+		creatures[i].load_state(cs[i])
+	projectiles.assign((s["projectiles"] as Array).duplicate(true))
+	events.clear()
+
+
+## An exact fingerprint of the match state (SHA-256 of its bytes). Floats are hashed
+## bit for bit, so two machines only agree if they computed identical results; this
+## is what online play checks to catch desyncs.
+func state_digest() -> String:
+	var parts: Array = [tick, hitstop, ko_freeze, slowmo, terrain.cells, terrain.timers]
+	for c in creatures:
+		var st := c.save_state()
+		for f in CreatureSim.STATE_FIELDS:
+			parts.append(st[f])
 	for p in projectiles:
-		var pp: Vector2 = p["pos"]
-		parts.append_array([snappedf(pp.x, 0.001), snappedf(pp.y, 0.001), p["life"]])
-	return hash(str(parts))
+		parts.append_array([p["pos"], p["vel"], p["life"], p["owner"], p["serial"]])
+	var ctx := HashingContext.new()
+	ctx.start(HashingContext.HASH_SHA256)
+	ctx.update(var_to_bytes(parts))
+	return ctx.finish().hex_encode()
+
+
+## A short form of state_digest(), used by the determinism and replay tests.
+func state_hash() -> int:
+	return hash(state_digest())
 
 
 static func _input(inputs: PackedInt32Array, i: int) -> int:
@@ -139,11 +203,23 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	var damage := float(hit["damage"])
 	var gd: Dictionary = d.def["guard"]
 
+	# Armor (Bedrock): the hit only chips, and the target doesn't flinch or move.
+	if d.is_armored() and not bool(hit["grab"]):
+		var ar: Dictionary = d.move_def()["armor"]
+		var taken := d.take_damage(damage * (1.0 - float(ar.get("reduction", 0.6))), self)
+		d.flash = 3
+		a.energy = minf(CreatureSim.MAX_ENERGY, a.energy + taken * ENERGY_PER_DAMAGE)
+		if same_attack:
+			a.connected = true
+		hitstop = maxi(hitstop, int(float(hit["hitstop"]) * 0.6))
+		emit_event("armor", fx_pos, taken, {"attacker": a.id, "target": d.id})
+		d.check_ko(self)
+		return "armor"
+
 	if d.state == CreatureSim.State.GUARD and not bool(hit["grab"]):
 		var facing_attacker := d.facing.dot(-push) > 0.3
 		if facing_attacker and not bool(hit["guard_break"]):
-			var chip := damage * (1.0 - float(gd["reduction"]))
-			d.hp -= chip
+			var chip := d.take_damage(damage * (1.0 - float(gd["reduction"])), self)
 			d.stamina -= damage * float(gd["drain_per_damage"])
 			d.knock_vel = push * float(hit["knockback"]) * 0.4 / d.weight
 			d.guard_hit = 10
@@ -179,8 +255,12 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	var total := (damage + bonus) * variety * stale
 	var stun := int(round(float(hit["hitstun"]) * maxf(HITSTUN_FLOOR, 1.0 - HITSTUN_DECAY * (n - 1)) * stale))
 
-	d.hp -= total
+	d.take_damage(total, self)
 	d.flash = 6
+	if float(hit.get("slow_ticks", 0.0)) > 0.0:
+		d.slow = maxi(d.slow, int(hit["slow_ticks"]))
+		d.slow_mult = float(hit["slow_mult"])
+		emit_event("slow", d.pos, float(hit["slow_ticks"]), {"who": d.id})
 	d.combo_hits = n
 	d.combo_types = types
 	d.combo_moves[move_key] = int(hit["serial"])
@@ -217,7 +297,8 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		else:
 			d.enter_air(int(hit["launch"]), kb * 0.5)
 	elif was_air:
-		d.extend_air(CreatureSim.JUGGLE_FLOAT, kb * 0.5)
+		var float_t := int(hit.get("juggle_float", 0.0))
+		d.extend_air(float_t if float_t > 0 else CreatureSim.JUGGLE_FLOAT, kb * 0.5)
 	elif float(hit["crumple"]) > 0.0:
 		d.enter_crumple(int(hit["crumple"]), kb)
 	elif broke_guard:
@@ -323,9 +404,11 @@ func _separate() -> void:
 			if dist >= min_d:
 				continue
 			var n := d / dist if dist > 0.0001 else Vector2.RIGHT
-			var push := (min_d - dist) * 0.5
-			a.pos -= n * push
-			b.pos += n * push
+			# A rooted creature (Bedrock) doesn't budge; the other one takes the whole push.
+			var share_a := 0.0 if a.is_armored() else (1.0 if b.is_armored() else 0.5)
+			var overlap := min_d - dist
+			a.pos -= n * overlap * share_a
+			b.pos += n * overlap * (1.0 - share_a)
 			a.clamp_to_floor()
 			b.clamp_to_floor()
 
