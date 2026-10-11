@@ -315,6 +315,12 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		var fr := CreatureSim.AIR_FRICTION if d.is_airborne() else CreatureSim.FRICTION
 		d.knock_vel = (a.pos - d.pos).normalized() * maxf(0.0, gap) * (1.0 - fr)
 		emit_event("pull", d.pos, gap, {"attacker": a.id, "target": d.id})
+	# A reel (Cast Line) is the other way round: the attacker is hauled in to the target.
+	var reel := float(hit.get("reel", 0.0))
+	if reel > 0.0 and same_attack and d.pos.distance_squared_to(a.pos) > 0.0001:
+		var gap := d.pos.distance_to(a.pos) - (a.radius + d.radius + reel)
+		a.start_reel(d, reel, maxf(1.0, float(hit.get("reel_speed", 5.0))))
+		emit_event("reel", a.pos, gap, {"attacker": a.id, "target": d.id})
 
 	hitstop = maxi(hitstop, int(hit["hitstop"]))
 	emit_event("hit", fx_pos, total, {
@@ -368,6 +374,8 @@ func spawn_projectile(owner: CreatureSim, mv: Dictionary) -> void:
 		"hit": hit,
 		"last_cell": Vector2i(-99, -99),
 	}
+	if not bool(p.get("crack_trail", true)):
+		pr["no_crack"] = true
 	if lob:
 		pr["lob"] = true
 		pr["time"] = life
@@ -396,10 +404,10 @@ func _step_projectiles() -> void:
 		p["pos"] = pos
 		p["life"] = int(p["life"]) - 1
 		if int(p["life"]) <= 0 or not fr.grow(-2.0).has_point(pos):
-			emit_event("projectile_end", pos, 0.0)
+			emit_event("projectile_end", pos, 0.0, {"who": int(p["owner"])})
 			continue
 		var cell := terrain.world_to_cell(pos)
-		if cell != p["last_cell"]:
+		if cell != p["last_cell"] and not bool(p.get("no_crack", false)):
 			p["last_cell"] = cell
 			terrain.crack_cell(cell)
 		var owner := creatures[int(p["owner"])]
@@ -415,7 +423,7 @@ func _step_projectiles() -> void:
 			spent = true
 			break
 		if spent:
-			emit_event("projectile_end", pos, 1.0)
+			emit_event("projectile_end", pos, 1.0, {"who": int(p["owner"])})
 		else:
 			keep.append(p)
 	projectiles = keep
@@ -468,7 +476,7 @@ func _separate() -> void:
 func _check_falls() -> void:
 	for c in creatures:
 		if c.state in [CreatureSim.State.FALLING, CreatureSim.State.KO,
-				CreatureSim.State.DODGE, CreatureSim.State.AIRBORNE]:
+				CreatureSim.State.DODGE, CreatureSim.State.AIRBORNE] or c.is_leaping() or c.reel_t > 0:
 			continue
 		if c.invuln > 0 and c.state != CreatureSim.State.KNOCKDOWN:
 			continue

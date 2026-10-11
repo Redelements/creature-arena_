@@ -205,6 +205,21 @@
       "file": "res://assets/audio/timber.wav",
       "volume_db": -4,
       "pitch_jitter": 0.0
+    },
+    "flop": {
+      "file": "res://assets/audio/flop.wav",
+      "volume_db": -8,
+      "pitch_jitter": 0.12
+    },
+    "reel": {
+      "file": "res://assets/audio/reel.wav",
+      "volume_db": -6,
+      "pitch_jitter": 0.04
+    },
+    "bellyflop": {
+      "file": "res://assets/audio/bellyflop.wav",
+      "volume_db": -3,
+      "pitch_jitter": 0.03
     }
   }
 }

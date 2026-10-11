@@ -27,7 +27,8 @@ Each view can have its own frame size and feet origin (`"views"` in the creature
 which falls over sideways) always come from the side sheet, so those rows can stay empty
 in the other two. Preview: [`sprite_views_preview.png`](sprite_views_preview.png) (Cairn
 and Culvert, side/down/up), [`craglash_views_preview.png`](craglash_views_preview.png) and
-[`barkley_views_preview.png`](barkley_views_preview.png).
+[`barkley_views_preview.png`](barkley_views_preview.png) and
+[`gillbert_views_preview.png`](gillbert_views_preview.png).
 
 ## Creatures — 48×48 frames, 6 columns
 
@@ -161,6 +162,45 @@ Moves time their frames with `"anim_at"` (`[[tick, frame], ...]` in the move's J
 so the spin and the lob play exactly in step with the hits. Design note: the log across
 the head, the moss beard and the root feet are what make him read as Barkley; a round
 tree body with leafy hands would drift toward existing franchise creatures.
+
+### Gillbert — 128×128 frames, 8 × 13 (1024×1664 px)
+
+Gillbert is the third creature from the artist's sheets. `tools/gen_gillbert.py` builds
+him on Barkley's 3D approach: a fish body as a tube along a bendable spine (curl, arch,
+side-to-side wiggle, roll onto his side), the red-and-white life ring split into the
+half behind him and the half in front, fins, barbels, an orange eye on each side, the
+line tangled round his body, and the **rod as its own rigid piece** with a position and
+spin in every pose. A pose that tips his nose up lifts him so the tail stays on the floor.
+He always wears the ring, and it is much bigger than he is thick (it shows above his back and
+below his belly). Side-on its far half goes behind his body and its near half crosses in front,
+kept wide enough to read however he turns; head-on or from behind he is split at the ring, so
+the end nearer the camera is drawn over it and the far end under it. Feet (belly) at **x 70, y 112**; big frames because the rod flies out in front on Cast Line
+and tumbles far behind on the run. Up and down sheets (`gillbert_down.png`,
+`gillbert_up.png`) are **96×144**, feet at x 48, y 92 (down) and y 76 (up).
+
+![Gillbert sheet, 3x](gillbert_preview.png)
+
+Facing down and up: [`gillbert_views_preview.png`](gillbert_views_preview.png). The run in
+all three views: [`gillbert_run.gif`](gillbert_run.gif).
+
+| Row | Animation | Frames | Notes |
+| --- | --- | --- | --- |
+| 0 | idle | 4 | lying on his belly, gills working, tail flicking, a little twitch hop |
+| 1 | run | 8 | a flop: curl, spring, arch in the air, nose down, slap, bounce, settle; the rod tumbles end over end behind |
+| 2 | jab | 4 | Snout Jab (light 1): rear back, nose bonk ×2, recover |
+| 3 | whip | 4 | Tail Whip (light 2): a half turn so the tail lashes across in front |
+| 4 | flail | 6 | Rod Flail (light 3): the rod swings up on its line, over him and down in front |
+| 5 | splash | 6 | Splash Zone: charge A, charge B (tail high), rise, slap, splash, recover |
+| 6 | flopdash | 4 | Flop Dash: coil, launch, skid, recover |
+| 7 | cast | 6 | Cast Line: rod back, over the top, thrown, follow-through without the rod (the game draws it in flight), being reeled in (shown while the line hauls him), recover |
+| 8 | leap | 6 | The One That Got Away (and Splashdown from frame 3): crouch, spring, straight up, falling belly-first, belly-flop, recover; `"view_lift"` raises him off the screen |
+| 9 | dodge | 4 | a sideways flip in a hop |
+| 10 | hurt | 2 | recoil; frame 1 (on his side) doubles as the crumple pose |
+| 11 | guard | 2 | curled up behind the life ring |
+| 12 | ko | 4 | a last flop, then on his side with the rod across him |
+
+Design note: the life ring, the barbels and the rod on its line are what make him read as
+Gillbert, not as a fish from an existing franchise.
 
 ## Training dummy — 48×48 frames
 

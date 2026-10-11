@@ -56,11 +56,11 @@ xvfb-run -a ... $G --rendering-driver opengl3 --path . --write-movie /tmp/out.av
 ```
 
 Useful flags (after `--`): `--mode=0..8`, `--level=0..2`, `--seed=N`,
-`--showcase=cairn|culvert|craglash|barkley|angles|counterplay`, `--autoplay`, `--hitboxes`, `--cpu-vs-cpu` (CPU
+`--showcase=cairn|culvert|craglash|barkley|gillbert|angles|counterplay`, `--autoplay`, `--hitboxes`, `--cpu-vs-cpu` (CPU
 plays every player side, for captures), `--pick` (show the team pick screen),
 `--teams=a,b,c:d,e,f`. Modes: 5 showcases, 6 Duel vs CPU, 7 Duel 2P, 8 Versus 2P,
 9 Combo Trials, 10/11 Reaction Drills, 12 Craglash vs CPU, 13 Craglash training,
-14 Barkley vs CPU, 15 Barkley training.
+14 Barkley vs CPU, 15 Barkley training, 16 Gillbert vs CPU, 17 Gillbert training.
 Matches are deterministic, so a seed reproduces a CPU match exactly.
 
 ## Layout
@@ -74,7 +74,7 @@ src/net/    rollback_session (GGPO-style), sim_check (cross-platform fingerprint
 src/game/   main (flow, camera), team_select, showcase, trials, drills, controls, match_factory
 data/       creatures/*.json, rules/duel.json, trials.json, audio.json
 tests/      run_tests.gd auto-runs every tests/test_*.gd
-tools/      gen_sprites.py, gen_audio.py (placeholders), gen_craglash.py, gen_barkley.py (sheet recreations)
+tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gillbert.py (sheet recreations)
 ```
 
 ## Workflow
@@ -97,10 +97,12 @@ tools/      gen_sprites.py, gen_audio.py (placeholders), gen_craglash.py, gen_ba
   mapped onto Light/Heavy/Skill 1/Skill 2/Surge plus a passive (only when the sheet has
   one), and new mechanics added to the sim as data keys (`stoneskin`, `armor`, `taunt`,
   `slow_ticks`, `juggle_float`; Barkley added `pull`, lobbed `projectile`s, `terrain_crack`
-  and `rank_cancel_from`). Barkley's generator (`tools/gen_barkley.py`) poses a 3D
+  and `rank_cancel_from`; Gillbert added `reel`/`reel_speed` (the attacker is hauled to the target at a steady speed)
+  and `leap` (an invulnerable, bodiless window that sails over pits)). Barkley's generator (`tools/gen_barkley.py`) poses a 3D
   puppet once and projects it into all three views; prefer that for new characters.
-  Moves can time their frames with `"anim_at"`. The sheet's "type" maps to the Game
-  Plan's affinities, never to a type chart (Barkley's Grass is Wild).
+  Moves can time their frames with `"anim_at"` and lift the sprite with `"view_lift"`
+  (cosmetic; Gillbert's leap); `"step_sound"` gives a creature footsteps. The sheet's "type" maps to the Game
+  Plan's affinities, never to a type chart (Barkley's Grass is Wild, Gillbert's Water is Tide).
   **Every character needs three sheets with the same rows:** side, facing down (front)
   and facing up (back); `"views"` in the sprite JSON, chosen by facing in
   `CreatureView`. Forward reach becomes screen depth in the up/down art. All the generators

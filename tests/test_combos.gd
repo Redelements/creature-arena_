@@ -123,3 +123,29 @@ func test_barkley_full_meter() -> void:
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"],
 		[S1, "skill_1"], [SU, "surge"]])
 	assert_near(dmg, 17 + 4 * 1.15 * 3 + 6 * 1.3 + (7 + 7 + 10) * 1.5, 0.05, "... > Root Eruption:")
+
+
+## Gillbert (left) facing Cairn at close range.
+func _gillbert() -> MatchSim:
+	var sim := MatchFactory.versus("gillbert", "cairn")
+	sim.creatures[0].pos = Vector2(220, 164)
+	sim.creatures[1].pos = Vector2(220 + sim.creatures[0].radius + sim.creatures[1].radius + 2, 164)
+	return sim
+
+
+func test_gillbert_flop_chain() -> void:
+	var dmg := route(_gillbert(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [S1, "skill_1"]])
+	assert_near(dmg, 15 + 8 * 1.15, 0.05, "Snout Jab, Tail Whip, Rod Flail > Flop Dash:")
+
+
+func test_gillbert_splash_and_dash() -> void:
+	var dmg := route(_gillbert(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S1, "skill_1"]])
+	assert_near(dmg, 15 + 6 * 1.15 + 8 * 1.3, 0.05, "3 lights > Splash Zone > Flop Dash:")
+
+
+func test_gillbert_full_meter() -> void:
+	var sim := _gillbert()
+	sim.creatures[0].energy = 100.0
+	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"],
+		[S1, "skill_1"], [SU, "surge"]])
+	assert_near(dmg, 15 + 6 * 1.15 + 8 * 1.3 + 22 * 1.5, 0.05, "... > The One That Got Away:")

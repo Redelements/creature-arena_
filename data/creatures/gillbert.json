@@ -1,0 +1,133 @@
+{
+  "id": "gillbert",
+  "name": "Gillbert",
+  "title": "Hooked, yanked out of the river, still flopping",
+  "affinity": "tide",
+  "role": "skirmisher",
+  "max_hp": 110,
+  "speed": 2.25,
+  "accel": 0.42,
+  "radius": 9,
+  "weight": 0.85,
+  "stamina": 100,
+  "stamina_regen": 0.55,
+  "dodge": { "frames": 16, "iframes_start": 2, "iframes_end": 11, "speed": 3.6, "cost": 20 },
+  "guard": { "reduction": 0.78, "drain_per_damage": 2.1, "speed_mult": 0.45, "break_stun": 56 },
+  "fx_height": 12,
+  "fx_top": 26,
+  "fx_color": "#b4e626",
+  "cut_in_frame": [8, 2],
+  "ko_fx": { "style": "flop" },
+  "step_sound": { "sound": "flop", "every": 20, "volume_db": -8 },
+  "sprite": {
+    "path": "res://assets/sprites/gillbert.png",
+    "frame": 128,
+    "cols": 8,
+    "origin": [70, 112],
+    "anims": {
+      "idle": [0, 0, 4],
+      "run": [1, 0, 8],
+      "jab": [2, 0, 4],
+      "whip": [3, 0, 4],
+      "flail": [4, 0, 6],
+      "splash": [5, 0, 6],
+      "flopdash": [6, 0, 4],
+      "cast": [7, 0, 6],
+      "leap": [8, 0, 6],
+      "dodge": [9, 0, 4],
+      "hurt": [10, 0, 2],
+      "guard": [11, 0, 2],
+      "ko": [12, 0, 4]
+    },
+    "side_only": ["ko"],
+    "select_scale": 0.5,
+    "views": {
+      "down": { "path": "res://assets/sprites/gillbert_down.png", "frame": [96, 144], "origin": [48, 92] },
+      "up": { "path": "res://assets/sprites/gillbert_up.png", "frame": [96, 144], "origin": [48, 76] }
+    }
+  },
+  "ai": {
+    "range": 18,
+    "poke": "skill_2",
+    "poke_range": [40, 110],
+    "surge_range": 46,
+    "routes": [
+      ["light", "light", "light", "heavy", "skill_1", "surge"],
+      ["light", "light", "light", "heavy", "skill_1"],
+      ["light", "light", "light", "skill_1"],
+      ["light", "light", "light"]
+    ]
+  },
+  "moves": {
+    "tag_in": {
+      "name": "Splashdown", "type": "skill", "anim": "leap", "anim_from": 3,
+      "startup": 8, "active": 4, "recovery": 16,
+      "damage": 6, "knockback": 2.4, "hitstun": 24, "hitstop": 7, "launch": 22,
+      "reach": 4, "hit_radius": 18, "juggle": true,
+      "fx": { "impact": "splash" }
+    },
+    "light_1": {
+      "name": "Snout Jab", "anim": "jab",
+      "startup": 4, "active": 2, "recovery": 9, "cancel_from": 7,
+      "damage": 4, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
+      "reach": 16, "hit_radius": 10, "lunge": 1.2, "next": "light_2", "juggle": true,
+      "fx": { "smear": "thrust" }
+    },
+    "light_2": {
+      "name": "Tail Whip", "anim": "whip",
+      "startup": 5, "active": 3, "recovery": 10, "cancel_from": 8,
+      "damage": 5, "knockback": 1.0, "hitstun": 18, "hitstop": 4,
+      "reach": 17, "hit_radius": 12, "lunge": 0.6, "next": "light_3", "juggle": true,
+      "fx": { "smear": "arc", "impact": "droplets" }
+    },
+    "light_3": {
+      "name": "Rod Flail", "anim": "flail",
+      "startup": 8, "active": 3, "recovery": 15,
+      "damage": 6, "knockback": 1.6, "hitstun": 24, "hitstop": 6,
+      "reach": 24, "hit_radius": 11, "lunge": 0.4, "next": "",
+      "anim_at": [[0, 0], [3, 1], [6, 2], [9, 3], [13, 4], [20, 5]],
+      "fx": { "smear": "rise", "size": 1.2 }
+    },
+    "heavy": {
+      "name": "Splash Zone", "anim": "splash", "windup": 8, "tell": "strong",
+      "charge_max": 30, "startup": 7, "active": 4, "recovery": 20,
+      "damage": 6, "damage_charged": 10,
+      "knockback": 1.2, "knockback_charged": 2.0,
+      "hitstun": 22, "hitstop": 6, "hitstop_charged": 10,
+      "launch": 30, "launch_charged": 38,
+      "reach": 0, "hit_radius": 26, "hit_radius_charged": 32, "juggle": true,
+      "slow_ticks": 120, "slow_mult": 0.6,
+      "fx": { "charge": "drips", "impact": "splash" }
+    },
+    "skill_1": {
+      "name": "Flop Dash", "anim": "flopdash", "windup": 10, "tell": "strong", "cooldown": 150,
+      "startup": 6, "active": 10, "recovery": 14,
+      "damage": 8, "knockback": 2.6, "hitstun": 24, "hitstop": 6,
+      "reach": 8, "hit_radius": 11, "juggle": true, "juggle_float": 36,
+      "dash": { "speed": 3.4, "from": 1, "to": 16 },
+      "anim_at": [[0, 0], [5, 1], [8, 2], [17, 3]],
+      "fx": { "afterimage": [1, 16], "ghost_color": "#b4e626aa", "trail": "splash", "impact": "droplets" }
+    },
+    "skill_2": {
+      "name": "Cast Line", "anim": "cast", "windup": 6, "tell": "strong", "cooldown": 210,
+      "startup": 10, "active": 0, "recovery": 28,
+      "damage": 4, "knockback": 0.2, "hitstun": 46, "hitstop": 6,
+      "reel": 2, "reel_speed": 5.0,
+      "projectile": { "speed": 5.5, "life": 18, "radius": 8, "offset": 12, "crack_trail": false },
+      "anim_at": [[0, 0], [5, 1], [9, 2], [13, 3], [32, 5]],
+      "anim_reel": 4,
+      "fx": { "cast": true, "projectile": "rod" }
+    },
+    "surge": {
+      "name": "The One That Got Away", "anim": "leap", "energy_cost": 100,
+      "startup": 24, "active": 4, "recovery": 24,
+      "damage": 22, "knockback": 6.0, "knockdown": 30, "hitstop": 14,
+      "reach": 0, "hit_radius": 40, "juggle": true,
+      "leap": { "from": 3, "to": 23 },
+      "dash": { "speed": 1.8, "from": 3, "to": 22 },
+      "anim_at": [[0, 0], [3, 1], [8, 2], [17, 3], [25, 4], [38, 5]],
+      "view_lift": [[0, 0], [3, 4], [9, 90], [15, 120], [20, 70], [24, 0]],
+      "fx": { "telegraph": true, "impact": "bellyflop" }
+    }
+  }
+}

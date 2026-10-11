@@ -148,6 +148,8 @@ func on_event(e: Dictionary) -> void:
 			play("pinecone")
 		"pull":
 			play("snag")
+		"reel":
+			play("reel")
 		"projectile_end":
 			play("splash", 0.0 if power >= 1.0 else -6.0)
 		"windup":
@@ -173,9 +175,14 @@ func on_event(e: Dictionary) -> void:
 			play("land", -6.0, 0.7)
 
 
-## A swing sound each time a strike becomes active (once per hit of a multi-hit move).
+## A swing sound each time a strike becomes active (once per hit of a multi-hit move),
+## and footsteps for creatures whose JSON names a "step_sound" (Gillbert's wet flops).
 func watch(sim: MatchSim) -> void:
 	for c in sim.creatures:
+		var step: Dictionary = c.def.get("step_sound", {})
+		if not step.is_empty() and c.state == CreatureSim.State.MOVE \
+				and c.anim_t % maxi(1, int(step.get("every", 20))) == 0:
+			play(String(step["sound"]), float(step.get("volume_db", -6.0)))
 		var seg := c.active_seg()
 		if seg >= 0 and seg != int(_seg.get(c.id, -1)):
 			play("swing_light" if c.move_type() == "light" else "swing_heavy")

@@ -3,7 +3,7 @@
 A real-time 2D creature brawler. Small pixel-art creatures fight live in a stadium,
 chaining attacks into combos while the floor cracks, breaks and opens into pits.
 
-Four fighters so far, each with a full moveset and a CPU opponent:
+Five fighters so far, each with a full moveset and a CPU opponent:
 
 - **Cairn**, a stack of river stones that boxes: fast strings, a counter, and a dash punch.
 - **Culvert**, a toad made of storm-drain concrete: grabs, shockwaves, and pits.
@@ -12,6 +12,9 @@ Four fighters so far, each with a full moveset and a CPU opponent:
 - **Barkley**, a thousand-year-old tree that got up and walked off: a bruiser who reels foes
   in with a branch arm, spins, lobs pinecones and bursts roots out of the floor. The second
   character from the artist's sheets.
+- **Gillbert**, a fish who got hooked, yanked out of the river and never stopped flopping:
+  a small, quick skirmisher who flops across the floor with his fishing rod tumbling
+  behind him, hooks foes and reels himself in, and belly-flops from out of reach.
 
 ![Demo: CPU Cairn vs CPU Culvert](docs/demo.gif)
 
@@ -34,7 +37,7 @@ From a terminal:
 godot --path .                          # menu
 godot --path . -- --mode=0 --level=2    # Cairn vs a Hard CPU Culvert
 godot --path . -- --mode=2              # watch CPU vs CPU
-godot --path . -- --showcase=barkley    # scripted demo: cairn, culvert, craglash, barkley or counterplay
+godot --path . -- --showcase=gillbert   # scripted demo: cairn, culvert, craglash, barkley, gillbert or counterplay
 godot --path . -- --mode=6              # Duel vs CPU with the default teams (add --pick to choose)
 ```
 
@@ -42,7 +45,8 @@ Modes: 0 Cairn vs CPU, 1 Culvert vs CPU, 2 CPU vs CPU, 3 training as Cairn, 4 tr
 5 combo showcases (each fighter's full kit, then how to answer the big moves, on a loop),
 6 Duel vs CPU, 7 Duel for 2 players, 8 Versus for 2 players, 9 Combo Trials,
 10 Reaction Drill (read Culvert), 11 Reaction Drill (read Cairn), 12 Craglash vs CPU Cairn,
-13 training as Craglash, 14 Barkley vs CPU Craglash, 15 training as Barkley. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
+13 training as Craglash, 14 Barkley vs CPU Craglash, 15 training as Barkley,
+16 Gillbert vs CPU Barkley, 17 training as Gillbert. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
 sets Duel teams; `--cpu-vs-cpu` hands every player side to the CPU.
 
 **Local 2-player:** with two controllers, each player gets one (player 1 can also use the
@@ -106,7 +110,7 @@ at a time.
 
 - **Tag** sends the next living teammate in with its own tag-in strike (Cairn: Rockfall
   Entry, a dash punch; Culvert: Manhole Drop, a landing slam that launches; Craglash:
-  Landslide Entry, a charging headbutt; Barkley: Timber Drop, a falling log bonk that launches). Tag from
+  Landslide Entry, a charging headbutt; Barkley: Timber Drop, a falling log bonk that launches; Gillbert: Splashdown, a little belly-flop). Tag from
   neutral or guard, then it's on a 5-second cooldown.
 - **Tag cancel:** tag out of an attack that hit, for 50 energy, and the tag-in strike
   carries the combo on.
@@ -121,7 +125,7 @@ be played online with rollback exactly like a single match. Tuning: `data/rules/
 
 ### Learning the game: Combo Trials and Reaction Drills
 
-- **Combo Trials** (`data/trials.json`, 13 so far): each trial plays a demo of the route,
+- **Combo Trials** (`data/trials.json`, 16 so far): each trial plays a demo of the route,
   then it's your turn. Every move must come out in order and connect, and the combo can't
   drop. The caption shows the route with your buttons and ticks off each move. F2 shows
   the demo again, F4 skips to the next trial.
@@ -141,7 +145,7 @@ full speed, so every combo below still works.
 | Glow | Means | Moves (windup) | Answer |
 | --- | --- | --- | --- |
 | **Red** + "!" | Can't be blocked | Gulp (12f), Slam (10f, breaks guard) | Roll away or through it, or hit them first |
-| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f), Runoff (6f), Rockslide Stomp (10f), Boulder Lash (8f), Timber Twister (8f), Branch Grab (8f) | Guard, then punish |
+| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f), Runoff (6f), Rockslide Stomp (10f), Boulder Lash (8f), Timber Twister (8f), Branch Grab (8f), Splash Zone (8f), Flop Dash (10f), Cast Line (6f) | Guard, then punish |
 
 That puts at least 15 frames (a quarter second) between the glow and the hit, and a jab
 landed during a windup cancels the move. Surges freeze the screen for their cut-in: a
@@ -199,6 +203,23 @@ The sheet gives Barkley no passive, so he has none.
 
 ![Barkley's showcase: Branch Grab, the light string, Timber Twister, Pinecone Bomb, Root Eruption](docs/barkley_demo.gif)
 
+### Gillbert — the one that got away
+
+A small, quick skirmisher (110 HP, Tide affinity, the fastest walker). He flops across the
+floor like a landed fish, his rod tumbling behind him on the line.
+
+![Gillbert's flopping run: side, front and back](docs/gillbert_run.gif)
+
+| Button | Move | What it does |
+| --- | --- | --- |
+| Light | Snout Jab, Tail Whip, Rod Flail | A nose bonk, a half turn that lashes the tail across, then a jerk of the head swings the rod over him onto the foe |
+| Heavy | Splash Zone | Curls up and slaps the floor with his tail: hits all around him, pops foes up and **slows** them (walk ×0.6 for 2 s). Hold to charge (bigger and harder) |
+| Skill 1 | Flop Dash | A skidding belly-flop forward, kicking up water; keeps a juggle going |
+| Skill 2 | Cast Line | **Throws his rod** on its line, about 110 px. If it hooks someone he's **reeled in to them** at a steady pull, across pits and all, like a fish on a line; arriving ends the cast while they're still stunned, so lights link straight after. Blockable; a miss leaves him stuck in recovery |
+| Surge | The One That Got Away | Leaps straight up off the screen, **out of reach** of everything (he sails over bodies and pits), then belly-flops onto the marked spot ahead in a huge splash that knocks foes down |
+
+![Gillbert's showcase](docs/gillbert_demo.gif)
+
 ### Combos to try
 
 | Fighter | Route | Damage |
@@ -215,6 +236,9 @@ The sheet gives Barkley no passive, so he has none.
 | Barkley | Twig, Bough, Log Drop → Timber Twister → Branch Grab | 38.6 |
 | Barkley | Twig, Bough, Log Drop → Timber Twister → Pinecone Bomb | 41.2 |
 | Barkley | Twig, Bough, Log Drop → Timber Twister → Branch Grab → Root Eruption | 74.6 |
+| Gillbert | Snout Jab, Tail Whip, Rod Flail → Flop Dash | 24.2 |
+| Gillbert | Snout Jab, Tail Whip, Rod Flail → Splash Zone → Flop Dash | 32.3 |
+| Gillbert | Snout Jab, Tail Whip, Rod Flail → Splash Zone → Flop Dash → The One That Got Away | 65.3 |
 
 Every one of these is checked by an automated test (`tests/test_combos.gd`).
 
@@ -247,7 +271,7 @@ Visual effects are data too. Each move can carry an `fx` block (swipe smears, af
 charge-up particles, impacts like Avalanche's rock spire or Storm Drain's geysers) and each
 creature a `ko_fx` block that picks its death animation: Cairn's stack breaks apart and
 tumbles across the floor; Culvert cracks, gushes storm water and settles into rubble;
-Craglash's neck comes apart stone by stone; Barkley topples like a felled tree ("TIMBER!"). The
+Craglash's neck comes apart stone by stone; Barkley topples like a felled tree ("TIMBER!"); Gillbert gives one last wet flop. The
 keys are listed at the top of `src/view/fx_view.gd`. Effects only read the simulation, so
 they can never change a match, a replay or a test result. Knockouts also get a freeze
 frame, slow motion and a camera push-in, and Surges get a fighting-game cut-in.
@@ -261,10 +285,10 @@ godot --headless --path . --import
 godot --headless --path . --script res://tests/run_tests.gd
 ```
 
-128 tests cover every example combo, every Combo Trial, both Reaction Drills, Duel rules, every showcase, windups and counterplay,
+141 tests cover every example combo, every Combo Trial, both Reaction Drills, Duel rules, every showcase, windups and counterplay,
 rollback netcode (snapshots, and two simulated machines over a laggy, lossy connection), every combo rule (variety bonus, stale moves,
 hitstun decay, juggle cap, cancels on contact, stacks, energy, cooldowns, breakaway), grabs,
-Slip counters, shockwaves, the Storm Drain pit ring, Barkley's pull, lob and root rings, terrain, determinism, replays, and the
+Slip counters, shockwaves, the Storm Drain pit ring, Barkley's pull, lob and root rings, Gillbert's reel and leap, terrain, determinism, replays, and the
 CPU (reproducible matches, uses its whole kit, Hard beats Easy), and the mouse and gamepad
 controls. A test that crashes counts as a failure. They run on every push via GitHub Actions.
 

@@ -32,10 +32,17 @@ extends Node2D
 ##   charge       also "leaves": leaves gather and circle while the heavy is held
 ##   spin         true         leaves and wind arcs whirl around a spinning move
 ##   projectile   also "pinecone": a lobbed pinecone with a shadow and a landing mark
+##   impact       also "splash" (a ring of water and drops), "droplets" (a small spray),
+##                "bellyflop" (a huge splash where a leap comes down)
+##   trail        also "splash": drops kicked up behind a dash
+##   cast         true         a fishing line out to the thrown rod, then taut to whoever it
+##                             hooked while it reels the attacker in to them
+##   projectile   also "rod": a thrown rod spinning end over end
 ## Creature "ko_fx" keys: style "scatter" (the sprite breaks into horizontal pieces that
 ## tumble across the floor), "crack" (cracks, water gushing out, rubble), "crumble"
 ## (cracks, then the neck stones burst loose) or "timber" (a felled tree: "TIMBER!",
-## leaves shaken loose, and a dust line where the trunk hits the floor).
+## leaves shaken loose, and a dust line where the trunk hits the floor) or "flop" (a
+## last wet flop and a puddle).
 ## Status drawn from creature state: Stoneskin plates while `shield` > 0, a rooted ring
 ## while armored, pebbles at the feet while slowed, a red "!" while taunted.
 
@@ -191,8 +198,9 @@ func spawn(e: Dictionary) -> void:
 			_add({"kind": "ring", "pos": p + Vector2(0, 16), "life": 16, "radius": 30.0})
 			_text(p + Vector2(0, -10), "BREAKAWAY", Color("c9a7ff"))
 		"projectile":
-			if bool(e.get("lob", false)):
-				return  # a pinecone just leaves the hand; it's drawn in flight
+			var thrower := _creature(int(e.get("who", -1)))
+			if bool(e.get("lob", false)) or (thrower != null and not _owner_has_wave(thrower)):
+				return  # a pinecone or a rod just leaves the hand; it's drawn in flight
 			# Runoff leaves the hand: a slap of water.
 			var owner := _owner_near(p)
 			var at := p + (owner.facing * 14.0 if owner != null else Vector2.ZERO)
@@ -202,6 +210,11 @@ func spawn(e: Dictionary) -> void:
 			for i in 3:
 				_dust(at + Vector2(randf_range(-6, 6), randf_range(-2, 2)), Vector2(randf_range(-0.3, 0.3), -0.4))
 		"projectile_end":
+			var owner_c := _creature(int(e.get("who", -1)))
+			if owner_c != null and not _owner_has_wave(owner_c):
+				if power >= 1.0:
+					_add({"kind": "spark", "pos": p, "life": 8, "scale": 1.0})
+				return
 			var n := 12 if power >= 1.0 else 6
 			for i in n:
 				_drop(p, 3.0, Vector2.from_angle(randf() * TAU) * randf_range(0.4, 1.4), randf_range(1.0, 2.6), true)
@@ -265,6 +278,15 @@ func spawn(e: Dictionary) -> void:
 				_text(from + Vector2(0, -14), "SNAG!", C_LEAF[2], 8, 34.0)
 		"burst":
 			_pinecone_burst(p, power)
+		"reel":
+			var a := _creature(int(e.get("attacker", -1)))
+			var tgt := _creature(int(e.get("target", -1)))
+			if a != null and tgt != null:
+				var at := tgt.pos + Vector2(0, -_chest(tgt))
+				_text(at + Vector2(0, -12), "HOOKED!", C_WATER_L, 8, 34.0)
+				for i in 6:
+					_drop(at + Vector2(0, 10), 10.0, Vector2.from_angle(randf() * TAU) * randf_range(0.3, 1.0),
+						randf_range(1.0, 2.0), false)
 		"land_hard":
 			for i in 3:
 				_dust(p + Vector2(randf_range(-6, 6), randf_range(-2, 2)), Vector2(randf_range(-0.3, 0.3), -0.4))
@@ -519,6 +541,15 @@ func _strike(c: CreatureSim, mv: Dictionary, fx: Dictionary, seg: int) -> void:
 				_avalanche(c.hit_center(seg))
 			"leaves":
 				_leaves(c.hit_center(seg) + Vector2(0, -_chest(c) * 0.7), 8, 1.5)
+			"splash":
+				_splash(c.hit_center(seg), c.hit_radius(seg), false)
+			"droplets":
+				var at := c.hit_center(seg)
+				for i in 6:
+					_drop(at, randf_range(6, 14), c.facing.rotated(randf_range(-1.0, 1.0)) * randf_range(0.4, 1.2),
+						randf_range(0.8, 1.8), true)
+			"bellyflop":
+				_splash(c.pos, c.hit_radius(seg), true)
 			"twister":
 				_twister_gust(c, mv)
 	if String(fx.get("impact", "")) == "roots":
@@ -532,6 +563,13 @@ func _during_move(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 		if t >= int(win[0]) and t <= int(win[1]):
 			if t % 3 == 0:
 				_ghost(c, Color(String(fx.get("ghost_color", "#ffffff"))), 14.0)
+			if String(fx.get("trail", "")) == "splash" and not c.connected:
+				var back := c.pos - c.facing * 8.0 + Vector2(randf_range(-3, 3), randf_range(-2, 2))
+				_drop(back, 2.0, -c.facing * randf_range(0.2, 0.7) + Vector2(randf_range(-0.4, 0.4), randf_range(-0.2, 0.2)),
+					randf_range(1.0, 2.0), true)
+				if t % 3 == 0:
+					_add({"kind": "puddle", "pos": back, "radius": randf_range(2.5, 4.5), "ry": 0.4, "grow": 3.0,
+						"life": 70.0, "fade": 35.0})
 			if String(fx.get("trail", "")) == "gravel" and not c.connected:
 				var back := c.pos - c.facing * 7.0 + Vector2(randf_range(-4, 4), randf_range(-2, 2))
 				_chunk(back, 1.0, -c.facing * randf_range(0.2, 0.8) + Vector2(randf_range(-0.4, 0.4), randf_range(-0.3, 0.3)),
@@ -782,7 +820,10 @@ func _projectile_spray() -> void:
 
 
 func _is_wave(pr: Dictionary) -> bool:
-	var owner := sim.creatures[int(pr["owner"])]
+	return _owner_has_wave(sim.creatures[int(pr["owner"])])
+
+
+func _owner_has_wave(owner: CreatureSim) -> bool:
 	for mid in owner.moves():
 		var mv: Dictionary = owner.moves()[mid]
 		if mv.has("projectile") and String(mv.get("fx", {}).get("projectile", "")) == "wave":
@@ -873,6 +914,75 @@ func _pinecone_burst(at: Vector2, r: float) -> void:
 	for i in 4:
 		_dust(at + Vector2(randf_range(-6, 6), randf_range(-2, 2)), Vector2(randf_range(-0.4, 0.4), -0.5))
 	_slam_debris(at, false)
+
+
+## Gillbert's splashes: a ring of water, drops thrown up, and puddles left behind. A
+## belly-flop is the same, much bigger, with a column of spray.
+func _splash(at: Vector2, r: float, huge: bool) -> void:
+	_add({"kind": "ripple", "pos": at, "life": 24 if huge else 18, "radius": r + (14.0 if huge else 6.0)})
+	_add({"kind": "ring", "pos": at, "life": 14, "radius": r, "color": C_WATER_L})
+	var n := 30 if huge else 14
+	for i in n:
+		var a := randf() * TAU
+		var v := Vector2(cos(a), sin(a) * 0.5) * randf_range(0.6, 2.2 if huge else 1.5)
+		_drop(at + v * 3.0, 2.0, v, randf_range(1.5, 4.0 if huge else 2.6), true, Color(0, 0, 0, 0),
+			Vector2(2, 2) if randf() < 0.4 else Vector2(1, 2))
+	for i in (6 if huge else 3):
+		_add({"kind": "puddle", "pos": at + Vector2(randf_range(-r, r) * 0.7, randf_range(-r, r) * 0.3),
+			"radius": randf_range(4.0, 8.0 if huge else 6.0), "ry": 0.4, "grow": 4.0, "life": 140.0, "fade": 50.0})
+	if huge:
+		_add({"kind": "emit", "life": 14, "every": 1.0, "acc": 0.0, "fn": _spray_tick.bind(at)})
+		_text(at + Vector2(0, -40), "SPLASH!", C_WATER_L, 10, 50.0)
+		shake_out = maxf(shake_out, 6.0)
+		cue.emit("bellyflop")
+	else:
+		shake_out = maxf(shake_out, 2.0)
+		cue.emit("splash")
+
+
+func _spray_tick(k: float, at: Vector2) -> void:
+	for j in 3:
+		var col := C_FOAM if randf() < 0.35 else (C_WATER_L if randf() < 0.5 else C_WATER)
+		_drop(at + Vector2(randf_range(-6, 6), randf_range(-2, 2)), 2.0,
+			Vector2(randf_range(-0.6, 0.6), randf_range(-0.3, 0.3)), randf_range(3.5, 5.5) * (1.0 - k * 0.6), true, col,
+			Vector2(2, 3) if randf() < 0.5 else Vector2(1, 2))
+
+
+## Gillbert's knockout: one last wet flop and a puddle.
+func _flop_ko(c: CreatureSim) -> void:
+	for i in 10:
+		_drop(c.pos, 6.0, Vector2.from_angle(randf() * TAU) * randf_range(0.3, 1.0), randf_range(0.8, 1.8), true)
+	_add({"kind": "puddle", "pos": c.pos + Vector2(0, 2), "radius": 16.0, "ry": 0.35, "grow": 60.0, "life": FOREVER})
+	cue.emit("flop")
+
+
+## Cast Line: a taut line from his mouth to the thrown rod while it flies, then to
+## whoever it hooked while he is reeled in to them.
+func _draw_cast(ci: CanvasItem, c: CreatureSim, mv: Dictionary) -> void:
+	var from := c.pos + c.facing * 10.0 + Vector2(0, -_chest(c) + 2.0)
+	var end := Vector2.ZERO
+	if c.reel_t > 0:
+		var tgt := _creature(c.reel_to)
+		if tgt == null:
+			return
+		end = tgt.pos + Vector2(0, -_chest(tgt))
+	else:
+		var found := false
+		for pr in sim.projectiles:
+			if int(pr["owner"]) == c.id and int(pr["serial"]) == c.attack_serial:
+				end = Vector2(pr["pos"]) + Vector2(0, -10)
+				found = true
+		if not found:
+			return
+	ci.draw_line(from, end, Color(C_GREY[2], 0.9), 1.0)
+	if c.reel_t > 0:
+		# the hook in the catch, and the line twitching as it's wound in
+		var hd := (end - from).normalized() if end.distance_squared_to(from) > 1.0 else c.facing
+		ci.draw_line(end, end + hd * 2.0 + Vector2(0, 2), C_GREY[3], 1.0)
+		ci.draw_line(end + hd * 2.0 + Vector2(0, 2), end + Vector2(0, 3), C_GREY[3], 1.0)
+		if _tick % 3 == 0:
+			var mid := from.lerp(end, randf_range(0.2, 0.8))
+			_drop(mid + Vector2(0, 12), 12.0, Vector2(randf_range(-0.3, 0.3), 0.0), randf_range(0.2, 0.6), false)
 
 
 ## Barkley's knockout: he topples like a felled tree.
@@ -970,6 +1080,8 @@ func _ko(c: CreatureSim) -> void:
 		"crumble":
 			_crack_body(c, ko)
 			_later(14.0, _crumble.bind(c))
+		"flop":
+			_later(10.0, _flop_ko.bind(c))
 		"timber":
 			_timber(c)
 			_later(16.0, _timber_land.bind(c, float(ko.get("length", 50))))
@@ -1488,6 +1600,9 @@ func _draw_projectiles(ci: CanvasItem) -> void:
 		if bool(pr.get("lob", false)):
 			_draw_pinecone(ci, pr)
 			continue
+		if not _is_wave(pr):
+			_draw_thrown_rod(ci, pr)
+			continue
 		if _is_wave(pr):
 			_draw_wave(ci, pp.round(), vel)
 			continue
@@ -1495,6 +1610,25 @@ func _draw_projectiles(ci: CanvasItem) -> void:
 		var w := -16.0 if vel.x < 0.0 else 16.0
 		ci.draw_texture_rect_region(SHEET, Rect2(pp.round() + Vector2(-w * 0.5, -14), Vector2(w, 16)),
 			Rect2(frame * 16, 32, 16, 16))
+
+
+## Cast Line's rod in flight: it spins end over end on its line, flying at hip height.
+func _draw_thrown_rod(ci: CanvasItem, pr: Dictionary) -> void:
+	var pp: Vector2 = Vector2(pr["pos"]).round()
+	var at := pp + Vector2(0, -10)
+	ci.draw_set_transform(pp, 0.0, Vector2(1.0, 0.4))
+	ci.draw_circle(Vector2.ZERO, 4.0, Color(0, 0, 0, 0.28))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var d := Vector2.from_angle(_tick * 0.7) * 13.0
+	var butt := at - d
+	var tip := at + d
+	ci.draw_line(butt, tip, C_OUTLINE, 4.0)
+	ci.draw_line(butt, tip, C_WOOD[1], 2.0)
+	ci.draw_line(butt, butt.lerp(tip, 0.22), C_OUTLINE, 5.0)
+	ci.draw_line(butt, butt.lerp(tip, 0.22), Color("880015"), 3.0)
+	var reel := butt.lerp(tip, 0.28)
+	ci.draw_circle(reel, 2.5, C_OUTLINE)
+	ci.draw_circle(reel, 1.6, C_GREY[1])
 
 
 ## Pinecone Bomb in flight: an arc over everyone, its shadow on the floor, and a ring
@@ -1597,6 +1731,9 @@ func _draw_creature_extras(ci: CanvasItem, floor_layer: bool) -> void:
 			if c.stack >= int(stack_def.get("max", 3)) and (c.anim_t / 6) % 2 == 0:
 				var top := (c.pos + Vector2(0, -_top(c) - 7.0 - c.air_height() - 6.0)).round()
 				ci.draw_rect(Rect2(top, Vector2.ONE), C_SPARK[0])
+
+		if attacking and bool(fx.get("cast", false)):
+			_draw_cast(ci, c, mv)
 
 		if attacking and bool(fx.get("speedlines", false)):
 			var segs: Array = mv.get("_segs", [])
