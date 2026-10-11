@@ -135,14 +135,17 @@ F4 reset training, F6 save a replay, M mute music.
 
 Every fighter has five attack types, ranked: **Light (1) → Heavy (2) → Skill (3) → Surge (4)**.
 Lights chain into the next light in their string. Any move that **hits or is blocked** can
-cancel into a move of a higher rank, so combos climb the ranks.
+cancel into a move of a higher rank, so combos climb the ranks. The exception: a **blocked
+third light** (or later) can't be cancelled, and leaves the attacker at least 16 frames
+behind the blocker ("OPEN!" pops up over them), time enough to punish with a jab.
 
 **Mixing types pays.** Each hit is multiplied by how many different types have landed in the
 combo so far: ×1.0, ×1.15, ×1.3, ×1.5. **Limits keep it fair:** a move repeated in the same
 combo does half damage, hitstun shrinks with every hit, launched targets take at most three
 juggle moves, and a stunned fighter can spend 50 energy on a **breakaway**.
 
-Energy fills as you deal and take damage (about one Surge per round).
+Energy fills as you deal and take damage (about one Surge per round). A Surge's own hits
+never charge the next Surge.
 
 ### Fighting from every angle
 
@@ -268,7 +271,7 @@ floor like a landed fish, his rod tumbling behind him on the line.
 | Heavy | Splash Zone | Curls up and slaps the floor with his tail: hits all around him, pops foes up and **slows** them (walk ×0.6 for 2 s). Hold to charge (bigger and harder) |
 | Skill 1 | Flop Dash | A skidding belly-flop forward, kicking up water; keeps a juggle going |
 | Skill 2 | Cast Line | **Throws his rod** on its line, about 110 px. If it hooks someone he's **reeled in to them** at a steady pull, across pits and all, like a fish on a line; arriving ends the cast while they're still stunned, so lights link straight after. Blockable; a miss leaves him stuck in recovery |
-| Surge | The One That Got Away | Leaps straight up off the screen, **out of reach** of everything (he sails over bodies and pits), then belly-flops onto the marked spot ahead in a huge splash that knocks foes down |
+| Surge | The One That Got Away | Leaps straight up off the screen, **out of reach** of everything (he sails over bodies and pits), then belly-flops in a huge splash that knocks foes down. The mark **follows the nearest foe** while he's rising (up to about 70 px), then locks, so a dodge on the landing still beats it |
 
 ![Gillbert's showcase](docs/gillbert_demo.gif)
 
@@ -284,7 +287,7 @@ range; up close he softens them up or flips them away. Voice line: "CHOP CHOP!"
 | Heavy | Tenderize | Pounds the floor with the mallet: hits everyone close, all around him, pops them up and **tenderizes** them (they take 20% more damage for 4 s; a pink arrow shows it). Hold to charge (bigger and harder) |
 | Skill 1 | Cleaver Toss | Flings the big knife in a straight line, about 120 px; it hits the **first** foe in its path. Keeps a juggle going |
 | Skill 2 | Flip Out | Scoops a close foe with the spatula and **flips them over his head**, to land behind him; he turns to follow. A grab: it beats guard (red tell) |
-| Surge | Knife Flurry | A stream of eight knives in a straight line, about 130 px, that fly **through** everyone in the line; the last one knocks down. A dotted line on the floor shows the lane during the startup |
+| Surge | Knife Flurry | A stream of eight knives in a straight line, about 130 px, that fly **through** everyone in the line; the last one knocks down. It **aims at the nearest foe** within about 65° of where he faces (every knife tracks them), so they needn't be lined up on one of the 8 directions. A dotted line on the floor shows the lane during the startup |
 
 The sheet gives him no passive, so he has none. His victory emote (hibachi tricks) waits
 for a victory-pose system.

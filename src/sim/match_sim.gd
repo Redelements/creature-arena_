@@ -16,6 +16,9 @@ const STALE_MULT := 0.5
 const ENERGY_PER_DAMAGE := 1.5
 const ENERGY_PER_DAMAGE_TAKEN := 1.0
 const STONE_SHATTER_MULT := 1.25
+## A blocked third light (or later: Cairn's Hook) leaves the attacker at least this many
+## ticks behind the blocker, enough to punish with a jab, and it can't be cancelled out of.
+const BLOCKED_ENDER_DISADVANTAGE := 16
 
 var tick := 0
 var hitstop := 0
@@ -229,7 +232,8 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		var ar: Dictionary = d.move_def()["armor"]
 		var taken := d.take_damage(damage * (1.0 - float(ar.get("reduction", 0.6))), self)
 		d.flash = 3
-		a.energy = minf(CreatureSim.MAX_ENERGY, a.energy + taken * ENERGY_PER_DAMAGE)
+		if String(hit["type"]) != "surge":  # a Surge never charges the next one
+			a.energy = minf(CreatureSim.MAX_ENERGY, a.energy + taken * ENERGY_PER_DAMAGE)
 		if same_attack:
 			a.connected = true
 		hitstop = maxi(hitstop, int(float(hit["hitstop"]) * 0.6))
@@ -245,9 +249,11 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 			d.knock_vel = push * float(hit["knockback"]) * 0.4 / d.weight
 			d.guard_hit = 10
 			d.stun = int(float(hit["hitstun"]) * 0.5)
-			a.energy = minf(CreatureSim.MAX_ENERGY, a.energy + chip * ENERGY_PER_DAMAGE)
+			if String(hit["type"]) != "surge":
+				a.energy = minf(CreatureSim.MAX_ENERGY, a.energy + chip * ENERGY_PER_DAMAGE)
 			if same_attack:
 				a.connected = true
+				_punish_blocked_ender(a, d)
 			hitstop = maxi(hitstop, int(float(hit["hitstop"]) * 0.5))
 			emit_event("block", fx_pos, damage, {"attacker": a.id, "target": d.id})
 			if d.stamina <= 0.0:
@@ -292,7 +298,8 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	d.combo_moves[move_key] = int(hit["serial"])
 	d.combo_damage += total
 	d.last_attacker = a.id
-	a.energy = minf(CreatureSim.MAX_ENERGY, a.energy + total * ENERGY_PER_DAMAGE)
+	if String(hit["type"]) != "surge":  # a Surge's hits never charge the next Surge
+		a.energy = minf(CreatureSim.MAX_ENERGY, a.energy + total * ENERGY_PER_DAMAGE)
 	d.energy = minf(CreatureSim.MAX_ENERGY, d.energy + total * ENERGY_PER_DAMAGE_TAKEN)
 	if same_attack:
 		a.connected = true
@@ -430,6 +437,19 @@ func breakaway(d: CreatureSim) -> void:
 		a._set_state(CreatureSim.State.IDLE)
 		a.knock_vel = -away * 2.4
 	emit_event("breakaway", d.pos + Vector2(0, -16), 1.0, {"who": d.id})
+
+
+## A blocked third light (or later) leaves the attacker open: no cancelling out of it into
+## a skill, and enough extra recovery that the blocker is free BLOCKED_ENDER_DISADVANTAGE
+## ticks before the attacker is. (Chaining on to a fourth light is still allowed.)
+func _punish_blocked_ender(a: CreatureSim, d: CreatureSim) -> void:
+	var mv := a.move_def()
+	if not a.move_id.begins_with("light_") or int(a.move_id.substr(6)) < 3:
+		return
+	a.punish_serial = a.attack_serial
+	var left := int(mv["length"]) - a.state_t
+	a.block_lag = maxi(a.block_lag, d.stun + BLOCKED_ENDER_DISADVANTAGE - left)
+	emit_event("punishable", a.pos, float(a.block_lag), {"who": a.id})
 
 
 # ------------------------------------------------------------------ zones

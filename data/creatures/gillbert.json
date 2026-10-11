@@ -124,7 +124,7 @@
       "damage": 22, "knockback": 6.0, "knockdown": 30, "hitstop": 14,
       "reach": 0, "hit_radius": 40, "juggle": true,
       "leap": { "from": 3, "to": 23 },
-      "dash": { "speed": 1.8, "from": 3, "to": 22 },
+      "dash": {"speed": 1.8, "from": 3, "to": 22, "home": {"until": 16, "max": 3.6}},
       "anim_at": [[0, 0], [3, 1], [8, 2], [17, 3], [25, 4], [38, 5]],
       "view_lift": [[0, 0], [3, 4], [9, 90], [15, 120], [20, 70], [24, 0]],
       "fx": { "telegraph": true, "impact": "bellyflop" }

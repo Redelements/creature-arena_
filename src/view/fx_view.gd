@@ -349,6 +349,10 @@ func spawn(e: Dictionary) -> void:
 				_text(c.pos + Vector2(0, -_top(c) - 14), "TENDERIZED", C_TENDER, 7, 44.0)
 		"projectile_pierce":
 			_add({"kind": "spark", "pos": p, "life": 6, "scale": 0.8})
+		"punishable":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				_text(c.pos + Vector2(0, -_top(c) - 14), "OPEN!", Color("ffb347"), 8, 36.0)
 		"freeze":
 			var c := _creature(int(e.get("who", -1)))
 			if c != null:
@@ -2339,6 +2343,13 @@ func _draw_telegraph(ci: CanvasItem, c: CreatureSim, mv: Dictionary) -> void:
 	if not dash.is_empty():
 		remaining = maxf(0.0, float(dash["to"]) - c.state_t) * float(dash["speed"])
 	var land := c.pos + c.facing * (remaining + float(mv.get("reach", 0)))
+	if dash.has("home"):
+		# A homing leap: the mark follows the foe until the landing spot locks.
+		var foe := sim.nearest_opponent(c)
+		if foe != null and c.state_t <= int(dash["home"].get("until", 0)):
+			land = foe.pos
+		else:
+			land = c.pos + c.facing * maxf(0.0, float(dash["to"]) - c.state_t) * c.home_speed
 	var k := clampf(float(c.state_t) / maxf(1.0, float(mv.get("startup", 1))), 0.0, 1.0)
 	var r := float(mv.get("hit_radius", 40))
 	var pulse := 0.5 + 0.5 * sin(_tick * 0.6)
