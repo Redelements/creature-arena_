@@ -70,3 +70,30 @@ func test_culvert_full_meter() -> void:
 		[H, "heavy"], [S2, "skill_2"], [SU, "surge"]])
 	var expected := 18 + 10 * 1.15 + 7 * 1.3 + 30 * 1.5
 	assert_near(dmg, expected, 0.05, "Jab, Jab, Hook > Slam > Runoff > Storm Drain:")
+
+
+## Craglash (left) facing Cairn at close range.
+func _craglash() -> MatchSim:
+	var sim := MatchFactory.versus("craglash", "cairn")
+	sim.creatures[0].pos = Vector2(220, 164)
+	sim.creatures[1].pos = Vector2(220 + sim.creatures[0].radius + sim.creatures[1].radius + 2, 164)
+	return sim
+
+
+func test_craglash_rake_to_lash() -> void:
+	var dmg := route(_craglash(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [S1, "skill_1"]])
+	assert_near(dmg, 4 + 4 + 7 + 7 * 1.15, 0.05, "Rake, Backhand, Headbutt > Boulder Lash:")
+
+
+func test_craglash_stomp_launcher() -> void:
+	var dmg := route(_craglash(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"],
+		[S1, "skill_1"]])
+	assert_near(dmg, 15 + 8 * 1.15 + 7 * 1.3, 0.05, "3 lights > Rockslide Stomp > Boulder Lash:")
+
+
+func test_craglash_full_meter() -> void:
+	var sim := _craglash()
+	sim.creatures[0].energy = 100.0
+	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"],
+		[S1, "skill_1"], [SU, "surge"]])
+	assert_near(dmg, 15 + 8 * 1.15 + 7 * 1.3 + 16 * 1.5, 0.05, "... > Avalanche Coil:")
