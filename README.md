@@ -26,6 +26,9 @@ Six fighters so far, each with a full moveset and a CPU opponent:
 - **Digby**, a mole in a miner's helmet who digs well (VERY well): an assassin who
   tunnels under the arena out of reach, blinds foes with his headlamp so their next attack
   misses, pops up under them with his pickaxe, and caves the floor in to root them.
+- **Sneaky Pete**, who has robbed every bank in town, twice: an assassin in a mask and a
+  striped beanie who tiptoes in invisible, dashes past foes to pickpocket their strength,
+  and vanishes to reappear behind them swinging his money bag.
 
 ![Demo: CPU Cairn vs CPU Culvert](docs/demo.gif)
 
@@ -75,7 +78,7 @@ From a terminal:
 godot --path .                          # menu
 godot --path . -- --mode=0 --level=2    # Cairn vs a Hard CPU Culvert
 godot --path . -- --mode=2              # watch CPU vs CPU
-godot --path . -- --showcase=cerebro    # scripted demo: cairn, culvert, craglash, barkley, gillbert, cerebro, hissy, digby or counterplay
+godot --path . -- --showcase=cerebro    # scripted demo: cairn, culvert, craglash, barkley, gillbert, cerebro, hissy, digby, pete or counterplay
 godot --path . -- --mode=6              # Duel vs CPU with the default teams (add --pick to choose)
 ```
 
@@ -87,7 +90,8 @@ Online from a terminal: `godot --path . -- --online-host` and `godot --path . --
 13 training as Craglash, 14 Barkley vs CPU Craglash, 15 training as Barkley,
 16 Gillbert vs CPU Barkley, 17 training as Gillbert, 18 Chef Cerebro vs CPU Gillbert,
 19 training as Chef Cerebro, 20 Online 1v1 (the lobby), 21 Hissy Fitz vs CPU Chef Cerebro,
-22 training as Hissy Fitz, 23 Digby vs CPU Hissy Fitz, 24 training as Digby. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
+22 training as Hissy Fitz, 23 Digby vs CPU Hissy Fitz, 24 training as Digby,
+25 Sneaky Pete vs CPU Digby, 26 training as Sneaky Pete. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
 sets Duel teams; `--cpu-vs-cpu` hands every player side to the CPU.
 
 **Local 2-player:** with two controllers, each player gets one (player 1 can also use the
@@ -153,7 +157,8 @@ at a time.
   Entry, a dash punch; Culvert: Manhole Drop, a landing slam that launches; Craglash:
   Landslide Entry, a charging headbutt; Barkley: Timber Drop, a falling log bonk that launches; Gillbert: Splashdown, a little belly-flop;
   Chef Cerebro: Order Up, a mallet bonk that launches; Hissy Fitz: Hiss Off, an uppercut
-  that launches; Digby: Pop Goes the Mole, bursting up out of the floor). Tag from
+  that launches; Digby: Pop Goes the Mole, bursting up out of the floor; Sneaky Pete: Smash and Grab, a
+  bag swing). Tag from
   neutral or guard, then it's on a 5-second cooldown.
 - **Tag cancel:** tag out of an attack that hit, for 50 energy, and the tag-in strike
   carries the combo on.
@@ -323,6 +328,25 @@ for a victory-pose system.
 
 ![Digby's showcase](docs/digby_demo.gif)
 
+### Sneaky Pete — robbed every bank in town, twice
+
+An assassin (100 HP, Lumen affinity: the sheet says Dark). A cartoon burglar always on
+tiptoe: black eye mask, orange striped beanie, and a big green money bag over his
+shoulder. He wins by not being where you're looking. Voice line: "Finders keepers!"
+
+| Button | Move | What it does |
+| --- | --- | --- |
+| Light | Sucker Punch, Cheap Shot, Bag Swing | Two quick jabs, then the bag comes round |
+| Heavy | Sack Smack | A big wound-up swing of the money bag that knocks the foe well back. Hold to charge |
+| Skill 1 | Tiptoe | He sneaks forward and goes **invisible** for 2.5 s (a faint shimmer is all you see) and **40% quicker**. Attacking, or being hit, gives him away. The CPU loses track of him and goes where it last saw him |
+| Skill 2 | Pickpocket | A low dash right **through** a foe that hits on the way past and **steals 20% of their attack power** for 5 s: his hits land 20% harder, theirs 20% softer. A gold windup tell gives it away |
+| Surge | The Big Heist | A puff of smoke and he's gone, then he **reappears behind the foe** (on their far side if the spot behind is a pit or a wall) for a flurry of bag hits and a big finishing smack that knocks down |
+
+No passive on the sheet. His victory emote (dumping out the bag and throwing the cash in
+the air) waits for a victory-pose system.
+
+![Sneaky Pete's showcase](docs/pete_demo.gif)
+
 ### Combos to try
 
 | Fighter | Route | Damage |
@@ -349,6 +373,8 @@ for a victory-pose system.
 | Hissy Fitz | Snake Jab, Snake Jab, Hair Lash → Coil Uppercut → Venom Spit → Petrify Punch, then shatter the statue | 54.1 + |
 | Digby | Claw Swipe, Claw Swipe, Pickaxe Swing → Headlamp Flash | 16.3 |
 | Digby | Claw Swipe, Claw Swipe, Pickaxe Swing → Pickaxe Pop-Up → Cave-In | 41.4 |
+| Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket | 30.9 |
+| Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket → The Big Heist (with stolen power: +20%) | 75.9 |
 
 Every one of these is checked by an automated test (`tests/test_combos.gd`).
 
@@ -383,7 +409,8 @@ creature a `ko_fx` block that picks its death animation: Cairn's stack breaks ap
 tumbles across the floor; Culvert cracks, gushes storm water and settles into rubble;
 Craglash's neck comes apart stone by stone; Barkley topples like a felled tree ("TIMBER!"); Gillbert gives one last wet flop; Chef
 Cerebro fizzles out in a puff of steam and his sunglasses skid away; Hissy Fitz goes down
-with a long hiss and a drip of venom; Digby flops over in a puff of dust. The
+with a long hiss and a drip of venom; Digby flops over in a puff of dust; Sneaky Pete's bag bursts and the cash flutters
+down. The
 keys are listed at the top of `src/view/fx_view.gd`. Effects only read the simulation, so
 they can never change a match, a replay or a test result. Knockouts also get a freeze
 frame, slow motion and a camera push-in, and Surges get a fighting-game cut-in.
@@ -397,10 +424,10 @@ godot --headless --path . --import
 godot --headless --path . --script res://tests/run_tests.gd
 ```
 
-197 tests cover every example combo, every Combo Trial, both Reaction Drills, Duel rules, every showcase, windups and counterplay,
+210 tests cover every example combo, every Combo Trial, both Reaction Drills, Duel rules, every showcase, windups and counterplay,
 rollback netcode (snapshots, two simulated machines over a laggy, lossy connection, online sessions over memory and real UDP: handshake, time sync, rematch, desync detection), every combo rule (variety bonus, stale moves,
 hitstun decay, juggle cap, cancels on contact, stacks, energy, cooldowns, breakaway), grabs,
-Slip counters, shockwaves, the Storm Drain pit ring, Barkley's pull, lob and root rings, Gillbert's reel and leap, Chef Cerebro's thrown kit (range, tenderizing, the flip, a volley of knives through a line), Hissy Fitz's poison, gaze and statues, Digby's blinding, tunnelling and rooting, terrain, determinism, replays, and the
+Slip counters, shockwaves, the Storm Drain pit ring, Barkley's pull, lob and root rings, Gillbert's reel and leap, Chef Cerebro's thrown kit (range, tenderizing, the flip, a volley of knives through a line), Hissy Fitz's poison, gaze and statues, Digby's blinding, tunnelling and rooting, Sneaky Pete's stealth, stolen power and blink, terrain, determinism, replays, and the
 CPU (reproducible matches, uses its whole kit, Hard beats Easy), and the mouse and gamepad
 controls. A test that crashes counts as a failure. They run on every push via GitHub Actions.
 

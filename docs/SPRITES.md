@@ -322,6 +322,37 @@ Facing down and up: [`digby_views_preview.png`](digby_views_preview.png).
 | 11 | guard | 2 | hunkered behind the pickaxe held crossways |
 | 12 | ko | 4 | over onto his back, legs up, x eyes |
 
+### Sneaky Pete — 128×128 frames, 8 × 13 (1024×1664 px)
+
+`tools/gen_pete.py`, on the shared renderer. A cartoon human rig: hips, a leaning torso
+(sweater), a big head (pink skin, a black mask band with eye holes, a big round nose, a
+moustache, a toothy grin, an orange knit beanie with two darker stripes and a rolled
+brim), legs and arms as bent two-part tubes ending in brown shoes and pink hands. The
+money bag is a big green ball with a tied neck and a dollar sign, slung over his
+shoulder unless a pose holds it out to swing. Poses place the feet, hands and bag. Drawn
+at 0.8 scale, feet at **x 64, y 104**; up and down sheets are **112×128**, feet at
+x 56, y 104 (down) and y 92 (up).
+
+![Sneaky Pete sheet, 3x](pete_preview.png)
+
+Facing down and up: [`pete_views_preview.png`](pete_views_preview.png).
+
+| Row | Animation | Frames | Notes |
+| --- | --- | --- | --- |
+| 0 | idle | 4 | on tiptoe, rocking, glancing about |
+| 1 | run | 6 | the cartoon sneak: big tiptoe strides, crouched over |
+| 2 | jab | 4 | Sucker Punch (light 1) |
+| 3 | jab2 | 4 | Cheap Shot (light 2), the other fist |
+| 4 | swing | 5 | Bag Swing (light 3): the bag off his shoulder and round in front |
+| 5 | smack | 6 | Sack Smack: charge A/B (bag over his head), the swing, follow-through, recover; Smash and Grab plays from frame 3 |
+| 6 | tiptoe | 4 | Tiptoe: finger to his lips, two tiptoe frames that alternate, back up (the game fades him out) |
+| 7 | pick | 5 | Pickpocket: crouch, the low dash with a hand out, the grab, past, recover |
+| 8 | heist | 6 | The Big Heist: crouch, gone (frame 1 is empty), back, two flurry frames that alternate, recover |
+| 9 | dodge | 4 | a tuck and roll |
+| 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
+| 11 | guard | 2 | hiding behind the money bag |
+| 12 | ko | 4 | flat on his back, the bag beside him, x eyes |
+
 ## Training dummy — 48×48 frames
 
 4 columns × 2 rows. Row 0: idle, hurt A, hurt B, guard. Row 1: knock-over, 4 frames.
