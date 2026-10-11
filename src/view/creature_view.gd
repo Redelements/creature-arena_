@@ -144,7 +144,7 @@ func refresh() -> void:
 		z_index = 2  # high in the air: over everyone
 	sprite.position = Vector2(-ox, -o.y)
 	pivot.position = Vector2(0, -round(lift))
-	if c.state == CreatureSim.State.CRUMPLE:
+	if c.state == CreatureSim.State.CRUMPLE and c.stone <= 0:
 		pivot.position.x += 1 if (c.anim_t / 4) % 2 == 0 else -1
 		pivot.position.y += 1
 	elif c.state == CreatureSim.State.KO and c.state_t <= 1:
@@ -159,6 +159,8 @@ func refresh() -> void:
 	var flash_col := Color.WHITE
 	if c.flash > 0:
 		flash_amt = 1.0 if c.flash > 3 else 0.5
+		if c.poison > 0 and c.flash <= 2:
+			flash_col = Color(0.6, 1.0, 0.35)  # a poison pulse
 	elif c.is_winding_up():
 		var tell := String(c.move_def().get("tell", "strong"))
 		flash_col = TELL_RED if tell in ["unblockable", "guard_break"] else TELL_GOLD
@@ -183,6 +185,11 @@ func refresh() -> void:
 	if c.shield > 0.0 and c.state != CreatureSim.State.KO:
 		rim = 0.75 + 0.2 * sin(c.anim_t * 0.15)
 	mat.set_shader_parameter("rim", rim)
+	# Petrified: grey stone until the statue shatters or wears off (flickering at the end).
+	var stone := 0.0
+	if c.stone > 0 and c.state != CreatureSim.State.KO:
+		stone = 1.0 if c.stone > 20 or (c.anim_t / 3) % 2 == 0 else 0.5
+	mat.set_shader_parameter("stone", stone)
 
 	# Falling shrinks and darkens the creature into the pit.
 	var shade := 1.0
@@ -310,7 +317,7 @@ func _pick() -> Array:
 		CreatureSim.State.HITSTUN:
 			return ["hurt", c.state_t / 4, true]
 		CreatureSim.State.CRUMPLE:
-			return ["hurt", 1, false]
+			return ["hurt", 0 if c.stone > 0 else 1, false]  # a statue: caught mid-flinch
 		CreatureSim.State.AIRBORNE:
 			return ["hurt", 0 if c.air_t < c.air_total / 2 else 1, false]
 		CreatureSim.State.KNOCKDOWN:

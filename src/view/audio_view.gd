@@ -252,6 +252,19 @@ func on_event(e: Dictionary) -> void:
 			play("crowd_cheer", -8.0)
 		"slow":
 			play("land", -6.0, 0.7)
+		"poisoned":
+			play("poison_tick", 0.0, 0.8)
+		"poison":
+			play("poison_tick")
+		"gaze":
+			# Stone Gaze: the shimmer once as it first takes hold of someone, not every pulse.
+			if power >= 0.85:
+				play("gaze")
+		"petrify":
+			play("petrify")
+			play("crowd_cheer", -4.0)
+		"shatter":
+			play("shatter")
 
 
 ## A swing sound each time a strike becomes active (once per hit of a multi-hit move),

@@ -77,8 +77,15 @@ buses at start-up; `play(name, ..., ui = true)` sends a sound to Menu sounds.
 | [ ] | `flip` | Flip Out scoops someone over his head | Spatula scrape, rising whoosh |
 | [ ] | `chop_chop` | Knife Flurry starts (his voice line, "CHOP CHOP") | Placeholder is two knife chops on a board; the real one is his voice |
 | [ ] | `fizzle` | Chef Cerebro's knockout | Sizzle dying away, a deflating squeak |
+| [ ] | `hiss` | Petrify Punch starts (her voice line, "Hiss off!") and Hissy Fitz's knockout | Placeholder is a long snake hiss; the real one is her voice |
+| [ ] | `spit` | Venom Spit leaves her hair snakes | Short hiss, a wet "ptoo" |
+| [ ] | `splat` | The venom glob lands or hits | Soft wet splat |
+| [ ] | `poison_tick` | Poisoned, and each poison pulse | Small sour bubble pop |
+| [ ] | `gaze` | Stone Gaze first takes hold of someone | Eerie rising shimmer |
+| [ ] | `petrify` | Petrify Punch turns someone to stone | Deep grinding rumble |
+| [ ] | `shatter` | A statue shatters | Hard crack, a spill of stone chips |
 
-Craglash, Barkley, Gillbert and Chef Cerebro have signature sounds; Gillbert also has footsteps
+Craglash, Barkley, Gillbert, Chef Cerebro and Hissy Fitz have signature sounds; Gillbert also has footsteps
 (`"step_sound"` in his JSON). Cries and footsteps don't exist
 yet; when the new roster arrives, add them to `data/audio.json` and this table.
 
