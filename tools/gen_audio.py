@@ -428,6 +428,61 @@ def music_menu():
     return song(96, chords, lead, swing_hats=True)
 
 
+# ---------------------------------------------------------------- Craglash
+
+def roar():
+    """A rumbling growl: a low buzzy voice with a wobble, over gravel."""
+    d = 0.9
+    wob = 1 + 0.08 * np.sin(2 * np.pi * 9 * t(d))
+    voice = osc(sweep(95, 70, d) * wob, d, "saw") * 0.6 + osc(sweep(190, 140, d) * wob, d, "square", 0.3) * 0.2
+    voice = lowpass(np.tanh(voice * 2.0), 900) * env(d, attack=0.06, curve=1.6)
+    grit = bandpass(noise(d), 200, 1200) * env(d, attack=0.05, curve=2) * 0.5
+    return mix(voice, grit)
+
+
+def stoneskin():
+    """Gravel clicking into place, rising, with a soft ring."""
+    total = 0.45
+    out = np.zeros(int(SR * total))
+    for k in range(10):
+        f = 700 + k * 140
+        c = (osc(f, 0.03) * 0.5 + bandpass(noise(0.03), 600, 3500)) * env(0.03, curve=3) * (0.4 + k * 0.05)
+        out += at(c, k * 0.032, total)
+    ring = (osc(660, total) + osc(990, total) * 0.5) * env(total, attack=0.2, curve=3) * 0.25
+    return mix(out, ring)
+
+
+def shield_break():
+    return mix(crack() * 0.8, stones_scatter()[: int(SR * 0.5)] * 0.7, thump(160, 60, 0.2) * 0.6)
+
+
+def lash():
+    """A whip of stone: a fast whoosh, then a clatter of segments snapping straight."""
+    total = 0.35
+    out = at(swing(300, 2400, 0.18), 0.0, total)
+    for k in range(5):
+        c = (osc(1100 + 120 * k, 0.025) * 0.4 + bandpass(noise(0.025), 900, 4000)) * env(0.025, curve=3)
+        out += at(c * 0.6, 0.14 + k * 0.022, total)
+    return out
+
+
+def avalanche():
+    """The neck crashing down: a deep boom, then rocks raining and rolling."""
+    total = 1.4
+    boom = at(np.tanh(thump(70, 22, 0.9, 1.8) * 3.0), 0.0, total)
+    rumble = lowpass(noise(total), 250) * env(total, attack=0.02, curve=1.3) * 1.4
+    rocks = at(stones_scatter(), 0.15, total) * 0.8
+    return mix(boom, rumble, rocks)
+
+
+# Added after the first batch, so they're generated last and the older placeholders
+# (which share one random stream) come out the same as before.
+NEW_SOUNDS = {
+    "roar": roar, "stoneskin": stoneskin, "shield_break": shield_break, "lash": lash,
+    "avalanche": avalanche,
+}
+
+
 # ---------------------------------------------------------------- main
 
 SOUNDS = {
@@ -449,6 +504,8 @@ def main():
         save(name, fn())
     save("music_fight", music_fight(), peak_db=-6.0)
     save("music_menu", music_menu(), peak_db=-6.0)
+    for name, fn in NEW_SOUNDS.items():
+        save(name, fn())
 
 
 if __name__ == "__main__":

@@ -203,11 +203,23 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	var damage := float(hit["damage"])
 	var gd: Dictionary = d.def["guard"]
 
+	# Armor (Bedrock): the hit only chips, and the target doesn't flinch or move.
+	if d.is_armored() and not bool(hit["grab"]):
+		var ar: Dictionary = d.move_def()["armor"]
+		var taken := d.take_damage(damage * (1.0 - float(ar.get("reduction", 0.6))), self)
+		d.flash = 3
+		a.energy = minf(CreatureSim.MAX_ENERGY, a.energy + taken * ENERGY_PER_DAMAGE)
+		if same_attack:
+			a.connected = true
+		hitstop = maxi(hitstop, int(float(hit["hitstop"]) * 0.6))
+		emit_event("armor", fx_pos, taken, {"attacker": a.id, "target": d.id})
+		d.check_ko(self)
+		return "armor"
+
 	if d.state == CreatureSim.State.GUARD and not bool(hit["grab"]):
 		var facing_attacker := d.facing.dot(-push) > 0.3
 		if facing_attacker and not bool(hit["guard_break"]):
-			var chip := damage * (1.0 - float(gd["reduction"]))
-			d.hp -= chip
+			var chip := d.take_damage(damage * (1.0 - float(gd["reduction"])), self)
 			d.stamina -= damage * float(gd["drain_per_damage"])
 			d.knock_vel = push * float(hit["knockback"]) * 0.4 / d.weight
 			d.guard_hit = 10
@@ -243,8 +255,12 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	var total := (damage + bonus) * variety * stale
 	var stun := int(round(float(hit["hitstun"]) * maxf(HITSTUN_FLOOR, 1.0 - HITSTUN_DECAY * (n - 1)) * stale))
 
-	d.hp -= total
+	d.take_damage(total, self)
 	d.flash = 6
+	if float(hit.get("slow_ticks", 0.0)) > 0.0:
+		d.slow = maxi(d.slow, int(hit["slow_ticks"]))
+		d.slow_mult = float(hit["slow_mult"])
+		emit_event("slow", d.pos, float(hit["slow_ticks"]), {"who": d.id})
 	d.combo_hits = n
 	d.combo_types = types
 	d.combo_moves[move_key] = int(hit["serial"])
@@ -281,7 +297,8 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		else:
 			d.enter_air(int(hit["launch"]), kb * 0.5)
 	elif was_air:
-		d.extend_air(CreatureSim.JUGGLE_FLOAT, kb * 0.5)
+		var float_t := int(hit.get("juggle_float", 0.0))
+		d.extend_air(float_t if float_t > 0 else CreatureSim.JUGGLE_FLOAT, kb * 0.5)
 	elif float(hit["crumple"]) > 0.0:
 		d.enter_crumple(int(hit["crumple"]), kb)
 	elif broke_guard:
@@ -387,9 +404,11 @@ func _separate() -> void:
 			if dist >= min_d:
 				continue
 			var n := d / dist if dist > 0.0001 else Vector2.RIGHT
-			var push := (min_d - dist) * 0.5
-			a.pos -= n * push
-			b.pos += n * push
+			# A rooted creature (Bedrock) doesn't budge; the other one takes the whole push.
+			var share_a := 0.0 if a.is_armored() else (1.0 if b.is_armored() else 0.5)
+			var overlap := min_d - dist
+			a.pos -= n * overlap * share_a
+			b.pos += n * overlap * (1.0 - share_a)
 			a.clamp_to_floor()
 			b.clamp_to_floor()
 

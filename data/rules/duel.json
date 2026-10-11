@@ -1,0 +1,15 @@
+{
+  "_doc": "Duel (3v3 tag) rules. Times are in ticks (60 per second) unless named _seconds.",
+  "team_size": 3,
+  "time_seconds": 180,
+  "intro_ticks": 100,
+  "tag_cooldown": 300,
+  "tag_cancel_energy": 50,
+  "tag_in_invuln": 10,
+  "bench_regen_per_second": 1.5,
+  "bench_regen_cap": 0.25,
+  "ko_swap_ticks": 110,
+  "enter_invuln": 60,
+  "mid_ko_slowmo": 40,
+  "over_ticks": 150
+}

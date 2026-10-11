@@ -36,6 +36,11 @@
       "slip": [9, 0, 4],
       "rush": [10, 0, 4],
       "surge": [11, 0, 6]
+    },
+    "side_only": ["ko"],
+    "views": {
+      "down": { "path": "res://assets/sprites/cairn_down.png", "origin": [24, 43] },
+      "up": { "path": "res://assets/sprites/cairn_up.png", "origin": [24, 43] }
     }
   },
   "ai": {
@@ -51,6 +56,14 @@
     ]
   },
   "moves": {
+    "tag_in": {
+      "name": "Rockfall Entry", "type": "skill", "anim": "rush",
+      "startup": 6, "active": 8, "recovery": 14,
+      "damage": 6, "knockback": 3.0, "hitstun": 24, "hitstop": 6,
+      "reach": 14, "hit_radius": 12, "juggle": true,
+      "dash": { "speed": 3.6, "from": 1, "to": 12 },
+      "fx": { "smear": "thrust", "size": 1.5, "afterimage": [0, 12], "ghost_color": "#ffcf9eaa" }
+    },
     "light_1": {
       "name": "Jab", "anim": "jab",
       "startup": 4, "active": 2, "recovery": 9, "cancel_from": 7,
@@ -107,7 +120,7 @@
       "name": "Rockslide Rush", "anim": "rush", "windup": 12, "tell": "strong", "cooldown": 180,
       "startup": 6, "active": 10, "recovery": 16,
       "damage": 8, "knockback": 4.5, "hitstun": 26, "hitstop": 7,
-      "reach": 14, "hit_radius": 11, "stack_bonus": 4, "juggle": true,
+      "reach": 14, "hit_radius": 14, "stack_bonus": 4, "juggle": true,
       "dash": { "speed": 4.0, "from": 2, "to": 16 },
       "fx": { "smear": "thrust", "size": 1.6, "afterimage": [2, 16], "ghost_color": "#ffcf9eaa", "trail": "gravel" }
     },

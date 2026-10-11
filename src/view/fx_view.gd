@@ -25,8 +25,13 @@ extends Node2D
 ##   rain         true         a downpour and darkened arena
 ##   telegraph    true         marks where a leaping move will land
 ##   projectile   "wave"       draws the move's projectile as water
+##   impact       also "lash" (stone chips), "quake" (a stomp's shockwave),
+##                "avalanche" (boulders raining onto the strike)
 ## Creature "ko_fx" keys: style "scatter" (the sprite breaks into horizontal pieces that
-## tumble across the floor) or "crack" (cracks, water gushing out, rubble).
+## tumble across the floor), "crack" (cracks, water gushing out, rubble) or "crumble"
+## (cracks, then the neck stones burst loose).
+## Status drawn from creature state: Stoneskin plates while `shield` > 0, a rooted ring
+## while armored, pebbles at the feet while slowed, a red "!" while taunted.
 
 const SHEET := preload("res://assets/sprites/fx.png")
 const GRAVITY := 0.2
@@ -46,6 +51,10 @@ const C_SPARK: Array[Color] = [Color("fff6d5"), Color("ffd04a"), Color("ff8a3a")
 const C_DIM := Color(0.02, 0.03, 0.07)
 const C_PARRY := Color("9ee6ff")
 const C_WARN := Color(1.0, 0.36, 0.28)
+const C_GREY: Array[Color] = [Color("5a585c"), Color("7f7f7f"), Color("aaa8a6"), Color("cecccb")]
+const C_CRAG: Array[Color] = [Color("8c4547"), Color("b5665f"), Color("d08c84")]
+const C_AMBER := Color("ffc45c")
+const C_TAUNT := Color("ff4a3a")
 
 ## Asks AudioView for a sound that belongs to a timed effect (a KO scatter, geysers...).
 signal cue(sound: String)
@@ -155,6 +164,20 @@ func spawn(e: Dictionary) -> void:
 					_drop(mouth, 10.0, v, randf_range(0.8, 2.2), true)
 		"windup":
 			_windup_tell(e)
+		"tag":
+			# A tag: the partner swaps in with a burst of dust and a call-out.
+			_add({"kind": "ring", "pos": p, "life": 16, "radius": 30.0, "color": Color("9ee6ff")})
+			_add({"kind": "lines", "pos": p + Vector2(0, -18), "life": 10, "size": 1.2, "color": Color("9ee6ff")})
+			for i in 8:
+				var a := TAU * i / 8.0
+				_dust(p + Vector2(cos(a) * 10.0, sin(a) * 4.0), Vector2(cos(a), sin(a) * 0.5 - 0.5) * 0.6)
+			var label := "TAG CANCEL!" if String(e.get("kind", "")) == "cancel" else "TAG!"
+			_text(p + Vector2(0, -44), label, Color("9ee6ff"), 9)
+		"enter":
+			_add({"kind": "ring", "pos": p, "life": 20, "radius": 34.0, "color": Color("ffd166")})
+			for i in 6:
+				_dust(p + Vector2(randf_range(-10, 10), randf_range(-3, 3)), Vector2(randf_range(-0.4, 0.4), -0.5))
+			_text(p + Vector2(0, -46), String(e.get("name", "")).to_upper() + " IN", Color("ffd166"), 9)
 		"breakaway":
 			_add({"kind": "ring", "pos": p + Vector2(0, 16), "life": 16, "radius": 30.0})
 			_text(p + Vector2(0, -10), "BREAKAWAY", Color("c9a7ff"))
@@ -172,9 +195,58 @@ func spawn(e: Dictionary) -> void:
 			for i in n:
 				_drop(p, 3.0, Vector2.from_angle(randf() * TAU) * randf_range(0.4, 1.4), randf_range(1.0, 2.6), true)
 			_add({"kind": "ripple", "pos": p, "life": 18, "radius": 16.0})
+		"armor":
+			var tgt := _creature(int(e.get("target", -1)))
+			_add({"kind": "spark", "pos": p, "life": 6, "scale": 0.8})
+			_add({"kind": "ring", "pos": p + Vector2(0, 8), "life": 9, "radius": 12.0, "color": C_AMBER})
+			if tgt != null:
+				for i in 4:
+					_chunk(tgt.pos, _chest(tgt), _note_push(e).rotated(randf_range(-1.2, 1.2)) * randf_range(0.5, 1.2),
+						randf_range(1.0, 2.0), 2.0, C_GREY[randi() % 3], 30.0)
+			_text(p + Vector2(0, -6), str(int(round(power))) if power >= 0.5 else "ROOTED", C_AMBER)
+		"shield_up":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				var at := c.pos + Vector2(0, -_chest(c))
+				_add({"kind": "ring", "pos": c.pos, "life": 14, "radius": c.radius + 10.0, "color": C_GREY[3]})
+				for i in 8:
+					_px(at + Vector2.from_angle(TAU * i / 8.0) * 16.0, -Vector2.from_angle(TAU * i / 8.0) * 0.8,
+						C_GREY[3], 14)
+				_text(c.pos + Vector2(0, -_top(c) - 8), "STONESKIN", C_GREY[3], 7, 34.0)
+		"shield_break":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				for i in 9:
+					_chunk(c.pos, _chest(c) + randf_range(-6, 6), Vector2.from_angle(randf() * TAU) * randf_range(0.6, 1.8),
+						randf_range(1.2, 2.4), randf_range(2.0, 3.0), C_GREY[randi() % 3], 40.0)
+				_add({"kind": "lines", "pos": c.pos + Vector2(0, -_chest(c)), "life": 8, "size": 1.0, "color": C_GREY[3]})
+				_text(c.pos + Vector2(0, -_top(c) - 8), "SHIELD BROKEN", C_GREY[2], 7, 34.0)
+		"slow":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				for i in 4:
+					_dust(c.pos + Vector2(randf_range(-8, 8), randf_range(-2, 2)), Vector2(randf_range(-0.3, 0.3), -0.3))
+				_text(c.pos + Vector2(0, -_top(c) - 14), "SLOWED", Color("b9c6d6"), 7, 40.0)
+		"taunt":
+			_add({"kind": "ring", "pos": p, "life": 14, "radius": 18.0, "color": C_TAUNT})
+		"roar":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				_add({"kind": "ring", "pos": c.pos, "life": 20, "radius": power, "color": C_TAUNT})
+				_add({"kind": "ring", "pos": c.pos, "life": 14, "radius": power * 0.6, "color": C_AMBER})
+				_add({"kind": "lines", "pos": c.pos + Vector2(c.facing.x * 12.0, -_top(c) + 10), "life": 12, "size": 1.3,
+					"color": C_AMBER})
+				_text(c.pos + Vector2(0, -_top(c) + 2), "BEDROCK!", C_AMBER, 9, 40.0)
+				_slam_debris(c.pos, false)
+				shake_out = maxf(shake_out, 2.0)
 		"land_hard":
 			for i in 3:
 				_dust(p + Vector2(randf_range(-6, 6), randf_range(-2, 2)), Vector2(randf_range(-0.3, 0.3), -0.4))
+
+
+## A floating call-out (Combo Trials and drills: "CLEAR!", "DODGED!").
+func callout(pos: Vector2, text: String, color: Color) -> void:
+	_text(pos, text, color, 9, 60.0)
 
 
 ## A click marker for League-style orders: green for a move, red for an attack.
@@ -297,9 +369,11 @@ func _physics(p: Dictionary, dt: float) -> void:
 func _watch_all() -> void:
 	for c in sim.creatures:
 		var w: Dictionary = _watch.get(c.id, {})
+		if not w.is_empty() and w.get("obj") != c:
+			w = {}  # a different creature in this slot (Duel tag): start fresh
 		if w.is_empty():
 			w = {"serial": c.attack_serial, "seg": -1, "charging": false, "stack": c.stack,
-				"state": c.state, "anim_t": c.anim_t}
+				"state": c.state, "anim_t": c.anim_t, "obj": c}
 			_watch[c.id] = w
 		var ticked := c.anim_t != int(w["anim_t"])
 		var attacking := c.state == CreatureSim.State.ATTACK
@@ -333,6 +407,10 @@ func _watch_all() -> void:
 			_stack_changed(c, int(w["stack"]), attacking)
 		w["stack"] = c.stack
 
+		# Stoneskin glints now and then (the rim itself is CreatureView's shader).
+		if c.shield > 0.0 and ticked and c.anim_t % 26 == 0 and c.state != CreatureSim.State.KO:
+			var at := c.pos + Vector2(randf_range(-c.radius, c.radius), -randf_range(8.0, _top(c) - 8.0))
+			_add({"kind": "glint", "pos": at, "life": 10, "color": C_GREY[3]})
 		if c.state == CreatureSim.State.KO and int(w["state"]) != CreatureSim.State.KO:
 			_ko(c)
 		w["state"] = c.state
@@ -394,6 +472,12 @@ func _strike(c: CreatureSim, mv: Dictionary, fx: Dictionary, seg: int) -> void:
 				_spire(c.hit_center(seg), c.facing)
 			"geysers":
 				_geysers(c, mv)
+			"lash":
+				_lash_impact(c, seg)
+			"quake":
+				_quake(c, mv)
+			"avalanche":
+				_avalanche(c.hit_center(seg))
 
 
 func _during_move(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
@@ -482,10 +566,13 @@ func _smear_rise(c: CreatureSim, seg: int, size: float) -> void:
 	_add({"kind": "smear", "life": 8, "color": Color(1, 0.97, 0.88, 0.9), "pts": outer})
 
 
-## The sprites only face left or right, so a punch aimed straight up or down is drawn
-## angled toward the side the sprite faces.
+## Where a swing is drawn. Fighters with up/down art swing exactly where the hit goes;
+## side-only art can't show a punch straight up or down, so it's drawn angled toward the
+## side the sprite faces.
 func _swing_dir(c: CreatureSim) -> Vector2:
 	var f := c.facing
+	if c.id < views.size() and views[c.id] != null and (views[c.id] as CreatureView).has_vertical_views():
+		return f  # it has up/down art, so the swing goes where the hit goes
 	if absf(f.x) < 0.1:
 		return Vector2(-1.0 if _flip(c) else 1.0, f.y * 0.8).normalized()
 	return f
@@ -555,6 +642,48 @@ func _spire_crumble(at: Vector2) -> void:
 	for i in 6:
 		_chunk(at + Vector2(randf_range(-4, 4), 0), randf_range(6, 20), Vector2.from_angle(randf() * TAU) * 0.6,
 			0.5, randf_range(2.0, 3.0), C_STONE[randi() % 3], 30.0)
+
+
+## Boulder Lash: the head cracks into the target and chips fly off the tip.
+func _lash_impact(c: CreatureSim, seg: int) -> void:
+	var at := c.hit_center(seg) + c.facing * 6.0
+	for i in 7:
+		var v := c.facing.rotated(randf_range(-1.0, 1.0)) * randf_range(0.6, 1.8)
+		_chunk(at, 22.0, v, randf_range(0.8, 2.0), randf_range(1.5, 2.5), C_GREY[randi() % 3], 40.0)
+	_add({"kind": "ring", "pos": at, "life": 8, "radius": 10.0, "color": C_GREY[3]})
+	_dust(at, Vector2(c.facing.x * 0.3, -0.4))
+	cue.emit("lash")
+
+
+## Rockslide Stomp: a shockwave rolls out from the stomping foot and the ground jumps.
+func _quake(c: CreatureSim, mv: Dictionary) -> void:
+	var r := float(mv.get("hit_radius", 24))
+	var full := c.charge_ratio >= 1.0
+	_add({"kind": "ring", "pos": c.pos, "life": 16, "radius": r + 6.0, "color": C_CRAG[2]})
+	_add({"kind": "ring", "pos": c.pos, "life": 22, "radius": r + 18.0})
+	for i in 12:
+		var a := TAU * i / 12.0 + randf() * 0.3
+		var at := c.pos + Vector2(cos(a), sin(a) * 0.5) * (r - 4.0 + randf() * 6.0)
+		_dust(at, Vector2(cos(a), sin(a) * 0.5 - 0.7) * 0.6)
+		if i % 2 == 0:
+			_chunk(at, 1.0, Vector2(cos(a), sin(a) * 0.5) * randf_range(0.3, 0.9), randf_range(1.6, 2.8),
+				randf_range(2.0, 3.0), C_CRAG[randi() % 3] if i % 4 == 0 else C_GREY[randi() % 3], 45.0)
+	_slam_debris(c.pos + c.facing * 6.0, full)
+	shake_out = maxf(shake_out, 3.5 if full else 2.5)
+
+
+## Avalanche Coil: boulders shaken loose by the crash rain down around it.
+func _avalanche(at: Vector2) -> void:
+	_add({"kind": "lines", "pos": at + Vector2(0, -10), "life": 12, "size": 2.0, "color": C_AMBER})
+	for i in 14:
+		var spot := at + Vector2(randf_range(-30, 30), randf_range(-12, 12))
+		_chunk(spot, randf_range(40, 90), Vector2(randf_range(-0.2, 0.2), 0), -randf_range(0.5, 1.5),
+			randf_range(2.5, 4.5), C_GREY[randi() % 3] if i % 3 else C_CRAG[randi() % 3], 70.0, true)
+	for i in 10:
+		var a := TAU * i / 10.0
+		_dust(at + Vector2(cos(a) * 20.0, sin(a) * 8.0), Vector2(cos(a), sin(a) * 0.5 - 0.6) * 0.7)
+	shake_out = maxf(shake_out, 6.0)
+	cue.emit("avalanche")
 
 
 ## Storm Drain: water erupts from the ring of pits it leaves behind.
@@ -696,6 +825,27 @@ func _ko(c: CreatureSim) -> void:
 			var ends := _crack_body(c, ko)
 			_later(0.5, _gush.bind(c, ko, ends))
 			_later(20.0, _rubble.bind(c))
+		"crumble":
+			_crack_body(c, ko)
+			_later(14.0, _crumble.bind(c))
+
+
+## Craglash: the stone neck comes apart and its pieces bounce away, then the body
+## settles into rubble.
+func _crumble(c: CreatureSim) -> void:
+	var dir: Vector2 = _last_push.get(c.id, -c.facing)
+	for i in 7:
+		var v := dir.rotated(randf_range(-1.1, 1.1)) * randf_range(0.6, 1.8)
+		_chunk(c.pos, randf_range(20, 36), v, randf_range(1.0, 2.2), randf_range(3.0, 4.0), C_GREY[randi() % 3],
+			FOREVER, true)
+	for i in 6:
+		_chunk(c.pos, randf_range(6, 18), Vector2.from_angle(randf() * TAU) * randf_range(0.4, 1.2),
+			randf_range(0.8, 1.8), randf_range(2.0, 3.0), C_CRAG[randi() % 3], FOREVER, true)
+	for i in 8:
+		_dust(c.pos + Vector2(randf_range(-14, 14), randf_range(-3, 3)), Vector2(randf_range(-0.5, 0.5), -0.4))
+	_add({"kind": "ring", "pos": c.pos, "life": 16, "radius": 32.0})
+	shake_out = maxf(shake_out, 3.0)
+	cue.emit("stones_scatter")
 
 
 ## Cairn falls apart: each stone of the stack becomes its own piece and tumbles away
@@ -709,7 +859,7 @@ func _scatter(c: CreatureSim) -> void:
 	var ko: Dictionary = c.def["ko_fx"]
 	var frame: Array = ko.get("frame", [0, 0])
 	var fpx := int(snap["frame_px"])
-	var origin: Vector2 = snap["origin"]
+	var origin: Vector2 = snap["side_origin"]
 	var flip := bool(snap["flip"])
 	var dir: Vector2 = _last_push.get(c.id, -c.facing)
 	var pieces: Array = ko["pieces"]
@@ -720,7 +870,7 @@ func _scatter(c: CreatureSim) -> void:
 		var head := i == 0
 		var spread := dir.rotated(randf_range(-0.8, 0.8))
 		var speed := randf_range(0.7, 1.6) + (1.3 if head else 0.0)
-		_add({"kind": "chunk", "piece": true, "tex": snap["tex"], "flip": flip,
+		_add({"kind": "chunk", "piece": true, "tex": snap["side_tex"], "flip": flip,
 			"region": Rect2(int(frame[1]) * fpx, int(frame[0]) * fpx + y0, fpx, y1 - y0),
 			"ox": origin.x, "band_c": (y0 + y1) * 0.5,
 			"pos": c.pos + Vector2(randf_range(-2, 2), randf_range(-1, 1)), "z": zc,
@@ -800,6 +950,10 @@ func _rubble(c: CreatureSim) -> void:
 
 
 # ------------------------------------------------------------------ helpers
+
+func _creature(i: int) -> CreatureSim:
+	return sim.creatures[i] if i >= 0 and i < sim.creatures.size() else null
+
 
 func _note_push(e: Dictionary) -> Vector2:
 	var a := int(e.get("attacker", -1))
@@ -1000,9 +1154,9 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 			tint.a *= 1.0 - k
 			var feet: Vector2 = p["feet"]
 			var origin: Vector2 = p["origin"]
-			var fpx := float(p["frame_px"])
+			var size: Vector2 = p["frame_size"]
 			ci.draw_set_transform(feet, 0.0, Vector2(-1.0 if bool(p["flip"]) else 1.0, 1.0))
-			ci.draw_texture_rect_region(p["tex"], Rect2(-origin.x, -origin.y, fpx, fpx), p["region"], tint)
+			ci.draw_texture_rect_region(p["tex"], Rect2(-origin.x, -origin.y, size.x, size.y), p["region"], tint)
 			ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		"chunk":
 			_draw_chunk(ci, p)
@@ -1198,7 +1352,12 @@ func _draw_creature_extras(ci: CanvasItem, floor_layer: bool) -> void:
 		if floor_layer:
 			if attacking and bool(fx.get("telegraph", false)) and c.state_t <= int(mv.get("startup", 0)):
 				_draw_telegraph(ci, c, mv)
+			if c.is_armored():
+				_draw_rooted(ci, c)
 			continue
+
+		if c.state != CreatureSim.State.KO:
+			_draw_status(ci, c)
 
 		var stack_def: Dictionary = c.def.get("stack", {})
 		if not stack_def.is_empty() and c.stack > 0 and c.state != CreatureSim.State.KO:
@@ -1232,7 +1391,7 @@ func _draw_telegraph(ci: CanvasItem, c: CreatureSim, mv: Dictionary) -> void:
 	var remaining := 0.0
 	if not dash.is_empty():
 		remaining = maxf(0.0, float(dash["to"]) - c.state_t) * float(dash["speed"])
-	var land := c.pos + c.facing * remaining
+	var land := c.pos + c.facing * (remaining + float(mv.get("reach", 0)))
 	var k := clampf(float(c.state_t) / maxf(1.0, float(mv.get("startup", 1))), 0.0, 1.0)
 	var r := float(mv.get("hit_radius", 40))
 	var pulse := 0.5 + 0.5 * sin(_tick * 0.6)
@@ -1241,6 +1400,40 @@ func _draw_telegraph(ci: CanvasItem, c: CreatureSim, mv: Dictionary) -> void:
 	ci.draw_set_transform(land, 0.0, Vector2(1.0, 0.38))
 	ci.draw_circle(Vector2.ZERO, lerpf(4.0, 16.0, k), Color(0, 0, 0, 0.35))
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## Bedrock: a glowing ring where the feet are planted, cracks pulsing outward.
+func _draw_rooted(ci: CanvasItem, c: CreatureSim) -> void:
+	var pulse := 0.5 + 0.5 * sin(_tick * 0.4)
+	ci.draw_set_transform(c.pos, 0.0, Vector2(1.0, 0.42))
+	ci.draw_arc(Vector2.ZERO, c.radius + 8.0 + pulse * 2.0, 0.0, TAU, 32, Color(C_AMBER, 0.55), 2.0)
+	ci.draw_arc(Vector2.ZERO, c.radius + 15.0 + pulse * 3.0, 0.0, TAU, 32, Color(C_AMBER, 0.25), 1.0)
+	for i in 6:
+		var a := TAU * i / 6.0 + 0.3
+		var d := Vector2(cos(a), sin(a))
+		ci.draw_line(d * (c.radius + 4.0), d * (c.radius + 11.0 + pulse * 4.0), Color(C_AMBER, 0.6), 1.0)
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## Shield plates, slowed pebbles and the taunt mark, drawn over the creature.
+func _draw_status(ci: CanvasItem, c: CreatureSim) -> void:
+	var lift := c.air_height()
+	if c.slow > 0:
+		for i in 3:
+			var a := _tick * 0.12 + TAU * i / 3.0
+			var at := (c.pos + Vector2(cos(a) * (c.radius + 2.0), sin(a) * 3.0 - 1.0)).round()
+			ci.draw_rect(Rect2(at - Vector2(1, 1), Vector2(3, 2)), C_OUTLINE)
+			ci.draw_rect(Rect2(at - Vector2(0, 1), Vector2(1, 1)), C_GREY[2])
+	if c.taunt > 0 and (c.taunt > 30 or (_tick / 4) % 2 == 0):
+		var top := (c.pos + Vector2(0, -_top(c) - 10.0 - lift)).round()
+		_bang(ci, top)
+
+
+func _bang(ci: CanvasItem, at: Vector2) -> void:
+	ci.draw_rect(Rect2(at + Vector2(-2, -9), Vector2(5, 8)), C_OUTLINE)
+	ci.draw_rect(Rect2(at + Vector2(-2, 0), Vector2(5, 4)), C_OUTLINE)
+	ci.draw_rect(Rect2(at + Vector2(-1, -8), Vector2(3, 6)), C_TAUNT)
+	ci.draw_rect(Rect2(at + Vector2(-1, 1), Vector2(3, 2)), C_TAUNT)
 
 
 func _draw_rain(ci: CanvasItem) -> void:

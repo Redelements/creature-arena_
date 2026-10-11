@@ -52,6 +52,8 @@ var _stuck_t := 0
 var _detour_t := 0
 var _detour_dir := Vector2.ZERO
 var _hold_heavy := 0
+## Set in a Duel, so the CPU can tag out a hurt creature.
+var duel: DuelSim = null
 
 
 func _init(p_me: int, p_level := 1, p_seed := 1) -> void:
@@ -136,7 +138,24 @@ func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 
 	if _defend(sim, me, foe, dist):
 		return
+	if _maybe_tag(me, dist):
+		return
 	_neutral(sim, me, foe, to_foe, dist)
+
+
+## Duel: tag out a badly hurt creature for a healthier teammate, from a safe distance.
+func _maybe_tag(me: CreatureSim, dist: float) -> bool:
+	if duel == null or not duel.can_tag(me_idx) or dist < 40.0:
+		return false
+	var mine := me.hp / me.max_hp
+	var best := 0.0
+	for c in duel.teams[me_idx]:
+		if c != me and c.hp > 0.0:
+			best = maxf(best, c.hp / c.max_hp)
+	if mine < 0.35 and best > mine + 0.2 and _roll(0.03 + 0.03 * level):
+		_press(SimDefs.IN_TAG)
+		return true
+	return false
 
 
 func _continue_attack(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float) -> void:

@@ -35,6 +35,8 @@ const JUGGLE_FLOAT := 16
 const LAND_KNOCKDOWN := 24
 const GETUP_INVULN := 12
 const TAN_22_5 := 0.41421356237309503
+## Walking speed while taunted (see a move's "taunt").
+const TAUNT_SPEED := 0.8
 
 ## Everything that changes during a match, in a fixed order. snapshot()/restore() copy
 ## exactly these, which is what rollback netcode saves every frame. A test checks that
@@ -47,7 +49,7 @@ const STATE_FIELDS := [
 	"windup_total", "stun", "invuln", "flash", "guard_hit", "air_t", "air_total",
 	"combo_hits", "combo_types", "combo_moves", "combo_bounced", "combo_damage", "juggles",
 	"juggle_serials", "last_attacker", "dodge_dir", "prev_buttons", "dodge_buffer",
-	"dodge_buffer_dir",
+	"dodge_buffer_dir", "shield", "calm_t", "slow", "slow_mult", "taunt", "taunt_by",
 ]
 ## Set once when the creature is made and never changed by the simulation.
 const STATIC_FIELDS := ["id", "def", "is_dummy", "radius", "weight", "max_hp", "max_stamina"]
@@ -119,6 +121,14 @@ var prev_buttons := 0
 var dodge_buffer := 0  ## a dodge pressed during hitstop, kept until it can happen
 var dodge_buffer_dir := Vector2.ZERO  ## the direction held when it was pressed
 
+# Status
+var shield := 0.0  ## absorbs damage before hp (Craglash's Stoneskin passive)
+var calm_t := 0  ## ticks since this creature last took damage
+var slow := 0  ## ticks of slowed walking left
+var slow_mult := 1.0
+var taunt := 0  ## ticks left of being taunted by `taunt_by`
+var taunt_by := -1
+
 
 func _init(p_id: int, p_def: Dictionary, p_pos: Vector2, p_is_dummy := false) -> void:
 	id = p_id
@@ -133,6 +143,7 @@ func _init(p_id: int, p_def: Dictionary, p_pos: Vector2, p_is_dummy := false) ->
 	weight = float(def.get("weight", 1.0))
 	for mid in moves():
 		_normalize_move(String(mid), moves()[mid])
+	shield = float(def.get("stoneskin", {}).get("shield", 0.0))
 
 
 ## Fills in each move's type, hit segments and total length so the rest of the code
@@ -255,6 +266,9 @@ func hit_params(seg: int) -> Dictionary:
 		"grab": bool(mv.get("grab", false)),
 		"juggle": bool(mv.get("juggle", false)),
 		"stack_bonus": float(mv.get("stack_bonus", 0.0)),
+		"slow_ticks": seg_value(seg, "slow_ticks"),
+		"slow_mult": float(mv.get("slow_mult", 1.0)),
+		"juggle_float": seg_value(seg, "juggle_float"),
 	}
 
 
@@ -265,6 +279,37 @@ func is_invulnerable() -> bool:
 		var dg: Dictionary = def["dodge"]
 		return state_t >= int(dg["iframes_start"]) and state_t <= int(dg["iframes_end"])
 	return false
+
+
+## Bedrock-style armor: hits only chip it, and nothing moves it. Grabs still work.
+func is_armored() -> bool:
+	if state != State.ATTACK or windup_left > 0:
+		return false
+	var ar: Dictionary = move_def().get("armor", {})
+	return not ar.is_empty() and state_t >= int(ar["from"]) and state_t <= int(ar["to"])
+
+
+## Takes damage, the shield soaking it up first. Returns what reached hp.
+func take_damage(amount: float, sim: MatchSim) -> float:
+	calm_t = 0
+	if shield > 0.0 and amount > 0.0:
+		var absorbed := minf(shield, amount)
+		shield -= absorbed
+		amount -= absorbed
+		if shield <= 0.0:
+			shield = 0.0
+			sim.emit_event("shield_break", pos, 1.0, {"who": id})
+	hp -= amount
+	return amount
+
+
+func walk_speed() -> float:
+	var s := float(def["speed"])
+	if slow > 0:
+		s *= slow_mult
+	if taunt > 0:
+		s *= TAUNT_SPEED
+	return s
 
 
 func can_be_hit() -> bool:
@@ -389,6 +434,7 @@ func step(buttons: int, sim: MatchSim) -> void:
 			stack = 0
 	if not (state in [State.DODGE, State.GUARD, State.KO]):
 		stamina = minf(max_stamina, stamina + float(def.get("stamina_regen", 0.5)))
+	_tick_status(sim)
 
 	if is_stunned() and _wants_breakaway(buttons, pressed):
 		sim.breakaway(self)
@@ -436,6 +482,29 @@ func step(buttons: int, sim: MatchSim) -> void:
 		dodge_buffer -= 1
 
 
+func _tick_status(sim: MatchSim) -> void:
+	if slow > 0:
+		slow -= 1
+	if taunt > 0:
+		taunt -= 1
+	# Stoneskin: a while without taking damage grows the shield back.
+	var skin: Dictionary = def.get("stoneskin", {})
+	if not skin.is_empty() and state != State.KO:
+		calm_t += 1
+		var full := float(skin["shield"])
+		if calm_t >= int(skin["delay"]) and shield < full:
+			shield = full
+			sim.emit_event("shield_up", pos, full, {"who": id})
+
+
+## The creature taunting this one, if any.
+func taunter(sim: MatchSim) -> CreatureSim:
+	if taunt <= 0 or taunt_by < 0 or taunt_by >= sim.creatures.size():
+		return null
+	var t := sim.creatures[taunt_by]
+	return null if t.state == State.KO else t
+
+
 func _wants_breakaway(buttons: int, pressed: int) -> bool:
 	var both := SimDefs.IN_GUARD | SimDefs.IN_DODGE
 	return (buttons & both) == both and (pressed & both) != 0 \
@@ -454,7 +523,7 @@ func _update_free(buttons: int, pressed: int, dir: Vector2, sim: MatchSim) -> vo
 		_set_state(State.GUARD)
 		return
 
-	walk_vel = walk_vel.move_toward(dir * float(def["speed"]), float(def["accel"]))
+	walk_vel = walk_vel.move_toward(dir * walk_speed(), float(def["accel"]))
 	if dir != Vector2.ZERO:
 		facing = dir
 		if state != State.MOVE:
@@ -486,6 +555,10 @@ func _try_start_buffered(dir: Vector2, sim: MatchSim) -> bool:
 		return false
 	if dir != Vector2.ZERO:
 		facing = dir
+	# A taunted creature swings at its taunter, whichever way it was aiming.
+	var t := taunter(sim)
+	if t != null and t.pos.distance_squared_to(pos) > 0.0001:
+		facing = _snap8(t.pos - pos)
 	_start_attack(mid, sim, true)
 	return true
 
@@ -563,6 +636,20 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 	if mv.has("projectile") and t == su + 1:
 		sim.spawn_projectile(self, mv)
 
+	# Armored stances (Bedrock): taunt as the armor sets, and let any attack answer
+	# straight out of it once `release_from` is reached.
+	var armor: Dictionary = mv.get("armor", {})
+	if not armor.is_empty():
+		if t == int(armor["from"]) and mv.has("taunt"):
+			_taunt(mv["taunt"], sim)
+		if buffered != "" and t >= int(armor.get("release_from", 9999)) and t <= int(armor["to"]):
+			var rel := action_move(buffered)
+			if rel != move_id and can_use(rel):
+				if dir != Vector2.ZERO:
+					facing = dir
+				_start_attack(rel, sim)
+				return
+
 	# Cancels: the next light in the string, or any higher rank once this move connected.
 	if buffered != "":
 		var want := buffered
@@ -581,6 +668,17 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 
 	if t >= int(mv["length"]):
 		_set_state(State.IDLE)
+
+
+func _taunt(tn: Dictionary, sim: MatchSim) -> void:
+	var r := float(tn["radius"])
+	for o in sim.creatures:
+		if o == self or o.state == State.KO or o.pos.distance_to(pos) > r + o.radius:
+			continue
+		o.taunt = int(tn["ticks"])
+		o.taunt_by = id
+		sim.emit_event("taunt", o.pos, 1.0, {"who": o.id, "by": id})
+	sim.emit_event("roar", pos, r, {"who": id})
 
 
 func _slam(mv: Dictionary, sim: MatchSim) -> void:
@@ -632,7 +730,7 @@ func _update_guard(buttons: int, pressed: int, dir: Vector2, sim: MatchSim) -> v
 		_set_state(State.IDLE)
 		return
 	var gd: Dictionary = def["guard"]
-	walk_vel = dir * float(def["speed"]) * float(gd["speed_mult"])
+	walk_vel = dir * walk_speed() * float(gd["speed_mult"])
 	_move(walk_vel, sim, true)
 
 
@@ -745,6 +843,7 @@ func start_fall(sim: MatchSim) -> void:
 func _land_from_fall(sim: MatchSim) -> void:
 	pos = _clamp_to_floor(sim.terrain.nearest_solid(pos))
 	hp -= FALL_DAMAGE
+	calm_t = 0
 	invuln = RESPAWN_INVULN
 	reset_combo()
 	if hp <= 0.0:
