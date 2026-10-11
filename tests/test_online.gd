@@ -231,3 +231,26 @@ func test_over_real_udp_on_this_machine() -> void:
 		OS.delay_usec(2000)
 	assert_eq(host.phase, Netplay.Phase.ENDED, "the host sees the guest leave:")
 	host.leave()
+
+
+func test_a_long_burst_of_lost_packets_is_recovered() -> void:
+	var links := LoopLink.pair(2, 0, 0.0, 7)
+	var host := Netplay.new()
+	var guest := Netplay.new()
+	host.host(0, TEAM_A, links[0])
+	guest.join("loop", 0, TEAM_B, links[1])
+	var nets := [host, guest]
+	_run(nets, 200, func(): return _playing(nets))
+	_run(nets, 120, Callable(), _mash(6))
+	# Half a second where no input packet gets through either way: far more than the
+	# few inputs each packet repeats.
+	for l in links:
+		(l as LoopLink).loss = 1.0
+	_run(nets, 30, Callable(), _mash(7))
+	for l in links:
+		(l as LoopLink).loss = 0.0
+	var before := host.game.session.frame
+	_run(nets, 300, Callable(), _mash(8))
+	assert_gt(float(host.game.session.frame - before), 250.0, "the match carries on afterwards:")
+	assert_gt(float(guest.game.session.confirmed_frame()), float(before), "the lost inputs were sent again:")
+	assert_eq(host.game.desync_frame, -1, "still in sync")

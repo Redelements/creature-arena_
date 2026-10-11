@@ -15,8 +15,13 @@ extends RefCounted
 ## The host is side 0 (left), the joiner side 1. Both builds must have the same game
 ## data (creature files and Duel rules), or the simulations would disagree: hello
 ## carries a hash of it, and a mismatch is refused with a clear message.
+##
+## Joining a dedicated server (RelayServer) is the same Join: the server answers like a
+## host, except that it says "wait" until it has paired this player with another, and
+## its "start" gives this player's `side` and the opponent's round trip to the server.
+## A `room` in hello pairs players who typed the same one.
 
-const NET_VERSION := 1
+const NET_VERSION := 2
 const DEFAULT_PORT := 7777
 const PINGS := 5
 ## Give up on a join that hasn't connected after this long.
@@ -39,6 +44,10 @@ var ping_ms := 0.0
 ## Input delay to use instead of picking one from the ping (--net-delay).
 var forced_delay := -1
 var team_size := 1
+## Dedicated servers pair players who give the same room ("" for anyone).
+var room := ""
+## True once the other end turned out to be a dedicated server.
+var via_server := false
 
 var rematch_local := false
 var rematch_remote := false
@@ -101,7 +110,7 @@ func tick(local_bits: int) -> void:
 	match phase:
 		Phase.CONNECTING:
 			if link.status == NetLink.Status.CONNECTED:
-				link.send({"t": "hello", "v": NET_VERSION, "data": data_hash(), "team": my_team}, true)
+				link.send({"t": "hello", "v": NET_VERSION, "data": data_hash(), "team": my_team, "room": room}, true)
 				phase = Phase.HANDSHAKE
 				status = "Connected. Setting up the match..."
 			elif _t > CONNECT_TIMEOUT_TICKS:
@@ -163,7 +172,14 @@ func _handle(m: Dictionary) -> void:
 			status = "Player connected. Measuring the connection..."
 			_next_ping = _t
 		"reject":
-			_fail("The host has a different version of the game. Both need the same build.")
+			_fail(String(m.get("msg", "The host has a different version of the game. Both need the same build.")))
+		"wait":
+			if not hosting:
+				via_server = true
+				status = String(m.get("msg", "On the server. Waiting for an opponent..."))
+		"path":
+			if game != null:
+				game.relay_rtt_ms = float(m.get("rtt", 0.0))
 		"ping":
 			link.send({"t": "pong", "n": m.get("n", 0)}, true)
 		"pong":
@@ -179,13 +195,17 @@ func _handle(m: Dictionary) -> void:
 					or not _valid_team(teams[1]):
 				_fail("Bad match setup from the host")
 				return
-			their_team = teams[0]
+			if m.has("side"):  # from a dedicated server, which picks the sides
+				via_server = true
+				local_side = clampi(int(m["side"]), 0, 1)
+			their_team = teams[1 - local_side]
 			ping_ms = float(m.get("ping", 0.0))
 			_begin(int(m.get("n", 0)), teams, int(m.get("delay", 2)))
+			game.relay_rtt_ms = float(m.get("via", 0.0))
 		"rematch":
 			rematch_remote = true
 		"bye":
-			_fail("The other player left")
+			_fail("The server shut down" if String(m.get("why", "")) == "server" else "The other player left")
 		"in", "dg":
 			if game != null and int(m.get("n", -1)) == game.id:
 				game.receive(m)
@@ -237,6 +257,10 @@ static func pick_delay(rtt_ms: float) -> int:
 
 
 func _valid_team(team) -> bool:
+	return valid_team(team)
+
+
+static func valid_team(team) -> bool:
 	if not (team is Array) or (team as Array).is_empty() or (team as Array).size() > 3:
 		return false
 	for id in team:

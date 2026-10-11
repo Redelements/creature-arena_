@@ -60,6 +60,10 @@ How the joiner reaches the host:
 - **Over the internet, port forwarding:** the host forwards **UDP port 7777** on their
   router to their PC, and the joiner uses the host's public IP.
 - Windows asks whether to let the game use the network the first time you host: allow it.
+- **On a dedicated server:** nobody hosts. Both players **Join** the server's address
+  (add `/room`, like `game.example.net/kev`, so friends get paired with each other
+  instead of with whoever is next). The server pairs players, relays the match and
+  referees it with its own copy of the game. Run one: [docs/SERVER.md](docs/SERVER.md).
 
 It uses rollback netcode: your own inputs respond at once (after 1–3 frames of delay,
 picked from the ping), and the other player's late inputs are corrected in a frame or
@@ -83,6 +87,7 @@ godot --path . -- --mode=0 --level=2    # Cairn vs a Hard CPU Culvert
 godot --path . -- --mode=2              # watch CPU vs CPU
 godot --path . -- --showcase=cerebro    # scripted demo: cairn, culvert, craglash, barkley, gillbert, cerebro, hissy, digby, pete, sno or counterplay
 godot --path . -- --mode=6              # Duel vs CPU with the default teams (add --pick to choose)
+godot --headless --path . -- --server   # a dedicated server on UDP 7777 (docs/SERVER.md)
 ```
 
 Online from a terminal: `godot --path . -- --online-host` and `godot --path . -- --online-join=192.168.1.20`
