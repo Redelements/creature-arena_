@@ -243,15 +243,15 @@ the body holds the line.
 
 ### Barkley — the tree that got up and left
 
-A bruiser (135 HP, Wild affinity) with long branch arms: he pulls foes in, spins, and
-fills the space around him with pinecones and roots.
+A bruiser (145 HP, Wild affinity, slow on his roots) with long branch arms: he pulls foes
+in, spins, and fills the space around him with pinecones and roots.
 
 | Button | Move | What it does |
 | --- | --- | --- |
 | Light | Twig Swipe, Bough Swing, Log Drop | Both branch arms swing across, then he tips forward and bonks with the log on his head |
-| Heavy | Timber Twister | Arms out, he spins on his roots: three hits all around him, the last one knocks up and away. Hold to charge (more damage, throws farther). Can't be cancelled until the last hit |
+| Heavy | Timber Twister | Arms out, he spins on his roots: three hits all around him, the last one knocks up and away. Hold to charge (more damage, throws farther). Can't be cancelled until the last hit. A 2.5 s cooldown |
 | Skill 1 | Branch Grab | A branch arm shoots out to long range, snags, and **reels the target in** to point-blank, still stunned, so a light string links after it. Blockable; a blocked grab pulls nothing |
-| Skill 2 | Pinecone Bomb | Lobs a pinecone **over** anyone close; it lands 56 px ahead and bursts, popping up everything near the spot. A ring on the floor shows where |
+| Skill 2 | Pinecone Bomb | Lobs a pinecone **over** anyone close; it bursts where it lands, popping up everything near the spot. **Tap** for the shortest throw (about 54 px), **hold** to throw it further (up to about 115 px): a ring on the floor slides out to show where it will land. On release it **turns toward a foe** within about 45° of where you aimed |
 | Surge | Root Eruption | Plunges his arms into the floor: roots burst out in three growing rings (26, 40 and 54 px), all around him; the last ring stuns. Cracks the floor but opens no pits |
 
 The sheet gives Barkley no passive, so he has none.

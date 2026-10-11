@@ -503,7 +503,10 @@ func spawn_projectile(owner: CreatureSim, mv: Dictionary, last := true) -> void:
 			hit[k] = p["volley"]["last"][k]
 	var lob := bool(p.get("lob", false))
 	var life := int(p["time"]) if lob else int(p["life"])
-	var vel := owner.facing * (float(p["range"]) / float(life) if lob else float(p["speed"]))
+	var lob_range := float(p.get("range", 0.0))
+	if p.has("range_charged"):  # held longer, thrown further (Pinecone Bomb)
+		lob_range = lerpf(lob_range, float(p["range_charged"]), owner.charge_ratio)
+	var vel := owner.facing * (lob_range / float(life) if lob else float(p["speed"]))
 	var pr := {
 		"owner": owner.id,
 		"serial": owner.attack_serial,

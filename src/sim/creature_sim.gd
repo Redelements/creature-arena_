@@ -734,18 +734,20 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 		if charging:
 			if dir != Vector2.ZERO:
 				facing = dir
-			if (buttons & SimDefs.IN_HEAVY) and charge < int(mv.get("charge_max", 0)):
+			if (buttons & _charge_bit()) and charge < int(mv.get("charge_max", 0)):
 				charge += 1
 		return
 	if charging:
 		if dir != Vector2.ZERO:
 			facing = dir  # aim while charging
-		if (buttons & SimDefs.IN_HEAVY) and charge < int(mv.get("charge_max", 0)):
+		if (buttons & _charge_bit()) and charge < int(mv.get("charge_max", 0)):
 			charge += 1
 			state_t = 0
 			return
 		charging = false
 		charge_ratio = float(charge) / float(maxi(int(mv.get("charge_max", 1)), 1))
+		if mv.has("aim"):
+			_aim(float(mv["aim"]), sim)  # released: snap to a foe roughly where it was aimed
 
 	var t := state_t
 	var su := int(mv.get("startup", 0))
@@ -856,6 +858,16 @@ func _taunt(tn: Dictionary, sim: MatchSim) -> void:
 		o.taunt_by = id
 		sim.emit_event("taunt", o.pos, 1.0, {"who": o.id, "by": id})
 	sim.emit_event("roar", pos, r, {"who": id})
+
+
+## The button that keeps a charge move charging: the one that started it (the Heavy, or a
+## Skill that charges, like Pinecone Bomb).
+func _charge_bit() -> int:
+	if move_id == "skill_1":
+		return SimDefs.IN_SKILL1
+	if move_id == "skill_2":
+		return SimDefs.IN_SKILL2
+	return SimDefs.IN_HEAVY
 
 
 ## Turns to face the nearest foe when it's roughly ahead (facing·dir >= `cone`): moves

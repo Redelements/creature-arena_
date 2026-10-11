@@ -54,6 +54,7 @@ var _last_seen := Vector2.INF
 var _detour_t := 0
 var _detour_dir := Vector2.ZERO
 var _hold_heavy := 0
+var _hold_bit := SimDefs.IN_HEAVY  ## the button a held charge is held on
 ## Set in a Duel, so the CPU can tag out a hurt creature.
 var duel: DuelSim = null
 
@@ -168,7 +169,7 @@ func _continue_attack(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: fl
 	if me.charging:
 		if _hold_heavy > 0:
 			_hold_heavy -= 1
-			_hold(SimDefs.IN_HEAVY)
+			_hold(_hold_bit if me.move_id != "heavy" else SimDefs.IN_HEAVY)
 		return
 	# A steerable dash (Burrow): steer it toward the foe, to come up under them.
 	if float(me.move_def().get("dash", {}).get("steer", 0.0)) > 0.0:
@@ -368,6 +369,15 @@ func _neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2,
 			and _roll(0.25 * float(p["aggression"]) + 0.05):
 		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
 		_press(int(ACTION_BIT[lob]))
+		# A lob that charges for distance (Pinecone Bomb): hold it just long enough to land
+		# on the foe.
+		var lmv: Dictionary = me.moves().get(lob, {})
+		var lp: Dictionary = lmv.get("projectile", {})
+		if lmv.has("charge_max") and lp.has("range_charged"):
+			var k := clampf((dist - float(lp["range"])) / maxf(1.0, float(lp["range_charged"]) - float(lp["range"])),
+				0.0, 1.0)
+			_hold_heavy = int(round(k * float(lmv["charge_max"])))
+			_hold_bit = int(ACTION_BIT[lob])
 		return
 
 	# A gaze (Stone Gaze) slows a foe who is looking this way: use it at mid range.
