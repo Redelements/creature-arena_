@@ -146,6 +146,24 @@ func on_event(e: Dictionary) -> void:
 		"windup":
 			var red := String(e.get("tell", "")) in ["unblockable", "guard_break"]
 			play("windup_red" if red else "windup_gold")
+		"tag":
+			play("breakaway", 0.0, 1.2)
+			play("crowd_cheer", -6.0)
+		"enter":
+			play("round_start", -4.0, 0.8)
+		"duel_over":
+			play("round_end")
+		"armor":
+			play("block", -2.0, 0.6)
+		"shield_up":
+			play("stoneskin")
+		"shield_break":
+			play("shield_break")
+		"roar":
+			play("roar")
+			play("crowd_cheer", -8.0)
+		"slow":
+			play("land", -6.0, 0.7)
 
 
 ## A swing sound each time a strike becomes active (once per hit of a multi-hit move).

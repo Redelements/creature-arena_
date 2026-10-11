@@ -34,6 +34,11 @@
       "gulp": [8, 0, 4],
       "runoff": [9, 0, 4],
       "storm": [10, 0, 6]
+    },
+    "side_only": ["ko"],
+    "views": {
+      "down": { "path": "res://assets/sprites/culvert_down.png", "origin": [24, 43] },
+      "up": { "path": "res://assets/sprites/culvert_up.png", "origin": [24, 43] }
     }
   },
   "ai": {
@@ -51,6 +56,14 @@
     ]
   },
   "moves": {
+    "tag_in": {
+      "name": "Manhole Drop", "type": "skill", "anim": "storm", "anim_from": 3,
+      "startup": 8, "active": 4, "recovery": 18,
+      "damage": 7, "knockback": 2.4, "hitstun": 26, "hitstop": 8, "launch": 22,
+      "reach": 6, "hit_radius": 20, "juggle": true,
+      "terrain_radius": 10,
+      "fx": { "smear": "arc", "size": 1.4 }
+    },
     "light_1": {
       "name": "Jab", "anim": "light",
       "startup": 5, "active": 3, "recovery": 10, "cancel_from": 9,

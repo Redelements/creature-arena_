@@ -3,6 +3,10 @@ name: playable build
 # Exports a Windows and a Linux build of every pull request (and of main), so each
 # change can be downloaded and played. On a PR, a single bot comment links the latest
 # builds and is updated on every push.
+#
+# It also checks cross-platform determinism, which rollback netcode depends on: the
+# Linux and Windows builds each play the same seeded match and must produce the exact
+# same state fingerprint.
 
 on:
   pull_request:
@@ -23,13 +27,19 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GODOT_VERSION: 4.7.2
+      SIM_CHECK_SEED: 20261010
+    outputs:
+      short_sha: ${{ steps.sha.outputs.short_sha }}
+      linux_digest: ${{ steps.simcheck.outputs.digest }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Short commit id
+        id: sha
         run: |
           SHA="${{ github.event.pull_request.head.sha || github.sha }}"
           echo "SHORT_SHA=${SHA::7}" >> "$GITHUB_ENV"
+          echo "short_sha=${SHA::7}" >> "$GITHUB_OUTPUT"
 
       - name: Cache Godot and export templates
         id: cache
@@ -75,6 +85,16 @@ jobs:
           out=$(timeout 120 build/linux/CreatureArena.x86_64 --headless -- --showcase=cairn --quit-after=700 2>&1 || true)
           echo "$out" | tail -5
           if echo "$out" | grep -E "SCRIPT ERROR|Parse Error|Failed to load"; then exit 1; fi
+
+      - name: Determinism fingerprint (Linux build)
+        id: simcheck
+        run: |
+          # Absolute path: an exported game reads relative paths from inside its own package.
+          timeout 300 build/linux/CreatureArena.x86_64 --headless -- --sim-check=$SIM_CHECK_SEED --sim-check-out="$PWD/linux_digest.txt"
+          digest=$(cat linux_digest.txt)
+          echo "Linux: $digest"
+          test -n "$digest"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
 
       - name: Add a readme to each build
         run: |
@@ -137,3 +157,30 @@ jobs:
             } else {
               await github.rest.issues.createComment({ owner, repo, issue_number, body });
             }
+
+  cross-platform-determinism:
+    needs: build
+    runs-on: windows-latest
+    env:
+      SIM_CHECK_SEED: 20261010
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: CreatureArena-windows-${{ needs.build.outputs.short_sha }}
+          path: win
+
+      - name: Same match on Windows must give the same fingerprint
+        shell: pwsh
+        run: |
+          $out = Join-Path $PWD "win_digest.txt"
+          Start-Process -FilePath "win\CreatureArena.exe" -Wait -NoNewWindow `
+            -ArgumentList "--headless", "--", "--sim-check=$env:SIM_CHECK_SEED", "--sim-check-out=$out"
+          $win = (Get-Content $out -Raw).Trim()
+          $linux = "${{ needs.build.outputs.linux_digest }}"
+          Write-Host "Linux:   $linux"
+          Write-Host "Windows: $win"
+          if ($win -ne $linux) {
+            Write-Error "Desync: Windows and Linux simulate the same match differently. Online play would break."
+            exit 1
+          }
+          Write-Host "Match: both platforms simulate identically."
