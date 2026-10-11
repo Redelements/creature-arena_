@@ -44,6 +44,7 @@ var menu_visible := false
 var menu_items: Array[String] = []
 var menu_index := 0
 var menu_footer := ""
+var menu_title := ""  ## the page's name under the logo ("SINGLE PLAYER"); empty on the title menu
 var menu_y0 := 104.0
 var menu_dy := 16.0
 
@@ -351,14 +352,24 @@ func _draw_menu() -> void:
 	draw_rect(Rect2(0, 0, SimDefs.VIEW_W, SimDefs.VIEW_H), Color(0.05, 0.06, 0.08, 0.82))
 	_text(Vector2(0, menu_y0 - 46), "CREATURE ARENA", 24, C_TEXT, HORIZONTAL_ALIGNMENT_CENTER, SimDefs.VIEW_W)
 	_text(Vector2(0, menu_y0 - 31), "prototype build", 7, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, SimDefs.VIEW_W)
+	if menu_title != "":
+		_text(Vector2(0, menu_y0 - 17), menu_title, 9, C_ACCENT, HORIZONTAL_ALIGNMENT_CENTER, SimDefs.VIEW_W)
 	var y := menu_y0
-	var fs := 9 if menu_dy >= 15.0 else 8
+	var big := menu_dy >= 18.0
+	var fs := 12 if big else (9 if menu_dy >= 15.0 else 8)
 	for i in menu_items.size():
 		var sel := i == menu_index
-		if sel:
-			draw_rect(Rect2(130, y - menu_dy + 4, 220, menu_dy - 1), Color(1, 1, 1, 0.08))
-			_text(Vector2(136, y), ">", fs, C_ACCENT)
-		_text(Vector2(150, y), menu_items[i], fs, C_ACCENT if sel else C_TEXT)
+		if big:
+			# The title menu: wide centred buttons.
+			var r := Rect2(150, y - menu_dy + 5, 180, menu_dy - 3)
+			draw_rect(r, Color(C_ACCENT, 0.9) if sel else Color(0.07, 0.08, 0.1, 0.75))
+			_text(Vector2(r.position.x, y - 2), menu_items[i], fs, Color(0.08, 0.08, 0.1) if sel else C_TEXT,
+				HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+		else:
+			if sel:
+				draw_rect(Rect2(130, y - menu_dy + 4, 220, menu_dy - 1), Color(1, 1, 1, 0.08))
+				_text(Vector2(136, y), ">", fs, C_ACCENT)
+			_text(Vector2(150, y), menu_items[i], fs, C_ACCENT if sel else C_TEXT)
 		y += menu_dy
 	_text(Vector2(0, 232), menu_footer, 6, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, SimDefs.VIEW_W)
 	_text(Vector2(0, 244), "Arrows / D-pad / mouse to choose   Left/Right to change   Enter / A / click to start", 6, C_DIM,

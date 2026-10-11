@@ -23,6 +23,7 @@ extends Node2D
 ##   --teams=a,b,c:d,e,f   Duel / 2-player teams (default cerebro,gillbert,barkley:culvert,cerebro,craglash)
 ##   --pick                show the team pick screen even with --mode
 ##   --cpu-vs-cpu          every player side is played by the CPU (demos, captures)
+##   --menu=PAGE           open the menu on main, single or settings (captures)
 ##   --online-host[=PORT]  host an online 1v1 straight away (UDP, default port 7777)
 ##   --online-join=ADDR[:PORT]  join one
 ##   --fighter=ID          your fighter online
@@ -56,10 +57,24 @@ const MODES := [
 	{"label": "Training: Chef Cerebro", "left": "cerebro", "training": true},
 	{"label": "Online 1v1", "online": true},
 ]
-## The menu. MODES indexes stay stable for --mode=N; rows with choices pick one of
-## several modes with left/right.
+## The menus. The title menu (MAIN_ITEMS) opens the single-player list (MENU_ROWS),
+## the online lobby, or the settings. MODES indexes stay stable for --mode=N; rows with
+## choices pick one of several modes with left/right.
+const MAIN_ITEMS := [
+	{"label": "Single player", "go": "single"},
+	{"label": "Online", "online": true},
+	{"label": "Settings", "go": "settings"},
+	{"label": "Exit", "exit": true},
+]
+const SETTINGS_ITEMS := [
+	{"setting": "level"},
+	{"setting": "layout"},
+	{"setting": "music"},
+	{"setting": "fullscreen"},
+	{"label": "Back", "go": "main"},
+]
+const ONLINE_MODE := 20
 const MENU_ROWS := [
-	{"label": "Online 1v1  (host or join)", "modes": [20]},
 	{"label": "Duel: you vs CPU  (3v3 tag)", "modes": [6]},
 	{"label": "Duel: 2 players", "modes": [7]},
 	{"label": "Versus: 2 players", "modes": [8]},
@@ -81,6 +96,9 @@ const ROUND_OVER_TICKS := 210
 const SETTINGS_PATH := "user://settings.cfg"
 const MENU_Y0 := 88.0
 const MENU_DY := 13.0
+## The title menu's four big rows.
+const MAIN_Y0 := 116.0
+const MAIN_DY := 22.0
 # Knockouts: the simulation itself freezes and then runs at half speed (MatchSim's
 # ko_freeze / slowmo, so online peers agree); the camera pushes in on the loser.
 const KO_ZOOM := 1.45
@@ -113,6 +131,8 @@ var wins := [0, 0]
 var timer := ROUND_TICKS
 var seed_base := 1
 var menu_index := 0
+var menu_page := "main"  ## "main" (the title menu), "single" or "settings"
+var fullscreen := false
 var _menu_ko_t := 0
 
 var player_input := PlayerInput.new()
@@ -195,8 +215,8 @@ func _ready() -> void:
 	layer.add_child(fade_rect)
 	hud = Hud.new()
 	layer.add_child(hud)
-	hud.menu_y0 = MENU_Y0
-	hud.menu_dy = MENU_DY
+	hud.menu_y0 = MAIN_Y0
+	hud.menu_dy = MAIN_DY
 	team_select = TeamSelect.new()
 	team_select.visible = false
 	layer.add_child(team_select)
@@ -247,22 +267,71 @@ func _open_menu() -> void:
 	_refresh_menu()
 
 
-func _refresh_menu() -> void:
-	var items: Array[String] = []
-	if _row_choice.size() != MENU_ROWS.size():
-		_row_choice.resize(MENU_ROWS.size())
-		_row_choice.fill(0)
-	for r in MENU_ROWS.size():
+## The rows of the menu page on screen: dictionaries with "label" and what they do
+## ("go" to a page, "online", "exit", "row" for a MENU_ROWS mode row, "setting").
+func _menu_page_items() -> Array:
+	match menu_page:
+		"single":
+			var items: Array = []
+			for r in MENU_ROWS.size():
+				items.append({"row": r})
+			items.append({"label": "Back", "go": "main"})
+			return items
+		"settings":
+			return SETTINGS_ITEMS
+	return MAIN_ITEMS
+
+
+func _menu_label(item: Dictionary) -> String:
+	if item.has("row"):
+		var r := int(item["row"])
 		var row: Dictionary = MENU_ROWS[r]
 		var label := String(row["label"])
 		if row.has("choices"):
 			label += ":  < %s >" % String(row["choices"][_row_choice[r]])
-		items.append(label)
-	items.append("CPU level:  < %s >" % LEVEL_NAMES[level])
-	items.append("Keyboard:  < %s >" % PlayerInput.LAYOUT_NAMES[player_input.layout])
+		return label
+	match String(item.get("setting", "")):
+		"level":
+			return "CPU level:  < %s >" % LEVEL_NAMES[level]
+		"layout":
+			return "Keyboard:  < %s >" % PlayerInput.LAYOUT_NAMES[player_input.layout]
+		"music":
+			return "Music:  < %s >" % ("Off" if audio.music_muted else "On")
+		"fullscreen":
+			return "Fullscreen:  < %s >" % ("On" if fullscreen else "Off")
+	return String(item.get("label", ""))
+
+
+func _refresh_menu() -> void:
+	if _row_choice.size() != MENU_ROWS.size():
+		_row_choice.resize(MENU_ROWS.size())
+		_row_choice.fill(0)
+	var items: Array[String] = []
+	for item in _menu_page_items():
+		items.append(_menu_label(item))
+	menu_index = clampi(menu_index, 0, items.size() - 1)
 	hud.menu_items = items
 	hud.menu_index = menu_index
-	hud.menu_footer = "Xbox controller works any time. Keyboard layout applies to keyboard and mouse."
+	var main := menu_page == "main"
+	hud.menu_y0 = MAIN_Y0 if main else MENU_Y0
+	hud.menu_dy = MAIN_DY if main else MENU_DY
+	hud.menu_title = {"single": "SINGLE PLAYER", "settings": "SETTINGS"}.get(menu_page, "")
+	match menu_page:
+		"main":
+			hud.menu_footer = ["Fight the CPU, train, take on Combo Trials, or play 2 players on one screen",
+				"Play someone on another computer, 1 v 1", "CPU level, keyboard layout, music, fullscreen",
+				"Close the game"][menu_index]
+		"single":
+			hud.menu_footer = "Fights, training, trials and local 2-player.   Esc / View: back"
+		"settings":
+			hud.menu_footer = "Xbox controller works any time. Keyboard layout applies to keyboard and mouse.   Esc: back"
+
+
+## Goes to a menu page, with the cursor on `index`.
+func _menu_go(page: String, index := 0) -> void:
+	menu_page = page
+	menu_index = index
+	_refresh_menu()
 
 
 ## `keep_teams`: a rematch with the same teams (no pick screen).
@@ -867,6 +936,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		var muted := audio.toggle_music()
 		hud.show_toast("Music off (M to turn on)" if muted else "Music on")
 		_save_settings()
+		if flow == Flow.MENU:
+			_refresh_menu()
 		return
 	if flow == Flow.SELECT:
 		if team_select.handle(event) and flow == Flow.SELECT:
@@ -877,11 +948,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			audio.play("ui_move", 0.0, 1.0, true)
 		return
 	if flow == Flow.MENU:
-		var before := [menu_index, level, player_input.layout, _row_choice.duplicate()]
+		var before := [menu_page, menu_index, level, player_input.layout, _row_choice.duplicate(),
+			audio.music_muted, fullscreen]
 		_menu_input(event)
 		if flow != Flow.MENU:
 			audio.play("ui_select", 0.0, 1.0, true)
-		elif [menu_index, level, player_input.layout, _row_choice] != before:
+		elif [menu_page, menu_index, level, player_input.layout, _row_choice, audio.music_muted,
+				fullscreen] != before:
 			audio.play("ui_move", 0.0, 1.0, true)
 		return
 	if event.is_action_pressed("menu_back"):
@@ -921,18 +994,17 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _menu_input(event: InputEvent) -> void:
-	var count := MENU_ROWS.size() + 2
+	var items := _menu_page_items()
+	var count := items.size()
 	# Mouse: hover to highlight, click to choose.
 	if event is InputEventMouseMotion or (event is InputEventMouseButton and event.pressed):
 		var p: Vector2 = get_global_mouse_position()
-		var row := int(floor((p.y - (MENU_Y0 - MENU_DY + 4.0)) / MENU_DY))
+		var row := int(floor((p.y - (hud.menu_y0 - hud.menu_dy + 4.0)) / hud.menu_dy))
 		if p.x >= 130.0 and p.x <= 350.0 and row >= 0 and row < count:
 			menu_index = row
 			if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-				if row < MENU_ROWS.size():
-					_start_row(row)
-					return
-				_change_option(row, 1)
+				_menu_choose(row, 1)
+				return
 		_refresh_menu()
 		return
 	if event.is_action_pressed("ui_down"):
@@ -944,39 +1016,78 @@ func _menu_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("ui_right"):
 		_change_option(menu_index, 1)
 	elif event.is_action_pressed("menu_confirm") or event.is_action_pressed("ui_accept"):
-		if menu_index < MENU_ROWS.size():
-			_start_row(menu_index)
-			return
-		_change_option(menu_index, 1)
-	elif event.is_action_pressed("menu_back"):
-		get_tree().quit()
+		_menu_choose(menu_index, 1)
 		return
+	elif event.is_action_pressed("menu_back"):
+		if menu_page == "main":
+			menu_index = MAIN_ITEMS.size() - 1  # on the title menu, Esc points at Exit
+		else:
+			_menu_go("main", 0 if menu_page == "single" else 2)
+			return
 	else:
 		return
 	_refresh_menu()
 
 
-## Left/right on the CPU level or keyboard layout rows.
+## Enter / click on a menu row: open a page, start a mode, or (on a setting) change it.
+func _menu_choose(index: int, dir: int) -> void:
+	var items := _menu_page_items()
+	if index < 0 or index >= items.size():
+		return
+	var item: Dictionary = items[index]
+	if item.has("go"):
+		var back_to := {"single": 0, "settings": 2}.get(menu_page, 0) as int
+		_menu_go(String(item["go"]), back_to if String(item["go"]) == "main" else 0)
+	elif item.has("row"):
+		_start_row(int(item["row"]))
+	elif bool(item.get("online", false)):
+		_start_match(ONLINE_MODE)
+	elif bool(item.get("exit", false)):
+		get_tree().quit()
+	elif item.has("setting"):
+		_change_option(index, dir)
+
+
 func _start_row(row: int) -> void:
 	var r: Dictionary = MENU_ROWS[row]
 	_start_match(int(r["modes"][_row_choice[row] if row < _row_choice.size() else 0]))
 
 
-func _change_option(row: int, dir: int) -> void:
-	if row < MENU_ROWS.size():
-		var r: Dictionary = MENU_ROWS[row]
-		if r.has("choices"):
-			var n: int = (r["choices"] as Array).size()
-			_row_choice[row] = (int(_row_choice[row]) + dir + n) % n
-	elif row == MENU_ROWS.size():
-		level = (level + dir + LEVEL_NAMES.size()) % LEVEL_NAMES.size()
-		_save_settings()
-	elif row == MENU_ROWS.size() + 1:
-		var i := PlayerInput.LAYOUTS.find(player_input.layout)
-		player_input.layout = PlayerInput.LAYOUTS[(i + PlayerInput.LAYOUTS.size() + dir) % PlayerInput.LAYOUTS.size()]
-		_save_settings()
-		_apply_device()
+## Left/right on a row with choices, or on a setting.
+func _change_option(index: int, dir: int) -> void:
+	var items := _menu_page_items()
+	if index < 0 or index >= items.size():
+		return
+	var item: Dictionary = items[index]
+	if item.has("row"):
+		var r := int(item["row"])
+		var row: Dictionary = MENU_ROWS[r]
+		if row.has("choices"):
+			var n: int = (row["choices"] as Array).size()
+			_row_choice[r] = (int(_row_choice[r]) + dir + n) % n
+	match String(item.get("setting", "")):
+		"level":
+			level = (level + dir + LEVEL_NAMES.size()) % LEVEL_NAMES.size()
+			_save_settings()
+		"layout":
+			var i := PlayerInput.LAYOUTS.find(player_input.layout)
+			player_input.layout = PlayerInput.LAYOUTS[(i + PlayerInput.LAYOUTS.size() + dir) % PlayerInput.LAYOUTS.size()]
+			_save_settings()
+			_apply_device()
+		"music":
+			audio.toggle_music()
+			_save_settings()
+		"fullscreen":
+			fullscreen = not fullscreen
+			_apply_fullscreen()
+			_save_settings()
 	_refresh_menu()
+
+
+func _apply_fullscreen() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if fullscreen else DisplayServer.WINDOW_MODE_WINDOWED)
 
 
 ## Updates prompts, help text and the mouse cursor for the current device and layout.
@@ -1038,6 +1149,9 @@ func _load_settings() -> void:
 		if not (_online_fighter in MatchFactory.FIGHTERS):
 			_online_fighter = "cairn"
 		_online_address = String(cfg.get_value("online", "address", ""))
+		fullscreen = bool(cfg.get_value("video", "fullscreen", false))
+		if fullscreen:
+			_apply_fullscreen()
 
 
 func _save_settings() -> void:
@@ -1047,6 +1161,7 @@ func _save_settings() -> void:
 	cfg.set_value("audio", "music_muted", audio.music_muted)
 	cfg.set_value("online", "fighter", _online_fighter)
 	cfg.set_value("online", "address", _online_address)
+	cfg.set_value("video", "fullscreen", fullscreen)
 	cfg.save(SETTINGS_PATH)
 
 
@@ -1120,6 +1235,10 @@ func _parse_args() -> int:
 			_net_args["host"] = int(a.get_slice("=", 1)) if a.contains("=") else Netplay.DEFAULT_PORT
 		elif a.begins_with("--online-join="):
 			_net_args["join"] = a.get_slice("=", 1)
+		elif a.begins_with("--menu="):
+			var page := a.get_slice("=", 1)
+			if page in ["main", "single", "settings"]:
+				menu_page = page
 		elif a.begins_with("--fighter="):
 			var f := a.get_slice("=", 1)
 			if f in MatchFactory.FIGHTERS:
@@ -1275,6 +1394,8 @@ func _leave_online() -> void:
 	if netplay != null:
 		netplay.leave()
 	_end_online()
+	menu_page = "main"
+	menu_index = 1  # back on "Online"
 	_open_menu()
 
 

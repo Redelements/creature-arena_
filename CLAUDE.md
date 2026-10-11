@@ -62,6 +62,7 @@ plays every player side, for captures), `--pick` (show the team pick screen),
 9 Combo Trials, 10/11 Reaction Drills, 12 Craglash vs CPU, 13 Craglash training,
 14 Barkley vs CPU, 15 Barkley training, 16 Gillbert vs CPU, 17 Gillbert training,
 18 Chef Cerebro vs CPU, 19 Chef Cerebro training, 20 Online 1v1 (the lobby).
+`--menu=main|single|settings` opens that menu page (captures).
 Online: `--online-host[=PORT]`, `--online-join=ADDR[:PORT]`, `--fighter=ID`, `--net-lag=N`,
 `--net-loss=F`, `--net-delay=N`, `--net-report=PATH`. Two processes on one machine with
 `--cpu-vs-cpu` play each other; compare their reports (docs/NETCODE.md).
