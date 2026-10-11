@@ -39,7 +39,7 @@ curl -sSL -o /tmp/g.zip https://github.com/godotengine/godot/releases/download/4
 unzip -q /tmp/g.zip -d ~/godot && G=~/godot/Godot_v4.7.2-stable_linux.x86_64
 
 $G --headless --path . --import                                  # after adding a class_name
-$G --headless --path . --script res://tests/run_tests.gd         # all tests
+$G --headless --path . --script res://tests/run_tests.gd         # all tests (TEST_ONLY=digby,combos for some)
 $G --headless --fixed-fps 60 --path . -- --mode=2 --quit-after=3000   # smoke run, check for SCRIPT ERROR
 $G --headless --path . -- --sim-check=20261010                   # determinism fingerprint
 $G --headless --path . --script res://tests/bench_sim.gd         # rollback cost benchmark
@@ -56,13 +56,13 @@ xvfb-run -a ... $G --rendering-driver opengl3 --path . --write-movie /tmp/out.av
 ```
 
 Useful flags (after `--`): `--mode=0..8`, `--level=0..2`, `--seed=N`,
-`--showcase=cairn|culvert|craglash|barkley|gillbert|cerebro|hissy|angles|counterplay`, `--autoplay`, `--hitboxes`, `--cpu-vs-cpu` (CPU
+`--showcase=cairn|culvert|craglash|barkley|gillbert|cerebro|hissy|digby|angles|counterplay`, `--autoplay`, `--hitboxes`, `--cpu-vs-cpu` (CPU
 plays every player side, for captures), `--pick` (show the team pick screen),
 `--teams=a,b,c:d,e,f`. Modes: 5 showcases, 6 Duel vs CPU, 7 Duel 2P, 8 Versus 2P,
 9 Combo Trials, 10/11 Reaction Drills, 12 Craglash vs CPU, 13 Craglash training,
 14 Barkley vs CPU, 15 Barkley training, 16 Gillbert vs CPU, 17 Gillbert training,
 18 Chef Cerebro vs CPU, 19 Chef Cerebro training, 20 Online 1v1 (the lobby),
-21 Hissy Fitz vs CPU, 22 Hissy Fitz training.
+21 Hissy Fitz vs CPU, 22 Hissy Fitz training, 23 Digby vs CPU, 24 Digby training.
 `--menu=main|single|settings` opens that menu page (captures).
 Online: `--online-host[=PORT]`, `--online-join=ADDR[:PORT]`, `--fighter=ID`, `--net-lag=N`,
 `--net-loss=F`, `--net-delay=N`, `--net-report=PATH`. Two processes on one machine with
@@ -82,7 +82,8 @@ src/game/   main (flow, camera), team_select, online_lobby, showcase, trials, dr
             match_factory
 data/       creatures/*.json, rules/duel.json, trials.json, audio.json
 tests/      run_tests.gd auto-runs every tests/test_*.gd
-tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gillbert/cerebro/hissy.py (sheet recreations)
+tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gillbert/cerebro/hissy/digby.py (sheet recreations),
+            splat3d.py (the shared splat renderer new generators import)
 ```
 
 ## Workflow
@@ -114,17 +115,19 @@ tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gi
   (damage over time, outside any combo), `gaze` (a held stare that slows foes in front of
   her who face her, more each pulse; looking away is the counterplay) and `petrify` (the
   target becomes a statue, `stone` ticks, and the next clean hit shatters it for
-  `STONE_SHATTER_MULT`). Projectiles also take `sound`/`end_sound`; any move's `fx` can
+  `STONE_SHATTER_MULT`); Digby added `blind_ticks` (the target's next attack misses),
+  `root_ticks` (no walking or dodging) and `"steer"` on a dash (Burrow turns with the stick). Projectiles also take `sound`/`end_sound`; any move's `fx` can
   carry a `shout` (`{text, sound}`, a voice line when it starts). Barkley's generator (`tools/gen_barkley.py`) poses a 3D
   puppet once and projects it into all three views; prefer that for new characters.
   Moves can time their frames with `"anim_at"` and lift the sprite with `"view_lift"`
   (cosmetic; Gillbert's leap); `"step_sound"` gives a creature footsteps. The sheet's "type" maps to the Game
   Plan's affinities, never to a type chart (Barkley's Grass is Wild, Gillbert's Water is Tide,
-  Chef Cerebro's Psychic is Lumen, Hissy Fitz's Poison is Wild, the closest fit; check with Kevin). A thrown light opener
+  Chef Cerebro's Psychic is Lumen, Hissy Fitz's Poison is Wild, Digby's Ground is Stone, the closest fit; check with Kevin). A thrown light opener
   (`"projectile"` on `light_1`) makes the mouse auto-attack and the CPU fight from range
   (`ai` keys `kite`, `far_routes`/`far_from`, `grab_range`, `surge_line`).
   `tools/gen_cerebro.py` (and `gen_hissy.py`, which adds a face painted in the head's own
-  azimuth/elevation) renders by splatting sampled 3D points into a depth buffer
+  azimuth/elevation) renders by splatting sampled 3D points (new generators import `tools/splat3d.py`, as
+  `gen_digby.py` does, and hold only the rig and poses) into a depth buffer
   instead of drawing polygons in depth order, which suits a body of overlapping blobs.
   **Every character needs three sheets with the same rows:** side, facing down (front)
   and facing up (back); `"views"` in the sprite JSON, chosen by facing in

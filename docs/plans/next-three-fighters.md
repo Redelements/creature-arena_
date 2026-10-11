@@ -5,8 +5,8 @@ time**, each on its own branch and stacked PR, the same way as Hissy Fitz (PR #1
 
 | # | Fighter | Branch | Base | Status |
 |---|---|---|---|---|
-| 1 | Digby (sheet #6) | `digby` | `hissy-fitz` | in progress |
-| 2 | Sneaky Pete (sheet #8) | `sneaky-pete` | `digby` | not started |
+| 1 | Digby (sheet #6) | `digby` | `hissy-fitz` | PR open |
+| 2 | Sneaky Pete (sheet #8) | `sneaky-pete` | `digby` | in progress |
 | 3 | Sno Mercy (sheet #10) | `sno-mercy` | `sneaky-pete` | not started |
 
 Roster order, which also suits the code: Digby reuses Gillbert's `leap` for Burrow;
@@ -73,11 +73,11 @@ A snow cone with a red/green syrup top, stick limbs and red boxing gloves.
 ### Digby
 - [x] 1–2 sim + data + tests
 - [x] 3 CPU, menus, showcase, trials
-- [ ] 4 sprites
-- [ ] 5 effects + sounds
-- [ ] 6 checks
-- [ ] 7 docs
-- [ ] 8 PR
+- [x] 4 sprites
+- [x] 5 effects + sounds
+- [x] 6 checks
+- [x] 7 docs
+- [x] 8 PR
 
 ### Sneaky Pete
 - [ ] 1–2 · [ ] 3 · [ ] 4 · [ ] 5 · [ ] 6 · [ ] 7 · [ ] 8

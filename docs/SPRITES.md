@@ -288,6 +288,40 @@ Design note: she must not read as Medusa from mythology-themed games or films: t
 gloves, the floating head, the earrings and the cartoon grin carry her look. Snakes for
 hair is a myth motif anyone can use; the name and gloves are hers.
 
+### Digby — 128×128 frames, 8 × 13 (1024×1664 px)
+
+Digby is the sixth creature from the artist's sheets, and the first generator on the
+shared renderer, `tools/splat3d.py` (the splat renderer Chef Cerebro and Hissy Fitz use,
+pulled out into one module): `tools/gen_digby.py` holds only his palette, rig and poses,
+and `python3 tools/gen_digby.py inspect idle:0 run:2` renders a few frames in all three
+views for working on a pose. The rig: a long, low mole on all fours, the body pivoting at
+the hips so he can rear up for swipes; a long snout with a purple nose and whiskers; an
+orange miner's helmet with a white band and a yellow headlamp (a white glow when it
+flashes); yellow claws on every paw; a huge bushy tail; a grey pickaxe in the near front
+paw. Burrowing sinks the rig into the floor (everything below it is cut away) under a
+dirt mound. Drawn at 0.8 scale, feet at **x 64, y 100**; up and down sheets are
+**112×128**, feet at x 56, y 100 (down) and y 90 (up).
+
+![Digby sheet, 3x](digby_preview.png)
+
+Facing down and up: [`digby_views_preview.png`](digby_views_preview.png).
+
+| Row | Animation | Frames | Notes |
+| --- | --- | --- | --- |
+| 0 | idle | 4 | on all fours, sniffing, tail swaying |
+| 1 | run | 6 | a quick scurry, paws alternating, tail streaming |
+| 2 | swipe | 4 | Claw Swipe (light 1): rears up, the far claw slashes across |
+| 3 | swipe2 | 4 | Claw Swipe (light 2): the near claw back the other way, pickaxe and all |
+| 4 | pick | 5 | Pickaxe Swing (light 3): up on his back legs, the pickaxe over his head and down |
+| 5 | popup | 6 | Pickaxe Pop-Up: charge A/B (digging in), underground, bursting up with the pickaxe, follow-through, recover; Pop Goes the Mole plays from frame 3 |
+| 6 | flash | 4 | Headlamp Flash: taps the helmet, the lamp blazes, holds, back down |
+| 7 | burrow | 6 | Burrow: crouch, diving in, the mound (frames 2 and 3 alternate while he tunnels), bursting out, recover |
+| 8 | cavein | 6 | Cave-In: rears right up, holds, slams down, the floor gives, recover |
+| 9 | dodge | 4 | rolls into a ball and tumbles |
+| 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
+| 11 | guard | 2 | hunkered behind the pickaxe held crossways |
+| 12 | ko | 4 | over onto his back, legs up, x eyes |
+
 ## Training dummy — 48×48 frames
 
 4 columns × 2 rows. Row 0: idle, hurt A, hurt B, guard. Row 1: knock-over, 4 frames.
