@@ -327,7 +327,7 @@ func _draw_cut_in() -> void:
 	var tex: Texture2D = _cut["tex"]
 	var fpx := float(_cut["fpx"])
 	var origin: Vector2 = _cut["origin"]
-	var sc := 2.6
+	var sc := 2.6 * minf(1.0, 64.0 / fpx)  # big frames (Craglash's 96 px) scale down to fit
 	var feet := Vector2((96.0 if side == 0 else w - 96.0) + off * 1.25, y1 + 6.0)
 	draw_set_transform(feet, 0.0, Vector2(sc * dir, sc))
 	draw_texture_rect_region(tex, Rect2(-origin.x, -origin.y, fpx, fpx), _cut["region"], Color(0, 0, 0, 0.5))

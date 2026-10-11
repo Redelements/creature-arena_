@@ -56,10 +56,10 @@ xvfb-run -a ... $G --rendering-driver opengl3 --path . --write-movie /tmp/out.av
 ```
 
 Useful flags (after `--`): `--mode=0..8`, `--level=0..2`, `--seed=N`,
-`--showcase=cairn|culvert|counterplay`, `--autoplay`, `--hitboxes`, `--cpu-vs-cpu` (CPU
+`--showcase=cairn|culvert|craglash|angles|counterplay`, `--autoplay`, `--hitboxes`, `--cpu-vs-cpu` (CPU
 plays every player side, for captures), `--pick` (show the team pick screen),
 `--teams=a,b,c:d,e,f`. Modes: 5 showcases, 6 Duel vs CPU, 7 Duel 2P, 8 Versus 2P,
-9 Combo Trials, 10/11 Reaction Drills.
+9 Combo Trials, 10/11 Reaction Drills, 12 Craglash vs CPU, 13 Craglash training.
 Matches are deterministic, so a seed reproduces a CPU match exactly.
 
 ## Layout
@@ -88,14 +88,24 @@ tools/      gen_sprites.py, gen_audio.py (placeholder generators)
 
 ## Placeholders and open items
 
-- **Art:** `assets/sprites/` is programmer art from `tools/gen_sprites.py`. An artist is
-  making new characters and movesets; the delivery format (ideally Aseprite + JSON with
-  animation tags) is still to be agreed. Spec for drop-in art: `docs/SPRITES.md`.
+- **Art:** Cairn, Culvert and the dummy are programmer art from `tools/gen_sprites.py`. An
+  artist is making new characters and movesets; the delivery format (ideally Aseprite +
+  JSON with animation tags) is still to be agreed. Spec for drop-in art: `docs/SPRITES.md`.
+  The artist's character sheets (one drawing plus a kit) become fighters like Craglash:
+  a pixel recreation with a puppet rig (`tools/gen_craglash.py`, 96 px frames), the kit
+  mapped onto Light/Heavy/Skill 1/Skill 2/Surge plus a passive, and new mechanics added
+  to the sim as data keys (`stoneskin`, `armor`, `taunt`, `slow_ticks`, `juggle_float`).
+  **Every character needs three sheets with the same rows:** side, facing down (front)
+  and facing up (back); `"views"` in the sprite JSON, chosen by facing in
+  `CreatureView`. Forward reach becomes screen depth in the up/down art. Both generators
+  draw all three.
 - **Audio: TODO, all placeholder.** Replace everything in `assets/audio/`; checklist in
   `docs/AUDIO.md` and the "Replace placeholder audio" GitHub issue.
 - **Not built yet:** affinity surfaces, more arenas, online transport (rollback session
   and determinism are done; see docs/NETCODE.md). Game mode plan and priorities: Game Plan doc,
   "Game modes".
+- **Planned:** dodge timing. Kevin wants to leave a combo at any time to dodge; today
+  Dodge isn't buffered during attacks and can't cancel them (issue #9 has the options).
 - **Known issues:** Storm Drain can't be punished even when dodged (its pit ring walls
   Culvert in); a fighter can fall into pits several times in a row after a Storm Drain
   (respawn lands next to holes).

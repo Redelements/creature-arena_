@@ -14,6 +14,12 @@
     {"fighter": "culvert", "name": "Shockwave",
      "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_2", "skill_2"]]},
     {"fighter": "culvert", "name": "Storm Drain finish", "energy": 100,
-     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_2", "skill_2"], ["surge", "surge"]]}
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_2", "skill_2"], ["surge", "surge"]]},
+    {"fighter": "craglash", "name": "Rake to Lash",
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["skill_1", "skill_1"]]},
+    {"fighter": "craglash", "name": "Stomp launcher",
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_1", "skill_1"]]},
+    {"fighter": "craglash", "name": "Avalanche Coil finish", "energy": 100,
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_1", "skill_1"], ["surge", "surge"]]}
   ]
 }

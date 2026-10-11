@@ -18,8 +18,8 @@ extends Node2D
 ##   --shot-dir=PATH       where screenshots go (default user://shots)
 ##   --quit-after=N        exit after N frames
 ##   --layout=league|classic  keyboard layout (saved in the menu otherwise)
-##   --showcase=NAME       play one scripted demo on a loop: cairn, culvert or counterplay
-##   --teams=a,b,c:d,e,f   Duel / 2-player teams (default cairn,culvert,cairn:culvert,cairn,culvert)
+##   --showcase=NAME       play one scripted demo on a loop: cairn, culvert, craglash or counterplay
+##   --teams=a,b,c:d,e,f   Duel / 2-player teams (default craglash,cairn,culvert:culvert,cairn,craglash)
 ##   --pick                show the team pick screen even with --mode
 ##   --cpu-vs-cpu          every player side is played by the CPU (demos, captures)
 
@@ -39,6 +39,8 @@ const MODES := [
 	{"label": "Combo Trials", "trials": true, "sides": [Side.PLAYER, Side.SCRIPT]},
 	{"label": "Reaction Drill: read Culvert", "drill": "culvert", "sides": [Side.PLAYER, Side.SCRIPT]},
 	{"label": "Reaction Drill: read Cairn", "drill": "cairn", "sides": [Side.PLAYER, Side.SCRIPT]},
+	{"label": "Craglash  vs  CPU Cairn", "left": "craglash", "right": "cairn", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Training: Craglash", "left": "craglash", "training": true},
 ]
 ## The menu. MODES indexes stay stable for --mode=N; rows with choices pick one of
 ## several modes with left/right.
@@ -46,13 +48,13 @@ const MENU_ROWS := [
 	{"label": "Duel: you vs CPU  (3v3 tag)", "modes": [6]},
 	{"label": "Duel: 2 players", "modes": [7]},
 	{"label": "Versus: 2 players", "modes": [8]},
-	{"label": "Versus CPU", "modes": [0, 1], "choices": ["as Cairn", "as Culvert"]},
+	{"label": "Versus CPU", "modes": [0, 1, 12], "choices": ["as Cairn", "as Culvert", "as Craglash"]},
 	{"label": "Combo Trials", "modes": [9]},
 	{"label": "Reaction Drill", "modes": [10, 11], "choices": ["read Culvert", "read Cairn"]},
-	{"label": "Training", "modes": [3, 4], "choices": ["Cairn", "Culvert"]},
+	{"label": "Training", "modes": [3, 4, 13], "choices": ["Cairn", "Culvert", "Craglash"]},
 	{"label": "Watch", "modes": [5, 2], "choices": ["combo showcases", "CPU vs CPU"]},
 ]
-const DEFAULT_TEAMS := [["cairn", "culvert", "cairn"], ["culvert", "cairn", "culvert"]]
+const DEFAULT_TEAMS := [["craglash", "cairn", "culvert"], ["culvert", "cairn", "craglash"]]
 const LEVEL_NAMES := ["Easy", "Normal", "Hard"]
 const DUMMY_MODES := ["Stand", "Guard", "Walk", "Dodge"]
 const ROUND_TICKS := 90 * 60
@@ -68,6 +70,7 @@ const KO_ZOOM := 1.45
 const SHOWCASE_ZOOM := 1.9
 
 var sim: MatchSim
+var _cam_zoom := 0.0  ## showcase/coach zoom, eased toward a fit of both fighters
 var replay: Replay
 var arena: ArenaView
 var crowd: CrowdView
@@ -113,6 +116,7 @@ var _teams: Array = DEFAULT_TEAMS.duplicate(true)
 var _skip_select := false
 var _cpu_vs_cpu := false
 var _showcase_list: Array = []
+var _showcase_arg := ""  ## --showcase=NAME: loop just that one
 var _showcase_i := 0
 var _showcase_end_t := 0
 var autoplay: AutoPlay = null
@@ -286,7 +290,7 @@ func _start_round() -> void:
 		return
 	if cfg.get("showcase", false):
 		if _showcase_list.is_empty():
-			_showcase_list = Showcase.names()
+			_showcase_list = [_showcase_arg] if _showcase_arg != "" else Showcase.names()
 		_showcase_i = 0
 		_start_showcase()
 		return
@@ -421,6 +425,7 @@ func _start_showcase() -> void:
 	_new_sim(showcase.build(), [Side.SCRIPT, Side.SCRIPT])
 	_showcase_end_t = 0
 	_cam_follow = Vector2.ZERO
+	_cam_zoom = 0.0
 	hud.timer_ticks = -1
 	hud.banner = ""
 	hud.show_help = false
@@ -529,6 +534,7 @@ func _physics_process(_delta: float) -> void:
 	fx.advance()
 	hud.advance()
 	for v in views:
+		v.see_through = _hides_someone(v.c)
 		v.refresh()
 	if debug.visible:
 		debug.queue_redraw()
@@ -722,15 +728,42 @@ func _flash(col: Color, amount: float) -> void:
 
 ## Pushes in on a knocked-out fighter, holds through the slow motion, then eases back.
 ## Showcases also follow the two fighters up close, so every tell is easy to see.
+## Whether `c` stands in front of another fighter and covers it (a tall fighter facing
+## up at a short one): then it's drawn see-through so the one behind stays readable.
+func _hides_someone(c: CreatureSim) -> bool:
+	if c.state == CreatureSim.State.KO:
+		return false
+	var top := c.pos.y - float(c.def.get("fx_top", 32)) - 6.0  # head and mane included
+	for o in sim.creatures:
+		if o == c or o.state in [CreatureSim.State.KO, CreatureSim.State.FALLING]:
+			continue
+		if o.pos.y >= c.pos.y or absf(c.pos.x - o.pos.x) > c.radius + 6.0:
+			continue
+		# How much of the one behind is inside our height on screen.
+		var o_feet := o.pos.y - o.air_height()
+		var o_top := o_feet - float(o.def.get("fx_top", 32))
+		var covered := minf(o_feet, c.pos.y) - maxf(o_top, top)
+		if covered > (o_feet - o_top) * 0.5:
+			return true
+	return false
+
+
 func _update_camera() -> void:
 	var size := Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H)
 	var base_z := 1.0
 	var base_focus := size * 0.5
 	var ko_focus := _ko_focus
 	if (showcase != null or coach != null) and sim != null and sim.creatures.size() >= 2:
-		var mid := (sim.creatures[0].pos + sim.creatures[1].pos) * 0.5 + Vector2(0, -8)
+		var a := sim.creatures[0].pos
+		var b := sim.creatures[1].pos
+		# Fighters stacked up and down the screen: aim a little higher and zoom out to
+		# keep both (and their heads) in shot.
+		var dy := absf(a.y - b.y)
+		var mid := (a + b) * 0.5 + Vector2(0, -8 - minf(dy, 40.0) * 0.3)
 		_cam_follow = mid if _cam_follow == Vector2.ZERO else _cam_follow.lerp(mid, 0.12)
-		base_z = SHOWCASE_ZOOM
+		var fit := lerpf(SHOWCASE_ZOOM, 1.3, clampf(dy / 40.0, 0.0, 1.0))
+		_cam_zoom = fit if _cam_zoom <= 0.0 else lerpf(_cam_zoom, fit, 0.08)
+		base_z = _cam_zoom
 		base_focus = _cam_follow
 		ko_focus = _ko_pos + Vector2(0, -16)  # no K.O. banner in a showcase
 	var z := base_z
@@ -994,7 +1027,7 @@ func _parse_args() -> int:
 		elif a.begins_with("--showcase="):
 			var sc := a.get_slice("=", 1)
 			if sc in Showcase.names():
-				_showcase_list = [sc]
+				_showcase_arg = sc
 			for i in MODES.size():
 				if MODES[i].get("showcase", false):
 					start = i

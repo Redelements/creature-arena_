@@ -1,7 +1,7 @@
 class_name Showcase
 extends RefCounted
 ## Scripted demos that show each fighter's whole kit, and how to answer the big moves.
-##   godot --path . -- --showcase=cairn | culvert | counterplay
+##   godot --path . -- --showcase=cairn | culvert | craglash | counterplay
 ## Both fighters are driven by input bitmasks, exactly like players: each "press" step
 ## mashes its button until that move actually starts, so the combos shown are real
 ## inputs through the real rules. tests/test_showcase.gd plays every script headless.
@@ -15,6 +15,8 @@ extends RefCounted
 ##   approach who         walk until in jab range, lined up horizontally
 ##   until cond           wait for "settled" (both free) or "move:<side>:<id>"
 ##   place                fade out, repair the floor, put both back at the start, fade in
+##                        ("dir": "right" | "up" | "down" puts the right-hand fighter
+##                        beside, above or below the left one, facing each other)
 ## "part" switches the caption line, "show" highlights an item on it.
 
 const L := SimDefs.IN_LIGHT
@@ -82,6 +84,76 @@ const SCRIPTS := {
 			{"do": "press", "who": 0, "bit": SU, "move": "surge", "show": 5},
 			{"do": "until", "cond": "settled"},
 			{"do": "wait", "t": 150, "show": 6},
+		],
+	},
+	"craglash": {
+		"left": "craglash", "right": "cairn", "energy": [100, 0], "gap": 2.0, "hp": [-1, 70],
+		"title": "CRAGLASH  -  FULL KIT",
+		"captions": [
+			["Stoneskin", "Bedrock: armor + taunt", "Rockslide Stomp", "Boulder Lash"],
+			["Rake", "Backhand", "Headbutt", "Rockslide Stomp", "Boulder Lash", "Avalanche Coil"],
+		],
+		"steps": [
+			{"do": "wait", "t": 50, "part": 0, "show": 0},
+			{"do": "together", "bits": [S2, L], "show": 1},
+			{"do": "until", "cond": "move:1:light_1"},
+			{"do": "wait", "t": 30},
+			{"do": "press", "who": 0, "bit": H, "move": "heavy", "show": 2},
+			{"do": "press", "who": 0, "bit": S1, "move": "skill_1", "show": 3},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 40},
+			{"do": "place", "part": 1},
+			{"do": "wait", "t": 20},
+			{"do": "press", "who": 0, "bit": L, "move": "light_1", "show": 0},
+			{"do": "press", "who": 0, "bit": L, "move": "light_2", "show": 1},
+			{"do": "press", "who": 0, "bit": L, "move": "light_3", "show": 2},
+			{"do": "press", "who": 0, "bit": H, "move": "heavy", "show": 3},
+			{"do": "press", "who": 0, "bit": S1, "move": "skill_1", "show": 4},
+			{"do": "press", "who": 0, "bit": SU, "move": "surge", "show": 5},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 150, "show": 6},
+		],
+	},
+	"angles": {
+		"left": "craglash", "right": "cairn", "energy": [100, 0], "gap": 4.0, "dir": "down",
+		"title": "ALL ANGLES  -  FIGHTING UP AND DOWN",
+		"captions": [
+			["Facing down: Rake", "Backhand", "Headbutt", "Rockslide Stomp", "Boulder Lash"],
+			["Facing up: Rake", "Backhand", "Headbutt", "Boulder Lash"],
+			["Cairn from above: Jab", "Jab", "Cross", "Hook", "Haymaker"],
+			["Avalanche Coil, straight at the camera"],
+		],
+		"steps": [
+			{"do": "wait", "t": 40, "part": 0},
+			{"do": "press", "who": 0, "bit": L, "move": "light_1", "show": 0},
+			{"do": "press", "who": 0, "bit": L, "move": "light_2", "show": 1},
+			{"do": "press", "who": 0, "bit": L, "move": "light_3", "show": 2},
+			{"do": "press", "who": 0, "bit": H, "move": "heavy", "show": 3},
+			{"do": "press", "who": 0, "bit": S1, "move": "skill_1", "show": 4},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 30},
+			{"do": "place", "part": 1, "dir": "up"},
+			{"do": "wait", "t": 20},
+			{"do": "press", "who": 0, "bit": L, "move": "light_1", "show": 0},
+			{"do": "press", "who": 0, "bit": L, "move": "light_2", "show": 1},
+			{"do": "press", "who": 0, "bit": L, "move": "light_3", "show": 2},
+			{"do": "press", "who": 0, "bit": S1, "move": "skill_1", "show": 3},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 30},
+			{"do": "place", "part": 2, "dir": "up"},
+			{"do": "wait", "t": 20},
+			{"do": "press", "who": 1, "bit": L, "move": "light_1", "show": 0},
+			{"do": "press", "who": 1, "bit": L, "move": "light_2", "show": 1},
+			{"do": "press", "who": 1, "bit": L, "move": "light_3", "show": 2},
+			{"do": "press", "who": 1, "bit": L, "move": "light_4", "show": 3},
+			{"do": "press", "who": 1, "bit": H, "move": "heavy", "show": 4},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 30},
+			{"do": "place", "part": 3, "dir": "down", "gap": 18.0},
+			{"do": "wait", "t": 20},
+			{"do": "press", "who": 0, "bit": SU, "move": "surge", "show": 0},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 90},
 		],
 	},
 	"counterplay": {
@@ -152,7 +224,7 @@ func _init(p_name: String, p_def: Dictionary = {}) -> void:
 ## The match this showcase starts from: two fighters close together, centre stage.
 func build() -> MatchSim:
 	var sim := MatchFactory.versus(String(script_def["left"]), String(script_def["right"]))
-	_place(sim, float(script_def.get("gap", 2.0)))
+	_place(sim, float(script_def.get("gap", 2.0)), String(script_def.get("dir", "right")))
 	var energy: Array = script_def.get("energy", [0, 0])
 	var hp: Array = script_def.get("hp", [-1, -1])
 	for i in 2:
@@ -249,7 +321,7 @@ func inputs(sim: MatchSim) -> PackedInt32Array:
 			if _t <= FADE:
 				fade = float(_t) / FADE
 			elif _t == FADE + 1:
-				_place(sim, float(s.get("gap", script_def.get("gap", 2.0))))
+				_place(sim, float(s.get("gap", script_def.get("gap", 2.0))), String(s.get("dir", "right")))
 				# Repair the floor so leftover pits don't swallow anyone.
 				sim.terrain.cells.fill(0)
 				sim.terrain.timers.fill(0)
@@ -292,16 +364,17 @@ func _free(c: CreatureSim) -> bool:
 
 func _toward(sim: MatchSim, who: int) -> int:
 	var d := sim.creatures[1 - who].pos - sim.creatures[who].pos
-	return SimDefs.bits_from_dir(Vector2(signf(d.x), 0))
+	return SimDefs.bits_from_dir(d.normalized())
 
 
-func _place(sim: MatchSim, gap: float) -> void:
+func _place(sim: MatchSim, gap: float, dir := "right") -> void:
 	var a := sim.creatures[0]
 	var b := sim.creatures[1]
-	a.pos = Vector2(START_X, START_Y)
-	b.pos = Vector2(START_X + a.radius + b.radius + gap, START_Y)
-	a.facing = Vector2.RIGHT
-	b.facing = Vector2.LEFT
+	var d := {"right": Vector2.RIGHT, "up": Vector2.UP, "down": Vector2.DOWN}.get(dir, Vector2.RIGHT) as Vector2
+	a.pos = Vector2(START_X, START_Y if d.y >= 0.0 else START_Y + 30.0)
+	b.pos = a.pos + d * (a.radius + b.radius + gap)
+	a.facing = d
+	b.facing = -d
 	for c in [a, b]:
 		c.knock_vel = Vector2.ZERO
 		c.walk_vel = Vector2.ZERO

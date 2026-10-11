@@ -24,6 +24,7 @@ var cursor := 0
 var _font: Font = ThemeDB.fallback_font
 var _tick := 0
 var _roster: Array = []
+var _tex := {}  ## sprite sheets by path, loaded up front (not inside _draw)
 
 
 func open(p_title: String, size: int, labels: Array, defaults: Array) -> void:
@@ -31,6 +32,10 @@ func open(p_title: String, size: int, labels: Array, defaults: Array) -> void:
 	team_size = size
 	side_labels = labels.duplicate()
 	_roster = MatchFactory.FIGHTERS.duplicate()
+	for id in _roster:
+		var path := String(MatchFactory.load_def(id).get("sprite", {}).get("path", ""))
+		if path != "" and not _tex.has(path):
+			_tex[path] = load(path)
 	teams = [[], []]
 	for side in 2:
 		for i in size:
@@ -130,14 +135,18 @@ func _draw_idle(def: Dictionary, feet: Vector2, face_left: bool) -> void:
 	var sp: Dictionary = def.get("sprite", {})
 	if sp.is_empty():
 		return
-	var tex: Texture2D = load(String(sp["path"]))
+	var tex: Texture2D = _tex.get(String(sp["path"]))
+	if tex == null:
+		return
 	var fpx := float(sp.get("frame", 48))
 	var o: Array = sp.get("origin", [24, 43])
 	var idle: Array = sp.get("anims", {}).get("idle", [0, 0, 1])
 	var frame := int(idle[1]) + (_tick / 10) % int(idle[2])
 	var region := Rect2(frame * fpx, int(idle[0]) * fpx, fpx, fpx)
-	var sx := -1.0 if face_left else 1.0
-	draw_set_transform(feet, 0.0, Vector2(sx, 1.0))
+	# Big sheets (Craglash's 96 px frames) shrink to fit the slot.
+	var k := minf(1.0, 55.0 / fpx)
+	var sx := -k if face_left else k
+	draw_set_transform(feet, 0.0, Vector2(sx, k))
 	draw_texture_rect_region(tex, Rect2(-float(o[0]), -float(o[1]), fpx, fpx), region)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
