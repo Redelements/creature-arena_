@@ -41,7 +41,20 @@ func test_knife_flick_hits_from_range() -> void:
 	var sim := _duel("cairn", 88.0)
 	var hit := run_until(sim, func(): return not _events(sim, "hit").is_empty(), 40, L)
 	assert_true(hit, "a knife flicked from 88 px away lands")
-	assert_true(sim.creatures[1].is_stunned(), "and stuns")
+	assert_false(sim.creatures[1].is_stunned(), "but doesn't stagger: only the Mallet Toss does")
+
+
+func test_only_the_mallet_toss_staggers() -> void:
+	var sim := _duel("cairn", 60.0)
+	var foe := sim.creatures[1]
+	var stuns: Array = []
+	for i in 90:
+		sim.step(PackedInt32Array([L if i % 2 == 0 else 0, 0]))
+		for e in sim.events:
+			if String(e["type"]) == "hit":
+				stuns.append(foe.is_stunned())
+	assert_true(stuns.size() >= 3, "all three lights land")
+	assert_eq(stuns.slice(0, 3), [false, false, true], "only the third, the Mallet Toss, staggers:")
 
 
 func test_knife_flick_misses_past_its_range() -> void:

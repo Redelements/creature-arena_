@@ -78,7 +78,7 @@
     "light_1": {
       "name": "Knife Flick", "anim": "flick",
       "startup": 6, "active": 0, "recovery": 16, "cancel_from": 10,
-      "damage": 3, "knockback": 0.5, "hitstun": 30, "hitstop": 3, "juggle": true,
+      "damage": 3, "knockback": 0.5, "hitstun": 30, "hitstop": 1, "no_flinch": true, "juggle": true,
       "next": "light_2",
       "projectile": { "speed": 7.0, "life": 14, "radius": 5, "offset": 12, "crack_trail": false,
         "sound": "knife_throw", "end_sound": "knife_hit" },
@@ -88,7 +88,7 @@
     "light_2": {
       "name": "Backhand Flick", "anim": "flick2",
       "startup": 6, "active": 0, "recovery": 16, "cancel_from": 10,
-      "damage": 3, "knockback": 0.5, "hitstun": 30, "hitstop": 3, "juggle": true,
+      "damage": 3, "knockback": 0.5, "hitstun": 30, "hitstop": 1, "no_flinch": true, "juggle": true,
       "next": "light_3",
       "projectile": { "speed": 7.0, "life": 14, "radius": 5, "offset": 12, "crack_trail": false,
         "sound": "knife_throw", "end_sound": "knife_hit" },

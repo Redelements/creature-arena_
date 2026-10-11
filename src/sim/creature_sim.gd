@@ -320,6 +320,7 @@ func hit_params(seg: int) -> Dictionary:
 		"steal": float(mv.get("steal", 0.0)),
 		"cone": float(mv.get("cone", 0.0)),
 		"freeze_ticks": seg_value(seg, "freeze_ticks"),
+		"no_flinch": bool(mv.get("no_flinch", false)),
 	}
 
 

@@ -272,6 +272,10 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		damage *= STONE_SHATTER_MULT
 		d.stone = 0
 		emit_event("shatter", d.pos, damage, {"who": d.id, "by": a.id, "ice": d.stone_ice})
+	# A hit that doesn't stagger (Chef Cerebro's knife flicks): damage only. On a foe who
+	# isn't already stunned it doesn't start a combo either.
+	var no_flinch := bool(hit.get("no_flinch", false))
+	var was_stunned := d.is_stunned()
 	var n := d.combo_hits + 1
 	var types := d.combo_types | int(SimDefs.TYPE_BIT[String(hit["type"])])
 	var variety := SimDefs.variety_mult(types)
@@ -345,7 +349,10 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		d.vuln_mult = float(hit["vuln_mult"])
 		emit_event("tenderized", d.pos, float(hit["vuln_ticks"]), {"who": d.id})
 
-	if float(hit.get("petrify", 0.0)) > 0.0 or float(hit.get("freeze_ticks", 0.0)) > 0.0:
+	if no_flinch:
+		if not was_stunned:
+			d.reset_combo()
+	elif float(hit.get("petrify", 0.0)) > 0.0 or float(hit.get("freeze_ticks", 0.0)) > 0.0:
 		# Turned to stone, or frozen solid in ice: stunned where it stands (even out of
 		# the air), until it wears off or the next clean hit shatters it.
 		var ice := float(hit.get("freeze_ticks", 0.0)) > 0.0
@@ -400,7 +407,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	emit_event("hit", fx_pos, total, {
 		"attacker": a.id, "target": d.id, "type": String(hit["type"]),
 		"combo": n, "variety": variety, "stale": stale < 1.0,
-		"heavy": String(hit["type"]) != "light"})
+		"heavy": String(hit["type"]) != "light", "no_flinch": no_flinch})
 	d.check_ko(self)
 	return "hit"
 

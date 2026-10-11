@@ -126,7 +126,8 @@ tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gi
   foe and paces itself to arrive (Gillbert's Surge), and a move's `"aim"` (a cone) turns
   it to face a foe roughly ahead, re-aimed for each throw of a volley (Knife Flurry). A
   blocked third light can't cancel and leaves the attacker `BLOCKED_ENDER_DISADVANTAGE`
-  ticks behind; a Surge's hits give its user no energy. Projectiles also take `sound`/`end_sound`; any move's `fx` can
+  ticks behind; a Surge's hits give its user no energy; `"no_flinch"` hits only deal
+  damage (no hitstun, no knockback, no new combo on a free foe: Chef Cerebro's knife flicks). Projectiles also take `sound`/`end_sound`; any move's `fx` can
   carry a `shout` (`{text, sound}`, a voice line when it starts). Barkley's generator (`tools/gen_barkley.py`) poses a 3D
   puppet once and projects it into all three views; prefer that for new characters.
   Moves can time their frames with `"anim_at"` and lift the sprite with `"view_lift"`
