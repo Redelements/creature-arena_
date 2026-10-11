@@ -264,13 +264,16 @@ func on_event(e: Dictionary) -> void:
 			play("petrify")
 			play("crowd_cheer", -4.0)
 		"shatter":
-			play("shatter")
+			play("freeze" if bool(e.get("ice", false)) else "shatter", 0.0, 1.3 if bool(e.get("ice", false)) else 1.0)
 		"blinded":
 			play("flash")
 		"steal":
 			play("coins", 0.0, 1.2)
 		"blink":
 			play("poof")
+		"freeze":
+			play("freeze")
+			play("crowd_cheer", -4.0)
 		"miss":
 			play("miss")
 

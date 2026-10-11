@@ -239,3 +239,23 @@ func test_pete_big_heist() -> void:
 		[SU, "surge"]])
 	# After Pickpocket his hits land 20% harder (stolen power): the whole Heist does.
 	assert_near(dmg, 14 + 9 * 1.15 + 5 * 1.3 + (5 * 3 + 10) * 1.5 * 1.2, 0.05, "... > The Big Heist:")
+
+
+## Sno Mercy (left) facing Cairn at close range.
+func _sno() -> MatchSim:
+	var sim := MatchFactory.versus("sno", "cairn")
+	sim.creatures[0].pos = Vector2(220, 164)
+	sim.creatures[1].pos = Vector2(220 + sim.creatures[0].radius + sim.creatures[1].radius + 2, 164)
+	return sim
+
+
+func test_sno_ice_spray_slush_slide() -> void:
+	var dmg := route(_sno(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S2, "skill_2"]])
+	assert_near(dmg, 15 + 8 * 1.15 + 8 * 1.3, 0.05, "Cold Cross, Brain Freeze > Shaved Ice > Slush Slide:")
+
+
+func test_sno_flavor_blast() -> void:
+	var sim := _sno()
+	sim.creatures[0].energy = 100.0
+	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [SU, "surge"]])
+	assert_near(dmg, 15 + 8 * 1.15 + 14 * 1.3, 0.05, "... > Shaved Ice > Flavor Blast:")

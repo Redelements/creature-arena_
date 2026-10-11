@@ -353,6 +353,37 @@ Facing down and up: [`pete_views_preview.png`](pete_views_preview.png).
 | 11 | guard | 2 | hiding behind the money bag |
 | 12 | ko | 4 | flat on his back, the bag beside him, x eyes |
 
+### Sno Mercy — 128×128 frames, 8 × 13 (1024×1664 px)
+
+`tools/gen_sno.py`, on the shared renderer. The rig: an icy cyan cone (a tapered tube from
+his point to the rim) with a navy rim, a dome of shaved ice on top (red on his right half,
+green on his left, white flecks picked out by a hash of each point), an angry face on the
+front of the cone (eyes, slanted brows, gritted teeth, a crack), grey stick arms and legs,
+red boxing gloves, brown shoes, and a syrup drip off his point. The cone tips about its
+point for the headbutt, the slide and the head slam. In the side view he's turned a little
+toward the camera (`SIDE_CHEAT`) so the face reads. Drawn at 0.8 scale, feet at
+**x 64, y 104**; up and down sheets are **112×128**, feet at x 56, y 104 (down) and y 92 (up).
+
+![Sno Mercy sheet, 3x](sno_preview.png)
+
+Facing down and up: [`sno_views_preview.png`](sno_views_preview.png).
+
+| Row | Animation | Frames | Notes |
+| --- | --- | --- | --- |
+| 0 | idle | 4 | a boxer's bounce on stick legs, gloves up, syrup dripping |
+| 1 | run | 6 | a stiff-legged jog |
+| 2 | jab | 4 | Cold Cross, the jab |
+| 3 | cross | 4 | Cold Cross, the cross |
+| 4 | headbutt | 5 | Brain Freeze (light 3): rears back, drives the dome forward |
+| 5 | spray | 6 | Shaved Ice Spray: charge A/B (shivering), the head shake (frames 2 and 3 alternate) with shards flying, follow-through, recover |
+| 6 | syrup | 4 | Syrup Slick: he squeezes and the syrup gushes into a puddle |
+| 7 | slide | 5 | Slush Slide: crouch, leaning back sliding feet first, the kick, up, recover; Cold Shoulder plays from frame 2 |
+| 8 | blast | 6 | Flavor Blast: rears back, holds, the head slam into the floor, holds, recover |
+| 9 | dodge | 4 | a cartwheel |
+| 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose (frozen, tinted ice-blue by `CreatureView`) |
+| 11 | guard | 2 | gloves up in front of his face |
+| 12 | ko | 4 | topples and melts into a puddle |
+
 ## Training dummy — 48×48 frames
 
 4 columns × 2 rows. Row 0: idle, hurt A, hurt B, guard. Row 1: knock-over, 4 frames.

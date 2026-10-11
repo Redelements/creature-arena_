@@ -59,6 +59,13 @@ extends Node2D
 ##   impact       also "cash": coins and bills burst out where it hits
 ##   smoke        true         a puff of smoke as the move starts (and where a blink lands)
 ##   steal        true         coins fly from the foe to the attacker when it steals
+##   impact       also "frost" (a puff of ice sparkles) and "blast" (a ring of ice bursting
+##                out all round, shards and a shake)
+##   charge       also "frost": icy mist swirling while the heavy is held
+##   spray        true         a fan of ice shards over the move's cone
+##   slush        true         a slushy trail behind a dash
+##   syrup        true         a splash as the move's zone is left (the zone itself is drawn
+##                             from sim.zones, as a syrup puddle)
 ## Creature "ko_fx" keys: style "scatter" (the sprite breaks into horizontal pieces that
 ## tumble across the floor), "crack" (cracks, water gushing out, rubble), "crumble"
 ## (cracks, then the neck stones burst loose) or "timber" (a felled tree: "TIMBER!",
@@ -66,7 +73,8 @@ extends Node2D
 ## last wet flop and a puddle) or "deflate" (the brain fizzles out with a puff of steam and
 ## its sunglasses skid away) or "hiss" (a last long hiss: green puffs and her hair
 ## snakes' venom dripping) or "dirt" (a puff of dust and clods as he flops over) or
-## "cash" (the bag bursts: bills flutter down, coins roll away).
+## "cash" (the bag bursts: bills flutter down, coins roll away) or "melt" (he melts into a
+## puddle of syrup and slush).
 ## Status drawn from creature state: Stoneskin plates while `shield` > 0, a rooted ring
 ## while armored, pebbles at the feet while slowed, a red "!" while taunted, and a pink
 ## down-arrow while tenderized (taking extra damage), green bubbles while poisoned,
@@ -108,6 +116,8 @@ const C_DIRT: Array[Color] = [Color("56391f"), Color("7a5634"), Color("9c744c")]
 const C_LAMP := Color("fff6b0")
 const C_GOLD: Array[Color] = [Color("c89a1e"), Color("f2c94c"), Color("fff0a0")]
 const C_CASH: Array[Color] = [Color("3f8f3f"), Color("7fd67f")]
+const C_ICE: Array[Color] = [Color("64bad0"), Color("a8eef8"), Color("f0fcff")]
+const C_SYRUP: Array[Color] = [Color("f0d21e"), Color("e8303a"), Color("46c846")]
 
 ## Asks AudioView for a sound that belongs to a timed effect (a KO scatter, geysers...).
 signal cue(sound: String)
@@ -126,6 +136,7 @@ var _watch := {}
 var _last_push := {}
 var _dark := 0.0
 var _rain := 0.0
+var _slowed_text := {}  ## creature id -> tick its last "SLOWED" call-out showed
 
 
 func bind_ground(g: FxGround) -> void:
@@ -293,7 +304,9 @@ func spawn(e: Dictionary) -> void:
 			if c != null:
 				for i in 4:
 					_dust(c.pos + Vector2(randf_range(-8, 8), randf_range(-2, 2)), Vector2(randf_range(-0.3, 0.3), -0.3))
-				_text(c.pos + Vector2(0, -_top(c) - 14), "SLOWED", Color("b9c6d6"), 7, 40.0)
+				if _tick - int(_slowed_text.get(c.id, -999)) > 45:  # once, not on every slowing hit
+					_slowed_text[c.id] = _tick
+					_text(c.pos + Vector2(0, -_top(c) - 14), "SLOWED", Color("b9c6d6"), 7, 40.0)
 		"taunt":
 			_add({"kind": "ring", "pos": p, "life": 14, "radius": 18.0, "color": C_TAUNT})
 		"roar":
@@ -336,6 +349,19 @@ func spawn(e: Dictionary) -> void:
 				_text(c.pos + Vector2(0, -_top(c) - 14), "TENDERIZED", C_TENDER, 7, 44.0)
 		"projectile_pierce":
 			_add({"kind": "spark", "pos": p, "life": 6, "scale": 0.8})
+		"freeze":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				_add({"kind": "ring", "pos": c.pos, "life": 18, "radius": c.radius + 18.0, "color": C_ICE[2]})
+				for i in 12:
+					_px(c.pos + Vector2(randf_range(-10, 10), -randf_range(4, _top(c))),
+						Vector2.from_angle(randf() * TAU) * randf_range(0.4, 1.2), C_ICE[randi() % 3], 20)
+				_text(c.pos + Vector2(0, -_top(c) - 14), "FROZEN!", C_ICE[1], 9, 50.0)
+				shake_out = maxf(shake_out, 2.5)
+		"zone":
+			for i in 10:
+				_drop(p, 6.0, Vector2.from_angle(randf() * TAU) * randf_range(0.3, 1.0), randf_range(0.8, 1.6), false,
+					C_SYRUP[randi() % 3])
 		"steal":
 			var c := _creature(int(e.get("who", -1)))
 			var by := _creature(int(e.get("by", -1)))
@@ -403,7 +429,7 @@ func spawn(e: Dictionary) -> void:
 				for i in 12:
 					var v := Vector2.from_angle(randf() * TAU) * randf_range(0.6, 2.0) + push * 0.6
 					_chunk(c.pos, randf_range(4, _top(c)), v, randf_range(1.0, 2.4), randf_range(2.0, 3.5),
-						C_GREY[randi() % 3], 50.0)
+						C_ICE[randi() % 3] if bool(e.get("ice", false)) else C_GREY[randi() % 3], 50.0)
 				for i in 5:
 					_dust(c.pos + Vector2(randf_range(-10, 10), randf_range(-3, 3)), Vector2(randf_range(-0.4, 0.4), -0.4))
 				_add({"kind": "lines", "pos": c.pos + Vector2(0, -_chest(c)), "life": 10, "size": 1.6, "color": Color.WHITE})
@@ -601,6 +627,8 @@ func _move_started(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 		_dark = maxf(_dark, 0.6)
 	if bool(fx.get("burrow", false)):
 		cue.emit("dig")
+	if bool(fx.get("syrup", false)):
+		cue.emit("slosh")
 	if bool(fx.get("smoke", false)):
 		_smoke(c.pos, 8)
 		cue.emit("poof")
@@ -628,6 +656,12 @@ func _charging(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 		"pebbles":
 			if full and c.anim_t % 6 == 0:
 				_dust(c.pos + Vector2(randf_range(-10, 10), randf_range(-2, 2)), Vector2(0, -0.4))
+		"frost":
+			# Icy mist swirling round him, thicker once fully wound.
+			if c.anim_t % (2 if full else 4) == 0:
+				var a := randf() * TAU
+				_px(c.pos + Vector2(cos(a) * 16.0, sin(a) * 6.0 - _chest(c)), Vector2(-sin(a), cos(a) * 0.4) * 0.6,
+					C_ICE[randi() % 3], 18)
 		"coins":
 			# Wound up: coins spill from the bag, more once fully wound.
 			if c.anim_t % (3 if full else 6) == 0:
@@ -720,6 +754,8 @@ func _strike(c: CreatureSim, mv: Dictionary, fx: Dictionary, seg: int) -> void:
 				_tenderize(c, c.hit_center(seg), c.hit_radius(seg))
 			"cash":
 				_cash_burst(c.hit_center(seg) + Vector2(0, -_chest(c)), 10)
+			"blast":
+				_ice_blast(c.pos, c.hit_radius(seg))
 			"popup":
 				_dirt_burst(c.hit_center(seg), c.hit_radius(seg))
 				cue.emit("pop")
@@ -732,6 +768,12 @@ func _strike(c: CreatureSim, mv: Dictionary, fx: Dictionary, seg: int) -> void:
 					_dust(at + Vector2(randf_range(-8, 8), randf_range(-3, 3)), Vector2(randf_range(-0.5, 0.5), -0.4))
 	if bool(fx.get("flash", false)):
 		_headlamp(c, c.hit_radius(seg) + float(mv.get("reach", 0)))
+	if String(fx.get("impact", "")) == "frost":
+		var at := c.hit_center(seg) + Vector2(0, -_chest(c))
+		for i in 5:
+			_px(at, Vector2.from_angle(randf() * TAU) * randf_range(0.4, 1.2), C_ICE[1 + randi() % 2], 14)
+	if bool(fx.get("spray", false)):
+		_ice_spray(c, c.hit_radius(seg), float(mv.get("cone", 0.6)))
 	if String(fx.get("impact", "")) == "roots":
 		_roots(c, c.hit_radius(seg), last)
 
@@ -767,6 +809,13 @@ func _during_move(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 			if t % 4 == 0:
 				_add({"kind": "whirl", "pos": c.pos + Vector2(0, -_chest(c) * 0.6), "life": 8, "radius": r,
 					"start": randf() * TAU})
+	var dsh: Dictionary = mv.get("dash", {})
+	if bool(fx.get("slush", false)) and not dsh.is_empty() and t >= int(dsh["from"]) and t <= int(dsh["to"]):
+		_px(c.pos - c.facing * 6.0 + Vector2(randf_range(-4, 4), -randf_range(0, 4)),
+			-c.facing * randf_range(0.3, 0.9) + Vector2(0, -0.3), C_ICE[randi() % 3], 16)
+		if t % 3 == 0:
+			_add({"kind": "puddle", "pos": c.pos - c.facing * 4.0, "radius": randf_range(3.0, 4.5), "ry": 0.45,
+				"grow": 2.0, "life": 90.0, "fade": 40.0, "color": Color(C_ICE[2], 0.55)})
 	var lp: Dictionary = mv.get("leap", {})
 	if bool(fx.get("burrow", false)) and not lp.is_empty() and t >= int(lp["from"]) and t <= int(lp["to"]):
 		if t % 2 == 0:
@@ -1339,6 +1388,8 @@ func _ko(c: CreatureSim) -> void:
 			_later(10.0, _dirt_ko.bind(c))
 		"cash":
 			_later(10.0, _cash_ko.bind(c))
+		"melt":
+			_later(8.0, _melt_ko.bind(c))
 		"timber":
 			_timber(c)
 			_later(16.0, _timber_land.bind(c, float(ko.get("length", 50))))
@@ -1464,6 +1515,60 @@ func _rubble(c: CreatureSim) -> void:
 
 
 # ------------------------------------------------------------------ helpers
+
+## Shaved Ice Spray: shards fanning out over the cone ahead.
+func _ice_spray(c: CreatureSim, r: float, cone: float) -> void:
+	var half := acos(clampf(cone, -1.0, 1.0))
+	var head := c.pos + Vector2(0, -_top(c) + 8.0)
+	for i in 14:
+		var d := c.facing.rotated(randf_range(-half, half))
+		_add({"kind": "streak", "a": head + d * 6.0, "b": head + d * r * randf_range(0.6, 1.1) + Vector2(0, 10),
+			"life": 9, "color": Color(C_ICE[2], 0.9)})
+		_px(head + d * 8.0, d * randf_range(1.2, 2.4), C_ICE[randi() % 3], 18)
+	cue.emit("shards")
+
+
+## Flavor Blast: a ring of ice bursting out all around, shards and frost.
+func _ice_blast(at: Vector2, r: float) -> void:
+	_add({"kind": "ring", "pos": at, "life": 20, "radius": r + 8.0, "color": C_ICE[2]})
+	_add({"kind": "ring", "pos": at, "life": 14, "radius": r * 0.6, "color": C_ICE[1]})
+	_add({"kind": "puddle", "pos": at, "radius": r * 0.8, "ry": 0.45, "grow": 6.0, "life": 140.0, "fade": 60.0,
+		"color": Color(C_ICE[2], 0.6)})
+	for i in 16:
+		var a := TAU * i / 16.0
+		_chunk(at + Vector2(cos(a), sin(a) * 0.5) * 8.0, 4.0, Vector2(cos(a), sin(a) * 0.5) * randf_range(1.0, 2.2),
+			randf_range(1.0, 2.2), randf_range(1.5, 2.5), C_ICE[randi() % 3], 40.0)
+	shake_out = maxf(shake_out, 4.0)
+
+
+## Sno Mercy melts: a spreading puddle of syrup and slush, a few last drips.
+func _melt_ko(c: CreatureSim) -> void:
+	_add({"kind": "puddle", "pos": c.pos, "radius": 10.0, "ry": 0.45, "grow": 12.0, "life": FOREVER, "fade": 1.0,
+		"color": Color(C_SYRUP[0], 0.75)})
+	_add({"kind": "puddle", "pos": c.pos + Vector2(4, 1), "radius": 6.0, "ry": 0.45, "grow": 8.0, "life": FOREVER,
+		"fade": 1.0, "color": Color(C_ICE[2], 0.6)})
+	for i in 8:
+		_drop(c.pos + Vector2(randf_range(-8, 8), 0), randf_range(6, 20), Vector2.ZERO, 0.0, false, C_SYRUP[randi() % 3])
+	cue.emit("melt")
+
+
+## Syrup Slick puddles, from the simulation's zones: a sticky pool that fades as it dries.
+func _draw_zones(ci: CanvasItem) -> void:
+	for z in sim.zones:
+		var at: Vector2 = z["pos"]
+		var r := float(z["radius"])
+		var a := clampf(float(z["ticks"]) / 40.0, 0.0, 1.0)
+		ci.draw_set_transform(at.round(), 0.0, Vector2(1.0, 0.45))
+		ci.draw_circle(Vector2.ZERO, r, Color(C_SYRUP[0], 0.45 * a))
+		ci.draw_circle(Vector2(-r * 0.3, -r * 0.1), r * 0.45, Color(C_SYRUP[1], 0.35 * a))
+		ci.draw_circle(Vector2(r * 0.35, r * 0.15), r * 0.4, Color(C_SYRUP[2], 0.35 * a))
+		ci.draw_arc(Vector2.ZERO, r, 0.0, TAU, 40, Color(1, 1, 1, 0.35 * a), 1.0)
+		ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		if (_tick / 8) % 3 == 0:
+			var hsh := int(at.x * 13.0 + at.y * 7.0 + _tick)
+			var g := at + Vector2(float(hsh % int(r)) - r * 0.5, float((hsh / 7) % int(r * 0.5)) - r * 0.25)
+			ci.draw_rect(Rect2(g.round(), Vector2.ONE), Color(1, 1, 1, 0.6 * a))
+
 
 ## A puff of smoke: dust clouds and grey wisps.
 func _smoke(at: Vector2, n: int) -> void:
@@ -2167,6 +2272,8 @@ func _draw_wave(ci: CanvasItem, p: Vector2, vel: Vector2) -> void:
 ## Things drawn straight from creature state every frame: orbiting pebbles, Cairn's
 ## stones, the Storm Drain landing marker and Avalanche speed lines.
 func _draw_creature_extras(ci: CanvasItem, floor_layer: bool) -> void:
+	if floor_layer:
+		_draw_zones(ci)
 	for c in sim.creatures:
 		var attacking := c.state == CreatureSim.State.ATTACK
 		var mv := c.move_def() if attacking else {}

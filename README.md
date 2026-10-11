@@ -29,6 +29,9 @@ Six fighters so far, each with a full moveset and a CPU opponent:
 - **Sneaky Pete**, who has robbed every bank in town, twice: an assassin in a mask and a
   striped beanie who tiptoes in invisible, dashes past foes to pickpocket their strength,
   and vanishes to reappear behind them swinging his money bag.
+- **Sno Mercy**, a snow cone dropped on the sidewalk who now makes everyone else cry: a
+  bruiser in boxing gloves whose punches slow, who sprays shaved ice, leaves sticky syrup
+  puddles, slides in feet first, and freezes everyone around him solid.
 
 ![Demo: CPU Cairn vs CPU Culvert](docs/demo.gif)
 
@@ -78,7 +81,7 @@ From a terminal:
 godot --path .                          # menu
 godot --path . -- --mode=0 --level=2    # Cairn vs a Hard CPU Culvert
 godot --path . -- --mode=2              # watch CPU vs CPU
-godot --path . -- --showcase=cerebro    # scripted demo: cairn, culvert, craglash, barkley, gillbert, cerebro, hissy, digby, pete or counterplay
+godot --path . -- --showcase=cerebro    # scripted demo: cairn, culvert, craglash, barkley, gillbert, cerebro, hissy, digby, pete, sno or counterplay
 godot --path . -- --mode=6              # Duel vs CPU with the default teams (add --pick to choose)
 ```
 
@@ -91,7 +94,8 @@ Online from a terminal: `godot --path . -- --online-host` and `godot --path . --
 16 Gillbert vs CPU Barkley, 17 training as Gillbert, 18 Chef Cerebro vs CPU Gillbert,
 19 training as Chef Cerebro, 20 Online 1v1 (the lobby), 21 Hissy Fitz vs CPU Chef Cerebro,
 22 training as Hissy Fitz, 23 Digby vs CPU Hissy Fitz, 24 training as Digby,
-25 Sneaky Pete vs CPU Digby, 26 training as Sneaky Pete. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
+25 Sneaky Pete vs CPU Digby, 26 training as Sneaky Pete, 27 Sno Mercy vs CPU Sneaky Pete,
+28 training as Sno Mercy. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
 sets Duel teams; `--cpu-vs-cpu` hands every player side to the CPU.
 
 **Local 2-player:** with two controllers, each player gets one (player 1 can also use the
@@ -158,7 +162,7 @@ at a time.
   Landslide Entry, a charging headbutt; Barkley: Timber Drop, a falling log bonk that launches; Gillbert: Splashdown, a little belly-flop;
   Chef Cerebro: Order Up, a mallet bonk that launches; Hissy Fitz: Hiss Off, an uppercut
   that launches; Digby: Pop Goes the Mole, bursting up out of the floor; Sneaky Pete: Smash and Grab, a
-  bag swing). Tag from
+  bag swing; Sno Mercy: Cold Shoulder, a sliding barge that slows). Tag from
   neutral or guard, then it's on a 5-second cooldown.
 - **Tag cancel:** tag out of an attack that hit, for 50 energy, and the tag-in strike
   carries the combo on.
@@ -347,6 +351,26 @@ the air) waits for a victory-pose system.
 
 ![Sneaky Pete's showcase](docs/pete_demo.gif)
 
+### Sno Mercy — dropped on the sidewalk; now he makes everyone else cry
+
+A bruiser (125 HP, Tide affinity: the sheet says Ice, slow and heavy). A snow cone with a
+red-and-green shaved-ice top, an angry face, stick limbs, red boxing gloves, and syrup
+dripping off his point. He makes the floor and the foe slow, then hits hard. Voice line:
+"Chill out."
+
+| Button | Move | What it does |
+| --- | --- | --- |
+| Light | Cold Cross (jab, cross), Brain Freeze | A frosty one-two that **slows** (walk ×0.75 for 1 s), then a headbutt with the icy top |
+| Heavy | Shaved Ice Spray | He shakes his head and sprays ice shards in a **cone in front of him** (about 46 px, wider charged): damage and a strong slow (×0.6 for 1.5 s). Nothing behind him is hit. Hold to charge |
+| Skill 1 | Syrup Slick | Leaks a **sticky puddle** around him that lasts 5 s: foes standing in it walk at half speed. He isn't slowed by his own syrup |
+| Skill 2 | Slush Slide | Slides forward feet first on his own slush, about 75 px, and **knocks down** the first foe he hits. A gold windup tell gives it away |
+| Surge | Flavor Blast | Rears back and slams his head into the floor: everyone around him (all sides, about 50 px) is **frozen solid** for 1.5 s, and the next clean hit **shatters** the ice for 25% extra damage, like Hissy Fitz's statues |
+
+No passive on the sheet. His victory emote (licking the syrup off his glove, then
+shivering) waits for a victory-pose system.
+
+![Sno Mercy's showcase](docs/sno_demo.gif)
+
 ### Combos to try
 
 | Fighter | Route | Damage |
@@ -375,6 +399,8 @@ the air) waits for a victory-pose system.
 | Digby | Claw Swipe, Claw Swipe, Pickaxe Swing → Pickaxe Pop-Up → Cave-In | 41.4 |
 | Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket | 30.9 |
 | Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket → The Big Heist (with stolen power: +20%) | 75.9 |
+| Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Slush Slide | 34.6 |
+| Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Flavor Blast, then shatter the ice | 42.4 + |
 
 Every one of these is checked by an automated test (`tests/test_combos.gd`).
 
@@ -410,7 +436,7 @@ tumbles across the floor; Culvert cracks, gushes storm water and settles into ru
 Craglash's neck comes apart stone by stone; Barkley topples like a felled tree ("TIMBER!"); Gillbert gives one last wet flop; Chef
 Cerebro fizzles out in a puff of steam and his sunglasses skid away; Hissy Fitz goes down
 with a long hiss and a drip of venom; Digby flops over in a puff of dust; Sneaky Pete's bag bursts and the cash flutters
-down. The
+down; Sno Mercy melts into a puddle of syrup. The
 keys are listed at the top of `src/view/fx_view.gd`. Effects only read the simulation, so
 they can never change a match, a replay or a test result. Knockouts also get a freeze
 frame, slow motion and a camera push-in, and Surges get a fighting-game cut-in.
@@ -424,10 +450,10 @@ godot --headless --path . --import
 godot --headless --path . --script res://tests/run_tests.gd
 ```
 
-210 tests cover every example combo, every Combo Trial, both Reaction Drills, Duel rules, every showcase, windups and counterplay,
+221 tests cover every example combo, every Combo Trial, both Reaction Drills, Duel rules, every showcase, windups and counterplay,
 rollback netcode (snapshots, two simulated machines over a laggy, lossy connection, online sessions over memory and real UDP: handshake, time sync, rematch, desync detection), every combo rule (variety bonus, stale moves,
 hitstun decay, juggle cap, cancels on contact, stacks, energy, cooldowns, breakaway), grabs,
-Slip counters, shockwaves, the Storm Drain pit ring, Barkley's pull, lob and root rings, Gillbert's reel and leap, Chef Cerebro's thrown kit (range, tenderizing, the flip, a volley of knives through a line), Hissy Fitz's poison, gaze and statues, Digby's blinding, tunnelling and rooting, Sneaky Pete's stealth, stolen power and blink, terrain, determinism, replays, and the
+Slip counters, shockwaves, the Storm Drain pit ring, Barkley's pull, lob and root rings, Gillbert's reel and leap, Chef Cerebro's thrown kit (range, tenderizing, the flip, a volley of knives through a line), Hissy Fitz's poison, gaze and statues, Digby's blinding, tunnelling and rooting, Sneaky Pete's stealth, stolen power and blink, Sno Mercy's cone, syrup puddles and ice, terrain, determinism, replays, and the
 CPU (reproducible matches, uses its whole kit, Hard beats Easy), and the mouse and gamepad
 controls. A test that crashes counts as a failure. They run on every push via GitHub Actions.
 

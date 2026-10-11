@@ -379,6 +379,14 @@ func _neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2,
 		_press(int(ACTION_BIT[gaze]))
 		return
 
+	# A slowing puddle round his feet (Syrup Slick) when the foe is close.
+	var zone := String(ai.get("zone", ""))
+	var zr: Array = ai.get("zone_range", [0, 0])
+	if zone != "" and me.can_use(zone) and dist >= float(zr[0]) and dist <= float(zr[1]) \
+			and _roll(0.1 + 0.06 * level):
+		_press(int(ACTION_BIT[zone]))
+		return
+
 	# Going invisible (Tiptoe) to sneak in from mid range.
 	var sneak := String(ai.get("stealth", ""))
 	var sr: Array = ai.get("stealth_range", [0, 0])

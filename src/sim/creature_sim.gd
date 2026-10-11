@@ -54,7 +54,7 @@ const STATE_FIELDS := [
 	"flip_t", "flip_total", "flip_from", "flip_to",
 	"poison", "poison_every", "poison_dmg", "poison_by", "stone",
 	"blind", "whiff_serial", "root",
-	"stealth", "haste", "haste_mult", "atk_buff", "atk_mult",
+	"stealth", "haste", "haste_mult", "atk_buff", "atk_mult", "stone_ice",
 ]
 ## Set once when the creature is made and never changed by the simulation.
 const STATIC_FIELDS := ["id", "def", "is_dummy", "radius", "weight", "max_hp", "max_stamina"]
@@ -156,6 +156,7 @@ var haste := 0  ## ticks left of walking faster
 var haste_mult := 1.0
 var atk_buff := 0  ## ticks left of dealing atk_mult x damage (Pickpocket: up for him, down for them)
 var atk_mult := 1.0
+var stone_ice := false  ## the statue is ice, not stone (Sno Mercy's Flavor Blast)
 
 
 func _init(p_id: int, p_def: Dictionary, p_pos: Vector2, p_is_dummy := false) -> void:
@@ -311,6 +312,8 @@ func hit_params(seg: int) -> Dictionary:
 		"root_ticks": seg_value(seg, "root_ticks"),
 		"steal_ticks": seg_value(seg, "steal_ticks"),
 		"steal": float(mv.get("steal", 0.0)),
+		"cone": float(mv.get("cone", 0.0)),
+		"freeze_ticks": seg_value(seg, "freeze_ticks"),
 	}
 
 
@@ -770,6 +773,11 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 		var k := t - su - 1
 		if k % every == 0 and k / every < int(vol.get("count", 1)):
 			sim.spawn_projectile(self, mv, k / every == int(vol.get("count", 1)) - 1)
+
+	# A zone left on the floor (Syrup Slick).
+	var zn: Dictionary = mv.get("zone", {})
+	if not zn.is_empty() and t == int(zn.get("at", su)):
+		sim.add_zone(self, pos, zn)
 
 	# A vanish and reappear behind the foe (The Big Heist).
 	var bl: Dictionary = mv.get("blink", {})
