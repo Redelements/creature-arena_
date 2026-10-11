@@ -23,9 +23,15 @@ extends Node2D
 ##   --teams=a,b,c:d,e,f   Duel / 2-player teams (default cerebro,gillbert,barkley:culvert,cerebro,craglash)
 ##   --pick                show the team pick screen even with --mode
 ##   --cpu-vs-cpu          every player side is played by the CPU (demos, captures)
+##   --online-host[=PORT]  host an online 1v1 straight away (UDP, default port 7777)
+##   --online-join=ADDR[:PORT]  join one
+##   --fighter=ID          your fighter online
+##   --net-lag=N --net-loss=F   hold back / drop the input stream (feel rollback on a LAN)
+##   --net-delay=N         force the input delay (frames) instead of picking it from the ping
+##   --net-report=PATH     write the online match's report (inputs, state fingerprints) on exit
 
-enum Flow { MENU, INTRO, FIGHT, ROUND_OVER, MATCH_OVER, SELECT }
-enum Side { PLAYER, CPU, DUMMY, SCRIPT, PLAYER2 }
+enum Flow { MENU, INTRO, FIGHT, ROUND_OVER, MATCH_OVER, SELECT, LOBBY }
+enum Side { PLAYER, CPU, DUMMY, SCRIPT, PLAYER2, REMOTE }
 
 const MODES := [
 	{"label": "Cairn  vs  CPU Culvert", "left": "cairn", "right": "culvert", "sides": [Side.PLAYER, Side.CPU]},
@@ -48,10 +54,12 @@ const MODES := [
 	{"label": "Training: Gillbert", "left": "gillbert", "training": true},
 	{"label": "Chef Cerebro  vs  CPU Gillbert", "left": "cerebro", "right": "gillbert", "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Training: Chef Cerebro", "left": "cerebro", "training": true},
+	{"label": "Online 1v1", "online": true},
 ]
 ## The menu. MODES indexes stay stable for --mode=N; rows with choices pick one of
 ## several modes with left/right.
 const MENU_ROWS := [
+	{"label": "Online 1v1  (host or join)", "modes": [20]},
 	{"label": "Duel: you vs CPU  (3v3 tag)", "modes": [6]},
 	{"label": "Duel: 2 players", "modes": [7]},
 	{"label": "Versus: 2 players", "modes": [8]},
@@ -134,6 +142,15 @@ var _shots := {}
 var _shot_dir := "user://shots"
 var _quit_after := 0
 
+# Online
+var netplay: Netplay = null
+var online: OnlineMatch = null  ## the online match being shown
+var lobby: OnlineLobby
+var _online_fighter := "cairn"
+var _online_address := ""
+var _net_args := {}  ## from the command line: host / join / lag / delay / report
+var _net_end_t := 0
+
 
 func _ready() -> void:
 	if _run_sim_check():
@@ -185,6 +202,12 @@ func _ready() -> void:
 	layer.add_child(team_select)
 	team_select.chosen.connect(_on_teams_chosen)
 	team_select.cancelled.connect(_open_menu)
+	lobby = OnlineLobby.new()
+	lobby.visible = false
+	layer.add_child(lobby)
+	lobby.host_pressed.connect(_net_host)
+	lobby.join_pressed.connect(_net_join)
+	lobby.cancelled.connect(_leave_online)
 	player2_input.keyboard = false
 	player2_input.pad_device = PlayerInput.NO_PAD
 
@@ -194,11 +217,20 @@ func _ready() -> void:
 	_open_menu()  # also starts the background match the pick screen sits on
 	if start_mode >= 0:
 		_start_match(start_mode)
+	if _net_args.has("host") or _net_args.has("join"):
+		_open_lobby()
+		if _net_args.has("host"):
+			_net_host(_online_fighter)
+		else:
+			var parsed := OnlineLobby.parse_address(String(_net_args["join"]))
+			_net_join(_online_fighter, String(parsed[0]), int(parsed[1]))
 
 
 # ------------------------------------------------------------------ flow
 
 func _open_menu() -> void:
+	_end_online()
+	lobby.close()
 	flow = Flow.MENU
 	flow_t = 0
 	_end_showcase()
@@ -241,6 +273,9 @@ func _start_match(m: int, keep_teams := false) -> void:
 	hud.menu_visible = false
 	_save_settings()
 	var cfg: Dictionary = MODES[m]
+	if cfg.get("online", false):
+		_open_lobby()
+		return
 	var two_players: bool = Side.PLAYER2 in cfg.get("sides", [])
 	_assign_devices(two_players)
 	if (cfg.get("duel", false) or cfg.get("versus2p", false)) and not keep_teams and not _skip_select:
@@ -396,8 +431,12 @@ func _duel_flow() -> void:
 	match duel.phase:
 		DuelSim.Phase.INTRO:
 			var t := duel.phase_t
-			hud.banner = "DUEL" if t < 60 else "FIGHT!"
-			hud.banner_sub = "3 v 3  -  tag with %s" % player_input.label("tag") if t < 60 else ""
+			hud.banner = ("ONLINE DUEL" if online != null else "DUEL") if t < 60 else "FIGHT!"
+			if (duel.teams[0] as Array).size() > 1:
+				hud.banner_sub = "%d v %d  -  tag with %s" % [duel.teams[0].size(), duel.teams[1].size(),
+					player_input.label("tag")] if t < 60 else ""
+			else:
+				hud.banner_sub = "1 v 1" if t < 60 else ""
 			if t == 2 or t == 60:
 				audio.play("round_start", 0.0, 0.75 if t == 2 else 1.0)
 		DuelSim.Phase.FIGHT, DuelSim.Phase.SWAP:
@@ -412,6 +451,8 @@ func _duel_flow() -> void:
 				flow_t = 0
 				if duel.winner < 0:
 					hud.banner = "DRAW"
+				elif online != null:
+					hud.banner = "YOU WIN!" if duel.winner == online.local_side else "YOU LOSE"
 				else:
 					hud.banner = "%s WINS!" % _side_name(duel.winner)
 				hud.banner_sub = "Enter / A: rematch     Esc / View: menu"
@@ -420,7 +461,9 @@ func _duel_flow() -> void:
 func _side_name(i: int) -> String:
 	match sides[i]:
 		Side.PLAYER:
-			return "PLAYER 1"
+			return "YOU" if online != null else "PLAYER 1"
+		Side.REMOTE:
+			return "OPPONENT"
 		Side.PLAYER2:
 			return "PLAYER 2"
 		Side.CPU:
@@ -495,6 +538,9 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 				hud.key_labels[i] = ["", ""]
 			Side.PLAYER2:
 				hud.tags[i] = "P2"
+			Side.REMOTE:
+				hud.tags[i] = "ONLINE"
+				hud.key_labels[i] = ["", ""]
 			_:
 				hud.tags[i] = ""
 	shake = 0.0
@@ -509,18 +555,31 @@ func _physics_process(_delta: float) -> void:
 	frame_count += 1
 	flow_t += 1
 	var live := flow == Flow.FIGHT or flow == Flow.MENU
-	var inputs := PackedInt32Array([_side_bits(0, live), _side_bits(1, live)])
-	if showcase != null and flow == Flow.FIGHT:
-		inputs = showcase.inputs(sim)
-	elif coach != null and flow == Flow.FIGHT:
-		inputs = coach.inputs(_side_bits(0, true))
-	if flow == Flow.FIGHT:
-		replay.record(inputs)
-	if duel != null:
-		duel.step(inputs)
+	var events: Array = sim.events
+	if online != null:
+		# Online: the rollback session steps the duel (maybe several frames, maybe none
+		# while it waits); the views get only the events they haven't shown yet.
+		live = flow == Flow.FIGHT or flow == Flow.MATCH_OVER
+		netplay.tick(_side_bits(online.local_side, live))
+		events = online.events
+		_online_status()
 	else:
-		sim.step(inputs)
-	for e in sim.events:
+		if netplay != null:
+			netplay.tick(0)  # connecting: keep the network moving behind the lobby
+			_lobby_status()
+		var inputs := PackedInt32Array([_side_bits(0, live), _side_bits(1, live)])
+		if showcase != null and flow == Flow.FIGHT:
+			inputs = showcase.inputs(sim)
+		elif coach != null and flow == Flow.FIGHT:
+			inputs = coach.inputs(_side_bits(0, true))
+		if flow == Flow.FIGHT:
+			replay.record(inputs)
+		if duel != null:
+			duel.step(inputs)
+		else:
+			sim.step(inputs)
+		events = sim.events
+	for e in events:
 		_react(e)
 	if coach != null and flow == Flow.FIGHT:
 		_coach_step()
@@ -666,6 +725,8 @@ func _side_bits(i: int, live: bool) -> int:
 			return b
 		Side.PLAYER2:
 			return player2_input.bits(sim, i, Vector2.ZERO)
+		Side.REMOTE:
+			return 0  # arrives over the network
 		Side.CPU:
 			return (cpus[i] as CpuController).bits(sim)
 		Side.DUMMY:
@@ -811,6 +872,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		if team_select.handle(event) and flow == Flow.SELECT:
 			audio.play("ui_move", 0.0, 1.0, true)
 		return
+	if flow == Flow.LOBBY:
+		if lobby.handle(event) and flow == Flow.LOBBY:
+			audio.play("ui_move", 0.0, 1.0, true)
+		return
 	if flow == Flow.MENU:
 		var before := [menu_index, level, player_input.layout, _row_choice.duplicate()]
 		_menu_input(event)
@@ -820,7 +885,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			audio.play("ui_move", 0.0, 1.0, true)
 		return
 	if event.is_action_pressed("menu_back"):
+		if online != null:
+			_leave_online()
+			return
 		_open_menu()
+	elif flow == Flow.MATCH_OVER and event.is_action_pressed("menu_confirm") and online != null:
+		netplay.request_rematch()
 	elif flow == Flow.MATCH_OVER and event.is_action_pressed("menu_confirm"):
 		seed_base += 1
 		_start_match(mode, true)
@@ -964,6 +1034,10 @@ func _load_settings() -> void:
 			player_input.layout = lay
 		level = clampi(int(cfg.get_value("game", "level", level)), 0, LEVEL_NAMES.size() - 1)
 		audio.set_music_muted(bool(cfg.get_value("audio", "music_muted", false)))
+		_online_fighter = String(cfg.get_value("online", "fighter", _online_fighter))
+		if not (_online_fighter in MatchFactory.FIGHTERS):
+			_online_fighter = "cairn"
+		_online_address = String(cfg.get_value("online", "address", ""))
 
 
 func _save_settings() -> void:
@@ -971,6 +1045,8 @@ func _save_settings() -> void:
 	cfg.set_value("input", "layout", player_input.layout)
 	cfg.set_value("game", "level", level)
 	cfg.set_value("audio", "music_muted", audio.music_muted)
+	cfg.set_value("online", "fighter", _online_fighter)
+	cfg.set_value("online", "address", _online_address)
 	cfg.save(SETTINGS_PATH)
 
 
@@ -1040,6 +1116,22 @@ func _parse_args() -> int:
 			for i in MODES.size():
 				if MODES[i].get("showcase", false):
 					start = i
+		elif a == "--online-host" or a.begins_with("--online-host="):
+			_net_args["host"] = int(a.get_slice("=", 1)) if a.contains("=") else Netplay.DEFAULT_PORT
+		elif a.begins_with("--online-join="):
+			_net_args["join"] = a.get_slice("=", 1)
+		elif a.begins_with("--fighter="):
+			var f := a.get_slice("=", 1)
+			if f in MatchFactory.FIGHTERS:
+				_online_fighter = f
+		elif a.begins_with("--net-lag="):
+			_net_args["lag"] = int(a.get_slice("=", 1))
+		elif a.begins_with("--net-loss="):
+			_net_args["loss"] = float(a.get_slice("=", 1))
+		elif a.begins_with("--net-delay="):
+			_net_args["delay"] = int(a.get_slice("=", 1))
+		elif a.begins_with("--net-report="):
+			_net_args["report"] = a.get_slice("=", 1)
 		elif a.begins_with("--layout="):
 			var lay := a.get_slice("=", 1)
 			if lay in PlayerInput.LAYOUTS:
@@ -1049,6 +1141,167 @@ func _parse_args() -> int:
 	return start
 
 
+# ------------------------------------------------------------------ online
+
+func _open_lobby() -> void:
+	_end_online()
+	flow = Flow.LOBBY
+	flow_t = 0
+	hud.menu_visible = false
+	hud.visible = false
+	lobby.open(_online_fighter, _online_address)
+
+
+## Builds the network link, with the --net-lag / --net-loss wrapper if asked for.
+func _make_link(host_port: int, address := "", port := 0) -> NetLink:
+	var e := EnetLink.new()
+	var err := e.host(host_port) if address == "" else e.join(address, port)
+	if err != OK:
+		return e  # Netplay reports e.error
+	if int(_net_args.get("lag", 0)) > 0 or float(_net_args.get("loss", 0.0)) > 0.0:
+		return LagLink.new(e, int(_net_args.get("lag", 0)), float(_net_args.get("loss", 0.0)))
+	return e
+
+
+func _net_host(fighter: String) -> void:
+	_online_fighter = fighter
+	_save_settings()
+	netplay = Netplay.new()
+	netplay.forced_delay = int(_net_args.get("delay", -1))
+	var port := int(_net_args.get("host", Netplay.DEFAULT_PORT))
+	var link := _make_link(port)
+	if link.status == NetLink.Status.CLOSED:
+		lobby.status = link.error
+		lobby.status_bad = true
+		netplay = null
+		return
+	netplay.host(port, [fighter], link)
+	lobby.busy = true
+	lobby.hosting_port = port
+	_lobby_status()
+
+
+func _net_join(fighter: String, address: String, port: int) -> void:
+	_online_fighter = fighter
+	_online_address = lobby.address if lobby.address != "" else address
+	_save_settings()
+	netplay = Netplay.new()
+	netplay.forced_delay = int(_net_args.get("delay", -1))
+	var link := _make_link(0, address, port)
+	if link.status == NetLink.Status.CLOSED:
+		lobby.status = link.error
+		lobby.status_bad = true
+		netplay = null
+		return
+	netplay.join(address, port, [fighter], link)
+	lobby.busy = true
+	lobby.hosting_port = 0
+	_lobby_status()
+
+
+## While connecting: show what's happening, and start the match once it's agreed.
+func _lobby_status() -> void:
+	if netplay == null:
+		return
+	lobby.status = netplay.status
+	lobby.status_bad = netplay.phase == Netplay.Phase.ENDED
+	if netplay.phase == Netplay.Phase.ENDED:
+		lobby.busy = false
+		netplay = null
+		return
+	if netplay.is_playing():
+		_start_online_match()
+
+
+func _start_online_match() -> void:
+	online = netplay.game
+	lobby.close()
+	hud.visible = true
+	hud.menu_visible = false
+	audio.play_music("fight")
+	duel = online.duel
+	var s := [Side.REMOTE, Side.REMOTE]
+	s[online.local_side] = Side.PLAYER
+	_new_sim(duel.sim, s)
+	for i in 2:
+		if cpus[i] != null:
+			(cpus[i] as CpuController).duel = duel
+	hud.duel = duel
+	hud.timer_ticks = duel.timer
+	hud.wins = [0, 0]
+	hud.wins_needed = 0
+	hud.banner = ""
+	flow = Flow.FIGHT
+	flow_t = 0
+	_net_end_t = 0
+
+
+## During an online match: rematches, the connection's health, and how it ended.
+func _online_status() -> void:
+	if netplay.game != online and netplay.is_playing():
+		_write_net_report()
+		_start_online_match()  # a rematch began
+		return
+	if netplay.phase == Netplay.Phase.ENDED:
+		_net_end_t += 1
+		if _net_end_t == 1:
+			_write_net_report()
+			hud.banner = "DISCONNECTED"
+			hud.banner_sub = netplay.error
+			hud.net_info = ""
+		if _net_end_t > 240:
+			_leave_online()
+		return
+	var g := online
+	hud.net_info = "PING %d ms   DELAY %d   ROLLBACK %d" % [roundi(netplay.ping_ms), g.input_delay,
+		g.session.max_rollback_seen]
+	if g.desync_frame >= 0:
+		hud.net_info = "DESYNC at frame %d: report saved   " % g.desync_frame + hud.net_info
+	if g.waiting_ticks > 30 and flow == Flow.FIGHT:
+		hud.banner = "WAITING FOR OPPONENT"
+		hud.banner_sub = "Connection hiccup..."
+	elif hud.banner == "WAITING FOR OPPONENT":
+		hud.banner = ""
+		hud.banner_sub = ""
+	if flow == Flow.MATCH_OVER:
+		if netplay.rematch_local:
+			hud.banner_sub = "Waiting for the other player...     Esc / View: leave"
+		elif netplay.rematch_remote:
+			hud.banner_sub = "The other player wants a rematch!  Enter / A: accept     Esc / View: leave"
+
+
+func _leave_online() -> void:
+	_write_net_report()
+	if netplay != null:
+		netplay.leave()
+	_end_online()
+	_open_menu()
+
+
+func _end_online() -> void:
+	netplay = null
+	online = null
+	if hud != null:
+		hud.net_info = ""
+
+
+## --net-report=PATH: the match's inputs and state fingerprints as JSON, so two
+## machines' reports can be compared (or a desync replayed). Also written on a desync.
+func _write_net_report() -> void:
+	if online == null:
+		return
+	var path := String(_net_args.get("report", ""))
+	if path == "" and online.desync_frame < 0:
+		return
+	if path == "":
+		DirAccess.make_dir_recursive_absolute("user://desyncs")
+		path = "user://desyncs/desync_%s.json" % Time.get_datetime_string_from_system().replace(":", "-")
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if f != null:
+		f.store_string(JSON.stringify(online.report()))
+		f.close()
+
+
 func _capture() -> void:
 	var t := frame_count
 	if _shots.has(t):
@@ -1056,4 +1309,5 @@ func _capture() -> void:
 		DirAccess.make_dir_recursive_absolute(_shot_dir)
 		get_viewport().get_texture().get_image().save_png(_shot_dir.path_join("shot_%04d.png" % t))
 	if _quit_after > 0 and t >= _quit_after:
+		_write_net_report()
 		get_tree().quit()

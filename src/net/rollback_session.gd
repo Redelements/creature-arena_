@@ -43,6 +43,13 @@ var max_rollback_seen := 0
 var stalls := 0
 
 
+## Called once for each frame as it becomes final (both players' inputs confirmed and
+## simulated with them, so it will never be rolled back), in order, with
+## (frame, inputs used [side 0, side 1], snapshot of the state after that frame).
+## Online play takes its input log and desync checks there.
+var on_final := Callable()
+var _final := -1
+
 ## Every input scheduled locally, frame -> bits (only kept when this is on; for tests).
 var keep_history := false
 var history := {}
@@ -103,6 +110,7 @@ func advance() -> bool:
 		return false
 	_simulate(frame)
 	frame += 1
+	_finalize()
 	_forget_old()
 	return true
 
@@ -110,6 +118,24 @@ func advance() -> bool:
 ## Applies any pending correction now, without simulating a new frame.
 func sync() -> void:
 	_do_rollback()
+	_finalize()
+
+
+## Reports frames that just became final (see on_final). Runs after any rollback, so
+## every frame up to the confirmed point was simulated with the right inputs.
+func _finalize() -> void:
+	var upto := mini(_confirmed, frame - 1)
+	if _rollback_from >= 0:
+		upto = mini(upto, _rollback_from - 1)
+	while _final < upto:
+		_final += 1
+		if not on_final.is_valid():
+			continue
+		var inputs := PackedInt32Array([0, 0])
+		inputs[local_player] = int(_local.get(_final, 0))
+		inputs[1 - local_player] = int(_used_remote.get(_final, _remote.get(_final, 0)))
+		var after = _snapshots.get(_final + 1) if _final + 1 < frame else game.snapshot()
+		on_final.call(_final, inputs, after)
 
 
 func _do_rollback() -> void:
@@ -146,19 +172,27 @@ func _remote_input(f: int) -> int:
 
 ## Drops history nothing can roll back to: frames before the confirmed point are final.
 func _forget_old() -> void:
-	var keep_from := mini(_confirmed + 1, frame - 1)
+	var keep_from := mini(mini(_confirmed + 1, frame - 1), _final + 1)
 	for d in [_snapshots, _used_remote]:
 		for k in d.keys():
 			if int(k) < keep_from:
 				d.erase(k)
+	# Keep every remote input not yet simulated (the other machine can run ahead, and
+	# its packets only repeat the last few inputs), plus the newest confirmed one, which
+	# predictions copy.
 	for k in _remote.keys():
-		if int(k) < _confirmed:
+		if int(k) < mini(_confirmed, frame - 1):
 			_remote.erase(k)
 	for k in _local.keys():
-		if int(k) < frame - redundancy - input_delay - 2:
+		if int(k) < mini(frame - redundancy - input_delay - 2, _final + 1):
 			_local.erase(k)
 
 
 ## True once every simulated frame used confirmed inputs (nothing left to correct).
 func is_settled() -> bool:
 	return _confirmed >= frame - 1 and _rollback_from < 0
+
+
+## Every remote input up to this frame has arrived.
+func confirmed_frame() -> int:
+	return _confirmed
