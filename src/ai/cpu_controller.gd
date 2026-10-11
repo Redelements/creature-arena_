@@ -49,6 +49,8 @@ var _plan_dir := Vector2.ZERO
 var _think_t := 0
 var _last_pos := Vector2.ZERO
 var _stuck_t := 0
+## Where the foe was last seen: an invisible foe (Tiptoe) is chased there, not where it is.
+var _last_seen := Vector2.INF
 var _detour_t := 0
 var _detour_dir := Vector2.ZERO
 var _hold_heavy := 0
@@ -116,6 +118,10 @@ func _threat_range(foe: CreatureSim, me: CreatureSim) -> float:
 
 func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 	var to_foe := foe.pos - me.pos
+	if foe.stealth > 0 and _last_seen != Vector2.INF:
+		to_foe = _last_seen - me.pos
+	else:
+		_last_seen = foe.pos
 	var dist := to_foe.length()
 
 	# Stunned: maybe burn energy on a breakaway, otherwise nothing to do.
@@ -371,6 +377,15 @@ func _neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2,
 			and foe.facing.dot(-to_foe.normalized()) > 0.3 and _roll(0.15 + 0.1 * level):
 		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
 		_press(int(ACTION_BIT[gaze]))
+		return
+
+	# Going invisible (Tiptoe) to sneak in from mid range.
+	var sneak := String(ai.get("stealth", ""))
+	var sr: Array = ai.get("stealth_range", [0, 0])
+	if sneak != "" and me.can_use(sneak) and me.stealth <= 0 and dist >= float(sr[0]) and dist <= float(sr[1]) \
+			and _roll(0.12 + 0.06 * level):
+		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
+		_press(int(ACTION_BIT[sneak]))
 		return
 
 	# A tunnel (Burrow) closes a long gap safely, out of reach while underground.

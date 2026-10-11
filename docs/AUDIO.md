@@ -90,8 +90,11 @@ buses at start-up; `play(name, ..., ui = true)` sends a sound to Menu sounds.
 | [ ] | `miss` | A blinded attack misses | Empty whoosh, a little falling "womp" |
 | [ ] | `cave_in` | Cave-In lands | Deep crunch, rocks rumbling down |
 | [ ] | `dig_it` | Cave-In starts (his voice line, a placeholder "I DIG IT!") | Placeholder claw taps; the real one is his voice |
+| [ ] | `coins` | Pickpocket steals; the money bag hits; Pete's knockout | A handful of coins chinking |
+| [ ] | `poof` | Tiptoe and The Big Heist start; Pete reappears | A soft airy puff of smoke |
+| [ ] | `finders` | The Big Heist starts (his voice line, "Finders keepers!") | Placeholder sly whistle; the real one is his voice |
 
-Craglash, Barkley, Gillbert, Chef Cerebro, Hissy Fitz and Digby have signature sounds; Gillbert also has footsteps
+Craglash, Barkley, Gillbert, Chef Cerebro, Hissy Fitz, Digby and Sneaky Pete have signature sounds; Gillbert also has footsteps
 (`"step_sound"` in his JSON). Cries and footsteps don't exist
 yet; when the new roster arrives, add them to `data/audio.json` and this table.
 

@@ -724,6 +724,34 @@ def dig_it():
     return mix(at(tap, 0.0, total), at(tap * 0.9, 0.12, total), at(tap * 1.1, 0.22, total))
 
 
+# ---------------------------------------------------------------- Sneaky Pete
+
+def coins():
+    """Coins spilling: a handful of bright metallic chinks."""
+    total = 0.5
+    out = np.zeros(int(SR * total))
+    for k in range(8):
+        f = rng.uniform(3000, 5200)
+        c = (osc(f, 0.06) * 0.5 + osc(f * 1.5, 0.06) * 0.3) * env(0.06, curve=4.0) * 0.4
+        out += at(c, k * 0.045 + rng.uniform(0, 0.02), total)
+    return out
+
+
+def poof():
+    """A puff of smoke: a soft airy whoomph."""
+    d = 0.3
+    return lowpass(noise(d), 1400) * env(d, attack=0.02, curve=2.2) * 0.9
+
+
+def finders():
+    """Placeholder for his voice line ("Finders keepers!"): a sly two-note whistle; the real
+    one is his voice."""
+    total = 0.5
+    a = osc(1250, 0.16, "sine") * env(0.16, attack=0.02, curve=1.5) * 0.4
+    b = osc(sweep(1400, 1100, 0.22), 0.22, "sine") * env(0.22, attack=0.02, curve=1.5) * 0.4
+    return mix(at(a, 0.0, total), at(b, 0.2, total))
+
+
 # Added after the first batch, so they're generated last and the older placeholders
 # (which share one random stream) come out the same as before.
 NEW_SOUNDS = {
@@ -736,6 +764,7 @@ NEW_SOUNDS = {
     "hiss": hiss, "spit": spit, "splat": splat, "poison_tick": poison_tick, "petrify": petrify,
     "shatter": shatter, "gaze": gaze,
     "dig": dig, "pop": pop, "flash": flash, "miss": miss, "cave_in": cave_in, "dig_it": dig_it,
+    "coins": coins, "poof": poof, "finders": finders,
 }
 
 

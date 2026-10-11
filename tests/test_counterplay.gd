@@ -15,7 +15,8 @@ const BIG_MOVES := [["cairn", "heavy"], ["cairn", "skill_2"], ["culvert", "heavy
 	["culvert", "skill_1"], ["culvert", "skill_2"], ["craglash", "heavy"], ["craglash", "skill_1"],
 	["barkley", "heavy"], ["barkley", "skill_1"], ["gillbert", "heavy"], ["gillbert", "skill_1"],
 	["gillbert", "skill_2"], ["cerebro", "heavy"], ["cerebro", "skill_1"], ["cerebro", "skill_2"],
-	["hissy", "heavy"], ["hissy", "skill_1"], ["digby", "heavy"], ["digby", "skill_2"]]
+	["hissy", "heavy"], ["hissy", "skill_1"], ["digby", "heavy"], ["digby", "skill_2"],
+	["pete", "heavy"], ["pete", "skill_2"]]
 
 
 func _duel(left: String, right: String, gap := 2.0) -> MatchSim:

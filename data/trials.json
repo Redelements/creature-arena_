@@ -50,6 +50,12 @@
     {"fighter": "digby", "name": "Pop-Up",
      "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"]]},
     {"fighter": "digby", "name": "Cave-In", "energy": 100,
-     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["surge", "surge"]]}
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["surge", "surge"]]},
+    {"fighter": "pete", "name": "Jab, jab, bag, Pickpocket",
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["skill_2", "skill_2"]]},
+    {"fighter": "pete", "name": "Sack Smack, Pickpocket",
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_2", "skill_2"]]},
+    {"fighter": "pete", "name": "The Big Heist", "energy": 100,
+     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_2", "skill_2"], ["surge", "surge"]]}
   ]
 }

@@ -144,3 +144,13 @@ func test_digby_cpu_uses_its_whole_kit() -> void:
 			used[mid] = true
 	for mid in ["light_1", "light_3", "heavy", "skill_1", "skill_2"]:
 		assert_true(used.has(mid), "the Digby CPU should use %s" % mid)
+
+
+func test_pete_cpu_uses_its_whole_kit() -> void:
+	var used := {}
+	for s in 6:
+		var m: Dictionary = _cpu_match("pete", "cairn", 1, 1, 100 + s)
+		for mid in m["moves"][0]:
+			used[mid] = true
+	for mid in ["light_1", "light_3", "heavy", "skill_1", "skill_2"]:
+		assert_true(used.has(mid), "the Sneaky Pete CPU should use %s" % mid)

@@ -1,7 +1,7 @@
 class_name Showcase
 extends RefCounted
 ## Scripted demos that show each fighter's whole kit, and how to answer the big moves.
-##   godot --path . -- --showcase=cairn | culvert | craglash | barkley | gillbert | cerebro | hissy | digby | counterplay
+##   godot --path . -- --showcase=cairn | culvert | craglash | barkley | gillbert | cerebro | hissy | digby | pete | counterplay
 ## Both fighters are driven by input bitmasks, exactly like players: each "press" step
 ## mashes its button until that move actually starts, so the combos shown are real
 ## inputs through the real rules. tests/test_showcase.gd plays every script headless.
@@ -284,6 +284,34 @@ const SCRIPTS := {
 			{"do": "press", "who": 0, "bit": SU, "move": "surge", "show": 4},
 			{"do": "until", "cond": "settled"},
 			{"do": "wait", "t": 150, "show": 5},
+		],
+	},
+	"pete": {
+		"left": "pete", "right": "cairn", "energy": [100, 0], "gap": 100.0, "hp": [-1, 60],
+		"title": "SNEAKY PETE  -  FULL KIT",
+		"captions": [
+			["Tiptoe: invisible and quick", "Sneaks right up", "Sucker Punch", "Cheap Shot", "Bag Swing",
+				"Sack Smack", "Pickpocket: steals his power"],
+			["The Big Heist: vanishes...", "...and robs him from behind"],
+		],
+		"steps": [
+			{"do": "wait", "t": 40, "part": 0},
+			{"do": "press", "who": 0, "bit": S1, "move": "skill_1", "show": 0},
+			{"do": "until", "cond": "free:0"},
+			{"do": "approach", "who": 0, "show": 1},
+			{"do": "press", "who": 0, "bit": L, "move": "light_1", "show": 2},
+			{"do": "press", "who": 0, "bit": L, "move": "light_2", "show": 3},
+			{"do": "press", "who": 0, "bit": L, "move": "light_3", "show": 4},
+			{"do": "press", "who": 0, "bit": H, "move": "heavy", "show": 5},
+			{"do": "press", "who": 0, "bit": S2, "move": "skill_2", "show": 6},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 40},
+			{"do": "place", "part": 1, "gap": 60.0},
+			{"do": "wait", "t": 20},
+			{"do": "press", "who": 0, "bit": SU, "move": "surge", "show": 0},
+			{"do": "wait", "t": 24, "show": 1},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 150, "show": 2},
 		],
 	},
 	"angles": {

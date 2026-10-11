@@ -203,7 +203,11 @@ func refresh() -> void:
 	if c.state == CreatureSim.State.KO and String(c.def.get("ko_fx", {}).get("style", "")) == "crack":
 		shade = lerpf(1.0, 0.72, clampf(float(c.state_t - 12) / 20.0, 0.0, 1.0))
 	var blink := c.invuln > 0 and c.state != CreatureSim.State.ATTACK and (c.anim_t / 3) % 2 == 0
-	modulate = Color(shade, shade, shade, 0.4 if blink else (0.55 if see_through else 1.0))
+	var alpha := 0.4 if blink else (0.55 if see_through else 1.0)
+	if c.stealth > 0:
+		# Invisible (Tiptoe): only a faint shimmer gives him away.
+		alpha = 0.12 + 0.06 * float((c.anim_t / 6) % 2)
+	modulate = Color(shade, shade, shade, alpha)
 
 	var r := -1.0
 	if c.state != CreatureSim.State.FALLING and not ko_hidden:

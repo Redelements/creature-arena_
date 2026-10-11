@@ -206,6 +206,8 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		return "slip"
 
 	var damage := float(hit["damage"])
+	if a.atk_buff > 0:
+		damage *= a.atk_mult  # Pickpocket: stolen power, or power stolen
 	if d.vuln > 0:
 		damage *= d.vuln_mult  # tenderized: every hit lands harder, chip included
 	var gd: Dictionary = d.def["guard"]
@@ -302,6 +304,16 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		d.poison_by = a.id
 		emit_event("poisoned", d.pos, float(hit["poison_ticks"]), {"who": d.id, "by": a.id})
 
+	if d.stealth > 0:
+		d.stealth = 0  # caught: visible again
+		emit_event("unstealth", d.pos, 0.0, {"who": d.id})
+	if float(hit.get("steal_ticks", 0.0)) > 0.0:
+		var st := float(hit["steal"])
+		a.atk_buff = int(hit["steal_ticks"])
+		a.atk_mult = 1.0 + st
+		d.atk_buff = int(hit["steal_ticks"])
+		d.atk_mult = 1.0 - st
+		emit_event("steal", d.pos, st, {"who": d.id, "by": a.id})
 	if float(hit.get("blind_ticks", 0.0)) > 0.0:
 		d.blind = maxi(d.blind, int(hit["blind_ticks"]))
 		emit_event("blinded", d.pos, float(hit["blind_ticks"]), {"who": d.id, "by": a.id})
