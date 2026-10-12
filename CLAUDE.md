@@ -165,10 +165,12 @@ tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gi
   DuelSim with one creature per side, so match rules stay in the sim.
 - **Not built yet:** affinity surfaces, more arenas. Game mode plan and priorities: Game Plan doc,
   "Game modes".
-- **Menus** are moving onto Godot's UI system (src/ui/): a `ScreenStack` of `UiScreen`s
-  (Control nodes, one `UiTheme`, focus navigation on `ui_*`; B / Esc closes the top
-  screen). The pause menu is built on it; the title, Settings, online and pick screens
-  follow (docs/plans/menus.md). Tests drive screens with real input events
+- **Menus** are Godot Control nodes (src/ui/): a `ScreenStack` of `UiScreen`s (one
+  `UiTheme`, focus navigation on `ui_*`; B / Esc closes the top screen). Title
+  (`TitleScreen`), Single player and Settings (built in main with `UiScreen.builder`;
+  settings rows from `_setting(key)` / `_set_setting(key, i)`), the online screen
+  (`OnlineLobby`, a LineEdit address + recent servers), pause, match over. The pick
+  screen is still drawn by hand until the character select PR (docs/plans/menus.md). Tests drive screens with real input events
   (`tests/test_ui.gd`); `run_tests.gd` runs on the first frame so the scene tree is live.
 - **Planned:** dodge timing. Kevin wants to leave a combo at any time to dodge; today
   Dodge isn't buffered during attacks and can't cancel them (issue #9 has the options).

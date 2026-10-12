@@ -93,7 +93,7 @@ func test_an_option_row_changes_with_left_and_right_without_moving_focus() -> vo
 	assert_eq(o.index, 0, "and wraps round:")
 	_press("ui_left")
 	assert_eq(o.index, 2, "left steps back:")
-	assert_true(o.text.contains("Hard"), "the row shows the value: " + o.text)
+	assert_true(o.value_text().contains("Hard"), "the row shows the value: " + o.value_text())
 	st.free()
 
 
@@ -178,7 +178,8 @@ func test_quitting_from_the_pause_menu_asks_first() -> void:
 	_press("ui_accept")
 	assert_eq(g.flow, g.Flow.MENU, "Yes: the title menu")
 	assert_false(g.paused, "not paused any more")
-	assert_false(g.ui.is_open(), "no screens left")
+	assert_true(g.ui.top() is TitleScreen, "the title screen, nothing else")
+	assert_eq(g.ui.screens.size(), 1, "")
 	g.free()
 
 
@@ -200,3 +201,116 @@ func test_the_pick_screen_knows_where_the_mouse_is() -> void:
 	assert_eq(ts._row_at(ts._start_rect().get_center()), ts._rows() - 1, "START:")
 	assert_eq(ts._row_at(Vector2(2, 2)), -1, "nothing:")
 	ts.free()
+
+
+# ------------------------------------------------------------------ the game's menus
+
+func test_the_title_menu_is_a_screen_and_back_points_at_exit() -> void:
+	var g := _game()
+	g._open_menu()
+	assert_true(g.ui.top() is TitleScreen, "the title menu is up")
+	var t: TitleScreen = g.ui.top()
+	assert_eq((_focus() as Button).text, "Single player", "it starts on Single player")
+	_press("ui_cancel")
+	assert_eq((_focus() as Button).text, "Exit", "Back points at Exit (it doesn't quit)")
+	assert_true(g.ui.top() == t, "and stays on the title")
+	g.free()
+
+
+func test_single_player_starts_the_chosen_fighter() -> void:
+	var g := _game()
+	g._open_menu()
+	_press("ui_accept")  # Single player
+	var scr: UiScreen = g.ui.top()
+	assert_true(scr.title == "SINGLE PLAYER", "the Single player page")
+	var versus: OptionRow = null
+	for r in scr.rows():
+		if r is OptionRow and (r as OptionRow).label == "Versus CPU":
+			versus = r
+	versus.grab_focus()
+	_press("ui_right")
+	_press("ui_right")
+	_press("ui_accept")
+	assert_eq(g.mode, int(g.MENU_ROWS[3]["modes"][2]), "Enter starts the fighter picked with Right:")
+	assert_false(g.ui.is_open(), "and the menus close")
+	g.free()
+
+
+func test_back_from_a_page_returns_to_the_title_on_the_same_row() -> void:
+	var g := _game()
+	g._open_menu()
+	_press("ui_down")
+	_press("ui_down")  # Settings
+	_press("ui_accept")
+	assert_true(g.ui.top().title == "SETTINGS", "Settings opened")
+	_press("ui_cancel")
+	assert_true(g.ui.top() is TitleScreen, "back on the title")
+	assert_eq((_focus() as Button).text, "Settings", "on Settings")
+	g.free()
+
+
+func test_settings_change_and_are_kept() -> void:
+	var g := _game()
+	g._open_menu("settings")
+	var before: int = g.level
+	var row: OptionRow = g._setting_rows["level"]
+	row.grab_focus()
+	_press("ui_right")
+	assert_eq(g.level, (before + 1) % 3, "Right changes the CPU level:")
+	var vol: OptionRow = g._setting_rows["vol_Master"]
+	vol.grab_focus()
+	var v: float = g.audio.volume("Master")
+	_press("ui_left")
+	assert_near(g.audio.volume("Master"), maxf(0.0, v - 0.1), 0.001, "Left turns a volume down:")
+	assert_near(vol.bar, g.audio.volume("Master"), 0.001, "and its bar follows:")
+	g.free()
+
+
+func test_the_online_screen_joins_what_was_typed() -> void:
+	var lobby := OnlineLobby.new("sno", "", ["game.example.net/kev"])
+	var st := _stack()
+	st.push(lobby)
+	var got := []
+	lobby.join_pressed.connect(func(f, a, p, r): got.append([f, a, p, r]))
+	lobby.field.grab_focus()
+	lobby.field.text = "10.0.0.5:7800/Friends"
+	lobby.field.text_changed.emit(lobby.field.text)
+	lobby.field.text_submitted.emit(lobby.field.text)
+	assert_eq(got.size(), 1, "Enter in the address box joins:")
+	assert_eq(got[0], ["sno", "10.0.0.5", 7800, "Friends"], "with the fighter, address, port and room:")
+	lobby.busy = true
+	assert_eq((_focus() as Button).text, "Cancel", "connecting: only Cancel")
+	assert_eq(lobby.field.focus_mode, Control.FOCUS_NONE, "the rest can't be reached")
+	lobby.busy = false
+	assert_eq(lobby._recent_rows.size(), 1, "a recent server is listed")
+	st.free()
+
+
+func test_an_empty_address_says_so() -> void:
+	var lobby := OnlineLobby.new()
+	var st := _stack()
+	st.push(lobby)
+	var joined := [false]
+	lobby.join_pressed.connect(func(_f, _a, _p, _r): joined[0] = true)
+	lobby._join.grab_focus()
+	_press("ui_accept")
+	assert_false(joined[0], "nothing to join")
+	assert_true(lobby.status_bad and lobby.status.contains("address"), "it says what's missing: " + lobby.status)
+	st.free()
+
+
+func test_match_over_offers_rematch_and_back_goes_to_the_menu() -> void:
+	var g := _game()
+	g._start_match(6)  # Duel vs CPU (pick screen)
+	g._on_teams_chosen(g.DEFAULT_TEAMS.duplicate(true))
+	g.flow = g.Flow.MATCH_OVER
+	g.flow_t = 0
+	_tick(g, g.MATCH_OVER_MENU_AT + 1)
+	assert_true(g.ui.is_open(), "the match-over choices come up")
+	var labels: Array = []
+	for r in g.ui.top().rows():
+		labels.append((r as Button).text)
+	assert_eq(labels, ["Rematch", "Change fighters", "Main menu"], "")
+	_press("ui_cancel")
+	assert_eq(g.flow, g.Flow.MENU, "Back goes to the title menu")
+	g.free()

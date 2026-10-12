@@ -134,7 +134,7 @@ whichever device you used last.
 | Menus: select / back | A / B | Enter or click / Esc | Enter / Esc |
 
 The pause menu (Resume, Restart, Controls, Quit to main menu) freezes the match; quitting
-or restarting asks first. Online the match can't stop, so pausing asks whether to leave
+or restarting asks first. After a match: Rematch, Change fighters or Main menu. Online the match can't stop, so pausing asks whether to leave
 while the match carries on (your fighter stands still meanwhile).
 
 Controllers rumble on hits, slams, Surges and knockouts. The game aims in 8 directions,

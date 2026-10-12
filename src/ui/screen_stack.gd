@@ -17,6 +17,8 @@ var ui_theme: Theme
 var gamepad := false
 var _focus := {}  ## screen -> the Control it had focused when covered
 var _quiet := false
+var _toast: Label
+var _toast_t := 0.0
 
 
 func _init() -> void:
@@ -26,6 +28,30 @@ func _init() -> void:
 
 func _ready() -> void:
 	get_viewport().gui_focus_changed.connect(_on_focus_changed)
+	_toast = Label.new()
+	_toast.theme = ui_theme
+	_toast.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_toast.offset_top = 4
+	_toast.offset_bottom = 16
+	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_toast.add_theme_font_size_override("font_size", 8)
+	_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_toast.z_index = 10
+	add_child(_toast)
+
+
+## A short message over the screens (the HUD's toasts are under them).
+func toast(text: String) -> void:
+	_toast.text = text
+	_toast_t = 2.0
+	_toast.modulate.a = 1.0
+	move_child(_toast, get_child_count() - 1)
+
+
+func _process(delta: float) -> void:
+	if _toast_t > 0.0:
+		_toast_t -= delta
+		_toast.modulate.a = clampf(_toast_t * 2.0, 0.0, 1.0)
 
 
 func is_open() -> bool:
