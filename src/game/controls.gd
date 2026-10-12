@@ -85,6 +85,11 @@ const CLASSIC_BITS := {
 const UI_DIRECTIONS := ["ui_up", "ui_down", "ui_left", "ui_right"]
 
 
+## Bindings made in code listen to device 0 only unless told otherwise; -1 is every
+## device (a controller that isn't the first, Steam's virtual pads, player 2's pad).
+const ALL_DEVICES := -1
+
+
 static func setup() -> void:
 	# The built-in menu actions count every wobble of the stick past the deadzone as a
 	# new press; MenuStick reads the stick for menus instead (d-pad and keys stay).
@@ -103,19 +108,23 @@ static func setup() -> void:
 		for k in b.get("keys", []):
 			var ev := InputEventKey.new()
 			ev.physical_keycode = k
+			ev.device = ALL_DEVICES
 			InputMap.action_add_event(action, ev)
 		for m in b.get("mouse", []):
 			var mb := InputEventMouseButton.new()
 			mb.button_index = m
+			mb.device = ALL_DEVICES
 			InputMap.action_add_event(action, mb)
 		for btn in b.get("buttons", []):
 			var jb := InputEventJoypadButton.new()
 			jb.button_index = btn
+			jb.device = ALL_DEVICES
 			InputMap.action_add_event(action, jb)
 		if b.has("axis"):
 			var jm := InputEventJoypadMotion.new()
 			jm.axis = b["axis"][0]
 			jm.axis_value = b["axis"][1]
+			jm.device = ALL_DEVICES
 			InputMap.action_add_event(action, jm)
 
 
@@ -125,4 +134,5 @@ static func _ensure_button(action: String, button: JoyButton) -> void:
 			return
 	var jb := InputEventJoypadButton.new()
 	jb.button_index = button
+	jb.device = ALL_DEVICES
 	InputMap.action_add_event(action, jb)

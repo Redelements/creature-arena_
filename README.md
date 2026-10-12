@@ -134,7 +134,12 @@ whichever device you used last.
 | Menus: select / back | A / B | Enter or click / Esc | Enter / Esc |
 
 The pause menu (Resume, Restart, Controls, Quit to main menu) freezes the match; quitting
-or restarting asks first. After a match: Rematch, Change fighters or Main menu. Online the match can't stop, so pausing asks whether to leave
+or restarting asks first. After a match: Rematch, Change fighters or Main menu.
+
+Duels and 2-player Versus open a character select: every fighter in a grid with a
+cursor per player. Two players pick at the same time, each with their own controller
+(player 1 also has the keyboard and mouse); against the CPU you pick your team, then
+the CPU's. B / Esc takes the last pick back, "?" (or Y / R) picks at random. Online the match can't stop, so pausing asks whether to leave
 while the match carries on (your fighter stands still meanwhile).
 
 Controllers rumble on hits, slams, Surges and knockouts. The game aims in 8 directions,
