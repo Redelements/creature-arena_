@@ -13,6 +13,8 @@ const C_ROW_FOCUS := Color(1, 1, 1, 0.1)
 const SIZE_TITLE := 18
 const SIZE_HEADING := 9
 const SIZE_ROW := 9
+const SIZE_BIG := 12
+const SIZE_LOGO := 24
 const SIZE_HINT := 6
 
 
@@ -37,6 +39,20 @@ static func make() -> Theme:
 	t.set_color("font_outline_color", "Button", Color(0, 0, 0, 0.8))
 	t.set_constant("outline_size", "Button", 2)
 	t.set_font_size("font_size", "Button", SIZE_ROW)
+
+	# The title menu's big buttons: filled in the accent colour when focused.
+	t.set_type_variation("BigButton", "Button")
+	var big := _box(C_ROW)
+	big.content_margin_left = 8
+	var big_focus := _box(Color(C_ACCENT, 0.92))
+	big_focus.content_margin_left = 8
+	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
+		t.set_stylebox(state, "BigButton", big)
+	t.set_stylebox("focus", "BigButton", big_focus)
+	for c in ["font_focus_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color"]:
+		t.set_color(c, "BigButton", C_DARK)
+	t.set_font_size("font_size", "BigButton", SIZE_BIG)
+	t.set_constant("outline_size", "BigButton", 0)
 
 	t.set_color("font_color", "Label", C_TEXT)
 	t.set_color("font_outline_color", "Label", Color(0, 0, 0, 0.8))
