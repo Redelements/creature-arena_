@@ -94,7 +94,8 @@ tools/      gen_sprites.py, gen_audio.py (placeholder generators)
   The artist's character sheets (one drawing plus a kit) become fighters like Craglash:
   a pixel recreation with a puppet rig (`tools/gen_craglash.py`, 96 px frames), the kit
   mapped onto Light/Heavy/Skill 1/Skill 2/Surge plus a passive, and new mechanics added
-  to the sim as data keys (`stoneskin`, `armor`, `taunt`, `slow_ticks`, `juggle_float`).
+  to the sim as data keys (`stoneskin`, `armor`, `taunt`, `slow_ticks`, `juggle_float`,
+  `aim_frames`: how long a move can be steered; lights default to their startup).
   **Every character needs three sheets with the same rows:** side, facing down (front)
   and facing up (back); `"views"` in the sprite JSON, chosen by facing in
   `CreatureView`. Forward reach becomes screen depth in the up/down art. Both generators

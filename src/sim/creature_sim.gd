@@ -555,12 +555,17 @@ func _try_start_buffered(dir: Vector2, sim: MatchSim) -> bool:
 		return false
 	if dir != Vector2.ZERO:
 		facing = dir
-	# A taunted creature swings at its taunter, whichever way it was aiming.
-	var t := taunter(sim)
-	if t != null and t.pos.distance_squared_to(pos) > 0.0001:
-		facing = _snap8(t.pos - pos)
+	facing = _aim(facing, sim)
 	_start_attack(mid, sim, true)
 	return true
+
+
+## Where an attack aimed `dir` actually goes: a taunted creature swings at its taunter.
+func _aim(dir: Vector2, sim: MatchSim) -> Vector2:
+	var t := taunter(sim)
+	if t != null and t.pos.distance_squared_to(pos) > 0.0001:
+		return _snap8(t.pos - pos)
+	return dir
 
 
 func _start_attack(mid: String, sim: MatchSim, raw := false) -> void:
@@ -615,6 +620,13 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 	var t := state_t
 	var su := int(mv.get("startup", 0))
 
+	# Steering: until the strike comes out, the held direction re-aims the move (8-way,
+	# like walking). Lights steer through their whole startup by default; other moves only
+	# with "aim_frames", so a raw big move stays committed to the way its tell pointed.
+	var aim_until := int(mv.get("aim_frames", su if String(mv["type"]) == "light" else 0))
+	if t <= aim_until and dir != Vector2.ZERO and not connected:
+		facing = _aim(dir, sim)
+
 	# Movement during the move: a short lunge before it hits, or a dash.
 	var lunge := float(mv.get("lunge", 0.0))
 	if t <= su and lunge > 0.0:
@@ -656,6 +668,8 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 		if want == "light" and String(mv["type"]) == "light":
 			var nxt := String(mv.get("next", ""))
 			if nxt != "" and t >= int(mv.get("cancel_from", 9999)):
+				if dir != Vector2.ZERO:
+					facing = _aim(dir, sim)  # each hit of a string can turn to a new direction
 				_start_attack(nxt, sim)
 				return
 		else:
