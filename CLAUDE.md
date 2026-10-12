@@ -170,7 +170,11 @@ tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gi
   `UiTheme`, focus navigation on `ui_*`; B / Esc closes the top screen). Title
   (`TitleScreen`), Single player and Settings (built in main with `UiScreen.builder`;
   settings rows from `_setting(key)` / `_set_setting(key, i)`), the online screen
-  (`OnlineLobby`, a LineEdit address + recent servers), pause, match over, and the
+  (`OnlineLobby`: Quick match / Create room / Join room on the game's server, from
+  `data/online.json` or Settings > Game > Online server; More = host or join by address +
+  recent servers; before joining its server the game asks the local network first
+  (`LanFinder` broadcast, answered by the server's `ServerBeacon` on UDP port + 1), since
+  routers often can't loop the public name back inside), pause, match over, and the
   `CharacterSelect` (portrait grid, a cursor per player on their own device; it reads
   each pad's stick itself, so main turns MenuStick off under it). Bindings made in code
   need `device = Controls.ALL_DEVICES`, or they only hear controller 0. Settings has

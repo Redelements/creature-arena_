@@ -107,6 +107,7 @@ jobs:
           echo "$out" | tail -3
           if echo "$out" | grep -E "SCRIPT ERROR|Parse Error|Failed to load"; then exit 1; fi
           echo "$out" | grep -q "Creature Arena server on UDP port 7777"
+          echo "$out" | grep -q "find the server by itself (UDP port 7778"
 
       - name: Determinism fingerprint (Linux build)
         id: simcheck

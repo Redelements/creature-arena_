@@ -1,10 +1,12 @@
 # Running a dedicated server
 
 The game itself is the server: the ordinary Linux build started with `--server` runs
-headless, with no window or sound. Players don't host; they pick **Online**, type the
-server's address on the **Join** row and press Enter. Two players are paired, the server
-relays their match and referees it with its own copy of the game (design:
-[NETCODE.md](NETCODE.md#dedicated-server-built)).
+headless, with no window or sound. Players don't host; they pick **Online**, then
+**Quick match** (whoever is waiting) or **Create room** / **Join room** (a short code for
+a friend). Those use the game's server, `server` in `data/online.json`, or the one set in
+**Settings > Game > Online server**. Any server can also be joined by address under
+**More**. Two players are paired, the server relays their match and referees it with its
+own copy of the game (design: [NETCODE.md](NETCODE.md#dedicated-server-built)).
 
 A full step-by-step home setup (Ubuntu Server install, static IP, router, firewall, a
 free domain name, updates) is in the **Creature Arena home server guide** doc. This page
@@ -25,7 +27,20 @@ is the short reference.
 
 Players join `ADDRESS` or `ADDRESS:PORT`. Adding `/ROOM` (`game.example.net/kev`, not
 case sensitive) pairs them only with someone who typed the same room; without one,
-players are paired oldest first.
+players are paired oldest first. Create room is the same thing with a made-up code.
+
+**Players at the server's own house.** Many routers can't loop their public address back
+inside, so the public name fails from the server's own network. Before joining its
+server, the game broadcasts a question on the local network, and the server answers on
+**UDP port + 1** (7778 by default) with its game port; the game then joins that local
+address. Let the question in from your network only (match your network's range):
+
+```sh
+sudo ufw allow from 192.168.0.0/24 to any port 7778 proto udp
+```
+
+Without the rule, players at home just join the public name (and may get no answer).
+Never forward 7778 on the router: it's only for the local network.
 
 **Same build everywhere.** The server and both players need the same build (the same
 game data). The first log line shows `game data <hash>`; a player with another build is
@@ -39,6 +54,8 @@ systemd):
 
 ```
 [2026-10-11 13:21:08] Creature Arena server on UDP port 7777 (protocol 2, game data 67e12f686788fffb), up to 32 players
+[2026-10-11 13:21:08] players on this network join 192.168.0.103:7777
+[2026-10-11 13:21:08] games on this network find the server by itself (UDP port 7778; allow it in the firewall)
 [2026-10-11 13:21:08] player 1 connected from 203.0.113.9:53086
 [2026-10-11 13:21:08] player 1 (digby) is waiting in room 'kev'
 [2026-10-11 13:21:08] match 1 started: player 1 (digby) vs player 2 (sno), round trip 41 ms, input delay 1

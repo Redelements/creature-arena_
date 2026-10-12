@@ -19,6 +19,8 @@ const LOOP_SLEEP_USEC := 1000
 var port := Netplay.DEFAULT_PORT
 var hub := EnetHub.new()
 var relay := RelayServer.new()
+## Answers players on the server's own network who look for it (see ServerBeacon).
+var beacon := ServerBeacon.new()
 var _status_ms := 0
 var _stopping := false
 
@@ -59,6 +61,10 @@ func _ready() -> void:
 	var addrs := Netplay.local_addresses()
 	if not addrs.is_empty():
 		_print("players on this network join %s:%d" % [addrs[0], port])
+	if beacon.listen(port):
+		_print("games on this network find the server by itself (UDP port %d; allow it in the firewall)" % beacon.port)
+	else:
+		_print(beacon.error + ": players here must join by address")
 	_status_ms = Time.get_ticks_msec()
 
 
@@ -69,6 +75,7 @@ func _process(_delta: float) -> void:
 		relay.add_client(link, (link as EnetHub.PeerLink).address)
 	relay.tick()
 	hub.flush()
+	beacon.poll()
 	var now := Time.get_ticks_msec()
 	if now - _status_ms >= STATUS_EVERY_MS:
 		_status_ms = now
@@ -88,6 +95,7 @@ func stop() -> void:
 	_stopping = true
 	relay.shutdown()
 	hub.close()
+	beacon.close()
 	_print("server stopped")
 
 

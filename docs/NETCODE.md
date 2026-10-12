@@ -115,6 +115,15 @@ players in a match see the connection drop within 5 s. Tests: `tests/test_server
 Two clients through a real server: `--server=7799`, then twice
 `--online-join=127.0.0.1:7799/kev --cpu-vs-cpu --net-report=a.json`.
 
+**Finding the server at home.** The online screen plays on one configured server
+(`data/online.json`, or Settings > Game > Online server): Quick match (no room) or a
+room code. Players on the server's own network often can't reach its public name (no
+NAT loopback on many routers), so before joining it `LanFinder` broadcasts a small JSON
+question to UDP port + 1 for up to 0.6 s; the server's `ServerBeacon` answers with its
+game port, and the game joins that local address instead. No answer (the usual case
+away from home) means the public name. Tests: discovery over loopback in
+`tests/test_server.gd`, the screen in `tests/test_ui.gd`.
+
 **Found by the referee:** the frame an online match started, `main.gd` stepped the new
 duel once outside the rollback session. Both players did it, so they agreed with each
 other, but it could desync if a button was held on that frame. Fixed

@@ -71,7 +71,7 @@ const MODES := [
 ## one of several modes with Left/Right.
 ## The Settings pages and their rows, in order (see _setting()).
 const SETTING_PAGES := {
-	"game": ["level", "rumble", "shake"],
+	"game": ["level", "rumble", "shake", "server"],
 	"video": ["fullscreen", "wide", "vsync", "fps"],
 	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu"],
 }
@@ -202,6 +202,15 @@ var online: OnlineMatch = null  ## the online match being shown
 var lobby: OnlineLobby
 var _online_fighter := "cairn"
 var _online_address := ""
+## Settings > Game > Online server: the server Quick match and rooms use ("" = the
+## game's own, from data/online.json).
+var _online_server := ""
+## Looking for the server on this network before joining it (see LanFinder), and the
+## join to make when it's done: [fighter, host, port, room].
+var _finder: LanFinder = null
+var _finder_join: Array = []
+## Where the look-up asks (tests ask this machine instead of the whole network).
+var finder_target := "255.255.255.255"
 var _net_args := {}  ## from the command line: host / join / lag / delay / report
 var _net_end_t := 0
 
@@ -363,7 +372,8 @@ func _open_settings() -> void:
 	scr.title = "SETTINGS"
 	scr.row_width = 200.0
 	scr.builder = func(s: UiScreen):
-		s.add_button("Game", func(): _open_settings_page("game"), "CPU level, controller rumble, screen shake")
+		s.add_button("Game", func(): _open_settings_page("game"),
+				"CPU level, controller rumble, screen shake, online server")
 		s.add_button("Video", func(): _open_settings_page("video"), "Fullscreen, wide screens, vsync, frame rate")
 		s.add_button("Audio", func(): _open_settings_page("audio"), "Volume for the music, effects and menus")
 		s.add_button("Controls", _open_controls, "Keyboard layout; remap keys and buttons")
@@ -382,7 +392,10 @@ func _open_settings_page(page: String) -> void:
 	scr.hints = ["move", "change", "back"]
 	scr.builder = func(s: UiScreen):
 		for key in SETTING_PAGES[page]:
-			_add_setting_row(s, key)
+			if key == "server":
+				_add_server_row(s)
+			else:
+				_add_setting_row(s, key)
 		s.add_space(4)
 		s.add_button("Back", s.back)
 	scr.backed.connect(func(): _setting_rows.clear())
@@ -402,6 +415,34 @@ func _add_setting_row(s: UiScreen, key: String) -> OptionRow:
 		o.bar = float(now.get("bar", -1.0)))
 	_setting_rows[key] = o
 	return o
+
+
+## Settings > Game > Online server: a text box, saved as it's typed. Empty means the
+## game's own server.
+func _add_server_row(s: UiScreen) -> LineEdit:
+	var f := LineEdit.new()
+	f.text = _online_server
+	f.placeholder_text = "Online server: " + default_server()
+	f.max_length = 80
+	f.text_changed.connect(func(t: String):
+		_online_server = t.strip_edges()
+		_save_settings())
+	s.add_row(f, "Where Quick match and rooms play. Leave it empty for %s" % default_server())
+	return f
+
+
+## The game's own server, from data/online.json.
+static func default_server() -> String:
+	var f := FileAccess.open("res://data/online.json", FileAccess.READ)
+	if f == null:
+		return ""
+	var d = JSON.parse_string(f.get_as_text())
+	return String(d.get("server", "")).strip_edges() if d is Dictionary else ""
+
+
+## The server Quick match and rooms use: the player's, or the game's own.
+func online_server() -> String:
+	return _online_server if _online_server != "" else default_server()
 
 
 ## Controls: the keyboard layout, and remapping for each keyboard layout and the controller.
@@ -760,6 +801,8 @@ func _physics_process(_delta: float) -> void:
 		_capture()
 		return  # frozen behind the pause menu: nothing steps, the picture holds
 	flow_t += 1
+	if _finder != null:
+		_finder_step()
 	var live := flow == Flow.FIGHT or flow == Flow.MENU
 	var events: Array = sim.events
 	if online != null:
@@ -1347,6 +1390,7 @@ func _load_settings() -> void:
 		if not (_online_fighter in MatchFactory.FIGHTERS):
 			_online_fighter = "cairn"
 		_online_address = String(cfg.get_value("online", "address", ""))
+		_online_server = String(cfg.get_value("online", "server", "")).strip_edges()
 		_recent_servers = Array(cfg.get_value("online", "recent", []))
 		for bus in AudioView.DEFAULT_VOLUMES:
 			audio.set_volume(bus, float(cfg.get_value("audio", "volume_" + String(bus).to_lower(),
@@ -1372,6 +1416,7 @@ func _save_settings() -> void:
 	cfg.set_value("audio", "music_muted", audio.music_muted)
 	cfg.set_value("online", "fighter", _online_fighter)
 	cfg.set_value("online", "address", _online_address)
+	cfg.set_value("online", "server", _online_server)
 	cfg.set_value("online", "recent", _recent_servers)
 	cfg.set_value("video", "fullscreen", fullscreen)
 	cfg.set_value("video", "fight_fps", fight_fps)
@@ -1501,9 +1546,10 @@ func _open_lobby() -> void:
 	hud.menu_visible = false
 	hud.visible = false
 	_close_ui()
-	lobby = OnlineLobby.new(_online_fighter, _online_address, _recent_servers)
+	lobby = OnlineLobby.new(_online_fighter, _online_address, _recent_servers, online_server())
+	lobby.server_join_pressed.connect(_net_join_server)
 	lobby.host_pressed.connect(_net_host)
-	lobby.join_pressed.connect(_net_join)
+	lobby.join_pressed.connect(_net_join_typed)
 	lobby.cancelled.connect(_leave_online)
 	ui.push(lobby)
 
@@ -1537,15 +1583,65 @@ func _net_host(fighter: String) -> void:
 	_lobby_status()
 
 
-func _net_join(fighter: String, address: String, port: int, room := "") -> void:
+## Quick match (room "") or a room, on the online server. At the server's own house its
+## public name may not work (many routers don't loop it back inside), so this first
+## looks for it on the local network for a moment, then joins whichever it found.
+func _net_join_server(fighter: String, room: String, server := "") -> void:
+	var parsed := OnlineLobby.parse_address(server if server != "" else online_server())
+	if String(parsed[0]) == "":
+		lobby.status = OnlineLobby.NO_SERVER
+		lobby.status_bad = true
+		return
 	_online_fighter = fighter
-	_online_address = lobby.address if lobby.address != "" else address
-	_remember_server(_online_address)
+	_save_settings()
+	_finder = LanFinder.new()
+	_finder.start(int(parsed[1]), finder_target)
+	_finder_join = [fighter, String(parsed[0]), int(parsed[1]), room]
+	lobby.busy = true
+	lobby.hosting_port = 0
+	lobby.status_bad = false
+	lobby.status = "Looking for the server..."
+
+
+## Each frame while looking: once it's done, join the server it found nearby, or the
+## public address.
+func _finder_step() -> void:
+	if not _finder.poll():
+		return
+	var f := _finder.found
+	var j := _finder_join
+	_finder = null
+	if lobby == null:
+		return
+	if f.is_empty():
+		_net_join(String(j[0]), String(j[1]), int(j[2]), String(j[3]), false)
+	else:
+		_net_join(String(j[0]), String(f["address"]), int(f["port"]), String(j[3]), false)
+
+
+## Join by a typed (or recent) address. The online server's own name goes through the
+## local look-up too, so it works at home.
+func _net_join_typed(fighter: String, address: String, port: int, room := "") -> void:
+	var srv := OnlineLobby.parse_address(online_server())
+	if address.to_lower() == String(srv[0]).to_lower() and address != "":
+		_online_address = lobby.address if lobby.address != "" else address
+		_remember_server(_online_address)
+		_net_join_server(fighter, room, "%s:%d" % [address, port])
+		return
+	_net_join(fighter, address, port, room)
+
+
+func _net_join(fighter: String, address: String, port: int, room := "", remember := true) -> void:
+	_online_fighter = fighter
+	if remember:
+		_online_address = lobby.address if lobby.address != "" else address
+		_remember_server(_online_address)
 	_save_settings()
 	netplay = Netplay.new()
 	netplay.forced_delay = int(_net_args.get("delay", -1))
 	var link := _make_link(0, address, port)
 	if link.status == NetLink.Status.CLOSED:
+		lobby.busy = false
 		lobby.status = link.error
 		lobby.status_bad = true
 		netplay = null
@@ -1688,6 +1784,9 @@ func _show_match_over() -> void:
 
 
 func _end_online() -> void:
+	if _finder != null:
+		_finder.cancel()
+	_finder = null
 	netplay = null
 	online = null
 	if hud != null:

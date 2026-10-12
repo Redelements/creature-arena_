@@ -275,3 +275,51 @@ func test_over_real_udp_through_a_server_on_this_machine() -> void:
 	b.leave()
 	server.shutdown()
 	hub.close()
+
+
+func test_a_game_finds_the_server_on_its_own_network() -> void:
+	var port := 20000 + (Time.get_ticks_usec() % 20000)
+	var beacon := ServerBeacon.new()
+	assert_true(beacon.listen(port), "the beacon listens on %d: %s" % [port + 1, beacon.error])
+	var finder := LanFinder.new()
+	finder.start(port, "127.0.0.1")  # tests ask this machine instead of broadcasting
+	for i in 200:
+		beacon.poll()
+		if finder.poll():
+			break
+		OS.delay_usec(2000)
+	assert_eq(finder.found.get("address", ""), "127.0.0.1", "found it:")
+	assert_eq(int(finder.found.get("port", 0)), port, "with its game port:")
+	assert_eq(beacon.answered, 1, "answered once (it stops asking once it's found one):")
+	beacon.close()
+
+
+func test_nothing_found_away_from_home_is_quick() -> void:
+	var port := 20000 + (Time.get_ticks_usec() % 20000)
+	var finder := LanFinder.new()
+	var t0 := Time.get_ticks_msec()
+	finder.start(port, "127.0.0.1")  # nobody answers there
+	while not finder.poll():
+		OS.delay_usec(5000)
+		if Time.get_ticks_msec() - t0 > 3000:
+			break
+	assert_true(finder.done and finder.found.is_empty(), "gave up with nothing found")
+	assert_lt(float(Time.get_ticks_msec() - t0), LanFinder.WAIT_MS + 400.0, "and didn't keep the player waiting:")
+
+
+func test_the_beacon_ignores_junk() -> void:
+	var port := 20000 + (Time.get_ticks_usec() % 20000)
+	var beacon := ServerBeacon.new()
+	assert_true(beacon.listen(port), beacon.error)
+	var udp := PacketPeerUDP.new()
+	udp.set_dest_address("127.0.0.1", beacon.port)
+	udp.put_packet("hello".to_utf8_buffer())
+	udp.put_packet(JSON.stringify({"t": "something else"}).to_utf8_buffer())
+	var big := PackedByteArray()
+	big.resize(ServerBeacon.MAX_PACKET + 10)
+	udp.put_packet(big)
+	OS.delay_msec(20)
+	beacon.poll()
+	assert_eq(beacon.answered, 0, "nothing answered")
+	udp.close()
+	beacon.close()
