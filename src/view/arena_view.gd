@@ -15,6 +15,9 @@ const C_WALL := Color("5d6470")
 const C_WALL_TOP := Color("8a909a")
 const C_WALL_DARK := Color("464c58")
 const C_LINE := Color(1, 1, 1, 0.2)
+## How far the stadium carries on past the 480 x 270 the arena is laid out in, for wider
+## (ultrawide) and taller (16:10) screens: they see more stands and wall, never more floor.
+const MARGIN := Vector2(400, 80)
 
 var terrain: TerrainGrid
 var _drawn_version := -1
@@ -36,25 +39,27 @@ func _draw() -> void:
 		return
 	_drawn_version = terrain.version
 	var fr := SimDefs.floor_rect()
-	var w := float(SimDefs.VIEW_W)
-	var h := float(SimDefs.VIEW_H)
+	var x0 := -MARGIN.x
+	var w := float(SimDefs.VIEW_W) + MARGIN.x * 2.0
+	var y0 := -MARGIN.y
+	var h := float(SimDefs.VIEW_H) + MARGIN.y * 2.0
 
-	# Stands behind the crowd, then the back wall.
-	draw_rect(Rect2(0, 0, w, h), C_BG)
-	for i in 4:
-		draw_rect(Rect2(0, i * 14, w, 14), C_STAND_A if i % 2 == 0 else C_STAND_B)
-	draw_rect(Rect2(0, 47, w, 2), C_RAIL)
-	draw_rect(Rect2(0, fr.position.y - 8, w, 8), C_WALL)
-	draw_rect(Rect2(0, fr.position.y - 8, w, 1), C_WALL_TOP)
-	draw_rect(Rect2(0, fr.position.y - 1, w, 1), C_WALL_DARK)
+	# Stands behind the crowd (rising out of sight above), then the back wall.
+	draw_rect(Rect2(x0, y0, w, h), C_BG)
+	for i in range(-6, 4):
+		draw_rect(Rect2(x0, i * 14, w, 14), C_STAND_A if posmod(i, 2) == 0 else C_STAND_B)
+	draw_rect(Rect2(x0, 47, w, 2), C_RAIL)
+	draw_rect(Rect2(x0, fr.position.y - 8, w, 8), C_WALL)
+	draw_rect(Rect2(x0, fr.position.y - 8, w, 1), C_WALL_TOP)
+	draw_rect(Rect2(x0, fr.position.y - 1, w, 1), C_WALL_DARK)
 
 	# Side and front walls.
-	draw_rect(Rect2(0, fr.position.y, fr.position.x, fr.size.y), C_WALL_DARK)
-	draw_rect(Rect2(fr.end.x, fr.position.y, w - fr.end.x, fr.size.y), C_WALL_DARK)
+	draw_rect(Rect2(x0, fr.position.y, fr.position.x - x0, fr.size.y), C_WALL_DARK)
+	draw_rect(Rect2(fr.end.x, fr.position.y, x0 + w - fr.end.x, fr.size.y), C_WALL_DARK)
 	draw_rect(Rect2(fr.position.x - 1, fr.position.y, 1, fr.size.y), C_WALL)
 	draw_rect(Rect2(fr.end.x, fr.position.y, 1, fr.size.y), C_WALL)
-	draw_rect(Rect2(0, fr.end.y, w, h - fr.end.y), C_WALL)
-	draw_rect(Rect2(0, fr.end.y, w, 1), C_WALL_TOP)
+	draw_rect(Rect2(x0, fr.end.y, w, y0 + h - fr.end.y), C_WALL)
+	draw_rect(Rect2(x0, fr.end.y, w, 1), C_WALL_TOP)
 
 	# Floor: intact and cracked cells first.
 	for cy in terrain.rows:
