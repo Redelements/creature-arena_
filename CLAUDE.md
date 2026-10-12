@@ -84,6 +84,8 @@ src/net/    rollback_session (GGPO-style), sim_check (cross-platform fingerprint
             dedicated_server + enet_hub + relay_server + referee (the --server mode)
 src/game/   main (flow, camera), team_select, online_lobby, showcase, trials, drills, controls,
             match_factory
+src/ui/     ui_theme, screen_stack, ui_screen, option_row, prompts, pause/confirm/help screens
+            (menus on Godot Control nodes; plan in docs/plans/menus.md)
 data/       creatures/*.json, rules/duel.json, trials.json, audio.json
 tests/      run_tests.gd auto-runs every tests/test_*.gd
 tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gillbert/cerebro/hissy/digby/pete/sno.py (sheet recreations),
@@ -163,6 +165,11 @@ tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gi
   DuelSim with one creature per side, so match rules stay in the sim.
 - **Not built yet:** affinity surfaces, more arenas. Game mode plan and priorities: Game Plan doc,
   "Game modes".
+- **Menus** are moving onto Godot's UI system (src/ui/): a `ScreenStack` of `UiScreen`s
+  (Control nodes, one `UiTheme`, focus navigation on `ui_*`; B / Esc closes the top
+  screen). The pause menu is built on it; the title, Settings, online and pick screens
+  follow (docs/plans/menus.md). Tests drive screens with real input events
+  (`tests/test_ui.gd`); `run_tests.gd` runs on the first frame so the scene tree is live.
 - **Planned:** dodge timing. Kevin wants to leave a combo at any time to dodge; today
   Dodge isn't buffered during attacks and can't cancel them (issue #9 has the options).
 - **Known issues:** Storm Drain can't be punished even when dodged (its pit ring walls

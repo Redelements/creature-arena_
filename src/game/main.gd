@@ -160,6 +160,10 @@ var fight_fps := DEFAULT_FPS
 ## Off for captures and headless runs, which must not be slowed to real time.
 var _fps_caps := true
 var menu_stick: MenuStick
+## Menu screens on Godot's UI system (the pause menu; more to come).
+var ui: ScreenStack
+## The match is frozen behind the pause menu.
+var paused := false
 var _menu_ko_t := 0
 
 var player_input := PlayerInput.new()
@@ -207,6 +211,10 @@ func _ready() -> void:
 		and not ("--write-movie" in OS.get_cmdline_args())
 	menu_stick = MenuStick.new()
 	add_child(menu_stick)
+	ui = ScreenStack.new()
+	add_child(ui)
+	ui.moved.connect(func(): audio.play("ui_move", 0.0, 1.0, true))
+	ui.chosen.connect(func(): audio.play("ui_select", 0.0, 1.0, true))
 	camera = Camera2D.new()
 	camera.position = Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H) * 0.5
 	add_child(camera)
@@ -280,6 +288,7 @@ func _ready() -> void:
 # ------------------------------------------------------------------ flow
 
 func _open_menu() -> void:
+	_close_ui()
 	_end_online()
 	lobby.close()
 	flow = Flow.MENU
@@ -378,6 +387,7 @@ func _menu_go(page: String, index := 0) -> void:
 
 ## `keep_teams`: a rematch with the same teams (no pick screen).
 func _start_match(m: int, keep_teams := false) -> void:
+	_close_ui()
 	mode = m
 	wins = [0, 0]
 	round_num = 1
@@ -683,15 +693,18 @@ func _physics_process(_delta: float) -> void:
 	if sim == null:
 		return  # quitting after --sim-check
 	frame_count += 1
-	flow_t += 1
 	_apply_frame_rate()
+	if paused:
+		_capture()
+		return  # frozen behind the pause menu: nothing steps, the picture holds
+	flow_t += 1
 	var live := flow == Flow.FIGHT or flow == Flow.MENU
 	var events: Array = sim.events
 	if online != null:
 		# Online: the rollback session steps the duel (maybe several frames, maybe none
 		# while it waits); the views get only the events they haven't shown yet.
 		live = flow == Flow.FIGHT or flow == Flow.MATCH_OVER
-		netplay.tick(_side_bits(online.local_side, live))
+		netplay.tick(_side_bits(online.local_side, live and not ui.is_open()))
 		events = online.events
 		_online_status()
 	elif netplay != null and _connecting_step():
@@ -993,6 +1006,8 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if ui.is_open():
+		return  # the screen on top has the input
 	if event.is_action_pressed("mute_music"):
 		var muted := audio.toggle_music()
 		hud.show_toast("Music off (M to turn on)" if muted else "Music on")
@@ -1018,11 +1033,15 @@ func _unhandled_input(event: InputEvent) -> void:
 				fullscreen] != before:
 			audio.play("ui_move", 0.0, 1.0, true)
 		return
-	if event.is_action_pressed("menu_back"):
+	if flow == Flow.MATCH_OVER and _back_pressed(event):
 		if online != null:
 			_leave_online()
 			return
 		_open_menu()
+	elif flow != Flow.MATCH_OVER and event.is_action_pressed("pause") and showcase != null:
+		_open_menu()  # a demo: straight back
+	elif flow != Flow.MATCH_OVER and event.is_action_pressed("pause"):
+		_open_pause()
 	elif flow == Flow.MATCH_OVER and event.is_action_pressed("menu_confirm") and online != null:
 		netplay.request_rematch()
 	elif flow == Flow.MATCH_OVER and event.is_action_pressed("menu_confirm"):
@@ -1054,6 +1073,38 @@ func _unhandled_input(event: InputEvent) -> void:
 		hud.show_toast("Reset")
 
 
+## Back in a menu: Esc, B or View.
+static func _back_pressed(event: InputEvent) -> bool:
+	return event.is_action_pressed("menu_back") or event.is_action_pressed("ui_cancel")
+
+
+## Start / Esc / View in a fight. Offline the match freezes behind the pause menu; online
+## it can't, so it asks whether to leave while the match carries on (your fighter stands
+## still meanwhile).
+func _open_pause() -> void:
+	if online != null:
+		var c := ConfirmScreen.new("Leave the match?", "The match keeps going while this is open.", "Leave", "Stay")
+		c.answered.connect(func(yes: bool): if yes: _leave_online())
+		ui.push(c)
+		return
+	paused = true
+	var p := PauseScreen.new(true, player_input.help_text().replace("   ", "\n").replace("  ", "\n"))
+	p.resumed.connect(func(): paused = false)
+	p.restart_requested.connect(func():
+		_close_ui()
+		seed_base += 1
+		_start_match(mode, true))
+	p.quit_requested.connect(func():
+		_close_ui()
+		_open_menu())
+	ui.push(p)
+
+
+func _close_ui() -> void:
+	ui.clear()
+	paused = false
+
+
 func _menu_input(event: InputEvent) -> void:
 	var items := _menu_page_items()
 	var count := items.size()
@@ -1068,18 +1119,18 @@ func _menu_input(event: InputEvent) -> void:
 				return
 		_refresh_menu()
 		return
-	if event.is_action_pressed("ui_down"):
+	if event.is_action_pressed("ui_down", true):
 		menu_index = (menu_index + 1) % count
-	elif event.is_action_pressed("ui_up"):
+	elif event.is_action_pressed("ui_up", true):
 		menu_index = (menu_index + count - 1) % count
-	elif event.is_action_pressed("ui_left"):
+	elif event.is_action_pressed("ui_left", true):
 		_change_option(menu_index, -1)
-	elif event.is_action_pressed("ui_right"):
+	elif event.is_action_pressed("ui_right", true):
 		_change_option(menu_index, 1)
 	elif event.is_action_pressed("menu_confirm") or event.is_action_pressed("ui_accept"):
 		_menu_choose(menu_index, 1)
 		return
-	elif event.is_action_pressed("menu_back"):
+	elif _back_pressed(event):
 		if menu_page == "main":
 			menu_index = MAIN_ITEMS.size() - 1  # on the title menu, Esc points at Exit
 		else:
@@ -1171,7 +1222,7 @@ func in_menus() -> bool:
 
 func _apply_frame_rate() -> void:
 	var menus := in_menus()
-	menu_stick.enabled = menus
+	menu_stick.enabled = menus or ui.is_open()
 	if _fps_caps:
 		var cap := MENU_FPS if menus else fight_fps
 		if Engine.max_fps != cap:
@@ -1201,6 +1252,11 @@ func _apply_device() -> void:
 			hud.surge_labels[i] = ""
 			hud.tag_labels[i] = ""
 	hud.help_text = player_input.help_text()
+	var pad := player_input.device == PlayerInput.Device.GAMEPAD
+	hud.gamepad = pad
+	team_select.gamepad = pad
+	lobby.gamepad = pad
+	ui.set_gamepad(pad)
 	if player_input.device == PlayerInput.Device.GAMEPAD:
 		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 	else:

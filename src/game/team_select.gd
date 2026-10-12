@@ -23,6 +23,8 @@ var teams := [[], []]
 var cursor := 0
 var _font: Font = ThemeDB.fallback_font
 var _tick := 0
+## Button hints for a controller (else keyboard and mouse).
+var gamepad := false
 var _time := 0.0
 var _roster: Array = []
 var _tex := {}  ## sprite sheets by path, loaded up front (not inside _draw)
@@ -59,16 +61,18 @@ func _rows() -> int:
 func handle(event: InputEvent) -> bool:
 	if not visible:
 		return false
-	if event.is_action_pressed("menu_back"):
+	if event.is_action_pressed("menu_back") or event.is_action_pressed("ui_cancel"):
 		cancelled.emit()
 		return true
-	if event.is_action_pressed("ui_down"):
+	if event is InputEventMouseMotion or (event is InputEventMouseButton and event.pressed):
+		return _mouse(event)
+	if event.is_action_pressed("ui_down", true):
 		cursor = (cursor + 1) % _rows()
-	elif event.is_action_pressed("ui_up"):
+	elif event.is_action_pressed("ui_up", true):
 		cursor = (cursor + _rows() - 1) % _rows()
-	elif event.is_action_pressed("ui_left"):
+	elif event.is_action_pressed("ui_left", true):
 		_cycle(-1)
-	elif event.is_action_pressed("ui_right"):
+	elif event.is_action_pressed("ui_right", true):
 		_cycle(1)
 	elif event.is_action_pressed("menu_confirm") or event.is_action_pressed("ui_accept"):
 		if cursor == _rows() - 1:
@@ -79,6 +83,48 @@ func handle(event: InputEvent) -> bool:
 		return false
 	queue_redraw()
 	return true
+
+
+## The slot or START under the mouse (-1: none).
+func _row_at(p: Vector2) -> int:
+	for side in 2:
+		for slot in team_size:
+			if Rect2(COLS[side], TOP + slot * ROW_H, COL_W, ROW_H - 6).has_point(p):
+				return side * team_size + slot
+	if _start_rect().has_point(p):
+		return _rows() - 1
+	return -1
+
+
+func _start_rect() -> Rect2:
+	return Rect2(SimDefs.VIEW_W * 0.5 - 50, 214, 100, 18)
+
+
+## Hover picks the row; a click on a slot's left third steps back through the roster,
+## anywhere else on it forward; the wheel steps too; a click on START starts.
+func _mouse(event: InputEvent) -> bool:
+	var p: Vector2 = get_global_mouse_position()
+	var row := _row_at(p)
+	if row < 0:
+		return false
+	var changed := row != cursor
+	cursor = row
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if row == _rows() - 1 and mb.button_index == MOUSE_BUTTON_LEFT:
+			chosen.emit(teams.duplicate(true))
+			return true
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			var side := row / team_size
+			var left: bool = p.x < float(COLS[side]) + COL_W / 3.0
+			_cycle(-1 if left else 1)
+			changed = true
+		elif mb.button_index == MOUSE_BUTTON_WHEEL_UP or mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_cycle(-1 if mb.button_index == MOUSE_BUTTON_WHEEL_UP else 1)
+			changed = true
+	if changed:
+		queue_redraw()
+	return changed
 
 
 func _cycle(dir: int) -> void:
@@ -124,11 +170,11 @@ func _draw() -> void:
 			if team_size > 1:
 				_text(Vector2(x + COL_W - 18, y + 16), str(slot + 1), 7, C_DIM)
 	var start_sel := cursor == _rows() - 1
-	var r := Rect2(w * 0.5 - 50, 214, 100, 18)
+	var r := _start_rect()
 	draw_rect(r, Color(C_ACCENT, 0.9) if start_sel else C_PANEL)
 	_text(Vector2(r.position.x, r.position.y + 13), "START", 9, Color(0.08, 0.08, 0.1) if start_sel else C_TEXT,
 		HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
-	_text(Vector2(0, 248), "Up/Down choose slot   Left/Right change creature   Enter / A confirm   Esc / View back",
+	_text(Vector2(0, 248), Prompts.line(gamepad, ["move", "change", "select", "back"]),
 		6, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, w)
 	if team_size > 1:
 		_text(Vector2(0, 260), "In the fight: T / L / LT tags in the next teammate", 6, C_DIM,
