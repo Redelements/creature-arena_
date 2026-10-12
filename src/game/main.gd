@@ -25,7 +25,8 @@ extends Node2D
 ##   --cpu-vs-cpu          every player side is played by the CPU (demos, captures)
 ##   --menu=PAGE           open the menu on main, single or settings (captures)
 ##   --online-host[=PORT]  host an online 1v1 straight away (UDP, default port 7777)
-##   --online-join=ADDR[:PORT]  join one
+##   --online-join=ADDR[:PORT][/ROOM]  join one, or a dedicated server (ROOM: meet a friend there)
+##   --server[=PORT]       run as a dedicated server (with --headless); --max-players=N
 ##   --fighter=ID          your fighter online
 ##   --net-lag=N --net-loss=F   hold back / drop the input stream (feel rollback on a LAN)
 ##   --net-delay=N         force the input delay (frames) instead of picking it from the ping
@@ -203,7 +204,7 @@ var _net_end_t := 0
 
 
 func _ready() -> void:
-	if _run_sim_check():
+	if _run_sim_check() or _run_server():
 		return
 	Controls.setup()
 	_fps_caps = DisplayServer.get_name() != "headless" and not ("--fixed-fps" in OS.get_cmdline_args()) \
@@ -281,7 +282,7 @@ func _ready() -> void:
 			_net_host(_online_fighter)
 		else:
 			var parsed := OnlineLobby.parse_address(String(_net_args["join"]))
-			_net_join(_online_fighter, String(parsed[0]), int(parsed[1]))
+			_net_join(_online_fighter, String(parsed[0]), int(parsed[1]), String(parsed[2]))
 
 
 # ------------------------------------------------------------------ flow
@@ -706,10 +707,9 @@ func _physics_process(_delta: float) -> void:
 		netplay.tick(_side_bits(online.local_side, live and not ui.is_open()))
 		events = online.events
 		_online_status()
+	elif netplay != null and _connecting_step():
+		events = online.events  # the online match began this frame: its session steps it
 	else:
-		if netplay != null:
-			netplay.tick(0)  # connecting: keep the network moving behind the lobby
-			_lobby_status()
 		var inputs := PackedInt32Array([_side_bits(0, live), _side_bits(1, live)])
 		if showcase != null and flow == Flow.FIGHT:
 			inputs = showcase.inputs(sim)
@@ -1324,6 +1324,18 @@ func _save_settings() -> void:
 
 
 ## --sim-check=SEED: print (and optionally write) the determinism fingerprint, then quit.
+## --server[=PORT]: run as a dedicated server (see DedicatedServer) instead of the game.
+func _run_server() -> bool:
+	var server := DedicatedServer.new()
+	if not server.configure(OS.get_cmdline_user_args()):
+		return false
+	set_physics_process(false)
+	set_process_input(false)
+	set_process_unhandled_input(false)
+	add_child(server)
+	return true
+
+
 func _run_sim_check() -> bool:
 	var seed_ := -1
 	var out := ""
@@ -1458,7 +1470,7 @@ func _net_host(fighter: String) -> void:
 	_lobby_status()
 
 
-func _net_join(fighter: String, address: String, port: int) -> void:
+func _net_join(fighter: String, address: String, port: int, room := "") -> void:
 	_online_fighter = fighter
 	_online_address = lobby.address if lobby.address != "" else address
 	_save_settings()
@@ -1470,10 +1482,20 @@ func _net_join(fighter: String, address: String, port: int) -> void:
 		lobby.status_bad = true
 		netplay = null
 		return
+	netplay.room = room
 	netplay.join(address, port, [fighter], link)
 	lobby.busy = true
 	lobby.hosting_port = 0
 	_lobby_status()
+
+
+## Connecting: keeps the network moving behind the lobby. Returns true if the online
+## match started just now; only its rollback session may step it, never the menu's loop
+## (a step outside it would put this machine one frame off the other and the server).
+func _connecting_step() -> bool:
+	netplay.tick(0)
+	_lobby_status()
+	return online != null
 
 
 ## While connecting: show what's happening, and start the match once it's agreed.

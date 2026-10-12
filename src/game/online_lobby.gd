@@ -7,7 +7,7 @@ extends Node2D
 ## ":port".
 
 signal host_pressed(fighter: String)
-signal join_pressed(fighter: String, address: String, port: int)
+signal join_pressed(fighter: String, address: String, port: int, room: String)
 signal cancelled
 
 const C_PANEL := Color(0.07, 0.08, 0.1, 0.85)
@@ -78,7 +78,7 @@ func handle(event: InputEvent) -> bool:
 			queue_redraw()
 			return true
 		var ch := char(k.unicode) if k.unicode > 0 else ""
-		if ch != "" and (ch.is_valid_identifier() or ch in "0123456789.:-[]") and address.length() < 60:
+		if ch != "" and (ch.is_valid_identifier() or ch in "0123456789.:-[]/") and address.length() < 60:
 			address += ch
 			queue_redraw()
 			return true
@@ -133,14 +133,21 @@ func _choose(row: int) -> void:
 				status = "Type the host's address first (for example 192.168.1.20)"
 				status_bad = true
 				return
-			join_pressed.emit(fighter, String(parsed[0]), int(parsed[1]))
+			join_pressed.emit(fighter, String(parsed[0]), int(parsed[1]), String(parsed[2]))
 		"back":
 			cancelled.emit()
 
 
-## "1.2.3.4", "1.2.3.4:7000", "my-pc.lan", "[::1]:7777" -> [host, port].
+## "1.2.3.4", "1.2.3.4:7000", "my-pc.lan", "[::1]:7777" -> [host, port, room].
+## A dedicated server's address can end in /ROOM ("game.example.net/kev") to be paired
+## with whoever types the same room.
 static func parse_address(text: String) -> Array:
 	var t := text.strip_edges()
+	var room := ""
+	var slash := t.find("/")
+	if slash >= 0:
+		room = t.substr(slash + 1).strip_edges()
+		t = t.substr(0, slash).strip_edges()
 	var port := Netplay.DEFAULT_PORT
 	if t.begins_with("["):  # [IPv6]:port
 		var end := t.find("]")
@@ -153,7 +160,7 @@ static func parse_address(text: String) -> Array:
 		t = t.get_slice(":", 0)
 	if port <= 0 or port > 65535:
 		port = Netplay.DEFAULT_PORT
-	return [t, port]
+	return [t, port, room]
 
 
 ## Animations count 60 ticks a second of real time, whatever the frame rate (counting
@@ -200,6 +207,8 @@ func _draw() -> void:
 		var line := "Your addresses:  " + ("  ".join(addrs) if not addrs.is_empty() else "(none found)")
 		_text(Vector2(0, y), line, 7, C_TEXT, HORIZONTAL_ALIGNMENT_CENTER, w)
 		y += 11.0
+	_text(Vector2(0, 227), "A dedicated server: join its address. Add /room (game.example.net/kev) to meet a friend there.", 6,
+		C_DIM, HORIZONTAL_ALIGNMENT_CENTER, w)
 	_text(Vector2(0, 236), "Same network: join the host's 192.168... address.  Over the internet: the host forwards", 6,
 		C_DIM, HORIZONTAL_ALIGNMENT_CENTER, w)
 	_text(Vector2(0, 245), "UDP port %d on their router, or both install Tailscale and join the host's 100.x address." %

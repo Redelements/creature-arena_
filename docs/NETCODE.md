@@ -11,7 +11,11 @@ alternative, adds the full round-trip time to every button press.
 Both machines run the full simulation. Each frame:
 
 1. **Send.** The local input is scheduled `input_delay` frames ahead and sent. Each
-   packet repeats the last 8 inputs (2 bytes each), so lost packets cost nothing.
+   packet repeats the last 8 inputs (2 bytes each), so lost packets cost nothing, and
+   carries an ack (the last frame of the other side's inputs it has): if the other side
+   is missing more than 8, the packet reaches back to fill the gap (up to 60 inputs).
+   ENet's throttling of unreliable packets is off; it dropped bursts long enough to
+   leave both machines waiting for each other forever.
 2. **Predict.** If the opponent's input for this frame hasn't arrived, assume they're
    still doing what they were last confirmed doing. Holding a direction or guard is
    the common case, so the guess is usually right.
@@ -88,7 +92,35 @@ game processes over UDP: `--online-host=7801 --cpu-vs-cpu --net-lag=3 --net-loss
 --net-report=a.json` and `--online-join=127.0.0.1:7801 --cpu-vs-cpu --net-report=b.json`
 agree on every fingerprint and every input.
 
-Still to do: a relay or Steam transport (below), spectators and saved online replays
+## Dedicated server (built)
+
+`--server[=PORT]` (with `--headless`) runs the game as a server: `DedicatedServer` loops
+an `EnetHub` (one UDP port, a `NetLink` per player) into a `RelayServer`, which:
+
+- greets each player like a host would (version and game-data check, pings), then says
+  `wait` until it can pair them with another player in the same **room** (`/room` after
+  the address; "" pairs anyone, oldest first);
+- sends both a `start` with their `side` and the opponent's round trip to the server
+  (`via`, refreshed every 2 s as `path`), so time sync counts the whole route;
+- relays `in`/`dg`/`rematch`/`bye`, rebuilding each relayed message from known fields;
+- referees with a `Referee`: a DuelSim stepped only on confirmed inputs (no rollback),
+  checking both players' fingerprints, so a desync names the player whose game went
+  wrong; it logs each result.
+
+The rollback still runs on the players' machines; the hop through the server is just
+part of the round trip that picks the input delay. Clients need nothing new: Join works
+for a host or a server. The loop sleeps 1 ms (low-processor mode): about 1,000 loops a
+second, 5% of a core idle. Godot exits on SIGTERM/SIGINT without running scripts, so
+players in a match see the connection drop within 5 s. Tests: `tests/test_server.gd`.
+Two clients through a real server: `--server=7799`, then twice
+`--online-join=127.0.0.1:7799/kev --cpu-vs-cpu --net-report=a.json`.
+
+**Found by the referee:** the frame an online match started, `main.gd` stepped the new
+duel once outside the rollback session. Both players did it, so they agreed with each
+other, but it could desync if a button was held on that frame. Fixed
+(`_connecting_step`).
+
+Still to do: a Steam transport (below), 3v3 rooms on the server, spectators and saved online replays
 (both just the input streams), 3v3 tag online (Netplay already sends teams), an input
 delay setting, and ranked/matchmaking.
 
