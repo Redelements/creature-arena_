@@ -82,6 +82,7 @@ const SETTINGS_ITEMS := [
 	{"setting": "volume", "bus": "Effects", "label": "Sound effects"},
 	{"setting": "volume", "bus": "Menu", "label": "Menu sounds"},
 	{"setting": "fullscreen"},
+	{"setting": "fps"},
 	{"label": "Back", "go": "main"},
 ]
 ## Volume steps in Settings (10 steps of 10%).
@@ -109,6 +110,12 @@ const WINS_NEEDED := 2
 const INTRO_TICKS := 90
 const ROUND_OVER_TICKS := 210
 const SETTINGS_PATH := "user://settings.cfg"
+## Frame rate caps. Menus always draw at 60 (nothing in them moves faster, and it keeps
+## the PC cool); fights draw at the player's choice, 144 unless changed (0: no cap). The
+## game itself always runs 60 steps a second; a higher frame rate shows each one sooner.
+const MENU_FPS := 60
+const FPS_CHOICES := [60, 120, 144, 165, 240, 0]
+const DEFAULT_FPS := 144
 const MENU_Y0 := 88.0
 const MENU_DY := 13.0
 ## The title menu's four big rows.
@@ -148,6 +155,10 @@ var seed_base := 1
 var menu_index := 0
 var menu_page := "main"  ## "main" (the title menu), "single" or "settings"
 var fullscreen := false
+var fight_fps := DEFAULT_FPS
+## Off for captures and headless runs, which must not be slowed to real time.
+var _fps_caps := true
+var menu_stick: MenuStick
 var _menu_ko_t := 0
 
 var player_input := PlayerInput.new()
@@ -191,6 +202,10 @@ func _ready() -> void:
 	if _run_sim_check():
 		return
 	Controls.setup()
+	_fps_caps = DisplayServer.get_name() != "headless" and not ("--fixed-fps" in OS.get_cmdline_args()) \
+		and not ("--write-movie" in OS.get_cmdline_args())
+	menu_stick = MenuStick.new()
+	add_child(menu_stick)
 	camera = Camera2D.new()
 	camera.position = Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H) * 0.5
 	add_child(camera)
@@ -318,6 +333,8 @@ func _menu_label(item: Dictionary) -> String:
 			return "%s:  < %s >" % [String(item["label"]), txt]
 		"fullscreen":
 			return "Fullscreen:  < %s >" % ("On" if fullscreen else "Off")
+		"fps":
+			return "Fight frame rate:  < %s >" % ("Unlimited" if fight_fps == 0 else "%d fps" % fight_fps)
 	return String(item.get("label", ""))
 
 
@@ -341,12 +358,14 @@ func _refresh_menu() -> void:
 	match menu_page:
 		"main":
 			hud.menu_footer = ["Fight the CPU, train, take on Combo Trials, or play 2 players on one screen",
-				"Play someone on another computer, 1 v 1", "CPU level, keyboard layout, volume, fullscreen",
+				"Play someone on another computer, 1 v 1", "CPU level, keyboard layout, volume, fullscreen, frame rate",
 				"Close the game"][menu_index]
 		"single":
 			hud.menu_footer = "Fights, training, trials and local 2-player.   Esc / View: back"
 		"settings":
-			hud.menu_footer = "Left/Right sets a volume (Enter / click steps it up).  M mutes the music any time.   Esc: back"
+			hud.menu_footer = ("Menus always run at 60 fps; this sets fights (up to your screen's refresh rate).   Esc: back"
+				if String(_menu_page_items()[menu_index].get("setting", "")) == "fps"
+				else "Left/Right sets a volume (Enter / click steps it up).  M mutes the music any time.   Esc: back")
 
 
 ## Goes to a menu page, with the cursor on `index`.
@@ -664,6 +683,7 @@ func _physics_process(_delta: float) -> void:
 		return  # quitting after --sim-check
 	frame_count += 1
 	flow_t += 1
+	_apply_frame_rate()
 	var live := flow == Flow.FIGHT or flow == Flow.MENU
 	var events: Array = sim.events
 	if online != null:
@@ -1136,7 +1156,26 @@ func _change_option(index: int, dir: int, wrap := false) -> void:
 			fullscreen = not fullscreen
 			_apply_fullscreen()
 			_save_settings()
+		"fps":
+			var i := FPS_CHOICES.find(fight_fps)
+			fight_fps = int(FPS_CHOICES[(maxi(i, 0) + dir + FPS_CHOICES.size()) % FPS_CHOICES.size()])
+			_save_settings()
 	_refresh_menu()
+
+
+## Menus draw at MENU_FPS, fights at the player's setting; only menus read the stick
+## as menu presses.
+func in_menus() -> bool:
+	return flow == Flow.MENU or flow == Flow.SELECT or flow == Flow.LOBBY
+
+
+func _apply_frame_rate() -> void:
+	var menus := in_menus()
+	menu_stick.enabled = menus
+	if _fps_caps:
+		var cap := MENU_FPS if menus else fight_fps
+		if Engine.max_fps != cap:
+			Engine.max_fps = cap
 
 
 func _apply_fullscreen() -> void:
@@ -1210,6 +1249,8 @@ func _load_settings() -> void:
 		fullscreen = bool(cfg.get_value("video", "fullscreen", false))
 		if fullscreen:
 			_apply_fullscreen()
+		var fps := int(cfg.get_value("video", "fight_fps", DEFAULT_FPS))
+		fight_fps = fps if fps in FPS_CHOICES else DEFAULT_FPS
 
 
 func _save_settings() -> void:
@@ -1220,6 +1261,7 @@ func _save_settings() -> void:
 	cfg.set_value("online", "fighter", _online_fighter)
 	cfg.set_value("online", "address", _online_address)
 	cfg.set_value("video", "fullscreen", fullscreen)
+	cfg.set_value("video", "fight_fps", fight_fps)
 	for bus in AudioView.DEFAULT_VOLUMES:
 		cfg.set_value("audio", "volume_" + String(bus).to_lower(), audio.volume(bus))
 	cfg.save(SETTINGS_PATH)

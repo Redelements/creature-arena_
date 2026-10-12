@@ -393,7 +393,7 @@ func _draw_menu() -> void:
 						Color(0, 0, 0, 0.35))
 		y += menu_dy
 	_text(Vector2(0, 232), menu_footer, 6, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, SimDefs.VIEW_W)
-	_text(Vector2(0, 244), "Arrows / D-pad / mouse to choose   Left/Right to change   Enter / A / click to start", 6, C_DIM,
+	_text(Vector2(0, 244), "Arrows / stick / D-pad / mouse to choose   Left/Right to change   Enter / A / click to start", 6, C_DIM,
 		HORIZONTAL_ALIGNMENT_CENTER, SimDefs.VIEW_W)
 
 
