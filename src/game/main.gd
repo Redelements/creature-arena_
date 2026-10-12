@@ -72,7 +72,7 @@ const MODES := [
 ## The Settings pages and their rows, in order (see _setting()).
 const SETTING_PAGES := {
 	"game": ["level", "rumble", "shake"],
-	"video": ["fullscreen", "vsync", "fps"],
+	"video": ["fullscreen", "wide", "vsync", "fps"],
 	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu"],
 }
 const SHAKE_CHOICES := [["Full", 1.0], ["Reduced", 0.5], ["Off", 0.0]]
@@ -156,6 +156,9 @@ var fight_fps := DEFAULT_FPS
 ## Where settings are kept (tests point it elsewhere, so they never touch the player's).
 var settings_path := SETTINGS_PATH
 var vsync := true
+## Wider-than-16:9 screens (ultrawide, 16:10): fill them with more stadium, or keep 16:9
+## with bars.
+var wide_fill := true
 var rumble := true
 var shake_scale := 1.0  ## screen shake: 1 full, 0.5 reduced, 0 off
 ## Off for captures and headless runs, which must not be slowed to real time.
@@ -244,12 +247,12 @@ func _ready() -> void:
 	add_child(layer)
 	flash_rect = ColorRect.new()
 	flash_rect.color = Color(1, 0.95, 0.75, 0.0)
-	flash_rect.size = Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H)
+	flash_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 	flash_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(flash_rect)
 	fade_rect = ColorRect.new()
 	fade_rect.color = Color(0, 0, 0, 0)
-	fade_rect.size = Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H)
+	fade_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 	fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(fade_rect)
 	hud = Hud.new()
@@ -361,7 +364,7 @@ func _open_settings() -> void:
 	scr.row_width = 200.0
 	scr.builder = func(s: UiScreen):
 		s.add_button("Game", func(): _open_settings_page("game"), "CPU level, controller rumble, screen shake")
-		s.add_button("Video", func(): _open_settings_page("video"), "Fullscreen, vsync, frame rate")
+		s.add_button("Video", func(): _open_settings_page("video"), "Fullscreen, wide screens, vsync, frame rate")
 		s.add_button("Audio", func(): _open_settings_page("audio"), "Volume for the music, effects and menus")
 		s.add_button("Controls", _open_controls, "Keyboard layout; remap keys and buttons")
 		s.add_space(4)
@@ -1022,7 +1025,8 @@ func _hides_someone(c: CreatureSim) -> bool:
 
 
 func _update_camera() -> void:
-	var size := Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H)
+	var size := Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H)  # the arena
+	var view := get_viewport().get_visible_rect().size  # the screen (wider on ultrawide)
 	var base_z := 1.0
 	var base_focus := size * 0.5
 	var ko_focus := _ko_focus
@@ -1051,9 +1055,17 @@ func _update_camera() -> void:
 		focus = base_focus.lerp(ko_focus, amt)
 		if k_out >= 1.0:
 			_ko_cam_t = -1
-	var half := size * 0.5 / z
+	var half := view * 0.5 / z
 	camera.zoom = Vector2(z, z)
-	camera.position = focus.clamp(half, size - half)
+	camera.position = Vector2(_cam_axis(focus.x, half.x, size.x), _cam_axis(focus.y, half.y, size.y))
+
+
+## Keeps the arena filling the screen along one axis; when the screen shows more than
+## the arena (an ultrawide's width), the arena stays centred and the stadium fills the rest.
+static func _cam_axis(v: float, half: float, arena: float) -> float:
+	if half * 2.0 >= arena:
+		return arena * 0.5
+	return clampf(v, half, arena - half)
 
 
 # ------------------------------------------------------------------ input
@@ -1166,6 +1178,9 @@ func _setting(key: String) -> Dictionary:
 		"fullscreen":
 			return {"label": "Fullscreen", "values": ["Off", "On"], "index": 1 if fullscreen else 0,
 				"desc": "Fill the screen"}
+		"wide":
+			return {"label": "Wide screens", "values": ["16:9 with bars", "Fill"], "index": 1 if wide_fill else 0,
+				"desc": "Ultrawide and 16:10: show more of the stadium, or keep a 16:9 picture"}
 		"vsync":
 			return {"label": "Vsync", "values": ["Off", "On"], "index": 1 if vsync else 0,
 				"desc": "On: no tearing, and the screen's refresh rate caps the frame rate"}
@@ -1212,6 +1227,9 @@ func _set_setting(key: String, i: int) -> void:
 			"fullscreen":
 				fullscreen = i == 1
 				_apply_fullscreen()
+			"wide":
+				wide_fill = i == 1
+				_apply_aspect()
 			"vsync":
 				vsync = i == 1
 				_apply_vsync()
@@ -1248,6 +1266,11 @@ func _apply_frame_rate() -> void:
 		var cap := MENU_FPS if menus else fight_fps
 		if Engine.max_fps != cap:
 			Engine.max_fps = cap
+
+
+func _apply_aspect() -> void:
+	get_window().content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND if wide_fill \
+		else Window.CONTENT_SCALE_ASPECT_KEEP
 
 
 func _apply_vsync() -> void:
@@ -1333,6 +1356,8 @@ func _load_settings() -> void:
 			_apply_fullscreen()
 		vsync = bool(cfg.get_value("video", "vsync", true))
 		_apply_vsync()
+		wide_fill = bool(cfg.get_value("video", "wide_fill", true))
+		_apply_aspect()
 		rumble = bool(cfg.get_value("game", "rumble", true))
 		shake_scale = float(cfg.get_value("game", "shake", 1.0))
 		Controls.apply_overrides(cfg.get_value("controls", "bindings", {}))
@@ -1351,6 +1376,7 @@ func _save_settings() -> void:
 	cfg.set_value("video", "fullscreen", fullscreen)
 	cfg.set_value("video", "fight_fps", fight_fps)
 	cfg.set_value("video", "vsync", vsync)
+	cfg.set_value("video", "wide_fill", wide_fill)
 	cfg.set_value("game", "rumble", rumble)
 	cfg.set_value("game", "shake", shake_scale)
 	cfg.set_value("controls", "bindings", Controls.overrides())
