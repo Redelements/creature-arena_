@@ -1761,7 +1761,8 @@ func _draw() -> void:
 func _paint(ci: CanvasItem, floor_layer: bool) -> void:
 	if floor_layer:
 		if _dark > 0.0:
-			ci.draw_rect(Rect2(-40, -40, SimDefs.VIEW_W + 80, SimDefs.VIEW_H + 80), Color(C_DIM, _dark))
+			ci.draw_rect(Rect2(-ArenaView.MARGIN, Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H) + ArenaView.MARGIN * 2.0),
+				Color(C_DIM, _dark))
 		for p in _parts:  # flat things first, so debris sits on top of puddles and cracks
 			if String(p["kind"]) in ["puddle", "decal", "ripple"]:
 				_draw_part(ci, p)

@@ -296,7 +296,7 @@ func test_the_mouse_picks_a_tile() -> void:
 	var ev := InputEventMouseButton.new()
 	ev.button_index = MOUSE_BUTTON_LEFT
 	ev.pressed = true
-	ev.position = cs._tile_rect(4).get_center()
+	ev.position = cs._tile_rect(4).get_center() + cs._o  # the grid sits in a centred stage
 	cs._gui_input(ev)
 	assert_eq(cs.teams[0], [String(cs.roster[4])], "a click picks what's under it:")
 	(made[0] as Node).free()
@@ -531,3 +531,28 @@ func test_screen_shake_and_rumble_settings() -> void:
 	var rumble: OptionRow = g._setting_rows.get("rumble")
 	assert_true(rumble == null or g.rumble, "")
 	g.free()
+
+
+
+# ------------------------------------------------------------------ wide screens
+
+func test_the_camera_keeps_the_arena_centred_on_a_wide_screen() -> void:
+	var g := _game()
+	# 21:9 at 1x: wider than the arena, so the arena sits in the middle whatever the focus.
+	assert_eq(g._cam_axis(100.0, 320.0, 480.0), 240.0, "wider than the arena: centred")
+	# 16:9: the camera follows but never shows past the arena's edges.
+	assert_eq(g._cam_axis(100.0, 240.0, 480.0), 240.0, "exactly as wide: centred")
+	assert_eq(g._cam_axis(100.0, 165.0, 480.0), 165.0, "zoomed in: clamped to the edge")
+	assert_eq(g._cam_axis(300.0, 165.0, 480.0), 300.0, "and follows inside")
+	g.free()
+
+
+func test_the_hud_anchors_to_the_screen() -> void:
+	var h := Hud.new()
+	_root().add_child(h)
+	h._layout()
+	var vs: Vector2 = _root().get_visible_rect().size
+	assert_near(h._sw, vs.x, 0.01, "the HUD knows the screen's width:")
+	assert_lt(h._hr - h._hl, Hud.HUD_MAX_W + 0.01, "the health panels stay within the HUD width")
+	assert_near((h._hl + h._hr) * 0.5, vs.x * 0.5, 0.01, "centred:")
+	h.free()

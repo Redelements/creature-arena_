@@ -51,6 +51,10 @@ var _tex := {}
 var _font: Font = ThemeDB.fallback_font
 var _hint_text := ""
 var _overlay: Control  ## cursors and the READY banner, over the previews
+## Everything is laid out in a 480 x 270 stage centred on the screen (wider screens get
+## more backdrop around it); `_o` is where the stage sits.
+var _stage: Control
+var _o := Vector2.ZERO
 
 
 func _init() -> void:
@@ -75,6 +79,12 @@ func setup(p_title: String, p_size: int, p_labels: Array, p_two: bool, previous:
 
 func _ready() -> void:
 	focus_mode = FOCUS_ALL
+	_stage = Control.new()
+	_stage.size = Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H)
+	_stage.mouse_filter = MOUSE_FILTER_IGNORE
+	add_child(_stage)
+	resized.connect(_place_stage)
+	_place_stage()
 	for id in MatchFactory.FIGHTERS:
 		var sp: Dictionary = MatchFactory.load_def(id).get("sprite", {})
 		if sp.has("path"):
@@ -87,7 +97,7 @@ func _ready() -> void:
 		p.zoom = 1.55
 		p.face_left = side == 1
 		p.mouse_filter = MOUSE_FILTER_IGNORE
-		add_child(p)
+		_stage.add_child(p)
 		_big.append(p)
 		_names.append(_make_label(Vector2(x + 102, PANEL_Y + 22), 11, UiTheme.C_TEXT))
 		var blurb := _make_label(Vector2(x + 102, PANEL_Y + 38), 6, UiTheme.C_DIM)
@@ -104,13 +114,13 @@ func _ready() -> void:
 		t.mouse_filter = MOUSE_FILTER_IGNORE
 		if String(roster[i]) != RANDOM:
 			t.fighter = String(roster[i])
-		add_child(t)
+		_stage.add_child(t)
 		_tiles.append(t)
 	_overlay = Control.new()
-	_overlay.set_anchors_preset(PRESET_FULL_RECT)
+	_overlay.size = _stage.size
 	_overlay.mouse_filter = MOUSE_FILTER_IGNORE
 	_overlay.draw.connect(_draw_overlay)
-	add_child(_overlay)
+	_stage.add_child(_overlay)
 	_refresh()
 
 
@@ -200,7 +210,7 @@ static func _is_random(event: InputEvent) -> bool:
 func _mouse(event: InputEvent) -> void:
 	if not p1_keyboard:
 		return
-	var p: Vector2 = event.position
+	var p: Vector2 = event.position - _o
 	for i in roster.size():
 		if _tile_rect(i).has_point(p):
 			var side := side_of(0)
@@ -327,7 +337,7 @@ func _make_label(pos: Vector2, size_px: int, col: Color) -> Label:
 	l.add_theme_font_size_override("font_size", size_px)
 	l.add_theme_color_override("font_color", col)
 	l.mouse_filter = MOUSE_FILTER_IGNORE
-	add_child(l)
+	_stage.add_child(l)
 	return l
 
 
@@ -351,9 +361,17 @@ func _refresh() -> void:
 	queue_redraw()
 
 
+func _place_stage() -> void:
+	_o = ((size - Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H)) * 0.5).floor()
+	if _stage != null:
+		_stage.position = _o
+	queue_redraw()
+
+
 func _draw() -> void:
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.04, 0.05, 0.07, 0.94))
+	draw_set_transform(_o)
 	var w := float(SimDefs.VIEW_W)
-	draw_rect(Rect2(0, 0, w, SimDefs.VIEW_H), Color(0.04, 0.05, 0.07, 0.94))
 	_text(Vector2(0, 18), mode_title, 14, UiTheme.C_TEXT, HORIZONTAL_ALIGNMENT_CENTER, w)
 	_text(Vector2(0, 27), "Pick your team of %d" % team_size if team_size > 1 else "Pick your fighter", 6,
 		UiTheme.C_DIM, HORIZONTAL_ALIGNMENT_CENTER, w)
@@ -441,10 +459,10 @@ func _draw_mini(id: String, feet: Vector2, face_left: bool) -> void:
 	var o: Array = sp.get("origin", [24, 43])
 	var idle: Array = sp.get("anims", {}).get("idle", [0, 0, 1])
 	var k := float(sp.get("select_scale", minf(1.0, 55.0 / fpx))) * 0.6
-	draw_set_transform(feet, 0.0, Vector2(-k if face_left else k, k))
+	draw_set_transform(feet + _o, 0.0, Vector2(-k if face_left else k, k))
 	draw_texture_rect_region(tex, Rect2(-float(o[0]), -float(o[1]), fpx, fpx),
 		Rect2(int(idle[1]) * fpx, int(idle[0]) * fpx, fpx, fpx))
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	draw_set_transform(_o)
 
 
 func _text(pos: Vector2, s: String, size_px: int, col: Color, align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0) -> void:
