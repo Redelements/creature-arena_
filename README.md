@@ -76,9 +76,9 @@ bad connection: `--net-lag=6 --net-loss=0.1`. Details: [docs/NETCODE.md](docs/NE
 1. Install [Godot 4.7](https://godotengine.org/download) (standard build, no .NET needed).
 2. Open Godot, click **Import**, and pick this folder's `project.godot`.
 3. Press **F5** (or the ▶ button). The title menu has **Single player** (every mode against
-   the CPU, training, trials and local 2-player), **Online**, **Settings** (CPU level,
-   keyboard layout, volume for master, music, sound effects and menu sounds, fullscreen, and the
-   fight frame rate: 144 fps unless changed, up to your screen's refresh rate) and **Exit**. Menus always
+   the CPU, training, trials and local 2-player), **Online**, **Settings** (Game: CPU level, rumble, screen shake; Video: fullscreen, vsync, the
+   fight frame rate, 144 fps unless changed; Audio: master, music, effects and menu volume;
+   Controls: keyboard layout and remapping for both keyboard layouts and the controller) and **Exit**. Menus always
    run at 60 fps. The game itself runs 60 steps a second whatever the frame rate.
 
 From a terminal:
@@ -142,7 +142,9 @@ cursor per player. Two players pick at the same time, each with their own contro
 the CPU's. B / Esc takes the last pick back, "?" (or Y / R) picks at random. Online the match can't stop, so pausing asks whether to leave
 while the match carries on (your fighter stands still meanwhile).
 
-Controllers rumble on hits, slams, Surges and knockouts. The game aims in 8 directions,
+Controllers rumble on hits, slams, Surges and knockouts (Settings > Game turns it off).
+Every key and button above can be remapped in Settings > Controls; the on-screen
+prompts and the controls strip follow your bindings. The game aims in 8 directions,
 so mouse and right-stick aiming snap to the nearest one.
 
 Tools: F1 hitbox overlay, F2 cycle the training dummy, F3 hide the controls strip,
