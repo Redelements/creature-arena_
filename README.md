@@ -125,7 +125,12 @@ whichever device you used last.
 | Breakaway (while stunned) | LB + RB | D + F | Shift + Space |
 | Tag (Duel) | LT | T | L |
 | Stop | — | S | — |
-| Menu / back | View | Esc | Esc |
+| Pause (in a fight) | Start or View | Esc | Esc |
+| Menus: select / back | A / B | Enter or click / Esc | Enter / Esc |
+
+The pause menu (Resume, Restart, Controls, Quit to main menu) freezes the match; quitting
+or restarting asks first. Online the match can't stop, so pausing asks whether to leave
+while the match carries on (your fighter stands still meanwhile).
 
 Controllers rumble on hits, slams, Surges and knockouts. The game aims in 8 directions,
 so mouse and right-stick aiming snap to the nearest one.

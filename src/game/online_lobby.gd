@@ -30,6 +30,8 @@ var busy := false  ## hosting or connecting: only Back works
 var hosting_port := 0
 var _font: Font = ThemeDB.fallback_font
 var _tick := 0
+## Button hints for a controller (else keyboard and mouse).
+var gamepad := false
 var _time := 0.0
 var _tex := {}
 
@@ -57,7 +59,7 @@ func close() -> void:
 func handle(event: InputEvent) -> bool:
 	if not visible:
 		return false
-	if event.is_action_pressed("menu_back"):
+	if event.is_action_pressed("menu_back") or (event.is_action_pressed("ui_cancel") and not (event is InputEventKey)):
 		cancelled.emit()
 		return true
 	if busy:
@@ -80,13 +82,13 @@ func handle(event: InputEvent) -> bool:
 			address += ch
 			queue_redraw()
 			return true
-	if event.is_action_pressed("ui_down"):
+	if event.is_action_pressed("ui_down", true):
 		cursor = (cursor + 1) % ROWS.size()
-	elif event.is_action_pressed("ui_up"):
+	elif event.is_action_pressed("ui_up", true):
 		cursor = (cursor + ROWS.size() - 1) % ROWS.size()
-	elif event.is_action_pressed("ui_left") and cursor == 0:
+	elif event.is_action_pressed("ui_left", true) and cursor == 0:
 		_cycle(-1)
-	elif event.is_action_pressed("ui_right") and cursor == 0:
+	elif event.is_action_pressed("ui_right", true) and cursor == 0:
 		_cycle(1)
 	elif event.is_action_pressed("menu_confirm") or event.is_action_pressed("ui_accept"):
 		_choose(cursor)
@@ -202,7 +204,7 @@ func _draw() -> void:
 		C_DIM, HORIZONTAL_ALIGNMENT_CENTER, w)
 	_text(Vector2(0, 245), "UDP port %d on their router, or both install Tailscale and join the host's 100.x address." %
 		Netplay.DEFAULT_PORT, 6, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, w)
-	_text(Vector2(0, 260), "Up/Down choose   Left/Right fighter   Enter / A select   Ctrl+V paste   Esc / View back", 6,
+	_text(Vector2(0, 260), Prompts.line(gamepad, ["move", "change", "select", "back"]) + ("" if gamepad else "     Ctrl+V paste"), 6,
 		C_DIM, HORIZONTAL_ALIGNMENT_CENTER, w)
 
 

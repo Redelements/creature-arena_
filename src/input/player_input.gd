@@ -26,9 +26,9 @@ const LABELS := {
 const ANY_PAD := -1
 const NO_PAD := -2
 const HELP := {
-	"league": "Right-click move / attack   A or Left-click light   E heavy (hold)   Q skill 1   W skill 2   R surge   D dodge   F guard   D+F breakaway   T tag   S stop   Esc menu",
-	"classic": "WASD move  J light  K heavy  U skill 1  I skill 2  O surge  Space dodge  Shift guard  Shift+Space breakaway  L tag  F1 hitboxes  Esc menu",
-	"gamepad": "L-stick move   R-stick aim   A light   X heavy (hold)   Y skill 1   B skill 2   RT surge   RB dodge   LB guard   LB+RB breakaway   LT tag   View menu",
+	"league": "Right-click move / attack   A or Left-click light   E heavy (hold)   Q skill 1   W skill 2   R surge   D dodge   F guard   D+F breakaway   T tag   S stop   Esc pause",
+	"classic": "WASD move  J light  K heavy  U skill 1  I skill 2  O surge  Space dodge  Shift guard  Shift+Space breakaway  L tag  F1 hitboxes  Esc pause",
+	"gamepad": "L-stick move   R-stick aim   A light   X heavy (hold)   Y skill 1   B skill 2   RT surge   RB dodge   LB guard   LB+RB breakaway   LT tag   Start pause",
 }
 
 var layout := "league"

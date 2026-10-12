@@ -55,6 +55,8 @@ const BINDINGS := {
 	# Menus and tools
 	"menu_confirm": {"keys": [KEY_ENTER, KEY_KP_ENTER], "buttons": [JOY_BUTTON_A, JOY_BUTTON_START]},
 	"menu_back": {"keys": [KEY_ESCAPE], "buttons": [JOY_BUTTON_BACK]},
+	# In a fight: the pause menu (B can't be Back there: it's Skill 2).
+	"pause": {"keys": [KEY_ESCAPE], "buttons": [JOY_BUTTON_START, JOY_BUTTON_BACK]},
 	"debug_hitboxes": {"keys": [KEY_F1]},
 	"debug_dummy_mode": {"keys": [KEY_F2]},
 	"debug_help": {"keys": [KEY_F3]},
@@ -90,6 +92,9 @@ static func setup() -> void:
 		for ev in InputMap.action_get_events(action):
 			if ev is InputEventJoypadMotion:
 				InputMap.action_erase_event(action, ev)
+	# Menus: A selects and B goes back, as on every console.
+	_ensure_button("ui_accept", JOY_BUTTON_A)
+	_ensure_button("ui_cancel", JOY_BUTTON_B)
 	for action in BINDINGS:
 		if InputMap.has_action(action):
 			continue
@@ -112,3 +117,12 @@ static func setup() -> void:
 			jm.axis = b["axis"][0]
 			jm.axis_value = b["axis"][1]
 			InputMap.action_add_event(action, jm)
+
+
+static func _ensure_button(action: String, button: JoyButton) -> void:
+	for ev in InputMap.action_get_events(action):
+		if ev is InputEventJoypadButton and (ev as InputEventJoypadButton).button_index == button:
+			return
+	var jb := InputEventJoypadButton.new()
+	jb.button_index = button
+	InputMap.action_add_event(action, jb)

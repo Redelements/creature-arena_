@@ -23,7 +23,19 @@ class ErrorCatcher extends Logger:
 		pass
 
 
-func _initialize() -> void:
+var _ran := false
+
+
+## Runs on the first frame rather than in _initialize(), so the scene tree is live and
+## tests can add nodes (menus, the main scene) and send them input.
+func _process(_delta: float) -> bool:
+	if not _ran:
+		_ran = true
+		_run_all()
+	return false
+
+
+func _run_all() -> void:
 	var catcher := ErrorCatcher.new()
 	OS.add_logger(catcher)
 	var files: Array[String] = []
