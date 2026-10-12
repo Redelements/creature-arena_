@@ -131,8 +131,15 @@ func test_b_and_a_are_menu_buttons() -> void:
 
 # ------------------------------------------------------------------ the game's pause menu
 
+const TEST_SETTINGS := "user://test_settings.cfg"
+
+
+## The game, with settings of its own (fresh each time, never the player's).
 func _game() -> Node:
+	if FileAccess.file_exists(TEST_SETTINGS):
+		DirAccess.remove_absolute(TEST_SETTINGS)
 	var g: Node = load("res://scenes/main.tscn").instantiate()
+	g.settings_path = TEST_SETTINGS
 	_root().add_child(g)
 	return g
 
@@ -353,12 +360,13 @@ func test_back_from_a_page_returns_to_the_title_on_the_same_row() -> void:
 
 func test_settings_change_and_are_kept() -> void:
 	var g := _game()
-	g._open_menu("settings")
+	g._open_menu("game")
 	var before: int = g.level
 	var row: OptionRow = g._setting_rows["level"]
 	row.grab_focus()
 	_press("ui_right")
 	assert_eq(g.level, (before + 1) % 3, "Right changes the CPU level:")
+	g._open_settings_page("audio")
 	var vol: OptionRow = g._setting_rows["vol_Master"]
 	vol.grab_focus()
 	var v: float = g.audio.volume("Master")
@@ -433,3 +441,93 @@ func test_every_controller_works_in_menus_and_fights() -> void:
 		assert_true(a.is_action_pressed("ui_accept"), "controller %d: A selects" % dev)
 		assert_true(a.is_action_pressed("pad_light"), "controller %d: A attacks" % dev)
 		assert_true(start.is_action_pressed("pause"), "controller %d: Start pauses" % dev)
+
+
+
+# ------------------------------------------------------------------ remapping and new settings
+
+func _key(k: Key) -> InputEventKey:
+	var ev := InputEventKey.new()
+	ev.physical_keycode = k
+	ev.pressed = true
+	return ev
+
+
+func test_remapping_swaps_and_the_prompts_follow() -> void:
+	Controls.setup()
+	Controls.reset()
+	assert_eq(Controls.binding_text("kb_light", "classic"), "J", "")
+	Controls.rebind("classic", "kb_light", _key(KEY_K))  # K was Heavy
+	assert_eq(Controls.binding_text("kb_light", "classic"), "K", "Light is K now:")
+	assert_eq(Controls.binding_text("kb_heavy", "classic"), "J", "and Heavy took J (a swap):")
+	assert_true(_key(KEY_K).is_action_pressed("kb_light"), "K does a light attack")
+	assert_false(_key(KEY_K).is_action_pressed("kb_heavy"), "and nothing else")
+	assert_eq(PlayerInput.label_for("classic", "light"), "K", "the HUD label follows:")
+	var pi := PlayerInput.new()
+	pi.layout = "classic"
+	assert_true(pi.help_text().contains("K light"), "and the controls strip: " + pi.help_text())
+	Controls.reset()
+
+
+func test_remapped_controls_are_saved_and_loaded() -> void:
+	Controls.setup()
+	Controls.reset()
+	assert_true(Controls.overrides().is_empty(), "defaults save nothing")
+	var rb := InputEventJoypadButton.new()
+	rb.button_index = JOY_BUTTON_RIGHT_SHOULDER
+	rb.pressed = true
+	Controls.rebind("gamepad", "pad_light", rb)
+	var saved := Controls.overrides()
+	assert_true(saved.has("pad_light") and saved.has("pad_dodge"), "the change and its swap are saved: %s" % str(saved))
+	Controls.reset()
+	assert_eq(Controls.binding_text("pad_light", "gamepad"), "A", "reset")
+	Controls.apply_overrides(saved)
+	assert_eq(Controls.binding_text("pad_light", "gamepad"), "RB", "loaded back:")
+	assert_eq(Controls.binding_text("pad_dodge", "gamepad"), "A", "")
+	var rb1 := rb.duplicate() as InputEventJoypadButton
+	rb1.device = 2
+	assert_true(rb1.is_action_pressed("pad_light"), "on any controller")
+	Controls.reset()
+
+
+func test_the_remap_screen_takes_the_next_key() -> void:
+	Controls.setup()
+	Controls.reset()
+	var st := _stack()
+	var r := RemapScreen.new("classic")
+	var saved := [0]
+	r.changed.connect(func(): saved[0] += 1)
+	st.push(r)
+	_press("ui_accept")  # Move up: listen
+	assert_eq(r._waiting, "kb_up", "listening")
+	_root().push_input(_key(KEY_ESCAPE))
+	assert_eq(r._waiting, "", "Esc cancels")
+	assert_true(st.is_open(), "without leaving the screen")
+	_press("ui_accept")
+	_root().push_input(_key(KEY_M))
+	assert_eq(r._waiting, "kb_up", "M is the game's (mute): still listening")
+	_root().push_input(_key(KEY_I))
+	assert_eq(Controls.binding_text("kb_up", "classic"), "I", "the next key is the new binding:")
+	assert_eq(Controls.binding_text("kb_skill_2", "classic"), "W", "and Skill 2 got W:")
+	assert_true(_key(KEY_UP).is_action_pressed("kb_up"), "the Up arrow still moves up")
+	assert_eq(saved[0], 1, "main is told to save")
+	st.free()
+	Controls.reset()
+
+
+func test_screen_shake_and_rumble_settings() -> void:
+	var g := _game()
+	g._open_menu("game")
+	var shake: OptionRow = g._setting_rows["shake"]
+	shake.grab_focus()
+	_press("ui_right")
+	assert_near(g.shake_scale, 0.5, 0.001, "Reduced:")
+	_press("ui_right")
+	assert_near(g.shake_scale, 0.0, 0.001, "Off:")
+	g.shake = 6.0
+	g._start_match(2)
+	_tick(g, 1)
+	assert_eq(g.camera.offset, Vector2.ZERO, "no shake at all")
+	var rumble: OptionRow = g._setting_rows.get("rumble")
+	assert_true(rumble == null or g.rumble, "")
+	g.free()

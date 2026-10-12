@@ -10,7 +10,7 @@ approach: **Godot Control nodes + a Theme + a screen stack**, built as four stac
 | 1 | Quick fixes + UI foundation + pause menu | `menu-fixes` | `menu-input-fps` | PR open |
 | 2 | Title, Settings, online screen, match over on Control nodes | `menu-controls` | `menu-fixes` | PR open |
 | 3 | Fighting-game character select | `char-select` | `menu-controls` | PR open |
-| 4 | Vsync, rumble, screen shake, remapping | `settings-remap` | `char-select` | to do |
+| 4 | Vsync, rumble, screen shake, remapping | `settings-remap` | `char-select` | PR open |
 
 A session that picks this up: read this file, `git log --oneline -5` on the branch in
 progress, then carry on from its first unticked item.
@@ -63,6 +63,11 @@ progress, then carry on from its first unticked item.
 - Found: code-made bindings listened to controller 0 only (Controls.ALL_DEVICES fixes it)
 
 ## PR 4 checklist
-- [ ] Settings: vsync, rumble on/off, screen shake on/off
-- [ ] Controls screen: remap keyboard and gamepad per action, saved, Reset to defaults
-- [ ] Tests, screenshots, docs, PR
+- [x] Settings split into Game / Video / Audio / Controls pages; vsync, rumble, screen
+      shake (Full / Reduced / Off)
+- [x] Controls: keyboard layout, remap Classic / League-style / controller per action
+      (swap on conflict, extra bindings kept, Esc/F-keys/M and Start/View/d-pad reserved),
+      saved as overrides, Reset per group and Reset all; prompts and help follow bindings
+- [x] Tests, screenshots, docs, PR
+- Found: tests that start the game saved into the real settings file (now
+  `settings_path`, pointed at a test file)

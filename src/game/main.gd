@@ -69,9 +69,13 @@ const MODES := [
 ## The menus (src/ui screens): the title menu opens Single player (MENU_ROWS), the online
 ## screen, or Settings. MODES indexes stay stable for --mode=N; rows with choices pick
 ## one of several modes with Left/Right.
-## The Settings rows, in order (see _setting()).
-const SETTING_KEYS := ["level", "layout", "vol_Master", "vol_Music", "vol_Effects", "vol_Menu", "fullscreen",
-	"fps"]
+## The Settings pages and their rows, in order (see _setting()).
+const SETTING_PAGES := {
+	"game": ["level", "rumble", "shake"],
+	"video": ["fullscreen", "vsync", "fps"],
+	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu"],
+}
+const SHAKE_CHOICES := [["Full", 1.0], ["Reduced", 0.5], ["Off", 0.0]]
 const VOLUME_NAMES := {"Master": "Master volume", "Music": "Music", "Effects": "Sound effects",
 	"Menu": "Menu sounds"}
 ## Volume steps in Settings (10 steps of 10%).
@@ -149,6 +153,11 @@ var _match_over_status: Label = null
 var _recent_servers: Array = []
 var fullscreen := false
 var fight_fps := DEFAULT_FPS
+## Where settings are kept (tests point it elsewhere, so they never touch the player's).
+var settings_path := SETTINGS_PATH
+var vsync := true
+var rumble := true
+var shake_scale := 1.0  ## screen shake: 1 full, 0.5 reduced, 0 off
 ## Off for captures and headless runs, which must not be slowed to real time.
 var _fps_caps := true
 var menu_stick: MenuStick
@@ -282,7 +291,8 @@ func _open_menu(page := "", focus := "") -> void:
 	hud.menu_visible = true
 	audio.play_music("menu")
 	_menu_background()
-	var t := TitleScreen.new(focus if focus != "" else page)
+	var land := focus if focus != "" else ("settings" if page in SETTING_PAGES or page == "controls" else page)
+	var t := TitleScreen.new(land)
 	t.single_pressed.connect(_open_single)
 	t.online_pressed.connect(func(): _start_match(ONLINE_MODE))
 	t.settings_pressed.connect(_open_settings)
@@ -293,6 +303,12 @@ func _open_menu(page := "", focus := "") -> void:
 			_open_single()
 		"settings":
 			_open_settings()
+		"game", "video", "audio":
+			_open_settings()
+			_open_settings_page(page)
+		"controls":
+			_open_settings()
+			_open_controls()
 
 
 ## A CPU-vs-CPU match behind the menus (restarted now and then; the screens stay).
@@ -337,34 +353,88 @@ func _start_row(row: int) -> void:
 	_start_match(int(r["modes"][_row_choice[row] if row < _row_choice.size() else 0]))
 
 
-## Settings: each row's values and description come from _setting(); a change goes
-## through _set_setting() and is saved at once.
+## Settings: four pages, like most games: Game, Video, Audio, Controls.
 func _open_settings() -> void:
 	var scr := UiScreen.new()
 	scr.logo = true
 	scr.title = "SETTINGS"
+	scr.row_width = 200.0
+	scr.builder = func(s: UiScreen):
+		s.add_button("Game", func(): _open_settings_page("game"), "CPU level, controller rumble, screen shake")
+		s.add_button("Video", func(): _open_settings_page("video"), "Fullscreen, vsync, frame rate")
+		s.add_button("Audio", func(): _open_settings_page("audio"), "Volume for the music, effects and menus")
+		s.add_button("Controls", _open_controls, "Keyboard layout; remap keys and buttons")
+		s.add_space(4)
+		s.add_button("Back", s.back)
+	ui.push(scr)
+
+
+## One Settings page: each row's values and description come from _setting(); a change
+## goes through _set_setting() and is saved at once.
+func _open_settings_page(page: String) -> void:
+	var scr := UiScreen.new()
+	scr.logo = true
+	scr.title = "SETTINGS  -  " + page.to_upper()
 	scr.row_width = 270.0
-	scr.row_height = 13.0
-	scr.row_font = 8
-	scr.row_gap = 1
 	scr.hints = ["move", "change", "back"]
 	scr.builder = func(s: UiScreen):
-		for key in SETTING_KEYS:
-			var info := _setting(key)
-			var o := s.add_option(String(info["label"]), info["values"], int(info["index"]), func(_i): pass,
-				String(info["desc"]))
-			o.wrap = bool(info.get("wrap", true))
-			o.bar = float(info.get("bar", -1.0))
-			o.changed.connect(func(i: int):
-				_set_setting(key, i)
-				var now := _setting(key)
-				o.set_values(now["values"], int(now["index"]))
-				o.bar = float(now.get("bar", -1.0)))
-			_setting_rows[key] = o
+		for key in SETTING_PAGES[page]:
+			_add_setting_row(s, key)
 		s.add_space(4)
 		s.add_button("Back", s.back)
 	scr.backed.connect(func(): _setting_rows.clear())
 	ui.push(scr)
+
+
+func _add_setting_row(s: UiScreen, key: String) -> OptionRow:
+	var info := _setting(key)
+	var o := s.add_option(String(info["label"]), info["values"], int(info["index"]), func(_i): pass,
+		String(info["desc"]))
+	o.wrap = bool(info.get("wrap", true))
+	o.bar = float(info.get("bar", -1.0))
+	o.changed.connect(func(i: int):
+		_set_setting(key, i)
+		var now := _setting(key)
+		o.set_values(now["values"], int(now["index"]))
+		o.bar = float(now.get("bar", -1.0)))
+	_setting_rows[key] = o
+	return o
+
+
+## Controls: the keyboard layout, and remapping for each keyboard layout and the controller.
+func _open_controls() -> void:
+	var scr := UiScreen.new()
+	scr.logo = true
+	scr.title = "SETTINGS  -  CONTROLS"
+	scr.row_width = 250.0
+	scr.hints = ["move", "change", "select", "back"]
+	scr.builder = func(s: UiScreen):
+		_add_setting_row(s, "layout")
+		s.add_button("Remap controller", func(): _open_remap("gamepad"), "Change which button does what")
+		s.add_button("Remap Classic keyboard", func(): _open_remap("classic"), "WASD + J K U I O, or your own keys")
+		s.add_button("Remap League-style keyboard", func(): _open_remap("league"),
+			"Mouse to move and aim; Q W E R, or your own keys")
+		s.add_button("Reset all controls", func():
+			var c := ConfirmScreen.new("Reset every key and button?", "Back to the game's defaults.", "Reset", "Cancel")
+			c.answered.connect(func(yes: bool):
+				if yes:
+					Controls.reset()
+					_save_settings()
+					_apply_device()
+					_toast("Controls reset"))
+			ui.push(c), "Put every key and button back")
+		s.add_space(4)
+		s.add_button("Back", s.back)
+	scr.backed.connect(func(): _setting_rows.clear())
+	ui.push(scr)
+
+
+func _open_remap(group: String) -> void:
+	var r := RemapScreen.new(group)
+	r.changed.connect(func():
+		_save_settings()
+		_apply_device())  # the prompts and help show the new keys
+	ui.push(r)
 
 
 ## `keep_teams`: a rematch with the same teams (no pick screen).
@@ -744,7 +814,8 @@ func _physics_process(_delta: float) -> void:
 	if sim.ko_freeze <= 0:
 		shake *= 0.82
 	_update_camera()
-	camera.offset = Vector2(randf_range(-shake, shake), randf_range(-shake, shake)).round() if shake > 0.3 else Vector2.ZERO
+	var sh := shake * shake_scale
+	camera.offset = Vector2(randf_range(-sh, sh), randf_range(-sh, sh)).round() if sh > 0.3 else Vector2.ZERO
 	flash_rect.color.a = maxf(0.0, flash_rect.color.a - 0.04)
 	_capture()
 
@@ -1095,6 +1166,21 @@ func _setting(key: String) -> Dictionary:
 		"fullscreen":
 			return {"label": "Fullscreen", "values": ["Off", "On"], "index": 1 if fullscreen else 0,
 				"desc": "Fill the screen"}
+		"vsync":
+			return {"label": "Vsync", "values": ["Off", "On"], "index": 1 if vsync else 0,
+				"desc": "On: no tearing, and the screen's refresh rate caps the frame rate"}
+		"rumble":
+			return {"label": "Controller rumble", "values": ["Off", "On"], "index": 1 if rumble else 0,
+				"desc": "A buzz when you land a hit or get hit"}
+		"shake":
+			var names: Array = []
+			var idx := 0
+			for i in SHAKE_CHOICES.size():
+				names.append(SHAKE_CHOICES[i][0])
+				if is_equal_approx(float(SHAKE_CHOICES[i][1]), shake_scale):
+					idx = i
+			return {"label": "Screen shake", "values": names, "index": idx,
+				"desc": "How much the camera shakes on big hits"}
 		"fps":
 			var vals: Array = []
 			for f in FPS_CHOICES:
@@ -1126,6 +1212,15 @@ func _set_setting(key: String, i: int) -> void:
 			"fullscreen":
 				fullscreen = i == 1
 				_apply_fullscreen()
+			"vsync":
+				vsync = i == 1
+				_apply_vsync()
+			"rumble":
+				rumble = i == 1
+				if rumble and player_input.device == PlayerInput.Device.GAMEPAD:
+					Input.start_joy_vibration(player_input.pad_id, 0.4, 0.4, 0.2)  # feel it
+			"shake":
+				shake_scale = float(SHAKE_CHOICES[clampi(i, 0, SHAKE_CHOICES.size() - 1)][1])
 			"fps":
 				fight_fps = int(FPS_CHOICES[clampi(i, 0, FPS_CHOICES.size() - 1)])
 	_save_settings()
@@ -1153,6 +1248,12 @@ func _apply_frame_rate() -> void:
 		var cap := MENU_FPS if menus else fight_fps
 		if Engine.max_fps != cap:
 			Engine.max_fps = cap
+
+
+func _apply_vsync() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync else DisplayServer.VSYNC_DISABLED)
 
 
 func _apply_fullscreen() -> void:
@@ -1191,7 +1292,7 @@ func _apply_device() -> void:
 
 ## Controller rumble: a light buzz when you land a hit, a heavier one when you get hit.
 func _rumble(e: Dictionary) -> void:
-	if player_input.device != PlayerInput.Device.GAMEPAD or flow != Flow.FIGHT:
+	if not rumble or player_input.device != PlayerInput.Device.GAMEPAD or flow != Flow.FIGHT:
 		return
 	var me := sides.find(Side.PLAYER)
 	if me < 0:
@@ -1213,7 +1314,7 @@ func _rumble(e: Dictionary) -> void:
 
 func _load_settings() -> void:
 	var cfg := ConfigFile.new()
-	if cfg.load(SETTINGS_PATH) == OK:
+	if cfg.load(settings_path) == OK:
 		var lay := String(cfg.get_value("input", "layout", "league"))
 		if lay in PlayerInput.LAYOUTS:
 			player_input.layout = lay
@@ -1230,6 +1331,11 @@ func _load_settings() -> void:
 		fullscreen = bool(cfg.get_value("video", "fullscreen", false))
 		if fullscreen:
 			_apply_fullscreen()
+		vsync = bool(cfg.get_value("video", "vsync", true))
+		_apply_vsync()
+		rumble = bool(cfg.get_value("game", "rumble", true))
+		shake_scale = float(cfg.get_value("game", "shake", 1.0))
+		Controls.apply_overrides(cfg.get_value("controls", "bindings", {}))
 		var fps := int(cfg.get_value("video", "fight_fps", DEFAULT_FPS))
 		fight_fps = fps if fps in FPS_CHOICES else DEFAULT_FPS
 
@@ -1244,9 +1350,13 @@ func _save_settings() -> void:
 	cfg.set_value("online", "recent", _recent_servers)
 	cfg.set_value("video", "fullscreen", fullscreen)
 	cfg.set_value("video", "fight_fps", fight_fps)
+	cfg.set_value("video", "vsync", vsync)
+	cfg.set_value("game", "rumble", rumble)
+	cfg.set_value("game", "shake", shake_scale)
+	cfg.set_value("controls", "bindings", Controls.overrides())
 	for bus in AudioView.DEFAULT_VOLUMES:
 		cfg.set_value("audio", "volume_" + String(bus).to_lower(), audio.volume(bus))
-	cfg.save(SETTINGS_PATH)
+	cfg.save(settings_path)
 
 
 ## --sim-check=SEED: print (and optionally write) the determinism fingerprint, then quit.
@@ -1333,7 +1443,7 @@ func _parse_args() -> int:
 			_net_args["join"] = a.get_slice("=", 1)
 		elif a.begins_with("--menu="):
 			var page := a.get_slice("=", 1)
-			if page in ["main", "single", "settings"]:
+			if page in ["main", "single", "settings", "game", "video", "audio", "controls"]:
 				_menu_arg = "" if page == "main" else page
 		elif a.begins_with("--fighter="):
 			var f := a.get_slice("=", 1)

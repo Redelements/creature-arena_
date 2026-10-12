@@ -173,7 +173,10 @@ tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gi
   (`OnlineLobby`, a LineEdit address + recent servers), pause, match over, and the
   `CharacterSelect` (portrait grid, a cursor per player on their own device; it reads
   each pad's stick itself, so main turns MenuStick off under it). Bindings made in code
-  need `device = Controls.ALL_DEVICES`, or they only hear controller 0. Tests drive screens with real input events
+  need `device = Controls.ALL_DEVICES`, or they only hear controller 0. Settings has
+  Game / Video / Audio / Controls pages (`SETTING_PAGES`); `RemapScreen` remaps a
+  `Controls.REMAP` group, saved as `Controls.overrides()`; `PlayerInput.label()` and
+  `help_text()` read the live bindings. Tests that start the game set `settings_path`. Tests drive screens with real input events
   (`tests/test_ui.gd`); `run_tests.gd` runs on the first frame so the scene tree is live.
 - **Planned:** dodge timing. Kevin wants to leave a combo at any time to dodge; today
   Dodge isn't buffered during attacks and can't cancel them (issue #9 has the options).
