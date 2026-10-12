@@ -101,6 +101,13 @@ jobs:
           echo "$out" | tail -5
           if echo "$out" | grep -E "SCRIPT ERROR|Parse Error|Failed to load"; then exit 1; fi
 
+      - name: Smoke test the Linux build as a dedicated server
+        run: |
+          out=$(timeout 8 build/linux/CreatureArena.x86_64 --headless -- --server=7777 2>&1 || true)
+          echo "$out" | tail -3
+          if echo "$out" | grep -E "SCRIPT ERROR|Parse Error|Failed to load"; then exit 1; fi
+          echo "$out" | grep -q "Creature Arena server on UDP port 7777"
+
       - name: Determinism fingerprint (Linux build)
         id: simcheck
         run: |

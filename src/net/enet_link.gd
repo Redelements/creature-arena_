@@ -14,6 +14,13 @@ const CH_INPUT := 1
 ## Drop the connection after this long without hearing from the other side.
 const TIMEOUT_MS := 5000
 
+
+## ENet drops unreliable packets in bursts when the round trip wobbles ("throttling").
+## The input stream is tiny and must keep flowing, so it's switched off.
+static func tune(peer: ENetPacketPeer) -> void:
+	peer.set_timeout(32, TIMEOUT_MS, TIMEOUT_MS)
+	peer.throttle_configure(5000, 0, 0)
+
 var _conn: ENetConnection = null
 var _peer: ENetPacketPeer = null
 var _hosting := false
@@ -73,7 +80,7 @@ func poll() -> Array:
 					peer.peer_disconnect()  # a match is two players: turn away a third
 					continue
 				_peer = peer
-				_peer.set_timeout(32, TIMEOUT_MS, TIMEOUT_MS)
+				tune(_peer)
 				status = Status.CONNECTED
 			ENetConnection.EVENT_DISCONNECT:
 				if peer == _peer:

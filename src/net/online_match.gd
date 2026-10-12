@@ -30,6 +30,9 @@ var id := 0  ## which match of the session this is (rematches count up)
 var local_side := 0
 var teams: Array
 var input_delay := 2
+## Through a dedicated server, the opponent's round trip to it: their packets travel
+## that far too, on top of this machine's own hop (the link's round trip).
+var relay_rtt_ms := 0.0
 
 ## New events since the last tick, for the views.
 var events: Array = []
@@ -105,7 +108,7 @@ func receive(m: Dictionary) -> void:
 			var inputs = m.get("inputs")
 			if not (inputs is PackedInt32Array):
 				return
-			session.receive({"first": int(m.get("first", 0)), "inputs": inputs})
+			session.receive({"first": int(m.get("first", 0)), "inputs": inputs, "ack": int(m.get("ack", -1))})
 			_remote_frame = maxi(_remote_frame, int(m.get("f", -1)))
 			_remote_adv = float(m.get("adv", 0.0))
 		"dg":
@@ -143,7 +146,7 @@ func tick(local_bits: int) -> void:
 func frame_advantage() -> float:
 	if _remote_frame < 0:
 		return 0.0
-	var one_way := link.rtt_ms() * 0.5 * SimDefs.TICK_RATE / 1000.0
+	var one_way := (link.rtt_ms() + relay_rtt_ms) * 0.5 * SimDefs.TICK_RATE / 1000.0
 	return float(session.frame) - (float(_remote_frame) + one_way)
 
 

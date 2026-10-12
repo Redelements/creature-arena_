@@ -24,6 +24,12 @@ var input_delay := 2
 var max_rollback := 8
 ## How many recent inputs ride along in every packet.
 var redundancy := 8
+## A packet carries at most this many inputs (when the other side is missing a lot).
+const MAX_PACKET_INPUTS := 60
+## The other machine has every input of ours up to this frame (it says so in its
+## packets): anything after it that it hasn't got is sent again, so a burst of lost
+## packets longer than `redundancy` can't leave both machines waiting for each other.
+var remote_ack := -1
 
 var game  ## the deterministic simulation
 var local_player := 0
@@ -77,16 +83,20 @@ func add_local_input(bits: int) -> Dictionary:
 		if keep_history:
 			history[f] = bits
 	var first := maxi(0, f - redundancy + 1)
+	if remote_ack + 1 < first:
+		first = maxi(remote_ack + 1, f - MAX_PACKET_INPUTS + 1)
 	var inputs := PackedInt32Array()
 	for i in range(first, f + 1):
 		inputs.append(int(_local.get(i, 0)))
-	return {"first": first, "inputs": inputs}
+	return {"first": first, "inputs": inputs, "ack": _confirmed}
 
 
 ## Takes a packet from the other player. Out-of-order and duplicate packets are fine.
 func receive(packet: Dictionary) -> void:
 	var first := int(packet["first"])
 	var inputs: PackedInt32Array = packet["inputs"]
+	if packet.has("ack"):
+		remote_ack = maxi(remote_ack, int(packet["ack"]))
 	for i in inputs.size():
 		var f := first + i
 		if _remote.has(f):
@@ -184,7 +194,7 @@ func _forget_old() -> void:
 		if int(k) < mini(_confirmed, frame - 1):
 			_remote.erase(k)
 	for k in _local.keys():
-		if int(k) < mini(frame - redundancy - input_delay - 2, _final + 1):
+		if int(k) < mini(mini(frame - redundancy - input_delay - 2, _final + 1), remote_ack + 1):
 			_local.erase(k)
 
 

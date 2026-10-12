@@ -64,9 +64,12 @@ plays every player side, for captures), `--pick` (show the team pick screen),
 18 Chef Cerebro vs CPU, 19 Chef Cerebro training, 20 Online 1v1 (the lobby),
 21 Hissy Fitz vs CPU, 22 Hissy Fitz training, 23 Digby vs CPU, 24 Digby training, 25 Sneaky Pete vs CPU, 26 Sneaky Pete training, 27 Sno Mercy vs CPU, 28 Sno Mercy training.
 `--menu=main|single|settings` opens that menu page (captures).
-Online: `--online-host[=PORT]`, `--online-join=ADDR[:PORT]`, `--fighter=ID`, `--net-lag=N`,
+Online: `--online-host[=PORT]`, `--online-join=ADDR[:PORT][/ROOM]`, `--fighter=ID`, `--net-lag=N`,
 `--net-loss=F`, `--net-delay=N`, `--net-report=PATH`. Two processes on one machine with
 `--cpu-vs-cpu` play each other; compare their reports (docs/NETCODE.md).
+Dedicated server: `--headless -- --server[=PORT] [--max-players=N] [--net-delay=N]`; players
+just Join it (ROOM pairs friends). Home setup: docs/SERVER.md. Don't `pkill -f` with a
+pattern that's also in your own command line: it kills your shell.
 Matches are deterministic, so a seed reproduces a CPU match exactly.
 
 ## Layout
@@ -77,7 +80,8 @@ src/ai/     cpu_controller                                   CPU opponent (seede
 src/input/  player_input, mouse_orders                       keyboard/mouse/gamepad
 src/view/   fx_view (+fx_ground), creature_view, hud, audio_view, arena, crowd, debug
 src/net/    rollback_session (GGPO-style), sim_check (cross-platform fingerprint),
-            net_link (+enet/loop/lag links), netplay (handshake, rematch), online_match
+            net_link (+enet/loop/lag links), netplay (handshake, rematch), online_match,
+            dedicated_server + enet_hub + relay_server + referee (the --server mode)
 src/game/   main (flow, camera), team_select, online_lobby, showcase, trials, drills, controls,
             match_factory
 data/       creatures/*.json, rules/duel.json, trials.json, audio.json
@@ -153,8 +157,9 @@ tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gi
   draw all three.
 - **Audio: TODO, all placeholder.** Replace everything in `assets/audio/`; checklist in
   `docs/AUDIO.md` and the "Replace placeholder audio" GitHub issue.
-- **Online:** direct 1v1 over UDP is built (docs/NETCODE.md). Not yet: a relay or Steam
-  transport (behind `NetLink`), 3v3 online, spectators, matchmaking. Online matches are a
+- **Online:** direct 1v1 over UDP and a dedicated relay/referee server are built
+  (docs/NETCODE.md, docs/SERVER.md). Not yet: a Steam transport (behind `NetLink`), 3v3
+  online, spectators, matchmaking beyond rooms. Online matches are a
   DuelSim with one creature per side, so match rules stay in the sim.
 - **Not built yet:** affinity surfaces, more arenas. Game mode plan and priorities: Game Plan doc,
   "Game modes".
