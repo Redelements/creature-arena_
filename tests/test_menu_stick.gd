@@ -92,11 +92,10 @@ func test_menu_screens_animate_by_time() -> void:
 		b._process(1.0 / 60.0)
 	assert_eq(a._tick, b._tick, "a second at 144 fps = a second at 60:")
 	assert_eq(b._tick, 60, "")
-	var l := OnlineLobby.new()
-	l.visible = true
+	var p := FighterPreview.new()
 	for i in 240:
-		l._process(1.0 / 240.0)
-	assert_eq(l._tick, 60, "the online screen too:")
+		p._time += 1.0 / 240.0  # what _process adds while it's on screen
+	assert_eq(int(p._time * 60.0 + 1e-6), 60, "the fighter previews too:")
 	a.free()
 	b.free()
-	l.free()
+	p.free()

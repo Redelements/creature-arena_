@@ -1,141 +1,153 @@
 class_name OnlineLobby
-extends Node2D
-## The online screen: pick your fighter, then host a match or join one by address.
-## While hosting it lists this computer's addresses for the other player; while
-## connecting it shows what's happening. Keyboard, mouse and controller all work; on
-## the address row, type (or paste with Ctrl+V) an IP or host name, with an optional
-## ":port".
+extends UiScreen
+## The online screen: pick your fighter, then host a match, or join a host or a
+## dedicated server by address. While hosting it lists this computer's addresses for the
+## other player; while connecting it shows what's happening and only Cancel works.
+##
+## The address is a real text box (caret, selection, clipboard; the on-screen keyboard
+## where the platform has one). The last few addresses joined are one press away.
 
 signal host_pressed(fighter: String)
 signal join_pressed(fighter: String, address: String, port: int, room: String)
 signal cancelled
 
-const C_PANEL := Color(0.07, 0.08, 0.1, 0.85)
-const C_TEXT := Color("e8e6df")
-const C_DIM := Color("9aa0aa")
-const C_ACCENT := Color("ffd166")
 const C_BAD := Color("ff8a7a")
-const ROWS := ["fighter", "host", "join", "back"]
-const ROW_Y := [64.0, 112.0, 136.0, 160.0]
-const X := 120.0
-const W := 240.0
+const MAX_RECENT := 3
+const HOST_HELP := "They join your address: the 192.168... one at home; online, forward UDP 7777 or use Tailscale"
+const FIELD_HELP := "A host's address, or a dedicated server's (add /room to meet a friend there)"
 
 var fighter := "cairn"
 var address := ""
-var cursor := 0
+var recent: Array = []
 ## Set by main from the Netplay session: what's happening, and whether it went wrong.
-var status := ""
-var status_bad := false
-var busy := false  ## hosting or connecting: only Back works
-var hosting_port := 0
-var _font: Font = ThemeDB.fallback_font
-var _tick := 0
-## Button hints for a controller (else keyboard and mouse).
-var gamepad := false
-var _time := 0.0
-var _tex := {}
+var status := "":
+	set(v):
+		status = v
+		_refresh_status()
+var status_bad := false:
+	set(v):
+		status_bad = v
+		_refresh_status()
+var busy := false:  ## hosting or connecting: only Cancel works
+	set(v):
+		busy = v
+		_refresh_busy()
+var hosting_port := 0:
+	set(v):
+		hosting_port = v
+		_refresh_status()
+
+var field: LineEdit
+var _preview: FighterPreview
+var _fighter_row: OptionRow
+var _host: Button
+var _join: Button
+var _back: Button
+var _recent_rows: Array = []
+var _status_label: Label
+var _addr_label: Label
 
 
-func open(p_fighter: String, p_address: String) -> void:
-	fighter = p_fighter
+func _init(p_fighter := "cairn", p_address := "", p_recent: Array = []) -> void:
+	super()
+	fighter = p_fighter if p_fighter in MatchFactory.FIGHTERS else "cairn"
 	address = p_address
-	cursor = 0
-	status = ""
-	status_bad = false
-	busy = false
+	recent = p_recent.slice(0, MAX_RECENT)
+	title = "ONLINE  1 v 1"
+	subtitle = "Host a match, or join a host or a server by address"
+	row_width = 250.0
+	dim = 0.9
+	hints = ["move", "change", "select", "back"]
+
+
+func build() -> void:
+	_preview = FighterPreview.new()
+	_preview.custom_minimum_size = Vector2(row_width, 34)
+	_preview.zoom = 0.6
+	_preview.fighter = fighter
+	_list.add_child(_preview)
+	var names: Array = []
 	for id in MatchFactory.FIGHTERS:
-		var path := String(MatchFactory.load_def(id).get("sprite", {}).get("path", ""))
-		if path != "" and not _tex.has(path):
-			_tex[path] = load(path)
-	visible = true
-	queue_redraw()
+		names.append(String(MatchFactory.load_def(id).get("name", id)))
+	_fighter_row = add_option("Fighter", names, MatchFactory.FIGHTERS.find(fighter), _on_fighter,
+		"Who you play")
+	_host = add_button("Host a match", func(): host_pressed.emit(fighter), HOST_HELP)
+	field = LineEdit.new()
+	field.text = address
+	field.placeholder_text = "Address to join, e.g. 192.168.1.20 or game.example.net/kev"
+	field.max_length = 80
+	field.text_changed.connect(func(t: String): address = t)
+	field.text_submitted.connect(func(_t): _try_join(address))
+	add_row(field, FIELD_HELP)
+	_join = add_button("Join", func(): _try_join(address), "Connect to the address above")
+	for a in recent:
+		var r := add_button("Join  " + String(a), func(): _use_recent(String(a)), "Joined before")
+		_recent_rows.append(r)
+	add_space(4)
+	_back = add_button("Back", back)
+	_status_label = add_text("", UiTheme.SIZE_HINT + 1, UiTheme.C_ACCENT)
+	_addr_label = add_text("", UiTheme.SIZE_HINT + 1, UiTheme.C_TEXT)
+	_refresh_status()
 
 
-func close() -> void:
-	visible = false
+func back() -> void:
+	cancelled.emit()
 
 
-## Returns true when the event did something (for the menu blip).
-func handle(event: InputEvent) -> bool:
-	if not visible:
-		return false
-	if event.is_action_pressed("menu_back") or (event.is_action_pressed("ui_cancel") and not (event is InputEventKey)):
-		cancelled.emit()
-		return true
+func set_gamepad(on: bool) -> void:
+	super(on)
+	if field != null:
+		describe(field, "Steam Deck: Steam + X opens the keyboard.   " + FIELD_HELP if on else FIELD_HELP)
+
+
+func _on_fighter(i: int) -> void:
+	fighter = MatchFactory.FIGHTERS[i]
+	_preview.fighter = fighter
+
+
+func _use_recent(a: String) -> void:
+	address = a
+	field.text = a
+	_try_join(a)
+
+
+func _try_join(text: String) -> void:
 	if busy:
-		return false
-	if event is InputEventMouseMotion or (event is InputEventMouseButton and event.pressed):
-		return _mouse(event)
-	# Typing on the address row (letters too: host names are fine).
-	if cursor == 2 and event is InputEventKey and event.pressed:
-		var k := event as InputEventKey
-		if k.keycode == KEY_BACKSPACE:
-			address = address.substr(0, maxi(0, address.length() - 1))
-			queue_redraw()
-			return true
-		if k.keycode == KEY_V and (k.ctrl_pressed or k.meta_pressed):
-			address = (address + DisplayServer.clipboard_get().strip_edges()).substr(0, 60)
-			queue_redraw()
-			return true
-		var ch := char(k.unicode) if k.unicode > 0 else ""
-		if ch != "" and (ch.is_valid_identifier() or ch in "0123456789.:-[]/") and address.length() < 60:
-			address += ch
-			queue_redraw()
-			return true
-	if event.is_action_pressed("ui_down", true):
-		cursor = (cursor + 1) % ROWS.size()
-	elif event.is_action_pressed("ui_up", true):
-		cursor = (cursor + ROWS.size() - 1) % ROWS.size()
-	elif event.is_action_pressed("ui_left", true) and cursor == 0:
-		_cycle(-1)
-	elif event.is_action_pressed("ui_right", true) and cursor == 0:
-		_cycle(1)
-	elif event.is_action_pressed("menu_confirm") or event.is_action_pressed("ui_accept"):
-		_choose(cursor)
-	else:
-		return false
-	queue_redraw()
-	return true
+		return
+	var parsed := parse_address(text)
+	if String(parsed[0]) == "":
+		status_bad = true
+		status = "Type the host's address first (for example 192.168.1.20)"
+		field.grab_focus()
+		return
+	join_pressed.emit(fighter, String(parsed[0]), int(parsed[1]), String(parsed[2]))
 
 
-func _mouse(event: InputEvent) -> bool:
-	var p: Vector2 = get_global_mouse_position()
-	for i in ROWS.size():
-		var r := Rect2(X, ROW_Y[i] - (14.0 if i == 0 else 12.0), W, 30.0 if i == 0 else 18.0)
-		if r.has_point(p):
-			var changed := cursor != i
-			cursor = i
-			if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-				if i == 0:
-					_cycle(-1 if p.x < X + W * 0.5 else 1)
-				else:
-					_choose(i)
-				changed = true
-			queue_redraw()
-			return changed
-	return false
+func _refresh_status() -> void:
+	if _status_label == null:
+		return
+	_status_label.text = status
+	_status_label.add_theme_color_override("font_color", C_BAD if status_bad else UiTheme.C_ACCENT)
+	var addrs := Netplay.local_addresses()
+	_addr_label.text = ("Your addresses:  " + ("  ".join(addrs) if not addrs.is_empty() else "(none found)")) \
+		if busy and hosting_port > 0 else ""
 
 
-func _cycle(dir: int) -> void:
-	var roster: Array = MatchFactory.FIGHTERS
-	fighter = roster[(roster.find(fighter) + dir + roster.size()) % roster.size()]
-
-
-func _choose(row: int) -> void:
-	match ROWS[row]:
-		"fighter":
-			cursor = 1
-		"host":
-			host_pressed.emit(fighter)
-		"join":
-			var parsed := parse_address(address)
-			if String(parsed[0]) == "":
-				status = "Type the host's address first (for example 192.168.1.20)"
-				status_bad = true
-				return
-			join_pressed.emit(fighter, String(parsed[0]), int(parsed[1]), String(parsed[2]))
-		"back":
-			cancelled.emit()
+## While hosting or connecting only Cancel works.
+func _refresh_busy() -> void:
+	if _back == null:
+		return
+	for c in [_fighter_row, _host, field, _join] + _recent_rows:
+		var ctl := c as Control
+		ctl.focus_mode = Control.FOCUS_NONE if busy else Control.FOCUS_ALL
+		ctl.mouse_filter = Control.MOUSE_FILTER_IGNORE if busy else Control.MOUSE_FILTER_STOP
+		ctl.modulate.a = 0.45 if busy else 1.0
+	field.editable = not busy
+	_back.text = "Cancel" if busy else "Back"
+	link_focus()
+	if busy:
+		_back.grab_focus()
+	_refresh_status()
 
 
 ## "1.2.3.4", "1.2.3.4:7000", "my-pc.lan", "[::1]:7777" -> [host, port, room].
@@ -161,88 +173,3 @@ static func parse_address(text: String) -> Array:
 	if port <= 0 or port > 65535:
 		port = Netplay.DEFAULT_PORT
 	return [t, port, room]
-
-
-## Animations count 60 ticks a second of real time, whatever the frame rate (counting
-## frames made them race on a 144 Hz screen).
-func _process(delta: float) -> void:
-	if visible:
-		_time += delta
-		_tick = int(_time * 60.0 + 1e-6)
-		queue_redraw()
-
-
-func _draw() -> void:
-	var w := float(SimDefs.VIEW_W)
-	draw_rect(Rect2(0, 0, w, SimDefs.VIEW_H), Color(0.04, 0.05, 0.07, 0.9))
-	_text(Vector2(0, 30), "ONLINE  1 v 1", 18, C_TEXT, HORIZONTAL_ALIGNMENT_CENTER, w)
-	_text(Vector2(0, 42), "Play someone on another computer: one hosts, the other joins", 7, C_DIM,
-		HORIZONTAL_ALIGNMENT_CENTER, w)
-
-	# Fighter
-	var sel := cursor == 0
-	var r := Rect2(X, ROW_Y[0] - 14.0, W, 30.0)
-	draw_rect(r, Color(1, 1, 1, 0.1) if sel else C_PANEL)
-	if sel:
-		draw_rect(Rect2(r.position, Vector2(3, r.size.y)), C_ACCENT)
-	var def := MatchFactory.load_def(fighter)
-	_draw_idle(def, Vector2(X + 26, ROW_Y[0] + 13))
-	_text(Vector2(X + 52, ROW_Y[0]), ("<  %s  >" if sel else "%s") % String(def.get("name", fighter)), 9,
-		C_ACCENT if sel else C_TEXT)
-	_text(Vector2(X + 52, ROW_Y[0] + 11), String(def.get("title", "")), 6, C_DIM)
-
-	_button(1, "HOST A MATCH")
-	var shown := address if address != "" else ("type the host's address" if cursor != 2 else "")
-	var caret := "_" if cursor == 2 and (_tick / 20) % 2 == 0 and not busy else ""
-	_button(2, "JOIN:  " + shown + caret)
-	_button(3, "BACK")
-
-	# Status, and how to connect over the internet.
-	var y := 190.0
-	if status != "":
-		_text(Vector2(0, y), status, 7, C_BAD if status_bad else C_ACCENT, HORIZONTAL_ALIGNMENT_CENTER, w)
-		y += 11.0
-	if busy and hosting_port > 0:
-		var addrs := Netplay.local_addresses()
-		var line := "Your addresses:  " + ("  ".join(addrs) if not addrs.is_empty() else "(none found)")
-		_text(Vector2(0, y), line, 7, C_TEXT, HORIZONTAL_ALIGNMENT_CENTER, w)
-		y += 11.0
-	_text(Vector2(0, 227), "A dedicated server: join its address. Add /room (game.example.net/kev) to meet a friend there.", 6,
-		C_DIM, HORIZONTAL_ALIGNMENT_CENTER, w)
-	_text(Vector2(0, 236), "Same network: join the host's 192.168... address.  Over the internet: the host forwards", 6,
-		C_DIM, HORIZONTAL_ALIGNMENT_CENTER, w)
-	_text(Vector2(0, 245), "UDP port %d on their router, or both install Tailscale and join the host's 100.x address." %
-		Netplay.DEFAULT_PORT, 6, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, w)
-	_text(Vector2(0, 260), Prompts.line(gamepad, ["move", "change", "select", "back"]) + ("" if gamepad else "     Ctrl+V paste"), 6,
-		C_DIM, HORIZONTAL_ALIGNMENT_CENTER, w)
-
-
-func _button(row: int, label: String) -> void:
-	var sel := cursor == row
-	var r := Rect2(X, ROW_Y[row] - 12.0, W, 18.0)
-	var dim := busy and row != 3
-	draw_rect(r, Color(C_ACCENT, 0.9) if sel and not dim else (Color(1, 1, 1, 0.1) if sel else C_PANEL))
-	var col := Color(0.08, 0.08, 0.1) if sel and not dim else (C_DIM if dim else C_TEXT)
-	_text(Vector2(r.position.x + 10, r.position.y + 12), label, 8, col)
-
-
-func _draw_idle(def: Dictionary, feet: Vector2) -> void:
-	var sp: Dictionary = def.get("sprite", {})
-	var tex: Texture2D = _tex.get(String(sp.get("path", "")))
-	if tex == null:
-		return
-	var fr = sp.get("frame", 48)
-	var size := Vector2(float(fr[0]), float(fr[1])) if fr is Array else Vector2(float(fr), float(fr))
-	var o: Array = sp.get("origin", [24, 43])
-	var idle: Array = sp.get("anims", {}).get("idle", [0, 0, 1])
-	var frame := int(idle[1]) + (_tick / 10) % int(idle[2])
-	var region := Rect2(frame * size.x, int(idle[0]) * size.y, size.x, size.y)
-	var k := float(sp.get("select_scale", minf(1.0, 55.0 / size.x))) * 0.6
-	draw_set_transform(feet, 0.0, Vector2(k, k))
-	draw_texture_rect_region(tex, Rect2(-float(o[0]), -float(o[1]), size.x, size.y), region)
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-
-
-func _text(pos: Vector2, s: String, size: int, col: Color, align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0) -> void:
-	draw_string_outline(_font, pos, s, align, width, size, 2, Color(0, 0, 0, col.a * 0.8))
-	draw_string(_font, pos, s, align, width, size, col)

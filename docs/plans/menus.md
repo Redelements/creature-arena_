@@ -8,7 +8,7 @@ approach: **Godot Control nodes + a Theme + a screen stack**, built as four stac
 |---|---|---|---|---|
 | 0 | Stick input, 60/144 fps caps | `menu-input-fps` | `main` | PR #25 open |
 | 1 | Quick fixes + UI foundation + pause menu | `menu-fixes` | `menu-input-fps` | PR open |
-| 2 | Title, Settings, online screen, match over on Control nodes | `menu-controls` | `menu-fixes` | to do |
+| 2 | Title, Settings, online screen, match over on Control nodes | `menu-controls` | `menu-fixes` | PR open |
 | 3 | Fighting-game character select | `char-select` | `menu-controls` | to do |
 | 4 | Vsync, rumble, screen shake, remapping | `settings-remap` | `char-select` | to do |
 
@@ -45,12 +45,13 @@ progress, then carry on from its first unticked item.
 - [x] Tests, smoke run, screenshots of the pause screens, docs, PR
 
 ## PR 2 checklist
-- [ ] Title menu, Single player list (rows with choices = OptionRow), Settings (volume bars)
-- [ ] Online screen: fighter OptionRow, Host, a LineEdit address with the Steam Deck
-      keyboard, recent servers, Back; status lines
-- [ ] Match over: Rematch / Change fighters / Main menu
-- [ ] Remove the old drawn menus from hud/main/online_lobby; main.gd loses its menu code
-- [ ] Tests (navigate every screen by synthetic input), screenshots, docs, PR
+- [x] Title menu, Single player list (rows with choices = OptionRow), Settings (volume bars)
+- [x] Online screen: fighter OptionRow, Host, a LineEdit address (Steam Deck: Steam + X
+      for the keyboard), recent servers, Back/Cancel; status lines
+- [x] Match over: Rematch / Change fighters / Main menu (online: Rematch / Leave + status)
+- [x] Remove the old drawn menus from hud/main/online_lobby; main.gd loses its menu code
+- [x] Tests (navigate every screen by synthetic input), screenshots, docs, PR
+- Note: this branch merges `dedicated-server` (#24) so the online screen has rooms.
 
 ## PR 3 checklist
 - [ ] Portrait grid of every fighter, a cursor per player (P1 red, P2/CPU blue)
