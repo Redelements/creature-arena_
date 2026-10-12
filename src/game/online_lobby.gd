@@ -30,6 +30,7 @@ var busy := false  ## hosting or connecting: only Back works
 var hosting_port := 0
 var _font: Font = ThemeDB.fallback_font
 var _tick := 0
+var _time := 0.0
 var _tex := {}
 
 
@@ -160,9 +161,12 @@ static func parse_address(text: String) -> Array:
 	return [t, port, room]
 
 
-func _process(_delta: float) -> void:
+## Animations count 60 ticks a second of real time, whatever the frame rate (counting
+## frames made them race on a 144 Hz screen).
+func _process(delta: float) -> void:
 	if visible:
-		_tick += 1
+		_time += delta
+		_tick = int(_time * 60.0 + 1e-6)
 		queue_redraw()
 
 

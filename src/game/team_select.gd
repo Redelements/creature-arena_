@@ -23,6 +23,7 @@ var teams := [[], []]
 var cursor := 0
 var _font: Font = ThemeDB.fallback_font
 var _tick := 0
+var _time := 0.0
 var _roster: Array = []
 var _tex := {}  ## sprite sheets by path, loaded up front (not inside _draw)
 
@@ -89,9 +90,12 @@ func _cycle(dir: int) -> void:
 	teams[side][slot] = _roster[(i + dir + _roster.size()) % _roster.size()]
 
 
-func _process(_delta: float) -> void:
+## Animations count 60 ticks a second of real time, whatever the frame rate (counting
+## frames made them race on a 144 Hz screen).
+func _process(delta: float) -> void:
 	if visible:
-		_tick += 1
+		_time += delta
+		_tick = int(_time * 60.0 + 1e-6)
 		queue_redraw()
 
 

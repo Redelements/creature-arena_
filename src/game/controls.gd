@@ -79,7 +79,17 @@ const CLASSIC_BITS := {
 }
 
 
+## Godot's menu actions whose stick binding MenuStick replaces.
+const UI_DIRECTIONS := ["ui_up", "ui_down", "ui_left", "ui_right"]
+
+
 static func setup() -> void:
+	# The built-in menu actions count every wobble of the stick past the deadzone as a
+	# new press; MenuStick reads the stick for menus instead (d-pad and keys stay).
+	for action in UI_DIRECTIONS:
+		for ev in InputMap.action_get_events(action):
+			if ev is InputEventJoypadMotion:
+				InputMap.action_erase_event(action, ev)
 	for action in BINDINGS:
 		if InputMap.has_action(action):
 			continue
