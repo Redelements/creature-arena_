@@ -9,7 +9,7 @@ approach: **Godot Control nodes + a Theme + a screen stack**, built as four stac
 | 0 | Stick input, 60/144 fps caps | `menu-input-fps` | `main` | PR #25 open |
 | 1 | Quick fixes + UI foundation + pause menu | `menu-fixes` | `menu-input-fps` | PR open |
 | 2 | Title, Settings, online screen, match over on Control nodes | `menu-controls` | `menu-fixes` | PR open |
-| 3 | Fighting-game character select | `char-select` | `menu-controls` | to do |
+| 3 | Fighting-game character select | `char-select` | `menu-controls` | PR open |
 | 4 | Vsync, rumble, screen shake, remapping | `settings-remap` | `char-select` | to do |
 
 A session that picks this up: read this file, `git log --oneline -5` on the branch in
@@ -54,11 +54,13 @@ progress, then carry on from its first unticked item.
 - Note: this branch merges `dedicated-server` (#24) so the online screen has rooms.
 
 ## PR 3 checklist
-- [ ] Portrait grid of every fighter, a cursor per player (P1 red, P2/CPU blue)
-- [ ] Each player picks with their own device at once; Ready; a team of 3 picks in turn
-- [ ] CPU side: P1 picks for it after their own (as now), or Random
-- [ ] Big preview of the hovered fighter (idle animation, name, title, role, affinity)
-- [ ] Tests, screenshots, PR
+- [x] Portrait grid of every fighter, a cursor per player (P1 red, P2/CPU blue)
+- [x] Each player picks with their own device at once (own stick, d-pad, A/B); a team
+      fills in order; both full = READY, then the match (B still undoes for a moment)
+- [x] CPU side: P1 picks for it after their own; "?" (or Y / R) picks at random
+- [x] Big preview of the hovered fighter (idle animation, name, title, role, affinity)
+- [x] Tests, screenshots, PR
+- Found: code-made bindings listened to controller 0 only (Controls.ALL_DEVICES fixes it)
 
 ## PR 4 checklist
 - [ ] Settings: vsync, rumble on/off, screen shake on/off

@@ -81,21 +81,12 @@ func test_the_stick_is_out_of_the_built_in_menu_actions() -> void:
 		assert_gt(float(others), 0.0, "%s keeps its keys and d-pad" % action)
 
 
-func test_menu_screens_animate_by_time() -> void:
-	var a := TeamSelect.new()
-	a.visible = true
-	for i in 144:
-		a._process(1.0 / 144.0)
-	var b := TeamSelect.new()
-	b.visible = true
-	for i in 60:
-		b._process(1.0 / 60.0)
-	assert_eq(a._tick, b._tick, "a second at 144 fps = a second at 60:")
-	assert_eq(b._tick, 60, "")
-	var p := FighterPreview.new()
-	for i in 240:
-		p._time += 1.0 / 240.0  # what _process adds while it's on screen
-	assert_eq(int(p._time * 60.0 + 1e-6), 60, "the fighter previews too:")
-	a.free()
-	b.free()
-	p.free()
+func test_menu_animations_go_by_time() -> void:
+	var counts: Array = []
+	for fps in [60.0, 144.0, 240.0]:
+		var p := FighterPreview.new()
+		for i in roundi(fps):
+			p._time += 1.0 / fps  # what _process adds each frame while it's on screen
+		counts.append(int(p._time * 60.0 + 1e-6))
+		p.free()
+	assert_eq(counts, [60, 60, 60], "a second of animation is a second at any frame rate:")
