@@ -82,9 +82,10 @@ src/view/   fx_view (+fx_ground), creature_view, hud, audio_view, arena, crowd, 
 src/net/    rollback_session (GGPO-style), sim_check (cross-platform fingerprint),
             net_link (+enet/loop/lag links), netplay (handshake, rematch), online_match,
             dedicated_server + enet_hub + relay_server + referee (the --server mode)
-src/game/   main (flow, camera), team_select, online_lobby, showcase, trials, drills, controls,
+src/game/   main (flow, camera), online_lobby, showcase, trials, drills, controls,
             match_factory
-src/ui/     ui_theme, screen_stack, ui_screen, option_row, prompts, pause/confirm/help screens
+src/ui/     ui_theme, screen_stack, ui_screen, option_row, prompts, fighter_preview, title,
+            character_select, pause/confirm/help screens
             (menus on Godot Control nodes; plan in docs/plans/menus.md)
 data/       creatures/*.json, rules/duel.json, trials.json, audio.json
 tests/      run_tests.gd auto-runs every tests/test_*.gd
@@ -169,8 +170,10 @@ tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gi
   `UiTheme`, focus navigation on `ui_*`; B / Esc closes the top screen). Title
   (`TitleScreen`), Single player and Settings (built in main with `UiScreen.builder`;
   settings rows from `_setting(key)` / `_set_setting(key, i)`), the online screen
-  (`OnlineLobby`, a LineEdit address + recent servers), pause, match over. The pick
-  screen is still drawn by hand until the character select PR (docs/plans/menus.md). Tests drive screens with real input events
+  (`OnlineLobby`, a LineEdit address + recent servers), pause, match over, and the
+  `CharacterSelect` (portrait grid, a cursor per player on their own device; it reads
+  each pad's stick itself, so main turns MenuStick off under it). Bindings made in code
+  need `device = Controls.ALL_DEVICES`, or they only hear controller 0. Tests drive screens with real input events
   (`tests/test_ui.gd`); `run_tests.gd` runs on the first frame so the scene tree is live.
 - **Planned:** dodge timing. Kevin wants to leave a combo at any time to dodge; today
   Dodge isn't buffered during attacks and can't cancel them (issue #9 has the options).

@@ -170,7 +170,6 @@ var duel: DuelSim = null
 ## Combo Trials or a Reaction Drill: drives the partner and judges the player.
 var coach = null
 var _row_choice: Array = []
-var team_select: TeamSelect
 var player2_input := PlayerInput.new()
 var _teams: Array = DEFAULT_TEAMS.duplicate(true)
 var _skip_select := false
@@ -248,11 +247,6 @@ func _ready() -> void:
 	layer.add_child(hud)
 	_row_choice.resize(MENU_ROWS.size())
 	_row_choice.fill(0)
-	team_select = TeamSelect.new()
-	team_select.visible = false
-	layer.add_child(team_select)
-	team_select.chosen.connect(_on_teams_chosen)
-	team_select.cancelled.connect(func(): _open_menu("single"))
 	player2_input.keyboard = false
 	player2_input.pad_device = PlayerInput.NO_PAD
 
@@ -284,7 +278,6 @@ func _open_menu(page := "", focus := "") -> void:
 	_end_showcase()
 	_end_duel()
 	_end_coach()
-	team_select.close()
 	hud.visible = true
 	hud.menu_visible = true
 	audio.play_music("menu")
@@ -394,13 +387,20 @@ func _start_match(m: int, keep_teams := false) -> void:
 		hud.visible = false
 		var size := int(DuelSim.load_rules().get("team_size", 3)) if cfg.get("duel", false) else 1
 		var labels := ["PLAYER 1", "PLAYER 2" if two_players else "CPU"]
-		team_select.open("DUEL" if cfg.get("duel", false) else "VERSUS", size, labels, _teams)
+		var pick := CharacterSelect.new()
+		pick.setup("DUEL" if cfg.get("duel", false) else "VERSUS", size, labels, two_players, _teams)
+		pick.p1_keyboard = player_input.keyboard
+		pick.p1_pad = player_input.pad_device
+		pick.p2_pad = player2_input.pad_device
+		pick.chosen.connect(_on_teams_chosen)
+		pick.cancelled.connect(func(): _open_menu("single"))
+		ui.push(pick)
 		return
 	_start_round()
 
 
 func _on_teams_chosen(teams: Array) -> void:
-	team_select.close()
+	_close_ui()
 	hud.visible = true
 	_teams = teams
 	audio.play("ui_select", 0.0, 1.0, true)
@@ -1005,11 +1005,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if ui.is_open():
 		return  # the screen on top has the input
-	if flow == Flow.SELECT:
-		if team_select.handle(event) and flow == Flow.SELECT:
-			audio.play("ui_move", 0.0, 1.0, true)
-		return
-	if flow == Flow.MENU or flow == Flow.LOBBY or flow == Flow.MATCH_OVER:
+	if flow == Flow.MENU or flow == Flow.SELECT or flow == Flow.LOBBY or flow == Flow.MATCH_OVER:
 		return  # their screens take the input
 	if event.is_action_pressed("pause") and showcase != null:
 		_open_menu()  # a demo: straight back
@@ -1151,7 +1147,8 @@ func in_menus() -> bool:
 
 func _apply_frame_rate() -> void:
 	var menus := in_menus()
-	menu_stick.enabled = menus or ui.is_open()
+	# The character select reads each player's stick itself (two cursors).
+	menu_stick.enabled = (menus or ui.is_open()) and not (ui.top() is CharacterSelect)
 	if _fps_caps:
 		var cap := MENU_FPS if menus else fight_fps
 		if Engine.max_fps != cap:
@@ -1183,7 +1180,6 @@ func _apply_device() -> void:
 	hud.help_text = player_input.help_text()
 	var pad := player_input.device == PlayerInput.Device.GAMEPAD
 	hud.gamepad = pad
-	team_select.gamepad = pad
 	ui.set_gamepad(pad)
 	if player_input.device == PlayerInput.Device.GAMEPAD:
 		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN

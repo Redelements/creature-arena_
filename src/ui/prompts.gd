@@ -11,6 +11,7 @@ const PAD := {
 	"resume": "Start resume",
 	"rematch": "A rematch",
 	"leave": "B leave",
+	"undo": "B undo",
 }
 const KEYS := {
 	"move": "Arrows move",
@@ -20,6 +21,7 @@ const KEYS := {
 	"resume": "Esc resume",
 	"rematch": "Enter rematch",
 	"leave": "Esc leave",
+	"undo": "Esc undo",
 }
 
 

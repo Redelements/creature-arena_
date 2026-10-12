@@ -192,15 +192,117 @@ func test_start_at_match_over_is_still_a_rematch() -> void:
 	g.free()
 
 
-func test_the_pick_screen_knows_where_the_mouse_is() -> void:
-	var ts := TeamSelect.new()
-	ts.open("DUEL", 3, ["PLAYER 1", "CPU"], [["cairn", "culvert", "sno"], ["pete", "digby", "hissy"]])
-	assert_eq(ts._row_at(Vector2(TeamSelect.COLS[0] + 20, TeamSelect.TOP + 5)), 0, "the first slot:")
-	assert_eq(ts._row_at(Vector2(TeamSelect.COLS[1] + 20, TeamSelect.TOP + TeamSelect.ROW_H + 5)), 4,
-		"the CPU's second slot:")
-	assert_eq(ts._row_at(ts._start_rect().get_center()), ts._rows() - 1, "START:")
-	assert_eq(ts._row_at(Vector2(2, 2)), -1, "nothing:")
-	ts.free()
+# ------------------------------------------------------------------ character select
+
+func _pad(device: int, button: JoyButton) -> void:
+	for down in [true, false]:
+		var ev := InputEventJoypadButton.new()
+		ev.device = device
+		ev.button_index = button
+		ev.pressed = down
+		_root().push_input(ev)
+
+
+func _select(size: int, two: bool) -> Array:
+	var st := _stack()
+	var cs := CharacterSelect.new()
+	cs.setup("DUEL", size, ["PLAYER 1", "PLAYER 2" if two else "CPU"], two)
+	if two:
+		cs.p1_pad = 0
+		cs.p2_pad = 1
+	st.push(cs)
+	return [st, cs]
+
+
+func test_against_the_cpu_player_1_picks_both_teams() -> void:
+	var made := _select(3, false)
+	var cs: CharacterSelect = made[1]
+	var got := []
+	cs.chosen.connect(func(t): got.append(t))
+	for i in 3:
+		_press("ui_accept")
+		_press("ui_right")
+	assert_eq((cs.teams[0] as Array).size(), 3, "player 1's team is full:")
+	assert_eq(cs.side_of(0), 1, "now player 1 picks for the CPU")
+	for i in 3:
+		_press("ui_right")
+		_press("ui_accept")
+	assert_true(cs.is_done(), "both teams full")
+	cs._process(1.0)
+	assert_eq(got.size(), 1, "the match starts:")
+	assert_eq(got[0][0], ["cairn", "culvert", "craglash"], "player 1's picks, in order:")
+	assert_eq((got[0][1] as Array).size(), 3, "")
+	(made[0] as Node).free()
+
+
+func test_two_players_pick_at_once_with_their_own_pads() -> void:
+	var made := _select(1, true)
+	var cs: CharacterSelect = made[1]
+	_pad(1, JOY_BUTTON_DPAD_RIGHT)
+	_pad(1, JOY_BUTTON_DPAD_RIGHT)
+	assert_eq(cs.cursor[1], 2, "player 2's d-pad moves player 2's cursor:")
+	assert_eq(cs.cursor[0], 0, "not player 1's")
+	_pad(1, JOY_BUTTON_A)
+	assert_eq(cs.teams[1], ["craglash"], "player 2's A picks for player 2:")
+	assert_true(cs.teams[0].is_empty(), "")
+	_pad(0, JOY_BUTTON_DPAD_DOWN)
+	_pad(0, JOY_BUTTON_A)
+	assert_eq(cs.teams[0], [String(cs.roster[CharacterSelect.COLS])], "player 1 picks with theirs:")
+	assert_true(cs.is_done(), "1 v 1: done")
+	_pad(1, JOY_BUTTON_B)
+	assert_true(cs.teams[1].is_empty(), "player 2's B takes back player 2's pick")
+	assert_eq((cs.teams[0] as Array).size(), 1, "and only theirs")
+	(made[0] as Node).free()
+
+
+func test_undo_then_leave() -> void:
+	var made := _select(3, false)
+	var cs: CharacterSelect = made[1]
+	var left := [false]
+	cs.cancelled.connect(func(): left[0] = true)
+	_press("ui_accept")
+	_press("ui_cancel")
+	assert_true(cs.teams[0].is_empty(), "B / Esc takes the pick back")
+	assert_false(left[0], "without leaving")
+	_press("ui_cancel")
+	assert_true(left[0], "with nothing to take back, it leaves")
+	(made[0] as Node).free()
+
+
+func test_no_fighter_twice_on_a_team_and_random_respects_that() -> void:
+	var made := _select(3, false)
+	var cs: CharacterSelect = made[1]
+	_press("ui_accept")
+	_press("ui_accept")
+	assert_eq(cs.teams[0], ["cairn"], "the same fighter can't be picked twice:")
+	for i in 2:
+		cs.pick(0, true)
+	var t: Array = cs.teams[0]
+	assert_eq(t.size(), 3, "random fills the team:")
+	assert_true(t[1] != "cairn" and t[2] != "cairn" and t[1] != t[2], "with fighters not on it yet: %s" % str(t))
+	(made[0] as Node).free()
+
+
+func test_the_mouse_picks_a_tile() -> void:
+	var made := _select(1, false)
+	var cs: CharacterSelect = made[1]
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = true
+	ev.position = cs._tile_rect(4).get_center()
+	cs._gui_input(ev)
+	assert_eq(cs.teams[0], [String(cs.roster[4])], "a click picks what's under it:")
+	(made[0] as Node).free()
+
+
+func test_the_game_opens_it_for_a_duel() -> void:
+	var g := _game()
+	g._start_match(6)
+	assert_true(g.ui.top() is CharacterSelect, "Duel vs CPU opens the character select")
+	assert_eq(g.flow, g.Flow.SELECT, "")
+	_tick(g, 1)
+	assert_false(g.menu_stick.enabled, "it reads the sticks itself")
+	g.free()
 
 
 # ------------------------------------------------------------------ the game's menus
@@ -303,6 +405,7 @@ func test_match_over_offers_rematch_and_back_goes_to_the_menu() -> void:
 	var g := _game()
 	g._start_match(6)  # Duel vs CPU (pick screen)
 	g._on_teams_chosen(g.DEFAULT_TEAMS.duplicate(true))
+	g._apply_frame_rate()
 	g.flow = g.Flow.MATCH_OVER
 	g.flow_t = 0
 	_tick(g, g.MATCH_OVER_MENU_AT + 1)
@@ -314,3 +417,19 @@ func test_match_over_offers_rematch_and_back_goes_to_the_menu() -> void:
 	_press("ui_cancel")
 	assert_eq(g.flow, g.Flow.MENU, "Back goes to the title menu")
 	g.free()
+
+
+func test_every_controller_works_in_menus_and_fights() -> void:
+	Controls.setup()
+	for dev in [0, 1, 3]:
+		var a := InputEventJoypadButton.new()
+		a.device = dev
+		a.button_index = JOY_BUTTON_A
+		a.pressed = true
+		var start := InputEventJoypadButton.new()
+		start.device = dev
+		start.button_index = JOY_BUTTON_START
+		start.pressed = true
+		assert_true(a.is_action_pressed("ui_accept"), "controller %d: A selects" % dev)
+		assert_true(a.is_action_pressed("pad_light"), "controller %d: A attacks" % dev)
+		assert_true(start.is_action_pressed("pause"), "controller %d: Start pauses" % dev)
