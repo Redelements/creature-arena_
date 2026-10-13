@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Chef Cerebro sprite sheets, a pixel-art recreation of the artist's character sheet.
+"""Chef Cerebro sprite sheets: a floating brain who throws his kitchen with his mind.
 
 Run from anywhere:  python3 tools/gen_cerebro.py
 Requires Pillow and numpy.
@@ -8,23 +8,27 @@ Writes assets/sprites/cerebro.png (128x128 frames, 8 columns, the side view),
 cerebro_down.png and cerebro_up.png (112x128 frames: facing the camera, and facing
 away), plus labelled previews in docs/.
 
+He hovers a hand's height off the floor, a short brainstem dangling under him, and his
+weapons float in a loose ring around him, each bobbing on its own: the big chef's knife
+(Cleaver Toss) at his front, the navy spatula (Flip Out) behind, the meat mallet (Mallet
+Toss, Tenderize) above his back, and a fan of paring knives (Knife Flick, Knife Flurry)
+above his brow. He has no hands: everything moves by telekinesis. A faint violet glow
+outlines every floating tool; the one he's working with burns bright, and his brain
+flushes violet as he pushes.
+
 Like Barkley's and Gillbert's, the rig is posed once in 3D and projected into each view
 with the same cameras. A point is (lat, up, fwd): lat toward his right side, up off the
-floor, fwd the way he faces. Unlike theirs, the pieces are not drawn as flat polygons in
-depth order: every piece is sampled densely as 3D points (lobes as ellipsoids, stems as
-tubes, blades as flat plates) and splatted into a depth buffer, so a brain made of
-overlapping lobes gets the right overlaps from any angle. Then, per pixel:
+floor, fwd the way he faces. Every piece is sampled densely as 3D points (lobes as
+ellipsoids, the stem as a tube, blades as flat plates) and splatted into a depth buffer,
+so a brain made of overlapping lobes gets the right overlaps from any angle. Then, per
+pixel: three-tone shading from the surface normal (lit from the top left), a dark
+outline round the silhouette and along every seam between pieces (the lines between the
+lobes), decals in the brain's own coordinates (sunglasses, wrinkles), and the psychic
+glow.
 
-  - three-tone shading from the surface normal, lit from the top left,
-  - a dark outline round the silhouette and along every seam between pieces (that is
-    what draws the lines between the lobes, as on the sheet),
-  - decals in the brain's own coordinates: the black sunglasses, their bridge, and the
-    wrinkles (gyri) on each lobe.
-
-The kit: a big chef's knife on his front stem (thrown as Cleaver Toss), a navy spatula on
-his back stem (Flip Out), and a dark brown saucepan on his back holding the meat mallet
-(Mallet Toss, Tenderize) and a supply of small knives (Knife Flick, Knife Flurry), drawn
-out by a third, thinner stem.
+The tools are posed in character space, not on the brain, so they drift on their own
+as he bobs. A tool that's been thrown is simply missing from the frame; the game draws
+it in flight.
 
 This is a recreation for the soft launch; when the artist delivers final sprites in the
 same layout they drop in with no code changes.
@@ -55,13 +59,12 @@ MAT = {
     "spatula": ((36, 42, 122), (74, 84, 176), (20, 24, 80)),
     "mallet": ((140, 76, 72), (176, 104, 96), (100, 52, 52)),
     "mallet_h": ((150, 92, 86), (186, 122, 110), (108, 62, 58)),
-    "pot": ((98, 52, 52), (128, 72, 70), (66, 34, 36)),
-    "pot_in": ((54, 28, 30), (66, 36, 38), (40, 20, 22)),
     "glass": ((10, 10, 12), (60, 62, 72), (0, 0, 0)),
 }
 OUTLINE = (80, 0, 18, 255)       # the sheet's dark maroon line
 OUTLINE_TOOL = (14, 12, 14, 255)  # tools are outlined in black on the sheet
-TOOL_MATS = {"blade", "handle", "spatula", "mallet", "mallet_h", "pot", "pot_in", "glass"}
+TOOL_MATS = {"blade", "handle", "spatula", "mallet", "mallet_h", "glass"}
+PSY = (213, 140, 255)  # his telekinesis, the game's psychic colour (fx_color)
 MAT_ID = {name: i + 1 for i, name in enumerate(MAT)}
 ID_MAT = {i: name for name, i in MAT_ID.items()}
 
@@ -397,54 +400,38 @@ LENS_D = (0.5, -0.08, 0.86)
 LENS_R = 5.8
 
 
+HOVER = 16.0  # how high he floats, rig units (about 11 px)
+
+
 class Pose:
     def __init__(self, **kw):
-        self.lift = kw.get("lift", 0.0)        # whole brain off the floor
+        self.lift = kw.get("lift", HOVER)      # the brain's height off the floor
         self.shift = kw.get("shift", 0.0)      # whole brain forward
         self.pitch = kw.get("pitch", 0.0)      # front up (+) / down (-)
         self.yaw = kw.get("yaw", 0.0)
         self.roll = kw.get("roll", 0.0)
         self.squash = kw.get("squash", 1.0)    # height scale (width grows to match)
         self.stretch = kw.get("stretch", 1.0)  # length scale
+        self.thin = kw.get("thin", 1.0)        # width and length scale (a teleport pinches him)
         self.glasses = kw.get("glasses", "on")  # on | askew | down | off
         self.glint = kw.get("glint", 0.0)      # a shine across the lenses (0..1 along)
-        # Stems: tip position (character space) and two control offsets; the tool held.
-        self.knife = kw.get("knife", KNIFE_REST)      # (tip, ctrl, (pitch, yaw, roll)) or (tip, ctrl, None): empty
-        self.spat = kw.get("spat", SPAT_REST)
-        self.arm = kw.get("arm", ARM_REST)            # the pot stem: (tip, ctrl, orient, item)
-        self.mallet_in_pot = kw.get("mallet_in_pot", True)
-        self.pot = kw.get("pot", True)
-        self.tail = kw.get("tail", 0.0)        # the trailing stem's swing
+        self.psy = kw.get("psy", 0.0)          # how hard he's pushing with his mind (0..1)
+        self.tail = kw.get("tail", 0.0)        # the brainstem's sway, -1..1 (+ trails back)
+        self.stem = kw.get("stem", True)
+        # Floating tools: name -> (grip (lat, up, fwd), (pitch, yaw, roll)), or None when
+        # it's been thrown or put away. `active` tools glow bright.
+        self.tools = kw.get("tools", {})
+        self.active = set(kw.get("active", ()))
 
 
 class Brain:
-    """Body space to character space for the brain and everything rooted on it."""
+    """Body space to character space for the brain and its stem."""
 
     def __init__(self, pose):
         self.p = pose
-        lowest = 2.4 * pose.squash
-        self.base_lift = max(0.0, -self._world_raw((0.0, lowest - 2.4 * pose.squash + 0.6, 0.0))[1])
-
-    def _world_raw(self, q):
-        p = self.p
-        lat, up, fwd = q
-        c_up = 11.0
-        lat *= 1.0 + (1.0 - p.squash) * 0.5
-        up = c_up + (up - c_up) * p.squash
-        up -= (1.0 - p.squash) * c_up  # squash toward the floor
-        fwd *= p.stretch
-        q = (lat, up - c_up, fwd)
-        q = rot_fwd(q, p.roll)
-        q = rot_lat(q, p.pitch)
-        q = rot_up(q, p.yaw)
-        return (q[0], q[1] + c_up + p.lift, q[2] + p.shift)
 
     def world(self, q):
-        w = self._world_raw(q)
-        return (w[0], w[1], w[2])
-
-    def world_np(self, pts):
-        return np.array([self.world(tuple(q)) for q in pts])
+        return tuple(_transform(self, np.array([q], float))[0])
 
     def wdir(self, v):
         p = self.p
@@ -472,9 +459,9 @@ def _transform(br, pos):
     p = br.p
     q = pos.copy()
     c_up = 11.0
-    q[:, 0] *= 1.0 + (1.0 - p.squash) * 0.5
+    q[:, 0] *= (1.0 + (1.0 - p.squash) * 0.5) * p.thin
     q[:, 1] = (q[:, 1] - c_up) * p.squash + c_up - (1.0 - p.squash) * c_up
-    q[:, 2] *= p.stretch
+    q[:, 2] *= p.stretch * p.thin
     q[:, 1] -= c_up
     q = _rot_np(q, p.roll, p.pitch, p.yaw)
     q[:, 1] += c_up + p.lift
@@ -519,111 +506,95 @@ def knife_parts(grip, o, scale=1.0, mat_blade="blade"):
     return [handle, blade]
 
 
-def small_knife_parts(grip, o):
+def small_knife_parts(grip, o, k=1.0):
     a, b, n = o
     a = np.asarray(a)
     grip = np.asarray(grip, float)
-    handle = tube([grip - a * 3.0, grip + a * 0.4], [0.9, 0.8], "handle")
-    blade = plate(grip + a * 0.4, a, b, [(0, -0.3), (0, 1.8), (4.5, 1.6), (7.0, 0.2), (5.0, -0.4)], "blade")
+    handle = tube([grip - a * 3.0 * k, grip + a * 0.4 * k], [0.9 * k, 0.8 * k], "handle")
+    prof = [(0, -0.3), (0, 1.8), (4.5, 1.6), (7.0, 0.2), (5.0, -0.4)]
+    blade = plate(grip + a * 0.4 * k, a, b, [(t * k, w * k) for t, w in prof], "blade")
     return [handle, blade]
 
 
-def spatula_parts(grip, o):
+def spatula_parts(grip, o, k=1.0):
     a, b, n = o
     a = np.asarray(a)
     grip = np.asarray(grip, float)
-    handle = tube([grip - a * 2.0, grip + a * 9.0], [1.15, 1.0], "spatula")
-    head = plate(grip + a * 9.0, a, b, [(0, -1.6), (0, 1.6), (3.0, 3.2), (8.0, 3.6), (8.6, 0.0), (8.0, -3.6), (3.0, -3.2)],
-                 "spatula", thick=0.6)
+    handle = tube([grip - a * 2.0 * k, grip + a * 9.0 * k], [1.15 * k, 1.0 * k], "spatula")
+    prof = [(0, -1.6), (0, 1.6), (3.0, 3.2), (8.0, 3.6), (8.6, 0.0), (8.0, -3.6), (3.0, -3.2)]
+    head = plate(grip + a * 9.0 * k, a, b, [(t * k, w * k) for t, w in prof], "spatula", thick=0.6)
     return [handle, head]
 
 
-def mallet_parts(grip, o):
+def mallet_parts(grip, o, k=1.0):
     a, b, n = o
     a = np.asarray(a)
     b = np.asarray(b)
     n = np.asarray(n)
     grip = np.asarray(grip, float)
-    handle = tube([grip - a * 2.0, grip + a * 8.5], [0.95, 0.95], "mallet_h")
-    head = box(grip + a * 10.0, b, a, n, (3.6, 1.9, 2.0), "mallet")
+    handle = tube([grip - a * 2.0 * k, grip + a * 8.5 * k], [0.95 * k, 0.95 * k], "mallet_h")
+    head = box(grip + a * 10.0 * k, b, a, n, (3.6 * k, 1.9 * k, 2.0 * k), "mallet")
     return [handle, head]
 
 
-# ------------------------------------------------------------------ stems
+# ------------------------------------------------------------------ the floating kit
 
-KNIFE_ROOT = (-3.0, 4.0, 13.0)   # under the front lobes: the brainstem
-SPAT_ROOT = (3.0, 3.5, -13.0)    # under the back
-ARM_ROOT = (1.0, 25.0, -6.0)     # on top, beside the pan on his back
-TAIL_ROOT = (-4.0, 3.5, -14.0)
-POT_AT = (6.0, 23.0, -11.0)      # the pan's base, body space
+STEM_ROOT = (0.0, 3.0, -7.0)  # under the brain, toward the back: the brainstem
 
 
-def stem(br, root, tip, ctrl, r0=2.5, r1=1.5, out=(0.0, -1.0, 0.0)):
-    """A brain stem from a root on the brain to a tip in character space, leaving the
-    brain in the direction `out` (body space)."""
-    rw = br.world(root)
-    c1 = v_add(rw, v_mul(br.wdir(out), 5.0))
-    c2 = v_add(tip, ctrl)
-    pts = [bezier(rw, c1, c2, tip, k / 16.0) for k in range(17)]
-    radii = [r0 + (r1 - r0) * k / 16.0 for k in range(17)]
-    return tube(pts, radii, "stem")
+def brainstem(br, sway):
+    """The short stem dangling under him, curling back as he moves."""
+    p = br.p
+    root = br.world(STEM_ROOT)
+    drop = min(9.0, max(1.5, root[1] - 1.0))
+    tip = (root[0] + sway * 1.5, root[1] - drop, root[2] - 3.0 - sway * 4.0)
+    c1 = (root[0], root[1] - drop * 0.5, root[2] + 1.0)
+    c2 = (tip[0], tip[1] + 2.0, tip[2] + 2.0 + sway * 2.0)
+    pts = [bezier(root, c1, c2, tip, k / 12.0) for k in range(13)]
+    radii = [2.6 - 1.5 * k / 12.0 for k in range(13)]
+    return tube(pts, [r * p.thin for r in radii], "stem")
 
 
-KNIFE_REST = ((-11.0, 4.0, 26.0), (0.0, -3.0, -4.0), (88.0, -40.0, 0.0))
-SPAT_REST = ((5.0, 3.0, -27.0), (0.0, -2.0, 4.0), (60.0, 180.0, 0.0))
-ARM_REST = ((2.0, 30.0, -12.0), (0.0, 3.0, 2.0), (0.0, 0.0, 0.0), None)
+# Floating free, the tools are drawn bigger than they were in his stems' grip, so they
+# read at game size.
+TOOL_K = 1.35
+KNIFE_K = 1.6
+TOOL_BUILDERS = {
+    "cleaver": lambda g, o: knife_parts(g, o, TOOL_K),
+    "spatula": lambda g, o: spatula_parts(g, o, TOOL_K),
+    "mallet": lambda g, o: mallet_parts(g, o, TOOL_K),
+}
+
+
+def tool_parts(name, grip, ori):
+    o = orient(*ori)
+    if name in TOOL_BUILDERS:
+        return TOOL_BUILDERS[name](grip, o)
+    return small_knife_parts(grip, o, KNIFE_K)  # k1..k5: the paring knives
 
 
 def build(pose, view):
     _part_counter[0] = 0
     br = Brain(pose)
     parts = brain_samples(br)
-    # The front stem and the big knife.
-    tip, ctrl, ori = pose.knife
-    parts.append(stem(br, KNIFE_ROOT, tip, ctrl))
-    if ori is not None:
-        o = orient(*ori)
-        parts += knife_parts(tip, o)
-    # The back stem and the spatula.
-    tip, ctrl, ori = pose.spat
-    parts.append(stem(br, SPAT_ROOT, tip, ctrl, 2.4, 1.4))
-    if ori is not None:
-        parts += spatula_parts(tip, orient(*ori))
-    # A short trailing stem, like the sheet's.
-    tw = br.world(TAIL_ROOT)
-    tail_tip = (tw[0] - 4.0 + pose.tail * 2.0, 0.8, tw[2] - 9.0 + abs(pose.tail) * 1.5)
-    parts.append(stem(br, TAIL_ROOT, tail_tip, (2.0 * pose.tail, 0.0, 3.0), 2.2, 1.0))
-    # The pan on his back, with the mallet standing in it.
-    if pose.pot:
-        base = br.world(POT_AT)
-        axis = br.wdir(rot_lat((0.0, 1.0, 0.0), -20.0))
-        parts += cylinder(base, axis, 5.0, 5.5, "pot", cap_mat="pot_in")
-        hb = v_add(base, v_add(v_mul(axis, 3.0), br.wdir((0.0, 0.0, -3.5))))
-        he = v_add(hb, br.wdir((-1.0, -7.0, -8.0)))
-        parts.append(tube([hb, he], [1.3, 1.1], "pot"))
-        if pose.mallet_in_pot:
-            g = v_add(base, v_mul(axis, 2.0))
-            parts += mallet_parts(g, orient(pitch=72.0, yaw=0.0, roll=0.0))
-    # The pot stem, with whatever it is holding.
-    tip, ctrl, ori, item = pose.arm
-    parts.append(stem(br, ARM_ROOT, tip, ctrl, 2.1, 1.3, out=(0.0, 1.0, -0.3)))
-    if item is not None:
-        o = orient(*ori)
-        if item == "knife":
-            parts += small_knife_parts(tip, o)
-        elif item == "mallet":
-            parts += mallet_parts(tip, o)
-        elif item == "fan":
-            for k, spread in enumerate((-14.0, 0.0, 14.0)):
-                parts += small_knife_parts(tip, orient(ori[0], ori[1] + spread, ori[2]))
-    return br, parts
+    if pose.stem:
+        parts.append(brainstem(br, pose.tail))
+    tool_ids = {}
+    for name, spec in pose.tools.items():
+        if spec is None:
+            continue
+        grip, ori = spec
+        tp = tool_parts(name, grip, ori)
+        parts += tp
+        tool_ids[name] = {int(t["part"][0]) for t in tp}
+    return br, parts, tool_ids
 
 
 # ------------------------------------------------------------------ rasterising
 
 def rasterise(pose, view):
     cam = Cam(view)
-    br, parts = build(pose, view)
+    br, parts, tool_ids = build(pose, view)
     lobes = [p.get("lobe") for p in parts]
     data = merge(parts)
     pos, nrm = data["pos"] * SCALE, data["nrm"]
@@ -651,7 +622,7 @@ def rasterise(pose, view):
     return {
         "cam": cam, "br": br, "z": zbuf.reshape(H, W), "mat": mat.reshape(H, W), "part": part.reshape(H, W),
         "nrm": nbuf.reshape(H, W, 3), "local": lbuf.reshape(H, W, 3), "lobes": [l for l in lobes if l],
-        "pose": pose, "view": view,
+        "pose": pose, "view": view, "tool_ids": tool_ids,
     }
 
 
@@ -803,13 +774,70 @@ def outline(r, img):
     return a
 
 
+def _grow(m, n=1):
+    out = m.copy()
+    for _ in range(n):
+        g = out.copy()
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            g |= np.roll(np.roll(out, dy, 0), dx, 1)
+        out = g
+    return out
+
+
+def flush(r, img):
+    """His brain turns violet as he pushes with his mind."""
+    k = 0.42 * r["pose"].psy
+    if k <= 0:
+        return img
+    m = (r["mat"] == MAT_ID["brain"]) | (r["mat"] == MAT_ID["stem"])
+    col = img[m, :3].astype(float)
+    img[m, :3] = (col * (1.0 - k) + np.array(PSY) * k).astype(np.uint8)
+    return img
+
+
+def glow(r, img):
+    """Telekinesis: a violet halo outside the outline of every floating tool, bright and
+    two pixels wide on the ones he's working with; round the brain too while he pushes."""
+    p = r["pose"]
+    part = r["part"]
+    empty = img[:, :, 3] == 0
+    out = img.copy()
+
+    def halo(mask, alpha, width):
+        body = _grow(mask, 1)  # the piece and its outline
+        ring = _grow(body, width) & ~body & empty
+        out[ring] = (PSY[0], PSY[1], PSY[2], alpha)
+        return ring
+
+    taken = np.zeros(empty.shape, bool)
+    for name, ids in r["tool_ids"].items():
+        if name in p.active:
+            m = np.isin(part, list(ids))
+            ring = halo(m, 235, 1)
+            outer = _grow(ring, 1) & ~ring & empty & ~_grow(m, 1)
+            out[outer] = (PSY[0], PSY[1], PSY[2], 110)
+            taken |= ring | outer
+    for name, ids in r["tool_ids"].items():
+        if name not in p.active:
+            m = np.isin(part, list(ids))
+            ring = _grow(_grow(m, 1), 1) & ~_grow(m, 1) & empty & ~taken
+            out[ring] = (PSY[0], PSY[1], PSY[2], 165)
+    if p.psy >= 0.5:
+        m = (r["mat"] == MAT_ID["brain"]) | (r["mat"] == MAT_ID["stem"])
+        ring = _grow(_grow(m, 1), 1) & ~_grow(m, 1) & empty & ~taken
+        out[ring] = (PSY[0], PSY[1], PSY[2], int(90 + 120 * p.psy))
+    return out
+
+
 def render(pose, view):
     global W, H
     r = rasterise(pose, view)
     img = shade_buffers(r)
     img = gyri(r, img)
     img = decals(r, img)
+    img = flush(r, img)
     img = outline(r, img)
+    img = glow(r, img)
     return Image.fromarray(img)
 
 
@@ -819,174 +847,219 @@ def P(**kw):
     return Pose(**kw)
 
 
-def K(tip, ctrl=(0.0, -3.0, -4.0), ori=(88.0, 0.0, 0.0)):
-    # held edge-on to nobody: turned so the blade's flat shows from the side and the front
-    if ori is not None:
-        ori = (ori[0], ori[1] - 40.0, ori[2])
-    return (tip, ctrl, ori)
+# Where each tool floats at rest: grip (lat, up, fwd) and (pitch, yaw, roll). Upright
+# tools are turned partway (yaw) so their flat faces read from the side and the front.
+REST = {
+    "cleaver": ((-17.0, 15.0, 22.0), (70.0, 45.0, 0.0)),    # the big knife out front, leaning out
+    "spatula": ((17.0, 13.0, -22.0), (112.0, 45.0, 0.0)),   # behind him, leaning back
+    "mallet": ((11.0, 40.0, -12.0), (72.0, -35.0, 0.0)),    # above his back, head up
+    "k1": ((-12.0, 44.0, 6.0), (70.0, 50.0, 0.0)),          # paring knives fanned over
+    "k2": ((0.0, 49.0, 3.0), (86.0, 45.0, 0.0)),            # his brow, points up
+    "k3": ((12.0, 44.0, 0.0), (70.0, -50.0, 0.0)),
+}
+PHASE = {"cleaver": 0.0, "spatula": 0.5, "mallet": 0.25, "k1": 0.1, "k2": 0.4, "k3": 0.7, "k4": 0.2, "k5": 0.55}
+KNIVES = ("k1", "k2", "k3", "k4", "k5")
+CENTRE = (0.0, 27.0, 0.0)  # roughly the middle of the brain, for gathering and scattering
 
 
-def S(tip, ctrl=(0.0, -2.0, 4.0), ori=(60.0, 180.0, 0.0)):
-    return (tip, ctrl, ori)
+def bob(name, spec, k, n, amp=1.6, wob=5.0):
+    """A tool's float: up and down on its own phase, rocking a little."""
+    (lat, up, fwd), (pi, ya, ro) = spec
+    a = 2.0 * math.pi * (k / n + PHASE.get(name, 0.0))
+    return ((lat, up + amp * math.sin(a), fwd), (pi, ya, ro + wob * math.sin(a + 1.3)))
 
 
-def A(tip, ctrl=(-2.0, 2.0, -2.0), ori=(0.0, 0.0, 0.0), item=None):
-    return (tip, ctrl, ori, item)
+def kit(k, n, over=None, amp=1.6, wob=5.0, move=(0.0, 0.0, 0.0), toward=None, scale=1.0, spin=0.0):
+    """The tools for frame k of n: the rest layout bobbing, moved by `move`, pulled
+    toward (scale < 1) or pushed from (scale > 1) the brain's centre, then `over`
+    (name -> spec, or None for gone) on top."""
+    out = {}
+    for name, spec in REST.items():
+        (lat, up, fwd), ori = spec
+        if scale != 1.0:
+            c = toward or CENTRE
+            lat, up, fwd = (c[0] + (lat - c[0]) * scale, c[1] + (up - c[1]) * scale, c[2] + (fwd - c[2]) * scale)
+        pos = (lat + move[0], up + move[1], fwd + move[2])
+        ori = (ori[0], ori[1], ori[2] + spin * (1 if PHASE[name] < 0.4 else -1))
+        out[name] = bob(name, (pos, ori), k, n, amp, wob)
+    for name, spec in (over or {}).items():
+        out[name] = spec
+    return out
+
+
+def hover(k, n, amp=1.2):
+    return HOVER + amp * math.sin(2.0 * math.pi * k / n)
 
 
 def idle():
-    """Settled on the floor, breathing (a slow swell), the knife up, a glint."""
-    return [
-        P(squash=1.0, glint=0.0),
-        P(squash=0.97, lift=0.0, knife=K((-11.0, 4.6, 26.0)), spat=S((5.0, 3.4, -27.5)), tail=0.4, glint=0.3),
-        P(squash=0.95, knife=K((-11.0, 5.0, 26.2)), spat=S((5.0, 3.6, -27.8)), tail=0.8, glint=0.6),
-        P(squash=0.97, knife=K((-11.0, 4.6, 26.0)), spat=S((5.0, 3.2, -27.4)), tail=0.4, glint=0.9),
-    ]
+    """Floating in place: a slow bob, the kit drifting round him, a glint on the shades."""
+    return [P(lift=hover(k, 4), tail=0.4 * math.sin(2 * math.pi * k / 4), glint=k / 3.0, tools=kit(k, 4))
+            for k in range(4)]
 
 
 def run():
-    """An inchworm scoot: plant the knife stem ahead, squash, stretch forward and hop,
-    land, with the spatula stem pushing off behind."""
-    return [
-        P(squash=0.86, stretch=1.06, shift=-1.0, knife=K((-11.0, 2.0, 29.0), ori=(70, 0, 0)),
-          spat=S((5.0, 1.0, -23.0)), tail=-0.6),
-        P(squash=1.02, stretch=0.98, lift=2.5, pitch=6, shift=1.0, knife=K((-11.0, 3.0, 27.0), ori=(78, 0, 0)),
-          spat=S((5.0, 1.2, -29.0), ori=(30, 180, 0)), tail=-1.0),
-        P(squash=1.06, stretch=0.96, lift=4.0, pitch=3, shift=2.5, knife=K((-11.0, 6.0, 28.0), ori=(92, 0, 0)),
-          spat=S((5.0, 4.0, -25.0)), tail=0.0),
-        P(squash=0.88, stretch=1.05, lift=0.5, pitch=-4, shift=2.0, knife=K((-11.0, 2.5, 29.5), ori=(70, 0, 0)),
-          spat=S((5.0, 2.5, -23.0)), tail=0.8),
-        P(squash=0.95, stretch=1.0, lift=1.5, pitch=2, shift=0.5, knife=K((-11.0, 4.0, 27.0), ori=(84, 0, 0)),
-          spat=S((5.0, 1.0, -28.0), ori=(36, 180, 0)), tail=1.0),
-        P(squash=1.0, stretch=0.98, lift=2.5, pitch=4, shift=0.0, knife=K((-11.0, 5.0, 27.5), ori=(90, 0, 0)),
-          spat=S((5.0, 2.0, -26.0)), tail=0.2),
-    ]
+    """Gliding: leaning into it, the stem streaming back, the kit trailing a little."""
+    out = []
+    for k in range(6):
+        a = 2 * math.pi * k / 6
+        out.append(P(lift=hover(k, 6, 1.0) + 1.0, pitch=-9, shift=1.5, tail=1.0 + 0.3 * math.sin(a),
+                     tools=kit(k, 6, move=(0.0, 1.0, -5.0), amp=1.2, wob=7.0)))
+    return out
 
 
 def flick():
-    """Knife Flick: the pan stem draws a small knife, winds back, flicks it forward."""
+    """Knife Flick: a paring knife swings round to point at the foe, draws back and is
+    gone (the game throws it); another floats up in its place."""
     return [
-        P(arm=A((1.0, 38.0, -12.0), (0, 2, 2), ori=(40, 180, 0), item="knife"), pitch=-3),
-        P(arm=A((2.0, 43.0, -2.0), (0, 2, -4), ori=(70, 0, 0), item="knife"), pitch=-5, squash=1.03),
-        P(arm=A((2.0, 27.0, 26.0), (0, 8, -2), ori=(-10, 0, 0), item=None), pitch=4, squash=0.95),
-        P(arm=A((2.0, 32.0, 14.0), (0, 5, -2)), pitch=2),
+        P(lift=hover(0, 4), psy=0.5, active=("k1",), tools=kit(0, 4, {"k1": ((-8.0, 33.0, 24.0), (0.0, -20.0, 0.0))})),
+        P(lift=hover(1, 4), psy=0.9, active=("k1",), tools=kit(1, 4, {"k1": ((-8.0, 35.0, 16.0), (8.0, -20.0, 0.0))})),
+        P(lift=hover(2, 4), psy=1.0, pitch=5, tools=kit(2, 4, {"k1": None})),
+        P(lift=hover(3, 4), psy=0.3, tools=kit(3, 4)),
     ]
 
 
 def flick2():
-    """Backhand Flick: a sidearm throw from across his body."""
+    """Backhand Flick: the same from his other side."""
     return [
-        P(arm=A((-12.0, 34.0, -6.0), (-2, 2, 0), ori=(10, 200, 0), item="knife"), yaw=-8),
-        P(arm=A((-14.0, 36.0, 6.0), (-2, 3, -2), ori=(10, 120, 0), item="knife"), yaw=-14, squash=1.02),
-        P(arm=A((8.0, 26.0, 26.0), (-4, 6, -2), ori=(0, 0, 0)), yaw=8, squash=0.96),
-        P(arm=A((3.0, 31.0, 14.0), (-2, 5, -2)), yaw=3),
+        P(lift=hover(0, 4), psy=0.5, yaw=-6, active=("k3",), tools=kit(0, 4, {"k3": ((11.0, 31.0, 22.0), (0.0, 20.0, 0.0))})),
+        P(lift=hover(1, 4), psy=0.9, yaw=-10, active=("k3",), tools=kit(1, 4, {"k3": ((13.0, 33.0, 14.0), (6.0, 20.0, 0.0))})),
+        P(lift=hover(2, 4), psy=1.0, yaw=6, pitch=4, tools=kit(2, 4, {"k3": None})),
+        P(lift=hover(3, 4), psy=0.3, tools=kit(3, 4)),
     ]
 
 
 def toss():
-    """Mallet Toss: out of the pan, swung up over his head, hurled end over end."""
+    """Mallet Toss: the mallet lifts, swings back over him end over end, and is hurled."""
     return [
-        P(arm=A((1.0, 34.0, -8.0), (-2, 4, -2), ori=(80, 0, 0), item="mallet"), mallet_in_pot=False),
-        P(arm=A((2.0, 39.0, -12.0), (-2, 5, -2), ori=(130, 0, 0), item="mallet"), mallet_in_pot=False, pitch=-6,
-          squash=1.04),
-        P(arm=A((3.0, 37.0, 6.0), (-2, 6, -4), ori=(40, 0, 0), item="mallet"), mallet_in_pot=False, pitch=0),
-        P(arm=A((3.0, 21.0, 24.0), (-2, 8, 2), ori=(-30, 0, 0)), mallet_in_pot=False, pitch=6, squash=0.94),
-        P(arm=A((1.0, 25.0, 12.0), (-2, 4, 0)), mallet_in_pot=True, pitch=2),
+        P(lift=hover(0, 5), psy=0.6, active=("mallet",), tools=kit(0, 5, {"mallet": ((4.0, 50.0, -4.0), (115.0, 0.0, 0.0))})),
+        P(lift=hover(1, 5), psy=0.9, pitch=3, active=("mallet",),
+          tools=kit(1, 5, {"mallet": ((2.0, 54.0, -12.0), (165.0, 0.0, 0.0))})),
+        P(lift=hover(2, 5), psy=1.0, active=("mallet",), tools=kit(2, 5, {"mallet": ((2.0, 46.0, 16.0), (30.0, 0.0, 0.0))})),
+        P(lift=hover(3, 5), psy=1.0, pitch=6, tools=kit(3, 5, {"mallet": None})),
+        P(lift=hover(4, 5), psy=0.2, tools=kit(4, 5)),
     ]
 
 
 def tenderize():
-    """Tenderize (and Order Up from frame 3): charge A/B with the mallet high, rise,
-    pound the floor in front, the impact, recover."""
-    hi = dict(mallet_in_pot=False)
+    """Tenderize (and Order Up from frame 3): the mallet rises high over him, charging,
+    swings over and pounds the floor in front, then floats back."""
     return [
-        P(arm=A((3.0, 41.0, -4.0), (-2, 6, -2), ori=(110, 0, 0), item="mallet"), squash=1.04, glint=0.2, **hi),
-        P(arm=A((3.0, 42.0, -6.0), (-2, 6, -2), ori=(118, 0, 0), item="mallet"), squash=1.06, glint=0.7, **hi),
-        P(arm=A((3.0, 43.0, 2.0), (-2, 6, -4), ori=(95, 0, 0), item="mallet"), squash=1.08, pitch=-6, **hi),
-        P(arm=A((4.0, 6.0, 22.0), (-2, 10, -2), ori=(-50, 0, 0), item="mallet"), squash=0.86, pitch=8, **hi),
-        P(arm=A((4.0, 5.0, 20.0), (-2, 9, -2), ori=(-40, 0, 0), item="mallet"), squash=0.9, pitch=6, **hi),
-        P(arm=A((2.0, 29.0, 4.0), (-2, 4, -2), ori=(60, 0, 0), item="mallet"), squash=1.0, **hi),
+        P(psy=0.7, glint=0.2, squash=1.02, active=("mallet",), tools=kit(0, 6, {"mallet": ((0.0, 56.0, 2.0), (95.0, 0.0, 0.0))})),
+        P(psy=1.0, glint=0.7, squash=1.05, lift=HOVER + 1.5, active=("mallet",),
+          tools=kit(1, 6, {"mallet": ((0.0, 61.0, -1.0), (100.0, 0.0, 0.0))})),
+        P(psy=1.0, pitch=-3, lift=HOVER + 1.0, active=("mallet",),
+          tools=kit(2, 6, {"mallet": ((0.0, 56.0, 14.0), (55.0, 0.0, 0.0))})),
+        P(psy=1.0, pitch=-9, squash=0.92, lift=HOVER - 2.0, active=("mallet",),
+          tools=kit(3, 6, {"mallet": ((0.0, 15.0, 27.0), (-78.0, 0.0, 0.0))}, move=(0.0, -2.0, 0.0))),
+        P(psy=0.8, pitch=-6, squash=0.95, lift=HOVER - 1.0, active=("mallet",),
+          tools=kit(4, 6, {"mallet": ((0.0, 16.0, 26.0), (-72.0, 0.0, 0.0))})),
+        P(psy=0.3, tools=kit(5, 6, {"mallet": ((5.0, 36.0, -4.0), (82.0, 25.0, 0.0))})),
     ]
 
 
 def cleaver():
-    """Cleaver Toss: the big knife comes back over his head and is hurled forward; the
-    game draws it in flight; another is pulled from the pan."""
+    """Cleaver Toss: the big knife rises, wheels back over his head, snaps forward and
+    is thrown; a moment later it's back at his side."""
     return [
-        P(knife=K((-11.0, 14.0, 16.0), (0, 2, -6), (120, 0, 0)), pitch=-4),
-        P(knife=K((-11.0, 26.0, 0.0), (0, 8, 0), (150, 0, 0)), pitch=-8, squash=1.04),
-        P(knife=K((-11.0, 24.0, 14.0), (0, 10, -6), (40, 0, 0)), pitch=-2),
-        P(knife=K((-11.0, 10.0, 30.0), (0, 8, -8), None), pitch=6, squash=0.94),
-        P(knife=K((-11.0, 6.0, 26.0), (0, -2, -6), None), pitch=3),
-        P(knife=K((-11.0, 4.0, 26.0), (0, -3, -4), (88, 0, 0)), pitch=0),
+        P(psy=0.6, active=("cleaver",), tools=kit(0, 6, {"cleaver": ((-12.0, 34.0, 20.0), (125.0, -25.0, 0.0))})),
+        P(psy=0.9, pitch=-4, squash=1.03, active=("cleaver",),
+          tools=kit(1, 6, {"cleaver": ((-8.0, 48.0, 0.0), (175.0, -25.0, 0.0))})),
+        P(psy=1.0, active=("cleaver",), tools=kit(2, 6, {"cleaver": ((-8.0, 38.0, 30.0), (5.0, -25.0, 0.0))})),
+        P(psy=1.0, pitch=7, squash=0.95, tools=kit(3, 6, {"cleaver": None})),
+        P(psy=0.5, pitch=3, tools=kit(4, 6, {"cleaver": None})),
+        P(psy=0.3, tools=kit(5, 6)),
     ]
 
 
 def flipout():
-    """Flip Out: the spatula stem swings round low and slides under the foe, scoops, and
-    flips them up over his head; he rears back with it."""
+    """Flip Out: the spatula dives low, skims the floor to slide under the foe, and flips
+    them up over his head."""
     return [
-        P(spat=S((8.0, 3.0, -18.0), (4, -2, 2), (20, 160, 0)), yaw=6),
-        P(spat=S((10.0, 1.0, 16.0), (8, -2, -8), (-6, 0, 90)), yaw=-4, pitch=4, squash=0.95),
-        P(spat=S((6.0, 1.5, 30.0), (6, -3, -10), (-10, 0, 90)), pitch=6, squash=0.92),
-        P(spat=S((4.0, 26.0, 10.0), (4, 6, 4), (70, 0, 90)), pitch=-10, squash=1.05),
-        P(spat=S((4.0, 30.0, -12.0), (4, 8, 4), (130, 0, 90)), pitch=-6, squash=1.04),
-        P(spat=S((5.0, 4.0, -27.0)), pitch=0),
+        P(psy=0.6, yaw=5, active=("spatula",), tools=kit(0, 6, {"spatula": ((10.0, 8.0, -22.0), (20.0, 160.0, 0.0))})),
+        P(psy=0.9, pitch=-4, active=("spatula",), tools=kit(1, 6, {"spatula": ((8.0, 3.0, 12.0), (-4.0, 0.0, 90.0))})),
+        P(psy=1.0, pitch=-6, shift=2.0, active=("spatula",),
+          tools=kit(2, 6, {"spatula": ((6.0, 2.0, 30.0), (-4.0, 0.0, 90.0))})),
+        P(psy=1.0, pitch=6, active=("spatula",), tools=kit(3, 6, {"spatula": ((6.0, 26.0, 26.0), (60.0, 0.0, 90.0))})),
+        P(psy=0.8, pitch=-5, active=("spatula",), tools=kit(4, 6, {"spatula": ((6.0, 47.0, 4.0), (130.0, 0.0, 90.0))})),
+        P(psy=0.2, tools=kit(5, 6)),
     ]
 
 
+def fan(back, gone=()):
+    """Knife Flurry's fan: five paring knives in an arc in front of him, points at the foe."""
+    out = {}
+    for name, (lat, up) in zip(KNIVES, [(-15.0, 32.0), (-8.0, 40.0), (0.0, 45.0), (8.0, 40.0), (15.0, 32.0)]):
+        out[name] = None if name in gone else ((lat, up, 31.0 - back), (2.0, -lat * 0.8, lat * 1.5))
+    return out
+
+
 def flurry():
-    """Knife Flurry: windup (a fan of knives drawn), set, then two alternating throws that
-    loop while the stream flies, and the recovery."""
+    """Knife Flurry: every paring knife swings round into a fan pointed at the foe, draws
+    back, and they fly one after another (alternating frames), then the rest come home."""
+    knives = KNIVES
     return [
-        P(arm=A((1.0, 33.0, -8.0), (-2, 4, -2), ori=(70, 0, 0), item="fan"), squash=1.04, glint=0.5),
-        P(arm=A((1.0, 37.0, -12.0), (-2, 5, -2), ori=(110, 0, 0), item="fan"), squash=1.06, pitch=-6, glint=1.0),
-        P(arm=A((2.0, 29.0, 4.0), (-2, 5, -2), ori=(40, 0, 0), item="knife"), squash=1.0, pitch=-2,
-          knife=K((-11.0, 8.0, 26.0), ori=(60, 0, 0))),
-        P(arm=A((3.0, 21.0, 24.0), (-2, 6, 2), ori=(-10, 0, 0)), squash=0.94, pitch=5,
-          knife=K((-11.0, 5.0, 27.0), ori=(80, 0, 0))),
-        P(arm=A((2.0, 27.0, 10.0), (-2, 5, -2), ori=(20, 0, 0), item="knife"), squash=0.98, pitch=2,
-          knife=K((-11.0, 6.0, 26.0), ori=(70, 0, 0))),
-        P(arm=A((1.0, 25.0, 12.0), (-2, 4, 0)), pitch=0),
+        P(psy=0.8, glint=0.5, squash=1.03, active=knives, tools=kit(0, 6, fan(4.0))),
+        P(psy=1.0, glint=1.0, squash=1.05, pitch=-3, active=knives, tools=kit(1, 6, fan(9.0))),
+        P(psy=1.0, pitch=4, active=knives, tools=kit(2, 6, fan(2.0, gone=("k3",)))),
+        P(psy=1.0, pitch=6, squash=0.97, active=knives, tools=kit(3, 6, fan(2.0, gone=("k2", "k4")))),
+        P(psy=1.0, pitch=3, active=knives, tools=kit(4, 6, fan(4.0, gone=("k1", "k3", "k5")))),
+        P(psy=0.3, tools=kit(5, 6)),
     ]
 
 
 def dodge():
-    """A squashed roll sideways: flattens, tips over, rights himself."""
+    """The teleport: his kit folds in and he pinches to a sliver and is gone; he appears
+    the same way and the kit unfolds round him."""
+    gone = {n: None for n in REST}
     return [
-        P(squash=0.8, stretch=1.05),
-        P(squash=0.9, roll=-50, lift=3.0, knife=K((-4.0, 6.0, 20.0)), spat=S((-2.0, 6.0, -20.0)), glasses="askew"),
-        P(squash=0.9, roll=-100, lift=4.0, knife=K((-6.0, 10.0, 18.0)), spat=S((-4.0, 10.0, -18.0)), glasses="askew"),
-        P(squash=0.92, roll=0, lift=0.5),
+        P(psy=1.0, squash=0.9, active=tuple(REST), tools=kit(0, 4, scale=0.55, spin=40.0)),
+        P(psy=1.0, thin=0.45, squash=1.35, lift=HOVER + 2.0, tools=gone),
+        P(psy=1.0, thin=0.6, squash=1.25, lift=HOVER + 2.0, tools=gone, stem=False),
+        P(psy=0.5, squash=0.95, active=tuple(REST), tools=kit(3, 4, scale=0.8, spin=-25.0)),
     ]
 
 
 def hurt():
+    """Knocked back: he reels, shades askew, and his grip on the kit slips."""
     return [
-        P(squash=0.9, pitch=-10, shift=-2.0, glasses="askew", knife=K((-11.0, 8.0, 22.0), ori=(110, 0, 0)),
-          spat=S((5.0, 6.0, -29.0)), tail=1.0),
-        P(squash=0.78, roll=30, pitch=-14, shift=-3.0, lift=1.0, glasses="down",
-          knife=K((3.0, 10.0, 18.0), ori=(140, 0, 0)), spat=S((6.0, 8.0, -24.0)), tail=-1.0),
+        P(pitch=-12, shift=-2.0, glasses="askew", tail=-0.6, tools=kit(0, 2, scale=1.15, spin=20.0)),
+        P(pitch=-16, roll=18, shift=-3.0, lift=HOVER - 1.0, glasses="down", tail=-1.0,
+          tools=kit(1, 2, scale=1.3, spin=35.0, move=(0.0, -4.0, 0.0))),
     ]
 
 
 def guard():
-    """Hunkered down behind the spatula, held up in front like a shield."""
-    g = dict(spat=S((6.0, 10.0, 22.0), (8, 2, -8), (95, 0, 0)), knife=K((-2.0, 6.0, 20.0), ori=(70, 0, 0)), squash=0.9,
-             pitch=-4)
-    return [P(**g), P(**dict(g, squash=0.86, glasses="askew"))]
+    """Guarding: the cleaver, spatula and mallet swing in front of him into a wall, flat
+    faces to the foe."""
+    wall = {
+        "cleaver": ((-7.0, 20.0, 29.0), (95.0, 55.0, 25.0)),
+        "spatula": ((7.0, 22.0, 30.0), (95.0, 55.0, -25.0)),
+        "mallet": ((0.0, 40.0, 25.0), (95.0, 55.0, 0.0)),
+    }
+    g = dict(psy=0.8, squash=0.93, pitch=-4, active=("cleaver", "spatula", "mallet"))
+    hit = {k: ((v[0][0], v[0][1], v[0][2] - 3.0), v[1]) for k, v in wall.items()}
+    return [P(tools=kit(0, 2, wall, scale=0.85), **g),
+            P(tools=kit(1, 2, hit, scale=0.85), shift=-2.0, glasses="askew", **g)]
 
 
 def ko():
-    """The brain goes limp: knocked back, tips onto its side, deflates, glasses off."""
+    """Out cold: his mind lets go, the kit clatters to the floor, and the brain sinks
+    after it and deflates."""
+    floor = {
+        "cleaver": ((-17.0, 1.0, 22.0), (0.0, -20.0, 90.0)),
+        "spatula": ((16.0, 1.2, -20.0), (0.0, 160.0, 90.0)),
+        "mallet": ((12.0, 2.0, 8.0), (0.0, 40.0, 0.0)),
+        "k1": ((-8.0, 0.8, 32.0), (0.0, 10.0, 90.0)),
+        "k2": ((5.0, 0.8, 30.0), (0.0, -30.0, 90.0)),
+        "k3": ((19.0, 0.8, 16.0), (0.0, 60.0, 90.0)),
+    }
+    falling = {k: ((v[0][0], v[0][1] * 0.45 + 2.0, v[0][2]), (v[1][0] * 0.4, v[1][1], v[1][2] + 50.0))
+               for k, v in kit(0, 4).items()}
     return [
-        P(squash=0.88, pitch=-14, lift=3.0, glasses="askew", knife=K((-11.0, 12.0, 20.0), ori=(140, 0, 0))),
-        P(squash=0.78, roll=40, lift=1.5, glasses="down", knife=K((4.0, 6.0, 22.0), ori=(170, 0, 30)),
-          spat=S((8.0, 2.0, -22.0), ori=(5, 180, 0))),
-        P(squash=0.66, roll=70, glasses="off", knife=K((6.0, 1.5, 22.0), ori=(178, 0, 60)),
-          spat=S((8.0, 1.5, -22.0), ori=(2, 180, 0)), tail=1.0),
-        P(squash=0.6, stretch=1.08, roll=80, glasses="off", knife=K((6.0, 1.2, 23.0), ori=(180, 0, 70)),
-          spat=S((8.0, 1.2, -23.0), ori=(0, 180, 0)), tail=1.2, pot=True),
+        P(pitch=-14, lift=HOVER - 3.0, glasses="askew", tools=kit(0, 4, move=(0.0, -9.0, 0.0), spin=30.0)),
+        P(roll=25, lift=HOVER - 8.0, glasses="down", tools=falling),
+        P(squash=0.8, roll=50, lift=0.0, glasses="down", tools=floor),
+        P(squash=0.62, stretch=1.08, roll=70, lift=0.0, glasses="off", tools=floor),
     ]
 
 

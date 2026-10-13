@@ -803,6 +803,15 @@ def chill():
     return mix(gust, tone)
 
 
+def warp():
+    """Chef Cerebro's teleport: a rising psychic shimmer that snaps off, then a soft pop."""
+    d = 0.32
+    rise = osc(sweep(500, 1900, 0.18), 0.18, "sine") * env(0.18, attack=0.06, curve=1.2) * 0.4
+    shimmer = osc(sweep(1200, 3200, 0.18), 0.18, "sine") * osc(38, 0.18, "sine") * env(0.18, attack=0.05, curve=1.5) * 0.2
+    pop = osc(sweep(900, 300, 0.1), 0.1, "sine") * env(0.1, curve=3.0) * 0.5
+    return mix(at(rise, 0.0, d), at(shimmer, 0.0, d), at(pop, 0.17, d))
+
+
 # Added after the first batch, so they're generated last and the older placeholders
 # (which share one random stream) come out the same as before.
 NEW_SOUNDS = {
@@ -817,6 +826,7 @@ NEW_SOUNDS = {
     "dig": dig, "pop": pop, "flash": flash, "miss": miss, "cave_in": cave_in, "dig_it": dig_it,
     "coins": coins, "poof": poof, "finders": finders,
     "freeze": freeze, "shards": shards, "slosh": slosh, "melt": melt, "chill": chill,
+    "warp": warp,
 }
 
 
@@ -839,8 +849,11 @@ def main():
     print("Writing PLACEHOLDER audio to", OUT)
     for name, fn in SOUNDS.items():
         save(name, fn())
-    save("music_fight", music_fight(), peak_db=-6.0)
-    save("music_menu", music_menu(), peak_db=-6.0)
+    # The placeholder music is retired (the composer's track replaced it), but it's still
+    # generated and thrown away so the random draws, and the sounds made after it, stay
+    # exactly as they were.
+    music_fight()
+    music_menu()
     for name, fn in NEW_SOUNDS.items():
         save(name, fn())
 

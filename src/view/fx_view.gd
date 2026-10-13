@@ -107,6 +107,8 @@ const C_LEAF: Array[Color] = [Color("16784a"), Color("28b450"), Color("96dcaa")]
 const C_WOOD: Array[Color] = [Color("623736"), Color("804846"), Color("a0625c"), Color("b56664")]
 const C_CONE: Array[Color] = [Color("603820"), Color("966034"), Color("c48c54")]
 const C_PSY := Color("d58cff")
+## How high Chef Cerebro's thrown kitchen flies: from over his floating brain.
+const THROW_Z := 18.0
 const C_TENDER := Color("ff8fa3")
 const C_MALLET: Array[Color] = [Color("8c4c48"), Color("b07a70")]
 const C_BRAIN: Array[Color] = [Color("d6606a"), Color("f88686"), Color("ffb2aa")]
@@ -376,6 +378,16 @@ func spawn(e: Dictionary) -> void:
 				for i in 6:
 					_add({"kind": "suck", "from": c.pos + Vector2(randf_range(-6, 6), -_chest(c) + randf_range(-6, 6)),
 						"to": by.pos + Vector2(0, -_chest(by)), "life": 14, "color": C_GOLD[1]})
+		"warp":
+			# Chef Cerebro's teleport: his mind folds space; a flash where he left and
+			# where he lands, with sparks drawn in and thrown out.
+			var c := _creature(int(e.get("who", -1)))
+			var lift := _chest(c) if c != null else 16.0
+			var from: Vector2 = e.get("from", p)
+			_warp_flash(from + Vector2(0, -lift), false)
+			_warp_flash(p + Vector2(0, -lift), true)
+			_add({"kind": "streak", "a": from + Vector2(0, -lift), "b": p + Vector2(0, -lift), "life": 5,
+				"color": Color(C_PSY, 0.45)})
 		"blink":
 			_smoke(p, 8)
 			var from: Vector2 = e.get("from", p)
@@ -607,7 +619,7 @@ func _watch_all() -> void:
 
 		if attacking and ticked and not c.charging:
 			_during_move(c, mv, fx)
-		if c.state == CreatureSim.State.DODGE and ticked and c.state_t % 4 == 1:
+		if c.state == CreatureSim.State.DODGE and ticked and c.state_t % 4 == 1 and not c.def["dodge"].has("blink"):
 			_ghost(c, Color(0.75, 0.85, 1.0, 0.4), 10.0)
 		if c.state == CreatureSim.State.AIRBORNE and ticked and c.air_t < c.air_total / 2 and c.anim_t % 2 == 0:
 			_launch_streak(c)
@@ -941,6 +953,19 @@ func _flip(c: CreatureSim) -> bool:
 
 
 # ------------------------------------------------------------------ move effects
+
+## A teleport flash: a psychic ring and sparks, pulled in where he vanishes (`arrive`
+## false) and flung out where he appears.
+func _warp_flash(at: Vector2, arrive: bool) -> void:
+	_add({"kind": "ring", "pos": at, "life": 10 if arrive else 8, "radius": 16.0 if arrive else 10.0, "color": C_PSY})
+	_add({"kind": "spark", "pos": at, "life": 6, "scale": 0.8 if arrive else 0.6})
+	for i in 10:
+		var d := Vector2.from_angle(TAU * i / 10.0 + randf() * 0.4)
+		if arrive:
+			_px(at + d * 3.0, d * randf_range(1.0, 1.8), C_PSY.lightened(0.3), 12)
+		else:
+			_add({"kind": "suck", "from": at + d * randf_range(12.0, 18.0), "to": at, "life": 6, "color": C_PSY})
+
 
 func _ghost(c: CreatureSim, tint: Color, life: float) -> void:
 	if c.id >= views.size() or views[c.id] == null:
@@ -2212,18 +2237,19 @@ func _draw_venom(ci: CanvasItem, pr: Dictionary) -> void:
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
-## Chef Cerebro's thrown knives: point first, a glint along the blade, and a short
-## streak behind.
+## Chef Cerebro's thrown knives: flung by his mind from over his head, point first, in a
+## violet glow with a psychic streak behind and a glint along the blade.
 func _draw_thrown_knife(ci: CanvasItem, pr: Dictionary) -> void:
 	var pp: Vector2 = Vector2(pr["pos"]).round()
 	var d: Vector2 = Vector2(pr["vel"]).normalized()
-	var at := pp + Vector2(0, -12)
+	var at := pp + Vector2(0, -THROW_Z)
 	ci.draw_set_transform(pp, 0.0, Vector2(1.0, 0.4))
 	ci.draw_circle(Vector2.ZERO, 2.5, Color(0, 0, 0, 0.25))
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	ci.draw_line(at - d * 12.0, at - d * 5.0, Color(1, 1, 1, 0.25), 1.0)
+	ci.draw_line(at - d * 14.0, at - d * 5.0, Color(C_PSY, 0.35), 2.0)
 	var tip := at + d * 5.0
 	var butt := at - d * 4.0
+	ci.draw_line(butt - d, tip + d, Color(C_PSY, 0.55), 5.0)
 	ci.draw_line(butt, tip, C_OUTLINE, 3.0)
 	ci.draw_line(at - d * 1.0, tip, C_GREY[3], 1.0)
 	ci.draw_line(butt, at - d * 1.0, Color("2a2628"), 1.0)
@@ -2231,13 +2257,15 @@ func _draw_thrown_knife(ci: CanvasItem, pr: Dictionary) -> void:
 		ci.draw_rect(Rect2((at + d * 2.0).round(), Vector2.ONE), Color.WHITE)
 
 
-## The mallet and the cleaver in flight, spinning end over end at chest height.
+## The mallet and the cleaver in flight, spinning end over end in a violet glow (he
+## throws with his mind).
 func _draw_spinner(ci: CanvasItem, pr: Dictionary, kind: String) -> void:
 	var pp: Vector2 = Vector2(pr["pos"]).round()
-	var at := pp + Vector2(0, -12)
+	var at := pp + Vector2(0, -THROW_Z)
 	ci.draw_set_transform(pp, 0.0, Vector2(1.0, 0.4))
 	ci.draw_circle(Vector2.ZERO, 4.0, Color(0, 0, 0, 0.28))
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	ci.draw_circle(at, 10.0, Color(C_PSY, 0.16))
 	var spin := -_tick * 0.8 if Vector2(pr["vel"]).x < 0.0 else _tick * 0.8
 	var d := Vector2.from_angle(spin)
 	var n := d.orthogonal()
@@ -2261,9 +2289,9 @@ func _draw_spinner(ci: CanvasItem, pr: Dictionary, kind: String) -> void:
 		ci.draw_colored_polygon(blade, C_GREY[3])
 		ci.draw_polyline(blade + PackedVector2Array([blade[0]]), C_OUTLINE, 1.0)
 		ci.draw_line(heel + n * 0.5, tip, Color.WHITE, 1.0)
-	# a whoosh behind it
+	# a psychic whoosh behind it
 	var back: Vector2 = -Vector2(pr["vel"]).normalized()
-	ci.draw_arc(at + back * 3.0, 9.0, back.angle() - 0.6, back.angle() + 0.6, 8, Color(1, 1, 1, 0.2), 1.0)
+	ci.draw_arc(at + back * 3.0, 9.0, back.angle() - 0.6, back.angle() + 0.6, 8, Color(C_PSY, 0.45), 1.0)
 
 
 ## Cast Line's rod in flight: it spins end over end on its line, flying at hip height.

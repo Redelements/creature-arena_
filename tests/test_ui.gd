@@ -376,25 +376,14 @@ func test_settings_change_and_are_kept() -> void:
 	g.free()
 
 
-func test_fight_music_is_a_setting_and_the_new_track_loops() -> void:
+func test_the_music_is_the_new_track_and_it_loops() -> void:
 	var g := _game()
-	assert_eq(g._fight_track(), "battler", "fights play the Creature Arena Battler track by default:")
-	var stream: AudioStreamOggVorbis = load("res://assets/audio/music_battler.ogg")
-	assert_true(stream.loop, "it loops seamlessly")
-	g._open_settings_page("audio")
-	assert_true(g._setting_rows.has("fight_music"), "Settings > Audio has a Fight music row")
-	var row: OptionRow = g._setting_rows["fight_music"]
-	row.grab_focus()
-	_press("ui_right")
-	assert_eq(g.fight_music, "fight", "Right picks the next track:")
-	assert_eq(g._fight_track(), "fight", "and fights play it")
-	g._save_settings()
+	for name in ["menu", "fight"]:
+		var stream: AudioStream = g.audio._music_tracks.get(name)
+		assert_true(stream is AudioStreamOggVorbis, name + " plays the Creature Arena Battler track")
+		if stream is AudioStreamOggVorbis:
+			assert_true((stream as AudioStreamOggVorbis).loop, name + " loops seamlessly")
 	g.free()
-	var h: Node = load("res://scenes/main.tscn").instantiate()  # not _game(): keep the saved settings
-	h.settings_path = TEST_SETTINGS
-	_root().add_child(h)
-	assert_eq(h._fight_track(), "fight", "the choice is kept:")
-	h.free()
 
 
 func test_the_online_screen_joins_what_was_typed() -> void:

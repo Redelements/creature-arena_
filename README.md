@@ -15,10 +15,11 @@ Six fighters so far, each with a full moveset and a CPU opponent:
 - **Gillbert**, a fish who got hooked, yanked out of the river and never stopped flopping:
   a small, quick skirmisher who flops across the floor with his fishing rod tumbling
   behind him, hooks foes and reels himself in, and belly-flops from out of reach.
-- **Chef Cerebro**, a reanimated brain in sunglasses who only wants to cook (the finest
-  dishes, and his opponents): a mage who fights from range, flicking knives, tossing a
-  meat mallet and hurling his cleaver, tenderizes anyone who gets close, flips them over
-  his head with a spatula, and finishes with a stream of knives.
+- **Chef Cerebro**, a floating brain in sunglasses who only wants to cook (the finest
+  dishes, and his opponents): a mage whose kitchen floats around him and flies by
+  telekinesis. He flicks knives, tosses a meat mallet and hurls his cleaver from range,
+  tenderizes anyone who gets close, flips them over his head with a spatula, finishes with
+  a stream of knives, and dodges by teleporting.
 - **Hissy Fitz**, kicked out of the museum for turning the guards to stone: a boxer with a
   head of hair snakes and a pair of red gloves who jabs up close, spits venom that poisons
   over time, slows anyone who looks her in the eye, and turns foes to stone with a
@@ -86,8 +87,7 @@ bad connection: `--net-lag=6 --net-loss=0.1`. Details: [docs/NETCODE.md](docs/NE
 2. Open Godot, click **Import**, and pick this folder's `project.godot`.
 3. Press **F5** (or the ▶ button). The title menu has **Single player** (every mode against
    the CPU, training, trials and local 2-player), **Online**, **Settings** (Game: CPU level, rumble, screen shake, online server; Video: fullscreen, vsync, the
-   fight frame rate, 144 fps unless changed; Audio: master, music, effects and menu volume,
-   and **Fight music** (the new Creature Arena Battler track, or the old placeholder);
+   fight frame rate, 144 fps unless changed; Audio: master, music, effects and menu volume;
    Controls: keyboard layout and remapping for both keyboard layouts and the controller) and **Exit**. Menus always
    run at 60 fps. The game itself runs 60 steps a second whatever the frame rate.
 
@@ -337,9 +337,14 @@ floor like a landed fish, his rod tumbling behind him on the line.
 
 ![Gillbert's showcase](docs/gillbert_demo.gif)
 
-### Chef Cerebro — a reanimated brain that only wants to cook
+### Chef Cerebro — a floating brain that cooks with its mind
 
-A mage (105 HP, Lumen affinity, slow on his stems). **Most of his attacks are thrown, and
+A mage (105 HP, Lumen affinity). He floats a hand's height off the floor with his
+kitchen hovering around him (big knife, spatula, meat mallet, a fan of paring knives) and
+throws it all with his mind: whatever he's moving glows violet, and so does he.
+**Dodge: Mind Blink.** Instead of rolling he teleports: a short delay (5 frames, already
+untouchable from the 3rd) and he's simply 58 px away the way you pushed, stopped by the
+walls but not by pits (blinking onto a hole drops him in). **Most of his attacks are thrown, and
 they reach about as far as Gillbert's Cast Line (110–130 px)**, so he wants foes at knife
 range; up close he softens them up or flips them away. Voice line: "CHOP CHOP!"
 
@@ -499,7 +504,7 @@ charge-up particles, impacts like Avalanche's rock spire or Storm Drain's geyser
 creature a `ko_fx` block that picks its death animation: Cairn's stack breaks apart and
 tumbles across the floor; Culvert cracks, gushes storm water and settles into rubble;
 Craglash's neck comes apart stone by stone; Barkley topples like a felled tree ("TIMBER!"); Gillbert gives one last wet flop; Chef
-Cerebro fizzles out in a puff of steam and his sunglasses skid away; Hissy Fitz goes down
+Cerebro's kit clatters to the floor and he sinks after it, fizzling out in a puff of steam as his sunglasses skid away; Hissy Fitz goes down
 with a long hiss and a drip of venom; Digby flops over in a puff of dust; Sneaky Pete's bag bursts and the cash flutters
 down; Sno Mercy melts into a puddle of syrup. The
 keys are listed at the top of `src/view/fx_view.gd`. Effects only read the simulation, so

@@ -1003,6 +1003,17 @@ func trigger_counter(attacker_pos: Vector2, sim: MatchSim) -> void:
 func _update_dodge(sim: MatchSim) -> void:
 	var dg: Dictionary = def["dodge"]
 	var frames := int(dg["frames"])
+	if dg.has("blink"):
+		# A teleport (Chef Cerebro): he stays put for a moment, then is simply somewhere
+		# else, "distance" px the way he dodged (stopped by the walls, not by pits).
+		var bl: Dictionary = dg["blink"]
+		if state_t == int(bl["at"]):
+			var from := pos
+			pos = _clamp_to_floor(pos + dodge_dir * float(bl["distance"]))
+			sim.emit_event("warp", pos, 1.0, {"who": id, "from": from})
+		if state_t >= frames:
+			_set_state(State.IDLE)
+		return
 	var spd := float(dg["speed"])
 	if state_t > frames - 5:
 		spd *= 0.4

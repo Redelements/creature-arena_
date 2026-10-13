@@ -168,3 +168,36 @@ func test_rollback_with_knives_in_the_air() -> void:
 	sim.restore(snap)
 	run(sim, 0, 50, L)
 	assert_eq(sim.state_digest(), once, "replaying from the snapshot gives the same state:")
+
+
+func test_his_dodge_is_a_teleport_after_a_short_delay() -> void:
+	var sim := _duel("cairn", 60.0)
+	var chef := sim.creatures[0]
+	var bl: Dictionary = chef.def["dodge"]["blink"]
+	var start := chef.pos
+	run(sim, SimDefs.IN_DODGE | SimDefs.IN_UP, 1)
+	assert_eq(chef.state, CreatureSim.State.DODGE, "the dodge starts")
+	for t in int(bl["at"]) - 1:
+		assert_near(chef.pos.distance_to(start), 0.0, 0.001, "he stays put before the blink (tick %d):" % t)
+		run(sim, 0, 1)
+	var warped := false
+	for t in 3:
+		run(sim, 0, 1)
+		if not sim.events.filter(func(e): return String(e["type"]) == "warp").is_empty():
+			warped = true
+			break
+	assert_true(warped, "a warp event when he blinks")
+	assert_near(start.y - chef.pos.y, float(bl["distance"]), 0.001, "and he's that far up the screen at once:")
+	assert_near(chef.pos.x, start.x, 0.001, "straight up:")
+	assert_true(chef.is_invulnerable(), "untouchable around the jump")
+	run(sim, 0, int(chef.def["dodge"]["frames"]))
+	assert_eq(chef.state, CreatureSim.State.IDLE, "and back to normal after")
+
+
+func test_his_teleport_stops_at_the_wall() -> void:
+	var sim := _duel()
+	var chef := sim.creatures[0]
+	chef.pos = Vector2(SimDefs.floor_rect().position.x + 30.0, chef.pos.y)
+	run(sim, SimDefs.IN_DODGE | SimDefs.IN_LEFT, 1)
+	run(sim, 0, int(chef.def["dodge"]["frames"]) + 1)
+	assert_near(chef.pos.x, chef.floor_min().x, 0.001, "lands against the wall, still on the floor:")
