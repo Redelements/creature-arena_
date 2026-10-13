@@ -44,11 +44,22 @@ unknown publisher: choose **More info → Run anyway**.
 
 ## Play online (1v1)
 
-**Online** on the title menu. Both players need the **same build**.
+**Online** on the title menu. Both players need the **same build**. Pick your fighter, then:
 
-1. Pick your fighter.
-2. One player chooses **Host a match**. The screen lists their addresses.
-3. The other types the host's address on the **Join** row (or pastes it with Ctrl+V) and presses Enter.
+- **Quick match:** plays whoever is waiting on the game's server.
+- **Create room:** shows a short code (like `KX7P`). Your friend picks **Join room** and
+  types it, and the server pairs the two of you.
+
+The server is `kevarena.duckdns.org` (from `data/online.json`); **Settings > Game > Online
+server** changes it. At the server's own house the game finds it on the local network by
+itself, since many routers can't loop their public name back inside. The server pairs
+players, relays each match and referees it with its own copy of the game. Run one:
+[docs/SERVER.md](docs/SERVER.md).
+
+**More** has the rest: play without a server, or join another one.
+
+1. One player chooses **Host a match**. The screen lists their addresses.
+2. The other types the host's address on the **Join** row (or pastes it with Ctrl+V) and presses Enter.
 
 How the joiner reaches the host:
 
@@ -60,10 +71,8 @@ How the joiner reaches the host:
 - **Over the internet, port forwarding:** the host forwards **UDP port 7777** on their
   router to their PC, and the joiner uses the host's public IP.
 - Windows asks whether to let the game use the network the first time you host: allow it.
-- **On a dedicated server:** nobody hosts. Both players **Join** the server's address
-  (add `/room`, like `game.example.net/kev`, so friends get paired with each other
-  instead of with whoever is next). The server pairs players, relays the match and
-  referees it with its own copy of the game. Run one: [docs/SERVER.md](docs/SERVER.md).
+- **Another dedicated server:** type its address on the Join row (add `/room`, like
+  `game.example.net/kev`, to meet a friend there).
 
 It uses rollback netcode: your own inputs respond at once (after 1–3 frames of delay,
 picked from the ping), and the other player's late inputs are corrected in a frame or
@@ -76,7 +85,7 @@ bad connection: `--net-lag=6 --net-loss=0.1`. Details: [docs/NETCODE.md](docs/NE
 1. Install [Godot 4.7](https://godotengine.org/download) (standard build, no .NET needed).
 2. Open Godot, click **Import**, and pick this folder's `project.godot`.
 3. Press **F5** (or the ▶ button). The title menu has **Single player** (every mode against
-   the CPU, training, trials and local 2-player), **Online**, **Settings** (Game: CPU level, rumble, screen shake; Video: fullscreen, vsync, the
+   the CPU, training, trials and local 2-player), **Online**, **Settings** (Game: CPU level, rumble, screen shake, online server; Video: fullscreen, vsync, the
    fight frame rate, 144 fps unless changed; Audio: master, music, effects and menu volume;
    Controls: keyboard layout and remapping for both keyboard layouts and the controller) and **Exit**. Menus always
    run at 60 fps. The game itself runs 60 steps a second whatever the frame rate.

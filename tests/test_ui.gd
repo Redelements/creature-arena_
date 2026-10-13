@@ -409,6 +409,96 @@ func test_an_empty_address_says_so() -> void:
 	st.free()
 
 
+func test_quick_match_and_rooms_play_on_the_server() -> void:
+	var lobby := OnlineLobby.new("digby", "", [], "game.example.net")
+	var st := _stack()
+	st.push(lobby)
+	var got := []
+	lobby.server_join_pressed.connect(func(f, r): got.append([f, r]))
+	assert_eq(_focus(), lobby._fighter_row, "the fighter row starts focused")
+	_press("ui_down")
+	assert_eq(_focus(), lobby._quick, "then Quick match")
+	_press("ui_accept")
+	assert_eq(got, [["digby", ""]], "Quick match: the server, no room:")
+	_press("ui_down")
+	_press("ui_accept")
+	assert_eq(got.size(), 2, "Create room joins too")
+	var code := String(got[1][1])
+	assert_eq(code.length(), OnlineLobby.CODE_LENGTH, "with a short code: " + code)
+	for ch in code:
+		assert_true(OnlineLobby.CODE_CHARS.contains(ch), "made of easy-to-read characters: " + code)
+	lobby.busy = true
+	assert_true(lobby._room_label.text.contains(code), "the code is shown while waiting: " + lobby._room_label.text)
+	assert_true(lobby._room_label.text.contains("Join room"), "with what the friend does")
+	lobby.busy = false
+	lobby.join_room("  kx-7p ")
+	assert_eq(got[2], ["digby", "KX7P"], "a typed code is tidied:")
+	assert_false(lobby.more_shown, "the address rows wait under More")
+	assert_false(lobby.field.visible, "")
+	lobby.toggle_more()
+	assert_true(lobby.field.visible and not lobby._quick.visible, "More swaps the rows")
+	assert_eq(_focus(), lobby._host, "and focuses the first of them")
+	st.free()
+
+
+func test_no_server_says_where_to_set_one() -> void:
+	var lobby := OnlineLobby.new()
+	var st := _stack()
+	st.push(lobby)
+	var got := [false]
+	lobby.server_join_pressed.connect(func(_f, _r): got[0] = true)
+	lobby.quick_match()
+	assert_false(got[0], "nothing to join")
+	assert_true(lobby.status_bad and lobby.status.contains("Settings"), "it says where: " + lobby.status)
+	assert_true(lobby.more_shown, "and the address rows are out")
+	assert_eq(OnlineLobby.clean_code(" a b-c!9 "), "ABC9", "codes keep letters and digits")
+	st.free()
+
+
+func test_the_online_server_setting_is_kept_and_has_a_default() -> void:
+	var g := _game()
+	assert_true(g.default_server() != "", "the game has its own server")
+	assert_eq(g.online_server(), g.default_server(), "used when none is set")
+	g._open_settings_page("game")
+	var f: LineEdit = null
+	for c in g.ui.top().rows():
+		if c is LineEdit:
+			f = c
+	assert_true(f != null, "Settings > Game has the server box")
+	f.text = "my.server.net:7800"
+	f.text_changed.emit(f.text)
+	assert_eq(g.online_server(), "my.server.net:7800", "typing sets it")
+	var cfg := ConfigFile.new()
+	cfg.load(TEST_SETTINGS)
+	assert_eq(String(cfg.get_value("online", "server", "")), "my.server.net:7800", "and it's saved")
+	g.free()
+
+
+func test_quick_match_finds_the_server_at_home_first() -> void:
+	var g := _game()
+	var port := 20000 + (Time.get_ticks_usec() % 20000)
+	var beacon := ServerBeacon.new()
+	assert_true(beacon.listen(port), beacon.error)
+	g.finder_target = "127.0.0.1"
+	g._online_server = "203.0.113.9:%d" % port  # a public address that won't answer
+	g._start_match(20)  # Online
+	assert_true(g.lobby != null, "the online screen is up")
+	g.lobby.quick_match()
+	assert_true(g.lobby.busy and g.lobby.status.contains("Looking"), "it looks nearby first: " + g.lobby.status)
+	for i in 120:
+		beacon.poll()
+		_tick(g, 1)
+		if g.netplay != null:
+			break
+		OS.delay_usec(3000)
+	assert_true(g.netplay != null, "then joins")
+	if g.netplay != null:
+		assert_eq(g.netplay._address, "127.0.0.1:%d" % port, "the one it found, not the public address:")
+	beacon.close()
+	g._leave_online()
+	g.free()
+
+
 func test_match_over_offers_rematch_and_back_goes_to_the_menu() -> void:
 	var g := _game()
 	g._start_match(6)  # Duel vs CPU (pick screen)
