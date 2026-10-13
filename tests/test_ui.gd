@@ -340,8 +340,40 @@ func test_single_player_starts_the_chosen_fighter() -> void:
 	_press("ui_right")
 	_press("ui_right")
 	_press("ui_accept")
-	assert_eq(g.mode, int(g.MENU_ROWS[3]["modes"][2]), "Enter starts the fighter picked with Right:")
+	var row: Dictionary = g.MENU_ROWS.filter(func(r): return r["label"] == "Versus CPU")[0]
+	assert_eq(g.mode, int(row["modes"][2]), "Enter starts the fighter picked with Right:")
 	assert_false(g.ui.is_open(), "and the menus close")
+	g.free()
+
+
+func test_team_battle_row_opens_the_pick_then_fights_with_cpu_teammates() -> void:
+	var g := _game()
+	g._open_menu()
+	_press("ui_accept")  # Single player
+	var scr: UiScreen = g.ui.top()
+	var team_row: OptionRow = null
+	for r in scr.rows():
+		if r is OptionRow and (r as OptionRow).label == "Team battle vs CPU":
+			team_row = r
+	assert_true(team_row != null, "a Team battle row")
+	team_row.grab_focus()
+	_press("ui_right")  # 3 v 3
+	_press("ui_accept")
+	assert_eq(g.mode, 30, "3 v 3 chosen:")
+	assert_true(g.ui.top() is CharacterSelect, "the pick screen comes first")
+	g._on_teams_chosen([["cairn"], ["culvert"]])  # short picks are topped up to three
+	assert_true(g.team_battle != null, "a team battle runs")
+	assert_eq(g.sim.creatures.size(), 6, "six fighters on the field:")
+	assert_eq(g.sides[0], g.Side.PLAYER, "you play the first slot:")
+	var cpu_count := 0
+	for c in g.cpus:
+		if c != null:
+			cpu_count += 1
+	assert_eq(cpu_count, 5, "CPUs play the other five:")
+	assert_eq(g.hud.tags.size(), 6, "a HUD tag per slot:")
+	assert_false(g.hud.help_text.contains(" tag "), "no Tag in the help (nobody to tag):")
+	_tick(g, 200)
+	assert_eq(g.team_battle.phase, TeamSim.Phase.FIGHT, "past the intro:")
 	g.free()
 
 

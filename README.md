@@ -112,8 +112,8 @@ Online from a terminal: `godot --path . -- --online-host` and `godot --path . --
 19 training as Chef Cerebro, 20 Online 1v1 (the lobby), 21 Hissy Fitz vs CPU Chef Cerebro,
 22 training as Hissy Fitz, 23 Digby vs CPU Hissy Fitz, 24 training as Digby,
 25 Sneaky Pete vs CPU Digby, 26 training as Sneaky Pete, 27 Sno Mercy vs CPU Sneaky Pete,
-28 training as Sno Mercy. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
-sets Duel teams; `--cpu-vs-cpu` hands every player side to the CPU.
+28 training as Sno Mercy, 29 Team battle 2v2 vs CPU, 30 Team battle 3v3 vs CPU. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
+sets Duel (and Team battle) teams; `--cpu-vs-cpu` hands every player side to the CPU.
 
 **Local 2-player:** with two controllers, each player gets one (player 1 can also use the
 keyboard). With one controller, player 1 uses keyboard and mouse and player 2 the controller.
@@ -242,6 +242,24 @@ at a time.
 
 All of this runs in the deterministic simulation (`src/sim/duel_sim.gd`), so a Duel can
 be played online with rollback exactly like a single match. Tuning: `data/rules/duel.json`.
+
+### Team battle: 2v2 and 3v3
+
+Every creature is on the field at once, one per player: you play the first fighter of the
+red team and CPUs play your teammates and the blue team (online play with friends in
+every slot is next).
+
+- **No friendly fire:** your hits, projectiles, bursts and ice puddles pass over
+  teammates, and moves that pick a target (taunts, gazes, homing dashes, blinks, aim
+  assist, the CPU) only ever pick a foe.
+- **One life each:** a knocked-out fighter stays down; the fight goes on with a short
+  slow motion. The last team with anyone standing wins. At the 2.5-minute limit, the team
+  with the bigger share of its health left wins.
+- **HUD:** your fighter keeps the full panel (skills, Surge, stamina); everyone else gets
+  a small card with health and energy, down their team's side of the screen.
+
+It runs in the deterministic simulation (`src/sim/team_sim.gd`, `CreatureSim.team`), so it
+rolls back like a Duel. Tuning: `data/rules/team.json`.
 
 ### Learning the game: Combo Trials and Reaction Drills
 
