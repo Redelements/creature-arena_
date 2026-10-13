@@ -8,7 +8,8 @@ extends RefCounted
 ##
 ## Steps (one at a time, in order):
 ##   wait t               do nothing for t ticks
-##   press who bit move   mash `bit` until `who` starts `move` (aim: also hold toward the foe)
+##   press who bit move   mash `bit` until `who` starts `move` (aim: also hold toward the foe;
+##                        hold: also hold "up", "down", "left" or "right")
 ##   together bits        press [left, right] on the same tick
 ##   dodge who dir        roll "away" from, or "through", the other fighter
 ##   guard who            hold guard until an attack is blocked
@@ -16,7 +17,8 @@ extends RefCounted
 ##   until cond           wait for "settled" (both free) or "move:<side>:<id>"
 ##   place                fade out, repair the floor, put both back at the start, fade in
 ##                        ("dir": "right" | "up" | "down" puts the right-hand fighter
-##                        beside, above or below the left one, facing each other)
+##                        beside, above or below the left one, facing each other;
+##                        "face" turns the left one some other way)
 ## "part" switches the caption line, "show" highlights an item on it.
 
 const L := SimDefs.IN_LIGHT
@@ -26,6 +28,8 @@ const S1 := SimDefs.IN_SKILL1
 const S2 := SimDefs.IN_SKILL2
 const SU := SimDefs.IN_SURGE
 const FADE := 14
+const HOLD_BITS := {"up": SimDefs.IN_UP, "down": SimDefs.IN_DOWN, "left": SimDefs.IN_LEFT,
+	"right": SimDefs.IN_RIGHT}
 const START_X := 210.0
 const START_Y := 160.0
 
@@ -122,6 +126,7 @@ const SCRIPTS := {
 			["Facing up: Rake", "Backhand", "Headbutt", "Boulder Lash"],
 			["Cairn from above: Jab", "Jab", "Cross", "Hook", "Haymaker"],
 			["Avalanche Coil, straight at the camera"],
+			["Strings steer: Rake to the right", "turn down: Backhand", "Headbutt"],
 		],
 		"steps": [
 			{"do": "wait", "t": 40, "part": 0},
@@ -153,7 +158,14 @@ const SCRIPTS := {
 			{"do": "wait", "t": 20},
 			{"do": "press", "who": 0, "bit": SU, "move": "surge", "show": 0},
 			{"do": "until", "cond": "settled"},
-			{"do": "wait", "t": 90},
+			{"do": "wait", "t": 60},
+			{"do": "place", "part": 4, "dir": "down", "face": "right"},
+			{"do": "wait", "t": 30},
+			{"do": "press", "who": 0, "bit": L, "move": "light_1", "hold": "right", "show": 0},
+			{"do": "press", "who": 0, "bit": L, "move": "light_2", "hold": "down", "show": 1},
+			{"do": "press", "who": 0, "bit": L, "move": "light_3", "hold": "down", "show": 2},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 70},
 		],
 	},
 	"counterplay": {
@@ -277,6 +289,8 @@ func inputs(sim: MatchSim) -> PackedInt32Array:
 				var bits := int(s["bit"]) if _t % 2 == 1 else 0
 				if bool(s.get("aim", false)):
 					bits |= _toward(sim, who)
+				if s.has("hold"):
+					bits |= HOLD_BITS[String(s["hold"])]
 				out[who] = bits
 				if _t > 150:
 					_fail("never started %s (in %s, state %d)" % [s["move"], c.move_id, c.state])
@@ -322,6 +336,8 @@ func inputs(sim: MatchSim) -> PackedInt32Array:
 				fade = float(_t) / FADE
 			elif _t == FADE + 1:
 				_place(sim, float(s.get("gap", script_def.get("gap", 2.0))), String(s.get("dir", "right")))
+				if s.has("face"):
+					sim.creatures[0].facing = SimDefs.dir_from_bits(HOLD_BITS[String(s["face"])])
 				# Repair the floor so leftover pits don't swallow anyone.
 				sim.terrain.cells.fill(0)
 				sim.terrain.timers.fill(0)

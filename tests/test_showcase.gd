@@ -72,7 +72,7 @@ func test_craglash_showcase_plays_through_to_a_knockout() -> void:
 
 func test_angles_showcase_lands_up_and_down() -> void:
 	var r := _play("angles")
-	var hits := [0, 0, 0, 0]
+	var hits := [0, 0, 0, 0, 0]
 	for ev in r["parts"]:
 		if String(ev[1]) == "hit":
 			hits[int(ev[0])] += 1
@@ -80,3 +80,4 @@ func test_angles_showcase_lands_up_and_down() -> void:
 	assert_gt(float(hits[1]), 3.0, "Craglash's combo facing up should land")
 	assert_gt(float(hits[2]), 4.0, "Cairn's combo from above should land")
 	assert_gt(float(hits[3]), 0.0, "Avalanche Coil straight down should land")
+	assert_gt(float(hits[4]), 1.0, "a string that turns down mid-way should land")

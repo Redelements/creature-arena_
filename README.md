@@ -96,6 +96,13 @@ where the fighter faces. Each fighter has side, front (facing down the screen) a
 reaches away behind the body. A tall fighter standing in front of a shorter one turns
 see-through so the one behind stays readable. `--showcase=angles` shows it.
 
+**Steering:** attacks aim where you hold. Every hit of a light string turns to the
+direction held when it comes out, and a light can still be re-aimed until its strike
+comes out, so a string can start on one side and finish on someone behind or below you.
+A raw big move that winds up stays pointed where its tell showed (so rolling away from
+it still works); cancelled into from a hit, it goes where you hold. A move can be given
+its own steering window with `"aim_frames"` in its JSON.
+
 ### Duel: 3v3 tag
 
 Each side picks three creatures (repeats allowed while the roster is small); one fights
