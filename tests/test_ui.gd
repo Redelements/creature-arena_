@@ -499,6 +499,44 @@ func test_quick_match_finds_the_server_at_home_first() -> void:
 	g.free()
 
 
+func test_no_answer_after_a_missed_home_lookup_says_what_to_check() -> void:
+	var g := _game()
+	g.finder_target = "127.0.0.1"  # nobody answers there
+	g._online_server = "127.0.0.1:%d" % (20000 + (Time.get_ticks_usec() % 20000))  # nor here
+	g._start_match(20)
+	g.lobby.quick_match()
+	for i in 900:
+		_tick(g, 1)
+		if not g.lobby.busy:
+			break
+		if g._finder != null:
+			OS.delay_usec(2000)
+	assert_false(g.lobby.busy, "it gave up")
+	assert_true(g.lobby.status.contains("7778") and g.lobby.status.contains("7777"),
+		"and says what to check at home and away: " + g.lobby.status)
+	g._leave_online()
+	g.free()
+
+
+func test_an_older_server_nearby_is_still_found() -> void:
+	var port := 20000 + (Time.get_ticks_usec() % 20000)
+	var udp := PacketPeerUDP.new()
+	assert_eq(udp.bind(ServerBeacon.discovery_port(port), "*"), OK, "a stand-in old server")
+	var finder := LanFinder.new()
+	finder.start(port, "127.0.0.1")
+	for i in 200:
+		if udp.get_available_packet_count() > 0:
+			udp.get_packet()
+			udp.set_dest_address(udp.get_packet_ip(), udp.get_packet_port())
+			udp.put_packet(JSON.stringify({"t": ServerBeacon.ANSWER, "v": 2, "port": port}).to_utf8_buffer())
+		if finder.poll():
+			break
+		OS.delay_usec(2000)
+	assert_eq(finder.found.get("address", ""), "127.0.0.1",
+		"found, so joining it can say the builds differ instead of 'no answer':")
+	udp.close()
+
+
 func test_match_over_offers_rematch_and_back_goes_to_the_menu() -> void:
 	var g := _game()
 	g._start_match(6)  # Duel vs CPU (pick screen)
