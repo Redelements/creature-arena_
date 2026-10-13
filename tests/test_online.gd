@@ -254,3 +254,14 @@ func test_a_long_burst_of_lost_packets_is_recovered() -> void:
 	assert_gt(float(host.game.session.frame - before), 250.0, "the match carries on afterwards:")
 	assert_gt(float(guest.game.session.confirmed_frame()), float(before), "the lost inputs were sent again:")
 	assert_eq(host.game.desync_frame, -1, "still in sync")
+
+
+func test_a_join_that_never_gets_through_says_no_answer() -> void:
+	var links := LoopLink.pair()
+	(links[0] as LoopLink).close()  # the connection fails before it's made
+	var n := Netplay.new()
+	n.join("kevarena.example.net", 7777, ["cairn"], links[1])
+	n.tick(0)
+	assert_eq(n.phase, Netplay.Phase.ENDED, "it gives up")
+	assert_true(n.error.begins_with("No answer from kevarena.example.net:7777"),
+		"and says so, not that another player left: " + n.error)

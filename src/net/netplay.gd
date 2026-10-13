@@ -105,7 +105,10 @@ func tick(local_bits: int) -> void:
 	if phase == Phase.ENDED:
 		return
 	if link.status == NetLink.Status.CLOSED:
-		_fail(link.error if link.error != "" else "Connection lost")
+		if phase == Phase.CONNECTING:
+			_fail(_no_answer())  # never got through: not "the other player left"
+		else:
+			_fail(link.error if link.error != "" else "Connection lost")
 		return
 	match phase:
 		Phase.CONNECTING:
@@ -114,7 +117,7 @@ func tick(local_bits: int) -> void:
 				phase = Phase.HANDSHAKE
 				status = "Connected. Setting up the match..."
 			elif _t > CONNECT_TIMEOUT_TICKS:
-				_fail("No answer from %s. Check the address, and that the host's UDP port is open (see the help below)." % _address)
+				_fail(_no_answer())
 				return
 		Phase.HANDSHAKE:
 			if hosting:
@@ -267,6 +270,10 @@ static func valid_team(team) -> bool:
 		if not (String(id) in MatchFactory.FIGHTERS):
 			return false
 	return true
+
+
+func _no_answer() -> String:
+	return "No answer from %s. Check the address, and that its UDP port is open." % _address
 
 
 func _fail(why: String) -> bool:
