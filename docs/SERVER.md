@@ -2,11 +2,13 @@
 
 The game itself is the server: the ordinary Linux build started with `--server` runs
 headless, with no window or sound. Players don't host; they pick **Online**, then
-**Quick match** (whoever is waiting) or **Create room** / **Join room** (a short code for
-a friend). Those use the game's server, `server` in `data/online.json`, or the one set in
-**Settings > Game > Online server**. Any server can also be joined by address under
-**More**. Two players are paired, the server relays their match and referees it with its
-own copy of the game (design: [NETCODE.md](NETCODE.md#dedicated-server-built)).
+**Quick match 1v1 / 2v2 / 3v3** (whoever is waiting for that size) or **Create room** (with
+a room size) / **Join room** (a short code for friends). Those use the game's server,
+`server` in `data/online.json`, or the one set in **Settings > Game > Online server**. Any
+server can also be joined by address under **More**. The server groups 2, 4 or 6 players,
+relays their match and referees it with its own copy of the game (design:
+[NETCODE.md](NETCODE.md#dedicated-server-built)). A 2v2 needs four players waiting and a
+3v3 six; until then each player sees how many are there.
 
 A full step-by-step home setup (Ubuntu Server install, static IP, router, firewall, a
 free domain name, updates) is in the **Creature Arena home server guide** doc. This page
@@ -60,6 +62,8 @@ systemd):
 [2026-10-11 13:21:08] player 1 (digby) is waiting in room 'kev'
 [2026-10-11 13:21:08] match 1 started: player 1 (digby) vs player 2 (sno), round trip 41 ms, input delay 1
 [2026-10-11 13:22:51] match 1 over: player 2 (sno) won (48 fingerprints checked)
+[2026-10-11 13:30:02] match 2 started: player 3 (cairn) + player 5 (barkley) vs player 4 (culvert) + player 6 (pete), round trip 52 ms, input delay 1
+[2026-10-11 13:31:40] match 2 over: the right team won (96 fingerprints checked)
 ```
 
 Every 10 minutes it prints how many players and matches there are. A line saying a

@@ -1,38 +1,51 @@
 class_name OnlineMatch
 extends RefCounted
-## One online Duel between two machines: the deterministic DuelSim driven by a
-## RollbackSession, with the input stream on a NetLink. Netplay makes these; main shows
-## whatever `duel` holds and plays `events`.
+## One online match: a 1v1 Duel between two machines (DuelSim), or a 2v2/3v3 team
+## battle with each player on their own machine (TeamSim), driven by a RollbackSession,
+## with the input streams on a NetLink. Netplay makes these; main shows whatever `duel`
+## or `team` holds and plays `events`.
 ##
 ## Each tick:
 ##   1. Schedule the local input and send it (with this machine's frame and advantage).
-##   2. Time sync: if this machine is running ahead of the other, skip a frame now and
+##   2. Time sync: if this machine is running ahead of another, skip a frame now and
 ##      then so both see about the same amount of rollback (GGPO's frame advantage).
+##      With several players each pair is compared, and the furthest-behind one counts.
 ##   3. Advance: roll back if a late input changed the past, then simulate one frame, or
-##      wait if the other machine is too far behind.
+##      wait if another machine is too far behind.
 ##
 ## Effects: a rollback re-simulates frames, which emit their events again. Only events
 ## not already shown pass to the views (keyed by tick, kind and who), so a hit spark
 ## plays once; a hit that only turned out to happen after a correction still shows.
 ##
-## Desync check: every DIGEST_EVERY confirmed frames each side sends a fingerprint of
-## its whole match state. They must be identical; if not, `desync_frame` is set and the
-## input log can be saved to replay the bug exactly.
+## Desync check: every DIGEST_EVERY confirmed frames each player sends a fingerprint of
+## their whole match state. They must be identical; if not, `desync_frame` is set and
+## the input log can be saved to replay the bug exactly.
 
 const DIGEST_EVERY := 60
 ## Frames between time-sync waits, so a correction is spread out and nobody feels it.
 const SYNC_COOLDOWN := 20
 
-var duel: DuelSim
+var duel: DuelSim = null  ## a 1v1 (null in a team battle)
+var team: TeamSim = null  ## a team battle (null in a 1v1)
 var session: RollbackSession
 var link: NetLink
 var id := 0  ## which match of the session this is (rematches count up)
-var local_side := 0
+var local_slot := 0  ## this machine's player: its input slot (= its side in a 1v1)
+var local_side := 0  ## the side that player fights for
+var size := 1  ## players per side
+var players := 2
 var teams: Array
 var input_delay := 2
-## Through a dedicated server, the opponent's round trip to it: their packets travel
+## Through a dedicated server, each player's round trip to it: their packets travel
 ## that far too, on top of this machine's own hop (the link's round trip).
-var relay_rtt_ms := 0.0
+var relay_rtts: Array = []
+## In a 1v1: the opponent's round trip to the server.
+var relay_rtt_ms: float:
+	get:
+		return float(relay_rtts[1 - local_slot]) if players == 2 else 0.0
+	set(v):
+		if players == 2:
+			relay_rtts[1 - local_slot] = v
 
 ## New events since the last tick, for the views.
 var events: Array = []
@@ -42,32 +55,32 @@ var sync_waits := 0
 var desync_frame := -1
 ## How many state fingerprints both machines have agreed on so far.
 var digests_matched := 0
-## Every confirmed frame's inputs, [side 0, side 1]: a desync report replays from it.
+## Every confirmed frame's inputs, one per player: a desync report replays from it.
 var input_log := {}
 ## This machine's fingerprint of every checked frame (frame -> digest), for reports.
 var final_digests := {}
 
 var _tap: _Tap
-var _digests := {}
-var _remote_digests := {}
-var _remote_frame := -1
-var _remote_adv := 0.0
+var _digests := {}  ## frame -> ours
+var _remote_digests := {}  ## "player:frame" -> theirs
+var _remote_frame: Array = []  ## player -> the frame they last reported (-1: none yet)
+var _remote_adv: Array = []  ## player -> how far ahead of us they think they are
 var _sync_cool := 0
 
 
-## The match's game object for the rollback session: steps the duel and collects the
-## events nobody has seen yet.
+## The match's game object for the rollback session: steps the Duel or team battle
+## and collects the events nobody has seen yet.
 class _Tap:
-	var duel: DuelSim
+	var duel  ## a DuelSim or a TeamSim: both step, snapshot, restore and digest
 	var out: Array = []
 	var _seen := {}  ## event key -> tick
 
-	func _init(d: DuelSim) -> void:
+	func _init(d) -> void:
 		duel = d
 
 	func step(inputs: PackedInt32Array) -> void:
 		duel.step(inputs)
-		var t := duel.sim.tick
+		var t: int = duel.sim.tick
 		for e in duel.sim.events:
 			var key := "%d:%s:%s:%s:%s" % [int(e.get("tick", t)), String(e["type"]), str(e.get("attacker", "")),
 				str(e.get("target", "")), str(e.get("who", ""))]
@@ -89,31 +102,65 @@ class _Tap:
 		return duel.state_digest()
 
 
-func _init(p_teams: Array, p_side: int, p_delay: int, p_link: NetLink, p_id: int) -> void:
+## `p_size` players per side: 1 is a Duel between two machines (`p_slot` is the side);
+## 2 or 3 is a team battle, `p_slot` one of TeamSim's slots (side 0 first).
+func _init(p_teams: Array, p_slot: int, p_delay: int, p_link: NetLink, p_id: int, p_size := 1) -> void:
 	teams = p_teams
-	local_side = p_side
+	size = clampi(p_size, 1, 3)
+	players = size * 2
+	local_slot = clampi(p_slot, 0, players - 1)
 	input_delay = p_delay
 	link = p_link
 	id = p_id
-	duel = DuelSim.new(teams)
-	_tap = _Tap.new(duel)
-	session = RollbackSession.new(_tap, local_side, input_delay)
+	if size > 1:
+		team = TeamSim.new(teams, size)
+		local_side = team.side_of(local_slot)
+		_tap = _Tap.new(team)
+	else:
+		duel = DuelSim.new(teams)
+		local_side = local_slot
+		_tap = _Tap.new(duel)
+	for p in players:
+		relay_rtts.append(0.0)
+		_remote_frame.append(-1)
+		_remote_adv.append(0.0)
+	session = RollbackSession.new(_tap, local_slot, input_delay, players)
 	session.on_final = _on_final
 
 
-## A message for this match from the other machine.
+## The match being played (a DuelSim or a TeamSim).
+func game_sim():
+	return team if team != null else duel
+
+
+## -2 undecided, -1 a draw, else the winning side.
+func winner() -> int:
+	return team.winner if team != null else duel.winner
+
+
+## A message for this match from another machine (`p`: whose; a 1v1 may leave it out).
 func receive(m: Dictionary) -> void:
+	var p := int(m.get("p", 1 - local_slot if players == 2 else -1))
+	if p < 0 or p >= players or p == local_slot:
+		return
 	match String(m.get("t", "")):
 		"in":
 			var inputs = m.get("inputs")
 			if not (inputs is PackedInt32Array):
 				return
-			session.receive({"first": int(m.get("first", 0)), "inputs": inputs, "ack": int(m.get("ack", -1))})
-			_remote_frame = maxi(_remote_frame, int(m.get("f", -1)))
-			_remote_adv = float(m.get("adv", 0.0))
+			session.receive({"p": p, "first": int(m.get("first", 0)), "inputs": inputs,
+				"ack": int(m.get("ack", -1))})
+			_remote_frame[p] = maxi(int(_remote_frame[p]), int(m.get("f", -1)))
+			# How far ahead of this machine they think they are: from their per-player
+			# list, or (a 1v1) their single figure.
+			var advs = m.get("advs")
+			if advs is PackedFloat32Array and local_slot < (advs as PackedFloat32Array).size():
+				_remote_adv[p] = float((advs as PackedFloat32Array)[local_slot])
+			else:
+				_remote_adv[p] = float(m.get("adv", 0.0))
 		"dg":
 			var f := int(m.get("f", -1))
-			_remote_digests[f] = String(m.get("d", ""))
+			_remote_digests["%d:%d" % [p, f]] = String(m.get("d", ""))
 			_check_digest(f)
 
 
@@ -126,11 +173,21 @@ func tick(local_bits: int) -> void:
 	pkt["n"] = id
 	pkt["f"] = session.frame
 	pkt["adv"] = adv
+	var advs := PackedFloat32Array()
+	advs.resize(players)
+	var gap := 0.0
+	for p in players:
+		if p == local_slot or int(_remote_frame[p]) < 0:
+			continue
+		advs[p] = advantage_over(p)
+		# Half the difference of the two views cancels out a lopsided round trip.
+		gap = maxf(gap, (advs[p] - float(_remote_adv[p])) * 0.5)
+	pkt["advs"] = advs
 	link.send(pkt)
 	if _sync_cool > 0:
 		_sync_cool -= 1
-	# Running ahead of the other machine: hold this frame once, then wait a while.
-	if _remote_frame >= 0 and _sync_cool == 0 and (adv - _remote_adv) * 0.5 >= 1.0:
+	# Running ahead of another machine: hold this frame once, then wait a while.
+	if _sync_cool == 0 and gap >= 1.0:
 		_sync_cool = SYNC_COOLDOWN
 		sync_waits += 1
 		session.sync()
@@ -141,13 +198,23 @@ func tick(local_bits: int) -> void:
 		waiting_ticks += 1
 
 
-## How many frames this machine is ahead of the other (negative: behind), using the
-## other side's last reported frame plus the time its packet spent on the way.
+## How many frames this machine is ahead of the furthest-behind other player
+## (negative: behind everyone).
 func frame_advantage() -> float:
-	if _remote_frame < 0:
+	var most := -INF
+	for p in players:
+		if p != local_slot and int(_remote_frame[p]) >= 0:
+			most = maxf(most, advantage_over(p))
+	return most if most > -INF else 0.0
+
+
+## How many frames this machine is ahead of player `p`, using their last reported frame
+## plus the time their packet spent on the way.
+func advantage_over(p: int) -> float:
+	if int(_remote_frame[p]) < 0:
 		return 0.0
-	var one_way := (link.rtt_ms() + relay_rtt_ms) * 0.5 * SimDefs.TICK_RATE / 1000.0
-	return float(session.frame) - (float(_remote_frame) + one_way)
+	var one_way := (link.rtt_ms() + float(relay_rtts[p])) * 0.5 * SimDefs.TICK_RATE / 1000.0
+	return float(session.frame) - (float(_remote_frame[p]) + one_way)
 
 
 func rollback_frames() -> int:
@@ -155,7 +222,7 @@ func rollback_frames() -> int:
 
 
 func _on_final(f: int, inputs: PackedInt32Array, after: Dictionary) -> void:
-	input_log[f] = [inputs[0], inputs[1]]
+	input_log[f] = Array(inputs)
 	if f > 0 and f % DIGEST_EVERY == 0:
 		var d := snapshot_digest(after)
 		_digests[f] = d
@@ -181,26 +248,43 @@ static func snapshot_digest(snap: Dictionary) -> String:
 
 
 func _check_digest(f: int) -> void:
-	if not _digests.has(f) or not _remote_digests.has(f):
+	if not _digests.has(f):
 		return
-	if _digests[f] != _remote_digests[f]:
-		if desync_frame < 0 or f < desync_frame:
-			desync_frame = f
-	else:
-		digests_matched += 1
-	_digests.erase(f)
-	_remote_digests.erase(f)
+	var waiting := false
+	for p in players:
+		if p == local_slot:
+			continue
+		var key := "%d:%d" % [p, f]
+		if not _remote_digests.has(key):
+			waiting = true
+			continue
+		if _digests[f] != _remote_digests[key]:
+			if desync_frame < 0 or f < desync_frame:
+				desync_frame = f
+		else:
+			digests_matched += 1
+		_remote_digests.erase(key)
+	if not waiting:
+		_digests.erase(f)
+	# Fingerprints that never came (a player left) don't pile up.
+	for k in _digests.keys():
+		if int(k) < f - DIGEST_EVERY * 4:
+			_digests.erase(k)
+	for k in _remote_digests.keys():
+		if int(String(k).get_slice(":", 1)) < f - DIGEST_EVERY * 4:
+			_remote_digests.erase(k)
 
 
 ## Everything needed to replay this match offline and find a desync: the teams and the
-## confirmed inputs of both sides, frame by frame.
+## confirmed inputs of every player, frame by frame.
 func report() -> Dictionary:
 	var frames: Array = []
 	var f := 0
 	while input_log.has(f):
 		frames.append(input_log[f])
 		f += 1
-	return {"teams": teams, "input_delay": input_delay, "local_side": local_side,
+	return {"teams": teams, "size": size, "input_delay": input_delay, "local_side": local_side,
+		"local_slot": local_slot,
 		"desync_frame": desync_frame, "digests_matched": digests_matched, "frames": frames,
 		"digests": final_digests, "at_frame": session.frame, "rollbacks": session.rollbacks,
 		"max_rollback": session.max_rollback_seen, "sync_waits": sync_waits}

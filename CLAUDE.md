@@ -68,7 +68,7 @@ plays every player side, for captures), `--pick` (show the team pick screen),
 (`TeamSim`: every creature on the field, `CreatureSim.team`, `is_foe()`; anything that
 picks or hits a target must skip teammates).
 `--menu=main|single|settings` opens that menu page (captures).
-Online: `--online-host[=PORT]`, `--online-join=ADDR[:PORT][/ROOM]`, `--fighter=ID`, `--net-lag=N`,
+Online: `--online-host[=PORT]`, `--online-join=ADDR[:PORT][/ROOM]`, `--online-size=2|3` (team battle via a server), `--fighter=ID`, `--net-lag=N`,
 `--net-loss=F`, `--net-delay=N`, `--net-report=PATH`. Two processes on one machine with
 `--cpu-vs-cpu` play each other; compare their reports (docs/NETCODE.md).
 Dedicated server: `--headless -- --server[=PORT] [--max-players=N] [--net-delay=N]`; players

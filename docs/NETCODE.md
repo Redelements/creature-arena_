@@ -124,14 +124,45 @@ game port, and the game joins that local address instead. No answer (the usual c
 away from home) means the public name. Tests: discovery over loopback in
 `tests/test_server.gd`, the screen in `tests/test_ui.gd`.
 
+**Team battles online (2v2, 3v3).** Every player is on their own machine, all through
+the server (direct host/join stays 1v1). Hello asks for a `size` (players per side; 0
+when joining a friend's room takes the room's). The server groups players by size in
+Quick match, and by the first size asked for in a room; they alternate sides as they're
+grouped. `start` adds each player's `slot` (TeamSim's order, left side first) and
+everyone's round trip to the server (`vias`, refreshed as `path` `rtts`). Every `in` and
+`dg` is relayed to all the others, tagged with the sender's slot (`p`).
+
+- `RollbackSession` takes a player count. It has one input stream per slot, predicts
+  each missing player separately, and rolls back when any of them turns out wrong. It
+  keeps inputs back to the slowest player's confirmed frame, so a rollback can replay
+  everyone. `remote_ack` is the lowest ack across players.
+- `OnlineMatch` holds a `DuelSim` (1v1) or a `TeamSim` (team battle). Time sync
+  compares this machine with each player separately: `advs` in every packet is this
+  machine's advantage over each slot, halved against theirs over us. The furthest-behind
+  player counts. Fingerprints are checked against every other player's.
+- `Referee` steps the match once all slots' inputs are in, and names whose game went
+  wrong by slot.
+- A player leaving ends the match for everyone ("A player left the match"). Filling the
+  slot with a CPU is next. A rematch starts once everyone has asked.
+
+Tests: `tests/test_server_teams.gd`, which covers:
+
+- grouping, sizes and rooms
+- a laggy 3v3 where all six machines and the referee agree
+- rematches and leaving
+
+Through a real server: `--server=7799`, then four times
+`--online-join=127.0.0.1:7799 --online-size=2 --cpu-vs-cpu --fighter=ID --net-report=rN.json`
+(the reports' inputs and fingerprints must match).
+
 **Found by the referee:** the frame an online match started, `main.gd` stepped the new
 duel once outside the rollback session. Both players did it, so they agreed with each
 other, but it could desync if a button was held on that frame. Fixed
 (`_connecting_step`).
 
-Still to do: a Steam transport (below), 3v3 rooms on the server, spectators and saved online replays
-(both just the input streams), 3v3 tag online (Netplay already sends teams), an input
-delay setting, and ranked/matchmaking.
+Still to do: a Steam transport (below), CPU fill for empty team-battle slots, spectators
+and saved online replays (both just the input streams), 3v3 tag online (Netplay already
+sends teams), an input delay setting, and ranked/matchmaking.
 
 ## Transport (to decide)
 

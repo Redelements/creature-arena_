@@ -1,20 +1,22 @@
 class_name RollbackSession
 extends RefCounted
-## Rollback netcode (GGPO-style) for one player's machine in a two-player match.
+## Rollback netcode (GGPO-style) for one player's machine in a match of 2 or more
+## players (a 1v1, or a 2v2/3v3 team battle with every player on their own machine).
 ##
 ## Every machine runs the full deterministic simulation. Each tick:
 ##   1. The local player's input is scheduled `input_delay` frames ahead and sent to
 ##      the other machine (each packet repeats the last few inputs, so a lost packet
 ##      costs nothing).
-##   2. The opponent's input for this frame is used if it has arrived; otherwise it is
-##      PREDICTED (their last known input repeated, which is right most of the time).
+##   2. Each other player's input for this frame is used if it has arrived; otherwise
+##      it is PREDICTED (their last known input repeated, right most of the time).
 ##   3. When a real input arrives that differs from what was predicted, the match is
 ##      rolled back to that frame and quickly re-simulated to the present with the
 ##      right inputs. The player sees at most a few frames of correction.
 ##
 ## The game object only needs step(inputs), snapshot(), restore(snapshot) and
 ## state_digest(); MatchSim provides all four. Transport is up to the caller:
-## add_local_input() returns the packet to send, receive() takes packets.
+## add_local_input() returns the packet to send, receive() takes packets (each says
+## which player `p` it's from; a two-player packet without one is the other player's).
 
 ## Frames of input delay. 0 = most responsive, more = fewer rollbacks. Fighting games
 ## usually use 1-2 and adapt to the connection.
@@ -26,20 +28,23 @@ var max_rollback := 8
 var redundancy := 8
 ## A packet carries at most this many inputs (when the other side is missing a lot).
 const MAX_PACKET_INPUTS := 60
-## The other machine has every input of ours up to this frame (it says so in its
-## packets): anything after it that it hasn't got is sent again, so a burst of lost
-## packets longer than `redundancy` can't leave both machines waiting for each other.
+## Every other machine has every input of ours up to this frame (each says so in its
+## packets; this is the lowest): anything after it is sent again, so a burst of lost
+## packets longer than `redundancy` can't leave the machines waiting for each other.
 var remote_ack := -1
 
 var game  ## the deterministic simulation
 var local_player := 0
+var players := 2  ## input slots in the match
 var frame := 0  ## the next frame to simulate
 
 var _local := {}  ## frame -> input bits
-var _remote := {}  ## frame -> confirmed input bits
-var _used_remote := {}  ## frame -> the remote bits the simulation actually used
+var _remote: Array = []  ## player -> {frame -> confirmed input bits} (empty for the local one)
+var _confirmed_p: Array = []  ## player -> every input of theirs up to here has arrived
+var _acks: Array = []  ## player -> how far they have all of ours
+var _used := {}  ## frame -> the inputs the simulation actually used (every player)
 var _snapshots := {}  ## frame -> state before simulating that frame
-var _confirmed := -1  ## every remote input up to this frame has arrived (no gaps)
+var _confirmed := -1  ## every other player's input up to this frame has arrived
 var _rollback_from := -1
 
 # Stats, for tuning and tests.
@@ -51,7 +56,7 @@ var stalls := 0
 
 ## Called once for each frame as it becomes final (both players' inputs confirmed and
 ## simulated with them, so it will never be rolled back), in order, with
-## (frame, inputs used [side 0, side 1], snapshot of the state after that frame).
+## (frame, inputs used [one per player], snapshot of the state after that frame).
 ## Online play takes its input log and desync checks there.
 var on_final := Callable()
 var _final := -1
@@ -63,14 +68,21 @@ var history := {}
 
 ## Both machines must use the same input delay: the first `input_delay` frames have no
 ## inputs on either side, so they start out confirmed as empty.
-func _init(p_game, p_local_player: int, p_input_delay := 2) -> void:
+func _init(p_game, p_local_player: int, p_input_delay := 2, p_players := 2) -> void:
 	game = p_game
 	local_player = p_local_player
 	input_delay = p_input_delay
+	players = maxi(2, p_players)
+	for p in players:
+		_remote.append({})
+		_confirmed_p.append(input_delay - 1)
+		_acks.append(-1)
 	for f in input_delay:
 		_local[f] = 0
-		_remote[f] = 0
 		history[f] = 0
+		for p in players:
+			if p != local_player:
+				_remote[p][f] = 0
 	_confirmed = input_delay - 1
 
 
@@ -91,24 +103,38 @@ func add_local_input(bits: int) -> Dictionary:
 	return {"first": first, "inputs": inputs, "ack": _confirmed}
 
 
-## Takes a packet from the other player. Out-of-order and duplicate packets are fine.
+## Takes a packet from another player. Out-of-order and duplicate packets are fine.
 func receive(packet: Dictionary) -> void:
+	var p := int(packet.get("p", 1 - local_player if players == 2 else -1))
+	if p < 0 or p >= players or p == local_player:
+		return
 	var first := int(packet["first"])
 	var inputs: PackedInt32Array = packet["inputs"]
 	if packet.has("ack"):
-		remote_ack = maxi(remote_ack, int(packet["ack"]))
+		_acks[p] = maxi(int(_acks[p]), int(packet["ack"]))
+		var lowest := 1 << 30
+		for q in players:
+			if q != local_player:
+				lowest = mini(lowest, int(_acks[q]))
+		remote_ack = lowest
+	var mine: Dictionary = _remote[p]
 	for i in inputs.size():
 		var f := first + i
-		if _remote.has(f):
+		if mine.has(f) or f <= int(_confirmed_p[p]) - 1:
 			continue
 		var bits := inputs[i]
-		_remote[f] = bits
+		mine[f] = bits
 		# Already simulated this frame with a guess? If the guess was wrong, rewind.
-		if f < frame and _used_remote.has(f) and int(_used_remote[f]) != bits:
+		if f < frame and _used.has(f) and int((_used[f] as PackedInt32Array)[p]) != bits:
 			if _rollback_from < 0 or f < _rollback_from:
 				_rollback_from = f
-	while _remote.has(_confirmed + 1):
-		_confirmed += 1
+	while mine.has(int(_confirmed_p[p]) + 1):
+		_confirmed_p[p] = int(_confirmed_p[p]) + 1
+	var low := 1 << 30
+	for q in players:
+		if q != local_player:
+			low = mini(low, int(_confirmed_p[q]))
+	_confirmed = low
 
 
 ## Simulates the next frame (after fixing any misprediction). Returns false if it had
@@ -141,9 +167,7 @@ func _finalize() -> void:
 		_final += 1
 		if not on_final.is_valid():
 			continue
-		var inputs := PackedInt32Array([0, 0])
-		inputs[local_player] = int(_local.get(_final, 0))
-		inputs[1 - local_player] = int(_used_remote.get(_final, _remote.get(_final, 0)))
+		var inputs: PackedInt32Array = _used[_final] if _used.has(_final) else _inputs_for(_final)
 		var after = _snapshots.get(_final + 1) if _final + 1 < frame else game.snapshot()
 		on_final.call(_final, inputs, after)
 
@@ -164,35 +188,48 @@ func _do_rollback() -> void:
 
 func _simulate(f: int) -> void:
 	_snapshots[f] = game.snapshot()
-	var remote := _remote_input(f)
-	_used_remote[f] = remote
-	var inputs := PackedInt32Array([0, 0])
-	inputs[local_player] = int(_local.get(f, 0))
-	inputs[1 - local_player] = remote
+	var inputs := _inputs_for(f)
+	_used[f] = inputs
 	game.step(inputs)
 
 
-## The confirmed input if it's here, else a prediction: the opponent is still doing
+## Every player's input for frame `f`: ours, and the others' confirmed or predicted.
+func _inputs_for(f: int) -> PackedInt32Array:
+	var inputs := PackedInt32Array()
+	inputs.resize(players)
+	for p in players:
+		inputs[p] = int(_local.get(f, 0)) if p == local_player else _remote_input(p, f)
+	return inputs
+
+
+## The confirmed input if it's here, else a prediction: that player is still doing
 ## whatever they were last confirmed doing (holding a direction, a guard...).
-func _remote_input(f: int) -> int:
-	if _remote.has(f):
-		return int(_remote[f])
-	return int(_remote.get(_confirmed, 0))
+func _remote_input(p: int, f: int) -> int:
+	var mine: Dictionary = _remote[p]
+	if mine.has(f):
+		return int(mine[f])
+	return int(mine.get(_confirmed_p[p], 0))
 
 
 ## Drops history nothing can roll back to: frames before the confirmed point are final.
 func _forget_old() -> void:
 	var keep_from := mini(mini(_confirmed + 1, frame - 1), _final + 1)
-	for d in [_snapshots, _used_remote]:
+	for d in [_snapshots, _used]:
 		for k in d.keys():
 			if int(k) < keep_from:
 				d.erase(k)
-	# Keep every remote input not yet simulated (the other machine can run ahead, and
-	# its packets only repeat the last few inputs), plus the newest confirmed one, which
-	# predictions copy.
-	for k in _remote.keys():
-		if int(k) < mini(_confirmed, frame - 1):
-			_remote.erase(k)
+	# Keep every remote input not yet simulated (the other machines can run ahead, and
+	# their packets only repeat the last few inputs), everything a rollback to the
+	# slowest player's frame could replay, and each player's newest confirmed input,
+	# which predictions copy.
+	var drop_below := mini(_confirmed, frame - 1)
+	for p in players:
+		if p == local_player:
+			continue
+		var mine: Dictionary = _remote[p]
+		for k in mine.keys():
+			if int(k) < drop_below:
+				mine.erase(k)
 	for k in _local.keys():
 		if int(k) < mini(mini(frame - redundancy - input_delay - 2, _final + 1), remote_ack + 1):
 			_local.erase(k)
