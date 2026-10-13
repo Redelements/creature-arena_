@@ -92,7 +92,7 @@ func nearest_opponent(c: CreatureSim) -> CreatureSim:
 	var best: CreatureSim = null
 	var best_d := INF
 	for o in creatures:
-		if o == c or o.state == CreatureSim.State.KO:
+		if not c.is_foe(o) or o.state == CreatureSim.State.KO:
 			continue
 		var d := o.pos.distance_squared_to(c.pos)
 		if d < best_d:
@@ -185,7 +185,7 @@ func _resolve_hits() -> void:
 		var center := a.hit_center(seg)
 		var reach := a.hit_radius(seg)
 		for d in creatures:
-			if d == a:
+			if not a.is_foe(d):
 				continue
 			var key := "%d:%d" % [d.id, seg]
 			if a.seg_hit.has(key):
@@ -478,7 +478,7 @@ func _step_zones() -> void:
 		keep.append(z)
 		var at: Vector2 = z["pos"]
 		for c in creatures:
-			if c.id == int(z["owner"]) or c.state == CreatureSim.State.KO or c.state == CreatureSim.State.FALLING \
+			if not creatures[int(z["owner"])].is_foe(c) or c.state == CreatureSim.State.KO or c.state == CreatureSim.State.FALLING \
 					or c.is_airborne():
 				continue
 			if c.pos.distance_to(at) > float(z["radius"]):
@@ -563,7 +563,7 @@ func _step_projectiles() -> void:
 		var spent := false
 		var pierce := p.has("struck")
 		for d in creatures:
-			if d == owner or not _hittable(d, hit):
+			if not owner.is_foe(d) or not _hittable(d, hit):
 				continue
 			if pierce and (p["struck"] as Array).has(d.id):
 				continue
@@ -593,7 +593,7 @@ func _burst(p: Dictionary) -> void:
 		terrain.crack_circle(at, float(p["crack"]))
 	var landed := 0
 	for d in creatures:
-		if d == owner or not _hittable(d, hit):
+		if not owner.is_foe(d) or not _hittable(d, hit):
 			continue
 		if at.distance_to(d.pos) > float(p["burst"]) + d.radius:
 			continue

@@ -22,6 +22,10 @@ const TYPE_PIPS := [["light", "LT"], ["heavy", "HV"], ["skill", "SK"], ["surge",
 
 var sim: MatchSim
 var duel: DuelSim = null  ## set during a Duel: draws the team strip under each panel
+## Set during a team battle (2v2, 3v3): a column of small panels per team instead of
+## one big panel per side; `focus` (the local player's slot) keeps the big one.
+var team: TeamSim = null
+var focus := 0
 var tag_labels := ["", ""]
 var tags := ["P1", "CPU"]
 var key_labels := [["", ""], ["", ""]]
@@ -59,6 +63,17 @@ var _tick := 0
 var _font: Font = ThemeDB.fallback_font
 
 
+## The per-slot labels (tags, key prompts) have one entry per creature slot: 2, or up
+## to 6 in a team battle.
+func resize_slots(n: int) -> void:
+	n = maxi(n, 2)
+	while tags.size() < n:
+		tags.append("")
+		key_labels.append(["", ""])
+		surge_labels.append("")
+		tag_labels.append("")
+
+
 func show_toast(text: String) -> void:
 	_toast = text
 	_toast_t = 120
@@ -86,7 +101,7 @@ func advance() -> void:
 		_toast_t -= 1
 	if sim != null and sim.creatures.size() >= 2:
 		for side in 2:
-			var d := sim.creatures[1 - side]
+			var d := _combo_target(side)
 			if _combo_pop[side] > 0:
 				_combo_pop[side] -= 1
 			if d.combo_hits >= 2:
@@ -103,6 +118,18 @@ func advance() -> void:
 		if int(_cut["t"]) > CUT_IN_TICKS:
 			_cut = {}
 	queue_redraw()
+
+
+## Whose combo side `side` is building: the foe taking the longest combo right now (in a
+## 1v1 or a Duel, simply the other fighter).
+func _combo_target(side: int) -> CreatureSim:
+	var best: CreatureSim = null
+	for c in sim.creatures:
+		if c.team == side:
+			continue
+		if best == null or c.combo_hits > best.combo_hits:
+			best = c
+	return best if best != null else sim.creatures[1 - side]
 
 
 ## The screen's size (wider than 480 on ultrawide monitors, taller on 16:10) and where
@@ -133,8 +160,11 @@ func _draw() -> void:
 		return
 	if sim == null or sim.creatures.size() < 2:
 		return
-	_panel(0, _hl + 4.0, false)
-	_panel(1, _hr - 164.0, true)
+	if team != null:
+		_team_panels()
+	else:
+		_panel(0, _hl + 4.0, false)
+		_panel(1, _hr - 164.0, true)
 	_center()
 	for side in 2:
 		if _combo_show[side] > 0:
@@ -163,10 +193,49 @@ func _draw() -> void:
 		_text(Vector2(0, _sh - 3.0), help_text, 5, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, _sw)
 
 
-func _panel(side: int, x: float, right: bool) -> void:
+## Team battle: each team down its own edge. The local player's fighter gets the full
+## panel (skills, Surge, stamina); everyone else a small card: name, health, energy.
+func _team_panels() -> void:
+	for side in 2:
+		var right := side == 1
+		var x := _hl + 4.0 if not right else _hr - 164.0
+		var y := 3.0
+		if sim.creatures[focus].team == side:
+			_panel(focus, x, right, side)
+			y = 39.0
+		for i in sim.creatures.size():
+			if i == focus or sim.creatures[i].team != side:
+				continue
+			_card(i, x, y, right)
+			y += 16.0
+
+
+func _card(slot: int, x: float, y: float, right: bool) -> void:
+	var c := sim.creatures[slot]
+	var down := c.state == CreatureSim.State.KO or c.hp <= 0.0
+	draw_rect(Rect2(x, y, 160, 15), C_PANEL)
+	draw_rect(Rect2(x if not right else x + 158, y, 2, 15), SIDE_COLORS[clampi(c.team, 0, 1)])
+	var name := String(c.def.get("name", "?")).to_upper()
+	_text(Vector2(x + 5, y + 7), name, 6, C_DIM if down else C_TEXT)
+	if down:
+		_text(Vector2(x + 5, y + 7), "K.O.", 6, C_HP_LO, HORIZONTAL_ALIGNMENT_RIGHT, 150)
+		draw_rect(Rect2(x + 5, y + 9, 150, 3), C_BAR_BG)
+		return
+	_text(Vector2(x + 5, y + 7), String(tags[slot]) if slot < tags.size() else "", 5, C_DIM,
+		HORIZONTAL_ALIGNMENT_RIGHT, 150)
+	var ratio := clampf(c.hp / c.max_hp, 0.0, 1.0)
+	_bar(Rect2(x + 5, y + 9, 150, 3), ratio, _hp_color(ratio), right)
+	var full := c.energy >= CreatureSim.MAX_ENERGY
+	var ecol := Color.WHITE if full and (_tick / 8) % 2 == 0 else C_ENERGY
+	_bar(Rect2(x + 5, y + 13, 100, 1), c.energy / CreatureSim.MAX_ENERGY, ecol, right)
+
+
+## `side` is a creature slot; `color_side` picks the stripe (its team in a team battle).
+func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 	var c := sim.creatures[side]
 	draw_rect(Rect2(x, 3, 160, 34), C_PANEL)
-	draw_rect(Rect2(x, 3, 160, 2), SIDE_COLORS[side])  # red left, blue right, like the markers
+	# red left, blue right, like the markers
+	draw_rect(Rect2(x, 3, 160, 2), SIDE_COLORS[side if color_side < 0 else color_side])
 	var name := String(c.def.get("name", "?")).to_upper()
 	var tag := String(tags[side])
 	if c.is_dummy:

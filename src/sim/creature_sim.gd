@@ -62,7 +62,7 @@ const STATE_FIELDS := [
 	"block_lag", "punish_serial", "home_speed",
 ]
 ## Set once when the creature is made and never changed by the simulation.
-const STATIC_FIELDS := ["id", "def", "is_dummy", "radius", "weight", "max_hp", "max_stamina"]
+const STATIC_FIELDS := ["id", "team", "def", "is_dummy", "radius", "weight", "max_hp", "max_stamina"]
 
 const ACTION_BITS := [
 	["surge", SimDefs.IN_SURGE],
@@ -73,6 +73,10 @@ const ACTION_BITS := [
 ]
 
 var id: int
+## Which side it fights for. Teammates can't hurt each other, and moves that pick a foe
+## (taunts, gazes, homing, blinks, the CPU) skip them. Set to `id` when made, so a 1v1
+## is two teams of one; TeamSim puts several creatures on each side.
+var team: int
 var def: Dictionary
 var is_dummy := false
 
@@ -169,8 +173,14 @@ var punish_serial := 0
 var home_speed := 0.0  ## a homing dash's pace once its landing spot is locked
 
 
+## Whether `o` is on the other side (never itself).
+func is_foe(o: CreatureSim) -> bool:
+	return o != self and o.team != team
+
+
 func _init(p_id: int, p_def: Dictionary, p_pos: Vector2, p_is_dummy := false) -> void:
 	id = p_id
+	team = p_id
 	def = p_def.duplicate(true)
 	pos = p_pos
 	is_dummy = p_is_dummy
@@ -909,7 +919,7 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 func _taunt(tn: Dictionary, sim: MatchSim) -> void:
 	var r := float(tn["radius"])
 	for o in sim.creatures:
-		if o == self or o.state == State.KO or o.pos.distance_to(pos) > r + o.radius:
+		if not is_foe(o) or o.state == State.KO or o.pos.distance_to(pos) > r + o.radius:
 			continue
 		o.taunt = int(tn["ticks"])
 		o.taunt_by = id
@@ -988,7 +998,7 @@ func _blink(bl: Dictionary, sim: MatchSim) -> void:
 func _gaze(g: Dictionary, sim: MatchSim) -> void:
 	var r := float(g.get("range", 110))
 	for o in sim.creatures:
-		if o == self or o.state == State.KO or o.state == State.FALLING:
+		if not is_foe(o) or o.state == State.KO or o.state == State.FALLING:
 			continue
 		var to := o.pos - pos
 		var d := to.length()

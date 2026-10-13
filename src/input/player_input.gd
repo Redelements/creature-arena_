@@ -94,9 +94,12 @@ static func label_for(set_name: String, action: String) -> String:
 	return String(LABELS[set_name].get(action, ""))
 
 
-func help_text() -> String:
+## `tag`: false leaves out the Tag button (team battles have no bench to tag).
+func help_text(tag := true) -> String:
 	var set_name := label_set()
 	var t := String(HELP["twinstick" if set_name == "gamepad" and pad_layout == "twinstick" else set_name])
+	if not tag:
+		t = t.replace("{tag} tag   ", "").replace("{tag} tag  ", "")
 	for a in ["light", "heavy", "skill_1", "skill_2", "surge", "dodge", "guard", "tag", "stop", "up", "down",
 			"left", "right"]:
 		t = t.replace("{%s}" % a, label_for(set_name, a))

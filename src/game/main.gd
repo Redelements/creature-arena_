@@ -66,6 +66,8 @@ const MODES := [
 	{"label": "Training: Sneaky Pete", "left": "pete", "training": true},
 	{"label": "Sno Mercy  vs  CPU Sneaky Pete", "left": "sno", "right": "pete", "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Training: Sno Mercy", "left": "sno", "training": true},
+	{"label": "Team battle: 2v2 vs CPU", "team": 2, "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Team battle: 3v3 vs CPU", "team": 3, "sides": [Side.PLAYER, Side.CPU]},
 ]
 ## The menus (src/ui screens): the title menu opens Single player (MENU_ROWS), the online
 ## screen, or Settings. MODES indexes stay stable for --mode=N; rows with choices pick
@@ -85,6 +87,8 @@ const ONLINE_MODE := 20
 const MENU_ROWS := [
 	{"label": "Duel: you vs CPU  (3v3 tag)", "modes": [6], "desc": "Teams of three; tag fighters in and out"},
 	{"label": "Duel: 2 players", "modes": [7], "desc": "Teams of three, two players on one screen"},
+	{"label": "Team battle vs CPU", "modes": [29, 30], "choices": ["2 v 2", "3 v 3"],
+		"desc": "Everyone on the field at once, CPU teammates beside you. Left/Right: team size"},
 	{"label": "Versus: 2 players", "modes": [8], "desc": "One fighter each, two players on one screen"},
 	{"label": "Versus CPU", "modes": [0, 1, 12, 14, 16, 18, 21, 23, 25, 27],
 		"desc": "Best of three rounds against the CPU. Left/Right: your fighter",
@@ -182,6 +186,8 @@ var _ko_pos := Vector2.ZERO
 var _cam_follow := Vector2.ZERO
 var showcase: Showcase = null
 var duel: DuelSim = null
+## A team battle (2v2, 3v3): every creature on the field, one per slot (TeamSim).
+var team_battle: TeamSim = null
 ## Combo Trials or a Reaction Drill: drives the partner and judges the player.
 var coach = null
 var _row_choice: Array = []
@@ -501,14 +507,19 @@ func _start_match(m: int, keep_teams := false) -> void:
 		return
 	var two_players: bool = Side.PLAYER2 in cfg.get("sides", [])
 	_assign_devices(two_players)
-	if (cfg.get("duel", false) or cfg.get("versus2p", false)) and not keep_teams and not _skip_select:
+	if _has_pick(cfg) and not keep_teams and not _skip_select:
 		flow = Flow.SELECT
 		flow_t = 0
 		hud.visible = false
 		var size := int(DuelSim.load_rules().get("team_size", 3)) if cfg.get("duel", false) else 1
 		var labels := ["PLAYER 1", "PLAYER 2" if two_players else "CPU"]
+		var title := "DUEL" if cfg.get("duel", false) else "VERSUS"
+		if cfg.has("team"):
+			size = int(cfg["team"])
+			labels = ["YOU + CPU", "CPU TEAM"]
+			title = "TEAM BATTLE  %d v %d" % [size, size]
 		var pick := CharacterSelect.new()
-		pick.setup("DUEL" if cfg.get("duel", false) else "VERSUS", size, labels, two_players, _teams)
+		pick.setup(title, size, labels, two_players, _padded_teams(size) if cfg.has("team") else _teams)
 		pick.p1_keyboard = player_input.keyboard
 		pick.p1_pad = player_input.pad_device
 		pick.p2_pad = player2_input.pad_device
@@ -517,6 +528,11 @@ func _start_match(m: int, keep_teams := false) -> void:
 		ui.push(pick)
 		return
 	_start_round()
+
+
+## Modes that open the pick screen first.
+func _has_pick(cfg: Dictionary) -> bool:
+	return cfg.get("duel", false) or cfg.get("versus2p", false) or cfg.has("team")
 
 
 func _on_teams_chosen(teams: Array) -> void:
@@ -553,6 +569,9 @@ func _start_round() -> void:
 	_end_coach()
 	if cfg.get("duel", false):
 		_start_duel()
+		return
+	if cfg.has("team"):
+		_start_team(int(cfg["team"]))
 		return
 	if cfg.get("trials", false):
 		coach = ComboTrials.new(Callable(player_input, "label"))
@@ -604,6 +623,68 @@ func _start_duel() -> void:
 	flow_t = 0
 
 
+## Team battle: like a Duel, the rules (intro, KOs, timer, winner) run inside TeamSim.
+## You play the first fighter of the left team; CPUs play everyone else.
+func _start_team(per_side: int) -> void:
+	_teams = _padded_teams(per_side)
+	team_battle = TeamSim.new(_teams, per_side)
+	var s: Array = [Side.PLAYER]
+	for i in range(1, team_battle.slot_count()):
+		s.append(Side.CPU)
+	_new_sim(team_battle.sim, s)
+	hud.team = team_battle
+	hud.focus = 0
+	hud.timer_ticks = team_battle.timer
+	hud.wins = [0, 0]
+	hud.wins_needed = 0
+	hud.banner = ""
+	flow = Flow.FIGHT
+	flow_t = 0
+
+
+## The picked teams, topped up from DEFAULT_TEAMS so each side has `per_side` fighters.
+func _padded_teams(per_side: int) -> Array:
+	var out: Array = []
+	for side in 2:
+		var t: Array = (_teams[side] as Array).duplicate() if side < _teams.size() else []
+		var k := 0
+		while t.size() < per_side:
+			t.append(DEFAULT_TEAMS[side][k % DEFAULT_TEAMS[side].size()])
+			k += 1
+		out.append(t.slice(0, maxi(per_side, 1)))
+	return out
+
+
+func _team_flow() -> void:
+	hud.timer_ticks = maxi(team_battle.timer, 0)
+	match team_battle.phase:
+		TeamSim.Phase.INTRO:
+			var t := team_battle.phase_t
+			hud.banner = "TEAM BATTLE" if t < 60 else "FIGHT!"
+			hud.banner_sub = "%d v %d" % [team_battle.size, team_battle.size] if t < 60 else ""
+			if t == 2 or t == 60:
+				audio.play("round_start", 0.0, 0.75 if t == 2 else 1.0)
+		TeamSim.Phase.FIGHT:
+			hud.banner = ""
+			hud.banner_sub = ""
+		TeamSim.Phase.OVER:
+			if team_battle.phase_t == 1:
+				hud.banner = "K.O." if team_battle.timer > 0 else "TIME"
+				hud.banner_sub = ""
+			if team_battle.phase_t >= int(team_battle.rules.get("over_ticks", 150)):
+				flow = Flow.MATCH_OVER
+				flow_t = 0
+				var w := team_battle.winner
+				var me := sides.find(Side.PLAYER)
+				if w < 0:
+					hud.banner = "DRAW"
+				elif me >= 0:
+					hud.banner = "YOUR TEAM WINS!" if sim.creatures[me].team == w else "YOUR TEAM LOSES"
+				else:
+					hud.banner = "%s TEAM WINS!" % ("RED" if w == 0 else "BLUE")
+				hud.banner_sub = ""
+
+
 func _start_coach(help: String) -> void:
 	_new_sim(coach.build(), MODES[mode]["sides"])
 	hud.timer_ticks = -1
@@ -651,8 +732,10 @@ func _coach_step() -> void:
 
 func _end_duel() -> void:
 	duel = null
+	team_battle = null
 	if hud != null:
 		hud.duel = null
+		hud.team = null
 		hud.wins_needed = WINS_NEEDED
 
 
@@ -732,13 +815,17 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	sim = s
 	_cam_zoom = 0.0  # frame the new fight straight away
 	sides = p_sides.duplicate()
+	while sides.size() < sim.creatures.size():
+		sides.append(Side.CPU)  # a team battle's other slots
 	if _cpu_vs_cpu:
-		for i in 2:
+		for i in sides.size():
 			if sides[i] == Side.PLAYER or sides[i] == Side.PLAYER2:
 				sides[i] = Side.CPU
 	replay = Replay.new()
-	cpus = [null, null]
-	for i in 2:
+	cpus = []
+	cpus.resize(sides.size())
+	hud.resize_slots(sides.size())
+	for i in sides.size():
 		if sides[i] == Side.CPU:
 			cpus[i] = CpuController.new(i, level, seed_base * 101 + round_num * 7 + i)
 	arena.set_terrain(sim.terrain)
@@ -760,7 +847,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	# Red for the left side (P1), blue for the right (P2 or the CPU): a marker over each
 	# fighter and a stripe on its health panel.
 	fx.side_marks = []
-	for i in 2:
+	for i in mini(sides.size(), sim.creatures.size()):
 		var label := ""
 		match sides[i]:
 			Side.PLAYER:
@@ -775,8 +862,8 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 				label = ""
 		if sim.creatures[i].is_dummy:
 			label = ""
-		fx.side_marks.append({"color": Hud.SIDE_COLORS[i], "label": label})
-	for i in 2:
+		fx.side_marks.append({"color": Hud.SIDE_COLORS[clampi(sim.creatures[i].team, 0, 1)], "label": label})
+	for i in sides.size():
 		match sides[i]:
 			Side.PLAYER:
 				hud.tags[i] = "P1"
@@ -822,7 +909,9 @@ func _physics_process(_delta: float) -> void:
 	elif netplay != null and _connecting_step():
 		events = online.events  # the online match began this frame: its session steps it
 	else:
-		var inputs := PackedInt32Array([_side_bits(0, live), _side_bits(1, live)])
+		var inputs := PackedInt32Array()
+		for i in sides.size():
+			inputs.append(_side_bits(i, live))
 		if showcase != null and flow == Flow.FIGHT:
 			inputs = showcase.inputs(sim)
 		elif coach != null and flow == Flow.FIGHT:
@@ -831,6 +920,8 @@ func _physics_process(_delta: float) -> void:
 			replay.record(inputs)
 		if duel != null:
 			duel.step(inputs)
+		elif team_battle != null:
+			team_battle.step(inputs)
 		else:
 			sim.step(inputs)
 		events = sim.events
@@ -896,6 +987,9 @@ func _update_flow() -> void:
 			if duel != null:
 				_duel_flow()
 				return
+			if team_battle != null:
+				_team_flow()
+				return
 			if coach != null:
 				return
 			if showcase != null:
@@ -926,6 +1020,8 @@ func _update_flow() -> void:
 		Flow.MATCH_OVER:
 			if duel != null:
 				hud.timer_ticks = maxi(duel.timer, 0)
+			elif team_battle != null:
+				hud.timer_ticks = maxi(team_battle.timer, 0)
 			if flow_t == MATCH_OVER_MENU_AT and not ui.is_open():
 				_show_match_over()
 			if sides[0] == Side.CPU and sides[1] == Side.CPU and flow_t > 240:
@@ -1033,14 +1129,15 @@ func _react(e: Dictionary) -> void:
 			shake = maxf(shake, 3.0)
 			crowd.cheer(0.6)
 			var who := int(e.get("who", 0))
-			hud.cut_in(sim.creatures[who], who, String(e.get("name", "Surge")))
+			hud.cut_in(sim.creatures[who], clampi(sim.creatures[who].team, 0, 1), String(e.get("name", "Surge")))
 		"duel_over":
 			crowd.roar(150)
 		"ko":
 			shake = maxf(shake, 5.0)
 			crowd.cheer(1.0)
 			_flash(Color.WHITE, 0.6)
-			if not MODES[mode].get("training", false) or flow == Flow.MENU:
+			var finish := team_battle == null or team_battle.phase == TeamSim.Phase.OVER
+			if finish and (not MODES[mode].get("training", false) or flow == Flow.MENU):
 				_ko_cam_t = 0
 				# Frame the loser in the lower third, clear of the K.O. banner.
 				_ko_focus = Vector2(e["pos"]) + Vector2(0, -64)
@@ -1385,7 +1482,8 @@ func _set_pad_layout(lay: String) -> void:
 
 ## Updates prompts, help text and the mouse cursor for the current device and layout.
 func _apply_device() -> void:
-	for i in 2:
+	hud.resize_slots(sides.size())
+	for i in sides.size():
 		var pin: PlayerInput = null
 		if sides[i] == Side.PLAYER:
 			pin = player_input
@@ -1399,7 +1497,7 @@ func _apply_device() -> void:
 			hud.key_labels[i] = ["", ""]
 			hud.surge_labels[i] = ""
 			hud.tag_labels[i] = ""
-	hud.help_text = player_input.help_text()
+	hud.help_text = player_input.help_text(team_battle == null)
 	var pad := player_input.device == PlayerInput.Device.GAMEPAD
 	hud.gamepad = pad
 	ui.set_gamepad(pad)
@@ -1849,7 +1947,7 @@ func _show_match_over() -> void:
 			s.add_button("Rematch", func():
 				seed_base += 1
 				_start_match(mode, true), "The same fighters again")
-			if (cfg.get("duel", false) or cfg.get("versus2p", false)) and not _skip_select:
+			if _has_pick(cfg) and not _skip_select:
 				s.add_button("Change fighters", func(): _start_match(mode), "Back to the pick screen")
 			s.add_button("Main menu", func(): _open_menu(), "Back to the title menu")
 			s.on_back = func(): _open_menu()

@@ -64,7 +64,9 @@ plays every player side, for captures), `--pick` (show the team pick screen),
 9 Combo Trials, 10/11 Reaction Drills, 12 Craglash vs CPU, 13 Craglash training,
 14 Barkley vs CPU, 15 Barkley training, 16 Gillbert vs CPU, 17 Gillbert training,
 18 Chef Cerebro vs CPU, 19 Chef Cerebro training, 20 Online 1v1 (the lobby),
-21 Hissy Fitz vs CPU, 22 Hissy Fitz training, 23 Digby vs CPU, 24 Digby training, 25 Sneaky Pete vs CPU, 26 Sneaky Pete training, 27 Sno Mercy vs CPU, 28 Sno Mercy training.
+21 Hissy Fitz vs CPU, 22 Hissy Fitz training, 23 Digby vs CPU, 24 Digby training, 25 Sneaky Pete vs CPU, 26 Sneaky Pete training, 27 Sno Mercy vs CPU, 28 Sno Mercy training, 29/30 Team battle 2v2/3v3 vs CPU
+(`TeamSim`: every creature on the field, `CreatureSim.team`, `is_foe()`; anything that
+picks or hits a target must skip teammates).
 `--menu=main|single|settings` opens that menu page (captures).
 Online: `--online-host[=PORT]`, `--online-join=ADDR[:PORT][/ROOM]`, `--fighter=ID`, `--net-lag=N`,
 `--net-loss=F`, `--net-delay=N`, `--net-report=PATH`. Two processes on one machine with
