@@ -57,3 +57,16 @@ func test_side_only_animations_use_the_side_sheet() -> void:
 	v.refresh()
 	assert_true(v.sprite.texture.resource_path.ends_with("_down.png"), "idle facing down uses the front sheet")
 	v.free()
+
+
+func test_attacking_down_the_screen_never_draws_over_the_fighter_in_front() -> void:
+	# The one further down the screen is nearer the camera: drawn in front even while the
+	# one behind punches down at them (y-sorting by feet, nothing on top).
+	var v := _view("craglash")
+	var c := v.c
+	c.facing = Vector2.DOWN
+	c.state = CreatureSim.State.ATTACK
+	c.move_id = "light_1"
+	v.refresh()
+	assert_eq(v.z_index, 0, "a downward punch stays in depth order:")
+	v.free()

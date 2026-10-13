@@ -119,9 +119,11 @@ func refresh() -> void:
 		flip = false
 
 	view = _pick_view()
-	# Attacking toward the camera: draw over whoever is in front, so a swing that reaches
-	# down the screen isn't hidden behind its target.
-	z_index = 1 if c.state == CreatureSim.State.ATTACK and c.facing.y > 0.5 else 0
+	# Depth is the floor position alone (the entities node y-sorts by feet): whoever stands
+	# further down the screen is nearer the camera and drawn in front, attacking or not.
+	# A swing aimed down at someone in front is drawn behind them, as it would be seen;
+	# its hit spark and smear (FxView) still show over both.
+	z_index = 0
 	var pick := _pick()
 	var res := _resolve(pick[0])
 	var v: Dictionary = res[0]
