@@ -5,8 +5,12 @@ extends RefCounted
 const CREATURE_DIR := "res://data/creatures/"
 const FIGHTERS := ["cairn", "culvert", "craglash", "barkley", "gillbert", "cerebro", "hissy", "digby", "pete", "sno"]
 
-const SPAWN_LEFT := Vector2(170, 164)
-const SPAWN_RIGHT := Vector2(310, 164)
+## Either side of the floor's centre, a little below the line through it.
+const SPAWN_GAP := 100.0
+const SPAWN_LEFT := Vector2(SimDefs.GRID_X + SimDefs.GRID_COLS * SimDefs.CELL * 0.5 - SPAWN_GAP,
+	SimDefs.GRID_Y + SimDefs.GRID_ROWS * SimDefs.CELL * 0.5 + 4.0)
+const SPAWN_RIGHT := Vector2(SimDefs.GRID_X + SimDefs.GRID_COLS * SimDefs.CELL * 0.5 + SPAWN_GAP,
+	SimDefs.GRID_Y + SimDefs.GRID_ROWS * SimDefs.CELL * 0.5 + 4.0)
 
 static var _cache := {}
 

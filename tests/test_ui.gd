@@ -376,6 +376,27 @@ func test_settings_change_and_are_kept() -> void:
 	g.free()
 
 
+func test_fight_music_is_a_setting_and_the_new_track_loops() -> void:
+	var g := _game()
+	assert_eq(g._fight_track(), "battler", "fights play the Creature Arena Battler track by default:")
+	var stream: AudioStreamOggVorbis = load("res://assets/audio/music_battler.ogg")
+	assert_true(stream.loop, "it loops seamlessly")
+	g._open_settings_page("audio")
+	assert_true(g._setting_rows.has("fight_music"), "Settings > Audio has a Fight music row")
+	var row: OptionRow = g._setting_rows["fight_music"]
+	row.grab_focus()
+	_press("ui_right")
+	assert_eq(g.fight_music, "fight", "Right picks the next track:")
+	assert_eq(g._fight_track(), "fight", "and fights play it")
+	g._save_settings()
+	g.free()
+	var h: Node = load("res://scenes/main.tscn").instantiate()  # not _game(): keep the saved settings
+	h.settings_path = TEST_SETTINGS
+	_root().add_child(h)
+	assert_eq(h._fight_track(), "fight", "the choice is kept:")
+	h.free()
+
+
 func test_the_online_screen_joins_what_was_typed() -> void:
 	var lobby := OnlineLobby.new("sno", "", ["game.example.net/kev"])
 	var st := _stack()
@@ -672,6 +693,33 @@ func test_the_camera_keeps_the_arena_centred_on_a_wide_screen() -> void:
 	assert_eq(g._cam_axis(100.0, 240.0, 480.0), 240.0, "exactly as wide: centred")
 	assert_eq(g._cam_axis(100.0, 165.0, 480.0), 165.0, "zoomed in: clamped to the edge")
 	assert_eq(g._cam_axis(300.0, 165.0, 480.0), 300.0, "and follows inside")
+	g.free()
+
+
+func test_the_fight_camera_keeps_both_fighters_in_shot() -> void:
+	var g := _game()
+	g._start_match(2)  # CPU vs CPU
+	_tick(g, 2)
+	var view: Vector2 = g.get_viewport().get_visible_rect().size
+	var fr := SimDefs.floor_rect()
+	var corners := [[fr.position + Vector2(20, 30), fr.end - Vector2(20, 20)],
+		[Vector2(fr.position.x + 20, fr.end.y - 20), Vector2(fr.end.x - 20, fr.position.y + 30)]]
+	for pair in corners:
+		g.sim.creatures[0].pos = pair[0]
+		g.sim.creatures[1].pos = pair[1]
+		for i in 120:
+			g._update_camera()
+		var cam: Camera2D = g.camera
+		var shown := Rect2(cam.position - view * 0.5 / cam.zoom.x, view / cam.zoom.x).grow(0.5)
+		for c in g.sim.creatures:
+			assert_true(shown.has_point(c.pos), "feet at %s in shot %s" % [c.pos, shown])
+		assert_lt(cam.zoom.x, 1.0, "pulled back to fit them:")
+	# Close together: the usual 1x.
+	g.sim.creatures[0].pos = fr.get_center()
+	g.sim.creatures[1].pos = fr.get_center() + Vector2(40, 0)
+	for i in 300:
+		g._update_camera()
+	assert_near(g.camera.zoom.x, 1.0, 0.01, "close together, the camera sits at 1x:")
 	g.free()
 
 

@@ -17,7 +17,7 @@ var _flashes: Array[Dictionary] = []
 func _ready() -> void:
 	# Seats run on past the arena's width for wide screens (ArenaView.MARGIN).
 	var from := -int(ArenaView.MARGIN.x / 12.0)
-	var to := int((SimDefs.VIEW_W + ArenaView.MARGIN.x) / 12.0)
+	var to := int((SimDefs.ARENA_W + ArenaView.MARGIN.x) / 12.0)
 	for row in 3:
 		for i in range(from, to):
 			var x := 2 + i * 12 + (row % 2) * 6

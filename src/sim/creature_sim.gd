@@ -492,7 +492,7 @@ func buffer_input(buttons: int, sim: MatchSim) -> void:
 	# Without this, a dodge pressed during a freeze (like a Surge's) would be lost.
 	if pressed & SimDefs.IN_DODGE:
 		dodge_buffer = BUFFER_TICKS
-		dodge_buffer_dir = SimDefs.dir_from_bits(buttons)
+		dodge_buffer_dir = SimDefs.move_from_bits(buttons)
 
 
 func _buffer_presses(pressed: int) -> void:
@@ -529,7 +529,7 @@ func step(buttons: int, sim: MatchSim) -> void:
 	if is_stunned() and _wants_breakaway(buttons, pressed):
 		sim.breakaway(self)
 	else:
-		var dir := SimDefs.dir_from_bits(buttons)  # walking: 8 directions
+		var dir := SimDefs.move_from_bits(buttons)  # walking: 360 degrees from a stick
 		var aim := SimDefs.aim_from_bits(buttons)  # attacks: the exact aim when one is sent
 		match state:
 			State.IDLE, State.MOVE:
@@ -697,7 +697,7 @@ func _try_start_buffered(dir: Vector2, sim: MatchSim) -> bool:
 func _taunt_aim(dir: Vector2, sim: MatchSim) -> Vector2:
 	var t := taunter(sim)
 	if t != null and t.pos.distance_squared_to(pos) > 0.0001:
-		return _snap8(t.pos - pos)
+		return (t.pos - pos).normalized()  # straight at it, any angle
 	return dir
 
 
@@ -993,7 +993,7 @@ func _slam(mv: Dictionary, sim: MatchSim) -> void:
 func trigger_counter(attacker_pos: Vector2, sim: MatchSim) -> void:
 	var c: Dictionary = move_def()["counter"]
 	if attacker_pos.distance_squared_to(pos) > 0.0001:
-		facing = _snap8(attacker_pos - pos)
+		facing = (attacker_pos - pos).normalized()
 	_start_attack(String(c["move"]), sim)
 	countered = true
 	invuln = int(c.get("invuln", 12))
@@ -1014,7 +1014,7 @@ func _update_dodge(sim: MatchSim) -> void:
 func _update_guard(buttons: int, pressed: int, dir: Vector2, aim: Vector2, sim: MatchSim) -> void:
 	var foe := sim.nearest_opponent(self)
 	if foe != null and foe.pos.distance_squared_to(pos) > 0.0001:
-		facing = _snap8(foe.pos - pos)
+		facing = (foe.pos - pos).normalized()
 	if stun > 0:
 		stun -= 1
 		return

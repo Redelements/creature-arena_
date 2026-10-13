@@ -5,15 +5,18 @@ extends RefCounted
 ## Two keyboard layouts (pick one in the menu) plus an Xbox-style gamepad, all active at once:
 ##   League-style:  mouse to move and aim, Q W E R abilities, D dodge, F guard
 ##   Classic:       WASD to move, J K U I O attacks, Space dodge, Shift guard
-##   Gamepad:       left stick moves, right stick aims, face buttons attack. Two controller
-##                  layouts: Standard (8-way aiming with aim assist) and Twin-stick (the
-##                  right stick aims 360 degrees and holds your facing, so you can strafe)
+##   Gamepad:       left stick moves and aims 360 degrees, right stick aims, face buttons
+##                  attack. Two controller layouts: Standard (the right stick aims an attack
+##                  as you throw it) and Twin-stick (the right stick aims and holds your
+##                  facing, so you can strafe)
 ##
-## Aiming: a mouse aims exactly at the cursor and a twin-stick right stick aims exactly
-## where it points (the input's 64-step aim angle). Keyboards and the Standard controller
-## give 8 directions, so they get a small aim assist: an attack aimed within ASSIST_DEG of
-## an opponent in range goes straight at them. Assist lives here, in the input, so online
-## peers simply receive the assisted aim.
+## Moving: the left stick walks any way it points (the input's 64-step move angle), and
+## a mouse click walks straight to the spot. WASD gives 8 directions.
+## Aiming: a mouse aims exactly at the cursor and a right stick exactly where it points
+## (the 64-step aim angle); with neither, attacks go the way the left stick points. Aim
+## assist: an attack aimed within ASSIST_DEG of an opponent in range goes straight at them
+## (ASSIST_DEG_STICK from a 360-degree left stick, which needs less help than WASD). Assist
+## lives here, in the input, so online peers simply receive the assisted aim.
 ##
 ## The prompts on screen follow whichever device was used last.
 ##
@@ -31,8 +34,9 @@ const TWIN_DEADZONE := 0.35  ## twin-stick: past this the right stick aims and h
 const ATTACK_BITS := SimDefs.IN_LIGHT | SimDefs.IN_HEAVY | SimDefs.IN_SKILL1 | SimDefs.IN_SKILL2 \
 	| SimDefs.IN_SURGE
 const ASSIST_DEG := 25.0
+const ASSIST_DEG_STICK := 12.0
 const ASSIST_RANGE := 90.0
-const PAD_T_SHIFT := 24  ## combine_pad packs its aim timer above the input bits
+const PAD_T_SHIFT := 27  ## combine_pad packs its aim timer above the input bits
 
 const LABELS := {
 	"league": {"light": "A", "heavy": "E", "skill_1": "Q", "skill_2": "W", "surge": "R", "dodge": "D", "guard": "F", "tag": "T"},
@@ -136,8 +140,9 @@ func bits(sim: MatchSim, me_idx: int, cursor: Vector2) -> int:
 	return assist(out, me, foe)
 
 
-## Aim assist for 8-way aiming: an attack aimed within ASSIST_DEG of an opponent in range
-## goes straight at them. Exact aims (mouse, twin-stick) pass through untouched.
+## Aim assist: an attack aimed within ASSIST_DEG (ASSIST_DEG_STICK for a 360-degree left
+## stick) of an opponent in range goes straight at them. Exact aims (mouse, right stick)
+## pass through untouched.
 static func assist(bits: int, me: CreatureSim, foe: CreatureSim) -> int:
 	if bits & SimDefs.IN_AIM or foe == null or foe.state == CreatureSim.State.KO:
 		return bits
@@ -146,10 +151,11 @@ static func assist(bits: int, me: CreatureSim, foe: CreatureSim) -> int:
 	var to := foe.pos - me.pos
 	if to.length() > ASSIST_RANGE + foe.radius or to.length_squared() < 1e-6:
 		return bits
-	var want := SimDefs.dir_from_bits(bits)
+	var want := SimDefs.aim_from_bits(bits)
 	if want == Vector2.ZERO:
 		want = me.facing
-	if want.normalized().dot(to.normalized()) < cos(deg_to_rad(ASSIST_DEG)):
+	var deg := ASSIST_DEG_STICK if bits & SimDefs.IN_MOVE else ASSIST_DEG
+	if want.normalized().dot(to.normalized()) < cos(deg_to_rad(deg)):
 		return bits
 	return bits | SimDefs.aim_bits(to)
 
@@ -228,9 +234,10 @@ func _device_pad_bits(me: CreatureSim, dev: int) -> int:
 	return out
 
 
-## Pure gamepad logic, for tests. Standard: attacks go the way the right stick points when
-## it's pushed (8 directions); otherwise the way you're moving or facing. Twin-stick: a
-## pushed right stick aims exactly (360 degrees) and holds your facing while you walk.
+## Pure gamepad logic, for tests. The left stick walks 360 degrees. Standard: attacks go
+## exactly the way the right stick points when it's pushed; otherwise the way you're
+## moving or facing. Twin-stick: a pushed right stick aims and holds your facing while you
+## walk.
 ## Returns bits | (aim ticks left << PAD_T_SHIFT).
 static func combine_pad(move: Vector2, aim: Vector2, held: Dictionary, pressed: Dictionary,
 		attacking: bool, aim_t: int, twin := false) -> int:
@@ -249,7 +256,7 @@ static func combine_pad(move: Vector2, aim: Vector2, held: Dictionary, pressed: 
 	if twin and aim.length() >= TWIN_DEADZONE:
 		out |= SimDefs.aim_bits(aim) | SimDefs.IN_STRAFE
 		if move.length() > 0.0:
-			out |= SimDefs.bits_from_dir(move.normalized())
+			out |= SimDefs.move_bits(move)
 		return out
 	var aiming := aim.length() >= AIM_DEADZONE
 	if acted and aiming:
@@ -257,7 +264,7 @@ static func combine_pad(move: Vector2, aim: Vector2, held: Dictionary, pressed: 
 	elif aim_t > 0:
 		aim_t -= 1
 	if aiming and (acted or aim_t > 0 or attacking or held.get("heavy", false)):
-		out |= SimDefs.bits_from_dir(aim.normalized())
+		out |= SimDefs.bits_from_dir(aim.normalized()) | SimDefs.aim_bits(aim)
 	elif move.length() > 0.0:
-		out |= SimDefs.bits_from_dir(move.normalized())
+		out |= SimDefs.move_bits(move)
 	return out | (aim_t << PAD_T_SHIFT)

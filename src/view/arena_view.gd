@@ -15,8 +15,8 @@ const C_WALL := Color("5d6470")
 const C_WALL_TOP := Color("8a909a")
 const C_WALL_DARK := Color("464c58")
 const C_LINE := Color(1, 1, 1, 0.2)
-## How far the stadium carries on past the 480 x 270 the arena is laid out in, for wider
-## (ultrawide) and taller (16:10) screens: they see more stands and wall, never more floor.
+## How far the stadium carries on past its walls, for when the camera pulls back and for
+## wider (ultrawide) and taller (16:10) screens: they see more stands and wall.
 const MARGIN := Vector2(400, 80)
 
 var terrain: TerrainGrid
@@ -40,9 +40,9 @@ func _draw() -> void:
 	_drawn_version = terrain.version
 	var fr := SimDefs.floor_rect()
 	var x0 := -MARGIN.x
-	var w := float(SimDefs.VIEW_W) + MARGIN.x * 2.0
+	var w := float(SimDefs.ARENA_W) + MARGIN.x * 2.0
 	var y0 := -MARGIN.y
-	var h := float(SimDefs.VIEW_H) + MARGIN.y * 2.0
+	var h := float(SimDefs.ARENA_H) + MARGIN.y * 2.0
 
 	# Stands behind the crowd (rising out of sight above), then the back wall.
 	draw_rect(Rect2(x0, y0, w, h), C_BG)

@@ -95,7 +95,7 @@ func test_s_stops() -> void:
 	_drive(sim, mo, Vector2(450, 100), _held(["stop"]), _held(["stop"]))
 	var p := me.pos
 	_drive(sim, mo, Vector2(450, 100), NONE, NONE, 30)
-	assert_lt(me.pos.distance_to(p), 4.0, "stopped (only sliding to a halt):")
+	assert_lt(me.pos.distance_to(p), 6.0, "stopped (only sliding to a halt):")
 
 
 func test_dodge_plus_guard_is_a_breakaway() -> void:

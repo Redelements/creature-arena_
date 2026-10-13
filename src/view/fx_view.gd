@@ -196,7 +196,7 @@ func spawn(e: Dictionary) -> void:
 			for i in n:
 				var a := TAU * i / n + randf() * 0.3
 				var r := (22.0 if full else 12.0) + randf() * 6.0
-				_dust(p + Vector2(cos(a) * r, sin(a) * r * 0.5), Vector2(cos(a), sin(a) * 0.5 - 0.6) * 0.5)
+				_dust(p + Vector2(cos(a), sin(a)) * r, Vector2(cos(a), sin(a) * 0.5 - 0.6) * 0.5)
 			_slam_debris(p, full)
 		"bounce":
 			_add({"kind": "spark", "pos": p + Vector2(0, -12), "life": 8, "scale": 1.0})
@@ -853,6 +853,15 @@ func _chest(c: CreatureSim) -> float:
 	return float(c.def.get("fx_height", 16))
 
 
+## How high a swing is drawn above the feet. A sideways swing sits at chest height, where
+## the arms are, and that height doesn't change how far it looks like it reaches. A swing
+## straight up or down is drawn at the feet instead: lifted, a downward swing would look
+## a chest short of the hit circle and an upward one a chest past it, though every hit
+## reaches the same distance in every direction.
+func _swing_lift(c: CreatureSim, f: Vector2) -> float:
+	return _chest(c) * absf(f.x)
+
+
 func _top(c: CreatureSim) -> float:
 	return float(c.def.get("fx_top", 32))
 
@@ -860,7 +869,7 @@ func _top(c: CreatureSim) -> float:
 ## A tapered streak behind the fist: thin at the shoulder, wide at the point of impact.
 func _smear_thrust(c: CreatureSim, seg: int, size: float, dz: float) -> void:
 	var f := _swing_dir(c)
-	var up := Vector2(0, -_chest(c) - c.air_height() + dz)
+	var up := Vector2(0, -_swing_lift(c, f) - c.air_height() + dz)
 	var start := c.pos + f * 4.0 + up
 	var end := c.pos + f * (c.seg_value(seg, "reach") + c.hit_radius(seg) * 0.5) + up
 	var n := f.orthogonal()
@@ -875,9 +884,9 @@ func _smear_thrust(c: CreatureSim, seg: int, size: float, dz: float) -> void:
 
 ## A hook: a crescent sweeping around the front of the body.
 func _smear_arc(c: CreatureSim, seg: int, size: float) -> void:
-	var center := c.pos + Vector2(0, -_chest(c) - c.air_height())
-	var r := c.seg_value(seg, "reach") + 3.0 * size
 	var f := _swing_dir(c)
+	var center := c.pos + Vector2(0, -_swing_lift(c, f) - c.air_height())
+	var r := c.seg_value(seg, "reach") + 3.0 * size
 	var a0 := f.angle()
 	var sweep := -1.0 if f.x < 0.0 else 1.0
 	var outer := PackedVector2Array()
@@ -886,7 +895,7 @@ func _smear_arc(c: CreatureSim, seg: int, size: float) -> void:
 	for i in steps + 1:
 		var k := float(i) / steps
 		var a := a0 + sweep * lerpf(-1.9, 0.6, k)
-		var dir := Vector2(cos(a), sin(a) * 0.55)
+		var dir := Vector2(cos(a), sin(a))
 		outer.append(center + dir * r)
 		inner.append(center + dir * (r - lerpf(0.5, 5.0, k * k) * size))
 	inner.reverse()
@@ -1010,7 +1019,7 @@ func _quake(c: CreatureSim, mv: Dictionary) -> void:
 	_add({"kind": "ring", "pos": c.pos, "life": 22, "radius": r + 18.0})
 	for i in 12:
 		var a := TAU * i / 12.0 + randf() * 0.3
-		var at := c.pos + Vector2(cos(a), sin(a) * 0.5) * (r - 4.0 + randf() * 6.0)
+		var at := c.pos + Vector2(cos(a), sin(a)) * (r - 4.0 + randf() * 6.0)
 		_dust(at, Vector2(cos(a), sin(a) * 0.5 - 0.7) * 0.6)
 		if i % 2 == 0:
 			_chunk(at, 1.0, Vector2(cos(a), sin(a) * 0.5) * randf_range(0.3, 0.9), randf_range(1.6, 2.8),
@@ -1131,7 +1140,7 @@ func _twister_gust(c: CreatureSim, mv: Dictionary) -> void:
 			"vrot": randf_range(-0.4, 0.4), "bounce": 0.0})
 	for i in 6:
 		var a := TAU * i / 6.0 + 0.3
-		_dust(c.pos + Vector2(cos(a), sin(a) * 0.5) * r * 0.8, Vector2(cos(a), sin(a) * 0.5 - 0.4) * 0.8)
+		_dust(c.pos + Vector2(cos(a), sin(a)) * r * 0.8, Vector2(cos(a), sin(a) * 0.5 - 0.4) * 0.8)
 	shake_out = maxf(shake_out, 2.0)
 	cue.emit("twister")
 
@@ -1142,7 +1151,7 @@ func _roots(c: CreatureSim, r: float, last: bool) -> void:
 	var off := randf() * TAU
 	for i in n:
 		var a := off + TAU * i / n + randf_range(-0.15, 0.15)
-		var at := c.pos + Vector2(cos(a), sin(a) * 0.55) * r * randf_range(0.82, 1.0)
+		var at := c.pos + Vector2(cos(a), sin(a)) * r * randf_range(0.82, 1.0)
 		var h := randf_range(12.0, 20.0) * (1.3 if last else 1.0)
 		_add({"kind": "root", "pos": at, "life": 30 if last else 22, "h": h, "w": randf_range(2.5, 3.6),
 			"lean": cos(a) * randf_range(0.2, 0.5), "delay": randf_range(0.0, 3.0), "front": sin(a) > 0.0})
@@ -1248,7 +1257,7 @@ func _tenderize(c: CreatureSim, at: Vector2, r: float) -> void:
 	_add({"kind": "ring", "pos": at, "life": 10, "radius": r * 0.5, "color": Color.WHITE})
 	for i in 8:
 		var a := TAU * i / 8.0 + randf() * 0.3
-		_dust(at + Vector2(cos(a), sin(a) * 0.5) * r * 0.6, Vector2(cos(a), sin(a) * 0.5 - 0.5) * 0.5)
+		_dust(at + Vector2(cos(a), sin(a)) * r * 0.6, Vector2(cos(a), sin(a) * 0.5 - 0.5) * 0.5)
 	for i in 6:
 		var off := Vector2(randf_range(-r, r) * 0.5, randf_range(-r, r) * 0.25)
 		_add({"kind": "puddle", "pos": at + off, "radius": 1.5, "ry": 1.0, "grow": 1.0, "life": 90.0, "fade": 40.0,
@@ -1538,7 +1547,7 @@ func _ice_spray(c: CreatureSim, r: float, cone: float) -> void:
 func _ice_blast(at: Vector2, r: float) -> void:
 	_add({"kind": "ring", "pos": at, "life": 20, "radius": r + 8.0, "color": C_ICE[2]})
 	_add({"kind": "ring", "pos": at, "life": 14, "radius": r * 0.6, "color": C_ICE[1]})
-	_add({"kind": "puddle", "pos": at, "radius": r * 0.8, "ry": 0.45, "grow": 6.0, "life": 140.0, "fade": 60.0,
+	_add({"kind": "puddle", "pos": at, "radius": r * 0.8, "ry": 1.0, "grow": 6.0, "life": 140.0, "fade": 60.0,
 		"color": Color(C_ICE[2], 0.6)})
 	for i in 16:
 		var a := TAU * i / 16.0
@@ -1564,7 +1573,7 @@ func _draw_zones(ci: CanvasItem) -> void:
 		var at: Vector2 = z["pos"]
 		var r := float(z["radius"])
 		var a := clampf(float(z["ticks"]) / 40.0, 0.0, 1.0)
-		ci.draw_set_transform(at.round(), 0.0, Vector2(1.0, 0.45))
+		ci.draw_set_transform(at.round(), 0.0, Vector2.ONE)
 		ci.draw_circle(Vector2.ZERO, r, Color(C_SYRUP[0], 0.45 * a))
 		ci.draw_circle(Vector2(-r * 0.3, -r * 0.1), r * 0.45, Color(C_SYRUP[1], 0.35 * a))
 		ci.draw_circle(Vector2(r * 0.35, r * 0.15), r * 0.4, Color(C_SYRUP[2], 0.35 * a))
@@ -1619,15 +1628,15 @@ func _dirt_burst(at: Vector2, r: float) -> void:
 ## Cave-In: the floor gives way, rocks rain into the hole, dust rolls out.
 func _cave_in(at: Vector2, r: float) -> void:
 	_add({"kind": "ring", "pos": at, "life": 20, "radius": r + 10.0, "color": C_DIRT[2]})
-	_add({"kind": "puddle", "pos": at, "radius": r * 0.9, "ry": 0.45, "grow": 6.0, "life": 160.0, "fade": 60.0,
+	_add({"kind": "puddle", "pos": at, "radius": r * 0.9, "ry": 1.0, "grow": 6.0, "life": 160.0, "fade": 60.0,
 		"color": Color(C_DIRT[0], 0.8)})
 	for i in 14:
-		var off := Vector2(randf_range(-r, r), randf_range(-r, r) * 0.5)
+		var off := Vector2(randf_range(-r, r), randf_range(-r, r))
 		_chunk(at + off, randf_range(30, 70), Vector2(randf_range(-0.3, 0.3), randf_range(-0.2, 0.2)), 0.0,
 			randf_range(2.0, 4.0), C_STONE[randi() % 3], 60.0)
 	for i in 10:
 		var a := TAU * i / 10.0
-		_dust(at + Vector2(cos(a) * r * 0.8, sin(a) * r * 0.4), Vector2(cos(a), sin(a) * 0.5) * 0.6)
+		_dust(at + Vector2(cos(a), sin(a)) * r * 0.8, Vector2(cos(a), sin(a) * 0.5) * 0.6)
 	shake_out = maxf(shake_out, 4.0)
 	cue.emit("cave_in")
 
@@ -1761,7 +1770,7 @@ func _draw() -> void:
 func _paint(ci: CanvasItem, floor_layer: bool) -> void:
 	if floor_layer:
 		if _dark > 0.0:
-			ci.draw_rect(Rect2(-ArenaView.MARGIN, Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H) + ArenaView.MARGIN * 2.0),
+			ci.draw_rect(Rect2(-ArenaView.MARGIN, SimDefs.arena_size() + ArenaView.MARGIN * 2.0),
 				Color(C_DIM, _dark))
 		for p in _parts:  # flat things first, so debris sits on top of puddles and cracks
 			if String(p["kind"]) in ["puddle", "decal", "ripple"]:
@@ -1825,26 +1834,20 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 			var col := Color("ff5a5a") if bool(p["attack"]) else Color("7cf27c")
 			col.a = 1.0 - k
 			var r := lerpf(9.0, 3.0, k)
-			ci.draw_set_transform(pos, 0.0, Vector2(1.0, 0.5))
-			ci.draw_arc(Vector2.ZERO, r, 0.0, TAU, 20, col, 1.5)
-			ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			ci.draw_arc(pos, r, 0.0, TAU, 20, col, 1.5)
 			for ang in [PI * 0.25, PI * 0.75, PI * 1.25, PI * 1.75]:
-				var dir := Vector2.from_angle(ang) * Vector2(1.0, 0.5)
+				var dir := Vector2.from_angle(ang)
 				ci.draw_line(pos + dir * (r + 4.0), pos + dir * (r + 1.0), col, 1.0)
 		"ring":
 			var pos: Vector2 = p["pos"]
 			var r := lerpf(4.0, float(p["radius"]), sqrt(k))
 			var col: Color = p.get("color", Color(1.0, 0.92, 0.7))
 			col.a = 1.0 - k
-			ci.draw_set_transform(pos, 0.0, Vector2(1.0, 0.5))
-			ci.draw_arc(Vector2.ZERO, r, 0.0, TAU, 40, col, 2.0)
-			ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			ci.draw_arc(pos, r, 0.0, TAU, 40, col, 2.0)
 		"ripple":
 			var pos: Vector2 = p["pos"]
 			var r := lerpf(3.0, float(p["radius"]), sqrt(k))
-			ci.draw_set_transform(pos, 0.0, Vector2(1.0, 0.4))
-			ci.draw_arc(Vector2.ZERO, r, 0.0, TAU, 32, Color(C_WATER_L, 0.8 * (1.0 - k)), 1.5)
-			ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			ci.draw_arc(pos, r, 0.0, TAU, 32, Color(C_WATER_L, 0.8 * (1.0 - k)), 1.5)
 		"text":
 			var pos: Vector2 = p["pos"]
 			var col: Color = p["color"]
@@ -2292,8 +2295,8 @@ func _draw_pinecone(ci: CanvasItem, pr: Dictionary) -> void:
 	var k := clampf(1.0 - left / total, 0.0, 1.0)
 	var land := pp + vel * left
 	var pulse := 0.5 + 0.5 * sin(_tick * 0.7)
+	ci.draw_arc(land, float(pr["burst"]), 0.0, TAU, 32, Color(C_CONE[2], 0.25 + 0.35 * pulse * k), 1.0)
 	ci.draw_set_transform(land, 0.0, Vector2(1.0, 0.42))
-	ci.draw_arc(Vector2.ZERO, float(pr["burst"]), 0.0, TAU, 32, Color(C_CONE[2], 0.25 + 0.35 * pulse * k), 1.0 / 0.42)
 	ci.draw_circle(Vector2.ZERO, lerpf(2.0, 6.0, k), Color(0, 0, 0, 0.25))
 	ci.draw_set_transform(pp, 0.0, Vector2(1.0, 0.42))
 	ci.draw_circle(Vector2.ZERO, 3.5, Color(0, 0, 0, 0.3))
@@ -2454,10 +2457,8 @@ func _draw_lob_mark(ci: CanvasItem, c: CreatureSim, mv: Dictionary) -> void:
 	var land := (c.pos + c.facing * (float(pr.get("offset", 0)) + rng)).round()
 	var r := float(pr.get("burst", 16))
 	var pulse := 0.5 + 0.5 * sin(_tick * 0.5)
-	ci.draw_set_transform(land, 0.0, Vector2(1.0, 0.45))
-	ci.draw_arc(Vector2.ZERO, r, 0.0, TAU, 32, Color(C_CONE[2], 0.45 + 0.35 * pulse), 1.0)
-	ci.draw_circle(Vector2.ZERO, 2.0, Color(C_CONE[2], 0.7))
-	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	ci.draw_arc(land, r, 0.0, TAU, 32, Color(C_CONE[2], 0.45 + 0.35 * pulse), 1.0)
+	ci.draw_circle(land, 2.0, Color(C_CONE[2], 0.7))
 	var n := int(rng / 8.0)
 	for i in n:
 		var at := (c.pos + c.facing * (float(pr.get("offset", 0)) + rng * (i + 0.5) / n)).round()
@@ -2482,7 +2483,7 @@ func _draw_line_telegraph(ci: CanvasItem, c: CreatureSim) -> void:
 ## Bedrock: a glowing ring where the feet are planted, cracks pulsing outward.
 func _draw_rooted(ci: CanvasItem, c: CreatureSim) -> void:
 	var pulse := 0.5 + 0.5 * sin(_tick * 0.4)
-	ci.draw_set_transform(c.pos, 0.0, Vector2(1.0, 0.42))
+	ci.draw_set_transform(c.pos, 0.0, Vector2.ONE)
 	ci.draw_arc(Vector2.ZERO, c.radius + 8.0 + pulse * 2.0, 0.0, TAU, 32, Color(C_AMBER, 0.55), 2.0)
 	ci.draw_arc(Vector2.ZERO, c.radius + 15.0 + pulse * 3.0, 0.0, TAU, 32, Color(C_AMBER, 0.25), 1.0)
 	for i in 6:

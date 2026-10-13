@@ -74,7 +74,7 @@ const MODES := [
 const SETTING_PAGES := {
 	"game": ["level", "rumble", "shake", "server"],
 	"video": ["fullscreen", "wide", "vsync", "fps"],
-	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu"],
+	"audio": ["vol_Master", "vol_Music", "fight_music", "vol_Effects", "vol_Menu"],
 }
 const SHAKE_CHOICES := [["Full", 1.0], ["Reduced", 0.5], ["Off", 0.0]]
 const VOLUME_NAMES := {"Master": "Master volume", "Music": "Music", "Effects": "Sound effects",
@@ -120,9 +120,11 @@ const DEFAULT_FPS := 144
 # ko_freeze / slowmo, so online peers agree); the camera pushes in on the loser.
 const KO_ZOOM := 1.45
 const SHOWCASE_ZOOM := 1.9
+## Room the fight camera leaves around the fighters (sides, top and bottom).
+const CAM_PAD := Vector2(72, 40)
 
 var sim: MatchSim
-var _cam_zoom := 0.0  ## showcase/coach zoom, eased toward a fit of both fighters
+var _cam_zoom := 0.0  ## eased toward a zoom that fits the fighters (0: snap on the next frame)
 var replay: Replay
 var arena: ArenaView
 var crowd: CrowdView
@@ -162,6 +164,7 @@ var vsync := true
 var wide_fill := true
 var rumble := true
 var shake_scale := 1.0  ## screen shake: 1 full, 0.5 reduced, 0 off
+var fight_music := ""  ## the track fights play (a key in data/audio.json); "" for the first choice
 ## Off for captures and headless runs, which must not be slowed to real time.
 var _fps_caps := true
 var menu_stick: MenuStick
@@ -231,7 +234,7 @@ func _ready() -> void:
 	ui.moved.connect(func(): audio.play("ui_move", 0.0, 1.0, true))
 	ui.chosen.connect(func(): audio.play("ui_select", 0.0, 1.0, true))
 	camera = Camera2D.new()
-	camera.position = Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H) * 0.5
+	camera.position = SimDefs.arena_size() * 0.5
 	add_child(camera)
 	camera.make_current()
 
@@ -545,7 +548,7 @@ func _assign_devices(two_players: bool) -> void:
 
 
 func _start_round() -> void:
-	audio.play_music("fight")
+	audio.play_music(_fight_track())
 	var cfg: Dictionary = MODES[mode]
 	_end_duel()
 	_end_coach()
@@ -728,6 +731,7 @@ func _end_showcase() -> void:
 
 func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	sim = s
+	_cam_zoom = 0.0  # frame the new fight straight away
 	sides = p_sides.duplicate()
 	if _cpu_vs_cpu:
 		for i in 2:
@@ -1072,12 +1076,16 @@ func _hides_someone(c: CreatureSim) -> bool:
 
 
 func _update_camera() -> void:
-	var size := Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H)  # the arena
+	var size := SimDefs.arena_size()  # the whole stadium
 	var view := get_viewport().get_visible_rect().size  # the screen (wider on ultrawide)
 	var base_z := 1.0
 	var base_focus := size * 0.5
 	var ko_focus := _ko_focus
-	if (showcase != null or coach != null) and sim != null and sim.creatures.size() >= 2:
+	if sim != null and showcase == null and coach == null:
+		_frame_fight(view, size)
+		base_z = _cam_zoom
+		base_focus = _cam_follow
+	elif (showcase != null or coach != null) and sim != null and sim.creatures.size() >= 2:
 		var a := sim.creatures[0].pos
 		var b := sim.creatures[1].pos
 		# Fighters stacked up and down the screen: aim a little higher and zoom out to
@@ -1105,6 +1113,34 @@ func _update_camera() -> void:
 	var half := view * 0.5 / z
 	camera.zoom = Vector2(z, z)
 	camera.position = Vector2(_cam_axis(focus.x, half.x, size.x), _cam_axis(focus.y, half.y, size.y))
+
+
+## A fight: keeps every fighter in shot, heads included, with room around them. Close
+## together the camera sits at the normal 1x; as they spread out it pulls back, as far as
+## showing the whole stadium.
+func _frame_fight(view: Vector2, size: Vector2) -> void:
+	var box := Rect2()
+	var any := false
+	for c in sim.creatures:
+		if c.state == CreatureSim.State.KO and _ko_cam_t < 0:
+			continue
+		var body := Rect2(c.pos - Vector2(0, float(c.def.get("fx_top", 32)) + c.air_height()), Vector2.ZERO)
+		body = body.expand(c.pos)
+		box = body if not any else box.merge(body)
+		any = true
+	if not any:
+		return
+	box = box.grow_individual(CAM_PAD.x, CAM_PAD.y + 24.0, CAM_PAD.x, CAM_PAD.y)  # the HUD sits up top
+	var whole := minf(view.x / size.x, view.y / size.y)  # zoom that shows the whole stadium
+	var fit := clampf(minf(view.x / box.size.x, view.y / box.size.y), minf(whole, 1.0), 1.0)
+	var mid := box.get_center()
+	if _cam_zoom <= 0.0:
+		_cam_zoom = fit
+		_cam_follow = mid
+	else:
+		# Pull back quickly (nobody leaves the shot), push in gently.
+		_cam_zoom = lerpf(_cam_zoom, fit, 0.12 if fit < _cam_zoom else 0.03)
+		_cam_follow = _cam_follow.lerp(mid, 0.1)
 
 
 ## Keeps the arena filling the screen along one axis; when the screen shows more than
@@ -1199,6 +1235,21 @@ func _close_ui() -> void:
 	paused = false
 
 
+## The fight music track: the one picked in Settings, or the first choice.
+func _fight_track() -> String:
+	var i := _fight_music_index()
+	if i >= 0:
+		return String(audio.fight_music[i][0])
+	return String(audio.fight_music[0][0]) if not audio.fight_music.is_empty() else "fight"
+
+
+func _fight_music_index() -> int:
+	for i in audio.fight_music.size():
+		if String(audio.fight_music[i][0]) == fight_music:
+			return i
+	return -1
+
+
 ## A Settings row: its label, values (shown), current index, a description, and for a
 ## volume its bar.
 func _setting(key: String) -> Dictionary:
@@ -1250,6 +1301,12 @@ func _setting(key: String) -> Dictionary:
 					idx = i
 			return {"label": "Screen shake", "values": names, "index": idx,
 				"desc": "How much the camera shakes on big hits"}
+		"fight_music":
+			var names: Array = []
+			for t in audio.fight_music:
+				names.append(t[1])
+			return {"label": "Fight music", "values": names if not names.is_empty() else ["-"],
+				"index": maxi(0, _fight_music_index()), "desc": "The track that plays in fights (you hear it as you pick)"}
 		"fps":
 			var vals: Array = []
 			for f in FPS_CHOICES:
@@ -1275,6 +1332,10 @@ func _set_setting(key: String, i: int) -> void:
 		match key:
 			"level":
 				level = clampi(i, 0, LEVEL_NAMES.size() - 1)
+			"fight_music":
+				if not audio.fight_music.is_empty():
+					fight_music = String(audio.fight_music[clampi(i, 0, audio.fight_music.size() - 1)][0])
+					audio.play_music(fight_music)  # a taste of it
 			"layout":
 				player_input.layout = PlayerInput.LAYOUTS[clampi(i, 0, PlayerInput.LAYOUTS.size() - 1)]
 				_apply_device()
@@ -1427,6 +1488,7 @@ func _load_settings() -> void:
 		_apply_aspect()
 		rumble = bool(cfg.get_value("game", "rumble", true))
 		shake_scale = float(cfg.get_value("game", "shake", 1.0))
+		fight_music = String(cfg.get_value("audio", "fight_music", ""))
 		Controls.apply_overrides(cfg.get_value("controls", "bindings", {}))
 		var fps := int(cfg.get_value("video", "fight_fps", DEFAULT_FPS))
 		fight_fps = fps if fps in FPS_CHOICES else DEFAULT_FPS
@@ -1448,6 +1510,7 @@ func _save_settings() -> void:
 	cfg.set_value("video", "wide_fill", wide_fill)
 	cfg.set_value("game", "rumble", rumble)
 	cfg.set_value("game", "shake", shake_scale)
+	cfg.set_value("audio", "fight_music", fight_music)
 	cfg.set_value("controls", "bindings", Controls.overrides())
 	for bus in AudioView.DEFAULT_VOLUMES:
 		cfg.set_value("audio", "volume_" + String(bus).to_lower(), audio.volume(bus))
@@ -1720,7 +1783,7 @@ func _start_online_match() -> void:
 	lobby = null
 	hud.visible = true
 	hud.menu_visible = false
-	audio.play_music("fight")
+	audio.play_music(_fight_track())
 	duel = online.duel
 	var s := [Side.REMOTE, Side.REMOTE]
 	s[online.local_side] = Side.PLAYER
