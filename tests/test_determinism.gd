@@ -16,7 +16,7 @@ func _random_inputs(seed_: int, n: int) -> Array[PackedInt32Array]:
 		var f := PackedInt32Array()
 		for p in 2:
 			if left[p] <= 0:
-				hold[p] = rng.randi() & SimDefs.IN_ALL
+				hold[p] = rng.randi() & SimDefs.IN_EVERYTHING
 				left[p] = rng.randi_range(1, 20)
 			left[p] -= 1
 			f.append(hold[p])

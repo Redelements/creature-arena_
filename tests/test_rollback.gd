@@ -20,7 +20,7 @@ func _mash(seed_: int, n: int) -> PackedInt32Array:
 	var left := 0
 	for i in n:
 		if left <= 0:
-			hold = rng.randi() & SimDefs.IN_ALL
+			hold = rng.randi() & SimDefs.IN_EVERYTHING
 			left = rng.randi_range(1, 20)
 		left -= 1
 		out.append(hold)

@@ -81,3 +81,14 @@ func test_angles_showcase_lands_up_and_down() -> void:
 	assert_gt(float(hits[2]), 4.0, "Cairn's combo from above should land")
 	assert_gt(float(hits[3]), 0.0, "Avalanche Coil straight down should land")
 	assert_gt(float(hits[4]), 1.0, "a string that turns down mid-way should land")
+
+
+func test_twinstick_showcase_strafes_and_lands_off_angle() -> void:
+	var r := _play("twinstick")
+	var hits := [0, 0, 0]
+	for ev in r["parts"]:
+		if String(ev[1]) == "hit" and int(ev[2]) == 1:
+			hits[int(ev[0])] += 1
+	assert_eq(hits[0], 0, "strafing doesn't attack")
+	assert_gt(float(hits[1]), 0.0, "the off-angle Boulder Lash should land")
+	assert_gt(float(hits[2]), 1.0, "the string after circling should land")

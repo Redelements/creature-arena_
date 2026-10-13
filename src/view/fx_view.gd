@@ -1354,6 +1354,8 @@ func _draw_creature_extras(ci: CanvasItem, floor_layer: bool) -> void:
 				_draw_telegraph(ci, c, mv)
 			if c.is_armored():
 				_draw_rooted(ci, c)
+			if not (c.state in [CreatureSim.State.KO, CreatureSim.State.FALLING]) and not c.is_dummy:
+				_draw_aim_mark(ci, c, attacking)
 			continue
 
 		if c.state != CreatureSim.State.KO:
@@ -1400,6 +1402,21 @@ func _draw_telegraph(ci: CanvasItem, c: CreatureSim, mv: Dictionary) -> void:
 	ci.draw_set_transform(land, 0.0, Vector2(1.0, 0.38))
 	ci.draw_circle(Vector2.ZERO, lerpf(4.0, 16.0, k), Color(0, 0, 0, 0.35))
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## A small chevron on the floor where the fighter faces. Aiming is 360 degrees but the
+## sprites have three views, so this shows the exact angle; it brightens while an attack
+## is still being aimed.
+func _draw_aim_mark(ci: CanvasItem, c: CreatureSim, attacking: bool) -> void:
+	var f := c.facing
+	var aiming := attacking and c.active_seg() < 0 and c.state_t <= int(c.move_def().get("startup", 0)) + 1
+	var a := 0.75 if aiming else 0.3
+	var tip := c.pos + f * (c.radius + 9.0)
+	var base := c.pos + f * (c.radius + 4.0)
+	var side := f.orthogonal() * 3.0
+	var pts := PackedVector2Array([tip, base + side, base - side])
+	ci.draw_colored_polygon(pts, Color(1, 1, 1, a * 0.8))
+	ci.draw_polyline(PackedVector2Array([base + side, tip, base - side]), Color(0, 0, 0, a * 0.6), 1.0)
 
 
 ## Bedrock: a glowing ring where the feet are planted, cracks pulsing outward.

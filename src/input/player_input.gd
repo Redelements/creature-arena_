@@ -5,7 +5,15 @@ extends RefCounted
 ## Two keyboard layouts (pick one in the menu) plus an Xbox-style gamepad, all active at once:
 ##   League-style:  mouse to move and aim, Q W E R abilities, D dodge, F guard
 ##   Classic:       WASD to move, J K U I O attacks, Space dodge, Shift guard
-##   Gamepad:       left stick moves, right stick aims, face buttons attack
+##   Gamepad:       left stick moves, right stick aims, face buttons attack. Two controller
+##                  layouts: Standard (8-way aiming with aim assist) and Twin-stick (the
+##                  right stick aims 360 degrees and holds your facing, so you can strafe)
+##
+## Aiming: a mouse aims exactly at the cursor and a twin-stick right stick aims exactly
+## where it points (the input's 64-step aim angle). Keyboards and the Standard controller
+## give 8 directions, so they get a small aim assist: an attack aimed within ASSIST_DEG of
+## an opponent in range goes straight at them. Assist lives here, in the input, so online
+## peers simply receive the assisted aim.
 ##
 ## The prompts on screen follow whichever device was used last.
 ##
@@ -16,7 +24,15 @@ enum Device { KEYBOARD, GAMEPAD }
 
 const LAYOUTS := ["league", "classic"]
 const LAYOUT_NAMES := {"league": "League-style (mouse + QWER)", "classic": "Classic (WASD + JKUIO)"}
+const PAD_LAYOUTS := ["standard", "twinstick"]
+const PAD_LAYOUT_NAMES := {"standard": "Standard", "twinstick": "Twin-stick (360 aim, strafe)"}
 const AIM_DEADZONE := 0.5
+const TWIN_DEADZONE := 0.35  ## twin-stick: past this the right stick aims and holds facing
+const ATTACK_BITS := SimDefs.IN_LIGHT | SimDefs.IN_HEAVY | SimDefs.IN_SKILL1 | SimDefs.IN_SKILL2 \
+	| SimDefs.IN_SURGE
+const ASSIST_DEG := 25.0
+const ASSIST_RANGE := 90.0
+const PAD_T_SHIFT := 24  ## combine_pad packs its aim timer above the input bits
 
 const LABELS := {
 	"league": {"light": "A", "heavy": "E", "skill_1": "Q", "skill_2": "W", "surge": "R", "dodge": "D", "guard": "F", "tag": "T"},
@@ -29,9 +45,11 @@ const HELP := {
 	"league": "Right-click move / attack   A or Left-click light   E heavy (hold)   Q skill 1   W skill 2   R surge   D dodge   F guard   D+F breakaway   T tag   S stop   Esc menu",
 	"classic": "WASD move  J light  K heavy  U skill 1  I skill 2  O surge  Space dodge  Shift guard  Shift+Space breakaway  L tag  F1 hitboxes  Esc menu",
 	"gamepad": "L-stick move   R-stick aim   A light   X heavy (hold)   Y skill 1   B skill 2   RT surge   RB dodge   LB guard   LB+RB breakaway   LT tag   View menu",
+	"twinstick": "L-stick move   R-stick aim 360 + face (strafe)   A light   X heavy   Y skill 1   B skill 2   RT surge   RB dodge   LB guard   LT tag   View menu",
 }
 
 var layout := "league"
+var pad_layout := "standard"
 var device: Device = Device.KEYBOARD
 var pad_id := 0
 var orders := MouseOrders.new()
@@ -54,7 +72,10 @@ func label(action: String) -> String:
 
 
 func help_text() -> String:
-	return String(HELP[label_set()])
+	var ls := label_set()
+	if ls == "gamepad" and pad_layout == "twinstick":
+		return String(HELP["twinstick"])
+	return String(HELP[ls])
 
 
 ## Tracks the last device used, so prompts can switch between keyboard and controller.
@@ -95,7 +116,25 @@ func bits(sim: MatchSim, me_idx: int, cursor: Vector2) -> int:
 				out |= SimDefs.IN_TAG
 		else:
 			out |= _classic_bits()
-	return out
+	return assist(out, me, foe)
+
+
+## Aim assist for 8-way aiming: an attack aimed within ASSIST_DEG of an opponent in range
+## goes straight at them. Exact aims (mouse, twin-stick) pass through untouched.
+static func assist(bits: int, me: CreatureSim, foe: CreatureSim) -> int:
+	if bits & SimDefs.IN_AIM or foe == null or foe.state == CreatureSim.State.KO:
+		return bits
+	if not (bits & ATTACK_BITS) and me.state != CreatureSim.State.ATTACK:
+		return bits
+	var to := foe.pos - me.pos
+	if to.length() > ASSIST_RANGE + foe.radius or to.length_squared() < 1e-6:
+		return bits
+	var want := SimDefs.dir_from_bits(bits)
+	if want == Vector2.ZERO:
+		want = me.facing
+	if want.normalized().dot(to.normalized()) < cos(deg_to_rad(ASSIST_DEG)):
+		return bits
+	return bits | SimDefs.aim_bits(to)
 
 
 const MOUSE_ACTIONS := ["move", "attack", "heavy", "skill_1", "skill_2", "surge", "dodge", "guard", "stop"]
@@ -131,9 +170,10 @@ func _gamepad_bits(me: CreatureSim) -> int:
 		pressed[a] = Input.is_action_just_pressed("pad_" + a)
 	var move := Input.get_vector("pad_left", "pad_right", "pad_up", "pad_down", 0.35)
 	var aim := Input.get_vector("pad_aim_left", "pad_aim_right", "pad_aim_up", "pad_aim_down", 0.2)
-	var out := combine_pad(move, aim, held, pressed, me.state == CreatureSim.State.ATTACK, _pad_aim_t)
-	_pad_aim_t = out >> 16
-	out &= 0xFFFF
+	var out := combine_pad(move, aim, held, pressed, me.state == CreatureSim.State.ATTACK, _pad_aim_t,
+		pad_layout == "twinstick")
+	_pad_aim_t = out >> PAD_T_SHIFT
+	out &= (1 << PAD_T_SHIFT) - 1
 	if Input.is_action_pressed("pad_tag"):
 		out |= SimDefs.IN_TAG
 	return out
@@ -162,19 +202,21 @@ func _device_pad_bits(me: CreatureSim, dev: int) -> int:
 	if dpad != Vector2.ZERO:
 		move = dpad
 	var aim: Vector2 = stick.call(JOY_AXIS_RIGHT_X, JOY_AXIS_RIGHT_Y, 0.2)
-	var out := combine_pad(move, aim, held, pressed, me.state == CreatureSim.State.ATTACK, _pad_aim_t)
-	_pad_aim_t = out >> 16
-	out &= 0xFFFF
+	var out := combine_pad(move, aim, held, pressed, me.state == CreatureSim.State.ATTACK, _pad_aim_t,
+		pad_layout == "twinstick")
+	_pad_aim_t = out >> PAD_T_SHIFT
+	out &= (1 << PAD_T_SHIFT) - 1
 	if tag:
 		out |= SimDefs.IN_TAG
 	return out
 
 
-## Pure gamepad logic, for tests. Attacks go the way the right stick points when it's
-## pushed (twin-stick aiming); otherwise they go the way you're moving or facing.
-## Returns bits | (aim ticks left << 16).
+## Pure gamepad logic, for tests. Standard: attacks go the way the right stick points when
+## it's pushed (8 directions); otherwise the way you're moving or facing. Twin-stick: a
+## pushed right stick aims exactly (360 degrees) and holds your facing while you walk.
+## Returns bits | (aim ticks left << PAD_T_SHIFT).
 static func combine_pad(move: Vector2, aim: Vector2, held: Dictionary, pressed: Dictionary,
-		attacking: bool, aim_t: int) -> int:
+		attacking: bool, aim_t: int, twin := false) -> int:
 	var out := 0
 	var press_bits := {"light": SimDefs.IN_LIGHT, "heavy": SimDefs.IN_HEAVY, "skill_1": SimDefs.IN_SKILL1,
 		"skill_2": SimDefs.IN_SKILL2, "surge": SimDefs.IN_SURGE, "dodge": SimDefs.IN_DODGE}
@@ -187,6 +229,11 @@ static func combine_pad(move: Vector2, aim: Vector2, held: Dictionary, pressed: 
 		out |= SimDefs.IN_HEAVY
 	if held.get("guard", false):
 		out |= SimDefs.IN_GUARD
+	if twin and aim.length() >= TWIN_DEADZONE:
+		out |= SimDefs.aim_bits(aim) | SimDefs.IN_STRAFE
+		if move.length() > 0.0:
+			out |= SimDefs.bits_from_dir(move.normalized())
+		return out
 	var aiming := aim.length() >= AIM_DEADZONE
 	if acted and aiming:
 		aim_t = MouseOrders.AIM_HOLD
@@ -196,4 +243,4 @@ static func combine_pad(move: Vector2, aim: Vector2, held: Dictionary, pressed: 
 		out |= SimDefs.bits_from_dir(aim.normalized())
 	elif move.length() > 0.0:
 		out |= SimDefs.bits_from_dir(move.normalized())
-	return out | (aim_t << 16)
+	return out | (aim_t << PAD_T_SHIFT)

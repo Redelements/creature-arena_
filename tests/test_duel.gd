@@ -189,7 +189,7 @@ func test_online_duel_stays_in_sync() -> void:
 		var hold := 0
 		for i in frames:
 			if i % 9 == 0:
-				hold = rng.randi() & SimDefs.IN_ALL
+				hold = rng.randi() & SimDefs.IN_EVERYTHING
 			streams[p].append(hold)
 	var in_flight: Array = []
 	var t := 0

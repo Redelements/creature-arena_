@@ -11,7 +11,7 @@ alternative, adds the full round-trip time to every button press.
 Both machines run the full simulation. Each frame:
 
 1. **Send.** The local input is scheduled `input_delay` frames ahead and sent. Each
-   packet repeats the last 8 inputs (2 bytes each), so lost packets cost nothing.
+   packet repeats the last 8 inputs (3 bytes each with the aim angle), so lost packets cost nothing.
 2. **Predict.** If the opponent's input for this frame hasn't arrived, assume they're
    still doing what they were last confirmed doing. Holding a direction or guard is
    the common case, so the guess is usually right.
@@ -50,7 +50,7 @@ creatures or effects-heavy moves land.
 | No randomness, clock or node access in `src/sim/` | Would differ between machines | Code review; same check |
 | All match state saved by `snapshot()` | A forgotten variable silently desyncs after a rollback | `test_rollback.gd` fails if a new variable isn't listed in `STATE_FIELDS` |
 | Rules, timers and KO slow-motion live in the sim | Both machines must agree on every tick | KO freeze is `MatchSim.ko_freeze` / `slowmo`; Duel rules are sim code |
-| Inputs are bitmasks only | 12 bits per player per frame; mouse aiming becomes bits before sending | `SimDefs.IN_*` |
+| Inputs are bitmasks only | 20 bits per player per frame: 12 buttons, an exact aim angle (64 steps) and a strafe flag; the sim turns the angle into a direction with a fixed table (no trig). Aim assist runs before sending | `SimDefs.IN_*`, `SimDefs.AIM_INT` |
 
 ## What the game layer has to handle (later)
 

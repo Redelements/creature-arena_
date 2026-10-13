@@ -14,7 +14,7 @@ func _init() -> void:
 	var hold := [0, 0]
 	for i in 3000:
 		if i % 8 == 0:
-			hold = [rng.randi() & SimDefs.IN_ALL, rng.randi() & SimDefs.IN_ALL]
+			hold = [rng.randi() & SimDefs.IN_EVERYTHING, rng.randi() & SimDefs.IN_EVERYTHING]
 		inputs.append(PackedInt32Array(hold))
 	var t0 := Time.get_ticks_usec()
 	for f in inputs:

@@ -18,6 +18,7 @@ extends Node2D
 ##   --shot-dir=PATH       where screenshots go (default user://shots)
 ##   --quit-after=N        exit after N frames
 ##   --layout=league|classic  keyboard layout (saved in the menu otherwise)
+##   --pad-layout=standard|twinstick  controller layout (saved in the menu otherwise)
 ##   --showcase=NAME       play one scripted demo on a loop: cairn, culvert, craglash or counterplay
 ##   --teams=a,b,c:d,e,f   Duel / 2-player teams (default craglash,cairn,culvert:culvert,cairn,craglash)
 ##   --pick                show the team pick screen even with --mode
@@ -219,9 +220,10 @@ func _refresh_menu() -> void:
 		items.append(label)
 	items.append("CPU level:  < %s >" % LEVEL_NAMES[level])
 	items.append("Keyboard:  < %s >" % PlayerInput.LAYOUT_NAMES[player_input.layout])
+	items.append("Controller:  < %s >" % PlayerInput.PAD_LAYOUT_NAMES[player_input.pad_layout])
 	hud.menu_items = items
 	hud.menu_index = menu_index
-	hud.menu_footer = "Xbox controller works any time. Keyboard layout applies to keyboard and mouse."
+	hud.menu_footer = "Xbox controller works any time. Twin-stick: the right stick aims 360 and holds your facing."
 
 
 ## `keep_teams`: a rematch with the same teams (no pick screen).
@@ -842,7 +844,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _menu_input(event: InputEvent) -> void:
-	var count := MENU_ROWS.size() + 2
+	var count := MENU_ROWS.size() + 3
 	# Mouse: hover to highlight, click to choose.
 	if event is InputEventMouseMotion or (event is InputEventMouseButton and event.pressed):
 		var p: Vector2 = get_global_mouse_position()
@@ -897,7 +899,19 @@ func _change_option(row: int, dir: int) -> void:
 		player_input.layout = PlayerInput.LAYOUTS[(i + PlayerInput.LAYOUTS.size() + dir) % PlayerInput.LAYOUTS.size()]
 		_save_settings()
 		_apply_device()
+	elif row == MENU_ROWS.size() + 2:
+		var n := PlayerInput.PAD_LAYOUTS.size()
+		var i := PlayerInput.PAD_LAYOUTS.find(player_input.pad_layout)
+		_set_pad_layout(PlayerInput.PAD_LAYOUTS[(i + n + dir) % n])
+		_save_settings()
+		_apply_device()
 	_refresh_menu()
+
+
+## Both players' controllers use the same layout.
+func _set_pad_layout(lay: String) -> void:
+	player_input.pad_layout = lay
+	player2_input.pad_layout = lay
 
 
 ## Updates prompts, help text and the mouse cursor for the current device and layout.
@@ -953,6 +967,9 @@ func _load_settings() -> void:
 		var lay := String(cfg.get_value("input", "layout", "league"))
 		if lay in PlayerInput.LAYOUTS:
 			player_input.layout = lay
+		var pad := String(cfg.get_value("input", "pad_layout", "standard"))
+		if pad in PlayerInput.PAD_LAYOUTS:
+			_set_pad_layout(pad)
 		level = clampi(int(cfg.get_value("game", "level", level)), 0, LEVEL_NAMES.size() - 1)
 		audio.set_music_muted(bool(cfg.get_value("audio", "music_muted", false)))
 
@@ -960,6 +977,7 @@ func _load_settings() -> void:
 func _save_settings() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("input", "layout", player_input.layout)
+	cfg.set_value("input", "pad_layout", player_input.pad_layout)
 	cfg.set_value("game", "level", level)
 	cfg.set_value("audio", "music_muted", audio.music_muted)
 	cfg.save(SETTINGS_PATH)
@@ -1035,6 +1053,10 @@ func _parse_args() -> int:
 			var lay := a.get_slice("=", 1)
 			if lay in PlayerInput.LAYOUTS:
 				player_input.layout = lay
+		elif a.begins_with("--pad-layout="):
+			var pl := a.get_slice("=", 1)
+			if pl in PlayerInput.PAD_LAYOUTS:
+				_set_pad_layout(pl)
 	if pick:
 		_skip_select = false
 	return start

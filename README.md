@@ -69,8 +69,21 @@ whichever device you used last.
 | Stop | — | S | — |
 | Menu / back | View | Esc | Esc |
 
-Controllers rumble on hits, slams, Surges and knockouts. The game aims in 8 directions,
-so mouse and right-stick aiming snap to the nearest one.
+Controllers rumble on hits, slams, Surges and knockouts.
+
+**Aiming is 360 degrees.** The mouse aims attacks exactly at the cursor. Controllers have
+two layouts (menu: **Controller**):
+
+- **Standard:** the right stick aims attacks in 8 directions, like the keyboard.
+- **Twin-stick:** the right stick aims exactly where it points and, while held, keeps you
+  facing that way as the left stick walks you anywhere (strafing, at 85% speed). Back off
+  or circle an opponent without turning your back.
+
+Keyboard and Standard controller aim in 8 directions, with a small **aim assist**: an
+attack aimed within 25° of an opponent within reach goes straight at them. A chevron on
+the floor shows exactly where each fighter faces. The CPU aims exactly on Normal and
+Hard, and in 8 directions on Easy. `--showcase=twinstick` shows strafing and an
+off-angle Boulder Lash; `--pad-layout=twinstick` picks the layout from the command line.
 
 Tools: F1 hitbox overlay, F2 cycle the training dummy, F3 hide the controls strip,
 F4 reset training, F6 save a replay, M mute music.

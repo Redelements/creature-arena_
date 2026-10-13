@@ -73,6 +73,10 @@ func bits(sim: MatchSim) -> int:
 	var foe := sim.nearest_opponent(me)
 	if foe != null and me.state != CreatureSim.State.KO:
 		_decide(sim, me, foe)
+		# Normal and Hard aim attacks exactly (360 degrees), like a stick or a mouse; Easy
+		# keeps to the 8 directions a keyboard gives.
+		if level >= 1 and ((_out & PlayerInput.ATTACK_BITS) or me.state == CreatureSim.State.ATTACK):
+			_out |= SimDefs.aim_bits(foe.pos - me.pos)
 	_prev = _out
 	return _out
 

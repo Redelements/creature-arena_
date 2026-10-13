@@ -114,16 +114,16 @@ func test_gamepad_right_stick_aims_attacks() -> void:
 	var held := {"light": true}
 	var pressed := {"light": true}
 	var out := PlayerInput.combine_pad(Vector2(1, 0), Vector2(0, -1), held, pressed, false, 0)
-	var bits := out & 0xFFFF
+	var bits := out & ((1 << PlayerInput.PAD_T_SHIFT) - 1)
 	assert_true(bits & SimDefs.IN_LIGHT, "light pressed")
 	assert_true(bits & SimDefs.IN_UP, "aimed up with the right stick")
 	assert_false(bits & SimDefs.IN_RIGHT, "not the movement direction")
-	assert_eq(out >> 16, MouseOrders.AIM_HOLD, "keeps aiming for the buffer window:")
+	assert_eq(out >> PlayerInput.PAD_T_SHIFT, MouseOrders.AIM_HOLD, "keeps aiming for the buffer window:")
 
 
 func test_gamepad_without_aim_uses_the_left_stick() -> void:
 	var out := PlayerInput.combine_pad(Vector2(-1, 0), Vector2.ZERO, {}, {"skill_1": true}, false, 0)
-	var bits := out & 0xFFFF
+	var bits := out & ((1 << PlayerInput.PAD_T_SHIFT) - 1)
 	assert_true(bits & SimDefs.IN_SKILL1, "skill pressed")
 	assert_true(bits & SimDefs.IN_LEFT, "goes the way you move")
 
