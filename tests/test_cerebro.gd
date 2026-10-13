@@ -14,8 +14,9 @@ const GUARD := SimDefs.IN_GUARD
 ## Chef Cerebro on the left, `foe` on the right with `gap` pixels between their bodies.
 func _duel(foe := "cairn", gap := 2.0) -> MatchSim:
 	var sim := MatchFactory.versus("cerebro", foe)
-	sim.creatures[0].pos = Vector2(200, 164)
-	sim.creatures[1].pos = Vector2(200 + sim.creatures[0].radius + sim.creatures[1].radius + gap, 164)
+	var y := SimDefs.floor_rect().get_center().y  # room above and below for a long blink
+	sim.creatures[0].pos = Vector2(120, y)
+	sim.creatures[1].pos = Vector2(120 + sim.creatures[0].radius + sim.creatures[1].radius + gap, y)
 	return sim
 
 
@@ -27,14 +28,18 @@ func _events(sim: MatchSim, kind: String) -> Array:
 	return out
 
 
-func test_his_throws_reach_as_far_as_gillberts_cast_line() -> void:
+func test_his_throws_reach_as_far_as_gillberts_cast_line_and_his_lights_half_again() -> void:
 	var sim := _duel()
 	var chef := sim.creatures[0]
 	var gill := CreatureSim.new(9, MatchFactory.load_def("gillbert"), Vector2.ZERO)
 	var cast := gill.move_range("skill_2")
-	for mid in ["light_1", "light_2", "light_3", "skill_1", "surge"]:
+	for mid in ["skill_1", "surge"]:
 		var r := chef.move_range(mid)
 		assert_true(absf(r - cast) <= cast * 0.15, "%s reaches %.0f px, Cast Line %.0f px" % [mid, r, cast])
+	for mid in ["light_1", "light_2", "light_3"]:
+		var r := chef.move_range(mid)
+		assert_true(absf(r - cast * 1.5) <= cast * 0.15,
+			"%s reaches %.0f px, half again Cast Line's %.0f px" % [mid, r, cast])
 
 
 func test_knife_flick_hits_from_range() -> void:
@@ -57,8 +62,14 @@ func test_only_the_mallet_toss_staggers() -> void:
 	assert_eq(stuns.slice(0, 3), [false, false, true], "only the third, the Mallet Toss, staggers:")
 
 
+func test_knife_flick_hits_from_half_again_as_far() -> void:
+	var sim := _duel("cairn", 140.0)
+	var hit := run_until(sim, func(): return not _events(sim, "hit").is_empty(), 50, L)
+	assert_true(hit, "a knife flicked from 140 px away lands")
+
+
 func test_knife_flick_misses_past_its_range() -> void:
-	var sim := _duel("cairn", 130.0)
+	var sim := _duel("cairn", 190.0)
 	tap(sim, L, 50)
 	assert_eq(sim.creatures[1].hp, sim.creatures[1].max_hp, "out of range: untouched:")
 
@@ -168,3 +179,76 @@ func test_rollback_with_knives_in_the_air() -> void:
 	sim.restore(snap)
 	run(sim, 0, 50, L)
 	assert_eq(sim.state_digest(), once, "replaying from the snapshot gives the same state:")
+
+
+func test_his_dodge_is_a_teleport_after_a_short_delay() -> void:
+	var sim := _duel("cairn", 60.0)
+	var chef := sim.creatures[0]
+	var bl: Dictionary = chef.def["dodge"]["blink"]
+	var start := chef.pos
+	run(sim, SimDefs.IN_DODGE | SimDefs.IN_UP, 1)
+	assert_eq(chef.state, CreatureSim.State.DODGE, "the dodge starts")
+	for t in int(bl["at"]) - 1:
+		assert_near(chef.pos.distance_to(start), 0.0, 0.001, "he stays put before the blink (tick %d):" % t)
+		run(sim, 0, 1)
+	var warped := false
+	for t in 3:
+		run(sim, 0, 1)
+		if not sim.events.filter(func(e): return String(e["type"]) == "warp").is_empty():
+			warped = true
+			break
+	assert_true(warped, "a warp event when he blinks")
+	assert_near(start.y - chef.pos.y, float(bl["distance"]), 0.001, "and he's that far up the screen at once:")
+	assert_near(chef.pos.x, start.x, 0.001, "straight up:")
+	assert_true(chef.is_invulnerable(), "untouchable around the jump")
+	run(sim, 0, int(chef.def["dodge"]["frames"]))
+	assert_eq(chef.state, CreatureSim.State.IDLE, "and back to normal after")
+
+
+func test_his_teleport_stops_at_the_wall() -> void:
+	var sim := _duel()
+	var chef := sim.creatures[0]
+	chef.pos = Vector2(SimDefs.floor_rect().position.x + 30.0, chef.pos.y)
+	run(sim, SimDefs.IN_DODGE | SimDefs.IN_LEFT, 1)
+	run(sim, 0, int(chef.def["dodge"]["frames"]) + 1)
+	assert_near(chef.pos.x, chef.floor_min().x, 0.001, "lands against the wall, still on the floor:")
+
+
+func test_his_teleport_has_a_cooldown() -> void:
+	var sim := _duel("cairn", 160.0)
+	var chef := sim.creatures[0]
+	var dg: Dictionary = chef.def["dodge"]
+	var cd := int(dg["cooldown"])
+	assert_eq(cd, 45, "0.75 s:")
+	run(sim, SimDefs.IN_DODGE | SimDefs.IN_UP, 1)
+	run(sim, 0, int(dg["frames"]) + 1)
+	assert_eq(chef.state, CreatureSim.State.IDLE, "the blink is over")
+	assert_false(chef.can_dodge(), "but it's still recharging")
+	assert_gt(chef.dodge_cooldown_ratio(), 0.0, "the HUD shows it recharging:")
+	var at := chef.pos
+	run(sim, SimDefs.IN_DODGE | SimDefs.IN_DOWN, 1)
+	run(sim, 0, 8)
+	assert_ne_state(chef)
+	assert_lt(chef.pos.distance_to(at), 1.0, "a dodge pressed too soon doesn't blink (a step at most):")
+	run(sim, 0, cd)
+	assert_true(chef.can_dodge(), "ready again after 0.75 s")
+	at = chef.pos
+	run(sim, SimDefs.IN_DODGE | SimDefs.IN_DOWN, 1)
+	run(sim, 0, int(dg["blink"]["at"]) + 1)
+	assert_near(chef.pos.y - at.y, float(dg["blink"]["distance"]), 0.001, "and then it blinks:")
+
+
+func assert_ne_state(c: CreatureSim) -> void:
+	assert_true(c.state != CreatureSim.State.DODGE, "no dodge while recharging")
+
+
+func test_a_blink_pressed_just_before_it_recharges_comes_out_when_ready() -> void:
+	var sim := _duel("cairn", 160.0)
+	var chef := sim.creatures[0]
+	var dg: Dictionary = chef.def["dodge"]
+	run(sim, SimDefs.IN_DODGE | SimDefs.IN_UP, 1)
+	run(sim, 0, int(dg["cooldown"]) - 4)  # 3 ticks of cooldown left
+	assert_false(chef.can_dodge(), "still recharging")
+	run(sim, SimDefs.IN_DODGE | SimDefs.IN_DOWN, 1)
+	run(sim, 0, 4)
+	assert_eq(chef.state, CreatureSim.State.DODGE, "the early press blinks as soon as it's ready")

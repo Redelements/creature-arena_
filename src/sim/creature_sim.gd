@@ -507,6 +507,10 @@ func step(buttons: int, sim: MatchSim) -> void:
 	var pressed := buttons & ~prev_buttons
 	prev_buttons = buttons
 	_buffer_presses(pressed)
+	if pressed & SimDefs.IN_DODGE and int(cooldowns.get("dodge", 0)) > 0:
+		# Pressed a moment before the blink has recharged: it comes out when it's ready.
+		dodge_buffer = BUFFER_TICKS
+		dodge_buffer_dir = SimDefs.move_from_bits(buttons)
 	anim_t += 1
 	state_t += 1
 	if invuln > 0:
@@ -640,7 +644,7 @@ func _wants_breakaway(buttons: int, pressed: int) -> bool:
 
 func _update_free(buttons: int, pressed: int, dir: Vector2, aim: Vector2, sim: MatchSim) -> void:
 	var dg: Dictionary = def["dodge"]
-	if ((pressed & SimDefs.IN_DODGE) or dodge_buffer > 0) and stamina >= float(dg["cost"]) and root <= 0:
+	if ((pressed & SimDefs.IN_DODGE) or dodge_buffer > 0) and can_dodge():
 		_start_dodge(dir, sim)
 		return
 	if _try_start_buffered(aim, sim):
@@ -667,9 +671,23 @@ func _update_free(buttons: int, pressed: int, dir: Vector2, aim: Vector2, sim: M
 	_move(walk_vel, sim, true)
 
 
+## Enough stamina, not rooted, and (for a dodge with a "cooldown", like Chef Cerebro's
+## teleport) not still recharging from the last one.
+func can_dodge() -> bool:
+	return stamina >= float(def["dodge"]["cost"]) and root <= 0 and int(cooldowns.get("dodge", 0)) <= 0
+
+
+## How much of the dodge's cooldown is left, 0 (ready) to 1 (just used).
+func dodge_cooldown_ratio() -> float:
+	var total := float(def["dodge"].get("cooldown", 0))
+	return float(cooldowns.get("dodge", 0)) / total if total > 0.0 else 0.0
+
+
 func _start_dodge(dir: Vector2, sim: MatchSim) -> void:
 	var dg: Dictionary = def["dodge"]
 	stamina -= float(dg["cost"])
+	if int(dg.get("cooldown", 0)) > 0:
+		cooldowns["dodge"] = int(dg["cooldown"])
 	if dir == Vector2.ZERO and dodge_buffer > 0:
 		dir = dodge_buffer_dir
 	dodge_buffer = 0
@@ -716,8 +734,9 @@ func _start_attack(mid: String, sim: MatchSim, raw := false) -> void:
 	charge_ratio = 0.0
 	buffered = ""
 	buffer_t = 0
-	walk_vel = Vector2.ZERO
 	var mv := move_def()
+	if float(mv.get("mobile", 0.0)) <= 0.0:
+		walk_vel = Vector2.ZERO  # a "mobile" move keeps its glide going
 	charging = mv.has("charge_max")
 	if mv.has("aim"):
 		_aim(float(mv["aim"]), sim)
@@ -785,6 +804,13 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 	var lunge := float(mv.get("lunge", 0.0))
 	if t <= su and lunge > 0.0:
 		_move(facing * lunge, sim, true)
+	# "mobile": he keeps walking (at this share of his speed) while the move plays out,
+	# whichever way it's thrown: Chef Cerebro's telekinetic throws, run-and-gun.
+	var mob := float(mv.get("mobile", 0.0))
+	if mob > 0.0:
+		var walk := SimDefs.move_from_bits(buttons)
+		walk_vel = walk_vel.move_toward(walk * walk_speed() * mob, float(def["accel"]))
+		_move(walk_vel, sim, true)
 	var dash: Dictionary = mv.get("dash", {})
 	if not dash.is_empty() and t >= int(dash["from"]) and t <= int(dash["to"]) and dash.has("home"):
 		_home(dash, t, sim)
@@ -1003,6 +1029,17 @@ func trigger_counter(attacker_pos: Vector2, sim: MatchSim) -> void:
 func _update_dodge(sim: MatchSim) -> void:
 	var dg: Dictionary = def["dodge"]
 	var frames := int(dg["frames"])
+	if dg.has("blink"):
+		# A teleport (Chef Cerebro): he stays put for a moment, then is simply somewhere
+		# else, "distance" px the way he dodged (stopped by the walls, not by pits).
+		var bl: Dictionary = dg["blink"]
+		if state_t == int(bl["at"]):
+			var from := pos
+			pos = _clamp_to_floor(pos + dodge_dir * float(bl["distance"]))
+			sim.emit_event("warp", pos, 1.0, {"who": id, "from": from})
+		if state_t >= frames:
+			_set_state(State.IDLE)
+		return
 	var spd := float(dg["speed"])
 	if state_t > frames - 5:
 		spd *= 0.4
@@ -1019,7 +1056,7 @@ func _update_guard(buttons: int, pressed: int, dir: Vector2, aim: Vector2, sim: 
 		stun -= 1
 		return
 	var dg: Dictionary = def["dodge"]
-	if ((pressed & SimDefs.IN_DODGE) or dodge_buffer > 0) and stamina >= float(dg["cost"]) and root <= 0:
+	if ((pressed & SimDefs.IN_DODGE) or dodge_buffer > 0) and can_dodge():
 		_start_dodge(dir, sim)
 		return
 	# Out of guard an attack goes at the opponent, unless an exact aim says otherwise.

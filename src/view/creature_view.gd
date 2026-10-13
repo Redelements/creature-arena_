@@ -208,6 +208,7 @@ func refresh() -> void:
 	if c.stealth > 0:
 		# Invisible (Tiptoe): only a faint shimmer gives him away.
 		alpha = 0.12 + 0.06 * float((c.anim_t / 6) % 2)
+	alpha *= blink_alpha(c)
 	modulate = Color(shade, shade, shade, alpha)
 
 	var r := -1.0
@@ -216,6 +217,21 @@ func refresh() -> void:
 	if absf(r - _shadow_r) > 0.25:
 		_shadow_r = r
 		queue_redraw()
+
+
+## A teleporting dodge (Chef Cerebro): he fades out over the moment before the jump and
+## flickers back in after it. 1 the rest of the time.
+static func blink_alpha(cr: CreatureSim) -> float:
+	if cr.state != CreatureSim.State.DODGE:
+		return 1.0
+	var bl: Dictionary = cr.def["dodge"].get("blink", {})
+	if bl.is_empty():
+		return 1.0
+	var at := int(bl["at"])
+	var t := cr.state_t
+	if t < at:
+		return lerpf(1.0, 0.2, clampf(float(t) / float(maxi(1, at)), 0.0, 1.0))
+	return clampf(0.35 + float(t - at) * 0.16, 0.0, 1.0) if (t - at) % 2 == 0 or t - at > 4 else 0.15
 
 
 ## How high a move lifts the sprite off its shadow, from the move's "view_lift"
@@ -316,6 +332,12 @@ func _pick() -> Array:
 		CreatureSim.State.DODGE:
 			var n := int(_anim("dodge")[2])
 			var frames := maxi(1, int(c.def["dodge"]["frames"]))
+			var bl: Dictionary = c.def["dodge"].get("blink", {})
+			if not bl.is_empty() and n >= 4:
+				# A teleport: gather, vanish, (the jump), flicker back in, settle.
+				var at := int(bl["at"])
+				var f := 0 if c.state_t < at - 2 else (1 if c.state_t < at else (2 if c.state_t < at + 4 else 3))
+				return ["dodge", f, false]
 			return ["dodge", c.state_t * n / frames, false]
 		CreatureSim.State.GUARD:
 			return ["guard", 1 if c.guard_hit > 0 else 0, false]

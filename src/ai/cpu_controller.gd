@@ -300,6 +300,12 @@ func _defend(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float) -> b
 
 
 func _dodge_away(me: CreatureSim, foe: CreatureSim) -> void:
+	if not me.can_dodge():
+		# Out of stamina or the dodge is recharging (Chef Cerebro's blink): guard instead.
+		_defense = "guard"
+		_defense_t = 20
+		_hold(SimDefs.IN_GUARD)
+		return
 	var away := (me.pos - foe.pos).normalized()
 	var side := Vector2(-away.y, away.x) * (1.0 if _roll(0.5) else -1.0)
 	_hold(SimDefs.bits_from_dir((away + side).normalized()))
