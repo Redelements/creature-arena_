@@ -57,7 +57,7 @@ xvfb-run -a -s "-screen 0 1600x900x24" $G --fixed-fps 60 --rendering-driver open
 xvfb-run -a ... $G --rendering-driver opengl3 --path . --write-movie /tmp/out.avi --fixed-fps 60 -- --showcase=cairn --quit-after=712
 ```
 
-Useful flags (after `--`): `--mode=0..8`, `--level=0..2`, `--seed=N`,
+Useful flags (after `--`): `--mode=0..8`, `--level=0..3` (3 = Rage: `CpuController` plays by class, `STYLES`; `tests/bench_cpu.gd` compares levels), `--seed=N`,
 `--showcase=cairn|culvert|craglash|barkley|gillbert|cerebro|hissy|digby|pete|sno|angles|twinstick|counterplay`, `--pad-layout=standard|twinstick`, `--autoplay`, `--hitboxes`, `--cpu-vs-cpu` (CPU
 plays every player side, for captures), `--pick` (show the team pick screen),
 `--teams=a,b,c:d,e,f`. Modes: 5 showcases, 6 Duel vs CPU, 7 Duel 2P, 8 Versus 2P,

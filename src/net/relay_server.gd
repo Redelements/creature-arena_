@@ -53,7 +53,9 @@ var forced_delay := -1
 ## friends take a while to type the code.
 var cpu_fill_ms := 20000
 var room_fill_ms := 45000
-## How well the CPUs play (CpuController levels: 0 Easy, 1 Normal, 2 Hard).
+## Picks the CPUs' fighters (tests seed it; the server leaves it random).
+var rng := RandomNumberGenerator.new()
+## How well the CPUs play (CpuController levels: 0 Easy, 1 Normal, 2 Hard, 3 Rage).
 var cpu_level := 1
 ## Every log line goes here too (the server prints them).
 var on_log := Callable()
@@ -333,7 +335,11 @@ func _begin_game(group: Array, size: int) -> void:
 	var pool: Array = MatchFactory.FIGHTERS.filter(func(f): return not used.has(f))
 	if pool.is_empty():
 		pool = MatchFactory.FIGHTERS.duplicate()
-	pool.shuffle()  # the server's choice, outside any match: randomness is fine
+	for i in range(pool.size() - 1, 0, -1):  # shuffled: the server's choice, outside any match
+		var j := rng.randi_range(0, i)
+		var tmp = pool[i]
+		pool[i] = pool[j]
+		pool[j] = tmp
 	for slot in g.players.size():
 		if g.players[slot] == null:
 			g.cpu_fighters[slot] = String(pool[g.cpu_fighters.size() % pool.size()])

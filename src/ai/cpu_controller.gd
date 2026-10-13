@@ -7,6 +7,14 @@ extends RefCounted
 ## Randomness comes from its own seeded generator, so a given seed always plays the
 ## same way. Difficulty changes reaction time, how often it defends, how reliably it
 ## finishes combos, and how often it fumbles.
+##
+## Rage (level 3) is a different brain on the same buttons: it reads every foe's frame
+## data and projectiles, steps out of range or times its dodges to the frame, punishes
+## every whiff, leads its shots, never drops a combo, walks around holes and out of
+## corners, and plays each fighter by its class (STYLES): a mage kites at the edge of
+## its range, strafing and throwing as it backs off; an assassin lurks, bursts in and
+## gets out; a tank walks you into the walls; a bruiser keeps the pressure on; a
+## skirmisher hits and runs; a fighter plays footsies at the edge of your reach.
 
 const LEVELS := [
 	{"name": "Easy", "reaction": 22, "defend": 0.25, "combo": 0.35, "mistake": 0.25,
@@ -15,7 +23,24 @@ const LEVELS := [
 		"breakaway": 0.25, "aggression": 0.55, "think": 12},
 	{"name": "Hard", "reaction": 7, "defend": 0.85, "combo": 0.95, "mistake": 0.02,
 		"breakaway": 0.5, "aggression": 0.7, "think": 7},
+	{"name": "Rage", "reaction": 1, "defend": 1.0, "combo": 1.0, "mistake": 0.0,
+		"breakaway": 1.0, "aggression": 0.9, "think": 2, "rage": true},
 ]
+const RAGE := 3
+
+## How Rage plays each class ("role" in the creature file; an "ai" "style" overrides).
+##   plan     what it does in neutral (see _rage_neutral)
+##   target   who it goes after in a team battle: the nearest foe, the weakest one, or
+##            (a tank) whoever is closest to its most hurt teammate
+##   defense  evade: step out of reach or dodge; guard: block and punish; mixed: both
+const STYLES := {
+	"mage": {"plan": "kite", "target": "nearest", "defense": "evade"},
+	"assassin": {"plan": "lurk", "target": "weakest", "defense": "evade"},
+	"tank": {"plan": "press", "target": "peel", "defense": "guard"},
+	"bruiser": {"plan": "press", "target": "nearest", "defense": "guard"},
+	"skirmisher": {"plan": "skirmish", "target": "nearest", "defense": "evade"},
+	"fighter": {"plan": "footsie", "target": "nearest", "defense": "mixed"},
+}
 
 const ACTION_BIT := {
 	"light": SimDefs.IN_LIGHT, "heavy": SimDefs.IN_HEAVY,
@@ -58,6 +83,16 @@ var _hold_bit := SimDefs.IN_HEAVY  ## the button a held charge is held on
 ## Set in a Duel, so the CPU can tag out a hurt creature.
 var duel: DuelSim = null
 
+# Rage
+var _target: CreatureSim = null
+var _target_t := 0
+var _orbit := 1.0  ## which way it circles (+1 / -1)
+var _orbit_t := 0
+var _engage_t := 0  ## ticks left in a committed attack run (assassin, skirmisher)
+var _step_dir := Vector2.ZERO
+var _kit_t := 0
+var _dance_t := 0
+
 
 func _init(p_me: int, p_level := 1, p_seed := 1) -> void:
 	me_idx = p_me
@@ -73,13 +108,15 @@ func level_name() -> String:
 func bits(sim: MatchSim) -> int:
 	_out = 0
 	var me := sim.creatures[me_idx]
-	var foe := sim.nearest_opponent(me)
+	var foe := _pick_target(sim, me) if _rage() else sim.nearest_opponent(me)
 	if foe != null and me.state != CreatureSim.State.KO:
 		_decide(sim, me, foe)
-		# Normal and Hard aim attacks exactly (360 degrees), like a stick or a mouse; Easy
-		# keeps to the 8 directions a keyboard gives.
-		if level >= 1 and ((_out & PlayerInput.ATTACK_BITS) or me.state == CreatureSim.State.ATTACK):
-			_out |= SimDefs.aim_bits(foe.pos - me.pos)
+		# Normal and up aim attacks exactly (360 degrees), like a stick or a mouse; Easy
+		# keeps to the 8 directions a keyboard gives. Rage leads a moving target.
+		if level >= 1 and ((_out & PlayerInput.ATTACK_BITS) or me.state == CreatureSim.State.ATTACK) \
+				and not (_out & SimDefs.IN_AIM):
+			var at := _aim_point(me, foe) if _rage() else foe.pos
+			_out |= SimDefs.aim_bits(at - me.pos)
 	_prev = _out
 	return _out
 
@@ -137,7 +174,8 @@ func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 		if me.is_stunned() and me.combo_hits >= CreatureSim.BREAKAWAY_MIN_HITS \
 				and me.energy >= CreatureSim.BREAKAWAY_COST and _break_combo_checked != me.combo_hits:
 			_break_combo_checked = me.combo_hits
-			if me.combo_hits == CreatureSim.BREAKAWAY_MIN_HITS and _roll(float(p["breakaway"])):
+			if me.combo_hits == CreatureSim.BREAKAWAY_MIN_HITS and _roll(float(p["breakaway"])) \
+					and (not _rage() or _rage_breaks_away(sim, me)):
 				_press(SimDefs.IN_GUARD)
 				_press(SimDefs.IN_DODGE)
 		return
@@ -145,8 +183,20 @@ func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 
 	if me.state == CreatureSim.State.ATTACK:
 		_continue_attack(sim, me, foe, dist)
+		if _rage():
+			_rage_attack_move(sim, me, foe)
 		return
 	if me.state == CreatureSim.State.DODGE:
+		return
+
+	if _rage():
+		if _rage_defend(sim, me):
+			return
+		if _maybe_tag(me, dist):
+			return
+		if _rage_punish(sim, me, foe, to_foe, dist):
+			return
+		_rage_neutral(sim, me, foe, to_foe, dist)
 		return
 
 	if _defend(sim, me, foe, dist):
@@ -186,6 +236,19 @@ func _continue_attack(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: fl
 	if not gz.is_empty() and dist < float(_ai(me).get("range", 22)) + me.radius + foe.radius \
 			and me.state_t >= int(gz.get("release_from", 9999)):
 		_hold(SimDefs.bits_from_dir((foe.pos - me.pos).normalized()))
+		_press(SimDefs.IN_LIGHT)
+		return
+	# Rage in an armored stance (Bedrock): answer out of it the moment the foe is in reach.
+	var armor: Dictionary = me.move_def().get("armor", {})
+	if _rage() and not armor.is_empty() and me.state_t >= int(armor.get("release_from", 9999)) \
+			and me.state_t <= int(armor["to"]) and dist < _reach_of(me, foe):
+		_hold(SimDefs.move_bits(foe.pos - me.pos))
+		_press(SimDefs.IN_HEAVY if me.can_use("heavy") and _roll(0.4) else SimDefs.IN_LIGHT)
+		return
+	# Rage's knife strings keep coming at range, hit or miss: a mage's lights are its
+	# shots, and backing off while throwing is the whole plan.
+	if _rage() and not me.connected and me.move_type() == "light" \
+			and me.moves().get("light_1", {}).has("projectile") and dist > 45.0:
 		_press(SimDefs.IN_LIGHT)
 		return
 	if not me.connected or _route_drop:
@@ -241,7 +304,7 @@ func _pick_route(me: CreatureSim, dist: float) -> Array:
 			if not me.can_use(mid):
 				ok = false
 				break
-		if ok and _roll(0.8):
+		if ok and (_rage() or _roll(0.8)):  # Rage: always the best route it can afford
 			return r.duplicate()
 	return routes[routes.size() - 1].duplicate()
 
@@ -502,3 +565,730 @@ func _follow_plan(me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: floa
 				_move_toward(-to_foe)
 		"circle":
 			_move_toward(_plan_dir + to_foe.normalized() * 0.3)
+
+
+# ------------------------------------------------------------------ Rage
+
+func _rage() -> bool:
+	return level >= RAGE
+
+
+## Rage spends half its energy on a breakaway only when it's worth more than a Surge
+## later: when it's hurt, or the combo's owner has a Surge to finish with.
+func _rage_breaks_away(sim: MatchSim, me: CreatureSim) -> bool:
+	var hurt := me.hp / me.max_hp < 0.5
+	var surging := false
+	for o in sim.creatures:
+		if me.is_foe(o) and o.energy >= CreatureSim.MAX_ENERGY and o.pos.distance_to(me.pos) < 80.0:
+			surging = true
+	if me.energy >= CreatureSim.MAX_ENERGY and not hurt:
+		return false  # keep the Surge
+	return hurt or surging or me.energy >= CreatureSim.BREAKAWAY_COST * 1.5
+
+
+func _style(me: CreatureSim) -> Dictionary:
+	var name := String(_ai(me).get("style", me.def.get("role", "fighter")))
+	return STYLES.get(name, STYLES["fighter"])
+
+
+## Who to fight: the nearest foe, or by class in a team battle (an assassin goes for the
+## weakest, a tank for whoever is on its most hurt teammate). Kept for a moment, so it
+## doesn't dither between two.
+func _pick_target(sim: MatchSim, me: CreatureSim) -> CreatureSim:
+	if _target != null and _target_t > 0 and me.is_foe(_target) and _target.state != CreatureSim.State.KO:
+		_target_t -= 1
+		return _target
+	var how := String(_style(me)["target"])
+	var ally := _hurt_ally(sim, me) if how == "peel" else null
+	var best: CreatureSim = null
+	var best_score := INF
+	for o in sim.creatures:
+		if not me.is_foe(o) or o.state == CreatureSim.State.KO:
+			continue
+		var d := o.pos.distance_to(me.pos)
+		var score := d
+		if how == "weakest":
+			score = d * 0.5 + o.hp / o.max_hp * 220.0
+		elif ally != null:
+			score = o.pos.distance_to(ally.pos) + d * 0.3
+		if score < best_score:
+			best_score = score
+			best = o
+	_target = best
+	_target_t = 30
+	return best if best != null else sim.nearest_opponent(me)
+
+
+## The teammate with the least health left, if one is under 70%.
+func _hurt_ally(sim: MatchSim, me: CreatureSim) -> CreatureSim:
+	var best: CreatureSim = null
+	for o in sim.creatures:
+		if o == me or me.is_foe(o) or o.state == CreatureSim.State.KO:
+			continue
+		if o.hp / o.max_hp < 0.7 and (best == null or o.hp / o.max_hp < best.hp / best.max_hp):
+			best = o
+	return best
+
+
+## Where to aim: at the foe, or for a thrown move where the foe will be when it arrives.
+func _aim_point(me: CreatureSim, foe: CreatureSim) -> Vector2:
+	var mid := me.move_id if me.state == CreatureSim.State.ATTACK else "light_1"
+	if _out & SimDefs.IN_SKILL1:
+		mid = "skill_1"
+	elif _out & SimDefs.IN_SKILL2:
+		mid = "skill_2"
+	elif _out & SimDefs.IN_SURGE:
+		mid = "surge"
+	var pr: Dictionary = me.moves().get(mid, {}).get("projectile", {})
+	if pr.is_empty():
+		return foe.pos
+	var t := 0.0
+	if bool(pr.get("lob", false)):
+		t = float(pr.get("time", 30))
+	else:
+		t = foe.pos.distance_to(me.pos) / maxf(1.0, float(pr.get("speed", 6.0)))
+	return foe.pos + foe.walk_vel * clampf(t, 0.0, 40.0)
+
+
+## Walks toward `v` around holes and walls (Rage).
+func _go(sim: MatchSim, me: CreatureSim, v: Vector2) -> void:
+	var d := _steer(sim, me, v)
+	if d != Vector2.ZERO:
+		_move_toward(d)
+
+
+## The walkable direction closest to `v`: steps that would end in a hole or against a
+## wall score lower.
+func _steer(sim: MatchSim, me: CreatureSim, v: Vector2) -> Vector2:
+	if v.length_squared() < 0.0001:
+		return Vector2.ZERO
+	var want := v.normalized()
+	var room := SimDefs.floor_rect().grow(-me.radius - 3.0)
+	var best := want
+	var best_s := -INF
+	var dirs := SimDefs.aim_dirs()
+	for i in 32:
+		var d: Vector2 = dirs[i * 2]
+		var s := d.dot(want)
+		if s < -0.1:
+			continue
+		for k in [6.0, 14.0, 24.0]:
+			var at: Vector2 = me.pos + d * (me.radius + k)
+			if sim.terrain.is_hole_at(at):
+				s -= 2.5 if k < 20.0 else 0.8
+				break
+		if not room.has_point(me.pos + d * 10.0):
+			s -= 1.5
+		if s > best_s:
+			best_s = s
+			best = d
+	return best
+
+
+## A way to back off from `away` that keeps to open floor: away from the foe, but
+## preferring directions with room to keep going (out of corners, around holes).
+func _open_dir(sim: MatchSim, me: CreatureSim, away: Vector2) -> Vector2:
+	var a := away.normalized() if away.length_squared() > 0.0001 else Vector2.RIGHT
+	var room := SimDefs.floor_rect().grow(-me.radius - 4.0)
+	var best := a
+	var best_s := -INF
+	var dirs := SimDefs.aim_dirs()
+	for i in 16:
+		var d: Vector2 = dirs[i * 4]
+		var clear := _clearance(room, me.pos, d)
+		var s := d.dot(a) * 1.2 + minf(clear, 100.0) / 100.0
+		for k in [8.0, 20.0, 34.0]:
+			if sim.terrain.is_hole_at(me.pos + d * (me.radius + k)):
+				s -= 1.5
+				break
+		if s > best_s:
+			best_s = s
+			best = d
+	return best
+
+
+## How far from `p` along `d` before leaving `room`.
+static func _clearance(room: Rect2, p: Vector2, d: Vector2) -> float:
+	var t := INF
+	if d.x > 0.001:
+		t = minf(t, (room.end.x - p.x) / d.x)
+	elif d.x < -0.001:
+		t = minf(t, (room.position.x - p.x) / d.x)
+	if d.y > 0.001:
+		t = minf(t, (room.end.y - p.y) / d.y)
+	elif d.y < -0.001:
+		t = minf(t, (room.position.y - p.y) / d.y)
+	return maxf(t, 0.0)
+
+
+## Circling `foe` at distance `r`: the tangent, with a pull in or out to hold the radius.
+## The direction flips off walls and every so often, so it isn't predictable.
+func _orbit_dir(sim: MatchSim, me: CreatureSim, foe: CreatureSim, r: float) -> Vector2:
+	var to_foe := foe.pos - me.pos
+	var dist := to_foe.length()
+	var n := to_foe / maxf(dist, 0.001)
+	var tangent := Vector2(-n.y, n.x) * _orbit
+	_orbit_t -= 1
+	var room := SimDefs.floor_rect().grow(-me.radius - 4.0)
+	if _orbit_t <= 0 or _clearance(room, me.pos, tangent) < 24.0:
+		if _orbit_t <= 0 or _clearance(room, me.pos, -tangent) > 40.0:
+			_orbit = -_orbit
+			tangent = -tangent
+		_orbit_t = rng.randi_range(70, 160)
+	return tangent + n * clampf((dist - r) / 30.0, -1.0, 1.0)
+
+
+## How far `o`'s light (with its lunge) reaches from its centre, to the edge of `me`.
+func _reach_of(o: CreatureSim, me: CreatureSim) -> float:
+	var mv: Dictionary = o.moves().get("light_1", {})
+	if mv.has("projectile"):
+		return float(mv.get("reach", 14)) + float(mv.get("hit_radius", 10)) + me.radius + 4.0
+	return o.move_range("light_1") + float(mv.get("lunge", 0.0)) * float(mv.get("startup", 0)) + me.radius + 4.0
+
+
+## Whether a light thrown now would land: `foe` is in reach and can't walk out of it
+## before the strike comes out (or is stuck: attacking, guarding, stunned, cornered).
+func _lands(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float, reach: float) -> bool:
+	if dist > reach or foe.state == CreatureSim.State.GUARD:
+		return false  # a guard is grabbed, not jabbed
+	var su := float(me.moves().get("light_1", {}).get("startup", 5)) + 1.0
+	if foe.state == CreatureSim.State.ATTACK:
+		# Committed: open if its move is spent, or if this light comes out first.
+		if _recovery_left(foe) >= int(su) - 1:
+			return true
+		var mv := foe.move_def()
+		var fta := _frames_to_active(foe)
+		if mv.has("projectile") and foe.windup_left <= 0 and foe.state_t <= int(mv.get("startup", 0)):
+			fta = int(mv.get("startup", 0)) + 1 - foe.state_t
+		return fta > int(su) + 1
+	if foe.is_stunned() or foe.root > 0:
+		return true
+	# A free foe with a quicker jab that reaches here wins the trade: let it swing and
+	# punish that instead.
+	var foe_su := int(foe.moves().get("light_1", {}).get("startup", 5)) + 1
+	if foe_su < int(su) and dist <= _reach_of(foe, me):
+		return false
+	var escape := foe.walk_speed() * maxf(su - 2.0, 0.0) * 0.8
+	var room := SimDefs.floor_rect().grow(-foe.radius - 2.0)
+	var out := (foe.pos - me.pos).normalized()
+	escape = minf(escape, _clearance(room, foe.pos, out))  # backed against a wall: nowhere to go
+	return dist + escape <= reach
+
+
+## Ticks until `o`'s current strike comes out (0: it's out now), or -1 if it's spent or
+## not a strike (a throw is answered when the projectile flies).
+static func _frames_to_active(o: CreatureSim) -> int:
+	if o.state != CreatureSim.State.ATTACK or o.charging:
+		return -1
+	var mv := o.move_def()
+	if mv.has("projectile"):
+		return -1
+	var segs: Array = mv.get("_segs", [])
+	if segs.is_empty():
+		return -1
+	var first := int(segs[0]["at"])
+	var last := 0
+	for sg in segs:
+		last = maxi(last, int(sg["at"]) + int(sg["active"]))
+	if o.windup_left > 0:
+		return o.windup_left + first
+	if o.state_t >= last:
+		return -1
+	return maxi(0, first - o.state_t)
+
+
+## Ticks until `o` can act again if its move is spent (its strikes or throws are done),
+## else -1: the window to punish.
+static func _recovery_left(o: CreatureSim) -> int:
+	if o.state != CreatureSim.State.ATTACK or o.charging or o.windup_left > 0:
+		return -1
+	var mv := o.move_def()
+	var done := 0
+	for sg in mv.get("_segs", []):
+		done = maxi(done, int(sg["at"]) + int(sg["active"]))
+	if mv.has("projectile"):
+		var vol: Dictionary = mv["projectile"].get("volley", {})
+		done = maxi(done, int(mv.get("startup", 0)) + 1 + int(vol.get("count", 1)) * maxi(1, int(vol.get("every", 1))))
+	if mv.has("dash"):
+		done = maxi(done, int(mv["dash"].get("to", 0)) + 1)
+	if o.state_t < done:
+		return -1
+	return int(mv["length"]) + o.block_lag - o.state_t
+
+
+## Rage's defense: the most urgent threat from any foe (a strike about to come out in
+## reach, a projectile on a collision course, a lob landing here), answered by class:
+## step out of reach when there's time, time a dodge so its invincible frames cover the
+## hit, or guard.
+func _rage_defend(sim: MatchSim, me: CreatureSim) -> bool:
+	if _defense == "step":
+		_defense_t -= 1
+		if _defense_t > 0:
+			_go(sim, me, _step_dir)
+			return true
+		_defense = ""
+	elif _defense == "guard":
+		_defense_t -= 1
+		if _defense_t > 0:
+			_hold(SimDefs.IN_GUARD)
+			return true
+		_defense = ""
+
+	var when := 999
+	var kind := ""  ## "strike", "unblockable", "shot", "lob"
+	var from := Vector2.ZERO
+	var need := 0.0  ## how far to move to be clear
+	for o in sim.creatures:
+		if not me.is_foe(o) or o.state != CreatureSim.State.ATTACK:
+			continue
+		var d := o.pos.distance_to(me.pos)
+		if o.charging:
+			if d < 64.0 and 8 < when:
+				when = 8
+				kind = "unblockable"
+				from = o.pos
+				need = 64.0 - d
+			continue
+		var t := _frames_to_active(o)
+		var reach := _threat_range(o, me)
+		if t < 0 or d > reach or t >= when:
+			continue
+		when = t
+		from = o.pos
+		need = reach - d + 2.0
+		var mv := o.move_def()
+		kind = "unblockable" if bool(mv.get("grab", false)) or bool(mv.get("guard_break", false)) \
+			or String(mv.get("type", "")) == "surge" else "strike"
+	for pr in sim.projectiles:
+		var owner_id := int(pr["owner"])
+		if owner_id < 0 or owner_id >= sim.creatures.size() or not me.is_foe(sim.creatures[owner_id]):
+			continue
+		var pp: Vector2 = pr["pos"]
+		var vel: Vector2 = pr["vel"]
+		if bool(pr.get("lob", false)):
+			var land := pp + vel * float(pr["life"])
+			var r := float(pr.get("burst", 0)) + me.radius + 3.0
+			var dl := land.distance_to(me.pos)
+			if dl < r and int(pr["life"]) < when:
+				when = int(pr["life"])
+				kind = "lob"
+				from = land
+				need = r - dl
+			continue
+		var v2 := vel.length_squared()
+		if v2 < 0.0001:
+			continue
+		var rel := me.pos - pp
+		var t_ca := rel.dot(vel) / v2
+		if t_ca < 0.0 or t_ca > 40.0:
+			continue
+		var miss := (pp + vel * t_ca).distance_to(me.pos)
+		var r2 := float(pr.get("radius", 0)) + me.radius + 3.0
+		if miss < r2 and int(t_ca) < when:
+			when = int(t_ca)
+			kind = "shot"
+			from = pp + vel * t_ca
+			need = r2 - miss
+	if kind == "":
+		return false
+
+	var style := String(_style(me)["defense"])
+	var speed := me.walk_speed() * 0.85
+	var room_ticks := float(when) - 1.0
+	match kind:
+		"lob":
+			_step(sim, me, me.pos - from, int(need / maxf(speed, 0.5)) + 3)
+			return true
+		"shot":
+			# Sideways out of its path; dodge through it if there's no time.
+			var path: Vector2 = (me.pos - from)
+			if path.length_squared() < 0.01:
+				path = Vector2(-me.facing.y, me.facing.x)
+			if speed * room_ticks >= need:
+				_step(sim, me, path, int(need / maxf(speed, 0.5)) + 2)
+				return true
+			if when <= 5 and me.can_dodge():
+				_dodge_dir(me, path)
+				return true
+			if when <= 4:
+				_guard_for(when + 6)
+			return true
+		"unblockable":
+			if speed * room_ticks >= need:
+				_step(sim, me, me.pos - from, int(need / maxf(speed, 0.5)) + 3)
+				return true
+			var ivs := int(me.def["dodge"].get("iframes_start", 2))
+			if when <= ivs + 2 and me.can_dodge():
+				_dodge_dir(me, _open_dir(sim, me, me.pos - from))
+			return true
+		_:  # a strike
+			if style != "guard" and speed * room_ticks >= need:
+				_step(sim, me, _open_dir(sim, me, me.pos - from), int(need / maxf(speed, 0.5)) + 3)
+				return true
+			# A counter answers it when there's one ready: a tank's armored stance
+			# (Bedrock), a fighter's parry (Slip Counter) timed to catch the strike.
+			var counter := String(_ai(me).get("counter", ""))
+			if style != "evade" and counter != "" and me.can_use(counter):
+				var cw: Dictionary = me.moves()[counter].get("counter", {})
+				var arm: Dictionary = me.moves()[counter].get("armor", {})
+				var lo := int(cw.get("from", arm.get("from", 2)))
+				var hi := int(cw.get("to", arm.get("to", 30)))
+				if when >= lo and when <= hi:
+					_press(int(ACTION_BIT[counter]))
+					return true
+			_guard_for(when + 8)
+			return true
+	return false
+
+
+func _step(sim: MatchSim, me: CreatureSim, dir: Vector2, ticks: int) -> void:
+	_defense = "step"
+	_step_dir = dir
+	_defense_t = clampi(ticks, 2, 24)
+	_go(sim, me, dir)
+
+
+func _guard_for(ticks: int) -> void:
+	_defense = "guard"
+	_defense_t = clampi(ticks, 4, 30)
+	_hold(SimDefs.IN_GUARD)
+
+
+func _dodge_dir(me: CreatureSim, dir: Vector2) -> void:
+	if not me.can_dodge():
+		_guard_for(10)
+		return
+	_hold(SimDefs.move_bits(dir))
+	_press(SimDefs.IN_DODGE)
+
+
+## Punish: a foe whose move is spent is open until it recovers. Hit it if a light gets
+## there in time, a poke if that does, or close in if the window is long enough.
+func _rage_punish(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float) -> bool:
+	var left := _recovery_left(foe)
+	if left < 0 or foe.is_invulnerable():
+		return false
+	var light: Dictionary = me.moves().get("light_1", {})
+	var su := int(light.get("startup", 4)) + 1
+	var reach := _reach_of(me, foe) - 4.0
+	if light.has("projectile"):
+		reach = me.move_range("light_1") * 0.9
+	if dist <= reach and left >= su:
+		_hold(SimDefs.move_bits(to_foe))
+		_press(SimDefs.IN_LIGHT)
+		return true
+	var ai := _ai(me)
+	var poke := String(ai.get("poke", ""))
+	var pr: Array = ai.get("poke_range", [0, 0])
+	if poke != "" and me.can_use(poke) and dist >= float(pr[0]) and dist <= float(pr[1]) \
+			and left >= int(me.moves()[poke].get("startup", 6)) + 1:
+		_press(int(ACTION_BIT[poke]))
+		return true
+	if String(_style(me)["plan"]) != "kite" and float(left) * me.walk_speed() + reach >= dist + 4.0:
+		_go(sim, me, to_foe)
+		return true
+	return false
+
+
+## While attacking: a mage keeps walking its kite line through its mobile throws.
+func _rage_attack_move(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
+	if float(me.move_def().get("mobile", 0.0)) <= 0.0:
+		return
+	var v := _kite_vector(sim, me, foe)
+	var d := _steer(sim, me, v)
+	if d != Vector2.ZERO:
+		_hold(SimDefs.move_bits(d))
+
+
+## Holds a direction to walk while facing (aiming at) the foe: twin-stick strafing.
+func _strafe(sim: MatchSim, me: CreatureSim, foe: CreatureSim, v: Vector2) -> void:
+	var d := _steer(sim, me, v)
+	if d != Vector2.ZERO:
+		_hold(SimDefs.move_bits(d))
+	_out |= SimDefs.IN_STRAFE | SimDefs.aim_bits(_aim_point(me, foe) - me.pos)
+
+
+func _rage_neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float) -> void:
+	_route = []
+	_route_drop = false
+	var ai := _ai(me)
+	var plan := String(_style(me)["plan"])
+	var reach := _reach_of(me, foe) - 4.0  # where its light lands
+	var danger := _reach_of(foe, me)  # where the foe's lands
+
+	# The foe is down or protected: wait where it'll get up (a mage keeps its distance),
+	# or charge a slam to meet it.
+	if foe.state in [CreatureSim.State.KNOCKDOWN, CreatureSim.State.FALLING] or foe.invuln > 0 or foe.is_airborne():
+		if bool(ai.get("wakeup_charge", false)) and dist < 46.0 and me.can_use("heavy") \
+				and foe.state == CreatureSim.State.KNOCKDOWN and _roll(0.3):
+			_hold_heavy = clampi(foe.stun - 4, 6, 45)
+			_press(SimDefs.IN_HEAVY)
+			_hold(SimDefs.move_bits(to_foe))
+			return
+		if plan == "kite":
+			_strafe(sim, me, foe, _kite_vector(sim, me, foe))
+		elif dist > reach - 2.0:
+			_go(sim, me, to_foe)
+		return
+
+	# A stunned or crumpled foe: hit it.
+	if foe.is_stunned() and dist < reach + 4.0:
+		_hold(SimDefs.move_bits(to_foe))
+		_press(SimDefs.IN_LIGHT)
+		return
+
+	# A guarding foe in reach: grab it.
+	var grab := String(ai.get("grab", ""))
+	if grab != "" and foe.state == CreatureSim.State.GUARD and dist < reach + 6.0 and me.can_use(grab):
+		_press(int(ACTION_BIT[grab]))
+		return
+
+	if _rage_kit(sim, me, foe, to_foe, dist, plan):
+		return
+
+	# A foe that fights from range (a kiting mage) is run down, not waited for.
+	if plan != "kite" and _is_ranged(foe) and dist > reach:
+		_chase(sim, me, foe, to_foe, dist, reach)
+		return
+
+	match plan:
+		"kite":
+			_plan_kite(sim, me, foe, to_foe, dist, danger)
+		"lurk":
+			_plan_lurk(sim, me, foe, to_foe, dist, reach, danger)
+		"press":
+			_plan_press(sim, me, foe, to_foe, dist, reach)
+		"skirmish":
+			_plan_skirmish(sim, me, foe, to_foe, dist, reach, danger)
+		_:
+			_plan_footsie(sim, me, foe, to_foe, dist, reach, danger)
+
+
+## The rest of the kit, used when it's sure to pay off: a Surge that can't miss, a lob
+## landing where the foe will be, a gaze on a foe looking this way, a puddle under a
+## foe up close, a long poke on a foe walking into it.
+func _rage_kit(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float, plan: String) -> bool:
+	_kit_t -= 1
+	if _kit_t > 0:
+		return false
+	_kit_t = 4
+	var ai := _ai(me)
+	var busy := _recovery_left(foe) >= 6 or foe.is_stunned() or foe.state == CreatureSim.State.GUARD
+	# Surges: an area one with the foe close and stuck, a line one with the foe in range.
+	var surge_range := float(ai.get("surge_range", 0))
+	if surge_range > 0.0 and me.can_use("surge") and dist < surge_range * (1.0 if busy else 0.65):
+		_press(SimDefs.IN_SURGE)
+		return true
+	var surge_line := float(ai.get("surge_line", 0))
+	if surge_line > 0.0 and me.can_use("surge") and dist < surge_line * 0.85 and (busy or dist < surge_line * 0.5):
+		_press(SimDefs.IN_SURGE)
+		return true
+	# A lob, charged to land where the foe will be.
+	var lob := String(ai.get("lob", ""))
+	var lr: Array = ai.get("lob_range", [0, 0])
+	if lob != "" and me.can_use(lob) and dist >= float(lr[0]) and dist <= float(lr[1]) and _roll(0.35):
+		var target := _aim_point(me, foe)
+		var lmv: Dictionary = me.moves().get(lob, {})
+		var lp: Dictionary = lmv.get("projectile", {})
+		_out |= SimDefs.aim_bits(target - me.pos)
+		_press(int(ACTION_BIT[lob]))
+		if lmv.has("charge_max") and lp.has("range_charged"):
+			var far := target.distance_to(me.pos) - float(lp.get("offset", 16))
+			var k := clampf((far - float(lp["range"])) / maxf(1.0, float(lp["range_charged"]) - float(lp["range"])), 0.0, 1.0)
+			_hold_heavy = int(round(k * float(lmv["charge_max"])))
+			_hold_bit = int(ACTION_BIT[lob])
+		return true
+	# A gaze, when the foe is looking this way.
+	var gaze := String(ai.get("gaze", ""))
+	var gzr: Array = ai.get("gaze_range", [0, 0])
+	if gaze != "" and me.can_use(gaze) and dist >= float(gzr[0]) and dist <= float(gzr[1]) \
+			and foe.facing.dot(-to_foe.normalized()) > 0.5 and _roll(0.5):
+		_press(int(ACTION_BIT[gaze]))
+		return true
+	# A puddle under a foe in close.
+	var zone := String(ai.get("zone", ""))
+	var zr: Array = ai.get("zone_range", [0, 0])
+	if zone != "" and me.can_use(zone) and dist >= float(zr[0]) and dist <= float(zr[1]) and _roll(0.6):
+		_press(int(ACTION_BIT[zone]))
+		return true
+	# A long poke (a thrown or dashing skill), not for a mage's plan or an assassin's
+	# opener, which choose their own moment.
+	if plan in ["press", "footsie", "skirmish"]:
+		var poke := String(ai.get("poke", ""))
+		var pr: Array = ai.get("poke_range", [0, 0])
+		if poke != "" and me.can_use(poke) and dist >= float(pr[0]) and dist <= float(pr[1]) \
+				and (busy or (plan != "press" and (foe.walk_vel.dot(-to_foe) > 0.5 or _roll(0.2)))):
+			_press(int(ACTION_BIT[poke]))
+			return true
+	return false
+
+
+func _is_ranged(o: CreatureSim) -> bool:
+	return o.moves().get("light_1", {}).has("projectile") or bool(o.def.get("ai", {}).get("kite", false))
+
+
+## Running down a kiter: head for where it's going (and a little toward the middle, so
+## it backs into a wall), weave so its shots miss, throw every gap closer as soon as it
+## reaches, and roll forward through the shots when there's stamina to spare.
+func _chase(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float, reach: float) -> void:
+	var ai := _ai(me)
+	for key in ["burrow", "stealth", "poke"]:
+		var mid := String(ai.get(key, ""))
+		var rg: Array = ai.get(key + "_range", [0, 0])
+		if mid != "" and me.can_use(mid) and dist >= float(rg[0]) * 0.7 and dist <= float(rg[1]) \
+				and not (key == "stealth" and me.stealth > 0):
+			_press(int(ACTION_BIT[mid]))
+			return
+	var dg: Dictionary = me.def["dodge"]
+	var roll := float(dg.get("speed", 0.0)) * float(dg.get("frames", 0))
+	if me.can_dodge() and me.stamina > me.max_stamina * 0.55 and roll > 20.0 \
+			and dist > reach + roll * 0.5 and dist < reach + roll * 1.6 and _roll(0.2):
+		_dodge_dir(me, to_foe)
+		return
+	var lead := foe.walk_vel * clampf(dist / maxf(me.walk_speed(), 0.5), 0.0, 40.0) * 0.6
+	var mid_floor := SimDefs.floor_rect().get_center()
+	var goal := foe.pos + lead + (mid_floor - foe.pos).normalized() * 16.0
+	var n := (goal - me.pos).normalized()
+	_dance_t -= 1
+	if _dance_t <= 0:
+		_dance_t = rng.randi_range(12, 22)
+		_orbit = -_orbit
+	_go(sim, me, n + Vector2(-n.y, n.x) * _orbit * 0.45)
+
+
+## Where a mage walks: out to the edge of its range when the foe closes in, round it at
+## that range, in when it's out of range; always toward open floor.
+func _kite_vector(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> Vector2:
+	var to_foe := foe.pos - me.pos
+	var dist := to_foe.length()
+	var max_r := me.move_range("light_1")
+	var hi := max_r * 0.8
+	var lo := clampf(_reach_of(foe, me) + 48.0, 56.0, hi - 20.0)
+	if dist < lo:
+		return _open_dir(sim, me, -to_foe) + _orbit_dir(sim, me, foe, hi) * 0.25
+	if dist > hi:
+		return to_foe.normalized() + _orbit_dir(sim, me, foe, hi) * 0.5
+	return _orbit_dir(sim, me, foe, (lo + hi) * 0.5)
+
+
+## Mage: keep the foe at the edge of its range, strafing (facing it) and throwing all
+## the while; a foe in its face gets flipped away (the grab) or left behind (a dodge).
+func _plan_kite(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float, danger: float) -> void:
+	var ai := _ai(me)
+	if dist < danger + 8.0:
+		var grab := String(ai.get("grab", ""))
+		if grab != "" and me.can_use(grab) and foe.state != CreatureSim.State.ATTACK \
+				and dist < float(ai.get("grab_range", 30)) + me.radius + foe.radius:
+			_press(int(ACTION_BIT[grab]))
+			return
+		if me.can_dodge() and _roll(0.5):
+			_dodge_dir(me, _open_dir(sim, me, -to_foe))
+			return
+	_strafe(sim, me, foe, _kite_vector(sim, me, foe))
+	var max_r := me.move_range("light_1")
+	if dist > max_r * 0.97:
+		return
+	var poke := String(ai.get("poke", ""))
+	var pr: Array = ai.get("poke_range", [0, 0])
+	if poke != "" and me.can_use(poke) and dist >= float(pr[0]) and dist <= float(pr[1]) and _roll(0.08):
+		_press(int(ACTION_BIT[poke]))
+		return
+	_press(SimDefs.IN_LIGHT)
+
+
+## Assassin: hover just out of reach, then burst in (a tunnel, going invisible, a dash
+## poke) for a full combo when the foe is weak, stuck or out of tools, and get out.
+func _plan_lurk(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float, reach: float, danger: float) -> void:
+	var ai := _ai(me)
+	if _engage_t > 0:
+		_engage_t -= 1
+	elif foe.hp / foe.max_hp < 0.35 or not foe.can_dodge() or me.energy >= CreatureSim.MAX_ENERGY \
+			or (foe.state == CreatureSim.State.MOVE and _roll(0.03)):
+		_engage_t = 80
+	if _engage_t <= 0:
+		_go(sim, me, _orbit_dir(sim, me, foe, danger + 22.0))
+		return
+	var burrow := String(ai.get("burrow", ""))
+	var br: Array = ai.get("burrow_range", [0, 0])
+	if burrow != "" and me.can_use(burrow) and dist >= float(br[0]) * 0.6 and dist <= float(br[1]):
+		_press(int(ACTION_BIT[burrow]))
+		return
+	var sneak := String(ai.get("stealth", ""))
+	var sr: Array = ai.get("stealth_range", [0, 0])
+	if sneak != "" and me.can_use(sneak) and me.stealth <= 0 and dist >= float(sr[0]) * 0.6 and dist <= float(sr[1]):
+		_press(int(ACTION_BIT[sneak]))
+		return
+	var poke := String(ai.get("poke", ""))
+	var pr: Array = ai.get("poke_range", [0, 0])
+	if poke != "" and me.can_use(poke) and dist >= float(pr[0]) and dist <= float(pr[1]):
+		_press(int(ACTION_BIT[poke]))
+		return
+	if _lands(sim, me, foe, dist, reach):
+		_hold(SimDefs.move_bits(to_foe))
+		_press(SimDefs.IN_LIGHT)
+		_engage_t = mini(_engage_t, 20)  # in and out: after this string, back to lurking
+		return
+	_go(sim, me, to_foe)
+
+
+## Tank and bruiser: walk the foe down, cutting off the way to open floor so it ends up
+## against a wall, and swing whenever it's in reach.
+func _plan_press(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float, reach: float) -> void:
+	var ai := _ai(me)
+	# Up close, an armored taunt (Bedrock) drags the foe in and soaks its answer.
+	var counter := String(ai.get("counter", ""))
+	if counter != "" and me.can_use(counter) and me.moves()[counter].has("armor") and dist < reach + 30.0 \
+			and _roll(0.08):
+		_press(int(ACTION_BIT[counter]))
+		return
+	if _lands(sim, me, foe, dist, reach):
+		_hold(SimDefs.move_bits(to_foe))
+		if me.can_use("heavy") and _roll(0.2):
+			_hold_heavy = rng.randi_range(4, 14)
+			_press(SimDefs.IN_HEAVY)
+		else:
+			_press(SimDefs.IN_LIGHT)
+		return
+	if dist <= reach:
+		_go(sim, me, to_foe)  # not yet sure to land: keep walking it down
+		return
+	# Aim a little between the foe and the middle of the floor: it gets pushed outward.
+	var mid := SimDefs.floor_rect().get_center()
+	var cut := foe.pos + (mid - foe.pos).normalized() * minf(24.0, dist * 0.3)
+	_go(sim, me, cut - me.pos)
+
+
+## Skirmisher: poke from range, dive in for a combo when the poke lands or the foe is
+## stuck, then run back out to poke range.
+func _plan_skirmish(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float, reach: float, danger: float) -> void:
+	var ai := _ai(me)
+	if _engage_t > 0:
+		_engage_t -= 1
+		if _lands(sim, me, foe, dist, reach):
+			_hold(SimDefs.move_bits(to_foe))
+			_press(SimDefs.IN_LIGHT)
+			_engage_t = mini(_engage_t, 15)
+		else:
+			_go(sim, me, to_foe)
+		return
+	if me.energy >= CreatureSim.MAX_ENERGY or foe.hp / foe.max_hp < 0.3 or not foe.can_dodge():
+		_engage_t = 60
+	var pr: Array = ai.get("poke_range", [danger + 30.0, danger + 80.0])
+	var keep := (float(pr[0]) + float(pr[1])) * 0.5
+	_go(sim, me, _orbit_dir(sim, me, foe, maxf(keep, danger + 24.0)))
+
+
+## Fighter: hover at the edge of the foe's reach, step in and out to bait a swing (and
+## punish it), and take the hit when its own reach is longer.
+func _plan_footsie(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float, reach: float, danger: float) -> void:
+	_dance_t -= 1
+	if _dance_t <= 0:
+		_dance_t = rng.randi_range(14, 30)
+	var edge := danger + 3.0
+	if _lands(sim, me, foe, dist, reach):
+		_hold(SimDefs.move_bits(to_foe))
+		_press(SimDefs.IN_LIGHT)
+		return
+	var inward := _dance_t > 18
+	var r := edge - 6.0 if inward else edge + 6.0
+	_go(sim, me, _orbit_dir(sim, me, foe, r))

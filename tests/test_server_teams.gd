@@ -159,6 +159,7 @@ func _fill_setup(sizes: Array, rooms: Array = [], lag := 0, jitter := 0, loss :=
 	var s := _setup(sizes, rooms, lag, jitter, loss)
 	(s[0] as RelayServer).cpu_fill_ms = 1  # fill straight away
 	(s[0] as RelayServer).room_fill_ms = 1
+	(s[0] as RelayServer).rng.seed = 4  # the same CPU fighters every run
 	return s
 
 
@@ -170,12 +171,18 @@ func test_a_lone_2v2_player_gets_cpu_teammates_and_foes() -> void:
 	var g: OnlineMatch = (nets[0] as Netplay).game
 	assert_eq(g.size, 2, "a 2v2:")
 	assert_eq(g.cpu_slots.size(), 3, "three CPUs:")
-	var cpu_slot: int = int(g.cpu_slots.keys()[0])
-	var start: Vector2 = g.team.sim.creatures[cpu_slot].pos
+	var starts: Array = []
+	for k in g.cpu_slots:
+		starts.append(g.team.sim.creatures[int(k)].pos)
 	_run(server, nets, 900, Callable(), 23)
 	assert_gt(float(g.session.frame), 700.0, "the game kept going (the CPUs' inputs arrive):")
 	assert_gt(float(g.session.confirmed_frame()), 600.0, "and get confirmed:")
-	assert_true(g.team.sim.creatures[cpu_slot].pos.distance_to(start) > 10.0, "the CPUs move")
+	var moved := 0.0
+	var k := 0
+	for slot in g.cpu_slots:
+		moved += g.team.sim.creatures[int(slot)].pos.distance_to(starts[k])
+		k += 1
+	assert_gt(moved, 30.0, "the CPUs move:")
 	assert_eq(g.desync_frame, -1, "no desync")
 	var ref: Referee = (server.games[0] as RelayServer.Game).referee
 	assert_eq(ref.desync, [-1, -1, -1, -1], "the referee agrees:")
