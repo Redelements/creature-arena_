@@ -10,7 +10,8 @@ README for controls, combat rules and frame data.
 
 - **`src/sim/` is deterministic, on every platform.** No randomness, no clock, no nodes,
   no screen, and no `sin`/`cos`/`atan2`/`pow`/`exp` (platforms round them differently).
-  It only takes input bitmasks and JSON data. Online play will be rollback netcode
+  It only takes input bitmasks and JSON data (buttons, an exact 64-step aim angle and a
+  strafe flag; `SimDefs.aim_from_bits` turns the angle into a direction via a fixed table). Online play will be rollback netcode
   (docs/NETCODE.md), which depends on this; CI compares a seeded match's exact
   fingerprint on Linux and Windows. Anything cosmetic goes in `src/view/`.
 - **Every piece of match state is saved by `snapshot()`.** New `CreatureSim` variables
@@ -56,7 +57,7 @@ xvfb-run -a ... $G --rendering-driver opengl3 --path . --write-movie /tmp/out.av
 ```
 
 Useful flags (after `--`): `--mode=0..8`, `--level=0..2`, `--seed=N`,
-`--showcase=cairn|culvert|craglash|barkley|gillbert|cerebro|hissy|digby|pete|sno|angles|counterplay`, `--autoplay`, `--hitboxes`, `--cpu-vs-cpu` (CPU
+`--showcase=cairn|culvert|craglash|barkley|gillbert|cerebro|hissy|digby|pete|sno|angles|twinstick|counterplay`, `--pad-layout=standard|twinstick`, `--autoplay`, `--hitboxes`, `--cpu-vs-cpu` (CPU
 plays every player side, for captures), `--pick` (show the team pick screen),
 `--teams=a,b,c:d,e,f`. Modes: 5 showcases, 6 Duel vs CPU, 7 Duel 2P, 8 Versus 2P,
 9 Combo Trials, 10/11 Reaction Drills, 12 Craglash vs CPU, 13 Craglash training,
@@ -154,6 +155,13 @@ tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gi
   azimuth/elevation) renders by splatting sampled 3D points (new generators import `tools/splat3d.py`, as
   `gen_digby.py` does, and hold only the rig and poses) into a depth buffer
   instead of drawing polygons in depth order, which suits a body of overlapping blobs.
+  **Aiming:** each hit of a light string turns to where you hold (`aim_frames`: how long a
+  move can be steered; lights default to their startup, raw windup moves stay committed).
+  Inputs carry an exact aim angle beside the 12 buttons (`IN_AIM` + a 64-step index into
+  `SimDefs.AIM_INT`, turned into a direction with no trig) and `IN_STRAFE` (twin-stick:
+  keep facing the aim while walking, at `STRAFE_SPEED`). Mouse and twin-stick aim exactly;
+  keyboard and the Standard pad aim 8 ways with aim assist in the input layer. Settings >
+  Controls > Controller picks Standard or Twin-stick (`PlayerInput.pad_layout`).
   **Every character needs three sheets with the same rows:** side, facing down (front)
   and facing up (back); `"views"` in the sprite JSON, chosen by facing in
   `CreatureView`. Forward reach becomes screen depth in the up/down art. All the generators

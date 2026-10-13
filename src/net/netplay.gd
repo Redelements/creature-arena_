@@ -21,7 +21,7 @@ extends RefCounted
 ## its "start" gives this player's `side` and the opponent's round trip to the server.
 ## A `room` in hello pairs players who typed the same one.
 
-const NET_VERSION := 2
+const NET_VERSION := 3  ## 3: aim angle + strafe in each input, light strings steer
 const DEFAULT_PORT := 7777
 const PINGS := 5
 ## Give up on a join that hasn't connected after this long.

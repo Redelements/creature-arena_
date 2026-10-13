@@ -153,8 +153,21 @@ while the match carries on (your fighter stands still meanwhile).
 
 Controllers rumble on hits, slams, Surges and knockouts (Settings > Game turns it off).
 Every key and button above can be remapped in Settings > Controls; the on-screen
-prompts and the controls strip follow your bindings. The game aims in 8 directions,
-so mouse and right-stick aiming snap to the nearest one.
+prompts and the controls strip follow your bindings.
+
+**Aiming is 360 degrees.** The mouse aims attacks exactly at the cursor. Controllers have
+two layouts (Settings > Controls > **Controller**):
+
+- **Standard:** the right stick aims attacks in 8 directions, like the keyboard.
+- **Twin-stick:** the right stick aims exactly where it points and, while held, keeps you
+  facing that way as the left stick walks you anywhere (strafing, at 85% speed). Back off
+  or circle an opponent without turning your back.
+
+Keyboard and Standard controller aim in 8 directions, with a small **aim assist**: an
+attack aimed within 25° of an opponent within reach goes straight at them. A chevron on
+the floor shows exactly where each fighter faces. The CPU aims exactly on Normal and
+Hard, and in 8 directions on Easy. `--showcase=twinstick` shows strafing and an
+off-angle Landslide Charge; `--pad-layout=twinstick` picks the layout from the command line.
 
 Tools: F1 hitbox overlay, F2 cycle the training dummy, F3 hide the controls strip,
 F4 reset training, F6 save a replay, M mute music.
@@ -182,6 +195,13 @@ where the fighter faces. Each fighter has side, front (facing down the screen) a
 (facing up) art, so a Lash aimed down the screen comes at the camera and one aimed up
 reaches away behind the body. A tall fighter standing in front of a shorter one turns
 see-through so the one behind stays readable. `--showcase=angles` shows it.
+
+**Steering:** attacks aim where you hold. Every hit of a light string turns to the
+direction held when it comes out, and a light can still be re-aimed until its strike
+comes out, so a string can start on one side and finish on someone behind or below you.
+A raw big move that winds up stays pointed where its tell showed (so rolling away from
+it still works); cancelled into from a hit, it goes where you hold. A move can be given
+its own steering window with `"aim_frames"` in its JSON.
 
 ### Duel: 3v3 tag
 

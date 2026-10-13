@@ -8,7 +8,10 @@ extends RefCounted
 ##
 ## Steps (one at a time, in order):
 ##   wait t               do nothing for t ticks
-##   press who bit move   mash `bit` until `who` starts `move` (aim: also hold toward the foe)
+##   press who bit move   mash `bit` until `who` starts `move` (aim: also hold toward the foe;
+##                        hold: also hold "up", "down", "left" or "right"; aim_at: aim
+##                        exactly at the other fighter, 360 degrees; strafe: and face it)
+##   walk who hold t      hold a direction for t ticks (aim_at / strafe as above)
 ##   together bits        press [left, right] on the same tick
 ##   dodge who dir        roll "away" from, or "through", the other fighter
 ##   guard who            hold guard until an attack is blocked
@@ -16,7 +19,9 @@ extends RefCounted
 ##   until cond           wait for "settled" (both free) or "move:<side>:<id>"
 ##   place                fade out, repair the floor, put both back at the start, fade in
 ##                        ("dir": "right" | "up" | "down" puts the right-hand fighter
-##                        beside, above or below the left one, facing each other)
+##                        beside, above or below the left one, facing each other;
+##                        "face" turns the left one some other way; "angle" puts the
+##                        right-hand fighter at that many degrees, 0 = right, 90 = below)
 ## "part" switches the caption line, "show" highlights an item on it.
 
 const L := SimDefs.IN_LIGHT
@@ -26,6 +31,8 @@ const S1 := SimDefs.IN_SKILL1
 const S2 := SimDefs.IN_SKILL2
 const SU := SimDefs.IN_SURGE
 const FADE := 14
+const HOLD_BITS := {"up": SimDefs.IN_UP, "down": SimDefs.IN_DOWN, "left": SimDefs.IN_LEFT,
+	"right": SimDefs.IN_RIGHT}
 const START_X := 210.0
 const START_Y := 160.0
 
@@ -362,10 +369,11 @@ const SCRIPTS := {
 		"left": "craglash", "right": "cairn", "energy": [100, 0], "gap": 4.0, "dir": "down",
 		"title": "ALL ANGLES  -  FIGHTING UP AND DOWN",
 		"captions": [
-			["Facing down: Rake", "Backhand", "Headbutt", "Rockslide Stomp", "Boulder Lash"],
-			["Facing up: Rake", "Backhand", "Headbutt", "Boulder Lash"],
+			["Facing down: Rake", "Backhand", "Headbutt", "Rockslide Stomp", "Landslide Charge"],
+			["Facing up: Rake", "Backhand", "Headbutt", "Landslide Charge"],
 			["Cairn from above: Jab", "Jab", "Cross", "Hook", "Haymaker"],
-			["Avalanche Coil, straight at the camera"],
+			["Mountain Maw, straight at the camera"],
+			["Strings steer: Rake to the right", "turn down: Backhand", "Headbutt"],
 		],
 		"steps": [
 			{"do": "wait", "t": 40, "part": 0},
@@ -397,7 +405,42 @@ const SCRIPTS := {
 			{"do": "wait", "t": 20},
 			{"do": "press", "who": 0, "bit": SU, "move": "surge", "show": 0},
 			{"do": "until", "cond": "settled"},
-			{"do": "wait", "t": 90},
+			{"do": "wait", "t": 60},
+			{"do": "place", "part": 4, "dir": "down", "face": "right"},
+			{"do": "wait", "t": 30},
+			{"do": "press", "who": 0, "bit": L, "move": "light_1", "hold": "right", "show": 0},
+			{"do": "press", "who": 0, "bit": L, "move": "light_2", "hold": "down", "show": 1},
+			{"do": "press", "who": 0, "bit": L, "move": "light_3", "hold": "down", "show": 2},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 70},
+		],
+	},
+	"twinstick": {
+		"left": "craglash", "right": "cairn", "energy": [0, 0], "gap": 30.0,
+		"title": "TWIN-STICK  -  360 AIM AND STRAFE",
+		"captions": [
+			["Strafe: back off while facing Cairn"],
+			["360 aim: Landslide Charge at an odd angle"],
+			["Circle and keep facing", "Rake", "Backhand", "Headbutt"],
+		],
+		"steps": [
+			{"do": "wait", "t": 30, "part": 0},
+			{"do": "walk", "who": 0, "hold": "left", "strafe": true, "t": 50, "show": 0},
+			{"do": "walk", "who": 0, "hold": "up", "strafe": true, "t": 30},
+			{"do": "wait", "t": 20},
+			{"do": "place", "part": 1, "angle": 22.0, "gap": 32.0},
+			{"do": "wait", "t": 20},
+			{"do": "press", "who": 0, "bit": S1, "move": "skill_1", "aim_at": true, "show": 0},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 40},
+			{"do": "place", "part": 2, "angle": -60.0, "gap": 4.0},
+			{"do": "wait", "t": 20},
+			{"do": "walk", "who": 0, "hold": "left", "strafe": true, "t": 12, "show": 0},
+			{"do": "press", "who": 0, "bit": L, "move": "light_1", "aim_at": true, "show": 1},
+			{"do": "press", "who": 0, "bit": L, "move": "light_2", "aim_at": true, "show": 2},
+			{"do": "press", "who": 0, "bit": L, "move": "light_3", "aim_at": true, "show": 3},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 60},
 		],
 	},
 	"counterplay": {
@@ -521,10 +564,17 @@ func inputs(sim: MatchSim) -> PackedInt32Array:
 				var bits := int(s["bit"]) if _t % 2 == 1 else 0
 				if bool(s.get("aim", false)):
 					bits |= _toward(sim, who)
+				if s.has("hold"):
+					bits |= HOLD_BITS[String(s["hold"])]
+				bits |= _aim_bits(sim, who, s)
 				out[who] = bits
 				if _t > 150:
 					_fail("never started %s (in %s, state %d)" % [s["move"], c.move_id, c.state])
 					done = true
+		"walk":
+			var who := int(s["who"])
+			out[who] = int(HOLD_BITS.get(String(s.get("hold", "")), 0)) | _aim_bits(sim, who, s)
+			done = _t >= int(s["t"])
 		"dodge":
 			var who := int(s["who"])
 			var c := sim.creatures[who]
@@ -565,7 +615,10 @@ func inputs(sim: MatchSim) -> PackedInt32Array:
 			if _t <= FADE:
 				fade = float(_t) / FADE
 			elif _t == FADE + 1:
-				_place(sim, float(s.get("gap", script_def.get("gap", 2.0))), String(s.get("dir", "right")))
+				_place(sim, float(s.get("gap", script_def.get("gap", 2.0))), String(s.get("dir", "right")),
+					float(s.get("angle", NAN)))
+				if s.has("face"):
+					sim.creatures[0].facing = SimDefs.dir_from_bits(HOLD_BITS[String(s["face"])])
 				# Repair the floor so leftover pits don't swallow anyone.
 				sim.terrain.cells.fill(0)
 				sim.terrain.timers.fill(0)
@@ -611,14 +664,26 @@ func _toward(sim: MatchSim, who: int) -> int:
 	return SimDefs.bits_from_dir(d.normalized())
 
 
-func _place(sim: MatchSim, gap: float, dir := "right") -> void:
+## The exact aim (and strafe) bits a step asks for: at the other fighter, 360 degrees.
+func _aim_bits(sim: MatchSim, who: int, s: Dictionary) -> int:
+	if not (bool(s.get("aim_at", false)) or bool(s.get("strafe", false))):
+		return 0
+	var b := SimDefs.aim_bits(sim.creatures[1 - who].pos - sim.creatures[who].pos)
+	if bool(s.get("strafe", false)):
+		b |= SimDefs.IN_STRAFE
+	return b
+
+
+func _place(sim: MatchSim, gap: float, dir := "right", angle := NAN) -> void:
 	var a := sim.creatures[0]
 	var b := sim.creatures[1]
 	var d := {"right": Vector2.RIGHT, "up": Vector2.UP, "down": Vector2.DOWN}.get(dir, Vector2.RIGHT) as Vector2
+	if not is_nan(angle):
+		d = Vector2.from_angle(deg_to_rad(angle))
 	a.pos = Vector2(START_X, START_Y if d.y >= 0.0 else START_Y + 30.0)
 	b.pos = a.pos + d * (a.radius + b.radius + gap)
-	a.facing = d
-	b.facing = -d
+	a.facing = SimDefs.aim_from_bits(SimDefs.aim_bits(d))  # one of the 64 aim directions
+	b.facing = SimDefs.aim_from_bits(SimDefs.aim_bits(-d))
 	for c in [a, b]:
 		c.knock_vel = Vector2.ZERO
 		c.walk_vel = Vector2.ZERO

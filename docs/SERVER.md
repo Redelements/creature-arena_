@@ -53,7 +53,7 @@ One line per event, to standard output (so `journalctl -u creature-arena -f` und
 systemd):
 
 ```
-[2026-10-11 13:21:08] Creature Arena server on UDP port 7777 (protocol 2, game data 67e12f686788fffb), up to 32 players
+[2026-10-11 13:21:08] Creature Arena server on UDP port 7777 (protocol 3, game data 67e12f686788fffb), up to 32 players
 [2026-10-11 13:21:08] players on this network join 192.168.0.103:7777
 [2026-10-11 13:21:08] games on this network find the server by itself (UDP port 7778; allow it in the firewall)
 [2026-10-11 13:21:08] player 1 connected from 203.0.113.9:53086

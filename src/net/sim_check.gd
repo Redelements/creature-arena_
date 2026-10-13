@@ -18,7 +18,7 @@ static func run(seed_: int, ticks := 6000) -> String:
 	for i in ticks:
 		for p in 2:
 			if left[p] <= 0:
-				hold[p] = rng.randi() & SimDefs.IN_ALL
+				hold[p] = rng.randi() & SimDefs.IN_EVERYTHING
 				left[p] = rng.randi_range(1, 20)
 			left[p] -= 1
 		sim.step(PackedInt32Array(hold))
@@ -41,7 +41,7 @@ static func _duel(seed_: int, ticks: int) -> String:
 	var hold := [0, 0]
 	for i in ticks:
 		if i % 9 == 0:
-			hold = [rng.randi() & SimDefs.IN_ALL, rng.randi() & SimDefs.IN_ALL]
+			hold = [rng.randi() & SimDefs.IN_EVERYTHING, rng.randi() & SimDefs.IN_EVERYTHING]
 		d.step(PackedInt32Array(hold))
 	return d.state_digest()
 

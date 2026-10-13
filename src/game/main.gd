@@ -18,8 +18,9 @@ extends Node2D
 ##   --shot-dir=PATH       where screenshots go (default user://shots)
 ##   --quit-after=N        exit after N frames
 ##   --layout=league|classic  keyboard layout (saved in the menu otherwise)
+##   --pad-layout=standard|twinstick  controller layout (saved in Settings otherwise)
 ##   --showcase=NAME       play one scripted demo on a loop: cairn, culvert, craglash, barkley, gillbert,
-##                         cerebro, hissy, digby, pete, sno or counterplay
+##                         cerebro, hissy, digby, pete, sno, angles, twinstick or counterplay
 ##   --teams=a,b,c:d,e,f   Duel / 2-player teams (default cerebro,gillbert,barkley:culvert,cerebro,craglash)
 ##   --pick                show the team pick screen even with --mode
 ##   --cpu-vs-cpu          every player side is played by the CPU (demos, captures)
@@ -376,7 +377,7 @@ func _open_settings() -> void:
 				"CPU level, controller rumble, screen shake, online server")
 		s.add_button("Video", func(): _open_settings_page("video"), "Fullscreen, wide screens, vsync, frame rate")
 		s.add_button("Audio", func(): _open_settings_page("audio"), "Volume for the music, effects and menus")
-		s.add_button("Controls", _open_controls, "Keyboard layout; remap keys and buttons")
+		s.add_button("Controls", _open_controls, "Keyboard and controller layouts; remap keys and buttons")
 		s.add_space(4)
 		s.add_button("Back", s.back)
 	ui.push(scr)
@@ -454,6 +455,7 @@ func _open_controls() -> void:
 	scr.hints = ["move", "change", "select", "back"]
 	scr.builder = func(s: UiScreen):
 		_add_setting_row(s, "layout")
+		_add_setting_row(s, "pad_layout")
 		s.add_button("Remap controller", func(): _open_remap("gamepad"), "Change which button does what")
 		s.add_button("Remap Classic keyboard", func(): _open_remap("classic"), "WASD + J K U I O, or your own keys")
 		s.add_button("Remap League-style keyboard", func(): _open_remap("league"),
@@ -1218,6 +1220,13 @@ func _setting(key: String) -> Dictionary:
 				names.append(PlayerInput.LAYOUT_NAMES[l])
 			return {"label": "Keyboard", "values": names, "index": PlayerInput.LAYOUTS.find(player_input.layout),
 				"desc": "League-style: mouse to move, QWER.  Classic: WASD and J K U I O"}
+		"pad_layout":
+			var pads: Array = []
+			for l in PlayerInput.PAD_LAYOUTS:
+				pads.append(PlayerInput.PAD_LAYOUT_NAMES[l])
+			return {"label": "Controller", "values": pads,
+				"index": maxi(0, PlayerInput.PAD_LAYOUTS.find(player_input.pad_layout)),
+				"desc": "Twin-stick: the right stick aims 360 degrees and holds your facing while you walk"}
 		"fullscreen":
 			return {"label": "Fullscreen", "values": ["Off", "On"], "index": 1 if fullscreen else 0,
 				"desc": "Fill the screen"}
@@ -1266,6 +1275,9 @@ func _set_setting(key: String, i: int) -> void:
 				level = clampi(i, 0, LEVEL_NAMES.size() - 1)
 			"layout":
 				player_input.layout = PlayerInput.LAYOUTS[clampi(i, 0, PlayerInput.LAYOUTS.size() - 1)]
+				_apply_device()
+			"pad_layout":
+				_set_pad_layout(PlayerInput.PAD_LAYOUTS[clampi(i, 0, PlayerInput.PAD_LAYOUTS.size() - 1)])
 				_apply_device()
 			"fullscreen":
 				fullscreen = i == 1
@@ -1328,6 +1340,12 @@ func _apply_fullscreen() -> void:
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if fullscreen else DisplayServer.WINDOW_MODE_WINDOWED)
 
 
+## Both players' controllers use the same layout.
+func _set_pad_layout(lay: String) -> void:
+	player_input.pad_layout = lay
+	player2_input.pad_layout = lay
+
+
 ## Updates prompts, help text and the mouse cursor for the current device and layout.
 func _apply_device() -> void:
 	for i in 2:
@@ -1384,6 +1402,9 @@ func _load_settings() -> void:
 		var lay := String(cfg.get_value("input", "layout", "league"))
 		if lay in PlayerInput.LAYOUTS:
 			player_input.layout = lay
+		var pad := String(cfg.get_value("input", "pad_layout", "standard"))
+		if pad in PlayerInput.PAD_LAYOUTS:
+			_set_pad_layout(pad)
 		level = clampi(int(cfg.get_value("game", "level", level)), 0, LEVEL_NAMES.size() - 1)
 		audio.set_music_muted(bool(cfg.get_value("audio", "music_muted", false)))
 		_online_fighter = String(cfg.get_value("online", "fighter", _online_fighter))
@@ -1412,6 +1433,7 @@ func _load_settings() -> void:
 func _save_settings() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("input", "layout", player_input.layout)
+	cfg.set_value("input", "pad_layout", player_input.pad_layout)
 	cfg.set_value("game", "level", level)
 	cfg.set_value("audio", "music_muted", audio.music_muted)
 	cfg.set_value("online", "fighter", _online_fighter)
@@ -1532,6 +1554,10 @@ func _parse_args() -> int:
 			var lay := a.get_slice("=", 1)
 			if lay in PlayerInput.LAYOUTS:
 				player_input.layout = lay
+		elif a.begins_with("--pad-layout="):
+			var pl := a.get_slice("=", 1)
+			if pl in PlayerInput.PAD_LAYOUTS:
+				_set_pad_layout(pl)
 	if pick:
 		_skip_select = false
 	return start

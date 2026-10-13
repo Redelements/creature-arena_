@@ -12,8 +12,9 @@ extends RefCounted
 ##   F (hold)              guard;  D + F while stunned = breakaway
 ##   S                     stop
 ##
-## The simulation only understands 8 directions, so aiming snaps to the nearest of 8.
-## This class is pure logic (no Input calls), so tests can drive it directly.
+## Walking snaps to 8 directions; attacks aim exactly at the cursor (360 degrees, sent as
+## the input's aim angle). This class is pure logic (no Input calls), so tests can drive
+## it directly.
 
 const ARRIVE := 2.5  ## close enough to a move destination to stop
 const AIM_HOLD := 10  ## ticks to keep aiming at the cursor after a press (matches the input buffer)
@@ -93,7 +94,7 @@ func bits(me: CreatureSim, foe: CreatureSim, cursor: Vector2, held: Dictionary, 
 	# --- direction: aim, chase, or walk to the destination
 	var aiming: bool = aim_t > 0 or (held.get("heavy", false) and me.charging)
 	if aiming:
-		out |= _dir_bits(cursor - me.pos, 0.0)
+		out |= _dir_bits(cursor - me.pos, 0.0) | SimDefs.aim_bits(cursor - me.pos)
 	elif chase:
 		out |= _chase(me, foe)
 	elif dest != Vector2.INF and not held.get("guard", false):
@@ -135,7 +136,7 @@ func _chase(me: CreatureSim, foe: CreatureSim) -> int:
 	if not foe.can_be_hit():
 		return 0  # wait for it to get up
 	# In range: keep jabbing, facing the target. A fresh press needs a released tick before it.
-	var out := _dir_bits(v, 0.0)
+	var out := _dir_bits(v, 0.0) | SimDefs.aim_bits(v)
 	if not (_prev & SimDefs.IN_LIGHT):
 		out |= SimDefs.IN_LIGHT
 	return out

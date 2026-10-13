@@ -39,6 +39,8 @@ const TAN_22_5 := 0.41421356237309503
 const TAUNT_SPEED := 0.6
 ## A taunted fighter is dragged this many pixels a tick toward its taunter (Bedrock).
 const TAUNT_PULL := 0.6
+## Walking speed while strafing (facing the aim instead of the way you walk).
+const STRAFE_SPEED := 0.85
 
 ## Everything that changes during a match, in a fixed order. snapshot()/restore() copy
 ## exactly these, which is what rollback netcode saves every frame. A test checks that
@@ -527,16 +529,17 @@ func step(buttons: int, sim: MatchSim) -> void:
 	if is_stunned() and _wants_breakaway(buttons, pressed):
 		sim.breakaway(self)
 	else:
-		var dir := SimDefs.dir_from_bits(buttons)
+		var dir := SimDefs.dir_from_bits(buttons)  # walking: 8 directions
+		var aim := SimDefs.aim_from_bits(buttons)  # attacks: the exact aim when one is sent
 		match state:
 			State.IDLE, State.MOVE:
-				_update_free(buttons, pressed, dir, sim)
+				_update_free(buttons, pressed, dir, aim, sim)
 			State.ATTACK:
-				_update_attack(buttons, dir, sim)
+				_update_attack(buttons, aim, sim)
 			State.DODGE:
 				_update_dodge(sim)
 			State.GUARD:
-				_update_guard(buttons, pressed, dir, sim)
+				_update_guard(buttons, pressed, dir, aim, sim)
 			State.HITSTUN, State.CRUMPLE:
 				stun -= 1
 				if stun <= 0:
@@ -635,21 +638,27 @@ func _wants_breakaway(buttons: int, pressed: int) -> bool:
 		and combo_hits >= BREAKAWAY_MIN_HITS and energy >= BREAKAWAY_COST
 
 
-func _update_free(buttons: int, pressed: int, dir: Vector2, sim: MatchSim) -> void:
+func _update_free(buttons: int, pressed: int, dir: Vector2, aim: Vector2, sim: MatchSim) -> void:
 	var dg: Dictionary = def["dodge"]
 	if ((pressed & SimDefs.IN_DODGE) or dodge_buffer > 0) and stamina >= float(dg["cost"]) and root <= 0:
 		_start_dodge(dir, sim)
 		return
-	if _try_start_buffered(dir, sim):
+	if _try_start_buffered(aim, sim):
 		return
 	if buttons & SimDefs.IN_GUARD:
 		walk_vel = Vector2.ZERO
 		_set_state(State.GUARD)
 		return
 
-	walk_vel = walk_vel.move_toward(dir * walk_speed(), float(def["accel"]))
+	# Strafing (twin-stick right stick held): face the aim and walk any way, a bit slower.
+	var strafing := (buttons & SimDefs.IN_STRAFE) != 0 and (buttons & SimDefs.IN_AIM) != 0
+	var speed := walk_speed() * (STRAFE_SPEED if strafing else 1.0)
+	walk_vel = walk_vel.move_toward(dir * speed, float(def["accel"]))
+	if strafing:
+		facing = aim
 	if dir != Vector2.ZERO:
-		facing = dir
+		if not strafing:
+			facing = dir
 		if state != State.MOVE:
 			_set_state(State.MOVE)
 	elif walk_vel.length() < 0.05 and state != State.IDLE:
@@ -679,12 +688,17 @@ func _try_start_buffered(dir: Vector2, sim: MatchSim) -> bool:
 		return false
 	if dir != Vector2.ZERO:
 		facing = dir
-	# A taunted creature swings at its taunter, whichever way it was aiming.
-	var t := taunter(sim)
-	if t != null and t.pos.distance_squared_to(pos) > 0.0001:
-		facing = _snap8(t.pos - pos)
+	facing = _taunt_aim(facing, sim)
 	_start_attack(mid, sim, true)
 	return true
+
+
+## Where an attack aimed `dir` actually goes: a taunted creature swings at its taunter.
+func _taunt_aim(dir: Vector2, sim: MatchSim) -> Vector2:
+	var t := taunter(sim)
+	if t != null and t.pos.distance_squared_to(pos) > 0.0001:
+		return _snap8(t.pos - pos)
+	return dir
 
 
 func _start_attack(mid: String, sim: MatchSim, raw := false) -> void:
@@ -759,6 +773,13 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 
 	var t := state_t
 	var su := int(mv.get("startup", 0))
+
+	# Steering: until the strike comes out, the held direction re-aims the move (8-way,
+	# like walking). Lights steer through their whole startup by default; other moves only
+	# with "aim_frames", so a raw big move stays committed to the way its tell pointed.
+	var aim_until := int(mv.get("aim_frames", su if String(mv["type"]) == "light" else 0))
+	if t <= aim_until and dir != Vector2.ZERO and not connected:
+		facing = _taunt_aim(dir, sim)
 
 	# Movement during the move: a short lunge before it hits, or a dash.
 	var lunge := float(mv.get("lunge", 0.0))
@@ -841,6 +862,8 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 		if want == "light" and String(mv["type"]) == "light":
 			var nxt := String(mv.get("next", ""))
 			if nxt != "" and t >= int(mv.get("cancel_from", 9999)):
+				if dir != Vector2.ZERO:
+					facing = _taunt_aim(dir, sim)  # each hit of a string can turn to a new direction
 				_start_attack(nxt, sim)
 				return
 		else:
@@ -988,7 +1011,7 @@ func _update_dodge(sim: MatchSim) -> void:
 		_set_state(State.IDLE)
 
 
-func _update_guard(buttons: int, pressed: int, dir: Vector2, sim: MatchSim) -> void:
+func _update_guard(buttons: int, pressed: int, dir: Vector2, aim: Vector2, sim: MatchSim) -> void:
 	var foe := sim.nearest_opponent(self)
 	if foe != null and foe.pos.distance_squared_to(pos) > 0.0001:
 		facing = _snap8(foe.pos - pos)
@@ -999,7 +1022,8 @@ func _update_guard(buttons: int, pressed: int, dir: Vector2, sim: MatchSim) -> v
 	if ((pressed & SimDefs.IN_DODGE) or dodge_buffer > 0) and stamina >= float(dg["cost"]) and root <= 0:
 		_start_dodge(dir, sim)
 		return
-	if _try_start_buffered(Vector2.ZERO, sim):
+	# Out of guard an attack goes at the opponent, unless an exact aim says otherwise.
+	if _try_start_buffered(aim if buttons & SimDefs.IN_AIM else Vector2.ZERO, sim):
 		return
 	if not (buttons & SimDefs.IN_GUARD):
 		_set_state(State.IDLE)

@@ -120,14 +120,26 @@ func test_hissy_showcase_plays_through_to_a_knockout() -> void:
 
 func test_angles_showcase_lands_up_and_down() -> void:
 	var r := _play("angles")
-	var hits := [0, 0, 0, 0]
+	var hits := [0, 0, 0, 0, 0]
 	for ev in r["parts"]:
 		if String(ev[1]) == "hit":
 			hits[int(ev[0])] += 1
 	assert_gt(float(hits[0]), 4.0, "Craglash's combo facing down should land")
 	assert_gt(float(hits[1]), 3.0, "Craglash's combo facing up should land")
 	assert_gt(float(hits[2]), 4.0, "Cairn's combo from above should land")
-	assert_gt(float(hits[3]), 0.0, "Avalanche Coil straight down should land")
+	assert_gt(float(hits[3]), 0.0, "Mountain Maw straight down should land")
+	assert_gt(float(hits[4]), 1.0, "a string that turns down mid-way should land")
+
+
+func test_twinstick_showcase_strafes_and_lands_off_angle() -> void:
+	var r := _play("twinstick")
+	var hits := [0, 0, 0]
+	for ev in r["parts"]:
+		if String(ev[1]) == "hit" and int(ev[2]) == 1:
+			hits[int(ev[0])] += 1
+	assert_eq(hits[0], 0, "strafing doesn't attack")
+	assert_gt(float(hits[1]), 0.0, "the off-angle Landslide Charge should land")
+	assert_gt(float(hits[2]), 1.0, "the string after circling should land")
 
 
 func test_digby_showcase_plays_through_to_a_knockout() -> void:
