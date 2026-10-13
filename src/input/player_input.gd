@@ -37,6 +37,7 @@ const ASSIST_DEG := 25.0
 const ASSIST_DEG_STICK := 12.0
 const ASSIST_RANGE := 90.0
 const PAD_T_SHIFT := 27  ## combine_pad packs its aim timer above the input bits
+const AUTO_QUIET := 12  ## twin-stick auto-fire holds off this long after another button
 
 const LABELS := {
 	"league": {"light": "A", "heavy": "E", "skill_1": "Q", "skill_2": "W", "surge": "R", "dodge": "D", "guard": "F", "tag": "T"},
@@ -50,7 +51,7 @@ const HELP := {
 	"league": "Right-click move / attack   {light} or Left-click light   {heavy} heavy (hold)   {skill_1} skill 1   {skill_2} skill 2   {surge} surge   {dodge} dodge   {guard} guard   {dodge}+{guard} breakaway   {tag} tag   {stop} stop   Esc pause",
 	"classic": "{up}{left}{down}{right} move  {light} light  {heavy} heavy  {skill_1} skill 1  {skill_2} skill 2  {surge} surge  {dodge} dodge  {guard} guard  {guard}+{dodge} breakaway  {tag} tag  F1 hitboxes  Esc pause",
 	"gamepad": "L-stick move   R-stick aim   {light} light   {heavy} heavy (hold)   {skill_1} skill 1   {skill_2} skill 2   {surge} surge   {dodge} dodge   {guard} guard   {guard}+{dodge} breakaway   {tag} tag   Start pause",
-	"twinstick": "L-stick move   R-stick aim 360 + face (strafe)   {light} light   {heavy} heavy   {skill_1} skill 1   {skill_2} skill 2   {surge} surge   {dodge} dodge   {guard} guard   {tag} tag   Start pause",
+	"twinstick": "L-stick move   R-stick aim 360 + face (strafe; Chef Cerebro throws)   {light} light   {heavy} heavy   {skill_1} skill 1   {skill_2} skill 2   {surge} surge   {dodge} dodge   {guard} guard   {tag} tag   Start pause",
 }
 ## Which action each label set's buttons are bound to (light = the attack action).
 const PREFIX := {"league": "lol_", "classic": "kb_", "gamepad": "pad_"}
@@ -66,6 +67,9 @@ var pad_device := ANY_PAD
 ## Keyboard and mouse on? Off for player 2.
 var keyboard := true
 var _pad_prev := {}
+## Twin-stick auto-fire (fighters with "twinstick": {"autofire": "light"}, Chef Cerebro):
+## its tick counter and how long it stays quiet after another button.
+var _auto := {"t": 0, "quiet": 0}
 
 
 func label_set() -> String:
@@ -119,6 +123,7 @@ func note_event(event: InputEvent) -> void:
 func reset() -> void:
 	orders.clear()
 	_pad_aim_t = 0
+	_auto = {"t": 0, "quiet": 0}
 
 
 ## The bitmask for this tick. `cursor` is the mouse position in arena coordinates.
@@ -197,6 +202,8 @@ func _gamepad_bits(me: CreatureSim) -> int:
 		pad_layout == "twinstick")
 	_pad_aim_t = out >> PAD_T_SHIFT
 	out &= (1 << PAD_T_SHIFT) - 1
+	if pad_layout == "twinstick":
+		out = autofire(out, me, _auto)
 	if Input.is_action_pressed("pad_tag"):
 		out |= SimDefs.IN_TAG
 	return out
@@ -229,9 +236,34 @@ func _device_pad_bits(me: CreatureSim, dev: int) -> int:
 		pad_layout == "twinstick")
 	_pad_aim_t = out >> PAD_T_SHIFT
 	out &= (1 << PAD_T_SHIFT) - 1
+	if pad_layout == "twinstick":
+		out = autofire(out, me, _auto)
 	if tag:
 		out |= SimDefs.IN_TAG
 	return out
+
+
+## Twin-stick auto-fire, for fighters whose data says "twinstick": {"autofire": "light"}
+## (Chef Cerebro): while the right stick aims (twin-stick sends IN_STRAFE then), Light is
+## pressed every other tick, so the light string comes out at once and keeps coming, aimed
+## where the stick points. Any other attack, a dodge or guard pauses it for AUTO_QUIET
+## ticks so it can't overwrite that button in the input buffer. `st` keeps the counters.
+static func autofire(bits: int, me: CreatureSim, st: Dictionary) -> int:
+	if me == null or String(me.def.get("twinstick", {}).get("autofire", "")) != "light":
+		return bits
+	if not (bits & SimDefs.IN_STRAFE):
+		st["t"] = 0
+		return bits
+	var other := SimDefs.IN_HEAVY | SimDefs.IN_SKILL1 | SimDefs.IN_SKILL2 | SimDefs.IN_SURGE \
+		| SimDefs.IN_DODGE | SimDefs.IN_GUARD
+	if bits & other:
+		st["quiet"] = AUTO_QUIET
+		return bits
+	if int(st["quiet"]) > 0:
+		st["quiet"] = int(st["quiet"]) - 1
+		return bits
+	st["t"] = int(st["t"]) + 1
+	return bits | (SimDefs.IN_LIGHT if int(st["t"]) % 2 == 1 else 0)
 
 
 ## Pure gamepad logic, for tests. The left stick walks 360 degrees. Standard: attacks go

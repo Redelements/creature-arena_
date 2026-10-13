@@ -135,3 +135,50 @@ func _cpu_aims(level: int) -> bool:
 func test_cpu_aims_exactly_except_on_easy() -> void:
 	assert_false(_cpu_aims(0), "Easy keeps to 8 directions")
 	assert_true(_cpu_aims(2), "Hard aims exactly")
+
+
+func test_chef_cerebro_auto_throws_while_the_right_stick_aims() -> void:
+	var sim := MatchFactory.versus("cerebro", "cairn")
+	var chef := sim.creatures[0]
+	var st := {"t": 0, "quiet": 0}
+	var aim := PlayerInput.combine_pad(Vector2.ZERO, Vector2(0.2, 1.0), {}, {}, false, 0, true)
+	aim &= (1 << PlayerInput.PAD_T_SHIFT) - 1
+	var presses := 0
+	for i in 6:
+		if PlayerInput.autofire(aim, chef, st) & SimDefs.IN_LIGHT:
+			presses += 1
+	assert_eq(presses, 3, "Light pressed every other tick while the stick aims:")
+	assert_true(PlayerInput.autofire(aim, chef, {"t": 0, "quiet": 0}) & SimDefs.IN_LIGHT, "from the very first tick")
+	# Released: nothing.
+	var idle := PlayerInput.combine_pad(Vector2.ZERO, Vector2.ZERO, {}, {}, false, 0, true)
+	assert_false(PlayerInput.autofire(idle, chef, st) & SimDefs.IN_LIGHT, "stick released: no throws")
+	# Another button pauses it, so that button isn't overwritten in the buffer.
+	st = {"t": 0, "quiet": 0}
+	PlayerInput.autofire(aim | SimDefs.IN_SKILL1, chef, st)
+	for i in PlayerInput.AUTO_QUIET:
+		assert_false(PlayerInput.autofire(aim, chef, st) & SimDefs.IN_LIGHT, "quiet after Skill 1 (tick %d)" % i)
+	assert_true(PlayerInput.autofire(aim, chef, st) & SimDefs.IN_LIGHT, "then it picks up again")
+	# Only for fighters whose data asks for it.
+	var cairn := sim.creatures[1]
+	assert_eq(PlayerInput.autofire(aim, cairn, {"t": 0, "quiet": 0}), aim, "Cairn doesn't auto-fire")
+
+
+func test_chef_cerebro_glides_while_he_throws() -> void:
+	var sim := MatchFactory.versus("cerebro", "cairn")
+	var chef := sim.creatures[0]
+	sim.creatures[1].pos = chef.pos + Vector2(140, 0)
+	var start := chef.pos
+	var st := {"t": 0, "quiet": 0}
+	var throws := 0
+	for i in 90:
+		# Left stick up, right stick at Cairn: walk one way, throw the other.
+		var b := PlayerInput.combine_pad(Vector2.UP, Vector2.RIGHT, {}, {}, chef.state == CreatureSim.State.ATTACK, 0, true)
+		b &= (1 << PlayerInput.PAD_T_SHIFT) - 1
+		b = PlayerInput.autofire(b, chef, st)
+		sim.step(PackedInt32Array([b, 0]))
+		for e in sim.events:
+			if String(e["type"]) == "projectile" and int(e["who"]) == 0:
+				throws += 1
+	assert_gt(float(throws), 3.0, "a stream of throws:")
+	assert_lt(chef.pos.y, start.y - 40.0, "while gliding up the screen the whole time:")
+	assert_gt(chef.facing.x, 0.9, "still facing the right stick's aim:")

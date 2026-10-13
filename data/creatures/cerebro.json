@@ -18,6 +18,7 @@
   "fx_top": 42,
   "fx_color": "#d58cff",
   "cut_in_frame": [8, 2],
+  "twinstick": { "autofire": "light" },
   "ko_fx": { "style": "deflate" },
   "sprite": {
     "path": "res://assets/sprites/cerebro.png",
@@ -77,7 +78,7 @@
       "fx": { "impact": "tenderize" }
     },
     "light_1": {
-      "name": "Knife Flick", "anim": "flick",
+      "name": "Knife Flick", "anim": "flick", "mobile": 0.6,
       "startup": 6, "active": 0, "recovery": 16, "cancel_from": 10,
       "damage": 3, "knockback": 0.5, "hitstun": 30, "hitstop": 1, "no_flinch": true, "juggle": true,
       "next": "light_2",
@@ -87,7 +88,7 @@
       "fx": { "projectile": "knife" }
     },
     "light_2": {
-      "name": "Backhand Flick", "anim": "flick2",
+      "name": "Backhand Flick", "anim": "flick2", "mobile": 0.6,
       "startup": 6, "active": 0, "recovery": 16, "cancel_from": 10,
       "damage": 3, "knockback": 0.5, "hitstun": 30, "hitstop": 1, "no_flinch": true, "juggle": true,
       "next": "light_3",
@@ -97,7 +98,7 @@
       "fx": { "projectile": "knife" }
     },
     "light_3": {
-      "name": "Mallet Toss", "anim": "toss",
+      "name": "Mallet Toss", "anim": "toss", "mobile": 0.6,
       "startup": 9, "active": 0, "recovery": 20,
       "damage": 5, "knockback": 0.8, "hitstun": 34, "hitstop": 6, "juggle": true,
       "next": "",

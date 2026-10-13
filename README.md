@@ -164,7 +164,11 @@ the spot. The mouse aims attacks exactly at the cursor. Controllers have two lay
 - **Standard:** the right stick aims an attack exactly where it points as you throw it.
 - **Twin-stick:** the right stick aims exactly where it points and, while held, keeps you
   facing that way as the left stick walks you anywhere (strafing, at 85% speed). Back off
-  or circle an opponent without turning your back.
+  or circle an opponent without turning your back. **Chef Cerebro** plays it like a
+  twin-stick shooter: pushing the right stick on its own **throws his light string that
+  way, over and over**, while the left stick glides him around (his lights don't stop him
+  walking). Any other attack, dodge or guard pauses the auto-throw for a moment so that
+  button always comes out.
 
 WASD still gives 8 directions, so the keyboard gets a small **aim assist**: an attack
 aimed within 25° of an opponent within reach goes straight at them (12° from the left
@@ -352,7 +356,7 @@ range; up close he softens them up or flips them away. Voice line: "CHOP CHOP!"
 
 | Button | Move | What it does |
 | --- | --- | --- |
-| Light | Knife Flick, Backhand Flick, Mallet Toss | Two small knives and then the meat mallet, all **thrown** about 170 px. The knives only chip: they **don't stagger**. The Mallet Toss at the end of the string is the hit that staggers, so Flick, Flick, Mallet → Cleaver Toss → Knife Flurry works from across the floor (within the Cleaver's 120 px) |
+| Light | Knife Flick, Backhand Flick, Mallet Toss | Two small knives and then the meat mallet, all **thrown** about 170 px, and he **keeps gliding** while he throws them (at 60% speed, any direction). On the Twin-stick layout the right stick throws them on its own. The knives only chip: they **don't stagger**. The Mallet Toss at the end of the string is the hit that staggers, so Flick, Flick, Mallet → Cleaver Toss → Knife Flurry works from across the floor (within the Cleaver's 120 px) |
 | Heavy | Tenderize | Pounds the floor with the mallet: hits everyone close, all around him, pops them up and **tenderizes** them (they take 20% more damage for 4 s; a pink arrow shows it). Hold to charge (bigger and harder) |
 | Skill 1 | Cleaver Toss | Flings the big knife in a straight line, about 120 px; it hits the **first** foe in its path. Keeps a juggle going |
 | Skill 2 | Flip Out | Scoops a close foe with the spatula and **flips them over his head**, to land behind him; he turns to follow. A grab: it beats guard (red tell) |

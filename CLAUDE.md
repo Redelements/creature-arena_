@@ -120,7 +120,10 @@ tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gi
   `vuln_ticks`/`vuln_mult` (the target takes extra damage for a while), `flip` on a grab
   (the target is carried over the attacker's head to land behind it), and projectile
   `volley` (several in a row, with `last` overrides for the final one) and `pierce` (flies
-  through every body once)); Hissy Fitz added `poison_ticks`/`poison_damage`/`poison_every`
+  through every body once), later `mobile` on a move (keeps walking at that share of his
+  speed while it plays out), a dodge `blink` (`at`, `distance`: a teleport) and dodge
+  `cooldown`, and `"twinstick": {"autofire": "light"}` (input layer: on the Twin-stick
+  pad layout the right stick alone throws his light string)); Hissy Fitz added `poison_ticks`/`poison_damage`/`poison_every`
   (damage over time, outside any combo), `gaze` (a held stare that slows foes in front of
   her who face her, more each pulse; looking away is the counterplay) and `petrify` (the
   target becomes a statue, `stone` ticks, and the next clean hit shatters it for

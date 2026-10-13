@@ -734,8 +734,9 @@ func _start_attack(mid: String, sim: MatchSim, raw := false) -> void:
 	charge_ratio = 0.0
 	buffered = ""
 	buffer_t = 0
-	walk_vel = Vector2.ZERO
 	var mv := move_def()
+	if float(mv.get("mobile", 0.0)) <= 0.0:
+		walk_vel = Vector2.ZERO  # a "mobile" move keeps its glide going
 	charging = mv.has("charge_max")
 	if mv.has("aim"):
 		_aim(float(mv["aim"]), sim)
@@ -803,6 +804,13 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 	var lunge := float(mv.get("lunge", 0.0))
 	if t <= su and lunge > 0.0:
 		_move(facing * lunge, sim, true)
+	# "mobile": he keeps walking (at this share of his speed) while the move plays out,
+	# whichever way it's thrown: Chef Cerebro's telekinetic throws, run-and-gun.
+	var mob := float(mv.get("mobile", 0.0))
+	if mob > 0.0:
+		var walk := SimDefs.move_from_bits(buttons)
+		walk_vel = walk_vel.move_toward(walk * walk_speed() * mob, float(def["accel"]))
+		_move(walk_vel, sim, true)
 	var dash: Dictionary = mv.get("dash", {})
 	if not dash.is_empty() and t >= int(dash["from"]) and t <= int(dash["to"]) and dash.has("home"):
 		_home(dash, t, sim)
