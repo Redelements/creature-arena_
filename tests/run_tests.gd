@@ -3,7 +3,8 @@ extends SceneTree
 ##   godot --headless --path . --import
 ##   godot --headless --path . --script res://tests/run_tests.gd
 ## Exits with code 1 when any test fails, so CI can gate on it. A script error inside a
-## test (a crash, a bad call) also counts as a failure.
+## test (a crash, a bad call) also counts as a failure. TEST_ONLY=digby,combos (an
+## environment variable) runs only the files whose names contain one of those words.
 
 const TEST_DIR := "res://tests/"
 
@@ -22,7 +23,19 @@ class ErrorCatcher extends Logger:
 		pass
 
 
-func _initialize() -> void:
+var _ran := false
+
+
+## Runs on the first frame rather than in _initialize(), so the scene tree is live and
+## tests can add nodes (menus, the main scene) and send them input.
+func _process(_delta: float) -> bool:
+	if not _ran:
+		_ran = true
+		_run_all()
+	return false
+
+
+func _run_all() -> void:
 	var catcher := ErrorCatcher.new()
 	OS.add_logger(catcher)
 	var files: Array[String] = []
@@ -30,6 +43,15 @@ func _initialize() -> void:
 		if f.begins_with("test_") and f.ends_with(".gd") and f != "test_case.gd":
 			files.append(f)
 	files.sort()
+	var only := OS.get_environment("TEST_ONLY")
+	if only != "":
+		var keep: Array[String] = []
+		for f in files:
+			for w in only.split(","):
+				if w != "" and f.contains(w):
+					keep.append(f)
+					break
+		files = keep
 
 	var passed := 0
 	var failed := 0

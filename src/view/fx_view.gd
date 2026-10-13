@@ -26,12 +26,60 @@ extends Node2D
 ##   telegraph    true         marks where a leaping move will land
 ##   projectile   "wave"       draws the move's projectile as water
 ##   impact       also "lash" (stone chips), "quake" (a stomp's shockwave),
-##                "avalanche" (boulders raining onto the strike)
+##                "avalanche" (boulders raining onto the strike), "leaves" (a burst of
+##                leaves), "twister" (a gust of leaves on a spin's last hit), "roots"
+##                (roots shooting up out of the floor in a ring on every hit)
+##   charge       also "leaves": leaves gather and circle while the heavy is held
+##   spin         true         leaves and wind arcs whirl around a spinning move
+##   projectile   also "pinecone": a lobbed pinecone with a shadow and a landing mark
+##   impact       also "splash" (a ring of water and drops), "droplets" (a small spray),
+##                "bellyflop" (a huge splash where a leap comes down)
+##   trail        also "splash": drops kicked up behind a dash
+##   cast         true         a fishing line out to the thrown rod, then taut to whoever it
+##                             hooked while it reels the attacker in to them
+##   projectile   also "rod": a thrown rod spinning end over end
+##   projectile   also "knife" (a small knife, point first), "mallet" and "cleaver" (spinning
+##                end over end); the projectile's "move" picks which move's fx it uses
+##   charge       also "psychic": violet sparks drawn in toward the brain while held
+##   impact       also "tenderize": a mallet thump, meat-mallet tooth marks on the floor
+##   flip         true         a spatula arc and "FLIP!" when the move's grab lands
+##   chop         true         "CHOP CHOP!" when the move starts (Chef Cerebro's voice line)
+##   telegraph_line true       a dotted line on the floor ahead, as far as the throw reaches
+##   shout        {"text", "sound"}  a voice line over the head when the move starts
+##   charge       also "venom": green venom drips and bubbles while the heavy is held
+##   projectile   also "venom": a glob of green venom with a dripping trail
+##   gaze         true         a glow in her eyes, and a faint beam to each foe it slows
+##   impact       also "petrify": a ring of grey dust where the punch lands
+##   charge       also "dirt": dirt kicked up behind while the heavy is held
+##   impact       also "popup" (dirt bursting up where it hits) and "cavein" (the floor
+##                caves in: rocks falling, dust, a shake)
+##   flash        true         a blaze of light fanning out ahead (Headlamp Flash)
+##   burrow       true         a dirt mound's trail of clods while the move tunnels
+##   charge       also "coins": coins spilling from the bag while the heavy is held
+##   impact       also "cash": coins and bills burst out where it hits
+##   smoke        true         a puff of smoke as the move starts (and where a blink lands)
+##   steal        true         coins fly from the foe to the attacker when it steals
+##   impact       also "frost" (a puff of ice sparkles) and "blast" (a ring of ice bursting
+##                out all round, shards and a shake)
+##   charge       also "frost": icy mist swirling while the heavy is held
+##   spray        true         a fan of ice shards over the move's cone
+##   slush        true         a slushy trail behind a dash
+##   syrup        true         a splash as the move's zone is left (the zone itself is drawn
+##                             from sim.zones, as a syrup puddle)
 ## Creature "ko_fx" keys: style "scatter" (the sprite breaks into horizontal pieces that
-## tumble across the floor), "crack" (cracks, water gushing out, rubble) or "crumble"
-## (cracks, then the neck stones burst loose).
+## tumble across the floor), "crack" (cracks, water gushing out, rubble), "crumble"
+## (cracks, then the neck stones burst loose) or "timber" (a felled tree: "TIMBER!",
+## leaves shaken loose, and a dust line where the trunk hits the floor) or "flop" (a
+## last wet flop and a puddle) or "deflate" (the brain fizzles out with a puff of steam and
+## its sunglasses skid away) or "hiss" (a last long hiss: green puffs and her hair
+## snakes' venom dripping) or "dirt" (a puff of dust and clods as he flops over) or
+## "cash" (the bag bursts: bills flutter down, coins roll away) or "melt" (he melts into a
+## puddle of syrup and slush).
 ## Status drawn from creature state: Stoneskin plates while `shield` > 0, a rooted ring
-## while armored, pebbles at the feet while slowed, a red "!" while taunted.
+## while armored, pebbles at the feet while slowed, a red "!" while taunted, and a pink
+## down-arrow while tenderized (taking extra damage), green bubbles while poisoned,
+## spinning stars while blinded, and rubble round the feet while rooted
+## (a petrified statue's grey is CreatureView's shader).
 
 const SHEET := preload("res://assets/sprites/fx.png")
 const GRAVITY := 0.2
@@ -55,6 +103,21 @@ const C_GREY: Array[Color] = [Color("5a585c"), Color("7f7f7f"), Color("aaa8a6"),
 const C_CRAG: Array[Color] = [Color("8c4547"), Color("b5665f"), Color("d08c84")]
 const C_AMBER := Color("ffc45c")
 const C_TAUNT := Color("ff4a3a")
+const C_LEAF: Array[Color] = [Color("16784a"), Color("28b450"), Color("96dcaa")]
+const C_WOOD: Array[Color] = [Color("623736"), Color("804846"), Color("a0625c"), Color("b56664")]
+const C_CONE: Array[Color] = [Color("603820"), Color("966034"), Color("c48c54")]
+const C_PSY := Color("d58cff")
+const C_TENDER := Color("ff8fa3")
+const C_MALLET: Array[Color] = [Color("8c4c48"), Color("b07a70")]
+const C_BRAIN: Array[Color] = [Color("d6606a"), Color("f88686"), Color("ffb2aa")]
+const C_VENOM: Array[Color] = [Color("3f8a2a"), Color("7fd64e"), Color("c8f59a")]
+const C_GAZE := Color("fff27a")
+const C_DIRT: Array[Color] = [Color("56391f"), Color("7a5634"), Color("9c744c")]
+const C_LAMP := Color("fff6b0")
+const C_GOLD: Array[Color] = [Color("c89a1e"), Color("f2c94c"), Color("fff0a0")]
+const C_CASH: Array[Color] = [Color("3f8f3f"), Color("7fd67f")]
+const C_ICE: Array[Color] = [Color("64bad0"), Color("a8eef8"), Color("f0fcff")]
+const C_SYRUP: Array[Color] = [Color("f0d21e"), Color("e8303a"), Color("46c846")]
 
 ## Asks AudioView for a sound that belongs to a timed effect (a KO scatter, geysers...).
 signal cue(sound: String)
@@ -73,6 +136,9 @@ var _watch := {}
 var _last_push := {}
 var _dark := 0.0
 var _rain := 0.0
+var _slowed_text := {}
+## Set by main: per side, {"color", "label"} for the marker over its fighter.
+var side_marks: Array = []  ## creature id -> tick its last "SLOWED" call-out showed
 
 
 func bind_ground(g: FxGround) -> void:
@@ -155,6 +221,9 @@ func spawn(e: Dictionary) -> void:
 				_px(p, Vector2.from_angle(randf() * TAU) * randf_range(1.0, 2.2), Color.WHITE, 12)
 			_text(p, "SLIP!", C_PARRY)
 		"grab":
+			if bool(e.get("flip", false)):
+				_flip_out(e)
+				return
 			_text(p, "GULP!", Color("b6f28a"))
 			if int(e.get("attacker", -1)) >= 0:
 				var a := sim.creatures[int(e["attacker"])]
@@ -182,6 +251,9 @@ func spawn(e: Dictionary) -> void:
 			_add({"kind": "ring", "pos": p + Vector2(0, 16), "life": 16, "radius": 30.0})
 			_text(p + Vector2(0, -10), "BREAKAWAY", Color("c9a7ff"))
 		"projectile":
+			var thrower := _creature(int(e.get("who", -1)))
+			if bool(e.get("lob", false)) or (thrower != null and not _owner_has_wave(thrower)):
+				return  # a pinecone or a rod just leaves the hand; it's drawn in flight
 			# Runoff leaves the hand: a slap of water.
 			var owner := _owner_near(p)
 			var at := p + (owner.facing * 14.0 if owner != null else Vector2.ZERO)
@@ -191,6 +263,14 @@ func spawn(e: Dictionary) -> void:
 			for i in 3:
 				_dust(at + Vector2(randf_range(-6, 6), randf_range(-2, 2)), Vector2(randf_range(-0.3, 0.3), -0.4))
 		"projectile_end":
+			var owner_c := _creature(int(e.get("who", -1)))
+			if owner_c != null and _owner_has_venom(owner_c):
+				_venom_splat(p, 10.0, 8 if power >= 1.0 else 5)
+				return
+			if owner_c != null and not _owner_has_wave(owner_c):
+				if power >= 1.0:
+					_add({"kind": "spark", "pos": p, "life": 8, "scale": 1.0})
+				return
 			var n := 12 if power >= 1.0 else 6
 			for i in n:
 				_drop(p, 3.0, Vector2.from_angle(randf() * TAU) * randf_range(0.4, 1.4), randf_range(1.0, 2.6), true)
@@ -226,7 +306,9 @@ func spawn(e: Dictionary) -> void:
 			if c != null:
 				for i in 4:
 					_dust(c.pos + Vector2(randf_range(-8, 8), randf_range(-2, 2)), Vector2(randf_range(-0.3, 0.3), -0.3))
-				_text(c.pos + Vector2(0, -_top(c) - 14), "SLOWED", Color("b9c6d6"), 7, 40.0)
+				if _tick - int(_slowed_text.get(c.id, -999)) > 45:  # once, not on every slowing hit
+					_slowed_text[c.id] = _tick
+					_text(c.pos + Vector2(0, -_top(c) - 14), "SLOWED", Color("b9c6d6"), 7, 40.0)
 		"taunt":
 			_add({"kind": "ring", "pos": p, "life": 14, "radius": 18.0, "color": C_TAUNT})
 		"roar":
@@ -239,6 +321,126 @@ func spawn(e: Dictionary) -> void:
 				_text(c.pos + Vector2(0, -_top(c) + 2), "BEDROCK!", C_AMBER, 9, 40.0)
 				_slam_debris(c.pos, false)
 				shake_out = maxf(shake_out, 2.0)
+		"pull":
+			# Branch Grab snags: a streak back toward Barkley and a few leaves torn off.
+			var a := _creature(int(e.get("attacker", -1)))
+			var tgt := _creature(int(e.get("target", -1)))
+			if a != null and tgt != null:
+				var from := tgt.pos + Vector2(0, -_chest(tgt))
+				var to := a.pos + Vector2(0, -_chest(a))
+				for i in 5:
+					var off := Vector2(randf_range(-4, 4), randf_range(-5, 5))
+					_add({"kind": "streak", "a": from + off, "b": from.lerp(to, 0.5) + off, "life": 10,
+						"color": Color(C_WOOD[3], 0.8)})
+				_leaves(from, 6, 1.4)
+				_text(from + Vector2(0, -14), "SNAG!", C_LEAF[2], 8, 34.0)
+		"burst":
+			_pinecone_burst(p, power)
+		"reel":
+			var a := _creature(int(e.get("attacker", -1)))
+			var tgt := _creature(int(e.get("target", -1)))
+			if a != null and tgt != null:
+				var at := tgt.pos + Vector2(0, -_chest(tgt))
+				_text(at + Vector2(0, -12), "HOOKED!", C_WATER_L, 8, 34.0)
+				for i in 6:
+					_drop(at + Vector2(0, 10), 10.0, Vector2.from_angle(randf() * TAU) * randf_range(0.3, 1.0),
+						randf_range(1.0, 2.0), false)
+		"tenderized":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				_text(c.pos + Vector2(0, -_top(c) - 14), "TENDERIZED", C_TENDER, 7, 44.0)
+		"projectile_pierce":
+			_add({"kind": "spark", "pos": p, "life": 6, "scale": 0.8})
+		"punishable":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				_text(c.pos + Vector2(0, -_top(c) - 14), "OPEN!", Color("ffb347"), 8, 36.0)
+		"freeze":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				_add({"kind": "ring", "pos": c.pos, "life": 18, "radius": c.radius + 18.0, "color": C_ICE[2]})
+				for i in 12:
+					_px(c.pos + Vector2(randf_range(-10, 10), -randf_range(4, _top(c))),
+						Vector2.from_angle(randf() * TAU) * randf_range(0.4, 1.2), C_ICE[randi() % 3], 20)
+				_text(c.pos + Vector2(0, -_top(c) - 14), "FROZEN!", C_ICE[1], 9, 50.0)
+				shake_out = maxf(shake_out, 2.5)
+		"zone":
+			for i in 10:
+				_drop(p, 6.0, Vector2.from_angle(randf() * TAU) * randf_range(0.3, 1.0), randf_range(0.8, 1.6), false,
+					C_SYRUP[randi() % 3])
+		"steal":
+			var c := _creature(int(e.get("who", -1)))
+			var by := _creature(int(e.get("by", -1)))
+			if c != null and by != null:
+				_text(c.pos + Vector2(0, -_top(c) - 14), "STOLEN!", C_GOLD[1], 8, 44.0)
+				for i in 6:
+					_add({"kind": "suck", "from": c.pos + Vector2(randf_range(-6, 6), -_chest(c) + randf_range(-6, 6)),
+						"to": by.pos + Vector2(0, -_chest(by)), "life": 14, "color": C_GOLD[1]})
+		"blink":
+			_smoke(p, 8)
+			var from: Vector2 = e.get("from", p)
+			_smoke(from, 5)
+		"blinded":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				_add({"kind": "lines", "pos": c.pos + Vector2(0, -_chest(c)), "life": 10, "size": 1.2, "color": C_LAMP})
+				_text(c.pos + Vector2(0, -_top(c) - 14), "BLINDED", C_LAMP, 7, 44.0)
+		"miss":
+			_text(p + Vector2(0, -6), "MISS", Color("b8b8b8"), 8, 36.0)
+			for i in 3:
+				_px(p, Vector2.from_angle(randf() * TAU) * 0.8, Color("d8d8d8"), 10)
+		"rooted":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				_text(c.pos + Vector2(0, 14), "ROOTED", C_DIRT[2], 7, 44.0)
+		"poisoned":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				_venom_splat(c.pos, _chest(c), 10)
+				# Under the feet, so it doesn't collide with a call-out over the attacker's head.
+				_text(c.pos + Vector2(0, 14), "POISONED", C_VENOM[2], 7, 44.0)
+		"poison":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				for i in 3:
+					_bubble(c.pos + Vector2(randf_range(-c.radius, c.radius), 0), randf_range(6.0, _top(c) - 4.0))
+				_text(c.pos + Vector2(randf_range(-4, 4), -_top(c) - 4), str(snappedf(power, 0.1)).trim_suffix(".0"),
+					C_VENOM[1], 7, 30.0)
+		"gaze":
+			var c := _creature(int(e.get("who", -1)))
+			var by := _creature(int(e.get("by", -1)))
+			if c != null and by != null:
+				var eyes := by.pos + Vector2(by.facing.x * 4.0, -_top(by) + 12.0)
+				var at := c.pos + Vector2(0, -_chest(c))
+				_add({"kind": "streak", "a": eyes, "b": at, "life": 8, "color": Color(C_GAZE, 0.55)})
+				for i in 2:
+					_px(at + Vector2(randf_range(-6, 6), randf_range(-8, 8)), Vector2(0, -0.2), C_GREY[3], 14)
+				if power <= float(by.move_def().get("gaze", {}).get("min_mult", 0.0)) + 0.001 \
+						and c.anim_t % 40 < 10:
+					_text(c.pos + Vector2(0, -_top(c) - 14), "STONE COLD", C_GREY[3], 7, 30.0)
+		"petrify":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				_add({"kind": "ring", "pos": c.pos, "life": 18, "radius": c.radius + 18.0, "color": C_GREY[3]})
+				_add({"kind": "lines", "pos": c.pos + Vector2(0, -_chest(c)), "life": 12, "size": 1.4, "color": C_GREY[3]})
+				for i in 10:
+					_px(c.pos + Vector2(randf_range(-10, 10), -randf_range(4, _top(c))),
+						Vector2.from_angle(randf() * TAU) * randf_range(0.4, 1.2), C_GREY[randi() % 4], 20)
+				_text(c.pos + Vector2(0, -_top(c) - 14), "PETRIFIED!", C_GREY[3], 9, 50.0)
+				shake_out = maxf(shake_out, 2.5)
+		"shatter":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				var push := _note_push(e)
+				for i in 12:
+					var v := Vector2.from_angle(randf() * TAU) * randf_range(0.6, 2.0) + push * 0.6
+					_chunk(c.pos, randf_range(4, _top(c)), v, randf_range(1.0, 2.4), randf_range(2.0, 3.5),
+						C_ICE[randi() % 3] if bool(e.get("ice", false)) else C_GREY[randi() % 3], 50.0)
+				for i in 5:
+					_dust(c.pos + Vector2(randf_range(-10, 10), randf_range(-3, 3)), Vector2(randf_range(-0.4, 0.4), -0.4))
+				_add({"kind": "lines", "pos": c.pos + Vector2(0, -_chest(c)), "life": 10, "size": 1.6, "color": Color.WHITE})
+				_text(c.pos + Vector2(0, -_top(c) - 22), "SHATTER!", Color("ffd166"), 10, 50.0)
+				shake_out = maxf(shake_out, 3.0)
 		"land_hard":
 			for i in 3:
 				_dust(p + Vector2(randf_range(-6, 6), randf_range(-2, 2)), Vector2(randf_range(-0.3, 0.3), -0.4))
@@ -276,6 +478,12 @@ func advance() -> void:
 		p["t"] = float(p["t"]) + dt
 		if p.has("vz"):
 			_physics(p, dt)
+		elif p.has("orbit"):
+			var oc := _creature(int(p["orbit"]))
+			p["ang"] = float(p["ang"]) + float(p["spin"]) * dt
+			if oc != null:
+				var a := float(p["ang"])
+				p["pos"] = oc.pos + Vector2(cos(a), sin(a) * 0.5) * float(p["r"])
 		elif String(p["kind"]) == "px":
 			p["pos"] = Vector2(p["pos"]) + Vector2(p["vel"]) * dt
 			p["vel"] = Vector2(p["vel"]) + Vector2(0, 0.12 * dt)
@@ -411,6 +619,9 @@ func _watch_all() -> void:
 		if c.shield > 0.0 and ticked and c.anim_t % 26 == 0 and c.state != CreatureSim.State.KO:
 			var at := c.pos + Vector2(randf_range(-c.radius, c.radius), -randf_range(8.0, _top(c) - 8.0))
 			_add({"kind": "glint", "pos": at, "life": 10, "color": C_GREY[3]})
+		# Poisoned: green bubbles rise off it now and then.
+		if c.poison > 0 and ticked and c.anim_t % 9 == 0 and c.state != CreatureSim.State.KO:
+			_bubble(c.pos + Vector2(randf_range(-c.radius, c.radius), 0), randf_range(4.0, _top(c)))
 		if c.state == CreatureSim.State.KO and int(w["state"]) != CreatureSim.State.KO:
 			_ko(c)
 		w["state"] = c.state
@@ -420,6 +631,21 @@ func _watch_all() -> void:
 func _move_started(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 	if String(mv.get("type", "")) == "surge":
 		_dark = maxf(_dark, 0.6)
+	if bool(fx.get("burrow", false)):
+		cue.emit("dig")
+	if bool(fx.get("syrup", false)):
+		cue.emit("slosh")
+	if bool(fx.get("smoke", false)):
+		_smoke(c.pos, 8)
+		cue.emit("poof")
+	var shout: Dictionary = fx.get("shout", {})
+	if not shout.is_empty():
+		_text(c.pos + Vector2(0, -_top(c) - 12), String(shout.get("text", "")), Color("ffd166"), 10, 60.0)
+		if shout.has("sound"):
+			cue.emit(String(shout["sound"]))
+	if bool(fx.get("chop", false)):
+		_text(c.pos + Vector2(0, -_top(c) - 12), "CHOP CHOP!", Color("ffd166"), 10, 60.0)
+		cue.emit("chop_chop")
 	if bool(fx.get("rain", false)):
 		_rain = 130.0
 
@@ -436,6 +662,45 @@ func _charging(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 		"pebbles":
 			if full and c.anim_t % 6 == 0:
 				_dust(c.pos + Vector2(randf_range(-10, 10), randf_range(-2, 2)), Vector2(0, -0.4))
+		"frost":
+			# Icy mist swirling round him, thicker once fully wound.
+			if c.anim_t % (2 if full else 4) == 0:
+				var a := randf() * TAU
+				_px(c.pos + Vector2(cos(a) * 16.0, sin(a) * 6.0 - _chest(c)), Vector2(-sin(a), cos(a) * 0.4) * 0.6,
+					C_ICE[randi() % 3], 18)
+		"coins":
+			# Wound up: coins spill from the bag, more once fully wound.
+			if c.anim_t % (3 if full else 6) == 0:
+				_chunk(c.pos - c.facing * 6.0, randf_range(28, 40), Vector2(randf_range(-0.6, 0.6), randf_range(-0.3, 0.3)),
+					randf_range(0.5, 1.2), 1.5, C_GOLD[randi() % 3], 40.0)
+		"dirt":
+			# Digging in: dirt kicked up behind him, faster once fully wound.
+			if c.anim_t % (2 if full else 4) == 0:
+				var back := c.pos - c.facing * 6.0
+				_chunk(back, 2.0, -c.facing.rotated(randf_range(-0.6, 0.6)) * randf_range(0.6, 1.4),
+					randf_range(1.0, 2.2), randf_range(1.0, 2.0), C_DIRT[randi() % 3], 30.0)
+		"venom":
+			# Venom drips from the hair snakes' mouths, bubbling once fully wound.
+			if c.anim_t % (3 if full else 6) == 0:
+				var at := c.pos + Vector2(randf_range(-14, 14), randf_range(-2, 2))
+				_drop(at, randf_range(_top(c) - 14.0, _top(c) - 4.0), Vector2.ZERO, 0.0, false, C_VENOM[randi() % 2 + 1])
+			if full and c.anim_t % 5 == 0:
+				_bubble(c.pos + Vector2(randf_range(-10, 10), 0), randf_range(10.0, _top(c)))
+		"psychic":
+			# Violet sparks drawn in toward the brain, faster once fully wound.
+			if c.anim_t % (2 if full else 4) == 0:
+				var at := c.pos + Vector2(0, -_chest(c))
+				var from := at + Vector2.from_angle(randf() * TAU) * randf_range(18.0, 28.0)
+				_add({"kind": "suck", "from": from, "to": at, "life": 10, "color": C_PSY})
+			if full and c.anim_t % 10 == 0:
+				_add({"kind": "ring", "pos": c.pos, "life": 12, "radius": 20.0, "color": C_PSY})
+		"leaves":
+			# Leaves drift in and circle him, faster once fully wound.
+			if c.anim_t % (3 if full else 6) == 0:
+				var a := randf() * TAU
+				_add({"kind": "leaf", "pos": c.pos + Vector2(cos(a), sin(a) * 0.5) * 30.0, "z": randf_range(8, 30),
+					"orbit": c.id, "ang": a, "r": 30.0, "spin": 0.12 if full else 0.06, "life": 26,
+					"color": C_LEAF[randi() % 3]})
 
 
 func _charge_released(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
@@ -478,6 +743,45 @@ func _strike(c: CreatureSim, mv: Dictionary, fx: Dictionary, seg: int) -> void:
 				_quake(c, mv)
 			"avalanche":
 				_avalanche(c.hit_center(seg))
+			"leaves":
+				_leaves(c.hit_center(seg) + Vector2(0, -_chest(c) * 0.7), 8, 1.5)
+			"splash":
+				_splash(c.hit_center(seg), c.hit_radius(seg), false)
+			"droplets":
+				var at := c.hit_center(seg)
+				for i in 6:
+					_drop(at, randf_range(6, 14), c.facing.rotated(randf_range(-1.0, 1.0)) * randf_range(0.4, 1.2),
+						randf_range(0.8, 1.8), true)
+			"bellyflop":
+				_splash(c.pos, c.hit_radius(seg), true)
+			"twister":
+				_twister_gust(c, mv)
+			"tenderize":
+				_tenderize(c, c.hit_center(seg), c.hit_radius(seg))
+			"cash":
+				_cash_burst(c.hit_center(seg) + Vector2(0, -_chest(c)), 10)
+			"blast":
+				_ice_blast(c.pos, c.hit_radius(seg))
+			"popup":
+				_dirt_burst(c.hit_center(seg), c.hit_radius(seg))
+				cue.emit("pop")
+			"cavein":
+				_cave_in(c.hit_center(seg), c.hit_radius(seg))
+			"petrify":
+				var at := c.hit_center(seg)
+				_add({"kind": "ring", "pos": at, "life": 14, "radius": c.hit_radius(seg) + 8.0, "color": C_GREY[2]})
+				for i in 6:
+					_dust(at + Vector2(randf_range(-8, 8), randf_range(-3, 3)), Vector2(randf_range(-0.5, 0.5), -0.4))
+	if bool(fx.get("flash", false)):
+		_headlamp(c, c.hit_radius(seg) + float(mv.get("reach", 0)))
+	if String(fx.get("impact", "")) == "frost":
+		var at := c.hit_center(seg) + Vector2(0, -_chest(c))
+		for i in 5:
+			_px(at, Vector2.from_angle(randf() * TAU) * randf_range(0.4, 1.2), C_ICE[1 + randi() % 2], 14)
+	if bool(fx.get("spray", false)):
+		_ice_spray(c, c.hit_radius(seg), float(mv.get("cone", 0.6)))
+	if String(fx.get("impact", "")) == "roots":
+		_roots(c, c.hit_radius(seg), last)
 
 
 func _during_move(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
@@ -487,12 +791,55 @@ func _during_move(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 		if t >= int(win[0]) and t <= int(win[1]):
 			if t % 3 == 0:
 				_ghost(c, Color(String(fx.get("ghost_color", "#ffffff"))), 14.0)
+			if String(fx.get("trail", "")) == "splash" and not c.connected:
+				var back := c.pos - c.facing * 8.0 + Vector2(randf_range(-3, 3), randf_range(-2, 2))
+				_drop(back, 2.0, -c.facing * randf_range(0.2, 0.7) + Vector2(randf_range(-0.4, 0.4), randf_range(-0.2, 0.2)),
+					randf_range(1.0, 2.0), true)
+				if t % 3 == 0:
+					_add({"kind": "puddle", "pos": back, "radius": randf_range(2.5, 4.5), "ry": 0.4, "grow": 3.0,
+						"life": 70.0, "fade": 35.0})
 			if String(fx.get("trail", "")) == "gravel" and not c.connected:
 				var back := c.pos - c.facing * 7.0 + Vector2(randf_range(-4, 4), randf_range(-2, 2))
 				_chunk(back, 1.0, -c.facing * randf_range(0.2, 0.8) + Vector2(randf_range(-0.4, 0.4), randf_range(-0.3, 0.3)),
 					randf_range(0.6, 1.5), randf_range(1.0, 2.0), C_PEBBLE[randi() % 2], 26.0)
 				if t % 4 == 0:
 					_dust(back, Vector2(-c.facing.x * 0.3, -0.3))
+	if bool(fx.get("spin", false)) and not c.charging:
+		var segs: Array = mv.get("_segs", [])
+		if segs.size() > 0 and t >= int(segs[0]["at"]) - 2 and t <= int(segs[segs.size() - 1]["at"]) + 3:
+			var r := c.hit_radius(segs.size() - 1)
+			if t % 2 == 0:
+				var a := randf() * TAU
+				_add({"kind": "leaf", "pos": c.pos, "z": randf_range(10, 34), "orbit": c.id, "ang": a,
+					"r": r * randf_range(0.6, 1.0), "spin": 0.35, "life": 14, "color": C_LEAF[randi() % 3]})
+			if t % 4 == 0:
+				_add({"kind": "whirl", "pos": c.pos + Vector2(0, -_chest(c) * 0.6), "life": 8, "radius": r,
+					"start": randf() * TAU})
+	var dsh: Dictionary = mv.get("dash", {})
+	if bool(fx.get("slush", false)) and not dsh.is_empty() and t >= int(dsh["from"]) and t <= int(dsh["to"]):
+		_px(c.pos - c.facing * 6.0 + Vector2(randf_range(-4, 4), -randf_range(0, 4)),
+			-c.facing * randf_range(0.3, 0.9) + Vector2(0, -0.3), C_ICE[randi() % 3], 16)
+		if t % 3 == 0:
+			_add({"kind": "puddle", "pos": c.pos - c.facing * 4.0, "radius": randf_range(3.0, 4.5), "ry": 0.45,
+				"grow": 2.0, "life": 90.0, "fade": 40.0, "color": Color(C_ICE[2], 0.55)})
+	var lp: Dictionary = mv.get("leap", {})
+	if bool(fx.get("burrow", false)) and not lp.is_empty() and t >= int(lp["from"]) and t <= int(lp["to"]):
+		if t % 2 == 0:
+			_chunk(c.pos + Vector2(randf_range(-6, 6), randf_range(-2, 2)), 3.0,
+				Vector2(randf_range(-0.6, 0.6), randf_range(-0.3, 0.3)) - c.facing * 0.4, randf_range(1.0, 2.0),
+				randf_range(1.0, 2.0), C_DIRT[randi() % 3], 26.0)
+		if t % 5 == 0:
+			_dust(c.pos - c.facing * 6.0, Vector2(-c.facing.x * 0.3, -0.3))
+			_add({"kind": "puddle", "pos": c.pos - c.facing * 4.0, "radius": randf_range(3.0, 4.5), "ry": 0.45,
+				"grow": 2.0, "life": 90.0, "fade": 40.0, "color": Color(C_DIRT[0], 0.6)})
+	var gz: Dictionary = mv.get("gaze", {})
+	if bool(fx.get("gaze", false)) and not gz.is_empty() and t >= int(gz["from"]) and t <= int(gz["to"]) \
+			and t % 3 == 0:
+		var eyes := c.pos + Vector2(c.facing.x * 4.0, -_top(c) + 12.0)
+		_add({"kind": "glint", "pos": eyes + Vector2(randf_range(-4, 4), randf_range(-2, 2)), "life": 6, "color": C_GAZE})
+		if t % 12 == 0:
+			_add({"kind": "ring", "pos": c.pos + c.facing * 20.0, "life": 14, "radius": 14.0,
+				"color": Color(C_GAZE, 0.5)})
 	if bool(fx.get("suction", false)) and t <= int(mv.get("startup", 0)) + int(mv.get("active", 0)):
 		var mouth := c.pos + c.facing * 12.0 + Vector2(0, -_chest(c))
 		for i in 2:
@@ -714,6 +1061,9 @@ func _geyser_tick(k: float, at: Vector2) -> void:
 func _projectile_spray() -> void:
 	for pr in sim.projectiles:
 		if not _is_wave(pr):
+			if _tick % 4 == 0 and not bool(pr.get("lob", false)) and _proj_kind(pr) == "venom":
+				_drop(Vector2(pr["pos"]) - Vector2(pr["vel"]).normalized() * 3.0, 20.0, Vector2.ZERO, 0.0, false,
+					C_VENOM[1])
 			continue
 		var pos: Vector2 = pr["pos"]
 		var vel: Vector2 = pr["vel"]
@@ -726,7 +1076,10 @@ func _projectile_spray() -> void:
 
 
 func _is_wave(pr: Dictionary) -> bool:
-	var owner := sim.creatures[int(pr["owner"])]
+	return _owner_has_wave(sim.creatures[int(pr["owner"])])
+
+
+func _owner_has_wave(owner: CreatureSim) -> bool:
 	for mid in owner.moves():
 		var mv: Dictionary = owner.moves()[mid]
 		if mv.has("projectile") and String(mv.get("fx", {}).get("projectile", "")) == "wave":
@@ -752,6 +1105,209 @@ func _pit_plume(p: Vector2) -> void:
 	_add({"kind": "ring", "pos": p, "life": 14, "radius": 22.0})
 	shake_out = maxf(shake_out, 2.5)
 	cue.emit("land")
+
+
+# ------------------------------------------------------------------ Barkley
+
+## A puff of leaves: they flutter out, then drift down.
+func _leaves(at: Vector2, n: int, speed: float) -> void:
+	for i in n:
+		var v := Vector2.from_angle(randf() * TAU) * randf_range(0.4, 1.0) * speed
+		_add({"kind": "leaf", "pos": at + Vector2(0, 14), "z": 14.0, "vel": Vector2(v.x, v.y * 0.5), "vz": randf_range(0.6, 1.6),
+			"g": 0.05, "life": randf_range(40, 70), "color": C_LEAF[randi() % 3], "rot": randf() * TAU,
+			"vrot": randf_range(-0.3, 0.3), "bounce": 0.0})
+
+
+## Timber Twister's last hit: a ring of wind and a gust of leaves thrown outward.
+func _twister_gust(c: CreatureSim, mv: Dictionary) -> void:
+	var r := float(mv.get("hit_radius", 24))
+	_add({"kind": "ring", "pos": c.pos, "life": 14, "radius": r + 10.0, "color": C_LEAF[2]})
+	_add({"kind": "ring", "pos": c.pos, "life": 20, "radius": r + 22.0})
+	for i in 14:
+		var a := TAU * i / 14.0
+		var v := Vector2(cos(a), sin(a) * 0.5) * randf_range(1.2, 2.4)
+		_add({"kind": "leaf", "pos": c.pos + v * 6.0, "z": randf_range(10, 28), "vel": v, "vz": randf_range(0.4, 1.2),
+			"g": 0.05, "life": randf_range(40, 70), "color": C_LEAF[randi() % 3], "rot": randf() * TAU,
+			"vrot": randf_range(-0.4, 0.4), "bounce": 0.0})
+	for i in 6:
+		var a := TAU * i / 6.0 + 0.3
+		_dust(c.pos + Vector2(cos(a), sin(a) * 0.5) * r * 0.8, Vector2(cos(a), sin(a) * 0.5 - 0.4) * 0.8)
+	shake_out = maxf(shake_out, 2.0)
+	cue.emit("twister")
+
+
+## Root Eruption: roots punch up through the floor in a ring at the reach of each hit.
+func _roots(c: CreatureSim, r: float, last: bool) -> void:
+	var n := int(clampf(r / 4.5, 6.0, 14.0))
+	var off := randf() * TAU
+	for i in n:
+		var a := off + TAU * i / n + randf_range(-0.15, 0.15)
+		var at := c.pos + Vector2(cos(a), sin(a) * 0.55) * r * randf_range(0.82, 1.0)
+		var h := randf_range(12.0, 20.0) * (1.3 if last else 1.0)
+		_add({"kind": "root", "pos": at, "life": 30 if last else 22, "h": h, "w": randf_range(2.5, 3.6),
+			"lean": cos(a) * randf_range(0.2, 0.5), "delay": randf_range(0.0, 3.0), "front": sin(a) > 0.0})
+		if i % 2 == 0:
+			_chunk(at, 2.0, Vector2(cos(a), sin(a) * 0.5) * randf_range(0.3, 0.9), randf_range(1.2, 2.2),
+				randf_range(1.5, 2.5), C_CON[randi() % 3], 40.0)
+	_add({"kind": "ring", "pos": c.pos, "life": 12, "radius": r, "color": C_LEAF[1]})
+	shake_out = maxf(shake_out, 4.0 if last else 2.0)
+	if last:
+		_leaves(c.pos + Vector2(0, -20), 10, 1.2)
+		cue.emit("roots")
+
+
+## Pinecone Bomb lands: scales and needles burst out of the spot.
+func _pinecone_burst(at: Vector2, r: float) -> void:
+	_add({"kind": "spark", "pos": at + Vector2(0, -6), "life": 10, "scale": 1.4})
+	_add({"kind": "ring", "pos": at, "life": 14, "radius": r + 4.0, "color": C_CONE[2]})
+	for i in 10:
+		var v := Vector2.from_angle(randf() * TAU) * randf_range(0.6, 1.8)
+		_chunk(at, 4.0, Vector2(v.x, v.y * 0.5), randf_range(1.0, 2.4), randf_range(1.5, 2.5), C_CONE[randi() % 3], 36.0)
+	for i in 8:
+		var v := Vector2.from_angle(TAU * i / 8.0 + randf() * 0.4)
+		_add({"kind": "streak", "a": at + Vector2(v.x, v.y * 0.5) * 4.0 + Vector2(0, -4),
+			"b": at + Vector2(v.x, v.y * 0.5) * randf_range(12.0, 18.0) + Vector2(0, -6), "life": 8, "color": C_LEAF[1]})
+	for i in 4:
+		_dust(at + Vector2(randf_range(-6, 6), randf_range(-2, 2)), Vector2(randf_range(-0.4, 0.4), -0.5))
+	_slam_debris(at, false)
+
+
+## Gillbert's splashes: a ring of water, drops thrown up, and puddles left behind. A
+## belly-flop is the same, much bigger, with a column of spray.
+func _splash(at: Vector2, r: float, huge: bool) -> void:
+	_add({"kind": "ripple", "pos": at, "life": 24 if huge else 18, "radius": r + (14.0 if huge else 6.0)})
+	_add({"kind": "ring", "pos": at, "life": 14, "radius": r, "color": C_WATER_L})
+	var n := 30 if huge else 14
+	for i in n:
+		var a := randf() * TAU
+		var v := Vector2(cos(a), sin(a) * 0.5) * randf_range(0.6, 2.2 if huge else 1.5)
+		_drop(at + v * 3.0, 2.0, v, randf_range(1.5, 4.0 if huge else 2.6), true, Color(0, 0, 0, 0),
+			Vector2(2, 2) if randf() < 0.4 else Vector2(1, 2))
+	for i in (6 if huge else 3):
+		_add({"kind": "puddle", "pos": at + Vector2(randf_range(-r, r) * 0.7, randf_range(-r, r) * 0.3),
+			"radius": randf_range(4.0, 8.0 if huge else 6.0), "ry": 0.4, "grow": 4.0, "life": 140.0, "fade": 50.0})
+	if huge:
+		_add({"kind": "emit", "life": 14, "every": 1.0, "acc": 0.0, "fn": _spray_tick.bind(at)})
+		_text(at + Vector2(0, -40), "SPLASH!", C_WATER_L, 10, 50.0)
+		shake_out = maxf(shake_out, 6.0)
+		cue.emit("bellyflop")
+	else:
+		shake_out = maxf(shake_out, 2.0)
+		cue.emit("splash")
+
+
+func _spray_tick(k: float, at: Vector2) -> void:
+	for j in 3:
+		var col := C_FOAM if randf() < 0.35 else (C_WATER_L if randf() < 0.5 else C_WATER)
+		_drop(at + Vector2(randf_range(-6, 6), randf_range(-2, 2)), 2.0,
+			Vector2(randf_range(-0.6, 0.6), randf_range(-0.3, 0.3)), randf_range(3.5, 5.5) * (1.0 - k * 0.6), true, col,
+			Vector2(2, 3) if randf() < 0.5 else Vector2(1, 2))
+
+
+## Gillbert's knockout: one last wet flop and a puddle.
+func _flop_ko(c: CreatureSim) -> void:
+	for i in 10:
+		_drop(c.pos, 6.0, Vector2.from_angle(randf() * TAU) * randf_range(0.3, 1.0), randf_range(0.8, 1.8), true)
+	_add({"kind": "puddle", "pos": c.pos + Vector2(0, 2), "radius": 16.0, "ry": 0.35, "grow": 60.0, "life": FOREVER})
+	cue.emit("flop")
+
+
+## Cast Line: a taut line from his mouth to the thrown rod while it flies, then to
+## whoever it hooked while he is reeled in to them.
+func _draw_cast(ci: CanvasItem, c: CreatureSim, mv: Dictionary) -> void:
+	var from := c.pos + c.facing * 10.0 + Vector2(0, -_chest(c) + 2.0)
+	var end := Vector2.ZERO
+	if c.reel_t > 0:
+		var tgt := _creature(c.reel_to)
+		if tgt == null:
+			return
+		end = tgt.pos + Vector2(0, -_chest(tgt))
+	else:
+		var found := false
+		for pr in sim.projectiles:
+			if int(pr["owner"]) == c.id and int(pr["serial"]) == c.attack_serial:
+				end = Vector2(pr["pos"]) + Vector2(0, -10)
+				found = true
+		if not found:
+			return
+	ci.draw_line(from, end, Color(C_GREY[2], 0.9), 1.0)
+	if c.reel_t > 0:
+		# the hook in the catch, and the line twitching as it's wound in
+		var hd := (end - from).normalized() if end.distance_squared_to(from) > 1.0 else c.facing
+		ci.draw_line(end, end + hd * 2.0 + Vector2(0, 2), C_GREY[3], 1.0)
+		ci.draw_line(end + hd * 2.0 + Vector2(0, 2), end + Vector2(0, 3), C_GREY[3], 1.0)
+		if _tick % 3 == 0:
+			var mid := from.lerp(end, randf_range(0.2, 0.8))
+			_drop(mid + Vector2(0, 12), 12.0, Vector2(randf_range(-0.3, 0.3), 0.0), randf_range(0.2, 0.6), false)
+
+
+## Tenderize: the mallet pounds the floor: a thump ring, dust, and the mallet's tooth
+## marks left in the floor for a moment.
+func _tenderize(c: CreatureSim, at: Vector2, r: float) -> void:
+	_add({"kind": "ring", "pos": at, "life": 16, "radius": r, "color": C_TENDER})
+	_add({"kind": "ring", "pos": at, "life": 10, "radius": r * 0.5, "color": Color.WHITE})
+	for i in 8:
+		var a := TAU * i / 8.0 + randf() * 0.3
+		_dust(at + Vector2(cos(a), sin(a) * 0.5) * r * 0.6, Vector2(cos(a), sin(a) * 0.5 - 0.5) * 0.5)
+	for i in 6:
+		var off := Vector2(randf_range(-r, r) * 0.5, randf_range(-r, r) * 0.25)
+		_add({"kind": "puddle", "pos": at + off, "radius": 1.5, "ry": 1.0, "grow": 1.0, "life": 90.0, "fade": 40.0,
+			"color": Color(0, 0, 0, 0.35)})
+	_text(at + Vector2(0, -24), "THWACK!", C_TENDER, 8, 34.0)
+	shake_out = maxf(shake_out, 2.5)
+	cue.emit("thwack")
+
+
+## Flip Out: the spatula's arc over his head, and the call-out.
+func _flip_out(e: Dictionary) -> void:
+	var a := _creature(int(e.get("attacker", -1)))
+	if a == null:
+		return
+	var from := a.pos - a.facing * 22.0  # where the target was (he has already turned)
+	var to := a.pos + a.facing * 26.0
+	var pts := PackedVector2Array()
+	for i in 13:
+		var k := i / 12.0
+		pts.append(from.lerp(to, k) + Vector2(0, -12.0 - sin(k * PI) * 34.0))
+	_add({"kind": "streak", "a": pts[2], "b": pts[6], "life": 12, "color": Color(C_PSY, 0.8)})
+	_add({"kind": "streak", "a": pts[6], "b": pts[10], "life": 12, "color": Color(C_PSY, 0.8)})
+	_text(a.pos + Vector2(0, -_top(a) - 16), "FLIP!", Color("ffd166"), 9, 40.0)
+
+
+## Chef Cerebro's knockout: the brain fizzles out with a puff of steam, and his
+## sunglasses skid off across the floor.
+func _deflate(c: CreatureSim) -> void:
+	for i in 10:
+		var at := c.pos + Vector2(randf_range(-10, 10), -randf_range(6, 20))
+		_px(at, Vector2(randf_range(-0.3, 0.3), -randf_range(0.4, 0.9)), Color(1, 1, 1, 0.7), 30)
+	for i in 6:
+		_chunk(c.pos, 12.0, Vector2.from_angle(randf() * TAU) * randf_range(0.3, 1.0), randf_range(0.6, 1.4),
+			2.0, C_BRAIN[randi() % 3], 40.0)
+	var dir := -c.facing
+	_chunk(c.pos + Vector2(0, -2), 10.0, dir * 1.6, 1.2, 3.0, Color("0c0c10"), 120.0)
+	_text(c.pos + Vector2(0, -_top(c) - 6), "fzzt...", C_PSY, 7, 50.0)
+	cue.emit("fizzle")
+
+
+## Barkley's knockout: he topples like a felled tree.
+func _timber(c: CreatureSim) -> void:
+	_text(c.pos + Vector2(0, -_top(c) - 6), "TIMBER!", Color("ffd166"), 10, 70.0)
+	_leaves(c.pos + Vector2(0, -_top(c) + 10), 12, 1.0)
+	cue.emit("timber")
+
+
+func _timber_land(c: CreatureSim, length: float) -> void:
+	# The knockout art falls over backward, so the trunk lands behind where he faced.
+	var back := Vector2(-1.0 if c.facing.x >= -0.1 else 1.0, 0.0)
+	for i in 9:
+		var k := lerpf(-0.35, 0.85, float(i) / 8.0)
+		_dust(c.pos + back * length * k + Vector2(randf_range(-2, 2), randf_range(-2, 2)), Vector2(randf_range(-0.4, 0.4), -0.5))
+	_leaves(c.pos + back * length * 0.8 + Vector2(0, -8), 8, 1.3)
+	for i in 5:
+		_chunk(c.pos + back * length * randf_range(-0.3, 0.8), 4.0, Vector2(randf_range(-0.6, 0.6), randf_range(-0.3, 0.3)),
+			randf_range(0.8, 1.6), 2.0, C_WOOD[randi() % 4], 50.0)
+	shake_out = maxf(shake_out, 4.0)
+	cue.emit("slam")
 
 
 # ------------------------------------------------------------------ windup tells
@@ -828,6 +1384,21 @@ func _ko(c: CreatureSim) -> void:
 		"crumble":
 			_crack_body(c, ko)
 			_later(14.0, _crumble.bind(c))
+		"flop":
+			_later(10.0, _flop_ko.bind(c))
+		"deflate":
+			_later(18.0, _deflate.bind(c))
+		"hiss":
+			_later(12.0, _hiss_ko.bind(c))
+		"dirt":
+			_later(10.0, _dirt_ko.bind(c))
+		"cash":
+			_later(10.0, _cash_ko.bind(c))
+		"melt":
+			_later(8.0, _melt_ko.bind(c))
+		"timber":
+			_timber(c)
+			_later(16.0, _timber_land.bind(c, float(ko.get("length", 50))))
 
 
 ## Craglash: the stone neck comes apart and its pieces bounce away, then the body
@@ -951,6 +1522,172 @@ func _rubble(c: CreatureSim) -> void:
 
 # ------------------------------------------------------------------ helpers
 
+## Shaved Ice Spray: shards fanning out over the cone ahead.
+func _ice_spray(c: CreatureSim, r: float, cone: float) -> void:
+	var half := acos(clampf(cone, -1.0, 1.0))
+	var head := c.pos + Vector2(0, -_top(c) + 8.0)
+	for i in 14:
+		var d := c.facing.rotated(randf_range(-half, half))
+		_add({"kind": "streak", "a": head + d * 6.0, "b": head + d * r * randf_range(0.6, 1.1) + Vector2(0, 10),
+			"life": 9, "color": Color(C_ICE[2], 0.9)})
+		_px(head + d * 8.0, d * randf_range(1.2, 2.4), C_ICE[randi() % 3], 18)
+	cue.emit("shards")
+
+
+## Flavor Blast: a ring of ice bursting out all around, shards and frost.
+func _ice_blast(at: Vector2, r: float) -> void:
+	_add({"kind": "ring", "pos": at, "life": 20, "radius": r + 8.0, "color": C_ICE[2]})
+	_add({"kind": "ring", "pos": at, "life": 14, "radius": r * 0.6, "color": C_ICE[1]})
+	_add({"kind": "puddle", "pos": at, "radius": r * 0.8, "ry": 0.45, "grow": 6.0, "life": 140.0, "fade": 60.0,
+		"color": Color(C_ICE[2], 0.6)})
+	for i in 16:
+		var a := TAU * i / 16.0
+		_chunk(at + Vector2(cos(a), sin(a) * 0.5) * 8.0, 4.0, Vector2(cos(a), sin(a) * 0.5) * randf_range(1.0, 2.2),
+			randf_range(1.0, 2.2), randf_range(1.5, 2.5), C_ICE[randi() % 3], 40.0)
+	shake_out = maxf(shake_out, 4.0)
+
+
+## Sno Mercy melts: a spreading puddle of syrup and slush, a few last drips.
+func _melt_ko(c: CreatureSim) -> void:
+	_add({"kind": "puddle", "pos": c.pos, "radius": 10.0, "ry": 0.45, "grow": 12.0, "life": FOREVER, "fade": 1.0,
+		"color": Color(C_SYRUP[0], 0.75)})
+	_add({"kind": "puddle", "pos": c.pos + Vector2(4, 1), "radius": 6.0, "ry": 0.45, "grow": 8.0, "life": FOREVER,
+		"fade": 1.0, "color": Color(C_ICE[2], 0.6)})
+	for i in 8:
+		_drop(c.pos + Vector2(randf_range(-8, 8), 0), randf_range(6, 20), Vector2.ZERO, 0.0, false, C_SYRUP[randi() % 3])
+	cue.emit("melt")
+
+
+## Syrup Slick puddles, from the simulation's zones: a sticky pool that fades as it dries.
+func _draw_zones(ci: CanvasItem) -> void:
+	for z in sim.zones:
+		var at: Vector2 = z["pos"]
+		var r := float(z["radius"])
+		var a := clampf(float(z["ticks"]) / 40.0, 0.0, 1.0)
+		ci.draw_set_transform(at.round(), 0.0, Vector2(1.0, 0.45))
+		ci.draw_circle(Vector2.ZERO, r, Color(C_SYRUP[0], 0.45 * a))
+		ci.draw_circle(Vector2(-r * 0.3, -r * 0.1), r * 0.45, Color(C_SYRUP[1], 0.35 * a))
+		ci.draw_circle(Vector2(r * 0.35, r * 0.15), r * 0.4, Color(C_SYRUP[2], 0.35 * a))
+		ci.draw_arc(Vector2.ZERO, r, 0.0, TAU, 40, Color(1, 1, 1, 0.35 * a), 1.0)
+		ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		if (_tick / 8) % 3 == 0:
+			var hsh := int(at.x * 13.0 + at.y * 7.0 + _tick)
+			var g := at + Vector2(float(hsh % int(r)) - r * 0.5, float((hsh / 7) % int(r * 0.5)) - r * 0.25)
+			ci.draw_rect(Rect2(g.round(), Vector2.ONE), Color(1, 1, 1, 0.6 * a))
+
+
+## A puff of smoke: dust clouds and grey wisps.
+func _smoke(at: Vector2, n: int) -> void:
+	for i in n:
+		var a := TAU * i / n + randf() * 0.4
+		_dust(at + Vector2(cos(a) * 6.0, sin(a) * 3.0 - 10.0), Vector2(cos(a), sin(a) * 0.5 - 0.3) * 0.5)
+	for i in n:
+		_px(at + Vector2(randf_range(-8, 8), -randf_range(4, 28)), Vector2(randf_range(-0.3, 0.3), -0.4), C_GREY[2], 18)
+
+
+## Coins and bills bursting out of the bag.
+func _cash_burst(at: Vector2, n: int) -> void:
+	for i in n:
+		var v := Vector2.from_angle(randf() * TAU) * randf_range(0.5, 1.6)
+		_chunk(at + Vector2(0, 10), 10.0, v, randf_range(1.2, 2.4), 1.5, C_GOLD[randi() % 3], 50.0)
+	for i in n / 2:
+		_px(at + Vector2(randf_range(-6, 6), randf_range(-6, 6)), Vector2(randf_range(-0.8, 0.8), randf_range(-1.2, -0.3)),
+			C_CASH[randi() % 2], 30)
+	cue.emit("coins")
+
+
+## Sneaky Pete goes down and the bag bursts: bills flutter, coins roll away.
+func _cash_ko(c: CreatureSim) -> void:
+	_cash_burst(c.pos + Vector2(0, -10), 16)
+	for i in 6:
+		_chunk(c.pos, randf_range(4, 12), Vector2.from_angle(randf() * TAU) * randf_range(0.4, 1.2),
+			randf_range(0.8, 1.6), 1.5, C_GOLD[randi() % 3], FOREVER, true)
+
+
+## Dirt bursting up out of the floor (Pickaxe Pop-Up, Burrow's exit).
+func _dirt_burst(at: Vector2, r: float) -> void:
+	for i in 12:
+		var v := Vector2.from_angle(randf() * TAU) * randf_range(0.3, 1.2)
+		_chunk(at + v * 4.0, 2.0, v, randf_range(1.8, 3.2), randf_range(1.5, 3.0), C_DIRT[randi() % 3], 50.0)
+	for i in 5:
+		_dust(at + Vector2(randf_range(-r, r) * 0.6, randf_range(-3, 3)), Vector2(randf_range(-0.4, 0.4), -0.5))
+	_add({"kind": "ring", "pos": at, "life": 14, "radius": r + 6.0, "color": C_DIRT[2]})
+	_add({"kind": "puddle", "pos": at, "radius": r * 0.6, "ry": 0.45, "grow": 3.0, "life": 120.0, "fade": 50.0,
+		"color": Color(C_DIRT[0], 0.7)})
+
+
+## Cave-In: the floor gives way, rocks rain into the hole, dust rolls out.
+func _cave_in(at: Vector2, r: float) -> void:
+	_add({"kind": "ring", "pos": at, "life": 20, "radius": r + 10.0, "color": C_DIRT[2]})
+	_add({"kind": "puddle", "pos": at, "radius": r * 0.9, "ry": 0.45, "grow": 6.0, "life": 160.0, "fade": 60.0,
+		"color": Color(C_DIRT[0], 0.8)})
+	for i in 14:
+		var off := Vector2(randf_range(-r, r), randf_range(-r, r) * 0.5)
+		_chunk(at + off, randf_range(30, 70), Vector2(randf_range(-0.3, 0.3), randf_range(-0.2, 0.2)), 0.0,
+			randf_range(2.0, 4.0), C_STONE[randi() % 3], 60.0)
+	for i in 10:
+		var a := TAU * i / 10.0
+		_dust(at + Vector2(cos(a) * r * 0.8, sin(a) * r * 0.4), Vector2(cos(a), sin(a) * 0.5) * 0.6)
+	shake_out = maxf(shake_out, 4.0)
+	cue.emit("cave_in")
+
+
+## Headlamp Flash: a fan of light from the helmet across the reach.
+func _headlamp(c: CreatureSim, reach: float) -> void:
+	var head := c.pos + Vector2(c.facing.x * 8.0, -_top(c) + 6.0)
+	for i in 7:
+		var d := c.facing.rotated(randf_range(-0.5, 0.5))
+		_add({"kind": "streak", "a": head + d * 4.0, "b": head + d * reach * randf_range(0.8, 1.2), "life": 10,
+			"color": Color(C_LAMP, 0.85)})
+	_add({"kind": "glint", "pos": head, "life": 10, "color": C_LAMP})
+	_add({"kind": "lines", "pos": head + c.facing * 10.0, "life": 8, "size": 1.0, "color": C_LAMP})
+
+
+## Digby goes down in a puff of dust, clods of dirt scattering.
+func _dirt_ko(c: CreatureSim) -> void:
+	for i in 8:
+		_dust(c.pos + Vector2(randf_range(-12, 12), randf_range(-3, 3)), Vector2(randf_range(-0.5, 0.5), -0.4))
+	for i in 8:
+		_chunk(c.pos, randf_range(4, 14), Vector2.from_angle(randf() * TAU) * randf_range(0.4, 1.2),
+			randf_range(1.0, 2.0), randf_range(1.5, 2.5), C_DIRT[randi() % 3], FOREVER, true)
+	cue.emit("pop")
+
+
+## Hissy Fitz goes down with a last long hiss: green puffs and venom dripping.
+func _hiss_ko(c: CreatureSim) -> void:
+	_text(c.pos + Vector2(0, -_top(c) - 6), "hssssss...", C_VENOM[2], 8, 70.0)
+	for i in 8:
+		_bubble(c.pos + Vector2(randf_range(-14, 14), 0), randf_range(4.0, 24.0))
+	for i in 6:
+		_drop(c.pos + Vector2(randf_range(-12, 12), randf_range(-2, 2)), randf_range(8, 20), Vector2.ZERO, 0.0, false,
+			C_VENOM[1])
+	cue.emit("hiss")
+
+
+## A splash of venom: green drops flung out and a spreading green stain.
+func _venom_splat(at: Vector2, z: float, n: int) -> void:
+	for i in n:
+		_drop(at, z, Vector2.from_angle(randf() * TAU) * randf_range(0.3, 1.3), randf_range(0.8, 2.0), false,
+			C_VENOM[randi() % 3])
+	_add({"kind": "puddle", "pos": at, "radius": 4.0, "ry": 0.45, "grow": 4.0, "life": 70.0, "fade": 30.0,
+		"color": Color(C_VENOM[0], 0.7)})
+
+
+## A poison bubble: rises from `z` above `at`, wobbling, and pops.
+func _bubble(at: Vector2, z: float) -> void:
+	_add({"kind": "bubble", "pos": at, "z": z, "life": randf_range(18.0, 28.0), "r": randf_range(1.0, 2.2),
+		"wob": randf() * TAU})
+
+
+func _owner_has_venom(owner: CreatureSim) -> bool:
+	var mvs := owner.moves()
+	for m in mvs:
+		var mv: Dictionary = mvs[m]
+		if mv.has("projectile") and String(mv.get("fx", {}).get("projectile", "")) == "venom":
+			return true
+	return false
+
+
 func _creature(i: int) -> CreatureSim:
 	return sim.creatures[i] if i >= 0 and i < sim.creatures.size() else null
 
@@ -1024,13 +1761,14 @@ func _draw() -> void:
 func _paint(ci: CanvasItem, floor_layer: bool) -> void:
 	if floor_layer:
 		if _dark > 0.0:
-			ci.draw_rect(Rect2(-40, -40, SimDefs.VIEW_W + 80, SimDefs.VIEW_H + 80), Color(C_DIM, _dark))
+			ci.draw_rect(Rect2(-ArenaView.MARGIN, Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H) + ArenaView.MARGIN * 2.0),
+				Color(C_DIM, _dark))
 		for p in _parts:  # flat things first, so debris sits on top of puddles and cracks
 			if String(p["kind"]) in ["puddle", "decal", "ripple"]:
 				_draw_part(ci, p)
 		for p in _parts:
 			var kind := String(p["kind"])
-			if kind == "ghost" or (kind == "spire" and not bool(p.get("front", false))):
+			if kind == "ghost" or (kind in ["spire", "root"] and not bool(p.get("front", false))):
 				_draw_part(ci, p)
 			elif p.has("vz") and float(p["z"]) > 1.0:
 				_draw_shadow(ci, p)
@@ -1046,13 +1784,14 @@ func _paint(ci: CanvasItem, floor_layer: bool) -> void:
 		var kind := String(p["kind"])
 		if kind in ["puddle", "decal", "ripple", "ghost", "later", "emit"]:
 			continue
-		if kind == "spire" and not bool(p.get("front", false)):
+		if kind in ["spire", "root"] and not bool(p.get("front", false)):
 			continue
 		if kind == "chunk" and bool(p.get("grounded", false)):
 			continue
 		_draw_part(ci, p)
 	if sim != null:
 		_draw_creature_extras(ci, false)
+		_draw_side_marks(ci)
 	if _rain > 0.0:
 		_draw_rain(ci)
 
@@ -1129,6 +1868,16 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 			col.a = 1.0 - k
 			var pos: Vector2 = p["pos"]
 			ci.draw_rect(Rect2(pos.round(), Vector2.ONE * (2.0 if k < 0.4 else 1.0)), col)
+		"bubble":
+			var at := Vector2(p["pos"]) + Vector2(sin(float(p["wob"]) + t * 0.35) * 1.5, -float(p["z"]) - t * 0.45)
+			var r := float(p["r"])
+			if k < 0.9:
+				ci.draw_circle(at.round(), r + 1.0, Color(C_OUTLINE, 0.7))
+				ci.draw_circle(at.round(), r, C_VENOM[1])
+				ci.draw_rect(Rect2((at + Vector2(-r * 0.5, -r * 0.5)).round(), Vector2.ONE), C_VENOM[2])
+			else:
+				for d in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+					ci.draw_rect(Rect2((at + d * (r + 1.0)).round(), Vector2.ONE), C_VENOM[2])
 		"streak":
 			var col: Color = p["color"]
 			col.a *= 1.0 - k
@@ -1136,7 +1885,8 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 		"suck":
 			var a: Vector2 = p["from"]
 			var b: Vector2 = p["to"]
-			ci.draw_line(a.lerp(b, k), a.lerp(b, minf(1.0, k + 0.35)), Color(1, 1, 1, 0.7 * (1.0 - k * 0.5)), 1.0)
+			var sc: Color = p.get("color", Color.WHITE)
+			ci.draw_line(a.lerp(b, k), a.lerp(b, minf(1.0, k + 0.35)), Color(sc, 0.7 * (1.0 - k * 0.5)), 1.0)
 		"smear":
 			var col: Color = p["color"]
 			col.a *= pow(1.0 - k, 0.7)
@@ -1173,6 +1923,11 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 			var a := 0.55 * _alpha(p)
 			var ry := float(p["ry"])
 			ci.draw_set_transform(pos, 0.0, Vector2(1.0, ry))
+			if p.has("color"):  # a dark mark rather than water (Tenderize's tooth marks)
+				var mc: Color = p["color"]
+				ci.draw_circle(Vector2.ZERO, r, Color(mc, mc.a * _alpha(p)))
+				ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+				return
 			ci.draw_circle(Vector2.ZERO, r, Color(C_WATER, a))
 			if r > 6.0:
 				ci.draw_arc(Vector2.ZERO, r * 0.7, PI * 1.1, PI * 1.5, 8, Color(C_WATER_L, a), 1.0 / ry)
@@ -1186,6 +1941,24 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 				_draw_partial_line(ci, pts, grow, col)
 		"spire":
 			_draw_spire(ci, p)
+		"root":
+			_draw_root(ci, p)
+		"leaf":
+			var at := (Vector2(p["pos"]) + Vector2(0, -float(p.get("z", 0.0)))).round()
+			var col: Color = p["color"]
+			col.a = clampf((life - t) / 12.0, 0.0, 1.0)
+			var flat := int(float(p.get("rot", t * 0.3)) * 2.0) % 2 == 0
+			ci.draw_rect(Rect2(at, Vector2(2, 1) if flat else Vector2(1, 2)), col)
+			ci.draw_rect(Rect2(at + (Vector2(2, 0) if flat else Vector2(0, 2)), Vector2.ONE), Color(C_LEAF[0], col.a))
+		"whirl":
+			# A curved gust of wind sweeping round a spin.
+			var pos: Vector2 = p["pos"]
+			var r := float(p["radius"])
+			var a0 := float(p["start"]) + k * 2.5
+			ci.draw_set_transform(pos, 0.0, Vector2(1.0, 0.45))
+			ci.draw_arc(Vector2.ZERO, r, a0, a0 + 1.6, 12, Color(1, 1, 1, 0.55 * (1.0 - k)), 1.5 / 0.45)
+			ci.draw_arc(Vector2.ZERO, r * 0.7, a0 + 2.6, a0 + 3.8, 10, Color(C_LEAF[2], 0.5 * (1.0 - k)), 1.0 / 0.45)
+			ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		"bodycrack":
 			if int(p["id"]) >= sim.creatures.size():
 				return
@@ -1288,10 +2061,56 @@ func _draw_spire(ci: CanvasItem, p: Dictionary) -> void:
 		b + Vector2(w * 0.55, -h * 0.5 + 1), b + Vector2(w, 0), b + Vector2(w * 0.3, 0)]), C_STONE[0])
 
 
+## A root shooting up out of the floor: a tapered, bending wooden spike with a dirt ring.
+func _draw_root(ci: CanvasItem, p: Dictionary) -> void:
+	var t := float(p["t"]) - float(p.get("delay", 0.0))
+	if t < 0.0:
+		return
+	var life := float(p["life"]) - float(p.get("delay", 0.0))
+	var rise := clampf(t / 3.0, 0.0, 1.0)
+	var sink := clampf((life - t) / 8.0, 0.0, 1.0)
+	var h := float(p["h"]) * (1.0 - pow(1.0 - rise, 3.0)) * sink
+	if h < 2.0:
+		return
+	var w := float(p["w"])
+	var lean := float(p["lean"])
+	var b: Vector2 = Vector2(p["pos"]).round()
+	ci.draw_set_transform(b, 0.0, Vector2(1.0, 0.4))
+	ci.draw_circle(Vector2.ZERO, w + 2.5, Color(0, 0, 0, 0.35))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var tip := b + Vector2(lean * h, -h)
+	var mid := b + Vector2(lean * h * 0.3 + w * 0.4, -h * 0.55)
+	var outline := PackedVector2Array([b + Vector2(-w - 1, 1), mid + Vector2(-w * 0.6 - 1, 0), tip + Vector2(0, -1),
+		mid + Vector2(w * 0.6 + 1, 0), b + Vector2(w + 1, 1)])
+	ci.draw_colored_polygon(outline, C_OUTLINE)
+	ci.draw_colored_polygon(PackedVector2Array([b + Vector2(-w, 0), mid + Vector2(-w * 0.6, 0), tip,
+		mid + Vector2(w * 0.6, 0), b + Vector2(w, 0)]), C_WOOD[2])
+	ci.draw_colored_polygon(PackedVector2Array([b + Vector2(-w, 0), mid + Vector2(-w * 0.6, 0), tip,
+		mid + Vector2(-w * 0.1, 0), b + Vector2(-w * 0.2, 0)]), C_WOOD[3])
+	if h > 10.0:
+		ci.draw_rect(Rect2((mid + Vector2(w * 0.3, 2)).round(), Vector2(2, 1)), C_LEAF[1])
+
+
 func _draw_projectiles(ci: CanvasItem) -> void:
 	for pr in sim.projectiles:
 		var pp: Vector2 = pr["pos"]
 		var vel: Vector2 = pr["vel"]
+		if bool(pr.get("lob", false)):
+			_draw_pinecone(ci, pr)
+			continue
+		if not _is_wave(pr):
+			match _proj_kind(pr):
+				"knife":
+					_draw_thrown_knife(ci, pr)
+				"mallet", "cleaver":
+					_draw_spinner(ci, pr, _proj_kind(pr))
+				"venom":
+					_draw_venom(ci, pr)
+				"head":
+					_draw_long_bite(ci, pr)
+				_:
+					_draw_thrown_rod(ci, pr)
+			continue
 		if _is_wave(pr):
 			_draw_wave(ci, pp.round(), vel)
 			continue
@@ -1299,6 +2118,197 @@ func _draw_projectiles(ci: CanvasItem) -> void:
 		var w := -16.0 if vel.x < 0.0 else 16.0
 		ci.draw_texture_rect_region(SHEET, Rect2(pp.round() + Vector2(-w * 0.5, -14), Vector2(w, 16)),
 			Rect2(frame * 16, 32, 16, 16))
+
+
+## Which "projectile" fx the move that threw this uses ("rod" when it can't tell).
+func _proj_kind(pr: Dictionary) -> String:
+	var owner := _creature(int(pr["owner"]))
+	if owner == null or not pr.has("move"):
+		return "rod"
+	var mv: Dictionary = owner.moves().get(String(pr["move"]), {})
+	return String(mv.get("fx", {}).get("projectile", "rod"))
+
+
+## Mountain Maw in flight: Craglash's stone neck stretched out from his shoulders to the
+## flying head, jaws open, slab by slab.
+func _draw_long_bite(ci: CanvasItem, pr: Dictionary) -> void:
+	var owner := _creature(int(pr["owner"]))
+	var pp: Vector2 = Vector2(pr["pos"]).round()
+	var d: Vector2 = Vector2(pr["vel"]).normalized()
+	var head := pp + Vector2(0, -18)
+	ci.draw_set_transform(pp, 0.0, Vector2(1.0, 0.4))
+	ci.draw_circle(Vector2.ZERO, 6.0, Color(0, 0, 0, 0.28))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	if owner != null:
+		var root := owner.pos + Vector2(owner.facing.x * 6.0, -_top(owner) + 12.0)
+		var n := maxi(2, int(root.distance_to(head) / 6.0))
+		for i in n:
+			var k := float(i) / n
+			var at := root.lerp(head, k) + Vector2(0, sin(k * PI) * -6.0)
+			var w := 3.5 - k
+			ci.draw_rect(Rect2((at - Vector2(w + 1, w + 1)).round(), Vector2(w * 2 + 2, w * 2 + 2)), C_OUTLINE)
+			ci.draw_rect(Rect2((at - Vector2(w, w)).round(), Vector2(w * 2, w * 2)), C_CRAG[(i % 2) + 1])
+	# the head: a heavy stone block with its jaws wide, teeth showing
+	var side := Vector2(-d.y, d.x) * 1.7
+	d = d * 1.7  # the head is drawn bigger than the neck slabs
+	var jaw := 4.0 + 1.5 * float((_tick / 3) % 2)
+	var top := PackedVector2Array([head - d * 6.0 - side * 5.0, head + d * 7.0 - side * 1.0 - side * jaw * 0.5,
+		head + d * 7.0 - side * 0.5, head - d * 6.0 + side * 1.0])
+	var bot := PackedVector2Array([head - d * 6.0 + side * 1.5, head + d * 6.0 + side * jaw * 0.5,
+		head + d * 6.0 + side * (jaw * 0.5 + 2.5), head - d * 6.0 + side * 5.0])
+	for poly: PackedVector2Array in [top, bot]:
+		var grown := PackedVector2Array()
+		var c: Vector2 = (poly[0] + poly[1] + poly[2] + poly[3]) / 4.0
+		for q in poly:
+			grown.append(c + (q - c) * 1.25)
+		ci.draw_colored_polygon(grown, C_OUTLINE)
+		ci.draw_colored_polygon(poly, C_CRAG[1])
+	for k in 3:
+		var tooth := head + d * (1.0 + k * 2.2) - side * 0.3
+		ci.draw_rect(Rect2(tooth.round(), Vector2.ONE), Color.WHITE)
+	ci.draw_rect(Rect2((head - d * 2.5 - side * 3.0).round(), Vector2(2, 1)), C_AMBER)  # the eye
+
+
+## Who's who: a coloured marker over each side's fighter (red for the left side, P1;
+## blue for the right, P2 or the CPU) with its label.
+func _draw_side_marks(ci: CanvasItem) -> void:
+	for i in mini(side_marks.size(), sim.creatures.size()):
+		var c := sim.creatures[i]
+		if c.state == CreatureSim.State.KO or c.stealth > 0:
+			continue
+		var mk: Dictionary = side_marks[i]
+		var col: Color = mk["color"]
+		var bob := float((_tick / 20) % 2)
+		var at := (c.pos + Vector2(0, -_top(c) - 6.0 - c.air_height() - CreatureView.view_lift(c) - bob)).round()
+		var tri := PackedVector2Array([at + Vector2(-4, -4), at + Vector2(5, -4), at + Vector2(0.5, 1)])
+		var out := PackedVector2Array([at + Vector2(-6, -5), at + Vector2(7, -5), at + Vector2(0.5, 2.5)])
+		ci.draw_colored_polygon(out, C_OUTLINE)
+		ci.draw_colored_polygon(tri, col)
+		var label := String(mk.get("label", ""))
+		if label != "":
+			ci.draw_string_outline(_font, at + Vector2(-20, -7), label, HORIZONTAL_ALIGNMENT_CENTER, 41, 6, 2, C_OUTLINE)
+			ci.draw_string(_font, at + Vector2(-20, -7), label, HORIZONTAL_ALIGNMENT_CENTER, 41, 6, col)
+
+
+## Venom Spit in flight: a wobbling green glob at head height with drips behind it.
+func _draw_venom(ci: CanvasItem, pr: Dictionary) -> void:
+	var pp: Vector2 = Vector2(pr["pos"]).round()
+	var d: Vector2 = Vector2(pr["vel"]).normalized()
+	var at := pp + Vector2(0, -20)
+	ci.draw_set_transform(pp, 0.0, Vector2(1.0, 0.4))
+	ci.draw_circle(Vector2.ZERO, 3.0, Color(0, 0, 0, 0.25))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	for i in 3:
+		var back := at - d * (4.0 + i * 3.5) + Vector2(0, float((i + _tick / 2) % 3) - 1.0)
+		ci.draw_circle(back.round(), 1.6 - i * 0.4, Color(C_VENOM[1], 0.8 - i * 0.2))
+	var wob := 1.0 + 0.15 * float((_tick / 3) % 2)
+	ci.draw_set_transform(at, d.angle(), Vector2(1.25 * wob, 1.0 / wob))
+	ci.draw_circle(Vector2.ZERO, 3.6, C_OUTLINE)
+	ci.draw_circle(Vector2.ZERO, 2.7, C_VENOM[1])
+	ci.draw_circle(Vector2(0.6, -0.9), 1.0, C_VENOM[2])
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## Chef Cerebro's thrown knives: point first, a glint along the blade, and a short
+## streak behind.
+func _draw_thrown_knife(ci: CanvasItem, pr: Dictionary) -> void:
+	var pp: Vector2 = Vector2(pr["pos"]).round()
+	var d: Vector2 = Vector2(pr["vel"]).normalized()
+	var at := pp + Vector2(0, -12)
+	ci.draw_set_transform(pp, 0.0, Vector2(1.0, 0.4))
+	ci.draw_circle(Vector2.ZERO, 2.5, Color(0, 0, 0, 0.25))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	ci.draw_line(at - d * 12.0, at - d * 5.0, Color(1, 1, 1, 0.25), 1.0)
+	var tip := at + d * 5.0
+	var butt := at - d * 4.0
+	ci.draw_line(butt, tip, C_OUTLINE, 3.0)
+	ci.draw_line(at - d * 1.0, tip, C_GREY[3], 1.0)
+	ci.draw_line(butt, at - d * 1.0, Color("2a2628"), 1.0)
+	if (_tick / 3) % 2 == 0:
+		ci.draw_rect(Rect2((at + d * 2.0).round(), Vector2.ONE), Color.WHITE)
+
+
+## The mallet and the cleaver in flight, spinning end over end at chest height.
+func _draw_spinner(ci: CanvasItem, pr: Dictionary, kind: String) -> void:
+	var pp: Vector2 = Vector2(pr["pos"]).round()
+	var at := pp + Vector2(0, -12)
+	ci.draw_set_transform(pp, 0.0, Vector2(1.0, 0.4))
+	ci.draw_circle(Vector2.ZERO, 4.0, Color(0, 0, 0, 0.28))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var spin := -_tick * 0.8 if Vector2(pr["vel"]).x < 0.0 else _tick * 0.8
+	var d := Vector2.from_angle(spin)
+	var n := d.orthogonal()
+	if kind == "mallet":
+		var butt := at - d * 6.0
+		var head := at + d * 5.0
+		ci.draw_line(butt, head, C_OUTLINE, 3.0)
+		ci.draw_line(butt, head, C_MALLET[1], 1.0)
+		var quad := PackedVector2Array([head - n * 4.0 - d * 2.0, head + n * 4.0 - d * 2.0,
+			head + n * 4.0 + d * 2.5, head - n * 4.0 + d * 2.5])
+		ci.draw_colored_polygon(quad, C_MALLET[0])
+		ci.draw_polyline(quad + PackedVector2Array([quad[0]]), C_OUTLINE, 1.0)
+	else:
+		# the big chef's knife: a long blade and a black handle
+		var butt := at - d * 8.0
+		var heel := at - d * 2.0
+		var tip := at + d * 11.0
+		ci.draw_line(butt, heel, C_OUTLINE, 4.0)
+		ci.draw_line(butt, heel, Color("2a2628"), 2.0)
+		var blade := PackedVector2Array([heel, heel + n * 4.5, tip + n * 1.0, tip, heel - n * 0.5])
+		ci.draw_colored_polygon(blade, C_GREY[3])
+		ci.draw_polyline(blade + PackedVector2Array([blade[0]]), C_OUTLINE, 1.0)
+		ci.draw_line(heel + n * 0.5, tip, Color.WHITE, 1.0)
+	# a whoosh behind it
+	var back: Vector2 = -Vector2(pr["vel"]).normalized()
+	ci.draw_arc(at + back * 3.0, 9.0, back.angle() - 0.6, back.angle() + 0.6, 8, Color(1, 1, 1, 0.2), 1.0)
+
+
+## Cast Line's rod in flight: it spins end over end on its line, flying at hip height.
+func _draw_thrown_rod(ci: CanvasItem, pr: Dictionary) -> void:
+	var pp: Vector2 = Vector2(pr["pos"]).round()
+	var at := pp + Vector2(0, -10)
+	ci.draw_set_transform(pp, 0.0, Vector2(1.0, 0.4))
+	ci.draw_circle(Vector2.ZERO, 4.0, Color(0, 0, 0, 0.28))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var d := Vector2.from_angle(_tick * 0.7) * 13.0
+	var butt := at - d
+	var tip := at + d
+	ci.draw_line(butt, tip, C_OUTLINE, 4.0)
+	ci.draw_line(butt, tip, C_WOOD[1], 2.0)
+	ci.draw_line(butt, butt.lerp(tip, 0.22), C_OUTLINE, 5.0)
+	ci.draw_line(butt, butt.lerp(tip, 0.22), Color("880015"), 3.0)
+	var reel := butt.lerp(tip, 0.28)
+	ci.draw_circle(reel, 2.5, C_OUTLINE)
+	ci.draw_circle(reel, 1.6, C_GREY[1])
+
+
+## Pinecone Bomb in flight: an arc over everyone, its shadow on the floor, and a ring
+## where it will land.
+func _draw_pinecone(ci: CanvasItem, pr: Dictionary) -> void:
+	var pp: Vector2 = pr["pos"]
+	var vel: Vector2 = pr["vel"]
+	var total := float(pr["time"])
+	var left := float(pr["life"])
+	var k := clampf(1.0 - left / total, 0.0, 1.0)
+	var land := pp + vel * left
+	var pulse := 0.5 + 0.5 * sin(_tick * 0.7)
+	ci.draw_set_transform(land, 0.0, Vector2(1.0, 0.42))
+	ci.draw_arc(Vector2.ZERO, float(pr["burst"]), 0.0, TAU, 32, Color(C_CONE[2], 0.25 + 0.35 * pulse * k), 1.0 / 0.42)
+	ci.draw_circle(Vector2.ZERO, lerpf(2.0, 6.0, k), Color(0, 0, 0, 0.25))
+	ci.draw_set_transform(pp, 0.0, Vector2(1.0, 0.42))
+	ci.draw_circle(Vector2.ZERO, 3.5, Color(0, 0, 0, 0.3))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var z := 12.0 + 4.0 * 26.0 * k * (1.0 - k)  # leaves the hand at about head height
+	z *= 1.0 - k * 0.55
+	var at := (pp + Vector2(0, -z)).round()
+	var rot := _tick * 0.35
+	ci.draw_set_transform(at, rot, Vector2.ONE)
+	ci.draw_rect(Rect2(-3, -4, 6, 8), C_OUTLINE)
+	ci.draw_rect(Rect2(-2, -3, 4, 6), C_CONE[1])
+	ci.draw_rect(Rect2(-2, -2, 4, 1), C_CONE[0])
+	ci.draw_rect(Rect2(-2, 1, 4, 1), C_CONE[0])
+	ci.draw_rect(Rect2(-1, -3, 1, 1), C_CONE[2])
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 ## Runoff as a rolling wave: a low swell with a curling crest and foam.
@@ -1333,6 +2343,8 @@ func _draw_wave(ci: CanvasItem, p: Vector2, vel: Vector2) -> void:
 ## Things drawn straight from creature state every frame: orbiting pebbles, Cairn's
 ## stones, the Storm Drain landing marker and Avalanche speed lines.
 func _draw_creature_extras(ci: CanvasItem, floor_layer: bool) -> void:
+	if floor_layer:
+		_draw_zones(ci)
 	for c in sim.creatures:
 		var attacking := c.state == CreatureSim.State.ATTACK
 		var mv := c.move_def() if attacking else {}
@@ -1350,8 +2362,13 @@ func _draw_creature_extras(ci: CanvasItem, floor_layer: bool) -> void:
 				ci.draw_rect(Rect2(at - Vector2(1, 1), Vector2(2, 2)), col)
 
 		if floor_layer:
+			if attacking and c.charging and bool(mv.get("projectile", {}).get("lob", false)):
+				_draw_lob_mark(ci, c, mv)
 			if attacking and bool(fx.get("telegraph", false)) and c.state_t <= int(mv.get("startup", 0)):
 				_draw_telegraph(ci, c, mv)
+			if attacking and bool(fx.get("telegraph_line", false)) and not c.charging \
+					and c.state_t <= int(mv.get("startup", 0)) + 6:
+				_draw_line_telegraph(ci, c)
 			if c.is_armored():
 				_draw_rooted(ci, c)
 			if not (c.state in [CreatureSim.State.KO, CreatureSim.State.FALLING]) and not c.is_dummy:
@@ -1375,6 +2392,9 @@ func _draw_creature_extras(ci: CanvasItem, floor_layer: bool) -> void:
 				var top := (c.pos + Vector2(0, -_top(c) - 7.0 - c.air_height() - 6.0)).round()
 				ci.draw_rect(Rect2(top, Vector2.ONE), C_SPARK[0])
 
+		if attacking and bool(fx.get("cast", false)):
+			_draw_cast(ci, c, mv)
+
 		if attacking and bool(fx.get("speedlines", false)):
 			var segs: Array = mv.get("_segs", [])
 			if segs.size() > 0:
@@ -1394,6 +2414,13 @@ func _draw_telegraph(ci: CanvasItem, c: CreatureSim, mv: Dictionary) -> void:
 	if not dash.is_empty():
 		remaining = maxf(0.0, float(dash["to"]) - c.state_t) * float(dash["speed"])
 	var land := c.pos + c.facing * (remaining + float(mv.get("reach", 0)))
+	if dash.has("home"):
+		# A homing leap: the mark follows the foe until the landing spot locks.
+		var foe := sim.nearest_opponent(c)
+		if foe != null and c.state_t <= int(dash["home"].get("until", 0)):
+			land = foe.pos
+		else:
+			land = c.pos + c.facing * maxf(0.0, float(dash["to"]) - c.state_t) * c.home_speed
 	var k := clampf(float(c.state_t) / maxf(1.0, float(mv.get("startup", 1))), 0.0, 1.0)
 	var r := float(mv.get("hit_radius", 40))
 	var pulse := 0.5 + 0.5 * sin(_tick * 0.6)
@@ -1417,6 +2444,39 @@ func _draw_aim_mark(ci: CanvasItem, c: CreatureSim, attacking: bool) -> void:
 	var pts := PackedVector2Array([tip, base + side, base - side])
 	ci.draw_colored_polygon(pts, Color(1, 1, 1, a * 0.8))
 	ci.draw_polyline(PackedVector2Array([base + side, tip, base - side]), Color(0, 0, 0, a * 0.6), 1.0)
+
+## Pinecone Bomb while it's held: a ring on the floor where it will land, sliding out as
+## the throw gets longer.
+func _draw_lob_mark(ci: CanvasItem, c: CreatureSim, mv: Dictionary) -> void:
+	var pr: Dictionary = mv["projectile"]
+	var k := clampf(float(c.charge) / maxf(1.0, float(mv.get("charge_max", 1))), 0.0, 1.0)
+	var rng := lerpf(float(pr["range"]), float(pr.get("range_charged", pr["range"])), k)
+	var land := (c.pos + c.facing * (float(pr.get("offset", 0)) + rng)).round()
+	var r := float(pr.get("burst", 16))
+	var pulse := 0.5 + 0.5 * sin(_tick * 0.5)
+	ci.draw_set_transform(land, 0.0, Vector2(1.0, 0.45))
+	ci.draw_arc(Vector2.ZERO, r, 0.0, TAU, 32, Color(C_CONE[2], 0.45 + 0.35 * pulse), 1.0)
+	ci.draw_circle(Vector2.ZERO, 2.0, Color(C_CONE[2], 0.7))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var n := int(rng / 8.0)
+	for i in n:
+		var at := (c.pos + c.facing * (float(pr.get("offset", 0)) + rng * (i + 0.5) / n)).round()
+		ci.draw_rect(Rect2(at, Vector2.ONE), Color(C_CONE[2], 0.4))
+
+
+## Knife Flurry: a dotted line along the floor as far as the knives will fly.
+func _draw_line_telegraph(ci: CanvasItem, c: CreatureSim) -> void:
+	var reach := c.move_range(c.move_id)
+	var k := clampf(float(c.state_t + 4) / maxf(1.0, float(c.move_def().get("startup", 1))), 0.0, 1.0)
+	var pulse := 0.5 + 0.5 * sin(_tick * 0.6)
+	var n := int(reach / 6.0)
+	for i in n:
+		if float(i) / n > k:
+			break
+		var at := (c.pos + c.facing * (c.radius + 4.0 + i * 6.0)).round()
+		ci.draw_rect(Rect2(at - Vector2(1, 0), Vector2(3, 1)), Color(C_WARN, 0.35 + 0.35 * pulse))
+	var end := (c.pos + c.facing * reach).round()
+	ci.draw_arc(end, 5.0, 0.0, TAU, 16, Color(C_WARN, 0.3 + 0.4 * pulse * k), 1.0)
 
 
 ## Bedrock: a glowing ring where the feet are planted, cracks pulsing outward.
@@ -1444,6 +2504,30 @@ func _draw_status(ci: CanvasItem, c: CreatureSim) -> void:
 	if c.taunt > 0 and (c.taunt > 30 or (_tick / 4) % 2 == 0):
 		var top := (c.pos + Vector2(0, -_top(c) - 10.0 - lift)).round()
 		_bang(ci, top)
+	if c.blind > 0:
+		# blinded: little stars circling the head
+		for i in 3:
+			var a := _tick * 0.15 + TAU * i / 3.0
+			var at := (c.pos + Vector2(cos(a) * 7.0, -_top(c) - 2.0 - lift + sin(a) * 2.0)).round()
+			ci.draw_rect(Rect2(at - Vector2(1, 0), Vector2(3, 1)), C_LAMP)
+			ci.draw_rect(Rect2(at - Vector2(0, 1), Vector2(1, 3)), C_LAMP)
+	if c.root > 0:
+		# rooted: rubble heaped round the feet
+		for i in 6:
+			var a := TAU * i / 6.0 + 0.4
+			var at := (c.pos + Vector2(cos(a) * (c.radius + 1.0), sin(a) * 3.0)).round()
+			ci.draw_rect(Rect2(at - Vector2(2, 1), Vector2(4, 3)), C_OUTLINE)
+			ci.draw_rect(Rect2(at - Vector2(1, 1), Vector2(2, 2)), C_DIRT[1 + i % 2])
+	if c.vuln > 0 and (c.vuln > 40 or (_tick / 4) % 2 == 0):
+		# tenderized: a pink down-arrow bobbing over the head
+		var bob := float((_tick / 8) % 2)
+		var at := (c.pos + Vector2(c.radius + 4.0, -_top(c) - 4.0 - lift + bob)).round()
+		ci.draw_rect(Rect2(at + Vector2(-1, -6), Vector2(3, 5)), C_OUTLINE)
+		ci.draw_rect(Rect2(at + Vector2(0, -5), Vector2(1, 4)), C_TENDER)
+		var tri := PackedVector2Array([at + Vector2(-3, -1), at + Vector2(4, -1), at + Vector2(0.5, 3)])
+		ci.draw_colored_polygon(tri, C_OUTLINE)
+		var tri2 := PackedVector2Array([at + Vector2(-2, -1), at + Vector2(3, -1), at + Vector2(0.5, 2)])
+		ci.draw_colored_polygon(tri2, C_TENDER)
 
 
 func _bang(ci: CanvasItem, at: Vector2) -> void:

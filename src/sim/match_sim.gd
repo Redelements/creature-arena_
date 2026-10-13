@@ -15,6 +15,10 @@ const HITSTUN_FLOOR := 0.4
 const STALE_MULT := 0.5
 const ENERGY_PER_DAMAGE := 1.5
 const ENERGY_PER_DAMAGE_TAKEN := 1.0
+const STONE_SHATTER_MULT := 1.25
+## A blocked third light (or later: Cairn's Hook) leaves the attacker at least this many
+## ticks behind the blocker, enough to punish with a jab, and it can't be cancelled out of.
+const BLOCKED_ENDER_DISADVANTAGE := 16
 
 var tick := 0
 var hitstop := 0
@@ -28,6 +32,9 @@ var ko_slowmo_ticks := 70
 var terrain := TerrainGrid.new()
 var creatures: Array[CreatureSim] = []
 var projectiles: Array[Dictionary] = []
+## Ground zones (Sno Mercy's Syrup Slick): {owner, pos, radius, ticks, slow_mult}. Foes of
+## the owner standing in one are slowed.
+var zones: Array[Dictionary] = []
 var events: Array[Dictionary] = []
 
 
@@ -70,6 +77,7 @@ func step(inputs: PackedInt32Array) -> void:
 	for i in creatures.size():
 		creatures[i].step(_input(inputs, i), self)
 	_step_projectiles()
+	_step_zones()
 	_resolve_hits()
 	_separate()
 	_check_falls()
@@ -104,7 +112,7 @@ func snapshot() -> Dictionary:
 		"tick": tick, "hitstop": hitstop, "ko_freeze": ko_freeze, "slowmo": slowmo,
 		"cells": terrain.cells.duplicate(), "timers": terrain.timers.duplicate(),
 		"terrain_version": terrain.version,
-		"creatures": cs, "projectiles": projectiles.duplicate(true),
+		"creatures": cs, "projectiles": projectiles.duplicate(true), "zones": zones.duplicate(true),
 	}
 
 
@@ -120,6 +128,7 @@ func restore(s: Dictionary) -> void:
 	for i in creatures.size():
 		creatures[i].load_state(cs[i])
 	projectiles.assign((s["projectiles"] as Array).duplicate(true))
+	zones.assign((s.get("zones", []) as Array).duplicate(true))
 	events.clear()
 
 
@@ -134,6 +143,8 @@ func state_digest() -> String:
 			parts.append(st[f])
 	for p in projectiles:
 		parts.append_array([p["pos"], p["vel"], p["life"], p["owner"], p["serial"]])
+	for z in zones:
+		parts.append_array([z["pos"], z["radius"], z["ticks"], z["owner"], z["slow_mult"]])
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(var_to_bytes(parts))
@@ -184,6 +195,11 @@ func _resolve_hits() -> void:
 				continue
 			if center.distance_to(d.pos) > reach + d.radius:
 				continue
+			# A cone (Shaved Ice Spray): only foes in front of the attacker.
+			if float(hit.get("cone", 0.0)) > 0.0:
+				var to := d.pos - a.pos
+				if to.length_squared() > 0.0001 and a.facing.dot(to.normalized()) < float(hit["cone"]):
+					continue
 			a.seg_hit[key] = true
 			var push := d.pos - a.pos
 			push = push.normalized() if push.length_squared() > 0.0001 else a.facing
@@ -193,6 +209,10 @@ func _resolve_hits() -> void:
 ## Resolves one hit: Slip counters, guarding, then damage with the combo rules.
 ## Returns "slip", "block" or "hit".
 func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, fx_pos: Vector2) -> String:
+	# Blinded when the attack started (Headlamp Flash): it misses.
+	if a.whiff_serial > 0 and int(hit["serial"]) == a.whiff_serial:
+		emit_event("miss", fx_pos, 0.0, {"who": a.id, "target": d.id})
+		return "miss"
 	var same_attack := a.attack_serial == int(hit["serial"]) and a.state == CreatureSim.State.ATTACK
 
 	# Slip: a strike inside the counter window is dodged and answered. Grabs beat it.
@@ -201,6 +221,10 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		return "slip"
 
 	var damage := float(hit["damage"])
+	if a.atk_buff > 0:
+		damage *= a.atk_mult  # Pickpocket: stolen power, or power stolen
+	if d.vuln > 0:
+		damage *= d.vuln_mult  # tenderized: every hit lands harder, chip included
 	var gd: Dictionary = d.def["guard"]
 
 	# Armor (Bedrock): the hit only chips, and the target doesn't flinch or move.
@@ -208,7 +232,8 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		var ar: Dictionary = d.move_def()["armor"]
 		var taken := d.take_damage(damage * (1.0 - float(ar.get("reduction", 0.6))), self)
 		d.flash = 3
-		a.energy = minf(CreatureSim.MAX_ENERGY, a.energy + taken * ENERGY_PER_DAMAGE)
+		if String(hit["type"]) != "surge":  # a Surge never charges the next one
+			a.energy = minf(CreatureSim.MAX_ENERGY, a.energy + taken * ENERGY_PER_DAMAGE)
 		if same_attack:
 			a.connected = true
 		hitstop = maxi(hitstop, int(float(hit["hitstop"]) * 0.6))
@@ -224,9 +249,11 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 			d.knock_vel = push * float(hit["knockback"]) * 0.4 / d.weight
 			d.guard_hit = 10
 			d.stun = int(float(hit["hitstun"]) * 0.5)
-			a.energy = minf(CreatureSim.MAX_ENERGY, a.energy + chip * ENERGY_PER_DAMAGE)
+			if String(hit["type"]) != "surge":
+				a.energy = minf(CreatureSim.MAX_ENERGY, a.energy + chip * ENERGY_PER_DAMAGE)
 			if same_attack:
 				a.connected = true
+				_punish_blocked_ender(a, d)
 			hitstop = maxi(hitstop, int(float(hit["hitstop"]) * 0.5))
 			emit_event("block", fx_pos, damage, {"attacker": a.id, "target": d.id})
 			if d.stamina <= 0.0:
@@ -240,6 +267,15 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		emit_event("guard_break", d.pos, 1.0)
 
 	# --- a clean hit
+	# A statue (Petrify Punch) shatters on the next clean hit, which lands harder.
+	if d.stone > 0:
+		damage *= STONE_SHATTER_MULT
+		d.stone = 0
+		emit_event("shatter", d.pos, damage, {"who": d.id, "by": a.id, "ice": d.stone_ice})
+	# A hit that doesn't stagger (Chef Cerebro's knife flicks): damage only. On a foe who
+	# isn't already stunned it doesn't start a combo either.
+	var no_flinch := bool(hit.get("no_flinch", false))
+	var was_stunned := d.is_stunned()
 	var n := d.combo_hits + 1
 	var types := d.combo_types | int(SimDefs.TYPE_BIT[String(hit["type"])])
 	var variety := SimDefs.variety_mult(types)
@@ -266,7 +302,8 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	d.combo_moves[move_key] = int(hit["serial"])
 	d.combo_damage += total
 	d.last_attacker = a.id
-	a.energy = minf(CreatureSim.MAX_ENERGY, a.energy + total * ENERGY_PER_DAMAGE)
+	if String(hit["type"]) != "surge":  # a Surge's hits never charge the next Surge
+		a.energy = minf(CreatureSim.MAX_ENERGY, a.energy + total * ENERGY_PER_DAMAGE)
 	d.energy = minf(CreatureSim.MAX_ENERGY, d.energy + total * ENERGY_PER_DAMAGE_TAKEN)
 	if same_attack:
 		a.connected = true
@@ -283,7 +320,51 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 			d.juggle_serials[jkey] = true
 			d.juggles += 1
 
-	if bool(hit["grab"]):
+	if float(hit.get("poison_ticks", 0.0)) > 0.0:
+		d.poison = maxi(d.poison, int(hit["poison_ticks"]))
+		d.poison_every = maxi(1, int(hit.get("poison_every", 30)))
+		d.poison_dmg = float(hit["poison_damage"])
+		d.poison_by = a.id
+		emit_event("poisoned", d.pos, float(hit["poison_ticks"]), {"who": d.id, "by": a.id})
+
+	if d.stealth > 0:
+		d.stealth = 0  # caught: visible again
+		emit_event("unstealth", d.pos, 0.0, {"who": d.id})
+	if float(hit.get("steal_ticks", 0.0)) > 0.0:
+		var st := float(hit["steal"])
+		a.atk_buff = int(hit["steal_ticks"])
+		a.atk_mult = 1.0 + st
+		d.atk_buff = int(hit["steal_ticks"])
+		d.atk_mult = 1.0 - st
+		emit_event("steal", d.pos, st, {"who": d.id, "by": a.id})
+	if float(hit.get("blind_ticks", 0.0)) > 0.0:
+		d.blind = maxi(d.blind, int(hit["blind_ticks"]))
+		emit_event("blinded", d.pos, float(hit["blind_ticks"]), {"who": d.id, "by": a.id})
+	if float(hit.get("root_ticks", 0.0)) > 0.0:
+		d.root = maxi(d.root, int(hit["root_ticks"]))
+		emit_event("rooted", d.pos, float(hit["root_ticks"]), {"who": d.id, "by": a.id})
+
+	if float(hit.get("vuln_ticks", 0.0)) > 0.0:
+		d.vuln = maxi(d.vuln, int(hit["vuln_ticks"]))
+		d.vuln_mult = float(hit["vuln_mult"])
+		emit_event("tenderized", d.pos, float(hit["vuln_ticks"]), {"who": d.id})
+
+	if no_flinch:
+		if not was_stunned:
+			d.reset_combo()
+	elif float(hit.get("petrify", 0.0)) > 0.0 or float(hit.get("freeze_ticks", 0.0)) > 0.0:
+		# Turned to stone, or frozen solid in ice: stunned where it stands (even out of
+		# the air), until it wears off or the next clean hit shatters it.
+		var ice := float(hit.get("freeze_ticks", 0.0)) > 0.0
+		var ticks := int(hit["freeze_ticks"]) if ice else int(hit["petrify"])
+		d.enter_crumple(ticks, kb * 0.3)
+		d.stone = ticks
+		d.stone_ice = ice
+		emit_event("freeze" if ice else "petrify", d.pos, total, {"who": d.id, "by": a.id})
+	elif bool(hit["grab"]) and float(hit.get("flip", 0.0)) > 0.0:
+		_flip(a, d, hit)
+		emit_event("grab", a.pos + Vector2(0, -20), total, {"attacker": a.id, "target": d.id, "flip": true})
+	elif bool(hit["grab"]):
 		# Swallow and spit out behind the attacker.
 		d.pos = a.pos - a.facing * (a.radius + d.radius + 6.0)
 		d.clamp_to_floor()
@@ -306,13 +387,41 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	else:
 		d.enter_hitstun(stun, kb)
 
+	# A pull (Branch Grab) reels the target in until it stops `pull` pixels short of the
+	# attacker's body. Knockback slows by a fixed factor each tick, so the starting speed
+	# that covers a distance is that distance times (1 - friction).
+	var pull := float(hit.get("pull", 0.0))
+	if pull > 0.0 and not bool(hit["grab"]) and d.pos.distance_squared_to(a.pos) > 0.0001:
+		var gap := d.pos.distance_to(a.pos) - (a.radius + d.radius + pull)
+		var fr := CreatureSim.AIR_FRICTION if d.is_airborne() else CreatureSim.FRICTION
+		d.knock_vel = (a.pos - d.pos).normalized() * maxf(0.0, gap) * (1.0 - fr)
+		emit_event("pull", d.pos, gap, {"attacker": a.id, "target": d.id})
+	# A reel (Cast Line) is the other way round: the attacker is hauled in to the target.
+	var reel := float(hit.get("reel", 0.0))
+	if reel > 0.0 and same_attack and d.pos.distance_squared_to(a.pos) > 0.0001:
+		var gap := d.pos.distance_to(a.pos) - (a.radius + d.radius + reel)
+		a.start_reel(d, reel, maxf(1.0, float(hit.get("reel_speed", 5.0))))
+		emit_event("reel", a.pos, gap, {"attacker": a.id, "target": d.id})
+
 	hitstop = maxi(hitstop, int(hit["hitstop"]))
 	emit_event("hit", fx_pos, total, {
 		"attacker": a.id, "target": d.id, "type": String(hit["type"]),
 		"combo": n, "variety": variety, "stale": stale < 1.0,
-		"heavy": String(hit["type"]) != "light"})
+		"heavy": String(hit["type"]) != "light", "no_flinch": no_flinch})
 	d.check_ko(self)
 	return "hit"
+
+
+## Flip Out: the target is scooped up and carried in an arc over the attacker's head,
+## landing `flip` pixels behind its body, and the attacker turns to face where it lands.
+## The carry takes the first half of the launch; it hangs there for the rest.
+func _flip(a: CreatureSim, d: CreatureSim, hit: Dictionary) -> void:
+	var behind := a.pos - a.facing * (a.radius + d.radius + float(hit["flip"]))
+	behind = behind.clamp(d.floor_min(), d.floor_max())
+	var ticks := maxi(int(hit["launch"]), 2)
+	d.enter_air(ticks, Vector2.ZERO)
+	d.start_flip(behind, ticks / 2)
+	a.facing = -a.facing
 
 
 ## Guard + Dodge while stunned: spend energy to escape the combo.
@@ -337,22 +446,91 @@ func breakaway(d: CreatureSim) -> void:
 	emit_event("breakaway", d.pos + Vector2(0, -16), 1.0, {"who": d.id})
 
 
+## A blocked third light (or later) leaves the attacker open: no cancelling out of it into
+## a skill, and enough extra recovery that the blocker is free BLOCKED_ENDER_DISADVANTAGE
+## ticks before the attacker is. (Chaining on to a fourth light is still allowed.)
+func _punish_blocked_ender(a: CreatureSim, d: CreatureSim) -> void:
+	var mv := a.move_def()
+	if not a.move_id.begins_with("light_") or int(a.move_id.substr(6)) < 3:
+		return
+	a.punish_serial = a.attack_serial
+	var left := int(mv["length"]) - a.state_t
+	a.block_lag = maxi(a.block_lag, d.stun + BLOCKED_ENDER_DISADVANTAGE - left)
+	emit_event("punishable", a.pos, float(a.block_lag), {"who": a.id})
+
+
+# ------------------------------------------------------------------ zones
+
+## Leaves a zone on the floor (a move's "zone": {radius, ticks, slow_mult}).
+func add_zone(owner: CreatureSim, at: Vector2, z: Dictionary) -> void:
+	zones.append({"owner": owner.id, "pos": at, "radius": float(z.get("radius", 32)),
+		"ticks": int(z.get("ticks", 240)), "slow_mult": float(z.get("slow_mult", 0.5))})
+	emit_event("zone", at, float(z.get("radius", 32)), {"who": owner.id})
+
+
+## Zones wear off; foes standing in one are slowed while they do (and a moment after).
+func _step_zones() -> void:
+	var keep: Array[Dictionary] = []
+	for z in zones:
+		z["ticks"] = int(z["ticks"]) - 1
+		if int(z["ticks"]) <= 0:
+			continue
+		keep.append(z)
+		var at: Vector2 = z["pos"]
+		for c in creatures:
+			if c.id == int(z["owner"]) or c.state == CreatureSim.State.KO or c.state == CreatureSim.State.FALLING \
+					or c.is_airborne():
+				continue
+			if c.pos.distance_to(at) > float(z["radius"]):
+				continue
+			var m := c.slow_mult if c.slow > 0 else 1.0
+			c.slow_mult = minf(m, float(z["slow_mult"]))
+			c.slow = maxi(c.slow, 8)
+	zones = keep
+
+
 # ------------------------------------------------------------------ projectiles
 
-func spawn_projectile(owner: CreatureSim, mv: Dictionary) -> void:
+## Two kinds: a ground projectile ("speed", "life") that travels until it hits someone,
+## and a lob ("lob": true, "range", "time") that arcs over everyone and bursts where it
+## lands, hitting everything within "burst" of that spot (Pinecone Bomb).
+func spawn_projectile(owner: CreatureSim, mv: Dictionary, last := true) -> void:
 	var p: Dictionary = mv["projectile"]
 	var hit := owner.hit_params(-1)
-	projectiles.append({
+	# The last of a volley can hit differently (Knife Flurry's final knife knocks down).
+	if last and p.has("volley"):
+		for k in p["volley"].get("last", {}):
+			hit[k] = p["volley"]["last"][k]
+	var lob := bool(p.get("lob", false))
+	var life := int(p["time"]) if lob else int(p["life"])
+	var lob_range := float(p.get("range", 0.0))
+	if p.has("range_charged"):  # held longer, thrown further (Pinecone Bomb)
+		lob_range = lerpf(lob_range, float(p["range_charged"]), owner.charge_ratio)
+	var vel := owner.facing * (lob_range / float(life) if lob else float(p["speed"]))
+	var pr := {
 		"owner": owner.id,
 		"serial": owner.attack_serial,
 		"pos": owner.pos + owner.facing * float(p.get("offset", 16)),
-		"vel": owner.facing * float(p["speed"]),
-		"life": int(p["life"]),
-		"radius": float(p["radius"]),
+		"vel": vel,
+		"life": life,
+		"radius": float(p.get("radius", 0.0)),
 		"hit": hit,
 		"last_cell": Vector2i(-99, -99),
-	})
-	emit_event("projectile", owner.pos, 1.0)
+		"move": owner.move_id,  # for the view: which move threw it, so it knows what to draw
+	}
+	if bool(p.get("pierce", false)):
+		pr["struck"] = []  # passes through, hitting each body once (Knife Flurry)
+	if p.has("end_sound"):
+		pr["end_sound"] = String(p["end_sound"])  # cosmetic, passed on to the view
+	if not bool(p.get("crack_trail", true)):
+		pr["no_crack"] = true
+	if lob:
+		pr["lob"] = true
+		pr["time"] = life
+		pr["burst"] = float(p["burst"])
+		pr["crack"] = float(p.get("crack", 0.0))
+	projectiles.append(pr)
+	emit_event("projectile", owner.pos, 1.0, {"who": owner.id, "lob": lob, "sound": String(p.get("sound", ""))})
 
 
 func _step_projectiles() -> void:
@@ -360,33 +538,70 @@ func _step_projectiles() -> void:
 	var fr := SimDefs.floor_rect()
 	for p in projectiles:
 		var pos: Vector2 = p["pos"]
+		if bool(p.get("lob", false)):
+			# In the air until it lands: stop at the wall, burst when the time runs out.
+			var nxt := (pos + Vector2(p["vel"])).clamp(fr.position + Vector2(4, 4), fr.end - Vector2(4, 4))
+			p["pos"] = nxt
+			p["life"] = int(p["life"]) - 1
+			if int(p["life"]) <= 0:
+				_burst(p)
+			else:
+				keep.append(p)
+			continue
 		pos += p["vel"]
 		p["pos"] = pos
 		p["life"] = int(p["life"]) - 1
 		if int(p["life"]) <= 0 or not fr.grow(-2.0).has_point(pos):
-			emit_event("projectile_end", pos, 0.0)
+			emit_event("projectile_end", pos, 0.0, {"who": int(p["owner"]), "sound": String(p.get("end_sound", ""))})
 			continue
 		var cell := terrain.world_to_cell(pos)
-		if cell != p["last_cell"]:
+		if cell != p["last_cell"] and not bool(p.get("no_crack", false)):
 			p["last_cell"] = cell
 			terrain.crack_cell(cell)
 		var owner := creatures[int(p["owner"])]
 		var hit: Dictionary = p["hit"]
 		var spent := false
+		var pierce := p.has("struck")
 		for d in creatures:
 			if d == owner or not _hittable(d, hit):
+				continue
+			if pierce and (p["struck"] as Array).has(d.id):
 				continue
 			if pos.distance_to(d.pos) > float(p["radius"]) + d.radius:
 				continue
 			var vel: Vector2 = p["vel"]
 			_apply_hit(owner, d, hit, vel.normalized(), pos + Vector2(0, -10))
+			if pierce:
+				(p["struck"] as Array).append(d.id)
+				emit_event("projectile_pierce", pos, 1.0, {"who": int(p["owner"]), "sound": String(p.get("end_sound", ""))})
+				continue
 			spent = true
 			break
 		if spent:
-			emit_event("projectile_end", pos, 1.0)
+			emit_event("projectile_end", pos, 1.0, {"who": int(p["owner"]), "sound": String(p.get("end_sound", ""))})
 		else:
 			keep.append(p)
 	projectiles = keep
+
+
+## A lob lands: everything within the burst radius is hit, pushed away from the spot.
+func _burst(p: Dictionary) -> void:
+	var at: Vector2 = p["pos"]
+	var owner := creatures[int(p["owner"])]
+	var hit: Dictionary = p["hit"]
+	if float(p.get("crack", 0.0)) > 0.0:
+		terrain.crack_circle(at, float(p["crack"]))
+	var landed := 0
+	for d in creatures:
+		if d == owner or not _hittable(d, hit):
+			continue
+		if at.distance_to(d.pos) > float(p["burst"]) + d.radius:
+			continue
+		var push := d.pos - at
+		push = push.normalized() if push.length_squared() > 0.0001 else Vector2(p["vel"]).normalized()
+		_apply_hit(owner, d, hit, push, d.pos + Vector2(0, -10))
+		landed += 1
+	emit_event("burst", at, float(p["burst"]), {"who": owner.id, "landed": landed})
 
 
 # ------------------------------------------------------------------ bodies and pits
@@ -416,7 +631,7 @@ func _separate() -> void:
 func _check_falls() -> void:
 	for c in creatures:
 		if c.state in [CreatureSim.State.FALLING, CreatureSim.State.KO,
-				CreatureSim.State.DODGE, CreatureSim.State.AIRBORNE]:
+				CreatureSim.State.DODGE, CreatureSim.State.AIRBORNE] or c.is_leaping() or c.reel_t > 0:
 			continue
 		if c.invuln > 0 and c.state != CreatureSim.State.KNOCKDOWN:
 			continue

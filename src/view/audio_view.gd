@@ -10,6 +10,12 @@ extends Node
 
 const DATA_PATH := "res://data/audio.json"
 const VOICES := 16
+## Volume groups, each its own audio bus under Master: the player sets each in Settings.
+##   Music    the music tracks
+##   Effects  everything in a fight (hits, moves, the crowd, knockouts)
+##   Menu     navigation sounds: moving through menus and confirming
+const BUSES := ["Music", "Effects", "Menu"]
+const DEFAULT_VOLUMES := {"Master": 0.8, "Music": 0.7, "Effects": 1.0, "Menu": 0.8}
 
 var sfx_enabled := true  ## off while the menu's background match plays
 var music_muted := false
@@ -26,6 +32,9 @@ var _music := AudioStreamPlayer.new()
 var _music_name := ""
 var _last_play := {}
 var _seg := {}
+var _volumes := DEFAULT_VOLUMES.duplicate()
+var _ui_players: Array[AudioStreamPlayer] = []
+var _ui_next := 0
 
 
 func _ready() -> void:
@@ -48,11 +57,21 @@ func _ready() -> void:
 		if ResourceLoader.exists(String(tracks[name])):
 			_music_tracks[name] = load(String(tracks[name]))
 	_music_volume_db = float(data.get("music_volume_db", -14.0))
+	_make_buses()
 	for i in VOICES:
 		var p := AudioStreamPlayer.new()
+		p.bus = "Effects"
 		add_child(p)
 		_players.append(p)
+	for i in 4:
+		var p := AudioStreamPlayer.new()
+		p.bus = "Menu"
+		add_child(p)
+		_ui_players.append(p)
+	_music.bus = "Music"
 	add_child(_music)
+	for bus in _volumes:
+		set_volume(bus, float(_volumes[bus]))
 	_music.finished.connect(_on_music_finished)
 
 
@@ -66,13 +85,67 @@ func play(name: String, volume := 0.0, pitch := 1.0, ui := false) -> void:
 		return
 	_last_play[name] = frame
 	var s: Dictionary = _sounds[name]
-	var p := _players[_next]
-	_next = (_next + 1) % VOICES
+	var p: AudioStreamPlayer
+	if ui:
+		p = _ui_players[_ui_next]
+		_ui_next = (_ui_next + 1) % _ui_players.size()
+	else:
+		p = _players[_next]
+		_next = (_next + 1) % VOICES
 	var j := float(s["jitter"])
 	p.stream = s["stream"]
 	p.volume_db = float(s["volume_db"]) + volume
 	p.pitch_scale = maxf(0.1, pitch * (1.0 + randf_range(-j, j)))
 	p.play()
+
+
+## Plays a sound on a volume group even while gameplay sounds are off (the menu), so a
+## volume change in Settings is heard straight away. "Effects" plays on the effects
+## bus; anything else on the menu bus (which, like everything, goes through Master).
+func preview(name: String, bus: String) -> void:
+	if _silent or not _sounds.has(name):
+		return
+	var s: Dictionary = _sounds[name]
+	var p: AudioStreamPlayer
+	if bus == "Effects":
+		p = _players[_next]
+		_next = (_next + 1) % VOICES
+	else:
+		p = _ui_players[_ui_next]
+		_ui_next = (_ui_next + 1) % _ui_players.size()
+	p.stream = s["stream"]
+	p.volume_db = float(s["volume_db"])
+	p.pitch_scale = 1.0
+	p.play()
+
+
+# ------------------------------------------------------------------ volume
+
+## Adds the Music, Effects and Menu buses (each sending to Master) if the project
+## doesn't have them yet.
+func _make_buses() -> void:
+	for bus in BUSES:
+		if AudioServer.get_bus_index(bus) >= 0:
+			continue
+		AudioServer.add_bus()
+		var i := AudioServer.bus_count - 1
+		AudioServer.set_bus_name(i, bus)
+		AudioServer.set_bus_send(i, "Master")
+
+
+## Sets a volume group ("Master", "Music", "Effects" or "Menu") from 0 (silent) to 1.
+func set_volume(bus: String, level: float) -> void:
+	level = clampf(level, 0.0, 1.0)
+	_volumes[bus] = level
+	var i := AudioServer.get_bus_index(bus)
+	if i < 0:
+		return
+	AudioServer.set_bus_mute(i, level <= 0.001)
+	AudioServer.set_bus_volume_db(i, linear_to_db(maxf(level, 0.001)))
+
+
+func volume(bus: String) -> float:
+	return float(_volumes.get(bus, 1.0))
 
 
 func play_music(name: String) -> void:
@@ -133,16 +206,31 @@ func on_event(e: Dictionary) -> void:
 		"slip":
 			play("parry")
 		"grab":
-			play("grab")
+			play("flip" if bool(e.get("flip", false)) else "grab")
 		"breakaway":
 			play("breakaway")
 		"surge":
 			play("surge")
 			play("crowd_cheer", -2.0)
 		"projectile":
-			play("wave")
-		"projectile_end":
-			play("splash", 0.0 if power >= 1.0 else -6.0)
+			if String(e.get("sound", "")) != "":
+				play(String(e["sound"]))  # the move's own throw sound (Chef Cerebro's knives)
+			elif bool(e.get("lob", false)):
+				play("swing_heavy", -2.0, 1.3)  # a pinecone tossed up
+			else:
+				play("wave")
+		"burst":
+			play("pinecone")
+		"pull":
+			play("snag")
+		"reel":
+			play("reel")
+		"projectile_end", "projectile_pierce":
+			if String(e.get("sound", "")) != "":
+				if power >= 1.0:  # a thrown utensil is silent when it misses
+					play(String(e["sound"]))
+			elif String(e["type"]) == "projectile_end":
+				play("splash", 0.0 if power >= 1.0 else -6.0)
 		"windup":
 			var red := String(e.get("tell", "")) in ["unblockable", "guard_break"]
 			play("windup_red" if red else "windup_gold")
@@ -164,11 +252,40 @@ func on_event(e: Dictionary) -> void:
 			play("crowd_cheer", -8.0)
 		"slow":
 			play("land", -6.0, 0.7)
+		"poisoned":
+			play("poison_tick", 0.0, 0.8)
+		"poison":
+			play("poison_tick")
+		"gaze":
+			# Stone Gaze: the shimmer once as it first takes hold of someone, not every pulse.
+			if power >= 0.85:
+				play("gaze")
+		"petrify":
+			play("petrify")
+			play("crowd_cheer", -4.0)
+		"shatter":
+			play("freeze" if bool(e.get("ice", false)) else "shatter", 0.0, 1.3 if bool(e.get("ice", false)) else 1.0)
+		"blinded":
+			play("flash")
+		"steal":
+			play("coins", 0.0, 1.2)
+		"blink":
+			play("poof")
+		"freeze":
+			play("freeze")
+			play("crowd_cheer", -4.0)
+		"miss":
+			play("miss")
 
 
-## A swing sound each time a strike becomes active (once per hit of a multi-hit move).
+## A swing sound each time a strike becomes active (once per hit of a multi-hit move),
+## and footsteps for creatures whose JSON names a "step_sound" (Gillbert's wet flops).
 func watch(sim: MatchSim) -> void:
 	for c in sim.creatures:
+		var step: Dictionary = c.def.get("step_sound", {})
+		if not step.is_empty() and c.state == CreatureSim.State.MOVE \
+				and c.anim_t % maxi(1, int(step.get("every", 20))) == 0:
+			play(String(step["sound"]), float(step.get("volume_db", -6.0)))
 		var seg := c.active_seg()
 		if seg >= 0 and seg != int(_seg.get(c.id, -1)):
 			play("swing_light" if c.move_type() == "light" else "swing_heavy")

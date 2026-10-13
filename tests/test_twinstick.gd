@@ -22,10 +22,10 @@ func test_the_aim_table_is_64_unit_directions_that_round_trip() -> void:
 	assert_eq(SimDefs.aim_from_bits(RIGHT), Vector2.RIGHT, "no aim bits: the direction bits")
 
 
-## Craglash at the left; Cairn near the tip of Boulder Lash's range, 22 degrees below the
-## line to the right (as far off as 8-way aiming ever is).
+## Chef Cerebro at the left; Cairn within Cleaver Toss's range, 22 degrees below the
+## line to the right (as far off as 8-way aiming ever is). The cleaver flies straight.
 func _off_angle() -> MatchSim:
-	var sim := MatchFactory.versus("craglash", "cairn")
+	var sim := MatchFactory.versus("cerebro", "cairn")
 	sim.creatures[0].pos = Vector2(200, 150)
 	sim.creatures[1].pos = Vector2(200, 150) + Vector2.from_angle(deg_to_rad(22.0)) * 54.0
 	sim.creatures[0].facing = Vector2.RIGHT
@@ -42,7 +42,7 @@ func _lash_hits(sim: MatchSim, bits: int) -> bool:
 	return false
 
 
-func test_an_off_angle_lash_misses_with_8_way_aim_and_lands_with_exact_aim() -> void:
+func test_an_off_angle_throw_misses_with_8_way_aim_and_lands_with_exact_aim() -> void:
 	assert_false(_lash_hits(_off_angle(), S1 | RIGHT), "aimed straight right, 22 degrees off at long range: a miss")
 	var sim := _off_angle()
 	var to := sim.creatures[1].pos - sim.creatures[0].pos

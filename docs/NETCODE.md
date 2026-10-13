@@ -11,7 +11,11 @@ alternative, adds the full round-trip time to every button press.
 Both machines run the full simulation. Each frame:
 
 1. **Send.** The local input is scheduled `input_delay` frames ahead and sent. Each
-   packet repeats the last 8 inputs (3 bytes each with the aim angle), so lost packets cost nothing.
+   packet repeats the last 8 inputs (20 bits each with the aim angle), so lost packets cost nothing, and
+   carries an ack (the last frame of the other side's inputs it has): if the other side
+   is missing more than 8, the packet reaches back to fill the gap (up to 60 inputs).
+   ENet's throttling of unreliable packets is off; it dropped bursts long enough to
+   leave both machines waiting for each other forever.
 2. **Predict.** If the opponent's input for this frame hasn't arrived, assume they're
    still doing what they were last confirmed doing. Holding a direction or guard is
    the common case, so the guess is usually right.
@@ -52,18 +56,82 @@ creatures or effects-heavy moves land.
 | Rules, timers and KO slow-motion live in the sim | Both machines must agree on every tick | KO freeze is `MatchSim.ko_freeze` / `slowmo`; Duel rules are sim code |
 | Inputs are bitmasks only | 20 bits per player per frame: 12 buttons, an exact aim angle (64 steps) and a strafe flag; the sim turns the angle into a direction with a fixed table (no trig). Aim assist runs before sending | `SimDefs.IN_*`, `SimDefs.AIM_INT` |
 
-## What the game layer has to handle (later)
+## Online 1v1 (built)
 
-- **Effects during rollback.** Re-simulated frames emit their events again. The views
-  should only react to events from frames they haven't shown yet (play a hit spark
-  once; don't replay it on a correction), keyed by tick and attacker.
-- **Frame advantage.** If one machine runs ahead, it slows a frame now and then so both
-  see similar rollback amounts (GGPO's "time sync").
-- **Desync detection.** Peers exchange `state_digest()` every second or so; a mismatch
-  ends the match with a report and both input logs, which replay the bug exactly.
-- **Adaptive input delay.** Pick 1–2 frames from the measured ping before the match.
-  Expose it as a setting for players who prefer fewer rollbacks.
-- **Spectators and replays.** Just the input streams.
+The menu's **Online 1v1** row: pick a fighter, then one player hosts and the other joins
+by address. It plays a Duel with one creature per side, so every rule (intro, timer,
+KO, winner) is simulation code both machines run.
+
+| Piece | File | What it does |
+| --- | --- | --- |
+| Link | `src/net/net_link.gd` | The interface everything above talks to: reliable control messages, unreliable input packets. Packets are plain Dictionaries; anything else is dropped |
+| Direct UDP | `src/net/enet_link.gd` | Godot's ENet. Host listens on a UDP port (7777); the joiner connects. 5 s timeout. A third player is turned away |
+| Test links | `loop_link.gd`, `lag_link.gd` | In-memory pair with lag, jitter and loss (tests); a wrapper that delays/drops the real input stream (`--net-lag`, `--net-loss`) |
+| Session | `src/net/netplay.gd` | Handshake (version + game-data hash, so mismatched builds refuse with a message; both teams), 5 pings, input delay from the best ping (1 under 60 ms, 2 under 130 ms, else 3), rematch when both ask, leave |
+| Match | `src/net/online_match.gd` | Drives the DuelSim through `RollbackSession`: time sync, events shown once, desync check, input log |
+
+- **Effects during rollback.** Re-simulated frames emit their events again; only events
+  not shown yet reach the views (keyed by tick, kind, attacker, target), so a hit spark
+  plays once, and a hit that only happened after a correction still shows.
+- **Time sync.** Each input packet carries the sender's frame and its advantage. A
+  machine more than a frame ahead (after GGPO's halving) holds one frame, then waits 20
+  frames before it may hold again. Tested with one machine missing every 8th frame.
+- **Desync detection.** Every 60 frames that are final (both inputs confirmed), each
+  side hashes its saved state and sends it. A mismatch shows "DESYNC" with the frame,
+  and the report (teams + every confirmed input) goes to `user://desyncs/`, which
+  replays the bug exactly. The terrain's redraw counter is left out of the hash.
+- **Final frames.** `RollbackSession.on_final` reports each frame once it can never be
+  rolled back, with the inputs used and the state after it.
+- **Fixed with this:** the session used to forget remote inputs it hadn't simulated yet
+  when the other machine ran ahead (packets only repeat the last 8 inputs), which would
+  desync after a hitch. `test_inputs_from_a_machine_running_ahead_are_kept_until_used`.
+
+Proved by `tests/test_online.gd` (lag + jitter + 15% loss, a slower machine, rematch,
+leaving, a caught desync, refused builds, real UDP on 127.0.0.1) and by two separate
+game processes over UDP: `--online-host=7801 --cpu-vs-cpu --net-lag=3 --net-loss=0.1
+--net-report=a.json` and `--online-join=127.0.0.1:7801 --cpu-vs-cpu --net-report=b.json`
+agree on every fingerprint and every input.
+
+## Dedicated server (built)
+
+`--server[=PORT]` (with `--headless`) runs the game as a server: `DedicatedServer` loops
+an `EnetHub` (one UDP port, a `NetLink` per player) into a `RelayServer`, which:
+
+- greets each player like a host would (version and game-data check, pings), then says
+  `wait` until it can pair them with another player in the same **room** (`/room` after
+  the address; "" pairs anyone, oldest first);
+- sends both a `start` with their `side` and the opponent's round trip to the server
+  (`via`, refreshed every 2 s as `path`), so time sync counts the whole route;
+- relays `in`/`dg`/`rematch`/`bye`, rebuilding each relayed message from known fields;
+- referees with a `Referee`: a DuelSim stepped only on confirmed inputs (no rollback),
+  checking both players' fingerprints, so a desync names the player whose game went
+  wrong; it logs each result.
+
+The rollback still runs on the players' machines; the hop through the server is just
+part of the round trip that picks the input delay. Clients need nothing new: Join works
+for a host or a server. The loop sleeps 1 ms (low-processor mode): about 1,000 loops a
+second, 5% of a core idle. Godot exits on SIGTERM/SIGINT without running scripts, so
+players in a match see the connection drop within 5 s. Tests: `tests/test_server.gd`.
+Two clients through a real server: `--server=7799`, then twice
+`--online-join=127.0.0.1:7799/kev --cpu-vs-cpu --net-report=a.json`.
+
+**Finding the server at home.** The online screen plays on one configured server
+(`data/online.json`, or Settings > Game > Online server): Quick match (no room) or a
+room code. Players on the server's own network often can't reach its public name (no
+NAT loopback on many routers), so before joining it `LanFinder` broadcasts a small JSON
+question to UDP port + 1 for up to 0.6 s; the server's `ServerBeacon` answers with its
+game port, and the game joins that local address instead. No answer (the usual case
+away from home) means the public name. Tests: discovery over loopback in
+`tests/test_server.gd`, the screen in `tests/test_ui.gd`.
+
+**Found by the referee:** the frame an online match started, `main.gd` stepped the new
+duel once outside the rollback session. Both players did it, so they agreed with each
+other, but it could desync if a button was held on that frame. Fixed
+(`_connecting_step`).
+
+Still to do: a Steam transport (below), 3v3 rooms on the server, spectators and saved online replays
+(both just the input streams), 3v3 tag online (Netplay already sends teams), an input
+delay setting, and ranked/matchmaking.
 
 ## Transport (to decide)
 
@@ -74,7 +142,10 @@ creatures or effects-heavy moves land.
 | WebRTC (Godot built-in) | Browser builds | More moving parts; best only if a web build matters |
 
 Recommendation: Steam Networking Sockets for launch, behind a small transport interface
-so the rollback session doesn't care which one is underneath.
+so the rollback session doesn't care which one is underneath. That interface is
+`NetLink`; direct ENet is the first one, so friends can play now. For more players at
+once (3v3 with six people), route the same rollback through a lightweight relay server
+that runs the headless game: one connection per player, the server as referee.
 
 ## Platform note
 

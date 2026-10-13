@@ -18,14 +18,23 @@ extends Node2D
 ##   --shot-dir=PATH       where screenshots go (default user://shots)
 ##   --quit-after=N        exit after N frames
 ##   --layout=league|classic  keyboard layout (saved in the menu otherwise)
-##   --pad-layout=standard|twinstick  controller layout (saved in the menu otherwise)
-##   --showcase=NAME       play one scripted demo on a loop: cairn, culvert, craglash or counterplay
-##   --teams=a,b,c:d,e,f   Duel / 2-player teams (default craglash,cairn,culvert:culvert,cairn,craglash)
+##   --pad-layout=standard|twinstick  controller layout (saved in Settings otherwise)
+##   --showcase=NAME       play one scripted demo on a loop: cairn, culvert, craglash, barkley, gillbert,
+##                         cerebro, hissy, digby, pete, sno, angles, twinstick or counterplay
+##   --teams=a,b,c:d,e,f   Duel / 2-player teams (default cerebro,gillbert,barkley:culvert,cerebro,craglash)
 ##   --pick                show the team pick screen even with --mode
 ##   --cpu-vs-cpu          every player side is played by the CPU (demos, captures)
+##   --menu=PAGE           open the menu on main, single or settings (captures)
+##   --online-host[=PORT]  host an online 1v1 straight away (UDP, default port 7777)
+##   --online-join=ADDR[:PORT][/ROOM]  join one, or a dedicated server (ROOM: meet a friend there)
+##   --server[=PORT]       run as a dedicated server (with --headless); --max-players=N
+##   --fighter=ID          your fighter online
+##   --net-lag=N --net-loss=F   hold back / drop the input stream (feel rollback on a LAN)
+##   --net-delay=N         force the input delay (frames) instead of picking it from the ping
+##   --net-report=PATH     write the online match's report (inputs, state fingerprints) on exit
 
-enum Flow { MENU, INTRO, FIGHT, ROUND_OVER, MATCH_OVER, SELECT }
-enum Side { PLAYER, CPU, DUMMY, SCRIPT, PLAYER2 }
+enum Flow { MENU, INTRO, FIGHT, ROUND_OVER, MATCH_OVER, SELECT, LOBBY }
+enum Side { PLAYER, CPU, DUMMY, SCRIPT, PLAYER2, REMOTE }
 
 const MODES := [
 	{"label": "Cairn  vs  CPU Culvert", "left": "cairn", "right": "culvert", "sides": [Side.PLAYER, Side.CPU]},
@@ -42,29 +51,71 @@ const MODES := [
 	{"label": "Reaction Drill: read Cairn", "drill": "cairn", "sides": [Side.PLAYER, Side.SCRIPT]},
 	{"label": "Craglash  vs  CPU Cairn", "left": "craglash", "right": "cairn", "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Training: Craglash", "left": "craglash", "training": true},
+	{"label": "Barkley  vs  CPU Craglash", "left": "barkley", "right": "craglash", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Training: Barkley", "left": "barkley", "training": true},
+	{"label": "Gillbert  vs  CPU Barkley", "left": "gillbert", "right": "barkley", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Training: Gillbert", "left": "gillbert", "training": true},
+	{"label": "Chef Cerebro  vs  CPU Gillbert", "left": "cerebro", "right": "gillbert", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Training: Chef Cerebro", "left": "cerebro", "training": true},
+	{"label": "Online 1v1", "online": true},
+	{"label": "Hissy Fitz  vs  CPU Chef Cerebro", "left": "hissy", "right": "cerebro", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Training: Hissy Fitz", "left": "hissy", "training": true},
+	{"label": "Digby  vs  CPU Hissy Fitz", "left": "digby", "right": "hissy", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Training: Digby", "left": "digby", "training": true},
+	{"label": "Sneaky Pete  vs  CPU Digby", "left": "pete", "right": "digby", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Training: Sneaky Pete", "left": "pete", "training": true},
+	{"label": "Sno Mercy  vs  CPU Sneaky Pete", "left": "sno", "right": "pete", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Training: Sno Mercy", "left": "sno", "training": true},
 ]
-## The menu. MODES indexes stay stable for --mode=N; rows with choices pick one of
-## several modes with left/right.
+## The menus (src/ui screens): the title menu opens Single player (MENU_ROWS), the online
+## screen, or Settings. MODES indexes stay stable for --mode=N; rows with choices pick
+## one of several modes with Left/Right.
+## The Settings pages and their rows, in order (see _setting()).
+const SETTING_PAGES := {
+	"game": ["level", "rumble", "shake", "server"],
+	"video": ["fullscreen", "wide", "vsync", "fps"],
+	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu"],
+}
+const SHAKE_CHOICES := [["Full", 1.0], ["Reduced", 0.5], ["Off", 0.0]]
+const VOLUME_NAMES := {"Master": "Master volume", "Music": "Music", "Effects": "Sound effects",
+	"Menu": "Menu sounds"}
+## Volume steps in Settings (10 steps of 10%).
+const VOLUME_STEP := 0.1
+const ONLINE_MODE := 20
 const MENU_ROWS := [
-	{"label": "Duel: you vs CPU  (3v3 tag)", "modes": [6]},
-	{"label": "Duel: 2 players", "modes": [7]},
-	{"label": "Versus: 2 players", "modes": [8]},
-	{"label": "Versus CPU", "modes": [0, 1, 12], "choices": ["as Cairn", "as Culvert", "as Craglash"]},
-	{"label": "Combo Trials", "modes": [9]},
-	{"label": "Reaction Drill", "modes": [10, 11], "choices": ["read Culvert", "read Cairn"]},
-	{"label": "Training", "modes": [3, 4, 13], "choices": ["Cairn", "Culvert", "Craglash"]},
-	{"label": "Watch", "modes": [5, 2], "choices": ["combo showcases", "CPU vs CPU"]},
+	{"label": "Duel: you vs CPU  (3v3 tag)", "modes": [6], "desc": "Teams of three; tag fighters in and out"},
+	{"label": "Duel: 2 players", "modes": [7], "desc": "Teams of three, two players on one screen"},
+	{"label": "Versus: 2 players", "modes": [8], "desc": "One fighter each, two players on one screen"},
+	{"label": "Versus CPU", "modes": [0, 1, 12, 14, 16, 18, 21, 23, 25, 27],
+		"desc": "Best of three rounds against the CPU. Left/Right: your fighter",
+		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert", "as Chef Cerebro",
+			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy"]},
+	{"label": "Combo Trials", "modes": [9], "desc": "Learn the combos, one at a time"},
+	{"label": "Reaction Drill", "modes": [10, 11], "choices": ["read Culvert", "read Cairn"],
+		"desc": "Block or dodge what the opponent throws at you"},
+	{"label": "Training", "modes": [3, 4, 13, 15, 17, 19, 22, 24, 26, 28],
+		"desc": "Practise on a dummy (F2 changes what it does). Left/Right: your fighter",
+		"choices": ["Cairn", "Culvert", "Craglash", "Barkley", "Gillbert", "Chef Cerebro", "Hissy Fitz", "Digby",
+			"Sneaky Pete", "Sno Mercy"]},
+	{"label": "Watch", "modes": [5, 2], "choices": ["combo showcases", "CPU vs CPU"],
+		"desc": "Sit back: scripted showcases or the CPU against itself"},
 ]
-const DEFAULT_TEAMS := [["craglash", "cairn", "culvert"], ["culvert", "cairn", "craglash"]]
+const DEFAULT_TEAMS := [["cerebro", "gillbert", "barkley"], ["culvert", "cerebro", "craglash"]]
 const LEVEL_NAMES := ["Easy", "Normal", "Hard"]
 const DUMMY_MODES := ["Stand", "Guard", "Walk", "Dodge"]
 const ROUND_TICKS := 90 * 60
 const WINS_NEEDED := 2
 const INTRO_TICKS := 90
 const ROUND_OVER_TICKS := 210
+## The match-over choices come up this long after the winner's banner.
+const MATCH_OVER_MENU_AT := 40
 const SETTINGS_PATH := "user://settings.cfg"
-const MENU_Y0 := 88.0
-const MENU_DY := 13.0
+## Frame rate caps. Menus always draw at 60 (nothing in them moves faster, and it keeps
+## the PC cool); fights draw at the player's choice, 144 unless changed (0: no cap). The
+## game itself always runs 60 steps a second; a higher frame rate shows each one sooner.
+const MENU_FPS := 60
+const FPS_CHOICES := [60, 120, 144, 165, 240, 0]
+const DEFAULT_FPS := 144
 # Knockouts: the simulation itself freezes and then runs at half speed (MatchSim's
 # ko_freeze / slowmo, so online peers agree); the camera pushes in on the loser.
 const KO_ZOOM := 1.45
@@ -96,7 +147,28 @@ var round_num := 1
 var wins := [0, 0]
 var timer := ROUND_TICKS
 var seed_base := 1
-var menu_index := 0
+## --menu=PAGE: open "single" or "settings" on start (captures).
+var _menu_arg := ""
+var _setting_rows := {}  ## Settings key -> its OptionRow, while the page is open
+var _match_over_status: Label = null
+var _recent_servers: Array = []
+var fullscreen := false
+var fight_fps := DEFAULT_FPS
+## Where settings are kept (tests point it elsewhere, so they never touch the player's).
+var settings_path := SETTINGS_PATH
+var vsync := true
+## Wider-than-16:9 screens (ultrawide, 16:10): fill them with more stadium, or keep 16:9
+## with bars.
+var wide_fill := true
+var rumble := true
+var shake_scale := 1.0  ## screen shake: 1 full, 0.5 reduced, 0 off
+## Off for captures and headless runs, which must not be slowed to real time.
+var _fps_caps := true
+var menu_stick: MenuStick
+## Menu screens on Godot's UI system (the pause menu; more to come).
+var ui: ScreenStack
+## The match is frozen behind the pause menu.
+var paused := false
 var _menu_ko_t := 0
 
 var player_input := PlayerInput.new()
@@ -111,7 +183,6 @@ var duel: DuelSim = null
 ## Combo Trials or a Reaction Drill: drives the partner and judges the player.
 var coach = null
 var _row_choice: Array = []
-var team_select: TeamSelect
 var player2_input := PlayerInput.new()
 var _teams: Array = DEFAULT_TEAMS.duplicate(true)
 var _skip_select := false
@@ -126,11 +197,37 @@ var _shots := {}
 var _shot_dir := "user://shots"
 var _quit_after := 0
 
+# Online
+var netplay: Netplay = null
+var online: OnlineMatch = null  ## the online match being shown
+var lobby: OnlineLobby
+var _online_fighter := "cairn"
+var _online_address := ""
+## Settings > Game > Online server: the server Quick match and rooms use ("" = the
+## game's own, from data/online.json).
+var _online_server := ""
+## Looking for the server on this network before joining it (see LanFinder), and the
+## join to make when it's done: [fighter, host, port, room].
+var _finder: LanFinder = null
+var _finder_join: Array = []
+## Where the look-up asks (tests ask this machine instead of the whole network).
+var finder_target := "255.255.255.255"
+var _net_args := {}  ## from the command line: host / join / lag / delay / report
+var _net_end_t := 0
+
 
 func _ready() -> void:
-	if _run_sim_check():
+	if _run_sim_check() or _run_server():
 		return
 	Controls.setup()
+	_fps_caps = DisplayServer.get_name() != "headless" and not ("--fixed-fps" in OS.get_cmdline_args()) \
+		and not ("--write-movie" in OS.get_cmdline_args())
+	menu_stick = MenuStick.new()
+	add_child(menu_stick)
+	ui = ScreenStack.new()
+	add_child(ui)
+	ui.moved.connect(func(): audio.play("ui_move", 0.0, 1.0, true))
+	ui.chosen.connect(func(): audio.play("ui_select", 0.0, 1.0, true))
 	camera = Camera2D.new()
 	camera.position = Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H) * 0.5
 	add_child(camera)
@@ -160,80 +257,244 @@ func _ready() -> void:
 	add_child(layer)
 	flash_rect = ColorRect.new()
 	flash_rect.color = Color(1, 0.95, 0.75, 0.0)
-	flash_rect.size = Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H)
+	flash_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 	flash_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(flash_rect)
 	fade_rect = ColorRect.new()
 	fade_rect.color = Color(0, 0, 0, 0)
-	fade_rect.size = Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H)
+	fade_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 	fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(fade_rect)
 	hud = Hud.new()
 	layer.add_child(hud)
-	hud.menu_y0 = MENU_Y0
-	hud.menu_dy = MENU_DY
-	team_select = TeamSelect.new()
-	team_select.visible = false
-	layer.add_child(team_select)
-	team_select.chosen.connect(_on_teams_chosen)
-	team_select.cancelled.connect(_open_menu)
+	_row_choice.resize(MENU_ROWS.size())
+	_row_choice.fill(0)
 	player2_input.keyboard = false
 	player2_input.pad_device = PlayerInput.NO_PAD
 
 	_load_settings()
 	var start_mode := _parse_args()
 	_apply_device()
-	_open_menu()  # also starts the background match the pick screen sits on
+	_open_menu(_menu_arg)  # also starts the background match the pick screen sits on
 	if start_mode >= 0:
 		_start_match(start_mode)
+	if _net_args.has("host") or _net_args.has("join"):
+		_open_lobby()
+		if _net_args.has("host"):
+			_net_host(_online_fighter)
+		else:
+			var parsed := OnlineLobby.parse_address(String(_net_args["join"]))
+			_net_join(_online_fighter, String(parsed[0]), int(parsed[1]), String(parsed[2]))
 
 
 # ------------------------------------------------------------------ flow
 
-func _open_menu() -> void:
+## The title menu, over a CPU match that plays behind it. `page` opens "single" or
+## "settings" on top of it; `focus` is the title row to land on ("online" after leaving
+## an online match).
+func _open_menu(page := "", focus := "") -> void:
+	_close_ui()
+	_end_online()
 	flow = Flow.MENU
 	flow_t = 0
 	_end_showcase()
 	_end_duel()
 	_end_coach()
-	team_select.close()
 	hud.visible = true
+	hud.menu_visible = true
 	audio.play_music("menu")
-	# A CPU-vs-CPU match plays behind the menu.
+	_menu_background()
+	var land := focus if focus != "" else ("settings" if page in SETTING_PAGES or page == "controls" else page)
+	var t := TitleScreen.new(land)
+	t.single_pressed.connect(_open_single)
+	t.online_pressed.connect(func(): _start_match(ONLINE_MODE))
+	t.settings_pressed.connect(_open_settings)
+	t.exit_pressed.connect(func(): get_tree().quit())
+	ui.push(t)
+	match page:
+		"single":
+			_open_single()
+		"settings":
+			_open_settings()
+		"game", "video", "audio":
+			_open_settings()
+			_open_settings_page(page)
+		"controls":
+			_open_settings()
+			_open_controls()
+
+
+## A CPU-vs-CPU match behind the menus (restarted now and then; the screens stay).
+func _menu_background() -> void:
 	_new_sim(MatchFactory.versus("cairn", "culvert"), [Side.CPU, Side.CPU])
 	hud.timer_ticks = -1
 	hud.banner = ""
-	hud.menu_visible = true
-	_refresh_menu()
+	hud.banner_sub = ""
 
 
-func _refresh_menu() -> void:
-	var items: Array[String] = []
-	if _row_choice.size() != MENU_ROWS.size():
-		_row_choice.resize(MENU_ROWS.size())
-		_row_choice.fill(0)
-	for r in MENU_ROWS.size():
-		var row: Dictionary = MENU_ROWS[r]
-		var label := String(row["label"])
-		if row.has("choices"):
-			label += ":  < %s >" % String(row["choices"][_row_choice[r]])
-		items.append(label)
-	items.append("CPU level:  < %s >" % LEVEL_NAMES[level])
-	items.append("Keyboard:  < %s >" % PlayerInput.LAYOUT_NAMES[player_input.layout])
-	items.append("Controller:  < %s >" % PlayerInput.PAD_LAYOUT_NAMES[player_input.pad_layout])
-	hud.menu_items = items
-	hud.menu_index = menu_index
-	hud.menu_footer = "Xbox controller works any time. Twin-stick: the right stick aims 360 and holds your facing."
+## Single player: every mode against the CPU, training, trials and local 2-player. Rows
+## with choices pick the fighter (or drill) with Left/Right; Enter starts.
+func _open_single() -> void:
+	var scr := UiScreen.new()
+	scr.logo = true
+	scr.title = "SINGLE PLAYER"
+	scr.row_width = 250.0
+	scr.row_height = 13.0
+	scr.row_font = 8
+	scr.row_gap = 1
+	scr.hints = ["move", "change", "select", "back"]
+	scr.builder = func(s: UiScreen):
+		for r in MENU_ROWS.size():
+			var row: Dictionary = MENU_ROWS[r]
+			var desc := String(row.get("desc", ""))
+			if row.has("choices"):
+				var o := s.add_option(String(row["label"]), row["choices"], int(_row_choice[r]),
+					func(i: int): _row_choice[r] = i, desc)
+				o.activates = true
+				o.activated.connect(func():
+					ui.notify_chosen()
+					_start_row(r))
+			else:
+				s.add_button(String(row["label"]), func(): _start_row(r), desc)
+		s.add_space(4)
+		s.add_button("Back", s.back)
+	ui.push(scr)
+
+
+func _start_row(row: int) -> void:
+	var r: Dictionary = MENU_ROWS[row]
+	_start_match(int(r["modes"][_row_choice[row] if row < _row_choice.size() else 0]))
+
+
+## Settings: four pages, like most games: Game, Video, Audio, Controls.
+func _open_settings() -> void:
+	var scr := UiScreen.new()
+	scr.logo = true
+	scr.title = "SETTINGS"
+	scr.row_width = 200.0
+	scr.builder = func(s: UiScreen):
+		s.add_button("Game", func(): _open_settings_page("game"),
+				"CPU level, controller rumble, screen shake, online server")
+		s.add_button("Video", func(): _open_settings_page("video"), "Fullscreen, wide screens, vsync, frame rate")
+		s.add_button("Audio", func(): _open_settings_page("audio"), "Volume for the music, effects and menus")
+		s.add_button("Controls", _open_controls, "Keyboard and controller layouts; remap keys and buttons")
+		s.add_space(4)
+		s.add_button("Back", s.back)
+	ui.push(scr)
+
+
+## One Settings page: each row's values and description come from _setting(); a change
+## goes through _set_setting() and is saved at once.
+func _open_settings_page(page: String) -> void:
+	var scr := UiScreen.new()
+	scr.logo = true
+	scr.title = "SETTINGS  -  " + page.to_upper()
+	scr.row_width = 270.0
+	scr.hints = ["move", "change", "back"]
+	scr.builder = func(s: UiScreen):
+		for key in SETTING_PAGES[page]:
+			if key == "server":
+				_add_server_row(s)
+			else:
+				_add_setting_row(s, key)
+		s.add_space(4)
+		s.add_button("Back", s.back)
+	scr.backed.connect(func(): _setting_rows.clear())
+	ui.push(scr)
+
+
+func _add_setting_row(s: UiScreen, key: String) -> OptionRow:
+	var info := _setting(key)
+	var o := s.add_option(String(info["label"]), info["values"], int(info["index"]), func(_i): pass,
+		String(info["desc"]))
+	o.wrap = bool(info.get("wrap", true))
+	o.bar = float(info.get("bar", -1.0))
+	o.changed.connect(func(i: int):
+		_set_setting(key, i)
+		var now := _setting(key)
+		o.set_values(now["values"], int(now["index"]))
+		o.bar = float(now.get("bar", -1.0)))
+	_setting_rows[key] = o
+	return o
+
+
+## Settings > Game > Online server: a text box, saved as it's typed. Empty means the
+## game's own server.
+func _add_server_row(s: UiScreen) -> LineEdit:
+	var f := LineEdit.new()
+	f.text = _online_server
+	f.placeholder_text = "Online server: " + default_server()
+	f.max_length = 80
+	f.text_changed.connect(func(t: String):
+		_online_server = t.strip_edges()
+		_save_settings())
+	s.add_row(f, "Where Quick match and rooms play. Leave it empty for %s" % default_server())
+	return f
+
+
+## The game's own server, from data/online.json.
+static func default_server() -> String:
+	var f := FileAccess.open("res://data/online.json", FileAccess.READ)
+	if f == null:
+		return ""
+	var d = JSON.parse_string(f.get_as_text())
+	return String(d.get("server", "")).strip_edges() if d is Dictionary else ""
+
+
+## The server Quick match and rooms use: the player's, or the game's own.
+func online_server() -> String:
+	return _online_server if _online_server != "" else default_server()
+
+
+## Controls: the keyboard layout, and remapping for each keyboard layout and the controller.
+func _open_controls() -> void:
+	var scr := UiScreen.new()
+	scr.logo = true
+	scr.title = "SETTINGS  -  CONTROLS"
+	scr.row_width = 250.0
+	scr.hints = ["move", "change", "select", "back"]
+	scr.builder = func(s: UiScreen):
+		_add_setting_row(s, "layout")
+		_add_setting_row(s, "pad_layout")
+		s.add_button("Remap controller", func(): _open_remap("gamepad"), "Change which button does what")
+		s.add_button("Remap Classic keyboard", func(): _open_remap("classic"), "WASD + J K U I O, or your own keys")
+		s.add_button("Remap League-style keyboard", func(): _open_remap("league"),
+			"Mouse to move and aim; Q W E R, or your own keys")
+		s.add_button("Reset all controls", func():
+			var c := ConfirmScreen.new("Reset every key and button?", "Back to the game's defaults.", "Reset", "Cancel")
+			c.answered.connect(func(yes: bool):
+				if yes:
+					Controls.reset()
+					_save_settings()
+					_apply_device()
+					_toast("Controls reset"))
+			ui.push(c), "Put every key and button back")
+		s.add_space(4)
+		s.add_button("Back", s.back)
+	scr.backed.connect(func(): _setting_rows.clear())
+	ui.push(scr)
+
+
+func _open_remap(group: String) -> void:
+	var r := RemapScreen.new(group)
+	r.changed.connect(func():
+		_save_settings()
+		_apply_device())  # the prompts and help show the new keys
+	ui.push(r)
 
 
 ## `keep_teams`: a rematch with the same teams (no pick screen).
 func _start_match(m: int, keep_teams := false) -> void:
+	_close_ui()
 	mode = m
 	wins = [0, 0]
 	round_num = 1
 	hud.menu_visible = false
 	_save_settings()
 	var cfg: Dictionary = MODES[m]
+	if cfg.get("online", false):
+		_open_lobby()
+		return
 	var two_players: bool = Side.PLAYER2 in cfg.get("sides", [])
 	_assign_devices(two_players)
 	if (cfg.get("duel", false) or cfg.get("versus2p", false)) and not keep_teams and not _skip_select:
@@ -242,13 +503,20 @@ func _start_match(m: int, keep_teams := false) -> void:
 		hud.visible = false
 		var size := int(DuelSim.load_rules().get("team_size", 3)) if cfg.get("duel", false) else 1
 		var labels := ["PLAYER 1", "PLAYER 2" if two_players else "CPU"]
-		team_select.open("DUEL" if cfg.get("duel", false) else "VERSUS", size, labels, _teams)
+		var pick := CharacterSelect.new()
+		pick.setup("DUEL" if cfg.get("duel", false) else "VERSUS", size, labels, two_players, _teams)
+		pick.p1_keyboard = player_input.keyboard
+		pick.p1_pad = player_input.pad_device
+		pick.p2_pad = player2_input.pad_device
+		pick.chosen.connect(_on_teams_chosen)
+		pick.cancelled.connect(func(): _open_menu("single"))
+		ui.push(pick)
 		return
 	_start_round()
 
 
 func _on_teams_chosen(teams: Array) -> void:
-	team_select.close()
+	_close_ui()
 	hud.visible = true
 	_teams = teams
 	audio.play("ui_select", 0.0, 1.0, true)
@@ -389,8 +657,12 @@ func _duel_flow() -> void:
 	match duel.phase:
 		DuelSim.Phase.INTRO:
 			var t := duel.phase_t
-			hud.banner = "DUEL" if t < 60 else "FIGHT!"
-			hud.banner_sub = "3 v 3  -  tag with %s" % player_input.label("tag") if t < 60 else ""
+			hud.banner = ("ONLINE DUEL" if online != null else "DUEL") if t < 60 else "FIGHT!"
+			if (duel.teams[0] as Array).size() > 1:
+				hud.banner_sub = "%d v %d  -  tag with %s" % [duel.teams[0].size(), duel.teams[1].size(),
+					player_input.label("tag")] if t < 60 else ""
+			else:
+				hud.banner_sub = "1 v 1" if t < 60 else ""
 			if t == 2 or t == 60:
 				audio.play("round_start", 0.0, 0.75 if t == 2 else 1.0)
 		DuelSim.Phase.FIGHT, DuelSim.Phase.SWAP:
@@ -405,15 +677,19 @@ func _duel_flow() -> void:
 				flow_t = 0
 				if duel.winner < 0:
 					hud.banner = "DRAW"
+				elif online != null:
+					hud.banner = "YOU WIN!" if duel.winner == online.local_side else "YOU LOSE"
 				else:
 					hud.banner = "%s WINS!" % _side_name(duel.winner)
-				hud.banner_sub = "Enter / A: rematch     Esc / View: menu"
+				hud.banner_sub = ""
 
 
 func _side_name(i: int) -> String:
 	match sides[i]:
 		Side.PLAYER:
-			return "PLAYER 1"
+			return "YOU" if online != null else "PLAYER 1"
+		Side.REMOTE:
+			return "OPPONENT"
 		Side.PLAYER2:
 			return "PLAYER 2"
 		Side.CPU:
@@ -476,6 +752,25 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	fx.views = views
 	_ko_cam_t = -1
 	hud.dummy_mode_name = DUMMY_MODES[dummy_mode]
+	# Red for the left side (P1), blue for the right (P2 or the CPU): a marker over each
+	# fighter and a stripe on its health panel.
+	fx.side_marks = []
+	for i in 2:
+		var label := ""
+		match sides[i]:
+			Side.PLAYER:
+				label = "P1"
+			Side.PLAYER2:
+				label = "P2"
+			Side.CPU:
+				label = "CPU"
+			Side.REMOTE:
+				label = "ONLINE"
+			Side.SCRIPT:
+				label = ""
+		if sim.creatures[i].is_dummy:
+			label = ""
+		fx.side_marks.append({"color": Hud.SIDE_COLORS[i], "label": label})
 	for i in 2:
 		match sides[i]:
 			Side.PLAYER:
@@ -488,6 +783,9 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 				hud.key_labels[i] = ["", ""]
 			Side.PLAYER2:
 				hud.tags[i] = "P2"
+			Side.REMOTE:
+				hud.tags[i] = "ONLINE"
+				hud.key_labels[i] = ["", ""]
 			_:
 				hud.tags[i] = ""
 	shake = 0.0
@@ -500,20 +798,38 @@ func _physics_process(_delta: float) -> void:
 	if sim == null:
 		return  # quitting after --sim-check
 	frame_count += 1
+	_apply_frame_rate()
+	if paused:
+		_capture()
+		return  # frozen behind the pause menu: nothing steps, the picture holds
 	flow_t += 1
+	if _finder != null:
+		_finder_step()
 	var live := flow == Flow.FIGHT or flow == Flow.MENU
-	var inputs := PackedInt32Array([_side_bits(0, live), _side_bits(1, live)])
-	if showcase != null and flow == Flow.FIGHT:
-		inputs = showcase.inputs(sim)
-	elif coach != null and flow == Flow.FIGHT:
-		inputs = coach.inputs(_side_bits(0, true))
-	if flow == Flow.FIGHT:
-		replay.record(inputs)
-	if duel != null:
-		duel.step(inputs)
+	var events: Array = sim.events
+	if online != null:
+		# Online: the rollback session steps the duel (maybe several frames, maybe none
+		# while it waits); the views get only the events they haven't shown yet.
+		live = flow == Flow.FIGHT or flow == Flow.MATCH_OVER
+		netplay.tick(_side_bits(online.local_side, live and not ui.is_open()))
+		events = online.events
+		_online_status()
+	elif netplay != null and _connecting_step():
+		events = online.events  # the online match began this frame: its session steps it
 	else:
-		sim.step(inputs)
-	for e in sim.events:
+		var inputs := PackedInt32Array([_side_bits(0, live), _side_bits(1, live)])
+		if showcase != null and flow == Flow.FIGHT:
+			inputs = showcase.inputs(sim)
+		elif coach != null and flow == Flow.FIGHT:
+			inputs = coach.inputs(_side_bits(0, true))
+		if flow == Flow.FIGHT:
+			replay.record(inputs)
+		if duel != null:
+			duel.step(inputs)
+		else:
+			sim.step(inputs)
+		events = sim.events
+	for e in events:
 		_react(e)
 	if coach != null and flow == Flow.FIGHT:
 		_coach_step()
@@ -546,7 +862,8 @@ func _physics_process(_delta: float) -> void:
 	if sim.ko_freeze <= 0:
 		shake *= 0.82
 	_update_camera()
-	camera.offset = Vector2(randf_range(-shake, shake), randf_range(-shake, shake)).round() if shake > 0.3 else Vector2.ZERO
+	var sh := shake * shake_scale
+	camera.offset = Vector2(randf_range(-sh, sh), randf_range(-sh, sh)).round() if sh > 0.3 else Vector2.ZERO
 	flash_rect.color.a = maxf(0.0, flash_rect.color.a - 0.04)
 	_capture()
 
@@ -560,9 +877,7 @@ func _update_flow() -> void:
 			if _menu_ko_t > 150 or flow_t > ROUND_TICKS:
 				_menu_ko_t = 0
 				seed_base += 1
-				var keep := menu_index
-				_open_menu()
-				menu_index = keep
+				_menu_background()
 		Flow.INTRO:
 			hud.banner = "ROUND %d" % round_num if flow_t < 60 else "FIGHT!"
 			if flow_t == 2 or flow_t == 60:
@@ -599,13 +914,15 @@ func _update_flow() -> void:
 					flow_t = 0
 					var w := 0 if wins[0] >= WINS_NEEDED else 1
 					hud.banner = "%s WINS!" % String(sim.creatures[w].def["name"]).to_upper()
-					hud.banner_sub = "Enter / A: rematch     Esc / View: menu"
+					hud.banner_sub = ""
 				else:
 					round_num += 1
 					_start_round()
 		Flow.MATCH_OVER:
 			if duel != null:
 				hud.timer_ticks = maxi(duel.timer, 0)
+			if flow_t == MATCH_OVER_MENU_AT and not ui.is_open():
+				_show_match_over()
 			if sides[0] == Side.CPU and sides[1] == Side.CPU and flow_t > 240:
 				seed_base += 1
 				_start_match(mode)
@@ -659,6 +976,8 @@ func _side_bits(i: int, live: bool) -> int:
 			return b
 		Side.PLAYER2:
 			return player2_input.bits(sim, i, Vector2.ZERO)
+		Side.REMOTE:
+			return 0  # arrives over the network
 		Side.CPU:
 			return (cpus[i] as CpuController).bits(sim)
 		Side.DUMMY:
@@ -751,7 +1070,8 @@ func _hides_someone(c: CreatureSim) -> bool:
 
 
 func _update_camera() -> void:
-	var size := Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H)
+	var size := Vector2(SimDefs.VIEW_W, SimDefs.VIEW_H)  # the arena
+	var view := get_viewport().get_visible_rect().size  # the screen (wider on ultrawide)
 	var base_z := 1.0
 	var base_focus := size * 0.5
 	var ko_focus := _ko_focus
@@ -780,9 +1100,17 @@ func _update_camera() -> void:
 		focus = base_focus.lerp(ko_focus, amt)
 		if k_out >= 1.0:
 			_ko_cam_t = -1
-	var half := size * 0.5 / z
+	var half := view * 0.5 / z
 	camera.zoom = Vector2(z, z)
-	camera.position = focus.clamp(half, size - half)
+	camera.position = Vector2(_cam_axis(focus.x, half.x, size.x), _cam_axis(focus.y, half.y, size.y))
+
+
+## Keeps the arena filling the screen along one axis; when the screen shows more than
+## the arena (an ultrawide's width), the arena stays centred and the stadium fills the rest.
+static func _cam_axis(v: float, half: float, arena: float) -> float:
+	if half * 2.0 >= arena:
+		return arena * 0.5
+	return clampf(v, half, arena - half)
 
 
 # ------------------------------------------------------------------ input
@@ -795,28 +1123,22 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("mute_music"):
+	if event.is_action_pressed("mute_music"):  # (typing in a text box never gets here)
 		var muted := audio.toggle_music()
-		hud.show_toast("Music off (M to turn on)" if muted else "Music on")
+		_toast("Music off (M to turn on)" if muted else "Music on")
 		_save_settings()
+		if _setting_rows.has("vol_Music"):
+			var now := _setting("vol_Music")
+			(_setting_rows["vol_Music"] as OptionRow).set_values(now["values"], int(now["index"]))
 		return
-	if flow == Flow.SELECT:
-		if team_select.handle(event) and flow == Flow.SELECT:
-			audio.play("ui_move", 0.0, 1.0, true)
-		return
-	if flow == Flow.MENU:
-		var before := [menu_index, level, player_input.layout, _row_choice.duplicate()]
-		_menu_input(event)
-		if flow != Flow.MENU:
-			audio.play("ui_select", 0.0, 1.0, true)
-		elif [menu_index, level, player_input.layout, _row_choice] != before:
-			audio.play("ui_move", 0.0, 1.0, true)
-		return
-	if event.is_action_pressed("menu_back"):
-		_open_menu()
-	elif flow == Flow.MATCH_OVER and event.is_action_pressed("menu_confirm"):
-		seed_base += 1
-		_start_match(mode, true)
+	if ui.is_open():
+		return  # the screen on top has the input
+	if flow == Flow.MENU or flow == Flow.SELECT or flow == Flow.LOBBY or flow == Flow.MATCH_OVER:
+		return  # their screens take the input
+	if event.is_action_pressed("pause") and showcase != null:
+		_open_menu()  # a demo: straight back
+	elif event.is_action_pressed("pause"):
+		_open_pause()
 	elif event.is_action_pressed("debug_hitboxes"):
 		debug.visible = not debug.visible
 		debug.queue_redraw()
@@ -843,69 +1165,179 @@ func _unhandled_input(event: InputEvent) -> void:
 		hud.show_toast("Reset")
 
 
-func _menu_input(event: InputEvent) -> void:
-	var count := MENU_ROWS.size() + 3
-	# Mouse: hover to highlight, click to choose.
-	if event is InputEventMouseMotion or (event is InputEventMouseButton and event.pressed):
-		var p: Vector2 = get_global_mouse_position()
-		var row := int(floor((p.y - (MENU_Y0 - MENU_DY + 4.0)) / MENU_DY))
-		if p.x >= 130.0 and p.x <= 350.0 and row >= 0 and row < count:
-			menu_index = row
-			if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-				if row < MENU_ROWS.size():
-					_start_row(row)
-					return
-				_change_option(row, 1)
-		_refresh_menu()
+## Back in a menu: Esc, B or View.
+static func _back_pressed(event: InputEvent) -> bool:
+	return event.is_action_pressed("menu_back") or event.is_action_pressed("ui_cancel")
+
+
+## Start / Esc / View in a fight. Offline the match freezes behind the pause menu; online
+## it can't, so it asks whether to leave while the match carries on (your fighter stands
+## still meanwhile).
+func _open_pause() -> void:
+	if online != null:
+		var c := ConfirmScreen.new("Leave the match?", "The match keeps going while this is open.", "Leave", "Stay")
+		c.answered.connect(func(yes: bool): if yes: _leave_online())
+		ui.push(c)
 		return
-	if event.is_action_pressed("ui_down"):
-		menu_index = (menu_index + 1) % count
-	elif event.is_action_pressed("ui_up"):
-		menu_index = (menu_index + count - 1) % count
-	elif event.is_action_pressed("ui_left"):
-		_change_option(menu_index, -1)
-	elif event.is_action_pressed("ui_right"):
-		_change_option(menu_index, 1)
-	elif event.is_action_pressed("menu_confirm") or event.is_action_pressed("ui_accept"):
-		if menu_index < MENU_ROWS.size():
-			_start_row(menu_index)
-			return
-		_change_option(menu_index, 1)
-	elif event.is_action_pressed("menu_back"):
-		get_tree().quit()
-		return
+	paused = true
+	var p := PauseScreen.new(true, player_input.help_text().replace("   ", "\n").replace("  ", "\n"))
+	p.resumed.connect(func(): paused = false)
+	p.restart_requested.connect(func():
+		_close_ui()
+		seed_base += 1
+		_start_match(mode, true))
+	p.quit_requested.connect(func():
+		_close_ui()
+		_open_menu())
+	ui.push(p)
+
+
+func _close_ui() -> void:
+	ui.clear()
+	paused = false
+
+
+## A Settings row: its label, values (shown), current index, a description, and for a
+## volume its bar.
+func _setting(key: String) -> Dictionary:
+	if key.begins_with("vol_"):
+		var bus := key.trim_prefix("vol_")
+		var v := audio.volume(bus)
+		var vals: Array = ["Off"]
+		for i in range(1, 11):
+			vals.append("%d%%" % (i * 10))
+		var idx := clampi(roundi(v / VOLUME_STEP), 0, 10)
+		if bus == "Music" and audio.music_muted and idx > 0:
+			vals[idx] = "muted (M)"
+		return {"label": VOLUME_NAMES[bus], "values": vals, "index": idx, "bar": v, "wrap": false,
+			"desc": "Left/Right sets it.  M mutes the music any time"}
+	match key:
+		"level":
+			return {"label": "CPU level", "values": LEVEL_NAMES, "index": level, "desc": "How hard the CPU fights"}
+		"layout":
+			var names: Array = []
+			for l in PlayerInput.LAYOUTS:
+				names.append(PlayerInput.LAYOUT_NAMES[l])
+			return {"label": "Keyboard", "values": names, "index": PlayerInput.LAYOUTS.find(player_input.layout),
+				"desc": "League-style: mouse to move, QWER.  Classic: WASD and J K U I O"}
+		"pad_layout":
+			var pads: Array = []
+			for l in PlayerInput.PAD_LAYOUTS:
+				pads.append(PlayerInput.PAD_LAYOUT_NAMES[l])
+			return {"label": "Controller", "values": pads,
+				"index": maxi(0, PlayerInput.PAD_LAYOUTS.find(player_input.pad_layout)),
+				"desc": "Twin-stick: the right stick aims 360 degrees and holds your facing while you walk"}
+		"fullscreen":
+			return {"label": "Fullscreen", "values": ["Off", "On"], "index": 1 if fullscreen else 0,
+				"desc": "Fill the screen"}
+		"wide":
+			return {"label": "Wide screens", "values": ["16:9 with bars", "Fill"], "index": 1 if wide_fill else 0,
+				"desc": "Ultrawide and 16:10: show more of the stadium, or keep a 16:9 picture"}
+		"vsync":
+			return {"label": "Vsync", "values": ["Off", "On"], "index": 1 if vsync else 0,
+				"desc": "On: no tearing, and the screen's refresh rate caps the frame rate"}
+		"rumble":
+			return {"label": "Controller rumble", "values": ["Off", "On"], "index": 1 if rumble else 0,
+				"desc": "A buzz when you land a hit or get hit"}
+		"shake":
+			var names: Array = []
+			var idx := 0
+			for i in SHAKE_CHOICES.size():
+				names.append(SHAKE_CHOICES[i][0])
+				if is_equal_approx(float(SHAKE_CHOICES[i][1]), shake_scale):
+					idx = i
+			return {"label": "Screen shake", "values": names, "index": idx,
+				"desc": "How much the camera shakes on big hits"}
+		"fps":
+			var vals: Array = []
+			for f in FPS_CHOICES:
+				vals.append("Unlimited" if int(f) == 0 else "%d fps" % int(f))
+			return {"label": "Fight frame rate", "values": vals, "index": maxi(0, FPS_CHOICES.find(fight_fps)),
+				"desc": "Menus always run at 60 fps; this sets fights (up to your screen's refresh rate)"}
+	return {"label": key, "values": [""], "index": 0, "desc": ""}
+
+
+func _set_setting(key: String, i: int) -> void:
+	if key.begins_with("vol_"):
+		var bus := key.trim_prefix("vol_")
+		var v := clampf(i * VOLUME_STEP, 0.0, 1.0)
+		audio.set_volume(bus, v)
+		if bus == "Music" and v > 0.0 and audio.music_muted:
+			audio.set_music_muted(false)  # turning the music up unmutes it
+		# Let the player hear the new level (the music is already playing).
+		if bus == "Effects":
+			audio.preview("hit_light", "Effects")
+		elif bus != "Music":
+			audio.preview("ui_select", "Menu")
 	else:
+		match key:
+			"level":
+				level = clampi(i, 0, LEVEL_NAMES.size() - 1)
+			"layout":
+				player_input.layout = PlayerInput.LAYOUTS[clampi(i, 0, PlayerInput.LAYOUTS.size() - 1)]
+				_apply_device()
+			"pad_layout":
+				_set_pad_layout(PlayerInput.PAD_LAYOUTS[clampi(i, 0, PlayerInput.PAD_LAYOUTS.size() - 1)])
+				_apply_device()
+			"fullscreen":
+				fullscreen = i == 1
+				_apply_fullscreen()
+			"wide":
+				wide_fill = i == 1
+				_apply_aspect()
+			"vsync":
+				vsync = i == 1
+				_apply_vsync()
+			"rumble":
+				rumble = i == 1
+				if rumble and player_input.device == PlayerInput.Device.GAMEPAD:
+					Input.start_joy_vibration(player_input.pad_id, 0.4, 0.4, 0.2)  # feel it
+			"shake":
+				shake_scale = float(SHAKE_CHOICES[clampi(i, 0, SHAKE_CHOICES.size() - 1)][1])
+			"fps":
+				fight_fps = int(FPS_CHOICES[clampi(i, 0, FPS_CHOICES.size() - 1)])
+	_save_settings()
+
+
+## A short message: over the screens when one is open, else in the HUD.
+func _toast(msg: String) -> void:
+	if ui.is_open():
+		ui.toast(msg)
+	else:
+		hud.show_toast(msg)
+
+
+## Menus draw at MENU_FPS, fights at the player's setting; only menus read the stick
+## as menu presses.
+func in_menus() -> bool:
+	return flow == Flow.MENU or flow == Flow.SELECT or flow == Flow.LOBBY
+
+
+func _apply_frame_rate() -> void:
+	var menus := in_menus()
+	# The character select reads each player's stick itself (two cursors).
+	menu_stick.enabled = (menus or ui.is_open()) and not (ui.top() is CharacterSelect)
+	if _fps_caps:
+		var cap := MENU_FPS if menus else fight_fps
+		if Engine.max_fps != cap:
+			Engine.max_fps = cap
+
+
+func _apply_aspect() -> void:
+	get_window().content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND if wide_fill \
+		else Window.CONTENT_SCALE_ASPECT_KEEP
+
+
+func _apply_vsync() -> void:
+	if DisplayServer.get_name() == "headless":
 		return
-	_refresh_menu()
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync else DisplayServer.VSYNC_DISABLED)
 
 
-## Left/right on the CPU level or keyboard layout rows.
-func _start_row(row: int) -> void:
-	var r: Dictionary = MENU_ROWS[row]
-	_start_match(int(r["modes"][_row_choice[row] if row < _row_choice.size() else 0]))
-
-
-func _change_option(row: int, dir: int) -> void:
-	if row < MENU_ROWS.size():
-		var r: Dictionary = MENU_ROWS[row]
-		if r.has("choices"):
-			var n: int = (r["choices"] as Array).size()
-			_row_choice[row] = (int(_row_choice[row]) + dir + n) % n
-	elif row == MENU_ROWS.size():
-		level = (level + dir + LEVEL_NAMES.size()) % LEVEL_NAMES.size()
-		_save_settings()
-	elif row == MENU_ROWS.size() + 1:
-		var i := PlayerInput.LAYOUTS.find(player_input.layout)
-		player_input.layout = PlayerInput.LAYOUTS[(i + PlayerInput.LAYOUTS.size() + dir) % PlayerInput.LAYOUTS.size()]
-		_save_settings()
-		_apply_device()
-	elif row == MENU_ROWS.size() + 2:
-		var n := PlayerInput.PAD_LAYOUTS.size()
-		var i := PlayerInput.PAD_LAYOUTS.find(player_input.pad_layout)
-		_set_pad_layout(PlayerInput.PAD_LAYOUTS[(i + n + dir) % n])
-		_save_settings()
-		_apply_device()
-	_refresh_menu()
+func _apply_fullscreen() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if fullscreen else DisplayServer.WINDOW_MODE_WINDOWED)
 
 
 ## Both players' controllers use the same layout.
@@ -931,6 +1363,9 @@ func _apply_device() -> void:
 			hud.surge_labels[i] = ""
 			hud.tag_labels[i] = ""
 	hud.help_text = player_input.help_text()
+	var pad := player_input.device == PlayerInput.Device.GAMEPAD
+	hud.gamepad = pad
+	ui.set_gamepad(pad)
 	if player_input.device == PlayerInput.Device.GAMEPAD:
 		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 	else:
@@ -941,7 +1376,7 @@ func _apply_device() -> void:
 
 ## Controller rumble: a light buzz when you land a hit, a heavier one when you get hit.
 func _rumble(e: Dictionary) -> void:
-	if player_input.device != PlayerInput.Device.GAMEPAD or flow != Flow.FIGHT:
+	if not rumble or player_input.device != PlayerInput.Device.GAMEPAD or flow != Flow.FIGHT:
 		return
 	var me := sides.find(Side.PLAYER)
 	if me < 0:
@@ -963,7 +1398,7 @@ func _rumble(e: Dictionary) -> void:
 
 func _load_settings() -> void:
 	var cfg := ConfigFile.new()
-	if cfg.load(SETTINGS_PATH) == OK:
+	if cfg.load(settings_path) == OK:
 		var lay := String(cfg.get_value("input", "layout", "league"))
 		if lay in PlayerInput.LAYOUTS:
 			player_input.layout = lay
@@ -972,6 +1407,27 @@ func _load_settings() -> void:
 			_set_pad_layout(pad)
 		level = clampi(int(cfg.get_value("game", "level", level)), 0, LEVEL_NAMES.size() - 1)
 		audio.set_music_muted(bool(cfg.get_value("audio", "music_muted", false)))
+		_online_fighter = String(cfg.get_value("online", "fighter", _online_fighter))
+		if not (_online_fighter in MatchFactory.FIGHTERS):
+			_online_fighter = "cairn"
+		_online_address = String(cfg.get_value("online", "address", ""))
+		_online_server = String(cfg.get_value("online", "server", "")).strip_edges()
+		_recent_servers = Array(cfg.get_value("online", "recent", []))
+		for bus in AudioView.DEFAULT_VOLUMES:
+			audio.set_volume(bus, float(cfg.get_value("audio", "volume_" + String(bus).to_lower(),
+				AudioView.DEFAULT_VOLUMES[bus])))
+		fullscreen = bool(cfg.get_value("video", "fullscreen", false))
+		if fullscreen:
+			_apply_fullscreen()
+		vsync = bool(cfg.get_value("video", "vsync", true))
+		_apply_vsync()
+		wide_fill = bool(cfg.get_value("video", "wide_fill", true))
+		_apply_aspect()
+		rumble = bool(cfg.get_value("game", "rumble", true))
+		shake_scale = float(cfg.get_value("game", "shake", 1.0))
+		Controls.apply_overrides(cfg.get_value("controls", "bindings", {}))
+		var fps := int(cfg.get_value("video", "fight_fps", DEFAULT_FPS))
+		fight_fps = fps if fps in FPS_CHOICES else DEFAULT_FPS
 
 
 func _save_settings() -> void:
@@ -980,10 +1436,35 @@ func _save_settings() -> void:
 	cfg.set_value("input", "pad_layout", player_input.pad_layout)
 	cfg.set_value("game", "level", level)
 	cfg.set_value("audio", "music_muted", audio.music_muted)
-	cfg.save(SETTINGS_PATH)
+	cfg.set_value("online", "fighter", _online_fighter)
+	cfg.set_value("online", "address", _online_address)
+	cfg.set_value("online", "server", _online_server)
+	cfg.set_value("online", "recent", _recent_servers)
+	cfg.set_value("video", "fullscreen", fullscreen)
+	cfg.set_value("video", "fight_fps", fight_fps)
+	cfg.set_value("video", "vsync", vsync)
+	cfg.set_value("video", "wide_fill", wide_fill)
+	cfg.set_value("game", "rumble", rumble)
+	cfg.set_value("game", "shake", shake_scale)
+	cfg.set_value("controls", "bindings", Controls.overrides())
+	for bus in AudioView.DEFAULT_VOLUMES:
+		cfg.set_value("audio", "volume_" + String(bus).to_lower(), audio.volume(bus))
+	cfg.save(settings_path)
 
 
 ## --sim-check=SEED: print (and optionally write) the determinism fingerprint, then quit.
+## --server[=PORT]: run as a dedicated server (see DedicatedServer) instead of the game.
+func _run_server() -> bool:
+	var server := DedicatedServer.new()
+	if not server.configure(OS.get_cmdline_user_args()):
+		return false
+	set_physics_process(false)
+	set_process_input(false)
+	set_process_unhandled_input(false)
+	add_child(server)
+	return true
+
+
 func _run_sim_check() -> bool:
 	var seed_ := -1
 	var out := ""
@@ -1049,6 +1530,26 @@ func _parse_args() -> int:
 			for i in MODES.size():
 				if MODES[i].get("showcase", false):
 					start = i
+		elif a == "--online-host" or a.begins_with("--online-host="):
+			_net_args["host"] = int(a.get_slice("=", 1)) if a.contains("=") else Netplay.DEFAULT_PORT
+		elif a.begins_with("--online-join="):
+			_net_args["join"] = a.get_slice("=", 1)
+		elif a.begins_with("--menu="):
+			var page := a.get_slice("=", 1)
+			if page in ["main", "single", "settings", "game", "video", "audio", "controls"]:
+				_menu_arg = "" if page == "main" else page
+		elif a.begins_with("--fighter="):
+			var f := a.get_slice("=", 1)
+			if f in MatchFactory.FIGHTERS:
+				_online_fighter = f
+		elif a.begins_with("--net-lag="):
+			_net_args["lag"] = int(a.get_slice("=", 1))
+		elif a.begins_with("--net-loss="):
+			_net_args["loss"] = float(a.get_slice("=", 1))
+		elif a.begins_with("--net-delay="):
+			_net_args["delay"] = int(a.get_slice("=", 1))
+		elif a.begins_with("--net-report="):
+			_net_args["report"] = a.get_slice("=", 1)
 		elif a.begins_with("--layout="):
 			var lay := a.get_slice("=", 1)
 			if lay in PlayerInput.LAYOUTS:
@@ -1062,6 +1563,279 @@ func _parse_args() -> int:
 	return start
 
 
+# ------------------------------------------------------------------ online
+
+func _open_lobby() -> void:
+	_end_online()
+	flow = Flow.LOBBY
+	flow_t = 0
+	hud.menu_visible = false
+	hud.visible = false
+	_close_ui()
+	lobby = OnlineLobby.new(_online_fighter, _online_address, _recent_servers, online_server())
+	lobby.server_join_pressed.connect(_net_join_server)
+	lobby.host_pressed.connect(_net_host)
+	lobby.join_pressed.connect(_net_join_typed)
+	lobby.cancelled.connect(_leave_online)
+	ui.push(lobby)
+
+
+## Builds the network link, with the --net-lag / --net-loss wrapper if asked for.
+func _make_link(host_port: int, address := "", port := 0) -> NetLink:
+	var e := EnetLink.new()
+	var err := e.host(host_port) if address == "" else e.join(address, port)
+	if err != OK:
+		return e  # Netplay reports e.error
+	if int(_net_args.get("lag", 0)) > 0 or float(_net_args.get("loss", 0.0)) > 0.0:
+		return LagLink.new(e, int(_net_args.get("lag", 0)), float(_net_args.get("loss", 0.0)))
+	return e
+
+
+func _net_host(fighter: String) -> void:
+	_online_fighter = fighter
+	_save_settings()
+	netplay = Netplay.new()
+	netplay.forced_delay = int(_net_args.get("delay", -1))
+	var port := int(_net_args.get("host", Netplay.DEFAULT_PORT))
+	var link := _make_link(port)
+	if link.status == NetLink.Status.CLOSED:
+		lobby.status = link.error
+		lobby.status_bad = true
+		netplay = null
+		return
+	netplay.host(port, [fighter], link)
+	lobby.busy = true
+	lobby.hosting_port = port
+	_lobby_status()
+
+
+## Quick match (room "") or a room, on the online server. At the server's own house its
+## public name may not work (many routers don't loop it back inside), so this first
+## looks for it on the local network for a moment, then joins whichever it found.
+func _net_join_server(fighter: String, room: String, server := "") -> void:
+	var parsed := OnlineLobby.parse_address(server if server != "" else online_server())
+	if String(parsed[0]) == "":
+		lobby.status = OnlineLobby.NO_SERVER
+		lobby.status_bad = true
+		return
+	_online_fighter = fighter
+	_save_settings()
+	_finder = LanFinder.new()
+	_finder.start(int(parsed[1]), finder_target)
+	_finder_join = [fighter, String(parsed[0]), int(parsed[1]), room]
+	lobby.busy = true
+	lobby.hosting_port = 0
+	lobby.status_bad = false
+	lobby.status = "Looking for the server..."
+
+
+## Each frame while looking: once it's done, join the server it found nearby, or the
+## public address.
+func _finder_step() -> void:
+	if not _finder.poll():
+		return
+	var f := _finder.found
+	var j := _finder_join
+	_finder = null
+	if lobby == null:
+		return
+	if f.is_empty():
+		_net_join(String(j[0]), String(j[1]), int(j[2]), String(j[3]), false)
+	else:
+		_net_join(String(j[0]), String(f["address"]), int(f["port"]), String(j[3]), false)
+
+
+## Join by a typed (or recent) address. The online server's own name goes through the
+## local look-up too, so it works at home.
+func _net_join_typed(fighter: String, address: String, port: int, room := "") -> void:
+	var srv := OnlineLobby.parse_address(online_server())
+	if address.to_lower() == String(srv[0]).to_lower() and address != "":
+		_online_address = lobby.address if lobby.address != "" else address
+		_remember_server(_online_address)
+		_net_join_server(fighter, room, "%s:%d" % [address, port])
+		return
+	_net_join(fighter, address, port, room)
+
+
+func _net_join(fighter: String, address: String, port: int, room := "", remember := true) -> void:
+	_online_fighter = fighter
+	if remember:
+		_online_address = lobby.address if lobby.address != "" else address
+		_remember_server(_online_address)
+	_save_settings()
+	netplay = Netplay.new()
+	netplay.forced_delay = int(_net_args.get("delay", -1))
+	var link := _make_link(0, address, port)
+	if link.status == NetLink.Status.CLOSED:
+		lobby.busy = false
+		lobby.status = link.error
+		lobby.status_bad = true
+		netplay = null
+		return
+	netplay.room = room
+	netplay.join(address, port, [fighter], link)
+	lobby.busy = true
+	lobby.hosting_port = 0
+	_lobby_status()
+
+
+## Connecting: keeps the network moving behind the lobby. Returns true if the online
+## match started just now; only its rollback session may step it, never the menu's loop
+## (a step outside it would put this machine one frame off the other and the server).
+func _connecting_step() -> bool:
+	netplay.tick(0)
+	_lobby_status()
+	return online != null
+
+
+## While connecting: show what's happening, and start the match once it's agreed.
+func _lobby_status() -> void:
+	if netplay == null:
+		return
+	lobby.status = netplay.status
+	lobby.status_bad = netplay.phase == Netplay.Phase.ENDED
+	if netplay.phase == Netplay.Phase.ENDED:
+		lobby.busy = false
+		netplay = null
+		return
+	if netplay.is_playing():
+		_start_online_match()
+
+
+func _start_online_match() -> void:
+	online = netplay.game
+	_close_ui()  # the lobby, or a match-over screen on a rematch
+	lobby = null
+	hud.visible = true
+	hud.menu_visible = false
+	audio.play_music("fight")
+	duel = online.duel
+	var s := [Side.REMOTE, Side.REMOTE]
+	s[online.local_side] = Side.PLAYER
+	_new_sim(duel.sim, s)
+	for i in 2:
+		if cpus[i] != null:
+			(cpus[i] as CpuController).duel = duel
+	hud.duel = duel
+	hud.timer_ticks = duel.timer
+	hud.wins = [0, 0]
+	hud.wins_needed = 0
+	hud.banner = ""
+	flow = Flow.FIGHT
+	flow_t = 0
+	_net_end_t = 0
+
+
+## During an online match: rematches, the connection's health, and how it ended.
+func _online_status() -> void:
+	if netplay.game != online and netplay.is_playing():
+		_write_net_report()
+		_start_online_match()  # a rematch began
+		return
+	if netplay.phase == Netplay.Phase.ENDED:
+		_net_end_t += 1
+		if _net_end_t == 1:
+			_write_net_report()
+			hud.banner = "DISCONNECTED"
+			hud.banner_sub = netplay.error
+			hud.net_info = ""
+		if _net_end_t > 240:
+			_leave_online()
+		return
+	var g := online
+	hud.net_info = "PING %d ms   DELAY %d   ROLLBACK %d" % [roundi(netplay.ping_ms), g.input_delay,
+		g.session.max_rollback_seen]
+	if g.desync_frame >= 0:
+		hud.net_info = "DESYNC at frame %d: report saved   " % g.desync_frame + hud.net_info
+	if g.waiting_ticks > 30 and flow == Flow.FIGHT:
+		hud.banner = "WAITING FOR OPPONENT"
+		hud.banner_sub = "Connection hiccup..."
+	elif hud.banner == "WAITING FOR OPPONENT":
+		hud.banner = ""
+		hud.banner_sub = ""
+	if flow == Flow.MATCH_OVER and _match_over_status != null and is_instance_valid(_match_over_status):
+		if netplay.rematch_local:
+			_match_over_status.text = "Waiting for the other player..."
+		elif netplay.rematch_remote:
+			_match_over_status.text = "The other player wants a rematch!"
+
+
+func _leave_online() -> void:
+	_write_net_report()
+	if netplay != null:
+		netplay.leave()
+	_end_online()
+	_open_menu("", "online")
+
+
+## The address just joined goes to the top of the recent list (kept short).
+func _remember_server(addr: String) -> void:
+	addr = addr.strip_edges()
+	if addr == "":
+		return
+	_recent_servers.erase(addr)
+	_recent_servers.push_front(addr)
+	_recent_servers = _recent_servers.slice(0, OnlineLobby.MAX_RECENT)
+
+
+## After a match: Rematch, Change fighters (modes with a pick screen) or Main menu;
+## online, Rematch or Leave, with what the other player is doing. It sits low so the
+## winner's banner stays in view. Back = Main menu / Leave.
+func _show_match_over() -> void:
+	var scr := UiScreen.new()
+	scr.dim = 0.35
+	scr.column_shift = 52.0
+	scr.row_width = 170.0
+	scr.hints = ["move", "select", "back"]
+	var cfg: Dictionary = MODES[mode]
+	scr.builder = func(s: UiScreen):
+		if online != null:
+			var again := s.add_button("Rematch", func(): pass, "Play again; it starts when you both ask")
+			again.pressed.connect(func():
+				netplay.request_rematch()
+				again.disabled = true
+				again.text = "Rematch asked")
+			s.add_button("Leave", _leave_online, "Back to the title menu")
+			_match_over_status = s.add_text("", UiTheme.SIZE_HINT + 1, UiTheme.C_ACCENT)
+			s.on_back = _leave_online
+		else:
+			s.add_button("Rematch", func():
+				seed_base += 1
+				_start_match(mode, true), "The same fighters again")
+			if (cfg.get("duel", false) or cfg.get("versus2p", false)) and not _skip_select:
+				s.add_button("Change fighters", func(): _start_match(mode), "Back to the pick screen")
+			s.add_button("Main menu", func(): _open_menu(), "Back to the title menu")
+			s.on_back = func(): _open_menu()
+	ui.push(scr)
+
+
+func _end_online() -> void:
+	if _finder != null:
+		_finder.cancel()
+	_finder = null
+	netplay = null
+	online = null
+	if hud != null:
+		hud.net_info = ""
+
+
+## --net-report=PATH: the match's inputs and state fingerprints as JSON, so two
+## machines' reports can be compared (or a desync replayed). Also written on a desync.
+func _write_net_report() -> void:
+	if online == null:
+		return
+	var path := String(_net_args.get("report", ""))
+	if path == "" and online.desync_frame < 0:
+		return
+	if path == "":
+		DirAccess.make_dir_recursive_absolute("user://desyncs")
+		path = "user://desyncs/desync_%s.json" % Time.get_datetime_string_from_system().replace(":", "-")
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if f != null:
+		f.store_string(JSON.stringify(online.report()))
+		f.close()
+
+
 func _capture() -> void:
 	var t := frame_count
 	if _shots.has(t):
@@ -1069,4 +1843,5 @@ func _capture() -> void:
 		DirAccess.make_dir_recursive_absolute(_shot_dir)
 		get_viewport().get_texture().get_image().save_png(_shot_dir.path_join("shot_%04d.png" % t))
 	if _quit_after > 0 and t >= _quit_after:
+		_write_net_report()
 		get_tree().quit()

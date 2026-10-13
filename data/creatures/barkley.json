@@ -1,0 +1,143 @@
+{
+  "id": "barkley",
+  "name": "Barkley",
+  "title": "A thousand-year-old tree, up and walking",
+  "affinity": "wild",
+  "role": "bruiser",
+  "max_hp": 145,
+  "speed": 1.45,
+  "accel": 0.26,
+  "radius": 11,
+  "weight": 1.25,
+  "stamina": 100,
+  "stamina_regen": 0.5,
+  "dodge": { "frames": 19, "iframes_start": 2, "iframes_end": 12, "speed": 2.9, "cost": 26 },
+  "guard": { "reduction": 0.8, "drain_per_damage": 1.9, "speed_mult": 0.38, "break_stun": 52 },
+  "fx_height": 26,
+  "fx_top": 58,
+  "fx_color": "#b56664",
+  "cut_in_frame": [8, 2],
+  "ko_fx": { "style": "timber", "length": 52 },
+  "sprite": {
+    "path": "res://assets/sprites/barkley.png",
+    "frame": 96,
+    "cols": 8,
+    "origin": [40, 90],
+    "anims": {
+      "idle": [0, 0, 4],
+      "run": [1, 0, 6],
+      "twig": [2, 0, 4],
+      "bough": [3, 0, 4],
+      "logdrop": [4, 0, 4],
+      "twister": [5, 0, 8],
+      "grab": [6, 0, 6],
+      "pinecone": [7, 0, 5],
+      "eruption": [8, 0, 6],
+      "dodge": [9, 0, 4],
+      "hurt": [10, 0, 2],
+      "guard": [11, 0, 2],
+      "ko": [12, 0, 4]
+    },
+    "side_only": ["ko"],
+    "select_scale": 0.5,
+    "views": {
+      "down": { "path": "res://assets/sprites/barkley_down.png", "frame": [128, 160], "origin": [64, 112] },
+      "up": { "path": "res://assets/sprites/barkley_up.png", "frame": [128, 160], "origin": [64, 124] }
+    }
+  },
+  "ai": {
+    "range": 22,
+    "poke": "skill_1",
+    "poke_range": [36, 60],
+    "lob": "skill_2",
+    "lob_range": [48, 114],
+    "wakeup_charge": true,
+    "routes": [
+      ["light", "light", "light", "heavy", "skill_1", "surge"],
+      ["light", "light", "light", "heavy", "skill_2"],
+      ["light", "light", "light", "heavy", "skill_1"],
+      ["light", "light", "light", "heavy"],
+      ["light", "light", "light"]
+    ]
+  },
+  "moves": {
+    "tag_in": {
+      "name": "Timber Drop", "type": "skill", "anim": "logdrop",
+      "startup": 8, "active": 4, "recovery": 16,
+      "damage": 7, "knockback": 1.6, "hitstun": 26, "hitstop": 8, "launch": 24,
+      "reach": 18, "hit_radius": 14, "juggle": true,
+      "dash": { "speed": 2.8, "from": 1, "to": 9 },
+      "fx": { "smear": "rise", "size": 1.4, "afterimage": [0, 9], "ghost_color": "#d9a59caa", "impact": "leaves" }
+    },
+    "light_1": {
+      "name": "Twig Swipe", "anim": "twig",
+      "startup": 5, "active": 3, "recovery": 11, "cancel_from": 8,
+      "damage": 4, "knockback": 0.9, "hitstun": 18, "hitstop": 4,
+      "reach": 19, "hit_radius": 11, "lunge": 0.8, "next": "light_2", "juggle": true,
+      "fx": { "smear": "arc" }
+    },
+    "light_2": {
+      "name": "Bough Swing", "anim": "bough",
+      "startup": 6, "active": 3, "recovery": 12, "cancel_from": 9,
+      "damage": 5, "knockback": 1.0, "hitstun": 19, "hitstop": 5,
+      "reach": 20, "hit_radius": 12, "lunge": 0.8, "next": "light_3", "juggle": true,
+      "fx": { "smear": "arc", "size": 1.2 }
+    },
+    "light_3": {
+      "name": "Log Drop", "anim": "logdrop",
+      "startup": 9, "active": 3, "recovery": 17,
+      "damage": 8, "knockback": 1.8, "hitstun": 26, "hitstop": 7,
+      "reach": 20, "hit_radius": 12, "lunge": 0.5, "next": "",
+      "fx": { "smear": "rise", "size": 1.3, "impact": "leaves" }
+    },
+    "heavy": {
+      "name": "Timber Twister", "anim": "twister", "windup": 8, "tell": "strong", "cooldown": 150,
+      "charge_max": 30, "startup": 6, "recovery": 22, "length": 44, "rank_cancel_from": 20,
+      "damage": 4, "damage_charged": 6,
+      "knockback": 3.4, "knockback_charged": 5.2,
+      "hitstun": 30, "hitstun_charged": 36,
+      "hitstop": 6, "hitstop_charged": 9,
+      "launch": 40,
+      "reach": 0, "hit_radius": 25, "juggle": true,
+      "hits": [
+        { "at": 7, "active": 2, "knockback": 0.3, "hitstun": 22, "hitstop": 3, "launch": 0 },
+        { "at": 13, "active": 2, "knockback": 0.3, "hitstun": 22, "hitstop": 3, "launch": 0 },
+        { "at": 19, "active": 3 }
+      ],
+      "dash": { "speed": 0.7, "from": 1, "to": 20 },
+      "anim_at": [[0, 2], [3, 3], [5, 4], [7, 5], [9, 2], [11, 3], [13, 4], [15, 5], [17, 2], [19, 3], [21, 6], [32, 7]],
+      "fx": { "charge": "leaves", "spin": true, "impact": "twister" }
+    },
+    "skill_1": {
+      "name": "Branch Grab", "anim": "grab", "windup": 8, "tell": "strong", "cooldown": 150,
+      "startup": 10, "active": 4, "recovery": 20,
+      "damage": 6, "knockback": 0.4, "hitstun": 34, "hitstop": 7,
+      "reach": 36, "hit_radius": 13, "juggle": true, "juggle_float": 26,
+      "pull": 3,
+      "anim_at": [[0, 0], [5, 1], [10, 2], [15, 3], [22, 4], [28, 5]],
+      "fx": { "branch": true, "impact": "snag" }
+    },
+    "skill_2": {
+      "name": "Pinecone Bomb", "anim": "pinecone", "cooldown": 180, "charge_max": 36, "aim": 0.7,
+      "startup": 9, "active": 0, "recovery": 26,
+      "damage": 8, "knockback": 1.4, "hitstun": 24, "hitstop": 7, "launch": 30, "juggle": true,
+      "projectile": { "lob": true, "range": 48, "range_charged": 110, "time": 22, "burst": 16, "offset": 6, "crack": 10 },
+      "anim_at": [[0, 0], [4, 1], [9, 2], [12, 3], [20, 4]],
+      "fx": { "projectile": "pinecone" }
+    },
+    "surge": {
+      "name": "Root Eruption", "anim": "eruption", "energy_cost": 100,
+      "startup": 16, "recovery": 30, "length": 62,
+      "damage": 7, "knockback": 0.6, "hitstun": 24, "hitstop": 6,
+      "reach": 0, "hit_radius": 54, "juggle": true,
+      "hits": [
+        { "at": 17, "active": 3, "hit_radius": 26 },
+        { "at": 23, "active": 3, "hit_radius": 40 },
+        { "at": 29, "active": 4, "hit_radius": 54, "damage": 10, "crumple": 64, "hitstop": 14, "knockback": 0.4 }
+      ],
+      "terrain_crack": 50,
+      "anim_at": [[0, 0], [5, 1], [11, 2], [16, 3], [29, 4], [48, 5]],
+      "fx": { "telegraph": true, "speedlines": true, "impact": "roots" }
+    }
+  }
+}

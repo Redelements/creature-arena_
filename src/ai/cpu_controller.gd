@@ -49,9 +49,12 @@ var _plan_dir := Vector2.ZERO
 var _think_t := 0
 var _last_pos := Vector2.ZERO
 var _stuck_t := 0
+## Where the foe was last seen: an invisible foe (Tiptoe) is chased there, not where it is.
+var _last_seen := Vector2.INF
 var _detour_t := 0
 var _detour_dir := Vector2.ZERO
 var _hold_heavy := 0
+var _hold_bit := SimDefs.IN_HEAVY  ## the button a held charge is held on
 ## Set in a Duel, so the CPU can tag out a hurt creature.
 var duel: DuelSim = null
 
@@ -120,6 +123,10 @@ func _threat_range(foe: CreatureSim, me: CreatureSim) -> float:
 
 func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 	var to_foe := foe.pos - me.pos
+	if foe.stealth > 0 and _last_seen != Vector2.INF:
+		to_foe = _last_seen - me.pos
+	else:
+		_last_seen = foe.pos
 	var dist := to_foe.length()
 
 	# Stunned: maybe burn energy on a breakaway, otherwise nothing to do.
@@ -166,7 +173,18 @@ func _continue_attack(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: fl
 	if me.charging:
 		if _hold_heavy > 0:
 			_hold_heavy -= 1
-			_hold(SimDefs.IN_HEAVY)
+			_hold(_hold_bit if me.move_id != "heavy" else SimDefs.IN_HEAVY)
+		return
+	# A steerable dash (Burrow): steer it toward the foe, to come up under them.
+	if float(me.move_def().get("dash", {}).get("steer", 0.0)) > 0.0:
+		_hold(SimDefs.bits_from_dir((foe.pos - me.pos).normalized()))
+		return
+	# Holding a gaze (Stone Gaze): break out with a jab once the foe walks in close.
+	var gz: Dictionary = me.move_def().get("gaze", {})
+	if not gz.is_empty() and dist < float(_ai(me).get("range", 22)) + me.radius + foe.radius \
+			and me.state_t >= int(gz.get("release_from", 9999)):
+		_hold(SimDefs.bits_from_dir((foe.pos - me.pos).normalized()))
+		_press(SimDefs.IN_LIGHT)
 		return
 	if not me.connected or _route_drop:
 		return
@@ -178,7 +196,7 @@ func _continue_attack(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: fl
 		return
 	# On the first contact, pick a route; each new move after that is one step along it.
 	if _route.is_empty():
-		_route = _pick_route(me)
+		_route = _pick_route(me, dist)
 		_route_step = 1
 		_route_serial = me.attack_serial
 		if not _roll(float(p["combo"])):
@@ -196,7 +214,7 @@ func _continue_attack(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: fl
 			_press(int(ACTION_BIT[action]))
 
 
-func _pick_route(me: CreatureSim) -> Array:
+func _pick_route(me: CreatureSim, dist: float) -> Array:
 	if me.move_id != "light_1":
 		# Started with something else (a counter, a poke): finish with whatever ranks higher.
 		var tail: Array = [me.move_id]
@@ -208,6 +226,10 @@ func _pick_route(me: CreatureSim) -> Array:
 				break
 		return tail
 	var routes: Array = _ai(me).get("routes", [["light"]])
+	# A ranged fighter (Chef Cerebro) that landed its opener from afar finishes with
+	# moves that reach that far.
+	if _ai(me).has("far_routes") and dist > float(_ai(me).get("far_from", 9999)):
+		routes = _ai(me)["far_routes"]
 	for r in routes:
 		var ok := true
 		for act in r:
@@ -344,6 +366,67 @@ func _neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2,
 		_press(int(ACTION_BIT[poke]))
 		return
 
+	# A lob (Pinecone Bomb) lands a fixed distance ahead: throw it when the foe is about there.
+	var lob := String(ai.get("lob", ""))
+	var lr: Array = ai.get("lob_range", [0, 0])
+	if lob != "" and me.can_use(lob) and dist >= float(lr[0]) and dist <= float(lr[1]) \
+			and _roll(0.25 * float(p["aggression"]) + 0.05):
+		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
+		_press(int(ACTION_BIT[lob]))
+		# A lob that charges for distance (Pinecone Bomb): hold it just long enough to land
+		# on the foe.
+		var lmv: Dictionary = me.moves().get(lob, {})
+		var lp: Dictionary = lmv.get("projectile", {})
+		if lmv.has("charge_max") and lp.has("range_charged"):
+			var k := clampf((dist - float(lp["range"])) / maxf(1.0, float(lp["range_charged"]) - float(lp["range"])),
+				0.0, 1.0)
+			_hold_heavy = int(round(k * float(lmv["charge_max"])))
+			_hold_bit = int(ACTION_BIT[lob])
+		return
+
+	# A gaze (Stone Gaze) slows a foe who is looking this way: use it at mid range.
+	var gaze := String(ai.get("gaze", ""))
+	var gzr: Array = ai.get("gaze_range", [0, 0])
+	if gaze != "" and me.can_use(gaze) and dist >= float(gzr[0]) and dist <= float(gzr[1]) \
+			and foe.facing.dot(-to_foe.normalized()) > 0.3 and _roll(0.15 + 0.1 * level):
+		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
+		_press(int(ACTION_BIT[gaze]))
+		return
+
+	# A slowing puddle round his feet (Syrup Slick) when the foe is close.
+	var zone := String(ai.get("zone", ""))
+	var zr: Array = ai.get("zone_range", [0, 0])
+	if zone != "" and me.can_use(zone) and dist >= float(zr[0]) and dist <= float(zr[1]) \
+			and _roll(0.1 + 0.06 * level):
+		_press(int(ACTION_BIT[zone]))
+		return
+
+	# Going invisible (Tiptoe) to sneak in from mid range.
+	var sneak := String(ai.get("stealth", ""))
+	var sr: Array = ai.get("stealth_range", [0, 0])
+	if sneak != "" and me.can_use(sneak) and me.stealth <= 0 and dist >= float(sr[0]) and dist <= float(sr[1]) \
+			and _roll(0.12 + 0.06 * level):
+		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
+		_press(int(ACTION_BIT[sneak]))
+		return
+
+	# A tunnel (Burrow) closes a long gap safely, out of reach while underground.
+	var burrow := String(ai.get("burrow", ""))
+	var br: Array = ai.get("burrow_range", [0, 0])
+	if burrow != "" and me.can_use(burrow) and dist >= float(br[0]) and dist <= float(br[1]) \
+			and _roll(0.08 + 0.06 * level):
+		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
+		_press(int(ACTION_BIT[burrow]))
+		return
+
+	# A line Surge (Knife Flurry) works from neutral when the foe is lined up in range.
+	var surge_line := float(ai.get("surge_line", 0))
+	if surge_line > 0.0 and dist < surge_line and me.can_use("surge") and _lined_up(to_foe, foe) \
+			and _roll(0.2 + 0.15 * level):
+		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
+		_press(SimDefs.IN_SURGE)
+		return
+
 	# An area Surge (Storm Drain) works straight from neutral when the foe is close.
 	var surge_range := float(ai.get("surge_range", 0))
 	if surge_range > 0.0 and dist < surge_range and me.can_use("surge") and _roll(0.3 + 0.2 * level):
@@ -352,9 +435,23 @@ func _neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2,
 
 	# A guarding foe invites a grab.
 	var grab := String(ai.get("grab", ""))
-	if grab != "" and foe.state == CreatureSim.State.GUARD and dist < want + 8.0 and me.can_use(grab):
+	var grab_reach := float(ai.get("grab_range", want - me.radius - foe.radius + 10.0)) + me.radius + foe.radius
+	if grab != "" and foe.state == CreatureSim.State.GUARD and dist < grab_reach + 8.0 and me.can_use(grab):
 		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
 		_press(int(ACTION_BIT[grab]))
+		return
+
+	# A kiting fighter peels off a foe that walked in close with its grab.
+	if bool(ai.get("kite", false)) and grab != "" and dist < grab_reach and me.can_use(grab) \
+			and _roll(0.3 + 0.15 * level):
+		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
+		_press(int(ACTION_BIT[grab]))
+		return
+
+	# A ranged opener only lands lined up: otherwise step sideways to line up first.
+	var ranged: bool = me.moves().get("light_1", {}).has("projectile")
+	if ranged and dist <= want + 6.0 and not _lined_up(to_foe, foe):
+		_move_toward(Vector2(0.0, signf(to_foe.y)) if absf(to_foe.y) < absf(to_foe.x) else Vector2(signf(to_foe.x), 0.0))
 		return
 
 	if dist <= want + 6.0 and _roll(float(p["aggression"])):
@@ -368,6 +465,8 @@ func _neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2,
 
 	if dist > want + 6.0:
 		_plan = "approach"
+	elif bool(ai.get("kite", false)) and dist < want - 24.0:
+		_plan = "retreat"  # keep the foe at knife range
 	elif _roll(0.4):
 		_plan = "retreat"
 	elif _roll(0.5):
@@ -376,6 +475,13 @@ func _neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2,
 	else:
 		_plan = "wait"
 	_follow_plan(me, foe, to_foe, dist, want)
+
+
+## Whether a straight throw in the nearest of 8 directions would meet the foe.
+func _lined_up(to_foe: Vector2, foe: CreatureSim) -> bool:
+	var d := CreatureSim._snap8(to_foe)
+	var off := absf(to_foe.x * d.y - to_foe.y * d.x)
+	return off < foe.radius + 3.0
 
 
 func _follow_plan(me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float, want: float) -> void:

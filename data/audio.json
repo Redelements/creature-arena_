@@ -180,6 +180,181 @@
       "file": "res://assets/audio/avalanche.wav",
       "volume_db": -3,
       "pitch_jitter": 0.04
+    },
+    "snag": {
+      "file": "res://assets/audio/snag.wav",
+      "volume_db": -5,
+      "pitch_jitter": 0.06
+    },
+    "pinecone": {
+      "file": "res://assets/audio/pinecone.wav",
+      "volume_db": -5,
+      "pitch_jitter": 0.08
+    },
+    "twister": {
+      "file": "res://assets/audio/twister.wav",
+      "volume_db": -6,
+      "pitch_jitter": 0.05
+    },
+    "roots": {
+      "file": "res://assets/audio/roots.wav",
+      "volume_db": -3,
+      "pitch_jitter": 0.04
+    },
+    "timber": {
+      "file": "res://assets/audio/timber.wav",
+      "volume_db": -4,
+      "pitch_jitter": 0.0
+    },
+    "flop": {
+      "file": "res://assets/audio/flop.wav",
+      "volume_db": -8,
+      "pitch_jitter": 0.12
+    },
+    "reel": {
+      "file": "res://assets/audio/reel.wav",
+      "volume_db": -6,
+      "pitch_jitter": 0.04
+    },
+    "bellyflop": {
+      "file": "res://assets/audio/bellyflop.wav",
+      "volume_db": -3,
+      "pitch_jitter": 0.03
+    },
+    "knife_throw": {
+      "file": "res://assets/audio/knife_throw.wav",
+      "volume_db": -9,
+      "pitch_jitter": 0.1
+    },
+    "knife_hit": {
+      "file": "res://assets/audio/knife_hit.wav",
+      "volume_db": -6,
+      "pitch_jitter": 0.12
+    },
+    "thwack": {
+      "file": "res://assets/audio/thwack.wav",
+      "volume_db": -3,
+      "pitch_jitter": 0.05
+    },
+    "flip": {
+      "file": "res://assets/audio/flip.wav",
+      "volume_db": -4,
+      "pitch_jitter": 0.04
+    },
+    "chop_chop": {
+      "file": "res://assets/audio/chop_chop.wav",
+      "volume_db": -2,
+      "pitch_jitter": 0.0
+    },
+    "fizzle": {
+      "file": "res://assets/audio/fizzle.wav",
+      "volume_db": -5,
+      "pitch_jitter": 0.0
+    },
+    "hiss": {
+      "file": "res://assets/audio/hiss.wav",
+      "volume_db": -4,
+      "pitch_jitter": 0.05
+    },
+    "spit": {
+      "file": "res://assets/audio/spit.wav",
+      "volume_db": -5,
+      "pitch_jitter": 0.08
+    },
+    "splat": {
+      "file": "res://assets/audio/splat.wav",
+      "volume_db": -6,
+      "pitch_jitter": 0.12
+    },
+    "poison_tick": {
+      "file": "res://assets/audio/poison_tick.wav",
+      "volume_db": -10,
+      "pitch_jitter": 0.15
+    },
+    "petrify": {
+      "file": "res://assets/audio/petrify.wav",
+      "volume_db": -2,
+      "pitch_jitter": 0.0
+    },
+    "shatter": {
+      "file": "res://assets/audio/shatter.wav",
+      "volume_db": -2,
+      "pitch_jitter": 0.05
+    },
+    "gaze": {
+      "file": "res://assets/audio/gaze.wav",
+      "volume_db": -8,
+      "pitch_jitter": 0.0
+    },
+    "dig": {
+      "file": "res://assets/audio/dig.wav",
+      "volume_db": -5,
+      "pitch_jitter": 0.06
+    },
+    "pop": {
+      "file": "res://assets/audio/pop.wav",
+      "volume_db": -4,
+      "pitch_jitter": 0.1
+    },
+    "flash": {
+      "file": "res://assets/audio/flash.wav",
+      "volume_db": -6,
+      "pitch_jitter": 0.04
+    },
+    "miss": {
+      "file": "res://assets/audio/miss.wav",
+      "volume_db": -6,
+      "pitch_jitter": 0.08
+    },
+    "cave_in": {
+      "file": "res://assets/audio/cave_in.wav",
+      "volume_db": -2,
+      "pitch_jitter": 0.0
+    },
+    "dig_it": {
+      "file": "res://assets/audio/dig_it.wav",
+      "volume_db": -3,
+      "pitch_jitter": 0.0
+    },
+    "coins": {
+      "file": "res://assets/audio/coins.wav",
+      "volume_db": -6,
+      "pitch_jitter": 0.08
+    },
+    "poof": {
+      "file": "res://assets/audio/poof.wav",
+      "volume_db": -6,
+      "pitch_jitter": 0.1
+    },
+    "finders": {
+      "file": "res://assets/audio/finders.wav",
+      "volume_db": -3,
+      "pitch_jitter": 0.0
+    },
+    "freeze": {
+      "file": "res://assets/audio/freeze.wav",
+      "volume_db": -3,
+      "pitch_jitter": 0.04
+    },
+    "shards": {
+      "file": "res://assets/audio/shards.wav",
+      "volume_db": -6,
+      "pitch_jitter": 0.06
+    },
+    "slosh": {
+      "file": "res://assets/audio/slosh.wav",
+      "volume_db": -5,
+      "pitch_jitter": 0.08
+    },
+    "melt": {
+      "file": "res://assets/audio/melt.wav",
+      "volume_db": -5,
+      "pitch_jitter": 0.0
+    },
+    "chill": {
+      "file": "res://assets/audio/chill.wav",
+      "volume_db": -3,
+      "pitch_jitter": 0.0
     }
   }
 }

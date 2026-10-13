@@ -475,11 +475,348 @@ def avalanche():
     return mix(boom, rumble, rocks)
 
 
+# ---------------------------------------------------------------- Barkley
+
+def creak(d=0.4, f0=180, f1=120):
+    """Old wood bending: a slow, grainy squeak with a rough edge."""
+    grain = 1 + 0.5 * np.sign(np.sin(2 * np.pi * 38 * t(d)))
+    v = osc(sweep(f0, f1, d) * (1 + 0.03 * np.sin(2 * np.pi * 7 * t(d))), d, "saw") * grain
+    v = bandpass(np.tanh(v * 1.5), 250, 2200) * env(d, attack=0.05, curve=1.4)
+    return v * 0.8
+
+
+def snag():
+    """Branch Grab: a whip of a branch, a creak as it hooks on, a yank back."""
+    total = 0.5
+    out = at(swing(500, 2000, 0.14), 0.0, total)
+    out += at(creak(0.3, 260, 170), 0.1, total) * 0.8
+    out += at(thump(140, 70, 0.12) * 0.5, 0.12, total)
+    return out
+
+
+def pinecone():
+    """Pinecone Bomb lands: a dry crunchy pop and scattering scales."""
+    total = 0.45
+    pop = at(np.tanh(thump(220, 90, 0.18, 2.5) * 2.0) * 0.7, 0.0, total)
+    out = pop
+    for k in range(9):
+        c = (bandpass(noise(0.02), 1500, 5000) + osc(900 + 160 * k, 0.02) * 0.3) * env(0.02, curve=3)
+        out += at(c * 0.5, 0.03 + k * 0.03 + rng.uniform(0, 0.01), total)
+    return out
+
+
+def twister():
+    """Timber Twister's last hit: a gust of wind and a rush of rustling leaves."""
+    d = 0.7
+    gust = bandpass(noise(d), 300, 1800) * env(d, attack=0.15, curve=1.8)
+    rustle = bandpass(noise(d), 2500, 7000) * (0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 23 * t(d)))) \
+        * env(d, attack=0.05, curve=2.2) * 0.6
+    return mix(gust, rustle, at(thump(120, 60, 0.2) * 0.5, 0.0, d))
+
+
+def roots():
+    """Root Eruption: a deep rumble and wood splitting as roots burst out of the floor."""
+    total = 1.2
+    rumble = lowpass(noise(total), 180) * env(total, attack=0.05, curve=1.5) * 1.5
+    boom = at(np.tanh(thump(60, 30, 0.7, 1.6) * 3.0), 0.0, total)
+    out = mix(rumble, boom)
+    for k in range(6):
+        out += at(crack() * 0.35, 0.05 + k * 0.12, total)
+    return out
+
+
+def timber():
+    """A felled tree: a long creak as it leans over."""
+    return creak(0.9, 150, 70)
+
+
+# ---------------------------------------------------------------- Gillbert
+
+def flop():
+    """A wet fish slapping the floor: a soft smack with a splash on top."""
+    total = 0.22
+    smack = at(np.tanh(thump(260, 110, 0.08, 2.0) * 2.5) * 0.7, 0.0, total)
+    wet = at(bandpass(noise(0.16), 900, 5000) * env(0.16, attack=0.002, curve=3.0) * 0.7, 0.005, total)
+    return mix(smack, wet)
+
+
+def reel():
+    """Cast Line hooks on: a zipping reel, ratcheting fast."""
+    d = 0.45
+    tick = (np.sin(2 * np.pi * 70 * t(d) * (1 + t(d) * 2)) > 0.6).astype(float)
+    click = bandpass(noise(d), 2500, 7000) * tick * env(d, attack=0.01, curve=1.2)
+    whir = osc(sweep(900, 1400, d), d, "tri") * env(d, attack=0.02, curve=2.0) * 0.25
+    return mix(click, whir, at(swing(800, 2600, 0.12) * 0.6, 0.0, d))
+
+
+def bellyflop():
+    """The One That Got Away comes down: a huge slap and a wall of water."""
+    total = 1.2
+    slap = at(np.tanh(thump(90, 40, 0.4, 1.6) * 3.0), 0.0, total)
+    water = lowpass(noise(total), 2600) * env(total, attack=0.01, curve=1.6) * 1.1
+    drops = np.zeros(int(SR * total))
+    for k in range(14):
+        c = bandpass(noise(0.04), 1200, 4500) * env(0.04, curve=3) * 0.5
+        drops += at(c, 0.25 + k * 0.05 + rng.uniform(0, 0.02), total)
+    return mix(slap, water, drops)
+
+
+# ---------------------------------------------------------------- Chef Cerebro
+
+def knife_throw():
+    """A small knife flicked: a thin, fast whoosh with a metallic shing."""
+    d = 0.16
+    whoosh = swing(1500, 6000, d, 0.8)
+    shing = (osc(3400, d) * 0.5 + osc(5150, d) * 0.3) * env(d, attack=0.01, curve=4.0) * 0.35
+    return mix(whoosh, shing)
+
+
+def knife_hit():
+    """A knife sinking in: a short, dull chunk."""
+    d = 0.09
+    return mix(thump(420, 160, d, 3.0) * 0.8, bandpass(noise(0.03), 1500, 5000) * env(0.03, curve=3) * 0.6)
+
+
+def thwack():
+    """Tenderize: a wooden meat mallet pounding down, with a meaty slap."""
+    total = 0.3
+    wood = (osc(sweep(520, 300, 0.12), 0.12, "tri") * env(0.12, curve=5)) * 0.8
+    slap = bandpass(noise(0.08), 400, 2500) * env(0.08, curve=3) * 0.9
+    return mix(at(np.tanh(thump(140, 60, 0.2, 2.0) * 2.0), 0.0, total), at(wood, 0.0, total), at(slap, 0.0, total))
+
+
+def flip():
+    """Flip Out: a spatula scrape, then a rising whoosh as they go over his head."""
+    total = 0.5
+    scrape = bandpass(noise(0.1), 2500, 7000) * env(0.1, attack=0.01, curve=2) * 0.5
+    rise = swing(300, 2400, 0.32, 0.9)
+    boing = osc(sweep(220, 520, 0.25), 0.25, "tri") * env(0.25, curve=3) * 0.3
+    return mix(at(scrape, 0.0, total), at(rise, 0.06, total), at(boing, 0.1, total))
+
+
+def chop_chop():
+    """His voice line: two quick knife chops on a cutting board."""
+    total = 0.42
+    chop = mix(thump(300, 120, 0.07, 3.0), highpass(noise(0.02), 2500) * env(0.02) * 0.6)
+    return mix(at(chop, 0.0, total), at(chop * 0.9, 0.18, total))
+
+
+def fizzle():
+    """The brain fizzles out: a sizzle that dies away, and a deflating squeak."""
+    d = 0.9
+    sizzle = highpass(noise(d), 3000) * env(d, attack=0.02, curve=1.5) * 0.4
+    squeak = osc(sweep(700, 180, d, 0.7), d, "square", 0.3) * env(d, attack=0.05, curve=2.0) * 0.18
+    return mix(sizzle, lowpass(squeak, 2000))
+
+
+# ---------------------------------------------------------------- Hissy Fitz
+
+def hiss():
+    """Her voice line ("Hiss off!") and her KO: a long snake hiss that swells and fades."""
+    d = 0.8
+    h = bandpass(noise(d), 3500, 9000) * env(d, attack=0.12, curve=1.4) * 0.7
+    rattle = (np.sin(2 * np.pi * 28 * t(d)) > 0.3).astype(float) * 0.35 + 0.65
+    return h * rattle
+
+
+def spit():
+    """Venom Spit: a sharp wet "ptoo", a little hiss in front of it."""
+    total = 0.24
+    hs = bandpass(noise(0.08), 3000, 8000) * env(0.08, attack=0.03, curve=1.0) * 0.4
+    pop = at(thump(500, 180, 0.06, 3.0) * 0.8, 0.07, total)
+    wet = at(bandpass(noise(0.1), 900, 4000) * env(0.1, curve=3.0) * 0.5, 0.07, total)
+    return mix(at(hs, 0.0, total), pop, wet)
+
+
+def splat():
+    """The glob lands: a soft wet splat."""
+    d = 0.18
+    return mix(bandpass(noise(d), 500, 2500) * env(d, attack=0.003, curve=2.5),
+               thump(180, 90, 0.08, 2.5) * 0.6)
+
+
+def poison_tick():
+    """A poison pulse: a small sour bubble pop."""
+    d = 0.12
+    blip = osc(sweep(380, 760, d), d, "tri") * env(d, attack=0.005, curve=3.0) * 0.5
+    return mix(blip, bandpass(noise(0.03), 1500, 4000) * env(0.03, curve=3) * 0.3)
+
+
+def petrify():
+    """Petrify Punch lands: a deep grinding rumble as the target turns to stone."""
+    total = 0.9
+    grind = lowpass(noise(total), 500) * env(total, attack=0.02, curve=1.6) * 1.2
+    crunch = bandpass(noise(0.3), 800, 3000) * env(0.3, curve=2.0) * 0.4
+    boom = np.tanh(thump(70, 35, 0.5, 1.8) * 2.5)
+    return mix(at(boom, 0.0, total), grind, at(crunch, 0.05, total))
+
+
+def shatter():
+    """A statue shatters: a hard crack and a spill of stone chips."""
+    total = 0.7
+    out = at(crack() * 0.9, 0.0, total)
+    for k in range(10):
+        chip = bandpass(noise(0.03), 1800, 6000) * env(0.03, curve=3) * 0.35
+        out = out + at(chip, 0.06 + k * 0.045 + rng.uniform(0, 0.02), total)
+    return out
+
+
+def gaze():
+    """Stone Gaze: an eerie rising shimmer."""
+    d = 0.7
+    a = osc(sweep(600, 900, d), d, "sine") * 0.25
+    b = osc(sweep(905, 1360, d), d, "sine") * 0.18
+    trem = 0.6 + 0.4 * np.sin(2 * np.pi * 9 * t(d))
+    return (a + b) * trem * env(d, attack=0.25, curve=1.2)
+
+
+# ---------------------------------------------------------------- Digby
+
+def dig():
+    """Burrow: a scrabble of claws in loose dirt, sinking away."""
+    d = 0.6
+    out = np.zeros(int(SR * d))
+    for k in range(9):
+        c = bandpass(noise(0.05), 300, 1800) * env(0.05, curve=2.5) * (0.8 - k * 0.06)
+        out += at(c, k * 0.06 + rng.uniform(0, 0.015), d)
+    return mix(out, lowpass(noise(d), 250) * env(d, attack=0.1, curve=1.5) * 0.4)
+
+
+def pop():
+    """Bursting out of the ground: a soft thump and a spray of dirt."""
+    total = 0.35
+    thud = np.tanh(thump(150, 70, 0.18, 2.0) * 2.0)
+    spray = bandpass(noise(0.25), 500, 3000) * env(0.25, attack=0.01, curve=2.2) * 0.6
+    return mix(at(thud, 0.0, total), at(spray, 0.02, total))
+
+
+def flash():
+    """Headlamp Flash: a switch click and a bright electric zap."""
+    total = 0.3
+    click = highpass(noise(0.01), 3000) * env(0.01) * 0.8
+    zap = osc(sweep(1800, 900, 0.22), 0.22, "square", 0.3) * env(0.22, attack=0.005, curve=2.5) * 0.25
+    return mix(at(click, 0.0, total), at(lowpass(zap, 5000), 0.015, total))
+
+
+def miss():
+    """A blinded attack misses: an empty whoosh and a little falling "womp"."""
+    d = 0.32
+    return mix(swing(400, 1400, 0.18, 0.6), at(osc(sweep(330, 180, 0.2), 0.2, "tri") * env(0.2, curve=2) * 0.3,
+                                                0.1, d))
+
+
+def cave_in():
+    """Cave-In: the floor gives way: a deep crunch, then rocks rumbling down."""
+    total = 1.1
+    rumble = lowpass(noise(total), 220) * env(total, attack=0.02, curve=1.4) * 1.3
+    boom = at(np.tanh(thump(55, 28, 0.6, 1.6) * 3.0), 0.0, total)
+    out = mix(rumble, boom)
+    for k in range(8):
+        out += at(crack() * 0.25, 0.08 + k * 0.1 + rng.uniform(0, 0.03), total)
+    return out
+
+
+def dig_it():
+    """Placeholder for his voice line (a short rising "dig-dig!" of claws); the real one is
+    his voice."""
+    total = 0.4
+    tap = mix(thump(500, 250, 0.05, 3.0), bandpass(noise(0.03), 800, 3000) * env(0.03) * 0.5)
+    return mix(at(tap, 0.0, total), at(tap * 0.9, 0.12, total), at(tap * 1.1, 0.22, total))
+
+
+# ---------------------------------------------------------------- Sneaky Pete
+
+def coins():
+    """Coins spilling: a handful of bright metallic chinks."""
+    total = 0.5
+    out = np.zeros(int(SR * total))
+    for k in range(8):
+        f = rng.uniform(3000, 5200)
+        c = (osc(f, 0.06) * 0.5 + osc(f * 1.5, 0.06) * 0.3) * env(0.06, curve=4.0) * 0.4
+        out += at(c, k * 0.045 + rng.uniform(0, 0.02), total)
+    return out
+
+
+def poof():
+    """A puff of smoke: a soft airy whoomph."""
+    d = 0.3
+    return lowpass(noise(d), 1400) * env(d, attack=0.02, curve=2.2) * 0.9
+
+
+def finders():
+    """Placeholder for his voice line ("Finders keepers!"): a sly two-note whistle; the real
+    one is his voice."""
+    total = 0.5
+    a = osc(1250, 0.16, "sine") * env(0.16, attack=0.02, curve=1.5) * 0.4
+    b = osc(sweep(1400, 1100, 0.22), 0.22, "sine") * env(0.22, attack=0.02, curve=1.5) * 0.4
+    return mix(at(a, 0.0, total), at(b, 0.2, total))
+
+
+# ---------------------------------------------------------------- Sno Mercy
+
+def freeze():
+    """Frozen solid: a rising crackle of ice forming, a glassy ping on top."""
+    d = 0.7
+    out = np.zeros(int(SR * d))
+    for k in range(14):
+        c = highpass(noise(0.02), 4000) * env(0.02, curve=3) * (0.3 + k * 0.03)
+        out += at(c, k * 0.035 + rng.uniform(0, 0.01), d)
+    ping = (osc(2600, 0.5) * 0.4 + osc(3900, 0.5) * 0.2) * env(0.5, attack=0.01, curve=3.0) * 0.4
+    return mix(out, at(ping, 0.2, d))
+
+
+def shards():
+    """Shaved Ice Spray: an icy hiss with little crystal tinkles."""
+    d = 0.45
+    hiss = bandpass(noise(d), 4000, 10000) * env(d, attack=0.02, curve=1.8) * 0.5
+    out = hiss
+    for k in range(6):
+        f = rng.uniform(3500, 6000)
+        out = out + at(osc(f, 0.05) * env(0.05, curve=4) * 0.25, k * 0.06 + 0.03, d)
+    return out
+
+
+def slosh():
+    """Syrup Slick: a thick, sticky glug and splat."""
+    total = 0.45
+    glug = osc(sweep(220, 120, 0.25), 0.25, "sine") * env(0.25, attack=0.02, curve=2.0) * 0.6
+    splat = bandpass(noise(0.2), 300, 1500) * env(0.2, attack=0.005, curve=2.5) * 0.6
+    return mix(at(glug, 0.0, total), at(splat, 0.15, total))
+
+
+def melt():
+    """Sno Mercy's knockout: a slow sizzle and drip as he melts away."""
+    d = 1.0
+    sizzle = highpass(noise(d), 2500) * env(d, attack=0.05, curve=1.3) * 0.3
+    out = sizzle
+    for k in range(4):
+        out = out + at(osc(sweep(900, 500, 0.08), 0.08, "sine") * env(0.08, curve=3) * 0.4, 0.15 + k * 0.2, d)
+    return out
+
+
+def chill():
+    """Placeholder for his voice line ("Chill out."): a cold whistling gust; the real one is
+    his voice."""
+    d = 0.6
+    gust = bandpass(noise(d), 600, 2400) * env(d, attack=0.15, curve=1.5) * 0.6
+    tone = osc(sweep(900, 600, d), d, "sine") * env(d, attack=0.15, curve=1.5) * 0.2
+    return mix(gust, tone)
+
+
 # Added after the first batch, so they're generated last and the older placeholders
 # (which share one random stream) come out the same as before.
 NEW_SOUNDS = {
     "roar": roar, "stoneskin": stoneskin, "shield_break": shield_break, "lash": lash,
     "avalanche": avalanche,
+    "snag": snag, "pinecone": pinecone, "twister": twister, "roots": roots, "timber": timber,
+    "flop": flop, "reel": reel, "bellyflop": bellyflop,
+    "knife_throw": knife_throw, "knife_hit": knife_hit, "thwack": thwack, "flip": flip,
+    "chop_chop": chop_chop, "fizzle": fizzle,
+    "hiss": hiss, "spit": spit, "splat": splat, "poison_tick": poison_tick, "petrify": petrify,
+    "shatter": shatter, "gaze": gaze,
+    "dig": dig, "pop": pop, "flash": flash, "miss": miss, "cave_in": cave_in, "dig_it": dig_it,
+    "coins": coins, "poof": poof, "finders": finders,
+    "freeze": freeze, "shards": shards, "slosh": slosh, "melt": melt, "chill": chill,
 }
 
 

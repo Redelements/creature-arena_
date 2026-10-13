@@ -102,12 +102,70 @@ func test_bedrock_releases_into_any_attack_without_a_windup() -> void:
 	assert_eq(crag.windup_total, 0, "a release skips the raw windup:")
 
 
-func test_boulder_lash_slows_what_it_hits() -> void:
-	var sim := _duel("cairn", 20.0)
+func test_lights_are_slow() -> void:
+	var mv: Dictionary = MatchFactory.load_def("craglash")["moves"]
+	assert_gt(float(mv["light_1"]["startup"]), 6.0, "a heavy, deliberate Rake (others start in 4-5):")
+	assert_gt(float(mv["light_3"]["startup"]), 9.0, "and a slow Headbutt:")
+
+
+func test_landslide_charge_stuns_for_a_quarter_second() -> void:
+	var sim := _duel("cairn", 40.0)
 	var cairn := sim.creatures[1]
-	var slowed := run_until(sim, func(): return _has_event(sim, "slow"), 60, S1)
-	assert_true(slowed, "the Lash should hit from range")
-	var mult := float(sim.creatures[0].def["moves"]["skill_1"]["slow_mult"])
-	assert_near(cairn.walk_speed(), float(cairn.def["speed"]) * mult, 0.001, "slowed walk speed:")
-	run(sim, 0, int(sim.creatures[0].def["moves"]["skill_1"]["slow_ticks"]) + 20)
-	assert_near(cairn.walk_speed(), float(cairn.def["speed"]), 0.001, "the slow wears off:")
+	var stunned := run_until(sim, func(): return cairn.state == CreatureSim.State.CRUMPLE, 60, S1)
+	assert_true(stunned, "the charge reaches 40 px and stuns")
+	assert_lt(float(cairn.stun), 17.0, "briefly: about a quarter second:")
+	assert_gt(float(cairn.stun), 10.0, "")
+
+
+func test_mountain_maw_bites_from_far_pulls_in_and_knocks_up() -> void:
+	var sim := _duel("cairn", 150.0)
+	var crag := sim.creatures[0]
+	var cairn := sim.creatures[1]
+	crag.energy = 100.0
+	var bit := run_until(sim, func(): return _has_event(sim, "pull"), 120, SU)
+	assert_true(bit, "the head reaches Cairn 150 px away")
+	assert_true(cairn.is_airborne(), "knocked up")
+	run_until(sim, func(): return not cairn.is_airborne(), 80)
+	assert_lt(cairn.pos.distance_to(crag.pos), 50.0, "and hauled in to Craglash:")
+
+
+func test_mountain_maw_cant_be_blocked() -> void:
+	var sim := _duel("cairn", 100.0)
+	sim.creatures[0].energy = 100.0
+	var cairn := sim.creatures[1]
+	var bit := false
+	for i in 120:
+		sim.step(PackedInt32Array([SU if i < 3 else 0, SimDefs.IN_GUARD]))
+		if _has_event(sim, "pull"):
+			bit = true
+			break
+	assert_true(bit, "guarding doesn't stop it")
+	assert_true(cairn.is_airborne(), "")
+
+
+func test_mountain_maw_can_be_dodged() -> void:
+	var sim := _duel("cairn", 100.0)
+	var crag := sim.creatures[0]
+	crag.energy = 100.0
+	var cairn := sim.creatures[1]
+	var dodged := false
+	for i in 120:
+		var p1 := 0
+		if not dodged and not sim.projectiles.is_empty():
+			var pr: Dictionary = sim.projectiles[0]
+			if Vector2(pr["pos"]).distance_to(cairn.pos) < 60.0:
+				p1 = SimDefs.IN_DODGE | SimDefs.IN_DOWN
+				dodged = true
+		sim.step(PackedInt32Array([SU if i < 3 else 0, p1]))
+	assert_true(dodged, "Cairn dodged")
+	assert_near(cairn.hp, cairn.max_hp, 0.001, "a dodge through the bite beats it:")
+
+
+func test_bedrock_drags_the_taunted_in() -> void:
+	var sim := _duel("cairn", 60.0)
+	var crag := sim.creatures[0]
+	var cairn := sim.creatures[1]
+	var d0 := cairn.pos.distance_to(crag.pos)
+	tap(sim, S2, 60)
+	assert_gt(float(cairn.taunt), 0.0, "taunted")
+	assert_lt(cairn.pos.distance_to(crag.pos), d0 - 20.0, "and dragged in toward Craglash:")

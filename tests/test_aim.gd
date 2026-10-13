@@ -75,6 +75,6 @@ func test_a_raw_windup_move_stays_committed() -> void:
 	var crag := sim.creatures[0]
 	crag.facing = Vector2.RIGHT
 	sim.step(PackedInt32Array([S1, 0]))
-	assert_true(crag.is_winding_up(), "raw Boulder Lash winds up")
+	assert_true(crag.is_winding_up(), "raw Landslide Charge winds up")
 	run(sim, UP, 12)
 	assert_eq(crag.facing, Vector2.RIGHT, "the Lash still goes where its tell pointed:")

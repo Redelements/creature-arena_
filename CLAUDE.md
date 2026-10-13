@@ -40,7 +40,7 @@ curl -sSL -o /tmp/g.zip https://github.com/godotengine/godot/releases/download/4
 unzip -q /tmp/g.zip -d ~/godot && G=~/godot/Godot_v4.7.2-stable_linux.x86_64
 
 $G --headless --path . --import                                  # after adding a class_name
-$G --headless --path . --script res://tests/run_tests.gd         # all tests
+$G --headless --path . --script res://tests/run_tests.gd         # all tests (TEST_ONLY=digby,combos for some)
 $G --headless --fixed-fps 60 --path . -- --mode=2 --quit-after=3000   # smoke run, check for SCRIPT ERROR
 $G --headless --path . -- --sim-check=20261010                   # determinism fingerprint
 $G --headless --path . --script res://tests/bench_sim.gd         # rollback cost benchmark
@@ -57,10 +57,20 @@ xvfb-run -a ... $G --rendering-driver opengl3 --path . --write-movie /tmp/out.av
 ```
 
 Useful flags (after `--`): `--mode=0..8`, `--level=0..2`, `--seed=N`,
-`--showcase=cairn|culvert|craglash|angles|twinstick|counterplay`, `--pad-layout=standard|twinstick`, `--autoplay`, `--hitboxes`, `--cpu-vs-cpu` (CPU
+`--showcase=cairn|culvert|craglash|barkley|gillbert|cerebro|hissy|digby|pete|sno|angles|twinstick|counterplay`, `--pad-layout=standard|twinstick`, `--autoplay`, `--hitboxes`, `--cpu-vs-cpu` (CPU
 plays every player side, for captures), `--pick` (show the team pick screen),
 `--teams=a,b,c:d,e,f`. Modes: 5 showcases, 6 Duel vs CPU, 7 Duel 2P, 8 Versus 2P,
-9 Combo Trials, 10/11 Reaction Drills, 12 Craglash vs CPU, 13 Craglash training.
+9 Combo Trials, 10/11 Reaction Drills, 12 Craglash vs CPU, 13 Craglash training,
+14 Barkley vs CPU, 15 Barkley training, 16 Gillbert vs CPU, 17 Gillbert training,
+18 Chef Cerebro vs CPU, 19 Chef Cerebro training, 20 Online 1v1 (the lobby),
+21 Hissy Fitz vs CPU, 22 Hissy Fitz training, 23 Digby vs CPU, 24 Digby training, 25 Sneaky Pete vs CPU, 26 Sneaky Pete training, 27 Sno Mercy vs CPU, 28 Sno Mercy training.
+`--menu=main|single|settings` opens that menu page (captures).
+Online: `--online-host[=PORT]`, `--online-join=ADDR[:PORT][/ROOM]`, `--fighter=ID`, `--net-lag=N`,
+`--net-loss=F`, `--net-delay=N`, `--net-report=PATH`. Two processes on one machine with
+`--cpu-vs-cpu` play each other; compare their reports (docs/NETCODE.md).
+Dedicated server: `--headless -- --server[=PORT] [--max-players=N] [--net-delay=N]`; players
+just Join it (ROOM pairs friends). Home setup: docs/SERVER.md. Don't `pkill -f` with a
+pattern that's also in your own command line: it kills your shell.
 Matches are deterministic, so a seed reproduces a CPU match exactly.
 
 ## Layout
@@ -70,11 +80,18 @@ src/sim/    match_sim, creature_sim, duel_sim, terrain_grid, replay   determinis
 src/ai/     cpu_controller                                   CPU opponent (seeded)
 src/input/  player_input, mouse_orders                       keyboard/mouse/gamepad
 src/view/   fx_view (+fx_ground), creature_view, hud, audio_view, arena, crowd, debug
-src/net/    rollback_session (GGPO-style), sim_check (cross-platform fingerprint)
-src/game/   main (flow, camera), team_select, showcase, trials, drills, controls, match_factory
+src/net/    rollback_session (GGPO-style), sim_check (cross-platform fingerprint),
+            net_link (+enet/loop/lag links), netplay (handshake, rematch), online_match,
+            dedicated_server + enet_hub + relay_server + referee (the --server mode)
+src/game/   main (flow, camera), online_lobby, showcase, trials, drills, controls,
+            match_factory
+src/ui/     ui_theme, screen_stack, ui_screen, option_row, prompts, fighter_preview, title,
+            character_select, pause/confirm/help screens
+            (menus on Godot Control nodes; plan in docs/plans/menus.md)
 data/       creatures/*.json, rules/duel.json, trials.json, audio.json
 tests/      run_tests.gd auto-runs every tests/test_*.gd
-tools/      gen_sprites.py, gen_audio.py (placeholder generators)
+tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gillbert/cerebro/hissy/digby/pete/sno.py (sheet recreations),
+            splat3d.py (the shared splat renderer new generators import)
 ```
 
 ## Workflow
@@ -94,18 +111,85 @@ tools/      gen_sprites.py, gen_audio.py (placeholder generators)
   JSON with animation tags) is still to be agreed. Spec for drop-in art: `docs/SPRITES.md`.
   The artist's character sheets (one drawing plus a kit) become fighters like Craglash:
   a pixel recreation with a puppet rig (`tools/gen_craglash.py`, 96 px frames), the kit
-  mapped onto Light/Heavy/Skill 1/Skill 2/Surge plus a passive, and new mechanics added
-  to the sim as data keys (`stoneskin`, `armor`, `taunt`, `slow_ticks`, `juggle_float`,
-  `aim_frames`: how long a move can be steered; lights default to their startup).
+  mapped onto Light/Heavy/Skill 1/Skill 2/Surge plus a passive (only when the sheet has
+  one), and new mechanics added to the sim as data keys (`stoneskin`, `armor`, `taunt`,
+  `slow_ticks`, `juggle_float`; Barkley added `pull`, lobbed `projectile`s, `terrain_crack`
+  and `rank_cancel_from`; Gillbert added `reel`/`reel_speed` (the attacker is hauled to the target at a steady speed)
+  and `leap` (an invulnerable, bodiless window that sails over pits); Chef Cerebro added
+  `vuln_ticks`/`vuln_mult` (the target takes extra damage for a while), `flip` on a grab
+  (the target is carried over the attacker's head to land behind it), and projectile
+  `volley` (several in a row, with `last` overrides for the final one) and `pierce` (flies
+  through every body once)); Hissy Fitz added `poison_ticks`/`poison_damage`/`poison_every`
+  (damage over time, outside any combo), `gaze` (a held stare that slows foes in front of
+  her who face her, more each pulse; looking away is the counterplay) and `petrify` (the
+  target becomes a statue, `stone` ticks, and the next clean hit shatters it for
+  `STONE_SHATTER_MULT`); Digby added `blind_ticks` (the target's next attack misses),
+  `root_ticks` (no walking or dodging) and `"steer"` on a dash (Burrow turns with the stick); Sneaky Pete added a move's `"self"` buffs (`stealth`:
+  invisible, drawn faint, the CPU chases where it last saw him; `haste`/`haste_mult`),
+  `steal_ticks`/`steal` (attack power moved from target to attacker), `"ghost"` on a dash
+  (runs on through bodies) and `"blink"` (reappear behind the foe, never into a pit); Sno Mercy added `"cone"` (only foes in
+  front are hit), `"zone"` (a ground puddle in `MatchSim.zones`, snapshotted, that slows
+  foes in it) and `freeze_ticks` (Petrify's statue in ice; not `freeze`, which a surge
+  uses for its freeze-frame); a dash's `"home"` ({until, max}) steers for the nearest
+  foe and paces itself to arrive (Gillbert's Surge), and a move's `"aim"` (a cone) turns
+  it to face a foe roughly ahead, re-aimed for each throw of a volley (Knife Flurry). A
+  blocked third light can't cancel and leaves the attacker `BLOCKED_ENDER_DISADVANTAGE`
+  ticks behind; a Surge's hits give its user no energy; `"no_flinch"` hits only deal
+  damage (no hitstun, no knockback, no new combo on a free foe: Chef Cerebro's knife flicks). A Skill
+  can charge too (`charge_max` charges on its own button); a lob's `range_charged` is how far
+  a full hold throws it, and `aim` also snaps on release (Pinecone Bomb). Craglash is a crowd-control
+  tank: Landslide Charge (a dash with a 15-tick `crumple`), Bedrock's taunt drags foes in
+  (`TAUNT_PULL`), and Mountain Maw is a `guard_break` projectile with `pull` + `launch`
+  (drawn as his neck, fx projectile "head"). Each side has a colour, red left and blue
+  right: `FxView.side_marks` (set by main) draws a marker over each fighter, and the HUD
+  stripes its panel. `tests/test_scripts_load.gd` compiles every script under `src/`. Projectiles also take `sound`/`end_sound`; any move's `fx` can
+  carry a `shout` (`{text, sound}`, a voice line when it starts). Barkley's generator (`tools/gen_barkley.py`) poses a 3D
+  puppet once and projects it into all three views; prefer that for new characters.
+  Moves can time their frames with `"anim_at"` and lift the sprite with `"view_lift"`
+  (cosmetic; Gillbert's leap); `"step_sound"` gives a creature footsteps. The sheet's "type" maps to the Game
+  Plan's affinities, never to a type chart (Barkley's Grass is Wild, Gillbert's Water is Tide,
+  Chef Cerebro's Psychic is Lumen, Hissy Fitz's Poison is Wild, Digby's Ground is Stone, Sneaky Pete's Dark is Lumen, Sno Mercy's Ice is Tide, the closest fit; check with Kevin). A thrown light opener
+  (`"projectile"` on `light_1`) makes the mouse auto-attack and the CPU fight from range
+  (`ai` keys `kite`, `far_routes`/`far_from`, `grab_range`, `surge_line`).
+  `tools/gen_cerebro.py` (and `gen_hissy.py`, which adds a face painted in the head's own
+  azimuth/elevation) renders by splatting sampled 3D points (new generators import `tools/splat3d.py`, as
+  `gen_digby.py` does, and hold only the rig and poses) into a depth buffer
+  instead of drawing polygons in depth order, which suits a body of overlapping blobs.
+  **Aiming:** each hit of a light string turns to where you hold (`aim_frames`: how long a
+  move can be steered; lights default to their startup, raw windup moves stay committed).
+  Inputs carry an exact aim angle beside the 12 buttons (`IN_AIM` + a 64-step index into
+  `SimDefs.AIM_INT`, turned into a direction with no trig) and `IN_STRAFE` (twin-stick:
+  keep facing the aim while walking, at `STRAFE_SPEED`). Mouse and twin-stick aim exactly;
+  keyboard and the Standard pad aim 8 ways with aim assist in the input layer. Settings >
+  Controls > Controller picks Standard or Twin-stick (`PlayerInput.pad_layout`).
   **Every character needs three sheets with the same rows:** side, facing down (front)
   and facing up (back); `"views"` in the sprite JSON, chosen by facing in
-  `CreatureView`. Forward reach becomes screen depth in the up/down art. Both generators
+  `CreatureView`. Forward reach becomes screen depth in the up/down art. All the generators
   draw all three.
 - **Audio: TODO, all placeholder.** Replace everything in `assets/audio/`; checklist in
   `docs/AUDIO.md` and the "Replace placeholder audio" GitHub issue.
-- **Not built yet:** affinity surfaces, more arenas, online transport (rollback session
-  and determinism are done; see docs/NETCODE.md). Game mode plan and priorities: Game Plan doc,
+- **Online:** direct 1v1 over UDP and a dedicated relay/referee server are built
+  (docs/NETCODE.md, docs/SERVER.md). Not yet: a Steam transport (behind `NetLink`), 3v3
+  online, spectators, matchmaking beyond rooms. Online matches are a
+  DuelSim with one creature per side, so match rules stay in the sim.
+- **Not built yet:** affinity surfaces, more arenas. Game mode plan and priorities: Game Plan doc,
   "Game modes".
+- **Menus** are Godot Control nodes (src/ui/): a `ScreenStack` of `UiScreen`s (one
+  `UiTheme`, focus navigation on `ui_*`; B / Esc closes the top screen). Title
+  (`TitleScreen`), Single player and Settings (built in main with `UiScreen.builder`;
+  settings rows from `_setting(key)` / `_set_setting(key, i)`), the online screen
+  (`OnlineLobby`: Quick match / Create room / Join room on the game's server, from
+  `data/online.json` or Settings > Game > Online server; More = host or join by address +
+  recent servers; before joining its server the game asks the local network first
+  (`LanFinder` broadcast, answered by the server's `ServerBeacon` on UDP port + 1), since
+  routers often can't loop the public name back inside), pause, match over, and the
+  `CharacterSelect` (portrait grid, a cursor per player on their own device; it reads
+  each pad's stick itself, so main turns MenuStick off under it). Bindings made in code
+  need `device = Controls.ALL_DEVICES`, or they only hear controller 0. Settings has
+  Game / Video / Audio / Controls pages (`SETTING_PAGES`); `RemapScreen` remaps a
+  `Controls.REMAP` group, saved as `Controls.overrides()`; `PlayerInput.label()` and
+  `help_text()` read the live bindings. Tests that start the game set `settings_path`. Tests drive screens with real input events
+  (`tests/test_ui.gd`); `run_tests.gd` runs on the first frame so the scene tree is live.
 - **Planned:** dodge timing. Kevin wants to leave a combo at any time to dodge; today
   Dodge isn't buffered during attacks and can't cancel them (issue #9 has the options).
 - **Known issues:** Storm Drain can't be punished even when dodged (its pit ring walls

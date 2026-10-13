@@ -41,12 +41,15 @@ const LABELS := {
 }
 const ANY_PAD := -1
 const NO_PAD := -2
+## The controls strip, filled in from the current bindings (they can be remapped).
 const HELP := {
-	"league": "Right-click move / attack   A or Left-click light   E heavy (hold)   Q skill 1   W skill 2   R surge   D dodge   F guard   D+F breakaway   T tag   S stop   Esc menu",
-	"classic": "WASD move  J light  K heavy  U skill 1  I skill 2  O surge  Space dodge  Shift guard  Shift+Space breakaway  L tag  F1 hitboxes  Esc menu",
-	"gamepad": "L-stick move   R-stick aim   A light   X heavy (hold)   Y skill 1   B skill 2   RT surge   RB dodge   LB guard   LB+RB breakaway   LT tag   View menu",
-	"twinstick": "L-stick move   R-stick aim 360 + face (strafe)   A light   X heavy   Y skill 1   B skill 2   RT surge   RB dodge   LB guard   LT tag   View menu",
+	"league": "Right-click move / attack   {light} or Left-click light   {heavy} heavy (hold)   {skill_1} skill 1   {skill_2} skill 2   {surge} surge   {dodge} dodge   {guard} guard   {dodge}+{guard} breakaway   {tag} tag   {stop} stop   Esc pause",
+	"classic": "{up}{left}{down}{right} move  {light} light  {heavy} heavy  {skill_1} skill 1  {skill_2} skill 2  {surge} surge  {dodge} dodge  {guard} guard  {guard}+{dodge} breakaway  {tag} tag  F1 hitboxes  Esc pause",
+	"gamepad": "L-stick move   R-stick aim   {light} light   {heavy} heavy (hold)   {skill_1} skill 1   {skill_2} skill 2   {surge} surge   {dodge} dodge   {guard} guard   {guard}+{dodge} breakaway   {tag} tag   Start pause",
+	"twinstick": "L-stick move   R-stick aim 360 + face (strafe)   {light} light   {heavy} heavy   {skill_1} skill 1   {skill_2} skill 2   {surge} surge   {dodge} dodge   {guard} guard   {tag} tag   Start pause",
 }
+## Which action each label set's buttons are bound to (light = the attack action).
+const PREFIX := {"league": "lol_", "classic": "kb_", "gamepad": "pad_"}
 
 var layout := "league"
 var pad_layout := "standard"
@@ -67,15 +70,29 @@ func label_set() -> String:
 	return "gamepad" if device == Device.GAMEPAD else layout
 
 
+## The key or button bound to `action` ("light", "skill_1", "up"...) in the label set in
+## use, as short text; it follows remapping.
 func label(action: String) -> String:
-	return String(LABELS[label_set()].get(action, ""))
+	return label_for(label_set(), action)
+
+
+static func label_for(set_name: String, action: String) -> String:
+	var name := String(PREFIX[set_name]) + ("attack" if action == "light" and set_name == "league" else action)
+	if InputMap.has_action(name):
+		var group := "gamepad" if set_name == "gamepad" else set_name
+		var t := Controls.binding_text(name, group)
+		if t != "-":
+			return t
+	return String(LABELS[set_name].get(action, ""))
 
 
 func help_text() -> String:
-	var ls := label_set()
-	if ls == "gamepad" and pad_layout == "twinstick":
-		return String(HELP["twinstick"])
-	return String(HELP[ls])
+	var set_name := label_set()
+	var t := String(HELP["twinstick" if set_name == "gamepad" and pad_layout == "twinstick" else set_name])
+	for a in ["light", "heavy", "skill_1", "skill_2", "surge", "dodge", "guard", "tag", "stop", "up", "down",
+			"left", "right"]:
+		t = t.replace("{%s}" % a, label_for(set_name, a))
+	return t
 
 
 ## Tracks the last device used, so prompts can switch between keyboard and controller.

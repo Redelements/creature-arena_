@@ -36,7 +36,9 @@ const LAND_KNOCKDOWN := 24
 const GETUP_INVULN := 12
 const TAN_22_5 := 0.41421356237309503
 ## Walking speed while taunted (see a move's "taunt").
-const TAUNT_SPEED := 0.8
+const TAUNT_SPEED := 0.6
+## A taunted fighter is dragged this many pixels a tick toward its taunter (Bedrock).
+const TAUNT_PULL := 0.6
 ## Walking speed while strafing (facing the aim instead of the way you walk).
 const STRAFE_SPEED := 0.85
 
@@ -52,6 +54,12 @@ const STATE_FIELDS := [
 	"combo_hits", "combo_types", "combo_moves", "combo_bounced", "combo_damage", "juggles",
 	"juggle_serials", "last_attacker", "dodge_dir", "prev_buttons", "dodge_buffer",
 	"dodge_buffer_dir", "shield", "calm_t", "slow", "slow_mult", "taunt", "taunt_by",
+	"reel_t", "reel_to", "reel_gap", "reel_speed", "vuln", "vuln_mult",
+	"flip_t", "flip_total", "flip_from", "flip_to",
+	"poison", "poison_every", "poison_dmg", "poison_by", "stone",
+	"blind", "whiff_serial", "root",
+	"stealth", "haste", "haste_mult", "atk_buff", "atk_mult", "stone_ice",
+	"block_lag", "punish_serial", "home_speed",
 ]
 ## Set once when the creature is made and never changed by the simulation.
 const STATIC_FIELDS := ["id", "def", "is_dummy", "radius", "weight", "max_hp", "max_stamina"]
@@ -130,6 +138,35 @@ var slow := 0  ## ticks of slowed walking left
 var slow_mult := 1.0
 var taunt := 0  ## ticks left of being taunted by `taunt_by`
 var taunt_by := -1
+var reel_t := 0  ## ticks left of being reeled in to `reel_to` (Gillbert's Cast Line)
+var reel_to := -1
+var reel_gap := 0.0
+var reel_speed := 0.0
+var vuln := 0  ## ticks left of taking extra damage (Chef Cerebro's Tenderize)
+var vuln_mult := 1.0
+var flip_t := 0  ## ticks left of being carried over the attacker's head (Flip Out)
+var flip_total := 0
+var flip_from := Vector2.ZERO
+var flip_to := Vector2.ZERO
+var poison := 0  ## ticks of poison left (Hissy Fitz's Venom Spit)
+var poison_every := 30  ## a pulse of damage every this many ticks
+var poison_dmg := 0.0
+var poison_by := -1
+var stone := 0  ## ticks left as a statue (Petrify Punch); the next clean hit shatters it
+var blind := 0  ## ticks left blinded (Digby's Headlamp Flash): the next attack started misses
+var whiff_serial := 0  ## the attack (attack_serial) that a blind made miss
+var root := 0  ## ticks left rooted in place (Cave-In): no walking, no dodging
+var stealth := 0  ## ticks left invisible (Sneaky Pete's Tiptoe); attacking or being hit ends it
+var haste := 0  ## ticks left of walking faster
+var haste_mult := 1.0
+var atk_buff := 0  ## ticks left of dealing atk_mult x damage (Pickpocket: up for him, down for them)
+var atk_mult := 1.0
+var stone_ice := false  ## the statue is ice, not stone (Sno Mercy's Flavor Blast)
+## A blocked combo ender (the third light) leaves the attacker open: extra recovery ticks
+## on this attack, and no cancelling out of it (punish_serial is the attack's serial).
+var block_lag := 0
+var punish_serial := 0
+var home_speed := 0.0  ## a homing dash's pace once its landing spot is locked
 
 
 func _init(p_id: int, p_def: Dictionary, p_pos: Vector2, p_is_dummy := false) -> void:
@@ -271,11 +308,28 @@ func hit_params(seg: int) -> Dictionary:
 		"slow_ticks": seg_value(seg, "slow_ticks"),
 		"slow_mult": float(mv.get("slow_mult", 1.0)),
 		"juggle_float": seg_value(seg, "juggle_float"),
+		"pull": seg_value(seg, "pull"),
+		"reel": seg_value(seg, "reel"),
+		"reel_speed": seg_value(seg, "reel_speed"),
+		"vuln_ticks": seg_value(seg, "vuln_ticks"),
+		"vuln_mult": float(mv.get("vuln_mult", 1.0)),
+		"flip": seg_value(seg, "flip"),
+		"poison_ticks": seg_value(seg, "poison_ticks"),
+		"poison_damage": seg_value(seg, "poison_damage"),
+		"poison_every": seg_value(seg, "poison_every"),
+		"petrify": seg_value(seg, "petrify"),
+		"blind_ticks": seg_value(seg, "blind_ticks"),
+		"root_ticks": seg_value(seg, "root_ticks"),
+		"steal_ticks": seg_value(seg, "steal_ticks"),
+		"steal": float(mv.get("steal", 0.0)),
+		"cone": float(mv.get("cone", 0.0)),
+		"freeze_ticks": seg_value(seg, "freeze_ticks"),
+		"no_flinch": bool(mv.get("no_flinch", false)),
 	}
 
 
 func is_invulnerable() -> bool:
-	if invuln > 0 or state == State.KNOCKDOWN:
+	if invuln > 0 or state == State.KNOCKDOWN or is_leaping():
 		return true
 	if state == State.DODGE:
 		var dg: Dictionary = def["dodge"]
@@ -306,11 +360,15 @@ func take_damage(amount: float, sim: MatchSim) -> float:
 
 
 func walk_speed() -> float:
+	if root > 0:
+		return 0.0
 	var s := float(def["speed"])
 	if slow > 0:
 		s *= slow_mult
 	if taunt > 0:
 		s *= TAUNT_SPEED
+	if haste > 0:
+		s *= haste_mult
 	return s
 
 
@@ -328,7 +386,25 @@ func is_stunned() -> bool:
 
 ## Whether this creature pushes and gets pushed by other bodies.
 func is_solid() -> bool:
-	return not (state in [State.FALLING, State.KO, State.DODGE, State.AIRBORNE, State.KNOCKDOWN])
+	return not (state in [State.FALLING, State.KO, State.DODGE, State.AIRBORNE, State.KNOCKDOWN]) \
+		and not is_leaping() and not _ghosting()
+
+
+## Slipping through bodies during a "ghost" dash (Pickpocket dashes past the foe).
+func _ghosting() -> bool:
+	if state != State.ATTACK or windup_left > 0:
+		return false
+	var dash: Dictionary = move_def().get("dash", {})
+	return bool(dash.get("ghost", false)) and state_t >= int(dash["from"]) and state_t <= int(dash["to"])
+
+
+## High in the air during a move's "leap" window (Gillbert's Surge): out of reach of
+## every hit, passing over bodies and pits.
+func is_leaping() -> bool:
+	if state != State.ATTACK or windup_left > 0:
+		return false
+	var lp: Dictionary = move_def().get("leap", {})
+	return not lp.is_empty() and state_t >= int(lp["from"]) and state_t <= int(lp["to"])
 
 
 func is_full_charge() -> bool:
@@ -377,6 +453,18 @@ func air_height() -> float:
 	var tt := float(air_total)
 	var peak := clampf(tt * 0.6, 10.0, 28.0)
 	return maxf(0.0, 4.0 * peak * t * (tt - t) / (tt * tt))
+
+
+## How far a move reaches from the body's centre: the strike's reach and radius, or how
+## far its projectile flies. Used by the mouse auto-attack and the CPU to pick range.
+func move_range(mid: String) -> float:
+	var mv: Dictionary = moves().get(mid, {})
+	if mv.has("projectile"):
+		var p: Dictionary = mv["projectile"]
+		if bool(p.get("lob", false)):
+			return float(p.get("offset", 16)) + float(p["range"]) + float(p.get("burst", 0))
+		return float(p.get("offset", 16)) + float(p["speed"]) * float(p["life"]) + float(p.get("radius", 0))
+	return float(mv.get("reach", 14)) + float(mv.get("hit_radius", 9))
 
 
 func move_rank(mid: String) -> int:
@@ -475,6 +563,10 @@ func step(buttons: int, sim: MatchSim) -> void:
 					reset_combo()
 					invuln = 20
 					_set_state(State.IDLE)
+	if reel_t > 0:
+		_reel_step(sim)
+	if flip_t > 0:
+		_flip_step()
 	_apply_knockback(sim)
 
 	if buffer_t > 0:
@@ -486,10 +578,42 @@ func step(buttons: int, sim: MatchSim) -> void:
 
 
 func _tick_status(sim: MatchSim) -> void:
+	# Taunted (Bedrock): dragged in toward the taunter while free on its feet.
+	var tt := taunter(sim)
+	if tt != null and (state == State.IDLE or state == State.MOVE or state == State.GUARD):
+		var to := tt.pos - pos
+		if to.length() > float(radius + tt.radius) + 6.0:
+			_move(to.normalized() * TAUNT_PULL, sim, true)
 	if slow > 0:
 		slow -= 1
 	if taunt > 0:
 		taunt -= 1
+	if vuln > 0:
+		vuln -= 1
+	if blind > 0:
+		blind -= 1
+	if root > 0:
+		root -= 1
+	if stealth > 0:
+		stealth -= 1
+	if haste > 0:
+		haste -= 1
+	if atk_buff > 0:
+		atk_buff -= 1
+		if atk_buff == 0:
+			atk_mult = 1.0
+	if stone > 0:
+		stone -= 1
+		if state != State.CRUMPLE:
+			stone = 0  # back on its feet: the stone has crumbled away
+	# Poison: a pulse of damage every so often. It isn't part of any combo.
+	if poison > 0 and state != State.KO:
+		poison -= 1
+		if poison % maxi(1, poison_every) == 0:
+			var dealt := take_damage(poison_dmg, sim)
+			flash = maxi(flash, 2)
+			sim.emit_event("poison", pos, dealt, {"who": id, "by": poison_by})
+			check_ko(sim)
 	# Stoneskin: a while without taking damage grows the shield back.
 	var skin: Dictionary = def.get("stoneskin", {})
 	if not skin.is_empty() and state != State.KO:
@@ -516,7 +640,7 @@ func _wants_breakaway(buttons: int, pressed: int) -> bool:
 
 func _update_free(buttons: int, pressed: int, dir: Vector2, aim: Vector2, sim: MatchSim) -> void:
 	var dg: Dictionary = def["dodge"]
-	if ((pressed & SimDefs.IN_DODGE) or dodge_buffer > 0) and stamina >= float(dg["cost"]):
+	if ((pressed & SimDefs.IN_DODGE) or dodge_buffer > 0) and stamina >= float(dg["cost"]) and root <= 0:
 		_start_dodge(dir, sim)
 		return
 	if _try_start_buffered(aim, sim):
@@ -564,13 +688,13 @@ func _try_start_buffered(dir: Vector2, sim: MatchSim) -> bool:
 		return false
 	if dir != Vector2.ZERO:
 		facing = dir
-	facing = _aim(facing, sim)
+	facing = _taunt_aim(facing, sim)
 	_start_attack(mid, sim, true)
 	return true
 
 
 ## Where an attack aimed `dir` actually goes: a taunted creature swings at its taunter.
-func _aim(dir: Vector2, sim: MatchSim) -> Vector2:
+func _taunt_aim(dir: Vector2, sim: MatchSim) -> Vector2:
 	var t := taunter(sim)
 	if t != null and t.pos.distance_squared_to(pos) > 0.0001:
 		return _snap8(t.pos - pos)
@@ -580,6 +704,11 @@ func _aim(dir: Vector2, sim: MatchSim) -> Vector2:
 func _start_attack(mid: String, sim: MatchSim, raw := false) -> void:
 	move_id = mid
 	attack_serial += 1
+	block_lag = 0
+	if blind > 0:
+		# Blinded (Headlamp Flash): this attack can't find its target.
+		whiff_serial = attack_serial
+		blind = 0
 	seg_hit.clear()
 	connected = false
 	countered = false
@@ -590,6 +719,20 @@ func _start_attack(mid: String, sim: MatchSim, raw := false) -> void:
 	walk_vel = Vector2.ZERO
 	var mv := move_def()
 	charging = mv.has("charge_max")
+	if mv.has("aim"):
+		_aim(float(mv["aim"]), sim)
+	# Self buffs as the move starts (Tiptoe: invisible and quicker). Any other attack
+	# gives the stealth away.
+	var buff: Dictionary = mv.get("self", {})
+	if buff.has("stealth"):
+		stealth = maxi(stealth, int(buff["stealth"]))
+		sim.emit_event("stealth", pos, float(buff["stealth"]), {"who": id})
+	elif stealth > 0:
+		stealth = 0
+		sim.emit_event("unstealth", pos, 0.0, {"who": id})
+	if buff.has("haste"):
+		haste = maxi(haste, int(buff["haste"]))
+		haste_mult = float(buff.get("haste_mult", 1.4))
 	if mv.has("cooldown"):
 		cooldowns[mid] = int(mv["cooldown"])
 	if mv.has("energy_cost"):
@@ -613,18 +756,20 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 		if charging:
 			if dir != Vector2.ZERO:
 				facing = dir
-			if (buttons & SimDefs.IN_HEAVY) and charge < int(mv.get("charge_max", 0)):
+			if (buttons & _charge_bit()) and charge < int(mv.get("charge_max", 0)):
 				charge += 1
 		return
 	if charging:
 		if dir != Vector2.ZERO:
 			facing = dir  # aim while charging
-		if (buttons & SimDefs.IN_HEAVY) and charge < int(mv.get("charge_max", 0)):
+		if (buttons & _charge_bit()) and charge < int(mv.get("charge_max", 0)):
 			charge += 1
 			state_t = 0
 			return
 		charging = false
 		charge_ratio = float(charge) / float(maxi(int(mv.get("charge_max", 1)), 1))
+		if mv.has("aim"):
+			_aim(float(mv["aim"]), sim)  # released: snap to a foe roughly where it was aimed
 
 	var t := state_t
 	var su := int(mv.get("startup", 0))
@@ -634,15 +779,21 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 	# with "aim_frames", so a raw big move stays committed to the way its tell pointed.
 	var aim_until := int(mv.get("aim_frames", su if String(mv["type"]) == "light" else 0))
 	if t <= aim_until and dir != Vector2.ZERO and not connected:
-		facing = _aim(dir, sim)
+		facing = _taunt_aim(dir, sim)
 
 	# Movement during the move: a short lunge before it hits, or a dash.
 	var lunge := float(mv.get("lunge", 0.0))
 	if t <= su and lunge > 0.0:
 		_move(facing * lunge, sim, true)
 	var dash: Dictionary = mv.get("dash", {})
-	if not dash.is_empty() and t >= int(dash["from"]) and t <= int(dash["to"]) and not connected:
-		_move(facing * float(dash["speed"]), sim, true)
+	if not dash.is_empty() and t >= int(dash["from"]) and t <= int(dash["to"]) and dash.has("home"):
+		_home(dash, t, sim)
+	elif not dash.is_empty() and t >= int(dash["from"]) and t <= int(dash["to"]) \
+			and (not connected or bool(dash.get("ghost", false))):  # a ghost dash runs on past
+		# A steerable dash (Burrow): the stick turns it a little each tick.
+		if float(dash.get("steer", 0.0)) > 0.0 and dir != Vector2.ZERO:
+			facing = (facing + dir * float(dash["steer"])).normalized()
+		_move(facing * float(dash["speed"]), sim, not is_leaping())  # a leap sails over pits
 
 	# One-off effects at the first active tick.
 	var segs: Array = mv["_segs"]
@@ -654,8 +805,42 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 			var r: Dictionary = mv["terrain_ring"]
 			sim.terrain.damage_ring(pos, float(r["inner"]), float(r["outer"]))
 			sim.emit_event("slam", pos, 1.0)
-	if mv.has("projectile") and t == su + 1:
-		sim.spawn_projectile(self, mv)
+		if mv.has("terrain_crack"):
+			# Cracks the floor without opening holes (Root Eruption's roots break the surface).
+			sim.terrain.crack_circle(pos + facing * float(mv.get("reach", 0)), float(mv["terrain_crack"]))
+	if mv.has("projectile") and t > su:
+		# One projectile at the first active tick, or a "volley" of them (Knife Flurry):
+		# "count" in a row, one every "every" ticks.
+		var vol: Dictionary = mv["projectile"].get("volley", {})
+		var every := maxi(1, int(vol.get("every", 1)))
+		var k := t - su - 1
+		if k % every == 0 and k / every < int(vol.get("count", 1)):
+			if mv.has("aim"):
+				_aim(float(mv["aim"]), sim)  # each throw of a volley tracks the foe
+			sim.spawn_projectile(self, mv, k / every == int(vol.get("count", 1)) - 1)
+
+	# A zone left on the floor (Syrup Slick).
+	var zn: Dictionary = mv.get("zone", {})
+	if not zn.is_empty() and t == int(zn.get("at", su)):
+		sim.add_zone(self, pos, zn)
+
+	# A vanish and reappear behind the foe (The Big Heist).
+	var bl: Dictionary = mv.get("blink", {})
+	if not bl.is_empty() and t == int(bl["at"]):
+		_blink(bl, sim)
+
+	# A gaze (Stone Gaze): every few ticks, slow whoever is in front and looking back.
+	var gaze: Dictionary = mv.get("gaze", {})
+	if not gaze.is_empty() and t >= int(gaze["from"]) and t <= int(gaze["to"]) \
+			and (t - int(gaze["from"])) % maxi(1, int(gaze.get("every", 10))) == 0:
+		_gaze(gaze, sim)
+	if not gaze.is_empty() and buffered != "" and t >= int(gaze.get("release_from", 9999)) and t <= int(gaze["to"]):
+		var g_rel := action_move(buffered)
+		if g_rel != move_id and can_use(g_rel):
+			if dir != Vector2.ZERO:
+				facing = dir
+			_start_attack(g_rel, sim)
+			return
 
 	# Armored stances (Bedrock): taunt as the armor sets, and let any attack answer
 	# straight out of it once `release_from` is reached.
@@ -678,18 +863,20 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 			var nxt := String(mv.get("next", ""))
 			if nxt != "" and t >= int(mv.get("cancel_from", 9999)):
 				if dir != Vector2.ZERO:
-					facing = _aim(dir, sim)  # each hit of a string can turn to a new direction
+					facing = _taunt_aim(dir, sim)  # each hit of a string can turn to a new direction
 				_start_attack(nxt, sim)
 				return
 		else:
 			var mid := action_move(want)
-			if connected and move_rank(mid) > move_rank(move_id) and can_use(mid):
+			# A multi-hit move can hold its cancel back until its last hit ("rank_cancel_from").
+			if connected and punish_serial != attack_serial and move_rank(mid) > move_rank(move_id) \
+					and can_use(mid) and t >= int(mv.get("rank_cancel_from", 0)):
 				if dir != Vector2.ZERO:
 					facing = dir
 				_start_attack(mid, sim)
 				return
 
-	if t >= int(mv["length"]):
+	if t >= int(mv["length"]) + block_lag:
 		_set_state(State.IDLE)
 
 
@@ -702,6 +889,94 @@ func _taunt(tn: Dictionary, sim: MatchSim) -> void:
 		o.taunt_by = id
 		sim.emit_event("taunt", o.pos, 1.0, {"who": o.id, "by": id})
 	sim.emit_event("roar", pos, r, {"who": id})
+
+
+## The button that keeps a charge move charging: the one that started it (the Heavy, or a
+## Skill that charges, like Pinecone Bomb).
+func _charge_bit() -> int:
+	if move_id == "skill_1":
+		return SimDefs.IN_SKILL1
+	if move_id == "skill_2":
+		return SimDefs.IN_SKILL2
+	return SimDefs.IN_HEAVY
+
+
+## Turns to face the nearest foe when it's roughly ahead (facing·dir >= `cone`): moves
+## with "aim" (Knife Flurry) don't need the foe lined up on one of the 8 directions.
+func _aim(cone: float, sim: MatchSim) -> void:
+	var foe := sim.nearest_opponent(self)
+	if foe == null:
+		return
+	var to := foe.pos - pos
+	if to.length_squared() < 0.0001:
+		return
+	var n := to.normalized()
+	if facing.dot(n) >= cone:
+		facing = n
+
+
+## A homing dash (The One That Got Away): until "home.until" it steers for the nearest
+## foe and paces itself to arrive as the dash ends (no faster than "home.max"); after that
+## the landing spot is locked, so a late sidestep or dodge still beats it.
+func _home(dash: Dictionary, t: int, sim: MatchSim) -> void:
+	var hm: Dictionary = dash["home"]
+	var spd := float(dash["speed"])
+	var foe := sim.nearest_opponent(self)
+	if foe != null and t <= int(hm.get("until", int(dash["to"]))):
+		var to := foe.pos - pos
+		var dist := to.length()
+		if dist > 0.5:
+			facing = to / dist
+		var left := maxi(1, int(dash["to"]) - t + 1)
+		spd = minf(float(hm.get("max", 3.0)), dist / float(left))
+		home_speed = spd
+	else:
+		spd = minf(home_speed, float(hm.get("max", 3.0)))
+	_move(facing * spd, sim, not is_leaping())
+
+
+## Reappears behind the nearest foe (opposite the way it faces), or on its far side when
+## that spot is a hole or off the floor; stays put when neither will do. Then faces it.
+func _blink(bl: Dictionary, sim: MatchSim) -> void:
+	var foe := sim.nearest_opponent(self)
+	if foe == null:
+		return
+	var gap := float(foe.radius + radius) + float(bl.get("gap", 2.0))
+	var away := foe.pos - pos
+	away = away.normalized() if away.length_squared() > 0.0001 else facing
+	var room := SimDefs.floor_rect().grow(-float(radius) - 2.0)
+	var from := pos
+	for spot in [foe.pos - foe.facing * gap, foe.pos + away * gap]:
+		if room.has_point(spot) and not sim.terrain.is_hole_at(spot):
+			pos = spot
+			break
+	var to_foe := foe.pos - pos
+	if to_foe.length_squared() > 0.0001:
+		facing = to_foe.normalized()
+	sim.emit_event("blink", pos, 1.0, {"who": id, "from": from})
+
+
+## Stone Gaze: anyone within range, in front of her, and facing her is slowed a little
+## more each pulse (down to `min_mult`); the slow wears off `slow_ticks` after the gaze.
+## Turning away (or getting behind her) is the counterplay.
+func _gaze(g: Dictionary, sim: MatchSim) -> void:
+	var r := float(g.get("range", 110))
+	for o in sim.creatures:
+		if o == self or o.state == State.KO or o.state == State.FALLING:
+			continue
+		var to := o.pos - pos
+		var d := to.length()
+		if d > r + o.radius or d < 0.0001:
+			continue
+		var n := to / d
+		if facing.dot(n) < float(g.get("cone", 0.7)):
+			continue  # not in front of her
+		if o.facing.dot(-n) < float(g.get("facing", 0.3)):
+			continue  # looking away: safe
+		var m := o.slow_mult if o.slow > 0 else 1.0
+		o.slow_mult = maxf(float(g.get("min_mult", 0.35)), m - float(g.get("step", 0.08)))
+		o.slow = maxi(o.slow, int(g.get("slow_ticks", 90)))
+		sim.emit_event("gaze", o.pos, o.slow_mult, {"who": o.id, "by": id})
 
 
 func _slam(mv: Dictionary, sim: MatchSim) -> void:
@@ -744,7 +1019,7 @@ func _update_guard(buttons: int, pressed: int, dir: Vector2, aim: Vector2, sim: 
 		stun -= 1
 		return
 	var dg: Dictionary = def["dodge"]
-	if ((pressed & SimDefs.IN_DODGE) or dodge_buffer > 0) and stamina >= float(dg["cost"]):
+	if ((pressed & SimDefs.IN_DODGE) or dodge_buffer > 0) and stamina >= float(dg["cost"]) and root <= 0:
 		_start_dodge(dir, sim)
 		return
 	# Out of guard an attack goes at the opponent, unless an exact aim says otherwise.
@@ -787,6 +1062,56 @@ func cancel_attack() -> void:
 	connected = false
 	buffered = ""
 	buffer_t = 0
+	reel_t = 0
+
+
+## Cast Line hooked someone: get hauled in to them at a steady speed, like a fish on a
+## line, until `reel_gap` short of their body. Arriving ends the cast, so a light can
+## follow straight away while they're still stunned.
+func start_reel(target: CreatureSim, gap: float, speed: float) -> void:
+	reel_to = target.id
+	reel_gap = gap
+	reel_speed = speed
+	reel_t = 60
+	knock_vel = Vector2.ZERO
+
+
+func _reel_step(sim: MatchSim) -> void:
+	reel_t -= 1
+	if reel_to < 0 or reel_to >= sim.creatures.size() or sim.creatures[reel_to].state == State.KO:
+		reel_t = 0
+		return
+	var t := sim.creatures[reel_to]
+	var to := t.pos - pos
+	var left := to.length() - (radius + t.radius + reel_gap)
+	if left > 0.01:
+		_move(to.normalized() * minf(reel_speed, left), sim, false)
+		left -= reel_speed
+	if left <= 0.01 or reel_t <= 0:
+		reel_t = 0
+		if state == State.ATTACK and move_def().has("reel"):
+			walk_vel = Vector2.ZERO
+			_set_state(State.IDLE)
+		sim.emit_event("reeled_in", pos, 0.0, {"who": id, "target": t.id})
+
+## Flip Out: carried in an arc over the attacker's head, from where it was scooped to
+## the spot behind, at a steady pace, then left hanging there until it lands. Hits taken
+## on the way (a Knife Flurry) don't knock it off course.
+func start_flip(to: Vector2, ticks: int) -> void:
+	flip_from = pos
+	flip_to = to
+	flip_total = maxi(ticks, 1)
+	flip_t = flip_total
+	knock_vel = Vector2.ZERO
+
+
+func _flip_step() -> void:
+	if state != State.AIRBORNE:
+		flip_t = 0
+		return
+	flip_t -= 1
+	pos = flip_from.lerp(flip_to, 1.0 - float(flip_t) / float(flip_total))
+	knock_vel = Vector2.ZERO
 
 
 func enter_hitstun(ticks: int, kb: Vector2) -> void:

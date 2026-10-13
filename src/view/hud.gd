@@ -15,6 +15,8 @@ const C_ENERGY := Color("ffcf3f")
 const C_BAR_BG := Color("2a2e38")
 const C_ACCENT := Color("ffd166")
 const CUT_IN_TICKS := 30
+## On very wide screens the health panels stay within this width (centred).
+const HUD_MAX_W := 640.0
 const TYPE_PIPS := [["light", "LT"], ["heavy", "HV"], ["skill", "SK"], ["surge", "SG"]]
 
 var sim: MatchSim
@@ -22,6 +24,7 @@ var duel: DuelSim = null  ## set during a Duel: draws the team strip under each 
 var tag_labels := ["", ""]
 var tags := ["P1", "CPU"]
 var key_labels := [["", ""], ["", ""]]
+const SIDE_COLORS: Array[Color] = [Color("ff5a5a"), Color("5aa0ff")]
 var surge_labels := ["", ""]
 var help_text := ""
 var show_help := true
@@ -31,6 +34,8 @@ var wins_needed := 2
 var banner := ""
 var banner_sub := ""
 var dummy_mode_name := ""
+## Online: ping, input delay, rollback; drawn small in the bottom corner.
+var net_info := ""
 
 # Showcase captions: a title, the chain of moves, and which one is happening now.
 var caption_title := ""
@@ -38,12 +43,10 @@ var caption_items: Array = []
 var caption_index := -1
 
 # Menu
+## A menu screen covers the game: draw nothing (the screens dim the match behind).
 var menu_visible := false
-var menu_items: Array[String] = []
-var menu_index := 0
-var menu_footer := ""
-var menu_y0 := 104.0
-var menu_dy := 16.0
+## Button hints for a controller (else keyboard and mouse).
+var gamepad := false
 
 var _toast := ""
 var _toast_t := 0
@@ -101,14 +104,36 @@ func advance() -> void:
 	queue_redraw()
 
 
+## The screen's size (wider than 480 on ultrawide monitors, taller on 16:10) and where
+## things anchor: the health panels sit at the edges of a HUD area at most HUD_MAX_W
+## wide (no glancing to the corners of a 32:9 screen), centred things on the centre.
+var _sw := float(SimDefs.VIEW_W)
+var _sh := float(SimDefs.VIEW_H)
+var _hl := 0.0  ## left edge of the HUD area
+var _hr := float(SimDefs.VIEW_W)  ## right edge
+var _cx := 0.0  ## how far the screen's centre moved right of a 480-wide screen's
+var _cy := 0.0  ## and down
+
+
+func _layout() -> void:
+	var vs := get_viewport_rect().size
+	_sw = maxf(vs.x, 1.0)
+	_sh = maxf(vs.y, 1.0)
+	var hw := minf(_sw, HUD_MAX_W)
+	_hl = (_sw - hw) * 0.5
+	_hr = _hl + hw
+	_cx = (_sw - SimDefs.VIEW_W) * 0.5
+	_cy = (_sh - SimDefs.VIEW_H) * 0.5
+
+
 func _draw() -> void:
+	_layout()
 	if menu_visible:
-		_draw_menu()
 		return
 	if sim == null or sim.creatures.size() < 2:
 		return
-	_panel(0, 4.0, false)
-	_panel(1, SimDefs.VIEW_W - 164.0, true)
+	_panel(0, _hl + 4.0, false)
+	_panel(1, _hr - 164.0, true)
 	_center()
 	for side in 2:
 		if _combo_show[side] > 0:
@@ -119,24 +144,28 @@ func _draw() -> void:
 		_draw_cut_in()
 
 	if banner != "":
-		var y := 128.0
-		draw_rect(Rect2(0, y - 22, SimDefs.VIEW_W, 34 if banner_sub == "" else 46), Color(0, 0, 0, 0.45))
-		_text(Vector2(0, y), banner, 20, C_TEXT, HORIZONTAL_ALIGNMENT_CENTER, SimDefs.VIEW_W)
+		var y := 128.0 + _cy
+		draw_rect(Rect2(0, y - 22, _sw, 34 if banner_sub == "" else 46), Color(0, 0, 0, 0.45))
+		_text(Vector2(0, y), banner, 20, C_TEXT, HORIZONTAL_ALIGNMENT_CENTER, _sw)
 		if banner_sub != "":
-			_text(Vector2(0, y + 16), banner_sub, 8, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, SimDefs.VIEW_W)
+			_text(Vector2(0, y + 16), banner_sub, 8, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, _sw)
 
 	if _toast_t > 0:
 		var a := minf(1.0, _toast_t / 20.0)
-		_text(Vector2(90, 236), _toast, 8, Color(1, 1, 1, a), HORIZONTAL_ALIGNMENT_CENTER, 300)
+		_text(Vector2(_sw * 0.5 - 150.0, _sh - 34.0), _toast, 8, Color(1, 1, 1, a), HORIZONTAL_ALIGNMENT_CENTER, 300)
+
+	if net_info != "":
+		_text(Vector2(_hr - 304, _sh - 15.0), net_info, 6, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, 300)
 
 	if show_help:
-		draw_rect(Rect2(0, 259, SimDefs.VIEW_W, 11), C_PANEL)
-		_text(Vector2(0, 267), help_text, 5, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, SimDefs.VIEW_W)
+		draw_rect(Rect2(0, _sh - 11.0, _sw, 11), C_PANEL)
+		_text(Vector2(0, _sh - 3.0), help_text, 5, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, _sw)
 
 
 func _panel(side: int, x: float, right: bool) -> void:
 	var c := sim.creatures[side]
 	draw_rect(Rect2(x, 3, 160, 34), C_PANEL)
+	draw_rect(Rect2(x, 3, 160, 2), SIDE_COLORS[side])  # red left, blue right, like the markers
 	var name := String(c.def.get("name", "?")).to_upper()
 	var tag := String(tags[side])
 	if c.is_dummy:
@@ -144,6 +173,15 @@ func _panel(side: int, x: float, right: bool) -> void:
 	_text(Vector2(x + 5, 12), name, 7, C_TEXT)
 	_text(Vector2(x + 5, 12), tag, 6, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, 150)
 	_bar(Rect2(x + 5, 15, 150, 6), c.hp / c.max_hp, _hp_color(c.hp / c.max_hp), right)
+	# A shield (Craglash's Stoneskin): pale stone over the end of the health bar, and its name.
+	if c.shield > 0.0:
+		var sw := minf(1.0, c.shield / c.max_hp) * 150.0
+		var hw := c.hp / c.max_hp * 150.0
+		var sx := x + 5 + (150.0 - hw - sw if right else hw)
+		sx = clampf(sx, x + 5, x + 155 - sw)
+		draw_rect(Rect2(sx, 15, sw, 6), Color("d8d4cc"))
+		draw_rect(Rect2(sx, 15, sw, 6), Color(0, 0, 0, 0.5), false, 1.0)
+		_text(Vector2(x + 5, 12), "STONESKIN  ", 5, Color("d8d4cc"), HORIZONTAL_ALIGNMENT_RIGHT, 118)
 	if duel != null:
 		_team_strip(side, x, right)
 
@@ -224,12 +262,12 @@ func _team_strip(side: int, x: float, right: bool) -> void:
 func _center() -> void:
 	if timer_ticks < 0:
 		return
-	draw_rect(Rect2(218, 3, 44, 24), C_PANEL)
+	draw_rect(Rect2(218 + _cx, 3, 44, 24), C_PANEL)
 	var secs := int(ceil(timer_ticks / 60.0))
-	_text(Vector2(218, 19), str(secs), 13, C_HP_LO if secs <= 10 else C_TEXT, HORIZONTAL_ALIGNMENT_CENTER, 44)
+	_text(Vector2(218 + _cx, 19), str(secs), 13, C_HP_LO if secs <= 10 else C_TEXT, HORIZONTAL_ALIGNMENT_CENTER, 44)
 	for side in 2:
 		for i in wins_needed:
-			var px := 232.0 + (i * 7.0 if side == 1 else -i * 7.0) + (14.0 if side == 1 else 0.0)
+			var px := 232.0 + _cx + (i * 7.0 if side == 1 else -i * 7.0) + (14.0 if side == 1 else 0.0)
 			var won := i < int(wins[side])
 			draw_circle(Vector2(px, 32), 2.5, C_ACCENT if won else Color(0.25, 0.27, 0.3))
 
@@ -239,7 +277,7 @@ func _combo(side: int) -> void:
 	if info.is_empty():
 		return
 	var a := minf(1.0, _combo_show[side] / 15.0)
-	var x := 8.0 if side == 0 else SimDefs.VIEW_W - 128.0
+	var x := _hl + 8.0 if side == 0 else _hr - 128.0
 	var mult := float(info["mult"])
 	var col := C_ACCENT
 	if mult >= 1.5:
@@ -270,10 +308,12 @@ func _combo(side: int) -> void:
 
 
 func _draw_caption() -> void:
-	var y := 230.0
-	draw_rect(Rect2(6, y, SimDefs.VIEW_W - 12, 34), C_PANEL)
-	draw_rect(Rect2(6, y, 3, 34), C_ACCENT)
-	_text(Vector2(14, y + 11), caption_title, 7, C_ACCENT)
+	var y := _sh - 40.0
+	var left := _hl
+	var cw := _hr - _hl
+	draw_rect(Rect2(left + 6, y, cw - 12, 34), C_PANEL)
+	draw_rect(Rect2(left + 6, y, 3, 34), C_ACCENT)
+	_text(Vector2(left + 14, y + 11), caption_title, 7, C_ACCENT)
 	var size := 7
 	var sep := "  >  "
 	var total := 0.0
@@ -281,9 +321,9 @@ func _draw_caption() -> void:
 		total += _font.get_string_size(String(caption_items[i]), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 		if i > 0:
 			total += _font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
-	if total > SimDefs.VIEW_W - 30:
+	if total > cw - 30:
 		size = 6
-	var x := 14.0
+	var x := left + 14.0
 	for i in caption_items.size():
 		if i > 0:
 			_text(Vector2(x, y + 26), sep, size, C_DIM)
@@ -304,13 +344,13 @@ func _draw_cut_in() -> void:
 	var t := float(_cut["t"])
 	var side := int(_cut["side"])
 	var dir := 1.0 if side == 0 else -1.0
-	var w := float(SimDefs.VIEW_W)
+	var w := _sw
 	# Short on purpose: it has to be gone by the time the move's startup is worth reading.
 	var k_in := clampf(t / 5.0, 0.0, 1.0)
 	var k_out := clampf((t - 20.0) / 9.0, 0.0, 1.0)
 	var off := -pow(1.0 - k_in, 3.0) * (w + 80.0) * dir + k_out * k_out * (w + 80.0) * dir
-	var y0 := 98.0
-	var y1 := 152.0
+	var y0 := 98.0 + _cy
+	var y1 := 152.0 + _cy
 	var accent: Color = _cut["color"]
 
 	var band := PackedVector2Array([Vector2(off - 60, y1), Vector2(off - 20, y0), Vector2(off + w + 60, y0),
@@ -328,36 +368,18 @@ func _draw_cut_in() -> void:
 	var fpx := float(_cut["fpx"])
 	var origin: Vector2 = _cut["origin"]
 	var sc := 2.6 * minf(1.0, 64.0 / fpx)  # big frames (Craglash's 96 px) scale down to fit
-	var feet := Vector2((96.0 if side == 0 else w - 96.0) + off * 1.25, y1 + 6.0)
+	var feet := Vector2(_cx + (96.0 if side == 0 else SimDefs.VIEW_W - 96.0) + off * 1.25, y1 + 6.0)
 	draw_set_transform(feet, 0.0, Vector2(sc * dir, sc))
 	draw_texture_rect_region(tex, Rect2(-origin.x, -origin.y, fpx, fpx), _cut["region"], Color(0, 0, 0, 0.5))
 	draw_set_transform(feet + Vector2(-3.0 * dir, -2.0), 0.0, Vector2(sc * dir, sc))
 	draw_texture_rect_region(tex, Rect2(-origin.x, -origin.y, fpx, fpx), _cut["region"])
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
-	var tx := (170.0 if side == 0 else 20.0) + off
+	var tx := _cx + (170.0 if side == 0 else 20.0) + off
 	_text(Vector2(tx, y0 + 18), String(_cut["who"]), 8, accent, HORIZONTAL_ALIGNMENT_LEFT, 290)
 	_text(Vector2(tx, y0 + 42), String(_cut["move"]) + "!", 24, C_TEXT, HORIZONTAL_ALIGNMENT_LEFT, 290)
 	if t < 3.0:
-		draw_rect(Rect2(0, 0, w, SimDefs.VIEW_H), Color(1, 1, 1, 0.5 * (1.0 - t / 3.0)))
-
-
-func _draw_menu() -> void:
-	draw_rect(Rect2(0, 0, SimDefs.VIEW_W, SimDefs.VIEW_H), Color(0.05, 0.06, 0.08, 0.82))
-	_text(Vector2(0, menu_y0 - 46), "CREATURE ARENA", 24, C_TEXT, HORIZONTAL_ALIGNMENT_CENTER, SimDefs.VIEW_W)
-	_text(Vector2(0, menu_y0 - 31), "prototype build", 7, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, SimDefs.VIEW_W)
-	var y := menu_y0
-	var fs := 9 if menu_dy >= 15.0 else 8
-	for i in menu_items.size():
-		var sel := i == menu_index
-		if sel:
-			draw_rect(Rect2(130, y - menu_dy + 4, 220, menu_dy - 1), Color(1, 1, 1, 0.08))
-			_text(Vector2(136, y), ">", fs, C_ACCENT)
-		_text(Vector2(150, y), menu_items[i], fs, C_ACCENT if sel else C_TEXT)
-		y += menu_dy
-	_text(Vector2(0, 232), menu_footer, 6, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, SimDefs.VIEW_W)
-	_text(Vector2(0, 244), "Arrows / D-pad / mouse to choose   Left/Right to change   Enter / A / click to start", 6, C_DIM,
-		HORIZONTAL_ALIGNMENT_CENTER, SimDefs.VIEW_W)
+		draw_rect(Rect2(0, 0, w, _sh), Color(1, 1, 1, 0.5 * (1.0 - t / 3.0)))
 
 
 func _bar(r: Rect2, ratio: float, col: Color, from_right := false) -> void:

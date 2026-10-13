@@ -26,7 +26,9 @@ Each view can have its own frame size and feet origin (`"views"` in the creature
 `"sprite"` block). Animations listed in `"side_only"` (all three use it for the knockout,
 which falls over sideways) always come from the side sheet, so those rows can stay empty
 in the other two. Preview: [`sprite_views_preview.png`](sprite_views_preview.png) (Cairn
-and Culvert, side/down/up) and [`craglash_views_preview.png`](craglash_views_preview.png).
+and Culvert, side/down/up), [`craglash_views_preview.png`](craglash_views_preview.png) and
+[`barkley_views_preview.png`](barkley_views_preview.png) and
+[`gillbert_views_preview.png`](gillbert_views_preview.png).
 
 ## Creatures — 48×48 frames, 6 columns
 
@@ -119,6 +121,268 @@ When the artist's final Craglash arrives, either keep this layout (then it drops
 change the `"sprite"` block in `data/creatures/craglash.json` to match theirs. Design
 note: keep the neck as flat slabs rimmed in red rather than round grey boulders, so it
 doesn't read as a chain of boulders from an existing franchise.
+
+### Barkley — 96×96 frames, 8 × 13 (768×1248 px)
+
+Barkley is the second creature from the artist's sheets. `tools/gen_barkley.py`
+recreates him as a small **3D puppet** (a trunk that forks into two leg-trunks with
+splayed roots, two long branch arms with twig fingers and leaf sprouts, a face with
+small blue eyes and a long nose, a moss beard, and the log across his head with its
+rings on the cut end), posed once and projected into all three sheets. That keeps the
+views in step, including Timber Twister, where the whole tree turns on its roots. The
+side sheet is a cheated 3/4 view: forward is drawn one to one so reach on screen
+matches reach in the simulation, while his sideways span is turned toward the camera
+so the arms and the log across his head still read. Feet at **x 40, y 90**. Up and down
+sheets (`barkley_down.png`, `barkley_up.png`) are **128×160** with the same rows minus
+the knockout, feet at x 64, y 112 (down) and y 124 (up). Eight columns because the
+spin needs them; `"select_scale"` in the sprite block shrinks his portrait on the team
+select (the log makes him tall for his frame).
+
+![Barkley sheet, 3x](barkley_preview.png)
+
+Facing down and up: [`barkley_views_preview.png`](barkley_views_preview.png).
+
+| Row | Animation | Frames | Notes |
+| --- | --- | --- | --- |
+| 0 | idle | 4 | the sheet's pose: one arm low, one raised in a curl; slow sway |
+| 1 | run | 6 | lumbering stride, arms swinging like boughs |
+| 2 | twig | 4 | Twig Swipe (light 1): right arm whips across |
+| 3 | bough | 4 | Bough Swing (light 2): left arm swings back the other way |
+| 4 | logdrop | 4 | Log Drop (light 3) and Timber Drop: rear back, tip forward, bonk with the log |
+| 5 | twister | 8 | Timber Twister: coil ×2 (charge), spin at 0°, 90°, 180°, 270°, slow, recover |
+| 6 | grab | 6 | Branch Grab: wind back, reach, full extension ×2, reel in, recover |
+| 7 | pinecone | 5 | Pinecone Bomb: pinecone in hand, overhead, throw, follow-through, recover |
+| 8 | eruption | 6 | Root Eruption: arms up ×3 (leaves glowing), plunge into the floor ×2, recover |
+| 9 | dodge | 4 | bow low under the swing |
+| 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
+| 11 | guard | 2 | branch arms crossed in front |
+| 12 | ko | 4 | stagger, then topples over backward like a felled tree, roots torn up |
+
+Moves time their frames with `"anim_at"` (`[[tick, frame], ...]` in the move's JSON),
+so the spin and the lob play exactly in step with the hits. Design note: the log across
+the head, the moss beard and the root feet are what make him read as Barkley; a round
+tree body with leafy hands would drift toward existing franchise creatures.
+
+### Gillbert — 128×128 frames, 8 × 13 (1024×1664 px)
+
+Gillbert is the third creature from the artist's sheets. `tools/gen_gillbert.py` builds
+him on Barkley's 3D approach: a fish body as a tube along a bendable spine (curl, arch,
+side-to-side wiggle, roll onto his side), the red-and-white life ring split into the
+half behind him and the half in front, fins, barbels, an orange eye on each side, the
+line tangled round his body, and the **rod as its own rigid piece** with a position and
+spin in every pose. A pose that tips his nose up lifts him so the tail stays on the floor.
+He always wears the ring, and it is much bigger than he is thick (it shows above his back and
+below his belly). Side-on its far half goes behind his body and its near half crosses in front,
+kept wide enough to read however he turns; head-on or from behind he is split at the ring, so
+the end nearer the camera is drawn over it and the far end under it. Feet (belly) at **x 70, y 112**; big frames because the rod flies out in front on Cast Line
+and tumbles far behind on the run. Up and down sheets (`gillbert_down.png`,
+`gillbert_up.png`) are **96×144**, feet at x 48, y 92 (down) and y 76 (up).
+
+![Gillbert sheet, 3x](gillbert_preview.png)
+
+Facing down and up: [`gillbert_views_preview.png`](gillbert_views_preview.png). The run in
+all three views: [`gillbert_run.gif`](gillbert_run.gif).
+
+| Row | Animation | Frames | Notes |
+| --- | --- | --- | --- |
+| 0 | idle | 4 | lying on his belly, gills working, tail flicking, a little twitch hop |
+| 1 | run | 8 | a flop: curl, spring, arch in the air, nose down, slap, bounce, settle; the rod tumbles end over end behind |
+| 2 | jab | 4 | Snout Jab (light 1): rear back, nose bonk ×2, recover |
+| 3 | whip | 4 | Tail Whip (light 2): a half turn so the tail lashes across in front |
+| 4 | flail | 6 | Rod Flail (light 3): the rod swings up on its line, over him and down in front |
+| 5 | splash | 6 | Splash Zone: charge A, charge B (tail high), rise, slap, splash, recover |
+| 6 | flopdash | 4 | Flop Dash: coil, launch, skid, recover |
+| 7 | cast | 6 | Cast Line: rod back, over the top, thrown, follow-through without the rod (the game draws it in flight), being reeled in (shown while the line hauls him), recover |
+| 8 | leap | 6 | The One That Got Away (and Splashdown from frame 3): crouch, spring, straight up, falling belly-first, belly-flop, recover; `"view_lift"` raises him off the screen |
+| 9 | dodge | 4 | a sideways flip in a hop |
+| 10 | hurt | 2 | recoil; frame 1 (on his side) doubles as the crumple pose |
+| 11 | guard | 2 | curled up behind the life ring |
+| 12 | ko | 4 | a last flop, then on his side with the rod across him |
+
+Design note: the life ring, the barbels and the rod on its line are what make him read as
+Gillbert, not as a fish from an existing franchise.
+
+### Chef Cerebro — 128×128 frames, 8 × 13 (1024×1664 px)
+
+Chef Cerebro is the fourth creature from the artist's sheets. `tools/gen_cerebro.py` uses
+the same cameras as Barkley and Gillbert, but renders differently: every piece is sampled
+as 3D points (the brain as ten overlapping lobe ellipsoids, the brain stems as tubes, the
+blades and spatula head as flat plates, the mallet head as a box, the pan as a cylinder)
+and splatted into a depth buffer. Each pixel is then shaded from its normal, outlined
+where the silhouette ends and along every seam between pieces (which draws the lines
+between the lobes, as on the sheet), and decorated in the brain's own coordinates: the
+black half-moon sunglasses (turned out to the sides, so they read from the side and the
+front), their bridge and arms, and a few wrinkle strokes on each lobe. Tools are outlined
+in black and the brain in the sheet's dark maroon.
+
+His kit, as drawn: the big chef's knife on the front stem, the navy spatula on the back
+stem, and a dark brown pan on his back with the meat mallet standing in it; a thinner
+third stem draws small knives and the mallet out of the pan. Feet at **x 62, y 100**. The
+rig is modelled large and drawn at 0.72 scale (`SCALE`). Up and down sheets
+(`cerebro_down.png`, `cerebro_up.png`) are **112×128**, feet at x 56, y 88 (down) and
+y 76 (up).
+
+![Chef Cerebro sheet, 3x](cerebro_preview.png)
+
+Facing down and up: [`cerebro_views_preview.png`](cerebro_views_preview.png).
+
+| Row | Animation | Frames | Notes |
+| --- | --- | --- | --- |
+| 0 | idle | 4 | settled on the floor, breathing, a glint across the sunglasses |
+| 1 | run | 6 | an inchworm scoot on his stems: squash, stretch forward, hop, land |
+| 2 | flick | 4 | Knife Flick (light 1): a small knife drawn from the pan, wound back, flicked; the game draws it in flight |
+| 3 | flick2 | 4 | Backhand Flick (light 2): a sidearm throw across his body |
+| 4 | toss | 5 | Mallet Toss (light 3): the mallet out of the pan, over his head, hurled; back in the pan |
+| 5 | tenderize | 6 | Tenderize: charge A, charge B (mallet high), rise, pound, impact, recover; Order Up plays from frame 3 |
+| 6 | cleaver | 6 | Cleaver Toss: the big knife back over his head, thrown, follow-through without it, a new one in hand |
+| 7 | flipout | 6 | Flip Out: the spatula swings round low, slides under, scoops, carries over his head, recover |
+| 8 | flurry | 6 | Knife Flurry: a fan of knives drawn, set, two alternating throws (looped while the stream flies), recover |
+| 9 | dodge | 4 | a squashed roll onto his side and back |
+| 10 | hurt | 2 | recoil, sunglasses knocked askew; frame 1 doubles as the crumple pose |
+| 11 | guard | 2 | hunkered down behind the spatula, held up like a shield |
+| 12 | ko | 4 | knocked back, tips over, deflates, sunglasses off |
+
+Design note: the sunglasses, the brain stems holding kitchen tools and the pan on his
+back are what make him read as Chef Cerebro. Name check before release: "Cerebro" is
+also the name of a well-known comic-book device (see the PR notes).
+
+### Hissy Fitz — 128×128 frames, 8 × 13 (1024×1664 px)
+
+Hissy Fitz is the fifth creature from the artist's sheets. `tools/gen_hissy.py` renders
+like Chef Cerebro's generator (3D points splatted into a depth buffer, three-tone shading,
+outlines round the silhouette and along seams), with black outlines as on the sheet. The
+rig: a big round head floating over the floor (she never touches it: the gloves stay up
+in a guard under her chin, `NEAR_REST`/`FAR_REST`, everywhere but the knockout), nine spotted green hair snakes (each a
+wavy tapered tube ending in a little head with eyes and a forked red tongue) fanned out
+in a sunburst, two purple crystal earrings, and two more snakes from under her chin down
+to the red boxing gloves. The face (big yellow slit eyes with blue eyeshadow and lashes,
+a cocked brow, the lopsided zigzag grin) is painted once into a texture in the head's own
+azimuth and elevation, so it wraps the round head in every view; in the side view her
+head is turned a little toward the camera (`SIDE_CHEAT`), so both eyes and the grin read.
+Expressions: grin, shout, gaze (glowing eyes), hurt, ko.
+
+Feet at **x 64, y 104**, drawn at 0.72 scale. Up and down sheets (`hissy_down.png`,
+`hissy_up.png`) are **112×128**, feet at x 56, y 104 (down) and y 92 (up).
+
+![Hissy Fitz sheet, 3x](hissy_preview.png)
+
+Facing down and up: [`hissy_views_preview.png`](hissy_views_preview.png).
+
+| Row | Animation | Frames | Notes |
+| --- | --- | --- | --- |
+| 0 | idle | 4 | floating in place with her gloves up in guard: a slow bob, hair snakes swaying |
+| 1 | run | 6 | gliding forward through the air, gloves up and weaving, hair streaming back |
+| 2 | jab | 4 | Snake Jab (light 1): the near glove snaps out at head height |
+| 3 | jab2 | 4 | Snake Jab (light 2): the far glove crosses in |
+| 4 | lash | 5 | Hair Lash (light 3): she ducks, then the hair snakes whip forward and bite |
+| 5 | uppercut | 6 | Coil Uppercut: charge A, charge B (glove coiled low), rise, uppercut, follow-through, recover; Hiss Off plays from frame 3 |
+| 6 | spit | 5 | Venom Spit: rear back, front snakes drawn back, spit (a venom glob at their mouths), recover; the game draws the glob in flight |
+| 7 | gaze | 4 | Stone Gaze: lean in; frames 1 and 2 alternate (glowing eyes, hair raised like a hood) while it lasts; recover |
+| 8 | petrify | 6 | Petrify Punch: wind back, the haymaker held (eyes glowing), the punch at full stretch, follow-through, recover |
+| 9 | dodge | 4 | the head drops between the gloves and rolls |
+| 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose (frame 0 is the petrified statue's pose, tinted grey by `CreatureView`) |
+| 11 | guard | 2 | gloves up in front of her face, snakes pulled in |
+| 12 | ko | 4 | the head drops onto the gloves and tips over, hair limp, tongue out |
+
+Design note: she must not read as Medusa from mythology-themed games or films: the boxing
+gloves, the floating head, the earrings and the cartoon grin carry her look. Snakes for
+hair is a myth motif anyone can use; the name and gloves are hers.
+
+### Digby — 128×128 frames, 8 × 13 (1024×1664 px)
+
+Digby is the sixth creature from the artist's sheets, and the first generator on the
+shared renderer, `tools/splat3d.py` (the splat renderer Chef Cerebro and Hissy Fitz use,
+pulled out into one module): `tools/gen_digby.py` holds only his palette, rig and poses,
+and `python3 tools/gen_digby.py inspect idle:0 run:2` renders a few frames in all three
+views for working on a pose. The rig: a long, low mole on all fours, the body pivoting at
+the hips so he can rear up for swipes; a long snout with a purple nose and whiskers; an
+orange miner's helmet with a white band and a yellow headlamp (a white glow when it
+flashes); yellow claws on every paw; a huge bushy tail; a grey pickaxe in the near front
+paw. Burrowing sinks the rig into the floor (everything below it is cut away) under a
+dirt mound. Drawn at 0.8 scale, feet at **x 64, y 100**; up and down sheets are
+**112×128**, feet at x 56, y 100 (down) and y 90 (up).
+
+![Digby sheet, 3x](digby_preview.png)
+
+Facing down and up: [`digby_views_preview.png`](digby_views_preview.png).
+
+| Row | Animation | Frames | Notes |
+| --- | --- | --- | --- |
+| 0 | idle | 4 | on all fours, sniffing, tail swaying |
+| 1 | run | 6 | a quick scurry, paws alternating, tail streaming |
+| 2 | swipe | 4 | Claw Swipe (light 1): rears up, the far claw slashes across |
+| 3 | swipe2 | 4 | Claw Swipe (light 2): the near claw back the other way, pickaxe and all |
+| 4 | pick | 5 | Pickaxe Swing (light 3): up on his back legs, the pickaxe over his head and down |
+| 5 | popup | 6 | Pickaxe Pop-Up: charge A/B (digging in), underground, bursting up with the pickaxe, follow-through, recover; Pop Goes the Mole plays from frame 3 |
+| 6 | flash | 4 | Headlamp Flash: taps the helmet, the lamp blazes, holds, back down |
+| 7 | burrow | 6 | Burrow: crouch, diving in, the mound (frames 2 and 3 alternate while he tunnels), bursting out, recover |
+| 8 | cavein | 6 | Cave-In: rears right up, holds, slams down, the floor gives, recover |
+| 9 | dodge | 4 | rolls into a ball and tumbles |
+| 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
+| 11 | guard | 2 | hunkered behind the pickaxe held crossways |
+| 12 | ko | 4 | over onto his back, legs up, x eyes |
+
+### Sneaky Pete — 128×128 frames, 8 × 13 (1024×1664 px)
+
+`tools/gen_pete.py`, on the shared renderer. A cartoon human rig: hips, a leaning torso
+(sweater), a big head (pink skin, a black mask band with eye holes, a big round nose, a
+moustache, a toothy grin, an orange knit beanie with two darker stripes and a rolled
+brim), legs and arms as bent two-part tubes ending in brown shoes and pink hands. The
+money bag is a big green ball with a tied neck and a dollar sign, slung over his
+shoulder unless a pose holds it out to swing. Poses place the feet, hands and bag. Drawn
+at 0.8 scale, feet at **x 64, y 104**; up and down sheets are **112×128**, feet at
+x 56, y 104 (down) and y 92 (up).
+
+![Sneaky Pete sheet, 3x](pete_preview.png)
+
+Facing down and up: [`pete_views_preview.png`](pete_views_preview.png).
+
+| Row | Animation | Frames | Notes |
+| --- | --- | --- | --- |
+| 0 | idle | 4 | on tiptoe, rocking, glancing about |
+| 1 | run | 6 | the cartoon sneak: big tiptoe strides, crouched over |
+| 2 | jab | 4 | Sucker Punch (light 1) |
+| 3 | jab2 | 4 | Cheap Shot (light 2), the other fist |
+| 4 | swing | 5 | Bag Swing (light 3): the bag off his shoulder and round in front |
+| 5 | smack | 6 | Sack Smack: charge A/B (bag over his head), the swing, follow-through, recover; Smash and Grab plays from frame 3 |
+| 6 | tiptoe | 4 | Tiptoe: finger to his lips, two tiptoe frames that alternate, back up (the game fades him out) |
+| 7 | pick | 5 | Pickpocket: crouch, the low dash with a hand out, the grab, past, recover |
+| 8 | heist | 6 | The Big Heist: crouch, gone (frame 1 is empty), back, two flurry frames that alternate, recover |
+| 9 | dodge | 4 | a tuck and roll |
+| 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
+| 11 | guard | 2 | hiding behind the money bag |
+| 12 | ko | 4 | flat on his back, the bag beside him, x eyes |
+
+### Sno Mercy — 128×128 frames, 8 × 13 (1024×1664 px)
+
+`tools/gen_sno.py`, on the shared renderer. The rig: an icy cyan cone (a tapered tube from
+his point to the rim) with a navy rim, a dome of shaved ice on top (red on his right half,
+green on his left, white flecks picked out by a hash of each point), an angry face on the
+front of the cone (eyes, slanted brows, gritted teeth, a crack), grey stick arms and legs,
+red boxing gloves, brown shoes, and a syrup drip off his point. The cone tips about its
+point for the headbutt, the slide and the head slam. In the side view he's turned a little
+toward the camera (`SIDE_CHEAT`) so the face reads. Drawn at 0.8 scale, feet at
+**x 64, y 104**; up and down sheets are **112×128**, feet at x 56, y 104 (down) and y 92 (up).
+
+![Sno Mercy sheet, 3x](sno_preview.png)
+
+Facing down and up: [`sno_views_preview.png`](sno_views_preview.png).
+
+| Row | Animation | Frames | Notes |
+| --- | --- | --- | --- |
+| 0 | idle | 4 | a boxer's bounce on stick legs, gloves up, syrup dripping |
+| 1 | run | 6 | a stiff-legged jog |
+| 2 | jab | 4 | Cold Cross, the jab |
+| 3 | cross | 4 | Cold Cross, the cross |
+| 4 | headbutt | 5 | Brain Freeze (light 3): rears back, drives the dome forward |
+| 5 | spray | 6 | Shaved Ice Spray: charge A/B (shivering), the head shake (frames 2 and 3 alternate) with shards flying, follow-through, recover |
+| 6 | syrup | 4 | Syrup Slick: he squeezes and the syrup gushes into a puddle |
+| 7 | slide | 5 | Slush Slide: crouch, leaning back sliding feet first, the kick, up, recover; Cold Shoulder plays from frame 2 |
+| 8 | blast | 6 | Flavor Blast: rears back, holds, the head slam into the floor, holds, recover |
+| 9 | dodge | 4 | a cartwheel |
+| 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose (frozen, tinted ice-blue by `CreatureView`) |
+| 11 | guard | 2 | gloves up in front of his face |
+| 12 | ko | 4 | topples and melts into a puddle |
 
 ## Training dummy — 48×48 frames
 
