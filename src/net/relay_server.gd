@@ -1,8 +1,9 @@
 class_name RelayServer
 extends RefCounted
-## A dedicated server for online Duels: players connect to it (with the game's ordinary
-## Join), it pairs them two by two, relays each match's input stream between them, and
-## referees every match with its own copy of the simulation (Referee).
+## A dedicated server for online matches: players connect to it (with the game's
+## ordinary Join), it groups them (two for a 1v1, four for a 2v2, six for a 3v3), relays
+## each match's input streams between them, and referees every match with its own copy
+## of the simulation (Referee).
 ##
 ##   Player                      Server                        Player
 ##   hello {version, data, team, room} -->      <-- hello
@@ -15,6 +16,12 @@ extends RefCounted
 ##
 ## To a player the server looks like a host that gives them a side: Netplay needs only
 ## the `side` in "start" (and the opponent's round trip, `via`, for its time sync).
+##
+## Team battles: hello asks for a `size` (players per side). Quick match groups players
+## who asked for the same size; in a room the first player to ask for a size sets it,
+## and friends who join by code (size 0) take it. "start" adds each player's `slot` and
+## everyone's round trips (`vias`); every input and fingerprint goes to all the others,
+## tagged with the sender's slot (`p`). Players alternate sides as they're grouped.
 ## The rollback itself still runs on the players' machines; the server adds the hop
 ## through it to the round trip, which picks the input delay.
 ##
@@ -60,6 +67,9 @@ class Client:
 	var ping_usec := 0  ## when the outstanding ping went out (0: none)
 	var game: Game = null
 	var side := 0
+	var slot := 0  ## input slot in the match (= side in a 1v1)
+	var size := 1  ## players per side asked for (0: whatever the room is)
+	var wait_shown := -1  ## the group size last told to this player
 
 	func label() -> String:
 		return "player %d (%s)" % [id, ", ".join(PackedStringArray(team))] if not team.is_empty() \
@@ -69,19 +79,24 @@ class Client:
 		return rtts.size() >= RelayServer.PINGS or (rtts.size() > 0 and ping_usec == 0)
 
 
-## Two players paired; rematches keep the pair and count `n` up.
+## Players grouped into a match; rematches keep the group and count `n` up.
 class Game:
 	var label := 0  ## the server's match number, for the log
-	var players: Array = []  ## [Client side 0, Client side 1]
+	var players: Array = []  ## Clients by slot (side 0 first: [left..., right...])
+	var size := 1  ## players per side
 	var n := 0
 	var delay := 2
 	var referee: Referee
-	var rematch := [false, false]
+	var rematch: Array = []
 	var reported := false
 	var path_ms := 0
 
+	## The opponent in a 1v1.
 	func other(c: Client) -> Client:
-		return players[1 - c.side]
+		return players[1 - c.slot]
+
+	func others(c: Client) -> Array:
+		return players.filter(func(o): return o != c)
 
 
 ## A player connected: `link` is their connection.
@@ -157,6 +172,9 @@ func _handle(c: Client, m: Dictionary) -> void:
 				return
 			c.team = (team as Array).duplicate()
 			c.room = String(m.get("room", "")).strip_edges().to_lower().left(MAX_ROOM_LENGTH)
+			c.size = clampi(int(m.get("size", 1)), 0, 3)
+			if c.room == "" and c.size == 0:
+				c.size = 1
 			c.state = State.LOBBY
 			_log("%s is waiting%s" % [c.label(), (" in room '%s'" % c.room) if c.room != "" else ""])
 			c.link.send({"t": "wait", "msg": _wait_text(c)}, true)
@@ -173,35 +191,45 @@ func _handle(c: Client, m: Dictionary) -> void:
 			var g := c.game
 			if g == null or int(m.get("n", -1)) != g.n:
 				return
-			if not g.referee.add_inputs(c.side, m):
+			if not g.referee.add_inputs(c.slot, m):
 				return
 			# Passed on rebuilt from known fields only, never as the player sent it.
-			g.other(c).link.send({"t": "in", "n": g.n, "first": int(m["first"]), "inputs": m["inputs"],
-				"ack": int(m.get("ack", -1)), "f": int(m.get("f", -1)), "adv": float(m.get("adv", 0.0))})
+			var out := {"t": "in", "n": g.n, "p": c.slot, "first": int(m["first"]), "inputs": m["inputs"],
+				"ack": int(m.get("ack", -1)), "f": int(m.get("f", -1)), "adv": float(m.get("adv", 0.0))}
+			var advs = m.get("advs")
+			if advs is PackedFloat32Array and (advs as PackedFloat32Array).size() == g.players.size():
+				out["advs"] = advs
+			for o: Client in g.others(c):
+				o.link.send(out)
 		"dg":
 			var g := c.game
 			if g == null or int(m.get("n", -1)) != g.n:
 				return
 			var f := int(m.get("f", -1))
 			var d := String(m.get("d", "")).left(128)
-			g.referee.add_digest(c.side, f, d)
-			g.other(c).link.send({"t": "dg", "n": g.n, "f": f, "d": d}, true)
+			g.referee.add_digest(c.slot, f, d)
+			for o: Client in g.others(c):
+				o.link.send({"t": "dg", "n": g.n, "p": c.slot, "f": f, "d": d}, true)
 		"rematch":
 			var g := c.game
-			if g == null or g.rematch[c.side]:
+			if g == null or g.rematch[c.slot]:
 				return
-			g.rematch[c.side] = true
-			g.other(c).link.send({"t": "rematch"}, true)
-			if g.rematch[0] and g.rematch[1]:
+			g.rematch[c.slot] = true
+			for o: Client in g.others(c):
+				o.link.send({"t": "rematch", "p": c.slot}, true)
+			if not (false in g.rematch):
 				_report(g)
 				_start(g)
 		"bye":
 			_drop(c, "left")
 
 
-func _wait_text(c: Client) -> String:
+func _wait_text(c: Client, have := 1, need := 2) -> String:
 	var where := (" in room '%s'" % c.room) if c.room != "" else ""
-	return "On the server%s. Waiting for an opponent..." % where
+	if need <= 2:
+		return "On the server%s. Waiting for an opponent..." % where
+	var n := need / 2
+	return "On the server%s. %d v %d: waiting for players (%d of %d here)..." % [where, n, n, have, need]
 
 
 func _send_ping(c: Client) -> void:
@@ -222,24 +250,47 @@ func _ping_step(c: Client) -> void:
 
 # ------------------------------------------------------------------ matches
 
-## Pairs waiting players, oldest first, two in the same room at a time.
+## Groups waiting players, oldest first: in Quick match by the size they asked for, in
+## a room by the room's size (the first size anyone there asked for; a 1v1 if none).
+## A group starts once it has both teams' worth of players.
 func _pair_waiting() -> void:
-	var by_room := {}
-	for c: Client in clients.values():
-		if c.state == State.LOBBY and c.pinged():
-			if by_room.has(c.room):
-				_begin_game(by_room[c.room], c)
-				by_room.erase(c.room)
-			else:
-				by_room[c.room] = c
+	var groups := {}  ## key -> [Client], oldest first
+	var room_size := {}
+	var waiting: Array = clients.values().filter(func(c): return c.state == State.LOBBY)
+	waiting.sort_custom(func(a, b): return a.id < b.id)
+	for c: Client in waiting:
+		if c.room != "" and c.size > 0 and not room_size.has(c.room):
+			room_size[c.room] = c.size
+	for c: Client in waiting:
+		var size: int = c.size if c.room == "" else int(room_size.get(c.room, 1))
+		var key := "%s|%d" % [c.room, size]
+		if not groups.has(key):
+			groups[key] = []
+		(groups[key] as Array).append(c)
+	for key in groups:
+		var size := int(String(key).get_slice("|", 1))
+		var need := size * 2
+		var ready: Array = (groups[key] as Array).filter(func(c): return c.pinged())
+		while ready.size() >= need:
+			_begin_game(ready.slice(0, need), size)
+			ready = ready.slice(need)
+		for c: Client in groups[key]:
+			if c.state == State.LOBBY and need > 2 and c.wait_shown != (groups[key] as Array).size():
+				c.wait_shown = (groups[key] as Array).size()
+				c.link.send({"t": "wait", "msg": _wait_text(c, mini(c.wait_shown, need), need)}, true)
 
 
-func _begin_game(a: Client, b: Client) -> void:
+## `group`: the players in the order they arrived; they alternate sides, so in a room
+## the first two (the friend who made it and the next to join) face each other.
+func _begin_game(group: Array, size: int) -> void:
 	var g := Game.new()
-	g.players = [a, b]
-	a.side = 0
-	b.side = 1
-	for c: Client in g.players:
+	g.size = size
+	g.players.resize(size * 2)
+	for k in group.size():
+		var c: Client = group[k]
+		c.side = k % 2
+		c.slot = c.side * size + k / 2
+		g.players[c.slot] = c
 		c.game = g
 		c.state = State.PLAYING
 	games.append(g)
@@ -247,26 +298,51 @@ func _begin_game(a: Client, b: Client) -> void:
 
 
 func _start(g: Game) -> void:
-	var a: Client = g.players[0]
-	var b: Client = g.players[1]
+	var rtts: Array = []
 	for c: Client in g.players:
 		if c.link.rtt_ms() > 0.0:
 			c.rtt = c.link.rtt_ms()
-	var path := a.rtt + b.rtt
+		rtts.append(c.rtt)
+	# The slowest path between two players picks everyone's input delay.
+	var sorted := rtts.duplicate()
+	sorted.sort()
+	var path: float = float(sorted[-1]) + float(sorted[-2])
 	g.n += 1
 	g.delay = forced_delay if forced_delay >= 0 else Netplay.pick_delay(path)
-	g.rematch = [false, false]
+	g.rematch = []
+	g.rematch.resize(g.players.size())
+	g.rematch.fill(false)
 	g.reported = false
-	g.referee = Referee.new([a.team, b.team], g.delay)
+	var teams := [[], []]
+	if g.size == 1:
+		teams = [(g.players[0] as Client).team.duplicate(), (g.players[1] as Client).team.duplicate()]
+	else:
+		for c: Client in g.players:
+			(teams[c.side] as Array).append(String(c.team[0]))  # one fighter each
+	g.referee = Referee.new(teams, g.delay, g.size)
 	g.path_ms = Time.get_ticks_msec()
 	matches_started += 1
 	g.label = matches_started
-	var teams := [a.team.duplicate(), b.team.duplicate()]
 	for c: Client in g.players:
-		c.link.send({"t": "start", "n": g.n, "teams": teams, "delay": g.delay, "ping": path,
-			"side": c.side, "via": g.other(c).rtt}, true)
+		var worst := 0.0
+		for o: Client in g.others(c):
+			worst = maxf(worst, o.rtt)
+		var m := {"t": "start", "n": g.n, "teams": teams, "delay": g.delay, "ping": c.rtt + worst,
+			"side": c.side, "via": worst}
+		if g.size > 1:
+			m["slot"] = c.slot
+			m["size"] = g.size
+			m["vias"] = rtts
+		c.link.send(m, true)
+	var sides := ["", ""]
+	for side in 2:
+		var names := PackedStringArray()
+		for c: Client in g.players:
+			if c.side == side:
+				names.append(c.label())
+		sides[side] = " + ".join(names)
 	_log("match %d started%s: %s vs %s, round trip %d ms, input delay %d" % [g.label,
-		" (rematch)" if g.n > 1 else "", a.label(), b.label(), roundi(path), g.delay])
+		" (rematch)" if g.n > 1 else "", sides[0], sides[1], roundi(path), g.delay])
 
 
 func _referee_step(g: Game, now: int) -> void:
@@ -275,10 +351,17 @@ func _referee_step(g: Game, now: int) -> void:
 		_report(g)
 	if now - g.path_ms >= PATH_EVERY_MS:
 		g.path_ms = now
-		for c: Client in g.players:
-			var r := g.other(c).link.rtt_ms()
-			if r > 0.0:
-				c.link.send({"t": "path", "rtt": r}, true)
+		if g.size == 1:
+			for c: Client in g.players:
+				var r := g.other(c).link.rtt_ms()
+				if r > 0.0:
+					c.link.send({"t": "path", "rtt": r}, true)
+		else:
+			var rtts: Array = []
+			for c: Client in g.players:
+				rtts.append(c.link.rtt_ms() if c.link.rtt_ms() > 0.0 else c.rtt)
+			for c: Client in g.players:
+				c.link.send({"t": "path", "rtts": rtts}, true)
 
 
 ## Logs how the match went, once.
@@ -288,16 +371,19 @@ func _report(g: Game) -> void:
 	g.reported = true
 	var r := g.referee
 	var how := ""
-	if r.winner >= 0:
+	if r.winner >= 0 and g.size == 1:
 		matches_finished += 1
 		how = "%s won" % (g.players[r.winner] as Client).label()
+	elif r.winner >= 0:
+		matches_finished += 1
+		how = "the %s team won" % ("left" if r.winner == 0 else "right")
 	elif r.winner == -1:
 		matches_finished += 1
 		how = "a draw"
 	else:
 		how = "unfinished at frame %d" % r.frame
 	_log("match %d over: %s (%d fingerprints checked)" % [g.label, how, r.checked])
-	for side in 2:
+	for side in r.desync.size():
 		if r.desync[side] >= 0:
 			_log("match %d: %s's game went out of sync at frame %d (a bug: their report is in their desyncs folder)"
 				% [g.label, (g.players[side] as Client).label(), r.desync[side]])
@@ -308,7 +394,8 @@ func _refuse(c: Client, why: String, msg: String) -> void:
 	_drop(c, "refused: " + why)
 
 
-## Removes a player; their opponent (if any) is told, and their session ends too.
+## Removes a player; everyone else in their match (if any) is told, and their sessions
+## end too.
 func _drop(c: Client, why: String) -> void:
 	if not clients.has(c.id):
 		return
@@ -318,14 +405,14 @@ func _drop(c: Client, why: String) -> void:
 	if g != null:
 		_report(g)
 		games.erase(g)
-		var o := g.other(c)
-		o.game = null
-		if clients.has(o.id):
-			o.link.send({"t": "bye", "why": "opponent"}, true)
-			o.link.flush()
-			clients.erase(o.id)
-			o.link.close()
-			_log("%s's match ended: the opponent %s" % [o.label(), why])
+		for o: Client in g.others(c):
+			o.game = null
+			if clients.has(o.id):
+				o.link.send({"t": "bye", "why": "opponent" if g.size == 1 else "player"}, true)
+				o.link.flush()
+				clients.erase(o.id)
+				o.link.close()
+				_log("%s's match ended: %s %s" % [o.label(), "the opponent" if g.size == 1 else c.label(), why])
 		g.players.clear()  # players and game point at each other: break the loop so both are freed
 	c.game = null
 	c.link.flush()

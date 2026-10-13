@@ -456,15 +456,27 @@ func test_quick_match_and_rooms_play_on_the_server() -> void:
 	var st := _stack()
 	st.push(lobby)
 	var got := []
-	lobby.server_join_pressed.connect(func(f, r): got.append([f, r]))
+	lobby.server_join_pressed.connect(func(f, r, n): got.append([f, r, n]))
 	assert_eq(_focus(), lobby._fighter_row, "the fighter row starts focused")
 	_press("ui_down")
-	assert_eq(_focus(), lobby._quick, "then Quick match")
+	assert_eq(_focus(), lobby._quick, "then Quick match 1v1")
 	_press("ui_accept")
-	assert_eq(got, [["digby", ""]], "Quick match: the server, no room:")
+	assert_eq(got, [["digby", "", 1]], "Quick match: the server, no room, 1v1:")
 	_press("ui_down")
 	_press("ui_accept")
-	assert_eq(got.size(), 2, "Create room joins too")
+	assert_eq(got[1], ["digby", "", 2], "Quick match 2v2:")
+	_press("ui_down")
+	_press("ui_accept")
+	assert_eq(got[2], ["digby", "", 3], "Quick match 3v3:")
+	got.clear()
+	_press("ui_down")
+	assert_eq(_focus(), lobby._size_row, "then the room size")
+	_press("ui_right")  # 2 v 2
+	_press("ui_down")
+	_press("ui_accept")
+	assert_eq(got.size(), 1, "Create room joins too")
+	assert_eq(int(got[0][2]), 2, "with the room size:")
+	got.push_front([])  # keep the indexes below
 	var code := String(got[1][1])
 	assert_eq(code.length(), OnlineLobby.CODE_LENGTH, "with a short code: " + code)
 	for ch in code:
@@ -472,9 +484,10 @@ func test_quick_match_and_rooms_play_on_the_server() -> void:
 	lobby.busy = true
 	assert_true(lobby._room_label.text.contains(code), "the code is shown while waiting: " + lobby._room_label.text)
 	assert_true(lobby._room_label.text.contains("Join room"), "with what the friend does")
+	assert_true(lobby._room_label.text.contains("2 v 2"), "and the size")
 	lobby.busy = false
 	lobby.join_room("  kx-7p ")
-	assert_eq(got[2], ["digby", "KX7P"], "a typed code is tidied:")
+	assert_eq(got[2], ["digby", "KX7P", 0], "a typed code is tidied, and takes the room's size:")
 	assert_false(lobby.more_shown, "the address rows wait under More")
 	assert_false(lobby.field.visible, "")
 	lobby.toggle_more()
@@ -488,7 +501,7 @@ func test_no_server_says_where_to_set_one() -> void:
 	var st := _stack()
 	st.push(lobby)
 	var got := [false]
-	lobby.server_join_pressed.connect(func(_f, _r): got[0] = true)
+	lobby.server_join_pressed.connect(func(_f, _r, _n): got[0] = true)
 	lobby.quick_match()
 	assert_false(got[0], "nothing to join")
 	assert_true(lobby.status_bad and lobby.status.contains("Settings"), "it says where: " + lobby.status)

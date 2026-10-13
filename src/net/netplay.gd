@@ -20,8 +20,13 @@ extends RefCounted
 ## host, except that it says "wait" until it has paired this player with another, and
 ## its "start" gives this player's `side` and the opponent's round trip to the server.
 ## A `room` in hello pairs players who typed the same one.
+##
+## Team battles (2v2, 3v3) only run through a server: hello asks for a `size` (players
+## per side; 0 when joining a friend's room takes the room's), and "start" gives this
+## player's `slot` among the 4 or 6 and the `size`; the inputs of every player then
+## pass through the server to everyone else, each tagged with whose (`p`).
 
-const NET_VERSION := 4  ## 4: 360 move angle in each input, bigger arena; 3: aim angle + strafe
+const NET_VERSION := 5  ## 5: team battles (slots, sizes); 4: 360 move angle, bigger arena
 const DEFAULT_PORT := 7777
 const PINGS := 5
 ## Give up on a join that hasn't connected after this long.
@@ -43,14 +48,18 @@ var error := ""
 var ping_ms := 0.0
 ## Input delay to use instead of picking one from the ping (--net-delay).
 var forced_delay := -1
+## Players per side to ask a server for: 1 (a 1v1), 2 or 3; 0 = whatever the room is.
 var team_size := 1
+## This player's slot in the match (its side in a 1v1).
+var local_slot := 0
 ## Dedicated servers pair players who give the same room ("" for anyone).
 var room := ""
 ## True once the other end turned out to be a dedicated server.
 var via_server := false
 
 var rematch_local := false
-var rematch_remote := false
+var rematch_remote := false  ## another player asked
+var rematch_asked := {}  ## who else asked (by slot)
 
 var _match_count := 0
 var _t := 0
@@ -113,7 +122,8 @@ func tick(local_bits: int) -> void:
 	match phase:
 		Phase.CONNECTING:
 			if link.status == NetLink.Status.CONNECTED:
-				link.send({"t": "hello", "v": NET_VERSION, "data": data_hash(), "team": my_team, "room": room}, true)
+				link.send({"t": "hello", "v": NET_VERSION, "data": data_hash(), "team": my_team, "room": room,
+					"size": team_size}, true)
 				phase = Phase.HANDSHAKE
 				status = "Connected. Setting up the match..."
 			elif _t > CONNECT_TIMEOUT_TICKS:
@@ -182,7 +192,7 @@ func _handle(m: Dictionary) -> void:
 				status = String(m.get("msg", "On the server. Waiting for an opponent..."))
 		"path":
 			if game != null:
-				game.relay_rtt_ms = float(m.get("rtt", 0.0))
+				_set_paths(m)
 		"ping":
 			link.send({"t": "pong", "n": m.get("n", 0)}, true)
 		"pong":
@@ -194,21 +204,34 @@ func _handle(m: Dictionary) -> void:
 			if hosting:
 				return
 			var teams = m.get("teams")
+			var size := clampi(int(m.get("size", 1)), 1, 3)
 			if not (teams is Array) or (teams as Array).size() != 2 or not _valid_team(teams[0]) \
-					or not _valid_team(teams[1]):
+					or not _valid_team(teams[1]) or (size > 1 and ((teams[0] as Array).size() != size
+					or (teams[1] as Array).size() != size)):
 				_fail("Bad match setup from the host")
 				return
+			var slot := 1
 			if m.has("side"):  # from a dedicated server, which picks the sides
 				via_server = true
-				local_side = clampi(int(m["side"]), 0, 1)
-			their_team = teams[1 - local_side]
+				slot = clampi(int(m.get("slot", m["side"])), 0, size * 2 - 1)
 			ping_ms = float(m.get("ping", 0.0))
-			_begin(int(m.get("n", 0)), teams, int(m.get("delay", 2)))
-			game.relay_rtt_ms = float(m.get("via", 0.0))
+			_begin(int(m.get("n", 0)), teams, int(m.get("delay", 2)), slot, size)
+			their_team = teams[1 - local_side]
+			if m.has("vias"):
+				_set_paths({"rtts": m["vias"]})
+			else:
+				game.relay_rtt_ms = float(m.get("via", 0.0))
 		"rematch":
 			rematch_remote = true
+			rematch_asked[int(m.get("p", 1 - local_slot))] = true
 		"bye":
-			_fail("The server shut down" if String(m.get("why", "")) == "server" else "The other player left")
+			match String(m.get("why", "")):
+				"server":
+					_fail("The server shut down")
+				"player":
+					_fail("A player left the match")
+				_:
+					_fail("The other player left")
 		"in", "dg":
 			if game != null and int(m.get("n", -1)) == game.id:
 				game.receive(m)
@@ -241,12 +264,29 @@ func _start_match() -> void:
 	_begin(_match_count, teams, delay)
 
 
-func _begin(n: int, teams: Array, delay: int) -> void:
-	game = OnlineMatch.new(teams, local_side, delay, link, n)
+## A host's own matches: it plays side 0.
+func _begin(n: int, teams: Array, delay: int, slot := -1, size := 1) -> void:
+	if slot < 0:
+		slot = local_side
+	game = OnlineMatch.new(teams, slot, delay, link, n, size)
+	local_slot = game.local_slot
+	local_side = game.local_side
 	rematch_local = false
 	rematch_remote = false
+	rematch_asked = {}
 	phase = Phase.PLAYING
 	status = ""
+
+
+## Each player's round trip to the server ({"rtts": [...]}, one per slot), or the
+## opponent's in a 1v1 ({"rtt": ms}).
+func _set_paths(m: Dictionary) -> void:
+	var rtts = m.get("rtts")
+	if rtts is Array or rtts is PackedFloat32Array:
+		for p in mini((rtts as Array).size() if rtts is Array else (rtts as PackedFloat32Array).size(), game.players):
+			game.relay_rtts[p] = clampf(float(rtts[p]), 0.0, 5000.0)
+	elif m.has("rtt"):
+		game.relay_rtt_ms = clampf(float(m["rtt"]), 0.0, 5000.0)
 
 
 ## Input delay from the measured round trip: just enough that most inputs arrive
@@ -291,7 +331,7 @@ static func data_hash() -> String:
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(("v%d" % NET_VERSION).to_utf8_buffer())
-	var paths: Array = [DuelSim.RULES_PATH]
+	var paths: Array = [DuelSim.RULES_PATH, TeamSim.RULES_PATH]
 	for id in MatchFactory.FIGHTERS:
 		paths.append(MatchFactory.CREATURE_DIR + id + ".json")
 	for p in paths:

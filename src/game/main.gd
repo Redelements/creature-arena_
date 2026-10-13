@@ -29,6 +29,7 @@ extends Node2D
 ##   --online-join=ADDR[:PORT][/ROOM]  join one, or a dedicated server (ROOM: meet a friend there)
 ##   --server[=PORT]       run as a dedicated server (with --headless); --max-players=N
 ##   --fighter=ID          your fighter online
+##   --online-size=N       with --online-join to a server: 2 or 3 asks for a 2v2 / 3v3
 ##   --net-lag=N --net-loss=F   hold back / drop the input stream (feel rollback on a LAN)
 ##   --net-delay=N         force the input delay (frames) instead of picking it from the ping
 ##   --net-report=PATH     write the online match's report (inputs, state fingerprints) on exit
@@ -294,7 +295,8 @@ func _ready() -> void:
 			_net_host(_online_fighter)
 		else:
 			var parsed := OnlineLobby.parse_address(String(_net_args["join"]))
-			_net_join(_online_fighter, String(parsed[0]), int(parsed[1]), String(parsed[2]))
+			var size := int(_net_args.get("size", 0 if String(parsed[2]) != "" else 1))
+			_net_join(_online_fighter, String(parsed[0]), int(parsed[1]), String(parsed[2]), true, size)
 
 
 # ------------------------------------------------------------------ flow
@@ -660,7 +662,7 @@ func _team_flow() -> void:
 	match team_battle.phase:
 		TeamSim.Phase.INTRO:
 			var t := team_battle.phase_t
-			hud.banner = "TEAM BATTLE" if t < 60 else "FIGHT!"
+			hud.banner = ("ONLINE TEAM BATTLE" if online != null else "TEAM BATTLE") if t < 60 else "FIGHT!"
 			hud.banner_sub = "%d v %d" % [team_battle.size, team_battle.size] if t < 60 else ""
 			if t == 2 or t == 60:
 				audio.play("round_start", 0.0, 0.75 if t == 2 else 1.0)
@@ -903,7 +905,7 @@ func _physics_process(_delta: float) -> void:
 		# Online: the rollback session steps the duel (maybe several frames, maybe none
 		# while it waits); the views get only the events they haven't shown yet.
 		live = flow == Flow.FIGHT or flow == Flow.MATCH_OVER
-		netplay.tick(_side_bits(online.local_side, live and not ui.is_open()))
+		netplay.tick(_side_bits(online.local_slot, live and not ui.is_open()))
 		events = online.events
 		_online_status()
 	elif netplay != null and _connecting_step():
@@ -1681,6 +1683,8 @@ func _parse_args() -> int:
 			_net_args["lag"] = int(a.get_slice("=", 1))
 		elif a.begins_with("--net-loss="):
 			_net_args["loss"] = float(a.get_slice("=", 1))
+		elif a.begins_with("--online-size="):
+			_net_args["size"] = clampi(int(a.get_slice("=", 1)), 1, 3)
 		elif a.begins_with("--net-delay="):
 			_net_args["delay"] = int(a.get_slice("=", 1))
 		elif a.begins_with("--net-report="):
@@ -1744,10 +1748,11 @@ func _net_host(fighter: String) -> void:
 	_lobby_status()
 
 
-## Quick match (room "") or a room, on the online server. At the server's own house its
-## public name may not work (many routers don't loop it back inside), so this first
-## looks for it on the local network for a moment, then joins whichever it found.
-func _net_join_server(fighter: String, room: String, server := "") -> void:
+## Quick match (room "") or a room, on the online server; `size` players per side (0:
+## the room's own). At the server's own house its public name may not work (many
+## routers don't loop it back inside), so this first looks for it on the local network
+## for a moment, then joins whichever it found.
+func _net_join_server(fighter: String, room: String, size := 1, server := "") -> void:
 	var parsed := OnlineLobby.parse_address(server if server != "" else online_server())
 	if String(parsed[0]) == "":
 		lobby.status = OnlineLobby.NO_SERVER
@@ -1757,7 +1762,7 @@ func _net_join_server(fighter: String, room: String, server := "") -> void:
 	_save_settings()
 	_finder = LanFinder.new()
 	_finder.start(int(parsed[1]), finder_target)
-	_finder_join = [fighter, String(parsed[0]), int(parsed[1]), room]
+	_finder_join = [fighter, String(parsed[0]), int(parsed[1]), room, size]
 	lobby.busy = true
 	lobby.hosting_port = 0
 	lobby.status_bad = false
@@ -1782,9 +1787,9 @@ func _finder_step() -> void:
 	if lobby == null:
 		return
 	if f.is_empty():
-		_net_join(String(j[0]), String(j[1]), int(j[2]), String(j[3]), false)
+		_net_join(String(j[0]), String(j[1]), int(j[2]), String(j[3]), false, int(j[4]))
 	else:
-		_net_join(String(j[0]), String(f["address"]), int(f["port"]), String(j[3]), false)
+		_net_join(String(j[0]), String(f["address"]), int(f["port"]), String(j[3]), false, int(j[4]))
 
 
 ## Join by a typed (or recent) address. The online server's own name goes through the
@@ -1794,12 +1799,12 @@ func _net_join_typed(fighter: String, address: String, port: int, room := "") ->
 	if address.to_lower() == String(srv[0]).to_lower() and address != "":
 		_online_address = lobby.address if lobby.address != "" else address
 		_remember_server(_online_address)
-		_net_join_server(fighter, room, "%s:%d" % [address, port])
+		_net_join_server(fighter, room, 0 if room != "" else 1, "%s:%d" % [address, port])
 		return
-	_net_join(fighter, address, port, room)
+	_net_join(fighter, address, port, room, true, 0 if room != "" else 1)
 
 
-func _net_join(fighter: String, address: String, port: int, room := "", remember := true) -> void:
+func _net_join(fighter: String, address: String, port: int, room := "", remember := true, size := 1) -> void:
 	_online_fighter = fighter
 	if remember:
 		_home_missed = false
@@ -1816,6 +1821,7 @@ func _net_join(fighter: String, address: String, port: int, room := "", remember
 		netplay = null
 		return
 	netplay.room = room
+	netplay.team_size = size
 	netplay.join(address, port, [fighter], link)
 	lobby.busy = true
 	lobby.hosting_port = 0
@@ -1854,15 +1860,26 @@ func _start_online_match() -> void:
 	hud.visible = true
 	hud.menu_visible = false
 	audio.play_music("fight")
-	duel = online.duel
-	var s := [Side.REMOTE, Side.REMOTE]
-	s[online.local_side] = Side.PLAYER
-	_new_sim(duel.sim, s)
-	for i in 2:
-		if cpus[i] != null:
-			(cpus[i] as CpuController).duel = duel
-	hud.duel = duel
-	hud.timer_ticks = duel.timer
+	_end_duel()
+	var s: Array = []
+	s.resize(online.players)
+	s.fill(Side.REMOTE)
+	s[online.local_slot] = Side.PLAYER
+	if online.team != null:
+		# A team battle: every slot is a player somewhere; this one is ours.
+		team_battle = online.team
+		_new_sim(team_battle.sim, s)
+		hud.team = team_battle
+		hud.focus = online.local_slot
+		hud.timer_ticks = team_battle.timer
+	else:
+		duel = online.duel
+		_new_sim(duel.sim, s)
+		for i in 2:
+			if cpus[i] != null:
+				(cpus[i] as CpuController).duel = duel
+		hud.duel = duel
+		hud.timer_ticks = duel.timer
 	hud.wins = [0, 0]
 	hud.wins_needed = 0
 	hud.banner = ""
@@ -1892,14 +1909,20 @@ func _online_status() -> void:
 		g.session.max_rollback_seen]
 	if g.desync_frame >= 0:
 		hud.net_info = "DESYNC at frame %d: report saved   " % g.desync_frame + hud.net_info
+	var waiting := "WAITING FOR PLAYERS" if g.players > 2 else "WAITING FOR OPPONENT"
 	if g.waiting_ticks > 30 and flow == Flow.FIGHT:
-		hud.banner = "WAITING FOR OPPONENT"
+		hud.banner = waiting
 		hud.banner_sub = "Connection hiccup..."
-	elif hud.banner == "WAITING FOR OPPONENT":
+	elif hud.banner == waiting:
 		hud.banner = ""
 		hud.banner_sub = ""
 	if flow == Flow.MATCH_OVER and _match_over_status != null and is_instance_valid(_match_over_status):
-		if netplay.rematch_local:
+		var others := g.players - 1
+		var asked := netplay.rematch_asked.size()
+		if g.players > 2 and (netplay.rematch_local or asked > 0):
+			_match_over_status.text = "Rematch: %d of %d asked" % [asked + (1 if netplay.rematch_local else 0),
+				others + 1]
+		elif netplay.rematch_local:
 			_match_over_status.text = "Waiting for the other player..."
 		elif netplay.rematch_remote:
 			_match_over_status.text = "The other player wants a rematch!"
@@ -1935,7 +1958,7 @@ func _show_match_over() -> void:
 	var cfg: Dictionary = MODES[mode]
 	scr.builder = func(s: UiScreen):
 		if online != null:
-			var again := s.add_button("Rematch", func(): pass, "Play again; it starts when you both ask")
+			var again := s.add_button("Rematch", func(): pass, "Play again; it starts when everyone asks")
 			again.pressed.connect(func():
 				netplay.request_rematch()
 				again.disabled = true
