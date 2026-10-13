@@ -227,6 +227,15 @@ var _net_args := {}  ## from the command line: host / join / lag / delay / repor
 var _net_end_t := 0
 ## How many of the online match's slots were shown as the server's CPU.
 var _cpu_shown := 0
+## Windows Firewall (FirewallCheck): looked at when the online screen opens and after a
+## join gets no answer; a rule blocking the game brings up "Allow it?" over the screen.
+var firewall_supported := FirewallCheck.supported()
+var _firewall: FirewallCheck = null
+## "Not now" was chosen: the screen opening doesn't ask again, only a failed join does.
+var _firewall_declined := false
+## The "No answer" message a check was started for ("" if none), put back when the
+## firewall turns out not to be the cause.
+var _firewall_after := ""
 
 
 func _ready() -> void:
@@ -901,6 +910,8 @@ func _physics_process(_delta: float) -> void:
 	flow_t += 1
 	if _finder != null:
 		_finder_step()
+	if _firewall != null:
+		_firewall_step()
 	var live := flow == Flow.FIGHT or flow == Flow.MENU
 	var events: Array = sim.events
 	if online != null:
@@ -1719,6 +1730,10 @@ func _open_lobby() -> void:
 	lobby.join_pressed.connect(_net_join_typed)
 	lobby.cancelled.connect(_leave_online)
 	ui.push(lobby)
+	if _firewall != null and _firewall.state == FirewallCheck.State.BLOCKED:
+		_firewall_blocked(not _firewall_declined)
+	else:
+		_firewall_check()
 
 
 ## Builds the network link, with the --net-lag / --net-loss wrapper if asked for.
@@ -1846,13 +1861,102 @@ func _lobby_status() -> void:
 	lobby.status = netplay.status
 	lobby.status_bad = netplay.phase == Netplay.Phase.ENDED
 	if netplay.phase == Netplay.Phase.ENDED:
-		if _home_missed and netplay.error.begins_with("No answer"):
+		var no_answer := netplay.error.begins_with("No answer")
+		if _home_missed and no_answer:
 			lobby.status = HOME_HINT
 		lobby.busy = false
 		netplay = null
+		if no_answer:
+			# Windows Firewall blocking the game looks exactly like this: check it.
+			if _firewall != null and _firewall.state == FirewallCheck.State.BLOCKED:
+				_firewall_blocked(true)
+			else:
+				_firewall_check(lobby.status)
 		return
 	if netplay.is_playing():
 		_start_online_match()
+
+
+const FW_CHECKING := "  Checking Windows Firewall..."
+const FW_BLOCKED := "Windows Firewall is blocking the game, so the server can't be heard."
+const FW_ASK := "Windows Firewall is blocking the game"
+const FW_ASK_MORE := "The server's replies can't reach Creature Arena.\nAllow it? Windows will ask you once."
+const FW_FIXING := "Approve the Windows prompt to allow Creature Arena..."
+const FW_FIXED := "Allowed through Windows Firewall. Try again."
+const FW_FAILED := "Firewall unchanged. Allow CreatureArena in Windows Security > Firewall."
+
+
+## Looks for a Windows Firewall rule blocking the game (on Windows; no prompt, on a
+## thread). `after`: the failed join's message, shown meanwhile and put back if the
+## firewall isn't the cause.
+func _firewall_check(after := "") -> void:
+	if not firewall_supported:
+		return
+	if _firewall == null:
+		_firewall = FirewallCheck.new()
+	_firewall_after = after
+	if after != "" and _lobby_open():
+		lobby.status = after + FW_CHECKING
+	_firewall.start_check()  # already checking: that result is used
+
+
+## Each frame while a check or fix runs: shows its result on the online screen.
+func _firewall_step() -> void:
+	if _firewall.poll():
+		_firewall_result()
+
+
+func _firewall_result() -> void:
+	var after := _firewall_after
+	_firewall_after = ""
+	if not _lobby_open() or lobby.busy:
+		return  # kept in _firewall.state for the next failed join or the next visit
+	match _firewall.state:
+		FirewallCheck.State.BLOCKED:
+			# After a failed join always ask; on opening the screen, unless "Not now".
+			_firewall_blocked(after != "" or not _firewall_declined)
+		FirewallCheck.State.FIX_FAILED:
+			lobby.status = FW_FAILED
+			lobby.status_bad = true
+		FirewallCheck.State.FIXED:
+			lobby.status = FW_FIXED
+			lobby.status_bad = false
+		_:
+			if after != "":
+				lobby.status = after  # not the firewall: the join's own message stands
+
+
+## Says the firewall blocks the game, and (`ask`) offers to fix it: Allow / Not now.
+func _firewall_blocked(ask: bool) -> void:
+	lobby.status = FW_BLOCKED
+	lobby.status_bad = true
+	if not ask or ui.top() is ConfirmScreen:
+		return
+	var c := ConfirmScreen.new(FW_ASK, FW_ASK_MORE, "Allow", "Not now")
+	c.answered.connect(func(yes: bool):
+		_firewall_declined = not yes
+		if yes:
+			_firewall_fix())
+	ui.push(c)
+
+
+## Allow: one Windows admin prompt, then it checks again.
+func _firewall_fix() -> void:
+	if _firewall == null or _firewall.busy() or not _lobby_open():
+		return
+	_firewall_after = ""
+	_firewall.start_fix()
+	lobby.status = FW_FIXING
+	lobby.status_bad = false
+
+
+func _lobby_open() -> bool:
+	return lobby != null and is_instance_valid(lobby) and lobby.is_inside_tree()
+
+
+func _exit_tree() -> void:
+	if _firewall != null:
+		_firewall.finish()  # a check still running: join its thread
 
 
 func _start_online_match() -> void:
