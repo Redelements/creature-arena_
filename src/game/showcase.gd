@@ -33,8 +33,9 @@ const SU := SimDefs.IN_SURGE
 const FADE := 14
 const HOLD_BITS := {"up": SimDefs.IN_UP, "down": SimDefs.IN_DOWN, "left": SimDefs.IN_LEFT,
 	"right": SimDefs.IN_RIGHT}
-const START_X := 210.0
-const START_Y := 160.0
+## A little left of the floor's centre.
+const START_X := SimDefs.GRID_X + SimDefs.GRID_COLS * SimDefs.CELL * 0.5 - 30.0
+const START_Y := SimDefs.GRID_Y + SimDefs.GRID_ROWS * SimDefs.CELL * 0.5
 
 const SCRIPTS := {
 	"cairn": {

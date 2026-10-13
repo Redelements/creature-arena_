@@ -310,7 +310,7 @@ func _pick() -> Array:
 		CreatureSim.State.IDLE:
 			return ["idle", c.anim_t / 10, true]
 		CreatureSim.State.MOVE:
-			return ["run", c.anim_t / 5, true]
+			return ["run", c.anim_t / 4, true]  # legs keep up with the faster walk
 		CreatureSim.State.ATTACK:
 			return _attack_frame()
 		CreatureSim.State.DODGE:

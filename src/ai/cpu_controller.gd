@@ -96,8 +96,10 @@ func _hold(bit: int) -> void:
 	_out |= bit
 
 
+## Walks toward `v`: 360 degrees, like a stick, on Normal and Hard; Easy keeps to the 8
+## directions a keyboard gives.
 func _move_toward(v: Vector2) -> void:
-	_hold(SimDefs.bits_from_dir(v.normalized()))
+	_hold(SimDefs.move_bits(v) if level >= 1 else SimDefs.bits_from_dir(v.normalized()))
 
 
 func _ai(me: CreatureSim) -> Dictionary:

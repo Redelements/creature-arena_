@@ -11,7 +11,7 @@ alternative, adds the full round-trip time to every button press.
 Both machines run the full simulation. Each frame:
 
 1. **Send.** The local input is scheduled `input_delay` frames ahead and sent. Each
-   packet repeats the last 8 inputs (20 bits each with the aim angle), so lost packets cost nothing, and
+   packet repeats the last 8 inputs (27 bits each with the aim and move angles), so lost packets cost nothing, and
    carries an ack (the last frame of the other side's inputs it has): if the other side
    is missing more than 8, the packet reaches back to fill the gap (up to 60 inputs).
    ENet's throttling of unreliable packets is off; it dropped bursts long enough to
@@ -54,7 +54,7 @@ creatures or effects-heavy moves land.
 | No randomness, clock or node access in `src/sim/` | Would differ between machines | Code review; same check |
 | All match state saved by `snapshot()` | A forgotten variable silently desyncs after a rollback | `test_rollback.gd` fails if a new variable isn't listed in `STATE_FIELDS` |
 | Rules, timers and KO slow-motion live in the sim | Both machines must agree on every tick | KO freeze is `MatchSim.ko_freeze` / `slowmo`; Duel rules are sim code |
-| Inputs are bitmasks only | 20 bits per player per frame: 12 buttons, an exact aim angle (64 steps) and a strafe flag; the sim turns the angle into a direction with a fixed table (no trig). Aim assist runs before sending | `SimDefs.IN_*`, `SimDefs.AIM_INT` |
+| Inputs are bitmasks only | 27 bits per player per frame: 12 buttons, an exact aim angle (64 steps), a strafe flag and an exact move angle (64 steps); the sim turns the angle into a direction with a fixed table (no trig). Aim assist runs before sending | `SimDefs.IN_*`, `SimDefs.AIM_INT` |
 
 ## Online 1v1 (built)
 

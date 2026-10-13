@@ -12,8 +12,8 @@ extends RefCounted
 ##   F (hold)              guard;  D + F while stunned = breakaway
 ##   S                     stop
 ##
-## Walking snaps to 8 directions; attacks aim exactly at the cursor (360 degrees, sent as
-## the input's aim angle). This class is pure logic (no Input calls), so tests can drive
+## Walking goes straight at the spot and attacks aim exactly at the cursor (360 degrees,
+## sent as the input's move and aim angles). This class is pure logic (no Input calls), so tests can drive
 ## it directly.
 
 const ARRIVE := 2.5  ## close enough to a move destination to stop
@@ -99,7 +99,7 @@ func bits(me: CreatureSim, foe: CreatureSim, cursor: Vector2, held: Dictionary, 
 		out |= _chase(me, foe)
 	elif dest != Vector2.INF and not held.get("guard", false):
 		var v := dest - me.pos
-		if v.length() <= ARRIVE:
+		if v.length() <= maxf(ARRIVE, _braking(me)):
 			dest = Vector2.INF
 		else:
 			# Give up if a pit or wall stops us for a moment.
@@ -110,7 +110,7 @@ func bits(me: CreatureSim, foe: CreatureSim, cursor: Vector2, held: Dictionary, 
 			else:
 				_stuck = 0
 			if dest != Vector2.INF:
-				out |= _dir_bits(v, 1.0)
+				out |= _walk_bits(v, 1.0)
 	_last_pos = me.pos
 	_prev = out
 	return out
@@ -124,15 +124,11 @@ func _chase(me: CreatureSim, foe: CreatureSim) -> int:
 	var lt: Dictionary = me.moves().get("light_1", {})
 	var reach := float(lt.get("reach", 14)) + float(lt.get("hit_radius", 9)) + foe.radius - 4.0
 	if lt.has("projectile"):
-		# A thrown opener (Chef Cerebro's Knife Flick): attack from range, but only once
-		# a straight throw in one of the 8 directions would meet the target.
+		# A thrown opener (Chef Cerebro's Knife Flick): attack from range. The throw is
+		# aimed exactly at the target, so there's no lining up to do.
 		reach = me.move_range("light_1") + foe.radius - 8.0
-		var d := CreatureSim._snap8(v)
-		var off := v.x * d.y - v.y * d.x
-		if v.length() <= reach and absf(off) > foe.radius + 2.0:
-			return _dir_bits(Vector2(-d.y, d.x) * -off, 0.5)  # step sideways to line up
 	if v.length() > reach:
-		return _dir_bits(v, 1.0)
+		return _walk_bits(v, 1.0)
 	if not foe.can_be_hit():
 		return 0  # wait for it to get up
 	# In range: keep jabbing, facing the target. A fresh press needs a released tick before it.
@@ -154,6 +150,22 @@ static func _dir_bits(v: Vector2, slack: float) -> int:
 		if absf(v.y) <= slack:
 			b &= ~(SimDefs.IN_UP | SimDefs.IN_DOWN)
 	return b
+
+
+## How far a walk slides once you let go (it slows by "accel" a tick), so a walk to a
+## spot lets go in time to stop on it.
+static func _braking(me: CreatureSim) -> float:
+	var v := me.walk_vel.length()
+	var a := maxf(0.01, float(me.def.get("accel", 0.3)))
+	return v * v / (2.0 * a) + v * 0.5
+
+
+## Walking toward `v`: the exact angle (360 degrees) plus the rough direction bits, or
+## nothing once within `slack` pixels on both axes.
+static func _walk_bits(v: Vector2, slack: float) -> int:
+	if _dir_bits(v, slack) == 0:
+		return 0
+	return SimDefs.move_bits(v)
 
 
 ## Whether the cursor is over a creature's sprite (feet at pos, body above it).

@@ -11,8 +11,8 @@ static func run(seed_: int, ticks := 6000) -> String:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_
 	var sim := MatchFactory.versus("cairn", "culvert")
-	sim.creatures[0].pos = Vector2(220, 164)
-	sim.creatures[1].pos = Vector2(245, 164)
+	sim.creatures[0].pos = MatchFactory.SPAWN_LEFT + Vector2(50, 0)
+	sim.creatures[1].pos = MatchFactory.SPAWN_LEFT + Vector2(75, 0)
 	var hold := [0, 0]
 	var left := [0, 0]
 	for i in ticks:
@@ -36,8 +36,8 @@ static func _duel(seed_: int, ticks: int) -> String:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_
 	var d := DuelSim.new([["cairn", "culvert", "cairn"], ["culvert", "cairn", "culvert"]])
-	d.sim.creatures[0].pos = Vector2(220, 164)
-	d.sim.creatures[1].pos = Vector2(245, 164)
+	d.sim.creatures[0].pos = MatchFactory.SPAWN_LEFT + Vector2(50, 0)
+	d.sim.creatures[1].pos = MatchFactory.SPAWN_LEFT + Vector2(75, 0)
 	var hold := [0, 0]
 	for i in ticks:
 		if i % 9 == 0:

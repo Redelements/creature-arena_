@@ -27,7 +27,12 @@ const IN_AIM := 4096  ## the aim index below is set; attacks go that way
 const AIM_SHIFT := 13
 const AIM_STEPS := 64  ## 5.625 degrees apart; index 0 = right, 16 = down (y grows downward)
 const IN_STRAFE := 1 << 19  ## keep facing the aim while walking (twin-stick right stick held)
-const IN_EVERYTHING := (1 << 20) - 1  ## buttons, aim and strafe, for fuzz tests
+# 360-degree movement (a stick, or walking to a mouse click). The direction bits above
+# still say roughly which way (menus, the CPU and old replays read them); when IN_MOVE is
+# set, walking, dodging and attacks without an aim of their own go exactly this way.
+const IN_MOVE := 1 << 20  ## the move index below is set
+const MOVE_SHIFT := 21  ## 6 bits, an index into the same 64 directions as the aim
+const IN_EVERYTHING := (1 << 27) - 1  ## buttons, aim, strafe and move, for fuzz tests
 ## Each aim direction as integers (x, y) / 10000, turned into unit vectors with only
 ## sqrt and division, which every platform rounds identically (no sin/cos in src/sim).
 const AIM_INT := [
@@ -48,18 +53,26 @@ const TYPE_BIT := {"light": 1, "heavy": 2, "skill": 4, "surge": 8}
 ## Damage multiplier by how many different attack types have landed in the combo.
 const VARIETY := [1.0, 1.0, 1.15, 1.3, 1.5]
 
-# Arena geometry in logical pixels (the game renders at 480x270).
+# Arena geometry in logical pixels. The screen shows 480x270 of it at a time (more when
+# the camera pulls back); the stadium is bigger, so the camera follows the fight.
 const VIEW_W := 480
 const VIEW_H := 270
 const CELL := 8
-const GRID_X := 16
-const GRID_Y := 64
-const GRID_COLS := 56
-const GRID_ROWS := 24
+const GRID_X := 16  ## side wall
+const GRID_Y := 64  ## stands and back wall above the floor
+const GRID_COLS := 84  ## 672 px: 1.5x the original 56
+const GRID_ROWS := 36  ## 288 px: 1.5x the original 24
+const FRONT_WALL := 14  ## below the floor
+const ARENA_W := GRID_X * 2 + GRID_COLS * CELL  ## the whole stadium, walls included
+const ARENA_H := GRID_Y + GRID_ROWS * CELL + FRONT_WALL
 
 
 static func floor_rect() -> Rect2:
 	return Rect2(GRID_X, GRID_Y, GRID_COLS * CELL, GRID_ROWS * CELL)
+
+
+static func arena_size() -> Vector2:
+	return Vector2(ARENA_W, ARENA_H)
 
 
 static func dir_from_bits(bits: int) -> Vector2:
@@ -75,11 +88,27 @@ static func aim_dirs() -> Array[Vector2]:
 	return _aim_dirs
 
 
-## The way an attack aims: the exact aim angle when one is set, else the direction bits.
+## The way an attack aims: the exact aim angle when one is set, else the way you move.
 static func aim_from_bits(bits: int) -> Vector2:
 	if bits & IN_AIM:
 		return aim_dirs()[(bits >> AIM_SHIFT) & (AIM_STEPS - 1)]
+	return move_from_bits(bits)
+
+
+## The way you walk: the exact move angle when one is set, else the 8 direction bits.
+static func move_from_bits(bits: int) -> Vector2:
+	if bits & IN_MOVE:
+		return aim_dirs()[(bits >> MOVE_SHIFT) & (AIM_STEPS - 1)]
 	return dir_from_bits(bits)
+
+
+## Input side: the bits for walking toward `v` in 360 degrees: the nearest of the 64
+## directions, plus the rough direction bits. 0 for none.
+static func move_bits(v: Vector2) -> int:
+	var a := aim_bits(v)
+	if a == 0:
+		return 0
+	return bits_from_dir(v.normalized()) | IN_MOVE | (((a >> AIM_SHIFT) & (AIM_STEPS - 1)) << MOVE_SHIFT)
 
 
 ## Input side: the aim bits for a direction (the nearest of the 64), or 0 for none.

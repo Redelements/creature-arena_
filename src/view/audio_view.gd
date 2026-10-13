@@ -25,7 +25,10 @@ var _silent := DisplayServer.get_name() == "headless"
 
 var _sounds := {}
 var _music_tracks := {}
+var _music_gain := {}  ## per-track volume adjustment in dB, so tracks play equally loud
 var _music_volume_db := -14.0
+## The tracks a fight can play, from data/audio.json: [[track, name shown], ...].
+var fight_music: Array = []
 var _players: Array[AudioStreamPlayer] = []
 var _next := 0
 var _music := AudioStreamPlayer.new()
@@ -57,6 +60,12 @@ func _ready() -> void:
 		if ResourceLoader.exists(String(tracks[name])):
 			_music_tracks[name] = load(String(tracks[name]))
 	_music_volume_db = float(data.get("music_volume_db", -14.0))
+	_music_gain = data.get("music_gain_db", {})
+	for t in data.get("fight_music", []):
+		if _music_tracks.has(String(t[0])):
+			fight_music.append([String(t[0]), String(t[1])])
+	if fight_music.is_empty() and _music_tracks.has("fight"):
+		fight_music.append(["fight", "Fight"])
 	_make_buses()
 	for i in VOICES:
 		var p := AudioStreamPlayer.new()
@@ -153,7 +162,7 @@ func play_music(name: String) -> void:
 		return
 	_music_name = name
 	_music.stream = _music_tracks[name]
-	_music.volume_db = _music_volume_db
+	_music.volume_db = _music_volume_db + float(_music_gain.get(name, 0.0))
 	if not music_muted and not _silent:
 		_music.play()
 

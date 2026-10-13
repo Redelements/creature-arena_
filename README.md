@@ -86,7 +86,8 @@ bad connection: `--net-lag=6 --net-loss=0.1`. Details: [docs/NETCODE.md](docs/NE
 2. Open Godot, click **Import**, and pick this folder's `project.godot`.
 3. Press **F5** (or the ▶ button). The title menu has **Single player** (every mode against
    the CPU, training, trials and local 2-player), **Online**, **Settings** (Game: CPU level, rumble, screen shake, online server; Video: fullscreen, vsync, the
-   fight frame rate, 144 fps unless changed; Audio: master, music, effects and menu volume;
+   fight frame rate, 144 fps unless changed; Audio: master, music, effects and menu volume,
+   and **Fight music** (the new Creature Arena Battler track, or the old placeholder);
    Controls: keyboard layout and remapping for both keyboard layouts and the controller) and **Exit**. Menus always
    run at 60 fps. The game itself runs 60 steps a second whatever the frame rate.
 
@@ -155,18 +156,20 @@ Controllers rumble on hits, slams, Surges and knockouts (Settings > Game turns i
 Every key and button above can be remapped in Settings > Controls; the on-screen
 prompts and the controls strip follow your bindings.
 
-**Aiming is 360 degrees.** The mouse aims attacks exactly at the cursor. Controllers have
-two layouts (Settings > Controls > **Controller**):
+**Moving and aiming are 360 degrees.** The left stick walks exactly the way it points
+(and attacks go that way when nothing else aims them); a right-click walks straight to
+the spot. The mouse aims attacks exactly at the cursor. Controllers have two layouts
+(Settings > Controls > **Controller**):
 
-- **Standard:** the right stick aims attacks in 8 directions, like the keyboard.
+- **Standard:** the right stick aims an attack exactly where it points as you throw it.
 - **Twin-stick:** the right stick aims exactly where it points and, while held, keeps you
   facing that way as the left stick walks you anywhere (strafing, at 85% speed). Back off
   or circle an opponent without turning your back.
 
-Keyboard and Standard controller aim in 8 directions, with a small **aim assist**: an
-attack aimed within 25° of an opponent within reach goes straight at them. A chevron on
-the floor shows exactly where each fighter faces. The CPU aims exactly on Normal and
-Hard, and in 8 directions on Easy. `--showcase=twinstick` shows strafing and an
+WASD still gives 8 directions, so the keyboard gets a small **aim assist**: an attack
+aimed within 25° of an opponent within reach goes straight at them (12° from the left
+stick, which needs less help). A chevron on the floor shows exactly where each fighter
+faces. The CPU walks and aims 360 degrees on Normal and Hard, and in 8 directions on Easy. `--showcase=twinstick` shows strafing and an
 off-angle Landslide Charge; `--pad-layout=twinstick` picks the layout from the command line.
 
 Tools: F1 hitbox overlay, F2 cycle the training dummy, F3 hide the controls strip,
@@ -188,10 +191,20 @@ juggle moves, and a stunned fighter can spend 50 energy on a **breakaway**.
 Energy fills as you deal and take damage (about one Surge per round). A Surge's own hits
 never charge the next Surge.
 
+### The arena
+
+The floor is 672 x 288 px, 1.5 times its first size, inside a stadium wider than the
+screen. The camera follows the fight: at the normal 1x while the fighters are close, and
+pulling back (as far as the whole stadium) to keep everyone, heads included, in shot.
+
 ### Fighting from every angle
 
-Fighters move and attack in 8 directions, not just left and right: every hitbox goes
-where the fighter faces. Each fighter has side, front (facing down the screen) and back
+Fighters move and attack in any direction, not just left and right: every hitbox goes
+where the fighter faces, and **every hit reaches the same distance all the way around**
+(hits are circles on the floor; `tests/test_movement360.gd` measures each fighter's
+reach in eight directions). Effects on the floor (rings, swings, landing marks) are drawn
+as true circles, the same size the hit really is, and a swing straight up or down is
+drawn at the feet, where its hit is. Each fighter has side, front (facing down the screen) and back
 (facing up) art, so a Lash aimed down the screen comes at the camera and one aimed up
 reaches away behind the body. A tall fighter standing in front of a shorter one turns
 see-through so the one behind stays readable. `--showcase=angles` shows it.

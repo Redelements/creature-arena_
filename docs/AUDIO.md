@@ -1,6 +1,7 @@
 # Audio: placeholder replacement checklist
 
-> **TODO(audio): every sound and both music tracks are placeholders.** They are
+> **TODO(audio): every sound and the two original music tracks are placeholders** (the
+> Creature Arena Battler track is real). They are
 > synthesized by `tools/gen_audio.py` so test builds aren't silent. Replace all of them
 > before any public release. Tracked in the GitHub issue "Replace placeholder audio".
 
@@ -108,8 +109,14 @@ yet; when the new roster arrives, add them to `data/audio.json` and this table.
 | Done | File | Plays | Direction |
 | --- | --- | --- | --- |
 | [ ] | `music_menu` | Main menu | Calm, loops cleanly (currently 20 s) |
-| [ ] | `music_fight` | During fights and showcases | Driving, loops cleanly (currently 14.5 s) |
+| [ ] | `music_fight` | Fights, when Settings > Audio > Fight music says Classic | Driving, loops cleanly (currently 14.5 s) |
+| [x] | `music_battler.ogg` | Fights and showcases (the default Fight music) | The composer's first pass, `CreatureArenaBattler_1stPass`: a 32 s seamless loop (Ogg Vorbis, imported with loop on) |
 
 The Game Plan suggests an original chiptune-leaning soundtrack (FamiStudio or Furnace if
 composing yourself, or a commission). Music volume is `music_volume_db` in
-`data/audio.json`; players can mute music with **M** (saved in settings).
+`data/audio.json` (`music_gain_db` evens out a track that's mastered louder or quieter);
+players can mute music with **M** (saved in settings). The Fight music choices are
+`fight_music` in `data/audio.json` ([track, name shown], first is the default): to add a
+track, put the file in `assets/audio/`, add it to `music`, then to `fight_music`. For a
+seamless loop use OGG and turn on Loop in its import settings (`loop=true` in the
+`.import` file).
