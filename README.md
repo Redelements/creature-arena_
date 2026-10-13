@@ -343,14 +343,16 @@ A mage (105 HP, Lumen affinity). He floats a hand's height off the floor with hi
 kitchen hovering around him (big knife, spatula, meat mallet, a fan of paring knives) and
 throws it all with his mind: whatever he's moving glows violet, and so does he.
 **Dodge: Mind Blink.** Instead of rolling he teleports: a short delay (5 frames, already
-untouchable from the 3rd) and he's simply 58 px away the way you pushed, stopped by the
-walls but not by pits (blinking onto a hole drops him in). **Most of his attacks are thrown, and
-they reach about as far as Gillbert's Cast Line (110–130 px)**, so he wants foes at knife
+untouchable from the 3rd) and he's simply 116 px away the way you pushed, stopped by the
+walls but not by pits (blinking onto a hole drops him in). It **recharges for 0.75 s** after
+each blink (a violet bar beside his stamina drains away; a dodge pressed just before it's
+ready comes out when it is). **Most of his attacks are thrown, and
+his skills reach about as far as Gillbert's Cast Line (120–130 px), his lights half again as far (about 170 px)**, so he wants foes at knife
 range; up close he softens them up or flips them away. Voice line: "CHOP CHOP!"
 
 | Button | Move | What it does |
 | --- | --- | --- |
-| Light | Knife Flick, Backhand Flick, Mallet Toss | Two small knives and then the meat mallet, all **thrown** about 110 px. The knives only chip: they **don't stagger**. The Mallet Toss at the end of the string is the hit that staggers, so Flick, Flick, Mallet → Cleaver Toss → Knife Flurry works from across the floor |
+| Light | Knife Flick, Backhand Flick, Mallet Toss | Two small knives and then the meat mallet, all **thrown** about 170 px. The knives only chip: they **don't stagger**. The Mallet Toss at the end of the string is the hit that staggers, so Flick, Flick, Mallet → Cleaver Toss → Knife Flurry works from across the floor (within the Cleaver's 120 px) |
 | Heavy | Tenderize | Pounds the floor with the mallet: hits everyone close, all around him, pops them up and **tenderizes** them (they take 20% more damage for 4 s; a pink arrow shows it). Hold to charge (bigger and harder) |
 | Skill 1 | Cleaver Toss | Flings the big knife in a straight line, about 120 px; it hits the **first** foe in its path. Keeps a juggle going |
 | Skill 2 | Flip Out | Scoops a close foe with the spatula and **flips them over his head**, to land behind him; he turns to follow. A grab: it beats guard (red tell) |

@@ -507,6 +507,10 @@ func step(buttons: int, sim: MatchSim) -> void:
 	var pressed := buttons & ~prev_buttons
 	prev_buttons = buttons
 	_buffer_presses(pressed)
+	if pressed & SimDefs.IN_DODGE and int(cooldowns.get("dodge", 0)) > 0:
+		# Pressed a moment before the blink has recharged: it comes out when it's ready.
+		dodge_buffer = BUFFER_TICKS
+		dodge_buffer_dir = SimDefs.move_from_bits(buttons)
 	anim_t += 1
 	state_t += 1
 	if invuln > 0:
@@ -640,7 +644,7 @@ func _wants_breakaway(buttons: int, pressed: int) -> bool:
 
 func _update_free(buttons: int, pressed: int, dir: Vector2, aim: Vector2, sim: MatchSim) -> void:
 	var dg: Dictionary = def["dodge"]
-	if ((pressed & SimDefs.IN_DODGE) or dodge_buffer > 0) and stamina >= float(dg["cost"]) and root <= 0:
+	if ((pressed & SimDefs.IN_DODGE) or dodge_buffer > 0) and can_dodge():
 		_start_dodge(dir, sim)
 		return
 	if _try_start_buffered(aim, sim):
@@ -667,9 +671,23 @@ func _update_free(buttons: int, pressed: int, dir: Vector2, aim: Vector2, sim: M
 	_move(walk_vel, sim, true)
 
 
+## Enough stamina, not rooted, and (for a dodge with a "cooldown", like Chef Cerebro's
+## teleport) not still recharging from the last one.
+func can_dodge() -> bool:
+	return stamina >= float(def["dodge"]["cost"]) and root <= 0 and int(cooldowns.get("dodge", 0)) <= 0
+
+
+## How much of the dodge's cooldown is left, 0 (ready) to 1 (just used).
+func dodge_cooldown_ratio() -> float:
+	var total := float(def["dodge"].get("cooldown", 0))
+	return float(cooldowns.get("dodge", 0)) / total if total > 0.0 else 0.0
+
+
 func _start_dodge(dir: Vector2, sim: MatchSim) -> void:
 	var dg: Dictionary = def["dodge"]
 	stamina -= float(dg["cost"])
+	if int(dg.get("cooldown", 0)) > 0:
+		cooldowns["dodge"] = int(dg["cooldown"])
 	if dir == Vector2.ZERO and dodge_buffer > 0:
 		dir = dodge_buffer_dir
 	dodge_buffer = 0
@@ -1030,7 +1048,7 @@ func _update_guard(buttons: int, pressed: int, dir: Vector2, aim: Vector2, sim: 
 		stun -= 1
 		return
 	var dg: Dictionary = def["dodge"]
-	if ((pressed & SimDefs.IN_DODGE) or dodge_buffer > 0) and stamina >= float(dg["cost"]) and root <= 0:
+	if ((pressed & SimDefs.IN_DODGE) or dodge_buffer > 0) and can_dodge():
 		_start_dodge(dir, sim)
 		return
 	# Out of guard an attack goes at the opponent, unless an exact aim says otherwise.

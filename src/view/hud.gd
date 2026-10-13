@@ -11,6 +11,7 @@ const C_HP_HI := Color("6fcf5a")
 const C_HP_MID := Color("f2c14e")
 const C_HP_LO := Color("e5534b")
 const C_STAMINA := Color("5aa9e6")
+const C_DODGE_CD := Color("d58cff")
 const C_ENERGY := Color("ffcf3f")
 const C_BAR_BG := Color("2a2e38")
 const C_ACCENT := Color("ffd166")
@@ -192,6 +193,11 @@ func _panel(side: int, x: float, right: bool) -> void:
 		ecol = Color.WHITE
 	_bar(Rect2(x + 5, 24, 100, 3), c.energy / CreatureSim.MAX_ENERGY, ecol, right)
 	_bar(Rect2(x + 5, 30, 60, 2), c.stamina / c.max_stamina, C_STAMINA, right)
+	# A dodge with a cooldown (Chef Cerebro's blink): a short violet bar beside the stamina
+	# bar drains away while it recharges.
+	var dcd := c.dodge_cooldown_ratio()
+	if dcd > 0.0:
+		_bar(Rect2(x + 70, 30, 30, 2), dcd, C_DODGE_CD, right)
 	if full:
 		var ready_txt := "SURGE READY" + (" (%s)" % surge_labels[side] if String(surge_labels[side]) != "" else "")
 		_text(Vector2(x + 5, 35), ready_txt, 5, C_ENERGY,

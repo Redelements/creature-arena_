@@ -195,7 +195,7 @@ const SCRIPTS := {
 		"title": "CHEF CEREBRO  -  FULL KIT",
 		"captions": [
 			["From range:", "Knife Flick", "Backhand Flick", "Mallet Toss", "Cleaver Toss"],
-			["Dodge: he teleports", "in", "and out"],
+			["Dodge: he teleports", "away", "and back"],
 			["Up close:", "Flick", "Flick", "Mallet", "Tenderize (softens them up)", "Cleaver Toss"],
 			["Flick", "Flick", "Mallet", "Flip Out", "Knife Flurry"],
 		],
@@ -207,10 +207,10 @@ const SCRIPTS := {
 			{"do": "press", "who": 0, "bit": S1, "move": "skill_1", "show": 4},
 			{"do": "until", "cond": "settled"},
 			{"do": "wait", "t": 40, "part": 1, "show": 0},
-			{"do": "dodge", "who": 0, "dir": "through", "show": 1},
-			{"do": "wait", "t": 40},
-			{"do": "dodge", "who": 0, "dir": "away", "show": 2},
-			{"do": "wait", "t": 40},
+			{"do": "dodge", "who": 0, "dir": "up", "show": 1},
+			{"do": "wait", "t": 50},
+			{"do": "dodge", "who": 0, "dir": "down", "show": 2},
+			{"do": "wait", "t": 50},
 			{"do": "place", "part": 2, "gap": 2.0},
 			{"do": "wait", "t": 20, "show": 0},
 			{"do": "press", "who": 0, "bit": L, "move": "light_1", "show": 1},
@@ -587,6 +587,8 @@ func inputs(sim: MatchSim) -> PackedInt32Array:
 			var o := sim.creatures[1 - who]
 			var away := (c.pos - o.pos).normalized()
 			var dir := -away if String(s["dir"]) == "through" else away
+			if HOLD_BITS.has(String(s["dir"])):
+				dir = SimDefs.dir_from_bits(HOLD_BITS[String(s["dir"])])
 			out[who] = D | SimDefs.bits_from_dir(dir)
 			done = true
 		"guard":

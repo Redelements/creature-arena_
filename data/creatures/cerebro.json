@@ -11,8 +11,8 @@
   "weight": 0.9,
   "stamina": 100,
   "stamina_regen": 0.5,
-  "dodge": { "frames": 16, "iframes_start": 2, "iframes_end": 11, "speed": 0, "cost": 22,
-    "blink": { "at": 5, "distance": 58 } },
+  "dodge": { "frames": 16, "iframes_start": 2, "iframes_end": 11, "speed": 0, "cost": 22, "cooldown": 45,
+    "blink": { "at": 5, "distance": 116 } },
   "guard": { "reduction": 0.78, "drain_per_damage": 2.2, "speed_mult": 0.45, "break_stun": 58 },
   "fx_height": 22,
   "fx_top": 42,
@@ -47,7 +47,7 @@
     }
   },
   "ai": {
-    "range": 72,
+    "range": 100,
     "kite": true,
     "far_from": 48,
     "poke": "skill_1",
@@ -81,7 +81,7 @@
       "startup": 6, "active": 0, "recovery": 16, "cancel_from": 10,
       "damage": 3, "knockback": 0.5, "hitstun": 30, "hitstop": 1, "no_flinch": true, "juggle": true,
       "next": "light_2",
-      "projectile": { "speed": 7.0, "life": 14, "radius": 5, "offset": 12, "crack_trail": false,
+      "projectile": { "speed": 7.0, "life": 22, "radius": 5, "offset": 12, "crack_trail": false,
         "sound": "knife_throw", "end_sound": "knife_hit" },
       "anim_at": [[0, 0], [3, 1], [6, 2], [12, 3]],
       "fx": { "projectile": "knife" }
@@ -91,7 +91,7 @@
       "startup": 6, "active": 0, "recovery": 16, "cancel_from": 10,
       "damage": 3, "knockback": 0.5, "hitstun": 30, "hitstop": 1, "no_flinch": true, "juggle": true,
       "next": "light_3",
-      "projectile": { "speed": 7.0, "life": 14, "radius": 5, "offset": 12, "crack_trail": false,
+      "projectile": { "speed": 7.0, "life": 22, "radius": 5, "offset": 12, "crack_trail": false,
         "sound": "knife_throw", "end_sound": "knife_hit" },
       "anim_at": [[0, 0], [3, 1], [6, 2], [12, 3]],
       "fx": { "projectile": "knife" }
@@ -101,7 +101,7 @@
       "startup": 9, "active": 0, "recovery": 20,
       "damage": 5, "knockback": 0.8, "hitstun": 34, "hitstop": 6, "juggle": true,
       "next": "",
-      "projectile": { "speed": 6.0, "life": 17, "radius": 6, "offset": 12, "crack_trail": false,
+      "projectile": { "speed": 6.0, "life": 27, "radius": 6, "offset": 12, "crack_trail": false,
         "sound": "swing_heavy", "end_sound": "thwack" },
       "anim_at": [[0, 0], [3, 1], [7, 2], [10, 3], [22, 4]],
       "fx": { "projectile": "mallet" }
