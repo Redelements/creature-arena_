@@ -26,10 +26,23 @@ is the short reference.
 | `--server[=PORT]` | 7777 | run as a server on this UDP port |
 | `--max-players=N` | 32 | players connected at once (16 matches); more are told the server is full |
 | `--net-delay=N` | picked per match | force every match's input delay (frames) |
+| `--cpu-fill=SECONDS` | 20 | a Quick match 2v2/3v3 that has waited this long starts with CPUs in the empty slots (0: never) |
+| `--room-fill=SECONDS` | 45 | the same for a room (longer: friends are typing the code) |
+| `--cpu-level=N` | 1 | how well those CPUs play: 0 Easy, 1 Normal, 2 Hard |
 
 Players join `ADDRESS` or `ADDRESS:PORT`. Adding `/ROOM` (`game.example.net/kev`, not
 case sensitive) pairs them only with someone who typed the same room; without one,
 players are paired oldest first. Create room is the same thing with a made-up code.
+
+**CPU players.** In a team battle the server plays CPUs itself, on its referee's copy of
+the match, and sends their inputs to everyone like a player's. It uses them in two cases:
+
+- empty slots, once the first player has waited `--cpu-fill` (Quick match) or
+  `--room-fill` (a room);
+- a player who leaves mid-match: a CPU takes their slot and the others play on.
+
+With two of you, both press **Quick match 2v2**: after 20 seconds the match starts, with
+a CPU on each team.
 
 **Players at the server's own house.** Many routers can't loop their public address back
 inside, so the public name fails from the server's own network. Before joining its

@@ -47,6 +47,10 @@ var relay_rtt_ms: float:
 		if players == 2:
 			relay_rtts[1 - local_slot] = v
 
+## Slots the server's CPU plays (team battles: empty slots, or a player who left).
+## Their inputs come from the server after everyone's, so they don't count for time
+## sync, and they send no fingerprints.
+var cpu_slots := {}
 ## New events since the last tick, for the views.
 var events: Array = []
 ## Ticks in a row spent waiting for the other player.
@@ -128,6 +132,12 @@ func _init(p_teams: Array, p_slot: int, p_delay: int, p_link: NetLink, p_id: int
 	session.on_final = _on_final
 
 
+## From now on the server's CPU plays `slot`.
+func set_cpu(slot: int) -> void:
+	if slot >= 0 and slot < players and slot != local_slot:
+		cpu_slots[slot] = true
+
+
 ## The match being played (a DuelSim or a TeamSim).
 func game_sim():
 	return team if team != null else duel
@@ -150,6 +160,8 @@ func receive(m: Dictionary) -> void:
 				return
 			session.receive({"p": p, "first": int(m.get("first", 0)), "inputs": inputs,
 				"ack": int(m.get("ack", -1))})
+			if cpu_slots.has(p):
+				return
 			_remote_frame[p] = maxi(int(_remote_frame[p]), int(m.get("f", -1)))
 			# How far ahead of this machine they think they are: from their per-player
 			# list, or (a 1v1) their single figure.
@@ -177,7 +189,7 @@ func tick(local_bits: int) -> void:
 	advs.resize(players)
 	var gap := 0.0
 	for p in players:
-		if p == local_slot or int(_remote_frame[p]) < 0:
+		if p == local_slot or int(_remote_frame[p]) < 0 or cpu_slots.has(p):
 			continue
 		advs[p] = advantage_over(p)
 		# Half the difference of the two views cancels out a lopsided round trip.
@@ -203,7 +215,7 @@ func tick(local_bits: int) -> void:
 func frame_advantage() -> float:
 	var most := -INF
 	for p in players:
-		if p != local_slot and int(_remote_frame[p]) >= 0:
+		if p != local_slot and int(_remote_frame[p]) >= 0 and not cpu_slots.has(p):
 			most = maxf(most, advantage_over(p))
 	return most if most > -INF else 0.0
 
@@ -252,7 +264,7 @@ func _check_digest(f: int) -> void:
 		return
 	var waiting := false
 	for p in players:
-		if p == local_slot:
+		if p == local_slot or cpu_slots.has(p):
 			continue
 		var key := "%d:%d" % [p, f]
 		if not _remote_digests.has(key):
@@ -284,7 +296,7 @@ func report() -> Dictionary:
 		frames.append(input_log[f])
 		f += 1
 	return {"teams": teams, "size": size, "input_delay": input_delay, "local_side": local_side,
-		"local_slot": local_slot,
+		"local_slot": local_slot, "cpu_slots": cpu_slots.keys(),
 		"desync_frame": desync_frame, "digests_matched": digests_matched, "frames": frames,
 		"digests": final_digests, "at_frame": session.frame, "rollbacks": session.rollbacks,
 		"max_rollback": session.max_rollback_seen, "sync_waits": sync_waits}

@@ -247,7 +247,9 @@ be played online with rollback exactly like a single match. Tuning: `data/rules/
 
 Every creature is on the field at once, one per player: you play the first fighter of the
 red team and CPUs play your teammates and the blue team. Online, **Quick match 2v2 / 3v3**
-(or a room with a room size) puts a player on every slot, each on their own machine.
+(or a room with a room size) puts a player on every slot, each on their own machine. If
+nobody else turns up within 20 seconds (45 for a room), the server's CPUs take the empty
+slots, and a CPU takes over for anyone who leaves mid-match.
 
 - **No friendly fire:** your hits, projectiles, bursts and ice puddles pass over
   teammates, and moves that pick a target (taunts, gazes, homing dashes, blinks, aim
