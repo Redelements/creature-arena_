@@ -45,12 +45,12 @@ func poll() -> bool:
 		var ip := _udp.get_packet_ip()
 		if String(m.get("t", "")) != ServerBeacon.ANSWER:
 			continue
-		if int(m.get("v", -1)) != Netplay.NET_VERSION:
-			continue  # an older or newer server: the public one is the same machine anyway
+		# Any version is taken: joining it then says plainly if the builds differ, which
+		# beats falling back to a public name that may not work from here.
 		var p := int(m.get("port", 0))
 		if ip == "" or p <= 0 or p > 65535:
 			continue
-		found = {"address": ip, "port": p}
+		found = {"address": ip, "port": p, "v": int(m.get("v", -1))}
 		_finish()
 		return true
 	var now := Time.get_ticks_msec()

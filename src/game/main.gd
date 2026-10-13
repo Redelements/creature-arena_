@@ -212,6 +212,8 @@ var _finder: LanFinder = null
 var _finder_join: Array = []
 ## Where the look-up asks (tests ask this machine instead of the whole network).
 var finder_target := "255.255.255.255"
+## The last look-up found nothing nearby, so a failed join can say what to check at home.
+var _home_missed := false
 var _net_args := {}  ## from the command line: host / join / lag / delay / report
 var _net_end_t := 0
 
@@ -1631,12 +1633,19 @@ func _net_join_server(fighter: String, room: String, server := "") -> void:
 
 ## Each frame while looking: once it's done, join the server it found nearby, or the
 ## public address.
+## The server's public name gets no answer, and it didn't answer on this network either.
+## At the server's house that's usually the server's own setup; anywhere else, the
+## server is down or its port isn't forwarded.
+const HOME_HINT := "No answer. At the server's house: update it and allow UDP 7778. Away: is UDP 7777 forwarded?"
+
+
 func _finder_step() -> void:
 	if not _finder.poll():
 		return
 	var f := _finder.found
 	var j := _finder_join
 	_finder = null
+	_home_missed = f.is_empty()
 	if lobby == null:
 		return
 	if f.is_empty():
@@ -1660,6 +1669,7 @@ func _net_join_typed(fighter: String, address: String, port: int, room := "") ->
 func _net_join(fighter: String, address: String, port: int, room := "", remember := true) -> void:
 	_online_fighter = fighter
 	if remember:
+		_home_missed = false
 		_online_address = lobby.address if lobby.address != "" else address
 		_remember_server(_online_address)
 	_save_settings()
@@ -1695,6 +1705,8 @@ func _lobby_status() -> void:
 	lobby.status = netplay.status
 	lobby.status_bad = netplay.phase == Netplay.Phase.ENDED
 	if netplay.phase == Netplay.Phase.ENDED:
+		if _home_missed and netplay.error.begins_with("No answer"):
+			lobby.status = HOME_HINT
 		lobby.busy = false
 		netplay = null
 		return
