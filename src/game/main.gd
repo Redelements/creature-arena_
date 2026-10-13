@@ -225,6 +225,8 @@ var finder_target := "255.255.255.255"
 var _home_missed := false
 var _net_args := {}  ## from the command line: host / join / lag / delay / report
 var _net_end_t := 0
+## How many of the online match's slots were shown as the server's CPU.
+var _cpu_shown := 0
 
 
 func _ready() -> void:
@@ -1872,6 +1874,8 @@ func _start_online_match() -> void:
 		hud.team = team_battle
 		hud.focus = online.local_slot
 		hud.timer_ticks = team_battle.timer
+		_cpu_shown = 0
+		_show_cpu_slots()
 	else:
 		duel = online.duel
 		_new_sim(duel.sim, s)
@@ -1905,6 +1909,9 @@ func _online_status() -> void:
 			_leave_online()
 		return
 	var g := online
+	if g.cpu_slots.size() != _cpu_shown:
+		_show_cpu_slots()
+		hud.show_toast("A player left: a CPU plays for them")
 	hud.net_info = "PING %d ms   DELAY %d   ROLLBACK %d" % [roundi(netplay.ping_ms), g.input_delay,
 		g.session.max_rollback_seen]
 	if g.desync_frame >= 0:
@@ -1917,7 +1924,7 @@ func _online_status() -> void:
 		hud.banner = ""
 		hud.banner_sub = ""
 	if flow == Flow.MATCH_OVER and _match_over_status != null and is_instance_valid(_match_over_status):
-		var others := g.players - 1
+		var others := g.players - 1 - g.cpu_slots.size()
 		var asked := netplay.rematch_asked.size()
 		if g.players > 2 and (netplay.rematch_local or asked > 0):
 			_match_over_status.text = "Rematch: %d of %d asked" % [asked + (1 if netplay.rematch_local else 0),
@@ -1926,6 +1933,16 @@ func _online_status() -> void:
 			_match_over_status.text = "Waiting for the other player..."
 		elif netplay.rematch_remote:
 			_match_over_status.text = "The other player wants a rematch!"
+
+
+## Online team battle: slots the server's CPU plays say so on their card and marker.
+func _show_cpu_slots() -> void:
+	_cpu_shown = online.cpu_slots.size()
+	for slot in online.cpu_slots:
+		if int(slot) < hud.tags.size():
+			hud.tags[int(slot)] = "CPU"
+		if int(slot) < fx.side_marks.size():
+			fx.side_marks[int(slot)]["label"] = "CPU"
 
 
 func _leave_online() -> void:

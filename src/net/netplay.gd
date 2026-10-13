@@ -24,7 +24,9 @@ extends RefCounted
 ## Team battles (2v2, 3v3) only run through a server: hello asks for a `size` (players
 ## per side; 0 when joining a friend's room takes the room's), and "start" gives this
 ## player's `slot` among the 4 or 6 and the `size`; the inputs of every player then
-## pass through the server to everyone else, each tagged with whose (`p`).
+## pass through the server to everyone else, each tagged with whose (`p`). Slots the
+## server's CPU plays are listed in "start" (`cpu`), or come later as "cpu" when a
+## player leaves; their inputs arrive like anyone's.
 
 const NET_VERSION := 5  ## 5: team battles (slots, sizes); 4: 360 move angle, bigger arena
 const DEFAULT_PORT := 7777
@@ -217,10 +219,17 @@ func _handle(m: Dictionary) -> void:
 			ping_ms = float(m.get("ping", 0.0))
 			_begin(int(m.get("n", 0)), teams, int(m.get("delay", 2)), slot, size)
 			their_team = teams[1 - local_side]
+			var cpu = m.get("cpu", [])
+			if cpu is Array:
+				for k in cpu:
+					game.set_cpu(int(k))
 			if m.has("vias"):
 				_set_paths({"rtts": m["vias"]})
 			else:
 				game.relay_rtt_ms = float(m.get("via", 0.0))
+		"cpu":  # a player left the team battle: the server's CPU plays their slot now
+			if game != null and int(m.get("n", -1)) == game.id:
+				game.set_cpu(int(m.get("p", -1)))
 		"rematch":
 			rematch_remote = true
 			rematch_asked[int(m.get("p", 1 - local_slot))] = true

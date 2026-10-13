@@ -142,8 +142,19 @@ everyone's round trip to the server (`vias`, refreshed as `path` `rtts`). Every 
   player counts. Fingerprints are checked against every other player's.
 - `Referee` steps the match once all slots' inputs are in, and names whose game went
   wrong by slot.
-- A player leaving ends the match for everyone ("A player left the match"). Filling the
-  slot with a CPU is next. A rematch starts once everyone has asked.
+- **CPU players** are played on the server by the `Referee`. A `CpuController` reads
+  the referee's own match, the true one, and decides a CPU slot's input as that frame
+  is stepped. `RelayServer` sends those inputs to every player reliably, as slot `p`,
+  with an `ack` of how far it has that player's own inputs. Clients predict and roll
+  back on them like anyone's. They're left out of time sync and fingerprint waits
+  (`OnlineMatch.cpu_slots`, from "start" `cpu` or a later `cpu` message). Nothing
+  about them is in the deterministic simulation, so they can't desync it.
+- They fill empty slots after `cpu_fill_ms` (Quick match) or `room_fill_ms` (rooms).
+- When a player leaves a team battle, a CPU takes the slot. Everyone first gets every
+  input of the leaver's that the server has, in unbroken runs, since some players may
+  have missed the last few. The CPU only decides frames nobody has.
+- The match ends only when the last player leaves. A rematch needs every remaining
+  player.
 
 Tests: `tests/test_server_teams.gd`, which covers:
 
@@ -160,7 +171,7 @@ duel once outside the rollback session. Both players did it, so they agreed with
 other, but it could desync if a button was held on that frame. Fixed
 (`_connecting_step`).
 
-Still to do: a Steam transport (below), CPU fill for empty team-battle slots, spectators
+Still to do: a Steam transport (below), spectators
 and saved online replays (both just the input streams), 3v3 tag online (Netplay already
 sends teams), an input delay setting, and ranked/matchmaking.
 

@@ -141,16 +141,107 @@ func test_rematch_starts_when_everyone_asks() -> void:
 	assert_eq((nets[0] as Netplay).game.id, 2, "match 2:")
 
 
-func test_one_player_leaving_ends_it_for_everyone() -> void:
+func test_the_last_player_leaving_ends_it() -> void:
 	var s := _setup([2, 2, 2, 2])
 	var server: RelayServer = s[0]
 	var nets: Array = s[1]
 	_run(server, nets, 300, func(): return _all_playing(nets))
-	(nets[2] as Netplay).leave()
-	_run(server, nets, 60)
-	for k in [0, 1, 3]:
-		var n: Netplay = nets[k]
-		assert_eq(n.phase, Netplay.Phase.ENDED, "player %d's session ended:" % k)
-		assert_eq(n.error, "A player left the match", "and says why:")
-	assert_eq(server.games.size(), 0, "the server dropped the match:")
-	assert_eq(server.player_count(), 0, "and everyone in it:")
+	for k in 4:
+		(nets[k] as Netplay).leave()
+		_run(server, nets, 10)
+	assert_eq(server.games.size(), 0, "no players left: the server drops the match:")
+	assert_eq(server.player_count(), 0, "")
+
+
+# ------------------------------------------------------------------ CPU players
+
+func _fill_setup(sizes: Array, rooms: Array = [], lag := 0, jitter := 0, loss := 0.0) -> Array:
+	var s := _setup(sizes, rooms, lag, jitter, loss)
+	(s[0] as RelayServer).cpu_fill_ms = 1  # fill straight away
+	(s[0] as RelayServer).room_fill_ms = 1
+	return s
+
+
+func test_a_lone_2v2_player_gets_cpu_teammates_and_foes() -> void:
+	var s := _fill_setup([2], [], 2, 1, 0.05)
+	var server: RelayServer = s[0]
+	var nets: Array = s[1]
+	assert_true(_run(server, nets, 300, func(): return _all_playing(nets)), "the match starts")
+	var g: OnlineMatch = (nets[0] as Netplay).game
+	assert_eq(g.size, 2, "a 2v2:")
+	assert_eq(g.cpu_slots.size(), 3, "three CPUs:")
+	var cpu_slot: int = int(g.cpu_slots.keys()[0])
+	var start: Vector2 = g.team.sim.creatures[cpu_slot].pos
+	_run(server, nets, 900, Callable(), 23)
+	assert_gt(float(g.session.frame), 700.0, "the game kept going (the CPUs' inputs arrive):")
+	assert_gt(float(g.session.confirmed_frame()), 600.0, "and get confirmed:")
+	assert_true(g.team.sim.creatures[cpu_slot].pos.distance_to(start) > 10.0, "the CPUs move")
+	assert_eq(g.desync_frame, -1, "no desync")
+	var ref: Referee = (server.games[0] as RelayServer.Game).referee
+	assert_eq(ref.desync, [-1, -1, -1, -1], "the referee agrees:")
+	assert_gt(float(ref.checked), 8.0, "having checked the player's fingerprints:")
+
+
+func test_two_players_and_two_cpus_stay_in_sync() -> void:
+	var s := _fill_setup([2, 2], [], 3, 2, 0.1)
+	var server: RelayServer = s[0]
+	var nets: Array = s[1]
+	assert_true(_run(server, nets, 300, func(): return _all_playing(nets)), "both start")
+	var a: OnlineMatch = (nets[0] as Netplay).game
+	var b: OnlineMatch = (nets[1] as Netplay).game
+	assert_eq(a.cpu_slots.size(), 2, "two CPUs:")
+	assert_true(a.local_side != b.local_side, "the two players face each other (first two alternate)")
+	_run(server, nets, 1200, Callable(), 29)
+	assert_eq(a.desync_frame, -1, "no desync for A")
+	assert_eq(b.desync_frame, -1, "no desync for B")
+	assert_gt(float(a.digests_matched), 12.0, "they compared fingerprints:")
+	var at := OnlineMatch.DIGEST_EVERY * 10
+	assert_eq(String(a.final_digests.get(at, "a")), String(b.final_digests.get(at, "b")), "the same state at frame %d:" % at)
+
+
+func test_the_wait_before_cpus_differs_for_quick_match_and_rooms() -> void:
+	var s := _setup([2, 2], ["", "abcd"])
+	var server: RelayServer = s[0]
+	var nets: Array = s[1]
+	server.cpu_fill_ms = 1
+	server.room_fill_ms = 60000
+	_run(server, nets, 200, func(): return (nets[0] as Netplay).is_playing())
+	assert_true((nets[0] as Netplay).is_playing(), "Quick match filled with CPUs")
+	assert_false((nets[1] as Netplay).is_playing(), "the room still waits for friends")
+	assert_true((nets[1] as Netplay).status.contains("CPUs fill the rest after 60 s"), "and says when: " + (nets[1] as Netplay).status)
+
+
+func test_a_cpu_takes_over_when_a_player_leaves() -> void:
+	var s := _setup([2, 2, 2, 2], [], 2, 1, 0.05)
+	var server: RelayServer = s[0]
+	var nets: Array = s[1]
+	_run(server, nets, 300, func(): return _all_playing(nets))
+	_run(server, nets, 300, Callable(), 31)
+	var leaver: Netplay = nets[2]
+	var slot := leaver.game.local_slot
+	leaver.leave()
+	var rest: Array = [nets[0], nets[1], nets[3]]
+	_run(server, rest, 900, Callable(), 37)
+	for n: Netplay in rest:
+		assert_true(n.is_playing(), "slot %d plays on" % n.game.local_slot)
+		assert_true(n.game.cpu_slots.has(slot), "knowing a CPU plays slot %d" % slot)
+		assert_eq(n.game.desync_frame, -1, "no desync for slot %d" % n.game.local_slot)
+		assert_gt(float(n.game.session.confirmed_frame()), 1000.0, "and nobody's left waiting:")
+	var ref: Referee = (server.games[0] as RelayServer.Game).referee
+	assert_true(ref.cpus.has(slot), "the referee plays the slot")
+	for k in 4:
+		if k != slot:
+			assert_eq(ref.desync[k], -1, "the referee agrees with slot %d" % k)
+
+
+func test_rematch_with_cpus_needs_only_the_players() -> void:
+	var s := _fill_setup([3, 3])
+	var server: RelayServer = s[0]
+	var nets: Array = s[1]
+	_run(server, nets, 300, func(): return _all_playing(nets))
+	var first: OnlineMatch = (nets[0] as Netplay).game
+	for n: Netplay in nets:
+		n.request_rematch()
+	_run(server, nets, 60, func(): return (nets[0] as Netplay).game != first)
+	assert_true((nets[0] as Netplay).game != first, "both players asked: a new match")
+	assert_eq((nets[0] as Netplay).game.cpu_slots.size(), 4, "with the same four CPUs:")

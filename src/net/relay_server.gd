@@ -22,6 +22,12 @@ extends RefCounted
 ## and friends who join by code (size 0) take it. "start" adds each player's `slot` and
 ## everyone's round trips (`vias`); every input and fingerprint goes to all the others,
 ## tagged with the sender's slot (`p`). Players alternate sides as they're grouped.
+##
+## CPU players: a team battle that has waited `cpu_fill_ms` (Quick match) or
+## `room_fill_ms` (a room) starts with CPUs in the empty slots, and a player who leaves
+## a team battle is replaced by a CPU instead of ending it. The referee plays them (see
+## Referee) and their inputs go to everyone, slot `p` like anyone's; "start" lists the
+## CPU slots (`cpu`) and a takeover sends {"t": "cpu", "p": slot}.
 ## The rollback itself still runs on the players' machines; the server adds the hop
 ## through it to the round trip, which picks the input delay.
 ##
@@ -42,6 +48,13 @@ var max_players := 32
 var hello_timeout_ms := 10000
 ## Input delay for every match instead of picking one from the round trips.
 var forced_delay := -1
+## A team battle in Quick match starts with CPUs in the empty slots once its first
+## player has waited this long (0: never); in a room, after `room_fill_ms`, since
+## friends take a while to type the code.
+var cpu_fill_ms := 20000
+var room_fill_ms := 45000
+## How well the CPUs play (CpuController levels: 0 Easy, 1 Normal, 2 Hard).
+var cpu_level := 1
 ## Every log line goes here too (the server prints them).
 var on_log := Callable()
 var log_lines: Array = []
@@ -70,6 +83,7 @@ class Client:
 	var slot := 0  ## input slot in the match (= side in a 1v1)
 	var size := 1  ## players per side asked for (0: whatever the room is)
 	var wait_shown := -1  ## the group size last told to this player
+	var waiting_since := 0  ## when they started waiting for a match (ms)
 
 	func label() -> String:
 		return "player %d (%s)" % [id, ", ".join(PackedStringArray(team))] if not team.is_empty() \
@@ -82,7 +96,8 @@ class Client:
 ## Players grouped into a match; rematches keep the group and count `n` up.
 class Game:
 	var label := 0  ## the server's match number, for the log
-	var players: Array = []  ## Clients by slot (side 0 first: [left..., right...])
+	var players: Array = []  ## Clients by slot (side 0 first: [left..., right...]); null: a CPU
+	var cpu_fighters := {}  ## slot -> fighter id, for the CPU-played slots
 	var size := 1  ## players per side
 	var n := 0
 	var delay := 2
@@ -95,8 +110,12 @@ class Game:
 	func other(c: Client) -> Client:
 		return players[1 - c.slot]
 
+	## Everyone else who's a player (not a CPU).
 	func others(c: Client) -> Array:
-		return players.filter(func(o): return o != c)
+		return players.filter(func(o): return o != null and o != c)
+
+	func humans() -> Array:
+		return players.filter(func(o): return o != null)
 
 
 ## A player connected: `link` is their connection.
@@ -176,6 +195,7 @@ func _handle(c: Client, m: Dictionary) -> void:
 			if c.room == "" and c.size == 0:
 				c.size = 1
 			c.state = State.LOBBY
+			c.waiting_since = Time.get_ticks_msec()
 			_log("%s is waiting%s" % [c.label(), (" in room '%s'" % c.room) if c.room != "" else ""])
 			c.link.send({"t": "wait", "msg": _wait_text(c)}, true)
 			_send_ping(c)
@@ -217,7 +237,7 @@ func _handle(c: Client, m: Dictionary) -> void:
 			g.rematch[c.slot] = true
 			for o: Client in g.others(c):
 				o.link.send({"t": "rematch", "p": c.slot}, true)
-			if not (false in g.rematch):
+			if not (false in g.rematch):  # CPUs always say yes
 				_report(g)
 				_start(g)
 		"bye":
@@ -229,7 +249,15 @@ func _wait_text(c: Client, have := 1, need := 2) -> String:
 	if need <= 2:
 		return "On the server%s. Waiting for an opponent..." % where
 	var n := need / 2
-	return "On the server%s. %d v %d: waiting for players (%d of %d here)..." % [where, n, n, have, need]
+	var t := "On the server%s. %d v %d: waiting for players (%d of %d here)" % [where, n, n, have, need]
+	var fill := _fill_ms(c)
+	if fill > 0:
+		t += "; CPUs fill the rest after %d s" % roundi(fill / 1000.0)
+	return t + "..."
+
+
+func _fill_ms(c: Client) -> int:
+	return room_fill_ms if c.room != "" else cpu_fill_ms
 
 
 func _send_ping(c: Client) -> void:
@@ -274,6 +302,12 @@ func _pair_waiting() -> void:
 		while ready.size() >= need:
 			_begin_game(ready.slice(0, need), size)
 			ready = ready.slice(need)
+		# Waited long enough for a team battle: CPUs take the empty slots.
+		if need > 2 and not ready.is_empty():
+			var fill := _fill_ms(ready[0])
+			if fill > 0 and Time.get_ticks_msec() - (ready[0] as Client).waiting_since >= fill:
+				_begin_game(ready, size)
+				ready = []
 		for c: Client in groups[key]:
 			if c.state == State.LOBBY and need > 2 and c.wait_shown != (groups[key] as Array).size():
 				c.wait_shown = (groups[key] as Array).size()
@@ -281,11 +315,13 @@ func _pair_waiting() -> void:
 
 
 ## `group`: the players in the order they arrived; they alternate sides, so in a room
-## the first two (the friend who made it and the next to join) face each other.
+## the first two (the friend who made it and the next to join) face each other. Fewer
+## than a full match: CPUs take the slots left over (fighters nobody picked, first).
 func _begin_game(group: Array, size: int) -> void:
 	var g := Game.new()
 	g.size = size
 	g.players.resize(size * 2)
+	var used := {}
 	for k in group.size():
 		var c: Client = group[k]
 		c.side = k % 2
@@ -293,37 +329,58 @@ func _begin_game(group: Array, size: int) -> void:
 		g.players[c.slot] = c
 		c.game = g
 		c.state = State.PLAYING
+		used[String(c.team[0])] = true
+	var pool: Array = MatchFactory.FIGHTERS.filter(func(f): return not used.has(f))
+	if pool.is_empty():
+		pool = MatchFactory.FIGHTERS.duplicate()
+	pool.shuffle()  # the server's choice, outside any match: randomness is fine
+	for slot in g.players.size():
+		if g.players[slot] == null:
+			g.cpu_fighters[slot] = String(pool[g.cpu_fighters.size() % pool.size()])
 	games.append(g)
 	_start(g)
 
 
 func _start(g: Game) -> void:
 	var rtts: Array = []
-	for c: Client in g.players:
-		if c.link.rtt_ms() > 0.0:
-			c.rtt = c.link.rtt_ms()
+	for c in g.players:
+		if c == null:
+			rtts.append(0.0)  # a CPU, on the server itself
+			continue
+		if (c as Client).link.rtt_ms() > 0.0:
+			c.rtt = (c as Client).link.rtt_ms()
 		rtts.append(c.rtt)
-	# The slowest path between two players picks everyone's input delay.
+	# The slowest path between two players picks everyone's input delay. A CPU's inputs
+	# go out from the server once the players' have arrived, so it counts as one more
+	# hop from there.
 	var sorted := rtts.duplicate()
 	sorted.sort()
 	var path: float = float(sorted[-1]) + float(sorted[-2])
+	if not g.cpu_fighters.is_empty():
+		path = maxf(path, float(sorted[-1]) * 2.0)
 	g.n += 1
 	g.delay = forced_delay if forced_delay >= 0 else Netplay.pick_delay(path)
 	g.rematch = []
-	g.rematch.resize(g.players.size())
-	g.rematch.fill(false)
+	for c in g.players:
+		g.rematch.append(c == null)  # CPUs always want a rematch
 	g.reported = false
 	var teams := [[], []]
 	if g.size == 1:
 		teams = [(g.players[0] as Client).team.duplicate(), (g.players[1] as Client).team.duplicate()]
 	else:
-		for c: Client in g.players:
-			(teams[c.side] as Array).append(String(c.team[0]))  # one fighter each
+		for slot in g.players.size():
+			var c = g.players[slot]
+			var fighter: String = String(g.cpu_fighters[slot]) if c == null else String(c.team[0])
+			(teams[slot / g.size] as Array).append(fighter)  # one fighter each
 	g.referee = Referee.new(teams, g.delay, g.size)
+	for slot in g.cpu_fighters:
+		g.referee.add_cpu(int(slot), cpu_level, g.label * 31 + int(slot) * 7 + g.n)
 	g.path_ms = Time.get_ticks_msec()
 	matches_started += 1
 	g.label = matches_started
-	for c: Client in g.players:
+	var cpu_slots: Array = g.cpu_fighters.keys()
+	cpu_slots.sort()
+	for c: Client in g.humans():
 		var worst := 0.0
 		for o: Client in g.others(c):
 			worst = maxf(worst, o.rtt)
@@ -333,13 +390,15 @@ func _start(g: Game) -> void:
 			m["slot"] = c.slot
 			m["size"] = g.size
 			m["vias"] = rtts
+			if not cpu_slots.is_empty():
+				m["cpu"] = cpu_slots
 		c.link.send(m, true)
 	var sides := ["", ""]
 	for side in 2:
 		var names := PackedStringArray()
-		for c: Client in g.players:
-			if c.side == side:
-				names.append(c.label())
+		for slot in range(side * g.size, (side + 1) * g.size):
+			var c = g.players[slot]
+			names.append("CPU (%s)" % g.cpu_fighters[slot] if c == null else (c as Client).label())
 		sides[side] = " + ".join(names)
 	_log("match %d started%s: %s vs %s, round trip %d ms, input delay %d" % [g.label,
 		" (rematch)" if g.n > 1 else "", sides[0], sides[1], roundi(path), g.delay])
@@ -347,6 +406,7 @@ func _start(g: Game) -> void:
 
 func _referee_step(g: Game, now: int) -> void:
 	g.referee.advance()
+	_send_cpu_inputs(g)
 	if g.referee.winner != -2 and not g.reported:
 		_report(g)
 	if now - g.path_ms >= PATH_EVERY_MS:
@@ -358,10 +418,29 @@ func _referee_step(g: Game, now: int) -> void:
 					c.link.send({"t": "path", "rtt": r}, true)
 		else:
 			var rtts: Array = []
-			for c: Client in g.players:
-				rtts.append(c.link.rtt_ms() if c.link.rtt_ms() > 0.0 else c.rtt)
-			for c: Client in g.players:
+			for c in g.players:
+				if c == null:
+					rtts.append(0.0)
+				else:
+					rtts.append((c as Client).link.rtt_ms() if (c as Client).link.rtt_ms() > 0.0 else c.rtt)
+			for c: Client in g.humans():
 				c.link.send({"t": "path", "rtts": rtts}, true)
+
+
+## The CPUs' new inputs, to every player (reliably: a CPU never resends). Each copy's
+## `ack` says how far the server has that player's own inputs, as a player's would.
+func _send_cpu_inputs(g: Game) -> void:
+	var out := g.referee.take_cpu_inputs()
+	for slot in out:
+		_send_inputs(g, int(slot), out[slot])
+
+
+func _send_inputs(g: Game, slot: int, pkt: Dictionary) -> void:
+	if (pkt["inputs"] as PackedInt32Array).is_empty():
+		return
+	for c: Client in g.humans():
+		c.link.send({"t": "in", "n": g.n, "p": slot, "first": int(pkt["first"]), "inputs": pkt["inputs"],
+			"ack": g.referee.have_upto(c.slot), "f": -1}, true)
 
 
 ## Logs how the match went, once.
@@ -384,7 +463,7 @@ func _report(g: Game) -> void:
 		how = "unfinished at frame %d" % r.frame
 	_log("match %d over: %s (%d fingerprints checked)" % [g.label, how, r.checked])
 	for side in r.desync.size():
-		if r.desync[side] >= 0:
+		if r.desync[side] >= 0 and g.players[side] != null:
 			_log("match %d: %s's game went out of sync at frame %d (a bug: their report is in their desyncs folder)"
 				% [g.label, (g.players[side] as Client).label(), r.desync[side]])
 
@@ -394,15 +473,17 @@ func _refuse(c: Client, why: String, msg: String) -> void:
 	_drop(c, "refused: " + why)
 
 
-## Removes a player; everyone else in their match (if any) is told, and their sessions
-## end too.
+## Removes a player. In a team battle with other players still in it, a CPU takes
+## their place; otherwise everyone else in their match is told, and their sessions end.
 func _drop(c: Client, why: String) -> void:
 	if not clients.has(c.id):
 		return
 	clients.erase(c.id)
 	_log("%s %s" % [c.label(), why])
 	var g := c.game
-	if g != null:
+	if g != null and g.size > 1 and not g.others(c).is_empty():
+		_cpu_takes_over(g, c)
+	elif g != null:
 		_report(g)
 		games.erase(g)
 		for o: Client in g.others(c):
@@ -417,6 +498,26 @@ func _drop(c: Client, why: String) -> void:
 	c.game = null
 	c.link.flush()
 	c.link.close()
+
+
+## A CPU plays `c`'s slot from the first frame nobody has their input for. Everyone
+## first gets every input of theirs the server knows (some may have missed the last
+## few), then the CPU's, like anyone's.
+func _cpu_takes_over(g: Game, c: Client) -> void:
+	var slot := c.slot
+	g.players[slot] = null
+	g.cpu_fighters[slot] = String(c.team[0])
+	g.rematch[slot] = true
+	g.referee.add_cpu(slot, cpu_level, g.label * 31 + slot * 7 + g.n)
+	for o: Client in g.others(c):
+		o.link.send({"t": "cpu", "n": g.n, "p": slot}, true)
+	for pkt in g.referee.inputs_since(slot, maxi(0, g.referee.frame - Referee.HISTORY)):
+		_send_inputs(g, slot, pkt)
+	_log("match %d: a CPU plays %s's slot" % [g.label, c.label()])
+	c.game = null
+	if not (false in g.rematch):
+		_report(g)
+		_start(g)
 
 
 func _log(s: String) -> void:
