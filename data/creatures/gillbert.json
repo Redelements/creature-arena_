@@ -16,6 +16,7 @@
   "fx_height": 12,
   "fx_top": 26,
   "fx_color": "#b4e626",
+  "surge_aura": {"colors": ["#139c9c", "#b4e626", "#f4ffd2"], "motes": "bubbles", "spikes": 8, "sharp": 0.4, "speed": 1.7, "height": 0.9},
   "cut_in_frame": [8, 2],
   "ko_fx": { "style": "flop" },
   "step_sound": { "sound": "flop", "every": 20, "volume_db": -8 },

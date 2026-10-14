@@ -16,6 +16,7 @@
   "fx_height": 26,
   "fx_top": 58,
   "fx_color": "#b56664",
+  "surge_aura": {"colors": ["#2b8a37", "#8ed850", "#ecffc4"], "motes": "leaves", "spikes": 6, "sharp": 0.6, "speed": 0.8, "height": 1.05},
   "cut_in_frame": [8, 2],
   "ko_fx": { "style": "timber", "length": 52 },
   "sprite": {

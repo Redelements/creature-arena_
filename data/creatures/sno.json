@@ -16,6 +16,7 @@
   "fx_height": 22,
   "fx_top": 44,
   "fx_color": "#8fe3f0",
+  "surge_aura": {"colors": ["#4aa8e0", "#bdf1ff", "#ffffff"], "motes": "flakes", "spikes": 10, "sharp": 1.0, "speed": 0.85, "height": 1.05},
   "cut_in_frame": [8, 4],
   "ko_fx": { "style": "melt" },
   "sprite": {

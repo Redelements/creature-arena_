@@ -812,6 +812,40 @@ def warp():
     return mix(at(rise, 0.0, d), at(shimmer, 0.0, d), at(pop, 0.17, d))
 
 
+def surge_ready_ally():
+    """Your (or your team's) Surge is ready: a rising power-up whoosh that blooms into a
+    bright major chord with a sparkle on top. It should feel like a reward."""
+    d = 1.0
+    whoosh = bandpass(noise(0.55), 300, 3500)
+    whoosh = lowpass(whoosh, sweep(500, 6000, 0.55, 1.6)) * env(0.55, attack=0.45, curve=1.2) * 0.55
+    hum = osc(sweep(110, 220, 0.55, 1.5), 0.55, "saw")
+    hum = lowpass(hum, 900) * env(0.55, attack=0.4, curve=1.0) * 0.25
+    chord = np.zeros(int(SR * 0.6))
+    for f in (523.25, 659.25, 783.99, 1046.5):  # C major, bright
+        chord = chord + osc(f, 0.6, "square", 0.3) * 0.12 + osc(f * 1.003, 0.6, "sine") * 0.12
+    chord = chord * env(0.6, attack=0.01, curve=2.2)
+    sparkle = np.zeros(int(SR * 0.45))
+    for i, f in enumerate((2093, 2637, 3136, 4186)):
+        sparkle = sparkle + at(osc(f, 0.12, "sine") * env(0.12, curve=3.0) * 0.18, i * 0.05, 0.45)
+    return mix(at(whoosh, 0.0, d), at(hum, 0.0, d), at(chord, 0.42, d), at(sparkle, 0.48, d))
+
+
+def surge_ready_foe():
+    """An opponent's Surge is ready: a low, uneasy swell of two clashing notes that throbs,
+    then a dark gong. A warning, not a reward."""
+    d = 1.1
+    throb = osc(9, 0.7, "sine") * 0.35 + 0.65
+    a = osc(sweep(98, 92, 0.7), 0.7, "saw")
+    b = osc(sweep(104, 97, 0.7), 0.7, "saw")  # a semitone above: it grinds
+    growl = lowpass(a + b, 700) * throb * env(0.7, attack=0.35, curve=1.3) * 0.35
+    rumble = lowpass(noise(0.7), 180) * env(0.7, attack=0.3, curve=1.3) * 0.6
+    gong_d = 0.7
+    gong = (osc(73.4, gong_d) + osc(73.4 * 2.41, gong_d) * 0.5 + osc(73.4 * 3.9, gong_d) * 0.25)
+    gong = gong * env(gong_d, attack=0.003, curve=2.6) * 0.5
+    sting = osc(sweep(330, 311, 0.25), 0.25, "square", 0.4) * env(0.25, curve=2.0) * 0.12
+    return mix(at(growl, 0.0, d), at(rumble, 0.0, d), at(gong, 0.38, d), at(sting, 0.4, d))
+
+
 # Added after the first batch, so they're generated last and the older placeholders
 # (which share one random stream) come out the same as before.
 NEW_SOUNDS = {
@@ -827,6 +861,7 @@ NEW_SOUNDS = {
     "coins": coins, "poof": poof, "finders": finders,
     "freeze": freeze, "shards": shards, "slosh": slosh, "melt": melt, "chill": chill,
     "warp": warp,
+    "surge_ready_ally": surge_ready_ally, "surge_ready_foe": surge_ready_foe,
 }
 
 

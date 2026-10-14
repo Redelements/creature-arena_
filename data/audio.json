@@ -361,6 +361,16 @@
       "file": "res://assets/audio/chill.wav",
       "volume_db": -3,
       "pitch_jitter": 0.0
+    },
+    "surge_ready_ally": {
+      "file": "res://assets/audio/surge_ready_ally.wav",
+      "volume_db": -6,
+      "pitch_jitter": 0.0
+    },
+    "surge_ready_foe": {
+      "file": "res://assets/audio/surge_ready_foe.wav",
+      "volume_db": -4,
+      "pitch_jitter": 0.0
     }
   }
 }

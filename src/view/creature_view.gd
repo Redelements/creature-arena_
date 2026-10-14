@@ -49,6 +49,11 @@ var _sq_vel := Vector2.ZERO
 var _prev_state := -1
 var _prev_seg := -1
 var _prev_flash := 0
+## The power-up aura while the Surge is ready: one layer behind the sprite, one in front.
+var aura := SurgeAura.new()
+var aura_front := SurgeAura.new()
+
+const RIM_STONE := Color(0.85, 0.85, 0.88)
 
 
 func setup(creature: CreatureSim) -> void:
@@ -56,7 +61,11 @@ func setup(creature: CreatureSim) -> void:
 	sprite.material = mat
 	sprite.centered = false
 	add_child(pivot)
+	aura_front.front = true
+	aura.twin = aura_front
+	pivot.add_child(aura)
 	pivot.add_child(sprite)
+	pivot.add_child(aura_front)
 	rebind(creature)
 
 
@@ -82,6 +91,8 @@ func rebind(creature: CreatureSim) -> void:
 	_cur = {}
 	view = "side"
 	flip = c.facing.x < -0.1
+	aura.bind(c)
+	aura_front.bind(c)
 	refresh()
 
 
@@ -182,11 +193,18 @@ func refresh() -> void:
 		flash_amt = 0.6 if (c.anim_t / 2) % 2 == 0 else 0.25
 	mat.set_shader_parameter("flash", flash_amt)
 	mat.set_shader_parameter("flash_color", flash_col)
-	# Stoneskin: a pale stone rim around the silhouette while the shield holds.
+	# Stoneskin: a pale stone rim around the silhouette while the shield holds. Otherwise,
+	# with the Surge ready, a rim in the fighter's aura colour.
+	aura.step()
 	var rim := 0.0
+	var rim_col := RIM_STONE
 	if c.shield > 0.0 and c.state != CreatureSim.State.KO:
 		rim = 0.75 + 0.2 * sin(c.anim_t * 0.15)
+	elif aura.rim() > 0.0:
+		rim = aura.rim()
+		rim_col = aura.rim_color()
 	mat.set_shader_parameter("rim", rim)
+	mat.set_shader_parameter("rim_color", rim_col)
 	# Petrified: grey stone until the statue shatters or wears off (flickering at the end).
 	var stone := 0.0
 	if c.stone > 0 and c.state != CreatureSim.State.KO:

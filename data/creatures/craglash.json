@@ -32,6 +32,7 @@
   "fx_height": 24,
   "fx_top": 56,
   "fx_color": "#b5665f",
+  "surge_aura": {"colors": ["#a3221a", "#ff6a14", "#ffd27a"], "motes": "embers", "spikes": 5, "sharp": 1.0, "speed": 0.7, "height": 1.25},
   "cut_in_frame": [
     8,
     2

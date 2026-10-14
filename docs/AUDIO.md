@@ -52,6 +52,8 @@ buses at start-up; `play(name, ..., ui = true)` sends a sound to Menu sounds.
 | [ ] | `geysers` | Storm Drain's geysers erupt | Water jets |
 | [ ] | `spire` | Avalanche's rock spire erupts | Rock bursting from the ground |
 | [ ] | `surge` | Surge cut-in | Rising "super move" sting |
+| [ ] | `surge_ready_ally` | Your (or your team's) Surge meter fills | A rewarding power-up: rising whoosh into a bright chord |
+| [ ] | `surge_ready_foe` | An opponent's Surge meter fills | A warning: low, uneasy swell and a dark gong |
 | [ ] | `crowd_cheer` | Big hits, Surges, guard breaks | Stadium cheer, short |
 | [ ] | `crowd_roar` | Knockouts | Full stadium roar |
 | [ ] | `ui_move` | Menu cursor moves | Small blip |

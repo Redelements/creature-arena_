@@ -243,7 +243,10 @@ combo does half damage, hitstun shrinks with every hit, launched targets take at
 juggle moves, and a stunned fighter can spend 50 energy on a **breakaway**.
 
 Energy fills as you deal and take damage (about one Surge per round). A Surge's own hits
-never charge the next Surge.
+never charge the next Surge. When a meter fills, that fighter bursts into a **power-up
+aura** in their own colours (pillars of light, then a flickering flame shell and their
+own motes: Cairn's stones, Sno's snowflakes, Pete's gold glints...) that stays until the
+Surge is spent. Your side hears a rising power-up; the other side's sounds a low warning.
 
 ### The arena
 
