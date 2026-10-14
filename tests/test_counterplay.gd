@@ -94,11 +94,12 @@ func test_a_jab_interrupts_a_raw_grab() -> void:
 
 
 func test_reacting_to_a_raw_grab_with_a_dodge_works() -> void:
+	# Gulp's tongue chases down the lane, so the roll goes sideways, out of it.
 	var sim := _duel("cairn", "culvert")
 	var cairn := sim.creatures[0]
 	sim.step(PackedInt32Array([0, S1]))
 	run(sim, 0, REACTION - 3)  # reaction time, then press dodge (input lag included)
-	sim.step(PackedInt32Array([D | SimDefs.IN_LEFT, 0]))
+	sim.step(PackedInt32Array([D | SimDefs.IN_UP, 0]))
 	var grabbed := false
 	for i in 60:
 		sim.step(PackedInt32Array([0, 0]))

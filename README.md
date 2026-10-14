@@ -357,13 +357,14 @@ dodge pressed during the freeze comes out the moment it ends.
 | Button | Move | What it does |
 | --- | --- | --- |
 | Light | Jab, Jab, Hook | Slow, heavy string; the Hook can wall-bounce |
-| Heavy | Slam | Cracks a block of floor 4 cells by 3 in front of him (the same block wherever it lands; a second Slam there opens it into a rectangular pit); a full charge opens it at once. Breaks guard. His pits stay open 18 s, half as long again as anyone else's |
-| Skill 1 | Gulp | Unblockable grab; spits the target out behind Culvert |
+| Heavy | Slam | Cracks a block of floor 3 cells deep by 4 across **in front of him, clear of his own feet** (a wall across his facing; the same block wherever it lands; a second Slam there opens it into a rectangular pit); a full charge opens it at once. Breaks guard. His pits stay open 18 s, half as long again as anyone else's |
+| Skill 1 | Gulp | His **tongue shoots out about 85 px** (three times the old reach) at a moderate speed, red tell, can't be blocked. **Tapped: a hook** that stuns whoever it catches and **hauls them in** to him, like a grappling hook. **Held: he swallows them**, carries them over his head and spits them out behind him (12 damage, where the hook does 6). The tongue chases down its lane, so **sidestep it** or roll through; rolling straight away doesn't outrun it |
 | Skill 2 | Runoff | A sheet of water in a cone in front of him: hits everything in it and **pushes it back** a short way, buying time to break up more floor |
 | Surge | Storm Drain | Leaping slam that hits all around and leaves a ring of pits (18 s, like his Slam's) |
 
 A squat toad cast in storm-drain concrete: amber eyes, a mouth that opens into a drain
 with iron bars across the jaw, a manhole cover on his back, and big back legs he hops on.
+His roll covers twice the ground of anyone else's in the same 20 frames.
 
 ![Culvert's showcase](docs/culvert_demo.gif)
 

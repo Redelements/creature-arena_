@@ -221,6 +221,8 @@ func on_event(e: Dictionary) -> void:
 				play("wave")
 		"burst":
 			play("pinecone")
+		"hook":
+			play("grab", 0.0, 1.3)
 		"pull":
 			play("snag")
 		"reel":

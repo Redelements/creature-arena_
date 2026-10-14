@@ -155,7 +155,11 @@ tools/      gen_sprites.py, gen_audio.py (placeholders); gen_culvert.py and gen_
   projectile with `pull` + `launch` (drawn as his neck, fx projectile "head"). Class
   balance (mirrors even, assassin > mage > fighter/tank > assassin) is measured Rage vs
   Rage with `tests/bench_cpu.gd --matrix` / `--pairs` and pinned by `tests/test_balance.gd`;
-  a `tell` of `guard_break`/`unblockable` draws the red warning. Floor damage: a slam's
+  a `tell` of `guard_break`/`unblockable` draws the red warning. A charged move's
+  `"hold": {...}` overrides any hit value once fully held (Culvert's Gulp: a `grab` with
+  `pull` is a hook that stuns and hauls the target in, emitting `hook`; held, it swaps
+  to `flip`, the swallow). Red-tell counterplay: roll away, but sideways out of a hook's
+  lane (`tests/test_trials.gd` does both). Floor damage: a slam's
   `terrain_rect` [w, h] breaks a fixed block of cells (snapped to the grid; a plain hit
   cracks it, a second or a full charge opens it) instead of `terrain_radius`; any
   terrain move's `terrain_heal` scales how long its damage lasts (Culvert 1.5); a

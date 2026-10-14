@@ -214,6 +214,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		emit_event("miss", fx_pos, 0.0, {"who": a.id, "target": d.id})
 		return "miss"
 	var same_attack := a.attack_serial == int(hit["serial"]) and a.state == CreatureSim.State.ATTACK
+	var hooked := false
 
 	# Slip: a strike inside the counter window is dodged and answered. Grabs beat it.
 	if not bool(hit["grab"]) and d.in_counter_window():
@@ -366,6 +367,11 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	elif bool(hit["grab"]) and float(hit.get("flip", 0.0)) > 0.0:
 		_flip(a, d, hit)
 		emit_event("grab", a.pos + Vector2(0, -20), total, {"attacker": a.id, "target": d.id, "flip": true})
+	elif bool(hit["grab"]) and float(hit.get("pull", 0.0)) > 0.0:
+		# A hook (Culvert's tongue, tapped): the target is stunned and hauled in to him.
+		hooked = true
+		d.enter_hitstun(stun, Vector2.ZERO)
+		emit_event("hook", d.pos + Vector2(0, -12), total, {"attacker": a.id, "target": d.id})
 	elif bool(hit["grab"]):
 		# Swallow and spit out behind the attacker.
 		d.pos = a.pos - a.facing * (a.radius + d.radius + 6.0)
@@ -393,11 +399,12 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	# attacker's body. Knockback slows by a fixed factor each tick, so the starting speed
 	# that covers a distance is that distance times (1 - friction).
 	var pull := float(hit.get("pull", 0.0))
-	if pull > 0.0 and not bool(hit["grab"]) and d.pos.distance_squared_to(a.pos) > 0.0001:
+	if pull > 0.0 and (hooked or not bool(hit["grab"])) and d.pos.distance_squared_to(a.pos) > 0.0001:
 		var gap := d.pos.distance_to(a.pos) - (a.radius + d.radius + pull)
 		var fr := CreatureSim.AIR_FRICTION if d.is_airborne() else CreatureSim.FRICTION
 		d.knock_vel = (a.pos - d.pos).normalized() * maxf(0.0, gap) * (1.0 - fr)
-		emit_event("pull", d.pos, gap, {"attacker": a.id, "target": d.id})
+		if not hooked:  # a hook has its own event (the tongue snapping back)
+			emit_event("pull", d.pos, gap, {"attacker": a.id, "target": d.id})
 	# A reel (Cast Line) is the other way round: the attacker is hauled in to the target.
 	var reel := float(hit.get("reel", 0.0))
 	if reel > 0.0 and same_attack and d.pos.distance_squared_to(a.pos) > 0.0001:

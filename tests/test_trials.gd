@@ -76,7 +76,11 @@ func _drill(set_name: String, answer: bool) -> ReactionDrill:
 				react_at = sim.tick + 12  # a human-ish 12 frames later
 		if answer and react_at >= 0 and sim.tick >= react_at and d.phase == ReactionDrill.Phase.ATTACK:
 			if tell in ["unblockable", "guard_break"]:
-				bits = SimDefs.IN_DODGE | SimDefs.IN_LEFT if sim.tick == react_at else SimDefs.IN_LEFT
+				# Roll away from a red tell; sideways out of a hook's lane (Gulp's tongue).
+				var side := sim.creatures[1].state == CreatureSim.State.ATTACK \
+					and sim.creatures[1].move_def().has("projectile")
+				var dir := SimDefs.IN_UP if side else SimDefs.IN_LEFT
+				bits = SimDefs.IN_DODGE | dir if sim.tick == react_at else dir
 			else:
 				bits = SimDefs.IN_GUARD
 		if d.phase != ReactionDrill.Phase.ATTACK:

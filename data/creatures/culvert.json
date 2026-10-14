@@ -10,7 +10,7 @@
   "weight": 1.4,
   "stamina": 100,
   "stamina_regen": 0.45,
-  "dodge": { "frames": 20, "iframes_start": 2, "iframes_end": 13, "speed": 3.0, "cost": 28 },
+  "dodge": { "frames": 20, "iframes_start": 2, "iframes_end": 13, "speed": 6.0, "cost": 28 },
   "guard": { "reduction": 0.8, "drain_per_damage": 2.0, "speed_mult": 0.35, "break_stun": 55 },
   "fx_height": 14,
   "fx_top": 24,
@@ -94,17 +94,21 @@
       "knockback": 2.2, "knockback_charged": 7.0,
       "hitstun": 34, "hitstun_charged": 40,
       "hitstop": 8, "hitstop_charged": 14,
-      "reach": 20, "hit_radius": 18, "guard_break": true, "juggle": true,
-      "terrain_rect": [4, 3], "terrain_heal": 1.5,
+      "reach": 30, "hit_radius": 20, "guard_break": true, "juggle": true,
+      "terrain_rect": [3, 4], "terrain_heal": 1.5,
       "lunge": 0,
       "fx": { "charge": "drips" }
     },
     "skill_1": {
-      "name": "Gulp", "anim": "gulp", "anim_at": [[0, 0], [3, 1], [7, 2], [14, 3]], "windup": 12, "tell": "unblockable", "cooldown": 300,
-      "startup": 6, "active": 4, "recovery": 24,
-      "damage": 12, "knockback": 1.5, "knockdown": 30, "hitstop": 10,
-      "reach": 14, "hit_radius": 12, "grab": true, "lunge": 1.0,
-      "fx": { "suction": true }
+      "name": "Gulp", "anim": "gulp", "anim_at": [[0, 1], [6, 2], [16, 3]],
+      "windup": 12, "tell": "unblockable", "cooldown": 300,
+      "charge_max": 20, "startup": 6, "active": 0, "recovery": 24,
+      "damage": 6, "hitstun": 34, "knockback": 0.0, "hitstop": 8,
+      "grab": true, "pull": 2,
+      "hold": { "damage": 12, "pull": 0, "flip": 6, "launch": 30, "hitstop": 10 },
+      "projectile": { "speed": 5.0, "life": 13, "radius": 8, "offset": 14, "crack_trail": false,
+        "sound": "gulp", "end_sound": "grab" },
+      "fx": { "projectile": "tongue", "suction": true }
     },
     "skill_2": {
       "name": "Runoff", "anim": "runoff", "anim_at": [[0, 0], [4, 1], [9, 2], [17, 3]], "windup": 6, "tell": "strong", "cooldown": 240,

@@ -108,6 +108,8 @@ const C_LEAF: Array[Color] = [Color("16784a"), Color("28b450"), Color("96dcaa")]
 const C_WOOD: Array[Color] = [Color("623736"), Color("804846"), Color("a0625c"), Color("b56664")]
 const C_CONE: Array[Color] = [Color("603820"), Color("966034"), Color("c48c54")]
 const C_PSY := Color("d58cff")
+const C_TONGUE := Color("c45c6e")
+const C_TONGUE_L := Color("e2828f")
 ## How high Chef Cerebro's thrown kitchen flies: from over his floating brain.
 const THROW_Z := 18.0
 const C_TENDER := Color("ff8fa3")
@@ -324,6 +326,18 @@ func spawn(e: Dictionary) -> void:
 				_text(c.pos + Vector2(0, -_top(c) + 2), "BEDROCK!", C_AMBER, 9, 40.0)
 				_slam_debris(c.pos, false)
 				shake_out = maxf(shake_out, 2.0)
+		"hook":
+			# Gulp's tongue lands: it snaps back to Culvert, dragging the target along.
+			var a := _creature(int(e.get("attacker", -1)))
+			var tgt := _creature(int(e.get("target", -1)))
+			if a != null and tgt != null:
+				var from := tgt.pos + Vector2(0, -_chest(tgt))
+				var to := a.pos + a.facing * 10.0 + Vector2(0, -_chest(a) + 2.0)
+				_add({"kind": "streak", "a": from, "b": to, "life": 7, "color": C_TONGUE})
+				_text(tgt.pos + Vector2(0, -_top(tgt) - 10), "HOOKED!", C_TONGUE_L, 8, 44.0)
+				for i in 4:
+					_px(from, (to - from).normalized() * randf_range(1.0, 2.0) + Vector2(randf_range(-0.5, 0.5), -0.5),
+						C_TONGUE_L, 10)
 		"pull":
 			# Branch Grab snags: a streak back toward Barkley and a few leaves torn off.
 			var a := _creature(int(e.get("attacker", -1)))
@@ -2155,6 +2169,8 @@ func _draw_projectiles(ci: CanvasItem) -> void:
 					_draw_venom(ci, pr)
 				"head":
 					_draw_long_bite(ci, pr)
+				"tongue":
+					_draw_tongue(ci, pr)
 				_:
 					_draw_thrown_rod(ci, pr)
 			continue
@@ -2174,6 +2190,34 @@ func _proj_kind(pr: Dictionary) -> String:
 		return "rod"
 	var mv: Dictionary = owner.moves().get(String(pr["move"]), {})
 	return String(mv.get("fx", {}).get("projectile", "rod"))
+
+
+## Gulp in flight: Culvert's tongue, stretched from his open mouth to a round tip, with
+## a few drops flung off it.
+func _draw_tongue(ci: CanvasItem, pr: Dictionary) -> void:
+	var owner := _creature(int(pr["owner"]))
+	var pp: Vector2 = Vector2(pr["pos"]).round()
+	var tip := pp + Vector2(0, -12)
+	ci.draw_set_transform(pp, 0.0, Vector2(1.0, 0.4))
+	ci.draw_circle(Vector2.ZERO, 4.0, Color(0, 0, 0, 0.25))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	if owner != null:
+		var mouth := owner.pos + owner.facing * 10.0 + Vector2(0, -_chest(owner) + 2.0)
+		var n := maxi(2, int(mouth.distance_to(tip) / 4.0))
+		for i in n + 1:
+			var k := float(i) / n
+			var at := mouth.lerp(tip, k) + Vector2(0, sin(k * PI) * -3.0)
+			var w := 3.0 - k * 0.8
+			ci.draw_circle(at, w + 1.0, C_OUTLINE)
+		for i in n + 1:
+			var k := float(i) / n
+			var at := mouth.lerp(tip, k) + Vector2(0, sin(k * PI) * -3.0)
+			ci.draw_circle(at, 3.0 - k * 0.8, C_TONGUE)
+		if (_tick / 2) % 2 == 0:
+			ci.draw_rect(Rect2((mouth.lerp(tip, 0.6) + Vector2(0, -4)).round(), Vector2.ONE), C_TONGUE_L)
+	ci.draw_circle(tip, 5.0, C_OUTLINE)
+	ci.draw_circle(tip, 4.0, C_TONGUE)
+	ci.draw_circle(tip + Vector2(-1, -1), 1.3, C_TONGUE_L)
 
 
 ## Mountain Maw in flight: Craglash's stone neck stretched out from his shoulders to the
