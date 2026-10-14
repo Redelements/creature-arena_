@@ -217,7 +217,9 @@ func _resolve_hits() -> void:
 
 ## Resolves one hit: Slip counters, guarding, then damage with the combo rules.
 ## Returns "slip", "block" or "hit".
-func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, fx_pos: Vector2) -> String:
+## `ranged`: the hit came from a projectile or a lob, not a strike in reach.
+func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, fx_pos: Vector2,
+		ranged := false) -> String:
 	# Blinded when the attack started (Headlamp Flash): it misses.
 	if a.whiff_serial > 0 and int(hit["serial"]) == a.whiff_serial:
 		emit_event("miss", fx_pos, 0.0, {"who": a.id, "target": d.id})
@@ -339,8 +341,8 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		d.poison_by = a.id
 		emit_event("poisoned", d.pos, float(hit["poison_ticks"]), {"who": d.id, "by": a.id})
 
-	if d.stealth > 0 and not bool(hit["no_flinch"]):
-		d.stealth = 0  # caught: visible again (a knife flick that doesn't stagger isn't enough)
+	if d.stealth > 0 and not (bool(hit["no_flinch"]) and ranged):
+		d.stealth = 0  # caught: visible again (a thrown knife flick that doesn't stagger isn't enough)
 		emit_event("unstealth", d.pos, 0.0, {"who": d.id})
 	if float(hit.get("steal_ticks", 0.0)) > 0.0:
 		var st := float(hit["steal"])
@@ -361,7 +363,11 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		d.vuln_mult = float(hit["vuln_mult"])
 		emit_event("tenderized", d.pos, float(hit["vuln_ticks"]), {"who": d.id})
 
-	if no_flinch:
+	if no_flinch and d.is_winding_up() and not ranged:
+		# A jab doesn't stagger, but it still beats a big move's windup: hitting first stays
+		# a counter to the red and gold tells. Thrown flicks don't.
+		d.enter_hitstun(int(hit["hitstun"]), Vector2.ZERO)
+	elif no_flinch:
 		if not was_stunned:
 			d.reset_combo()
 	elif float(hit.get("petrify", 0.0)) > 0.0 or float(hit.get("freeze_ticks", 0.0)) > 0.0:
@@ -588,7 +594,7 @@ func _step_projectiles() -> void:
 			if pos.distance_to(d.pos) > float(p["radius"]) + d.radius:
 				continue
 			var vel: Vector2 = p["vel"]
-			_apply_hit(owner, d, hit, vel.normalized(), pos + Vector2(0, -10))
+			_apply_hit(owner, d, hit, vel.normalized(), pos + Vector2(0, -10), true)
 			if pierce:
 				(p["struck"] as Array).append(d.id)
 				emit_event("projectile_pierce", pos, 1.0, {"who": int(p["owner"]), "sound": String(p.get("end_sound", ""))})
@@ -617,7 +623,7 @@ func _burst(p: Dictionary) -> void:
 			continue
 		var push := d.pos - at
 		push = push.normalized() if push.length_squared() > 0.0001 else Vector2(p["vel"]).normalized()
-		_apply_hit(owner, d, hit, push, d.pos + Vector2(0, -10))
+		_apply_hit(owner, d, hit, push, d.pos + Vector2(0, -10), true)
 		landed += 1
 	emit_event("burst", at, float(p["burst"]), {"who": owner.id, "landed": landed})
 

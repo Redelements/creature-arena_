@@ -66,6 +66,7 @@
       "fx": { "smear": "thrust", "size": 1.5, "afterimage": [0, 12], "ghost_color": "#ffcf9eaa" }
     },
     "light_1": {
+      "no_flinch": true,
       "name": "Jab", "anim": "jab",
       "startup": 4, "active": 2, "recovery": 9, "cancel_from": 7,
       "damage": 3, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
@@ -73,6 +74,7 @@
       "fx": { "smear": "thrust" }
     },
     "light_2": {
+      "no_flinch": true,
       "name": "Jab", "anim": "jab",
       "startup": 4, "active": 2, "recovery": 9, "cancel_from": 7,
       "damage": 3, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
@@ -80,6 +82,7 @@
       "fx": { "smear": "thrust" }
     },
     "light_3": {
+      "no_flinch": true,
       "name": "Cross", "anim": "power",
       "startup": 5, "active": 3, "recovery": 11, "cancel_from": 9,
       "damage": 5, "knockback": 1.0, "hitstun": 20, "hitstop": 5,

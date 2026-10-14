@@ -78,8 +78,12 @@ func run_until_free(d: DuelSim, side: int) -> void:
 
 func test_no_tag_while_stunned() -> void:
 	var d := _duel()
-	_press(d, 0, L)  # the right side jabs the left
-	_until(d, func(): return d.active_creature(0).is_stunned(), 20)
+	# The right side runs its light string into the left (the first two jabs only deal
+	# damage; the third staggers).
+	for i in 80:
+		d.step(PackedInt32Array([0, L if i % 2 == 0 else 0]))
+		if d.active_creature(0).is_stunned():
+			break
 	assert_true(d.active_creature(0).is_stunned(), "left side is in hitstun")
 	assert_false(d.can_tag(0), "can't tag out of hitstun")
 

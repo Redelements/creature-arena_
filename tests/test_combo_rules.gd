@@ -175,11 +175,11 @@ func test_skills_have_cooldowns() -> void:
 
 
 func test_breakaway_escapes_a_combo() -> void:
-	var sim := _duel("culvert", "cairn")
+	var sim := _duel("craglash", "cairn")  # his lights stagger on every hit
 	var d := sim.creatures[1]
 	d.energy = 60.0
 	var press := true
-	for i in 80:  # mash lights until the third hit lands
+	for i in 120:  # mash lights until the third hit lands
 		run(sim, L if press else 0, 1)
 		press = not press
 		if d.combo_hits >= 3:
@@ -195,10 +195,10 @@ func test_breakaway_escapes_a_combo() -> void:
 
 
 func test_breakaway_not_on_the_first_hits() -> void:
-	var sim := _duel("culvert", "cairn")
+	var sim := _duel("craglash", "cairn")  # his lights stagger on every hit
 	var d := sim.creatures[1]
 	d.energy = 100.0
-	tap(sim, L, 6)
+	tap(sim, L, 12)
 	assert_eq(d.combo_hits, 1, "one hit:")
 	run(sim, 0, 1, G | D)
 	assert_true(d.is_stunned(), "still stunned after one hit")
@@ -281,3 +281,25 @@ func test_launch_ends_in_knockdown() -> void:
 	var back := run_until(sim, func(): return d.state == CreatureSim.State.IDLE, 60)
 	assert_true(back, "gets back up")
 	assert_eq(d.combo_hits, 0, "combo over:")
+
+
+func test_only_the_last_hit_of_each_light_string_staggers() -> void:
+	# Every fighter's light string: the hits before the last only deal damage; the last
+	# staggers. Craglash is the exception: every hit of his slower string staggers.
+	for id in MatchFactory.FIGHTERS:
+		var moves: Dictionary = MatchFactory.load_def(id)["moves"]
+		var chain: Array = []
+		var mv := "light_1"
+		while mv != "" and moves.has(mv):
+			chain.append(mv)
+			mv = String(moves[mv].get("next", ""))
+		assert_gt(float(chain.size()), 1.0, id + " has a light string")
+		for k in chain.size():
+			var nf := bool(moves[chain[k]].get("no_flinch", false))
+			var last := k == chain.size() - 1
+			if id == "craglash":
+				assert_false(nf, "Craglash's %s staggers" % chain[k])
+			elif last:
+				assert_false(nf, "%s's last light (%s) staggers" % [id, chain[k]])
+			else:
+				assert_true(nf, "%s's %s only deals damage" % [id, chain[k]])

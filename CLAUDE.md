@@ -146,7 +146,10 @@ tools/      gen_sprites.py, gen_audio.py (placeholders); gen_culvert.py and gen_
   it to face a foe roughly ahead, re-aimed for each throw of a volley (Knife Flurry). A
   blocked third light can't cancel and leaves the attacker `BLOCKED_ENDER_DISADVANTAGE`
   ticks behind; a Surge's hits give its user no energy; `"no_flinch"` hits only deal
-  damage (no hitstun, no knockback, no new combo on a free foe: Chef Cerebro's knife flicks). A Skill
+  damage (no hitstun, no knockback, no new combo on a free foe: Chef Cerebro's knife flicks,
+  and **the first hits of every light string**: only the last hit staggers, except Craglash,
+  whose slower string staggers on every hit). A melee `no_flinch` hit still interrupts a
+  windup and reveals a stealthed foe; a `ranged` one (projectile or lob) does neither. A Skill
   can charge too (`charge_max` charges on its own button); a lob's `range_charged` is how far
   a full hold throws it, and `aim` also snaps on release (Pinecone Bomb). Craglash is a crowd-control
   tank: Landslide Charge (a dash with a 15-tick `crumple`), Bedrock's taunt drags foes in

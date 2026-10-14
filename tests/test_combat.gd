@@ -51,7 +51,10 @@ func test_light_combo_counts_consecutive_hits() -> void:
 	for i in 80:  # long enough for the finisher's hitstop + hitstun to finish
 		run(sim, 0, 1)
 		max_combo = maxi(max_combo, d.combo_hits)
-	assert_eq(max_combo, 3, "combo counter:")
+	# The first two jabs only deal damage (no stagger, no combo); the third hit staggers
+	# and starts the combo.
+	assert_eq(max_combo, 1, "combo counter: only the third hit counts:")
+	assert_lt(d.hp, d.max_hp - 15.0, "but all three hits did damage:")
 	assert_eq(d.combo_hits, 0, "combo resets once the dummy recovers:")
 
 
@@ -158,10 +161,18 @@ func test_knockback_into_a_hole_causes_a_fall() -> void:
 		for r in sim.terrain.rows:
 			sim.terrain.set_cell(Vector2i(x, r), TerrainGrid.HOLE)  # just behind the dummy
 	run(sim, L, 1)
-	var fell := run_until(sim, func(): return d.state == CreatureSim.State.FALLING, 60)
-	assert_true(fell, "jab knockback should push the dummy into the hole")
+	run(sim, 0, 12)
+	assert_true(d.state != CreatureSim.State.FALLING and d.state != CreatureSim.State.HITSTUN,
+		"a jab doesn't stagger or push any more")
+	var fell := false
+	for i in 120:  # mash the string
+		run(sim, L if i % 2 == 0 else 0, 1)
+		if d.state == CreatureSim.State.FALLING:
+			fell = true
+			break
+	assert_true(fell, "the string's third hit knocks the dummy into the hole")
 	run(sim, 0, 80)
-	assert_near(d.hp, d.max_hp - 4.0 - CreatureSim.FALL_DAMAGE, 0.001, "jab + fall damage:")
+	assert_lt(d.hp, d.max_hp - CreatureSim.FALL_DAMAGE, "the hits and the fall both hurt:")
 
 
 func test_hard_knockback_bounces_off_the_wall() -> void:

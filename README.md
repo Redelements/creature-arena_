@@ -239,7 +239,12 @@ F4 reset training, F6 save a replay, M mute music.
 ## How combat works
 
 Every fighter has five attack types, ranked: **Light (1) → Heavy (2) → Skill (3) → Surge (4)**.
-Lights chain into the next light in their string. Any move that **hits or is blocked** can
+Lights chain into the next light in their string. **Only the last hit of a light string
+staggers** (the third; Cairn's Hook, the fourth): the hits before it only deal damage, with no
+hitstun, no push and no combo started, so the other fighter can answer between them.
+Craglash is the exception: every hit of his slower string staggers. A jab still interrupts a
+big move's windup, and still catches an invisible Pete; thrown knife flicks do neither.
+Any move that **hits or is blocked** can
 cancel into a move of a higher rank, so combos climb the ranks. The exception: a **blocked
 third light** (or later) can't be cancelled, and leaves the attacker at least 16 frames
 behind the blocker ("OPEN!" pops up over them), time enough to punish with a jab.
@@ -386,7 +391,7 @@ them, and bites from across the arena.
 
 | Button | Move | What it does |
 | --- | --- | --- |
-| Light | Rake, Backhand, Headbutt | Two claw swipes, then the neck snaps the head forward. **Slow and heavy** (7, 7 and 10 frames to hit, against 4–5 for most fighters) but they hit harder |
+| Light | Rake, Backhand, Headbutt | Two claw swipes, then the neck snaps the head forward. **Slow and heavy** (9, 8 and 12 frames to hit, against 4–5 for most fighters) but they hit harder, and **every hit staggers** (the only string that does) |
 | Heavy | Rockslide Stomp | Slams the ground and knocks up everyone close, all around him. **Armored** once its windup is over: a jab only chips it (thrown raw, its tell can still be jabbed; out of Bedrock it comes out armored) |
 | Skill 1 | Landslide Charge | A shoulder charge about 60 px forward that **stuns** whoever it hits for a quarter second (crumple), long enough to follow up. A gold windup tell |
 | Skill 2 | Bedrock | Roots in place for a second: hits only chip him (65% less damage) and nothing moves him. Foes within 90 px are **taunted** for 2 s: they walk at 60% speed, their attacks swing at him, and they're **dragged in** toward him. Any attack button answers out of it after 18 frames. Loses to grabs |
@@ -537,10 +542,10 @@ shivering) waits for a victory-pose system.
 
 | Fighter | Route | Damage |
 | --- | --- | --- |
-| Cairn | Jab, Jab, Cross → Rockslide Rush | 34 |
+| Cairn | Jab, Jab, Cross → Rockslide Rush | 31 |
 | Cairn | Slip counter → Jab, Jab, Cross, Hook → Haymaker | 57 |
-| Cairn | Jab, Jab, Cross → Haymaker → Rockslide Rush → Avalanche | 85 |
-| Culvert | Jab, Jab → Gulp | 23 |
+| Cairn | Jab, Jab, Cross → Haymaker → Rockslide Rush → Avalanche | 75 |
+| Culvert | Jab, Jab → Gulp | 15 |
 | Culvert | Jab, Jab, Hook → Slam → Runoff | 39 |
 | Culvert | Jab, Jab, Hook → Slam → Runoff → Storm Drain | 84 |
 | Craglash | Rake, Backhand, Headbutt → Landslide Charge | 31.2 |
@@ -557,10 +562,10 @@ shivering) waits for a victory-pose system.
 | Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Flip Out → Knife Flurry | 54.2 |
 | Hissy Fitz | Snake Jab, Snake Jab, Hair Lash → Coil Uppercut → Venom Spit (then 12 poison) | 27.1 |
 | Hissy Fitz | Snake Jab, Snake Jab, Hair Lash → Coil Uppercut → Venom Spit → Petrify Punch, then shatter the statue | 54.1 + |
-| Digby | Claw Swipe, Claw Swipe, Pickaxe Swing → Headlamp Flash | 16.3 |
-| Digby | Claw Swipe, Claw Swipe, Pickaxe Swing → Pickaxe Pop-Up → Cave-In | 41.4 |
-| Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket | 30.9 |
-| Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket → The Big Heist (with stolen power: +20%) | 75.8 |
+| Digby | Claw Swipe, Claw Swipe, Pickaxe Swing → Headlamp Flash | 22.3 |
+| Digby | Claw Swipe, Claw Swipe, Pickaxe Swing → Pickaxe Pop-Up → Cave-In | 47.4 |
+| Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket | 36.9 |
+| Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket → The Big Heist (with stolen power: +20%) | 81.9 |
 | Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Slush Slide | 40.5 |
 | Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Flavor Blast, then shatter the ice | 45.7 + |
 
