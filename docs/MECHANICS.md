@@ -92,7 +92,7 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `grab` | bool | move | Ignores guard, armor and counters; can't hit airborne targets | cerebro, culvert |
 | `pull` | px | seg | Target slides in, stopping `pull` px short of the attacker. With `grab`: a hook (hitstun, `hook` event) | barkley, craglash, culvert |
 | `flip` | px | seg | With `grab`: carried over the attacker's head to `flip` px behind, airborne `max(launch, 2)` ticks; attacker turns round | cerebro, culvert `hold` |
-| `reel`, `reel_speed` | px, px/tick | seg | Attacker hauled to `reel` px short of the target at `max(1, reel_speed)`; at most 60 ticks; ends the move on arrival | gillbert skill_2 |
+| `reel`, `reel_speed` | px, px/tick | seg | Attacker hauled to `reel` px short of the target at `reel_speed` (default 5); at most 60 ticks; ends the move on arrival | gillbert skill_2 |
 | `cone` | dot threshold | move | Only foes with `facing·dir >= cone` (melee only) | culvert skill_2, sno heavy |
 | `no_flinch` | bool | move | Damage only: no stun state, no knockback; resets the combo on a free target; doesn't reveal stealth | cerebro lights 1–2 |
 | `stack_bonus` | hp per stack | move | Adds `stack × bonus`, consumes stacks | cairn |
