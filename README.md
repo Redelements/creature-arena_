@@ -334,7 +334,7 @@ full speed, so every combo below still works.
 
 | Glow | Means | Moves (windup) | Answer |
 | --- | --- | --- | --- |
-| **Red** + "!" | Can't be blocked | Gulp (12f), Slam (10f, breaks guard), Flip Out (12f), Mountain Maw (12f), Coil Uppercut (8f, breaks guard), Sack Smack (8f, breaks guard), Slush Slide (8f, breaks guard), Burrow's pop-up (breaks guard) | Roll away or through it, or hit them first |
+| **Red** + "!" | Can't be blocked | Gulp (12f), Slam (8f, breaks guard), Flip Out (12f), Mountain Maw (12f), Coil Uppercut (8f, breaks guard), Sack Smack (8f, breaks guard), Slush Slide (8f, breaks guard), Burrow's pop-up (breaks guard) | Roll away or through it, or hit them first |
 | **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f), Runoff (6f), Rockslide Stomp (10f), Landslide Charge (8f), Timber Twister (8f), Branch Grab (8f), Splash Zone (8f), Flop Dash (10f), Cast Line (6f), Tenderize (8f), Cleaver Toss (6f) | Guard, then punish |
 
 That puts at least 15 frames (a quarter second) between the glow and the hit, and a jab
@@ -357,10 +357,10 @@ dodge pressed during the freeze comes out the moment it ends.
 | Button | Move | What it does |
 | --- | --- | --- |
 | Light | Jab, Jab, Hook | Slow, heavy string; the Hook can wall-bounce |
-| Heavy | Slam | Cracks the floor; a full charge opens a pit and breaks guard |
+| Heavy | Slam | Cracks a block of floor 4 cells by 3 in front of him (the same block wherever it lands; a second Slam there opens it into a rectangular pit); a full charge opens it at once. Breaks guard. His pits stay open 18 s, half as long again as anyone else's |
 | Skill 1 | Gulp | Unblockable grab; spits the target out behind Culvert |
-| Skill 2 | Runoff | Ground shockwave that cracks the floor and pops the target up |
-| Surge | Storm Drain | Leaping slam that hits all around and leaves a ring of pits |
+| Skill 2 | Runoff | A sheet of water in a cone in front of him: hits everything in it and **pushes it back** a short way, buying time to break up more floor |
+| Surge | Storm Drain | Leaping slam that hits all around and leaves a ring of pits (18 s, like his Slam's) |
 
 A squat toad cast in storm-drain concrete: amber eyes, a mouth that opens into a drain
 with iron bars across the jaw, a manhole cover on his back, and big back legs he hops on.
@@ -513,7 +513,7 @@ dripping off his point. He makes the floor and the foe slow, then hits hard. Voi
 | --- | --- | --- |
 | Light | Cold Cross (jab, cross), Brain Freeze | A frosty one-two that **slows** (walk ×0.75 for 1 s), then a headbutt with the icy top |
 | Heavy | Shaved Ice Spray | He shakes his head and sprays ice shards in a **cone in front of him** (about 46 px, wider charged): damage and a strong slow (×0.6 for 1.5 s). Nothing behind him is hit. Hold to charge |
-| Skill 1 | Syrup Slick | Leaks a **sticky puddle** around him that lasts 5 s: foes standing in it walk at half speed. He isn't slowed by his own syrup |
+| Skill 1 | Syrup Slick | Leaks a **sticky puddle** 160 px across around him that lasts 7.5 s: foes standing in it walk at 42% speed. He isn't slowed by his own syrup |
 | Skill 2 | Slush Slide | Slides forward feet first on his own slush, about 75 px, **through a guard**, and **knocks down** the first foe he hits. A red windup tell gives it away |
 | Surge | Flavor Blast | Rears back and slams his head into the floor: everyone around him (all sides, about 50 px) is **frozen solid** for 1.5 s, and the next clean hit **shatters** the ice for 25% extra damage, like Hissy Fitz's statues |
 
@@ -532,9 +532,9 @@ shivering) waits for a victory-pose system.
 | Culvert | Jab, Jab → Gulp | 23 |
 | Culvert | Jab, Jab, Hook → Slam → Runoff | 39 |
 | Culvert | Jab, Jab, Hook → Slam → Runoff → Storm Drain | 84 |
-| Craglash | Rake, Backhand, Headbutt → Landslide Charge | 29.2 |
-| Craglash | Rake, Backhand, Headbutt → Rockslide Stomp → Landslide Charge | 43 |
-| Craglash | Rake, Backhand, Headbutt → Rockslide Stomp → Landslide Charge → Mountain Maw | 70 |
+| Craglash | Rake, Backhand, Headbutt → Landslide Charge | 31.2 |
+| Craglash | Rake, Backhand, Headbutt → Rockslide Stomp → Landslide Charge | 45 |
+| Craglash | Rake, Backhand, Headbutt → Rockslide Stomp → Landslide Charge → Mountain Maw | 72 |
 | Barkley | Twig, Bough, Log Drop → Timber Twister → Branch Grab | 33.1 |
 | Barkley | Twig, Bough, Log Drop → Timber Twister → Pinecone Bomb | 35.8 |
 | Barkley | Twig, Bough, Log Drop → Timber Twister → Branch Grab → Root Eruption | 69.2 |

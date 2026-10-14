@@ -61,7 +61,9 @@ func is_hole_at(p: Vector2) -> bool:
 	return get_cell(world_to_cell(p)) == HOLE
 
 
-func damage_cell(c: Vector2i, amount: int) -> void:
+## `heal`: ticks before this damage starts to mend (HEAL_TICKS unless the move says
+## otherwise: Culvert's holes stay open longer).
+func damage_cell(c: Vector2i, amount: int, heal := HEAL_TICKS) -> void:
 	if not in_bounds(c) or amount <= 0:
 		return
 	var i := c.y * cols + c.x
@@ -69,11 +71,26 @@ func damage_cell(c: Vector2i, amount: int) -> void:
 	if next != cells[i]:
 		cells[i] = next
 		version += 1
-	timers[i] = HEAL_TICKS  # fresh damage restarts the healing clock
+	timers[i] = maxi(timers[i], heal)  # fresh damage restarts the healing clock
+
+
+## Damages a block of whole cells, `w` by `h` of them, centred on `center` (snapped to
+## the grid, so the shape is the same wherever it lands): the inner block by `amount`,
+## and a one-cell rim around it by one step when `rim` is set. A slam that always
+## leaves the same rectangle, and two of them in one spot leave a rectangular hole.
+func damage_rect(center: Vector2, w: int, h: int, amount: int, rim := false, heal := HEAL_TICKS) -> void:
+	var c := world_to_cell(center)
+	var x0 := c.x - (w - 1) / 2
+	var y0 := c.y - (h - 1) / 2
+	var pad := 1 if rim else 0
+	for cy in range(y0 - pad, y0 + h + pad):
+		for cx in range(x0 - pad, x0 + w + pad):
+			var inside := cx >= x0 and cx < x0 + w and cy >= y0 and cy < y0 + h
+			damage_cell(Vector2i(cx, cy), amount if inside else 1, heal)
 
 
 ## Cracks every cell within radius; cells within core_radius become holes.
-func damage_circle(center: Vector2, radius: float, core_radius: float = -1.0) -> void:
+func damage_circle(center: Vector2, radius: float, core_radius: float = -1.0, heal := HEAL_TICKS) -> void:
 	var c0 := world_to_cell(center - Vector2(radius, radius))
 	var c1 := world_to_cell(center + Vector2(radius, radius))
 	for cy in range(c0.y, c1.y + 1):
@@ -83,9 +100,9 @@ func damage_circle(center: Vector2, radius: float, core_radius: float = -1.0) ->
 				continue
 			var d := cell_center(c).distance_to(center)
 			if d <= core_radius:
-				damage_cell(c, 2)
+				damage_cell(c, 2, heal)
 			elif d <= radius:
-				damage_cell(c, 1)
+				damage_cell(c, 1, heal)
 
 
 ## Turns an intact cell into a cracked one (never opens a hole). Used by shockwaves.
@@ -112,7 +129,7 @@ func crack_circle(center: Vector2, radius: float) -> void:
 
 
 ## Opens a ring of holes between inner and outer radius, and cracks a band just outside it.
-func damage_ring(center: Vector2, inner: float, outer: float) -> void:
+func damage_ring(center: Vector2, inner: float, outer: float, heal := HEAL_TICKS) -> void:
 	var edge := outer + CRACK_BAND
 	var c0 := world_to_cell(center - Vector2(edge, edge))
 	var c1 := world_to_cell(center + Vector2(edge, edge))
@@ -123,9 +140,9 @@ func damage_ring(center: Vector2, inner: float, outer: float) -> void:
 				continue
 			var d := cell_center(c).distance_to(center)
 			if d >= inner and d <= outer:
-				damage_cell(c, 2)
+				damage_cell(c, 2, heal)
 			elif d > outer and d <= edge:
-				damage_cell(c, 1)
+				damage_cell(c, 1, heal)
 
 
 func tick() -> void:

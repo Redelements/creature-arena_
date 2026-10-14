@@ -53,10 +53,18 @@ func test_cpu_fights_with_its_whole_kit() -> void:
 	for i in 2:
 		var who := "Cairn" if i == 0 else "Culvert"
 		assert_true(used[i].has("light_1"), who + " uses lights")
-		assert_true(used[i].has("skill_1") or used[i].has("slip_counter"), who + " uses Skill 1")
+		if i == 1:
+			assert_true(used[i].has("skill_1"), who + " uses Skill 1")
 		assert_true(used[i].has("skill_2"), who + " uses Skill 2")
 		assert_gt(combos[i], 2, who + " lands 3+ hit combos:")
 	assert_gt(kos, 2, "matches that end in a knockout (of 5):")
+	# Cairn's Skill 1 is a counter, so it needs a foe who winds up big moves at close
+	# range: Craglash (Culvert's Runoff is a cone now, not the slow shockwave it was).
+	var slipped := false
+	for s in 5:
+		var m: Dictionary = _cpu_match("cairn", "craglash", 1, 1, 30 + s)
+		slipped = slipped or m["moves"][0].has("skill_1") or m["moves"][0].has("slip_counter")
+	assert_true(slipped, "Cairn uses Slip against a fighter who winds up")
 
 
 func test_hard_beats_easy() -> void:
