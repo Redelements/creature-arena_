@@ -144,7 +144,30 @@ CPU levels: 0 Easy, 1 Normal, 2 Hard, 3 Rage.
   uses gap closers.
 
 `tests/bench_cpu.gd` pits any two levels against each other across the roster (Rage
-beats Hard about 98% of the time). Rage against Rage shows the kits' balance.
+beats Hard about 98% of the time). Rage against Rage shows the kits' balance:
+`--matrix` prints every pair, `--pairs=a:b,c:d` just those, both with `--seeds=N`.
+
+### Class balance
+
+The roster is balanced **within each class** (mirrors close to even) and along a class
+triangle: **assassins beat the mage; the mage beats fighters and tanks; fighters beat
+assassins.** Measured Rage against Rage (the only CPU that plays each kit the way it's
+meant to be played), checked by `tests/test_balance.gd`:
+
+| Matchup | Rage vs Rage |
+| --- | --- |
+| Digby vs Chef Cerebro | 70–75% Digby |
+| Sneaky Pete vs Chef Cerebro | about even |
+| Chef Cerebro vs Cairn, Hissy Fitz, Craglash, Culvert | 75–100% Cerebro |
+| Cairn or Hissy Fitz vs an assassin | 60–100% the fighter |
+| Craglash vs Culvert (tanks) | 30–45% Craglash |
+| Digby vs Sneaky Pete (assassins) | about even |
+| Hissy Fitz vs Cairn (fighters) | about even |
+| Barkley vs Sno Mercy (bruisers) | 25% Barkley at Rage, 75% at Hard |
+
+Tanks against assassins went to the assassins (Pete especially): a slow tank can't
+catch a fighter who vanishes, which fits the classes. Hard CPUs don't kite, so Chef
+Cerebro loses almost everything at Hard; that's the CPU, not the kit.
 
 ## Controls
 
@@ -311,7 +334,7 @@ full speed, so every combo below still works.
 
 | Glow | Means | Moves (windup) | Answer |
 | --- | --- | --- | --- |
-| **Red** + "!" | Can't be blocked | Gulp (12f), Slam (10f, breaks guard), Flip Out (12f), Mountain Maw (12f) | Roll away or through it, or hit them first |
+| **Red** + "!" | Can't be blocked | Gulp (12f), Slam (10f, breaks guard), Flip Out (12f), Mountain Maw (12f), Coil Uppercut (8f, breaks guard), Sack Smack (8f, breaks guard), Slush Slide (8f, breaks guard), Burrow's pop-up (breaks guard) | Roll away or through it, or hit them first |
 | **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f), Runoff (6f), Rockslide Stomp (10f), Landslide Charge (8f), Timber Twister (8f), Branch Grab (8f), Splash Zone (8f), Flop Dash (10f), Cast Line (6f), Tenderize (8f), Cleaver Toss (6f) | Guard, then punish |
 
 That puts at least 15 frames (a quarter second) between the glow and the hit, and a jab
@@ -348,11 +371,11 @@ them, and bites from across the arena.
 | Button | Move | What it does |
 | --- | --- | --- |
 | Light | Rake, Backhand, Headbutt | Two claw swipes, then the neck snaps the head forward. **Slow and heavy** (7, 7 and 10 frames to hit, against 4–5 for most fighters) but they hit harder |
-| Heavy | Rockslide Stomp | Slams the ground and knocks up everyone close, all around him |
+| Heavy | Rockslide Stomp | Slams the ground and knocks up everyone close, all around him. **Armored** once its windup is over: a jab only chips it (thrown raw, its tell can still be jabbed; out of Bedrock it comes out armored) |
 | Skill 1 | Landslide Charge | A shoulder charge about 60 px forward that **stuns** whoever it hits for a quarter second (crumple), long enough to follow up. A gold windup tell |
 | Skill 2 | Bedrock | Roots in place for a second: hits only chip him (65% less damage) and nothing moves him. Foes within 90 px are **taunted** for 2 s: they walk at 60% speed, their attacks swing at him, and they're **dragged in** toward him. Any attack button answers out of it after 18 frames. Loses to grabs |
 | Surge | Mountain Maw | His head shoots out on its stone neck, **extremely far** (about 230 px), and **can't be blocked**: it has to be dodged. It bites the first foe it reaches, **hauls them back** to him and **knocks them up**. A red tell and a dotted lane show it coming |
-| Passive | Stoneskin | A 20-point stone shield that soaks damage first; it grows back after 4 s without taking damage. Shown as a pale rim on him and as pale stone on the end of his health bar ("STONESKIN") |
+| Passive | Stoneskin | A 30-point stone shield that soaks damage first; it grows back after 3 s without taking damage. Shown as a pale rim on him and as pale stone on the end of his health bar ("STONESKIN") |
 
 ### Barkley — the tree that got up and left
 
@@ -425,7 +448,7 @@ gaze slows anyone who comes at her face first. Voice line: "Hiss off!"
 | Button | Move | What it does |
 | --- | --- | --- |
 | Light | Snake Jab, Snake Jab, Hair Lash | A fast one-two from the gloved snakes, then her hair snakes whip forward and bite |
-| Heavy | Coil Uppercut | The glove coils low and comes up: launches. Hold to charge (bigger and harder) |
+| Heavy | Coil Uppercut | The glove coils low and comes up under the guard: **breaks guards** and launches. Hold to charge (bigger and harder) |
 | Skill 1 | Venom Spit | Her hair snakes spit a glob of venom about 100 px. It **poisons**: 2 damage every half second for 3 s (12 in all), outside any combo, so it keeps ticking after the combo ends. Green bubbles show it. Keeps a juggle going |
 | Skill 2 | Stone Gaze | She stares for about 1.5 s. Anyone within 110 px, **in front of her and facing her**, is slowed, more the longer they look (down to 35% speed), and stays slowed 1.5 s after. **Look away, or get behind her, and it does nothing.** She can break out of the stare with any attack after the first moments |
 | Surge | Petrify Punch | A wound-up haymaker (a long, readable startup). The foe it hits is **turned to stone** for 1.5 s, stunned where it stands, even out of the air. The next clean hit **shatters** the statue for 25% extra damage |
@@ -447,7 +470,7 @@ Voice line: a placeholder "I DIG IT!" (see the PR).
 | Light | Claw Swipe, Claw Swipe, Pickaxe Swing | A quick double slash with his claws, then the pickaxe |
 | Heavy | Pickaxe Pop-Up | He digs in and bursts up **under a foe about 40 px ahead** with the pickaxe: launches. A ring on the floor marks the spot. Hold to charge |
 | Skill 1 | Headlamp Flash | Flicks on his helmet light: a foe it catches is **blinded**, and **their next attack misses** (or the blind wears off after 4 s). Guarding stops it |
-| Skill 2 | Burrow | Dives underground and tunnels about 115 px, **steered with the stick**: out of reach, under bodies and across pits, under a moving mound of dirt. Pops up at the end and knocks up whoever is on top |
+| Skill 2 | Burrow | Dives underground and tunnels about 115 px, **steered with the stick**: out of reach, under bodies and across pits, under a moving mound of dirt. Pops up at the end and knocks up whoever is on top; an uppercut from below, it **breaks guards** |
 | Surge | Cave-In | Rears up and slams the floor: the ground caves in all around the spot ahead, damaging and **rooting** everyone caught for 2 s (they can still attack and guard, but can't walk or dodge) |
 
 No passive on the sheet. His victory emote (jumping out of the ground with a flip) waits
@@ -464,9 +487,9 @@ shoulder. He wins by not being where you're looking. Voice line: "Finders keeper
 | Button | Move | What it does |
 | --- | --- | --- |
 | Light | Sucker Punch, Cheap Shot, Bag Swing | Two quick jabs, then the bag comes round |
-| Heavy | Sack Smack | A big wound-up swing of the money bag that knocks the foe well back. Hold to charge |
-| Skill 1 | Tiptoe | He sneaks forward and goes **invisible** for 2.5 s (a faint shimmer is all you see) and **40% quicker**. Attacking, or being hit, gives him away. The CPU loses track of him and goes where it last saw him |
-| Skill 2 | Pickpocket | A low dash right **through** a foe that hits on the way past and **steals 20% of their attack power** for 5 s: his hits land 20% harder, theirs 20% softer. A gold windup tell gives it away |
+| Heavy | Sack Smack | A big wound-up swing of the money bag that **breaks guards** and knocks the foe well back. Hold to charge |
+| Skill 1 | Tiptoe | He sneaks forward and goes **invisible** for 3 s (a faint shimmer is all you see) and **55% quicker**. A staggering hit gives him away (a knife flick doesn't); so does his own attack, but only as it lands, and that **ambush hits 35% harder**. The CPU loses track of him and goes where it last saw him |
+| Skill 2 | Pickpocket | A low dash that **steers onto** the nearest foe, runs right **through**, hits on the way past and **steals 20% of their attack power** for 5 s: his hits land 20% harder, theirs 20% softer. A gold windup tell gives it away |
 | Surge | The Big Heist | A puff of smoke and he's gone, then he **reappears behind the foe** (on their far side if the spot behind is a pit or a wall) for a flurry of bag hits and a big finishing smack that knocks down |
 
 No passive on the sheet. His victory emote (dumping out the bag and throwing the cash in
@@ -486,7 +509,7 @@ dripping off his point. He makes the floor and the foe slow, then hits hard. Voi
 | Light | Cold Cross (jab, cross), Brain Freeze | A frosty one-two that **slows** (walk ×0.75 for 1 s), then a headbutt with the icy top |
 | Heavy | Shaved Ice Spray | He shakes his head and sprays ice shards in a **cone in front of him** (about 46 px, wider charged): damage and a strong slow (×0.6 for 1.5 s). Nothing behind him is hit. Hold to charge |
 | Skill 1 | Syrup Slick | Leaks a **sticky puddle** around him that lasts 5 s: foes standing in it walk at half speed. He isn't slowed by his own syrup |
-| Skill 2 | Slush Slide | Slides forward feet first on his own slush, about 75 px, and **knocks down** the first foe he hits. A gold windup tell gives it away |
+| Skill 2 | Slush Slide | Slides forward feet first on his own slush, about 75 px, **through a guard**, and **knocks down** the first foe he hits. A red windup tell gives it away |
 | Surge | Flavor Blast | Rears back and slams his head into the floor: everyone around him (all sides, about 50 px) is **frozen solid** for 1.5 s, and the next clean hit **shatters** the ice for 25% extra damage, like Hissy Fitz's statues |
 
 No passive on the sheet. His victory emote (licking the syrup off his glove, then
@@ -504,12 +527,12 @@ shivering) waits for a victory-pose system.
 | Culvert | Jab, Jab → Gulp | 23 |
 | Culvert | Jab, Jab, Hook → Slam → Runoff | 39 |
 | Culvert | Jab, Jab, Hook → Slam → Runoff → Storm Drain | 84 |
-| Craglash | Rake, Backhand, Headbutt → Landslide Charge | 24.9 |
-| Craglash | Rake, Backhand, Headbutt → Rockslide Stomp → Landslide Charge | 35 |
-| Craglash | Rake, Backhand, Headbutt → Rockslide Stomp → Landslide Charge → Mountain Maw | 56 |
-| Barkley | Twig, Bough, Log Drop → Timber Twister → Branch Grab | 38.6 |
-| Barkley | Twig, Bough, Log Drop → Timber Twister → Pinecone Bomb | 41.2 |
-| Barkley | Twig, Bough, Log Drop → Timber Twister → Branch Grab → Root Eruption | 74.6 |
+| Craglash | Rake, Backhand, Headbutt → Landslide Charge | 29.2 |
+| Craglash | Rake, Backhand, Headbutt → Rockslide Stomp → Landslide Charge | 43 |
+| Craglash | Rake, Backhand, Headbutt → Rockslide Stomp → Landslide Charge → Mountain Maw | 70 |
+| Barkley | Twig, Bough, Log Drop → Timber Twister → Branch Grab | 33.1 |
+| Barkley | Twig, Bough, Log Drop → Timber Twister → Pinecone Bomb | 35.8 |
+| Barkley | Twig, Bough, Log Drop → Timber Twister → Branch Grab → Root Eruption | 69.2 |
 | Gillbert | Snout Jab, Tail Whip, Rod Flail → Flop Dash | 24.2 |
 | Gillbert | Snout Jab, Tail Whip, Rod Flail → Splash Zone → Flop Dash | 32.3 |
 | Gillbert | Snout Jab, Tail Whip, Rod Flail → Splash Zone → Flop Dash → The One That Got Away | 65.3 |
@@ -521,9 +544,9 @@ shivering) waits for a victory-pose system.
 | Digby | Claw Swipe, Claw Swipe, Pickaxe Swing → Headlamp Flash | 16.3 |
 | Digby | Claw Swipe, Claw Swipe, Pickaxe Swing → Pickaxe Pop-Up → Cave-In | 41.4 |
 | Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket | 30.9 |
-| Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket → The Big Heist (with stolen power: +20%) | 75.9 |
-| Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Slush Slide | 34.6 |
-| Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Flavor Blast, then shatter the ice | 42.4 + |
+| Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket → The Big Heist (with stolen power: +20%) | 75.8 |
+| Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Slush Slide | 40.5 |
+| Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Flavor Blast, then shatter the ice | 45.7 + |
 
 Every one of these is checked by an automated test (`tests/test_combos.gd`).
 

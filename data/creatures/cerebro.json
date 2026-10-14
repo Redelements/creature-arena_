@@ -100,7 +100,7 @@
     "light_3": {
       "name": "Mallet Toss", "anim": "toss", "mobile": 0.6,
       "startup": 9, "active": 0, "recovery": 20,
-      "damage": 5, "knockback": 0.8, "hitstun": 34, "hitstop": 6, "juggle": true,
+      "damage": 5, "knockback": 0.8, "hitstun": 30, "hitstop": 6, "juggle": true,
       "next": "",
       "projectile": { "speed": 6.0, "life": 27, "radius": 6, "offset": 12, "crack_trail": false,
         "sound": "swing_heavy", "end_sound": "thwack" },

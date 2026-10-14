@@ -57,7 +57,7 @@ const STATE_FIELDS := [
 	"reel_t", "reel_to", "reel_gap", "reel_speed", "vuln", "vuln_mult",
 	"flip_t", "flip_total", "flip_from", "flip_to",
 	"poison", "poison_every", "poison_dmg", "poison_by", "stone",
-	"blind", "whiff_serial", "root",
+	"blind", "whiff_serial", "ambush_serial", "root",
 	"stealth", "haste", "haste_mult", "atk_buff", "atk_mult", "stone_ice",
 	"block_lag", "punish_serial", "home_speed",
 ]
@@ -159,8 +159,14 @@ var poison_by := -1
 var stone := 0  ## ticks left as a statue (Petrify Punch); the next clean hit shatters it
 var blind := 0  ## ticks left blinded (Digby's Headlamp Flash): the next attack started misses
 var whiff_serial := 0  ## the attack (attack_serial) that a blind made miss
+## The attack that sprang out of stealth (Tiptoe): its hits land harder, by the
+## creature's "ambush" multiplier. A sneak attack is the assassin's whole point.
+var ambush_serial := 0
 var root := 0  ## ticks left rooted in place (Cave-In): no walking, no dodging
-var stealth := 0  ## ticks left invisible (Sneaky Pete's Tiptoe); attacking or being hit ends it
+## Ticks left invisible (Sneaky Pete's Tiptoe). Being hit ends it; so does an attack,
+## but only as its strike comes out (or its projectile flies): the ambush out of
+## stealth is the point, so the startup stays hidden.
+var stealth := 0
 var haste := 0  ## ticks left of walking faster
 var haste_mult := 1.0
 var atk_buff := 0  ## ticks left of dealing atk_mult x damage (Pickpocket: up for him, down for them)
@@ -751,14 +757,11 @@ func _start_attack(mid: String, sim: MatchSim, raw := false) -> void:
 	if mv.has("aim"):
 		_aim(float(mv["aim"]), sim)
 	# Self buffs as the move starts (Tiptoe: invisible and quicker). Any other attack
-	# gives the stealth away.
+	# gives the stealth away once its strike comes out (see _reveal).
 	var buff: Dictionary = mv.get("self", {})
 	if buff.has("stealth"):
 		stealth = maxi(stealth, int(buff["stealth"]))
 		sim.emit_event("stealth", pos, float(buff["stealth"]), {"who": id})
-	elif stealth > 0:
-		stealth = 0
-		sim.emit_event("unstealth", pos, 0.0, {"who": id})
 	if buff.has("haste"):
 		haste = maxi(haste, int(buff["haste"]))
 		haste_mult = float(buff.get("haste_mult", 1.4))
@@ -834,6 +837,8 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 	# One-off effects at the first active tick.
 	var segs: Array = mv["_segs"]
 	var first_at := int(segs[0]["at"]) if segs.size() > 0 else su + 1
+	if t >= first_at and not mv.get("self", {}).has("stealth"):
+		_reveal(sim)  # the ambush is sprung: visible again
 	if t == first_at:
 		if mv.has("terrain_radius"):
 			_slam(mv, sim)
@@ -916,6 +921,14 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 		_set_state(State.IDLE)
 
 
+## Out of stealth (Tiptoe): the strike or throw gave it away.
+func _reveal(sim: MatchSim) -> void:
+	if stealth > 0:
+		stealth = 0
+		ambush_serial = attack_serial
+		sim.emit_event("unstealth", pos, 0.0, {"who": id})
+
+
 func _taunt(tn: Dictionary, sim: MatchSim) -> void:
 	var r := float(tn["radius"])
 	for o in sim.creatures:
@@ -966,6 +979,8 @@ func _home(dash: Dictionary, t: int, sim: MatchSim) -> void:
 		var left := maxi(1, int(dash["to"]) - t + 1)
 		spd = minf(float(hm.get("max", 3.0)), dist / float(left))
 		home_speed = spd
+	elif bool(hm.get("through", false)):
+		spd = float(hm.get("max", 3.0))  # steered in, now runs on through (Pickpocket)
 	else:
 		spd = minf(home_speed, float(hm.get("max", 3.0)))
 	_move(facing * spd, sim, not is_leaping())
