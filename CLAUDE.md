@@ -93,7 +93,7 @@ src/ui/     ui_theme, screen_stack, ui_screen, option_row, prompts, fighter_prev
             (menus on Godot Control nodes; plan in docs/plans/menus.md)
 data/       creatures/*.json, rules/duel.json, trials.json, audio.json
 tests/      run_tests.gd auto-runs every tests/test_*.gd
-tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gillbert/cerebro/hissy/digby/pete/sno.py (sheet recreations),
+tools/      gen_sprites.py, gen_audio.py (placeholders); gen_culvert.py and gen_craglash/barkley/gillbert/cerebro/hissy/digby/pete/sno.py (rigs),
             splat3d.py (the shared splat renderer new generators import)
 ```
 
@@ -109,7 +109,8 @@ tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gi
 
 ## Placeholders and open items
 
-- **Art:** Cairn, Culvert and the dummy are programmer art from `tools/gen_sprites.py`. An
+- **Art:** Cairn and the dummy are programmer art from `tools/gen_sprites.py`; Culvert
+  was redrawn as a posed rig (`tools/gen_culvert.py`, 96 px, the splat renderer). An
   artist is making new characters and movesets; the delivery format (ideally Aseprite +
   JSON with animation tags) is still to be agreed. Spec for drop-in art: `docs/SPRITES.md`.
   The artist's character sheets (one drawing plus a kit) become fighters like Craglash:

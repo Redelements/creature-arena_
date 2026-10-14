@@ -852,8 +852,9 @@ def fx_sheet():
 def main():
     os.makedirs(OUT, exist_ok=True)
     os.makedirs(DOCS, exist_ok=True)
+    # Culvert has his own generator now (tools/gen_culvert.py); his drawing code below
+    # stays for reference until the dummy and Cairn get the same treatment.
     sheets = {
-        "culvert.png": culvert_sheet(),
         "cairn.png": cairn_sheet(),
         "dummy.png": dummy_sheet(),
         "tiles.png": tiles_sheet(),
@@ -869,7 +870,7 @@ def main():
     views = {}
     for view in ("down", "up"):
         VIEW = view
-        for who, make in (("cairn", cairn_sheet), ("culvert", culvert_sheet)):
+        for who, make in (("cairn", cairn_sheet),):
             img = make()
             name = "%s_%s.png" % (who, view)
             img.save(os.path.join(OUT, name))
@@ -877,7 +878,7 @@ def main():
             print("wrote", os.path.relpath(os.path.join(OUT, name), ROOT), img.size)
     VIEW = "side"
     scale, pad = 4, 16
-    order = ["cairn.png", "cairn_down.png", "cairn_up.png", "culvert.png", "culvert_down.png", "culvert_up.png"]
+    order = ["cairn.png", "cairn_down.png", "cairn_up.png"]
     imgs = [sheets.get(n) or views[n] for n in order]
     prev = Image.new("RGBA", (sum(i.width * scale + pad for i in imgs) + pad, max(i.height for i in imgs) * scale + pad * 2),
                      (40, 44, 52, 255))
