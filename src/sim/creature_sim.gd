@@ -56,6 +56,7 @@ const STATE_FIELDS := [
 	"dodge_buffer_dir", "shield", "calm_t", "slow", "slow_mult", "taunt", "taunt_by",
 	"reel_t", "reel_to", "reel_gap", "reel_speed", "vuln", "vuln_mult",
 	"flip_t", "flip_total", "flip_from", "flip_to",
+	"swallow_t", "swallow_by", "swallow_gap", "swallow_air",
 	"poison", "poison_every", "poison_dmg", "poison_by", "stone",
 	"blind", "whiff_serial", "ambush_serial", "root",
 	"stealth", "haste", "haste_mult", "atk_buff", "atk_mult", "stone_ice",
@@ -152,6 +153,13 @@ var flip_t := 0  ## ticks left of being carried over the attacker's head (Flip O
 var flip_total := 0
 var flip_from := Vector2.ZERO
 var flip_to := Vector2.ZERO
+## Swallowed (Culvert's held Gulp): ticks left inside the attacker `swallow_by`, who
+## carries it, hidden and untouchable; then it's pushed out `swallow_gap` px behind him
+## and hops away for `swallow_air` ticks.
+var swallow_t := 0
+var swallow_by := -1
+var swallow_gap := 0.0
+var swallow_air := 0
 var poison := 0  ## ticks of poison left (Hissy Fitz's Venom Spit)
 var poison_every := 30  ## a pulse of damage every this many ticks
 var poison_dmg := 0.0
@@ -346,6 +354,7 @@ func hit_params(seg: int) -> Dictionary:
 		"vuln_ticks": seg_value(seg, "vuln_ticks"),
 		"vuln_mult": float(mv.get("vuln_mult", 1.0)),
 		"flip": seg_value(seg, "flip"),
+		"swallow": seg_value(seg, "swallow"),
 		"poison_ticks": seg_value(seg, "poison_ticks"),
 		"poison_damage": seg_value(seg, "poison_damage"),
 		"poison_every": seg_value(seg, "poison_every"),
@@ -1062,6 +1071,9 @@ func _slam(mv: Dictionary, sim: MatchSim) -> void:
 		# A fixed block of cells (Culvert's Slam): cracked by a plain slam, so a second
 		# one there opens the hole; a full charge opens it at once, with a cracked rim.
 		var r: Array = mv["terrain_rect"]
+		# "terrain_at": how far ahead the block is centred (default: where the slam hits),
+		# so a deeper block can reach further out without coming back under his feet.
+		center = pos + facing * float(mv.get("terrain_at", mv["reach"]))
 		var w := int(r[0])
 		var h := int(r[1])
 		if absf(facing.y) > absf(facing.x):

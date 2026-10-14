@@ -80,6 +80,7 @@ var _detour_t := 0
 var _detour_dir := Vector2.ZERO
 var _hold_heavy := 0
 var _hold_bit := SimDefs.IN_HEAVY  ## the button a held charge is held on
+var _hold_serial := -1  ## the attack whose "hold" (full-charge) choice is made
 ## Set in a Duel, so the CPU can tag out a hurt creature.
 var duel: DuelSim = null
 
@@ -238,6 +239,14 @@ func _maybe_tag(me: CreatureSim, dist: float) -> bool:
 
 func _continue_attack(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float) -> void:
 	if me.charging:
+		# A move that does something else when held to a full charge (Gulp: tapped, a hook;
+		# held, a swallow): decide once per throw whether to hold it all the way.
+		var mv := me.move_def()
+		if mv.has("hold") and _hold_serial != me.attack_serial:
+			_hold_serial = me.attack_serial
+			if me.move_id != "heavy" and _roll(0.25 + 0.1 * level):
+				_hold_heavy = int(mv.get("charge_max", 0)) + 1
+				_hold_bit = int(ACTION_BIT.get(me.move_id, SimDefs.IN_HEAVY))
 		if _hold_heavy > 0:
 			_hold_heavy -= 1
 			_hold(_hold_bit if me.move_id != "heavy" else SimDefs.IN_HEAVY)

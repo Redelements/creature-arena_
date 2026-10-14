@@ -284,8 +284,9 @@ static func combine_pad(move: Vector2, aim: Vector2, held: Dictionary, pressed: 
 		if pressed.get(a, false):
 			out |= int(press_bits[a])
 			acted = acted or a != "dodge"
-	if held.get("heavy", false):
-		out |= SimDefs.IN_HEAVY
+	for a in MouseOrders.HOLD_BITS:  # held, a charging move keeps charging (Gulp, Pinecone Bomb)
+		if held.get(a, false):
+			out |= int(MouseOrders.HOLD_BITS[a])
 	if held.get("guard", false):
 		out |= SimDefs.IN_GUARD
 	if twin and aim.length() >= TWIN_DEADZONE:
@@ -298,7 +299,8 @@ static func combine_pad(move: Vector2, aim: Vector2, held: Dictionary, pressed: 
 		aim_t = MouseOrders.AIM_HOLD
 	elif aim_t > 0:
 		aim_t -= 1
-	if aiming and (acted or aim_t > 0 or attacking or held.get("heavy", false)):
+	if aiming and (acted or aim_t > 0 or attacking or held.get("heavy", false) or held.get("skill_1", false)
+			or held.get("skill_2", false)):
 		out |= SimDefs.bits_from_dir(aim.normalized()) | SimDefs.aim_bits(aim)
 	elif move.length() > 0.0:
 		out |= SimDefs.move_bits(move)

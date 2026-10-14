@@ -227,6 +227,10 @@ func spawn(e: Dictionary) -> void:
 			for i in 6:
 				_px(p, Vector2.from_angle(randf() * TAU) * randf_range(1.0, 2.2), Color.WHITE, 12)
 			_text(p, "SLIP!", C_PARRY)
+		"swallow":
+			_swallow_fx(e)
+		"poop":
+			_poop_fx(e)
 		"grab":
 			if bool(e.get("flip", false)):
 				_flip_out(e)
@@ -1327,6 +1331,51 @@ func _flip_out(e: Dictionary) -> void:
 	_text(a.pos + Vector2(0, -_top(a) - 16), "FLIP!", Color("ffd166"), 9, 40.0)
 
 
+## Gulp, held: the tongue snaps back with the foe on it and down it goes. Culvert puffs
+## up with a mouthful.
+func _swallow_fx(e: Dictionary) -> void:
+	var a := _creature(int(e.get("attacker", -1)))
+	if a == null:
+		return
+	_text(a.pos + Vector2(0, -_top(a) - 14), "GULP!", Color("b6f28a"), 9, 36.0)
+	var mouth := a.pos + a.facing * 8.0 + Vector2(0, -10)
+	for i in 8:
+		_drop(mouth, 8.0, Vector2.from_angle(randf() * TAU) * randf_range(0.4, 1.2), randf_range(0.6, 1.6), true)
+	_kick_view(a, Vector2(1.28, 0.82))
+
+
+## ...and out the back end: a quick squat, a plop, a puff of dust, a whiff of stink lines
+## and the swallowed fighter skidding out behind him.
+func _poop_fx(e: Dictionary) -> void:
+	var a := _creature(int(e.get("attacker", -1)))
+	var at: Vector2 = e["pos"]
+	if a != null:
+		_kick_view(a, Vector2(1.3, 0.68))
+		at = a.pos - a.facing * (a.radius + 4.0)
+	for i in 10:
+		var v := Vector2(randf_range(-0.9, 0.9), randf_range(-0.9, -0.2))
+		if a != null:
+			v += -a.facing * randf_range(0.3, 1.0)
+		_add({"kind": "dust", "pos": at + Vector2(randf_range(-4, 4), randf_range(-2, 2)), "vel": v, "life": 26})
+	for i in 3:  # stink lines, wafting up
+		_later(0.05 * i, func(): _stink(at + Vector2(randf_range(-8, 8), -6)))
+	_add({"kind": "ring", "pos": at, "life": 10, "radius": 12.0, "color": Color("a3824c")})
+	var back := -a.facing if a != null else Vector2.LEFT
+	_text(at + back * 18.0 + Vector2(0, -6), "PLOP!", Color("e0b36a"), 9, 40.0)  # low, clear of his bar
+	shake_out = maxf(shake_out, 1.5)
+
+
+func _stink(at: Vector2) -> void:
+	for k in 4:
+		_px(at + Vector2(sin(k * 1.4) * 2.0, -k * 2.0), Vector2(sin(k) * 0.15, -0.45), Color(0.62, 0.78, 0.32, 0.8), 34)
+
+
+func _kick_view(c: CreatureSim, to: Vector2) -> void:
+	for v in views:
+		if v is CreatureView and (v as CreatureView).c == c:
+			(v as CreatureView).kick(to)
+
+
 ## Chef Cerebro's knockout: the brain fizzles out with a puff of steam, and his
 ## sunglasses skid off across the floor.
 func _deflate(c: CreatureSim) -> void:
@@ -2308,6 +2357,8 @@ func _draw_side_marks(ci: CanvasItem) -> void:
 		if c.state == CreatureSim.State.KO:
 			_trail.erase(c)
 			continue
+		if c.swallow_t > 0:
+			continue  # inside Culvert: nothing to show
 		var mk: Dictionary = side_marks[i]
 		var rel := String(mk.get("rel", "side"))
 		var alpha := 1.0
@@ -2681,6 +2732,8 @@ func _draw_rooted(ci: CanvasItem, c: CreatureSim) -> void:
 
 ## Shield plates, slowed pebbles and the taunt mark, drawn over the creature.
 func _draw_status(ci: CanvasItem, c: CreatureSim) -> void:
+	if c.swallow_t > 0:
+		return
 	var lift := c.air_height()
 	if c.slow > 0:
 		for i in 3:

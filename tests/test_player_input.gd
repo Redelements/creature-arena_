@@ -133,3 +133,29 @@ func test_cursor_over_creature() -> void:
 	var d := sim.creatures[1]
 	assert_true(MouseOrders.is_on_creature(d, d.pos + Vector2(0, -20)), "on the body")
 	assert_false(MouseOrders.is_on_creature(d, d.pos + Vector2(40, 0)), "beside it")
+
+
+## Holding Gulp's button (Q, or Y on a pad) has to reach the sim as held, or a held Gulp
+## can only ever be a tap (a hook) and never a swallow. Only Heavy used to be passed on.
+func test_mouse_layout_holding_gulp_swallows() -> void:
+	var sim := MatchFactory.versus("culvert", "cairn")
+	var me := sim.creatures[0]
+	var foe := sim.creatures[1]
+	me.pos = Vector2(200, 164)
+	foe.pos = Vector2(280, 164)
+	var mo := MouseOrders.new()
+	var swallowed := false
+	for t in 90:
+		var held := _held(["skill_1"]) if t < 40 else NONE
+		var pressed := _held(["skill_1"]) if t == 0 else NONE
+		sim.step(PackedInt32Array([mo.bits(me, foe, foe.pos, held, pressed), 0]))
+		for e in sim.events:
+			swallowed = swallowed or String(e["type"]) == "swallow"
+	assert_true(swallowed, "Q held: Culvert swallows")
+
+
+func test_gamepad_passes_a_held_skill_on() -> void:
+	var out := PlayerInput.combine_pad(Vector2.ZERO, Vector2.ZERO, {"skill_1": true}, {}, true, 0)
+	assert_true(out & SimDefs.IN_SKILL1, "skill 1 held, not just pressed")
+	out = PlayerInput.combine_pad(Vector2.ZERO, Vector2.ZERO, {"skill_2": true}, {}, true, 0)
+	assert_true(out & SimDefs.IN_SKILL2, "skill 2 held")

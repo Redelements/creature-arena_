@@ -20,6 +20,8 @@ const ARRIVE := 2.5  ## close enough to a move destination to stop
 const AIM_HOLD := 10  ## ticks to keep aiming at the cursor after a press (matches the input buffer)
 const STUCK_TICKS := 12
 
+## Buttons passed on for as long as they're held (charging moves).
+const HOLD_BITS := {"heavy": SimDefs.IN_HEAVY, "skill_1": SimDefs.IN_SKILL1, "skill_2": SimDefs.IN_SKILL2}
 const PRESS_BITS := {
 	"attack": SimDefs.IN_LIGHT,
 	"heavy": SimDefs.IN_HEAVY,
@@ -74,8 +76,11 @@ func bits(me: CreatureSim, foe: CreatureSim, cursor: Vector2, held: Dictionary, 
 		if pressed.get(act, false):
 			out |= int(PRESS_BITS[act])
 			acted = true
-	if held.get("heavy", false):
-		out |= SimDefs.IN_HEAVY
+	# Held buttons stay down, so a move that charges (a heavy, Gulp, Pinecone Bomb) keeps
+	# charging while you hold it; the sim only starts a move on the press itself.
+	for act in HOLD_BITS:
+		if held.get(act, false):
+			out |= int(HOLD_BITS[act])
 	if acted:
 		aim_t = AIM_HOLD
 		dest = Vector2.INF
@@ -92,7 +97,8 @@ func bits(me: CreatureSim, foe: CreatureSim, cursor: Vector2, held: Dictionary, 
 			chase = false
 
 	# --- direction: aim, chase, or walk to the destination
-	var aiming: bool = aim_t > 0 or (held.get("heavy", false) and me.charging)
+	var aiming: bool = aim_t > 0 or (me.charging and (held.get("heavy", false)
+		or held.get("skill_1", false) or held.get("skill_2", false)))
 	if aiming:
 		out |= _dir_bits(cursor - me.pos, 0.0) | SimDefs.aim_bits(cursor - me.pos)
 	elif chase:

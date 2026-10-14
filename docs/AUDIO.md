@@ -41,6 +41,8 @@ buses at start-up; `play(name, ..., ui = true)` sends a sound to Menu sounds.
 | [ ] | `splash` | Runoff wave ends or hits | Water splash |
 | [ ] | `wave` | Runoff is thrown | Rushing water |
 | [ ] | `grab` | Gulp swallows and spits | Gulp, then spit |
+| [ ] | `swallow` | A held Gulp swallows someone whole | A long, deep, wobbling gulp |
+| [ ] | `plop` | ...and they come out the back end | A wet, comic plop; a little squelch |
 | [ ] | `parry` | Slip counter triggers | Bright, satisfying ting |
 | [ ] | `breakaway` | Breakaway escape | Whoosh + chime |
 | [ ] | `windup_red` | Unblockable / guard-break windup starts | Alarm-like; must read instantly |

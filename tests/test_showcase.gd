@@ -14,7 +14,7 @@ func _play(name: String) -> Dictionary:
 		for e in sim.events:
 			log["parts"].append([sc.part, String(e["type"]), int(e.get("target", e.get("who", -1)))])
 			match String(e["type"]):
-				"grab":
+				"grab", "swallow":
 					log["grabbed"][int(e["target"])] = true
 				"hit":
 					log["hit"][int(e["target"])] += 1

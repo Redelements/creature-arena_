@@ -39,18 +39,28 @@ func test_a_held_gulp_swallows_and_spits_them_out_behind() -> void:
 	var sim := _duel("cairn", 60.0)
 	var culv := sim.creatures[0]
 	var cairn := sim.creatures[1]
-	var grabbed := run_until(sim, func(): return not _events(sim, "grab").is_empty(), 80, S1)
+	var grabbed := run_until(sim, func(): return not _events(sim, "swallow").is_empty(), 80, S1)
 	assert_true(grabbed, "a held tongue swallows Cairn")
 	assert_true(_events(sim, "hook").is_empty(), "no hook when held")
 	assert_near(cairn.max_hp - cairn.hp, 12.0, 0.001, "swallow damage:")
-	run(sim, 0, 40)
-	assert_lt(cairn.pos.x, culv.pos.x, "spat out behind him:")
-	assert_lt(culv.facing.x, 0.0, "and he turns to face where they land")
+	assert_gt(cairn.swallow_t, 0, "inside him:")
+	assert_eq(cairn.pos, culv.pos, "carried along inside him:")
+	assert_true(cairn.is_invulnerable(), "and out of reach while he is")
+	var pooped := run_until(sim, func(): return not _events(sim, "poop").is_empty(), 40)
+	assert_true(pooped, "out the back end")
+	assert_lt(cairn.pos.x, culv.pos.x - culv.radius, "behind him:")
+	run(sim, 0, 30)
+	assert_lt(cairn.pos.x, culv.pos.x - culv.radius - cairn.radius, "skidding away behind him:")
+	assert_gt(culv.facing.x, 0.0, "he doesn't even turn round")
 
 
-func test_the_tongue_flies_at_a_moderate_speed() -> void:
+func test_the_tongue_reaches_half_as_far_again_in_the_same_time() -> void:
+	# 87 px (offset 14 + 5 px a tick for 13 ticks + an 8 px tip) became about 130 px,
+	# still out and back in 13 ticks: it flies faster, not longer.
 	var p: Dictionary = MatchFactory.load_def("culvert")["moves"]["skill_1"]["projectile"]
-	assert_near(float(p["speed"]), 5.0, 0.001, "px a tick:")
+	assert_eq(int(p["life"]), 13, "same travel time (ticks):")
+	var reach := float(p["offset"]) + float(p["speed"]) * float(p["life"]) + float(p["radius"])
+	assert_near(reach, 87.0 * 1.5, 1.0, "reach (px):")
 
 
 func test_sidestepping_the_tongue_beats_it() -> void:
@@ -79,9 +89,9 @@ func test_slam_cracks_a_wall_in_front_and_never_under_his_own_feet() -> void:
 				holes += 1
 				xs.append(cx)
 				ys.append(cy)
-	assert_eq(holes, 12, "a 3 by 4 block:")
-	assert_eq(xs.max() - xs.min() + 1, 3, "3 deep (along his facing)")
-	assert_eq(ys.max() - ys.min() + 1, 4, "4 across")
+	assert_eq(holes, 25, "a 5 by 5 block:")
+	assert_eq(xs.max() - xs.min() + 1, 5, "5 deep (along his facing)")
+	assert_eq(ys.max() - ys.min() + 1, 5, "5 across")
 	var near_edge: float = SimDefs.GRID_X + int(xs.min()) * SimDefs.CELL
 	assert_gt(near_edge - culv.pos.x, culv.radius, "the near edge is past his body:")
 
@@ -95,3 +105,23 @@ func test_the_roll_goes_twice_as_far_in_the_same_time() -> void:
 	run(sim, 0, int(dg["frames"]))
 	assert_eq(culv.state, CreatureSim.State.IDLE, "the roll lasts its 20 frames")
 	assert_gt(culv.pos.x - start.x, 90.0, "and covers twice what 3 px a tick did:")
+
+
+## The CPU holds Gulp to a full charge some of the time, so it swallows too. (It throws
+## Gulp mostly to open a guard, so the opponent is a tank that guards.)
+func test_cpu_culvert_swallows_sometimes() -> void:
+	var swallows := 0
+	var hooks := 0
+	for s in 6:
+		var sim := MatchFactory.versus("culvert", "craglash")
+		var cpus := [CpuController.new(0, CpuController.RAGE, 40 + s * 7), CpuController.new(1, 2, 90 + s * 13)]
+		for t in 3600:
+			sim.step(PackedInt32Array([cpus[0].bits(sim), cpus[1].bits(sim)]))
+			for e in sim.events:
+				if int(e.get("attacker", -1)) == 0:
+					swallows += 1 if String(e["type"]) == "swallow" else 0
+					hooks += 1 if String(e["type"]) == "hook" else 0
+			if sim.creatures[0].state == CreatureSim.State.KO or sim.creatures[1].state == CreatureSim.State.KO:
+				break
+	assert_gt(float(swallows), 0.0, "swallows (hooks: %d):" % hooks)
+	assert_gt(float(hooks), 0.0, "and still hooks")

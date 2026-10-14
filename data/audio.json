@@ -72,6 +72,16 @@
       "volume_db": -4,
       "pitch_jitter": 0.04
     },
+    "swallow": {
+      "file": "res://assets/audio/swallow.wav",
+      "volume_db": -4,
+      "pitch_jitter": 0.04
+    },
+    "plop": {
+      "file": "res://assets/audio/plop.wav",
+      "volume_db": -3,
+      "pitch_jitter": 0.08
+    },
     "parry": {
       "file": "res://assets/audio/parry.wav",
       "volume_db": -6,

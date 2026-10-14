@@ -203,24 +203,24 @@ func _damaged_cells(sim: MatchSim, value: int) -> Array:
 
 
 func test_slam_leaves_the_same_rectangle_wherever_it_lands() -> void:
-	# Facing right: a block 3 cells deep and 4 across (a wall in front of him, clear of his
-	# own feet), cracked; a second Slam there opens it.
+	# Facing right: a block 5 cells deep and 5 across (in front of him, clear of his own
+	# feet), cracked; a second Slam there opens it.
 	for x in [120.0, 123.0, 127.0]:
 		var sim := MatchFactory.training()
 		sim.creatures[0].pos = Vector2(x, 164)
 		tap(sim, H, 40)
 		var cracked := _damaged_cells(sim, TerrainGrid.CRACKED)
-		assert_eq(cracked.size(), 12, "a 3x4 block of cracks from x=%d:" % int(x))
+		assert_eq(cracked.size(), 25, "a 5x5 block of cracks from x=%d:" % int(x))
 		var xs := cracked.map(func(c): return c[0])
 		var ys := cracked.map(func(c): return c[1])
-		assert_eq(xs.max() - xs.min() + 1, 3, "3 deep:")
-		assert_eq(ys.max() - ys.min() + 1, 4, "4 across:")
+		assert_eq(xs.max() - xs.min() + 1, 5, "5 deep:")
+		assert_eq(ys.max() - ys.min() + 1, 5, "5 across:")
 		var feet := sim.terrain.world_to_cell(sim.creatures[0].pos)
 		assert_true(xs.min() > feet.x + 1, "the block starts clear of his own feet (from x=%d):" % int(x))
 		assert_eq(sim.terrain.count(TerrainGrid.HOLE), 0, "no holes from one plain Slam")
 		tap(sim, H, 40)
-		assert_eq(_damaged_cells(sim, TerrainGrid.HOLE).size(), 12, "the second Slam opens the whole block:")
-	# Facing up, the long side runs across.
+		assert_eq(_damaged_cells(sim, TerrainGrid.HOLE).size(), 25, "the second Slam opens the whole block:")
+	# Facing up: the same block, out in front of him (above).
 	var sim2 := MatchFactory.training()
 	sim2.creatures[0].pos = Vector2(200, 220)
 	sim2.creatures[0].facing = Vector2.UP
@@ -229,8 +229,10 @@ func test_slam_leaves_the_same_rectangle_wherever_it_lands() -> void:
 	var cr := _damaged_cells(sim2, TerrainGrid.CRACKED)
 	var xs2 := cr.map(func(c): return c[0])
 	var ys2 := cr.map(func(c): return c[1])
-	assert_eq(xs2.max() - xs2.min() + 1, 4, "facing up: 4 across:")
-	assert_eq(ys2.max() - ys2.min() + 1, 3, "and 3 deep:")
+	assert_eq(xs2.max() - xs2.min() + 1, 5, "facing up: 5 across:")
+	assert_eq(ys2.max() - ys2.min() + 1, 5, "and 5 deep:")
+	var feet2 := sim2.terrain.world_to_cell(sim2.creatures[0].pos)
+	assert_true(ys2.max() < feet2.y - 1, "above him, clear of his feet")
 
 
 func test_slam_is_quicker_and_still_gives_a_quarter_second_of_warning() -> void:
