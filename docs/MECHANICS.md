@@ -255,17 +255,15 @@ One int per player per tick (src/sim/sim_defs.gd). Buttons: `IN_UP` 1, `IN_DOWN`
 
 ## Keys in data not read by the sim
 
-- `moves.skill_2.taunt.pull` (craglash.json, 0.6): nothing reads it; the drag is the constant `TAUNT_PULL`.
-- `stoneskin.name` (craglash.json): nothing reads it; the HUD hard-codes "STONESKIN" (src/view/hud.gd:254).
 - The cosmetic and non-sim keys listed above (read by view, UI, input or CPU code).
+- `stoneskin.name` (craglash.json) is read by the HUD for the shield label (src/view/hud.gd).
 
 Pitfalls found while checking:
 
-- `poison_every` defaults to 30 in ms:337, but `hit_params` always fills the key (0 when absent), so a poison move without it pulses **every tick**.
-- `reel_speed` defaults to 5.0 in ms:421 for the same reason; a missing key gives 1 px/tick.
-- `taunt` only fires on a move that also has `armor` (cs:896).
+- `hit_params` fills every hit key (0 when the move leaves it out), so a default in `hit.get(key, default)` never applies. `poison_every` and `reel_speed` are handled explicitly (`POISON_EVERY_DEFAULT` = 30, `REEL_SPEED_DEFAULT` = 5.0 in ms:`_apply_hit`); apply any new default the same way.
+- `taunt` only fires on a move that also has `armor` (cs:`_update_attack`). Its pull is the constant `TAUNT_PULL`; the taunt block takes only `radius` and `ticks`.
 - Move-level-only keys (`cone`, `slow_mult`, `vuln_mult`, `steal`) have no `_charged` blend.
-- No current move reaches the plain-grab branch (ms:384–389); both grabs are a hook or a flip.
+- No current move reaches the plain-grab branch (ms:`_apply_hit`); both grabs are a hook or a flip.
 
 ## Where the bullet in CLAUDE.md was wrong or stale
 

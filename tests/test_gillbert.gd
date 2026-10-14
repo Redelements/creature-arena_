@@ -151,3 +151,18 @@ func test_rollback_through_a_leap() -> void:
 	sim.restore(snap)
 	run(sim, 0, 40, L)
 	assert_eq(sim.state_digest(), once, "replaying from the snapshot gives the same state:")
+
+
+func test_reel_without_reel_speed_uses_the_default() -> void:
+	var sim := _duel("cairn", 90.0)
+	var gill := sim.creatures[0]
+	gill.def = gill.def.duplicate(true)  # the factory caches defs; don't edit the shared one
+	gill.def["moves"]["skill_2"].erase("reel_speed")
+	var reeled := run_until(sim, func(): return not _events(sim, "reel").is_empty(), 60, S2)
+	assert_true(reeled, "hooked")
+	var fastest := 0.0
+	for i in 20:
+		var before := gill.pos
+		run(sim, 0, 1)
+		fastest = maxf(fastest, gill.pos.distance_to(before))
+	assert_near(fastest, MatchSim.REEL_SPEED_DEFAULT, 0.05, "reeled at the default speed, not 1 px a tick:")

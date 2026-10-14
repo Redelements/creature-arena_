@@ -136,5 +136,4 @@ File-by-file: docs/CODEBASE.md.
   has the options).
 - **Known issues:** Storm Drain can't be punished even when dodged (its pit ring walls
   Culvert in); a fighter can fall into pits several times in a row after a Storm Drain
-  (respawn lands next to holes). Dead data: `taunt.pull` and `stoneskin.name` aren't read
-  (MECHANICS.md "Keys in data not read by the sim").
+  (respawn lands next to holes).
