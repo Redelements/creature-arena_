@@ -2,8 +2,9 @@
 
 The game itself is the server: the ordinary Linux build started with `--server` runs
 headless, with no window or sound. Players don't host; they pick **Online**, then
-**Quick match 1v1 / 2v2 / 3v3** (whoever is waiting for that size) or **Create room** (with
-a room size) / **Join room** (a short code for friends). Those use the game's server,
+**Quick match** > **1 v 1 / 2 v 2 / 3 v 3** (whoever is waiting for that size) or **Rooms**
+> **Create room** (with a room size) / **Join room** (a short code for friends), and then
+their fighter. When a group is found, everyone must **Accept** within `--ready` seconds. Those use the game's server,
 `server` in `data/online.json`, or the one set in **Settings > Game > Online server**. Any
 server can also be joined by address under **More**. The server groups 2, 4 or 6 players,
 relays their match and referees it with its own copy of the game (design:
@@ -28,6 +29,7 @@ is the short reference.
 | `--net-delay=N` | picked per match | force every match's input delay (frames) |
 | `--cpu-fill=SECONDS` | 20 | a Quick match 2v2/3v3 that has waited this long starts with CPUs in the empty slots (0: never) |
 | `--room-fill=SECONDS` | 45 | the same for a room (longer: friends are typing the code) |
+| `--ready=SECONDS` | 15 | how long players have to accept a match found; those who accepted go back to waiting if someone doesn't |
 | `--cpu-level=N` | 1 | how well those CPUs play: 0 Easy, 1 Normal, 2 Hard |
 
 Players join `ADDRESS` or `ADDRESS:PORT`. Adding `/ROOM` (`game.example.net/kev`, not
@@ -41,8 +43,8 @@ the match, and sends their inputs to everyone like a player's. It uses them in t
   `--room-fill` (a room);
 - a player who leaves mid-match: a CPU takes their slot and the others play on.
 
-With two of you, both press **Quick match 2v2**: after 20 seconds the match starts, with
-a CPU on each team.
+With two of you, both pick **Quick match** > **2 v 2**: after 20 seconds the match is
+found (both accept), with a CPU on each team.
 
 **Players at the server's own house.** Many routers can't loop their public address back
 inside, so the public name fails from the server's own network. Before joining its

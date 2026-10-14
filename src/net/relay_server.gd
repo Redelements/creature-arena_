@@ -9,6 +9,9 @@ extends RefCounted
 ##   hello {version, data, team, room} -->      <-- hello
 ##   <-- wait, ping x5 / pong -->               <-- ping x5 / pong -->
 ##   ...two players in the same room are paired...
+##   <-- found {size, secs}                     found {size, secs} -->
+##   ready  -->                                 <-- ready      (the ready check)
+##   <-- accepted {have, need}                  accepted -->
 ##   <-- start {side 0, teams, delay}           start {side 1, ...} -->
 ##   in / dg  ---------------------> relayed --------------------->  (and back)
 ##   rematch  ---------------------> relayed;  both asked: start again
@@ -16,6 +19,13 @@ extends RefCounted
 ##
 ## To a player the server looks like a host that gives them a side: Netplay needs only
 ## the `side` in "start" (and the opponent's round trip, `via`, for its time sync).
+##
+## Ready check: a group that's been put together isn't started straight away. Everyone
+## in it gets "found" and has `ready_ms` to answer "ready"; once every player has, the
+## match starts. If time runs out, those who accepted go back to waiting (keeping their
+## place in the queue) and those who didn't are told why and dropped. A player who
+## leaves during the check sends everyone else back to waiting. Rematches skip it: the
+## players are already there.
 ##
 ## Team battles: hello asks for a `size` (players per side). Quick match groups players
 ## who asked for the same size; in a room the first player to ask for a size sets it,
@@ -33,6 +43,10 @@ extends RefCounted
 ##
 ## It works on NetLinks, so tests drive it with in-memory links; the real server
 ## (DedicatedServer) feeds it the players of an EnetHub.
+##
+## Team seats: players alternate sides as they're grouped, unless that would put two of
+## the same fighter on one team; then the fewest players move to the other side so every
+## duplicate faces itself across the match instead (when the picks allow it).
 
 const PINGS := 5
 ## A ping that doesn't come back in this long is given up on.
@@ -41,7 +55,12 @@ const PING_TIMEOUT_MS := 2000
 const PATH_EVERY_MS := 2000
 const MAX_ROOM_LENGTH := 32
 
-enum State { HELLO, LOBBY, PLAYING }
+enum State { HELLO, LOBBY, FOUND, PLAYING }
+
+## Messages players are dropped or requeued with during the ready check.
+const MSG_NOT_ACCEPTED := "You didn't accept the match in time. Search again when you're ready."
+const MSG_REQUEUE := "A player didn't accept. Back to searching..."
+const MSG_LEFT := "A player left before the match. Back to searching..."
 
 var max_players := 32
 ## A player who connects but never says hello is dropped after this long.
@@ -53,6 +72,8 @@ var forced_delay := -1
 ## friends take a while to type the code.
 var cpu_fill_ms := 20000
 var room_fill_ms := 45000
+## How long every player in a group has to accept the match (the ready check).
+var ready_ms := 15000
 ## Picks the CPUs' fighters (tests seed it; the server leaves it random).
 var rng := RandomNumberGenerator.new()
 ## How well the CPUs play (CpuController levels: 0 Easy, 1 Normal, 2 Hard, 3 Rage).
@@ -63,6 +84,7 @@ var log_lines: Array = []
 
 var clients := {}  ## id -> Client
 var games: Array = []
+var checks: Array = []  ## Checks: groups waiting for everyone to accept
 var matches_started := 0
 var matches_finished := 0
 var _next_id := 1
@@ -86,6 +108,7 @@ class Client:
 	var size := 1  ## players per side asked for (0: whatever the room is)
 	var wait_shown := -1  ## the group size last told to this player
 	var waiting_since := 0  ## when they started waiting for a match (ms)
+	var check: Check = null  ## the ready check they're in (state FOUND)
 
 	func label() -> String:
 		return "player %d (%s)" % [id, ", ".join(PackedStringArray(team))] if not team.is_empty() \
@@ -93,6 +116,17 @@ class Client:
 
 	func pinged() -> bool:
 		return rtts.size() >= RelayServer.PINGS or (rtts.size() > 0 and ping_usec == 0)
+
+
+## A group that's been found, waiting for every player in it to accept.
+class Check:
+	var players: Array = []  ## Clients, in the order they were grouped
+	var size := 1
+	var deadline_ms := 0
+	var accepted := {}  ## client id -> true
+
+	func all_in() -> bool:
+		return accepted.size() >= players.size()
 
 
 ## Players grouped into a match; rematches keep the group and count `n` up.
@@ -154,6 +188,7 @@ func tick() -> void:
 		elif c.state == State.LOBBY:
 			_ping_step(c)
 	_pair_waiting()
+	_check_step(now)
 	for g: Game in games:
 		_referee_step(g, now)
 	for c: Client in clients.values():
@@ -173,8 +208,11 @@ func shutdown() -> void:
 		c.game = null
 	for g: Game in games:
 		g.players.clear()
+	for k: Check in checks:
+		k.players.clear()
 	clients.clear()
 	games.clear()
+	checks.clear()
 
 
 # ------------------------------------------------------------------ messages
@@ -209,6 +247,8 @@ func _handle(c: Client, m: Dictionary) -> void:
 				c.rtt = float(c.rtts.min())
 		"ping":
 			c.link.send({"t": "pong", "n": m.get("n", 0)}, true)
+		"ready":
+			_accept(c)
 		"in":
 			var g := c.game
 			if g == null or int(m.get("n", -1)) != g.n:
@@ -302,13 +342,13 @@ func _pair_waiting() -> void:
 		var need := size * 2
 		var ready: Array = (groups[key] as Array).filter(func(c): return c.pinged())
 		while ready.size() >= need:
-			_begin_game(ready.slice(0, need), size)
+			_found(ready.slice(0, need), size)
 			ready = ready.slice(need)
 		# Waited long enough for a team battle: CPUs take the empty slots.
 		if need > 2 and not ready.is_empty():
 			var fill := _fill_ms(ready[0])
 			if fill > 0 and Time.get_ticks_msec() - (ready[0] as Client).waiting_since >= fill:
-				_begin_game(ready, size)
+				_found(ready, size)
 				ready = []
 		for c: Client in groups[key]:
 			if c.state == State.LOBBY and need > 2 and c.wait_shown != (groups[key] as Array).size():
@@ -316,18 +356,117 @@ func _pair_waiting() -> void:
 				c.link.send({"t": "wait", "msg": _wait_text(c, mini(c.wait_shown, need), need)}, true)
 
 
-## `group`: the players in the order they arrived; they alternate sides, so in a room
-## the first two (the friend who made it and the next to join) face each other. Fewer
+## A group is ready to play: ask everyone in it to accept (the ready check).
+func _found(group: Array, size: int) -> void:
+	var k := Check.new()
+	k.players = group.duplicate()
+	k.size = size
+	k.deadline_ms = Time.get_ticks_msec() + ready_ms
+	checks.append(k)
+	for c: Client in group:
+		c.state = State.FOUND
+		c.check = k
+		c.wait_shown = -1
+		c.link.send({"t": "found", "size": size, "players": group.size(), "need": size * 2,
+			"secs": ready_ms / 1000.0}, true)
+	_log("match found for %s; waiting for everyone to accept" % ", ".join(PackedStringArray(
+		group.map(func(c): return (c as Client).label()))))
+
+
+## A player in a ready check accepted. Once everyone has, the match starts.
+func _accept(c: Client) -> void:
+	if c.state != State.FOUND or c.check == null or c.check.accepted.has(c.id):
+		return
+	var k := c.check
+	k.accepted[c.id] = true
+	for o: Client in k.players:
+		o.link.send({"t": "accepted", "have": k.accepted.size(), "need": k.players.size()}, true)
+	if k.all_in():
+		checks.erase(k)
+		for o: Client in k.players:
+			o.check = null
+		_begin_game(k.players, k.size)
+
+
+## Ready checks whose time ran out: those who accepted wait again (their place kept),
+## the rest are told why and dropped.
+func _check_step(now: int) -> void:
+	for k: Check in checks.duplicate():
+		if now < k.deadline_ms:
+			continue
+		checks.erase(k)
+		for c: Client in k.players:
+			c.check = null
+			if k.accepted.has(c.id):
+				_requeue(c, MSG_REQUEUE)
+		for c: Client in k.players:
+			if not k.accepted.has(c.id) and clients.has(c.id):
+				_refuse(c, "ready", MSG_NOT_ACCEPTED)
+
+
+## Back to waiting for a match, keeping their place in the queue.
+func _requeue(c: Client, msg: String) -> void:
+	if not clients.has(c.id):
+		return
+	c.state = State.LOBBY
+	c.check = null
+	c.wait_shown = -1
+	c.link.send({"t": "wait", "msg": msg, "requeue": true}, true)
+
+
+## Which side each player of a group sits on. They alternate as they arrived (so in a
+## room the first two face each other), unless that puts the same fighter twice on one
+## team: then the fewest players move so duplicates face each other across the match.
+static func seat(teams: Array, size: int) -> Array:
+	var n := teams.size()
+	var sides: Array = []
+	for k in n:
+		sides.append(k % 2)
+	if size <= 1 or n <= 2:
+		return sides
+	var on_right := n / 2
+	var best_mask := -1
+	var best := [1 << 30, 1 << 30]
+	for mask in 1 << n:
+		var right := 0
+		for k in n:
+			right += (mask >> k) & 1
+		if right != on_right:
+			continue
+		var seen := [{}, {}]
+		var dups := 0
+		var moved := 0
+		for k in n:
+			var s := (mask >> k) & 1
+			var f := String((teams[k] as Array)[0]) if not (teams[k] as Array).is_empty() else ""
+			if (seen[s] as Dictionary).has(f):
+				dups += 1
+			seen[s][f] = true
+			if s != int(sides[k]):
+				moved += 1
+		if dups < int(best[0]) or (dups == int(best[0]) and moved < int(best[1])):
+			best = [dups, moved]
+			best_mask = mask
+	if best_mask >= 0:
+		for k in n:
+			sides[k] = (best_mask >> k) & 1
+	return sides
+
+
+## `group`: the players in the order they arrived; `seat()` picks their sides. Fewer
 ## than a full match: CPUs take the slots left over (fighters nobody picked, first).
 func _begin_game(group: Array, size: int) -> void:
 	var g := Game.new()
 	g.size = size
 	g.players.resize(size * 2)
 	var used := {}
+	var sides := seat(group.map(func(c): return (c as Client).team), size)
+	var filled := [0, 0]
 	for k in group.size():
 		var c: Client = group[k]
-		c.side = k % 2
-		c.slot = c.side * size + k / 2
+		c.side = int(sides[k])
+		c.slot = c.side * size + int(filled[c.side])
+		filled[c.side] += 1
 		g.players[c.slot] = c
 		c.game = g
 		c.state = State.PLAYING
@@ -486,6 +625,14 @@ func _drop(c: Client, why: String) -> void:
 		return
 	clients.erase(c.id)
 	_log("%s %s" % [c.label(), why])
+	if c.check != null:
+		# Left during the ready check: everyone else goes back to waiting.
+		var k := c.check
+		checks.erase(k)
+		c.check = null
+		for o: Client in k.players:
+			if o != c:
+				_requeue(o, MSG_LEFT)
 	var g := c.game
 	if g != null and g.size > 1 and not g.others(c).is_empty():
 		_cpu_takes_over(g, c)

@@ -70,6 +70,44 @@ func test_four_players_asking_for_2v2_start_one_team_battle() -> void:
 	assert_eq(per_side, [2, 2], "two a side:")
 
 
+func test_two_of_the_same_fighter_are_seated_on_opposite_teams() -> void:
+	# Arriving in this order, alternating would put both Cairns on the left.
+	var picks := [["cairn"], ["sno"], ["cairn"], ["pete"]]
+	var sides := RelayServer.seat(picks, 2)
+	assert_true(int(sides[0]) != int(sides[2]), "the Cairns face each other: %s" % str(sides))
+	assert_eq(sides.count(0), 2, "still two a side:")
+	assert_eq(RelayServer.seat([["cairn"], ["sno"], ["pete"], ["digby"]], 2), [0, 1, 0, 1],
+		"no duplicates: the usual alternating seats")
+	var trio := [["cairn"], ["cairn"], ["cairn"], ["sno"]]
+	var three := RelayServer.seat(trio, 2)
+	var cairns := [0, 0]
+	for k in 4:
+		if String(trio[k][0]) == "cairn":
+			cairns[int(three[k])] += 1
+	assert_eq(three.count(0), 2, "three Cairns: still two a side")
+	assert_true(cairns[0] <= 2 and cairns[1] <= 2, "and no team gets all three: %s" % str(three))
+	assert_eq(RelayServer.seat([["cairn"], ["cairn"]], 1), [0, 1], "a 1v1 mirror: one each side")
+
+
+func test_a_2v2_with_two_of_the_same_fighter_splits_them() -> void:
+	var server := RelayServer.new()
+	var nets: Array = []
+	for f in ["cairn", "sno", "cairn", "pete"]:
+		var links := LoopLink.pair()
+		server.add_client(links[0])
+		var n := Netplay.new()
+		n.team_size = 2
+		n.join("server", 0, [f], links[1])
+		nets.append(n)
+	assert_true(_run(server, nets, 300, func(): return _all_playing(nets)), "all four start")
+	var teams: Array = (nets[0] as Netplay).game.teams
+	assert_eq((teams[0] as Array).count("cairn"), 1, "one Cairn on the left: %s" % str(teams))
+	assert_eq((teams[1] as Array).count("cairn"), 1, "and one on the right")
+	for n: Netplay in nets:
+		var me: CreatureSim = n.game.team.sim.creatures[n.game.local_slot]
+		assert_eq(String(me.def["id"]), String(n.my_team[0]), "everyone still plays their own pick:")
+
+
 func test_three_asking_for_2v2_wait_and_say_how_many() -> void:
 	var s := _setup([2, 2, 2])
 	var server: RelayServer = s[0]

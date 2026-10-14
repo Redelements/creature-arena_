@@ -89,7 +89,7 @@ src/net/    rollback_session (GGPO-style), sim_check (cross-platform fingerprint
 src/game/   main (flow, camera), online_lobby, showcase, trials, drills, controls,
             match_factory
 src/ui/     ui_theme, screen_stack, ui_screen, option_row, prompts, fighter_preview, title,
-            character_select, pause/confirm/help screens
+            character_select, ready_check, pause/confirm/help screens
             (menus on Godot Control nodes; plan in docs/plans/menus.md)
 data/       creatures/*.json, rules/duel.json, trials.json, audio.json
 tests/      run_tests.gd auto-runs every tests/test_*.gd
@@ -206,9 +206,15 @@ tools/      gen_sprites.py, gen_audio.py (placeholders); gen_culvert.py and gen_
   `UiTheme`, focus navigation on `ui_*`; B / Esc closes the top screen). Title
   (`TitleScreen`), Single player and Settings (built in main with `UiScreen.builder`;
   settings rows from `_setting(key)` / `_set_setting(key, i)`), the online screen
-  (`OnlineLobby`: Quick match / Create room / Join room on the game's server, from
-  `data/online.json` or Settings > Game > Online server; More = host or join by address +
-  recent servers; before joining its server the game asks the local network first
+  (`OnlineLobby`, in pages: Quick match > 1 v 1 / 2 v 2 / 3 v 3, Rooms > size / Create
+  room / Join room, on the game's server, from `data/online.json` or Settings > Game >
+  Online server; More = host or join by address + recent servers. Every choice opens the
+  `CharacterSelect` in `solo` mode first (one fighter; `lobby.picker`; tests emit its
+  `chosen`), then searches; Cancel while searching emits `search_cancelled` and stays.
+  When the server finds a group it runs a ready check: Netplay's `match_found`, main
+  pushes `ReadyCheck` (Accept / Decline, countdown); `Netplay.auto_ready` answers at
+  once for tests and command-line joins; the server's `ready_ms` / `--ready`, and
+  `RelayServer.seat()` puts duplicate fighters on opposite teams; before joining its server the game asks the local network first
   (`LanFinder` broadcast, answered by the server's `ServerBeacon` on UDP port + 1), since
   routers often can't loop the public name back inside), pause, match over, and the
   `CharacterSelect` (portrait grid, a cursor per player on their own device; it reads

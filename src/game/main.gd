@@ -210,6 +210,10 @@ var _quit_after := 0
 var netplay: Netplay = null
 var online: OnlineMatch = null  ## the online match being shown
 var lobby: OnlineLobby
+## The Match found screen while the server's ready check is on.
+var _ready_screen: ReadyCheck = null
+## Accept matches found without asking (command-line joins, --cpu-vs-cpu).
+var _auto_accept := false
 var _online_fighter := "cairn"
 var _online_address := ""
 ## Settings > Game > Online server: the server Quick match and rooms use ("" = the
@@ -292,6 +296,7 @@ func _ready() -> void:
 	if start_mode >= 0:
 		_start_match(start_mode)
 	if _net_args.has("host") or _net_args.has("join"):
+		_auto_accept = true  # started from the command line: no one to ask
 		_open_lobby()
 		if _net_args.has("host"):
 			_net_host(_online_fighter)
@@ -1718,7 +1723,24 @@ func _open_lobby() -> void:
 	lobby.host_pressed.connect(_net_host)
 	lobby.join_pressed.connect(_net_join_typed)
 	lobby.cancelled.connect(_leave_online)
+	lobby.search_cancelled.connect(_cancel_search)
 	ui.push(lobby)
+
+
+## Cancel while searching or hosting: stop, and stay on the online screen.
+func _cancel_search() -> void:
+	_close_ready_check()
+	if _finder != null:
+		_finder.cancel()
+		_finder = null
+	if netplay != null:
+		netplay.leave()
+		netplay = null
+	if lobby != null:
+		lobby.busy = false
+		lobby.hosting_port = 0
+		lobby.status_bad = false
+		lobby.status = "Stopped searching"
 
 
 ## Builds the network link, with the --net-lag / --net-loss wrapper if asked for.
@@ -1824,6 +1846,7 @@ func _net_join(fighter: String, address: String, port: int, room := "", remember
 		return
 	netplay.room = room
 	netplay.team_size = size
+	netplay.auto_ready = _auto_accept or _cpu_vs_cpu
 	netplay.join(address, port, [fighter], link)
 	lobby.busy = true
 	lobby.hosting_port = 0
@@ -1844,8 +1867,9 @@ func _lobby_status() -> void:
 	if netplay == null:
 		return
 	lobby.status = netplay.status
-	lobby.status_bad = netplay.phase == Netplay.Phase.ENDED
+	lobby.status_bad = netplay.phase == Netplay.Phase.ENDED and not netplay.declined
 	if netplay.phase == Netplay.Phase.ENDED:
+		_close_ready_check()
 		if _home_missed and netplay.error.begins_with("No answer"):
 			lobby.status = HOME_HINT
 		lobby.busy = false
@@ -1853,11 +1877,46 @@ func _lobby_status() -> void:
 		return
 	if netplay.is_playing():
 		_start_online_match()
+		return
+	_ready_check_step()
+
+
+## The server's ready check: Match found opens over the online screen (with a sound and
+## a nudge from the taskbar, in case the player looked away), shows the countdown, and
+## closes again if the match falls through.
+func _ready_check_step() -> void:
+	if netplay.match_found and _ready_screen == null:
+		var what := lobby.searching_for if lobby.searching_for != "" else "Online"
+		_ready_screen = ReadyCheck.new(what, lobby.fighter)
+		_ready_screen.set_total(netplay.found_secs)
+		_ready_screen.accepted.connect(func():
+			if netplay != null:
+				netplay.accept_match())
+		_ready_screen.declined.connect(func():
+			if netplay != null:
+				netplay.decline_match()
+				_lobby_status())
+		ui.push(_ready_screen)
+		audio.play("round_start", 0.0, 1.0, true)
+		if not DisplayServer.window_is_focused():
+			DisplayServer.window_request_attention()
+	elif not netplay.match_found and _ready_screen != null:
+		_close_ready_check()
+	if _ready_screen != null:
+		_ready_screen.update(netplay.seconds_left(), netplay.accepted, netplay.accepted_have,
+			netplay.found_players, netplay.found_need)
+
+
+func _close_ready_check() -> void:
+	if _ready_screen != null and is_instance_valid(_ready_screen) and ui.top() == _ready_screen:
+		ui.pop()
+	_ready_screen = null
 
 
 func _start_online_match() -> void:
 	online = netplay.game
-	_close_ui()  # the lobby, or a match-over screen on a rematch
+	_close_ui()  # the lobby (and Match found), or a match-over screen on a rematch
+	_ready_screen = null
 	lobby = null
 	hud.visible = true
 	hud.menu_visible = false
@@ -1998,6 +2057,7 @@ func _end_online() -> void:
 	if _finder != null:
 		_finder.cancel()
 	_finder = null
+	_ready_screen = null
 	netplay = null
 	online = null
 	if hud != null:

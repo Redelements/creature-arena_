@@ -115,6 +115,15 @@ players in a match see the connection drop within 5 s. Tests: `tests/test_server
 Two clients through a real server: `--server=7799`, then twice
 `--online-join=127.0.0.1:7799/kev --cpu-vs-cpu --net-report=a.json`.
 
+**Ready check.** A group the server has put together doesn't start straight away: each
+player gets `found` {size, players, need, secs} and the game shows Match found. Each
+answers `ready` (Accept), the server tells the group `accepted` {have, need}, and the
+match starts once every player is in. If `ready_ms` (15 s, `--ready`) runs out, those
+who accepted go back to waiting with their place kept (`wait` with `requeue`) and the
+rest are refused with a reason; someone leaving during the check sends the others back
+too. Rematches skip it. `Netplay.auto_ready` answers at once (tests, command-line
+joins). NET_VERSION 6. Tests: `tests/test_server.gd`, the screen in `tests/test_ui.gd`.
+
 **Finding the server at home.** The online screen plays on one configured server
 (`data/online.json`, or Settings > Game > Online server): Quick match (no room) or a
 room code. Players on the server's own network often can't reach its public name (no
@@ -128,7 +137,8 @@ away from home) means the public name. Tests: discovery over loopback in
 the server (direct host/join stays 1v1). Hello asks for a `size` (players per side; 0
 when joining a friend's room takes the room's). The server groups players by size in
 Quick match, and by the first size asked for in a room; they alternate sides as they're
-grouped. `start` adds each player's `slot` (TeamSim's order, left side first) and
+grouped, unless that puts the same fighter twice on one team (`RelayServer.seat()`
+moves the fewest players so duplicates face each other). `start` adds each player's `slot` (TeamSim's order, left side first) and
 everyone's round trip to the server (`vias`, refreshed as `path` `rtts`). Every `in` and
 `dg` is relayed to all the others, tagged with the sender's slot (`p`).
 
