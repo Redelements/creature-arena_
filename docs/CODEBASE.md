@@ -126,11 +126,11 @@ Randomness is fine here. Everything watches sim state and `sim.events`.
 
 | File | Owns | Entry points |
 | --- | --- | --- |
-| `fx_view.gd` (2,646) | All cosmetic effects: event reactions, per-move `fx` data, particles, projectiles, status marks, side markers, telegraphs. Draws two layers: itself above the fighters and `FxGround` below | `spawn(e)` (event `match`); `advance()`; `_watch_all` → `_move_started`, `_charging`, `_strike`, `_during_move`, `_ko`; `_paint(ci, floor_layer)`; `_draw_part` (particle kinds); `_draw_projectiles`, `_proj_kind`; `shake_out` (the one hand-off to main) |
+| `fx_view.gd` (2,646) | All cosmetic effects: event reactions, per-move `fx` data, particles, projectiles, status marks, overhead health bars, telegraphs. Draws two layers: itself above the fighters and `FxGround` below | `spawn(e)` (event `match`); `advance()`; `_watch_all` → `_move_started`, `_charging`, `_strike`, `_during_move`, `_ko`; `_paint(ci, floor_layer)`; `_draw_part` (particle kinds); `_draw_projectiles`, `_proj_kind`; `shake_out` (the one hand-off to main) |
 | `fx_ground.gd` (13) | Empty Node2D under the fighters whose `_draw` calls `FxView._paint.bind(true)` | `FxView.bind_ground` |
 | `creature_view.gd` (480) | One sprite: frame by state, facing, side/up/down sheets, hit flash, charge glow, blink, squash, shadow, surge rim | `setup`, `rebind` (JSON `sprite`/`views`); `refresh` (per tick: position, view, frame, flip, z); `_pick`, `_attack_frame`; static `blink_alpha`, `view_lift` |
 | `surge_aura.gd` (245) | Aura while `energy` is full plus the fill-up burst; two per CreatureView (behind and in front of the sprite); look from the JSON `surge_aura` block (`colors` outer/inner/core, `motes`, `spikes`, `sharp`, `speed`, `height`); rim in its colour (Stoneskin's rim wins). The `surge_ready` {who, team} event → main plays `surge_ready_ally` for a side someone here plays (`is_local_team()`), else `surge_ready_foe` | `bind`, `step`, `is_ready`, `rim`, `rim_color`, `_mote(kind)` |
-| `hud.gd` (481) | Panels, combo counter, Surge cut-in, timer, banners, toast, captions, net line | `_draw`; `_panel` (HP, energy, stamina, dodge and skill cooldowns), `_card`/`_team_panels`, `_team_strip`; `_combo` (`TYPE_PIPS`), `_center`, `cut_in`, `show_toast` |
+| `hud.gd` (481) | Panels, combo counter, Surge cut-in, timer, banners, toast, captions, net line | `_draw`; `_panel` (name, shield name, energy, stamina, dodge and skill cooldowns), `_card`/`_team_panels`, `_team_strip`; `_combo` (`TYPE_PIPS`), `_center`, `cut_in`, `show_toast` |
 | `audio_view.gd` (307) | Sound and music: voice pool, three buses, lookup via `data/audio.json`. Silent when headless | `on_event(e)`, `watch(sim)` (swings, footsteps), `play`, `play_music`, `set_volume`, `preview` |
 | `arena_view.gd` (95) | Stands, walls, breakable floor; redraws only on `terrain.version` change | `set_terrain`, `refresh`, `_cell_rect`; `MARGIN` |
 | `crowd_view.gd` (76) | Crowd bounce, camera flashes, KO roar | `cheer`, `roar`, `advance` |
@@ -147,7 +147,7 @@ The camera is not here: `main.gd:_update_camera`, `_frame_fight`, `CAM_PAD`, `KO
 - Per-move `fx` keys (smear, charge, impact, trail, shout, telegraph…) → the `fx_view.gd` header doc, then `_move_started`, `_charging`, `_strike`, `_during_move`
 - Smears → `_smear_thrust`, `_smear_arc`, `_smear_rise`; KO effects → `_ko` + `_crumble`, `_scatter`, `_gush`, `_melt_ko`, `_cash_ko`, `_dirt_ko`, `_hiss_ko`
 - Red/gold windup tell → `fx_view.gd:_windup_tell`, `creature_view.gd:TELL_RED/TELL_GOLD`
-- Side colour markers → `fx_view.gd:_draw_side_marks` (`side_marks` filled by main from `Hud.SIDE_COLORS`)
+- Health bars over the fighters (League-style) → `fx_view.gd:_draw_side_marks`. `side_marks[i].rel` comes from main's `_relation()`: self (green) / ally (blue) / enemy (red), or side (red left, blue right) when nobody here plays or local players face each other. Ticks every 25 HP, a draining trail after a hit, a shield segment, a Surge strip. The top HUD panel keeps name, Surge, stamina, stones and skills; team cards and the Duel strip keep their small roster bars
 - Telegraphs and aim marks → `_draw_telegraph`, `_draw_aim_mark`, `_draw_lob_mark`, `_draw_line_telegraph`
 - Status marks → `_draw_rooted`, `_draw_status`, `_draw_creature_extras`
 - Sprite frame by state → `creature_view.gd:_pick`; frame in a move (`anim`, `anim_at`, `anim_reel`, charge frames) → `_attack_frame`

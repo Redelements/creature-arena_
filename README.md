@@ -261,6 +261,15 @@ The floor is 672 x 288 px, 1.5 times its first size, inside a stadium wider than
 screen. The camera follows the fight: at the normal 1x while the fighters are close, and
 pulling back (as far as the whole stadium) to keep everyone, heads included, in shot.
 
+### Health bars
+
+Every fighter's health bar floats over its head, League-style: **green** is you, **blue**
+your teammates, **red** your opponents (with nobody playing here, or two players on one
+screen, they're the side colours: red left, blue right). Ticks mark every 25 health, a pale
+chunk shows what a hit just took before it drains away, pale stone on the end is a shield
+(Craglash's Stoneskin), and the thin yellow strip underneath is the Surge meter. The panels
+at the top keep the Surge meter, stamina and skill cooldowns.
+
 ### Fighting from every angle
 
 Fighters move and attack in any direction, not just left and right: every hitbox goes
