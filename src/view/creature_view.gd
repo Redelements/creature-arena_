@@ -165,6 +165,8 @@ func refresh() -> void:
 		pivot.position.x += 1 if Engine.get_physics_frames() % 2 == 0 else -1
 	_update_squash()
 	pivot.scale = _sq
+	if ko_hidden and c.state != CreatureSim.State.KO:
+		ko_hidden = false  # back up (a Team Deathmatch respawn): the death animation is over
 	pivot.visible = not ko_hidden
 
 	# Hit flash, or a warm pulse once the heavy is fully charged or a Surge starts.

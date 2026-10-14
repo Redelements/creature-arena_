@@ -18,7 +18,7 @@ src/game/   main (flow, camera, settings, CLI), online_lobby, showcase, trials, 
             match_factory, autoplay
 src/ui/     ui_theme, screen_stack, ui_screen, option_row, prompts, fighter_preview, title_screen,
             character_select, ready_check, pause/confirm/help/remap screens
-data/       creatures/*.json, rules/{duel,team}.json, trials.json, audio.json, online.json
+data/       creatures/*.json, rules/{duel,team,deathmatch}.json, trials.json, audio.json, online.json
 tests/      run_tests.gd runs every tests/test_*.gd; bench_sim.gd, bench_cpu.gd
 tools/      sprite generators (splat3d.py shared), gen_sprites.py, gen_audio.py
 docs/       this page and the others above; docs/plans/ for design notes
@@ -38,7 +38,7 @@ JSON go in. Every variable is snapshotted (see Gotchas).
 | `match_sim.gd` (657) | The whole match: creatures, terrain, projectiles, zones, events, hitstop, KO freeze; all hit and combo resolution | `step(inputs)` (tick order); `_resolve_hits`, `_apply_hit` (damage, hitstun, stale, variety, block, every hit effect); `_flip`; `breakaway`; `gain_energy`; `emit_event`; `spawn_projectile`, `add_zone`; `snapshot`/`restore`/`state_digest`/`state_hash` |
 | `terrain_grid.gd` (186) | Floor as 8 px cells: INTACT → CRACKED → HOLE, healing a step every `HEAL_TICKS` (720) | `damage_cell/circle/rect/ring`, `crack_cell/circle`, `is_hole_at`, `nearest_solid` (respawn), `tick` |
 | `duel_sim.gd` (296) | 3v3 tag rules around a MatchSim, one active fighter per side; also used for online 1v1 | `step`; `_tag`, `can_tag`; `_check_knockouts`, `_enter_next`, `_bench_regen`; `_time_out`; `snapshot`/`restore` |
-| `team_sim.gd` (155) | 2v2 / 3v3 with everyone on the field, one life each | `step` (one input per slot, side 0 first); `spawn_point`, `side_of`, `members`; `_time_out` |
+| `team_sim.gd` (264) | 2v2 / 3v3 with everyone on the field: one life each, or Team Deathmatch (respawns, score) when the rules say `deathmatch` | `step` (one input per slot, side 0 first); `_deathmatch_step`, `_respawn`, `_finish`, `pad_point`, `score_to_win`; `spawn_point`, `side_of`, `members`; `_time_out` |
 | `replay.gd` (57) | One input per creature per tick, saved and replayed | `record`, `save`/`load_file`, `play(sim)` returns the state hash |
 
 Constants worth knowing: `CreatureSim.State` (IDLE, MOVE, ATTACK, DODGE, GUARD, HITSTUN, FALLING,
@@ -284,7 +284,7 @@ packets are plain-UDP JSON: `creature-arena?` / `creature-arena`.
 | File | Holds |
 | --- | --- |
 | `data/creatures/<id>.json` | One fighter: `id`, `name`, `title`, `affinity`, `role`, `max_hp`, `speed`, `accel`, `radius`, `weight`, `stamina`, `stamina_regen`, `dodge`, `guard`, `fx_height`, `fx_top`, `fx_color`, `surge_aura`, `cut_in_frame`, `ko_fx`, `sprite`, `ai`, `moves` (slots `tag_in`, `light_1..3`, `heavy`, `skill_1`, `skill_2`, `surge`). Every move key is in MECHANICS.md |
-| `data/rules/duel.json`, `team.json` | Match rules: time, intro ticks, tag cooldown/energy, bench regen, KO swap, spawn spread |
+| `data/rules/duel.json`, `team.json`, `deathmatch.json` | Match rules: time, intro ticks, tag cooldown/energy, bench regen, KO swap, spawn spread; deathmatch adds respawn time, spawn protection, pad inset/spread and `score_to_win` by team size |
 | `data/trials.json` | Combo trials: fighter, name, route |
 | `data/audio.json` | Music volume and tracks, every sound name → file |
 | `data/online.json` | The game's server host |

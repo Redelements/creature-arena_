@@ -34,6 +34,8 @@ var surge_labels := ["", ""]
 var help_text := ""
 var show_help := true
 var timer_ticks := -1
+## Team Deathmatch: the seconds until your fighter is back (-1: you're up).
+var respawn_in := -1
 var wins := [0, 0]
 var wins_needed := 2
 var banner := ""
@@ -218,7 +220,10 @@ func _card(slot: int, x: float, y: float, right: bool) -> void:
 	var name := String(c.def.get("name", "?")).to_upper()
 	_text(Vector2(x + 5, y + 7), name, 6, C_DIM if down else C_TEXT)
 	if down:
-		_text(Vector2(x + 5, y + 7), "K.O.", 6, C_HP_LO, HORIZONTAL_ALIGNMENT_RIGHT, 150)
+		var down_txt := "K.O."
+		if team != null and team.deathmatch and slot < team.respawn_t.size() and int(team.respawn_t[slot]) > 0:
+			down_txt = "BACK IN %d" % ceili(int(team.respawn_t[slot]) / 60.0)
+		_text(Vector2(x + 5, y + 7), down_txt, 6, C_HP_LO, HORIZONTAL_ALIGNMENT_RIGHT, 150)
 		draw_rect(Rect2(x + 5, y + 9, 150, 3), C_BAR_BG)
 		return
 	_text(Vector2(x + 5, y + 7), String(tags[slot]) if slot < tags.size() else "", 5, C_DIM,
@@ -336,11 +341,26 @@ func _center() -> void:
 	draw_rect(Rect2(218 + _cx, 3, 44, 24), C_PANEL)
 	var secs := int(ceil(timer_ticks / 60.0))
 	_text(Vector2(218 + _cx, 19), str(secs), 13, C_HP_LO if secs <= 10 else C_TEXT, HORIZONTAL_ALIGNMENT_CENTER, 44)
+	if team != null and team.deathmatch:
+		_deathmatch_score()
 	for side in 2:
 		for i in wins_needed:
 			var px := 232.0 + _cx + (i * 7.0 if side == 1 else -i * 7.0) + (14.0 if side == 1 else 0.0)
 			var won := i < int(wins[side])
 			draw_circle(Vector2(px, 32), 2.5, C_ACCENT if won else Color(0.25, 0.27, 0.3))
+
+
+## Team Deathmatch: each team's KOs either side of the clock, what wins, and your respawn.
+func _deathmatch_score() -> void:
+	for side in 2:
+		var x := 218.0 + _cx + (-34.0 if side == 0 else 46.0)
+		draw_rect(Rect2(x, 3, 32, 24), C_PANEL)
+		draw_rect(Rect2(x, 3, 32, 2), SIDE_COLORS[side])
+		_text(Vector2(x, 21), str(int(team.score[side])), 13, SIDE_COLORS[side], HORIZONTAL_ALIGNMENT_CENTER, 32)
+	var goal := "SUDDEN DEATH" if team.overtime else "FIRST TO %d" % team.score_to_win()
+	_text(Vector2(184 + _cx, 34), goal, 5, C_ACCENT if team.overtime else C_DIM, HORIZONTAL_ALIGNMENT_CENTER, 112)
+	if respawn_in > 0:
+		_text(Vector2(0, 62 + _cy), "BACK IN %d" % respawn_in, 10, C_TEXT, HORIZONTAL_ALIGNMENT_CENTER, _sw)
 
 
 func _combo(side: int) -> void:

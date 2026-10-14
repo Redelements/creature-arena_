@@ -241,6 +241,7 @@ Views, audio, drills and the CPU read `sim.events`; the sim never reads them.
 | `slam`, `zone` | Floor damage; zone placed |
 | `bounce`, `fall`, `land`, `land_hard`, `ko`, `breakaway` | Bodies |
 | `tag`, `enter`, `duel_over` | DuelSim / TeamSim |
+| `score`, `respawn`, `overtime` | TeamSim in Team Deathmatch |
 
 ## Team rules
 
@@ -248,6 +249,7 @@ Views, audio, drills and the CPU read `sim.events`; the sim never reads them.
 - `is_foe(o)`: not itself and a different team. Hits, projectiles, bursts, taunts, gazes and zones skip teammates; `nearest_opponent` (aim, homing, blink, guard facing, CPU) only returns foes. Bodies still push teammates apart.
 - Duel (`data/rules/duel.json`, duel_sim.gd): one creature per side; `IN_TAG` swaps from neutral/guard, or out of a connected attack for `tag_cancel_energy` 50; the `tag_in` move starts with `startup + tag_in_invuln` invulnerability; energy and stamina carry over; benched members regen; 180 s, then health share wins.
 - Team battle (`data/rules/team.json`): everyone on the field, one life each; 150 s, then health share.
+- Team Deathmatch (`data/rules/deathmatch.json`, modes 31/32): `deathmatch` swaps one life for respawns after `respawn_seconds` on `pad_point(side, slot)` against each team's own wall; every KO adds to the other team's `score`; `guard_t` spawn protection lasts `spawn_protect_seconds` or until the fighter attacks; first to `score_to_win[per_side]` wins, else the higher score at time, and a tie goes to `overtime` sudden death (next KO wins). `score`, `respawn_t`, `guard_t` and the overtime flag are in TeamSim's snapshot. Main fills `FxView.pads` (the floor rings). Offline only: the server doesn't run it yet.
 
 ## Input bits
 
