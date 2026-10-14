@@ -25,15 +25,15 @@ reach away from the camera go behind the body.
 Each view can have its own frame size and feet origin (`"views"` in the creature's JSON
 `"sprite"` block). Animations listed in `"side_only"` (all three use it for the knockout,
 which falls over sideways) always come from the side sheet, so those rows can stay empty
-in the other two. Preview: [`sprite_views_preview.png`](sprite_views_preview.png) (Cairn
-and Culvert, side/down/up), [`craglash_views_preview.png`](craglash_views_preview.png) and
+in the other two. Preview: [`sprite_views_preview.png`](sprite_views_preview.png) (Cairn,
+side/down/up), [`culvert_views_preview.png`](culvert_views_preview.png), [`craglash_views_preview.png`](craglash_views_preview.png) and
 [`barkley_views_preview.png`](barkley_views_preview.png) and
 [`gillbert_views_preview.png`](gillbert_views_preview.png).
 
 ## Creatures — 48×48 frames, 6 columns
 
-Creatures face **right**. Feet rest at the **origin** pixel (Culvert: x 21, y 43; Cairn:
-x 22, y 43), which sits on the ground where the shadow is drawn. The game mirrors the
+Creatures face **right**. Feet rest at the **origin** pixel (Cairn: x 22, y 43), which
+sits on the ground where the shadow is drawn. The game mirrors the
 sprite to face left and raises it off its shadow when launched. Leave at least 1 px of
 transparent margin on every side. Unused cells stay transparent.
 
@@ -50,21 +50,37 @@ How the game plays a move's frames: on 4-frame attacks, frame 0 is the windup, 1
 strike, 2 the follow-through and 3 the recovery. Heavies use 6 frames: two charge frames
 (alternating while held), rise, strike, follow-through and recovery.
 
-### Culvert — 6 × 11 (288×528 px)
+### Culvert — 96×96 frames, 8 × 12 (768×1152 px)
+
+Culvert is drawn by `tools/gen_culvert.py` with the shared splat renderer
+(`tools/splat3d.py`), like the sheet recreations: a posed 3D rig projected into the
+three views. He's a squat toad cast in storm-drain concrete: a wide, low body with a
+lighter belly, a broad head with two bulging amber eyes (slit pupils) and a mouth the
+width of his face that opens into a drain with iron bars across the lower jaw, a round
+manhole cover on his back like a shell, big folded back legs with webbed feet (he hops to
+get around), short front arms ending in concrete fists, moss in the cracks, and a throat
+sac that pulses as he breathes. Concrete grain is a per-pixel fleck (`decorate`). Feet
+at **x 46, y 80**. Up and down sheets (`culvert_down.png`, `culvert_up.png`) are 96×96,
+feet at x 48, y 80 (down) and y 74 (up).
+
+![Culvert sheet, 3x](culvert_preview.png)
+
+Facing down and up: [`culvert_views_preview.png`](culvert_views_preview.png).
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
-| 0 | idle | 4 | breathing loop |
-| 1 | run | 6 | loop |
-| 2 | light | 4 | shared by Jab, Jab, Hook |
-| 3 | heavy | 6 | Slam: charge A, charge B, leap, slam, impact, recover |
-| 4 | dodge | 4 | roll |
-| 5 | hurt | 2 | hitstun; frame 1 doubles as the crumple pose |
-| 6 | guard | 2 | holding, blocking a hit |
-| 7 | ko | 4 | collapse; frames 1–2 double as the knockdown pose |
-| 8 | gulp | 4 | Gulp: open wide, lunge, swallowed (cheeks puffed), spit |
-| 9 | runoff | 4 | Runoff: raise arm, slap the ground, hold, recover |
-| 10 | storm | 6 | Storm Drain: crouch, leap, peak, slam, impact, recover |
+| 0 | idle | 4 | sat on his haunches, breathing: the body swells and the throat pulses |
+| 1 | run | 6 | a toad's hop: crouch, spring, sail with the legs trailing, tuck, land in a squash, settle |
+| 2 | jab | 4 | Jab (lights 1 and 2): the near fist draws back, punches out, follows, returns |
+| 3 | hook | 4 | Hook (light 3): the far fist swings wide across his body and through |
+| 4 | heavy | 6 | Slam: charge A, charge B (both fists raised, rearing up), the rise, both fists into the floor, low in the dust, recover |
+| 5 | dodge | 4 | tucks into a ball behind the manhole cover and rolls sideways |
+| 6 | hurt | 2 | recoil, mouth open; frame 1 doubles as the crumple pose |
+| 7 | guard | 2 | hunkered low, fists up in front of his face |
+| 8 | gulp | 4 | Gulp: the drain yawns open, lunge and swallow (tongue out), held in a bulging throat, spat out with a spray |
+| 9 | runoff | 4 | Runoff: rears up, both fists pound the floor, a spray, recover |
+| 10 | storm | 6 | Storm Drain: crouch, a huge leap, tucked at the top, falling spread-eagled, the landing slam, recover; Manhole Drop plays from frame 3 |
+| 11 | ko | 4 | thrown back, tips over onto the cover, legs in the air, eyes crossed out; the game cracks him and gushes the water |
 
 ### Cairn — 6 × 12 (288×576 px)
 
