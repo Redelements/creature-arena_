@@ -375,6 +375,9 @@ func _defend(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float) -> b
 		return false
 
 	var counter := String(_ai(me).get("counter", ""))
+	if foe.charging and not grab_threat and counter != "" and me.can_use(counter) and _roll(0.35):
+		_press(int(ACTION_BIT[counter]))  # a Slip under a held slam: a gamble on when it drops
+		return true
 	if grab_threat or foe.charging:
 		_dodge_away(me, foe)
 		return true
@@ -460,8 +463,9 @@ func _neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2,
 	# Long-range pokes: a shockwave or a dash punch.
 	var poke := String(ai.get("poke", ""))
 	var pr: Array = ai.get("poke_range", [0, 0])
+	var poke_lined: bool = poke == "" or not me.moves().get(poke, {}).has("projectile") or absf(to_foe.y) < 18.0
 	if poke != "" and me.can_use(poke) and dist >= float(pr[0]) and dist <= float(pr[1]) \
-			and absf(to_foe.y) < 18.0 and _roll(0.25 * float(p["aggression"]) + 0.05):
+			and poke_lined and _roll(0.25 * float(p["aggression"]) + 0.05):
 		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
 		_press(int(ACTION_BIT[poke]))
 		return

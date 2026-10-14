@@ -154,7 +154,11 @@ tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gi
   projectile with `pull` + `launch` (drawn as his neck, fx projectile "head"). Class
   balance (mirrors even, assassin > mage > fighter/tank > assassin) is measured Rage vs
   Rage with `tests/bench_cpu.gd --matrix` / `--pairs` and pinned by `tests/test_balance.gd`;
-  a `tell` of `guard_break`/`unblockable` draws the red warning. Each side has a colour, red left and blue
+  a `tell` of `guard_break`/`unblockable` draws the red warning. Floor damage: a slam's
+  `terrain_rect` [w, h] breaks a fixed block of cells (snapped to the grid; a plain hit
+  cracks it, a second or a full charge opens it) instead of `terrain_radius`; any
+  terrain move's `terrain_heal` scales how long its damage lasts (Culvert 1.5); a
+  melee `cone` move with fx `wave_cone` draws Runoff's sheet of water. Each side has a colour, red left and blue
   right: `FxView.side_marks` (set by main) draws a marker over each fighter, and the HUD
   stripes its panel. `tests/test_scripts_load.gd` compiles every script under `src/`. Projectiles also take `sound`/`end_sound`; any move's `fx` can
   carry a `shout` (`{text, sound}`, a voice line when it starts). Barkley's generator (`tools/gen_barkley.py`) poses a 3D

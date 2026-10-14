@@ -238,14 +238,17 @@ func test_slip_counter_crumples() -> void:
 	assert_near(cairn.hp, cairn.max_hp, 0.001, "Cairn took no damage:")
 
 
-func test_runoff_travels_cracks_and_pops_up() -> void:
-	var sim := _duel("culvert", "cairn", 60.0)
+func test_runoff_washes_the_target_back_without_launching() -> void:
+	var sim := _duel("culvert", "cairn", 24.0)
 	var d := sim.creatures[1]
+	var x0 := d.pos.x
 	tap(sim, S2, 0)
-	var hit := run_until(sim, func(): return d.is_airborne(), 60)
-	assert_true(hit, "shockwave should pop the target up")
-	assert_gt(sim.terrain.count(TerrainGrid.CRACKED), 3, "cracked cells along the path:")
-	assert_eq(sim.terrain.count(TerrainGrid.HOLE), 0, "shockwave never opens holes:")
+	var hit := run_until(sim, func(): return d.hp < d.max_hp, 60)
+	assert_true(hit, "the wave hits a foe in front")
+	assert_false(d.is_airborne(), "it pushes rather than pops up")
+	run(sim, 0, 30)
+	assert_gt(d.pos.x - x0, 12.0, "washed back a little:")
+	assert_eq(sim.terrain.count(TerrainGrid.HOLE), 0, "the wave never opens holes:")
 
 
 func test_storm_drain_rings_culvert_with_pits() -> void:
