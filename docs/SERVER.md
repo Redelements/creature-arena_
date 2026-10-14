@@ -57,22 +57,6 @@ sudo ufw allow from 192.168.0.0/24 to any port 7778 proto udp
 Without the rule, players at home just join the public name (and may get no answer).
 Never forward 7778 on the router: it's only for the local network.
 
-**Players on Windows whose joins get "No answer".** The first time the game uses the
-network, Windows asks whether to allow it; Cancel (or allowing private networks only)
-leaves Windows Firewall rules that block the server's replies. The game checks for those
-rules when the Online screen opens and after a join gets no answer (reading them needs no
-admin rights), and if it finds one it asks *Windows Firewall is blocking the game: Allow /
-Not now*. Allow raises one Windows admin prompt, removes the rules that block the game's
-.exe and adds an allow rule named "Creature Arena" for its UDP traffic
-(`src/net/firewall_check.gd`). By hand: Windows Security > Firewall & network protection >
-Allow an app through firewall, and tick both boxes for CreatureArena.
-
-To tell where a player's join stops, watch the server while they try:
-`sudo tcpdump -ni enp6s0 udp port 7777` (use your network interface) shows whether their
-packets arrive at all; `journalctl -u creature-arena -f` shows whether the game accepted
-them. Packets but no "player connected": their build or their firewall. No packets: the
-port forward, or their game points at another server.
-
 **Same build everywhere.** The server and both players need the same build (the same
 game data). The first log line shows `game data <hash>`; a player with another build is
 told "The server runs a different version of the game". Update the server whenever you
