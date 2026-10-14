@@ -250,7 +250,8 @@ func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 	# Health is over the fighter now (FxView's bars); the panel keeps what isn't: the
 	# Surge, stamina, stones and skills. A shield (Stoneskin) still says so by name.
 	if c.shield > 0.0:
-		_text(Vector2(x + 5, 12), "STONESKIN  ", 5, Color("d8d4cc"), HORIZONTAL_ALIGNMENT_RIGHT, 118)
+		var shield_name := String(c.def.get("stoneskin", {}).get("name", "Stoneskin")).to_upper()
+		_text(Vector2(x + 5, 12), shield_name + "  ", 5, Color("d8d4cc"), HORIZONTAL_ALIGNMENT_RIGHT, 118)
 	if duel != null:
 		_team_strip(side, x, right)
 
