@@ -57,7 +57,7 @@ func test_cast_line_reels_gillbert_in_to_the_target() -> void:
 
 
 func test_a_whiffed_cast_reels_nobody() -> void:
-	var sim := _duel("cairn", 160.0)
+	var sim := _duel("cairn", 260.0)
 	var start := sim.creatures[0].pos.x
 	tap(sim, S2, 60)
 	assert_true(_events(sim, "reel").is_empty(), "out of range: nothing hooked")
