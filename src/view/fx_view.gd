@@ -153,6 +153,7 @@ func bind_ground(g: FxGround) -> void:
 
 func clear() -> void:
 	_parts.clear()
+	_trail.clear()
 	pads.clear()
 	_incoming.clear()
 	_watch.clear()
@@ -2262,6 +2263,22 @@ func _draw_long_bite(ci: CanvasItem, pr: Dictionary) -> void:
 	ci.draw_rect(Rect2((head - d * 2.5 - side * 3.0).round(), Vector2(2, 1)), C_AMBER)  # the eye
 
 
+## Who's who, and how they're doing: a health bar over each fighter, League-style.
+## Its colour says whose it is (`rel` in side_marks: "self" green, "ally" blue, "enemy"
+## red; "side" uses the side colours, red left and blue right, when nobody here plays or
+## two local players face each other). Ticks every 25 health, a pale trail that drains
+## after a hit, a stone segment for a shield (Stoneskin), a thin Surge strip under it,
+## and the player label (P1, CPU...) above. Hidden once knocked out; an invisible fighter
+## (Tiptoe) shows his bar only to his own side, faintly.
+const PLATE_W := 30.0
+const PLATE_H := 3.0
+const HP_TICK := 25.0
+const REL_COLORS := {"self": Color("6fcf5a"), "ally": Color("4aa8ff"), "enemy": Color("e5534b")}
+const C_TRAIL := Color("f4e6c8")
+const C_SHIELD := Color("d8d4cc")
+var _trail := {}  ## creature -> [trail hp, ticks to hold before draining, last hp]
+
+
 ## Team Deathmatch spawn pads (set by main): a ring on the floor in the team's colour, and
 ## the seconds until someone comes back on it. Drawn as a true circle, like every floor area.
 ## Each: {"pos": Vector2, "color": Color, "count": seconds (0: nobody waiting)}.
@@ -2288,20 +2305,75 @@ func _draw_pads(ci: CanvasItem) -> void:
 func _draw_side_marks(ci: CanvasItem) -> void:
 	for i in mini(side_marks.size(), sim.creatures.size()):
 		var c := sim.creatures[i]
-		if c.state == CreatureSim.State.KO or c.stealth > 0:
+		if c.state == CreatureSim.State.KO:
+			_trail.erase(c)
 			continue
 		var mk: Dictionary = side_marks[i]
-		var col: Color = mk["color"]
-		var bob := float((_tick / 20) % 2)
-		var at := (c.pos + Vector2(0, -_top(c) - 6.0 - c.air_height() - CreatureView.view_lift(c) - bob)).round()
-		var tri := PackedVector2Array([at + Vector2(-4, -4), at + Vector2(5, -4), at + Vector2(0.5, 1)])
-		var out := PackedVector2Array([at + Vector2(-6, -5), at + Vector2(7, -5), at + Vector2(0.5, 2.5)])
-		ci.draw_colored_polygon(out, C_OUTLINE)
-		ci.draw_colored_polygon(tri, col)
+		var rel := String(mk.get("rel", "side"))
+		var alpha := 1.0
+		if c.stealth > 0:
+			if rel != "self" and rel != "ally":
+				continue
+			alpha = 0.45
+		var col: Color = REL_COLORS.get(rel, mk["color"])
+		var at := (c.pos + Vector2(0, -_top(c) - 8.0 - c.air_height() - CreatureView.view_lift(c))).round()
+		_draw_plate(ci, c, at, col, alpha)
 		var label := String(mk.get("label", ""))
 		if label != "":
-			ci.draw_string_outline(_font, at + Vector2(-20, -7), label, HORIZONTAL_ALIGNMENT_CENTER, 41, 6, 2, C_OUTLINE)
-			ci.draw_string(_font, at + Vector2(-20, -7), label, HORIZONTAL_ALIGNMENT_CENTER, 41, 6, col)
+			var lc := Color(col, alpha)
+			ci.draw_string_outline(_font, at + Vector2(-20, -3), label, HORIZONTAL_ALIGNMENT_CENTER, 41, 6, 2,
+				Color(C_OUTLINE, alpha))
+			ci.draw_string(_font, at + Vector2(-20, -3), label, HORIZONTAL_ALIGNMENT_CENTER, 41, 6, lc)
+
+
+## The bar itself, centred on `at` (its top edge).
+func _draw_plate(ci: CanvasItem, c: CreatureSim, at: Vector2, col: Color, alpha: float) -> void:
+	var hp := clampf(c.hp, 0.0, c.max_hp)
+	var shield := maxf(0.0, c.shield)
+	# The bar holds the larger of full health and health + shield, so a shield never spills out.
+	var span := maxf(c.max_hp, hp + shield)
+	var x0 := at.x - PLATE_W * 0.5
+	var y0 := at.y
+	var trail := _trail_step(c, hp)
+	ci.draw_rect(Rect2(x0 - 1, y0 - 1, PLATE_W + 2, PLATE_H + 4), Color(C_OUTLINE, 0.9 * alpha))
+	ci.draw_rect(Rect2(x0, y0, PLATE_W, PLATE_H), Color(Hud.C_BAR_BG, alpha))
+	var hw := roundf(PLATE_W * hp / span)
+	var tw := roundf(PLATE_W * clampf(trail, hp, span) / span)
+	if tw > hw:
+		ci.draw_rect(Rect2(x0 + hw, y0, tw - hw, PLATE_H), Color(C_TRAIL, 0.85 * alpha))
+	if hw > 0:
+		ci.draw_rect(Rect2(x0, y0, hw, PLATE_H), Color(col, alpha))
+		ci.draw_rect(Rect2(x0, y0, hw, 1), Color(col.lightened(0.35), alpha))  # a highlight along the top
+	if shield > 0.0:
+		var sw := maxf(1.0, roundf(PLATE_W * shield / span))
+		ci.draw_rect(Rect2(x0 + hw, y0, minf(sw, PLATE_W - hw), PLATE_H), Color(C_SHIELD, alpha))
+	# Ticks every 25 health, so a glance says how much is left.
+	var t := HP_TICK
+	while t < span - 0.5:
+		var tx := x0 + roundf(PLATE_W * t / span)
+		ci.draw_rect(Rect2(tx, y0, 1, PLATE_H - 1), Color(C_OUTLINE, 0.55 * alpha))
+		t += HP_TICK
+	# The Surge strip: yellow, flashing white once it's full.
+	var e := clampf(c.energy / CreatureSim.MAX_ENERGY, 0.0, 1.0)
+	var full := e >= 1.0
+	var ecol := Color.WHITE if full and (_tick / 8) % 2 == 0 else Hud.C_ENERGY
+	ci.draw_rect(Rect2(x0, y0 + PLATE_H + 1, roundf(PLATE_W * e), 1), Color(ecol, alpha))
+
+
+## The pale chunk a hit just took: it waits a moment, then drains down to the health left.
+func _trail_step(c: CreatureSim, hp: float) -> float:
+	var t: Array = _trail.get(c, [hp, 0, hp])
+	if hp < float(t[2]):
+		t[1] = 18  # fresh damage: hold the trail a moment
+	if hp >= float(t[0]):
+		t[0] = hp  # healed or respawned: no trail
+	elif int(t[1]) > 0:
+		t[1] = int(t[1]) - 1
+	else:
+		t[0] = maxf(hp, float(t[0]) - c.max_hp * 0.012)
+	t[2] = hp
+	_trail[c] = t
+	return float(t[0])
 
 
 ## Venom Spit in flight: a wobbling green glob at head height with drips behind it.

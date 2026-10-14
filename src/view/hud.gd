@@ -247,15 +247,9 @@ func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 		tag = "F2: " + dummy_mode_name
 	_text(Vector2(x + 5, 12), name, 7, C_TEXT)
 	_text(Vector2(x + 5, 12), tag, 6, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, 150)
-	_bar(Rect2(x + 5, 15, 150, 6), c.hp / c.max_hp, _hp_color(c.hp / c.max_hp), right)
-	# A shield (Craglash's Stoneskin): pale stone over the end of the health bar, and its name.
+	# Health is over the fighter now (FxView's bars); the panel keeps what isn't: the
+	# Surge, stamina, stones and skills. A shield (Stoneskin) still says so by name.
 	if c.shield > 0.0:
-		var sw := minf(1.0, c.shield / c.max_hp) * 150.0
-		var hw := c.hp / c.max_hp * 150.0
-		var sx := x + 5 + (150.0 - hw - sw if right else hw)
-		sx = clampf(sx, x + 5, x + 155 - sw)
-		draw_rect(Rect2(sx, 15, sw, 6), Color("d8d4cc"))
-		draw_rect(Rect2(sx, 15, sw, 6), Color(0, 0, 0, 0.5), false, 1.0)
 		_text(Vector2(x + 5, 12), "STONESKIN  ", 5, Color("d8d4cc"), HORIZONTAL_ALIGNMENT_RIGHT, 118)
 	if duel != null:
 		_team_strip(side, x, right)
@@ -265,7 +259,8 @@ func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 	var ecol := C_ENERGY
 	if full and (_tick / 8) % 2 == 0:
 		ecol = Color.WHITE
-	_bar(Rect2(x + 5, 24, 100, 3), c.energy / CreatureSim.MAX_ENERGY, ecol, right)
+	_text(Vector2(x + 5, 21), "SURGE", 5, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT if right else HORIZONTAL_ALIGNMENT_LEFT, 100)
+	_bar(Rect2(x + 5, 23, 100, 4), c.energy / CreatureSim.MAX_ENERGY, ecol, right)
 	_bar(Rect2(x + 5, 30, 60, 2), c.stamina / c.max_stamina, C_STAMINA, right)
 	# A dodge with a cooldown (Chef Cerebro's blink): a short violet bar beside the stamina
 	# bar drains away while it recharges.

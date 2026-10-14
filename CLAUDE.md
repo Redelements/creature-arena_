@@ -168,8 +168,12 @@ tools/      gen_sprites.py, gen_audio.py (placeholders); gen_culvert.py and gen_
   cracks it, a second or a full charge opens it) instead of `terrain_radius`; any
   terrain move's `terrain_heal` scales how long its damage lasts (Culvert 1.5); a
   melee `cone` move with fx `wave_cone` draws Runoff's sheet of water. Each side has a colour, red left and blue
-  right: `FxView.side_marks` (set by main) draws a marker over each fighter, and the HUD
-  stripes its panel. **Surge ready:** `MatchSim.gain_energy()` is the only way energy
+  right. **Health bars are over the fighters**, League-style (`FxView._draw_side_marks`):
+  `side_marks[i].rel` from main's `_relation()` is self (green) / ally (blue) / enemy (red),
+  or side (red left, blue right) when nobody here plays or local players face each other;
+  ticks every 25 HP, a draining trail after a hit, a shield segment, a Surge strip. The
+  top panel keeps name, Surge, stamina, stones and skills; team cards and the Duel strip
+  keep their small roster bars. **Surge ready:** `MatchSim.gain_energy()` is the only way energy
   goes up; it emits `surge_ready` {who, team} the moment a meter fills (main plays
   `surge_ready_ally` for a side someone here plays, `is_local_team()`, else
   `surge_ready_foe`). `SurgeAura` (two per CreatureView: behind and in front of the

@@ -916,7 +916,8 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 				label = ""
 		if sim.creatures[i].is_dummy:
 			label = ""
-		fx.side_marks.append({"color": Hud.SIDE_COLORS[clampi(sim.creatures[i].team, 0, 1)], "label": label})
+		fx.side_marks.append({"color": Hud.SIDE_COLORS[clampi(sim.creatures[i].team, 0, 1)], "label": label,
+			"rel": _relation(i)})
 	for i in sides.size():
 		match sides[i]:
 			Side.PLAYER:
@@ -1162,6 +1163,22 @@ func _dummy_bits() -> int:
 				var away := (d.pos - p.pos).normalized()
 				return SimDefs.IN_DODGE | SimDefs.bits_from_dir(Vector2(away.x, away.y + 0.5))
 	return 0
+
+
+## Whose fighter slot `i` is, from this machine's point of view, for its health bar
+## colour: "self" (played here), "ally" (on that player's team), "enemy", or "side" when
+## nobody here plays or local players are on both sides (local versus): then the bars
+## use the side colours.
+func _relation(i: int) -> String:
+	var local_teams := {}
+	for k in mini(sides.size(), sim.creatures.size()):
+		if sides[k] == Side.PLAYER or sides[k] == Side.PLAYER2:
+			local_teams[sim.creatures[k].team] = true
+	if local_teams.size() != 1:
+		return "side"
+	if i < sides.size() and (sides[i] == Side.PLAYER or sides[i] == Side.PLAYER2):
+		return "self"
+	return "ally" if local_teams.has(sim.creatures[i].team) else "enemy"
 
 
 ## Whether `team` is a side someone at this machine plays (or plays alongside, in a team
