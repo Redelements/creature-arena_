@@ -349,8 +349,7 @@
       },
       "taunt": {
         "radius": 90,
-        "ticks": 120,
-        "pull": 0.6
+        "ticks": 120
       },
       "fx": {
         "armor": true

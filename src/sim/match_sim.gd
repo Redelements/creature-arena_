@@ -19,6 +19,9 @@ const STONE_SHATTER_MULT := 1.25
 ## A blocked third light (or later: Cairn's Hook) leaves the attacker at least this many
 ## ticks behind the blocker, enough to punish with a jab, and it can't be cancelled out of.
 const BLOCKED_ENDER_DISADVANTAGE := 16
+## Defaults for a poison move without "poison_every" and a reel without "reel_speed".
+const POISON_EVERY_DEFAULT := 30
+const REEL_SPEED_DEFAULT := 5.0
 
 var tick := 0
 var hitstop := 0
@@ -334,7 +337,10 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 
 	if float(hit.get("poison_ticks", 0.0)) > 0.0:
 		d.poison = maxi(d.poison, int(hit["poison_ticks"]))
-		d.poison_every = maxi(1, int(hit.get("poison_every", 30)))
+		# hit_params fills every key (0 when the move leaves it out), so the default
+		# has to be applied here, not in get().
+		var every := int(hit.get("poison_every", 0))
+		d.poison_every = every if every > 0 else POISON_EVERY_DEFAULT
 		d.poison_dmg = float(hit["poison_damage"])
 		d.poison_by = a.id
 		emit_event("poisoned", d.pos, float(hit["poison_ticks"]), {"who": d.id, "by": a.id})
@@ -418,7 +424,8 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	var reel := float(hit.get("reel", 0.0))
 	if reel > 0.0 and same_attack and d.pos.distance_squared_to(a.pos) > 0.0001:
 		var gap := d.pos.distance_to(a.pos) - (a.radius + d.radius + reel)
-		a.start_reel(d, reel, maxf(1.0, float(hit.get("reel_speed", 5.0))))
+		var reel_speed := float(hit.get("reel_speed", 0.0))
+		a.start_reel(d, reel, reel_speed if reel_speed > 0.0 else REEL_SPEED_DEFAULT)
 		emit_event("reel", a.pos, gap, {"attacker": a.id, "target": d.id})
 
 	hitstop = maxi(hitstop, int(hit["hitstop"]))
