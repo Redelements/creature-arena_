@@ -117,7 +117,34 @@ sets Duel (and Team battle) teams; `--cpu-vs-cpu` hands every player side to the
 
 **Local 2-player:** with two controllers, each player gets one (player 1 can also use the
 keyboard). With one controller, player 1 uses keyboard and mouse and player 2 the controller.
-CPU levels: 0 Easy, 1 Normal, 2 Hard.
+CPU levels: 0 Easy, 1 Normal, 2 Hard, 3 Rage.
+
+**Rage** is the top tier, absurdly good on purpose. It presses buttons like any CPU, but:
+
+- **Reads everything.** It watches every foe's frame data and projectiles. It steps out
+  of reach when there's time, times its dodges so the invincible frames cover the hit,
+  sidesteps shots and gets out from under lobs.
+- **Punishes every opening.** It hits back on whiffs and blocked swings, and only throws
+  a jab that can't be walked away from or out-traded.
+- **Never wastes anything.** It never drops a combo, picks the best route it can afford,
+  leads its shots, and saves its energy for a Surge unless a breakaway is worth more.
+- **Moves smart.** It walks around holes and out of corners.
+- **Plays each fighter by its class** (its `role`, or `"style"` in its `ai` block):
+  - **mage:** kites at the edge of its range, strafing so it keeps facing you and
+    throwing while it backs off. It flips you away or blinks off when you get close.
+  - **assassin:** hovers just out of reach, then bursts in (Burrow, Tiptoe, a dash) for
+    a full combo and gets out. In team battles it hunts the weakest foe.
+  - **tank:** walks you into the walls, uses its armored taunt up close, and in team
+    battles goes after whoever is on its most hurt teammate.
+  - **bruiser:** constant pressure, pokes and lobs.
+  - **skirmisher:** hits and runs at poke range, diving in when the foe is stuck.
+  - **fighter:** footsies at the edge of your reach, parrying with its counter.
+- **Chases kiters.** Against a fighter that attacks from range, everyone except a mage
+  runs it down: it heads for where the kiter is going, weaves through the shots and
+  uses gap closers.
+
+`tests/bench_cpu.gd` pits any two levels against each other across the roster (Rage
+beats Hard about 98% of the time). Rage against Rage shows the kits' balance.
 
 ## Controls
 
@@ -173,7 +200,7 @@ the spot. The mouse aims attacks exactly at the cursor. Controllers have two lay
 WASD still gives 8 directions, so the keyboard gets a small **aim assist**: an attack
 aimed within 25° of an opponent within reach goes straight at them (12° from the left
 stick, which needs less help). A chevron on the floor shows exactly where each fighter
-faces. The CPU walks and aims 360 degrees on Normal and Hard, and in 8 directions on Easy. `--showcase=twinstick` shows strafing and an
+faces. The CPU walks and aims 360 degrees on Normal and up (Rage also leads its shots), and in 8 directions on Easy. `--showcase=twinstick` shows strafing and an
 off-angle Landslide Charge; `--pad-layout=twinstick` picks the layout from the command line.
 
 Tools: F1 hitbox overlay, F2 cycle the training dummy, F3 hide the controls strip,

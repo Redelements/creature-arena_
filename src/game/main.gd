@@ -106,7 +106,7 @@ const MENU_ROWS := [
 		"desc": "Sit back: scripted showcases or the CPU against itself"},
 ]
 const DEFAULT_TEAMS := [["cerebro", "gillbert", "barkley"], ["culvert", "cerebro", "craglash"]]
-const LEVEL_NAMES := ["Easy", "Normal", "Hard"]
+const LEVEL_NAMES := ["Easy", "Normal", "Hard", "Rage"]
 const DUMMY_MODES := ["Stand", "Guard", "Walk", "Dodge"]
 const ROUND_TICKS := 90 * 60
 const WINS_NEEDED := 2
@@ -1351,7 +1351,7 @@ func _setting(key: String) -> Dictionary:
 			"desc": "Left/Right sets it.  M mutes the music any time"}
 	match key:
 		"level":
-			return {"label": "CPU level", "values": LEVEL_NAMES, "index": level, "desc": "How hard the CPU fights"}
+			return {"label": "CPU level", "values": LEVEL_NAMES, "index": level, "desc": "How hard the CPU fights. Rage: absurdly good, and plays each fighter by its class"}
 		"layout":
 			var names: Array = []
 			for l in PlayerInput.LAYOUTS:

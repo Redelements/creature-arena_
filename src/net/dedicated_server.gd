@@ -3,11 +3,11 @@ extends Node
 ## The game run as a dedicated server: no window, no sound, just the network.
 ##
 ##   CreatureArena.x86_64 --headless -- --server[=PORT] [--max-players=N] [--net-delay=N]
-##       [--cpu-fill=SECONDS] [--room-fill=SECONDS] [--cpu-level=0..2]
+##       [--cpu-fill=SECONDS] [--room-fill=SECONDS] [--cpu-level=0..3]
 ##
 ## Team battles (2v2, 3v3) that have waited --cpu-fill seconds in Quick match (default
 ## 20) or --room-fill in a room (default 45) start with CPUs in the empty slots (0:
-## never); --cpu-level is how well they play (0 Easy, 1 Normal, 2 Hard).
+## never); --cpu-level is how well they play (0 Easy, 1 Normal, 2 Hard, 3 Rage).
 ##
 ## Players pick "Online" > Join and type the server's address (add /room to meet a
 ## friend there). Everything it does is printed, one line per event, for the console
@@ -49,7 +49,7 @@ func configure(args: PackedStringArray) -> bool:
 		elif a.begins_with("--room-fill="):
 			relay.room_fill_ms = maxi(0, int(a.get_slice("=", 1))) * 1000
 		elif a.begins_with("--cpu-level="):
-			relay.cpu_level = clampi(int(a.get_slice("=", 1)), 0, 2)
+			relay.cpu_level = clampi(int(a.get_slice("=", 1)), 0, CpuController.LEVELS.size() - 1)
 	if port <= 0 or port > 65535:
 		port = Netplay.DEFAULT_PORT
 	return wanted

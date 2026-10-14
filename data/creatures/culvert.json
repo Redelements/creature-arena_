@@ -42,6 +42,7 @@
     }
   },
   "ai": {
+    "style": "tank",
     "range": 26,
     "grab": "skill_1",
     "poke": "skill_2",
