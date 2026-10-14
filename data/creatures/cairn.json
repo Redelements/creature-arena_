@@ -45,7 +45,7 @@
     }
   },
   "ai": {
-    "range": 22,
+    "range": 34,
     "counter": "skill_1",
     "poke": "skill_2",
     "poke_range": [40, 72],
@@ -70,7 +70,7 @@
       "name": "Jab", "anim": "jab",
       "startup": 4, "active": 2, "recovery": 9, "cancel_from": 7,
       "damage": 3, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
-      "reach": 15, "hit_radius": 9, "lunge": 1.0, "next": "light_2", "juggle": true,
+      "reach": 25, "hit_radius": 9, "lunge": 1.0, "next": "light_2", "juggle": true,
       "fx": { "smear": "thrust" }
     },
     "light_2": {
@@ -78,7 +78,7 @@
       "name": "Jab", "anim": "jab",
       "startup": 4, "active": 2, "recovery": 9, "cancel_from": 7,
       "damage": 3, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
-      "reach": 15, "hit_radius": 9, "lunge": 1.0, "next": "light_3", "juggle": true,
+      "reach": 25, "hit_radius": 9, "lunge": 1.0, "next": "light_3", "juggle": true,
       "fx": { "smear": "thrust" }
     },
     "light_3": {
@@ -86,14 +86,14 @@
       "name": "Cross", "anim": "power",
       "startup": 5, "active": 3, "recovery": 11, "cancel_from": 9,
       "damage": 5, "knockback": 1.0, "hitstun": 20, "hitstop": 5,
-      "reach": 15, "hit_radius": 10, "lunge": 1.1, "next": "light_4",
+      "reach": 25, "hit_radius": 10, "lunge": 1.1, "next": "light_4",
       "fx": { "smear": "thrust", "size": 1.4 }
     },
     "light_4": {
       "name": "Hook", "anim": "power",
       "startup": 6, "active": 3, "recovery": 16,
       "damage": 6, "knockback": 2.0, "hitstun": 26, "hitstop": 6,
-      "reach": 16, "hit_radius": 11, "lunge": 1.2, "next": "",
+      "reach": 26, "hit_radius": 11, "lunge": 1.2, "next": "",
       "fx": { "smear": "arc" }
     },
     "heavy": {
@@ -103,7 +103,7 @@
       "knockback": 1.0, "knockback_charged": 1.4,
       "hitstun": 20, "hitstop": 8, "hitstop_charged": 12,
       "launch": 32, "launch_charged": 46,
-      "reach": 16, "hit_radius": 13, "lunge": 0.8,
+      "reach": 26, "hit_radius": 13, "lunge": 0.8,
       "stack_bonus": 4, "juggle": true,
       "fx": { "smear": "rise", "charge": "pebbles" }
     },
@@ -117,7 +117,7 @@
       "name": "Counter Cross", "type": "skill", "anim": "slip", "anim_from": 2,
       "startup": 3, "active": 3, "recovery": 14,
       "damage": 10, "knockback": 0.4, "hitstun": 20, "crumple": 50, "hitstop": 10,
-      "reach": 15, "hit_radius": 12,
+      "reach": 25, "hit_radius": 12,
       "fx": { "smear": "thrust", "size": 1.6 }
     },
     "skill_2": {

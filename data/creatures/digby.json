@@ -47,7 +47,7 @@
     }
   },
   "ai": {
-    "range": 16,
+    "range": 28,
     "poke": "skill_1",
     "poke_range": [18, 44],
     "burrow": "skill_2",
@@ -73,7 +73,7 @@
       "name": "Claw Swipe", "anim": "swipe",
       "startup": 4, "active": 2, "recovery": 8, "cancel_from": 6,
       "damage": 6, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
-      "reach": 15, "hit_radius": 10, "lunge": 1.1, "next": "light_2", "juggle": true,
+      "reach": 25, "hit_radius": 10, "lunge": 1.1, "next": "light_2", "juggle": true,
       "fx": { "smear": "arc" }
     },
     "light_2": {
@@ -81,14 +81,14 @@
       "name": "Claw Swipe (back claw)", "anim": "swipe2",
       "startup": 4, "active": 2, "recovery": 9, "cancel_from": 7,
       "damage": 6, "knockback": 0.9, "hitstun": 17, "hitstop": 4,
-      "reach": 15, "hit_radius": 10, "lunge": 0.9, "next": "light_3", "juggle": true,
+      "reach": 25, "hit_radius": 10, "lunge": 0.9, "next": "light_3", "juggle": true,
       "fx": { "smear": "arc" }
     },
     "light_3": {
       "name": "Pickaxe Swing", "anim": "pick",
       "startup": 5, "active": 3, "recovery": 14,
       "damage": 8, "knockback": 1.6, "hitstun": 24, "hitstop": 6,
-      "reach": 20, "hit_radius": 12, "lunge": 0.6, "next": "", "juggle": true,
+      "reach": 30, "hit_radius": 12, "lunge": 0.6, "next": "", "juggle": true,
       "anim_at": [[0, 0], [3, 1], [5, 2], [9, 3], [14, 4]],
       "fx": { "smear": "arc", "size": 1.3 }
     },

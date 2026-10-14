@@ -19,7 +19,7 @@ src/game/   main (flow, camera, settings, CLI), online_lobby, showcase, trials, 
 src/ui/     ui_theme, screen_stack, ui_screen, option_row, prompts, fighter_preview, title_screen,
             character_select, ready_check, pause/confirm/help/remap screens
 data/       creatures/*.json, rules/{duel,team,deathmatch}.json, trials.json, audio.json, online.json
-tests/      run_tests.gd runs every tests/test_*.gd; bench_sim.gd, bench_cpu.gd
+tests/      run_tests.gd runs every tests/test_*.gd; bench_sim.gd, bench_cpu.gd, bench_spacing.gd
 tools/      sprite generators (splat3d.py shared), gen_sprites.py, gen_audio.py
 docs/       this page and the others above; docs/plans/ for design notes
 ```
@@ -311,6 +311,7 @@ errors count as failures; exit code 1 on any failure. Run `--import` after addin
 | `test_online`, `test_server`, `test_server_teams` | Handshake, lag/loss sync, desync detection, rematch, version refusal, real UDP; server pairing, rooms, referee; online 2v2/3v3 |
 | `test_ui`, `test_menu_stick`, `test_surge_ready`, `test_views`, `test_showcase`, `test_trials`, `test_scripts_load` | Menus with real input events; stick menu presses; aura/signal; up/down sheets for every fighter; every showcase reaches a KO; every trial clearable; every script compiles |
 | `bench_sim.gd`, `bench_cpu.gd` | Rollback cost; CPU tier win-rate matrix (`--matrix`, `--pairs`, `--seeds`, `--only`, `--detail`) |
+| `bench_spacing.gd` | How far apart fighters fight, Rage CPU vs the field: the gap between bodies when lights land, share of time touching, average gap (`--lv`, `--seeds`, `--only`) |
 
 ---
 

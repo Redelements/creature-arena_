@@ -47,7 +47,7 @@
     }
   },
   "ai": {
-    "range": 18,
+    "range": 30,
     "poke": "skill_1",
     "poke_range": [36, 100],
     "gaze": "skill_2",
@@ -73,7 +73,7 @@
       "name": "Snake Jab", "anim": "jab",
       "startup": 4, "active": 2, "recovery": 8, "cancel_from": 6,
       "damage": 4, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
-      "reach": 16, "hit_radius": 10, "lunge": 1.0, "next": "light_2", "juggle": true,
+      "reach": 26, "hit_radius": 10, "lunge": 1.0, "next": "light_2", "juggle": true,
       "fx": { "smear": "thrust" }
     },
     "light_2": {
@@ -81,14 +81,14 @@
       "name": "Snake Jab (other glove)", "anim": "jab2",
       "startup": 4, "active": 2, "recovery": 9, "cancel_from": 7,
       "damage": 4, "knockback": 0.9, "hitstun": 17, "hitstop": 4,
-      "reach": 17, "hit_radius": 10, "lunge": 0.8, "next": "light_3", "juggle": true,
+      "reach": 27, "hit_radius": 10, "lunge": 0.8, "next": "light_3", "juggle": true,
       "fx": { "smear": "thrust" }
     },
     "light_3": {
       "name": "Hair Lash", "anim": "lash",
       "startup": 7, "active": 3, "recovery": 14,
       "damage": 6, "knockback": 1.6, "hitstun": 24, "hitstop": 6,
-      "reach": 24, "hit_radius": 12, "lunge": 0.6, "next": "", "juggle": true,
+      "reach": 34, "hit_radius": 12, "lunge": 0.6, "next": "", "juggle": true,
       "anim_at": [[0, 0], [3, 1], [7, 2], [11, 3], [16, 4]],
       "fx": { "smear": "arc", "size": 1.2 }
     },
@@ -100,7 +100,7 @@
       "knockback": 1.2, "knockback_charged": 2.0,
       "hitstun": 22, "hitstop": 7, "hitstop_charged": 11,
       "launch": 32, "launch_charged": 40,
-      "reach": 14, "hit_radius": 14, "hit_radius_charged": 16, "juggle": true,
+      "reach": 24, "hit_radius": 14, "hit_radius_charged": 16, "juggle": true,
       "anim_at": [[0, 2], [5, 3], [9, 4], [20, 5]],
       "fx": { "charge": "venom", "smear": "rise", "size": 1.3 }
     },

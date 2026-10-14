@@ -134,7 +134,7 @@
       "name": "Flip Out", "anim": "flipout", "windup": 12, "tell": "unblockable", "cooldown": 180,
       "startup": 7, "active": 4, "recovery": 24,
       "damage": 7, "hitstop": 8, "launch": 34, "flip": 8,
-      "reach": 20, "hit_radius": 13, "grab": true,
+      "reach": 30, "hit_radius": 13, "grab": true,
       "anim_at": [[0, 0], [5, 1], [8, 2], [12, 3], [18, 4], [28, 5]],
       "fx": { "smear": "rise", "size": 1.3, "flip": true }
     },

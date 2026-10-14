@@ -43,7 +43,10 @@ func test_cpu_fights_with_its_whole_kit() -> void:
 	var used := [{}, {}]
 	var combos := [0, 0]
 	var kos := 0
-	for s in 5:  # a skill can sit out a match or two; over five, the whole kit comes out
+	# A skill can sit out a match or two; over twenty, the whole kit comes out. (A Normal
+	# Culvert finishes a 3+ hit combo in about one match in five, so five matches missed it
+	# about a third of the time.)
+	for s in 20:
 		var m: Dictionary = _cpu_match("cairn", "culvert", 1, 1, 10 + s)
 		for i in 2:
 			used[i].merge(m["moves"][i])

@@ -48,7 +48,7 @@
     }
   },
   "ai": {
-    "range": 18,
+    "range": 30,
     "poke": "skill_2",
     "poke_range": [40, 200],
     "surge_range": 46,
@@ -72,7 +72,7 @@
       "name": "Snout Jab", "anim": "jab",
       "startup": 4, "active": 2, "recovery": 9, "cancel_from": 7,
       "damage": 4, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
-      "reach": 16, "hit_radius": 10, "lunge": 1.2, "next": "light_2", "juggle": true,
+      "reach": 26, "hit_radius": 10, "lunge": 1.2, "next": "light_2", "juggle": true,
       "fx": { "smear": "thrust" }
     },
     "light_2": {
@@ -80,14 +80,14 @@
       "name": "Tail Whip", "anim": "whip",
       "startup": 5, "active": 3, "recovery": 10, "cancel_from": 8,
       "damage": 5, "knockback": 1.0, "hitstun": 18, "hitstop": 4,
-      "reach": 17, "hit_radius": 12, "lunge": 0.6, "next": "light_3", "juggle": true,
+      "reach": 27, "hit_radius": 12, "lunge": 0.6, "next": "light_3", "juggle": true,
       "fx": { "smear": "arc", "impact": "droplets" }
     },
     "light_3": {
       "name": "Rod Flail", "anim": "flail",
       "startup": 8, "active": 3, "recovery": 15,
       "damage": 6, "knockback": 1.6, "hitstun": 24, "hitstop": 6,
-      "reach": 24, "hit_radius": 11, "lunge": 0.4, "next": "",
+      "reach": 34, "hit_radius": 11, "lunge": 0.4, "next": "",
       "anim_at": [[0, 0], [3, 1], [6, 2], [9, 3], [13, 4], [20, 5]],
       "fx": { "smear": "rise", "size": 1.2 }
     },
@@ -98,7 +98,7 @@
       "knockback": 1.2, "knockback_charged": 2.0,
       "hitstun": 22, "hitstop": 6, "hitstop_charged": 10,
       "launch": 30, "launch_charged": 38,
-      "reach": 0, "hit_radius": 26, "hit_radius_charged": 32, "juggle": true,
+      "reach": 10, "hit_radius": 26, "hit_radius_charged": 32, "juggle": true,
       "slow_ticks": 120, "slow_mult": 0.6,
       "fx": { "charge": "drips", "impact": "splash" }
     },

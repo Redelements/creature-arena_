@@ -58,7 +58,7 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `hits` | array of `{at, active, ...}` | Multi-hit segments; any seg key can be set per hit | barkley, cairn, pete | cs:`active_seg`, `seg_value` |
 | `windup` | ticks | Extra frames only when thrown raw (neutral or guard); `state_t` stays 0 meanwhile | all but dummy | cs:`_start_attack` |
 | `aim_frames` | tick | Steerable until this tick. Default: `startup` for lights, 0 otherwise | none in data | cs:`_update_attack` |
-| `lunge` | px/tick | Steps forward every tick up to `startup` | most | cs:`_update_attack` |
+| `lunge` | px/tick | Steps forward every tick up to `startup`, but only to close distance: it holds while a foe is inside the first strike with its near edge at the strike's centre or closer (a gap of `reach - radius` between the bodies), so strings keep their spacing and still follow a knocked-back foe | most | cs:`_update_attack`, `_foe_in_strike` |
 | `mobile` | share of speed | Keeps walking while the move plays out | cerebro (lights) | cs:`_update_attack` |
 | `dash` | `{from, to, speed}` | Moves forward in the window until it connects | 8 fighters | cs:`_update_attack` |
 | `dash.steer` | share | Stick turns the dash a little each tick | digby (Burrow) | cs:`_update_attack` |
