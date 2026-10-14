@@ -71,29 +71,29 @@
     },
     "light_1": {
       "name": "Twig Swipe", "anim": "twig",
-      "startup": 5, "active": 3, "recovery": 11, "cancel_from": 8,
-      "damage": 4, "knockback": 0.9, "hitstun": 18, "hitstop": 4,
-      "reach": 19, "hit_radius": 11, "lunge": 0.8, "next": "light_2", "juggle": true,
+      "startup": 4, "active": 3, "recovery": 9, "cancel_from": 8,
+      "damage": 3, "knockback": 0.9, "hitstun": 18, "hitstop": 4,
+      "reach": 18, "hit_radius": 11, "lunge": 0.8, "next": "light_2", "juggle": true,
       "fx": { "smear": "arc" }
     },
     "light_2": {
       "name": "Bough Swing", "anim": "bough",
-      "startup": 6, "active": 3, "recovery": 12, "cancel_from": 9,
+      "startup": 6, "active": 3, "recovery": 10, "cancel_from": 9,
       "damage": 5, "knockback": 1.0, "hitstun": 19, "hitstop": 5,
-      "reach": 20, "hit_radius": 12, "lunge": 0.8, "next": "light_3", "juggle": true,
+      "reach": 19, "hit_radius": 12, "lunge": 0.8, "next": "light_3", "juggle": true,
       "fx": { "smear": "arc", "size": 1.2 }
     },
     "light_3": {
       "name": "Log Drop", "anim": "logdrop",
       "startup": 9, "active": 3, "recovery": 17,
-      "damage": 8, "knockback": 1.8, "hitstun": 26, "hitstop": 7,
+      "damage": 7, "knockback": 1.8, "hitstun": 26, "hitstop": 7,
       "reach": 20, "hit_radius": 12, "lunge": 0.5, "next": "",
       "fx": { "smear": "rise", "size": 1.3, "impact": "leaves" }
     },
     "heavy": {
       "name": "Timber Twister", "anim": "twister", "windup": 8, "tell": "strong", "cooldown": 150,
       "charge_max": 30, "startup": 6, "recovery": 22, "length": 44, "rank_cancel_from": 20,
-      "damage": 4, "damage_charged": 6,
+      "damage": 3, "damage_charged": 6,
       "knockback": 3.4, "knockback_charged": 5.2,
       "hitstun": 30, "hitstun_charged": 36,
       "hitstop": 6, "hitstop_charged": 9,

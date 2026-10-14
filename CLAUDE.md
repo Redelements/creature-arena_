@@ -133,7 +133,11 @@ tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gi
   `root_ticks` (no walking or dodging) and `"steer"` on a dash (Burrow turns with the stick); Sneaky Pete added a move's `"self"` buffs (`stealth`:
   invisible, drawn faint, the CPU chases where it last saw him; `haste`/`haste_mult`),
   `steal_ticks`/`steal` (attack power moved from target to attacker), `"ghost"` on a dash
-  (runs on through bodies) and `"blink"` (reappear behind the foe, never into a pit); Sno Mercy added `"cone"` (only foes in
+  (runs on through bodies), `"blink"` (reappear behind the foe, never into a pit), a
+  creature-level `"ambush"` (hits of the attack that broke his stealth land that much
+  harder; stealth now survives an attack's startup and ends as the strike comes out, and
+  a `no_flinch` hit doesn't reveal him) and `home.through` (a homing dash that keeps its
+  speed past the target); Sno Mercy added `"cone"` (only foes in
   front are hit), `"zone"` (a ground puddle in `MatchSim.zones`, snapshotted, that slows
   foes in it) and `freeze_ticks` (Petrify's statue in ice; not `freeze`, which a surge
   uses for its freeze-frame); a dash's `"home"` ({until, max}) steers for the nearest
@@ -145,8 +149,12 @@ tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gi
   can charge too (`charge_max` charges on its own button); a lob's `range_charged` is how far
   a full hold throws it, and `aim` also snaps on release (Pinecone Bomb). Craglash is a crowd-control
   tank: Landslide Charge (a dash with a 15-tick `crumple`), Bedrock's taunt drags foes in
-  (`TAUNT_PULL`), and Mountain Maw is a `guard_break` projectile with `pull` + `launch`
-  (drawn as his neck, fx projectile "head"). Each side has a colour, red left and blue
+  (`TAUNT_PULL`), Rockslide Stomp carries its own `armor` block (armored once its windup
+  is over, so it comes out armored from Bedrock), and Mountain Maw is a `guard_break`
+  projectile with `pull` + `launch` (drawn as his neck, fx projectile "head"). Class
+  balance (mirrors even, assassin > mage > fighter/tank > assassin) is measured Rage vs
+  Rage with `tests/bench_cpu.gd --matrix` / `--pairs` and pinned by `tests/test_balance.gd`;
+  a `tell` of `guard_break`/`unblockable` draws the red warning. Each side has a colour, red left and blue
   right: `FxView.side_marks` (set by main) draws a marker over each fighter, and the HUD
   stripes its panel. `tests/test_scripts_load.gd` compiles every script under `src/`. Projectiles also take `sound`/`end_sound`; any move's `fx` can
   carry a `shout` (`{text, sound}`, a voice line when it starts). Barkley's generator (`tools/gen_barkley.py`) poses a 3D

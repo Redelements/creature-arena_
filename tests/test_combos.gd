@@ -82,13 +82,13 @@ func _craglash() -> MatchSim:
 
 func test_craglash_rake_to_charge() -> void:
 	var dmg := route(_craglash(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [S1, "skill_1"]])
-	assert_near(dmg, 5 + 5 + 8 + 6 * 1.15, 0.05, "Rake, Backhand, Headbutt > Landslide Charge:")
+	assert_near(dmg, 5 + 5 + 10 + 8 * 1.15, 0.05, "Rake, Backhand, Headbutt > Landslide Charge:")
 
 
 func test_craglash_stomp_launcher() -> void:
 	var dmg := route(_craglash(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"],
 		[S1, "skill_1"]])
-	assert_near(dmg, 18 + 8 * 1.15 + 6 * 1.3, 0.05, "3 lights > Rockslide Stomp > Landslide Charge:")
+	assert_near(dmg, 20 + 11 * 1.15 + 8 * 1.3, 0.05, "3 lights > Rockslide Stomp > Landslide Charge:")
 
 
 func test_craglash_full_meter() -> void:
@@ -96,7 +96,7 @@ func test_craglash_full_meter() -> void:
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"],
 		[S1, "skill_1"], [SU, "surge"]])
-	assert_near(dmg, 18 + 8 * 1.15 + 6 * 1.3 + 14 * 1.5, 0.05, "... > Mountain Maw:")
+	assert_near(dmg, 20 + 11 * 1.15 + 8 * 1.3 + 18 * 1.5, 0.05, "... > Mountain Maw:")
 
 
 ## Barkley (left) facing Cairn at close range.
@@ -109,12 +109,12 @@ func _barkley() -> MatchSim:
 
 func test_barkley_twister_into_pinecone() -> void:
 	var dmg := route(_barkley(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S2, "skill_2"]])
-	assert_near(dmg, 17 + 4 * 1.15 * 3 + 8 * 1.3, 0.05, "Twig, Bough, Log Drop > Timber Twister > Pinecone Bomb:")
+	assert_near(dmg, 15 + 3 * 1.15 * 3 + 8 * 1.3, 0.05, "Twig, Bough, Log Drop > Timber Twister > Pinecone Bomb:")
 
 
 func test_barkley_twister_into_branch_grab() -> void:
 	var dmg := route(_barkley(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S1, "skill_1"]])
-	assert_near(dmg, 17 + 4 * 1.15 * 3 + 6 * 1.3, 0.05, "3 lights > Timber Twister > Branch Grab:")
+	assert_near(dmg, 15 + 3 * 1.15 * 3 + 6 * 1.3, 0.05, "3 lights > Timber Twister > Branch Grab:")
 
 
 func test_barkley_full_meter() -> void:
@@ -122,7 +122,7 @@ func test_barkley_full_meter() -> void:
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"],
 		[S1, "skill_1"], [SU, "surge"]])
-	assert_near(dmg, 17 + 4 * 1.15 * 3 + 6 * 1.3 + (7 + 7 + 10) * 1.5, 0.05, "... > Root Eruption:")
+	assert_near(dmg, 15 + 3 * 1.15 * 3 + 6 * 1.3 + (7 + 7 + 10) * 1.5, 0.05, "... > Root Eruption:")
 
 
 ## Gillbert (left) facing Cairn at close range.
@@ -251,11 +251,11 @@ func _sno() -> MatchSim:
 
 func test_sno_ice_spray_slush_slide() -> void:
 	var dmg := route(_sno(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S2, "skill_2"]])
-	assert_near(dmg, 15 + 8 * 1.15 + 8 * 1.3, 0.05, "Cold Cross, Brain Freeze > Shaved Ice > Slush Slide:")
+	assert_near(dmg, 16 + 10 * 1.15 + 10 * 1.3, 0.05, "Cold Cross, Brain Freeze > Shaved Ice > Slush Slide:")
 
 
 func test_sno_flavor_blast() -> void:
 	var sim := _sno()
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [SU, "surge"]])
-	assert_near(dmg, 15 + 8 * 1.15 + 14 * 1.3, 0.05, "... > Shaved Ice > Flavor Blast:")
+	assert_near(dmg, 16 + 10 * 1.15 + 14 * 1.3, 0.05, "... > Shaved Ice > Flavor Blast:")

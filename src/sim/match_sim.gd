@@ -225,6 +225,8 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		damage *= a.atk_mult  # Pickpocket: stolen power, or power stolen
 	if d.vuln > 0:
 		damage *= d.vuln_mult  # tenderized: every hit lands harder, chip included
+	if a.ambush_serial > 0 and int(hit["serial"]) == a.ambush_serial:
+		damage *= float(a.def.get("ambush", 1.0))  # a sneak attack out of stealth
 	var gd: Dictionary = d.def["guard"]
 
 	# Armor (Bedrock): the hit only chips, and the target doesn't flinch or move.
@@ -327,8 +329,8 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		d.poison_by = a.id
 		emit_event("poisoned", d.pos, float(hit["poison_ticks"]), {"who": d.id, "by": a.id})
 
-	if d.stealth > 0:
-		d.stealth = 0  # caught: visible again
+	if d.stealth > 0 and not bool(hit["no_flinch"]):
+		d.stealth = 0  # caught: visible again (a knife flick that doesn't stagger isn't enough)
 		emit_event("unstealth", d.pos, 0.0, {"who": d.id})
 	if float(hit.get("steal_ticks", 0.0)) > 0.0:
 		var st := float(hit["steal"])

@@ -90,7 +90,8 @@
       "fx": { "smear": "arc", "size": 1.2 }
     },
     "heavy": {
-      "name": "Coil Uppercut", "anim": "uppercut", "windup": 8, "tell": "strong",
+      "guard_break": true,
+      "name": "Coil Uppercut", "anim": "uppercut", "windup": 8, "tell": "guard_break",
       "charge_max": 30, "startup": 8, "active": 4, "recovery": 20,
       "damage": 8, "damage_charged": 12,
       "knockback": 1.2, "knockback_charged": 2.0,

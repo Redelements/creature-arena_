@@ -4,7 +4,7 @@
   "title": "Digs well. Digs VERY well",
   "affinity": "stone",
   "role": "assassin",
-  "max_hp": 105,
+  "max_hp": 115,
   "speed": 3.12,
   "accel": 0.55,
   "radius": 9,
@@ -91,7 +91,7 @@
     },
     "heavy": {
       "name": "Pickaxe Pop-Up", "anim": "popup", "windup": 8, "tell": "strong",
-      "charge_max": 30, "startup": 14, "active": 4, "recovery": 20,
+      "charge_max": 30, "startup": 13, "active": 4, "recovery": 20,
       "damage": 8, "damage_charged": 12,
       "knockback": 0.6, "knockback_charged": 1.0,
       "hitstun": 22, "hitstop": 7, "hitstop_charged": 11,
@@ -102,7 +102,7 @@
     },
     "skill_1": {
       "name": "Headlamp Flash", "anim": "flash", "cooldown": 240,
-      "startup": 8, "active": 4, "recovery": 16,
+      "startup": 6, "active": 4, "recovery": 16,
       "damage": 2, "knockback": 0.3, "hitstun": 20, "hitstop": 4, "juggle": true,
       "blind_ticks": 240,
       "reach": 26, "hit_radius": 24,
@@ -110,18 +110,19 @@
       "fx": { "flash": true }
     },
     "skill_2": {
-      "name": "Burrow", "anim": "burrow", "cooldown": 240,
+      "guard_break": true,
+      "name": "Burrow", "anim": "burrow", "cooldown": 210,
       "startup": 45, "active": 4, "recovery": 16,
       "damage": 6, "knockback": 0.6, "hitstun": 24, "hitstop": 6, "launch": 26,
-      "reach": 0, "hit_radius": 16, "juggle": true,
+      "reach": 0, "hit_radius": 22, "juggle": true,
       "leap": { "from": 6, "to": 44 },
-      "dash": { "speed": 3.0, "from": 6, "to": 44, "steer": 0.12 },
+      "dash": { "speed": 3.5, "from": 6, "to": 44, "steer": 0.22 },
       "anim_at": [[0, 0], [3, 1], [6, 2], [12, 3], [18, 2], [24, 3], [30, 2], [36, 3], [42, 2], [45, 4], [52, 5]],
       "fx": { "burrow": true, "impact": "popup" }
     },
     "surge": {
       "name": "Cave-In", "anim": "cavein", "energy_cost": 100,
-      "startup": 24, "active": 4, "recovery": 28,
+      "startup": 18, "active": 4, "recovery": 28,
       "damage": 14, "knockback": 0.6, "hitstun": 40, "hitstop": 14, "root_ticks": 120,
       "reach": 36, "hit_radius": 40, "juggle": true,
       "anim_at": [[0, 0], [8, 1], [18, 2], [25, 3], [32, 4], [44, 5]],

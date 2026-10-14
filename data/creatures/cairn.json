@@ -68,14 +68,14 @@
       "name": "Jab", "anim": "jab",
       "startup": 4, "active": 2, "recovery": 9, "cancel_from": 7,
       "damage": 3, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
-      "reach": 14, "hit_radius": 9, "lunge": 1.0, "next": "light_2", "juggle": true,
+      "reach": 15, "hit_radius": 9, "lunge": 1.0, "next": "light_2", "juggle": true,
       "fx": { "smear": "thrust" }
     },
     "light_2": {
       "name": "Jab", "anim": "jab",
       "startup": 4, "active": 2, "recovery": 9, "cancel_from": 7,
       "damage": 3, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
-      "reach": 14, "hit_radius": 9, "lunge": 1.0, "next": "light_3", "juggle": true,
+      "reach": 15, "hit_radius": 9, "lunge": 1.0, "next": "light_3", "juggle": true,
       "fx": { "smear": "thrust" }
     },
     "light_3": {

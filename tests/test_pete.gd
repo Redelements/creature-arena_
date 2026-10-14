@@ -41,7 +41,9 @@ func test_attacking_gives_him_away() -> void:
 	var pete := sim.creatures[0]
 	tap(sim, S1, 30)
 	tap(sim, L, 2)
-	assert_eq(pete.stealth, 0, "a jab ends the stealth:")
+	assert_gt(pete.stealth, 0, "the jab's startup is still hidden (the ambush):")
+	run(sim, 0, int(pete.def["moves"]["light_1"]["startup"]))
+	assert_eq(pete.stealth, 0, "the strike coming out ends the stealth:")
 
 
 func test_a_hit_gives_him_away() -> void:

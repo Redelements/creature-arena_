@@ -45,7 +45,7 @@ func test_branch_grab_pulls_the_target_in() -> void:
 func test_branch_grab_links_into_lights() -> void:
 	var sim := _duel("cairn", 22.0)
 	var dmg := route(sim, 0, [[S1, "skill_1"], [L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"]])
-	assert_gt(dmg, 35.0, "Branch Grab, then the light string and Timber Twister, should all connect")
+	assert_gt(dmg, 30.0, "Branch Grab, then the light string and Timber Twister, should all connect")
 
 
 func test_a_guarded_branch_grab_does_not_pull() -> void:
