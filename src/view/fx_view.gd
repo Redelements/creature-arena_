@@ -153,6 +153,7 @@ func bind_ground(g: FxGround) -> void:
 
 func clear() -> void:
 	_parts.clear()
+	pads.clear()
 	_incoming.clear()
 	_watch.clear()
 	_last_push.clear()
@@ -1830,6 +1831,7 @@ func _paint(ci: CanvasItem, floor_layer: bool) -> void:
 		if _dark > 0.0:
 			ci.draw_rect(Rect2(-ArenaView.MARGIN, SimDefs.arena_size() + ArenaView.MARGIN * 2.0),
 				Color(C_DIM, _dark))
+		_draw_pads(ci)
 		for p in _parts:  # flat things first, so debris sits on top of puddles and cracks
 			if String(p["kind"]) in ["puddle", "decal", "ripple"]:
 				_draw_part(ci, p)
@@ -2258,6 +2260,27 @@ func _draw_long_bite(ci: CanvasItem, pr: Dictionary) -> void:
 		var tooth := head + d * (1.0 + k * 2.2) - side * 0.3
 		ci.draw_rect(Rect2(tooth.round(), Vector2.ONE), Color.WHITE)
 	ci.draw_rect(Rect2((head - d * 2.5 - side * 3.0).round(), Vector2(2, 1)), C_AMBER)  # the eye
+
+
+## Team Deathmatch spawn pads (set by main): a ring on the floor in the team's colour, and
+## the seconds until someone comes back on it. Drawn as a true circle, like every floor area.
+## Each: {"pos": Vector2, "color": Color, "count": seconds (0: nobody waiting)}.
+var pads: Array = []
+
+
+func _draw_pads(ci: CanvasItem) -> void:
+	for pd in pads:
+		var at: Vector2 = pd["pos"]
+		var col: Color = pd["color"]
+		var r := 16.0 + 1.0 * sin(float(_tick) * 0.08)
+		ci.draw_circle(at, r, Color(col, 0.16))
+		ci.draw_arc(at, r, 0.0, TAU, 32, Color(col, 0.75), 2.0)
+		ci.draw_arc(at, r * 0.55, 0.0, TAU, 24, Color(col, 0.35), 1.0)
+		var n := int(pd.get("count", 0))
+		if n > 0:
+			var txt := str(n)
+			ci.draw_string_outline(_font, at + Vector2(-20, -10), txt, HORIZONTAL_ALIGNMENT_CENTER, 40, 12, 3, C_OUTLINE)
+			ci.draw_string(_font, at + Vector2(-20, -10), txt, HORIZONTAL_ALIGNMENT_CENTER, 40, 12, col)
 
 
 ## Who's who: a coloured marker over each side's fighter (red for the left side, P1;

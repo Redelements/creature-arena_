@@ -66,7 +66,11 @@ plays every player side, for captures), `--pick` (show the team pick screen),
 18 Chef Cerebro vs CPU, 19 Chef Cerebro training, 20 Online 1v1 (the lobby),
 21 Hissy Fitz vs CPU, 22 Hissy Fitz training, 23 Digby vs CPU, 24 Digby training, 25 Sneaky Pete vs CPU, 26 Sneaky Pete training, 27 Sno Mercy vs CPU, 28 Sno Mercy training, 29/30 Team battle 2v2/3v3 vs CPU
 (`TeamSim`: every creature on the field, `CreatureSim.team`, `is_foe()`; anything that
-picks or hits a target must skip teammates).
+picks or hits a target must skip teammates), 31/32 Team Deathmatch 2v2/3v3 vs CPU
+(`TeamSim` with `data/rules/deathmatch.json`: `deathmatch` swaps one life for respawns on
+`pad_point(side, slot)` against each team's own wall, `score`, `respawn_t`, `guard_t`
+spawn protection that an attack ends, `overtime` sudden death; events `score`, `respawn`,
+`overtime`; main fills `FxView.pads` from it. Offline only so far: the server doesn't run it).
 `--menu=main|single|settings` opens that menu page (captures).
 Online: `--online-host[=PORT]`, `--online-join=ADDR[:PORT][/ROOM]`, `--online-size=2|3` (team battle via a server), `--fighter=ID`, `--net-lag=N`,
 `--net-loss=F`, `--net-delay=N`, `--net-report=PATH`. Two processes on one machine with

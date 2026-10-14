@@ -119,7 +119,8 @@ Online from a terminal: `godot --path . -- --online-host` and `godot --path . --
 19 training as Chef Cerebro, 20 Online 1v1 (the lobby), 21 Hissy Fitz vs CPU Chef Cerebro,
 22 training as Hissy Fitz, 23 Digby vs CPU Hissy Fitz, 24 training as Digby,
 25 Sneaky Pete vs CPU Digby, 26 training as Sneaky Pete, 27 Sno Mercy vs CPU Sneaky Pete,
-28 training as Sno Mercy, 29 Team battle 2v2 vs CPU, 30 Team battle 3v3 vs CPU. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
+28 training as Sno Mercy, 29 Team battle 2v2 vs CPU, 30 Team battle 3v3 vs CPU,
+31 Team Deathmatch 2v2 vs CPU, 32 Team Deathmatch 3v3 vs CPU. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
 sets Duel (and Team battle) teams; `--cpu-vs-cpu` hands every player side to the CPU.
 
 **Local 2-player:** with two controllers, each player gets one (player 1 can also use the
@@ -322,6 +323,25 @@ slots, and a CPU takes over for anyone who leaves mid-match.
 
 It runs in the deterministic simulation (`src/sim/team_sim.gd`, `CreatureSim.team`), so it
 rolls back like a Duel. Tuning: `data/rules/team.json`.
+
+### Team Deathmatch: 2v2 and 3v3
+
+Single player > Team Deathmatch vs CPU. The same teams on the same field, but nobody stays
+down.
+
+- **Unlimited respawns:** a knocked-out fighter comes back after **4 seconds** at full
+  health, keeping its Surge energy.
+- **Spawn pads, one per fighter, against each team's own side wall** (red left, blue
+  right), drawn on the floor with a countdown while you wait. You come back facing into
+  the arena, **invulnerable for 2 seconds or until you attack**, so a pad can't be camped
+  but you can't hide on it either.
+- **Score:** every KO is a point for the other team. First to **12** (2v2) or **15**
+  (3v3) wins; at the 3-minute limit, the higher score wins, and a tie goes to **sudden
+  death** (the next KO wins).
+- The match starts in the middle as usual; the pads are only for coming back.
+
+Offline for now (vs CPU); online Team Deathmatch needs the server to run the mode.
+Tuning: `data/rules/deathmatch.json`.
 
 ### Learning the game: Combo Trials and Reaction Drills
 

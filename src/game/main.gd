@@ -69,6 +69,8 @@ const MODES := [
 	{"label": "Training: Sno Mercy", "left": "sno", "training": true},
 	{"label": "Team battle: 2v2 vs CPU", "team": 2, "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Team battle: 3v3 vs CPU", "team": 3, "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Team Deathmatch: 2v2 vs CPU", "team": 2, "deathmatch": true, "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Team Deathmatch: 3v3 vs CPU", "team": 3, "deathmatch": true, "sides": [Side.PLAYER, Side.CPU]},
 ]
 ## The menus (src/ui screens): the title menu opens Single player (MENU_ROWS), the online
 ## screen, or Settings. MODES indexes stay stable for --mode=N; rows with choices pick
@@ -90,6 +92,8 @@ const MENU_ROWS := [
 	{"label": "Duel: 2 players", "modes": [7], "desc": "Teams of three, two players on one screen"},
 	{"label": "Team battle vs CPU", "modes": [29, 30], "choices": ["2 v 2", "3 v 3"],
 		"desc": "Everyone on the field at once, CPU teammates beside you. Left/Right: team size"},
+	{"label": "Team Deathmatch vs CPU", "modes": [31, 32], "choices": ["2 v 2", "3 v 3"],
+		"desc": "Unlimited respawns: first team to 12 KOs (15 in 3 v 3) wins. Left/Right: team size"},
 	{"label": "Versus: 2 players", "modes": [8], "desc": "One fighter each, two players on one screen"},
 	{"label": "Versus CPU", "modes": [0, 1, 12, 14, 16, 18, 21, 23, 25, 27],
 		"desc": "Best of three rounds against the CPU. Left/Right: your fighter",
@@ -526,7 +530,7 @@ func _start_match(m: int, keep_teams := false) -> void:
 		if cfg.has("team"):
 			size = int(cfg["team"])
 			labels = ["YOU + CPU", "CPU TEAM"]
-			title = "TEAM BATTLE  %d v %d" % [size, size]
+			title = ("TEAM DEATHMATCH  %d v %d" if cfg.get("deathmatch", false) else "TEAM BATTLE  %d v %d") % [size, size]
 		var pick := CharacterSelect.new()
 		pick.setup(title, size, labels, two_players, _padded_teams(size) if cfg.has("team") else _teams)
 		pick.p1_keyboard = player_input.keyboard
@@ -580,7 +584,7 @@ func _start_round() -> void:
 		_start_duel()
 		return
 	if cfg.has("team"):
-		_start_team(int(cfg["team"]))
+		_start_team(int(cfg["team"]), bool(cfg.get("deathmatch", false)))
 		return
 	if cfg.get("trials", false):
 		coach = ComboTrials.new(Callable(player_input, "label"))
@@ -634,9 +638,10 @@ func _start_duel() -> void:
 
 ## Team battle: like a Duel, the rules (intro, KOs, timer, winner) run inside TeamSim.
 ## You play the first fighter of the left team; CPUs play everyone else.
-func _start_team(per_side: int) -> void:
+func _start_team(per_side: int, deathmatch := false) -> void:
 	_teams = _padded_teams(per_side)
-	team_battle = TeamSim.new(_teams, per_side)
+	var rules := TeamSim.load_rules(TeamSim.DEATHMATCH_PATH) if deathmatch else {}
+	team_battle = TeamSim.new(_teams, per_side, rules)
 	var s: Array = [Side.PLAYER]
 	for i in range(1, team_battle.slot_count()):
 		s.append(Side.CPU)
@@ -647,8 +652,35 @@ func _start_team(per_side: int) -> void:
 	hud.wins = [0, 0]
 	hud.wins_needed = 0
 	hud.banner = ""
+	_show_pads()
 	flow = Flow.FIGHT
 	flow_t = 0
+
+
+## Team Deathmatch: one spawn pad per fighter slot, against its team's side wall.
+func _show_pads() -> void:
+	fx.pads = []
+	if team_battle == null or not team_battle.deathmatch:
+		return
+	for side in 2:
+		for k in team_battle.size:
+			fx.pads.append({"pos": team_battle.pad_point(side, k), "color": Hud.SIDE_COLORS[side], "count": 0})
+
+
+## Each pad's countdown: the seconds until the fighter whose pad it is comes back.
+func _update_pads() -> void:
+	if fx.pads.is_empty() or team_battle == null:
+		return
+	var k := [0, 0]
+	for slot in team_battle.slot_count():
+		var c := sim.creatures[slot]
+		var idx: int = c.team * team_battle.size + int(k[c.team])
+		k[c.team] += 1
+		if idx < fx.pads.size():
+			var t := int(team_battle.respawn_t[slot])
+			fx.pads[idx]["count"] = ceili(t / 60.0) if t > 0 else 0
+	var me := sides.find(Side.PLAYER)
+	hud.respawn_in = ceili(int(team_battle.respawn_t[me]) / 60.0) if me >= 0 and int(team_battle.respawn_t[me]) > 0 else -1
 
 
 ## The picked teams, topped up from DEFAULT_TEAMS so each side has `per_side` fighters.
@@ -669,17 +701,30 @@ func _team_flow() -> void:
 	match team_battle.phase:
 		TeamSim.Phase.INTRO:
 			var t := team_battle.phase_t
-			hud.banner = ("ONLINE TEAM BATTLE" if online != null else "TEAM BATTLE") if t < 60 else "FIGHT!"
-			hud.banner_sub = "%d v %d" % [team_battle.size, team_battle.size] if t < 60 else ""
+			var what := "TEAM DEATHMATCH" if team_battle.deathmatch else "TEAM BATTLE"
+			hud.banner = (("ONLINE " + what) if online != null else what) if t < 60 else "FIGHT!"
+			hud.banner_sub = ("%d v %d" % [team_battle.size, team_battle.size] + (
+				"   ·   first to %d KOs" % team_battle.score_to_win() if team_battle.deathmatch else "")) if t < 60 else ""
 			if t == 2 or t == 60:
 				audio.play("round_start", 0.0, 0.75 if t == 2 else 1.0)
 		TeamSim.Phase.FIGHT:
-			hud.banner = ""
-			hud.banner_sub = ""
-		TeamSim.Phase.OVER:
-			if team_battle.phase_t == 1:
-				hud.banner = "K.O." if team_battle.timer > 0 else "TIME"
+			_update_pads()
+			if team_battle.overtime and team_battle.timer > -90:
+				hud.banner = "SUDDEN DEATH"
+				hud.banner_sub = "Next KO wins"
+			else:
+				hud.banner = ""
 				hud.banner_sub = ""
+		TeamSim.Phase.OVER:
+			_update_pads()
+			hud.respawn_in = -1
+			if team_battle.phase_t == 1:
+				if team_battle.deathmatch:
+					hud.banner = "GAME!" if team_battle.timer > 0 or team_battle.overtime else "TIME"
+					hud.banner_sub = "%d  -  %d" % [team_battle.score[0], team_battle.score[1]]
+				else:
+					hud.banner = "K.O." if team_battle.timer > 0 else "TIME"
+					hud.banner_sub = ""
 			if team_battle.phase_t >= int(team_battle.rules.get("over_ticks", 150)):
 				flow = Flow.MATCH_OVER
 				flow_t = 0
@@ -1158,6 +1203,13 @@ func _react(e: Dictionary) -> void:
 			crowd.cheer(0.6)
 			var who := int(e.get("who", 0))
 			hud.cut_in(sim.creatures[who], clampi(sim.creatures[who].team, 0, 1), String(e.get("name", "Surge")))
+		"score":
+			crowd.cheer(0.5)
+		"respawn":
+			audio.play("warp", -4.0, 0.9)  # back on the pad
+		"overtime":
+			audio.play("round_start")
+			crowd.cheer(0.6)
 		"surge_ready":
 			# One sound when your side powers up, another when the other side does.
 			var mine := is_local_team(int(e.get("team", 0)))
