@@ -26,6 +26,10 @@ var _peer: ENetPacketPeer = null
 var _hosting := false
 
 
+func _init() -> void:
+	realtime = true
+
+
 ## Waits for one player to connect on `port` (UDP).
 func host(port: int) -> Error:
 	_conn = ENetConnection.new()
@@ -64,12 +68,12 @@ func send(msg: Dictionary, reliable := false) -> void:
 	_peer.send(CH_CONTROL if reliable else CH_INPUT, NetLink.encode(msg), flags)
 
 
-func poll() -> Array:
+func poll(wait_ms := 0) -> Array:
 	var out: Array = []
 	if _conn == null or status == Status.CLOSED or status == Status.IDLE:
 		return out
 	for i in 256:  # drain everything that's waiting
-		var ev: Array = _conn.service()
+		var ev: Array = _conn.service(wait_ms if i == 0 else 0)
 		var kind := int(ev[0])
 		if kind == ENetConnection.EVENT_NONE:
 			break

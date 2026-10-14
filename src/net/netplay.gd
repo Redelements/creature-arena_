@@ -31,6 +31,12 @@ extends RefCounted
 const NET_VERSION := 5  ## 5: team battles (slots, sizes); 4: 360 move angle, bigger arena
 const DEFAULT_PORT := 7777
 const PINGS := 5
+## A precise ping (a real link) blocks the host this long at most waiting for the pong.
+const PING_WAIT_MS := 400
+## During a match, both sides keep pinging this often (ticks) for a live figure.
+const LIVE_PING_EVERY := 60
+const LIVE_PING_KEEP := 5  ## the live ping is the best of this many recent samples
+const ATTENTIVE_WAIT_MS := 12  ## the guest waits on the socket this long a tick while being pinged
 ## Give up on a join that hasn't connected after this long.
 const CONNECT_TIMEOUT_TICKS := 10 * 60
 
@@ -68,6 +74,11 @@ var _t := 0
 var _pings_sent := {}  ## n -> usec
 var _rtts: Array = []
 var _next_ping := 0
+var _live_rtts: Array = []
+var _live_n := 1000
+## How long a precise ping may wait on the socket; 0 reads pongs a tick at a time (the
+## tests that run both ends in one loop set that: the other end can't answer meanwhile).
+var ping_wait_ms := PING_WAIT_MS
 var _address := ""
 
 
@@ -105,14 +116,22 @@ func join(address: String, port: int, team: Array, p_link: NetLink = null) -> bo
 	return true
 
 
+## Reads whatever has arrived and acts on it. Once a tick from tick(); on a real link
+## the game also calls it every rendered frame, so the other player's inputs reach the
+## rollback session the moment they land instead of waiting for the next tick.
+func pump() -> void:
+	if link == null or phase == Phase.IDLE or phase == Phase.ENDED:
+		return
+	for m in link.poll():
+		_handle(m)
+
+
 ## Once per frame. `local_bits` is this player's input (used only during a match).
 func tick(local_bits: int) -> void:
 	if link == null or phase == Phase.IDLE or phase == Phase.ENDED:
 		return
 	_t += 1
-	var msgs := link.poll()
-	for m in msgs:
-		_handle(m)
+	pump()
 	if phase == Phase.ENDED:
 		return
 	if link.status == NetLink.Status.CLOSED:
@@ -134,8 +153,14 @@ func tick(local_bits: int) -> void:
 		Phase.HANDSHAKE:
 			if hosting:
 				_ping_step()
+			elif link.realtime and ping_wait_ms > 0:
+				# Being pinged: wait on the socket for most of this tick (nothing else is
+				# moving yet) so each ping is answered within a millisecond of arriving.
+				for m in link.poll(ATTENTIVE_WAIT_MS):
+					_handle(m)
 		Phase.PLAYING:
 			game.tick(local_bits)
+			_live_ping_step()
 			if hosting and rematch_local and rematch_remote:
 				_start_match()
 	link.flush()
@@ -197,11 +222,21 @@ func _handle(m: Dictionary) -> void:
 				_set_paths(m)
 		"ping":
 			link.send({"t": "pong", "n": m.get("n", 0)}, true)
+			link.flush()  # straight back out, not at the end of the tick
 		"pong":
 			var n := int(m.get("n", -1))
 			if _pings_sent.has(n):
-				_rtts.append(float(Time.get_ticks_usec() - int(_pings_sent[n])) / 1000.0)
+				var ms := float(Time.get_ticks_usec() - int(_pings_sent[n])) / 1000.0
 				_pings_sent.erase(n)
+				if n >= 1000:  # a live ping during the match: the best of the recent few
+					_live_rtts.append(ms)
+					while _live_rtts.size() > LIVE_PING_KEEP:
+						_live_rtts.pop_front()
+					ping_ms = _live_rtts.min()
+					if game != null:
+						game.ping_ms = ping_ms
+				else:
+					_rtts.append(ms)
 		"start":
 			if hosting:
 				return
@@ -246,7 +281,10 @@ func _handle(m: Dictionary) -> void:
 				game.receive(m)
 
 
-## Host: measure the round trip with a few pings, then start the match.
+## Host: measure the round trip with a few pings, then start the match. On a real link
+## each ping is timed precisely: the host waits on the socket for the pong (one ping a
+## tick, PING_WAIT_MS at most), so the figure is the network's, not rounded up by the
+## frames a reply would otherwise sit unread.
 func _ping_step() -> void:
 	if their_team.is_empty():
 		return  # still waiting for hello
@@ -256,6 +294,13 @@ func _ping_step() -> void:
 		_pings_sent[n] = Time.get_ticks_usec()
 		link.send({"t": "ping", "n": n}, true)
 		_next_ping = _t + 3
+		if link.realtime and ping_wait_ms > 0:
+			link.flush()
+			var until := Time.get_ticks_usec() + ping_wait_ms * 1000
+			while _pings_sent.has(n) and Time.get_ticks_usec() < until and phase == Phase.HANDSHAKE:
+				for m in link.poll(1):
+					_handle(m)
+			_next_ping = _t + 1
 	if _rtts.size() >= PINGS or (_rtts.size() > 0 and _t - _next_ping > 120):
 		# The best of the samples: the others include frames spent waiting to be read.
 		var best := float(_rtts[0])
@@ -278,6 +323,7 @@ func _begin(n: int, teams: Array, delay: int, slot := -1, size := 1) -> void:
 	if slot < 0:
 		slot = local_side
 	game = OnlineMatch.new(teams, slot, delay, link, n, size)
+	game.ping_ms = ping_ms
 	local_slot = game.local_slot
 	local_side = game.local_side
 	rematch_local = false
@@ -300,12 +346,29 @@ func _set_paths(m: Dictionary) -> void:
 
 ## Input delay from the measured round trip: just enough that most inputs arrive
 ## before they're needed, so rollbacks stay small. Fighting games use 1-3 frames.
+## The input delay for a round trip: as low as rollback can comfortably absorb. One
+## frame up to 100 ms (a 50 ms trip is 3 frames each way; rollback re-simulates the two
+## frames a late input missed, which costs well under a millisecond), two up to 170, three
+## beyond: the whole of a 200 ms trip would need more than the 8 frames rollback keeps.
 static func pick_delay(rtt_ms: float) -> int:
-	if rtt_ms < 60.0:
+	if rtt_ms < 100.0:
 		return 1
-	if rtt_ms < 130.0:
+	if rtt_ms < 170.0:
 		return 2
 	return 3
+
+
+## During a match, a ping every second (both sides, so each shows its own round trip);
+## the pong is read by the next pump, within a rendered frame on a real link.
+func _live_ping_step() -> void:
+	if _t % LIVE_PING_EVERY != 0:
+		return
+	_live_n += 1
+	_pings_sent[_live_n] = Time.get_ticks_usec()
+	link.send({"t": "ping", "n": _live_n}, true)
+	for k in _pings_sent.keys():  # a lost pong doesn't pile up
+		if k >= 1000 and k < _live_n - 2:
+			_pings_sent.erase(k)
 
 
 func _valid_team(team) -> bool:

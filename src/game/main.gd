@@ -890,6 +890,13 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	_apply_device()
 
 
+## Every rendered frame: on a real connection, read the network now rather than at the
+## next tick, so the other player's inputs (and pongs) are in hand the moment they land.
+func _process(_delta: float) -> void:
+	if netplay != null and netplay.link != null and netplay.link.realtime:
+		netplay.pump()
+
+
 func _physics_process(_delta: float) -> void:
 	if sim == null:
 		return  # quitting after --sim-check

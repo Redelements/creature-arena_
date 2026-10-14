@@ -289,6 +289,10 @@ func _check_digest(f: int) -> void:
 
 ## Everything needed to replay this match offline and find a desync: the teams and the
 ## confirmed inputs of every player, frame by frame.
+## The round trip as Netplay last measured it, for the report.
+var ping_ms := 0.0
+
+
 func report() -> Dictionary:
 	var frames: Array = []
 	var f := 0
@@ -299,4 +303,4 @@ func report() -> Dictionary:
 		"local_slot": local_slot, "cpu_slots": cpu_slots.keys(),
 		"desync_frame": desync_frame, "digests_matched": digests_matched, "frames": frames,
 		"digests": final_digests, "at_frame": session.frame, "rollbacks": session.rollbacks,
-		"max_rollback": session.max_rollback_seen, "sync_waits": sync_waits}
+		"max_rollback": session.max_rollback_seen, "sync_waits": sync_waits, "ping_ms": ping_ms}

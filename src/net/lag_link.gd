@@ -31,7 +31,7 @@ func send(msg: Dictionary, reliable := false) -> void:
 	_held.append([_clock + lag + (rng.randi_range(0, jitter) if jitter > 0 else 0), msg])
 
 
-func poll() -> Array:
+func poll(_wait_ms := 0) -> Array:
 	_clock += 1
 	var keep: Array = []
 	for h in _held:

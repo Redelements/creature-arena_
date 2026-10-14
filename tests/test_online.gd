@@ -199,6 +199,7 @@ func test_over_real_udp_on_this_machine() -> void:
 	var port := 20000 + (Time.get_ticks_usec() % 20000)
 	var host := Netplay.new()
 	var guest := Netplay.new()
+	host.ping_wait_ms = 0  # both ends tick in this one loop: the host can't wait on a pong
 	assert_true(host.host(port, TEAM_A), "host on UDP %d: %s" % [port, host.error])
 	assert_true(guest.join("127.0.0.1", port, TEAM_B), "join: " + guest.error)
 	var nets := [host, guest]

@@ -25,7 +25,18 @@ Both machines run the full simulation. Each frame:
 4. **Stall.** If the opponent falls more than `max_rollback` (8) frames behind,
    wait rather than predict further, so corrections stay small.
 
-`src/net/rollback_session.gd` implements this. `tests/test_rollback.gd` plays two
+`src/net/rollback_session.gd` implements this.
+
+**Latency the game itself adds, and what was taken out (Oct 2026).** The sim steps at
+60 Hz, but the network is read every rendered frame (`Netplay.pump()` from
+`main._process`, on a real link), so an input packet is in the rollback session within a
+rendered frame of landing (under 7 ms at 144 fps) instead of waiting up to 16.7 ms for
+the next tick; a pong is answered and flushed at once, not at the end of the tick. Before,
+a localhost round trip measured 12.7–13.8 ms (the true figure is about 0.1); now 1.0. A
+friend who saw "79" was most likely on a 65–70 ms connection. The input delay is 1 frame up
+to 100 ms (was 60): with 2 ticks of lag each way (about 70 ms) and constant input changes
+(CPU vs CPU), 15% of frames roll back, 2 frames at most, which costs well under a
+millisecond each; that's the trade for buttons coming out 16 ms sooner. `tests/test_rollback.gd` plays two
 simulated machines over connections with up to 6 frames (100 ms) of one-way lag, jitter
 and 15% packet loss, and checks both end byte-for-byte identical to the same match
 played offline.
@@ -67,7 +78,7 @@ KO, winner) is simulation code both machines run.
 | Link | `src/net/net_link.gd` | The interface everything above talks to: reliable control messages, unreliable input packets. Packets are plain Dictionaries; anything else is dropped |
 | Direct UDP | `src/net/enet_link.gd` | Godot's ENet. Host listens on a UDP port (7777); the joiner connects. 5 s timeout. A third player is turned away |
 | Test links | `loop_link.gd`, `lag_link.gd` | In-memory pair with lag, jitter and loss (tests); a wrapper that delays/drops the real input stream (`--net-lag`, `--net-loss`) |
-| Session | `src/net/netplay.gd` | Handshake (version + game-data hash, so mismatched builds refuse with a message; both teams), 5 pings, input delay from the best ping (1 under 60 ms, 2 under 130 ms, else 3), rematch when both ask, leave |
+| Session | `src/net/netplay.gd` | Handshake (version + game-data hash, so mismatched builds refuse with a message; both teams), 5 pings timed on the socket (the host waits for each pong, the guest waits for each ping, so the figure is the network's, not rounded up by a frame of sitting unread), input delay from the best ping (1 under 100 ms, 2 under 170 ms, else 3), a live ping every second during the match (both sides; the HUD's figure), rematch when both ask, leave |
 | Match | `src/net/online_match.gd` | Drives the DuelSim through `RollbackSession`: time sync, events shown once, desync check, input log |
 
 - **Effects during rollback.** Re-simulated frames emit their events again; only events

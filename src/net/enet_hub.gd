@@ -32,7 +32,7 @@ class PeerLink:
 		peer.send(EnetLink.CH_CONTROL if reliable else EnetLink.CH_INPUT, NetLink.encode(msg), flags)
 
 	## What arrived for this player since the last call (the hub gathers it).
-	func poll() -> Array:
+	func poll(_wait_ms := 0) -> Array:
 		var out := _inbox
 		_inbox = []
 		return out
