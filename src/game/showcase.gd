@@ -39,7 +39,7 @@ const START_Y := SimDefs.GRID_Y + SimDefs.GRID_ROWS * SimDefs.CELL * 0.5
 
 const SCRIPTS := {
 	"cairn": {
-		"left": "cairn", "right": "culvert", "energy": [100, 0], "gap": 2.0,
+		"left": "cairn", "right": "culvert", "energy": [100, 0], "gap": 2.0, "hp": [-1, 120],
 		"title": "CAIRN  -  FULL KIT",
 		"captions": [
 			["Slip counter", "Jab", "Jab", "Cross", "Hook", "Haymaker"],

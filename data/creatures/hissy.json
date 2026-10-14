@@ -69,6 +69,7 @@
       "fx": { "smear": "rise" }
     },
     "light_1": {
+      "no_flinch": true,
       "name": "Snake Jab", "anim": "jab",
       "startup": 4, "active": 2, "recovery": 8, "cancel_from": 6,
       "damage": 4, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
@@ -76,6 +77,7 @@
       "fx": { "smear": "thrust" }
     },
     "light_2": {
+      "no_flinch": true,
       "name": "Snake Jab (other glove)", "anim": "jab2",
       "startup": 4, "active": 2, "recovery": 9, "cancel_from": 7,
       "damage": 4, "knockback": 0.9, "hitstun": 17, "hitstop": 4,

@@ -69,6 +69,7 @@
       "fx": { "smear": "thrust", "size": 1.3, "impact": "frost" }
     },
     "light_1": {
+      "no_flinch": true,
       "name": "Cold Cross (jab)", "anim": "jab",
       "startup": 4, "active": 2, "recovery": 8, "cancel_from": 6,
       "damage": 4, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
@@ -77,6 +78,7 @@
       "fx": { "smear": "thrust", "impact": "frost" }
     },
     "light_2": {
+      "no_flinch": true,
       "name": "Cold Cross (cross)", "anim": "cross",
       "startup": 5, "active": 2, "recovery": 9, "cancel_from": 7,
       "damage": 5, "knockback": 0.9, "hitstun": 18, "hitstop": 4,

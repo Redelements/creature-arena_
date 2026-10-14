@@ -68,6 +68,7 @@
       "fx": { "impact": "splash" }
     },
     "light_1": {
+      "no_flinch": true,
       "name": "Snout Jab", "anim": "jab",
       "startup": 4, "active": 2, "recovery": 9, "cancel_from": 7,
       "damage": 4, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
@@ -75,6 +76,7 @@
       "fx": { "smear": "thrust" }
     },
     "light_2": {
+      "no_flinch": true,
       "name": "Tail Whip", "anim": "whip",
       "startup": 5, "active": 3, "recovery": 10, "cancel_from": 8,
       "damage": 5, "knockback": 1.0, "hitstun": 18, "hitstop": 4,

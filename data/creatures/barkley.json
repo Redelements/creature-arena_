@@ -71,6 +71,7 @@
       "fx": { "smear": "rise", "size": 1.4, "afterimage": [0, 9], "ghost_color": "#d9a59caa", "impact": "leaves" }
     },
     "light_1": {
+      "no_flinch": true,
       "name": "Twig Swipe", "anim": "twig",
       "startup": 4, "active": 3, "recovery": 9, "cancel_from": 8,
       "damage": 3, "knockback": 0.9, "hitstun": 18, "hitstop": 4,
@@ -78,6 +79,7 @@
       "fx": { "smear": "arc" }
     },
     "light_2": {
+      "no_flinch": true,
       "name": "Bough Swing", "anim": "bough",
       "startup": 6, "active": 3, "recovery": 10, "cancel_from": 9,
       "damage": 5, "knockback": 1.0, "hitstun": 19, "hitstop": 5,

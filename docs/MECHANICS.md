@@ -94,7 +94,7 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `flip` | px | seg | With `grab`: carried over the attacker's head to `flip` px behind, airborne `max(launch, 2)` ticks; attacker turns round | cerebro, culvert `hold` |
 | `reel`, `reel_speed` | px, px/tick | seg | Attacker hauled to `reel` px short of the target at `reel_speed` (default 5); at most 60 ticks; ends the move on arrival | gillbert skill_2 |
 | `cone` | dot threshold | move | Only foes with `facing·dir >= cone` (melee only) | culvert skill_2, sno heavy |
-| `no_flinch` | bool | move | Damage only: no stun state, no knockback; resets the combo on a free target; doesn't reveal stealth | cerebro lights 1–2 |
+| `no_flinch` | bool | move | Damage only: no stun state, no knockback; resets the combo on a free target. A melee one still interrupts a windup (hitstun) and reveals stealth; a ranged one (projectile or lob) does neither | every fighter's lights except the last of the string (Craglash's slower string staggers on every hit); cerebro's thrown flicks |
 | `stack_bonus` | hp per stack | move | Adds `stack × bonus`, consumes stacks | cairn |
 | `armor` | `{from, to, reduction=0.6, release_from}` | move | See "Combo and cancel rules" | craglash heavy, skill_2 |
 | `taunt` | `{radius, ticks}` | move | Fires at `armor.from` (only on armored moves) | craglash skill_2 |
@@ -208,7 +208,7 @@ Constants: cs (`BUFFER_TICKS` 10, `JUGGLE_MAX` 3, `JUGGLE_FLOAT` 16, `LAND_KNOCK
 
 **Root** (Cave-In): walk speed 0 (so `mobile` is 0) and no dodging. Attacking, lunges and dashes still move.
 
-**Stealth** (Tiptoe): drawn faint; the CPU chases the last place it saw him (cpu_controller). Ends on a hit that isn't `no_flinch`, or at the first active tick of one of his own attacks unless that move itself grants stealth. That attack's hits get `ambush`.
+**Stealth** (Tiptoe): drawn faint; the CPU chases the last place it saw him (cpu_controller). Ends on any hit except a ranged `no_flinch` one (a thrown knife flick), or at the first active tick of one of his own attacks unless that move itself grants stealth. That attack's hits get `ambush`.
 
 **Steal** (Pickpocket): overwritten, not stacked.
 

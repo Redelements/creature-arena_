@@ -24,7 +24,9 @@ func _duel(attacker: String) -> MatchSim:
 func test_cairn_bread_and_butter() -> void:
 	var sim := _duel("cairn")
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [S2, "skill_2"]])
-	assert_near(dmg, 3 + 3 + 5 + (8 + 12) * 1.15, 0.05, "Jab, Jab, Cross > Rockslide Rush:")
+	# Jab, Jab and Cross only deal damage (only the Hook staggers), so the Rush starts the
+	# combo: no variety bonus on it.
+	assert_near(dmg, 3 + 3 + 5 + (8 + 12), 0.05, "Jab, Jab, Cross > Rockslide Rush:")
 
 
 func test_cairn_full_meter() -> void:
@@ -32,7 +34,7 @@ func test_cairn_full_meter() -> void:
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"],
 		[H, "heavy"], [S2, "skill_2"], [SU, "surge"]])
-	var expected := 11.0 + (9 + 12) * 1.15 + 8 * 1.3 + 26 * 1.5
+	var expected := 11.0 + (9 + 12) + 8 * 1.15 + 26 * 1.3  # the combo starts at the Haymaker
 	assert_near(dmg, expected, 0.05, "Jab, Jab, Cross > Haymaker > Rush > Avalanche:")
 
 
@@ -54,7 +56,9 @@ func test_cairn_counter_punish() -> void:
 func test_culvert_guard_breaker() -> void:
 	var sim := _duel("culvert")
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [S1, "skill_1"]])
-	assert_near(dmg, 4 + 5 + 6 * 1.15, 0.05, "Jab, Jab > Gulp (tapped: the hook):")
+	# The jabs only deal damage (they don't start a combo), so the hook is the combo's
+	# first hit: no variety bonus.
+	assert_near(dmg, 4 + 5 + 6, 0.05, "Jab, Jab > Gulp (tapped: the hook):")
 
 
 func test_culvert_shockwave() -> void:
@@ -209,14 +213,14 @@ func _digby() -> MatchSim:
 
 func test_digby_claws_and_flash() -> void:
 	var dmg := route(_digby(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [S1, "skill_1"]])
-	assert_near(dmg, 14 + 2 * 1.15, 0.05, "Swipe, Swipe, Pickaxe > Headlamp Flash:")
+	assert_near(dmg, 20 + 2 * 1.15, 0.05, "Swipe, Swipe, Pickaxe > Headlamp Flash:")  # 6 + 6 + 8
 
 
 func test_digby_pop_up_cave_in() -> void:
 	var sim := _digby()
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [SU, "surge"]])
-	assert_near(dmg, 14 + 8 * 1.15 + 14 * 1.3, 0.05, "3 lights > Pickaxe Pop-Up > Cave-In:")
+	assert_near(dmg, 20 + 8 * 1.15 + 14 * 1.3, 0.05, "3 lights > Pickaxe Pop-Up > Cave-In:")
 
 
 ## Sneaky Pete (left) facing Cairn at close range.
@@ -229,7 +233,7 @@ func _pete() -> MatchSim:
 
 func test_pete_sack_smack_pickpocket() -> void:
 	var dmg := route(_pete(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S2, "skill_2"]])
-	assert_near(dmg, 14 + 9 * 1.15 + 5 * 1.3, 0.05, "3 lights > Sack Smack > Pickpocket:")
+	assert_near(dmg, 20 + 9 * 1.15 + 5 * 1.3, 0.05, "3 lights > Sack Smack > Pickpocket:")  # 6 + 6 + 8
 
 
 func test_pete_big_heist() -> void:
@@ -238,7 +242,7 @@ func test_pete_big_heist() -> void:
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S2, "skill_2"],
 		[SU, "surge"]])
 	# After Pickpocket his hits land 20% harder (stolen power): the whole Heist does.
-	assert_near(dmg, 14 + 9 * 1.15 + 5 * 1.3 + (5 * 3 + 10) * 1.5 * 1.2, 0.05, "... > The Big Heist:")
+	assert_near(dmg, 20 + 9 * 1.15 + 5 * 1.3 + (5 * 3 + 10) * 1.5 * 1.2, 0.05, "... > The Big Heist:")
 
 
 ## Sno Mercy (left) facing Cairn at close range.
