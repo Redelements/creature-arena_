@@ -496,7 +496,7 @@ for a victory-pose system.
 
 ### Sneaky Pete — robbed every bank in town, twice
 
-An assassin (55 HP, Lumen affinity: the sheet says Dark). A cartoon burglar always on
+An assassin (80 HP, Lumen affinity: the sheet says Dark). A cartoon burglar always on
 tiptoe: black eye mask, orange striped beanie, and a big green money bag over his
 shoulder. He wins by not being where you're looking. Voice line: "Finders keepers!"
 

@@ -155,8 +155,8 @@ func test_the_new_guard_breakers_break_guards() -> void:
 # ------------------------------------------------------------------ matchups (Rage vs Rage)
 
 ## Sneaky Pete used to be pinned here too (at least 4 of 10 against Chef Cerebro). His
-## health was halved to 55 because he played too strong by hand, and the Rage CPU playing
-## him now loses this matchup, so only Digby is held to the class rule until Pete is retuned.
+## health was cut to 80 because he played too strong by hand, and the Rage CPU playing
+## him now wins only about 2 of 10 here, so only Digby is held to the class rule.
 func test_assassins_beat_the_mage() -> void:
 	var d := _wins("digby", "cerebro")
 	assert_gt(float(d[0]), d[1] * 0.5, "Digby beats Chef Cerebro (%d of %d):" % d)
@@ -176,8 +176,8 @@ func test_fighters_beat_assassins() -> void:
 
 func test_class_mirrors_are_close() -> void:
 	# Fighter mirrors land between 30% and 70% over 10 games. The assassin mirror (Digby vs
-	# Sneaky Pete) used to be held here too; with Pete at 55 HP Digby wins it nearly every
-	# time, so it's left out until Pete is retuned.
+	# Sneaky Pete) used to be held here too; with Pete at 80 HP Digby wins it nearly every
+	# time, so it's left out.
 	for pair in [["hissy", "cairn"]]:
 		var r := _wins(String(pair[0]), String(pair[1]), 5)
 		var share := float(r[0]) / float(r[1])
