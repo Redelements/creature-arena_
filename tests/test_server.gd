@@ -120,6 +120,93 @@ func test_rooms_pair_friends_with_each_other() -> void:
 	assert_false(b.is_playing(), "the player with no room waits for someone else")
 
 
+## Like _run, but with a short pause each tick, for the server's ready-check clock.
+func _run_slow(server: RelayServer, nets: Array, ticks: int, cond: Callable = Callable()) -> bool:
+	for i in ticks:
+		for n: Netplay in nets:
+			n.tick(0)
+		server.tick()
+		if cond.is_valid() and cond.call():
+			return true
+		OS.delay_msec(4)
+	return not cond.is_valid()
+
+
+## Two players whose game asks them before accepting (as the real menus do).
+func _asking_setup() -> Array:
+	var s := _setup([TEAM_A, TEAM_B])
+	for n: Netplay in s[1]:
+		n.auto_ready = false
+	return s
+
+
+func test_a_match_found_waits_for_everyone_to_accept() -> void:
+	var s := _asking_setup()
+	var server: RelayServer = s[0]
+	var nets: Array = s[1]
+	var a: Netplay = nets[0]
+	var b: Netplay = nets[1]
+	assert_true(_run(server, nets, 200, func(): return a.match_found and b.match_found), "both hear a match was found")
+	assert_eq(a.status, "Match found!", "and are told:")
+	assert_gt(a.seconds_left(), 5.0, "with time to accept:")
+	_run(server, nets, 40)
+	assert_false(_both_playing(nets), "nothing starts until they accept")
+	assert_eq(server.games.size(), 0, "")
+	a.accept_match()
+	_run(server, nets, 40)
+	assert_false(_both_playing(nets), "one accepting isn't enough")
+	assert_eq(b.accepted_have, 1, "the other sees one of two in:")
+	b.accept_match()
+	assert_true(_run(server, nets, 60, func(): return _both_playing(nets)), "both accepted: the match starts")
+	assert_false(a.match_found or b.match_found, "and the ready check is over")
+
+
+func test_time_running_out_requeues_who_accepted_and_drops_who_didnt() -> void:
+	var s := _asking_setup()
+	var server: RelayServer = s[0]
+	server.ready_ms = 200
+	var nets: Array = s[1]
+	var a: Netplay = nets[0]
+	var b: Netplay = nets[1]
+	_run(server, nets, 200, func(): return a.match_found and b.match_found)
+	a.accept_match()
+	_run_slow(server, nets, 150, func(): return b.phase == Netplay.Phase.ENDED)
+	assert_eq(b.phase, Netplay.Phase.ENDED, "the one who never accepted is let go:")
+	assert_true(b.error.contains("didn't accept"), "and told why: " + b.error)
+	assert_false(a.match_found, "the one who accepted goes back to searching")
+	assert_eq(a.phase, Netplay.Phase.HANDSHAKE, "still on the server:")
+	assert_true(a.status.contains("Back to searching"), "and says so: " + a.status)
+	assert_eq(server.player_count(), 1, "the server keeps only them:")
+	# Someone new arrives: the player who waited gets a match again.
+	var links := LoopLink.pair()
+	server.add_client(links[0])
+	var c := Netplay.new()
+	c.join("server", 0, TEAM_C, links[1])
+	nets = [a, c]
+	assert_true(_run(server, nets, 200, func(): return a.match_found), "the requeued player is found a match again")
+	a.accept_match()
+	assert_true(_run(server, nets, 100, func(): return a.is_playing() and c.is_playing()),
+		"and plays the next player once they accept")
+
+
+func test_declining_sends_the_other_player_back_to_searching() -> void:
+	var s := _asking_setup()
+	var server: RelayServer = s[0]
+	var nets: Array = s[1]
+	var a: Netplay = nets[0]
+	var b: Netplay = nets[1]
+	_run(server, nets, 200, func(): return a.match_found and b.match_found)
+	a.accept_match()
+	b.decline_match()
+	assert_eq(b.phase, Netplay.Phase.ENDED, "declining leaves:")
+	assert_true(b.declined and b.error.contains("declined"), "and says so: " + b.error)
+	_run(server, nets, 20)
+	assert_false(a.match_found, "the other is back to searching")
+	assert_true(a.status.contains("left before the match"), "and told why: " + a.status)
+	assert_eq(server.games.size(), 0, "no match started:")
+	assert_eq(server.checks.size(), 0, "and no ready check is left over:")
+
+
 func test_rematch_through_the_server() -> void:
 	var s := _setup([TEAM_A, TEAM_B])
 	var server: RelayServer = s[0]

@@ -21,6 +21,13 @@ extends RefCounted
 ## its "start" gives this player's `side` and the opponent's round trip to the server.
 ## A `room` in hello pairs players who typed the same one.
 ##
+## Ready check: once the server has a group for this player it says "found"
+## (`match_found`), and the match only starts after everyone answers "ready". The game
+## shows a Match found screen and calls accept_match() (or decline_match()); with
+## `auto_ready` (tests, command-line joins) the answer goes back at once. Time running
+## out, or someone leaving, puts the players who accepted back to waiting ("wait" with
+## `requeue`); someone who never accepted is refused with a reason.
+##
 ## Team battles (2v2, 3v3) only run through a server: hello asks for a `size` (players
 ## per side; 0 when joining a friend's room takes the room's), and "start" gives this
 ## player's `slot` among the 4 or 6 and the `size`; the inputs of every player then
@@ -28,7 +35,7 @@ extends RefCounted
 ## server's CPU plays are listed in "start" (`cpu`), or come later as "cpu" when a
 ## player leaves; their inputs arrive like anyone's.
 
-const NET_VERSION := 5  ## 5: team battles (slots, sizes); 4: 360 move angle, bigger arena
+const NET_VERSION := 6  ## 6: the server's ready check; 5: team battles (slots, sizes); 4: 360 move angle
 const DEFAULT_PORT := 7777
 const PINGS := 5
 ## A precise ping (a real link) blocks the host this long at most waiting for the pong.
@@ -64,6 +71,21 @@ var local_slot := 0
 var room := ""
 ## True once the other end turned out to be a dedicated server.
 var via_server := false
+
+## The server found a match and is waiting for everyone to accept it.
+var match_found := false
+## Answer the ready check straight away (the game sets this off to ask the player).
+var auto_ready := true
+var accepted := false
+var declined := false
+## About the match found: players per side, how many players it has (the rest are
+## CPUs), the seconds to accept, and how many have accepted so far.
+var found_size := 1
+var found_players := 2
+var found_need := 2
+var found_secs := 15.0
+var accepted_have := 0
+var _found_ms := 0
 
 var rematch_local := false
 var rematch_remote := false  ## another player asked
@@ -175,6 +197,32 @@ func request_rematch() -> void:
 	link.flush()
 
 
+## Accept the match the server found (the ready check).
+func accept_match() -> void:
+	if not match_found or accepted or link == null:
+		return
+	accepted = true
+	link.send({"t": "ready"}, true)
+	link.flush()
+	status = "Accepted. Waiting for everyone..."
+
+
+## Turn the match down: leaves the server, so searching again starts afresh.
+func decline_match() -> void:
+	leave()
+	declined = true
+	match_found = false
+	error = "You declined the match"
+	status = error
+
+
+## Seconds left to accept the match found (0 when none is waiting).
+func seconds_left() -> float:
+	if not match_found:
+		return 0.0
+	return maxf(0.0, found_secs - float(Time.get_ticks_msec() - _found_ms) / 1000.0)
+
+
 ## Leave politely: the other player is told straight away.
 func leave() -> void:
 	if link != null and link.status == NetLink.Status.CONNECTED:
@@ -216,7 +264,29 @@ func _handle(m: Dictionary) -> void:
 		"wait":
 			if not hosting:
 				via_server = true
+				match_found = false  # back to searching (or still searching)
+				accepted = false
 				status = String(m.get("msg", "On the server. Waiting for an opponent..."))
+		"found":
+			if hosting or phase == Phase.PLAYING:
+				return
+			via_server = true
+			match_found = true
+			accepted = false
+			found_size = clampi(int(m.get("size", 1)), 1, 3)
+			found_need = clampi(int(m.get("need", found_size * 2)), 2, 6)
+			found_players = clampi(int(m.get("players", found_need)), 1, found_need)
+			found_secs = clampf(float(m.get("secs", 15.0)), 1.0, 120.0)
+			accepted_have = 0
+			_found_ms = Time.get_ticks_msec()
+			status = "Match found!"
+			if auto_ready:
+				accept_match()
+		"accepted":
+			if match_found:
+				accepted_have = clampi(int(m.get("have", 0)), 0, found_players)
+				if accepted:
+					status = "Accepted. Waiting for everyone (%d of %d)..." % [accepted_have, found_players]
 		"path":
 			if game != null:
 				_set_paths(m)
@@ -322,6 +392,7 @@ func _start_match() -> void:
 func _begin(n: int, teams: Array, delay: int, slot := -1, size := 1) -> void:
 	if slot < 0:
 		slot = local_side
+	match_found = false
 	game = OnlineMatch.new(teams, slot, delay, link, n, size)
 	game.ping_ms = ping_ms
 	local_slot = game.local_slot
@@ -392,6 +463,7 @@ func _fail(why: String) -> bool:
 	error = why
 	status = why
 	phase = Phase.ENDED
+	match_found = false
 	if link != null and link.status != NetLink.Status.CLOSED:
 		link.close()
 	return false

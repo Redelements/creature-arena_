@@ -418,6 +418,13 @@ func test_the_music_is_the_new_track_and_it_loops() -> void:
 	g.free()
 
 
+## Picks `id` on the online screen's character tiles, as the tiles would.
+func _pick_online(lobby: OnlineLobby, id: String) -> void:
+	assert_true(lobby.picker != null, "the character tiles are up")
+	if lobby.picker != null:
+		lobby.picker.chosen.emit([[id], []])
+
+
 func test_the_online_screen_joins_what_was_typed() -> void:
 	var lobby := OnlineLobby.new("sno", "", ["game.example.net/kev"])
 	var st := _stack()
@@ -428,7 +435,9 @@ func test_the_online_screen_joins_what_was_typed() -> void:
 	lobby.field.text = "10.0.0.5:7800/Friends"
 	lobby.field.text_changed.emit(lobby.field.text)
 	lobby.field.text_submitted.emit(lobby.field.text)
-	assert_eq(got.size(), 1, "Enter in the address box joins:")
+	assert_eq(got.size(), 0, "Enter in the address box opens the tiles first:")
+	_pick_online(lobby, "sno")
+	assert_eq(got.size(), 1, "then joins:")
 	assert_eq(got[0], ["sno", "10.0.0.5", 7800, "Friends"], "with the fighter, address, port and room:")
 	lobby.busy = true
 	assert_eq((_focus() as Button).text, "Cancel", "connecting: only Cancel")
@@ -451,33 +460,83 @@ func test_an_empty_address_says_so() -> void:
 	st.free()
 
 
-func test_quick_match_and_rooms_play_on_the_server() -> void:
+func test_online_opens_on_quick_match_rooms_and_more() -> void:
+	var lobby := OnlineLobby.new("digby", "", [], "game.example.net")
+	var st := _stack()
+	st.push(lobby)
+	assert_eq(lobby.page, OnlineLobby.Page.MAIN, "the first page")
+	assert_eq(_focus(), lobby._quick_page, "Quick match starts focused")
+	assert_false(lobby._quick.visible or lobby._create.visible or lobby.field.visible,
+		"the sizes, rooms and addresses wait on their own pages")
+	_press("ui_accept")
+	assert_eq(lobby.page, OnlineLobby.Page.QUICK, "Quick match opens its page")
+	assert_eq(_focus(), lobby._quick, "on 1 v 1")
+	assert_true(lobby._quick2.visible and lobby._quick3.visible, "with 2 v 2 and 3 v 3")
+	assert_false(lobby._quick_page.visible, "")
+	_press("ui_cancel")
+	assert_eq(lobby.page, OnlineLobby.Page.MAIN, "Back goes up a page")
+	assert_eq(_focus(), lobby._quick_page, "to where it came from")
+	var left := [false]
+	lobby.cancelled.connect(func(): left[0] = true)
+	_press("ui_cancel")
+	assert_true(left[0], "Back on the first page leaves")
+	st.free()
+
+
+func test_quick_match_picks_a_fighter_on_the_tiles_before_searching() -> void:
 	var lobby := OnlineLobby.new("digby", "", [], "game.example.net")
 	var st := _stack()
 	st.push(lobby)
 	var got := []
 	lobby.server_join_pressed.connect(func(f, r, n): got.append([f, r, n]))
-	assert_eq(_focus(), lobby._fighter_row, "the fighter row starts focused")
-	_press("ui_down")
-	assert_eq(_focus(), lobby._quick, "then Quick match 1v1")
+	lobby.open_page(OnlineLobby.Page.QUICK)
+	lobby._quick2.grab_focus()
 	_press("ui_accept")
-	assert_eq(got, [["digby", "", 1]], "Quick match: the server, no room, 1v1:")
-	_press("ui_down")
+	assert_true(st.top() is CharacterSelect, "2 v 2 opens the character tiles")
+	var pick := st.top() as CharacterSelect
+	assert_true(pick.solo and pick.team_size == 1, "for one fighter: yours")
+	assert_eq(String(pick.roster[pick.cursor[0]]), "digby", "starting on last time's")
+	assert_eq(got.size(), 0, "no search yet")
+	_press("ui_cancel")
+	assert_eq(st.top(), lobby, "Back on the tiles comes back here")
+	assert_eq(got.size(), 0, "without searching")
+	lobby.quick_match(2)
+	pick = st.top() as CharacterSelect
+	pick.cursor[0] = pick.roster.find("sno")
+	pick.pick(0)
+	assert_true(pick.is_done(), "one pick is all it takes")
+	pick.chosen.emit(pick.teams.duplicate(true))  # what the tiles send after their beat
+	assert_eq(st.top(), lobby, "the tiles close")
+	assert_eq(got, [["sno", "", 2]], "and the search starts: that fighter, no room, 2 v 2:")
+	assert_eq(lobby.fighter, "sno", "kept for next time:")
+	lobby.busy = true
+	assert_true(lobby._who_label.text.contains("Sno") and lobby._who_label.text.contains("2 v 2"),
+		"searching shows who and what: " + lobby._who_label.text)
+	assert_eq((_focus() as Button).text, "Cancel", "only Cancel")
+	var stopped := [false]
+	lobby.search_cancelled.connect(func(): stopped[0] = true)
+	_press("ui_cancel")
+	assert_true(stopped[0], "Cancel stops the search (and stays here)")
+	st.free()
+
+
+func test_rooms_pick_then_make_or_join_a_code() -> void:
+	var lobby := OnlineLobby.new("digby", "", [], "game.example.net")
+	var st := _stack()
+	st.push(lobby)
+	var got := []
+	lobby.server_join_pressed.connect(func(f, r, n): got.append([f, r, n]))
+	lobby._rooms_page.grab_focus()
 	_press("ui_accept")
-	assert_eq(got[1], ["digby", "", 2], "Quick match 2v2:")
-	_press("ui_down")
-	_press("ui_accept")
-	assert_eq(got[2], ["digby", "", 3], "Quick match 3v3:")
-	got.clear()
-	_press("ui_down")
-	assert_eq(_focus(), lobby._size_row, "then the room size")
+	assert_eq(lobby.page, OnlineLobby.Page.ROOMS, "Rooms opens its page")
+	assert_eq(_focus(), lobby._size_row, "on the room size")
 	_press("ui_right")  # 2 v 2
 	_press("ui_down")
 	_press("ui_accept")
-	assert_eq(got.size(), 1, "Create room joins too")
+	_pick_online(lobby, "pete")
+	assert_eq(got.size(), 1, "Create room searches after the pick")
 	assert_eq(int(got[0][2]), 2, "with the room size:")
-	got.push_front([])  # keep the indexes below
-	var code := String(got[1][1])
+	var code := String(got[0][1])
 	assert_eq(code.length(), OnlineLobby.CODE_LENGTH, "with a short code: " + code)
 	for ch in code:
 		assert_true(OnlineLobby.CODE_CHARS.contains(ch), "made of easy-to-read characters: " + code)
@@ -486,12 +545,15 @@ func test_quick_match_and_rooms_play_on_the_server() -> void:
 	assert_true(lobby._room_label.text.contains("Join room"), "with what the friend does")
 	assert_true(lobby._room_label.text.contains("2 v 2"), "and the size")
 	lobby.busy = false
+	assert_eq(lobby.page, OnlineLobby.Page.ROOMS, "done searching: back on the same page")
 	lobby.join_room("  kx-7p ")
-	assert_eq(got[2], ["digby", "KX7P", 0], "a typed code is tidied, and takes the room's size:")
-	assert_false(lobby.more_shown, "the address rows wait under More")
-	assert_false(lobby.field.visible, "")
+	_pick_online(lobby, "pete")
+	assert_eq(got[1], ["pete", "KX7P", 0], "a typed code is tidied, and takes the room's size:")
+	lobby.join_room("   ")
+	assert_true(lobby.picker == null, "no code: no tiles")
+	assert_true(lobby.status_bad and lobby.status.contains("code"), "it asks for the code: " + lobby.status)
 	lobby.toggle_more()
-	assert_true(lobby.field.visible and not lobby._quick.visible, "More swaps the rows")
+	assert_true(lobby.field.visible and not lobby._create.visible, "More has the address rows")
 	assert_eq(_focus(), lobby._host, "and focuses the first of them")
 	st.free()
 
@@ -539,6 +601,7 @@ func test_quick_match_finds_the_server_at_home_first() -> void:
 	g._start_match(20)  # Online
 	assert_true(g.lobby != null, "the online screen is up")
 	g.lobby.quick_match()
+	_pick_online(g.lobby, "cairn")
 	assert_true(g.lobby.busy and g.lobby.status.contains("Looking"), "it looks nearby first: " + g.lobby.status)
 	for i in 120:
 		beacon.poll()
@@ -554,12 +617,75 @@ func test_quick_match_finds_the_server_at_home_first() -> void:
 	g.free()
 
 
+## The game searching on an in-memory server, with another (auto-accepting) player
+## there. Returns [server, other player].
+func _search_with_another(g: Node, mine: String, theirs: String) -> Array:
+	g._start_match(20)  # Online
+	var server := RelayServer.new()
+	var la := LoopLink.pair()
+	var lb := LoopLink.pair()
+	server.add_client(la[0])
+	server.add_client(lb[0])
+	var me := Netplay.new()
+	me.auto_ready = false  # as the menus set it: the player is asked
+	me.join("server", 0, [mine], la[1])
+	var other := Netplay.new()
+	other.join("server", 0, [theirs], lb[1])
+	g.lobby.use_fighter(mine)
+	g.lobby.searching_for = "Quick match  1 v 1"
+	g.netplay = me
+	g.lobby.busy = true
+	return [server, other]
+
+
+func _step_online(g: Node, s: Array, ticks: int, cond: Callable) -> bool:
+	for i in ticks:
+		(s[1] as Netplay).tick(0)
+		(s[0] as RelayServer).tick()
+		_tick(g, 1)
+		if cond.call():
+			return true
+	return false
+
+
+func test_match_found_asks_to_accept_then_the_match_starts() -> void:
+	var g := _game()
+	var s := _search_with_another(g, "cairn", "sno")
+	assert_true(_step_online(g, s, 200, func(): return g._ready_screen != null), "Match found opens")
+	assert_true(g.ui.top() is ReadyCheck, "over the online screen")
+	assert_eq((_focus() as Button).text, "Accept", "with Accept focused")
+	assert_true((g.ui.top() as ReadyCheck).subtitle.contains("1 v 1"), "it says what was found")
+	assert_eq((s[0] as RelayServer).games.size(), 0, "the match waits for this player")
+	_press("ui_accept")
+	assert_true(_step_online(g, s, 200, func(): return g.online != null), "accepted: the match starts")
+	assert_eq(g.flow, g.Flow.FIGHT, "straight into the fight")
+	assert_true(g._ready_screen == null and not g.ui.is_open(), "and the menus are gone")
+	g._leave_online()
+	g.free()
+
+
+func test_declining_a_match_found_comes_back_to_the_online_screen() -> void:
+	var g := _game()
+	var s := _search_with_another(g, "cairn", "sno")
+	_step_online(g, s, 200, func(): return g._ready_screen != null)
+	_press("ui_cancel")  # Back declines
+	assert_true(g._ready_screen == null, "Match found closes")
+	assert_eq(g.ui.top(), g.lobby, "back on the online screen")
+	assert_false(g.lobby.busy, "not searching any more")
+	assert_true(g.lobby.status.contains("declined") and not g.lobby.status_bad,
+		"it says so, calmly: " + g.lobby.status)
+	assert_true(g.netplay == null, "and the session is closed")
+	g._leave_online()
+	g.free()
+
+
 func test_no_answer_after_a_missed_home_lookup_says_what_to_check() -> void:
 	var g := _game()
 	g.finder_target = "127.0.0.1"  # nobody answers there
 	g._online_server = "127.0.0.1:%d" % (20000 + (Time.get_ticks_usec() % 20000))  # nor here
 	g._start_match(20)
 	g.lobby.quick_match()
+	_pick_online(g.lobby, "cairn")
 	for i in 900:
 		_tick(g, 1)
 		if not g.lobby.busy:

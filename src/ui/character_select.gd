@@ -8,6 +8,10 @@ extends UiScreen
 ## the keyboard and mouse). Against the CPU, player 1 picks their own team, then the
 ## CPU's. A press picks, B / Esc takes the last pick back (with nothing to take back,
 ## player 1 leaves); "?" picks at random. When both teams are full the match starts.
+##
+## `solo`: only player 1 picks (online, before searching). The right panel says what
+## happens next (`solo_heading`, `solo_info`) instead of holding a second team, and the
+## banner says `done_text`.
 
 signal chosen(teams: Array)
 signal cancelled
@@ -33,6 +37,11 @@ var labels: Array = ["PLAYER 1", "CPU"]
 var p1_keyboard := true
 var p1_pad := PlayerInput.ANY_PAD
 var p2_pad := PlayerInput.NO_PAD
+var solo := false
+var solo_heading := ""
+var solo_info := ""
+## The banner once the picks are in.
+var done_text := "READY!"
 
 var roster: Array = []
 var teams: Array = [[], []]
@@ -145,12 +154,16 @@ func back() -> void:
 ## The side `player` is picking for now: their own, or (against the CPU) the CPU's once
 ## player 1's team is full.
 func side_of(player: int) -> int:
+	if solo:
+		return 0
 	if two_players:
 		return player
 	return 0 if (teams[0] as Array).size() < team_size else 1
 
 
 func is_done() -> bool:
+	if solo:
+		return (teams[0] as Array).size() >= team_size
 	return (teams[0] as Array).size() >= team_size and (teams[1] as Array).size() >= team_size
 
 
@@ -297,7 +310,7 @@ func pick(player: int, random := false) -> void:
 	(_history[player] as Array).append(side)
 	if stack != null:
 		stack.notify_chosen()
-	if not two_players and side == 0 and team.size() >= team_size:
+	if not two_players and not solo and side == 0 and team.size() >= team_size:
 		cursor[1] = cursor[0]  # the CPU's cursor starts where player 1's ended
 	if is_done():
 		_done_t = 0.0
@@ -346,6 +359,13 @@ func _refresh() -> void:
 	if _big.is_empty():
 		return
 	for side in 2:
+		if solo and side == 1:
+			# What happens next, in place of a second team.
+			(_big[1] as FighterPreview).fighter = ""
+			(_names[1] as Label).text = solo_heading
+			(_blurbs[1] as Label).text = solo_info
+			(_infos[1] as Label).text = ""
+			continue
 		var id := String(roster[cursor[side]])
 		var show := id != RANDOM
 		(_big[side] as FighterPreview).fighter = id if show else ""
@@ -411,13 +431,15 @@ func _draw_overlay() -> void:
 	if is_done():
 		var w := float(SimDefs.VIEW_W)
 		o.draw_rect(Rect2(0, 108, w, 26), Color(0, 0, 0, 0.6))
-		o.draw_string_outline(_font, Vector2(0, 127), "READY!", HORIZONTAL_ALIGNMENT_CENTER, w, 16, 2, Color(0, 0, 0, 0.8))
-		o.draw_string(_font, Vector2(0, 127), "READY!", HORIZONTAL_ALIGNMENT_CENTER, w, 16, UiTheme.C_ACCENT)
+		o.draw_string_outline(_font, Vector2(0, 127), done_text, HORIZONTAL_ALIGNMENT_CENTER, w, 16, 2, Color(0, 0, 0, 0.8))
+		o.draw_string(_font, Vector2(0, 127), done_text, HORIZONTAL_ALIGNMENT_CENTER, w, 16, UiTheme.C_ACCENT)
 
 
 func _cursor_shown(side: int) -> bool:
 	if is_done():
 		return false
+	if solo:
+		return side == 0
 	if two_players:
 		return true
 	return side == side_of(0)
@@ -430,6 +452,8 @@ func _draw_panel(side: int) -> void:
 	draw_rect(Rect2(x, PANEL_Y, PANEL_W, PANEL_H), UiTheme.C_ROW)
 	draw_rect(Rect2(x, PANEL_Y, PANEL_W, 2), col)
 	_text(Vector2(x + 6, PANEL_Y + 11), String(labels[side]), 7, col)
+	if solo and side == 1:
+		return  # the labels hold what happens next
 	var status := ""
 	if team.size() >= team_size:
 		status = "READY"

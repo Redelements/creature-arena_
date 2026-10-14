@@ -1,10 +1,16 @@
 class_name OnlineLobby
 extends UiScreen
-## The online screen: pick your fighter, then play on the game's server (Settings > Game
-## > Online server): Quick match 1v1 / 2v2 / 3v3 puts you with whoever is waiting for
-## the same size; Create room (1v1, 2v2 or 3v3) gives you a short code for friends, who
-## type it under Join room, and the server groups you once the room is full. "More" opens the rest: host a match yourself, or join a host or another server
-## by address. While connecting it shows what's happening and only Cancel works.
+## The online screen, in pages:
+##
+##   Online       Quick match / Rooms / More / Back
+##   Quick match  1 v 1 / 2 v 2 / 3 v 3       (whoever is waiting on the game's server)
+##   Rooms        size, Create room, a friend's code, Join room
+##   More         Host a match, join a host or another server by address, recent ones
+##
+## Whatever is chosen, the character select tiles come next (`solo`: just your fighter),
+## then the search starts: the server is Settings > Game > Online server. While
+## searching only Cancel works; it stops the search and comes back here. Back on a page
+## goes up to the first one, and from there leaves.
 ##
 ## The text boxes are real LineEdits (caret, selection, clipboard; the on-screen
 ## keyboard where the platform has one). The last few addresses joined are one press away.
@@ -13,7 +19,12 @@ extends UiScreen
 signal server_join_pressed(fighter: String, room: String, size: int)
 signal host_pressed(fighter: String)
 signal join_pressed(fighter: String, address: String, port: int, room: String)
+## Back from the first page: leave the online screen.
 signal cancelled
+## Cancel while searching (or hosting): stop, and stay here.
+signal search_cancelled
+
+enum Page { MAIN, QUICK, ROOMS, MORE }
 
 const C_BAD := Color("ff8a7a")
 const MAX_RECENT := 3
@@ -26,6 +37,7 @@ const FIELD_HELP := "A host's address, or another server's (add /room to meet a 
 const CODE_HELP := "Type the code your friend got from Create room, then Enter"
 const NO_SERVER := "No server set: add one in Settings > Game > Online server, or use More"
 const SIZE_NAMES := ["1 v 1", "2 v 2", "3 v 3"]
+const PAGE_TITLES := ["", "QUICK MATCH", "ROOMS", "MORE"]
 
 var fighter := "cairn"
 var address := ""
@@ -37,6 +49,8 @@ var room_code := ""
 var room_created := false
 ## Players per side for a room this player makes (1 to 3), and for the room shown.
 var room_size := 1
+## What the search is for ("Quick match  2 v 2"), shown under the status while busy.
+var searching_for := ""
 ## Set by main from the Netplay session: what's happening, and whether it went wrong.
 var status := "":
 	set(v):
@@ -54,11 +68,17 @@ var hosting_port := 0:
 	set(v):
 		hosting_port = v
 		_refresh_status()
+var page: Page = Page.MAIN
+## The More page is up (kept for callers that only care about that one).
 var more_shown := false
+## The pick screen, while it's up.
+var picker: CharacterSelect = null
 
 var field: LineEdit  ## the address box (under More)
 var code_field: LineEdit
-var _fighter_row: OptionRow
+var _page_label: Label
+var _quick_page: Button
+var _rooms_page: Button
 var _quick: Button
 var _quick2: Button
 var _quick3: Button
@@ -71,6 +91,7 @@ var _join: Button
 var _back: Button
 var _recent_rows: Array = []
 var _status_label: Label
+var _who_label: Label
 var _room_label: Label
 var _addr_label: Label
 
@@ -84,26 +105,32 @@ func _init(p_fighter := "cairn", p_address := "", p_recent: Array = [], p_server
 	title = "ONLINE"
 	subtitle = ("Server: " + server) if server != "" else "No server set (Settings > Game)"
 	row_width = 250.0
-	# Compact rows, like Single player: three Quick match rows and the room rows fit.
+	# Compact rows, like Single player: the More page and its recent servers fit.
 	row_height = 13.0
 	row_font = 8
 	row_gap = 1
 	dim = 0.9
 	hints = ["move", "change", "select", "back"]
-	more_shown = server == ""
+	page = Page.MAIN if server != "" else Page.MORE
 
 
 func build() -> void:
-	var names: Array = []
-	for id in MatchFactory.FIGHTERS:
-		names.append(String(MatchFactory.load_def(id).get("name", id)))
-	_fighter_row = add_option("Fighter", names, MatchFactory.FIGHTERS.find(fighter), _on_fighter,
-		"Who you play")
-	_quick = add_button("Quick match 1v1", func(): quick_match(1), "Play whoever is waiting on the server")
-	_quick2 = add_button("Quick match 2v2", func(): quick_match(2),
-		"Teams of two: starts when four players are waiting")
-	_quick3 = add_button("Quick match 3v3", func(): quick_match(3),
-		"Teams of three: starts when six players are waiting")
+	_page_label = add_text("", UiTheme.SIZE_HEADING, UiTheme.C_ACCENT)
+	_page_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# The first page.
+	_quick_page = add_button("Quick match", func(): open_page(Page.QUICK),
+		"Play whoever is waiting on the server: 1 v 1, 2 v 2 or 3 v 3")
+	_rooms_page = add_button("Rooms", func(): open_page(Page.ROOMS),
+		"Play with friends: make a room and share its code, or join theirs")
+	_more = add_button("More: host, or join by address", func(): open_page(Page.MORE),
+		"Host a match yourself, or join a host or another server by address")
+	# Quick match.
+	_quick = add_button("1 v 1", func(): quick_match(1), "Play whoever is waiting on the server")
+	_quick2 = add_button("2 v 2", func(): quick_match(2),
+		"Teams of two: starts when four players are waiting (CPUs fill in after a while)")
+	_quick3 = add_button("3 v 3", func(): quick_match(3),
+		"Teams of three: starts when six players are waiting (CPUs fill in after a while)")
+	# Rooms.
 	_size_row = add_option("Room size", SIZE_NAMES, room_size - 1, func(i: int): room_size = i + 1,
 		"How many a side in a room you create")
 	_create = add_button("Create room", create_room, "Get a code to give your friends: the room starts once it's full")
@@ -113,8 +140,8 @@ func build() -> void:
 	code_field.text_submitted.connect(func(_t): join_room(code_field.text))
 	add_row(code_field, CODE_HELP)
 	_join_room = add_button("Join room", func(): join_room(code_field.text), "Join the room code above")
-	_more = add_button("", toggle_more, "Host a match yourself, or join a host or another server by address")
-	_host = add_button("Host a match", func(): host_pressed.emit(fighter), HOST_HELP)
+	# More.
+	_host = add_button("Host a match", host, HOST_HELP)
 	field = LineEdit.new()
 	field.text = address
 	field.placeholder_text = "Address to join, e.g. 192.168.1.20 or game.example.net/kev"
@@ -129,15 +156,32 @@ func build() -> void:
 	add_space(4)
 	_back = add_button("Back", back)
 	_status_label = add_text("", UiTheme.SIZE_HINT + 1, UiTheme.C_ACCENT)
+	_who_label = add_text("", UiTheme.SIZE_HINT + 1, UiTheme.C_TEXT)
 	_room_label = add_text("", UiTheme.SIZE_HEADING, UiTheme.C_TEXT)
 	_room_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_addr_label = add_text("", UiTheme.SIZE_HINT + 1, UiTheme.C_TEXT)
-	_show_more(more_shown)
+	for l in [_status_label, _who_label]:
+		(l as Label).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_show_page(page)
 	_refresh_status()
 
 
+## Back: Cancel while searching; on a page, up to the first one; there, leave.
 func back() -> void:
-	cancelled.emit()
+	if busy:
+		search_cancelled.emit()
+	elif page != Page.MAIN and server != "":
+		var from := page
+		open_page(Page.MAIN)
+		match from:
+			Page.QUICK:
+				_quick_page.grab_focus()
+			Page.ROOMS:
+				_rooms_page.grab_focus()
+			Page.MORE:
+				_more.grab_focus()
+	else:
+		cancelled.emit()
 
 
 func set_gamepad(on: bool) -> void:
@@ -149,22 +193,47 @@ func set_gamepad(on: bool) -> void:
 		describe(code_field, deck + CODE_HELP if on else CODE_HELP)
 
 
+## Shows one page's rows and focuses the first of them.
+func open_page(p: Page) -> void:
+	if busy:
+		return
+	_show_page(p)
+	var r := rows()
+	if not r.is_empty():
+		(r[0] as Control).grab_focus()
+
+
+## Kept for the More page's old toggle: swaps between More and the first page.
+func toggle_more() -> void:
+	open_page(Page.MAIN if page == Page.MORE and server != "" else Page.MORE)
+
+
+# ------------------------------------------------------------------ choices
+# Each one picks the fighter first (the tiles), then starts the search.
+
 ## Plays whoever is waiting on the server for the same size (players per side).
 func quick_match(size := 1) -> void:
 	if busy or not _have_server():
 		return
-	room_code = ""
-	room_created = false
-	server_join_pressed.emit(fighter, "", clampi(size, 1, 3))
+	size = clampi(size, 1, 3)
+	_pick_then("QUICK MATCH  " + SIZE_NAMES[size - 1],
+		"Next: the server looks for players. Accept when the match is found.", func():
+			room_code = ""
+			room_created = false
+			searching_for = "Quick match  " + SIZE_NAMES[size - 1]
+			server_join_pressed.emit(fighter, "", size))
 
 
 ## Makes a room code and waits there for a friend.
 func create_room() -> void:
 	if busy or not _have_server():
 		return
-	room_code = make_code()
-	room_created = true
-	server_join_pressed.emit(fighter, room_code, room_size)
+	_pick_then("NEW ROOM  " + SIZE_NAMES[room_size - 1],
+		"Next: you get a code for your friends. It starts once the room is full.", func():
+			room_code = make_code()
+			room_created = true
+			searching_for = "Room  " + SIZE_NAMES[room_size - 1]
+			server_join_pressed.emit(fighter, room_code, room_size))
 
 
 ## Joins a friend's room.
@@ -178,40 +247,55 @@ func join_room(text: String) -> void:
 		code_field.grab_focus()
 		return
 	code_field.text = code
-	room_code = code
-	room_created = false
-	server_join_pressed.emit(fighter, code, 0)
+	_pick_then("ROOM  " + code, "Next: you join your friend's room.", func():
+		room_code = code
+		room_created = false
+		searching_for = "Room " + code
+		server_join_pressed.emit(fighter, code, 0))
 
 
-## Swaps the server rows for the rest (host, join by address) and back. One set at a
-## time keeps the column on screen.
-func toggle_more() -> void:
-	_show_more(not more_shown)
-	(_host if more_shown else _quick).grab_focus()
+## Hosts a match on this machine (More).
+func host() -> void:
+	if busy:
+		return
+	_pick_then("HOST A MATCH", "Next: wait here for a player to join your address.", func():
+		room_code = ""
+		room_created = false
+		searching_for = "Hosting"
+		host_pressed.emit(fighter))
 
 
-func _show_more(on: bool) -> void:
-	more_shown = on
-	_more.text = "Back to Quick match and rooms" if on else "More: host, or join by address"
-	describe(_more, "Play on the server: Quick match, or a room with a friend" if on else
-		"Host a match yourself, or join a host or another server by address")
-	for c in [_host, field, _join] + _recent_rows:
-		(c as Control).visible = on
-	for c in [_quick, _quick2, _quick3, _size_row, _create, code_field, _join_room]:
-		(c as Control).visible = not on
-	link_focus()
+## The fighter was picked (from the tiles, or a test): remembered for next time.
+func use_fighter(id: String) -> void:
+	if id in MatchFactory.FIGHTERS:
+		fighter = id
 
 
-func _have_server() -> bool:
-	if server != "":
-		return true
-	status_bad = true
-	status = NO_SERVER
-	return false
-
-
-func _on_fighter(i: int) -> void:
-	fighter = MatchFactory.FIGHTERS[i]
+## Opens the tiles for one fighter, then runs `then`. Backing out of them changes nothing.
+func _pick_then(heading: String, info: String, then: Callable) -> void:
+	status = ""
+	status_bad = false
+	if stack == null:
+		then.call()  # no screen stack (a bare test): keep the fighter we have
+		return
+	var p := CharacterSelect.new()
+	p.solo = true
+	p.solo_heading = heading
+	p.solo_info = info
+	p.done_text = "LOCKED IN"
+	p.setup("ONLINE", 1, ["YOU", "NEXT"], false, [[fighter], []])
+	p.chosen.connect(func(teams: Array):
+		picker = null
+		if stack != null and stack.top() == p:
+			stack.pop()
+		use_fighter(String((teams[0] as Array)[0]))
+		then.call())
+	p.cancelled.connect(func():
+		picker = null
+		if stack != null and stack.top() == p:
+			stack.pop())
+	picker = p
+	stack.push(p)
 
 
 func _use_recent(a: String) -> void:
@@ -229,9 +313,48 @@ func _try_join(text: String) -> void:
 		status = "Type the host's address first (for example 192.168.1.20)"
 		field.grab_focus()
 		return
-	room_code = ""
-	room_created = false
-	join_pressed.emit(fighter, String(parsed[0]), int(parsed[1]), String(parsed[2]))
+	_pick_then("JOIN  " + String(parsed[0]), "Next: you connect to that address.", func():
+		room_code = ""
+		room_created = false
+		searching_for = "Joining " + String(parsed[0])
+		join_pressed.emit(fighter, String(parsed[0]), int(parsed[1]), String(parsed[2])))
+
+
+func _have_server() -> bool:
+	if server != "":
+		return true
+	status_bad = true
+	status = NO_SERVER
+	return false
+
+
+# ------------------------------------------------------------------ showing
+
+func _page_rows(p: Page) -> Array:
+	match p:
+		Page.MAIN:
+			return [_quick_page, _rooms_page, _more]
+		Page.QUICK:
+			return [_quick, _quick2, _quick3]
+		Page.ROOMS:
+			return [_size_row, _create, code_field, _join_room]
+		_:
+			return [_host, field, _join] + _recent_rows
+
+
+func _all_rows() -> Array:
+	return _page_rows(Page.MAIN) + _page_rows(Page.QUICK) + _page_rows(Page.ROOMS) + _page_rows(Page.MORE)
+
+
+func _show_page(p: Page) -> void:
+	page = p
+	more_shown = p == Page.MORE
+	var on := _page_rows(p)
+	for c in _all_rows():
+		(c as Control).visible = c in on and not busy
+	_page_label.text = PAGE_TITLES[p] if not busy else ""
+	_page_label.visible = _page_label.text != ""
+	link_focus()
 
 
 func _refresh_status() -> void:
@@ -239,6 +362,8 @@ func _refresh_status() -> void:
 		return
 	_status_label.text = status
 	_status_label.add_theme_color_override("font_color", C_BAD if status_bad else UiTheme.C_ACCENT)
+	var nm := String(MatchFactory.load_def(fighter).get("name", fighter))
+	_who_label.text = ("%s   ·   %s" % [nm, searching_for] if searching_for != "" else nm) if busy else ""
 	var show_room := busy and room_code != ""
 	_room_label.text = ("Room code  " + room_code) if show_room else ""
 	if show_room and room_created:
@@ -248,27 +373,19 @@ func _refresh_status() -> void:
 	_addr_label.text = ("Your addresses:  " + ("  ".join(addrs) if not addrs.is_empty() else "(none found)")) \
 		if busy and hosting_port > 0 else ""
 	# Empty lines take no room, so the column stays on screen.
-	for l in [_status_label, _room_label, _addr_label]:
+	for l in [_status_label, _who_label, _room_label, _addr_label]:
 		(l as Label).visible = (l as Label).text != ""
 
 
-## While connecting only Cancel works: the other rows step aside for what's happening.
+## While searching only Cancel works: the other rows step aside for what's happening.
 func _refresh_busy() -> void:
 	if _back == null:
 		return
-	if busy:
-		for c in [_fighter_row, _quick, _quick2, _quick3, _size_row, _create, code_field, _join_room, _more, _host,
-				field, _join] + _recent_rows:
-			var ctl := c as Control
-			ctl.visible = false
-			ctl.focus_mode = Control.FOCUS_NONE
-	else:
-		for c in [_fighter_row, _quick, _quick2, _quick3, _size_row, _create, code_field, _join_room, _more, _host,
-				field, _join] + _recent_rows:
-			(c as Control).focus_mode = Control.FOCUS_ALL
-		_fighter_row.visible = true
-		_more.visible = true
-		_show_more(more_shown)
+	for c in _all_rows():
+		(c as Control).focus_mode = Control.FOCUS_NONE if busy else Control.FOCUS_ALL
+	if not busy:
+		searching_for = ""
+	_show_page(page)
 	field.editable = not busy
 	code_field.editable = not busy
 	_back.text = "Cancel" if busy else "Back"

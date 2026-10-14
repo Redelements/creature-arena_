@@ -45,11 +45,18 @@ unknown publisher: choose **More info → Run anyway**.
 
 ## Play online (1v1)
 
-**Online** on the title menu. Both players need the **same build**. Pick your fighter, then:
+**Online** on the title menu. Both players need the **same build**.
 
-- **Quick match:** plays whoever is waiting on the game's server.
-- **Create room:** shows a short code (like `KX7P`). Your friend picks **Join room** and
-  types it, and the server pairs the two of you.
+- **Quick match:** pick **1 v 1**, **2 v 2** or **3 v 3**, then your fighter on the
+  character tiles, and the server looks for whoever is waiting for the same size.
+- **Rooms:** **Create room** shows a short code (like `KX7P`). Your friend picks
+  **Join room** and types it, and the server pairs the two of you.
+
+Whatever you choose, you pick your fighter first. When the server has a match it shows
+**Match found**: everyone has 15 seconds to **Accept**, and the fight starts once all
+have. If someone doesn't, the players who accepted go back to searching. Mirror
+matches are fine; in a 2v2 or 3v3 the server puts two of the same fighter on opposite
+teams when it can.
 
 The server is `kevarena.duckdns.org` (from `data/online.json`); **Settings > Game > Online
 server** changes it. At the server's own house the game finds it on the local network by
