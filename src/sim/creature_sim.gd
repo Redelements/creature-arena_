@@ -302,6 +302,22 @@ func hit_radius(seg: int = -2) -> float:
 	return seg_value(seg, "hit_radius")
 
 
+## A foe (not KO) is inside the current move's first strike with its near edge already
+## at the strike's centre or closer: the lunge holds its ground. So a lunge closes to the
+## move's sweet spot (a gap of `reach - radius` between the bodies) and no further, and
+## still follows a foe that the last hit knocked back.
+func _foe_in_strike(sim: MatchSim) -> bool:
+	var c := hit_center(0)
+	var r := hit_radius(0)
+	var reach := seg_value(0, "reach")
+	for o in sim.creatures:
+		if not is_foe(o) or o.state == State.KO:
+			continue
+		if c.distance_to(o.pos) <= r + o.radius and pos.distance_to(o.pos) - o.radius <= reach:
+			return true
+	return false
+
+
 ## Everything MatchSim needs to resolve one hit from segment `seg` of the current move.
 func hit_params(seg: int) -> Dictionary:
 	var mv := move_def()
@@ -819,9 +835,11 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 	if t <= aim_until and dir != Vector2.ZERO and not connected:
 		facing = _taunt_aim(dir, sim)
 
-	# Movement during the move: a short lunge before it hits, or a dash.
+	# Movement during the move: a short lunge before it hits, or a dash. The lunge only
+	# closes distance: with a foe already inside the strike it holds its ground, so a
+	# string keeps its spacing instead of walking into the target (a whiff still steps in).
 	var lunge := float(mv.get("lunge", 0.0))
-	if t <= su and lunge > 0.0:
+	if t <= su and lunge > 0.0 and not _foe_in_strike(sim):
 		_move(facing * lunge, sim, true)
 	# "mobile": he keeps walking (at this share of his speed) while the move plays out,
 	# whichever way it's thrown: Chef Cerebro's telekinetic throws, run-and-gun.

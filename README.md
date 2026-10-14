@@ -245,6 +245,10 @@ staggers** (the third; Cairn's Hook, the fourth): the hits before it only deal d
 hitstun, no push and no combo started, so the other fighter can answer between them.
 Craglash is the exception: every hit of his slower string staggers. A jab still interrupts a
 big move's windup, and still catches an invisible Pete; thrown knife flicks do neither.
+**Fights happen at arm's length, not on top of each other:** lights reach about 16 px
+past the two bodies, and a light's forward step stops once the foe is at the strike's
+sweet spot (it still steps in after a foe that the last hit pushed back), so a string
+keeps its spacing and you can see the other fighter's windups.
 Any move that **hits or is blocked** can
 cancel into a move of a higher rank, so combos climb the ranks. The exception: a **blocked
 third light** (or later) can't be cancelled, and leaves the attacker at least 16 frames

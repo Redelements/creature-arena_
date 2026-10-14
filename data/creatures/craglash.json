@@ -148,7 +148,7 @@
     }
   },
   "ai": {
-    "range": 22,
+    "range": 34,
     "counter": "skill_2",
     "poke": "skill_1",
     "poke_range": [
@@ -227,7 +227,7 @@
       "knockback": 0.9,
       "hitstun": 20,
       "hitstop": 4,
-      "reach": 18,
+      "reach": 28,
       "hit_radius": 11,
       "lunge": 0.8,
       "next": "light_2",
@@ -247,7 +247,7 @@
       "knockback": 0.9,
       "hitstun": 22,
       "hitstop": 4,
-      "reach": 18,
+      "reach": 28,
       "hit_radius": 11,
       "lunge": 0.8,
       "next": "light_3",
@@ -266,7 +266,7 @@
       "knockback": 2.4,
       "hitstun": 26,
       "hitstop": 7,
-      "reach": 24,
+      "reach": 34,
       "hit_radius": 11,
       "lunge": 0.4,
       "next": "",
@@ -294,7 +294,7 @@
       "launch": 34,
       "launch_charged": 46,
       "reach": 6,
-      "hit_radius": 30,
+      "hit_radius": 40,
       "juggle": true,
       "fx": {
         "charge": "pebbles",

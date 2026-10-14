@@ -47,7 +47,7 @@
     }
   },
   "ai": {
-    "range": 18,
+    "range": 30,
     "poke": "skill_2",
     "poke_range": [30, 80],
     "zone": "skill_1",
@@ -74,7 +74,7 @@
       "startup": 4, "active": 2, "recovery": 8, "cancel_from": 6,
       "damage": 4, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
       "slow_ticks": 60, "slow_mult": 0.8,
-      "reach": 17, "hit_radius": 10, "lunge": 1.2, "next": "light_2", "juggle": true,
+      "reach": 27, "hit_radius": 10, "lunge": 1.2, "next": "light_2", "juggle": true,
       "fx": { "smear": "thrust", "impact": "frost" }
     },
     "light_2": {
@@ -83,14 +83,14 @@
       "startup": 5, "active": 2, "recovery": 9, "cancel_from": 7,
       "damage": 5, "knockback": 0.9, "hitstun": 18, "hitstop": 4,
       "slow_ticks": 60, "slow_mult": 0.75,
-      "reach": 18, "hit_radius": 10, "lunge": 1.0, "next": "light_3", "juggle": true,
+      "reach": 28, "hit_radius": 10, "lunge": 1.0, "next": "light_3", "juggle": true,
       "fx": { "smear": "thrust", "impact": "frost" }
     },
     "light_3": {
       "name": "Brain Freeze", "anim": "headbutt",
       "startup": 8, "active": 3, "recovery": 14,
       "damage": 7, "knockback": 1.6, "hitstun": 24, "hitstop": 6,
-      "reach": 19, "hit_radius": 13, "lunge": 0.8, "next": "", "juggle": true,
+      "reach": 29, "hit_radius": 13, "lunge": 0.8, "next": "", "juggle": true,
       "anim_at": [[0, 0], [4, 1], [8, 2], [12, 3], [17, 4]],
       "fx": { "smear": "thrust", "size": 1.3, "impact": "frost" }
     },
