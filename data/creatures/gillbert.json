@@ -50,7 +50,7 @@
   "ai": {
     "range": 18,
     "poke": "skill_2",
-    "poke_range": [40, 110],
+    "poke_range": [40, 200],
     "surge_range": 46,
     "routes": [
       ["light", "light", "light", "heavy", "skill_1", "surge"],
@@ -103,11 +103,11 @@
       "fx": { "charge": "drips", "impact": "splash" }
     },
     "skill_1": {
-      "name": "Flop Dash", "anim": "flopdash", "windup": 10, "tell": "strong", "cooldown": 150,
-      "startup": 6, "active": 10, "recovery": 14,
+      "name": "Flop Dash", "anim": "flopdash", "windup": 12, "tell": "strong", "cooldown": 150,
+      "startup": 3, "active": 13, "recovery": 14,
       "damage": 8, "knockback": 2.6, "hitstun": 24, "hitstop": 6,
       "reach": 8, "hit_radius": 11, "juggle": true, "juggle_float": 36,
-      "dash": { "speed": 3.4, "from": 1, "to": 16 },
+      "dash": { "speed": 6.8, "from": 1, "to": 16 },
       "anim_at": [[0, 0], [5, 1], [8, 2], [17, 3]],
       "fx": { "afterimage": [1, 16], "ghost_color": "#b4e626aa", "trail": "splash", "impact": "droplets" }
     },
@@ -115,8 +115,8 @@
       "name": "Cast Line", "anim": "cast", "windup": 6, "tell": "strong", "cooldown": 210,
       "startup": 10, "active": 0, "recovery": 28,
       "damage": 4, "knockback": 0.2, "hitstun": 46, "hitstop": 6,
-      "reel": 2, "reel_speed": 5.0,
-      "projectile": { "speed": 5.5, "life": 18, "radius": 8, "offset": 12, "crack_trail": false },
+      "reel": 2, "reel_speed": 10.0,
+      "projectile": { "speed": 11.0, "life": 18, "radius": 8, "offset": 12, "crack_trail": false },
       "anim_at": [[0, 0], [5, 1], [9, 2], [13, 3], [32, 5]],
       "anim_reel": 4,
       "fx": { "cast": true, "projectile": "rod" }

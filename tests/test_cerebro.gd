@@ -28,18 +28,19 @@ func _events(sim: MatchSim, kind: String) -> Array:
 	return out
 
 
-func test_his_throws_reach_as_far_as_gillberts_cast_line_and_his_lights_half_again() -> void:
+## His skills reach about 120 px (what Gillbert's Cast Line reached before it was doubled)
+## and his lights half again as far.
+func test_his_throws_reach_about_120_px_and_his_lights_half_again() -> void:
 	var sim := _duel()
 	var chef := sim.creatures[0]
-	var gill := CreatureSim.new(9, MatchFactory.load_def("gillbert"), Vector2.ZERO)
-	var cast := gill.move_range("skill_2")
+	var cast := 119.0
 	for mid in ["skill_1", "surge"]:
 		var r := chef.move_range(mid)
-		assert_true(absf(r - cast) <= cast * 0.15, "%s reaches %.0f px, Cast Line %.0f px" % [mid, r, cast])
+		assert_true(absf(r - cast) <= cast * 0.15, "%s reaches %.0f px, about %.0f px" % [mid, r, cast])
 	for mid in ["light_1", "light_2", "light_3"]:
 		var r := chef.move_range(mid)
 		assert_true(absf(r - cast * 1.5) <= cast * 0.15,
-			"%s reaches %.0f px, half again Cast Line's %.0f px" % [mid, r, cast])
+			"%s reaches %.0f px, half again %.0f px" % [mid, r, cast])
 
 
 func test_knife_flick_hits_from_range() -> void:

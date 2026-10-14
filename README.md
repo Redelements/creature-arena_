@@ -119,7 +119,8 @@ Online from a terminal: `godot --path . -- --online-host` and `godot --path . --
 19 training as Chef Cerebro, 20 Online 1v1 (the lobby), 21 Hissy Fitz vs CPU Chef Cerebro,
 22 training as Hissy Fitz, 23 Digby vs CPU Hissy Fitz, 24 training as Digby,
 25 Sneaky Pete vs CPU Digby, 26 training as Sneaky Pete, 27 Sno Mercy vs CPU Sneaky Pete,
-28 training as Sno Mercy, 29 Team battle 2v2 vs CPU, 30 Team battle 3v3 vs CPU. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
+28 training as Sno Mercy, 29 Team battle 2v2 vs CPU, 30 Team battle 3v3 vs CPU,
+31 Team Deathmatch 2v2 vs CPU, 32 Team Deathmatch 3v3 vs CPU. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
 sets Duel (and Team battle) teams; `--cpu-vs-cpu` hands every player side to the CPU.
 
 **Local 2-player:** with two controllers, each player gets one (player 1 can also use the
@@ -266,6 +267,15 @@ The floor is 672 x 288 px, 1.5 times its first size, inside a stadium wider than
 screen. The camera follows the fight: at the normal 1x while the fighters are close, and
 pulling back (as far as the whole stadium) to keep everyone, heads included, in shot.
 
+### Health bars
+
+Every fighter's health bar floats over its head, League-style: **green** is you, **blue**
+your teammates, **red** your opponents (with nobody playing here, or two players on one
+screen, they're the side colours: red left, blue right). Ticks mark every 25 health, a pale
+chunk shows what a hit just took before it drains away, pale stone on the end is a shield
+(Craglash's Stoneskin), and the thin yellow strip underneath is the Surge meter. The panels
+at the top keep the Surge meter, stamina and skill cooldowns.
+
 ### Fighting from every angle
 
 Fighters move and attack in any direction, not just left and right: every hitbox goes
@@ -328,6 +338,25 @@ slots, and a CPU takes over for anyone who leaves mid-match.
 It runs in the deterministic simulation (`src/sim/team_sim.gd`, `CreatureSim.team`), so it
 rolls back like a Duel. Tuning: `data/rules/team.json`.
 
+### Team Deathmatch: 2v2 and 3v3
+
+Single player > Team Deathmatch vs CPU. The same teams on the same field, but nobody stays
+down.
+
+- **Unlimited respawns:** a knocked-out fighter comes back after **4 seconds** at full
+  health, keeping its Surge energy.
+- **Spawn pads, one per fighter, against each team's own side wall** (red left, blue
+  right), drawn on the floor with a countdown while you wait. You come back facing into
+  the arena, **invulnerable for 2 seconds or until you attack**, so a pad can't be camped
+  but you can't hide on it either.
+- **Score:** every KO is a point for the other team. First to **12** (2v2) or **15**
+  (3v3) wins; at the 3-minute limit, the higher score wins, and a tie goes to **sudden
+  death** (the next KO wins).
+- The match starts in the middle as usual; the pads are only for coming back.
+
+Offline for now (vs CPU); online Team Deathmatch needs the server to run the mode.
+Tuning: `data/rules/deathmatch.json`.
+
 ### Learning the game: Combo Trials and Reaction Drills
 
 - **Combo Trials** (`data/trials.json`, 19 so far): each trial plays a demo of the route,
@@ -350,7 +379,7 @@ full speed, so every combo below still works.
 | Glow | Means | Moves (windup) | Answer |
 | --- | --- | --- | --- |
 | **Red** + "!" | Can't be blocked | Gulp (12f), Slam (8f, breaks guard), Flip Out (12f), Mountain Maw (12f), Coil Uppercut (8f, breaks guard), Sack Smack (8f, breaks guard), Slush Slide (8f, breaks guard), Burrow's pop-up (breaks guard) | Roll away or through it, or hit them first |
-| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f), Runoff (6f), Rockslide Stomp (10f), Landslide Charge (8f), Timber Twister (8f), Branch Grab (8f), Splash Zone (8f), Flop Dash (10f), Cast Line (6f), Tenderize (8f), Cleaver Toss (6f) | Guard, then punish |
+| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f), Runoff (6f), Rockslide Stomp (10f), Landslide Charge (8f), Timber Twister (8f), Branch Grab (8f), Splash Zone (8f), Flop Dash (12f), Cast Line (6f), Tenderize (8f), Cleaver Toss (6f) | Guard, then punish |
 
 That puts at least 15 frames (a quarter second) between the glow and the hit, and a jab
 landed during a windup cancels the move. Surges freeze the screen for their cut-in: a
@@ -426,8 +455,8 @@ floor like a landed fish, his rod tumbling behind him on the line.
 | --- | --- | --- |
 | Light | Snout Jab, Tail Whip, Rod Flail | A nose bonk, a half turn that lashes the tail across, then a jerk of the head swings the rod over him onto the foe |
 | Heavy | Splash Zone | Curls up and slaps the floor with his tail: hits all around him, pops foes up and **slows** them (walk ×0.6 for 2 s). Hold to charge (bigger and harder) |
-| Skill 1 | Flop Dash | A skidding belly-flop forward, kicking up water; keeps a juggle going |
-| Skill 2 | Cast Line | **Throws his rod** on its line, about 110 px. If it hooks someone he's **reeled in to them** at a steady pull, across pits and all, like a fish on a line; arriving ends the cast while they're still stunned, so lights link straight after. Blockable; a miss leaves him stuck in recovery |
+| Skill 1 | Flop Dash | A long skidding belly-flop forward (about 100 px in a quarter of a second), kicking up water; keeps a juggle going |
+| Skill 2 | Cast Line | **Throws his rod** on its line, about 220 px. If it hooks someone he's **reeled in to them** at a steady pull, across pits and all, like a fish on a line; arriving ends the cast while they're still stunned, so lights link straight after. Blockable; a miss leaves him stuck in recovery |
 | Surge | The One That Got Away | Leaps straight up off the screen, **out of reach** of everything (he sails over bodies and pits), then belly-flops in a huge splash that knocks foes down. The mark **follows the nearest foe** while he's rising (up to about 70 px), then locks, so a dodge on the landing still beats it |
 
 ![Gillbert's showcase](docs/gillbert_demo.gif)
@@ -442,7 +471,7 @@ untouchable from the 3rd) and he's simply 116 px away the way you pushed, stoppe
 walls but not by pits (blinking onto a hole drops him in). It **recharges for 0.75 s** after
 each blink (a violet bar beside his stamina drains away; a dodge pressed just before it's
 ready comes out when it is). **Most of his attacks are thrown, and
-his skills reach about as far as Gillbert's Cast Line (120–130 px), his lights half again as far (about 170 px)**, so he wants foes at knife
+his skills reach 120–130 px (about half Gillbert's Cast Line), his lights half again as far (about 170 px)**, so he wants foes at knife
 range; up close he softens them up or flips them away. Voice line: "CHOP CHOP!"
 
 | Button | Move | What it does |
@@ -501,7 +530,7 @@ for a victory-pose system.
 
 ### Sneaky Pete — robbed every bank in town, twice
 
-An assassin (100 HP, Lumen affinity: the sheet says Dark). A cartoon burglar always on
+An assassin (80 HP, Lumen affinity: the sheet says Dark). A cartoon burglar always on
 tiptoe: black eye mask, orange striped beanie, and a big green money bag over his
 shoulder. He wins by not being where you're looking. Voice line: "Finders keepers!"
 

@@ -34,6 +34,8 @@ var surge_labels := ["", ""]
 var help_text := ""
 var show_help := true
 var timer_ticks := -1
+## Team Deathmatch: the seconds until your fighter is back (-1: you're up).
+var respawn_in := -1
 var wins := [0, 0]
 var wins_needed := 2
 var banner := ""
@@ -218,7 +220,10 @@ func _card(slot: int, x: float, y: float, right: bool) -> void:
 	var name := String(c.def.get("name", "?")).to_upper()
 	_text(Vector2(x + 5, y + 7), name, 6, C_DIM if down else C_TEXT)
 	if down:
-		_text(Vector2(x + 5, y + 7), "K.O.", 6, C_HP_LO, HORIZONTAL_ALIGNMENT_RIGHT, 150)
+		var down_txt := "K.O."
+		if team != null and team.deathmatch and slot < team.respawn_t.size() and int(team.respawn_t[slot]) > 0:
+			down_txt = "BACK IN %d" % ceili(int(team.respawn_t[slot]) / 60.0)
+		_text(Vector2(x + 5, y + 7), down_txt, 6, C_HP_LO, HORIZONTAL_ALIGNMENT_RIGHT, 150)
 		draw_rect(Rect2(x + 5, y + 9, 150, 3), C_BAR_BG)
 		return
 	_text(Vector2(x + 5, y + 7), String(tags[slot]) if slot < tags.size() else "", 5, C_DIM,
@@ -242,16 +247,11 @@ func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 		tag = "F2: " + dummy_mode_name
 	_text(Vector2(x + 5, 12), name, 7, C_TEXT)
 	_text(Vector2(x + 5, 12), tag, 6, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, 150)
-	_bar(Rect2(x + 5, 15, 150, 6), c.hp / c.max_hp, _hp_color(c.hp / c.max_hp), right)
-	# A shield (Craglash's Stoneskin): pale stone over the end of the health bar, and its name.
+	# Health is over the fighter now (FxView's bars); the panel keeps what isn't: the
+	# Surge, stamina, stones and skills. A shield (Stoneskin) still says so by name.
 	if c.shield > 0.0:
-		var sw := minf(1.0, c.shield / c.max_hp) * 150.0
-		var hw := c.hp / c.max_hp * 150.0
-		var sx := x + 5 + (150.0 - hw - sw if right else hw)
-		sx = clampf(sx, x + 5, x + 155 - sw)
-		draw_rect(Rect2(sx, 15, sw, 6), Color("d8d4cc"))
-		draw_rect(Rect2(sx, 15, sw, 6), Color(0, 0, 0, 0.5), false, 1.0)
-		_text(Vector2(x + 5, 12), "STONESKIN  ", 5, Color("d8d4cc"), HORIZONTAL_ALIGNMENT_RIGHT, 118)
+		var shield_name := String(c.def.get("stoneskin", {}).get("name", "Stoneskin")).to_upper()
+		_text(Vector2(x + 5, 12), shield_name + "  ", 5, Color("d8d4cc"), HORIZONTAL_ALIGNMENT_RIGHT, 118)
 	if duel != null:
 		_team_strip(side, x, right)
 
@@ -260,7 +260,8 @@ func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 	var ecol := C_ENERGY
 	if full and (_tick / 8) % 2 == 0:
 		ecol = Color.WHITE
-	_bar(Rect2(x + 5, 24, 100, 3), c.energy / CreatureSim.MAX_ENERGY, ecol, right)
+	_text(Vector2(x + 5, 21), "SURGE", 5, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT if right else HORIZONTAL_ALIGNMENT_LEFT, 100)
+	_bar(Rect2(x + 5, 23, 100, 4), c.energy / CreatureSim.MAX_ENERGY, ecol, right)
 	_bar(Rect2(x + 5, 30, 60, 2), c.stamina / c.max_stamina, C_STAMINA, right)
 	# A dodge with a cooldown (Chef Cerebro's blink): a short violet bar beside the stamina
 	# bar drains away while it recharges.
@@ -340,11 +341,26 @@ func _center() -> void:
 	draw_rect(Rect2(218 + _cx, 3, 44, 24), C_PANEL)
 	var secs := int(ceil(timer_ticks / 60.0))
 	_text(Vector2(218 + _cx, 19), str(secs), 13, C_HP_LO if secs <= 10 else C_TEXT, HORIZONTAL_ALIGNMENT_CENTER, 44)
+	if team != null and team.deathmatch:
+		_deathmatch_score()
 	for side in 2:
 		for i in wins_needed:
 			var px := 232.0 + _cx + (i * 7.0 if side == 1 else -i * 7.0) + (14.0 if side == 1 else 0.0)
 			var won := i < int(wins[side])
 			draw_circle(Vector2(px, 32), 2.5, C_ACCENT if won else Color(0.25, 0.27, 0.3))
+
+
+## Team Deathmatch: each team's KOs either side of the clock, what wins, and your respawn.
+func _deathmatch_score() -> void:
+	for side in 2:
+		var x := 218.0 + _cx + (-34.0 if side == 0 else 46.0)
+		draw_rect(Rect2(x, 3, 32, 24), C_PANEL)
+		draw_rect(Rect2(x, 3, 32, 2), SIDE_COLORS[side])
+		_text(Vector2(x, 21), str(int(team.score[side])), 13, SIDE_COLORS[side], HORIZONTAL_ALIGNMENT_CENTER, 32)
+	var goal := "SUDDEN DEATH" if team.overtime else "FIRST TO %d" % team.score_to_win()
+	_text(Vector2(184 + _cx, 34), goal, 5, C_ACCENT if team.overtime else C_DIM, HORIZONTAL_ALIGNMENT_CENTER, 112)
+	if respawn_in > 0:
+		_text(Vector2(0, 62 + _cy), "BACK IN %d" % respawn_in, 10, C_TEXT, HORIZONTAL_ALIGNMENT_CENTER, _sw)
 
 
 func _combo(side: int) -> void:
