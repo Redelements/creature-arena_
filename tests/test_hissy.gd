@@ -144,3 +144,12 @@ func test_rollback_with_poison_gaze_and_stone() -> void:
 	sim.restore(snap)
 	run(sim, 0, 80, L)
 	assert_eq(sim.state_digest(), once, "replaying from the snapshot gives the same state:")
+
+
+func test_poison_without_poison_every_pulses_at_the_default() -> void:
+	var sim := _duel("cairn", 60.0)
+	var foe := sim.creatures[1]
+	sim.creatures[0].def = sim.creatures[0].def.duplicate(true)  # the factory caches defs; don't edit the shared one
+	sim.creatures[0].def["moves"]["skill_1"].erase("poison_every")
+	run_until(sim, func(): return not _events(sim, "poisoned").is_empty(), 60, S1)
+	assert_eq(foe.poison_every, MatchSim.POISON_EVERY_DEFAULT, "a move that leaves it out gets the default, not every tick:")

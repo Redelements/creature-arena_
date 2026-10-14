@@ -251,7 +251,8 @@ func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 		sx = clampf(sx, x + 5, x + 155 - sw)
 		draw_rect(Rect2(sx, 15, sw, 6), Color("d8d4cc"))
 		draw_rect(Rect2(sx, 15, sw, 6), Color(0, 0, 0, 0.5), false, 1.0)
-		_text(Vector2(x + 5, 12), "STONESKIN  ", 5, Color("d8d4cc"), HORIZONTAL_ALIGNMENT_RIGHT, 118)
+		var shield_name := String(c.def.get("stoneskin", {}).get("name", "Stoneskin")).to_upper()
+		_text(Vector2(x + 5, 12), shield_name + "  ", 5, Color("d8d4cc"), HORIZONTAL_ALIGNMENT_RIGHT, 118)
 	if duel != null:
 		_team_strip(side, x, right)
 
