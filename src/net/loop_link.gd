@@ -40,7 +40,7 @@ func send(msg: Dictionary, reliable := false) -> void:
 	other._inbox.append([at, _order, NetLink.decode(NetLink.encode(msg))])
 
 
-func poll() -> Array:
+func poll(_wait_ms := 0) -> Array:
 	_clock += 1
 	var out: Array = []
 	var keep: Array = []

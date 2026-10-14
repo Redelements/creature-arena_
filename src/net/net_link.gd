@@ -13,14 +13,20 @@ enum Status { IDLE, LISTENING, CONNECTING, CONNECTED, CLOSED }
 var status: Status = Status.IDLE
 ## Why the link closed or failed, for the player.
 var error := ""
+## A real transport (ENet): it may be polled any number of times a frame, as often as
+## the game renders, and `poll(wait_ms)` can block for a moment waiting for a packet.
+## The in-memory test links count polls as ticks, so they stay once a tick.
+var realtime := false
 
 
 func send(_msg: Dictionary, _reliable := false) -> void:
 	pass
 
 
-## Everything that arrived since the last call. Call once per frame.
-func poll() -> Array:
+## Everything that arrived since the last call. Once a tick, or as often as you like on
+## a `realtime` link; `wait_ms` (realtime only) blocks up to that long for something to
+## arrive, for timing a ping precisely.
+func poll(_wait_ms := 0) -> Array:
 	return []
 
 
