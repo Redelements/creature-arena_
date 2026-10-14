@@ -1,7 +1,8 @@
 class_name ReactionDrill
 extends RefCounted
 ## Reaction Drills: the partner throws random RAW big moves, which wind up with a tell,
-## and the player answers. Red (can't be blocked): roll away, or hit them first.
+## and the player answers. Red (can't be blocked): roll away (sideways, out of the lane,
+## for a hook like Gulp's tongue), or hit them first.
 ## Gold (strong but blockable): guard, roll, or hit them first. 20 reps, then a score
 ## with the average reaction time (from the tell to the first guard or roll press).
 ##
@@ -62,7 +63,7 @@ func build() -> MatchSim:
 	var s: Dictionary = SETS[set_name]
 	sim = MatchFactory.versus(String(s["player"]), String(s["partner"]))
 	_initial = sim.snapshot()
-	title = "REACTION DRILL  -  %s  -  red: roll away   gold: guard" % String(s["title"])
+	title = "REACTION DRILL  -  %s  -  red: roll away (sideways from a hook)   gold: guard" % String(s["title"])
 	rep = 0
 	clean = 0
 	streak = 0

@@ -305,7 +305,7 @@ func hit_radius(seg: int = -2) -> float:
 ## Everything MatchSim needs to resolve one hit from segment `seg` of the current move.
 func hit_params(seg: int) -> Dictionary:
 	var mv := move_def()
-	return {
+	var out := {
 		"attacker": id,
 		"move_id": move_id,
 		"type": String(mv["type"]),
@@ -342,6 +342,12 @@ func hit_params(seg: int) -> Dictionary:
 		"freeze_ticks": seg_value(seg, "freeze_ticks"),
 		"no_flinch": bool(mv.get("no_flinch", false)),
 	}
+	# A move held to a full charge can hit differently ("hold": {...} overrides any of the
+	# values above): Culvert's Gulp, a hook when tapped, a swallow when held.
+	if mv.has("hold") and charge_ratio >= 1.0:
+		for k in mv["hold"]:
+			out[k] = mv["hold"][k]
+	return out
 
 
 func is_invulnerable() -> bool:

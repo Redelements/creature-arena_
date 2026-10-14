@@ -338,15 +338,14 @@ def guard():
 
 
 def gulp():
-    """Gulp: the mouth yawns open (the drain), he lunges and swallows, holds the foe in a
-    bulging throat, then spits them out behind him."""
+    """Gulp: the drain yawns open as he winds up (two charge frames), the tongue shoots
+    out (the game draws it in flight), then the mouth shuts on whatever it caught, the
+    throat bulging, and he spits."""
     return [
         P(mouth=0.6, pitch=6, lift=0.5, near=(10, 7, 9), far=(-10, 7, 8), throat=0.3),
-        P(mouth=1.0, pitch=4, fwd=3.0, lift=0.0, near=(11, 5, 14), far=(-11, 5, 13), tongue=10.0, eyes="squint",
-          throat=0.2),
+        P(mouth=1.0, pitch=8, lift=1.0, near=(11, 8, 8), far=(-11, 8, 7), throat=0.2, eyes="squint"),
+        P(mouth=1.0, pitch=4, fwd=3.0, lift=0.0, near=(11, 5, 14), far=(-11, 5, 13), eyes="squint", throat=0.2),
         P(mouth=0.0, pitch=10, lift=1.0, squash=1.08, throat=1.0, eyes="shut", near=(10, 6, 9), far=(-10, 6, 8)),
-        P(mouth=0.9, pitch=24, lift=2.0, squash=0.98, throat=0.3, spray=1.0, near=(10, 10, 6), far=(-10, 10, 5),
-          legs="crouch", leg_k=0.5),
     ]
 
 

@@ -54,7 +54,7 @@ func test_cairn_counter_punish() -> void:
 func test_culvert_guard_breaker() -> void:
 	var sim := _duel("culvert")
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [S1, "skill_1"]])
-	assert_near(dmg, 4 + 5 + 12 * 1.15, 0.05, "Jab, Jab > Gulp:")
+	assert_near(dmg, 4 + 5 + 6 * 1.15, 0.05, "Jab, Jab > Gulp (tapped: the hook):")
 
 
 func test_culvert_shockwave() -> void:

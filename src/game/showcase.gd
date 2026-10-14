@@ -69,20 +69,30 @@ const SCRIPTS := {
 		],
 	},
 	"culvert": {
-		"left": "culvert", "right": "cairn", "energy": [100, 0], "gap": 2.0, "hp": [-1, 100],
+		"left": "culvert", "right": "cairn", "energy": [100, 0], "gap": 64.0, "hp": [-1, 100],
 		"title": "CULVERT  -  FULL KIT",
 		"captions": [
-			["Jab", "Jab", "Gulp"],
+			["Gulp tapped: the tongue hooks from range", "and hauls them in", "Jab", "Jab"],
+			["Jab", "Jab", "Gulp held: swallowed and spat out behind"],
 			["Jab", "Jab", "Hook", "Slam", "Runoff", "Storm Drain"],
 		],
 		"steps": [
 			{"do": "wait", "t": 45, "part": 0},
+			{"do": "press", "who": 0, "bit": S1, "move": "skill_1", "show": 0},
+			{"do": "wait", "t": 30, "show": 1},
+			{"do": "until", "cond": "free:0"},
+			{"do": "press", "who": 0, "bit": L, "move": "light_1", "aim": true, "show": 2},
+			{"do": "press", "who": 0, "bit": L, "move": "light_2", "show": 3},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 40},
+			{"do": "place", "part": 1, "gap": 2.0},
+			{"do": "wait", "t": 20},
 			{"do": "press", "who": 0, "bit": L, "move": "light_1", "show": 0},
 			{"do": "press", "who": 0, "bit": L, "move": "light_2", "show": 1},
-			{"do": "press", "who": 0, "bit": S1, "move": "skill_1", "show": 2},
+			{"do": "press", "who": 0, "bit": S1, "move": "skill_1", "charge": 24, "show": 2},
 			{"do": "until", "cond": "settled"},
 			{"do": "wait", "t": 40, "show": 3},
-			{"do": "place", "part": 1},
+			{"do": "place", "part": 2, "gap": 2.0},
 			{"do": "wait", "t": 20},
 			{"do": "press", "who": 0, "bit": L, "move": "light_1", "show": 0},
 			{"do": "press", "who": 0, "bit": L, "move": "light_2", "show": 1},
@@ -455,7 +465,7 @@ const SCRIPTS := {
 		"captions": [
 			["Raw Gulp winds up red: unblockable", "Roll through it", "Punish: Jab, Jab, Cross, Rush"],
 			["Storm Drain cut-in", "Dodge out during the freeze", "No damage taken"],
-			["Raw Rush glows gold: blockable", "Guard it", "Punish: Jab, Jab, Gulp"],
+			["Raw Rush glows gold: blockable", "Guard it", "Punish: Jab, Jab, held Gulp"],
 		],
 		"steps": [
 			{"do": "wait", "t": 45, "part": 0},
@@ -483,7 +493,7 @@ const SCRIPTS := {
 			{"do": "guard", "who": 1, "show": 1},
 			{"do": "press", "who": 1, "bit": L, "move": "light_1", "show": 2},
 			{"do": "press", "who": 1, "bit": L, "move": "light_2"},
-			{"do": "press", "who": 1, "bit": S1, "move": "skill_1"},
+			{"do": "press", "who": 1, "bit": S1, "move": "skill_1", "charge": 24},
 			{"do": "until", "cond": "settled"},
 			{"do": "wait", "t": 60, "show": 3},
 		],
@@ -565,7 +575,12 @@ func inputs(sim: MatchSim) -> PackedInt32Array:
 			if _t == 1:
 				_serial = c.attack_serial
 			if c.attack_serial != _serial and c.move_id == String(s["move"]):
-				done = true
+				# "charge": keep the button held this many ticks into the move (a held Gulp).
+				if int(s.get("charge", 0)) > _phase:
+					_phase += 1
+					out[who] = int(s["bit"]) | _aim_bits(sim, who, s)
+				else:
+					done = true
 			else:
 				var bits := int(s["bit"]) if _t % 2 == 1 else 0
 				if bool(s.get("aim", false)):

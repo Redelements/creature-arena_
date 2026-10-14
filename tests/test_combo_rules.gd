@@ -205,15 +205,25 @@ func test_breakaway_not_on_the_first_hits() -> void:
 
 
 func test_gulp_ignores_guard() -> void:
+	# Tapped: the tongue hooks a guarding foe and hauls them in.
 	var sim := _duel("culvert", "cairn")
 	var c := sim.creatures[0]
 	var d := sim.creatures[1]
 	run(sim, 0, 2, G)
 	assert_eq(d.state, CreatureSim.State.GUARD, "guarding:")
 	run(sim, S1, 1, G)
-	var grabbed := run_until(sim, func(): return d.state == CreatureSim.State.KNOCKDOWN, 20, 0, G)
-	assert_true(grabbed, "Gulp should grab through guard")
-	assert_near(d.max_hp - d.hp, 12.0, 0.001, "grab damage:")
+	var hooked := run_until(sim, func(): return d.state == CreatureSim.State.HITSTUN, 30, 0, G)
+	assert_true(hooked, "the tongue should hook through guard")
+	assert_near(d.max_hp - d.hp, 6.0, 0.001, "hook damage:")
+	# Held: swallowed and spat out behind him.
+	sim = _duel("culvert", "cairn")
+	c = sim.creatures[0]
+	d = sim.creatures[1]
+	run(sim, 0, 2, G)
+	var grabbed := run_until(sim, func(): return d.state == CreatureSim.State.AIRBORNE, 50, S1, G)
+	assert_true(grabbed, "a held Gulp should swallow through guard")
+	assert_near(d.max_hp - d.hp, 12.0, 0.001, "swallow damage:")
+	run(sim, 0, 40)
 	assert_lt(d.pos.x, c.pos.x, "spat out behind Culvert:")
 
 
