@@ -63,6 +63,7 @@ extends Node2D
 ##                out all round, shards and a shake)
 ##   charge       also "frost": icy mist swirling while the heavy is held
 ##   spray        true         a fan of ice shards over the move's cone
+##   wave_cone    true         a fan of water over the move's cone (Runoff)
 ##   slush        true         a slushy trail behind a dash
 ##   syrup        true         a splash as the move's zone is left (the zone itself is drawn
 ##                             from sim.zones, as a syrup puddle)
@@ -792,6 +793,8 @@ func _strike(c: CreatureSim, mv: Dictionary, fx: Dictionary, seg: int) -> void:
 			_px(at, Vector2.from_angle(randf() * TAU) * randf_range(0.4, 1.2), C_ICE[1 + randi() % 2], 14)
 	if bool(fx.get("spray", false)):
 		_ice_spray(c, c.hit_radius(seg), float(mv.get("cone", 0.6)))
+	if bool(fx.get("wave_cone", false)):
+		_water_fan(c, c.hit_center(seg), c.hit_radius(seg), float(mv.get("cone", 0.6)))
 	if String(fx.get("impact", "")) == "roots":
 		_roots(c, c.hit_radius(seg), last)
 
@@ -1566,6 +1569,22 @@ func _ice_spray(c: CreatureSim, r: float, cone: float) -> void:
 			"life": 9, "color": Color(C_ICE[2], 0.9)})
 		_px(head + d * 8.0, d * randf_range(1.2, 2.4), C_ICE[randi() % 3], 18)
 	cue.emit("shards")
+
+
+## Runoff: a sheet of water fanning out over the cone ahead, foam at its edge.
+func _water_fan(c: CreatureSim, at: Vector2, r: float, cone: float) -> void:
+	var half := acos(clampf(cone, -1.0, 1.0))
+	var from := c.pos + Vector2(0, -6.0)
+	for i in 18:
+		var d := c.facing.rotated(randf_range(-half, half))
+		var far := from + d * r * randf_range(0.5, 1.05)
+		_add({"kind": "streak", "a": from + d * 8.0, "b": far, "life": 10,
+			"color": Color(C_WATER_L if i % 3 else C_WATER, 0.85)})
+		_add({"kind": "puddle", "pos": far, "radius": randf_range(3.0, 6.0), "ry": 0.5, "grow": 3.0,
+			"life": 30.0, "fade": 20.0, "color": Color(C_WATER, 0.35)})
+		_px(from + d * 10.0, d * randf_range(1.5, 3.0) + Vector2(0, -0.6), C_FOAM if i % 2 else C_WATER_L, 16)
+	_add({"kind": "ring", "pos": at, "life": 10, "radius": r * 0.5, "color": Color(C_FOAM, 0.7)})
+	cue.emit("wave")
 
 
 ## Flavor Blast: a ring of ice bursting out all around, shards and frost.

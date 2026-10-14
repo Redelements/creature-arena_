@@ -840,11 +840,11 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 	if t >= first_at and not mv.get("self", {}).has("stealth"):
 		_reveal(sim)  # the ambush is sprung: visible again
 	if t == first_at:
-		if mv.has("terrain_radius"):
+		if mv.has("terrain_radius") or mv.has("terrain_rect"):
 			_slam(mv, sim)
 		if mv.has("terrain_ring"):
 			var r: Dictionary = mv["terrain_ring"]
-			sim.terrain.damage_ring(pos, float(r["inner"]), float(r["outer"]))
+			sim.terrain.damage_ring(pos, float(r["inner"]), float(r["outer"]), _terrain_heal(mv))
 			sim.emit_event("slam", pos, 1.0)
 		if mv.has("terrain_crack"):
 			# Cracks the floor without opening holes (Root Eruption's roots break the surface).
@@ -1033,11 +1033,29 @@ func _gaze(g: Dictionary, sim: MatchSim) -> void:
 func _slam(mv: Dictionary, sim: MatchSim) -> void:
 	var center := pos + facing * float(mv["reach"])
 	var full := charge_ratio >= 1.0
-	if full:
-		sim.terrain.damage_circle(center, float(mv["terrain_radius_charged"]), float(mv["terrain_core_charged"]))
+	var heal := _terrain_heal(mv)
+	if mv.has("terrain_rect"):
+		# A fixed block of cells (Culvert's Slam): cracked by a plain slam, so a second
+		# one there opens the hole; a full charge opens it at once, with a cracked rim.
+		var r: Array = mv["terrain_rect"]
+		var w := int(r[0])
+		var h := int(r[1])
+		if absf(facing.y) > absf(facing.x):
+			var t := w
+			w = h
+			h = t  # facing up or down: the long side runs across
+		sim.terrain.damage_rect(center, w, h, 2 if full else 1, full, heal)
+	elif full:
+		sim.terrain.damage_circle(center, float(mv["terrain_radius_charged"]), float(mv["terrain_core_charged"]), heal)
 	else:
-		sim.terrain.damage_circle(center, float(mv["terrain_radius"]), -1.0)
+		sim.terrain.damage_circle(center, float(mv["terrain_radius"]), -1.0, heal)
 	sim.emit_event("slam", center, 1.0 if full else 0.5)
+
+
+## How long this move's damage to the floor lasts before it starts to mend:
+## "terrain_heal" times the usual (1.5: half as long again).
+func _terrain_heal(mv: Dictionary) -> int:
+	return int(round(TerrainGrid.HEAL_TICKS * float(mv.get("terrain_heal", 1.0))))
 
 
 ## Called by MatchSim when a strike lands inside this creature's counter window (Slip).

@@ -179,3 +179,104 @@ func test_class_mirrors_are_close() -> void:
 		var r := _wins(String(pair[0]), String(pair[1]), 5)
 		var share := float(r[0]) / float(r[1])
 		assert_true(share >= 0.3 and share <= 0.7, "%s vs %s is close (%d of %d)" % [pair[0], pair[1], r[0], r[1]])
+
+
+# ------------------------------------------------------------------ Culvert and Sno Mercy tweaks
+
+## The cells a Slam leaves behind, as a sorted list of [x, y] in the grid.
+func _damaged_cells(sim: MatchSim, value: int) -> Array:
+	var out: Array = []
+	for cy in sim.terrain.rows:
+		for cx in sim.terrain.cols:
+			if sim.terrain.get_cell(Vector2i(cx, cy)) == value:
+				out.append([cx, cy])
+	return out
+
+
+func test_slam_leaves_the_same_rectangle_wherever_it_lands() -> void:
+	# Facing right: a block 4 cells wide and 3 tall, cracked; a second Slam there opens it.
+	for x in [120.0, 123.0, 127.0]:
+		var sim := MatchFactory.training()
+		sim.creatures[0].pos = Vector2(x, 164)
+		tap(sim, H, 40)
+		var cracked := _damaged_cells(sim, TerrainGrid.CRACKED)
+		assert_eq(cracked.size(), 12, "a 4x3 block of cracks from x=%d:" % int(x))
+		var xs := cracked.map(func(c): return c[0])
+		var ys := cracked.map(func(c): return c[1])
+		assert_eq(xs.max() - xs.min() + 1, 4, "4 wide:")
+		assert_eq(ys.max() - ys.min() + 1, 3, "3 tall:")
+		assert_eq(sim.terrain.count(TerrainGrid.HOLE), 0, "no holes from one plain Slam")
+		tap(sim, H, 40)
+		assert_eq(_damaged_cells(sim, TerrainGrid.HOLE).size(), 12, "the second Slam opens the whole block:")
+	# Facing up, the long side runs across.
+	var sim2 := MatchFactory.training()
+	sim2.creatures[0].pos = Vector2(200, 220)
+	sim2.creatures[0].facing = Vector2.UP
+	run(sim2, 0, 2, SimDefs.IN_UP)
+	tap(sim2, H, 40)
+	var cr := _damaged_cells(sim2, TerrainGrid.CRACKED)
+	var xs2 := cr.map(func(c): return c[0])
+	var ys2 := cr.map(func(c): return c[1])
+	assert_eq(xs2.max() - xs2.min() + 1, 3, "facing up: 3 wide:")
+	assert_eq(ys2.max() - ys2.min() + 1, 4, "and 4 tall:")
+
+
+func test_slam_is_quicker_and_still_gives_a_quarter_second_of_warning() -> void:
+	var mv: Dictionary = MatchFactory.load_def("culvert")["moves"]["heavy"]
+	assert_eq(int(mv["windup"]) + int(mv["startup"]) + 1, 15, "the warning floor, exactly:")
+	assert_eq(int(mv["recovery"]), 18, "recovery cut by 30% (was 26):")
+	assert_eq(int(mv["charge_max"]), 32, "a full charge 30% sooner (was 45):")
+
+
+func test_culverts_holes_last_half_as_long_again() -> void:
+	var sim := MatchFactory.training()
+	sim.creatures[0].pos = Vector2(120, 164)
+	tap(sim, H, 40)
+	tap(sim, H, 40)
+	var holes := sim.terrain.count(TerrainGrid.HOLE)
+	assert_gt(holes, 0, "holes to time")
+	run(sim, 0, TerrainGrid.HEAL_TICKS + 10)
+	assert_eq(sim.terrain.count(TerrainGrid.HOLE), holes, "still open past the usual 12 s:")
+	run(sim, 0, TerrainGrid.HEAL_TICKS / 2 + 10)
+	assert_eq(sim.terrain.count(TerrainGrid.HOLE), 0, "mended after 18 s:")
+	# Someone else's damage still mends on the usual clock.
+	var sim2 := MatchFactory.versus("barkley", "cairn")
+	sim2.creatures[0].energy = 100.0
+	sim2.creatures[1].pos = Vector2(400, 100)
+	tap(sim2, SimDefs.IN_SURGE, 60)  # Root Eruption cracks the floor
+	assert_gt(sim2.terrain.count(TerrainGrid.CRACKED), 0, "Barkley cracked it")
+	run(sim2, 0, TerrainGrid.HEAL_TICKS + 10)
+	assert_eq(sim2.terrain.count(TerrainGrid.CRACKED), 0, "and it mended on the usual clock")
+
+
+func test_runoff_is_a_cone_that_pushes_gently() -> void:
+	var sim := _duel("culvert", "cairn", 20.0)
+	var foe := sim.creatures[1]
+	var x0 := foe.pos.x
+	tap(sim, S2, 1)
+	run_until(sim, func(): return foe.hp < foe.max_hp, 40)
+	assert_lt(foe.hp, foe.max_hp, "the wave hits a foe in front")
+	assert_true(sim.projectiles.is_empty(), "nothing flies: it's a cone, not a projectile")
+	run(sim, 0, 30)
+	var pushed := foe.pos.x - x0
+	assert_gt(pushed, 12.0, "pushed back a little:")
+	assert_lt(pushed, 45.0, "but gently:")
+	assert_false(foe.is_airborne(), "and not launched")
+	# A foe behind him is untouched.
+	var sim2 := _duel("culvert", "cairn", 20.0)
+	sim2.creatures[1].pos = sim2.creatures[0].pos - Vector2(30, 0)
+	tap(sim2, S2, 40)
+	assert_near(sim2.creatures[1].hp, sim2.creatures[1].max_hp, 0.001, "a foe behind is outside the cone:")
+
+
+func test_syrup_slick_is_wider_stickier_and_lasts_longer() -> void:
+	var z: Dictionary = MatchFactory.load_def("sno")["moves"]["skill_1"]["zone"]
+	assert_eq(int(z["radius"]), 80, "radius doubled (was 40):")
+	assert_eq(int(z["ticks"]), 450, "lasts 7.5 s (was 5):")
+	assert_lt(float(z["slow_mult"]), 0.5, "slows a little more than half speed:")
+	var sim := _duel("sno", "cairn", 50.0)
+	var foe := sim.creatures[1]
+	tap(sim, S1, 20)
+	assert_eq(sim.zones.size(), 1, "one puddle down")
+	run(sim, 0, 10)
+	assert_gt(foe.slow, 0, "a foe 70 px away stands in it")
