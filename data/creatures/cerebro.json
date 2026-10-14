@@ -17,6 +17,7 @@
   "fx_height": 22,
   "fx_top": 42,
   "fx_color": "#d58cff",
+  "surge_aura": {"colors": ["#7a2ff0", "#d58cff", "#fbe8ff"], "motes": "rings", "spikes": 4, "sharp": 0.15, "speed": 0.75, "height": 1.1},
   "cut_in_frame": [8, 2],
   "twinstick": { "autofire": "light" },
   "ko_fx": { "style": "deflate" },

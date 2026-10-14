@@ -82,7 +82,7 @@ Matches are deterministic, so a seed reproduces a CPU match exactly.
 src/sim/    match_sim, creature_sim, duel_sim, terrain_grid, replay   deterministic rules
 src/ai/     cpu_controller                                   CPU opponent (seeded)
 src/input/  player_input, mouse_orders                       keyboard/mouse/gamepad
-src/view/   fx_view (+fx_ground), creature_view, hud, audio_view, arena, crowd, debug
+src/view/   fx_view (+fx_ground), creature_view (+surge_aura), hud, audio_view, arena, crowd, debug
 src/net/    rollback_session (GGPO-style), sim_check (cross-platform fingerprint),
             net_link (+enet/loop/lag links), netplay (handshake, rematch), online_match,
             dedicated_server + enet_hub + relay_server + referee (the --server mode)
@@ -165,7 +165,13 @@ tools/      gen_sprites.py, gen_audio.py (placeholders); gen_culvert.py and gen_
   terrain move's `terrain_heal` scales how long its damage lasts (Culvert 1.5); a
   melee `cone` move with fx `wave_cone` draws Runoff's sheet of water. Each side has a colour, red left and blue
   right: `FxView.side_marks` (set by main) draws a marker over each fighter, and the HUD
-  stripes its panel. `tests/test_scripts_load.gd` compiles every script under `src/`. Projectiles also take `sound`/`end_sound`; any move's `fx` can
+  stripes its panel. **Surge ready:** `MatchSim.gain_energy()` is the only way energy
+  goes up; it emits `surge_ready` {who, team} the moment a meter fills (main plays
+  `surge_ready_ally` for a side someone here plays, `is_local_team()`, else
+  `surge_ready_foe`). `SurgeAura` (two per CreatureView: behind and in front of the
+  sprite) draws the aura while `energy` is full, from the fighter's `"surge_aura"` data
+  (`colors` outer/inner/core, `motes`, `spikes`, `sharp`, `speed`, `height`), with a burst
+  when it fills and a rim in its colour (Stoneskin's rim wins). `tests/test_scripts_load.gd` compiles every script under `src/`. Projectiles also take `sound`/`end_sound`; any move's `fx` can
   carry a `shout` (`{text, sound}`, a voice line when it starts). Barkley's generator (`tools/gen_barkley.py`) poses a 3D
   puppet once and projects it into all three views; prefer that for new characters.
   Moves can time their frames with `"anim_at"` and lift the sprite with `"view_lift"`

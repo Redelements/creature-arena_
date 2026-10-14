@@ -1119,6 +1119,18 @@ func _dummy_bits() -> int:
 	return 0
 
 
+## Whether `team` is a side someone at this machine plays (or plays alongside, in a team
+## battle). With nobody playing here (CPU vs CPU), the left side counts as "yours".
+func is_local_team(team: int) -> bool:
+	var any := false
+	for i in mini(sides.size(), sim.creatures.size()):
+		if sides[i] == Side.PLAYER or sides[i] == Side.PLAYER2:
+			any = true
+			if sim.creatures[i].team == team:
+				return true
+	return not any and team == 0
+
+
 func _react(e: Dictionary) -> void:
 	fx.spawn(e)
 	audio.on_event(e)
@@ -1146,6 +1158,11 @@ func _react(e: Dictionary) -> void:
 			crowd.cheer(0.6)
 			var who := int(e.get("who", 0))
 			hud.cut_in(sim.creatures[who], clampi(sim.creatures[who].team, 0, 1), String(e.get("name", "Surge")))
+		"surge_ready":
+			# One sound when your side powers up, another when the other side does.
+			var mine := is_local_team(int(e.get("team", 0)))
+			audio.play("surge_ready_ally" if mine else "surge_ready_foe")
+			crowd.cheer(0.15)
 		"duel_over":
 			crowd.roar(150)
 		"ko":

@@ -16,6 +16,7 @@
   "fx_height": 22,
   "fx_top": 37,
   "fx_color": "#e04848",
+  "surge_aura": {"colors": ["#ff7a10", "#ffd23f", "#fff6d0"], "motes": "pebbles", "spikes": 7, "sharp": 0.85, "speed": 1.2, "height": 1.0},
   "cut_in_frame": [11, 4],
   "ko_fx": { "style": "scatter", "frame": [0, 0], "pieces": [[6, 19], [19, 27], [27, 34], [34, 45]], "x_eyes": [[25, 14], [28, 14]] },
   "sprite": {

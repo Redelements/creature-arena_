@@ -44,6 +44,15 @@ func add_creature(def: Dictionary, p: Vector2, is_dummy := false) -> CreatureSim
 	return c
 
 
+## Adds Surge energy (capped). The moment the meter fills it says so ("surge_ready"),
+## for the aura and the sound; views read `energy` itself to keep the aura lit.
+func gain_energy(c: CreatureSim, amount: float) -> void:
+	var before := c.energy
+	c.energy = minf(CreatureSim.MAX_ENERGY, c.energy + amount)
+	if before < CreatureSim.MAX_ENERGY and c.energy >= CreatureSim.MAX_ENERGY:
+		emit_event("surge_ready", c.pos, 0.0, {"who": c.id, "team": c.team})
+
+
 func emit_event(kind: String, p: Vector2, power: float, extra := {}) -> void:
 	var e := {"type": kind, "pos": p, "power": power, "tick": tick}
 	e.merge(extra)
@@ -236,7 +245,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		var taken := d.take_damage(damage * (1.0 - float(ar.get("reduction", 0.6))), self)
 		d.flash = 3
 		if String(hit["type"]) != "surge":  # a Surge never charges the next one
-			a.energy = minf(CreatureSim.MAX_ENERGY, a.energy + taken * ENERGY_PER_DAMAGE)
+			gain_energy(a, taken * ENERGY_PER_DAMAGE)
 		if same_attack:
 			a.connected = true
 		hitstop = maxi(hitstop, int(float(hit["hitstop"]) * 0.6))
@@ -253,7 +262,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 			d.guard_hit = 10
 			d.stun = int(float(hit["hitstun"]) * 0.5)
 			if String(hit["type"]) != "surge":
-				a.energy = minf(CreatureSim.MAX_ENERGY, a.energy + chip * ENERGY_PER_DAMAGE)
+				gain_energy(a, chip * ENERGY_PER_DAMAGE)
 			if same_attack:
 				a.connected = true
 				_punish_blocked_ender(a, d)
@@ -306,8 +315,8 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	d.combo_damage += total
 	d.last_attacker = a.id
 	if String(hit["type"]) != "surge":  # a Surge's hits never charge the next Surge
-		a.energy = minf(CreatureSim.MAX_ENERGY, a.energy + total * ENERGY_PER_DAMAGE)
-	d.energy = minf(CreatureSim.MAX_ENERGY, d.energy + total * ENERGY_PER_DAMAGE_TAKEN)
+		gain_energy(a, total * ENERGY_PER_DAMAGE)
+	gain_energy(d, total * ENERGY_PER_DAMAGE_TAKEN)
 	if same_attack:
 		a.connected = true
 	var stack_def: Dictionary = a.def.get("stack", {})

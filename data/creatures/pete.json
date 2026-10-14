@@ -17,6 +17,7 @@
   "fx_height": 20,
   "fx_top": 40,
   "fx_color": "#3f8f3f",
+  "surge_aura": {"colors": ["#2a1352", "#8a5cd6", "#ffd84a"], "motes": "glints", "spikes": 7, "sharp": 0.9, "speed": 1.0, "height": 1.0},
   "cut_in_frame": [8, 4],
   "ko_fx": { "style": "cash" },
   "sprite": {

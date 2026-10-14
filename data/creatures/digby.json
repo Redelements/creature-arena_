@@ -16,6 +16,7 @@
   "fx_height": 12,
   "fx_top": 28,
   "fx_color": "#c98a4b",
+  "surge_aura": {"colors": ["#3e2412", "#c08040", "#ffe9a8"], "motes": "clods", "spikes": 6, "sharp": 0.8, "speed": 1.0, "height": 0.85},
   "cut_in_frame": [8, 2],
   "ko_fx": { "style": "dirt" },
   "sprite": {
