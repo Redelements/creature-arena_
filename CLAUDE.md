@@ -191,11 +191,6 @@ tools/      gen_sprites.py, gen_audio.py (placeholders); gen_craglash/barkley/gi
   (docs/NETCODE.md, docs/SERVER.md). Not yet: a Steam transport (behind `NetLink`), 3v3
   online, spectators, matchmaking beyond rooms. Online matches are a
   DuelSim with one creature per side, so match rules stay in the sim.
-  On Windows, `FirewallCheck` (src/net/firewall_check.gd, PowerShell on a thread) looks
-  for Windows Firewall rules blocking the game's .exe when the Online screen opens and
-  after a "No answer"; if it finds one, main asks Allow / Not now, and Allow fixes it
-  behind one UAC prompt. Tests swap its `runner` for a fake PowerShell
-  (tests/test_firewall.gd); `main.firewall_supported` is false off Windows.
 - **Not built yet:** affinity surfaces, more arenas. Game mode plan and priorities: Game Plan doc,
   "Game modes".
 - **Menus** are Godot Control nodes (src/ui/): a `ScreenStack` of `UiScreen`s (one
