@@ -1,0 +1,336 @@
+# Creature Arena: codebase map
+
+Where things live and where to look. Companion pages: [MECHANICS.md](MECHANICS.md) (every data
+key the sim reads, combo rules, events), [NETCODE.md](NETCODE.md), [SERVER.md](SERVER.md),
+[SPRITES.md](SPRITES.md), [AUDIO.md](AUDIO.md). Rules that keep the project working are in
+`CLAUDE.md`; controls, combat rules and frame data are in the README.
+
+Line counts are approximate (checked 2026-10-14).
+
+```
+src/sim/    deterministic rules (match_sim, creature_sim, duel_sim, team_sim, terrain_grid, replay, sim_defs)
+src/ai/     cpu_controller                     CPU opponent (seeded)
+src/input/  player_input, mouse_orders, menu_stick
+src/view/   fx_view (+fx_ground), creature_view, surge_aura, hud, audio_view, arena_view, crowd_view, debug_view
+src/net/    rollback_session, netplay, online_match, net_link (+enet/loop/lag), sim_check,
+            dedicated_server, enet_hub, relay_server, referee, lan_finder, server_beacon
+src/game/   main (flow, camera, settings, CLI), online_lobby, showcase, trials, drills, controls,
+            match_factory, autoplay
+src/ui/     ui_theme, screen_stack, ui_screen, option_row, prompts, fighter_preview, title_screen,
+            character_select, ready_check, pause/confirm/help/remap screens
+data/       creatures/*.json, rules/{duel,team}.json, trials.json, audio.json, online.json
+tests/      run_tests.gd runs every tests/test_*.gd; bench_sim.gd, bench_cpu.gd
+tools/      sprite generators (splat3d.py shared), gen_sprites.py, gen_audio.py
+docs/       this page and the others above; docs/plans/ for design notes
+```
+
+---
+
+## src/sim — the deterministic rules
+
+No randomness, clock, nodes, screen, or `sin`/`cos`/`atan2`/`pow`/`exp`. Only input bitmasks and
+JSON go in. Every variable is snapshotted (see Gotchas).
+
+| File | Owns | Entry points |
+| --- | --- | --- |
+| `sim_defs.gd` (150) | Input bit layout, 64-step aim/move table, arena and grid geometry, combo variety multipliers | `aim_from_bits`, `move_from_bits`, `dir_from_bits` (decode); `aim_bits`, `move_bits`, `bits_from_dir` (encode); `arena_size`, `floor_rect`, `variety_mult` |
+| `creature_sim.gd` (1,375) | One fighter: state machine, moves, status effects, movement, floor clamp, all from its JSON def | `step(buttons, sim)`; `_start_attack` (windup, raw vs cancel); `_update_attack` (frames, charge, dash, blink, home, slam, projectile spawn); `_update_dodge`, `can_dodge`; `_tick_status`; `hit_params`; `save_state`/`load_state` over `STATE_FIELDS` |
+| `match_sim.gd` (657) | The whole match: creatures, terrain, projectiles, zones, events, hitstop, KO freeze; all hit and combo resolution | `step(inputs)` (tick order); `_resolve_hits`, `_apply_hit` (damage, hitstun, stale, variety, block, every hit effect); `_flip`; `breakaway`; `gain_energy`; `emit_event`; `spawn_projectile`, `add_zone`; `snapshot`/`restore`/`state_digest`/`state_hash` |
+| `terrain_grid.gd` (186) | Floor as 8 px cells: INTACT → CRACKED → HOLE, healing a step every `HEAL_TICKS` (720) | `damage_cell/circle/rect/ring`, `crack_cell/circle`, `is_hole_at`, `nearest_solid` (respawn), `tick` |
+| `duel_sim.gd` (296) | 3v3 tag rules around a MatchSim, one active fighter per side; also used for online 1v1 | `step`; `_tag`, `can_tag`; `_check_knockouts`, `_enter_next`, `_bench_regen`; `_time_out`; `snapshot`/`restore` |
+| `team_sim.gd` (155) | 2v2 / 3v3 with everyone on the field, one life each | `step` (one input per slot, side 0 first); `spawn_point`, `side_of`, `members`; `_time_out` |
+| `replay.gd` (57) | One input per creature per tick, saved and replayed | `record`, `save`/`load_file`, `play(sim)` returns the state hash |
+
+Constants worth knowing: `CreatureSim.State` (IDLE, MOVE, ATTACK, DODGE, GUARD, HITSTUN, FALLING,
+KO, AIRBORNE, CRUMPLE, KNOCKDOWN), `STATE_FIELDS`/`STATIC_FIELDS`, `BUFFER_TICKS`, `MAX_ENERGY`,
+`BREAKAWAY_*`, `JUGGLE_MAX`, `TAUNT_PULL`, `STRAFE_SPEED`; `MatchSim.HITSTUN_DECAY`, `STALE_MULT`,
+`ENERGY_PER_DAMAGE(_TAKEN)`, `STONE_SHATTER_MULT`, `BLOCKED_ENDER_DISADVANTAGE`; `SimDefs.CELL`,
+`GRID_COLS/ROWS`, `FRONT_WALL`, `ARENA_W/H`, `TICK_RATE`.
+
+**Where to look**
+
+- Per-tick order → `match_sim.gd:step` (terrain heals, creatures step, projectiles, zones, hits, separation, falls; reordering changes outcomes)
+- Hit detection and gating → `match_sim.gd:_resolve_hits`, `_hittable`
+- Hit resolution (damage, hitstun, stale, variety, block, grab/hook/flip, statuses) → `match_sim.gd:_apply_hit`
+- Blocked-ender punish → `match_sim.gd:_punish_blocked_ender`
+- Energy and the `surge_ready` event → `match_sim.gd:gain_energy`
+- KO freeze and slow motion → `match_sim.gd:emit_event` ("ko") and `step`
+- Projectiles → `match_sim.gd:spawn_projectile`, `_step_projectiles`, `_burst`
+- Ground zones → `match_sim.gd:add_zone`, `_step_zones`
+- Pit falls → `match_sim.gd:_check_falls`; `creature_sim.gd:start_fall`, `_land_from_fall`
+- Move start, windup, input buffer → `creature_sim.gd:_start_attack`, `buffer_input`, `_try_start_buffered`
+- Status effects (poison, slow, stone, root, blind, stealth…) → `creature_sim.gd:_tick_status`
+- Dodge, blink, cooldown → `creature_sim.gd:_start_dodge`, `_update_dodge`, `can_dodge`
+- Reactions → `creature_sim.gd:enter_hitstun`, `enter_crumple`, `enter_air`, `enter_knockdown`
+- Slam terrain → `creature_sim.gd:_slam`, `_terrain_heal`
+- Floor breaking and healing → `terrain_grid.gd`
+- Tag swap, KO swap, bench regen → `duel_sim.gd:_tag`, `_enter_next`, `_bench_regen`
+- Win / time-out rules → `duel_sim.gd:_time_out`, `team_sim.gd:_time_out`
+- Input bits → `sim_defs.gd` (layout in MECHANICS.md "Input bits")
+
+**Gotchas**
+
+- `tests/test_rollback.gd` checks every `CreatureSim` variable is in `STATE_FIELDS` or `STATIC_FIELDS`. New `MatchSim` variables must be added to `snapshot()`, `restore()` *and* `state_digest()` (three lists). `events` is rebuilt every step and not snapshotted; `projectiles` and `zones` are deep-copied.
+- `restore()` bumps `terrain.version` so the view redraws. The digest hashes floats bit for bit: any cross-platform float difference shows as a desync.
+- During ko_freeze, odd slowmo ticks and hitstop the sim only calls `buffer_input`, so presses aren't lost. A dummy's KO doesn't freeze.
+- 8-way snapping uses `TAN_22_5` / `_snap8`, no trig.
+- Rules load from `data/rules/*.json` at construction, or from a dictionary passed in (tests).
+
+---
+
+## src/ai and src/input — who presses the buttons
+
+| File | Owns | Entry points |
+| --- | --- | --- |
+| `ai/cpu_controller.gd` (1,416) | The CPU: reads match state, returns an input bitmask each tick, pressing buttons like a player. Levels 0–3 (`LEVELS`; 3 = Rage, plays by class via `STYLES`) | `bits(sim)`; `_decide` (stunned → breakaway; attacking → `_continue_attack`; Rage → `_rage_defend`/`_maybe_tag`/`_rage_punish`/`_rage_neutral`; else `_defend`/`_neutral`); `_pick_route`; plans `_plan_kite/lurk/press/skirmish/footsie` |
+| `input/player_input.gd` (305) | Local devices → one bitmask per tick. Keyboard layouts (`LAYOUTS`: league, classic), pad layouts (`PAD_LAYOUTS`: standard, twinstick), aim assist, autofire, prompt labels | `bits(sim, me_idx, cursor)`; `combine_pad` (pure pad logic, used by tests); static `assist`, `autofire`; `label`, `label_for`, `help_text` |
+| `input/mouse_orders.gd` (174) | League-style mouse orders → bitmask; pure logic, no `Input` calls | `bits(me, foe, cursor, held, pressed)`; `_chase` (walk into reach, jab); `_walk_bits`, `_braking`; `is_on_creature` |
+| `input/menu_stick.gd` (78) | Left stick → clean `ui_*` menu presses with repeat | `step(v, dt)` (pure), `_process` injects `InputEventAction` |
+
+**Where to look**
+
+- Difficulty table → `cpu_controller.gd:LEVELS` (reaction, defend, combo, mistake, breakaway, aggression, think); Rage = `RAGE := 3`, `"rage": true`
+- Per-class Rage behaviour → `cpu_controller.gd:STYLES` via `_style()`
+- CPU picks a combo route → `_pick_route` (Rage: longest affordable, never drops; below Rage: 80 % roll)
+- CPU guards / dodges → `_defend`, `_dodge_away` (non-Rage); `_rage_defend`, `_guard_answer`, `_dodge_dir`, `_step` (Rage)
+- Reach of a foe's attack → `_threat_range`, `_reach_of`, `_frames_to_active`, `_recovery_left`, `_lands`
+- Neutral play (pokes, lobs, gaze, zone, stealth, burrow, surge, grab, kite) → `_neutral`; Rage → `_rage_neutral` and the `_plan_*` helpers
+- Kiting / ranged → `_plan_kite`, `_rage_kit`, `_kite_vector`, `_is_ranged`; running a kiter down → `_chase`
+- Wall and pit avoidance → `_steer`, `_open_dir`, `_clearance`, `_go`
+- Leading shots → `_aim_point`; team targeting → `_pick_target`, `_hurt_ally`; Duel tag-out → `_maybe_tag`
+- Aim assist → `player_input.gd:ASSIST_DEG` (25), `ASSIST_DEG_STICK` (12), `ASSIST_RANGE` (90), `assist()`
+- Twin-stick right stick, strafe, autofire → `player_input.gd:combine_pad` (`TWIN_DEADZONE` 0.35), `autofire` (`AUTO_QUIET` 12)
+- Pad aim timer packing → `PAD_T_SHIFT` (27)
+- Second controller / local 2P → `_device_pad_bits`, `pad_device` (`ANY_PAD` -1, `NO_PAD` -2)
+- Mouse walk-to-spot, stuck detection → `mouse_orders.gd:bits` (`ARRIVE`, `STUCK_TICKS`); aim hold after a press → `AIM_HOLD` (10)
+
+**Creature JSON `ai` keys** (read by the CPU): `style` (overrides the Rage class; default the creature's
+`role`), `range` (preferred spacing, default 22), `routes` (lists of action names), `far_routes`/`far_from`,
+`poke`/`poke_range` [min, max], `lob`/`lob_range`, `gaze`/`gaze_range`, `zone`/`zone_range`,
+`stealth`/`stealth_range`, `burrow`/`burrow_range`, `surge_line`, `surge_range`, `grab`/`grab_range`,
+`kite` (bool), `wakeup_charge` (bool), `counter`. Outside `ai`: `twinstick.autofire` (PlayerInput),
+`accel` (MouseOrders braking).
+
+**Gotchas**
+
+- `_press()` needs the button released the previous tick (`_prev`), as a player does. No shortcuts.
+- The only randomness is the controller's own `rng`, seeded in `_init(me, level, seed)`: one seed always plays the same.
+- Easy walks and aims 8 ways; Normal and up use 360° `move_bits`/`aim_bits`.
+- Aim assist is applied in `PlayerInput`, so online peers receive the assisted aim. Exact aims (`IN_AIM`) bypass it.
+
+---
+
+## src/view — reads the sim, never writes it
+
+Randomness is fine here. Everything watches sim state and `sim.events`.
+
+| File | Owns | Entry points |
+| --- | --- | --- |
+| `fx_view.gd` (2,646) | All cosmetic effects: event reactions, per-move `fx` data, particles, projectiles, status marks, side markers, telegraphs. Draws two layers: itself above the fighters and `FxGround` below | `spawn(e)` (event `match`); `advance()`; `_watch_all` → `_move_started`, `_charging`, `_strike`, `_during_move`, `_ko`; `_paint(ci, floor_layer)`; `_draw_part` (particle kinds); `_draw_projectiles`, `_proj_kind`; `shake_out` (the one hand-off to main) |
+| `fx_ground.gd` (13) | Empty Node2D under the fighters whose `_draw` calls `FxView._paint.bind(true)` | `FxView.bind_ground` |
+| `creature_view.gd` (480) | One sprite: frame by state, facing, side/up/down sheets, hit flash, charge glow, blink, squash, shadow, surge rim | `setup`, `rebind` (JSON `sprite`/`views`); `refresh` (per tick: position, view, frame, flip, z); `_pick`, `_attack_frame`; static `blink_alpha`, `view_lift` |
+| `surge_aura.gd` (245) | Aura while `energy` is full plus the fill-up burst; two per CreatureView (behind and in front of the sprite); look from the JSON `surge_aura` block (`colors` outer/inner/core, `motes`, `spikes`, `sharp`, `speed`, `height`); rim in its colour (Stoneskin's rim wins). The `surge_ready` {who, team} event → main plays `surge_ready_ally` for a side someone here plays (`is_local_team()`), else `surge_ready_foe` | `bind`, `step`, `is_ready`, `rim`, `rim_color`, `_mote(kind)` |
+| `hud.gd` (481) | Panels, combo counter, Surge cut-in, timer, banners, toast, captions, net line | `_draw`; `_panel` (HP, energy, stamina, dodge and skill cooldowns), `_card`/`_team_panels`, `_team_strip`; `_combo` (`TYPE_PIPS`), `_center`, `cut_in`, `show_toast` |
+| `audio_view.gd` (307) | Sound and music: voice pool, three buses, lookup via `data/audio.json`. Silent when headless | `on_event(e)`, `watch(sim)` (swings, footsteps), `play`, `play_music`, `set_volume`, `preview` |
+| `arena_view.gd` (95) | Stands, walls, breakable floor; redraws only on `terrain.version` change | `set_terrain`, `refresh`, `_cell_rect`; `MARGIN` |
+| `crowd_view.gd` (76) | Crowd bounce, camera flashes, KO roar | `cheer`, `roar`, `advance` |
+| `debug_view.gd` (33) | F1 / `--hitboxes` overlay | `_draw` |
+| `flash.gdshader` | Canvas shader: `flash`, `flash_color`, `rim`, stone-grey petrify mode | used by `CreatureView` |
+
+The camera is not here: `main.gd:_update_camera`, `_frame_fight`, `CAM_PAD`, `KO_ZOOM`.
+
+**Where to look**
+
+- React to a new sim event → `fx_view.gd:spawn` (add a `match` arm); sound → `audio_view.gd:on_event` + `data/audio.json`
+- New projectile look → `fx_view.gd:_draw_projectiles` branch on `_proj_kind` (reads the move's `fx.projectile`; kinds: rod (default), knife, mallet, cleaver, venom, head, tongue, wave, pinecone; else a sprite strip)
+- New particle type → `_add` callers and the `_draw_part` match (kinds: spark, dust, ping, ring, ripple, text, glint, px, bubble, streak, suck, smear, lines, ghost, chunk, drop, puddle, decal, spire, root, leaf, whirl, bodycrack)
+- Per-move `fx` keys (smear, charge, impact, trail, shout, telegraph…) → the `fx_view.gd` header doc, then `_move_started`, `_charging`, `_strike`, `_during_move`
+- Smears → `_smear_thrust`, `_smear_arc`, `_smear_rise`; KO effects → `_ko` + `_crumble`, `_scatter`, `_gush`, `_melt_ko`, `_cash_ko`, `_dirt_ko`, `_hiss_ko`
+- Red/gold windup tell → `fx_view.gd:_windup_tell`, `creature_view.gd:TELL_RED/TELL_GOLD`
+- Side colour markers → `fx_view.gd:_draw_side_marks` (`side_marks` filled by main from `Hud.SIDE_COLORS`)
+- Telegraphs and aim marks → `_draw_telegraph`, `_draw_aim_mark`, `_draw_lob_mark`, `_draw_line_telegraph`
+- Status marks → `_draw_rooted`, `_draw_status`, `_draw_creature_extras`
+- Sprite frame by state → `creature_view.gd:_pick`; frame in a move (`anim`, `anim_at`, `anim_reel`, charge frames) → `_attack_frame`
+- Side/up/down sheet choice → `creature_view.gd:_pick_view`, `_resolve`, `_load_view`
+- Squash and launch height → `_update_squash`, `view_lift`
+- HUD cooldown bars → `hud.gd:_panel` (`cooldown_ratio`, `dodge_cooldown_ratio`)
+- Surge cut-in → `hud.gd:cut_in`, `_draw_cut_in`; team HUD → `_team_panels`, `_card`
+- Footsteps / swing sounds → `audio_view.gd:watch`; buses → `_make_buses`, `set_volume`
+
+**Events the views react to** (emitted by the sim; full list with triggers in MECHANICS.md):
+hit, block, guard_break, slam, bounce, fall, land, land_hard, dodge, ko, slip, grab, windup, tag,
+enter, breakaway, projectile, projectile_end, projectile_pierce, armor, shield_up, shield_break,
+slow, taunt, roar, hook, pull, burst, reel, tenderized, punishable, freeze, zone, steal, warp,
+blink, blinded, miss, rooted, poisoned, poison, gaze, petrify, shatter; audio only: surge,
+duel_over. `FxView.cue(sound)` is a signal for dig/slosh/poof/chop_chop/shout sounds.
+
+**Gotchas**
+
+- Depth is floor position alone: `entities.y_sort_enabled`, `z_index = 0` (2 only when high in the air). A swing aimed down at someone in front draws behind them; sparks and smears draw over both.
+- Floor rings must be true circles on the floor (CLAUDE.md); `FxView` rings/orbits use `sin(a) * 0.5`, the shadow 0.38 y-scale.
+- Art layout is data-driven: frame size, origin, `anims`, `side_only`, `anim`, `anim_at`, `anim_reel`, `view_lift` from the creature JSON. Up/down sheets are optional; diagonals stay side-on.
+- Every sound name needs a `data/audio.json` entry. All audio is placeholder.
+- A new `class_name` needs `--headless --import`.
+
+---
+
+## src/net — rollback and the server
+
+Design in NETCODE.md; running a server in SERVER.md.
+
+| File | Owns | Entry points |
+| --- | --- | --- |
+| `net_link.gd` (61) | Abstract transport: `Status`, `realtime` flag, Dictionary codec | `send(msg, reliable)`, `poll(wait_ms)`, `flush`, `rtt_ms`, `encode`/`decode` |
+| `enet_link.gd` (125) | Direct UDP via ENet; reliable on channel 0, unsequenced input on channel 1; `TIMEOUT_MS` 5000; `realtime = true` | `host`, `join` (a third peer is refused), `tune` (throttling off), `poll` (drains up to 256 events) |
+| `loop_link.gd` (66) | In-memory pair with lag, jitter, loss (tests) | `pair`, `drop`, `poll` |
+| `lag_link.gd` (59) | Wraps a real link; delays/drops unreliable messages only (`--net-lag`, `--net-loss`); built in main | `_init`, `send` |
+| `netplay.gd` (494) | Client session: handshake, pings, delay choice, ready check, rematch, leave. `NET_VERSION` here | `host`, `join`, `tick`, `pump`, `_handle`; static `pick_delay`, `data_hash`; `_ping_step`, `_live_ping_step` |
+| `online_match.gd` (306) | One match over `RollbackSession` (a DuelSim or TeamSim): time sync, event de-dup, digests, input log | `tick`, `receive`, `_on_final`, `_check_digest`, `report` |
+| `rollback_session.gd` (245) | GGPO-style rollback for N players | `add_local_input`, `receive` (misprediction → rollback), `advance`, `_do_rollback`, `_finalize` |
+| `sim_check.gd` (54) | Cross-platform fingerprint (`--sim-check=SEED`): sha256 over a MatchSim mash plus a tag-heavy DuelSim | `run` |
+| `dedicated_server.gd` (121) | The `--server` node; wires `EnetHub`, `RelayServer`, `ServerBeacon` | `configure(args)`, `_ready`, `_process` |
+| `enet_hub.gd` (115) | One UDP port, many players, a `PeerLink` per peer | `listen`, `poll` (returns new links), `flush` |
+| `relay_server.gd` (681) | Matchmaking and relay, on `NetLink`s so tests can drive it; `Client`, `Check`, `Game` classes | `_handle`; `_pair_waiting`, `_found`, `_accept`, `_check_step`, `_requeue`; `_begin_game`, `_start`, `_referee_step`; `_drop`, `_cpu_takes_over`; static `seat` |
+| `referee.gd` (203) | Server's authoritative match: steps only when every slot's input arrived, checks digests, plays CPU slots | `add_inputs`, `advance`, `add_digest`, `take_cpu_inputs`, `inputs_since` |
+| `lan_finder.gd` (76) / `server_beacon.gd` (72) | LAN discovery: client broadcast, server answer on game port + 1 | `start`/`poll`; `listen`/`poll`/`read`/`discovery_port` |
+
+**Where to look**
+
+- Predict / confirm / rollback → `rollback_session.gd:receive`, `_inputs_for`, `_remote_input`; stall when `frame - _confirmed > max_rollback` → `advance`
+- Frames that can never roll back → `_finalize` → `online_match.gd:_on_final`
+- Time sync (hold a frame when ahead) → `online_match.gd:tick`, `frame_advantage`, `advantage_over`, `SYNC_COOLDOWN`
+- Desync detection → `online_match.gd:_on_final` (every `DIGEST_EVERY` = 60), `_check_digest`
+- Input delay → `netplay.gd:pick_delay` (1 under 100 ms, 2 under 170, else 3; `forced_delay` / `--net-delay` overrides)
+- Ping: handshake → `netplay.gd:_ping_step` (blocking, precise, on realtime links); live → `_live_ping_step` (every `LIVE_PING_EVERY` = 60 ticks, ids ≥ 1000, best of `LIVE_PING_KEEP` = 5)
+- Version / data refusal → `netplay.gd:_handle` "hello", `data_hash` (NET_VERSION + rules + every fighter JSON)
+- Ready check → client `netplay.gd:accept_match`, `decline_match`; server `relay_server.gd:_found`, `_accept`, `_check_step`, `_requeue`
+- Rooms and grouping → `relay_server.gd:_pair_waiting`; team seating → `seat`
+- Leaver → CPU takeover → `relay_server.gd:_cpu_takes_over`, `referee.gd:inputs_since`
+- Path RTT refresh → `relay_server.gd:_referee_step` ("path"), `netplay.gd:_set_paths`
+- Server flags → `dedicated_server.gd:configure`; LAN discovery → `lan_finder.gd`, `server_beacon.gd`
+
+**Wire messages** (Dictionaries keyed `"t"`): `hello`, `reject`, `wait`, `found`, `ready`, `accepted`,
+`ping`/`pong`, `path`, `start`, `cpu`, `in` (inputs), `dg` (digest), `rematch`, `bye`. Beacon
+packets are plain-UDP JSON: `creature-arena?` / `creature-arena`.
+
+**Gotchas**
+
+- `NET_VERSION` (netplay.gd) must be bumped when the wire format or anything in `data_hash` changes incompatibly; its comment lists past bumps. Server and clients must be the same build.
+- `NetLink.realtime` is true only for ENet: real links are pumped every rendered frame (`Netplay.pump`) and `poll(wait_ms)` may block. `LoopLink`/`LagLink` count polls as ticks, so their lag is in ticks.
+- `ping_wait_ms` defaults to 400; tests where both ends share one loop set it to 0 (`tests/test_online.gd`), otherwise the host blocks waiting for a pong the other end can't send.
+- ENet throttling is disabled (`EnetLink.tune`) because it dropped bursts. Input packets carry the last 8 inputs, up to `MAX_PACKET_INPUTS` = 60 to fill the gap to the lowest ack.
+- `Referee` ignores inputs more than `MAX_AHEAD` = 600 frames ahead and keeps `HISTORY` = 240 per slot. CPU slots are skipped in time sync and digest waits.
+
+---
+
+## src/game and src/ui — flow, menus, coaches
+
+| File | Owns | Entry points |
+| --- | --- | --- |
+| `game/main.gd` (2,116) | Root node: `Flow` (MENU/INTRO/FIGHT/ROUND_OVER/MATCH_OVER/SELECT/LOBBY), the `MODES` table, 60 Hz tick, camera, settings, CLI parsing, online glue | `_ready`; `_physics_process` (inputs → sim → events → views → camera); `_start_match(m)`; `_new_sim`; `_update_camera`/`_frame_fight`; `_setting`/`_set_setting`; `_parse_args` |
+| `game/online_lobby.gd` (439) | Online pages (MAIN/QUICK/ROOMS/MORE), room codes, address parsing, recent servers | `quick_match`, `create_room`, `join_room`, `host`; static `make_code`, `clean_code`, `parse_address` |
+| `game/showcase.gd` (718) | Scripted demos as real input bitmasks; `SCRIPTS` has one per fighter plus angles, twinstick, counterplay | `names`, `build`, `inputs(sim)` (step interpreter: wait, press, walk, together, dodge, guard, approach, until, place), `_place` |
+| `game/trials.gd` (228) | `ComboTrials` coach: plays a demo, judges the player's route (`data/trials.json`) | `inputs(player_bits)`, `after_step`, `_fail`, `_clear`, `replay_demo`, `skip` |
+| `game/drills.gd` (206) | `ReactionDrill` coach: partner throws windup moves, player scored over `REPS` (`SETS`) | `build`, `inputs`, `_judge`, `after_step` |
+| `game/controls.gd` (364) | Every InputMap action, registered in code (`BINDINGS` lol_/kb_/pad_), remap and persistence | `setup`, `rebind`, `reset`, `overrides`, `apply_overrides`, `binding_text` |
+| `game/match_factory.gd` (49) | Loads and caches creature JSON; `FIGHTERS` roster; spawn constants | `load_def`, `versus`, `training` |
+| `game/autoplay.gd` (44) | Scripted player input behind `--autoplay` | `bits(tick)`, `length` |
+| `ui/ui_screen.gd` (224) | Base for every menu screen: title, rows, description, hint | override `build`; `add_button`, `add_option`, `add_text`, `add_space`, `add_row`; `back` |
+| `ui/screen_stack.gd` (143) | Stack of open screens, Back, focus restore, toasts | `push`, `pop`, `clear`, `top`, `is_open`; signals `moved`, `chosen`, `emptied` |
+| `ui/ui_theme.gd` (87) | The shared Theme, colours and sizes | `make` |
+| `ui/option_row.gd` (123) | "label < value >" row with Left/Right stepping and optional meter | `step`, `set_values`; signals `changed`, `activated` |
+| `ui/prompts.gd` (33) | Hint text per device | `line(gamepad, items)` from `PAD`/`KEYS` |
+| `ui/fighter_preview.gd` (41) | Live idle animation of a fighter | `.fighter`, `face_left`, `zoom` |
+| `ui/title_screen.gd` (40) | Single player / Online / Settings / Exit | signals `*_pressed` |
+| `ui/character_select.gd` (494) | Portrait grid, one cursor per player (reads each pad's stick itself), team picks, `solo` for online | `setup`, `move`, `pick`, `_undo`; signals `chosen(teams)`, `cancelled` |
+| `ui/ready_check.gd` (104) | Online "match found" Accept/Decline | `update`, `accept`, `decline` |
+| `ui/pause_screen.gd`, `confirm_screen.gd`, `help_screen.gd` | Pause (Resume/Restart/Controls/Quit, confirms quit), Yes/No, two-column controls listing | signals `resumed`, `restart_requested`, `quit_requested`, `answered(yes)` |
+| `ui/remap_screen.gd` (133) | Rebinds one group (classic, league, gamepad); `RESERVED_KEYS`/`RESERVED_BUTTONS` | `_listen`, `_input`; signal `changed` |
+
+**Where to look**
+
+- Mode numbers (`--mode=N`) → `main.gd:MODES`; menu grouping → `MENU_ROWS`; `ONLINE_MODE` = 20
+- Start a match → `main.gd:_start_match` → `_start_round` (1v1), `_start_duel`, `_start_team`, `_start_coach`, `_start_showcase`, `_open_lobby`
+- Pick screen → `_has_pick`, `_on_teams_chosen`, `_padded_teams`
+- Build sim + views → `_new_sim`; per-side inputs → `_side_bits`, `_dummy_bits`; flow → `_update_flow`
+- Round / match end → `_end_round`, `_show_match_over`, `_duel_flow`, `_team_flow`
+- Camera → `_update_camera` (calls `_frame_fight` in fights; showcase/coach framing and KO push-in), `_cam_axis`; `CAM_PAD`, `KO_ZOOM`, `SHOWCASE_ZOOM`
+- Add a setting → `SETTING_PAGES` + `_setting(key)` + `_set_setting(key, i)` + `_add_setting_row`; persistence `_load_settings`/`_save_settings`; `settings_path` (default `user://settings.cfg`)
+- Frame rate / vsync / aspect / fullscreen → `_apply_frame_rate`, `_apply_vsync`, `_apply_aspect`, `_apply_fullscreen`
+- CLI flags → `_parse_args` (list in the file header); `--server` → `_run_server`; `--sim-check` → `_run_sim_check`
+- Netplay pumping → `_process` (`netplay.pump()` on realtime links) and `_physics_process` (`netplay.tick`)
+- Online flow → `_net_host`, `_net_join_server`, `_net_join`, `_finder_step`, `_connecting_step`, `_ready_check_step`, `_start_online_match`, `_online_status`, `_leave_online`, `_write_net_report`. Every lobby choice opens `CharacterSelect` in `solo` mode first (`lobby.picker`; tests emit its `chosen`), then searches; Cancel while searching emits `search_cancelled`. Before joining the game's server (`data/online.json` or Settings > Game > Online server) the game asks the LAN first (`LanFinder` → `ServerBeacon`), since routers often can't loop the public name back inside. When the server finds a group: Netplay `match_found` → main pushes `ReadyCheck`; `Netplay.auto_ready` answers at once for tests and CLI joins; server `ready_ms` / `--ready`; `RelayServer.seat()` puts duplicate fighters on opposite teams
+- Add a menu screen → subclass `UiScreen`, override `build()`, `ui.push()`; examples `_open_single`, `_open_settings`, `_open_controls`
+- Sim events → flash / rumble → `_react`, `_flash`, `_rumble`
+- Add a showcase → a `SCRIPTS` entry in `showcase.gd` (`--showcase=` accepts it via `names()`)
+- Trials → `trials.gd:after_step`, `data/trials.json`; drills → `drills.gd:_judge`, `SETS`, `REPS`
+- Spawns → `match_factory.gd:SPAWN_LEFT/SPAWN_RIGHT`; showcase starts → `START_X/START_Y`, `_place`
+- Add a fighter to the roster → `match_factory.gd:FIGHTERS` + `MODES` entries + `MENU_ROWS` lists
+
+**Gotchas**
+
+- Bindings made in code must set `device = Controls.ALL_DEVICES` (-1) or only controller 0 hears them.
+- `Controls.setup()` erases the built-in `ui_*` joypad events; `MenuStick` reads the stick for menus. `main._apply_device` turns `menu_stick.enabled` off while a `CharacterSelect` is on top (it runs its own per-player sticks).
+- Tests that start the game set `g.settings_path` to a `user://test_*.cfg` before anything else, or `_save_settings` overwrites the real settings (see `tests/test_ui.gd:_game()`).
+- `MODES` indices must stay stable (`--mode=N`, `MENU_ROWS`). `--mode=` sets `_skip_select`; `--pick` shows the pick screen anyway.
+- Online: when `online != null` only the rollback session steps the sim. Local inputs are masked while a UI is open.
+- Coaches (trials, drills) supply both sides' inputs each tick and judge in `after_step`; they press buttons like a player. The camera uses showcase framing when `showcase` or `coach` is set.
+- Paused: `_physics_process` returns early (only `_capture` runs). Pause during a showcase returns to the menu.
+
+---
+
+## data
+
+| File | Holds |
+| --- | --- |
+| `data/creatures/<id>.json` | One fighter: `id`, `name`, `title`, `affinity`, `role`, `max_hp`, `speed`, `accel`, `radius`, `weight`, `stamina`, `stamina_regen`, `dodge`, `guard`, `fx_height`, `fx_top`, `fx_color`, `surge_aura`, `cut_in_frame`, `ko_fx`, `sprite`, `ai`, `moves` (slots `tag_in`, `light_1..3`, `heavy`, `skill_1`, `skill_2`, `surge`). Every move key is in MECHANICS.md |
+| `data/rules/duel.json`, `team.json` | Match rules: time, intro ticks, tag cooldown/energy, bench regen, KO swap, spawn spread |
+| `data/trials.json` | Combo trials: fighter, name, route |
+| `data/audio.json` | Music volume and tracks, every sound name → file |
+| `data/online.json` | The game's server host |
+
+Fighters: barkley, cairn, cerebro, craglash, culvert, digby, gillbert, hissy, pete, sno (and dummy).
+
+---
+
+## tests
+
+`$G --headless --path . --script res://tests/run_tests.gd`; `TEST_ONLY=culvert,combos` is a
+substring match on file names. The runner lists `res://tests/test_*.gd`, sorts them, and runs
+every `test_*` method on a fresh `TestCase` (`test_case.gd`: `assert_*`, sim helpers `run`,
+`tap`, `run_until`). A new file extending `TestCase` needs no registration. Engine and script
+errors count as failures; exit code 1 on any failure. Run `--import` after adding a `class_name`.
+
+| Test | Pins |
+| --- | --- |
+| `test_combat`, `test_combo_rules`, `test_combos` | Core rules; variety, stale, hitstun decay, juggle cap, cancels, stacks, energy, cooldowns, breakaway, grabs; every planned combo connects for the planned damage |
+| `test_counterplay`, `test_tuning`, `test_aim`, `test_movement360`, `test_twinstick`, `test_player_input` | ≥ 15 frames of warning on raw big moves; playtest fixes; light strings re-aim; uniform 360° reach; aim table, strafe, assist; mouse orders |
+| `test_<fighter>` (barkley, cerebro, craglash, culvert, digby, gillbert, hissy, pete, sno) | Each fighter's kit, usually with a mid-move rollback |
+| `test_rollback`, `test_determinism`, `test_terrain`, `test_duel`, `test_team` | Every variable snapshotted and restore replays exactly; replays; floor; tag rules; team rules |
+| `test_ai`, `test_rage`, `test_balance` | CPU reproducible and uses its kit; Rage beats Hard; class matchup pins (Rage vs Rage) |
+| `test_online`, `test_server`, `test_server_teams` | Handshake, lag/loss sync, desync detection, rematch, version refusal, real UDP; server pairing, rooms, referee; online 2v2/3v3 |
+| `test_ui`, `test_menu_stick`, `test_surge_ready`, `test_views`, `test_showcase`, `test_trials`, `test_scripts_load` | Menus with real input events; stick menu presses; aura/signal; up/down sheets for every fighter; every showcase reaches a KO; every trial clearable; every script compiles |
+| `bench_sim.gd`, `bench_cpu.gd` | Rollback cost; CPU tier win-rate matrix (`--matrix`, `--pairs`, `--seeds`, `--only`, `--detail`) |
+
+---
+
+## tools
+
+| File | Does |
+| --- | --- |
+| `splat3d.py` | Shared renderer: poses a 3D rig, samples parts as points, splats into a depth buffer per view, shades in three tones, outlines. `configure`, `set_frame`, primitives (`ellipsoid`, `tube`, `plate`, `box`, `cylinder`, `bezier`), `rasterise`, `shade`, `outline`, `write_sheets`, `inspect` |
+| `gen_culvert.py`, `gen_digby.py`, `gen_pete.py`, `gen_sno.py` | splat3d rigs: `build(pose, view)`, a palette, `ROWS`/`VIEW_ROWS`, pose functions. `python3 tools/gen_<id>.py inspect idle:0 run:2` previews frames. Prefer this shape for new fighters |
+| `gen_cerebro.py`, `gen_hissy.py` | Point-sampling rigs with their own copy of the splat code (Hissy adds `face_texture`) |
+| `gen_barkley.py`, `gen_gillbert.py`, `gen_craglash.py` | Older: Barkley/Gillbert project a 3D rig per view; Craglash is a 2D IK puppet |
+| `gen_sprites.py` | Placeholders: Cairn, dummy, tiles, crowd |
+| `gen_audio.py` | Placeholder SFX and music (numpy); names must match `data/audio.json` |
+
+Each writes `assets/sprites/<id>.png`, `<id>_down.png`, `<id>_up.png` and a `docs/<id>_preview.png`.
+Sheet layouts: SPRITES.md.
+
+---
+
+## CI
+
+- `tests.yml` — every push and PR: download Godot 4.7.2, `--import`, run the tests.
+- `playable-build.yml` — PRs, pushes to main, manual: export Windows + Linux (`.pck` beside the exe), smoke-test the Linux build (cairn showcase, then `--server=7777`; fails on SCRIPT ERROR / Parse Error / Failed to load), compute `--sim-check` (seed 20261010), upload `CreatureArena-windows-<sha>` and `-linux-<sha>` (30 days), comment the links on the PR. A second job runs the same sim-check on Windows and fails if the digest differs.
