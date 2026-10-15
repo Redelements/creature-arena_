@@ -321,7 +321,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	if d.state == CreatureSim.State.GUARD and not bool(hit["grab"]) and bool(hit["guard_break"]) \
 			and d.facing.dot(-push) > 0.3:
 		broke_guard = true
-		emit_event("guard_break", d.pos, 1.0)
+		emit_event("guard_break", d.pos, 1.0, {"who": d.id})
 
 	# --- a clean hit
 	# A statue (Petrify Punch) shatters on the next clean hit, which lands harder.

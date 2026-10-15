@@ -1,0 +1,28 @@
+{
+	"_doc": "Showtime (1v1, 2v2, 3v3): win on crowd hype, not damage. Every showy moment adds hype to the side that made it: each hit (more for longer and more varied combos), a Surge, a counter, a guard break, a wall bounce, breaking through rubble, a knockout, a ring-out (the fall the other side caused) and a close escape (a breakaway). Lives are unlimited like Team Deathmatch so the show goes on; first to hype_to_win or the most hype at time wins, a tie goes to sudden death. Point values are under hype. Times are in ticks (60 per second) unless named _seconds.",
+	"deathmatch": true,
+	"showtime": true,
+	"time_seconds": 120,
+	"intro_ticks": 100,
+	"over_ticks": 150,
+	"mid_ko_slowmo": 18,
+	"spawn_spread": 60,
+	"respawn_seconds": 4,
+	"spawn_protect_seconds": 2,
+	"pad_inset": 44,
+	"pad_spread": 48,
+	"hype_to_win": 600,
+	"hype": {
+		"hit": 2,
+		"combo_hit": 1,
+		"variety": 20,
+		"surge": 30,
+		"slip": 20,
+		"guard_break": 15,
+		"bounce": 10,
+		"smash": 10,
+		"ko": 80,
+		"fall": 40,
+		"breakaway": 25
+	}
+}
