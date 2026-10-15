@@ -1,0 +1,7 @@
+{
+	"_doc": "The stadium: the plain floor. No fixed pieces; the default arena.",
+	"id": "stadium",
+	"name": "Stadium",
+	"ground": "dirt",
+	"pieces": []
+}

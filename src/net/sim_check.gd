@@ -28,7 +28,32 @@ static func run(seed_: int, ticks := 6000) -> String:
 				c.hp = c.max_hp
 				if c.state == CreatureSim.State.KO:
 					c.load_state(_revived(c))
-	return (sim.state_digest() + _duel(seed_ + 1, ticks)).sha256_text()
+	return (sim.state_digest() + _duel(seed_ + 1, ticks) + _quarry(seed_ + 2, ticks / 2)).sha256_text()
+
+
+## A brawl on Quarry Bowl, so the walls (collision, bounces, shots stopped) are in the
+## cross-platform check too.
+static func _quarry(seed_: int, ticks: int) -> String:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_
+	var was := MatchFactory.arena
+	MatchFactory.arena = "quarry"
+	var sim := MatchFactory.versus("craglash", "hissy")
+	MatchFactory.arena = was
+	# Start against the left wall so the fight happens around it.
+	sim.creatures[0].pos = sim.spawn(0) + Vector2(-60, 0)
+	sim.creatures[1].pos = sim.spawn(0) + Vector2(-30, 10)
+	var hold := [0, 0]
+	for i in ticks:
+		if i % 7 == 0:
+			hold = [rng.randi() & SimDefs.IN_EVERYTHING, rng.randi() & SimDefs.IN_EVERYTHING]
+		sim.step(PackedInt32Array(hold))
+		if i % 1200 == 1199:
+			for c in sim.creatures:
+				c.hp = c.max_hp
+				if c.state == CreatureSim.State.KO:
+					c.load_state(_revived(c))
+	return sim.state_digest()
 
 
 ## A Duel with random inputs, tags included.

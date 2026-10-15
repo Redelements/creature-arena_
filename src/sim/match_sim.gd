@@ -33,12 +33,36 @@ var slowmo := 0
 var ko_freeze_ticks := 18
 var ko_slowmo_ticks := 70
 var terrain := TerrainGrid.new()
+## The arena map this match plays on (ArenaMap): its id and its pieces are laid on the
+## terrain by `set_arena`; every machine in an online match must pick the same one.
+var arena_id := ArenaMap.DEFAULT
+var arena := {}
 var creatures: Array[CreatureSim] = []
 var projectiles: Array[Dictionary] = []
 ## Ground zones (Sno Mercy's Syrup Slick): {owner, pos, radius, ticks, slow_mult}. Foes of
 ## the owner standing in one are slowed.
 var zones: Array[Dictionary] = []
 var events: Array[Dictionary] = []
+
+
+## Lays an arena map on the floor. Call before adding creatures (it resets the grid).
+func set_arena(id: String) -> void:
+	arena_id = id
+	arena = ArenaMap.get_map(id)
+	terrain.load_map(arena)
+
+
+## Where a side's fighters start on this map.
+func spawn(side: int) -> Vector2:
+	return ArenaMap.spawn(arena, side)
+
+
+## Whether any solid body stands on the cell (a rebuilding wall waits for it to leave).
+func cell_occupied(c: Vector2i) -> bool:
+	for o in creatures:
+		if o.is_solid() and terrain.body_touches(o.pos, o.radius, c):
+			return true
+	return false
 
 
 func add_creature(def: Dictionary, p: Vector2, is_dummy := false) -> CreatureSim:
@@ -85,7 +109,7 @@ func step(inputs: PackedInt32Array) -> void:
 		for i in creatures.size():
 			creatures[i].buffer_input(_input(inputs, i), self)
 		return
-	terrain.tick()
+	terrain.tick(cell_occupied)
 	for i in creatures.size():
 		creatures[i].step(_input(inputs, i), self)
 	_step_swallows()
@@ -93,6 +117,7 @@ func step(inputs: PackedInt32Array) -> void:
 	_step_zones()
 	_resolve_hits()
 	_separate()
+	_unstick()
 	_check_falls()
 
 
@@ -149,7 +174,7 @@ func restore(s: Dictionary) -> void:
 ## bit for bit, so two machines only agree if they computed identical results; this
 ## is what online play checks to catch desyncs.
 func state_digest() -> String:
-	var parts: Array = [tick, hitstop, ko_freeze, slowmo, terrain.cells, terrain.timers]
+	var parts: Array = [tick, hitstop, ko_freeze, slowmo, arena_id, terrain.cells, terrain.timers]
 	for c in creatures:
 		var st := c.save_state()
 		for f in CreatureSim.STATE_FIELDS:
@@ -660,6 +685,10 @@ func _step_projectiles() -> void:
 			emit_event("projectile_end", pos, 0.0, {"who": int(p["owner"]), "sound": String(p.get("end_sound", ""))})
 			continue
 		var cell := terrain.world_to_cell(pos)
+		if TerrainGrid.blocks_shot(terrain.get_cell(cell)):
+			# A rubble wall takes the shot (a fence or a chasm does not).
+			emit_event("projectile_end", pos, 1.0, {"who": int(p["owner"]), "sound": String(p.get("end_sound", ""))})
+			continue
 		if cell != p["last_cell"] and not bool(p.get("no_crack", false)):
 			p["last_cell"] = cell
 			terrain.crack_cell(cell)
@@ -731,6 +760,18 @@ func _separate() -> void:
 			b.pos += n * overlap * (1.0 - share_a)
 			a.clamp_to_floor()
 			b.clamp_to_floor()
+
+
+## Nobody stays inside a wall or fence: a body pushed in (by another body, a blink, a
+## wall that rebuilt around it) is moved out the shortest way.
+func _unstick() -> void:
+	for c in creatures:
+		if not c.is_solid():
+			continue
+		var p := terrain.resolve_body(c.pos, c.radius)
+		if p != c.pos:
+			c.pos = p
+			c.clamp_to_floor()
 
 
 func _check_falls() -> void:

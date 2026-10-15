@@ -721,7 +721,7 @@ func _update_free(buttons: int, pressed: int, dir: Vector2, aim: Vector2, sim: M
 
 	# Strafing (twin-stick right stick held): face the aim and walk any way, a bit slower.
 	var strafing := (buttons & SimDefs.IN_STRAFE) != 0 and (buttons & SimDefs.IN_AIM) != 0
-	var speed := walk_speed() * (STRAFE_SPEED if strafing else 1.0)
+	var speed := walk_speed() * (STRAFE_SPEED if strafing else 1.0) * sim.terrain.walk_mult_at(pos)
 	walk_vel = walk_vel.move_toward(dir * speed, float(def["accel"]))
 	if strafing:
 		facing = aim
@@ -1055,7 +1055,7 @@ func _blink(bl: Dictionary, sim: MatchSim) -> void:
 	var room := SimDefs.floor_rect().grow(-float(radius) - 2.0)
 	var from := pos
 	for spot in [foe.pos - foe.facing * gap, foe.pos + away * gap]:
-		if room.has_point(spot) and not sim.terrain.is_hole_at(spot):
+		if room.has_point(spot) and not sim.terrain.is_hole_at(spot) and not sim.terrain.solid_at(spot):
 			pos = spot
 			break
 	var to_foe := foe.pos - pos
@@ -1138,7 +1138,7 @@ func _update_dodge(sim: MatchSim) -> void:
 		var bl: Dictionary = dg["blink"]
 		if state_t == int(bl["at"]):
 			var from := pos
-			pos = _clamp_to_floor(pos + dodge_dir * float(bl["distance"]))
+			pos = sim.terrain.resolve_body(_clamp_to_floor(pos + dodge_dir * float(bl["distance"])), radius)
 			sim.emit_event("warp", pos, 1.0, {"who": id, "from": from})
 		if state_t >= frames:
 			_set_state(State.IDLE)
@@ -1411,7 +1411,8 @@ func clamp_to_floor() -> void:
 
 
 ## Moves one axis at a time. Voluntary movement (walking) refuses to step into a hole;
-## knockback and dodges don't, which is how creatures end up falling in.
+## knockback and dodges don't, which is how creatures end up falling in. The arena's
+## edges and its rubble walls and fences stop everything, and bounce knockback.
 func _move(delta: Vector2, sim: MatchSim, voluntary: bool, bounce := false) -> void:
 	var lo := floor_min()
 	var hi := floor_max()
@@ -1420,27 +1421,33 @@ func _move(delta: Vector2, sim: MatchSim, voluntary: bool, bounce := false) -> v
 	var nx := pos.x + delta.x
 	if voluntary and not standing_on_hole and sim.terrain.is_hole_at(Vector2(nx, pos.y)):
 		nx = pos.x
-	if nx < lo.x or nx > hi.x:
-		nx = clampf(nx, lo.x, hi.x)
-		if bounce:
-			if absf(knock_vel.x) >= WALL_BOUNCE_MIN:
-				knock_vel.x = -knock_vel.x * 0.6
-				_on_wall_bounce(sim, Vector2(nx, pos.y), absf(knock_vel.x))
-			else:
-				knock_vel.x = 0.0
+	var hit_wall := nx < lo.x or nx > hi.x
+	nx = clampf(nx, lo.x, hi.x)
+	var slid := sim.terrain.slide_x(pos, nx, radius)
+	hit_wall = hit_wall or slid != nx
+	nx = slid
+	if hit_wall and bounce:
+		if absf(knock_vel.x) >= WALL_BOUNCE_MIN:
+			knock_vel.x = -knock_vel.x * 0.6
+			_on_wall_bounce(sim, Vector2(nx, pos.y), absf(knock_vel.x))
+		else:
+			knock_vel.x = 0.0
 	pos.x = nx
 
 	var ny := pos.y + delta.y
 	if voluntary and not standing_on_hole and sim.terrain.is_hole_at(Vector2(pos.x, ny)):
 		ny = pos.y
-	if ny < lo.y or ny > hi.y:
-		ny = clampf(ny, lo.y, hi.y)
-		if bounce:
-			if absf(knock_vel.y) >= WALL_BOUNCE_MIN:
-				knock_vel.y = -knock_vel.y * 0.6
-				_on_wall_bounce(sim, Vector2(pos.x, ny), absf(knock_vel.y))
-			else:
-				knock_vel.y = 0.0
+	hit_wall = ny < lo.y or ny > hi.y
+	ny = clampf(ny, lo.y, hi.y)
+	slid = sim.terrain.slide_y(pos, ny, radius)
+	hit_wall = hit_wall or slid != ny
+	ny = slid
+	if hit_wall and bounce:
+		if absf(knock_vel.y) >= WALL_BOUNCE_MIN:
+			knock_vel.y = -knock_vel.y * 0.6
+			_on_wall_bounce(sim, Vector2(pos.x, ny), absf(knock_vel.y))
+		else:
+			knock_vel.y = 0.0
 	pos.y = ny
 
 

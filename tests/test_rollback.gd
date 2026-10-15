@@ -39,7 +39,7 @@ func test_every_creature_variable_is_saved_or_static() -> void:
 
 func test_every_match_variable_is_saved_or_static() -> void:
 	var saved := ["tick", "hitstop", "ko_freeze", "slowmo", "terrain", "creatures", "projectiles", "zones"]
-	var static_or_scratch := ["ko_freeze_ticks", "ko_slowmo_ticks", "events"]
+	var static_or_scratch := ["ko_freeze_ticks", "ko_slowmo_ticks", "events", "arena_id", "arena"]  # the map is fixed for the match
 	for prop in MatchSim.new().get_property_list():
 		if not (int(prop["usage"]) & PROPERTY_USAGE_SCRIPT_VARIABLE):
 			continue

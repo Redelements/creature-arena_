@@ -8,7 +8,7 @@ key the sim reads, combo rules, events), [NETCODE.md](NETCODE.md), [SERVER.md](S
 Line counts are approximate (checked 2026-10-14).
 
 ```
-src/sim/    deterministic rules (match_sim, creature_sim, duel_sim, team_sim, terrain_grid, replay, sim_defs)
+src/sim/    deterministic rules (match_sim, creature_sim, duel_sim, team_sim, terrain_grid, arena_map, replay, sim_defs)
 src/ai/     cpu_controller                     CPU opponent (seeded)
 src/input/  player_input, mouse_orders, menu_stick
 src/view/   fx_view (+fx_ground), creature_view, surge_aura, hud, audio_view, arena_view, crowd_view, debug_view
@@ -36,7 +36,8 @@ JSON go in. Every variable is snapshotted (see Gotchas).
 | `sim_defs.gd` (150) | Input bit layout, 64-step aim/move table, arena and grid geometry, combo variety multipliers | `aim_from_bits`, `move_from_bits`, `dir_from_bits` (decode); `aim_bits`, `move_bits`, `bits_from_dir` (encode); `arena_size`, `floor_rect`, `variety_mult` |
 | `creature_sim.gd` (1,375) | One fighter: state machine, moves, status effects, movement, floor clamp, all from its JSON def | `step(buttons, sim)`; `_start_attack` (windup, raw vs cancel); `_update_attack` (frames, charge, dash, blink, home, slam, projectile spawn); `_update_dodge`, `can_dodge`; `_tick_status`; `hit_params`; `save_state`/`load_state` over `STATE_FIELDS` |
 | `match_sim.gd` (657) | The whole match: creatures, terrain, projectiles, zones, events, hitstop, KO freeze; all hit and combo resolution | `step(inputs)` (tick order); `_resolve_hits`, `_apply_hit` (damage, hitstun, stale, variety, block, every hit effect); `_flip`; `_swallow`, `_step_swallows`, `_poop` (held Gulp); `_venom_frenzy` (Hissy's passive); `breakaway`; `gain_energy`; `emit_event`; `spawn_projectile`, `add_zone`; `snapshot`/`restore`/`state_digest`/`state_hash` |
-| `terrain_grid.gd` (186) | Floor as 8 px cells: INTACT → CRACKED → HOLE, healing a step every `HEAL_TICKS` (720) | `damage_cell/circle/rect/ring`, `crack_cell/circle`, `is_hole_at`, `nearest_solid` (respawn), `tick` |
+| `terrain_grid.gd` (420) | Floor as 8 px cells: INTACT → CRACKED → HOLE, healing a step every `HEAL_TICKS` (720) toward `base` (the map's piece there: WALL, FENCE, CHASM, SHALLOWS, BRUSH) | `load_map`, `damage_cell/circle/rect/ring`, `crack_cell/circle`, `smash`, `flatten`, `is_hole_at`, `solid_at`, `walk_mult_at`, `slide_x/y`, `resolve_body`, `body_blocked`, `nearest_solid` (respawn), `tick(blocked)` |
+| `arena_map.gd` (45) | Arena maps from `data/arenas/*.json`: `IDS`, cached loads, a side's spawn point | `get_map`, `name_of`, `spawn` |
 | `duel_sim.gd` (296) | 3v3 tag rules around a MatchSim, one active fighter per side; also used for online 1v1 | `step`; `_tag`, `can_tag`; `_check_knockouts`, `_enter_next`, `_bench_regen`; `_time_out`; `snapshot`/`restore` |
 | `team_sim.gd` (264) | 2v2 / 3v3 with everyone on the field: one life each, or Team Deathmatch (respawns, score) when the rules say `deathmatch` | `step` (one input per slot, side 0 first); `_deathmatch_step`, `_respawn`, `_finish`, `pad_point`, `score_to_win`; `spawn_point`, `side_of`, `members`; `_time_out` |
 | `replay.gd` (57) | One input per creature per tick, saved and replayed | `record`, `save`/`load_file`, `play(sim)` returns the state hash |
@@ -132,7 +133,7 @@ Randomness is fine here. Everything watches sim state and `sim.events`.
 | `surge_aura.gd` (245) | Aura while `energy` is full plus the fill-up burst; two per CreatureView (behind and in front of the sprite); look from the JSON `surge_aura` block (`colors` outer/inner/core, `motes`, `spikes`, `sharp`, `speed`, `height`); rim in its colour (Stoneskin's rim wins). The `surge_ready` {who, team} event → main plays `surge_ready_ally` for a side someone here plays (`is_local_team()`), else `surge_ready_foe` | `bind`, `step`, `is_ready`, `rim`, `rim_color`, `_mote(kind)` |
 | `hud.gd` (481) | Panels, combo counter, Surge cut-in, timer, banners, toast, captions, net line | `_draw`; `_panel` (name, shield name, energy, stamina, dodge and skill cooldowns), `_card`/`_team_panels`, `_team_strip`; `_combo` (`TYPE_PIPS`), `_center`, `cut_in`, `show_toast` |
 | `audio_view.gd` (307) | Sound and music: voice pool, three buses, lookup via `data/audio.json`. Silent when headless | `on_event(e)`, `watch(sim)` (swings, footsteps), `play`, `play_music`, `set_volume`, `preview` |
-| `arena_view.gd` (95) | Stands, walls, breakable floor; redraws only on `terrain.version` change | `set_terrain`, `refresh`, `_cell_rect`; `MARGIN` |
+| `arena_view.gd` (130) | Stands, walls, breakable floor and the map's pieces (tiles 10–21 of `tiles.png`); redraws only on `terrain.version` change | `set_terrain`, `refresh`, `_cell_rect`; `MARGIN`, `TILE_*` |
 | `crowd_view.gd` (76) | Crowd bounce, camera flashes, KO roar | `cheer`, `roar`, `advance` |
 | `debug_view.gd` (33) | F1 / `--hitboxes` overlay | `_draw` |
 | `flash.gdshader` | Canvas shader: `flash`, `flash_color`, `rim`, stone-grey petrify mode | used by `CreatureView` |
@@ -233,7 +234,7 @@ packets are plain-UDP JSON: `creature-arena?` / `creature-arena`.
 | `game/trials.gd` (228) | `ComboTrials` coach: plays a demo, judges the player's route (`data/trials.json`) | `inputs(player_bits)`, `after_step`, `_fail`, `_clear`, `replay_demo`, `skip` |
 | `game/drills.gd` (206) | `ReactionDrill` coach: partner throws windup moves, player scored over `REPS` (`SETS`) | `build`, `inputs`, `_judge`, `after_step` |
 | `game/controls.gd` (364) | Every InputMap action, registered in code (`BINDINGS` lol_/kb_/pad_), remap and persistence | `setup`, `rebind`, `reset`, `overrides`, `apply_overrides`, `binding_text` |
-| `game/match_factory.gd` (49) | Loads and caches creature JSON; `FIGHTERS` roster; spawn constants | `load_def`, `versus`, `training` |
+| `game/match_factory.gd` (55) | Loads and caches creature JSON; `FIGHTERS` roster; spawn constants; `arena` (the map new offline matches use) | `load_def`, `versus`, `training` |
 | `game/autoplay.gd` (44) | Scripted player input behind `--autoplay` | `bits(tick)`, `length` |
 | `ui/ui_screen.gd` (224) | Base for every menu screen: title, rows, description, hint | override `build`; `add_button`, `add_option`, `add_text`, `add_space`, `add_row`; `back` |
 | `ui/screen_stack.gd` (143) | Stack of open screens, Back, focus restore, toasts | `push`, `pop`, `clear`, `top`, `is_open`; signals `moved`, `chosen`, `emptied` |
@@ -264,7 +265,8 @@ packets are plain-UDP JSON: `creature-arena?` / `creature-arena`.
 - Sim events → flash / rumble → `_react`, `_flash`, `_rumble`
 - Add a showcase → a `SCRIPTS` entry in `showcase.gd` (`--showcase=` accepts it via `names()`)
 - Trials → `trials.gd:after_step`, `data/trials.json`; drills → `drills.gd:_judge`, `SETS`, `REPS`
-- Spawns → `match_factory.gd:SPAWN_LEFT/SPAWN_RIGHT`; showcase starts → `START_X/START_Y`, `_place`
+- Spawns → `MatchSim.spawn(side)` (the map's, else `match_factory.gd:SPAWN_LEFT/SPAWN_RIGHT`); showcase starts → `START_X/START_Y`, `_place`
+- Arena maps → `data/arenas/*.json`, `arena_map.gd`, `terrain_grid.gd:load_map`; pieces drawn by `arena_view.gd`; tiles from `tools/gen_sprites.py --tiles`
 - Add a fighter to the roster → `match_factory.gd:FIGHTERS` + `MODES` entries + `MENU_ROWS` lists
 
 **Gotchas**

@@ -222,7 +222,10 @@ Constants: cs (`BUFFER_TICKS` 10, `JUGGLE_MAX` 3, `JUGGLE_FLOAT` 16, `LAND_KNOCK
 
 ## Terrain and zones
 
-- Grid: `GRID_COLS` 84 × `GRID_ROWS` 36 cells of `CELL` 8 px from (`GRID_X` 16, `GRID_Y` 64). Cells are `INTACT` 0, `CRACKED` 1, `HOLE` 2.
+- Grid: `GRID_COLS` 84 × `GRID_ROWS` 36 cells of `CELL` 8 px from (`GRID_X` 16, `GRID_Y` 64). Cells are `INTACT` 0, `CRACKED` 1, `HOLE` 2, and the arena map's fixed pieces `WALL` 3, `FENCE` 4, `CHASM` 5, `SHALLOWS` 6, `BRUSH` 7, `BRUSH_FLAT` 8.
+- Arena maps (`data/arenas/<id>.json`, `ArenaMap`): `pieces` `[{kind, rect: [col, row, w, h]}]` or `rows` (one character per cell: `.` `#` `F` `X` `~` `*`), optional `spawns` `{left: [x, y], right: [x, y]}` in floor pixels. `MatchSim.set_arena(id)` lays the map (`terrain.base` remembers it; `arena_id` is in the digest); rules JSON `arena`, else `MatchFactory.arena` (the menu / `--arena=ID`). Online matches pin the stadium.
+- Pieces: a wall stops bodies and shots (lobs fly over) and bounces knockback like the arena edge; a fence stops bodies only; a chasm is a pit that never heals; shallows walk at `SHALLOWS_WALK` 0.6, brush at `BRUSH_WALK` 0.85. Floor damage ignores pieces. `smash(cell)` turns a wall into cracked floor (`flatten` brush into `BRUSH_FLAT`); both heal back to the map's piece. A wall never rebuilds under a solid body (`tick(blocked)` waits a tick).
+- Bodies vs pieces: `_move` slides along walls one axis at a time (`slide_x/y`); `_unstick` (after `_separate`) pushes any solid body out of a piece it overlaps (`resolve_body`: nudge off an edge, else the shortest straight way out). `nearest_solid` only returns walkable cells.
 - Each damaged cell steps back one level every `HEAL_TICKS` 720; fresh damage restarts its timer at `max(timer, heal)`.
 - Walking, lunges, non-leap dashes, `mobile` and taunt drag refuse to step onto a hole; knockback, dodges, reels, flips and leaps don't.
 - `_check_falls` skips FALLING, KO, DODGE, AIRBORNE, leaping and reeling fighters, and invulnerable ones unless knocked down.

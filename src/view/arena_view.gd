@@ -6,6 +6,16 @@ extends Node2D
 const TILES := preload("res://assets/sprites/tiles.png")
 const TILE_HOLE := 8
 const TILE_HOLE_DEEP := 9
+## Arena map pieces (tools/gen_sprites.py tiles_sheet).
+const TILE_WALL_TOP := 10  # two variants
+const TILE_WALL_FACE := 12
+const TILE_FENCE := 13
+const TILE_CHASM_RIM := 14
+const TILE_CHASM := 15
+const TILE_SHALLOWS := 16  # two variants
+const TILE_BRUSH := 18  # two variants
+const TILE_BRUSH_FLAT := 20
+const TILE_RUBBLE_FLOOR := 21
 
 const C_BG := Color("1b1e26")
 const C_STAND_A := Color("3a3f4e")
@@ -61,16 +71,31 @@ func _draw() -> void:
 	draw_rect(Rect2(x0, fr.end.y, w, y0 + h - fr.end.y), C_WALL)
 	draw_rect(Rect2(x0, fr.end.y, w, 1), C_WALL_TOP)
 
-	# Floor: intact and cracked cells first.
+	# Floor: intact and cracked cells first, then the map's pieces that sit on it.
 	for cy in terrain.rows:
 		for cx in terrain.cols:
 			var v := terrain.cells[cy * terrain.cols + cx]
-			if v == TerrainGrid.HOLE:
+			if TerrainGrid.is_pit(v):
 				continue
 			var idx := (cx * 7 + cy * 13 + (cx * cy) % 5) % 4
-			if v == TerrainGrid.CRACKED:
-				idx = 4 + (cx * 13 + cy * 7 + cx * cy) % 4
+			var b := terrain.base[cy * terrain.cols + cx]
+			match v:
+				TerrainGrid.CRACKED:
+					idx = TILE_RUBBLE_FLOOR if b == TerrainGrid.WALL else 4 + (cx * 13 + cy * 7 + cx * cy) % 4
+				TerrainGrid.WALL:
+					# The bottom row of a wall shows its face; the rest its rubble top.
+					var below := terrain.cells[(cy + 1) * terrain.cols + cx] if cy + 1 < terrain.rows else TerrainGrid.INTACT
+					idx = TILE_WALL_FACE if below != TerrainGrid.WALL else TILE_WALL_TOP + (cx + cy) % 2
+				TerrainGrid.SHALLOWS:
+					idx = TILE_SHALLOWS + (cx * 3 + cy * 5) % 2
 			draw_texture_rect_region(TILES, _cell_rect(cx, cy), Rect2(idx * 8, 0, 8, 8))
+			var over := -1
+			match v:
+				TerrainGrid.FENCE: over = TILE_FENCE
+				TerrainGrid.BRUSH: over = TILE_BRUSH + (cx * 5 + cy * 3) % 2
+				TerrainGrid.BRUSH_FLAT: over = TILE_BRUSH_FLAT
+			if over >= 0:
+				draw_texture_rect_region(TILES, _cell_rect(cx, cy), Rect2(over * 8, 0, 8, 8))
 
 	# Court markings.
 	var c := fr.get_center()
@@ -78,17 +103,21 @@ func _draw() -> void:
 	draw_line(Vector2(c.x, fr.position.y + 4), Vector2(c.x, fr.end.y - 4), C_LINE, 1.0)
 	draw_arc(c, 34.0, 0.0, TAU, 48, C_LINE, 1.0)
 
-	# Holes last so they cut through the markings. A hole whose upper neighbour is solid
-	# gets the lit rim tile, which reads as the pit's far wall.
+	# Holes and chasms last so they cut through the markings. A pit whose upper
+	# neighbour is solid gets the lit rim tile, which reads as the pit's far wall.
 	for cy in terrain.rows:
 		for cx in terrain.cols:
-			if terrain.cells[cy * terrain.cols + cx] != TerrainGrid.HOLE:
+			var v := terrain.cells[cy * terrain.cols + cx]
+			if not TerrainGrid.is_pit(v):
 				continue
-			var above_solid := cy == 0 or terrain.cells[(cy - 1) * terrain.cols + cx] != TerrainGrid.HOLE
+			var above_solid := cy == 0 or not TerrainGrid.is_pit(terrain.cells[(cy - 1) * terrain.cols + cx])
+			var chasm := v == TerrainGrid.CHASM
+			var idx: int
 			if above_solid:
-				draw_texture_rect_region(TILES, _cell_rect(cx, cy), Rect2(TILE_HOLE * 8, 0, 8, 8))
+				idx = TILE_CHASM_RIM if chasm else TILE_HOLE
 			else:
-				draw_texture_rect_region(TILES, _cell_rect(cx, cy), Rect2(TILE_HOLE_DEEP * 8, 0, 8, 8))
+				idx = TILE_CHASM if chasm else TILE_HOLE_DEEP
+			draw_texture_rect_region(TILES, _cell_rect(cx, cy), Rect2(idx * 8, 0, 8, 8))
 
 
 func _cell_rect(cx: int, cy: int) -> Rect2:

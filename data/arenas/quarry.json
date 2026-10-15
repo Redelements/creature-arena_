@@ -1,0 +1,10 @@
+{
+	"_doc": "Quarry Bowl: two rubble walls split the floor into three lanes, open at the top and bottom. Tanks smash shortcuts through them (Craglash's Landslide Charge, Cairn's Rockslide Rush); everyone else goes round. Rects are [col, row, width, height] in 8 px cells on the 84x36 grid.",
+	"id": "quarry",
+	"name": "Quarry Bowl",
+	"ground": "dirt",
+	"pieces": [
+		{"kind": "wall", "rect": [20, 5, 2, 26]},
+		{"kind": "wall", "rect": [62, 5, 2, 26]}
+	]
+}
