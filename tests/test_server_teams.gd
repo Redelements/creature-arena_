@@ -8,7 +8,7 @@ const FIGHTERS := ["cairn", "culvert", "sno", "barkley", "gillbert", "craglash"]
 
 ## A server and one player per entry of `sizes` (players per side each asks for),
 ## joined over in-memory links. `rooms[i]` puts player i in a room.
-func _setup(sizes: Array, rooms: Array = [], lag := 0, jitter := 0, loss := 0.0) -> Array:
+func _setup(sizes: Array, rooms: Array = [], lag := 0, jitter := 0, loss := 0.0, rules: Array = [], teams: Array = []) -> Array:
 	var server := RelayServer.new()
 	var nets: Array = []
 	for i in sizes.size():
@@ -18,7 +18,10 @@ func _setup(sizes: Array, rooms: Array = [], lag := 0, jitter := 0, loss := 0.0)
 		n.team_size = int(sizes[i])
 		if i < rooms.size():
 			n.room = String(rooms[i])
-		n.join("server", 0, [FIGHTERS[i % FIGHTERS.size()]], links[1])
+		if i < rules.size():
+			n.rules_id = String(rules[i])
+		var team: Array = teams[i] if i < teams.size() else [FIGHTERS[i % FIGHTERS.size()]]
+		n.join("server", 0, team, links[1])
 		nets.append(n)
 	return [server, nets]
 
@@ -290,3 +293,54 @@ func test_rematch_with_cpus_needs_only_the_players() -> void:
 	_run(server, nets, 60, func(): return (nets[0] as Netplay).game != first)
 	assert_true((nets[0] as Netplay).game != first, "both players asked: a new match")
 	assert_eq((nets[0] as Netplay).game.cpu_slots.size(), 4, "with the same four CPUs:")
+
+
+# ------------------------------------------------------------------ team rules and tag duels
+
+func test_a_2v2_deathmatch_through_the_server_stays_in_sync() -> void:
+	var s := _setup([2, 2, 2, 2], [], 2, 1, 0.05, ["deathmatch", "deathmatch", "deathmatch", "deathmatch"])
+	var server: RelayServer = s[0]
+	var nets: Array = s[1]
+	assert_true(_run(server, nets, 300, func(): return _all_playing(nets)), "all four start")
+	for n: Netplay in nets:
+		assert_true(n.game.team != null and n.game.team.deathmatch, "a deathmatch on slot %d" % n.game.local_slot)
+		assert_eq(n.rules_id, "deathmatch", "the rules came back in start:")
+	var ref: Referee = (server.games[0] as RelayServer.Game).referee
+	assert_true((ref.duel as TeamSim).deathmatch, "the referee plays the same rules")
+	_run(server, nets, 900, Callable(), 23)
+	for n: Netplay in nets:
+		assert_eq(n.game.desync_frame, -1, "no desync for slot %d" % n.game.local_slot)
+	assert_eq(ref.desync, [-1, -1, -1, -1], "the referee agrees with everyone:")
+	var at := OnlineMatch.DIGEST_EVERY * 8
+	var d0 := String((nets[0] as Netplay).game.final_digests.get(at, ""))
+	assert_true(d0 != "", "a fingerprint at frame %d" % at)
+	for n: Netplay in nets:
+		assert_eq(String(n.game.final_digests.get(at, "")), d0, "slot %d at frame %d:" % [n.game.local_slot, at])
+
+
+func test_rules_keep_quick_match_queues_apart() -> void:
+	var s := _setup([2, 2, 2, 2], [], 0, 0, 0.0, ["deathmatch", "", "deathmatch", ""])
+	var server: RelayServer = s[0]
+	var nets: Array = s[1]
+	_run(server, nets, 300)
+	assert_eq(server.games.size(), 0, "two of each: nobody has a full match:")
+	var t := _setup([2, 2, 2, 2], [], 0, 0, 0.0, ["crater", "crater", "crater", "crater"])
+	assert_true(_run(t[0], t[1], 300, func(): return _all_playing(t[1])), "four Crater players start")
+	assert_true(((t[1][0] as Netplay).game.team as TeamSim).crater, "a Crater")
+
+
+func test_a_tag_duel_through_the_server_is_three_fighters_each() -> void:
+	var tag := [["cairn", "sno", "pete"], ["culvert", "digby", "hissy"]]
+	var s := _setup([1, 1], [], 1, 0, 0.0, [], tag)
+	var server: RelayServer = s[0]
+	var nets: Array = s[1]
+	assert_true(_run(server, nets, 300, func(): return _all_playing(nets)), "both start")
+	for n: Netplay in nets:
+		assert_true(n.game.duel != null, "a Duel on slot %d" % n.game.local_slot)
+		assert_eq((n.game.duel.teams[0] as Array).size(), 3, "three a side:")
+	_run(server, nets, 600, Callable(), 5)
+	for n: Netplay in nets:
+		assert_eq(n.game.desync_frame, -1, "no desync for slot %d" % n.game.local_slot)
+	var single := _setup([1, 1, 1], [], 0, 0, 0.0, [], [["cairn"], ["sno", "pete", "digby"], ["culvert"]])
+	assert_true(_run(single[0], single[1], 300, func(): return (single[1][0] as Netplay).is_playing()), "the singles pair up")
+	assert_false((single[1][1] as Netplay).is_playing(), "the tag team waits for another tag team")

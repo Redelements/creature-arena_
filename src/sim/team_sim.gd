@@ -72,6 +72,20 @@ var guard_t: Array = []
 var overtime := false
 
 
+## The rules a mode id names ("" is the plain team battle), for the menus and the net.
+const RULE_IDS := ["", "deathmatch", "sinkhole", "crater", "showtime"]
+const RULE_NAMES := ["Team battle", "Team Deathmatch", "Sinkhole", "King of the Crater", "Showtime"]
+
+
+static func rules_by_id(id: String) -> Dictionary:
+	match id:
+		"deathmatch": return load_rules(DEATHMATCH_PATH)
+		"sinkhole": return load_rules(SINKHOLE_PATH)
+		"crater": return load_rules(CRATER_PATH)
+		"showtime": return load_rules(SHOWTIME_PATH)
+	return {}
+
+
 static func load_rules(path := RULES_PATH) -> Dictionary:
 	var f := FileAccess.open(path, FileAccess.READ)
 	var d = JSON.parse_string(f.get_as_text()) if f != null else null

@@ -36,7 +36,10 @@ const HOST_HELP := "They join your address: the 192.168... one at home; online, 
 const FIELD_HELP := "A host's address, or another server's (add /room to meet a friend there)"
 const CODE_HELP := "Type the code your friend got from Create room, then Enter"
 const NO_SERVER := "No server set: add one in Settings > Game > Online server, or use More"
-const SIZE_NAMES := ["1 v 1", "2 v 2", "3 v 3"]
+const SIZE_NAMES := ["1 v 1", "Duel 3v3 tag", "2 v 2", "3 v 3"]
+## Each size name's players per side and fighters per player.
+const SIZE_OF := [1, 1, 2, 3]
+const TAG_OF := [1, 3, 1, 1]
 const PAGE_TITLES := ["", "QUICK MATCH", "ROOMS", "MORE"]
 
 var fighter := "cairn"
@@ -49,6 +52,13 @@ var room_code := ""
 var room_created := false
 ## Players per side for a room this player makes (1 to 3), and for the room shown.
 var room_size := 1
+var room_tag := 1  ## fighters per player in a room you make (3: a tag Duel)
+## The team rules for 2 v 2 and 3 v 3 (TeamSim.RULE_IDS) and the fighters picked
+## (one, or three for a tag Duel).
+var rules_id := ""
+var team: Array = []
+var _rules_row: OptionRow
+var _room_rules_row: OptionRow
 ## What the search is for ("Quick match  2 v 2"), shown under the status while busy.
 var searching_for := ""
 ## Set by main from the Netplay session: what's happening, and whether it went wrong.
@@ -83,6 +93,7 @@ var _quick: Button
 var _quick2: Button
 var _quick3: Button
 var _size_row: OptionRow
+var _quick_tag: Button
 var _create: Button
 var _join_room: Button
 var _more: Button
@@ -130,9 +141,22 @@ func build() -> void:
 		"Teams of two: starts when four players are waiting (CPUs fill in after a while)")
 	_quick3 = add_button("3 v 3", func(): quick_match(3),
 		"Teams of three: starts when six players are waiting (CPUs fill in after a while)")
+	_quick_tag = add_button("Duel 3v3 tag", func(): quick_match(1, 3),
+		"Three fighters each, tag them in and out: the launch mode, online")
+	_rules_row = add_option("Team rules", TeamSim.RULE_NAMES, 0, func(i: int):
+			rules_id = TeamSim.RULE_IDS[i]
+			if _room_rules_row != null:
+				_room_rules_row.set_values(TeamSim.RULE_NAMES, i),
+		"For 2 v 2 and 3 v 3 (and rooms of those sizes): the plain battle, deathmatch, Sinkhole, Crater or Showtime")
 	# Rooms.
-	_size_row = add_option("Room size", SIZE_NAMES, room_size - 1, func(i: int): room_size = i + 1,
-		"How many a side in a room you create")
+	_size_row = add_option("Room size", SIZE_NAMES, _size_index(room_size, room_tag), func(i: int):
+			room_size = SIZE_OF[i]
+			room_tag = TAG_OF[i],
+		"How many a side in a room you create (a tag Duel is three fighters each)")
+	_room_rules_row = add_option("Team rules", TeamSim.RULE_NAMES, 0, func(i: int):
+			rules_id = TeamSim.RULE_IDS[i]
+			_rules_row.set_values(TeamSim.RULE_NAMES, i),
+		"For a 2 v 2 or 3 v 3 room: the plain battle, deathmatch, Sinkhole, Crater or Showtime")
 	_create = add_button("Create room", create_room, "Get a code to give your friends: the room starts once it's full")
 	code_field = LineEdit.new()
 	code_field.placeholder_text = "Friend's room code"
@@ -211,29 +235,39 @@ func toggle_more() -> void:
 # ------------------------------------------------------------------ choices
 # Each one picks the fighter first (the tiles), then starts the search.
 
-## Plays whoever is waiting on the server for the same size (players per side).
-func quick_match(size := 1) -> void:
+static func _size_index(size: int, tag: int) -> int:
+	for i in SIZE_NAMES.size():
+		if SIZE_OF[i] == size and TAG_OF[i] == tag:
+			return i
+	return 0
+
+
+## Plays whoever is waiting on the server for the same size (players per side) and
+## fighters per player (3: a tag Duel), under the Team rules row for team sizes.
+func quick_match(size := 1, tag := 1) -> void:
 	if busy or not _have_server():
 		return
 	size = clampi(size, 1, 3)
-	_pick_then("QUICK MATCH  " + SIZE_NAMES[size - 1],
+	var name: String = SIZE_NAMES[_size_index(size, tag)]
+	_pick_then("QUICK MATCH  " + name,
 		"Next: the server looks for players. Accept when the match is found.", func():
 			room_code = ""
 			room_created = false
-			searching_for = "Quick match  " + SIZE_NAMES[size - 1]
-			server_join_pressed.emit(fighter, "", size))
+			searching_for = "Quick match  " + name
+			server_join_pressed.emit(fighter, "", size), tag)
 
 
 ## Makes a room code and waits there for a friend.
 func create_room() -> void:
 	if busy or not _have_server():
 		return
-	_pick_then("NEW ROOM  " + SIZE_NAMES[room_size - 1],
+	var name: String = SIZE_NAMES[_size_index(room_size, room_tag)]
+	_pick_then("NEW ROOM  " + name,
 		"Next: you get a code for your friends. It starts once the room is full.", func():
 			room_code = make_code()
 			room_created = true
-			searching_for = "Room  " + SIZE_NAMES[room_size - 1]
-			server_join_pressed.emit(fighter, room_code, room_size))
+			searching_for = "Room  " + name
+			server_join_pressed.emit(fighter, room_code, room_size), room_tag)
 
 
 ## Joins a friend's room.
@@ -271,11 +305,23 @@ func use_fighter(id: String) -> void:
 		fighter = id
 
 
+## A team of `n` starting with the fighter, the roster filling the rest.
+func _padded(n: int) -> Array:
+	var out: Array = [fighter]
+	for f in MatchFactory.FIGHTERS:
+		if out.size() >= n:
+			break
+		if not (f in out):
+			out.append(f)
+	return out
+
+
 ## Opens the tiles for one fighter, then runs `then`. Backing out of them changes nothing.
-func _pick_then(heading: String, info: String, then: Callable) -> void:
+func _pick_then(heading: String, info: String, then: Callable, tag := 1) -> void:
 	status = ""
 	status_bad = false
 	if stack == null:
+		team = [fighter] if tag <= 1 else _padded(tag)
 		then.call()  # no screen stack (a bare test): keep the fighter we have
 		return
 	var p := CharacterSelect.new()
@@ -283,12 +329,13 @@ func _pick_then(heading: String, info: String, then: Callable) -> void:
 	p.solo_heading = heading
 	p.solo_info = info
 	p.done_text = "LOCKED IN"
-	p.setup("ONLINE", 1, ["YOU", "NEXT"], false, [[fighter], []])
+	p.setup("ONLINE", tag, ["YOU", "NEXT"], false, [team if team.size() == tag else _padded(tag), []])
 	p.chosen.connect(func(teams: Array):
 		picker = null
 		if stack != null and stack.top() == p:
 			stack.pop()
-		use_fighter(String((teams[0] as Array)[0]))
+		team = (teams[0] as Array).duplicate()
+		use_fighter(String(team[0]))
 		then.call())
 	p.cancelled.connect(func():
 		picker = null
@@ -335,9 +382,9 @@ func _page_rows(p: Page) -> Array:
 		Page.MAIN:
 			return [_quick_page, _rooms_page, _more]
 		Page.QUICK:
-			return [_quick, _quick2, _quick3]
+			return [_quick, _quick_tag, _quick2, _quick3, _rules_row]
 		Page.ROOMS:
-			return [_size_row, _create, code_field, _join_room]
+			return [_size_row, _room_rules_row, _create, code_field, _join_room]
 		_:
 			return [_host, field, _join] + _recent_rows
 
@@ -367,7 +414,7 @@ func _refresh_status() -> void:
 	var show_room := busy and room_code != ""
 	_room_label.text = ("Room code  " + room_code) if show_room else ""
 	if show_room and room_created:
-		_room_label.text += ("  (%s)" % SIZE_NAMES[room_size - 1]) if room_size > 1 else ""
+		_room_label.text += ("  (%s)" % SIZE_NAMES[_size_index(room_size, room_tag)]) if room_size > 1 or room_tag > 1 else ""
 		_room_label.text += "\nTell your friend%s: Join room, then this code" % ("s" if room_size > 1 else "")
 	var addrs := Netplay.local_addresses()
 	_addr_label.text = ("Your addresses:  " + ("  ".join(addrs) if not addrs.is_empty() else "(none found)")) \

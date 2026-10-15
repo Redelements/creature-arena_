@@ -106,6 +106,7 @@ class Client:
 	var side := 0
 	var slot := 0  ## input slot in the match (= side in a 1v1)
 	var size := 1  ## players per side asked for (0: whatever the room is)
+	var rules := ""  ## the team rules asked for (TeamSim.RULE_IDS)
 	var wait_shown := -1  ## the group size last told to this player
 	var waiting_since := 0  ## when they started waiting for a match (ms)
 	var check: Check = null  ## the ready check they're in (state FOUND)
@@ -122,6 +123,7 @@ class Client:
 class Check:
 	var players: Array = []  ## Clients, in the order they were grouped
 	var size := 1
+	var rules := ""
 	var deadline_ms := 0
 	var accepted := {}  ## client id -> true
 
@@ -135,6 +137,7 @@ class Game:
 	var players: Array = []  ## Clients by slot (side 0 first: [left..., right...]); null: a CPU
 	var cpu_fighters := {}  ## slot -> fighter id, for the CPU-played slots
 	var size := 1  ## players per side
+	var rules := ""  ## the team rules (TeamSim.RULE_IDS)
 	var n := 0
 	var delay := 2
 	var referee: Referee
@@ -234,6 +237,9 @@ func _handle(c: Client, m: Dictionary) -> void:
 			c.size = clampi(int(m.get("size", 1)), 0, 3)
 			if c.room == "" and c.size == 0:
 				c.size = 1
+			c.rules = String(m.get("rules", ""))
+			if not (c.rules in TeamSim.RULE_IDS):
+				c.rules = ""
 			c.state = State.LOBBY
 			c.waiting_since = Time.get_ticks_msec()
 			_log("%s is waiting%s" % [c.label(), (" in room '%s'" % c.room) if c.room != "" else ""])
@@ -325,30 +331,33 @@ func _ping_step(c: Client) -> void:
 ## A group starts once it has both teams' worth of players.
 func _pair_waiting() -> void:
 	var groups := {}  ## key -> [Client], oldest first
-	var room_size := {}
+	var room_cfg := {}  ## room -> [size, tag, rules]: whoever made it decides
 	var waiting: Array = clients.values().filter(func(c): return c.state == State.LOBBY)
 	waiting.sort_custom(func(a, b): return a.id < b.id)
 	for c: Client in waiting:
-		if c.room != "" and c.size > 0 and not room_size.has(c.room):
-			room_size[c.room] = c.size
+		if c.room != "" and c.size > 0 and not room_cfg.has(c.room):
+			room_cfg[c.room] = [c.size, c.team.size(), c.rules]
 	for c: Client in waiting:
-		var size: int = c.size if c.room == "" else int(room_size.get(c.room, 1))
-		var key := "%s|%d" % [c.room, size]
+		# Quick match groups by what each asked for: players per side, fighters per
+		# player (a tag Duel is three) and the team rules. A room takes its maker's.
+		var cfg: Array = [c.size, c.team.size(), c.rules] if c.room == "" else room_cfg.get(c.room, [1, 1, ""])
+		var key := "%s|%d|%d|%s" % [c.room, int(cfg[0]), int(cfg[1]), String(cfg[2])]
 		if not groups.has(key):
 			groups[key] = []
 		(groups[key] as Array).append(c)
 	for key in groups:
 		var size := int(String(key).get_slice("|", 1))
+		var key_rules := String(key).get_slice("|", 3)
 		var need := size * 2
 		var ready: Array = (groups[key] as Array).filter(func(c): return c.pinged())
 		while ready.size() >= need:
-			_found(ready.slice(0, need), size)
+			_found(ready.slice(0, need), size, key_rules)
 			ready = ready.slice(need)
 		# Waited long enough for a team battle: CPUs take the empty slots.
 		if need > 2 and not ready.is_empty():
 			var fill := _fill_ms(ready[0])
 			if fill > 0 and Time.get_ticks_msec() - (ready[0] as Client).waiting_since >= fill:
-				_found(ready, size)
+				_found(ready, size, key_rules)
 				ready = []
 		for c: Client in groups[key]:
 			if c.state == State.LOBBY and need > 2 and c.wait_shown != (groups[key] as Array).size():
@@ -357,10 +366,11 @@ func _pair_waiting() -> void:
 
 
 ## A group is ready to play: ask everyone in it to accept (the ready check).
-func _found(group: Array, size: int) -> void:
+func _found(group: Array, size: int, rules := "") -> void:
 	var k := Check.new()
 	k.players = group.duplicate()
 	k.size = size
+	k.rules = rules
 	k.deadline_ms = Time.get_ticks_msec() + ready_ms
 	checks.append(k)
 	for c: Client in group:
@@ -385,7 +395,7 @@ func _accept(c: Client) -> void:
 		checks.erase(k)
 		for o: Client in k.players:
 			o.check = null
-		_begin_game(k.players, k.size)
+		_begin_game(k.players, k.size, k.rules)
 
 
 ## Ready checks whose time ran out: those who accepted wait again (their place kept),
@@ -455,9 +465,10 @@ static func seat(teams: Array, size: int) -> Array:
 
 ## `group`: the players in the order they arrived; `seat()` picks their sides. Fewer
 ## than a full match: CPUs take the slots left over (fighters nobody picked, first).
-func _begin_game(group: Array, size: int) -> void:
+func _begin_game(group: Array, size: int, rules := "") -> void:
 	var g := Game.new()
 	g.size = size
+	g.rules = rules
 	g.players.resize(size * 2)
 	var used := {}
 	var sides := seat(group.map(func(c): return (c as Client).team), size)
@@ -517,7 +528,7 @@ func _start(g: Game) -> void:
 			var c = g.players[slot]
 			var fighter: String = String(g.cpu_fighters[slot]) if c == null else String(c.team[0])
 			(teams[slot / g.size] as Array).append(fighter)  # one fighter each
-	g.referee = Referee.new(teams, g.delay, g.size)
+	g.referee = Referee.new(teams, g.delay, g.size, g.rules)
 	for slot in g.cpu_fighters:
 		g.referee.add_cpu(int(slot), cpu_level, g.label * 31 + int(slot) * 7 + g.n)
 	g.path_ms = Time.get_ticks_msec()
@@ -530,7 +541,7 @@ func _start(g: Game) -> void:
 		for o: Client in g.others(c):
 			worst = maxf(worst, o.rtt)
 		var m := {"t": "start", "n": g.n, "teams": teams, "delay": g.delay, "ping": c.rtt + worst,
-			"side": c.side, "via": worst}
+			"side": c.side, "via": worst, "rules": g.rules}
 		if g.size > 1:
 			m["slot"] = c.slot
 			m["size"] = g.size
