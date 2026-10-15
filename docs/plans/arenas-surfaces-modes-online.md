@@ -186,26 +186,28 @@ input delay chosen from the worst ping still feel right with six machines?
 
 ## Progress
 
-- [ ] A1 arena-maps
-- [ ] A2 arena-crossings
-- [ ] A3 cpu-pathing
-- [ ] A4 arena-three
+Built 2026-10-15 as PRs #65-#78 (one per item, stacked from A1 up); B was skipped on Kevin's call and A5 waits on it.
+
+- [x] A1 arena-maps
+- [x] A2 arena-crossings
+- [x] A3 cpu-pathing
+- [x] A4 arena-three
 - [ ] B1 surfaces-layer
 - [ ] B2 surfaces-mix
 - [ ] B3 surfaces-fighters
 - [ ] B4 surfaces-arena
 - [ ] A5 arena-last-two
-- [ ] C1 mode-sinkhole
-- [ ] C2 mode-crater
-- [ ] C3 mode-showtime
-- [ ] C4 mode-arcade
-- [ ] C5 mode-gauntlet-daily
-- [ ] C6 mode-brawl-chaos-theater
-- [ ] D1 online-team-modes
-- [ ] D2 online-spectate-replays
-- [ ] D3 online-delay-hud
-- [ ] D4 online-arenas
+- [x] C1 mode-sinkhole
+- [x] C2 mode-crater
+- [x] C3 mode-showtime
+- [x] C4 mode-arcade
+- [x] C5 mode-gauntlet-daily
+- [x] C6 mode-brawl-chaos-theater
+- [x] D1 online-team-modes
+- [x] D2 online-spectate-replays
+- [x] D3 online-delay-hud
+- [x] D4 online-arenas
 - [ ] D5 online-steam (after the Steamworks decision)
-- [ ] D6 online-ranked
-- [ ] D7 online-mac-check
+- [x] D6 online-ranked
+- [x] D7 online-mac-check
 - [ ] C7 mode-raid (after the boss sheet)
