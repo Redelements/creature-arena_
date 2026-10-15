@@ -14,14 +14,14 @@ static var path := PATH
 
 static func read() -> void:
 	_loaded = true
-	_data = {"arcade": {}, "palette": {}}
+	_data = {"arcade": {}, "palette": {}, "gauntlet": {}, "daily": {}}
 	var f := FileAccess.open(path, FileAccess.READ)
 	if f == null:
 		return
 	var d = JSON.parse_string(f.get_as_text())
 	if d is Dictionary:
-		_data["arcade"] = d.get("arcade", {})
-		_data["palette"] = d.get("palette", {})
+		for k in _data:
+			_data[k] = d.get(k, {})
 
 
 static func save() -> void:
@@ -73,6 +73,36 @@ static func next_palette(fighter: String) -> int:
 	var i := (palette(fighter) + 1) % n
 	set_palette(fighter, i)
 	return i
+
+
+## The Gauntlet: most waves cleared per fighter.
+static func gauntlet_best(fighter: String) -> int:
+	_ensure()
+	return int((_data["gauntlet"] as Dictionary).get(fighter, 0))
+
+
+static func record_gauntlet(fighter: String, waves: int) -> bool:
+	_ensure()
+	if waves <= gauntlet_best(fighter):
+		return false
+	_data["gauntlet"][fighter] = waves
+	save()
+	return true
+
+
+## The Daily Challenge: the best score per day (YYYYMMDD).
+static func daily_best(date: int) -> int:
+	_ensure()
+	return int((_data["daily"] as Dictionary).get(str(date), 0))
+
+
+static func record_daily(date: int, score: int) -> bool:
+	_ensure()
+	if score <= daily_best(date):
+		return false
+	_data["daily"][str(date)] = score
+	save()
+	return true
 
 
 static func reset_for_tests(p: String) -> void:
