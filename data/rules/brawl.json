@@ -1,0 +1,8 @@
+{
+	"_doc": "Brawl: a free-for-all of 2 to 4 fighters, each on their own team with one life. Last one standing wins; at time, the healthiest. Spawns are fractions of the floor, one per slot. Chaos Cup plays these rules with three random mutators (data/rules/mutators.json) on top. Times are in ticks (60 per second) unless named _seconds.",
+	"time_seconds": 120,
+	"intro_ticks": 100,
+	"over_ticks": 150,
+	"mid_ko_slowmo": 30,
+	"spawns": [[0.25, 0.3], [0.75, 0.3], [0.25, 0.7], [0.75, 0.7]]
+}

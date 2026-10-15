@@ -8,7 +8,7 @@ key the sim reads, combo rules, events), [NETCODE.md](NETCODE.md), [SERVER.md](S
 Line counts are approximate (checked 2026-10-14).
 
 ```
-src/sim/    deterministic rules (match_sim, creature_sim, duel_sim, team_sim, terrain_grid, arena_map, replay, sim_defs)
+src/sim/    deterministic rules (match_sim, creature_sim, duel_sim, team_sim, brawl_sim, terrain_grid, arena_map, replay, sim_defs)
 src/ai/     cpu_controller, nav_grid           CPU opponent (seeded) and its way round walls and pits
 src/input/  player_input, mouse_orders, menu_stick
 src/view/   fx_view (+fx_ground), creature_view, surge_aura, hud, audio_view, arena_view, crowd_view, debug_view
@@ -36,6 +36,7 @@ JSON go in. Every variable is snapshotted (see Gotchas).
 | `sim_defs.gd` (150) | Input bit layout, 64-step aim/move table, arena and grid geometry, combo variety multipliers | `aim_from_bits`, `move_from_bits`, `dir_from_bits` (decode); `aim_bits`, `move_bits`, `bits_from_dir` (encode); `arena_size`, `floor_rect`, `variety_mult` |
 | `creature_sim.gd` (1,375) | One fighter: state machine, moves, status effects, movement, floor clamp, all from its JSON def | `step(buttons, sim)`; `_start_attack` (windup, raw vs cancel); `_update_attack` (frames, charge, dash, blink, home, slam, projectile spawn); `_update_dodge`, `can_dodge`; `_tick_status`; `hit_params`; `save_state`/`load_state` over `STATE_FIELDS` |
 | `match_sim.gd` (657) | The whole match: creatures, terrain, projectiles, zones, events, hitstop, KO freeze; all hit and combo resolution | `step(inputs)` (tick order); `_resolve_hits`, `_apply_hit` (damage, hitstun, stale, variety, block, every hit effect); `_flip`; `_swallow`, `_step_swallows`, `_poop` (held Gulp); `_venom_frenzy` (Hissy's passive); `breakaway`; `gain_energy`; `emit_event`; `spawn_projectile`, `add_zone`; `snapshot`/`restore`/`state_digest`/`state_hash` |
+| `brawl_sim.gd` (130) | Brawl: 2-4 creatures each on their own team, one life, last standing or healthiest at time; Chaos Cup applies mutators | `step`, `alive_count`, `snapshot`/`restore`/`state_digest` |
 | `terrain_grid.gd` (420) | Floor as 8 px cells: INTACT → CRACKED → HOLE, healing a step every `HEAL_TICKS` (720) toward `base` (the map's piece there: WALL, FENCE, CHASM, SHALLOWS, BRUSH) | `load_map`, `damage_cell/circle/rect/ring`, `crack_cell/circle`, `smash`, `flatten`, `is_hole_at`, `solid_at`, `walk_mult_at`, `slide_x/y`, `resolve_body`, `body_blocked`, `nearest_solid` (respawn), `tick(blocked)` |
 | `arena_map.gd` (45) | Arena maps from `data/arenas/*.json`: `IDS`, cached loads, a side's spawn point | `get_map`, `name_of`, `spawn` |
 | `duel_sim.gd` (296) | 3v3 tag rules around a MatchSim, one active fighter per side; also used for online 1v1 | `step`; `_tag`, `can_tag`; `_check_knockouts`, `_enter_next`, `_bench_regen`; `_time_out`; `snapshot`/`restore` |
@@ -240,6 +241,7 @@ packets are plain-UDP JSON: `creature-arena?` / `creature-arena`.
 | `game/ladder.gd` (60) | The questions a run of single-round fights answers (opponent, level, mutators, carried health, what a win or loss earns); Arcade, Gauntlet and Daily extend it, main plays any of them stage by stage (`_start_arcade_stage`, `_arcade_result`) | `opponent`, `stage_level`, `mutators`, `carried_hp`, `stage_won`, `lost_banner`, `score_fight` |
 | `game/gauntlet.gd` (60) | Endless waves, the level up every two to Rage, health carrying over with a 15% breather, the roster reshuffled each lap; best waves to Progress | `stage_won`, `waves` |
 | `game/daily.gd` (110) | The Daily Challenge: the UTC date seeds the opponent, Normal/Hard and two mutators; a win scores health left + time to spare; `build`/`cpu` make the day's match and `verify(replay)` rescoring it on a fresh match; saved to `user://daily/` with the replay | `today`, `mutators`, `score_fight`, `verify` |
+| `game/replay_builder.gd` (60) | Rebuilds the match a replay was recorded on from the setup main saves in `Replay.setup` (kind, ids, teams, rules, arena, mutators), for the Replay theater and tests | `build`, `play` |
 | `game/match_factory.gd` (55) | Loads and caches creature JSON; `FIGHTERS` roster; spawn constants; `arena` (the map new offline matches use) | `load_def`, `versus`, `training` |
 | `game/autoplay.gd` (44) | Scripted player input behind `--autoplay` | `bits(tick)`, `length` |
 | `ui/ui_screen.gd` (224) | Base for every menu screen: title, rows, description, hint | override `build`; `add_button`, `add_option`, `add_text`, `add_space`, `add_row`; `back` |

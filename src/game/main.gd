@@ -37,7 +37,8 @@ extends Node2D
 ##   --net-report=PATH     write the online match's report (inputs, state fingerprints) on exit
 
 enum Flow { MENU, INTRO, FIGHT, ROUND_OVER, MATCH_OVER, SELECT, LOBBY }
-enum Side { PLAYER, CPU, DUMMY, SCRIPT, PLAYER2, REMOTE }
+enum Side { PLAYER, CPU, DUMMY, SCRIPT, PLAYER2, REMOTE, PLAYER3, PLAYER4, REPLAY }
+const LOCAL_SIDES := [Side.PLAYER, Side.PLAYER2, Side.PLAYER3, Side.PLAYER4]
 
 const MODES := [
 	{"label": "Cairn  vs  CPU Culvert", "left": "cairn", "right": "culvert", "sides": [Side.PLAYER, Side.CPU]},
@@ -85,7 +86,14 @@ const MODES := [
 	{"label": "Arcade", "arcade": true, "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Gauntlet", "gauntlet": true, "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Daily Challenge", "daily": true, "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Brawl: 2 players", "brawl": true, "sides": [Side.PLAYER, Side.PLAYER2, Side.CPU, Side.CPU]},
+	{"label": "Brawl: 3 players", "brawl": true, "sides": [Side.PLAYER, Side.PLAYER2, Side.PLAYER3, Side.CPU]},
+	{"label": "Brawl: 4 players", "brawl": true, "sides": [Side.PLAYER, Side.PLAYER2, Side.PLAYER3, Side.PLAYER4]},
+	{"label": "Brawl: you vs 3 CPUs", "brawl": true, "sides": [Side.PLAYER, Side.CPU, Side.CPU, Side.CPU]},
+	{"label": "Chaos Cup", "brawl": true, "chaos": true, "sides": [Side.PLAYER, Side.CPU, Side.CPU, Side.CPU]},
+	{"label": "Replay", "replay": true, "sides": []},
 ]
+const REPLAY_MODE := 50
 ## The menus (src/ui screens): the title menu opens Single player (MENU_ROWS), the online
 ## screen, or Settings. MODES indexes stay stable for --mode=N; rows with choices pick
 ## one of several modes with Left/Right.
@@ -114,6 +122,11 @@ const MENU_ROWS := [
 		"desc": "Hold the zone while it moves and the ground round it breaks. 60 s held wins. Left/Right: team size"},
 	{"label": "Showtime vs CPU", "modes": [39, 40, 41], "choices": ["1 v 1", "2 v 2", "3 v 3"],
 		"desc": "Win on crowd hype, not damage: combos, Surges, counters, KOs and ring-outs score. Left/Right: team size"},
+	{"label": "Brawl", "modes": [48, 45, 46, 47], "choices": ["you vs 3 CPUs", "2 players", "3 players", "4 players"],
+		"desc": "Free-for-all, four fighters, one life each; CPUs fill the empty seats. Left/Right: how many play"},
+	{"label": "Chaos Cup", "modes": [49],
+		"desc": "A Brawl with three random mutators stacked on: low gravity, Surge rush, a floor of pits, haste, glass cannon"},
+	{"label": "Replay theater", "screen": "replays", "desc": "Watch the fights you saved with F6"},
 	{"label": "Versus: 2 players", "modes": [8], "desc": "One fighter each, two players on one screen"},
 	{"label": "Versus CPU", "modes": [0, 1, 12, 14, 16, 18, 21, 23, 25, 27],
 		"desc": "Best of three rounds against the CPU. Left/Right: your fighter",
@@ -234,6 +247,14 @@ var team_battle: TeamSim = null
 var coach = null
 var _row_choice: Array = []
 var player2_input := PlayerInput.new()
+var player3_input := PlayerInput.new()
+var player4_input := PlayerInput.new()
+## A Brawl in progress (null outside one), its Chaos Cup mutator names for the banner,
+## and a replay being watched (its frames feed every REPLAY side).
+var brawl: BrawlSim = null
+var _chaos_names := ""
+var _replay_frames: Array = []
+var _rules_id := ""
 var _teams: Array = DEFAULT_TEAMS.duplicate(true)
 var _skip_select := false
 var _cpu_vs_cpu := false
@@ -327,8 +348,9 @@ func _ready() -> void:
 	layer.add_child(hud)
 	_row_choice.resize(MENU_ROWS.size())
 	_row_choice.fill(0)
-	player2_input.keyboard = false
-	player2_input.pad_device = PlayerInput.NO_PAD
+	for pin in [player2_input, player3_input, player4_input]:
+		(pin as PlayerInput).keyboard = false
+		(pin as PlayerInput).pad_device = PlayerInput.NO_PAD
 
 	_load_settings()
 	var start_mode := _parse_args()
@@ -441,6 +463,9 @@ func _set_arena(id: String) -> void:
 
 func _start_row(row: int) -> void:
 	var r: Dictionary = MENU_ROWS[row]
+	if r.has("screen"):
+		_open_replays()
+		return
 	if r.get("fighter_choice", false):
 		_arcade_fighter = MatchFactory.FIGHTERS[clampi(int(_row_choice[row]), 0, MatchFactory.FIGHTERS.size() - 1)]
 		_start_match(int(r["modes"][0]))
@@ -588,7 +613,7 @@ func _start_match(m: int, keep_teams := false) -> void:
 		_open_lobby()
 		return
 	var two_players: bool = Side.PLAYER2 in cfg.get("sides", [])
-	_assign_devices(two_players)
+	_assign_devices(_humans(cfg))
 	if _has_pick(cfg) and not keep_teams and not _skip_select:
 		flow = Flow.SELECT
 		flow_t = 0
@@ -628,23 +653,48 @@ func _on_teams_chosen(teams: Array) -> void:
 	_start_round()
 
 
-## Local 2-player: with two controllers each player gets one (player 1 keeps the
-## keyboard too); with one, player 1 uses keyboard and mouse and player 2 the controller.
-func _assign_devices(two_players: bool) -> void:
+## How many people play at this machine in a mode.
+func _humans(cfg: Dictionary) -> int:
+	var n := 0
+	for s in cfg.get("sides", []):
+		if s in LOCAL_SIDES:
+			n += 1
+	return n
+
+
+func _local_input(side: int) -> PlayerInput:
+	match side:
+		Side.PLAYER2: return player2_input
+		Side.PLAYER3: return player3_input
+		Side.PLAYER4: return player4_input
+	return player_input
+
+
+## Local players: with a controller each, everyone gets one (player 1 keeps the
+## keyboard too); one short, player 1 uses keyboard and mouse and the controllers go
+## to players 2 and up; fewer than that and someone is asked to plug one in.
+func _assign_devices(humans: int) -> void:
 	var pads := Input.get_connected_joypads()
 	player_input.keyboard = true
 	player_input.pad_device = PlayerInput.ANY_PAD
-	player2_input.pad_device = PlayerInput.NO_PAD
-	if not two_players:
+	var others: Array[PlayerInput] = [player2_input, player3_input, player4_input]
+	for pin in others:
+		pin.pad_device = PlayerInput.NO_PAD
+	if humans <= 1:
 		return
-	if pads.size() >= 2:
+	var need := humans - 1
+	var first := 0
+	if pads.size() >= humans:
 		player_input.pad_device = pads[0]
-		player2_input.pad_device = pads[1]
-	elif pads.size() == 1:
-		player_input.pad_device = PlayerInput.NO_PAD
-		player2_input.pad_device = pads[0]
+		first = 1
 	else:
-		hud.show_toast("Connect a controller for player 2")
+		player_input.pad_device = PlayerInput.NO_PAD
+	for k in need:
+		if first + k < pads.size():
+			others[k].pad_device = pads[first + k]
+	if pads.size() < need:
+		hud.show_toast("Connect %d controller%s for players %s" % [need - pads.size(), "" if need - pads.size() == 1 else "s",
+			"2-%d" % humans if humans > 2 else "2"])
 
 
 func _start_round() -> void:
@@ -660,6 +710,9 @@ func _start_round() -> void:
 		return
 	if cfg.has("team"):
 		_start_team(int(cfg["team"]), "deathmatch" if cfg.get("deathmatch", false) else String(cfg.get("rules", "")))
+		return
+	if cfg.get("brawl", false):
+		_start_brawl(cfg)
 		return
 	if cfg.get("trials", false):
 		coach = ComboTrials.new(Callable(player_input, "label"))
@@ -790,6 +843,7 @@ func _start_duel() -> void:
 ## You play the first fighter of the left team; CPUs play everyone else.
 func _start_team(per_side: int, rules_id := "") -> void:
 	_teams = _padded_teams(per_side)
+	_rules_id = rules_id
 	var rules := {}
 	match rules_id:
 		"deathmatch": rules = TeamSim.load_rules(TeamSim.DEATHMATCH_PATH)
@@ -810,6 +864,188 @@ func _start_team(per_side: int, rules_id := "") -> void:
 	_show_pads()
 	flow = Flow.FIGHT
 	flow_t = 0
+
+
+## Brawl: four fighters (the teams' first picks, then the roster), each on their own;
+## Chaos Cup stacks three mutators drawn by the seed.
+func _start_brawl(cfg: Dictionary) -> void:
+	var ids: Array = []
+	for side in _teams:
+		for id in side:
+			if not (String(id) in ids):
+				ids.append(String(id))
+	for f in MatchFactory.FIGHTERS:
+		if ids.size() >= BrawlSim.MAX_PLAYERS:
+			break
+		if not (f in ids):
+			ids.append(f)
+	ids = ids.slice(0, BrawlSim.MAX_PLAYERS)
+	var muts := {}
+	_chaos_names = ""
+	if cfg.get("chaos", false):
+		var table := Daily.mutator_table()
+		var keys: Array = table.keys()
+		keys.sort()
+		var rng := RandomNumberGenerator.new()
+		rng.seed = seed_base
+		for i in range(keys.size() - 1, 0, -1):
+			var j := rng.randi_range(0, i)
+			var t = keys[i]
+			keys[i] = keys[j]
+			keys[j] = t
+		var names: Array = []
+		for k in keys.slice(0, 3):
+			for key in table[k]:
+				if key != "name":
+					muts[key] = table[k][key]
+			names.append(String(table[k].get("name", k)))
+		_chaos_names = ", ".join(names)
+	brawl = BrawlSim.new(ids, {}, muts, seed_base)
+	_new_sim(brawl.sim, cfg["sides"])
+	hud.brawl = brawl
+	hud.focus = 0
+	hud.timer_ticks = brawl.timer
+	hud.wins = [0, 0]
+	hud.wins_needed = 0
+	hud.banner = ""
+	flow = Flow.FIGHT
+	flow_t = 0
+
+
+func _brawl_flow() -> void:
+	hud.timer_ticks = maxi(brawl.timer, 0)
+	match brawl.phase:
+		BrawlSim.Phase.INTRO:
+			var t := brawl.phase_t
+			hud.banner = ("CHAOS CUP" if _chaos_names != "" else "BRAWL") if t < 60 else "FIGHT!"
+			hud.banner_sub = (_chaos_names if _chaos_names != "" else "Free-for-all   ·   last one standing") if t < 60 else ""
+			if t == 2 or t == 60:
+				audio.play("round_start", 0.0, 0.75 if t == 2 else 1.0)
+		BrawlSim.Phase.FIGHT:
+			hud.banner = ""
+			hud.banner_sub = ""
+		BrawlSim.Phase.OVER:
+			if brawl.phase_t == 1:
+				hud.banner = "K.O." if brawl.timer > 0 else "TIME"
+				hud.banner_sub = ""
+			if brawl.phase_t >= int(brawl.rules.get("over_ticks", 150)):
+				flow = Flow.MATCH_OVER
+				flow_t = 0
+				var w := brawl.winner
+				if w < 0:
+					hud.banner = "DRAW"
+				else:
+					hud.banner = "%s WINS!" % String(sim.creatures[w].def["name"]).to_upper()
+					hud.banner_sub = _side_name(w) if sides[w] in LOCAL_SIDES else ""
+
+
+# ------------------------------------------------------------------ replay theater
+
+## The saved replays, newest first: pick one to watch.
+func _open_replays() -> void:
+	var scr := UiScreen.new()
+	scr.logo = true
+	scr.title = "REPLAY THEATER"
+	scr.row_width = 280.0
+	scr.row_height = 13.0
+	scr.row_font = 7
+	scr.row_gap = 1
+	scr.hints = ["move", "select", "back"]
+	scr.builder = func(s: UiScreen):
+		var files: Array = []
+		var dir := DirAccess.open("user://replays")
+		if dir != null:
+			for f in dir.get_files():
+				if f.ends_with(".json"):
+					files.append(f)
+		files.sort()
+		files.reverse()
+		if files.is_empty():
+			s.add_text("No replays yet. Press F6 during a fight to save one.")
+		for f in files.slice(0, 20):
+			var path: String = "user://replays/" + String(f)
+			s.add_button(_replay_label(path), func(): _play_replay(path), "Watch it")
+		s.add_space(4)
+		s.add_button("Back", s.back)
+	ui.push(scr)
+
+
+func _replay_label(path: String) -> String:
+	var stamp := path.get_file().trim_prefix("replay_").trim_suffix(".json").replace("T", " ")
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return stamp
+	var d = JSON.parse_string(f.get_as_text())
+	if not (d is Dictionary) or not (d.get("setup") is Dictionary):
+		return stamp
+	var st: Dictionary = d["setup"]
+	var names: Array = []
+	for id in st.get("ids", []):
+		names.append(String(MatchFactory.load_def(String(id)).get("name", id)))
+	return "%s   %s   %s" % [stamp.left(16), String(st.get("kind", "versus")), " v ".join(names)]
+
+
+## Watches a replay: the match it was recorded on is rebuilt and every side plays its
+## recorded inputs. Ends when the inputs run out.
+func _play_replay(path: String) -> void:
+	var rep := Replay.load_file(path)
+	if rep == null or not (rep.setup is Dictionary):
+		_toast("That replay can't be played (no setup saved with it)")
+		return
+	_close_ui()
+	mode = REPLAY_MODE
+	wins = [0, 0]
+	round_num = 1
+	hud.menu_visible = false
+	hud.visible = true
+	arcade = null
+	_cpu_level_override = -1
+	_end_duel()
+	_end_coach()
+	var built := ReplayBuilder.build(rep.setup)
+	var game = built["game"]
+	var s: Array = []
+	for i in (built["sim"] as MatchSim).creatures.size():
+		s.append(Side.REPLAY)
+	_replay_frames = rep.frames
+	if game is DuelSim:
+		duel = game
+		_new_sim(duel.sim, s)
+		hud.duel = duel
+		hud.timer_ticks = duel.timer
+	elif game is TeamSim:
+		team_battle = game
+		_new_sim(team_battle.sim, s)
+		hud.team = team_battle
+		hud.focus = 0
+		hud.timer_ticks = team_battle.timer
+		_show_pads()
+	elif game is BrawlSim:
+		brawl = game
+		_chaos_names = ""
+		_new_sim(brawl.sim, s)
+		hud.brawl = brawl
+		hud.focus = 0
+		hud.timer_ticks = brawl.timer
+	else:
+		_new_sim(built["sim"], s)
+		timer = ROUND_TICKS
+		hud.timer_ticks = timer
+		flow = Flow.INTRO
+		flow_t = 0
+		hud.wins = wins
+		audio.play_music("fight")
+		return
+	hud.wins = [0, 0]
+	hud.wins_needed = 0
+	hud.banner = ""
+	flow = Flow.FIGHT
+	flow_t = 0
+	audio.play_music("fight")
+
+
+func _replaying() -> bool:
+	return mode == REPLAY_MODE and not _replay_frames.is_empty()
 
 
 ## Team Deathmatch: one spawn pad per fighter slot, against its team's side wall.
@@ -970,9 +1206,12 @@ func _coach_step() -> void:
 func _end_duel() -> void:
 	duel = null
 	team_battle = null
+	brawl = null
+	_replay_frames = []
 	if hud != null:
 		hud.duel = null
 		hud.team = null
+		hud.brawl = null
 		hud.wins_needed = WINS_NEEDED
 
 
@@ -1018,8 +1257,14 @@ func _side_name(i: int) -> String:
 			return "OPPONENT"
 		Side.PLAYER2:
 			return "PLAYER 2"
+		Side.PLAYER3:
+			return "PLAYER 3"
+		Side.PLAYER4:
+			return "PLAYER 4"
 		Side.CPU:
 			return "CPU"
+		Side.REPLAY:
+			return "REPLAY"
 	return "SIDE %d" % (i + 1)
 
 
@@ -1058,9 +1303,10 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 		sides.append(Side.CPU)  # a team battle's other slots
 	if _cpu_vs_cpu:
 		for i in sides.size():
-			if sides[i] == Side.PLAYER or sides[i] == Side.PLAYER2:
+			if sides[i] in LOCAL_SIDES:
 				sides[i] = Side.CPU
 	replay = Replay.new()
+	replay.setup = _replay_setup(s)
 	cpus = []
 	cpus.resize(sides.size())
 	hud.resize_slots(sides.size())
@@ -1097,16 +1343,23 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 				label = "P1"
 			Side.PLAYER2:
 				label = "P2"
+			Side.PLAYER3:
+				label = "P3"
+			Side.PLAYER4:
+				label = "P4"
 			Side.CPU:
 				label = "CPU"
 			Side.REMOTE:
 				label = "ONLINE"
+			Side.REPLAY:
+				label = "REPLAY"
 			Side.SCRIPT:
 				label = ""
 		if sim.creatures[i].is_dummy:
 			label = ""
-		fx.side_marks.append({"color": Hud.SIDE_COLORS[clampi(sim.creatures[i].team, 0, 1)], "label": label,
-			"rel": _relation(i)})
+		var mark_col: Color = Hud.BRAWL_COLORS[i % Hud.BRAWL_COLORS.size()] if brawl != null and brawl.sim == s \
+			else Hud.SIDE_COLORS[clampi(sim.creatures[i].team, 0, 1)]
+		fx.side_marks.append({"color": mark_col, "label": label, "rel": _relation(i)})
 	for i in sides.size():
 		match sides[i]:
 			Side.PLAYER:
@@ -1119,15 +1372,44 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 				hud.key_labels[i] = ["", ""]
 			Side.PLAYER2:
 				hud.tags[i] = "P2"
+			Side.PLAYER3:
+				hud.tags[i] = "P3"
+			Side.PLAYER4:
+				hud.tags[i] = "P4"
 			Side.REMOTE:
 				hud.tags[i] = "ONLINE"
+				hud.key_labels[i] = ["", ""]
+			Side.REPLAY:
+				hud.tags[i] = "REPLAY"
 				hud.key_labels[i] = ["", ""]
 			_:
 				hud.tags[i] = ""
 	shake = 0.0
-	player_input.reset()
-	player2_input.reset()
+	for pin in [player_input, player2_input, player3_input, player4_input]:
+		(pin as PlayerInput).reset()
 	_apply_device()
+
+
+## What this match is, saved with its replay so ReplayBuilder can rebuild it.
+func _replay_setup(s: MatchSim) -> Dictionary:
+	var ids: Array = []
+	for c in s.creatures:
+		ids.append(String(c.def.get("id", "")))
+	var st := {"kind": "versus", "ids": ids, "arena": s.arena_id, "mutators": s.mutators.duplicate(),
+		"mut_seed": (arcade as Daily).date if arcade is Daily else seed_base}
+	if duel != null and duel.sim == s:
+		st["kind"] = "duel"
+		st["teams"] = _teams.duplicate(true)
+	elif team_battle != null and team_battle.sim == s:
+		st["kind"] = "team"
+		st["teams"] = _teams.duplicate(true)
+		st["size"] = team_battle.size
+		st["rules"] = _rules_id
+	elif brawl != null and brawl.sim == s:
+		st["kind"] = "brawl"
+	elif mode < MODES.size() and MODES[mode].get("training", false):
+		st["kind"] = "training"
+	return st
 
 
 ## Every rendered frame: on a real connection, read the network now rather than at the
@@ -1239,11 +1521,20 @@ func _update_flow() -> void:
 				flow = Flow.FIGHT
 				flow_t = 0
 		Flow.FIGHT:
+			if _replaying() and sim.tick >= _replay_frames.size() and (duel != null or team_battle != null or brawl != null):
+				flow = Flow.MATCH_OVER
+				flow_t = 0
+				hud.banner = "END OF REPLAY"
+				hud.banner_sub = ""
+				return
 			if duel != null:
 				_duel_flow()
 				return
 			if team_battle != null:
 				_team_flow()
+				return
+			if brawl != null:
+				_brawl_flow()
 				return
 			if coach != null:
 				return
@@ -1259,10 +1550,16 @@ func _update_flow() -> void:
 			timer -= 1
 			hud.timer_ticks = maxi(timer, 0)
 			var ko := _ko_side()
-			if ko != -2 or timer <= 0:
+			if ko != -2 or timer <= 0 or (_replaying() and sim.tick >= _replay_frames.size()):
 				_end_round(ko)
 		Flow.ROUND_OVER:
 			if flow_t >= ROUND_OVER_TICKS:
+				if _replaying():
+					flow = Flow.MATCH_OVER
+					flow_t = 0
+					hud.banner = "END OF REPLAY"
+					hud.banner_sub = ""
+					return
 				var needed := 1 if arcade != null else WINS_NEEDED
 				if wins[0] >= needed or wins[1] >= needed:
 					if _arcade_result(wins[0] >= needed):
@@ -1333,8 +1630,13 @@ func _side_bits(i: int, live: bool) -> int:
 			if not ping.is_empty():
 				fx.ping(ping["pos"], bool(ping["attack"]))
 			return b
-		Side.PLAYER2:
-			return player2_input.bits(sim, i, Vector2.ZERO)
+		Side.PLAYER2, Side.PLAYER3, Side.PLAYER4:
+			return _local_input(sides[i]).bits(sim, i, Vector2.ZERO)
+		Side.REPLAY:
+			var t := sim.tick
+			if t < _replay_frames.size() and i < (_replay_frames[t] as PackedInt32Array).size():
+				return (_replay_frames[t] as PackedInt32Array)[i]
+			return 0
 		Side.REMOTE:
 			return 0  # arrives over the network
 		Side.CPU:
@@ -1368,11 +1670,11 @@ func _dummy_bits() -> int:
 func _relation(i: int) -> String:
 	var local_teams := {}
 	for k in mini(sides.size(), sim.creatures.size()):
-		if sides[k] == Side.PLAYER or sides[k] == Side.PLAYER2:
+		if sides[k] in LOCAL_SIDES:
 			local_teams[sim.creatures[k].team] = true
 	if local_teams.size() != 1:
 		return "side"
-	if i < sides.size() and (sides[i] == Side.PLAYER or sides[i] == Side.PLAYER2):
+	if i < sides.size() and sides[i] in LOCAL_SIDES:
 		return "self"
 	return "ally" if local_teams.has(sim.creatures[i].team) else "enemy"
 
@@ -1382,7 +1684,7 @@ func _relation(i: int) -> String:
 func is_local_team(team: int) -> bool:
 	var any := false
 	for i in mini(sides.size(), sim.creatures.size()):
-		if sides[i] == Side.PLAYER or sides[i] == Side.PLAYER2:
+		if sides[i] in LOCAL_SIDES:
 			any = true
 			if sim.creatures[i].team == team:
 				return true
@@ -1791,10 +2093,8 @@ func _apply_device() -> void:
 	hud.resize_slots(sides.size())
 	for i in sides.size():
 		var pin: PlayerInput = null
-		if sides[i] == Side.PLAYER:
-			pin = player_input
-		elif sides[i] == Side.PLAYER2:
-			pin = player2_input
+		if sides[i] in LOCAL_SIDES:
+			pin = _local_input(sides[i])
 		if pin != null:
 			hud.key_labels[i] = [pin.label("skill_1"), pin.label("skill_2")]
 			hud.surge_labels[i] = pin.label("surge")
@@ -2350,6 +2650,12 @@ func _show_match_over() -> void:
 			s.add_button("Leave", _leave_online, "Back to the title menu")
 			_match_over_status = s.add_text("", UiTheme.SIZE_HINT + 1, UiTheme.C_ACCENT)
 			s.on_back = _leave_online
+		elif _replaying() or mode == REPLAY_MODE:
+			s.add_button("Replay theater", func():
+				_open_menu("single")
+				_open_replays(), "Pick another")
+			s.add_button("Main menu", func(): _open_menu(), "Back to the title menu")
+			s.on_back = func(): _open_menu()
 		else:
 			if arcade != null and arcade.can_retry():
 				s.add_button("Retry the stage", func():

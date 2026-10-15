@@ -25,11 +25,15 @@ var duel: DuelSim = null  ## set during a Duel: draws the team strip under each 
 ## Set during a team battle (2v2, 3v3): a column of small panels per team instead of
 ## one big panel per side; `focus` (the local player's slot) keeps the big one.
 var team: TeamSim = null
+## Set during a Brawl: a card per fighter, two down each edge, in BRAWL_COLORS.
+var brawl: BrawlSim = null
 var focus := 0
 var tag_labels := ["", ""]
 var tags := ["P1", "CPU"]
 var key_labels := [["", ""], ["", ""]]
 const SIDE_COLORS: Array[Color] = [Color("ff5a5a"), Color("5aa0ff")]
+## A Brawl's four fighters, each their own colour.
+const BRAWL_COLORS: Array[Color] = [Color("ff5a5a"), Color("5aa0ff"), Color("6fd66f"), Color("ffd166")]
 var surge_labels := ["", ""]
 var help_text := ""
 var show_help := true
@@ -164,6 +168,8 @@ func _draw() -> void:
 		return
 	if team != null:
 		_team_panels()
+	elif brawl != null:
+		_brawl_panels()
 	else:
 		_panel(0, _hl + 4.0, false)
 		_panel(1, _hr - 164.0, true)
@@ -212,11 +218,29 @@ func _team_panels() -> void:
 			y += 16.0
 
 
+## Brawl: slots 0 and 1 down the left edge, 2 and 3 down the right; yours the full panel.
+func _brawl_panels() -> void:
+	for col in 2:
+		var right := col == 1
+		var x := _hl + 4.0 if not right else _hr - 164.0
+		var y := 3.0
+		for slot in [col * 2, col * 2 + 1]:
+			if slot >= sim.creatures.size():
+				continue
+			if slot == focus:
+				_panel(slot, x, right, slot % 2)
+				y = 39.0
+			else:
+				_card(slot, x, y, right)
+				y += 16.0
+
+
 func _card(slot: int, x: float, y: float, right: bool) -> void:
 	var c := sim.creatures[slot]
 	var down := c.state == CreatureSim.State.KO or c.hp <= 0.0
 	draw_rect(Rect2(x, y, 160, 15), C_PANEL)
-	draw_rect(Rect2(x if not right else x + 158, y, 2, 15), SIDE_COLORS[clampi(c.team, 0, 1)])
+	var stripe := BRAWL_COLORS[slot % BRAWL_COLORS.size()] if brawl != null else SIDE_COLORS[clampi(c.team, 0, 1)]
+	draw_rect(Rect2(x if not right else x + 158, y, 2, 15), stripe)
 	var name := String(c.def.get("name", "?")).to_upper()
 	_text(Vector2(x + 5, y + 7), name, 6, C_DIM if down else C_TEXT)
 	if down:
