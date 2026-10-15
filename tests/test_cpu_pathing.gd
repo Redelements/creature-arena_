@@ -1,0 +1,112 @@
+extends TestCase
+## The CPU finds its way round walls, fences and chasms: a coarse nav grid with
+## integer costs (deterministic), consulted only when the straight line is blocked.
+
+
+func _on(map: String, left := "cairn", right := "culvert") -> MatchSim:
+	var was: String = MatchFactory.arena
+	MatchFactory.arena = map
+	var sim := MatchFactory.versus(left, right)
+	MatchFactory.arena = was
+	return sim
+
+
+func _with(pieces: Array, left := "cairn", right := "culvert") -> MatchSim:
+	var sim := MatchFactory.versus(left, right)
+	sim.terrain.load_map({"pieces": pieces})
+	return sim
+
+
+func test_a_path_goes_round_the_quarry_wall() -> void:
+	var sim := _on("quarry")
+	var nav := NavGrid.new()
+	nav.update(sim.terrain)
+	var from := sim.terrain.cell_center(Vector2i(10, 18))  # left lane
+	var to := sim.terrain.cell_center(Vector2i(42, 18))  # middle lane
+	assert_false(NavGrid.clear_line(sim.terrain, from, to, 10.0), "the wall is in the way")
+	sim.terrain.set_cell(Vector2i(10, 24), TerrainGrid.HOLE)
+	var past_hole := sim.terrain.cell_center(Vector2i(10, 30))
+	assert_false(NavGrid.clear_line(sim.terrain, from, past_hole, 10.0), "a hole blocks the line")
+	assert_true(NavGrid.clear_line(sim.terrain, from, past_hole, 10.0, false), "unless holes are left to the steering")
+	sim.terrain.set_cell(Vector2i(10, 24), TerrainGrid.INTACT)
+	assert_true(NavGrid.clear_line(sim.terrain, from, sim.terrain.cell_center(Vector2i(10, 30)), 10.0), "open floor is clear")
+	var path := nav.path(from, to)
+	assert_true(path.size() > 0, "a path exists")
+	var straight := from.distance_to(to)
+	var length := 0.0
+	var prev := from
+	for p in path:
+		length += prev.distance_to(p)
+		prev = p
+		assert_false(nav.is_blocked(nav.node_of(p)), "waypoint on open floor")
+		assert_false(sim.terrain.solid_at(p), "waypoint not in a wall")
+	assert_gt(length, straight * 1.2, "it goes round, not through")
+	assert_lt(path[path.size() - 1].distance_to(to), 12.0, "ends at the goal's node:")
+
+
+func test_the_same_path_twice() -> void:
+	var sim := _on("quarry")
+	var nav := NavGrid.new()
+	nav.update(sim.terrain)
+	var a := nav.path(sim.terrain.cell_center(Vector2i(5, 5)), sim.terrain.cell_center(Vector2i(70, 33)))
+	var b := nav.path(sim.terrain.cell_center(Vector2i(5, 5)), sim.terrain.cell_center(Vector2i(70, 33)))
+	assert_eq(a, b, "deterministic:")
+
+
+func test_no_path_when_walled_in() -> void:
+	var sim := _with([{"kind": "wall", "rect": [40, 0, 2, 36]}])
+	var nav := NavGrid.new()
+	nav.update(sim.terrain)
+	var path := nav.path(sim.terrain.cell_center(Vector2i(10, 18)), sim.terrain.cell_center(Vector2i(70, 18)))
+	assert_eq(path.size(), 0, "a wall across the whole floor cannot be passed:")
+
+
+func _cpu_reaches(sim: MatchSim, level: int, limit: int) -> int:
+	var cpu := CpuController.new(0, level, 5)
+	var me := sim.creatures[0]
+	var foe := sim.creatures[1]
+	for t in limit:
+		var bits := cpu.bits(sim)
+		sim.step(PackedInt32Array([bits, 0]))
+		if me.pos.distance_to(foe.pos) < 44.0:
+			return t
+	return -1
+
+
+func test_every_cpu_level_walks_round_the_wall_to_the_foe() -> void:
+	for level in [0, 1, 2, 3]:
+		var sim := _on("quarry", "cairn", "culvert")
+		sim.creatures[0].pos = sim.terrain.cell_center(Vector2i(8, 18))  # left lane
+		sim.creatures[1].pos = sim.terrain.cell_center(Vector2i(42, 18))  # middle lane
+		sim.creatures[1].facing = Vector2.LEFT
+		var t := _cpu_reaches(sim, level, 900)
+		assert_true(t >= 0, "level %d reached the foe round the wall" % level)
+		assert_eq(sim.terrain.count(TerrainGrid.WALL), 2 * 2 * 26, "level %d: without smashing anything" % level)
+
+
+func test_the_cpu_goes_round_a_chasm_and_through_a_gap_in_a_fence() -> void:
+	var chasm := _with([{"kind": "chasm", "rect": [30, 0, 3, 30]}], "culvert", "cairn")  # a gap at the bottom
+	chasm.creatures[0].pos = chasm.terrain.cell_center(Vector2i(10, 10))
+	chasm.creatures[1].pos = chasm.terrain.cell_center(Vector2i(50, 10))
+	assert_true(_cpu_reaches(chasm, 2, 900) >= 0, "round the chasm")
+	assert_true(chasm.creatures[0].hp == chasm.creatures[0].max_hp, "without falling in")
+	var fence := _with([{"kind": "fence", "rect": [30, 0, 1, 16]}, {"kind": "fence", "rect": [30, 20, 1, 16]}], "sno", "cairn")
+	fence.creatures[0].pos = fence.terrain.cell_center(Vector2i(10, 4))
+	fence.creatures[1].pos = fence.terrain.cell_center(Vector2i(50, 4))
+	assert_true(_cpu_reaches(fence, 1, 900) >= 0, "through the gap in the fence")
+
+
+func test_the_stadium_cpu_match_is_unchanged_by_pathing() -> void:
+	# On open floor the straight line is clear, so the CPU never consults the grid:
+	# the seeded match plays exactly as before pathing existed.
+	var a := _seeded_match()
+	var b := _seeded_match()
+	assert_eq(a, b, "seeded CPU match fingerprint:")
+
+
+func _seeded_match() -> String:
+	var sim := MatchFactory.versus("cairn", "culvert")
+	var cpus := [CpuController.new(0, 2, 11), CpuController.new(1, 2, 12)]
+	for t in 600:
+		sim.step(PackedInt32Array([cpus[0].bits(sim), cpus[1].bits(sim)]))
+	return sim.state_digest()
