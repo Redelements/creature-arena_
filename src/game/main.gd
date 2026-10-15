@@ -76,6 +76,9 @@ const MODES := [
 	{"label": "Sinkhole: 1v1 vs CPU", "team": 1, "rules": "sinkhole", "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Sinkhole: 2v2 vs CPU", "team": 2, "rules": "sinkhole", "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Sinkhole: 3v3 vs CPU", "team": 3, "rules": "sinkhole", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "King of the Crater: 1v1 vs CPU", "team": 1, "rules": "crater", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "King of the Crater: 2v2 vs CPU", "team": 2, "rules": "crater", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "King of the Crater: 3v3 vs CPU", "team": 3, "rules": "crater", "sides": [Side.PLAYER, Side.CPU]},
 ]
 ## The menus (src/ui screens): the title menu opens Single player (MENU_ROWS), the online
 ## screen, or Settings. MODES indexes stay stable for --mode=N; rows with choices pick
@@ -101,6 +104,8 @@ const MENU_ROWS := [
 		"desc": "Unlimited respawns: first team to 12 KOs (15 in 3 v 3) wins. Left/Right: team size"},
 	{"label": "Sinkhole vs CPU", "modes": [33, 34, 35], "choices": ["1 v 1", "2 v 2", "3 v 3"],
 		"desc": "The floor falls away from the edges and a fall is a KO. Last one standing. Left/Right: team size"},
+	{"label": "King of the Crater vs CPU", "modes": [36, 37, 38], "choices": ["1 v 1", "2 v 2", "3 v 3"],
+		"desc": "Hold the zone while it moves and the ground round it breaks. 60 s held wins. Left/Right: team size"},
 	{"label": "Versus: 2 players", "modes": [8], "desc": "One fighter each, two players on one screen"},
 	{"label": "Versus CPU", "modes": [0, 1, 12, 14, 16, 18, 21, 23, 25, 27],
 		"desc": "Best of three rounds against the CPU. Left/Right: your fighter",
@@ -555,8 +560,9 @@ func _start_match(m: int, keep_teams := false) -> void:
 		if cfg.has("team"):
 			size = int(cfg["team"])
 			labels = ["YOU + CPU", "CPU TEAM"]
-			title = ("SINKHOLE  %d v %d" if cfg.get("rules", "") == "sinkhole" else
-				("TEAM DEATHMATCH  %d v %d" if cfg.get("deathmatch", false) else "TEAM BATTLE  %d v %d")) % [size, size]
+			var kind := String(cfg.get("rules", "deathmatch" if cfg.get("deathmatch", false) else ""))
+			title = {"sinkhole": "SINKHOLE  %d v %d", "crater": "KING OF THE CRATER  %d v %d",
+				"deathmatch": "TEAM DEATHMATCH  %d v %d"}.get(kind, "TEAM BATTLE  %d v %d") % [size, size]
 		var pick := CharacterSelect.new()
 		pick.setup(title, size, labels, two_players, _padded_teams(size) if cfg.has("team") else _teams)
 		pick.p1_keyboard = player_input.keyboard
@@ -670,6 +676,7 @@ func _start_team(per_side: int, rules_id := "") -> void:
 	match rules_id:
 		"deathmatch": rules = TeamSim.load_rules(TeamSim.DEATHMATCH_PATH)
 		"sinkhole": rules = TeamSim.load_rules(TeamSim.SINKHOLE_PATH)
+		"crater": rules = TeamSim.load_rules(TeamSim.CRATER_PATH)
 	team_battle = TeamSim.new(_teams, per_side, rules)
 	var s: Array = [Side.PLAYER]
 	for i in range(1, team_battle.slot_count()):
@@ -689,11 +696,22 @@ func _start_team(per_side: int, rules_id := "") -> void:
 ## Team Deathmatch: one spawn pad per fighter slot, against its team's side wall.
 func _show_pads() -> void:
 	fx.pads = []
+	fx.zone = {}
 	if team_battle == null or not team_battle.deathmatch:
 		return
 	for side in 2:
 		for k in team_battle.size:
 			fx.pads.append({"pos": team_battle.pad_point(side, k), "color": Hud.SIDE_COLORS[side], "count": 0})
+
+
+## King of the Crater: the zone on the floor, in the holder's colour.
+func _update_zone() -> void:
+	if team_battle == null or not team_battle.crater or sim.zone_r <= 0.0:
+		fx.zone = {}
+		return
+	var holder := team_battle.zone_holder()
+	fx.zone = {"pos": sim.zone_pos, "radius": sim.zone_r,
+		"color": Hud.SIDE_COLORS[holder] if holder >= 0 else Color("e8d8a0")}
 
 
 ## Each pad's countdown: the seconds until the fighter whose pad it is comes back.
@@ -730,10 +748,13 @@ func _team_flow() -> void:
 	match team_battle.phase:
 		TeamSim.Phase.INTRO:
 			var t := team_battle.phase_t
-			var what := "SINKHOLE" if team_battle.sinkhole else ("TEAM DEATHMATCH" if team_battle.deathmatch else "TEAM BATTLE")
+			var what := "KING OF THE CRATER" if team_battle.crater else ("SINKHOLE" if team_battle.sinkhole
+				else ("TEAM DEATHMATCH" if team_battle.deathmatch else "TEAM BATTLE"))
 			hud.banner = (("ONLINE " + what) if online != null else what) if t < 60 else "FIGHT!"
 			var sub := "%d v %d" % [team_battle.size, team_battle.size]
-			if team_battle.deathmatch:
+			if team_battle.crater:
+				sub += "   ·   hold the zone %d s" % (team_battle.score_to_win() / 60)
+			elif team_battle.deathmatch:
 				sub += "   ·   first to %d KOs" % team_battle.score_to_win()
 			elif team_battle.sinkhole:
 				sub += "   ·   the edge falls in, a fall is a KO"
@@ -742,9 +763,12 @@ func _team_flow() -> void:
 				audio.play("round_start", 0.0, 0.75 if t == 2 else 1.0)
 		TeamSim.Phase.FIGHT:
 			_update_pads()
+			_update_zone()
 			for e in sim.events:
 				if e["type"] == "sink_warn":
 					hud.show_toast("THE EDGE IS FALLING")
+				elif e["type"] == "zone_move":
+					hud.show_toast("THE CRATER MOVED")
 			if team_battle.overtime and team_battle.timer > -90:
 				hud.banner = "SUDDEN DEATH"
 				hud.banner_sub = "Next KO wins"

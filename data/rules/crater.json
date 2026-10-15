@@ -1,0 +1,19 @@
+{
+	"_doc": "King of the Crater (1v1, 2v2, 3v3): hold the zone. A side with someone inside the zone and nobody of the other side scores a tick; first to score_to_win ticks (3600 = 60 s) wins, or the longer hold at time. The zone moves every zone_move_every ticks through zone_points (fractions of the floor), cracking the floor round its rim when it lands and chipping a cell of the rim every crack_every ticks while it is held. Lives are unlimited like Team Deathmatch (respawn on the pads), but KOs score nothing. Times are in ticks (60 per second) unless named _seconds.",
+	"deathmatch": true,
+	"crater": true,
+	"time_seconds": 240,
+	"intro_ticks": 100,
+	"over_ticks": 150,
+	"mid_ko_slowmo": 18,
+	"spawn_spread": 60,
+	"respawn_seconds": 4,
+	"spawn_protect_seconds": 2,
+	"pad_inset": 44,
+	"pad_spread": 48,
+	"score_to_win": 3600,
+	"zone_radius": 40,
+	"zone_move_every": 1200,
+	"zone_points": [[0.5, 0.5], [0.3, 0.3], [0.7, 0.7], [0.3, 0.7], [0.7, 0.3]],
+	"crack_every": 45
+}
