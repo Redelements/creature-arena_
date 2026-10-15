@@ -1,0 +1,11 @@
+{
+	"_doc": "Floodgate Stadium: concrete with a shallows channel down the middle and two narrow bridges across it. Tide fighters own the channel (Culvert wades it at full speed; Flop Dash and Slush Slide run faster through it); everyone else crosses at the bridges or slows down. Rects are [col, row, width, height] in 8 px cells on the 84x36 grid.",
+	"id": "floodgate",
+	"name": "Floodgate Stadium",
+	"ground": "concrete",
+	"pieces": [
+		{"kind": "shallows", "rect": [38, 0, 8, 8]},
+		{"kind": "shallows", "rect": [38, 12, 8, 12]},
+		{"kind": "shallows", "rect": [38, 28, 8, 8]}
+	]
+}

@@ -238,6 +238,21 @@ off-angle Landslide Charge; `--pad-layout=twinstick` picks the layout from the c
 Tools: F1 hitbox overlay, F2 cycle the training dummy, F3 hide the controls strip,
 F4 reset training, F6 save a replay, M mute music.
 
+## Arenas
+
+Single player's **Arena** row (or `--arena=ID`) picks where every offline match is fought.
+Each map in `data/arenas/` lays fixed pieces on the breakable floor:
+
+| Arena | What's on the floor | Who gets through |
+| --- | --- | --- |
+| Stadium | Plain dirt, the pits you make | Everyone |
+| Quarry Bowl | Two rubble walls split it into three lanes, open at the top and bottom. Walls stop bodies and shots (lobs fly over) and bounce knockback like the edge | Craglash's Landslide Charge and shoulder-charge dodge and Cairn's Rockslide Rush smash through (the wall rebuilds after 12 s) |
+| Floodgate Stadium | A shallows channel down the middle with two bridges. Shallows slow walking to 60% | Culvert wades at full speed; Gillbert's Flop Dash and Sno's Slush Slide run 1.5x faster through it |
+| Greenhouse Dome | Fence lines and brush beds. Fences stop bodies, not shots; brush hides whoever stands in it (and from the CPU, until it's close) | Sneaky Pete's Pickpocket ghosts through fences, Chef Cerebro blinks over them, Digby burrows under everything; any dash or roll flattens brush (grows back) |
+
+Chasms (pits that never heal) are a map piece too; leaps and Burrow cross them. The CPU
+finds its way round walls, fences and chasms on every level.
+
 ## How combat works
 
 Every fighter has five attack types, ranked: **Light (1) → Heavy (2) → Skill (3) → Surge (4)**.

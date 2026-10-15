@@ -213,6 +213,29 @@ func test_the_map_survives_a_rollback() -> void:
 	assert_true(other.state_digest() != d, "a different arena is a different state")
 
 
+func test_every_map_loads_with_walkable_spawns_and_pads() -> void:
+	for id in ArenaMap.IDS:
+		var sim := _on(id)
+		assert_eq(sim.arena_id, id, "arena id:")
+		for side in 2:
+			var sp := sim.spawn(side)
+			assert_true(sim.terrain.is_walkable(sim.terrain.get_cell(sim.terrain.world_to_cell(sp))),
+				"%s: spawn %d on walkable floor" % [id, side])
+			assert_false(sim.terrain.body_blocked(sp, 10.0), "%s: spawn %d clear of pieces" % [id, side])
+		var was: String = MatchFactory.arena
+		MatchFactory.arena = id
+		var t := TeamSim.new([["cairn", "sno", "pete"], ["culvert", "digby", "hissy"]], 3,
+			TeamSim.load_rules(TeamSim.DEATHMATCH_PATH))
+		MatchFactory.arena = was
+		for side in 2:
+			for k in 3:
+				var pad := t.pad_point(side, k)
+				assert_true(t.sim.terrain.is_walkable(t.sim.terrain.get_cell(t.sim.terrain.world_to_cell(pad))),
+					"%s: pad %d/%d on walkable floor" % [id, side, k])
+		for c in t.sim.creatures:
+			assert_false(t.sim.terrain.body_blocked(c.pos, c.radius), "%s: a fighter starts clear of pieces" % id)
+
+
 func test_the_same_inputs_on_quarry_give_the_same_match() -> void:
 	var a := SimCheck._quarry(7, 600)
 	var b := SimCheck._quarry(7, 600)
