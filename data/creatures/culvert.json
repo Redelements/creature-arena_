@@ -115,18 +115,20 @@
     },
     "skill_2": {
       "name": "Runoff", "anim": "runoff", "anim_at": [[0, 0], [4, 1], [9, 2], [17, 3]], "windup": 6, "tell": "strong", "cooldown": 240,
-      "startup": 9, "active": 4, "recovery": 18,
-      "damage": 7, "knockback": 4.5, "hitstun": 28, "hitstop": 6,
-      "reach": 22, "hit_radius": 42, "cone": 0.45,
+      "startup": 9, "active": 4, "recovery": 18, "charge_max": 12,
+      "damage": 3, "knockback": 6.8, "hitstun": 24, "hitstop": 6,
+      "reach": 12, "hit_radius": 22, "cone": 0.45,
+      "hold": { "reach": 22, "hit_radius": 42, "damage": 9, "knockback": 4.5, "hitstun": 28,
+        "slow_ticks": 120, "slow_mult": 0.6 },
       "fx": { "wave_cone": true }
     },
     "surge": {
       "name": "Storm Drain", "anim": "storm", "anim_at": [[0, 0], [3, 1], [8, 2], [12, 3], [15, 4], [26, 5]], "energy_cost": 100,
       "startup": 14, "active": 4, "recovery": 30,
       "damage": 30, "knockback": 5.0, "knockdown": 30, "hitstop": 14,
-      "reach": 0, "hit_radius": 46, "juggle": true,
+      "reach": 0, "hit_radius": 50, "juggle": true,
       "dash": { "speed": 1.4, "from": 1, "to": 14 },
-      "terrain_heal": 1.5, "terrain_ring": { "inner": 24, "outer": 40 },
+      "terrain_heal": 1.5, "terrain_ring": { "inner": 18, "outer": 52 },
       "fx": { "rain": true, "telegraph": true, "impact": "geysers" }
     }
   }

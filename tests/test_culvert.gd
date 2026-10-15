@@ -125,3 +125,24 @@ func test_cpu_culvert_swallows_sometimes() -> void:
 				break
 	assert_gt(float(swallows), 0.0, "swallows (hooks: %d):" % hooks)
 	assert_gt(float(hooks), 0.0, "and still hooks")
+
+
+## Storm Drain's pits start just past his body, so a fighter swallowed straight after
+## comes out the back end into a pit.
+func test_storm_drain_then_a_swallow_poops_them_into_a_pit() -> void:
+	var sim := MatchFactory.versus("culvert", "cairn")
+	var culv := sim.creatures[0]
+	var cairn := sim.creatures[1]
+	culv.pos = Vector2(220, 164)
+	cairn.pos = Vector2(330, 164)
+	culv.facing = Vector2.RIGHT
+	culv.energy = 100.0
+	tap(sim, SimDefs.IN_SURGE, 80)
+	assert_false(sim.terrain.is_hole_at(culv.pos), "he stands on his island")
+	var ring: Dictionary = culv.moves()["surge"]["terrain_ring"]
+	assert_near(float(ring["outer"]), 40.0 * 1.3, 0.5, "the ring reaches 30% further out:")
+	cairn.pos = culv.pos + Vector2(90, 0)
+	culv.facing = Vector2.RIGHT
+	run(sim, S1, 40)  # Gulp, held
+	var fell := run_until(sim, func(): return cairn.state == CreatureSim.State.FALLING, 80)
+	assert_true(fell, "out the back end and into the pit")

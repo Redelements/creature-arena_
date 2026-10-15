@@ -76,6 +76,7 @@ func hit_damage(sim: MatchSim, a: int, d: int) -> float:
 ## would: mashes each step's button until the expected move starts, then moves on.
 ## `steps` is a list of [input bit, expected move id]. `other` is the defender's input.
 ## Returns the total combo damage dealt, once the defender has recovered.
+## Steps are [bit, move] or [bit, move, ticks to hold it once it starts].
 func route(sim: MatchSim, atk: int, steps: Array, other := 0) -> float:
 	var a := sim.creatures[atk]
 	var d := sim.creatures[1 - atk]
@@ -95,6 +96,13 @@ func route(sim: MatchSim, atk: int, steps: Array, other := 0) -> float:
 			press = not press
 			if a.attack_serial != serial and a.move_id == expect:
 				started = true
+				# [bit, move, ticks]: keep the button held that long (a charged Runoff).
+				for k in (int(s[2]) if s.size() > 2 else 0):
+					var held := [0, 0]
+					held[atk] = bit
+					held[1 - atk] = other
+					sim.step(PackedInt32Array(held))
+					dealt += hit_damage(sim, atk, 1 - atk)
 				break
 		if not started:
 			fail("route never reached %s (in %s, state %d; target combo %d, state %d)"

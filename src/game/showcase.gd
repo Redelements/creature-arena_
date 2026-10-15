@@ -72,9 +72,9 @@ const SCRIPTS := {
 		"left": "culvert", "right": "cairn", "energy": [100, 0], "gap": 64.0, "hp": [-1, 100],
 		"title": "CULVERT  -  FULL KIT",
 		"captions": [
-			["Gulp tapped: the tongue hooks from range", "and hauls them in", "Jab", "Jab"],
+			["Gulp tapped: the tongue hooks from range", "and hauls them in", "Jab", "Jab", "Runoff tapped: a shove"],
 			["Jab", "Jab", "Gulp held: swallowed... and out the back end"],
-			["Jab", "Jab", "Hook", "Slam", "Runoff", "Storm Drain"],
+			["Jab", "Jab", "Hook", "Slam", "Runoff (held)", "Storm Drain"],
 		],
 		"steps": [
 			{"do": "wait", "t": 45, "part": 0},
@@ -83,6 +83,7 @@ const SCRIPTS := {
 			{"do": "until", "cond": "free:0"},
 			{"do": "press", "who": 0, "bit": L, "move": "light_1", "aim": true, "show": 2},
 			{"do": "press", "who": 0, "bit": L, "move": "light_2", "show": 3},
+			{"do": "press", "who": 0, "bit": S2, "move": "skill_2", "show": 4},
 			{"do": "until", "cond": "settled"},
 			{"do": "wait", "t": 40},
 			{"do": "place", "part": 1, "gap": 2.0},
@@ -98,7 +99,7 @@ const SCRIPTS := {
 			{"do": "press", "who": 0, "bit": L, "move": "light_2", "show": 1},
 			{"do": "press", "who": 0, "bit": L, "move": "light_3", "show": 2},
 			{"do": "press", "who": 0, "bit": H, "move": "heavy", "show": 3},
-			{"do": "press", "who": 0, "bit": S2, "move": "skill_2", "show": 4},
+			{"do": "press", "who": 0, "bit": S2, "move": "skill_2", "charge": 18, "show": 4},
 			{"do": "press", "who": 0, "bit": SU, "move": "surge", "show": 5},
 			{"do": "until", "cond": "settled"},
 			{"do": "wait", "t": 150, "show": 6},

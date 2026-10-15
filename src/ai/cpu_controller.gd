@@ -244,7 +244,11 @@ func _continue_attack(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: fl
 		var mv := me.move_def()
 		if mv.has("hold") and _hold_serial != me.attack_serial:
 			_hold_serial = me.attack_serial
-			if me.move_id != "heavy" and _roll(0.25 + 0.1 * level):
+			# A foe out of the tapped version's reach gets the held one (Runoff's wave);
+			# otherwise it's a roll (Gulp: a hook or a swallow, same reach either way).
+			var tap_reach := float(mv.get("reach", 0.0)) + float(mv.get("hit_radius", 0.0)) + foe.radius
+			var out_of_tap := not mv.has("projectile") and dist > tap_reach
+			if me.move_id != "heavy" and (out_of_tap or _roll(0.25 + 0.1 * level)):
 				_hold_heavy = int(mv.get("charge_max", 0)) + 1
 				_hold_bit = int(ACTION_BIT.get(me.move_id, SimDefs.IN_HEAVY))
 		if _hold_heavy > 0:

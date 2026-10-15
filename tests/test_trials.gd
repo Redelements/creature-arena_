@@ -13,6 +13,7 @@ func _attempt(t: ComboTrials, wrong_first := false) -> String:
 	var step := 0
 	var press := false
 	var serial := -1
+	var hold_left := 0  ## a "hold" step: keep its button down this many more ticks
 	for i in 3000:
 		var bits := 0
 		if t.phase == ComboTrials.Phase.PLAY:
@@ -22,8 +23,14 @@ func _attempt(t: ComboTrials, wrong_first := false) -> String:
 			if a.attack_serial != serial:
 				serial = a.attack_serial
 				if step < r.size() and a.move_id == String(r[step][1]):
+					if ComboTrials.held(r[step]):
+						hold_left = int(a.move_def().get("charge_max", 0))
+						bits = ACTION_BIT[String(r[step][0])]
 					step += 1
-			if step < r.size():
+			if hold_left > 0:
+				hold_left -= 1
+				bits = ACTION_BIT[String(r[step - 1][0])]
+			elif step < r.size():
 				var want := String(r[step][0])
 				if wrong_first and step == 0:
 					want = "heavy"
