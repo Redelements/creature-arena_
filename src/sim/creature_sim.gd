@@ -57,7 +57,7 @@ const STATE_FIELDS := [
 	"reel_t", "reel_to", "reel_gap", "reel_speed", "vuln", "vuln_mult",
 	"flip_t", "flip_total", "flip_from", "flip_to",
 	"swallow_t", "swallow_by", "swallow_gap", "swallow_air",
-	"poison", "poison_every", "poison_dmg", "poison_by", "stone",
+	"poison", "poison_every", "poison_dmg", "poison_by", "poison_stacks", "poison_stack_dmg", "frenzy_t", "hit_streak", "streak_t", "stone",
 	"blind", "whiff_serial", "ambush_serial", "root",
 	"stealth", "haste", "haste_mult", "atk_buff", "atk_mult", "stone_ice",
 	"block_lag", "punish_serial", "home_speed",
@@ -164,6 +164,17 @@ var poison := 0  ## ticks of poison left (Hissy Fitz's Venom Spit)
 var poison_every := 30  ## a pulse of damage every this many ticks
 var poison_dmg := 0.0
 var poison_by := -1
+## Stacked poison (Hissy Fitz's Venom Frenzy): each stack adds `poison_stack_dmg` to
+## every pulse, on top of `poison_dmg`. Gone when the poison runs out.
+var poison_stacks := 0
+var poison_stack_dmg := 0.0
+## Ticks left of this creature's own Venom Frenzy (creature key "venom_frenzy"): its
+## clean hits stack poison on whoever they hit.
+var frenzy_t := 0
+## Clean hits landed in a row (any hit counts, jabs too), and ticks left before the
+## string is over (Venom Frenzy's "streak_gap" after each hit).
+var hit_streak := 0
+var streak_t := 0
 var stone := 0  ## ticks left as a statue (Petrify Punch); the next clean hit shatters it
 var blind := 0  ## ticks left blinded (Digby's Headlamp Flash): the next attack started misses
 var whiff_serial := 0  ## the attack (attack_serial) that a blind made miss
@@ -662,13 +673,22 @@ func _tick_status(sim: MatchSim) -> void:
 		if state != State.CRUMPLE:
 			stone = 0  # back on its feet: the stone has crumbled away
 	# Poison: a pulse of damage every so often. It isn't part of any combo.
+	if frenzy_t > 0:
+		frenzy_t -= 1
+	if streak_t > 0:
+		streak_t -= 1
+		if streak_t == 0:
+			hit_streak = 0
 	if poison > 0 and state != State.KO:
 		poison -= 1
 		if poison % maxi(1, poison_every) == 0:
-			var dealt := take_damage(poison_dmg, sim)
+			var dealt := take_damage(poison_dmg + poison_stacks * poison_stack_dmg, sim)
 			flash = maxi(flash, 2)
-			sim.emit_event("poison", pos, dealt, {"who": id, "by": poison_by})
+			sim.emit_event("poison", pos, dealt, {"who": id, "by": poison_by, "stacks": poison_stacks})
 			check_ko(sim)
+		if poison <= 0:
+			poison_stacks = 0
+			poison_dmg = 0.0
 	# Stoneskin: a while without taking damage grows the shield back.
 	var skin: Dictionary = def.get("stoneskin", {})
 	if not skin.is_empty() and state != State.KO:

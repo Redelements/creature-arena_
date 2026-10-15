@@ -338,6 +338,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 			d.juggle_serials[jkey] = true
 			d.juggles += 1
 
+	_venom_frenzy(a, d)
 	if float(hit.get("poison_ticks", 0.0)) > 0.0:
 		d.poison = maxi(d.poison, int(hit["poison_ticks"]))
 		# hit_params fills every key (0 when the move leaves it out), so the default
@@ -457,6 +458,36 @@ func _flip(a: CreatureSim, d: CreatureSim, hit: Dictionary) -> void:
 	d.enter_air(ticks, Vector2.ZERO)
 	d.start_flip(behind, ticks / 2)
 	a.facing = -a.facing
+
+
+## Venom Frenzy (creature key "venom_frenzy", Hissy Fitz's passive): landing `at_hits`
+## clean hits in one string (each within `streak_gap` ticks of the last; jabs count)
+## sends her into a frenzy for `ticks`; meanwhile each clean hit adds a stack of poison
+## (up to `max_stacks`, each `poison_damage` a pulse every `poison_every` ticks), and
+## the poison lasts `poison_ticks` from the latest hit. Another string of `at_hits`
+## starts it over.
+func _venom_frenzy(a: CreatureSim, d: CreatureSim) -> void:
+	var vf: Dictionary = a.def.get("venom_frenzy", {})
+	if vf.is_empty():
+		return
+	if a.frenzy_t > 0:
+		if d.poison <= 0:
+			d.poison_stacks = 0
+			d.poison_dmg = 0.0
+		d.poison_stacks = mini(d.poison_stacks + 1, int(vf.get("max_stacks", 5)))
+		d.poison_stack_dmg = float(vf.get("poison_damage", 1.0))
+		d.poison = maxi(d.poison, int(vf.get("poison_ticks", 180)))
+		d.poison_every = int(vf.get("poison_every", POISON_EVERY_DEFAULT))
+		d.poison_by = a.id
+		emit_event("poisoned", d.pos, float(d.poison), {"who": d.id, "by": a.id, "stacks": d.poison_stacks})
+	if a.streak_t <= 0:
+		a.hit_streak = 0
+	a.hit_streak += 1
+	a.streak_t = int(vf.get("streak_gap", 45))
+	if a.hit_streak >= int(vf.get("at_hits", 4)):
+		a.hit_streak = 0
+		a.frenzy_t = int(vf.get("ticks", 300))
+		emit_event("frenzy", a.pos + Vector2(0, -20), float(a.frenzy_t), {"who": a.id})
 
 
 ## Gulp, held: the target is slurped in and carried inside the attacker for `swallow`

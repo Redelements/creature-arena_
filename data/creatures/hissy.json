@@ -18,6 +18,10 @@
   "fx_color": "#9be564",
   "surge_aura": {"colors": ["#c2185b", "#ff5fa2", "#ffe0f0"], "motes": "wisps", "spikes": 9, "sharp": 0.75, "speed": 1.1, "height": 1.0},
   "cut_in_frame": [8, 2],
+  "venom_frenzy": {
+    "name": "Venom Frenzy", "at_hits": 4, "streak_gap": 45, "ticks": 300,
+    "poison_ticks": 180, "poison_damage": 0.6, "poison_every": 30, "max_stacks": 5
+  },
   "ko_fx": { "style": "hiss" },
   "sprite": {
     "path": "res://assets/sprites/hissy.png",

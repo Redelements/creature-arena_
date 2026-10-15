@@ -260,6 +260,8 @@ func on_event(e: Dictionary) -> void:
 			play("land", -6.0, 0.7)
 		"poisoned":
 			play("poison_tick", 0.0, 0.8)
+		"frenzy":
+			play("hiss")
 		"poison":
 			play("poison_tick")
 		"gaze":

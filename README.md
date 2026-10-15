@@ -506,6 +506,7 @@ gaze slows anyone who comes at her face first. Voice line: "Hiss off!"
 | Skill 1 | Venom Spit | Her hair snakes spit a glob of venom about 100 px. It **poisons**: 2 damage every half second for 3 s (12 in all), outside any combo, so it keeps ticking after the combo ends. Green bubbles show it. Keeps a juggle going |
 | Skill 2 | Stone Gaze | She stares for about 1.5 s. Anyone within 110 px, **in front of her and facing her**, is slowed, more the longer they look (down to 35% speed), and stays slowed 1.5 s after. **Look away, or get behind her, and it does nothing.** She can break out of the stare with any attack after the first moments |
 | Surge | Petrify Punch | A wound-up haymaker (a long, readable startup). The foe it hits is **turned to stone** for 1.5 s, stunned where it stands, even out of the air. The next clean hit **shatters** the statue for 25% extra damage |
+| Passive | Venom Frenzy | **Land 4 hits in one string** (jabs count; each within 0.75 s of the last) and she goes into a frenzy for 5 s: venom drips off her snakes, and **every clean hit stacks poison** on the target (up to 5 stacks, green pips at its feet). Each stack adds 0.6 damage a pulse, two pulses a second, for 3 s after her latest hit; Venom Spit's poison adds on top. Another 4-hit string starts the 5 s over |
 
 There's no passive on the sheet, so she has none. Her victory emote (a kiss blown while
 the hair snakes bump gloves) waits for a victory-pose system.

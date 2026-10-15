@@ -429,9 +429,24 @@ func spawn(e: Dictionary) -> void:
 		"poisoned":
 			var c := _creature(int(e.get("who", -1)))
 			if c != null:
-				_venom_splat(c.pos, _chest(c), 10)
+				var stacks := int(e.get("stacks", 0))
+				_venom_splat(c.pos, _chest(c), 10 if stacks <= 0 else 4 + 2 * stacks)
 				# Under the feet, so it doesn't collide with a call-out over the attacker's head.
-				_text(c.pos + Vector2(0, 14), "POISONED", C_VENOM[2], 7, 44.0)
+				# Frenzy stacks: the pips at its feet count them; words only for the first and the cap.
+				var cap := int(_creature(int(e.get("by", -1))).def.get("venom_frenzy", {}).get("max_stacks", 5)) \
+					if _creature(int(e.get("by", -1))) != null else 5
+				if stacks <= 1:
+					_text(c.pos + Vector2(0, 14), "POISONED", C_VENOM[2], 7, 44.0)
+				elif stacks == cap:
+					_text(c.pos + Vector2(0, 14), "POISON x%d!" % stacks, C_VENOM[1], 8, 44.0)
+		"frenzy":
+			# Hissy Fitz's Venom Frenzy starts: a hiss, a spray of venom, a call-out.
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				_venom_splat(c.pos, _chest(c), 16)
+				_text(c.pos + Vector2(0, -_top(c) - 14), "VENOM FRENZY!", C_VENOM[1], 9, 50.0)
+				_add({"kind": "ring", "pos": c.pos, "life": 16, "radius": 26.0, "color": C_VENOM[1]})
+				_kick_view(c, Vector2(1.18, 0.86))
 		"poison":
 			var c := _creature(int(e.get("who", -1)))
 			if c != null:
@@ -652,6 +667,11 @@ func _watch_all() -> void:
 		if c.shield > 0.0 and ticked and c.anim_t % 26 == 0 and c.state != CreatureSim.State.KO:
 			var at := c.pos + Vector2(randf_range(-c.radius, c.radius), -randf_range(8.0, _top(c) - 8.0))
 			_add({"kind": "glint", "pos": at, "life": 10, "color": C_GREY[3]})
+		# Venom Frenzy: venom drips off her snakes the whole time.
+		if c.frenzy_t > 0 and ticked and c.anim_t % 4 == 0 and c.state != CreatureSim.State.KO:
+			var at := c.pos + Vector2(randf_range(-c.radius - 4, c.radius + 4), 0)
+			_drop(at, randf_range(_top(c) * 0.5, _top(c)), Vector2(randf_range(-0.2, 0.2), 0), 0.0, false,
+				C_VENOM[randi() % 2], Vector2(1, 2))
 		# Poisoned: green bubbles rise off it now and then.
 		if c.poison > 0 and ticked and c.anim_t % 9 == 0 and c.state != CreatureSim.State.KO:
 			_bubble(c.pos + Vector2(randf_range(-c.radius, c.radius), 0), randf_range(4.0, _top(c)))
@@ -2735,6 +2755,14 @@ func _draw_status(ci: CanvasItem, c: CreatureSim) -> void:
 	if c.swallow_t > 0:
 		return
 	var lift := c.air_height()
+	if c.poison_stacks > 0 and c.state != CreatureSim.State.KO:
+		# Venom Frenzy's stacks: a row of green pips at its feet, one per stack.
+		var w := c.poison_stacks * 4 - 1
+		var x0 := roundf(c.pos.x - w * 0.5)
+		for i in c.poison_stacks:
+			var at := Vector2(x0 + i * 4, roundf(c.pos.y + 5.0))
+			ci.draw_rect(Rect2(at - Vector2(1, 1), Vector2(5, 5)), C_OUTLINE)
+			ci.draw_rect(Rect2(at, Vector2(3, 3)), C_VENOM[1] if (_tick / 8 + i) % 4 != 0 else C_VENOM[2])
 	if c.slow > 0:
 		for i in 3:
 			var a := _tick * 0.12 + TAU * i / 3.0

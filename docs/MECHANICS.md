@@ -40,6 +40,7 @@ Abbreviations: **cs** = `src/sim/creature_sim.gd`, **ms** = `src/sim/match_sim.g
 | `guard` | object | `reduction` (share of damage blocked), `drain_per_damage` (stamina per damage), `speed_mult` (walk while guarding), `break_stun` (crumple ticks on a guard break) | all | ms:`_apply_hit`, cs:`break_guard` |
 | `stack` | `{max, timeout}` | Each landed light adds a stack (up to `max`), lost after `timeout` ticks; spent by `stack_bonus` moves | cairn | ms:`_apply_hit`, cs:`step` |
 | `stoneskin` | `{shield, delay, name}` | Shield HP that absorbs damage before hp; refills to full after `delay` ticks without damage. `name` is not read (see end) | craglash | cs:`take_damage`, `_tick_status` |
+| `venom_frenzy` | `{at_hits, streak_gap, ticks, poison_ticks, poison_damage, poison_every, max_stacks}` | Passive: `at_hits` clean hits in one string (each within `streak_gap` ticks of the last; any hit, no_flinch jabs included, counted in `hit_streak`/`streak_t`) start a frenzy (`frenzy_t` = `ticks`, event `frenzy`). Meanwhile each clean hit adds a poison stack to the target (`poison_stacks`, up to `max_stacks`, each `poison_damage` per pulse in `poison_stack_dmg`) and sets its poison to at least `poison_ticks`. `name` is not read | hissy | ms:`_venom_frenzy` |
 | `ambush` | multiplier (1.0) | Damage of every hit of the attack that broke stealth | pete | ms:`_apply_hit`, cs:`_reveal` |
 | `name` | string | Used in Duel `tag`/`enter` events | all | duel_sim:`_tag` |
 | `moves` | object | Move id to move (below). `light_1`..`light_n`, `heavy`, `skill_1`, `skill_2`, `surge`, `tag_in` (Duel), plus helpers like `slip_counter` | all | cs:`moves` |
@@ -203,7 +204,7 @@ Constants: cs (`BUFFER_TICKS` 10, `JUGGLE_MAX` 3, `JUGGLE_FLOAT` 16, `LAND_KNOCK
 
 **Vulnerable** (Tenderize): incoming hit damage × `vuln_mult`, chip included, poison not.
 
-**Poison** (Venom Spit): every `poison_every` ticks of what's left, `poison_damage` through `take_damage` (Stoneskin soaks it). Outside the combo system; it can KO.
+**Poison** (Venom Spit): every `poison_every` ticks of what's left, `poison_damage` plus `poison_stacks × poison_stack_dmg` (Venom Frenzy) through `take_damage` (Stoneskin soaks it). Outside the combo system; it can KO. The stacks and `poison_dmg` clear when the poison runs out.
 
 **Statue** (`petrify`, `freeze_ticks`): crumple for N ticks, even from the air; `stone` clears the moment the target leaves crumple. The next clean hit shatters it for `STONE_SHATTER_MULT` (`shatter` event, `ice` flag).
 
@@ -239,6 +240,7 @@ Views, audio, drills and the CPU read `sim.events`; the sim never reads them.
 | `hit`, `block`, `armor`, `miss`, `slip`, `guard_break`, `punishable` | Hit outcomes (`slip`: counter; `punishable`: blocked ender) |
 | `grab`, `hook`, `pull`, `reel`, `reeled_in` | Grab (`flip` flag), hook, pull, reel start, reel arrival |
 | `swallow`, `poop` | A held Gulp swallows (`attacker`, `target`); the swallowed fighter comes out behind (`pos`) |
+| `frenzy` | Venom Frenzy starts (`who`); `poisoned` and `poison` carry `stacks` |
 | `slow`, `tenderized`, `poisoned`, `poison`, `blinded`, `rooted`, `steal`, `petrify`, `freeze`, `shatter`, `gaze` | Status applied (`poison` = each pulse) |
 | `stealth`, `unstealth`, `blink`, `taunt`, `roar`, `shield_up`, `shield_break` | Self effects (`taunt` per foe, `roar` once) |
 | `projectile`, `projectile_end`, `projectile_pierce`, `burst` | Projectile life (`sound`, `end_sound`) |
