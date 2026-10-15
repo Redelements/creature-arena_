@@ -59,6 +59,10 @@ var rules_id := ""
 var team: Array = []
 var _rules_row: OptionRow
 var _room_rules_row: OptionRow
+var _watch_any: Button
+var _watch_room: Button
+## The next server join is to watch, not play (main reads and clears it).
+var watch_next := false
 ## What the search is for ("Quick match  2 v 2"), shown under the status while busy.
 var searching_for := ""
 ## Set by main from the Netplay session: what's happening, and whether it went wrong.
@@ -143,6 +147,7 @@ func build() -> void:
 		"Teams of three: starts when six players are waiting (CPUs fill in after a while)")
 	_quick_tag = add_button("Duel 3v3 tag", func(): quick_match(1, 3),
 		"Three fighters each, tag them in and out: the launch mode, online")
+	_watch_any = add_button("Watch a match", func(): watch(""), "Spectate whatever is on the server right now")
 	_rules_row = add_option("Team rules", TeamSim.RULE_NAMES, 0, func(i: int):
 			rules_id = TeamSim.RULE_IDS[i]
 			if _room_rules_row != null:
@@ -164,6 +169,7 @@ func build() -> void:
 	code_field.text_submitted.connect(func(_t): join_room(code_field.text))
 	add_row(code_field, CODE_HELP)
 	_join_room = add_button("Join room", func(): join_room(code_field.text), "Join the room code above")
+	_watch_room = add_button("Watch room", func(): watch(clean_code(code_field.text)), "Spectate the match in the room code above")
 	# More.
 	_host = add_button("Host a match", host, HOST_HELP)
 	field = LineEdit.new()
@@ -268,6 +274,17 @@ func create_room() -> void:
 			room_created = true
 			searching_for = "Room  " + name
 			server_join_pressed.emit(fighter, room_code, room_size), room_tag)
+
+
+## Spectates: the room's match, or (no code) whatever is on.
+func watch(code: String) -> void:
+	if busy or not _have_server():
+		return
+	watch_next = true
+	room_code = code
+	room_created = false
+	searching_for = "Watching " + (("room " + code) if code != "" else "the server's match")
+	server_join_pressed.emit(fighter, code, 0)
 
 
 ## Joins a friend's room.
@@ -382,9 +399,9 @@ func _page_rows(p: Page) -> Array:
 		Page.MAIN:
 			return [_quick_page, _rooms_page, _more]
 		Page.QUICK:
-			return [_quick, _quick_tag, _quick2, _quick3, _rules_row]
+			return [_quick, _quick_tag, _quick2, _quick3, _rules_row, _watch_any]
 		Page.ROOMS:
-			return [_size_row, _room_rules_row, _create, code_field, _join_room]
+			return [_size_row, _room_rules_row, _create, code_field, _join_room, _watch_room]
 		_:
 			return [_host, field, _join] + _recent_rows
 

@@ -203,9 +203,20 @@ player at size 1 (`DuelSim` already takes teams of three), picked on the lobby's
 Tests: `tests/test_server_teams.gd` (a laggy 2v2 deathmatch everyone and the referee
 agree on, rules keeping queues apart, a tag Duel through the server).
 
-Still to do: a Steam transport (below), spectators and saved online replays (both just
-the input streams), an input delay setting, arenas online (every match plays the
-stadium until the choice rides in `start`), and ranked/matchmaking.
+**Spectators and saved online replays.** A client whose hello says `watch` (the
+lobby's "Watch a match" / "Watch room") is never seated: the server attaches it to the
+room's match, or the newest match, as soon as there is one, sends it a `start` with
+`watch`, the teams, size, rules and the referee's whole input `log` so far, then every
+`in` packet (players' and CPUs') from then on. The spectator runs a `Referee` of its
+own (`Netplay.watch`), stepping only on confirmed inputs, so it trails the players by
+the delay and never rolls back; main shows its match with every side remote. The
+referee's `log` is the match's replay: the dedicated server saves every match's
+(`RelayServer.save_replays`, `user://replays/online_<match>_<n>.json`), and F6 during an
+online match saves the confirmed inputs (`OnlineMatch.input_log`) with the setup, so
+the Replay theater plays them. Tests: `tests/test_spectate.gd`.
+
+Still to do: a Steam transport (below), an input delay setting, arenas online (every
+match plays the stadium until the choice rides in `start`), and ranked/matchmaking.
 
 ## Transport (to decide)
 

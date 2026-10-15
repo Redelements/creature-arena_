@@ -289,6 +289,10 @@ var _finder_join: Array = []
 ## takes, from the lobby.
 var _pending_team: Array = []
 var _pending_rules := ""
+## Spectating an online match: the referee's copy netplay keeps (null otherwise), and
+## whether the next server join is to watch.
+var watch: Referee = null
+var _pending_watch := false
 ## Where the look-up asks (tests ask this machine instead of the whole network).
 var finder_target := "255.255.255.255"
 ## The last look-up found nothing nearby, so a failed join can say what to check at home.
@@ -1254,6 +1258,8 @@ func _duel_flow() -> void:
 
 
 func _side_name(i: int) -> String:
+	if watch != null and i < sim.creatures.size():
+		return String(sim.creatures[i].def.get("name", "?")).to_upper()
 	match sides[i]:
 		Side.PLAYER:
 			return "YOU" if online != null else "PLAYER 1"
@@ -1443,6 +1449,17 @@ func _physics_process(_delta: float) -> void:
 		netplay.tick(_side_bits(online.local_slot, live and not ui.is_open()))
 		events = online.events
 		_online_status()
+	elif watch != null:
+		# Watching: the referee's copy steps on confirmed inputs only (maybe several
+		# frames a tick, maybe none); its events are the ones to show.
+		live = flow == Flow.FIGHT or flow == Flow.MATCH_OVER
+		netplay.tick(0)
+		events = watch.events
+		if netplay.phase == Netplay.Phase.ENDED and flow == Flow.FIGHT:
+			flow = Flow.MATCH_OVER
+			flow_t = 0
+			hud.banner = "THE MATCH ENDED"
+			hud.banner_sub = netplay.status
 	elif netplay != null and _connecting_step():
 		events = online.events  # the online match began this frame: its session steps it
 	else:
@@ -1901,6 +1918,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("save_replay"):
 		var stamp := Time.get_datetime_string_from_system().replace(":", "-")
 		var path := "user://replays/replay_%s.json" % stamp
+		if online != null:
+			# Online: the confirmed inputs (what both machines agreed on), with the setup.
+			replay = Replay.new()
+			replay.setup = online.setup_dict()
+			for row in online.confirmed_rows():
+				replay.record(row)
+		elif watch != null:
+			replay = Replay.new()
+			replay.setup = watch.setup_dict()
+			for row in watch.log:
+				replay.record(row)
 		if replay.save(path) == OK:
 			hud.show_toast("Replay saved: %d ticks" % replay.frames.size())
 			print("Replay saved to ", ProjectSettings.globalize_path(path))
@@ -2397,6 +2425,9 @@ func _net_join_server(fighter: String, room: String, size := 1, server := "") ->
 	_online_fighter = fighter
 	_pending_team = lobby.team.duplicate() if lobby != null and lobby.team.size() > 1 else [fighter]
 	_pending_rules = lobby.rules_id if lobby != null else ""
+	_pending_watch = lobby != null and lobby.watch_next
+	if lobby != null:
+		lobby.watch_next = false
 	_save_settings()
 	_finder = LanFinder.new()
 	_finder.start(int(parsed[1]), finder_target)
@@ -2464,7 +2495,11 @@ func _net_join(fighter: String, address: String, port: int, room := "", remember
 	netplay.auto_ready = _auto_accept or _cpu_vs_cpu
 	var team: Array = _pending_team if not _pending_team.is_empty() and String(_pending_team[0]) == fighter else [fighter]
 	_pending_team = []
-	netplay.join(address, port, team, link)
+	if _pending_watch:
+		_pending_watch = false
+		netplay.spectate(address, port, room, link)
+	else:
+		netplay.join(address, port, team, link)
 	lobby.busy = true
 	lobby.hosting_port = 0
 	_lobby_status()
@@ -2492,7 +2527,7 @@ func _lobby_status() -> void:
 		lobby.busy = false
 		netplay = null
 		return
-	if netplay.is_playing():
+	if netplay.is_playing() or netplay.is_watching():
 		_start_online_match()
 		return
 	_ready_check_step()
@@ -2530,7 +2565,48 @@ func _close_ready_check() -> void:
 	_ready_screen = null
 
 
+## Watching a match on the server: the referee's copy is the match; every side is
+## remote and nobody here presses anything.
+func _start_watching() -> void:
+	watch = netplay.watch
+	online = null
+	_close_ui()
+	_ready_screen = null
+	lobby = null
+	hud.visible = true
+	hud.menu_visible = false
+	audio.play_music("fight")
+	_end_duel()
+	var s: Array = []
+	s.resize(watch.players)
+	s.fill(Side.REMOTE)
+	if watch.duel is TeamSim:
+		team_battle = watch.duel
+		_rules_id = watch.rules
+		_new_sim(team_battle.sim, s)
+		hud.team = team_battle
+		hud.focus = 0
+		hud.timer_ticks = team_battle.timer
+		_show_pads()
+	else:
+		duel = watch.duel
+		_new_sim(duel.sim, s)
+		hud.duel = duel
+		hud.timer_ticks = duel.timer
+	for i in sides.size():
+		hud.tags[i] = "WATCHING"
+	hud.wins = [0, 0]
+	hud.wins_needed = 0
+	hud.banner = ""
+	flow = Flow.FIGHT
+	flow_t = 0
+	_net_end_t = 0
+
+
 func _start_online_match() -> void:
+	if netplay.watch != null:
+		_start_watching()
+		return
 	online = netplay.game
 	_close_ui()  # the lobby (and Match found), or a match-over screen on a rematch
 	_ready_screen = null
@@ -2661,6 +2737,9 @@ func _show_match_over() -> void:
 			s.add_button("Leave", _leave_online, "Back to the title menu")
 			_match_over_status = s.add_text("", UiTheme.SIZE_HINT + 1, UiTheme.C_ACCENT)
 			s.on_back = _leave_online
+		elif watch != null:
+			s.add_button("Leave", _leave_online, "Back to the title menu")
+			s.on_back = _leave_online
 		elif _replaying() or mode == REPLAY_MODE:
 			s.add_button("Replay theater", func():
 				_open_menu("single")
@@ -2696,6 +2775,7 @@ func _end_online() -> void:
 	_ready_screen = null
 	netplay = null
 	online = null
+	watch = null
 	if hud != null:
 		hud.net_info = ""
 

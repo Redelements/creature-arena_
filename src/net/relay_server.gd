@@ -55,7 +55,7 @@ const PING_TIMEOUT_MS := 2000
 const PATH_EVERY_MS := 2000
 const MAX_ROOM_LENGTH := 32
 
-enum State { HELLO, LOBBY, FOUND, PLAYING }
+enum State { HELLO, LOBBY, FOUND, PLAYING, WATCHING }
 
 ## Messages players are dropped or requeued with during the ready check.
 const MSG_NOT_ACCEPTED := "You didn't accept the match in time. Search again when you're ready."
@@ -110,6 +110,7 @@ class Client:
 	var wait_shown := -1  ## the group size last told to this player
 	var waiting_since := 0  ## when they started waiting for a match (ms)
 	var check: Check = null  ## the ready check they're in (state FOUND)
+	var watch := false  ## a spectator: never seated, fed every input of a match
 
 	func label() -> String:
 		return "player %d (%s)" % [id, ", ".join(PackedStringArray(team))] if not team.is_empty() \
@@ -138,6 +139,8 @@ class Game:
 	var cpu_fighters := {}  ## slot -> fighter id, for the CPU-played slots
 	var size := 1  ## players per side
 	var rules := ""  ## the team rules (TeamSim.RULE_IDS)
+	var room := ""  ## the room it came from ("" for Quick match), so a spectator can find it
+	var watchers: Array = []  ## spectators (Clients) fed every input
 	var n := 0
 	var delay := 2
 	var referee: Referee
@@ -191,6 +194,7 @@ func tick() -> void:
 		elif c.state == State.LOBBY:
 			_ping_step(c)
 	_pair_waiting()
+	_attach_watchers()
 	_check_step(now)
 	for g: Game in games:
 		_referee_step(g, now)
@@ -240,6 +244,14 @@ func _handle(c: Client, m: Dictionary) -> void:
 			c.rules = String(m.get("rules", ""))
 			if not (c.rules in TeamSim.RULE_IDS):
 				c.rules = ""
+			if bool(m.get("watch", false)):
+				# A spectator: attached to a match as soon as there is one to watch.
+				c.watch = true
+				c.state = State.WATCHING
+				c.waiting_since = Time.get_ticks_msec()
+				_log("%s wants to watch%s" % [c.label(), (" room '%s'" % c.room) if c.room != "" else ""])
+				c.link.send({"t": "wait", "msg": "On the server. Waiting for a match to watch..."}, true)
+				return
 			c.state = State.LOBBY
 			c.waiting_since = Time.get_ticks_msec()
 			_log("%s is waiting%s" % [c.label(), (" in room '%s'" % c.room) if c.room != "" else ""])
@@ -269,6 +281,8 @@ func _handle(c: Client, m: Dictionary) -> void:
 				out["advs"] = advs
 			for o: Client in g.others(c):
 				o.link.send(out)
+			for w: Client in g.watchers:
+				w.link.send(out)
 		"dg":
 			var g := c.game
 			if g == null or int(m.get("n", -1)) != g.n:
@@ -363,6 +377,29 @@ func _pair_waiting() -> void:
 			if c.state == State.LOBBY and need > 2 and c.wait_shown != (groups[key] as Array).size():
 				c.wait_shown = (groups[key] as Array).size()
 				c.link.send({"t": "wait", "msg": _wait_text(c, mini(c.wait_shown, need), need)}, true)
+
+
+## Spectators waiting for a match: a room's match once it is on, or (no room) the
+## newest match on the server. They get the match's setup and every input so far.
+func _attach_watchers() -> void:
+	for c: Client in clients.values():
+		if c.state != State.WATCHING or c.game != null:
+			continue
+		var g: Game = null
+		for cand: Game in games:
+			if (c.room != "" and cand.room == c.room) or (c.room == "" and not cand.players.is_empty()):
+				g = cand
+		if g == null:
+			continue
+		g.watchers.append(c)
+		c.game = g
+		_send_watch_start(g, c)
+		_log("%s is watching match %d" % [c.label(), g.label])
+
+
+func _send_watch_start(g: Game, c: Client) -> void:
+	c.link.send({"t": "start", "watch": true, "n": g.n, "teams": g.referee.teams, "size": g.size, "rules": g.rules,
+		"delay": g.delay, "log": g.referee.log.duplicate()}, true)
 
 
 ## A group is ready to play: ask everyone in it to accept (the ready check).
@@ -469,6 +506,7 @@ func _begin_game(group: Array, size: int, rules := "") -> void:
 	var g := Game.new()
 	g.size = size
 	g.rules = rules
+	g.room = (group[0] as Client).room if not group.is_empty() else ""
 	g.players.resize(size * 2)
 	var used := {}
 	var sides := seat(group.map(func(c): return (c as Client).team), size)
@@ -549,6 +587,8 @@ func _start(g: Game) -> void:
 			if not cpu_slots.is_empty():
 				m["cpu"] = cpu_slots
 		c.link.send(m, true)
+	for w: Client in g.watchers:
+		_send_watch_start(g, w)
 	var sides := ["", ""]
 	for side in 2:
 		var names := PackedStringArray()
@@ -597,6 +637,27 @@ func _send_inputs(g: Game, slot: int, pkt: Dictionary) -> void:
 	for c: Client in g.humans():
 		c.link.send({"t": "in", "n": g.n, "p": slot, "first": int(pkt["first"]), "inputs": pkt["inputs"],
 			"ack": g.referee.have_upto(c.slot), "f": -1}, true)
+	for w: Client in g.watchers:
+		w.link.send({"t": "in", "n": g.n, "p": slot, "first": int(pkt["first"]), "inputs": pkt["inputs"],
+			"ack": -1, "f": -1}, true)
+
+
+## Where the server keeps its matches' replays when `save_replays` is on (the
+## dedicated server turns it on): one file per match, playable in the Replay theater.
+var save_replays := false
+var replay_dir := "user://replays/"
+
+
+func _save_replay(g: Game) -> String:
+	var rep := Replay.new()
+	rep.setup = g.referee.setup_dict()
+	for row in g.referee.log:
+		rep.record(row)
+	var path := replay_dir.path_join("online_%d_%d.json" % [g.label, g.n])
+	if rep.save(path) == OK:
+		_log("replay of match %d saved: %s (%d frames)" % [g.label, path, rep.frames.size()])
+		return path
+	return ""
 
 
 ## Logs how the match went, once.
@@ -604,6 +665,8 @@ func _report(g: Game) -> void:
 	if g.reported:
 		return
 	g.reported = true
+	if save_replays:
+		_save_replay(g)
 	var r := g.referee
 	var how := ""
 	if r.winner >= 0 and g.size == 1:
@@ -636,6 +699,13 @@ func _drop(c: Client, why: String) -> void:
 		return
 	clients.erase(c.id)
 	_log("%s %s" % [c.label(), why])
+	if c.watch:
+		if c.game != null:
+			c.game.watchers.erase(c)
+		c.game = null
+		c.link.flush()
+		c.link.close()
+		return
 	if c.check != null:
 		# Left during the ready check: everyone else goes back to waiting.
 		var k := c.check
@@ -650,6 +720,14 @@ func _drop(c: Client, why: String) -> void:
 	elif g != null:
 		_report(g)
 		games.erase(g)
+		for w: Client in g.watchers:
+			if clients.has(w.id):
+				w.link.send({"t": "bye", "why": "over"}, true)
+				w.link.flush()
+				clients.erase(w.id)
+				w.link.close()
+			w.game = null
+		g.watchers.clear()
 		for o: Client in g.others(c):
 			o.game = null
 			if clients.has(o.id):

@@ -108,8 +108,32 @@ class _Tap:
 
 ## `p_size` players per side: 1 is a Duel between two machines (`p_slot` is the side);
 ## 2 or 3 is a team battle, `p_slot` one of TeamSim's slots (side 0 first).
+var rules_id := ""
+
+
+## What this match is, for a replay saved from the confirmed input log (F6).
+func setup_dict() -> Dictionary:
+	var ids: Array = []
+	for t in teams:
+		for id in t:
+			ids.append(String(id))
+	return {"kind": "team" if size > 1 else "duel", "ids": ids, "teams": teams.duplicate(true), "size": size,
+		"rules": rules_id, "arena": ArenaMap.DEFAULT, "mutators": {}, "mut_seed": 0}
+
+
+## The confirmed inputs so far as replay rows (frames 0 up to the first gap).
+func confirmed_rows() -> Array:
+	var rows: Array = []
+	var f := 0
+	while input_log.has(f):
+		rows.append(PackedInt32Array(input_log[f]))
+		f += 1
+	return rows
+
+
 func _init(p_teams: Array, p_slot: int, p_delay: int, p_link: NetLink, p_id: int, p_size := 1, p_rules := "") -> void:
 	teams = p_teams
+	rules_id = p_rules
 	size = clampi(p_size, 1, 3)
 	players = size * 2
 	local_slot = clampi(p_slot, 0, players - 1)
