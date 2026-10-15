@@ -132,7 +132,8 @@ File-by-file: docs/CODEBASE.md.
   Showtime), 3v3 tag Duels, spectators, saved online replays, arenas online (the host's or
   the room's, random for Quick match) and an input delay setting. Not yet: a Steam
   transport (behind `NetLink`), matchmaking beyond rooms.
-- **Not built yet:** affinity surfaces, more arenas. Game mode plan and priorities: Game
+- **Not built yet:** affinity surfaces, more arenas, the remaining modes, online extras:
+  the build plan is `docs/plans/arenas-surfaces-modes-online.md`. Priorities: Game
   Plan doc, "Game modes".
 - **Planned:** dodge timing. Kevin wants to leave a combo at any time to dodge; today
   Dodge isn't buffered during attacks (except in hitstop) and can't cancel them (issue #9
