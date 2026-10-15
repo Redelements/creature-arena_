@@ -356,9 +356,8 @@ func _deathmatch_score() -> void:
 		var x := 218.0 + _cx + (-34.0 if side == 0 else 46.0)
 		draw_rect(Rect2(x, 3, 32, 24), C_PANEL)
 		draw_rect(Rect2(x, 3, 32, 2), SIDE_COLORS[side])
-		_text(Vector2(x, 21), str(int(team.score[side])), 13, SIDE_COLORS[side], HORIZONTAL_ALIGNMENT_CENTER, 32)
-	var goal := "SUDDEN DEATH" if team.overtime else "FIRST TO %d" % team.score_to_win()
-	_text(Vector2(184 + _cx, 34), goal, 5, C_ACCENT if team.overtime else C_DIM, HORIZONTAL_ALIGNMENT_CENTER, 112)
+		_text(Vector2(x, 21), team.score_text(side), 13, SIDE_COLORS[side], HORIZONTAL_ALIGNMENT_CENTER, 32)
+	_text(Vector2(184 + _cx, 34), team.goal_text(), 5, C_ACCENT if team.overtime else C_DIM, HORIZONTAL_ALIGNMENT_CENTER, 112)
 	if respawn_in > 0:
 		_text(Vector2(0, 62 + _cy), "BACK IN %d" % respawn_in, 10, C_TEXT, HORIZONTAL_ALIGNMENT_CENTER, _sw)
 

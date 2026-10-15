@@ -239,6 +239,13 @@ func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 		_go_to(sim, me, SimDefs.floor_rect().get_center())
 		return
 	var to_foe := foe.pos - me.pos
+	# King of the Crater: the zone is the point. Outside it, go to it unless the foe is
+	# right here to fight; inside, fight as usual (and come back if the fight drifts).
+	if sim.zone_r > 0.0 and me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE, CreatureSim.State.GUARD]:
+		var out := me.pos.distance_to(sim.zone_pos) > sim.zone_r - 6.0
+		if out and (to_foe.length() > _reach_of(me, foe) + 12.0 or foe.pos.distance_to(sim.zone_pos) <= sim.zone_r):
+			_go_to(sim, me, sim.zone_pos)
+			return
 	# Brush hides a foe from anyone outside it: a CPU right next to the bush still sees.
 	_foe_hidden = foe.stealth > 0 or (foe.covered and to_foe.length() > HIDE_RANGE)
 	if _foe_hidden and _last_seen != Vector2.INF:

@@ -22,12 +22,20 @@ extends RefCounted
 ## `shrink_every` ticks the outermost ring of the floor cracks (a warning the CPU heeds)
 ## and `shrink_warn` ticks later drops into a chasm for good, up to `max_rings`. A fall
 ## is a knockout (`fall_ko` on the match). Last side standing wins.
+##
+## King of the Crater (rules with "crater": data/rules/crater.json, on top of the
+## deathmatch respawns): a zone on the floor (`sim.zone_pos`, `sim.zone_r`) that moves
+## every `zone_move_every` ticks through `zone_points`. A side alone inside it scores a
+## tick a tick (`score`); first to `score_to_win` ticks wins, or the longer hold at time.
+## The rim cracks when the zone lands and chips every `crack_every` ticks while held.
+## KOs score nothing.
 
 enum Phase { INTRO, FIGHT, OVER }
 
 const RULES_PATH := "res://data/rules/team.json"
 const DEATHMATCH_PATH := "res://data/rules/deathmatch.json"
 const SINKHOLE_PATH := "res://data/rules/sinkhole.json"
+const CRATER_PATH := "res://data/rules/crater.json"
 
 var sim: MatchSim
 var rules: Dictionary
@@ -46,6 +54,10 @@ var sinkhole := false
 var ring := 0
 var sink_t := 0
 var warned := false
+## King of the Crater only: which zone point is up and ticks until the zone moves.
+var crater := false
+var zone_i := 0
+var zone_t := 0
 var score := [0, 0]
 var respawn_t: Array = []
 var guard_t: Array = []
@@ -77,6 +89,10 @@ func _init(team_ids: Array, per_side := 0, p_rules: Dictionary = {}) -> void:
 	sinkhole = bool(rules.get("sinkhole", false))
 	sim.fall_ko = bool(rules.get("fall_ko", false))
 	sink_t = int(rules.get("shrink_every", 420))
+	crater = bool(rules.get("crater", false))
+	if crater:
+		zone_t = int(rules.get("zone_move_every", 1200))
+		_place_zone(false)
 	for i in slot_count():
 		respawn_t.append(-1)
 		guard_t.append(0)
@@ -94,8 +110,10 @@ func pad_point(side: int, k: int) -> Vector2:
 
 ## The KOs a side needs to win (Team Deathmatch).
 func score_to_win() -> int:
-	var t: Array = rules.get("score_to_win", [8, 8, 12, 15])
-	return int(t[clampi(size, 0, t.size() - 1)])
+	var t = rules.get("score_to_win", [8, 8, 12, 15])
+	if t is Array:
+		return int(t[clampi(size, 0, (t as Array).size() - 1)])
+	return int(t)  # the Crater's hold, in ticks
 
 
 ## Where slot k of a side with n starts: stacked up and down the side's spawn point.
@@ -152,6 +170,10 @@ func step(inputs: PackedInt32Array) -> void:
 		timer -= 1
 	if sinkhole:
 		_sinkhole_step()
+	if crater and sim.ko_freeze == 0:
+		_crater_step()
+		if phase != Phase.FIGHT:
+			return
 	if deathmatch:
 		_deathmatch_step()
 		return
@@ -178,16 +200,17 @@ func _deathmatch_step() -> void:
 	for slot in slot_count():
 		var c := sim.creatures[slot]
 		if _down(c) and int(respawn_t[slot]) < 0:
-			# Down: a point for the other side, and back in a few seconds.
+			# Down: a point for the other side (not in the Crater), and back in a few seconds.
 			var side := 1 - c.team
-			score[side] += 1
 			respawn_t[slot] = int(float(rules.get("respawn_seconds", 4)) * SimDefs.TICK_RATE)
 			guard_t[slot] = 0
-			sim.emit_event("score", c.pos, float(score[side]), {"who": c.id, "team": side,
-				"score": score.duplicate()})
-			if score[side] >= score_to_win() or overtime:
-				_finish(side, "score")
-				return
+			if not crater:
+				score[side] += 1
+				sim.emit_event("score", c.pos, float(score[side]), {"who": c.id, "team": side,
+					"score": score.duplicate()})
+				if score[side] >= score_to_win() or overtime:
+					_finish(side, "score")
+					return
 			sim.slowmo = mini(sim.slowmo, int(rules.get("mid_ko_slowmo", 18)))
 		elif int(respawn_t[slot]) > 0:
 			if sim.ko_freeze == 0:
@@ -203,10 +226,70 @@ func _deathmatch_step() -> void:
 				c.invuln = 0
 	if timer <= 0 and not overtime:
 		if score[0] == score[1]:
-			overtime = true  # sudden death: the next KO wins
+			overtime = true  # sudden death: the next KO (or the next tick held) wins
 			sim.emit_event("overtime", Vector2.ZERO, 0.0)
 		else:
 			_finish(0 if score[0] > score[1] else 1, "time")
+
+
+# ------------------------------------------------------------------ king of the crater
+
+## Where the zone sits now: one of the rules' points, as fractions of the floor.
+func _place_zone(moved: bool) -> void:
+	var pts: Array = rules.get("zone_points", [[0.5, 0.5]])
+	var p: Array = pts[zone_i % pts.size()]
+	var fr := SimDefs.floor_rect()
+	sim.zone_r = float(rules.get("zone_radius", 40))
+	sim.zone_pos = Vector2(fr.position.x + fr.size.x * float(p[0]), fr.position.y + fr.size.y * float(p[1]))
+	sim.terrain.crack_circle(sim.zone_pos, sim.zone_r + 6.0)
+	if moved:
+		sim.emit_event("zone_move", sim.zone_pos, sim.zone_r)
+
+
+func _in_zone(c: CreatureSim) -> bool:
+	return not _down(c) and c.state != CreatureSim.State.FALLING and not c.is_airborne() \
+		and c.pos.distance_to(sim.zone_pos) <= sim.zone_r
+
+
+## The side alone in the zone, or -1.
+func zone_holder() -> int:
+	var inside := [false, false]
+	for c in sim.creatures:
+		if _in_zone(c):
+			inside[c.team] = true
+	if inside[0] == inside[1]:
+		return -1
+	return 0 if inside[0] else 1
+
+
+func _crater_step() -> void:
+	var holder := zone_holder()
+	if holder >= 0:
+		score[holder] += 1
+		if int(score[holder]) % int(rules.get("crack_every", 45)) == 0:
+			# The ground gives under the fight: a cell of the rim, round and round.
+			var k := int(score[holder]) / int(rules.get("crack_every", 45))
+			var d := SimDefs.aim_dirs()[(k * 11) % SimDefs.AIM_STEPS]
+			sim.terrain.damage_cell(sim.terrain.world_to_cell(sim.zone_pos + d * (sim.zone_r + 4.0)), 1)
+		if int(score[holder]) >= score_to_win() or overtime:
+			_finish(holder, "hold")
+			return
+	zone_t -= 1
+	if zone_t <= 0:
+		zone_i += 1
+		zone_t = int(rules.get("zone_move_every", 1200))
+		_place_zone(true)
+
+
+## What the score panels show: seconds held in the Crater, KOs elsewhere.
+func score_text(side: int) -> String:
+	return str(int(score[side]) / SimDefs.TICK_RATE) if crater else str(int(score[side]))
+
+
+func goal_text() -> String:
+	if overtime:
+		return "SUDDEN DEATH"
+	return "HOLD %d s" % (score_to_win() / SimDefs.TICK_RATE) if crater else "FIRST TO %d" % score_to_win()
 
 
 ## Sinkhole: the edge cracks, then drops, ring by ring.
@@ -301,7 +384,7 @@ func _time_out() -> void:
 func snapshot() -> Dictionary:
 	return {"phase": phase, "phase_t": phase_t, "timer": timer, "winner": winner, "match": sim.snapshot(),
 		"score": score.duplicate(), "respawn_t": respawn_t.duplicate(), "guard_t": guard_t.duplicate(),
-		"overtime": overtime, "ring": ring, "sink_t": sink_t, "warned": warned}
+		"overtime": overtime, "ring": ring, "sink_t": sink_t, "warned": warned, "zone_i": zone_i, "zone_t": zone_t}
 
 
 func restore(s: Dictionary) -> void:
@@ -316,6 +399,8 @@ func restore(s: Dictionary) -> void:
 	ring = int(s.get("ring", 0))
 	sink_t = int(s.get("sink_t", 0))
 	warned = bool(s.get("warned", false))
+	zone_i = int(s.get("zone_i", 0))
+	zone_t = int(s.get("zone_t", 0))
 	sim.restore(s["match"])
 
 
@@ -323,7 +408,7 @@ func state_digest() -> String:
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(var_to_bytes([sim.state_digest(), phase, phase_t, timer, winner, score, respawn_t, guard_t,
-		overtime, ring, sink_t, warned]))
+		overtime, ring, sink_t, warned, zone_i, zone_t]))
 	return ctx.finish().hex_encode()
 
 

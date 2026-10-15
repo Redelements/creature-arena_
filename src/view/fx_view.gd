@@ -155,6 +155,7 @@ func clear() -> void:
 	_parts.clear()
 	_trail.clear()
 	pads.clear()
+	zone = {}
 	_incoming.clear()
 	_watch.clear()
 	_last_push.clear()
@@ -2374,9 +2375,18 @@ var _trail := {}  ## creature -> [trail hp, ticks to hold before draining, last 
 ## the seconds until someone comes back on it. Drawn as a true circle, like every floor area.
 ## Each: {"pos": Vector2, "color": Color, "count": seconds (0: nobody waiting)}.
 var pads: Array = []
+## King of the Crater's zone (set by main): {"pos", "radius", "color"}; empty when none.
+var zone := {}
 
 
 func _draw_pads(ci: CanvasItem) -> void:
+	if not zone.is_empty():
+		var at: Vector2 = zone["pos"]
+		var col: Color = zone["color"]
+		var r: float = float(zone["radius"]) + 1.5 * sin(float(_tick) * 0.1)
+		ci.draw_circle(at, r, Color(col, 0.12))
+		ci.draw_arc(at, r, 0.0, TAU, 48, Color(col, 0.8), 2.0)
+		ci.draw_arc(at, r * 0.7, float(_tick) * 0.02, float(_tick) * 0.02 + TAU * 0.75, 36, Color(col, 0.35), 1.0)
 	for pd in pads:
 		var at: Vector2 = pd["pos"]
 		var col: Color = pd["color"]
