@@ -296,6 +296,10 @@ var _pending_watch := false
 ## Online input delay: -1 picks it from the ping, else that many frames (matches you
 ## host or join directly; the server picks its own). Saved with the settings.
 var input_delay := -1
+var _pending_ranked := false
+## A Daily score on its way to the server, or the board on its way back.
+var _daily_client: DailyClient = null
+var _daily_sent_toast := ""
 var _rb_seen := 0
 var _rb_rate := 0
 var _rb_t := 0
@@ -811,6 +815,8 @@ func _arcade_result(won: bool) -> bool:
 		hud.banner = "SCORE  %d" % score if won else "NO SCORE"
 		hud.banner_sub = ("A new best for today!" if best and won else
 			("Today's best: %d" % Progress.daily_best(d.date)) if won else "Win the fight to score")
+		if won and score > 0:
+			_net_daily_submit(d)
 		return true
 	if not won:
 		flow = Flow.MATCH_OVER
@@ -1446,6 +1452,8 @@ func _physics_process(_delta: float) -> void:
 	flow_t += 1
 	if _finder != null:
 		_finder_step()
+	if _daily_client != null:
+		_daily_step()
 	var live := flow == Flow.FIGHT or flow == Flow.MENU
 	var events: Array = sim.events
 	if online != null:
@@ -2192,6 +2200,13 @@ func _load_settings() -> void:
 			_set_pad_layout(pad)
 		level = clampi(int(cfg.get_value("game", "level", level)), 0, LEVEL_NAMES.size() - 1)
 		input_delay = clampi(int(cfg.get_value("online", "delay", -1)), -1, 3)
+		Netplay.player_id = String(cfg.get_value("online", "id", ""))
+		Netplay.player_name = String(cfg.get_value("online", "name", "Player")).strip_edges().left(16)
+		if Netplay.player_name == "":
+			Netplay.player_name = "Player"
+	if Netplay.player_id.length() < 8:
+		Netplay.player_id = Netplay.make_player_id()
+		_save_settings()
 		var ar := String(cfg.get_value("game", "arena", MatchFactory.arena))
 		if ar in ArenaMap.IDS:
 			_arena_saved = ar
@@ -2228,6 +2243,8 @@ func _save_settings() -> void:
 	cfg.set_value("game", "level", level)
 	cfg.set_value("game", "arena", _arena_saved)
 	cfg.set_value("online", "delay", input_delay)
+	cfg.set_value("online", "id", Netplay.player_id)
+	cfg.set_value("online", "name", Netplay.player_name)
 	cfg.set_value("audio", "music_muted", audio.music_muted)
 	cfg.set_value("online", "fighter", _online_fighter)
 	cfg.set_value("online", "address", _online_address)
@@ -2374,6 +2391,10 @@ func _open_lobby() -> void:
 	_close_ui()
 	lobby = OnlineLobby.new(_online_fighter, _online_address, _recent_servers, online_server())
 	lobby.server_join_pressed.connect(_net_join_server)
+	lobby.board_pressed.connect(_net_daily_board)
+	lobby.name_changed.connect(func(t: String):
+		Netplay.player_name = t.strip_edges().left(16) if t.strip_edges() != "" else "Player"
+		_save_settings())
 	lobby.host_pressed.connect(_net_host)
 	lobby.join_pressed.connect(_net_join_typed)
 	lobby.cancelled.connect(_leave_online)
@@ -2441,8 +2462,10 @@ func _net_join_server(fighter: String, room: String, size := 1, server := "") ->
 	_pending_team = lobby.team.duplicate() if lobby != null and lobby.team.size() > 1 else [fighter]
 	_pending_rules = lobby.rules_id if lobby != null else ""
 	_pending_watch = lobby != null and lobby.watch_next
+	_pending_ranked = lobby != null and lobby.ranked_next
 	if lobby != null:
 		lobby.watch_next = false
+		lobby.ranked_next = false
 	_save_settings()
 	_finder = LanFinder.new()
 	_finder.start(int(parsed[1]), finder_target)
@@ -2474,6 +2497,48 @@ func _finder_step() -> void:
 		_net_join(String(j[0]), String(j[1]), int(j[2]), String(j[3]), false, int(j[4]))
 	else:
 		_net_join(String(j[0]), String(f["address"]), int(f["port"]), String(j[3]), false, int(j[4]))
+
+
+## The day's top ten from the server, shown in the lobby's status.
+func _net_daily_board() -> void:
+	if lobby == null:
+		return
+	var parsed := OnlineLobby.parse_address(online_server())
+	if String(parsed[0]) == "":
+		lobby.status = OnlineLobby.NO_SERVER
+		lobby.status_bad = true
+		return
+	_daily_client = DailyClient.fetch_board(String(parsed[0]), int(parsed[1]), Daily.today())
+	lobby.status = "Asking the server for today's scores..."
+	lobby.status_bad = false
+
+
+## After a Daily fight: the replay goes to the configured server to be scored there.
+func _net_daily_submit(d: Daily) -> void:
+	var parsed := OnlineLobby.parse_address(online_server())
+	if String(parsed[0]) == "":
+		return
+	_daily_client = DailyClient.submit(String(parsed[0]), int(parsed[1]), d.date, d.fighter, replay.to_dict())
+	_daily_sent_toast = "Daily score sent to the server..."
+	hud.show_toast(_daily_sent_toast)
+
+
+func _daily_step() -> void:
+	_daily_client.tick()
+	if not _daily_client.done:
+		return
+	var c := _daily_client
+	_daily_client = null
+	if c.rank > 0 or (c.ok and c.score > 0):
+		_toast("Daily score %d: #%d today" % [c.score, c.rank] if c.ok else c.error)
+	elif c.ok and lobby != null:
+		var lines: Array = []
+		for i in c.board.size():
+			lines.append("%d. %s  %d" % [i + 1, String(c.board[i]["name"]), int(c.board[i]["score"])])
+		lobby.status = "Today's Daily top 10:  " + ("   ".join(lines) if not lines.is_empty() else "nobody yet")
+		lobby.status_bad = false
+	elif not c.ok:
+		_toast(c.error)
 
 
 ## Join by a typed (or recent) address. The online server's own name goes through the
@@ -2508,6 +2573,8 @@ func _net_join(fighter: String, address: String, port: int, room := "", remember
 	netplay.room = room
 	netplay.team_size = size
 	netplay.rules_id = _pending_rules if size > 1 else ""
+	netplay.ranked = _pending_ranked and size == 1
+	_pending_ranked = false
 	netplay.auto_ready = _auto_accept or _cpu_vs_cpu
 	var team: Array = _pending_team if not _pending_team.is_empty() and String(_pending_team[0]) == fighter else [fighter]
 	_pending_team = []
@@ -2704,6 +2771,10 @@ func _online_status() -> void:
 		if g.players > 2 and (netplay.rematch_local or asked > 0):
 			_match_over_status.text = "Rematch: %d of %d asked" % [asked + (1 if netplay.rematch_local else 0),
 				others + 1]
+		elif not netplay.last_rating.is_empty():
+			var lr := netplay.last_rating
+			_match_over_status.text = "Rating %d -> %d (%+d)   ·   %d games, %d won" % [roundi(float(lr["old"])),
+				roundi(float(lr["new"])), roundi(float(lr["new"]) - float(lr["old"])), int(lr["games"]), int(lr["wins"])]
 		elif netplay.rematch_local:
 			_match_over_status.text = "Waiting for the other player..."
 		elif netplay.rematch_remote:

@@ -36,6 +36,7 @@ var _stopping := false
 func configure(args: PackedStringArray) -> bool:
 	var wanted := false
 	relay.save_replays = true  # every match's replay, for the Replay theater
+	relay.ratings.persist = true  # ranked ratings and daily scores, in user://ratings.json
 	for a in args:
 		if a == "--server":
 			wanted = true

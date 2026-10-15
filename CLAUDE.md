@@ -130,11 +130,12 @@ File-by-file: docs/CODEBASE.md.
 - **Online:** direct 1v1 over UDP and a dedicated relay/referee server are built, with
   online 2v2/3v3 through the server (any team rules: deathmatch, Sinkhole, Crater,
   Showtime), 3v3 tag Duels, spectators, saved online replays, arenas online (the host's or
-  the room's, random for Quick match) and an input delay setting. Not yet: a Steam
-  transport (behind `NetLink`), matchmaking beyond rooms.
-- **Not built yet:** affinity surfaces, more arenas, the remaining modes, online extras:
-  the build plan is `docs/plans/arenas-surfaces-modes-online.md`. Priorities: Game
-  Plan doc, "Game modes".
+  the room's, random for Quick match), an input delay setting, ranked 1v1 with Glicko
+  ratings and Daily scores on the server. Not yet: a Steam transport (behind `NetLink`).
+- **Not built yet:** affinity surfaces (part B of `docs/plans/arenas-surfaces-modes-online.md`,
+  skipped on Kevin's call) and the two arenas that need them (Saltflat Ring, Night Market
+  Roof), Raid (needs a boss sheet), a Steam transport. Everything else in that plan is in.
+  Priorities: Game Plan doc, "Game modes".
 - **Planned:** dodge timing. Kevin wants to leave a combo at any time to dodge; today
   Dodge isn't buffered during attacks (except in hitstop) and can't cancel them (issue #9
   has the options).
