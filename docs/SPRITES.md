@@ -107,13 +107,22 @@ read as an existing franchise creature.
 Craglash is the first creature from the artist's character sheets. His sheet is a
 pixel recreation of that sheet made by `tools/gen_craglash.py`, a small puppet rig
 (torso, legs, arms, segmented neck, maned head) posed frame by frame, with the palette
-sampled from the artwork. Big frames because the neck reaches far: the head is 50 px
-in front of the feet on Boulder Lash and 75 px above them at the top of Avalanche Coil.
-Feet at **x 34, y 90**. Any creature can use a bigger frame by setting `"frame"` in its
-JSON; the game, the cut-in and the team select scale to it. His up and down sheets
-(`craglash_down.png`, `craglash_up.png`) are **128×160** frames with the same rows minus
-the knockout, feet at x 64, y 112 (down) and y 124 (up); the same rig draws them from
-the front and from behind.
+sampled from the artwork. Every part is cel-shaded from its own distance field (a lit
+rim on the top left, a two-tone shadow on the bottom right, a flat base between), then
+outlined, so limbs read as round at the game's zoom. What makes him Craglash, all taken
+from the sheet: the crown of five spikes around the neck base and the spines on his
+flanks, the pale stone veins across his chest and forearms with two small blue gems, the
+lighter furred belly and the shaggy band at his hips, three-clawed mitten hands and
+three-toed feet, elbow spikes and knee tufts, a neck of flat grey slabs rimmed in dark
+red (thicker at the base), and a big two-layer bristling mane round a face with yellow
+eyes under heavy brows, a snout and a wide red grin. The mane flares on hits and lies
+flat on windups (`mane` in a pose). Big frames because the neck reaches far: the head is
+50 px in front of the feet on Boulder Lash and 89 px above them at the top of Avalanche
+Coil; standing, his mane tops out 71 px above his feet (`fx_top`). Feet at **x 34, y 90**.
+Any creature can use a bigger frame by setting `"frame"` in its JSON; the game, the
+cut-in and the team select scale to it. His up and down sheets (`craglash_down.png`,
+`craglash_up.png`) are **128×160** frames with the same rows minus the knockout, feet at
+x 64, y 112 (down) and y 124 (up); the same rig draws them from the front and from behind.
 
 ![Craglash sheet, 3x](craglash_preview.png)
 
