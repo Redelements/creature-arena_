@@ -264,10 +264,14 @@ func move_type() -> String:
 	return String(move_def().get("type", ""))
 
 
-## A move stat, blended toward its "_charged" value by how long the heavy was held.
+## A move stat, blended toward its "_charged" value by how long the heavy was held. A
+## move held to a full charge takes its "hold" values instead, shape included (Runoff:
+## a short shove tapped, the wave of water held).
 func move_value(key: String, mv: Dictionary = {}) -> float:
 	if mv.is_empty():
 		mv = move_def()
+	if charge_ratio >= 1.0 and mv.has("hold") and (mv["hold"] as Dictionary).has(key):
+		return float(mv["hold"][key])
 	var base := float(mv.get(key, 0.0))
 	if mv.has(key + "_charged"):
 		return lerpf(base, float(mv[key + "_charged"]), charge_ratio)

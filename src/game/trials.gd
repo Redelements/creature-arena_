@@ -65,6 +65,11 @@ func route() -> Array:
 	return trial()["route"]
 
 
+## A route step to hold to a full charge: ["skill_2", "skill_2", "hold"].
+static func held(step: Array) -> bool:
+	return step.size() > 2 and String(step[2]) == "hold"
+
+
 ## A fresh match for the current trial: the fighter facing its training partner.
 func build() -> MatchSim:
 	var t := trial()
@@ -91,8 +96,12 @@ func _start_demo() -> void:
 		steps.append({"do": "together", "bits": [ACTION_BIT[String(r[0][0])], SimDefs.IN_LIGHT], "show": 0})
 		steps.append({"do": "until", "cond": "move:0:" + String(r[0][1])})
 		first = 1
+	var moves: Dictionary = MatchFactory.load_def(String(trial()["fighter"])).get("moves", {})
 	for i in range(first, r.size()):
-		steps.append({"do": "press", "who": 0, "bit": ACTION_BIT[String(r[i][0])], "move": String(r[i][1]), "show": i})
+		var st := {"do": "press", "who": 0, "bit": ACTION_BIT[String(r[i][0])], "move": String(r[i][1]), "show": i}
+		if held(r[i]):  # hold it to a full charge (Runoff's wave)
+			st["charge"] = int(moves.get(String(r[i][1]), {}).get("charge_max", 0))
+		steps.append(st)
 	steps.append({"do": "until", "cond": "settled"})
 	steps.append({"do": "wait", "t": 40, "show": r.size()})
 	_demo = Showcase.new("trial", {"left": "", "right": "", "title": "", "captions": [[]], "steps": steps})
@@ -125,7 +134,8 @@ func _refresh_caption() -> void:
 	for step in route():
 		var mv: Dictionary = def.get("moves", {}).get(String(step[1]), {})
 		var lbl := String(_labels.call(String(step[0]))) if _labels.is_valid() else ""
-		caption_items.append("%s%s" % [String(mv.get("name", step[1])), " (%s)" % lbl if lbl != "" else ""])
+		var how := "hold " + lbl if held(step) and lbl != "" else ("hold" if held(step) else lbl)
+		caption_items.append("%s%s" % [String(mv.get("name", step[1])), " (%s)" % how if how != "" else ""])
 	caption_index = _progress if phase != Phase.DEMO else maxi(0, _demo.show if _demo != null else 0)
 
 

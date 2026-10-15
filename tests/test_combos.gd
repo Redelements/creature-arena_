@@ -61,19 +61,24 @@ func test_culvert_guard_breaker() -> void:
 	assert_near(dmg, 4 + 5 + 6, 0.05, "Jab, Jab > Gulp (tapped: the hook):")
 
 
+## Runoff's full charge: tapped it's a short shove, held it's the wave that reaches a
+## foe the Slam knocked back.
+const RUNOFF_HOLD := 12
+
+
 func test_culvert_shockwave() -> void:
 	var sim := _duel("culvert")
-	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S2, "skill_2"]])
-	assert_near(dmg, 18 + 10 * 1.15 + 7 * 1.3, 0.05, "Jab, Jab, Hook > Slam > Runoff:")
+	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S2, "skill_2", RUNOFF_HOLD]])
+	assert_near(dmg, 18 + 10 * 1.15 + 9 * 1.3, 0.05, "Jab, Jab, Hook > Slam > Runoff (held):")
 
 
 func test_culvert_full_meter() -> void:
 	var sim := _duel("culvert")
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"],
-		[H, "heavy"], [S2, "skill_2"], [SU, "surge"]])
-	var expected := 18 + 10 * 1.15 + 7 * 1.3 + 30 * 1.5
-	assert_near(dmg, expected, 0.05, "Jab, Jab, Hook > Slam > Runoff > Storm Drain:")
+		[H, "heavy"], [S2, "skill_2", RUNOFF_HOLD], [SU, "surge"]])
+	var expected := 18 + 10 * 1.15 + 9 * 1.3 + 30 * 1.5
+	assert_near(dmg, expected, 0.05, "Jab, Jab, Hook > Slam > Runoff (held) > Storm Drain:")
 
 
 ## Craglash (left) facing Cairn at close range.

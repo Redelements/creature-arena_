@@ -248,16 +248,36 @@ func test_slip_counter_crumples() -> void:
 	assert_near(cairn.hp, cairn.max_hp, 0.001, "Cairn took no damage:")
 
 
-func test_runoff_washes_the_target_back_without_launching() -> void:
-	var sim := _duel("culvert", "cairn", 24.0)
+func test_runoff_tapped_is_a_short_shove() -> void:
+	var sim := _duel("culvert", "cairn", 6.0)
 	var d := sim.creatures[1]
 	var x0 := d.pos.x
 	tap(sim, S2, 0)
 	var hit := run_until(sim, func(): return d.hp < d.max_hp, 60)
-	assert_true(hit, "the wave hits a foe in front")
+	assert_true(hit, "the shove hits a foe up close")
 	assert_false(d.is_airborne(), "it pushes rather than pops up")
-	run(sim, 0, 30)
-	assert_gt(d.pos.x - x0, 12.0, "washed back a little:")
+	run(sim, 0, 40)
+	assert_gt(d.pos.x - x0, 30.0, "shoved well back:")
+	assert_eq(d.slow, 0, "a tap doesn't slow")
+	var far := _duel("culvert", "cairn", 30.0)
+	tap(far, S2, 0)
+	run(far, 0, 60)
+	assert_eq(far.creatures[1].hp, far.creatures[1].max_hp, "it's short: 30 px away it misses")
+
+
+func test_runoff_held_sends_the_wave_that_slows() -> void:
+	var sim := _duel("culvert", "cairn", 30.0)
+	var d := sim.creatures[1]
+	var x0 := d.pos.x
+	run(sim, S2, 24)  # held through the charge
+	var hit := run_until(sim, func(): return d.hp < d.max_hp, 60)
+	assert_true(hit, "the wave reaches a foe 30 px away")
+	assert_near(d.max_hp - d.hp, 9.0, 0.001, "and does real damage:")
+	assert_gt(d.slow, 0, "it slows")
+	assert_near(d.slow_mult, 0.6, 0.001, "to 60% walking speed:")
+	assert_false(d.is_airborne(), "it pushes rather than pops up")
+	run(sim, 0, 40)
+	assert_gt(d.pos.x - x0, 18.0, "washed back, as before:")
 	assert_eq(sim.terrain.count(TerrainGrid.HOLE), 0, "the wave never opens holes:")
 
 

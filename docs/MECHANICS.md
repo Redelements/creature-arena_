@@ -129,7 +129,7 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | --- | --- | --- | --- |
 | `charge_max` | Hold the starting button (Heavy, or the Skill's own) up to N ticks, aiming; `charge_ratio = charge / charge_max` | heavies, barkley skill_2, culvert skill_1 | cs:`_update_attack` |
 | `<key>_charged` | Value at a full charge, blended linearly | many | cs:`move_value` |
-| `hold` | At `charge_ratio >= 1`, its keys replace the hit parameters | culvert skill_1 (Gulp) | cs:`hit_params` |
+| `hold` | At `charge_ratio >= 1`, its keys replace the move's values: hit parameters and shape alike (`reach`, `hit_radius`, `slow_*`, anything read through `move_value`) | culvert skill_1 (Gulp: hook / swallow), skill_2 (Runoff: shove / wave) | cs:`move_value`, `hit_params` |
 | `projectile.range_charged` | Lob range at full charge | barkley skill_2 | ms:`spawn_projectile` |
 
 ### Terrain
