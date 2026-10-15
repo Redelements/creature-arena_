@@ -116,6 +116,7 @@ func _init(p_teams: Array, p_slot: int, p_delay: int, p_link: NetLink, p_id: int
 	input_delay = p_delay
 	link = p_link
 	id = p_id
+	MatchFactory.arena = ArenaMap.DEFAULT  # every machine on the same map until it's agreed over the link
 	if size > 1:
 		team = TeamSim.new(teams, size)
 		local_side = team.side_of(local_slot)

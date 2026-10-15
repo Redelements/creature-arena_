@@ -43,10 +43,10 @@ static func load_rules() -> Dictionary:
 func _init(team_ids: Array, p_rules: Dictionary = {}) -> void:
 	rules = p_rules if not p_rules.is_empty() else load_rules()
 	sim = MatchSim.new()
-	var spawns := [MatchFactory.SPAWN_LEFT, MatchFactory.SPAWN_RIGHT]
+	sim.set_arena(String(rules.get("arena", MatchFactory.arena)))
 	for side in 2:
 		for i in (team_ids[side] as Array).size():
-			var c := CreatureSim.new(side, MatchFactory.load_def(String(team_ids[side][i])), spawns[side])
+			var c := CreatureSim.new(side, MatchFactory.load_def(String(team_ids[side][i])), sim.spawn(side))
 			c.facing = Vector2.RIGHT if side == 0 else Vector2.LEFT
 			teams[side].append(c)
 			bench_cap[side].append(c.max_hp)
@@ -215,8 +215,7 @@ func _enter_next(side: int) -> void:
 	var out := active_creature(side)
 	inc.energy = out.energy
 	inc.stamina = inc.max_stamina
-	inc.pos = MatchFactory.SPAWN_LEFT if side == 0 else MatchFactory.SPAWN_RIGHT
-	inc.pos = sim.terrain.nearest_solid(inc.pos)
+	inc.pos = sim.terrain.nearest_solid(sim.spawn(side))
 	var foe := active_creature(1 - side)
 	inc.facing = Vector2.RIGHT if foe.pos.x >= inc.pos.x else Vector2.LEFT
 	inc.reset_combo()

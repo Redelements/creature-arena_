@@ -11,6 +11,7 @@ extends Node2D
 ##                         3 training as Cairn, 4 training as Culvert
 ##   --level=N             CPU level: 0 Easy, 1 Normal, 2 Hard
 ##   --seed=N              CPU random seed
+##   --arena=ID            the arena map for offline matches (stadium, quarry; data/arenas/)
 ##   --autoplay            training demo: the player side follows a scripted routine
 ##   --dummy-mode=N        0 stand, 1 guard, 2 walk, 3 dodge
 ##   --hitboxes            start with the hitbox overlay on
@@ -1751,6 +1752,10 @@ func _parse_args() -> int:
 			level = clampi(int(a.get_slice("=", 1)), 0, LEVEL_NAMES.size() - 1)
 		elif a.begins_with("--seed="):
 			seed_base = int(a.get_slice("=", 1))
+		elif a.begins_with("--arena="):
+			var ar := a.get_slice("=", 1)
+			if ar in ArenaMap.IDS:
+				MatchFactory.arena = ar
 		elif a.begins_with("--dummy-mode="):
 			dummy_mode = clampi(int(a.get_slice("=", 1)), 0, DUMMY_MODES.size() - 1)
 		elif a.begins_with("--shots="):

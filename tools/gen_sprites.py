@@ -11,6 +11,7 @@ code does not need to change. See docs/SPRITES.md for the layouts.
 """
 import os
 import random
+import sys
 
 from PIL import Image, ImageDraw
 
@@ -764,14 +765,114 @@ def tile(kind, seed):
     return t
 
 
+PIECE = {
+    "wall": (122, 118, 112, 255),
+    "wall_light": (156, 152, 146, 255),
+    "wall_dark": (88, 84, 80, 255),
+    "wall_face": (78, 74, 72, 255),
+    "wall_face_dark": (56, 52, 50, 255),
+    "wall_face_light": (104, 100, 96, 255),
+    "post": (112, 78, 44, 255),
+    "post_light": (150, 108, 64, 255),
+    "rail": (132, 96, 56, 255),
+    "chasm": (8, 7, 12, 255),
+    "chasm_rim": (46, 38, 44, 255),
+    "chasm_mid": (22, 18, 26, 255),
+    "water": (62, 104, 148, 255),
+    "water_light": (96, 140, 180, 255),
+    "water_dark": (48, 84, 124, 255),
+    "brush": (62, 118, 52, 255),
+    "brush_light": (96, 156, 76, 255),
+    "brush_dark": (40, 84, 36, 255),
+    "stone": (138, 134, 130, 255),
+    "stone_dark": (96, 92, 90, 255),
+}
+
+
+def piece_tile(kind, seed):
+    """Tiles for an arena map's fixed pieces (see TerrainGrid). Overlays (fence, brush)
+    are drawn over a dirt tile by the view, so they keep transparent pixels."""
+    t = new(8, 8)
+    rnd = random.Random(seed)
+    if kind == "wall_top":
+        rect(t, 0, 0, 7, 7, PIECE["wall"])
+        for _ in range(6):
+            px(t, rnd.randint(0, 7), rnd.randint(0, 7), PIECE["wall_dark"])
+        for _ in range(4):
+            px(t, rnd.randint(0, 7), rnd.randint(0, 7), PIECE["wall_light"])
+        # mortar seams between the blocks, staggered by variant
+        y = 3 + (seed % 2)
+        rect(t, 0, y, 7, y, PIECE["wall_dark"])
+        x = 2 + 3 * (seed % 2)
+        rect(t, x, 0, x, y - 1, PIECE["wall_dark"])
+        rect(t, (x + 4) % 8, y + 1, (x + 4) % 8, 7, PIECE["wall_dark"])
+    elif kind == "wall_face":
+        rect(t, 0, 0, 7, 7, PIECE["wall_face"])
+        rect(t, 0, 0, 7, 0, PIECE["wall_face_light"])
+        rect(t, 0, 3, 7, 3, PIECE["wall_face_dark"])
+        rect(t, 0, 7, 7, 7, PIECE["wall_face_dark"])
+        x = 1 + 3 * (seed % 2)
+        rect(t, x, 1, x, 2, PIECE["wall_face_dark"])
+        rect(t, (x + 4) % 8, 4, (x + 4) % 8, 6, PIECE["wall_face_dark"])
+    elif kind == "fence":
+        rect(t, 1, 1, 2, 7, PIECE["post"])
+        px(t, 1, 1, PIECE["post_light"])
+        rect(t, 5, 2, 6, 7, PIECE["post"])
+        px(t, 5, 2, PIECE["post_light"])
+        rect(t, 0, 3, 7, 3, PIECE["rail"])
+        rect(t, 0, 6, 7, 6, PIECE["rail"])
+    elif kind == "chasm_rim":
+        rect(t, 0, 0, 7, 7, PIECE["chasm"])
+        rect(t, 0, 0, 7, 1, PIECE["chasm_rim"])
+        rect(t, 0, 2, 7, 3, PIECE["chasm_mid"])
+    elif kind == "chasm":
+        rect(t, 0, 0, 7, 7, PIECE["chasm"])
+    elif kind == "shallows":
+        rect(t, 0, 0, 7, 7, PIECE["water"])
+        for _ in range(3):
+            x, y = rnd.randint(0, 6), rnd.randint(0, 7)
+            rect(t, x, y, x + 1, y, PIECE["water_light"])
+        for _ in range(2):
+            px(t, rnd.randint(0, 7), rnd.randint(0, 7), PIECE["water_dark"])
+    elif kind == "brush":
+        for _ in range(7):
+            x, y = rnd.randint(0, 7), rnd.randint(1, 7)
+            px(t, x, y, PIECE["brush"])
+            px(t, x, y - 1, PIECE["brush_light"])
+        for _ in range(4):
+            px(t, rnd.randint(0, 7), rnd.randint(2, 7), PIECE["brush_dark"])
+    elif kind == "brush_flat":
+        for _ in range(4):
+            x, y = rnd.randint(0, 5), rnd.randint(1, 7)
+            rect(t, x, y, x + 2, y, PIECE["brush_dark"])
+            px(t, x + 1, y, PIECE["brush"])
+    elif kind == "rubble_floor":
+        rect(t, 0, 0, 7, 7, P["dirt"])
+        for _ in range(5):
+            px(t, rnd.randint(0, 7), rnd.randint(0, 7), P["dirt_dark"])
+        for _ in range(3):
+            x, y = rnd.randint(0, 6), rnd.randint(0, 6)
+            rect(t, x, y, x + 1, y + 1, PIECE["stone"])
+            px(t, x + 1, y + 1, PIECE["stone_dark"])
+    return t
+
+
 def tiles_sheet():
-    # 0-3 dirt, 4-7 cracked, 8 hole (lit far rim), 9 hole (deep)
+    # 0-3 dirt, 4-7 cracked, 8 hole (lit far rim), 9 hole (deep); then the map pieces:
+    # 10-11 wall top, 12 wall face, 13 fence, 14 chasm rim, 15 chasm, 16-17 shallows,
+    # 18-19 brush, 20 flattened brush, 21 rubble floor (a smashed wall). The view's
+    # TILE_* constants index these.
     frames = [tile("dirt", s) for s in range(4)] + [tile("cracked", 12 + s) for s in range(4)]
     frames.append(tile("hole", 0))
     deep = new(8, 8)
     rect(deep, 0, 0, 7, 7, P["hole"])
     frames.append(deep)
-    return sheet(frames, 10, 8, 8)
+    frames += [piece_tile("wall_top", 0), piece_tile("wall_top", 1), piece_tile("wall_face", 0),
+               piece_tile("fence", 0), piece_tile("chasm_rim", 0), piece_tile("chasm", 0),
+               piece_tile("shallows", 0), piece_tile("shallows", 1),
+               piece_tile("brush", 0), piece_tile("brush", 1), piece_tile("brush_flat", 0),
+               piece_tile("rubble_floor", 0)]
+    return sheet(frames, len(frames), 8, 8)
 
 
 # ---------------------------------------------------------------- Crowd (12x16)
@@ -852,6 +953,11 @@ def fx_sheet():
 def main():
     os.makedirs(OUT, exist_ok=True)
     os.makedirs(DOCS, exist_ok=True)
+    if "--tiles" in sys.argv:  # only the floor tiles (arena pieces), nothing else
+        img = tiles_sheet()
+        img.save(os.path.join(OUT, "tiles.png"))
+        print("wrote", os.path.relpath(os.path.join(OUT, "tiles.png"), ROOT), img.size)
+        return
     # Culvert has his own generator now (tools/gen_culvert.py); his drawing code below
     # stays for reference until the dummy and Cairn get the same treatment.
     sheets = {

@@ -51,6 +51,7 @@ static func load_rules(path := RULES_PATH) -> Dictionary:
 func _init(team_ids: Array, per_side := 0, p_rules: Dictionary = {}) -> void:
 	rules = p_rules if not p_rules.is_empty() else load_rules()
 	sim = MatchSim.new()
+	sim.set_arena(String(rules.get("arena", MatchFactory.arena)))
 	var most := mini((team_ids[0] as Array).size(), (team_ids[1] as Array).size())
 	size = clampi(per_side if per_side > 0 else most, 1, mini(3, most))
 	for side in 2:
@@ -83,9 +84,9 @@ func score_to_win() -> int:
 
 
 ## Where slot k of a side with n starts: stacked up and down the side's spawn point.
-static func spawn_point(side: int, k: int, n: int, spread := 60.0) -> Vector2:
-	var base := MatchFactory.SPAWN_LEFT if side == 0 else MatchFactory.SPAWN_RIGHT
-	return base + Vector2(0.0, (float(k) - float(n - 1) * 0.5) * spread)
+func spawn_point(side: int, k: int, n: int, spread := 60.0) -> Vector2:
+	var base := sim.spawn(side)
+	return sim.terrain.nearest_solid(base + Vector2(0.0, (float(k) - float(n - 1) * 0.5) * spread))
 
 
 func slot_count() -> int:

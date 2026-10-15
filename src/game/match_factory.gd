@@ -13,6 +13,9 @@ const SPAWN_RIGHT := Vector2(SimDefs.GRID_X + SimDefs.GRID_COLS * SimDefs.CELL *
 	SimDefs.GRID_Y + SimDefs.GRID_ROWS * SimDefs.CELL * 0.5 + 4.0)
 
 static var _cache := {}
+## The arena every new offline match plays on (the menu's Arena row, `--arena=ID`).
+## Online matches pin it to the stadium until the choice is agreed over the link.
+static var arena := ArenaMap.DEFAULT
 
 
 static func load_def(id: String) -> Dictionary:
@@ -34,8 +37,9 @@ static func load_def(id: String) -> Dictionary:
 ## Training: a player-controlled fighter on the left, a training dummy on the right.
 static func training(fighter := "culvert") -> MatchSim:
 	var sim := MatchSim.new()
-	sim.add_creature(load_def(fighter), SPAWN_LEFT)
-	var dummy := sim.add_creature(load_def("dummy"), SPAWN_RIGHT, true)
+	sim.set_arena(arena)
+	sim.add_creature(load_def(fighter), sim.spawn(0))
+	var dummy := sim.add_creature(load_def("dummy"), sim.spawn(1), true)
 	dummy.facing = Vector2.LEFT
 	return sim
 
@@ -43,7 +47,8 @@ static func training(fighter := "culvert") -> MatchSim:
 ## Two fighters facing each other. Either side can be a player or the CPU.
 static func versus(left_id := "culvert", right_id := "culvert") -> MatchSim:
 	var sim := MatchSim.new()
-	sim.add_creature(load_def(left_id), SPAWN_LEFT)
-	var right := sim.add_creature(load_def(right_id), SPAWN_RIGHT)
+	sim.set_arena(arena)
+	sim.add_creature(load_def(left_id), sim.spawn(0))
+	var right := sim.add_creature(load_def(right_id), sim.spawn(1))
 	right.facing = Vector2.LEFT
 	return sim
