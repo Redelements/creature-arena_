@@ -16,8 +16,8 @@ src/net/    rollback_session, netplay, online_match, net_link (+enet/loop/lag), 
             dedicated_server, enet_hub, relay_server, referee, lan_finder, server_beacon
 src/game/   main (flow, camera, settings, CLI), online_lobby, showcase, trials, drills, controls,
             match_factory, autoplay
-src/ui/     ui_theme, screen_stack, ui_screen, option_row, prompts, fighter_preview, title_screen,
-            character_select, ready_check, pause/confirm/help/remap screens
+src/ui/     ui_theme, screen_stack, ui_screen, option_row, card_button, prompts, fighter_preview,
+            title_screen, character_select, ready_check, pause/confirm/help/remap screens
 data/       creatures/*.json, rules/{duel,team,deathmatch}.json, trials.json, audio.json, online.json
 tests/      run_tests.gd runs every tests/test_*.gd; bench_sim.gd, bench_cpu.gd, bench_spacing.gd
 tools/      sprite generators (splat3d.py shared), gen_sprites.py, gen_audio.py
@@ -246,9 +246,10 @@ packets are plain-UDP JSON: `creature-arena?` / `creature-arena`.
 | `net/daily_client.gd` (90) | A short connection outside any match: sends a Daily Challenge replay to be scored on the server, or fetches the day's top ten | `submit`, `fetch_board`, `tick` |
 | `game/match_factory.gd` (55) | Loads and caches creature JSON; `FIGHTERS` roster; spawn constants; `arena` (the map new offline matches use) | `load_def`, `versus`, `training` |
 | `game/autoplay.gd` (44) | Scripted player input behind `--autoplay` | `bits(tick)`, `length` |
-| `ui/ui_screen.gd` (224) | Base for every menu screen: title, rows, description, hint | override `build`; `add_button`, `add_option`, `add_text`, `add_space`, `add_row`; `back` |
+| `ui/ui_screen.gd` (284) | Base for every menu screen: logo or crumbs, title, a framed column of rows with its description line, hint | override `build`; `add_button`, `add_option`, `add_card`, `add_heading`, `add_text`, `add_space`, `add_row`; `crumbs`, `framed`, `show_desc`; `back` |
 | `ui/screen_stack.gd` (143) | Stack of open screens, Back, focus restore, toasts | `push`, `pop`, `clear`, `top`, `is_open`; signals `moved`, `chosen`, `emptied` |
-| `ui/ui_theme.gd` (87) | The shared Theme, colours and sizes | `make` |
+| `ui/ui_theme.gd` (157) | The shared Theme, colours and sizes: rounded rows with a focus bar and glow, the "BigButton" and "Card" variations, the panel frame | `make` |
+| `ui/card_button.gd` (37) | A hub card: a taller row with a dim second line and a chevron (Single player and Settings hubs) | `subtitle`, `chevron` |
 | `ui/option_row.gd` (123) | "label < value >" row with Left/Right stepping and optional meter | `step`, `set_values`; signals `changed`, `activated` |
 | `ui/prompts.gd` (33) | Hint text per device | `line(gamepad, items)` from `PAD`/`KEYS` |
 | `ui/fighter_preview.gd` (41) | Live idle animation of a fighter | `.fighter`, `face_left`, `zoom` |
@@ -256,7 +257,7 @@ packets are plain-UDP JSON: `creature-arena?` / `creature-arena`.
 | `ui/character_select.gd` (494) | Portrait grid, one cursor per player (reads each pad's stick itself), team picks, `solo` for online | `setup`, `move`, `pick`, `_undo`; signals `chosen(teams)`, `cancelled` |
 | `ui/ready_check.gd` (104) | Online "match found" Accept/Decline | `update`, `accept`, `decline` |
 | `ui/pause_screen.gd`, `confirm_screen.gd`, `help_screen.gd` | Pause (Resume/Restart/Controls/Quit, confirms quit), Yes/No, two-column controls listing | signals `resumed`, `restart_requested`, `quit_requested`, `answered(yes)` |
-| `ui/remap_screen.gd` (133) | Rebinds one group (classic, league, gamepad); `RESERVED_KEYS`/`RESERVED_BUTTONS` | `_listen`, `_input`; signal `changed` |
+| `ui/remap_screen.gd` (189) | Rebinds one group (classic, league, gamepad), bindings in a two-column grid; `RESERVED_KEYS`/`RESERVED_BUTTONS` | `_listen`, `_input`; signal `changed` |
 
 **Where to look**
 

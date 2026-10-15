@@ -71,3 +71,14 @@ progress, then carry on from its first unticked item.
 - [x] Tests, screenshots, docs, PR
 - Found: tests that start the game saved into the real settings file (now
   `settings_path`, pointed at a test file)
+
+## Nested menus (2026-10-15)
+
+The Single player list had outgrown one column (every mode row at once). It is now a
+hub of cards, one per group in `Main.MENU_GROUPS` (Fight the CPU, Team battles,
+Challenges, Brawl, Two players, Practice and watch), each opening a page of at most six
+rows with a "SINGLE PLAYER ›" crumb line; the Arena choice stays on the hub. Settings is
+the same shape (Game / Video / Audio / Controls cards). The theme gained rounded rows
+with a focus bar and glow, a framed column with the description line inside the frame,
+and `CardButton`. The remap screens lay their bindings out in two columns.
+`--menu=single:<group>` opens a group page for captures.
