@@ -125,7 +125,7 @@
       "startup": 6, "active": 10, "recovery": 16,
       "damage": 8, "knockback": 4.5, "hitstun": 26, "hitstop": 7,
       "reach": 14, "hit_radius": 14, "stack_bonus": 4, "juggle": true,
-      "dash": { "speed": 4.0, "from": 2, "to": 16 },
+      "dash": { "speed": 4.0, "from": 2, "to": 16, "breaks": ["wall"] },
       "fx": { "smear": "thrust", "size": 1.6, "afterimage": [2, 16], "ghost_color": "#ffcf9eaa", "trail": "gravel" }
     },
     "surge": {

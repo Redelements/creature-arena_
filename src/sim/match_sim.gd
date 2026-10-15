@@ -766,12 +766,14 @@ func _separate() -> void:
 ## wall that rebuilt around it) is moved out the shortest way.
 func _unstick() -> void:
 	for c in creatures:
-		if not c.is_solid():
+		if not c.is_solid() and not c.passes_fences():
 			continue
-		var p := terrain.resolve_body(c.pos, c.radius)
+		var p := terrain.resolve_body(c.pos, c.radius, not c.passes_fences())
 		if p != c.pos:
 			c.pos = p
 			c.clamp_to_floor()
+		# Brush hides whoever stands in it (flattened brush doesn't).
+		c.covered = terrain.get_cell(terrain.world_to_cell(c.pos)) == TerrainGrid.BRUSH
 
 
 func _check_falls() -> void:

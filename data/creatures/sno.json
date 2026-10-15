@@ -118,7 +118,7 @@
       "startup": 6, "active": 18, "recovery": 18,
       "damage": 10, "knockback": 2.6, "knockdown": 30, "hitstop": 8, "juggle": true,
       "reach": 8, "hit_radius": 14,
-      "dash": { "speed": 4.0, "from": 4, "to": 22 },
+      "dash": { "speed": 4.0, "from": 4, "to": 22, "shallows_mult": 1.5 },
       "anim_at": [[0, 0], [4, 1], [8, 2], [24, 3], [32, 4]],
       "fx": { "slush": true, "impact": "frost" }
     },

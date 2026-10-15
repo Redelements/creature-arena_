@@ -141,9 +141,9 @@ static func is_pit(v: int) -> bool:
 	return v == HOLE or v == CHASM
 
 
-## Stops bodies (walking, dashes, knockback).
-static func blocks_body(v: int) -> bool:
-	return v == WALL or v == FENCE
+## Stops bodies (walking, dashes, knockback). A ghost dash slips through fences.
+static func blocks_body(v: int, fences := true) -> bool:
+	return v == WALL or (fences and v == FENCE)
 
 
 ## Stops shots (not lobs, which fly over).
@@ -193,7 +193,7 @@ static func _overlaps(rect: Rect2, p: Vector2, r: float) -> bool:
 
 ## Where a body sliding along x from `p` to x = `nx` actually gets to before a wall or
 ## fence stops it (its y stays `p.y`). Never pulls it back behind where it started.
-func slide_x(p: Vector2, nx: float, r: float) -> float:
+func slide_x(p: Vector2, nx: float, r: float, fences := true) -> float:
 	if nx == p.x:
 		return nx
 	var right := nx > p.x
@@ -201,7 +201,7 @@ func slide_x(p: Vector2, nx: float, r: float) -> float:
 	for cy in range(span.position.y, span.end.y):
 		for cx in range(span.position.x, span.end.x):
 			var c := Vector2i(cx, cy)
-			if not blocks_body(get_cell(c)):
+			if not blocks_body(get_cell(c), fences):
 				continue
 			var rect := cell_rect(c)
 			if not _overlaps(rect, Vector2(nx, p.y), r):
@@ -210,7 +210,7 @@ func slide_x(p: Vector2, nx: float, r: float) -> float:
 	return maxf(nx, p.x) if right else minf(nx, p.x)
 
 
-func slide_y(p: Vector2, ny: float, r: float) -> float:
+func slide_y(p: Vector2, ny: float, r: float, fences := true) -> float:
 	if ny == p.y:
 		return ny
 	var down := ny > p.y
@@ -218,7 +218,7 @@ func slide_y(p: Vector2, ny: float, r: float) -> float:
 	for cy in range(span.position.y, span.end.y):
 		for cx in range(span.position.x, span.end.x):
 			var c := Vector2i(cx, cy)
-			if not blocks_body(get_cell(c)):
+			if not blocks_body(get_cell(c), fences):
 				continue
 			var rect := cell_rect(c)
 			if not _overlaps(rect, Vector2(p.x, ny), r):
@@ -228,21 +228,33 @@ func slide_y(p: Vector2, ny: float, r: float) -> float:
 
 
 ## Whether a body circle overlaps any wall or fence.
-func body_blocked(p: Vector2, r: float) -> bool:
+func body_blocked(p: Vector2, r: float, fences := true) -> bool:
 	var span := _around(p, r)
 	for cy in range(span.position.y, span.end.y):
 		for cx in range(span.position.x, span.end.x):
 			var c := Vector2i(cx, cy)
-			if blocks_body(get_cell(c)) and _overlaps(cell_rect(c), p, r):
+			if blocks_body(get_cell(c), fences) and _overlaps(cell_rect(c), p, r):
 				return true
 	return false
+
+
+## The cells of one state a body circle touches.
+func cells_touching(p: Vector2, r: float, state: int) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var span := _around(p, r)
+	for cy in range(span.position.y, span.end.y):
+		for cx in range(span.position.x, span.end.x):
+			var c := Vector2i(cx, cy)
+			if get_cell(c) == state and _overlaps(cell_rect(c), p, r):
+				out.append(c)
+	return out
 
 
 ## Pushes a body out of any wall or fence it overlaps (a wall rebuilt under it, a push
 ## from another body, a blink into one). A body clipping a cell's edge is nudged out of
 ## it; one whose centre is inside the piece takes the shortest straight way out.
-func resolve_body(p: Vector2, r: float) -> Vector2:
-	if not body_blocked(p, r):
+func resolve_body(p: Vector2, r: float, fences := true) -> Vector2:
+	if not body_blocked(p, r, fences):
 		return p
 	for pass_ in 3:
 		var moved := false
@@ -250,7 +262,7 @@ func resolve_body(p: Vector2, r: float) -> Vector2:
 		for cy in range(span.position.y, span.end.y):
 			for cx in range(span.position.x, span.end.x):
 				var c := Vector2i(cx, cy)
-				if not blocks_body(get_cell(c)):
+				if not blocks_body(get_cell(c), fences):
 					continue
 				var rect := cell_rect(c)
 				if not _overlaps(rect, p, r):
@@ -262,7 +274,7 @@ func resolve_body(p: Vector2, r: float) -> Vector2:
 					moved = true
 		if not moved:
 			break
-	if not body_blocked(p, r):
+	if not body_blocked(p, r, fences):
 		return p
 	var best := p
 	var best_k := 1 << 30
@@ -271,7 +283,7 @@ func resolve_body(p: Vector2, r: float) -> Vector2:
 			if k >= best_k:
 				break
 			var q: Vector2 = p + dir * float(k)
-			if not body_blocked(q, r):
+			if not body_blocked(q, r, fences):
 				best = q
 				best_k = k
 				break

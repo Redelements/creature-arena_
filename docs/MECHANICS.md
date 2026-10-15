@@ -35,6 +35,7 @@ Abbreviations: **cs** = `src/sim/creature_sim.gd`, **ms** = `src/sim/match_sim.g
 | `speed` | px/tick | Walk speed (scaled by slow, taunt, haste, root, strafe) | all | cs:`walk_speed` |
 | `accel` | px/tick² | Walk velocity change per tick | all | cs:`_update_free` |
 | `radius` | px (10) | Body circle, for hits, pushing, pits | all | cs:`_init` |
+| `wades` | bool | Walks shallows at full speed | culvert | cs:`floor_mult` |
 | `weight` | (1.0) | Knockback is divided by it | all | ms:`_apply_hit` |
 | `dodge` | object | See "Dodge keys" | all | cs:`_update_dodge` |
 | `guard` | object | `reduction` (share of damage blocked), `drain_per_damage` (stamina per damage), `speed_mult` (walk while guarding), `break_stun` (crumple ticks on a guard break) | all | ms:`_apply_hit`, cs:`break_guard` |
@@ -65,6 +66,9 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `dash` | `{from, to, speed}` | Moves forward in the window until it connects | 8 fighters | cs:`_update_attack` |
 | `dash.steer` | share | Stick turns the dash a little each tick | digby (Burrow) | cs:`_update_attack` |
 | `dash.ghost` | bool | Not solid in the window; keeps going after it connects | pete (Pickpocket) | cs:`_ghosting` |
+| `dash.breaks` | `["wall"]` | The charge smashes the rubble wall cells its body reaches each step into cracked floor (`smash` event) and runs on; also on a dodge's `ram` | craglash skill_1 and ram, cairn (Rockslide Rush) | cs:`_smash_ahead` |
+| `dash.passes` | `["fence"]` | Fences don't stop it in the window (a `ghost` dash passes them anyway); also on `dodge` | none in data (Pickpocket is a ghost dash) | cs:`passes_fences` |
+| `dash.shallows_mult` | × | Dash speed while on shallows | gillbert (Flop Dash), sno (Slush Slide) 1.5 | cs:`_dash_speed` |
 | `dash.home` | `{until, max, through}` | Steers at the nearest foe until `until`, paced to arrive by `to` (≤ `max`), then locked; `through` runs on at `max` | gillbert surge, pete skill_2 | cs:`_home` |
 | `leap` | `{from, to}` | Invulnerable, not solid, can't fall, dash ignores holes. Off during windup | digby, gillbert, pete | cs:`is_leaping` |
 | `blink` | `{at, gap=2}` | At tick `at`, reappears behind the nearest foe (else its far side, else stays) | pete surge | cs:`_blink` |
@@ -226,6 +230,7 @@ Constants: cs (`BUFFER_TICKS` 10, `JUGGLE_MAX` 3, `JUGGLE_FLOAT` 16, `LAND_KNOCK
 - Arena maps (`data/arenas/<id>.json`, `ArenaMap`): `pieces` `[{kind, rect: [col, row, w, h]}]` or `rows` (one character per cell: `.` `#` `F` `X` `~` `*`), optional `spawns` `{left: [x, y], right: [x, y]}` in floor pixels. `MatchSim.set_arena(id)` lays the map (`terrain.base` remembers it; `arena_id` is in the digest); rules JSON `arena`, else `MatchFactory.arena` (the menu / `--arena=ID`). Online matches pin the stadium.
 - Pieces: a wall stops bodies and shots (lobs fly over) and bounces knockback like the arena edge; a fence stops bodies only; a chasm is a pit that never heals; shallows walk at `SHALLOWS_WALK` 0.6, brush at `BRUSH_WALK` 0.85. Floor damage ignores pieces. `smash(cell)` turns a wall into cracked floor (`flatten` brush into `BRUSH_FLAT`); both heal back to the map's piece. A wall never rebuilds under a solid body (`tick(blocked)` waits a tick).
 - Bodies vs pieces: `_move` slides along walls one axis at a time (`slide_x/y`); `_unstick` (after `_separate`) pushes any solid body out of a piece it overlaps (`resolve_body`: nudge off an edge, else the shortest straight way out). `nearest_solid` only returns walkable cells.
+- Crossings: leaps and Burrow cross chasms (they ignore pits already); ghost dashes and `passes` cross fences; `breaks` charges smash walls; any attack dash, homing dash or dodge flattens the brush under its body (`_trample`, `BRUSH_FLAT`, grows back). Brush sets `covered` on whoever stands in it (after `_unstick`): the view draws them at 45% alpha and the CPU treats them like stealth unless within `HIDE_RANGE` 34 px (`_foe_hidden`).
 - Each damaged cell steps back one level every `HEAL_TICKS` 720; fresh damage restarts its timer at `max(timer, heal)`.
 - Walking, lunges, non-leap dashes, `mobile` and taunt drag refuse to step onto a hole; knockback, dodges, reels, flips and leaps don't.
 - `_check_falls` skips FALLING, KO, DODGE, AIRBORNE, leaping and reeling fighters, and invulnerable ones unless knocked down.
@@ -247,6 +252,7 @@ Views, audio, drills and the CPU read `sim.events`; the sim never reads them.
 | `frenzy` | Venom Frenzy starts (`who`); `poisoned` and `poison` carry `stacks` |
 | `slow`, `tenderized`, `poisoned`, `poison`, `blinded`, `rooted`, `steal`, `petrify`, `freeze`, `shatter`, `gaze` | Status applied (`poison` = each pulse) |
 | `stealth`, `unstealth`, `blink`, `taunt`, `roar`, `shield_up`, `shield_break` | Self effects (`taunt` per foe, `roar` once) |
+| `smash` | A charge broke rubble wall cells (`who`) |
 | `projectile`, `projectile_end`, `projectile_pierce`, `burst` | Projectile life (`sound`, `end_sound`) |
 | `slam`, `zone` | Floor damage; zone placed |
 | `bounce`, `fall`, `land`, `land_hard`, `ko`, `breakaway` | Bodies |

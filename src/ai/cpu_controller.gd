@@ -69,6 +69,8 @@ var _break_combo_checked := -1
 
 # Movement
 var _plan := "approach"
+## How close a CPU has to be to see a foe hiding in brush.
+const HIDE_RANGE := 34.0
 var _plan_t := 0
 var _plan_dir := Vector2.ZERO
 var _think_t := 0
@@ -76,6 +78,8 @@ var _last_pos := Vector2.ZERO
 var _stuck_t := 0
 ## Where the foe was last seen: an invisible foe (Tiptoe) is chased there, not where it is.
 var _last_seen := Vector2.INF
+## Whether the foe is out of sight right now (invisible, or in brush we're not next to).
+var _foe_hidden := false
 var _detour_t := 0
 var _detour_dir := Vector2.ZERO
 var _hold_heavy := 0
@@ -188,7 +192,9 @@ func _threat_range(foe: CreatureSim, me: CreatureSim) -> float:
 
 func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 	var to_foe := foe.pos - me.pos
-	if foe.stealth > 0 and _last_seen != Vector2.INF:
+	# Brush hides a foe from anyone outside it: a CPU right next to the bush still sees.
+	_foe_hidden = foe.stealth > 0 or (foe.covered and to_foe.length() > HIDE_RANGE)
+	if _foe_hidden and _last_seen != Vector2.INF:
 		to_foe = _last_seen - me.pos
 	else:
 		_last_seen = foe.pos
@@ -690,7 +696,7 @@ func _hurt_ally(sim: MatchSim, me: CreatureSim) -> CreatureSim:
 ## Where the foe is, as far as this fighter knows: where it was last seen while
 ## invisible (Tiptoe), which is the point of going invisible.
 func _seen(foe: CreatureSim) -> Vector2:
-	return _last_seen if foe.stealth > 0 and _last_seen != Vector2.INF else foe.pos
+	return _last_seen if _foe_hidden and _last_seen != Vector2.INF else foe.pos
 
 
 ## Where to aim: at the foe, or for a thrown move where the foe will be when it arrives.
