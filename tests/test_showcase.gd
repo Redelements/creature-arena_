@@ -63,7 +63,7 @@ func test_craglash_showcase_plays_through_to_a_knockout() -> void:
 	var r := _play("craglash")
 	var armored := false
 	for ev in r["parts"]:
-		if int(ev[0]) == 1 and String(ev[1]) == "armor" and int(ev[2]) == 0:
+		if int(ev[0]) == 2 and String(ev[1]) == "armor" and int(ev[2]) == 0:
 			armored = true
 	assert_true(armored, "Cairn's jab should hit Bedrock's armor")
 	assert_true(r["ko"][1], "the Stomp and Charge out of Bedrock should finish Cairn")

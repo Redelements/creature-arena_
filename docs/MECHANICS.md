@@ -168,6 +168,7 @@ Spawned at tick `startup + 1` (and each volley tick) with move-level hit values 
 | `cost` | Stamina; needs at least this | all | cs:`can_dodge` |
 | `cooldown` | Ticks before the next dodge; a press meanwhile is buffered | cerebro (45) | cs:`_start_dodge` |
 | `blink` `{at, distance}` | Teleport `distance` px the dodge way at tick `at` (walls clamp it, pits don't stop it) | cerebro | cs:`_update_dodge` |
+| `ram` `{damage, hitstun, knockback, hitstop, type="light", radius=0, crack=0, …}` | The dodge is a shoulder charge: the first foe the body reaches (plus `radius` px) takes a hit with these values (any hit key; `move_id` "ram", a fresh serial per dash, one hit per foe) and the dash ends; hitting the wall ends it too, cracks a `crack` px circle and fires `ram_wall` | craglash | cs:`_ram_step`, `ram_hit_params` |
 
 ### Cosmetic keys (read by src/view only)
 
@@ -236,7 +237,7 @@ Views, audio, drills and the CPU read `sim.events`; the sim never reads them.
 | --- | --- |
 | `windup` | Raw move starts with a windup (`tell`, `move`) |
 | `surge`, `surge_ready` | Surge starts; a meter fills |
-| `dodge`, `warp` | Dodge starts; a blink dodge teleports |
+| `dodge`, `warp`, `ram_wall` | Dodge starts; a blink dodge teleports; a ramming dodge hits the wall (`who`, power = its damage) |
 | `hit`, `block`, `armor`, `miss`, `slip`, `guard_break`, `punishable` | Hit outcomes (`slip`: counter; `punishable`: blocked ender) |
 | `grab`, `hook`, `pull`, `reel`, `reeled_in` | Grab (`flip` flag), hook, pull, reel start, reel arrival |
 | `swallow`, `poop` | A held Gulp swallows (`attacker`, `target`); the swallowed fighter comes out behind (`pos`) |

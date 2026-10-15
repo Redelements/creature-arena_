@@ -15,8 +15,18 @@
     "frames": 20,
     "iframes_start": 3,
     "iframes_end": 12,
-    "speed": 2.7,
-    "cost": 28
+    "speed": 5.4,
+    "cost": 84,
+    "ram": {
+      "name": "Landslide Ram",
+      "type": "light",
+      "damage": 4,
+      "hitstun": 18,
+      "knockback": 1.2,
+      "hitstop": 4,
+      "radius": 2,
+      "crack": 14
+    }
   },
   "guard": {
     "reduction": 0.82,

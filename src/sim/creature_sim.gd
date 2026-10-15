@@ -344,51 +344,43 @@ func _foe_in_strike(sim: MatchSim) -> bool:
 
 
 ## Everything MatchSim needs to resolve one hit from segment `seg` of the current move.
+## Hit values read per segment (0 when the move leaves one out).
+const HIT_SEG_KEYS := ["damage", "knockback", "hitstun", "hitstop", "launch", "crumple",
+	"knockdown", "slow_ticks", "juggle_float", "pull", "reel", "reel_speed", "vuln_ticks",
+	"flip", "swallow", "poison_ticks", "poison_damage", "poison_every", "petrify",
+	"blind_ticks", "root_ticks", "steal_ticks", "freeze_ticks"]
+## Hit flags read from the move itself.
+const HIT_FLAG_KEYS := ["guard_break", "grab", "juggle", "no_flinch"]
+
+
 func hit_params(seg: int) -> Dictionary:
 	var mv := move_def()
-	var out := {
-		"attacker": id,
-		"move_id": move_id,
-		"type": String(mv["type"]),
-		"serial": attack_serial,
-		"damage": seg_value(seg, "damage"),
-		"knockback": seg_value(seg, "knockback"),
-		"hitstun": seg_value(seg, "hitstun"),
-		"hitstop": seg_value(seg, "hitstop"),
-		"launch": seg_value(seg, "launch"),
-		"crumple": seg_value(seg, "crumple"),
-		"knockdown": seg_value(seg, "knockdown"),
-		"guard_break": bool(mv.get("guard_break", false)),
-		"grab": bool(mv.get("grab", false)),
-		"juggle": bool(mv.get("juggle", false)),
-		"stack_bonus": float(mv.get("stack_bonus", 0.0)),
-		"slow_ticks": seg_value(seg, "slow_ticks"),
-		"slow_mult": float(mv.get("slow_mult", 1.0)),
-		"juggle_float": seg_value(seg, "juggle_float"),
-		"pull": seg_value(seg, "pull"),
-		"reel": seg_value(seg, "reel"),
-		"reel_speed": seg_value(seg, "reel_speed"),
-		"vuln_ticks": seg_value(seg, "vuln_ticks"),
-		"vuln_mult": float(mv.get("vuln_mult", 1.0)),
-		"flip": seg_value(seg, "flip"),
-		"swallow": seg_value(seg, "swallow"),
-		"poison_ticks": seg_value(seg, "poison_ticks"),
-		"poison_damage": seg_value(seg, "poison_damage"),
-		"poison_every": seg_value(seg, "poison_every"),
-		"petrify": seg_value(seg, "petrify"),
-		"blind_ticks": seg_value(seg, "blind_ticks"),
-		"root_ticks": seg_value(seg, "root_ticks"),
-		"steal_ticks": seg_value(seg, "steal_ticks"),
-		"steal": float(mv.get("steal", 0.0)),
-		"cone": float(mv.get("cone", 0.0)),
-		"freeze_ticks": seg_value(seg, "freeze_ticks"),
-		"no_flinch": bool(mv.get("no_flinch", false)),
-	}
+	var out := _hit_base(mv, move_id, String(mv["type"]))
+	for k in HIT_SEG_KEYS:
+		out[k] = seg_value(seg, k)
 	# A move held to a full charge can hit differently ("hold": {...} overrides any of the
 	# values above): Culvert's Gulp, a hook when tapped, a swallow when held.
 	if mv.has("hold") and charge_ratio >= 1.0:
 		for k in mv["hold"]:
 			out[k] = mv["hold"][k]
+	return out
+
+
+## The hit of a ramming dodge ("dodge.ram"): one segment, its values on the ram block.
+func ram_hit_params(ram: Dictionary) -> Dictionary:
+	var out := _hit_base(ram, "ram", String(ram.get("type", "light")))
+	for k in HIT_SEG_KEYS:
+		out[k] = float(ram.get(k, 0.0))
+	return out
+
+
+func _hit_base(mv: Dictionary, mid: String, type: String) -> Dictionary:
+	var out := {"attacker": id, "move_id": mid, "type": type, "serial": attack_serial,
+		"stack_bonus": float(mv.get("stack_bonus", 0.0)), "slow_mult": float(mv.get("slow_mult", 1.0)),
+		"vuln_mult": float(mv.get("vuln_mult", 1.0)), "steal": float(mv.get("steal", 0.0)),
+		"cone": float(mv.get("cone", 0.0))}
+	for k in HIT_FLAG_KEYS:
+		out[k] = bool(mv.get(k, false))
 	return out
 
 
@@ -761,6 +753,11 @@ func _start_dodge(dir: Vector2, sim: MatchSim) -> void:
 	stamina -= float(dg["cost"])
 	if int(dg.get("cooldown", 0)) > 0:
 		cooldowns["dodge"] = int(dg["cooldown"])
+	if dg.has("ram"):
+		# A ramming dodge is an attack of its own: a fresh serial (one hit per foe per
+		# dash, stale if it repeats in a combo) and a clean hit list.
+		attack_serial += 1
+		seg_hit = {}
 	if dir == Vector2.ZERO and dodge_buffer > 0:
 		dir = dodge_buffer_dir
 	dodge_buffer = 0
@@ -1149,8 +1146,46 @@ func _update_dodge(sim: MatchSim) -> void:
 	var spd := float(dg["speed"])
 	if state_t > frames - 5:
 		spd *= 0.4
-	_move(dodge_dir * spd, sim, false)
+	var before := pos
+	var wanted := dodge_dir * spd
+	# A roll vaults a pit; a ram runs along the ground and stops at its edge (an impact).
+	_move(wanted, sim, dg.has("ram"))
+	if dg.has("ram"):
+		_ram_step(dg["ram"], sim, pos - before, wanted)
+		if state != State.DODGE:
+			return
 	if state_t >= frames:
+		_set_state(State.IDLE)
+
+
+## Landslide Ram (Craglash): a dodge with "ram" is a shoulder charge. The first foe his
+## body reaches is hit like a strike (small damage, a short stun, counted in the combo)
+## and the dash ends on the impact. Running into the arena wall ends it the same way:
+## the floor cracks under the impact, and a foe pinned against the wall is hit too.
+func _ram_step(ram: Dictionary, sim: MatchSim, moved: Vector2, wanted: Vector2) -> void:
+	var hit := ram_hit_params(ram)
+	var reach := float(ram.get("radius", 0.0))
+	var impact := false
+	for d in sim.creatures:
+		var key := "ram:%d" % d.id
+		if not is_foe(d) or seg_hit.has(key) or not sim._hittable(d, hit):
+			continue
+		if pos.distance_to(d.pos) > float(radius + d.radius) + reach:
+			continue
+		seg_hit[key] = true
+		var push := d.pos - pos
+		push = push.normalized() if push.length_squared() > 0.0001 else dodge_dir
+		sim._apply_hit(self, d, hit, push, (pos + d.pos) * 0.5 + Vector2(0, -12))
+		impact = true
+	# The wall: the step came up short along the dash.
+	if not impact and wanted.length_squared() > 0.0001 and moved.dot(wanted) < wanted.length_squared() * 0.5:
+		impact = true
+		var at := pos + dodge_dir * float(radius)
+		if float(ram.get("crack", 0.0)) > 0.0:
+			sim.terrain.crack_circle(at, float(ram["crack"]))
+		sim.hitstop = maxi(sim.hitstop, int(hit["hitstop"]))
+		sim.emit_event("ram_wall", at, float(hit["damage"]), {"who": id})
+	if impact:
 		_set_state(State.IDLE)
 
 

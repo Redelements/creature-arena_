@@ -164,6 +164,16 @@ func _roll(chance: float) -> bool:
 
 
 ## How far the foe's current attack can reach, from the foe's position.
+## A foe with a grab ready beats an armored stance (Bedrock): grabs go through armor, so
+## a tank doesn't root in front of one.
+func _foe_grab_ready(foe: CreatureSim) -> bool:
+	var moves: Dictionary = foe.moves()
+	for mid in moves:
+		if bool(moves[mid].get("grab", false)) and foe.can_use(mid):
+			return true
+	return false
+
+
 func _threat_range(foe: CreatureSim, me: CreatureSim) -> float:
 	var mv := foe.move_def()
 	var r := float(mv.get("reach", 14)) + float(mv.get("hit_radius", 10)) + me.radius
@@ -546,7 +556,8 @@ func _neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2,
 
 	# An area Surge (Storm Drain) works straight from neutral when the foe is close.
 	var surge_range := float(ai.get("surge_range", 0))
-	if surge_range > 0.0 and dist < surge_range and me.can_use("surge") and _roll(0.3 + 0.2 * level):
+	if surge_range > 0.0 and dist < surge_range and me.can_use("surge") \
+			and not (me.moves()["surge"].has("armor") and _foe_grab_ready(foe)) and _roll(0.3 + 0.2 * level):
 		_press(SimDefs.IN_SURGE)
 		return
 
@@ -1176,7 +1187,8 @@ func _rage_kit(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2
 	var busy := _recovery_left(foe) >= 6 or foe.is_stunned() or foe.state == CreatureSim.State.GUARD
 	# Surges: an area one with the foe close and stuck, a line one with the foe in range.
 	var surge_range := float(ai.get("surge_range", 0))
-	if surge_range > 0.0 and me.can_use("surge") and dist < surge_range * (1.0 if busy else 0.65):
+	if surge_range > 0.0 and me.can_use("surge") and dist < surge_range * (1.0 if busy else 0.65) \
+			and not (me.moves()["surge"].has("armor") and _foe_grab_ready(foe)):
 		_press(SimDefs.IN_SURGE)
 		return true
 	var surge_line := float(ai.get("surge_line", 0))
@@ -1373,7 +1385,7 @@ func _plan_press(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vecto
 	# Up close, an armored taunt (Bedrock) drags the foe in and soaks its answer.
 	var counter := String(ai.get("counter", ""))
 	if counter != "" and me.can_use(counter) and me.moves()[counter].has("armor") and dist < reach + 30.0 \
-			and _roll(0.08):
+			and not _foe_grab_ready(foe) and _roll(0.08):
 		_press(int(ACTION_BIT[counter]))
 		return
 	if _lands(sim, me, foe, dist, reach):

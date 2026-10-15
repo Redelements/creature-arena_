@@ -235,3 +235,85 @@ func test_mountain_maw_links_into_the_light_string() -> void:
 	var raked := run_until(sim, func(): return crag.move_id == "light_1" and crag.connected, 40, L)
 	assert_true(raked, "a Rake lands on the crumpled foe once the hook recovers")
 	assert_gt(int(cairn.combo_hits), 1, "in the same combo:")
+
+
+# ------------------------------------------------------------------ Landslide Ram
+
+func test_the_ram_covers_twice_a_normal_roll() -> void:
+	var sim := _duel("cairn", 300.0)
+	var crag := sim.creatures[0]
+	var cairn := sim.creatures[1]
+	var x0 := crag.pos.x
+	var x1 := cairn.pos.x
+	run(sim, SimDefs.IN_DODGE | RIGHT, 1, SimDefs.IN_DODGE | RIGHT)
+	run(sim, 0, 30)
+	var crag_d := crag.pos.x - x0
+	var cairn_d := cairn.pos.x - x1
+	assert_gt(crag_d, cairn_d * 1.8, "Craglash's dash (%.0f px) is about twice Cairn's roll (%.0f px)" % [crag_d, cairn_d])
+
+
+func test_the_ram_costs_most_of_the_stamina_bar() -> void:
+	var sim := _duel("cairn", 100.0)
+	var crag := sim.creatures[0]
+	var cost := float(crag.def["dodge"]["cost"])
+	assert_gt(cost, 80.0, "triple a normal roll's cost:")
+	run(sim, SimDefs.IN_DODGE | RIGHT, 1)
+	assert_near(crag.stamina, crag.max_stamina - cost, 0.01, "spent on the dash:")
+	run(sim, 0, 30)
+	assert_false(crag.can_dodge(), "no second dash straight after")
+
+
+func test_the_ram_hits_the_foe_in_its_path_and_stops_there() -> void:
+	var sim := _duel("cairn", 50.0)
+	var crag := sim.creatures[0]
+	var cairn := sim.creatures[1]
+	var hp := cairn.hp
+	var hit := run_until(sim, func(): return _has_event(sim, "hit"), 30, SimDefs.IN_DODGE | RIGHT)
+	assert_true(hit, "the dash connects with Cairn 50 px away")
+	assert_near(hp - cairn.hp, float(crag.def["dodge"]["ram"]["damage"]), 0.01, "a small hit:")
+	assert_eq(cairn.state, CreatureSim.State.HITSTUN, "a little stun:")
+	assert_eq(int(cairn.combo_hits), 1, "it counts in the combo:")
+	assert_eq(crag.state, CreatureSim.State.IDLE, "and the dash ends on the impact:")
+	assert_lt(int(crag.state_t), 2, "")
+
+
+func test_the_ram_links_into_the_rake() -> void:
+	var sim := _duel("cairn", 50.0)
+	var crag := sim.creatures[0]
+	var cairn := sim.creatures[1]
+	run_until(sim, func(): return _has_event(sim, "hit"), 30, SimDefs.IN_DODGE | RIGHT)
+	var raked := run_until(sim, func(): return crag.move_id == "light_1" and crag.connected, 30, L)
+	assert_true(raked, "a Rake lands on the stunned foe")
+	assert_eq(int(cairn.combo_hits), 2, "ram, Rake: one combo:")
+	assert_gt(float(cairn.combo_damage), 4.0 + 6.0 - 0.01, "")
+
+
+func test_the_ram_hits_once_per_dash() -> void:
+	var sim := _duel("cairn", 50.0)
+	var hits := 0
+	for i in 40:
+		sim.step(PackedInt32Array([SimDefs.IN_DODGE | RIGHT if i == 0 else 0, 0]))
+		for e in sim.events:
+			if String(e["type"]) == "hit":
+				hits += 1
+	assert_eq(hits, 1, "one impact, then the dash is over:")
+
+
+func test_the_ram_into_the_wall_cracks_the_floor_and_ends_the_dash() -> void:
+	var sim := _duel("cairn", 200.0)
+	var crag := sim.creatures[0]
+	crag.pos.x = crag.floor_min().x + 30.0
+	var intact := sim.terrain.count(TerrainGrid.INTACT)
+	var hit_wall := run_until(sim, func(): return _has_event(sim, "ram_wall"), 30, SimDefs.IN_DODGE | LEFT)
+	assert_true(hit_wall, "the dash reaches the wall 30 px away")
+	assert_eq(crag.state, CreatureSim.State.IDLE, "and ends there:")
+	assert_lt(sim.terrain.count(TerrainGrid.INTACT), intact, "the floor cracked under the impact:")
+
+
+func test_the_ram_keeps_its_invincible_frames() -> void:
+	var sim := _duel("cairn", 200.0)
+	var crag := sim.creatures[0]
+	var dg: Dictionary = crag.def["dodge"]
+	run(sim, SimDefs.IN_DODGE | RIGHT, 1)
+	run(sim, 0, int(dg["iframes_start"]))
+	assert_true(crag.is_invulnerable(), "still a dodge: untouchable in its middle")

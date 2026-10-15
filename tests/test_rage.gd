@@ -59,7 +59,9 @@ func test_rage_mage_kites() -> void:
 	assert_gt(float(rage["dist"]), 80.0, "Rage keeps the tank at knife range:")
 	assert_gt(float(rage["dist"]), float(hard["dist"]) + 20.0, "much further than Hard does:")
 	assert_eq(int(rage["winner"]), 0, "and wins")
-	assert_gt(float(rage["hp"][0]), 0.5, "barely touched:")
+	# Craglash's hook and Landslide Ram are built to reach a kiting mage, so he lands a
+	# few; Rage still comes out with most of its health.
+	assert_gt(float(rage["hp"][0]), 0.4, "barely touched:")
 
 
 ## Knives thrown by side 0 from at least `far` away, and how many of those hit side 1.

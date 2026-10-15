@@ -166,7 +166,8 @@ meant to be played), checked by `tests/test_balance.gd`:
 | --- | --- |
 | Digby vs Chef Cerebro | 70–75% Digby |
 | Sneaky Pete vs Chef Cerebro | about even |
-| Chef Cerebro vs Cairn, Hissy Fitz, Craglash, Culvert | 75–100% Cerebro |
+| Chef Cerebro vs Cairn, Hissy Fitz, Culvert | 75–100% Cerebro |
+| Craglash vs Chef Cerebro | about even: his hook and ram are built to catch mages |
 | Cairn or Hissy Fitz vs an assassin | 60–100% the fighter |
 | Craglash vs Culvert (tanks) | 30–45% Craglash |
 | Digby vs Sneaky Pete (assassins) | about even |
@@ -431,6 +432,7 @@ three-second lockdown while his team does the damage.
 | Skill 2 | Mountain Maw | The hook, on a 5 s cooldown. His head shoots out on its stone neck, **far** (about 160 px), and **can't be blocked**: it has to be dodged. It bites the first foe it reaches and **hauls them back** to his feet, **crumpled**, so a Rake (or a teammate) follows. A red tell and a dotted lane show it coming |
 | Surge | Bedrock | Roots in place for 3 s: hits only chip him (75% less damage) and nothing moves him. Every foe within 140 px is **taunted** for 3 s: they walk at 60% speed, their attacks swing at him, and they're **dragged in** toward him, hard. Any attack button answers out of it after 18 frames, so the Stomp meets them as they arrive. Loses to grabs. A tank's meter fills from the hits he takes, so soaking damage is what earns it |
 | Passive | Stoneskin | A 30-point stone shield that soaks damage first; it grows back after 3 s without taking damage. Shown as a pale rim on him and as pale stone on the end of his health bar ("STONESKIN") |
+| Dodge | Landslide Ram | His roll is a shoulder charge: **twice as far** as anyone's (about 90 px) and it costs **most of his stamina** (84 of 100). The first foe it reaches is **hit** (4 damage, a short stun that a Rake links after, and it counts in the combo) and the dash stops there. Running into the wall stops it too and cracks the floor. Still invincible in the middle, like any roll |
 
 ### Barkley — the tree that got up and left
 
