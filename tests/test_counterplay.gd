@@ -13,6 +13,7 @@ const REACTION := 15
 ## The high-reward moves that need a readable windup when thrown raw.
 const BIG_MOVES := [["cairn", "heavy"], ["cairn", "skill_2"], ["culvert", "heavy"],
 	["culvert", "skill_1"], ["culvert", "skill_2"], ["craglash", "heavy"], ["craglash", "skill_1"],
+	["craglash", "skill_2"],
 	["barkley", "heavy"], ["barkley", "skill_1"], ["gillbert", "heavy"], ["gillbert", "skill_1"],
 	["gillbert", "skill_2"], ["cerebro", "heavy"], ["cerebro", "skill_1"], ["cerebro", "skill_2"],
 	["hissy", "heavy"], ["hissy", "skill_1"], ["digby", "heavy"], ["digby", "skill_2"],

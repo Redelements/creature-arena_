@@ -53,8 +53,10 @@ func test_rockslide_stomp_is_armored_once_its_windup_is_over() -> void:
 	# only chips it, and the Stomp lands.
 	var sim := _duel("craglash", "cairn", 6.0)
 	var crag := sim.creatures[0]
-	var rel := int(crag.moves()["skill_2"]["armor"]["release_from"])
-	tap(sim, S2, rel + 1)
+	var rel := int(crag.moves()["surge"]["armor"]["release_from"])
+	crag.energy = 100.0
+	run_until(sim, func(): return crag.is_armored(), 80, SimDefs.IN_SURGE)
+	run_until(sim, func(): return crag.state_t >= rel + 1, 40)
 	tap(sim, H, 1)
 	assert_eq(crag.move_id, "heavy", "the Stomp answers out of Bedrock:")
 	var armored := false
@@ -163,7 +165,10 @@ func test_assassins_beat_the_mage() -> void:
 
 
 func test_the_mage_beats_fighters_and_tanks() -> void:
-	for foe in ["cairn", "hissy", "craglash", "culvert"]:
+	# Craglash is left out on purpose: his hook and Landslide Ram are built to catch mages
+	# and skirmishers (Kevin's call, PR #62), and at Rage he now takes about 5 of 8 from
+	# Chef Cerebro. Revisit once team fights give the tank job its proper measure.
+	for foe in ["cairn", "hissy", "culvert"]:
 		var r := _wins("cerebro", foe, 4)
 		assert_gt(float(r[0]), r[1] * 0.5, "Chef Cerebro beats %s (%d of %d):" % [foe, r[0], r[1]])
 

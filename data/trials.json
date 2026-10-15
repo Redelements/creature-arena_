@@ -1,5 +1,5 @@
 {
-  "_doc": "Combo Trials. Each step names the button to press (light, heavy, skill_1, skill_2, surge) and the move that must come out; 'via' is a move allowed on the way (Slip before its counter). 'partner_jab' makes the partner throw jabs to counter. A third item \"hold\" means hold that button to a full charge (Runoff's wave). Every route here is also checked by tests/test_trials.gd.",
+  "_doc": "Combo Trials. Each step names the button to press (light, heavy, skill_1, skill_2, surge) and the move that must come out; 'via' is a move allowed on the way (Slip before its counter). 'partner_jab' makes the partner throw jabs to counter. A third item \"hold\" means hold that button to a full charge (Runoff's wave). 'gap' starts the fighters that many px apart instead of in jab range (Mountain Maw's hook). Every route here is also checked by tests/test_trials.gd.",
   "trials": [
     {"fighter": "cairn", "name": "Bread and butter",
      "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["skill_2", "skill_2"]]},
@@ -19,8 +19,8 @@
      "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["skill_1", "skill_1"]]},
     {"fighter": "craglash", "name": "Stomp launcher",
      "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_1", "skill_1"]]},
-    {"fighter": "craglash", "name": "Mountain Maw finish", "energy": 100,
-     "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_1", "skill_1"], ["surge", "surge"]]},
+    {"fighter": "craglash", "name": "Hook them in", "gap": 100,
+     "route": [["skill_2", "skill_2"], ["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_1", "skill_1"]]},
     {"fighter": "barkley", "name": "Pinecone payoff",
      "route": [["light", "light_1"], ["light", "light_2"], ["light", "light_3"], ["heavy", "heavy"], ["skill_2", "skill_2"]]},
     {"fighter": "barkley", "name": "Reel them back",

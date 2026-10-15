@@ -95,8 +95,10 @@ func test_ice_puddle_slows_only_foes() -> void:
 func test_taunt_pulls_only_foes() -> void:
 	var m := _match([["craglash", 0, Vector2(300, 200)], ["culvert", 0, Vector2(340, 200)],
 		["culvert", 1, Vector2(260, 200)]])
-	_step(m, SimDefs.IN_SKILL2, 2)
-	_step(m, 0, 10)
+	# Bedrock is Craglash's Surge: it needs a full meter, and its freeze and windup come first.
+	m.creatures[0].energy = 100.0
+	_step(m, SimDefs.IN_SURGE, 2)
+	_step(m, 0, 40)
 	assert_eq(m.creatures[1].taunt, 0, "the teammate isn't taunted:")
 	assert_gt(m.creatures[2].taunt, 0, "the foe is")
 

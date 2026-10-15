@@ -194,6 +194,8 @@ func on_event(e: Dictionary) -> void:
 			play("slam", 0.0 if power >= 1.0 else -5.0, 1.0 if power >= 1.0 else 1.15)
 		"bounce":
 			play("land", 0.0, 1.25)
+		"ram_wall":
+			play("land", 2.0, 0.8)
 		"fall":
 			play("fall")
 		"land", "land_hard":
