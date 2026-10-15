@@ -130,7 +130,8 @@ File-by-file: docs/CODEBASE.md.
 - **Online:** direct 1v1 over UDP and a dedicated relay/referee server are built, with
   online 2v2/3v3 through the server. Not yet: a Steam transport (behind `NetLink`),
   spectators, matchmaking beyond rooms.
-- **Not built yet:** affinity surfaces, more arenas. Game mode plan and priorities: Game
+- **Not built yet:** affinity surfaces, more arenas, the remaining modes, online extras:
+  the build plan is `docs/plans/arenas-surfaces-modes-online.md`. Priorities: Game
   Plan doc, "Game modes".
 - **Planned:** dodge timing. Kevin wants to leave a combo at any time to dodge; today
   Dodge isn't buffered during attacks (except in hitstop) and can't cancel them (issue #9
