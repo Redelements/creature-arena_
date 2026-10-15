@@ -1406,7 +1406,7 @@ func break_guard(sim: MatchSim) -> void:
 	stamina = 0.0
 	var gd: Dictionary = def["guard"]
 	enter_crumple(int(gd["break_stun"]), knock_vel)
-	sim.emit_event("guard_break", pos, 1.0)
+	sim.emit_event("guard_break", pos, 1.0, {"who": id})
 
 
 func check_ko(sim: MatchSim) -> void:
@@ -1424,7 +1424,7 @@ func start_fall(sim: MatchSim) -> void:
 	walk_vel = Vector2.ZERO
 	cancel_attack()
 	_set_state(State.FALLING)
-	sim.emit_event("fall", pos, 0.0)
+	sim.emit_event("fall", pos, 0.0, {"who": id})
 
 
 func _land_from_fall(sim: MatchSim) -> void:
@@ -1519,7 +1519,7 @@ func _on_wall_bounce(sim: MatchSim, at: Vector2, power: float) -> void:
 	if not combo_bounced and (state == State.HITSTUN or state == State.CRUMPLE):
 		combo_bounced = true
 		stun += WALL_BOUNCE_STUN
-	sim.emit_event("bounce", at, power)
+	sim.emit_event("bounce", at, power, {"who": id})
 
 
 ## Snaps a direction to the nearest of 8. Uses only comparisons and one square root
