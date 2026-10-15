@@ -108,7 +108,7 @@ class _Tap:
 
 ## `p_size` players per side: 1 is a Duel between two machines (`p_slot` is the side);
 ## 2 or 3 is a team battle, `p_slot` one of TeamSim's slots (side 0 first).
-func _init(p_teams: Array, p_slot: int, p_delay: int, p_link: NetLink, p_id: int, p_size := 1) -> void:
+func _init(p_teams: Array, p_slot: int, p_delay: int, p_link: NetLink, p_id: int, p_size := 1, p_rules := "") -> void:
 	teams = p_teams
 	size = clampi(p_size, 1, 3)
 	players = size * 2
@@ -118,7 +118,7 @@ func _init(p_teams: Array, p_slot: int, p_delay: int, p_link: NetLink, p_id: int
 	id = p_id
 	MatchFactory.arena = ArenaMap.DEFAULT  # every machine on the same map until it's agreed over the link
 	if size > 1:
-		team = TeamSim.new(teams, size)
+		team = TeamSim.new(teams, size, TeamSim.rules_by_id(p_rules))
 		local_side = team.side_of(local_slot)
 		_tap = _Tap.new(team)
 	else:

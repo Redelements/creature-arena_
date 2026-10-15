@@ -285,6 +285,10 @@ var _online_server := ""
 ## join to make when it's done: [fighter, host, port, room].
 var _finder: LanFinder = null
 var _finder_join: Array = []
+## The team (one fighter, or three for a tag Duel) and team rules the next server join
+## takes, from the lobby.
+var _pending_team: Array = []
+var _pending_rules := ""
 ## Where the look-up asks (tests ask this machine instead of the whole network).
 var finder_target := "255.255.255.255"
 ## The last look-up found nothing nearby, so a failed join can say what to check at home.
@@ -2391,6 +2395,8 @@ func _net_join_server(fighter: String, room: String, size := 1, server := "") ->
 		lobby.status_bad = true
 		return
 	_online_fighter = fighter
+	_pending_team = lobby.team.duplicate() if lobby != null and lobby.team.size() > 1 else [fighter]
+	_pending_rules = lobby.rules_id if lobby != null else ""
 	_save_settings()
 	_finder = LanFinder.new()
 	_finder.start(int(parsed[1]), finder_target)
@@ -2454,8 +2460,11 @@ func _net_join(fighter: String, address: String, port: int, room := "", remember
 		return
 	netplay.room = room
 	netplay.team_size = size
+	netplay.rules_id = _pending_rules if size > 1 else ""
 	netplay.auto_ready = _auto_accept or _cpu_vs_cpu
-	netplay.join(address, port, [fighter], link)
+	var team: Array = _pending_team if not _pending_team.is_empty() and String(_pending_team[0]) == fighter else [fighter]
+	_pending_team = []
+	netplay.join(address, port, team, link)
 	lobby.busy = true
 	lobby.hosting_port = 0
 	_lobby_status()
@@ -2537,10 +2546,12 @@ func _start_online_match() -> void:
 	if online.team != null:
 		# A team battle: every slot is a player somewhere; this one is ours.
 		team_battle = online.team
+		_rules_id = netplay.rules_id
 		_new_sim(team_battle.sim, s)
 		hud.team = team_battle
 		hud.focus = online.local_slot
 		hud.timer_ticks = team_battle.timer
+		_show_pads()
 		_cpu_shown = 0
 		_show_cpu_slots()
 	else:

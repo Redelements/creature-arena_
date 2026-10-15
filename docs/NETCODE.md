@@ -192,9 +192,20 @@ duel once outside the rollback session. Both players did it, so they agreed with
 other, but it could desync if a button was held on that frame. Fixed
 (`_connecting_step`).
 
-Still to do: a Steam transport (below), spectators
-and saved online replays (both just the input streams), 3v3 tag online (Netplay already
-sends teams), an input delay setting, and ranked/matchmaking.
+**Team rules and tag Duels online (NET_VERSION 7).** Hello carries `rules` (one of
+`TeamSim.RULE_IDS`: the plain battle, deathmatch, sinkhole, crater, showtime) beside
+`size`; Quick match groups by players per side, fighters per player and rules, and a
+room takes its maker's. `start` carries the group's `rules`, and `OnlineMatch` and the
+`Referee` build the `TeamSim` with them. A tag Duel is a team of three fighters per
+player at size 1 (`DuelSim` already takes teams of three), picked on the lobby's
+"Duel 3v3 tag" button or room size. The lobby's "Team rules" row sets the rules for
+2 v 2 and 3 v 3. The game-data hash now covers every rules file and arena map too.
+Tests: `tests/test_server_teams.gd` (a laggy 2v2 deathmatch everyone and the referee
+agree on, rules keeping queues apart, a tag Duel through the server).
+
+Still to do: a Steam transport (below), spectators and saved online replays (both just
+the input streams), an input delay setting, arenas online (every match plays the
+stadium until the choice rides in `start`), and ranked/matchmaking.
 
 ## Transport (to decide)
 

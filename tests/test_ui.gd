@@ -530,8 +530,10 @@ func test_rooms_pick_then_make_or_join_a_code() -> void:
 	_press("ui_accept")
 	assert_eq(lobby.page, OnlineLobby.Page.ROOMS, "Rooms opens its page")
 	assert_eq(_focus(), lobby._size_row, "on the room size")
+	_press("ui_right")  # Duel 3v3 tag
 	_press("ui_right")  # 2 v 2
-	_press("ui_down")
+	_press("ui_down")  # the team rules
+	_press("ui_down")  # Create room
 	_press("ui_accept")
 	_pick_online(lobby, "pete")
 	assert_eq(got.size(), 1, "Create room searches after the pick")

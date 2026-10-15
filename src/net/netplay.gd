@@ -35,7 +35,7 @@ extends RefCounted
 ## server's CPU plays are listed in "start" (`cpu`), or come later as "cpu" when a
 ## player leaves; their inputs arrive like anyone's.
 
-const NET_VERSION := 6  ## 6: the server's ready check; 5: team battles (slots, sizes); 4: 360 move angle
+const NET_VERSION := 7  ## 7: team rules and tag Duels online; 6: the server's ready check; 5: team battles (slots, sizes); 4: 360 move angle
 const DEFAULT_PORT := 7777
 const PINGS := 5
 ## A precise ping (a real link) blocks the host this long at most waiting for the pong.
@@ -65,6 +65,10 @@ var ping_ms := 0.0
 var forced_delay := -1
 ## Players per side to ask a server for: 1 (a 1v1), 2 or 3; 0 = whatever the room is.
 var team_size := 1
+## The rules a team battle plays (TeamSim.RULE_IDS; "" the plain battle): asked for in
+## hello, decided by the host or the server, carried in "start". A tag Duel is simply a
+## team of three fighters per player at size 1.
+var rules_id := ""
 ## This player's slot in the match (its side in a 1v1).
 var local_slot := 0
 ## Dedicated servers pair players who give the same room ("" for anyone).
@@ -166,7 +170,7 @@ func tick(local_bits: int) -> void:
 		Phase.CONNECTING:
 			if link.status == NetLink.Status.CONNECTED:
 				link.send({"t": "hello", "v": NET_VERSION, "data": data_hash(), "team": my_team, "room": room,
-					"size": team_size}, true)
+					"size": team_size, "rules": rules_id}, true)
 				phase = Phase.HANDSHAKE
 				status = "Connected. Setting up the match..."
 			elif _t > CONNECT_TIMEOUT_TICKS:
@@ -322,7 +326,12 @@ func _handle(m: Dictionary) -> void:
 				via_server = true
 				slot = clampi(int(m.get("slot", m["side"])), 0, size * 2 - 1)
 			ping_ms = float(m.get("ping", 0.0))
-			_begin(int(m.get("n", 0)), teams, int(m.get("delay", 2)), slot, size)
+			var rules := String(m.get("rules", ""))
+			if not (rules in TeamSim.RULE_IDS):
+				_fail("Bad match setup from the host")
+				return
+			rules_id = rules
+			_begin(int(m.get("n", 0)), teams, int(m.get("delay", 2)), slot, size, rules)
 			their_team = teams[1 - local_side]
 			var cpu = m.get("cpu", [])
 			if cpu is Array:
@@ -384,16 +393,17 @@ func _start_match() -> void:
 	_match_count += 1
 	var teams := [my_team.duplicate(), their_team.duplicate()]
 	var delay := forced_delay if forced_delay >= 0 else pick_delay(ping_ms)
-	link.send({"t": "start", "n": _match_count, "teams": teams, "delay": delay, "ping": ping_ms}, true)
-	_begin(_match_count, teams, delay)
+	link.send({"t": "start", "n": _match_count, "teams": teams, "delay": delay, "ping": ping_ms,
+		"rules": rules_id}, true)
+	_begin(_match_count, teams, delay, -1, 1, rules_id)
 
 
 ## A host's own matches: it plays side 0.
-func _begin(n: int, teams: Array, delay: int, slot := -1, size := 1) -> void:
+func _begin(n: int, teams: Array, delay: int, slot := -1, size := 1, rules := "") -> void:
 	if slot < 0:
 		slot = local_side
 	match_found = false
-	game = OnlineMatch.new(teams, slot, delay, link, n, size)
+	game = OnlineMatch.new(teams, slot, delay, link, n, size, rules)
 	game.ping_ms = ping_ms
 	local_slot = game.local_slot
 	local_side = game.local_side
@@ -475,9 +485,12 @@ static func data_hash() -> String:
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(("v%d" % NET_VERSION).to_utf8_buffer())
-	var paths: Array = [DuelSim.RULES_PATH, TeamSim.RULES_PATH]
+	var paths: Array = [DuelSim.RULES_PATH, TeamSim.RULES_PATH, TeamSim.DEATHMATCH_PATH, TeamSim.SINKHOLE_PATH,
+		TeamSim.CRATER_PATH, TeamSim.SHOWTIME_PATH, BrawlSim.RULES_PATH, Daily.MUTATORS_PATH]
 	for id in MatchFactory.FIGHTERS:
 		paths.append(MatchFactory.CREATURE_DIR + id + ".json")
+	for id in ArenaMap.IDS:
+		paths.append(ArenaMap.DIR + id + ".json")
 	for p in paths:
 		ctx.update(FileAccess.get_file_as_string(p).to_utf8_buffer())
 	return ctx.finish().hex_encode().substr(0, 16)

@@ -42,11 +42,11 @@ var _theirs: Array = []  ## slot -> frame -> digest
 
 
 ## `size` players per side: 1 is a Duel, 2 or 3 a team battle.
-func _init(p_teams: Array, input_delay: int, size := 1) -> void:
+func _init(p_teams: Array, input_delay: int, size := 1, rules := "") -> void:
 	teams = p_teams
 	MatchFactory.arena = ArenaMap.DEFAULT  # the players' machines play the stadium too
 	if size > 1:
-		duel = TeamSim.new(teams, size)
+		duel = TeamSim.new(teams, size, TeamSim.rules_by_id(rules))
 		players = size * 2
 	else:
 		duel = DuelSim.new(teams)
