@@ -129,8 +129,9 @@ File-by-file: docs/CODEBASE.md.
   `docs/AUDIO.md` and the "Replace placeholder audio" GitHub issue.
 - **Online:** direct 1v1 over UDP and a dedicated relay/referee server are built, with
   online 2v2/3v3 through the server (any team rules: deathmatch, Sinkhole, Crater,
-  Showtime), 3v3 tag Duels, spectators and saved online replays. Not yet: a Steam
-  transport (behind `NetLink`), matchmaking beyond rooms, arenas online (the stadium for now).
+  Showtime), 3v3 tag Duels, spectators, saved online replays, arenas online (the host's or
+  the room's, random for Quick match) and an input delay setting. Not yet: a Steam
+  transport (behind `NetLink`), matchmaking beyond rooms.
 - **Not built yet:** affinity surfaces, more arenas, the remaining modes, online extras:
   the build plan is `docs/plans/arenas-surfaces-modes-online.md`. Priorities: Game
   Plan doc, "Game modes".

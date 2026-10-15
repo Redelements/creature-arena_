@@ -118,7 +118,7 @@ func setup_dict() -> Dictionary:
 		for id in t:
 			ids.append(String(id))
 	return {"kind": "team" if size > 1 else "duel", "ids": ids, "teams": teams.duplicate(true), "size": size,
-		"rules": rules_id, "arena": ArenaMap.DEFAULT, "mutators": {}, "mut_seed": 0}
+		"rules": rules_id, "arena": arena_id, "mutators": {}, "mut_seed": 0}
 
 
 ## The confirmed inputs so far as replay rows (frames 0 up to the first gap).
@@ -131,16 +131,22 @@ func confirmed_rows() -> Array:
 	return rows
 
 
-func _init(p_teams: Array, p_slot: int, p_delay: int, p_link: NetLink, p_id: int, p_size := 1, p_rules := "") -> void:
+var arena_id := ArenaMap.DEFAULT
+
+
+func _init(p_teams: Array, p_slot: int, p_delay: int, p_link: NetLink, p_id: int, p_size := 1, p_rules := "",
+		p_arena := ArenaMap.DEFAULT) -> void:
 	teams = p_teams
 	rules_id = p_rules
+	arena_id = p_arena if p_arena in ArenaMap.IDS else ArenaMap.DEFAULT
 	size = clampi(p_size, 1, 3)
 	players = size * 2
 	local_slot = clampi(p_slot, 0, players - 1)
 	input_delay = p_delay
 	link = p_link
 	id = p_id
-	MatchFactory.arena = ArenaMap.DEFAULT  # every machine on the same map until it's agreed over the link
+	var menu_arena: String = MatchFactory.arena
+	MatchFactory.arena = arena_id  # the map "start" named: every machine builds the same one
 	if size > 1:
 		team = TeamSim.new(teams, size, TeamSim.rules_by_id(p_rules))
 		local_side = team.side_of(local_slot)
@@ -149,6 +155,7 @@ func _init(p_teams: Array, p_slot: int, p_delay: int, p_link: NetLink, p_id: int
 		duel = DuelSim.new(teams)
 		local_side = local_slot
 		_tap = _Tap.new(duel)
+	MatchFactory.arena = menu_arena  # the single player menu's choice is its own
 	for p in players:
 		relay_rtts.append(0.0)
 		_remote_frame.append(-1)

@@ -266,3 +266,22 @@ func test_a_join_that_never_gets_through_says_no_answer() -> void:
 	assert_eq(n.phase, Netplay.Phase.ENDED, "it gives up")
 	assert_true(n.error.begins_with("No answer from kevarena.example.net:7777"),
 		"and says so, not that another player left: " + n.error)
+
+
+func test_the_host_picks_the_arena_and_both_build_it() -> void:
+	var links := LoopLink.pair(1, 0, 0.0, 7)
+	var host := Netplay.new()
+	var guest := Netplay.new()
+	host.arena_id = "quarry"
+	guest.arena_id = "greenhouse"  # the guest's wish doesn't count
+	host.host(0, TEAM_A, links[0])
+	guest.join("loop", 0, TEAM_B, links[1])
+	var nets := [host, guest]
+	assert_true(_run(nets, 200, func(): return _playing(nets)), "both sides start playing")
+	assert_eq(host.game.duel.sim.arena_id, "quarry", "the host's arena:")
+	assert_eq(guest.game.duel.sim.arena_id, "quarry", "on the guest too:")
+	assert_eq(guest.arena_id, "quarry", "and the guest knows it:")
+	assert_eq(host.game.duel.sim.terrain.count(TerrainGrid.WALL), 2 * 2 * 26, "with Quarry's walls:")
+	_run(nets, 600, Callable(), _mash(3))
+	assert_eq(host.game.desync_frame, -1, "no desync on a map with walls")
+	assert_eq(MatchFactory.arena, ArenaMap.DEFAULT, "the menu's arena is left alone")

@@ -8,7 +8,7 @@ const FIGHTERS := ["cairn", "culvert", "sno", "barkley", "gillbert", "craglash"]
 
 ## A server and one player per entry of `sizes` (players per side each asks for),
 ## joined over in-memory links. `rooms[i]` puts player i in a room.
-func _setup(sizes: Array, rooms: Array = [], lag := 0, jitter := 0, loss := 0.0, rules: Array = [], teams: Array = []) -> Array:
+func _setup(sizes: Array, rooms: Array = [], lag := 0, jitter := 0, loss := 0.0, rules: Array = [], teams: Array = [], arenas: Array = []) -> Array:
 	var server := RelayServer.new()
 	var nets: Array = []
 	for i in sizes.size():
@@ -20,6 +20,8 @@ func _setup(sizes: Array, rooms: Array = [], lag := 0, jitter := 0, loss := 0.0,
 			n.room = String(rooms[i])
 		if i < rules.size():
 			n.rules_id = String(rules[i])
+		if i < arenas.size():
+			n.arena_id = String(arenas[i])
 		var team: Array = teams[i] if i < teams.size() else [FIGHTERS[i % FIGHTERS.size()]]
 		n.join("server", 0, team, links[1])
 		nets.append(n)
@@ -344,3 +346,22 @@ func test_a_tag_duel_through_the_server_is_three_fighters_each() -> void:
 	var single := _setup([1, 1, 1], [], 0, 0, 0.0, [], [["cairn"], ["sno", "pete", "digby"], ["culvert"]])
 	assert_true(_run(single[0], single[1], 300, func(): return (single[1][0] as Netplay).is_playing()), "the singles pair up")
 	assert_false((single[1][1] as Netplay).is_playing(), "the tag team waits for another tag team")
+
+
+func test_a_room_plays_its_makers_arena_and_quick_match_draws_one() -> void:
+	var s := _setup([2, 2, 2, 2], ["f", "f", "f", "f"], 1, 0, 0.0, [], [], ["floodgate", "quarry", "stadium", "greenhouse"])
+	var server: RelayServer = s[0]
+	var nets: Array = s[1]
+	assert_true(_run(server, nets, 300, func(): return _all_playing(nets)), "the room starts")
+	for n: Netplay in nets:
+		assert_eq(n.game.team.sim.arena_id, "floodgate", "the maker's map on slot %d:" % n.game.local_slot)
+	var ref: Referee = (server.games[0] as RelayServer.Game).referee
+	assert_eq((ref.duel as TeamSim).sim.arena_id, "floodgate", "and on the referee:")
+	_run(server, nets, 600, Callable(), 8)
+	assert_eq(ref.desync, [-1, -1, -1, -1], "everyone agrees on it:")
+	var q := _setup([1, 1])
+	(q[0] as RelayServer).rng.seed = 11
+	assert_true(_run(q[0], q[1], 300, func(): return _all_playing(q[1])), "a quick match starts")
+	var a: String = (q[1][0] as Netplay).game.duel.sim.arena_id
+	assert_true(a in ArenaMap.IDS, "a real map was drawn: " + a)
+	assert_eq((q[1][1] as Netplay).game.duel.sim.arena_id, a, "the same for both:")
