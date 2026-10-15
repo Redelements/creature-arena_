@@ -17,11 +17,17 @@ extends RefCounted
 ## kept), invulnerable for `spawn_protect_seconds` or until it attacks. Every KO scores a
 ## point for the other team; first to `score_to_win` (by fighters per side) wins, or the
 ## higher score at time. A tie at time is sudden death: the next KO wins.
+##
+## Sinkhole (rules with "sinkhole": data/rules/sinkhole.json): one life each, and every
+## `shrink_every` ticks the outermost ring of the floor cracks (a warning the CPU heeds)
+## and `shrink_warn` ticks later drops into a chasm for good, up to `max_rings`. A fall
+## is a knockout (`fall_ko` on the match). Last side standing wins.
 
 enum Phase { INTRO, FIGHT, OVER }
 
 const RULES_PATH := "res://data/rules/team.json"
 const DEATHMATCH_PATH := "res://data/rules/deathmatch.json"
+const SINKHOLE_PATH := "res://data/rules/sinkhole.json"
 
 var sim: MatchSim
 var rules: Dictionary
@@ -34,6 +40,12 @@ var winner := -2  ## -2 undecided, -1 draw, else the winning side
 ## Team Deathmatch only: the score (KOs each side has scored), each slot's ticks until it
 ## respawns (-1: not waiting), each slot's spawn protection left, and sudden death.
 var deathmatch := false
+## Sinkhole only: rings fallen so far, ticks until the next crack or drop, and whether
+## the current ring is cracked and waiting to drop.
+var sinkhole := false
+var ring := 0
+var sink_t := 0
+var warned := false
 var score := [0, 0]
 var respawn_t: Array = []
 var guard_t: Array = []
@@ -62,6 +74,9 @@ func _init(team_ids: Array, per_side := 0, p_rules: Dictionary = {}) -> void:
 			c.facing = Vector2.RIGHT if side == 0 else Vector2.LEFT
 	timer = int(float(rules.get("time_seconds", 150)) * SimDefs.TICK_RATE)
 	deathmatch = bool(rules.get("deathmatch", false))
+	sinkhole = bool(rules.get("sinkhole", false))
+	sim.fall_ko = bool(rules.get("fall_ko", false))
+	sink_t = int(rules.get("shrink_every", 420))
 	for i in slot_count():
 		respawn_t.append(-1)
 		guard_t.append(0)
@@ -135,6 +150,8 @@ func step(inputs: PackedInt32Array) -> void:
 		return
 	if sim.ko_freeze == 0:
 		timer -= 1
+	if sinkhole:
+		_sinkhole_step()
 	if deathmatch:
 		_deathmatch_step()
 		return
@@ -192,6 +209,52 @@ func _deathmatch_step() -> void:
 			_finish(0 if score[0] > score[1] else 1, "time")
 
 
+## Sinkhole: the edge cracks, then drops, ring by ring.
+func _sinkhole_step() -> void:
+	if sim.ko_freeze > 0:
+		return
+	if ring >= int(rules.get("max_rings", 16)):
+		return
+	sink_t -= 1
+	if sink_t > 0:
+		return
+	var t := sim.terrain
+	if not warned:
+		for c in _ring_cells(ring):
+			if t.get_cell(c) == TerrainGrid.INTACT:
+				t.set_cell(c, TerrainGrid.CRACKED)
+		warned = true
+		sim.sink_ring = ring
+		sink_t = int(rules.get("shrink_warn", 120))
+		sim.emit_event("sink_warn", Vector2.ZERO, float(ring), {"ring": ring, "rect": _ring_rect(ring)})
+	else:
+		for c in _ring_cells(ring):
+			t.sink(c)
+		warned = false
+		sim.sink_ring = -1
+		sim.emit_event("sink", Vector2.ZERO, float(ring), {"ring": ring, "rect": _ring_rect(ring)})
+		ring += 1
+		sink_t = int(rules.get("shrink_every", 420))
+
+
+func _ring_cells(r: int) -> Array[Vector2i]:
+	var t := sim.terrain
+	var out: Array[Vector2i] = []
+	for x in range(r, t.cols - r):
+		out.append(Vector2i(x, r))
+		out.append(Vector2i(x, t.rows - 1 - r))
+	for y in range(r + 1, t.rows - 1 - r):
+		out.append(Vector2i(r, y))
+		out.append(Vector2i(t.cols - 1 - r, y))
+	return out
+
+
+## The floor left once ring `r` has gone, in pixels.
+func _ring_rect(r: int) -> Rect2:
+	var t := sim.terrain
+	return Rect2(t.cell_rect(Vector2i(r, r)).position, Vector2((t.cols - 2 * r) * SimDefs.CELL, (t.rows - 2 * r) * SimDefs.CELL))
+
+
 func _finish(side: int, how: String) -> void:
 	winner = side
 	_set_phase(Phase.OVER)
@@ -238,7 +301,7 @@ func _time_out() -> void:
 func snapshot() -> Dictionary:
 	return {"phase": phase, "phase_t": phase_t, "timer": timer, "winner": winner, "match": sim.snapshot(),
 		"score": score.duplicate(), "respawn_t": respawn_t.duplicate(), "guard_t": guard_t.duplicate(),
-		"overtime": overtime}
+		"overtime": overtime, "ring": ring, "sink_t": sink_t, "warned": warned}
 
 
 func restore(s: Dictionary) -> void:
@@ -250,6 +313,9 @@ func restore(s: Dictionary) -> void:
 	respawn_t = (s["respawn_t"] as Array).duplicate()
 	guard_t = (s["guard_t"] as Array).duplicate()
 	overtime = bool(s["overtime"])
+	ring = int(s.get("ring", 0))
+	sink_t = int(s.get("sink_t", 0))
+	warned = bool(s.get("warned", false))
 	sim.restore(s["match"])
 
 
@@ -257,7 +323,7 @@ func state_digest() -> String:
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(var_to_bytes([sim.state_digest(), phase, phase_t, timer, winner, score, respawn_t, guard_t,
-		overtime]))
+		overtime, ring, sink_t, warned]))
 	return ctx.finish().hex_encode()
 
 

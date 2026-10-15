@@ -322,6 +322,20 @@ func spawn(e: Dictionary) -> void:
 					_text(c.pos + Vector2(0, -_top(c) - 14), "SLOWED", Color("b9c6d6"), 7, 40.0)
 		"taunt":
 			_add({"kind": "ring", "pos": p, "life": 14, "radius": 18.0, "color": C_TAUNT})
+		"sink_warn", "sink":
+			# Sinkhole: dust shakes off the doomed ring, then the ring drops in a cloud.
+			var rect: Rect2 = e.get("rect", Rect2())
+			var n := 10 if String(e["type"]) == "sink" else 5
+			for i in n:
+				var side := i % 4
+				var f := float(i / 4) / float(maxi(1, n / 4))
+				var q: Vector2
+				match side:
+					0: q = Vector2(rect.position.x + rect.size.x * f, rect.position.y)
+					1: q = Vector2(rect.position.x + rect.size.x * f, rect.end.y)
+					2: q = Vector2(rect.position.x, rect.position.y + rect.size.y * f)
+					_: q = Vector2(rect.end.x, rect.position.y + rect.size.y * f)
+				_add({"kind": "lines", "pos": q, "life": 14 if n > 5 else 8, "size": 1.3, "color": C_GREY[2]})
 		"smash":
 			# A charge breaks through rubble: a burst of grey chips.
 			_add({"kind": "ring", "pos": p, "life": 10, "radius": 12.0, "color": C_GREY[2]})

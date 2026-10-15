@@ -1430,6 +1430,8 @@ func start_fall(sim: MatchSim) -> void:
 func _land_from_fall(sim: MatchSim) -> void:
 	pos = _clamp_to_floor(sim.terrain.nearest_solid(pos))
 	hp -= FALL_DAMAGE
+	if sim.fall_ko:
+		hp = 0.0  # Sinkhole: the pit is the end
 	calm_t = 0
 	invuln = RESPAWN_INVULN
 	reset_combo()
