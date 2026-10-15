@@ -9,7 +9,7 @@ Line counts are approximate (checked 2026-10-14).
 
 ```
 src/sim/    deterministic rules (match_sim, creature_sim, duel_sim, team_sim, terrain_grid, arena_map, replay, sim_defs)
-src/ai/     cpu_controller                     CPU opponent (seeded)
+src/ai/     cpu_controller, nav_grid           CPU opponent (seeded) and its way round walls and pits
 src/input/  player_input, mouse_orders, menu_stick
 src/view/   fx_view (+fx_ground), creature_view, surge_aura, hud, audio_view, arena_view, crowd_view, debug_view
 src/net/    rollback_session, netplay, online_match, net_link (+enet/loop/lag), sim_check,
@@ -90,6 +90,7 @@ KO, AIRBORNE, CRUMPLE, KNOCKDOWN), `STATE_FIELDS`/`STATIC_FIELDS`, `BUFFER_TICKS
 
 **Where to look**
 
+| `ai/nav_grid.gd` (170) | The CPU's coarse walkable map: 16 px nodes, blocked by walls, fences and pits, costlier through shallows; integer-cost Dijkstra in a fixed order (deterministic); rebuilt when `terrain.version` changes | `update`, `path`, `clear_line`, `nearest_open` |
 - Difficulty table → `cpu_controller.gd:LEVELS` (reaction, defend, combo, mistake, breakaway, aggression, think); Rage = `RAGE := 3`, `"rage": true`
 - Per-class Rage behaviour → `cpu_controller.gd:STYLES` via `_style()`
 - CPU picks a combo route → `_pick_route` (Rage: longest affordable, never drops; below Rage: 80 % roll)

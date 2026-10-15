@@ -80,6 +80,15 @@ var _stuck_t := 0
 var _last_seen := Vector2.INF
 ## Whether the foe is out of sight right now (invisible, or in brush we're not next to).
 var _foe_hidden := false
+## Finding a way round walls, fences and pits (NavGrid): the current path, where it
+## was going, and ticks until it may be replanned. Only used when the straight line to
+## the goal is blocked, so open-floor play is exactly what it was.
+var _nav := NavGrid.new()
+var _path := PackedVector2Array()
+var _path_goal := Vector2.INF
+var _path_t := 0
+const REPLAN_TICKS := 20
+const WAYPOINT_REACHED := 7.0
 var _detour_t := 0
 var _detour_dir := Vector2.ZERO
 var _hold_heavy := 0
@@ -157,6 +166,38 @@ func _hold(bit: int) -> void:
 ## directions a keyboard gives.
 func _move_toward(v: Vector2) -> void:
 	_hold(SimDefs.move_bits(v) if level >= 1 else SimDefs.bits_from_dir(v.normalized()))
+
+
+## Walks to the point `goal`: straight when no fixed piece is in the way (healing holes
+## are left to `_steer`, as before maps existed, so open-floor play is unchanged), else
+## along a path round the walls, fences and pits (replanned every REPLAN_TICKS or when
+## the goal moves). `weave` is added to the straight step (the chase's sidestep), never
+## to the path, so the detour stays on open floor.
+func _go_to(sim: MatchSim, me: CreatureSim, goal: Vector2, weave := Vector2.ZERO) -> void:
+	if NavGrid.clear_line(sim.terrain, me.pos, goal, me.radius, false):
+		_path = PackedVector2Array()
+		var v := (goal - me.pos).normalized() + weave
+		if _rage():
+			_go(sim, me, v)
+		else:
+			_move_toward(v)
+		return
+	_nav.update(sim.terrain)
+	_path_t -= 1
+	if _path.is_empty() or _path_t <= 0 or _path_goal.distance_to(goal) > 20.0:
+		_path = _nav.path(me.pos, goal)
+		_path_goal = goal
+		_path_t = REPLAN_TICKS
+	# Drop waypoints already reached, or that the next one can be walked to straight.
+	while _path.size() > 1 and (me.pos.distance_to(_path[0]) < WAYPOINT_REACHED
+			or NavGrid.clear_line(sim.terrain, me.pos, _path[1], me.radius, false)):
+		_path.remove_at(0)
+	if _path.is_empty():
+		_move_toward(_steer(sim, me, goal - me.pos))  # no way round: press on as before
+		return
+	var d := _steer(sim, me, _path[0] - me.pos)
+	if d != Vector2.ZERO:
+		_move_toward(d)
 
 
 func _ai(me: CreatureSim) -> Dictionary:
@@ -470,7 +511,7 @@ func _neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2,
 			_hold(SimDefs.bits_from_dir(to_foe.normalized()))
 			return
 		if dist > want + 14.0:
-			_move_toward(to_foe)
+			_go_to(sim, me, me.pos + to_foe)
 		return
 
 	# Free punish on a crumpled or stunned foe.
@@ -481,7 +522,7 @@ func _neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2,
 
 	_think_t -= 1
 	if _think_t > 0:
-		_follow_plan(me, foe, to_foe, dist, want)
+		_follow_plan(sim, me, foe, to_foe, dist, want)
 		return
 	_think_t = int(p["think"]) + rng.randi_range(0, 6)
 
@@ -608,7 +649,7 @@ func _neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2,
 		_plan_dir = Vector2(-to_foe.y, to_foe.x).normalized() * (1.0 if _roll(0.5) else -1.0)
 	else:
 		_plan = "wait"
-	_follow_plan(me, foe, to_foe, dist, want)
+	_follow_plan(sim, me, foe, to_foe, dist, want)
 
 
 ## Whether a straight throw in the nearest of 8 directions would meet the foe.
@@ -618,11 +659,11 @@ func _lined_up(to_foe: Vector2, foe: CreatureSim) -> bool:
 	return off < foe.radius + 3.0
 
 
-func _follow_plan(me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float, want: float) -> void:
+func _follow_plan(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float, want: float) -> void:
 	match _plan:
 		"approach":
 			if dist > want:
-				_move_toward(to_foe)
+				_go_to(sim, me, me.pos + to_foe)
 		"retreat":
 			if dist < want + 30.0:
 				_move_toward(-to_foe)
@@ -745,7 +786,7 @@ func _steer(sim: MatchSim, me: CreatureSim, v: Vector2) -> Vector2:
 			continue
 		for k in [6.0, 14.0, 24.0]:
 			var at: Vector2 = me.pos + d * (me.radius + k)
-			if sim.terrain.is_hole_at(at):
+			if sim.terrain.is_hole_at(at) or sim.terrain.body_blocked(at, me.radius):
 				s -= 2.5 if k < 20.0 else 0.8
 				break
 		if not room.has_point(me.pos + d * 10.0):
@@ -769,7 +810,8 @@ func _open_dir(sim: MatchSim, me: CreatureSim, away: Vector2) -> Vector2:
 		var clear := _clearance(room, me.pos, d)
 		var s := d.dot(a) * 1.2 + minf(clear, 100.0) / 100.0
 		for k in [8.0, 20.0, 34.0]:
-			if sim.terrain.is_hole_at(me.pos + d * (me.radius + k)):
+			var at: Vector2 = me.pos + d * (me.radius + k)
+			if sim.terrain.is_hole_at(at) or sim.terrain.body_blocked(at, me.radius):
 				s -= 1.5
 				break
 		if s > best_s:
@@ -1086,7 +1128,7 @@ func _rage_punish(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vect
 		_press(int(ACTION_BIT[poke]))
 		return true
 	if String(_style(me)["plan"]) != "kite" and float(left) * me.walk_speed() + reach >= dist + 4.0:
-		_go(sim, me, to_foe)
+		_go_to(sim, me, me.pos + to_foe)
 		return true
 	return false
 
@@ -1138,7 +1180,13 @@ func _rage_neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vec
 		if plan == "kite":
 			_strafe(sim, me, foe, _kite_vector(sim, me, foe))
 		elif dist > reach - 2.0:
-			_go(sim, me, to_foe)
+			_go_to(sim, me, me.pos + to_foe)
+		return
+
+	# No straight way to the foe (a wall, a fence or a pit between): walk the way round
+	# first. The plans below circle and press as if it were in plain sight.
+	if dist > reach + 8.0 and not NavGrid.clear_line(sim.terrain, me.pos, _seen(foe), me.radius, false):
+		_go_to(sim, me, _seen(foe))
 		return
 
 	# A stunned or crumpled foe: hit it.
@@ -1304,9 +1352,9 @@ func _chase(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, d
 	# across it.
 	if me.stealth > 0:
 		var side := Vector2(-n.y, n.x) * (1.0 if _orbit_t % 2 == 0 else -1.0)
-		_go(sim, me, (n * 0.6 + side).normalized())
+		_go_to(sim, me, goal, side * 0.6 / 0.6 * 0.6 + n * -0.4)
 		return
-	_go(sim, me, n + Vector2(-n.y, n.x) * _orbit * 0.45)
+	_go_to(sim, me, goal, Vector2(-n.y, n.x) * _orbit * 0.45)
 
 
 ## Where a mage walks: out to the edge of its range when the foe closes in, round it at
@@ -1381,7 +1429,7 @@ func _plan_lurk(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector
 		_press(SimDefs.IN_LIGHT)
 		_engage_t = mini(_engage_t, 20)  # in and out: after this string, back to lurking
 		return
-	_go(sim, me, to_foe)
+	_go_to(sim, me, me.pos + to_foe)
 
 
 ## Tank and bruiser: walk the foe down, cutting off the way to open floor so it ends up
@@ -1403,7 +1451,7 @@ func _plan_press(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vecto
 			_press(SimDefs.IN_LIGHT)
 		return
 	if dist <= reach:
-		_go(sim, me, to_foe)  # not yet sure to land: keep walking it down
+		_go_to(sim, me, me.pos + to_foe)  # not yet sure to land: keep walking it down
 		return
 	# Aim a little between the foe and the middle of the floor: it gets pushed outward.
 	var mid := SimDefs.floor_rect().get_center()
@@ -1422,7 +1470,7 @@ func _plan_skirmish(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Ve
 			_press(SimDefs.IN_LIGHT)
 			_engage_t = mini(_engage_t, 15)
 		else:
-			_go(sim, me, to_foe)
+			_go_to(sim, me, me.pos + to_foe)
 		return
 	if me.energy >= CreatureSim.MAX_ENERGY or foe.hp / foe.max_hp < 0.3 or not foe.can_dodge():
 		_engage_t = 60
