@@ -23,7 +23,14 @@ const HISTORY := 240
 
 var duel  ## the match: a DuelSim (1v1) or a TeamSim (team battle)
 var teams: Array
+var size := 1
+var rules := ""
 var players := 2  ## input slots
+## Every row of inputs stepped, in order: the match's replay (saved by the server,
+## sent to a spectator who joins late).
+var log: Array = []
+## The sim's events from the frames stepped by the last advance(), for a spectator's views.
+var events: Array = []
 var frame := 0  ## the next frame to simulate
 var winner := -2  ## the match's result once decided: the winning side (-1 draw)
 var finished_at := -1  ## frame the result was decided
@@ -42,8 +49,10 @@ var _theirs: Array = []  ## slot -> frame -> digest
 
 
 ## `size` players per side: 1 is a Duel, 2 or 3 a team battle.
-func _init(p_teams: Array, input_delay: int, size := 1, rules := "") -> void:
+func _init(p_teams: Array, input_delay: int, p_size := 1, p_rules := "") -> void:
 	teams = p_teams
+	size = p_size
+	rules = p_rules
 	MatchFactory.arena = ArenaMap.DEFAULT  # the players' machines play the stadium too
 	if size > 1:
 		duel = TeamSim.new(teams, size, TeamSim.rules_by_id(rules))
@@ -141,8 +150,33 @@ func add_digest(side: int, f: int, digest: String) -> void:
 
 
 ## Simulates every frame all players' inputs have arrived for.
+## Rows of inputs already stepped elsewhere (a spectator joining a match in progress).
+func feed_log(rows: Array) -> void:
+	for f in rows.size():
+		var row = rows[f]
+		for p in mini(players, (row as PackedInt32Array).size() if row is PackedInt32Array else (row as Array).size()):
+			if f >= frame and not (_inputs[p] as Dictionary).has(f):
+				_inputs[p][f] = int(row[p])
+
+
+## The fingerprint this copy had at frame `f` ("" if none was taken there).
+func digest_at(f: int) -> String:
+	return String(_mine.get(f, ""))
+
+
+## What this match is, for a replay file (ReplayBuilder rebuilds it).
+func setup_dict() -> Dictionary:
+	var ids: Array = []
+	for t in teams:
+		for id in t:
+			ids.append(String(id))
+	return {"kind": "team" if size > 1 else "duel", "ids": ids, "teams": teams.duplicate(true), "size": size,
+		"rules": rules, "arena": ArenaMap.DEFAULT, "mutators": {}, "mut_seed": 0}
+
+
 func advance() -> int:
 	var n := 0
+	events.clear()
 	while _all_have(frame):
 		var ins := PackedInt32Array()
 		for p in players:
@@ -162,6 +196,8 @@ func advance() -> int:
 			_history[p][frame] = bits
 			_history[p].erase(frame - HISTORY)
 		duel.step(ins)
+		log.append(ins)
+		events.append_array(duel.sim.events)
 		if winner == -2 and duel.winner != -2:
 			winner = duel.winner
 			finished_at = frame

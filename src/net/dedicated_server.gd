@@ -35,6 +35,7 @@ var _stopping := false
 ## command line doesn't ask for a server.
 func configure(args: PackedStringArray) -> bool:
 	var wanted := false
+	relay.save_replays = true  # every match's replay, for the Replay theater
 	for a in args:
 		if a == "--server":
 			wanted = true

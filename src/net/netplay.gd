@@ -69,6 +69,10 @@ var team_size := 1
 ## hello, decided by the host or the server, carried in "start". A tag Duel is simply a
 ## team of three fighters per player at size 1.
 var rules_id := ""
+## Spectating: this machine watches a match on the server (a room's, or the newest)
+## with a Referee of its own stepping only on confirmed inputs, never predicting.
+var watching := false
+var watch: Referee = null
 ## This player's slot in the match (its side in a 1v1).
 var local_slot := 0
 ## Dedicated servers pair players who give the same room ("" for anyone).
@@ -125,6 +129,13 @@ func host(port: int, team: Array, p_link: NetLink = null) -> bool:
 	return true
 
 
+## Watches a match on a server: the room's, or whatever is on.
+func spectate(address: String, port: int, p_room: String, p_link: NetLink = null) -> bool:
+	watching = true
+	room = p_room
+	return join(address, port, [MatchFactory.FIGHTERS[0]], p_link)
+
+
 func join(address: String, port: int, team: Array, p_link: NetLink = null) -> bool:
 	hosting = false
 	local_side = 1
@@ -170,7 +181,7 @@ func tick(local_bits: int) -> void:
 		Phase.CONNECTING:
 			if link.status == NetLink.Status.CONNECTED:
 				link.send({"t": "hello", "v": NET_VERSION, "data": data_hash(), "team": my_team, "room": room,
-					"size": team_size, "rules": rules_id}, true)
+					"size": team_size, "rules": rules_id, "watch": watching}, true)
 				phase = Phase.HANDSHAKE
 				status = "Connected. Setting up the match..."
 			elif _t > CONNECT_TIMEOUT_TICKS:
@@ -185,7 +196,10 @@ func tick(local_bits: int) -> void:
 				for m in link.poll(ATTENTIVE_WAIT_MS):
 					_handle(m)
 		Phase.PLAYING:
-			game.tick(local_bits)
+			if watch != null:
+				watch.advance()
+			else:
+				game.tick(local_bits)
 			_live_ping_step()
 			if hosting and rematch_local and rematch_remote:
 				_start_match()
@@ -240,6 +254,10 @@ func leave() -> void:
 
 func is_playing() -> bool:
 	return phase == Phase.PLAYING and game != null
+
+
+func is_watching() -> bool:
+	return phase == Phase.PLAYING and watch != null
 
 
 # ------------------------------------------------------------------ messages
@@ -314,6 +332,9 @@ func _handle(m: Dictionary) -> void:
 		"start":
 			if hosting:
 				return
+			if bool(m.get("watch", false)):
+				_start_watching(m)
+				return
 			var teams = m.get("teams")
 			var size := clampi(int(m.get("size", 1)), 1, 3)
 			if not (teams is Array) or (teams as Array).size() != 2 or not _valid_team(teams[0]) \
@@ -356,8 +377,35 @@ func _handle(m: Dictionary) -> void:
 				_:
 					_fail("The other player left")
 		"in", "dg":
-			if game != null and int(m.get("n", -1)) == game.id:
+			if watch != null:
+				if String(m.get("t", "")) == "in" and int(m.get("n", -1)) == _watch_n:
+					watch.add_inputs(clampi(int(m.get("p", 0)), 0, watch.players - 1), m)
+			elif game != null and int(m.get("n", -1)) == game.id:
 				game.receive(m)
+
+
+var _watch_n := 0
+
+
+## The server put this spectator on a match: build a referee's copy of it and feed it
+## everything stepped so far.
+func _start_watching(m: Dictionary) -> void:
+	var teams = m.get("teams")
+	var size := clampi(int(m.get("size", 1)), 1, 3)
+	var rules := String(m.get("rules", ""))
+	if not (teams is Array) or (teams as Array).size() != 2 or not _valid_team(teams[0]) \
+			or not _valid_team(teams[1]) or not (rules in TeamSim.RULE_IDS):
+		_fail("Bad match setup from the server")
+		return
+	via_server = true
+	match_found = false
+	_watch_n = int(m.get("n", 0))
+	watch = Referee.new(teams, int(m.get("delay", 2)), size, rules)
+	var rows = m.get("log", [])
+	if rows is Array:
+		watch.feed_log(rows)
+	phase = Phase.PLAYING
+	status = "Watching"
 
 
 ## Host: measure the round trip with a few pings, then start the match. On a real link
