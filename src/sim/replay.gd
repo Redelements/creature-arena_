@@ -5,7 +5,9 @@ extends RefCounted
 
 const FORMAT := 1
 
-var setup := "training"
+## What the match was (a Dictionary main writes; ReplayBuilder rebuilds it), or the
+## old plain label.
+var setup = "training"
 var frames: Array[PackedInt32Array] = []
 
 
@@ -31,7 +33,7 @@ func save(path: String) -> Error:
 
 static func from_dict(d: Dictionary) -> Replay:
 	var r := Replay.new()
-	r.setup = String(d.get("setup", "training"))
+	r.setup = d.get("setup", "training")
 	for row in d.get("frames", []):
 		var f := PackedInt32Array()
 		for v in row:
