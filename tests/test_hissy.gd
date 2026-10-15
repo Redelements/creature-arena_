@@ -153,3 +153,68 @@ func test_poison_without_poison_every_pulses_at_the_default() -> void:
 	sim.creatures[0].def["moves"]["skill_1"].erase("poison_every")
 	run_until(sim, func(): return not _events(sim, "poisoned").is_empty(), 60, S1)
 	assert_eq(foe.poison_every, MatchSim.POISON_EVERY_DEFAULT, "a move that leaves it out gets the default, not every tick:")
+
+
+# ------------------------------------------------------------------ Venom Frenzy (passive)
+
+func test_four_hits_in_a_string_start_venom_frenzy() -> void:
+	var sim := _duel("cairn", 12.0)
+	var hissy := sim.creatures[0]
+	# Jab, Jab, Hair Lash: three hits, not yet.
+	route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"]])
+	assert_eq(hissy.frenzy_t, 0, "three hits isn't enough")
+	var sim2 := _duel("cairn", 12.0)
+	var h2 := sim2.creatures[0]
+	var f2 := sim2.creatures[1]
+	route(sim2, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"]])
+	assert_gt(h2.frenzy_t, 0, "the 4th hit (Coil Uppercut) starts the frenzy")
+	assert_eq(f2.poison_stacks, 0, "the hit that starts it doesn't poison yet")
+
+
+func test_frenzy_hits_stack_poison_up_to_five() -> void:
+	var sim := _duel("cairn", 12.0)
+	var hissy := sim.creatures[0]
+	var foe := sim.creatures[1]
+	var vf: Dictionary = hissy.def["venom_frenzy"]
+	hissy.frenzy_t = int(vf["ticks"])
+	for i in 7:
+		route(sim, 0, [[L, "light_1"]])
+		run(sim, 0, 20)
+	assert_eq(foe.poison_stacks, int(vf["max_stacks"]), "stacks cap at %d:" % int(vf["max_stacks"]))
+	var pulse := [0.0]
+	run_until(sim, func():
+		for e in sim.events:
+			if String(e["type"]) == "poison" and int(e["who"]) == foe.id:
+				pulse[0] = float(e["power"])
+				return true
+		return false, int(vf["poison_every"]) + 2)
+	assert_near(pulse[0], float(vf["poison_damage"]) * int(vf["max_stacks"]), 0.01, "a pulse at full stacks:")
+	run(sim, 0, int(vf["poison_ticks"]) + 10)
+	assert_eq(foe.poison, 0, "the poison wears off")
+	assert_eq(foe.poison_stacks, 0, "and the stacks with it")
+
+
+func test_a_slow_string_doesnt_count_and_the_frenzy_ends() -> void:
+	var sim := _duel("cairn", 12.0)
+	var hissy := sim.creatures[0]
+	var gap := int(hissy.def["venom_frenzy"]["streak_gap"])
+	for i in 4:  # four jabs, each well after the last: not a string
+		route(sim, 0, [[L, "light_1"]])
+		run(sim, 0, gap + 20)
+	assert_eq(hissy.frenzy_t, 0, "four hits far apart don't start it")
+	hissy.frenzy_t = 5
+	run(sim, 0, 10)
+	assert_eq(hissy.frenzy_t, 0, "it runs out")
+
+
+func test_frenzy_state_rolls_back() -> void:
+	var sim := _duel("cairn", 12.0)
+	var hissy := sim.creatures[0]
+	hissy.frenzy_t = 100
+	route(sim, 0, [[L, "light_1"]])
+	var snap := sim.snapshot()
+	var stacks := sim.creatures[1].poison_stacks
+	run(sim, 0, 40)
+	sim.restore(snap)
+	assert_eq(sim.creatures[1].poison_stacks, stacks, "stacks restored")
+	assert_gt(sim.creatures[0].frenzy_t, 0, "frenzy restored")
