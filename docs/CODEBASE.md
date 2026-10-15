@@ -235,6 +235,8 @@ packets are plain-UDP JSON: `creature-arena?` / `creature-arena`.
 | `game/trials.gd` (228) | `ComboTrials` coach: plays a demo, judges the player's route (`data/trials.json`) | `inputs(player_bits)`, `after_step`, `_fail`, `_clear`, `replay_demo`, `skip` |
 | `game/drills.gd` (206) | `ReactionDrill` coach: partner throws windup moves, player scored over `REPS` (`SETS`) | `build`, `inputs`, `_judge`, `after_step` |
 | `game/controls.gd` (364) | Every InputMap action, registered in code (`BINDINGS` lol_/kb_/pad_), remap and persistence | `setup`, `rebind`, `reset`, `overrides`, `apply_overrides`, `binding_text` |
+| `game/arcade.gd` (80) | The Arcade ladder: five single-round fights up a seeded roster order, then a 3v3 Duel against a boss team one CPU level up; clears go to Progress | `opponent`, `boss_team`, `player_team`, `stage_level`, `advance` |
+| `game/progress.gd` (80) | What the player has earned, in `user://progress.json`: best Arcade clear level per fighter, the palette each wears (one unlocked per level cleared, four at most) | `arcade_best`, `record_clear`, `palettes_unlocked`, `palette`, `next_palette` |
 | `game/match_factory.gd` (55) | Loads and caches creature JSON; `FIGHTERS` roster; spawn constants; `arena` (the map new offline matches use) | `load_def`, `versus`, `training` |
 | `game/autoplay.gd` (44) | Scripted player input behind `--autoplay` | `bits(tick)`, `length` |
 | `ui/ui_screen.gd` (224) | Base for every menu screen: title, rows, description, hint | override `build`; `add_button`, `add_option`, `add_text`, `add_space`, `add_row`; `back` |

@@ -82,6 +82,7 @@ const MODES := [
 	{"label": "Showtime: 1v1 vs CPU", "team": 1, "rules": "showtime", "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Showtime: 2v2 vs CPU", "team": 2, "rules": "showtime", "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Showtime: 3v3 vs CPU", "team": 3, "rules": "showtime", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Arcade", "arcade": true, "sides": [Side.PLAYER, Side.CPU]},
 ]
 ## The menus (src/ui screens): the title menu opens Single player (MENU_ROWS), the online
 ## screen, or Settings. MODES indexes stay stable for --mode=N; rows with choices pick
@@ -114,6 +115,10 @@ const MENU_ROWS := [
 	{"label": "Versus: 2 players", "modes": [8], "desc": "One fighter each, two players on one screen"},
 	{"label": "Versus CPU", "modes": [0, 1, 12, 14, 16, 18, 21, 23, 25, 27],
 		"desc": "Best of three rounds against the CPU. Left/Right: your fighter",
+		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert", "as Chef Cerebro",
+			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy"]},
+	{"label": "Arcade", "modes": [42], "fighter_choice": true,
+		"desc": "Five fights up the roster, then a boss team in a 3v3 Duel. Clears unlock palettes (F5 in a fight). Left/Right: your fighter",
 		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert", "as Chef Cerebro",
 			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy"]},
 	{"label": "Combo Trials", "modes": [9], "desc": "Learn the combos, one at a time"},
@@ -172,6 +177,11 @@ var level := 1
 var sides: Array = [Side.PLAYER, Side.CPU]
 var cpus: Array = [null, null]
 var round_num := 1
+## The Arcade ladder in progress (null outside it) and its fighter; the CPU level a
+## stage asks for (-1: the Settings level).
+var arcade: Arcade = null
+var _arcade_fighter := "cairn"
+var _cpu_level_override := -1
 var wins := [0, 0]
 var timer := ROUND_TICKS
 var seed_base := 1
@@ -421,6 +431,10 @@ func _set_arena(id: String) -> void:
 
 func _start_row(row: int) -> void:
 	var r: Dictionary = MENU_ROWS[row]
+	if r.get("fighter_choice", false):
+		_arcade_fighter = MatchFactory.FIGHTERS[clampi(int(_row_choice[row]), 0, MatchFactory.FIGHTERS.size() - 1)]
+		_start_match(int(r["modes"][0]))
+		return
 	_start_match(int(r["modes"][_row_choice[row] if row < _row_choice.size() else 0]))
 
 
@@ -550,6 +564,12 @@ func _start_match(m: int, keep_teams := false) -> void:
 	hud.menu_visible = false
 	_save_settings()
 	var cfg: Dictionary = MODES[m]
+	_cpu_level_override = -1
+	if cfg.get("arcade", false):
+		if arcade == null or not keep_teams:
+			arcade = Arcade.new(_arcade_fighter, level, seed_base)
+	else:
+		arcade = null
 	if cfg.get("online", false):
 		_open_lobby()
 		return
@@ -618,6 +638,9 @@ func _start_round() -> void:
 	var cfg: Dictionary = MODES[mode]
 	_end_duel()
 	_end_coach()
+	if cfg.get("arcade", false):
+		_start_arcade_stage()
+		return
 	if cfg.get("duel", false):
 		_start_duel()
 		return
@@ -654,6 +677,52 @@ func _start_round() -> void:
 	hud.wins = wins
 	flow = Flow.INTRO
 	flow_t = 0
+
+
+## Arcade: one stage of the ladder. Stages 1-5 are a single round against one
+## opponent; the sixth is a 3v3 Duel against the boss team, one CPU level up.
+func _start_arcade_stage() -> void:
+	_end_duel()
+	_end_coach()
+	_cpu_level_override = arcade.stage_level()
+	if arcade.is_boss():
+		_teams = [arcade.player_team(), arcade.boss_team()]
+		_start_duel()
+		return
+	_new_sim(MatchFactory.versus(arcade.fighter, arcade.opponent()), [Side.PLAYER, Side.CPU])
+	hud.wins_needed = 1
+	timer = ROUND_TICKS
+	hud.timer_ticks = timer
+	hud.wins = wins
+	flow = Flow.INTRO
+	flow_t = 0
+
+
+## The round or Duel just ended in the Arcade: on to the next stage, the clear, or
+## game over. Returns true when it moved the flow on.
+func _arcade_result(won: bool) -> bool:
+	if arcade == null:
+		return false
+	if not won:
+		flow = Flow.MATCH_OVER
+		flow_t = 0
+		hud.banner = "GAME OVER"
+		hud.banner_sub = "%s   ·   %s" % [arcade.stage_label(), arcade.versus_label()]
+		return true
+	if arcade.advance():
+		wins = [0, 0]
+		round_num = 1
+		_start_arcade_stage()
+		return true
+	# The boss is down: the ladder is cleared on this level.
+	var new_best := Progress.record_clear(arcade.fighter, arcade.level)
+	flow = Flow.MATCH_OVER
+	flow_t = 0
+	hud.banner = "ARCADE CLEAR!"
+	hud.banner_sub = ("New palette unlocked: F5 in a fight to wear it" if new_best
+		else "Cleared on %s" % CpuController.LEVELS[arcade.level]["name"])
+	audio.play("round_end")
+	return true
 
 
 ## Duel: the rules (intro, tags, swaps, timer, winner) all run inside DuelSim; this
@@ -885,6 +954,8 @@ func _duel_flow() -> void:
 				hud.banner = "K.O." if duel.timer > 0 else "TIME"
 				hud.banner_sub = ""
 			if duel.phase_t >= int(duel.rules.get("over_ticks", 150)):
+				if _arcade_result(duel.winner == 0):
+					return
 				flow = Flow.MATCH_OVER
 				flow_t = 0
 				if duel.winner < 0:
@@ -952,7 +1023,8 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	hud.resize_slots(sides.size())
 	for i in sides.size():
 		if sides[i] == Side.CPU:
-			cpus[i] = CpuController.new(i, level, seed_base * 101 + round_num * 7 + i)
+			cpus[i] = CpuController.new(i, _cpu_level_override if _cpu_level_override >= 0 else level,
+				seed_base * 101 + round_num * 7 + i)
 	arena.ground = String(sim.arena.get("ground", "dirt"))
 	arena.set_terrain(sim.terrain)
 	for v in views:
@@ -962,6 +1034,8 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 		var v := CreatureView.new()
 		entities.add_child(v)
 		v.setup(c)
+		if c.id < sides.size() and sides[c.id] == Side.PLAYER:
+			v.palette = Progress.palette(String(c.def.get("id", "")))
 		views.append(v)
 	debug.sim = sim
 	hud.sim = sim
@@ -1109,10 +1183,14 @@ func _update_flow() -> void:
 				seed_base += 1
 				_menu_background()
 		Flow.INTRO:
-			hud.banner = "ROUND %d" % round_num if flow_t < 60 else "FIGHT!"
+			if arcade != null:
+				hud.banner = arcade.stage_label() if flow_t < 60 else "FIGHT!"
+				hud.banner_sub = arcade.versus_label() if flow_t < 60 else ""
+			else:
+				hud.banner = "ROUND %d" % round_num if flow_t < 60 else "FIGHT!"
+				hud.banner_sub = ""
 			if flow_t == 2 or flow_t == 60:
 				audio.play("round_start", 0.0, 0.75 if flow_t == 2 else 1.0)
-			hud.banner_sub = ""
 			if flow_t >= INTRO_TICKS:
 				hud.banner = ""
 				flow = Flow.FIGHT
@@ -1142,10 +1220,13 @@ func _update_flow() -> void:
 				_end_round(ko)
 		Flow.ROUND_OVER:
 			if flow_t >= ROUND_OVER_TICKS:
-				if wins[0] >= WINS_NEEDED or wins[1] >= WINS_NEEDED:
+				var needed := 1 if arcade != null else WINS_NEEDED
+				if wins[0] >= needed or wins[1] >= needed:
+					if _arcade_result(wins[0] >= needed):
+						return
 					flow = Flow.MATCH_OVER
 					flow_t = 0
-					var w := 0 if wins[0] >= WINS_NEEDED else 1
+					var w := 0 if wins[0] >= needed else 1
 					hud.banner = "%s WINS!" % String(sim.creatures[w].def["name"]).to_upper()
 					hud.banner_sub = ""
 				else:
@@ -1460,6 +1541,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		hud.show_toast("Dummy: " + DUMMY_MODES[dummy_mode])
 	elif event.is_action_pressed("debug_help"):
 		hud.show_help = not hud.show_help
+	elif event.is_action_pressed("palette") and sim != null and flow == Flow.FIGHT:
+		var me := sides.find(Side.PLAYER)
+		if me >= 0 and me < views.size():
+			var id := String(sim.creatures[me].def.get("id", ""))
+			var n := Progress.palettes_unlocked(id)
+			var i := Progress.next_palette(id)
+			(views[me] as CreatureView).palette = i
+			hud.show_toast("Palette %d of %d" % [i + 1, n] + ("" if n > 1 else "   ·   clear the Arcade to unlock more"))
 	elif event.is_action_pressed("save_replay"):
 		var stamp := Time.get_datetime_string_from_system().replace(":", "-")
 		var path := "user://replays/replay_%s.json" % stamp
@@ -1861,6 +1950,7 @@ func _parse_args() -> int:
 			var f := a.get_slice("=", 1)
 			if f in MatchFactory.FIGHTERS:
 				_online_fighter = f
+				_arcade_fighter = f
 		elif a.begins_with("--net-lag="):
 			_net_args["lag"] = int(a.get_slice("=", 1))
 		elif a.begins_with("--net-loss="):
@@ -2218,9 +2308,16 @@ func _show_match_over() -> void:
 			_match_over_status = s.add_text("", UiTheme.SIZE_HINT + 1, UiTheme.C_ACCENT)
 			s.on_back = _leave_online
 		else:
-			s.add_button("Rematch", func():
-				seed_base += 1
-				_start_match(mode, true), "The same fighters again")
+			if arcade != null:
+				s.add_button("Retry the stage", func():
+					_close_ui()
+					wins = [0, 0]
+					round_num = 1
+					_start_arcade_stage(), "The same stage again")
+			else:
+				s.add_button("Rematch", func():
+					seed_base += 1
+					_start_match(mode, true), "The same fighters again")
 			if _has_pick(cfg) and not _skip_select:
 				s.add_button("Change fighters", func(): _start_match(mode), "Back to the pick screen")
 			s.add_button("Main menu", func(): _open_menu(), "Back to the title menu")

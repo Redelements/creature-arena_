@@ -236,7 +236,7 @@ faces. The CPU walks and aims 360 degrees on Normal and up (Rage also leads its 
 off-angle Landslide Charge; `--pad-layout=twinstick` picks the layout from the command line.
 
 Tools: F1 hitbox overlay, F2 cycle the training dummy, F3 hide the controls strip,
-F4 reset training, F6 save a replay, M mute music.
+F4 reset training, F5 next palette (Arcade clears unlock them), F6 save a replay, M mute music.
 
 ## Arenas
 

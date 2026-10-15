@@ -61,6 +61,7 @@ const BINDINGS := {
 	"debug_dummy_mode": {"keys": [KEY_F2]},
 	"debug_help": {"keys": [KEY_F3]},
 	"reset": {"keys": [KEY_F4]},
+	"palette": {"keys": [KEY_F5]},
 	"save_replay": {"keys": [KEY_F6]},
 	"mute_music": {"keys": [KEY_M]},
 }

@@ -49,6 +49,13 @@ var _sq_vel := Vector2.ZERO
 var _prev_state := -1
 var _prev_seg := -1
 var _prev_flash := 0
+## Which palette the fighter wears (Progress): a hue turn applied by the flash shader.
+const PALETTE_HUES := [0.0, 0.3, 0.55, 0.8]
+var palette := 0:
+	set(v):
+		palette = v
+		if sprite != null and sprite.material != null:
+			(sprite.material as ShaderMaterial).set_shader_parameter("hue", PALETTE_HUES[clampi(v, 0, PALETTE_HUES.size() - 1)])
 ## The power-up aura while the Surge is ready: one layer behind the sprite, one in front.
 var aura := SurgeAura.new()
 var aura_front := SurgeAura.new()
