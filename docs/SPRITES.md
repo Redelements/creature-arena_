@@ -128,8 +128,8 @@ x 64, y 112 (down) and y 124 (up); the same rig draws them from the front and fr
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
-| 0 | idle | 4 | arms up, neck swaying |
-| 1 | run | 6 | stomping walk cycle |
+| 0 | idle | 4 | standing easy, arms hanging, breathing, neck swaying |
+| 1 | run | 6 | stomping walk cycle, arms swinging low |
 | 2 | claw | 4 | Rake (light 1): front claw wind, swipe, follow-through, recover |
 | 3 | backhand | 4 | Backhand (light 2): the far arm swings across the body |
 | 4 | headbutt | 4 | Headbutt (light 3) and Landslide Entry: neck pulls back, head snaps forward |

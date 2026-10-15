@@ -726,9 +726,10 @@ class VRig:
             r = self.p.vhands[i]
             return (sh[0] + r[0] * out, sh[1] + r[1], sh[2] + r[2])
         rx, ry = self.p.hands[i]
-        # Side poses spread the idle arms front and back; seen from the front that's
-        # out to the sides. Only reaching past that counts as forward.
-        fwd = max(0.0, rx - 9) * 2.0 if i == 1 else max(0.0, rx) * 0.6
+        # Side poses hang the idle arms a little front and back; seen from the front
+        # that's out to the sides. Reaching past that counts as forward, and swinging
+        # short of it (the walk) as a small swing back.
+        fwd = max(0.0, rx - 9) * 2.0 + min(0.0, rx - 9) * 0.5 if i == 1 else max(0.0, rx) * 0.6 + min(0.0, rx + 9) * 0.5
         lat = out * max(1.5, 8 - fwd * 0.5)
         return (sh[0] + lat, sh[1] - ry, sh[2] + fwd)
 
@@ -982,13 +983,14 @@ def P(**kw):
     return Pose(**kw)
 
 
-IDLE_HANDS = [(-9, -9), (9, -9)]
+IDLE_HANDS = [(-9, 11), (9, 12)]  # arms hanging, the near one in front of the belly, the far one behind
+REST_HANDS = [(-9, 4), (10, 5)]   # recover frames settle toward the idle arms
 
 
 def idle():
-    """Arms up like the sheet, breathing; the head sways on its neck."""
+    """Standing easy, arms hanging, breathing; the head sways on its neck."""
     out = []
-    frames = [  # hip drop, hand rise, head offset, neck controls
+    frames = [  # hip drop, hand drop, head offset, neck controls
         (0, 0, (0, 0), ((-9, -48), (-3, -58))),
         (0, 1, (1, 0), ((-8, -49), (-2, -58))),
         (1, 1, (1, 1), ((-7, -48), (-1, -57))),
@@ -996,7 +998,7 @@ def idle():
     ]
     for dy, hy, (hx, hdy), (c1, c2) in frames:
         out.append(P(hip=(0, -9 + dy), sy=1.0 - 0.03 * dy,
-                     hands=[(-9, -9 - hy), (9, -9 - hy)],
+                     hands=[(-9, 11 + hy), (9, 12 + hy)],
                      head=(11 + hx, -45 + dy + hdy), c1=c1, c2=c2, feet=[(-6, 0), (6, 0)],
                      mane=0.3 * (dy == 0)))
     return out
@@ -1015,7 +1017,7 @@ def run():
         sw = 4 * math.cos(ph)
         lag = -round(abs(math.sin(ph - 0.9)) * 2)
         out.append(P(hip=(1, -9 + bob), lean=8, feet=[(round(-fx), -round(up_b)), (round(fx), -round(up_f))],
-                     hands=[(-9 + sw, -6 - abs(sw) * 0.3), (9 - sw, -6 - abs(sw) * 0.3)],
+                     hands=[(-8 + sw * 1.5, 10 - abs(sw) * 0.5), (8 - sw * 1.5, 11 - abs(sw) * 0.5)],
                      head=(14 + round(sw * 0.3), -44 + lag), c1=(-2, -56 + bob), c2=(4, -46 + lag),
                      mane=0.3 if k % 2 else 0.0))
     return out
@@ -1029,16 +1031,16 @@ def claw(front=True):
         ((-4, -13), -6, (8, -47), 0.0),    # wind back and up, leaning away
         ((15, 2), 10, (14, -43), 0.3),     # swipe down across, leaning in
         ((13, 7), 12, (15, -42), 0.5),     # follow-through, claws low
-        ((9, -3), 4, (12, -45), 0.0),      # recover
+        ((7, 4), 4, (12, -45), 0.0),       # recover, arm dropping
     ]
     for hand, lean, head, flare in poses:
         hands = list(IDLE_HANDS)
         if front:
             hands[1] = hand
-            hands[0] = (-9 - lean * 0.3, -8)
+            hands[0] = (-9 - lean * 0.3, 3 + lean * 0.3)
         else:
             hands[0] = (hand[0] + 9, hand[1] - 1) if hand[0] > 10 else (-8, -11)
-            hands[1] = (3, -1)
+            hands[1] = (10, 6)
         out.append(P(hip=(1 + (lean > 5), -9), lean=lean, hands=hands, head=head, feet=[(-7, 0), (7, 0)],
                      face="roar" if lean > 5 else "angry", arm0_front=not front and lean > 5,
                      c1=(-4, -58), c2=(2 + lean * 0.3, -48), mane=flare, sy=1.0 - (lean > 5) * 0.03))
@@ -1054,7 +1056,7 @@ def headbutt():
           hands=[(-8, -2), (8, 0)], feet=[(-8, 0), (8, 0)], mane=1.0),
         P(hip=(2, -9), lean=12, sy=0.96, head=(27, -36), c1=(4, -55), c2=(14, -42), face="roar",
           hands=[(-8, -2), (8, 0)], feet=[(-8, 0), (8, 0)], mane=0.6),
-        P(hip=(1, -9), lean=4, head=(17, -41), face="angry", hands=[(-7, -5), (7, -5)], mane=0.2),
+        P(hip=(1, -9), lean=4, head=(17, -41), face="angry", hands=REST_HANDS, mane=0.2),
     ]
 
 
@@ -1071,7 +1073,7 @@ def stomp():
           fists=[True, True], head=(18, -37), face="roar", mane=0.6, c1=(0, -50), c2=(10, -42)),
         P(hip=(1, -5), lean=16, sy=0.86, feet=[(-8, 0), (10, 0)], hands=[(-4, 9), (9, 10)],
           fists=[True, True], head=(19, -35), face="roar", mane=0.3, c1=(0, -48), c2=(10, -40)),
-        P(hip=(0, -8), lean=4, feet=[(-7, 0), (8, 0)], hands=[(-7, -4), (7, -4)], head=(12, -43)),
+        P(hip=(0, -8), lean=4, feet=[(-7, 0), (8, 0)], hands=REST_HANDS, head=(12, -43)),
     ]
 
 
@@ -1089,7 +1091,7 @@ def lash():
         P(hip=(2, -9), lean=10, head=(42, -27), c1=(8, -48), c2=(26, -26), face="angry",
           hands=[(-9, -1), (9, 0)], feet=[(-9, 0), (8, 0)], mane=0.5),
         P(hip=(1, -9), lean=4, head=(22, -38), c1=(0, -52), c2=(12, -40), face="angry",
-          hands=[(-7, -5), (7, -5)]),
+          hands=REST_HANDS),
     ]
 
 
@@ -1101,7 +1103,7 @@ def bedrock():
         P(lean=6, head=(10, -38), face="strain", glow=0.3, mane=-0.3, **root),
         P(lean=4, head=(10, -39), face="strain", glow=1.0, mane=0.3, **root),
         P(lean=8, head=(15, -38), face="roar", glow=1.0, mane=1.0, **root),
-        P(hip=(0, -8), lean=2, feet=[(-8, 0), (8, 0)], hands=[(-7, -3), (7, -3)], head=(11, -43)),
+        P(hip=(0, -8), lean=2, feet=[(-8, 0), (8, 0)], hands=REST_HANDS, head=(11, -43)),
     ]
 
 
@@ -1119,7 +1121,7 @@ def coil():
         P(hip=(2, -6), lean=18, sy=0.9, head=(42, -9), raise_head=False, c1=(4, -60), c2=(40, -40), face="strain",
           hands=[(-6, 7), (9, 7)], fists=[True, True], feet=[(-9, 0), (9, 0)], mane=-0.5),
         P(hip=(1, -8), lean=6, head=(24, -32), c1=(2, -54), c2=(20, -40), face="angry",
-          hands=[(-7, -3), (7, -3)]),
+          hands=REST_HANDS),
     ]
 
 
@@ -1132,7 +1134,7 @@ def dodge():
           feet=[(-9, 0), (5, -2)], **tuck),
         P(hip=(2, -5), lean=20, sy=0.85, head=(10, -30), hands=[(-4, 3), (5, 3)],
           feet=[(-4, -2), (9, 0)], **tuck),
-        P(hip=(0, -8), lean=6, head=(10, -40), hands=[(-6, -3), (6, -3)], face="angry", mane=-0.3),
+        P(hip=(0, -8), lean=6, head=(10, -40), hands=REST_HANDS, face="angry", mane=-0.3),
     ]
 
 
