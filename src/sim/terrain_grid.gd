@@ -412,10 +412,26 @@ func flatten(c: Vector2i) -> bool:
 	return true
 
 
+## Sinkhole: the cell drops into a chasm for good (the map's own state changes too).
+func sink(c: Vector2i) -> void:
+	if not in_bounds(c):
+		return
+	var i := c.y * cols + c.x
+	cells[i] = CHASM
+	base[i] = CHASM
+	timers[i] = 0
+	version += 1
+
+
+## Which ring of the floor a cell is on: 0 at the edge, counting inward.
+func ring_of(c: Vector2i) -> int:
+	return mini(mini(c.x, c.y), mini(cols - 1 - c.x, rows - 1 - c.y))
+
+
 ## One healing step toward what the map put there.
 static func heal_step(v: int, b: int) -> int:
 	if b == INTACT:
-		return maxi(INTACT, v - 1)
+		return v if v > HOLE else maxi(INTACT, v - 1)
 	if b == WALL:
 		return CRACKED if v == HOLE else WALL
 	return b

@@ -37,6 +37,10 @@ var terrain := TerrainGrid.new()
 ## terrain by `set_arena`; every machine in an online match must pick the same one.
 var arena_id := ArenaMap.DEFAULT
 var arena := {}
+## Rules a mode sets on the match: a fall knocks out (Sinkhole), and the ring of the
+## floor that is cracked and about to drop (-1: none), so the CPU knows to get off it.
+var fall_ko := false
+var sink_ring := -1
 var creatures: Array[CreatureSim] = []
 var projectiles: Array[Dictionary] = []
 ## Ground zones (Sno Mercy's Syrup Slick): {owner, pos, radius, ticks, slow_mult}. Foes of
@@ -147,8 +151,8 @@ func snapshot() -> Dictionary:
 	for c in creatures:
 		cs.append(c.save_state())
 	return {
-		"tick": tick, "hitstop": hitstop, "ko_freeze": ko_freeze, "slowmo": slowmo,
-		"cells": terrain.cells.duplicate(), "timers": terrain.timers.duplicate(),
+		"tick": tick, "hitstop": hitstop, "ko_freeze": ko_freeze, "slowmo": slowmo, "sink_ring": sink_ring,
+		"cells": terrain.cells.duplicate(), "timers": terrain.timers.duplicate(), "base": terrain.base.duplicate(),
 		"terrain_version": terrain.version,
 		"creatures": cs, "projectiles": projectiles.duplicate(true), "zones": zones.duplicate(true),
 	}
@@ -159,8 +163,11 @@ func restore(s: Dictionary) -> void:
 	hitstop = int(s["hitstop"])
 	ko_freeze = int(s["ko_freeze"])
 	slowmo = int(s["slowmo"])
+	sink_ring = int(s.get("sink_ring", -1))
 	terrain.cells = PackedByteArray(s["cells"]).duplicate()
 	terrain.timers = PackedInt32Array(s["timers"]).duplicate()
+	if s.has("base"):
+		terrain.base = PackedByteArray(s["base"]).duplicate()
 	terrain.version = maxi(terrain.version, int(s["terrain_version"])) + 1  # forces a redraw
 	var cs: Array = s["creatures"]
 	for i in creatures.size():
@@ -174,7 +181,7 @@ func restore(s: Dictionary) -> void:
 ## bit for bit, so two machines only agree if they computed identical results; this
 ## is what online play checks to catch desyncs.
 func state_digest() -> String:
-	var parts: Array = [tick, hitstop, ko_freeze, slowmo, arena_id, terrain.cells, terrain.timers]
+	var parts: Array = [tick, hitstop, ko_freeze, slowmo, arena_id, sink_ring, terrain.cells, terrain.timers, terrain.base]
 	for c in creatures:
 		var st := c.save_state()
 		for f in CreatureSim.STATE_FIELDS:

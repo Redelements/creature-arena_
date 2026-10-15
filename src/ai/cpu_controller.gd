@@ -232,6 +232,12 @@ func _threat_range(foe: CreatureSim, me: CreatureSim) -> float:
 # ------------------------------------------------------------------ decisions
 
 func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
+	# Sinkhole: the ring under us is cracked and about to drop. Nothing matters more
+	# than getting off it (a dash or dodge in progress finishes first).
+	if sim.sink_ring >= 0 and me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE, CreatureSim.State.GUARD] \
+			and sim.terrain.ring_of(sim.terrain.world_to_cell(me.pos)) <= sim.sink_ring + 1:
+		_go_to(sim, me, SimDefs.floor_rect().get_center())
+		return
 	var to_foe := foe.pos - me.pos
 	# Brush hides a foe from anyone outside it: a CPU right next to the bush still sees.
 	_foe_hidden = foe.stealth > 0 or (foe.covered and to_foe.length() > HIDE_RANGE)

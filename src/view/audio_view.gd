@@ -198,6 +198,11 @@ func on_event(e: Dictionary) -> void:
 			play("land", 2.0, 0.8)
 		"smash":
 			play("slam", -2.0, 1.2)
+		"sink_warn":
+			play("slam", -6.0, 0.6)
+		"sink":
+			play("slam", 1.0, 0.5)
+			play("crowd_cheer", -6.0)
 		"fall":
 			play("fall")
 		"land", "land_hard":

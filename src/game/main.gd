@@ -73,6 +73,9 @@ const MODES := [
 	{"label": "Team battle: 3v3 vs CPU", "team": 3, "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Team Deathmatch: 2v2 vs CPU", "team": 2, "deathmatch": true, "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Team Deathmatch: 3v3 vs CPU", "team": 3, "deathmatch": true, "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Sinkhole: 1v1 vs CPU", "team": 1, "rules": "sinkhole", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Sinkhole: 2v2 vs CPU", "team": 2, "rules": "sinkhole", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Sinkhole: 3v3 vs CPU", "team": 3, "rules": "sinkhole", "sides": [Side.PLAYER, Side.CPU]},
 ]
 ## The menus (src/ui screens): the title menu opens Single player (MENU_ROWS), the online
 ## screen, or Settings. MODES indexes stay stable for --mode=N; rows with choices pick
@@ -96,6 +99,8 @@ const MENU_ROWS := [
 		"desc": "Everyone on the field at once, CPU teammates beside you. Left/Right: team size"},
 	{"label": "Team Deathmatch vs CPU", "modes": [31, 32], "choices": ["2 v 2", "3 v 3"],
 		"desc": "Unlimited respawns: first team to 12 KOs (15 in 3 v 3) wins. Left/Right: team size"},
+	{"label": "Sinkhole vs CPU", "modes": [33, 34, 35], "choices": ["1 v 1", "2 v 2", "3 v 3"],
+		"desc": "The floor falls away from the edges and a fall is a KO. Last one standing. Left/Right: team size"},
 	{"label": "Versus: 2 players", "modes": [8], "desc": "One fighter each, two players on one screen"},
 	{"label": "Versus CPU", "modes": [0, 1, 12, 14, 16, 18, 21, 23, 25, 27],
 		"desc": "Best of three rounds against the CPU. Left/Right: your fighter",
@@ -392,10 +397,15 @@ func _open_single() -> void:
 	ui.push(scr)
 
 
-## The arena offline matches play on (saved with the settings).
+## The arena offline matches play on (the menu's choice is saved with the settings;
+## `--arena=ID` only lasts the session).
+var _arena_saved := ArenaMap.DEFAULT
+
+
 func _set_arena(id: String) -> void:
 	if id in ArenaMap.IDS:
 		MatchFactory.arena = id
+		_arena_saved = id
 		_save_settings()
 
 
@@ -545,7 +555,8 @@ func _start_match(m: int, keep_teams := false) -> void:
 		if cfg.has("team"):
 			size = int(cfg["team"])
 			labels = ["YOU + CPU", "CPU TEAM"]
-			title = ("TEAM DEATHMATCH  %d v %d" if cfg.get("deathmatch", false) else "TEAM BATTLE  %d v %d") % [size, size]
+			title = ("SINKHOLE  %d v %d" if cfg.get("rules", "") == "sinkhole" else
+				("TEAM DEATHMATCH  %d v %d" if cfg.get("deathmatch", false) else "TEAM BATTLE  %d v %d")) % [size, size]
 		var pick := CharacterSelect.new()
 		pick.setup(title, size, labels, two_players, _padded_teams(size) if cfg.has("team") else _teams)
 		pick.p1_keyboard = player_input.keyboard
@@ -599,7 +610,7 @@ func _start_round() -> void:
 		_start_duel()
 		return
 	if cfg.has("team"):
-		_start_team(int(cfg["team"]), bool(cfg.get("deathmatch", false)))
+		_start_team(int(cfg["team"]), "deathmatch" if cfg.get("deathmatch", false) else String(cfg.get("rules", "")))
 		return
 	if cfg.get("trials", false):
 		coach = ComboTrials.new(Callable(player_input, "label"))
@@ -653,9 +664,12 @@ func _start_duel() -> void:
 
 ## Team battle: like a Duel, the rules (intro, KOs, timer, winner) run inside TeamSim.
 ## You play the first fighter of the left team; CPUs play everyone else.
-func _start_team(per_side: int, deathmatch := false) -> void:
+func _start_team(per_side: int, rules_id := "") -> void:
 	_teams = _padded_teams(per_side)
-	var rules := TeamSim.load_rules(TeamSim.DEATHMATCH_PATH) if deathmatch else {}
+	var rules := {}
+	match rules_id:
+		"deathmatch": rules = TeamSim.load_rules(TeamSim.DEATHMATCH_PATH)
+		"sinkhole": rules = TeamSim.load_rules(TeamSim.SINKHOLE_PATH)
 	team_battle = TeamSim.new(_teams, per_side, rules)
 	var s: Array = [Side.PLAYER]
 	for i in range(1, team_battle.slot_count()):
@@ -716,14 +730,21 @@ func _team_flow() -> void:
 	match team_battle.phase:
 		TeamSim.Phase.INTRO:
 			var t := team_battle.phase_t
-			var what := "TEAM DEATHMATCH" if team_battle.deathmatch else "TEAM BATTLE"
+			var what := "SINKHOLE" if team_battle.sinkhole else ("TEAM DEATHMATCH" if team_battle.deathmatch else "TEAM BATTLE")
 			hud.banner = (("ONLINE " + what) if online != null else what) if t < 60 else "FIGHT!"
-			hud.banner_sub = ("%d v %d" % [team_battle.size, team_battle.size] + (
-				"   ·   first to %d KOs" % team_battle.score_to_win() if team_battle.deathmatch else "")) if t < 60 else ""
+			var sub := "%d v %d" % [team_battle.size, team_battle.size]
+			if team_battle.deathmatch:
+				sub += "   ·   first to %d KOs" % team_battle.score_to_win()
+			elif team_battle.sinkhole:
+				sub += "   ·   the edge falls in, a fall is a KO"
+			hud.banner_sub = sub if t < 60 else ""
 			if t == 2 or t == 60:
 				audio.play("round_start", 0.0, 0.75 if t == 2 else 1.0)
 		TeamSim.Phase.FIGHT:
 			_update_pads()
+			for e in sim.events:
+				if e["type"] == "sink_warn":
+					hud.show_toast("THE EDGE IS FALLING")
 			if team_battle.overtime and team_battle.timer > -90:
 				hud.banner = "SUDDEN DEATH"
 				hud.banner_sub = "Next KO wins"
@@ -1661,7 +1682,9 @@ func _load_settings() -> void:
 		level = clampi(int(cfg.get_value("game", "level", level)), 0, LEVEL_NAMES.size() - 1)
 		var ar := String(cfg.get_value("game", "arena", MatchFactory.arena))
 		if ar in ArenaMap.IDS:
-			MatchFactory.arena = ar
+			_arena_saved = ar
+			if MatchFactory.arena == ArenaMap.DEFAULT:  # no --arena flag
+				MatchFactory.arena = ar
 		audio.set_music_muted(bool(cfg.get_value("audio", "music_muted", false)))
 		_online_fighter = String(cfg.get_value("online", "fighter", _online_fighter))
 		if not (_online_fighter in MatchFactory.FIGHTERS):
@@ -1691,7 +1714,7 @@ func _save_settings() -> void:
 	cfg.set_value("input", "layout", player_input.layout)
 	cfg.set_value("input", "pad_layout", player_input.pad_layout)
 	cfg.set_value("game", "level", level)
-	cfg.set_value("game", "arena", MatchFactory.arena)
+	cfg.set_value("game", "arena", _arena_saved)
 	cfg.set_value("audio", "music_muted", audio.music_muted)
 	cfg.set_value("online", "fighter", _online_fighter)
 	cfg.set_value("online", "address", _online_address)

@@ -1,0 +1,13 @@
+{
+	"_doc": "Sinkhole (1v1, 2v2, 3v3): one life each and the floor falls away from the edges. Every shrink_every ticks the outermost ring of cells cracks as a warning, and shrink_warn ticks later it drops into a chasm for good; a fall is a knockout (fall_ko). Last side standing wins, or the healthier side at time. max_rings leaves a strip of floor in the middle. Times are in ticks (60 per second) unless named _seconds.",
+	"sinkhole": true,
+	"fall_ko": true,
+	"time_seconds": 180,
+	"intro_ticks": 100,
+	"over_ticks": 150,
+	"mid_ko_slowmo": 30,
+	"spawn_spread": 60,
+	"shrink_every": 420,
+	"shrink_warn": 120,
+	"max_rings": 16
+}
