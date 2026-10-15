@@ -107,7 +107,7 @@
       "startup": 3, "active": 13, "recovery": 14,
       "damage": 8, "knockback": 2.6, "hitstun": 24, "hitstop": 6,
       "reach": 8, "hit_radius": 11, "juggle": true, "juggle_float": 36,
-      "dash": { "speed": 6.8, "from": 1, "to": 16 },
+      "dash": { "speed": 6.8, "from": 1, "to": 16, "shallows_mult": 1.5 },
       "anim_at": [[0, 0], [5, 1], [8, 2], [17, 3]],
       "fx": { "afterimage": [1, 16], "ghost_color": "#b4e626aa", "trail": "splash", "impact": "droplets" }
     },

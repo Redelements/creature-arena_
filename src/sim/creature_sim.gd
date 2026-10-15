@@ -60,7 +60,7 @@ const STATE_FIELDS := [
 	"swallow_t", "swallow_by", "swallow_gap", "swallow_air",
 	"poison", "poison_every", "poison_dmg", "poison_by", "poison_stacks", "poison_stack_dmg", "frenzy_t", "hit_streak", "streak_t", "stone",
 	"blind", "whiff_serial", "ambush_serial", "root",
-	"stealth", "haste", "haste_mult", "atk_buff", "atk_mult", "stone_ice",
+	"stealth", "haste", "haste_mult", "atk_buff", "atk_mult", "stone_ice", "covered",
 	"block_lag", "punish_serial", "home_speed",
 ]
 ## Set once when the creature is made and never changed by the simulation.
@@ -188,6 +188,9 @@ var root := 0  ## ticks left rooted in place (Cave-In): no walking, no dodging
 ## but only as its strike comes out (or its projectile flies): the ambush out of
 ## stealth is the point, so the startup stays hidden.
 var stealth := 0
+## Standing in brush (an arena piece): hidden from foes outside it, like stealth.
+## Set by MatchSim after everyone has moved.
+var covered := false
 var haste := 0  ## ticks left of walking faster
 var haste_mult := 1.0
 var atk_buff := 0  ## ticks left of dealing atk_mult x damage (Pickpocket: up for him, down for them)
@@ -444,6 +447,55 @@ func is_stunned() -> bool:
 func is_solid() -> bool:
 	return not (state in [State.FALLING, State.KO, State.DODGE, State.AIRBORNE, State.KNOCKDOWN]) \
 		and not is_leaping() and not _ghosting()
+
+
+## Through fences: a ghost dash, or a dash or dodge with "passes": ["fence"].
+func passes_fences() -> bool:
+	if _ghosting():
+		return true
+	if state == State.ATTACK and windup_left <= 0:
+		var dash: Dictionary = move_def().get("dash", {})
+		return "fence" in (dash.get("passes", []) as Array) \
+			and state_t >= int(dash["from"]) and state_t <= int(dash["to"])
+	if state == State.DODGE:
+		return "fence" in ((def["dodge"] as Dictionary).get("passes", []) as Array)
+	return false
+
+
+## A charge with "breaks": ["wall"] smashes the rubble wall cells its body would reach
+## on this step, so the step goes through instead of stopping.
+func _smash_ahead(sim: MatchSim, breaks: Array, delta: Vector2) -> void:
+	if not ("wall" in breaks or "rubble" in breaks):
+		return
+	var at := pos + delta
+	var any := false
+	for c in sim.terrain.cells_touching(at, radius + 1.0, TerrainGrid.WALL):
+		if sim.terrain.smash(c):
+			any = true
+	if any:
+		sim.emit_event("smash", at, 1.0, {"who": id})
+
+
+## A dash or roll flattens the brush its body passes through (it grows back).
+func _trample(sim: MatchSim) -> void:
+	for c in sim.terrain.cells_touching(pos, radius * 0.7, TerrainGrid.BRUSH):
+		sim.terrain.flatten(c)
+
+
+## The dash speed here: faster through shallows for the moves made for them.
+func _dash_speed(dash: Dictionary, sim: MatchSim) -> float:
+	var spd := float(dash["speed"])
+	if sim.terrain.get_cell(sim.terrain.world_to_cell(pos)) == TerrainGrid.SHALLOWS:
+		spd *= float(dash.get("shallows_mult", 1.0))
+	return spd
+
+
+## Walking speed on this ground: shallows and brush slow it unless he "wades".
+func floor_mult(sim: MatchSim) -> float:
+	var v := sim.terrain.get_cell(sim.terrain.world_to_cell(pos))
+	if v == TerrainGrid.SHALLOWS and bool(def.get("wades", false)):
+		return 1.0
+	return TerrainGrid.walk_mult_of(v)
 
 
 ## Slipping through bodies during a "ghost" dash (Pickpocket dashes past the foe).
@@ -721,7 +773,7 @@ func _update_free(buttons: int, pressed: int, dir: Vector2, aim: Vector2, sim: M
 
 	# Strafing (twin-stick right stick held): face the aim and walk any way, a bit slower.
 	var strafing := (buttons & SimDefs.IN_STRAFE) != 0 and (buttons & SimDefs.IN_AIM) != 0
-	var speed := walk_speed() * (STRAFE_SPEED if strafing else 1.0) * sim.terrain.walk_mult_at(pos)
+	var speed := walk_speed() * (STRAFE_SPEED if strafing else 1.0) * floor_mult(sim)
 	walk_vel = walk_vel.move_toward(dir * speed, float(def["accel"]))
 	if strafing:
 		facing = aim
@@ -888,7 +940,11 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 		# A steerable dash (Burrow): the stick turns it a little each tick.
 		if float(dash.get("steer", 0.0)) > 0.0 and dir != Vector2.ZERO:
 			facing = (facing + dir * float(dash["steer"])).normalized()
-		_move(facing * float(dash["speed"]), sim, not is_leaping())  # a leap sails over pits
+		var step_v := facing * _dash_speed(dash, sim)
+		if dash.has("breaks"):
+			_smash_ahead(sim, dash["breaks"], step_v)
+		_move(step_v, sim, not is_leaping())  # a leap sails over pits
+		_trample(sim)
 
 	# One-off effects at the first active tick.
 	var segs: Array = mv["_segs"]
@@ -1041,6 +1097,7 @@ func _home(dash: Dictionary, t: int, sim: MatchSim) -> void:
 	else:
 		spd = minf(home_speed, float(hm.get("max", 3.0)))
 	_move(facing * spd, sim, not is_leaping())
+	_trample(sim)
 
 
 ## Reappears behind the nearest foe (opposite the way it faces), or on its far side when
@@ -1149,7 +1206,10 @@ func _update_dodge(sim: MatchSim) -> void:
 	var before := pos
 	var wanted := dodge_dir * spd
 	# A roll vaults a pit; a ram runs along the ground and stops at its edge (an impact).
+	if dg.has("ram") and (dg["ram"] as Dictionary).has("breaks"):
+		_smash_ahead(sim, dg["ram"]["breaks"], wanted)
 	_move(wanted, sim, dg.has("ram"))
+	_trample(sim)
 	if dg.has("ram"):
 		_ram_step(dg["ram"], sim, pos - before, wanted)
 		if state != State.DODGE:
@@ -1417,13 +1477,14 @@ func _move(delta: Vector2, sim: MatchSim, voluntary: bool, bounce := false) -> v
 	var lo := floor_min()
 	var hi := floor_max()
 	var standing_on_hole := sim.terrain.is_hole_at(pos)
+	var fences := not passes_fences()
 
 	var nx := pos.x + delta.x
 	if voluntary and not standing_on_hole and sim.terrain.is_hole_at(Vector2(nx, pos.y)):
 		nx = pos.x
 	var hit_wall := nx < lo.x or nx > hi.x
 	nx = clampf(nx, lo.x, hi.x)
-	var slid := sim.terrain.slide_x(pos, nx, radius)
+	var slid := sim.terrain.slide_x(pos, nx, radius, fences)
 	hit_wall = hit_wall or slid != nx
 	nx = slid
 	if hit_wall and bounce:
@@ -1439,7 +1500,7 @@ func _move(delta: Vector2, sim: MatchSim, voluntary: bool, bounce := false) -> v
 		ny = pos.y
 	hit_wall = ny < lo.y or ny > hi.y
 	ny = clampf(ny, lo.y, hi.y)
-	slid = sim.terrain.slide_y(pos, ny, radius)
+	slid = sim.terrain.slide_y(pos, ny, radius, fences)
 	hit_wall = hit_wall or slid != ny
 	ny = slid
 	if hit_wall and bounce:

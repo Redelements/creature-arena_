@@ -322,6 +322,10 @@ func spawn(e: Dictionary) -> void:
 					_text(c.pos + Vector2(0, -_top(c) - 14), "SLOWED", Color("b9c6d6"), 7, 40.0)
 		"taunt":
 			_add({"kind": "ring", "pos": p, "life": 14, "radius": 18.0, "color": C_TAUNT})
+		"smash":
+			# A charge breaks through rubble: a burst of grey chips.
+			_add({"kind": "ring", "pos": p, "life": 10, "radius": 12.0, "color": C_GREY[2]})
+			_add({"kind": "lines", "pos": p + Vector2(0, -8), "life": 12, "size": 1.4, "color": C_GREY[3]})
 		"ram_wall":
 			# Landslide Ram meets the arena wall: a jolt of dust and stone chips.
 			_add({"kind": "ring", "pos": p, "life": 12, "radius": 14.0, "color": C_AMBER})

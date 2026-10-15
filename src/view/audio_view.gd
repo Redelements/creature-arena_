@@ -196,6 +196,8 @@ func on_event(e: Dictionary) -> void:
 			play("land", 0.0, 1.25)
 		"ram_wall":
 			play("land", 2.0, 0.8)
+		"smash":
+			play("slam", -2.0, 1.2)
 		"fall":
 			play("fall")
 		"land", "land_hard":

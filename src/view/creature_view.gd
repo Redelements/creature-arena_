@@ -231,6 +231,8 @@ func refresh() -> void:
 	if c.stealth > 0:
 		# Invisible (Tiptoe): only a faint shimmer gives him away.
 		alpha = 0.12 + 0.06 * float((c.anim_t / 6) % 2)
+	elif c.covered:
+		alpha = minf(alpha, 0.45)  # in the brush: a shape in the leaves
 	alpha *= blink_alpha(c)
 	modulate = Color(shade, shade, shade, alpha)
 
