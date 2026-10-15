@@ -224,7 +224,20 @@ carry it too. Settings > Game > Online input delay (Auto, 1-3 frames) is the
 from the slowest path. The fight's net line shows ping, delay, rollbacks a second (and
 the worst), and the arena.
 
-Still to do: a Steam transport (below) and ranked/matchmaking.
+**Ranked play and daily scores (NET_VERSION 8).** The game makes a player id once
+(settings `online/id`, 16 hex characters) and the lobby's More page takes a name; both
+ride in hello. "Ranked 1 v 1" queues apart from Quick match: the server pairs the longest
+waiter with the closest rating inside a band that starts at 100 points and widens 50
+every 10 s (`Ratings.band`). The referee's result rates both players by Glicko (1995:
+a rating and a deviation that shrinks with games and grows 35 a day away, floor 50), kept
+in the server's `user://ratings.json` (`Ratings`), and each gets a `rating` message the
+match-over screen shows. A Daily Challenge win is sent to the configured server by a
+short connection (`DailyClient`: hello with `submit`, then the replay); the server
+rescores it on a fresh match of that day (`Daily.verify`), never trusting the client's
+number, keeps each player's best per day and answers with the rank; "Daily top 10"
+fetches the board the same way. A home server trusts ids and names as sent.
+
+Still to do: a Steam transport (below).
 
 ## Transport (to decide)
 
@@ -242,7 +255,8 @@ that runs the headless game: one connection per player, the server as referee.
 
 ## Platform note
 
-The CI check covers Windows and Linux (which includes Steam Deck). Apple Silicon Macs
-compile floating-point math differently (fused multiply-add) and are the most likely to
-diverge. If Mac support matters, add a Mac runner to the check first; if it disagrees,
-the fix is fixed-point math in `src/sim/`.
+The CI check covers Windows, Linux (which includes Steam Deck) and, since the arenas
+work, macOS (`mac-determinism` in `playable-build.yml`: the stock editor binary on a
+macOS runner plays the seeded match and must match Linux). Apple Silicon compiles
+floating-point math differently (fused multiply-add) and is the most likely to diverge;
+if that job ever fails, the fix is fixed-point math in `src/sim/`.

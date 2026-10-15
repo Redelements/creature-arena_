@@ -61,6 +61,13 @@ var _rules_row: OptionRow
 var _room_rules_row: OptionRow
 var _watch_any: Button
 var _watch_room: Button
+var _ranked: Button
+var _board: Button
+var name_field: LineEdit
+## The next server join is a ranked search (main reads and clears it).
+var ranked_next := false
+signal board_pressed
+signal name_changed(name: String)
 ## The next server join is to watch, not play (main reads and clears it).
 var watch_next := false
 ## What the search is for ("Quick match  2 v 2"), shown under the status while busy.
@@ -147,6 +154,9 @@ func build() -> void:
 		"Teams of three: starts when six players are waiting (CPUs fill in after a while)")
 	_quick_tag = add_button("Duel 3v3 tag", func(): quick_match(1, 3),
 		"Three fighters each, tag them in and out: the launch mode, online")
+	_ranked = add_button("Ranked 1 v 1", func(): quick_match(1, 1, true),
+		"A rated match against someone near your rating; the band widens the longer you wait")
+	_board = add_button("Daily top 10", func(): board_pressed.emit(), "Today's Daily Challenge scores on the server")
 	_watch_any = add_button("Watch a match", func(): watch(""), "Spectate whatever is on the server right now")
 	_rules_row = add_option("Team rules", TeamSim.RULE_NAMES, 0, func(i: int):
 			rules_id = TeamSim.RULE_IDS[i]
@@ -180,6 +190,12 @@ func build() -> void:
 	field.text_submitted.connect(func(_t): _try_join(address))
 	add_row(field, FIELD_HELP)
 	_join = add_button("Join", func(): _try_join(address), "Connect to the address above")
+	name_field = LineEdit.new()
+	name_field.placeholder_text = "Your name (ranked, daily scores)"
+	name_field.max_length = 16
+	name_field.text = Netplay.player_name
+	name_field.text_changed.connect(func(t: String): name_changed.emit(t))
+	add_row(name_field, "What the server and other players call you")
 	for a in recent:
 		var r := add_button("Join  " + String(a), func(): _use_recent(String(a)), "Joined before")
 		_recent_rows.append(r)
@@ -250,16 +266,17 @@ static func _size_index(size: int, tag: int) -> int:
 
 ## Plays whoever is waiting on the server for the same size (players per side) and
 ## fighters per player (3: a tag Duel), under the Team rules row for team sizes.
-func quick_match(size := 1, tag := 1) -> void:
+func quick_match(size := 1, tag := 1, ranked := false) -> void:
 	if busy or not _have_server():
 		return
 	size = clampi(size, 1, 3)
-	var name: String = SIZE_NAMES[_size_index(size, tag)]
-	_pick_then("QUICK MATCH  " + name,
+	var name: String = ("Ranked  " if ranked else "") + SIZE_NAMES[_size_index(size, tag)]
+	_pick_then(("RANKED  " if ranked else "QUICK MATCH  ") + SIZE_NAMES[_size_index(size, tag)],
 		"Next: the server looks for players. Accept when the match is found.", func():
 			room_code = ""
 			room_created = false
-			searching_for = "Quick match  " + name
+			ranked_next = ranked
+			searching_for = name
 			server_join_pressed.emit(fighter, "", size), tag)
 
 
@@ -399,11 +416,11 @@ func _page_rows(p: Page) -> Array:
 		Page.MAIN:
 			return [_quick_page, _rooms_page, _more]
 		Page.QUICK:
-			return [_quick, _quick_tag, _quick2, _quick3, _rules_row, _watch_any]
+			return [_quick, _ranked, _quick_tag, _quick2, _quick3, _rules_row, _watch_any, _board]
 		Page.ROOMS:
 			return [_size_row, _room_rules_row, _create, code_field, _join_room, _watch_room]
 		_:
-			return [_host, field, _join] + _recent_rows
+			return [_host, field, _join, name_field] + _recent_rows
 
 
 func _all_rows() -> Array:

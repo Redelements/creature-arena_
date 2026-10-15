@@ -55,7 +55,7 @@ const PING_TIMEOUT_MS := 2000
 const PATH_EVERY_MS := 2000
 const MAX_ROOM_LENGTH := 32
 
-enum State { HELLO, LOBBY, FOUND, PLAYING, WATCHING }
+enum State { HELLO, LOBBY, FOUND, PLAYING, WATCHING, SUBMIT }
 
 ## Messages players are dropped or requeued with during the ready check.
 const MSG_NOT_ACCEPTED := "You didn't accept the match in time. Search again when you're ready."
@@ -112,6 +112,9 @@ class Client:
 	var check: Check = null  ## the ready check they're in (state FOUND)
 	var watch := false  ## a spectator: never seated, fed every input of a match
 	var arena := ArenaMap.DEFAULT  ## the map asked for (a room's maker decides; Quick match draws one)
+	var pid := ""  ## the player's id and typed name (for ratings and daily scores)
+	var name := "Player"
+	var ranked := false  ## wants a rated 1v1 (paired within a rating band)
 
 	func label() -> String:
 		return "player %d (%s)" % [id, ", ".join(PackedStringArray(team))] if not team.is_empty() \
@@ -126,6 +129,7 @@ class Check:
 	var players: Array = []  ## Clients, in the order they were grouped
 	var size := 1
 	var rules := ""
+	var ranked := false
 	var deadline_ms := 0
 	var accepted := {}  ## client id -> true
 
@@ -142,6 +146,7 @@ class Game:
 	var rules := ""  ## the team rules (TeamSim.RULE_IDS)
 	var room := ""  ## the room it came from ("" for Quick match), so a spectator can find it
 	var arena := ArenaMap.DEFAULT
+	var ranked := false
 	var watchers: Array = []  ## spectators (Clients) fed every input
 	var n := 0
 	var delay := 2
@@ -249,6 +254,13 @@ func _handle(c: Client, m: Dictionary) -> void:
 			c.arena = String(m.get("arena", ArenaMap.DEFAULT))
 			if not (c.arena in ArenaMap.IDS):
 				c.arena = ArenaMap.DEFAULT
+			c.pid = _clean_id(String(m.get("id", "")))
+			c.name = _clean_name(String(m.get("name", "")))
+			c.ranked = bool(m.get("ranked", false)) and c.size == 1 and c.team.size() == 1 and c.pid != "" and c.room == ""
+			if bool(m.get("submit", false)):
+				# Here to send a Daily score or read the board, then go.
+				c.state = State.SUBMIT
+				return
 			if bool(m.get("watch", false)):
 				# A spectator: attached to a match as soon as there is one to watch.
 				c.watch = true
@@ -272,6 +284,14 @@ func _handle(c: Client, m: Dictionary) -> void:
 			c.link.send({"t": "pong", "n": m.get("n", 0)}, true)
 		"ready":
 			_accept(c)
+		"daily":
+			if c.state != State.SUBMIT:
+				return
+			_daily_submit(c, m)
+		"board":
+			if c.state != State.SUBMIT:
+				return
+			c.link.send({"t": "daily_board", "date": int(m.get("date", 0)), "board": ratings.daily_board(int(m.get("date", 0)))}, true)
 		"in":
 			var g := c.game
 			if g == null or int(m.get("n", -1)) != g.n:
@@ -313,6 +333,9 @@ func _handle(c: Client, m: Dictionary) -> void:
 
 func _wait_text(c: Client, have := 1, need := 2) -> String:
 	var where := (" in room '%s'" % c.room) if c.room != "" else ""
+	if c.ranked:
+		var p := ratings.player(c.pid, c.name)
+		return "Ranked. Your rating %d (%d games). Waiting for someone near it..." % [roundi(float(p["rating"])), int(p["games"])]
 	if need <= 2:
 		return "On the server%s. Waiting for an opponent..." % where
 	var n := need / 2
@@ -359,12 +382,16 @@ func _pair_waiting() -> void:
 	for c: Client in waiting:
 		# Quick match groups by what each asked for: players per side, fighters per
 		# player (a tag Duel is three) and the team rules. A room takes its maker's.
+		# Ranked players queue apart and pair by rating (below).
 		var cfg: Array = [c.size, c.team.size(), c.rules] if c.room == "" else room_cfg.get(c.room, [1, 1, ""])
-		var key := "%s|%d|%d|%s" % [c.room, int(cfg[0]), int(cfg[1]), String(cfg[2])]
+		var key := "%s|%d|%d|%s%s" % [c.room, int(cfg[0]), int(cfg[1]), String(cfg[2]), "|ranked" if c.ranked else ""]
 		if not groups.has(key):
 			groups[key] = []
 		(groups[key] as Array).append(c)
 	for key in groups:
+		if String(key).ends_with("|ranked"):
+			_pair_ranked((groups[key] as Array).filter(func(c): return c.pinged()))
+			continue
 		var size := int(String(key).get_slice("|", 1))
 		var key_rules := String(key).get_slice("|", 3)
 		var need := size * 2
@@ -407,12 +434,75 @@ func _send_watch_start(g: Game, c: Client) -> void:
 		"arena": g.arena, "delay": g.delay, "log": g.referee.log.duplicate()}, true)
 
 
+## Ranked: the longest waiter first, paired with the closest rating within the band
+## their wait has opened (Ratings.band), so a lopsided match only happens after a
+## long wait.
+func _pair_ranked(ready: Array) -> void:
+	var now := Time.get_ticks_msec()
+	var pool := ready.duplicate()
+	while pool.size() >= 2:
+		var a: Client = pool[0]
+		var best: Client = null
+		var best_gap := INF
+		for k in range(1, pool.size()):
+			var b: Client = pool[k]
+			var waited := now - mini(a.waiting_since, b.waiting_since)
+			if not ratings.band_ok(a.pid, b.pid, waited):
+				continue
+			var gap := absf(ratings.rating(a.pid) - ratings.rating(b.pid))
+			if gap < best_gap:
+				best_gap = gap
+				best = b
+		if best == null:
+			pool.remove_at(0)
+			continue
+		pool.erase(best)
+		pool.remove_at(0)
+		_found([a, best], 1, "", true)
+
+
+static func _clean_id(s: String) -> String:
+	s = s.strip_edges().to_lower()
+	if s.length() < 8 or s.length() > 32:
+		return ""
+	for ch in s:
+		if not ("0123456789abcdef".contains(ch)):
+			return ""
+	return s
+
+
+static func _clean_name(s: String) -> String:
+	s = s.strip_edges().replace("\n", " ").replace("\r", " ").left(16)
+	return s if s != "" else "Player"
+
+
+## A Daily Challenge replay: scored here on a fresh match of that day, never trusted
+## from the client, then put on the board.
+func _daily_submit(c: Client, m: Dictionary) -> void:
+	var date := int(m.get("date", 0))
+	var fighter := String(m.get("fighter", ""))
+	var rep_dict = m.get("replay")
+	if date < 20200101 or not (fighter in MatchFactory.FIGHTERS) or not (rep_dict is Dictionary) or c.pid == "":
+		c.link.send({"t": "reject", "why": "daily", "msg": "That score can't be taken: a bad request."}, true)
+		return
+	var rep := Replay.from_dict(rep_dict)
+	if rep.frames.size() > Daily.FIGHT_TICKS + 60:
+		c.link.send({"t": "reject", "why": "daily", "msg": "That replay is too long to be a Daily fight."}, true)
+		return
+	var d := Daily.new(fighter, date)
+	var score := d.verify(rep)
+	var rank := ratings.submit_daily(date, c.pid, c.name, score)
+	_log("%s sent a Daily score for %d: %d (rank %d)" % [c.label(), date, score, rank])
+	c.link.send({"t": "daily_ok", "date": date, "score": score, "rank": rank, "board": ratings.daily_board(date)}, true)
+
+
 ## A group is ready to play: ask everyone in it to accept (the ready check).
-func _found(group: Array, size: int, rules := "") -> void:
+func _found(group: Array, size: int, rules := "", ranked := false) -> void:
 	var k := Check.new()
 	k.players = group.duplicate()
 	k.size = size
 	k.rules = rules
+	k.ranked = ranked
 	k.deadline_ms = Time.get_ticks_msec() + ready_ms
 	checks.append(k)
 	for c: Client in group:
@@ -437,7 +527,7 @@ func _accept(c: Client) -> void:
 		checks.erase(k)
 		for o: Client in k.players:
 			o.check = null
-		_begin_game(k.players, k.size, k.rules)
+		_begin_game(k.players, k.size, k.rules, k.ranked)
 
 
 ## Ready checks whose time ran out: those who accepted wait again (their place kept),
@@ -507,10 +597,11 @@ static func seat(teams: Array, size: int) -> Array:
 
 ## `group`: the players in the order they arrived; `seat()` picks their sides. Fewer
 ## than a full match: CPUs take the slots left over (fighters nobody picked, first).
-func _begin_game(group: Array, size: int, rules := "") -> void:
+func _begin_game(group: Array, size: int, rules := "", ranked := false) -> void:
 	var g := Game.new()
 	g.size = size
 	g.rules = rules
+	g.ranked = ranked
 	g.room = (group[0] as Client).room if not group.is_empty() else ""
 	# The map: a room's maker picked it; Quick match draws one (the server's choice).
 	g.arena = (group[0] as Client).arena if g.room != "" else String(ArenaMap.IDS[rng.randi_range(0, ArenaMap.IDS.size() - 1)])
@@ -653,6 +744,12 @@ func _send_inputs(g: Game, slot: int, pkt: Dictionary) -> void:
 ## dedicated server turns it on): one file per match, playable in the Replay theater.
 var save_replays := false
 var replay_dir := "user://replays/"
+## Ranked ratings and daily scores (user://ratings.json on a real server).
+var ratings := Ratings.new()
+
+
+func _init() -> void:
+	ratings.persist = false  # the dedicated server turns it on; tests keep it in memory
 
 
 func _save_replay(g: Game) -> String:
@@ -675,6 +772,19 @@ func _report(g: Game) -> void:
 	if save_replays:
 		_save_replay(g)
 	var r := g.referee
+	if g.ranked and r.winner != -2 and g.players.size() == 2 and g.players[0] != null and g.players[1] != null:
+		# A rated result: both players hear their new rating.
+		var a: Client = g.players[0]
+		var b: Client = g.players[1]
+		var score_a := 0.5 if r.winner == -1 else (1.0 if r.winner == 0 else 0.0)
+		var out := ratings.record(a.pid, a.name, b.pid, b.name, score_a)
+		for k in 2:
+			var cl: Client = g.players[k]
+			if clients.has(cl.id):
+				cl.link.send({"t": "rating", "old": out[k]["old"], "new": out[k]["new"], "rd": out[k]["rd"],
+					"games": out[k]["games"], "wins": out[k]["wins"]}, true)
+		_log("match %d rated: %s %d -> %d, %s %d -> %d" % [g.label, a.name, roundi(float(out[0]["old"])),
+			roundi(float(out[0]["new"])), b.name, roundi(float(out[1]["old"])), roundi(float(out[1]["new"]))])
 	var how := ""
 	if r.winner >= 0 and g.size == 1:
 		matches_finished += 1

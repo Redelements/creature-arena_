@@ -183,6 +183,39 @@ jobs:
               await github.rest.issues.createComment({ owner, repo, issue_number, body });
             }
 
+  # Apple Silicon compiles floating-point math differently (fused multiply-add), so the
+  # same check runs on macOS with the stock editor binary (there is no Mac export yet).
+  mac-determinism:
+    needs: build
+    runs-on: macos-latest
+    env:
+      GODOT_VERSION: 4.7.2
+      SIM_CHECK_SEED: 20261010
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Godot for macOS
+        run: |
+          curl -sSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_macos.universal.zip"
+          unzip -q godot.zip
+          chmod +x Godot.app/Contents/MacOS/Godot
+
+      - name: Import project
+        run: Godot.app/Contents/MacOS/Godot --headless --path . --import
+
+      - name: Same match on macOS must give the same fingerprint
+        run: |
+          Godot.app/Contents/MacOS/Godot --headless --path . -- --sim-check=$SIM_CHECK_SEED --sim-check-out="$PWD/mac_digest.txt"
+          mac=$(cat mac_digest.txt)
+          linux="${{ needs.build.outputs.linux_digest }}"
+          echo "Linux: $linux"
+          echo "macOS: $mac"
+          if [ "$mac" != "$linux" ]; then
+            echo "Desync: macOS and Linux simulate the same match differently. Fixed-point math in src/sim/ would be the fix."
+            exit 1
+          fi
+          echo "Match: both platforms simulate identically."
+
   cross-platform-determinism:
     needs: build
     runs-on: windows-latest

@@ -130,8 +130,8 @@ File-by-file: docs/CODEBASE.md.
 - **Online:** direct 1v1 over UDP and a dedicated relay/referee server are built, with
   online 2v2/3v3 through the server (any team rules: deathmatch, Sinkhole, Crater,
   Showtime), 3v3 tag Duels, spectators, saved online replays, arenas online (the host's or
-  the room's, random for Quick match) and an input delay setting. Not yet: a Steam
-  transport (behind `NetLink`), matchmaking beyond rooms.
+  the room's, random for Quick match), an input delay setting, ranked 1v1 with Glicko
+  ratings and Daily scores on the server. Not yet: a Steam transport (behind `NetLink`).
 - **Not built yet:** affinity surfaces, more arenas. Game mode plan and priorities: Game
   Plan doc, "Game modes".
 - **Planned:** dodge timing. Kevin wants to leave a combo at any time to dodge; today

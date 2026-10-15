@@ -35,7 +35,7 @@ extends RefCounted
 ## server's CPU plays are listed in "start" (`cpu`), or come later as "cpu" when a
 ## player leaves; their inputs arrive like anyone's.
 
-const NET_VERSION := 7  ## 7: team rules and tag Duels online; 6: the server's ready check; 5: team battles (slots, sizes); 4: 360 move angle
+const NET_VERSION := 8  ## 8: ranked play, player ids, daily scores; 7: team rules and tag Duels; 6: the server's ready check; 5: team battles; 4: 360 move angle
 const DEFAULT_PORT := 7777
 const PINGS := 5
 ## A precise ping (a real link) blocks the host this long at most waiting for the pong.
@@ -75,6 +75,34 @@ var watching := false
 var watch: Referee = null
 ## The arena the host (or a room's maker) asks for; the one in "start" is what plays.
 var arena_id := ArenaMap.DEFAULT
+## Who this player is to a server: an id the game made once (settings) and a typed
+## name. A session can carry its own (tests); otherwise the game's.
+static var player_id := ""
+static var player_name := "Player"
+var my_id := ""
+var my_name := ""
+## Ranked: ask the server for a rated 1v1 within a rating band; the server's answer
+## after the match ({old, new, rd, games, wins}).
+var ranked := false
+var last_rating := {}
+
+
+## A fresh player id: 16 hex characters from the system's random source.
+static func make_player_id() -> String:
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var s := ""
+	for i in 16:
+		s += "0123456789abcdef"[rng.randi_range(0, 15)]
+	return s
+
+
+func _my_id() -> String:
+	return my_id if my_id != "" else player_id
+
+
+func _my_name() -> String:
+	return my_name if my_name != "" else player_name
 ## This player's slot in the match (its side in a 1v1).
 var local_slot := 0
 ## Dedicated servers pair players who give the same room ("" for anyone).
@@ -183,7 +211,8 @@ func tick(local_bits: int) -> void:
 		Phase.CONNECTING:
 			if link.status == NetLink.Status.CONNECTED:
 				link.send({"t": "hello", "v": NET_VERSION, "data": data_hash(), "team": my_team, "room": room,
-					"size": team_size, "rules": rules_id, "watch": watching, "arena": arena_id}, true)
+					"size": team_size, "rules": rules_id, "watch": watching, "arena": arena_id,
+					"id": _my_id(), "name": _my_name(), "ranked": ranked}, true)
 				phase = Phase.HANDSHAKE
 				status = "Connected. Setting up the match..."
 			elif _t > CONNECT_TIMEOUT_TICKS:
@@ -291,6 +320,9 @@ func _handle(m: Dictionary) -> void:
 				match_found = false  # back to searching (or still searching)
 				accepted = false
 				status = String(m.get("msg", "On the server. Waiting for an opponent..."))
+		"rating":
+			last_rating = {"old": float(m.get("old", 0.0)), "new": float(m.get("new", 0.0)), "rd": float(m.get("rd", 0.0)),
+				"games": int(m.get("games", 0)), "wins": int(m.get("wins", 0))}
 		"found":
 			if hosting or phase == Phase.PLAYING:
 				return
