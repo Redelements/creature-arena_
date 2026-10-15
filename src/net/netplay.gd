@@ -73,6 +73,8 @@ var rules_id := ""
 ## with a Referee of its own stepping only on confirmed inputs, never predicting.
 var watching := false
 var watch: Referee = null
+## The arena the host (or a room's maker) asks for; the one in "start" is what plays.
+var arena_id := ArenaMap.DEFAULT
 ## This player's slot in the match (its side in a 1v1).
 var local_slot := 0
 ## Dedicated servers pair players who give the same room ("" for anyone).
@@ -181,7 +183,7 @@ func tick(local_bits: int) -> void:
 		Phase.CONNECTING:
 			if link.status == NetLink.Status.CONNECTED:
 				link.send({"t": "hello", "v": NET_VERSION, "data": data_hash(), "team": my_team, "room": room,
-					"size": team_size, "rules": rules_id, "watch": watching}, true)
+					"size": team_size, "rules": rules_id, "watch": watching, "arena": arena_id}, true)
 				phase = Phase.HANDSHAKE
 				status = "Connected. Setting up the match..."
 			elif _t > CONNECT_TIMEOUT_TICKS:
@@ -348,11 +350,13 @@ func _handle(m: Dictionary) -> void:
 				slot = clampi(int(m.get("slot", m["side"])), 0, size * 2 - 1)
 			ping_ms = float(m.get("ping", 0.0))
 			var rules := String(m.get("rules", ""))
-			if not (rules in TeamSim.RULE_IDS):
+			var arena := String(m.get("arena", ArenaMap.DEFAULT))
+			if not (rules in TeamSim.RULE_IDS) or not (arena in ArenaMap.IDS):
 				_fail("Bad match setup from the host")
 				return
 			rules_id = rules
-			_begin(int(m.get("n", 0)), teams, int(m.get("delay", 2)), slot, size, rules)
+			arena_id = arena
+			_begin(int(m.get("n", 0)), teams, int(m.get("delay", 2)), slot, size, rules, arena)
 			their_team = teams[1 - local_side]
 			var cpu = m.get("cpu", [])
 			if cpu is Array:
@@ -393,14 +397,16 @@ func _start_watching(m: Dictionary) -> void:
 	var teams = m.get("teams")
 	var size := clampi(int(m.get("size", 1)), 1, 3)
 	var rules := String(m.get("rules", ""))
+	var arena := String(m.get("arena", ArenaMap.DEFAULT))
 	if not (teams is Array) or (teams as Array).size() != 2 or not _valid_team(teams[0]) \
-			or not _valid_team(teams[1]) or not (rules in TeamSim.RULE_IDS):
+			or not _valid_team(teams[1]) or not (rules in TeamSim.RULE_IDS) or not (arena in ArenaMap.IDS):
 		_fail("Bad match setup from the server")
 		return
 	via_server = true
 	match_found = false
 	_watch_n = int(m.get("n", 0))
-	watch = Referee.new(teams, int(m.get("delay", 2)), size, rules)
+	arena_id = arena
+	watch = Referee.new(teams, int(m.get("delay", 2)), size, rules, arena)
 	var rows = m.get("log", [])
 	if rows is Array:
 		watch.feed_log(rows)
@@ -442,16 +448,16 @@ func _start_match() -> void:
 	var teams := [my_team.duplicate(), their_team.duplicate()]
 	var delay := forced_delay if forced_delay >= 0 else pick_delay(ping_ms)
 	link.send({"t": "start", "n": _match_count, "teams": teams, "delay": delay, "ping": ping_ms,
-		"rules": rules_id}, true)
-	_begin(_match_count, teams, delay, -1, 1, rules_id)
+		"rules": rules_id, "arena": arena_id}, true)
+	_begin(_match_count, teams, delay, -1, 1, rules_id, arena_id)
 
 
 ## A host's own matches: it plays side 0.
-func _begin(n: int, teams: Array, delay: int, slot := -1, size := 1, rules := "") -> void:
+func _begin(n: int, teams: Array, delay: int, slot := -1, size := 1, rules := "", arena := ArenaMap.DEFAULT) -> void:
 	if slot < 0:
 		slot = local_side
 	match_found = false
-	game = OnlineMatch.new(teams, slot, delay, link, n, size, rules)
+	game = OnlineMatch.new(teams, slot, delay, link, n, size, rules, arena)
 	game.ping_ms = ping_ms
 	local_slot = game.local_slot
 	local_side = game.local_side

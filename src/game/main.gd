@@ -99,7 +99,7 @@ const REPLAY_MODE := 50
 ## one of several modes with Left/Right.
 ## The Settings pages and their rows, in order (see _setting()).
 const SETTING_PAGES := {
-	"game": ["level", "rumble", "shake", "server"],
+	"game": ["level", "rumble", "shake", "server", "delay"],
 	"video": ["fullscreen", "wide", "vsync", "fps"],
 	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu"],
 }
@@ -293,6 +293,12 @@ var _pending_rules := ""
 ## whether the next server join is to watch.
 var watch: Referee = null
 var _pending_watch := false
+## Online input delay: -1 picks it from the ping, else that many frames (matches you
+## host or join directly; the server picks its own). Saved with the settings.
+var input_delay := -1
+var _rb_seen := 0
+var _rb_rate := 0
+var _rb_t := 0
 ## Where the look-up asks (tests ask this machine instead of the whole network).
 var finder_target := "255.255.255.255"
 ## The last look-up found nothing nearby, so a failed join can say what to check at home.
@@ -1988,6 +1994,10 @@ func _setting(key: String) -> Dictionary:
 	match key:
 		"level":
 			return {"label": "CPU level", "values": LEVEL_NAMES, "index": level, "desc": "How hard the CPU fights. Rage: absurdly good, and plays each fighter by its class"}
+		"delay":
+			return {"label": "Online input delay", "values": ["Auto", "1 frame", "2 frames", "3 frames"],
+				"index": clampi(input_delay + 1, 0, 3),
+				"desc": "Frames between a press and the move online. Auto picks from the ping; more means fewer rollbacks. For matches you host or join directly (the server sets its own)"}
 		"layout":
 			var names: Array = []
 			for l in PlayerInput.LAYOUTS:
@@ -2047,6 +2057,8 @@ func _set_setting(key: String, i: int) -> void:
 		match key:
 			"level":
 				level = clampi(i, 0, LEVEL_NAMES.size() - 1)
+			"delay":
+				input_delay = clampi(i, 0, 3) - 1
 			"layout":
 				player_input.layout = PlayerInput.LAYOUTS[clampi(i, 0, PlayerInput.LAYOUTS.size() - 1)]
 				_apply_device()
@@ -2179,6 +2191,7 @@ func _load_settings() -> void:
 		if pad in PlayerInput.PAD_LAYOUTS:
 			_set_pad_layout(pad)
 		level = clampi(int(cfg.get_value("game", "level", level)), 0, LEVEL_NAMES.size() - 1)
+		input_delay = clampi(int(cfg.get_value("online", "delay", -1)), -1, 3)
 		var ar := String(cfg.get_value("game", "arena", MatchFactory.arena))
 		if ar in ArenaMap.IDS:
 			_arena_saved = ar
@@ -2214,6 +2227,7 @@ func _save_settings() -> void:
 	cfg.set_value("input", "pad_layout", player_input.pad_layout)
 	cfg.set_value("game", "level", level)
 	cfg.set_value("game", "arena", _arena_saved)
+	cfg.set_value("online", "delay", input_delay)
 	cfg.set_value("audio", "music_muted", audio.music_muted)
 	cfg.set_value("online", "fighter", _online_fighter)
 	cfg.set_value("online", "address", _online_address)
@@ -2398,7 +2412,8 @@ func _net_host(fighter: String) -> void:
 	_online_fighter = fighter
 	_save_settings()
 	netplay = Netplay.new()
-	netplay.forced_delay = int(_net_args.get("delay", -1))
+	netplay.forced_delay = int(_net_args.get("delay", input_delay))
+	netplay.arena_id = MatchFactory.arena
 	var port := int(_net_args.get("host", Netplay.DEFAULT_PORT))
 	var link := _make_link(port)
 	if link.status == NetLink.Status.CLOSED:
@@ -2481,7 +2496,8 @@ func _net_join(fighter: String, address: String, port: int, room := "", remember
 		_remember_server(_online_address)
 	_save_settings()
 	netplay = Netplay.new()
-	netplay.forced_delay = int(_net_args.get("delay", -1))
+	netplay.forced_delay = int(_net_args.get("delay", input_delay))
+	netplay.arena_id = MatchFactory.arena
 	var link := _make_link(0, address, port)
 	if link.status == NetLink.Status.CLOSED:
 		lobby.busy = false
@@ -2666,8 +2682,13 @@ func _online_status() -> void:
 	if g.cpu_slots.size() != _cpu_shown:
 		_show_cpu_slots()
 		hud.show_toast("A player left: a CPU plays for them")
-	hud.net_info = "PING %d ms   DELAY %d   ROLLBACK %d" % [roundi(netplay.ping_ms), g.input_delay,
-		g.session.max_rollback_seen]
+	_rb_t += 1
+	if _rb_t >= 60:
+		_rb_rate = g.session.rollbacks - _rb_seen
+		_rb_seen = g.session.rollbacks
+		_rb_t = 0
+	hud.net_info = "PING %d ms   DELAY %d   ROLLBACKS %d/s (MAX %d)   %s" % [roundi(netplay.ping_ms), g.input_delay,
+		_rb_rate, g.session.max_rollback_seen, ArenaMap.name_of(g.arena_id).to_upper()]
 	if g.desync_frame >= 0:
 		hud.net_info = "DESYNC at frame %d: report saved   " % g.desync_frame + hud.net_info
 	var waiting := "WAITING FOR PLAYERS" if g.players > 2 else "WAITING FOR OPPONENT"

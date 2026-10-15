@@ -25,6 +25,7 @@ var duel  ## the match: a DuelSim (1v1) or a TeamSim (team battle)
 var teams: Array
 var size := 1
 var rules := ""
+var arena := ArenaMap.DEFAULT
 var players := 2  ## input slots
 ## Every row of inputs stepped, in order: the match's replay (saved by the server,
 ## sent to a spectator who joins late).
@@ -49,16 +50,19 @@ var _theirs: Array = []  ## slot -> frame -> digest
 
 
 ## `size` players per side: 1 is a Duel, 2 or 3 a team battle.
-func _init(p_teams: Array, input_delay: int, p_size := 1, p_rules := "") -> void:
+func _init(p_teams: Array, input_delay: int, p_size := 1, p_rules := "", p_arena := ArenaMap.DEFAULT) -> void:
 	teams = p_teams
 	size = p_size
 	rules = p_rules
-	MatchFactory.arena = ArenaMap.DEFAULT  # the players' machines play the stadium too
+	arena = p_arena if p_arena in ArenaMap.IDS else ArenaMap.DEFAULT
+	var menu_arena: String = MatchFactory.arena
+	MatchFactory.arena = arena  # the same map as the players' machines
 	if size > 1:
 		duel = TeamSim.new(teams, size, TeamSim.rules_by_id(rules))
 		players = size * 2
 	else:
 		duel = DuelSim.new(teams)
+	MatchFactory.arena = menu_arena
 	for p in players:
 		_inputs.append({})
 		_history.append({})
@@ -171,7 +175,7 @@ func setup_dict() -> Dictionary:
 		for id in t:
 			ids.append(String(id))
 	return {"kind": "team" if size > 1 else "duel", "ids": ids, "teams": teams.duplicate(true), "size": size,
-		"rules": rules, "arena": ArenaMap.DEFAULT, "mutators": {}, "mut_seed": 0}
+		"rules": rules, "arena": arena, "mutators": {}, "mut_seed": 0}
 
 
 func advance() -> int:

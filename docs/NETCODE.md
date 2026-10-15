@@ -215,8 +215,16 @@ referee's `log` is the match's replay: the dedicated server saves every match's
 online match saves the confirmed inputs (`OnlineMatch.input_log`) with the setup, so
 the Replay theater plays them. Tests: `tests/test_spectate.gd`.
 
-Still to do: a Steam transport (below), an input delay setting, arenas online (every
-match plays the stadium until the choice rides in `start`), and ranked/matchmaking.
+**Arenas online and the delay setting.** Hello and `start` carry an `arena` id: the
+host's (the single player menu's Arena row) in a direct match, a room's maker's through
+the server, and a random one for Quick match (the server draws it). `OnlineMatch`, the
+`Referee` and a spectator's referee build that map; spectator starts and saved replays
+carry it too. Settings > Game > Online input delay (Auto, 1-3 frames) is the
+`forced_delay` for matches you host or join directly; the server still picks its own
+from the slowest path. The fight's net line shows ping, delay, rollbacks a second (and
+the worst), and the arena.
+
+Still to do: a Steam transport (below) and ranked/matchmaking.
 
 ## Transport (to decide)
 

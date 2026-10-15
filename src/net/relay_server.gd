@@ -111,6 +111,7 @@ class Client:
 	var waiting_since := 0  ## when they started waiting for a match (ms)
 	var check: Check = null  ## the ready check they're in (state FOUND)
 	var watch := false  ## a spectator: never seated, fed every input of a match
+	var arena := ArenaMap.DEFAULT  ## the map asked for (a room's maker decides; Quick match draws one)
 
 	func label() -> String:
 		return "player %d (%s)" % [id, ", ".join(PackedStringArray(team))] if not team.is_empty() \
@@ -140,6 +141,7 @@ class Game:
 	var size := 1  ## players per side
 	var rules := ""  ## the team rules (TeamSim.RULE_IDS)
 	var room := ""  ## the room it came from ("" for Quick match), so a spectator can find it
+	var arena := ArenaMap.DEFAULT
 	var watchers: Array = []  ## spectators (Clients) fed every input
 	var n := 0
 	var delay := 2
@@ -244,6 +246,9 @@ func _handle(c: Client, m: Dictionary) -> void:
 			c.rules = String(m.get("rules", ""))
 			if not (c.rules in TeamSim.RULE_IDS):
 				c.rules = ""
+			c.arena = String(m.get("arena", ArenaMap.DEFAULT))
+			if not (c.arena in ArenaMap.IDS):
+				c.arena = ArenaMap.DEFAULT
 			if bool(m.get("watch", false)):
 				# A spectator: attached to a match as soon as there is one to watch.
 				c.watch = true
@@ -399,7 +404,7 @@ func _attach_watchers() -> void:
 
 func _send_watch_start(g: Game, c: Client) -> void:
 	c.link.send({"t": "start", "watch": true, "n": g.n, "teams": g.referee.teams, "size": g.size, "rules": g.rules,
-		"delay": g.delay, "log": g.referee.log.duplicate()}, true)
+		"arena": g.arena, "delay": g.delay, "log": g.referee.log.duplicate()}, true)
 
 
 ## A group is ready to play: ask everyone in it to accept (the ready check).
@@ -507,6 +512,8 @@ func _begin_game(group: Array, size: int, rules := "") -> void:
 	g.size = size
 	g.rules = rules
 	g.room = (group[0] as Client).room if not group.is_empty() else ""
+	# The map: a room's maker picked it; Quick match draws one (the server's choice).
+	g.arena = (group[0] as Client).arena if g.room != "" else String(ArenaMap.IDS[rng.randi_range(0, ArenaMap.IDS.size() - 1)])
 	g.players.resize(size * 2)
 	var used := {}
 	var sides := seat(group.map(func(c): return (c as Client).team), size)
@@ -566,7 +573,7 @@ func _start(g: Game) -> void:
 			var c = g.players[slot]
 			var fighter: String = String(g.cpu_fighters[slot]) if c == null else String(c.team[0])
 			(teams[slot / g.size] as Array).append(fighter)  # one fighter each
-	g.referee = Referee.new(teams, g.delay, g.size, g.rules)
+	g.referee = Referee.new(teams, g.delay, g.size, g.rules, g.arena)
 	for slot in g.cpu_fighters:
 		g.referee.add_cpu(int(slot), cpu_level, g.label * 31 + int(slot) * 7 + g.n)
 	g.path_ms = Time.get_ticks_msec()
@@ -579,7 +586,7 @@ func _start(g: Game) -> void:
 		for o: Client in g.others(c):
 			worst = maxf(worst, o.rtt)
 		var m := {"t": "start", "n": g.n, "teams": teams, "delay": g.delay, "ping": c.rtt + worst,
-			"side": c.side, "via": worst, "rules": g.rules}
+			"side": c.side, "via": worst, "rules": g.rules, "arena": g.arena}
 		if g.size > 1:
 			m["slot"] = c.slot
 			m["size"] = g.size
