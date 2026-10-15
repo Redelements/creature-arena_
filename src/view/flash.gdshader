@@ -9,8 +9,23 @@ uniform float rim : hint_range(0.0, 1.0) = 0.0;
 uniform vec4 rim_color : source_color = vec4(0.85, 0.85, 0.88, 1.0);
 uniform float stone : hint_range(0.0, 1.0) = 0.0;
 uniform bool ice = false;  // frozen in ice (Flavor Blast) rather than stone
+uniform float hue = 0.0;  // palette: the sprite's hues turned round the wheel (0..1)
+
+vec3 hue_shift(vec3 c, float h) {
+	// Rotate RGB about the grey axis: cheap and keeps brightness.
+	float a = h * 6.28318;
+	float cs = cos(a);
+	float sn = sin(a);
+	mat3 m = mat3(vec3(0.299, 0.587, 0.114), vec3(0.299, 0.587, 0.114), vec3(0.299, 0.587, 0.114))
+		+ cs * mat3(vec3(0.701, -0.587, -0.114), vec3(-0.299, 0.413, -0.114), vec3(-0.3, -0.588, 0.886))
+		+ sn * mat3(vec3(0.168, 0.33, -0.497), vec3(-0.328, 0.035, 0.292), vec3(1.25, -1.05, -0.203));
+	return clamp(c * m, 0.0, 1.0);
+}
 
 void fragment() {
+	if (hue > 0.0) {
+		COLOR.rgb = hue_shift(COLOR.rgb, hue);
+	}
 	if (stone > 0.0) {
 		float l = dot(COLOR.rgb, vec3(0.3, 0.55, 0.15));
 		vec3 rock = ice ? mix(vec3(0.42, 0.72, 0.84), vec3(0.9, 0.98, 1.0), l)
