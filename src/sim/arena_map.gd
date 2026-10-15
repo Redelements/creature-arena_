@@ -11,7 +11,7 @@ extends RefCounted
 const DIR := "res://data/arenas/"
 const DEFAULT := "stadium"
 ## Every map, in menu order.
-const IDS := ["stadium", "quarry"]
+const IDS := ["stadium", "quarry", "floodgate", "greenhouse"]
 
 static var _cache := {}
 

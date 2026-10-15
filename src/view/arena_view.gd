@@ -16,6 +16,19 @@ const TILE_SHALLOWS := 16  # two variants
 const TILE_BRUSH := 18  # two variants
 const TILE_BRUSH_FLAT := 20
 const TILE_RUBBLE_FLOOR := 21
+## How each map's ground tints the dirt tiles (the map's "ground" key).
+const GROUND_TINT := {
+	"dirt": Color(1.0, 1.0, 1.0),
+	"stone": Color(0.86, 0.86, 0.9),
+	"concrete": Color(0.78, 0.82, 0.88),
+	"grass": Color(0.84, 0.98, 0.72),
+}
+var ground := "dirt":
+	set(v):
+		if v != ground:
+			ground = v
+			_drawn_version = -1
+			queue_redraw()
 
 const C_BG := Color("1b1e26")
 const C_STAND_A := Color("3a3f4e")
@@ -88,7 +101,10 @@ func _draw() -> void:
 					idx = TILE_WALL_FACE if below != TerrainGrid.WALL else TILE_WALL_TOP + (cx + cy) % 2
 				TerrainGrid.SHALLOWS:
 					idx = TILE_SHALLOWS + (cx * 3 + cy * 5) % 2
-			draw_texture_rect_region(TILES, _cell_rect(cx, cy), Rect2(idx * 8, 0, 8, 8))
+			var plain := v == TerrainGrid.INTACT or v == TerrainGrid.CRACKED or v == TerrainGrid.BRUSH \
+				or v == TerrainGrid.BRUSH_FLAT or v == TerrainGrid.FENCE
+			draw_texture_rect_region(TILES, _cell_rect(cx, cy), Rect2(idx * 8, 0, 8, 8),
+				GROUND_TINT.get(ground, Color.WHITE) if plain else Color.WHITE)
 			var over := -1
 			match v:
 				TerrainGrid.FENCE: over = TILE_FENCE

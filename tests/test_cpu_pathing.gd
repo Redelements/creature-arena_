@@ -96,6 +96,13 @@ func test_the_cpu_goes_round_a_chasm_and_through_a_gap_in_a_fence() -> void:
 	assert_true(_cpu_reaches(fence, 1, 900) >= 0, "through the gap in the fence")
 
 
+func test_the_cpu_reaches_the_foe_from_the_spawns_on_every_map() -> void:
+	for id in ArenaMap.IDS:
+		var sim := _on(id, "digby", "barkley")
+		sim.creatures[1].facing = Vector2.LEFT
+		assert_true(_cpu_reaches(sim, 1, 900) >= 0, "%s: Normal reaches the foe" % id)
+
+
 func test_the_stadium_cpu_match_is_unchanged_by_pathing() -> void:
 	# On open floor the straight line is clear, so the CPU never consults the grid:
 	# the seeded match plays exactly as before pathing existed.

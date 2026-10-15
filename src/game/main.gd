@@ -11,7 +11,8 @@ extends Node2D
 ##                         3 training as Cairn, 4 training as Culvert
 ##   --level=N             CPU level: 0 Easy, 1 Normal, 2 Hard
 ##   --seed=N              CPU random seed
-##   --arena=ID            the arena map for offline matches (stadium, quarry; data/arenas/)
+##   --arena=ID            the arena map for offline matches (stadium, quarry, floodgate,
+##                         greenhouse; data/arenas/)
 ##   --autoplay            training demo: the player side follows a scripted routine
 ##   --dummy-mode=N        0 stand, 1 guard, 2 walk, 3 dodge
 ##   --hitboxes            start with the hitbox overlay on
@@ -368,6 +369,12 @@ func _open_single() -> void:
 	scr.row_gap = 1
 	scr.hints = ["move", "change", "select", "back"]
 	scr.builder = func(s: UiScreen):
+		var maps: Array = []
+		for id in ArenaMap.IDS:
+			maps.append(ArenaMap.name_of(id))
+		s.add_option("Arena", maps, maxi(0, ArenaMap.IDS.find(MatchFactory.arena)),
+			func(i: int): _set_arena(ArenaMap.IDS[i]), "Where every match below is fought. Left/Right: the map")
+		s.add_space(2)
 		for r in MENU_ROWS.size():
 			var row: Dictionary = MENU_ROWS[r]
 			var desc := String(row.get("desc", ""))
@@ -383,6 +390,13 @@ func _open_single() -> void:
 		s.add_space(4)
 		s.add_button("Back", s.back)
 	ui.push(scr)
+
+
+## The arena offline matches play on (saved with the settings).
+func _set_arena(id: String) -> void:
+	if id in ArenaMap.IDS:
+		MatchFactory.arena = id
+		_save_settings()
 
 
 func _start_row(row: int) -> void:
@@ -883,6 +897,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	for i in sides.size():
 		if sides[i] == Side.CPU:
 			cpus[i] = CpuController.new(i, level, seed_base * 101 + round_num * 7 + i)
+	arena.ground = String(sim.arena.get("ground", "dirt"))
 	arena.set_terrain(sim.terrain)
 	for v in views:
 		v.queue_free()
@@ -1644,6 +1659,9 @@ func _load_settings() -> void:
 		if pad in PlayerInput.PAD_LAYOUTS:
 			_set_pad_layout(pad)
 		level = clampi(int(cfg.get_value("game", "level", level)), 0, LEVEL_NAMES.size() - 1)
+		var ar := String(cfg.get_value("game", "arena", MatchFactory.arena))
+		if ar in ArenaMap.IDS:
+			MatchFactory.arena = ar
 		audio.set_music_muted(bool(cfg.get_value("audio", "music_muted", false)))
 		_online_fighter = String(cfg.get_value("online", "fighter", _online_fighter))
 		if not (_online_fighter in MatchFactory.FIGHTERS):
@@ -1673,6 +1691,7 @@ func _save_settings() -> void:
 	cfg.set_value("input", "layout", player_input.layout)
 	cfg.set_value("input", "pad_layout", player_input.pad_layout)
 	cfg.set_value("game", "level", level)
+	cfg.set_value("game", "arena", MatchFactory.arena)
 	cfg.set_value("audio", "music_muted", audio.music_muted)
 	cfg.set_value("online", "fighter", _online_fighter)
 	cfg.set_value("online", "address", _online_address)

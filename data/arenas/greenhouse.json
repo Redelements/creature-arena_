@@ -1,0 +1,17 @@
+{
+	"_doc": "Greenhouse Dome: grass beds, fence lines and brush. Fences stop bodies but not shots (Sneaky Pete ghosts through them, Chef Cerebro blinks over); brush hides whoever stands in it until a dash flattens it; Digby burrows under it all. Rects are [col, row, width, height] in 8 px cells on the 84x36 grid. The deathmatch pads (the side walls' middle) stay clear.",
+	"id": "greenhouse",
+	"name": "Greenhouse Dome",
+	"ground": "grass",
+	"pieces": [
+		{"kind": "fence", "rect": [26, 0, 1, 10]},
+		{"kind": "fence", "rect": [57, 26, 1, 10]},
+		{"kind": "fence", "rect": [22, 30, 10, 1]},
+		{"kind": "fence", "rect": [52, 8, 10, 1]},
+		{"kind": "brush", "rect": [8, 4, 10, 6]},
+		{"kind": "brush", "rect": [66, 26, 10, 6]},
+		{"kind": "brush", "rect": [36, 14, 12, 8]},
+		{"kind": "brush", "rect": [10, 28, 8, 5]},
+		{"kind": "brush", "rect": [66, 3, 8, 5]}
+	]
+}
