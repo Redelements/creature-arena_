@@ -37,7 +37,8 @@ const GETUP_INVULN := 12
 const TAN_22_5 := 0.41421356237309503
 ## Walking speed while taunted (see a move's "taunt").
 const TAUNT_SPEED := 0.6
-## A taunted fighter is dragged this many pixels a tick toward its taunter (Bedrock).
+## A taunted fighter is dragged this many pixels a tick toward its taunter (Bedrock),
+## unless the taunt's "pull" says otherwise.
 const TAUNT_PULL := 0.6
 ## Walking speed while strafing (facing the aim instead of the way you walk).
 const STRAFE_SPEED := 0.85
@@ -53,7 +54,7 @@ const STATE_FIELDS := [
 	"windup_total", "stun", "invuln", "flash", "guard_hit", "air_t", "air_total",
 	"combo_hits", "combo_types", "combo_moves", "combo_bounced", "combo_damage", "juggles",
 	"juggle_serials", "last_attacker", "dodge_dir", "prev_buttons", "dodge_buffer",
-	"dodge_buffer_dir", "shield", "calm_t", "slow", "slow_mult", "taunt", "taunt_by",
+	"dodge_buffer_dir", "shield", "calm_t", "slow", "slow_mult", "taunt", "taunt_by", "taunt_pull",
 	"reel_t", "reel_to", "reel_gap", "reel_speed", "vuln", "vuln_mult",
 	"flip_t", "flip_total", "flip_from", "flip_to",
 	"swallow_t", "swallow_by", "swallow_gap", "swallow_air",
@@ -143,6 +144,7 @@ var slow := 0  ## ticks of slowed walking left
 var slow_mult := 1.0
 var taunt := 0  ## ticks left of being taunted by `taunt_by`
 var taunt_by := -1
+var taunt_pull := TAUNT_PULL  ## px/tick this taunt drags it in
 var reel_t := 0  ## ticks left of being reeled in to `reel_to` (Gillbert's Cast Line)
 var reel_to := -1
 var reel_gap := 0.0
@@ -649,7 +651,7 @@ func _tick_status(sim: MatchSim) -> void:
 	if tt != null and (state == State.IDLE or state == State.MOVE or state == State.GUARD):
 		var to := tt.pos - pos
 		if to.length() > float(radius + tt.radius) + 6.0:
-			_move(to.normalized() * TAUNT_PULL, sim, true)
+			_move(to.normalized() * taunt_pull, sim, true)
 	if slow > 0:
 		slow -= 1
 	if taunt > 0:
@@ -993,6 +995,7 @@ func _taunt(tn: Dictionary, sim: MatchSim) -> void:
 			continue
 		o.taunt = int(tn["ticks"])
 		o.taunt_by = id
+		o.taunt_pull = float(tn.get("pull", TAUNT_PULL))
 		sim.emit_event("taunt", o.pos, 1.0, {"who": o.id, "by": id})
 	sim.emit_event("roar", pos, r, {"who": id})
 

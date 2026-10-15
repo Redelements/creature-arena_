@@ -77,8 +77,9 @@ func build() -> MatchSim:
 	var partner := "culvert" if fighter == "cairn" else "cairn"
 	sim = MatchFactory.versus(fighter, partner)
 	sim.creatures[0].pos = Vector2(Showcase.START_X, Showcase.START_Y)
-	sim.creatures[1].pos = Vector2(Showcase.START_X + sim.creatures[0].radius + sim.creatures[1].radius + 2.0,
-		Showcase.START_Y)
+	# "gap": start this far apart instead of in jab range (a hook or a dash opens the route).
+	sim.creatures[1].pos = Vector2(Showcase.START_X + sim.creatures[0].radius + sim.creatures[1].radius
+		+ float(t.get("gap", 2.0)), Showcase.START_Y)
 	sim.creatures[0].energy = float(t.get("energy", 0))
 	_initial = sim.snapshot()
 	_start_demo()

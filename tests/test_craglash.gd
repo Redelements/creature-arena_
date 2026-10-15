@@ -1,6 +1,6 @@
 extends TestCase
-## Craglash's kit: Stoneskin's shield, Bedrock's armor, taunt and release, Boulder
-## Lash's slow, and the full combo route.
+## Craglash's kit: Stoneskin's shield, Bedrock (his Surge: armor, taunt, drag and release),
+## Mountain Maw (his hook: unblockable, hauls in and crumples), and the full combo route.
 
 const L := SimDefs.IN_LIGHT
 const H := SimDefs.IN_HEAVY
@@ -26,6 +26,14 @@ func _has_event(sim: MatchSim, kind: String) -> bool:
 	return false
 
 
+## Craglash (with a full meter) starts Bedrock and holds it until the armor sets.
+func _bedrock(sim: MatchSim, p1 := 0) -> void:
+	var crag := sim.creatures[0]
+	crag.energy = 100.0
+	var armored := run_until(sim, func(): return crag.is_armored(), 80, SU, p1)
+	assert_true(armored, "Bedrock should be armored once its freeze and windup are over")
+
+
 func test_stoneskin_soaks_damage_then_grows_back() -> void:
 	var sim := _duel()
 	var crag := sim.creatures[0]
@@ -49,29 +57,50 @@ func test_breaking_the_shield_lets_damage_through() -> void:
 	assert_lt(crag.hp, hp, "the rest of the jab reaches hp")
 
 
+func test_bedrock_is_the_surge_and_costs_the_meter() -> void:
+	var sim := _duel()
+	var crag := sim.creatures[0]
+	assert_false(crag.can_use("surge"), "no meter, no Bedrock")
+	crag.energy = 100.0
+	run(sim, SU, 1)
+	assert_eq(crag.move_id, "surge", "Bedrock is the Surge:")
+	assert_eq(String(crag.def["moves"]["surge"]["name"]), "Bedrock")
+	assert_near(crag.energy, 0.0, 0.001, "and it spends the meter:")
+
+
 func test_bedrock_armor_takes_hits_without_flinching() -> void:
 	var sim := _duel()
 	var crag := sim.creatures[0]
 	crag.shield = 0.0
-	tap(sim, S2, 5)
-	assert_true(crag.is_armored(), "Bedrock should be armored a few frames in")
+	_bedrock(sim)
 	var start := crag.pos
 	var hp := crag.hp
 	var armored := run_until(sim, func(): return _has_event(sim, "armor"), 30, 0, L)
 	assert_true(armored, "Cairn's jab should land on the armor")
 	run(sim, 0, 10)
 	assert_eq(crag.state, CreatureSim.State.ATTACK, "still in Bedrock, not in hitstun:")
-	assert_eq(crag.move_id, "skill_2")
+	assert_eq(crag.move_id, "surge")
 	assert_near(crag.pos.x, start.x, 0.001, "rooted in place:")
 	var jab := float(sim.creatures[1].def["moves"]["light_1"]["damage"])
-	var reduction := float(crag.def["moves"]["skill_2"]["armor"]["reduction"])
+	var reduction := float(crag.def["moves"]["surge"]["armor"]["reduction"])
 	assert_near(hp - crag.hp, jab * (1.0 - reduction), 0.01, "armor damage:")
+
+
+func test_bedrock_holds_for_three_seconds() -> void:
+	var sim := _duel("cairn", 10.0)
+	var crag := sim.creatures[0]
+	_bedrock(sim)
+	run(sim, 0, 150)
+	assert_eq(crag.move_id, "surge", "still rooted and armored 2.5 s in:")
+	assert_true(crag.is_armored(), "")
+	run(sim, 0, 40)
+	assert_eq(crag.state, CreatureSim.State.IDLE, "and free again after about 3 s:")
 
 
 func test_a_grab_goes_through_bedrock() -> void:
 	var sim := _duel("culvert")
 	var crag := sim.creatures[0]
-	tap(sim, S2, 3)
+	_bedrock(sim)
 	var grabbed := run_until(sim, func(): return _has_event(sim, "swallow"), 60, 0, S1)
 	assert_true(grabbed, "a held Gulp should swallow Craglash out of Bedrock")
 	assert_eq(crag.state, CreatureSim.State.AIRBORNE, "carried out of the stance:")
@@ -80,7 +109,7 @@ func test_a_grab_goes_through_bedrock() -> void:
 func test_bedrock_taunts_and_turns_attacks_toward_craglash() -> void:
 	var sim := _duel("cairn", 10.0)
 	var cairn := sim.creatures[1]
-	tap(sim, S2, 6)
+	_bedrock(sim)
 	assert_gt(float(cairn.taunt), 0.0, "Cairn should be taunted")
 	assert_lt(cairn.walk_speed(), float(cairn.def["speed"]), "taunted walking is slower")
 	# Cairn tries to jab while holding right, away from Craglash.
@@ -94,12 +123,34 @@ func test_bedrock_taunts_and_turns_attacks_toward_craglash() -> void:
 func test_bedrock_releases_into_any_attack_without_a_windup() -> void:
 	var sim := _duel()
 	var crag := sim.creatures[0]
-	var release := int(crag.def["moves"]["skill_2"]["armor"]["release_from"])
-	tap(sim, S2, release + 2)
-	assert_eq(crag.move_id, "skill_2", "still holding Bedrock")
+	var release := int(crag.def["moves"]["surge"]["armor"]["release_from"])
+	_bedrock(sim)
+	run_until(sim, func(): return crag.state_t >= release + 2, 40)
+	assert_eq(crag.move_id, "surge", "still holding Bedrock")
 	run(sim, H, 2)
 	assert_eq(crag.move_id, "heavy", "released into Rockslide Stomp:")
 	assert_eq(crag.windup_total, 0, "a release skips the raw windup:")
+
+
+func test_bedrock_reaches_far_and_drags_the_taunted_in_fast() -> void:
+	var sim := _duel("cairn", 110.0)
+	var crag := sim.creatures[0]
+	var cairn := sim.creatures[1]
+	var d0 := cairn.pos.distance_to(crag.pos)
+	_bedrock(sim)
+	assert_gt(float(cairn.taunt), 0.0, "taunted from 110 px away")
+	var pull := float(crag.def["moves"]["surge"]["taunt"]["pull"])
+	assert_near(cairn.taunt_pull, pull, 0.001, "the taunt's own pull, not the default:")
+	assert_gt(pull, CreatureSim.TAUNT_PULL, "and it drags harder than a plain taunt")
+	run(sim, 0, 60)
+	assert_lt(cairn.pos.distance_to(crag.pos), d0 - 50.0, "dragged a long way in one second:")
+
+
+func test_a_taunt_without_a_pull_key_uses_the_default() -> void:
+	var sim := _duel("cairn", 10.0)
+	var cairn := sim.creatures[1]
+	sim.creatures[0]._taunt({"radius": 90, "ticks": 60}, sim)
+	assert_near(cairn.taunt_pull, CreatureSim.TAUNT_PULL, 0.001, "")
 
 
 func test_lights_are_slow() -> void:
@@ -117,36 +168,49 @@ func test_landslide_charge_stuns_for_a_quarter_second() -> void:
 	assert_gt(float(cairn.stun), 10.0, "")
 
 
-func test_mountain_maw_bites_from_far_pulls_in_and_knocks_up() -> void:
-	var sim := _duel("cairn", 150.0)
+func test_mountain_maw_is_a_skill_on_a_cooldown() -> void:
+	var sim := _duel("cairn", 100.0)
+	var crag := sim.creatures[0]
+	run(sim, S2, 1)
+	assert_eq(crag.move_id, "skill_2", "Mountain Maw is Skill 2:")
+	assert_near(crag.energy, 0.0, 0.001, "and costs no meter:")
+	assert_eq(int(crag.cooldowns["skill_2"]), int(crag.def["moves"]["skill_2"]["cooldown"]), "on cooldown:")
+	assert_gt(int(crag.def["moves"]["skill_2"]["cooldown"]), 240, "a long one (5 s):")
+
+
+func test_mountain_maw_bites_from_far_hauls_in_and_crumples() -> void:
+	var sim := _duel("cairn", 120.0)
 	var crag := sim.creatures[0]
 	var cairn := sim.creatures[1]
-	crag.energy = 100.0
-	var bit := run_until(sim, func(): return _has_event(sim, "pull"), 120, SU)
-	assert_true(bit, "the head reaches Cairn 150 px away")
-	assert_true(cairn.is_airborne(), "knocked up")
-	run_until(sim, func(): return not cairn.is_airborne(), 80)
+	var bit := run_until(sim, func(): return _has_event(sim, "pull"), 120, S2)
+	assert_true(bit, "the head reaches Cairn 120 px away")
+	assert_eq(cairn.state, CreatureSim.State.CRUMPLE, "crumpled, not knocked up:")
+	run(sim, 0, 20)
 	assert_lt(cairn.pos.distance_to(crag.pos), 50.0, "and hauled in to Craglash:")
+	assert_eq(cairn.state, CreatureSim.State.CRUMPLE, "still crumpled when it arrives:")
+
+
+func test_mountain_maw_is_shorter_than_it_was_as_a_surge() -> void:
+	var sim := _duel("cairn", 200.0)
+	var bit := run_until(sim, func(): return _has_event(sim, "pull"), 120, S2)
+	assert_false(bit, "200 px is out of the hook's reach now")
 
 
 func test_mountain_maw_cant_be_blocked() -> void:
 	var sim := _duel("cairn", 100.0)
-	sim.creatures[0].energy = 100.0
 	var cairn := sim.creatures[1]
 	var bit := false
 	for i in 120:
-		sim.step(PackedInt32Array([SU if i < 3 else 0, SimDefs.IN_GUARD]))
+		sim.step(PackedInt32Array([S2 if i < 3 else 0, SimDefs.IN_GUARD]))
 		if _has_event(sim, "pull"):
 			bit = true
 			break
 	assert_true(bit, "guarding doesn't stop it")
-	assert_true(cairn.is_airborne(), "")
+	assert_eq(cairn.state, CreatureSim.State.CRUMPLE, "")
 
 
 func test_mountain_maw_can_be_dodged() -> void:
 	var sim := _duel("cairn", 100.0)
-	var crag := sim.creatures[0]
-	crag.energy = 100.0
 	var cairn := sim.creatures[1]
 	var dodged := false
 	for i in 120:
@@ -156,16 +220,18 @@ func test_mountain_maw_can_be_dodged() -> void:
 			if Vector2(pr["pos"]).distance_to(cairn.pos) < 60.0:
 				p1 = SimDefs.IN_DODGE | SimDefs.IN_DOWN
 				dodged = true
-		sim.step(PackedInt32Array([SU if i < 3 else 0, p1]))
+		sim.step(PackedInt32Array([S2 if i < 3 else 0, p1]))
 	assert_true(dodged, "Cairn dodged")
 	assert_near(cairn.hp, cairn.max_hp, 0.001, "a dodge through the bite beats it:")
 
 
-func test_bedrock_drags_the_taunted_in() -> void:
-	var sim := _duel("cairn", 60.0)
+func test_mountain_maw_links_into_the_light_string() -> void:
+	var sim := _duel("cairn", 100.0)
 	var crag := sim.creatures[0]
 	var cairn := sim.creatures[1]
-	var d0 := cairn.pos.distance_to(crag.pos)
-	tap(sim, S2, 60)
-	assert_gt(float(cairn.taunt), 0.0, "taunted")
-	assert_lt(cairn.pos.distance_to(crag.pos), d0 - 20.0, "and dragged in toward Craglash:")
+	var bit := run_until(sim, func(): return _has_event(sim, "pull"), 120, S2)
+	assert_true(bit, "hooked")
+	run_until(sim, func(): return crag.state == CreatureSim.State.IDLE, 60)
+	var raked := run_until(sim, func(): return crag.move_id == "light_1" and crag.connected, 40, L)
+	assert_true(raked, "a Rake lands on the crumpled foe once the hook recovers")
+	assert_gt(int(cairn.combo_hits), 1, "in the same combo:")

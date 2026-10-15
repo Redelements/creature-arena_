@@ -382,7 +382,7 @@ full speed, so every combo below still works.
 
 | Glow | Means | Moves (windup) | Answer |
 | --- | --- | --- | --- |
-| **Red** + "!" | Can't be blocked | Gulp (12f), Slam (8f, breaks guard), Flip Out (12f), Mountain Maw (12f), Coil Uppercut (8f, breaks guard), Sack Smack (8f, breaks guard), Slush Slide (8f, breaks guard), Burrow's pop-up (breaks guard) | Roll away or through it, or hit them first |
+| **Red** + "!" | Can't be blocked | Gulp (12f), Slam (8f, breaks guard), Flip Out (12f), Mountain Maw (12f, the hook), Coil Uppercut (8f, breaks guard), Sack Smack (8f, breaks guard), Slush Slide (8f, breaks guard), Burrow's pop-up (breaks guard) | Roll away or through it, or hit them first |
 | **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f), Runoff (6f), Rockslide Stomp (10f), Landslide Charge (8f), Timber Twister (8f), Branch Grab (8f), Splash Zone (8f), Flop Dash (12f), Cast Line (6f), Tenderize (8f), Cleaver Toss (6f) | Guard, then punish |
 
 That puts at least 15 frames (a quarter second) between the glow and the hit, and a jab
@@ -418,17 +418,18 @@ His roll covers twice the ground of anyone else's in the same 20 frames.
 
 ### Craglash — the mountain that woke up angry
 
-A crowd-control tank (180 HP, heavy, hard to push). His slow, heavy swings don't win
-races, so he controls where the fight happens instead: he stuns, drags foes in, launches
-them, and bites from across the arena.
+A crowd-control tank (190 HP, heavy, hard to push). His slow, heavy swings don't win
+races, so he controls where the fight happens instead: he hooks the backline in from
+across the floor, stuns, launches, and with a full meter drags everyone near him into a
+three-second lockdown while his team does the damage.
 
 | Button | Move | What it does |
 | --- | --- | --- |
 | Light | Rake, Backhand, Headbutt | Two claw swipes, then the neck snaps the head forward. **Slow and heavy** (9, 8 and 12 frames to hit, against 4–5 for most fighters) but they hit harder, and **every hit staggers** (the only string that does) |
 | Heavy | Rockslide Stomp | Slams the ground and knocks up everyone close, all around him. **Armored** once its windup is over: a jab only chips it (thrown raw, its tell can still be jabbed; out of Bedrock it comes out armored) |
 | Skill 1 | Landslide Charge | A shoulder charge about 60 px forward that **stuns** whoever it hits for a quarter second (crumple), long enough to follow up. A gold windup tell |
-| Skill 2 | Bedrock | Roots in place for a second: hits only chip him (65% less damage) and nothing moves him. Foes within 90 px are **taunted** for 2 s: they walk at 60% speed, their attacks swing at him, and they're **dragged in** toward him. Any attack button answers out of it after 18 frames. Loses to grabs |
-| Surge | Mountain Maw | His head shoots out on its stone neck, **extremely far** (about 230 px), and **can't be blocked**: it has to be dodged. It bites the first foe it reaches, **hauls them back** to him and **knocks them up**. A red tell and a dotted lane show it coming |
+| Skill 2 | Mountain Maw | The hook, on a 5 s cooldown. His head shoots out on its stone neck, **far** (about 160 px), and **can't be blocked**: it has to be dodged. It bites the first foe it reaches and **hauls them back** to his feet, **crumpled**, so a Rake (or a teammate) follows. A red tell and a dotted lane show it coming |
+| Surge | Bedrock | Roots in place for 3 s: hits only chip him (75% less damage) and nothing moves him. Every foe within 140 px is **taunted** for 3 s: they walk at 60% speed, their attacks swing at him, and they're **dragged in** toward him, hard. Any attack button answers out of it after 18 frames, so the Stomp meets them as they arrive. Loses to grabs. A tank's meter fills from the hits he takes, so soaking damage is what earns it |
 | Passive | Stoneskin | A 30-point stone shield that soaks damage first; it grows back after 3 s without taking damage. Shown as a pale rim on him and as pale stone on the end of his health bar ("STONESKIN") |
 
 ### Barkley — the tree that got up and left
@@ -584,7 +585,7 @@ shivering) waits for a victory-pose system.
 | Culvert | Jab, Jab, Hook → Slam → Runoff (held) → Storm Drain | 86 |
 | Craglash | Rake, Backhand, Headbutt → Landslide Charge | 31.2 |
 | Craglash | Rake, Backhand, Headbutt → Rockslide Stomp → Landslide Charge | 45 |
-| Craglash | Rake, Backhand, Headbutt → Rockslide Stomp → Landslide Charge → Mountain Maw | 72 |
+| Craglash | Mountain Maw (hook) → Rake, Backhand, Headbutt → Rockslide Stomp → Landslide Charge | 56 |
 | Barkley | Twig, Bough, Log Drop → Timber Twister → Branch Grab | 33.1 |
 | Barkley | Twig, Bough, Log Drop → Timber Twister → Pinecone Bomb | 35.8 |
 | Barkley | Twig, Bough, Log Drop → Timber Twister → Branch Grab → Root Eruption | 69.2 |

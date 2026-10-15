@@ -99,8 +99,8 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `cone` | dot threshold | move | Only foes with `facing·dir >= cone` (melee only) | culvert skill_2, sno heavy |
 | `no_flinch` | bool | move | Damage only: no stun state, no knockback; resets the combo on a free target. A melee one still interrupts a windup (hitstun) and reveals stealth; a ranged one (projectile or lob) does neither | every fighter's lights except the last of the string (Craglash's slower string staggers on every hit); cerebro's thrown flicks |
 | `stack_bonus` | hp per stack | move | Adds `stack × bonus`, consumes stacks | cairn |
-| `armor` | `{from, to, reduction=0.6, release_from}` | move | See "Combo and cancel rules" | craglash heavy, skill_2 |
-| `taunt` | `{radius, ticks}` | move | Fires at `armor.from` (only on armored moves) | craglash skill_2 |
+| `armor` | `{from, to, reduction=0.6, release_from}` | move | See "Combo and cancel rules" | craglash heavy, surge |
+| `taunt` | `{radius, ticks, pull=TAUNT_PULL}` | move | Fires at `armor.from` (only on armored moves); `pull` is the drag in px/tick | craglash surge |
 
 ### Status keys (applied on a clean hit, ms:`_apply_hit`)
 
@@ -200,7 +200,7 @@ Constants: cs (`BUFFER_TICKS` 10, `JUGGLE_MAX` 3, `JUGGLE_FLOAT` 16, `LAND_KNOCK
 
 **Slow** (`slow_ticks`, zones, gaze): walk × `slow_mult`; a new hit overwrites the multiplier, ticks take the max.
 
-**Taunt** (Bedrock): foes within `radius` walk at `TAUNT_SPEED`, are dragged `TAUNT_PULL` px/tick toward the taunter while idle, walking or guarding, and aim every attack at it. Ends if the taunter is KO'd.
+**Taunt** (Bedrock, Craglash's Surge): foes within `radius` walk at `TAUNT_SPEED`, are dragged `taunt.pull` px/tick (default `TAUNT_PULL`, saved per victim as `taunt_pull`) toward the taunter while idle, walking or guarding, and aim every attack at it. Ends if the taunter is KO'd.
 
 **Vulnerable** (Tenderize): incoming hit damage × `vuln_mult`, chip included, poison not.
 
@@ -269,14 +269,14 @@ One int per player per tick (src/sim/sim_defs.gd). Buttons: `IN_UP` 1, `IN_DOWN`
 Pitfalls found while checking:
 
 - `hit_params` fills every hit key (0 when the move leaves it out), so a default in `hit.get(key, default)` never applies. `poison_every` and `reel_speed` are handled explicitly (`POISON_EVERY_DEFAULT` = 30, `REEL_SPEED_DEFAULT` = 5.0 in ms:`_apply_hit`); apply any new default the same way.
-- `taunt` only fires on a move that also has `armor` (cs:`_update_attack`). Its pull is the constant `TAUNT_PULL`; the taunt block takes only `radius` and `ticks`.
+- `taunt` only fires on a move that also has `armor` (cs:`_update_attack`), once, at `armor.from`: foes who walk into the radius later aren't taunted.
 - Move-level-only keys (`cone`, `slow_mult`, `vuln_mult`, `steal`) have no `_charged` blend.
 - No current move reaches the plain-grab branch (ms:`_apply_hit`); the grabs are a hook, a flip or a swallow.
 - Input: the League/mouse layout and the gamepad pass Heavy, Skill 1 and Skill 2 on while held (`MouseOrders.HOLD_BITS`), so any move that charges can be held on any layout. Until 2026-10-14 only Heavy was, so a held Gulp could only be done on the classic keys.
 
 ## Where the bullet in CLAUDE.md was wrong or stale
 
-1. **Taunt pull** (CLAUDE.md:152–153): the drag is `TAUNT_PULL` as stated, but craglash.json's `taunt.pull: 0.6` looks like a tuning knob and is dead data. `_taunt` reads only `radius` and `ticks` (cs:938–945), and `_tick_status` uses the constant (cs:612). The bullet also doesn't say a taunt fires only from an `armor` block (cs:896).
+1. **Taunt pull**: `taunt.pull` used to be dead data; it is now read (Bedrock's 1.2 px/tick) and `TAUNT_PULL` is only the default.
 2. **`terrain_heal` "any terrain move"** (CLAUDE.md:164–165): it scales only `terrain_radius`/`terrain_rect` (cs:`_slam`, 1042) and `terrain_ring` (cs:853). `terrain_crack` (cs:857), projectile crack trails (ms:578) and lob cracks (ms:611) always use `HEAL_TICKS`.
 3. **"A blocked third light can't cancel"** (CLAUDE.md:146–148): only the rank cancel is blocked (cs:919 checks `punish_serial`). The string cancel to the next light still works (cs:909–915; ms:467–469 says so), and so do armor/gaze releases. It applies to `light_3` *or later* (ms:472), and the gap is "at least" 16 ticks (ms:476).
 4. **"Raw windup moves stay committed"** (CLAUDE.md:187–188): steering depends on move type, not on rawness. Every non-light without `aim_frames` gets 0 steering ticks, raw or cancelled into (cs:818). A cancelled-into big move "goes where you hold" only because the cancel re-faces it once (cs:921–922). Also the code comment at cs:815 ("8-way, like walking") is stale: steering uses the 64-step aim (cs:559). No move sets `aim_frames` today.
