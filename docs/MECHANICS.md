@@ -16,6 +16,7 @@ Abbreviations: **cs** = `src/sim/creature_sim.gd`, **ms** = `src/sim/match_sim.g
 4. `hitstop > 0`: count down, buffer presses, return.
 5. `terrain.tick()`: damaged cells mend a step when their timer runs out.
 6. `CreatureSim.step()` per creature: buffer presses, count down timers and cooldowns, regen stamina, `_tick_status` (taunt drag, statuses, poison, Stoneskin), breakaway check, the state handler (`_update_free` / `_update_attack` / `_update_dodge` / `_update_guard` / stun / landing / falling), then `_reel_step`, `_flip_step`, `_apply_knockback`.
+6b. `_step_swallows()`: a swallowed creature rides inside its swallower; when its time is up it is pushed out behind (`_poop`).
 7. `_step_projectiles()`: move, crack trail, hit or burst.
 8. `_step_zones()`: wear off, slow foes standing in them.
 9. `_resolve_hits()`: every active hit segment against every foe, through `_apply_hit`.
@@ -91,7 +92,8 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `guard_break` | bool | move | A guard facing it crumples for `max(stun, break_stun)` | craglash, culvert, digby, hissy, pete, sno |
 | `grab` | bool | move | Ignores guard, armor and counters; can't hit airborne targets | cerebro, culvert |
 | `pull` | px | seg | Target slides in, stopping `pull` px short of the attacker. With `grab`: a hook (hitstun, `hook` event) | barkley, craglash, culvert |
-| `flip` | px | seg | With `grab`: carried over the attacker's head to `flip` px behind, airborne `max(launch, 2)` ticks; attacker turns round | cerebro, culvert `hold` |
+| `flip` | px | seg | With `grab`: carried over the attacker's head to `flip` px behind, airborne `max(launch, 2)` ticks; attacker turns round. With `swallow`: how far behind the body it comes out | cerebro, culvert `hold` |
+| `swallow` | ticks | seg | With `grab`: swallowed. Rides inside the attacker this long (`swallow_t`; hidden, invulnerable, not solid), then pushed out `flip` px behind him, hopping away from him (`POOP_SPEED` 2.2 px/tick) for `launch` ticks. The attacker keeps facing forward. Events `swallow`, `poop` | culvert `hold` (Gulp held) |
 | `reel`, `reel_speed` | px, px/tick | seg | Attacker hauled to `reel` px short of the target at `reel_speed` (default 5); at most 60 ticks; ends the move on arrival | gillbert skill_2 |
 | `cone` | dot threshold | move | Only foes with `facing·dir >= cone` (melee only) | culvert skill_2, sno heavy |
 | `no_flinch` | bool | move | Damage only: no stun state, no knockback; resets the combo on a free target. A melee one still interrupts a windup (hitstun) and reveals stealth; a ranged one (projectile or lob) does neither | every fighter's lights except the last of the string (Craglash's slower string staggers on every hit); cerebro's thrown flicks |
@@ -137,6 +139,7 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `terrain_radius` | Cracks a circle at the hit centre on the first active tick | culvert tag_in | cs:`_slam` |
 | `terrain_radius_charged`, `terrain_core_charged` | At full charge: crack radius, and the core that opens holes | none in data | cs:`_slam` |
 | `terrain_rect` `[w, h]` | Block of cells (w and h swap when facing mostly up/down): 1 step plain, 2 steps plus a cracked rim at full charge | culvert heavy | tg:`damage_rect` |
+| `terrain_at` | px | Where a `terrain_rect` block is centred ahead of the body (default `reach`), so a deeper block can reach further out without coming under the feet | culvert heavy (38) | cs:`_slam` |
 | `terrain_ring` `{inner, outer}` | Holes between the radii around the user, cracked band `CRACK_BAND` 10 outside | culvert surge | tg:`damage_ring` |
 | `terrain_crack` | Cracks (never opens) a circle at `pos + facing × reach` | barkley surge, cerebro heavy | tg:`crack_circle` |
 | `terrain_heal` | × `HEAL_TICKS` before that damage mends (radius, rect, ring only) | culvert (1.5) | cs:`_terrain_heal` |
@@ -182,7 +185,7 @@ Constants: cs (`BUFFER_TICKS` 10, `JUGGLE_MAX` 3, `JUGGLE_FLOAT` 16, `LAND_KNOCK
 - **Blocked ender:** a blocked `light_3` or later sets `punish_serial` (no rank cancel; the string cancel still works) and adds `block_lag` so the attacker recovers at least `BLOCKED_ENDER_DISADVANTAGE` ticks after the blocker (`punishable` event).
 - **Damage:** `damage × atk_mult (steal) × vuln_mult × ambush`, then armor or guard; on a clean hit `× STONE_SHATTER_MULT` if a statue, `(+ stack bonus) × variety × stale`. Stale (×0.5) means the same move id already landed in this combo with another attack serial.
 - **Hitstun:** `hitstun × max(HITSTUN_FLOOR, 1 − HITSTUN_DECAY × (hit# − 1)) × stale`.
-- **Reaction precedence** (first that applies): no_flinch → petrify/freeze → grab+flip → grab+pull (hook) → plain grab (placed behind, knockdown) → knockdown → launch → juggle float (if airborne) → crumple → guard-break crumple → hitstun. Then pull and reel.
+- **Reaction precedence** (first that applies): no_flinch → petrify/freeze → grab+swallow → grab+flip → grab+pull (hook) → plain grab (placed behind, knockdown) → knockdown → launch → juggle float (if airborne) → crumple → guard-break crumple → hitstun. Then pull and reel.
 - **Juggles:** airborne targets take only `juggle` non-grab hits from at most `JUGGLE_MAX` attacks. Landing: `LAND_KNOCKDOWN`, then `GETUP_INVULN`.
 - **Wall bounce:** knockback ≥ `WALL_BOUNCE_MIN` bounces (×0.6); the first per combo adds `WALL_BOUNCE_STUN`.
 - **Guard:** guarding turns to the nearest foe; a hit within `dot > 0.3` of facing is blocked: chip `× (1 − reduction)`, stamina drain, knockback ×0.4, stun `hitstun × 0.5`. Stamina at 0 breaks the guard (crumple `break_stun`). Hits from behind are clean.
@@ -235,6 +238,7 @@ Views, audio, drills and the CPU read `sim.events`; the sim never reads them.
 | `dodge`, `warp` | Dodge starts; a blink dodge teleports |
 | `hit`, `block`, `armor`, `miss`, `slip`, `guard_break`, `punishable` | Hit outcomes (`slip`: counter; `punishable`: blocked ender) |
 | `grab`, `hook`, `pull`, `reel`, `reeled_in` | Grab (`flip` flag), hook, pull, reel start, reel arrival |
+| `swallow`, `poop` | A held Gulp swallows (`attacker`, `target`); the swallowed fighter comes out behind (`pos`) |
 | `slow`, `tenderized`, `poisoned`, `poison`, `blinded`, `rooted`, `steal`, `petrify`, `freeze`, `shatter`, `gaze` | Status applied (`poison` = each pulse) |
 | `stealth`, `unstealth`, `blink`, `taunt`, `roar`, `shield_up`, `shield_break` | Self effects (`taunt` per foe, `roar` once) |
 | `projectile`, `projectile_end`, `projectile_pierce`, `burst` | Projectile life (`sound`, `end_sound`) |
@@ -265,7 +269,8 @@ Pitfalls found while checking:
 - `hit_params` fills every hit key (0 when the move leaves it out), so a default in `hit.get(key, default)` never applies. `poison_every` and `reel_speed` are handled explicitly (`POISON_EVERY_DEFAULT` = 30, `REEL_SPEED_DEFAULT` = 5.0 in ms:`_apply_hit`); apply any new default the same way.
 - `taunt` only fires on a move that also has `armor` (cs:`_update_attack`). Its pull is the constant `TAUNT_PULL`; the taunt block takes only `radius` and `ticks`.
 - Move-level-only keys (`cone`, `slow_mult`, `vuln_mult`, `steal`) have no `_charged` blend.
-- No current move reaches the plain-grab branch (ms:`_apply_hit`); both grabs are a hook or a flip.
+- No current move reaches the plain-grab branch (ms:`_apply_hit`); the grabs are a hook, a flip or a swallow.
+- Input: the League/mouse layout and the gamepad pass Heavy, Skill 1 and Skill 2 on while held (`MouseOrders.HOLD_BITS`), so any move that charges can be held on any layout. Until 2026-10-14 only Heavy was, so a held Gulp could only be done on the classic keys.
 
 ## Where the bullet in CLAUDE.md was wrong or stale
 
@@ -275,7 +280,7 @@ Pitfalls found while checking:
 4. **"Raw windup moves stay committed"** (CLAUDE.md:187–188): steering depends on move type, not on rawness. Every non-light without `aim_frames` gets 0 steering ticks, raw or cancelled into (cs:818). A cancelled-into big move "goes where you hold" only because the cancel re-faces it once (cs:921–922). Also the code comment at cs:815 ("8-way, like walking") is stale: steering uses the 64-step aim (cs:559). No move sets `aim_frames` today.
 5. **`slow_ticks`, `juggle_float` listed with Craglash's batch** (CLAUDE.md:119–120): no Craglash move uses either now. `slow_ticks` is on gillbert heavy and sno; `juggle_float` is on barkley, cerebro, gillbert and hissy.
 6. **"`no_flinch` hits only deal damage"** (CLAUDE.md:148–149): there is still no stun and no knockback, but statuses, `pull`, hitstop and energy gain all still apply (ms:308–362, 410–424).
-7. **`hold` "overrides any hit value"; "flip, the swallow"** (CLAUDE.md:158–161): `hold` replaces only the `hit_params` dictionary (cs:347–349). In code, "swallow" is the plain-grab branch (ms:385), while a held Gulp goes through `_flip` (ms:376–378).
+7. **`hold` "overrides any hit value"; "flip, the swallow"** (CLAUDE.md:158–161): `hold` replaces only the `hit_params` dictionary (cs:347–349). A held Gulp now goes through its own `swallow` branch (ms:`_swallow`), not `_flip`.
 8. **"Root: no walking or dodging"** (CLAUDE.md:134): correct, but dashes and lunges still move a rooted fighter (they use `_move`, not `walk_speed`); `mobile` stops (cs:831).
 9. **"Dodge isn't buffered during attacks"** (CLAUDE.md:233–234): mostly right, but a dodge pressed during hitstop (including the hitstop of your own hit) is buffered for `BUFFER_TICKS` (cs:515–517) and comes out if the attack ends within that time. A press during the dodge cooldown is buffered too (cs:532–535). Cancelling an attack with a dodge is still impossible.
 10. **"`gain_energy()` is the only way energy goes up"** (CLAUDE.md:168–169): within the sim, DuelSim also assigns energy on tag and on entry (duel_sim.gd:153, 216). That is a carry-over and emits no `surge_ready`. Trials and showcases set it directly (src/game).

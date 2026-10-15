@@ -98,7 +98,7 @@
       "hitstun": 34, "hitstun_charged": 40,
       "hitstop": 8, "hitstop_charged": 14,
       "reach": 30, "hit_radius": 20, "guard_break": true, "juggle": true,
-      "terrain_rect": [3, 4], "terrain_heal": 1.5,
+      "terrain_rect": [5, 5], "terrain_at": 38, "terrain_heal": 1.5,
       "lunge": 0,
       "fx": { "charge": "drips" }
     },
@@ -108,8 +108,8 @@
       "charge_max": 20, "startup": 6, "active": 0, "recovery": 24,
       "damage": 6, "hitstun": 34, "knockback": 0.0, "hitstop": 8,
       "grab": true, "pull": 2,
-      "hold": { "damage": 12, "pull": 0, "flip": 6, "launch": 30, "hitstop": 10 },
-      "projectile": { "speed": 5.0, "life": 13, "radius": 8, "offset": 14, "crack_trail": false,
+      "hold": { "damage": 12, "pull": 0, "swallow": 16, "flip": 6, "launch": 16, "hitstop": 10 },
+      "projectile": { "speed": 8.35, "life": 13, "radius": 8, "offset": 14, "crack_trail": false,
         "sound": "gulp", "end_sound": "grab" },
       "fx": { "projectile": "tongue", "suction": true }
     },

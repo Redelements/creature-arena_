@@ -207,6 +207,10 @@ func on_event(e: Dictionary) -> void:
 			play("parry")
 		"grab":
 			play("flip" if bool(e.get("flip", false)) else "grab")
+		"swallow":
+			play("swallow")
+		"poop":
+			play("plop")
 		"breakaway":
 			play("breakaway")
 		"surge":

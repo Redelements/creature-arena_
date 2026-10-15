@@ -846,6 +846,23 @@ def surge_ready_foe():
     return mix(at(growl, 0.0, d), at(rumble, 0.0, d), at(gong, 0.38, d), at(sting, 0.4, d))
 
 
+def swallow():
+    """Culvert's held Gulp going down: a long, deep, wobbling gulp."""
+    d = 0.42
+    vib = 1 + 0.12 * np.sin(2 * np.pi * 11 * t(d))
+    g = osc(sweep(300, 70, d, 0.6) * vib, d, "tri") * env(d, curve=1.2)
+    return mix(g, bubbles(d, 3, 200, 500) * 0.4)
+
+
+def plop():
+    """...and out the back: a wet, low plop with a little squelch and a tail of bubbles."""
+    d = 0.4
+    body = thump(260, 60, 0.22, 2.0)
+    squelch = bandpass(noise(0.12), 300, 1400) * env(0.12, curve=3.0) * 0.5
+    blub = osc(sweep(520, 180, 0.08, 0.5), 0.08, "sine") * env(0.08, curve=2.0) * 0.6
+    return mix(at(body, 0.0, d), at(squelch, 0.0, d), at(blub, 0.16, d), at(bubbles(0.18, 2, 250, 600) * 0.3, 0.2, d))
+
+
 # Added after the first batch, so they're generated last and the older placeholders
 # (which share one random stream) come out the same as before.
 NEW_SOUNDS = {
@@ -862,6 +879,7 @@ NEW_SOUNDS = {
     "freeze": freeze, "shards": shards, "slosh": slosh, "melt": melt, "chill": chill,
     "warp": warp,
     "surge_ready_ally": surge_ready_ally, "surge_ready_foe": surge_ready_foe,
+    "swallow": swallow, "plop": plop,
 }
 
 

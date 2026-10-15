@@ -168,6 +168,7 @@ func refresh() -> void:
 	if ko_hidden and c.state != CreatureSim.State.KO:
 		ko_hidden = false  # back up (a Team Deathmatch respawn): the death animation is over
 	pivot.visible = not ko_hidden
+	visible = c.swallow_t <= 0  # swallowed (Culvert's Gulp): inside him, shadow and all
 
 	# Hit flash, or a warm pulse once the heavy is fully charged or a Surge starts.
 	var flash_amt := 0.0
@@ -311,6 +312,11 @@ func _update_squash() -> void:
 func _kick(to: Vector2) -> void:
 	_sq = to
 	_sq_vel = Vector2.ZERO
+
+
+## A squash or stretch started from outside (FxView, on an event: Culvert's gulp).
+func kick(to: Vector2) -> void:
+	_kick(to)
 
 
 ## What the sprite looks like right now, for afterimages and death animations.

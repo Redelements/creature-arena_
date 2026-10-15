@@ -72,7 +72,7 @@ func test_a_grab_goes_through_bedrock() -> void:
 	var sim := _duel("culvert")
 	var crag := sim.creatures[0]
 	tap(sim, S2, 3)
-	var grabbed := run_until(sim, func(): return _has_event(sim, "grab"), 60, 0, S1)
+	var grabbed := run_until(sim, func(): return _has_event(sim, "swallow"), 60, 0, S1)
 	assert_true(grabbed, "a held Gulp should swallow Craglash out of Bedrock")
 	assert_eq(crag.state, CreatureSim.State.AIRBORNE, "carried out of the stance:")
 

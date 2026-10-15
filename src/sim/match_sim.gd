@@ -88,6 +88,7 @@ func step(inputs: PackedInt32Array) -> void:
 	terrain.tick()
 	for i in creatures.size():
 		creatures[i].step(_input(inputs, i), self)
+	_step_swallows()
 	_step_projectiles()
 	_step_zones()
 	_resolve_hits()
@@ -385,6 +386,9 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		d.stone = ticks
 		d.stone_ice = ice
 		emit_event("freeze" if ice else "petrify", d.pos, total, {"who": d.id, "by": a.id})
+	elif bool(hit["grab"]) and float(hit.get("swallow", 0.0)) > 0.0:
+		_swallow(a, d, hit)
+		emit_event("swallow", a.pos + Vector2(0, -16), total, {"attacker": a.id, "target": d.id})
 	elif bool(hit["grab"]) and float(hit.get("flip", 0.0)) > 0.0:
 		_flip(a, d, hit)
 		emit_event("grab", a.pos + Vector2(0, -20), total, {"attacker": a.id, "target": d.id, "flip": true})
@@ -453,6 +457,45 @@ func _flip(a: CreatureSim, d: CreatureSim, hit: Dictionary) -> void:
 	d.enter_air(ticks, Vector2.ZERO)
 	d.start_flip(behind, ticks / 2)
 	a.facing = -a.facing
+
+
+## Gulp, held: the target is slurped in and carried inside the attacker for `swallow`
+## ticks (hidden, untouchable, not solid), then pushed out behind him (`_poop`).
+func _swallow(a: CreatureSim, d: CreatureSim, hit: Dictionary) -> void:
+	var ticks := maxi(int(hit["swallow"]), 1)
+	var air := maxi(int(hit["launch"]), 2)
+	d.enter_air(ticks + air, Vector2.ZERO)  # stunned throughout; re-launched on the way out
+	d.pos = a.pos
+	d.swallow_t = ticks
+	d.swallow_by = a.id
+	d.swallow_gap = float(hit.get("flip", 0.0))
+	d.swallow_air = air
+	d.invuln = maxi(d.invuln, ticks + 1)
+
+
+## Swallowed creatures ride inside their swallower; when the time is up they come out
+## the back end, `swallow_gap` px behind him, hopping away from him.
+func _step_swallows() -> void:
+	for d in creatures:
+		if d.swallow_t <= 0:
+			continue
+		var a := creatures[d.swallow_by]
+		d.swallow_t -= 1
+		d.pos = a.pos
+		d.knock_vel = Vector2.ZERO
+		if d.swallow_t == 0:
+			_poop(a, d)
+
+
+const POOP_SPEED := 2.2  ## how fast the swallowed creature slides out behind (px/tick)
+
+func _poop(a: CreatureSim, d: CreatureSim) -> void:
+	var behind := a.pos - a.facing * (a.radius + d.radius + d.swallow_gap)
+	d.pos = behind.clamp(d.floor_min(), d.floor_max())
+	d.swallow_by = -1
+	if d.state != CreatureSim.State.KO:
+		d.enter_air(d.swallow_air, -a.facing * POOP_SPEED)
+	emit_event("poop", d.pos, 1.0, {"attacker": a.id, "target": d.id})
 
 
 ## Guard + Dodge while stunned: spend energy to escape the combo.

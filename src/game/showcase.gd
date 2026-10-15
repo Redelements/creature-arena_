@@ -73,7 +73,7 @@ const SCRIPTS := {
 		"title": "CULVERT  -  FULL KIT",
 		"captions": [
 			["Gulp tapped: the tongue hooks from range", "and hauls them in", "Jab", "Jab"],
-			["Jab", "Jab", "Gulp held: swallowed and spat out behind"],
+			["Jab", "Jab", "Gulp held: swallowed... and out the back end"],
 			["Jab", "Jab", "Hook", "Slam", "Runoff", "Storm Drain"],
 		],
 		"steps": [
