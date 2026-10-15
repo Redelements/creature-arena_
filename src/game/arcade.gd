@@ -1,5 +1,5 @@
 class_name Arcade
-extends RefCounted
+extends Ladder
 ## The Arcade ladder: six fights as one fighter up the roster, the sixth a 3v3 Duel
 ## against a Rage-level team (the boss). Stages 1-5 are single rounds against one
 ## opponent each at the chosen CPU level; the boss plays one level up (Rage at most).
@@ -9,9 +9,7 @@ extends RefCounted
 const STAGES := 6
 const TEAM := 3  ## the boss Duel's team size
 
-var fighter := "cairn"
-var level := 1  ## the CPU level for stages 1-5
-var stage := 0  ## 0-based; STAGES - 1 is the boss
+## `level` is the CPU level for stages 1-5; `stage` is 0-based, STAGES - 1 the boss.
 var order: Array = []  ## opponent ids for stages 1-5, then the boss team
 var allies: Array = []  ## the two teammates for the boss Duel
 
@@ -71,8 +69,12 @@ func versus_label() -> String:
 
 
 ## Advances past a won stage; false when that was the boss (the ladder is cleared).
-func advance() -> bool:
+func stage_won(_hp: float) -> bool:
 	if is_boss():
 		return false
 	stage += 1
 	return true
+
+
+func advance() -> bool:
+	return stage_won(0.0)

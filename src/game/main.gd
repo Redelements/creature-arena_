@@ -83,6 +83,8 @@ const MODES := [
 	{"label": "Showtime: 2v2 vs CPU", "team": 2, "rules": "showtime", "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Showtime: 3v3 vs CPU", "team": 3, "rules": "showtime", "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Arcade", "arcade": true, "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Gauntlet", "gauntlet": true, "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Daily Challenge", "daily": true, "sides": [Side.PLAYER, Side.CPU]},
 ]
 ## The menus (src/ui screens): the title menu opens Single player (MENU_ROWS), the online
 ## screen, or Settings. MODES indexes stay stable for --mode=N; rows with choices pick
@@ -119,6 +121,14 @@ const MENU_ROWS := [
 			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy"]},
 	{"label": "Arcade", "modes": [42], "fighter_choice": true,
 		"desc": "Five fights up the roster, then a boss team in a 3v3 Duel. Clears unlock palettes (F5 in a fight). Left/Right: your fighter",
+		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert", "as Chef Cerebro",
+			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy"]},
+	{"label": "Gauntlet", "modes": [43], "fighter_choice": true,
+		"desc": "Endless waves, harder every two, your health carrying over. How many can you clear? Left/Right: your fighter",
+		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert", "as Chef Cerebro",
+			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy"]},
+	{"label": "Daily Challenge", "modes": [44], "fighter_choice": true,
+		"desc": "Today's fight, the same for everyone: a seeded opponent and two mutators. Score by health left and time to spare. Left/Right: your fighter",
 		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert", "as Chef Cerebro",
 			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy"]},
 	{"label": "Combo Trials", "modes": [9], "desc": "Learn the combos, one at a time"},
@@ -177,9 +187,9 @@ var level := 1
 var sides: Array = [Side.PLAYER, Side.CPU]
 var cpus: Array = [null, null]
 var round_num := 1
-## The Arcade ladder in progress (null outside it) and its fighter; the CPU level a
-## stage asks for (-1: the Settings level).
-var arcade: Arcade = null
+## The ladder in progress (Arcade, Gauntlet or Daily; null outside them) and its
+## fighter; the CPU level a stage asks for (-1: the Settings level).
+var arcade: Ladder = null
 var _arcade_fighter := "cairn"
 var _cpu_level_override := -1
 var wins := [0, 0]
@@ -568,6 +578,10 @@ func _start_match(m: int, keep_teams := false) -> void:
 	if cfg.get("arcade", false):
 		if arcade == null or not keep_teams:
 			arcade = Arcade.new(_arcade_fighter, level, seed_base)
+	elif cfg.get("gauntlet", false):
+		arcade = Gauntlet.new(_arcade_fighter, seed_base)
+	elif cfg.get("daily", false):
+		arcade = Daily.new(_arcade_fighter)
 	else:
 		arcade = null
 	if cfg.get("online", false):
@@ -638,7 +652,7 @@ func _start_round() -> void:
 	var cfg: Dictionary = MODES[mode]
 	_end_duel()
 	_end_coach()
-	if cfg.get("arcade", false):
+	if arcade != null:
 		_start_arcade_stage()
 		return
 	if cfg.get("duel", false):
@@ -689,7 +703,16 @@ func _start_arcade_stage() -> void:
 		_teams = [arcade.player_team(), arcade.boss_team()]
 		_start_duel()
 		return
-	_new_sim(MatchFactory.versus(arcade.fighter, arcade.opponent()), [Side.PLAYER, Side.CPU])
+	var stage_sim := MatchFactory.versus(arcade.fighter, arcade.opponent())
+	if arcade is Daily:
+		stage_sim = (arcade as Daily).build()
+	elif not arcade.mutators().is_empty():
+		stage_sim.apply_mutators(arcade.mutators(), seed_base)
+	_new_sim(stage_sim, [Side.PLAYER, Side.CPU])
+	if arcade is Daily:
+		cpus[1] = (arcade as Daily).cpu()  # the day's CPU, the same for everyone
+	if arcade.carried_hp() >= 0.0:
+		sim.creatures[0].hp = minf(arcade.carried_hp(), sim.creatures[0].max_hp)
 	hud.wins_needed = 1
 	timer = ROUND_TICKS
 	hud.timer_ticks = timer
@@ -703,18 +726,38 @@ func _start_arcade_stage() -> void:
 func _arcade_result(won: bool) -> bool:
 	if arcade == null:
 		return false
+	var me := sim.creatures[0]
+	var share := clampf(me.hp / me.max_hp, 0.0, 1.0)
+	if arcade is Daily:
+		# One fight, scored, saved with its replay so the score can be checked.
+		var d := arcade as Daily
+		var score := d.score_fight(won, share, sim.tick)
+		var best := Progress.record_daily(d.date, score)
+		var path := "user://daily/daily_%d.json" % d.date
+		DirAccess.make_dir_recursive_absolute("user://daily")
+		var f := FileAccess.open(path, FileAccess.WRITE)
+		if f != null:
+			f.store_string(JSON.stringify({"date": d.date, "fighter": d.fighter, "score": score,
+				"replay": replay.to_dict()}))
+		flow = Flow.MATCH_OVER
+		flow_t = 0
+		hud.banner = "SCORE  %d" % score if won else "NO SCORE"
+		hud.banner_sub = ("A new best for today!" if best and won else
+			("Today's best: %d" % Progress.daily_best(d.date)) if won else "Win the fight to score")
+		return true
 	if not won:
 		flow = Flow.MATCH_OVER
 		flow_t = 0
-		hud.banner = "GAME OVER"
-		hud.banner_sub = "%s   ·   %s" % [arcade.stage_label(), arcade.versus_label()]
+		var lb := arcade.lost_banner()
+		hud.banner = String(lb[0])
+		hud.banner_sub = String(lb[1])
 		return true
-	if arcade.advance():
+	if arcade.stage_won(me.hp):
 		wins = [0, 0]
 		round_num = 1
 		_start_arcade_stage()
 		return true
-	# The boss is down: the ladder is cleared on this level.
+	# The boss is down: the Arcade is cleared on this level.
 	var new_best := Progress.record_clear(arcade.fighter, arcade.level)
 	flow = Flow.MATCH_OVER
 	flow_t = 0
@@ -2308,12 +2351,16 @@ func _show_match_over() -> void:
 			_match_over_status = s.add_text("", UiTheme.SIZE_HINT + 1, UiTheme.C_ACCENT)
 			s.on_back = _leave_online
 		else:
-			if arcade != null:
+			if arcade != null and arcade.can_retry():
 				s.add_button("Retry the stage", func():
 					_close_ui()
 					wins = [0, 0]
 					round_num = 1
 					_start_arcade_stage(), "The same stage again")
+			elif arcade != null:
+				s.add_button("Play again", func():
+					seed_base += 1
+					_start_match(mode), "A fresh run")
 			else:
 				s.add_button("Rematch", func():
 					seed_base += 1

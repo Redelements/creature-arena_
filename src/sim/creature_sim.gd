@@ -64,7 +64,8 @@ const STATE_FIELDS := [
 	"block_lag", "punish_serial", "home_speed",
 ]
 ## Set once when the creature is made and never changed by the simulation.
-const STATIC_FIELDS := ["id", "team", "def", "is_dummy", "radius", "weight", "max_hp", "max_stamina"]
+const STATIC_FIELDS := ["id", "team", "def", "is_dummy", "radius", "weight", "max_hp", "max_stamina",
+	"air_mult", "speed_mult", "damage_mult"]
 
 const ACTION_BITS := [
 	["surge", SimDefs.IN_SURGE],
@@ -188,6 +189,11 @@ var root := 0  ## ticks left rooted in place (Cave-In): no walking, no dodging
 ## but only as its strike comes out (or its projectile flies): the ambush out of
 ## stealth is the point, so the startup stays hidden.
 var stealth := 0
+## Match mutators (MatchSim.apply_mutators), fixed for the match: launches last
+## longer, walking is faster, every hit lands harder.
+var air_mult := 1.0
+var speed_mult := 1.0
+var damage_mult := 1.0
 ## Standing in brush (an arena piece): hidden from foes outside it, like stealth.
 ## Set by MatchSim after everyone has moved.
 var covered := false
@@ -407,6 +413,7 @@ func is_armored() -> bool:
 ## Takes damage, the shield soaking it up first. Returns what reached hp.
 func take_damage(amount: float, sim: MatchSim) -> float:
 	calm_t = 0
+	amount *= damage_mult
 	if shield > 0.0 and amount > 0.0:
 		var absorbed := minf(shield, amount)
 		shield -= absorbed
@@ -421,7 +428,7 @@ func take_damage(amount: float, sim: MatchSim) -> float:
 func walk_speed() -> float:
 	if root > 0:
 		return 0.0
-	var s := float(def["speed"])
+	var s := float(def["speed"]) * speed_mult
 	if slow > 0:
 		s *= slow_mult
 	if taunt > 0:
@@ -1373,7 +1380,7 @@ func enter_air(ticks: int, kb: Vector2) -> void:
 	walk_vel = Vector2.ZERO
 	knock_vel = kb
 	air_t = 0
-	air_total = maxi(ticks, 1)
+	air_total = maxi(int(float(ticks) * air_mult), 1)
 	_set_state(State.AIRBORNE)
 
 

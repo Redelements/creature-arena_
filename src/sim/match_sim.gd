@@ -45,6 +45,8 @@ var sink_ring := -1
 ## (0: none). Views draw it, the CPU goes for it.
 var zone_pos := Vector2.ZERO
 var zone_r := 0.0
+## Match mutators (data/rules/mutators.json entries merged), fixed for the match.
+var mutators := {}
 var creatures: Array[CreatureSim] = []
 var projectiles: Array[Dictionary] = []
 ## Ground zones (Sno Mercy's Syrup Slick): {owner, pos, radius, ticks, slow_mult}. Foes of
@@ -58,6 +60,34 @@ func set_arena(id: String) -> void:
 	arena_id = id
 	arena = ArenaMap.get_map(id)
 	terrain.load_map(arena)
+
+
+## Applies mutators (data/rules/mutators.json keys): per-fighter multipliers go on
+## every creature, `surge_every` fills the meters on a timer, `pit_floor` sinks that
+## share of the floor into chasms in a pattern from `seed_`, clear of the spawns.
+## Call once the creatures are in.
+func apply_mutators(m: Dictionary, seed_: int) -> void:
+	mutators = m.duplicate()
+	for c in creatures:
+		c.air_mult = float(m.get("air_mult", 1.0))
+		c.speed_mult = float(m.get("speed_mult", 1.0))
+		c.damage_mult = float(m.get("damage_mult", 1.0))
+	var share := float(m.get("pit_floor", 0.0))
+	if share > 0.0:
+		var x := (seed_ * 1103515245 + 12345) & 0x7fffffff  # a small LCG: the same holes anywhere
+		for cy in terrain.rows:
+			for cx in terrain.cols:
+				x = (x * 1103515245 + 12345) & 0x7fffffff
+				if float(x % 1000) >= share * 1000.0:
+					continue
+				var c := Vector2i(cx, cy)
+				var at := terrain.cell_center(c)
+				var clear := true
+				for side in 2:
+					if at.distance_to(spawn(side)) < 48.0:
+						clear = false
+				if clear and terrain.get_cell(c) == TerrainGrid.INTACT:
+					terrain.sink(c)
 
 
 ## Where a side's fighters start on this map.
@@ -118,6 +148,10 @@ func step(inputs: PackedInt32Array) -> void:
 			creatures[i].buffer_input(_input(inputs, i), self)
 		return
 	terrain.tick(cell_occupied)
+	var every := int(mutators.get("surge_every", 0))
+	if every > 0 and tick % every == 0:
+		for c in creatures:  # Surge rush: everyone's meter fills
+			gain_energy(c, CreatureSim.MAX_ENERGY)
 	for i in creatures.size():
 		creatures[i].step(_input(inputs, i), self)
 	_step_swallows()
