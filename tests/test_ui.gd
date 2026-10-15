@@ -326,16 +326,63 @@ func test_the_title_menu_is_a_screen_and_back_points_at_exit() -> void:
 	g.free()
 
 
+## Presses the hub card called `title` on the top screen.
+func _open_card(g: Node, title: String) -> void:
+	var hub: UiScreen = g.ui.top()
+	for r in hub.rows():
+		if r is CardButton and (r as Button).text == title:
+			(r as Control).grab_focus()
+			_press("ui_accept")
+			return
+	fail("no card called " + title)
+
+
+func test_single_player_is_a_hub_of_pages_that_cover_every_row() -> void:
+	var g := _game()
+	g._open_menu()
+	_press("ui_accept")  # Single player
+	var hub: UiScreen = g.ui.top()
+	var cards: Array = hub.rows().filter(func(r): return r is CardButton)
+	assert_eq(cards.size(), g.MENU_GROUPS.size(), "a card per group:")
+	var seen := {}
+	for gi in g.MENU_GROUPS.size():
+		var group: Dictionary = g.MENU_GROUPS[gi]
+		_open_card(g, String(group["title"]))
+		var page: UiScreen = g.ui.top()
+		assert_eq(page.title, String(group["title"]).to_upper(), "the page's title:")
+		assert_eq(page.crumbs, ["SINGLE PLAYER"], "with its trail:")
+		var labels: Array = []
+		for r in page.rows():
+			if r is OptionRow:
+				labels.append((r as OptionRow).label)
+			elif r is Button and (r as Button).text != "Back":
+				labels.append((r as Button).text)
+		for row in g.MENU_ROWS:
+			if String(row.get("group", "")) == String(group["id"]):
+				assert_true(String(row["label"]) in labels, "%s lists %s" % [group["title"], row["label"]])
+				seen[row["label"]] = true
+		assert_true(labels.size() <= 6, "%s fits a page (%d rows)" % [group["title"], labels.size()])
+		_press("ui_cancel")
+		assert_eq(g.ui.top(), hub, "back to the hub")
+		assert_eq((_focus() as Button).text, String(group["title"]), "on the same card:")
+	assert_eq(seen.size(), g.MENU_ROWS.size(), "every mode is reachable from some page:")
+	g.free()
+
+
 func test_single_player_starts_the_chosen_fighter() -> void:
 	var g := _game()
 	g._open_menu()
 	_press("ui_accept")  # Single player
+	var hub: UiScreen = g.ui.top()
+	assert_true(hub.title == "SINGLE PLAYER", "the Single player hub")
+	_open_card(g, "Fight the CPU")
 	var scr: UiScreen = g.ui.top()
-	assert_true(scr.title == "SINGLE PLAYER", "the Single player page")
+	assert_eq(scr.title, "FIGHT THE CPU", "its page:")
 	var versus: OptionRow = null
 	for r in scr.rows():
 		if r is OptionRow and (r as OptionRow).label == "Versus CPU":
 			versus = r
+	assert_true(versus != null, "the Versus CPU row is on it")
 	versus.grab_focus()
 	_press("ui_right")
 	_press("ui_right")
@@ -350,6 +397,7 @@ func test_team_battle_row_opens_the_pick_then_fights_with_cpu_teammates() -> voi
 	var g := _game()
 	g._open_menu()
 	_press("ui_accept")  # Single player
+	_open_card(g, "Team battles")
 	var scr: UiScreen = g.ui.top()
 	var team_row: OptionRow = null
 	for r in scr.rows():
@@ -824,6 +872,29 @@ func test_the_remap_screen_takes_the_next_key() -> void:
 	assert_eq(saved[0], 1, "main is told to save")
 	st.free()
 	Controls.reset()
+
+
+func test_the_remap_grid_walks_in_columns_and_crosses_with_left_right() -> void:
+	Controls.setup()
+	var st := _stack()
+	st.push(RemapScreen.new("classic"))
+	assert_eq((_focus() as Button).text, "Move up", "first binding focused")
+	_press("ui_right")
+	assert_eq((_focus() as Button).text, "Move down", "Right crosses to the second column")
+	_press("ui_down")
+	assert_eq((_focus() as Button).text, "Move right", "Down walks that column")
+	_press("ui_left")
+	assert_eq((_focus() as Button).text, "Move left", "Left comes back")
+	_press("ui_up")
+	assert_eq((_focus() as Button).text, "Move up", "")
+	_press("ui_up")
+	assert_eq((_focus() as Button).text, "Back", "Up from the top wraps to the last button")
+	_press("ui_down")
+	assert_eq((_focus() as Button).text, "Move up", "and Down from it to the first binding")
+	for i in 6:  # twelve bindings: six in each column
+		_press("ui_down")
+	assert_eq((_focus() as Button).text, "Reset to defaults", "the bottom of a column leads to the buttons")
+	st.free()
 
 
 func test_screen_shake_and_rumble_settings() -> void:

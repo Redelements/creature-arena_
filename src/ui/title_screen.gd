@@ -17,6 +17,7 @@ func _init(p_focus := "") -> void:
 	super()
 	focus_row = p_focus
 	logo = true
+	framed = false
 	row_variation = "BigButton"
 	row_align = HORIZONTAL_ALIGNMENT_CENTER
 	row_width = 180.0

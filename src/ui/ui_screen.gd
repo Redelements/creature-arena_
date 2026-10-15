@@ -15,6 +15,12 @@ signal backed
 var logo := false
 var title := ""
 var subtitle := ""
+## The pages above this one, shown as a trail over the title ("SINGLE PLAYER  ›  TEAM BATTLES").
+var crumbs: Array = []
+## A framed panel round the column (off on the title menu, whose big buttons stand alone).
+var framed := true
+## The line under the rows describing the focused one (off where the rows say it all).
+var show_desc := true
 ## Hint line items for Prompts.line(); empty: no hint line.
 var hints: Array = ["move", "select", "back"]
 ## How dark the screen behind is drawn (0: not at all).
@@ -58,23 +64,27 @@ func _ready() -> void:
 	add_child(bg)
 	var col := VBoxContainer.new()
 	col.set_anchors_preset(PRESET_FULL_RECT)
-	col.offset_top = 22 + column_shift
-	col.offset_bottom = -34 + column_shift
+	col.offset_top = 12 + column_shift
+	col.offset_bottom = -30 + column_shift
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.mouse_filter = MOUSE_FILTER_IGNORE
 	add_child(col)
 	if logo:
-		col.add_child(_label("CREATURE ARENA", UiTheme.SIZE_LOGO, UiTheme.C_TEXT))
-		col.add_child(_label("prototype build", UiTheme.SIZE_HINT + 1, UiTheme.C_DIM))
-		if title != "":
-			col.add_child(_label(title, UiTheme.SIZE_HEADING, UiTheme.C_ACCENT))
-	elif title != "":
-		col.add_child(_label(title, UiTheme.SIZE_TITLE, UiTheme.C_TEXT))
+		# Full size on the title menu; smaller over a page with a title of its own.
+		col.add_child(_label("CREATURE ARENA", UiTheme.SIZE_LOGO if title == "" else UiTheme.SIZE_LOGO_SMALL, UiTheme.C_TEXT))
+		col.add_child(_rule(60.0 if title == "" else 44.0))
+		if title == "":
+			col.add_child(_label("prototype build", UiTheme.SIZE_HINT + 1, UiTheme.C_DIM))
+	if not crumbs.is_empty():
+		col.add_child(_label("  ›  ".join(PackedStringArray(crumbs)) + "  ›", UiTheme.SIZE_HINT + 1, UiTheme.C_DIM))
+	if title != "":
+		col.add_child(_label(title, UiTheme.SIZE_HEADING if logo else UiTheme.SIZE_TITLE,
+			UiTheme.C_ACCENT if logo else UiTheme.C_TEXT))
 	if subtitle != "":
 		col.add_child(_label(subtitle, UiTheme.SIZE_HINT + 1, UiTheme.C_DIM))
 	if logo or title != "" or subtitle != "":
 		var gap := Control.new()
-		gap.custom_minimum_size = Vector2(0, 6)
+		gap.custom_minimum_size = Vector2(0, 4)
 		col.add_child(gap)
 	var center := CenterContainer.new()
 	center.mouse_filter = MOUSE_FILTER_IGNORE
@@ -82,12 +92,30 @@ func _ready() -> void:
 	_list = VBoxContainer.new()
 	_list.custom_minimum_size = Vector2(row_width, 0)
 	_list.add_theme_constant_override("separation", row_gap)
-	center.add_child(_list)
 	_desc = _label("", UiTheme.SIZE_HINT, UiTheme.C_DIM)
-	_desc.set_anchors_preset(PRESET_BOTTOM_WIDE)
-	_desc.offset_top = -38
-	_desc.offset_bottom = -28
-	add_child(_desc)
+	if framed:
+		# The column and its description line in one panel.
+		var frame := PanelContainer.new()
+		frame.mouse_filter = MOUSE_FILTER_IGNORE
+		center.add_child(frame)
+		var inner := VBoxContainer.new()
+		inner.add_theme_constant_override("separation", 3)
+		inner.mouse_filter = MOUSE_FILTER_IGNORE
+		frame.add_child(inner)
+		inner.add_child(_list)
+		if show_desc:
+			inner.add_child(_rule(row_width))
+			_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_desc.custom_minimum_size = Vector2(row_width, 9)
+			_desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			_desc.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+			inner.add_child(_desc)
+	else:
+		center.add_child(_list)
+		_desc.set_anchors_preset(PRESET_BOTTOM_WIDE)
+		_desc.offset_top = -38
+		_desc.offset_bottom = -28
+		add_child(_desc)
 	_hint = _label("", UiTheme.SIZE_HINT, UiTheme.C_DIM)
 	_hint.set_anchors_preset(PRESET_BOTTOM_WIDE)
 	_hint.offset_top = -26
@@ -132,6 +160,38 @@ func add_option(label: String, values: Array, index: int, on_change: Callable, d
 	return o
 
 
+## A card: a taller row with a second line, for a hub of pages.
+func add_card(title_text: String, sub: String, on_press: Callable, description := "") -> CardButton:
+	var c := CardButton.new(title_text, sub)
+	c.pressed.connect(func(): if stack != null: stack.notify_chosen())
+	c.pressed.connect(on_press)
+	var h := row_height
+	row_height = UiTheme.CARD_HEIGHT
+	add_row(c, description)
+	row_height = h
+	return c
+
+
+## A small heading over a run of rows, with a thin rule.
+func add_heading(text: String) -> void:
+	var l := _label(text.to_upper(), UiTheme.SIZE_HINT, UiTheme.C_ACCENT)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	l.custom_minimum_size = Vector2(row_width, 0)
+	_list.add_child(l)
+	_list.add_child(_rule(row_width))
+
+
+func _rule(width: float) -> Control:
+	var wrap := CenterContainer.new()
+	wrap.mouse_filter = MOUSE_FILTER_IGNORE
+	var r := ColorRect.new()
+	r.color = UiTheme.C_RULE
+	r.custom_minimum_size = Vector2(width, 1)
+	r.mouse_filter = MOUSE_FILTER_IGNORE
+	wrap.add_child(r)
+	return wrap
+
+
 ## A line of text in the column (not focusable).
 func add_text(text: String, size_px := UiTheme.SIZE_HINT + 1, col := UiTheme.C_DIM) -> Label:
 	var l := _label(text, size_px, col)
@@ -153,7 +213,7 @@ func add_space(px := 6.0) -> void:
 func add_row(c: Control, description := "") -> void:
 	c.custom_minimum_size = Vector2(row_width, row_height)
 	c.focus_mode = Control.FOCUS_ALL
-	if row_variation != "" and c is Button and not (c is OptionRow):
+	if row_variation != "" and c is Button and not (c is OptionRow) and not (c is CardButton):
 		c.theme_type_variation = row_variation
 	if row_font > 0:
 		c.add_theme_font_size_override("font_size", row_font)

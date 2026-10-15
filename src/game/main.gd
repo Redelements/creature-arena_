@@ -26,7 +26,7 @@ extends Node2D
 ##   --teams=a,b,c:d,e,f   Duel / 2-player teams (default cerebro,gillbert,barkley:culvert,cerebro,craglash)
 ##   --pick                show the team pick screen even with --mode
 ##   --cpu-vs-cpu          every player side is played by the CPU (demos, captures)
-##   --menu=PAGE           open the menu on main, single or settings (captures)
+##   --menu=PAGE           open a menu page: main, single, single:<group>, settings, game, video, audio, controls (captures)
 ##   --online-host[=PORT]  host an online 1v1 straight away (UDP, default port 7777)
 ##   --online-join=ADDR[:PORT][/ROOM]  join one, or a dedicated server (ROOM: meet a friend there)
 ##   --server[=PORT]       run as a dedicated server (with --headless); --max-players=N
@@ -109,49 +109,64 @@ const VOLUME_NAMES := {"Master": "Master volume", "Music": "Music", "Effects": "
 ## Volume steps in Settings (10 steps of 10%).
 const VOLUME_STEP := 0.1
 const ONLINE_MODE := 20
+## Single player is a hub of pages; every MENU_ROWS entry names its page by "group".
+const MENU_GROUPS := [
+	{"id": "cpu", "title": "Fight the CPU", "sub": "Versus rounds as any fighter, or a 3v3 tag Duel",
+		"desc": "The classic fights against the CPU at the level set in Settings"},
+	{"id": "team", "title": "Team battles", "sub": "2v2 and 3v3 with CPU teammates: battle, deathmatch, Sinkhole, Crater, Showtime",
+		"desc": "Everyone on the field at once; pick the rules and the team size"},
+	{"id": "challenge", "title": "Challenges", "sub": "Arcade, Gauntlet, the Daily, Combo Trials, Reaction Drills",
+		"desc": "Runs and lessons with something to clear or beat"},
+	{"id": "brawl", "title": "Brawl", "sub": "Free-for-all for up to four, and the Chaos Cup",
+		"desc": "Four fighters, one life each, CPUs in the empty seats"},
+	{"id": "local", "title": "Two players", "sub": "Duel or Versus on one screen (Brawl seats up to four)",
+		"desc": "A second controller for player 2"},
+	{"id": "practice", "title": "Practice and watch", "sub": "Training dummy, showcases, your saved replays",
+		"desc": "Learn a fighter, or sit back"},
+]
 const MENU_ROWS := [
-	{"label": "Duel: you vs CPU  (3v3 tag)", "modes": [6], "desc": "Teams of three; tag fighters in and out"},
-	{"label": "Duel: 2 players", "modes": [7], "desc": "Teams of three, two players on one screen"},
-	{"label": "Team battle vs CPU", "modes": [29, 30], "choices": ["2 v 2", "3 v 3"],
+	{"label": "Duel: you vs CPU  (3v3 tag)", "group": "cpu", "modes": [6], "desc": "Teams of three; tag fighters in and out"},
+	{"label": "Duel: 2 players", "group": "local", "modes": [7], "desc": "Teams of three, two players on one screen"},
+	{"label": "Team battle vs CPU", "group": "team", "modes": [29, 30], "choices": ["2 v 2", "3 v 3"],
 		"desc": "Everyone on the field at once, CPU teammates beside you. Left/Right: team size"},
-	{"label": "Team Deathmatch vs CPU", "modes": [31, 32], "choices": ["2 v 2", "3 v 3"],
+	{"label": "Team Deathmatch vs CPU", "group": "team", "modes": [31, 32], "choices": ["2 v 2", "3 v 3"],
 		"desc": "Unlimited respawns: first team to 12 KOs (15 in 3 v 3) wins. Left/Right: team size"},
-	{"label": "Sinkhole vs CPU", "modes": [33, 34, 35], "choices": ["1 v 1", "2 v 2", "3 v 3"],
+	{"label": "Sinkhole vs CPU", "group": "team", "modes": [33, 34, 35], "choices": ["1 v 1", "2 v 2", "3 v 3"],
 		"desc": "The floor falls away from the edges and a fall is a KO. Last one standing. Left/Right: team size"},
-	{"label": "King of the Crater vs CPU", "modes": [36, 37, 38], "choices": ["1 v 1", "2 v 2", "3 v 3"],
+	{"label": "King of the Crater vs CPU", "group": "team", "modes": [36, 37, 38], "choices": ["1 v 1", "2 v 2", "3 v 3"],
 		"desc": "Hold the zone while it moves and the ground round it breaks. 60 s held wins. Left/Right: team size"},
-	{"label": "Showtime vs CPU", "modes": [39, 40, 41], "choices": ["1 v 1", "2 v 2", "3 v 3"],
+	{"label": "Showtime vs CPU", "group": "team", "modes": [39, 40, 41], "choices": ["1 v 1", "2 v 2", "3 v 3"],
 		"desc": "Win on crowd hype, not damage: combos, Surges, counters, KOs and ring-outs score. Left/Right: team size"},
-	{"label": "Brawl", "modes": [48, 45, 46, 47], "choices": ["you vs 3 CPUs", "2 players", "3 players", "4 players"],
+	{"label": "Brawl", "group": "brawl", "modes": [48, 45, 46, 47], "choices": ["you vs 3 CPUs", "2 players", "3 players", "4 players"],
 		"desc": "Free-for-all, four fighters, one life each; CPUs fill the empty seats. Left/Right: how many play"},
-	{"label": "Chaos Cup", "modes": [49],
+	{"label": "Chaos Cup", "group": "brawl", "modes": [49],
 		"desc": "A Brawl with three random mutators stacked on: low gravity, Surge rush, a floor of pits, haste, glass cannon"},
-	{"label": "Replay theater", "screen": "replays", "desc": "Watch the fights you saved with F6"},
-	{"label": "Versus: 2 players", "modes": [8], "desc": "One fighter each, two players on one screen"},
-	{"label": "Versus CPU", "modes": [0, 1, 12, 14, 16, 18, 21, 23, 25, 27],
+	{"label": "Replay theater", "group": "practice", "screen": "replays", "desc": "Watch the fights you saved with F6"},
+	{"label": "Versus: 2 players", "group": "local", "modes": [8], "desc": "One fighter each, two players on one screen"},
+	{"label": "Versus CPU", "group": "cpu", "modes": [0, 1, 12, 14, 16, 18, 21, 23, 25, 27],
 		"desc": "Best of three rounds against the CPU. Left/Right: your fighter",
 		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert", "as Chef Cerebro",
 			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy"]},
-	{"label": "Arcade", "modes": [42], "fighter_choice": true,
+	{"label": "Arcade", "group": "challenge", "modes": [42], "fighter_choice": true,
 		"desc": "Five fights up the roster, then a boss team in a 3v3 Duel. Clears unlock palettes (F5 in a fight). Left/Right: your fighter",
 		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert", "as Chef Cerebro",
 			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy"]},
-	{"label": "Gauntlet", "modes": [43], "fighter_choice": true,
+	{"label": "Gauntlet", "group": "challenge", "modes": [43], "fighter_choice": true,
 		"desc": "Endless waves, harder every two, your health carrying over. How many can you clear? Left/Right: your fighter",
 		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert", "as Chef Cerebro",
 			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy"]},
-	{"label": "Daily Challenge", "modes": [44], "fighter_choice": true,
+	{"label": "Daily Challenge", "group": "challenge", "modes": [44], "fighter_choice": true,
 		"desc": "Today's fight, the same for everyone: a seeded opponent and two mutators. Score by health left and time to spare. Left/Right: your fighter",
 		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert", "as Chef Cerebro",
 			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy"]},
-	{"label": "Combo Trials", "modes": [9], "desc": "Learn the combos, one at a time"},
-	{"label": "Reaction Drill", "modes": [10, 11], "choices": ["read Culvert", "read Cairn"],
+	{"label": "Combo Trials", "group": "challenge", "modes": [9], "desc": "Learn the combos, one at a time"},
+	{"label": "Reaction Drill", "group": "challenge", "modes": [10, 11], "choices": ["read Culvert", "read Cairn"],
 		"desc": "Block or dodge what the opponent throws at you"},
-	{"label": "Training", "modes": [3, 4, 13, 15, 17, 19, 22, 24, 26, 28],
+	{"label": "Training", "group": "practice", "modes": [3, 4, 13, 15, 17, 19, 22, 24, 26, 28],
 		"desc": "Practise on a dummy (F2 changes what it does). Left/Right: your fighter",
 		"choices": ["Cairn", "Culvert", "Craglash", "Barkley", "Gillbert", "Chef Cerebro", "Hissy Fitz", "Digby",
 			"Sneaky Pete", "Sno Mercy"]},
-	{"label": "Watch", "modes": [5, 2], "choices": ["combo showcases", "CPU vs CPU"],
+	{"label": "Watch", "group": "practice", "modes": [5, 2], "choices": ["combo showcases", "CPU vs CPU"],
 		"desc": "Sit back: scripted showcases or the CPU against itself"},
 ]
 const DEFAULT_TEAMS := [["cerebro", "gillbert", "barkley"], ["culvert", "cerebro", "craglash"]]
@@ -208,7 +223,7 @@ var _cpu_level_override := -1
 var wins := [0, 0]
 var timer := ROUND_TICKS
 var seed_base := 1
-## --menu=PAGE: open "single" or "settings" on start (captures).
+## --menu=PAGE: open a menu page on start (captures): single, single:<group>, settings, game, video, audio, controls.
 var _menu_arg := ""
 var _setting_rows := {}  ## Settings key -> its OptionRow, while the page is open
 var _match_over_status: Label = null
@@ -411,6 +426,10 @@ func _open_menu(page := "", focus := "") -> void:
 	t.settings_pressed.connect(_open_settings)
 	t.exit_pressed.connect(func(): get_tree().quit())
 	ui.push(t)
+	if page.begins_with("single:"):  # a Single player page, for captures: --menu=single:team
+		_open_single()
+		_open_single_group(page.get_slice(":", 1))
+		return
 	match page:
 		"single":
 			_open_single()
@@ -438,20 +457,44 @@ func _open_single() -> void:
 	var scr := UiScreen.new()
 	scr.logo = true
 	scr.title = "SINGLE PLAYER"
-	scr.row_width = 250.0
-	scr.row_height = 13.0
-	scr.row_font = 8
-	scr.row_gap = 1
+	scr.row_width = 262.0
+	scr.row_gap = 2
+	scr.show_desc = false  # the cards say what they hold
 	scr.hints = ["move", "change", "select", "back"]
 	scr.builder = func(s: UiScreen):
 		var maps: Array = []
 		for id in ArenaMap.IDS:
 			maps.append(ArenaMap.name_of(id))
 		s.add_option("Arena", maps, maxi(0, ArenaMap.IDS.find(MatchFactory.arena)),
-			func(i: int): _set_arena(ArenaMap.IDS[i]), "Where every match below is fought. Left/Right: the map")
+			func(i: int): _set_arena(ArenaMap.IDS[i]), "Where every match is fought. Left/Right: the map")
 		s.add_space(2)
+		for g in MENU_GROUPS:
+			var gid := String(g["id"])
+			s.add_card(String(g["title"]), String(g["sub"]), func(): _open_single_group(gid), String(g["desc"]))
+		s.add_space(3)
+		s.add_button("Back", s.back)
+	ui.push(scr)
+
+
+## One page of Single player: the rows of a MENU_GROUPS entry. Rows with choices pick
+## the fighter (or size) with Left/Right; Enter starts.
+func _open_single_group(gid: String) -> void:
+	var group := {}
+	for g in MENU_GROUPS:
+		if String(g["id"]) == gid:
+			group = g
+	var scr := UiScreen.new()
+	scr.logo = true
+	scr.crumbs = ["SINGLE PLAYER"]
+	scr.title = String(group.get("title", "")).to_upper()
+	scr.row_width = 262.0
+	scr.row_gap = 2
+	scr.hints = ["move", "change", "select", "back"]
+	scr.builder = func(s: UiScreen):
 		for r in MENU_ROWS.size():
 			var row: Dictionary = MENU_ROWS[r]
+			if String(row.get("group", "")) != gid:
+				continue
 			var desc := String(row.get("desc", ""))
 			if row.has("choices"):
 				var o := s.add_option(String(row["label"]), row["choices"], int(_row_choice[r]),
@@ -462,7 +505,7 @@ func _open_single() -> void:
 					_start_row(r))
 			else:
 				s.add_button(String(row["label"]), func(): _start_row(r), desc)
-		s.add_space(4)
+		s.add_space(3)
 		s.add_button("Back", s.back)
 	ui.push(scr)
 
@@ -497,13 +540,17 @@ func _open_settings() -> void:
 	scr.logo = true
 	scr.title = "SETTINGS"
 	scr.row_width = 200.0
+	scr.row_width = 240.0
 	scr.builder = func(s: UiScreen):
-		s.add_button("Game", func(): _open_settings_page("game"),
-				"CPU level, controller rumble, screen shake, online server")
-		s.add_button("Video", func(): _open_settings_page("video"), "Fullscreen, wide screens, vsync, frame rate")
-		s.add_button("Audio", func(): _open_settings_page("audio"), "Volume for the music, effects and menus")
-		s.add_button("Controls", _open_controls, "Keyboard and controller layouts; remap keys and buttons")
-		s.add_space(4)
+		s.add_card("Game", "CPU level, rumble, screen shake, online server, input delay",
+			func(): _open_settings_page("game"), "How the game plays and where it plays online")
+		s.add_card("Video", "Fullscreen, wide screens, vsync, frame rate",
+			func(): _open_settings_page("video"), "The screen and the frame rate")
+		s.add_card("Audio", "Master, music, sound effects, menu sounds",
+			func(): _open_settings_page("audio"), "Volumes")
+		s.add_card("Controls", "Keyboard and controller layouts; remap keys and buttons",
+			_open_controls, "Who presses what")
+		s.add_space(3)
 		s.add_button("Back", s.back)
 	ui.push(scr)
 
@@ -513,7 +560,8 @@ func _open_settings() -> void:
 func _open_settings_page(page: String) -> void:
 	var scr := UiScreen.new()
 	scr.logo = true
-	scr.title = "SETTINGS  -  " + page.to_upper()
+	scr.crumbs = ["SETTINGS"]
+	scr.title = page.to_upper()
 	scr.row_width = 270.0
 	scr.hints = ["move", "change", "back"]
 	scr.builder = func(s: UiScreen):
@@ -575,7 +623,8 @@ func online_server() -> String:
 func _open_controls() -> void:
 	var scr := UiScreen.new()
 	scr.logo = true
-	scr.title = "SETTINGS  -  CONTROLS"
+	scr.crumbs = ["SETTINGS"]
+	scr.title = "CONTROLS"
 	scr.row_width = 250.0
 	scr.hints = ["move", "change", "select", "back"]
 	scr.builder = func(s: UiScreen):
@@ -2350,7 +2399,7 @@ func _parse_args() -> int:
 			_net_args["join"] = a.get_slice("=", 1)
 		elif a.begins_with("--menu="):
 			var page := a.get_slice("=", 1)
-			if page in ["main", "single", "settings", "game", "video", "audio", "controls"]:
+			if page in ["main", "single", "settings", "game", "video", "audio", "controls"] or page.begins_with("single:"):
 				_menu_arg = "" if page == "main" else page
 		elif a.begins_with("--fighter="):
 			var f := a.get_slice("=", 1)
