@@ -129,7 +129,7 @@ const MENU_ROWS := [
 	{"label": "Team Deathmatch vs CPU", "group": "team", "modes": [31, 32], "choices": ["2 v 2", "3 v 3"],
 		"desc": "Unlimited respawns: first team to 12 KOs (15 in 3 v 3) wins. Left/Right: team size"},
 	{"label": "Sinkhole vs CPU", "group": "team", "modes": [33, 34, 35], "choices": ["1 v 1", "2 v 2", "3 v 3"],
-		"desc": "The floor falls away from the edges and a fall is a KO. Last one standing. Left/Right: team size"},
+		"desc": "The floor falls away from the edges into a chasm, and falling in is a KO. Last one standing. Left/Right: team size"},
 	{"label": "King of the Crater vs CPU", "group": "team", "modes": [36, 37, 38], "choices": ["1 v 1", "2 v 2", "3 v 3"],
 		"desc": "Hold the zone while it moves and the ground round it breaks. 60 s held wins. Left/Right: team size"},
 	{"label": "Brawl", "group": "brawl", "modes": [45, 42, 43, 44], "choices": ["you vs 3 CPUs", "2 players", "3 players", "4 players"],
@@ -1186,7 +1186,7 @@ func _team_flow() -> void:
 			elif team_battle.deathmatch:
 				sub += "   ·   first to %d KOs" % team_battle.score_to_win()
 			elif team_battle.sinkhole:
-				sub += "   ·   the edge falls in, a fall is a KO"
+				sub += "   ·   the edge falls in, the chasm is a KO"
 			hud.banner_sub = sub if t < 60 else ""
 			if t == 2 or t == 60:
 				audio.play("round_start", 0.0, 0.75 if t == 2 else 1.0)

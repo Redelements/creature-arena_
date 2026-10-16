@@ -232,10 +232,10 @@ func _threat_range(foe: CreatureSim, me: CreatureSim) -> float:
 # ------------------------------------------------------------------ decisions
 
 func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
-	# Sinkhole: the ring under us is cracked and about to drop. Nothing matters more
-	# than getting off it (a dash or dodge in progress finishes first).
+	# Sinkhole: the ring under us (or a cell short of it) is cracked and about to drop.
+	# Nothing matters more than getting off it (a dash or dodge in progress finishes first).
 	if sim.sink_ring >= 0 and me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE, CreatureSim.State.GUARD] \
-			and sim.terrain.ring_of(sim.terrain.world_to_cell(me.pos)) <= sim.sink_ring + 1:
+			and not sim.sink_safe.grow(-1).has_point(sim.terrain.world_to_cell(me.pos)):
 		_go_to(sim, me, SimDefs.floor_rect().get_center())
 		return
 	var to_foe := foe.pos - me.pos

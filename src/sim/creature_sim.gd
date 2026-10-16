@@ -61,7 +61,7 @@ const STATE_FIELDS := [
 	"poison", "poison_every", "poison_dmg", "poison_by", "poison_stacks", "poison_stack_dmg", "frenzy_t", "hit_streak", "streak_t", "stone",
 	"blind", "whiff_serial", "ambush_serial", "root",
 	"stealth", "haste", "haste_mult", "atk_buff", "atk_mult", "stone_ice", "covered",
-	"block_lag", "punish_serial", "home_speed",
+	"block_lag", "punish_serial", "home_speed", "fall_chasm",
 ]
 ## Set once when the creature is made and never changed by the simulation.
 const STATIC_FIELDS := ["id", "team", "def", "is_dummy", "radius", "weight", "max_hp", "max_stamina",
@@ -207,6 +207,9 @@ var stone_ice := false  ## the statue is ice, not stone (Sno Mercy's Flavor Blas
 var block_lag := 0
 var punish_serial := 0
 var home_speed := 0.0  ## a homing dash's pace once its landing spot is locked
+## The pit it is falling into is a chasm (decided when the fall starts: a hole can heal
+## during the fall). Under `fall_ko` only a chasm is a knockout.
+var fall_chasm := false
 
 
 ## Whether `o` is on the other side (never itself).
@@ -1431,14 +1434,16 @@ func start_fall(sim: MatchSim) -> void:
 	walk_vel = Vector2.ZERO
 	cancel_attack()
 	_set_state(State.FALLING)
-	sim.emit_event("fall", pos, 0.0, {"who": id})
+	fall_chasm = sim.terrain.get_cell(sim.terrain.world_to_cell(pos)) == TerrainGrid.CHASM
+	sim.emit_event("fall", pos, 0.0, {"who": id, "pit": "chasm" if fall_chasm else "hole"})
 
 
 func _land_from_fall(sim: MatchSim) -> void:
 	pos = _clamp_to_floor(sim.terrain.nearest_solid(pos))
 	hp -= FALL_DAMAGE
-	if sim.fall_ko:
-		hp = 0.0  # Sinkhole: the pit is the end
+	if sim.fall_ko and fall_chasm:
+		hp = 0.0  # Sinkhole: the chasm is the end (a creature's hole only hurts)
+	fall_chasm = false
 	calm_t = 0
 	invuln = RESPAWN_INVULN
 	reset_combo()

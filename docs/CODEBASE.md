@@ -19,7 +19,7 @@ src/game/   main (flow, camera, settings, CLI), online_lobby, showcase, trials, 
 src/ui/     ui_theme, screen_stack, ui_screen, option_row, card_button, prompts, fighter_preview,
             title_screen, character_select, ready_check, pause/confirm/help/remap screens
 data/       creatures/*.json, rules/{duel,team,deathmatch}.json, trials.json, audio.json, online.json, discord.json
-tests/      run_tests.gd runs every tests/test_*.gd; bench_sim.gd, bench_cpu.gd, bench_spacing.gd
+tests/      run_tests.gd runs every tests/test_*.gd; bench_sim.gd, bench_cpu.gd, bench_spacing.gd, bench_sinkhole.gd
 tools/      sprite generators (splat3d.py shared), gen_sprites.py, gen_audio.py
 docs/       this page and the others above; docs/plans/ for design notes
 ```
@@ -40,7 +40,7 @@ JSON go in. Every variable is snapshotted (see Gotchas).
 | `terrain_grid.gd` (420) | Floor as 8 px cells: INTACT → CRACKED → HOLE, healing a step every `HEAL_TICKS` (720) toward `base` (the map's piece there: WALL, FENCE, CHASM, SHALLOWS, BRUSH) | `load_map`, `damage_cell/circle/rect/ring`, `crack_cell/circle`, `smash`, `flatten`, `is_hole_at`, `solid_at`, `walk_mult_at`, `slide_x/y`, `resolve_body`, `body_blocked`, `nearest_solid` (respawn), `tick(blocked)` |
 | `arena_map.gd` (45) | Arena maps from `data/arenas/*.json`: `IDS`, cached loads, a side's spawn point | `get_map`, `name_of`, `spawn` |
 | `duel_sim.gd` (296) | 3v3 tag rules around a MatchSim, one active fighter per side; also used for online 1v1 | `step`; `_tag`, `can_tag`; `_check_knockouts`, `_enter_next`, `_bench_regen`; `_time_out`; `snapshot`/`restore` |
-| `team_sim.gd` (264) | 2v2 / 3v3 with everyone on the field: one life each, or Team Deathmatch (respawns, score) when the rules say `deathmatch` | `step` (one input per slot, side 0 first); `_deathmatch_step`, `_respawn`, `_finish`, `pad_point`, `score_to_win`; `spawn_point`, `side_of`, `members`; `_time_out` |
+| `team_sim.gd` (420) | 2v2 / 3v3 with everyone on the field: one life each, or Team Deathmatch (respawns, score) when the rules say `deathmatch`; Sinkhole and King of the Crater | `step` (one input per slot, side 0 first); `_deathmatch_step`, `_respawn`, `_finish`, `pad_point`, `score_to_win`; `_sinkhole_step`, `ring_rect`, `_ring_cells`; `_crater_step`; `spawn_point`, `side_of`, `members`; `_time_out` |
 | `replay.gd` (57) | One input per creature per tick, saved and replayed | `record`, `save`/`load_file`, `play(sim)` returns the state hash |
 
 Constants worth knowing: `CreatureSim.State` (IDLE, MOVE, ATTACK, DODGE, GUARD, HITSTUN, FALLING,
@@ -328,6 +328,7 @@ errors count as failures; exit code 1 on any failure. Run `--import` after addin
 | `test_ui`, `test_menu_stick`, `test_surge_ready`, `test_views`, `test_showcase`, `test_trials`, `test_scripts_load` | Menus with real input events; stick menu presses; aura/signal; up/down sheets for every fighter; every showcase reaches a KO; every trial clearable; every script compiles |
 | `test_presence` | Discord IPC frames (split, partial, bad), the status text per mode, the elapsed clock, the setting saved, no connection headless |
 | `bench_sim.gd`, `bench_cpu.gd` | Rollback cost; CPU tier win-rate matrix (`--matrix`, `--pairs`, `--seeds`, `--only`, `--detail`) |
+| `bench_sinkhole.gd` | Sinkhole pacing: the planned ring schedule (drop time, floor left), then seeded CPU Sinkhole matches per team size: each ring's average drop time, how fighters went down (fall into chasm / hole, damage), how matches ended, average length (`--seeds`, `--sizes=1,2,3`, `--level`) |
 | `bench_spacing.gd` | How far apart fighters fight, Rage CPU vs the field: the gap between bodies when lights land, share of time touching, average gap (`--lv`, `--seeds`, `--only`) |
 
 ---

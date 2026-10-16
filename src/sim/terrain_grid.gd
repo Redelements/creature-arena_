@@ -423,11 +423,6 @@ func sink(c: Vector2i) -> void:
 	version += 1
 
 
-## Which ring of the floor a cell is on: 0 at the edge, counting inward.
-func ring_of(c: Vector2i) -> int:
-	return mini(mini(c.x, c.y), mini(cols - 1 - c.x, rows - 1 - c.y))
-
-
 ## One healing step toward what the map put there.
 static func heal_step(v: int, b: int) -> int:
 	if b == INTACT:

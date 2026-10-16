@@ -20,8 +20,11 @@ extends RefCounted
 ##
 ## Sinkhole (rules with "sinkhole": data/rules/sinkhole.json): one life each, and every
 ## `shrink_every` ticks the outermost ring of the floor cracks (a warning the CPU heeds)
-## and `shrink_warn` ticks later drops into a chasm for good, up to `max_rings`. A fall
-## is a knockout (`fall_ko` on the match). Last side standing wins.
+## and `shrink_warn` ticks later drops into a chasm for good, up to `max_rings`. A ring
+## takes `shrink_cols` cells off the left and right and `shrink_rows` off the top and
+## bottom, and an axis stops at `min_cols` / `min_rows`, so the last floor is a block,
+## not a strip (see ring_rect). A fall into a chasm is a knockout (`fall_ko` on the
+## match); a fall into an ordinary hole only hurts. Last side standing wins.
 ##
 ## King of the Crater (rules with "crater": data/rules/crater.json, on top of the
 ## deathmatch respawns): a zone on the floor (`sim.zone_pos`, `sim.zone_r`) that moves
@@ -311,7 +314,7 @@ func goal_text() -> String:
 func _sinkhole_step() -> void:
 	if sim.ko_freeze > 0:
 		return
-	if ring >= int(rules.get("max_rings", 16)):
+	if ring >= int(rules.get("max_rings", 16)) or ring_rect(ring) == ring_rect(ring - 1):
 		return
 	sink_t -= 1
 	if sink_t > 0:
@@ -323,6 +326,7 @@ func _sinkhole_step() -> void:
 				t.set_cell(c, TerrainGrid.CRACKED)
 		warned = true
 		sim.sink_ring = ring
+		sim.sink_safe = ring_rect(ring)
 		sink_t = int(rules.get("shrink_warn", 120))
 		sim.emit_event("sink_warn", Vector2.ZERO, float(ring), {"ring": ring, "rect": _ring_rect(ring)})
 	else:
@@ -330,27 +334,39 @@ func _sinkhole_step() -> void:
 			t.sink(c)
 		warned = false
 		sim.sink_ring = -1
+		sim.sink_safe = Rect2i()
 		sim.emit_event("sink", Vector2.ZERO, float(ring), {"ring": ring, "rect": _ring_rect(ring)})
 		ring += 1
 		sink_t = int(rules.get("shrink_every", 420))
 
 
-func _ring_cells(r: int) -> Array[Vector2i]:
+## The floor left (in cells) once rings 0..r have dropped; r = -1 is the whole grid.
+## Each ring takes `shrink_cols` cells off the left and the right and `shrink_rows` off
+## the top and the bottom, and an axis stops once it is down to `min_cols` / `min_rows`.
+func ring_rect(r: int) -> Rect2i:
 	var t := sim.terrain
+	var n := r + 1
+	var ix := mini(n * int(rules.get("shrink_cols", 1)), maxi(0, (t.cols - int(rules.get("min_cols", 0))) / 2))
+	var iy := mini(n * int(rules.get("shrink_rows", 1)), maxi(0, (t.rows - int(rules.get("min_rows", 0))) / 2))
+	return Rect2i(ix, iy, t.cols - 2 * ix, t.rows - 2 * iy)
+
+
+## The cells ring `r` drops: on the floor before it, off the floor after it.
+func _ring_cells(r: int) -> Array[Vector2i]:
+	var before := ring_rect(r - 1)
+	var after := ring_rect(r)
 	var out: Array[Vector2i] = []
-	for x in range(r, t.cols - r):
-		out.append(Vector2i(x, r))
-		out.append(Vector2i(x, t.rows - 1 - r))
-	for y in range(r + 1, t.rows - 1 - r):
-		out.append(Vector2i(r, y))
-		out.append(Vector2i(t.cols - 1 - r, y))
+	for y in range(before.position.y, before.end.y):
+		for x in range(before.position.x, before.end.x):
+			if not after.has_point(Vector2i(x, y)):
+				out.append(Vector2i(x, y))
 	return out
 
 
-## The floor left once ring `r` has gone, in pixels.
+## The floor left once ring `r` has dropped, in pixels (the events' `rect`).
 func _ring_rect(r: int) -> Rect2:
-	var t := sim.terrain
-	return Rect2(t.cell_rect(Vector2i(r, r)).position, Vector2((t.cols - 2 * r) * SimDefs.CELL, (t.rows - 2 * r) * SimDefs.CELL))
+	var c := ring_rect(r)
+	return Rect2(sim.terrain.cell_rect(c.position).position, Vector2(c.size * SimDefs.CELL))
 
 
 func _finish(side: int, how: String) -> void:
