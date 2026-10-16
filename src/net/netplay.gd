@@ -572,7 +572,7 @@ static func data_hash() -> String:
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(("v%d" % NET_VERSION).to_utf8_buffer())
 	var paths: Array = [DuelSim.RULES_PATH, DuelSim.RULES_1V1_PATH, TeamSim.RULES_PATH, TeamSim.DEATHMATCH_PATH, TeamSim.SINKHOLE_PATH,
-		TeamSim.CRATER_PATH, TeamSim.SHOWTIME_PATH, BrawlSim.RULES_PATH, Daily.MUTATORS_PATH]
+		TeamSim.CRATER_PATH, BrawlSim.RULES_PATH, Daily.MUTATORS_PATH]
 	for id in MatchFactory.FIGHTERS:
 		paths.append(MatchFactory.CREATURE_DIR + id + ".json")
 	for id in ArenaMap.IDS:

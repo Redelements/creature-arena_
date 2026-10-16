@@ -85,7 +85,7 @@ Useful flags (after `--`; the full list is in the `main.gd` header, modes in `MO
 8 Versus 2P, 9 Combo Trials, 10/11 Reaction Drills, 12–19 and 21–28 each fighter's "vs CPU"
 and "training" pair (Craglash, Barkley, Gillbert, Cerebro, Hissy, Digby, Pete, Sno), 20 Online,
 29/30 Team 2v2/3v3 vs CPU,
-31/32 Team Deathmatch 2v2/3v3 vs CPU (offline only so far), 33–35 Sinkhole 1v1/2v2/3v3 vs CPU, 36–38 King of the Crater 1v1/2v2/3v3 vs CPU, 39–41 Showtime 1v1/2v2/3v3 vs CPU, 42 Arcade, 43 Gauntlet, 44 Daily Challenge (`--fighter=ID` picks yours), 45–48 Brawl (2/3/4 players, you vs 3 CPUs), 49 Chaos Cup, 50 a replay being watched (Replay theater). Matches are deterministic, so a seed reproduces a CPU match exactly.
+31/32 Team Deathmatch 2v2/3v3 vs CPU (offline only so far), 33–35 Sinkhole 1v1/2v2/3v3 vs CPU, 36–38 King of the Crater 1v1/2v2/3v3 vs CPU, 39 Arcade, 40 Gauntlet, 41 Daily Challenge (`--fighter=ID` picks yours), 42–45 Brawl (2/3/4 players, you vs 3 CPUs), 46 Chaos Cup, 47 a replay being watched (Replay theater). Showtime was removed (Oct 2026), which shifted the modes after it down by three; tests start modes by name with `main.mode_index("Chaos Cup")`. Matches are deterministic, so a seed reproduces a CPU match exactly.
 
 Online: `--online-host[=PORT]`, `--online-join=ADDR[:PORT][/ROOM]`, `--online-size=2|3`,
 `--fighter=ID`, `--net-lag=N`, `--net-loss=F`, `--net-delay=N`, `--net-report=PATH`. Two
@@ -128,8 +128,8 @@ File-by-file: docs/CODEBASE.md.
 - **Audio: TODO, all placeholder.** Replace everything in `assets/audio/`; checklist in
   `docs/AUDIO.md` and the "Replace placeholder audio" GitHub issue.
 - **Online:** direct 1v1 over UDP and a dedicated relay/referee server are built, with
-  online 2v2/3v3 through the server (any team rules: deathmatch, Sinkhole, Crater,
-  Showtime), 3v3 tag Duels, spectators, saved online replays, arenas online (the host's or
+  online 2v2/3v3 through the server (any team rules: deathmatch, Sinkhole, Crater),
+  3v3 tag Duels, spectators, saved online replays, arenas online (the host's or
   the room's, random for Quick match), an input delay setting, ranked 1v1 with Glicko
   ratings and Daily scores on the server. Not yet: a Steam transport (behind `NetLink`).
 - **Not built yet:** affinity surfaces (part B of `docs/plans/arenas-surfaces-modes-online.md`,

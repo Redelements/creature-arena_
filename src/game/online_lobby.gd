@@ -162,7 +162,7 @@ func build() -> void:
 			rules_id = TeamSim.RULE_IDS[i]
 			if _room_rules_row != null:
 				_room_rules_row.set_values(TeamSim.RULE_NAMES, i),
-		"For 2 v 2 and 3 v 3 (and rooms of those sizes): the plain battle, deathmatch, Sinkhole, Crater or Showtime")
+		"For 2 v 2 and 3 v 3 (and rooms of those sizes): the plain battle, deathmatch, Sinkhole or Crater")
 	# Rooms.
 	_size_row = add_option("Room size", SIZE_NAMES, _size_index(room_size, room_tag), func(i: int):
 			room_size = SIZE_OF[i]
@@ -171,7 +171,7 @@ func build() -> void:
 	_room_rules_row = add_option("Team rules", TeamSim.RULE_NAMES, 0, func(i: int):
 			rules_id = TeamSim.RULE_IDS[i]
 			_rules_row.set_values(TeamSim.RULE_NAMES, i),
-		"For a 2 v 2 or 3 v 3 room: the plain battle, deathmatch, Sinkhole, Crater or Showtime")
+		"For a 2 v 2 or 3 v 3 room: the plain battle, deathmatch, Sinkhole or Crater")
 	_create = add_button("Create room", create_room, "Get a code to give your friends: the room starts once it's full")
 	code_field = LineEdit.new()
 	code_field.placeholder_text = "Friend's room code"
