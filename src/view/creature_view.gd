@@ -425,7 +425,10 @@ func _attack_frame() -> Array:
 		var act := int(mv.get("active", 1))
 		if t <= su + act:
 			return [name, mini(3, n - 1), false]
-		return [name, mini(4 if t <= su + act + 8 else 5, n - 1), false]
+		# The follow-through holds a third of the recovery (at least 8 ticks), so a slow
+		# heavy (Craglash's Stomp) doesn't snap to its last frame early.
+		var follow := maxi(8, (length - su - act) / 3)
+		return [name, mini(4 if t <= su + act + follow else 5, n - 1), false]
 
 	if mv.has("armor"):  # Bedrock: brace, hold (roaring as it sets), then stand
 		var ar: Dictionary = mv["armor"]

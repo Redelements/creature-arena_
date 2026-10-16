@@ -322,6 +322,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	if d.is_armored() and not bool(hit["grab"]):
 		var ar: Dictionary = d.move_def()["armor"]
 		var taken := d.take_damage(damage * (1.0 - float(ar.get("reduction", 0.6))), self)
+		a.dealt_damage()
 		d.flash = 3
 		if String(hit["type"]) != "surge":  # a Surge never charges the next one
 			gain_energy(a, taken * ENERGY_PER_DAMAGE)
@@ -336,6 +337,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		var facing_attacker := d.facing.dot(-push) > 0.3
 		if facing_attacker and not bool(hit["guard_break"]):
 			var chip := d.take_damage(damage * (1.0 - float(gd["reduction"])), self)
+			a.dealt_damage()
 			d.stamina -= damage * float(gd["drain_per_damage"])
 			d.knock_vel = push * float(hit["knockback"]) * 0.4 / d.weight
 			d.guard_hit = 10
@@ -383,6 +385,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	var stun := int(round(float(hit["hitstun"]) * maxf(HITSTUN_FLOOR, 1.0 - HITSTUN_DECAY * (n - 1)) * stale))
 
 	d.take_damage(total, self)
+	a.dealt_damage()
 	d.flash = 6
 	if float(hit.get("slow_ticks", 0.0)) > 0.0:
 		d.slow = maxi(d.slow, int(hit["slow_ticks"]))

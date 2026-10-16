@@ -140,7 +140,7 @@ var dodge_buffer_dir := Vector2.ZERO  ## the direction held when it was pressed
 
 # Status
 var shield := 0.0  ## absorbs damage before hp (Craglash's Stoneskin passive)
-var calm_t := 0  ## ticks since this creature last took damage
+var calm_t := 0  ## ticks since this creature last took damage (or dealt it, with Stoneskin's `reset_on_deal`)
 var slow := 0  ## ticks of slowed walking left
 var slow_mult := 1.0
 var taunt := 0  ## ticks left of being taunted by `taunt_by`
@@ -423,6 +423,13 @@ func take_damage(amount: float, sim: MatchSim) -> float:
 			sim.emit_event("shield_break", pos, 1.0, {"who": id})
 	hp -= amount
 	return amount
+
+
+## This creature's hit dealt damage (clean, chip or on armor). Stoneskin with
+## `reset_on_deal` counts that as combat too: the shield only grows back out of it.
+func dealt_damage() -> void:
+	if bool(def.get("stoneskin", {}).get("reset_on_deal", false)):
+		calm_t = 0
 
 
 func walk_speed() -> float:
@@ -742,7 +749,8 @@ func _tick_status(sim: MatchSim) -> void:
 		if poison <= 0:
 			poison_stacks = 0
 			poison_dmg = 0.0
-	# Stoneskin: a while without taking damage grows the shield back.
+	# Stoneskin: a while without taking damage (nor dealing it, with `reset_on_deal`)
+	# grows the shield back.
 	var skin: Dictionary = def.get("stoneskin", {})
 	if not skin.is_empty() and state != State.KO:
 		calm_t += 1

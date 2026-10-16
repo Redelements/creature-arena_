@@ -153,7 +153,7 @@ The camera is not here: `main.gd:_update_camera`, `_frame_fight`, `CAM_PAD`, `KO
 - Health bars over the fighters (League-style) → `fx_view.gd:_draw_side_marks`. `side_marks[i].rel` comes from main's `_relation()`: self (green) / ally (blue) / enemy (red), or side (red left, blue right) when nobody here plays or local players face each other. Ticks every 25 HP, a draining trail after a hit, a shield segment, a Surge strip. The top HUD panel keeps name, Surge, stamina, stones and skills; team cards and the Duel strip keep their small roster bars
 - Telegraphs and aim marks → `_draw_telegraph`, `_draw_aim_mark`, `_draw_lob_mark`, `_draw_line_telegraph`
 - Status marks → `_draw_rooted`, `_draw_status`, `_draw_creature_extras`
-- Sprite frame by state → `creature_view.gd:_pick`; frame in a move (`anim`, `anim_at`, `anim_reel`, charge frames) → `_attack_frame`
+- Sprite frame by state → `creature_view.gd:_pick`; frame in a move (`anim`, `anim_at`, `anim_reel`, charge frames; a heavy's follow-through frame holds a third of its recovery, at least 8 ticks) → `_attack_frame`
 - Side/up/down sheet choice → `creature_view.gd:_pick_view`, `_resolve`, `_load_view`
 - Squash and launch height → `_update_squash`, `view_lift`
 - HUD cooldown bars → `hud.gd:_panel` (`cooldown_ratio`, `dodge_cooldown_ratio`)
