@@ -41,6 +41,8 @@ var arena := {}
 ## floor that is cracked and about to drop (-1: none), so the CPU knows to get off it.
 var fall_ko := false
 var sink_ring := -1
+## Sinkhole: the cells that stay floor once the cracked ring drops (empty: no warning).
+var sink_safe := Rect2i()
 ## An objective on the floor (King of the Crater): where the zone is and its radius
 ## (0: none). Views draw it, the CPU goes for it.
 var zone_pos := Vector2.ZERO
@@ -189,7 +191,7 @@ func snapshot() -> Dictionary:
 	for c in creatures:
 		cs.append(c.save_state())
 	return {
-		"tick": tick, "hitstop": hitstop, "ko_freeze": ko_freeze, "slowmo": slowmo, "sink_ring": sink_ring,
+		"tick": tick, "hitstop": hitstop, "ko_freeze": ko_freeze, "slowmo": slowmo, "sink_ring": sink_ring, "sink_safe": sink_safe,
 		"zone_pos": zone_pos, "zone_r": zone_r,
 		"cells": terrain.cells.duplicate(), "timers": terrain.timers.duplicate(), "base": terrain.base.duplicate(),
 		"terrain_version": terrain.version,
@@ -203,6 +205,7 @@ func restore(s: Dictionary) -> void:
 	ko_freeze = int(s["ko_freeze"])
 	slowmo = int(s["slowmo"])
 	sink_ring = int(s.get("sink_ring", -1))
+	sink_safe = s.get("sink_safe", Rect2i())
 	zone_pos = s.get("zone_pos", Vector2.ZERO)
 	zone_r = float(s.get("zone_r", 0.0))
 	terrain.cells = PackedByteArray(s["cells"]).duplicate()
@@ -222,7 +225,7 @@ func restore(s: Dictionary) -> void:
 ## bit for bit, so two machines only agree if they computed identical results; this
 ## is what online play checks to catch desyncs.
 func state_digest() -> String:
-	var parts: Array = [tick, hitstop, ko_freeze, slowmo, arena_id, sink_ring, zone_pos, zone_r, terrain.cells, terrain.timers, terrain.base]
+	var parts: Array = [tick, hitstop, ko_freeze, slowmo, arena_id, sink_ring, sink_safe, zone_pos, zone_r, terrain.cells, terrain.timers, terrain.base]
 	for c in creatures:
 		var st := c.save_state()
 		for f in CreatureSim.STATE_FIELDS:

@@ -35,7 +35,7 @@ extends RefCounted
 ## server's CPU plays are listed in "start" (`cpu`), or come later as "cpu" when a
 ## player leaves; their inputs arrive like anyone's.
 
-const NET_VERSION := 9  ## 9: the 1v1 is best of three rounds; 8: ranked play, player ids, daily scores; 7: team rules and tag Duels; 6: the server's ready check; 5: team battles; 4: 360 move angle
+const NET_VERSION := 10  ## 10: Sinkhole collapses by rect, only a chasm fall is a ring-out; 9: the 1v1 is best of three rounds; 8: ranked play, player ids, daily scores; 7: team rules and tag Duels; 6: the server's ready check; 5: team battles; 4: 360 move angle
 const DEFAULT_PORT := 7777
 const PINGS := 5
 ## A precise ping (a real link) blocks the host this long at most waiting for the pong.
