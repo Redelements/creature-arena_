@@ -116,3 +116,32 @@ func test_the_server_saves_the_replay_and_it_plays_back() -> void:
 	for f in files:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(server.replay_dir.path_join(f)))
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(server.replay_dir))
+
+
+func test_a_watcher_follows_a_quick_match_from_match_to_the_rematch_pick_to_the_next_match() -> void:
+	var server := _server()
+	var a := _player(server, 0)
+	var b := _player(server, 1)
+	var w := _watcher(server, 2, "")
+	var all := [a, b, w]
+	assert_true(_run(server, all, 300, func(): return a.is_playing() and b.is_playing() and w.is_watching()),
+		"the players start and the watcher is on it")
+	_run(server, all, 400, Callable(), 5)
+	_agree([a, b], w, "match 1")
+	var first := w.watch
+	a.request_rematch()
+	b.request_rematch()
+	assert_true(_run(server, all, 60, func(): return w.room_state == "select" and a.rematch_pick() and b.rematch_pick()),
+		"both asked: the watcher hears they're picking")
+	assert_eq(w.room_players.size(), 2, "both players, neither locked in:")
+	_run(server, all, 30, Callable(), 6)
+	assert_true(w.watch == first and w.is_watching(), "still on match 1 meanwhile")
+	a.send_pick(["hissy"])
+	b.send_pick(["gillbert"])
+	assert_true(_run(server, all, 60, func(): return w.watch != first), "then follows the next match")
+	assert_eq(w.watch.teams, [["hissy"], ["gillbert"]], "with the new fighters:")
+	assert_eq(w.room_state, "", "the pick is over:")
+	_run(server, all, 600, Callable(), 7)
+	assert_gt(float(w.watch.frame), 300.0, "the watcher's copy of match 2 keeps up (frame %d)" % w.watch.frame)
+	assert_eq(a.game.desync_frame, -1, "no desync")
+	_agree([a, b], w, "match 2")

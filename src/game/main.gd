@@ -38,7 +38,8 @@ extends Node2D
 ##   --online-size=N       with --online-join to a server: 2 or 3 asks for a 2v2 / 3v3
 ##   --net-lag=N --net-loss=F   hold back / drop the input stream (feel rollback on a LAN)
 ##   --net-delay=N         force the input delay (frames) instead of picking it from the ping
-##   --net-report=PATH     write the online match's report (inputs, state fingerprints) on exit
+##   --net-report=PATH     write the online match's report (inputs, state fingerprints) on exit; after a
+##                         rematch or a room's next match, each earlier one is kept as PATH_m<n>.json
 
 enum Flow { MENU, INTRO, FIGHT, ROUND_OVER, MATCH_OVER, SELECT, LOBBY }
 enum Side { PLAYER, CPU, DUMMY, SCRIPT, PLAYER2, REMOTE, PLAYER3, PLAYER4, REPLAY }
@@ -340,6 +341,9 @@ var _room_made := false
 var _room_screen: UiScreen = null
 var _room_status_label: Label = null
 var _room_picker: CharacterSelect = null
+## A 1v1 rematch outside a room is picking (Quick match, ranked, direct): the room's
+## page and fighter select are up for it (see _open_rematch_pick).
+var _rematch_page := false
 ## How many of the online match's slots were shown as the server's CPU.
 var _cpu_shown := 0
 
@@ -2915,6 +2919,7 @@ func _start_online_match() -> void:
 	_ready_screen = null
 	_room_screen = null
 	_room_picker = null
+	_rematch_page = false
 	lobby = null
 	hud.visible = true
 	hud.menu_visible = false
@@ -2957,27 +2962,37 @@ func _online_status() -> void:
 		_back_to_room_wait()  # the other player left the room: wait there for someone new
 		return
 	if netplay.game != online and netplay.is_playing():
-		_write_net_report()
+		_write_net_report(true)
 		_start_online_match()  # a rematch began, or the room's next match
 		return
 	# Ranked: after the result the other player going back to the online screen isn't a
 	# disconnection; the result stays up until this player goes back too.
-	var after_ranked := netplay.ranked and flow == Flow.MATCH_OVER
+	var after_ranked := netplay.ranked and flow == Flow.MATCH_OVER and not _rematch_page
 	if netplay.phase == Netplay.Phase.ENDED:
 		_net_end_t += 1
 		if _net_end_t == 1:
 			_write_net_report()
 			hud.net_info = ""
-			if not after_ranked:
+			if _rematch_page:
+				_rematch_ended(netplay.error)
+			elif not after_ranked:
 				hud.banner = "DISCONNECTED"
 				hud.banner_sub = netplay.error
 		if after_ranked and _match_over_status != null and is_instance_valid(_match_over_status):
 			_match_over_status.text = netplay.error
 		elif _net_end_t > 240:
-			_leave_online()
+			if _rematch_page:
+				_leave_to_lobby()
+			else:
+				_leave_online()
 		return
-	if netplay.in_room():
+	if netplay.rematch_pick() and not _rematch_page:
+		_open_rematch_pick()  # both asked for a rematch: pick for it
+	if netplay.in_room() or _rematch_page:
 		_room_step()
+	elif _cpu_vs_cpu and online.players == 2 and flow == Flow.MATCH_OVER and flow_t == MATCH_OVER_MENU_AT + 120 \
+			and not netplay.rematch_local:
+		netplay.request_rematch()  # demos and captures: on to the rematch (and its pick) by itself
 	var g := online
 	if g.cpu_slots.size() != _cpu_shown:
 		_show_cpu_slots()
@@ -3006,14 +3021,17 @@ func _online_status() -> void:
 		elif g.players > 2 and (netplay.rematch_local or asked > 0):
 			_match_over_status.text = "Rematch: %d of %d asked" % [asked + (1 if netplay.rematch_local else 0),
 				others + 1]
-		elif not netplay.last_rating.is_empty():
-			var lr := netplay.last_rating
-			_match_over_status.text = "Rating %d -> %d (%+d)   ·   %d games, %d won" % [roundi(float(lr["old"])),
-				roundi(float(lr["new"])), roundi(float(lr["new"]) - float(lr["old"])), int(lr["games"]), int(lr["wins"])]
-		elif netplay.rematch_local:
-			_match_over_status.text = "Waiting for the other player..."
-		elif netplay.rematch_remote:
-			_match_over_status.text = "The other player wants a rematch!"
+		else:
+			var lines := PackedStringArray()
+			if not netplay.last_rating.is_empty():
+				var lr := netplay.last_rating
+				lines.append("Rating %d -> %d (%+d)   ·   %d games, %d won" % [roundi(float(lr["old"])),
+					roundi(float(lr["new"])), roundi(float(lr["new"]) - float(lr["old"])), int(lr["games"]), int(lr["wins"])])
+			if netplay.rematch_local:
+				lines.append("Waiting for the other player...")
+			elif netplay.rematch_remote:
+				lines.append("The other player wants a rematch!")
+			_match_over_status.text = "\n".join(lines)
 
 
 ## Online team battle: slots the server's CPU plays say so on their card and marker.
@@ -3084,15 +3102,58 @@ func _room_next() -> void:
 	_open_room_picker()
 
 
-## The room's page between matches: its code (press to copy), who has locked in, and
-## Pick your fighter / Leave room. The fighter select opens over it.
-func _open_room_screen() -> void:
+## Both players asked for a 1v1 rematch outside a room (Quick match, ranked, direct):
+## the same page and fighter select a room uses between matches, with the last pick
+## ready to lock in again (or Same again on the page). The finished match keeps
+## stepping behind it until the rematch starts.
+func _open_rematch_pick() -> void:
+	_rematch_page = true
+	_close_ui()  # the match-over screen
+	_open_room_screen()
+	_open_room_picker()
+
+
+## Same again: the last pick, locked in at once.
+func _rematch_same_again() -> void:
+	if netplay != null:
+		netplay.send_pick(netplay.my_team.duplicate())
+
+
+## The other player left during the rematch's pick: say so, then back to the online
+## screen (by itself after a few seconds, as when someone leaves a Quick match).
+func _rematch_ended(why: String) -> void:
+	_close_ui()
+	_room_screen = null
+	_room_picker = null
 	var scr := UiScreen.new()
-	scr.title = "ROOM " + _room_code()
-	scr.subtitle = "Next match"
+	scr.title = "REMATCH"
+	scr.subtitle = why if why != "" else "The rematch is off"
 	scr.dim = 0.75
 	scr.row_width = 200.0
 	scr.builder = func(s: UiScreen):
+		s.add_button("Back to online", _leave_to_lobby, "Search again from the online screen")
+	scr.on_back = _leave_to_lobby
+	ui.push(scr)
+
+
+## The room's page between matches: its code (press to copy), who has locked in, and
+## Pick your fighter / Leave room. The fighter select opens over it. A 1v1 rematch's
+## pick uses it too (no code; Same again locks the last pick in at once).
+func _open_room_screen() -> void:
+	var scr := UiScreen.new()
+	scr.title = "REMATCH" if _rematch_page else "ROOM " + _room_code()
+	scr.subtitle = "Pick your fighter" + ("s" if netplay.my_team.size() > 1 else "") if _rematch_page else "Next match"
+	scr.dim = 0.75
+	scr.row_width = 200.0
+	scr.builder = func(s: UiScreen):
+		if _rematch_page:
+			var same := s.add_button("Same again", _rematch_same_again, "Lock in the same fighter" + (
+				"s" if netplay.my_team.size() > 1 else "") + " for the rematch")
+			s.add_button("Pick your fighter", _open_room_picker, "Lock in a fighter (or the same one) for the rematch")
+			s.add_button("Leave", _leave_to_lobby, "Back to the online screen; the rematch is off for both")
+			_room_status_label = s.add_text(_room_summary(true), UiTheme.SIZE_HINT + 1, UiTheme.C_ACCENT)
+			s.default_focus = same
+			return
 		s.add_row(RoomCodeButton.new(_room_code()), "Copy the code to send to a friend")
 		var pick := s.add_button("Pick your fighter", _open_room_picker, "Lock in a fighter (or the same one) for the next match")
 		s.add_button("Leave room", _leave_to_lobby, "Back to the online screen; the room carries on without you")
@@ -3109,11 +3170,12 @@ func _open_room_picker() -> void:
 		return
 	var p := CharacterSelect.new()
 	p.solo = true
-	p.solo_heading = "ROOM " + _room_code()
+	p.solo_heading = "REMATCH" if _rematch_page else "ROOM " + _room_code()
 	p.solo_info = _room_summary(true)
 	p.done_text = "LOCKED IN"
 	var team := netplay.my_team.duplicate()
-	p.setup("NEXT MATCH", team.size(), ["YOU", "ROOM"], false, [team, []])
+	p.setup("REMATCH" if _rematch_page else "NEXT MATCH", team.size(), ["YOU", "OPPONENT" if _rematch_page else "ROOM"],
+		false, [team, []])
 	p.chosen.connect(func(teams: Array):
 		_room_picker = null
 		if ui.top() == p:
@@ -3142,6 +3204,8 @@ func _open_room_picker() -> void:
 func _room_summary(lines := false) -> String:
 	if netplay == null:
 		return ""
+	if _rematch_page:
+		return _rematch_summary(lines)
 	var who: Array = netplay.room_players
 	var locked := who.filter(func(p): return bool(p["locked"])).size()
 	if lines:
@@ -3159,29 +3223,52 @@ func _room_summary(lines := false) -> String:
 	return ""
 
 
+## A 1v1 rematch's pick: this player's state and the opponent's ("Opponent is
+## choosing...", then their fighter once they've locked in).
+func _rematch_summary(lines := false) -> String:
+	var who: Array = netplay.room_players
+	var me := netplay.local_slot
+	if who.size() != 2 or me < 0 or me > 1:
+		return "Waiting for the other player..."
+	var theirs: Dictionary = who[1 - me]
+	var them := "Opponent is choosing..."
+	if bool(theirs["locked"]):
+		var team: Array = theirs.get("team", [theirs["fighter"]])
+		them = "Opponent locked in: " + ", ".join(PackedStringArray(team.map(func(id):
+			return String(MatchFactory.load_def(String(id)).get("name", id)))))
+	if not lines:
+		return them
+	var mine := "You: locked in" if bool((who[me] as Dictionary)["locked"]) else "You: picking..."
+	var out := PackedStringArray([mine, them])
+	if netplay.room_watchers > 0:
+		out.append("%d watching" % netplay.room_watchers)
+	return "\n".join(out)
+
+
 ## Each tick in a room: keep the room page and the select's panel up to date (and, with
 ## --cpu-vs-cpu, go on to the next match by itself).
 func _room_step() -> void:
 	if _room_status_label != null and is_instance_valid(_room_status_label):
 		var t := _room_summary(true)
 		if netplay.picked:
-			t = "Locked in. Waiting for the others...\n" + t
+			t = ("Locked in. Waiting for your opponent...\n" if _rematch_page else "Locked in. Waiting for the others...\n") + t
 		_room_status_label.text = t
 	if _room_picker != null and is_instance_valid(_room_picker):
 		_room_picker.set_solo_info(_room_summary(true))
-	if _cpu_vs_cpu and flow == Flow.MATCH_OVER and flow_t == MATCH_OVER_MENU_AT + 120 and not netplay.picking:
+	if _cpu_vs_cpu and netplay.in_room() and flow == Flow.MATCH_OVER and flow_t == MATCH_OVER_MENU_AT + 120 \
+			and not netplay.picking:
 		_room_next()
 
 
 ## A spectator in a room: the match-over screen says what the room is doing (picking,
 ## or waiting for a player); a player leaving mid-match ends the view of that match.
 func _watch_room_status() -> void:
-	if netplay.room == "" or netplay.phase == Netplay.Phase.ENDED:
+	if (netplay.room == "" and netplay.room_state != "select") or netplay.phase == Netplay.Phase.ENDED:
 		if flow == Flow.MATCH_OVER and _match_over_status != null and is_instance_valid(_match_over_status) \
 				and netplay.phase == Netplay.Phase.ENDED:
 			_match_over_status.text = netplay.status
 		return
-	if netplay.room_state == "waiting" and flow == Flow.FIGHT:
+	if netplay.room != "" and netplay.room_state == "waiting" and flow == Flow.FIGHT:
 		flow = Flow.MATCH_OVER
 		flow_t = 0
 		hud.banner = "A PLAYER LEFT"
@@ -3189,7 +3276,8 @@ func _watch_room_status() -> void:
 	if flow == Flow.MATCH_OVER and _match_over_status != null and is_instance_valid(_match_over_status):
 		match netplay.room_state:
 			"select":
-				_match_over_status.text = "Players are picking fighters for the next match (%d of %d locked in)" % [
+				_match_over_status.text = "Players are picking fighters for the %s (%d of %d locked in)" % [
+					"next match" if netplay.room != "" else "rematch",
 					netplay.room_players.filter(func(p): return bool(p["locked"])).size(), netplay.room_players.size()]
 			"waiting":
 				_match_over_status.text = "Waiting for a player to join room " + _room_code()
@@ -3218,27 +3306,30 @@ func _show_match_over() -> void:
 	scr.hints = ["move", "select", "back"]
 	var cfg: Dictionary = MODES[mode]
 	scr.builder = func(s: UiScreen):
-		if online != null and netplay.ranked:
-			# One rated match per pairing: no rematch.
-			s.add_button("Back to online", _leave_to_lobby, "Search again from the online screen")
-			s.add_button("Leave", _leave_online, "Back to the title menu")
-			_match_over_status = s.add_text("", UiTheme.SIZE_HINT + 1, UiTheme.C_ACCENT)
-			s.on_back = _leave_to_lobby
-		elif online != null and netplay.in_room():
+		if online != null and netplay.in_room():
 			s.add_button("Next match", _room_next, "Pick a fighter (or keep yours) for the next match in this room")
 			s.add_button("Leave room", _leave_to_lobby, "Back to the online screen; the room carries on without you")
 			s.add_row(RoomCodeButton.new(_room_code()), "Copy the code to send to a friend")
 			_match_over_status = s.add_text("", UiTheme.SIZE_HINT + 1, UiTheme.C_ACCENT)
 			s.on_back = _leave_to_lobby
 		elif online != null:
-			var again := s.add_button("Rematch", func(): pass, "Play again; it starts when everyone asks")
+			# A 1v1 rematch picks fighters first (both players, once both ask); a team
+			# battle starts again with the same ones. Ranked rates every game.
+			var again := s.add_button("Rematch", func(): pass, "Play again; once both ask, you both pick fighters"
+				if online.players == 2 else "Play again; it starts when everyone asks")
+			var asked := func():
+				again.disabled = true
+				again.text = "Rematch asked"
 			again.pressed.connect(func():
 				netplay.request_rematch()
-				again.disabled = true
-				again.text = "Rematch asked")
+				asked.call())
+			if netplay.rematch_local:
+				asked.call()
+			if netplay.ranked:
+				s.add_button("Back to online", _leave_to_lobby, "Search again from the online screen")
 			s.add_button("Leave", _leave_online, "Back to the title menu")
 			_match_over_status = s.add_text("", UiTheme.SIZE_HINT + 1, UiTheme.C_ACCENT)
-			s.on_back = _leave_online
+			s.on_back = _leave_to_lobby if netplay.ranked else _leave_online
 		elif watch != null:
 			s.add_button("Leave", _leave_online, "Back to the title menu")
 			if netplay != null and netplay.room != "":
@@ -3281,6 +3372,7 @@ func _end_online() -> void:
 	_ready_screen = null
 	_room_screen = null
 	_room_picker = null
+	_rematch_page = false
 	netplay = null
 	online = null
 	watch = null
@@ -3290,7 +3382,10 @@ func _end_online() -> void:
 
 ## --net-report=PATH: the match's inputs and state fingerprints as JSON, so two
 ## machines' reports can be compared (or a desync replayed). Also written on a desync.
-func _write_net_report() -> void:
+## PATH always holds the latest match (its number and teams are in it); `keep` (a
+## rematch or a room's next match is starting) also keeps the finished one beside it as
+## PATH_m<n>.json, so a run of several matches leaves every match's fighters and inputs.
+func _write_net_report(keep := false) -> void:
 	if online == null:
 		return
 	var path := String(_net_args.get("report", ""))
@@ -3299,10 +3394,16 @@ func _write_net_report() -> void:
 	if path == "":
 		DirAccess.make_dir_recursive_absolute("user://desyncs")
 		path = "user://desyncs/desync_%s.json" % Time.get_datetime_string_from_system().replace(":", "-")
-	var f := FileAccess.open(path, FileAccess.WRITE)
-	if f != null:
-		f.store_string(JSON.stringify(online.report()))
-		f.close()
+		keep = false
+	var text := JSON.stringify(online.report())
+	var paths := [path]
+	if keep:
+		paths.append("%s_m%d.%s" % [path.get_basename(), online.id, path.get_extension() if path.get_extension() != "" else "json"])
+	for p in paths:
+		var f := FileAccess.open(String(p), FileAccess.WRITE)
+		if f != null:
+			f.store_string(text)
+			f.close()
 
 
 func _capture() -> void:

@@ -115,22 +115,76 @@ func test_a_slower_machine_is_waited_for() -> void:
 	assert_eq(h.desync_frame, -1, "still in sync")
 
 
-func test_rematch_starts_a_fresh_match_when_both_ask() -> void:
+## Both ask for a rematch and wait for the pick to open on both sides.
+func _to_pick(nets: Array) -> bool:
+	(nets[0] as Netplay).request_rematch()
+	(nets[1] as Netplay).request_rematch()
+	return _run(nets, 60, func(): return (nets[0] as Netplay).rematch_pick() and (nets[1] as Netplay).rematch_pick())
+
+
+func test_rematch_goes_through_the_pick_and_starts_with_the_new_fighters() -> void:
 	var nets := _pair(2)
+	var h: Netplay = nets[0]
+	var g: Netplay = nets[1]
 	_run(nets, 200, func(): return _playing(nets))
 	_run(nets, 60, Callable(), _mash(8))
-	var first: OnlineMatch = (nets[0] as Netplay).game
-	(nets[0] as Netplay).request_rematch()
+	var first: OnlineMatch = h.game
+	h.request_rematch()
 	_run(nets, 30)
-	assert_true((nets[0] as Netplay).game == first, "one ask isn't enough")
-	(nets[1] as Netplay).request_rematch()
-	_run(nets, 30, func(): return (nets[0] as Netplay).game != first and (nets[1] as Netplay).game.id == (nets[0] as Netplay).game.id)
-	var h: OnlineMatch = (nets[0] as Netplay).game
-	var g: OnlineMatch = (nets[1] as Netplay).game
-	assert_eq(h.id, 2, "a second match:")
-	assert_eq(g.id, 2, "on both sides:")
+	assert_true(h.game == first and not h.rematch_pick(), "one ask isn't enough")
+	g.request_rematch()
+	assert_true(_run(nets, 60, func(): return h.rematch_pick() and g.rematch_pick()), "both asked: both pick")
+	assert_true(h.picking and g.picking and not h.picked and not g.picked, "nobody has locked in yet")
+	assert_eq(g.room_players.size(), 2, "the guest hears the host's pick status:")
+	assert_false(bool(g.room_players[0]["locked"]), "the host hasn't locked in")
+	var at := first.session.frame
+	_run(nets, 60, Callable(), _mash(5))
+	assert_true(h.game == first and g.game != null and g.game.id == first.id, "still the first match while they pick")
+	assert_gt(float(first.session.frame), float(at), "and it keeps stepping behind the pick:")
+	h.send_pick(["sno"])
+	assert_true(_run(nets, 20, func(): return g.room_players.size() == 2 and bool(g.room_players[0]["locked"])),
+		"the guest sees the host lock in")
+	assert_eq(g.room_players[0].get("team", []), ["sno"], "with their fighter:")
+	assert_true(h.game == first, "the host waits for the guest's pick")
+	g.send_pick(["digby", "pete"])  # a 1v1 rematch keeps one fighter each: refused
+	_run(nets, 20)
+	assert_true(h.game == first and not g.picked, "a pick of the wrong size is refused")
+	g.send_pick(["barkley"])
+	assert_true(_run(nets, 60, func(): return h.game != first and g.game != null and g.game.id == h.game.id),
+		"both locked in: the rematch starts")
+	assert_eq(h.game.id, 2, "a second match:")
+	assert_eq(h.game.teams, [["sno"], ["barkley"]], "the host's new teams:")
+	assert_eq(g.game.teams, [["sno"], ["barkley"]], "the guest's:")
+	assert_eq(h.my_team, ["sno"], "")
+	assert_eq(g.my_team, ["barkley"], "")
+	assert_false(h.rematch_pick() or g.rematch_pick(), "the pick is over")
 	_run(nets, 300, Callable(), _mash(9))
-	assert_eq(h.desync_frame, -1, "the rematch is in sync too")
+	assert_eq(h.game.desync_frame, -1, "the rematch is in sync too")
+	assert_gt(float(h.game.digests_matched), 2.0, "fingerprints compared:")
+	var r := g.game.report()
+	assert_eq(int(r["match"]), 2, "the report says which match:")
+	assert_eq(r["teams"], [["sno"], ["barkley"]], "and carries the new fighters:")
+	# Same again: each locks in the last pick, and the third match has the same fighters.
+	assert_true(_to_pick(nets), "a third time")
+	h.send_pick(h.my_team)
+	g.send_pick(g.my_team)
+	assert_true(_run(nets, 60, func(): return h.game.id == 3 and g.game != null and g.game.id == 3), "same again")
+	assert_eq(g.game.teams, [["sno"], ["barkley"]], "the same fighters:")
+
+
+func test_leaving_during_the_rematch_pick_ends_it_for_both() -> void:
+	var nets := _pair(1)
+	var h: Netplay = nets[0]
+	var g: Netplay = nets[1]
+	_run(nets, 200, func(): return _playing(nets))
+	assert_true(_to_pick(nets), "picking")
+	h.send_pick(["sno"])
+	_run(nets, 10)
+	g.leave()
+	_run(nets, 10)
+	assert_eq(h.phase, Netplay.Phase.ENDED, "the host's session ends:")
+	assert_true(h.error.contains("left"), "and says why: " + h.error)
+	assert_eq(g.phase, Netplay.Phase.ENDED, "and the leaver's:")
 
 
 func test_leaving_ends_the_session_for_the_other_player() -> void:

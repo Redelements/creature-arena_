@@ -9,7 +9,10 @@ extends RefCounted
 ##   ping x5  ------------------------------->  pong   (the host measures the round trip)
 ##   start {teams, input delay, match id} --->
 ##   ...both play the match: input stream (unreliable), state fingerprints (reliable)...
-##   rematch <------------------------------->  rematch   (both asked: the host starts again)
+##   rematch <------------------------------->  rematch   (both asked: pick again)
+##   room {state "select", players} -------->              (the host's pick status)
+##            <-------------------------------  pick {team}
+##   start {teams, ...} --------------------->              (both locked in: the next match)
 ##   bye     (either side, on leaving)
 ##
 ## The host is side 0 (left), the joiner side 1. Both builds must have the same game
@@ -42,8 +45,17 @@ extends RefCounted
 ## stepping behind the select) until the next "start". If the other player of a 1v1
 ## room leaves, "wait" with `back` puts this session back to waiting (HANDSHAKE) in the
 ## same room.
+##
+## A 1v1 rematch outside a room (Quick match, ranked, direct host/join) goes through the
+## fighter select too: once both players have asked, the server (or the direct host)
+## says `room` {code "", state "select", players [slot 0, slot 1]}, the same status a
+## room sends. rematch_pick() turns true, the game opens the select (the last pick
+## ready to lock in), send_pick(team) answers, and the next "start" carries the new
+## teams. The host plays the server's part on a direct link: it tracks both picks and
+## starts the match once both are in. Team battles in Quick match still rematch with
+## the same fighters.
 
-const NET_VERSION := 10  ## 10: rooms last between matches (room, next, pick; wait back; bye room), Sinkhole collapses by rect and only a chasm fall is a ring-out; 9: the 1v1 is best of three rounds; 8: ranked play, player ids, daily scores; 7: team rules and tag Duels; 6: the server's ready check; 5: team battles; 4: 360 move angle
+const NET_VERSION := 11  ## 11: a 1v1 rematch outside rooms (Quick match, ranked, direct) picks again (room select status, pick; ranked rates every game); 10: rooms last between matches (room, next, pick; wait back; bye room), Sinkhole collapses by rect and only a chasm fall is a ring-out; 9: the 1v1 is best of three rounds; 8: ranked play, player ids, daily scores; 7: team rules and tag Duels; 6: the server's ready check; 5: team battles; 4: 360 move angle
 const DEFAULT_PORT := 7777
 const PINGS := 5
 ## A precise ping (a real link) blocks the host this long at most waiting for the pong.
@@ -93,6 +105,7 @@ var my_name := ""
 ## after the match ({old, new, rd, games, wins}).
 var ranked := false
 var last_rating := {}
+var ratings_heard := 0  ## rating messages this session (every ranked game is rated)
 ## A room on a server: what it's doing ("" until the server says; "waiting", "playing",
 ## "select"), who's in it ([{name, fighter, locked, playing}]) and how many watch.
 var room_state := ""
@@ -101,6 +114,10 @@ var room_watchers := 0
 ## This player left the match-over for the room's fighter select, and has locked in.
 var picking := false
 var picked := false
+## Hosting a direct match: the joiner's name (from hello), and who has locked in for a
+## rematch (by side) while picking.
+var their_name := "Player"
+var _locked := [false, false]
 
 
 ## A fresh player id: 16 hex characters from the system's random source.
@@ -248,15 +265,16 @@ func tick(local_bits: int) -> void:
 			else:
 				game.tick(local_bits)
 			_live_ping_step()
-			if hosting and rematch_local and rematch_remote:
-				_start_match()
+			if hosting and rematch_local and rematch_remote and room_state != "select":
+				_host_open_pick()
 	link.flush()
 
 
-## Ask for a rematch; it starts when both players have asked. Not in a room (it picks
-## again instead) nor ranked (one rated game per pairing).
+## Ask for a rematch. Once both players have asked, a 1v1 goes to the fighter select
+## (rematch_pick()); a team battle starts again with the same fighters. Not in a room
+## (it picks again with request_next instead).
 func request_rematch() -> void:
-	if phase != Phase.PLAYING or rematch_local or in_room() or ranked:
+	if phase != Phase.PLAYING or rematch_local or in_room() or watching:
 		return
 	rematch_local = true
 	link.send({"t": "rematch"}, true)
@@ -266,6 +284,12 @@ func request_rematch() -> void:
 ## Playing in a room on a server (not watching): matches there end in a fighter select.
 func in_room() -> bool:
 	return room != "" and not hosting and not watching
+
+
+## Both players asked for a 1v1 rematch outside a room, and the server (or the host)
+## is waiting for this player's pick: the game shows the fighter select.
+func rematch_pick() -> bool:
+	return phase == Phase.PLAYING and not in_room() and not watching and room_state == "select"
 
 
 ## A room's match is over and this player is picking for the next: the server marks
@@ -279,15 +303,54 @@ func request_next() -> void:
 	link.flush()
 
 
-## Locked in for the room's next match: it starts once everyone in the room has.
+## Locked in for the room's next match (it starts once everyone in the room has), or
+## for a rematch (the same number of fighters as before: three for a tag Duel).
 func send_pick(team: Array) -> void:
-	if not in_room() or phase != Phase.PLAYING or not _valid_team(team):
+	if phase != Phase.PLAYING or not _valid_team(team):
+		return
+	if not in_room() and not (rematch_pick() and (team as Array).size() == my_team.size()):
 		return
 	my_team = team.duplicate()
 	picking = true
 	picked = true
+	if hosting:
+		_locked[0] = true
+		_host_pick_status()
+		_host_try_start()
+		return
 	link.send({"t": "pick", "team": my_team}, true)
 	link.flush()
+
+
+## Hosting a direct match: both asked for a rematch, so both pick again.
+func _host_open_pick() -> void:
+	_locked = [false, false]
+	picking = true
+	picked = false
+	_host_pick_status()
+
+
+## Hosting: the pick status, here and to the joiner (a room's "room" message, code "").
+func _host_pick_status() -> void:
+	var who: Array = []
+	var names := [_my_name(), their_name]
+	var teams := [my_team, their_team]
+	for side in 2:
+		var p := {"name": String(names[side]), "fighter": String(teams[side][0]), "locked": bool(_locked[side]),
+			"playing": false}
+		if _locked[side]:
+			p["team"] = (teams[side] as Array).duplicate()
+		who.append(p)
+	var m := {"t": "room", "code": "", "state": "select", "players": who, "watchers": 0}
+	_room_status(m)
+	link.send(m, true)
+	link.flush()
+
+
+## Hosting: both locked in, so the rematch starts with the new teams.
+func _host_try_start() -> void:
+	if _locked[0] and _locked[1]:
+		_start_match()
 
 
 ## The room's players who haven't locked in yet (names), and who has.
@@ -358,6 +421,9 @@ func _handle(m: Dictionary) -> void:
 				_fail("The other player picked a fighter this build doesn't have.")
 				return
 			their_team = team
+			their_name = String(m.get("name", "Player")).strip_edges().replace("\n", " ").left(16)
+			if their_name == "":
+				their_name = "Player"
 			phase = Phase.HANDSHAKE
 			status = "Player connected. Measuring the connection..."
 			_next_ping = _t
@@ -378,17 +444,13 @@ func _handle(m: Dictionary) -> void:
 		"room":
 			if hosting:
 				return
-			room_state = String(m.get("state", ""))
-			var who = m.get("players", [])
-			room_players = []
-			if who is Array:
-				for p in who:
-					if p is Dictionary:
-						room_players.append({"name": String(p.get("name", "Player")).left(16),
-							"fighter": String(p.get("fighter", "")), "locked": bool(p.get("locked", false)),
-							"playing": bool(p.get("playing", false))})
-			room_watchers = maxi(0, int(m.get("watchers", 0)))
+			var was := room_state
+			_room_status(m)
+			if room_state == "select" and was != "select" and rematch_pick():
+				picking = true  # both asked for a rematch: pick for it
+				picked = false
 		"rating":
+			ratings_heard += 1
 			last_rating = {"old": float(m.get("old", 0.0)), "new": float(m.get("new", 0.0)), "rd": float(m.get("rd", 0.0)),
 				"games": int(m.get("games", 0)), "wins": int(m.get("wins", 0))}
 		"found":
@@ -458,6 +520,8 @@ func _handle(m: Dictionary) -> void:
 			arena_id = arena
 			_begin(int(m.get("n", 0)), teams, int(m.get("delay", 2)), slot, size, rules, arena)
 			their_team = teams[1 - local_side]
+			if size == 1:
+				my_team = (teams[local_side] as Array).duplicate()
 			var cpu = m.get("cpu", [])
 			if cpu is Array:
 				for k in cpu:
@@ -469,6 +533,16 @@ func _handle(m: Dictionary) -> void:
 		"cpu":  # a player left the team battle: the server's CPU plays their slot now
 			if game != null and int(m.get("n", -1)) == game.id:
 				game.set_cpu(int(m.get("p", -1)))
+		"pick":  # hosting a direct match: the joiner locked in for the rematch
+			if not hosting or room_state != "select" or phase != Phase.PLAYING:
+				return
+			var team = m.get("team")
+			if not _valid_team(team) or (team as Array).size() != their_team.size():
+				return
+			their_team = (team as Array).duplicate()
+			_locked[1] = true
+			_host_pick_status()
+			_host_try_start()
 		"rematch":
 			rematch_remote = true
 			rematch_asked[int(m.get("p", 1 - local_slot))] = true
@@ -495,6 +569,23 @@ func _handle(m: Dictionary) -> void:
 var _watch_n := 0
 
 
+## A "room" status (a room's, or a 1v1 rematch's pick): what it's doing and who's in it.
+func _room_status(m: Dictionary) -> void:
+	room_state = String(m.get("state", ""))
+	var who = m.get("players", [])
+	room_players = []
+	if who is Array:
+		for p in who:
+			if p is Dictionary:
+				var e := {"name": String(p.get("name", "Player")).left(16),
+					"fighter": String(p.get("fighter", "")), "locked": bool(p.get("locked", false)),
+					"playing": bool(p.get("playing", false))}
+				if _valid_team(p.get("team")):
+					e["team"] = (p["team"] as Array).duplicate()
+				room_players.append(e)
+	room_watchers = maxi(0, int(m.get("watchers", 0)))
+
+
 ## The server put this spectator on a match: build a referee's copy of it and feed it
 ## everything stepped so far.
 func _start_watching(m: Dictionary) -> void:
@@ -510,6 +601,9 @@ func _start_watching(m: Dictionary) -> void:
 	match_found = false
 	_watch_n = int(m.get("n", 0))
 	arena_id = arena
+	if room == "":
+		room_state = ""  # a rematch's pick is over
+		room_players = []
 	watch = Referee.new(teams, int(m.get("delay", 2)), size, rules, arena)
 	var rows = m.get("log", [])
 	if rows is Array:
@@ -570,6 +664,11 @@ func _begin(n: int, teams: Array, delay: int, slot := -1, size := 1, rules := ""
 	rematch_asked = {}
 	picking = false
 	picked = false
+	_locked = [false, false]
+	last_rating = {}
+	if not in_room():
+		room_state = ""  # a rematch's pick is over
+		room_players = []
 	phase = Phase.PLAYING
 	status = ""
 

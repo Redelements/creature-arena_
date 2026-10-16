@@ -14,7 +14,7 @@ extends RefCounted
 ##   <-- accepted {have, need}                  accepted -->
 ##   <-- start {side 0, teams, delay}           start {side 1, ...} -->
 ##   in / dg  ---------------------> relayed --------------------->  (and back)
-##   rematch  ---------------------> relayed;  both asked: start again
+##   rematch  ---------------------> relayed;  both asked: pick again (a 1v1) or start again
 ##   bye      ---------------------> relayed;  the other player's session ends
 ##
 ## To a player the server looks like a host that gives them a side: Netplay needs only
@@ -65,8 +65,18 @@ extends RefCounted
 ## match fills the empty slots with CPUs (or newcomers, who join between matches). The
 ## room closes when its last player leaves; its watchers get "bye" {why: "room"}.
 ## Spectators of a room follow it from match to match without rejoining. Rooms don't
-## take "rematch" (they pick again instead), nor do ranked matches (one rated game per
-## pairing).
+## take "rematch" (they pick again instead).
+##
+## A 1v1 rematch outside a room (Quick match, ranked, tag Duels) picks again too: once
+## both players have asked, the Game goes to its pick (`picking`) and everyone, its
+## spectators included, hears the room's status message with code "" and state
+## "select"; each player answers "pick" {team} (as many fighters as before), and once
+## both are in the next match starts with the new teams, `n` counted on. Ranked rates
+## every game. Team battles in Quick match rematch with the same fighters.
+##
+##   <-- room {code "", state "select", players [slot 0, slot 1]}  (both asked)
+##   pick {team}  -->
+##   <-- start {...}                 (both locked in: the rematch)
 
 const PINGS := 5
 ## A ping that doesn't come back in this long is given up on.
@@ -198,6 +208,9 @@ class Game:
 	var delay := 2
 	var referee: Referee
 	var rematch: Array = []
+	## A 1v1 rematch's fighter select: on, and who has locked in (slot -> true).
+	var picking := false
+	var picks := {}
 	var reported := false
 	var path_ms := 0
 
@@ -374,18 +387,24 @@ func _handle(c: Client, m: Dictionary) -> void:
 				o.link.send({"t": "dg", "n": g.n, "p": c.slot, "f": f, "d": d}, true)
 		"rematch":
 			var g := c.game
-			if g == null or g.rematch[c.slot] or g.ranked or g.room != "":
-				return  # ranked: one rated game per pairing; a room picks again instead
+			if g == null or g.rematch[c.slot] or g.room != "":
+				return  # a room picks again instead
 			g.rematch[c.slot] = true
 			for o: Client in g.others(c):
 				o.link.send({"t": "rematch", "p": c.slot}, true)
 			if not (false in g.rematch):  # CPUs always say yes
 				_report(g)
-				_start(g)
+				if g.size == 1:
+					_open_pick(g)  # a 1v1 picks again first
+				else:
+					_start(g)
 		"next":
 			_room_next(c)
 		"pick":
-			_room_pick(c, m.get("team"))
+			if c.game != null and c.game.picking:
+				_rematch_pick(c, m.get("team"))
+			else:
+				_room_pick(c, m.get("team"))
 		"bye":
 			_drop(c, "left")
 
@@ -488,6 +507,8 @@ func _attach_watchers() -> void:
 		g.watchers.append(c)
 		c.game = g
 		_send_watch_start(g, c)
+		if g.picking:
+			_pick_status(g)  # its players are picking for a rematch
 		_log("%s is watching match %d" % [c.label(), g.label])
 
 
@@ -742,6 +763,8 @@ func _start(g: Game) -> void:
 		(rooms[g.room] as Room).n = g.n
 	g.delay = forced_delay if forced_delay >= 0 else Netplay.pick_delay(path)
 	g.rematch = []
+	g.picking = false
+	g.picks = {}
 	for c in g.players:
 		g.rematch.append(c == null)  # CPUs always want a rematch
 	g.reported = false
@@ -982,6 +1005,47 @@ func _cpu_takes_over(g: Game, c: Client) -> void:
 	c.game = null
 	if not (false in g.rematch):
 		_report(g)
+		_start(g)
+
+
+# ------------------------------------------------------------------ a 1v1 rematch's pick
+
+## Both players of a 1v1 asked for a rematch: they pick again (the finished match keeps
+## being refereed meanwhile, so nobody's session stalls).
+func _open_pick(g: Game) -> void:
+	g.picking = true
+	g.picks = {}
+	_log("match %d: both want a rematch; picking fighters" % g.label)
+	_pick_status(g)
+
+
+## The players and the match's spectators hear who has locked in (a room's status
+## message, code "", players in slot order; a locked-in player's team rides along).
+func _pick_status(g: Game) -> void:
+	var who: Array = []
+	for c in g.players:
+		var cl: Client = c
+		var p := {"name": cl.name, "fighter": String(cl.team[0]), "locked": g.picks.has(cl.slot), "playing": false}
+		if g.picks.has(cl.slot):
+			p["team"] = cl.team.duplicate()
+		who.append(p)
+	var m := {"t": "room", "code": "", "state": "select", "players": who, "watchers": g.watchers.size()}
+	for c: Client in g.humans() + g.watchers:
+		if clients.has(c.id):
+			c.link.send(m, true)
+
+
+## A player locked in for the rematch: as many fighters as they had (three for a tag
+## Duel). Once both have, the rematch starts with the new teams.
+func _rematch_pick(c: Client, team) -> void:
+	var g := c.game
+	if not Netplay.valid_team(team) or (team as Array).size() != c.team.size():
+		return
+	c.team = (team as Array).duplicate()
+	g.picks[c.slot] = true
+	_log("%s locked in for the rematch" % c.label())
+	_pick_status(g)
+	if g.picks.size() >= g.humans().size():
 		_start(g)
 
 

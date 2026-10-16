@@ -95,8 +95,11 @@ How the joiner reaches the host:
 It uses rollback netcode: your own inputs respond at once (after 1–3 frames of delay,
 picked from the ping), and the other player's late inputs are corrected in a frame or
 two. The bottom corner shows ping, delay and the deepest rollback. Enter / A after the
-match asks for a rematch (in a room: Next match; ranked is one rated match, then back to
-the online screen); Esc / View leaves. For testing on one network you can fake a
+match asks for a rematch; once both of you have asked, a 1v1 (Quick match, ranked, a
+tag Duel, or host/join) goes to the fighter select with your last pick ready, so one
+press (or Same again) keeps it, and the rematch starts when you've both locked in (the
+other player's pick shows once they lock in). Ranked rates every game. In a room it's
+Next match; Quick match 2v2/3v3 rematch with the same fighters. Esc / View leaves. For testing on one network you can fake a
 bad connection: `--net-lag=6 --net-loss=0.1`. Details: [docs/NETCODE.md](docs/NETCODE.md).
 
 ## Run it

@@ -2,8 +2,8 @@ extends TestCase
 ## Rooms on the server last between matches: after one, everyone picks again and the
 ## next match starts with the new fighters; a player leaving doesn't end the room;
 ## spectators follow it from match to match; the code copies to the clipboard. Also the
-## flows rooms sit beside: Quick match rematches, ranked's single game, and a spectator
-## following a rematch.
+## flows rooms sit beside: Quick match and ranked rematches (which pick again too, and
+## ranked rates every game), and a spectator following a rematch through its pick.
 
 const FIGHTERS := ["cairn", "culvert", "sno", "barkley"]
 
@@ -243,11 +243,20 @@ func test_quick_match_rematch_still_works_and_its_watcher_follows() -> void:
 	var watched := w.watch
 	a.request_rematch()
 	b.request_rematch()
-	assert_true(_run(server, all, 60, func(): return a.game.id == 2 and b.game.id == 2), "a Quick match rematch starts")
+	assert_true(_run(server, all, 60, func(): return a.rematch_pick() and b.rematch_pick() and w.room_state == "select"),
+		"a Quick match rematch picks first; the watcher hears the players are picking")
+	assert_false(w.rematch_pick(), "the watcher doesn't pick")
+	a.send_pick(["digby"])
+	assert_true(_run(server, all, 30, func(): return w.room_players.size() == 2 and bool(w.room_players[0]["locked"])),
+		"the watcher sees who has locked in")
+	b.send_pick(["pete"])
+	assert_true(_run(server, all, 60, func(): return a.game.id == 2 and b.game.id == 2), "then the rematch starts")
 	assert_true(_run(server, all, 30, func(): return w.watch != watched), "and the watcher gets it")
+	assert_eq(w.watch.teams, [["digby"], ["pete"]], "with the new fighters:")
+	assert_eq(w.room_state, "", "the pick is over for the watcher too:")
 
 
-func test_ranked_has_no_rematch_so_one_pairing_is_rated_once() -> void:
+func test_a_ranked_rematch_picks_again_and_rates_every_game() -> void:
 	var server := RelayServer.new()
 	var nets: Array = []
 	for i in 2:
@@ -267,15 +276,32 @@ func test_ranked_has_no_rematch_so_one_pairing_is_rated_once() -> void:
 		(d as DuelSim).round_wins = [1, 0]
 		(d as DuelSim).sim.creatures[1].hp = 0.0
 		(d as DuelSim).sim.creatures[1]._set_state(CreatureSim.State.KO)
-	assert_true(_run(server, nets, 400, func(): return not a.last_rating.is_empty()), "rated")
-	var games := int(server.ratings.player("abcd0000")["games"])
+	assert_true(_run(server, nets, 400, func(): return not a.last_rating.is_empty() and not b.last_rating.is_empty()), "rated")
+	assert_eq(int(server.ratings.player("abcd0000")["games"]), 1, "one game in the book:")
+	var after_one := server.ratings.rating("abcd0000")
 	a.request_rematch()
-	assert_false(a.rematch_local, "the client has no rematch in ranked")
-	a.link.send({"t": "rematch"}, true)
-	b.link.send({"t": "rematch"}, true)
-	_run(server, nets, 60)
-	assert_eq(server.matches_started, 1, "the server starts none:")
-	assert_eq(int(server.ratings.player("abcd0000")["games"]), games, "and nothing is rated again:")
+	assert_true(a.rematch_local, "ranked has a rematch now")
+	b.request_rematch()
+	assert_true(_run(server, nets, 60, func(): return a.rematch_pick() and b.rematch_pick()), "through the pick")
+	a.send_pick(["sno"])
+	b.send_pick(["digby"])
+	assert_true(_run(server, nets, 60, func(): return a.game.id == 2 and b.game.id == 2), "the rematch starts")
+	assert_eq(a.game.teams, [["sno"], ["digby"]], "with the new fighters:")
+	assert_true(a.last_rating.is_empty(), "the last game's rating is cleared for the new one")
+	g = server.games[0]
+	assert_true(g.ranked, "still ranked")
+	for d in [g.referee.duel, a.game.duel, b.game.duel]:
+		(d as DuelSim).round_wins = [1, 0]
+		(d as DuelSim).sim.creatures[1].hp = 0.0
+		(d as DuelSim).sim.creatures[1]._set_state(CreatureSim.State.KO)
+	assert_true(_run(server, nets, 400, func(): return not a.last_rating.is_empty() and not b.last_rating.is_empty()),
+		"the rematch is rated too")
+	assert_eq(a.ratings_heard, 2, "two rating messages each:")
+	assert_eq(b.ratings_heard, 2, "")
+	assert_eq(int(server.ratings.player("abcd0000")["games"]), 2, "two games in the book:")
+	assert_eq(int(server.ratings.player("abcd0001")["games"]), 2, "")
+	assert_eq(int(a.last_rating["games"]), 2, "the message says so:")
+	assert_gt(server.ratings.rating("abcd0000"), after_one, "and the second win moved the rating again")
 
 
 # ------------------------------------------------------------------ the copy button
@@ -436,7 +462,7 @@ func test_in_the_game_the_other_player_leaving_a_room_goes_back_to_waiting_with_
 	g.free()
 
 
-func test_in_the_game_ranked_match_over_has_no_rematch() -> void:
+func test_in_the_game_ranked_match_over_has_a_rematch_and_back_to_online() -> void:
 	var g := _game()
 	g._start_match(20)
 	var server := RelayServer.new()
@@ -455,7 +481,7 @@ func test_in_the_game_ranked_match_over_has_no_rematch() -> void:
 	g.flow = g.Flow.MATCH_OVER
 	g.flow_t = 0
 	_step(g, server, [nets[1]], g.MATCH_OVER_MENU_AT + 2, func(): return false)
-	assert_eq(_labels(g.ui.top()), ["Back to online", "Leave"], "ranked: back to the online screen, no rematch:")
+	assert_eq(_labels(g.ui.top()), ["Rematch", "Back to online", "Leave"], "ranked: a rematch, or back to the online screen:")
 	(nets[1] as Netplay).leave()
 	_step(g, server, [], 300, func(): return false)
 	assert_true(g.ui.is_open() and g.flow == g.Flow.MATCH_OVER, "the other going back doesn't throw this one out")
@@ -486,7 +512,15 @@ func test_in_the_game_a_spectator_follows_a_rematch() -> void:
 	assert_true(g.ui.is_open(), "the watcher's match-over screen")
 	a.request_rematch()
 	b.request_rematch()
+	var says_picking := func() -> bool:
+		return g._match_over_status != null and g._match_over_status.text.contains("picking")
+	assert_true(_step(g, server, [a, b], 60, says_picking), "it says the players are picking: "
+		+ (g._match_over_status.text if g._match_over_status != null else ""))
+	_step(g, server, [a, b], 30, func(): return a.rematch_pick() and b.rematch_pick())
+	a.send_pick(["pete"])
+	b.send_pick(["hissy"])
 	assert_true(_step(g, server, [a, b], 120, func(): return g.watch != first), "the rematch: the game follows it")
+	assert_eq(g.watch.teams, [["pete"], ["hissy"]], "with the new fighters:")
 	assert_true(g.watch == g.netplay.watch, "showing the new match")
 	assert_eq(g.flow, g.Flow.FIGHT, "back in the fight, not frozen on the match-over")
 	assert_false(g.ui.is_open(), "")
@@ -520,5 +554,143 @@ func test_in_the_game_a_room_spectator_sees_the_players_picking_then_the_next_ma
 	b.send_pick(["digby"])
 	assert_true(_step(g, server, [a, b], 120, func(): return g.watch != first), "then shows the next match")
 	assert_eq(g.flow, g.Flow.FIGHT, "")
+	g._leave_online()
+	g.free()
+
+
+## The game in a Quick match 1v1 on an in-memory server with another player. Returns
+## [server, other].
+func _game_in_quick_match(g: Node, mine: String, theirs: String) -> Array:
+	g._start_match(20)  # Online
+	var server := RelayServer.new()
+	var la := LoopLink.pair()
+	server.add_client(la[0])
+	var me := Netplay.new()
+	me.my_name = "Me"
+	me.join("server", 0, [mine], la[1])
+	var other := _player(server, 1, "", 1, [theirs])
+	g.lobby.use_fighter(mine)
+	g.netplay = me
+	g.lobby.busy = true
+	return [server, other]
+
+
+## Plays the game's match to its match-over screen.
+func _to_match_over(g: Node, server: RelayServer, others: Array) -> void:
+	g.flow = g.Flow.MATCH_OVER
+	g.flow_t = 0
+	_step(g, server, others, g.MATCH_OVER_MENU_AT + 2, func(): return false)
+
+
+func test_in_the_game_a_quick_match_rematch_opens_the_select_and_starts_with_the_new_fighters() -> void:
+	var g := _game()
+	var s := _game_in_quick_match(g, "cairn", "sno")
+	var server: RelayServer = s[0]
+	var other: Netplay = s[1]
+	var report := OS.get_user_data_dir().path_join("test_rematch_report.json")
+	g._net_args["report"] = report
+	assert_true(_step(g, server, [other], 300, func(): return g.online != null), "a Quick match starts")
+	var first: OnlineMatch = g.online
+	_to_match_over(g, server, [other])
+	assert_eq(_labels(g.ui.top()), ["Rematch", "Leave"], "Quick match offers a rematch:")
+	var again: Button = g.ui.top().rows()[0]
+	again.pressed.emit()
+	assert_true(g.netplay.rematch_local and again.disabled, "asked")
+	other.request_rematch()
+	assert_true(_step(g, server, [other], 60, func(): return g.ui.top() is CharacterSelect), "both asked: the fighter select opens")
+	var pick: CharacterSelect = g.ui.top()
+	assert_true(pick.solo, "just this player's")
+	assert_eq(String(pick.roster[pick.cursor[0]]), "cairn", "with the last pick ready to lock in again:")
+	assert_true(g._room_screen != null and g._room_screen.title == "REMATCH", "over the rematch page")
+	assert_eq(_labels(g._room_screen), ["Same again", "Pick your fighter", "Leave"], "")
+	assert_true(pick.solo_info.contains("Opponent is choosing"), "it says the opponent is choosing: " + pick.solo_info)
+	_step(g, server, [other], 10, func(): return other.rematch_pick())
+	other.send_pick(["barkley"])
+	assert_true(_step(g, server, [other], 30, func(): return pick.solo_info.contains("Barkley")),
+		"then shows their fighter once they've locked in: " + pick.solo_info)
+	assert_true(g.online == first, "the old match is still on behind the select")
+	pick.pick(0)  # one press: the same fighter again
+	assert_true(pick.is_done(), "one press locks it in")
+	pick._process(CharacterSelect.START_DELAY + 0.1)  # the LOCKED IN banner, then it's sent
+	_step(g, server, [other], 40, func(): return g.online != first)
+	assert_true(g.online != first, "the rematch starts")
+	assert_eq(g.flow, g.Flow.FIGHT, "straight into the fight")
+	assert_false(g.ui.is_open(), "the select and its page close")
+	assert_eq(g.online.id, 2, "match 2:")
+	assert_eq(g.online.teams[g.online.local_side], ["cairn"], "the same fighter (one press):")
+	assert_eq(g.online.teams[1 - g.online.local_side], ["barkley"], "against their new one:")
+	var kept = JSON.parse_string(FileAccess.get_file_as_string(report.get_basename() + "_m1.json"))
+	assert_true(kept is Dictionary and int(kept["match"]) == 1, "--net-report kept match 1's report")
+	assert_eq(kept["teams"][1 - g.online.local_side], ["sno"], "with match 1's fighters:")
+	g._write_net_report()
+	var now = JSON.parse_string(FileAccess.get_file_as_string(report))
+	assert_true(now is Dictionary and int(now["match"]) == 2, "and the report itself is match 2's")
+	assert_eq(now["teams"][1 - g.online.local_side], ["barkley"], "with the new fighters:")
+	g._net_args.erase("report")
+	DirAccess.remove_absolute(report)
+	DirAccess.remove_absolute(report.get_basename() + "_m1.json")
+	# Same again on the page locks in at once too.
+	_to_match_over(g, server, [other])
+	(g.ui.top().rows()[0] as Button).pressed.emit()
+	other.request_rematch()
+	assert_true(_step(g, server, [other], 60, func(): return g.ui.top() is CharacterSelect), "the select again")
+	g.ui.pop()  # back out of the select to the page
+	assert_eq(g.ui.top(), g._room_screen, "back on the rematch page")
+	(g._room_screen.rows()[0] as Button).pressed.emit()  # Same again
+	_step(g, server, [other], 10, func(): return other.rematch_pick())
+	other.send_pick(["sno"])
+	var second: OnlineMatch = g.online
+	assert_true(_step(g, server, [other], 60, func(): return g.online != second), "match 3 starts")
+	assert_eq(g.online.teams[g.online.local_side], ["cairn"], "")
+	assert_eq(g.online.id, 3, "counting up:")
+	g._leave_online()
+	g.free()
+
+
+func test_in_the_game_the_other_player_leaving_during_the_rematch_pick_goes_back_to_online() -> void:
+	var g := _game()
+	var s := _game_in_quick_match(g, "cairn", "sno")
+	var server: RelayServer = s[0]
+	var other: Netplay = s[1]
+	assert_true(_step(g, server, [other], 300, func(): return g.online != null), "a Quick match starts")
+	_to_match_over(g, server, [other])
+	g.netplay.request_rematch()
+	other.request_rematch()
+	assert_true(_step(g, server, [other], 60, func(): return g.ui.top() is CharacterSelect), "picking")
+	other.leave()
+	var gone := func() -> bool:
+		return g.ui.top() is UiScreen and (g.ui.top() as UiScreen).title == "REMATCH" and g._room_screen == null
+	assert_true(_step(g, server, [], 30, gone), "the select closes")
+	assert_true((g.ui.top() as UiScreen).subtitle.contains("left"), "and says the other player left: "
+		+ (g.ui.top() as UiScreen).subtitle)
+	assert_true(g.hud.banner != "DISCONNECTED", "no disconnection banner over it")
+	assert_true(_step(g, server, [], 300, func(): return g.lobby != null), "then back to the online screen by itself")
+	assert_true(g.netplay == null, "the session is over")
+	g.free()
+
+
+func test_in_the_game_a_direct_rematch_picks_too() -> void:
+	var g := _game()
+	g._start_match(20)
+	var links := LoopLink.pair()
+	var host := Netplay.new()
+	host.host(0, ["culvert"], links[0])
+	var me := Netplay.new()
+	me.join("loop", 0, ["cairn"], links[1])
+	g.netplay = me
+	g.lobby.busy = true
+	var server := RelayServer.new()  # not used: nobody joins it
+	assert_true(_step(g, server, [host], 300, func(): return g.online != null), "a direct match starts")
+	var first: OnlineMatch = g.online
+	_to_match_over(g, server, [host])
+	g.netplay.request_rematch()
+	host.request_rematch()
+	assert_true(_step(g, server, [host], 60, func(): return g.ui.top() is CharacterSelect), "the host opens the pick")
+	assert_true(host.rematch_pick(), "on the host too")
+	(g.ui.top() as CharacterSelect).chosen.emit([["digby"], []])
+	host.send_pick(["craglash"])
+	assert_true(_step(g, server, [host], 60, func(): return g.online != first), "the rematch starts")
+	assert_eq(g.online.teams, [["craglash"], ["digby"]], "with both new picks:")
+	assert_eq(host.game.teams, g.online.teams, "the host agrees:")
 	g._leave_online()
 	g.free()
