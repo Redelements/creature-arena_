@@ -62,6 +62,7 @@ const STATE_FIELDS := [
 	"blind", "whiff_serial", "ambush_serial", "root",
 	"stealth", "haste", "haste_mult", "atk_buff", "atk_mult", "stone_ice", "covered",
 	"block_lag", "punish_serial", "home_speed", "fall_chasm",
+	"sheets", "sheet_t", "folded", "poison_look",
 ]
 ## Set once when the creature is made and never changed by the simulation.
 const STATIC_FIELDS := ["id", "team", "def", "is_dummy", "radius", "weight", "max_hp", "max_stamina",
@@ -210,6 +211,15 @@ var home_speed := 0.0  ## a homing dash's pace once its landing spot is locked
 ## The pit it is falling into is a chasm (decided when the fall starts: a hole can heal
 ## during the fall). Under `fall_ko` only a chasm is a knockout.
 var fall_chasm := false
+## Paper Stock (creature "sheets" {max, regen}): sheets in hand; one regrows every `regen`
+## ticks while below `max`. Folds and `sheets_cost` moves spend them.
+var sheets := 0
+var sheet_t := 0
+## Moves with a "fold" step that are folded and ready (move id -> true): the next press
+## uses the craft; until then the press folds it (see _resolve_fold).
+var folded := {}
+## How the poison on this creature looks ("": venom; "bleed": a shuriken's cut), for views.
+var poison_look := ""
 
 
 ## Whether `o` is on the other side (never itself).
@@ -229,9 +239,22 @@ func _init(p_id: int, p_def: Dictionary, p_pos: Vector2, p_is_dummy := false) ->
 	stamina = max_stamina
 	radius = float(def.get("radius", 10))
 	weight = float(def.get("weight", 1.0))
-	for mid in moves():
+	for mid in moves().keys():
 		_normalize_move(String(mid), moves()[mid])
+	# Fold-then-use: a move with "fold" {anim, startup, recovery, cost} gets a "fold_<id>"
+	# step of its own, played on the first press; the craft is ready once it completes.
+	for mid in moves().keys():
+		var fd: Dictionary = moves()[mid].get("fold", {})
+		if fd.is_empty():
+			continue
+		var fm := {"type": "fold", "fold_of": String(mid), "name": "Fold " + String(moves()[mid].get("name", mid)),
+			"anim": String(fd.get("anim", moves()[mid].get("anim", "idle"))),
+			"startup": int(fd.get("startup", 12)), "active": 0, "recovery": int(fd.get("recovery", 6)),
+			"mobile": float(fd.get("mobile", 0.0))}
+		_normalize_move("fold_" + String(mid), fm)
+		moves()["fold_" + String(mid)] = fm
 	shield = float(def.get("stoneskin", {}).get("shield", 0.0))
+	sheets = int(def.get("sheets", {}).get("max", 0))
 
 
 ## Fills in each move's type, hit segments and total length so the rest of the code
@@ -390,7 +413,7 @@ func _hit_base(mv: Dictionary, mid: String, type: String) -> Dictionary:
 	var out := {"attacker": id, "move_id": mid, "type": type, "serial": attack_serial,
 		"stack_bonus": float(mv.get("stack_bonus", 0.0)), "slow_mult": float(mv.get("slow_mult", 1.0)),
 		"vuln_mult": float(mv.get("vuln_mult", 1.0)), "steal": float(mv.get("steal", 0.0)),
-		"cone": float(mv.get("cone", 0.0))}
+		"cone": float(mv.get("cone", 0.0)), "poison_look": String(mv.get("poison_look", ""))}
 	for k in HIT_FLAG_KEYS:
 		out[k] = bool(mv.get(k, false))
 	return out
@@ -540,9 +563,24 @@ func can_use(mid: String) -> bool:
 	var mv: Dictionary = moves().get(mid, {})
 	if mv.is_empty():
 		return false
+	if needs_fold(mid):
+		# Not folded yet: this press folds it, which needs the sheets for it.
+		return sheets >= int(mv["fold"].get("cost", 1)) and int(cooldowns.get(mid, 0)) <= 0
 	if int(cooldowns.get(mid, 0)) > 0:
 		return false
+	if sheets < int(mv.get("sheets_cost", 0)):
+		return false
 	return energy >= float(mv.get("energy_cost", 0.0))
+
+
+## A move with a fold step that isn't folded yet: pressing it folds instead.
+func needs_fold(mid: String) -> bool:
+	return moves().get(mid, {}).has("fold") and not folded.has(mid)
+
+
+## What a press of `mid` starts: its fold step while the craft isn't folded, else itself.
+func _resolve_fold(mid: String) -> String:
+	return "fold_" + mid if needs_fold(mid) else mid
 
 
 func cooldown_ratio(mid: String) -> float:
@@ -555,6 +593,11 @@ func cooldown_ratio(mid: String) -> float:
 
 func is_winding_up() -> bool:
 	return state == State.ATTACK and windup_left > 0
+
+
+## Folding a craft and not done yet (a hit now cancels it, and no sheet is spent).
+func is_folding() -> bool:
+	return state == State.ATTACK and move_def().has("fold_of") and state_t < int(move_def().get("startup", 0))
 
 
 ## Ticks since the current attack began, counting its windup. A charge held in place
@@ -651,6 +694,7 @@ func step(buttons: int, sim: MatchSim) -> void:
 		stack_t -= 1
 		if stack_t <= 0:
 			stack = 0
+	_regrow_sheets(sim)
 	if not (state in [State.DODGE, State.GUARD, State.KO]):
 		stamina = minf(max_stamina, stamina + float(def.get("stamina_regen", 0.5)))
 	_tick_status(sim)
@@ -747,11 +791,12 @@ func _tick_status(sim: MatchSim) -> void:
 		if poison % maxi(1, poison_every) == 0:
 			var dealt := take_damage(poison_dmg + poison_stacks * poison_stack_dmg, sim)
 			flash = maxi(flash, 2)
-			sim.emit_event("poison", pos, dealt, {"who": id, "by": poison_by, "stacks": poison_stacks})
+			sim.emit_event("poison", pos, dealt, {"who": id, "by": poison_by, "stacks": poison_stacks, "look": poison_look})
 			check_ko(sim)
 		if poison <= 0:
 			poison_stacks = 0
 			poison_dmg = 0.0
+			poison_look = ""
 	# Stoneskin: a while without taking damage (nor dealing it, with `reset_on_deal`)
 	# grows the shield back.
 	var skin: Dictionary = def.get("stoneskin", {})
@@ -761,6 +806,21 @@ func _tick_status(sim: MatchSim) -> void:
 		if calm_t >= int(skin["delay"]) and shield < full:
 			shield = full
 			sim.emit_event("shield_up", pos, full, {"who": id})
+
+
+## Paper Stock: one sheet regrows every `regen` ticks while below `max` (not while down).
+func _regrow_sheets(sim: MatchSim) -> void:
+	var sh: Dictionary = def.get("sheets", {})
+	if sh.is_empty():
+		return
+	if sheets >= int(sh["max"]) or state == State.KO:
+		sheet_t = 0
+		return
+	sheet_t += 1
+	if sheet_t >= int(sh["regen"]):
+		sheet_t = 0
+		sheets += 1
+		sim.emit_event("sheet", pos, float(sheets), {"who": id})
 
 
 ## The creature taunting this one, if any.
@@ -860,6 +920,7 @@ func _taunt_aim(dir: Vector2, sim: MatchSim) -> Vector2:
 
 
 func _start_attack(mid: String, sim: MatchSim, raw := false) -> void:
+	mid = _resolve_fold(mid)
 	move_id = mid
 	attack_serial += 1
 	block_lag = 0
@@ -893,6 +954,10 @@ func _start_attack(mid: String, sim: MatchSim, raw := false) -> void:
 		cooldowns[mid] = int(mv["cooldown"])
 	if mv.has("energy_cost"):
 		energy -= float(mv["energy_cost"])
+	if mv.has("fold"):
+		folded.erase(mid)  # the craft is used up: it has to be folded again
+	if mv.has("sheets_cost"):
+		sheets = maxi(0, sheets - int(mv["sheets_cost"]))
 	_set_state(State.ATTACK)
 	windup_total = int(mv.get("windup", 0)) if raw else 0
 	windup_left = windup_total
@@ -929,6 +994,14 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 
 	var t := state_t
 	var su := int(mv.get("startup", 0))
+
+	# A fold step: the sheet is spent and the craft ready the moment the fold is done (a
+	# hit before that cancels it, so nothing is lost).
+	if mv.has("fold_of") and t == su:
+		var of := String(mv["fold_of"])
+		sheets = maxi(0, sheets - int(moves()[of]["fold"].get("cost", 1)))
+		folded[of] = true
+		sim.emit_event("fold", pos, float(sheets), {"who": id, "craft": of})
 
 	# Steering: until the strike comes out, the held direction re-aims the move (8-way,
 	# like walking). Lights steer through their whole startup by default; other moves only
@@ -1041,7 +1114,7 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 			var mid := action_move(want)
 			# A multi-hit move can hold its cancel back until its last hit ("rank_cancel_from").
 			if connected and punish_serial != attack_serial and move_rank(mid) > move_rank(move_id) \
-					and can_use(mid) and t >= int(mv.get("rank_cancel_from", 0)):
+					and can_use(mid) and not needs_fold(mid) and t >= int(mv.get("rank_cancel_from", 0)):
 				if dir != Vector2.ZERO:
 					facing = dir
 				_start_attack(mid, sim)
@@ -1078,6 +1151,8 @@ func _charge_bit() -> int:
 		return SimDefs.IN_SKILL1
 	if move_id == "skill_2":
 		return SimDefs.IN_SKILL2
+	if move_id == "surge":
+		return SimDefs.IN_SURGE  # a held Surge (Thousand Cranes: the throw's distance)
 	return SimDefs.IN_HEAVY
 
 
