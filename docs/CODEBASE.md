@@ -42,6 +42,7 @@ JSON go in. Every variable is snapshotted (see Gotchas).
 | `duel_sim.gd` (296) | 3v3 tag rules around a MatchSim, one active fighter per side; also used for online 1v1 | `step`; `_tag`, `can_tag`; `_check_knockouts`, `_enter_next`, `_bench_regen`; `_time_out`; `snapshot`/`restore` |
 | `team_sim.gd` (420) | 2v2 / 3v3 with everyone on the field: one life each, or Team Deathmatch (respawns, score) when the rules say `deathmatch`; Sinkhole and King of the Crater | `step` (one input per slot, side 0 first); `_deathmatch_step`, `_respawn`, `_finish`, `pad_point`, `score_to_win`; `_sinkhole_step`, `ring_rect`, `_ring_cells`; `_crater_step`; `spawn_point`, `side_of`, `members`; `_time_out` |
 | `replay.gd` (57) | One input per creature per tick, saved and replayed | `record`, `save`/`load_file`, `play(sim)` returns the state hash |
+| `vision.gd` (200) | Who sees whom (brush, fences and walls), for the views and the CPU. Not stepped by the sim: reads it, never writes it; keeps only a memory of recent hits fed from `sim.events` | `observe(events)`, `can_see(sim, viewer, target)`, `team_sees(sim, team, target)`, `team_sight_to(sim, team, p)`; static `sees` (the rule), `clear_line(terrain, a, b)` (cell walk), `blocks_sight`; `HIDE_RANGE`, `REVEAL_TICKS` |
 
 Constants worth knowing: `CreatureSim.State` (IDLE, MOVE, ATTACK, DODGE, GUARD, HITSTUN, FALLING,
 KO, AIRBORNE, CRUMPLE, KNOCKDOWN), `STATE_FIELDS`/`STATIC_FIELDS`, `BUFFER_TICKS`, `MAX_ENERGY`,
@@ -51,6 +52,7 @@ KO, AIRBORNE, CRUMPLE, KNOCKDOWN), `STATE_FIELDS`/`STATIC_FIELDS`, `BUFFER_TICKS
 
 **Where to look**
 
+- Who can see whom (brush, fences, walls) → `vision.gd` (rules in MECHANICS.md, Terrain)
 - Per-tick order → `match_sim.gd:step` (terrain heals, creatures step, projectiles, zones, hits, separation, falls; reordering changes outcomes)
 - Hit detection and gating → `match_sim.gd:_resolve_hits`, `_hittable`
 - Hit resolution (damage, hitstun, stale, variety, block, grab/hook/flip, statuses) → `match_sim.gd:_apply_hit`
@@ -84,7 +86,7 @@ KO, AIRBORNE, CRUMPLE, KNOCKDOWN), `STATE_FIELDS`/`STATIC_FIELDS`, `BUFFER_TICKS
 
 | File | Owns | Entry points |
 | --- | --- | --- |
-| `ai/cpu_controller.gd` (1,416) | The CPU: reads match state, returns an input bitmask each tick, pressing buttons like a player. Levels 0–3 (`LEVELS`; 3 = Rage, plays by class via `STYLES`) | `bits(sim)`; `_decide` (stunned → breakaway; attacking → `_continue_attack`; Rage → `_rage_defend`/`_maybe_tag`/`_rage_punish`/`_rage_neutral`; else `_defend`/`_neutral`); `_pick_route`; `_guard_answer` (grab or guard-breaker, `hold` ones included via `_breaks_guard`; a full-charge-only one is held to the top, `_guard_press`); plans `_plan_kite/lurk/press/skirmish/footsie` |
+| `ai/cpu_controller.gd` (1,416) | The CPU: reads match state, returns an input bitmask each tick, pressing buttons like a player. Levels 0–3 (`LEVELS`; 3 = Rage, plays by class via `STYLES`) | `bits(sim)`; `_decide` (stunned → breakaway; attacking → `_continue_attack`; Rage → `_rage_defend`/`_maybe_tag`/`_rage_punish`/`_rage_neutral`; else `_defend`/`_neutral`); `_pick_route`; `_guard_answer` (grab or guard-breaker, `hold` ones included via `_breaks_guard`; a full-charge-only one is held to the top, `_guard_press`); plans `_plan_kite/lurk/press/skirmish/footsie`; sight: `_look` (Vision, per tick), `_seen` (where a foe is as far as its team knows), `_sees`, `_nearest_known` |
 | `input/player_input.gd` (305) | Local devices → one bitmask per tick. Keyboard layouts (`LAYOUTS`: league, classic), pad layouts (`PAD_LAYOUTS`: standard, twinstick), aim assist, autofire, prompt labels | `bits(sim, me_idx, cursor)`; `combine_pad` (pure pad logic, used by tests); static `assist`, `autofire`; `label`, `label_for`, `help_text` |
 | `input/mouse_orders.gd` (174) | League-style mouse orders → bitmask; pure logic, no `Input` calls | `bits(me, foe, cursor, held, pressed)`; `HOLD_BITS` (buttons passed on while held, also used by the gamepad); `_chase` (walk into reach, jab); `_walk_bits`, `_braking`; `is_on_creature` |
 | `input/menu_stick.gd` (78) | Left stick → clean `ui_*` menu presses with repeat | `step(v, dt)` (pure), `_process` injects `InputEventAction` |
@@ -141,6 +143,8 @@ Randomness is fine here. Everything watches sim state and `sim.events`.
 | `flash.gdshader` | Canvas shader: `flash`, `flash_color`, `rim`, stone-grey petrify mode | used by `CreatureView` |
 
 The camera is not here: `main.gd:_update_camera`, `_frame_fight`, `CAM_PAD`, `KO_ZOOM`.
+
+Hidden foes: main works out each tick which slots the local team can't see (`_update_vision` → `_hidden`, via `Vision`) and hands it on: `CreatureView.out_of_sight` (not drawn), `FxView.unseen` / `viewer_team` / `vision` (`shown(c)`, `sight_to(p)`, `_event_shown(e)` gate bars, extras, particles, events and projectiles; `_track_lost` leaves the fading "lost" mark), and `_frame_fight` / `_hides_someone` skip them.
 
 **Where to look**
 
@@ -230,7 +234,7 @@ packets are plain-UDP JSON: `creature-arena?` / `creature-arena`.
 
 | File | Owns | Entry points |
 | --- | --- | --- |
-| `game/main.gd` (2,116) | Root node: `Flow` (MENU/INTRO/FIGHT/ROUND_OVER/MATCH_OVER/SELECT/LOBBY), the `MODES` table, 60 Hz tick, camera, settings, CLI parsing, online glue | `_ready`; `_physics_process` (inputs → sim → events → views → camera); `_start_match(m)`, `mode_index(label)` (a MODES index by name); `_new_sim`; `_update_camera`/`_frame_fight`; `_setting`/`_set_setting`; `_parse_args` |
+| `game/main.gd` (2,116) | Root node: `Flow` (MENU/INTRO/FIGHT/ROUND_OVER/MATCH_OVER/SELECT/LOBBY), the `MODES` table, 60 Hz tick, camera, settings, CLI parsing, online glue | `_ready`; `_physics_process` (inputs → sim → events → views → camera); `_start_match(m)`, `mode_index(label)` (a MODES index by name); `_new_sim`; `_update_camera`/`_frame_fight`; `_viewer_team`, `_update_vision`, `_is_hidden` (Vision); `_setting`/`_set_setting`; `_parse_args` |
 | `game/online_lobby.gd` (439) | Online pages (MAIN/QUICK/ROOMS/MORE), room codes, address parsing, recent servers | `quick_match`, `create_room`, `join_room`, `host`; static `make_code`, `clean_code`, `parse_address` |
 | `game/showcase.gd` (718) | Scripted demos as real input bitmasks; `SCRIPTS` has one per fighter plus angles, twinstick, counterplay | `names`, `build`, `inputs(sim)` (step interpreter: wait, press, walk, together, dodge, guard, approach, until, place), `_place` |
 | `game/trials.gd` (228) | `ComboTrials` coach: plays a demo, judges the player's route (`data/trials.json`) | `inputs(player_bits)`, `after_step`, `_fail`, `_clear`, `replay_demo`, `skip` |
@@ -327,7 +331,7 @@ errors count as failures; exit code 1 on any failure. Run `--import` after addin
 | `test_online`, `test_server`, `test_server_teams` | Handshake, lag/loss sync, desync detection, rematch, version refusal, real UDP; server pairing, rooms, referee; online 2v2/3v3 |
 | `test_ui`, `test_menu_stick`, `test_surge_ready`, `test_views`, `test_showcase`, `test_trials`, `test_scripts_load` | Menus with real input events; stick menu presses; aura/signal; up/down sheets for every fighter; every showcase reaches a KO; every trial clearable; every script compiles |
 | `test_presence` | Discord IPC frames (split, partial, bad), the status text per mode, the elapsed clock, the setting saved, no connection headless |
-| `bench_sim.gd`, `bench_cpu.gd` | Rollback cost; CPU tier win-rate matrix (`--matrix`, `--pairs`, `--seeds`, `--only`, `--detail`) |
+| `bench_sim.gd`, `bench_cpu.gd` | Rollback cost; CPU tier win-rate matrix (`--matrix`, `--pairs`, `--seeds`, `--only`, `--detail`, `--arena=ID`) |
 | `bench_sinkhole.gd` | Sinkhole pacing: the planned ring schedule (drop time, floor left), then seeded CPU Sinkhole matches per team size: each ring's average drop time, how fighters went down (fall into chasm / hole, damage), how matches ended, average length (`--seeds`, `--sizes=1,2,3`, `--level`) |
 | `bench_spacing.gd` | How far apart fighters fight, Rage CPU vs the field: the gap between bodies when lights land, share of time touching, average gap (`--lv`, `--seeds`, `--only`) |
 

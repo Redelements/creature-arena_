@@ -40,6 +40,9 @@ var _cur: Dictionary = {}  ## the view whose sheet the sprite is showing
 var ko_hidden := false
 ## Set by main when this fighter stands in front of a shorter one and covers it.
 var see_through := false
+## Set by main when the local team can't see this fighter (Vision: brush, a fence or a
+## wall in the way): not drawn at all, shadow included.
+var out_of_sight := false
 var _shadow_r := -1.0
 ## Squash and stretch: the sprite scales around its feet on a damped spring, so a
 ## landing squashes it flat and it wobbles back.
@@ -175,7 +178,7 @@ func refresh() -> void:
 	if ko_hidden and c.state != CreatureSim.State.KO:
 		ko_hidden = false  # back up (a Team Deathmatch respawn): the death animation is over
 	pivot.visible = not ko_hidden
-	visible = c.swallow_t <= 0  # swallowed (Culvert's Gulp): inside him, shadow and all
+	visible = c.swallow_t <= 0 and not out_of_sight  # swallowed (Culvert's Gulp): inside him, shadow and all
 
 	# Hit flash, or a warm pulse once the heavy is fully charged or a Surge starts.
 	var flash_amt := 0.0

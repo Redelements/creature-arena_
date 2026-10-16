@@ -144,6 +144,18 @@ var _rain := 0.0
 var _slowed_text := {}
 ## Set by main: per side, {"color", "label"} for the marker over its fighter.
 var side_marks: Array = []  ## creature id -> tick its last "SLOWED" call-out showed
+## Set by main each tick (Vision): per fighter slot, true when the local team can't see
+## it. Its bar, aim mark, telegraphs, status icons and particles aren't drawn, and its
+## events show nothing unless someone seen was in them too. `viewer_team` is that team
+## (-1: nobody's, everything shows); `vision` answers sight to points (projectiles).
+var unseen: Array = []
+var viewer_team := -1
+var vision: Vision = null
+## Slot -> the "lost" mark left where the local team last saw a fighter that went out of
+## sight: a faint ring and a question mark for LOST_TICKS, gone if it's seen again.
+var _lost := {}
+var _was_hidden: Array = []
+const LOST_TICKS := 60.0
 
 
 func bind_ground(g: FxGround) -> void:
@@ -153,6 +165,8 @@ func bind_ground(g: FxGround) -> void:
 
 func clear() -> void:
 	_parts.clear()
+	_lost.clear()
+	_was_hidden = []
 	_trail.clear()
 	pads.clear()
 	zone = {}
@@ -169,6 +183,8 @@ func clear() -> void:
 # ------------------------------------------------------------------ events
 
 func spawn(e: Dictionary) -> void:
+	if not _event_shown(e):
+		return  # it happened out of the local team's sight
 	var p: Vector2 = e["pos"]
 	var power: float = e["power"]
 	match String(e["type"]):
@@ -518,6 +534,65 @@ func spawn(e: Dictionary) -> void:
 
 
 ## A floating call-out (Combo Trials and drills: "CLEAR!", "DODGED!").
+## Whether this fighter is drawn for the local team (Vision); everyone, with no local team.
+func shown(c: CreatureSim) -> bool:
+	if c == null:
+		return true
+	var i := c.id if c.id >= 0 and c.id < sim.creatures.size() and sim.creatures[c.id] == c \
+		else sim.creatures.find(c)
+	return i < 0 or i >= unseen.size() or not bool(unseen[i])
+
+
+## Whether the local team has a clear line of sight to a point (a projectile, a lob's
+## landing): fences and walls only.
+func sight_to(p: Vector2) -> bool:
+	return viewer_team < 0 or vision == null or vision.team_sight_to(sim, viewer_team, p)
+
+
+## Event effects show when someone the local team sees took part (a hidden attacker's
+## hit on a teammate still sparks). Shots, bursts and zones go by their spot instead.
+const _EVENT_IDS := ["who", "attacker", "target", "by"]
+func _event_shown(e: Dictionary) -> bool:
+	if viewer_team < 0 or sim == null:
+		return true
+	var kind := String(e["type"])
+	if kind in ["projectile_end", "projectile_pierce", "burst", "zone"]:
+		return sight_to(Vector2(e["pos"]))
+	var any := false
+	for k in _EVENT_IDS:
+		var v = e.get(k)
+		if typeof(v) != TYPE_INT:
+			continue  # ("by" is also a word in duel_over)
+		var c := _creature(int(v))
+		if c == null:
+			continue
+		any = true
+		if shown(c):
+			return true
+	return not any
+
+
+## Leaves a "lost" mark where a fighter went out of the local team's sight, and drops it
+## once the fighter is seen again.
+func _track_lost() -> void:
+	var n := sim.creatures.size()
+	if _was_hidden.size() != n:
+		_was_hidden.resize(n)
+		_was_hidden.fill(false)
+	for i in n:
+		var c := sim.creatures[i]
+		var now := i < unseen.size() and bool(unseen[i])
+		if now and not bool(_was_hidden[i]) and c.state != CreatureSim.State.KO and c.swallow_t <= 0:
+			var mark := {"kind": "lost", "pos": c.pos, "life": LOST_TICKS, "top": _top(c), "r": c.radius}
+			_lost[i] = mark
+			_add(mark)
+		elif not now and _lost.has(i):
+			var mark: Dictionary = _lost[i]
+			mark["life"] = 0.0
+			_lost.erase(i)
+		_was_hidden[i] = now
+
+
 func callout(pos: Vector2, text: String, color: Color) -> void:
 	_text(pos, text, color, 9, 60.0)
 
@@ -534,6 +609,7 @@ func advance() -> void:
 	var ts := time_scale
 	if sim != null:
 		_watch_all()
+		_track_lost()
 		if ts > 0.0:
 			_projectile_spray()
 	_parts.append_array(_incoming)
@@ -658,6 +734,15 @@ func _watch_all() -> void:
 		var attacking := c.state == CreatureSim.State.ATTACK
 		var mv := c.move_def() if attacking else {}
 		var fx: Dictionary = mv.get("fx", {})
+		if not shown(c):
+			# Out of the local team's sight: keep track, spawn nothing.
+			w["serial"] = c.attack_serial
+			w["charging"] = attacking and c.charging
+			w["seg"] = c.active_seg() if attacking else -1
+			w["stack"] = c.stack
+			w["state"] = c.state
+			w["anim_t"] = c.anim_t
+			continue
 
 		if attacking and c.attack_serial != int(w["serial"]):
 			w["seg"] = -1
@@ -1942,7 +2027,7 @@ func _paint(ci: CanvasItem, floor_layer: bool) -> void:
 				Color(C_DIM, _dark))
 		_draw_pads(ci)
 		for p in _parts:  # flat things first, so debris sits on top of puddles and cracks
-			if String(p["kind"]) in ["puddle", "decal", "ripple"]:
+			if String(p["kind"]) in ["puddle", "decal", "ripple", "lost"]:
 				_draw_part(ci, p)
 		for p in _parts:
 			var kind := String(p["kind"])
@@ -1960,8 +2045,10 @@ func _paint(ci: CanvasItem, floor_layer: bool) -> void:
 		_draw_projectiles(ci)
 	for p in _parts:
 		var kind := String(p["kind"])
-		if kind in ["puddle", "decal", "ripple", "ghost", "later", "emit"]:
+		if kind in ["puddle", "decal", "ripple", "ghost", "later", "emit", "lost"]:
 			continue
+		if p.has("orbit") and not shown(_creature(int(p["orbit"]))):
+			continue  # circling a fighter the local team can't see
 		if kind in ["spire", "root"] and not bool(p.get("front", false)):
 			continue
 		if kind == "chunk" and bool(p.get("grounded", false)):
@@ -1987,6 +2074,15 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 	var life := float(p["life"])
 	var k := clampf(t / life, 0.0, 1.0)
 	match String(p["kind"]):
+		"lost":
+			# Where the local team last saw a fighter: a faint ring and a "?", fading.
+			var pos: Vector2 = p["pos"]
+			var a := 0.5 * (1.0 - k)
+			ci.draw_arc(pos.round(), float(p["r"]) + 3.0, 0.0, TAU, 24, Color(C_WARN, a), 1.0)
+			var q := (pos + Vector2(0, -float(p["top"]) * 0.6)).round()
+			ci.draw_string_outline(_font, q + Vector2(-10, 0), "?", HORIZONTAL_ALIGNMENT_CENTER, 20, 10, 2,
+				Color(C_OUTLINE, a))
+			ci.draw_string(_font, q + Vector2(-10, 0), "?", HORIZONTAL_ALIGNMENT_CENTER, 20, 10, Color(C_WARN, a))
 		"spark":
 			var pos: Vector2 = p["pos"]
 			var s: float = p["scale"]
@@ -2267,6 +2363,8 @@ func _draw_projectiles(ci: CanvasItem) -> void:
 	for pr in sim.projectiles:
 		var pp: Vector2 = pr["pos"]
 		var vel: Vector2 = pr["vel"]
+		if not shown(_creature(int(pr["owner"]))) and not sight_to(pp):
+			continue  # thrown from out of sight and still behind the fence or wall
 		if bool(pr.get("lob", false)):
 			_draw_pinecone(ci, pr)
 			continue
@@ -2427,6 +2525,8 @@ func _draw_side_marks(ci: CanvasItem) -> void:
 			continue
 		if c.swallow_t > 0:
 			continue  # inside Culvert: nothing to show
+		if not shown(c):
+			continue  # out of the local team's sight (brush, a fence or a wall)
 		var mk: Dictionary = side_marks[i]
 		var rel := String(mk.get("rel", "side"))
 		var alpha := 1.0
@@ -2654,6 +2754,8 @@ func _draw_creature_extras(ci: CanvasItem, floor_layer: bool) -> void:
 	if floor_layer:
 		_draw_zones(ci)
 	for c in sim.creatures:
+		if not shown(c):
+			continue  # no aim mark, telegraph or status icons for a fighter out of sight
 		var attacking := c.state == CreatureSim.State.ATTACK
 		var mv := c.move_def() if attacking else {}
 		var fx: Dictionary = mv.get("fx", {})
