@@ -170,11 +170,11 @@ meant to be played), checked by `tests/test_balance.gd`:
 | Matchup | Rage vs Rage |
 | --- | --- |
 | Digby vs Chef Cerebro | 70–75% Digby |
-| Sneaky Pete vs Chef Cerebro | about even |
+| Sneaky Pete vs Chef Cerebro | about 25% Pete |
 | Chef Cerebro vs Cairn, Hissy Fitz, Culvert, Craglash | 75–100% Cerebro |
 | Cairn or Hissy Fitz vs an assassin | 60–100% the fighter |
 | Craglash vs Culvert (tanks) | about 10% Craglash (his pits; 30–45% before Craglash's balance pass) |
-| Digby vs Sneaky Pete (assassins) | about even |
+| Digby vs Sneaky Pete (assassins) | about 90% Digby (not pinned) |
 | Hissy Fitz vs Cairn (fighters) | about even |
 | Barkley vs Sno Mercy (bruisers) | 25% Barkley at Rage, 75% at Hard |
 
@@ -403,8 +403,8 @@ full speed, so every combo below still works.
 
 | Glow | Means | Moves (windup) | Answer |
 | --- | --- | --- | --- |
-| **Red** + "!" | Can't be blocked | Gulp (12f), Slam (8f, breaks guard), Flip Out (12f), Mountain Maw (12f, the hook), Coil Uppercut (8f, breaks guard), Sack Smack (8f, breaks guard), Slush Slide (8f, breaks guard), Burrow's pop-up (breaks guard) | Roll away or through it, or hit them first |
-| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f), Runoff (6f), Rockslide Stomp (18f), Landslide Charge (14f), Timber Twister (8f), Branch Grab (8f), Splash Zone (8f), Flop Dash (12f), Cast Line (6f), Tenderize (8f), Cleaver Toss (6f) | Guard, then punish |
+| **Red** + "!" | Can't be blocked | Gulp (12f), Slam (8f, breaks guard), Flip Out (12f), Mountain Maw (12f, the hook), Coil Uppercut (8f, breaks guard), Slush Slide (8f, breaks guard), Burrow's pop-up (breaks guard) | Roll away or through it, or hit them first |
+| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f), Runoff (6f), Rockslide Stomp (18f), Landslide Charge (14f), Timber Twister (8f), Branch Grab (8f), Splash Zone (8f), Flop Dash (12f), Cast Line (6f), Tenderize (8f), Cleaver Toss (6f), Sack Smack (8f; held to a full charge it flashes red with "GUARD BREAK" and breaks guard) | Guard, then punish |
 
 That puts at least 15 frames (a quarter second) between the glow and the hit, and a jab
 landed during a windup cancels the move. Surges freeze the screen for their cut-in: a
@@ -558,14 +558,14 @@ for a victory-pose system.
 
 ### Sneaky Pete — robbed every bank in town, twice
 
-An assassin (80 HP, Lumen affinity: the sheet says Dark). A cartoon burglar always on
+An assassin (95 HP, Lumen affinity: the sheet says Dark). A cartoon burglar always on
 tiptoe: black eye mask, orange striped beanie, and a big green money bag over his
 shoulder. He wins by not being where you're looking. Voice line: "Finders keepers!"
 
 | Button | Move | What it does |
 | --- | --- | --- |
 | Light | Sucker Punch, Cheap Shot, Bag Swing | Two quick jabs, then the bag comes round |
-| Heavy | Sack Smack | A big wound-up swing of the money bag that **breaks guards** and knocks the foe well back. Hold to charge |
+| Heavy | Sack Smack | A big wound-up swing of the money bag that knocks the foe well back. Hold to charge: tapped it's an ordinary heavy that can be blocked; **held to a full charge it breaks guards**, and he flashes red with "GUARD BREAK" over his head the moment the charge is full |
 | Skill 1 | Tiptoe | He sneaks forward and goes **invisible** for 3 s (a faint shimmer is all you see) and **55% quicker**. A staggering hit gives him away (a knife flick doesn't); so does his own attack, but only as it lands, and that **ambush hits 35% harder**. The CPU loses track of him and goes where it last saw him |
 | Skill 2 | Pickpocket | A low dash that **steers onto** the nearest foe, runs right **through**, hits on the way past and **steals 20% of their attack power** for 5 s: his hits land 20% harder, theirs 20% softer. A gold windup tell gives it away |
 | Surge | The Big Heist | A puff of smoke and he's gone, then he **reappears behind the foe** (on their far side if the spot behind is a pit or a wall) for a flurry of bag hits and a big finishing smack that knocks down |

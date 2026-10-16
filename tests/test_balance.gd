@@ -128,8 +128,8 @@ func test_pickpocket_homes_in_and_runs_on_through() -> void:
 
 
 func test_every_fighter_has_a_guard_answer() -> void:
-	# A grab or a guard-breaker, so a turtle can always be opened; the pass gave one to
-	# the fighters that had none. Three stay without on purpose: Gillbert's hook and
+	# A grab or a guard-breaker (Sneaky Pete's only at a full charge: "hold"), so a turtle
+	# can always be opened; the pass gave one to the fighters that had none. Three stay without on purpose: Gillbert's hook and
 	# Barkley's Branch Grab are meant to be blockable, and Cairn opens people with his
 	# Slip counter.
 	for id in MatchFactory.FIGHTERS:
@@ -139,26 +139,65 @@ func test_every_fighter_has_a_guard_answer() -> void:
 		var has := false
 		for mid in moves:
 			var mv: Dictionary = moves[mid]
-			if bool(mv.get("grab", false)) or bool(mv.get("guard_break", false)):
+			if bool(mv.get("grab", false)) or bool(mv.get("guard_break", false)) \
+					or bool(mv.get("hold", {}).get("guard_break", false)):
 				has = true
 		assert_true(has, id + " can open a guard")
 
 
 func test_the_new_guard_breakers_break_guards() -> void:
-	for pair in [["hissy", H, 4.0], ["pete", H, 4.0], ["sno", S2, 30.0]]:
+	# [fighter, button, gap, ticks to hold it]: Sneaky Pete's Sack Smack only breaks guard
+	# held to a full charge.
+	var pete_full := int(MatchFactory.load_def("pete")["moves"]["heavy"]["charge_max"]) + 2
+	for pair in [["hissy", H, 4.0, 1], ["pete", H, 4.0, pete_full], ["sno", S2, 30.0, 1]]:
 		var sim := _duel(String(pair[0]), "cairn", float(pair[2]))
 		var broke := false
-		for t in 60:
-			sim.step(PackedInt32Array([int(pair[1]) if t == 0 else 0, G]))
+		for t in 90:
+			sim.step(PackedInt32Array([int(pair[1]) if t < int(pair[3]) else 0, G]))
 			broke = broke or _events(sim, "guard_break") > 0
 		assert_true(broke, "%s breaks a guard" % pair[0])
+
+
+func test_a_tapped_sack_smack_is_blocked_and_a_full_one_breaks_guard() -> void:
+	var mv: Dictionary = MatchFactory.load_def("pete")["moves"]["heavy"]
+	assert_false(bool(mv.get("guard_break", false)), "not a guard-breaker on a tap:")
+	assert_true(bool(mv["hold"]["guard_break"]), "only held to the top:")
+	assert_eq(String(mv["tell"]), "strong", "so its raw tell is the gold one:")
+	for held in [1, 12, int(mv["charge_max"]) + 2]:
+		var sim := _duel("pete", "cairn", 4.0)
+		var broke := 0
+		var blocked := 0
+		for t in 90:
+			sim.step(PackedInt32Array([H if t < held else 0, G]))
+			broke += _events(sim, "guard_break")
+			blocked += _events(sim, "block")
+		if held > int(mv["charge_max"]):
+			assert_eq(broke, 1, "a full charge breaks the guard:")
+			assert_eq(blocked, 0, "")
+		else:
+			assert_eq(broke, 0, "held %d ticks, the Smack doesn't break guard:" % held)
+			assert_eq(blocked, 1, "it's blocked:")
+			assert_eq(sim.creatures[1].state, CreatureSim.State.GUARD, "Cairn is still guarding:")
+
+
+func test_the_cpu_holds_sack_smack_to_a_full_charge_against_a_guard() -> void:
+	var sim := _duel("pete", "cairn", 4.0)
+	var cpu := CpuController.new(0, 3, 77)
+	var broke := false
+	for t in 600:
+		sim.step(PackedInt32Array([cpu.bits(sim), G]))
+		if _events(sim, "guard_break") > 0:
+			broke = sim.creatures[0].move_id == "heavy" and sim.creatures[0].charge_ratio >= 1.0
+			break
+	assert_true(broke, "Rage Pete opens a turtle with a full Sack Smack")
 
 
 # ------------------------------------------------------------------ matchups (Rage vs Rage)
 
 ## Sneaky Pete used to be pinned here too (at least 4 of 10 against Chef Cerebro). His
-## health was cut to 80 because he played too strong by hand, and the Rage CPU playing
-## him now wins only about 2 of 10 here, so only Digby is held to the class rule.
+## health was cut to 80 because he played too strong by hand; back at 95 (with Sack Smack
+## breaking guard only at a full charge) the Rage CPU playing him wins about 3 of 12 here,
+## so only Digby is held to the class rule.
 func test_assassins_beat_the_mage() -> void:
 	var d := _wins("digby", "cerebro")
 	assert_gt(float(d[0]), d[1] * 0.5, "Digby beats Chef Cerebro (%d of %d):" % d)
@@ -180,8 +219,8 @@ func test_fighters_beat_assassins() -> void:
 
 func test_class_mirrors_are_close() -> void:
 	# Fighter mirrors land between 30% and 70% over 10 games. The assassin mirror (Digby vs
-	# Sneaky Pete) used to be held here too; with Pete at 80 HP Digby wins it about 8 times
-	# in 10, so it's left out.
+	# Sneaky Pete) used to be held here too; with Pete at 80 HP Digby won it about 8 times
+	# in 10, and at 95 HP still about 11 in 12, so it's left out.
 	for pair in [["hissy", "cairn"]]:
 		var r := _wins(String(pair[0]), String(pair[1]), 5)
 		var share := float(r[0]) / float(r[1])
@@ -298,3 +337,22 @@ func test_syrup_slick_is_wider_stickier_and_lasts_longer() -> void:
 	assert_eq(sim.zones.size(), 1, "one puddle down")
 	run(sim, 0, 10)
 	assert_gt(foe.slow, 0, "a foe 70 px away stands in it")
+
+
+func test_the_red_guard_break_cue_shows_only_at_a_full_charge() -> void:
+	var cm := int(MatchFactory.load_def("pete")["moves"]["heavy"]["charge_max"])
+	for held in [8, cm + 2]:
+		var sim := _duel("pete", "cairn", 40.0)
+		var pete := sim.creatures[0]
+		var shown := false
+		for t in 60:
+			sim.step(PackedInt32Array([H if t < held else 0, 0]))
+			shown = shown or CreatureView.full_charge_breaks_guard(pete)
+		assert_eq(shown, held > cm, "held %d ticks, the red GUARD BREAK cue:" % held)
+	# A move-level guard-breaker (Hissy's Coil Uppercut) keeps its windup tell instead.
+	var sim2 := _duel("hissy", "cairn", 40.0)
+	var shown2 := false
+	for t in 60:
+		sim2.step(PackedInt32Array([H if t < cm + 2 else 0, 0]))
+		shown2 = shown2 or CreatureView.full_charge_breaks_guard(sim2.creatures[0])
+	assert_false(shown2, "")

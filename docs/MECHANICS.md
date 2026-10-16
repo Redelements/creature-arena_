@@ -94,7 +94,7 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `knockdown` | ticks | seg | Knockdown (invulnerable while down) | culvert, gillbert, sno, pete seg, cerebro volley `last` |
 | `juggle` | bool | move | May hit airborne targets | all |
 | `juggle_float` | ticks | seg | Air time added on an airborne target (default `JUGGLE_FLOAT` 16) | barkley, cerebro, gillbert, hissy |
-| `guard_break` | bool | move | A guard facing it crumples for `max(stun, break_stun)` | craglash, culvert, digby, hissy, pete, sno |
+| `guard_break` | bool | move | A guard facing it crumples for `max(stun, break_stun)`. Also works inside `hold` (only at a full charge): the raw `tell` stays gold, and the view draws the red flash and "GUARD BREAK" once the charge is full (`CreatureView.full_charge_breaks_guard`); the CPU counts it as a guard answer and holds it to full against a guard | craglash, culvert, digby, hissy, sno; pete in `hold` |
 | `grab` | bool | move | Ignores guard, armor and counters; can't hit airborne targets | cerebro, culvert |
 | `pull` | px | seg | Target slides in, stopping `pull` px short of the attacker. With `grab`: a hook (hitstun, `hook` event) | barkley, craglash, culvert |
 | `flip` | px | seg | With `grab`: carried over the attacker's head to `flip` px behind, airborne `max(launch, 2)` ticks; attacker turns round. With `swallow`: how far behind the body it comes out | cerebro, culvert `hold` |
@@ -134,7 +134,7 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | --- | --- | --- | --- |
 | `charge_max` | Hold the starting button (Heavy, or the Skill's own) up to N ticks, aiming; `charge_ratio = charge / charge_max` | heavies, barkley skill_2, culvert skill_1 | cs:`_update_attack` |
 | `<key>_charged` | Value at a full charge, blended linearly | many | cs:`move_value` |
-| `hold` | At `charge_ratio >= 1`, its keys replace the move's values: hit parameters and shape alike (`reach`, `hit_radius`, `slow_*`, anything read through `move_value`) | culvert skill_1 (Gulp: hook / swallow), skill_2 (Runoff: shove / wave) | cs:`move_value`, `hit_params` |
+| `hold` | At `charge_ratio >= 1`, its keys replace the move's values: hit parameters and shape alike (`reach`, `hit_radius`, `slow_*`, anything read through `move_value`) | culvert skill_1 (Gulp: hook / swallow), skill_2 (Runoff: shove / wave); pete heavy (`{"guard_break": true}`: Sack Smack breaks guard only at a full charge) | cs:`move_value`, `hit_params` |
 | `projectile.range_charged` | Lob range at full charge | barkley skill_2 | ms:`spawn_projectile` |
 
 ### Terrain

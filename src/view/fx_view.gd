@@ -671,6 +671,10 @@ func _watch_all() -> void:
 		var charging := attacking and c.charging
 		if charging and ticked:
 			_charging(c, mv, fx)
+		# A move that breaks guard only at a full charge: the red cue the moment it's full.
+		if attacking and int(w.get("gb_serial", -1)) != c.attack_serial and CreatureView.full_charge_breaks_guard(c):
+			w["gb_serial"] = c.attack_serial
+			_guard_break_ready(c)
 		elif bool(w["charging"]) and not charging and attacking:
 			_charge_released(c, mv, fx)
 		w["charging"] = charging
@@ -1479,6 +1483,18 @@ func _windup_tell(e: Dictionary) -> void:
 		_text(head + Vector2(10, -2), "!", col, 12, frames + 10.0)
 		_text(head + Vector2(0, -12), "UNBLOCKABLE" if tell == "unblockable" else "GUARD BREAK", col, 6,
 			frames + 10.0)
+
+
+## A held move reached the full charge that makes it break guard (Sack Smack): the same
+## red glint, ring and words as an unblockable windup, while the button stays held.
+func _guard_break_ready(c: CreatureSim) -> void:
+	var col := CreatureView.TELL_RED
+	var head := c.pos + Vector2(0, -_top(c) - 9.0)
+	_add({"kind": "glint", "pos": head, "life": 24.0, "color": col})
+	_add({"kind": "ring", "pos": c.pos, "life": 18.0, "radius": 22.0, "color": col})
+	_text(head + Vector2(10, -2), "!", col, 12, 34.0)
+	_text(head + Vector2(0, -12), "GUARD BREAK", col, 6, 34.0)
+	cue.emit("windup_red")
 
 
 # ------------------------------------------------------------------ Cairn's stones
