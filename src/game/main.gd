@@ -99,7 +99,7 @@ const REPLAY_MODE := 50
 ## one of several modes with Left/Right.
 ## The Settings pages and their rows, in order (see _setting()).
 const SETTING_PAGES := {
-	"game": ["level", "rumble", "shake", "server", "delay"],
+	"game": ["level", "rumble", "shake", "discord", "server", "delay"],
 	"video": ["fullscreen", "wide", "vsync", "fps"],
 	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu"],
 }
@@ -238,6 +238,9 @@ var vsync := true
 var wide_fill := true
 var rumble := true
 var shake_scale := 1.0  ## screen shake: 1 full, 0.5 reduced, 0 off
+var discord_status := true  ## show what you play on your Discord profile (Settings)
+var discord: DiscordRpc = null  ## null: off, headless, or no client id in data/discord.json
+var presence: Presence = null
 ## Off for captures and headless runs, which must not be slowed to real time.
 var _fps_caps := true
 var menu_stick: MenuStick
@@ -388,6 +391,7 @@ func _ready() -> void:
 	_load_settings()
 	var start_mode := _parse_args()
 	_apply_device()
+	_apply_discord()
 	_open_menu(_menu_arg)  # also starts the background match the pick screen sits on
 	if start_mode >= 0:
 		_start_match(start_mode)
@@ -1488,6 +1492,10 @@ func _replay_setup(s: MatchSim) -> Dictionary:
 func _process(_delta: float) -> void:
 	if netplay != null and netplay.link != null and netplay.link.realtime:
 		netplay.pump()
+	if discord != null:
+		if Engine.get_process_frames() % 30 == 0:
+			discord.set_activity(presence.activity(self))
+		discord.poll()
 
 
 func _physics_process(_delta: float) -> void:
@@ -2080,6 +2088,9 @@ func _setting(key: String) -> Dictionary:
 		"rumble":
 			return {"label": "Controller rumble", "values": ["Off", "On"], "index": 1 if rumble else 0,
 				"desc": "A buzz when you land a hit or get hit"}
+		"discord":
+			return {"label": "Discord status", "values": ["Off", "On"], "index": 1 if discord_status else 0,
+				"desc": "Show what you're playing on your Discord profile (with the Discord app open)"}
 		"shake":
 			var names: Array = []
 			var idx := 0
@@ -2137,6 +2148,9 @@ func _set_setting(key: String, i: int) -> void:
 					Input.start_joy_vibration(player_input.pad_id, 0.4, 0.4, 0.2)  # feel it
 			"shake":
 				shake_scale = float(SHAKE_CHOICES[clampi(i, 0, SHAKE_CHOICES.size() - 1)][1])
+			"discord":
+				discord_status = i == 1
+				_apply_discord()
 			"fps":
 				fight_fps = int(FPS_CHOICES[clampi(i, 0, FPS_CHOICES.size() - 1)])
 	_save_settings()
@@ -2184,6 +2198,22 @@ func _apply_fullscreen() -> void:
 
 
 ## Both players' controllers use the same layout.
+## Connects to the Discord app (Rich Presence) or drops the connection, which clears the
+## status. Never in headless runs (tests, servers) or without a client id.
+func _apply_discord() -> void:
+	var want := discord_status and DisplayServer.get_name() != "headless"
+	if want and discord == null:
+		var conf := Presence.load_config()
+		if String(conf.get("client_id", "")) == "":
+			return
+		discord = DiscordRpc.new(String(conf["client_id"]))
+		presence = Presence.new(conf)
+		discord.set_activity(presence.activity(self))
+	elif not want and discord != null:
+		discord.close()
+		discord = null
+
+
 func _set_pad_layout(lay: String) -> void:
 	player_input.pad_layout = lay
 	player2_input.pad_layout = lay
@@ -2276,6 +2306,7 @@ func _load_settings() -> void:
 		wide_fill = bool(cfg.get_value("video", "wide_fill", true))
 		_apply_aspect()
 		rumble = bool(cfg.get_value("game", "rumble", true))
+		discord_status = bool(cfg.get_value("game", "discord", true))
 		shake_scale = float(cfg.get_value("game", "shake", 1.0))
 		Controls.apply_overrides(cfg.get_value("controls", "bindings", {}))
 		var fps := int(cfg.get_value("video", "fight_fps", DEFAULT_FPS))
@@ -2306,6 +2337,7 @@ func _save_settings() -> void:
 	cfg.set_value("video", "wide_fill", wide_fill)
 	cfg.set_value("game", "rumble", rumble)
 	cfg.set_value("game", "shake", shake_scale)
+	cfg.set_value("game", "discord", discord_status)
 	cfg.set_value("controls", "bindings", Controls.overrides())
 	for bus in AudioView.DEFAULT_VOLUMES:
 		cfg.set_value("audio", "volume_" + String(bus).to_lower(), audio.volume(bus))
