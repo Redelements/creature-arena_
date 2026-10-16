@@ -58,6 +58,11 @@ const BINDINGS := {
 	# In a fight: the pause menu (B can't be Back there: it's Skill 2).
 	"pause": {"keys": [KEY_ESCAPE], "buttons": [JOY_BUTTON_START, JOY_BUTTON_BACK]},
 	"debug_hitboxes": {"keys": [KEY_F1]},
+	# Range rings on/off in a fight: one action per remap group, so each can be rebound
+	# (the controller has none until the player picks a button).
+	"kb_range_rings": {"keys": [KEY_F7]},
+	"lol_range_rings": {"keys": [KEY_F7]},
+	"pad_range_rings": {},
 	"debug_dummy_mode": {"keys": [KEY_F2]},
 	"debug_help": {"keys": [KEY_F3]},
 	"reset": {"keys": [KEY_F4]},
@@ -145,13 +150,14 @@ static func _ensure_button(action: String, button: JoyButton) -> void:
 const REMAP := {
 	"classic": [["kb_up", "Move up"], ["kb_down", "Move down"], ["kb_left", "Move left"], ["kb_right", "Move right"],
 		["kb_light", "Light attack"], ["kb_heavy", "Heavy attack"], ["kb_skill_1", "Skill 1"], ["kb_skill_2", "Skill 2"],
-		["kb_surge", "Surge"], ["kb_dodge", "Dodge"], ["kb_guard", "Guard"], ["kb_tag", "Tag"]],
+		["kb_surge", "Surge"], ["kb_dodge", "Dodge"], ["kb_guard", "Guard"], ["kb_tag", "Tag"],
+		["kb_range_rings", "Range rings"]],
 	"league": [["lol_attack", "Light attack"], ["lol_heavy", "Heavy attack"], ["lol_skill_1", "Skill 1"],
 		["lol_skill_2", "Skill 2"], ["lol_surge", "Surge"], ["lol_dodge", "Dodge"], ["lol_guard", "Guard"],
-		["lol_stop", "Stop"], ["lol_tag", "Tag"]],
+		["lol_stop", "Stop"], ["lol_tag", "Tag"], ["lol_range_rings", "Range rings"]],
 	"gamepad": [["pad_light", "Light attack"], ["pad_heavy", "Heavy attack"], ["pad_skill_1", "Skill 1"],
 		["pad_skill_2", "Skill 2"], ["pad_surge", "Surge"], ["pad_dodge", "Dodge"], ["pad_guard", "Guard"],
-		["pad_tag", "Tag"]],
+		["pad_tag", "Tag"], ["pad_range_rings", "Range rings"]],
 }
 const PAD_NAMES := {JOY_BUTTON_A: "A", JOY_BUTTON_B: "B", JOY_BUTTON_X: "X", JOY_BUTTON_Y: "Y",
 	JOY_BUTTON_LEFT_SHOULDER: "LB", JOY_BUTTON_RIGHT_SHOULDER: "RB", JOY_BUTTON_LEFT_STICK: "LS",

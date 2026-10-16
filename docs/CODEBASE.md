@@ -140,6 +140,7 @@ Randomness is fine here. Everything watches sim state and `sim.events`.
 | `arena_view.gd` (130) | Stands, walls, breakable floor and the map's pieces (tiles 10–21 of `tiles.png`); redraws only on `terrain.version` change | `set_terrain`, `refresh`, `_cell_rect`; `MARGIN`, `TILE_*` |
 | `crowd_view.gd` (76) | Crowd bounce, camera flashes, KO roar | `cheer`, `roar`, `advance` |
 | `debug_view.gd` (33) | F1 / `--hitboxes` overlay | `_draw` |
+| `range_rings.gd` (105) | "Range rings" (Settings > Controls, F7, `--range-rings`): floor rings for each active hit segment (`hit_center(seg)`, `hit_radius(seg)` + `BODY_PAD` 10, fading `FADE_TICKS` 6 after), shots (`radius` + 10), lobs (`burst` + 10 where they land) and a faint body ring; true circles in the attacker's lightened `fx_color` over a faint dark stroke. A stealthed foe's body ring follows the overhead bar's rule (`rel`). Main sits it between FxGround and the fighters and calls `advance()` each tick while it shows | `set_sim`, `advance`, `rings` (what it draws, for tests) |
 | `flash.gdshader` | Canvas shader: `flash`, `flash_color`, `rim`, stone-grey petrify mode | used by `CreatureView` |
 
 The camera is not here: `main.gd:_update_camera`, `_frame_fight`, `CAM_PAD`, `KO_ZOOM`.
@@ -275,7 +276,8 @@ packets are plain-UDP JSON: `creature-arena?` / `creature-arena`.
 - Build sim + views → `_new_sim`; per-side inputs → `_side_bits`, `_dummy_bits`; flow → `_update_flow`
 - Round / match end → `_end_round`, `_show_match_over`, `_duel_flow`, `_team_flow`
 - Camera → `_update_camera` (calls `_frame_fight` in fights; showcase/coach framing and KO push-in), `_cam_axis`; `CAM_PAD`, `KO_ZOOM`, `SHOWCASE_ZOOM`
-- Add a setting → `SETTING_PAGES` + `_setting(key)` + `_set_setting(key, i)` + `_add_setting_row`; persistence `_load_settings`/`_save_settings`; `settings_path` (default `user://settings.cfg`)
+- Add a setting → `SETTING_PAGES` + `_setting(key)` + `_set_setting(key, i)` + `_add_setting_row`; persistence `_load_settings`/`_save_settings`; `settings_path` (default `user://settings.cfg`). A setting on the Controls page (like `range_rings`) is added in `_open_controls` instead of `SETTING_PAGES`
+- A rebindable fight key → one action per remap group in `Controls.BINDINGS` (`kb_`, `lol_`, `pad_`, e.g. `kb_range_rings` F7) and a row in each `Controls.REMAP` group, so each keyboard layout and the controller saves its own binding; main checks the one for the player's layout (`_range_rings_pressed`). F1–F6, Esc and M stay reserved (`RemapScreen.RESERVED_KEYS`)
 - Frame rate / vsync / aspect / fullscreen → `_apply_frame_rate`, `_apply_vsync`, `_apply_aspect`, `_apply_fullscreen`
 - CLI flags → `_parse_args` (list in the file header); `--server` → `_run_server`; `--sim-check` → `_run_sim_check`
 - Netplay pumping → `_process` (`netplay.pump()` on realtime links) and `_physics_process` (`netplay.tick`)

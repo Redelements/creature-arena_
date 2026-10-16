@@ -16,6 +16,7 @@ extends Node2D
 ##   --autoplay            training demo: the player side follows a scripted routine
 ##   --dummy-mode=N        0 stand, 1 guard, 2 walk, 3 dodge
 ##   --hitboxes            start with the hitbox overlay on
+##   --range-rings         start with the range rings on (Settings > Controls; F7 in a fight)
 ##   --shots=60,120        save screenshots at those frame numbers
 ##   --shot-dir=PATH       where screenshots go (default user://shots)
 ##   --quit-after=N        exit after N frames
@@ -236,6 +237,8 @@ var vsync := true
 var wide_fill := true
 var rumble := true
 var shake_scale := 1.0  ## screen shake: 1 full, 0.5 reduced, 0 off
+var range_rings := false  ## floor rings showing each attack's real reach (Settings > Controls)
+var rings: RangeRings
 var discord_status := true  ## show what you play on your Discord profile (Settings)
 var discord: DiscordRpc = null  ## null: off, headless, or no client id in data/discord.json
 var presence: Presence = null
@@ -364,6 +367,10 @@ func _ready() -> void:
 	add_child(crowd)
 	fx_ground = FxGround.new()
 	add_child(fx_ground)
+	rings = RangeRings.new()
+	rings.visible = false
+	rings.fx = fx  # what the local team can see (Vision): no rings for a hidden foe
+	add_child(rings)  # on the floor, under the fighters
 	entities = Node2D.new()
 	entities.y_sort_enabled = true
 	add_child(entities)
@@ -402,6 +409,7 @@ func _ready() -> void:
 	var start_mode := _parse_args()
 	_apply_device()
 	_apply_discord()
+	_apply_range_rings()
 	_open_menu(_menu_arg)  # also starts the background match the pick screen sits on
 	if start_mode >= 0:
 		_start_match(start_mode)
@@ -645,6 +653,7 @@ func _open_controls() -> void:
 	scr.builder = func(s: UiScreen):
 		_add_setting_row(s, "layout")
 		_add_setting_row(s, "pad_layout")
+		_add_setting_row(s, "range_rings")
 		s.add_button("Remap controller", func(): _open_remap("gamepad"), "Change which button does what")
 		s.add_button("Remap Classic keyboard", func(): _open_remap("classic"), "WASD + J K U I O, or your own keys")
 		s.add_button("Remap League-style keyboard", func(): _open_remap("league"),
@@ -1431,6 +1440,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 			v.palette = Progress.palette(String(c.def.get("id", "")))
 		views.append(v)
 	debug.sim = sim
+	rings.set_sim(sim)
 	hud.sim = sim
 	fx.sim = sim
 	fx.clear()
@@ -1467,6 +1477,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 		var mark_col: Color = Hud.BRAWL_COLORS[i % Hud.BRAWL_COLORS.size()] if brawl != null and brawl.sim == s \
 			else Hud.SIDE_COLORS[clampi(sim.creatures[i].team, 0, 1)]
 		fx.side_marks.append({"color": mark_col, "label": label, "rel": _relation(i)})
+	rings.rel = fx.side_marks.map(func(m): return m["rel"])
 	for i in sides.size():
 		match sides[i]:
 			Side.PLAYER:
@@ -1608,6 +1619,8 @@ func _physics_process(_delta: float) -> void:
 	crowd.advance()
 	fx.advance()
 	hud.advance()
+	if rings.visible:
+		rings.advance()
 	for i in views.size():
 		views[i].out_of_sight = _is_hidden(i)
 		views[i].see_through = _hides_someone(views[i].c)
@@ -2045,6 +2058,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("debug_hitboxes"):
 		debug.visible = not debug.visible
 		debug.queue_redraw()
+	elif _range_rings_pressed(event):
+		_set_setting("range_rings", 0 if range_rings else 1)
+		_toast("Range rings " + ("on" if range_rings else "off"))
 	elif event.is_action_pressed("debug_dummy_mode") and coach is ComboTrials:
 		coach.replay_demo()
 	elif event.is_action_pressed("reset") and coach is ComboTrials:
@@ -2102,7 +2118,7 @@ func _open_pause() -> void:
 		ui.push(c)
 		return
 	paused = true
-	var p := PauseScreen.new(true, player_input.help_text().replace("   ", "\n").replace("  ", "\n"))
+	var p := PauseScreen.new(true, player_input.help_text().replace("   ", "\n").replace("  ", "\n") + _tools_help())
 	p.resumed.connect(func(): paused = false)
 	p.restart_requested.connect(func():
 		_close_ui()
@@ -2162,6 +2178,9 @@ func _setting(key: String) -> Dictionary:
 		"vsync":
 			return {"label": "Vsync", "values": ["Off", "On"], "index": 1 if vsync else 0,
 				"desc": "On: no tearing, and the screen's refresh rate caps the frame rate"}
+		"range_rings":
+			return {"label": "Range rings", "values": ["Off", "On"], "index": 1 if range_rings else 0,
+				"desc": "Show each attack's real hit area on the floor"}
 		"rumble":
 			return {"label": "Controller rumble", "values": ["Off", "On"], "index": 1 if rumble else 0,
 				"desc": "A buzz when you land a hit or get hit"}
@@ -2225,6 +2244,9 @@ func _set_setting(key: String, i: int) -> void:
 					Input.start_joy_vibration(player_input.pad_id, 0.4, 0.4, 0.2)  # feel it
 			"shake":
 				shake_scale = float(SHAKE_CHOICES[clampi(i, 0, SHAKE_CHOICES.size() - 1)][1])
+			"range_rings":
+				range_rings = i == 1
+				_apply_range_rings()
 			"discord":
 				discord_status = i == 1
 				_apply_discord()
@@ -2289,6 +2311,29 @@ func _apply_discord() -> void:
 	elif not want and discord != null:
 		discord.close()
 		discord = null
+
+
+## Shows or hides the range rings to match the setting (fresh rings when they come on).
+func _apply_range_rings() -> void:
+	if rings == null:
+		return
+	rings.visible = range_rings
+	if range_rings and sim != null:
+		rings.set_sim(sim)
+		rings.advance()
+
+
+## The range rings key of the player's own controls: the keyboard layout in use, or the
+## controller (no button until one is picked in Remap controller).
+func _range_rings_pressed(event: InputEvent) -> bool:
+	var kb := "lol_range_rings" if player_input.layout == "league" else "kb_range_rings"
+	return event.is_action_pressed(kb) or event.is_action_pressed("pad_range_rings")
+
+
+## The pause menu's Controls page: the fight tools after the moves.
+func _tools_help() -> String:
+	var key := player_input.label("range_rings")
+	return "\n%s range rings" % key if key != "" and key != "-" else ""
 
 
 func _set_pad_layout(lay: String) -> void:
@@ -2385,6 +2430,7 @@ func _load_settings() -> void:
 		rumble = bool(cfg.get_value("game", "rumble", true))
 		discord_status = bool(cfg.get_value("game", "discord", true))
 		shake_scale = float(cfg.get_value("game", "shake", 1.0))
+		range_rings = bool(cfg.get_value("game", "range_rings", false))
 		Controls.apply_overrides(cfg.get_value("controls", "bindings", {}))
 		var fps := int(cfg.get_value("video", "fight_fps", DEFAULT_FPS))
 		fight_fps = fps if fps in FPS_CHOICES else DEFAULT_FPS
@@ -2414,6 +2460,7 @@ func _save_settings() -> void:
 	cfg.set_value("video", "wide_fill", wide_fill)
 	cfg.set_value("game", "rumble", rumble)
 	cfg.set_value("game", "shake", shake_scale)
+	cfg.set_value("game", "range_rings", range_rings)
 	cfg.set_value("game", "discord", discord_status)
 	cfg.set_value("controls", "bindings", Controls.overrides())
 	for bus in AudioView.DEFAULT_VOLUMES:
@@ -2467,6 +2514,8 @@ func _parse_args() -> int:
 			start = 4
 		elif a == "--hitboxes":
 			debug.visible = true
+		elif a == "--range-rings":
+			range_rings = true
 		elif a.begins_with("--mode="):
 			start = clampi(int(a.get_slice("=", 1)), 0, MODES.size() - 1)
 			_skip_select = true  # straight into the match with the default teams
