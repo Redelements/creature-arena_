@@ -263,6 +263,7 @@ Views, audio, drills and the CPU read `sim.events`; the sim never reads them.
 | `bounce`, `fall`, `land`, `land_hard`, `ko`, `breakaway` | Bodies (`bounce`, `fall`, `ko`, `breakaway` say `who`; `guard_break` too) |
 | `sink_warn`, `sink`, `zone_move`, `hype` | Sinkhole ring cracking / dropping (`ring`, `rect`); the Crater's zone moved; Showtime hype (`team`, `why`, `total`) |
 | `tag`, `enter`, `duel_over` | DuelSim / TeamSim / BrawlSim (`winner` is a slot in a Brawl) |
+| `round_over` (`winner`, `by`, `round`, `wins`), `round_start` (`round`) | DuelSim with rounds (online 1v1) |
 | `score`, `respawn`, `overtime` | TeamSim in Team Deathmatch |
 
 ## Team rules
@@ -270,6 +271,7 @@ Views, audio, drills and the CPU read `sim.events`; the sim never reads them.
 - `CreatureSim.team` defaults to its `id` (1v1 = two teams of one); `TeamSim` sets it to the side; `DuelSim` gives every member id = side.
 - `is_foe(o)`: not itself and a different team. Hits, projectiles, bursts, taunts, gazes and zones skip teammates; `nearest_opponent` (aim, homing, blink, guard facing, CPU) only returns foes. Bodies still push teammates apart.
 - Duel (`data/rules/duel.json`, duel_sim.gd): one creature per side; `IN_TAG` swaps from neutral/guard, or out of a connected attack for `tag_cancel_energy` 50; the `tag_in` move starts with `startup + tag_in_invuln` invulnerability; energy and stamina carry over; benched members regen; 180 s, then health share wins.
+- Online 1v1 (`data/rules/duel_1v1.json`): a Duel with one creature a side, best of three. `DuelSim.rules_for(teams)` / `rules_id_for` pick it (`"1v1"`, saved as the replay setup's `rules`; older replays have `""` and keep duel.json). Keys on top of duel.json's: `rounds_to_win` (2; 1 = no rounds), `round_over_ticks` (210, phase `ROUND_OVER`), `max_rounds` (5: then the side with more rounds wins, else a draw); `time_seconds` 90 per round. A drawn round counts for nobody. The next round restores the snapshot taken at construction (health, places, floor, clock) but keeps `sim.tick`, `round_wins`, `round_num` and `round_winner`, which are all in DuelSim's snapshot and digest. `round_over` fires only for a round that doesn't end the match; the deciding one sends `duel_over`.
 - Team battle (`data/rules/team.json`): everyone on the field, one life each; 150 s, then health share.
 - Team Deathmatch (`data/rules/deathmatch.json`, modes 31/32): `deathmatch` swaps one life for respawns after `respawn_seconds` on `pad_point(side, slot)` against each team's own wall; every KO adds to the other team's `score`; `guard_t` spawn protection lasts `spawn_protect_seconds` or until the fighter attacks; first to `score_to_win[per_side]` wins, else the higher score at time, and a tie goes to `overtime` sudden death (next KO wins). `score`, `respawn_t`, `guard_t` and the overtime flag are in TeamSim's snapshot. Main fills `FxView.pads` (the floor rings). Online too: the rules id rides in hello and `start` (`TeamSim.rules_by_id`).
 

@@ -1,0 +1,18 @@
+{
+  "_doc": "Online 1v1 (a Duel with one creature a side): best of three rounds, like Versus offline. Same keys as duel.json, plus rounds_to_win, round_over_ticks (the pause after a round before the next starts) and max_rounds (after that many, the side with more rounds wins, else a draw). Times are in ticks (60 per second) unless named _seconds.",
+  "team_size": 1,
+  "time_seconds": 90,
+  "intro_ticks": 100,
+  "tag_cooldown": 300,
+  "tag_cancel_energy": 50,
+  "tag_in_invuln": 10,
+  "bench_regen_per_second": 1.5,
+  "bench_regen_cap": 0.25,
+  "ko_swap_ticks": 110,
+  "enter_invuln": 60,
+  "mid_ko_slowmo": 40,
+  "over_ticks": 150,
+  "rounds_to_win": 2,
+  "round_over_ticks": 210,
+  "max_rounds": 5
+}

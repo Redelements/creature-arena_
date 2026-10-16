@@ -224,3 +224,120 @@ func test_online_duel_stays_in_sync() -> void:
 	assert_eq(duels[0].state_digest(), offline.state_digest(), "machine A matches offline:")
 	assert_eq(duels[1].state_digest(), offline.state_digest(), "machine B matches offline:")
 	assert_gt(float(sessions[0].rollbacks), 0.0, "rollbacks happened")
+
+
+# ------------------------------------------------------------------ rounds (online 1v1)
+
+func _one_v_one() -> DuelSim:
+	var d := DuelSim.new([["cairn"], ["culvert"]], DuelSim.rules_for([["cairn"], ["culvert"]]))
+	d.sim.creatures[0].pos = Vector2(220, 164)
+	d.sim.creatures[1].pos = Vector2(245, 164)
+	while d.phase == DuelSim.Phase.INTRO:
+		d.step(PackedInt32Array([0, 0]))
+	return d
+
+
+## Knocks out `side`'s creature and steps until the round (or match) is decided.
+func _ko(d: DuelSim, side: int) -> void:
+	var c := d.active_creature(side)
+	c.hp = 1.0
+	d.sim.creatures[1 - side].pos = c.pos + Vector2(-25 if side == 1 else 25, 0)
+	d.sim.creatures[1 - side].facing = Vector2.RIGHT if side == 1 else Vector2.LEFT
+	for i in 600:
+		if d.phase == DuelSim.Phase.ROUND_OVER or d.phase == DuelSim.Phase.OVER:
+			return
+		var ins := PackedInt32Array([0, 0])
+		ins[1 - side] = L if i % 2 == 0 else 0
+		d.step(ins)
+
+
+func test_a_one_creature_duel_online_is_best_of_three() -> void:
+	assert_eq(DuelSim.rules_id_for([["cairn"], ["culvert"]]), "1v1", "")
+	assert_eq(DuelSim.rules_id_for([TEAM_A, TEAM_B]), "", "a tag Duel keeps its one round")
+	assert_eq(DuelSim.new([TEAM_A, TEAM_B], DuelSim.rules_for([TEAM_A, TEAM_B])).rounds_to_win(), 1, "")
+	var d := _one_v_one()
+	assert_eq(d.rounds_to_win(), 2, "")
+	assert_near(d.timer, int(d.rules["time_seconds"]) * 60, 1.0, "a 90 s round:")
+	_ko(d, 1)
+	assert_eq(d.phase, DuelSim.Phase.ROUND_OVER, "one KO ends the round, not the match:")
+	assert_eq(d.round_wins, [1, 0], "")
+	assert_eq(d.winner, -2, "no winner yet:")
+	var tick := d.sim.tick
+	assert_true(_until(d, func(): return d.phase == DuelSim.Phase.INTRO, 400), "the next round starts")
+	assert_eq(d.round_num, 2, "")
+	assert_eq(d.round_wins, [1, 0], "the score carries over:")
+	assert_gt(float(d.sim.tick), float(tick), "the clock of the match keeps counting")
+	for side in 2:
+		var c := d.active_creature(side)
+		assert_near(c.hp, c.max_hp, 0.001, "full health again:")
+		assert_eq(c.state, CreatureSim.State.IDLE, "on its feet:")
+		assert_eq(c.pos, d.sim.spawn(side), "back on its spawn:")
+	assert_eq(d.timer, int(d.rules["time_seconds"]) * 60, "a full clock:")
+	while d.phase == DuelSim.Phase.INTRO:
+		d.step(PackedInt32Array([0, 0]))
+	_ko(d, 0)
+	assert_eq(d.round_wins, [1, 1], "")
+	assert_true(_until(d, func(): return d.phase == DuelSim.Phase.FIGHT, 600), "round three")
+	d.sim.events.clear()
+	var seen_over := false
+	d.active_creature(1).hp = 1.0
+	d.sim.creatures[0].pos = d.active_creature(1).pos + Vector2(-25, 0)
+	d.sim.creatures[0].facing = Vector2.RIGHT
+	for i in 600:
+		d.step(PackedInt32Array([L if i % 2 == 0 else 0, 0]))
+		for e in d.sim.events:
+			if e["type"] == "duel_over":
+				seen_over = true
+			assert_true(e["type"] != "round_over", "the deciding round only says the match is over")
+		if d.phase == DuelSim.Phase.OVER:
+			break
+	assert_eq(d.phase, DuelSim.Phase.OVER, "two rounds win the match:")
+	assert_eq(d.winner, 0, "")
+	assert_eq(d.round_wins, [2, 1], "")
+	assert_true(seen_over, "duel_over is sent")
+
+
+func test_a_new_round_mends_the_floor() -> void:
+	var d := _one_v_one()
+	var c := Vector2i(3, 3)
+	var before := d.sim.terrain.get_cell(c)
+	d.sim.terrain.set_cell(c, TerrainGrid.HOLE)
+	_ko(d, 1)
+	assert_true(_until(d, func(): return d.phase == DuelSim.Phase.INTRO, 400), "")
+	assert_eq(d.sim.terrain.get_cell(c), before, "the pit is filled again:")
+
+
+func test_drawn_rounds_count_for_nobody_and_max_rounds_ends_it() -> void:
+	var d := _one_v_one()
+	for r in int(d.rules["max_rounds"]):
+		while d.phase == DuelSim.Phase.INTRO:
+			d.step(PackedInt32Array([0, 0]))
+		d.timer = 2
+		for i in 4:
+			d.step(PackedInt32Array([0, 0]))
+		assert_eq(d.round_winner, -1, "even health at time: a draw round:")
+		if d.phase == DuelSim.Phase.OVER:
+			break
+		_until(d, func(): return d.phase == DuelSim.Phase.INTRO, 400)
+	assert_eq(d.round_num, int(d.rules["max_rounds"]), "it stops after max_rounds:")
+	assert_eq(d.phase, DuelSim.Phase.OVER, "")
+	assert_eq(d.winner, -1, "nobody won a round: a draw:")
+
+
+func test_rollback_across_a_new_round_replays_exactly() -> void:
+	var d := _one_v_one()
+	_ko(d, 1)
+	var snap := d.snapshot()
+	var inputs: Array = []
+	for i in 400:
+		inputs.append(PackedInt32Array([L if i % 7 == 0 else 0, SimDefs.IN_LEFT if i % 3 == 0 else 0]))
+	for ins in inputs:
+		d.step(ins)
+	assert_eq(d.round_num, 2, "into round two:")
+	var digest := d.state_digest()
+	d.restore(snap)
+	assert_eq(d.round_num, 1, "back in round one:")
+	assert_eq(d.phase, DuelSim.Phase.ROUND_OVER, "")
+	for ins in inputs:
+		d.step(ins)
+	assert_eq(d.state_digest(), digest, "the same round two:")

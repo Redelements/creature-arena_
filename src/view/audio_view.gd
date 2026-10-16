@@ -260,7 +260,7 @@ func on_event(e: Dictionary) -> void:
 			play("crowd_cheer", -6.0)
 		"enter":
 			play("round_start", -4.0, 0.8)
-		"duel_over":
+		"duel_over", "round_over":
 			play("round_end")
 		"armor":
 			play("block", -2.0, 0.6)
