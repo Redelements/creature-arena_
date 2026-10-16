@@ -106,7 +106,7 @@ bad connection: `--net-lag=6 --net-loss=0.1`. Details: [docs/NETCODE.md](docs/NE
 3. Press **F5** (or the ▶ button). The title menu has **Single player** (every mode against
    the CPU, training, trials and local 2-player), **Online**, **Settings** (Game: CPU level, rumble, screen shake, Discord status, online server; Video: fullscreen, vsync, the
    fight frame rate, 144 fps unless changed; Audio: master, music, effects and menu volume;
-   Controls: keyboard layout and remapping for both keyboard layouts and the controller) and **Exit**. Menus always
+   Controls: keyboard layout, range rings, and remapping for both keyboard layouts and the controller) and **Exit**. Menus always
    run at 60 fps. The game itself runs 60 steps a second whatever the frame rate.
 
 From a terminal:
@@ -247,7 +247,14 @@ off-angle Landslide Charge; `--pad-layout=twinstick` picks the layout from the c
 
 Tools: F1 hitbox overlay, F2 cycle the training dummy, F3 hide the controls strip,
 F4 reset training, F5 next palette (Arcade clears unlock them), F6 save a replay (watch it from
-Single player > Replay theater), M mute music.
+Single player > Replay theater), F7 range rings, M mute music.
+
+**Range rings** (Settings > Controls, or F7 in a fight; off by default): a thin ring on the
+floor under each attack while it can hit, in the attacker's colour, showing where a foe's
+centre has to be to get hit (the hit circle plus a standard body), fading just after. Shots
+get one too, and a lobbed Pinecone Bomb shows its ring where it will land. A faint ring under
+each fighter marks its own body. F7 can be rebound in each Remap page (the controller has no
+button for it until you pick one); it works alongside the F1 overlay.
 
 ## Arenas
 

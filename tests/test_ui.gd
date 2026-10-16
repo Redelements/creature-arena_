@@ -900,7 +900,7 @@ func test_the_remap_grid_walks_in_columns_and_crosses_with_left_right() -> void:
 	assert_eq((_focus() as Button).text, "Back", "Up from the top wraps to the last button")
 	_press("ui_down")
 	assert_eq((_focus() as Button).text, "Move up", "and Down from it to the first binding")
-	for i in 6:  # twelve bindings: six in each column
+	for i in 7:  # thirteen bindings: seven in the left column (Range rings last), six on the right
 		_press("ui_down")
 	assert_eq((_focus() as Button).text, "Reset to defaults", "the bottom of a column leads to the buttons")
 	st.free()
