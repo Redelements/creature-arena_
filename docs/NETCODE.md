@@ -194,7 +194,7 @@ other, but it could desync if a button was held on that frame. Fixed
 (`_connecting_step`).
 
 **Team rules and tag Duels online (NET_VERSION 7).** Hello carries `rules` (one of
-`TeamSim.RULE_IDS`: the plain battle, deathmatch, sinkhole, crater, showtime) beside
+`TeamSim.RULE_IDS`: the plain battle, deathmatch, sinkhole, crater; Showtime was removed) beside
 `size`; Quick match groups by players per side, fighters per player and rules, and a
 room takes its maker's. `start` carries the group's `rules`, and `OnlineMatch` and the
 `Referee` build the `TeamSim` with them. A tag Duel is a team of three fighters per

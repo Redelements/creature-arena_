@@ -72,7 +72,7 @@ func test_duel_team_brawl_training_and_watching() -> void:
 	assert_true(String(d.get("state")).contains(" vs "), str(d))
 	g._start_match(34)  # Sinkhole 2v2
 	assert_true(String(Presence.describe(g).get("details")).begins_with("Sinkhole 2v2 vs CPU"), str(Presence.describe(g)))
-	g._start_match(49)
+	g._start_match(g.mode_index("Chaos Cup"))
 	assert_eq(Presence.describe(g).get("details"), "Chaos Cup", "")
 	g._start_match(3)
 	assert_eq(Presence.describe(g), {"details": "Training", "state": "as Cairn", "fighter": "cairn",

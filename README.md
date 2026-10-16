@@ -132,7 +132,7 @@ Online from a terminal: `godot --path . -- --online-host` and `godot --path . --
 25 Sneaky Pete vs CPU Digby, 26 training as Sneaky Pete, 27 Sno Mercy vs CPU Sneaky Pete,
 28 training as Sno Mercy, 29 Team battle 2v2 vs CPU, 30 Team battle 3v3 vs CPU,
 31 Team Deathmatch 2v2 vs CPU, 32 Team Deathmatch 3v3 vs CPU. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
-sets Duel (and Team battle) teams; `--cpu-vs-cpu` hands every player side to the CPU.
+sets Duel (and Team battle) teams; `--cpu-vs-cpu` hands every player side to the CPU (`--view-team=N` then shows it as team N sees it: brush, fences and walls hide the other side).
 
 **Local 2-player:** with two controllers, each player gets one (player 1 can also use the
 keyboard). With one controller, player 1 uses keyboard and mouse and player 2 the controller.
@@ -176,12 +176,11 @@ meant to be played), checked by `tests/test_balance.gd`:
 | Matchup | Rage vs Rage |
 | --- | --- |
 | Digby vs Chef Cerebro | 70–75% Digby |
-| Sneaky Pete vs Chef Cerebro | about even |
-| Chef Cerebro vs Cairn, Hissy Fitz, Culvert | 75–100% Cerebro |
-| Craglash vs Chef Cerebro | about even: his hook and ram are built to catch mages |
+| Sneaky Pete vs Chef Cerebro | about 25% Pete |
+| Chef Cerebro vs Cairn, Hissy Fitz, Culvert, Craglash | 75–100% Cerebro |
 | Cairn or Hissy Fitz vs an assassin | 60–100% the fighter |
-| Craglash vs Culvert (tanks) | 30–45% Craglash |
-| Digby vs Sneaky Pete (assassins) | about even |
+| Craglash vs Culvert (tanks) | about 10% Craglash (his pits; 30–45% before Craglash's balance pass) |
+| Digby vs Sneaky Pete (assassins) | about 90% Digby (not pinned) |
 | Hissy Fitz vs Cairn (fighters) | about even |
 | Barkley vs Sno Mercy (bruisers) | 25% Barkley at Rage, 75% at Hard |
 
@@ -258,12 +257,13 @@ Each map in `data/arenas/` lays fixed pieces on the breakable floor:
 | Arena | What's on the floor | Who gets through |
 | --- | --- | --- |
 | Stadium | Plain dirt, the pits you make | Everyone |
-| Quarry Bowl | Two rubble walls split it into three lanes, open at the top and bottom. Walls stop bodies and shots (lobs fly over) and bounce knockback like the edge | Craglash's Landslide Charge and shoulder-charge dodge and Cairn's Rockslide Rush smash through (the wall rebuilds after 12 s) |
+| Quarry Bowl | Two rubble walls split it into three lanes, open at the top and bottom. Walls stop bodies and shots (lobs fly over), bounce knockback like the edge and block sight: a foe behind one isn't on your screen (a faint "?" marks where your team last saw it) | Craglash's Landslide Charge and shoulder-charge dodge and Cairn's Rockslide Rush smash through (the wall rebuilds after 12 s) |
 | Floodgate Stadium | A shallows channel down the middle with two bridges. Shallows slow walking to 60% | Culvert wades at full speed; Gillbert's Flop Dash and Sno's Slush Slide run 1.5x faster through it |
-| Greenhouse Dome | Fence lines and brush beds. Fences stop bodies, not shots; brush hides whoever stands in it (and from the CPU, until it's close) | Sneaky Pete's Pickpocket ghosts through fences, Chef Cerebro blinks over them, Digby burrows under everything; any dash or roll flattens brush (grows back) |
+| Greenhouse Dome | Fence lines and brush beds. Fences stop bodies, not shots, and you can't see through them; brush hides whoever stands in it from the other team (not drawn at all on their screen) until one of them is right next to it, it attacks, or it lands or takes a hit (then for half a second). You see yourself and your teammates in brush, faintly | Sneaky Pete's Pickpocket ghosts through fences, Chef Cerebro blinks over them, Digby burrows under everything; any dash or roll flattens brush (grows back) |
 
 Chasms (pits that never heal) are a map piece too; leaps and Burrow cross them. The CPU
-finds its way round walls, fences and chasms on every level.
+finds its way round walls, fences and chasms on every level, and plays by the same sight
+rules: a foe its team can't see is hunted where it was last seen.
 
 ## How combat works
 
@@ -410,8 +410,8 @@ full speed, so every combo below still works.
 
 | Glow | Means | Moves (windup) | Answer |
 | --- | --- | --- | --- |
-| **Red** + "!" | Can't be blocked | Gulp (12f), Slam (8f, breaks guard), Flip Out (12f), Mountain Maw (12f, the hook), Coil Uppercut (8f, breaks guard), Sack Smack (8f, breaks guard), Slush Slide (8f, breaks guard), Burrow's pop-up (breaks guard) | Roll away or through it, or hit them first |
-| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f), Runoff (6f), Rockslide Stomp (10f), Landslide Charge (8f), Timber Twister (8f), Branch Grab (8f), Splash Zone (8f), Flop Dash (12f), Cast Line (6f), Tenderize (8f), Cleaver Toss (6f) | Guard, then punish |
+| **Red** + "!" | Can't be blocked | Gulp (12f), Slam (8f, breaks guard), Flip Out (12f), Mountain Maw (12f, the hook), Coil Uppercut (8f, breaks guard), Slush Slide (8f, breaks guard), Burrow's pop-up (breaks guard) | Roll away or through it, or hit them first |
+| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f), Runoff (6f), Rockslide Stomp (18f), Landslide Charge (14f), Timber Twister (8f), Branch Grab (8f), Splash Zone (8f), Flop Dash (12f), Cast Line (6f), Tenderize (8f), Cleaver Toss (6f), Sack Smack (8f; held to a full charge it flashes red with "GUARD BREAK" and breaks guard) | Guard, then punish |
 
 That puts at least 15 frames (a quarter second) between the glow and the hit, and a jab
 landed during a windup cancels the move. Surges freeze the screen for their cut-in: a
@@ -446,19 +446,19 @@ His roll covers twice the ground of anyone else's in the same 20 frames.
 
 ### Craglash — the mountain that woke up angry
 
-A crowd-control tank (190 HP, heavy, hard to push). His slow, heavy swings don't win
+A crowd-control tank (175 HP, heavy, hard to push). His slow, heavy swings don't win
 races, so he controls where the fight happens instead: he hooks the backline in from
 across the floor, stuns, launches, and with a full meter drags everyone near him into a
 three-second lockdown while his team does the damage.
 
 | Button | Move | What it does |
 | --- | --- | --- |
-| Light | Rake, Backhand, Headbutt | Two claw swipes, then the neck snaps the head forward. **Slow and heavy** (9, 8 and 12 frames to hit, against 4–5 for most fighters) but they hit harder, and **every hit staggers** (the only string that does) |
-| Heavy | Rockslide Stomp | Slams the ground and knocks up everyone close, all around him. **Armored** once its windup is over: a jab only chips it (thrown raw, its tell can still be jabbed; out of Bedrock it comes out armored) |
-| Skill 1 | Landslide Charge | A shoulder charge about 60 px forward that **stuns** whoever it hits for a quarter second (crumple), long enough to follow up. A gold windup tell |
+| Light | Rake, Backhand, Headbutt | Two claw swipes, then the neck snaps the head forward. **Slow and heavy**: about half the speed of anyone else's string (18, 16 and 23 frames to hit, against 4–5 for most fighters) but they hit harder, and **every hit staggers** (the only string that does) for long enough that the string is still a true combo |
+| Heavy | Rockslide Stomp | Slams the ground and knocks up everyone close, all around him (16 frames to land out of a combo, a slow recovery). **Armored** once its windup is over: a jab only chips it (thrown raw, its tell can still be jabbed; out of Bedrock it comes out armored) |
+| Skill 1 | Landslide Charge | A slow, heavy shoulder charge about 65 px forward that **stuns** whoever it hits for a quarter second (crumple), long enough to follow up. A gold windup tell |
 | Skill 2 | Mountain Maw | The hook, on a 5 s cooldown. His head shoots out on its stone neck, **far** (about 160 px), and **can't be blocked**: it has to be dodged. It bites the first foe it reaches and **hauls them back** to his feet, **crumpled**, so a Rake (or a teammate) follows. A red tell and a dotted lane show it coming |
 | Surge | Bedrock | Roots in place for 3 s: hits only chip him (75% less damage) and nothing moves him. Every foe within 140 px is **taunted** for 3 s: they walk at 60% speed, their attacks swing at him, and they're **dragged in** toward him, hard. Any attack button answers out of it after 18 frames, so the Stomp meets them as they arrive. Loses to grabs. A tank's meter fills from the hits he takes, so soaking damage is what earns it |
-| Passive | Stoneskin | A 30-point stone shield that soaks damage first; it grows back after 3 s without taking damage. Shown as a pale rim on him and as pale stone on the end of his health bar ("STONESKIN") |
+| Passive | Stoneskin | A 30-point stone shield that soaks damage first; it grows back only after **7 s out of combat**: no damage taken and none dealt (his hits and chip count too), so it doesn't refresh mid-brawl. Shown as a pale rim on him and as pale stone on the end of his health bar ("STONESKIN") |
 | Dodge | Landslide Ram | His roll is a shoulder charge: **twice as far** as anyone's (about 90 px) and it costs **most of his stamina** (84 of 100). The first foe it reaches is **hit** (4 damage, a short stun that a Rake links after, and it counts in the combo) and the dash stops there. Running into the wall stops it too and cracks the floor. Still invincible in the middle, like any roll |
 
 ### Barkley — the tree that got up and left
@@ -565,14 +565,14 @@ for a victory-pose system.
 
 ### Sneaky Pete — robbed every bank in town, twice
 
-An assassin (80 HP, Lumen affinity: the sheet says Dark). A cartoon burglar always on
+An assassin (95 HP, Lumen affinity: the sheet says Dark). A cartoon burglar always on
 tiptoe: black eye mask, orange striped beanie, and a big green money bag over his
 shoulder. He wins by not being where you're looking. Voice line: "Finders keepers!"
 
 | Button | Move | What it does |
 | --- | --- | --- |
 | Light | Sucker Punch, Cheap Shot, Bag Swing | Two quick jabs, then the bag comes round |
-| Heavy | Sack Smack | A big wound-up swing of the money bag that **breaks guards** and knocks the foe well back. Hold to charge |
+| Heavy | Sack Smack | A big wound-up swing of the money bag that knocks the foe well back. Hold to charge: tapped it's an ordinary heavy that can be blocked; **held to a full charge it breaks guards**, and he flashes red with "GUARD BREAK" over his head the moment the charge is full |
 | Skill 1 | Tiptoe | He sneaks forward and goes **invisible** for 3 s (a faint shimmer is all you see) and **55% quicker**. A staggering hit gives him away (a knife flick doesn't); so does his own attack, but only as it lands, and that **ambush hits 35% harder**. The CPU loses track of him and goes where it last saw him |
 | Skill 2 | Pickpocket | A low dash that **steers onto** the nearest foe, runs right **through**, hits on the way past and **steals 20% of their attack power** for 5 s: his hits land 20% harder, theirs 20% softer. A gold windup tell gives it away |
 | Surge | The Big Heist | A puff of smoke and he's gone, then he **reappears behind the foe** (on their far side if the spot behind is a pit or a wall) for a flurry of bag hits and a big finishing smack that knocks down |

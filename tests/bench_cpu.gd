@@ -3,6 +3,7 @@ extends SceneTree
 ## at another, from both sides. Prints win rates, health left and average distance.
 ##   godot --headless --path . --script res://tests/bench_cpu.gd -- [--a=3] [--b=2] [--seeds=2] [--only=cerebro] [--detail]
 ##   --matrix: every pair at level --a;  --pairs=a:b,c:d: just those, at level --a, both sides
+##   --arena=ID: play on that arena map (default stadium; greenhouse and quarry test sight)
 
 const MAX_TICKS := 5400
 
@@ -30,6 +31,8 @@ func _init() -> void:
 			matrix = true
 		elif arg.begins_with("--pairs="):
 			pairs = arg.get_slice("=", 1)
+		elif arg.begins_with("--arena="):
+			MatchFactory.arena = arg.get_slice("=", 1)
 	var field: Array = MatchFactory.FIGHTERS
 	if matrix:
 		_matrix(field, a_lv, seeds)

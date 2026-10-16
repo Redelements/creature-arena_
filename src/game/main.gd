@@ -26,6 +26,8 @@ extends Node2D
 ##   --teams=a,b,c:d,e,f   Duel / 2-player teams (default cerebro,gillbert,barkley:culvert,cerebro,craglash)
 ##   --pick                show the team pick screen even with --mode
 ##   --cpu-vs-cpu          every player side is played by the CPU (demos, captures)
+##   --view-team=N         show the match as team N sees it (brush, fences, walls hide
+##                         foes), even with nobody playing here (captures of --cpu-vs-cpu)
 ##   --menu=PAGE           open a menu page: main, single, single:<group>, settings, game, video, audio, controls (captures)
 ##   --online-host[=PORT]  host an online 1v1 straight away (UDP, default port 7777)
 ##   --online-join=ADDR[:PORT][/ROOM]  join one, or a dedicated server (ROOM: meet a friend there)
@@ -81,9 +83,6 @@ const MODES := [
 	{"label": "King of the Crater: 1v1 vs CPU", "team": 1, "rules": "crater", "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "King of the Crater: 2v2 vs CPU", "team": 2, "rules": "crater", "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "King of the Crater: 3v3 vs CPU", "team": 3, "rules": "crater", "sides": [Side.PLAYER, Side.CPU]},
-	{"label": "Showtime: 1v1 vs CPU", "team": 1, "rules": "showtime", "sides": [Side.PLAYER, Side.CPU]},
-	{"label": "Showtime: 2v2 vs CPU", "team": 2, "rules": "showtime", "sides": [Side.PLAYER, Side.CPU]},
-	{"label": "Showtime: 3v3 vs CPU", "team": 3, "rules": "showtime", "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Arcade", "arcade": true, "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Gauntlet", "gauntlet": true, "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Daily Challenge", "daily": true, "sides": [Side.PLAYER, Side.CPU]},
@@ -94,7 +93,7 @@ const MODES := [
 	{"label": "Chaos Cup", "brawl": true, "chaos": true, "sides": [Side.PLAYER, Side.CPU, Side.CPU, Side.CPU]},
 	{"label": "Replay", "replay": true, "sides": []},
 ]
-const REPLAY_MODE := 50
+const REPLAY_MODE := 47
 ## The menus (src/ui screens): the title menu opens Single player (MENU_ROWS), the online
 ## screen, or Settings. MODES indexes stay stable for --mode=N; rows with choices pick
 ## one of several modes with Left/Right.
@@ -114,7 +113,7 @@ const ONLINE_MODE := 20
 const MENU_GROUPS := [
 	{"id": "cpu", "title": "Fight the CPU", "sub": "Versus rounds as any fighter, or a 3v3 tag Duel",
 		"desc": "The classic fights against the CPU at the level set in Settings"},
-	{"id": "team", "title": "Team battles", "sub": "2v2 and 3v3 with CPU teammates: battle, deathmatch, Sinkhole, Crater, Showtime",
+	{"id": "team", "title": "Team battles", "sub": "2v2 and 3v3 with CPU teammates: battle, deathmatch, Sinkhole, Crater",
 		"desc": "Everyone on the field at once; pick the rules and the team size"},
 	{"id": "challenge", "title": "Challenges", "sub": "Arcade, Gauntlet, the Daily, Combo Trials, Reaction Drills",
 		"desc": "Runs and lessons with something to clear or beat"},
@@ -133,14 +132,12 @@ const MENU_ROWS := [
 	{"label": "Team Deathmatch vs CPU", "group": "team", "modes": [31, 32], "choices": ["2 v 2", "3 v 3"],
 		"desc": "Unlimited respawns: first team to 12 KOs (15 in 3 v 3) wins. Left/Right: team size"},
 	{"label": "Sinkhole vs CPU", "group": "team", "modes": [33, 34, 35], "choices": ["1 v 1", "2 v 2", "3 v 3"],
-		"desc": "The floor falls away from the edges and a fall is a KO. Last one standing. Left/Right: team size"},
+		"desc": "The floor falls away from the edges into a chasm, and falling in is a KO. Last one standing. Left/Right: team size"},
 	{"label": "King of the Crater vs CPU", "group": "team", "modes": [36, 37, 38], "choices": ["1 v 1", "2 v 2", "3 v 3"],
 		"desc": "Hold the zone while it moves and the ground round it breaks. 60 s held wins. Left/Right: team size"},
-	{"label": "Showtime vs CPU", "group": "team", "modes": [39, 40, 41], "choices": ["1 v 1", "2 v 2", "3 v 3"],
-		"desc": "Win on crowd hype, not damage: combos, Surges, counters, KOs and ring-outs score. Left/Right: team size"},
-	{"label": "Brawl", "group": "brawl", "modes": [48, 45, 46, 47], "choices": ["you vs 3 CPUs", "2 players", "3 players", "4 players"],
+	{"label": "Brawl", "group": "brawl", "modes": [45, 42, 43, 44], "choices": ["you vs 3 CPUs", "2 players", "3 players", "4 players"],
 		"desc": "Free-for-all, four fighters, one life each; CPUs fill the empty seats. Left/Right: how many play"},
-	{"label": "Chaos Cup", "group": "brawl", "modes": [49],
+	{"label": "Chaos Cup", "group": "brawl", "modes": [46],
 		"desc": "A Brawl with three random mutators stacked on: low gravity, Surge rush, a floor of pits, haste, glass cannon"},
 	{"label": "Replay theater", "group": "practice", "screen": "replays", "desc": "Watch the fights you saved with F6"},
 	{"label": "Versus: 2 players", "group": "local", "modes": [8], "desc": "One fighter each, two players on one screen"},
@@ -148,15 +145,15 @@ const MENU_ROWS := [
 		"desc": "Best of three rounds against the CPU. Left/Right: your fighter",
 		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert", "as Chef Cerebro",
 			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy"]},
-	{"label": "Arcade", "group": "challenge", "modes": [42], "fighter_choice": true,
+	{"label": "Arcade", "group": "challenge", "modes": [39], "fighter_choice": true,
 		"desc": "Five fights up the roster, then a boss team in a 3v3 Duel. Clears unlock palettes (F5 in a fight). Left/Right: your fighter",
 		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert", "as Chef Cerebro",
 			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy"]},
-	{"label": "Gauntlet", "group": "challenge", "modes": [43], "fighter_choice": true,
+	{"label": "Gauntlet", "group": "challenge", "modes": [40], "fighter_choice": true,
 		"desc": "Endless waves, harder every two, your health carrying over. How many can you clear? Left/Right: your fighter",
 		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert", "as Chef Cerebro",
 			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy"]},
-	{"label": "Daily Challenge", "group": "challenge", "modes": [44], "fighter_choice": true,
+	{"label": "Daily Challenge", "group": "challenge", "modes": [41], "fighter_choice": true,
 		"desc": "Today's fight, the same for everyone: a seeded opponent and two mutators. Score by health left and time to spare. Left/Right: your fighter",
 		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert", "as Chef Cerebro",
 			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy"]},
@@ -277,6 +274,12 @@ var _rules_id := ""
 var _teams: Array = DEFAULT_TEAMS.duplicate(true)
 var _skip_select := false
 var _cpu_vs_cpu := false
+## --view-team=N: whose eyes the screen uses when nobody plays here (-1: everyone's).
+var _view_team_arg := -1
+## Who the local team can see (Vision), fed from the events the views are shown, and
+## which fighter slots are hidden from it this tick (true: not drawn at all).
+var vision := Vision.new()
+var _hidden: Array = []
 var _showcase_list: Array = []
 var _showcase_arg := ""  ## --showcase=NAME: loop just that one
 var _showcase_i := 0
@@ -669,6 +672,15 @@ func _open_remap(group: String) -> void:
 	ui.push(r)
 
 
+## The MODES index of the mode with this label (-1: none). Tests and code that start a
+## mode by name use it, so removing a mode doesn't shift them.
+static func mode_index(label: String) -> int:
+	for i in MODES.size():
+		if String(MODES[i]["label"]) == label:
+			return i
+	return -1
+
+
 ## `keep_teams`: a rematch with the same teams (no pick screen).
 func _start_match(m: int, keep_teams := false) -> void:
 	_close_ui()
@@ -705,7 +717,6 @@ func _start_match(m: int, keep_teams := false) -> void:
 			labels = ["YOU + CPU", "CPU TEAM"]
 			var kind := String(cfg.get("rules", "deathmatch" if cfg.get("deathmatch", false) else ""))
 			title = {"sinkhole": "SINKHOLE  %d v %d", "crater": "KING OF THE CRATER  %d v %d",
-				"showtime": "SHOWTIME  %d v %d",
 				"deathmatch": "TEAM DEATHMATCH  %d v %d"}.get(kind, "TEAM BATTLE  %d v %d") % [size, size]
 		var pick := CharacterSelect.new()
 		pick.setup(title, size, labels, two_players, _padded_teams(size) if cfg.has("team") else _teams)
@@ -925,12 +936,7 @@ func _start_duel() -> void:
 func _start_team(per_side: int, rules_id := "") -> void:
 	_teams = _padded_teams(per_side)
 	_rules_id = rules_id
-	var rules := {}
-	match rules_id:
-		"deathmatch": rules = TeamSim.load_rules(TeamSim.DEATHMATCH_PATH)
-		"sinkhole": rules = TeamSim.load_rules(TeamSim.SINKHOLE_PATH)
-		"crater": rules = TeamSim.load_rules(TeamSim.CRATER_PATH)
-		"showtime": rules = TeamSim.load_rules(TeamSim.SHOWTIME_PATH)
+	var rules := TeamSim.rules_by_id(rules_id)
 	team_battle = TeamSim.new(_teams, per_side, rules)
 	var s: Array = [Side.PLAYER]
 	for i in range(1, team_battle.slot_count()):
@@ -1073,6 +1079,10 @@ func _play_replay(path: String) -> void:
 	if rep == null or not (rep.setup is Dictionary):
 		_toast("That replay can't be played (no setup saved with it)")
 		return
+	var why := ReplayBuilder.unsupported(rep.setup)
+	if why != "":
+		_toast(why)
+		return
 	_close_ui()
 	mode = REPLAY_MODE
 	wins = [0, 0]
@@ -1184,18 +1194,15 @@ func _team_flow() -> void:
 	match team_battle.phase:
 		TeamSim.Phase.INTRO:
 			var t := team_battle.phase_t
-			var what := "SHOWTIME" if team_battle.showtime else ("KING OF THE CRATER" if team_battle.crater
-				else ("SINKHOLE" if team_battle.sinkhole else ("TEAM DEATHMATCH" if team_battle.deathmatch else "TEAM BATTLE")))
+			var what := "KING OF THE CRATER" if team_battle.crater 				else ("SINKHOLE" if team_battle.sinkhole else ("TEAM DEATHMATCH" if team_battle.deathmatch else "TEAM BATTLE"))
 			hud.banner = (("ONLINE " + what) if online != null else what) if t < 60 else "FIGHT!"
 			var sub := "%d v %d" % [team_battle.size, team_battle.size]
-			if team_battle.showtime:
-				sub += "   ·   hype the crowd: %d wins" % team_battle.score_to_win()
-			elif team_battle.crater:
+			if team_battle.crater:
 				sub += "   ·   hold the zone %d s" % (team_battle.score_to_win() / 60)
 			elif team_battle.deathmatch:
 				sub += "   ·   first to %d KOs" % team_battle.score_to_win()
 			elif team_battle.sinkhole:
-				sub += "   ·   the edge falls in, a fall is a KO"
+				sub += "   ·   the edge falls in, the chasm is a KO"
 			hud.banner_sub = sub if t < 60 else ""
 			if t == 2 or t == 60:
 				audio.play("round_start", 0.0, 0.75 if t == 2 else 1.0)
@@ -1207,8 +1214,6 @@ func _team_flow() -> void:
 					hud.show_toast("THE EDGE IS FALLING")
 				elif e["type"] == "zone_move":
 					hud.show_toast("THE CRATER MOVED")
-				elif e["type"] == "hype":
-					crowd.cheer(float(e["power"]) * 0.012)
 			if team_battle.overtime and team_battle.timer > -90:
 				hud.banner = "SUDDEN DEATH"
 				hud.banner_sub = "Next KO wins"
@@ -1430,6 +1435,9 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	fx.sim = sim
 	fx.clear()
 	fx.views = views
+	vision.clear()
+	_hidden = []
+	fx.vision = vision
 	_ko_cam_t = -1
 	hud.dummy_mode_name = DUMMY_MODES[dummy_mode]
 	# Red for the left side (P1), blue for the right (P2 or the CPU): a marker over each
@@ -1577,6 +1585,7 @@ func _physics_process(_delta: float) -> void:
 		else:
 			sim.step(inputs)
 		events = sim.events
+	_update_vision(events)
 	for e in events:
 		_react(e)
 	if coach != null and flow == Flow.FIGHT:
@@ -1599,9 +1608,10 @@ func _physics_process(_delta: float) -> void:
 	crowd.advance()
 	fx.advance()
 	hud.advance()
-	for v in views:
-		v.see_through = _hides_someone(v.c)
-		v.refresh()
+	for i in views.size():
+		views[i].out_of_sight = _is_hidden(i)
+		views[i].see_through = _hides_someone(views[i].c)
+		views[i].refresh()
 	if debug.visible:
 		debug.queue_redraw()
 
@@ -1798,6 +1808,37 @@ func _relation(i: int) -> String:
 	return "ally" if local_teams.has(sim.creatures[i].team) else "enemy"
 
 
+## The team whose eyes the screen uses: the one team the players here are on (online,
+## the local slot's). -1 when there isn't exactly one (CPU vs CPU, replays, watching
+## online, two local players on opposite sides): then everyone is shown, brush or not.
+func _viewer_team() -> int:
+	var local_teams := {}
+	for k in mini(sides.size(), sim.creatures.size()):
+		if sides[k] in LOCAL_SIDES:
+			local_teams[sim.creatures[k].team] = true
+	if local_teams.size() == 1:
+		return int(local_teams.keys()[0])
+	if local_teams.is_empty() and _view_team_arg >= 0:
+		return _view_team_arg
+	return -1
+
+
+## Works out which fighters the local team can't see this tick (Vision: brush, fences,
+## walls), after noting this tick's hits. Views and the camera skip them.
+func _update_vision(events: Array) -> void:
+	vision.observe(events)
+	var team := _viewer_team()
+	_hidden.resize(sim.creatures.size())
+	for i in sim.creatures.size():
+		_hidden[i] = team >= 0 and not vision.team_sees(sim, team, sim.creatures[i])
+	fx.unseen = _hidden
+	fx.viewer_team = team
+
+
+func _is_hidden(i: int) -> bool:
+	return i < _hidden.size() and bool(_hidden[i])
+
+
 ## Whether `team` is a side someone at this machine plays (or plays alongside, in a team
 ## battle). With nobody playing here (CPU vs CPU), the left side counts as "yours".
 func is_local_team(team: int) -> bool:
@@ -1880,9 +1921,10 @@ func _hides_someone(c: CreatureSim) -> bool:
 	if c.state == CreatureSim.State.KO:
 		return false
 	var top := c.pos.y - float(c.def.get("fx_top", 32)) - 6.0  # head and mane included
-	for o in sim.creatures:
-		if o == c or o.state in [CreatureSim.State.KO, CreatureSim.State.FALLING]:
-			continue
+	for k in sim.creatures.size():
+		var o := sim.creatures[k]
+		if o == c or o.state in [CreatureSim.State.KO, CreatureSim.State.FALLING] or _is_hidden(k):
+			continue  # (nobody turns see-through for a foe the local team can't see)
 		if o.pos.y >= c.pos.y or absf(c.pos.x - o.pos.x) > c.radius + 6.0:
 			continue
 		# How much of the one behind is inside our height on screen.
@@ -1936,12 +1978,16 @@ func _update_camera() -> void:
 
 ## A fight: keeps every fighter in shot, heads included, with room around them. Close
 ## together the camera sits at the normal 1x; as they spread out it pulls back, as far as
-## showing the whole stadium.
+## showing the whole stadium. A foe hidden from the local team (brush, a wall) is left
+## out, or the zoom would give it away.
 func _frame_fight(view: Vector2, size: Vector2) -> void:
 	var box := Rect2()
 	var any := false
-	for c in sim.creatures:
+	for i in sim.creatures.size():
+		var c := sim.creatures[i]
 		if c.state == CreatureSim.State.KO and _ko_cam_t < 0:
+			continue
+		if _is_hidden(i):
 			continue
 		var body := Rect2(c.pos - Vector2(0, float(c.def.get("fx_top", 32)) + c.air_height()), Vector2.ZERO)
 		body = body.expand(c.pos)
@@ -2428,6 +2474,8 @@ func _parse_args() -> int:
 			pick = true
 		elif a == "--cpu-vs-cpu":
 			_cpu_vs_cpu = true
+		elif a.begins_with("--view-team="):
+			_view_team_arg = int(a.get_slice("=", 1))
 		elif a.begins_with("--teams="):
 			# --teams=cairn,culvert,cairn:culvert,cairn,culvert
 			var halves := a.get_slice("=", 1).split(":")

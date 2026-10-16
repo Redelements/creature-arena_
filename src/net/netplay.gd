@@ -43,7 +43,7 @@ extends RefCounted
 ## room leaves, "wait" with `back` puts this session back to waiting (HANDSHAKE) in the
 ## same room.
 
-const NET_VERSION := 10  ## 10: rooms last between matches (room, next, pick; wait back; bye room); 9: the 1v1 is best of three rounds; 8: ranked play, player ids, daily scores; 7: team rules and tag Duels; 6: the server's ready check; 5: team battles; 4: 360 move angle
+const NET_VERSION := 10  ## 10: rooms last between matches (room, next, pick; wait back; bye room), Sinkhole collapses by rect and only a chasm fall is a ring-out; 9: the 1v1 is best of three rounds; 8: ranked play, player ids, daily scores; 7: team rules and tag Duels; 6: the server's ready check; 5: team battles; 4: 360 move angle
 const DEFAULT_PORT := 7777
 const PINGS := 5
 ## A precise ping (a real link) blocks the host this long at most waiting for the pong.
@@ -646,7 +646,7 @@ static func data_hash() -> String:
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(("v%d" % NET_VERSION).to_utf8_buffer())
 	var paths: Array = [DuelSim.RULES_PATH, DuelSim.RULES_1V1_PATH, TeamSim.RULES_PATH, TeamSim.DEATHMATCH_PATH, TeamSim.SINKHOLE_PATH,
-		TeamSim.CRATER_PATH, TeamSim.SHOWTIME_PATH, BrawlSim.RULES_PATH, Daily.MUTATORS_PATH]
+		TeamSim.CRATER_PATH, BrawlSim.RULES_PATH, Daily.MUTATORS_PATH]
 	for id in MatchFactory.FIGHTERS:
 		paths.append(MatchFactory.CREATURE_DIR + id + ".json")
 	for id in ArenaMap.IDS:

@@ -20,8 +20,11 @@ extends RefCounted
 ##
 ## Sinkhole (rules with "sinkhole": data/rules/sinkhole.json): one life each, and every
 ## `shrink_every` ticks the outermost ring of the floor cracks (a warning the CPU heeds)
-## and `shrink_warn` ticks later drops into a chasm for good, up to `max_rings`. A fall
-## is a knockout (`fall_ko` on the match). Last side standing wins.
+## and `shrink_warn` ticks later drops into a chasm for good, up to `max_rings`. A ring
+## takes `shrink_cols` cells off the left and right and `shrink_rows` off the top and
+## bottom, and an axis stops at `min_cols` / `min_rows`, so the last floor is a block,
+## not a strip (see ring_rect). A fall into a chasm is a knockout (`fall_ko` on the
+## match); a fall into an ordinary hole only hurts. Last side standing wins.
 ##
 ## King of the Crater (rules with "crater": data/rules/crater.json, on top of the
 ## deathmatch respawns): a zone on the floor (`sim.zone_pos`, `sim.zone_r`) that moves
@@ -29,12 +32,6 @@ extends RefCounted
 ## tick a tick (`score`); first to `score_to_win` ticks wins, or the longer hold at time.
 ## The rim cracks when the zone lands and chips every `crack_every` ticks while held.
 ## KOs score nothing.
-##
-## Showtime (rules with "showtime": data/rules/showtime.json, on the deathmatch
-## respawns): the match's own events are scored as hype for the side that made the
-## moment (`rules.hype`: hits by combo length and variety, Surges, counters, guard
-## breaks, wall bounces, smashed rubble, knockouts, ring-outs, breakaways). First to
-## `hype_to_win`, or the most at time, wins. A `hype` event carries each gain.
 
 enum Phase { INTRO, FIGHT, OVER }
 
@@ -42,7 +39,6 @@ const RULES_PATH := "res://data/rules/team.json"
 const DEATHMATCH_PATH := "res://data/rules/deathmatch.json"
 const SINKHOLE_PATH := "res://data/rules/sinkhole.json"
 const CRATER_PATH := "res://data/rules/crater.json"
-const SHOWTIME_PATH := "res://data/rules/showtime.json"
 
 var sim: MatchSim
 var rules: Dictionary
@@ -65,7 +61,6 @@ var warned := false
 var crater := false
 var zone_i := 0
 var zone_t := 0
-var showtime := false
 var score := [0, 0]
 var respawn_t: Array = []
 var guard_t: Array = []
@@ -73,8 +68,8 @@ var overtime := false
 
 
 ## The rules a mode id names ("" is the plain team battle), for the menus and the net.
-const RULE_IDS := ["", "deathmatch", "sinkhole", "crater", "showtime"]
-const RULE_NAMES := ["Team battle", "Team Deathmatch", "Sinkhole", "King of the Crater", "Showtime"]
+const RULE_IDS := ["", "deathmatch", "sinkhole", "crater"]
+const RULE_NAMES := ["Team battle", "Team Deathmatch", "Sinkhole", "King of the Crater"]
 
 
 static func rules_by_id(id: String) -> Dictionary:
@@ -82,7 +77,6 @@ static func rules_by_id(id: String) -> Dictionary:
 		"deathmatch": return load_rules(DEATHMATCH_PATH)
 		"sinkhole": return load_rules(SINKHOLE_PATH)
 		"crater": return load_rules(CRATER_PATH)
-		"showtime": return load_rules(SHOWTIME_PATH)
 	return {}
 
 
@@ -112,7 +106,6 @@ func _init(team_ids: Array, per_side := 0, p_rules: Dictionary = {}) -> void:
 	sim.fall_ko = bool(rules.get("fall_ko", false))
 	sink_t = int(rules.get("shrink_every", 420))
 	crater = bool(rules.get("crater", false))
-	showtime = bool(rules.get("showtime", false))
 	if crater:
 		zone_t = int(rules.get("zone_move_every", 1200))
 		_place_zone(false)
@@ -133,8 +126,6 @@ func pad_point(side: int, k: int) -> Vector2:
 
 ## The KOs a side needs to win (Team Deathmatch).
 func score_to_win() -> int:
-	if showtime:
-		return int(rules.get("hype_to_win", 600))
 	var t = rules.get("score_to_win", [8, 8, 12, 15])
 	if t is Array:
 		return int(t[clampi(size, 0, (t as Array).size() - 1)])
@@ -199,10 +190,6 @@ func step(inputs: PackedInt32Array) -> void:
 		_crater_step()
 		if phase != Phase.FIGHT:
 			return
-	if showtime:
-		_showtime_step()
-		if phase != Phase.FIGHT:
-			return
 	if deathmatch:
 		_deathmatch_step()
 		return
@@ -233,7 +220,7 @@ func _deathmatch_step() -> void:
 			var side := 1 - c.team
 			respawn_t[slot] = int(float(rules.get("respawn_seconds", 4)) * SimDefs.TICK_RATE)
 			guard_t[slot] = 0
-			if not crater and not showtime:  # those score holds and hype, not KOs
+			if not crater:  # the Crater scores holds, not KOs
 				score[side] += 1
 				sim.emit_event("score", c.pos, float(score[side]), {"who": c.id, "team": side,
 					"score": score.duplicate()})
@@ -259,38 +246,6 @@ func _deathmatch_step() -> void:
 			sim.emit_event("overtime", Vector2.ZERO, 0.0)
 		else:
 			_finish(0 if score[0] > score[1] else 1, "time")
-
-
-# ------------------------------------------------------------------ showtime
-
-## Scores this tick's events as hype. Events name who did it (`who`, or `attacker`
-## on a hit); what happens to a fighter (a KO, a fall, a broken guard, a bounce) pays
-## the other side.
-func _showtime_step() -> void:
-	var h: Dictionary = rules.get("hype", {})
-	for e in sim.events.duplicate():
-		var kind := String(e["type"])
-		var who := int(e.get("attacker", e.get("who", -1)))
-		if who < 0 or who >= sim.creatures.size():
-			continue
-		var side := sim.creatures[who].team
-		var amount := 0
-		match kind:
-			"hit":
-				amount = int(h.get("hit", 2)) + int(h.get("combo_hit", 1)) * maxi(0, int(e.get("combo", 1)) - 1) \
-					+ roundi((float(e.get("variety", 1.0)) - 1.0) * float(h.get("variety", 20)))
-			"surge", "slip", "smash", "breakaway":
-				amount = int(h.get(kind, 0))
-			"ko", "fall", "guard_break", "bounce":
-				amount = int(h.get(kind, 0))
-				side = 1 - side
-		if amount <= 0:
-			continue
-		score[side] += amount
-		sim.emit_event("hype", e["pos"], float(amount), {"team": side, "why": kind, "total": score[side]})
-		if int(score[side]) >= score_to_win() or overtime:
-			_finish(side, "hype")
-			return
 
 
 # ------------------------------------------------------------------ king of the crater
@@ -342,7 +297,7 @@ func _crater_step() -> void:
 		_place_zone(true)
 
 
-## What the score panels show: seconds held in the Crater, hype in Showtime, KOs elsewhere.
+## What the score panels show: seconds held in the Crater, KOs elsewhere.
 func score_text(side: int) -> String:
 	return str(int(score[side]) / SimDefs.TICK_RATE) if crater else str(int(score[side]))
 
@@ -352,8 +307,6 @@ func goal_text() -> String:
 		return "SUDDEN DEATH"
 	if crater:
 		return "HOLD %d s" % (score_to_win() / SimDefs.TICK_RATE)
-	if showtime:
-		return "HYPE TO %d" % score_to_win()
 	return "FIRST TO %d" % score_to_win()
 
 
@@ -361,7 +314,7 @@ func goal_text() -> String:
 func _sinkhole_step() -> void:
 	if sim.ko_freeze > 0:
 		return
-	if ring >= int(rules.get("max_rings", 16)):
+	if ring >= int(rules.get("max_rings", 16)) or ring_rect(ring) == ring_rect(ring - 1):
 		return
 	sink_t -= 1
 	if sink_t > 0:
@@ -373,6 +326,7 @@ func _sinkhole_step() -> void:
 				t.set_cell(c, TerrainGrid.CRACKED)
 		warned = true
 		sim.sink_ring = ring
+		sim.sink_safe = ring_rect(ring)
 		sink_t = int(rules.get("shrink_warn", 120))
 		sim.emit_event("sink_warn", Vector2.ZERO, float(ring), {"ring": ring, "rect": _ring_rect(ring)})
 	else:
@@ -380,27 +334,39 @@ func _sinkhole_step() -> void:
 			t.sink(c)
 		warned = false
 		sim.sink_ring = -1
+		sim.sink_safe = Rect2i()
 		sim.emit_event("sink", Vector2.ZERO, float(ring), {"ring": ring, "rect": _ring_rect(ring)})
 		ring += 1
 		sink_t = int(rules.get("shrink_every", 420))
 
 
-func _ring_cells(r: int) -> Array[Vector2i]:
+## The floor left (in cells) once rings 0..r have dropped; r = -1 is the whole grid.
+## Each ring takes `shrink_cols` cells off the left and the right and `shrink_rows` off
+## the top and the bottom, and an axis stops once it is down to `min_cols` / `min_rows`.
+func ring_rect(r: int) -> Rect2i:
 	var t := sim.terrain
+	var n := r + 1
+	var ix := mini(n * int(rules.get("shrink_cols", 1)), maxi(0, (t.cols - int(rules.get("min_cols", 0))) / 2))
+	var iy := mini(n * int(rules.get("shrink_rows", 1)), maxi(0, (t.rows - int(rules.get("min_rows", 0))) / 2))
+	return Rect2i(ix, iy, t.cols - 2 * ix, t.rows - 2 * iy)
+
+
+## The cells ring `r` drops: on the floor before it, off the floor after it.
+func _ring_cells(r: int) -> Array[Vector2i]:
+	var before := ring_rect(r - 1)
+	var after := ring_rect(r)
 	var out: Array[Vector2i] = []
-	for x in range(r, t.cols - r):
-		out.append(Vector2i(x, r))
-		out.append(Vector2i(x, t.rows - 1 - r))
-	for y in range(r + 1, t.rows - 1 - r):
-		out.append(Vector2i(r, y))
-		out.append(Vector2i(t.cols - 1 - r, y))
+	for y in range(before.position.y, before.end.y):
+		for x in range(before.position.x, before.end.x):
+			if not after.has_point(Vector2i(x, y)):
+				out.append(Vector2i(x, y))
 	return out
 
 
-## The floor left once ring `r` has gone, in pixels.
+## The floor left once ring `r` has dropped, in pixels (the events' `rect`).
 func _ring_rect(r: int) -> Rect2:
-	var t := sim.terrain
-	return Rect2(t.cell_rect(Vector2i(r, r)).position, Vector2((t.cols - 2 * r) * SimDefs.CELL, (t.rows - 2 * r) * SimDefs.CELL))
+	var c := ring_rect(r)
+	return Rect2(sim.terrain.cell_rect(c.position).position, Vector2(c.size * SimDefs.CELL))
 
 
 func _finish(side: int, how: String) -> void:

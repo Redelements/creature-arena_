@@ -69,16 +69,22 @@ var _break_combo_checked := -1
 
 # Movement
 var _plan := "approach"
-## How close a CPU has to be to see a foe hiding in brush.
-const HIDE_RANGE := 34.0
+## How close a CPU has to be to see a foe hiding in brush (Vision's rule).
+const HIDE_RANGE := Vision.HIDE_RANGE
 var _plan_t := 0
 var _plan_dir := Vector2.ZERO
 var _think_t := 0
 var _last_pos := Vector2.ZERO
 var _stuck_t := 0
-## Where the foe was last seen: an invisible foe (Tiptoe) is chased there, not where it is.
-var _last_seen := Vector2.INF
-## Whether the foe is out of sight right now (invisible, or in brush we're not next to).
+## What this CPU's team can see (Vision: brush, fences and walls), fed from sim.events.
+var _vision := Vision.new()
+## Where each foe was last seen by this team (CreatureSim -> Vector2): a foe out of sight
+## (invisible, in brush, behind a wall or fence) is chased and aimed at there, not where
+## it is. A foe never seen yet is known where it started.
+var _last_seen := {}
+## The foes out of sight this tick (CreatureSim -> true).
+var _unseen := {}
+## Whether the current target is out of sight right now.
 var _foe_hidden := false
 ## Finding a way round walls, fences and pits (NavGrid): the current path, where it
 ## was going, and ticks until it may be replanned. Only used when the straight line to
@@ -94,6 +100,7 @@ var _detour_dir := Vector2.ZERO
 var _hold_heavy := 0
 var _hold_bit := SimDefs.IN_HEAVY  ## the button a held charge is held on
 var _hold_serial := -1  ## the attack whose "hold" (full-charge) choice is made
+var _guard_press := false  ## the last attack pressed was thrown to beat a guard
 ## Set in a Duel, so the CPU can tag out a hurt creature.
 var duel: DuelSim = null
 
@@ -137,17 +144,57 @@ func bits(sim: MatchSim) -> int:
 			_quiet_t = 0
 	if _quiet_t > 75:
 		_blocked_streak = 0  # a standoff: try again rather than stand there
-	var foe := _pick_target(sim, me) if _rage() else sim.nearest_opponent(me)
+	_look(sim, me)
+	var foe := _pick_target(sim, me) if _rage() else _nearest_known(sim, me)
 	if foe != null and me.state != CreatureSim.State.KO:
 		_decide(sim, me, foe)
 		# Normal and up aim attacks exactly (360 degrees), like a stick or a mouse; Easy
-		# keeps to the 8 directions a keyboard gives. Rage leads a moving target.
+		# keeps to the 8 directions a keyboard gives. Rage leads a moving target. A foe out
+		# of sight is aimed at where it was last seen.
 		if level >= 1 and ((_out & PlayerInput.ATTACK_BITS) or me.state == CreatureSim.State.ATTACK) \
 				and not (_out & SimDefs.IN_AIM):
-			var at := _aim_point(me, foe) if _rage() else foe.pos
+			var at := _aim_point(me, foe) if _rage() else _seen(foe)
 			_out |= SimDefs.aim_bits(at - me.pos)
 	_prev = _out
 	return _out
+
+
+# ------------------------------------------------------------------ sight
+
+## What the team sees this tick: the foes out of sight (stealth, or Vision says no) and
+## where each foe was last seen. Called once per tick, before any decision.
+func _look(sim: MatchSim, me: CreatureSim) -> void:
+	_vision.observe(sim.events)
+	_unseen.clear()
+	for o in sim.creatures:
+		if not me.is_foe(o):
+			continue
+		if o.stealth > 0 or not _vision.team_sees(sim, me.team, o):
+			_unseen[o] = true
+			if not _last_seen.has(o):
+				_last_seen[o] = o.pos
+		else:
+			_last_seen[o] = o.pos
+
+
+## The nearest foe by where this team knows it to be (the sim's nearest_opponent, with
+## out-of-sight foes counted where they were last seen).
+func _nearest_known(sim: MatchSim, me: CreatureSim) -> CreatureSim:
+	var best: CreatureSim = null
+	var best_d := INF
+	for o in sim.creatures:
+		if not me.is_foe(o) or o.state == CreatureSim.State.KO:
+			continue
+		var d := _seen(o).distance_squared_to(me.pos)
+		if d < best_d:
+			best_d = d
+			best = o
+	return best
+
+
+## Whether this team can see `o` this tick.
+func _sees(o: CreatureSim) -> bool:
+	return not _unseen.has(o)
 
 
 # ------------------------------------------------------------------ helpers
@@ -232,26 +279,23 @@ func _threat_range(foe: CreatureSim, me: CreatureSim) -> float:
 # ------------------------------------------------------------------ decisions
 
 func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
-	# Sinkhole: the ring under us is cracked and about to drop. Nothing matters more
-	# than getting off it (a dash or dodge in progress finishes first).
+	# Sinkhole: the ring under us (or a cell short of it) is cracked and about to drop.
+	# Nothing matters more than getting off it (a dash or dodge in progress finishes first).
 	if sim.sink_ring >= 0 and me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE, CreatureSim.State.GUARD] \
-			and sim.terrain.ring_of(sim.terrain.world_to_cell(me.pos)) <= sim.sink_ring + 1:
+			and not sim.sink_safe.grow(-1).has_point(sim.terrain.world_to_cell(me.pos)):
 		_go_to(sim, me, SimDefs.floor_rect().get_center())
 		return
-	var to_foe := foe.pos - me.pos
+	var to_foe := _seen(foe) - me.pos
 	# King of the Crater: the zone is the point. Outside it, go to it unless the foe is
 	# right here to fight; inside, fight as usual (and come back if the fight drifts).
 	if sim.zone_r > 0.0 and me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE, CreatureSim.State.GUARD]:
 		var out := me.pos.distance_to(sim.zone_pos) > sim.zone_r - 6.0
-		if out and (to_foe.length() > _reach_of(me, foe) + 12.0 or foe.pos.distance_to(sim.zone_pos) <= sim.zone_r):
+		if out and (to_foe.length() > _reach_of(me, foe) + 12.0 or _seen(foe).distance_to(sim.zone_pos) <= sim.zone_r):
 			_go_to(sim, me, sim.zone_pos)
 			return
-	# Brush hides a foe from anyone outside it: a CPU right next to the bush still sees.
-	_foe_hidden = foe.stealth > 0 or (foe.covered and to_foe.length() > HIDE_RANGE)
-	if _foe_hidden and _last_seen != Vector2.INF:
-		to_foe = _last_seen - me.pos
-	else:
-		_last_seen = foe.pos
+	# Out of sight (Vision: brush, fences, walls; or invisible): to_foe is to where it was
+	# last seen.
+	_foe_hidden = not _sees(foe)
 	var dist := to_foe.length()
 
 	# Stunned: maybe burn energy on a breakaway, otherwise nothing to do.
@@ -318,29 +362,36 @@ func _continue_attack(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: fl
 			# otherwise it's a roll (Gulp: a hook or a swallow, same reach either way).
 			var tap_reach := float(mv.get("reach", 0.0)) + float(mv.get("hit_radius", 0.0)) + foe.radius
 			var out_of_tap := not mv.has("projectile") and dist > tap_reach
-			if me.move_id != "heavy" and (out_of_tap or _roll(0.25 + 0.1 * level)):
+			if _breaks_guard_held_only(mv):
+				# It only breaks guard at a full charge (Sack Smack): thrown at a guard, held
+				# all the way; otherwise it's a plain heavy, tapped.
+				if _guard_press or foe.state == CreatureSim.State.GUARD:
+					_hold_heavy = int(mv.get("charge_max", 0)) + 1
+					_hold_bit = int(ACTION_BIT.get(me.move_id, SimDefs.IN_HEAVY))
+			elif me.move_id != "heavy" and (out_of_tap or _roll(0.25 + 0.1 * level)):
 				_hold_heavy = int(mv.get("charge_max", 0)) + 1
 				_hold_bit = int(ACTION_BIT.get(me.move_id, SimDefs.IN_HEAVY))
 		if _hold_heavy > 0:
 			_hold_heavy -= 1
 			_hold(_hold_bit if me.move_id != "heavy" else SimDefs.IN_HEAVY)
+		_guard_press = false
 		return
 	# A steerable dash (Burrow): steer it toward the foe, to come up under them.
 	if float(me.move_def().get("dash", {}).get("steer", 0.0)) > 0.0:
-		_hold(SimDefs.bits_from_dir((foe.pos - me.pos).normalized()))
+		_hold(SimDefs.bits_from_dir((_seen(foe) - me.pos).normalized()))
 		return
 	# Holding a gaze (Stone Gaze): break out with a jab once the foe walks in close.
 	var gz: Dictionary = me.move_def().get("gaze", {})
 	if not gz.is_empty() and dist < float(_ai(me).get("range", 22)) + me.radius + foe.radius \
 			and me.state_t >= int(gz.get("release_from", 9999)):
-		_hold(SimDefs.bits_from_dir((foe.pos - me.pos).normalized()))
+		_hold(SimDefs.bits_from_dir((_seen(foe) - me.pos).normalized()))
 		_press(SimDefs.IN_LIGHT)
 		return
 	# Rage in an armored stance (Bedrock): answer out of it the moment the foe is in reach.
 	var armor: Dictionary = me.move_def().get("armor", {})
 	if _rage() and not armor.is_empty() and me.state_t >= int(armor.get("release_from", 9999)) \
 			and me.state_t <= int(armor["to"]) and dist < _reach_of(me, foe):
-		_hold(SimDefs.move_bits(foe.pos - me.pos))
+		_hold(SimDefs.move_bits(_seen(foe) - me.pos))
 		_press(SimDefs.IN_HEAVY if me.can_use("heavy") and _roll(0.4) else SimDefs.IN_LIGHT)
 		return
 	# Rage's knife strings keep coming at range, hit or miss: a mage's lights are its
@@ -361,6 +412,7 @@ func _continue_attack(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: fl
 		if grab != "" and me.can_use(grab) and me.move_rank(grab) > me.move_rank(me.move_id) \
 				and foe.state == CreatureSim.State.GUARD:
 			_press(int(ACTION_BIT[grab]))
+			_guard_press = true
 		return
 	# On the first contact, pick a route; each new move after that is one step along it.
 	if _route.is_empty():
@@ -434,7 +486,7 @@ func _defend(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float) -> b
 	var threat := false
 	var grab_threat := false
 	var serial := foe.attack_serial
-	if foe.state == CreatureSim.State.ATTACK and not foe.charging \
+	if not _foe_hidden and foe.state == CreatureSim.State.ATTACK and not foe.charging \
 			and foe.attack_elapsed() >= int(p["reaction"]) - 6 and dist < _threat_range(foe, me):
 		threat = true
 		grab_threat = bool(foe.move_def().get("grab", false))
@@ -447,7 +499,7 @@ func _defend(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float) -> b
 		if pp.distance_to(me.pos) < 70.0 and vel.dot(me.pos - pp) > 0.0:
 			threat = true
 			serial = 100000 + int(pr["serial"])
-	if foe.charging and dist < 60.0:
+	if not _foe_hidden and foe.charging and dist < 60.0:
 		threat = true
 		serial = 200000 + foe.attack_serial
 
@@ -484,7 +536,7 @@ func _dodge_away(me: CreatureSim, foe: CreatureSim) -> void:
 		_defense_t = 20
 		_hold(SimDefs.IN_GUARD)
 		return
-	var away := (me.pos - foe.pos).normalized()
+	var away := (me.pos - _seen(foe)).normalized()
 	var side := Vector2(-away.y, away.x) * (1.0 if _roll(0.5) else -1.0)
 	_hold(SimDefs.bits_from_dir((away + side).normalized()))
 	_press(SimDefs.IN_DODGE)
@@ -696,7 +748,7 @@ func _rage_breaks_away(sim: MatchSim, me: CreatureSim) -> bool:
 	var hurt := me.hp / me.max_hp < 0.5
 	var surging := false
 	for o in sim.creatures:
-		if me.is_foe(o) and o.energy >= CreatureSim.MAX_ENERGY and o.pos.distance_to(me.pos) < 80.0:
+		if me.is_foe(o) and _sees(o) and o.energy >= CreatureSim.MAX_ENERGY and o.pos.distance_to(me.pos) < 80.0:
 			surging = true
 	if me.energy >= CreatureSim.MAX_ENERGY and not hurt:
 		return false  # keep the Surge
@@ -722,18 +774,19 @@ func _pick_target(sim: MatchSim, me: CreatureSim) -> CreatureSim:
 	for o in sim.creatures:
 		if not me.is_foe(o) or o.state == CreatureSim.State.KO:
 			continue
-		var d := o.pos.distance_to(me.pos)
+		var at := _seen(o)  # a foe out of sight counts where it was last seen
+		var d := at.distance_to(me.pos)
 		var score := d
 		if how == "weakest":
 			score = d * 0.5 + o.hp / o.max_hp * 220.0
 		elif ally != null:
-			score = o.pos.distance_to(ally.pos) + d * 0.3
+			score = at.distance_to(ally.pos) + d * 0.3
 		if score < best_score:
 			best_score = score
 			best = o
 	_target = best
 	_target_t = 30
-	return best if best != null else sim.nearest_opponent(me)
+	return best if best != null else _nearest_known(sim, me)
 
 
 ## The teammate with the least health left, if one is under 70%.
@@ -747,15 +800,18 @@ func _hurt_ally(sim: MatchSim, me: CreatureSim) -> CreatureSim:
 	return best
 
 
-## Where the foe is, as far as this fighter knows: where it was last seen while
-## invisible (Tiptoe), which is the point of going invisible.
+## Where the foe is, as far as this fighter's team knows: where it was last seen while
+## it's out of sight (invisible, in brush, behind a wall or fence), which is the point
+## of hiding.
 func _seen(foe: CreatureSim) -> Vector2:
-	return _last_seen if _foe_hidden and _last_seen != Vector2.INF else foe.pos
+	if _unseen.has(foe):
+		return _last_seen.get(foe, foe.pos)
+	return foe.pos
 
 
 ## Where to aim: at the foe, or for a thrown move where the foe will be when it arrives.
 func _aim_point(me: CreatureSim, foe: CreatureSim) -> Vector2:
-	if foe.stealth > 0:
+	if not _sees(foe):
 		return _seen(foe)
 	var mid := me.move_id if me.state == CreatureSim.State.ATTACK else "light_1"
 	if _out & SimDefs.IN_SKILL1:
@@ -875,8 +931,8 @@ func _reach_of(o: CreatureSim, me: CreatureSim) -> float:
 ## Whether a light thrown now would land: `foe` is in reach and can't walk out of it
 ## before the strike comes out (or is stuck: attacking, guarding, stunned, cornered).
 func _lands(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float, reach: float) -> bool:
-	if dist > reach or foe.state == CreatureSim.State.GUARD or foe.stealth > 0:
-		return false  # a guard is grabbed, not jabbed; an invisible foe can't be aimed at
+	if dist > reach or foe.state == CreatureSim.State.GUARD or not _sees(foe):
+		return false  # a guard is grabbed, not jabbed; a foe out of sight can't be aimed at
 	if _blocked_streak >= 2 and foe.state != CreatureSim.State.ATTACK and not foe.is_stunned():
 		return false  # it blocks on reaction: wait for it to swing, or break the guard
 	var su := float(me.moves().get("light_1", {}).get("startup", 5)) + 1.0
@@ -969,8 +1025,8 @@ func _rage_defend(sim: MatchSim, me: CreatureSim) -> bool:
 	var from := Vector2.ZERO
 	var need := 0.0  ## how far to move to be clear
 	for o in sim.creatures:
-		if not me.is_foe(o) or o.state != CreatureSim.State.ATTACK or o.stealth > 0:
-			continue  # (an invisible foe's strike can't be read until it comes out)
+		if not me.is_foe(o) or o.state != CreatureSim.State.ATTACK or not _sees(o):
+			continue  # (a foe out of sight can't be read: invisible, or behind a wall)
 		var d := o.pos.distance_to(me.pos)
 		if o.charging:
 			if d < 64.0 and 8 < when:
@@ -987,7 +1043,7 @@ func _rage_defend(sim: MatchSim, me: CreatureSim) -> bool:
 		from = o.pos
 		need = reach - d + 2.0
 		var mv := o.move_def()
-		kind = "unblockable" if bool(mv.get("grab", false)) or bool(mv.get("guard_break", false)) \
+		kind = "unblockable" if _breaks_guard(mv) and (not _breaks_guard_held_only(mv) or o.charge_ratio >= 1.0) \
 			or String(mv.get("type", "")) == "surge" else "strike"
 	for pr in sim.projectiles:
 		var owner_id := int(pr["owner"])
@@ -1086,7 +1142,7 @@ func _blocked_and_open(sim: MatchSim, me: CreatureSim) -> bool:
 		return false  # the last punishes were blocked: hold the guard, it'll swing again
 	var open := false
 	for o in sim.creatures:
-		if not me.is_foe(o) or o.state == CreatureSim.State.KO:
+		if not me.is_foe(o) or o.state == CreatureSim.State.KO or not _sees(o):
 			continue
 		var d := o.pos.distance_to(me.pos)
 		var t := _frames_to_active(o)
@@ -1219,6 +1275,7 @@ func _rage_neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vec
 			and me.can_use(grab):
 		_hold(SimDefs.move_bits(to_foe))
 		_press(int(ACTION_BIT[grab]))
+		_guard_press = true
 		return
 
 	if _rage_kit(sim, me, foe, to_foe, dist, plan):
@@ -1313,7 +1370,7 @@ func _guard_answer(me: CreatureSim, dist: float) -> String:
 	for act in ["heavy", "skill_1", "skill_2", "surge"]:
 		var mid := me.action_move(act)
 		var mv: Dictionary = me.moves().get(mid, {})
-		if mv.is_empty() or not (bool(mv.get("grab", false)) or bool(mv.get("guard_break", false))):
+		if mv.is_empty() or not _breaks_guard(mv):
 			continue
 		if not me.can_use(mid) or mv.has("counter"):
 			continue
@@ -1328,6 +1385,19 @@ func _guard_answer(me: CreatureSim, dist: float) -> String:
 			best_rank = rank
 			best = act
 	return best
+
+
+## A grab or a guard-breaker, including one that only breaks guard held to a full charge.
+static func _breaks_guard(mv: Dictionary) -> bool:
+	return bool(mv.get("grab", false)) or bool(mv.get("guard_break", false)) \
+		or bool(mv.get("hold", {}).get("guard_break", false))
+
+
+## A move that breaks guard only at a full charge ("hold": {"guard_break": true}, Sack
+## Smack): the CPU has to hold it all the way to the top.
+static func _breaks_guard_held_only(mv: Dictionary) -> bool:
+	return bool(mv.get("hold", {}).get("guard_break", false)) and not bool(mv.get("guard_break", false)) \
+		and not bool(mv.get("grab", false))
 
 
 func _is_ranged(o: CreatureSim) -> bool:
@@ -1468,7 +1538,8 @@ func _plan_press(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vecto
 		return
 	# Aim a little between the foe and the middle of the floor: it gets pushed outward.
 	var mid := SimDefs.floor_rect().get_center()
-	var cut := foe.pos + (mid - foe.pos).normalized() * minf(24.0, dist * 0.3)
+	var at := _seen(foe)
+	var cut := at + (mid - at).normalized() * minf(24.0, dist * 0.3)
 	_go(sim, me, cut - me.pos)
 
 
