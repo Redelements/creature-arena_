@@ -18,7 +18,7 @@ src/game/   main (flow, camera, settings, CLI), online_lobby, showcase, trials, 
             match_factory, autoplay
 src/ui/     ui_theme, screen_stack, ui_screen, option_row, card_button, prompts, fighter_preview,
             title_screen, character_select, ready_check, pause/confirm/help/remap screens
-data/       creatures/*.json, rules/{duel,team,deathmatch}.json, trials.json, audio.json, online.json
+data/       creatures/*.json, rules/{duel,team,deathmatch}.json, trials.json, audio.json, online.json, discord.json
 tests/      run_tests.gd runs every tests/test_*.gd; bench_sim.gd, bench_cpu.gd, bench_spacing.gd
 tools/      sprite generators (splat3d.py shared), gen_sprites.py, gen_audio.py
 docs/       this page and the others above; docs/plans/ for design notes
@@ -241,6 +241,8 @@ packets are plain-UDP JSON: `creature-arena?` / `creature-arena`.
 | `game/ladder.gd` (60) | The questions a run of single-round fights answers (opponent, level, mutators, carried health, what a win or loss earns); Arcade, Gauntlet and Daily extend it, main plays any of them stage by stage (`_start_arcade_stage`, `_arcade_result`) | `opponent`, `stage_level`, `mutators`, `carried_hp`, `stage_won`, `lost_banner`, `score_fight` |
 | `game/gauntlet.gd` (60) | Endless waves, the level up every two to Rage, health carrying over with a 15% breather, the roster reshuffled each lap; best waves to Progress | `stage_won`, `waves` |
 | `game/daily.gd` (110) | The Daily Challenge: the UTC date seeds the opponent, Normal/Hard and two mutators; a win scores health left + time to spare; `build`/`cpu` make the day's match and `verify(replay)` rescoring it on a fresh match; saved to `user://daily/` with the replay | `today`, `mutators`, `score_fight`, `verify` |
+| `game/discord_rpc.gd` (230) | Discord Rich Presence over the Discord app's local IPC, no plugin or SDK: `discord-ipc-N` as a named pipe on Windows (FileAccess `pipe://..\`, only once `\\?\pipe\discord-ipc-N` exists, or it would create the pipe) or a Unix socket (`StreamPeerUDS`) elsewhere; handshake, READY, SET_ACTIVITY at most every 4 s, retry every 15 s, stops on an invalid client id. Reads only when bytes wait (a pipe read blocks) | `set_activity`, `poll`, `close`; static `encode_frame`, `decode_frames` |
+| `game/presence.gd` (195) | What the Discord status says: mode, matchup, round score, your fighter as the small image, the arena name on the large one; the clock restarts when the mode line changes. Main asks twice a second (`_process`), `_apply_discord` follows Settings > Game > Discord status and never connects headless | `describe(main)`, `activity(main)`, `load_config` |
 | `game/replay_builder.gd` (60) | Rebuilds the match a replay was recorded on from the setup main saves in `Replay.setup` (kind, ids, teams, rules, arena, mutators), for the Replay theater and tests | `build`, `play` |
 | `net/ratings.gd` (150) | The server's book of ranked players (Glicko 1995: rating, deviation shrinking with games and growing with time away) and daily scores (best per player per day), in `user://ratings.json`; the matchmaking band that widens with the wait | `record`, `band_ok`, `band`, `submit_daily`, `daily_board`, `rank` |
 | `net/daily_client.gd` (90) | A short connection outside any match: sends a Daily Challenge replay to be scored on the server, or fetches the day's top ten | `submit`, `fetch_board`, `tick` |
@@ -301,6 +303,7 @@ packets are plain-UDP JSON: `creature-arena?` / `creature-arena`.
 | `data/trials.json` | Combo trials: fighter, name, route (a step `[button, move, "hold"]` is held to a full charge: the demo charges it, the caption says "hold") |
 | `data/audio.json` | Music volume and tracks, every sound name → file |
 | `data/online.json` | The game's server host |
+| `data/discord.json` | Discord Rich Presence: `client_id` (the Discord app's Application ID; empty turns it off), `large_image`, `fighter_images` (art asset keys uploaded to that app) |
 
 Fighters: barkley, cairn, cerebro, craglash, culvert, digby, gillbert, hissy, pete, sno (and dummy).
 
@@ -323,6 +326,7 @@ errors count as failures; exit code 1 on any failure. Run `--import` after addin
 | `test_ai`, `test_rage`, `test_balance` | CPU reproducible and uses its kit; Rage beats Hard; class matchup pins (Rage vs Rage) |
 | `test_online`, `test_server`, `test_server_teams` | Handshake, lag/loss sync, desync detection, rematch, version refusal, real UDP; server pairing, rooms, referee; online 2v2/3v3 |
 | `test_ui`, `test_menu_stick`, `test_surge_ready`, `test_views`, `test_showcase`, `test_trials`, `test_scripts_load` | Menus with real input events; stick menu presses; aura/signal; up/down sheets for every fighter; every showcase reaches a KO; every trial clearable; every script compiles |
+| `test_presence` | Discord IPC frames (split, partial, bad), the status text per mode, the elapsed clock, the setting saved, no connection headless |
 | `bench_sim.gd`, `bench_cpu.gd` | Rollback cost; CPU tier win-rate matrix (`--matrix`, `--pairs`, `--seeds`, `--only`, `--detail`) |
 | `bench_spacing.gd` | How far apart fighters fight, Rage CPU vs the field: the gap between bodies when lights land, share of time touching, average gap (`--lv`, `--seeds`, `--only`) |
 

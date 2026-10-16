@@ -1,0 +1,6 @@
+{
+	"_comment": "Discord Rich Presence (src/game/discord_rpc.gd, presence.gd). client_id: the Application ID of the game's app on discord.com/developers (empty: no Discord status). large_image and fighter_images name Rich Presence art assets uploaded to that app; leave them out until the art is up.",
+	"client_id": "",
+	"large_image": "",
+	"fighter_images": []
+}
