@@ -35,8 +35,10 @@ static func load_def(id: String) -> Dictionary:
 
 
 ## Training: a player-controlled fighter on the left, a training dummy on the right.
+## The only match that accepts training options (`MatchSim.set_training_flags`).
 static func training(fighter := "culvert") -> MatchSim:
 	var sim := MatchSim.new()
+	sim.training = true
 	sim.set_arena(arena)
 	sim.add_creature(load_def(fighter), sim.spawn(0))
 	var dummy := sim.add_creature(load_def("dummy"), sim.spawn(1), true)

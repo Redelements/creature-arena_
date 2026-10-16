@@ -10,6 +10,9 @@ signal quit_requested
 var can_restart := true
 var help_body := ""
 var quit_text := "Quit to main menu"
+## Rows a mode adds after Restart, each [text, Callable, description] (training: Change
+## fighter, Training options).
+var extras: Array = []
 
 
 func _init(p_can_restart := true, p_help := "") -> void:
@@ -25,6 +28,8 @@ func build() -> void:
 	add_button("Resume", back)
 	if can_restart:
 		add_button("Restart", func(): _confirm("Restart the match?", restart_requested))
+	for e in extras:
+		add_button(String(e[0]), e[1], String(e[2]) if (e as Array).size() > 2 else "")
 	add_button("Controls", func(): stack.push(HelpScreen.new(help_body)))
 	add_button(quit_text, func(): _confirm("Quit to the main menu?", quit_requested))
 

@@ -19,6 +19,8 @@ const CUT_IN_TICKS := 30
 ## On very wide screens the health panels stay within this width (centred).
 const HUD_MAX_W := 640.0
 const TYPE_PIPS := [["light", "LT"], ["heavy", "HV"], ["skill", "SK"], ["surge", "SG"]]
+## Training options shown as tags under the dummy's panel (MatchSim.training_flags).
+const TRAINING_TAGS := {"no_cooldowns": "NO COOLDOWNS", "full_energy": "SURGE FULL"}
 
 var sim: MatchSim
 var duel: DuelSim = null  ## set during a Duel: draws the team strip under each panel
@@ -67,6 +69,9 @@ var _combo_pop := [0, 0]
 var _cut := {}
 var _tick := 0
 var _font: Font = ThemeDB.fallback_font
+## Training: damage per second on the dummy, drawn in the dummy's panel (DpsMeter).
+var dps := DpsMeter.new()
+var _dps_sim: MatchSim = null
 
 
 ## The per-slot labels (tags, key prompts) have one entry per creature slot: 2, or up
@@ -119,11 +124,25 @@ func advance() -> void:
 				_combo_show[side] = 50
 			elif _combo_show[side] > 0:
 				_combo_show[side] -= 1
+	_watch_dummy()
 	if not _cut.is_empty():
 		_cut["t"] = int(_cut["t"]) + 1
 		if int(_cut["t"]) > CUT_IN_TICKS:
 			_cut = {}
 	queue_redraw()
+
+
+## Training: feeds the dummy's health to the DPS meter (a new match starts it over).
+func _watch_dummy() -> void:
+	if sim == null or not sim.training:
+		return
+	if sim != _dps_sim:
+		_dps_sim = sim
+		dps.reset()
+	for c in sim.creatures:
+		if c.is_dummy:
+			dps.observe(c.hp, sim.tick)
+			return
 
 
 ## Whose combo side `side` is building: the foe taking the longest combo right now (in a
@@ -260,6 +279,37 @@ func _card(slot: int, x: float, y: float, right: bool) -> void:
 
 
 ## `side` is a creature slot; `color_side` picks the stripe (its team in a team battle).
+## Training: the options that are on (the sim's training flags), as small tags under the
+## dummy's panel, right-aligned to `right_x`.
+func _training_tags(right_x: float) -> void:
+	if not sim.training:
+		return
+	var font := ThemeDB.fallback_font
+	var x := right_x
+	for k in ["full_energy", "no_cooldowns"]:  # right to left
+		if not sim.training_flags.get(k, false):
+			continue
+		var txt := String(TRAINING_TAGS[k])
+		var w := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 5).x + 6.0
+		x -= w
+		draw_rect(Rect2(x, 39, w, 8), C_PANEL)
+		draw_rect(Rect2(x, 39, 1, 8), C_ENERGY if k == "full_energy" else C_STAMINA)
+		_text(Vector2(x + 3, 45), txt, 5, C_TEXT)
+		x -= 3.0
+
+
+## Training: the DPS meter in the dummy's panel, where a fighter's skill boxes would be:
+## the burst's damage per second, then its total and length; dimmed once it has ended.
+func _dps(x: float, w: float) -> void:
+	if not dps.has_burst():
+		_text(Vector2(x, 29), "DPS -", 7, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, w)
+		return
+	var live := dps.active()
+	_text(Vector2(x, 29), "DPS %.1f" % dps.dps(), 7, C_ACCENT if live else C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, w)
+	_text(Vector2(x, 36), "%d dmg  %.1f s" % [roundi(dps.total), dps.seconds()], 5,
+		C_TEXT if live else C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, w)
+
+
 func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 	var c := sim.creatures[side]
 	draw_rect(Rect2(x, 3, 160, 34), C_PANEL)
@@ -269,6 +319,9 @@ func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 	var tag := String(tags[side])
 	if c.is_dummy:
 		tag = "F2: " + dummy_mode_name
+		_training_tags(x + 160.0)
+		if sim.training:
+			_dps(x + 108.0, 46.0)
 	_text(Vector2(x + 5, 12), name, 7, C_TEXT)
 	_text(Vector2(x + 5, 12), tag, 6, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, 150)
 	# Health is over the fighter now (FxView's bars); the panel keeps what isn't: the

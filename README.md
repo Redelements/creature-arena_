@@ -247,7 +247,7 @@ off-angle Landslide Charge; `--pad-layout=twinstick` picks the layout from the c
 
 Tools: F1 hitbox overlay, F2 cycle the training dummy, F3 hide the controls strip,
 F4 reset training, F5 next palette (Arcade clears unlock them), F6 save a replay (watch it from
-Single player > Replay theater), F7 range rings, M mute music.
+Single player > Replay theater), F7 range rings, F8 change fighter (training), M mute music.
 
 **Range rings** (Settings > Controls, or F7 in a fight; off by default): a thin ring on the
 floor under each attack while it can hit, in the attacker's colour, showing where a foe's
@@ -395,6 +395,35 @@ down.
 
 Offline for now (vs CPU); online Team Deathmatch needs the server to run the mode.
 Tuning: `data/rules/deathmatch.json`.
+
+### Training
+
+Single player > Training puts your fighter against a dummy with no clock. F2 (or the
+pause menu) picks what the dummy does: stand, guard, walk or dodge; F4 resets. The pause
+menu adds:
+
+- **Change fighter** (or F8, rebindable in each Remap page; the controller has no button
+  for it until you pick one): the pick screen's tiles, one fighter for you. Picking one
+  swaps your fighter in place with a short fade: the dummy's behaviour, the arena and the
+  training options stay. Restart and F4 keep the new fighter until you leave training.
+- **Training options:** *No cooldowns* (every move and the dodge are always ready, and
+  your stamina stays full, since most dodges are gated by stamina), *Surge always full*
+  (your Surge meter stays at max) and the *Dummy* row (the same setting F2 cycles). They
+  apply to you, not the dummy, show as tags under the dummy's panel, and are remembered
+  in your settings. They exist only in training: no other mode, Combo Trials and Reaction
+  Drills included, can turn them on.
+
+**DPS meter:** the dummy's panel shows the damage you do to it per second, with the
+burst's total and length under it ("DPS 16.7", "40 dmg 2.4 s"). A burst starts at your
+first damage and ends after 2.5 s without any; its DPS is the total over the time from
+its first damage to its last (at least a second, so one hit reads as its damage). The
+number is gold while the burst is going and stays, dimmed, until your next hit starts a
+new one. Everything that takes the dummy's health counts: clean hits, block and armor
+chip, projectiles, poison, falls; the dummy refilling after a KO doesn't. Paused time
+doesn't count.
+
+A training replay (F6) records the options and every change you make to them, so it plays
+back exactly; swapping your fighter starts a fresh replay from the swap.
 
 ### Learning the game: Combo Trials and Reaction Drills
 
