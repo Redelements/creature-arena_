@@ -126,7 +126,7 @@ Online from a terminal: `godot --path . -- --online-host` and `godot --path . --
 25 Sneaky Pete vs CPU Digby, 26 training as Sneaky Pete, 27 Sno Mercy vs CPU Sneaky Pete,
 28 training as Sno Mercy, 29 Team battle 2v2 vs CPU, 30 Team battle 3v3 vs CPU,
 31 Team Deathmatch 2v2 vs CPU, 32 Team Deathmatch 3v3 vs CPU. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
-sets Duel (and Team battle) teams; `--cpu-vs-cpu` hands every player side to the CPU.
+sets Duel (and Team battle) teams; `--cpu-vs-cpu` hands every player side to the CPU (`--view-team=N` then shows it as team N sees it: brush, fences and walls hide the other side).
 
 **Local 2-player:** with two controllers, each player gets one (player 1 can also use the
 keyboard). With one controller, player 1 uses keyboard and mouse and player 2 the controller.
@@ -252,12 +252,13 @@ Each map in `data/arenas/` lays fixed pieces on the breakable floor:
 | Arena | What's on the floor | Who gets through |
 | --- | --- | --- |
 | Stadium | Plain dirt, the pits you make | Everyone |
-| Quarry Bowl | Two rubble walls split it into three lanes, open at the top and bottom. Walls stop bodies and shots (lobs fly over) and bounce knockback like the edge | Craglash's Landslide Charge and shoulder-charge dodge and Cairn's Rockslide Rush smash through (the wall rebuilds after 12 s) |
+| Quarry Bowl | Two rubble walls split it into three lanes, open at the top and bottom. Walls stop bodies and shots (lobs fly over), bounce knockback like the edge and block sight: a foe behind one isn't on your screen (a faint "?" marks where your team last saw it) | Craglash's Landslide Charge and shoulder-charge dodge and Cairn's Rockslide Rush smash through (the wall rebuilds after 12 s) |
 | Floodgate Stadium | A shallows channel down the middle with two bridges. Shallows slow walking to 60% | Culvert wades at full speed; Gillbert's Flop Dash and Sno's Slush Slide run 1.5x faster through it |
-| Greenhouse Dome | Fence lines and brush beds. Fences stop bodies, not shots; brush hides whoever stands in it (and from the CPU, until it's close) | Sneaky Pete's Pickpocket ghosts through fences, Chef Cerebro blinks over them, Digby burrows under everything; any dash or roll flattens brush (grows back) |
+| Greenhouse Dome | Fence lines and brush beds. Fences stop bodies, not shots, and you can't see through them; brush hides whoever stands in it from the other team (not drawn at all on their screen) until one of them is right next to it, it attacks, or it lands or takes a hit (then for half a second). You see yourself and your teammates in brush, faintly | Sneaky Pete's Pickpocket ghosts through fences, Chef Cerebro blinks over them, Digby burrows under everything; any dash or roll flattens brush (grows back) |
 
 Chasms (pits that never heal) are a map piece too; leaps and Burrow cross them. The CPU
-finds its way round walls, fences and chasms on every level.
+finds its way round walls, fences and chasms on every level, and plays by the same sight
+rules: a foe its team can't see is hunted where it was last seen.
 
 ## How combat works
 

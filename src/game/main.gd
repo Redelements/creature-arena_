@@ -26,6 +26,8 @@ extends Node2D
 ##   --teams=a,b,c:d,e,f   Duel / 2-player teams (default cerebro,gillbert,barkley:culvert,cerebro,craglash)
 ##   --pick                show the team pick screen even with --mode
 ##   --cpu-vs-cpu          every player side is played by the CPU (demos, captures)
+##   --view-team=N         show the match as team N sees it (brush, fences, walls hide
+##                         foes), even with nobody playing here (captures of --cpu-vs-cpu)
 ##   --menu=PAGE           open a menu page: main, single, single:<group>, settings, game, video, audio, controls (captures)
 ##   --online-host[=PORT]  host an online 1v1 straight away (UDP, default port 7777)
 ##   --online-join=ADDR[:PORT][/ROOM]  join one, or a dedicated server (ROOM: meet a friend there)
@@ -276,6 +278,12 @@ var _rules_id := ""
 var _teams: Array = DEFAULT_TEAMS.duplicate(true)
 var _skip_select := false
 var _cpu_vs_cpu := false
+## --view-team=N: whose eyes the screen uses when nobody plays here (-1: everyone's).
+var _view_team_arg := -1
+## Who the local team can see (Vision), fed from the events the views are shown, and
+## which fighter slots are hidden from it this tick (true: not drawn at all).
+var vision := Vision.new()
+var _hidden: Array = []
 var _showcase_list: Array = []
 var _showcase_arg := ""  ## --showcase=NAME: loop just that one
 var _showcase_i := 0
@@ -1422,6 +1430,9 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	fx.sim = sim
 	fx.clear()
 	fx.views = views
+	vision.clear()
+	_hidden = []
+	fx.vision = vision
 	_ko_cam_t = -1
 	hud.dummy_mode_name = DUMMY_MODES[dummy_mode]
 	# Red for the left side (P1), blue for the right (P2 or the CPU): a marker over each
@@ -1566,6 +1577,7 @@ func _physics_process(_delta: float) -> void:
 		else:
 			sim.step(inputs)
 		events = sim.events
+	_update_vision(events)
 	for e in events:
 		_react(e)
 	if coach != null and flow == Flow.FIGHT:
@@ -1588,9 +1600,10 @@ func _physics_process(_delta: float) -> void:
 	crowd.advance()
 	fx.advance()
 	hud.advance()
-	for v in views:
-		v.see_through = _hides_someone(v.c)
-		v.refresh()
+	for i in views.size():
+		views[i].out_of_sight = _is_hidden(i)
+		views[i].see_through = _hides_someone(views[i].c)
+		views[i].refresh()
 	if debug.visible:
 		debug.queue_redraw()
 
@@ -1787,6 +1800,37 @@ func _relation(i: int) -> String:
 	return "ally" if local_teams.has(sim.creatures[i].team) else "enemy"
 
 
+## The team whose eyes the screen uses: the one team the players here are on (online,
+## the local slot's). -1 when there isn't exactly one (CPU vs CPU, replays, watching
+## online, two local players on opposite sides): then everyone is shown, brush or not.
+func _viewer_team() -> int:
+	var local_teams := {}
+	for k in mini(sides.size(), sim.creatures.size()):
+		if sides[k] in LOCAL_SIDES:
+			local_teams[sim.creatures[k].team] = true
+	if local_teams.size() == 1:
+		return int(local_teams.keys()[0])
+	if local_teams.is_empty() and _view_team_arg >= 0:
+		return _view_team_arg
+	return -1
+
+
+## Works out which fighters the local team can't see this tick (Vision: brush, fences,
+## walls), after noting this tick's hits. Views and the camera skip them.
+func _update_vision(events: Array) -> void:
+	vision.observe(events)
+	var team := _viewer_team()
+	_hidden.resize(sim.creatures.size())
+	for i in sim.creatures.size():
+		_hidden[i] = team >= 0 and not vision.team_sees(sim, team, sim.creatures[i])
+	fx.unseen = _hidden
+	fx.viewer_team = team
+
+
+func _is_hidden(i: int) -> bool:
+	return i < _hidden.size() and bool(_hidden[i])
+
+
 ## Whether `team` is a side someone at this machine plays (or plays alongside, in a team
 ## battle). With nobody playing here (CPU vs CPU), the left side counts as "yours".
 func is_local_team(team: int) -> bool:
@@ -1869,9 +1913,10 @@ func _hides_someone(c: CreatureSim) -> bool:
 	if c.state == CreatureSim.State.KO:
 		return false
 	var top := c.pos.y - float(c.def.get("fx_top", 32)) - 6.0  # head and mane included
-	for o in sim.creatures:
-		if o == c or o.state in [CreatureSim.State.KO, CreatureSim.State.FALLING]:
-			continue
+	for k in sim.creatures.size():
+		var o := sim.creatures[k]
+		if o == c or o.state in [CreatureSim.State.KO, CreatureSim.State.FALLING] or _is_hidden(k):
+			continue  # (nobody turns see-through for a foe the local team can't see)
 		if o.pos.y >= c.pos.y or absf(c.pos.x - o.pos.x) > c.radius + 6.0:
 			continue
 		# How much of the one behind is inside our height on screen.
@@ -1925,12 +1970,16 @@ func _update_camera() -> void:
 
 ## A fight: keeps every fighter in shot, heads included, with room around them. Close
 ## together the camera sits at the normal 1x; as they spread out it pulls back, as far as
-## showing the whole stadium.
+## showing the whole stadium. A foe hidden from the local team (brush, a wall) is left
+## out, or the zoom would give it away.
 func _frame_fight(view: Vector2, size: Vector2) -> void:
 	var box := Rect2()
 	var any := false
-	for c in sim.creatures:
+	for i in sim.creatures.size():
+		var c := sim.creatures[i]
 		if c.state == CreatureSim.State.KO and _ko_cam_t < 0:
+			continue
+		if _is_hidden(i):
 			continue
 		var body := Rect2(c.pos - Vector2(0, float(c.def.get("fx_top", 32)) + c.air_height()), Vector2.ZERO)
 		body = body.expand(c.pos)
@@ -2417,6 +2466,8 @@ func _parse_args() -> int:
 			pick = true
 		elif a == "--cpu-vs-cpu":
 			_cpu_vs_cpu = true
+		elif a.begins_with("--view-team="):
+			_view_team_arg = int(a.get_slice("=", 1))
 		elif a.begins_with("--teams="):
 			# --teams=cairn,culvert,cairn:culvert,cairn,culvert
 			var halves := a.get_slice("=", 1).split(":")
