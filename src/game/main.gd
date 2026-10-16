@@ -100,6 +100,8 @@ const MODES := [
 	{"label": "Brawl: you vs 3 CPUs", "brawl": true, "sides": [Side.PLAYER, Side.CPU, Side.CPU, Side.CPU]},
 	{"label": "Chaos Cup", "brawl": true, "chaos": true, "sides": [Side.PLAYER, Side.CPU, Side.CPU, Side.CPU]},
 	{"label": "Replay", "replay": true, "sides": []},
+	{"label": "Mister Crease  vs  CPU Chef Cerebro", "left": "crease", "right": "cerebro", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Training: Mister Crease", "left": "crease", "training": true},
 ]
 const REPLAY_MODE := 47
 ## The menus (src/ui screens): the title menu opens Single player (MENU_ROWS), the online
@@ -149,29 +151,29 @@ const MENU_ROWS := [
 		"desc": "A Brawl with three random mutators stacked on: low gravity, Surge rush, a floor of pits, haste, glass cannon"},
 	{"label": "Replay theater", "group": "practice", "screen": "replays", "desc": "Watch the fights you saved with F6"},
 	{"label": "Versus: 2 players", "group": "local", "modes": [8], "desc": "One fighter each, two players on one screen"},
-	{"label": "Versus CPU", "group": "cpu", "modes": [0, 1, 12, 14, 16, 18, 21, 23, 25, 27],
+	{"label": "Versus CPU", "group": "cpu", "modes": [0, 1, 12, 14, 16, 18, 21, 23, 25, 27, 48],
 		"desc": "Best of three rounds against the CPU. Left/Right: your fighter",
 		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert", "as Chef Cerebro",
-			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy"]},
+			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy", "as Mister Crease"]},
 	{"label": "Arcade", "group": "challenge", "modes": [39], "fighter_choice": true,
 		"desc": "Five fights up the roster, then a boss team in a 3v3 Duel. Clears unlock palettes (F5 in a fight). Left/Right: your fighter",
 		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert", "as Chef Cerebro",
-			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy"]},
+			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy", "as Mister Crease"]},
 	{"label": "Gauntlet", "group": "challenge", "modes": [40], "fighter_choice": true,
 		"desc": "Endless waves, harder every two, your health carrying over. How many can you clear? Left/Right: your fighter",
 		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert", "as Chef Cerebro",
-			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy"]},
+			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy", "as Mister Crease"]},
 	{"label": "Daily Challenge", "group": "challenge", "modes": [41], "fighter_choice": true,
 		"desc": "Today's fight, the same for everyone: a seeded opponent and two mutators. Score by health left and time to spare. Left/Right: your fighter",
 		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert", "as Chef Cerebro",
-			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy"]},
+			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy", "as Mister Crease"]},
 	{"label": "Combo Trials", "group": "challenge", "modes": [9], "desc": "Learn the combos, one at a time"},
 	{"label": "Reaction Drill", "group": "challenge", "modes": [10, 11], "choices": ["read Culvert", "read Cairn"],
 		"desc": "Block or dodge what the opponent throws at you"},
-	{"label": "Training", "group": "practice", "modes": [3, 4, 13, 15, 17, 19, 22, 24, 26, 28],
+	{"label": "Training", "group": "practice", "modes": [3, 4, 13, 15, 17, 19, 22, 24, 26, 28, 49],
 		"desc": "Practise on a dummy. Pause for training options and Change fighter. Left/Right: your fighter",
 		"choices": ["Cairn", "Culvert", "Craglash", "Barkley", "Gillbert", "Chef Cerebro", "Hissy Fitz", "Digby",
-			"Sneaky Pete", "Sno Mercy"]},
+			"Sneaky Pete", "Sno Mercy", "Mister Crease"]},
 	{"label": "Watch", "group": "practice", "modes": [5, 2], "choices": ["combo showcases", "CPU vs CPU"],
 		"desc": "Sit back: scripted showcases or the CPU against itself"},
 ]
@@ -246,6 +248,7 @@ var rumble := true
 var shake_scale := 1.0  ## screen shake: 1 full, 0.5 reduced, 0 off
 var range_rings := false  ## floor rings showing each attack's real reach (Settings > Controls)
 var rings: RangeRings
+var paper: PaperFx
 var discord_status := true  ## show what you play on your Discord profile (Settings)
 var discord: DiscordRpc = null  ## null: off, headless, or no client id in data/discord.json
 var presence: Presence = null
@@ -399,6 +402,9 @@ func _ready() -> void:
 	fx = FxView.new()
 	fx.bind_ground(fx_ground)
 	add_child(fx)
+	paper = PaperFx.new()  # Mister Crease's sheets, crafts and storms, over the fighters
+	paper.fx = fx
+	add_child(paper)
 	audio = AudioView.new()
 	add_child(audio)
 	fx.cue.connect(audio.play)
@@ -1481,6 +1487,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 		views.append(v)
 	debug.sim = sim
 	rings.set_sim(sim)
+	paper.set_sim(sim)
 	hud.sim = sim
 	fx.sim = sim
 	fx.clear()
@@ -1665,10 +1672,13 @@ func _physics_process(_delta: float) -> void:
 	arena.refresh()
 	crowd.advance()
 	fx.advance()
+	paper.advance(events)
 	hud.advance()
 	if rings.visible:
 		rings.advance()
+	var deciding := flow == Flow.ROUND_OVER or flow == Flow.MATCH_OVER or _sim_decided()
 	for i in views.size():
+		views[i].victory = deciding and _won_standing(sim.creatures[i])
 		views[i].out_of_sight = _is_hidden(i)
 		views[i].see_through = _hides_someone(views[i].c)
 		views[i].refresh()
@@ -2494,6 +2504,30 @@ func _tools_help() -> String:
 	if in_training() and swap != "" and swap != "-":
 		out += "\n%s change fighter" % swap
 	return out
+
+
+## A Duel, team battle or Brawl decided (its own phase says so; main's flow stays FIGHT).
+func _sim_decided() -> bool:
+	if duel != null:
+		return duel.phase == DuelSim.Phase.OVER or duel.phase == DuelSim.Phase.ROUND_OVER
+	if team_battle != null:
+		return team_battle.phase == TeamSim.Phase.OVER
+	if brawl != null:
+		return brawl.phase == BrawlSim.Phase.OVER
+	return false
+
+
+## The victory pose: still on its feet with every foe knocked out (a time-out has none).
+func _won_standing(c: CreatureSim) -> bool:
+	if c.state == CreatureSim.State.KO or c.is_dummy:
+		return false
+	var foes := 0
+	for o in sim.creatures:
+		if c.is_foe(o) and not o.is_dummy:
+			foes += 1
+			if o.state != CreatureSim.State.KO:
+				return false
+	return foes > 0
 
 
 func _set_pad_layout(lay: String) -> void:

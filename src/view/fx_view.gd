@@ -123,6 +123,7 @@ const C_GOLD: Array[Color] = [Color("c89a1e"), Color("f2c94c"), Color("fff0a0")]
 const C_CASH: Array[Color] = [Color("3f8f3f"), Color("7fd67f")]
 const C_ICE: Array[Color] = [Color("64bad0"), Color("a8eef8"), Color("f0fcff")]
 const C_SYRUP: Array[Color] = [Color("f0d21e"), Color("e8303a"), Color("46c846")]
+const C_BLEED: Array[Color] = [Color("7a0e1c"), Color("cc2a3a"), Color("ff7f86")]
 
 ## Asks AudioView for a sound that belongs to a timed effect (a KO scatter, geysers...).
 signal cue(sound: String)
@@ -467,7 +468,13 @@ func spawn(e: Dictionary) -> void:
 				_text(c.pos + Vector2(0, 14), "ROOTED", C_DIRT[2], 7, 44.0)
 		"poisoned":
 			var c := _creature(int(e.get("who", -1)))
-			if c != null:
+			if c != null and String(e.get("look", "")) == "bleed":
+				# A paper cut (Paper Shuriken): a red spatter and the word, no venom.
+				for i in 6:
+					_drop(c.pos, _chest(c), Vector2.from_angle(randf() * TAU) * randf_range(0.3, 1.0), randf_range(0.6, 1.4),
+						false, C_BLEED[randi() % 2])
+				_text(c.pos + Vector2(0, 14), "BLEEDING", C_BLEED[2], 7, 44.0)
+			elif c != null:
 				var stacks := int(e.get("stacks", 0))
 				_venom_splat(c.pos, _chest(c), 10 if stacks <= 0 else 4 + 2 * stacks)
 				# Under the feet, so it doesn't collide with a call-out over the attacker's head.
@@ -488,7 +495,13 @@ func spawn(e: Dictionary) -> void:
 				_kick_view(c, Vector2(1.18, 0.86))
 		"poison":
 			var c := _creature(int(e.get("who", -1)))
-			if c != null:
+			if c != null and String(e.get("look", "")) == "bleed":
+				for i in 2:
+					_drop(c.pos + Vector2(randf_range(-c.radius, c.radius), 0), randf_range(8.0, _chest(c)),
+						Vector2(randf_range(-0.2, 0.2), 0), 0.0, false, C_BLEED[randi() % 2], Vector2(1, 2))
+				_text(c.pos + Vector2(randf_range(-4, 4), -_top(c) - 4), str(snappedf(power, 0.1)).trim_suffix(".0"),
+					C_BLEED[1], 7, 30.0)
+			elif c != null:
 				for i in 3:
 					_bubble(c.pos + Vector2(randf_range(-c.radius, c.radius), 0), randf_range(6.0, _top(c) - 4.0))
 				_text(c.pos + Vector2(randf_range(-4, 4), -_top(c) - 4), str(snappedf(power, 0.1)).trim_suffix(".0"),
@@ -786,7 +799,11 @@ func _watch_all() -> void:
 				C_VENOM[randi() % 2], Vector2(1, 2))
 		# Poisoned: green bubbles rise off it now and then.
 		if c.poison > 0 and ticked and c.anim_t % 9 == 0 and c.state != CreatureSim.State.KO:
-			_bubble(c.pos + Vector2(randf_range(-c.radius, c.radius), 0), randf_range(4.0, _top(c)))
+			if c.poison_look == "bleed":
+				_drop(c.pos + Vector2(randf_range(-c.radius * 0.6, c.radius * 0.6), 0), randf_range(10.0, _chest(c)),
+					Vector2.ZERO, 0.0, false, C_BLEED[0], Vector2(1, 2))
+			else:
+				_bubble(c.pos + Vector2(randf_range(-c.radius, c.radius), 0), randf_range(4.0, _top(c)))
 		if c.state == CreatureSim.State.KO and int(w["state"]) != CreatureSim.State.KO:
 			_ko(c)
 		w["state"] = c.state
@@ -2366,7 +2383,10 @@ func _draw_projectiles(ci: CanvasItem) -> void:
 		if not shown(_creature(int(pr["owner"]))) and not sight_to(pp):
 			continue  # thrown from out of sight and still behind the fence or wall
 		if bool(pr.get("lob", false)):
-			_draw_pinecone(ci, pr)
+			if _proj_kind(pr) == "crane_bundle":
+				PaperFx.draw_bundle(ci, pr, _tick)
+			else:
+				_draw_pinecone(ci, pr)
 			continue
 		if not _is_wave(pr):
 			match _proj_kind(pr):
@@ -2380,6 +2400,12 @@ func _draw_projectiles(ci: CanvasItem) -> void:
 					_draw_long_bite(ci, pr)
 				"tongue":
 					_draw_tongue(ci, pr)
+				"dart":
+					PaperFx.draw_dart(ci, pr, _tick)
+				"shuriken":
+					PaperFx.draw_thrown_shuriken(ci, pr, _tick)
+				"crane":
+					PaperFx.draw_thrown_crane(ci, pr, _tick)
 				_:
 					_draw_thrown_rod(ci, pr)
 			continue

@@ -33,6 +33,10 @@ Six fighters so far, each with a full moveset and a CPU opponent:
 - **Sno Mercy**, a snow cone dropped on the sidewalk who now makes everyone else cry: a
   bruiser in boxing gloves whose punches slow, who sprays shaved ice, leaves sticky syrup
   puddles, slides in feet first, and freezes everyone around him solid.
+- **Mister Crease**, folded from a magician's last playbill: a mage made of paper under a
+  huge orange hat who flicks paper darts while he struts, folds his tricks before he uses
+  them (a bleeding shuriken, a homing crane, a frog to leap on) and buries foes in a
+  storm of a thousand cranes.
 
 ![Demo: CPU Cairn vs CPU Culvert](docs/demo.gif)
 
@@ -137,7 +141,8 @@ Online from a terminal: `godot --path . -- --online-host` and `godot --path . --
 22 training as Hissy Fitz, 23 Digby vs CPU Hissy Fitz, 24 training as Digby,
 25 Sneaky Pete vs CPU Digby, 26 training as Sneaky Pete, 27 Sno Mercy vs CPU Sneaky Pete,
 28 training as Sno Mercy, 29 Team battle 2v2 vs CPU, 30 Team battle 3v3 vs CPU,
-31 Team Deathmatch 2v2 vs CPU, 32 Team Deathmatch 3v3 vs CPU. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
+31 Team Deathmatch 2v2 vs CPU, 32 Team Deathmatch 3v3 vs CPU, 48 Mister Crease vs CPU Chef Cerebro,
+49 training as Mister Crease. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
 sets Duel (and Team battle) teams; `--cpu-vs-cpu` hands every player side to the CPU (`--view-team=N` then shows it as team N sees it: brush, fences and walls hide the other side).
 
 **Local 2-player:** with two controllers, each player gets one (player 1 can also use the
@@ -189,6 +194,9 @@ meant to be played), checked by `tests/test_balance.gd`:
 | Digby vs Sneaky Pete (assassins) | about 90% Digby (not pinned) |
 | Hissy Fitz vs Cairn (fighters) | about even |
 | Barkley vs Sno Mercy (bruisers) | 25% Barkley at Rage, 75% at Hard |
+| Mister Crease vs Chef Cerebro (mages) | about even (40–60%) |
+| Mister Crease vs Cairn, Hissy Fitz, Culvert, Craglash, Barkley, Sno Mercy | 90–100% Crease |
+| Digby vs Mister Crease | about 60–70% Digby; Sneaky Pete loses to him like he loses to Cerebro (not pinned) |
 
 Tanks against assassins went to the assassins (Pete especially): a slow tank can't
 catch a fighter who vanishes, which fits the classes. Hard CPUs don't kite, so Chef
@@ -644,6 +652,39 @@ shivering) waits for a victory-pose system.
 
 ![Sno Mercy's showcase](docs/sno_demo.gif)
 
+### Mister Crease — folded from a magician's last playbill
+
+A mage (92 HP, Gale affinity: the sheet says Flying; he's the first Gale fighter). Folded
+paper all over: a huge pleated orange hat with nothing under it but shadow and a red
+collar point, a navy suit cut in panels, a maroon vest and cape, orange paper shoes.
+He's paper, so he's light (weight 0.75): knockback carries him further than anyone.
+Voice line: "Fold 'em." (a shout on his Surge for now).
+
+**Paper Stock (passive):** he holds up to **3 sheets**, floating over his hat (and as
+pips on his panel); one regrows every **5 s**. **Fold, then use:** his Heavy, Skill 1
+and Skill 2 are crafts. The **first press folds** the craft (a sheet, a short animation;
+a hit before it's done cancels it and gives the sheet back), the **second press uses
+it**. He can carry all three at once (the shuriken in his hat band, the crane on his
+hand, the frog on his shoulder; a paper corner marks a folded skill's box). Folds only
+start from neutral, never as a combo cancel; a folded craft cancels like any move.
+
+| Button | Move | What it does |
+| --- | --- | --- |
+| Light | Paper Cut ×3 | Flicks origami darts (about 140 px) **while he keeps walking** at half speed. The first two chip without staggering; the third staggers |
+| Heavy | Paper Shuriken (fold 1 sheet) | A spinning star thrown along a line that hits the first foe and leaves them **bleeding** (a few ticks of damage, red, "BLEEDING"). Hold to charge |
+| Skill 1 | Paper Crane (fold 1 sheet) | A crane that **homes in** on the nearest foe for about half a second, then flies straight, and **pops them up** for a juggle. 4 s cooldown |
+| Skill 2 | Paper Frog (fold 1 sheet) | Hops on it: an **aimed leap** (about 110 px, untouchable, over pits) that **slams** down, **breaks guard** (red tell) and slows whoever is under him. 5 s cooldown |
+| Surge | Thousand Cranes (full meter **and** 3 sheets) | An aimed lob (hold for distance) that bursts into a **storm of cranes** about 90 px across for 2 s: hit after hit inside it, then everyone is pushed out and the floor cracks in a ring. Leave the circle |
+| Dodge | Paper Plane | Folds into a paper airplane and glides about 1.5 times a normal dodge, **over fences** |
+
+**Victory pose:** he folds himself into a giant crane, flies a loop and unfolds with a
+bow (the first fighter with a victory pose; the system plays a `victory` animation for
+any fighter that has one).
+
+Counterplay: pressure him at 0 sheets (only his lights are left), hit him while he
+folds, dodge the crane late (it stops turning), step out of the frog's circle and the
+storm.
+
 ### Combos to try
 
 | Fighter | Route | Damage |
@@ -674,6 +715,7 @@ shivering) waits for a victory-pose system.
 | Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket → The Big Heist (with stolen power: +20%) | 81.9 |
 | Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Slush Slide | 40.5 |
 | Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Flavor Blast, then shatter the ice | 45.7 + |
+| Mister Crease | (shuriken and crane folded) Paper Cut ×3 → Paper Shuriken → Paper Crane | about 21 + bleed |
 
 Every one of these is checked by an automated test (`tests/test_combos.gd`).
 

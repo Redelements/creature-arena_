@@ -487,13 +487,15 @@ func _draw_mini(id: String, feet: Vector2, face_left: bool) -> void:
 	if tex == null:
 		return
 	var sp: Dictionary = MatchFactory.load_def(id)["sprite"]
-	var fpx := float(sp.get("frame", 48))
+	var fsz = sp.get("frame", 48)  # a size, or [width, height]
+	var fpx := float(fsz[0]) if fsz is Array else float(fsz)
+	var fh := float(fsz[1]) if fsz is Array else fpx
 	var o: Array = sp.get("origin", [24, 43])
 	var idle: Array = sp.get("anims", {}).get("idle", [0, 0, 1])
 	var k := float(sp.get("select_scale", minf(1.0, 55.0 / fpx))) * 0.6
 	draw_set_transform(feet + _o, 0.0, Vector2(-k if face_left else k, k))
-	draw_texture_rect_region(tex, Rect2(-float(o[0]), -float(o[1]), fpx, fpx),
-		Rect2(int(idle[1]) * fpx, int(idle[0]) * fpx, fpx, fpx))
+	draw_texture_rect_region(tex, Rect2(-float(o[0]), -float(o[1]), fpx, fh),
+		Rect2(int(idle[1]) * fpx, int(idle[0]) * fh, fpx, fh))
 	draw_set_transform(_o)
 
 

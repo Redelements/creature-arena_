@@ -211,6 +211,20 @@ func test_the_mage_beats_fighters_and_tanks() -> void:
 		assert_gt(float(r[0]), r[1] * 0.5, "Chef Cerebro beats %s (%d of %d):" % [foe, r[0], r[1]])
 
 
+## Mister Crease is the second mage: Digby beats him like he beats Chef Cerebro, he
+## beats the fighters and tanks, and the mage mirror stays close. (Pete, like against
+## Cerebro, isn't held to the rule.)
+func test_crease_plays_as_a_mage() -> void:
+	var d := _wins("digby", "crease")
+	assert_gt(float(d[0]), d[1] * 0.5, "Digby beats Mister Crease (%d of %d):" % d)
+	for foe in ["cairn", "hissy", "culvert", "craglash"]:
+		var r := _wins("crease", foe, 4)
+		assert_gt(float(r[0]), r[1] * 0.5, "Mister Crease beats %s (%d of %d):" % [foe, r[0], r[1]])
+	var m := _wins("crease", "cerebro")
+	var share := float(m[0]) / float(m[1])
+	assert_true(share >= 0.2 and share <= 0.8, "the mage mirror stays close (%d of %d)" % m)
+
+
 func test_fighters_beat_assassins() -> void:
 	for pair in [["cairn", "digby"], ["cairn", "pete"], ["hissy", "digby"], ["hissy", "pete"]]:
 		var r := _wins(String(pair[0]), String(pair[1]), 4)

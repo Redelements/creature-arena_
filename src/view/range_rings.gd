@@ -97,6 +97,11 @@ func rings() -> Array:
 				out.append([land, float(pr.get("burst", 0.0)) + BODY_PAD, Color(col, PROJ_ALPHA)])
 		elif fx == null or fx.sight_to(pr["pos"]):
 			out.append([pr["pos"], float(pr["radius"]) + BODY_PAD, Color(col, PROJ_ALPHA)])
+	for st in sim.storms:  # a storm (Thousand Cranes) hits anyone whose centre is inside this
+		var sowner := int(st.get("owner", 0))
+		var scol := colour_of(sim.creatures[sowner]) if sowner < sim.creatures.size() else Color.WHITE
+		if fx == null or fx.sight_to(st["pos"]):
+			out.append([st["pos"], float(st["radius"]) + BODY_PAD, Color(scol, PROJ_ALPHA)])
 	return out
 
 

@@ -63,6 +63,10 @@ var projectiles: Array[Dictionary] = []
 ## Ground zones (Sno Mercy's Syrup Slick): {owner, pos, radius, ticks, slow_mult}. Foes of
 ## the owner standing in one are slowed.
 var zones: Array[Dictionary] = []
+## Storms (a lob's "storm" where it lands: Thousand Cranes): {owner, pos, radius, t,
+## ticks, every, hit, end}. A pulse hits every foe inside each `every` ticks; at `ticks`
+## the last one pushes them out (`end`: hit values) and cracks a ring of floor.
+var storms: Array[Dictionary] = []
 var events: Array[Dictionary] = []
 
 
@@ -168,6 +172,7 @@ func step(inputs: PackedInt32Array) -> void:
 	_step_swallows()
 	_step_projectiles()
 	_step_zones()
+	_step_storms()
 	_resolve_hits()
 	_separate()
 	_unstick()
@@ -238,7 +243,7 @@ func snapshot() -> Dictionary:
 		"cells": terrain.cells.duplicate(), "timers": terrain.timers.duplicate(), "base": terrain.base.duplicate(),
 		"terrain_version": terrain.version,
 		"creatures": cs, "projectiles": projectiles.duplicate(true), "zones": zones.duplicate(true),
-		"training_flags": training_flags.duplicate(),
+		"storms": storms.duplicate(true), "training_flags": training_flags.duplicate(),
 	}
 
 
@@ -261,6 +266,7 @@ func restore(s: Dictionary) -> void:
 		creatures[i].load_state(cs[i])
 	projectiles.assign((s["projectiles"] as Array).duplicate(true))
 	zones.assign((s.get("zones", []) as Array).duplicate(true))
+	storms.assign((s.get("storms", []) as Array).duplicate(true))
 	training_flags = (s.get("training_flags", {}) as Dictionary).duplicate()
 	events.clear()
 
@@ -278,6 +284,11 @@ func state_digest() -> String:
 		parts.append_array([p["pos"], p["vel"], p["life"], p["owner"], p["serial"]])
 	for z in zones:
 		parts.append_array([z["pos"], z["radius"], z["ticks"], z["owner"], z["slow_mult"]])
+	for st in storms:
+		parts.append_array([st["pos"], st["radius"], st["t"], st["ticks"], st["owner"]])
+	for p in projectiles:
+		if p.has("home"):
+			parts.append_array([p["home"]["stop"], p["speed"]])
 	if training:  # (only training matches: every other match's fingerprint is unchanged)
 		for k in TRAINING_FLAGS:
 			parts.append(bool(training_flags.get(k, false)))
@@ -473,7 +484,8 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		d.poison_every = every if every > 0 else POISON_EVERY_DEFAULT
 		d.poison_dmg = float(hit["poison_damage"])
 		d.poison_by = a.id
-		emit_event("poisoned", d.pos, float(hit["poison_ticks"]), {"who": d.id, "by": a.id})
+		d.poison_look = String(hit.get("poison_look", ""))
+		emit_event("poisoned", d.pos, float(hit["poison_ticks"]), {"who": d.id, "by": a.id, "look": d.poison_look})
 
 	if d.stealth > 0 and not (bool(hit["no_flinch"]) and ranged):
 		d.stealth = 0  # caught: visible again (a thrown knife flick that doesn't stagger isn't enough)
@@ -497,9 +509,10 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		d.vuln_mult = float(hit["vuln_mult"])
 		emit_event("tenderized", d.pos, float(hit["vuln_ticks"]), {"who": d.id})
 
-	if no_flinch and d.is_winding_up() and not ranged:
-		# A jab doesn't stagger, but it still beats a big move's windup: hitting first stays
-		# a counter to the red and gold tells. Thrown flicks don't.
+	if no_flinch and (d.is_winding_up() or d.is_folding()) and not ranged:
+		# A jab doesn't stagger, but it still beats a big move's windup (and a fold, still
+		# in his hands): hitting first stays a counter to the red and gold tells. Thrown
+		# flicks don't.
 		d.enter_hitstun(int(hit["hitstun"]), Vector2.ZERO)
 	elif no_flinch:
 		if not was_stunned:
@@ -760,6 +773,15 @@ func spawn_projectile(owner: CreatureSim, mv: Dictionary, last := true) -> void:
 		pr["time"] = life
 		pr["burst"] = float(p["burst"])
 		pr["crack"] = float(p.get("crack", 0.0))
+		if p.has("storm"):
+			pr["storm"] = (p["storm"] as Dictionary).duplicate(true)
+	if p.has("home"):
+		# Homing (Paper Crane): turns toward the nearest foe for its first `until` ticks,
+		# by `turn` of a full step each tick, at its own speed. Vectors only, no angles,
+		# so every machine steers it identically.
+		var hm: Dictionary = p["home"]
+		pr["home"] = {"turn": float(hm.get("turn", 0.15)), "stop": life - int(hm.get("until", life))}
+		pr["speed"] = float(p["speed"])
 	projectiles.append(pr)
 	emit_event("projectile", owner.pos, 1.0, {"who": owner.id, "lob": lob, "sound": String(p.get("sound", ""))})
 
@@ -779,6 +801,8 @@ func _step_projectiles() -> void:
 			else:
 				keep.append(p)
 			continue
+		if p.has("home") and int(p["life"]) > int(p["home"]["stop"]):
+			_steer(p)
 		pos += p["vel"]
 		p["pos"] = pos
 		p["life"] = int(p["life"]) - 1
@@ -819,11 +843,38 @@ func _step_projectiles() -> void:
 	projectiles = keep
 
 
+## A homing projectile turns toward the nearest foe (of its owner) from where it is.
+func _steer(p: Dictionary) -> void:
+	var at: Vector2 = p["pos"]
+	var owner := creatures[int(p["owner"])]
+	var best: CreatureSim = null
+	var best_d := INF
+	for o in creatures:
+		if not owner.is_foe(o) or o.state == CreatureSim.State.KO or not o.can_be_hit():
+			continue
+		var d := o.pos.distance_squared_to(at)
+		if d < best_d:
+			best_d = d
+			best = o
+	if best == null or best_d < 0.0001:
+		return
+	var v: Vector2 = p["vel"]
+	var want := (best.pos - at).normalized()
+	var turned := v.normalized() + want * float(p["home"]["turn"])
+	if turned.length_squared() < 0.0001:
+		return
+	p["vel"] = turned.normalized() * float(p["speed"])
+
+
 ## A lob lands: everything within the burst radius is hit, pushed away from the spot.
+## A lob with a "storm" leaves one there instead (see _step_storms).
 func _burst(p: Dictionary) -> void:
 	var at: Vector2 = p["pos"]
 	var owner := creatures[int(p["owner"])]
 	var hit: Dictionary = p["hit"]
+	if p.has("storm"):
+		_add_storm(owner, at, p["storm"], hit)
+		return
 	if float(p.get("crack", 0.0)) > 0.0:
 		terrain.crack_circle(at, float(p["crack"]))
 	var landed := 0
@@ -837,6 +888,59 @@ func _burst(p: Dictionary) -> void:
 		_apply_hit(owner, d, hit, push, d.pos + Vector2(0, -10), true)
 		landed += 1
 	emit_event("burst", at, float(p["burst"]), {"who": owner.id, "landed": landed})
+
+
+# ------------------------------------------------------------------ storms
+
+## A storm where a lob landed: storm keys {radius, ticks, every, damage, hitstun,
+## knockback_end, launch_end, crack_inner, crack_outer}; the throw's hit values
+## otherwise.
+func _add_storm(owner: CreatureSim, at: Vector2, sd: Dictionary, hit: Dictionary) -> void:
+	var pulse := hit.duplicate()
+	pulse["damage"] = float(sd.get("damage", 2.0))
+	pulse["hitstun"] = float(sd.get("hitstun", 14.0))
+	pulse["knockback"] = 0.0
+	pulse["launch"] = 0.0
+	pulse["knockdown"] = 0.0
+	pulse["hitstop"] = float(sd.get("hitstop", 2.0))
+	var last := hit.duplicate()
+	last["damage"] = float(sd.get("damage_end", pulse["damage"]))
+	last["knockback"] = float(sd.get("knockback_end", 4.0))
+	last["launch"] = float(sd.get("launch_end", 0.0))
+	last["knockdown"] = float(sd.get("knockdown_end", 0.0))
+	last["hitstop"] = float(sd.get("hitstop_end", 10.0))
+	storms.append({"owner": owner.id, "pos": at, "radius": float(sd.get("radius", 40.0)), "t": 0,
+		"ticks": int(sd.get("ticks", 120)), "every": maxi(1, int(sd.get("every", 12))), "hit": pulse, "end": last,
+		"crack_inner": float(sd.get("crack_inner", 0.0)), "crack_outer": float(sd.get("crack_outer", 0.0))})
+	emit_event("storm", at, float(sd.get("radius", 40.0)), {"who": owner.id, "ticks": int(sd.get("ticks", 120))})
+
+
+## Each storm ticks on: a pulse hits every foe inside it, the last tick pushes them out,
+## cracks the ring and ends it.
+func _step_storms() -> void:
+	var keep: Array[Dictionary] = []
+	for st in storms:
+		st["t"] = int(st["t"]) + 1
+		var owner := creatures[int(st["owner"])]
+		var at: Vector2 = st["pos"]
+		var done := int(st["t"]) >= int(st["ticks"])
+		if done or int(st["t"]) % int(st["every"]) == 0:
+			var hit: Dictionary = st["end"] if done else st["hit"]
+			for d in creatures:
+				if not owner.is_foe(d) or not _hittable(d, hit):
+					continue
+				if at.distance_to(d.pos) > float(st["radius"]) + d.radius:
+					continue
+				var push := d.pos - at
+				push = push.normalized() if push.length_squared() > 0.0001 else Vector2.RIGHT
+				_apply_hit(owner, d, hit, push, d.pos + Vector2(0, -10), true)
+		if done:
+			if float(st["crack_outer"]) > 0.0:
+				terrain.crack_ring(at, float(st["crack_inner"]), float(st["crack_outer"]))
+			emit_event("storm_end", at, float(st["radius"]), {"who": owner.id})
+		else:
+			keep.append(st)
+	storms = keep
 
 
 # ------------------------------------------------------------------ bodies and pits

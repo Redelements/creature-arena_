@@ -102,6 +102,11 @@ buses at start-up; `play(name, ..., ui = true)` sends a sound to Menu sounds.
 | [ ] | `slosh` | Syrup Slick | A thick sticky glug and splat |
 | [ ] | `melt` | Sno Mercy's knockout | Slow sizzle and drips |
 | [ ] | `chill` | Flavor Blast starts (his voice line, "Chill out.") | Placeholder cold gust; the real one is his voice |
+| [ ] | (`flip`, pitched up) | Mister Crease folds a craft (`fold`) | A crisp paper crease and a snap; needs its own sound |
+| [ ] | (`pop`, quiet) | A sheet of his Paper Stock regrows (`sheet`) | A soft paper flutter; needs its own sound |
+| [ ] | (`twister`) | Thousand Cranes lands and whirls (`storm`) | A rustling storm of wings; needs its own sound |
+| [ ] | (`crack`) | The storm ends (`storm_end`) | A paper burst over a floor crack; needs its own sound |
+| [ ] | (none) | Thousand Cranes starts (his voice line, "Fold 'em.") | Only the shout text for now; the real one is his voice |
 
 Craglash, Barkley, Gillbert, Chef Cerebro, Hissy Fitz, Digby, Sneaky Pete and Sno Mercy have signature sounds; Gillbert also has footsteps
 (`"step_sound"` in his JSON). Cries and footsteps don't exist

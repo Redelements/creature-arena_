@@ -44,6 +44,7 @@ Abbreviations: **cs** = `src/sim/creature_sim.gd`, **ms** = `src/sim/match_sim.g
 | `stoneskin` | `{shield, delay, reset_on_deal, name}` | Shield HP that absorbs damage before hp; refills to full after `delay` ticks without damage (`calm_t`, reset by `take_damage` and by landing from a fall). `reset_on_deal` (bool, false): a hit of his that deals damage (clean, chip on a guard, or on armor) resets `calm_t` too, so the shield only grows back out of combat. `name` is not read (see end) | craglash (delay 420, reset_on_deal) | cs:`take_damage`, `dealt_damage`, `_tick_status`; ms:`_apply_hit` |
 | `venom_frenzy` | `{at_hits, streak_gap, ticks, poison_ticks, poison_damage, poison_every, max_stacks}` | Passive: `at_hits` clean hits in one string (each within `streak_gap` ticks of the last; any hit, no_flinch jabs included, counted in `hit_streak`/`streak_t`) start a frenzy (`frenzy_t` = `ticks`, event `frenzy`). Meanwhile each clean hit adds a poison stack to the target (`poison_stacks`, up to `max_stacks`, each `poison_damage` per pulse in `poison_stack_dmg`) and sets its poison to at least `poison_ticks`. `name` is not read | hissy | ms:`_venom_frenzy` |
 | `ambush` | multiplier (1.0) | Damage of every hit of the attack that broke stealth | pete | ms:`_apply_hit`, cs:`_reveal` |
+| `sheets` | `{max, regen}` | Paper Stock: starts with `max` sheets (`CreatureSim.sheets`); one regrows every `regen` ticks while below `max` (`sheet_t`, not while KO'd; `sheet` event). Spent by folds and `sheets_cost` moves | crease | cs:`_regrow_sheets` |
 | `name` | string | Used in Duel `tag`/`enter` events | all | duel_sim:`_tag` |
 | `moves` | object | Move id to move (below). `light_1`..`light_n`, `heavy`, `skill_1`, `skill_2`, `surge`, `tag_in` (Duel), plus helpers like `slip_counter` | all | cs:`moves` |
 
@@ -78,6 +79,8 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `rank_cancel_from` | tick (0) | Earliest tick for a higher-rank cancel | barkley heavy | cs:`_update_attack` |
 | `cooldown` | ticks | Set on start | all | cs:`_start_attack`, `can_use` |
 | `energy_cost` | energy | Spent on start; required to start | all surges | cs:`can_use` |
+| `sheets_cost` | sheets | Spent on start; required to start (Thousand Cranes: 3) | crease surge | cs:`can_use`, `_start_attack` |
+| `fold` | `{anim, startup, recovery, cost=1, mobile}` | Fold-then-use: while the move isn't folded (`CreatureSim.folded`), its press starts a generated `fold_<move>` step instead (type `fold`, no hit, played with `anim`). At `startup` the fold completes: `cost` sheets are spent and the craft is folded (`fold` event, `craft`); a hit before that cancels it and nothing is spent (a no_flinch melee hit interrupts it like a windup: `is_folding`). The next press uses the move, and the craft is gone. Any number of crafts can be carried at once. A fold is never a combo cancel (only from neutral); a folded craft cancels as usual. Needs `cost` sheets (`can_use`); the CPU only presses an unfolded craft to fold it (`_usable`, `_maybe_fold`) | crease heavy, skill_1, skill_2 | cs:`_init`, `needs_fold`, `_resolve_fold`, `_update_attack` |
 | `freeze` | ticks (18) | Surge only: sets `MatchSim.hitstop` on start | none in data (all use 18) | cs:`_start_attack` |
 | `counter` | `{from, to, move, invuln=12}` | A non-grab strike landing in the window starts `move` facing the attacker, with `invuln` | cairn (Slip) | ms:`_apply_hit`, cs:`trigger_counter` |
 
@@ -113,7 +116,8 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | --- | --- | --- | --- |
 | `slow_ticks`, `slow_mult` | seg / move | Walk speed × `slow_mult` | gillbert heavy, sno |
 | `vuln_ticks`, `vuln_mult` | seg / move | Target takes × `vuln_mult` | cerebro heavy |
-| `poison_ticks`, `poison_damage`, `poison_every` | seg | Pulse of `poison_damage` every `poison_every` ticks | hissy skill_1 |
+| `poison_ticks`, `poison_damage`, `poison_every` | seg | Pulse of `poison_damage` every `poison_every` ticks | hissy skill_1, crease heavy |
+| `poison_look` | move | How the poison shows: `"bleed"` (a red cut, "BLEEDING") instead of venom; kept on the target (`poison_look`) and in the `poisoned` / `poison` events (`look`) | crease heavy |
 | `petrify` | seg | Statue for N ticks | hissy surge |
 | `freeze_ticks` | seg | Ice statue for N ticks | sno surge |
 | `blind_ticks` | seg | Next attack misses | digby skill_1 |
@@ -162,6 +166,8 @@ Spawned at tick `startup + 1` (and each volley tick) with move-level hit values 
 | `pierce` | Passes through, hitting each body once | cerebro surge |
 | `volley` `{count=1, every=1, last}` | `count` shots, one every `every` ticks; `last` overrides hit values of the final one | cerebro surge |
 | `lob`, `range`, `time`, `burst`, `crack` | Flies `range` px in `time` ticks hitting nothing, then hits every foe within `burst` and cracks `crack` | barkley skill_2 |
+| `home` `{turn=0.15, until}` | A ground shot that steers toward the nearest foe (of its owner, from where it is) for its first `until` ticks: each tick `vel = (vel.normalized() + to_foe.normalized() × turn).normalized() × speed` (vectors only, no angles), then flies straight | crease skill_1 | ms:`_steer` |
+| `storm` `{radius=40, ticks=120, every=12, damage, hitstun, hitstop, damage_end, knockback_end, launch_end, knockdown_end, hitstop_end, crack_inner, crack_outer}` | On a lob: where it lands it leaves a storm (`MatchSim.storms`, saved by snapshot) instead of bursting. Every `every` ticks it hits each foe inside `radius` (+ body) with the throw's hit at `damage` / `hitstun` (no knockback, the same attack serial, so the pulses don't go stale); at `ticks` a last hit pushes them out (`*_end`), cracks the floor between `crack_inner` and `crack_outer` (tg:`crack_ring`), and it ends. Events `storm` (start), `storm_end`. Ticks don't run in hitstop, so a storm lasts a little longer than `ticks` when it's hitting | crease surge | ms:`_add_storm`, `_step_storms` |
 | `sound`, `end_sound` | Passed through in `projectile` / `projectile_end` / `projectile_pierce` events | cerebro, craglash, culvert, hissy |
 
 ### Dodge keys (creature `dodge`)
@@ -171,13 +177,14 @@ Spawned at tick `startup + 1` (and each volley tick) with move-level hit values 
 | `frames`, `speed` | Length; speed (× 0.4 in the last 5 ticks); ignores holes | all | cs:`_update_dodge` |
 | `iframes_start`, `iframes_end` | Invulnerable window (inclusive) | all | cs:`is_invulnerable` |
 | `cost` | Stamina; needs at least this | all | cs:`can_dodge` |
+| `passes` | `["fence"]`: fences don't stop the dodge | crease (Paper Plane) | cs:`passes_fences` |
 | `cooldown` | Ticks before the next dodge; a press meanwhile is buffered | cerebro (45) | cs:`_start_dodge` |
 | `blink` `{at, distance}` | Teleport `distance` px the dodge way at tick `at` (walls clamp it, pits don't stop it) | cerebro | cs:`_update_dodge` |
 | `ram` `{damage, hitstun, knockback, hitstop, type="light", radius=0, crack=0, …}` | The dodge is a shoulder charge: the first foe the body reaches (plus `radius` px) takes a hit with these values (any hit key; `move_id` "ram", a fresh serial per dash, one hit per foe) and the dash ends; hitting the wall ends it too, cracks a `crack` px circle and fires `ram_wall` | craglash | cs:`_ram_step`, `ram_hit_params` |
 
 ### Cosmetic keys (read by src/view only)
 
-`fx` (sub-keys such as `shout {text, sound}`, `telegraph`, `wave_cone` are listed atop `src/view/fx_view.gd`), `anim`, `anim_from`, `anim_at`, `anim_reel`, `view_lift` (creature_view.gd). `tell` (default `"strong"`) rides in the `windup` event; `"unblockable"`/`"guard_break"` draw the red warning.
+`fx` (sub-keys such as `shout {text, sound}`, `telegraph`, `wave_cone` are listed atop `src/view/fx_view.gd`; `projectile`: `"dart"`, `"shuriken"`, `"crane"`, `"crane_bundle"` are drawn by src/view/paper_fx.gd), `anim`, `anim_from`, `anim_at`, `anim_reel`, `view_lift` (creature_view.gd), `dodge.trail` (`"paper"`: the Paper Plane's trail, PaperFx). A sprite's `victory` animation is the victory pose (main sets `CreatureView.victory` while the round or match is over with every foe knocked out). `tell` (default `"strong"`) rides in the `windup` event; `"unblockable"`/`"guard_break"` draw the red warning.
 
 ## Combo and cancel rules
 
@@ -263,6 +270,7 @@ Views, audio, drills and the CPU read `sim.events`; the sim never reads them.
 | `stealth`, `unstealth`, `blink`, `taunt`, `roar`, `shield_up`, `shield_break` | Self effects (`taunt` per foe, `roar` once) |
 | `smash` | A charge broke rubble wall cells (`who`) |
 | `projectile`, `projectile_end`, `projectile_pierce`, `burst` | Projectile life (`sound`, `end_sound`) |
+| `fold`, `sheet`, `storm`, `storm_end` | A craft folded (`who`, `craft`, power = sheets left); a sheet of Paper Stock regrew (power = sheets now); a storm placed (`who`, power = radius, `ticks`); a storm's last hit |
 | `slam`, `zone` | Floor damage; zone placed |
 | `bounce`, `fall`, `land`, `land_hard`, `ko`, `breakaway` | Bodies (`bounce`, `fall`, `ko`, `breakaway` say `who`; `guard_break` too; `fall` also says `pit`: `"chasm"` or `"hole"`) |
 | `sink_warn`, `sink`, `zone_move` | Sinkhole ring cracking / dropping (`ring`, `rect`); the Crater's zone moved |

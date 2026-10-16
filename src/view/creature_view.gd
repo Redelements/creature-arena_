@@ -43,6 +43,14 @@ var see_through := false
 ## Set by main when the local team can't see this fighter (Vision: brush, a fence or a
 ## wall in the way): not drawn at all, shadow included.
 var out_of_sight := false
+## The victory pose (main sets it once the round or match is won with this fighter still
+## standing): a fighter whose sheet has a "victory" animation plays it instead of idling.
+var victory := false:
+	set(v):
+		if v and not victory:
+			_victory_t = 0
+		victory = v
+var _victory_t := 0
 var _shadow_r := -1.0
 ## Squash and stretch: the sprite scales around its feet on a damped spring, so a
 ## landing squashes it flat and it wobbles back.
@@ -377,8 +385,26 @@ func _draw() -> void:
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
+## The victory animation's frame: the first frame (getting ready), then frames 1..n-3 in
+## a loop for a while (the celebration), then the last two (the finish, held).
+func _victory_frame() -> int:
+	var n := int(_anim("victory")[2])
+	_victory_t += 1
+	var t := _victory_t
+	if n < 4:
+		return mini(t / 10, n - 1)
+	if t < 12:
+		return 0
+	var loop_n := n - 3
+	if t < 12 + 96:
+		return 1 + ((t - 12) / 6) % loop_n
+	return n - 2 if t < 12 + 96 + 14 else n - 1
+
+
 ## Returns [animation name, frame index, loops?].
 func _pick() -> Array:
+	if victory and (c.state == CreatureSim.State.IDLE or c.state == CreatureSim.State.MOVE) 			and _layout_has("victory"):
+		return ["victory", _victory_frame(), false]
 	match c.state:
 		CreatureSim.State.IDLE:
 			return ["idle", c.anim_t / 10, true]
@@ -497,6 +523,10 @@ func _attack_frame() -> Array:
 ## The frame count of an animation, from whichever sheet will show it.
 func _anim(anim_name: String) -> Array:
 	return _resolve(anim_name)[1]
+
+
+func _layout_has(anim_name: String) -> bool:
+	return (_views["side"]["anims"] as Dictionary).has(anim_name)
 
 
 ## [view, [row, col, count]]: the current view's animation, or the side one when the

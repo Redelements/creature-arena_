@@ -369,6 +369,20 @@ func crack_circle(center: Vector2, radius: float) -> void:
 				crack_cell(c)
 
 
+## Cracks (never opens) the cells whose centres lie between inner and outer radius.
+func crack_ring(center: Vector2, inner: float, outer: float) -> void:
+	var c0 := world_to_cell(center - Vector2(outer, outer))
+	var c1 := world_to_cell(center + Vector2(outer, outer))
+	for cy in range(c0.y, c1.y + 1):
+		for cx in range(c0.x, c1.x + 1):
+			var c := Vector2i(cx, cy)
+			if not in_bounds(c):
+				continue
+			var d := cell_center(c).distance_to(center)
+			if d >= inner and d <= outer:
+				crack_cell(c)
+
+
 ## Opens a ring of holes between inner and outer radius, and cracks a band just outside it.
 func damage_ring(center: Vector2, inner: float, outer: float, heal := HEAL_TICKS) -> void:
 	var edge := outer + CRACK_BAND
