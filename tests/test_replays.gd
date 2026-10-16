@@ -25,7 +25,7 @@ func _tick(g: Node, n: int) -> void:
 
 func test_a_saved_brawl_plays_back_the_same() -> void:
 	var g := _game()
-	g._start_match(49)  # Chaos Cup: a Brawl with mutators, the hardest setup to rebuild
+	g._start_match(g.mode_index("Chaos Cup"))  # Chaos Cup: a Brawl with mutators, the hardest setup to rebuild
 	_tick(g, 240)
 	assert_true(g.brawl != null, "a Brawl is on")
 	var digest: String = g.sim.state_digest()
@@ -47,6 +47,46 @@ func test_a_saved_brawl_plays_back_the_same() -> void:
 	assert_eq(g.flow, g.Flow.MATCH_OVER, "out of inputs: over:")
 	assert_eq(g.hud.banner, "END OF REPLAY", "and says so:")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	g.free()
+
+
+func test_a_replay_of_a_removed_mode_is_refused() -> void:
+	# Showtime was removed: its replays would rebuild as a plain team battle and desync.
+	var setup := {"kind": "team", "ids": ["cairn", "culvert"], "teams": [["cairn"], ["culvert"]],
+		"size": 1, "rules": "showtime", "arena": "stadium"}
+	assert_eq(ReplayBuilder.unsupported(setup), ReplayBuilder.REMOVED_MODE, "a removed rules id:")
+	for id in TeamSim.RULE_IDS:
+		var ok := setup.duplicate()
+		ok["rules"] = id
+		assert_eq(ReplayBuilder.unsupported(ok), "", "%s still plays:" % id)
+	assert_eq(ReplayBuilder.unsupported({"kind": "brawl"}), "", "other kinds play")
+	var g := _game()
+	g._open_menu("single")
+	var rep := Replay.new()
+	rep.setup = setup
+	rep.record(PackedInt32Array([0, 0]))
+	var path := "user://replays/replay_test_removed_%d.json" % Time.get_ticks_usec()
+	assert_eq(rep.save(path), OK, "saved:")
+	g._play_replay(path)
+	assert_true(g.mode != g.REPLAY_MODE, "the theater doesn't start it")
+	assert_true(g.team_battle == null, "no team battle built")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	g.free()
+
+
+func test_the_menu_rows_start_the_modes_they_name() -> void:
+	var g := _game()
+	for name in ["Arcade", "Gauntlet", "Daily Challenge", "Chaos Cup"]:
+		var row: Dictionary = g.MENU_ROWS.filter(func(r): return r["label"] == name)[0]
+		assert_eq(int(row["modes"][0]), g.mode_index(name), "%s row:" % name)
+	var brawl: Dictionary = g.MENU_ROWS.filter(func(r): return r["label"] == "Brawl")[0]
+	assert_eq(brawl["modes"], [g.mode_index("Brawl: you vs 3 CPUs"), g.mode_index("Brawl: 2 players"),
+		g.mode_index("Brawl: 3 players"), g.mode_index("Brawl: 4 players")], "Brawl rows:")
+	assert_eq(g.REPLAY_MODE, g.mode_index("Replay"), "the replay mode:")
+	assert_eq(g.ONLINE_MODE, g.mode_index("Online 1v1"), "the online mode:")
+	for row in g.MENU_ROWS:
+		for m in row.get("modes", []):
+			assert_true(int(m) >= 0 and int(m) < g.MODES.size(), "%s: a real mode" % row["label"])
 	g.free()
 
 

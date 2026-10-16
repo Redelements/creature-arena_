@@ -199,7 +199,7 @@ Built 2026-10-15 as PRs #65-#78 (one per item, stacked from A1 up); B was skippe
 - [ ] A5 arena-last-two
 - [x] C1 mode-sinkhole
 - [x] C2 mode-crater
-- [x] C3 mode-showtime
+- [x] C3 mode-showtime (built, then removed after playtesting, Oct 2026)
 - [x] C4 mode-arcade
 - [x] C5 mode-gauntlet-daily
 - [x] C6 mode-brawl-chaos-theater

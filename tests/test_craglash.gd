@@ -317,3 +317,78 @@ func test_the_ram_keeps_its_invincible_frames() -> void:
 	run(sim, SimDefs.IN_DODGE | RIGHT, 1)
 	run(sim, 0, int(dg["iframes_start"]))
 	assert_true(crag.is_invulnerable(), "still a dodge: untouchable in its middle")
+
+
+# ------------------------------------------------------------------ the slower pass
+
+func test_stoneskin_waits_seven_seconds_out_of_combat() -> void:
+	var skin: Dictionary = MatchFactory.load_def("craglash")["stoneskin"]
+	assert_eq(int(skin["delay"]), 420, "seven seconds without combat:")
+	assert_true(bool(skin.get("reset_on_deal", false)), "dealing damage counts as combat too")
+
+
+func test_stoneskin_stays_down_while_craglash_keeps_hitting() -> void:
+	var sim := _duel("cairn", 2.0)
+	var crag := sim.creatures[0]
+	var delay := int(crag.def["stoneskin"]["delay"])
+	crag.shield = 0.0
+	# He takes nothing, but rakes Cairn every second: that's still a brawl.
+	for i in delay + 60:
+		sim.step(PackedInt32Array([L if i % 60 == 0 else 0, 0]))
+		sim.creatures[1].hp = sim.creatures[1].max_hp
+	assert_near(crag.shield, 0.0, 0.001, "no shield while he's trading blows:")
+	assert_lt(float(crag.calm_t), float(delay), "")
+	# Then he stops, and seven seconds later it's back.
+	assert_true(run_until(sim, func(): return crag.shield > 0.0, delay + 5),
+		"the shield comes back once the fight leaves him alone")
+
+
+func test_a_blocked_hit_counts_as_combat() -> void:
+	var sim := _duel("cairn", 2.0)
+	var crag := sim.creatures[0]
+	crag.calm_t = 300
+	var chipped := false
+	for i in 40:
+		sim.step(PackedInt32Array([L if i == 0 else 0, SimDefs.IN_GUARD]))
+		for e in sim.events:
+			chipped = chipped or String(e["type"]) == "block"
+		if chipped:
+			break
+	assert_true(chipped, "Cairn blocks the Rake")
+	assert_lt(float(crag.calm_t), 2.0, "the chip he dealt reset his calm:")
+
+
+func test_the_slow_string_still_combos() -> void:
+	# Rake, Backhand, Headbutt mashed: the foe never gets out of stun between the hits.
+	var sim := _duel("cairn", 2.0)
+	var cairn := sim.creatures[1]
+	var press := true
+	var first := -1
+	for i in 160:
+		sim.step(PackedInt32Array([L if press else 0, 0]))
+		press = not press
+		if first < 0 and cairn.combo_hits >= 1:
+			first = i
+		if first >= 0 and cairn.combo_hits < 3:
+			assert_true(cairn.is_stunned(), "Cairn escaped the string at hit %d (tick %d)" % [cairn.combo_hits, i])
+			if not cairn.is_stunned():
+				return
+		if cairn.combo_hits >= 3:
+			break
+	assert_eq(int(cairn.combo_hits), 3, "all three lights in one combo:")
+	assert_gt(float(first), 15.0, "and the Rake takes its time to land:")
+
+
+func test_landslide_charge_cancels_from_the_headbutt() -> void:
+	var sim := _duel("cairn", 2.0)
+	var crag := sim.creatures[0]
+	var cairn := sim.creatures[1]
+	var press := true
+	for i in 160:
+		sim.step(PackedInt32Array([L if press else 0, 0]))
+		press = not press
+		if crag.move_id == "light_3" and crag.connected:
+			break
+	var charged := run_until(sim, func(): return crag.move_id == "skill_1" and crag.connected, 60, S1)
+	assert_true(charged, "the Charge lands after the Headbutt")
+	assert_eq(int(cairn.combo_hits), 4, "as the fourth hit of the combo:")

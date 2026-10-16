@@ -193,6 +193,11 @@ func refresh() -> void:
 		flash_amt = 0.7 if (Engine.get_physics_frames() / 3) % 2 == 0 else 0.3
 		# Lean back into the windup.
 		pivot.position.x += 1.0 if flip else -1.0
+	elif full_charge_breaks_guard(c) and c.state_t <= int(c.move_def().get("startup", 0)):
+		# Held to the full charge that breaks guard (Sack Smack): a red pulse until it lands.
+		flash_col = TELL_RED
+		flash_amt = 0.7 if (Engine.get_physics_frames() / 3) % 2 == 0 else 0.3
+		pivot.position.x += 1 if (c.anim_t / 2) % 2 == 0 else -1
 	elif c.is_full_charge():
 		flash_col = Color(1.0, 0.82, 0.35)
 		flash_amt = 0.55 if (c.anim_t / 4) % 2 == 0 else 0.15
@@ -252,6 +257,18 @@ func refresh() -> void:
 	if absf(r - _shadow_r) > 0.25:
 		_shadow_r = r
 		queue_redraw()
+
+
+## The creature's move breaks guard only at a full charge ("hold": {"guard_break": true},
+## Sack Smack), and it was charged full (still held at the top, or released there): the
+## red guard-break cue. Any move whose "hold" sets guard_break gets it.
+static func full_charge_breaks_guard(cr: CreatureSim) -> bool:
+	if cr.state != CreatureSim.State.ATTACK:
+		return false
+	if not (cr.is_full_charge() or (not cr.charging and cr.charge_ratio >= 1.0)):
+		return false
+	var mv := cr.move_def()
+	return bool(mv.get("hold", {}).get("guard_break", false)) and not bool(mv.get("guard_break", false))
 
 
 ## A teleporting dodge (Chef Cerebro): he fades out over the moment before the jump and
@@ -428,7 +445,10 @@ func _attack_frame() -> Array:
 		var act := int(mv.get("active", 1))
 		if t <= su + act:
 			return [name, mini(3, n - 1), false]
-		return [name, mini(4 if t <= su + act + 8 else 5, n - 1), false]
+		# The follow-through holds a third of the recovery (at least 8 ticks), so a slow
+		# heavy (Craglash's Stomp) doesn't snap to its last frame early.
+		var follow := maxi(8, (length - su - act) / 3)
+		return [name, mini(4 if t <= su + act + follow else 5, n - 1), false]
 
 	if mv.has("armor"):  # Bedrock: brace, hold (roaring as it sets), then stand
 		var ar: Dictionary = mv["armor"]
