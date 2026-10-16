@@ -10,6 +10,7 @@ const TEAM_C := ["sno"]
 ## A server and `teams.size()` players joined to it over in-memory links.
 func _setup(teams: Array, rooms: Array = [], lag := 0, jitter := 0, loss := 0.0) -> Array:
 	var server := RelayServer.new()
+	server.rematch_locked_ms = 0  # a rematch starts once both are in (the last 3 s have their own test)
 	var nets: Array = []
 	for i in teams.size():
 		var links := LoopLink.pair(lag, jitter, loss, 7 + i * 10)
@@ -650,3 +651,65 @@ func test_the_beacon_ignores_junk() -> void:
 	assert_eq(beacon.answered, 0, "nothing answered")
 	udp.close()
 	beacon.close()
+
+
+## Both locked in: the countdown drops to rematch_locked_seconds (3), both new fighters
+## show, the picks freeze, and the rematch starts when it runs out.
+func test_once_both_lock_in_the_countdown_drops_to_three_seconds_and_shows_both() -> void:
+	var s := _setup([["cairn"], ["culvert"]])
+	var server: RelayServer = s[0]
+	var nets: Array = s[1]
+	assert_eq(RelayServer.new().rematch_locked_ms, 3000, "3 seconds, from data/online.json:")
+	server.rematch_locked_ms = 3000
+	var a: Netplay = nets[0]
+	var b: Netplay = nets[1]
+	_run(server, nets, 300, func(): return a.is_playing() and b.is_playing())
+	_run(server, nets, 60)
+	var first := a.game
+	for n: Netplay in nets:
+		n.request_rematch()
+	assert_true(_run(server, nets, 200, func(): return a.rematch_pick() and b.rematch_pick()), "both picking")
+	assert_gt(a.pick_seconds_left(), 15.0, "the full countdown while they choose:")
+	a.send_pick(["sno"])
+	_run(server, nets, 20)
+	assert_false(b.pick_all_locked, "one in: still hidden")
+	assert_eq(String(b.room_players[a.local_slot]["fighter"]), "cairn", "the opponent's pick doesn't show yet:")
+	b.send_pick(["barkley"])
+	assert_true(_run(server, nets, 40, func(): return a.pick_all_locked and b.pick_all_locked), "both in")
+	assert_true(a.game == first, "not started at once")
+	assert_lt(a.pick_seconds_left(), 3.01, "the countdown drops to 3:")
+	assert_gt(a.pick_seconds_left(), 2.0, "")
+	assert_eq(String(a.room_players[b.local_slot]["fighter"]), "barkley", "now both fighters show:")
+	assert_eq(String(b.room_players[a.local_slot]["fighter"]), "sno", "")
+	a.send_pick(["digby"])  # too late: frozen
+	_run(server, nets, 20)
+	assert_eq(String(b.room_players[a.local_slot]["fighter"]), "sno", "a pick after both are in is ignored:")
+	assert_true(a.game == first, "still the last seconds")
+	server.clock_skip_ms += 3001
+	assert_true(_run(server, nets, 200, func(): return a.game != first and b.game != null and b.game.id == a.game.id),
+		"then the rematch starts")
+	var want := [["sno"], ["barkley"]] if a.local_slot == 0 else [["barkley"], ["sno"]]
+	assert_eq(a.game.teams, want, "with the frozen picks:")
+	assert_eq(b.game.teams, a.game.teams, "on both:")
+
+
+func test_with_less_than_three_seconds_left_locking_in_doesnt_add_time() -> void:
+	var s := _setup([["cairn"], ["culvert"]])
+	var server: RelayServer = s[0]
+	var nets: Array = s[1]
+	server.rematch_locked_ms = 3000
+	var a: Netplay = nets[0]
+	var b: Netplay = nets[1]
+	_run(server, nets, 300, func(): return a.is_playing() and b.is_playing())
+	_run(server, nets, 60)
+	var first := a.game
+	for n: Netplay in nets:
+		n.request_rematch()
+	assert_true(_run(server, nets, 200, func(): return a.rematch_pick() and b.rematch_pick()), "both picking")
+	server.clock_skip_ms += 18500  # 1.5 s left
+	a.send_pick(["sno"])
+	b.send_pick(["barkley"])
+	assert_true(_run(server, nets, 40, func(): return a.pick_all_locked), "both in")
+	assert_lt(a.pick_seconds_left(), 1.6, "the countdown keeps its 1.5 s:")
+	server.clock_skip_ms += 1600
+	assert_true(_run(server, nets, 200, func(): return a.game != first), "the rematch starts on time")

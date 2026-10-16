@@ -7,7 +7,9 @@ const FIGHTERS := ["cairn", "culvert", "sno", "barkley"]
 
 
 func _server() -> RelayServer:
-	return RelayServer.new()
+	var s := RelayServer.new()
+	s.rematch_locked_ms = 0  # a rematch starts once both are in
+	return s
 
 
 func _player(server: RelayServer, i: int, size := 1, room := "", lag := 1) -> Netplay:

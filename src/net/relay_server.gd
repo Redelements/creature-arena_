@@ -121,6 +121,8 @@ var rng := RandomNumberGenerator.new()
 var cpu_level := 1
 ## A 1v1 rematch's pick lasts this long (data/online.json `rematch_pick_seconds`).
 var rematch_pick_ms := roundi(Netplay.rematch_pick_seconds() * 1000.0)
+## Once both have locked in, the countdown drops to this (`rematch_locked_seconds`).
+var rematch_locked_ms := roundi(Netplay.rematch_locked_seconds() * 1000.0)
 ## Added to the server's clock for the pick's countdown: tests move time on with it
 ## instead of sleeping.
 var clock_skip_ms := 0
@@ -224,6 +226,7 @@ class Game:
 	var picking := false
 	var picks := {}  ## slot -> the team locked in (kept off the players until "start")
 	var pick_deadline_ms := 0
+	var all_locked := false  ## both picks are in: frozen and shown until the countdown ends
 	var reported := false
 	var path_ms := 0
 
@@ -1048,6 +1051,7 @@ func _draw_arena(last: String) -> String:
 func _open_pick(g: Game) -> void:
 	g.picking = true
 	g.picks = {}
+	g.all_locked = false
 	g.pick_deadline_ms = _now() + rematch_pick_ms
 	_log("match %d: both want a rematch; picking fighters (%d s)" % [g.label, roundi(rematch_pick_ms / 1000.0)])
 	_pick_status(g)
@@ -1055,36 +1059,48 @@ func _open_pick(g: Game) -> void:
 
 ## The players and the match's spectators hear who has locked in (a room's status
 ## message, code "", players in slot order) and the seconds left. Never what anyone
-## picked: `fighter` is their last match's, and "start" reveals the new ones.
+## picked while someone is still choosing: `fighter` is their last match's. Once both
+## are in (`all_locked`), the new fighters show for the last seconds.
 func _pick_status(g: Game) -> void:
 	var who: Array = []
 	for c in g.players:
 		var cl: Client = c
-		who.append({"name": cl.name, "fighter": String(cl.team[0]), "locked": g.picks.has(cl.slot), "playing": false})
+		var fighter := String(cl.team[0])
+		if g.all_locked and g.picks.has(cl.slot):
+			fighter = String(g.picks[cl.slot][0])
+		who.append({"name": cl.name, "fighter": fighter, "locked": g.picks.has(cl.slot), "playing": false})
 	var m := {"t": "room", "code": "", "state": "select", "players": who, "watchers": g.watchers.size(),
-		"secs": maxf(0.0, float(g.pick_deadline_ms - _now()) / 1000.0)}
+		"secs": maxf(0.0, float(g.pick_deadline_ms - _now()) / 1000.0), "all_locked": g.all_locked}
 	for c: Client in g.humans() + g.watchers:
 		if clients.has(c.id):
 			c.link.send(m, true)
 
 
 ## A player locked in for the rematch: as many fighters as they had (three for a tag
-## Duel), kept aside until the match starts. Once both have, the rematch starts.
+## Duel), kept aside until the match starts. Once both have, the picks freeze and show,
+## and the countdown drops to `rematch_locked_ms` (the rematch starts when it ends).
 func _rematch_pick(c: Client, team) -> void:
 	var g := c.game
-	if not Netplay.valid_team(team) or (team as Array).size() != c.team.size():
+	if g.all_locked or not Netplay.valid_team(team) or (team as Array).size() != c.team.size():
 		return
 	g.picks[c.slot] = (team as Array).duplicate()
 	_log("%s locked in for the rematch" % c.label())
-	_pick_status(g)
 	if g.picks.size() >= g.humans().size():
-		_start(g)
+		if rematch_locked_ms <= 0:
+			_start(g)
+			return
+		g.all_locked = true
+		g.pick_deadline_ms = mini(g.pick_deadline_ms, _now() + rematch_locked_ms)
+		_log("match %d: both locked in; the rematch starts in %.1f s" % [g.label,
+			float(g.pick_deadline_ms - _now()) / 1000.0])
+	_pick_status(g)
 
 
 ## The pick's countdown ran out: whoever hasn't locked in keeps their last pick.
 func _pick_timeout(g: Game) -> void:
-	_log("match %d: time's up for the rematch pick (%d of %d locked in); the rest keep their fighters" % [
-		g.label, g.picks.size(), g.humans().size()])
+	if not g.all_locked:
+		_log("match %d: time's up for the rematch pick (%d of %d locked in); the rest keep their fighters" % [
+			g.label, g.picks.size(), g.humans().size()])
 	_start(g)
 
 
