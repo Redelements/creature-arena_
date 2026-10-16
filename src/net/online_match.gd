@@ -331,7 +331,7 @@ func report() -> Dictionary:
 	while input_log.has(f):
 		frames.append(input_log[f])
 		f += 1
-	return {"teams": teams, "size": size, "input_delay": input_delay, "local_side": local_side,
+	return {"match": id, "arena": arena_id, "teams": teams, "size": size, "input_delay": input_delay, "local_side": local_side,
 		"local_slot": local_slot, "cpu_slots": cpu_slots.keys(),
 		"desync_frame": desync_frame, "digests_matched": digests_matched, "frames": frames,
 		"digests": final_digests, "at_frame": session.frame, "rollbacks": session.rollbacks,

@@ -12,6 +12,9 @@ var rng := RandomNumberGenerator.new()
 var _clock := 0
 var _inbox: Array = []  ## [arrive_at, order, msg]
 var _order := 0
+## Tests: with `keep_heard` on, every message this end received is kept in `heard`.
+var keep_heard := false
+var heard: Array = []
 
 
 static func pair(p_lag := 0, p_jitter := 0, p_loss := 0.0, p_seed := 1) -> Array:
@@ -51,6 +54,8 @@ func poll(_wait_ms := 0) -> Array:
 		else:
 			keep.append(m)
 	_inbox = keep
+	if keep_heard:
+		heard.append_array(out)
 	return out
 
 

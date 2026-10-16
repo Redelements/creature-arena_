@@ -221,12 +221,252 @@ func test_rematch_through_the_server() -> void:
 	assert_true(b.rematch_remote, "B hears that A wants a rematch")
 	assert_true(a.game == first, "one ask isn't enough")
 	b.request_rematch()
+	assert_true(_run(server, nets, 40, func(): return a.rematch_pick() and b.rematch_pick()), "both asked: both pick")
+	var g: RelayServer.Game = server.games[0]
+	assert_true(g.picking, "the server waits for their picks")
+	assert_eq(a.room_players.size(), 2, "both hear who has locked in:")
+	a.send_pick(["barkley"])
+	assert_true(_run(server, nets, 20, func(): return bool(b.room_players[0]["locked"])), "B sees A lock in")
+	assert_false(b.room_players[0].has("team"), "but not A's fighter (hidden until the start):")
+	assert_eq(b.room_players[0]["fighter"], TEAM_A[0], "the status still shows A's last one:")
+	assert_true(a.game == first, "and A waits for B")
+	b.send_pick(["sno", "pete"])  # not a tag Duel: one fighter
+	_run(server, nets, 20)
+	assert_true(a.game == first and g.picking, "a pick of the wrong size is refused")
+	b.send_pick(["digby"])
 	_run(server, nets, 40, func(): return a.game != first and b.game.id == a.game.id)
 	assert_eq(a.game.id, 2, "a second match:")
 	assert_eq(b.game.id, 2, "on both sides:")
+	assert_eq(a.game.teams, [["barkley"], ["digby"]], "with the new fighters:")
+	assert_eq(b.game.teams, a.game.teams, "on both sides:")
+	assert_eq(g.referee.teams, a.game.teams, "and on the referee:")
 	_run(server, nets, 300, Callable(), _mash(9))
 	assert_eq(a.game.desync_frame, -1, "the rematch is in sync too")
+	assert_eq(b.game.desync_frame, -1, "")
+	assert_gt(float(g.referee.checked), 2.0, "the referee checked both players' fingerprints:")
+	assert_eq(g.referee.desync, [-1, -1], "and they agree with its own:")
 	assert_eq(server.matches_started, 2, "the server counted both:")
+
+
+## Both players of a server 1v1 ask for a rematch, then pick these.
+func _repick(server: RelayServer, nets: Array, fa: Array, fb: Array) -> bool:
+	var a: Netplay = nets[0]
+	var b: Netplay = nets[1]
+	var n := a.game.id
+	a.request_rematch()
+	b.request_rematch()
+	if not _run(server, nets, 40, func(): return a.rematch_pick() and b.rematch_pick()):
+		return false
+	a.send_pick(fa)
+	b.send_pick(fb)
+	return _run(server, nets, 60, func(): return a.game.id == n + 1 and b.game.id == n + 1)
+
+
+func test_a_tag_duel_rematch_picks_three_again_and_same_again_works() -> void:
+	var s := _setup([["cairn", "sno", "pete"], ["culvert", "digby", "barkley"]])
+	var server: RelayServer = s[0]
+	var nets: Array = s[1]
+	var a: Netplay = nets[0]
+	var b: Netplay = nets[1]
+	assert_true(_run(server, nets, 300, func(): return _both_playing(nets)), "a tag Duel")
+	_run(server, nets, 60, Callable(), _mash(2))
+	a.request_rematch()
+	b.request_rematch()
+	_run(server, nets, 40, func(): return a.rematch_pick() and b.rematch_pick())
+	a.send_pick(["gillbert"])  # a tag Duel picks three
+	_run(server, nets, 20)
+	assert_false(bool(b.room_players[0]["locked"]), "one fighter isn't a tag team")
+	a.send_pick(["gillbert", "hissy", "cerebro"])
+	b.send_pick(b.my_team)  # same again
+	assert_true(_run(server, nets, 60, func(): return a.game.id == 2 and b.game.id == 2), "the rematch starts")
+	assert_eq(a.game.teams, [["gillbert", "hissy", "cerebro"], ["culvert", "digby", "barkley"]], "a new team of three:")
+	assert_eq(b.game.teams, a.game.teams, "")
+	_run(server, nets, 300, Callable(), _mash(4))
+	assert_eq(a.game.desync_frame, -1, "in sync")
+	assert_eq((server.games[0] as RelayServer.Game).referee.desync, [-1, -1], "")
+	assert_true(_repick(server, nets, a.my_team, b.my_team), "same again, both")
+	assert_eq(a.game.teams, [["gillbert", "hissy", "cerebro"], ["culvert", "digby", "barkley"]], "the same teams:")
+
+
+func test_leaving_during_the_rematch_pick_ends_it_cleanly_for_everyone() -> void:
+	var s := _setup([TEAM_A, TEAM_B])
+	var server: RelayServer = s[0]
+	var nets: Array = s[1]
+	var a: Netplay = nets[0]
+	var b: Netplay = nets[1]
+	_run(server, nets, 200, func(): return _both_playing(nets))
+	var wl := LoopLink.pair(1, 0, 0.0, 77)
+	server.add_client(wl[0], "watch")
+	var w := Netplay.new()
+	w.spectate("server", 0, "", wl[1])
+	var all := [a, b, w]
+	assert_true(_run(server, all, 100, func(): return w.is_watching()), "a spectator")
+	a.request_rematch()
+	b.request_rematch()
+	assert_true(_run(server, all, 40, func(): return a.rematch_pick() and w.room_state == "select"),
+		"picking; the spectator hears so")
+	a.send_pick(["sno"])
+	_run(server, all, 10)
+	b.leave()
+	_run(server, all, 20)
+	assert_eq(a.phase, Netplay.Phase.ENDED, "the other player's session ends:")
+	assert_true(a.error.contains("left"), "and says why: " + a.error)
+	assert_eq(w.phase, Netplay.Phase.ENDED, "the spectator's too:")
+	assert_true(w.error.contains("ended"), "the match ended: " + w.error)
+	assert_eq(server.games.size(), 0, "the server lets the match go:")
+	assert_eq(server.clients.size(), 0, "")
+
+
+func test_every_match_of_a_rematch_run_saves_its_replay_with_its_own_fighters() -> void:
+	var s := _setup([TEAM_A, TEAM_B])
+	var server: RelayServer = s[0]
+	var nets: Array = s[1]
+	server.save_replays = true
+	server.replay_dir = "user://test_rematch_replays_%d" % Time.get_ticks_usec()
+	var a: Netplay = nets[0]
+	var b: Netplay = nets[1]
+	_run(server, nets, 200, func(): return _both_playing(nets))
+	_run(server, nets, 200, Callable(), _mash(6))
+	var first_log: Array = (server.games[0] as RelayServer.Game).referee.log.duplicate()
+	assert_true(_repick(server, nets, ["sno"], ["pete"]), "a rematch with new fighters")
+	_run(server, nets, 200, Callable(), _mash(7))
+	assert_true(_repick(server, nets, ["hissy"], ["pete"]), "and another")
+	a.leave()
+	_run(server, [b], 10)
+	var files := Array(DirAccess.get_files_at(server.replay_dir))
+	files.sort()
+	assert_eq(files.size(), 3, "three matches, three replays:")
+	var want := [[TEAM_A, TEAM_B], [["sno"], ["pete"]], [["hissy"], ["pete"]]]
+	for k in mini(files.size(), 3):
+		var rep := Replay.load_file(server.replay_dir.path_join(String(files[k])))
+		var n := int(String(files[k]).get_basename().get_slice("_", 2))
+		assert_eq((rep.setup as Dictionary)["teams"], want[n - 1], "match %d's replay has its own fighters:" % n)
+	var rep1 := Replay.load_file(server.replay_dir.path_join("online_1_1.json"))
+	assert_true(rep1.frames.size() >= first_log.size(), "match 1's replay has its frames")
+	for f in files:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(server.replay_dir.path_join(String(f))))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(server.replay_dir))
+
+
+## A spectator of the server's match, its link keeping what it hears.
+func _spectator(server: RelayServer) -> Netplay:
+	var wl := LoopLink.pair(1, 0, 0.0, 77)
+	server.add_client(wl[0], "watch")
+	var w := Netplay.new()
+	w.spectate("server", 0, "", wl[1])
+	return w
+
+
+## Whether any message in `heard` mentions a fighter id.
+func _mentions(heard: Array, fighter: String) -> bool:
+	for m in heard:
+		if JSON.stringify(m).contains(fighter):
+			return true
+	return false
+
+
+func test_rematch_picks_stay_hidden_from_the_opponent_and_spectators_until_both_are_in() -> void:
+	var s := _setup([TEAM_A, TEAM_B])
+	var server: RelayServer = s[0]
+	var nets: Array = s[1]
+	var a: Netplay = nets[0]
+	var b: Netplay = nets[1]
+	_run(server, nets, 200, func(): return _both_playing(nets))
+	var w := _spectator(server)
+	var all := [a, b, w]
+	assert_true(_run(server, all, 100, func(): return w.is_watching()), "a spectator")
+	a.request_rematch()
+	b.request_rematch()
+	assert_true(_run(server, all, 40, func(): return a.rematch_pick() and b.rematch_pick() and w.room_state == "select"),
+		"picking")
+	for n: Netplay in all:
+		(n.link as LoopLink).keep_heard = true
+	a.send_pick(["gillbert"])
+	assert_true(_run(server, all, 30, func(): return bool(b.room_players[0]["locked"]) and bool(w.room_players[0]["locked"])),
+		"B and the spectator hear that A locked in")
+	_run(server, all, 30)
+	assert_false(_mentions((b.link as LoopLink).heard, "gillbert"), "nothing B hears names A's pick")
+	assert_false(_mentions((w.link as LoopLink).heard, "gillbert"), "nor anything the spectator hears")
+	assert_true(b.room_players.all(func(p): return not (p as Dictionary).has("team")), "no team in the status")
+	b.send_pick(["hissy"])
+	assert_true(_run(server, all, 20, func(): return (a.link as LoopLink).heard.any(func(m): return m.get("t") == "start")),
+		"both in: the start")
+	assert_false(_mentions((a.link as LoopLink).heard.filter(func(m): return m.get("t") != "start"), "hissy"),
+		"A only learns B's pick from the start")
+	assert_true(_run(server, all, 60, func(): return a.game.id == 2 and b.game.id == 2 and w.watch.teams == [["gillbert"], ["hissy"]]),
+		"which reveals both, to the spectator too")
+
+
+func test_a_quick_match_rematch_is_on_a_new_arena_for_everyone() -> void:
+	var s := _setup([TEAM_A, TEAM_B])
+	var server: RelayServer = s[0]
+	server.rng.seed = 4242
+	var nets: Array = s[1]
+	var a: Netplay = nets[0]
+	var b: Netplay = nets[1]
+	_run(server, nets, 200, func(): return _both_playing(nets))
+	var w := _spectator(server)
+	var all := [a, b, w]
+	assert_true(_run(server, all, 100, func(): return w.is_watching()), "a spectator")
+	var seen := {}
+	for k in 4:
+		var last := a.game.arena_id
+		seen[last] = true
+		assert_eq(b.game.arena_id, last, "match %d: both players on the same arena:" % a.game.id)
+		assert_eq(w.arena_id, last, "and the spectator:")
+		assert_eq((server.games[0] as RelayServer.Game).referee.arena, last, "and the referee:")
+		assert_true(_repick(server, all, a.my_team, b.my_team), "rematch %d" % (k + 1))
+		_run(server, all, 30, func(): return w.watch != null and w.arena_id == a.game.arena_id)
+		assert_true(a.game.arena_id != last, "a new arena each rematch (%s after %s)" % [a.game.arena_id, last])
+		assert_eq(b.game.duel.sim.arena_id, a.game.arena_id, "built on both machines:")
+	assert_gt(float(seen.size()), 1.0, "the draw moves around:")
+	_run(server, all, 300, Callable(), _mash(3))
+	assert_eq(a.game.desync_frame, -1, "in sync on the drawn arena")
+
+
+func test_the_rematch_pick_countdown_locks_in_the_last_pick() -> void:
+	var s := _setup([TEAM_A, TEAM_B])
+	var server: RelayServer = s[0]
+	var nets: Array = s[1]
+	var a: Netplay = nets[0]
+	var b: Netplay = nets[1]
+	assert_eq(server.rematch_pick_ms, 20000, "20 seconds, from data/online.json:")
+	_run(server, nets, 200, func(): return _both_playing(nets))
+	_run(server, nets, 100, Callable(), _mash(11))
+	var first := a.game
+	a.request_rematch()
+	b.request_rematch()
+	assert_true(_run(server, nets, 40, func(): return a.rematch_pick() and b.rematch_pick()), "picking")
+	assert_gt(a.pick_secs, 19.0, "the players hear the countdown:")
+	assert_gt(a.pick_seconds_left(), 0.0, "")
+	a.send_pick(["sno"])
+	_run(server, nets, 60)
+	assert_true(a.game == first, "B hasn't locked in and time's not up: still picking")
+	server.clock_skip_ms += 20001  # time runs out
+	assert_true(_run(server, nets, 40, func(): return a.game.id == 2 and b.game.id == 2), "time's up: the rematch starts")
+	assert_eq(a.game.teams, [["sno"], TEAM_B], "A's pick, and B's last fighter:")
+	assert_eq(b.game.teams, a.game.teams, "the same match on both machines:")
+	assert_eq(b.my_team, TEAM_B, "")
+	_run(server, nets, 400, Callable(), _mash(12))
+	assert_eq(a.game.desync_frame, -1, "in sync")
+	assert_eq(b.game.desync_frame, -1, "")
+	assert_eq((server.games[0] as RelayServer.Game).referee.desync, [-1, -1], "the referee agrees:")
+	assert_gt(float(a.game.digests_matched), 2.0, "fingerprints compared:")
+	# Nobody locks in: both keep their fighters.
+	a.request_rematch()
+	b.request_rematch()
+	assert_true(_run(server, nets, 40, func(): return a.rematch_pick() and b.rematch_pick()), "picking again")
+	server.clock_skip_ms += 20001
+	assert_true(_run(server, nets, 40, func(): return a.game.id == 3 and b.game.id == 3), "time's up again")
+	assert_eq(a.game.teams, [["sno"], TEAM_B], "the same fighters:")
+	# Both in before time's up: no waiting for the countdown.
+	a.request_rematch()
+	b.request_rematch()
+	assert_true(_run(server, nets, 40, func(): return a.rematch_pick() and b.rematch_pick()), "and again")
+	a.send_pick(["pete"])
+	b.send_pick(["digby"])
+	assert_true(_run(server, nets, 20, func(): return a.game.id == 4 and b.game.id == 4), "starts at once")
+	assert_eq(a.game.teams, [["pete"], ["digby"]], "")
 
 
 func test_leaving_ends_the_match_for_the_opponent_and_frees_the_server() -> void:

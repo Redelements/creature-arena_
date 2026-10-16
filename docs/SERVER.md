@@ -44,6 +44,27 @@ in a 1v1 room the other waits there for whoever types the code next; in a team r
 CPU finishes the match for the leaver, and someone joining the code meanwhile plays the
 next one. A full room turns newcomers away (they can watch). The log shows it:
 
+**A 1v1 rematch picks again too** (Quick match, tag Duels and ranked; not Quick match
+2v2/3v3, which rematch with the same fighters). Once both players have asked, the server
+holds the rematch while they pick (the finished match keeps being refereed), then starts
+it with the new fighters as the next match number; spectators see the players picking
+and follow into it. Nobody sees the other's pick until the match starts: the server
+only says who has locked in. The pick has a countdown, `rematch_pick_seconds` in
+`data/online.json` (20 s; the server reads it at start-up, the direct host too): when it
+runs out, whoever hasn't locked in keeps their last fighter and the match starts. Each
+Quick match rematch (ranked too, and team battles) is on a newly drawn arena, never the
+one just played. Ranked rates every game. Someone leaving during the pick ends it for
+the other ("Your opponent left") and its spectators, as leaving a Quick match does:
+
+```
+[2026-10-16 10:58:52] match 1: both want a rematch; picking fighters (20 s)
+[2026-10-16 10:58:52] player 1 (cairn) locked in for the rematch
+[2026-10-16 10:59:12] match 1: time's up for the rematch pick (1 of 2 locked in); the rest keep their fighters
+[2026-10-16 10:59:12] match 2 started (rematch): player 1 (culvert) vs player 2 (sno) on floodgate, round trip 17 ms, input delay 1
+```
+
+Rooms:
+
 ```
 [2026-10-15 20:02:11] match 3 started in room 'kx7p': player 4 (sno) vs player 5 (pete), round trip 38 ms, input delay 1
 [2026-10-15 20:04:40] room 'kx7p' is picking fighters
@@ -53,9 +74,9 @@ next one. A full room turns newcomers away (they can watch). The log shows it:
 [2026-10-15 20:09:02] room 'kx7p' closed
 ```
 
-**Update the server with the clients.** This build's online protocol is NET_VERSION 10
-(rooms between matches): a server on an older build refuses these games ("a different
-version of the game"), and this server refuses older games.
+**Update the server with the clients.** This build's online protocol is NET_VERSION 11
+(a 1v1 rematch picks again; ranked rematches): a server on an older build refuses these
+games ("a different version of the game"), and this server refuses older games.
 
 **CPU players.** In a team battle the server plays CPUs itself, on its referee's copy of
 the match, and sends their inputs to everyone like a player's. It uses them in two cases:
@@ -176,6 +197,10 @@ godot --path . -- --online-join=127.0.0.1:7799/test --cpu-vs-cpu --net-report=b.
 ```
 
 Both reports should show `"desync_frame": -1`, and the server logs the result. With
-`--cpu-vs-cpu` in a room they carry on into the room's next match by themselves (each
-picking the next fighter along); add a spectator with
-`godot --path . -- --online-watch=127.0.0.1:7799/test`.
+`--cpu-vs-cpu` they carry on by themselves: in a room into the room's next match, in
+Quick match (no `/test`) a 1v1 asks for a rematch; either way each picks the next
+fighter along. The report holds the latest match (`"match"`, `"teams"`); each earlier
+one is kept beside it as `a_m1.json`, `a_m2.json`... `--net-no-pick[=N]` on one of them
+leaves its first N rematch picks (or all) to the countdown. Add a spectator with
+`godot --path . -- --online-watch=127.0.0.1:7799/test` (or without `/test` for Quick
+match).

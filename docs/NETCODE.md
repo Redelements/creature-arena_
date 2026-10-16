@@ -78,7 +78,7 @@ KO, winner) is simulation code both machines run.
 | Link | `src/net/net_link.gd` | The interface everything above talks to: reliable control messages, unreliable input packets. Packets are plain Dictionaries; anything else is dropped |
 | Direct UDP | `src/net/enet_link.gd` | Godot's ENet. Host listens on a UDP port (7777); the joiner connects. 5 s timeout. A third player is turned away |
 | Test links | `loop_link.gd`, `lag_link.gd` | In-memory pair with lag, jitter and loss (tests); a wrapper that delays/drops the real input stream (`--net-lag`, `--net-loss`) |
-| Session | `src/net/netplay.gd` | Handshake (version + game-data hash, so mismatched builds refuse with a message; both teams), 5 pings timed on the socket (the host waits for each pong, the guest waits for each ping, so the figure is the network's, not rounded up by a frame of sitting unread), input delay from the best ping (1 under 100 ms, 2 under 170 ms, else 3), a live ping every second during the match (both sides; the HUD's figure), rematch when both ask, leave |
+| Session | `src/net/netplay.gd` | Handshake (version + game-data hash, so mismatched builds refuse with a message; both teams), 5 pings timed on the socket (the host waits for each pong, the guest waits for each ping, so the figure is the network's, not rounded up by a frame of sitting unread), input delay from the best ping (1 under 100 ms, 2 under 170 ms, else 3), a live ping every second during the match (both sides; the HUD's figure), rematch when both ask (both pick again first), leave |
 | Match | `src/net/online_match.gd` | Drives the DuelSim through `RollbackSession`: time sync, events shown once, desync check, input log |
 
 - **Effects during rollback.** Re-simulated frames emit their events again; only events
@@ -114,7 +114,8 @@ an `EnetHub` (one UDP port, a `NetLink` per player) into a `RelayServer`, which:
 - sends both a `start` with their `side` and the opponent's round trip to the server
   (`via`, refreshed every 2 s as `path`), so time sync counts the whole route;
 - relays `in`/`dg`/`rematch`/`bye`, rebuilding each relayed message from known fields
-  (a room's matches use `next`/`pick` instead of `rematch`: see "Rooms that last");
+  (a room's matches use `next`/`pick` instead of `rematch`: see "Rooms that last"; a
+  1v1 rematch picks too: see "A rematch picks again");
 - referees with a `Referee`: a DuelSim stepped only on confirmed inputs (no rollback),
   checking both players' fingerprints, so a desync names the player whose game went
   wrong; it logs each result.
@@ -265,13 +266,14 @@ check: they're all there.
   have locked in), or that the room is waiting for a player; the next match's `start`
   re-attaches them. The game now follows a new spectator `start` (it used to stay on
   the old match-over after any rematch: `main.watch` was never refreshed).
-- **Ranked** is one rated game per pairing: no Rematch (the server ignores `rematch` in
-  ranked and in rooms), and the result screen offers **Back to online**. The other
-  player going back after the result isn't shown as a disconnection.
+- **Ranked** offered no Rematch until NET_VERSION 11 (one rated game per pairing); it
+  has one now, through the pick, and every game is rated (below). The result screen also
+  offers **Back to online**, and the other player going back after the result isn't
+  shown as a disconnection.
 - **The room code copies:** `RoomCodeButton` (a row with a drawn copy icon) puts it on
   the clipboard and says "Copied" for 1.5 s; it's on the online screen while waiting in
   a room, on a room's match-over screen and on the room's page.
-- Quick match and direct host/join keep their Rematch.
+- Quick match and direct host/join keep their Rematch (which now picks again too).
 
 Why a Room object rather than more fields on Game: a Game is one match (its referee,
 inputs, `n`, seats, rematch flags); it's created when a group is found and dropped when
@@ -280,6 +282,70 @@ who's in it (including newcomers who aren't seated yet and spectators), the last
 and who has locked in, across a player leaving with no match on at all. Keeping that on
 a Game would mean a Game with no match, or carrying it from Game to Game. Tests:
 `tests/test_rooms.gd`.
+
+**A rematch picks again (NET_VERSION 11).** A 1v1 rematch outside a room (Quick match,
+ranked, a tag Duel, and direct host/join) goes through the fighter select, like a room's
+next match, but the trigger is still both players pressing Rematch:
+
+```
+  Player A                  Server (or the direct host)          Player B
+  rematch  -->                                              <--  rematch
+  <-- room {code "", state "select", players [slot 0, slot 1], secs}  -->   (and to spectators)
+  pick {team}  -->          room {...locked, secs} to everyone
+                                                            <--  pick {team}
+  <-- start {n + 1, teams: the new picks, arena, ...}            -->   (and spectators' start)
+```
+
+- The pick status is the room's own `room` message with code "" and the players in slot
+  order. No new message kinds: `room` and `pick` were already in the protocol; what's
+  new is that they're used outside rooms (and on a direct link).
+- **Picks stay hidden until both are in**, and the authority enforces it, not the UI: the
+  status says only who has `locked` in (each player's `fighter` is still the one from
+  the last match, and no `team` rides along). The server keeps a pick in `Game.picks`
+  and only puts it on the player when the match starts; `start` reveals both. The game
+  shows "Opponent is choosing..." or "Opponent locked in". Spectators likewise only see
+  how many have locked in. (On a direct link the host is the authority, so the host's
+  machine holds the joiner's pick; nothing it sends names it before `start`.)
+- **A countdown:** `rematch_pick_seconds` in `data/online.json` (20). The status carries
+  `secs`, the seconds left when it was sent; clients count down from it ("Starts in
+  14 s" on the REMATCH page and the picker, and in spectators' "picking" line). When it
+  runs out, the server (`_pick_timeout`, from its clock: `rematch_pick_ms`, and
+  `clock_skip_ms` for tests) or the direct host (in ticks: `pick_ticks`, 60 a second)
+  locks in whoever hasn't with their last pick and starts the match. A rematch where
+  both lock in early starts at once. Rooms' between-match select has no countdown (not
+  decided); the same timer could apply there.
+- A pick must have as many fighters as before (three for a tag Duel). `n` counts on, no
+  ready check. **Arena:** a Quick match rematch on the server (1v1 or team battle,
+  ranked or not) draws a new arena for each rematch, the same way it draws one for a new
+  pairing (`rng`), from the arenas other than the one just played; everyone gets it in
+  `start`. A direct match keeps the host's arena; a room keeps the room's. The finished
+  match keeps stepping behind the select meanwhile, so nobody's session stalls.
+- The game opens the room's page as a REMATCH page (Same again / Pick your fighter /
+  Leave) with `CharacterSelect` (solo) over it, the last pick under the cursor so one
+  press keeps it.
+- Leaving during the pick ends it: the other player's session ends ("Your opponent
+  left", which is what a player is told whenever the other player of a 1v1 leaves:
+  match over, Quick match, ranked, direct, a 1v1 room's wait), the game says so and goes
+  back to the online screen; spectators get "The match ended" (spectators' texts are
+  unchanged).
+- Spectators follow: they get the same `room` status (their match-over says the players
+  are picking for the rematch, how many have locked in, and the seconds left) and then
+  the rematch's `start`.
+- Ranked: every game is rated (`_report` per match, a `rating` message each time).
+- Quick match 2v2/3v3 still rematch with the same fighters (no pick), on a new arena.
+- Saved online replays carry each match's own teams (the server's
+  `online_<label>_<n>.json`, F6 from `OnlineMatch.input_log`); `--net-report` holds the
+  latest match (with `"match"` and `"arena"`), and each earlier one is kept beside it as
+  `PATH_m<n>.json`. `--net-no-pick[=N]` (with `--cpu-vs-cpu`) leaves the first N (or
+  every) rematch pick to the countdown, to exercise it in a soak.
+
+Tests: `tests/test_online.gd` (direct: the host's pick hidden, its arena kept, the
+countdown in ticks), `tests/test_server.gd` (Quick match, a tag Duel, leaving during the
+pick, replays per match, picks hidden from the opponent and spectators, a new arena per
+rematch, the countdown locking in the last pick with fingerprints agreeing),
+`tests/test_rooms.gd` (ranked rated twice, the game's screens and countdown, a direct
+rematch in the game), `tests/test_spectate.gd` (a spectator from match 1 through the
+pick to match 2, fingerprints agreeing).
 
 Still to do: a Steam transport (below).
 
