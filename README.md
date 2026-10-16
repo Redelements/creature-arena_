@@ -97,10 +97,10 @@ picked from the ping), and the other player's late inputs are corrected in a fra
 two. The bottom corner shows ping, delay and the deepest rollback. Enter / A after the
 match asks for a rematch; once both of you have asked, a 1v1 (Quick match, ranked, a
 tag Duel, or host/join) goes to the fighter select with your last pick ready, so one
-press (or Same again) keeps it, and the rematch starts when you've both locked in. You
-see only whether your opponent has locked in; both fighters are revealed when the
-rematch starts. You have 20 seconds: when time runs out, whoever hasn't locked in keeps
-their last fighter. Each Quick match rematch is on a new arena (host/join keeps the
+press (or Same again) keeps it. You see only whether your opponent has locked in; once
+you both have, the countdown drops to 3 seconds and both fighters show (no changing
+now), then the rematch starts. You have 20 seconds: when time runs out, whoever hasn't
+locked in keeps their last fighter. Each Quick match rematch is on a new arena (host/join keeps the
 host's). Ranked rates every game. In a room it's Next match; Quick match 2v2/3v3
 rematch with the same fighters. Esc / View leaves. For testing on one network you can fake a
 bad connection: `--net-lag=6 --net-loss=0.1`. Details: [docs/NETCODE.md](docs/NETCODE.md).

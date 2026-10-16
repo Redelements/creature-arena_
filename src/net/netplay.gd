@@ -132,23 +132,39 @@ var _locked := [false, false]
 var pick_secs := 0.0
 var _pick_secs_ms := 0
 var pick_ticks := -1
+## Hosting: the countdown once both have locked in, in ticks (-1: rematch_locked_seconds()
+## at 60 a second; tests shorten it).
+var locked_ticks := -1
+## Both players have locked in: the picks are frozen and shown (the status's `all_locked`;
+## hosting, the host's own record of it).
+var pick_all_locked := false
 var _pick_until := 0
 
 ## What a player is told when the other player of a 1v1 leaves.
 const OPPONENT_LEFT := "Your opponent left"
 const PICK_SECONDS_DEFAULT := 20.0
+const LOCKED_SECONDS_DEFAULT := 3.0
 
 
 ## The rematch pick's countdown, from data/online.json (`rematch_pick_seconds`): the
 ## server and the direct host both read it.
 static func rematch_pick_seconds() -> float:
+	return clampf(float(_online_data().get("rematch_pick_seconds", PICK_SECONDS_DEFAULT)), 1.0, 600.0)
+
+
+## Once both have locked in, the countdown drops to this (`rematch_locked_seconds`,
+## 3): both fighters show, the picks are frozen, then the rematch starts. 0 starts it
+## at once.
+static func rematch_locked_seconds() -> float:
+	return clampf(float(_online_data().get("rematch_locked_seconds", LOCKED_SECONDS_DEFAULT)), 0.0, 60.0)
+
+
+static func _online_data() -> Dictionary:
 	var f := FileAccess.open("res://data/online.json", FileAccess.READ)
 	if f == null:
-		return PICK_SECONDS_DEFAULT
+		return {}
 	var d = JSON.parse_string(f.get_as_text())
-	if not (d is Dictionary):
-		return PICK_SECONDS_DEFAULT
-	return clampf(float(d.get("rematch_pick_seconds", PICK_SECONDS_DEFAULT)), 1.0, 600.0)
+	return d if d is Dictionary else {}
 
 
 ## Seconds left on a rematch pick's countdown (0 when there is none).
@@ -353,6 +369,8 @@ func send_pick(team: Array) -> void:
 		return
 	if not in_room() and not (rematch_pick() and (team as Array).size() == my_team.size()):
 		return
+	if not in_room() and pick_all_locked:
+		return  # both are in: the picks are frozen for the last seconds
 	my_team = team.duplicate()
 	picking = true
 	picked = true
@@ -369,6 +387,7 @@ func send_pick(team: Array) -> void:
 ## countdown.
 func _host_open_pick() -> void:
 	_locked = [false, false]
+	pick_all_locked = false
 	picking = true
 	picked = false
 	_pick_until = _t + (pick_ticks if pick_ticks >= 0 else roundi(rematch_pick_seconds() * 60.0))
@@ -384,25 +403,35 @@ func _host_pick_timeout() -> void:
 
 ## Hosting: the pick status, here and to the joiner (a room's "room" message, code "").
 ## Only who has locked in: `fighter` is each one's from the last match, so neither
-## pick is seen before "start" reveals both.
+## pick is seen until both are in; then (`all_locked`) both new fighters show for the
+## last seconds, and "start" follows.
 func _host_pick_status() -> void:
 	var who: Array = []
 	var names := [_my_name(), their_name]
-	var last: Array = game.teams if game != null else [my_team, their_team]
+	var last: Array = [my_team, their_team] if pick_all_locked or game == null else game.teams
 	for side in 2:
 		who.append({"name": String(names[side]), "fighter": String(last[side][0]), "locked": bool(_locked[side]),
 			"playing": false})
 	var m := {"t": "room", "code": "", "state": "select", "players": who, "watchers": 0,
-		"secs": maxf(0.0, float(_pick_until - _t) / 60.0)}
+		"secs": maxf(0.0, float(_pick_until - _t) / 60.0), "all_locked": pick_all_locked}
 	_room_status(m)
 	link.send(m, true)
 	link.flush()
 
 
-## Hosting: both locked in, so the rematch starts with the new teams.
+## Hosting: both locked in. The picks freeze and show, and the countdown drops to
+## rematch_locked_seconds (if less is left, it stays); the tick loop starts the rematch
+## when it runs out (at once with 0).
 func _host_try_start() -> void:
-	if _locked[0] and _locked[1]:
+	if not (_locked[0] and _locked[1]) or pick_all_locked:
+		return
+	pick_all_locked = true
+	var last := locked_ticks if locked_ticks >= 0 else roundi(rematch_locked_seconds() * 60.0)
+	if last <= 0:
 		_start_match()
+		return
+	_pick_until = mini(_pick_until, _t + last)
+	_host_pick_status()
 
 
 ## The room's players who haven't locked in yet (names), and who has.
@@ -586,7 +615,7 @@ func _handle(m: Dictionary) -> void:
 			if game != null and int(m.get("n", -1)) == game.id:
 				game.set_cpu(int(m.get("p", -1)))
 		"pick":  # hosting a direct match: the joiner locked in for the rematch
-			if not hosting or room_state != "select" or phase != Phase.PLAYING:
+			if not hosting or room_state != "select" or phase != Phase.PLAYING or pick_all_locked:
 				return
 			var team = m.get("team")
 			if not _valid_team(team) or (team as Array).size() != their_team.size():
@@ -636,6 +665,7 @@ func _room_status(m: Dictionary) -> void:
 	room_watchers = maxi(0, int(m.get("watchers", 0)))
 	pick_secs = clampf(float(m.get("secs", 0.0)), 0.0, 600.0)
 	_pick_secs_ms = Time.get_ticks_msec()
+	pick_all_locked = bool(m.get("all_locked", false))
 
 
 ## The server put this spectator on a match: build a referee's copy of it and feed it

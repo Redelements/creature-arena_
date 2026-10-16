@@ -311,8 +311,12 @@ next match, but the trigger is still both players pressing Rematch:
   14 s" on the REMATCH page and the picker, and in spectators' "picking" line). When it
   runs out, the server (`_pick_timeout`, from its clock: `rematch_pick_ms`, and
   `clock_skip_ms` for tests) or the direct host (in ticks: `pick_ticks`, 60 a second)
-  locks in whoever hasn't with their last pick and starts the match. A rematch where
-  both lock in early starts at once. Rooms' between-match select has no countdown (not
+  locks in whoever hasn't with their last pick and starts the match. **Both locked in:**
+  the countdown drops to `rematch_locked_seconds` (3, data/online.json; if less is left
+  it stays): the status sets `all_locked` and now carries both new fighters (`fighter`),
+  further picks are ignored (frozen), and the match starts when it runs out
+  (`rematch_locked_ms` on the server, `locked_ticks` on the direct host; tests set them
+  to 0 to start at once). Rooms' between-match select has no countdown (not
   decided); the same timer could apply there.
 - A pick must have as many fighters as before (three for a tag Duel). `n` counts on, no
   ready check. **Arena:** a Quick match rematch on the server (1v1 or team battle,

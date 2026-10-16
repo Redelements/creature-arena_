@@ -59,6 +59,7 @@ func _pick_again(server: RelayServer, nets: Array, a: Netplay, b: Netplay, fa: A
 
 func test_a_room_plays_picks_again_and_starts_the_next_match_with_the_new_fighters() -> void:
 	var server := RelayServer.new()
+	server.rematch_locked_ms = 0  # a rematch starts once both are in
 	var a := _player(server, 0, "kev", 1, ["cairn"])
 	var b := _player(server, 1, "kev", 0, ["culvert"])
 	var all := [a, b]
@@ -95,6 +96,7 @@ func test_a_room_plays_picks_again_and_starts_the_next_match_with_the_new_fighte
 
 func test_a_room_has_no_rematch() -> void:
 	var server := RelayServer.new()
+	server.rematch_locked_ms = 0  # a rematch starts once both are in
 	var a := _player(server, 0, "r")
 	var b := _player(server, 1, "r")
 	var all := [a, b]
@@ -109,6 +111,7 @@ func test_a_room_has_no_rematch() -> void:
 
 func test_a_player_leaving_a_1v1_room_leaves_the_other_waiting_there_and_a_newcomer_plays_them() -> void:
 	var server := RelayServer.new()
+	server.rematch_locked_ms = 0  # a rematch starts once both are in
 	var a := _player(server, 0, "kx7p")
 	var b := _player(server, 1, "kx7p")
 	var w := _watcher(server, 2, "kx7p")
@@ -139,6 +142,7 @@ func test_a_player_leaving_a_1v1_room_leaves_the_other_waiting_there_and_a_newco
 
 func test_watchers_follow_the_room_from_match_to_select_to_the_next_match() -> void:
 	var server := RelayServer.new()
+	server.rematch_locked_ms = 0  # a rematch starts once both are in
 	var a := _player(server, 0, "r")
 	var b := _player(server, 1, "r")
 	var w := _watcher(server, 2, "r")
@@ -170,6 +174,7 @@ func test_watchers_follow_the_room_from_match_to_select_to_the_next_match() -> v
 
 func test_the_room_closes_when_its_last_player_leaves() -> void:
 	var server := RelayServer.new()
+	server.rematch_locked_ms = 0  # a rematch starts once both are in
 	var a := _player(server, 0, "r")
 	var b := _player(server, 1, "r")
 	var w := _watcher(server, 2, "r")
@@ -188,6 +193,7 @@ func test_the_room_closes_when_its_last_player_leaves() -> void:
 
 func test_a_full_room_turns_a_third_player_away() -> void:
 	var server := RelayServer.new()
+	server.rematch_locked_ms = 0  # a rematch starts once both are in
 	var a := _player(server, 0, "r")
 	var b := _player(server, 1, "r")
 	var all := [a, b]
@@ -202,6 +208,7 @@ func test_a_full_room_turns_a_third_player_away() -> void:
 
 func test_a_team_room_plays_on_with_a_cpu_and_a_newcomer_joins_the_next_match() -> void:
 	var server := RelayServer.new()
+	server.rematch_locked_ms = 0  # a rematch starts once both are in
 	server.room_fill_ms = 1  # CPUs fill the empty seats at once
 	server.rng.seed = 3
 	var a := _player(server, 0, "t", 2)
@@ -234,6 +241,7 @@ func test_a_team_room_plays_on_with_a_cpu_and_a_newcomer_joins_the_next_match() 
 
 func test_quick_match_rematch_still_works_and_its_watcher_follows() -> void:
 	var server := RelayServer.new()
+	server.rematch_locked_ms = 0  # a rematch starts once both are in
 	var a := _player(server, 0)
 	var b := _player(server, 1)
 	var all := [a, b]
@@ -259,6 +267,7 @@ func test_quick_match_rematch_still_works_and_its_watcher_follows() -> void:
 
 func test_a_ranked_rematch_picks_again_and_rates_every_game() -> void:
 	var server := RelayServer.new()
+	server.rematch_locked_ms = 0  # a rematch starts once both are in
 	var nets: Array = []
 	for i in 2:
 		var links := LoopLink.pair(1, 0, 0.0, 5 + i * 13)
@@ -384,6 +393,7 @@ func _step(g: Node, server: RelayServer, others: Array, ticks: int, cond: Callab
 func _game_in_room(g: Node, code: String, mine: String, theirs: String) -> Array:
 	g._start_match(20)  # Online
 	var server := RelayServer.new()
+	server.rematch_locked_ms = 0  # a rematch starts once both are in
 	var la := LoopLink.pair()
 	server.add_client(la[0])
 	var me := Netplay.new()
@@ -467,6 +477,7 @@ func test_in_the_game_ranked_match_over_has_a_rematch_and_back_to_online() -> vo
 	var g := _game()
 	g._start_match(20)
 	var server := RelayServer.new()
+	server.rematch_locked_ms = 0  # a rematch starts once both are in
 	var nets: Array = []
 	for i in 2:
 		var links := LoopLink.pair()
@@ -497,6 +508,7 @@ func test_in_the_game_a_spectator_follows_a_rematch() -> void:
 	var g := _game()
 	g._start_match(20)
 	var server := RelayServer.new()
+	server.rematch_locked_ms = 0  # a rematch starts once both are in
 	var a := _player(server, 0)
 	var b := _player(server, 1)
 	var la := LoopLink.pair()
@@ -535,6 +547,7 @@ func test_in_the_game_a_room_spectator_sees_the_players_picking_then_the_next_ma
 	var g := _game()
 	g._start_match(20)
 	var server := RelayServer.new()
+	server.rematch_locked_ms = 0  # a rematch starts once both are in
 	var a := _player(server, 0, "r")
 	var b := _player(server, 1, "r")
 	var la := LoopLink.pair()
@@ -566,6 +579,7 @@ func test_in_the_game_a_room_spectator_sees_the_players_picking_then_the_next_ma
 func _game_in_quick_match(g: Node, mine: String, theirs: String) -> Array:
 	g._start_match(20)  # Online
 	var server := RelayServer.new()
+	server.rematch_locked_ms = 0  # a rematch starts once both are in
 	var la := LoopLink.pair()
 	server.add_client(la[0])
 	var me := Netplay.new()
@@ -706,12 +720,14 @@ func test_in_the_game_a_direct_rematch_picks_too() -> void:
 	g._start_match(20)
 	var links := LoopLink.pair()
 	var host := Netplay.new()
+	host.locked_ticks = 0
 	host.host(0, ["culvert"], links[0])
 	var me := Netplay.new()
 	me.join("loop", 0, ["cairn"], links[1])
 	g.netplay = me
 	g.lobby.busy = true
 	var server := RelayServer.new()  # not used: nobody joins it
+	server.rematch_locked_ms = 0  # a rematch starts once both are in
 	assert_true(_step(g, server, [host], 300, func(): return g.online != null), "a direct match starts")
 	var first: OnlineMatch = g.online
 	_to_match_over(g, server, [host])

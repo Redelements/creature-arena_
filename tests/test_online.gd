@@ -11,6 +11,7 @@ func _pair(lag := 0, jitter := 0, loss := 0.0) -> Array:
 	var links := LoopLink.pair(lag, jitter, loss, 7)
 	var host := Netplay.new()
 	var guest := Netplay.new()
+	host.locked_ticks = 0  # a rematch starts once both are in (the last 3 s have their own test)
 	host.host(0, TEAM_A, links[0])
 	guest.join("loop", 0, TEAM_B, links[1])
 	return [host, guest]
@@ -177,6 +178,7 @@ func test_a_direct_rematch_hides_the_host_pick_and_keeps_the_host_arena() -> voi
 	var links := LoopLink.pair(1, 0, 0.0, 7)
 	var h := Netplay.new()
 	var g := Netplay.new()
+	h.locked_ticks = 0
 	h.arena_id = "floodgate"
 	h.host(0, TEAM_A, links[0])
 	g.join("loop", 0, TEAM_B, links[1])
@@ -391,3 +393,28 @@ func test_the_host_picks_the_arena_and_both_build_it() -> void:
 	_run(nets, 600, Callable(), _mash(3))
 	assert_eq(host.game.desync_frame, -1, "no desync on a map with walls")
 	assert_eq(MatchFactory.arena, ArenaMap.DEFAULT, "the menu's arena is left alone")
+
+
+## A direct match: once both are in, the host freezes and shows the picks and starts
+## the rematch when the last seconds (locked_ticks) run out.
+func test_a_direct_rematch_shows_both_picks_for_the_last_seconds() -> void:
+	var nets := _pair(1)
+	var h: Netplay = nets[0]
+	var g: Netplay = nets[1]
+	h.locked_ticks = 60
+	_run(nets, 200, func(): return _playing(nets))
+	_run(nets, 100, Callable(), _mash(31))
+	var first := h.game
+	assert_true(_to_pick(nets), "picking")
+	g.send_pick(["barkley"])
+	h.send_pick(["sno"])
+	assert_true(_run(nets, 20, func(): return g.pick_all_locked), "both in")
+	assert_true(h.game == first, "not started at once")
+	assert_eq(String(g.room_players[0]["fighter"]), "sno", "the joiner sees the host's pick now:")
+	assert_eq(String(h.room_players[1]["fighter"]), "barkley", "and the host the joiner's:")
+	g.send_pick(["digby"])  # frozen
+	h.send_pick(["pete"])
+	assert_true(_run(nets, 120, func(): return h.game.id == 2 and g.game != null and g.game.id == 2),
+		"the rematch starts after the last seconds")
+	assert_eq(h.game.teams, [["sno"], ["barkley"]], "with the frozen picks:")
+	assert_eq(g.game.teams, h.game.teams, "on both:")

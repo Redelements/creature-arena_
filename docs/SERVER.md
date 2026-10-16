@@ -51,7 +51,9 @@ it with the new fighters as the next match number; spectators see the players pi
 and follow into it. Nobody sees the other's pick until the match starts: the server
 only says who has locked in. The pick has a countdown, `rematch_pick_seconds` in
 `data/online.json` (20 s; the server reads it at start-up, the direct host too): when it
-runs out, whoever hasn't locked in keeps their last fighter and the match starts. Each
+runs out, whoever hasn't locked in keeps their last fighter and the match starts. Once
+both have locked in, the countdown drops to `rematch_locked_seconds` (3 s): both picks
+show, they can't change any more, and the match starts when it ends. Each
 Quick match rematch (ranked too, and team battles) is on a newly drawn arena, never the
 one just played. Ranked rates every game. Someone leaving during the pick ends it for
 the other ("Your opponent left") and its spectators, as leaving a Quick match does:

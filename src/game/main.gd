@@ -3286,7 +3286,7 @@ func _open_rematch_pick() -> void:
 
 ## Same again: the last pick, locked in at once.
 func _rematch_same_again() -> void:
-	if netplay != null:
+	if netplay != null and not netplay.pick_all_locked:
 		netplay.send_pick(netplay.my_team.duplicate())
 
 
@@ -3337,7 +3337,8 @@ func _open_room_screen() -> void:
 
 ## The room's fighter select (just yours: `solo`), with who has locked in beside it.
 func _open_room_picker() -> void:
-	if netplay == null or (_room_picker != null and is_instance_valid(_room_picker)):
+	if netplay == null or (_room_picker != null and is_instance_valid(_room_picker)) or \
+			(_rematch_page and netplay.pick_all_locked):
 		return
 	var p := CharacterSelect.new()
 	p.solo = true
@@ -3405,9 +3406,12 @@ func _rematch_summary(lines := false) -> String:
 	if who.size() != 2 or me < 0 or me > 1:
 		return "Waiting for your opponent..."
 	var them := "Opponent locked in" if bool((who[1 - me] as Dictionary)["locked"]) else "Opponent is choosing..."
+	var mine := "You: locked in" if bool((who[me] as Dictionary)["locked"]) else "You: picking..."
+	if netplay.pick_all_locked:  # both in: the fighters show for the last seconds
+		them = "Opponent: " + _fighter_name(String((who[1 - me] as Dictionary)["fighter"]))
+		mine = "You: " + _fighter_name(String((who[me] as Dictionary)["fighter"]))
 	if not lines:
 		return them
-	var mine := "You: locked in" if bool((who[me] as Dictionary)["locked"]) else "You: picking..."
 	var out := PackedStringArray([mine, them])
 	var left := _pick_countdown()
 	if left != "":
@@ -3415,6 +3419,10 @@ func _rematch_summary(lines := false) -> String:
 	if netplay.room_watchers > 0:
 		out.append("%d watching" % netplay.room_watchers)
 	return "\n".join(out)
+
+
+static func _fighter_name(id: String) -> String:
+	return String(MatchFactory.load_def(id).get("name", id)) if id in MatchFactory.FIGHTERS else id
 
 
 ## The rematch pick's countdown as a line ("" when there's none, as in a room).
@@ -3458,6 +3466,10 @@ func _watch_room_status() -> void:
 				_match_over_status.text = "Players are picking fighters for the %s (%d of %d locked in)" % [
 					"next match" if netplay.room != "" else "rematch",
 					netplay.room_players.filter(func(p): return bool(p["locked"])).size(), netplay.room_players.size()]
+				if netplay.pick_all_locked and netplay.room_players.size() == 2:
+					_match_over_status.text = "Rematch: %s vs %s" % [
+						_fighter_name(String(netplay.room_players[0]["fighter"])),
+						_fighter_name(String(netplay.room_players[1]["fighter"]))]
 				var left := _pick_countdown()
 				if left != "":
 					_match_over_status.text += "\n" + left
