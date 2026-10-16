@@ -36,6 +36,27 @@ Players join `ADDRESS` or `ADDRESS:PORT`. Adding `/ROOM` (`game.example.net/kev`
 case sensitive) pairs them only with someone who typed the same room; without one,
 players are paired oldest first. Create room is the same thing with a made-up code.
 
+**Rooms last between matches.** The server keeps a room for as long as a player is in
+it: its maker's size, rules and arena hold throughout. After a match the players pick
+fighters again (Next match) and the next one starts when all have locked in, with no
+ready check; spectators stay on from match to match. One player leaving doesn't end it:
+in a 1v1 room the other waits there for whoever types the code next; in a team room a
+CPU finishes the match for the leaver, and someone joining the code meanwhile plays the
+next one. A full room turns newcomers away (they can watch). The log shows it:
+
+```
+[2026-10-15 20:02:11] match 3 started in room 'kx7p': player 4 (sno) vs player 5 (pete), round trip 38 ms, input delay 1
+[2026-10-15 20:04:40] room 'kx7p' is picking fighters
+[2026-10-15 20:04:52] player 5 (digby) locked in for room 'kx7p'
+[2026-10-15 20:05:30] player 4 left
+[2026-10-15 20:05:30] player 5 (digby) waits in room 'kx7p' again
+[2026-10-15 20:09:02] room 'kx7p' closed
+```
+
+**Update the server with the clients.** This build's online protocol is NET_VERSION 10
+(rooms between matches): a server on an older build refuses these games ("a different
+version of the game"), and this server refuses older games.
+
 **CPU players.** In a team battle the server plays CPUs itself, on its referee's copy of
 the match, and sends their inputs to everyone like a player's. It uses them in two cases:
 
@@ -154,4 +175,7 @@ godot --path . -- --online-join=127.0.0.1:7799/test --cpu-vs-cpu --net-report=a.
 godot --path . -- --online-join=127.0.0.1:7799/test --cpu-vs-cpu --net-report=b.json
 ```
 
-Both reports should show `"desync_frame": -1`, and the server logs the result.
+Both reports should show `"desync_frame": -1`, and the server logs the result. With
+`--cpu-vs-cpu` in a room they carry on into the room's next match by themselves (each
+picking the next fighter along); add a spectator with
+`godot --path . -- --online-watch=127.0.0.1:7799/test`.

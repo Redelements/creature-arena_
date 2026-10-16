@@ -87,7 +87,7 @@ and "training" pair (Craglash, Barkley, Gillbert, Cerebro, Hissy, Digby, Pete, S
 29/30 Team 2v2/3v3 vs CPU,
 31/32 Team Deathmatch 2v2/3v3 vs CPU (offline only so far), 33–35 Sinkhole 1v1/2v2/3v3 vs CPU, 36–38 King of the Crater 1v1/2v2/3v3 vs CPU, 39 Arcade, 40 Gauntlet, 41 Daily Challenge (`--fighter=ID` picks yours), 42–45 Brawl (2/3/4 players, you vs 3 CPUs), 46 Chaos Cup, 47 a replay being watched (Replay theater). Showtime was removed (Oct 2026), which shifted the modes after it down by three; tests start modes by name with `main.mode_index("Chaos Cup")`. Matches are deterministic, so a seed reproduces a CPU match exactly.
 
-Online: `--online-host[=PORT]`, `--online-join=ADDR[:PORT][/ROOM]`, `--online-size=2|3`,
+Online: `--online-host[=PORT]`, `--online-join=ADDR[:PORT][/ROOM]`, `--online-watch=ADDR[:PORT][/ROOM]`, `--online-size=2|3`,
 `--fighter=ID`, `--net-lag=N`, `--net-loss=F`, `--net-delay=N`, `--net-report=PATH`. Two
 processes on one machine with `--cpu-vs-cpu` play each other; compare their reports.
 Dedicated server: `--headless -- --server[=PORT] [--max-players=N] [--net-delay=N]`.
