@@ -40,6 +40,8 @@ extends Node2D
 ##   --net-delay=N         force the input delay (frames) instead of picking it from the ping
 ##   --net-report=PATH     write the online match's report (inputs, state fingerprints) on exit; after a
 ##                         rematch or a room's next match, each earlier one is kept as PATH_m<n>.json
+##   --net-no-pick[=N]     with --cpu-vs-cpu: don't lock in for a 1v1 rematch (the first N, or every
+##                         one), so the pick's countdown locks the last fighter in (tests, captures)
 
 enum Flow { MENU, INTRO, FIGHT, ROUND_OVER, MATCH_OVER, SELECT, LOBBY }
 enum Side { PLAYER, CPU, DUMMY, SCRIPT, PLAYER2, REMOTE, PLAYER3, PLAYER4, REPLAY }
@@ -344,6 +346,9 @@ var _room_picker: CharacterSelect = null
 ## A 1v1 rematch outside a room is picking (Quick match, ranked, direct): the room's
 ## page and fighter select are up for it (see _open_rematch_pick).
 var _rematch_page := false
+## --net-no-pick: how many more 1v1 rematch picks the --cpu-vs-cpu demo leaves to the
+## countdown instead of locking in.
+var _net_no_pick := 0
 ## How many of the online match's slots were shown as the server's CPU.
 var _cpu_shown := 0
 
@@ -2584,6 +2589,8 @@ func _parse_args() -> int:
 			_net_args["delay"] = int(a.get_slice("=", 1))
 		elif a.begins_with("--net-report="):
 			_net_args["report"] = a.get_slice("=", 1)
+		elif a == "--net-no-pick" or a.begins_with("--net-no-pick="):
+			_net_no_pick = int(a.get_slice("=", 1)) if a.contains("=") else 1 << 30
 		elif a.begins_with("--layout="):
 			var lay := a.get_slice("=", 1)
 			if lay in PlayerInput.LAYOUTS:
@@ -3191,7 +3198,9 @@ func _open_room_picker() -> void:
 			ui.pop())
 	_room_picker = p
 	ui.push(p)
-	if _cpu_vs_cpu:
+	if _cpu_vs_cpu and _rematch_page and _net_no_pick > 0:
+		_net_no_pick -= 1  # --net-no-pick: leave it to the countdown
+	elif _cpu_vs_cpu:
 		# Demos and captures: the CPU "picks" the next fighter along.
 		var next: Array = []
 		for f in team:
@@ -3224,25 +3233,31 @@ func _room_summary(lines := false) -> String:
 
 
 ## A 1v1 rematch's pick: this player's state and the opponent's ("Opponent is
-## choosing...", then their fighter once they've locked in).
+## choosing..." or "Opponent locked in": their fighter stays hidden until the match
+## starts), and the seconds left before the last picks are locked in.
 func _rematch_summary(lines := false) -> String:
 	var who: Array = netplay.room_players
 	var me := netplay.local_slot
 	if who.size() != 2 or me < 0 or me > 1:
-		return "Waiting for the other player..."
-	var theirs: Dictionary = who[1 - me]
-	var them := "Opponent is choosing..."
-	if bool(theirs["locked"]):
-		var team: Array = theirs.get("team", [theirs["fighter"]])
-		them = "Opponent locked in: " + ", ".join(PackedStringArray(team.map(func(id):
-			return String(MatchFactory.load_def(String(id)).get("name", id)))))
+		return "Waiting for your opponent..."
+	var them := "Opponent locked in" if bool((who[1 - me] as Dictionary)["locked"]) else "Opponent is choosing..."
 	if not lines:
 		return them
 	var mine := "You: locked in" if bool((who[me] as Dictionary)["locked"]) else "You: picking..."
 	var out := PackedStringArray([mine, them])
+	var left := _pick_countdown()
+	if left != "":
+		out.append(left)
 	if netplay.room_watchers > 0:
 		out.append("%d watching" % netplay.room_watchers)
 	return "\n".join(out)
+
+
+## The rematch pick's countdown as a line ("" when there's none, as in a room).
+func _pick_countdown() -> String:
+	if netplay == null or netplay.pick_secs <= 0.0:
+		return ""
+	return "Starts in %d s" % ceili(netplay.pick_seconds_left())
 
 
 ## Each tick in a room: keep the room page and the select's panel up to date (and, with
@@ -3279,6 +3294,9 @@ func _watch_room_status() -> void:
 				_match_over_status.text = "Players are picking fighters for the %s (%d of %d locked in)" % [
 					"next match" if netplay.room != "" else "rematch",
 					netplay.room_players.filter(func(p): return bool(p["locked"])).size(), netplay.room_players.size()]
+				var left := _pick_countdown()
+				if left != "":
+					_match_over_status.text += "\n" + left
 			"waiting":
 				_match_over_status.text = "Waiting for a player to join room " + _room_code()
 			_:

@@ -190,7 +190,7 @@ Design in NETCODE.md; running a server in SERVER.md.
 | --- | --- | --- |
 | `net_link.gd` (61) | Abstract transport: `Status`, `realtime` flag, Dictionary codec | `send(msg, reliable)`, `poll(wait_ms)`, `flush`, `rtt_ms`, `encode`/`decode` |
 | `enet_link.gd` (125) | Direct UDP via ENet; reliable on channel 0, unsequenced input on channel 1; `TIMEOUT_MS` 5000; `realtime = true` | `host`, `join` (a third peer is refused), `tune` (throttling off), `poll` (drains up to 256 events) |
-| `loop_link.gd` (66) | In-memory pair with lag, jitter, loss (tests) | `pair`, `drop`, `poll` |
+| `loop_link.gd` (70) | In-memory pair with lag, jitter, loss (tests); `keep_heard` keeps every message an end received (`heard`) | `pair`, `drop`, `poll` |
 | `lag_link.gd` (59) | Wraps a real link; delays/drops unreliable messages only (`--net-lag`, `--net-loss`); built in main | `_init`, `send` |
 | `netplay.gd` (760) | Client session: handshake, pings, delay choice, ready check, rematch (a 1v1's goes through the pick: `rematch_pick`; hosting a direct match it runs the pick itself), rooms between matches (`room_state`, `room_players`), leave. `NET_VERSION` here | `host`, `join`, `tick`, `pump`, `_handle`; `request_rematch`, `rematch_pick`, `request_next`, `send_pick`, `in_room`; `_host_open_pick`, `_host_try_start`; static `pick_delay`, `data_hash`; `_ping_step`, `_live_ping_step` |
 | `online_match.gd` (306) | One match over `RollbackSession` (a DuelSim or TeamSim): time sync, event de-dup, digests, input log | `tick`, `receive`, `_on_final`, `_check_digest`, `report` |
@@ -214,7 +214,7 @@ Design in NETCODE.md; running a server in SERVER.md.
 - Ready check → client `netplay.gd:accept_match`, `decline_match`; server `relay_server.gd:_found`, `_accept`, `_check_step`, `_requeue`
 - Rooms and grouping → `relay_server.gd:_pair_waiting`; team seating → `seat`
 - A room between matches (next / pick / the next match, a leaver, closing) → `relay_server.gd:_room_next`, `_room_pick`, `_room_ready`, `_room_left`; client `netplay.gd` "room", "wait" `back`; game `main.gd:_room_next`, `_open_room_screen`, `_open_room_picker`, `_room_step`, `_back_to_room_wait`, `_watch_room_status`
-- A 1v1 rematch's pick (Quick match, ranked, tag Duel, direct) → `relay_server.gd` "rematch" → `_open_pick`, `_pick_status`, `_rematch_pick` (`Game.picking`, `picks`); client `netplay.gd:rematch_pick`, `send_pick`, host side `_host_open_pick` / "pick" / `_host_try_start`; game `main.gd:_open_rematch_pick` (the room page and picker with `_rematch_page`), `_rematch_summary`, `_rematch_same_again`, `_rematch_ended`
+- A 1v1 rematch's pick (Quick match, ranked, tag Duel, direct) → `relay_server.gd` "rematch" → `_open_pick`, `_pick_status`, `_rematch_pick`, `_pick_timeout` (`Game.picking`, `picks` kept off the players until `_start`, `pick_deadline_ms`; `rematch_pick_ms`, `clock_skip_ms`), `_draw_arena` (a Quick match rematch's new arena, in `_start`); client `netplay.gd:rematch_pick`, `send_pick`, `pick_secs` / `pick_seconds_left`, static `rematch_pick_seconds` (data/online.json), host side `_host_open_pick` / "pick" / `_host_try_start` / `_host_pick_timeout` (`pick_ticks`); game `main.gd:_open_rematch_pick` (the room page and picker with `_rematch_page`), `_rematch_summary`, `_pick_countdown`, `_rematch_same_again`, `_rematch_ended`; `--net-no-pick` (`_net_no_pick`)
 - Leaver → CPU takeover → `relay_server.gd:_cpu_takes_over`, `referee.gd:inputs_since`
 - Path RTT refresh → `relay_server.gd:_referee_step` ("path"), `netplay.gd:_set_paths`
 - Server flags → `dedicated_server.gd:configure`; LAN discovery → `lan_finder.gd`, `server_beacon.gd`
@@ -311,7 +311,7 @@ packets are plain-UDP JSON: `creature-arena?` / `creature-arena`.
 | `data/rules/duel.json`, `duel_1v1.json`, `team.json`, `deathmatch.json` | Match rules (duel_1v1: the online 1v1, best of three rounds): time, intro ticks, tag cooldown/energy, bench regen, KO swap, spawn spread; deathmatch adds respawn time, spawn protection, pad inset/spread and `score_to_win` by team size |
 | `data/trials.json` | Combo trials: fighter, name, route (a step `[button, move, "hold"]` is held to a full charge: the demo charges it, the caption says "hold") |
 | `data/audio.json` | Music volume and tracks, every sound name → file |
-| `data/online.json` | The game's server host |
+| `data/online.json` | The game's server host; `rematch_pick_seconds` (a 1v1 rematch's pick countdown, read by the server and the direct host) |
 | `data/discord.json` | Discord Rich Presence: `client_id` (the Discord app's Application ID; empty turns it off), `large_image`, `fighter_images` (art asset keys uploaded to that app) |
 
 Fighters: barkley, cairn, cerebro, craglash, culvert, digby, gillbert, hissy, pete, sno (and dummy).
@@ -333,7 +333,7 @@ errors count as failures; exit code 1 on any failure. Run `--import` after addin
 | `test_<fighter>` (barkley, cerebro, craglash, culvert, digby, gillbert, hissy, pete, sno) | Each fighter's kit, usually with a mid-move rollback |
 | `test_rollback`, `test_determinism`, `test_terrain`, `test_duel`, `test_team` | Every variable snapshotted and restore replays exactly; replays; floor; tag rules; team rules |
 | `test_ai`, `test_rage`, `test_balance` | CPU reproducible and uses its kit; Rage beats Hard; class matchup pins (Rage vs Rage) |
-| `test_online`, `test_server`, `test_server_teams` | Handshake, lag/loss sync, desync detection, rematch, version refusal, real UDP; server pairing, rooms, referee; online 2v2/3v3 |
+| `test_online`, `test_server`, `test_server_teams` | Handshake, lag/loss sync, desync detection, rematch (the pick: hidden picks, the countdown, a new Quick match arena), version refusal, real UDP; server pairing, rooms, referee; online 2v2/3v3 |
 | `test_rooms` | Rooms between matches: pick again and the next match, a leaver in a 1v1 or team room, newcomers, full rooms, closing, spectators following, the copy button; Quick match and ranked rematches through the pick (ranked rated every game), a direct rematch in the game, leaving during the pick, the net report per match; the game's screens for all of it |
 | `test_ui`, `test_menu_stick`, `test_surge_ready`, `test_views`, `test_showcase`, `test_trials`, `test_scripts_load` | Menus with real input events; stick menu presses; aura/signal; up/down sheets for every fighter; every showcase reaches a KO; every trial clearable; every script compiles |
 | `test_presence` | Discord IPC frames (split, partial, bad), the status text per mode, the elapsed clock, the setting saved, no connection headless |

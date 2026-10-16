@@ -144,7 +144,8 @@ func test_rematch_goes_through_the_pick_and_starts_with_the_new_fighters() -> vo
 	h.send_pick(["sno"])
 	assert_true(_run(nets, 20, func(): return g.room_players.size() == 2 and bool(g.room_players[0]["locked"])),
 		"the guest sees the host lock in")
-	assert_eq(g.room_players[0].get("team", []), ["sno"], "with their fighter:")
+	assert_false(g.room_players[0].has("team"), "but not their fighter (hidden until the start):")
+	assert_eq(g.room_players[0]["fighter"], "cairn", "the status still shows their last one:")
 	assert_true(h.game == first, "the host waits for the guest's pick")
 	g.send_pick(["digby", "pete"])  # a 1v1 rematch keeps one fighter each: refused
 	_run(nets, 20)
@@ -170,6 +171,57 @@ func test_rematch_goes_through_the_pick_and_starts_with_the_new_fighters() -> vo
 	g.send_pick(g.my_team)
 	assert_true(_run(nets, 60, func(): return h.game.id == 3 and g.game != null and g.game.id == 3), "same again")
 	assert_eq(g.game.teams, [["sno"], ["barkley"]], "the same fighters:")
+
+
+func test_a_direct_rematch_hides_the_host_pick_and_keeps_the_host_arena() -> void:
+	var links := LoopLink.pair(1, 0, 0.0, 7)
+	var h := Netplay.new()
+	var g := Netplay.new()
+	h.arena_id = "floodgate"
+	h.host(0, TEAM_A, links[0])
+	g.join("loop", 0, TEAM_B, links[1])
+	var nets := [h, g]
+	_run(nets, 200, func(): return _playing(nets))
+	assert_true(_to_pick(nets), "picking")
+	assert_gt(g.pick_secs, 19.0, "the guest hears the host's countdown:")
+	(g.link as LoopLink).keep_heard = true
+	h.send_pick(["gillbert"])
+	assert_true(_run(nets, 20, func(): return bool(g.room_players[0]["locked"])), "the guest hears the host locked in")
+	_run(nets, 20)
+	for m in (g.link as LoopLink).heard:
+		assert_false(JSON.stringify(m).contains("gillbert"), "but nothing names the host's pick: " + JSON.stringify(m).left(120))
+	g.send_pick(["hissy"])
+	assert_true(_run(nets, 30, func(): return h.game.id == 2 and g.game != null and g.game.id == 2), "the rematch")
+	assert_eq(g.game.teams, [["gillbert"], ["hissy"]], "the start reveals both:")
+	assert_eq(g.game.arena_id, "floodgate", "on the host's arena still:")
+	assert_eq(h.game.arena_id, "floodgate", "")
+
+
+func test_a_direct_rematch_pick_times_out_with_the_last_picks() -> void:
+	var nets := _pair(1)
+	var h: Netplay = nets[0]
+	var g: Netplay = nets[1]
+	_run(nets, 200, func(): return _playing(nets))
+	_run(nets, 100, Callable(), _mash(21))
+	h.pick_ticks = 90  # instead of 20 s at 60 a second
+	var first := h.game
+	assert_true(_to_pick(nets), "picking")
+	g.send_pick(["barkley"])
+	_run(nets, 40)
+	assert_true(h.game == first, "the host hasn't locked in and time's not up")
+	assert_true(_run(nets, 80, func(): return h.game.id == 2 and g.game != null and g.game.id == 2), "time's up: the rematch")
+	assert_eq(h.game.teams, [TEAM_A, ["barkley"]], "the host keeps their last fighter:")
+	assert_eq(g.game.teams, h.game.teams, "the same on both:")
+	_run(nets, 400, Callable(), _mash(22))
+	assert_eq(h.game.desync_frame, -1, "in sync")
+	assert_eq(g.game.desync_frame, -1, "")
+	assert_gt(float(h.game.digests_matched), 2.0, "fingerprints compared:")
+	# Both in early: it starts straight away.
+	assert_true(_to_pick(nets), "picking again")
+	h.send_pick(["pete"])
+	g.send_pick(["sno"])
+	assert_true(_run(nets, 20, func(): return h.game.id == 3 and g.game != null and g.game.id == 3), "at once")
+	assert_eq(g.game.teams, [["pete"], ["sno"]], "")
 
 
 func test_leaving_during_the_rematch_pick_ends_it_for_both() -> void:

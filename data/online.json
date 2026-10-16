@@ -1,3 +1,4 @@
 {
-	"server": "kevarena.duckdns.org"
+	"server": "kevarena.duckdns.org",
+	"rematch_pick_seconds": 20
 }

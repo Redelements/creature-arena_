@@ -290,41 +290,62 @@ next match, but the trigger is still both players pressing Rematch:
 ```
   Player A                  Server (or the direct host)          Player B
   rematch  -->                                              <--  rematch
-  <-- room {code "", state "select", players [slot 0, slot 1]}   -->   (and to spectators)
-  pick {team}  -->          room {...locked, team} to everyone
+  <-- room {code "", state "select", players [slot 0, slot 1], secs}  -->   (and to spectators)
+  pick {team}  -->          room {...locked, secs} to everyone
                                                             <--  pick {team}
-  <-- start {n + 1, teams: the new picks, ...}                   -->   (and spectators' start)
+  <-- start {n + 1, teams: the new picks, arena, ...}            -->   (and spectators' start)
 ```
 
 - The pick status is the room's own `room` message with code "" and the players in slot
-  order (`locked`; a locked-in player's `team` rides along, so the other side can show
-  their fighter). No new message kinds: `room` and `pick` were already in the protocol;
-  what's new is that they're used outside rooms (and on a direct link).
-- A pick must have as many fighters as before (three for a tag Duel). The server (the
-  `Game`'s `picking`/`picks`) or the direct host (`Netplay._locked`) starts the rematch
-  once both are in: `n` counts on, no ready check, the same arena rule as before (Quick
-  match keeps the arena it drew for the pairing; a direct match the host's). The
-  finished match keeps stepping behind the select meanwhile, so nobody's session stalls.
+  order. No new message kinds: `room` and `pick` were already in the protocol; what's
+  new is that they're used outside rooms (and on a direct link).
+- **Picks stay hidden until both are in**, and the authority enforces it, not the UI: the
+  status says only who has `locked` in (each player's `fighter` is still the one from
+  the last match, and no `team` rides along). The server keeps a pick in `Game.picks`
+  and only puts it on the player when the match starts; `start` reveals both. The game
+  shows "Opponent is choosing..." or "Opponent locked in". Spectators likewise only see
+  how many have locked in. (On a direct link the host is the authority, so the host's
+  machine holds the joiner's pick; nothing it sends names it before `start`.)
+- **A countdown:** `rematch_pick_seconds` in `data/online.json` (20). The status carries
+  `secs`, the seconds left when it was sent; clients count down from it ("Starts in
+  14 s" on the REMATCH page and the picker, and in spectators' "picking" line). When it
+  runs out, the server (`_pick_timeout`, from its clock: `rematch_pick_ms`, and
+  `clock_skip_ms` for tests) or the direct host (in ticks: `pick_ticks`, 60 a second)
+  locks in whoever hasn't with their last pick and starts the match. A rematch where
+  both lock in early starts at once. Rooms' between-match select has no countdown (not
+  decided); the same timer could apply there.
+- A pick must have as many fighters as before (three for a tag Duel). `n` counts on, no
+  ready check. **Arena:** a Quick match rematch on the server (1v1 or team battle,
+  ranked or not) draws a new arena for each rematch, the same way it draws one for a new
+  pairing (`rng`), from the arenas other than the one just played; everyone gets it in
+  `start`. A direct match keeps the host's arena; a room keeps the room's. The finished
+  match keeps stepping behind the select meanwhile, so nobody's session stalls.
 - The game opens the room's page as a REMATCH page (Same again / Pick your fighter /
   Leave) with `CharacterSelect` (solo) over it, the last pick under the cursor so one
-  press keeps it; it shows "Opponent is choosing..." and then their fighter.
-- Leaving during the pick ends it: the other player's session ends ("The other player
-  left"), the game says so and goes back to the online screen; spectators get "The
-  match ended".
+  press keeps it.
+- Leaving during the pick ends it: the other player's session ends ("Your opponent
+  left", which is what a player is told whenever the other player of a 1v1 leaves:
+  match over, Quick match, ranked, direct, a 1v1 room's wait), the game says so and goes
+  back to the online screen; spectators get "The match ended" (spectators' texts are
+  unchanged).
 - Spectators follow: they get the same `room` status (their match-over says the players
-  are picking for the rematch, and how many have locked in) and then the rematch's
-  `start`.
+  are picking for the rematch, how many have locked in, and the seconds left) and then
+  the rematch's `start`.
 - Ranked: every game is rated (`_report` per match, a `rating` message each time).
-- Quick match 2v2/3v3 still rematch with the same fighters (no pick).
+- Quick match 2v2/3v3 still rematch with the same fighters (no pick), on a new arena.
 - Saved online replays carry each match's own teams (the server's
   `online_<label>_<n>.json`, F6 from `OnlineMatch.input_log`); `--net-report` holds the
   latest match (with `"match"` and `"arena"`), and each earlier one is kept beside it as
-  `PATH_m<n>.json`.
+  `PATH_m<n>.json`. `--net-no-pick[=N]` (with `--cpu-vs-cpu`) leaves the first N (or
+  every) rematch pick to the countdown, to exercise it in a soak.
 
-Tests: `tests/test_online.gd` (direct), `tests/test_server.gd` (Quick match, a tag
-Duel, leaving during the pick, replays per match), `tests/test_rooms.gd` (ranked rated
-twice, the game's screens, a direct rematch in the game), `tests/test_spectate.gd` (a
-spectator from match 1 through the pick to match 2, fingerprints agreeing).
+Tests: `tests/test_online.gd` (direct: the host's pick hidden, its arena kept, the
+countdown in ticks), `tests/test_server.gd` (Quick match, a tag Duel, leaving during the
+pick, replays per match, picks hidden from the opponent and spectators, a new arena per
+rematch, the countdown locking in the last pick with fingerprints agreeing),
+`tests/test_rooms.gd` (ranked rated twice, the game's screens and countdown, a direct
+rematch in the game), `tests/test_spectate.gd` (a spectator from match 1 through the
+pick to match 2, fingerprints agreeing).
 
 Still to do: a Steam transport (below).
 

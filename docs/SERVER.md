@@ -48,8 +48,13 @@ next one. A full room turns newcomers away (they can watch). The log shows it:
 2v2/3v3, which rematch with the same fighters). Once both players have asked, the server
 holds the rematch while they pick (the finished match keeps being refereed), then starts
 it with the new fighters as the next match number; spectators see the players picking
-and follow into it. Ranked rates every game. Someone leaving during the pick ends it for
-the other (and its spectators), as leaving a Quick match does:
+and follow into it. Nobody sees the other's pick until the match starts: the server
+only says who has locked in. The pick has a countdown, `rematch_pick_seconds` in
+`data/online.json` (20 s; the server reads it at start-up, the direct host too): when it
+runs out, whoever hasn't locked in keeps their last fighter and the match starts. Each
+Quick match rematch (ranked too, and team battles) is on a newly drawn arena, never the
+one just played. Ranked rates every game. Someone leaving during the pick ends it for
+the other ("Your opponent left") and its spectators, as leaving a Quick match does:
 
 ```
 [2026-10-16 18:12:40] match 1: both want a rematch; picking fighters
@@ -195,6 +200,7 @@ Both reports should show `"desync_frame": -1`, and the server logs the result. W
 `--cpu-vs-cpu` they carry on by themselves: in a room into the room's next match, in
 Quick match (no `/test`) a 1v1 asks for a rematch; either way each picks the next
 fighter along. The report holds the latest match (`"match"`, `"teams"`); each earlier
-one is kept beside it as `a_m1.json`, `a_m2.json`... Add a spectator with
+one is kept beside it as `a_m1.json`, `a_m2.json`... `--net-no-pick[=N]` on one of them
+leaves its first N rematch picks (or all) to the countdown. Add a spectator with
 `godot --path . -- --online-watch=127.0.0.1:7799/test` (or without `/test` for Quick
 match).

@@ -54,8 +54,16 @@ extends RefCounted
 ## teams. The host plays the server's part on a direct link: it tracks both picks and
 ## starts the match once both are in. Team battles in Quick match still rematch with
 ## the same fighters.
+##
+## Picks stay hidden until both are in: the pick status only says who has locked in
+## (`fighter` is still each player's fighter from the last match, and no `team` rides
+## along); the fighters are revealed by "start". The status also carries `secs`, the
+## seconds left on the pick's countdown (`rematch_pick_seconds` in data/online.json):
+## when it runs out, the server (or the host) locks in anyone not in yet with their
+## last pick and starts the match. A Quick match rematch on a server is on a new arena
+## (in "start"); a direct one keeps the host's.
 
-const NET_VERSION := 11  ## 11: a 1v1 rematch outside rooms (Quick match, ranked, direct) picks again (room select status, pick; ranked rates every game); 10: rooms last between matches (room, next, pick; wait back; bye room), Sinkhole collapses by rect and only a chasm fall is a ring-out; 9: the 1v1 is best of three rounds; 8: ranked play, player ids, daily scores; 7: team rules and tag Duels; 6: the server's ready check; 5: team battles; 4: 360 move angle
+const NET_VERSION := 11  ## 11: a 1v1 rematch outside rooms (Quick match, ranked, direct) picks again (room select status with secs, picks hidden until start, a countdown that locks in the last pick, Quick match draws a new arena; pick; ranked rates every game); 10: rooms last between matches (room, next, pick; wait back; bye room), Sinkhole collapses by rect and only a chasm fall is a ring-out; 9: the 1v1 is best of three rounds; 8: ranked play, player ids, daily scores; 7: team rules and tag Duels; 6: the server's ready check; 5: team battles; 4: 360 move angle
 const DEFAULT_PORT := 7777
 const PINGS := 5
 ## A precise ping (a real link) blocks the host this long at most waiting for the pong.
@@ -118,6 +126,36 @@ var picked := false
 ## rematch (by side) while picking.
 var their_name := "Player"
 var _locked := [false, false]
+## A rematch pick's countdown: the seconds left when the last pick status came, and
+## when that was (0: no countdown, as in a room's select). Hosting, the host runs it in
+## ticks (`pick_ticks`; -1: rematch_pick_seconds() at 60 a second, tests shorten it).
+var pick_secs := 0.0
+var _pick_secs_ms := 0
+var pick_ticks := -1
+var _pick_until := 0
+
+## What a player is told when the other player of a 1v1 leaves.
+const OPPONENT_LEFT := "Your opponent left"
+const PICK_SECONDS_DEFAULT := 20.0
+
+
+## The rematch pick's countdown, from data/online.json (`rematch_pick_seconds`): the
+## server and the direct host both read it.
+static func rematch_pick_seconds() -> float:
+	var f := FileAccess.open("res://data/online.json", FileAccess.READ)
+	if f == null:
+		return PICK_SECONDS_DEFAULT
+	var d = JSON.parse_string(f.get_as_text())
+	if not (d is Dictionary):
+		return PICK_SECONDS_DEFAULT
+	return clampf(float(d.get("rematch_pick_seconds", PICK_SECONDS_DEFAULT)), 1.0, 600.0)
+
+
+## Seconds left on a rematch pick's countdown (0 when there is none).
+func pick_seconds_left() -> float:
+	if room_state != "select" or pick_secs <= 0.0:
+		return 0.0
+	return maxf(0.0, pick_secs - float(Time.get_ticks_msec() - _pick_secs_ms) / 1000.0)
 
 
 ## A fresh player id: 16 hex characters from the system's random source.
@@ -238,7 +276,10 @@ func tick(local_bits: int) -> void:
 		if phase == Phase.CONNECTING:
 			_fail(_no_answer())  # never got through: not "the other player left"
 		else:
-			_fail(link.error if link.error != "" else "Connection lost")
+			var why := link.error if link.error != "" else "Connection lost"
+			if not watching:
+				why = why.replace("The other player left", OPPONENT_LEFT)  # a player hears "Your opponent left"
+			_fail(why)
 		return
 	match phase:
 		Phase.CONNECTING:
@@ -267,6 +308,8 @@ func tick(local_bits: int) -> void:
 			_live_ping_step()
 			if hosting and rematch_local and rematch_remote and room_state != "select":
 				_host_open_pick()
+			elif hosting and room_state == "select" and _t >= _pick_until:
+				_host_pick_timeout()
 	link.flush()
 
 
@@ -322,26 +365,35 @@ func send_pick(team: Array) -> void:
 	link.flush()
 
 
-## Hosting a direct match: both asked for a rematch, so both pick again.
+## Hosting a direct match: both asked for a rematch, so both pick again, against the
+## countdown.
 func _host_open_pick() -> void:
 	_locked = [false, false]
 	picking = true
 	picked = false
+	_pick_until = _t + (pick_ticks if pick_ticks >= 0 else roundi(rematch_pick_seconds() * 60.0))
 	_host_pick_status()
 
 
+## Hosting: the countdown ran out. Whoever hasn't locked in keeps their last pick
+## (my_team / their_team only change when a pick comes in), and the match starts.
+func _host_pick_timeout() -> void:
+	_locked = [true, true]
+	_start_match()
+
+
 ## Hosting: the pick status, here and to the joiner (a room's "room" message, code "").
+## Only who has locked in: `fighter` is each one's from the last match, so neither
+## pick is seen before "start" reveals both.
 func _host_pick_status() -> void:
 	var who: Array = []
 	var names := [_my_name(), their_name]
-	var teams := [my_team, their_team]
+	var last: Array = game.teams if game != null else [my_team, their_team]
 	for side in 2:
-		var p := {"name": String(names[side]), "fighter": String(teams[side][0]), "locked": bool(_locked[side]),
-			"playing": false}
-		if _locked[side]:
-			p["team"] = (teams[side] as Array).duplicate()
-		who.append(p)
-	var m := {"t": "room", "code": "", "state": "select", "players": who, "watchers": 0}
+		who.append({"name": String(names[side]), "fighter": String(last[side][0]), "locked": bool(_locked[side]),
+			"playing": false})
+	var m := {"t": "room", "code": "", "state": "select", "players": who, "watchers": 0,
+		"secs": maxf(0.0, float(_pick_until - _t) / 60.0)}
 	_room_status(m)
 	link.send(m, true)
 	link.flush()
@@ -557,7 +609,7 @@ func _handle(m: Dictionary) -> void:
 				"over":
 					_fail("The match ended: its players left")
 				_:
-					_fail("The other player left")
+					_fail(OPPONENT_LEFT)
 		"in", "dg":
 			if watch != null:
 				if String(m.get("t", "")) == "in" and int(m.get("n", -1)) == _watch_n:
@@ -580,10 +632,10 @@ func _room_status(m: Dictionary) -> void:
 				var e := {"name": String(p.get("name", "Player")).left(16),
 					"fighter": String(p.get("fighter", "")), "locked": bool(p.get("locked", false)),
 					"playing": bool(p.get("playing", false))}
-				if _valid_team(p.get("team")):
-					e["team"] = (p["team"] as Array).duplicate()
 				room_players.append(e)
 	room_watchers = maxi(0, int(m.get("watchers", 0)))
+	pick_secs = clampf(float(m.get("secs", 0.0)), 0.0, 600.0)
+	_pick_secs_ms = Time.get_ticks_msec()
 
 
 ## The server put this spectator on a match: build a referee's copy of it and feed it
