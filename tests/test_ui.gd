@@ -453,7 +453,15 @@ func test_settings_change_and_are_kept() -> void:
 	_press("ui_left")
 	assert_near(g.audio.volume("Master"), maxf(0.0, v - 0.1), 0.001, "Left turns a volume down:")
 	assert_near(vol.bar, g.audio.volume("Master"), 0.001, "and its bar follows:")
+	var kept: float = g.audio.volume("Master")
 	g.free()
+	# The next launch reads them back (the file already has a player id by now).
+	var again: Node = load("res://scenes/main.tscn").instantiate()
+	again.settings_path = TEST_SETTINGS
+	_root().add_child(again)
+	assert_eq(again.level, (before + 1) % 3, "the CPU level is kept:")
+	assert_near(again.audio.volume("Master"), kept, 0.001, "and so is the volume:")
+	again.free()
 
 
 func test_the_music_is_the_new_track_and_it_loops() -> void:

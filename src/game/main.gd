@@ -2253,9 +2253,6 @@ func _load_settings() -> void:
 		Netplay.player_name = String(cfg.get_value("online", "name", "Player")).strip_edges().left(16)
 		if Netplay.player_name == "":
 			Netplay.player_name = "Player"
-	if Netplay.player_id.length() < 8:
-		Netplay.player_id = Netplay.make_player_id()
-		_save_settings()
 		var ar := String(cfg.get_value("game", "arena", MatchFactory.arena))
 		if ar in ArenaMap.IDS:
 			_arena_saved = ar
@@ -2283,6 +2280,10 @@ func _load_settings() -> void:
 		Controls.apply_overrides(cfg.get_value("controls", "bindings", {}))
 		var fps := int(cfg.get_value("video", "fight_fps", DEFAULT_FPS))
 		fight_fps = fps if fps in FPS_CHOICES else DEFAULT_FPS
+	# After everything is loaded: saving here first would write defaults over it.
+	if Netplay.player_id.length() < 8:
+		Netplay.player_id = Netplay.make_player_id()
+		_save_settings()
 
 
 func _save_settings() -> void:
