@@ -118,7 +118,7 @@ func setup_dict() -> Dictionary:
 		for id in t:
 			ids.append(String(id))
 	return {"kind": "team" if size > 1 else "duel", "ids": ids, "teams": teams.duplicate(true), "size": size,
-		"rules": rules_id, "arena": arena_id, "mutators": {}, "mut_seed": 0}
+		"rules": rules_id if size > 1 else DuelSim.rules_id_for(teams), "arena": arena_id, "mutators": {}, "mut_seed": 0}
 
 
 ## The confirmed inputs so far as replay rows (frames 0 up to the first gap).
@@ -152,7 +152,7 @@ func _init(p_teams: Array, p_slot: int, p_delay: int, p_link: NetLink, p_id: int
 		local_side = team.side_of(local_slot)
 		_tap = _Tap.new(team)
 	else:
-		duel = DuelSim.new(teams)
+		duel = DuelSim.new(teams, DuelSim.rules_for(teams))
 		local_side = local_slot
 		_tap = _Tap.new(duel)
 	MatchFactory.arena = menu_arena  # the single player menu's choice is its own

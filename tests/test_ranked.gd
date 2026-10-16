@@ -107,12 +107,15 @@ func test_ranked_players_pair_within_the_band_and_get_their_new_ratings() -> voi
 	assert_false(c.is_playing(), "Far waits for someone closer")
 	var g: RelayServer.Game = server.games[0]
 	assert_true(g.ranked, "a ranked match")
-	# Ann knocks Dan out: a result the referee can score.
+	# Ann already has a round (a 1v1 is best of three) and knocks Dan out: a result the
+	# referee can score.
 	var ref: Referee = g.referee
 	_run(server, all, 200, Callable(), 4)
+	(ref.duel as DuelSim).round_wins = [1, 0]
 	(ref.duel as DuelSim).sim.creatures[1].hp = 0.0
 	(ref.duel as DuelSim).sim.creatures[1]._set_state(CreatureSim.State.KO)
 	for n: Netplay in [a, d]:
+		n.game.duel.round_wins = [1, 0]
 		n.game.duel.sim.creatures[1].hp = 0.0
 		n.game.duel.sim.creatures[1]._set_state(CreatureSim.State.KO)
 	assert_true(_run(server, all, 400, func(): return not a.last_rating.is_empty() and not d.last_rating.is_empty()),

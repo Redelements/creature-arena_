@@ -8,14 +8,19 @@ extends RefCounted
 ##   - Benched creatures slowly heal back part of what they lost.
 ##   - When the active creature is knocked out, the next one enters after the death
 ##     animation. A team with nobody left loses; at time out, the most health left wins.
+##   - Rounds (`rounds_to_win` > 1, the online 1v1): that decides a round instead. After
+##     `round_over_ticks` every creature, the floor and the clock reset for the next one;
+##     the first side to `rounds_to_win` takes the match (or the leader after
+##     `max_rounds`). A drawn round counts for nobody.
 ##
 ## Every rule here is deterministic simulation code, and the whole duel is saved by
 ## snapshot(), so a RollbackSession can drive a Duel exactly like a single sim.
-## Tuning: data/rules/duel.json.
+## Tuning: data/rules/duel.json; a 1v1 (one creature a side) online uses duel_1v1.json.
 
-enum Phase { INTRO, FIGHT, SWAP, OVER }
+enum Phase { INTRO, FIGHT, SWAP, OVER, ROUND_OVER }
 
 const RULES_PATH := "res://data/rules/duel.json"
+const RULES_1V1_PATH := "res://data/rules/duel_1v1.json"
 
 var sim: MatchSim
 var teams: Array = [[], []]  ## CreatureSim per member; every member of side s has id s
@@ -31,12 +36,38 @@ var phase_t := 0
 var timer := 0
 var winner := -2  ## -2 undecided, -1 draw, else the winning side
 var swap_side := -1  ## the side waiting for its next creature to enter
+var round_wins := [0, 0]
+var round_num := 1
+var round_winner := -2  ## the last round's: -2 none yet, -1 draw, else the side
+
+var _fresh := {}  ## the state at the start: every round restarts from it
 
 
-static func load_rules() -> Dictionary:
-	var f := FileAccess.open(RULES_PATH, FileAccess.READ)
+static func load_rules(path := RULES_PATH) -> Dictionary:
+	var f := FileAccess.open(path, FileAccess.READ)
 	var d = JSON.parse_string(f.get_as_text()) if f != null else null
 	return d if typeof(d) == TYPE_DICTIONARY else {}
+
+
+## The rules a match between these teams plays online: one creature a side is a
+## best-of-rounds 1v1 ("1v1"), more is a tag Duel (""). Replays save the id.
+static func rules_id_for(team_ids: Array) -> String:
+	for t in team_ids:
+		if (t as Array).size() != 1:
+			return ""
+	return "1v1"
+
+
+static func rules_for(team_ids: Array) -> Dictionary:
+	return rules_by_id(rules_id_for(team_ids))
+
+
+static func rules_by_id(id: String) -> Dictionary:
+	return load_rules(RULES_1V1_PATH if id == "1v1" else RULES_PATH)
+
+
+func rounds_to_win() -> int:
+	return maxi(1, int(rules.get("rounds_to_win", 1)))
 
 
 ## `team_ids` is [[left ids], [right ids]], e.g. [["cairn", "culvert", "cairn"], [...]].
@@ -52,6 +83,8 @@ func _init(team_ids: Array, p_rules: Dictionary = {}) -> void:
 			bench_cap[side].append(c.max_hp)
 	sim.creatures.assign([teams[0][0], teams[1][0]])
 	timer = int(float(rules.get("time_seconds", 180)) * SimDefs.TICK_RATE)
+	if rounds_to_win() > 1:
+		_fresh = snapshot()
 
 
 func active_creature(side: int) -> CreatureSim:
@@ -115,7 +148,7 @@ func step(inputs: PackedInt32Array) -> void:
 				var pressed := ins[side] & ~int(prev_inputs[side])
 				if (pressed & SimDefs.IN_TAG) and can_tag(side):
 					_tag(side)
-		Phase.SWAP, Phase.OVER:
+		Phase.SWAP, Phase.OVER, Phase.ROUND_OVER:
 			ins = PackedInt32Array([0, 0])
 			phase_t += 1
 	prev_inputs = [_in(inputs, 0), _in(inputs, 1)]
@@ -133,6 +166,8 @@ func step(inputs: PackedInt32Array) -> void:
 		_enter_next(swap_side)
 	if phase == Phase.FIGHT and timer <= 0:
 		_time_out()
+	if phase == Phase.ROUND_OVER and phase_t >= int(rules.get("round_over_ticks", 210)):
+		_next_round()
 
 
 static func _in(inputs: PackedInt32Array, i: int) -> int:
@@ -197,9 +232,7 @@ func _check_knockouts() -> void:
 		return
 	var left := [alive_count(0), alive_count(1)]
 	if left[0] == 0 or left[1] == 0:
-		winner = -1 if left[0] == left[1] else (0 if left[0] > 0 else 1)
-		_set_phase(Phase.OVER)
-		sim.emit_event("duel_over", Vector2.ZERO, 1.0, {"winner": winner, "by": "ko"})
+		_decided(-1 if left[0] == left[1] else (0 if left[0] > 0 else 1), "ko")
 		return
 	# A creature went down but its team has more: shorter slow motion, then a swap.
 	sim.slowmo = mini(sim.slowmo, int(rules.get("mid_ko_slowmo", 40)))
@@ -240,9 +273,42 @@ func _time_out() -> void:
 			hp += maxf(0.0, c.hp)
 			total += c.max_hp
 		share[side] = hp / maxf(total, 1.0)
-	winner = 0 if share[0] > share[1] else (1 if share[1] > share[0] else -1)
+	_decided(0 if share[0] > share[1] else (1 if share[1] > share[0] else -1), "time")
+
+
+## A team was wiped or the clock ran out, `side` ahead (-1 a draw): the match is over,
+## or (with rounds) the round is, and maybe the match with it.
+func _decided(side: int, by: String) -> void:
+	var need := rounds_to_win()
+	if need > 1:
+		round_winner = side
+		if side >= 0:
+			round_wins[side] += 1
+		var last := round_num >= int(rules.get("max_rounds", need * 2 + 1))
+		if round_wins[0] < need and round_wins[1] < need and not last:
+			_set_phase(Phase.ROUND_OVER)
+			sim.emit_event("round_over", Vector2.ZERO, 1.0, {"winner": side, "by": by, "round": round_num,
+				"wins": round_wins.duplicate()})
+			return
+		side = 0 if round_wins[0] > round_wins[1] else (1 if round_wins[1] > round_wins[0] else -1)
+	winner = side
 	_set_phase(Phase.OVER)
-	sim.emit_event("duel_over", Vector2.ZERO, 1.0, {"winner": winner, "by": "time"})
+	sim.emit_event("duel_over", Vector2.ZERO, 1.0, {"winner": winner, "by": by})
+
+
+## Everyone back to the start (health, places, the floor, the clock), the tick and the
+## score carried on.
+func _next_round() -> void:
+	var t := sim.tick
+	var wins := round_wins.duplicate()
+	var n := round_num + 1
+	var last := round_winner
+	restore(_fresh)
+	sim.tick = t
+	round_wins = wins
+	round_num = n
+	round_winner = last
+	sim.emit_event("round_start", Vector2.ZERO, 1.0, {"round": round_num})
 
 
 # ------------------------------------------------------------------ rollback
@@ -256,7 +322,8 @@ func snapshot() -> Dictionary:
 		"members": members, "active": active.duplicate(), "tag_cd": tag_cd.duplicate(),
 		"prev_inputs": prev_inputs.duplicate(), "bench_cap": bench_cap.duplicate(true),
 		"phase": phase, "phase_t": phase_t, "timer": timer, "winner": winner,
-		"swap_side": swap_side, "match": sim.snapshot(),
+		"swap_side": swap_side, "round_wins": round_wins.duplicate(), "round_num": round_num,
+		"round_winner": round_winner, "match": sim.snapshot(),
 	}
 
 
@@ -274,12 +341,15 @@ func restore(s: Dictionary) -> void:
 	timer = int(s["timer"])
 	winner = int(s["winner"])
 	swap_side = int(s["swap_side"])
+	round_wins = (s.get("round_wins", [0, 0]) as Array).duplicate()
+	round_num = int(s.get("round_num", 1))
+	round_winner = int(s.get("round_winner", -2))
 	sim.restore(s["match"])
 
 
 func state_digest() -> String:
 	var parts: Array = [sim.state_digest(), active, tag_cd, prev_inputs, bench_cap, phase, phase_t,
-		timer, winner, swap_side]
+		timer, winner, swap_side, round_wins, round_num, round_winner]
 	for side in 2:
 		for c in teams[side]:
 			var st := (c as CreatureSim).save_state()

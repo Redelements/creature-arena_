@@ -61,7 +61,7 @@ func _init(p_teams: Array, input_delay: int, p_size := 1, p_rules := "", p_arena
 		duel = TeamSim.new(teams, size, TeamSim.rules_by_id(rules))
 		players = size * 2
 	else:
-		duel = DuelSim.new(teams)
+		duel = DuelSim.new(teams, DuelSim.rules_for(teams))
 	MatchFactory.arena = menu_arena
 	for p in players:
 		_inputs.append({})
@@ -175,7 +175,7 @@ func setup_dict() -> Dictionary:
 		for id in t:
 			ids.append(String(id))
 	return {"kind": "team" if size > 1 else "duel", "ids": ids, "teams": teams.duplicate(true), "size": size,
-		"rules": rules, "arena": arena, "mutators": {}, "mut_seed": 0}
+		"rules": rules if size > 1 else DuelSim.rules_id_for(teams), "arena": arena, "mutators": {}, "mut_seed": 0}
 
 
 func advance() -> int:

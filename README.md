@@ -58,6 +58,11 @@ have. If someone doesn't, the players who accepted go back to searching. Mirror
 matches are fine; in a 2v2 or 3v3 the server puts two of the same fighter on opposite
 teams when it can.
 
+A **1 v 1** is best of three rounds of 90 seconds, like Versus against the CPU: a K.O.
+(or more health left at time) takes the round, then both fighters, the floor and the
+clock reset. A drawn round counts for nobody; after five rounds the leader wins. The
+Duel 3v3 tag and the team battles stay one round.
+
 The server is `kevarena.duckdns.org` (from `data/online.json`); **Settings > Game > Online
 server** changes it. At the server's own house the game finds it on the local network by
 itself, since many routers can't loop their public name back inside. The server pairs

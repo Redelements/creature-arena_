@@ -73,13 +73,13 @@ func test_a_laggy_lossy_match_stays_in_sync() -> void:
 	var rb := g.report()
 	var n := mini((ra["frames"] as Array).size(), (rb["frames"] as Array).size())
 	assert_gt(float(n), 1000.0, "most frames confirmed:")
-	var offline := DuelSim.new(h.teams)
+	var offline := DuelSim.new(h.teams, DuelSim.rules_for(h.teams))
 	for f in n:
 		assert_eq(ra["frames"][f], rb["frames"][f], "frame %d inputs:" % f)
 		if ra["frames"][f] != rb["frames"][f]:
 			break
 		offline.step(PackedInt32Array(ra["frames"][f]))
-	var online := DuelSim.new(h.teams)
+	var online := DuelSim.new(h.teams, DuelSim.rules_for(h.teams))
 	for f in n:
 		online.step(PackedInt32Array(rb["frames"][f]))
 	assert_eq(offline.state_digest(), online.state_digest(), "replays of both logs agree:")

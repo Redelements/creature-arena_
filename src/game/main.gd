@@ -1286,11 +1286,21 @@ func _end_duel() -> void:
 
 func _duel_flow() -> void:
 	hud.timer_ticks = maxi(duel.timer, 0)
+	var rounds := duel.rounds_to_win() > 1
+	if rounds:
+		hud.wins = duel.round_wins
+		hud.wins_needed = duel.rounds_to_win()
 	match duel.phase:
 		DuelSim.Phase.INTRO:
 			var t := duel.phase_t
 			hud.banner = ("ONLINE DUEL" if online != null else "DUEL") if t < 60 else "FIGHT!"
-			if (duel.teams[0] as Array).size() > 1:
+			if rounds and t < 60:
+				hud.banner = "ROUND %d" % duel.round_num
+				var lead := maxi(duel.round_wins[0], duel.round_wins[1])
+				hud.banner_sub = "FINAL ROUND" if lead == duel.rounds_to_win() - 1 and 					duel.round_wins[0] == duel.round_wins[1] else "Best of %d" % (duel.rounds_to_win() * 2 - 1)
+			elif rounds:
+				hud.banner_sub = ""
+			elif (duel.teams[0] as Array).size() > 1:
 				hud.banner_sub = "%d v %d  -  tag with %s" % [duel.teams[0].size(), duel.teams[1].size(),
 					player_input.label("tag")] if t < 60 else ""
 			else:
@@ -1300,10 +1310,16 @@ func _duel_flow() -> void:
 		DuelSim.Phase.FIGHT, DuelSim.Phase.SWAP:
 			hud.banner = ""
 			hud.banner_sub = ""
-		DuelSim.Phase.OVER:
+		DuelSim.Phase.ROUND_OVER, DuelSim.Phase.OVER:
 			if duel.phase_t == 1:
 				hud.banner = "K.O." if duel.timer > 0 else "TIME"
 				hud.banner_sub = ""
+				if rounds:
+					var w := duel.round_winner
+					hud.banner_sub = "%s takes the round" % String(duel.active_creature(w).def["name"]) 						if w >= 0 else "Draw"
+					crowd.cheer(1.0)
+			if duel.phase == DuelSim.Phase.ROUND_OVER:
+				return
 			if duel.phase_t >= int(duel.rules.get("over_ticks", 150)):
 				if _arcade_result(duel.winner == 0):
 					return
@@ -1816,6 +1832,10 @@ func _react(e: Dictionary) -> void:
 			crowd.cheer(0.15)
 		"duel_over":
 			crowd.roar(150)
+		"round_start":
+			# A Duel's next round: everyone is back at the start, so drop old effects.
+			fx.clear()
+			_ko_cam_t = -1
 		"ko":
 			shake = maxf(shake, 5.0)
 			crowd.cheer(1.0)

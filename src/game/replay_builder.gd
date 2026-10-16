@@ -4,7 +4,7 @@ extends RefCounted
 ## writes `Replay.setup` when a match starts), so its inputs play back the same fight.
 ## A setup is {"kind": "versus" | "training" | "duel" | "team" | "brawl", "ids": [fighter
 ## per slot], "teams": [[...], [...]] (duel, team), "size": per side (team), "rules": id
-## (team, "" for a plain battle), "arena": map id, "mutators": {...}, "mut_seed": int}.
+## (team: "" for a plain battle; duel: "1v1" for a best-of-three online 1v1), "arena": map id, "mutators": {...}, "mut_seed": int}.
 ## Returns {"sim": MatchSim, "game": the DuelSim / TeamSim / BrawlSim or null}.
 
 static func build(setup: Dictionary) -> Dictionary:
@@ -17,7 +17,9 @@ static func build(setup: Dictionary) -> Dictionary:
 		"training":
 			out["sim"] = MatchFactory.training(String(ids[0]))
 		"duel":
-			var d := DuelSim.new(setup.get("teams", [[ids[0]], [ids[1]]]))
+			# "rules": "1v1" since online 1v1s went best of three; older replays have "".
+			var d := DuelSim.new(setup.get("teams", [[ids[0]], [ids[1]]]),
+				DuelSim.rules_by_id(String(setup.get("rules", ""))))
 			out["sim"] = d.sim
 			out["game"] = d
 		"team":

@@ -297,7 +297,7 @@ packets are plain-UDP JSON: `creature-arena?` / `creature-arena`.
 | File | Holds |
 | --- | --- |
 | `data/creatures/<id>.json` | One fighter: `id`, `name`, `title`, `affinity`, `role`, `max_hp`, `speed`, `accel`, `radius`, `weight`, `stamina`, `stamina_regen`, `dodge`, `guard`, `fx_height`, `fx_top`, `fx_color`, `surge_aura`, `cut_in_frame`, `ko_fx`, `sprite`, `ai`, `moves` (slots `tag_in`, `light_1..3`, `heavy`, `skill_1`, `skill_2`, `surge`). Every move key is in MECHANICS.md |
-| `data/rules/duel.json`, `team.json`, `deathmatch.json` | Match rules: time, intro ticks, tag cooldown/energy, bench regen, KO swap, spawn spread; deathmatch adds respawn time, spawn protection, pad inset/spread and `score_to_win` by team size |
+| `data/rules/duel.json`, `duel_1v1.json`, `team.json`, `deathmatch.json` | Match rules (duel_1v1: the online 1v1, best of three rounds): time, intro ticks, tag cooldown/energy, bench regen, KO swap, spawn spread; deathmatch adds respawn time, spawn protection, pad inset/spread and `score_to_win` by team size |
 | `data/trials.json` | Combo trials: fighter, name, route (a step `[button, move, "hold"]` is held to a full charge: the demo charges it, the caption says "hold") |
 | `data/audio.json` | Music volume and tracks, every sound name → file |
 | `data/online.json` | The game's server host |
