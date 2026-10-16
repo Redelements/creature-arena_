@@ -57,10 +57,10 @@ one just played. Ranked rates every game. Someone leaving during the pick ends i
 the other ("Your opponent left") and its spectators, as leaving a Quick match does:
 
 ```
-[2026-10-16 18:12:40] match 1: both want a rematch; picking fighters
-[2026-10-16 18:12:44] player 1 (sno) locked in for the rematch
-[2026-10-16 18:12:47] player 2 (pete) locked in for the rematch
-[2026-10-16 18:12:47] match 2 started (rematch): player 1 (sno) vs player 2 (pete), round trip 2 ms, input delay 1
+[2026-10-16 10:58:52] match 1: both want a rematch; picking fighters (20 s)
+[2026-10-16 10:58:52] player 1 (cairn) locked in for the rematch
+[2026-10-16 10:59:12] match 1: time's up for the rematch pick (1 of 2 locked in); the rest keep their fighters
+[2026-10-16 10:59:12] match 2 started (rematch): player 1 (culvert) vs player 2 (sno) on floodgate, round trip 17 ms, input delay 1
 ```
 
 Rooms:
