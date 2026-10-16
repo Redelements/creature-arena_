@@ -599,7 +599,8 @@ func test_rooms_pick_then_make_or_join_a_code() -> void:
 	for ch in code:
 		assert_true(OnlineLobby.CODE_CHARS.contains(ch), "made of easy-to-read characters: " + code)
 	lobby.busy = true
-	assert_true(lobby._room_label.text.contains(code), "the code is shown while waiting: " + lobby._room_label.text)
+	assert_true(lobby.code_button.visible and lobby.code_button.text.contains(code),
+		"the code is shown while waiting (press to copy): " + lobby.code_button.text)
 	assert_true(lobby._room_label.text.contains("Join room"), "with what the friend does")
 	assert_true(lobby._room_label.text.contains("2 v 2"), "and the size")
 	lobby.busy = false

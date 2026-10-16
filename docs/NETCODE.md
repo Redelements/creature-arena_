@@ -113,7 +113,8 @@ an `EnetHub` (one UDP port, a `NetLink` per player) into a `RelayServer`, which:
   the address; "" pairs anyone, oldest first);
 - sends both a `start` with their `side` and the opponent's round trip to the server
   (`via`, refreshed every 2 s as `path`), so time sync counts the whole route;
-- relays `in`/`dg`/`rematch`/`bye`, rebuilding each relayed message from known fields;
+- relays `in`/`dg`/`rematch`/`bye`, rebuilding each relayed message from known fields
+  (a room's matches use `next`/`pick` instead of `rematch`: see "Rooms that last");
 - referees with a `Referee`: a DuelSim stepped only on confirmed inputs (no rollback),
   checking both players' fingerprints, so a desync names the player whose game went
   wrong; it logs each result.
@@ -236,6 +237,49 @@ short connection (`DailyClient`: hello with `submit`, then the replay); the serv
 rescores it on a fresh match of that day (`Daily.verify`), never trusting the client's
 number, keeps each player's best per day and answers with the rank; "Daily top 10"
 fetches the board the same way. A home server trusts ids and names as sent.
+
+**Rooms that last (NET_VERSION 10).** A room code is a `RelayServer.Room` that outlives
+its matches; a `Game` is one match. The first player to ask for a size (the maker) sets
+the room's size, fighters per player, rules and arena for its whole life. Its first
+match is found as before (the ready check). After a match, the match-over screen offers
+**Next match** and **Leave room** (no Rematch): Next match sends `next` and opens the
+room's page with the fighter select over it (`CharacterSelect` in `solo` mode); the
+finished match keeps stepping behind it, so nobody's session stalls. Locking in sends
+`pick` {team}. The server tells everyone in the room, spectators included, `room`
+{code, state (waiting / playing / select), players [{name, fighter, locked, playing}],
+watchers}, and once every player has locked in it re-seats them (`seat()`) and starts
+the next match with `n` counted on from the last, so no old packet can mix in. No ready
+check: they're all there.
+
+- **Leaving never ends the room for the others.** In a 1v1 room the player left gets
+  `wait` with `back`: `Netplay` drops back to waiting (HANDSHAKE) and the game returns
+  to the online screen, still in the room, with the code; whoever joins the code next
+  plays them (ready check as usual). In a team room a CPU plays the leaver's slot to the
+  end of that match (as before), and the next match has the slot open: a newcomer who
+  types the code meanwhile waits for it (server state `ROOM`, their hello's fighter as
+  their pick), and any seat still empty is a CPU. A full room turns newcomers away
+  ("Pick Watch room"). The room closes when its last player leaves: spectators get
+  `bye` {why: "room"} ("The room closed").
+- **Spectators follow the room.** A room's watchers stay connected from match to match:
+  during the select the match-over screen says the players are picking (and how many
+  have locked in), or that the room is waiting for a player; the next match's `start`
+  re-attaches them. The game now follows a new spectator `start` (it used to stay on
+  the old match-over after any rematch: `main.watch` was never refreshed).
+- **Ranked** is one rated game per pairing: no Rematch (the server ignores `rematch` in
+  ranked and in rooms), and the result screen offers **Back to online**. The other
+  player going back after the result isn't shown as a disconnection.
+- **The room code copies:** `RoomCodeButton` (a row with a drawn copy icon) puts it on
+  the clipboard and says "Copied" for 1.5 s; it's on the online screen while waiting in
+  a room, on a room's match-over screen and on the room's page.
+- Quick match and direct host/join keep their Rematch.
+
+Why a Room object rather than more fields on Game: a Game is one match (its referee,
+inputs, `n`, seats, rematch flags); it's created when a group is found and dropped when
+the match is over. A room has to survive exactly those moments: its maker's settings,
+who's in it (including newcomers who aren't seated yet and spectators), the last `n`,
+and who has locked in, across a player leaving with no match on at all. Keeping that on
+a Game would mean a Game with no match, or carrying it from Game to Game. Tests:
+`tests/test_rooms.gd`.
 
 Still to do: a Steam transport (below).
 

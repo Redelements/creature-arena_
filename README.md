@@ -49,8 +49,13 @@ unknown publisher: choose **More info → Run anyway**.
 
 - **Quick match:** pick **1 v 1**, **2 v 2** or **3 v 3**, then your fighter on the
   character tiles, and the server looks for whoever is waiting for the same size.
-- **Rooms:** **Create room** shows a short code (like `KX7P`). Your friend picks
-  **Join room** and types it, and the server pairs the two of you.
+- **Rooms:** **Create room** shows a short code (like `KX7P`): press it (or its copy
+  icon) to copy it, then paste it to your friend. They pick **Join room** and type it,
+  and the server pairs the two of you. A room stays together: after each match pick
+  **Next match**, choose a fighter (or keep yours), and the next match starts once
+  everyone has locked in. If your friend leaves, you wait in the same room with the
+  same code for someone else; the room closes when the last player leaves. **Watch
+  room** with the code follows every match in it, picks included.
 
 Whatever you choose, you pick your fighter first. When the server has a match it shows
 **Match found**: everyone has 15 seconds to **Accept**, and the fight starts once all
@@ -90,7 +95,8 @@ How the joiner reaches the host:
 It uses rollback netcode: your own inputs respond at once (after 1–3 frames of delay,
 picked from the ping), and the other player's late inputs are corrected in a frame or
 two. The bottom corner shows ping, delay and the deepest rollback. Enter / A after the
-match asks for a rematch; Esc / View leaves. For testing on one network you can fake a
+match asks for a rematch (in a room: Next match; ranked is one rated match, then back to
+the online screen); Esc / View leaves. For testing on one network you can fake a
 bad connection: `--net-lag=6 --net-loss=0.1`. Details: [docs/NETCODE.md](docs/NETCODE.md).
 
 ## Run it

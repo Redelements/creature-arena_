@@ -115,6 +115,8 @@ var _recent_rows: Array = []
 var _status_label: Label
 var _who_label: Label
 var _room_label: Label
+## The room code while waiting in a room: pressing it copies the code.
+var code_button: RoomCodeButton
 var _addr_label: Label
 
 
@@ -203,7 +205,9 @@ func build() -> void:
 	_back = add_button("Back", back)
 	_status_label = add_text("", UiTheme.SIZE_HINT + 1, UiTheme.C_ACCENT)
 	_who_label = add_text("", UiTheme.SIZE_HINT + 1, UiTheme.C_TEXT)
-	_room_label = add_text("", UiTheme.SIZE_HEADING, UiTheme.C_TEXT)
+	code_button = RoomCodeButton.new()
+	add_row(code_button, "Copy the code to send to your friends")
+	_room_label = add_text("", UiTheme.SIZE_HINT + 1, UiTheme.C_TEXT)
 	_room_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_addr_label = add_text("", UiTheme.SIZE_HINT + 1, UiTheme.C_TEXT)
 	for l in [_status_label, _who_label]:
@@ -446,10 +450,14 @@ func _refresh_status() -> void:
 	var nm := String(MatchFactory.load_def(fighter).get("name", fighter))
 	_who_label.text = ("%s   ·   %s" % [nm, searching_for] if searching_for != "" else nm) if busy else ""
 	var show_room := busy and room_code != ""
-	_room_label.text = ("Room code  " + room_code) if show_room else ""
+	code_button.code = room_code
+	if code_button.visible != show_room:
+		code_button.visible = show_room
+		link_focus()
+	_room_label.text = ""
 	if show_room and room_created:
-		_room_label.text += ("  (%s)" % SIZE_NAMES[_size_index(room_size, room_tag)]) if room_size > 1 or room_tag > 1 else ""
-		_room_label.text += "\nTell your friend%s: Join room, then this code" % ("s" if room_size > 1 else "")
+		_room_label.text = ("%s room.  " % SIZE_NAMES[_size_index(room_size, room_tag)]) if room_size > 1 or room_tag > 1 else ""
+		_room_label.text += "Tell your friend%s: Join room, then this code" % ("s" if room_size > 1 else "")
 	var addrs := Netplay.local_addresses()
 	_addr_label.text = ("Your addresses:  " + ("  ".join(addrs) if not addrs.is_empty() else "(none found)")) \
 		if busy and hosting_port > 0 else ""

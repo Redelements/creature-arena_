@@ -17,7 +17,7 @@ src/net/    rollback_session, netplay, online_match, net_link (+enet/loop/lag), 
 src/game/   main (flow, camera, settings, CLI), online_lobby, showcase, trials, drills, controls,
             match_factory, autoplay
 src/ui/     ui_theme, screen_stack, ui_screen, option_row, card_button, prompts, fighter_preview,
-            title_screen, character_select, ready_check, pause/confirm/help/remap screens
+            title_screen, character_select, ready_check, room_code_button, pause/confirm/help/remap screens
 data/       creatures/*.json, rules/{duel,team,deathmatch}.json, trials.json, audio.json, online.json, discord.json
 tests/      run_tests.gd runs every tests/test_*.gd; bench_sim.gd, bench_cpu.gd, bench_spacing.gd
 tools/      sprite generators (splat3d.py shared), gen_sprites.py, gen_audio.py
@@ -187,13 +187,13 @@ Design in NETCODE.md; running a server in SERVER.md.
 | `enet_link.gd` (125) | Direct UDP via ENet; reliable on channel 0, unsequenced input on channel 1; `TIMEOUT_MS` 5000; `realtime = true` | `host`, `join` (a third peer is refused), `tune` (throttling off), `poll` (drains up to 256 events) |
 | `loop_link.gd` (66) | In-memory pair with lag, jitter, loss (tests) | `pair`, `drop`, `poll` |
 | `lag_link.gd` (59) | Wraps a real link; delays/drops unreliable messages only (`--net-lag`, `--net-loss`); built in main | `_init`, `send` |
-| `netplay.gd` (494) | Client session: handshake, pings, delay choice, ready check, rematch, leave. `NET_VERSION` here | `host`, `join`, `tick`, `pump`, `_handle`; static `pick_delay`, `data_hash`; `_ping_step`, `_live_ping_step` |
+| `netplay.gd` (640) | Client session: handshake, pings, delay choice, ready check, rematch, rooms between matches (`room_state`, `room_players`), leave. `NET_VERSION` here | `host`, `join`, `tick`, `pump`, `_handle`; `request_next`, `send_pick`, `in_room`; static `pick_delay`, `data_hash`; `_ping_step`, `_live_ping_step` |
 | `online_match.gd` (306) | One match over `RollbackSession` (a DuelSim or TeamSim): time sync, event de-dup, digests, input log | `tick`, `receive`, `_on_final`, `_check_digest`, `report` |
 | `rollback_session.gd` (245) | GGPO-style rollback for N players | `add_local_input`, `receive` (misprediction → rollback), `advance`, `_do_rollback`, `_finalize` |
 | `sim_check.gd` (54) | Cross-platform fingerprint (`--sim-check=SEED`): sha256 over a MatchSim mash plus a tag-heavy DuelSim | `run` |
 | `dedicated_server.gd` (121) | The `--server` node; wires `EnetHub`, `RelayServer`, `ServerBeacon` | `configure(args)`, `_ready`, `_process` |
 | `enet_hub.gd` (115) | One UDP port, many players, a `PeerLink` per peer | `listen`, `poll` (returns new links), `flush` |
-| `relay_server.gd` (681) | Matchmaking and relay, on `NetLink`s so tests can drive it; `Client`, `Check`, `Game` classes | `_handle`; `_pair_waiting`, `_found`, `_accept`, `_check_step`, `_requeue`; `_begin_game`, `_start`, `_referee_step`; `_drop`, `_cpu_takes_over`; static `seat` |
+| `relay_server.gd` (1,100) | Matchmaking and relay, on `NetLink`s so tests can drive it; `Client`, `Check`, `Room` (a room code that outlives its matches), `Game` (one match) classes | `_handle`; `_pair_waiting`, `_found`, `_accept`, `_check_step`, `_requeue`; `_begin_game`, `_start`, `_referee_step`; `_drop`, `_cpu_takes_over`; rooms: `_join_room`, `_room_status`, `_room_next`, `_room_pick`, `_room_ready`, `_room_left`, `_retire`; static `seat` |
 | `referee.gd` (203) | Server's authoritative match: steps only when every slot's input arrived, checks digests, plays CPU slots | `add_inputs`, `advance`, `add_digest`, `take_cpu_inputs`, `inputs_since` |
 | `lan_finder.gd` (76) / `server_beacon.gd` (72) | LAN discovery: client broadcast, server answer on game port + 1 | `start`/`poll`; `listen`/`poll`/`read`/`discovery_port` |
 
@@ -208,6 +208,7 @@ Design in NETCODE.md; running a server in SERVER.md.
 - Version / data refusal → `netplay.gd:_handle` "hello", `data_hash` (NET_VERSION + rules + every fighter JSON)
 - Ready check → client `netplay.gd:accept_match`, `decline_match`; server `relay_server.gd:_found`, `_accept`, `_check_step`, `_requeue`
 - Rooms and grouping → `relay_server.gd:_pair_waiting`; team seating → `seat`
+- A room between matches (next / pick / the next match, a leaver, closing) → `relay_server.gd:_room_next`, `_room_pick`, `_room_ready`, `_room_left`; client `netplay.gd` "room", "wait" `back`; game `main.gd:_room_next`, `_open_room_screen`, `_open_room_picker`, `_room_step`, `_back_to_room_wait`, `_watch_room_status`
 - Leaver → CPU takeover → `relay_server.gd:_cpu_takes_over`, `referee.gd:inputs_since`
 - Path RTT refresh → `relay_server.gd:_referee_step` ("path"), `netplay.gd:_set_paths`
 - Server flags → `dedicated_server.gd:configure`; LAN discovery → `lan_finder.gd`, `server_beacon.gd`
@@ -231,7 +232,7 @@ packets are plain-UDP JSON: `creature-arena?` / `creature-arena`.
 | File | Owns | Entry points |
 | --- | --- | --- |
 | `game/main.gd` (2,116) | Root node: `Flow` (MENU/INTRO/FIGHT/ROUND_OVER/MATCH_OVER/SELECT/LOBBY), the `MODES` table, 60 Hz tick, camera, settings, CLI parsing, online glue | `_ready`; `_physics_process` (inputs → sim → events → views → camera); `_start_match(m)`; `_new_sim`; `_update_camera`/`_frame_fight`; `_setting`/`_set_setting`; `_parse_args` |
-| `game/online_lobby.gd` (439) | Online pages (MAIN/QUICK/ROOMS/MORE), room codes, address parsing, recent servers | `quick_match`, `create_room`, `join_room`, `host`; static `make_code`, `clean_code`, `parse_address` |
+| `game/online_lobby.gd` (528) | Online pages (MAIN/QUICK/ROOMS/MORE), room codes (a `RoomCodeButton` while waiting in a room), address parsing, recent servers | `quick_match`, `create_room`, `join_room`, `host`; static `make_code`, `clean_code`, `parse_address` |
 | `game/showcase.gd` (718) | Scripted demos as real input bitmasks; `SCRIPTS` has one per fighter plus angles, twinstick, counterplay | `names`, `build`, `inputs(sim)` (step interpreter: wait, press, walk, together, dodge, guard, approach, until, place), `_place` |
 | `game/trials.gd` (228) | `ComboTrials` coach: plays a demo, judges the player's route (`data/trials.json`) | `inputs(player_bits)`, `after_step`, `_fail`, `_clear`, `replay_demo`, `skip` |
 | `game/drills.gd` (206) | `ReactionDrill` coach: partner throws windup moves, player scored over `REPS` (`SETS`) | `build`, `inputs`, `_judge`, `after_step` |
@@ -252,11 +253,12 @@ packets are plain-UDP JSON: `creature-arena?` / `creature-arena`.
 | `ui/screen_stack.gd` (143) | Stack of open screens, Back, focus restore, toasts | `push`, `pop`, `clear`, `top`, `is_open`; signals `moved`, `chosen`, `emptied` |
 | `ui/ui_theme.gd` (157) | The shared Theme, colours and sizes: rounded rows with a focus bar and glow, the "BigButton" and "Card" variations, the panel frame | `make` |
 | `ui/card_button.gd` (37) | A hub card: a taller row with a dim second line and a chevron (Single player and Settings hubs) | `subtitle`, `chevron` |
+| `ui/room_code_button.gd` (90) | An online room's code as a row: press to copy (a drawn copy icon; "Copied" for 1.5 s). Headless runs have no clipboard: `last_copied` | `code`, `copy`, static `copy_text`, `copied` |
 | `ui/option_row.gd` (123) | "label < value >" row with Left/Right stepping and optional meter | `step`, `set_values`; signals `changed`, `activated` |
 | `ui/prompts.gd` (33) | Hint text per device | `line(gamepad, items)` from `PAD`/`KEYS` |
 | `ui/fighter_preview.gd` (41) | Live idle animation of a fighter | `.fighter`, `face_left`, `zoom` |
 | `ui/title_screen.gd` (40) | Single player / Online / Settings / Exit | signals `*_pressed` |
-| `ui/character_select.gd` (494) | Portrait grid, one cursor per player (reads each pad's stick itself), team picks, `solo` for online | `setup`, `move`, `pick`, `_undo`; signals `chosen(teams)`, `cancelled` |
+| `ui/character_select.gd` (502) | Portrait grid, one cursor per player (reads each pad's stick itself), team picks, `solo` for online (and a room's next match: `set_solo_info` keeps who has locked in up to date) | `setup`, `move`, `pick`, `_undo`, `set_solo_info`; signals `chosen(teams)`, `cancelled` |
 | `ui/ready_check.gd` (104) | Online "match found" Accept/Decline | `update`, `accept`, `decline` |
 | `ui/pause_screen.gd`, `confirm_screen.gd`, `help_screen.gd` | Pause (Resume/Restart/Controls/Quit, confirms quit), Yes/No, two-column controls listing | signals `resumed`, `restart_requested`, `quit_requested`, `answered(yes)` |
 | `ui/remap_screen.gd` (189) | Rebinds one group (classic, league, gamepad), bindings in a two-column grid; `RESERVED_KEYS`/`RESERVED_BUTTONS` | `_listen`, `_input`; signal `changed` |
@@ -273,7 +275,7 @@ packets are plain-UDP JSON: `creature-arena?` / `creature-arena`.
 - Frame rate / vsync / aspect / fullscreen → `_apply_frame_rate`, `_apply_vsync`, `_apply_aspect`, `_apply_fullscreen`
 - CLI flags → `_parse_args` (list in the file header); `--server` → `_run_server`; `--sim-check` → `_run_sim_check`
 - Netplay pumping → `_process` (`netplay.pump()` on realtime links) and `_physics_process` (`netplay.tick`)
-- Online flow → `_net_host`, `_net_join_server`, `_net_join`, `_finder_step`, `_connecting_step`, `_ready_check_step`, `_start_online_match`, `_online_status`, `_leave_online`, `_write_net_report`. Every lobby choice opens `CharacterSelect` in `solo` mode first (`lobby.picker`; tests emit its `chosen`), then searches; Cancel while searching emits `search_cancelled`. Before joining the game's server (`data/online.json` or Settings > Game > Online server) the game asks the LAN first (`LanFinder` → `ServerBeacon`), since routers often can't loop the public name back inside. When the server finds a group: Netplay `match_found` → main pushes `ReadyCheck`; `Netplay.auto_ready` answers at once for tests and CLI joins; server `ready_ms` / `--ready`; `RelayServer.seat()` puts duplicate fighters on opposite teams
+- Online flow → `_net_host`, `_net_join_server`, `_net_join`, `_finder_step`, `_connecting_step`, `_ready_check_step`, `_start_online_match`, `_online_status`, `_leave_online`, `_leave_to_lobby`, `_write_net_report`. Match over: Quick match and direct matches offer Rematch; a room offers Next match (room page + fighter select while the session stays up; NETCODE.md "Rooms that last") and Leave room; ranked offers Back to online. A spectator follows a new `start` (`netplay.watch != watch` → `_start_watching`). `--online-watch=ADDR[/ROOM]` watches from the command line; with `--cpu-vs-cpu` a room goes on to its next match by itself (picking the next fighter along). Every lobby choice opens `CharacterSelect` in `solo` mode first (`lobby.picker`; tests emit its `chosen`), then searches; Cancel while searching emits `search_cancelled`. Before joining the game's server (`data/online.json` or Settings > Game > Online server) the game asks the LAN first (`LanFinder` → `ServerBeacon`), since routers often can't loop the public name back inside. When the server finds a group: Netplay `match_found` → main pushes `ReadyCheck`; `Netplay.auto_ready` answers at once for tests and CLI joins; server `ready_ms` / `--ready`; `RelayServer.seat()` puts duplicate fighters on opposite teams
 - Add a menu screen → subclass `UiScreen`, override `build()`, `ui.push()`; examples `_open_single`, `_open_settings`, `_open_controls`
 - Sim events → flash / rumble → `_react`, `_flash`, `_rumble`
 - Add a showcase → a `SCRIPTS` entry in `showcase.gd` (`--showcase=` accepts it via `names()`)
@@ -325,6 +327,7 @@ errors count as failures; exit code 1 on any failure. Run `--import` after addin
 | `test_rollback`, `test_determinism`, `test_terrain`, `test_duel`, `test_team` | Every variable snapshotted and restore replays exactly; replays; floor; tag rules; team rules |
 | `test_ai`, `test_rage`, `test_balance` | CPU reproducible and uses its kit; Rage beats Hard; class matchup pins (Rage vs Rage) |
 | `test_online`, `test_server`, `test_server_teams` | Handshake, lag/loss sync, desync detection, rematch, version refusal, real UDP; server pairing, rooms, referee; online 2v2/3v3 |
+| `test_rooms` | Rooms between matches: pick again and the next match, a leaver in a 1v1 or team room, newcomers, full rooms, closing, spectators following, the copy button; Quick match rematch, ranked's single game; the game's screens for all of it |
 | `test_ui`, `test_menu_stick`, `test_surge_ready`, `test_views`, `test_showcase`, `test_trials`, `test_scripts_load` | Menus with real input events; stick menu presses; aura/signal; up/down sheets for every fighter; every showcase reaches a KO; every trial clearable; every script compiles |
 | `test_presence` | Discord IPC frames (split, partial, bad), the status text per mode, the elapsed clock, the setting saved, no connection headless |
 | `bench_sim.gd`, `bench_cpu.gd` | Rollback cost; CPU tier win-rate matrix (`--matrix`, `--pairs`, `--seeds`, `--only`, `--detail`) |

@@ -34,8 +34,16 @@ extends RefCounted
 ## pass through the server to everyone else, each tagged with whose (`p`). Slots the
 ## server's CPU plays are listed in "start" (`cpu`), or come later as "cpu" when a
 ## player leaves; their inputs arrive like anyone's.
+##
+## Rooms on a server last between matches: "room" messages say what the room is doing
+## (`room_state`: waiting, playing, select) and who's in it (`room_players`). After a
+## match the game calls request_next() (this player is on the fighter select) and
+## send_pick(team); the session stays in PLAYING meanwhile (the last match keeps
+## stepping behind the select) until the next "start". If the other player of a 1v1
+## room leaves, "wait" with `back` puts this session back to waiting (HANDSHAKE) in the
+## same room.
 
-const NET_VERSION := 9  ## 9: the 1v1 is best of three rounds; 8: ranked play, player ids, daily scores; 7: team rules and tag Duels; 6: the server's ready check; 5: team battles; 4: 360 move angle
+const NET_VERSION := 10  ## 10: rooms last between matches (room, next, pick; wait back; bye room); 9: the 1v1 is best of three rounds; 8: ranked play, player ids, daily scores; 7: team rules and tag Duels; 6: the server's ready check; 5: team battles; 4: 360 move angle
 const DEFAULT_PORT := 7777
 const PINGS := 5
 ## A precise ping (a real link) blocks the host this long at most waiting for the pong.
@@ -85,6 +93,14 @@ var my_name := ""
 ## after the match ({old, new, rd, games, wins}).
 var ranked := false
 var last_rating := {}
+## A room on a server: what it's doing ("" until the server says; "waiting", "playing",
+## "select"), who's in it ([{name, fighter, locked, playing}]) and how many watch.
+var room_state := ""
+var room_players: Array = []
+var room_watchers := 0
+## This player left the match-over for the room's fighter select, and has locked in.
+var picking := false
+var picked := false
 
 
 ## A fresh player id: 16 hex characters from the system's random source.
@@ -237,13 +253,46 @@ func tick(local_bits: int) -> void:
 	link.flush()
 
 
-## Ask for a rematch; it starts when both players have asked.
+## Ask for a rematch; it starts when both players have asked. Not in a room (it picks
+## again instead) nor ranked (one rated game per pairing).
 func request_rematch() -> void:
-	if phase != Phase.PLAYING or rematch_local:
+	if phase != Phase.PLAYING or rematch_local or in_room() or ranked:
 		return
 	rematch_local = true
 	link.send({"t": "rematch"}, true)
 	link.flush()
+
+
+## Playing in a room on a server (not watching): matches there end in a fighter select.
+func in_room() -> bool:
+	return room != "" and not hosting and not watching
+
+
+## A room's match is over and this player is picking for the next: the server marks
+## them as not locked in yet. The last match keeps stepping until the next starts.
+func request_next() -> void:
+	if not in_room() or phase != Phase.PLAYING:
+		return
+	picking = true
+	picked = false
+	link.send({"t": "next"}, true)
+	link.flush()
+
+
+## Locked in for the room's next match: it starts once everyone in the room has.
+func send_pick(team: Array) -> void:
+	if not in_room() or phase != Phase.PLAYING or not _valid_team(team):
+		return
+	my_team = team.duplicate()
+	picking = true
+	picked = true
+	link.send({"t": "pick", "team": my_team}, true)
+	link.flush()
+
+
+## The room's players who haven't locked in yet (names), and who has.
+func room_waiting_on() -> Array:
+	return room_players.filter(func(p): return not bool(p.get("locked", false))).map(func(p): return String(p.get("name", "")))
 
 
 ## Accept the match the server found (the ready check).
@@ -320,6 +369,25 @@ func _handle(m: Dictionary) -> void:
 				match_found = false  # back to searching (or still searching)
 				accepted = false
 				status = String(m.get("msg", "On the server. Waiting for an opponent..."))
+				if bool(m.get("back", false)) and phase == Phase.PLAYING and not watching:
+					# The other player left the room: wait there for someone new.
+					game = null
+					phase = Phase.HANDSHAKE
+					picking = false
+					picked = false
+		"room":
+			if hosting:
+				return
+			room_state = String(m.get("state", ""))
+			var who = m.get("players", [])
+			room_players = []
+			if who is Array:
+				for p in who:
+					if p is Dictionary:
+						room_players.append({"name": String(p.get("name", "Player")).left(16),
+							"fighter": String(p.get("fighter", "")), "locked": bool(p.get("locked", false)),
+							"playing": bool(p.get("playing", false))})
+			room_watchers = maxi(0, int(m.get("watchers", 0)))
 		"rating":
 			last_rating = {"old": float(m.get("old", 0.0)), "new": float(m.get("new", 0.0)), "rd": float(m.get("rd", 0.0)),
 				"games": int(m.get("games", 0)), "wins": int(m.get("wins", 0))}
@@ -410,6 +478,10 @@ func _handle(m: Dictionary) -> void:
 					_fail("The server shut down")
 				"player":
 					_fail("A player left the match")
+				"room":
+					_fail("The room closed: everyone left")
+				"over":
+					_fail("The match ended: its players left")
 				_:
 					_fail("The other player left")
 		"in", "dg":
@@ -496,6 +568,8 @@ func _begin(n: int, teams: Array, delay: int, slot := -1, size := 1, rules := ""
 	rematch_local = false
 	rematch_remote = false
 	rematch_asked = {}
+	picking = false
+	picked = false
 	phase = Phase.PLAYING
 	status = ""
 

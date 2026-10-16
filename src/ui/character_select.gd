@@ -354,6 +354,14 @@ func _make_label(pos: Vector2, size_px: int, col: Color) -> Label:
 	return l
 
 
+## Solo: changes what the right panel says (an online room's who-has-locked-in list).
+func set_solo_info(text: String) -> void:
+	if text == solo_info:
+		return
+	solo_info = text
+	_refresh()
+
+
 ## The panels show what each side's cursor is on.
 func _refresh() -> void:
 	if _big.is_empty():

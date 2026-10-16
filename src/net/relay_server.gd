@@ -47,6 +47,26 @@ extends RefCounted
 ## Team seats: players alternate sides as they're grouped, unless that would put two of
 ## the same fighter on one team; then the fewest players move to the other side so every
 ## duplicate faces itself across the match instead (when the picks allow it).
+##
+## Rooms: a room code is a Room that outlives its matches (a Game is one match). Its
+## maker's size, tag, rules and arena hold for its whole life. Its first match is found
+## like any (the ready check); after a match, players say "next" (they're on the fighter
+## select) and "pick" {team}; once everyone in the room has locked in, the next match
+## starts with a new `n`, re-seated (seat()). No ready check: they're all there.
+##
+##   <-- room {code, state, players [{name, fighter, locked, playing}], watchers}
+##   next  -->                       (left the match-over for the fighter select)
+##   pick {team}  -->                (locked in for the next match)
+##   <-- start {...}                 (everyone locked in: the next match)
+##
+## Leaving a room never ends it for the others: in a 1v1 the one left goes back to
+## waiting ("wait" with `back`) and keeps the code, and whoever joins it next plays them;
+## in a team room a CPU plays the leaver's slot to the end of that match, and the next
+## match fills the empty slots with CPUs (or newcomers, who join between matches). The
+## room closes when its last player leaves; its watchers get "bye" {why: "room"}.
+## Spectators of a room follow it from match to match without rejoining. Rooms don't
+## take "rematch" (they pick again instead), nor do ranked matches (one rated game per
+## pairing).
 
 const PINGS := 5
 ## A ping that doesn't come back in this long is given up on.
@@ -55,7 +75,11 @@ const PING_TIMEOUT_MS := 2000
 const PATH_EVERY_MS := 2000
 const MAX_ROOM_LENGTH := 32
 
-enum State { HELLO, LOBBY, FOUND, PLAYING, WATCHING, SUBMIT }
+enum State { HELLO, LOBBY, FOUND, PLAYING, WATCHING, SUBMIT, ROOM }
+## What a room is doing: waiting for players (its first match, or a 1v1 whose other
+## player left), playing a match, or picking fighters for the next.
+enum RoomState { WAITING, PLAYING, SELECT }
+const ROOM_STATE_NAMES := ["waiting", "playing", "select"]
 
 ## Messages players are dropped or requeued with during the ready check.
 const MSG_NOT_ACCEPTED := "You didn't accept the match in time. Search again when you're ready."
@@ -85,6 +109,7 @@ var log_lines: Array = []
 var clients := {}  ## id -> Client
 var games: Array = []
 var checks: Array = []  ## Checks: groups waiting for everyone to accept
+var rooms := {}  ## code -> Room
 var matches_started := 0
 var matches_finished := 0
 var _next_id := 1
@@ -135,6 +160,27 @@ class Check:
 
 	func all_in() -> bool:
 		return accepted.size() >= players.size()
+
+
+## A room code's lasting state: who's in it and what it plays. A Game is one match; a
+## Room outlives its games (a player leaving, picking new fighters, the next match).
+class Room:
+	var code := ""
+	var maker := ""  ## the name of whoever set it up
+	var cfg_set := false  ## size/tag/rules/arena come from the first player who asked for a size
+	var size := 1
+	var tag := 1  ## fighters per player (3: a tag Duel)
+	var rules := ""
+	var arena := ArenaMap.DEFAULT
+	var players: Array = []  ## Clients, in the order they came (never more than size * 2)
+	var watchers: Array = []  ## spectators, who follow every match here
+	var state := 0  ## a RelayServer.RoomState
+	var game: Game = null  ## the match on now, or the one just played (during SELECT)
+	var locked := {}  ## client id -> true: picked a fighter for the next match
+	var n := 0  ## the last match number here (the next one counts on, so old packets never match)
+
+	func full() -> bool:
+		return cfg_set and players.size() >= size * 2
 
 
 ## Players grouped into a match; rematches keep the group and count `n` up.
@@ -227,6 +273,7 @@ func shutdown() -> void:
 	clients.clear()
 	games.clear()
 	checks.clear()
+	rooms.clear()
 
 
 # ------------------------------------------------------------------ messages
@@ -268,7 +315,15 @@ func _handle(c: Client, m: Dictionary) -> void:
 				c.waiting_since = Time.get_ticks_msec()
 				_log("%s wants to watch%s" % [c.label(), (" room '%s'" % c.room) if c.room != "" else ""])
 				c.link.send({"t": "wait", "msg": "On the server. Waiting for a match to watch..."}, true)
+				if c.room != "":
+					var wr := _room(c.room)
+					wr.watchers.append(c)
+					_room_status(wr)
 				return
+			if c.room != "" and not _join_room(c):
+				return
+			if c.state == State.ROOM:
+				return  # joined a room between (or during) its matches: in for the next one
 			c.state = State.LOBBY
 			c.waiting_since = Time.get_ticks_msec()
 			_log("%s is waiting%s" % [c.label(), (" in room '%s'" % c.room) if c.room != "" else ""])
@@ -319,14 +374,18 @@ func _handle(c: Client, m: Dictionary) -> void:
 				o.link.send({"t": "dg", "n": g.n, "p": c.slot, "f": f, "d": d}, true)
 		"rematch":
 			var g := c.game
-			if g == null or g.rematch[c.slot]:
-				return
+			if g == null or g.rematch[c.slot] or g.ranked or g.room != "":
+				return  # ranked: one rated game per pairing; a room picks again instead
 			g.rematch[c.slot] = true
 			for o: Client in g.others(c):
 				o.link.send({"t": "rematch", "p": c.slot}, true)
 			if not (false in g.rematch):  # CPUs always say yes
 				_report(g)
 				_start(g)
+		"next":
+			_room_next(c)
+		"pick":
+			_room_pick(c, m.get("team"))
 		"bye":
 			_drop(c, "left")
 
@@ -373,17 +432,16 @@ func _ping_step(c: Client) -> void:
 ## A group starts once it has both teams' worth of players.
 func _pair_waiting() -> void:
 	var groups := {}  ## key -> [Client], oldest first
-	var room_cfg := {}  ## room -> [size, tag, rules]: whoever made it decides
 	var waiting: Array = clients.values().filter(func(c): return c.state == State.LOBBY)
 	waiting.sort_custom(func(a, b): return a.id < b.id)
-	for c: Client in waiting:
-		if c.room != "" and c.size > 0 and not room_cfg.has(c.room):
-			room_cfg[c.room] = [c.size, c.team.size(), c.rules]
 	for c: Client in waiting:
 		# Quick match groups by what each asked for: players per side, fighters per
 		# player (a tag Duel is three) and the team rules. A room takes its maker's.
 		# Ranked players queue apart and pair by rating (below).
-		var cfg: Array = [c.size, c.team.size(), c.rules] if c.room == "" else room_cfg.get(c.room, [1, 1, ""])
+		var cfg: Array = [c.size, c.team.size(), c.rules]
+		if c.room != "":
+			var r: Room = rooms.get(c.room)
+			cfg = [r.size, r.tag, r.rules] if r != null and r.cfg_set else [1, 1, ""]
 		var key := "%s|%d|%d|%s%s" % [c.room, int(cfg[0]), int(cfg[1]), String(cfg[2]), "|ranked" if c.ranked else ""]
 		if not groups.has(key):
 			groups[key] = []
@@ -418,9 +476,13 @@ func _attach_watchers() -> void:
 		if c.state != State.WATCHING or c.game != null:
 			continue
 		var g: Game = null
-		for cand: Game in games:
-			if (c.room != "" and cand.room == c.room) or (c.room == "" and not cand.players.is_empty()):
-				g = cand
+		if c.room != "":
+			var r: Room = rooms.get(c.room)
+			g = r.game if r != null else null
+		else:
+			for cand: Game in games:
+				if not cand.players.is_empty():
+					g = cand
 		if g == null:
 			continue
 		g.watchers.append(c)
@@ -603,8 +665,33 @@ func _begin_game(group: Array, size: int, rules := "", ranked := false) -> void:
 	g.rules = rules
 	g.ranked = ranked
 	g.room = (group[0] as Client).room if not group.is_empty() else ""
+	var r: Room = rooms.get(g.room) if g.room != "" else null
+	if r != null and not r.cfg_set:
+		# Nobody asked for a size (friends who all joined by code): a 1v1, from now on.
+		r.cfg_set = true
+		r.size = size
+		r.tag = (group[0] as Client).team.size()
+		r.rules = rules
+		r.arena = (group[0] as Client).arena
 	# The map: a room's maker picked it; Quick match draws one (the server's choice).
-	g.arena = (group[0] as Client).arena if g.room != "" else String(ArenaMap.IDS[rng.randi_range(0, ArenaMap.IDS.size() - 1)])
+	g.arena = r.arena if r != null else String(ArenaMap.IDS[rng.randi_range(0, ArenaMap.IDS.size() - 1)])
+	if r != null:
+		# The room's next match: numbered on from the last, so nothing from it can mix in,
+		# and its spectators come along.
+		g.n = r.n
+		r.game = g
+		r.state = RoomState.PLAYING
+		r.locked.clear()
+		for c: Client in r.players:
+			if not (c in group):
+				# In the room but not grouped (still being pinged): in for the next match.
+				c.state = State.ROOM
+				r.locked[c.id] = true
+		for w: Client in r.watchers:
+			if w.game != null:
+				w.game.watchers.erase(w)
+			w.game = g
+			g.watchers.append(w)
 	g.players.resize(size * 2)
 	var used := {}
 	var sides := seat(group.map(func(c): return (c as Client).team), size)
@@ -651,6 +738,8 @@ func _start(g: Game) -> void:
 	if not g.cpu_fighters.is_empty():
 		path = maxf(path, float(sorted[-1]) * 2.0)
 	g.n += 1
+	if g.room != "" and rooms.has(g.room):
+		(rooms[g.room] as Room).n = g.n
 	g.delay = forced_delay if forced_delay >= 0 else Netplay.pick_delay(path)
 	g.rematch = []
 	for c in g.players:
@@ -695,7 +784,10 @@ func _start(g: Game) -> void:
 			names.append("CPU (%s)" % g.cpu_fighters[slot] if c == null else (c as Client).label())
 		sides[side] = " + ".join(names)
 	_log("match %d started%s: %s vs %s, round trip %d ms, input delay %d" % [g.label,
-		" (rematch)" if g.n > 1 else "", sides[0], sides[1], roundi(path), g.delay])
+		(" in room '%s'" % g.room) if g.room != "" else (" (rematch)" if g.n > 1 else ""), sides[0], sides[1],
+		roundi(path), g.delay])
+	if g.room != "" and rooms.has(g.room):
+		_room_status(rooms[g.room])
 
 
 func _referee_step(g: Game, now: int) -> void:
@@ -816,13 +908,25 @@ func _drop(c: Client, why: String) -> void:
 		return
 	clients.erase(c.id)
 	_log("%s %s" % [c.label(), why])
+	var r: Room = rooms.get(c.room) if c.room != "" else null
+	if r != null and not (c in r.players) and not (c in r.watchers):
+		r = null  # turned away before it got in (a full room): not this room's to change
 	if c.watch:
 		if c.game != null:
 			c.game.watchers.erase(c)
 		c.game = null
+		if r != null:
+			r.watchers.erase(c)
+			if r.players.is_empty() and r.watchers.is_empty() and r.game == null:
+				rooms.erase(r.code)
+			else:
+				_room_status(r)
 		c.link.flush()
 		c.link.close()
 		return
+	if r != null:
+		r.players.erase(c)
+		r.locked.erase(c.id)
 	if c.check != null:
 		# Left during the ready check: everyone else goes back to waiting.
 		var k := c.check
@@ -832,7 +936,9 @@ func _drop(c: Client, why: String) -> void:
 			if o != c:
 				_requeue(o, MSG_LEFT)
 	var g := c.game
-	if g != null and g.size > 1 and not g.others(c).is_empty():
+	if r != null:
+		_room_left(r, c)
+	elif g != null and g.size > 1 and not g.others(c).is_empty():
 		_cpu_takes_over(g, c)
 	elif g != null:
 		_report(g)
@@ -877,6 +983,168 @@ func _cpu_takes_over(g: Game, c: Client) -> void:
 	if not (false in g.rematch):
 		_report(g)
 		_start(g)
+
+
+# ------------------------------------------------------------------ rooms
+
+## The room for a code, made if it's new.
+func _room(code: String) -> Room:
+	if not rooms.has(code):
+		var r := Room.new()
+		r.code = code
+		rooms[code] = r
+	return rooms[code]
+
+
+## A player with a room code said hello. Returns false if they were turned away (the
+## room is full). Between (or during) a room's matches they wait in state ROOM for the
+## next one, their hello's fighter as their pick; otherwise they wait to be grouped.
+func _join_room(c: Client) -> bool:
+	var r := _room(c.room)
+	if not r.cfg_set and c.size > 0:
+		# The first player to ask for a size makes the room what it is, for good.
+		r.cfg_set = true
+		r.size = c.size
+		r.tag = c.team.size()
+		r.rules = c.rules
+		r.arena = c.arena
+		r.maker = c.name
+	if r.full():
+		_refuse(c, "full", "Room %s is full. Pick Watch room to see its matches." % c.room.to_upper())
+		return false
+	if c.size == 0:
+		c.size = r.size  # a friend joining by code takes the room's size
+	if r.state != RoomState.WAITING and c.team.size() != r.tag:
+		_refuse(c, "fighter", "Room %s plays %d fighters each." % [c.room.to_upper(), r.tag])
+		return false
+	r.players.append(c)
+	if r.state != RoomState.WAITING:
+		c.state = State.ROOM
+		c.waiting_since = Time.get_ticks_msec()
+		r.locked[c.id] = true
+		_log("%s joined room '%s' between matches" % [c.label(), r.code])
+		c.link.send({"t": "wait", "msg": "In room %s: you play in its next match. They're %s..." % [
+			r.code.to_upper(), "playing" if r.state == RoomState.PLAYING else "picking fighters"]}, true)
+		_send_ping(c)
+		_room_status(r)
+		_room_ready(r)
+	else:
+		_room_status(r)
+	return true
+
+
+## Everyone in the room (players and spectators) hears who's in it and what it's doing.
+func _room_status(r: Room) -> void:
+	var who: Array = []
+	for c: Client in r.players:
+		who.append({"name": c.name, "fighter": String(c.team[0]) if not c.team.is_empty() else "",
+			"locked": r.locked.has(c.id), "playing": c.state == State.PLAYING and r.state == RoomState.PLAYING})
+	var m := {"t": "room", "code": r.code, "state": ROOM_STATE_NAMES[r.state], "players": who,
+		"watchers": r.watchers.size(), "size": r.size, "maker": r.maker}
+	for c: Client in r.players + r.watchers:
+		if clients.has(c.id):
+			c.link.send(m, true)
+
+
+## A player left the match-over for the fighter select: the room is picking now.
+func _room_next(c: Client) -> void:
+	var r: Room = rooms.get(c.room) if c.room != "" else null
+	if r == null or c.watch or r.state == RoomState.WAITING or not (c in r.players):
+		return
+	r.locked.erase(c.id)
+	if r.state == RoomState.PLAYING:
+		r.state = RoomState.SELECT
+		_log("room '%s' is picking fighters" % r.code)
+	_room_status(r)
+
+
+## A player locked in a fighter (a team for a tag Duel) for the room's next match.
+func _room_pick(c: Client, team) -> void:
+	var r: Room = rooms.get(c.room) if c.room != "" else null
+	if r == null or c.watch or r.state == RoomState.WAITING or not (c in r.players):
+		return
+	if not Netplay.valid_team(team) or (team as Array).size() != r.tag:
+		return
+	c.team = (team as Array).duplicate()
+	r.locked[c.id] = true
+	if r.state == RoomState.PLAYING:
+		r.state = RoomState.SELECT
+	_log("%s locked in for room '%s'" % [c.label(), r.code])
+	_room_status(r)
+	_room_ready(r)
+
+
+## Everyone in the room has locked in: the next match starts, re-seated.
+func _room_ready(r: Room) -> void:
+	if r.state != RoomState.SELECT or r.players.is_empty():
+		return
+	for c: Client in r.players:
+		if not r.locked.has(c.id):
+			return
+	var old := r.game
+	if old != null:
+		_retire(old)
+	r.game = null
+	_begin_game(r.players.duplicate(), r.size, r.rules)
+
+
+## A match that's over for good (its room moved on, or everyone left): reported and let
+## go. Its spectators are detached (a room's are re-attached by the next match).
+func _retire(g: Game) -> void:
+	_report(g)
+	games.erase(g)
+	for w: Client in g.watchers:
+		if w.game == g:
+			w.game = null
+	g.watchers.clear()
+	for c in g.players:
+		if c != null and (c as Client).game == g:
+			(c as Client).game = null
+	g.players.clear()  # players and game point at each other: break the loop
+
+
+## A room player left (already out of r.players). The room carries on without them.
+func _room_left(r: Room, c: Client) -> void:
+	var g := c.game
+	if r.players.is_empty():
+		# The last one: the room closes, and its spectators are told so.
+		if g != null:
+			_retire(g)
+		for w: Client in r.watchers.duplicate():
+			if clients.has(w.id):
+				w.link.send({"t": "bye", "why": "room"}, true)
+				w.link.flush()
+				clients.erase(w.id)
+				w.link.close()
+			w.game = null
+		r.watchers.clear()
+		rooms.erase(r.code)
+		_log("room '%s' closed" % r.code)
+		return
+	if g != null and g == r.game and g.size > 1 and not g.others(c).is_empty():
+		_cpu_takes_over(g, c)  # this match plays on; the next one has the slot open
+	elif g != null and g == r.game and g.size == 1:
+		# A 1v1 room: whoever is left waits for someone new, keeping the code.
+		_retire(g)
+		r.game = null
+		r.state = RoomState.WAITING
+		r.locked.clear()
+		for o: Client in r.players:
+			o.state = State.LOBBY
+			o.game = null
+			o.waiting_since = Time.get_ticks_msec()
+			o.wait_shown = -1
+			o.link.send({"t": "wait", "back": true,
+				"msg": "The other player left. Waiting for a player: room code %s" % r.code.to_upper()}, true)
+			_log("%s waits in room '%s' again" % [o.label(), r.code])
+	elif g != null and g == r.game:
+		# Nobody from that match is left (only newcomers waiting for the next): pick now.
+		_retire(g)
+		r.game = null
+		r.state = RoomState.SELECT
+	c.game = null
+	_room_status(r)
+	_room_ready(r)
 
 
 func _log(s: String) -> void:
