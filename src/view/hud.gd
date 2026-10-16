@@ -19,6 +19,8 @@ const CUT_IN_TICKS := 30
 ## On very wide screens the health panels stay within this width (centred).
 const HUD_MAX_W := 640.0
 const TYPE_PIPS := [["light", "LT"], ["heavy", "HV"], ["skill", "SK"], ["surge", "SG"]]
+## Training options shown as tags under the dummy's panel (MatchSim.training_flags).
+const TRAINING_TAGS := {"no_cooldowns": "NO COOLDOWNS", "full_energy": "SURGE FULL"}
 
 var sim: MatchSim
 var duel: DuelSim = null  ## set during a Duel: draws the team strip under each panel
@@ -260,6 +262,25 @@ func _card(slot: int, x: float, y: float, right: bool) -> void:
 
 
 ## `side` is a creature slot; `color_side` picks the stripe (its team in a team battle).
+## Training: the options that are on (the sim's training flags), as small tags under the
+## dummy's panel, right-aligned to `right_x`.
+func _training_tags(right_x: float) -> void:
+	if not sim.training:
+		return
+	var font := ThemeDB.fallback_font
+	var x := right_x
+	for k in ["full_energy", "no_cooldowns"]:  # right to left
+		if not sim.training_flags.get(k, false):
+			continue
+		var txt := String(TRAINING_TAGS[k])
+		var w := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 5).x + 6.0
+		x -= w
+		draw_rect(Rect2(x, 39, w, 8), C_PANEL)
+		draw_rect(Rect2(x, 39, 1, 8), C_ENERGY if k == "full_energy" else C_STAMINA)
+		_text(Vector2(x + 3, 45), txt, 5, C_TEXT)
+		x -= 3.0
+
+
 func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 	var c := sim.creatures[side]
 	draw_rect(Rect2(x, 3, 160, 34), C_PANEL)
@@ -269,6 +290,7 @@ func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 	var tag := String(tags[side])
 	if c.is_dummy:
 		tag = "F2: " + dummy_mode_name
+		_training_tags(x + 160.0)
 	_text(Vector2(x + 5, 12), name, 7, C_TEXT)
 	_text(Vector2(x + 5, 12), tag, 6, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, 150)
 	# Health is over the fighter now (FxView's bars); the panel keeps what isn't: the

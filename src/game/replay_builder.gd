@@ -5,6 +5,9 @@ extends RefCounted
 ## A setup is {"kind": "versus" | "training" | "duel" | "team" | "brawl", "ids": [fighter
 ## per slot], "teams": [[...], [...]] (duel, team), "size": per side (team), "rules": id
 ## (team: "" for a plain battle; duel: "1v1" for a best-of-three online 1v1), "arena": map id, "mutators": {...}, "mut_seed": int}.
+## Training adds "training_flags" (the options it started with, MatchSim.TRAINING_FLAGS)
+## and "flag_changes": [[frame, no_cooldowns, full_energy], ...], options changed from the
+## pause menu, applied just before that frame's inputs (`apply_flag_changes`).
 ## Returns {"sim": MatchSim, "game": the DuelSim / TeamSim / BrawlSim or null}.
 
 const REMOVED_MODE := "This replay is from a mode that was removed"
@@ -28,6 +31,7 @@ static func build(setup: Dictionary) -> Dictionary:
 	match kind:
 		"training":
 			out["sim"] = MatchFactory.training(String(ids[0]))
+			(out["sim"] as MatchSim).set_training_flags(setup.get("training_flags", {}))
 		"duel":
 			# "rules": "1v1" since online 1v1s went best of three; older replays have "".
 			var d := DuelSim.new(setup.get("teams", [[ids[0]], [ids[1]]]),
@@ -56,9 +60,20 @@ static func build(setup: Dictionary) -> Dictionary:
 static func play(rep: Replay) -> String:
 	var built := build(rep.setup if rep.setup is Dictionary else {})
 	var game = built["game"]
-	for f in rep.frames:
+	var setup: Dictionary = rep.setup if rep.setup is Dictionary else {}
+	for i in rep.frames.size():
+		var f: PackedInt32Array = rep.frames[i]
+		apply_flag_changes(built["sim"], setup, i)
 		if game != null:
 			game.step(f)
 		else:
 			(built["sim"] as MatchSim).step(f)
 	return (built["sim"] as MatchSim).state_digest()
+
+
+## A training replay: the options changed mid-recording that take effect before frame
+## `frame` (in the order they were made; the last one wins).
+static func apply_flag_changes(sim: MatchSim, setup: Dictionary, frame: int) -> void:
+	for ch in setup.get("flag_changes", []):
+		if ch is Array and (ch as Array).size() >= 3 and int(ch[0]) == frame:
+			sim.set_training_flags({"no_cooldowns": bool(ch[1]), "full_energy": bool(ch[2])})

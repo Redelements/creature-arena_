@@ -22,6 +22,7 @@ Abbreviations: **cs** = `src/sim/creature_sim.gd`, **ms** = `src/sim/match_sim.g
 9. `_resolve_hits()`: every active hit segment against every foe, through `_apply_hit`.
 10. `_separate()`: push solid bodies apart (an armored body doesn't budge).
 11. `_check_falls()`: anyone over a hole starts falling.
+12. Training only (`training` and a flag on): `_apply_training()` (see Training options below).
 
 `DuelSim.step` and `TeamSim.step` wrap this with phases, timers and win checks.
 
@@ -277,6 +278,13 @@ Views, audio, drills and the CPU read `sim.events`; the sim never reads them.
 - Online 1v1 (`data/rules/duel_1v1.json`): a Duel with one creature a side, best of three. `DuelSim.rules_for(teams)` / `rules_id_for` pick it (`"1v1"`, saved as the replay setup's `rules`; older replays have `""` and keep duel.json). Keys on top of duel.json's: `rounds_to_win` (2; 1 = no rounds), `round_over_ticks` (210, phase `ROUND_OVER`), `max_rounds` (5: then the side with more rounds wins, else a draw); `time_seconds` 90 per round. A drawn round counts for nobody. The next round restores the snapshot taken at construction (health, places, floor, clock) but keeps `sim.tick`, `round_wins`, `round_num` and `round_winner`, which are all in DuelSim's snapshot and digest. `round_over` fires only for a round that doesn't end the match; the deciding one sends `duel_over`.
 - Team battle (`data/rules/team.json`): everyone on the field, one life each; 150 s, then health share.
 - Team Deathmatch (`data/rules/deathmatch.json`, modes 31/32): `deathmatch` swaps one life for respawns after `respawn_seconds` on `pad_point(side, slot)` against each team's own wall; every KO adds to the other team's `score`; `guard_t` spawn protection lasts `spawn_protect_seconds` or until the fighter attacks; first to `score_to_win[per_side]` wins, else the higher score at time, and a tie goes to `overtime` sudden death (next KO wins). `score`, `respawn_t`, `guard_t` and the overtime flag are in TeamSim's snapshot. Main fills `FxView.pads` (the floor rings). Online too: the rules id rides in hello and `start` (`TeamSim.rules_by_id`).
+
+## Training options
+
+- `MatchSim.training` is set by `MatchFactory.training` while the match is being built (its setter refuses once a creature is in or a tick has run), so no versus, Duel, team, Brawl, online, Combo Trials or Reaction Drill match is ever a training match. It is fixed for the match (not snapshotted).
+- `MatchSim.training_flags` (`TRAINING_FLAGS`: `no_cooldowns`, `full_energy`; a missing key is off) is set only through `set_training_flags(flags)`, which returns false and changes nothing outside training and drops unknown keys. It is in `snapshot()`/`restore()`, and in `state_digest()` for training matches only (every other match's fingerprint is unchanged).
+- After every full tick (step 12), for each creature that isn't the dummy: `no_cooldowns` sets every `cooldowns` entry (moves and the dodge) to 0 and `stamina` to `max_stamina` (most dodges are gated by stamina; guard drain is refilled too); `full_energy` sets `energy` to `MAX_ENERGY` (no `surge_ready` event, so no chime after every Surge). A move used this tick is usable on the next.
+- Replays: a training setup carries `training_flags` and `flag_changes` `[[frame, no_cooldowns, full_energy], ...]`; `ReplayBuilder.apply_flag_changes` applies them before that frame's inputs (`ReplayBuilder.play` and the Replay theater).
 
 ## Input bits
 

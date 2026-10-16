@@ -15,6 +15,9 @@ extends Node2D
 ##                         greenhouse; data/arenas/)
 ##   --autoplay            training demo: the player side follows a scripted routine
 ##   --dummy-mode=N        0 stand, 1 guard, 2 walk, 3 dodge
+##   --training-flags=no_cooldowns,full_energy  training options on (pause > Training options)
+##   --training-screen=pause|options|fighters  open the training pause menu, its Training
+##                         options page or the Change fighter grid once training starts (captures)
 ##   --hitboxes            start with the hitbox overlay on
 ##   --range-rings         start with the range rings on (Settings > Controls; F7 in a fight)
 ##   --shots=60,120        save screenshots at those frame numbers
@@ -29,7 +32,8 @@ extends Node2D
 ##   --cpu-vs-cpu          every player side is played by the CPU (demos, captures)
 ##   --view-team=N         show the match as team N sees it (brush, fences, walls hide
 ##                         foes), even with nobody playing here (captures of --cpu-vs-cpu)
-##   --menu=PAGE           open a menu page: main, single, single:<group>, settings, game, video, audio, controls (captures)
+##   --menu=PAGE           open a menu page: main, single, single:<group>, settings, game, video, audio, controls,
+##                         remap:classic|league|gamepad (captures)
 ##   --online-host[=PORT]  host an online 1v1 straight away (UDP, default port 7777)
 ##   --online-join=ADDR[:PORT][/ROOM]  join one, or a dedicated server (ROOM: meet a friend there)
 ##   --online-watch=ADDR[:PORT][/ROOM] watch a server's match (a room's, from match to match)
@@ -162,7 +166,7 @@ const MENU_ROWS := [
 	{"label": "Reaction Drill", "group": "challenge", "modes": [10, 11], "choices": ["read Culvert", "read Cairn"],
 		"desc": "Block or dodge what the opponent throws at you"},
 	{"label": "Training", "group": "practice", "modes": [3, 4, 13, 15, 17, 19, 22, 24, 26, 28],
-		"desc": "Practise on a dummy (F2 changes what it does). Left/Right: your fighter",
+		"desc": "Practise on a dummy. Pause for training options and Change fighter. Left/Right: your fighter",
 		"choices": ["Cairn", "Culvert", "Craglash", "Barkley", "Gillbert", "Chef Cerebro", "Hissy Fitz", "Digby",
 			"Sneaky Pete", "Sno Mercy"]},
 	{"label": "Watch", "group": "practice", "modes": [5, 2], "choices": ["combo showcases", "CPU vs CPU"],
@@ -253,6 +257,14 @@ var _menu_ko_t := 0
 
 var player_input := PlayerInput.new()
 var dummy_mode := 0
+## Training options (pause > Training options; saved under [training]): the sim flags
+## every training match starts with (MatchSim.TRAINING_FLAGS).
+var training_opts := {"no_cooldowns": false, "full_energy": false}
+## The fighter picked with Change fighter: training rebuilds with it (Restart, F4) until
+## you leave training ("" = the mode's own).
+var _training_fighter := ""
+var _training_screen_arg := ""  ## --training-screen=pause|options|fighters
+var _swap_fade := 0.0  ## the black fade after a fighter swap, 1 → 0
 var shake := 0.0
 var _ko_cam_t := -1
 var _ko_focus := Vector2.ZERO
@@ -273,6 +285,7 @@ var player4_input := PlayerInput.new()
 var brawl: BrawlSim = null
 var _chaos_names := ""
 var _replay_frames: Array = []
+var _replay_watched := {}  ## that replay's setup (a training one's mid-recording option changes)
 var _rules_id := ""
 var _teams: Array = DEFAULT_TEAMS.duplicate(true)
 var _skip_select := false
@@ -413,6 +426,15 @@ func _ready() -> void:
 	_open_menu(_menu_arg)  # also starts the background match the pick screen sits on
 	if start_mode >= 0:
 		_start_match(start_mode)
+		if in_training():
+			match _training_screen_arg:
+				"pause":
+					_open_pause()
+				"options":
+					_open_pause()
+					_open_training_options()
+				"fighters":
+					_open_fighter_swap()
 	if _net_args.has("host") or _net_args.has("join"):
 		_auto_accept = true  # started from the command line: no one to ask
 		_open_lobby()
@@ -442,7 +464,7 @@ func _open_menu(page := "", focus := "") -> void:
 	hud.menu_visible = true
 	audio.play_music("menu")
 	_menu_background()
-	var land := focus if focus != "" else ("settings" if page in SETTING_PAGES or page == "controls" else page)
+	var land := focus if focus != "" else ("settings" if page in SETTING_PAGES or page == "controls" or page.begins_with("remap:") else page)
 	var t := TitleScreen.new(land)
 	t.single_pressed.connect(_open_single)
 	t.online_pressed.connect(func(): _start_match(ONLINE_MODE))
@@ -464,6 +486,10 @@ func _open_menu(page := "", focus := "") -> void:
 		"controls":
 			_open_settings()
 			_open_controls()
+		"remap:classic", "remap:league", "remap:gamepad":  # captures of a Remap page
+			_open_settings()
+			_open_controls()
+			_open_remap(page.get_slice(":", 1))
 
 
 ## A CPU-vs-CPU match behind the menus (restarted now and then; the screens stay).
@@ -693,6 +719,8 @@ static func mode_index(label: String) -> int:
 ## `keep_teams`: a rematch with the same teams (no pick screen).
 func _start_match(m: int, keep_teams := false) -> void:
 	_close_ui()
+	if not (keep_teams and m == mode):
+		_training_fighter = ""  # a swapped fighter lasts until you leave training
 	mode = m
 	wins = [0, 0]
 	round_num = 1
@@ -828,7 +856,9 @@ func _start_round() -> void:
 		_start_showcase()
 		return
 	if cfg.get("training", false):
-		_new_sim(MatchFactory.training(String(cfg["left"])), [Side.PLAYER, Side.DUMMY])
+		var t := MatchFactory.training(training_fighter())
+		t.set_training_flags(training_opts)
+		_new_sim(t, [Side.PLAYER, Side.DUMMY])
 		hud.timer_ticks = -1
 		hud.banner = ""
 		flow = Flow.FIGHT
@@ -1108,6 +1138,7 @@ func _play_replay(path: String) -> void:
 	for i in (built["sim"] as MatchSim).creatures.size():
 		s.append(Side.REPLAY)
 	_replay_frames = rep.frames
+	_replay_watched = rep.setup
 	if game is DuelSim:
 		duel = game
 		_new_sim(duel.sim, s)
@@ -1525,8 +1556,10 @@ func _replay_setup(s: MatchSim) -> Dictionary:
 		st["rules"] = _rules_id
 	elif brawl != null and brawl.sim == s:
 		st["kind"] = "brawl"
-	elif mode < MODES.size() and MODES[mode].get("training", false):
+	elif s.training:
 		st["kind"] = "training"
+		st["training_flags"] = s.training_flags.duplicate()
+		st["flag_changes"] = []  # options changed mid-recording (_apply_training_opts)
 	return st
 
 
@@ -1589,6 +1622,8 @@ func _physics_process(_delta: float) -> void:
 			inputs = coach.inputs(_side_bits(0, true))
 		if flow == Flow.FIGHT:
 			replay.record(inputs)
+		if _replaying() and sim.training:
+			ReplayBuilder.apply_flag_changes(sim, _replay_watched, sim.tick)
 		if duel != null:
 			duel.step(inputs)
 		elif team_battle != null:
@@ -1614,6 +1649,9 @@ func _physics_process(_delta: float) -> void:
 		hud.caption_items = showcase.caption_items()
 		hud.caption_index = showcase.show
 		fade_rect.color.a = showcase.fade
+	elif _swap_fade > 0.0:
+		_swap_fade = maxf(0.0, _swap_fade - 1.0 / 16.0)  # a fighter swap fades in from black
+		fade_rect.color.a = _swap_fade
 
 	arena.refresh()
 	crowd.advance()
@@ -2065,9 +2103,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		coach.replay_demo()
 	elif event.is_action_pressed("reset") and coach is ComboTrials:
 		coach.skip(1)
+	elif _change_fighter_pressed(event) and in_training():
+		_open_fighter_swap()
 	elif event.is_action_pressed("debug_dummy_mode"):
-		dummy_mode = (dummy_mode + 1) % DUMMY_MODES.size()
-		hud.dummy_mode_name = DUMMY_MODES[dummy_mode]
+		_set_setting("dummy_mode", (dummy_mode + 1) % DUMMY_MODES.size())
 		hud.show_toast("Dummy: " + DUMMY_MODES[dummy_mode])
 	elif event.is_action_pressed("debug_help"):
 		hud.show_help = not hud.show_help
@@ -2119,6 +2158,9 @@ func _open_pause() -> void:
 		return
 	paused = true
 	var p := PauseScreen.new(true, player_input.help_text().replace("   ", "\n").replace("  ", "\n") + _tools_help())
+	if in_training():
+		p.extras = [["Change fighter", _open_fighter_swap, "Swap your fighter here: the dummy, arena and options stay"],
+			["Training options", _open_training_options, "No cooldowns, Surge always full, what the dummy does"]]
 	p.resumed.connect(func(): paused = false)
 	p.restart_requested.connect(func():
 		_close_ui()
@@ -2133,6 +2175,94 @@ func _open_pause() -> void:
 func _close_ui() -> void:
 	ui.clear()
 	paused = false
+
+
+# ------------------------------------------------------------------ training
+
+## A training match played here (not a replay of one, not online).
+func in_training() -> bool:
+	return mode < MODES.size() and MODES[mode].get("training", false) and online == null and watch == null \
+		and sim != null and sim.training
+
+
+## The fighter training builds: the one picked with Change fighter, else the mode's.
+func training_fighter() -> String:
+	if _training_fighter != "":
+		return _training_fighter
+	return String(MODES[mode].get("left", "cairn")) if mode < MODES.size() else "cairn"
+
+
+## Change fighter (pause menu, or the change-fighter key): the pick screen's tiles, one
+## fighter for you. Back returns to where it was opened from.
+func _open_fighter_swap() -> void:
+	if not in_training():
+		return
+	paused = true
+	var p := CharacterSelect.new()
+	p.solo = true
+	p.solo_heading = "TRAINING"
+	p.solo_info = "Swaps your fighter in place. The dummy, the arena and your training options stay."
+	p.done_text = "SWAP!"
+	p.setup("CHANGE FIGHTER", 1, ["YOU", "NEXT"], false, [[String(sim.creatures[0].def.get("id", ""))], []])
+	p.p1_keyboard = player_input.keyboard
+	p.p1_pad = player_input.pad_device
+	p.chosen.connect(func(teams: Array): change_training_fighter(String(teams[0][0])))
+	p.cancelled.connect(func():
+		if ui.top() == p:
+			ui.pop()
+		if not ui.is_open():
+			paused = false)
+	ui.push(p)
+
+
+## Swaps the player's fighter in place: training is rebuilt with `id`, keeping the dummy
+## mode, the arena and the training options, and a short fade covers the cut. Restart
+## and F4 keep it until you leave training.
+func change_training_fighter(id: String) -> void:
+	if not in_training() or not (id in MatchFactory.FIGHTERS):
+		return
+	_training_fighter = id
+	_close_ui()
+	_start_round()
+	_swap_fade = 1.0
+	fade_rect.color.a = 1.0
+	hud.show_toast("Now playing " + String(MatchFactory.load_def(id).get("name", id)))
+
+
+## Pause > Training options: the sim's training flags and the dummy's behaviour.
+func _open_training_options() -> void:
+	var scr := UiScreen.new()
+	scr.crumbs = ["PAUSED"]
+	scr.title = "TRAINING OPTIONS"
+	scr.row_width = 230.0
+	scr.hints = ["move", "change", "back"]
+	scr.builder = func(s: UiScreen):
+		_add_setting_row(s, "no_cooldowns")
+		_add_setting_row(s, "full_energy")
+		_add_setting_row(s, "dummy_mode")
+		s.add_space(4)
+		s.add_button("Back", s.back)
+	scr.backed.connect(func(): _setting_rows.clear())
+	ui.push(scr)
+
+
+## Puts the training options on the match being played (a replay being recorded notes
+## the change at this frame, so it plays back the same).
+func _apply_training_opts() -> void:
+	if not in_training():
+		return
+	if not sim.set_training_flags(training_opts):
+		return
+	if replay != null and replay.setup is Dictionary and String(replay.setup.get("kind", "")) == "training":
+		var changes: Array = replay.setup.get("flag_changes", [])
+		changes.append([replay.frames.size(), bool(training_opts["no_cooldowns"]), bool(training_opts["full_energy"])])
+		replay.setup["flag_changes"] = changes
+
+
+## The change-fighter key of the player's own controls (like `_range_rings_pressed`).
+func _change_fighter_pressed(event: InputEvent) -> bool:
+	var kb := "lol_change_fighter" if player_input.layout == "league" else "kb_change_fighter"
+	return event.is_action_pressed(kb) or event.is_action_pressed("pad_change_fighter")
 
 
 ## A Settings row: its label, values (shown), current index, a description, and for a
@@ -2181,6 +2311,15 @@ func _setting(key: String) -> Dictionary:
 		"range_rings":
 			return {"label": "Range rings", "values": ["Off", "On"], "index": 1 if range_rings else 0,
 				"desc": "Show each attack's real hit area on the floor"}
+		"no_cooldowns":
+			return {"label": "No cooldowns", "values": ["Off", "On"], "index": 1 if training_opts["no_cooldowns"] else 0,
+				"desc": "Every move and the dodge are always ready, and your stamina stays full"}
+		"full_energy":
+			return {"label": "Surge always full", "values": ["Off", "On"], "index": 1 if training_opts["full_energy"] else 0,
+				"desc": "Your Surge meter stays full: throw the Surge as often as you like"}
+		"dummy_mode":
+			return {"label": "Dummy", "values": DUMMY_MODES, "index": dummy_mode,
+				"desc": "What the dummy does (F2 cycles it in a fight)"}
 		"rumble":
 			return {"label": "Controller rumble", "values": ["Off", "On"], "index": 1 if rumble else 0,
 				"desc": "A buzz when you land a hit or get hit"}
@@ -2247,6 +2386,12 @@ func _set_setting(key: String, i: int) -> void:
 			"range_rings":
 				range_rings = i == 1
 				_apply_range_rings()
+			"no_cooldowns", "full_energy":
+				training_opts[key] = i == 1
+				_apply_training_opts()
+			"dummy_mode":
+				dummy_mode = clampi(i, 0, DUMMY_MODES.size() - 1)
+				hud.dummy_mode_name = DUMMY_MODES[dummy_mode]
 			"discord":
 				discord_status = i == 1
 				_apply_discord()
@@ -2332,8 +2477,14 @@ func _range_rings_pressed(event: InputEvent) -> bool:
 
 ## The pause menu's Controls page: the fight tools after the moves.
 func _tools_help() -> String:
+	var out := ""
 	var key := player_input.label("range_rings")
-	return "\n%s range rings" % key if key != "" and key != "-" else ""
+	if key != "" and key != "-":
+		out += "\n%s range rings" % key
+	var swap := player_input.label("change_fighter")
+	if in_training() and swap != "" and swap != "-":
+		out += "\n%s change fighter" % swap
+	return out
 
 
 func _set_pad_layout(lay: String) -> void:
@@ -2431,6 +2582,9 @@ func _load_settings() -> void:
 		discord_status = bool(cfg.get_value("game", "discord", true))
 		shake_scale = float(cfg.get_value("game", "shake", 1.0))
 		range_rings = bool(cfg.get_value("game", "range_rings", false))
+		for k in MatchSim.TRAINING_FLAGS:
+			training_opts[k] = bool(cfg.get_value("training", k, false))
+		dummy_mode = clampi(int(cfg.get_value("training", "dummy_mode", 0)), 0, DUMMY_MODES.size() - 1)
 		Controls.apply_overrides(cfg.get_value("controls", "bindings", {}))
 		var fps := int(cfg.get_value("video", "fight_fps", DEFAULT_FPS))
 		fight_fps = fps if fps in FPS_CHOICES else DEFAULT_FPS
@@ -2461,6 +2615,9 @@ func _save_settings() -> void:
 	cfg.set_value("game", "rumble", rumble)
 	cfg.set_value("game", "shake", shake_scale)
 	cfg.set_value("game", "range_rings", range_rings)
+	for k in MatchSim.TRAINING_FLAGS:
+		cfg.set_value("training", k, bool(training_opts.get(k, false)))
+	cfg.set_value("training", "dummy_mode", dummy_mode)
 	cfg.set_value("game", "discord", discord_status)
 	cfg.set_value("controls", "bindings", Controls.overrides())
 	for bus in AudioView.DEFAULT_VOLUMES:
@@ -2540,6 +2697,12 @@ func _parse_args() -> int:
 				MatchFactory.arena = ar
 		elif a.begins_with("--dummy-mode="):
 			dummy_mode = clampi(int(a.get_slice("=", 1)), 0, DUMMY_MODES.size() - 1)
+		elif a.begins_with("--training-flags="):
+			var on := a.get_slice("=", 1).split(",")
+			for k in MatchSim.TRAINING_FLAGS:
+				training_opts[k] = k in on
+		elif a.begins_with("--training-screen="):
+			_training_screen_arg = a.get_slice("=", 1)
 		elif a.begins_with("--shots="):
 			for s in a.get_slice("=", 1).split(","):
 				_shots[int(s)] = true
@@ -2563,7 +2726,8 @@ func _parse_args() -> int:
 			_net_args["watch"] = true
 		elif a.begins_with("--menu="):
 			var page := a.get_slice("=", 1)
-			if page in ["main", "single", "settings", "game", "video", "audio", "controls"] or page.begins_with("single:"):
+			if page in ["main", "single", "settings", "game", "video", "audio", "controls"] or page.begins_with("single:") \
+					or page in ["remap:classic", "remap:league", "remap:gamepad"]:
 				_menu_arg = "" if page == "main" else page
 		elif a.begins_with("--fighter="):
 			var f := a.get_slice("=", 1)

@@ -22,6 +22,8 @@ const BLOCKED_ENDER_DISADVANTAGE := 16
 ## Defaults for a poison move without "poison_every" and a reel without "reel_speed".
 const POISON_EVERY_DEFAULT := 30
 const REEL_SPEED_DEFAULT := 5.0
+## Training options a training match can turn on (set_training_flags).
+const TRAINING_FLAGS := ["no_cooldowns", "full_energy"]
 
 var tick := 0
 var hitstop := 0
@@ -49,6 +51,13 @@ var zone_pos := Vector2.ZERO
 var zone_r := 0.0
 ## Match mutators (data/rules/mutators.json entries merged), fixed for the match.
 var mutators := {}
+## Training options (MatchFactory.training only): `training` is fixed when the match is
+## built; `training_flags` ({"no_cooldowns": true, "full_energy": true}, missing = off)
+## can change between ticks and is saved by snapshot(). Any other match refuses them.
+var training := false:
+	set(v):
+		training = v and tick == 0 and creatures.is_empty()  # only while it's being built
+var training_flags := {}
 var creatures: Array[CreatureSim] = []
 var projectiles: Array[Dictionary] = []
 ## Ground zones (Sno Mercy's Syrup Slick): {owner, pos, radius, ticks, slow_mult}. Foes of
@@ -163,6 +172,39 @@ func step(inputs: PackedInt32Array) -> void:
 	_separate()
 	_unstick()
 	_check_falls()
+	if training and not training_flags.is_empty():
+		_apply_training()
+
+
+## The training options this match is played with (TRAINING_FLAGS keys; anything else is
+## dropped). Returns false, changing nothing, unless MatchFactory.training built it, so a
+## versus, team, duel or online match can never have them.
+func set_training_flags(flags: Dictionary) -> bool:
+	if not training:
+		return false
+	var out := {}
+	for k in TRAINING_FLAGS:
+		if bool(flags.get(k, false)):
+			out[k] = true
+	training_flags = out
+	return true
+
+
+## After every tick of a training match, for the player (every creature that isn't the
+## dummy): no_cooldowns readies every move and the dodge and fills the stamina (most
+## dodges are gated by stamina); full_energy keeps the Surge meter full.
+func _apply_training() -> void:
+	var ready := bool(training_flags.get("no_cooldowns", false))
+	var full := bool(training_flags.get("full_energy", false))
+	for c in creatures:
+		if c.is_dummy:
+			continue
+		if ready:
+			for k in c.cooldowns.keys():
+				c.cooldowns[k] = 0
+			c.stamina = c.max_stamina
+		if full:
+			c.energy = CreatureSim.MAX_ENERGY
 
 
 func _buffer_all(inputs: PackedInt32Array) -> void:
@@ -196,6 +238,7 @@ func snapshot() -> Dictionary:
 		"cells": terrain.cells.duplicate(), "timers": terrain.timers.duplicate(), "base": terrain.base.duplicate(),
 		"terrain_version": terrain.version,
 		"creatures": cs, "projectiles": projectiles.duplicate(true), "zones": zones.duplicate(true),
+		"training_flags": training_flags.duplicate(),
 	}
 
 
@@ -218,6 +261,7 @@ func restore(s: Dictionary) -> void:
 		creatures[i].load_state(cs[i])
 	projectiles.assign((s["projectiles"] as Array).duplicate(true))
 	zones.assign((s.get("zones", []) as Array).duplicate(true))
+	training_flags = (s.get("training_flags", {}) as Dictionary).duplicate()
 	events.clear()
 
 
@@ -234,6 +278,9 @@ func state_digest() -> String:
 		parts.append_array([p["pos"], p["vel"], p["life"], p["owner"], p["serial"]])
 	for z in zones:
 		parts.append_array([z["pos"], z["radius"], z["ticks"], z["owner"], z["slow_mult"]])
+	if training:  # (only training matches: every other match's fingerprint is unchanged)
+		for k in TRAINING_FLAGS:
+			parts.append(bool(training_flags.get(k, false)))
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(var_to_bytes(parts))
