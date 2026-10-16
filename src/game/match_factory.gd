@@ -3,7 +3,7 @@ extends RefCounted
 ## Builds matches from the creature definitions in data/creatures/.
 
 const CREATURE_DIR := "res://data/creatures/"
-const FIGHTERS := ["cairn", "culvert", "craglash", "barkley", "gillbert", "cerebro", "hissy", "digby", "pete", "sno"]
+const FIGHTERS := ["cairn", "culvert", "craglash", "barkley", "gillbert", "cerebro", "hissy", "digby", "pete", "sno", "crease"]
 
 ## Either side of the floor's centre, a little below the line through it.
 const SPAWN_GAP := 100.0
