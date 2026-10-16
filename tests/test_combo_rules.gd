@@ -198,7 +198,9 @@ func test_breakaway_not_on_the_first_hits() -> void:
 	var sim := _duel("craglash", "cairn")  # his lights stagger on every hit
 	var d := sim.creatures[1]
 	d.energy = 100.0
-	tap(sim, L, 12)
+	tap(sim, L, 1)  # his Rake is slow: wait for it to land
+	run_until(sim, func(): return d.combo_hits >= 1, 40)
+	run(sim, 0, 2)
 	assert_eq(d.combo_hits, 1, "one hit:")
 	run(sim, 0, 1, G | D)
 	assert_true(d.is_stunned(), "still stunned after one hit")

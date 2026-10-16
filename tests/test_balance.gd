@@ -165,10 +165,9 @@ func test_assassins_beat_the_mage() -> void:
 
 
 func test_the_mage_beats_fighters_and_tanks() -> void:
-	# Craglash is left out on purpose: his hook and Landslide Ram are built to catch mages
-	# and skirmishers (Kevin's call, PR #62), and at Rage he now takes about 5 of 8 from
-	# Chef Cerebro. Revisit once team fights give the tank job its proper measure.
-	for foe in ["cairn", "hissy", "culvert"]:
+	# Craglash joined the list with his balance pass (175 HP, half-speed strings, Stoneskin
+	# only out of combat): Rage Cerebro now takes about 3 of 4 from him.
+	for foe in ["cairn", "hissy", "culvert", "craglash"]:
 		var r := _wins("cerebro", foe, 4)
 		assert_gt(float(r[0]), r[1] * 0.5, "Chef Cerebro beats %s (%d of %d):" % [foe, r[0], r[1]])
 
@@ -188,9 +187,9 @@ func test_class_mirrors_are_close() -> void:
 		var share := float(r[0]) / float(r[1])
 		assert_true(share >= 0.3 and share <= 0.7, "%s vs %s is close (%d of %d)" % [pair[0], pair[1], r[0], r[1]])
 	# The tank mirror leans Culvert's way: Rage Craglash walks into his pits (about 2.5x
-	# the hit damage taken and three times the falls), and Culvert's Slam block moving
-	# clear of his own feet widened it from 2 to 1 of 10. Pinned here until Craglash gets
-	# a balance pass; the bound only says it hasn't got worse.
+	# the hit damage taken and three times the falls). His balance pass (175 HP, strings at
+	# half speed, Stoneskin only out of combat) took him from about 4 to 1 of 12 in the
+	# bench; the bound only says he still takes a game.
 	var r := _wins("craglash", "culvert", 5)
 	assert_true(r[0] >= 1, "craglash vs culvert: Craglash still takes a game (%d of %d)" % [r[0], r[1]])
 

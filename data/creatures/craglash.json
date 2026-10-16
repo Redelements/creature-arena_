@@ -4,7 +4,7 @@
   "title": "The mountain that woke up angry",
   "affinity": "stone",
   "role": "tank",
-  "max_hp": 190,
+  "max_hp": 175,
   "speed": 2.02,
   "accel": 0.36,
   "radius": 12,
@@ -22,7 +22,7 @@
       "breaks": ["wall"],
       "type": "light",
       "damage": 4,
-      "hitstun": 18,
+      "hitstun": 28,
       "knockback": 1.2,
       "hitstop": 4,
       "radius": 2,
@@ -38,7 +38,8 @@
   "stoneskin": {
     "name": "Stoneskin",
     "shield": 30,
-    "delay": 180
+    "delay": 420,
+    "reset_on_deal": true
   },
   "fx_height": 24,
   "fx_top": 72,
@@ -222,17 +223,17 @@
     "light_1": {
       "name": "Rake",
       "anim": "claw",
-      "startup": 9,
-      "active": 3,
-      "recovery": 13,
-      "cancel_from": 13,
+      "startup": 17,
+      "active": 5,
+      "recovery": 24,
+      "cancel_from": 24,
       "damage": 6,
       "knockback": 0.9,
-      "hitstun": 20,
+      "hitstun": 36,
       "hitstop": 4,
       "reach": 28,
       "hit_radius": 11,
-      "lunge": 0.8,
+      "lunge": 0.45,
       "next": "light_2",
       "juggle": true,
       "fx": {
@@ -242,17 +243,17 @@
     "light_2": {
       "name": "Backhand",
       "anim": "backhand",
-      "startup": 8,
-      "active": 3,
-      "recovery": 13,
-      "cancel_from": 13,
+      "startup": 15,
+      "active": 5,
+      "recovery": 24,
+      "cancel_from": 24,
       "damage": 6,
       "knockback": 0.9,
-      "hitstun": 22,
+      "hitstun": 40,
       "hitstop": 4,
       "reach": 28,
       "hit_radius": 11,
-      "lunge": 0.8,
+      "lunge": 0.45,
       "next": "light_3",
       "juggle": true,
       "fx": {
@@ -262,16 +263,16 @@
     "light_3": {
       "name": "Headbutt",
       "anim": "headbutt",
-      "startup": 12,
-      "active": 3,
-      "recovery": 22,
+      "startup": 22,
+      "active": 5,
+      "recovery": 40,
       "damage": 10,
       "knockback": 2.4,
-      "hitstun": 26,
+      "hitstun": 46,
       "hitstop": 7,
       "reach": 34,
       "hit_radius": 11,
-      "lunge": 0.4,
+      "lunge": 0.22,
       "next": "",
       "fx": {
         "smear": "thrust",
@@ -279,19 +280,19 @@
       }
     },
     "heavy": {
-      "armor": { "from": 0, "to": 12, "reduction": 0.5 },
+      "armor": { "from": 0, "to": 22, "reduction": 0.5 },
       "name": "Rockslide Stomp",
       "anim": "stomp",
-      "windup": 10,
+      "windup": 18,
       "tell": "strong",
       "charge_max": 30,
-      "startup": 8,
-      "active": 4,
-      "recovery": 24,
+      "startup": 15,
+      "active": 7,
+      "recovery": 44,
       "damage": 11,
       "damage_charged": 14,
       "knockback": 0.6,
-      "hitstun": 20,
+      "hitstun": 36,
       "hitstop": 8,
       "hitstop_charged": 12,
       "launch": 34,
@@ -307,12 +308,12 @@
     "skill_1": {
       "name": "Landslide Charge",
       "anim": "headbutt",
-      "windup": 8,
+      "windup": 14,
       "tell": "strong",
       "cooldown": 180,
-      "startup": 6,
-      "active": 12,
-      "recovery": 18,
+      "startup": 11,
+      "active": 22,
+      "recovery": 32,
       "damage": 8,
       "knockback": 1.0,
       "hitstun": 20,
@@ -322,17 +323,17 @@
       "reach": 16,
       "hit_radius": 16,
       "dash": {
-        "speed": 4.0,
-        "from": 2,
-        "to": 17,
+        "speed": 2.6,
+        "from": 3,
+        "to": 28,
         "breaks": ["wall"]
       },
       "fx": {
         "smear": "thrust",
         "size": 1.4,
         "afterimage": [
-          2,
-          17
+          3,
+          28
         ],
         "ghost_color": "#e8a49caa",
         "trail": "gravel"
@@ -344,12 +345,12 @@
       "windup": 12,
       "tell": "unblockable",
       "cooldown": 300,
-      "startup": 14,
+      "startup": 20,
       "active": 0,
-      "recovery": 42,
+      "recovery": 46,
       "damage": 6,
       "knockback": 0.2,
-      "crumple": 50,
+      "crumple": 68,
       "pull": 14,
       "guard_break": true,
       "hitstop": 8,
@@ -369,23 +370,23 @@
           0
         ],
         [
-          6,
+          8,
           1
         ],
         [
-          12,
+          17,
           2
         ],
         [
-          15,
+          21,
           3
         ],
         [
-          40,
+          48,
           4
         ],
         [
-          48,
+          58,
           5
         ]
       ],
