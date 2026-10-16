@@ -198,9 +198,6 @@ func on_event(e: Dictionary) -> void:
 			play("land", 2.0, 0.8)
 		"smash":
 			play("slam", -2.0, 1.2)
-		"hype":
-			if power >= 30.0:
-				play("crowd_cheer", -3.0 + minf(power, 80.0) * 0.05)
 		"zone_move":
 			play("slam", -4.0, 0.8)
 			play("crowd_cheer", -8.0)

@@ -323,10 +323,6 @@ func spawn(e: Dictionary) -> void:
 					_text(c.pos + Vector2(0, -_top(c) - 14), "SLOWED", Color("b9c6d6"), 7, 40.0)
 		"taunt":
 			_add({"kind": "ring", "pos": p, "life": 14, "radius": 18.0, "color": C_TAUNT})
-		"hype":
-			# Showtime: the crowd's take on the moment, floating off it.
-			if power >= 15.0:
-				_text(p + Vector2(0, -26), "+%d HYPE" % int(power), Hud.SIDE_COLORS[int(e.get("team", 0))], 7, 36.0)
 		"sink_warn", "sink":
 			# Sinkhole: dust shakes off the doomed ring, then the ring drops in a cloud.
 			var rect: Rect2 = e.get("rect", Rect2())

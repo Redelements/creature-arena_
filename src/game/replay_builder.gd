@@ -7,6 +7,18 @@ extends RefCounted
 ## (team: "" for a plain battle; duel: "1v1" for a best-of-three online 1v1), "arena": map id, "mutators": {...}, "mut_seed": int}.
 ## Returns {"sim": MatchSim, "game": the DuelSim / TeamSim / BrawlSim or null}.
 
+const REMOVED_MODE := "This replay is from a mode that was removed"
+
+
+## Why a setup can't be rebuilt any more ("" when it can): a team replay whose rules id
+## is no longer one of TeamSim.RULE_IDS (Showtime, removed) would rebuild as a different
+## match and play its inputs into nonsense, so the theater refuses it instead.
+static func unsupported(setup: Dictionary) -> String:
+	if String(setup.get("kind", "versus")) == "team" and not TeamSim.RULE_IDS.has(String(setup.get("rules", ""))):
+		return REMOVED_MODE
+	return ""
+
+
 static func build(setup: Dictionary) -> Dictionary:
 	var kind := String(setup.get("kind", "versus"))
 	var ids: Array = setup.get("ids", ["cairn", "culvert"])
@@ -23,12 +35,7 @@ static func build(setup: Dictionary) -> Dictionary:
 			out["sim"] = d.sim
 			out["game"] = d
 		"team":
-			var rules := {}
-			match String(setup.get("rules", "")):
-				"deathmatch": rules = TeamSim.load_rules(TeamSim.DEATHMATCH_PATH)
-				"sinkhole": rules = TeamSim.load_rules(TeamSim.SINKHOLE_PATH)
-				"crater": rules = TeamSim.load_rules(TeamSim.CRATER_PATH)
-				"showtime": rules = TeamSim.load_rules(TeamSim.SHOWTIME_PATH)
+			var rules := TeamSim.rules_by_id(String(setup.get("rules", "")))
 			var t := TeamSim.new(setup.get("teams", [[ids[0]], [ids[1]]]), int(setup.get("size", 1)), rules)
 			out["sim"] = t.sim
 			out["game"] = t
