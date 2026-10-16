@@ -415,6 +415,44 @@ Facing down and up: [`sno_views_preview.png`](sno_views_preview.png).
 | 11 | guard | 2 | gloves up in front of his face |
 | 12 | ko | 4 | topples and melts into a puddle |
 
+### Mister Crease — 128×160 frames, 8 × 16 (1024×2560 px)
+
+`tools/gen_crease.py`, on the shared renderer, from the concept art: an origami magician.
+Everything is faceted paper: polygonal prisms for the limbs and the jacket, flat plates
+for the lapels, coat skirts, cape and shoes, a pleated twelve-face brim and a creased
+four-sided crown with a folded tip. Each piece is one part (so the outline pass doesn't
+draw seams inside it) and every face carries an id; `decorate` draws a crease line where
+two faces of the same paper meet. No face under the hat: a shadow and a red collar point.
+The hat stays nearly level when he leans. Drawn at 0.86 scale, feet at **x 64, y 136**
+(the frames are taller for the hat and the victory crane); up and down sheets are
+**112×160**, feet at x 56, y 136 (down) and y 124 (up). All 16 rows are in all three
+views (`ko` is still side-only in the data). The crafts he carries between moves are
+drawn by `PaperFx`, not baked into the frames; the ones in his hands during a fold or a
+throw are in the frames.
+
+![Mister Crease sheet, 3x](crease_preview.png)
+
+Facing down and up: [`crease_views_preview.png`](crease_views_preview.png).
+
+| Row | Animation | Frames | Notes |
+| --- | --- | --- | --- |
+| 0 | idle | 4 | hand on hip, the far palm up, the cape settling |
+| 1 | run | 6 | the strut: long strides, shoulders rolling, cape swinging |
+| 2 | flick | 4 | Paper Cut (lights 1 and 3), near hand: wind back, flick, follow-through, recover |
+| 3 | flick2 | 4 | Paper Cut (light 2), far hand |
+| 4 | fold_shuriken | 4 | a sheet lands in his hands, quick creases, the star, tucked into the hat band |
+| 5 | fold_crane | 4 | the sheet, careful folds, the crane, set on his near hand |
+| 6 | fold_frog | 4 | the sheet, folds, the frog, onto his far shoulder |
+| 7 | shuriken | 6 | Paper Shuriken: charge A/B (the star raised over the hat), rise, fling, follow-through, recover |
+| 8 | crane | 5 | Paper Crane: hand up, the crane lifts, launched, follow-through, recover |
+| 9 | frog | 6 | Paper Frog: the frog set down, crouched on it, the leap riding it, falling, the slam, recover |
+| 10 | surge | 6 | Thousand Cranes: arms up, sheets spiral in, the throw (the cut-in frame), watching, the bow, recover |
+| 11 | dodge | 4 | Paper Plane: folds down, the airplane (two gliding frames), unfolds |
+| 12 | hurt | 2 | recoil, hat knocked askew; frame 1 doubles as the crumple pose |
+| 13 | guard | 2 | the cape swept up in front like a curtain |
+| 14 | ko | 4 | crumples like dropped paper, the hat rolling off |
+| 15 | victory | 8 | folds into a giant crane, the flight loop (frames 1-5), unfolds, the bow |
+
 ## Training dummy — 48×48 frames
 
 4 columns × 2 rows. Row 0: idle, hurt A, hurt B, guard. Row 1: knock-over, 4 frames.
