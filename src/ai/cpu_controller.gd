@@ -94,6 +94,7 @@ var _detour_dir := Vector2.ZERO
 var _hold_heavy := 0
 var _hold_bit := SimDefs.IN_HEAVY  ## the button a held charge is held on
 var _hold_serial := -1  ## the attack whose "hold" (full-charge) choice is made
+var _guard_press := false  ## the last attack pressed was thrown to beat a guard
 ## Set in a Duel, so the CPU can tag out a hurt creature.
 var duel: DuelSim = null
 
@@ -318,12 +319,19 @@ func _continue_attack(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: fl
 			# otherwise it's a roll (Gulp: a hook or a swallow, same reach either way).
 			var tap_reach := float(mv.get("reach", 0.0)) + float(mv.get("hit_radius", 0.0)) + foe.radius
 			var out_of_tap := not mv.has("projectile") and dist > tap_reach
-			if me.move_id != "heavy" and (out_of_tap or _roll(0.25 + 0.1 * level)):
+			if _breaks_guard_held_only(mv):
+				# It only breaks guard at a full charge (Sack Smack): thrown at a guard, held
+				# all the way; otherwise it's a plain heavy, tapped.
+				if _guard_press or foe.state == CreatureSim.State.GUARD:
+					_hold_heavy = int(mv.get("charge_max", 0)) + 1
+					_hold_bit = int(ACTION_BIT.get(me.move_id, SimDefs.IN_HEAVY))
+			elif me.move_id != "heavy" and (out_of_tap or _roll(0.25 + 0.1 * level)):
 				_hold_heavy = int(mv.get("charge_max", 0)) + 1
 				_hold_bit = int(ACTION_BIT.get(me.move_id, SimDefs.IN_HEAVY))
 		if _hold_heavy > 0:
 			_hold_heavy -= 1
 			_hold(_hold_bit if me.move_id != "heavy" else SimDefs.IN_HEAVY)
+		_guard_press = false
 		return
 	# A steerable dash (Burrow): steer it toward the foe, to come up under them.
 	if float(me.move_def().get("dash", {}).get("steer", 0.0)) > 0.0:
@@ -361,6 +369,7 @@ func _continue_attack(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: fl
 		if grab != "" and me.can_use(grab) and me.move_rank(grab) > me.move_rank(me.move_id) \
 				and foe.state == CreatureSim.State.GUARD:
 			_press(int(ACTION_BIT[grab]))
+			_guard_press = true
 		return
 	# On the first contact, pick a route; each new move after that is one step along it.
 	if _route.is_empty():
@@ -987,7 +996,7 @@ func _rage_defend(sim: MatchSim, me: CreatureSim) -> bool:
 		from = o.pos
 		need = reach - d + 2.0
 		var mv := o.move_def()
-		kind = "unblockable" if bool(mv.get("grab", false)) or bool(mv.get("guard_break", false)) \
+		kind = "unblockable" if _breaks_guard(mv) and (not _breaks_guard_held_only(mv) or o.charge_ratio >= 1.0) \
 			or String(mv.get("type", "")) == "surge" else "strike"
 	for pr in sim.projectiles:
 		var owner_id := int(pr["owner"])
@@ -1219,6 +1228,7 @@ func _rage_neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vec
 			and me.can_use(grab):
 		_hold(SimDefs.move_bits(to_foe))
 		_press(int(ACTION_BIT[grab]))
+		_guard_press = true
 		return
 
 	if _rage_kit(sim, me, foe, to_foe, dist, plan):
@@ -1313,7 +1323,7 @@ func _guard_answer(me: CreatureSim, dist: float) -> String:
 	for act in ["heavy", "skill_1", "skill_2", "surge"]:
 		var mid := me.action_move(act)
 		var mv: Dictionary = me.moves().get(mid, {})
-		if mv.is_empty() or not (bool(mv.get("grab", false)) or bool(mv.get("guard_break", false))):
+		if mv.is_empty() or not _breaks_guard(mv):
 			continue
 		if not me.can_use(mid) or mv.has("counter"):
 			continue
@@ -1328,6 +1338,19 @@ func _guard_answer(me: CreatureSim, dist: float) -> String:
 			best_rank = rank
 			best = act
 	return best
+
+
+## A grab or a guard-breaker, including one that only breaks guard held to a full charge.
+static func _breaks_guard(mv: Dictionary) -> bool:
+	return bool(mv.get("grab", false)) or bool(mv.get("guard_break", false)) \
+		or bool(mv.get("hold", {}).get("guard_break", false))
+
+
+## A move that breaks guard only at a full charge ("hold": {"guard_break": true}, Sack
+## Smack): the CPU has to hold it all the way to the top.
+static func _breaks_guard_held_only(mv: Dictionary) -> bool:
+	return bool(mv.get("hold", {}).get("guard_break", false)) and not bool(mv.get("guard_break", false)) \
+		and not bool(mv.get("grab", false))
 
 
 func _is_ranged(o: CreatureSim) -> bool:
