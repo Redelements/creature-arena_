@@ -413,6 +413,15 @@ menu adds:
   in your settings. They exist only in training: no other mode, Combo Trials and Reaction
   Drills included, can turn them on.
 
+**DPS meter:** the dummy's panel shows the damage you do to it per second, with the
+burst's total and length under it ("DPS 16.7", "40 dmg 2.4 s"). A burst starts at your
+first damage and ends after 2.5 s without any; its DPS is the total over the time from
+its first damage to its last (at least a second, so one hit reads as its damage). The
+number is gold while the burst is going and stays, dimmed, until your next hit starts a
+new one. Everything that takes the dummy's health counts: clean hits, block and armor
+chip, projectiles, poison, falls; the dummy refilling after a KO doesn't. Paused time
+doesn't count.
+
 A training replay (F6) records the options and every change you make to them, so it plays
 back exactly; swapping your fighter starts a fresh replay from the swap.
 

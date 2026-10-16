@@ -309,3 +309,153 @@ func test_options_changed_mid_training_replay_exactly() -> void:
 	var back := Replay.from_dict(JSON.parse_string(JSON.stringify(g.replay.to_dict())))
 	assert_eq(ReplayBuilder.play(back), g.sim.state_digest(), "the saved replay plays back exactly:")
 	g.free()
+
+
+# ------------------------------------------------------------------ the dummy is left alone
+
+func test_the_flags_never_touch_the_dummy() -> void:
+	# The same match with both flags on and off, the player throwing only lights (no
+	# cooldown, no stamina, no Surge, so the flags can't change what the dummy goes
+	# through) and the dummy guarding, dodging and getting hit: its cooldowns, stamina and
+	# energy match tick for tick.
+	var off := _training("cairn")
+	var on := _training("cairn", {"no_cooldowns": true, "full_energy": true})
+	var seen_drain := false
+	var seen_energy := false
+	for sim in [off, on]:
+		sim.creatures[1].pos = sim.creatures[0].pos + Vector2(22, 0)
+		sim.creatures[1].cooldowns["dodge"] = 40  # something for no_cooldowns to (not) clear
+	for i in 600:
+		var p0 := SimDefs.IN_LIGHT if i % 12 == 0 else 0
+		var p1 := SimDefs.IN_GUARD if (i / 100) % 2 == 0 else (DODGE if i % 50 == 25 else 0)
+		for sim in [off, on]:
+			sim.step(PackedInt32Array([p0, p1]))
+		var a: CreatureSim = off.creatures[1]
+		var b: CreatureSim = on.creatures[1]
+		if a.cooldowns != b.cooldowns or a.stamina != b.stamina or a.energy != b.energy or a.hp != b.hp:
+			assert_true(false, "tick %d: the dummy differs with the flags on: %s/%s %s/%s %s/%s" % [i,
+				a.stamina, b.stamina, a.energy, b.energy, a.cooldowns, b.cooldowns])
+			return
+		seen_drain = seen_drain or a.stamina < a.max_stamina
+		seen_energy = seen_energy or a.energy > 0.0
+	assert_true(seen_drain, "the dummy's stamina was spent (guard, dodge)")
+	assert_true(seen_energy, "the dummy gained energy from the hits")
+	assert_eq(on.creatures[0].energy, CreatureSim.MAX_ENERGY, "while the player's Surge stayed full:")
+
+
+# ------------------------------------------------------------------ the DPS meter
+
+func test_dps_meter_burst_totals_and_average() -> void:
+	var m := DpsMeter.new()
+	m.observe(250.0, 100)
+	assert_false(m.has_burst(), "nothing yet")
+	m.observe(240.0, 101)  # 10
+	m.observe(240.0, 130)
+	m.observe(228.0, 160)  # 12
+	m.observe(220.0, 221)  # 8, two seconds after the first
+	assert_true(m.active(), "")
+	assert_near(m.total, 30.0, 0.001, "total:")
+	assert_near(m.seconds(), 2.0, 0.001, "first damage to last:")
+	assert_near(m.dps(), 15.0, 0.001, "30 over 2 s:")
+	m.observe(220.0, 300)  # quiet, but not 2.5 s yet: still the same burst, numbers steady
+	assert_true(m.active(), "")
+	assert_near(m.dps(), 15.0, 0.001, "")
+	m.observe(220.0, 300)  # paused: the same tick again changes nothing
+	m.observe(220.0, 221 + DpsMeter.QUIET_TICKS)
+	assert_false(m.active(), "2.5 s quiet ends the burst")
+	assert_near(m.total, 30.0, 0.001, "its numbers stay:")
+	assert_near(m.dps(), 15.0, 0.001, "")
+	m.observe(215.0, 1000)  # the next damage starts a new burst
+	assert_true(m.active(), "")
+	assert_near(m.total, 5.0, 0.001, "a fresh burst:")
+	assert_near(m.seconds(), 0.0, 0.001, "")
+	assert_near(m.dps(), 5.0, 0.001, "one lone hit counts as a second:")
+
+
+func test_dps_meter_skips_refills_and_a_new_match() -> void:
+	var m := DpsMeter.new()
+	m.observe(20.0, 10)
+	m.observe(0.0, 11)  # KO'd: 20
+	m.observe(250.0, 101)  # the dummy refills
+	m.observe(240.0, 110)  # 10
+	assert_near(m.total, 30.0, 0.001, "the refill isn't negative damage:")
+	m.observe(250.0, 5)  # an earlier tick: a rebuilt match (F4, Change fighter)
+	assert_false(m.has_burst(), "a new match starts over")
+	m.observe(250.0, 6)
+	assert_false(m.has_burst(), "")
+
+
+## Steps a match, feeding the HUD as main does each frame.
+func _step_hud(hud: Hud, sim: MatchSim, ticks: int, p0 := 0, p1 := 0) -> void:
+	for i in ticks:
+		sim.step(PackedInt32Array([p0, p1]))
+		hud.advance()
+
+
+func test_dps_counts_chip_poison_projectiles_and_falls() -> void:
+	var hud := Hud.new()
+	# Block chip: the dummy guards Cairn's lights.
+	var sim := MatchFactory.training("cairn")
+	var d := sim.creatures[1]
+	d.pos = sim.creatures[0].pos + Vector2(22, 0)
+	hud.sim = sim
+	var blocked := false
+	for i in 120:
+		_step_hud(hud, sim, 1, SimDefs.IN_LIGHT if i % 15 == 0 else 0, SimDefs.IN_GUARD)
+		blocked = blocked or d.state == CreatureSim.State.GUARD
+	assert_true(blocked, "the dummy guarded")
+	assert_gt(hud.dps.total, 0.0, "chip damage counts:")
+	assert_near(hud.dps.total, d.max_hp - d.hp, 0.001, "all of it:")
+	# Poison ticking with nobody pressing anything.
+	sim = MatchFactory.training("hissy")
+	d = sim.creatures[1]
+	hud.sim = sim
+	hud.advance()
+	d.poison = 180
+	d.poison_every = 30
+	d.poison_dmg = 2.0
+	_step_hud(hud, sim, 200)
+	assert_eq(d.poison, 0, "the poison ran out")
+	assert_near(hud.dps.total, d.max_hp - d.hp, 0.001, "poison counts:")
+	assert_gt(hud.dps.total, 9.0, "")
+	assert_gt(hud.dps.seconds(), 2.0, "pulses half a second apart are one burst:")
+	# A projectile (Venom Spit) from range.
+	sim = MatchFactory.training("hissy")
+	d = sim.creatures[1]
+	d.pos = sim.creatures[0].pos + Vector2(60, 0)
+	hud.sim = sim
+	_step_hud(hud, sim, 1, S1)
+	_step_hud(hud, sim, 60)
+	assert_gt(hud.dps.total, 0.0, "the spit hit:")
+	assert_near(hud.dps.total, d.max_hp - d.hp, 0.001, "")
+	# A fall into a pit.
+	sim = MatchFactory.training("cairn")
+	d = sim.creatures[1]
+	hud.sim = sim
+	hud.advance()
+	d.start_fall(sim)
+	_step_hud(hud, sim, CreatureSim.FALL_TICKS + 5)
+	assert_near(hud.dps.total, CreatureSim.FALL_DAMAGE, 0.001, "a fall counts:")
+	hud.free()
+
+
+func test_dps_skips_the_dummy_refill_and_other_modes() -> void:
+	var hud := Hud.new()
+	var sim := MatchFactory.training("cairn")
+	var d := sim.creatures[1]
+	d.pos = sim.creatures[0].pos + Vector2(22, 0)
+	d.hp = 3.0
+	hud.sim = sim
+	hud.advance()
+	_step_hud(hud, sim, 1, SimDefs.IN_LIGHT)
+	_step_hud(hud, sim, CreatureSim.DUMMY_RESET_TICKS + 30)
+	assert_eq(d.hp, d.max_hp, "the dummy was KO'd and refilled:")
+	assert_near(hud.dps.total, 3.0, 0.001, "only the health it lost counts:")
+	# Not training: no meter.
+	var vs := MatchFactory.versus("cairn", "culvert")
+	vs.creatures[1].pos = vs.creatures[0].pos + Vector2(22, 0)
+	hud.sim = vs
+	_step_hud(hud, vs, 30, SimDefs.IN_LIGHT)
+	assert_true(vs.creatures[1].hp < vs.creatures[1].max_hp, "hit")
+	assert_near(hud.dps.total, 3.0, 0.001, "a versus match doesn't feed it:")
+	hud.free()

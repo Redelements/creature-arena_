@@ -69,6 +69,9 @@ var _combo_pop := [0, 0]
 var _cut := {}
 var _tick := 0
 var _font: Font = ThemeDB.fallback_font
+## Training: damage per second on the dummy, drawn in the dummy's panel (DpsMeter).
+var dps := DpsMeter.new()
+var _dps_sim: MatchSim = null
 
 
 ## The per-slot labels (tags, key prompts) have one entry per creature slot: 2, or up
@@ -121,11 +124,25 @@ func advance() -> void:
 				_combo_show[side] = 50
 			elif _combo_show[side] > 0:
 				_combo_show[side] -= 1
+	_watch_dummy()
 	if not _cut.is_empty():
 		_cut["t"] = int(_cut["t"]) + 1
 		if int(_cut["t"]) > CUT_IN_TICKS:
 			_cut = {}
 	queue_redraw()
+
+
+## Training: feeds the dummy's health to the DPS meter (a new match starts it over).
+func _watch_dummy() -> void:
+	if sim == null or not sim.training:
+		return
+	if sim != _dps_sim:
+		_dps_sim = sim
+		dps.reset()
+	for c in sim.creatures:
+		if c.is_dummy:
+			dps.observe(c.hp, sim.tick)
+			return
 
 
 ## Whose combo side `side` is building: the foe taking the longest combo right now (in a
@@ -281,6 +298,18 @@ func _training_tags(right_x: float) -> void:
 		x -= 3.0
 
 
+## Training: the DPS meter in the dummy's panel, where a fighter's skill boxes would be:
+## the burst's damage per second, then its total and length; dimmed once it has ended.
+func _dps(x: float, w: float) -> void:
+	if not dps.has_burst():
+		_text(Vector2(x, 29), "DPS -", 7, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, w)
+		return
+	var live := dps.active()
+	_text(Vector2(x, 29), "DPS %.1f" % dps.dps(), 7, C_ACCENT if live else C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, w)
+	_text(Vector2(x, 36), "%d dmg  %.1f s" % [roundi(dps.total), dps.seconds()], 5,
+		C_TEXT if live else C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, w)
+
+
 func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 	var c := sim.creatures[side]
 	draw_rect(Rect2(x, 3, 160, 34), C_PANEL)
@@ -291,6 +320,8 @@ func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 	if c.is_dummy:
 		tag = "F2: " + dummy_mode_name
 		_training_tags(x + 160.0)
+		if sim.training:
+			_dps(x + 108.0, 46.0)
 	_text(Vector2(x + 5, 12), name, 7, C_TEXT)
 	_text(Vector2(x + 5, 12), tag, 6, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, 150)
 	# Health is over the fighter now (FxView's bars); the panel keeps what isn't: the
