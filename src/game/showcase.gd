@@ -21,7 +21,9 @@ extends RefCounted
 ##                        ("dir": "right" | "up" | "down" puts the right-hand fighter
 ##                        beside, above or below the left one, facing each other;
 ##                        "face" turns the left one some other way; "angle" puts the
-##                        right-hand fighter at that many degrees, 0 = right, 90 = below)
+##                        right-hand fighter at that many degrees, 0 = right, 90 = below;
+##                        "restock": true refills Paper Stock sheets, like the energy a
+##                        script starts with)
 ## "part" switches the caption line, "show" highlights an item on it.
 
 const L := SimDefs.IN_LIGHT
@@ -359,6 +361,48 @@ const SCRIPTS := {
 			{"do": "wait", "t": 150, "show": 2},
 		],
 	},
+	"crease": {
+		"left": "crease", "right": "cairn", "energy": [100, 0], "gap": 110.0, "hp": [-1, 140],
+		"title": "MISTER CREASE  -  FULL KIT",
+		"captions": [
+			["Paper Stock: three sheets", "Fold a Crane", "Fold a Shuriken", "Fold a Frog", "All three in hand"],
+			["Paper Cut", "Paper Cut", "Paper Cut", "Paper Shuriken: a bleeding cut", "Paper Crane: it homes in"],
+			["Paper Frog: leap in, slam, slow", "Paper Plane: glide away"],
+			["Thousand Cranes: a storm of paper"],
+		],
+		"steps": [
+			{"do": "wait", "t": 45, "part": 0, "show": 0},
+			{"do": "press", "who": 0, "bit": S1, "move": "fold_skill_1", "show": 1},
+			{"do": "until", "cond": "free:0"},
+			{"do": "press", "who": 0, "bit": H, "move": "fold_heavy", "show": 2},
+			{"do": "until", "cond": "free:0"},
+			{"do": "press", "who": 0, "bit": S2, "move": "fold_skill_2", "show": 3},
+			{"do": "until", "cond": "free:0"},
+			{"do": "wait", "t": 50, "show": 4},
+			{"do": "place", "part": 1, "gap": 80.0},
+			{"do": "wait", "t": 20},
+			{"do": "press", "who": 0, "bit": L, "move": "light_1", "show": 0},
+			{"do": "press", "who": 0, "bit": L, "move": "light_2", "show": 1},
+			{"do": "press", "who": 0, "bit": L, "move": "light_3", "show": 2},
+			{"do": "press", "who": 0, "bit": H, "move": "heavy", "show": 3},
+			{"do": "press", "who": 0, "bit": S1, "move": "skill_1", "show": 4},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 50},
+			{"do": "place", "part": 2, "gap": 120.0},
+			{"do": "wait", "t": 20},
+			{"do": "press", "who": 0, "bit": S2, "move": "skill_2", "show": 0},
+			{"do": "until", "cond": "free:0"},
+			{"do": "wait", "t": 10},
+			{"do": "dodge", "who": 0, "dir": "away", "show": 1},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 30},
+			{"do": "place", "part": 3, "gap": 100.0, "restock": true},
+			{"do": "wait", "t": 20},
+			{"do": "press", "who": 0, "bit": SU, "move": "surge", "show": 0},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 170},
+		],
+	},
 	"sno": {
 		"left": "sno", "right": "cairn", "energy": [100, 0], "gap": 30.0, "hp": [-1, 95],
 		"title": "SNO MERCY  -  FULL KIT",
@@ -657,6 +701,9 @@ func inputs(sim: MatchSim) -> PackedInt32Array:
 					float(s.get("angle", NAN)))
 				if s.has("face"):
 					sim.creatures[0].facing = SimDefs.dir_from_bits(HOLD_BITS[String(s["face"])])
+				if bool(s.get("restock", false)):
+					for c in sim.creatures:
+						c.sheets = int(c.def.get("sheets", {}).get("max", 0))
 				# Repair the floor so leftover pits don't swallow anyone.
 				sim.terrain.cells.fill(0)
 				sim.terrain.timers.fill(0)

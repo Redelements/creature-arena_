@@ -248,6 +248,7 @@ var rumble := true
 var shake_scale := 1.0  ## screen shake: 1 full, 0.5 reduced, 0 off
 var range_rings := false  ## floor rings showing each attack's real reach (Settings > Controls)
 var rings: RangeRings
+var paper: PaperFx
 var discord_status := true  ## show what you play on your Discord profile (Settings)
 var discord: DiscordRpc = null  ## null: off, headless, or no client id in data/discord.json
 var presence: Presence = null
@@ -401,6 +402,9 @@ func _ready() -> void:
 	fx = FxView.new()
 	fx.bind_ground(fx_ground)
 	add_child(fx)
+	paper = PaperFx.new()  # Mister Crease's sheets, crafts and storms, over the fighters
+	paper.fx = fx
+	add_child(paper)
 	audio = AudioView.new()
 	add_child(audio)
 	fx.cue.connect(audio.play)
@@ -1483,6 +1487,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 		views.append(v)
 	debug.sim = sim
 	rings.set_sim(sim)
+	paper.set_sim(sim)
 	hud.sim = sim
 	fx.sim = sim
 	fx.clear()
@@ -1667,10 +1672,13 @@ func _physics_process(_delta: float) -> void:
 	arena.refresh()
 	crowd.advance()
 	fx.advance()
+	paper.advance(events)
 	hud.advance()
 	if rings.visible:
 		rings.advance()
+	var deciding := flow == Flow.ROUND_OVER or flow == Flow.MATCH_OVER or _sim_decided()
 	for i in views.size():
+		views[i].victory = deciding and _won_standing(sim.creatures[i])
 		views[i].out_of_sight = _is_hidden(i)
 		views[i].see_through = _hides_someone(views[i].c)
 		views[i].refresh()
@@ -2496,6 +2504,30 @@ func _tools_help() -> String:
 	if in_training() and swap != "" and swap != "-":
 		out += "\n%s change fighter" % swap
 	return out
+
+
+## A Duel, team battle or Brawl decided (its own phase says so; main's flow stays FIGHT).
+func _sim_decided() -> bool:
+	if duel != null:
+		return duel.phase == DuelSim.Phase.OVER or duel.phase == DuelSim.Phase.ROUND_OVER
+	if team_battle != null:
+		return team_battle.phase == TeamSim.Phase.OVER
+	if brawl != null:
+		return brawl.phase == BrawlSim.Phase.OVER
+	return false
+
+
+## The victory pose: still on its feet with every foe knocked out (a time-out has none).
+func _won_standing(c: CreatureSim) -> bool:
+	if c.state == CreatureSim.State.KO or c.is_dummy:
+		return false
+	var foes := 0
+	for o in sim.creatures:
+		if c.is_foe(o) and not o.is_dummy:
+			foes += 1
+			if o.state != CreatureSim.State.KO:
+				return false
+	return foes > 0
 
 
 func _set_pad_layout(lay: String) -> void:

@@ -95,13 +95,15 @@ func cut_in(c: CreatureSim, side: int, move_name: String) -> void:
 	var sp: Dictionary = c.def.get("sprite", {})
 	if sp.is_empty():
 		return
-	var fpx := int(sp.get("frame", 48))
+	var fsz = sp.get("frame", 48)  # a size, or [width, height] (Mister Crease's tall frames)
+	var fpx := int(fsz[0]) if fsz is Array else int(fsz)
+	var fh := int(fsz[1]) if fsz is Array else fpx
 	var fr: Array = c.def.get("cut_in_frame", [0, 0])
 	var o: Array = sp.get("origin", [24, 43])
 	_cut = {
 		"side": side, "move": move_name.to_upper(), "who": String(c.def.get("name", "")).to_upper(),
-		"tex": load(String(sp["path"])), "region": Rect2(int(fr[1]) * fpx, int(fr[0]) * fpx, fpx, fpx),
-		"origin": Vector2(float(o[0]), float(o[1])), "fpx": fpx,
+		"tex": load(String(sp["path"])), "region": Rect2(int(fr[1]) * fpx, int(fr[0]) * fh, fpx, fh),
+		"origin": Vector2(float(o[0]), float(o[1])), "fpx": fpx, "fh": fh,
 		"color": Color(String(c.def.get("fx_color", "#ffcf3f"))), "t": 0,
 	}
 
@@ -358,6 +360,17 @@ func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 			var pts := PackedVector2Array([Vector2(px, 28), Vector2(px + 3, 31), Vector2(px, 34), Vector2(px - 3, 31)])
 			draw_colored_polygon(pts, Color("c8bfae") if i < c.stack else Color(0.3, 0.32, 0.36))
 
+	# Paper Stock (Mister Crease): a pip per sheet, and a folded shuriken (his Heavy has no
+	# box of its own) as a little star after them.
+	var sheet_def: Dictionary = c.def.get("sheets", {})
+	if not sheet_def.is_empty():
+		for i in int(sheet_def["max"]):
+			var px := x + 70.0 + i * 7.0
+			var pts := PackedVector2Array([Vector2(px, 28), Vector2(px + 3, 31), Vector2(px, 34), Vector2(px - 3, 31)])
+			draw_colored_polygon(pts, Color("f4f0e4") if i < c.sheets else Color(0.3, 0.32, 0.36))
+		if c.folded.has("heavy"):
+			PaperFx.draw_shuriken(self, Vector2(x + 96.0, 31.0), 3.0, 0.4, false)
+
 	# Skill cooldowns.
 	if not c.is_dummy:
 		for i in 2:
@@ -377,6 +390,9 @@ func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 				lbl = "S%d" % (i + 1)
 			_text(Vector2(r.position.x, r.position.y + 8), lbl, 6, C_TEXT if ready else C_DIM,
 				HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+			if c.folded.has(mid):  # folded and in hand: a paper corner on its box
+				draw_colored_polygon(PackedVector2Array([r.position + Vector2(r.size.x - 6, 0),
+					r.position + Vector2(r.size.x, 0), r.position + Vector2(r.size.x, 6)]), Color("f4f0e4"))
 
 
 ## Duel: each teammate's health (active one outlined, knocked-out ones crossed out)
@@ -533,13 +549,14 @@ func _draw_cut_in() -> void:
 	# The portrait breaks out over the top of the band.
 	var tex: Texture2D = _cut["tex"]
 	var fpx := float(_cut["fpx"])
+	var fh := float(_cut.get("fh", fpx))
 	var origin: Vector2 = _cut["origin"]
 	var sc := 2.6 * minf(1.0, 64.0 / fpx)  # big frames (Craglash's 96 px) scale down to fit
 	var feet := Vector2(_cx + (96.0 if side == 0 else SimDefs.VIEW_W - 96.0) + off * 1.25, y1 + 6.0)
 	draw_set_transform(feet, 0.0, Vector2(sc * dir, sc))
-	draw_texture_rect_region(tex, Rect2(-origin.x, -origin.y, fpx, fpx), _cut["region"], Color(0, 0, 0, 0.5))
+	draw_texture_rect_region(tex, Rect2(-origin.x, -origin.y, fpx, fh), _cut["region"], Color(0, 0, 0, 0.5))
 	draw_set_transform(feet + Vector2(-3.0 * dir, -2.0), 0.0, Vector2(sc * dir, sc))
-	draw_texture_rect_region(tex, Rect2(-origin.x, -origin.y, fpx, fpx), _cut["region"])
+	draw_texture_rect_region(tex, Rect2(-origin.x, -origin.y, fpx, fh), _cut["region"])
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 	var tx := _cx + (170.0 if side == 0 else 20.0) + off

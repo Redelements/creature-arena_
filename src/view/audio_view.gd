@@ -237,6 +237,15 @@ func on_event(e: Dictionary) -> void:
 				play("wave")
 		"burst":
 			play("pinecone")
+		# Mister Crease (placeholders until the audio pass: docs/AUDIO.md lists them).
+		"fold":
+			play("flip", -4.0, 1.5)  # a crisp crease
+		"sheet":
+			play("pop", -10.0, 1.6)  # a sheet of Paper Stock regrows
+		"storm":
+			play("twister", -2.0, 1.2)  # Thousand Cranes lands and whirls
+		"storm_end":
+			play("crack", 0.0, 0.9)
 		"hook":
 			play("grab", 0.0, 1.3)
 		"pull":
