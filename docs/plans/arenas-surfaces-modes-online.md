@@ -11,7 +11,7 @@ notes in `docs/NETCODE.md`.
 A session that picks this up: read this file, `git log --oneline -5` on the branch in
 progress, then carry on from the first unticked item. Every PR here follows the project
 rules: outcomes decided in `src/sim/` (deterministic, snapshotted), looks in `src/view/`,
-tuning in `data/`, the CPU presses buttons, and `MECHANICS.md` / `CODEBASE.md` updated in
+tuning in `data/`, the CPU presses buttons, and `MECHANICS.md` / `codebase-map.md` updated in
 the same PR.
 
 ## Order and why

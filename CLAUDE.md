@@ -5,10 +5,14 @@ stadium, ground that breaks into pits. Design source of truth: the **Creature Ar
 Game Plan** doc (https://claude.ai/artifact/4u3EdX5vUQZUceeNQpVuud), which covers the
 concept, legal guardrails, roster, affinities, arenas, game modes and roadmap.
 
+**Before searching broadly, check docs/codebase-map.md to locate the relevant module.** It's
+a routing table: task words ("stamina", "hitboxes", "rooms") → file, function and the
+tests to run, plus what to update together. Each area's rules, gotchas and generated file
+list are in its own `CLAUDE.md` (`src/sim/CLAUDE.md`, `src/view/CLAUDE.md`,
+`data/CLAUDE.md`, `tests/CLAUDE.md`, …), loaded when you work there.
+
 Read on demand, not up front:
 
-- **docs/CODEBASE.md** — every file, what it owns, "where to look" per layer, the
-  gotchas. Start here before touching a layer you haven't read this session.
 - **docs/MECHANICS.md** — every data key the sim reads from `data/creatures/*.json`,
   the tick order, combo/cancel rules, status effects, events, input bits. Checked
   against the code; it also lists where older notes had drifted.
@@ -62,7 +66,8 @@ curl -sSL -o /tmp/g.zip https://github.com/godotengine/godot/releases/download/4
 unzip -q /tmp/g.zip -d ~/godot && G=~/godot/Godot_v4.7.2-stable_linux.x86_64
 
 $G --headless --path . --import                                  # after adding a class_name
-$G --headless --path . --script res://tests/run_tests.gd         # all tests (TEST_ONLY=digby,combos for some)
+$G --headless --path . --script res://tests/run_tests.gd         # all tests (TEST_ONLY=digby,combos for some,
+                                                                 # TEST_QUIET=1 for failures only)
 $G --headless --fixed-fps 60 --path . -- --mode=2 --quit-after=3000   # smoke run, check for SCRIPT ERROR
 $G --headless --path . -- --sim-check=20261010                   # determinism fingerprint
 $G --headless --path . --script res://tests/bench_sim.gd         # rollback cost benchmark
@@ -78,68 +83,26 @@ xvfb-run -a -s "-screen 0 1600x900x24" $G --fixed-fps 60 --rendering-driver open
 xvfb-run -a ... $G --rendering-driver opengl3 --path . --write-movie /tmp/out.avi --fixed-fps 60 -- --showcase=cairn --quit-after=712
 ```
 
-Useful flags (after `--`; the full list is in the `main.gd` header, modes in `MODES`):
-`--mode=N`, `--level=0..3` (3 = Rage), `--seed=N`, `--showcase=<fighter>|angles|twinstick|counterplay`,
-`--pad-layout=standard|twinstick`, `--autoplay`, `--hitboxes`, `--cpu-vs-cpu`, `--pick`,
-`--teams=a,b,c:d,e,f`, `--arena=stadium|quarry|floodgate|greenhouse`, `--menu=main|single|single:<group>|settings|game|video|audio|controls|remap:<classic|league|gamepad>`,
-`--training-screen=pause|options|fighters` (with a training `--mode`), `--training-flags=no_cooldowns,full_energy`. Modes: 5 showcases, 6 Duel vs CPU, 7 Duel 2P,
-8 Versus 2P, 9 Combo Trials, 10/11 Reaction Drills, 12–19 and 21–28 each fighter's "vs CPU"
-and "training" pair (Craglash, Barkley, Gillbert, Cerebro, Hissy, Digby, Pete, Sno), 20 Online,
-29/30 Team 2v2/3v3 vs CPU,
-31/32 Team Deathmatch 2v2/3v3 vs CPU (offline only so far), 33–35 Sinkhole 1v1/2v2/3v3 vs CPU, 36–38 King of the Crater 1v1/2v2/3v3 vs CPU, 39 Arcade, 40 Gauntlet, 41 Daily Challenge (`--fighter=ID` picks yours), 42–45 Brawl (2/3/4 players, you vs 3 CPUs), 46 Chaos Cup, 47 a replay being watched (Replay theater), 48 Mister Crease vs CPU, 49 training as Mister Crease. Showtime was removed (Oct 2026), which shifted the modes after it down by three; tests start modes by name with `main.mode_index("Chaos Cup")`. Matches are deterministic, so a seed reproduces a CPU match exactly.
-
-Online: `--online-host[=PORT]`, `--online-join=ADDR[:PORT][/ROOM]`, `--online-watch=ADDR[:PORT][/ROOM]`, `--online-size=2|3`,
-`--fighter=ID`, `--net-lag=N`, `--net-loss=F`, `--net-delay=N`, `--net-report=PATH`. Two
-processes on one machine with `--cpu-vs-cpu` play each other; compare their reports.
-Dedicated server: `--headless -- --server[=PORT] [--max-players=N] [--net-delay=N]`.
-Don't `pkill -f` with a pattern that's also in your own command line: it kills your shell.
-
-## Layout
-
-```
-src/sim/    deterministic rules          src/net/    rollback, netplay, server
-src/ai/     CPU opponent (seeded)        src/game/   main (flow, camera, settings), coaches, showcase
-src/input/  keyboard/mouse/gamepad       src/ui/     menus (Control nodes, ScreenStack of UiScreens)
-src/view/   everything cosmetic          data/       creatures/*.json, rules/, trials, audio, online
-tests/      run_tests.gd runs every test_*.gd    tools/   sprite and audio generators
-```
-
-File-by-file: docs/CODEBASE.md.
+Command-line flags and mode numbers: `src/game/CLAUDE.md`; online and server flags:
+`src/net/CLAUDE.md`. Don't `pkill -f` with a pattern that's also in your own command line: it kills your shell.
 
 ## Workflow
 
 - Work on a branch and open a PR; never push to `main`. PRs can be stacked (base = the
   previous PR's branch) while earlier ones await review.
-- CI on every push and PR: `tests.yml` (all tests) and `playable-build.yml` (Windows +
+- CI on every push and PR: `tests.yml` (the codebase map check, then all tests) and `playable-build.yml` (Windows +
   Linux export; a bot comment on the PR links the downloads). Kevin playtests from those
   builds, so say what to try in the PR description.
 - Use the GitHub REST API (`gh api ...`); `gh pr create` (GraphQL) isn't available in
   cloud sessions.
-- When you add a sim data key, a sim event, a CLI flag or a file, update MECHANICS.md or
-  CODEBASE.md in the same PR; they replace the notes that used to live here.
+- If you add, move or rename a file or module, update the codebase map in the same change:
+  run `python3 tools/codebase_map.py` (it rewrites each area's generated file list) and fix
+  any row in `docs/codebase-map.md` that names it. CI runs `--check` and fails on a stale
+  file list, a path that no longer exists, or a new area that isn't listed.
+- When you add a sim data key, a sim event or a CLI flag, update MECHANICS.md in the same
+  PR. A rule or gotcha for one area goes in that area's `CLAUDE.md`, not here.
 
-## Placeholders and open items
+## Open items
 
-- **Art:** Cairn and the dummy are programmer art (`tools/gen_sprites.py`); every other
-  fighter is a generated rig (`tools/gen_<id>.py`). An artist is making new characters
-  and movesets; the delivery format (ideally Aseprite + JSON with animation tags) is still
-  to be agreed. Spec for drop-in art: `docs/SPRITES.md`. A character sheet (one drawing
-  plus a kit) becomes a fighter as: a pixel rig, the kit mapped onto Light/Heavy/Skill 1/
-  Skill 2/Surge plus a passive (only when the sheet has one), new mechanics as data keys.
-- **Audio: TODO, all placeholder.** Replace everything in `assets/audio/`; checklist in
-  `docs/AUDIO.md` and the "Replace placeholder audio" GitHub issue.
-- **Online:** direct 1v1 over UDP and a dedicated relay/referee server are built, with
-  online 2v2/3v3 through the server (any team rules: deathmatch, Sinkhole, Crater),
-  3v3 tag Duels, spectators, saved online replays, arenas online (the host's or
-  the room's, random for Quick match), an input delay setting, ranked 1v1 with Glicko
-  ratings and Daily scores on the server. Not yet: a Steam transport (behind `NetLink`).
-- **Not built yet:** affinity surfaces (part B of `docs/plans/arenas-surfaces-modes-online.md`,
-  skipped on Kevin's call) and the two arenas that need them (Saltflat Ring, Night Market
-  Roof), Raid (needs a boss sheet), a Steam transport. Everything else in that plan is in.
-  Priorities: Game Plan doc, "Game modes".
-- **Planned:** dodge timing. Kevin wants to leave a combo at any time to dodge; today
-  Dodge isn't buffered during attacks (except in hitstop) and can't cancel them (issue #9
-  has the options).
-- **Known issues:** Storm Drain can't be punished even when dodged (its pit ring walls
-  Culvert in); a fighter can fall into pits several times in a row after a Storm Drain
-  (respawn lands next to holes).
+Placeholders (art, audio), what's built online, what isn't built yet, planned work and
+known issues: `docs/open-items.md`.

@@ -1,0 +1,126 @@
+# Creature Arena: codebase map
+
+A routing table: find the words of the task below, open that file and function, and run
+only the tests named beside it (`TEST_ONLY=stamina,combat TEST_QUIET=1`). Code is in `src/`,
+one directory per layer. Each area's rules, gotchas and generated file list are in a
+`CLAUDE.md` inside it (`src/sim/CLAUDE.md` and so on), loaded when you work there. Every data
+key the sim reads is in `docs/MECHANICS.md`.
+
+This page is written by hand; `tools/codebase_map.py` writes the file lists into the area
+`CLAUDE.md`s, and CI runs it with `--check`. Adding, moving or renaming a file or area:
+update the map in the same change.
+
+## Areas
+
+| Area | Path | Entry point | Go here for |
+| --- | --- | --- | --- |
+| Game rules (deterministic sim) | `src/sim/` | `src/sim/match_sim.gd:step` | anything that decides an outcome: hits, damage, combos, guard, stamina, statuses, terrain, mode rules, rollback state |
+| CPU opponent | `src/ai/` | `src/ai/cpu_controller.gd:bits` | CPU behaviour, difficulty levels, Rage, class styles, pathing round walls |
+| Player input | `src/input/` | `src/input/player_input.gd:bits` | keyboard, mouse, gamepad to input bits; aim assist; twin-stick; menu stick |
+| Visuals and sound | `src/view/` | `src/view/fx_view.gd:spawn` | effects, sprites, HUD, health bars, sound, arena drawing, range rings |
+| Online | `src/net/` | `src/net/netplay.gd:tick` | rollback, desyncs, ping and delay, the dedicated server, rooms, ranked, spectators |
+| Game flow | `src/game/` | `src/game/main.gd:_physics_process` | modes, starting a match, settings, camera, CLI flags, showcases, trials, drills, ladders, Discord |
+| Menus | `src/ui/` | `src/ui/ui_screen.gd:build` | menu screens, the theme, character select, remapping, pause |
+| Tuning data | `data/` | `data/creatures/<id>.json` | numbers, not code (see `data/CLAUDE.md`) |
+| Fighters | `data/creatures/` | `data/creatures/<id>.json` | a fighter's stats, moves, frame data, fx, CPU routes |
+| Rules | `data/rules/` | `data/rules/duel.json` | mode rules, stamina, projectile size, mutators |
+| Arena maps | `data/arenas/` | `data/arenas/stadium.json` | walls, fences, chasms, shallows, brush per arena |
+| Tests and benches | `tests/` | `tests/run_tests.gd` | the test runner, per-topic tests, CPU benches |
+| Generators | `tools/` | `tools/splat3d.py` | sprite and audio generators, this map's generator |
+| Docs | `docs/` | `docs/MECHANICS.md` | data keys, netcode, server, sprite and audio specs, plans; open items in `docs/open-items.md` |
+| Art and sound files | `assets/` | `assets/sprites/` | generated sheets and placeholder audio |
+| Scene | `scenes/` | `scenes/main.tscn` | the one scene; `src/game/main.gd` builds the rest in code |
+
+## Go here for
+
+| Task words | Go to | Tests (`TEST_ONLY=`) |
+| --- | --- | --- |
+| tick order, what happens each frame | `src/sim/match_sim.gd:step` | combat, determinism |
+| hit detection, hitboxes, reach, who can be hit | `src/sim/match_sim.gd:_resolve_hits`, `_hittable`; shapes `src/sim/creature_sim.gd:hit_params` | movement360, combat |
+| damage, hitstun, stale, variety, block, grab, hook, statuses on hit | `src/sim/match_sim.gd:_apply_hit` | combat, combo_rules |
+| stamina, dash cost, exhaustion, block drain, regen pause | `data/rules/stamina.json`; `src/sim/creature_sim.gd:spend_stamina`, `can_guard`; `src/sim/match_sim.gd:block_drain` | stamina |
+| guard, blocking, guard break, chip | `src/sim/match_sim.gd:_apply_hit` (guard branch); `src/sim/creature_sim.gd:_update_guard` | combat, stamina, balance |
+| dodge, dash, blink, roll | `src/sim/creature_sim.gd:_start_dodge`, `_update_dodge`, `can_dodge` | combat, stamina |
+| combos, cancels, input buffer, windup | `src/sim/creature_sim.gd:_start_attack`, `buffer_input`, `_try_start_buffered`; rules in `docs/MECHANICS.md` | combo_rules, combos, counterplay |
+| projectiles, skill shots, hooks, lobs, burst | `src/sim/match_sim.gd:spawn_projectile`, `_step_projectiles`, `_burst`; size `data/rules/projectiles.json` | projectiles |
+| puddles, ground zones, storms | `src/sim/match_sim.gd:add_zone`, `_step_zones`, `_add_storm` | sno, crease |
+| poison, slow, freeze, stone, root, blind, stealth | `src/sim/creature_sim.gd:_tick_status` | hissy, sno, pete |
+| knockdown, launch, crumple, reactions | `src/sim/creature_sim.gd:enter_hitstun`, `enter_crumple`, `enter_air`, `enter_knockdown` | combat |
+| energy, Surge meter, breakaway | `src/sim/match_sim.gd:gain_energy`, `breakaway` | combo_rules, surge_ready |
+| pits, holes, falling, floor breaking and healing | `src/sim/terrain_grid.gd`; falls `src/sim/match_sim.gd:_check_falls` | terrain |
+| walls, fences, brush, arena pieces | `data/arenas/<id>.json`, `src/sim/arena_map.gd`, `src/sim/terrain_grid.gd:load_map` | arena, crossings |
+| line of sight, hidden fighters | `src/sim/vision.gd`; main's `src/game/main.gd:_update_vision` | vision |
+| tag, Duel, 3v3 tag rules | `src/sim/duel_sim.gd:_tag`, `_enter_next`, `_bench_regen` | duel |
+| 2v2, 3v3, Team Deathmatch, Sinkhole, King of the Crater | `src/sim/team_sim.gd` and `data/rules/` | team, deathmatch, sinkhole, crater |
+| Brawl, Chaos Cup, mutators | `src/sim/brawl_sim.gd`, `data/rules/mutators.json`, `src/sim/match_sim.gd:apply_mutators` | brawl, ladders |
+| win and time-out rules | `src/sim/duel_sim.gd:_time_out`, `src/sim/team_sim.gd:_time_out` | duel, team |
+| rollback state, snapshot, desync digest | `src/sim/match_sim.gd:snapshot`, `restore`, `state_digest`; `src/sim/creature_sim.gd` `STATE_FIELDS` | rollback, determinism |
+| input bits, aim and move angles | `src/sim/sim_defs.gd` | aim, movement360 |
+| training options (no cooldowns, full energy) | `src/sim/match_sim.gd:set_training_flags`, `_apply_training` | training |
+| a fighter's numbers, moves, frame data | `data/creatures/<id>.json` (keys in `docs/MECHANICS.md`) | `<id>`, combos, showcase, trials |
+| CPU difficulty, Rage, class styles | `src/ai/cpu_controller.gd` `LEVELS`, `STYLES` | test_ai, rage |
+| CPU defence (guard, dodge, step) | `src/ai/cpu_controller.gd:_defend`, `_rage_defend`, `_guard_answer` | rage, stamina |
+| CPU offence, combo routes, pokes, zones, kiting | `src/ai/cpu_controller.gd:_continue_attack`, `_pick_route`, `_neutral`, `_rage_neutral`, `_rage_kit` | test_ai, rage |
+| CPU pathing round walls and pits | `src/ai/nav_grid.gd`, `src/ai/cpu_controller.gd:_go_to` | cpu_pathing |
+| balance, win rates, matchups, why a fighter loses | `tests/bench_cpu.gd` (`--matrix`), `tests/bench_fighter.gd`; pins `tests/test_balance.gd` | balance, rage |
+| keyboard layouts, gamepad, twin-stick, aim assist | `src/input/player_input.gd` | player_input, twinstick |
+| mouse (League-style) orders | `src/input/mouse_orders.gd` | player_input |
+| key bindings, remapping | `src/game/controls.gd`, `src/ui/remap_screen.gd` | test_ui |
+| hit sparks, smears, particles, event effects | `src/view/fx_view.gd:spawn`, `_draw_part` | views |
+| projectile looks | `src/view/fx_view.gd:_draw_projectiles`, `_proj_kind`; Crease's paper `src/view/paper_fx.gd` | views, crease |
+| knockout effects | `src/view/fx_view.gd:_ko` | ko_fx |
+| windup tells (red and gold) | `src/view/fx_view.gd:_windup_tell`, `src/view/creature_view.gd` | counterplay, trials |
+| sprites, animation frames, facing sheets | `src/view/creature_view.gd:_pick`, `_attack_frame`; specs `docs/SPRITES.md` | views |
+| Surge aura | `src/view/surge_aura.gd` | surge_ready |
+| HUD, stamina bar, cooldowns, combo counter, cut-in | `src/view/hud.gd:_panel`, `_combo`, `cut_in` | test_ui, training |
+| health bars over fighters | `src/view/fx_view.gd:_draw_side_marks` | overhead_bars |
+| range rings, hitbox overlay | `src/view/range_rings.gd`, `src/view/debug_view.gd` | range_rings |
+| DPS meter | `src/view/dps_meter.gd` | training |
+| sound effects, music, volume | `src/view/audio_view.gd:on_event`, `data/audio.json`, `docs/AUDIO.md` | scripts_load |
+| arena drawing, crowd | `src/view/arena_view.gd`, `src/view/crowd_view.gd` | arena |
+| camera, zoom, screen shake | `src/game/main.gd:_update_camera`, `_frame_fight` | test_ui |
+| game modes, mode numbers, menus' rows | `src/game/main.gd` `MODES`, `MENU_ROWS`, `_start_match` | test_ui |
+| settings | `src/game/main.gd` `SETTING_PAGES`, `_setting`, `_set_setting` | test_ui |
+| CLI flags | `src/game/main.gd:_parse_args` (list in `src/game/CLAUDE.md`) | test_ui |
+| roster, adding a fighter | `src/game/match_factory.gd` `FIGHTERS`; `src/game/main.gd` `MODES` | views, ko_fx, showcase |
+| showcases (scripted demos) | `src/game/showcase.gd` `SCRIPTS` | showcase |
+| combo trials, reaction drills | `src/game/trials.gd`, `data/trials.json`, `src/game/drills.gd` | trials |
+| Arcade, Gauntlet, Daily Challenge | `src/game/ladder.gd`, `src/game/arcade.gd`, `src/game/gauntlet.gd`, `src/game/daily.gd` | arcade, ladders |
+| replays, Replay theater | `src/sim/replay.gd`, `src/game/replay_builder.gd` | replays, determinism |
+| unlocks, progress | `src/game/progress.gd` | arcade |
+| Discord status | `src/game/presence.gd`, `src/game/discord_rpc.gd`, `data/discord.json` | presence |
+| menu screens, theme | `src/ui/ui_screen.gd`, `src/ui/screen_stack.gd`, `src/ui/ui_theme.gd` | test_ui, menu_stick |
+| character select, picking fighters | `src/ui/character_select.gd` | test_ui, rooms |
+| online lobby, room codes, Quick match | `src/game/online_lobby.gd`, `src/net/netplay.gd` | rooms, online |
+| rollback, prediction | `src/net/rollback_session.gd`, `src/net/online_match.gd` | online |
+| desyncs, version or data mismatch | `src/net/online_match.gd:_check_digest`, `src/net/netplay.gd:data_hash` (`NET_VERSION`) | online, server |
+| ping, input delay, lag | `src/net/netplay.gd:pick_delay`, `_live_ping_step`; `src/net/lag_link.gd` | online |
+| dedicated server, matchmaking, rooms, rematch | `src/net/relay_server.gd`, `src/net/dedicated_server.gd`, `docs/SERVER.md` | server, server_teams, rooms |
+| ranked ratings, daily scores | `src/net/ratings.gd`, `src/net/daily_client.gd` | ranked |
+| spectators, server replays | `src/net/referee.gd`, `src/net/relay_server.gd` | spectate |
+| LAN discovery | `src/net/lan_finder.gd`, `src/net/server_beacon.gd` | server |
+| cross-platform determinism check | `src/net/sim_check.gd` (`--sim-check`) | determinism |
+| running tests, a new test | `tests/run_tests.gd`, `tests/test_case.gd` (see `tests/CLAUDE.md`) | |
+| sprite generators, new fighter art | `tools/splat3d.py`, `tools/gen_digby.py` (see `tools/CLAUDE.md`) | views |
+| CI, builds | `.github/workflows/tests.yml`, `.github/workflows/playable-build.yml` | |
+
+`TEST_ONLY` matches file names by substring (`ai` would also run `test_training`), so the
+table writes `test_ai` and `test_ui` in full.
+
+## Change X, also update Y
+
+What else moves when you change something. Check these before running the full suite.
+
+| When you change | Also update |
+| --- | --- |
+| a fighter's damage | combo pins in `tests/test_combos.gd` and the README combo table; showcase health (`"hp"` in `src/game/showcase.gd`), or a stronger combo finishes early and skips a part; `data/trials.json` routes |
+| a fighter's reach, speed, startup or kit | its `tests/test_<id>.gd`; `tests/test_balance.gd` pins (measure with `tests/bench_cpu.gd --matrix`); its README kit table |
+| a move into a grab, a guard-breaker or unblockable | its `"tell"` (red `unblockable` / `guard_break`), the README tell table; `tests/test_counterplay.gd` wants 15+ frames of warning |
+| an area-of-effect size (burst, blast, zone) | nothing to draw (views read the same number); range rings follow; CPU ranges in the fighter's `ai` block (`surge_range`, `zone_range`, `lob_range`) |
+| any rules file in `data/rules/` or a fighter or arena JSON | the online data hash covers it: bump `NET_VERSION` in `src/net/netplay.gd` if old and new builds mustn't meet, and note that the server needs the new build |
+| a new rules file | add it to `src/net/netplay.gd:data_hash`; document it in `data/CLAUDE.md` |
+| a new `CreatureSim` or `MatchSim` variable | `STATE_FIELDS` / `STATIC_FIELDS`, or `snapshot`, `restore` and `state_digest` (`tests/test_rollback.gd`) |
+| a new sim data key, sim event or CLI flag | `docs/MECHANICS.md`; a new event's look and sound in `src/view/fx_view.gd:spawn`, `src/view/audio_view.gd:on_event`, `data/audio.json` |
+| a new file, or a moved or renamed one | `python3 tools/codebase_map.py`, and any row here that names it |
+| a new fighter | `src/game/match_factory.gd` `FIGHTERS`, `MODES` and `MENU_ROWS` in `src/game/main.gd`, a showcase, a `tests/test_<id>.gd`, three sprite sheets |
+| stamina or projectile rules | `tests/test_stamina.gd`, `tests/test_projectiles.gd`; blink and dodge chains in fighter tests assume a dodge's cost |
