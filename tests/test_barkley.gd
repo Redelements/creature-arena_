@@ -57,20 +57,21 @@ func test_a_guarded_branch_grab_does_not_pull() -> void:
 	assert_lt(start.x - sim.creatures[1].pos.x, 3.0, "a blocked grab doesn't reel anyone in")
 
 
-func test_pinecone_flies_over_a_close_foe_and_bursts_where_it_lands() -> void:
+## The burst is 32 px since his buff (Oct 2026): a foe right next to him is no longer
+## under the arc but at the edge of the burst, so this only checks where it lands.
+func test_pinecone_bursts_where_it_lands() -> void:
 	var sim := _duel("cairn", 2.0)
 	var barkley := sim.creatures[0]
 	var mv: Dictionary = barkley.def["moves"]["skill_2"]
 	var pr: Dictionary = mv["projectile"]
 	tap(sim, S2, int(mv["startup"]) + 1)
 	assert_eq(sim.projectiles.size(), 1, "a pinecone in the air")
-	var hp := sim.creatures[1].hp
 	var burst := run_until(sim, func(): return not _events(sim, "burst").is_empty(), int(pr["time"]) + 5)
 	assert_true(burst, "it lands and bursts")
 	var at: Vector2 = _events(sim, "burst")[0]["pos"]
 	var expect := barkley.pos.x + float(pr["offset"]) + float(pr["range"])
 	assert_near(at.x, expect, 1.5, "lands range + offset ahead:")
-	assert_near(sim.creatures[1].hp, hp, 0.001, "a foe right next to Barkley is under the arc, not hit:")
+	assert_eq(float(_events(sim, "burst")[0]["power"]), float(pr["burst"]), "its burst radius:")
 
 
 func test_pinecone_burst_hits_a_foe_at_the_landing_spot() -> void:

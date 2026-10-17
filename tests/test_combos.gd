@@ -121,12 +121,12 @@ func _barkley() -> MatchSim:
 
 func test_barkley_twister_into_pinecone() -> void:
 	var dmg := route(_barkley(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S2, "skill_2"]])
-	assert_near(dmg, 15 + 3 * 1.15 * 3 + 8 * 1.3, 0.05, "Twig, Bough, Log Drop > Timber Twister > Pinecone Bomb:")
+	assert_near(dmg, 19 + 4 * 1.15 * 3 + 10 * 1.3, 0.05, "Twig, Bough, Log Drop > Timber Twister > Pinecone Bomb:")
 
 
 func test_barkley_twister_into_branch_grab() -> void:
 	var dmg := route(_barkley(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S1, "skill_1"]])
-	assert_near(dmg, 15 + 3 * 1.15 * 3 + 6 * 1.3, 0.05, "3 lights > Timber Twister > Branch Grab:")
+	assert_near(dmg, 19 + 4 * 1.15 * 3 + 8 * 1.3, 0.05, "3 lights > Timber Twister > Branch Grab:")
 
 
 func test_barkley_full_meter() -> void:
@@ -134,7 +134,7 @@ func test_barkley_full_meter() -> void:
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"],
 		[S1, "skill_1"], [SU, "surge"]])
-	assert_near(dmg, 15 + 3 * 1.15 * 3 + 6 * 1.3 + (7 + 7 + 10) * 1.5, 0.05, "... > Root Eruption:")
+	assert_near(dmg, 19 + 4 * 1.15 * 3 + 8 * 1.3 + (9 + 9 + 12) * 1.5, 0.05, "... > Root Eruption:")
 
 
 ## Gillbert (left) facing Cairn at close range.

@@ -65,8 +65,8 @@
     "tag_in": {
       "name": "Timber Drop", "type": "skill", "anim": "logdrop",
       "startup": 8, "active": 4, "recovery": 16,
-      "damage": 7, "knockback": 1.6, "hitstun": 26, "hitstop": 8, "launch": 24,
-      "reach": 18, "hit_radius": 14, "juggle": true,
+      "damage": 9, "knockback": 1.6, "hitstun": 26, "hitstop": 8, "launch": 24,
+      "reach": 22, "hit_radius": 14, "juggle": true,
       "dash": { "speed": 2.8, "from": 1, "to": 9 },
       "fx": { "smear": "rise", "size": 1.4, "afterimage": [0, 9], "ghost_color": "#d9a59caa", "impact": "leaves" }
     },
@@ -74,34 +74,34 @@
       "no_flinch": true,
       "name": "Twig Swipe", "anim": "twig",
       "startup": 4, "active": 3, "recovery": 9, "cancel_from": 8,
-      "damage": 3, "knockback": 0.9, "hitstun": 18, "hitstop": 4,
-      "reach": 28, "hit_radius": 11, "lunge": 0.8, "next": "light_2", "juggle": true,
+      "damage": 4, "knockback": 0.9, "hitstun": 18, "hitstop": 4,
+      "reach": 35, "hit_radius": 11, "lunge": 0.8, "next": "light_2", "juggle": true,
       "fx": { "smear": "arc" }
     },
     "light_2": {
       "no_flinch": true,
       "name": "Bough Swing", "anim": "bough",
       "startup": 6, "active": 3, "recovery": 10, "cancel_from": 9,
-      "damage": 5, "knockback": 1.0, "hitstun": 19, "hitstop": 5,
-      "reach": 29, "hit_radius": 12, "lunge": 0.8, "next": "light_3", "juggle": true,
+      "damage": 6, "knockback": 1.0, "hitstun": 19, "hitstop": 5,
+      "reach": 36, "hit_radius": 12, "lunge": 0.8, "next": "light_3", "juggle": true,
       "fx": { "smear": "arc", "size": 1.2 }
     },
     "light_3": {
       "name": "Log Drop", "anim": "logdrop",
       "startup": 9, "active": 3, "recovery": 17,
-      "damage": 7, "knockback": 1.8, "hitstun": 26, "hitstop": 7,
-      "reach": 30, "hit_radius": 12, "lunge": 0.5, "next": "",
+      "damage": 9, "knockback": 1.8, "hitstun": 26, "hitstop": 7,
+      "reach": 38, "hit_radius": 12, "lunge": 0.5, "next": "",
       "fx": { "smear": "rise", "size": 1.3, "impact": "leaves" }
     },
     "heavy": {
       "name": "Timber Twister", "anim": "twister", "windup": 8, "tell": "strong", "cooldown": 150,
       "charge_max": 30, "startup": 6, "recovery": 22, "length": 44, "rank_cancel_from": 20,
-      "damage": 3, "damage_charged": 6,
+      "damage": 4, "damage_charged": 8,
       "knockback": 3.4, "knockback_charged": 5.2,
       "hitstun": 30, "hitstun_charged": 36,
       "hitstop": 6, "hitstop_charged": 9,
       "launch": 40,
-      "reach": 0, "hit_radius": 35, "juggle": true,
+      "reach": 0, "hit_radius": 42, "juggle": true,
       "hits": [
         { "at": 7, "active": 2, "knockback": 0.3, "hitstun": 22, "hitstop": 3, "launch": 0 },
         { "at": 13, "active": 2, "knockback": 0.3, "hitstun": 22, "hitstop": 3, "launch": 0 },
@@ -114,8 +114,8 @@
     "skill_1": {
       "name": "Branch Grab", "anim": "grab", "windup": 8, "tell": "strong", "cooldown": 150,
       "startup": 10, "active": 4, "recovery": 20,
-      "damage": 6, "knockback": 0.4, "hitstun": 34, "hitstop": 7,
-      "reach": 36, "hit_radius": 13, "juggle": true, "juggle_float": 26,
+      "damage": 8, "knockback": 0.4, "hitstun": 34, "hitstop": 7,
+      "reach": 45, "hit_radius": 13, "juggle": true, "juggle_float": 26,
       "pull": 3,
       "anim_at": [[0, 0], [5, 1], [10, 2], [15, 3], [22, 4], [28, 5]],
       "fx": { "branch": true, "impact": "snag" }
@@ -123,20 +123,20 @@
     "skill_2": {
       "name": "Pinecone Bomb", "anim": "pinecone", "cooldown": 180, "charge_max": 36, "aim": 0.7,
       "startup": 9, "active": 0, "recovery": 26,
-      "damage": 8, "knockback": 1.4, "hitstun": 24, "hitstop": 7, "launch": 30, "juggle": true,
-      "projectile": { "lob": true, "range": 48, "range_charged": 110, "time": 22, "burst": 16, "offset": 6, "crack": 10 },
+      "damage": 10, "knockback": 1.4, "hitstun": 24, "hitstop": 7, "launch": 30, "juggle": true,
+      "projectile": { "lob": true, "range": 48, "range_charged": 110, "time": 22, "burst": 32, "offset": 6, "crack": 10 },
       "anim_at": [[0, 0], [4, 1], [9, 2], [12, 3], [20, 4]],
       "fx": { "projectile": "pinecone" }
     },
     "surge": {
       "name": "Root Eruption", "anim": "eruption", "energy_cost": 100,
       "startup": 16, "recovery": 30, "length": 62,
-      "damage": 7, "knockback": 0.6, "hitstun": 24, "hitstop": 6,
+      "damage": 9, "knockback": 0.6, "hitstun": 24, "hitstop": 6,
       "reach": 0, "hit_radius": 54, "juggle": true,
       "hits": [
         { "at": 17, "active": 3, "hit_radius": 26 },
         { "at": 23, "active": 3, "hit_radius": 40 },
-        { "at": 29, "active": 4, "hit_radius": 54, "damage": 10, "crumple": 64, "hitstop": 14, "knockback": 0.4 }
+        { "at": 29, "active": 4, "hit_radius": 54, "damage": 12, "crumple": 64, "hitstop": 14, "knockback": 0.4 }
       ],
       "terrain_crack": 50,
       "anim_at": [[0, 0], [5, 1], [11, 2], [16, 3], [29, 4], [48, 5]],
