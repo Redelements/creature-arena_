@@ -10,7 +10,7 @@
   "weight": 1.0,
   "stamina": 100,
   "stamina_regen": 0.5,
-  "dodge": { "frames": 18, "iframes_start": 2, "iframes_end": 12, "speed": 3.2, "cost": 24 },
+  "dodge": { "frames": 18, "iframes_start": 2, "iframes_end": 12, "speed": 3.2 },
   "guard": { "reduction": 0.8, "drain_per_damage": 2.0, "speed_mult": 0.4, "break_stun": 55 },
   "stack": { "max": 3, "timeout": 180 },
   "fx_height": 22,

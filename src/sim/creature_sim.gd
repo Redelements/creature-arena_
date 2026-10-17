@@ -100,7 +100,7 @@ var hp := 0.0
 var max_hp := 0.0
 var stamina := 0.0
 var max_stamina := 0.0
-var dodge_cost := 0.0  ## the dodge's cost × dodge_cost_mult, capped at max_stamina
+var dodge_cost := 0.0  ## max_stamina × the dodge share (data/rules/stamina.json)
 var regen_wait := 0  ## ticks before stamina regrows: a blocked hit's pause, or exhaustion at 0
 var energy := 0.0
 
@@ -244,8 +244,7 @@ func _init(p_id: int, p_def: Dictionary, p_pos: Vector2, p_is_dummy := false) ->
 	hp = max_hp
 	max_stamina = float(def.get("stamina", 100))
 	stamina = max_stamina
-	dodge_cost = minf(max_stamina, float(def.get("dodge", {}).get("cost", 0))
-		* float(stamina_rules().get("dodge_cost_mult", 1.0)))
+	dodge_cost = max_stamina * dodge_share(String(def.get("id", "")))
 	radius = float(def.get("radius", 10))
 	weight = float(def.get("weight", 1.0))
 	for mid in moves().keys():
@@ -921,6 +920,13 @@ static func stamina_rules() -> Dictionary:
 		var d = JSON.parse_string(f.get_as_text()) if f != null else null
 		_stamina_rules = d if d is Dictionary else {}
 	return _stamina_rules
+
+
+## The share of the stamina bar a dodge costs fighter `fid`: its own entry in
+## dodge_cost_share_by_fighter, or dodge_cost_share.
+static func dodge_share(fid: String) -> float:
+	var r := stamina_rules()
+	return float((r.get("dodge_cost_share_by_fighter", {}) as Dictionary).get(fid, r.get("dodge_cost_share", 0.6)))
 
 
 ## A time from the stamina rules, in seconds there, as ticks.

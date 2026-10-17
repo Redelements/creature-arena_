@@ -16,7 +16,6 @@
     "iframes_start": 3,
     "iframes_end": 12,
     "speed": 5.4,
-    "cost": 84,
     "ram": {
       "name": "Landslide Ram",
       "breaks": ["wall"],
@@ -359,6 +358,7 @@
         "speed": 8.0,
         "life": 17,
         "radius": 10,
+        "radius_end": 17,
         "offset": 26,
         "crack_trail": false,
         "sound": "lash",

@@ -161,7 +161,8 @@ Spawned at tick `startup + 1` (and each volley tick) with move-level hit values 
 | Key | Meaning | Used by |
 | --- | --- | --- |
 | `speed`, `life` | Ground shot; ends at `life` 0, off the floor, or on a hit | cerebro, craglash, culvert, gillbert, hissy |
-| `radius` (0), `offset` (16) | Hit radius; spawn distance ahead | all projectile users |
+| `radius` (0), `offset` (16) | Hit radius (× `radius_mult` in `data/rules/projectiles.json`, not for lobs); spawn distance ahead | all projectile users |
+| `radius_end` | The hit radius at the end of its flight (also × `radius_mult`): it widens from `radius` as `life` runs out, so a hook is widest at full reach. Hit size only | culvert skill_1 (Gulp), craglash skill_2 (Mountain Maw) |
 | `crack_trail` (true) | Cracks each new cell it passes | false for all current users |
 | `pierce` | Passes through, hitting each body once | cerebro surge |
 | `volley` `{count=1, every=1, last}` | `count` shots, one every `every` ticks; `last` overrides hit values of the final one | cerebro surge |
@@ -176,7 +177,7 @@ Spawned at tick `startup + 1` (and each volley tick) with move-level hit values 
 | --- | --- | --- | --- |
 | `frames`, `speed` | Length; speed (× 0.4 in the last 5 ticks); ignores holes | all | cs:`_update_dodge` |
 | `iframes_start`, `iframes_end` | Invulnerable window (inclusive) | all | cs:`is_invulnerable` |
-| `cost` | Stamina, × `dodge_cost_mult` (`data/rules/stamina.json`) capped at the max: `dodge_cost`; needs at least this | all | cs:`can_dodge` |
+| (cost) | Not in the fighter file: `dodge_cost` = max stamina × `dodge_cost_share` (0.6) or the fighter's entry in `dodge_cost_share_by_fighter` (`data/rules/stamina.json`); needs at least this | all | cs:`can_dodge`, `dodge_share` |
 | `passes` | `["fence"]`: fences don't stop the dodge | crease (Paper Plane) | cs:`passes_fences` |
 | `cooldown` | Ticks before the next dodge; a press meanwhile is buffered | cerebro (45) | cs:`_start_dodge` |
 | `blink` `{at, distance}` | Teleport `distance` px the dodge way at tick `at` (walls clamp it, pits don't stop it) | cerebro | cs:`_update_dodge` |

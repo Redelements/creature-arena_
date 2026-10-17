@@ -54,18 +54,18 @@ func _ticks_until_regen(sim: MatchSim, c: CreatureSim, limit: int) -> int:
 
 func test_the_numbers_live_in_one_rules_file() -> void:
 	var r := CreatureSim.stamina_rules()
-	for k in ["dodge_cost_mult", "block_drain_mult", "block_regen_pause_seconds", "exhaust_delay_seconds"]:
+	for k in ["dodge_cost_share", "block_drain_mult", "block_regen_pause_seconds", "exhaust_delay_seconds"]:
 		assert_true(r.has(k), "stamina.json has %s" % k)
 	var m: Dictionary = r["block_drain_mult"]
 	assert_lt(float(m["light"]), float(m["heavy"]), "a light drains less than a heavy:")
 
 
-func test_every_dodge_costs_the_multiplier_more_capped_at_the_bar() -> void:
-	var mult := float(CreatureSim.stamina_rules()["dodge_cost_mult"])
+func test_every_dodge_costs_its_share_of_the_bar() -> void:
+	assert_near(CreatureSim.dodge_share("nobody"), 0.6, 0.001, "60% of the bar unless a fighter says otherwise:")
 	for id in MatchFactory.FIGHTERS:
 		var c := MatchFactory.training(id).creatures[0]
-		var want := minf(c.max_stamina, float(c.def["dodge"]["cost"]) * mult)
-		assert_near(c.dodge_cost, want, 0.001, "%s's dodge cost:" % id)
+		assert_false((c.def["dodge"] as Dictionary).has("cost"), "%s's cost is only in stamina.json" % id)
+		assert_near(c.dodge_cost, c.max_stamina * CreatureSim.dodge_share(id), 0.001, "%s's dodge cost:" % id)
 
 
 func test_a_dodge_spends_the_new_cost() -> void:

@@ -295,7 +295,10 @@ func test_events_show_once_through_rollbacks() -> void:
 		for side in 2:
 			(nets[side] as Netplay).tick(mash.call(side, i))
 		for e in (nets[0] as Netplay).game.events:
-			var key := "%d:%s:%s:%s" % [int(e["tick"]), String(e["type"]), str(e.get("attacker", "")), str(e.get("target", ""))]
+			# The same key OnlineMatch's tap filters by: "who" too, or two fighters winding
+			# up on the same tick would look like one event shown twice.
+			var key := "%d:%s:%s:%s:%s" % [int(e["tick"]), String(e["type"]), str(e.get("attacker", "")),
+				str(e.get("target", "")), str(e.get("who", ""))]
 			if seen.has(key):
 				dupes += 1
 			seen[key] = true

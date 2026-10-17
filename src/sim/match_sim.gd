@@ -24,6 +24,9 @@ const POISON_EVERY_DEFAULT := 30
 const REEL_SPEED_DEFAULT := 5.0
 ## Training options a training match can turn on (set_training_flags).
 const TRAINING_FLAGS := ["no_cooldowns", "full_energy"]
+## Hit size of straight projectiles: radius_mult on every "radius" / "radius_end".
+const PROJECTILES_PATH := "res://data/rules/projectiles.json"
+static var _projectile_rules := {}
 
 var tick := 0
 var hitstop := 0
@@ -352,6 +355,14 @@ func _resolve_hits() -> void:
 			var push := d.pos - a.pos
 			push = push.normalized() if push.length_squared() > 0.0001 else a.facing
 			_apply_hit(a, d, hit, push, (center + d.pos) * 0.5 + Vector2(0, -12))
+
+
+static func projectile_radius_mult() -> float:
+	if _projectile_rules.is_empty():
+		var f := FileAccess.open(PROJECTILES_PATH, FileAccess.READ)
+		var d = JSON.parse_string(f.get_as_text()) if f != null else null
+		_projectile_rules = d if d is Dictionary else {}
+	return float(_projectile_rules.get("radius_mult", 1.0))
 
 
 ## The stamina a blocked hit costs `d`: damage × its guard's drain_per_damage × the
@@ -771,11 +782,16 @@ func spawn_projectile(owner: CreatureSim, mv: Dictionary, last := true) -> void:
 		"pos": owner.pos + owner.facing * float(p.get("offset", 16)),
 		"vel": vel,
 		"life": life,
-		"radius": float(p.get("radius", 0.0)),
+		"radius": float(p.get("radius", 0.0)) * (1.0 if lob else projectile_radius_mult()),
 		"hit": hit,
 		"last_cell": Vector2i(-99, -99),
 		"move": owner.move_id,  # for the view: which move threw it, so it knows what to draw
 	}
+	if p.has("radius_end") and not lob:
+		# Grows over its flight (a hook): widest at the end of its reach.
+		pr["radius_start"] = pr["radius"]
+		pr["radius_end"] = float(p["radius_end"]) * projectile_radius_mult()
+		pr["life_total"] = life
 	if bool(p.get("pierce", false)):
 		pr["struck"] = []  # passes through, hitting each body once (Knife Flurry)
 	if p.has("end_sound"):
@@ -820,6 +836,9 @@ func _step_projectiles() -> void:
 		pos += p["vel"]
 		p["pos"] = pos
 		p["life"] = int(p["life"]) - 1
+		if p.has("radius_end"):
+			var flown := 1.0 - float(p["life"]) / float(p["life_total"])
+			p["radius"] = lerpf(float(p["radius_start"]), float(p["radius_end"]), flown)
 		if int(p["life"]) <= 0 or not fr.grow(-2.0).has_point(pos):
 			emit_event("projectile_end", pos, 0.0, {"who": int(p["owner"]), "sound": String(p.get("end_sound", ""))})
 			continue

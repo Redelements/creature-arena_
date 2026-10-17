@@ -303,12 +303,16 @@ cancel into a move of a higher rank, so combos climb the ranks. The exception: a
 third light** (or later) can't be cancelled, and leaves the attacker at least 16 frames
 behind the blocker ("OPEN!" pops up over them), time enough to punish with a jab.
 
-**Stamina pays for dodges and blocks.** A dodge costs a slice of the stamina bar. A blocked
+**Stamina pays for dodges and blocks.** A dodge costs **60% of the stamina bar**, so you get one, then a wait. A blocked
 hit chips a little health and drains stamina: lights drain less, heavies more, and every
 blocked hit holds stamina regen off for half a second, so you can't recover under pressure.
 At **0 stamina you're exhausted**: you can't start a guard, a guard you're holding drops and
 the hit that emptied it lands clean ("EXHAUSTED"; no extra stun), and regen waits 2 seconds.
 The stamina bar flashes red while you're exhausted. The numbers are in `data/rules/stamina.json`.
+
+**Shots are easy to land:** every straight projectile hits in a wider circle than it's drawn
+(`radius_mult` in `data/rules/projectiles.json`), and the two hooks, Gulp and Mountain Maw,
+widen toward the end of their reach.
 
 **Mixing types pays.** Each hit is multiplied by how many different types have landed in the
 combo so far: ×1.0, ×1.15, ×1.3, ×1.5. **Limits keep it fair:** a move repeated in the same
@@ -516,7 +520,7 @@ three-second lockdown while his team does the damage.
 | Skill 2 | Mountain Maw | The hook, on a 5 s cooldown. His head shoots out on its stone neck, **far** (about 160 px), and **can't be blocked**: it has to be dodged. It bites the first foe it reaches and **hauls them back** to his feet, **crumpled**, so a Rake (or a teammate) follows. A red tell and a dotted lane show it coming |
 | Surge | Bedrock | Roots in place for 3 s: hits only chip him (75% less damage) and nothing moves him. Every foe within 140 px is **taunted** for 3 s: they walk at 60% speed, their attacks swing at him, and they're **dragged in** toward him, hard. Any attack button answers out of it after 18 frames, so the Stomp meets them as they arrive. Loses to grabs. A tank's meter fills from the hits he takes, so soaking damage is what earns it |
 | Passive | Stoneskin | A 30-point stone shield that soaks damage first; it grows back only after **7 s out of combat**: no damage taken and none dealt (his hits and chip count too), so it doesn't refresh mid-brawl. Shown as a pale rim on him and as pale stone on the end of his health bar ("STONESKIN") |
-| Dodge | Landslide Ram | His roll is a shoulder charge: **twice as far** as anyone's (about 90 px) and it costs **his whole stamina bar** (100 of 100), so he's exhausted straight after. The first foe it reaches is **hit** (4 damage, a short stun that a Rake links after, and it counts in the combo) and the dash stops there. Running into the wall stops it too and cracks the floor. Still invincible in the middle, like any roll |
+| Dodge | Landslide Ram | His roll is a shoulder charge: **twice as far** as anyone's (about 90 px) and it costs 60% of his stamina, like any dodge. The first foe it reaches is **hit** (4 damage, a short stun that a Rake links after, and it counts in the combo) and the dash stops there. Running into the wall stops it too and cracks the floor. Still invincible in the middle, like any roll |
 
 ### Barkley — the tree that got up and left
 
