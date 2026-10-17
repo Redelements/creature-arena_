@@ -1,0 +1,7 @@
+{
+	"_doc": "Stamina rules every fighter shares (each fighter's own max, regen, dodge cost and guard drain stay in data/creatures/<id>.json). dodge_cost_mult scales every fighter's dodge (dash) cost, capped at its max stamina. A blocked hit drains damage x guard.drain_per_damage x block_drain_mult[the move's type] stamina, and health chip as before (guard.reduction). A blocked hit pauses regen for block_regen_pause_seconds, restarted by every blocked hit. At 0 stamina (from a dodge or a blocked hit) the fighter is exhausted: it can't start a guard, a held guard drops and the hit that emptied it lands clean (no extra stun), and regen waits exhaust_delay_seconds (instead of the block pause, not on top of it).",
+	"dodge_cost_mult": 1.5,
+	"block_drain_mult": {"light": 0.75, "heavy": 1.25, "skill": 1.0, "surge": 1.0},
+	"block_regen_pause_seconds": 0.5,
+	"exhaust_delay_seconds": 2.0
+}

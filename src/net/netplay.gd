@@ -63,7 +63,7 @@ extends RefCounted
 ## last pick and starts the match. A Quick match rematch on a server is on a new arena
 ## (in "start"); a direct one keeps the host's.
 
-const NET_VERSION := 11  ## 11: a 1v1 rematch outside rooms (Quick match, ranked, direct) picks again (room select status with secs, picks hidden until start, a countdown that locks in the last pick, Quick match draws a new arena; pick; ranked rates every game); 10: rooms last between matches (room, next, pick; wait back; bye room), Sinkhole collapses by rect and only a chasm fall is a ring-out; 9: the 1v1 is best of three rounds; 8: ranked play, player ids, daily scores; 7: team rules and tag Duels; 6: the server's ready check; 5: team battles; 4: 360 move angle
+const NET_VERSION := 12  ## 12: stamina rules (dearer dodge, block drain by move type, exhaustion at 0 drops the guard, regen pauses); 11: a 1v1 rematch outside rooms (Quick match, ranked, direct) picks again (room select status with secs, picks hidden until start, a countdown that locks in the last pick, Quick match draws a new arena; pick; ranked rates every game); 10: rooms last between matches (room, next, pick; wait back; bye room), Sinkhole collapses by rect and only a chasm fall is a ring-out; 9: the 1v1 is best of three rounds; 8: ranked play, player ids, daily scores; 7: team rules and tag Duels; 6: the server's ready check; 5: team battles; 4: 360 move angle
 const DEFAULT_PORT := 7777
 const PINGS := 5
 ## A precise ping (a real link) blocks the host this long at most waiting for the pong.
@@ -820,14 +820,14 @@ func _fail(why: String) -> bool:
 	return false
 
 
-## A fingerprint of the game data both machines must share: every fighter's file and
-## the Duel rules. Different data would make the two simulations disagree.
+## A fingerprint of the game data both machines must share: every fighter's file, arena and
+## rules file. Different data would make the two simulations disagree.
 static func data_hash() -> String:
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(("v%d" % NET_VERSION).to_utf8_buffer())
 	var paths: Array = [DuelSim.RULES_PATH, DuelSim.RULES_1V1_PATH, TeamSim.RULES_PATH, TeamSim.DEATHMATCH_PATH, TeamSim.SINKHOLE_PATH,
-		TeamSim.CRATER_PATH, BrawlSim.RULES_PATH, Daily.MUTATORS_PATH]
+		TeamSim.CRATER_PATH, BrawlSim.RULES_PATH, Daily.MUTATORS_PATH, CreatureSim.STAMINA_PATH]
 	for id in MatchFactory.FIGHTERS:
 		paths.append(MatchFactory.CREATURE_DIR + id + ".json")
 	for id in ArenaMap.IDS:

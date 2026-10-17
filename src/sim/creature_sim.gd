@@ -62,11 +62,16 @@ const STATE_FIELDS := [
 	"blind", "whiff_serial", "ambush_serial", "root",
 	"stealth", "haste", "haste_mult", "atk_buff", "atk_mult", "stone_ice", "covered",
 	"block_lag", "punish_serial", "home_speed", "fall_chasm",
-	"sheets", "sheet_t", "folded", "poison_look",
+	"sheets", "sheet_t", "folded", "poison_look", "regen_wait",
 ]
 ## Set once when the creature is made and never changed by the simulation.
 const STATIC_FIELDS := ["id", "team", "def", "is_dummy", "radius", "weight", "max_hp", "max_stamina",
-	"air_mult", "speed_mult", "damage_mult"]
+	"dodge_cost", "air_mult", "speed_mult", "damage_mult"]
+
+## Stamina rules every fighter shares: the dodge cost multiplier, a blocked hit's drain
+## per move type, the regen pause after a block and the exhaustion delay at 0.
+const STAMINA_PATH := "res://data/rules/stamina.json"
+static var _stamina_rules := {}
 
 const ACTION_BITS := [
 	["surge", SimDefs.IN_SURGE],
@@ -95,6 +100,8 @@ var hp := 0.0
 var max_hp := 0.0
 var stamina := 0.0
 var max_stamina := 0.0
+var dodge_cost := 0.0  ## the dodge's cost × dodge_cost_mult, capped at max_stamina
+var regen_wait := 0  ## ticks before stamina regrows: a blocked hit's pause, or exhaustion at 0
 var energy := 0.0
 
 var state: State = State.IDLE
@@ -237,6 +244,8 @@ func _init(p_id: int, p_def: Dictionary, p_pos: Vector2, p_is_dummy := false) ->
 	hp = max_hp
 	max_stamina = float(def.get("stamina", 100))
 	stamina = max_stamina
+	dodge_cost = minf(max_stamina, float(def.get("dodge", {}).get("cost", 0))
+		* float(stamina_rules().get("dodge_cost_mult", 1.0)))
 	radius = float(def.get("radius", 10))
 	weight = float(def.get("weight", 1.0))
 	for mid in moves().keys():
@@ -695,7 +704,9 @@ func step(buttons: int, sim: MatchSim) -> void:
 		if stack_t <= 0:
 			stack = 0
 	_regrow_sheets(sim)
-	if not (state in [State.DODGE, State.GUARD, State.KO]):
+	if regen_wait > 0:
+		regen_wait -= 1
+	elif not (state in [State.DODGE, State.GUARD, State.KO]):
 		stamina = minf(max_stamina, stamina + float(def.get("stamina_regen", 0.5)))
 	_tick_status(sim)
 
@@ -733,6 +744,7 @@ func step(buttons: int, sim: MatchSim) -> void:
 				if is_dummy and state_t >= DUMMY_RESET_TICKS:
 					hp = max_hp
 					stamina = max_stamina
+					regen_wait = 0
 					reset_combo()
 					invuln = 20
 					_set_state(State.IDLE)
@@ -844,7 +856,7 @@ func _update_free(buttons: int, pressed: int, dir: Vector2, aim: Vector2, sim: M
 		return
 	if _try_start_buffered(aim, sim):
 		return
-	if buttons & SimDefs.IN_GUARD:
+	if buttons & SimDefs.IN_GUARD and can_guard():
 		walk_vel = Vector2.ZERO
 		_set_state(State.GUARD)
 		return
@@ -869,7 +881,51 @@ func _update_free(buttons: int, pressed: int, dir: Vector2, aim: Vector2, sim: M
 ## Enough stamina, not rooted, and (for a dodge with a "cooldown", like Chef Cerebro's
 ## teleport) not still recharging from the last one.
 func can_dodge() -> bool:
-	return stamina >= float(def["dodge"]["cost"]) and root <= 0 and int(cooldowns.get("dodge", 0)) <= 0
+	return stamina >= dodge_cost and root <= 0 and int(cooldowns.get("dodge", 0)) <= 0
+
+
+## Stamina to block with. Exhausted (at 0) a guard can't start.
+func can_guard() -> bool:
+	return stamina > 0.0
+
+
+## Out of stamina: no guard, and regen waits out the exhaustion delay.
+func is_exhausted() -> bool:
+	return stamina <= 0.0
+
+
+## Spends stamina. Reaching 0 exhausts the creature: regen waits `exhaust_delay_seconds`,
+## replacing any shorter pause a blocked hit started.
+func spend_stamina(amount: float) -> void:
+	stamina -= amount
+	if stamina <= 0.0:
+		stamina = 0.0
+		regen_wait = stamina_ticks("exhaust_delay_seconds", 2.0)
+
+
+## A blocked hit holds regen off for `block_regen_pause_seconds`, restarted by every
+## blocked hit; an exhaustion delay already running is left as it is (they don't stack).
+func pause_regen_for_block() -> void:
+	regen_wait = maxi(regen_wait, stamina_ticks("block_regen_pause_seconds", 0.5))
+
+
+## The guard drops: stamina ran out under a hit, which then lands clean.
+func drop_guard() -> void:
+	stun = 0
+	_set_state(State.IDLE)
+
+
+static func stamina_rules() -> Dictionary:
+	if _stamina_rules.is_empty():
+		var f := FileAccess.open(STAMINA_PATH, FileAccess.READ)
+		var d = JSON.parse_string(f.get_as_text()) if f != null else null
+		_stamina_rules = d if d is Dictionary else {}
+	return _stamina_rules
+
+
+## A time from the stamina rules, in seconds there, as ticks.
+static func stamina_ticks(key: String, default_seconds: float) -> int:
+	return roundi(float(stamina_rules().get(key, default_seconds)) * SimDefs.TICK_RATE)
 
 
 ## How much of the dodge's cooldown is left, 0 (ready) to 1 (just used).
@@ -880,7 +936,7 @@ func dodge_cooldown_ratio() -> float:
 
 func _start_dodge(dir: Vector2, sim: MatchSim) -> void:
 	var dg: Dictionary = def["dodge"]
-	stamina -= float(dg["cost"])
+	spend_stamina(dodge_cost)
 	if int(dg.get("cooldown", 0)) > 0:
 		cooldowns["dodge"] = int(dg["cooldown"])
 	if dg.has("ram"):
@@ -1492,14 +1548,6 @@ func _land(sim: MatchSim) -> void:
 		sim.emit_event("ko", pos, 1.0, {"who": id})
 		return
 	enter_knockdown(LAND_KNOCKDOWN, knock_vel * 0.3)
-
-
-## Stamina ran out while guarding: the guard shatters and the creature crumples.
-func break_guard(sim: MatchSim) -> void:
-	stamina = 0.0
-	var gd: Dictionary = def["guard"]
-	enter_crumple(int(gd["break_stun"]), knock_vel)
-	sim.emit_event("guard_break", pos, 1.0, {"who": id})
 
 
 func check_ko(sim: MatchSim) -> void:

@@ -255,7 +255,7 @@ func test_the_ram_covers_twice_a_normal_roll() -> void:
 func test_the_ram_costs_most_of_the_stamina_bar() -> void:
 	var sim := _duel("cairn", 100.0)
 	var crag := sim.creatures[0]
-	var cost := float(crag.def["dodge"]["cost"])
+	var cost := crag.dodge_cost
 	assert_gt(cost, 80.0, "triple a normal roll's cost:")
 	run(sim, SimDefs.IN_DODGE | RIGHT, 1)
 	assert_near(crag.stamina, crag.max_stamina - cost, 0.01, "spent on the dash:")

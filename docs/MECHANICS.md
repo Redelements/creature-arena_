@@ -32,14 +32,14 @@ Abbreviations: **cs** = `src/sim/creature_sim.gd`, **ms** = `src/sim/match_sim.g
 | --- | --- | --- | --- | --- |
 | `max_hp` | number (100) | Health | all | cs:`_init` |
 | `stamina` | number (100) | Max stamina | all | cs:`_init` |
-| `stamina_regen` | per tick (0.5) | Regen, except in DODGE, GUARD, KO | all | cs:`step` |
+| `stamina_regen` | per tick (0.5) | Regen, except in DODGE, GUARD, KO, and not while `regen_wait` runs (a blocked hit's pause, or exhaustion at 0: `data/rules/stamina.json`) | all | cs:`step` |
 | `speed` | px/tick | Walk speed (scaled by slow, taunt, haste, root, strafe) | all | cs:`walk_speed` |
 | `accel` | px/tick² | Walk velocity change per tick | all | cs:`_update_free` |
 | `radius` | px (10) | Body circle, for hits, pushing, pits | all | cs:`_init` |
 | `wades` | bool | Walks shallows at full speed | culvert | cs:`floor_mult` |
 | `weight` | (1.0) | Knockback is divided by it | all | ms:`_apply_hit` |
 | `dodge` | object | See "Dodge keys" | all | cs:`_update_dodge` |
-| `guard` | object | `reduction` (share of damage blocked), `drain_per_damage` (stamina per damage), `speed_mult` (walk while guarding), `break_stun` (crumple ticks on a guard break) | all | ms:`_apply_hit`, cs:`break_guard` |
+| `guard` | object | `reduction` (share of damage blocked), `drain_per_damage` (stamina per damage, × the move type's `block_drain_mult` in `data/rules/stamina.json`), `speed_mult` (walk while guarding), `break_stun` (crumple ticks when a guard-breaker hits a guard) | all | ms:`_apply_hit`, `block_drain` |
 | `stack` | `{max, timeout}` | Each landed light adds a stack (up to `max`), lost after `timeout` ticks; spent by `stack_bonus` moves | cairn | ms:`_apply_hit`, cs:`step` |
 | `stoneskin` | `{shield, delay, reset_on_deal, name}` | Shield HP that absorbs damage before hp; refills to full after `delay` ticks without damage (`calm_t`, reset by `take_damage` and by landing from a fall). `reset_on_deal` (bool, false): a hit of his that deals damage (clean, chip on a guard, or on armor) resets `calm_t` too, so the shield only grows back out of combat. `name` is not read (see end) | craglash (delay 420, reset_on_deal) | cs:`take_damage`, `dealt_damage`, `_tick_status`; ms:`_apply_hit` |
 | `venom_frenzy` | `{at_hits, streak_gap, ticks, poison_ticks, poison_damage, poison_every, max_stacks}` | Passive: `at_hits` clean hits in one string (each within `streak_gap` ticks of the last; any hit, no_flinch jabs included, counted in `hit_streak`/`streak_t`) start a frenzy (`frenzy_t` = `ticks`, event `frenzy`). Meanwhile each clean hit adds a poison stack to the target (`poison_stacks`, up to `max_stacks`, each `poison_damage` per pulse in `poison_stack_dmg`) and sets its poison to at least `poison_ticks`. `name` is not read | hissy | ms:`_venom_frenzy` |
@@ -176,7 +176,7 @@ Spawned at tick `startup + 1` (and each volley tick) with move-level hit values 
 | --- | --- | --- | --- |
 | `frames`, `speed` | Length; speed (× 0.4 in the last 5 ticks); ignores holes | all | cs:`_update_dodge` |
 | `iframes_start`, `iframes_end` | Invulnerable window (inclusive) | all | cs:`is_invulnerable` |
-| `cost` | Stamina; needs at least this | all | cs:`can_dodge` |
+| `cost` | Stamina, × `dodge_cost_mult` (`data/rules/stamina.json`) capped at the max: `dodge_cost`; needs at least this | all | cs:`can_dodge` |
 | `passes` | `["fence"]`: fences don't stop the dodge | crease (Paper Plane) | cs:`passes_fences` |
 | `cooldown` | Ticks before the next dodge; a press meanwhile is buffered | cerebro (45) | cs:`_start_dodge` |
 | `blink` `{at, distance}` | Teleport `distance` px the dodge way at tick `at` (walls clamp it, pits don't stop it) | cerebro | cs:`_update_dodge` |
@@ -202,7 +202,8 @@ Constants: cs (`BUFFER_TICKS` 10, `JUGGLE_MAX` 3, `JUGGLE_FLOAT` 16, `LAND_KNOCK
 - **Reaction precedence** (first that applies): no_flinch → petrify/freeze → grab+swallow → grab+flip → grab+pull (hook) → plain grab (placed behind, knockdown) → knockdown → launch → juggle float (if airborne) → crumple → guard-break crumple → hitstun. Then pull and reel.
 - **Juggles:** airborne targets take only `juggle` non-grab hits from at most `JUGGLE_MAX` attacks. Landing: `LAND_KNOCKDOWN`, then `GETUP_INVULN`.
 - **Wall bounce:** knockback ≥ `WALL_BOUNCE_MIN` bounces (×0.6); the first per combo adds `WALL_BOUNCE_STUN`.
-- **Guard:** guarding turns to the nearest foe; a hit within `dot > 0.3` of facing is blocked: chip `× (1 − reduction)`, stamina drain, knockback ×0.4, stun `hitstun × 0.5`. Stamina at 0 breaks the guard (crumple `break_stun`). Hits from behind are clean.
+- **Guard:** guarding turns to the nearest foe; a hit within `dot > 0.3` of facing is blocked: chip `× (1 − reduction)`, stamina drain (`MatchSim.block_drain`: damage × `drain_per_damage` × `block_drain_mult[type]`), regen paused `block_regen_pause_seconds` (restarted by every blocked hit), knockback ×0.4, stun `hitstun × 0.5`. A blocked hit whose drain would take stamina to 0 isn't blocked: stamina goes to 0, the guard drops (`drop_guard`, a `guard_break` event with `drained`) and the hit lands clean, with only its own reaction. Hits from behind are clean.
+- **Stamina** (`data/rules/stamina.json`, `CreatureSim.stamina_rules`): at 0 from any source (`spend_stamina`: a dodge or a blocked hit) the creature is exhausted (`is_exhausted`): `can_guard` is false, so a held Guard does nothing, and `regen_wait` is set to `exhaust_delay_seconds`, replacing a block pause rather than adding to it. `regen_wait` counts down every tick, in any state.
 - **Armor:** hits deal `× (1 − reduction)`, no stun or knockback, hitstop ×0.6; grabs ignore it; an armored body isn't pushed.
 - **Energy:** the attacker gains `ENERGY_PER_DAMAGE` × damage dealt (clean, blocked chip or armor chip), except from surge-type hits; the defender gains `ENERGY_PER_DAMAGE_TAKEN` × clean damage. `surge_ready` fires when a meter fills.
 - **Breakaway:** Guard + Dodge while stunned, with `combo_hits >= 3` and 50 energy: combo reset, `BREAKAWAY_INVULN`, pushed away; the attacker's attack is cancelled.
@@ -262,7 +263,7 @@ Views, audio, drills and the CPU read `sim.events`; the sim never reads them.
 | `windup` | Raw move starts with a windup (`tell`, `move`) |
 | `surge`, `surge_ready` | Surge starts; a meter fills |
 | `dodge`, `warp`, `ram_wall` | Dodge starts; a blink dodge teleports; a ramming dodge hits the wall (`who`, power = its damage) |
-| `hit`, `block`, `armor`, `miss`, `slip`, `guard_break`, `punishable` | Hit outcomes (`slip`: counter; `punishable`: blocked ender) |
+| `hit`, `block`, `armor`, `miss`, `slip`, `guard_break`, `punishable` | Hit outcomes (`slip`: counter; `punishable`: blocked ender; `guard_break` with `drained`: stamina ran out under the hit, drawn as "EXHAUSTED") |
 | `grab`, `hook`, `pull`, `reel`, `reeled_in` | Grab (`flip` flag), hook, pull, reel start, reel arrival |
 | `swallow`, `poop` | A held Gulp swallows (`attacker`, `target`); the swallowed fighter comes out behind (`pos`) |
 | `frenzy` | Venom Frenzy starts (`who`); `poisoned` and `poison` carry `stacks` |
@@ -291,7 +292,7 @@ Views, audio, drills and the CPU read `sim.events`; the sim never reads them.
 
 - `MatchSim.training` is set by `MatchFactory.training` while the match is being built (its setter refuses once a creature is in or a tick has run), so no versus, Duel, team, Brawl, online, Combo Trials or Reaction Drill match is ever a training match. It is fixed for the match (not snapshotted).
 - `MatchSim.training_flags` (`TRAINING_FLAGS`: `no_cooldowns`, `full_energy`; a missing key is off) is set only through `set_training_flags(flags)`, which returns false and changes nothing outside training and drops unknown keys. It is in `snapshot()`/`restore()`, and in `state_digest()` for training matches only (every other match's fingerprint is unchanged).
-- After every full tick (step 12), for each creature that isn't the dummy: `no_cooldowns` sets every `cooldowns` entry (moves and the dodge) to 0 and `stamina` to `max_stamina` (most dodges are gated by stamina; guard drain is refilled too); `full_energy` sets `energy` to `MAX_ENERGY` (no `surge_ready` event, so no chime after every Surge). A move used this tick is usable on the next.
+- After every full tick (step 12), for each creature that isn't the dummy: `no_cooldowns` sets every `cooldowns` entry (moves and the dodge) to 0, `stamina` to `max_stamina` and `regen_wait` to 0 (most dodges are gated by stamina; guard drain is refilled too); `full_energy` sets `energy` to `MAX_ENERGY` (no `surge_ready` event, so no chime after every Surge). A move used this tick is usable on the next.
 - Replays: a training setup carries `training_flags` and `flag_changes` `[[frame, no_cooldowns, full_energy], ...]`; `ReplayBuilder.apply_flag_changes` applies them before that frame's inputs (`ReplayBuilder.play` and the Replay theater).
 
 ## Input bits

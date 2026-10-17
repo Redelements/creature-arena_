@@ -208,6 +208,7 @@ func _apply_training() -> void:
 			for k in c.cooldowns.keys():
 				c.cooldowns[k] = 0
 			c.stamina = c.max_stamina
+			c.regen_wait = 0
 		if full:
 			c.energy = CreatureSim.MAX_ENERGY
 
@@ -353,6 +354,13 @@ func _resolve_hits() -> void:
 			_apply_hit(a, d, hit, push, (center + d.pos) * 0.5 + Vector2(0, -12))
 
 
+## The stamina a blocked hit costs `d`: damage × its guard's drain_per_damage × the
+## move type's block_drain_mult (data/rules/stamina.json: lights drain less, heavies more).
+static func block_drain(d: CreatureSim, hit_type: String, damage: float) -> float:
+	var mult: Dictionary = CreatureSim.stamina_rules().get("block_drain_mult", {})
+	return damage * float(d.def["guard"]["drain_per_damage"]) * float(mult.get(hit_type, 1.0))
+
+
 ## Resolves one hit: Slip counters, guarding, then damage with the combo rules.
 ## Returns "slip", "block" or "hit".
 ## `ranged`: the hit came from a projectile or a lob, not a strike in reach.
@@ -396,10 +404,18 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 
 	if d.state == CreatureSim.State.GUARD and not bool(hit["grab"]):
 		var facing_attacker := d.facing.dot(-push) > 0.3
-		if facing_attacker and not bool(hit["guard_break"]):
+		var drain := block_drain(d, String(hit["type"]), damage)
+		if facing_attacker and not bool(hit["guard_break"]) and d.stamina - drain <= 0.0:
+			# Out of stamina: the guard drops and this hit lands clean, with nothing extra
+			# (no guard-break stagger). Exhausted, it can't guard again until regen.
+			d.spend_stamina(d.stamina)
+			d.drop_guard()
+			emit_event("guard_break", d.pos, 1.0, {"who": d.id, "drained": true})
+		elif facing_attacker and not bool(hit["guard_break"]):
 			var chip := d.take_damage(damage * (1.0 - float(gd["reduction"])), self)
 			a.dealt_damage()
-			d.stamina -= damage * float(gd["drain_per_damage"])
+			d.spend_stamina(drain)
+			d.pause_regen_for_block()
 			d.knock_vel = push * float(hit["knockback"]) * 0.4 / d.weight
 			d.guard_hit = 10
 			d.stun = int(float(hit["hitstun"]) * 0.5)
@@ -410,8 +426,6 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 				_punish_blocked_ender(a, d)
 			hitstop = maxi(hitstop, int(float(hit["hitstop"]) * 0.5))
 			emit_event("block", fx_pos, damage, {"attacker": a.id, "target": d.id})
-			if d.stamina <= 0.0:
-				d.break_guard(self)
 			d.check_ko(self)
 			return "block"
 	var broke_guard := false

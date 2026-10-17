@@ -12,6 +12,7 @@ const C_HP_MID := Color("f2c14e")
 const C_HP_LO := Color("e5534b")
 const C_STAMINA := Color("5aa9e6")
 const C_DODGE_CD := Color("d58cff")
+const C_EXHAUSTED := Color("e5534b")
 const C_ENERGY := Color("ffcf3f")
 const C_BAR_BG := Color("2a2e38")
 const C_ACCENT := Color("ffd166")
@@ -342,6 +343,9 @@ func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 	_text(Vector2(x + 5, 21), "SURGE", 5, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT if right else HORIZONTAL_ALIGNMENT_LEFT, 100)
 	_bar(Rect2(x + 5, 23, 100, 4), c.energy / CreatureSim.MAX_ENERGY, ecol, right)
 	_bar(Rect2(x + 5, 30, 60, 2), c.stamina / c.max_stamina, C_STAMINA, right)
+	# Exhausted (0 stamina): no guard until regen starts again; the empty bar flashes red.
+	if c.is_exhausted() and (_tick / 8) % 2 == 0:
+		draw_rect(Rect2(x + 5, 30, 60, 2), C_EXHAUSTED)
 	# A dodge with a cooldown (Chef Cerebro's blink): a short violet bar beside the stamina
 	# bar drains away while it recharges.
 	var dcd := c.dodge_cooldown_ratio()

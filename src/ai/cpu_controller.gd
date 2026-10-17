@@ -27,6 +27,9 @@ const LEVELS := [
 		"breakaway": 1.0, "aggression": 0.9, "think": 2, "rage": true},
 ]
 const RAGE := 3
+## A guard at or under this share of its stamina is pressed, not waited out: blocked hits
+## drain it, and the one that empties it lands clean.
+const PRESSURE_GUARD_SHARE := 0.5
 
 ## How Rage plays each class ("role" in the creature file; an "ai" "style" overrides).
 ##   plan     what it does in neutral (see _rage_neutral)
@@ -413,7 +416,11 @@ func _continue_attack(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: fl
 				and foe.state == CreatureSim.State.GUARD:
 			_press(int(ACTION_BIT[grab]))
 			_guard_press = true
-		return
+			return
+		# A guard low on stamina is worn down instead: the string goes on, and the hit
+		# that empties it lands clean.
+		if not _guard_wearing(foe):
+			return
 	# On the first contact, pick a route; each new move after that is one step along it.
 	if _route.is_empty():
 		_route = _pick_route(me, dist)
@@ -478,7 +485,8 @@ func _defend(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float) -> b
 	if _defense != "":
 		_defense_t -= 1
 		var foe_busy := foe.state == CreatureSim.State.ATTACK
-		if _defense == "guard" and (foe_busy or _defense_t > 0) and _defense_t > -30:
+		if _defense == "guard" and (foe_busy or _defense_t > 0) and _defense_t > -30 \
+				and me.can_guard():
 			_hold(SimDefs.IN_GUARD)
 			return true
 		_defense = ""
@@ -520,7 +528,7 @@ func _defend(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float) -> b
 			and String(foe.move_def().get("type", "")) != "surge" and _roll(0.5):
 		_press(int(ACTION_BIT[counter]))
 		return true
-	if _roll(0.7):
+	if _roll(0.7) and _guard_holds(me, _strike_drain(me, foe)):
 		_defense = "guard"
 		_defense_t = 20
 		_hold(SimDefs.IN_GUARD)
@@ -530,13 +538,17 @@ func _defend(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float) -> b
 
 
 func _dodge_away(me: CreatureSim, foe: CreatureSim) -> void:
-	if not me.can_dodge():
-		# Out of stamina or the dodge is recharging (Chef Cerebro's blink): guard instead.
-		_defense = "guard"
-		_defense_t = 20
-		_hold(SimDefs.IN_GUARD)
-		return
 	var away := (me.pos - _seen(foe)).normalized()
+	if not me.can_dodge():
+		# Out of stamina or the dodge is recharging (Chef Cerebro's blink): guard instead,
+		# or, exhausted (no guard either), back off.
+		if me.can_guard():
+			_defense = "guard"
+			_defense_t = 20
+			_hold(SimDefs.IN_GUARD)
+		else:
+			_hold(SimDefs.bits_from_dir(away))
+		return
 	var side := Vector2(-away.y, away.x) * (1.0 if _roll(0.5) else -1.0)
 	_hold(SimDefs.bits_from_dir((away + side).normalized()))
 	_press(SimDefs.IN_DODGE)
@@ -1046,7 +1058,7 @@ func _rage_defend(sim: MatchSim, me: CreatureSim) -> bool:
 		_defense_t -= 1
 		# A blocked swing is punished, not waited out: the moment its owner is recovering
 		# for longer than this fighter's jab takes, drop the guard and hit back.
-		if _defense_t > 0 and not _blocked_and_open(sim, me):
+		if _defense_t > 0 and not _blocked_and_open(sim, me) and me.can_guard():
 			_hold(SimDefs.IN_GUARD)
 			return true
 		_defense = ""
@@ -1055,6 +1067,7 @@ func _rage_defend(sim: MatchSim, me: CreatureSim) -> bool:
 	var kind := ""  ## "strike", "unblockable", "shot", "lob"
 	var from := Vector2.ZERO
 	var need := 0.0  ## how far to move to be clear
+	var drain := 0.0  ## the stamina blocking that strike would cost
 	for o in sim.creatures:
 		if not me.is_foe(o) or o.state != CreatureSim.State.ATTACK or not _sees(o):
 			continue  # (a foe out of sight can't be read: invisible, or behind a wall)
@@ -1074,6 +1087,7 @@ func _rage_defend(sim: MatchSim, me: CreatureSim) -> bool:
 		from = o.pos
 		need = reach - d + 2.0
 		var mv := o.move_def()
+		drain = _strike_drain(me, o)
 		kind = "unblockable" if _breaks_guard(mv) and (not _breaks_guard_held_only(mv) or o.charge_ratio >= 1.0) \
 			or String(mv.get("type", "")) == "surge" else "strike"
 	for pr in sim.projectiles:
@@ -1134,7 +1148,7 @@ func _rage_defend(sim: MatchSim, me: CreatureSim) -> bool:
 			if when <= 5 and me.can_dodge():
 				_dodge_dir(me, path)
 				return true
-			if when <= 4:
+			if when <= 4 and me.can_guard():
 				_guard_for(when + 6)
 			return true
 		"unblockable":
@@ -1146,7 +1160,10 @@ func _rage_defend(sim: MatchSim, me: CreatureSim) -> bool:
 				_dodge_dir(me, _open_dir(sim, me, me.pos - from))
 			return true
 		_:  # a strike
-			if style != "guard" and speed * room_ticks >= need:
+			# Blocking it would empty the stamina (the guard drops and it lands clean):
+			# even a tank gets out of the way instead.
+			var guard_ok := _guard_holds(me, drain)
+			if (style != "guard" or not guard_ok) and speed * room_ticks >= need:
 				_step(sim, me, _open_dir(sim, me, me.pos - from), int(need / maxf(speed, 0.5)) + 3)
 				return true
 			# A counter answers it when there's one ready: a tank's armored stance
@@ -1160,6 +1177,13 @@ func _rage_defend(sim: MatchSim, me: CreatureSim) -> bool:
 				if when >= lo and when <= hi:
 					_press(int(ACTION_BIT[counter]))
 					return true
+			if not guard_ok:
+				var ivs := int(me.def["dodge"].get("iframes_start", 2))
+				if when <= ivs + 2 and me.can_dodge():
+					_dodge_dir(me, _open_dir(sim, me, me.pos - from))
+				else:
+					_go(sim, me, _open_dir(sim, me, me.pos - from))
+				return true
 			_guard_for(when + 8)
 			return true
 	return false
@@ -1199,7 +1223,10 @@ func _guard_for(ticks: int) -> void:
 
 func _dodge_dir(me: CreatureSim, dir: Vector2) -> void:
 	if not me.can_dodge():
-		_guard_for(10)
+		if me.can_guard():
+			_guard_for(10)
+		else:
+			_hold(SimDefs.move_bits(dir))  # exhausted: no guard either, so just go
 		return
 	_hold(SimDefs.move_bits(dir))
 	_press(SimDefs.IN_DODGE)
@@ -1311,6 +1338,13 @@ func _rage_neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vec
 		_guard_press = true
 		return
 
+	# A guard low on stamina: wear it down (heavies drain the most); the blocked hit that
+	# empties it lands clean.
+	if foe.state == CreatureSim.State.GUARD and dist <= reach and _guard_wearing(foe) and _sees(foe):
+		_hold(SimDefs.move_bits(to_foe))
+		_press(SimDefs.IN_HEAVY if _usable(me, "heavy") else SimDefs.IN_LIGHT)
+		return
+
 	if _rage_kit(sim, me, foe, to_foe, dist, plan):
 		return
 
@@ -1418,6 +1452,25 @@ func _guard_answer(me: CreatureSim, dist: float) -> String:
 			best_rank = rank
 			best = act
 	return best
+
+
+## Whether `me` can block a hit that drains `drain` and keep its guard: blocking into
+## empty stamina drops the guard and the hit lands clean.
+static func _guard_holds(me: CreatureSim, drain: float) -> bool:
+	return me.can_guard() and me.stamina - drain > 0.0
+
+
+## The stamina blocking `o`'s current strike would cost `me` (0 when it isn't striking).
+static func _strike_drain(me: CreatureSim, o: CreatureSim) -> float:
+	if o.state != CreatureSim.State.ATTACK:
+		return 0.0
+	var mv := o.move_def()
+	return MatchSim.block_drain(me, String(mv.get("type", "")), float(mv.get("damage", 0.0)))
+
+
+## A guarding foe whose stamina is low enough to wear down with blocked hits.
+static func _guard_wearing(foe: CreatureSim) -> bool:
+	return foe.state == CreatureSim.State.GUARD and foe.stamina <= foe.max_stamina * PRESSURE_GUARD_SHARE
 
 
 ## A grab or a guard-breaker, including one that only breaks guard held to a full charge.
