@@ -1408,13 +1408,19 @@ func _rage_kit(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2
 			and foe.facing.dot(-to_foe.normalized()) > 0.5 and _roll(0.5):
 		_press(int(ACTION_BIT[gaze]))
 		return true
-	# A puddle under a foe in close, when it can't punish the drop (it's busy or down).
+	# A puddle under a foe in close, when it can't punish the drop (it's busy or down), or
+	# round its feet as a foe walks in (Syrup Slick: it has to wade through to reach him),
+	# unless a strike of theirs lands before the puddle is down.
 	var zone := String(ai.get("zone", ""))
 	var zr: Array = ai.get("zone_range", [0, 0])
 	var zlen := int(me.moves().get(zone, {}).get("length", 24)) if zone != "" else 0
+	var zsu := int(me.moves().get(zone, {}).get("startup", 8)) if zone != "" else 0
+	var closing := foe.walk_vel.dot(-to_foe.normalized()) > 0.5 and dist <= float(zr[1]) * 0.75
+	var fta := _frames_to_active(foe)
+	var striking := fta >= 0 and fta <= zsu + 2
 	if zone != "" and _usable(me, zone) and dist >= float(zr[0]) and dist <= float(zr[1]) \
 			and (_recovery_left(foe) >= zlen or foe.is_stunned() or foe.state == CreatureSim.State.GUARD
-			or foe.stun > zlen):
+			or foe.stun > zlen or (closing and not striking)):
 		_press(int(ACTION_BIT[zone]))
 		return true
 	# A long poke (a thrown or dashing skill), not for a mage's plan or an assassin's

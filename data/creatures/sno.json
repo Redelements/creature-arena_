@@ -4,7 +4,7 @@
   "title": "Dropped on the sidewalk; now he makes everyone else cry",
   "affinity": "tide",
   "role": "bruiser",
-  "max_hp": 130,
+  "max_hp": 145,
   "speed": 2.47,
   "accel": 0.44,
   "radius": 11,
@@ -52,7 +52,7 @@
     "poke_range": [30, 80],
     "zone": "skill_1",
     "zone_range": [0, 80],
-    "surge_range": 40,
+    "surge_range": 50,
     "routes": [
       ["light", "light", "light", "heavy", "surge"],
       ["light", "light", "light", "heavy", "skill_2"],
@@ -72,7 +72,7 @@
       "no_flinch": true,
       "name": "Cold Cross (jab)", "anim": "jab",
       "startup": 4, "active": 2, "recovery": 8, "cancel_from": 6,
-      "damage": 4, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
+      "damage": 5, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
       "slow_ticks": 60, "slow_mult": 0.8,
       "reach": 27, "hit_radius": 10, "lunge": 1.2, "next": "light_2", "juggle": true,
       "fx": { "smear": "thrust", "impact": "frost" }
@@ -81,7 +81,7 @@
       "no_flinch": true,
       "name": "Cold Cross (cross)", "anim": "cross",
       "startup": 5, "active": 2, "recovery": 9, "cancel_from": 7,
-      "damage": 5, "knockback": 0.9, "hitstun": 18, "hitstop": 4,
+      "damage": 6, "knockback": 0.9, "hitstun": 18, "hitstop": 4,
       "slow_ticks": 60, "slow_mult": 0.75,
       "reach": 28, "hit_radius": 10, "lunge": 1.0, "next": "light_3", "juggle": true,
       "fx": { "smear": "thrust", "impact": "frost" }
@@ -89,7 +89,7 @@
     "light_3": {
       "name": "Brain Freeze", "anim": "headbutt",
       "startup": 8, "active": 3, "recovery": 14,
-      "damage": 7, "knockback": 1.6, "hitstun": 24, "hitstop": 6,
+      "damage": 8, "knockback": 1.6, "hitstun": 24, "hitstop": 6,
       "reach": 29, "hit_radius": 13, "lunge": 0.8, "next": "", "juggle": true,
       "anim_at": [[0, 0], [4, 1], [8, 2], [12, 3], [17, 4]],
       "fx": { "smear": "thrust", "size": 1.3, "impact": "frost" }
@@ -97,7 +97,7 @@
     "heavy": {
       "name": "Shaved Ice Spray", "anim": "spray", "windup": 8, "tell": "strong",
       "charge_max": 30, "startup": 10, "active": 6, "recovery": 22,
-      "damage": 10, "damage_charged": 11,
+      "damage": 12, "damage_charged": 13,
       "knockback": 1.4, "knockback_charged": 2.0,
       "hitstun": 30, "hitstun_charged": 34, "hitstop": 7, "hitstop_charged": 10,
       "slow_ticks": 90, "slow_mult": 0.6,
@@ -124,9 +124,9 @@
     },
     "surge": {
       "name": "Flavor Blast", "anim": "blast", "energy_cost": 100,
-      "startup": 18, "active": 4, "recovery": 26,
-      "damage": 14, "knockback": 0.5, "freeze_ticks": 90, "hitstop": 14,
-      "reach": 0, "hit_radius": 50, "juggle": true,
+      "startup": 12, "active": 4, "recovery": 26,
+      "damage": 16, "knockback": 0.5, "freeze_ticks": 90, "hitstop": 14,
+      "reach": 0, "hit_radius": 60, "juggle": true,
       "anim_at": [[0, 0], [6, 1], [13, 2], [19, 3], [26, 4], [40, 5]],
       "fx": { "shout": { "text": "CHILL OUT.", "sound": "chill" }, "impact": "blast" }
     }

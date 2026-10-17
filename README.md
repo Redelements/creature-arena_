@@ -656,7 +656,7 @@ dripping off his point. He makes the floor and the foe slow, then hits hard. Voi
 | Heavy | Shaved Ice Spray | He shakes his head and sprays ice shards in a **cone in front of him** (about 46 px, wider charged): damage and a strong slow (×0.6 for 1.5 s). Nothing behind him is hit. Hold to charge |
 | Skill 1 | Syrup Slick | Leaks a **sticky puddle** 160 px across around him that lasts 7.5 s: foes standing in it walk at 42% speed. He isn't slowed by his own syrup |
 | Skill 2 | Slush Slide | Slides forward feet first on his own slush, about 75 px, **through a guard**, and **knocks down** the first foe he hits. A red windup tell gives it away |
-| Surge | Flavor Blast | Rears back and slams his head into the floor: everyone around him (all sides, about 50 px) is **frozen solid** for 1.5 s, and the next clean hit **shatters** the ice for 25% extra damage, like Hissy Fitz's statues |
+| Surge | Flavor Blast | Rears back and slams his head into the floor: everyone around him (all sides, about 60 px) is **frozen solid** for 1.5 s, and the next clean hit **shatters** the ice for 25% extra damage, like Hissy Fitz's statues |
 
 No passive on the sheet. His victory emote (licking the syrup off his glove, then
 shivering) waits for a victory-pose system.
@@ -724,8 +724,8 @@ storm.
 | Digby | Claw Swipe, Claw Swipe, Pickaxe Swing → Pickaxe Pop-Up → Cave-In | 47.4 |
 | Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket | 36.9 |
 | Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket → The Big Heist (with stolen power: +20%) | 81.9 |
-| Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Slush Slide | 40.5 |
-| Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Flavor Blast, then shatter the ice | 45.7 + |
+| Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Slush Slide | 45.8 |
+| Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Flavor Blast, then shatter the ice | 53.6 + |
 | Mister Crease | (shuriken and crane folded) Paper Cut ×3 → Paper Shuriken → Paper Crane | about 21 + bleed |
 
 Every one of these is checked by an automated test (`tests/test_combos.gd`).

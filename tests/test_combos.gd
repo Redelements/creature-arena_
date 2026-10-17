@@ -263,11 +263,11 @@ func _sno() -> MatchSim:
 
 func test_sno_ice_spray_slush_slide() -> void:
 	var dmg := route(_sno(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S2, "skill_2"]])
-	assert_near(dmg, 16 + 10 * 1.15 + 10 * 1.3, 0.05, "Cold Cross, Brain Freeze > Shaved Ice > Slush Slide:")
+	assert_near(dmg, 19 + 12 * 1.15 + 10 * 1.3, 0.05, "Cold Cross, Brain Freeze > Shaved Ice > Slush Slide:")
 
 
 func test_sno_flavor_blast() -> void:
 	var sim := _sno()
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [SU, "surge"]])
-	assert_near(dmg, 16 + 10 * 1.15 + 14 * 1.3, 0.05, "... > Shaved Ice > Flavor Blast:")
+	assert_near(dmg, 19 + 12 * 1.15 + 16 * 1.3, 0.05, "... > Shaved Ice > Flavor Blast:")
