@@ -5,6 +5,7 @@ extends SceneTree
 ## Exits with code 1 when any test fails, so CI can gate on it. A script error inside a
 ## test (a crash, a bad call) also counts as a failure. TEST_ONLY=digby,combos (an
 ## environment variable) runs only the files whose names contain one of those words.
+## TEST_QUIET=1 prints only the failures (with their file) and the summary.
 
 const TEST_DIR := "res://tests/"
 
@@ -53,15 +54,17 @@ func _run_all() -> void:
 					break
 		files = keep
 
+	var quiet := OS.get_environment("TEST_QUIET") not in ["", "0"]
 	var passed := 0
 	var failed := 0
 	for f in files:
 		var errors_before := catcher.count
 		var script: GDScript = load(TEST_DIR + f)
-		print("\n", f)
+		if not quiet:
+			print("\n", f)
 		if script == null or not script.can_instantiate() or catcher.count > errors_before:
 			failed += 1
-			print("  FAIL  (could not load: %s)" % catcher.last)
+			print("  FAIL  %s (could not load: %s)" % [f, catcher.last])
 			continue
 		for m in script.get_script_method_list():
 			var name: String = m["name"]
@@ -74,10 +77,11 @@ func _run_all() -> void:
 				suite.errors.append("script error: " + catcher.last)
 			if suite.errors.is_empty():
 				passed += 1
-				print("  PASS  ", name)
+				if not quiet:
+					print("  PASS  ", name)
 			else:
 				failed += 1
-				print("  FAIL  ", name)
+				print("  FAIL  ", "%s :: %s" % [f, name] if quiet else name)
 				for e in suite.errors:
 					print("        ", e)
 
