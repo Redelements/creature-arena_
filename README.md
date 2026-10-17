@@ -686,7 +686,7 @@ start from neutral, never as a combo cancel; a folded craft cancels like any mov
 | Skill 1 | Paper Crane (fold 1 sheet) | A crane that **homes in** on the nearest foe for about half a second, then flies straight, and **pops them up** for a juggle. 4 s cooldown |
 | Skill 2 | Paper Frog (fold 1 sheet) | Hops on it: an **aimed leap** (about 110 px, untouchable, over pits) that **slams** down, **breaks guard** (red tell) and slows whoever is under him. 5 s cooldown |
 | Surge | Thousand Cranes (full meter **and** 3 sheets) | An aimed lob (hold for distance) that bursts into a **storm of cranes** about 90 px across for 2 s: hit after hit inside it, then everyone is pushed out and the floor cracks in a ring. Leave the circle |
-| Dodge | Paper Plane | Folds into a paper airplane and glides about 1.5 times a normal dodge, **over fences** |
+| Dodge | Paper Plane | Folds into a paper airplane and glides as far as Chef Cerebro's blink (about 116 px), **over fences** |
 
 **Victory pose:** he folds himself into a giant crane, flies a loop and unfolds with a
 bow (the first fighter with a victory pose; the system plays a `victory` animation for
