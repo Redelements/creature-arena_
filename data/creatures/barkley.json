@@ -50,6 +50,8 @@
     "range": 34,
     "poke": "skill_1",
     "poke_range": [36, 60],
+    "grab": "skill_1",
+    "grab_range": 42,
     "lob": "skill_2",
     "lob_range": [48, 114],
     "wakeup_charge": true,
@@ -102,6 +104,7 @@
       "hitstop": 6, "hitstop_charged": 9,
       "launch": 40,
       "reach": 0, "hit_radius": 42, "juggle": true,
+      "armor": { "from": 0, "to": 22, "reduction": 0.5 },
       "hits": [
         { "at": 7, "active": 2, "knockback": 0.3, "hitstun": 22, "hitstop": 3, "launch": 0 },
         { "at": 13, "active": 2, "knockback": 0.3, "hitstun": 22, "hitstop": 3, "launch": 0 },
@@ -112,11 +115,11 @@
       "fx": { "charge": "leaves", "spin": true, "impact": "twister" }
     },
     "skill_1": {
-      "name": "Branch Grab", "anim": "grab", "windup": 8, "tell": "strong", "cooldown": 150,
+      "name": "Branch Grab", "anim": "grab", "windup": 8, "tell": "unblockable", "cooldown": 150,
       "startup": 10, "active": 4, "recovery": 20,
       "damage": 8, "knockback": 0.4, "hitstun": 34, "hitstop": 7,
       "reach": 45, "hit_radius": 13, "juggle": true, "juggle_float": 26,
-      "pull": 3,
+      "grab": true, "grab_air": true, "pull": 3,
       "anim_at": [[0, 0], [5, 1], [10, 2], [15, 3], [22, 4], [28, 5]],
       "fx": { "branch": true, "impact": "snag" }
     },

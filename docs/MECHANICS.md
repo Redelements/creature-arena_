@@ -99,7 +99,8 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `juggle` | bool | move | May hit airborne targets | all |
 | `juggle_float` | ticks | seg | Air time added on an airborne target (default `JUGGLE_FLOAT` 16) | barkley, cerebro, gillbert, hissy |
 | `guard_break` | bool | move | A guard facing it crumples for `max(stun, break_stun)`. Also works inside `hold` (only at a full charge): the raw `tell` stays gold, and the view draws the red flash and "GUARD BREAK" once the charge is full (`CreatureView.full_charge_breaks_guard`); the CPU counts it as a guard answer and holds it to full against a guard | craglash, culvert, digby, hissy, sno; pete in `hold` |
-| `grab` | bool | move | Ignores guard, armor and counters; can't hit airborne targets | cerebro, culvert |
+| `grab` | bool | move | Ignores guard, armor and counters; can't hit airborne targets | barkley (Branch Grab, with `pull`), cerebro, culvert |
+| `grab_air` | bool | move | With `grab`: still gets past guard, armor and counters, but otherwise lands like an ordinary hit (hitstun, its own `pull` event, a juggle float in the air), so it can also snag a juggled target | barkley skill_1 (Branch Grab) |
 | `pull` | px | seg | Target slides in, stopping `pull` px short of the attacker. With `grab`: a hook (hitstun, `hook` event) | barkley, craglash, culvert |
 | `flip` | px | seg | With `grab`: carried over the attacker's head to `flip` px behind, airborne `max(launch, 2)` ticks; attacker turns round. With `swallow`: how far behind the body it comes out | cerebro, culvert `hold` |
 | `swallow` | ticks | seg | With `grab`: swallowed. Rides inside the attacker this long (`swallow_t`; hidden, invulnerable, not solid), then pushed out `flip` px behind him, hopping away from him (`POOP_SPEED` 2.2 px/tick) for `launch` ticks. The attacker keeps facing forward. Events `swallow`, `poop` | culvert `hold` (Gulp held) |
@@ -107,7 +108,7 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `cone` | dot threshold | move | Only foes with `facing·dir >= cone` (melee only) | culvert skill_2, sno heavy |
 | `no_flinch` | bool | move | Damage only: no stun state, no knockback; resets the combo on a free target. A melee one still interrupts a windup (hitstun) and reveals stealth; a ranged one (projectile or lob) does neither | every fighter's lights except the last of the string (Craglash's slower string staggers on every hit); cerebro's thrown flicks |
 | `stack_bonus` | hp per stack | move | Adds `stack × bonus`, consumes stacks | cairn |
-| `armor` | `{from, to, reduction=0.6, release_from}` | move | See "Combo and cancel rules" | craglash heavy, surge |
+| `armor` | `{from, to, reduction=0.6, release_from}` | move | See "Combo and cancel rules" | barkley heavy (Timber Twister, 0–22), craglash heavy, surge |
 | `taunt` | `{radius, ticks, pull=TAUNT_PULL}` | move | Fires at `armor.from` (only on armored moves); `pull` is the drag in px/tick | craglash surge |
 
 ### Status keys (applied on a clean hit, ms:`_apply_hit`)

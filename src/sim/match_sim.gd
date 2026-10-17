@@ -318,7 +318,8 @@ func _hittable(d: CreatureSim, hit: Dictionary) -> bool:
 	if not d.can_be_hit():
 		return false
 	if d.is_airborne():
-		if not bool(hit["juggle"]) or bool(hit["grab"]):
+		# A grab can't snag a target in the air, unless it's a "grab_air" one (Branch Grab).
+		if not bool(hit["juggle"]) or (bool(hit["grab"]) and not bool(hit.get("grab_air", false))):
 			return false
 		# Each juggle move uses one of the target's juggle points; extra hits of the same
 		# move are free, so multi-hit moves aren't cut short.
@@ -494,6 +495,9 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 
 	var kb := push * float(hit["knockback"]) / d.weight
 	var was_air := d.is_airborne()
+	# A "grab_air" grab (Branch Grab) only gets past guard, armor and counters like a grab;
+	# otherwise it lands like any hit: hitstun, its own pull, and a juggle in the air.
+	var grabbed := bool(hit["grab"]) and not bool(hit.get("grab_air", false))
 	if was_air:
 		var jkey := "%d:%d" % [a.id, int(hit["serial"])]
 		if not d.juggle_serials.has(jkey):
@@ -551,18 +555,18 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		d.stone = ticks
 		d.stone_ice = ice
 		emit_event("freeze" if ice else "petrify", d.pos, total, {"who": d.id, "by": a.id})
-	elif bool(hit["grab"]) and float(hit.get("swallow", 0.0)) > 0.0:
+	elif grabbed and float(hit.get("swallow", 0.0)) > 0.0:
 		_swallow(a, d, hit)
 		emit_event("swallow", a.pos + Vector2(0, -16), total, {"attacker": a.id, "target": d.id})
-	elif bool(hit["grab"]) and float(hit.get("flip", 0.0)) > 0.0:
+	elif grabbed and float(hit.get("flip", 0.0)) > 0.0:
 		_flip(a, d, hit)
 		emit_event("grab", a.pos + Vector2(0, -20), total, {"attacker": a.id, "target": d.id, "flip": true})
-	elif bool(hit["grab"]) and float(hit.get("pull", 0.0)) > 0.0:
+	elif grabbed and float(hit.get("pull", 0.0)) > 0.0:
 		# A hook (Culvert's tongue, tapped): the target is stunned and hauled in to him.
 		hooked = true
 		d.enter_hitstun(stun, Vector2.ZERO)
 		emit_event("hook", d.pos + Vector2(0, -12), total, {"attacker": a.id, "target": d.id})
-	elif bool(hit["grab"]):
+	elif grabbed:
 		# Swallow and spit out behind the attacker.
 		d.pos = a.pos - a.facing * (a.radius + d.radius + 6.0)
 		d.clamp_to_floor()
@@ -589,7 +593,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	# attacker's body. Knockback slows by a fixed factor each tick, so the starting speed
 	# that covers a distance is that distance times (1 - friction).
 	var pull := float(hit.get("pull", 0.0))
-	if pull > 0.0 and (hooked or not bool(hit["grab"])) and d.pos.distance_squared_to(a.pos) > 0.0001:
+	if pull > 0.0 and (hooked or not grabbed) and d.pos.distance_squared_to(a.pos) > 0.0001:
 		var gap := d.pos.distance_to(a.pos) - (a.radius + d.radius + pull)
 		var fr := CreatureSim.AIR_FRICTION if d.is_airborne() else CreatureSim.FRICTION
 		d.knock_vel = (a.pos - d.pos).normalized() * maxf(0.0, gap) * (1.0 - fr)
