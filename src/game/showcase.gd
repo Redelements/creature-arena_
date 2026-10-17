@@ -404,7 +404,7 @@ const SCRIPTS := {
 		],
 	},
 	"sno": {
-		"left": "sno", "right": "cairn", "energy": [100, 0], "gap": 30.0, "hp": [-1, 95],
+		"left": "sno", "right": "cairn", "energy": [100, 0], "gap": 30.0, "hp": [-1, 108],
 		"title": "SNO MERCY  -  FULL KIT",
 		"captions": [
 			["Syrup Slick: a sticky puddle", "Cairn wades in, slowed", "Cold Cross", "Cold Cross", "Brain Freeze",
