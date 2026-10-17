@@ -52,7 +52,7 @@
     "poke_range": [30, 80],
     "zone": "skill_1",
     "zone_range": [0, 80],
-    "surge_range": 40,
+    "surge_range": 50,
     "routes": [
       ["light", "light", "light", "heavy", "surge"],
       ["light", "light", "light", "heavy", "skill_2"],
@@ -126,7 +126,7 @@
       "name": "Flavor Blast", "anim": "blast", "energy_cost": 100,
       "startup": 12, "active": 4, "recovery": 26,
       "damage": 16, "knockback": 0.5, "freeze_ticks": 90, "hitstop": 14,
-      "reach": 0, "hit_radius": 50, "juggle": true,
+      "reach": 0, "hit_radius": 60, "juggle": true,
       "anim_at": [[0, 0], [6, 1], [13, 2], [19, 3], [26, 4], [40, 5]],
       "fx": { "shout": { "text": "CHILL OUT.", "sound": "chill" }, "impact": "blast" }
     }
