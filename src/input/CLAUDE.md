@@ -1,0 +1,26 @@
+# src/input: devices to input bits
+
+Local devices become one bitmask per tick, the same thing the CPU and the network send.
+
+## Gotchas
+
+- Aim assist is applied here, in `PlayerInput`, so online peers receive the assisted aim.
+  Exact aims (`IN_AIM`) bypass it.
+- `MouseOrders` and `PlayerInput.combine_pad` are pure logic (no `Input` calls) so tests
+  can drive them.
+- `MenuStick` turns the left stick into `ui_*` presses because `Controls.setup()` erases
+  the built-in joypad `ui_*` events; main turns it off while a `CharacterSelect` (which
+  reads each pad itself) is on top.
+
+## Where to look
+
+- Keyboard layouts (`LAYOUTS`: league, classic), pad layouts (`PAD_LAYOUTS`: standard,
+  twinstick), prompt labels → `player_input.gd` (`label`, `label_for`, `help_text`)
+- Aim assist → `player_input.gd:ASSIST_DEG` (25), `ASSIST_DEG_STICK` (12), `ASSIST_RANGE`
+  (90), `assist()`
+- Twin-stick right stick, strafe, autofire → `combine_pad` (`TWIN_DEADZONE` 0.35),
+  `autofire` (`AUTO_QUIET` 12); pad aim timer packing → `PAD_T_SHIFT` (27)
+- Second controller / local 2P → `_device_pad_bits`, `pad_device` (`ANY_PAD` -1, `NO_PAD` -2)
+- Mouse walk-to-spot and chase → `mouse_orders.gd:bits` (`ARRIVE`, `STUCK_TICKS`),
+  `_chase`, `_walk_bits`, `_braking`; aim hold after a press → `AIM_HOLD` (10); buttons
+  passed on while held → `HOLD_BITS`

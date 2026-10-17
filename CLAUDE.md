@@ -5,10 +5,14 @@ stadium, ground that breaks into pits. Design source of truth: the **Creature Ar
 Game Plan** doc (https://claude.ai/artifact/4u3EdX5vUQZUceeNQpVuud), which covers the
 concept, legal guardrails, roster, affinities, arenas, game modes and roadmap.
 
+**Before searching broadly, check docs/codebase-map.md to locate the relevant module.** It's
+a routing table: task words ("stamina", "hitboxes", "rooms") → file and function, plus a
+generated index of every file. Each area's rules and gotchas are in its own `CLAUDE.md`
+(`src/sim/CLAUDE.md`, `src/view/CLAUDE.md`, `data/CLAUDE.md`, `tests/CLAUDE.md`, …), loaded
+when you work there.
+
 Read on demand, not up front:
 
-- **docs/CODEBASE.md** — every file, what it owns, "where to look" per layer, the
-  gotchas. Start here before touching a layer you haven't read this session.
 - **docs/MECHANICS.md** — every data key the sim reads from `data/creatures/*.json`,
   the tick order, combo/cancel rules, status effects, events, input bits. Checked
   against the code; it also lists where older notes had drifted.
@@ -104,19 +108,23 @@ src/view/   everything cosmetic          data/       creatures/*.json, rules/, t
 tests/      run_tests.gd runs every test_*.gd    tools/   sprite and audio generators
 ```
 
-File-by-file: docs/CODEBASE.md.
+File by file: docs/codebase-map.md.
 
 ## Workflow
 
 - Work on a branch and open a PR; never push to `main`. PRs can be stacked (base = the
   previous PR's branch) while earlier ones await review.
-- CI on every push and PR: `tests.yml` (all tests) and `playable-build.yml` (Windows +
+- CI on every push and PR: `tests.yml` (the codebase map check, then all tests) and `playable-build.yml` (Windows +
   Linux export; a bot comment on the PR links the downloads). Kevin playtests from those
   builds, so say what to try in the PR description.
 - Use the GitHub REST API (`gh api ...`); `gh pr create` (GraphQL) isn't available in
   cloud sessions.
-- When you add a sim data key, a sim event, a CLI flag or a file, update MECHANICS.md or
-  CODEBASE.md in the same PR; they replace the notes that used to live here.
+- If you add, move or rename a file or module, update the codebase map in the same change:
+  run `python3 tools/codebase_map.py` (it rewrites the generated index) and fix any row in
+  the hand-written half that names it. CI runs `--check` and fails on a stale index, a path
+  that no longer exists, or a new area under `src/` or `data/` that isn't listed.
+- When you add a sim data key, a sim event or a CLI flag, update MECHANICS.md in the same
+  PR. A rule or gotcha for one area goes in that area's `CLAUDE.md`, not here.
 
 ## Placeholders and open items
 

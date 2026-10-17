@@ -1,0 +1,29 @@
+# data: tuning lives here, not in code
+
+Frame data, moves, `fx`, `windup`/`tell`, `ko_fx`, CPU routes, mode rules and shared rules
+are JSON. New mechanics are added to the sim as data keys (documented in
+`docs/MECHANICS.md`), not as per-fighter code. Every JSON file the sim reads is in the
+online data hash (`src/net/netplay.gd:data_hash`): changing one needs the server updated.
+
+| File | Holds |
+| --- | --- |
+| `creatures/<id>.json` | One fighter: `id`, `name`, `title`, `affinity`, `role`, `max_hp`, `speed`, `accel`, `radius`, `weight`, `stamina`, `stamina_regen`, `dodge` (no `cost`: the share is in `rules/stamina.json`), `guard`, `fx_height`, `fx_top`, `fx_color`, `surge_aura`, `cut_in_frame`, `ko_fx`, `sprite`, `ai`, `moves` (slots `tag_in`, `light_1..3`, `heavy`, `skill_1`, `skill_2`, `surge`) |
+| `rules/duel.json`, `duel_1v1.json`, `team.json`, `deathmatch.json` | Match rules (duel_1v1: the online 1v1, best of three rounds): time, intro ticks, tag cooldown/energy, bench regen, KO swap, spawn spread; deathmatch adds respawn time, spawn protection, pad inset/spread and `score_to_win` by team size |
+| `rules/sinkhole.json`, `crater.json`, `brawl.json` | Sinkhole's shrink schedule (chasm falls KO); King of the Crater's zone and score; Brawl's 2 to 4 fighters, one life each |
+| `rules/stamina.json` | Stamina every fighter shares: `dodge_cost_share` (0.6 of the bar) and `dodge_cost_share_by_fighter`, `block_drain_mult` per move type, `block_regen_pause_seconds`, `exhaust_delay_seconds` |
+| `rules/projectiles.json` | `radius_mult`: every straight projectile's hit radius (and `radius_end`) × this |
+| `rules/mutators.json` | Match mutators (`air_mult`, `speed_mult`, `damage_mult`, `surge_every`, `pit_floor`); the Daily Challenge draws two, Chaos Cup stacks them |
+| `arenas/<id>.json` | One arena: `id`, `name`, `ground`, `pieces` (`wall` (rubble a charge can smash), `fence`, `chasm`, `shallows`, `brush`, each a `[col, row, w, h]` rect on the 84x36 grid of 8 px cells) |
+| `trials.json` | Combo trials: fighter, name, route (a step `[button, move, "hold"]` is held to a full charge) |
+| `audio.json` | Music volume and tracks, every sound name → file |
+| `online.json` | The game's server host; `rematch_pick_seconds`, `rematch_locked_seconds` |
+| `discord.json` | Discord Rich Presence: `client_id` (empty turns it off), `large_image`, `fighter_images` |
+
+## Gotchas
+
+- Changing a fighter's numbers moves pinned values: combo damage in
+  `tests/test_combos.gd` and the README table, showcase scripts with fixed health
+  (`src/game/showcase.gd`), trials, and the class balance pins (`tests/test_balance.gd`).
+  Run the full suite and `tests/bench_cpu.gd --matrix` after tuning.
+- A fighter's sheet "type" maps to the Game Plan's affinities (closest fit; check with
+  Kevin), never to a type chart.
