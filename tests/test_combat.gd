@@ -116,7 +116,7 @@ func test_guard_blocks_most_damage_and_drains_stamina() -> void:
 	run(sim, 0, 1, G)
 	tap(sim, L, 30, G)
 	assert_near(d.hp, d.max_hp - 4.0 * 0.2, 0.001, "chip damage through guard:")
-	assert_near(d.stamina, d.max_stamina - 8.0, 0.001, "guard stamina:")
+	assert_near(d.stamina, d.max_stamina - MatchSim.block_drain(d, "light", 4.0), 0.001, "guard stamina:")
 	assert_eq(d.state, CreatureSim.State.GUARD, "still guarding:")
 
 

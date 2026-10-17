@@ -11,7 +11,7 @@
   "weight": 1.4,
   "stamina": 100,
   "stamina_regen": 0.45,
-  "dodge": { "frames": 20, "iframes_start": 2, "iframes_end": 13, "speed": 6.0, "cost": 28 },
+  "dodge": { "frames": 20, "iframes_start": 2, "iframes_end": 13, "speed": 6.0 },
   "guard": { "reduction": 0.8, "drain_per_damage": 2.0, "speed_mult": 0.35, "break_stun": 55 },
   "fx_height": 14,
   "fx_top": 24,
@@ -110,7 +110,7 @@
       "damage": 6, "hitstun": 34, "knockback": 0.0, "hitstop": 8,
       "grab": true, "pull": 2,
       "hold": { "damage": 12, "pull": 0, "swallow": 16, "flip": 6, "launch": 16, "hitstop": 10 },
-      "projectile": { "speed": 8.35, "life": 13, "radius": 8, "offset": 14, "crack_trail": false,
+      "projectile": { "speed": 8.35, "life": 13, "radius": 8, "radius_end": 14, "offset": 14, "crack_trail": false,
         "sound": "gulp", "end_sound": "grab" },
       "fx": { "projectile": "tongue", "suction": true }
     },

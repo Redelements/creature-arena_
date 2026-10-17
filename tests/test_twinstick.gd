@@ -27,7 +27,7 @@ func test_the_aim_table_is_64_unit_directions_that_round_trip() -> void:
 func _off_angle() -> MatchSim:
 	var sim := MatchFactory.versus("cerebro", "cairn")
 	sim.creatures[0].pos = Vector2(200, 150)
-	sim.creatures[1].pos = Vector2(200, 150) + Vector2.from_angle(deg_to_rad(22.0)) * 54.0
+	sim.creatures[1].pos = Vector2(200, 150) + Vector2.from_angle(deg_to_rad(22.0)) * 80.0  # 30 px off the line: past even the wider shots
 	sim.creatures[0].facing = Vector2.RIGHT
 	return sim
 

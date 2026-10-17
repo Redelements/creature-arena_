@@ -278,3 +278,17 @@ func test_it_all_rolls_back() -> void:
 	for ins in inputs:
 		sim.step(ins)
 	assert_eq(sim.state_digest(), later, "the same 400 ticks again:")
+
+
+func test_the_paper_plane_glides_as_far_as_cerebros_blink() -> void:
+	var dist := {}
+	for id in ["cerebro", "crease"]:
+		var sim := MatchFactory.training(id)
+		var c := sim.creatures[0]
+		sim.creatures[1].pos = Vector2(100, 250)
+		c.pos = Vector2(150, 120)
+		var x0 := c.pos.x
+		run(sim, SimDefs.IN_DODGE | SimDefs.IN_RIGHT, 1)
+		run(sim, 0, 30)
+		dist[id] = c.pos.x - x0
+	assert_near(float(dist["crease"]), float(dist["cerebro"]), 1.0, "the same distance:")

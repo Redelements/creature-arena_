@@ -187,6 +187,7 @@ func _tag(side: int) -> void:
 	# Energy and stamina belong to the team, not the creature.
 	inc.energy = out.energy - (float(rules.get("tag_cancel_energy", 50)) if kind == "cancel" else 0.0)
 	inc.stamina = out.stamina
+	inc.regen_wait = out.regen_wait
 	inc.pos = out.pos
 	inc.facing = out.facing
 	inc.knock_vel = Vector2.ZERO
@@ -248,6 +249,7 @@ func _enter_next(side: int) -> void:
 	var out := active_creature(side)
 	inc.energy = out.energy
 	inc.stamina = inc.max_stamina
+	inc.regen_wait = 0
 	inc.pos = sim.terrain.nearest_solid(sim.spawn(side))
 	var foe := active_creature(1 - side)
 	inc.facing = Vector2.RIGHT if foe.pos.x >= inc.pos.x else Vector2.LEFT

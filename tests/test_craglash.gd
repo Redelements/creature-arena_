@@ -252,11 +252,11 @@ func test_the_ram_covers_twice_a_normal_roll() -> void:
 	assert_gt(crag_d, cairn_d * 1.8, "Craglash's dash (%.0f px) is about twice Cairn's roll (%.0f px)" % [crag_d, cairn_d])
 
 
-func test_the_ram_costs_most_of_the_stamina_bar() -> void:
+func test_the_ram_costs_its_share_of_the_bar() -> void:
 	var sim := _duel("cairn", 100.0)
 	var crag := sim.creatures[0]
-	var cost := float(crag.def["dodge"]["cost"])
-	assert_gt(cost, 80.0, "triple a normal roll's cost:")
+	var cost := crag.dodge_cost
+	assert_near(cost, crag.max_stamina * CreatureSim.dodge_share("craglash"), 0.001, "the same share as any dodge:")
 	run(sim, SimDefs.IN_DODGE | RIGHT, 1)
 	assert_near(crag.stamina, crag.max_stamina - cost, 0.01, "spent on the dash:")
 	run(sim, 0, 30)

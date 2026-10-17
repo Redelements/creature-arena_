@@ -214,7 +214,8 @@ func spawn(e: Dictionary) -> void:
 			_add({"kind": "lines", "pos": p + Vector2(0, -16), "life": 10, "size": 1.3, "color": Color("ff9a5a")})
 			for i in 8:
 				_px(p + Vector2(0, -16), Vector2.from_angle(randf() * TAU) * randf_range(1.0, 2.5), Color("9ec5ff"), 16)
-			_text(p + Vector2(0, -34), "GUARD BREAK", Color("ff9a5a"))
+			# Out of stamina ("drained"): the guard only drops, so it says why.
+			_text(p + Vector2(0, -34), "EXHAUSTED" if bool(e.get("drained", false)) else "GUARD BREAK", Color("ff9a5a"))
 		"slam":
 			var full := power >= 1.0
 			_add({"kind": "ring", "pos": p, "life": 18 if full else 12, "radius": 34.0 if full else 18.0})

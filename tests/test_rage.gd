@@ -110,7 +110,9 @@ func test_rage_sidesteps_shots() -> void:
 	var rate_hard := float(vs_hard[1]) / maxf(1.0, float(vs_hard[0]))
 	var rate_rage := float(vs_rage[1]) / maxf(1.0, float(vs_rage[0]))
 	assert_gt(float(vs_rage[0]), 15.0, "knives were thrown at Rage from range:")
-	assert_lt(rate_rage, rate_hard * 0.7, "Rage is hit by fewer of them (%d/%d; Hard %d/%d):" % [
+	# Under 0.8 of Hard's rate: shots hit 1.6x wider since Oct 2026 (projectiles.json), so
+	# walking out of their way is harder for everyone (Rage about 0.77 of Hard's).
+	assert_lt(rate_rage, rate_hard * 0.8, "Rage is hit by fewer of them (%d/%d; Hard %d/%d):" % [
 		vs_rage[1], vs_rage[0], vs_hard[1], vs_hard[0]])
 
 

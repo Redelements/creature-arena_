@@ -12,7 +12,7 @@
   "stamina": 100,
   "stamina_regen": 0.5,
   "sheets": { "max": 3, "regen": 300 },
-  "dodge": { "frames": 20, "iframes_start": 2, "iframes_end": 12, "speed": 4.0, "cost": 30, "passes": ["fence"], "trail": "paper" },
+  "dodge": { "frames": 20, "iframes_start": 2, "iframes_end": 12, "speed": 6.824, "passes": ["fence"], "trail": "paper" },
   "guard": { "reduction": 0.78, "drain_per_damage": 2.2, "speed_mult": 0.45, "break_stun": 58 },
   "fx_height": 24,
   "fx_top": 62,

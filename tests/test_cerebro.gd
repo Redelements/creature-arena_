@@ -250,6 +250,8 @@ func test_a_blink_pressed_just_before_it_recharges_comes_out_when_ready() -> voi
 	run(sim, SimDefs.IN_DODGE | SimDefs.IN_UP, 1)
 	run(sim, 0, int(dg["cooldown"]) - 4)  # 3 ticks of cooldown left
 	assert_false(chef.can_dodge(), "still recharging")
+	chef.stamina = chef.max_stamina  # the cooldown is what's tested, not the stamina for two blinks
+	assert_false(chef.can_dodge(), "still recharging, with stamina to spare")
 	run(sim, SimDefs.IN_DODGE | SimDefs.IN_DOWN, 1)
 	run(sim, 0, 4)
 	assert_eq(chef.state, CreatureSim.State.DODGE, "the early press blinks as soon as it's ready")
