@@ -373,6 +373,7 @@ func snapshot() -> Dictionary:
 		"frame_size": size,
 		"side_tex": _views["side"]["tex"],
 		"side_origin": origin,
+		"side_size": _views["side"]["size"],
 		"frame_px": frame_px,
 	}
 
