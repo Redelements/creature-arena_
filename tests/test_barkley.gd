@@ -48,29 +48,43 @@ func test_branch_grab_links_into_lights() -> void:
 	assert_gt(dmg, 30.0, "Branch Grab, then the light string and Timber Twister, should all connect")
 
 
-func test_a_guarded_branch_grab_does_not_pull() -> void:
+## Branch Grab is a grab (Oct 2026): a guard doesn't stop it, so a turtling foe is reeled
+## in all the same.
+func test_branch_grab_reels_in_a_guarding_foe() -> void:
 	var sim := _duel("cairn", 22.0)
 	var start := sim.creatures[1].pos
-	var blocked := run_until(sim, func(): return not _events(sim, "block").is_empty(), 60, S1, GUARD)
-	assert_true(blocked, "Cairn should block the grab")
+	var pulled := run_until(sim, func(): return not _events(sim, "pull").is_empty(), 60, S1, GUARD)
+	assert_true(pulled, "the guard doesn't stop the grab")
+	assert_true(_events(sim, "block").is_empty(), "not blocked")
 	run(sim, 0, 20, GUARD)
-	assert_lt(start.x - sim.creatures[1].pos.x, 3.0, "a blocked grab doesn't reel anyone in")
+	assert_gt(start.x - sim.creatures[1].pos.x, 10.0, "reeled in through the guard:")
 
 
-func test_pinecone_flies_over_a_close_foe_and_bursts_where_it_lands() -> void:
+func test_timber_twister_is_armored_while_it_spins() -> void:
+	var sim := _duel("cairn", 10.0)
+	var bark := sim.creatures[0]
+	var ar: Dictionary = bark.def["moves"]["heavy"]["armor"]
+	run(sim, H, 1)
+	var armored := run_until(sim, func(): return bark.is_armored(), 30, H)
+	assert_true(armored, "armored once the windup is over")
+	assert_true(bark.state_t <= int(ar["to"]), "while it spins")
+
+
+## The burst is 32 px since his buff (Oct 2026): a foe right next to him is no longer
+## under the arc but at the edge of the burst, so this only checks where it lands.
+func test_pinecone_bursts_where_it_lands() -> void:
 	var sim := _duel("cairn", 2.0)
 	var barkley := sim.creatures[0]
 	var mv: Dictionary = barkley.def["moves"]["skill_2"]
 	var pr: Dictionary = mv["projectile"]
 	tap(sim, S2, int(mv["startup"]) + 1)
 	assert_eq(sim.projectiles.size(), 1, "a pinecone in the air")
-	var hp := sim.creatures[1].hp
 	var burst := run_until(sim, func(): return not _events(sim, "burst").is_empty(), int(pr["time"]) + 5)
 	assert_true(burst, "it lands and bursts")
 	var at: Vector2 = _events(sim, "burst")[0]["pos"]
 	var expect := barkley.pos.x + float(pr["offset"]) + float(pr["range"])
 	assert_near(at.x, expect, 1.5, "lands range + offset ahead:")
-	assert_near(sim.creatures[1].hp, hp, 0.001, "a foe right next to Barkley is under the arc, not hit:")
+	assert_eq(float(_events(sim, "burst")[0]["power"]), float(pr["burst"]), "its burst radius:")
 
 
 func test_pinecone_burst_hits_a_foe_at_the_landing_spot() -> void:
