@@ -68,7 +68,8 @@ extends Node2D
 ##   syrup        true         a splash as the move's zone is left (the zone itself is drawn
 ##                             from sim.zones, as a syrup puddle)
 ## Creature "ko_fx" keys: style "scatter" (the sprite breaks into horizontal pieces that
-## tumble across the floor), "crack" (cracks, water gushing out, rubble), "crumble"
+## tumble across the floor: "pieces" [[y0, y1], ...] head first, in side-sheet frame
+## pixels, from "frame" [row, col]; without "pieces", four even bands of the figure), "crack" (cracks, water gushing out, rubble), "crumble"
 ## (cracks, then the neck stones burst loose) or "timber" (a felled tree: "TIMBER!",
 ## leaves shaken loose, and a dust line where the trunk hits the floor) or "flop" (a
 ## last wet flop and a puddle) or "deflate" (the brain fizzles out with a puff of steam and
@@ -1690,13 +1691,15 @@ func _scatter(c: CreatureSim) -> void:
 	var v: CreatureView = views[c.id]
 	var snap := v.snapshot()
 	v.ko_hidden = true
-	var ko: Dictionary = c.def["ko_fx"]
+	var ko: Dictionary = c.def.get("ko_fx", {})
 	var frame: Array = ko.get("frame", [0, 0])
-	var fpx := int(snap["frame_px"])
+	var fsize: Vector2 = snap["side_size"]
 	var origin: Vector2 = snap["side_origin"]
 	var flip := bool(snap["flip"])
 	var dir: Vector2 = _last_push.get(c.id, -c.facing)
-	var pieces: Array = ko["pieces"]
+	var pieces: Array = ko.get("pieces", [])
+	if pieces.is_empty():
+		pieces = _scatter_bands(c, origin.y, fsize.y)
 	for i in pieces.size():
 		var y0 := int(pieces[i][0])
 		var y1 := int(pieces[i][1])
@@ -1705,7 +1708,7 @@ func _scatter(c: CreatureSim) -> void:
 		var spread := dir.rotated(randf_range(-0.8, 0.8))
 		var speed := randf_range(0.7, 1.6) + (1.3 if head else 0.0)
 		_add({"kind": "chunk", "piece": true, "tex": snap["side_tex"], "flip": flip,
-			"region": Rect2(int(frame[1]) * fpx, int(frame[0]) * fpx + y0, fpx, y1 - y0),
+			"region": Rect2(int(frame[1]) * fsize.x, int(frame[0]) * fsize.y + y0, fsize.x, y1 - y0),
 			"ox": origin.x, "band_c": (y0 + y1) * 0.5,
 			"pos": c.pos + Vector2(randf_range(-2, 2), randf_range(-1, 1)), "z": zc,
 			"vel": spread * speed, "vz": randf_range(1.0, 2.2) + zc * 0.025,
@@ -1720,6 +1723,18 @@ func _scatter(c: CreatureSim) -> void:
 	_add({"kind": "ring", "pos": c.pos, "life": 16, "radius": 30.0})
 	shake_out = maxf(shake_out, 3.0)
 	cue.emit("stones_scatter")
+
+
+## Scatter bands for a fighter whose ko_fx names no "pieces": four even bands from the
+## top of the figure (`fx_top` above the feet) down to the feet, head first.
+func _scatter_bands(c: CreatureSim, feet_y: float, frame_h: float) -> Array:
+	var top := clampf(feet_y - _top(c) - 4.0, 0.0, feet_y)
+	var bottom := minf(feet_y + 2.0, frame_h)
+	var out: Array = []
+	var n := 4
+	for i in n:
+		out.append([int(lerpf(top, bottom, float(i) / n)), int(lerpf(top, bottom, float(i + 1) / n))])
+	return out
 
 
 ## Culvert's concrete cracks under the final blow. Returns the crack ends, where water

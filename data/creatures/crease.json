@@ -19,7 +19,7 @@
   "fx_color": "#ff9a2e",
   "surge_aura": {"colors": ["#1f3f8f", "#ff9a2e", "#f4efe2"], "motes": "glints", "spikes": 6, "sharp": 0.8, "speed": 0.9, "height": 1.2},
   "cut_in_frame": [10, 2],
-  "ko_fx": { "style": "scatter" },
+  "ko_fx": { "style": "scatter", "frame": [0, 0], "pieces": [[79, 99], [99, 111], [111, 125], [125, 138]] },
   "sprite": {
     "path": "res://assets/sprites/crease.png",
     "frame": [128, 160],
