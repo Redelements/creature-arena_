@@ -324,6 +324,55 @@ func test_the_storm_pulses_then_pushes_out_and_cracks_a_ring() -> void:
 	assert_gt(float(cracked), 8.0, "a ring of cracked floor:")
 
 
+## Thousand Cranes locks on: aimed near a foe (within the "lock_on" cone and the longest
+## throw), even a tap lands the storm on them; aimed at empty floor, it goes as far as
+## it was held. Hidden foes aren't locked onto.
+func _storm_at(sim: MatchSim, hold: int, aim_bits := 0) -> Vector2:
+	var c := sim.creatures[0]
+	c.energy = CreatureSim.MAX_ENERGY
+	for i in hold:
+		sim.step(PackedInt32Array([SU | aim_bits, 0]))
+	assert_true(run_until(sim, func(): return sim.storms.size() > 0, 160), "a storm lands")
+	return sim.storms[0]["pos"] if sim.storms.size() > 0 else Vector2.INF
+
+
+func test_thousand_cranes_locks_onto_the_foe_it_points_at() -> void:
+	var sim := _duel("cairn", 150.0)
+	var foe := sim.creatures[1].pos
+	assert_lt(_storm_at(sim, 1).distance_to(foe), 6.0, "a tap lands on a foe 150 px away:")
+	# A little off the line (about 15 degrees), still locked: it bends onto them.
+	sim = _duel("cairn", 150.0)
+	sim.creatures[1].pos += Vector2(0, 38)
+	foe = sim.creatures[1].pos
+	assert_lt(_storm_at(sim, 1).distance_to(foe), 6.0, "slightly off the line, it still lands on them:")
+
+
+func test_thousand_cranes_aimed_away_goes_where_it_points() -> void:
+	var sim := _duel("cairn", 150.0)
+	var c := sim.creatures[0]
+	var start := c.pos
+	var at := _storm_at(sim, 1, SimDefs.aim_bits(Vector2.UP) | SimDefs.IN_UP)
+	assert_lt(at.y, start.y - 60.0, "aimed up, away from the foe: it flies up")
+	var pr: Dictionary = c.moves()["surge"]["projectile"]
+	assert_lt(absf(start.distance_to(at) - float(pr["range"]) - float(pr["offset"])), 6.0,
+		"a tap with nothing locked is the shortest throw:")
+
+
+func test_thousand_cranes_doesnt_lock_onto_far_or_hidden_foes() -> void:
+	var sim := _duel("cairn", 320.0)
+	var c := sim.creatures[0]
+	var pr: Dictionary = c.moves()["surge"]["projectile"]
+	assert_eq(sim.lob_lock(c, pr), null, "too far: no lock")
+	sim = _duel("pete", 150.0)
+	c = sim.creatures[0]
+	assert_eq(sim.lob_lock(c, pr), sim.creatures[1], "in range and in the aim: locked")
+	sim.creatures[1].stealth = 100
+	assert_eq(sim.lob_lock(c, pr), null, "a foe in stealth isn't")
+	sim.creatures[1].stealth = 0
+	sim.creatures[1].covered = true
+	assert_eq(sim.lob_lock(c, pr), null, "nor one hidden in brush")
+
+
 func test_it_all_rolls_back() -> void:
 	var sim := _duel("cairn", 90.0)
 	var c := sim.creatures[0]

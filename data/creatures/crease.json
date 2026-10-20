@@ -154,6 +154,7 @@
       "charge_max": 30, "startup": 10, "active": 0, "recovery": 30,
       "damage": 2, "knockback": 0.0, "hitstun": 16, "hitstop": 2, "juggle": true,
       "projectile": { "lob": true, "range": 85, "range_charged": 210, "time": 26, "burst": 0, "offset": 10,
+        "lock_on": { "dot": 0.92 },
         "sound": "swing_heavy",
         "storm": { "radius": 52, "ticks": 100, "every": 10, "damage": 1.8, "hitstun": 16,
           "damage_end": 7, "knockback_end": 4.5, "launch_end": 20, "hitstop_end": 12,
