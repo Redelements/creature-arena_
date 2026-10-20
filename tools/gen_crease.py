@@ -3,15 +3,24 @@
 
 Run from anywhere:  python3 tools/gen_crease.py   (Pillow and numpy)
 Look at a few frames while working on a pose:  python3 tools/gen_crease.py inspect idle:0 run:2
+(INSPECT_OUT=path puts the picture somewhere other than inspect.png in the repo root).
 
 Writes assets/sprites/crease.png (128x160 frames, 8 columns, the side view), crease_down.png
 and crease_up.png (112x160: facing the camera, and facing away), plus labelled previews in
-docs/. Rendered with the shared splat renderer (tools/splat3d.py).
+docs/. Posed and splatted with the shared renderer (tools/splat3d.py), but shaded here: he
+is folded paper, and paper is flat planes.
 
-He is folded paper: every piece is faceted (flat faces, see `prism` and `pleat_cone`) and a
-crease line is drawn wherever two faces of the same paper meet (`decorate`). A huge orange
-hat (a pleated brim, a creased crown), no face under it (a shadow and a red collar point),
-a navy suit cut in panels with long coat skirts, a maroon vest and cape, orange paper shoes.
+The paper look (`render_paper`, swapped in for splat3d's `render` for this generator only):
+  - every face is one flat tone (five tones per material, picked from the face normal), so
+    the big faces of the coat and hat read as clean planes, never dither;
+  - a crease between two faces of the same sheet is a mountain fold (a lighter line where it
+    catches the light) or a valley fold (a darker line), decided from the two normals;
+  - the outline stays on the silhouette; inside it a piece in front of another only gets a
+    thin shadow in the back piece's deep tone where the depth step is real, so arms, lapels
+    and skirts separate by tone instead of black lines;
+  - the pale paper back (cream) shows wherever a flap turns over: curled coat-skirt and
+    cape-hem corners, the folded lapel edges, the underside of the pleated brim, the paper
+    plane's and the big crane's undersides.
 A point is (lat, up, fwd), like the other rigs.
 """
 import math
@@ -19,6 +28,7 @@ import os
 import sys
 
 import numpy as np
+from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import splat3d as S  # noqa: E402
@@ -33,27 +43,39 @@ VIEWS = {
     "up": {"w": 112, "h": 160, "origin": (56, 124)},
 }
 
+# (base, light, dark); the paper shader adds a sheen above light and a deep below dark.
 MAT = {
-    "suit": ((30, 72, 150), (56, 108, 196), (16, 42, 98)),
-    "vest": ((128, 22, 70), (166, 44, 98), (84, 10, 44)),
-    "cape": ((118, 18, 62), (152, 36, 86), (74, 8, 38)),
-    "hat": ((246, 138, 22), (255, 182, 72), (198, 96, 10)),
+    "suit": ((34, 76, 156), (62, 114, 204), (18, 44, 102)),
+    "vest": ((132, 24, 72), (170, 48, 102), (86, 10, 46)),
+    "cape": ((122, 20, 64), (158, 40, 90), (76, 8, 40)),
+    "hat": ((246, 140, 24), (255, 184, 76), (200, 98, 12)),
     "shoe": ((240, 132, 26), (255, 178, 70), (190, 92, 12)),
     "collar": ((232, 44, 40), (255, 96, 80), (170, 20, 20)),
     "void": ((14, 12, 22), (26, 24, 38), (6, 6, 12)),
-    "paper": ((232, 230, 222), (252, 252, 248), (176, 174, 168)),
-    "craft": ((214, 214, 210), (244, 244, 240), (150, 150, 148)),
+    "paper": ((236, 232, 220), (250, 248, 240), (204, 198, 184)),
+    "craft": ((222, 220, 212), (246, 246, 240), (178, 176, 168)),
 }
-S.configure(MAT, outline=(10, 10, 22, 255), scale=0.86, near=12.0)
+SCALE = 1.1
+S.configure(MAT, outline=(10, 10, 22, 255), scale=SCALE, near=12.0)
 
-# A crease between two faces of the same paper: the material's dark tone (the hat a
-# softer one, so the brim reads as one orange sweep with folds, not stripes).
-CREASE = {name: tuple(tones[2]) for name, tones in MAT.items()}
-CREASE["hat"] = tuple(int((a + b) / 2) for a, b in zip(MAT["hat"][0], MAT["hat"][2]))
-CREASE["paper"] = (150, 148, 142)
-CREASE["craft"] = (128, 128, 126)
 
+def _mix(a, b, t):
+    return tuple(int(round(x + (y - x) * t)) for x, y in zip(a, b))
+
+
+# Five flat tones per material: sheen, light, base, dark, deep.
+TONES = {}
+for _name, (_base, _light, _dark) in MAT.items():
+    TONES[_name] = [_mix(_light, (255, 255, 255), 0.38), _light, _base, _dark, _mix(_dark, (0, 0, 0), 0.4)]
+TONES["void"] = [MAT["void"][1]] * 2 + [MAT["void"][0], MAT["void"][2], MAT["void"][2]]
+TONES["paper"] = [(255, 255, 252), (250, 248, 240), (236, 232, 220), (214, 208, 194), (190, 184, 170)]
+
+SEAM_STEP = 2.5   # px of depth before a piece in front casts its thin shadow line on the one behind
 AXES = ((0, 0, 1), (0, 1, 0), (1, 0, 0))
+
+# The camera of the view being built (set by build), so a sheet can tell which of its sides
+# faces the viewer and show its paper back.
+_CAM = [None]
 
 
 def V(*a):
@@ -101,27 +123,35 @@ def new_face():
     return _face[0]
 
 
-def facet(points, mat, part=None, normal=None, center=None, two_sided=None, face=None):
+def facet(points, mat, part=None, normal=None, center=None, two_sided=None, face=None, back=None):
     """A flat face (a triangle or a quad of 3D points), shaded as one plane: the paper's
-    flat faces. `center` (a point inside the body) orients the normal outward."""
+    flat faces. `center` (a point inside the body) orients the normal outward. `back` names
+    the material of the sheet's other side (its paper back): when that side faces the
+    camera, the face is drawn in it."""
     P = [np.asarray(p, float) for p in points]
-    step = S.STEP * 0.85
+    step = S.STEP * 0.8
     pts = _tri_points(P[0], P[1], P[2], step) if len(P) == 3 else _quad_points(P[0], P[1], P[2], P[3], step)
     n = nz(np.cross(P[1] - P[0], P[-1] - P[0])) if normal is None else nz(normal)
     if center is not None and np.dot(n, np.mean(P, axis=0) - np.asarray(center, float)) < 0:
         n = -n
+    two = (center is None and normal is None) if two_sided is None else two_sided
+    if back is not None:
+        two = True
+        if _CAM[0] is not None and np.dot(n, _CAM[0]) < 0:
+            mat = back
+            n = -n
     fid = new_face() if face is None else face
     local = np.zeros((len(pts), 3))
-    local[:, 0] = fid  # which face of the paper: decorate() draws the creases between faces
+    local[:, 0] = fid  # which face of the paper: the crease pass draws the folds between faces
     out = S._pack(pts, np.repeat(n[None, :], len(pts), axis=0), mat, local=local, part=part)
-    out["two_sided"] = (center is None and normal is None) if two_sided is None else two_sided
+    out["two_sided"] = two
     return out
 
 
 def prism(path, radii, mat, sides=4, phase=0.0, ref=(1.0, 0.0, 0.0), caps=True, flat=None):
     """A faceted limb: a polygon of `sides` swept along `path`, radius per point. Each side
-    is its own face (and part), so the folds between faces read as creases. `flat` squashes
-    the cross-section along its second axis (a flat lapel or a coat panel)."""
+    is its own face, all of one part, so the folds between faces read as creases. `flat`
+    squashes the cross-section along its second axis (a flat coat panel)."""
     path = [np.asarray(p, float) for p in path]
     radii = list(radii)
     parts = []
@@ -146,66 +176,97 @@ def prism(path, radii, mat, sides=4, phase=0.0, ref=(1.0, 0.0, 0.0), caps=True, 
             fv = (flat if flat is not None else 1.0)
             ring.append(p + (u * math.cos(a) + v * math.sin(a) * fv) * radii[i])
         rings.append(ring)
-    centre_line = path
     for i in range(len(path) - 1):
-        mid = (centre_line[i] + centre_line[i + 1]) / 2
+        mid = (path[i] + path[i + 1]) / 2
         for k in range(sides):
             A, B = rings[i][k], rings[i][(k + 1) % sides]
             D, C = rings[i + 1][k], rings[i + 1][(k + 1) % sides]
             parts.append(facet([A, B, C, D], mat, part=pid, center=mid, face=fids[k]))
     if caps:
-        for end, sgn in ((0, -1), (-1, 1)):
+        for end in (0, -1):
             ring = rings[end]
             c = path[end]
+            inward = nz(path[1] - path[0]) if end == 0 else nz(path[-2] - path[-1])
             cf = new_face()
             for k in range(sides):
-                parts.append(facet([c, ring[k], ring[(k + 1) % sides]], mat, part=pid, face=cf,
-                                   normal=(path[end] - path[end - sgn if end == 0 else end - 1]) * 1.0 if False else None,
-                                   center=c - (nz(path[1] - path[0]) if end == 0 else nz(path[-1] - path[-2])) * -sgn * 2.0))
+                parts.append(facet([c, ring[k], ring[(k + 1) % sides]], mat, part=pid, face=cf, center=c + inward * 2.0))
     return parts
 
 
-def pleat_cone(center, up, fwd, r_in, r_out, drop, mat, sides=12, pleat=1.2, tilt=(0.0, 0.0)):
-    """A pleated paper brim: a ring of faces from r_in to r_out, the outer edge dropping by
-    `drop` and alternately raised and lowered by `pleat` (folds). `tilt` (pitch, roll) in
-    degrees tips the whole brim."""
+def pleat_cone(center, up, fwd, r_in, r_out, drop, mat, sides=12, pleat=1.0, tilt=(0.0, 0.0), bend=0.0,
+               under=False, part=None):
+    """A pleated paper brim: a ring of flat sectors from r_in to r_out, the outer edge
+    dropping by `drop` and alternately raised and lowered by `pleat` (the folds, so the
+    sectors tilt in turn like a fan). `tilt` (pitch, roll) in degrees tips the whole brim;
+    `bend` flexes the front edge up (and the back edge down): the brim fluttering. `under`
+    draws the sheet's underside (its normals down)."""
     center = np.asarray(center, float)
     up, fwd = nz(up), nz(fwd)
     lat = nz(np.cross(up, fwd))
     parts = []
-    pid = S._new_part()
+    pid = S._new_part() if part is None else part
+    orient = center + up * (40.0 if under else -40.0)
+
+    def rim(a, h):
+        d = lat * math.cos(a) + fwd * math.sin(a)
+        tip = rot_fwd(rot_lat(tuple(d * r_out - up * (drop - h - bend * math.sin(a))), tilt[0]), tilt[1])
+        return center + np.asarray(tip)
+
+    def inner(a):
+        d = lat * math.cos(a) + fwd * math.sin(a)
+        p = rot_fwd(rot_lat(tuple(d * r_in), tilt[0]), tilt[1])
+        return center + np.asarray(p)
+
     for k in range(sides):
         fid = new_face()
         a0 = 2 * math.pi * k / sides
         a1 = 2 * math.pi * (k + 1) / sides
-        am = (a0 + a1) / 2
-        def rim(a, h):
-            d = lat * math.cos(a) + fwd * math.sin(a)
-            tip = rot_fwd(rot_lat(tuple(d * r_out - up * (drop - h)), tilt[0]), tilt[1])
-            return center + np.asarray(tip)
-        def inner(a):
-            d = lat * math.cos(a) + fwd * math.sin(a)
-            p = rot_fwd(rot_lat(tuple(d * r_in), tilt[0]), tilt[1])
-            return center + np.asarray(p)
-        h0 = pleat if k % 2 == 0 else -pleat * 0.4
-        h1 = -pleat * 0.4 if k % 2 == 0 else pleat
-        pm = rim(am, (h0 + h1) / 2)
-        # two faces per sector, meeting on a fold at its middle
-        nrm = up + nz(pm - center) * 0.3
-        parts.append(facet([inner(a0), rim(a0, h0), pm], mat, part=pid, face=fid, normal=nrm, two_sided=False))
-        parts.append(facet([inner(a0), pm, rim(a1, h1)], mat, part=pid, face=fid, normal=nrm, two_sided=False))
-        parts.append(facet([inner(a0), rim(a1, h1), inner(a1)], mat, part=pid, face=fid, normal=nrm, two_sided=False))
+        h0 = pleat if k % 2 == 0 else -pleat * 0.5
+        h1 = -pleat * 0.5 if k % 2 == 0 else pleat
+        parts.append(facet([inner(a0), rim(a0, h0), rim(a1, h1), inner(a1)], mat, part=pid, face=fid,
+                           center=orient, two_sided=False))
     return parts
 
 
-def plate_pts(points, mat, part=None):
-    """A flat two-sided panel through 3D points (a polygon fanned from its first point)."""
+def plate_pts(points, mat, part=None, back=None, center=None):
+    """A flat panel through 3D points (a polygon fanned from its first point). Two-sided in
+    `mat` unless `back` names the other side's material (then `center` says which side is
+    the front: the one facing away from it)."""
     P = [np.asarray(p, float) for p in points]
     pid = S._new_part() if part is None else part
     fid = new_face()
     out = []
     for k in range(1, len(P) - 1):
-        out.append(facet([P[0], P[k], P[k + 1]], mat, part=pid, face=fid))
+        out.append(facet([P[0], P[k], P[k + 1]], mat, part=pid, face=fid, back=back, center=center,
+                         two_sided=True if center is not None else None))
+    return out
+
+
+def plate_curled(points, mat, curls=(), frac=0.4, part=None, lift=0.5):
+    """A panel with some corners folded over (`curls`: corner indices), the turned-over
+    corners showing the paper's cream back. The corner is cut off the panel at `frac`
+    along its two edges and the flap mirrored across that cut."""
+    P = [np.asarray(p, float) for p in points]
+    n = len(P)
+    pid = S._new_part() if part is None else part
+    poly = []
+    flaps = []
+    toward = _CAM[0] if _CAM[0] is not None else V(0, 1, 0)
+    for i in range(n):
+        if i not in curls:
+            poly.append(P[i])
+            continue
+        a, b = P[(i - 1) % n], P[(i + 1) % n]
+        m1 = P[i] + (a - P[i]) * frac
+        m2 = P[i] + (b - P[i]) * frac
+        d = nz(m2 - m1)
+        proj = m1 + d * np.dot(P[i] - m1, d)
+        c2 = 2 * proj - P[i]
+        poly += [m1, m2]
+        flaps.append([m1 + toward * lift, c2 + toward * lift, m2 + toward * lift])
+    out = plate_pts(poly, mat, part=pid)
+    for f in flaps:
+        out += plate_pts(f, "paper")
     return out
 
 
@@ -262,13 +323,24 @@ def frog(c, size, fwd, mat="craft", squash=0.0):
     nose = c + f * s * 0.9 + u * h * 0.3
     tailp = c - f * s * 0.8
     top = c + u * h
+    pid = S._new_part()
     for side in (1, -1):
         edge = c + l * side * s * 0.7
-        parts += plate_pts([nose, top, edge], mat)
-        parts += plate_pts([tailp, top, edge], mat)
+        parts += plate_pts([nose, top, edge], mat, part=pid)
+        parts += plate_pts([tailp, top, edge], mat, part=pid)
         knee = c - f * s * 0.3 + l * side * s * 0.95 + u * h * 0.6
         parts += plate_pts([c - f * s * 0.1 + l * side * s * 0.5, knee, tailp + l * side * s * 0.6], mat)
     return parts
+
+
+def frogs(c, size, fwd, lat, squash=0.0, gap=None):
+    """Three small frogs side by side (Paper Frog sends three)."""
+    gap = gap if gap is not None else size * 2.3
+    out = []
+    for j in (-1, 0, 1):
+        out += frog(np.asarray(c, float) + nz(lat) * j * gap + nz(fwd) * (0.6 if j == 0 else 0.0), size, fwd,
+                    squash=squash)
+    return out
 
 
 def sheet_sq(c, size, normal, spin=0.0, mat="paper", fold=0.0):
@@ -282,7 +354,8 @@ def sheet_sq(c, size, normal, spin=0.0, mat="paper", fold=0.0):
     d2 = a * math.cos(ang + math.pi / 2) + b * math.sin(ang + math.pi / 2)
     p0, p1, p2, p3 = c + d1 * size, c + d2 * size, c - d1 * size, c - d2 * size
     folded = c + (p3 - c) * math.cos(math.pi * fold) + n * size * math.sin(math.pi * fold)
-    return plate_pts([p0, p1, p2], mat) + plate_pts([p0, p2, folded], mat)
+    pid = S._new_part()
+    return plate_pts([p0, p1, p2], mat, part=pid) + plate_pts([p0, p2, folded], mat, part=pid)
 
 
 # ------------------------------------------------------------------ the figure
@@ -298,9 +371,11 @@ class Pose:
         self.hip_hand = kw.get("hip_hand", (True, False))  # a fist on the hip
         self.palm = kw.get("palm", (False, True))   # an open palm up (the concept's far hand)
         self.cape = kw.get("cape", 0.0)             # cape swing: + back, - forward (wind)
+        self.wave = kw.get("wave", 0.0)             # the cape's mid fold kinked: + hem back
         self.cape_up = kw.get("cape_up", False)     # the guard: cape swept up in front
         self.tails = kw.get("tails", 0.0)           # coat skirt swing
         self.hat = kw.get("hat", (0.0, 0.0))        # hat tilt (pitch, roll)
+        self.brim = kw.get("brim", 0.0)             # brim flex: + front edge up
         self.hat_off = kw.get("hat_off", None)      # the hat fallen: its centre on the floor
         self.held = kw.get("held", ())              # crafts drawn this frame: (kind, where, extra)
         self.lift = kw.get("lift", 0.0)
@@ -318,6 +393,7 @@ def _hand_default(p, k, pelvis, up, fw, lt, chest):
 
 
 def build(p, view):
+    _CAM[0] = S.Cam(view).cam
     if p.form == "gone":
         return [S.ellipsoid_oriented((0.0, -400.0, 0.0), (0.6, 0.4, 0.6), *AXES, "void")]
     if p.form == "plane":
@@ -342,52 +418,69 @@ def build(p, view):
         f = np.asarray(foot, float)
         knee = (hip + f) / 2 + fw * 2.2 + V(0, 0.5, 0)
         parts += prism([hip, knee, f + V(0, 2.2, -0.4)], [3.0, 2.4, 1.9], "suit", sides=4, phase=0.4, ref=fw)
-        toe = f + V(0, 0.6, 0) + nz(V(fw[0], 0, fw[2]) if sq < 0.5 else V(0, 0, 1)) * 4.6
-        heel = f + V(0, 0.6, 0) - nz(V(fw[0], 0, fw[2]) if sq < 0.5 else V(0, 0, 1)) * 2.0
+        ahead = nz(V(fw[0], 0, fw[2]) if sq < 0.5 else V(0, 0, 1))
+        toe = f + V(0, 0.6, 0) + ahead * 4.8
+        heel = f + V(0, 0.6, 0) - ahead * 2.0
         sl = lt * 1.7
-        parts += plate_pts([heel - sl, heel + sl, toe + V(0, 0.3, 0)], "shoe")
-        parts += plate_pts([heel - sl + V(0, 1.5, 0), heel + sl + V(0, 1.5, 0), toe + V(0, 0.6, 0)], "shoe")
-        parts += plate_pts([heel - sl, heel - sl + V(0, 1.5, 0), toe + V(0, 0.6, 0), toe + V(0, 0.3, 0)], "shoe")
-        parts += plate_pts([heel + sl, heel + sl + V(0, 1.5, 0), toe + V(0, 0.6, 0), toe + V(0, 0.3, 0)], "shoe")
+        spid = S._new_part()
+        parts += plate_pts([heel - sl, heel + sl, toe + V(0, 0.3, 0)], "shoe", part=spid)
+        parts += plate_pts([heel - sl + V(0, 1.6, 0), heel + sl + V(0, 1.6, 0), toe + V(0, 0.8, 0)], "shoe", part=spid)
+        parts += plate_pts([heel - sl, heel - sl + V(0, 1.6, 0), toe + V(0, 0.8, 0), toe + V(0, 0.3, 0)], "shoe", part=spid)
+        parts += plate_pts([heel + sl, heel + sl + V(0, 1.6, 0), toe + V(0, 0.8, 0), toe + V(0, 0.3, 0)], "shoe", part=spid)
     # torso: a jacket of panels, broad at the shoulders, nipped at the waist
     parts += prism([pelvis + up * 0.5, pelvis + up * 6.0, chest, neck - up * 0.8],
                    [5.0, 4.4, 6.8, 7.2], "suit", sides=6, phase=0.26, ref=lt, flat=0.72)
     # the vest: a maroon V under the lapels, and the red collar point
-    vf = fw * 4.3
-    parts += plate_pts([neck - up * 1.4 + vf + lt * 2.6, neck - up * 1.4 + vf - lt * 2.6, chest - up * 3.5 + fw * 4.6], "vest")
-    parts += plate_pts([neck + fw * 3.0 + lt * 1.6, neck + fw * 3.0 - lt * 1.6, neck - up * 2.6 + fw * 4.6], "collar")
-    # lapels: two navy flaps folded back over the vest
+    vf = fw * 5.0
+    parts += plate_pts([neck - up * 1.4 + vf + lt * 2.6, neck - up * 1.4 + vf - lt * 2.6, chest - up * 3.5 + fw * 5.3], "vest")
+    parts += plate_pts([neck + fw * 3.4 + lt * 1.6, neck + fw * 3.4 - lt * 1.6, neck - up * 2.6 + fw * 5.4], "collar")
+    # lapels: two navy flaps folded back over the vest, their folded edge showing the paper back
     for s in (1.0, -1.0):
-        parts += plate_pts([neck - up * 0.6 + fw * 4.6 + lt * s * 2.8, chest - up * 2.8 + fw * 5.0 + lt * s * 0.6,
-                            chest + up * 1.0 + fw * 5.3 + lt * s * 4.6], "suit")
-    # coat skirts: front panels split over the legs, long tails behind
+        a = neck - up * 0.6 + fw * 5.3 + lt * s * 2.8
+        b = chest - up * 2.8 + fw * 5.7 + lt * s * 0.6
+        c = chest + up * 1.0 + fw * 6.0 + lt * s * 4.8
+        parts += plate_pts([a, b, c], "suit")
+        e = nz(np.cross(c - b, fw)) * s * -0.9
+        parts += plate_pts([b + fw * 0.4, c + fw * 0.4, c + fw * 0.4 + e, b + fw * 0.4 + e], "paper")
+    # coat skirts: front panels split over the legs, long tails behind; the tips curl over
     sw = p.tails
     hem = pelvis - up * 11.0 * (1 - sq * 0.5)
     for s in (1.0, -1.0):
-        top_a = pelvis + up * 2.0 + lt * s * 1.0 + fw * 3.4
-        top_b = pelvis + up * 2.0 + lt * s * 5.0 + fw * 1.0
-        parts += plate_pts([top_a, top_b, hem + lt * s * 5.6 + fw * (1.5 - sw * 2), hem + lt * s * 1.6 + fw * (4.0 - sw * 2)],
-                           "suit")
+        top_a = pelvis + up * 2.0 + lt * s * 1.0 + fw * 3.6
+        top_b = pelvis + up * 2.0 + lt * s * 5.2 + fw * 1.2
+        front = [top_a, top_b, hem + lt * s * 5.8 + fw * (1.5 - sw * 2.5), hem + lt * s * 1.6 + fw * (4.2 - sw * 2.5)]
+        parts += plate_curled(front, "suit", curls=(3,) if sw > 0.45 else (), frac=0.38)
         tail_top = pelvis + up * 3.0 + lt * s * 4.2 - fw * 3.2
-        parts += plate_pts([tail_top, tail_top - lt * s * 3.0 - fw * 0.6,
-                            hem - up * 7.0 + lt * s * 0.8 - fw * (5.0 + sw * 3), hem - up * 3.0 + lt * s * 4.2 - fw * (4.0 + sw * 3)],
-                           "suit")
-    # the cape: from the shoulders down behind him, flaring, swung by `cape`
-    shoulders = [chest + up * 4.6 + lt * 7.0, chest + up * 4.6 - lt * 7.0]
+        tail = [tail_top, tail_top - lt * s * 3.0 - fw * 0.6,
+                hem - up * 7.0 + lt * s * 0.8 - fw * (5.0 + sw * 3.5), hem - up * 3.0 + lt * s * 4.4 - fw * (4.0 + sw * 3.5)]
+        parts += plate_curled(tail, "suit", curls=(2,), frac=0.34 if abs(sw) > 0.3 else 0.26)
+    # the cape: from the shoulders down behind him in two panels with a fold between them
+    # (`wave` kinks it: stiff paper flapping), its hem corners curled over
+    shoulders = [chest + up * 4.8 + lt * 7.0, chest + up * 4.8 - lt * 7.0]
     if p.cape_up:
         # the guard: swept up in front of him like a curtain, held by the near arm
         top_l = shoulders[0] + fw * 3.0 + up * 2.0
         top_r = shoulders[1] + fw * 6.0 + up * 3.0
-        parts += plate_pts([top_l, top_r, pelvis + fw * 11.0 - lt * 6.0 - up * 4.0,
-                            pelvis + fw * 10.0 + lt * 7.0 - up * 6.0], "cape")
-        parts += plate_pts([top_l, pelvis + fw * 10.0 + lt * 7.0 - up * 6.0, pelvis + fw * 7.0 + lt * 9.0 + up * 2.0], "cape")
+        wv = p.wave
+        mid_l = pelvis + fw * (9.5 + wv * 1.5) + lt * 7.5 + up * 0.5
+        mid_r = pelvis + fw * (10.5 + wv * 1.5) - lt * 6.0 + up * 1.0
+        cpid = S._new_part()
+        parts += plate_pts([top_l, top_r, mid_r, mid_l], "cape", part=cpid)
+        parts += plate_curled([mid_l, mid_r, pelvis + fw * (11.0 - wv) - lt * 6.0 - up * 4.5,
+                               pelvis + fw * (10.0 - wv) + lt * 7.0 - up * 6.5], "cape", curls=(2, 3), frac=0.3, part=cpid)
+        parts += plate_pts([top_l, mid_l, pelvis + fw * 7.0 + lt * 9.5 + up * 2.0], "cape")
     else:
         sway = p.cape
-        low = pelvis - up * (20.0 * (1 - sq * 0.4)) - fw * (6.0 + sway * 6.0)
-        parts += plate_pts([shoulders[0] - fw * 2.0, shoulders[1] - fw * 2.0,
-                            low - lt * 9.0 - fw * 2.0 * sway, low + lt * 7.0], "cape")
-        parts += plate_pts([shoulders[1] - fw * 2.0, low - lt * 9.0 - fw * 2.0 * sway,
-                            low - lt * 12.0 + up * 6.0 - fw * (2.0 + sway * 4.0)], "cape")
+        wv = p.wave
+        top_l, top_r = shoulders[0] - fw * 2.0, shoulders[1] - fw * 2.0
+        mid = pelvis - up * 5.0 - fw * (4.0 + sway * 3.0 + wv * 2.0)
+        low = pelvis - up * (20.0 * (1 - sq * 0.4)) - fw * (6.0 + sway * 6.0 - wv * 2.5)
+        mid_l, mid_r = mid + lt * 8.0, mid - lt * 9.5 - fw * 1.0 * sway
+        hem_l, hem_r = low + lt * 7.0, low - lt * 9.0 - fw * 2.0 * sway
+        cpid = S._new_part()
+        parts += plate_pts([top_l, top_r, mid_r, mid_l], "cape", part=cpid)
+        parts += plate_curled([mid_l, mid_r, hem_r, hem_l], "cape", curls=(2, 3), frac=0.28, part=cpid)
+        parts += plate_pts([top_r, mid_r, mid - lt * 12.5 + up * 3.0 - fw * (1.5 + sway * 3.0)], "cape")
     # arms: navy prisms, pointed paper hands
     hands = []
     for k in (0, 1):
@@ -402,18 +495,20 @@ def build(p, view):
         # the hand: a flat paper fan of fingers (an open palm), or a folded point
         out = nz(hand - elbow)
         if p.palm[k] and p.hands[k] is None:
+            hpid = S._new_part()
             for j in range(3):
                 d = nz(out + lt * side * (0.4 - j * 0.4) + up * 0.3)
-                parts += plate_pts([hand - out * 0.6, hand + d * 3.6 + up * 0.3, hand + d * 2.0 - up * 0.7], "suit")
+                parts += plate_pts([hand - out * 0.6, hand + d * 3.8 + up * 0.3, hand + d * 2.0 - up * 0.7], "suit", part=hpid)
         else:
-            parts += plate_pts([hand - out * 0.8 + up * 0.9, hand + out * 2.8, hand - out * 0.8 - up * 0.9], "suit")
-            parts += plate_pts([hand - out * 0.8 + lt * 0.9, hand + out * 2.8, hand - out * 0.8 - lt * 0.9], "suit")
+            hpid = S._new_part()
+            parts += plate_pts([hand - out * 0.8 + up * 0.9, hand + out * 3.0, hand - out * 0.8 - up * 0.9], "suit", part=hpid)
+            parts += plate_pts([hand - out * 0.8 + lt * 0.9, hand + out * 3.0, hand - out * 0.8 - lt * 0.9], "suit", part=hpid)
     # head: no face, just shadow under the brim
     hc = neck + up * 3.4 + fw * 0.6
     parts.append(S.ellipsoid_oriented(hc, (4.2, 3.6, 4.0), fw, up, lt, "void"))
     # the hat
     if p.hat_off is not None:
-        parts += _hat(np.asarray(p.hat_off, float), V(0.2, 0.98, 0.0), V(0, 0, 1), (10.0, 20.0), roll_flat=True)
+        parts += _hat(np.asarray(p.hat_off, float), V(0.2, 0.98, 0.0), V(0, 0, 1), (10.0, 20.0), bend=p.brim)
     else:
         # The hat stays mostly level whatever the body does (a lean tips it a little, a
         # bow and `hat` tip it more), so the brim doesn't swing up like a parasol.
@@ -421,55 +516,69 @@ def build(p, view):
         if p.bow:
             lvl = nz(rot_lat(tuple(lvl), -p.bow * 0.5))
         hat_up = nz(rot_fwd(rot_lat(tuple(lvl), -p.hat[0]), p.hat[1]))
-        parts += _hat(hc + up * 3.4, hat_up, fw, (0.0, 0.0))
+        parts += _hat(hc + up * 3.4, hat_up, fw, (0.0, 0.0), bend=p.brim)
     # crafts in hand or on him
     for item in p.held:
         parts += _craft(item, p, hands, chest, neck, up, fw, lt, hc)
     return [_xf(p, q) for q in _flat(parts)]
 
 
-def _hat(base, up, fw, tilt, roll_flat=False):
+def _hat(base, up, fw, tilt, bend=0.0):
     up, fw = nz(up), nz(fw)
     fw = nz(fw - up * np.dot(fw, up))
     lt = nz(np.cross(up, fw))
-    parts = pleat_cone(base, up, fw, 5.2, 17.0, 2.4, "hat", sides=12, pleat=0.0, tilt=tilt)
+    # the pleated brim, and its paper back underneath
+    bpid = S._new_part()
+    parts = pleat_cone(base, up, fw, 5.2, 17.5, 2.4, "hat", sides=12, pleat=0.9, tilt=tilt, bend=bend, part=bpid)
+    parts += pleat_cone(base - up * 0.7, up, fw, 5.4, 17.2, 2.4, "paper", sides=12, pleat=0.9, tilt=tilt, bend=bend,
+                        under=True, part=bpid)
     # the crown: a creased four-sided column, its top folded over to a point
     c0 = base + up * 0.2
     c1 = base + up * 9.5 - fw * 0.6
     parts += prism([c0, c1], [5.6, 4.3], "hat", sides=4, phase=0.78, ref=fw, caps=False)
-    tip = c1 + up * 4.6 - fw * 1.6
+    tip = c1 + up * 4.8 - fw * 1.8
     corners = [c1 + (lt * math.cos(a) + fw * math.sin(a)) * 4.3 for a in (0.78, 0.78 + math.pi / 2, 0.78 + math.pi, 0.78 + 1.5 * math.pi)]
+    tpid = S._new_part()
     for k in range(4):
-        parts += plate_pts([corners[k], corners[(k + 1) % 4], tip], "hat")
+        parts += plate_pts([corners[k], corners[(k + 1) % 4], tip], "hat", part=tpid)
     # a darker band where the crown meets the brim (the shuriken tucks in here)
-    parts += prism([base + up * 0.3, base + up * 1.8], [5.75, 5.6], "cape", sides=4, phase=0.78, ref=fw, caps=False)
+    parts += prism([base + up * 0.3, base + up * 1.9], [5.75, 5.6], "cape", sides=4, phase=0.78, ref=fw, caps=False)
     return parts
 
 
 def _craft(item, p, hands, chest, neck, up, fw, lt, hc):
     kind, where = item[0], item[1]
     extra = item[2] if len(item) > 2 else {}
+    far_at = hands[1] + up * 2.5
+    shoulder_at = chest + up * 6.6 - lt * 6.0
     if where == "near":
         at = hands[0] + up * 2.5 + nz(fw) * 1.0
     elif where == "far":
-        at = hands[1] + up * 2.5
+        at = far_at
     elif where == "between":
-        at = (hands[0] + hands[1]) / 2 + up * 1.5
+        at = (hands[0] + hands[1]) / 2 + up * extra.get("up", 1.5)
     elif where == "band":
         at = hc + up * 4.0 + fw * 5.4
     elif where == "shoulder":
-        at = chest + up * 6.4 - lt * 6.0
+        at = shoulder_at
+    elif where == "arc":
+        t = extra.get("t", 0.5)
+        at = far_at * (1 - t) + shoulder_at * t + up * math.sin(math.pi * t) * 5.0
     elif where == "floor":
-        at = V(0.0, 1.6, 0.0) + fw * 7.0
+        at = V(0.0, 1.4, 0.0) + nz(V(fw[0], 0.0, fw[2])) * extra.get("ahead", 8.0)
     else:
         at = np.asarray(where, float)
     size = extra.get("size", 1.0)
+    flat_fw = nz(V(fw[0], 0.0, fw[2]))
     if kind == "crane":
         return crane(at, 3.2 * size, extra.get("fwd", fw), V(0, 1, 0), wing=extra.get("wing", 0.0))
     if kind == "shuriken":
         return shuriken(at, 3.0 * size, extra.get("normal", fw if where != "band" else fw), spin=extra.get("spin", 0.0))
     if kind == "frog":
-        return frog(at, 3.6 * size, extra.get("fwd", fw), squash=extra.get("squash", 0.0))
+        return frog(at, 3.6 * size, extra.get("fwd", flat_fw), squash=extra.get("squash", 0.0))
+    if kind == "frogs":
+        return frogs(at, 3.6 * size, extra.get("fwd", flat_fw), extra.get("lat", lt), squash=extra.get("squash", 0.0),
+                     gap=extra.get("gap"))
     if kind == "sheet":
         return sheet_sq(at, 3.6 * size, extra.get("normal", up + fw * 0.4), spin=extra.get("spin", 0.0),
                         fold=extra.get("fold", 0.0))
@@ -484,25 +593,31 @@ def _craft(item, p, hands, chest, neck, up, fw, lt, hc):
 
 
 def _plane(p):
-    """The Paper Plane dodge: folded flat into a navy-and-orange paper airplane."""
+    """The Paper Plane dodge: folded flat into a navy-and-orange paper airplane, its
+    underside the paper's cream back (seen as it banks)."""
     c = V(0.0, 12.0 + p.lift, 0.0)
     f = V(0, 0, 1)
     l = V(1, 0, 0)
     u = V(0, 1, 0)
     bank = math.radians(p.roll)
     lb = nz(l * math.cos(bank) + u * math.sin(bank))
+    ub = nz(u * math.cos(bank) - l * math.sin(bank))
     k = 1.45
     nose = c + f * 16.0 * k
     parts = []
+    below = c - ub * 30.0
+    pid = S._new_part()
     for s in (1.0, -1.0):
-        parts += plate_pts([nose, c - f * 10.0 * k + lb * s * 12.0 * k, c - f * 12.0 * k + lb * s * 2.0 * k], "suit")
-        parts += plate_pts([nose, c - f * 12.0 * k + lb * s * 2.0 * k, c - f * 12.0 * k - u * 4.5 * k], "cape")
-    parts += plate_pts([c - f * 8.0 * k + u * 0.4, c - f * 12.5 * k + u * 0.4, c - f * 12.0 * k + u * 5.0 * k], "hat")
+        parts += plate_pts([nose, c - f * 10.0 * k + lb * s * 12.0 * k, c - f * 12.0 * k + lb * s * 2.0 * k], "suit",
+                           part=pid, back="paper", center=below)
+        parts += plate_pts([nose, c - f * 12.0 * k + lb * s * 2.0 * k, c - f * 12.0 * k - ub * 4.5 * k], "cape", part=pid)
+    parts += plate_pts([c - f * 8.0 * k + ub * 0.4, c - f * 12.5 * k + ub * 0.4, c - f * 12.0 * k + ub * 5.0 * k], "hat")
     return [q for q in _flat(parts)]
 
 
 def _big_crane(p):
-    """The victory: he folds himself into a giant crane in his colours."""
+    """The victory: he folds himself into a giant crane in his colours, the wings' undersides
+    the paper's cream back."""
     c = V(0.0, 22.0 + p.lift, 0.0)
     s = 16.0
     f = V(0, 0, 1)
@@ -514,7 +629,8 @@ def _big_crane(p):
     for side in (1, -1):
         lift = 0.9 + 0.8 * p.wing
         tip = c + l * side * s * 1.6 + u * s * lift - f * s * 0.2
-        parts += plate_pts([c + f * s * 0.45 + u * s * 0.1, tip, c - f * s * 0.45 + u * s * 0.1], "cape" if side > 0 else "suit")
+        wing = [c + f * s * 0.45 + u * s * 0.1, tip, c - f * s * 0.45 + u * s * 0.1]
+        parts += plate_pts(wing, "cape" if side > 0 else "suit", back="paper", center=c - u * 30.0)
     neck = c + f * s * 0.9
     head = neck + f * s * 0.45 + u * s * 1.0
     parts += plate_pts([c + f * s * 0.5, neck + u * s * 0.15, head, neck], "suit")
@@ -529,14 +645,6 @@ def _flat(parts):
     for q in parts:
         out += q if isinstance(q, list) else [q]
     return out
-
-
-def _world(p, v):
-    v = np.asarray(v, float) + np.array([0.0, p.lift if p.form == "man" else 0.0, 0.0])
-    if p.roll and p.form == "man":
-        c = np.array([0.0, 12.0, 0.0])
-        v = np.array(rot_fwd(tuple(v - c), p.roll)) + c
-    return v
 
 
 def _xf(p, part):
@@ -557,26 +665,119 @@ def _xf(p, part):
     return part
 
 
+# ------------------------------------------------------------------ the paper shader
+
+def _shift(a, dx, dy):
+    """The value of the pixel (x + dx, y + dy), brought to (x, y)."""
+    return np.roll(np.roll(a, -dy, 0), -dx, 1)
+
+
+def shade_paper(r):
+    """One flat tone per face: five tones per material, from the face normal. Leaves
+    r["level"] (0 sheen .. 4 deep) and r["sd"] (screen-space normals)."""
+    cam = r["cam"]
+    mat = r["mat"]
+    h, w = mat.shape
+    filled = mat > 0
+    sd = cam.screen_dir(r["nrm"].reshape(-1, 3)).reshape(h, w, 3)
+    light = nz(S.LIGHT)
+    lum = sd @ light
+    level = np.full((h, w), 2, np.int32)
+    level[lum > 0.42] = 1
+    level[lum < -0.12] = 3
+    level[lum < -0.5] = 4
+    r["level"] = level
+    r["sd"] = sd
+    r["light"] = light
+    img = np.zeros((h, w, 4), np.uint8)
+    for name, mid in S.MAT_ID.items():
+        m = filled & (mat == mid)
+        if not m.any():
+            continue
+        tones = np.array(TONES[name], np.uint8)
+        img[m, :3] = tones[level[m]]
+        img[m, 3] = 255
+    return img
+
+
 def decorate(r, img):
-    """Crease lines: where two faces of the same paper meet, a darker line (the folds)."""
+    """Crease lines where two faces of the same sheet meet: a mountain fold that faces the
+    light gets a lighter line, a valley fold a darker one (from the two faces' normals)."""
     face = np.nan_to_num(r["local"][:, :, 0], nan=-1.0)
     part = r["part"]
     mat = r["mat"]
+    level = r["level"]
+    sd = r["sd"]
+    light = r["light"]
     filled = mat > 0
     out = img.copy()
-    edge = np.zeros_like(filled)
+    mountain = np.zeros_like(filled)
+    valley = np.zeros_like(filled)
+    lvl_m = np.full(level.shape, 9, np.int32)
+    lvl_v = np.full(level.shape, -9, np.int32)
     for dx, dy in ((1, 0), (0, 1)):
-        pf = np.roll(np.roll(face, dy, 0), dx, 1)
-        pp = np.roll(np.roll(part, dy, 0), dx, 1)
-        pm = np.roll(np.roll(mat, dy, 0), dx, 1)
-        # a fold inside one piece (two faces of the same paper), or where two pieces of
-        # the same paper touch without a depth step (the outline pass handles steps)
-        edge |= filled & (pm == mat) & ((pf != face) | (pp != part)) & (face >= 0) & (pf >= 0)
+        qf, qp, qm = _shift(face, dx, dy), _shift(part, dx, dy), _shift(mat, dx, dy)
+        qsd, qlvl = _shift(sd, dx, dy), _shift(level, dx, dy)
+        fold = filled & (qm == mat) & (qp == part) & (qf != face) & (face >= 0) & (qf >= 0)
+        convex = ((qsd[:, :, 0] - sd[:, :, 0]) * dx + (qsd[:, :, 1] - sd[:, :, 1]) * dy) > 0.03
+        lit = (((sd + qsd) * 0.5) @ light) > 0.05
+        m = fold & convex & lit
+        v = fold & ~convex
+        mountain |= m
+        valley |= v
+        lvl_m = np.where(m, np.minimum(lvl_m, np.minimum(level, qlvl) - 1), lvl_m)
+        lvl_v = np.where(v, np.maximum(lvl_v, np.maximum(level, qlvl) + 1), lvl_v)
+    lvl_m = np.clip(lvl_m, 0, 4)
+    lvl_v = np.clip(lvl_v, 0, 4)
     for name, mid in S.MAT_ID.items():
-        m = edge & (mat == mid)
-        if m.any():
-            out[m, :3] = CREASE[name]
+        tones = np.array(TONES[name], np.uint8)
+        mm = mountain & (mat == mid)
+        if mm.any():
+            out[mm, :3] = tones[lvl_m[mm]]
+        vv = valley & ~mountain & (mat == mid)
+        if vv.any():
+            out[vv, :3] = tones[lvl_v[vv]]
     return out
+
+
+def outline_paper(r, img):
+    """The outline round the silhouette only. Inside it, where a piece is clearly in front
+    of another, the piece behind gets a thin line in its own deep tone (a cast shadow), so
+    the inner shapes separate by tone, not by black lines."""
+    a = img.copy()
+    filled = a[:, :, 3] > 0
+    part = r["part"]
+    z = r["z"]
+    mat = r["mat"]
+    ring = np.zeros_like(filled)
+    seam = np.zeros_like(filled)
+    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        pf = _shift(filled, dx, dy)
+        ring |= pf & ~filled
+        pz = _shift(z, dx, dy)
+        pp = _shift(part, dx, dy)
+        with np.errstate(invalid="ignore"):
+            seam |= filled & pf & (pp != part) & (pz > z + SEAM_STEP)
+    for name, mid in S.MAT_ID.items():
+        m = seam & (mat == mid)
+        if m.any():
+            a[m, :3] = TONES[name][4]
+    a[ring] = S.OUTLINE
+    return a
+
+
+def render_paper(pose, view, build_fn, decorate_fn=None):
+    r = S.rasterise(pose, view, build_fn)
+    img = shade_paper(r)
+    if decorate_fn is not None:
+        img = decorate_fn(r, img)
+    img = outline_paper(r, img)
+    return Image.fromarray(img)
+
+
+# Only this generator renders paper: splat3d's sheet() and inspect() look `render` up when
+# they run, so swapping it here changes nothing for the other characters.
+S.render = render_paper
 
 
 # ------------------------------------------------------------------ animations
@@ -596,80 +797,91 @@ STAND = ((3.6, 0.0, 2.5), (-3.6, 0.0, -2.5))
 
 
 def idle():
-    """Hand on hip, the far palm up as if showing a trick; the cape settling."""
-    return [P(cape=c, hip=25.0 - b, palm=(False, True), hat=(h, 0.0))
-            for c, b, h in ((0.0, 0.0, 0.0), (0.25, 0.3, 1.5), (0.4, 0.4, 2.0), (0.2, 0.2, 1.0))]
+    """Hand on hip, the far palm up as if showing a trick; the cape settling in a slow
+    flap, the brim flexing with it."""
+    return [P(cape=0.0, wave=0.0, brim=0.0, hip=25.0, palm=(False, True)),
+            P(cape=0.25, wave=0.45, brim=0.35, hip=24.7, hat=(1.5, 0.0), palm=(False, True)),
+            P(cape=0.4, wave=0.75, brim=0.6, hip=24.5, hat=(2.0, 0.0), tails=0.1, palm=(False, True)),
+            P(cape=0.2, wave=0.3, brim=0.3, hip=24.8, hat=(1.0, 0.0), palm=(False, True))]
 
 
 def run():
-    """The strut: long swaggering strides, shoulders rolling, cape swinging behind."""
+    """The strut: long swaggering strides, shoulders rolling, the cape and the coat tails
+    lagging a beat behind the stride and the brim fluttering."""
     out = []
     for k in range(6):
         a = k / 6.0 * 2 * math.pi
-        out.append(P(feet=stride(a, 9.0, 3.5), hip=25.0 + abs(math.cos(a)) * 0.8, lean=8, turn=math.sin(a) * 12,
-                     cape=0.6 + 0.3 * math.sin(a), tails=0.4 + 0.2 * math.cos(a),
-                     hip_hand=(True, False), palm=(False, False),
-                     hands=(None, (-6.0, 22.0 + math.sin(a) * 2, -math.sin(a) * 6.0))))
+        out.append(P(feet=stride(a, 9.5, 3.8), hip=25.0 + abs(math.cos(a)) * 1.0, lean=12, turn=math.sin(a) * 12,
+                     cape=0.7 + 0.35 * math.sin(a - math.pi / 2), wave=0.8 * math.cos(a),
+                     tails=0.5 + 0.3 * math.cos(a - math.pi / 3), brim=-0.4 + 0.5 * math.cos(2 * a),
+                     hat=(-3.0, 0.0), hip_hand=(True, False), palm=(False, False),
+                     hands=(None, (-6.0, 22.0 + math.sin(a) * 3, -math.sin(a) * 8.0))))
     return out
 
 
 def flick(near=True):
-    """A paper dart off the fingers: wind back, flick, follow through, recover."""
+    """A paper dart off the fingers: a wind back (the cape whipped forward), the flick,
+    follow through, recover."""
     k = 0 if near else 1
     s = 1.0 if near else -1.0
-    keys = [((s * 6.0, 33.0, -4.0), 10, 0.2), ((s * 4.0, 34.0, 14.0), -14, 0.4),
-            ((s * 3.0, 31.0, 16.0), -20, 0.5), (None, 0, 0.2)]
+    keys = [((s * 7.0, 34.0, -6.0), 14, 4, -0.2, 0.0, 0.0, 0.3), ((s * 4.0, 34.0, 15.0), -16, 12, 0.5, 0.6, 0.3, -0.4),
+            ((s * 3.0, 31.0, 17.0), -22, 14, 0.7, -0.5, 0.4, -0.2), (None, 0, 6, 0.25, 0.2, 0.0, 0.1)]
     out = []
-    for hand, turn, cape in keys:
+    for hand, turn, lean, cape, wave, tails, brim in keys:
         hands = [None, None]
         hands[k] = hand
         hip_hand = [True, False]
         hip_hand[k] = False if hand is not None else hip_hand[k]
         palm = [False, True]
         palm[k] = False
-        out.append(P(hands=tuple(hands), turn=turn * s, lean=8, cape=cape, hip_hand=tuple(hip_hand), palm=tuple(palm),
-                     feet=((3.6, 0.0, 4.0), (-3.6, 0.0, -3.0))))
+        out.append(P(hands=tuple(hands), turn=turn * s, lean=lean, cape=cape, wave=wave, tails=tails, brim=brim,
+                     hip_hand=tuple(hip_hand), palm=tuple(palm), feet=((3.6, 0.0, 4.0), (-3.6, 0.0, -3.0))))
     return out
 
 
 def fold_row(kind):
     """A sheet drops into his hands, quick folds, the craft formed, then put away: the
-    shuriken tucked in the hat band, the crane set on the near hand, the frog hopping onto
-    the far shoulder."""
+    shuriken tucked in the hat band, the crane set on the near hand, the three frogs
+    hopping off to his far shoulder (his hands free again)."""
     both = ((4.0, 30.0, 8.0), (-4.0, 30.0, 8.0))
     sheet = lambda f, spin: ("sheet", "between", {"fold": f, "spin": spin, "size": 1.0})
     put = {"shuriken": [("shuriken", "band", {"size": 0.8})],
            "crane": [("crane", "near", {"size": 0.9})],
-           "frog": [("frog", "shoulder", {"size": 0.7})]}[kind]
+           "frog": [("frog", "shoulder", {"size": 0.5}), ("frog", "arc", {"size": 0.5, "t": 0.55}),
+                    ("frog", "arc", {"size": 0.5, "t": 0.12})]}[kind]
     put_hands = {"shuriken": ((3.0, 44.0, 6.0), None), "crane": ((5.0, 30.0, 10.0), None),
-                 "frog": (None, (-6.0, 38.0, 2.0))}[kind]
+                 "frog": (None, None)}[kind]
+    put_palm = (False, True) if kind == "frog" else (False, False)
     mid = {"shuriken": [("shuriken", "between", {"size": 0.9, "spin": 20})],
            "crane": [("crane", "between", {"size": 0.8})],
-           "frog": [("frog", "between", {"size": 0.7})]}[kind]
+           "frog": [("frogs", "between", {"size": 0.55, "up": 3.0})]}[kind]
     return [
         P(hands=((4.0, 33.0, 9.0), (-4.0, 33.0, 9.0)), hip_hand=(False, False), palm=(False, False), lean=10,
-          held=[sheet(0.0, 0)]),
-        P(hands=both, hip_hand=(False, False), palm=(False, False), lean=12, held=[sheet(0.45, 15)], cape=0.15),
-        P(hands=both, hip_hand=(False, False), palm=(False, False), lean=12, held=mid, cape=0.2),
-        P(hands=put_hands, hip_hand=(put_hands[0] is None, False), palm=(False, False), lean=6, held=put, cape=0.1),
+          held=[sheet(0.0, 0)], brim=0.3, cape=-0.1),
+        P(hands=both, hip_hand=(False, False), palm=(False, False), lean=13, held=[sheet(0.45, 15)], cape=0.15,
+          brim=-0.3, wave=0.3),
+        P(hands=both, hip_hand=(False, False), palm=(False, False), lean=12, held=mid, cape=0.2, wave=0.5),
+        P(hands=put_hands, hip_hand=(put_hands[0] is None, False), palm=put_palm, lean=6, held=put, cape=0.1,
+          wave=0.2, brim=0.2),
     ]
 
 
 def shuriken_row():
     """Charge A, charge B (the star raised by his hat), rise, the fling, follow-through, recover."""
-    star = lambda w, spin: ("shuriken", w, {"size": 0.9, "spin": spin})
+    # the star's face turned toward the camera, so it reads as a star and not an edge
+    star = lambda w, spin: ("shuriken", w, {"size": 0.9, "spin": spin, "normal": (0.75, 0.35, 0.55)})
     return [
         P(hands=((8.0, 58.0, -6.0), None), hip_hand=(False, True), palm=(False, False), turn=24, lean=0, cape=0.1,
-          held=[star((8.0, 63.0, -6.0), 0)]),
+          held=[star((8.0, 63.0, -6.0), 0)], brim=0.3),
         P(hands=((8.0, 60.0, -9.0), None), hip_hand=(False, True), palm=(False, False), turn=28, lean=-2, cape=0.2,
-          held=[star((8.0, 65.0, -9.0), 30)], hat=(-3.0, 0.0)),
+          held=[star((8.0, 65.0, -9.0), 30)], hat=(-3.0, 0.0), brim=0.5, wave=0.3),
         P(hands=((7.0, 56.0, 4.0), None), hip_hand=(False, True), palm=(False, False), turn=14, lean=4, cape=0.2,
-          held=[star((7.0, 61.0, 6.0), 10)]),
+          held=[star((7.0, 61.0, 6.0), 10)], brim=0.2),
         P(hands=((3.0, 34.0, 18.0), None), hip_hand=(False, True), palm=(False, False), turn=-18, lean=14, hipf=2.0,
-          cape=0.6, tails=0.5, feet=((3.6, 0.0, 6.0), (-3.6, 0.0, -4.0))),
+          cape=0.6, wave=0.7, tails=0.5, brim=-0.5, feet=((3.6, 0.0, 6.0), (-3.6, 0.0, -4.0))),
         P(hands=((1.0, 30.0, 16.0), None), hip_hand=(False, True), palm=(False, False), turn=-26, lean=16, hipf=2.0,
-          cape=0.7, tails=0.6, feet=((3.6, 0.0, 6.0), (-3.6, 0.0, -4.0))),
-        P(cape=0.3, lean=6),
+          cape=0.8, wave=-0.6, tails=0.6, brim=-0.3, feet=((3.6, 0.0, 6.0), (-3.6, 0.0, -4.0))),
+        P(cape=0.3, lean=6, wave=0.2, brim=0.1),
     ]
 
 
@@ -679,33 +891,34 @@ def crane_row():
     return [
         P(hands=((5.0, 40.0, 8.0), None), hip_hand=(False, True), palm=(False, False), held=[cr("near", 0.0)], lean=4),
         P(hands=((5.0, 44.0, 10.0), None), hip_hand=(False, True), palm=(False, False), held=[cr((5.0, 52.0, 12.0), 0.8)],
-          lean=2),
+          lean=2, brim=0.3),
         P(hands=((4.0, 42.0, 16.0), None), hip_hand=(False, True), palm=(False, False), held=[cr((4.0, 50.0, 24.0), -0.6)],
-          lean=10, cape=0.3),
-        P(hands=((3.0, 38.0, 17.0), None), hip_hand=(False, True), palm=(False, False), lean=12, cape=0.4),
-        P(cape=0.2, lean=6),
+          lean=12, cape=0.4, wave=0.5, tails=0.2, brim=-0.3),
+        P(hands=((3.0, 38.0, 17.0), None), hip_hand=(False, True), palm=(False, False), lean=12, cape=0.5, wave=-0.4,
+          tails=0.3, brim=-0.1),
+        P(cape=0.2, lean=6, wave=0.1),
     ]
 
 
 def frog_row():
-    """The frog set on the floor, a crouch onto it, the leap riding it, falling, the
-    landing slam, recover."""
-    fr = lambda at, sq, size=1.4: ("frog", at, {"size": size, "squash": sq})
-    under = (0.0, 1.6, 0.0)
+    """Paper Frog: he whips out a sheet, tears and folds three little frogs, crouches to set
+    them on the floor, flicks them off with a low forward sweep (the release), leans into the
+    follow-through, recovers. The frogs are PaperFx projectiles once sent."""
+    stance = ((3.6, 0.0, 5.0), (-3.6, 0.0, -4.0))
     return [
-        P(hands=(None, (-3.0, 18.0, 9.0)), hip_hand=(True, False), palm=(False, False), lean=24, hip=22.0,
-          held=[fr("floor", 0.0, 1.0)]),
-        P(hip=17.0, lean=20, hip_hand=(False, False), palm=(False, False), hands=((5.0, 18.0, 8.0), (-5.0, 18.0, 8.0)),
-          feet=((3.4, 3.2, 2.0), (-3.4, 3.2, -1.0)), held=[fr(under, 0.6)]),
-        P(hip=21.0, lean=12, lift=18.0, hip_hand=(False, False), palm=(False, False),
-          hands=((7.0, 34.0, 6.0), (-7.0, 36.0, 2.0)), feet=((3.4, 3.2, 2.0), (-3.4, 3.2, -2.0)),
-          held=[fr(under, 0.0)], cape=0.9, tails=0.8),
-        P(hip=22.0, lean=6, lift=8.0, hip_hand=(False, False), palm=(False, False),
-          hands=((8.0, 36.0, 4.0), (-8.0, 38.0, 0.0)), feet=((3.4, 3.2, 2.0), (-3.4, 3.2, -2.0)),
-          held=[fr(under, 0.0)], cape=-0.5, tails=-0.4),
-        P(hip=15.0, lean=26, hip_hand=(False, False), palm=(False, False), hands=((6.0, 10.0, 10.0), (-6.0, 10.0, 10.0)),
-          feet=((4.4, 3.0, 3.0), (-4.4, 3.0, -2.0)), held=[fr(under, 1.0)], cape=0.3),
-        P(cape=0.1, lean=6),
+        P(hands=((8.0, 36.0, 9.0), None), hip_hand=(False, True), palm=(False, False), turn=14, lean=-2, cape=-0.3,
+          wave=-0.3, brim=0.4, hat=(-2.0, 0.0),
+          held=[("sheet", "near", {"size": 1.4, "spin": 20, "normal": (0.8, 0.3, 0.5)})]),
+        P(hands=((4.0, 32.0, 9.0), (-4.0, 32.0, 9.0)), hip_hand=(False, False), palm=(False, False), lean=14, cape=0.2,
+          brim=-0.2, held=[("frogs", "between", {"size": 0.6, "up": 3.5})]),
+        P(hip=13.0, lean=32, hip_hand=(False, False), palm=(False, False), hands=((4.0, 8.0, 10.0), (-4.0, 9.0, 9.0)),
+          feet=stance, cape=0.5, wave=0.5, tails=0.3, brim=-0.5, hat=(2.0, 0.0),
+          held=[("frogs", "floor", {"size": 0.6, "ahead": 15.5})]),
+        P(hip=15.0, lean=28, turn=-14, hip_hand=(False, False), palm=(False, False), hands=((5.0, 9.0, 19.0), (-5.0, 16.0, -2.0)),
+          feet=((3.6, 0.0, 7.0), (-3.6, 0.0, -5.0)), cape=0.6, wave=0.8, tails=0.7, brim=0.5, hat=(0.0, 0.0)),
+        P(hip=17.0, lean=36, turn=-20, hip_hand=(False, False), palm=(False, False), hands=((3.0, 12.0, 23.0), (-6.0, 20.0, -4.0)),
+          feet=((3.6, 0.0, 7.0), (-3.6, 0.0, -5.0)), cape=1.0, wave=-0.7, tails=0.9, brim=0.8, hat=(4.0, 0.0)),
+        P(hip=24.0, lean=10, cape=0.35, wave=0.3, brim=0.2),
     ]
 
 
@@ -715,75 +928,77 @@ def surge_row():
     ring = lambda a0: ("sheets", None, {"ring": [(14.0, 6.0 + 4 * k, a0 + k * 72) for k in range(5)]})
     return [
         P(hands=((7.0, 54.0, 2.0), (-7.0, 54.0, 2.0)), hip_hand=(False, False), palm=(False, False), lean=-4, cape=0.5,
-          held=[ring(0)]),
+          held=[ring(0)], brim=0.5, wave=0.3),
         P(hands=((5.0, 56.0, 4.0), (-5.0, 56.0, 4.0)), hip_hand=(False, False), palm=(False, False), lean=-6, cape=0.7,
-          held=[ring(40), ("crane", (0.0, 64.0, 4.0), {"size": 1.3, "wing": 0.5})]),
-        P(hands=((4.0, 40.0, 18.0), None), hip_hand=(False, True), palm=(False, False), lean=14, turn=-16, hipf=2.0,
-          cape=0.9, tails=0.6, feet=((3.6, 0.0, 6.0), (-3.6, 0.0, -4.0)),
+          held=[ring(40), ("crane", (0.0, 64.0, 4.0), {"size": 1.3, "wing": 0.5})], brim=0.8, wave=0.5),
+        P(hands=((4.0, 40.0, 18.0), None), hip_hand=(False, True), palm=(False, False), lean=16, turn=-20, hipf=2.0,
+          cape=1.0, wave=0.8, tails=0.7, brim=-0.6, hat=(-4.0, 0.0), feet=((3.6, 0.0, 6.0), (-3.6, 0.0, -4.0)),
           held=[("crane", (4.0, 50.0, 26.0), {"size": 1.3, "wing": -0.4})]),
-        P(hands=((4.0, 46.0, 8.0), None), hip_hand=(False, True), palm=(False, False), lean=0, hat=(-6.0, 0.0), cape=0.4),
+        P(hands=((4.0, 46.0, 8.0), None), hip_hand=(False, True), palm=(False, False), lean=-2, hat=(-8.0, 0.0), cape=0.4,
+          wave=-0.4, brim=0.6),
         P(bow=22.0, hands=((6.0, 22.0, 10.0), (-6.0, 30.0, -6.0)), hip_hand=(False, False), palm=(False, False),
-          feet=((3.6, 0.0, 5.0), (-3.6, 0.0, -5.0)), cape=0.2, hat=(8.0, 0.0)),
-        P(cape=0.2, lean=6),
+          feet=((3.6, 0.0, 5.0), (-3.6, 0.0, -5.0)), cape=0.2, hat=(8.0, 0.0), brim=-0.3),
+        P(cape=0.2, lean=6, wave=0.1),
     ]
 
 
 def dodge_row():
-    """Folds flat, the airplane (two gliding frames), unfolds on landing."""
+    """Folds flat, the airplane (two gliding frames, banking so its paper back shows),
+    unfolds on landing."""
     return [
         P(hip=14.0, lean=38, hip_hand=(False, False), palm=(False, False), hands=((4.0, 16.0, 10.0), (-4.0, 16.0, 10.0)),
-          feet=((3.4, 0.0, 4.0), (-3.4, 0.0, -4.0)), cape=0.8),
-        P(form="plane", lift=10.0, roll=8.0),
-        P(form="plane", lift=12.0, roll=-8.0),
+          feet=((3.4, 0.0, 4.0), (-3.4, 0.0, -4.0)), cape=0.8, wave=0.6, brim=-0.6, tails=0.5),
+        P(form="plane", lift=10.0, roll=22.0),
+        P(form="plane", lift=12.0, roll=-22.0),
         P(hip=20.0, lean=20, hip_hand=(False, False), palm=(False, False), hands=((7.0, 26.0, 6.0), (-7.0, 26.0, 6.0)),
-          feet=((3.4, 0.0, 4.0), (-3.4, 0.0, -4.0)), cape=-0.4),
+          feet=((3.4, 0.0, 4.0), (-3.4, 0.0, -4.0)), cape=-0.4, wave=0.6, brim=0.7),
     ]
 
 
 def hurt_row():
     return [
-        P(lean=-14, hat=(-10.0, 8.0), hipf=-2.0, cape=-0.6, hip_hand=(False, False), palm=(False, False),
+        P(lean=-14, hat=(-10.0, 8.0), hipf=-2.0, cape=-0.6, wave=-0.5, brim=-0.6, hip_hand=(False, False), palm=(False, False),
           hands=((7.0, 30.0, -2.0), (-7.0, 32.0, -2.0)), feet=((3.6, 0.0, 5.0), (-3.6, 0.0, -1.0))),
-        P(lean=-24, hat=(-16.0, 12.0), hipf=-4.0, hip=23.0, cape=-0.9, hip_hand=(False, False), palm=(False, False),
-          hands=((8.0, 28.0, -4.0), (-8.0, 30.0, -4.0)), feet=((3.6, 0.0, 6.0), (-3.6, 0.0, 0.0))),
+        P(lean=-24, hat=(-16.0, 12.0), hipf=-4.0, hip=23.0, cape=-0.9, wave=-0.7, brim=-0.8, hip_hand=(False, False),
+          palm=(False, False), hands=((8.0, 28.0, -4.0), (-8.0, 30.0, -4.0)), feet=((3.6, 0.0, 6.0), (-3.6, 0.0, 0.0))),
     ]
 
 
 def guard_row():
     g = dict(cape_up=True, hands=((6.0, 36.0, 10.0), (-4.0, 34.0, 8.0)), hip_hand=(False, False), palm=(False, False),
-             lean=6, hip=24.0, feet=((3.6, 0.0, 3.0), (-3.6, 0.0, -4.0)), hat=(4.0, 0.0))
-    return [P(**g), P(**dict(g, hipf=-1.5, hat=(2.0, 0.0)))]
+             lean=6, hip=24.0, feet=((3.6, 0.0, 3.0), (-3.6, 0.0, -4.0)), hat=(4.0, 0.0), brim=0.2)
+    return [P(**g), P(**dict(g, hipf=-1.5, hat=(2.0, 0.0), wave=0.6, brim=-0.2))]
 
 
 def ko_row():
     """Crumples like dropped paper, flat on the floor, the hat rolling off."""
     return [
-        P(lean=-20, hat=(-14.0, 10.0), hipf=-3.0, hip=22.0, squash=0.15, cape=-0.8, hip_hand=(False, False),
-          palm=(False, False), hands=((8.0, 24.0, -3.0), (-8.0, 26.0, -3.0))),
+        P(lean=-20, hat=(-14.0, 10.0), hipf=-3.0, hip=22.0, squash=0.15, cape=-0.8, wave=-0.6, brim=-0.7,
+          hip_hand=(False, False), palm=(False, False), hands=((8.0, 24.0, -3.0), (-8.0, 26.0, -3.0))),
         P(squash=0.5, hip_hand=(False, False), palm=(False, False), hands=((8.0, 12.0, 2.0), (-8.0, 12.0, -2.0)),
-          hat_off=(10.0, 4.0, -14.0), cape=-0.4),
+          hat_off=(10.0, 4.0, -14.0), cape=-0.4, wave=0.4, brim=0.4),
         P(squash=0.85, hip_hand=(False, False), palm=(False, False), hands=((8.0, 5.0, 4.0), (-8.0, 5.0, -2.0)),
-          hat_off=(16.0, 4.0, -22.0), cape=-0.2),
+          hat_off=(16.0, 4.0, -22.0), cape=-0.2, wave=0.2),
         P(squash=0.92, hip_hand=(False, False), palm=(False, False), hands=((8.0, 4.0, 4.0), (-8.0, 4.0, -2.0)),
           hat_off=(20.0, 3.0, -28.0), cape=-0.2),
     ]
 
 
 def victory_row():
-    """Folds into a giant crane, the flight loop (frames 2-5 alternate), unfolds, bows."""
+    """Folds into a giant crane, the flight loop (frames 1-5), unfolds, bows."""
     return [
         P(hip=18.0, lean=30, hip_hand=(False, False), palm=(False, False), hands=((5.0, 22.0, 8.0), (-5.0, 22.0, 8.0)),
-          feet=((3.4, 0.0, 3.0), (-3.4, 0.0, -3.0)), cape=0.9, held=[("sheets", None, {"ring": [(12.0, 4.0 + 3 * k, k * 90)
-                                                                                             for k in range(4)]})]),
+          feet=((3.4, 0.0, 3.0), (-3.4, 0.0, -3.0)), cape=0.9, wave=0.5, brim=-0.5, tails=0.4,
+          held=[("sheets", None, {"ring": [(12.0, 4.0 + 3 * k, k * 90) for k in range(4)]})]),
         P(form="crane", lift=4.0, wing=-0.6),
         P(form="crane", lift=22.0, wing=0.9),
         P(form="crane", lift=34.0, wing=-0.4),
         P(form="crane", lift=30.0, wing=0.8),
         P(form="crane", lift=14.0, wing=-0.5),
         P(hip=20.0, lean=24, hip_hand=(False, False), palm=(False, False), hands=((6.0, 30.0, 6.0), (-6.0, 30.0, 6.0)),
-          cape=-0.6),
+          cape=-0.6, wave=0.8, brim=0.7),
         P(bow=26.0, hands=((5.0, 32.0, 6.0), (-7.0, 26.0, -8.0)), hip_hand=(False, False), palm=(False, False),
-          feet=((3.6, 0.0, 5.0), (-3.6, 0.0, -5.0)), cape=0.2, hat=(10.0, 0.0)),
+          feet=((3.6, 0.0, 5.0), (-3.6, 0.0, -5.0)), cape=0.2, hat=(10.0, 0.0), brim=-0.3),
     ]
 
 
