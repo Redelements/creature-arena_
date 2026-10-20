@@ -186,7 +186,7 @@ Spawned at tick `startup + 1` (and each volley tick) with move-level hit values 
 
 ### Cosmetic keys (read by src/view only)
 
-`fx` (sub-keys such as `shout {text, sound}`, `telegraph`, `wave_cone` are listed atop `src/view/fx_view.gd`; `projectile`: `"dart"`, `"shuriken"`, `"crane"`, `"crane_bundle"` are drawn by src/view/paper_fx.gd), `anim`, `anim_from`, `anim_at`, `anim_reel`, `view_lift` (creature_view.gd), `dodge.trail` (`"paper"`: the Paper Plane's trail, PaperFx). A sprite's `victory` animation is the victory pose (main sets `CreatureView.victory` while the round or match is over with every foe knocked out). `tell` (default `"strong"`) rides in the `windup` event; `"unblockable"`/`"guard_break"` draw the red warning.
+`fx` (sub-keys such as `shout {text, sound}`, `telegraph`, `wave_cone` are listed atop `src/view/fx_view.gd`; `projectile`: `"dart"`, `"shuriken"`, `"crane"`, `"crane_bundle"`, `"frog"` are drawn by src/view/paper_fx.gd; `"frog"` is a folded paper frog that hops along its path, timed from `life_total - life` so every peer sees the same hop, with a floor shadow that shrinks as it rises, a flick of paper and a dust puff on each landing, torn paper where it hits and the frog unfolding flat where it runs out — PaperFx tells a hit from a miss by the `projectile_end` event's power), `anim`, `anim_from`, `anim_at`, `anim_reel`, `view_lift` (creature_view.gd), `dodge.trail` (`"paper"`: the Paper Plane's trail, PaperFx). A sprite's `victory` animation is the victory pose (main sets `CreatureView.victory` while the round or match is over with every foe knocked out). `tell` (default `"strong"`) rides in the `windup` event; `"unblockable"`/`"guard_break"` draw the red warning.
 
 ## Combo and cancel rules
 

@@ -47,7 +47,11 @@ dig/slosh/poof/chop_chop/shout sounds.
   header, then `_move_started`, `_charging`, `_strike`, `_during_move`
 - New projectile look → `_draw_projectiles`, `_proj_kind` (the move's `fx.projectile`:
   rod, knife, mallet, cleaver, venom, head, tongue, wave, pinecone; else a sprite strip);
-  Crease's darts, shuriken, cranes → `paper_fx.gd` static `draw_*`
+  Crease's darts, shuriken, cranes, hopping frogs → `paper_fx.gd` static `draw_*`
+  (`draw_frog_shot` / `frog_hop` time the hop from `life_total - life`); what the frogs
+  leave behind (landing flicks, the torn or unfolding burst), the sheets over his hat, the
+  carried crafts, the plane trail and the storm → `paper_fx.gd` instance (`_follow_frogs`,
+  `_bits`, `_paper_sheet`)
 - New particle type → `_add` callers and the `_draw_part` match
 - Smears → `_smear_thrust`, `_smear_arc`, `_smear_rise`; KO effects → `_ko` + `_crumble`,
   `_scatter` (`_scatter_bands` when no `pieces`), `_gush`, `_melt_ko`, `_cash_ko`, `_dirt_ko`, `_hiss_ko`
