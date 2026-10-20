@@ -19,9 +19,9 @@ const C_NAVY := Color("1e488e")
 const C_MAROON := Color("761240")
 const THROW_Z := 18.0
 ## Where the carried crafts sit on him (px above his feet; x is toward his facing).
-const BAND := Vector2(4.0, -45.0)
-const HAND := Vector2(9.0, -27.0)
-const SHOULDER := Vector2(-6.0, -37.0)
+const BAND := Vector2(5.0, -58.0)
+const HAND := Vector2(12.0, -35.0)
+const SHOULDER := Vector2(-8.0, -47.0)
 const TRAIL := 14
 ## A Paper Frog's hop: `HOP` ticks from one landing to the next, `HOP_H` px high at the top.
 const HOP := 9
