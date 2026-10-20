@@ -417,18 +417,31 @@ Facing down and up: [`sno_views_preview.png`](sno_views_preview.png).
 
 ### Mister Crease — 128×160 frames, 8 × 16 (1024×2560 px)
 
-`tools/gen_crease.py`, on the shared renderer, from the concept art: an origami magician.
-Everything is faceted paper: polygonal prisms for the limbs and the jacket, flat plates
-for the lapels, coat skirts, cape and shoes, a pleated twelve-face brim and a creased
-four-sided crown with a folded tip. Each piece is one part (so the outline pass doesn't
-draw seams inside it) and every face carries an id; `decorate` draws a crease line where
-two faces of the same paper meet. No face under the hat: a shadow and a red collar point.
-The hat stays nearly level when he leans. Drawn at 0.86 scale, feet at **x 64, y 136**
-(the frames are taller for the hat and the victory crane); up and down sheets are
-**112×160**, feet at x 56, y 136 (down) and y 124 (up). All 16 rows are in all three
-views (`ko` is still side-only in the data). The crafts he carries between moves are
-drawn by `PaperFx`, not baked into the frames; the ones in his hands during a fold or a
-throw are in the frames.
+`tools/gen_crease.py`, posed and splatted with the shared renderer but shaded by its own
+paper pass (`render_paper`, swapped in for splat3d's `render` for this generator only), from
+the concept art: an origami magician. Everything is faceted paper: polygonal prisms for the
+limbs and the jacket, flat plates for the lapels, coat skirts, cape and shoes, a pleated
+twelve-sector brim (the sectors tilt in turn like a fan) and a creased four-sided crown with
+a folded tip. No face under the hat: a shadow and a red collar point. The hat stays nearly
+level when he leans.
+
+The paper look: every face is one flat tone (five per material, from the face normal), so
+the big faces of the coat and hat read as clean planes with no dither. A crease between two
+faces of the same sheet is a mountain fold (a lighter line where it catches the light) or a
+valley fold (a darker line). The outline is drawn round the silhouette only; inside it a
+piece in front of another gets a thin line in the back piece's deep tone where the depth
+step is real, so arms, lapels and skirts separate by tone, not black lines. The pale paper
+back (cream) shows wherever a flap turns over: the curled coat-skirt and cape-hem corners,
+the lapels' folded edges, the underside of the brim, the paper plane's and the big crane's
+undersides as they bank. Paper is light, so the cape has a mid fold that kinks (`wave`), the
+coat tails swing a beat behind the stride (`tails`) and the brim flexes (`brim`).
+
+Drawn at 1.1 scale (the figure is about 38×74 px with the hat; the hat tip is 73 px above
+the feet, so `fx_top` is 74), feet at **x 64, y 136** (the frames are taller for the hat and
+the victory crane); up and down sheets are **112×160**, feet at x 56, y 136 (down) and
+y 124 (up). All 16 rows are in all three views (`ko` is still side-only in the data). The
+crafts he carries between moves and the frogs he sends are drawn by `PaperFx`, not baked
+into the frames; the ones in his hands during a fold or a throw are in the frames.
 
 ![Mister Crease sheet, 3x](crease_preview.png)
 
@@ -436,19 +449,19 @@ Facing down and up: [`crease_views_preview.png`](crease_views_preview.png).
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
-| 0 | idle | 4 | hand on hip, the far palm up, the cape settling |
-| 1 | run | 6 | the strut: long strides, shoulders rolling, cape swinging |
-| 2 | flick | 4 | Paper Cut (lights 1 and 3), near hand: wind back, flick, follow-through, recover |
+| 0 | idle | 4 | hand on hip, the far palm up, the cape settling in a slow flap, the brim flexing with it |
+| 1 | run | 6 | the strut: long strides, shoulders rolling, the cape and coat tails lagging a beat behind, the brim fluttering |
+| 2 | flick | 4 | Paper Cut (lights 1 and 3), near hand: wind back (the cape whipped forward), flick, follow-through, recover |
 | 3 | flick2 | 4 | Paper Cut (light 2), far hand |
 | 4 | fold_shuriken | 4 | a sheet lands in his hands, quick creases, the star, tucked into the hat band |
 | 5 | fold_crane | 4 | the sheet, careful folds, the crane, set on his near hand |
-| 6 | fold_frog | 4 | the sheet, folds, the frog, onto his far shoulder |
+| 6 | fold_frog | 4 | the sheet, folds, three little frogs in his hands, the frogs hopping off to his far shoulder (his hands free) |
 | 7 | shuriken | 6 | Paper Shuriken: charge A/B (the star raised over the hat), rise, fling, follow-through, recover |
 | 8 | crane | 5 | Paper Crane: hand up, the crane lifts, launched, follow-through, recover |
-| 9 | frog | 6 | Paper Frog: the frog set down, crouched on it, the leap riding it, falling, the slam, recover |
+| 9 | frog | 6 | Paper Frog: he whips out a sheet, tears and folds three frogs, crouches to set them on the floor, the low forward sweep that sends them (the release, frame 3), the follow-through leaning in, recover; the frogs themselves are `PaperFx` projectiles once sent |
 | 10 | surge | 6 | Thousand Cranes: arms up, sheets spiral in, the throw (the cut-in frame), watching, the bow, recover |
-| 11 | dodge | 4 | Paper Plane: folds down, the airplane (two gliding frames), unfolds |
-| 12 | hurt | 2 | recoil, hat knocked askew; frame 1 doubles as the crumple pose |
+| 11 | dodge | 4 | Paper Plane: folds down, the airplane (two gliding frames, banking so its cream underside shows), unfolds |
+| 12 | hurt | 2 | recoil, hat knocked askew, the brim bent back; frame 1 doubles as the crumple pose |
 | 13 | guard | 2 | the cape swept up in front like a curtain |
 | 14 | ko | 4 | crumples like dropped paper, the hat rolling off |
 | 15 | victory | 8 | folds into a giant crane, the flight loop (frames 1-5), unfolds, the bow |
