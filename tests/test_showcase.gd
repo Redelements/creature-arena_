@@ -173,3 +173,17 @@ func test_sno_showcase_plays_through_to_a_knockout() -> void:
 		assert_true(kinds.has(k), "the showcase should show %s" % k)
 	assert_true(r["ko"][1], "the shattering combo should finish Cairn")
 	assert_false(r["ko"][0], "Sno Mercy stays up")
+
+
+func test_crease_showcase_plays_through_and_the_frogs_connect() -> void:
+	var r := _play("crease")
+	var frog_hits := 0
+	var kinds := {}
+	for ev in r["parts"]:
+		kinds[String(ev[1])] = true
+		if int(ev[0]) == 2 and String(ev[1]) == "hit" and int(ev[2]) == 1:
+			frog_hits += 1
+	assert_gt(float(frog_hits), 0.0, "a Paper Frog should hit Cairn in the frog part")
+	for k in ["fold", "projectile", "storm"]:
+		assert_true(kinds.has(k), "the showcase should show %s" % k)
+	assert_false(r["ko"][0], "Mister Crease stays up")

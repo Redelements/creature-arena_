@@ -62,7 +62,7 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `length` | ticks | Total length; default `startup + active + recovery` | barkley, cairn, craglash, hissy, pete, sno | cs:`_update_attack` |
 | `hits` | array of `{at, active, ...}` | Multi-hit segments; any seg key can be set per hit | barkley, cairn, pete | cs:`active_seg`, `seg_value` |
 | `windup` | ticks | Extra frames only when thrown raw (neutral or guard); `state_t` stays 0 meanwhile | all but dummy | cs:`_start_attack` |
-| `aim_frames` | tick | Steerable until this tick. Default: `startup` for lights, 0 otherwise | none in data | cs:`_update_attack` |
+| `aim_frames` | tick | Steerable until this tick. Default: `startup` for lights, 0 otherwise | crease skill_2 | cs:`_update_attack` |
 | `lunge` | px/tick | Steps forward every tick up to `startup`, but only to close distance: it holds while a foe is inside the first strike with its near edge at the strike's centre or closer (a gap of `reach - radius` between the bodies), so strings keep their spacing and still follow a knocked-back foe | most | cs:`_update_attack`, `_foe_in_strike` |
 | `mobile` | share of speed | Keeps walking while the move plays out | cerebro (lights) | cs:`_update_attack` |
 | `dash` | `{from, to, speed}` | Moves forward in the window until it connects | 8 fighters | cs:`_update_attack` |
@@ -98,7 +98,7 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `knockdown` | ticks | seg | Knockdown (invulnerable while down) | culvert, gillbert, sno, pete seg, cerebro volley `last` |
 | `juggle` | bool | move | May hit airborne targets | all |
 | `juggle_float` | ticks | seg | Air time added on an airborne target (default `JUGGLE_FLOAT` 16) | barkley, cerebro, gillbert, hissy |
-| `guard_break` | bool | move | A guard facing it crumples for `max(stun, break_stun)`. Also works inside `hold` (only at a full charge): the raw `tell` stays gold, and the view draws the red flash and "GUARD BREAK" once the charge is full (`CreatureView.full_charge_breaks_guard`); the CPU counts it as a guard answer and holds it to full against a guard | craglash, culvert, digby, hissy, sno; pete in `hold` |
+| `guard_break` | bool | move | A guard facing it crumples for `max(stun, break_stun)`. Also works inside `hold` (only at a full charge): the raw `tell` stays gold, and the view draws the red flash and "GUARD BREAK" once the charge is full (`CreatureView.full_charge_breaks_guard`); the CPU counts it as a guard answer and holds it to full against a guard | craglash, culvert, digby, hissy, sno; pete heavy, crease heavy in `hold` |
 | `grab` | bool | move | Ignores guard, armor and counters; can't hit airborne targets | barkley (Branch Grab, with `pull`), cerebro, culvert |
 | `grab_air` | bool | move | With `grab`: still gets past guard, armor and counters, but otherwise lands like an ordinary hit (hitstun, its own `pull` event, a juggle float in the air), so it can also snag a juggled target | barkley skill_1 (Branch Grab) |
 | `pull` | px | seg | Target slides in, stopping `pull` px short of the attacker. With `grab`: a hook (hitstun, `hook` event) | barkley, craglash, culvert |
@@ -115,7 +115,7 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 
 | Key | Seg/chg | Meaning | Used by |
 | --- | --- | --- | --- |
-| `slow_ticks`, `slow_mult` | seg / move | Walk speed × `slow_mult` | gillbert heavy, sno |
+| `slow_ticks`, `slow_mult` | seg / move | Walk speed × `slow_mult` | gillbert heavy, sno, crease skill_2 |
 | `vuln_ticks`, `vuln_mult` | seg / move | Target takes × `vuln_mult` | cerebro heavy |
 | `poison_ticks`, `poison_damage`, `poison_every` | seg | Pulse of `poison_damage` every `poison_every` ticks | hissy skill_1, crease heavy |
 | `poison_look` | move | How the poison shows: `"bleed"` (a red cut, "BLEEDING") instead of venom; kept on the target (`poison_look`) and in the `poisoned` / `poison` events (`look`) | crease heavy |
@@ -141,7 +141,7 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `charge_max` | Hold the starting button (Heavy, or the Skill's own) up to N ticks, aiming; `charge_ratio = charge / charge_max` | heavies, barkley skill_2, culvert skill_1 | cs:`_update_attack` |
 | `<key>_charged` | Value at a full charge, blended linearly | many | cs:`move_value` |
 | `hold` | At `charge_ratio >= 1`, its keys replace the move's values: hit parameters and shape alike (`reach`, `hit_radius`, `slow_*`, anything read through `move_value`) | culvert skill_1 (Gulp: hook / swallow), skill_2 (Runoff: shove / wave); pete heavy (`{"guard_break": true}`: Sack Smack breaks guard only at a full charge) | cs:`move_value`, `hit_params` |
-| `projectile.range_charged` | Lob range at full charge | barkley skill_2 | ms:`spawn_projectile` |
+| `projectile.range_charged` | Lob range at full charge (unless `lock_on` locks onto a foe) | barkley skill_2, crease surge | ms:`lob_aim_range` |
 
 ### Terrain
 
@@ -167,7 +167,9 @@ Spawned at tick `startup + 1` (and each volley tick) with move-level hit values 
 | `crack_trail` (true) | Cracks each new cell it passes | false for all current users |
 | `pierce` | Passes through, hitting each body once | cerebro surge |
 | `volley` `{count=1, every=1, last}` | `count` shots, one every `every` ticks; `last` overrides hit values of the final one | cerebro surge |
+| `row` `{count=1, gap=18, side_push=0}` | `count` ground shots side by side across the facing, `gap` px apart (each a projectile with `lane` -1/0/1, `life_total` and `row_struck`). The middle one pushes along its flight; the outer ones push out to their own side, tilted forward by `side_push` (a `push` vector). A foe hit by one of the row is passed by the rest (ms:`_row_struck`). Not for lobs | crease skill_2 (Paper Frog) |
 | `lob`, `range`, `time`, `burst`, `crack` | Flies `range` px in `time` ticks hitting nothing, then hits every foe within `burst` and cracks `crack` | barkley skill_2 |
+| `lock_on` `{dot=0.92}` | On a lob: thrown at the foe the aim points at. A foe counts when the line to it is within the aim (`dot` of the two directions ≥ `dot`; 0.92 ≈ 23° either side) and within `range_charged` + `offset` + the storm (or burst) radius; closest to the aim line wins, then nearer. Stealthed, brush-covered and KO'd foes don't count. Locked, the thrower turns to face them and the lob flies their distance (clamped to `range`..`range_charged`), so a tap lands on them; with no lock it flies `range`..`range_charged` by charge as before. Decided when the lob spawns (no saved state); the view draws the locked ring from the same function | crease surge | ms:`lob_lock`, `lob_aim_range` |
 | `home` `{turn=0.15, until}` | A ground shot that steers toward the nearest foe (of its owner, from where it is) for its first `until` ticks: each tick `vel = (vel.normalized() + to_foe.normalized() × turn).normalized() × speed` (vectors only, no angles), then flies straight | crease skill_1 | ms:`_steer` |
 | `storm` `{radius=40, ticks=120, every=12, damage, hitstun, hitstop, damage_end, knockback_end, launch_end, knockdown_end, hitstop_end, crack_inner, crack_outer}` | On a lob: where it lands it leaves a storm (`MatchSim.storms`, saved by snapshot) instead of bursting. Every `every` ticks it hits each foe inside `radius` (+ body) with the throw's hit at `damage` / `hitstun` (no knockback, the same attack serial, so the pulses don't go stale); at `ticks` a last hit pushes them out (`*_end`), cracks the floor between `crack_inner` and `crack_outer` (tg:`crack_ring`), and it ends. Events `storm` (start), `storm_end`. Ticks don't run in hitstop, so a storm lasts a little longer than `ticks` when it's hitting | crease surge | ms:`_add_storm`, `_step_storms` |
 | `sound`, `end_sound` | Passed through in `projectile` / `projectile_end` / `projectile_pierce` events | cerebro, craglash, culvert, hissy |
@@ -186,7 +188,7 @@ Spawned at tick `startup + 1` (and each volley tick) with move-level hit values 
 
 ### Cosmetic keys (read by src/view only)
 
-`fx` (sub-keys such as `shout {text, sound}`, `telegraph`, `wave_cone` are listed atop `src/view/fx_view.gd`; `projectile`: `"dart"`, `"shuriken"`, `"crane"`, `"crane_bundle"` are drawn by src/view/paper_fx.gd), `anim`, `anim_from`, `anim_at`, `anim_reel`, `view_lift` (creature_view.gd), `dodge.trail` (`"paper"`: the Paper Plane's trail, PaperFx). A sprite's `victory` animation is the victory pose (main sets `CreatureView.victory` while the round or match is over with every foe knocked out). `tell` (default `"strong"`) rides in the `windup` event; `"unblockable"`/`"guard_break"` draw the red warning.
+`fx` (sub-keys such as `shout {text, sound}`, `telegraph`, `wave_cone` are listed atop `src/view/fx_view.gd`; `projectile`: `"dart"`, `"shuriken"`, `"crane"`, `"crane_bundle"`, `"frog"` are drawn by src/view/paper_fx.gd; `"frog"` is a folded paper frog that hops along its path, timed from `life_total - life` so every peer sees the same hop, with a floor shadow that shrinks as it rises, a flick of paper and a dust puff on each landing, torn paper where it hits and the frog unfolding flat where it runs out — PaperFx tells a hit from a miss by the `projectile_end` event's power), `anim`, `anim_from`, `anim_at`, `anim_reel`, `view_lift` (creature_view.gd), `dodge.trail` (`"paper"`: the Paper Plane's trail, PaperFx). A sprite's `victory` animation is the victory pose (main sets `CreatureView.victory` while the round or match is over with every foe knocked out). `tell` (default `"strong"`) rides in the `windup` event; `"unblockable"`/`"guard_break"` draw the red warning.
 
 ## Combo and cancel rules
 

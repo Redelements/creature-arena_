@@ -33,7 +33,7 @@ var brawl: BrawlSim = null
 var focus := 0
 var tag_labels := ["", ""]
 var tags := ["P1", "CPU"]
-var key_labels := [["", ""], ["", ""]]
+var key_labels := [["", "", ""], ["", "", ""]]
 const SIDE_COLORS: Array[Color] = [Color("ff5a5a"), Color("5aa0ff")]
 ## A Brawl's four fighters, each their own colour.
 const BRAWL_COLORS: Array[Color] = [Color("ff5a5a"), Color("5aa0ff"), Color("6fd66f"), Color("ffd166")]
@@ -81,7 +81,7 @@ func resize_slots(n: int) -> void:
 	n = maxi(n, 2)
 	while tags.size() < n:
 		tags.append("")
-		key_labels.append(["", ""])
+		key_labels.append(["", "", ""])
 		surge_labels.append("")
 		tag_labels.append("")
 
@@ -364,24 +364,22 @@ func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 			var pts := PackedVector2Array([Vector2(px, 28), Vector2(px + 3, 31), Vector2(px, 34), Vector2(px - 3, 31)])
 			draw_colored_polygon(pts, Color("c8bfae") if i < c.stack else Color(0.3, 0.32, 0.36))
 
-	# Paper Stock (Mister Crease): a pip per sheet, and a folded shuriken (his Heavy has no
-	# box of its own) as a little star after them.
+	# Paper Stock (Mister Crease): a pip per sheet. A folded craft shows as a paper corner
+	# on its button's box below.
 	var sheet_def: Dictionary = c.def.get("sheets", {})
 	if not sheet_def.is_empty():
 		for i in int(sheet_def["max"]):
 			var px := x + 70.0 + i * 7.0
 			var pts := PackedVector2Array([Vector2(px, 28), Vector2(px + 3, 31), Vector2(px, 34), Vector2(px - 3, 31)])
 			draw_colored_polygon(pts, Color("f4f0e4") if i < c.sheets else Color(0.3, 0.32, 0.36))
-		if c.folded.has("heavy"):
-			PaperFx.draw_shuriken(self, Vector2(x + 96.0, 31.0), 3.0, 0.4, false)
 
-	# Skill cooldowns.
+	# The Heavy and skill buttons: a box each with its key, filling as a cooldown runs out.
 	if not c.is_dummy:
-		for i in 2:
-			var mid := "skill_%d" % (i + 1)
+		for i in 3:
+			var mid := String(["heavy", "skill_1", "skill_2"][i])
 			if not c.moves().has(mid):
 				continue
-			var r := Rect2(x + 112 + i * 22, 23, 18, 11)
+			var r := Rect2(x + 110 + i * 16, 23, 14, 11)
 			var ready := c.can_use(mid)
 			draw_rect(r, Color(0.16, 0.18, 0.22))
 			var cd := c.cooldown_ratio(mid)
@@ -391,7 +389,7 @@ func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 			draw_rect(r, Color(0, 0, 0, 0.6), false, 1.0)
 			var lbl := String(key_labels[side][i])
 			if lbl == "":
-				lbl = "S%d" % (i + 1)
+				lbl = ["HV", "S1", "S2"][i]
 			_text(Vector2(r.position.x, r.position.y + 8), lbl, 6, C_TEXT if ready else C_DIM,
 				HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
 			if c.folded.has(mid):  # folded and in hand: a paper corner on its box

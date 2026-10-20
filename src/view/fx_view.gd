@@ -2422,6 +2422,8 @@ func _draw_projectiles(ci: CanvasItem) -> void:
 					PaperFx.draw_thrown_shuriken(ci, pr, _tick)
 				"crane":
 					PaperFx.draw_thrown_crane(ci, pr, _tick)
+				"frog":
+					PaperFx.draw_frog_shot(ci, pr, _tick)
 				_:
 					_draw_thrown_rod(ci, pr)
 			continue
@@ -2897,21 +2899,38 @@ func _draw_aim_mark(ci: CanvasItem, c: CreatureSim, attacking: bool) -> void:
 	ci.draw_colored_polygon(pts, Color(1, 1, 1, a * 0.8))
 	ci.draw_polyline(PackedVector2Array([base + side, tip, base - side]), Color(0, 0, 0, a * 0.6), 1.0)
 
-## Pinecone Bomb while it's held: a ring on the floor where it will land, sliding out as
-## the throw gets longer.
+## A lob while it's held (Pinecone Bomb, Thousand Cranes): a ring on the floor where it
+## will land, sliding out as the throw gets longer. Locked on (`MatchSim.lob_lock`: the
+## aim points at a foe) it sits on them instead, brighter and doubled, ticked at four points.
 func _draw_lob_mark(ci: CanvasItem, c: CreatureSim, mv: Dictionary) -> void:
 	var pr: Dictionary = mv["projectile"]
+	var off := float(pr.get("offset", 0))
+	var dir := c.facing
 	var k := clampf(float(c.charge) / maxf(1.0, float(mv.get("charge_max", 1))), 0.0, 1.0)
 	var rng := lerpf(float(pr["range"]), float(pr.get("range_charged", pr["range"])), k)
-	var land := (c.pos + c.facing * (float(pr.get("offset", 0)) + rng)).round()
+	var locked: CreatureSim = sim.lob_lock(c, pr) if sim != null else null
+	if locked != null:
+		dir = (locked.pos - c.pos).normalized()
+		rng = clampf(c.pos.distance_to(locked.pos) - off, float(pr["range"]),
+			float(pr.get("range_charged", pr["range"])))
+	var land := (c.pos + dir * (off + rng)).round()
 	var r := float(pr.get("burst", 16))
+	if pr.has("storm"):  # Thousand Cranes: the storm's own circle, the size it hits
+		r = float((pr["storm"] as Dictionary).get("radius", 40))
 	var pulse := 0.5 + 0.5 * sin(_tick * 0.5)
-	ci.draw_arc(land, r, 0.0, TAU, 32, Color(C_CONE[2], 0.45 + 0.35 * pulse), 1.0)
-	ci.draw_circle(land, 2.0, Color(C_CONE[2], 0.7))
+	if locked != null:
+		ci.draw_arc(land, r, 0.0, TAU, 48, Color(C_AMBER, 0.65 + 0.3 * pulse), 2.0)
+		ci.draw_arc(land, r - 4.0, 0.0, TAU, 48, Color(C_AMBER, 0.25 + 0.2 * pulse), 1.0)
+		for q in 4:
+			var u: Vector2 = [Vector2.RIGHT, Vector2.DOWN, Vector2.LEFT, Vector2.UP][q]
+			ci.draw_line(land + u * (r - 6.0), land + u * (r + 3.0), Color(C_AMBER, 0.9), 2.0)
+	else:
+		ci.draw_arc(land, r, 0.0, TAU, 32, Color(C_CONE[2], 0.45 + 0.35 * pulse), 1.0)
+	ci.draw_circle(land, 2.0, Color(C_AMBER if locked != null else C_CONE[2], 0.7))
 	var n := int(rng / 8.0)
 	for i in n:
-		var at := (c.pos + c.facing * (float(pr.get("offset", 0)) + rng * (i + 0.5) / n)).round()
-		ci.draw_rect(Rect2(at, Vector2.ONE), Color(C_CONE[2], 0.4))
+		var at := (c.pos + dir * (off + rng * (i + 0.5) / n)).round()
+		ci.draw_rect(Rect2(at, Vector2.ONE), Color(C_AMBER if locked != null else C_CONE[2], 0.4))
 
 
 ## Knife Flurry: a dotted line along the floor as far as the knives will fly.

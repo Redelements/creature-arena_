@@ -367,7 +367,7 @@ const SCRIPTS := {
 		"captions": [
 			["Paper Stock: three sheets", "Fold a Crane", "Fold a Shuriken", "Fold a Frog", "All three in hand"],
 			["Paper Cut", "Paper Cut", "Paper Cut", "Paper Shuriken: a bleeding cut", "Paper Crane: it homes in"],
-			["Paper Frog: leap in, slam, slow", "Paper Plane: glide away"],
+			["Paper Frog: three frogs, shove and slow", "Paper Plane: glide away"],
 			["Thousand Cranes: a storm of paper"],
 		],
 		"steps": [

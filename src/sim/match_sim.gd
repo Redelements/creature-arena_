@@ -776,10 +776,77 @@ func spawn_projectile(owner: CreatureSim, mv: Dictionary, last := true) -> void:
 			hit[k] = p["volley"]["last"][k]
 	var lob := bool(p.get("lob", false))
 	var life := int(p["time"]) if lob else int(p["life"])
-	var lob_range := float(p.get("range", 0.0))
-	if p.has("range_charged"):  # held longer, thrown further (Pinecone Bomb)
-		lob_range = lerpf(lob_range, float(p["range_charged"]), owner.charge_ratio)
+	var lob_range := lob_aim_range(owner, p)
+	var locked := lob_lock(owner, p) if lob else null
+	if locked != null:  # thrown at the foe the aim points at (Thousand Cranes)
+		owner.facing = (locked.pos - owner.pos).normalized()
 	var vel := owner.facing * (lob_range / float(life) if lob else float(p["speed"]))
+	# A row ("row" {count, gap, side_push}): `count` shots side by side across the facing,
+	# `gap` px apart (Paper Frog's three frogs). The middle one pushes straight on, the
+	# outer ones push out to their own side (tilted forward by `side_push`), and a foe
+	# touched by one of the row is passed by the rest.
+	var row: Dictionary = {} if lob else p.get("row", {})
+	var count := maxi(1, int(row.get("count", 1)))
+	var across := Vector2(-owner.facing.y, owner.facing.x)
+	for k in count:
+		var lane := float(k) - float(count - 1) * 0.5
+		var pr := _new_projectile(owner, p, hit.duplicate() if k > 0 else hit, vel, life, lob)
+		if not row.is_empty():
+			pr["pos"] = Vector2(pr["pos"]) + across * lane * float(row.get("gap", 18.0))
+			pr["lane"] = int(signf(lane))
+			pr["row_struck"] = []
+			pr["life_total"] = life  # the view times each frog's hops by it
+			if lane != 0.0:
+				pr["push"] = (across * signf(lane) + owner.facing * float(row.get("side_push", 0.0))).normalized()
+		projectiles.append(pr)
+	emit_event("projectile", owner.pos, 1.0, {"who": owner.id, "lob": lob, "sound": String(p.get("sound", ""))})
+
+
+## How far a lob flies: its "range", or further the longer it was held ("range_charged",
+## Pinecone Bomb), or, locked on (`lob_lock`), as far as the foe (clamped to that span).
+func lob_aim_range(owner: CreatureSim, p: Dictionary) -> float:
+	var lo := float(p.get("range", 0.0))
+	var hi := float(p.get("range_charged", lo))
+	var locked := lob_lock(owner, p)
+	if locked != null:
+		return clampf(owner.pos.distance_to(locked.pos) - float(p.get("offset", 16)), lo, hi)
+	return lerpf(lo, hi, owner.charge_ratio) if p.has("range_charged") else lo
+
+
+## A lob's lock-on ("lock_on" {dot}): the foe the aim points at, so a tap lands on them.
+## A foe counts when the line to them is within the aim (dot of the two directions at
+## least `dot`: 0.92 is about 23 degrees either side) and no further than the longest
+## throw plus the storm's or burst's radius; the closest to the aim line wins, then the
+## nearer. Hidden foes (stealth, brush) and knocked-out ones don't count. Null with no
+## foe there: the throw goes where it's aimed, as far as it was held. Vectors only, so
+## every machine agrees; the view calls this to draw the ring where it will land.
+func lob_lock(owner: CreatureSim, p: Dictionary) -> CreatureSim:
+	if not p.has("lock_on"):
+		return null
+	var min_dot := float((p["lock_on"] as Dictionary).get("dot", 0.92))
+	var area := float((p.get("storm", {}) as Dictionary).get("radius", p.get("burst", 0.0)))
+	var reach := float(p.get("range_charged", p.get("range", 0.0))) + float(p.get("offset", 16)) + area
+	var best: CreatureSim = null
+	var best_dot := -2.0
+	var best_d := INF
+	for o in creatures:
+		if not owner.is_foe(o) or o.state == CreatureSim.State.KO or o.stealth > 0 or o.covered:
+			continue
+		var to := o.pos - owner.pos
+		var d := to.length()
+		if d < 0.0001 or d > reach:
+			continue
+		var dt := to.dot(owner.facing) / d
+		if dt < min_dot:
+			continue
+		if dt > best_dot + 0.0001 or (absf(dt - best_dot) <= 0.0001 and d < best_d):
+			best = o
+			best_dot = dt
+			best_d = d
+	return best
+
+
+func _new_projectile(owner: CreatureSim, p: Dictionary, hit: Dictionary, vel: Vector2, life: int, lob: bool) -> Dictionary:
 	var pr := {
 		"owner": owner.id,
 		"serial": owner.attack_serial,
@@ -816,8 +883,7 @@ func spawn_projectile(owner: CreatureSim, mv: Dictionary, last := true) -> void:
 		var hm: Dictionary = p["home"]
 		pr["home"] = {"turn": float(hm.get("turn", 0.15)), "stop": life - int(hm.get("until", life))}
 		pr["speed"] = float(p["speed"])
-	projectiles.append(pr)
-	emit_event("projectile", owner.pos, 1.0, {"who": owner.id, "lob": lob, "sound": String(p.get("sound", ""))})
+	return pr
 
 
 func _step_projectiles() -> void:
@@ -863,10 +929,14 @@ func _step_projectiles() -> void:
 				continue
 			if pierce and (p["struck"] as Array).has(d.id):
 				continue
+			if p.has("row_struck") and (p["row_struck"] as Array).has(d.id):
+				continue
 			if pos.distance_to(d.pos) > float(p["radius"]) + d.radius:
 				continue
 			var vel: Vector2 = p["vel"]
-			_apply_hit(owner, d, hit, vel.normalized(), pos + Vector2(0, -10), true)
+			_apply_hit(owner, d, hit, Vector2(p.get("push", vel.normalized())), pos + Vector2(0, -10), true)
+			if p.has("row_struck"):
+				_row_struck(p, d.id)
 			if pierce:
 				(p["struck"] as Array).append(d.id)
 				emit_event("projectile_pierce", pos, 1.0, {"who": int(p["owner"]), "sound": String(p.get("end_sound", ""))})
@@ -878,6 +948,13 @@ func _step_projectiles() -> void:
 		else:
 			keep.append(p)
 	projectiles = keep
+
+
+## One of a row hit `foe_id`: the rest of that row (in flight, or yet to move this tick) pass them by.
+func _row_struck(p: Dictionary, foe_id: int) -> void:
+	for q in projectiles:
+		if q.has("row_struck") and int(q["owner"]) == int(p["owner"]) and int(q["serial"]) == int(p["serial"]):
+			(q["row_struck"] as Array).append(foe_id)
 
 
 ## A homing projectile turns toward the nearest foe (of its owner) from where it is.
