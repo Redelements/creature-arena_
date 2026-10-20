@@ -77,7 +77,7 @@ update the map in the same change.
 | range rings, hitbox overlay | `src/view/range_rings.gd`, `src/view/debug_view.gd` | range_rings |
 | DPS meter | `src/view/dps_meter.gd` | training |
 | sound effects, music, volume | `src/view/audio_view.gd:on_event`, `data/audio.json`, `docs/AUDIO.md` | scripts_load |
-| arena drawing, crowd | `src/view/arena_view.gd`, `src/view/crowd_view.gd` | arena |
+| arena drawing, crowd, map art | `src/view/arena_view.gd` (`_draw_on_art`), `src/view/crowd_view.gd`; art from `tools/gen_arenas.py` (rerun after moving a piece in `data/arenas/`) | arena |
 | camera, zoom, screen shake | `src/game/main.gd:_update_camera`, `_frame_fight` | test_ui |
 | game modes, mode numbers, menus' rows | `src/game/main.gd` `MODES`, `MENU_ROWS`, `_start_match` | test_ui |
 | settings | `src/game/main.gd` `SETTING_PAGES`, `_setting`, `_set_setting` | test_ui |
