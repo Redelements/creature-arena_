@@ -1,6 +1,6 @@
 extends TestCase
 ## Mister Crease's kit: Paper Stock (three sheets that regrow), fold-then-use crafts (a
-## first press folds, a second uses), the homing Paper Crane, the Paper Frog leap, the
+## first press folds, a second uses), the homing Paper Crane, the Paper Frog row of three hopping frogs, the
 ## bleeding Paper Shuriken, the Paper Plane dodge and the Thousand Cranes storm.
 
 const L := SimDefs.IN_LIGHT
@@ -180,22 +180,69 @@ func test_the_shuriken_bleeds() -> void:
 	assert_eq(foe.poison_look, "", "and wears off")
 
 
-func test_the_frog_leaps_over_a_pit_and_slows_where_it_lands() -> void:
-	var sim := _duel("cairn", 110.0)
+## Folds, then sends the frogs; returns the foe's position when the first one lands.
+func _frog_at(lane_dy: float) -> Dictionary:
+	var sim := _duel("cairn", 90.0)
 	var c := sim.creatures[0]
 	var foe := sim.creatures[1]
-	var mid := sim.terrain.world_to_cell(c.pos + Vector2(50, 0))
-	for dx in range(-2, 3):
-		for dy in range(-2, 3):
-			sim.terrain.set_cell(mid + Vector2i(dx, dy), TerrainGrid.HOLE)
+	_press_and_settle(sim, S2)  # fold
+	foe.pos = Vector2(c.pos.x + 90.0, c.pos.y + lane_dy)
+	foe.walk_vel = Vector2.ZERO
+	var at := foe.pos
+	tap(sim, S2, 0)
+	var hit := run_until(sim, func(): return foe.slow > 0, 60)
+	run(sim, 0, 20)
+	return {"hit": hit, "moved": foe.pos - at, "foe": foe, "sim": sim, "c": c}
+
+
+func test_the_frog_sends_three_frogs_side_by_side() -> void:
+	var sim := _duel("cairn", 160.0)
+	var c := sim.creatures[0]
 	_press_and_settle(sim, S2)  # fold
 	var x0 := c.pos.x
 	tap(sim, S2, 0)
-	assert_true(run_until(sim, func(): return c.is_leaping(), 20), "the leap")
-	assert_true(c.is_invulnerable(), "untouchable in the air")
-	assert_true(run_until(sim, func(): return foe.slow > 0, 40), "lands on them and slows them")
-	assert_true(c.state != CreatureSim.State.FALLING, "the pit didn't take him")
-	assert_gt(c.pos.x - x0, 90.0, "about 110 px:")
+	assert_true(run_until(sim, func(): return sim.projectiles.size() == 3, 30), "three frogs")
+	assert_lt(absf(c.pos.x - x0), 4.0, "he stays put; the frogs go")
+	var ys: Array = []
+	for p in sim.projectiles:
+		ys.append(Vector2(p["pos"]).y)
+	ys.sort()
+	assert_near(float(ys[1]) - float(ys[0]), 18.0, 0.01, "18 px apart:")
+	assert_near(float(ys[2]) - float(ys[1]), 18.0, 0.01, "18 px apart:")
+
+
+func test_the_middle_frog_pushes_back_the_outer_ones_push_aside() -> void:
+	var mid := _frog_at(0.0)
+	assert_true(mid["hit"], "the middle frog lands and slows")
+	assert_gt(Vector2(mid["moved"]).x, 6.0, "straight back:")
+	assert_lt(absf(Vector2(mid["moved"]).y), 2.0, "not aside:")
+	var low := _frog_at(18.0)
+	assert_true(low["hit"], "the outer frog lands")
+	assert_gt(Vector2(low["moved"]).y, 6.0, "pushed out to its own side:")
+	var high := _frog_at(-18.0)
+	assert_lt(Vector2(high["moved"]).y, -6.0, "and the other side the other way:")
+
+
+func test_a_foe_is_hit_by_one_frog_of_the_row() -> void:
+	var r := _frog_at(9.0)  # between two lanes: touched by both
+	var foe: CreatureSim = r["foe"]
+	assert_true(r["hit"], "one lands")
+	assert_near(foe.hp, foe.max_hp - 4.0, 0.6, "the other passes by:")
+
+
+func test_the_frogs_can_be_blocked() -> void:
+	var sim := _duel("cairn", 90.0)
+	var foe := sim.creatures[1]
+	_press_and_settle(sim, S2)
+	var hp := foe.hp
+	tap(sim, S2, 0, SimDefs.IN_GUARD)
+	var stunned := false
+	for i in 40:
+		sim.step(PackedInt32Array([0, SimDefs.IN_GUARD]))
+		stunned = stunned or foe.state == CreatureSim.State.HITSTUN
+	assert_lt(foe.hp, hp, "it lands on the guard")
+	assert_false(stunned, "no guard break: the guard holds")
+	assert_true(foe.state == CreatureSim.State.GUARD, "still guarding")
 
 
 func test_the_paper_plane_glides_far_and_through_fences() -> void:

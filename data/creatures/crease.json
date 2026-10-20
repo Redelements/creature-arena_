@@ -57,7 +57,7 @@
     "poke": "skill_1",
     "poke_range": [70, 200],
     "burrow": "skill_2",
-    "burrow_range": [90, 125],
+    "burrow_range": [60, 140],
     "fold_safe": 90,
     "fold": ["skill_1", "heavy", "skill_2"],
     "surge_range": 150,
@@ -135,17 +135,17 @@
       "fx": { "projectile": "crane" }
     },
     "skill_2": {
-      "name": "Paper Frog", "anim": "frog", "windup": 6, "tell": "guard_break", "cooldown": 300, "guard_break": true,
+      "name": "Paper Frog", "anim": "frog", "windup": 6, "tell": "strong", "cooldown": 300,
       "fold": { "anim": "fold_frog", "startup": 14, "recovery": 6, "cost": 1 },
       "aim_frames": 4,
-      "startup": 4, "active": 0, "recovery": 18, "length": 44,
-      "leap": { "from": 4, "to": 22 },
-      "dash": { "from": 4, "to": 22, "speed": 5.8 },
-      "reach": 0, "hit_radius": 28, "juggle": true,
-      "damage": 6, "knockback": 1.6, "hitstun": 26, "hitstop": 7, "slow_ticks": 60, "slow_mult": 0.75,
-      "hits": [ {"at": 23, "active": 3} ],
-      "anim_at": [[0, 0], [3, 1], [5, 2], [14, 3], [23, 4], [30, 5]],
-      "fx": { "impact": "slam" }
+      "startup": 10, "active": 0, "recovery": 18,
+      "damage": 4, "knockback": 1.8, "hitstun": 24, "hitstop": 6, "juggle": true,
+      "slow_ticks": 60, "slow_mult": 0.75,
+      "projectile": { "speed": 4.0, "life": 38, "radius": 7, "offset": 14, "crack_trail": false,
+        "row": { "count": 3, "gap": 18, "side_push": 0.35 },
+        "sound": "swing_light", "end_sound": "thwack" },
+      "anim_at": [[0, 0], [3, 1], [6, 2], [10, 3], [16, 4], [26, 5]],
+      "fx": { "projectile": "frog" }
     },
     "surge": {
       "name": "Thousand Cranes", "anim": "surge", "energy_cost": 100, "sheets_cost": 3,
