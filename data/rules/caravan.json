@@ -1,0 +1,23 @@
+{
+	"_doc": "Caravan (2v2, 3v3): escort the caravan along the map's track to the other end. Two rounds: red attacks first (from the track's start), then blue (from its end). Attackers alone within radius push it (push_speed px a tick, times push_mult by how many: index = attackers there), both sides stop it, defenders alone roll it back at back_speed, never behind the last checkpoint passed. Checkpoints (shares of the track) add checkpoint_seconds and move the attackers' respawn up to them (respawn_behind px back along the track). At time out a round goes on while an attacker is at the caravan, up to overtime_seconds. The second round stops once decided. Winner: the faster finish, or the longer push. Unlimited lives (respawns on the pads like Team Deathmatch); KOs score nothing. Times are in ticks (60 per second) unless named _seconds.",
+	"deathmatch": true,
+	"caravan": true,
+	"arena": "caravan_pass",
+	"round_seconds": 120,
+	"checkpoint_seconds": 30,
+	"overtime_seconds": 20,
+	"checkpoints": [0.34, 0.67],
+	"radius": 56,
+	"push_speed": 0.26,
+	"push_mult": [1.0, 1.0, 1.2, 1.35],
+	"back_speed": 0.1,
+	"respawn_behind": 70,
+	"intro_ticks": 100,
+	"over_ticks": 180,
+	"mid_ko_slowmo": 18,
+	"spawn_spread": 60,
+	"respawn_seconds": 5,
+	"spawn_protect_seconds": 2,
+	"pad_inset": 44,
+	"pad_spread": 48
+}

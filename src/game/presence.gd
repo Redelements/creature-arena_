@@ -11,7 +11,7 @@ extends RefCounted
 
 const CONFIG_PATH := "res://data/discord.json"
 const RULE_NAMES := {"": "Team battle", "deathmatch": "Team Deathmatch", "sinkhole": "Sinkhole",
-	"crater": "King of the Crater"}
+	"crater": "King of the Crater", "caravan": "Caravan"}
 
 var config := {}
 var _key := ""

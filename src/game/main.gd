@@ -102,6 +102,8 @@ const MODES := [
 	{"label": "Replay", "replay": true, "sides": []},
 	{"label": "Mister Crease  vs  CPU Chef Cerebro", "left": "crease", "right": "cerebro", "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Training: Mister Crease", "left": "crease", "training": true},
+	{"label": "Caravan: 2v2 vs CPU", "team": 2, "rules": "caravan", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Caravan: 3v3 vs CPU", "team": 3, "rules": "caravan", "sides": [Side.PLAYER, Side.CPU]},
 ]
 const REPLAY_MODE := 47
 ## The menus (src/ui screens): the title menu opens Single player (MENU_ROWS), the online
@@ -145,6 +147,8 @@ const MENU_ROWS := [
 		"desc": "The floor falls away from the edges into a chasm, and falling in is a KO. Last one standing. Left/Right: team size"},
 	{"label": "King of the Crater vs CPU", "group": "team", "modes": [36, 37, 38], "choices": ["1 v 1", "2 v 2", "3 v 3"],
 		"desc": "Hold the zone while it moves and the ground round it breaks. 60 s held wins. Left/Right: team size"},
+	{"label": "Caravan vs CPU", "group": "team", "modes": [51, 50], "choices": ["3 v 3", "2 v 2"],
+		"desc": "Escort the caravan down the pass; then defend while they push. Faster finish or further push wins. Left/Right: team size"},
 	{"label": "Brawl", "group": "brawl", "modes": [45, 42, 43, 44], "choices": ["you vs 3 CPUs", "2 players", "3 players", "4 players"],
 		"desc": "Free-for-all, four fighters, one life each; CPUs fill the empty seats. Left/Right: how many play"},
 	{"label": "Chaos Cup", "group": "brawl", "modes": [46],
@@ -1204,8 +1208,9 @@ func _replaying() -> bool:
 func _show_pads() -> void:
 	fx.pads = []
 	fx.zone = {}
-	if team_battle == null or not team_battle.deathmatch:
-		return
+	fx.caravan = {}
+	if team_battle == null or not team_battle.deathmatch or team_battle.caravan:
+		return  # the Caravan's attackers respawn where the push has got to, not on pads
 	for side in 2:
 		for k in team_battle.size:
 			fx.pads.append({"pos": team_battle.pad_point(side, k), "color": Hud.SIDE_COLORS[side], "count": 0})
@@ -1213,6 +1218,16 @@ func _show_pads() -> void:
 
 ## King of the Crater: the zone on the floor, in the holder's colour.
 func _update_zone() -> void:
+	if team_battle != null and team_battle.caravan:
+		var was: Dictionary = fx.caravan
+		var at := team_battle.caravan_pos()
+		var travel := float(was.get("travel", 0.0))
+		if not was.is_empty():
+			travel += Vector2(was["pos"]).distance_to(at)
+		fx.caravan = {"pos": at, "heading": team_battle.caravan_heading(), "radius": float(team_battle.rules.get("radius", 56)),
+			"state": team_battle.cv_state, "team": team_battle.cv_attacker(), "travel": travel}
+		fx.zone = {}
+		return
 	if team_battle == null or not team_battle.crater or sim.zone_r <= 0.0:
 		fx.zone = {}
 		return
@@ -1255,10 +1270,17 @@ func _team_flow() -> void:
 	match team_battle.phase:
 		TeamSim.Phase.INTRO:
 			var t := team_battle.phase_t
-			var what := "KING OF THE CRATER" if team_battle.crater 				else ("SINKHOLE" if team_battle.sinkhole else ("TEAM DEATHMATCH" if team_battle.deathmatch else "TEAM BATTLE"))
+			var what := "KING OF THE CRATER" if team_battle.crater \
+				else ("SINKHOLE" if team_battle.sinkhole else ("TEAM DEATHMATCH" if team_battle.deathmatch else "TEAM BATTLE"))
+			if team_battle.caravan:
+				what = "CARAVAN: ROUND %d" % (team_battle.cv_round + 1)
+				_update_zone()
 			hud.banner = (("ONLINE " + what) if online != null else what) if t < 60 else "FIGHT!"
 			var sub := "%d v %d" % [team_battle.size, team_battle.size]
-			if team_battle.crater:
+			if team_battle.caravan:
+				var att := team_battle.cv_attacker()
+				sub += "   ·   %s escorts the caravan to the %s end" % [["Red", "Blue"][att], ["blue", "red"][att]]
+			elif team_battle.crater:
 				sub += "   ·   hold the zone %d s" % (team_battle.score_to_win() / 60)
 			elif team_battle.deathmatch:
 				sub += "   ·   first to %d KOs" % team_battle.score_to_win()
@@ -1275,6 +1297,8 @@ func _team_flow() -> void:
 					hud.show_toast("THE EDGE IS FALLING")
 				elif e["type"] == "zone_move":
 					hud.show_toast("THE CRATER MOVED")
+				elif e["type"] == "checkpoint":
+					hud.show_toast("CHECKPOINT  +%d s" % int(team_battle.rules.get("checkpoint_seconds", 30)))
 			if team_battle.overtime and team_battle.timer > -90:
 				hud.banner = "SUDDEN DEATH"
 				hud.banner_sub = "Next KO wins"
@@ -1963,6 +1987,9 @@ func _react(e: Dictionary) -> void:
 		"overtime":
 			audio.play("round_start")
 			crowd.cheer(0.6)
+		"checkpoint", "caravan_done":
+			audio.play("round_start", -3.0, 1.2)
+			crowd.cheer(0.7)
 		"surge_ready":
 			# One sound when your side powers up, another when the other side does.
 			var mine := is_local_team(int(e.get("team", 0)))

@@ -320,6 +320,24 @@ func test_a_2v2_deathmatch_through_the_server_stays_in_sync() -> void:
 		assert_eq(String(n.game.final_digests.get(at, "")), d0, "slot %d at frame %d:" % [n.game.local_slot, at])
 
 
+func test_a_2v2_caravan_through_the_server_plays_its_own_map_in_sync() -> void:
+	var s := _setup([2, 2, 2, 2], [], 2, 1, 0.05, ["caravan", "caravan", "caravan", "caravan"])
+	var server: RelayServer = s[0]
+	var nets: Array = s[1]
+	assert_true(_run(server, nets, 300, func(): return _all_playing(nets)), "all four start")
+	for n: Netplay in nets:
+		var t: TeamSim = n.game.team
+		assert_true(t != null and t.caravan, "a Caravan on slot %d" % n.game.local_slot)
+		assert_eq(t.sim.arena_id, "caravan_pass", "on Dustwind Pass, slot %d:" % n.game.local_slot)
+	var ref: Referee = (server.games[0] as RelayServer.Game).referee
+	assert_true((ref.duel as TeamSim).caravan, "the referee plays a Caravan too")
+	assert_eq((ref.duel as TeamSim).sim.arena_id, "caravan_pass", "on the same map")
+	_run(server, nets, 900, Callable(), 31)
+	for n: Netplay in nets:
+		assert_eq(n.game.desync_frame, -1, "no desync for slot %d" % n.game.local_slot)
+	assert_eq(ref.desync, [-1, -1, -1, -1], "the referee agrees with everyone:")
+
+
 func test_rules_keep_quick_match_queues_apart() -> void:
 	var s := _setup([2, 2, 2, 2], [], 0, 0, 0.0, ["deathmatch", "", "deathmatch", ""])
 	var server: RelayServer = s[0]

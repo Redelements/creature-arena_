@@ -84,6 +84,7 @@ extends Node2D
 ## (a petrified statue's grey is CreatureView's shader).
 
 const SHEET := preload("res://assets/sprites/fx.png")
+const CARAVAN := preload("res://assets/sprites/caravan.png")  ## 4 frames of 48x40 (tools/gen_arenas.py)
 const GRAVITY := 0.2
 const FOREVER := 1.0e9
 
@@ -2535,9 +2536,15 @@ var _trail := {}  ## creature -> [trail hp, ticks to hold before draining, last 
 var pads: Array = []
 ## King of the Crater's zone (set by main): {"pos", "radius", "color"}; empty when none.
 var zone := {}
+## The Caravan (set by main): {"pos", "heading", "radius", "state" (-1 back, 0 still,
+## 1 pushed, 2 contested), "team" (the attackers), "travel" (px moved, turns the wheels)};
+## empty when none.
+var caravan := {}
 
 
 func _draw_pads(ci: CanvasItem) -> void:
+	if not caravan.is_empty():
+		_draw_caravan(ci)
 	if not zone.is_empty():
 		var at: Vector2 = zone["pos"]
 		var col: Color = zone["color"]
@@ -2557,6 +2564,48 @@ func _draw_pads(ci: CanvasItem) -> void:
 			var txt := str(n)
 			ci.draw_string_outline(_font, at + Vector2(-20, -10), txt, HORIZONTAL_ALIGNMENT_CENTER, 40, 12, 3, C_OUTLINE)
 			ci.draw_string(_font, at + Vector2(-20, -10), txt, HORIZONTAL_ALIGNMENT_CENTER, 40, 12, col)
+
+
+## The Caravan: its push radius on the floor (the attackers' colour while they push, gold
+## when contested, grey rolling back), a shadow, the wagon facing the way it's headed with
+## its wheels turning as it goes, and the attackers' flag on top.
+func _draw_caravan(ci: CanvasItem) -> void:
+	var at: Vector2 = caravan["pos"]
+	var team := int(caravan.get("team", 0))
+	var st := int(caravan.get("state", 0))
+	var team_col: Color = Hud.SIDE_COLORS[clampi(team, 0, 1)]
+	var col := team_col
+	if st == 2:
+		col = Color("e8c060")
+	elif st == -1:
+		col = Color(0.62, 0.62, 0.66)
+	elif st == 0:
+		col = Color(team_col, 0.55)
+	var r := float(caravan.get("radius", 56))
+	ci.draw_circle(at, r, Color(col, 0.08 if st == 0 else 0.13))
+	var spin := float(_tick) * (0.05 if st == 1 else (-0.03 if st == -1 else 0.0))
+	for k in 12:  # a dashed rim that turns the way the caravan is going
+		var a0 := spin + k * TAU / 12.0
+		ci.draw_arc(at, r, a0, a0 + TAU / 20.0, 6, Color(col, 0.85), 2.0)
+	# the wagon
+	var heading: Vector2 = caravan.get("heading", Vector2.RIGHT)
+	var flip := heading.x < 0.0
+	ci.draw_set_transform(at + Vector2(0, 1), 0.0, Vector2(1.0, 0.38))
+	ci.draw_circle(Vector2.ZERO, 22.0, Color(0, 0, 0, 0.3))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var frame := int(float(caravan.get("travel", 0.0)) / 3.0) % 4
+	var dst := Rect2(at - Vector2(24, 36), Vector2(48, 40))
+	if flip:
+		dst = Rect2(at + Vector2(24, -36), Vector2(-48, 40))
+	ci.draw_texture_rect_region(CARAVAN, dst, Rect2(frame * 48, 0, 48, 40))
+	# the attackers' flag on a pole above the cover
+	var pole := at + Vector2(0, -34)
+	ci.draw_line(pole, pole + Vector2(0, -12), Color("3a2a1a"), 1.0)
+	var wave := sin(float(_tick) * 0.2) * 1.0
+	var fl := PackedVector2Array([pole + Vector2(0, -12), pole + Vector2(9, -10 + wave), pole + Vector2(0, -7)])
+	if flip:
+		fl = PackedVector2Array([pole + Vector2(0, -12), pole + Vector2(-9, -10 + wave), pole + Vector2(0, -7)])
+	ci.draw_colored_polygon(fl, team_col)
 
 
 ## Who's who: a coloured marker over each side's fighter (red for the left side, P1;

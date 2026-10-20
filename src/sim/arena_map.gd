@@ -12,6 +12,9 @@ const DIR := "res://data/arenas/"
 const DEFAULT := "stadium"
 ## Every map, in menu order.
 const IDS := ["stadium", "quarry", "floodgate", "greenhouse"]
+## Maps only a mode plays (its rules' "arena"), not in the map choices: they're far bigger
+## than the stadium. Dustwind Pass: the Caravan's.
+const MODE_IDS := ["caravan_pass"]
 
 static var _cache := {}
 

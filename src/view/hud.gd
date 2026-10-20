@@ -453,8 +453,34 @@ func _deathmatch_score() -> void:
 		draw_rect(Rect2(x, 3, 32, 2), SIDE_COLORS[side])
 		_text(Vector2(x, 21), team.score_text(side), 13, SIDE_COLORS[side], HORIZONTAL_ALIGNMENT_CENTER, 32)
 	_text(Vector2(184 + _cx, 34), team.goal_text(), 5, C_ACCENT if team.overtime else C_DIM, HORIZONTAL_ALIGNMENT_CENTER, 112)
+	if team.caravan:
+		_caravan_bar()
 	if respawn_in > 0:
 		_text(Vector2(0, 62 + _cy), "BACK IN %d" % respawn_in, 10, C_TEXT, HORIZONTAL_ALIGNMENT_CENTER, _sw)
+
+
+## Caravan: the track as a strip under the clock (red's end left, blue's right), the
+## checkpoints this round, the caravan, and in round two the mark to beat (round one's push).
+func _caravan_bar() -> void:
+	var x0 := 190.0 + _cx
+	var w := 100.0
+	var y := 41.0
+	var L := maxf(team.track_length(), 1.0)
+	var att := team.cv_attacker()
+	draw_rect(Rect2(x0 - 2, y - 3, w + 4, 7), C_PANEL)
+	draw_rect(Rect2(x0, y, w, 1), Color(0.55, 0.5, 0.42))
+	draw_rect(Rect2(x0 - 1, y - 2, 2, 5), SIDE_COLORS[0])
+	draw_rect(Rect2(x0 + w - 1, y - 2, 2, 5), SIDE_COLORS[1])
+	var cps: Array = team.rules.get("checkpoints", [])
+	for i in cps.size():
+		var f := float(cps[i]) if att == 0 else 1.0 - float(cps[i])
+		draw_rect(Rect2(x0 + w * f, y - 1, 1, 3), C_ACCENT if i < team.cv_cp else C_DIM)
+	if team.cv_round == 1 and int(team.cv_time[0]) < 0:
+		var f0 := 1.0 - float(team.cv_best[0]) / L
+		draw_rect(Rect2(x0 + w * f0, y - 3, 1, 7), Color("e8c060"))
+	var f := team.cv_p / L if att == 0 else 1.0 - team.cv_p / L
+	var mx := x0 + w * f
+	draw_colored_polygon(PackedVector2Array([Vector2(mx - 3, y - 3), Vector2(mx + 3, y - 3), Vector2(mx, y + 1)]), SIDE_COLORS[att])
 
 
 func _combo(side: int) -> void:

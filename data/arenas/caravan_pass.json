@@ -1,0 +1,24 @@
+{
+	"_doc": "Dustwind Pass, the Caravan map: a long canyon road, mirrored left to right so both rounds are fair. The caravan rides 'track' (floor pixels, from red's end on the left to blue's on the right). Boulder walls and scrub give cover off the road; nothing sits on it. Rects are [col, row, width, height] in 8 px cells on the 220x40 grid.",
+	"id": "caravan_pass",
+	"name": "Dustwind Pass",
+	"ground": "dirt",
+	"size": [220, 40],
+	"spawns": {"left": [60, 224], "right": [1732, 224]},
+	"track": [[90, 224], [300, 224], [420, 150], [640, 150], [760, 260], [896, 260],
+		[1032, 260], [1152, 150], [1372, 150], [1492, 224], [1702, 224]],
+	"pieces": [
+		{"kind": "wall", "rect": [30, 2, 2, 6]},
+		{"kind": "wall", "rect": [52, 22, 2, 8]},
+		{"kind": "fence", "rect": [38, 30, 10, 1]},
+		{"kind": "brush", "rect": [66, 26, 10, 6]},
+		{"kind": "wall", "rect": [90, 2, 2, 10]},
+		{"kind": "brush", "rect": [98, 30, 10, 6]},
+		{"kind": "wall", "rect": [188, 2, 2, 6]},
+		{"kind": "wall", "rect": [166, 22, 2, 8]},
+		{"kind": "fence", "rect": [172, 30, 10, 1]},
+		{"kind": "brush", "rect": [144, 26, 10, 6]},
+		{"kind": "wall", "rect": [128, 2, 2, 10]},
+		{"kind": "brush", "rect": [112, 30, 10, 6]}
+	]
+}
