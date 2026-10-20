@@ -35,7 +35,7 @@ Six fighters so far, each with a full moveset and a CPU opponent:
   puddles, slides in feet first, and freezes everyone around him solid.
 - **Mister Crease**, folded from a magician's last playbill: a mage made of paper under a
   huge orange hat who flicks paper darts while he struts, folds his tricks before he uses
-  them (a bleeding shuriken, a homing crane, a frog to leap on) and buries foes in a
+  them (a bleeding shuriken, a homing crane, three hopping frogs) and buries foes in a
   storm of a thousand cranes.
 
 ![Demo: CPU Cairn vs CPU Culvert](docs/demo.gif)
@@ -684,7 +684,7 @@ start from neutral, never as a combo cancel; a folded craft cancels like any mov
 | Light | Paper Cut ×3 | Flicks origami darts (about 140 px) **while he keeps walking** at half speed. The first two chip without staggering; the third staggers |
 | Heavy | Paper Shuriken (fold 1 sheet) | A spinning star thrown along a line that hits the first foe and leaves them **bleeding** (a few ticks of damage, red, "BLEEDING"). Hold to charge |
 | Skill 1 | Paper Crane (fold 1 sheet) | A crane that **homes in** on the nearest foe for about half a second, then flies straight, and **pops them up** for a juggle. 4 s cooldown |
-| Skill 2 | Paper Frog (fold 1 sheet) | Hops on it: an **aimed leap** (about 110 px, untouchable, over pits) that **slams** down, **breaks guard** (red tell) and slows whoever is under him. 5 s cooldown |
+| Skill 2 | Paper Frog (fold 1 sheet) | Sends **three frogs hopping forward side by side** (18 px apart, about 150 px). Each deals 4 and **slows**: the middle frog **shoves the foe straight back**, the outer frogs **shove them out to their side**. A foe is hit by one frog at most; blockable. 5 s cooldown |
 | Surge | Thousand Cranes (full meter **and** 3 sheets) | An aimed lob (hold for distance) that bursts into a **storm of cranes** about 90 px across for 2 s: hit after hit inside it, then everyone is pushed out and the floor cracks in a ring. Leave the circle |
 | Dodge | Paper Plane | Folds into a paper airplane and glides as far as Chef Cerebro's blink (about 116 px), **over fences** |
 
@@ -693,7 +693,7 @@ bow (the first fighter with a victory pose; the system plays a `victory` animati
 any fighter that has one).
 
 Counterplay: pressure him at 0 sheets (only his lights are left), hit him while he
-folds, dodge the crane late (it stops turning), step out of the frog's circle and the
+folds, dodge the crane late (it stops turning), slip between the frogs' lanes or block them, and step out of the
 storm.
 
 ### Combos to try

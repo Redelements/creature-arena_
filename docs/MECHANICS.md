@@ -62,7 +62,7 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `length` | ticks | Total length; default `startup + active + recovery` | barkley, cairn, craglash, hissy, pete, sno | cs:`_update_attack` |
 | `hits` | array of `{at, active, ...}` | Multi-hit segments; any seg key can be set per hit | barkley, cairn, pete | cs:`active_seg`, `seg_value` |
 | `windup` | ticks | Extra frames only when thrown raw (neutral or guard); `state_t` stays 0 meanwhile | all but dummy | cs:`_start_attack` |
-| `aim_frames` | tick | Steerable until this tick. Default: `startup` for lights, 0 otherwise | none in data | cs:`_update_attack` |
+| `aim_frames` | tick | Steerable until this tick. Default: `startup` for lights, 0 otherwise | crease skill_2 | cs:`_update_attack` |
 | `lunge` | px/tick | Steps forward every tick up to `startup`, but only to close distance: it holds while a foe is inside the first strike with its near edge at the strike's centre or closer (a gap of `reach - radius` between the bodies), so strings keep their spacing and still follow a knocked-back foe | most | cs:`_update_attack`, `_foe_in_strike` |
 | `mobile` | share of speed | Keeps walking while the move plays out | cerebro (lights) | cs:`_update_attack` |
 | `dash` | `{from, to, speed}` | Moves forward in the window until it connects | 8 fighters | cs:`_update_attack` |
@@ -115,7 +115,7 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 
 | Key | Seg/chg | Meaning | Used by |
 | --- | --- | --- | --- |
-| `slow_ticks`, `slow_mult` | seg / move | Walk speed × `slow_mult` | gillbert heavy, sno |
+| `slow_ticks`, `slow_mult` | seg / move | Walk speed × `slow_mult` | gillbert heavy, sno, crease skill_2 |
 | `vuln_ticks`, `vuln_mult` | seg / move | Target takes × `vuln_mult` | cerebro heavy |
 | `poison_ticks`, `poison_damage`, `poison_every` | seg | Pulse of `poison_damage` every `poison_every` ticks | hissy skill_1, crease heavy |
 | `poison_look` | move | How the poison shows: `"bleed"` (a red cut, "BLEEDING") instead of venom; kept on the target (`poison_look`) and in the `poisoned` / `poison` events (`look`) | crease heavy |
@@ -167,6 +167,7 @@ Spawned at tick `startup + 1` (and each volley tick) with move-level hit values 
 | `crack_trail` (true) | Cracks each new cell it passes | false for all current users |
 | `pierce` | Passes through, hitting each body once | cerebro surge |
 | `volley` `{count=1, every=1, last}` | `count` shots, one every `every` ticks; `last` overrides hit values of the final one | cerebro surge |
+| `row` `{count=1, gap=18, side_push=0}` | `count` ground shots side by side across the facing, `gap` px apart (each a projectile with `lane` -1/0/1, `life_total` and `row_struck`). The middle one pushes along its flight; the outer ones push out to their own side, tilted forward by `side_push` (a `push` vector). A foe hit by one of the row is passed by the rest (ms:`_row_struck`). Not for lobs | crease skill_2 (Paper Frog) |
 | `lob`, `range`, `time`, `burst`, `crack` | Flies `range` px in `time` ticks hitting nothing, then hits every foe within `burst` and cracks `crack` | barkley skill_2 |
 | `home` `{turn=0.15, until}` | A ground shot that steers toward the nearest foe (of its owner, from where it is) for its first `until` ticks: each tick `vel = (vel.normalized() + to_foe.normalized() × turn).normalized() × speed` (vectors only, no angles), then flies straight | crease skill_1 | ms:`_steer` |
 | `storm` `{radius=40, ticks=120, every=12, damage, hitstun, hitstop, damage_end, knockback_end, launch_end, knockdown_end, hitstop_end, crack_inner, crack_outer}` | On a lob: where it lands it leaves a storm (`MatchSim.storms`, saved by snapshot) instead of bursting. Every `every` ticks it hits each foe inside `radius` (+ body) with the throw's hit at `damage` / `hitstun` (no knockback, the same attack serial, so the pulses don't go stale); at `ticks` a last hit pushes them out (`*_end`), cracks the floor between `crack_inner` and `crack_outer` (tg:`crack_ring`), and it ends. Events `storm` (start), `storm_end`. Ticks don't run in hitstop, so a storm lasts a little longer than `ticks` when it's hitting | crease surge | ms:`_add_storm`, `_step_storms` |
