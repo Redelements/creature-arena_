@@ -494,6 +494,12 @@ The Caravan's wagon (`assets/sprites/caravan.png`, `tools/gen_arenas.py:caravan_
 frames of its wheels turning, facing right (mirrored heading left), ground contact at
 (24, 36). The view adds the shadow, the push ring and the attackers' flag.
 
+## Flag — 12×10
+
+Capture the Flag's cloth (`assets/sprites/flag.png`, `tools/gen_arenas.py:flag_sprite`): four
+waving frames, white, tinted the side's colour by the view, which also draws the pole.
+Map chasms are baked into the arena art (`chasm_pit`); holes made in a fight still use the tiles.
+
 ## Crowd — 12×16
 
 Four fan variants, two frames each (seated, cheering), in one row.

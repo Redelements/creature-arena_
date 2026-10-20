@@ -1,0 +1,21 @@
+{
+	"_doc": "Capture the Flag (2v2 to 4v4): take the other side's flag from its base and bring it to yours while your own is home. Touching a flag (within pickup_radius plus your body) takes it, or sends your own dropped flag home; a carrier is slowed (carry_slow) and drops it where it goes down; a dropped flag goes home by itself after return_seconds. First to captures_to_win, or more at time; a tie at time is sudden death. The first `defenders` CPU fighters of a side guard the base. Unlimited lives (respawns at your end like Team Deathmatch); KOs score nothing. Times are in ticks (60 per second) unless named _seconds.",
+	"deathmatch": true,
+	"ctf": true,
+	"arena": "twin_keeps",
+	"max_size": 4,
+	"time_seconds": 360,
+	"captures_to_win": 3,
+	"pickup_radius": 14,
+	"carry_slow": 0.88,
+	"return_seconds": 12,
+	"defenders": 1,
+	"intro_ticks": 100,
+	"over_ticks": 180,
+	"mid_ko_slowmo": 18,
+	"spawn_spread": 40,
+	"respawn_seconds": 5,
+	"spawn_protect_seconds": 2,
+	"pad_inset": 40,
+	"pad_spread": 36
+}

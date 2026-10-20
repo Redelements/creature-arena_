@@ -142,7 +142,7 @@ Online from a terminal: `godot --path . -- --online-host` and `godot --path . --
 25 Sneaky Pete vs CPU Digby, 26 training as Sneaky Pete, 27 Sno Mercy vs CPU Sneaky Pete,
 28 training as Sno Mercy, 29 Team battle 2v2 vs CPU, 30 Team battle 3v3 vs CPU,
 31 Team Deathmatch 2v2 vs CPU, 32 Team Deathmatch 3v3 vs CPU, 48 Mister Crease vs CPU Chef Cerebro,
-49 training as Mister Crease, 50 Caravan 2v2 vs CPU, 51 Caravan 3v3 vs CPU. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
+49 training as Mister Crease, 50 Caravan 2v2 vs CPU, 51 Caravan 3v3 vs CPU, 52 Capture the Flag 3v3 vs CPU, 53 Capture the Flag 4v4 vs CPU. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
 sets Duel (and Team battle) teams; `--cpu-vs-cpu` hands every player side to the CPU (`--view-team=N` then shows it as team N sees it: brush, fences and walls hide the other side).
 
 **Local 2-player:** with two controllers, each player gets one (player 1 can also use the
@@ -444,6 +444,28 @@ about 2.6 times the stadium's width; the camera follows you.
 - Unlimited respawns (5 s), like Team Deathmatch; KOs don't score.
 
 Tuning: `data/rules/caravan.json`; the map and its track: `data/arenas/caravan_pass.json`.
+
+### Capture the Flag: 3v3 and 4v4
+
+Single player > Capture the Flag vs CPU (3 v 3 or 4 v 4), or online in 2 v 2 and 3 v 3 (pick
+**Capture the Flag** as the team rules). Played on **Twin Keeps**, over three times the
+stadium's floor: a walled keep at each end (in by the front gate or a gap at either corner),
+a river down the middle with one bridge, brush, fences and pits on the flanks. The camera
+follows you, and arrows at the screen's edge point at both flags when they're out of shot.
+
+- **Take their flag:** touch it on its stand in their keep. Carrying it slows you a little.
+- **Capture:** bring it to your own stand **while your own flag is home**. First to **3**
+  wins; at the 6-minute limit, more captures wins, and a tie is sudden death (next capture).
+- **Knocked out while carrying:** the flag drops where you went down. One of its own side
+  touching it sends it home; otherwise it goes home by itself after **12 s** (the ring
+  round it counts down).
+- Unlimited respawns (5 s) in your own keep; KOs don't score.
+- **CPU teammates take roles:** one stays home guarding the keep, the others go for the
+  flag or escort whoever has it, the carrier runs it home, and anyone goes after your
+  flag when it's taken.
+
+4 v 4 is vs CPU only for now (online rooms are 2 v 2 and 3 v 3). Tuning:
+`data/rules/ctf.json`; the map: `data/arenas/twin_keeps.json`.
 
 ### Training
 

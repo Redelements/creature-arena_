@@ -196,6 +196,7 @@ func _draw() -> void:
 		_panel(0, _hl + 4.0, false)
 		_panel(1, _hr - 164.0, true)
 	_center()
+	_draw_pointers()
 	for side in 2:
 		if _combo_show[side] > 0:
 			_combo(side)
@@ -481,6 +482,26 @@ func _caravan_bar() -> void:
 	var f := team.cv_p / L if att == 0 else 1.0 - team.cv_p / L
 	var mx := x0 + w * f
 	draw_colored_polygon(PackedVector2Array([Vector2(mx - 3, y - 3), Vector2(mx + 3, y - 3), Vector2(mx, y + 1)]), SIDE_COLORS[att])
+
+
+## Objectives off the screen on a big map (set by main each frame): an arrow at the screen's
+## edge pointing at each, in its colour, with a word. Each {"pos" (screen), "dir", "color",
+## "label"}.
+var pointers: Array = []
+
+
+func _draw_pointers() -> void:
+	for p in pointers:
+		var at: Vector2 = p["pos"]
+		var d: Vector2 = p["dir"]
+		var col: Color = p["color"]
+		var side := Vector2(-d.y, d.x)
+		var tip := at + d * 7.0
+		var pts := PackedVector2Array([tip, at - d * 3.0 + side * 6.0, at - d * 3.0 - side * 6.0])
+		draw_colored_polygon(pts, Color(0, 0, 0, 0.55))
+		var inner := PackedVector2Array([tip - d * 1.5, at - d * 2.0 + side * 4.0, at - d * 2.0 - side * 4.0])
+		draw_colored_polygon(inner, col)
+		_text(at - d * 14.0 + Vector2(-30, 3), String(p.get("label", "")), 5, col, HORIZONTAL_ALIGNMENT_CENTER, 60)
 
 
 func _combo(side: int) -> void:

@@ -52,6 +52,10 @@ var sink_safe := Rect2i()
 ## (0: none). Views draw it, the CPU goes for it.
 var zone_pos := Vector2.ZERO
 var zone_r := 0.0
+## Where each creature's side wants it (set every tick by a mode's rules, Capture the
+## Flag): per creature [] or [pos: Vector2, radius: float, urgent: bool]. The CPU heads
+## for it when outside the radius, unless a foe is in reach (urgent: even then).
+var goals: Array = []
 ## Match mutators (data/rules/mutators.json entries merged), fixed for the match.
 var mutators := {}
 ## Training options (MatchFactory.training only): `training` is fixed when the match is
@@ -259,7 +263,7 @@ func snapshot() -> Dictionary:
 		cs.append(c.save_state())
 	return {
 		"tick": tick, "hitstop": hitstop, "ko_freeze": ko_freeze, "slowmo": slowmo, "sink_ring": sink_ring, "sink_safe": sink_safe,
-		"zone_pos": zone_pos, "zone_r": zone_r,
+		"zone_pos": zone_pos, "zone_r": zone_r, "goals": goals.duplicate(true),
 		"cells": terrain.cells.duplicate(), "timers": terrain.timers.duplicate(), "base": terrain.base.duplicate(),
 		"terrain_version": terrain.version,
 		"creatures": cs, "projectiles": projectiles.duplicate(true), "zones": zones.duplicate(true),
@@ -276,6 +280,7 @@ func restore(s: Dictionary) -> void:
 	sink_safe = s.get("sink_safe", Rect2i())
 	zone_pos = s.get("zone_pos", Vector2.ZERO)
 	zone_r = float(s.get("zone_r", 0.0))
+	goals = (s.get("goals", []) as Array).duplicate(true)
 	terrain.cells = PackedByteArray(s["cells"]).duplicate()
 	terrain.timers = PackedInt32Array(s["timers"]).duplicate()
 	if s.has("base"):
@@ -295,7 +300,7 @@ func restore(s: Dictionary) -> void:
 ## bit for bit, so two machines only agree if they computed identical results; this
 ## is what online play checks to catch desyncs.
 func state_digest() -> String:
-	var parts: Array = [tick, hitstop, ko_freeze, slowmo, arena_id, sink_ring, sink_safe, zone_pos, zone_r, terrain.cells, terrain.timers, terrain.base]
+	var parts: Array = [tick, hitstop, ko_freeze, slowmo, arena_id, sink_ring, sink_safe, zone_pos, zone_r, goals, terrain.cells, terrain.timers, terrain.base]
 	for c in creatures:
 		var st := c.save_state()
 		for f in CreatureSim.STATE_FIELDS:

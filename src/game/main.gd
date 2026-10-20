@@ -104,6 +104,8 @@ const MODES := [
 	{"label": "Training: Mister Crease", "left": "crease", "training": true},
 	{"label": "Caravan: 2v2 vs CPU", "team": 2, "rules": "caravan", "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Caravan: 3v3 vs CPU", "team": 3, "rules": "caravan", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Capture the Flag: 3v3 vs CPU", "team": 3, "rules": "ctf", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Capture the Flag: 4v4 vs CPU", "team": 4, "rules": "ctf", "sides": [Side.PLAYER, Side.CPU]},
 ]
 const REPLAY_MODE := 47
 ## The menus (src/ui screens): the title menu opens Single player (MENU_ROWS), the online
@@ -147,6 +149,8 @@ const MENU_ROWS := [
 		"desc": "The floor falls away from the edges into a chasm, and falling in is a KO. Last one standing. Left/Right: team size"},
 	{"label": "King of the Crater vs CPU", "group": "team", "modes": [36, 37, 38], "choices": ["1 v 1", "2 v 2", "3 v 3"],
 		"desc": "Hold the zone while it moves and the ground round it breaks. 60 s held wins. Left/Right: team size"},
+	{"label": "Capture the Flag vs CPU", "group": "team", "modes": [52, 53], "choices": ["3 v 3", "4 v 4"],
+		"desc": "Take their flag from their keep and bring it home while yours is safe. First to 3 captures. Left/Right: team size"},
 	{"label": "Caravan vs CPU", "group": "team", "modes": [51, 50], "choices": ["3 v 3", "2 v 2"],
 		"desc": "Escort the caravan down the pass; then defend while they push. Faster finish or further push wins. Left/Right: team size"},
 	{"label": "Brawl", "group": "brawl", "modes": [45, 42, 43, 44], "choices": ["you vs 3 CPUs", "2 players", "3 players", "4 players"],
@@ -1209,8 +1213,8 @@ func _show_pads() -> void:
 	fx.pads = []
 	fx.zone = {}
 	fx.caravan = {}
-	if team_battle == null or not team_battle.deathmatch or team_battle.caravan:
-		return  # the Caravan's attackers respawn where the push has got to, not on pads
+	if team_battle == null or not team_battle.deathmatch or team_battle.caravan or team_battle.ctf:
+		return  # the Caravan's attackers respawn where the push has got to; CTF's at their keep
 	for side in 2:
 		for k in team_battle.size:
 			fx.pads.append({"pos": team_battle.pad_point(side, k), "color": Hud.SIDE_COLORS[side], "count": 0})
@@ -1218,6 +1222,18 @@ func _show_pads() -> void:
 
 ## King of the Crater: the zone on the floor, in the holder's colour.
 func _update_zone() -> void:
+	fx.flags = []
+	if team_battle != null and team_battle.ctf:
+		for side in 2:
+			var st := int(team_battle.flag_state[side])
+			var lift := 0.0
+			if st == TeamSim.FLAG_CARRIED:
+				var c := sim.creatures[int(team_battle.flag_carrier[side])]
+				lift = float(c.def.get("fx_top", 32)) + c.air_height() + 2.0
+			fx.flags.append({"pos": team_battle.flag_pos[side], "team": side, "state": st, "lift": lift,
+				"back": float(team_battle.flag_t[side]) / maxf(1.0, float(team_battle.rules.get("return_seconds", 12)) * 60.0)})
+		fx.zone = {}
+		return
 	if team_battle != null and team_battle.caravan:
 		var was: Dictionary = fx.caravan
 		var at := team_battle.caravan_pos()
@@ -1275,9 +1291,14 @@ func _team_flow() -> void:
 			if team_battle.caravan:
 				what = "CARAVAN: ROUND %d" % (team_battle.cv_round + 1)
 				_update_zone()
+			elif team_battle.ctf:
+				what = "CAPTURE THE FLAG"
+				_update_zone()
 			hud.banner = (("ONLINE " + what) if online != null else what) if t < 60 else "FIGHT!"
 			var sub := "%d v %d" % [team_battle.size, team_battle.size]
-			if team_battle.caravan:
+			if team_battle.ctf:
+				sub += "   ·   bring their flag to yours: first to %d" % team_battle.score_to_win()
+			elif team_battle.caravan:
 				var att := team_battle.cv_attacker()
 				sub += "   ·   %s escorts the caravan to the %s end" % [["Red", "Blue"][att], ["blue", "red"][att]]
 			elif team_battle.crater:
@@ -1299,6 +1320,13 @@ func _team_flow() -> void:
 					hud.show_toast("THE CRATER MOVED")
 				elif e["type"] == "checkpoint":
 					hud.show_toast("CHECKPOINT  +%d s" % int(team_battle.rules.get("checkpoint_seconds", 30)))
+				elif e["type"] in ["flag_take", "flag_drop", "flag_return", "capture"]:
+					var whose: String = ["RED", "BLUE"][int(e.get("team", 0))]
+					match String(e["type"]):
+						"flag_take": hud.show_toast("%s FLAG TAKEN" % whose)
+						"flag_drop": hud.show_toast("%s FLAG DROPPED" % whose)
+						"flag_return": hud.show_toast("%s FLAG RETURNED" % whose)
+						"capture": hud.show_toast("%s CAPTURES!" % whose)
 			if team_battle.overtime and team_battle.timer > -90:
 				hud.banner = "SUDDEN DEATH"
 				hud.banner_sub = "Next KO wins"
@@ -1990,6 +2018,15 @@ func _react(e: Dictionary) -> void:
 		"checkpoint", "caravan_done":
 			audio.play("round_start", -3.0, 1.2)
 			crowd.cheer(0.7)
+		"capture":
+			audio.play("round_start", 0.0, 1.3)
+			crowd.roar(60)
+		"flag_take":
+			audio.play("grab", -2.0, 1.2)
+			crowd.cheer(0.5)
+		"flag_drop", "flag_return":
+			audio.play("warp", -4.0, 1.1)
+			crowd.cheer(0.3)
 		"surge_ready":
 			# One sound when your side powers up, another when the other side does.
 			var mine := is_local_team(int(e.get("team", 0)))
@@ -2079,6 +2116,38 @@ func _update_camera() -> void:
 	var half := view * 0.5 / z
 	camera.zoom = Vector2(z, z)
 	camera.position = Vector2(_cam_axis(focus.x, half.x, size.x), _cam_axis(focus.y, half.y, size.y))
+	_update_pointers(view)
+
+
+## Big maps: arrows at the screen's edge toward objectives out of shot (the caravan, the
+## flags). Screen = (world - camera) x zoom + half the screen.
+func _update_pointers(view: Vector2) -> void:
+	var out: Array = []
+	if team_battle != null and sim != null and showcase == null:
+		var targets: Array = []
+		if team_battle.caravan:
+			targets.append([team_battle.caravan_pos(), Hud.SIDE_COLORS[team_battle.cv_attacker()], "CARAVAN"])
+		if team_battle.ctf:
+			for side in 2:
+				var word: String = "FLAG" if int(team_battle.flag_state[side]) == TeamSim.FLAG_HOME else (
+					"TAKEN" if int(team_battle.flag_state[side]) == TeamSim.FLAG_CARRIED else "DROPPED")
+				targets.append([team_battle.flag_pos[side], Hud.SIDE_COLORS[side], word])
+		var z := camera.zoom.x
+		var inner := Rect2(Vector2(24, 52), view - Vector2(48, 76))
+		for t in targets:
+			var s: Vector2 = (Vector2(t[0]) - camera.position) * z + view * 0.5
+			if Rect2(Vector2.ZERO, view).grow(-8.0).has_point(s):
+				continue
+			var mid := view * 0.5
+			var d := (s - mid).normalized()
+			# where the line from the middle toward it leaves the inner box
+			var k := INF
+			if absf(d.x) > 0.001:
+				k = minf(k, ((inner.end.x if d.x > 0.0 else inner.position.x) - mid.x) / d.x)
+			if absf(d.y) > 0.001:
+				k = minf(k, ((inner.end.y if d.y > 0.0 else inner.position.y) - mid.y) / d.y)
+			out.append({"pos": mid + d * k, "dir": d, "color": t[1], "label": t[2]})
+	hud.pointers = out
 
 
 ## A fight: keeps every fighter in shot, heads included, with room around them. Close

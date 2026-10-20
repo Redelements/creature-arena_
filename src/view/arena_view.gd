@@ -158,12 +158,15 @@ func _draw() -> void:
 
 
 ## Holes and chasms last so they cut through the markings. A pit whose upper neighbour
-## is solid gets the lit rim tile, which reads as the pit's far wall.
+## is solid gets the lit rim tile, which reads as the pit's far wall. On a map with art,
+## the map's own chasms are in the picture already.
 func _draw_pits() -> void:
 	for cy in terrain.rows:
 		for cx in terrain.cols:
 			var v := terrain.cells[cy * terrain.cols + cx]
 			if not TerrainGrid.is_pit(v):
+				continue
+			if _art != null and v == TerrainGrid.CHASM and terrain.base[cy * terrain.cols + cx] == TerrainGrid.CHASM:
 				continue
 			var above_solid := cy == 0 or not TerrainGrid.is_pit(terrain.cells[(cy - 1) * terrain.cols + cx])
 			var chasm := v == TerrainGrid.CHASM
@@ -211,7 +214,7 @@ func _draw_pit_lips() -> void:
 	for cy in terrain.rows:
 		for cx in terrain.cols:
 			var i := cy * terrain.cols + cx
-			if not TerrainGrid.is_pit(terrain.cells[i]):
+			if not TerrainGrid.is_pit(terrain.cells[i]) or terrain.base[i] == TerrainGrid.CHASM:
 				continue
 			var r := _cell_rect(cx, cy)
 			var n := posmod(cx * 7 + cy * 11, 5)

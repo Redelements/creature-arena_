@@ -85,6 +85,7 @@ extends Node2D
 
 const SHEET := preload("res://assets/sprites/fx.png")
 const CARAVAN := preload("res://assets/sprites/caravan.png")  ## 4 frames of 48x40 (tools/gen_arenas.py)
+const FLAG := preload("res://assets/sprites/flag.png")  ## 4 frames of 12x10 white cloth, tinted
 const GRAVITY := 0.2
 const FOREVER := 1.0e9
 
@@ -2540,11 +2541,17 @@ var zone := {}
 ## 1 pushed, 2 contested), "team" (the attackers), "travel" (px moved, turns the wheels)};
 ## empty when none.
 var caravan := {}
+## Capture the Flag's flags (set by main): each {"pos", "team", "state" (TeamSim.FLAG_*),
+## "lift" (px above the floor: over a carrier's head), "back" (0..1 of a dropped flag's
+## return timer left)}.
+var flags: Array = []
 
 
 func _draw_pads(ci: CanvasItem) -> void:
 	if not caravan.is_empty():
 		_draw_caravan(ci)
+	for f in flags:
+		_draw_flag(ci, f)
 	if not zone.is_empty():
 		var at: Vector2 = zone["pos"]
 		var col: Color = zone["color"]
@@ -2606,6 +2613,29 @@ func _draw_caravan(ci: CanvasItem) -> void:
 	if flip:
 		fl = PackedVector2Array([pole + Vector2(0, -12), pole + Vector2(-9, -10 + wave), pole + Vector2(0, -7)])
 	ci.draw_colored_polygon(fl, team_col)
+
+
+## A Capture the Flag flag: a pole and its cloth in the side's colour, waving; on its
+## stand, over its carrier's head, or on the ground with a ring counting down its return.
+func _draw_flag(ci: CanvasItem, f: Dictionary) -> void:
+	var at: Vector2 = f["pos"]
+	var col: Color = Hud.SIDE_COLORS[clampi(int(f["team"]), 0, 1)]
+	var st := int(f["state"])
+	var foot := at - Vector2(0, float(f.get("lift", 0.0)))
+	if st != TeamSim.FLAG_CARRIED:
+		ci.draw_set_transform(at + Vector2(1, 1), 0.0, Vector2(1.0, 0.4))
+		ci.draw_circle(Vector2.ZERO, 5.0, Color(0, 0, 0, 0.3))
+		ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	if st == TeamSim.FLAG_DROPPED:
+		var left := clampf(float(f.get("back", 0.0)), 0.0, 1.0)
+		ci.draw_arc(at, 11.0, -PI * 0.5, -PI * 0.5 + TAU * left, 32, Color(col, 0.85), 2.0)
+		if (_tick / 10) % 2 == 0:
+			ci.draw_arc(at, 14.0, 0.0, TAU, 32, Color(1, 1, 1, 0.35), 1.0)
+	var top := foot + Vector2(0, -20)
+	ci.draw_line(foot, top, Color("2a1e14"), 2.0)
+	ci.draw_circle(top, 1.5, Color("e8c060"))
+	var frame := (_tick / 6) % 4
+	ci.draw_texture_rect_region(FLAG, Rect2(top + Vector2(1, 0), Vector2(12, 10)), Rect2(frame * 12, 0, 12, 10), col.lightened(0.15))
 
 
 ## Who's who: a coloured marker over each side's fighter (red for the left side, P1;
