@@ -182,3 +182,32 @@ func test_chef_cerebro_glides_while_he_throws() -> void:
 	assert_gt(float(throws), 3.0, "a stream of throws:")
 	assert_lt(chef.pos.y, start.y - 40.0, "while gliding up the screen the whole time:")
 	assert_gt(chef.facing.x, 0.9, "still facing the right stick's aim:")
+
+
+## Mister Crease plays twin-stick like Chef Cerebro: the right stick flicks his Paper Cut
+## darts, and a craft still folds and throws through the auto-fire (press, then press again).
+func test_mister_crease_auto_flicks_and_still_folds_and_throws() -> void:
+	var sim := MatchFactory.versus("crease", "cairn")
+	var c := sim.creatures[0]
+	sim.creatures[1].pos = c.pos + Vector2(140, 0)
+	var start := c.pos
+	var st := {"t": 0, "quiet": 0}
+	var darts := 0
+	var shuriken := false
+	for i in 150:
+		var press := {}
+		if i == 60 or i == 100:  # Heavy: fold the shuriken, then throw it
+			press = {"heavy": true}
+		var b := PlayerInput.combine_pad(Vector2.UP, Vector2.RIGHT, {}, press, c.state == CreatureSim.State.ATTACK, 0, true)
+		b &= (1 << PlayerInput.PAD_T_SHIFT) - 1
+		b = PlayerInput.autofire(b, c, st)
+		sim.step(PackedInt32Array([b, 0]))
+		if c.move_id == "heavy":
+			shuriken = true
+		for e in sim.events:
+			if String(e["type"]) == "projectile" and int(e["who"]) == 0 and i < 60:
+				darts += 1
+	assert_gt(float(darts), 3.0, "a stream of darts from the right stick alone:")
+	assert_lt(c.pos.y, start.y - 20.0, "while he walks the other way:")
+	assert_gt(c.facing.x, 0.9, "facing the right stick's aim:")
+	assert_true(shuriken, "the folded shuriken still comes out on the second press")

@@ -38,6 +38,7 @@ const ASSIST_DEG_STICK := 12.0
 const ASSIST_RANGE := 90.0
 const PAD_T_SHIFT := 27  ## combine_pad packs its aim timer above the input bits
 const AUTO_QUIET := 12  ## twin-stick auto-fire holds off this long after another button
+const AUTO_PEND := 40  ## and re-presses an attack pressed mid-light for up to this long
 
 const LABELS := {
 	"league": {"light": "A", "heavy": "E", "skill_1": "Q", "skill_2": "W", "surge": "R", "dodge": "D", "guard": "F", "tag": "T"},
@@ -51,7 +52,7 @@ const HELP := {
 	"league": "Right-click move / attack   {light} or Left-click light   {heavy} heavy (hold)   {skill_1} skill 1   {skill_2} skill 2   {surge} surge   {dodge} dodge   {guard} guard   {dodge}+{guard} breakaway   {tag} tag   {stop} stop   Esc pause",
 	"classic": "{up}{left}{down}{right} move  {light} light  {heavy} heavy  {skill_1} skill 1  {skill_2} skill 2  {surge} surge  {dodge} dodge  {guard} guard  {guard}+{dodge} breakaway  {tag} tag  F1 hitboxes  Esc pause",
 	"gamepad": "L-stick move   R-stick aim   {light} light   {heavy} heavy (hold)   {skill_1} skill 1   {skill_2} skill 2   {surge} surge   {dodge} dodge   {guard} guard   {guard}+{dodge} breakaway   {tag} tag   Start pause",
-	"twinstick": "L-stick move   R-stick aim 360 + face (strafe; Chef Cerebro throws)   {light} light   {heavy} heavy   {skill_1} skill 1   {skill_2} skill 2   {surge} surge   {dodge} dodge   {guard} guard   {tag} tag   Start pause",
+	"twinstick": "L-stick move   R-stick aim 360 + face (strafe; Chef Cerebro and Mister Crease throw)   {light} light   {heavy} heavy   {skill_1} skill 1   {skill_2} skill 2   {surge} surge   {dodge} dodge   {guard} guard   {tag} tag   Start pause",
 }
 ## Which action each label set's buttons are bound to (light = the attack action).
 const PREFIX := {"league": "lol_", "classic": "kb_", "gamepad": "pad_"}
@@ -67,9 +68,10 @@ var pad_device := ANY_PAD
 ## Keyboard and mouse on? Off for player 2.
 var keyboard := true
 var _pad_prev := {}
-## Twin-stick auto-fire (fighters with "twinstick": {"autofire": "light"}, Chef Cerebro):
-## its tick counter and how long it stays quiet after another button.
-var _auto := {"t": 0, "quiet": 0}
+## Twin-stick auto-fire (fighters with "twinstick": {"autofire": "light"}: Chef Cerebro,
+## Mister Crease): its tick counter, how long it stays quiet after another button, and an
+## attack pressed mid-light that it presses again until it starts.
+var _auto := {"t": 0, "quiet": 0, "pend": 0, "pend_t": 0}
 
 
 func label_set() -> String:
@@ -126,7 +128,7 @@ func note_event(event: InputEvent) -> void:
 func reset() -> void:
 	orders.clear()
 	_pad_aim_t = 0
-	_auto = {"t": 0, "quiet": 0}
+	_auto = {"t": 0, "quiet": 0, "pend": 0, "pend_t": 0}
 
 
 ## The bitmask for this tick. `cursor` is the mouse position in arena coordinates.
@@ -247,19 +249,33 @@ func _device_pad_bits(me: CreatureSim, dev: int) -> int:
 
 
 ## Twin-stick auto-fire, for fighters whose data says "twinstick": {"autofire": "light"}
-## (Chef Cerebro): while the right stick aims (twin-stick sends IN_STRAFE then), Light is
-## pressed every other tick, so the light string comes out at once and keeps coming, aimed
-## where the stick points. Any other attack, a dodge or guard pauses it for AUTO_QUIET
-## ticks so it can't overwrite that button in the input buffer. `st` keeps the counters.
+## (Chef Cerebro, Mister Crease): while the right stick aims (twin-stick sends IN_STRAFE
+## then), Light is pressed every other tick, so the light string comes out at once and keeps
+## coming, aimed where the stick points. Any other attack, a dodge or guard pauses it for
+## AUTO_QUIET ticks so it can't overwrite that button in the input buffer. A light lasts
+## longer than the buffer keeps a press, so another attack pressed mid-light is pressed
+## again every other tick until its move starts (at most AUTO_PEND ticks): it always comes
+## out after the light it was pressed in. `st` keeps the counters.
 static func autofire(bits: int, me: CreatureSim, st: Dictionary) -> int:
 	if me == null or String(me.def.get("twinstick", {}).get("autofire", "")) != "light":
 		return bits
 	if not (bits & SimDefs.IN_STRAFE):
 		st["t"] = 0
+		st["pend"] = 0
 		return bits
-	var other := SimDefs.IN_HEAVY | SimDefs.IN_SKILL1 | SimDefs.IN_SKILL2 | SimDefs.IN_SURGE \
-		| SimDefs.IN_DODGE | SimDefs.IN_GUARD
-	if bits & other:
+	var attacks := SimDefs.IN_HEAVY | SimDefs.IN_SKILL1 | SimDefs.IN_SKILL2 | SimDefs.IN_SURGE
+	if bits & attacks and me.state == CreatureSim.State.ATTACK and me.move_id.begins_with("light"):
+		st["pend"] = bits & attacks
+		st["pend_t"] = AUTO_PEND
+	var pend := int(st.get("pend", 0))
+	if pend != 0:
+		st["pend_t"] = int(st["pend_t"]) - 1
+		if int(st["pend_t"]) <= 0 or not (me.state == CreatureSim.State.ATTACK and me.move_id.begins_with("light")):
+			st["pend"] = 0  # its move started (or the light was cut short): nothing to re-press
+		else:
+			st["quiet"] = AUTO_QUIET
+			return (bits & ~attacks) | (pend if (AUTO_PEND - int(st["pend_t"])) % 2 == 1 else 0)
+	if bits & (attacks | SimDefs.IN_DODGE | SimDefs.IN_GUARD):
 		st["quiet"] = AUTO_QUIET
 		return bits
 	if int(st["quiet"]) > 0:

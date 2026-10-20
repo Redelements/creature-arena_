@@ -2899,14 +2899,16 @@ func _draw_aim_mark(ci: CanvasItem, c: CreatureSim, attacking: bool) -> void:
 	ci.draw_colored_polygon(pts, Color(1, 1, 1, a * 0.8))
 	ci.draw_polyline(PackedVector2Array([base + side, tip, base - side]), Color(0, 0, 0, a * 0.6), 1.0)
 
-## Pinecone Bomb while it's held: a ring on the floor where it will land, sliding out as
-## the throw gets longer.
+## A lob while it's held (Pinecone Bomb, Thousand Cranes): a ring on the floor where it
+## will land, sliding out as the throw gets longer.
 func _draw_lob_mark(ci: CanvasItem, c: CreatureSim, mv: Dictionary) -> void:
 	var pr: Dictionary = mv["projectile"]
 	var k := clampf(float(c.charge) / maxf(1.0, float(mv.get("charge_max", 1))), 0.0, 1.0)
 	var rng := lerpf(float(pr["range"]), float(pr.get("range_charged", pr["range"])), k)
 	var land := (c.pos + c.facing * (float(pr.get("offset", 0)) + rng)).round()
 	var r := float(pr.get("burst", 16))
+	if pr.has("storm"):  # Thousand Cranes: the storm's own circle, the size it hits
+		r = float((pr["storm"] as Dictionary).get("radius", 40))
 	var pulse := 0.5 + 0.5 * sin(_tick * 0.5)
 	ci.draw_arc(land, r, 0.0, TAU, 32, Color(C_CONE[2], 0.45 + 0.35 * pulse), 1.0)
 	ci.draw_circle(land, 2.0, Color(C_CONE[2], 0.7))

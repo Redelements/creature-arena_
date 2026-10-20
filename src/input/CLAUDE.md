@@ -19,7 +19,8 @@ Local devices become one bitmask per tick, the same thing the CPU and the networ
 - Aim assist → `player_input.gd:ASSIST_DEG` (25), `ASSIST_DEG_STICK` (12), `ASSIST_RANGE`
   (90), `assist()`
 - Twin-stick right stick, strafe, autofire → `combine_pad` (`TWIN_DEADZONE` 0.35),
-  `autofire` (`AUTO_QUIET` 12); pad aim timer packing → `PAD_T_SHIFT` (27)
+  `autofire` (`AUTO_QUIET` 12, `AUTO_PEND` 40: an attack pressed mid-light is re-pressed
+  until it starts, since a light outlasts the 10-tick buffer); pad aim timer packing → `PAD_T_SHIFT` (27)
 - Second controller / local 2P → `_device_pad_bits`, `pad_device` (`ANY_PAD` -1, `NO_PAD` -2)
 - Mouse walk-to-spot and chase → `mouse_orders.gd:bits` (`ARRIVE`, `STUCK_TICKS`),
   `_chase`, `_walk_bits`, `_braking`; aim hold after a press → `AIM_HOLD` (10); buttons

@@ -247,11 +247,11 @@ the spot. The mouse aims attacks exactly at the cursor. Controllers have two lay
 - **Standard:** the right stick aims an attack exactly where it points as you throw it.
 - **Twin-stick:** the right stick aims exactly where it points and, while held, keeps you
   facing that way as the left stick walks you anywhere (strafing, at 85% speed). Back off
-  or circle an opponent without turning your back. **Chef Cerebro** plays it like a
-  twin-stick shooter: pushing the right stick on its own **throws his light string that
-  way, over and over**, while the left stick glides him around (his lights don't stop him
-  walking). Any other attack, dodge or guard pauses the auto-throw for a moment so that
-  button always comes out.
+  or circle an opponent without turning your back. **Chef Cerebro** and **Mister Crease**
+  play it like a twin-stick shooter: pushing the right stick on its own **throws their light
+  string that way, over and over**, while the left stick walks them around (their lights
+  don't stop them walking). Any other attack, dodge or guard pauses the auto-throw, and an
+  attack pressed mid-throw comes out as soon as that throw ends.
 
 WASD still gives 8 directions, so the keyboard gets a small **aim assist**: an attack
 aimed within 25° of an opponent within reach goes straight at them (12° from the left
@@ -681,11 +681,11 @@ start from neutral, never as a combo cancel; a folded craft cancels like any mov
 
 | Button | Move | What it does |
 | --- | --- | --- |
-| Light | Paper Cut ×3 | Flicks origami darts (about 140 px) **while he keeps walking** at half speed. The first two chip without staggering; the third staggers |
+| Light | Paper Cut ×3 | Flicks origami darts (about 140 px) **while he keeps walking** at half speed. The first two chip without staggering; the third staggers. On the Twin-stick layout the right stick flicks them on its own |
 | Heavy | Paper Shuriken (fold 1 sheet) | A spinning star thrown along a line that hits the first foe and leaves them **bleeding** (a few ticks of damage, red, "BLEEDING"). Hold to charge: at a **full charge it breaks guard** |
 | Skill 1 | Paper Crane (fold 1 sheet) | A crane that **homes in** on the nearest foe for about half a second, then flies straight, and **pops them up** for a juggle. 4 s cooldown |
 | Skill 2 | Paper Frog (fold 1 sheet) | Sends **three frogs hopping forward side by side** (18 px apart, about 150 px). Each deals 4 and **slows**: the middle frog **shoves the foe straight back**, the outer frogs **shove them out to their side**. A foe is hit by one frog at most; blockable. 5 s cooldown |
-| Surge | Thousand Cranes (full meter **and** 3 sheets) | An aimed lob (hold for distance) that bursts into a **storm of cranes** about 90 px across for 2 s: hit after hit inside it, then everyone is pushed out and the floor cracks in a ring. Leave the circle |
+| Surge | Thousand Cranes (full meter **and** 3 sheets) | An aimed lob (hold for distance: about 95 to 220 px) that bursts into a **storm of cranes** about 105 px across for 2 s: hit after hit inside it, then everyone is pushed out and the floor cracks in a ring. Leave the circle |
 | Dodge | Paper Plane | Folds into a paper airplane and glides as far as Chef Cerebro's blink (about 116 px), **over fences** |
 
 **Victory pose:** he folds himself into a giant crane, flies a loop and unfolds with a

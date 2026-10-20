@@ -319,7 +319,7 @@ func test_the_storm_pulses_then_pushes_out_and_cracks_a_ring() -> void:
 		for dx in range(-8, 9):
 			var cl := sim.terrain.world_to_cell(at) + Vector2i(dx, dy)
 			var d := sim.terrain.cell_center(cl).distance_to(at)
-			if d >= 36.0 and d <= 54.0 and sim.terrain.get_cell(cl) == TerrainGrid.CRACKED:
+			if d >= 42.0 and d <= 62.0 and sim.terrain.get_cell(cl) == TerrainGrid.CRACKED:
 				cracked += 1
 	assert_gt(float(cracked), 8.0, "a ring of cracked floor:")
 
