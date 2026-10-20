@@ -115,6 +115,7 @@
     "heavy": {
       "name": "Paper Shuriken", "anim": "shuriken", "windup": 8, "tell": "strong",
       "fold": { "anim": "fold_shuriken", "startup": 14, "recovery": 6, "cost": 1 },
+      "hold": { "guard_break": true },
       "charge_max": 24, "startup": 8, "active": 0, "recovery": 18,
       "damage": 6, "damage_charged": 9, "knockback": 1.0, "knockback_charged": 1.6,
       "hitstun": 26, "hitstun_charged": 32, "hitstop": 6, "hitstop_charged": 9, "juggle": true,

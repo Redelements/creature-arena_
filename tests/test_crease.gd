@@ -230,6 +230,23 @@ func test_a_foe_is_hit_by_one_frog_of_the_row() -> void:
 	assert_near(foe.hp, foe.max_hp - 4.0, 0.6, "the other passes by:")
 
 
+## His guard answer, now that the frogs are blockable: the Shuriken held to a full charge.
+func test_a_full_charge_shuriken_breaks_guard_a_tap_does_not() -> void:
+	for full in [false, true]:
+		var sim := _duel("cairn", 90.0)
+		var c := sim.creatures[0]
+		var foe := sim.creatures[1]
+		_press_and_settle(sim, H)  # fold
+		var hold := int(c.def["moves"]["heavy"]["charge_max"]) + 10 if full else 1
+		for t in hold:
+			sim.step(PackedInt32Array([H, SimDefs.IN_GUARD]))
+		var broke := false
+		for t in 60:
+			sim.step(PackedInt32Array([0, SimDefs.IN_GUARD]))
+			broke = broke or foe.state == CreatureSim.State.CRUMPLE
+		assert_eq(broke, full, "full charge %s:" % full)
+
+
 func test_the_frogs_can_be_blocked() -> void:
 	var sim := _duel("cairn", 90.0)
 	var foe := sim.creatures[1]
