@@ -2422,6 +2422,8 @@ func _draw_projectiles(ci: CanvasItem) -> void:
 					PaperFx.draw_thrown_shuriken(ci, pr, _tick)
 				"crane":
 					PaperFx.draw_thrown_crane(ci, pr, _tick)
+				"frog":
+					PaperFx.draw_frog_shot(ci, pr, _tick)
 				_:
 					_draw_thrown_rod(ci, pr)
 			continue
