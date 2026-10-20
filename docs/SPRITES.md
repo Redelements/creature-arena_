@@ -462,7 +462,7 @@ Facing down and up: [`crease_views_preview.png`](crease_views_preview.png).
 | 10 | surge | 6 | Thousand Cranes: arms up, sheets spiral in, the throw (the cut-in frame), watching, the bow, recover |
 | 11 | dodge | 4 | Paper Plane: folds down, the airplane (two gliding frames, banking so its cream underside shows), unfolds |
 | 12 | hurt | 2 | recoil, hat knocked askew, the brim bent back; frame 1 doubles as the crumple pose |
-| 13 | guard | 2 | the cape swept up in front like a curtain |
+| 13 | guard | 2 | the cape swept up in front like a curtain, both hands holding its top corners above his shoulders, wider than him so it reads from behind too |
 | 14 | ko | 4 | crumples like dropped paper, the hat rolling off |
 | 15 | victory | 8 | folds into a giant crane, the flight loop (frames 1-5), unfolds, the bow |
 

@@ -1531,10 +1531,10 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 				hud.tags[i] = "P1"
 			Side.CPU:
 				hud.tags[i] = "CPU " + LEVEL_NAMES[level]
-				hud.key_labels[i] = ["", ""]
+				hud.key_labels[i] = ["", "", ""]
 			Side.SCRIPT:
 				hud.tags[i] = "DEMO"
-				hud.key_labels[i] = ["", ""]
+				hud.key_labels[i] = ["", "", ""]
 			Side.PLAYER2:
 				hud.tags[i] = "P2"
 			Side.PLAYER3:
@@ -1543,10 +1543,10 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 				hud.tags[i] = "P4"
 			Side.REMOTE:
 				hud.tags[i] = "ONLINE"
-				hud.key_labels[i] = ["", ""]
+				hud.key_labels[i] = ["", "", ""]
 			Side.REPLAY:
 				hud.tags[i] = "REPLAY"
-				hud.key_labels[i] = ["", ""]
+				hud.key_labels[i] = ["", "", ""]
 			_:
 				hud.tags[i] = ""
 	shake = 0.0
@@ -2543,11 +2543,11 @@ func _apply_device() -> void:
 		if sides[i] in LOCAL_SIDES:
 			pin = _local_input(sides[i])
 		if pin != null:
-			hud.key_labels[i] = [pin.label("skill_1"), pin.label("skill_2")]
+			hud.key_labels[i] = [pin.label("heavy"), pin.label("skill_1"), pin.label("skill_2")]
 			hud.surge_labels[i] = pin.label("surge")
 			hud.tag_labels[i] = pin.label("tag")
 		else:
-			hud.key_labels[i] = ["", ""]
+			hud.key_labels[i] = ["", "", ""]
 			hud.surge_labels[i] = ""
 			hud.tag_labels[i] = ""
 	hud.help_text = player_input.help_text(team_battle == null)

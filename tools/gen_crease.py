@@ -458,17 +458,23 @@ def build(p, view):
     # (`wave` kinks it: stiff paper flapping), its hem corners curled over
     shoulders = [chest + up * 4.8 + lt * 7.0, chest + up * 4.8 - lt * 7.0]
     if p.cape_up:
-        # the guard: swept up in front of him like a curtain, held by the near arm
-        top_l = shoulders[0] + fw * 3.0 + up * 2.0
-        top_r = shoulders[1] + fw * 6.0 + up * 3.0
+        # the guard: the cape swept up in front of him like a curtain, both hands holding
+        # its top corners up past his shoulders, wider than he is, so it reads from every
+        # side (from behind: the raised arms and the cape's edges either side of him)
         wv = p.wave
-        mid_l = pelvis + fw * (9.5 + wv * 1.5) + lt * 7.5 + up * 0.5
-        mid_r = pelvis + fw * (10.5 + wv * 1.5) - lt * 6.0 + up * 1.0
+        hl = np.asarray(p.hands[0], float) if p.hands[0] is not None else shoulders[0] + fw * 6.0 + up * 4.0
+        hr = np.asarray(p.hands[1], float) if p.hands[1] is not None else shoulders[1] + fw * 6.0 + up * 4.0
+        top_l = hl + lt * 1.5 + up * 1.0
+        top_r = hr - lt * 1.5 + up * 1.0
+        mid_l = pelvis + fw * (10.0 + wv * 1.5) + lt * 12.0 + up * 3.0
+        mid_r = pelvis + fw * (10.5 + wv * 1.5) - lt * 12.0 + up * 3.5
         cpid = S._new_part()
         parts += plate_pts([top_l, top_r, mid_r, mid_l], "cape", part=cpid)
-        parts += plate_curled([mid_l, mid_r, pelvis + fw * (11.0 - wv) - lt * 6.0 - up * 4.5,
-                               pelvis + fw * (10.0 - wv) + lt * 7.0 - up * 6.5], "cape", curls=(2, 3), frac=0.3, part=cpid)
-        parts += plate_pts([top_l, mid_l, pelvis + fw * 7.0 + lt * 9.5 + up * 2.0], "cape")
+        parts += plate_curled([mid_l, mid_r, pelvis + fw * (11.0 - wv) - lt * 10.0 - up * 7.0,
+                               pelvis + fw * (10.0 - wv) + lt * 10.5 - up * 8.5], "cape", curls=(2, 3), frac=0.3, part=cpid)
+        # the cape's sides fold back round him a little: seen from behind they frame him
+        parts += plate_pts([top_l, mid_l, pelvis + lt * 13.0 + up * 6.0 + fw * 2.0], "cape")
+        parts += plate_pts([top_r, mid_r, pelvis - lt * 13.0 + up * 6.5 + fw * 2.0], "cape")
     else:
         sway = p.cape
         wv = p.wave
@@ -965,7 +971,7 @@ def hurt_row():
 
 
 def guard_row():
-    g = dict(cape_up=True, hands=((6.0, 36.0, 10.0), (-4.0, 34.0, 8.0)), hip_hand=(False, False), palm=(False, False),
+    g = dict(cape_up=True, hands=((11.0, 46.0, 8.0), (-11.0, 45.0, 8.0)), hip_hand=(False, False), palm=(False, False),
              lean=6, hip=24.0, feet=((3.6, 0.0, 3.0), (-3.6, 0.0, -4.0)), hat=(4.0, 0.0), brim=0.2)
     return [P(**g), P(**dict(g, hipf=-1.5, hat=(2.0, 0.0), wave=0.6, brim=-0.2))]
 
