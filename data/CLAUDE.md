@@ -13,7 +13,7 @@ online data hash (`src/net/netplay.gd:data_hash`): changing one needs the server
 | `rules/stamina.json` | Stamina every fighter shares: `dodge_cost_share` (0.6 of the bar) and `dodge_cost_share_by_fighter`, `block_drain_mult` per move type, `block_regen_pause_seconds`, `exhaust_delay_seconds` |
 | `rules/projectiles.json` | `radius_mult`: every straight projectile's hit radius (and `radius_end`) × this |
 | `rules/mutators.json` | Match mutators (`air_mult`, `speed_mult`, `damage_mult`, `surge_every`, `pit_floor`); the Daily Challenge draws two, Chaos Cup stacks them |
-| `arenas/<id>.json` | One arena: `id`, `name`, `ground`, `pieces` (`wall` (rubble a charge can smash), `fence`, `chasm`, `shallows`, `brush`, each a `[col, row, w, h]` rect on the 84x36 grid of 8 px cells) |
+| `arenas/<id>.json` | One arena: `id`, `name`, `ground`, optional `size` `[cols, rows]` (default the stadium's 84x36 grid of 8 px cells; bigger maps for Caravan and Capture the Flag), optional `spawns`, `pieces` (`wall` (rubble a charge can smash), `fence`, `chasm`, `shallows`, `brush`, each a `[col, row, w, h]` rect on the grid) |
 | `trials.json` | Combo trials: fighter, name, route (a step `[button, move, "hold"]` is held to a full charge) |
 | `audio.json` | Music volume and tracks, every sound name → file |
 | `online.json` | The game's server host; `rematch_pick_seconds`, `rematch_locked_seconds` |

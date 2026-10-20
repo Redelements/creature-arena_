@@ -74,10 +74,25 @@ var events: Array[Dictionary] = []
 
 
 ## Lays an arena map on the floor. Call before adding creatures (it resets the grid).
+## A map with "size": [cols, rows] gets a grid that big (the stadium's 84 x 36 otherwise).
 func set_arena(id: String) -> void:
 	arena_id = id
 	arena = ArenaMap.get_map(id)
+	var sz := ArenaMap.size_of(arena)
+	if sz != Vector2i(terrain.cols, terrain.rows):
+		terrain = TerrainGrid.new(sz.x, sz.y)
 	terrain.load_map(arena)
+	for c in creatures:
+		c.floor_end = terrain.floor_rect().end
+
+
+## The floor in world pixels (this map's size), and the whole stadium round it.
+func floor_rect() -> Rect2:
+	return terrain.floor_rect()
+
+
+func arena_size() -> Vector2:
+	return terrain.arena_size()
 
 
 ## Applies mutators (data/rules/mutators.json keys): per-fighter multipliers go on
@@ -123,6 +138,7 @@ func cell_occupied(c: Vector2i) -> bool:
 
 func add_creature(def: Dictionary, p: Vector2, is_dummy := false) -> CreatureSim:
 	var c := CreatureSim.new(creatures.size(), def, p, is_dummy)
+	c.floor_end = terrain.floor_rect().end
 	creatures.append(c)
 	return c
 
@@ -888,7 +904,7 @@ func _new_projectile(owner: CreatureSim, p: Dictionary, hit: Dictionary, vel: Ve
 
 func _step_projectiles() -> void:
 	var keep: Array[Dictionary] = []
-	var fr := SimDefs.floor_rect()
+	var fr := floor_rect()
 	for p in projectiles:
 		var pos: Vector2 = p["pos"]
 		if bool(p.get("lob", false)):

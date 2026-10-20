@@ -67,12 +67,24 @@ const ARENA_W := GRID_X * 2 + GRID_COLS * CELL  ## the whole stadium, walls incl
 const ARENA_H := GRID_Y + GRID_ROWS * CELL + FRONT_WALL
 
 
+## The stadium-sized floor (GRID_COLS x GRID_ROWS). A map can be bigger ("size" in its
+## JSON): code with a match at hand asks it (`MatchSim.floor_rect`, `TerrainGrid.floor_rect`).
 static func floor_rect() -> Rect2:
-	return Rect2(GRID_X, GRID_Y, GRID_COLS * CELL, GRID_ROWS * CELL)
+	return floor_rect_of(GRID_COLS, GRID_ROWS)
+
+
+## The floor of a grid `cols` x `rows` cells: its corner is always (GRID_X, GRID_Y).
+static func floor_rect_of(cols: int, rows: int) -> Rect2:
+	return Rect2(GRID_X, GRID_Y, cols * CELL, rows * CELL)
 
 
 static func arena_size() -> Vector2:
 	return Vector2(ARENA_W, ARENA_H)
+
+
+## The whole stadium round a floor of `cols` x `rows` cells, walls included.
+static func arena_size_of(cols: int, rows: int) -> Vector2:
+	return Vector2(GRID_X * 2 + cols * CELL, GRID_Y + rows * CELL + FRONT_WALL)
 
 
 static func dir_from_bits(bits: int) -> Vector2:

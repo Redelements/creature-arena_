@@ -32,6 +32,15 @@ var base := PackedByteArray()
 var version := 0
 
 
+## This grid's floor in world pixels, and the whole stadium round it.
+func floor_rect() -> Rect2:
+	return SimDefs.floor_rect_of(cols, rows)
+
+
+func arena_size() -> Vector2:
+	return SimDefs.arena_size_of(cols, rows)
+
+
 func _init(c: int = SimDefs.GRID_COLS, r: int = SimDefs.GRID_ROWS) -> void:
 	cols = c
 	rows = r

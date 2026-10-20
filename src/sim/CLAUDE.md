@@ -39,7 +39,9 @@ it must give bit-identical results on Linux and Windows (CI compares a seeded fi
 CRUMPLE, KNOCKDOWN), `BUFFER_TICKS`, `MAX_ENERGY`, `BREAKAWAY_*`, `JUGGLE_MAX`, `TAUNT_PULL`,
 `STRAFE_SPEED`; `MatchSim.HITSTUN_DECAY`, `STALE_MULT`, `ENERGY_PER_DAMAGE(_TAKEN)`,
 `STONE_SHATTER_MULT`, `BLOCKED_ENDER_DISADVANTAGE`; `SimDefs.CELL`, `GRID_COLS/ROWS`,
-`FRONT_WALL`, `ARENA_W/H`, `TICK_RATE`.
+`FRONT_WALL`, `ARENA_W/H`, `TICK_RATE`. `GRID_COLS/ROWS` and `ARENA_W/H` are the stadium's
+size only: a map's `size` can be bigger, so code with a match asks `sim.floor_rect()` /
+`sim.arena_size()` (`TerrainGrid.floor_rect`), and a creature's walls come from `floor_end`.
 
 ## Where to look
 

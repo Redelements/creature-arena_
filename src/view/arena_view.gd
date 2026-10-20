@@ -92,11 +92,12 @@ func _draw() -> void:
 	if terrain == null:
 		return
 	_drawn_version = terrain.version
-	var fr := SimDefs.floor_rect()
+	var fr := terrain.floor_rect()
+	var size := terrain.arena_size()
 	var x0 := -MARGIN.x
-	var w := float(SimDefs.ARENA_W) + MARGIN.x * 2.0
+	var w := size.x + MARGIN.x * 2.0
 	var y0 := -MARGIN.y
-	var h := float(SimDefs.ARENA_H) + MARGIN.y * 2.0
+	var h := size.y + MARGIN.y * 2.0
 	if _art != null:
 		_draw_on_art()
 		return
