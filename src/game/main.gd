@@ -1223,6 +1223,7 @@ func _show_pads() -> void:
 ## King of the Crater: the zone on the floor, in the holder's colour.
 func _update_zone() -> void:
 	fx.flags = []
+	fx.shrines = []
 	if team_battle != null and team_battle.ctf:
 		for side in 2:
 			var st := int(team_battle.flag_state[side])
@@ -1230,8 +1231,18 @@ func _update_zone() -> void:
 			if st == TeamSim.FLAG_CARRIED:
 				var c := sim.creatures[int(team_battle.flag_carrier[side])]
 				lift = float(c.def.get("fx_top", 32)) + c.air_height() + 2.0
+			elif st == TeamSim.FLAG_THROWN:
+				var k := clampf(float(team_battle.flag_ft[side]) / float(team_battle.flag_fn[side]), 0.0, 1.0)
+				var from := float(sim.creatures[int(team_battle.flag_by[side])].def.get("fx_top", 32)) * (1.0 - k)
+				lift = from + 4.0 * k * (1.0 - k) * minf(48.0, 8.0 + float(team_battle.flag_fn[side]) * 1.2)
 			fx.flags.append({"pos": team_battle.flag_pos[side], "team": side, "state": st, "lift": lift,
 				"back": float(team_battle.flag_t[side]) / maxf(1.0, float(team_battle.rules.get("return_seconds", 12)) * 60.0)})
+		fx.shrines = []
+		for i in team_battle.shrines.size():
+			var st: Array = team_battle.shrines[i]
+			fx.shrines.append({"pos": team_battle.shrine_pos(i), "radius": team_battle.shrine_radius(i),
+				"kind": team_battle.shrine_kind(i), "side": int(st[0]),
+				"claim": float(st[1]) / maxf(1.0, float(team_battle.shrine_claim_ticks())), "rest": ceili(int(st[2]) / 60.0)})
 		fx.zone = {}
 		return
 	if team_battle != null and team_battle.caravan:
@@ -1320,16 +1331,12 @@ func _team_flow() -> void:
 					hud.show_toast("THE CRATER MOVED")
 				elif e["type"] == "checkpoint":
 					hud.show_toast("CHECKPOINT  +%d s" % int(team_battle.rules.get("checkpoint_seconds", 30)))
-				elif e["type"] in ["flag_take", "flag_drop", "flag_return", "capture"]:
-					var whose: String = ["RED", "BLUE"][int(e.get("team", 0))]
-					match String(e["type"]):
-						"flag_take": hud.show_toast("%s FLAG TAKEN" % whose)
-						"flag_drop": hud.show_toast("%s FLAG DROPPED" % whose)
-						"flag_return": hud.show_toast("%s FLAG RETURNED" % whose)
-						"capture": hud.show_toast("%s CAPTURES!" % whose)
+				elif e["type"] in ["flag_take", "flag_drop", "flag_return", "capture", "flag_fumble", "flag_pass",
+						"flag_land", "shrine", "shrine_ready", "bridge_fall", "bridge_strain", "bridge_up"]:
+					_ctf_toast(e)
 			if team_battle.overtime and team_battle.timer > -90:
 				hud.banner = "SUDDEN DEATH"
-				hud.banner_sub = "Next KO wins"
+				hud.banner_sub = "Next capture wins" if team_battle.ctf else "Next KO wins"
 			else:
 				hud.banner = ""
 				hud.banner_sub = ""
@@ -1355,6 +1362,88 @@ func _team_flow() -> void:
 				else:
 					hud.banner = "%s TEAM WINS!" % ("RED" if w == 0 else "BLUE")
 				hud.banner_sub = ""
+
+
+## Capture the Flag: what each play says at the bottom of the screen; the local team's
+## flag being taken also flashes the screen's edge red, and the local carrier is told how
+## to pass.
+func _ctf_toast(e: Dictionary) -> void:
+	var side := int(e.get("team", 0))
+	var whose: String = ["RED", "BLUE"][clampi(side, 0, 1)]
+	var other: String = ["BLUE", "RED"][clampi(side, 0, 1)]
+	var me := sides.find(Side.PLAYER) if online == null else online.local_slot
+	match String(e["type"]):
+		"flag_take":
+			if bool(e.get("catch", false)):
+				hud.show_toast("CAUGHT!  %s HAS THE %s FLAG" % [other, whose])
+			else:
+				hud.show_toast("%s FLAG TAKEN" % whose)
+			if is_local_team(side) and (me < 0 or sim.creatures[me].team == side):
+				hud.alert(Hud.SIDE_COLORS[side])
+				hud.show_toast("YOUR FLAG IS TAKEN!  GET IT BACK")
+			elif me >= 0 and int(e.get("who", -1)) == me:
+				var key := String(hud.tag_labels[me]) if me < hud.tag_labels.size() else ""
+				hud.show_toast("YOU HAVE THE FLAG  ·  RUN IT HOME" + ("  ·  %s: PASS" % key if key != "" else ""))
+		"flag_drop": hud.show_toast("%s FLAG DROPPED" % whose)
+		"flag_land": hud.show_toast("%s FLAG ON THE GROUND" % whose)
+		"flag_fumble": hud.show_toast("FUMBLE!  THE %s FLAG IS LOOSE" % whose)
+		"flag_pass": hud.show_toast("%s PASSES" % other)
+		"flag_return":
+			hud.show_toast("INTERCEPTED!  %s FLAG HOME" % whose if bool(e.get("intercept", false)) else "%s FLAG RETURNED" % whose)
+		"capture":
+			hud.show_toast("%s CAPTURES!" % whose)
+			var sc: Array = e.get("score", [0, 0])
+			hud.moment("%s CAPTURES!" % whose, "%d  -  %d" % [int(sc[0]), int(sc[1])], Hud.SIDE_COLORS[side])
+		"shrine":
+			hud.show_toast("%s CLAIMS THE %s SHRINE" % [whose, String(e.get("kind", "")).to_upper()])
+		"shrine_ready": hud.show_toast("THE %s SHRINE IS READY" % String(e.get("kind", "")).to_upper())
+		"bridge_strain": hud.show_toast("THE BRIDGE IS CRACKING")
+		"bridge_fall": hud.show_toast("THE BRIDGE IS DOWN!")
+		"bridge_up": hud.show_toast("THE BRIDGE IS BACK")
+
+
+## Capture the Flag's end-of-match line per fighter (view-side, from the events):
+## captures, returns (interceptions too) and stops (carriers knocked out or made to fumble).
+var _ctf_stats := {}
+var _ctf_stats_for: TeamSim = null
+
+
+func _count_ctf(e: Dictionary) -> void:
+	if team_battle == null or not team_battle.ctf:
+		return
+	if _ctf_stats_for != team_battle:
+		_ctf_stats = {}
+		_ctf_stats_for = team_battle
+	var add := func(who: int, key: String):
+		if who >= 0:
+			var row: Dictionary = _ctf_stats.get(who, {"caps": 0, "rets": 0, "stops": 0})
+			row[key] = int(row[key]) + 1
+			_ctf_stats[who] = row
+	match String(e["type"]):
+		"capture": add.call(int(e.get("who", -1)), "caps")
+		"flag_return": add.call(int(e.get("who", -1)), "rets")
+		"flag_drop", "flag_fumble": add.call(int(e.get("by", -1)), "stops")
+
+
+## The match's most valuable player and everyone's line, for the match-over screen.
+func _ctf_summary() -> Array:
+	var lines: Array = []
+	if team_battle == null or not team_battle.ctf or sim == null:
+		return lines
+	var best := -1
+	var best_v := 0
+	for c in sim.creatures:
+		var row: Dictionary = _ctf_stats.get(c.id, {"caps": 0, "rets": 0, "stops": 0}) if _ctf_stats_for == team_battle else {"caps": 0, "rets": 0, "stops": 0}
+		var v := int(row["caps"]) * 3 + int(row["rets"]) + int(row["stops"])
+		if v > best_v:
+			best_v = v
+			best = c.id
+		lines.append(["%s   %d cap  %d ret  %d stop" % [String(c.def.get("name", "?")), int(row["caps"]), int(row["rets"]),
+			int(row["stops"])], Hud.SIDE_COLORS[c.team]])
+	if best >= 0:
+		var c := sim.creatures[best]
+		lines.push_front(["MVP  %s  (%s)" % [String(c.def.get("name", "?")).to_upper(), ["RED", "BLUE"][c.team]], UiTheme.C_ACCENT])
+	return lines
 
 
 func _start_coach(help: String) -> void:
@@ -1982,6 +2071,7 @@ func is_local_team(team: int) -> bool:
 
 
 func _react(e: Dictionary) -> void:
+	_count_ctf(e)
 	fx.spawn(e)
 	audio.on_event(e)
 	var power: float = e["power"]
@@ -2020,10 +2110,35 @@ func _react(e: Dictionary) -> void:
 			crowd.cheer(0.7)
 		"capture":
 			audio.play("round_start", 0.0, 1.3)
-			crowd.roar(60)
+			crowd.roar(90)
+			_flash(Color(1, 0.92, 0.6), 0.45)
+			shake = maxf(shake, 4.0)
 		"flag_take":
 			audio.play("grab", -2.0, 1.2)
+			crowd.cheer(0.8 if bool(e.get("catch", false)) else 0.5)
+			if team_battle != null and is_local_team(int(e.get("team", 0))):
+				audio.play("windup_red", -2.0, 0.8)  # the alarm: it's ours
+		"flag_fumble":
+			audio.play("pop", 0.0, 0.9)
+			crowd.cheer(0.7)
+			shake = maxf(shake, 2.5)
+		"flag_pass":
+			audio.play("knife_throw", -3.0, 0.8)
+		"flag_land":
+			audio.play("land", -4.0, 1.2)
+		"shrine":
+			audio.play("surge_ready_ally" if is_local_team(int(e.get("team", 0))) else "surge_ready_foe")
 			crowd.cheer(0.5)
+		"shrine_ready":
+			audio.play("chill", -6.0, 1.2)
+		"bridge_strain":
+			audio.play("crack", 0.0, 0.7)
+		"bridge_fall":
+			audio.play("cave_in")
+			shake = maxf(shake, 6.0)
+			crowd.roar(60)
+		"bridge_up":
+			audio.play("dig", -3.0, 0.8)
 		"flag_drop", "flag_return":
 			audio.play("warp", -4.0, 1.1)
 			crowd.cheer(0.3)
@@ -2129,8 +2244,7 @@ func _update_pointers(view: Vector2) -> void:
 			targets.append([team_battle.caravan_pos(), Hud.SIDE_COLORS[team_battle.cv_attacker()], "CARAVAN"])
 		if team_battle.ctf:
 			for side in 2:
-				var word: String = "FLAG" if int(team_battle.flag_state[side]) == TeamSim.FLAG_HOME else (
-					"TAKEN" if int(team_battle.flag_state[side]) == TeamSim.FLAG_CARRIED else "DROPPED")
+				var word: String = ["FLAG", "TAKEN", "DROPPED", "LOOSE"][clampi(int(team_battle.flag_state[side]), 0, 3)]
 				targets.append([team_battle.flag_pos[side], Hud.SIDE_COLORS[side], word])
 		var z := camera.zoom.x
 		var inner := Rect2(Vector2(24, 52), view - Vector2(48, 76))
@@ -2677,7 +2791,11 @@ func _apply_device() -> void:
 			hud.key_labels[i] = ["", "", ""]
 			hud.surge_labels[i] = ""
 			hud.tag_labels[i] = ""
-	hud.help_text = player_input.help_text(team_battle == null)
+	var ctf := team_battle != null and team_battle.ctf
+	hud.help_text = player_input.help_text(team_battle == null or ctf)
+	if ctf:  # Capture the Flag: Tag passes the flag
+		var tk := player_input.label("tag")
+		hud.help_text = hud.help_text.replace("%s tag" % tk, "%s pass" % tk)
 	var pad := player_input.device == PlayerInput.Device.GAMEPAD
 	hud.gamepad = pad
 	ui.set_gamepad(pad)
@@ -3661,6 +3779,8 @@ func _show_match_over() -> void:
 	scr.hints = ["move", "select", "back"]
 	var cfg: Dictionary = MODES[mode]
 	scr.builder = func(s: UiScreen):
+		for line in _ctf_summary():
+			s.add_text(String(line[0]), UiTheme.SIZE_HINT + (2 if line[1] == UiTheme.C_ACCENT else 0), line[1])
 		if online != null and netplay.in_room():
 			s.add_button("Next match", _room_next, "Pick a fighter (or keep yours) for the next match in this room")
 			s.add_button("Leave room", _leave_to_lobby, "Back to the online screen; the room carries on without you")

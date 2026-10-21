@@ -57,6 +57,10 @@ dig/slosh/poof/chop_chop/shout sounds.
   `_scatter` (`_scatter_bands` when no `pieces`), `_gush`, `_melt_ko`, `_cash_ko`, `_dirt_ko`, `_hiss_ko`
 - Windup tell (red/gold) → `fx_view.gd:_windup_tell`, `creature_view.gd:TELL_RED/TELL_GOLD`,
   `full_charge_breaks_guard`
+- Capture the Flag → flags `fx_view.gd:_draw_flag` (in the air: `lift` from main), shrines
+  `_draw_shrine`, shrine buffs `_draw_buffs`; the capture banner `hud.gd:moment` /
+  `_draw_moment`, the red edge `alert` / `_draw_alert`; toasts, sounds and the end-screen
+  MVP in `main.gd:_ctf_toast`, `_react`, `_count_ctf`, `_ctf_summary`
 - Health bars over fighters → `fx_view.gd:_draw_side_marks` (`side_marks[i].rel` from main's
   `_relation()`)
 - Telegraphs and aim marks → `_draw_telegraph`, `_draw_aim_mark`, `_draw_lob_mark`,
@@ -70,7 +74,8 @@ dig/slosh/poof/chop_chop/shout sounds.
 - Surge aura → `surge_aura.gd` (look from the JSON `surge_aura` block)
 - Range rings → `range_rings.gd:rings`; F1 hitbox overlay → `debug_view.gd`
 - Map art → `arena_view.gd:_draw_on_art` (`arena_<id>.png` under everything; a changed cell
-  shows its piece of `_cracked` / `_alt`; `_draw_pit_lips`); the pictures come from
+  shows its piece of `_cracked` / `_alt`; `_draw_pit_lips`; a hole in a bridge, or a fallen one,
+  shows the water of `_alt`, `_bridge_gone`); the pictures come from
   `tools/gen_arenas.py`, which reads the pieces from `data/arenas/<id>.json`
 - Footsteps / swing sounds → `audio_view.gd:watch`; buses → `_make_buses`, `set_volume`
 

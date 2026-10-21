@@ -56,6 +56,21 @@ extends RefCounted
 ## CPU: the carrier runs home, the first `defenders` of a side guard its base, the rest go
 ## for the enemy flag or escort its carrier, and anyone goes after their own flag when it's
 ## taken. KOs score nothing.
+##
+## On top of that (all tuned in ctf.json): a hard hit on the carrier (launched, knocked
+## down, guard broken or stunned stiff, swallowed) knocks the flag loose a few steps
+## (`fumble_pop`), and the carrier can pass it (a fresh press of TAG): it flies to the
+## teammate it's aimed at (within `pass_range`, inside `pass_cone`), or that far along the
+## aim. A flag in the air (FLAG_THROWN) can be caught in its second half (`catch_from`) by
+## anyone but the fighter it left: a teammate of that fighter carries it on, one of the
+## flag's own side sends it home (an interception); uncaught, it lands as a dropped flag.
+## While a side's own flag is away its fighters respawn faster (`respawn_seconds_flag_away`),
+## in sudden death the carrier isn't slowed (`overtime_carry_slow`), and a capture plays
+## a moment of slow motion (`capture_slowmo`). Shrines (the map's "shrines", the rules'
+## "shrines"): a side alone in one for `claim_seconds` claims it, which gives every one of
+## its fighters standing a buff for `buff_seconds` (haste: walking `haste_mult`; might:
+## damage `might_mult`); then it's spent for `cooldown_seconds`. Both sides in one hold the
+## claim where it is; the other side alone wears it down twice as fast.
 
 enum Phase { INTRO, FIGHT, OVER }
 
@@ -116,6 +131,21 @@ var flag_t := [0, 0]
 const FLAG_HOME := 0
 const FLAG_CARRIED := 1
 const FLAG_DROPPED := 2
+const FLAG_THROWN := 3
+## A flag in the air (FLAG_THROWN: passed, or knocked loose): where it left and where it
+## lands, ticks flown and ticks the flight takes, the fighter it left (-1) and ticks
+## that fighter can't touch it.
+var flag_from := [Vector2.ZERO, Vector2.ZERO]
+var flag_to := [Vector2.ZERO, Vector2.ZERO]
+var flag_ft := [0, 0]
+var flag_fn := [1, 1]
+var flag_by := [-1, -1]
+var flag_lock := [0, 0]
+## Each slot's input last tick (a pass is a fresh press of TAG).
+var prev_in: Array = []
+## The map's shrines (Capture the Flag with "shrines" rules): per shrine [the side
+## claiming it (-1), ticks claimed, ticks until it's ready again].
+var shrines: Array = []
 
 
 ## The rules a mode id names ("" is the plain team battle), for the menus and the net.
@@ -167,6 +197,7 @@ func _init(team_ids: Array, per_side := 0, p_rules: Dictionary = {}) -> void:
 	for i in slot_count():
 		respawn_t.append(-1)
 		guard_t.append(0)
+		prev_in.append(0)
 	caravan = bool(rules.get("caravan", false))
 	if caravan:
 		_load_track()
@@ -175,6 +206,10 @@ func _init(team_ids: Array, per_side := 0, p_rules: Dictionary = {}) -> void:
 	if ctf:
 		for side in 2:
 			flag_pos[side] = base_of(side)
+		var sr: Dictionary = rules.get("shrines", {})
+		if not sr.is_empty():
+			for sd in sim.arena.get("shrines", []):
+				shrines.append([-1, 0, int(float(sr.get("first_seconds", 15)) * SimDefs.TICK_RATE)])
 		_ctf_goals()
 
 
@@ -246,6 +281,11 @@ func step(inputs: PackedInt32Array) -> void:
 		phase_t += 1
 		if phase == Phase.INTRO and phase_t >= int(rules.get("intro_ticks", 100)):
 			_set_phase(Phase.FIGHT)
+	var pressed := PackedInt32Array()
+	pressed.resize(slot_count())
+	for i in slot_count():
+		pressed[i] = ins[i] & ~int(prev_in[i])
+		prev_in[i] = ins[i]
 	var before := [alive_count(0), alive_count(1)]
 	sim.step(ins)
 	if phase != Phase.FIGHT:
@@ -263,7 +303,7 @@ func step(inputs: PackedInt32Array) -> void:
 		if phase != Phase.FIGHT:
 			return
 	if ctf and sim.ko_freeze == 0:
-		_ctf_step()
+		_ctf_step(ins, pressed)
 		if phase != Phase.FIGHT:
 			return
 	if deathmatch:
@@ -294,7 +334,10 @@ func _deathmatch_step() -> void:
 		if _down(c) and int(respawn_t[slot]) < 0:
 			# Down: a point for the other side (not in the Crater), and back in a few seconds.
 			var side := 1 - c.team
-			respawn_t[slot] = int(float(rules.get("respawn_seconds", 4)) * SimDefs.TICK_RATE)
+			var wait := float(rules.get("respawn_seconds", 4))
+			if ctf and int(flag_state[c.team]) != FLAG_HOME and rules.has("respawn_seconds_flag_away"):
+				wait = float(rules["respawn_seconds_flag_away"])  # a comeback: back sooner while your flag is away
+			respawn_t[slot] = int(wait * SimDefs.TICK_RATE)
 			guard_t[slot] = 0
 			if not crater and not caravan and not ctf:  # objective modes score objectives, not KOs
 				score[side] += 1
@@ -702,14 +745,39 @@ func _touches_flag(c: CreatureSim, side: int) -> bool:
 		and c.pos.distance_to(flag_pos[side]) <= float(rules.get("pickup_radius", 14)) + float(c.radius)
 
 
+## Whether `c` can pick up (or send home) flag `side` now: touching it, on its feet (not
+## launched, knocked down, stunned stiff or swallowed), and not the fighter it just left.
+func _may_touch(c: CreatureSim, side: int) -> bool:
+	if not _touches_flag(c, side) or c.swallow_t > 0:
+		return false
+	if c.state in [CreatureSim.State.AIRBORNE, CreatureSim.State.KNOCKDOWN, CreatureSim.State.CRUMPLE]:
+		return false
+	return not (c.id == int(flag_by[side]) and int(flag_lock[side]) > 0)
+
+
+## A hit hard enough to knock the flag loose: the carrier launched, knocked down, guard
+## broken or stunned stiff (crumpled), or swallowed.
+func _hard_hit(c: CreatureSim) -> bool:
+	return c.swallow_t > 0 or c.state in [CreatureSim.State.AIRBORNE, CreatureSim.State.KNOCKDOWN,
+		CreatureSim.State.CRUMPLE]
+
+
 func _flag_home(side: int) -> void:
 	flag_state[side] = FLAG_HOME
 	flag_carrier[side] = -1
 	flag_t[side] = 0
+	flag_by[side] = -1
+	flag_lock[side] = 0
 	flag_pos[side] = base_of(side)
 
 
-func _ctf_step() -> void:
+func _ctf_step(ins := PackedInt32Array(), pressed := PackedInt32Array()) -> void:
+	for side in 2:
+		if int(flag_lock[side]) > 0:
+			flag_lock[side] = int(flag_lock[side]) - 1
+	for slot in mini(pressed.size(), slot_count()):
+		if pressed[slot] & SimDefs.IN_TAG:
+			_try_pass(sim.creatures[slot], ins[slot])
 	for side in 2:  # side: whose flag
 		match int(flag_state[side]):
 			FLAG_CARRIED:
@@ -719,12 +787,18 @@ func _ctf_step() -> void:
 					flag_carrier[side] = -1
 					flag_t[side] = int(float(rules.get("return_seconds", 12)) * SimDefs.TICK_RATE)
 					flag_pos[side] = sim.terrain.nearest_solid(c.pos)
-					sim.emit_event("flag_drop", flag_pos[side], 0.0, {"team": side, "who": c.id})
+					sim.emit_event("flag_drop", flag_pos[side], 0.0, {"team": side, "who": c.id, "by": c.last_attacker})
+				elif bool(rules.get("fumble", false)) and _hard_hit(c):
+					_fumble(side, c)
 				else:
 					flag_pos[side] = c.pos
-					if c.slow <= 1:  # carrying slows you (a real slow already on you wins)
+					var slow_m := float(rules.get("overtime_carry_slow", rules.get("carry_slow", 0.88))) if overtime \
+						else float(rules.get("carry_slow", 0.88))
+					if slow_m < 1.0 and c.slow <= 1:  # carrying slows you (a real slow already on you wins)
 						c.slow = 2
-						c.slow_mult = float(rules.get("carry_slow", 0.88))
+						c.slow_mult = slow_m
+			FLAG_THROWN:
+				_fly(side)
 			FLAG_DROPPED:
 				flag_t[side] = int(flag_t[side]) - 1
 				if int(flag_t[side]) <= 0:
@@ -732,7 +806,7 @@ func _ctf_step() -> void:
 					sim.emit_event("flag_return", flag_pos[side], 0.0, {"team": side, "who": -1})
 					continue
 				for c in sim.creatures:
-					if not _touches_flag(c, side):
+					if not _may_touch(c, side):
 						continue
 					if c.team == side:
 						_flag_home(side)
@@ -742,7 +816,7 @@ func _ctf_step() -> void:
 					break
 			FLAG_HOME:
 				for c in sim.creatures:
-					if c.team != side and _touches_flag(c, side) and _carrying(c) < 0:
+					if c.team != side and _may_touch(c, side) and _carrying(c) < 0:
 						_take_flag(side, c)
 						break
 	# A capture: a carrier at its own base while its own flag is home.
@@ -754,19 +828,24 @@ func _ctf_step() -> void:
 		if c.pos.distance_to(base_of(s)) <= float(rules.get("pickup_radius", 14)) + float(c.radius) + 8.0:
 			score[s] += 1
 			_flag_home(other)
+			sim.slowmo = maxi(sim.slowmo, int(rules.get("capture_slowmo", 0)))
 			sim.emit_event("capture", c.pos, float(score[s]), {"team": s, "who": c.id, "score": score.duplicate()})
 			if int(score[s]) >= score_to_win() or overtime:
 				_finish(s, "capture")
 				return
+	if not shrines.is_empty():
+		_shrine_step()
 	_ctf_goals()
 
 
-func _take_flag(side: int, c: CreatureSim) -> void:
+func _take_flag(side: int, c: CreatureSim, caught := false) -> void:
 	flag_state[side] = FLAG_CARRIED
 	flag_carrier[side] = c.id
 	flag_t[side] = 0
+	flag_by[side] = -1
+	flag_lock[side] = 0
 	flag_pos[side] = c.pos
-	sim.emit_event("flag_take", c.pos, 0.0, {"team": side, "who": c.id})
+	sim.emit_event("flag_take", c.pos, 0.0, {"team": side, "who": c.id, "catch": caught})
 
 
 ## The flag `c` carries (its side), or -1.
@@ -777,7 +856,203 @@ func _carrying(c: CreatureSim) -> int:
 	return -1
 
 
-## Every fighter's goal for the CPU (sim.goals): see the header.
+## Flag `side` leaves `c` through the air to land at `to` in `ticks`; `c` can't touch it
+## for `lock` ticks.
+func _throw(side: int, c: CreatureSim, to: Vector2, ticks: int, lock: int) -> void:
+	flag_state[side] = FLAG_THROWN
+	flag_carrier[side] = -1
+	flag_t[side] = 0
+	flag_from[side] = c.pos
+	flag_to[side] = sim.terrain.nearest_solid(to)
+	flag_ft[side] = 0
+	flag_fn[side] = maxi(1, ticks)
+	flag_by[side] = c.id
+	flag_lock[side] = lock
+	flag_pos[side] = c.pos
+
+
+## A hard hit knocks the flag loose: it pops out a few steps the way the carrier was hit.
+func _fumble(side: int, c: CreatureSim) -> void:
+	var dir := c.knock_vel.normalized() if c.knock_vel.length_squared() > 0.01 else -c.facing
+	_throw(side, c, c.pos + dir * float(rules.get("fumble_pop", 34)), int(rules.get("fumble_ticks", 18)),
+		int(rules.get("fumble_lock", 60)))
+	sim.emit_event("flag_fumble", c.pos, 0.0, {"team": side, "who": c.id, "by": c.last_attacker})
+
+
+## TAG while carrying, on your feet: the flag flies to the teammate you aim at (or face),
+## leading them, or `pass_range` x 0.7 along the aim when nobody is that way.
+func _try_pass(c: CreatureSim, bits: int) -> void:
+	var side := _carrying(c)
+	if side < 0 or not (c.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE, CreatureSim.State.GUARD]):
+		return
+	var aim := SimDefs.aim_from_bits(bits)
+	if aim == Vector2.ZERO:
+		aim = c.facing
+	var reach := float(rules.get("pass_range", 150))
+	var speed := float(rules.get("pass_speed", 4.5))
+	var best: CreatureSim = null
+	var best_dot := float(rules.get("pass_cone", 0.7))
+	for o in members(c.team):
+		var m := o as CreatureSim
+		if m == c or _down(m) or m.state == CreatureSim.State.FALLING:
+			continue
+		var to := m.pos - c.pos
+		var d := to.length()
+		if d < 1.0 or d > reach:
+			continue
+		var dot := to.dot(aim) / d
+		if dot > best_dot:
+			best_dot = dot
+			best = m
+	var at := c.pos + aim * reach * 0.7
+	if best != null:
+		at = best.pos + best.walk_vel * float(ceili(c.pos.distance_to(best.pos) / speed))
+	var ticks := maxi(8, ceili(c.pos.distance_to(at) / speed))
+	_throw(side, c, at, ticks, ticks + 20)
+	sim.emit_event("flag_pass", c.pos, float(ticks), {"team": side, "who": c.id, "to": best.id if best != null else -1})
+
+
+## A flag in the air: along its flight, catchable in the second half, else it lands.
+func _fly(side: int) -> void:
+	flag_ft[side] = int(flag_ft[side]) + 1
+	var k := float(flag_ft[side]) / float(flag_fn[side])
+	flag_pos[side] = (flag_from[side] as Vector2).lerp(flag_to[side], minf(k, 1.0))
+	if k >= float(rules.get("catch_from", 0.5)):
+		for c in sim.creatures:
+			if not _may_touch(c, side):
+				continue
+			if c.team == side:
+				_flag_home(side)
+				sim.emit_event("flag_return", flag_pos[side], 0.0, {"team": side, "who": c.id, "intercept": true})
+			else:
+				_take_flag(side, c, true)
+			return
+	if int(flag_ft[side]) >= int(flag_fn[side]):
+		flag_state[side] = FLAG_DROPPED
+		flag_t[side] = int(float(rules.get("return_seconds", 12)) * SimDefs.TICK_RATE)
+		flag_pos[side] = flag_to[side]
+		sim.emit_event("flag_land", flag_pos[side], 0.0, {"team": side, "who": int(flag_by[side])})
+
+
+# ------------------------------------------------------------------ shrines
+
+func shrine_pos(i: int) -> Vector2:
+	var v: Array = (sim.arena.get("shrines", [])[i] as Dictionary).get("pos", [0, 0])
+	return Vector2(float(v[0]), float(v[1]))
+
+
+func shrine_radius(i: int) -> float:
+	return float((sim.arena.get("shrines", [])[i] as Dictionary).get("radius", 22))
+
+
+func shrine_kind(i: int) -> String:
+	return String((sim.arena.get("shrines", [])[i] as Dictionary).get("kind", "haste"))
+
+
+## How many of each side stand in shrine `i`.
+func shrine_counts(i: int) -> Array:
+	var n := [0, 0]
+	var at := shrine_pos(i)
+	var r := shrine_radius(i)
+	for c in sim.creatures:
+		if not _down(c) and c.state != CreatureSim.State.FALLING and c.pos.distance_to(at) <= r:
+			n[c.team] += 1
+	return n
+
+
+func shrine_claim_ticks() -> int:
+	return int(float((rules.get("shrines", {}) as Dictionary).get("claim_seconds", 3)) * SimDefs.TICK_RATE)
+
+
+func _shrine_step() -> void:
+	var sr: Dictionary = rules.get("shrines", {})
+	var need := shrine_claim_ticks()
+	for i in shrines.size():
+		var st: Array = shrines[i]
+		if int(st[2]) > 0:
+			st[2] = int(st[2]) - 1
+			if int(st[2]) == 0:
+				sim.emit_event("shrine_ready", shrine_pos(i), 0.0, {"shrine": i, "kind": shrine_kind(i)})
+			continue
+		var n := shrine_counts(i)
+		if int(n[0]) > 0 and int(n[1]) > 0:
+			continue  # both sides in it: the claim holds where it is
+		if int(n[0]) == 0 and int(n[1]) == 0:
+			st[1] = maxi(0, int(st[1]) - 1)
+		else:
+			var who := 0 if int(n[0]) > 0 else 1
+			if int(st[0]) == who or int(st[1]) == 0:
+				st[0] = who
+				st[1] = int(st[1]) + 1
+			else:
+				st[1] = maxi(0, int(st[1]) - 2)
+		if int(st[1]) == 0:
+			st[0] = -1
+		elif int(st[1]) >= need:
+			var side := int(st[0])
+			var kind := shrine_kind(i)
+			var t := int(float(sr.get("buff_seconds", 20)) * SimDefs.TICK_RATE)
+			for o in members(side):
+				var c := o as CreatureSim
+				if _down(c):
+					continue
+				if kind == "might":
+					c.atk_buff = maxi(c.atk_buff, t)
+					c.atk_mult = float(sr.get("might_mult", 1.2))
+				else:
+					c.haste = maxi(c.haste, t)
+					c.haste_mult = float(sr.get("haste_mult", 1.2))
+			st[0] = -1
+			st[1] = 0
+			st[2] = int(float(sr.get("cooldown_seconds", 45)) * SimDefs.TICK_RATE)
+			sim.emit_event("shrine", shrine_pos(i), float(t), {"shrine": i, "kind": kind, "team": side})
+
+
+## The nearest shrine ready to claim, or -1.
+func _ready_shrine(c: CreatureSim) -> int:
+	var best := -1
+	var best_d := INF
+	for i in shrines.size():
+		if int(shrines[i][2]) > 0:
+			continue
+		var d := c.pos.distance_to(shrine_pos(i))
+		if d < best_d:
+			best_d = d
+			best = i
+	return best
+
+
+## The carrier's CPU hint: a teammate to pass to (well ahead toward home, in range, with
+## no foe on them) while a foe is on the carrier, else -1.
+func _pass_hint(c: CreatureSim) -> int:
+	var pressed := false
+	for o in sim.creatures:
+		if c.is_foe(o) and not _down(o) and o.pos.distance_to(c.pos) < 60.0:
+			pressed = true
+	if not pressed:
+		return -1
+	var home := base_of(c.team)
+	var reach := float(rules.get("pass_range", 150)) * 0.9
+	var best := -1
+	var best_d := c.pos.distance_to(home) - 50.0
+	for o in members(c.team):
+		var m := o as CreatureSim
+		if m == c or _down(m) or m.state == CreatureSim.State.FALLING or m.pos.distance_to(c.pos) > reach:
+			continue
+		var safe := true
+		for f in sim.creatures:
+			if c.is_foe(f) and not _down(f) and f.pos.distance_to(m.pos) < 45.0:
+				safe = false
+		var d := m.pos.distance_to(home)
+		if safe and d < best_d:
+			best_d = d
+			best = m.id
+	return best
+
+
+## Every fighter's goal for the CPU (sim.goals): see the header. A carrier's goal also
+## names a teammate to pass to (-1: none); with three or more a side, its last fighter
+## goes for a shrine when one is ready.
 func _ctf_goals() -> void:
 	sim.goals.resize(sim.creatures.size())
 	var defenders := int(rules.get("defenders", 1))
@@ -791,12 +1066,15 @@ func _ctf_goals() -> void:
 		if _down(c):
 			g = []
 		elif _carrying(c) == foe:
-			g = [base_of(me), 6.0, true]  # run it home
-		elif int(flag_state[me]) != FLAG_HOME and (role >= defenders or int(flag_state[me]) == FLAG_DROPPED):
+			g = [base_of(me), 6.0, true, _pass_hint(c)]  # run it home
+		elif int(flag_state[me]) != FLAG_HOME and (role >= defenders or int(flag_state[me]) != FLAG_CARRIED):
 			g = [flag_pos[me], 8.0, false]  # get our flag back
 		elif role < defenders and size > 1:
 			var toward := (sim.floor_rect().get_center() - base_of(me)).normalized()
 			g = [base_of(me) + toward * 48.0, 36.0, false]  # guard the base
+		elif role == size - 1 and size >= 3 and _ready_shrine(c) >= 0:
+			var si := _ready_shrine(c)
+			g = [shrine_pos(si), shrine_radius(si) - 8.0, false]  # claim a shrine
 		elif int(flag_state[foe]) == FLAG_CARRIED:
 			g = [flag_pos[foe], 44.0, false]  # escort our carrier
 		else:
@@ -825,7 +1103,10 @@ func snapshot() -> Dictionary:
 		"score": score.duplicate(), "respawn_t": respawn_t.duplicate(), "guard_t": guard_t.duplicate(),
 		"overtime": overtime, "ring": ring, "sink_t": sink_t, "warned": warned, "zone_i": zone_i, "zone_t": zone_t,
 		"cv": [cv_round, cv_p, cv_cp, cv_t, cv_ot, cv_state, cv_best.duplicate(), cv_time.duplicate()],
-		"flags": [flag_pos.duplicate(), flag_state.duplicate(), flag_carrier.duplicate(), flag_t.duplicate()]}
+		"flags": [flag_pos.duplicate(), flag_state.duplicate(), flag_carrier.duplicate(), flag_t.duplicate(),
+			flag_from.duplicate(), flag_to.duplicate(), flag_ft.duplicate(), flag_fn.duplicate(), flag_by.duplicate(),
+			flag_lock.duplicate()],
+		"prev_in": prev_in.duplicate(), "shrines": shrines.duplicate(true)}
 
 
 func restore(s: Dictionary) -> void:
@@ -856,6 +1137,16 @@ func restore(s: Dictionary) -> void:
 	flag_state = (fl[1] as Array).duplicate()
 	flag_carrier = (fl[2] as Array).duplicate()
 	flag_t = (fl[3] as Array).duplicate()
+	if fl.size() > 4:
+		flag_from = (fl[4] as Array).duplicate()
+		flag_to = (fl[5] as Array).duplicate()
+		flag_ft = (fl[6] as Array).duplicate()
+		flag_fn = (fl[7] as Array).duplicate()
+		flag_by = (fl[8] as Array).duplicate()
+		flag_lock = (fl[9] as Array).duplicate()
+	if s.has("prev_in"):
+		prev_in = (s["prev_in"] as Array).duplicate()
+	shrines = (s.get("shrines", []) as Array).duplicate(true)
 	sim.restore(s["match"])
 
 
@@ -864,7 +1155,8 @@ func state_digest() -> String:
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(var_to_bytes([sim.state_digest(), phase, phase_t, timer, winner, score, respawn_t, guard_t,
 		overtime, ring, sink_t, warned, zone_i, zone_t, cv_round, cv_p, cv_cp, cv_t, cv_ot, cv_state, cv_best, cv_time,
-		flag_pos, flag_state, flag_carrier, flag_t]))
+		flag_pos, flag_state, flag_carrier, flag_t, flag_from, flag_to, flag_ft, flag_fn, flag_by, flag_lock,
+		prev_in, shrines]))
 	return ctx.finish().hex_encode()
 
 

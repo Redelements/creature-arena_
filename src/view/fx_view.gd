@@ -2545,11 +2545,19 @@ var caravan := {}
 ## "lift" (px above the floor: over a carrier's head), "back" (0..1 of a dropped flag's
 ## return timer left)}.
 var flags: Array = []
+## Capture the Flag's shrines (set by main): each {"pos", "radius", "kind" (haste, might),
+## "side" claiming (-1), "claim" (0..1), "rest" (seconds until ready, 0: ready)}.
+var shrines: Array = []
+const SHRINE_COLORS := {"haste": Color("6fe0ff"), "might": Color("ff9a3c")}
 
 
 func _draw_pads(ci: CanvasItem) -> void:
 	if not caravan.is_empty():
 		_draw_caravan(ci)
+	for s in shrines:
+		_draw_shrine(ci, s)
+	if not shrines.is_empty():
+		_draw_buffs(ci)
 	for f in flags:
 		_draw_flag(ci, f)
 	if not zone.is_empty():
@@ -2623,9 +2631,12 @@ func _draw_flag(ci: CanvasItem, f: Dictionary) -> void:
 	var st := int(f["state"])
 	var foot := at - Vector2(0, float(f.get("lift", 0.0)))
 	if st != TeamSim.FLAG_CARRIED:
+		var shadow := 5.0 if st != TeamSim.FLAG_THROWN else maxf(2.5, 5.0 - float(f.get("lift", 0.0)) * 0.06)
 		ci.draw_set_transform(at + Vector2(1, 1), 0.0, Vector2(1.0, 0.4))
-		ci.draw_circle(Vector2.ZERO, 5.0, Color(0, 0, 0, 0.3))
+		ci.draw_circle(Vector2.ZERO, shadow, Color(0, 0, 0, 0.3))
 		ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	if st == TeamSim.FLAG_THROWN:  # where it comes down: a ring on the floor in its colour
+		ci.draw_arc(at, 9.0, 0.0, TAU, 24, Color(col, 0.5), 1.0)
 	if st == TeamSim.FLAG_DROPPED:
 		var left := clampf(float(f.get("back", 0.0)), 0.0, 1.0)
 		ci.draw_arc(at, 11.0, -PI * 0.5, -PI * 0.5 + TAU * left, 32, Color(col, 0.85), 2.0)
@@ -2636,6 +2647,61 @@ func _draw_flag(ci: CanvasItem, f: Dictionary) -> void:
 	ci.draw_circle(top, 1.5, Color("e8c060"))
 	var frame := (_tick / 6) % 4
 	ci.draw_texture_rect_region(FLAG, Rect2(top + Vector2(1, 0), Vector2(12, 10)), Rect2(frame * 12, 0, 12, 10), col.lightened(0.15))
+
+
+## A shrine: a stone ring on the floor. Ready, it glows in its colour (haste blue, might
+## orange) with its sign in the middle, and a claim fills round it in the claiming side's
+## colour; resting, it's dim with the seconds left.
+func _draw_shrine(ci: CanvasItem, s: Dictionary) -> void:
+	var at: Vector2 = s["pos"]
+	var r := float(s["radius"])
+	var kind := String(s["kind"])
+	var col: Color = SHRINE_COLORS.get(kind, Color.WHITE)
+	var rest := int(s["rest"])
+	ci.draw_arc(at, r, 0.0, TAU, 48, Color(0.1, 0.1, 0.12, 0.6), 3.0)
+	if rest > 0:
+		ci.draw_arc(at, r, 0.0, TAU, 48, Color(col, 0.25), 1.0)
+		ci.draw_string_outline(_font, at + Vector2(-12, 3), str(rest), HORIZONTAL_ALIGNMENT_CENTER, 24, 7, 2, Color(C_OUTLINE, 0.7))
+		ci.draw_string(_font, at + Vector2(-12, 3), str(rest), HORIZONTAL_ALIGNMENT_CENTER, 24, 7, Color(col, 0.6))
+		return
+	var glow := 0.5 + 0.5 * sin(float(_tick) * 0.12)
+	ci.draw_circle(at, r, Color(col, 0.08 + 0.06 * glow))
+	ci.draw_arc(at, r, 0.0, TAU, 48, Color(col, 0.7 + 0.3 * glow), 1.5)
+	# The sign: haste is a double chevron, might a fist-like block.
+	var sc := Color(col.lightened(0.3), 0.85)
+	if kind == "haste":
+		for dx in [-3.0, 2.0]:
+			ci.draw_polyline(PackedVector2Array([at + Vector2(dx - 2, -4), at + Vector2(dx + 2, 0), at + Vector2(dx - 2, 4)]), sc, 1.5)
+	else:
+		ci.draw_rect(Rect2(at + Vector2(-4, -3), Vector2(8, 6)), sc)
+		ci.draw_rect(Rect2(at + Vector2(-4, -5), Vector2(8, 1)), sc)
+	var side := int(s["side"])
+	var claim := clampf(float(s["claim"]), 0.0, 1.0)
+	if side >= 0 and claim > 0.0:
+		var sidec: Color = Hud.SIDE_COLORS[side]
+		ci.draw_arc(at, r + 3.0, -PI * 0.5, -PI * 0.5 + TAU * claim, 48, Color(sidec, 0.95), 2.5)
+
+
+## A shrine's buff on a fighter: a ring at its feet in the shrine's colour, a few sparks
+## rising off it.
+func _draw_buffs(ci: CanvasItem) -> void:
+	for c in sim.creatures:
+		if c.state == CreatureSim.State.KO or not shown(c):
+			continue
+		var cols: Array = []
+		if c.haste > 0 and c.haste_mult > 1.0:
+			cols.append(SHRINE_COLORS["haste"])
+		if c.atk_buff > 0 and c.atk_mult > 1.0:
+			cols.append(SHRINE_COLORS["might"])
+		for k in cols.size():
+			var col: Color = cols[k]
+			var rr := float(c.radius) + 3.0 + 3.0 * k
+			ci.draw_set_transform(c.pos, 0.0, Vector2(1.0, 0.45))
+			ci.draw_arc(Vector2.ZERO, rr, 0.0, TAU, 24, Color(col, 0.55), 1.0)
+			ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			var ph := float((_tick + c.id * 13 + k * 7) % 30) / 30.0
+			var sx := float(((c.id * 7 + _tick / 30 + k * 3) % 5) - 2) * 3.0
+			ci.draw_rect(Rect2(c.pos + Vector2(sx, -4.0 - ph * 22.0), Vector2(1, 2)), Color(col, 0.8 * (1.0 - ph)))
 
 
 ## Who's who: a coloured marker over each side's fighter (red for the left side, P1;
