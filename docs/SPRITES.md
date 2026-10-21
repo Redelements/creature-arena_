@@ -499,6 +499,9 @@ frames of its wheels turning, facing right (mirrored heading left), ground conta
 Capture the Flag's cloth (`assets/sprites/flag.png`, `tools/gen_arenas.py:flag_sprite`): four
 waving frames, white, tinted the side's colour by the view, which also draws the pole.
 Map chasms are baked into the arena art (`chasm_pit`); holes made in a fight still use the tiles.
+Twin Keeps' shrines are stone daises in the art (`shrine_plinth`; the view draws the glow,
+the sign and the claim), and its `_alt` picture has the river where the bridge stood, with
+broken planks: a hole in a bridge, or the bridge fallen in, shows that piece.
 
 ## Crowd — 12×16
 

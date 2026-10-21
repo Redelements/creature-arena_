@@ -450,7 +450,7 @@ Tuning: `data/rules/caravan.json`; the map and its track: `data/arenas/caravan_p
 Single player > Capture the Flag vs CPU (3 v 3 or 4 v 4), or online in 2 v 2 and 3 v 3 (pick
 **Capture the Flag** as the team rules). Played on **Twin Keeps**, over three times the
 stadium's floor: a walled keep at each end (in by the front gate or a gap at either corner),
-a river down the middle with one bridge, brush, fences and pits on the flanks. The camera
+a river down the middle with one bridge and an island up and down it, brush, fences and pits on the flanks. The camera
 follows you, and arrows at the screen's edge point at both flags when they're out of shot.
 
 - **Take their flag:** touch it on its stand in their keep. Carrying it slows you a little.
@@ -459,10 +459,29 @@ follows you, and arrows at the screen's edge point at both flags when they're ou
 - **Knocked out while carrying:** the flag drops where you went down. One of its own side
   touching it sends it home; otherwise it goes home by itself after **12 s** (the ring
   round it counts down).
-- Unlimited respawns (5 s) in your own keep; KOs don't score.
+- **Hard hits knock it loose:** launch, knock down, guard-break or stun the carrier and
+  the flag pops out a few steps. They can't grab it straight back; anyone else can
+  scramble for it (its own side sends it home).
+- **Pass:** TAG (L, T in League, LT on a pad) throws the flag to the teammate you aim
+  at, leading them, or along your aim if nobody's there. It can be caught in the second
+  half of its flight: by your side, it's carried on; by theirs, it's intercepted and goes
+  home. The ring on the floor shows where it comes down.
+- **The bridge breaks:** heavy hits on someone standing on the bridge crack it; it creaks,
+  then falls into the river, and the only way over is wading. It's back after 30 s.
+  Defenders can break it on purpose to slow a run.
+- **Shrines:** one on each island up and down the river (haste: walk faster; might: hit
+  harder). Stand in one with no enemy there for 3 s and your whole side gets it for 20 s;
+  then it rests for 45 s (the number on it counts down).
+- **Comebacks:** while your own flag is away you respawn in 3 s, not 5; in sudden death the
+  carrier isn't slowed.
+- Unlimited respawns (5 s) in your own keep; KOs don't score. A capture plays in slow
+  motion with a banner; your flag being taken flashes the screen's edge. At the end:
+  each fighter's captures, returns and stops (carriers knocked out or made to fumble), and
+  the MVP.
 - **CPU teammates take roles:** one stays home guarding the keep, the others go for the
-  flag or escort whoever has it, the carrier runs it home, and anyone goes after your
-  flag when it's taken.
+  flag or escort whoever has it, the carrier runs it home (and passes ahead when caught),
+  the last of three goes for a ready shrine, and anyone goes after your flag when it's
+  taken.
 
 4 v 4 is vs CPU only for now (online rooms are 2 v 2 and 3 v 3). Tuning:
 `data/rules/ctf.json`; the map: `data/arenas/twin_keeps.json`.

@@ -75,6 +75,15 @@ var zones: Array[Dictionary] = []
 ## the last one pushes them out (`end`: hit values) and cracks a ring of floor.
 var storms: Array[Dictionary] = []
 var events: Array[Dictionary] = []
+## The map's bridges ("bridges" in its JSON: {rect, strain, reform_seconds, crack}): per
+## bridge [ticks until it stands again (0: standing), warned]. A heavy hit on someone
+## standing on one cracks the floor under them (`crack` px, and the cell they're on a
+## step further); once its cells' damage (cracked 1, hole 2) reaches `strain` the whole
+## bridge falls into the river (its cells are shallows, waded across) until
+## `reform_seconds` later, when it's whole again.
+var bridges: Array = []
+## The bridges' cells (from the map, fixed for the match).
+var bridge_rects: Array[Rect2i] = []
 
 
 ## Lays an arena map on the floor. Call before adding creatures (it resets the grid).
@@ -86,6 +95,10 @@ func set_arena(id: String) -> void:
 	if sz != Vector2i(terrain.cols, terrain.rows):
 		terrain = TerrainGrid.new(sz.x, sz.y)
 	terrain.load_map(arena)
+	bridges = []
+	bridge_rects = ArenaMap.bridge_rects(arena)
+	for b in arena.get("bridges", []):
+		bridges.append([0, false])
 	for c in creatures:
 		c.floor_end = terrain.floor_rect().end
 
@@ -200,6 +213,8 @@ func step(inputs: PackedInt32Array) -> void:
 	_separate()
 	_unstick()
 	_check_falls()
+	if not bridges.is_empty():
+		_step_bridges()
 	if training and not training_flags.is_empty():
 		_apply_training()
 
@@ -268,6 +283,7 @@ func snapshot() -> Dictionary:
 		"terrain_version": terrain.version,
 		"creatures": cs, "projectiles": projectiles.duplicate(true), "zones": zones.duplicate(true),
 		"storms": storms.duplicate(true), "training_flags": training_flags.duplicate(),
+		"bridges": bridges.duplicate(true),
 	}
 
 
@@ -293,6 +309,7 @@ func restore(s: Dictionary) -> void:
 	zones.assign((s.get("zones", []) as Array).duplicate(true))
 	storms.assign((s.get("storms", []) as Array).duplicate(true))
 	training_flags = (s.get("training_flags", {}) as Dictionary).duplicate()
+	bridges = (s.get("bridges", []) as Array).duplicate(true)
 	events.clear()
 
 
@@ -314,6 +331,8 @@ func state_digest() -> String:
 	for p in projectiles:
 		if p.has("home"):
 			parts.append_array([p["home"]["stop"], p["speed"]])
+	if not bridges.is_empty():  # (only maps with bridges)
+		parts.append(bridges)
 	if training:  # (only training matches: every other match's fingerprint is unchanged)
 		for k in TRAINING_FLAGS:
 			parts.append(bool(training_flags.get(k, false)))
@@ -1114,6 +1133,70 @@ func _unstick() -> void:
 			c.clamp_to_floor()
 		# Brush hides whoever stands in it (flattened brush doesn't).
 		c.covered = terrain.get_cell(terrain.world_to_cell(c.pos)) == TerrainGrid.BRUSH
+
+
+## A bridge's damage: each cracked cell counts 1, each hole 2.
+func bridge_strain(i: int) -> int:
+	var r := bridge_rects[i]
+	var n := 0
+	for cy in range(r.position.y, r.end.y):
+		for cx in range(r.position.x, r.end.x):
+			var v := terrain.get_cell(Vector2i(cx, cy))
+			if v == TerrainGrid.CRACKED:
+				n += 1
+			elif v == TerrainGrid.HOLE:
+				n += 2
+	return n
+
+
+## Whether bridge `i` is down (fallen in, not yet back).
+func bridge_down(i: int) -> bool:
+	return i < bridges.size() and int(bridges[i][0]) > 0
+
+
+func _step_bridges() -> void:
+	var defs: Array = arena.get("bridges", [])
+	for i in mini(bridges.size(), bridge_rects.size()):
+		var bd: Dictionary = defs[i]
+		var r := bridge_rects[i]
+		var st: Array = bridges[i]
+		var mid := terrain.cell_center(r.position) + Vector2(r.size - Vector2i.ONE) * SimDefs.CELL * 0.5
+		if int(st[0]) > 0:
+			st[0] = int(st[0]) - 1
+			if int(st[0]) == 0:  # back up, whole
+				for cy in range(r.position.y, r.end.y):
+					for cx in range(r.position.x, r.end.x):
+						var k := cy * terrain.cols + cx
+						terrain.cells[k] = terrain.base[k]
+						terrain.timers[k] = 0
+				terrain.version += 1
+				st[1] = false
+				emit_event("bridge_up", mid, 0.0, {"bridge": i})
+			continue
+		var crack := float(bd.get("crack", 10))
+		for e in events:
+			if String(e["type"]) != "hit" or not bool(e.get("heavy", false)):
+				continue
+			var d := creatures[int(e["target"])]
+			var at := terrain.world_to_cell(d.pos)
+			if r.has_point(at):
+				terrain.crack_circle(d.pos, crack)
+				terrain.damage_cell(at, 1)
+		var strain := bridge_strain(i)
+		var need := int(bd.get("strain", 28))
+		if strain >= need:
+			var t := int(float(bd.get("reform_seconds", 30)) * SimDefs.TICK_RATE)
+			for cy in range(r.position.y, r.end.y):
+				for cx in range(r.position.x, r.end.x):
+					var k := cy * terrain.cols + cx
+					terrain.cells[k] = TerrainGrid.SHALLOWS  # (heal_step leaves it: only bridge_up mends it)
+					terrain.timers[k] = 0
+			terrain.version += 1
+			st[0] = t
+			emit_event("bridge_fall", mid, float(t), {"bridge": i})
+		elif not bool(st[1]) and strain * 2 >= need:
+			st[1] = true
+			emit_event("bridge_strain", mid, float(strain) / float(need), {"bridge": i})
 
 
 func _check_falls() -> void:

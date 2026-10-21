@@ -9,6 +9,8 @@ extends Node2D
 ## its piece of arena_<id>_cracked.png (the same floor broken by one network of cracks, so
 ## a cracked patch joins up); pieces and pits are drawn on top as usual, each pit with a
 ## broken lip of floor where it meets solid ground.
+## A hole in a map's bridge ("bridges"), or the bridge fallen in (its cells shallows),
+## shows the river under it from the _alt picture, rather than a pit or the planks.
 ## A map without one is drawn from the tiles below.
 
 const TILES := preload("res://assets/sprites/tiles.png")
@@ -69,12 +71,26 @@ var arena_id := "":
 			_art_cracked = load(cpath) if _art != null and ResourceLoader.exists(cpath) else null
 			var apath := "res://assets/sprites/arena_%s_alt.png" % v
 			_art_alt = load(apath) if _art != null and ResourceLoader.exists(apath) else null
+			_bridges = ArenaMap.bridge_rects(ArenaMap.get_map(v)) if v != "" else []
 			_drawn_version = -1
 			queue_redraw()
 var _art: Texture2D = null
 var _art_cracked: Texture2D = null
 ## The floor with its pieces changed (a smashed wall's rubble, flattened brush), if any.
 var _art_alt: Texture2D = null
+## The map's bridges (cells), whose holes show the water in the _alt picture.
+var _bridges: Array[Rect2i] = []
+
+
+## A hole in a bridge or a fallen bridge, on a map whose _alt picture shows the water under it.
+func _bridge_gone(cx: int, cy: int) -> bool:
+	if _art_alt == null:
+		return false
+	for r in _bridges:
+		if r.has_point(Vector2i(cx, cy)):
+			var v := terrain.cells[cy * terrain.cols + cx]
+			return v == TerrainGrid.HOLE or v == TerrainGrid.SHALLOWS
+	return false
 
 
 func set_terrain(t: TerrainGrid) -> void:
@@ -168,6 +184,8 @@ func _draw_pits() -> void:
 				continue
 			if _art != null and v == TerrainGrid.CHASM and terrain.base[cy * terrain.cols + cx] == TerrainGrid.CHASM:
 				continue
+			if _bridge_gone(cx, cy):
+				continue
 			var above_solid := cy == 0 or not TerrainGrid.is_pit(terrain.cells[(cy - 1) * terrain.cols + cx])
 			var chasm := v == TerrainGrid.CHASM
 			var idx: int
@@ -188,10 +206,15 @@ func _draw_on_art() -> void:
 			var v := terrain.cells[i]
 			var b := terrain.base[i]
 			# The art already shows the floor and every piece as the map made it.
-			if v == b or TerrainGrid.is_pit(v):
+			if v == b:
 				continue
 			var cell := _cell_rect(cx, cy)
 			var src := Rect2(cx * SimDefs.CELL, cy * SimDefs.CELL, SimDefs.CELL, SimDefs.CELL)
+			if (v == TerrainGrid.HOLE or v == TerrainGrid.SHALLOWS) and _bridge_gone(cx, cy):
+				draw_texture_rect_region(_art_alt, cell, src)  # the river under the broken bridge
+				continue
+			if TerrainGrid.is_pit(v):
+				continue
 			if (v == TerrainGrid.CRACKED and b == TerrainGrid.WALL) or v == TerrainGrid.BRUSH_FLAT:
 				# a smashed wall's rubble, flattened brush: the map's changed-piece picture
 				if _art_alt != null:
@@ -214,7 +237,7 @@ func _draw_pit_lips() -> void:
 	for cy in terrain.rows:
 		for cx in terrain.cols:
 			var i := cy * terrain.cols + cx
-			if not TerrainGrid.is_pit(terrain.cells[i]) or terrain.base[i] == TerrainGrid.CHASM:
+			if not TerrainGrid.is_pit(terrain.cells[i]) or terrain.base[i] == TerrainGrid.CHASM or _bridge_gone(cx, cy):
 				continue
 			var r := _cell_rect(cx, cy)
 			var n := posmod(cx * 7 + cy * 11, 5)

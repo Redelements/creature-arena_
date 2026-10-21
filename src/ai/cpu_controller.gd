@@ -296,6 +296,11 @@ func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 			and me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE, CreatureSim.State.GUARD]:
 		var g: Array = sim.goals[me.id]
 		var gp: Vector2 = g[0]
+		# Carrying with a foe on us: the rules name a teammate open ahead; pass to them
+		# (TAG, aimed), sooner the better the level.
+		if g.size() > 3 and int(g[3]) >= 0 and _roll(0.03 + 0.02 * level):
+			_press(SimDefs.IN_TAG)
+			_out |= SimDefs.aim_bits(sim.creatures[int(g[3])].pos - me.pos)
 		if me.pos.distance_to(gp) > float(g[1]) and (bool(g[2]) or to_foe.length() > _reach_of(me, foe) + 12.0):
 			_go_to(sim, me, gp)
 			return

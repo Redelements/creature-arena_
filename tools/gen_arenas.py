@@ -1049,6 +1049,29 @@ def chasm_pit(img, rng, rect_):
             rect(img, xx, yy, 1, 1, col)
 
 
+def shrine_plinth(img, prng, sh):
+    """A shrine on its island: a round dais of pale stone with a darker rim and a ring of
+    rune-cut slabs; the view draws its glow and its claim on top."""
+    cx, cy = int(sh["pos"][0]) + MARGIN[0], int(sh["pos"][1]) + MARGIN[1]
+    r = int(sh.get("radius", 22))
+    for yy in range(cy - r - 2, cy + r + 3):
+        for xx in range(cx - r - 2, cx + r + 3):
+            d = math.hypot(xx - cx, yy - cy)
+            if d > r + 2:
+                continue
+            if d > r:
+                blend_px(img, xx, yy, (20, 24, 20), 0.5)  # its shadow on the grass
+            elif d > r - 2:
+                rect(img, xx, yy, 1, 1, PAVE[1])
+            elif d > r - 6:
+                ang = math.atan2(yy - cy, xx - cx)
+                rect(img, xx, yy, 1, 1, PAVE[0] if int((ang + math.pi) / (math.pi / 6)) % 2 == 0 and d > r - 5 and d < r - 3 else PAVE[3])
+            else:
+                rect(img, xx, yy, 1, 1, PAVE[4] if (xx + yy) % 7 else PAVE[3])
+    for (x, y) in _circle_pts(cx, cy, 6):
+        blend_px(img, x, y, PAVE[1], 0.8)
+
+
 def twin_keeps():
     rng = np.random.default_rng(97)
     prng = random.Random(97)
@@ -1097,14 +1120,17 @@ def twin_keeps():
                     rect(img, xx2, yy2, 1, 1, PAVE[4] if d < 9 else (col if d < 11 else PAVE[0]))
         for (x, y) in _circle_pts(cx, cy, 5):
             blend_px(img, x, y, PAVE[1], 0.8)
-    # The river and its bridge.
+    # The river (round its two islands) and its bridge.
     water = piece_mask(m, "shallows")
     water_body(img, rng, prng, water)
-    sh = [pc["rect"] for pc in m["pieces"] if pc["kind"] == "shallows"]
-    c0, cw = sh[0][0], sh[0][2]
-    a1 = min(r[1] + r[3] for r in sh)
-    b0 = max(r[1] for r in sh)
-    bx, by, bw, bh = FX0 + c0 * CELL - 4, FY0 + a1 * CELL, cw * CELL + 8, (b0 - a1) * CELL
+    for sh_ in m.get("shrines", []):
+        shrine_plinth(img, prng, sh_)
+    br = m["bridges"][0]["rect"]
+    under = np.zeros((FH, FW), bool)
+    under[br[1] * CELL:(br[1] + br[3]) * CELL, br[0] * CELL:(br[0] + br[2]) * CELL] = True
+    river_under = img.copy()
+    water_body(river_under, rng, prng, under | water)
+    bx, by, bw, bh = FX0 + br[0] * CELL - 4, FY0 + br[1] * CELL, br[2] * CELL + 8, br[3] * CELL
     for xx2 in range(bx, bx + bw):
         k = 2 if (xx2 - bx) % 6 not in (0, 5) else (1 if (xx2 - bx) % 6 == 5 else 3)
         for yy2 in range(by, by + bh):
@@ -1118,6 +1144,18 @@ def twin_keeps():
         rect(img, xx2, by - 2, 2, 4, PLANK[1])
         rect(img, xx2, by + bh - 3, 2, 4, PLANK[1])
     bare = img.copy()
+    # A fallen bridge: the river where it stood, a few broken planks and the stumps of its posts.
+    y0, y1, x0, x1 = br[1] * CELL, (br[1] + br[3]) * CELL, br[0] * CELL, (br[0] + br[2]) * CELL
+    bare[FY0 + y0:FY0 + y1, FX0 + x0:FX0 + x1] = river_under[FY0 + y0:FY0 + y1, FX0 + x0:FX0 + x1]
+    for _ in range(9):
+        px, py = FX0 + x0 + 4 + int(prng.random() * (x1 - x0 - 12)), FY0 + y0 + 6 + int(prng.random() * (y1 - y0 - 12))
+        ln = 4 + int(prng.random() * 6)
+        for j in range(ln):
+            rect(bare, px + j, py + (j // 3 if prng.random() < 0.5 else 0), 1, 2, PLANK[1 + (j % 2)])
+        blend_px(bare, px, py + 2, (10, 20, 40), 0.4)
+    for xx2 in range(FX0 + x0, FX0 + x1, 12):
+        for yy2 in (FY0 + y0 + 1, FY0 + y1 - 3):
+            rect(bare, xx2, yy2, 2, 2, PLANK[0])
     floor_shadow(img, piece_mask(m, "wall"), 3, 4, 0.45)
     for r in piece_rects(m, "chasm"):
         chasm_pit(img, prng, r)

@@ -64,6 +64,14 @@ var gamepad := false
 
 var _toast := ""
 var _toast_t := 0
+## A big moment (a capture): a banner of its own with a coloured band, for a second and a
+## half, over whatever banner the flow sets.
+var _moment := {}
+## An alarm (your flag is taken): the screen's edge pulses in this colour for a while.
+var _alert_t := 0
+var _alert_col := Color.RED
+const ALERT_TICKS := 100
+const MOMENT_TICKS := 100
 var _combo_show := [0, 0]
 var _combo_last := [{}, {}]
 var _combo_pop := [0, 0]
@@ -91,6 +99,15 @@ func show_toast(text: String) -> void:
 	_toast_t = 120
 
 
+func moment(text: String, sub: String, col: Color) -> void:
+	_moment = {"text": text, "sub": sub, "color": col, "t": MOMENT_TICKS}
+
+
+func alert(col: Color) -> void:
+	_alert_col = col
+	_alert_t = ALERT_TICKS
+
+
 ## A fighting-game super cut-in: a slanted band with the fighter's portrait and the move.
 func cut_in(c: CreatureSim, side: int, move_name: String) -> void:
 	var sp: Dictionary = c.def.get("sprite", {})
@@ -113,6 +130,12 @@ func advance() -> void:
 	_tick += 1
 	if _toast_t > 0:
 		_toast_t -= 1
+	if _alert_t > 0:
+		_alert_t -= 1
+	if not _moment.is_empty():
+		_moment["t"] = int(_moment["t"]) - 1
+		if int(_moment["t"]) <= 0:
+			_moment = {}
 	if sim != null and sim.creatures.size() >= 2:
 		for side in 2:
 			var d := _combo_target(side)
@@ -212,6 +235,11 @@ func _draw() -> void:
 		if banner_sub != "":
 			_text(Vector2(0, y + 16), banner_sub, 8, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, _sw)
 
+	if not _moment.is_empty():
+		_draw_moment()
+	if _alert_t > 0:
+		_draw_alert()
+
 	if _toast_t > 0:
 		var a := minf(1.0, _toast_t / 20.0)
 		_text(Vector2(_sw * 0.5 - 150.0, _sh - 34.0), _toast, 8, Color(1, 1, 1, a), HORIZONTAL_ALIGNMENT_CENTER, 300)
@@ -222,6 +250,38 @@ func _draw() -> void:
 	if show_help:
 		draw_rect(Rect2(0, _sh - 11.0, _sw, 11), C_PANEL)
 		_text(Vector2(0, _sh - 3.0), help_text, 5, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, _sw)
+
+
+## A capture: a slanted band in the side's colour across the middle, the words over it,
+## sliding in and fading out.
+func _draw_moment() -> void:
+	var t := int(_moment["t"])
+	var age := MOMENT_TICKS - t
+	var a := minf(1.0, minf(float(age) / 6.0, float(t) / 15.0))
+	var col: Color = _moment["color"]
+	var y := 96.0 + _cy
+	var slide := maxf(0.0, 1.0 - float(age) / 8.0) * 60.0
+	var band := PackedVector2Array([Vector2(-slide, y - 18), Vector2(_sw + 20 - slide, y - 24),
+		Vector2(_sw + 20 - slide, y + 14), Vector2(-slide, y + 20)])
+	draw_colored_polygon(band, Color(col.darkened(0.55), 0.8 * a))
+	draw_rect(Rect2(0, y - 20, _sw, 2), Color(col, a))
+	draw_rect(Rect2(0, y + 16, _sw, 2), Color(col, a))
+	_text(Vector2(0, y + 2), String(_moment["text"]), 20, Color(col.lightened(0.4), a), HORIZONTAL_ALIGNMENT_CENTER, _sw)
+	_text(Vector2(0, y + 13), String(_moment["sub"]), 9, Color(C_TEXT, a), HORIZONTAL_ALIGNMENT_CENTER, _sw)
+
+
+## Your flag is taken: the screen's edge pulses red (or your side's colour), fading out.
+func _draw_alert() -> void:
+	var fade := float(_alert_t) / float(ALERT_TICKS)
+	var pulse := 0.55 + 0.45 * sin(float(_tick) * 0.35)
+	var a := 0.75 * fade * pulse
+	for i in 10:
+		var w := 10.0 - float(i)
+		var c := Color(_alert_col, a * (1.0 - float(i) / 10.0))
+		draw_rect(Rect2(0, 0, _sw, w), c)
+		draw_rect(Rect2(0, _sh - w, _sw, w), c)
+		draw_rect(Rect2(0, 0, w, _sh), c)
+		draw_rect(Rect2(_sw - w, 0, w, _sh), c)
 
 
 ## Team battle: each team down its own edge. The local player's fighter gets the full

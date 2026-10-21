@@ -58,3 +58,12 @@ static func spawn(map: Dictionary, side: int) -> Vector2:
 	var fr := SimDefs.floor_rect_of(sz.x, sz.y)
 	var inset := 60.0
 	return Vector2(fr.position.x + inset if side == 0 else fr.end.x - inset, fr.get_center().y + 4.0)
+
+
+## A map's bridges ("bridges": [{"rect": [cx, cy, w, h], ...}]), as cell rects.
+static func bridge_rects(map: Dictionary) -> Array[Rect2i]:
+	var out: Array[Rect2i] = []
+	for b in map.get("bridges", []):
+		var r: Array = b.get("rect", [0, 0, 0, 0])
+		out.append(Rect2i(int(r[0]), int(r[1]), int(r[2]), int(r[3])))
+	return out
