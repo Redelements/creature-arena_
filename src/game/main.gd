@@ -23,6 +23,10 @@ extends Node2D
 ##   --shots=60,120        save screenshots at those frame numbers
 ##   --shot-dir=PATH       where screenshots go (default user://shots)
 ##   --quit-after=N        exit after N frames
+##   --perf                log frame and tick times during fights; on quit, prints the
+##                         percentiles and saves them to user://perf.txt
+##   --cpu-threads=off     CPU players think one after another on the main thread
+##                         (default: together on the worker threads; same answers)
 ##   --layout=league|classic  keyboard layout (saved in the menu otherwise)
 ##   --pad-layout=standard|twinstick  controller layout (saved in Settings otherwise)
 ##   --showcase=NAME       play one scripted demo on a loop: cairn, culvert, craglash, barkley, gillbert,
@@ -325,6 +329,10 @@ var frame_count := 0
 var _shots := {}
 var _shot_dir := "user://shots"
 var _quit_after := 0
+## The CPUs' inputs for this tick are worked out (_think_cpus) and wait in last_bits.
+var _cpus_thought := false
+## Frame and tick times (--perf), printed on quit.
+var _perf: PerfLog = null
 
 # Online
 var netplay: Netplay = null
@@ -1741,6 +1749,8 @@ func _replay_setup(s: MatchSim) -> Dictionary:
 ## Every rendered frame: on a real connection, read the network now rather than at the
 ## next tick, so the other player's inputs (and pongs) are in hand the moment they land.
 func _process(_delta: float) -> void:
+	if _perf != null:
+		_perf.frame(flow == Flow.FIGHT and not paused)
 	if netplay != null and netplay.link != null and netplay.link.realtime:
 		netplay.pump()
 	if discord != null:
@@ -1752,6 +1762,7 @@ func _process(_delta: float) -> void:
 func _physics_process(_delta: float) -> void:
 	if sim == null:
 		return  # quitting after --sim-check
+	var tick_start := Time.get_ticks_usec()
 	frame_count += 1
 	_apply_frame_rate()
 	if paused:
@@ -1789,8 +1800,10 @@ func _physics_process(_delta: float) -> void:
 		events = online.events  # the online match began this frame: its session steps it
 	else:
 		var inputs := PackedInt32Array()
+		_think_cpus(live)
 		for i in sides.size():
 			inputs.append(_side_bits(i, live))
+		_cpus_thought = false
 		if showcase != null and flow == Flow.FIGHT:
 			inputs = showcase.inputs(sim)
 		elif coach != null and flow == Flow.FIGHT:
@@ -1852,6 +1865,8 @@ func _physics_process(_delta: float) -> void:
 	var sh := shake * shake_scale
 	camera.offset = Vector2(randf_range(-sh, sh), randf_range(-sh, sh)).round() if sh > 0.3 else Vector2.ZERO
 	flash_rect.color.a = maxf(0.0, flash_rect.color.a - 0.04)
+	if _perf != null:
+		_perf.tick(flow == Flow.FIGHT, Time.get_ticks_usec() - tick_start)
 	_capture()
 
 
@@ -1998,10 +2013,25 @@ func _side_bits(i: int, live: bool) -> int:
 		Side.REMOTE:
 			return 0  # arrives over the network
 		Side.CPU:
+			if _cpus_thought:
+				return (cpus[i] as CpuController).last_bits
 			return (cpus[i] as CpuController).bits(sim)
 		Side.DUMMY:
 			return _dummy_bits()
 	return 0
+
+
+## Every CPU side chooses this tick's input at once, spread over the worker threads
+## (CpuController.think_all); _side_bits then hands out the answers.
+func _think_cpus(live: bool) -> void:
+	if not live:
+		return
+	var list: Array = []
+	for i in mini(sides.size(), cpus.size()):
+		if sides[i] == Side.CPU and cpus[i] != null:
+			list.append(cpus[i])
+	CpuController.think_all(list, sim)
+	_cpus_thought = true
 
 
 ## Simple behaviours for the training dummy, picked with F2.
@@ -2996,6 +3026,10 @@ func _parse_args() -> int:
 			level = clampi(int(a.get_slice("=", 1)), 0, LEVEL_NAMES.size() - 1)
 		elif a.begins_with("--seed="):
 			seed_base = int(a.get_slice("=", 1))
+		elif a == "--perf":
+			_perf = PerfLog.new()
+		elif a.begins_with("--cpu-threads="):
+			CpuController.threaded = a.get_slice("=", 1) != "off"
 		elif a.begins_with("--arena="):
 			var ar := a.get_slice("=", 1)
 			if ar in ArenaMap.IDS:
@@ -3898,6 +3932,24 @@ func _write_net_report(keep := false) -> void:
 			f.close()
 
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_print_perf()
+
+
+## Prints the --perf report and saves it as user://perf.txt (a player's build has no
+## console to print to).
+func _print_perf() -> void:
+	if _perf != null:
+		var text := _perf.report()
+		print(text)
+		var f := FileAccess.open("user://perf.txt", FileAccess.WRITE)
+		if f != null:
+			f.store_string(text + "\n")
+			f.close()
+		_perf = null
+
+
 func _capture() -> void:
 	var t := frame_count
 	if _shots.has(t):
@@ -3906,4 +3958,5 @@ func _capture() -> void:
 		get_viewport().get_texture().get_image().save_png(_shot_dir.path_join("shot_%04d.png" % t))
 	if _quit_after > 0 and t >= _quit_after:
 		_write_net_report()
+		_print_perf()
 		get_tree().quit()

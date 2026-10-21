@@ -39,6 +39,12 @@ var _clash := {}
 var _blockers_arena := ""
 var _blockers_terrain: TerrainGrid = null
 var _has_blockers := true
+## Line-of-sight answers for one terrain at one version (see clear_line).
+static var _memo := {}
+static var _memo_terrain := 0
+static var _memo_version := -1
+const MEMO_MAX := 1024
+static var _memo_lock := Mutex.new()
 
 
 func clear() -> void:
@@ -129,11 +135,39 @@ static func blocks_sight(v: int) -> bool:
 ## holding a and b don't count. Where the line passes exactly through a cell corner, both
 ## cells beside it are checked, so sight never slips between two blockers that touch
 ## diagonally.
+##
+## No wall or fence in the box round the two cells (TerrainIndex) means clear without
+## walking. Answers are kept for the terrain's current version (`_memo`): within a tick
+## every CPU on a team and the screen ask the same lines.
 static func clear_line(t: TerrainGrid, a: Vector2, b: Vector2) -> bool:
 	var c := t.world_to_cell(a)
 	var end := t.world_to_cell(b)
 	if c == end:
 		return true
+	var ix := TerrainIndex.of(t)
+	if ix.count(ix.body, mini(c.x, end.x) - 1, mini(c.y, end.y) - 1, maxi(c.x, end.x) + 1,
+			maxi(c.y, end.y) + 1) == 0:
+		return true
+	var id := t.get_instance_id()
+	var key := Vector4(a.x, a.y, b.x, b.y)
+	_memo_lock.lock()  # the CPUs may be thinking on several threads (CpuController.think_all)
+	if id != _memo_terrain or t.version != _memo_version or _memo.size() >= MEMO_MAX:
+		_memo.clear()
+		_memo_terrain = id
+		_memo_version = t.version
+	var known: Variant = _memo.get(key)
+	_memo_lock.unlock()
+	if known != null:
+		return known
+	var clear := _walk(t, a, b, c, end)
+	_memo_lock.lock()
+	if id == _memo_terrain and t.version == _memo_version:
+		_memo[key] = clear
+	_memo_lock.unlock()
+	return clear
+
+
+static func _walk(t: TerrainGrid, a: Vector2, b: Vector2, c: Vector2i, end: Vector2i) -> bool:
 	var cell := float(SimDefs.CELL)
 	# Positions in cell units, from the grid's corner.
 	var ax := (a.x - SimDefs.GRID_X) / cell

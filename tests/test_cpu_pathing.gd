@@ -117,3 +117,60 @@ func _seeded_match() -> String:
 	for t in 600:
 		sim.step(PackedInt32Array([cpus[0].bits(sim), cpus[1].bits(sim)]))
 	return sim.state_digest()
+
+
+func test_the_shared_grid_keeps_up_with_holes_and_matches_a_fresh_build() -> void:
+	# NavGrid.shared rebuilds only the node rows whose cells changed, and labels regions
+	# only after a blocked node changed: it must always equal a grid built from scratch.
+	var sim := _on("quarry")
+	var g := NavGrid.shared(sim.terrain)
+	var from := sim.terrain.cell_center(Vector2i(10, 18))
+	var to := sim.terrain.cell_center(Vector2i(42, 18))
+	assert_true(g.path(from, to).size() > 0, "a path round the wall")
+	for k in 6:
+		sim.terrain.set_cell(Vector2i(20 + k, 10 + k * 3), TerrainGrid.HOLE)
+		g = NavGrid.shared(sim.terrain)
+		var fresh := NavGrid.new()
+		fresh.update(sim.terrain)
+		assert_eq(g.blocked, fresh.blocked, "blocked nodes after hole %d:" % k)
+		assert_eq(g.path(from, to), fresh.path(from, to), "the same path after hole %d:" % k)
+	var walled := _with([{"kind": "wall", "rect": [40, 0, 2, 36]}])
+	var w := NavGrid.shared(walled.terrain)
+	assert_eq(w.path(walled.terrain.cell_center(Vector2i(10, 18)), walled.terrain.cell_center(Vector2i(70, 18))).size(),
+		0, "regions: no path through a wall across the floor")
+	walled.terrain.smash(Vector2i(40, 18))
+	walled.terrain.smash(Vector2i(41, 18))
+	walled.terrain.smash(Vector2i(40, 19))
+	walled.terrain.smash(Vector2i(41, 19))
+	w = NavGrid.shared(walled.terrain)
+	assert_true(w.path(walled.terrain.cell_center(Vector2i(10, 18)), walled.terrain.cell_center(Vector2i(70, 18))).size() > 0,
+		"once a gap is smashed, the regions join")
+
+
+func test_cpus_thinking_on_threads_choose_exactly_what_they_do_one_by_one() -> void:
+	# CpuController.think_all spreads a 4v4's CPUs over the worker threads: the inputs
+	# must be the same as calling bits() one after another, tick for tick.
+	var was := CpuController.threaded
+	var a := _ctf_inputs(true)
+	var b := _ctf_inputs(false)
+	CpuController.threaded = was
+	assert_eq(a.size(), b.size(), "same length:")
+	assert_true(a == b, "threaded and sequential CPU inputs match")
+
+
+func _ctf_inputs(threaded: bool) -> PackedInt32Array:
+	CpuController.threaded = threaded
+	var teams := [["cairn", "sno", "pete", "craglash"], ["culvert", "digby", "hissy", "barkley"]]
+	var t := TeamSim.new(teams, 4, TeamSim.load_rules(TeamSim.CTF_PATH))
+	var cpus := []
+	for i in t.slot_count():
+		cpus.append(CpuController.new(i, 3, 70 + i))
+	var out := PackedInt32Array()
+	for tick in 900:
+		CpuController.think_all(cpus, t.sim)
+		var ins := PackedInt32Array()
+		for c in cpus:
+			ins.append((c as CpuController).last_bits)
+		out.append_array(ins)
+		t.step(ins)
+	return out

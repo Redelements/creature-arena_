@@ -91,8 +91,8 @@ var _unseen := {}
 var _foe_hidden := false
 ## Finding a way round walls, fences and pits (NavGrid): the current path, where it
 ## was going, and ticks until it may be replanned. Only used when the straight line to
-## the goal is blocked, so open-floor play is exactly what it was.
-var _nav := NavGrid.new()
+## the goal is blocked, so open-floor play is exactly what it was. The grid itself is
+## shared by every CPU on the same terrain (NavGrid.shared).
 var _path := PackedVector2Array()
 var _path_goal := Vector2.INF
 var _path_t := 0
@@ -132,6 +132,35 @@ func level_name() -> String:
 	return String(p["name"])
 
 
+## Every CPU in `cpus` (nulls skipped) chooses its input for this tick at once, on the
+## worker threads; read each answer from `last_bits`. A CPU reads the match and writes
+## only its own state, and the caches they share (TerrainIndex, NavGrid, Vision's lines)
+## are brought up to date here first or are locked, so every answer is exactly what
+## calling bits() one CPU after another gives. Big team matches have eight CPUs: this
+## spreads their thinking over the cores instead of one frame.
+static func think_all(cpus: Array, sim: MatchSim) -> void:
+	var list: Array[CpuController] = []
+	for c in cpus:
+		if c != null:
+			list.append(c)
+	if list.size() < 2 or not threaded:
+		for c in list:
+			c.bits(sim)
+		return
+	SimDefs.aim_dirs()
+	NavGrid.shared(sim.terrain)  # (and its TerrainIndex) built here, read-only on the threads
+	TerrainIndex.of(sim.terrain)
+	var task := WorkerThreadPool.add_group_task(func(k: int) -> void: list[k].bits(sim),
+		list.size(), -1, true, "CPU players")
+	WorkerThreadPool.wait_for_group_task_completion(task)
+
+
+## Whether think_all uses the worker threads (--cpu-threads=off turns it off, to compare).
+static var threaded := true
+## The input chosen by the last bits() call.
+var last_bits := 0
+
+
 func bits(sim: MatchSim) -> int:
 	_out = 0
 	var me := sim.creatures[me_idx]
@@ -159,6 +188,7 @@ func bits(sim: MatchSim) -> int:
 			var at := _aim_point(me, foe) if _rage() else _seen(foe)
 			_out |= SimDefs.aim_bits(at - me.pos)
 	_prev = _out
+	last_bits = _out
 	return _out
 
 
@@ -232,10 +262,9 @@ func _go_to(sim: MatchSim, me: CreatureSim, goal: Vector2, weave := Vector2.ZERO
 		else:
 			_move_toward(v)
 		return
-	_nav.update(sim.terrain)
 	_path_t -= 1
 	if _path.is_empty() or _path_t <= 0 or _path_goal.distance_to(goal) > 20.0:
-		_path = _nav.path(me.pos, goal)
+		_path = NavGrid.shared(sim.terrain).path(me.pos, goal)
 		_path_goal = goal
 		_path_t = REPLAN_TICKS
 	# Drop waypoints already reached, or that the next one can be walked to straight.
@@ -913,7 +942,7 @@ func _steer(sim: MatchSim, me: CreatureSim, v: Vector2) -> Vector2:
 			continue
 		for k in [6.0, 14.0, 24.0]:
 			var at: Vector2 = me.pos + d * (me.radius + k)
-			if sim.terrain.is_hole_at(at) or sim.terrain.body_blocked(at, me.radius):
+			if sim.terrain.is_hole_at(at) or NavGrid.body_blocked(sim.terrain, at, me.radius):
 				s -= 2.5 if k < 20.0 else 0.8
 				break
 		if not room.has_point(me.pos + d * 10.0):
@@ -938,7 +967,7 @@ func _open_dir(sim: MatchSim, me: CreatureSim, away: Vector2) -> Vector2:
 		var s := d.dot(a) * 1.2 + minf(clear, 100.0) / 100.0
 		for k in [8.0, 20.0, 34.0]:
 			var at: Vector2 = me.pos + d * (me.radius + k)
-			if sim.terrain.is_hole_at(at) or sim.terrain.body_blocked(at, me.radius):
+			if sim.terrain.is_hole_at(at) or NavGrid.body_blocked(sim.terrain, at, me.radius):
 				s -= 1.5
 				break
 		if s > best_s:

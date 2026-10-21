@@ -14,6 +14,12 @@ goes for showcases, trials and drills.
   where it was last seen (`_seen`) and its swings aren't read.
 - Rules it must respect live in the sim (`can_dodge`, `can_guard`, stamina); check them
   before choosing an action, or the press is wasted.
+- `bits()` may run on a worker thread (`think_all`, main's `_think_cpus`): it must only read
+  the match and write the controller's own fields. A cache shared between CPUs is filled in
+  `think_all` before the threads start, or locked (`NavGrid._label_lock`, Vision's memo).
+  `tests/test_cpu_pathing.gd` checks threaded inputs equal sequential ones.
+- Cost: a 4v4 has eight CPUs in one tick. Measure with `tests/bench_ai_cost.gd` before and
+  after a change to thinking that walks the map (paths, line checks, `_steer`).
 - Win rates are noisy: `tests/bench_cpu.gd --matrix` plays 6 games a pair at `--seeds=3`.
   Use `--only=<id> --seeds=6` (132 games) before trusting a few-percent change.
 
@@ -42,8 +48,11 @@ default 22), `routes` (lists of action names), `far_routes`/`far_from`, `poke`/`
 - Neutral (pokes, lobs, gaze, zones, stealth, burrow, surge, grab, kite) → `_neutral`;
   Rage → `_rage_neutral`, `_rage_kit` and the `_plan_*` helpers
 - Kiting / ranged → `_plan_kite`, `_kite_vector`, `_is_ranged`; running a kiter down → `_chase`
-- Walls and pits → `nav_grid.gd` (16 px nodes, integer-cost Dijkstra in a fixed order,
-  rebuilt on `terrain.version`), `_go_to`, `_steer`, `_open_dir`, `_clearance`
+- Walls and pits → `nav_grid.gd` (16 px nodes, integer-cost A* in a fixed order, one grid
+  per terrain shared by every CPU (`NavGrid.shared`), rebuilt row by row on `terrain.version`,
+  regions for unreachable goals), `_go_to`, `_steer`, `_open_dir`, `_clearance`; fast
+  open-floor checks `NavGrid.clear_line`, `NavGrid.body_blocked` (via `TerrainIndex`)
+- Threads → `think_all`, `threaded`, `last_bits`
 - Leading shots → `_aim_point`; team targeting → `_pick_target`, `_hurt_ally`; Duel tag-out
   → `_maybe_tag`; Crease's folds → `_usable`, `_maybe_fold`
 
