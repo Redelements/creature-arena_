@@ -71,7 +71,8 @@ size only: a map's `size` can be bigger, so code with a match asks `sim.floor_re
   `_resolve_fold`; the held Gulp → `match_sim.gd:_swallow`, `_step_swallows`, `_poop`
 - Tag swap, KO swap, bench regen → `duel_sim.gd:_tag`, `_enter_next`, `_bench_regen`
 - Team modes → `team_sim.gd:_deathmatch_step`, `_respawn`, `_sinkhole_step`, `_crater_step`,
-  `_caravan_step`, `_ctf_step` (fumbles `_fumble`, passes `_try_pass`, flights `_fly`,
+  `_caravan_step` (rockslides `_cv_rockslide`, digging `_cv_rubble_ahead` / `_cv_clear_rubble`,
+  escort heal `escort_healing`), class perks `perk` / `role_of`, `_ctf_step` (fumbles `_fumble`, passes `_try_pass`, flights `_fly`,
   shrines `_shrine_step`); CPU goals a mode sets → `match_sim.gd:goals` (saved)
 - Map bridges that break → `match_sim.gd:_step_bridges`, `bridge_strain`, `bridges` (saved)
 - Win / time-out rules → `duel_sim.gd:_time_out`, `team_sim.gd:_time_out`

@@ -1,17 +1,58 @@
 {
-	"_doc": "Caravan (2v2, 3v3): escort the caravan along the map's track to the other end. Two rounds: red attacks first (from the track's start), then blue (from its end). Attackers alone within radius push it (push_speed px a tick, times push_mult by how many: index = attackers there), both sides stop it, defenders alone roll it back at back_speed, never behind the last checkpoint passed. Checkpoints (shares of the track) add checkpoint_seconds and move the attackers' respawn up to them (respawn_behind px back along the track). At time out a round goes on while an attacker is at the caravan, up to overtime_seconds. The second round stops once decided. Winner: the faster finish, or the longer push. Unlimited lives (respawns on the pads like Team Deathmatch); KOs score nothing. Times are in ticks (60 per second) unless named _seconds.",
+	"_doc": "Caravan (2v2, 3v3): escort the caravan along the map's track to the other end. Two rounds: red attacks first (from the track's start), then blue (from its end). Attackers alone within radius push it (push_speed px a tick, times push_mult by how many: index = attackers there), both sides stop it, defenders alone roll it back at back_speed, never behind the last checkpoint passed. Checkpoints (shares of the track) add checkpoint_seconds and move the attackers' respawn up to them (respawn_behind px back along the track). At time out a round goes on while an attacker is at the caravan, up to overtime_seconds. The second round stops once decided. Winner: the faster finish, or the longer push. Unlimited lives (respawns on the pads like Team Deathmatch); KOs score nothing. Times are in ticks (60 per second) unless named _seconds. escort_heal: hp a second attackers at the caravan heal while on their feet. rockslide: each checkpoint drops rubble across the road `ahead` px on (`across` wide, `thick` deep); the caravan stops at it until attackers alone at it dig through (dig_ticks, faster with the dig perk) or a heavy charge smashes it. class_perks: per fighter class (its sheet's role), what it adds here (push, dig, heal, contest, back, respawn; see TeamSim) and the text the game shows.",
 	"deathmatch": true,
 	"caravan": true,
 	"arena": "caravan_pass",
 	"round_seconds": 120,
 	"checkpoint_seconds": 30,
 	"overtime_seconds": 20,
-	"checkpoints": [0.34, 0.67],
+	"checkpoints": [
+		0.34,
+		0.67
+	],
 	"radius": 56,
 	"push_speed": 0.26,
-	"push_mult": [1.0, 1.0, 1.2, 1.35],
+	"push_mult": [
+		1.0,
+		1.0,
+		1.2,
+		1.35
+	],
 	"back_speed": 0.1,
 	"respawn_behind": 70,
+	"escort_heal": 4,
+	"rockslide": {
+		"ahead": 110,
+		"across": 104,
+		"thick": 16,
+		"dig_ticks": 240
+	},
+	"class_perks": {
+		"tank": {
+			"push": 1.3,
+			"text": "pushes the caravan 30% faster"
+		},
+		"bruiser": {
+			"dig": 2.0,
+			"text": "digs through rockslides twice as fast"
+		},
+		"mage": {
+			"heal": 2.0,
+			"text": "doubles the escort's healing"
+		},
+		"fighter": {
+			"contest": 0.25,
+			"text": "a contested caravan creeps your way"
+		},
+		"assassin": {
+			"back": 1.5,
+			"text": "rolls the caravan back 50% faster"
+		},
+		"skirmisher": {
+			"respawn": 1.5,
+			"text": "back in 1.5 s sooner"
+		}
+	},
 	"intro_ticks": 100,
 	"over_ticks": 180,
 	"mid_ko_slowmo": 18,

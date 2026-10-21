@@ -1252,7 +1252,8 @@ func _update_zone() -> void:
 		if not was.is_empty():
 			travel += Vector2(was["pos"]).distance_to(at)
 		fx.caravan = {"pos": at, "heading": team_battle.caravan_heading(), "radius": float(team_battle.rules.get("radius", 56)),
-			"state": team_battle.cv_state, "team": team_battle.cv_attacker(), "travel": travel}
+			"state": team_battle.cv_state, "team": team_battle.cv_attacker(), "travel": travel,
+			"healing": team_battle.members(team_battle.cv_attacker()).filter(func(c): return team_battle.escort_healing(c)).map(func(c): return c.id)}
 		fx.zone = {}
 		return
 	if team_battle == null or not team_battle.crater or sim.zone_r <= 0.0:
@@ -1321,6 +1322,11 @@ func _team_flow() -> void:
 			hud.banner_sub = sub if t < 60 else ""
 			if t == 2 or t == 60:
 				audio.play("round_start", 0.0, 0.75 if t == 2 else 1.0)
+			if t == 60:  # your class's perk in this mode, as the fight starts
+				var me := sides.find(Side.PLAYER) if online == null else online.local_slot
+				if me >= 0 and team_battle.perk_text(sim.creatures[me]) != "":
+					var c := sim.creatures[me]
+					hud.show_toast("%s PERK: %s" % [TeamSim.role_of(c).to_upper(), team_battle.perk_text(c).to_upper()])
 		TeamSim.Phase.FIGHT:
 			_update_pads()
 			_update_zone()
@@ -1331,6 +1337,10 @@ func _team_flow() -> void:
 					hud.show_toast("THE CRATER MOVED")
 				elif e["type"] == "checkpoint":
 					hud.show_toast("CHECKPOINT  +%d s" % int(team_battle.rules.get("checkpoint_seconds", 30)))
+				elif e["type"] == "rockslide":
+					hud.show_toast("ROCKSLIDE!  DIG THROUGH IT, OR SMASH IT WITH A CHARGE")
+				elif e["type"] == "rubble_clear":
+					hud.show_toast("THE ROAD IS CLEAR")
 				elif e["type"] in ["flag_take", "flag_drop", "flag_return", "capture", "flag_fumble", "flag_pass",
 						"flag_land", "shrine", "shrine_ready", "bridge_fall", "bridge_strain", "bridge_up"]:
 					_ctf_toast(e)
@@ -2108,6 +2118,13 @@ func _react(e: Dictionary) -> void:
 		"checkpoint", "caravan_done":
 			audio.play("round_start", -3.0, 1.2)
 			crowd.cheer(0.7)
+		"rockslide":
+			audio.play("cave_in")
+			shake = maxf(shake, 5.0)
+			crowd.roar(40)
+		"rubble_clear":
+			audio.play("stones_scatter", -2.0)
+			crowd.cheer(0.4)
 		"capture":
 			audio.play("round_start", 0.0, 1.3)
 			crowd.roar(90)

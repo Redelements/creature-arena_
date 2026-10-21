@@ -435,6 +435,11 @@ about 2.6 times the stadium's width; the camera follows you.
   **slowly rolls back** (grey ring).
 - **Checkpoints** at a third and two thirds of the way: passing one adds **30 seconds**,
   the caravan can't roll back past it, and the attackers now respawn there.
+- **Rockslides:** each checkpoint brings rubble down across the road ahead. The caravan
+  stops at it (orange ring) until attackers at it with no defenders around dig it through
+  (about 4 s alone), or a heavy charge smashes it. The rest of the heap stays as cover.
+- **Escort healing:** attackers at the caravan slowly heal (4 HP a second) while they're on
+  their feet (small green crosses).
 - Each round lasts **2 minutes** plus the checkpoints' time. When time runs out with an
   attacker at the caravan, the round goes on (**overtime**, up to 20 s) until none is.
 - **Winning:** the team that got the caravan home faster, or, if neither did, the one that
@@ -444,6 +449,20 @@ about 2.6 times the stadium's width; the camera follows you.
 - Unlimited respawns (5 s), like Team Deathmatch; KOs don't score.
 
 Tuning: `data/rules/caravan.json`; the map and its track: `data/arenas/caravan_pass.json`.
+
+### Class perks in Caravan and Capture the Flag
+
+Each fighter's class gives it one perk in each objective mode (the game names yours as the
+fight starts). Tuning: `class_perks` in `data/rules/caravan.json` and `ctf.json`.
+
+| Class (fighters) | Caravan | Capture the Flag |
+|---|---|---|
+| Tank (Craglash) | pushes the caravan 30% faster | only launches and knockdowns knock the flag loose |
+| Bruiser (Barkley, Sno Mercy) | digs through rockslides twice as fast | any heavy hit knocks the flag out of a carrier |
+| Fighter (Cairn, Culvert, Hissy Fitz) | a contested caravan creeps your way | grabs and returns flags from farther |
+| Mage (Chef Cerebro, Mister Crease) | doubles the escort's healing | claims shrines 50% faster |
+| Assassin (Digby, Sneaky Pete) | rolls the caravan back 50% faster | carries the flag almost at full speed |
+| Skirmisher (Gillbert) | back in 1.5 s sooner | passes farther and faster |
 
 ### Capture the Flag: 3v3 and 4v4
 
