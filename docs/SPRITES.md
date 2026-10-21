@@ -488,6 +488,12 @@ cracked or changed picture when the cell's state differs from the map's, so a cr
 patch joins up. A map without art falls back to the tiles below. The pieces' rects come
 from `data/arenas/<id>.json`: move a piece there and rerun the generator.
 
+## Caravan — 48×40
+
+The Caravan's wagon (`assets/sprites/caravan.png`, `tools/gen_arenas.py:caravan_sprite`): four
+frames of its wheels turning, facing right (mirrored heading left), ground contact at
+(24, 36). The view adds the shadow, the push ring and the attackers' flag.
+
 ## Crowd — 12×16
 
 Four fan variants, two frames each (seated, cheering), in one row.

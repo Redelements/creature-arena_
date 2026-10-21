@@ -142,7 +142,7 @@ Online from a terminal: `godot --path . -- --online-host` and `godot --path . --
 25 Sneaky Pete vs CPU Digby, 26 training as Sneaky Pete, 27 Sno Mercy vs CPU Sneaky Pete,
 28 training as Sno Mercy, 29 Team battle 2v2 vs CPU, 30 Team battle 3v3 vs CPU,
 31 Team Deathmatch 2v2 vs CPU, 32 Team Deathmatch 3v3 vs CPU, 48 Mister Crease vs CPU Chef Cerebro,
-49 training as Mister Crease. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
+49 training as Mister Crease, 50 Caravan 2v2 vs CPU, 51 Caravan 3v3 vs CPU. `--teams=craglash,cairn,culvert:culvert,cairn,craglash`
 sets Duel (and Team battle) teams; `--cpu-vs-cpu` hands every player side to the CPU (`--view-team=N` then shows it as team N sees it: brush, fences and walls hide the other side).
 
 **Local 2-player:** with two controllers, each player gets one (player 1 can also use the
@@ -420,6 +420,30 @@ down.
 
 Offline for now (vs CPU); online Team Deathmatch needs the server to run the mode.
 Tuning: `data/rules/deathmatch.json`.
+
+### Caravan: 2v2 and 3v3
+
+Single player > Caravan vs CPU, or online (pick **Caravan** as the team rules for a 2 v 2 or
+3 v 3 Quick match or room). Played on its own long map, **Dustwind Pass**, a canyon road
+about 2.6 times the stadium's width; the camera follows you.
+
+- **Two rounds.** Red escorts the caravan from its end of the road to blue's; then the
+  sides swap and blue pushes from its end.
+- **Pushing:** with attackers near it (inside the ring round the wagon) and no defenders,
+  the caravan rolls toward the defenders' end, faster with two or three pushing. With
+  both sides near it, it stops (the ring turns gold). With only defenders near it, it
+  **slowly rolls back** (grey ring).
+- **Checkpoints** at a third and two thirds of the way: passing one adds **30 seconds**,
+  the caravan can't roll back past it, and the attackers now respawn there.
+- Each round lasts **2 minutes** plus the checkpoints' time. When time runs out with an
+  attacker at the caravan, the round goes on (**overtime**, up to 20 s) until none is.
+- **Winning:** the team that got the caravan home faster, or, if neither did, the one that
+  pushed it further. Round two ends early once it's decided (past red's distance, or
+  already slower than red's finish). The strip under the clock shows the road, the
+  checkpoints, the caravan and, in round two, the mark to beat.
+- Unlimited respawns (5 s), like Team Deathmatch; KOs don't score.
+
+Tuning: `data/rules/caravan.json`; the map and its track: `data/arenas/caravan_pass.json`.
 
 ### Training
 

@@ -32,6 +32,18 @@ extends RefCounted
 ## tick a tick (`score`); first to `score_to_win` ticks wins, or the longer hold at time.
 ## The rim cracks when the zone lands and chips every `crack_every` ticks while held.
 ## KOs score nothing.
+##
+## Caravan (rules with "caravan": data/rules/caravan.json, on top of the deathmatch
+## respawns, on a map with a "track"): a caravan rides the track, a polyline of floor
+## points from side 0's end to side 1's. Two rounds: in round 0 side 0 attacks from the
+## track's start, in round 1 side 1 attacks from its end. Within `radius` of the caravan,
+## attackers alone push it (`push_speed` px a tick, times `push_mult` by how many), both
+## sides stop it, defenders alone roll it back (`back_speed`), never behind the last
+## checkpoint passed. Checkpoints (`checkpoints`, shares of the track) add
+## `checkpoint_seconds` to the clock and move the attackers' respawn up to them. At time
+## out a round goes on while an attacker is at the caravan (up to `overtime_seconds`).
+## Round 1 stops as soon as it is decided: past round 0's distance, or slower than round
+## 0's finish. The winner finished faster, or pushed further. KOs score nothing.
 
 enum Phase { INTRO, FIGHT, OVER }
 
@@ -65,11 +77,29 @@ var score := [0, 0]
 var respawn_t: Array = []
 var guard_t: Array = []
 var overtime := false
+## Caravan only: the round (0: side 0 attacks), the caravan's progress (px from the
+## attackers' start), checkpoints passed, ticks into the round, overtime ticks used, what
+## it is doing (-1 rolling back, 0 still, 1 pushed, 2 contested), and per side the best
+## distance it pushed and the ticks it took to finish (-1: didn't).
+var caravan := false
+var cv_round := 0
+var cv_p := 0.0
+var cv_cp := 0
+var cv_t := 0
+var cv_ot := 0
+var cv_state := 0
+var cv_best := [0.0, 0.0]
+var cv_time := [-1, -1]
+## The track (from the map, fixed for the match): its points and the distance along it
+## to each one.
+var _track: Array[Vector2] = []
+var _track_at: Array[float] = []
 
 
 ## The rules a mode id names ("" is the plain team battle), for the menus and the net.
-const RULE_IDS := ["", "deathmatch", "sinkhole", "crater"]
-const RULE_NAMES := ["Team battle", "Team Deathmatch", "Sinkhole", "King of the Crater"]
+const RULE_IDS := ["", "deathmatch", "sinkhole", "crater", "caravan"]
+const RULE_NAMES := ["Team battle", "Team Deathmatch", "Sinkhole", "King of the Crater", "Caravan"]
+const CARAVAN_PATH := "res://data/rules/caravan.json"
 
 
 static func rules_by_id(id: String) -> Dictionary:
@@ -77,6 +107,7 @@ static func rules_by_id(id: String) -> Dictionary:
 		"deathmatch": return load_rules(DEATHMATCH_PATH)
 		"sinkhole": return load_rules(SINKHOLE_PATH)
 		"crater": return load_rules(CRATER_PATH)
+		"caravan": return load_rules(CARAVAN_PATH)
 	return {}
 
 
@@ -112,11 +143,17 @@ func _init(team_ids: Array, per_side := 0, p_rules: Dictionary = {}) -> void:
 	for i in slot_count():
 		respawn_t.append(-1)
 		guard_t.append(0)
+	caravan = bool(rules.get("caravan", false))
+	if caravan:
+		_load_track()
+		_cv_start_round(0)
 
 
 ## Team Deathmatch: where slot k of a side respawns, on its pad against its own side wall
 ## (stacked up and down it like the start).
 func pad_point(side: int, k: int) -> Vector2:
+	if caravan and side == cv_attacker():
+		return _cv_respawn_point(k)
 	var fl := sim.floor_rect()
 	var inset := float(rules.get("pad_inset", 44))
 	var x := fl.position.x + inset if side == 0 else fl.end.x - inset
@@ -190,6 +227,10 @@ func step(inputs: PackedInt32Array) -> void:
 		_crater_step()
 		if phase != Phase.FIGHT:
 			return
+	if caravan and sim.ko_freeze == 0:
+		_caravan_step()
+		if phase != Phase.FIGHT:
+			return
 	if deathmatch:
 		_deathmatch_step()
 		return
@@ -220,7 +261,7 @@ func _deathmatch_step() -> void:
 			var side := 1 - c.team
 			respawn_t[slot] = int(float(rules.get("respawn_seconds", 4)) * SimDefs.TICK_RATE)
 			guard_t[slot] = 0
-			if not crater:  # the Crater scores holds, not KOs
+			if not crater and not caravan:  # the Crater and the Caravan score objectives, not KOs
 				score[side] += 1
 				sim.emit_event("score", c.pos, float(score[side]), {"who": c.id, "team": side,
 					"score": score.duplicate()})
@@ -240,7 +281,7 @@ func _deathmatch_step() -> void:
 			if c.state == CreatureSim.State.ATTACK:
 				guard_t[slot] = 0
 				c.invuln = 0
-	if timer <= 0 and not overtime:
+	if timer <= 0 and not overtime and not caravan:
 		if score[0] == score[1]:
 			overtime = true  # sudden death: the next KO (or the next tick held) wins
 			sim.emit_event("overtime", Vector2.ZERO, 0.0)
@@ -297,12 +338,23 @@ func _crater_step() -> void:
 		_place_zone(true)
 
 
-## What the score panels show: seconds held in the Crater, KOs elsewhere.
+## What the score panels show: seconds held in the Crater, the share of the track pushed
+## in the Caravan, KOs elsewhere.
 func score_text(side: int) -> String:
+	if caravan:
+		if side != cv_attacker() and cv_round <= side:
+			return "-"  # hasn't had its push yet
+		if int(cv_time[side]) >= 0:
+			return "%d s" % (int(cv_time[side]) / SimDefs.TICK_RATE)
+		return "%d%%" % roundi(100.0 * float(cv_best[side]) / maxf(track_length(), 1.0))
 	return str(int(score[side]) / SimDefs.TICK_RATE) if crater else str(int(score[side]))
 
 
 func goal_text() -> String:
+	if caravan:
+		if cv_ot > 0:
+			return "OVERTIME"
+		return "ROUND %d: %s PUSHES" % [cv_round + 1, "RED" if cv_attacker() == 0 else "BLUE"]
 	if overtime:
 		return "SUDDEN DEATH"
 	if crater:
@@ -396,6 +448,204 @@ func _respawn(slot: int) -> void:
 	sim.emit_event("respawn", c.pos, 0.0, {"who": c.id, "team": c.team})
 
 
+# ------------------------------------------------------------------ caravan
+
+func _load_track() -> void:
+	_track.clear()
+	_track_at.clear()
+	var total := 0.0
+	for pt in sim.arena.get("track", []):
+		var v := Vector2(float(pt[0]), float(pt[1]))
+		if not _track.is_empty():
+			total += _track[_track.size() - 1].distance_to(v)
+		_track.append(v)
+		_track_at.append(total)
+	if _track.size() < 2:  # a map with no track: a straight run between the spawns
+		_track = [sim.spawn(0), sim.spawn(1)]
+		_track_at = [0.0, sim.spawn(0).distance_to(sim.spawn(1))]
+
+
+func track_length() -> float:
+	return _track_at[_track_at.size() - 1] if not _track_at.is_empty() else 0.0
+
+
+## The point `d` px along the track from its start (side 0's end).
+func track_point(d: float) -> Vector2:
+	d = clampf(d, 0.0, track_length())
+	for i in range(1, _track.size()):
+		if d <= _track_at[i] or i == _track.size() - 1:
+			var seg := _track_at[i] - _track_at[i - 1]
+			var k := (d - _track_at[i - 1]) / seg if seg > 0.0 else 0.0
+			return _track[i - 1].lerp(_track[i], k)
+	return _track[0]
+
+
+## The way the track runs at `d` px along it (from side 0's end toward side 1's).
+func track_dir(d: float) -> Vector2:
+	d = clampf(d, 0.0, track_length())
+	for i in range(1, _track.size()):
+		if d <= _track_at[i] or i == _track.size() - 1:
+			return (_track[i] - _track[i - 1]).normalized()
+	return Vector2.RIGHT
+
+
+## The side pushing this round.
+func cv_attacker() -> int:
+	return cv_round
+
+
+## How far along the track (from side 0's end) a progress of `p` from the attackers'
+## start is.
+func _cv_d(p: float) -> float:
+	return p if cv_attacker() == 0 else track_length() - p
+
+
+func caravan_pos() -> Vector2:
+	return track_point(_cv_d(cv_p))
+
+
+## The way the caravan is headed (toward the defenders' end).
+func caravan_heading() -> Vector2:
+	var d := track_dir(_cv_d(cv_p))
+	return d if cv_attacker() == 0 else -d
+
+
+## Progress of each checkpoint, in px from the attackers' start.
+func checkpoint_at(i: int) -> float:
+	var cps: Array = rules.get("checkpoints", [])
+	return float(cps[i]) * track_length() if i < cps.size() else INF
+
+
+func _near_caravan(c: CreatureSim) -> bool:
+	return not _down(c) and c.state != CreatureSim.State.FALLING \
+		and c.pos.distance_to(caravan_pos()) <= float(rules.get("radius", 56))
+
+
+## How many of each side are at the caravan.
+func caravan_counts() -> Array:
+	var n := [0, 0]
+	for c in sim.creatures:
+		if _near_caravan(c):
+			n[c.team] += 1
+	return n
+
+
+func _caravan_step() -> void:
+	var att := cv_attacker()
+	var n := caravan_counts()
+	var a := int(n[att])
+	var d := int(n[1 - att])
+	var floor_p := checkpoint_at(cv_cp - 1) if cv_cp > 0 else 0.0
+	if a > 0 and d == 0:
+		var mult: Array = rules.get("push_mult", [1.0, 1.0, 1.2, 1.35])
+		cv_p += float(rules.get("push_speed", 0.26)) * float(mult[mini(a, mult.size() - 1)])
+		cv_state = 1
+	elif a > 0:
+		cv_state = 2
+	elif d > 0:
+		cv_p = maxf(floor_p, cv_p - float(rules.get("back_speed", 0.1)))
+		cv_state = -1
+	else:
+		cv_state = 0
+	cv_p = minf(cv_p, track_length())
+	cv_t += 1
+	while cv_p >= checkpoint_at(cv_cp):
+		cv_cp += 1
+		timer += int(float(rules.get("checkpoint_seconds", 30)) * SimDefs.TICK_RATE)
+		sim.emit_event("checkpoint", caravan_pos(), float(cv_cp), {"team": att})
+	cv_best[att] = maxf(float(cv_best[att]), cv_p)
+	sim.zone_pos = caravan_pos()
+	sim.zone_r = float(rules.get("radius", 56))
+	if cv_p >= track_length():
+		cv_time[att] = cv_t
+		sim.emit_event("caravan_done", caravan_pos(), float(cv_t), {"team": att})
+		_cv_end_round()
+		return
+	if cv_round == 1:
+		# Decided early: past round 0's push, or already slower than its finish.
+		if int(cv_time[0]) >= 0 and cv_t >= int(cv_time[0]):
+			_cv_end_round()
+			return
+		if int(cv_time[0]) < 0 and cv_p > float(cv_best[0]) + 0.5:
+			_cv_end_round()
+			return
+	if timer <= 0:
+		var ot_max := int(float(rules.get("overtime_seconds", 20)) * SimDefs.TICK_RATE)
+		if a > 0 and cv_ot < ot_max:
+			cv_ot += 1  # overtime: it goes on while an attacker is at the caravan
+		else:
+			_cv_end_round()
+
+
+func _cv_end_round() -> void:
+	if cv_round == 0:
+		_cv_start_round(1)
+		return
+	var w := -1
+	var t0 := int(cv_time[0])
+	var t1 := int(cv_time[1])
+	if t0 >= 0 and t1 >= 0:
+		w = 0 if t0 < t1 else (1 if t1 < t0 else -1)
+	elif t0 >= 0 or t1 >= 0:
+		w = 0 if t0 >= 0 else 1
+	else:
+		var b0 := float(cv_best[0])
+		var b1 := float(cv_best[1])
+		w = 0 if b0 > b1 + 0.5 else (1 if b1 > b0 + 0.5 else -1)
+	if w < 0:
+		winner = -1
+		_set_phase(Phase.OVER)
+		sim.emit_event("duel_over", Vector2.ZERO, 1.0, {"winner": -1, "by": "caravan"})
+	else:
+		_finish(w, "caravan")
+
+
+## A round starts: the caravan at the attackers' end, everyone back at their own end,
+## fresh, the clock reset; then the intro countdown.
+func _cv_start_round(r: int) -> void:
+	cv_round = r
+	cv_p = 0.0
+	cv_cp = 0
+	cv_t = 0
+	cv_ot = 0
+	cv_state = 0
+	timer = int(float(rules.get("round_seconds", 120)) * SimDefs.TICK_RATE)
+	sim.zone_pos = caravan_pos()
+	sim.zone_r = float(rules.get("radius", 56))
+	if r > 0:
+		for slot in slot_count():
+			var c := sim.creatures[slot]
+			var k := 0
+			for o in sim.creatures:
+				if o.team == c.team and o.id < c.id:
+					k += 1
+			var fresh := CreatureSim.new(c.id, c.def, spawn_point(c.team, k, size, float(rules.get("spawn_spread", 60))), c.is_dummy)
+			var energy := c.energy
+			c.load_state(fresh.save_state())
+			c.energy = energy
+			c.facing = Vector2.RIGHT if c.team == 0 else Vector2.LEFT
+			respawn_t[slot] = -1
+			guard_t[slot] = 0
+		sim.projectiles.clear()
+		sim.zones.clear()
+		sim.storms.clear()
+		_set_phase(Phase.INTRO)
+	sim.emit_event("caravan_round", caravan_pos(), float(r), {"team": cv_attacker()})
+
+
+## Where an attacker respawns: beside the track at the last checkpoint passed (the
+## attackers' end before the first), stacked across the track.
+func _cv_respawn_point(k: int) -> Vector2:
+	var p := checkpoint_at(cv_cp - 1) if cv_cp > 0 else 0.0
+	var back := float(rules.get("respawn_behind", 70))
+	var dd := _cv_d(maxf(0.0, p - back))
+	var at := track_point(dd)
+	var dir := track_dir(dd)
+	var across := Vector2(-dir.y, dir.x)
+	var spread := float(rules.get("pad_spread", 48))
+	return at + across * (float(k) - float(size - 1) * 0.5) * spread
+
+
 func _time_out() -> void:
 	var share := [0.0, 0.0]
 	for side in 2:
@@ -415,7 +665,8 @@ func _time_out() -> void:
 func snapshot() -> Dictionary:
 	return {"phase": phase, "phase_t": phase_t, "timer": timer, "winner": winner, "match": sim.snapshot(),
 		"score": score.duplicate(), "respawn_t": respawn_t.duplicate(), "guard_t": guard_t.duplicate(),
-		"overtime": overtime, "ring": ring, "sink_t": sink_t, "warned": warned, "zone_i": zone_i, "zone_t": zone_t}
+		"overtime": overtime, "ring": ring, "sink_t": sink_t, "warned": warned, "zone_i": zone_i, "zone_t": zone_t,
+		"cv": [cv_round, cv_p, cv_cp, cv_t, cv_ot, cv_state, cv_best.duplicate(), cv_time.duplicate()]}
 
 
 func restore(s: Dictionary) -> void:
@@ -432,6 +683,15 @@ func restore(s: Dictionary) -> void:
 	warned = bool(s.get("warned", false))
 	zone_i = int(s.get("zone_i", 0))
 	zone_t = int(s.get("zone_t", 0))
+	var cv: Array = s.get("cv", [0, 0.0, 0, 0, 0, 0, [0.0, 0.0], [-1, -1]])
+	cv_round = int(cv[0])
+	cv_p = float(cv[1])
+	cv_cp = int(cv[2])
+	cv_t = int(cv[3])
+	cv_ot = int(cv[4])
+	cv_state = int(cv[5])
+	cv_best = (cv[6] as Array).duplicate()
+	cv_time = (cv[7] as Array).duplicate()
 	sim.restore(s["match"])
 
 
@@ -439,7 +699,7 @@ func state_digest() -> String:
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(var_to_bytes([sim.state_digest(), phase, phase_t, timer, winner, score, respawn_t, guard_t,
-		overtime, ring, sink_t, warned, zone_i, zone_t]))
+		overtime, ring, sink_t, warned, zone_i, zone_t, cv_round, cv_p, cv_cp, cv_t, cv_ot, cv_state, cv_best, cv_time]))
 	return ctx.finish().hex_encode()
 
 

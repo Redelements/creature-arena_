@@ -51,7 +51,7 @@ update the map in the same change.
 | walls, fences, brush, arena pieces | `data/arenas/<id>.json`, `src/sim/arena_map.gd`, `src/sim/terrain_grid.gd:load_map` | arena, crossings |
 | line of sight, hidden fighters | `src/sim/vision.gd`; main's `src/game/main.gd:_update_vision` | vision |
 | tag, Duel, 3v3 tag rules | `src/sim/duel_sim.gd:_tag`, `_enter_next`, `_bench_regen` | duel |
-| 2v2, 3v3, Team Deathmatch, Sinkhole, King of the Crater | `src/sim/team_sim.gd` and `data/rules/` | team, deathmatch, sinkhole, crater |
+| 2v2, 3v3, Team Deathmatch, Sinkhole, King of the Crater, Caravan | `src/sim/team_sim.gd` (`_caravan_step`, `_cv_end_round`, `track_point`) and `data/rules/`; Caravan's map `data/arenas/caravan_pass.json` (`track`), drawn by `fx_view.gd:_draw_caravan`, `hud.gd:_caravan_bar` | team, deathmatch, sinkhole, crater, caravan |
 | Brawl, Chaos Cup, mutators | `src/sim/brawl_sim.gd`, `data/rules/mutators.json`, `src/sim/match_sim.gd:apply_mutators` | brawl, ladders |
 | win and time-out rules | `src/sim/duel_sim.gd:_time_out`, `src/sim/team_sim.gd:_time_out` | duel, team |
 | rollback state, snapshot, desync digest | `src/sim/match_sim.gd:snapshot`, `restore`, `state_digest`; `src/sim/creature_sim.gd` `STATE_FIELDS` | rollback, determinism |

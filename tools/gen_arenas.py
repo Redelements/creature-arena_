@@ -747,7 +747,7 @@ WOOD = [(64, 42, 24), (100, 70, 40), (134, 98, 58), (170, 130, 80)]
 BRICK = [(66, 34, 30), (96, 50, 40), (132, 70, 52), (156, 92, 70), (180, 118, 92)]
 
 
-def bushes(img, rng, rect_):
+def bushes(img, rng, rect_, leaf=None):
     """A bed of brush: leafy clumps packed into `rect_` (spilling a pixel or two past it),
     back to front, lit from the top left, a dark outline round the whole bed."""
     x0, y0, w, h = rect_
@@ -773,9 +773,9 @@ def bushes(img, rng, rect_):
                 k = 2 + (1 if lit > 0.2 else 0) + (1 if lit > 0.6 else 0) - (1 if lit < -0.45 else 0)
                 if rng.random() < 0.18:  # leaf texture
                     k += 1 if rng.random() < 0.5 else -1
-                rect(img, xx, yy, 1, 1, LEAF[max(0, min(5, k))])
+                rect(img, xx, yy, 1, 1, (leaf or LEAF)[max(0, min(5, k))])
                 sil[yy - y0 + 4, xx - x0 + 4] = True
-    outline(img, sil, x0 - 4, y0 - 4, LEAF[0])
+    outline(img, sil, x0 - 4, y0 - 4, (leaf or LEAF)[0])
     for _ in range(int(w * h / 90)):   # a few berries and blossoms
         bx, by = x0 + 3 + int(rng.random() * (w - 6)), y0 + 3 + int(rng.random() * (h - 6))
         rect(img, bx, by, 1, 1, (214, 72, 90) if rng.random() < 0.5 else (246, 230, 150))
@@ -864,14 +864,188 @@ def greenhouse():
     return img, bare[FY0:FY0 + FH, FX0:FX0 + FW].copy(), (SOIL[0], GRASS[6])
 
 
+# ------------------------------------------------------------------ Dustwind Pass (Caravan)
+
+SAND = [(118, 82, 52), (138, 98, 62), (158, 114, 72), (176, 130, 84), (192, 146, 96), (206, 162, 110), (220, 178, 126)]
+SCRUB = [(40, 44, 26), (66, 70, 38), (96, 98, 52), (128, 128, 70), (160, 156, 92), (196, 190, 128)]
+ROAD = (146, 102, 64)
+RUT = (104, 70, 44)
+
+
+def track_dist(m):
+    """Every floor pixel's distance to the map's track, and the track's points (floor px)."""
+    pts = [(float(x) - GRID_X, float(y) - GRID_Y) for x, y in m.get("track", [])]
+    yy, xx = np.mgrid[0:FH, 0:FW].astype(float)
+    best = np.full((FH, FW), 1e9)
+    for (ax, ay), (bx, by) in zip(pts, pts[1:]):
+        dx, dy = bx - ax, by - ay
+        L2 = dx * dx + dy * dy
+        t = np.clip(((xx - ax) * dx + (yy - ay) * dy) / L2, 0, 1)
+        d = np.hypot(xx - (ax + t * dx), yy - (ay + t * dy))
+        best = np.minimum(best, d)
+    return best, pts
+
+
+def track_point_px(pts, share):
+    """The floor point `share` of the way along the track."""
+    lens = [math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(pts, pts[1:])]
+    goal = sum(lens) * share
+    for (a, b), ln in zip(zip(pts, pts[1:]), lens):
+        if goal <= ln:
+            k = goal / ln
+            return a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k
+        goal -= ln
+    return pts[-1]
+
+
+def caravan_pass():
+    rng = np.random.default_rng(83)
+    prng = random.Random(83)
+    m = load_map("caravan_pass")
+    img = np.zeros((H, W, 4), np.uint8)
+    _stands(img, rng)
+    _back_wall(img)
+    _side_and_front(img, rng, pad=[(70, 44, 26), None, (150, 98, 54)], cap=QUARRY_WALL)
+    v = ground(rng, amp=0.34, base=0.34, worn=0.0)
+    yy, xx = np.mgrid[0:FH, 0:FW].astype(float)
+    wob = value_noise(FH, FW, 50, rng) * 10.0
+    v += np.sin((xx * 0.18 + yy * 0.55 + wob) * 0.9) * 0.03   # wind ripples in the sand
+    paint(img, dither(v, SAND, spread=0.4), SAND, FX0, FY0)
+    specks(img, prng, 1600, [SAND[0], SAND[6], (150, 130, 110)], shadow=SAND[0])
+    # The road the caravan rides: packed dirt along the track, two wheel ruts, stones.
+    dist, pts = track_dist(m)
+    blk = img[FY0:FY0 + FH, FX0:FX0 + FW, :3].astype(float)
+    edge = np.clip((16.0 - dist) / 3.0, 0.0, 1.0) * 0.55
+    blk += (np.array(ROAD, float)[None, None, :] - blk) * edge[:, :, None]
+    rut = (np.abs(dist - 6.0) < 0.9)
+    blk[rut] = blk[rut] * 0.45 + np.array(RUT, float) * 0.55
+    img[FY0:FY0 + FH, FX0:FX0 + FW, :3] = blk.astype(np.uint8)
+    for _ in range(500):
+        x, y = 2 + int(prng.random() * (FW - 4)), 6 + int(prng.random() * (FH - 8))
+        if dist[y, x] < 14 and prng.random() < 0.6:
+            rect(img, FX0 + x, FY0 + y + 1, 1, 1, RUT)
+            rect(img, FX0 + x, FY0 + y, 1, 1, (186, 168, 140))
+    # Checkpoint posts either side of the road, gold flags; gates in each side's colour at the ends.
+    for share in (1.0 / 3.0, 2.0 / 3.0):
+        cx, cy = track_point_px(pts, share)
+        for side in (-1, 1):
+            px_, py_ = int(cx) + FX0, int(cy + side * 20) + FY0
+            rect(img, px_ - 1, py_ - 10, 2, 11, CV_WOOD[1])
+            rect(img, px_ - 1, py_ - 10, 2, 1, CV_WOOD[3])
+            rect(img, px_ + 1, py_ - 10, 6, 4, (232, 184, 56))
+            rect(img, px_ + 1, py_ - 7, 6, 1, (170, 120, 30))
+            blend_px(img, px_, py_ + 1, (40, 24, 12), 0.6)
+        for k in range(-14, 15, 3):   # a painted line across the road
+            blend_px(img, int(cx) + FX0, int(cy) + k + FY0, (240, 220, 160), 0.6)
+    for end, col in ((0.0, (214, 72, 64)), (1.0, (72, 120, 220))):
+        cx, cy = track_point_px(pts, end)
+        for r in (18, 17):
+            for (x, y) in _circle_pts(int(cx) + FX0, int(cy) + FY0, r):
+                blend_px(img, x, y, col, 0.7)
+    bare = img.copy()
+    floor_shadow(img, piece_mask(m, "wall"), 3, 4, 0.45)
+    for r in piece_rects(m, "wall"):
+        boulders(img, prng, r)
+    for r in piece_rects(m, "brush"):
+        bushes(img, prng, r, leaf=SCRUB)
+    for r in piece_rects(m, "fence"):
+        fence(img, r)
+    for r in piece_rects(m, "wall"):
+        rubble_floor(bare, prng, r)
+    for r in piece_rects(m, "brush"):
+        flattened(bare, prng, r)
+    for r in piece_rects(m, "fence"):
+        fence(bare, r)
+    return img, bare[FY0:FY0 + FH, FX0:FX0 + FW].copy(), (SAND[0], SAND[6])
+
+
+# ------------------------------------------------------------------ the caravan
+
+CV_WOOD = [(58, 34, 20), (92, 58, 32), (128, 86, 48), (164, 118, 70)]
+CV_CANVAS = [(150, 130, 100), (196, 178, 140), (230, 216, 180), (248, 240, 214)]
+CV_IRON = [(34, 32, 36), (70, 68, 74), (120, 118, 124)]
+
+
+def caravan_sprite():
+    """The Caravan's wagon, facing right, three-quarter top-down: a plank bed under a
+    hooped canvas cover, two big wheels on the near side. Four frames of the wheels
+    turning. 48x40 each, the ground contact at (24, 36). The team flag and the shadow are
+    drawn by the view."""
+    fw, fh, n = 48, 40, 4
+    out = np.zeros((fh, fw * n, 4), np.uint8)
+
+    def put(img, x, y, col, a=255):
+        if 0 <= x < fw and 0 <= y < fh:
+            img[y, x] = (*col, a)
+
+    for f in range(n):
+        img = np.zeros((fh, fw, 4), np.uint8)
+        # far wheels peeking out under the bed
+        for wx in (12, 34):
+            for dx in range(-3, 4):
+                put(img, wx + dx, 27, CV_IRON[0])
+        # the bed: planks, a lit top edge, a dark underside
+        for y in range(18, 29):
+            for x in range(5, 43):
+                k = 2 if y < 21 else (1 if y < 27 else 0)
+                if (x - 5) % 9 == 0 and y >= 21:
+                    k = 0
+                put(img, x, y, CV_WOOD[k])
+        for x in range(5, 43):
+            put(img, x, 18, CV_WOOD[3])
+        # hitch pole forward
+        for x in range(43, 47):
+            put(img, x, 26, CV_WOOD[1])
+        put(img, 47, 26, CV_IRON[1])
+        # the canvas cover: an arch, lit from the top left, three hoops
+        for x in range(7, 41):
+            u = (x - 24) / 17.0
+            top = int(round(19 - (1.0 - u * u) * 15))
+            for y in range(top, 19):
+                lit = (19 - y) / 15.0 - (x - 7) / 60.0
+                k = 3 if lit > 0.75 else (2 if lit > 0.35 else 1)
+                if x in (14, 24, 34):
+                    k = max(0, k - 1)
+                put(img, x, y, CV_CANVAS[k])
+            put(img, x, top, CV_CANVAS[0])
+        # near wheels, turning: rim, hub, four spokes rotated by frame
+        for wx in (13, 35):
+            cy = 30
+            for yy in range(cy - 7, cy + 8):
+                for xx in range(wx - 7, wx + 8):
+                    d = math.hypot(xx - wx, yy - cy)
+                    if 5.2 <= d <= 7.0:
+                        put(img, xx, yy, CV_IRON[0] if d > 6.3 else CV_WOOD[1])
+            for sp in range(4):
+                a = (sp / 4.0 + f / 16.0) * 2 * math.pi
+                for r in range(1, 6):
+                    put(img, int(round(wx + math.cos(a) * r)), int(round(cy + math.sin(a) * r)), CV_WOOD[2])
+            put(img, wx, cy, CV_IRON[2])
+        # outline the silhouette
+        a = img[:, :, 3] > 0
+        edge = np.zeros_like(a)
+        edge[1:, :] |= a[:-1, :]
+        edge[:-1, :] |= a[1:, :]
+        edge[:, 1:] |= a[:, :-1]
+        edge[:, :-1] |= a[:, 1:]
+        edge &= ~a
+        img[edge] = (16, 12, 14, 255)
+        out[:, f * fw:(f + 1) * fw] = img
+    return out
+
+
 def stadium_set():
     return stadium(), None, None
 
 
-MAPS = {"stadium": stadium_set, "quarry": quarry, "floodgate": floodgate, "greenhouse": greenhouse}
+MAPS = {"stadium": stadium_set, "quarry": quarry, "floodgate": floodgate, "greenhouse": greenhouse,
+        "caravan_pass": caravan_pass}
 
 if __name__ == "__main__":
     picks = sys.argv[1:] or list(MAPS)
+    path = os.path.join(SPRITES, "caravan.png")
+    Image.fromarray(caravan_sprite(), "RGBA").save(path)
+    print("wrote", os.path.relpath(path, ROOT))
     for name in picks:
         sz = load_map(name).get("size", [84, 36])
         set_size(int(sz[0]), int(sz[1]))
