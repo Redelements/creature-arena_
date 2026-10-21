@@ -35,7 +35,7 @@ func _draw() -> void:
 	var o: Array = sp.get("origin", [24, 43])
 	var idle: Array = sp.get("anims", {}).get("idle", [0, 0, 1])
 	var tick := int(_time * 60.0 + 1e-6)
-	var frame := int(idle[1]) + (tick / 10) % maxi(1, int(idle[2]))
+	var frame := int(idle[1]) + (tick / maxi(1, int(sp.get("idle_ticks", 10)))) % maxi(1, int(idle[2]))
 	var region := Rect2(frame * fpx, int(idle[0]) * fh, fpx, fh)
 	var k := float(sp.get("select_scale", minf(1.0, 55.0 / fpx))) * zoom
 	draw_set_transform(Vector2(size.x * 0.5, size.y), 0.0, Vector2(-k if face_left else k, k))

@@ -5,8 +5,10 @@ extends Node2D
 ## squash and stretch, and falling shrink. Frame layout comes from the "sprite" block in the creature's JSON,
 ## and each move names its animation with "anim", so new art with the same layout
 ## drops in without code changes. A move can also give "anim_at": [[tick, frame], ...]
-## to time its frames exactly (Barkley's spin and lob), and "view_lift" to raise the
-## sprite off its shadow (Gillbert's leap).
+## to time its frames exactly (Barkley's spin and lob), "anim_charge" for the frames looped
+## while a charge is held, and "view_lift" to raise the sprite off its shadow (Gillbert's
+## leap). The sprite block's "idle_ticks" and "run_ticks" set how long each idle and run
+## frame shows (10 and 4 unless given).
 ##
 ## Views: fighters can face any of 8 ways. The "sprite" block is the side view (facing
 ## right, mirrored for left). Optional "views": {"up": {...}, "down": {...}} add sheets
@@ -414,9 +416,10 @@ func _pick() -> Array:
 		return ["victory", _victory_frame(), false]
 	match c.state:
 		CreatureSim.State.IDLE:
-			return ["idle", c.anim_t / 10, true]
+			return ["idle", c.anim_t / maxi(1, int(layout.get("idle_ticks", 10))), true]
 		CreatureSim.State.MOVE:
-			return ["run", c.anim_t / 4, true]  # legs keep up with the faster walk
+			# legs keep up with the faster walk
+			return ["run", c.anim_t / maxi(1, int(layout.get("run_ticks", 4))), true]
 		CreatureSim.State.ATTACK:
 			return _attack_frame()
 		CreatureSim.State.DODGE:
@@ -459,8 +462,9 @@ func _attack_frame() -> Array:
 	var segs: Array = mv.get("_segs", [])
 	var length := int(mv.get("length", 1))
 
-	if mv.has("charge_max") and c.charging:  # heavies: two charge frames while held
-		return [name, (c.anim_t / 6) % 2, false]
+	if mv.has("charge_max") and c.charging:  # heavies: charge frames looping while held
+		var ch: Array = mv.get("anim_charge", [0, 2, 6])  # [first frame, frames, ticks each]
+		return [name, mini(int(ch[0]) + (c.anim_t / maxi(1, int(ch[2]))) % maxi(1, int(ch[1])), n - 1), false]
 
 	if mv.has("anim_reel") and c.reel_t > 0:  # being reeled in on the line (Cast Line)
 		return [name, mini(int(mv["anim_reel"]), n - 1), false]

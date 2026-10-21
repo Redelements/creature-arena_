@@ -12,8 +12,8 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
 - Floor effects that show an area are true circles on the floor (no y squash), or vertical
   reach looks wrong. `FxView` rings and orbits use `sin(a) * 0.5`; the shadow a 0.38 y-scale.
 - Art layout is data-driven: frame size (`[w, h]` frames allowed, Crease's are 128x160),
-  origin, `anims`, `side_only`, `anim`, `anim_at`, `anim_reel`, `view_lift` from the
-  creature JSON. Up/down sheets are optional; diagonals stay side-on.
+  origin, `anims`, `side_only`, `idle_ticks`, `run_ticks`, `anim`, `anim_at`, `anim_reel`,
+  `anim_charge`, `view_lift` from the creature JSON (`FighterPreview` reads `idle_ticks` too). Up/down sheets are optional; diagonals stay side-on.
 - An area drawn from data (a burst ring, an ice blast, a zone) reads the same number the
   sim hits with, so a bigger hit area shows as bigger. Projectiles are not drawn from their
   hit `radius`: shots look the same however wide they hit.
