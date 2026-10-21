@@ -4001,6 +4001,17 @@ func _write_net_report(keep := false) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
 		_print_perf()
+	elif what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		# Android's Back (gesture or key): the same as Esc, so it never closes the game.
+		var ev := InputEventAction.new()
+		ev.action = "pause"
+		ev.pressed = true
+		Input.parse_input_event(ev)
+	elif what == NOTIFICATION_APPLICATION_PAUSED:
+		# Switched away on a phone: an offline fight waits under the pause menu.
+		if online == null and showcase == null and not paused and not ui.is_open() \
+				and not (flow in [Flow.MENU, Flow.SELECT, Flow.LOBBY, Flow.MATCH_OVER]):
+			_open_pause()
 	elif what == NOTIFICATION_PREDELETE:
 		_join_cpus()
 

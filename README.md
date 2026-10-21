@@ -42,10 +42,15 @@ Six fighters so far, each with a full moveset and a CPU opponent:
 
 ## Play a build
 
-Every pull request gets a **playable build**: a bot comment on the PR links a Windows
-and a Linux download (sign in to GitHub, unzip, run). Builds of `main` are on the
+Every pull request gets a **playable build**: a bot comment on the PR links a Windows,
+a Linux and an Android download (sign in to GitHub, unzip, run). Builds of `main` are on the
 [Actions page](../../actions/workflows/playable-build.yml). Windows may warn about an
 unknown publisher: choose **More info → Run anyway**.
+
+**Android** (arm64; played on an AYN Odin 3 with its built-in controls, or any phone with a
+Bluetooth controller; there are no touch controls yet): copy `CreatureArena.apk` to the device
+and open it, or `adb install -r CreatureArena.apk`. Android's Back acts as Esc, and switching
+away pauses an offline fight. It plays online against PCs (same match fingerprint).
 
 ## Play online (1v1)
 

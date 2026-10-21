@@ -14,6 +14,7 @@ config/name="Creature Arena"
 config/description="Real-time 2D creature brawler prototype."
 run/main_scene="res://scenes/main.tscn"
 run/flush_stdout_on_print=true
+config/quit_on_go_back=false
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [display]
@@ -34,6 +35,7 @@ common/max_physics_steps_per_frame=4
 [rendering]
 
 textures/canvas_textures/default_texture_filter=0
+textures/vram_compression/import_etc2_astc=true
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 environment/defaults/default_clear_color=Color(0.105, 0.118, 0.149, 1)

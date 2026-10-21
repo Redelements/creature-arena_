@@ -43,6 +43,7 @@ var _nonce := 0
 
 func _init(p_client_id: String) -> void:
 	client_id = p_client_id
+	disabled = disabled or OS.has_feature("mobile")  # no Discord app to talk to on a phone
 
 
 ## What to show. Keys as in Discord's activity object (details, state, timestamps,

@@ -1,7 +1,7 @@
 name: playable build
 
-# Exports a Windows and a Linux build of every pull request (and of main), so each
-# change can be downloaded and played. On a PR, a single bot comment links the latest
+# Exports a Windows, a Linux and an Android (debug APK) build of every pull request
+# (and of main), so each change can be downloaded and played. On a PR, a single bot comment links the latest
 # builds and is updated on every push.
 #
 # It also checks cross-platform determinism, which rollback netcode depends on: the
@@ -31,6 +31,8 @@ jobs:
     outputs:
       short_sha: ${{ steps.sha.outputs.short_sha }}
       linux_digest: ${{ steps.simcheck.outputs.digest }}
+      win_url: ${{ steps.win.outputs.artifact-url }}
+      linux_url: ${{ steps.linux.outputs.artifact-url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -153,12 +155,95 @@ jobs:
           path: build/linux
           retention-days: 30
 
+  # A debug APK for Android handhelds and phones (arm64; tested on an AYN Odin 3). Godot
+  # finds the SDK and Java through ANDROID_HOME and JAVA_HOME; the debug key is made
+  # here, so the APK installs as an update only over another CI build of the same key.
+  android:
+    runs-on: ubuntu-latest
+    env:
+      GODOT_VERSION: 4.7.2
+    outputs:
+      apk_url: ${{ steps.apk.outputs.artifact-url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Short commit id
+        run: |
+          SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+          echo "SHORT_SHA=${SHA::7}" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Android SDK packages
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "build-tools;35.0.1" "platforms;android-35" > /dev/null
+
+      - name: Cache Godot and Android templates
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot-cache
+          key: godot-${{ env.GODOT_VERSION }}-android-v1
+
+      - name: Download Godot and Android templates
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot-cache/templates
+          cd ~/godot-cache
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          curl -sSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip && rm godot.zip
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot && chmod +x godot
+          curl -sSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q -j templates.tpz templates/android_debug.apk templates/version.txt -d templates
+          rm templates.tpz
+
+      - name: Install export templates and a debug key
+        run: |
+          dest="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$dest"
+          cp ~/godot-cache/templates/* "$dest/"
+          keytool -genkeypair -keystore "$HOME/debug.keystore" -storepass android -alias androiddebugkey             -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: Import project
+        run: ~/godot-cache/godot --headless --path . --import
+
+      - name: Export the APK
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        run: |
+          mkdir -p build/android
+          ~/godot-cache/godot --headless --path . --export-debug "Android" build/android/CreatureArena.apk
+          test -s build/android/CreatureArena.apk
+          rm -f build/android/*.idsig
+
+      - name: Upload Android build
+        id: apk
+        uses: actions/upload-artifact@v4
+        with:
+          name: CreatureArena-android-${{ env.SHORT_SHA }}
+          path: build/android
+          retention-days: 30
+
+  comment:
+    if: github.event_name == 'pull_request' && !cancelled()
+    needs: [build, android]
+    runs-on: ubuntu-latest
+    steps:
       - name: Comment download links on the PR
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         env:
-          WIN_URL: ${{ steps.win.outputs.artifact-url }}
-          LINUX_URL: ${{ steps.linux.outputs.artifact-url }}
+          SHORT_SHA: ${{ needs.build.outputs.short_sha }}
+          WIN_URL: ${{ needs.build.outputs.win_url }}
+          LINUX_URL: ${{ needs.build.outputs.linux_url }}
+          APK_URL: ${{ needs.android.outputs.apk_url }}
         with:
           script: |
             const marker = '<!-- playable-build -->';
@@ -168,8 +253,10 @@ jobs:
               '',
               `- **Windows:** [download](${process.env.WIN_URL})`,
               `- **Linux:** [download](${process.env.LINUX_URL})`,
+              process.env.APK_URL ? `- **Android** (debug APK, arm64): [download](${process.env.APK_URL})` : '- **Android:** the build failed (see the android job)',
               '',
               'Unzip, keep `CreatureArena.exe` and `CreatureArena.pck` together, and run the exe. If Windows warns about an unknown publisher, choose **More info → Run anyway**.',
+              'Android: unzip, copy `CreatureArena.apk` to the device and open it (allow installs from that app when asked), or `adb install -r CreatureArena.apk`.',
               'If Chrome blocks the download as dangerous: open `chrome://downloads`, find it, and choose **Keep** (or ⋮ → **Download dangerous file**). The exe is the official Godot runtime, unchanged.',
               'You need to be signed in to GitHub to download. Builds are kept for 30 days and this comment updates on every push.',
             ].join('\n');

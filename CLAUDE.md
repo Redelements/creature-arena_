@@ -91,7 +91,7 @@ Command-line flags and mode numbers: `src/game/CLAUDE.md`; online and server fla
 - Work on a branch and open a PR; never push to `main`. PRs can be stacked (base = the
   previous PR's branch) while earlier ones await review.
 - CI on every push and PR: `tests.yml` (the codebase map check, then all tests) and `playable-build.yml` (Windows +
-  Linux export; a bot comment on the PR links the downloads). Kevin playtests from those
+  Linux export, an Android debug APK; a bot comment on the PR links the downloads). Kevin playtests from those
   builds, so say what to try in the PR description.
 - Use the GitHub REST API (`gh api ...`); `gh pr create` (GraphQL) isn't available in
   cloud sessions.

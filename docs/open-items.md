@@ -16,6 +16,10 @@ Priorities are in the Game Plan doc, "Game modes".
   3v3 tag Duels, spectators, saved online replays, arenas online (the host's or
   the room's, random for Quick match), an input delay setting, ranked 1v1 with Glicko
   ratings and Daily scores on the server. Not yet: a Steam transport (behind `NetLink`).
+- **Android:** a debug APK builds in CI (arm64, export preset "Android") and runs on an
+  AYN Odin 3 with the same match fingerprint as PC. No touch controls (a controller is
+  needed), no app icon, no release signing or Play Store listing yet. iPhone: not started
+  (needs a Mac build in CI and a paid Apple Developer account).
 - **Not built yet:** affinity surfaces (part B of `docs/plans/arenas-surfaces-modes-online.md`,
   skipped on Kevin's call) and the two arenas that need them (Saltflat Ring, Night Market
   Roof), Raid (needs a boss sheet), a Steam transport. Everything else in that plan is in.
