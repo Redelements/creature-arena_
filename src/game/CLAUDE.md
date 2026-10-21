@@ -32,7 +32,9 @@ player and live here, outside the sim.
   `_on_teams_chosen`, `_padded_teams`; sim + views → `_new_sim`; inputs → `_side_bits`,
   `_dummy_bits`; flow → `_update_flow`; ends → `_end_round`, `_show_match_over`,
   `_duel_flow`, `_team_flow`
-- Camera → `_update_camera`, `_frame_fight`, `_cam_axis`; `CAM_PAD`, `KO_ZOOM`, `SHOWCASE_ZOOM`
+- Camera → `_update_camera`, `_frame_fight`, `_cam_axis`; `CAM_PAD`, `KO_ZOOM`, `SHOWCASE_ZOOM`;
+  on a map bigger than the stadium it follows the local player (`_cam_anchor`, `FOLLOW_R`,
+  `FOLLOW_ZOOM`, `BIG_MAP_MIN_ZOOM`)
 - Add a setting → `SETTING_PAGES` + `_setting(key)` + `_set_setting(key, i)` +
   `_add_setting_row`; persistence `_load_settings` / `_save_settings`; a Controls-page
   setting (like `range_rings`) is added in `_open_controls`

@@ -32,7 +32,7 @@ func _init(ids: Array, p_rules: Dictionary = {}, mutators: Dictionary = {}, seed
 	sim = MatchSim.new()
 	sim.set_arena(String(rules.get("arena", MatchFactory.arena)))
 	var n := clampi(ids.size(), 2, MAX_PLAYERS)
-	var fr := SimDefs.floor_rect()
+	var fr := sim.floor_rect()
 	var spots: Array = rules.get("spawns", [[0.25, 0.3], [0.75, 0.3], [0.25, 0.7], [0.75, 0.7]])
 	for k in n:
 		var sp: Array = spots[k % spots.size()]

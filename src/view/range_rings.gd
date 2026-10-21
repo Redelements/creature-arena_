@@ -90,7 +90,7 @@ func rings() -> Array:
 		var owner_id := int(pr.get("owner", 0))
 		var col := colour_of(sim.creatures[owner_id]) if owner_id < sim.creatures.size() else Color.WHITE
 		if bool(pr.get("lob", false)):
-			var fr := SimDefs.floor_rect()  # a lob stops at the wall (MatchSim._step_projectiles)
+			var fr := sim.floor_rect()  # a lob stops at the wall (MatchSim._step_projectiles)
 			var land: Vector2 = (Vector2(pr["pos"]) + Vector2(pr["vel"]) * float(pr["life"])).clamp(
 				fr.position + Vector2(4, 4), fr.end - Vector2(4, 4))
 			if fx == null or fx.sight_to(land):

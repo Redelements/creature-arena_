@@ -48,6 +48,18 @@ H = ARENA_H + MARGIN[1] * 2
 FX0, FY0 = GRID_X + MARGIN[0], GRID_Y + MARGIN[1]   # the floor's corner in the picture
 FW, FH = COLS * CELL, ROWS * CELL
 
+
+def set_size(cols, rows):
+    """Sizes everything for a map of `cols` x `rows` cells (its JSON "size"; the
+    stadium's 84 x 36 otherwise). The floor's corner never moves."""
+    global COLS, ROWS, ARENA_W, ARENA_H, W, H, FW, FH
+    COLS, ROWS = cols, rows
+    ARENA_W = GRID_X * 2 + COLS * CELL
+    ARENA_H = GRID_Y + ROWS * CELL + FRONT_WALL
+    W = ARENA_W + MARGIN[0] * 2
+    H = ARENA_H + MARGIN[1] * 2
+    FW, FH = COLS * CELL, ROWS * CELL
+
 BAYER4 = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]], float) / 16.0
 
 
@@ -861,6 +873,8 @@ MAPS = {"stadium": stadium_set, "quarry": quarry, "floodgate": floodgate, "green
 if __name__ == "__main__":
     picks = sys.argv[1:] or list(MAPS)
     for name in picks:
+        sz = load_map(name).get("size", [84, 36])
+        set_size(int(sz[0]), int(sz[1]))
         img, alt, crack_cols = MAPS[name]()
         path = os.path.join(SPRITES, "arena_%s.png" % name)
         Image.fromarray(img, "RGBA").save(path)

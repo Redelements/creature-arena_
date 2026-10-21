@@ -681,7 +681,7 @@ func _physics(p: Dictionary, dt: float) -> void:
 	var vz := float(p["vz"]) - float(p.get("g", GRAVITY)) * dt
 	var pos: Vector2 = p["pos"] + vel * dt
 	if bool(p.get("walls", false)):
-		var fr := SimDefs.floor_rect().grow(-4.0)
+		var fr := (sim.floor_rect() if sim != null else SimDefs.floor_rect()).grow(-4.0)
 		if pos.x < fr.position.x or pos.x > fr.end.x:
 			vel.x = -vel.x * 0.5
 			pos.x = clampf(pos.x, fr.position.x, fr.end.x)
@@ -2056,7 +2056,7 @@ func _draw() -> void:
 func _paint(ci: CanvasItem, floor_layer: bool) -> void:
 	if floor_layer:
 		if _dark > 0.0:
-			ci.draw_rect(Rect2(-ArenaView.MARGIN, SimDefs.arena_size() + ArenaView.MARGIN * 2.0),
+			ci.draw_rect(Rect2(-ArenaView.MARGIN, (sim.arena_size() if sim != null else SimDefs.arena_size()) + ArenaView.MARGIN * 2.0),
 				Color(C_DIM, _dark))
 		_draw_pads(ci)
 		for p in _parts:  # flat things first, so debris sits on top of puddles and cracks
@@ -3024,7 +3024,7 @@ func _draw_rain(ci: CanvasItem) -> void:
 		var x := fposmod(i * 37.7 + _tick * 2.4, 520.0) - 20.0
 		var y := fposmod(i * 61.3 + i * i * 0.37 + _tick * 8.0, 300.0) - 15.0
 		ci.draw_line(Vector2(x, y), Vector2(x - 2.0, y + 7.0), col, 1.0)
-	var fr := SimDefs.floor_rect()
+	var fr := sim.floor_rect() if sim != null else SimDefs.floor_rect()
 	for i in n / 3:
 		var hsh := i * 7919 + (_tick / 4) * 104729
 		var sx := fr.position.x + float(hsh % int(fr.size.x))

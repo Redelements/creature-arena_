@@ -199,6 +199,12 @@ const KO_ZOOM := 1.45
 const SHOWCASE_ZOOM := 1.9
 ## Room the fight camera leaves around the fighters (sides, top and bottom).
 const CAM_PAD := Vector2(72, 40)
+## On a map bigger than the stadium (Caravan, Capture the Flag) the camera follows the
+## local player and whoever is within this of them, never pulling back past FOLLOW_ZOOM.
+const FOLLOW_R := 230.0
+const FOLLOW_ZOOM := 0.8
+## Watching a big map with nobody here playing: as far back as this at most.
+const BIG_MAP_MIN_ZOOM := 0.5
 
 var sim: MatchSim
 var _cam_zoom := 0.0  ## eased toward a zoom that fits the fighters (0: snap on the next frame)
@@ -1475,6 +1481,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 				seed_base * 101 + round_num * 7 + i)
 	arena.ground = String(sim.arena.get("ground", "dirt"))
 	arena.arena_id = String(sim.arena.get("id", ""))
+	crowd.set_width(sim.arena_size().x)
 	arena.set_terrain(sim.terrain)
 	for v in views:
 		v.queue_free()
@@ -2008,7 +2015,7 @@ func _hides_someone(c: CreatureSim) -> bool:
 
 
 func _update_camera() -> void:
-	var size := SimDefs.arena_size()  # the whole stadium
+	var size := sim.arena_size() if sim != null else SimDefs.arena_size()  # the whole stadium
 	var view := get_viewport().get_visible_rect().size  # the screen (wider on ultrawide)
 	var base_z := 1.0
 	var base_focus := size * 0.5
@@ -2054,11 +2061,15 @@ func _update_camera() -> void:
 func _frame_fight(view: Vector2, size: Vector2) -> void:
 	var box := Rect2()
 	var any := false
+	var big := size.x > SimDefs.ARENA_W * 1.15 or size.y > SimDefs.ARENA_H * 1.15
+	var anchor := _cam_anchor() if big else -1
 	for i in sim.creatures.size():
 		var c := sim.creatures[i]
-		if c.state == CreatureSim.State.KO and _ko_cam_t < 0:
+		if i != anchor and c.state == CreatureSim.State.KO and _ko_cam_t < 0:
 			continue
 		if _is_hidden(i):
+			continue
+		if anchor >= 0 and i != anchor and c.pos.distance_to(sim.creatures[anchor].pos) > FOLLOW_R:
 			continue
 		var body := Rect2(c.pos - Vector2(0, float(c.def.get("fx_top", 32)) + c.air_height()), Vector2.ZERO)
 		body = body.expand(c.pos)
@@ -2068,7 +2079,12 @@ func _frame_fight(view: Vector2, size: Vector2) -> void:
 		return
 	box = box.grow_individual(CAM_PAD.x, CAM_PAD.y + 24.0, CAM_PAD.x, CAM_PAD.y)  # the HUD sits up top
 	var whole := minf(view.x / size.x, view.y / size.y)  # zoom that shows the whole stadium
-	var fit := clampf(minf(view.x / box.size.x, view.y / box.size.y), minf(whole, 1.0), 1.0)
+	var least := minf(whole, 1.0)
+	if anchor >= 0:
+		least = FOLLOW_ZOOM
+	elif big:
+		least = maxf(least, BIG_MAP_MIN_ZOOM)
+	var fit := clampf(minf(view.x / box.size.x, view.y / box.size.y), least, 1.0)
 	var mid := box.get_center()
 	if _cam_zoom <= 0.0:
 		_cam_zoom = fit
@@ -2077,6 +2093,20 @@ func _frame_fight(view: Vector2, size: Vector2) -> void:
 		# Pull back quickly (nobody leaves the shot), push in gently.
 		_cam_zoom = lerpf(_cam_zoom, fit, 0.12 if fit < _cam_zoom else 0.03)
 		_cam_follow = _cam_follow.lerp(mid, 0.1)
+
+
+## Whose fighter a big map's camera follows: the one player here (online, the local
+## slot). -1 with nobody here playing, or players here on both sides.
+func _cam_anchor() -> int:
+	if online != null:
+		return online.local_slot
+	var found := -1
+	for k in mini(sides.size(), sim.creatures.size()):
+		if sides[k] in LOCAL_SIDES:
+			if found >= 0:
+				return -1
+			found = k
+	return found
 
 
 ## Keeps the arena filling the screen along one axis; when the screen shows more than

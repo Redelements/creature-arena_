@@ -66,7 +66,7 @@ const STATE_FIELDS := [
 ]
 ## Set once when the creature is made and never changed by the simulation.
 const STATIC_FIELDS := ["id", "team", "def", "is_dummy", "radius", "weight", "max_hp", "max_stamina",
-	"dodge_cost", "air_mult", "speed_mult", "damage_mult"]
+	"dodge_cost", "air_mult", "speed_mult", "damage_mult", "floor_end"]
 
 ## Stamina rules every fighter shares: the dodge cost multiplier, a blocked hit's drain
 ## per move type, the regen pause after a block and the exhaustion delay at 0.
@@ -205,6 +205,8 @@ var damage_mult := 1.0
 ## Standing in brush (an arena piece): hidden from foes outside it, like stealth.
 ## Set by MatchSim after everyone has moved.
 var covered := false
+## The floor's far corner (this map's size), set by MatchSim when the creature joins.
+var floor_end := SimDefs.floor_rect().end
 var haste := 0  ## ticks left of walking faster
 var haste_mult := 1.0
 var atk_buff := 0  ## ticks left of dealing atk_mult x damage (Pickpocket: up for him, down for them)
@@ -1264,7 +1266,7 @@ func _blink(bl: Dictionary, sim: MatchSim) -> void:
 	var gap := float(foe.radius + radius) + float(bl.get("gap", 2.0))
 	var away := foe.pos - pos
 	away = away.normalized() if away.length_squared() > 0.0001 else facing
-	var room := SimDefs.floor_rect().grow(-float(radius) - 2.0)
+	var room := sim.floor_rect().grow(-float(radius) - 2.0)
 	var from := pos
 	for spot in [foe.pos - foe.facing * gap, foe.pos + away * gap]:
 		if room.has_point(spot) and not sim.terrain.is_hole_at(spot) and not sim.terrain.solid_at(spot):
@@ -1608,9 +1610,7 @@ func floor_min() -> Vector2:
 
 
 func floor_max() -> Vector2:
-	return Vector2(
-		SimDefs.GRID_X + SimDefs.GRID_COLS * SimDefs.CELL - radius,
-		SimDefs.GRID_Y + SimDefs.GRID_ROWS * SimDefs.CELL - EDGE_BOTTOM)
+	return Vector2(floor_end.x - radius, floor_end.y - EDGE_BOTTOM)
 
 
 func _clamp_to_floor(p: Vector2) -> Vector2:

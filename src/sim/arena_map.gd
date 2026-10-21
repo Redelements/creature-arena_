@@ -29,6 +29,14 @@ static func get_map(id: String) -> Dictionary:
 	return data
 
 
+## A map's grid size in cells: "size": [cols, rows], or the stadium's.
+static func size_of(map: Dictionary) -> Vector2i:
+	var sz: Array = map.get("size", [])
+	if sz.size() >= 2:
+		return Vector2i(int(sz[0]), int(sz[1]))
+	return Vector2i(SimDefs.GRID_COLS, SimDefs.GRID_ROWS)
+
+
 static func name_of(id: String) -> String:
 	return String(get_map(id).get("name", id.capitalize()))
 
@@ -40,4 +48,10 @@ static func spawn(map: Dictionary, side: int) -> Vector2:
 	if sp.has(key):
 		var v: Array = sp[key]
 		return Vector2(float(v[0]), float(v[1]))
-	return MatchFactory.SPAWN_LEFT if side == 0 else MatchFactory.SPAWN_RIGHT
+	var sz := size_of(map)
+	if sz == Vector2i(SimDefs.GRID_COLS, SimDefs.GRID_ROWS):
+		return MatchFactory.SPAWN_LEFT if side == 0 else MatchFactory.SPAWN_RIGHT
+	# A bigger map with no spawns of its own: each side near its own end, mid-height.
+	var fr := SimDefs.floor_rect_of(sz.x, sz.y)
+	var inset := 60.0
+	return Vector2(fr.position.x + inset if side == 0 else fr.end.x - inset, fr.get_center().y + 4.0)

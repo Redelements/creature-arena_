@@ -286,7 +286,7 @@ func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 	# Nothing matters more than getting off it (a dash or dodge in progress finishes first).
 	if sim.sink_ring >= 0 and me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE, CreatureSim.State.GUARD] \
 			and not sim.sink_safe.grow(-1).has_point(sim.terrain.world_to_cell(me.pos)):
-		_go_to(sim, me, SimDefs.floor_rect().get_center())
+		_go_to(sim, me, sim.floor_rect().get_center())
 		return
 	var to_foe := _seen(foe) - me.pos
 	# King of the Crater: the zone is the point. Outside it, go to it unless the foe is
@@ -887,7 +887,7 @@ func _steer(sim: MatchSim, me: CreatureSim, v: Vector2) -> Vector2:
 	if v.length_squared() < 0.0001:
 		return Vector2.ZERO
 	var want := v.normalized()
-	var room := SimDefs.floor_rect().grow(-me.radius - 3.0)
+	var room := sim.floor_rect().grow(-me.radius - 3.0)
 	var best := want
 	var best_s := -INF
 	var dirs := SimDefs.aim_dirs()
@@ -913,7 +913,7 @@ func _steer(sim: MatchSim, me: CreatureSim, v: Vector2) -> Vector2:
 ## preferring directions with room to keep going (out of corners, around holes).
 func _open_dir(sim: MatchSim, me: CreatureSim, away: Vector2) -> Vector2:
 	var a := away.normalized() if away.length_squared() > 0.0001 else Vector2.RIGHT
-	var room := SimDefs.floor_rect().grow(-me.radius - 4.0)
+	var room := sim.floor_rect().grow(-me.radius - 4.0)
 	var best := a
 	var best_s := -INF
 	var dirs := SimDefs.aim_dirs()
@@ -954,7 +954,7 @@ func _orbit_dir(sim: MatchSim, me: CreatureSim, foe: CreatureSim, r: float) -> V
 	var n := to_foe / maxf(dist, 0.001)
 	var tangent := Vector2(-n.y, n.x) * _orbit
 	_orbit_t -= 1
-	var room := SimDefs.floor_rect().grow(-me.radius - 4.0)
+	var room := sim.floor_rect().grow(-me.radius - 4.0)
 	if _orbit_t <= 0 or _clearance(room, me.pos, tangent) < 24.0:
 		if _orbit_t <= 0 or _clearance(room, me.pos, -tangent) > 40.0:
 			_orbit = -_orbit
@@ -996,7 +996,7 @@ func _lands(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float, reach
 	if foe_su < int(su) and dist <= _reach_of(foe, me):
 		return false
 	var escape := foe.walk_speed() * maxf(su - 2.0, 0.0) * 0.8
-	var room := SimDefs.floor_rect().grow(-foe.radius - 2.0)
+	var room := sim.floor_rect().grow(-foe.radius - 2.0)
 	var out := (foe.pos - me.pos).normalized()
 	escape = minf(escape, _clearance(room, foe.pos, out))  # backed against a wall: nowhere to go
 	return dist + escape <= reach
@@ -1515,7 +1515,7 @@ func _chase(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, d
 		_dodge_dir(me, to_foe)
 		return
 	var lead := foe.walk_vel * clampf(dist / maxf(me.walk_speed(), 0.5), 0.0, 40.0) * 0.6
-	var mid_floor := SimDefs.floor_rect().get_center()
+	var mid_floor := sim.floor_rect().get_center()
 	var goal := _seen(foe) + lead + (mid_floor - _seen(foe)).normalized() * 16.0
 	var n := (goal - me.pos).normalized()
 	_dance_t -= 1
@@ -1629,7 +1629,7 @@ func _plan_press(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vecto
 		_go_to(sim, me, me.pos + to_foe)  # not yet sure to land: keep walking it down
 		return
 	# Aim a little between the foe and the middle of the floor: it gets pushed outward.
-	var mid := SimDefs.floor_rect().get_center()
+	var mid := sim.floor_rect().get_center()
 	var at := _seen(foe)
 	var cut := at + (mid - at).normalized() * minf(24.0, dist * 0.3)
 	_go(sim, me, cut - me.pos)

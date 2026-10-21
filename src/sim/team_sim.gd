@@ -117,7 +117,7 @@ func _init(team_ids: Array, per_side := 0, p_rules: Dictionary = {}) -> void:
 ## Team Deathmatch: where slot k of a side respawns, on its pad against its own side wall
 ## (stacked up and down it like the start).
 func pad_point(side: int, k: int) -> Vector2:
-	var fl := SimDefs.floor_rect()
+	var fl := sim.floor_rect()
 	var inset := float(rules.get("pad_inset", 44))
 	var x := fl.position.x + inset if side == 0 else fl.end.x - inset
 	var spread := float(rules.get("pad_spread", 48))
@@ -254,7 +254,7 @@ func _deathmatch_step() -> void:
 func _place_zone(moved: bool) -> void:
 	var pts: Array = rules.get("zone_points", [[0.5, 0.5]])
 	var p: Array = pts[zone_i % pts.size()]
-	var fr := SimDefs.floor_rect()
+	var fr := sim.floor_rect()
 	sim.zone_r = float(rules.get("zone_radius", 40))
 	sim.zone_pos = Vector2(fr.position.x + fr.size.x * float(p[0]), fr.position.y + fr.size.y * float(p[1]))
 	sim.terrain.crack_circle(sim.zone_pos, sim.zone_r + 6.0)
