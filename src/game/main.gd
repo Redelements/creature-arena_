@@ -131,7 +131,7 @@ const ONLINE_MODE := 20
 const MENU_GROUPS := [
 	{"id": "cpu", "title": "Fight the CPU", "sub": "Versus rounds as any fighter, or a 3v3 tag Duel",
 		"desc": "The classic fights against the CPU at the level set in Settings"},
-	{"id": "team", "title": "Team battles", "sub": "2v2 and 3v3 with CPU teammates: battle, deathmatch, Sinkhole, Crater",
+	{"id": "team", "title": "Team battles", "sub": "2v2 to 4v4 with CPU teammates, in six modes",
 		"desc": "Everyone on the field at once; pick the rules and the team size"},
 	{"id": "challenge", "title": "Challenges", "sub": "Arcade, Gauntlet, the Daily, Combo Trials, Reaction Drills",
 		"desc": "Runs and lessons with something to clear or beat"},
@@ -550,8 +550,7 @@ func _menu_background() -> void:
 ## with choices pick the fighter (or drill) with Left/Right; Enter starts.
 func _open_single() -> void:
 	var scr := UiScreen.new()
-	scr.logo = true
-	scr.title = "SINGLE PLAYER"
+	scr.title = "SINGLE PLAYER"  # no logo: six cards and the arena row fill the screen
 	scr.row_width = 262.0
 	scr.row_gap = 2
 	scr.show_desc = false  # the cards say what they hold
@@ -800,7 +799,8 @@ func _start_match(m: int, keep_teams := false) -> void:
 			labels = ["YOU + CPU", "CPU TEAM"]
 			var kind := String(cfg.get("rules", "deathmatch" if cfg.get("deathmatch", false) else ""))
 			title = {"sinkhole": "SINKHOLE  %d v %d", "crater": "KING OF THE CRATER  %d v %d",
-				"deathmatch": "TEAM DEATHMATCH  %d v %d"}.get(kind, "TEAM BATTLE  %d v %d") % [size, size]
+				"deathmatch": "TEAM DEATHMATCH  %d v %d", "caravan": "CARAVAN  %d v %d",
+				"ctf": "CAPTURE THE FLAG  %d v %d"}.get(kind, "TEAM BATTLE  %d v %d") % [size, size]
 		var pick := CharacterSelect.new()
 		pick.setup(title, size, labels, two_players, _padded_teams(size) if cfg.has("team") else _teams)
 		pick.p1_keyboard = player_input.keyboard
