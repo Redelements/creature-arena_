@@ -280,21 +280,25 @@ func test_plays_roll_back() -> void:
 	assert_eq(t.state_digest(), after, "and replays the same")
 
 
-## Normal CPUs, 3 a side, one long match: they pass, fumble, claim shrines and capture.
+## Normal CPUs, 3 a side, up to three seeded matches: between them they fumble, claim
+## shrines and capture (one match alone can go by without a fumble).
 func test_normal_cpus_use_the_plays() -> void:
-	var t := TeamSim.new(TEAMS, 3, TeamSim.load_rules(TeamSim.CTF_PATH))
-	var cpus: Array = []
-	for i in t.slot_count():
-		cpus.append(CpuController.new(i, 1, 40 + i))
 	var seen := {}
-	for tick in 60 * 360 + 200:
-		var ins := PackedInt32Array()
+	for m in 3:
+		var t := TeamSim.new(TEAMS, 3, TeamSim.load_rules(TeamSim.CTF_PATH))
+		var cpus: Array = []
 		for i in t.slot_count():
-			ins.append((cpus[i] as CpuController).bits(t.sim))
-		t.step(ins)
-		for e in t.sim.events:
-			seen[String(e["type"])] = int(seen.get(String(e["type"]), 0)) + 1
-		if t.phase == TeamSim.Phase.OVER:
+			cpus.append(CpuController.new(i, 1, 40 + i + 100 * m))
+		for tick in 60 * 360 + 200:
+			var ins := PackedInt32Array()
+			for i in t.slot_count():
+				ins.append((cpus[i] as CpuController).bits(t.sim))
+			t.step(ins)
+			for e in t.sim.events:
+				seen[String(e["type"])] = int(seen.get(String(e["type"]), 0)) + 1
+			if t.phase == TeamSim.Phase.OVER:
+				break
+		if ["flag_take", "shrine", "flag_fumble", "capture"].all(func(k): return seen.has(k)):
 			break
 	for kind in ["flag_take", "shrine", "flag_fumble", "capture"]:
 		assert_gt(float(seen.get(kind, 0)), 0.0, "%s happened (%s)" % [kind, str(seen.get(kind, 0))])

@@ -2124,6 +2124,11 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 			var frame := mini(int(k * 4.0), 3)
 			var size := Vector2(16, 16) * s
 			ci.draw_texture_rect_region(SHEET, Rect2((pos - size * 0.5).round(), size), Rect2(frame * 16, 0, 16, 16))
+		"heal":  # the Caravan's escort healing: a small green cross rising, fading
+			var at: Vector2 = (Vector2(p["pos"]) + Vector2(p["vel"]) * t).round()
+			var col := Color("7ee07a", 1.0 - k)
+			ci.draw_rect(Rect2(at + Vector2(-1, -3), Vector2(2, 6)), col)
+			ci.draw_rect(Rect2(at + Vector2(-3, -1), Vector2(6, 2)), col)
 		"dust":
 			var pos: Vector2 = p["pos"]
 			var v: Vector2 = p["vel"]
@@ -2538,8 +2543,8 @@ var pads: Array = []
 ## King of the Crater's zone (set by main): {"pos", "radius", "color"}; empty when none.
 var zone := {}
 ## The Caravan (set by main): {"pos", "heading", "radius", "state" (-1 back, 0 still,
-## 1 pushed, 2 contested), "team" (the attackers), "travel" (px moved, turns the wheels)};
-## empty when none.
+## 1 pushed, 2 contested, 3 digging through a rockslide), "team" (the attackers), "travel"
+## (px moved, turns the wheels), "healing" (ids of the escort healing)}; empty when none.
 var caravan := {}
 ## Capture the Flag's flags (set by main): each {"pos", "team", "state" (TeamSim.FLAG_*),
 ## "lift" (px above the floor: over a carrier's head), "back" (0..1 of a dropped flag's
@@ -2596,9 +2601,19 @@ func _draw_caravan(ci: CanvasItem) -> void:
 		col = Color(0.62, 0.62, 0.66)
 	elif st == 0:
 		col = Color(team_col, 0.55)
+	elif st == 3:
+		col = Color("d08a40")  # digging through rubble
 	var r := float(caravan.get("radius", 56))
 	ci.draw_circle(at, r, Color(col, 0.08 if st == 0 else 0.13))
-	var spin := float(_tick) * (0.05 if st == 1 else (-0.03 if st == -1 else 0.0))
+	var spin := float(_tick) * (0.05 if st == 1 else (-0.03 if st == -1 else (0.012 if st == 3 else 0.0)))
+	if st == 3 and _tick % 6 == 0:  # dust where it's digging
+		var front: Vector2 = at + Vector2(caravan.get("heading", Vector2.RIGHT)) * 22.0
+		_dust(front + Vector2(randf_range(-8, 8), randf_range(-6, 6)), Vector2(randf_range(-0.4, 0.4), -0.3))
+	for id in caravan.get("healing", []):  # the escort healing: small crosses rising off them
+		var c := _creature(int(id))
+		if c != null and shown(c) and (_tick + int(id) * 11) % 20 == 0:
+			_add({"kind": "heal", "pos": c.pos + Vector2(randf_range(-6, 6), -_top(c) * 0.5), "vel": Vector2(0, -0.5),
+				"life": 30})
 	for k in 12:  # a dashed rim that turns the way the caravan is going
 		var a0 := spin + k * TAU / 12.0
 		ci.draw_arc(at, r, a0, a0 + TAU / 20.0, 6, Color(col, 0.85), 2.0)

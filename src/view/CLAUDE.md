@@ -57,6 +57,8 @@ dig/slosh/poof/chop_chop/shout sounds.
   `_scatter` (`_scatter_bands` when no `pieces`), `_gush`, `_melt_ko`, `_cash_ko`, `_dirt_ko`, `_hiss_ko`
 - Windup tell (red/gold) → `fx_view.gd:_windup_tell`, `creature_view.gd:TELL_RED/TELL_GOLD`,
   `full_charge_breaks_guard`
+- Caravan's rockslide rubble on art maps → `arena_view.gd:_draw_rubble`; digging dust and the
+  escort's heal crosses → `fx_view.gd:_draw_caravan` (`heal` particles)
 - Capture the Flag → flags `fx_view.gd:_draw_flag` (in the air: `lift` from main), shrines
   `_draw_shrine`, shrine buffs `_draw_buffs`; the capture banner `hud.gd:moment` /
   `_draw_moment`, the red edge `alert` / `_draw_alert`; toasts, sounds and the end-screen

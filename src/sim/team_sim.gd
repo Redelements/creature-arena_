@@ -44,6 +44,20 @@ extends RefCounted
 ## out a round goes on while an attacker is at the caravan (up to `overtime_seconds`).
 ## Round 1 stops as soon as it is decided: past round 0's distance, or slower than round
 ## 0's finish. The winner finished faster, or pushed further. KOs score nothing.
+## Each checkpoint passed brings a rockslide down across the road ahead (`rockslide`:
+## rubble `ahead` px on, `across` px wide, `thick` deep): the caravan stops at it until
+## attackers at it alone dig it through (`dig_ticks`), or a heavy charge smashes it; the
+## rest stays as cover. Attackers at the caravan heal (`escort_heal` hp a second) while
+## they're on their feet. A new round puts the map back as it was.
+##
+## Class perks (any mode's "class_perks": {role: {key: value, "text": what it says}}, a
+## fighter's role from its sheet, "fighter" when none): Caravan's `push` (multiplies the
+## push), `back` (the roll-back), `dig` (digging), `heal` (the escort heal while one is at
+## it), `contest` (a contested caravan creeps toward the side with more of it), `respawn`
+## (seconds off the wait); Capture the Flag's `carry_slow` (a lighter carry), `steady`
+## (only launches and knockdowns knock the flag loose), `knock` (any heavy hit on a
+## carrier does), `pass` (pass range and speed), `claim` (shrine claiming), `reach` (px
+## added to touching flags).
 ##
 ## Capture the Flag (rules with "ctf": data/rules/ctf.json, on top of the deathmatch
 ## respawns): each side's flag stands on its base (the map's "bases"). A fighter touching
@@ -117,6 +131,8 @@ var cv_ot := 0
 var cv_state := 0
 var cv_best := [0.0, 0.0]
 var cv_time := [-1, -1]
+## Caravan: digging through a rockslide in the way (ticks of digging, perks counted).
+var cv_dig := 0.0
 ## The track (from the map, fixed for the match): its points and the distance along it
 ## to each one.
 var _track: Array[Vector2] = []
@@ -209,7 +225,7 @@ func _init(team_ids: Array, per_side := 0, p_rules: Dictionary = {}) -> void:
 		var sr: Dictionary = rules.get("shrines", {})
 		if not sr.is_empty():
 			for sd in sim.arena.get("shrines", []):
-				shrines.append([-1, 0, int(float(sr.get("first_seconds", 15)) * SimDefs.TICK_RATE)])
+				shrines.append([-1, 0.0, int(float(sr.get("first_seconds", 15)) * SimDefs.TICK_RATE)])
 		_ctf_goals()
 
 
@@ -239,6 +255,22 @@ func score_to_win() -> int:
 func spawn_point(side: int, k: int, n: int, spread := 60.0) -> Vector2:
 	var base := sim.spawn(side)
 	return sim.terrain.nearest_solid(base + Vector2(0.0, (float(k) - float(n - 1) * 0.5) * spread))
+
+
+## A fighter's class: its sheet's "role" ("fighter" when none).
+static func role_of(c: CreatureSim) -> String:
+	return String(c.def.get("role", "fighter"))
+
+
+## A class perk these rules give `c` (see the header), else `default`.
+func perk(c: CreatureSim, key: String, default: Variant = 0.0) -> Variant:
+	var p: Dictionary = (rules.get("class_perks", {}) as Dictionary).get(role_of(c), {})
+	return p.get(key, default)
+
+
+## What `c`'s class perk does here, for the screen ("" when none).
+func perk_text(c: CreatureSim) -> String:
+	return String(perk(c, "text", ""))
 
 
 func slot_count() -> int:
@@ -337,6 +369,7 @@ func _deathmatch_step() -> void:
 			var wait := float(rules.get("respawn_seconds", 4))
 			if ctf and int(flag_state[c.team]) != FLAG_HOME and rules.has("respawn_seconds_flag_away"):
 				wait = float(rules["respawn_seconds_flag_away"])  # a comeback: back sooner while your flag is away
+			wait = maxf(1.0, wait - float(perk(c, "respawn", 0.0)))
 			respawn_t[slot] = int(wait * SimDefs.TICK_RATE)
 			guard_t[slot] = 0
 			if not crater and not caravan and not ctf:  # objective modes score objectives, not KOs
@@ -612,27 +645,66 @@ func caravan_counts() -> Array:
 
 func _caravan_step() -> void:
 	var att := cv_attacker()
-	var n := caravan_counts()
-	var a := int(n[att])
-	var d := int(n[1 - att])
+	var near := [[], []]
+	for c in sim.creatures:
+		if _near_caravan(c):
+			(near[c.team] as Array).append(c)
+	var a := (near[att] as Array).size()
+	var d := (near[1 - att] as Array).size()
 	var floor_p := checkpoint_at(cv_cp - 1) if cv_cp > 0 else 0.0
+	var push := float(rules.get("push_speed", 0.26))
+	# Class perks of whoever is at it: each counts on top of the plain rate.
+	var push_k := 1.0
+	var dig_k := 0.0
+	var heal_k := 1.0
+	for c in near[att]:
+		push_k += float(perk(c, "push", 1.0)) - 1.0
+		dig_k += float(perk(c, "dig", 1.0))
+		heal_k = maxf(heal_k, float(perk(c, "heal", 1.0)))
+	var back_k := 1.0
+	for c in near[1 - att]:
+		back_k += float(perk(c, "back", 1.0)) - 1.0
+	var blocked := _cv_rubble_ahead()
 	if a > 0 and d == 0:
-		var mult: Array = rules.get("push_mult", [1.0, 1.0, 1.2, 1.35])
-		cv_p += float(rules.get("push_speed", 0.26)) * float(mult[mini(a, mult.size() - 1)])
-		cv_state = 1
+		if blocked:
+			cv_dig += dig_k
+			cv_state = 3
+			if cv_dig >= float((rules.get("rockslide", {}) as Dictionary).get("dig_ticks", 240)):
+				_cv_clear_rubble()
+		else:
+			var mult: Array = rules.get("push_mult", [1.0, 1.0, 1.2, 1.35])
+			cv_p += push * float(mult[mini(a, mult.size() - 1)]) * push_k
+			cv_state = 1
 	elif a > 0:
 		cv_state = 2
+		# Contested: it creeps toward the side with more `contest` there (fighters).
+		var edge := 0.0
+		for c in near[att]:
+			edge += float(perk(c, "contest", 0.0))
+		for c in near[1 - att]:
+			edge -= float(perk(c, "contest", 0.0))
+		if edge > 0.0 and not blocked:
+			cv_p += push * edge
+		elif edge < 0.0:
+			cv_p = maxf(floor_p, cv_p + float(rules.get("back_speed", 0.1)) * edge)
 	elif d > 0:
-		cv_p = maxf(floor_p, cv_p - float(rules.get("back_speed", 0.1)))
+		cv_p = maxf(floor_p, cv_p - float(rules.get("back_speed", 0.1)) * back_k)
 		cv_state = -1
 	else:
 		cv_state = 0
+	# The escort heals while on its feet.
+	var heal := float(rules.get("escort_heal", 0.0)) * heal_k / float(SimDefs.TICK_RATE)
+	if heal > 0.0:
+		for c in near[att]:
+			if escort_healing(c):
+				c.hp = minf(c.max_hp, c.hp + heal)
 	cv_p = minf(cv_p, track_length())
 	cv_t += 1
 	while cv_p >= checkpoint_at(cv_cp):
 		cv_cp += 1
 		timer += int(float(rules.get("checkpoint_seconds", 30)) * SimDefs.TICK_RATE)
 		sim.emit_event("checkpoint", caravan_pos(), float(cv_cp), {"team": att})
+		_cv_rockslide()
 	cv_best[att] = maxf(float(cv_best[att]), cv_p)
 	sim.zone_pos = caravan_pos()
 	sim.zone_r = float(rules.get("radius", 56))
@@ -655,6 +727,68 @@ func _caravan_step() -> void:
 			cv_ot += 1  # overtime: it goes on while an attacker is at the caravan
 		else:
 			_cv_end_round()
+
+
+## Whether an attacker at the caravan is healing: escort healing on, hurt, on its feet.
+func escort_healing(c: CreatureSim) -> bool:
+	return float(rules.get("escort_heal", 0.0)) > 0.0 and c.team == cv_attacker() and _near_caravan(c) \
+		and c.hp < c.max_hp and not c.is_stunned() and c.state != CreatureSim.State.KNOCKDOWN
+
+
+## The caravan's front: where rubble in the road stops it.
+func _cv_front() -> Vector2:
+	return caravan_pos() + caravan_heading() * 20.0
+
+
+## Rockslide rubble (rubble the map didn't put there) in the caravan's way.
+func _cv_rubble_ahead() -> bool:
+	for c in sim.terrain.cells_touching(_cv_front(), 10.0, TerrainGrid.WALL):
+		if sim.terrain.get_base(c) != TerrainGrid.WALL:
+			return true
+	return false
+
+
+## Dug through: the rubble in front of the caravan breaks up (cracked floor that mends).
+func _cv_clear_rubble() -> void:
+	cv_dig = 0.0
+	for c in sim.terrain.cells_touching(_cv_front(), 18.0, TerrainGrid.WALL):
+		if sim.terrain.get_base(c) != TerrainGrid.WALL:
+			sim.terrain.smash(c)
+	sim.emit_event("rubble_clear", _cv_front(), 0.0, {"team": cv_attacker()})
+
+
+## A checkpoint brings rubble down across the road `ahead` px on: a band `thick` deep and
+## `across` wide, square to the track there, on plain floor only (ragged at its ends).
+func _cv_rockslide() -> void:
+	var rs: Dictionary = rules.get("rockslide", {})
+	if rs.is_empty():
+		return
+	var at_p := minf(cv_p + float(rs.get("ahead", 110)), track_length() - 40.0)
+	if at_p <= cv_p + 30.0:
+		return
+	var center := track_point(_cv_d(at_p))
+	var dir := track_dir(_cv_d(at_p))
+	var side := Vector2(-dir.y, dir.x)
+	var half_t := float(rs.get("thick", 16)) * 0.5
+	var half_w := float(rs.get("across", 104)) * 0.5
+	var t := sim.terrain
+	var reach := half_w + half_t + SimDefs.CELL
+	var c0 := t.world_to_cell(center - Vector2(reach, reach))
+	var c1 := t.world_to_cell(center + Vector2(reach, reach))
+	for cy in range(c0.y, c1.y + 1):
+		for cx in range(c0.x, c1.x + 1):
+			var cell := Vector2i(cx, cy)
+			if not t.in_bounds(cell) or t.get_base(cell) != TerrainGrid.INTACT or t.get_cell(cell) > TerrainGrid.CRACKED:
+				continue
+			var q := t.cell_center(cell) - center
+			var w := absf(q.dot(side))
+			if absf(q.dot(dir)) > half_t or w > half_w:
+				continue
+			if w > half_w - 10.0 and (cx + cy) % 2 == 0:
+				continue  # ragged ends
+			t.set_cell(cell, TerrainGrid.WALL)
+	cv_dig = 0.0
+	sim.emit_event("rockslide", center, half_w * 2.0, {"team": cv_attacker()})
 
 
 func _cv_end_round() -> void:
@@ -689,6 +823,7 @@ func _cv_start_round(r: int) -> void:
 	cv_t = 0
 	cv_ot = 0
 	cv_state = 0
+	cv_dig = 0.0
 	timer = int(float(rules.get("round_seconds", 120)) * SimDefs.TICK_RATE)
 	sim.zone_pos = caravan_pos()
 	sim.zone_r = float(rules.get("radius", 56))
@@ -709,6 +844,7 @@ func _cv_start_round(r: int) -> void:
 		sim.projectiles.clear()
 		sim.zones.clear()
 		sim.storms.clear()
+		sim.terrain.load_map(sim.arena)  # the map as it was: no rockslides, no holes
 		_set_phase(Phase.INTRO)
 	sim.emit_event("caravan_round", caravan_pos(), float(r), {"team": cv_attacker()})
 
@@ -742,7 +878,8 @@ func base_of(side: int) -> Vector2:
 
 func _touches_flag(c: CreatureSim, side: int) -> bool:
 	return not _down(c) and c.state != CreatureSim.State.FALLING \
-		and c.pos.distance_to(flag_pos[side]) <= float(rules.get("pickup_radius", 14)) + float(c.radius)
+		and c.pos.distance_to(flag_pos[side]) <= float(rules.get("pickup_radius", 14)) + float(c.radius) \
+			+ float(perk(c, "reach", 0.0))
 
 
 ## Whether `c` can pick up (or send home) flag `side` now: touching it, on its feet (not
@@ -757,9 +894,19 @@ func _may_touch(c: CreatureSim, side: int) -> bool:
 
 ## A hit hard enough to knock the flag loose: the carrier launched, knocked down, guard
 ## broken or stunned stiff (crumpled), or swallowed.
+## Class perks: a `steady` carrier only drops it to a launch or a knockdown; a heavy hit by
+## a fighter with `knock` always knocks it loose.
 func _hard_hit(c: CreatureSim) -> bool:
-	return c.swallow_t > 0 or c.state in [CreatureSim.State.AIRBORNE, CreatureSim.State.KNOCKDOWN,
-		CreatureSim.State.CRUMPLE]
+	if c.state in [CreatureSim.State.AIRBORNE, CreatureSim.State.KNOCKDOWN]:
+		return true
+	if not bool(perk(c, "steady", false)) and (c.swallow_t > 0 or c.state == CreatureSim.State.CRUMPLE):
+		return true
+	for e in sim.events:
+		if String(e["type"]) == "hit" and int(e.get("target", -1)) == c.id and bool(e.get("heavy", false)):
+			var by := int(e.get("attacker", -1))
+			if by >= 0 and bool(perk(sim.creatures[by], "knock", false)):
+				return true
+	return false
 
 
 func _flag_home(side: int) -> void:
@@ -794,6 +941,7 @@ func _ctf_step(ins := PackedInt32Array(), pressed := PackedInt32Array()) -> void
 					flag_pos[side] = c.pos
 					var slow_m := float(rules.get("overtime_carry_slow", rules.get("carry_slow", 0.88))) if overtime \
 						else float(rules.get("carry_slow", 0.88))
+					slow_m = maxf(slow_m, float(perk(c, "carry_slow", 0.0)))  # a class that carries light
 					if slow_m < 1.0 and c.slow <= 1:  # carrying slows you (a real slow already on you wins)
 						c.slow = 2
 						c.slow_mult = slow_m
@@ -888,8 +1036,8 @@ func _try_pass(c: CreatureSim, bits: int) -> void:
 	var aim := SimDefs.aim_from_bits(bits)
 	if aim == Vector2.ZERO:
 		aim = c.facing
-	var reach := float(rules.get("pass_range", 150))
-	var speed := float(rules.get("pass_speed", 4.5))
+	var reach := float(rules.get("pass_range", 150)) * float(perk(c, "pass", 1.0))
+	var speed := float(rules.get("pass_speed", 4.5)) * float(perk(c, "pass", 1.0))
 	var best: CreatureSim = null
 	var best_dot := float(rules.get("pass_cone", 0.7))
 	for o in members(c.team):
@@ -975,20 +1123,24 @@ func _shrine_step() -> void:
 				sim.emit_event("shrine_ready", shrine_pos(i), 0.0, {"shrine": i, "kind": shrine_kind(i)})
 			continue
 		var n := shrine_counts(i)
+		var rate := [1.0, 1.0]  # the fastest claimer of each side there (`claim` perk)
+		for c in sim.creatures:
+			if not _down(c) and c.state != CreatureSim.State.FALLING and c.pos.distance_to(shrine_pos(i)) <= shrine_radius(i):
+				rate[c.team] = maxf(float(rate[c.team]), float(perk(c, "claim", 1.0)))
 		if int(n[0]) > 0 and int(n[1]) > 0:
 			continue  # both sides in it: the claim holds where it is
 		if int(n[0]) == 0 and int(n[1]) == 0:
-			st[1] = maxi(0, int(st[1]) - 1)
+			st[1] = maxf(0.0, float(st[1]) - 1.0)
 		else:
 			var who := 0 if int(n[0]) > 0 else 1
-			if int(st[0]) == who or int(st[1]) == 0:
+			if int(st[0]) == who or float(st[1]) <= 0.0:
 				st[0] = who
-				st[1] = int(st[1]) + 1
+				st[1] = float(st[1]) + float(rate[who])
 			else:
-				st[1] = maxi(0, int(st[1]) - 2)
-		if int(st[1]) == 0:
+				st[1] = maxf(0.0, float(st[1]) - 2.0 * float(rate[who]))
+		if float(st[1]) <= 0.0:
 			st[0] = -1
-		elif int(st[1]) >= need:
+		elif float(st[1]) >= float(need):
 			var side := int(st[0])
 			var kind := shrine_kind(i)
 			var t := int(float(sr.get("buff_seconds", 20)) * SimDefs.TICK_RATE)
@@ -1003,7 +1155,7 @@ func _shrine_step() -> void:
 					c.haste = maxi(c.haste, t)
 					c.haste_mult = float(sr.get("haste_mult", 1.2))
 			st[0] = -1
-			st[1] = 0
+			st[1] = 0.0
 			st[2] = int(float(sr.get("cooldown_seconds", 45)) * SimDefs.TICK_RATE)
 			sim.emit_event("shrine", shrine_pos(i), float(t), {"shrine": i, "kind": kind, "team": side})
 
@@ -1102,7 +1254,7 @@ func snapshot() -> Dictionary:
 	return {"phase": phase, "phase_t": phase_t, "timer": timer, "winner": winner, "match": sim.snapshot(),
 		"score": score.duplicate(), "respawn_t": respawn_t.duplicate(), "guard_t": guard_t.duplicate(),
 		"overtime": overtime, "ring": ring, "sink_t": sink_t, "warned": warned, "zone_i": zone_i, "zone_t": zone_t,
-		"cv": [cv_round, cv_p, cv_cp, cv_t, cv_ot, cv_state, cv_best.duplicate(), cv_time.duplicate()],
+		"cv": [cv_round, cv_p, cv_cp, cv_t, cv_ot, cv_state, cv_best.duplicate(), cv_time.duplicate(), cv_dig],
 		"flags": [flag_pos.duplicate(), flag_state.duplicate(), flag_carrier.duplicate(), flag_t.duplicate(),
 			flag_from.duplicate(), flag_to.duplicate(), flag_ft.duplicate(), flag_fn.duplicate(), flag_by.duplicate(),
 			flag_lock.duplicate()],
@@ -1132,6 +1284,7 @@ func restore(s: Dictionary) -> void:
 	cv_state = int(cv[5])
 	cv_best = (cv[6] as Array).duplicate()
 	cv_time = (cv[7] as Array).duplicate()
+	cv_dig = float(cv[8]) if cv.size() > 8 else 0.0
 	var fl: Array = s.get("flags", [[Vector2.ZERO, Vector2.ZERO], [0, 0], [-1, -1], [0, 0]])
 	flag_pos = (fl[0] as Array).duplicate()
 	flag_state = (fl[1] as Array).duplicate()
@@ -1154,7 +1307,7 @@ func state_digest() -> String:
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(var_to_bytes([sim.state_digest(), phase, phase_t, timer, winner, score, respawn_t, guard_t,
-		overtime, ring, sink_t, warned, zone_i, zone_t, cv_round, cv_p, cv_cp, cv_t, cv_ot, cv_state, cv_best, cv_time,
+		overtime, ring, sink_t, warned, zone_i, zone_t, cv_round, cv_p, cv_cp, cv_t, cv_ot, cv_state, cv_best, cv_time, cv_dig,
 		flag_pos, flag_state, flag_carrier, flag_t, flag_from, flag_to, flag_ft, flag_fn, flag_by, flag_lock,
 		prev_in, shrines]))
 	return ctx.finish().hex_encode()

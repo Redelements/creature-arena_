@@ -1,5 +1,5 @@
 {
-	"_doc": "Capture the Flag (2v2 to 4v4): take the other side's flag from its base and bring it to yours while your own is home. Touching a flag (within pickup_radius plus your body) takes it, or sends your own dropped flag home; a carrier is slowed (carry_slow) and drops it where it goes down; a dropped flag goes home by itself after return_seconds. First to captures_to_win, or more at time; a tie at time is sudden death. The first `defenders` CPU fighters of a side guard the base. Unlimited lives (respawns at your end like Team Deathmatch); KOs score nothing. Times are in ticks (60 per second) unless named _seconds. Hard hits on the carrier (launched, knocked down, guard broken, swallowed) knock the flag loose (fumble: it pops fumble_pop px the way they were hit; they can't touch it for fumble_lock ticks). TAG while carrying passes it to the teammate you aim at (pass_range, pass_cone, pass_speed px a tick); a flag in the air can be caught from catch_from of its flight: by the thrower's side it's carried on, by its own side it goes home. Comebacks: respawn_seconds_flag_away while your own flag is away; overtime_carry_slow in sudden death. capture_slowmo: ticks of slow motion on a capture. shrines: the map's shrines, claimed by a side alone in one for claim_seconds, give its fighters haste (haste_mult walking) or might (might_mult damage) for buff_seconds, then rest for cooldown_seconds (first ready after first_seconds).",
+	"_doc": "Capture the Flag (2v2 to 4v4): take the other side's flag from its base and bring it to yours while your own is home. Touching a flag (within pickup_radius plus your body) takes it, or sends your own dropped flag home; a carrier is slowed (carry_slow) and drops it where it goes down; a dropped flag goes home by itself after return_seconds. First to captures_to_win, or more at time; a tie at time is sudden death. The first `defenders` CPU fighters of a side guard the base. Unlimited lives (respawns at your end like Team Deathmatch); KOs score nothing. Times are in ticks (60 per second) unless named _seconds. Hard hits on the carrier (launched, knocked down, guard broken, swallowed) knock the flag loose (fumble: it pops fumble_pop px the way they were hit; they can't touch it for fumble_lock ticks). TAG while carrying passes it to the teammate you aim at (pass_range, pass_cone, pass_speed px a tick); a flag in the air can be caught from catch_from of its flight: by the thrower's side it's carried on, by its own side it goes home. Comebacks: respawn_seconds_flag_away while your own flag is away; overtime_carry_slow in sudden death. capture_slowmo: ticks of slow motion on a capture. shrines: the map's shrines, claimed by a side alone in one for claim_seconds, give its fighters haste (haste_mult walking) or might (might_mult damage) for buff_seconds, then rest for cooldown_seconds (first ready after first_seconds). class_perks: per fighter class (its sheet's role), what it adds here (carry_slow, steady, knock, pass, claim, reach; see TeamSim) and the text the game shows.",
 	"deathmatch": true,
 	"ctf": true,
 	"arena": "twin_keeps",
@@ -19,6 +19,32 @@
 	"catch_from": 0.5,
 	"respawn_seconds_flag_away": 3,
 	"overtime_carry_slow": 1.0,
+	"class_perks": {
+		"assassin": {
+			"carry_slow": 0.97,
+			"text": "carries the flag almost at full speed"
+		},
+		"tank": {
+			"steady": true,
+			"text": "only launches and knockdowns knock the flag loose"
+		},
+		"bruiser": {
+			"knock": true,
+			"text": "any heavy hit knocks the flag out of a carrier"
+		},
+		"mage": {
+			"claim": 1.5,
+			"text": "claims shrines 50% faster"
+		},
+		"skirmisher": {
+			"pass": 1.3,
+			"text": "passes farther and faster"
+		},
+		"fighter": {
+			"reach": 10,
+			"text": "grabs and returns flags from farther"
+		}
+	},
 	"capture_slowmo": 40,
 	"shrines": {
 		"first_seconds": 15,

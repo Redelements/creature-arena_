@@ -215,6 +215,9 @@ func _draw_on_art() -> void:
 				continue
 			if TerrainGrid.is_pit(v):
 				continue
+			if v == TerrainGrid.WALL:  # rubble the map didn't put there: a Caravan rockslide
+				_draw_rubble(cx, cy)
+				continue
 			if (v == TerrainGrid.CRACKED and b == TerrainGrid.WALL) or v == TerrainGrid.BRUSH_FLAT:
 				# a smashed wall's rubble, flattened brush: the map's changed-piece picture
 				if _art_alt != null:
@@ -229,6 +232,23 @@ func _draw_on_art() -> void:
 					draw_rect(cell, C_CRACKED_SHADE)
 	_draw_pits()
 	_draw_pit_lips()
+
+
+## Rockslide rubble on a map with art: a heap of boulders, the same heap for the same
+## cell (no randomness, so a redraw doesn't shuffle it), lit from the top left.
+const C_RUBBLE: Array[Color] = [Color("3e3026"), Color("6a5442"), Color("846a52"), Color("a88e70")]
+
+
+func _draw_rubble(cx: int, cy: int) -> void:
+	var r := _cell_rect(cx, cy)
+	draw_rect(Rect2(r.position + Vector2(-1, 1), r.size + Vector2(2, 1)), Color(C_RUBBLE[0], 0.55))
+	for k in 3:
+		var off := Vector2(posmod(cx * 5 + cy * 3 + k * 7, 6) - 2.5, posmod(cx * 3 + cy * 11 + k * 5, 5) - 2.5)
+		var rad := 3.2 + 0.8 * posmod(cx + cy * 2 + k, 3)
+		var p := r.get_center() + off
+		draw_circle(p + Vector2(0.5, 1.0), rad, C_RUBBLE[0])
+		draw_circle(p, rad, C_RUBBLE[1 + posmod(cx + cy + k, 2)])
+		draw_circle(p - Vector2(rad, rad) * 0.35, rad * 0.45, C_RUBBLE[3])
 
 
 ## A map with art: where a pit meets solid floor, the floor's edge breaks off ragged (a
