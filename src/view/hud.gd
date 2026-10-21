@@ -206,6 +206,12 @@ func _layout() -> void:
 
 
 func _draw() -> void:
+	var t0 := PerfLog.now()
+	_draw_now()
+	PerfLog.since("hud draw", t0)
+
+
+func _draw_now() -> void:
 	_layout()
 	if menu_visible:
 		return

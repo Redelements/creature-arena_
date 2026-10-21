@@ -139,20 +139,32 @@ func level_name() -> String:
 ## calling bits() one CPU after another gives. Big team matches have eight CPUs: this
 ## spreads their thinking over the cores instead of one frame.
 static func think_all(cpus: Array, sim: MatchSim) -> void:
+	think_wait(think_start(cpus, sim))
+
+
+## think_all in two halves, so main can draw a frame while the CPUs think: think_start
+## sets them going on the worker threads and returns at once; think_wait(task) waits for
+## them. Until it returns, nothing may change the match (the CPUs are reading it). Returns
+## -1 when it thought there and then (threads off, or nobody to think).
+static func think_start(cpus: Array, sim: MatchSim) -> int:
 	var list: Array[CpuController] = []
 	for c in cpus:
 		if c != null:
 			list.append(c)
-	if list.size() < 2 or not threaded:
+	if list.is_empty() or not threaded:
 		for c in list:
 			c.bits(sim)
-		return
+		return -1
 	SimDefs.aim_dirs()
 	NavGrid.shared(sim.terrain)  # (and its TerrainIndex) built here, read-only on the threads
 	TerrainIndex.of(sim.terrain)
-	var task := WorkerThreadPool.add_group_task(func(k: int) -> void: list[k].bits(sim),
+	return WorkerThreadPool.add_group_task(func(k: int) -> void: list[k].bits(sim),
 		list.size(), -1, true, "CPU players")
-	WorkerThreadPool.wait_for_group_task_completion(task)
+
+
+static func think_wait(task: int) -> void:
+	if task >= 0:
+		WorkerThreadPool.wait_for_group_task_completion(task)
 
 
 ## Whether think_all uses the worker threads (--cpu-threads=off turns it off, to compare).

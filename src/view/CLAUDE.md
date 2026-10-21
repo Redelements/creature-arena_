@@ -19,6 +19,11 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   hit `radius`: shots look the same however wide they hit.
 - Every sound name needs a `data/audio.json` entry. All audio is placeholder.
 - A new `class_name` needs `--headless --import`.
+- Cost: views redraw on the 60 Hz tick, and that frame has to fit a 240 Hz budget. Redraw
+  only what changed: the floor is drawn in row bands (`ArenaView.BAND_ROWS`; a changed cell
+  redraws its band and its neighbours'), the crowd only when someone stands, a flash pops
+  or the camera nears the edge of the seats drawn (`_drawn_key`, `CULL_PAD`). A `_draw`
+  reports its time with `PerfLog.now()` / `PerfLog.since(...)` for `--perf`.
 - The camera is not here: `src/game/main.gd:_update_camera`, `_frame_fight`, `CAM_PAD`, `KO_ZOOM`.
 
 ## Hidden foes
@@ -75,8 +80,8 @@ dig/slosh/poof/chop_chop/shout sounds.
   training tags and DPS → `_training_tags`, `_watch_dummy`, `_dps`, `dps_meter.gd`
 - Surge aura → `surge_aura.gd` (look from the JSON `surge_aura` block)
 - Range rings → `range_rings.gd:rings`; F1 hitbox overlay → `debug_view.gd`
-- Map art → `arena_view.gd:_draw_on_art` (`arena_<id>.png` under everything; a changed cell
-  shows its piece of `_cracked` / `_alt`; `_draw_pit_lips`; a hole in a bridge, or a fallen one,
+- Map art → `arena_view.gd:_paint_changed` (`arena_<id>.png` under everything; a changed cell
+  shows its piece of `_cracked` / `_alt`; `_paint_lips`; a hole in a bridge, or a fallen one,
   shows the water of `_alt`, `_bridge_gone`); the pictures come from
   `tools/gen_arenas.py`, which reads the pieces from `data/arenas/<id>.json`
 - Footsteps / swing sounds → `audio_view.gd:watch`; buses → `_make_buses`, `set_volume`
