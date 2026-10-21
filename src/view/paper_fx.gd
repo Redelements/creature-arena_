@@ -112,6 +112,12 @@ func _sight(p: Vector2) -> bool:
 
 
 func _draw() -> void:
+	var t0 := PerfLog.now()
+	_draw_now()
+	PerfLog.since("paper draw", t0)
+
+
+func _draw_now() -> void:
 	if sim == null:
 		return
 	for st in sim.storms:

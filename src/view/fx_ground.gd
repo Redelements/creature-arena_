@@ -9,5 +9,11 @@ var painter: Callable
 
 
 func _draw() -> void:
+	var t0 := PerfLog.now()
+	_draw_now()
+	PerfLog.since("fx ground draw", t0)
+
+
+func _draw_now() -> void:
 	if painter.is_valid():
 		painter.call(self)

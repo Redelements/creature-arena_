@@ -379,6 +379,12 @@ func snapshot() -> Dictionary:
 
 
 func _draw() -> void:
+	var t0 := PerfLog.now()
+	_draw_now()
+	PerfLog.since("creatures draw", t0)
+
+
+func _draw_now() -> void:
 	if _shadow_r <= 0.0:
 		return
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.38))

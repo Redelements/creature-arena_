@@ -62,7 +62,7 @@ update the map in the same change.
 | CPU defence (guard, dodge, step) | `src/ai/cpu_controller.gd:_defend`, `_rage_defend`, `_guard_answer` | rage, stamina |
 | CPU offence, combo routes, pokes, zones, kiting | `src/ai/cpu_controller.gd:_continue_attack`, `_pick_route`, `_neutral`, `_rage_neutral`, `_rage_kit` | test_ai, rage |
 | CPU pathing round walls and pits | `src/ai/nav_grid.gd`, `src/ai/cpu_controller.gd:_go_to` | cpu_pathing |
-| performance, stutter, frame drops, CPU cost per tick, threads | measure: `tests/bench_ai_cost.gd`, `--perf` (`src/game/perf_log.gd`); CPUs in parallel `src/ai/cpu_controller.gd:think_all` (main `_think_cpus`); shared caches `src/sim/terrain_index.gd`, `NavGrid.shared`, `Vision.clear_line` memo | cpu_pathing, vision |
+| performance, stutter, frame drops, CPU cost per tick, threads | measure: `tests/bench_ai_cost.gd`, `--perf` (`src/game/perf_log.gd`); CPUs in parallel `src/ai/cpu_controller.gd:think_all` / `think_start`, thinking while the frame draws (main `_think_cpus`, `_think_ahead`, `_join_cpus`); shared caches `src/sim/terrain_index.gd`, `NavGrid.shared`, `Vision.clear_line` memo; view redraw cost: floor bands `arena_view.gd:BAND_ROWS`, crowd `crowd_view.gd:_drawn_key` | cpu_pathing, vision, ui |
 | balance, win rates, matchups, why a fighter loses | `tests/bench_cpu.gd` (`--matrix`), `tests/bench_fighter.gd`; pins `tests/test_balance.gd` | balance, rage |
 | keyboard layouts, gamepad, twin-stick, aim assist | `src/input/player_input.gd` | player_input, twinstick |
 | mouse (League-style) orders | `src/input/mouse_orders.gd` | player_input |
@@ -78,7 +78,7 @@ update the map in the same change.
 | range rings, hitbox overlay | `src/view/range_rings.gd`, `src/view/debug_view.gd` | range_rings |
 | DPS meter | `src/view/dps_meter.gd` | training |
 | sound effects, music, volume | `src/view/audio_view.gd:on_event`, `data/audio.json`, `docs/AUDIO.md` | scripts_load |
-| arena drawing, crowd, map art | `src/view/arena_view.gd` (`_draw_on_art`), `src/view/crowd_view.gd`; art from `tools/gen_arenas.py` (rerun after moving a piece in `data/arenas/`) | arena |
+| arena drawing, crowd, map art | `src/view/arena_view.gd` (`_paint_changed`, row bands `BAND_ROWS`), `src/view/crowd_view.gd`; art from `tools/gen_arenas.py` (rerun after moving a piece in `data/arenas/`) | arena |
 | camera, zoom, screen shake | `src/game/main.gd:_update_camera`, `_frame_fight` | test_ui |
 | game modes, mode numbers, menus' rows | `src/game/main.gd` `MODES`, `MENU_ROWS`, `_start_match` | test_ui |
 | settings | `src/game/main.gd` `SETTING_PAGES`, `_setting`, `_set_setting` | test_ui |

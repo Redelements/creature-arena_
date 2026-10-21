@@ -101,6 +101,12 @@ func rim_color() -> Color:
 # ------------------------------------------------------------------ drawing
 
 func _draw() -> void:
+	var t0 := PerfLog.now()
+	_draw_now()
+	PerfLog.since("aura draw", t0)
+
+
+func _draw_now() -> void:
 	if c == null or (not lit and burst_t < 0):
 		return
 	var b := _burst_k()

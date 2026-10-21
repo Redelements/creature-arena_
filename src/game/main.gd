@@ -331,6 +331,13 @@ var _shot_dir := "user://shots"
 var _quit_after := 0
 ## The CPUs' inputs for this tick are worked out (_think_cpus) and wait in last_bits.
 var _cpus_thought := false
+## The next tick's CPU thinking, set going at the end of a tick (_think_ahead) so it runs
+## on the worker threads while the frame is drawn; -1 when none is running. _cpu_ahead is
+## the match and tick it read: the next tick takes its answers only if it steps that same
+## match from that same tick. On with a screen (the headless tests think in the tick).
+var _cpu_task := -1
+var _cpu_ahead: Array = []
+var _cpus_early := false
 ## Frame and tick times (--perf), printed on quit.
 var _perf: PerfLog = null
 
@@ -395,6 +402,8 @@ func _ready() -> void:
 	if _run_sim_check() or _run_server():
 		return
 	Controls.setup()
+	_cpus_early = DisplayServer.get_name() != "headless"
+	RenderingServer.frame_post_draw.connect(_join_cpus)
 	_fps_caps = DisplayServer.get_name() != "headless" and not ("--fixed-fps" in OS.get_cmdline_args()) \
 		and not ("--write-movie" in OS.get_cmdline_args())
 	menu_stick = MenuStick.new()
@@ -1750,6 +1759,7 @@ func _replay_setup(s: MatchSim) -> Dictionary:
 ## next tick, so the other player's inputs (and pongs) are in hand the moment they land.
 func _process(_delta: float) -> void:
 	if _perf != null:
+		PerfLog.mark()
 		_perf.frame(flow == Flow.FIGHT and not paused)
 	if netplay != null and netplay.link != null and netplay.link.realtime:
 		netplay.pump()
@@ -1763,6 +1773,8 @@ func _physics_process(_delta: float) -> void:
 	if sim == null:
 		return  # quitting after --sim-check
 	var tick_start := Time.get_ticks_usec()
+	PerfLog.mark()
+	_join_cpus()
 	frame_count += 1
 	_apply_frame_rate()
 	if paused:
@@ -1774,6 +1786,7 @@ func _physics_process(_delta: float) -> void:
 	if _daily_client != null:
 		_daily_step()
 	var live := flow == Flow.FIGHT or flow == Flow.MENU
+	var offline := false
 	var events: Array = sim.events
 	if online != null:
 		# Online: the rollback session steps the duel (maybe several frames, maybe none
@@ -1799,8 +1812,11 @@ func _physics_process(_delta: float) -> void:
 	elif netplay != null and _connecting_step():
 		events = online.events  # the online match began this frame: its session steps it
 	else:
+		offline = true
 		var inputs := PackedInt32Array()
+		var t_cpu := PerfLog.now()
 		_think_cpus(live)
+		PerfLog.since("cpus", t_cpu)
 		for i in sides.size():
 			inputs.append(_side_bits(i, live))
 		_cpus_thought = false
@@ -1812,16 +1828,22 @@ func _physics_process(_delta: float) -> void:
 			replay.record(inputs)
 		if _replaying() and sim.training:
 			ReplayBuilder.apply_flag_changes(sim, _replay_watched, sim.tick)
+		var t_sim := PerfLog.now()
 		if duel != null:
 			duel.step(inputs)
 		elif team_battle != null:
 			team_battle.step(inputs)
 		else:
 			sim.step(inputs)
+		PerfLog.since("sim", t_sim)
 		events = sim.events
+	var t_ev := PerfLog.now()
 	_update_vision(events)
+	PerfLog.since("vision", t_ev)
+	t_ev = PerfLog.now()
 	for e in events:
 		_react(e)
+	PerfLog.since("events", t_ev)
 	if coach != null and flow == Flow.FIGHT:
 		_coach_step()
 	# A Duel tag or a new teammate: show whoever is in each slot now.
@@ -1841,9 +1863,12 @@ func _physics_process(_delta: float) -> void:
 		_swap_fade = maxf(0.0, _swap_fade - 1.0 / 16.0)  # a fighter swap fades in from black
 		fade_rect.color.a = _swap_fade
 
+	var t_fx := PerfLog.now()
 	arena.refresh()
 	crowd.advance()
 	fx.advance()
+	PerfLog.since("fx advance", t_fx)
+	var t_views := PerfLog.now()
 	paper.advance(events)
 	hud.advance()
 	if rings.visible:
@@ -1856,15 +1881,20 @@ func _physics_process(_delta: float) -> void:
 		views[i].refresh()
 	if debug.visible:
 		debug.queue_redraw()
+	PerfLog.since("views advance", t_views)
 
 	shake = maxf(shake, fx.shake_out)
 	fx.shake_out = 0.0
 	if sim.ko_freeze <= 0:
 		shake *= 0.82
+	var t_cam := PerfLog.now()
 	_update_camera()
+	PerfLog.since("camera", t_cam)
 	var sh := shake * shake_scale
 	camera.offset = Vector2(randf_range(-sh, sh), randf_range(-sh, sh)).round() if sh > 0.3 else Vector2.ZERO
 	flash_rect.color.a = maxf(0.0, flash_rect.color.a - 0.04)
+	if offline and (flow == Flow.FIGHT or flow == Flow.MENU):
+		_think_ahead()
 	if _perf != null:
 		_perf.tick(flow == Flow.FIGHT, Time.get_ticks_usec() - tick_start)
 	_capture()
@@ -2022,16 +2052,50 @@ func _side_bits(i: int, live: bool) -> int:
 
 
 ## Every CPU side chooses this tick's input at once, spread over the worker threads
-## (CpuController.think_all); _side_bits then hands out the answers.
+## (CpuController.think_all); _side_bits then hands out the answers. Usually they were
+## worked out while the last frame drew (_think_ahead), from this very match and tick.
 func _think_cpus(live: bool) -> void:
+	var ahead := _cpu_ahead
+	_cpu_ahead = []
+	_join_cpus()
 	if not live:
 		return
+	if ahead.size() == 2 and ahead[0] == sim and ahead[1] == sim.tick:
+		_cpus_thought = true
+		return
+	CpuController.think_all(_cpu_list(), sim)
+	_cpus_thought = true
+
+
+func _cpu_list() -> Array:
 	var list: Array = []
 	for i in mini(sides.size(), cpus.size()):
 		if sides[i] == Side.CPU and cpus[i] != null:
 			list.append(cpus[i])
-	CpuController.think_all(list, sim)
-	_cpus_thought = true
+	return list
+
+
+## At the end of a tick: the CPUs start on the next tick's inputs now, on the worker
+## threads, so their thinking overlaps the frame being drawn instead of adding to it.
+## _join_cpus waits for them once the frame is drawn (frame_post_draw), before any input
+## event or the next tick can change the match. Something that changes the match between
+## ticks (a training reset) leaves the CPUs one tick behind it, as a player would be.
+func _think_ahead() -> void:
+	if not _cpus_early or not CpuController.threaded:
+		return
+	var list := _cpu_list()
+	if list.is_empty():
+		return
+	_cpu_ahead = [sim, sim.tick]
+	_cpu_task = CpuController.think_start(list, sim)
+
+
+func _join_cpus() -> void:
+	if _cpu_task >= 0:
+		var t0 := PerfLog.now()
+		CpuController.think_wait(_cpu_task)
+		_cpu_task = -1
+		PerfLog.since("cpus wait", t0)
 
 
 ## Simple behaviours for the training dummy, picked with F2.
@@ -3028,6 +3092,8 @@ func _parse_args() -> int:
 			seed_base = int(a.get_slice("=", 1))
 		elif a == "--perf":
 			_perf = PerfLog.new()
+			PerfLog.current = _perf
+			_perf.measure(get_viewport().get_viewport_rid())
 		elif a.begins_with("--cpu-threads="):
 			CpuController.threaded = a.get_slice("=", 1) != "off"
 		elif a.begins_with("--arena="):
@@ -3935,6 +4001,8 @@ func _write_net_report(keep := false) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
 		_print_perf()
+	elif what == NOTIFICATION_PREDELETE:
+		_join_cpus()
 
 
 ## Prints the --perf report and saves it as user://perf.txt (a player's build has no

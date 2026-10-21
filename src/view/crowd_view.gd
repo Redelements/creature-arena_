@@ -12,6 +12,13 @@ var _tick := 0
 var _seats: Array[Dictionary] = []
 var _roar := 0
 var _flashes: Array[Dictionary] = []
+## Redrawn only when the picture changes: who is up (CROWD_KEY's parts), a flash, or the
+## camera nearing the edge of the seats last drawn (only seats on screen, plus CULL_PAD,
+## are drawn: a big map's stands are mostly off screen).
+var _drawn_key := Vector4i(-1, -1, -1, -1)
+var _drawn_flashes := false
+var _drawn_rect := Rect2()
+const CULL_PAD := 96.0
 
 
 func _ready() -> void:
@@ -22,6 +29,8 @@ func _ready() -> void:
 ## it for wide screens (ArenaView.MARGIN).
 func set_width(w: float) -> void:
 	_seats.clear()
+	_drawn_key = Vector4i(-1, -1, -1, -1)
+	queue_redraw()
 	var from := -int(ArenaView.MARGIN.x / 12.0)
 	var to := int((w + ArenaView.MARGIN.x) / 12.0)
 	for row in 3:
@@ -61,12 +70,34 @@ func advance() -> void:
 	for f in _flashes:
 		f["t"] = int(f["t"]) - 1
 	_flashes = _flashes.filter(func(f): return int(f["t"]) > 0)
-	queue_redraw()
+	var cheering := 10 if _roar > 0 else int(excitement * 10.0)
+	var key := Vector4i(cheering, _tick / 6, _tick / 4, int(_roar > 0))
+	if key != _drawn_key or _drawn_flashes or not _flashes.is_empty() 			or not _drawn_rect.encloses(_view_rect().grow(-CULL_PAD * 0.5)):
+		_drawn_key = key
+		_drawn_flashes = not _flashes.is_empty()
+		queue_redraw()
+
+
+## The part of this node's space on screen now.
+func _view_rect() -> Rect2:
+	if not is_inside_tree():
+		return Rect2()
+	return get_global_transform_with_canvas().affine_inverse() * get_viewport_rect()
 
 
 func _draw() -> void:
+	var t0 := PerfLog.now()
+	_draw_now()
+	PerfLog.since("crowd draw", t0)
+
+
+func _draw_now() -> void:
 	var cheering := 10 if _roar > 0 else int(excitement * 10.0)
+	_drawn_rect = _view_rect().grow(CULL_PAD)
+	var seen := _drawn_rect.grow_individual(W, H, 0, 0)
 	for s in _seats:
+		if not seen.has_point(s["pos"]):
+			continue
 		var up: bool = ((_tick / 6 + int(s["phase"])) % 10) < cheering
 		var frame := int(s["variant"]) * 2 + (1 if up else 0)
 		var p: Vector2 = s["pos"]

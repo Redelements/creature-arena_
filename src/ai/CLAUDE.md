@@ -15,7 +15,9 @@ goes for showcases, trials and drills.
 - Rules it must respect live in the sim (`can_dodge`, `can_guard`, stamina); check them
   before choosing an action, or the press is wasted.
 - `bits()` may run on a worker thread (`think_all`, main's `_think_cpus`): it must only read
-  the match and write the controller's own fields. A cache shared between CPUs is filled in
+  the match and write the controller's own fields. With a screen it runs while main draws
+  the frame (`think_start` at the end of a tick, `think_wait` once the frame is drawn), so
+  the views must not write anything `bits()` reads either. A cache shared between CPUs is filled in
   `think_all` before the threads start, or locked (`NavGrid._label_lock`, Vision's memo).
   `tests/test_cpu_pathing.gd` checks threaded inputs equal sequential ones.
 - Cost: a 4v4 has eight CPUs in one tick. Measure with `tests/bench_ai_cost.gd` before and
@@ -52,7 +54,7 @@ default 22), `routes` (lists of action names), `far_routes`/`far_from`, `poke`/`
   per terrain shared by every CPU (`NavGrid.shared`), rebuilt row by row on `terrain.version`,
   regions for unreachable goals), `_go_to`, `_steer`, `_open_dir`, `_clearance`; fast
   open-floor checks `NavGrid.clear_line`, `NavGrid.body_blocked` (via `TerrainIndex`)
-- Threads → `think_all`, `threaded`, `last_bits`
+- Threads → `think_all`, `think_start` / `think_wait`, `threaded`, `last_bits`
 - Leading shots → `_aim_point`; team targeting → `_pick_target`, `_hurt_ally`; Duel tag-out
   → `_maybe_tag`; Crease's folds → `_usable`, `_maybe_fold`
 
