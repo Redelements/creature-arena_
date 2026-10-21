@@ -18,26 +18,28 @@
   "fx_top": 74,
   "fx_color": "#ff9a2e",
   "surge_aura": {"colors": ["#1f3f8f", "#ff9a2e", "#f4efe2"], "motes": "glints", "spikes": 6, "sharp": 0.8, "speed": 0.9, "height": 1.2},
-  "cut_in_frame": [10, 2],
+  "cut_in_frame": [10, 6],
   "twinstick": { "autofire": "light" },
-  "ko_fx": { "style": "scatter", "frame": [0, 0], "pieces": [[63, 88], [88, 104], [104, 122], [122, 138]] },
+  "ko_fx": { "style": "scatter", "frame": [0, 0], "pieces": [[62, 88], [88, 104], [104, 122], [122, 138]] },
   "sprite": {
     "path": "res://assets/sprites/crease.png",
     "frame": [128, 160],
-    "cols": 8,
+    "cols": 12,
+    "idle_ticks": 8,
+    "run_ticks": 2,
     "origin": [64, 136],
     "anims": {
-      "idle": [0, 0, 4],
-      "run": [1, 0, 6],
-      "flick": [2, 0, 4],
-      "flick2": [3, 0, 4],
+      "idle": [0, 0, 8],
+      "run": [1, 0, 12],
+      "flick": [2, 0, 8],
+      "flick2": [3, 0, 8],
       "fold_shuriken": [4, 0, 4],
       "fold_crane": [5, 0, 4],
       "fold_frog": [6, 0, 4],
       "shuriken": [7, 0, 6],
       "crane": [8, 0, 5],
       "frog": [9, 0, 6],
-      "surge": [10, 0, 6],
+      "surge": [10, 0, 12],
       "dodge": [11, 0, 4],
       "hurt": [12, 0, 2],
       "guard": [13, 0, 2],
@@ -80,7 +82,7 @@
       "damage": 3, "knockback": 0.6, "hitstun": 24, "hitstop": 3, "juggle": true,
       "projectile": { "speed": 7.5, "life": 18, "radius": 5, "offset": 12, "crack_trail": false,
         "sound": "knife_throw", "end_sound": "knife_hit", "volley": { "count": 3, "every": 3 } },
-      "anim_at": [[0, 0], [4, 1], [7, 2], [14, 3]],
+      "anim_at": [[0, 0], [2, 1], [4, 2], [6, 3], [9, 4], [11, 5], [14, 6], [17, 7]],
       "fx": { "projectile": "dart" }
     },
     "light_1": {
@@ -90,7 +92,7 @@
       "next": "light_2",
       "projectile": { "speed": 7.0, "life": 18, "radius": 5, "offset": 12, "crack_trail": false,
         "sound": "knife_throw", "end_sound": "knife_hit" },
-      "anim_at": [[0, 0], [4, 1], [7, 2], [12, 3]],
+      "anim_at": [[0, 0], [2, 1], [4, 2], [6, 3], [9, 4], [11, 5], [14, 6], [17, 7]],
       "fx": { "projectile": "dart" }
     },
     "light_2": {
@@ -100,7 +102,7 @@
       "next": "light_3",
       "projectile": { "speed": 7.0, "life": 18, "radius": 5, "offset": 12, "crack_trail": false,
         "sound": "knife_throw", "end_sound": "knife_hit" },
-      "anim_at": [[0, 0], [4, 1], [7, 2], [12, 3]],
+      "anim_at": [[0, 0], [2, 1], [4, 2], [6, 3], [9, 4], [11, 5], [14, 6], [17, 7]],
       "fx": { "projectile": "dart" }
     },
     "light_3": {
@@ -110,7 +112,7 @@
       "next": "",
       "projectile": { "speed": 7.0, "life": 20, "radius": 6, "offset": 12, "crack_trail": false,
         "sound": "swing_heavy", "end_sound": "thwack" },
-      "anim_at": [[0, 0], [5, 1], [9, 2], [16, 3]],
+      "anim_at": [[0, 0], [2, 1], [6, 2], [8, 3], [11, 4], [14, 5], [18, 6], [22, 7]],
       "fx": { "projectile": "dart", "size": 1.3 }
     },
     "heavy": {
@@ -159,7 +161,8 @@
         "storm": { "radius": 52, "ticks": 100, "every": 10, "damage": 1.8, "hitstun": 16,
           "damage_end": 7, "knockback_end": 4.5, "launch_end": 20, "hitstop_end": 12,
           "crack_inner": 42, "crack_outer": 62 } },
-      "anim_at": [[0, 2], [5, 2], [10, 3], [16, 4], [26, 5]],
+      "anim_charge": [0, 4, 6],
+      "anim_at": [[0, 4], [4, 5], [7, 6], [11, 7], [16, 8], [21, 9], [25, 10], [33, 11]],
       "fx": { "shout": { "text": "FOLD 'EM.", "sound": "" }, "projectile": "crane_bundle", "storm": "cranes" }
     }
   }

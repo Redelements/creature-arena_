@@ -10,7 +10,8 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   `build(pose, view)`, a palette, `ROWS` / `VIEW_ROWS`, pose functions;
   `python3 tools/gen_<id>.py inspect idle:0 run:2` previews frames.
 - `gen_culvert.py`, `gen_digby.py`, `gen_pete.py`, `gen_sno.py`, `gen_crease.py`: splat3d rigs
-  (Crease: faceted paper, 128x160 frames, `decorate` draws creases).
+  (Crease: faceted paper, 128x160 frames, `decorate` draws creases; `tween()` in-betweens
+  key poses, and `gen_crease.py anim` renders animation preview GIFs into `docs/anim_preview/`).
 - `gen_cerebro.py`, `gen_hissy.py`: point-sampling rigs with their own copy of the splat code.
 - `gen_barkley.py`, `gen_gillbert.py`, `gen_craglash.py`: older (Barkley/Gillbert project a
   3D rig per view; Craglash is a 2D IK puppet).

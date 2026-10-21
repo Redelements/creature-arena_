@@ -48,7 +48,13 @@ Two effects read the art directly, so check them when sheets are replaced:
 
 How the game plays a move's frames: on 4-frame attacks, frame 0 is the windup, 1 the
 strike, 2 the follow-through and 3 the recovery. Heavies use 6 frames: two charge frames
-(alternating while held), rise, strike, follow-through and recovery.
+(alternating while held), rise, strike, follow-through and recovery. A move's `anim_at`
+times its frames exactly instead, and `anim_charge` (`[first, count, ticks each]`) loops
+more charge frames while held.
+
+Idle and run play at one frame per 10 and 4 ticks. A sheet with longer cycles sets
+`"idle_ticks"` and `"run_ticks"` in its `"sprite"` block (Crease: 8 frames at 8 ticks, 12
+at 2, so his run cycle still takes 24 ticks and the stride keeps pace with his speed).
 
 ### Culvert — 96×96 frames, 8 × 12 (768×1152 px)
 
@@ -415,7 +421,7 @@ Facing down and up: [`sno_views_preview.png`](sno_views_preview.png).
 | 11 | guard | 2 | gloves up in front of his face |
 | 12 | ko | 4 | topples and melts into a puddle |
 
-### Mister Crease — 128×160 frames, 8 × 16 (1024×2560 px)
+### Mister Crease — 128×160 frames, 12 × 16 (1536×2560 px)
 
 `tools/gen_crease.py`, posed and splatted with the shared renderer but shaded by its own
 paper pass (`render_paper`, swapped in for splat3d's `render` for this generator only), from
@@ -449,22 +455,61 @@ Facing down and up: [`crease_views_preview.png`](crease_views_preview.png).
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
-| 0 | idle | 4 | hand on hip, the far palm up, the cape settling in a slow flap, the brim flexing with it |
-| 1 | run | 6 | the strut: long strides, shoulders rolling, the cape and coat tails lagging a beat behind, the brim fluttering |
-| 2 | flick | 4 | Paper Cut (lights 1 and 3), near hand: wind back (the cape whipped forward), flick, follow-through, recover |
-| 3 | flick2 | 4 | Paper Cut (light 2), far hand |
+| 0 | idle | 8 | hand on hip, the far palm up: an eased breath between presenting (chest up, palm raised) and settled (weight sunk); the brim a frame behind, the cape and tails two, the cape's fold three. `idle_ticks` 8 |
+| 1 | run | 12 | the strut, two steps of contact, down, load, passing (knee high), push-off (heel up), reach (toe pointed); nearly upright, the far arm swinging on an arc with the fingers fanned out front; the planted foot slides back at an even pace; cape, fold, tails and brim lag 1 to 3 frames. `run_ticks` 2 |
+| 2 | flick | 8 | Paper Cut (lights 1 and 3, Grand Entrance), near hand: anticipation, the coil (a dart pinched behind him, squashed, the cape whipped forward), the whip, the release (fingers fanned, stretched; the dart leaves on its second tick), follow-through, the flourish (palm up), settle, recover |
+| 3 | flick2 | 8 | Paper Cut (light 2), the same with the far hand |
 | 4 | fold_shuriken | 4 | a sheet lands in his hands, quick creases, the star, tucked into the hat band |
 | 5 | fold_crane | 4 | the sheet, careful folds, the crane, set on his near hand |
 | 6 | fold_frog | 4 | the sheet, folds, three little frogs in his hands, the frogs hopping off to his far shoulder (his hands free) |
 | 7 | shuriken | 6 | Paper Shuriken: charge A/B (the star raised over the hat), rise, fling, follow-through, recover |
 | 8 | crane | 5 | Paper Crane: hand up, the crane lifts, launched, follow-through, recover |
 | 9 | frog | 6 | Paper Frog: he whips out a sheet, tears and folds three frogs, crouches to set them on the floor, the low forward sweep that sends them (the release, frame 3), the follow-through leaning in, recover; the frogs themselves are `PaperFx` projectiles once sent |
-| 10 | surge | 6 | Thousand Cranes: arms up, sheets spiral in, the throw (the cut-in frame), watching, the bow, recover |
+| 10 | surge | 12 | Thousand Cranes: 0-3 the charge loop (`anim_charge`: arms up, the sheets spiralling in to a crane over his hands); then the gather (squashed, the crane pulled back), the drive up and over, the throw (frame 6, the cut-in), the release (hand open, held), watching, the arm sweeping into the bow, the deep bow (held), the rise |
 | 11 | dodge | 4 | Paper Plane: folds down, the airplane (two gliding frames, banking so its cream underside shows), unfolds |
 | 12 | hurt | 2 | recoil, hat knocked askew, the brim bent back; frame 1 doubles as the crumple pose |
 | 13 | guard | 2 | the cape swept up in front like a curtain, both hands holding its top corners above his shoulders, wider than him so it reads from behind too |
 | 14 | ko | 4 | crumples like dropped paper, the hat rolling off |
 | 15 | victory | 8 | folds into a giant crane, the flight loop (frames 1-5), unfolds, the bow |
+
+## Animation pass: what worked (Mister Crease, Oct 2026)
+
+A test of whether animation alone moves the generated sprites closer to 32-bit-era
+quality, run on four of Crease's animations with his shading, palette and outlines
+untouched. The motion plan, previews and side-by-side comparisons are in
+[`anim_preview/`](anim_preview/) (`crease_motion_plan.md`; `python3 tools/gen_crease.py
+anim` re-renders them).
+
+**Frame counts:** idle 4 → 8, run 6 → 12, the flick 4 → 8 (both hands), the Surge 6 → 12
+(4 of them a charge loop). Doubling was enough. The cycles keep their length in ticks
+(idle 64 ticks, run 24) and run at a higher frame rate; the attacks keep their frame data
+and only change `anim_at`.
+
+**What made the biggest difference:**
+- **Overlap, at a lag of 1 to 3 frames** (the brim a frame behind the body, the cape two,
+  the cape's mid fold three, so a flap travels down to the hem). It costs nothing in
+  posing, because it's the same curve sampled late, and it's what makes him read as paper.
+- **Anticipation plus a held release.** A coil before the flick and a gather before the
+  Surge's throw, then 3 to 5 ticks on the release pose. Inside the same startup the hit
+  reads much harder.
+- **Easing by spacing** (the idle's in-betweens bunched near its two key poses), which
+  needs no repeated frames.
+- **A run whose planted foot slides back at an even pace**, with the bob, squash on the
+  down and the pointed toe; more upright posture for character.
+
+**What didn't work, or needed care, at this size (about 38×74 px):**
+- **Silhouette beats detail.** Poses that tucked a hand under the giant brim (the first
+  coil and gather) vanished; the wind-ups had to be pulled back and below the brim, and
+  the crane thrown past its edge. Check every key pose for what covers it.
+- **Facing down, the brim still hides the throwing arm** at the flick's release, as it did
+  before. That's a design problem (the brim's size), not an animation one.
+- **Squash and stretch** is kept to about 7%; more looks like rubber, not paper.
+- **Small moves** (wrist rolls, a hip sway under the shoulder roll) were dropped: under a
+  pixel of travel they jitter or vanish.
+
+**For other fighters:** the tools carry over: `tween()` and arcs for in-betweens, lagged
+secondary motion, per-fighter `idle_ticks` / `run_ticks`, `anim_charge` for longer charge
+loops. Start with the run and the lights, which show the most.
 
 ## Training dummy — 48×48 frames
 

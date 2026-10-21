@@ -4,8 +4,10 @@
 Run from anywhere:  python3 tools/gen_crease.py   (Pillow and numpy)
 Look at a few frames while working on a pose:  python3 tools/gen_crease.py inspect idle:0 run:2
 (INSPECT_OUT=path puts the picture somewhere other than inspect.png in the repo root).
+Animation previews (looping GIFs, before/after, all views, a contact sheet) into
+docs/anim_preview/:  python3 tools/gen_crease.py anim
 
-Writes assets/sprites/crease.png (128x160 frames, 8 columns, the side view), crease_down.png
+Writes assets/sprites/crease.png (128x160 frames, 12 columns, the side view), crease_down.png
 and crease_up.png (112x160: facing the camera, and facing away), plus labelled previews in
 docs/. Posed and splatted with the shared renderer (tools/splat3d.py), but shaded here: he
 is folded paper, and paper is flat planes.
@@ -23,8 +25,10 @@ The paper look (`render_paper`, swapped in for splat3d's `render` for this gener
     plane's and the big crane's undersides.
 A point is (lat, up, fwd), like the other rigs.
 """
+import io
 import math
 import os
+import subprocess
 import sys
 
 import numpy as np
@@ -57,6 +61,7 @@ MAT = {
 }
 SCALE = 1.1
 S.configure(MAT, outline=(10, 10, 22, 255), scale=SCALE, near=12.0)
+S.COLS = 12  # the strut and the Surge have 12 frames
 
 
 def _mix(a, b, t):
@@ -1233,9 +1238,10 @@ VIEW_ROWS = ROWS
 
 ANIM_DIR = os.path.join(ROOT, "docs", "anim_preview")
 PREVIEW_BG = (70, 58, 46)
-# Where each animation sits on the current sheets (row, frames), to compare against.
+# Where each animation sat on the sheets before the animation pass (row, frames), and the
+# git revision that has them, to compare against.
+OLD_REF = os.environ.get("CREASE_OLD_REF", "ee6e767")
 OLD_ROWS = {"idle": (0, 4), "run": (1, 6), "flick": (2, 4), "flick2": (3, 4), "surge": (10, 6)}
-OLD_COLS = 8
 
 
 def _timed(anim_at, length):
@@ -1300,8 +1306,10 @@ class _Frames:
 
     def old(self, anim, f, view="side"):
         if view not in self.sheets:
-            path = OUT if view == "side" else OUT.replace(".png", "_%s.png" % view)
-            self.sheets[view] = Image.open(os.environ.get("CREASE_OLD_" + view.upper(), path)).convert("RGBA")
+            # the sheets as they were before this pass (OLD_REF, a git revision)
+            path = os.path.relpath(OUT if view == "side" else OUT.replace(".png", "_%s.png" % view), ROOT)
+            blob = subprocess.check_output(["git", "show", "%s:%s" % (OLD_REF, path.replace(os.sep, "/"))], cwd=ROOT)
+            self.sheets[view] = Image.open(io.BytesIO(blob)).convert("RGBA")
         sp = self.spec(view)
         row, _n = OLD_ROWS[anim]
         x, y = f * sp["w"], row * sp["h"]
