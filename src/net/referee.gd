@@ -1,6 +1,6 @@
 class_name Referee
 extends RefCounted
-## The dedicated server's copy of one online match (a 1v1 Duel or a 2v2/3v3 team
+## The dedicated server's copy of one online match (a 1v1 Duel or a 2v2/3v3/4v4 team
 ## battle). It never predicts or rolls back: it steps the match only once every player's
 ## input for a frame has arrived, so its match is the true one. Every player sends a
 ## fingerprint of their state every OnlineMatch.DIGEST_EVERY frames; the referee checks
@@ -54,7 +54,7 @@ func _init(p_teams: Array, input_delay: int, p_size := 1, p_rules := "", p_arena
 	teams = p_teams
 	size = p_size
 	rules = p_rules
-	arena = p_arena if p_arena in ArenaMap.IDS else ArenaMap.DEFAULT
+	arena = p_arena if ArenaMap.known(p_arena) else ArenaMap.DEFAULT
 	var menu_arena: String = MatchFactory.arena
 	MatchFactory.arena = arena  # the same map as the players' machines
 	if size > 1:

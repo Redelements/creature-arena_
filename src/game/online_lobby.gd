@@ -3,7 +3,7 @@ extends UiScreen
 ## The online screen, in pages:
 ##
 ##   Online       Quick match / Rooms / More / Back
-##   Quick match  1 v 1 / 2 v 2 / 3 v 3       (whoever is waiting on the game's server)
+##   Quick match  1 v 1 / 2 v 2 / 3 v 3 / 4 v 4  (whoever is waiting on the game's server)
 ##   Rooms        size, Create room, a friend's code, Join room
 ##   More         Host a match, join a host or another server by address, recent ones
 ##
@@ -15,7 +15,7 @@ extends UiScreen
 ## The text boxes are real LineEdits (caret, selection, clipboard; the on-screen
 ## keyboard where the platform has one). The last few addresses joined are one press away.
 
-## `size`: players per side (1 to 3); 0 when joining a friend's room (it has its own).
+## `size`: players per side (1 to 4); 0 when joining a friend's room (it has its own).
 signal server_join_pressed(fighter: String, room: String, size: int)
 signal host_pressed(fighter: String)
 signal join_pressed(fighter: String, address: String, port: int, room: String)
@@ -36,10 +36,10 @@ const HOST_HELP := "They join your address: the 192.168... one at home; online, 
 const FIELD_HELP := "A host's address, or another server's (add /room to meet a friend there)"
 const CODE_HELP := "Type the code your friend got from Create room, then Enter"
 const NO_SERVER := "No server set: add one in Settings > Game > Online server, or use More"
-const SIZE_NAMES := ["1 v 1", "Duel 3v3 tag", "2 v 2", "3 v 3"]
+const SIZE_NAMES := ["1 v 1", "Duel 3v3 tag", "2 v 2", "3 v 3", "4 v 4 Capture the Flag"]
 ## Each size name's players per side and fighters per player.
-const SIZE_OF := [1, 1, 2, 3]
-const TAG_OF := [1, 3, 1, 1]
+const SIZE_OF := [1, 1, 2, 3, 4]
+const TAG_OF := [1, 3, 1, 1, 1]
 const PAGE_TITLES := ["", "QUICK MATCH", "ROOMS", "MORE"]
 
 var fighter := "cairn"
@@ -50,7 +50,7 @@ var server := ""
 ## The room this player is joining (shown while connecting), and whether they made it.
 var room_code := ""
 var room_created := false
-## Players per side for a room this player makes (1 to 3), and for the room shown.
+## Players per side for a room this player makes (1 to 4), and for the room shown.
 var room_size := 1
 var room_tag := 1  ## fighters per player in a room you make (3: a tag Duel)
 ## The team rules for 2 v 2 and 3 v 3 (TeamSim.RULE_IDS) and the fighters picked
@@ -103,6 +103,7 @@ var _rooms_page: Button
 var _quick: Button
 var _quick2: Button
 var _quick3: Button
+var _quick4: Button
 var _size_row: OptionRow
 var _quick_tag: Button
 var _create: Button
@@ -143,7 +144,7 @@ func build() -> void:
 	_page_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	# The first page.
 	_quick_page = add_button("Quick match", func(): open_page(Page.QUICK),
-		"Play whoever is waiting on the server: 1 v 1, 2 v 2 or 3 v 3")
+		"Play whoever is waiting on the server: 1 v 1 up to 4 v 4")
 	_rooms_page = add_button("Rooms", func(): open_page(Page.ROOMS),
 		"Play with friends: make a room and share its code, or join theirs")
 	_more = add_button("More: host, or join by address", func(): open_page(Page.MORE),
@@ -154,6 +155,8 @@ func build() -> void:
 		"Teams of two: starts when four players are waiting (CPUs fill in after a while)")
 	_quick3 = add_button("3 v 3", func(): quick_match(3),
 		"Teams of three: starts when six players are waiting (CPUs fill in after a while)")
+	_quick4 = add_button("4 v 4 Capture the Flag", func(): quick_match(4),
+		"Teams of four on the big map: starts when eight players are waiting (CPUs fill in after a while)")
 	_quick_tag = add_button("Duel 3v3 tag", func(): quick_match(1, 3),
 		"Three fighters each, tag them in and out: the launch mode, online")
 	_ranked = add_button("Ranked 1 v 1", func(): quick_match(1, 1, true),
@@ -164,7 +167,7 @@ func build() -> void:
 			rules_id = TeamSim.RULE_IDS[i]
 			if _room_rules_row != null:
 				_room_rules_row.set_values(TeamSim.RULE_NAMES, i),
-		"For 2 v 2 and 3 v 3 (and rooms of those sizes): the plain battle, deathmatch, Sinkhole, Crater, Caravan or Capture the Flag")
+		"For 2 v 2 and 3 v 3 (and rooms of those sizes; 4 v 4 is always Capture the Flag): the plain battle, deathmatch, Sinkhole, Crater, Caravan or Capture the Flag")
 	# Rooms.
 	_size_row = add_option("Room size", SIZE_NAMES, _size_index(room_size, room_tag), func(i: int):
 			room_size = SIZE_OF[i]
@@ -173,7 +176,7 @@ func build() -> void:
 	_room_rules_row = add_option("Team rules", TeamSim.RULE_NAMES, 0, func(i: int):
 			rules_id = TeamSim.RULE_IDS[i]
 			_rules_row.set_values(TeamSim.RULE_NAMES, i),
-		"For a 2 v 2 or 3 v 3 room: the plain battle, deathmatch, Sinkhole, Crater, Caravan or Capture the Flag")
+		"For a 2 v 2 or 3 v 3 room (a 4 v 4 room is always Capture the Flag): the plain battle, deathmatch, Sinkhole, Crater, Caravan or Capture the Flag")
 	_create = add_button("Create room", create_room, "Get a code to give your friends: the room starts once it's full")
 	code_field = LineEdit.new()
 	code_field.placeholder_text = "Friend's room code"
@@ -273,7 +276,7 @@ static func _size_index(size: int, tag: int) -> int:
 func quick_match(size := 1, tag := 1, ranked := false) -> void:
 	if busy or not _have_server():
 		return
-	size = clampi(size, 1, 3)
+	size = clampi(size, 1, TeamSim.MOST_PER_SIDE)
 	var name: String = ("Ranked  " if ranked else "") + SIZE_NAMES[_size_index(size, tag)]
 	_pick_then(("RANKED  " if ranked else "QUICK MATCH  ") + SIZE_NAMES[_size_index(size, tag)],
 		"Next: the server looks for players. Accept when the match is found.", func():
@@ -420,7 +423,7 @@ func _page_rows(p: Page) -> Array:
 		Page.MAIN:
 			return [_quick_page, _rooms_page, _more]
 		Page.QUICK:
-			return [_quick, _ranked, _quick_tag, _quick2, _quick3, _rules_row, _watch_any, _board]
+			return [_quick, _ranked, _quick_tag, _quick2, _quick3, _quick4, _rules_row, _watch_any, _board]
 		Page.ROOMS:
 			return [_size_row, _room_rules_row, _create, code_field, _join_room, _watch_room]
 		_:

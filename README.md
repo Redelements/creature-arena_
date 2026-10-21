@@ -467,7 +467,8 @@ fight starts). Tuning: `class_perks` in `data/rules/caravan.json` and `ctf.json`
 ### Capture the Flag: 3v3 and 4v4
 
 Single player > Capture the Flag vs CPU (3 v 3 or 4 v 4), or online in 2 v 2 and 3 v 3 (pick
-**Capture the Flag** as the team rules). Played on **Twin Keeps**, over three times the
+**Capture the Flag** as the team rules) or **4 v 4** (Quick match > 4 v 4 Capture the Flag, or a
+4 v 4 room; CPUs fill the empty slots). Played on **Twin Keeps**, over three times the
 stadium's floor: a walled keep at each end (in by the front gate or a gap at either corner),
 a river down the middle with one bridge and an island up and down it, brush, fences and pits on the flanks. The camera
 follows you, and arrows at the screen's edge point at both flags when they're out of shot.

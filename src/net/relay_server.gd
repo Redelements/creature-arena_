@@ -1,7 +1,7 @@
 class_name RelayServer
 extends RefCounted
 ## A dedicated server for online matches: players connect to it (with the game's
-## ordinary Join), it groups them (two for a 1v1, four for a 2v2, six for a 3v3), relays
+## ordinary Join), it groups them (two for a 1v1, four for a 2v2, six for a 3v3, eight for a 4v4 Capture the Flag), relays
 ## each match's input streams between them, and referees every match with its own copy
 ## of the simulation (Referee).
 ##
@@ -324,12 +324,14 @@ func _handle(c: Client, m: Dictionary) -> void:
 				return
 			c.team = (team as Array).duplicate()
 			c.room = String(m.get("room", "")).strip_edges().to_lower().left(MAX_ROOM_LENGTH)
-			c.size = clampi(int(m.get("size", 1)), 0, 3)
+			c.size = clampi(int(m.get("size", 1)), 0, TeamSim.MOST_PER_SIDE)
 			if c.room == "" and c.size == 0:
 				c.size = 1
 			c.rules = String(m.get("rules", ""))
 			if not (c.rules in TeamSim.RULE_IDS):
 				c.rules = ""
+			if c.size > 1:
+				c.size = mini(c.size, TeamSim.max_size_for(c.rules))  # 4 v 4 is Capture the Flag only
 			c.arena = String(m.get("arena", ArenaMap.DEFAULT))
 			if not (c.arena in ArenaMap.IDS):
 				c.arena = ArenaMap.DEFAULT
@@ -714,7 +716,11 @@ func _begin_game(group: Array, size: int, rules := "", ranked := false) -> void:
 		r.rules = rules
 		r.arena = (group[0] as Client).arena
 	# The map: a room's maker picked it; Quick match draws one (the server's choice).
+	# Rules with their own map (Caravan, Capture the Flag) always play it.
 	g.arena = r.arena if r != null else String(ArenaMap.IDS[rng.randi_range(0, ArenaMap.IDS.size() - 1)])
+	var rules_arena := String(TeamSim.rules_by_id(rules).get("arena", "")) if size > 1 else ""
+	if ArenaMap.known(rules_arena):
+		g.arena = rules_arena
 	if r != null:
 		# The room's next match: numbered on from the last, so nothing from it can mix in,
 		# and its spectators come along.
@@ -777,8 +783,8 @@ func _start(g: Game) -> void:
 	var path: float = float(sorted[-1]) + float(sorted[-2])
 	if not g.cpu_fighters.is_empty():
 		path = maxf(path, float(sorted[-1]) * 2.0)
-	if g.room == "" and g.n > 0:
-		g.arena = _draw_arena(g.arena)  # a Quick match rematch: somewhere new
+	if g.room == "" and g.n > 0 and not (g.arena in ArenaMap.MODE_IDS):
+		g.arena = _draw_arena(g.arena)  # a Quick match rematch: somewhere new (a mode's map stays)
 	for slot in g.picks:  # a rematch's picks, revealed now
 		(g.players[int(slot)] as Client).team = (g.picks[slot] as Array).duplicate()
 	g.n += 1

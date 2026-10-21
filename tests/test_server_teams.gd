@@ -1,5 +1,5 @@
 extends TestCase
-## Team battles online (2v2, 3v3) through the dedicated server: grouping by size and
+## Team battles online (2v2, 3v3, 4v4 Capture the Flag) through the dedicated server: grouping by size and
 ## room, slots and sides, every player's machine and the referee staying in sync under
 ## lag, rematches, and a player leaving.
 
@@ -353,6 +353,57 @@ func test_a_3v3_capture_the_flag_through_the_server_stays_in_sync() -> void:
 	for n: Netplay in nets:
 		assert_eq(n.game.desync_frame, -1, "no desync for slot %d" % n.game.local_slot)
 	assert_eq(ref.desync, [-1, -1, -1, -1, -1, -1], "the referee agrees with everyone:")
+
+
+func test_a_4v4_capture_the_flag_through_the_server_stays_in_sync() -> void:
+	var ctf: Array = []
+	ctf.resize(8)
+	ctf.fill("ctf")
+	var s := _setup([4, 4, 4, 4, 4, 4, 4, 4], [], 2, 1, 0.05, ctf)
+	var server: RelayServer = s[0]
+	var nets: Array = s[1]
+	assert_true(_run(server, nets, 400, func(): return _all_playing(nets)), "all eight start")
+	assert_eq(server.games.size(), 1, "one match on the server:")
+	var slots := {}
+	for n: Netplay in nets:
+		assert_eq(n.game.size, 4, "a 4v4:")
+		assert_eq(n.game.team.sim.creatures.size(), 8, "eight fighters, slot %d:" % n.game.local_slot)
+		assert_true((n.game.team as TeamSim).ctf, "Capture the Flag on slot %d" % n.game.local_slot)
+		assert_eq(n.game.arena_id, "twin_keeps", "the HUD names the map it plays, slot %d:" % n.game.local_slot)
+		slots[n.game.local_slot] = true
+	assert_eq(slots.size(), 8, "eight different slots:")
+	var ref: Referee = (server.games[0] as RelayServer.Game).referee
+	_run(server, nets, 900, Callable(), 41)
+	for n: Netplay in nets:
+		assert_eq(n.game.desync_frame, -1, "no desync for slot %d" % n.game.local_slot)
+	var none: Array = []
+	none.resize(8)
+	none.fill(-1)
+	assert_eq(ref.desync, none, "the referee agrees with everyone:")
+
+
+func test_a_lone_4v4_player_gets_seven_cpus() -> void:
+	var s := _setup([4], [], 0, 0, 0.0, ["ctf"])
+	(s[0] as RelayServer).cpu_fill_ms = 1
+	(s[0] as RelayServer).rng.seed = 4
+	var server: RelayServer = s[0]
+	var nets: Array = s[1]
+	assert_true(_run(server, nets, 300, func(): return _all_playing(nets)), "the match starts")
+	var g: OnlineMatch = (nets[0] as Netplay).game
+	assert_eq(g.size, 4, "a 4v4:")
+	assert_eq(g.cpu_slots.size(), 7, "seven CPUs:")
+	_run(server, nets, 600, Callable(), 29)
+	assert_gt(float(g.session.confirmed_frame()), 400.0, "the CPUs' inputs arrive and get confirmed:")
+	assert_eq(g.desync_frame, -1, "no desync")
+
+
+func test_4v4_is_capture_the_flag_only() -> void:
+	# A 4 v 4 under rules that take three a side plays 3 v 3 on the server.
+	var s := _setup([4, 4, 4, 4, 4, 4], [], 0, 0, 0.0, ["deathmatch", "deathmatch", "deathmatch", "deathmatch", "deathmatch", "deathmatch"])
+	assert_true(_run(s[0], s[1], 300, func(): return _all_playing(s[1])), "six deathmatch players start")
+	assert_eq((s[1][0] as Netplay).game.size, 3, "a 3v3:")
+	assert_eq(TeamSim.rules_for_size("", 4), "ctf", "the lobby's 4 v 4 under the plain battle is Capture the Flag")
+	assert_eq(TeamSim.rules_for_size("deathmatch", 3), "deathmatch", "and leaves smaller sizes alone")
 
 
 func test_rules_keep_quick_match_queues_apart() -> void:

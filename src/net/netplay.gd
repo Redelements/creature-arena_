@@ -63,7 +63,7 @@ extends RefCounted
 ## last pick and starts the match. A Quick match rematch on a server is on a new arena
 ## (in "start"); a direct one keeps the host's.
 
-const NET_VERSION := 15  ## 15: class perks (team rules "class_perks"), Caravan rockslides and escort healing; 14: Capture the Flag fumbles, passes (TAG), shrines, comeback rules and map bridges that fall in (MatchSim.bridges); 13: Caravan and Capture the Flag (team rules "caravan", "ctf"; maps of any size: a map's "size", "track", "bases"; sim.goals); 12: stamina rules (dearer dodge, block drain by move type, exhaustion at 0 drops the guard, regen pauses); 11: a 1v1 rematch outside rooms (Quick match, ranked, direct) picks again (room select status with secs, picks hidden until start, a countdown that locks in the last pick, Quick match draws a new arena; pick; ranked rates every game); 10: rooms last between matches (room, next, pick; wait back; bye room), Sinkhole collapses by rect and only a chasm fall is a ring-out; 9: the 1v1 is best of three rounds; 8: ranked play, player ids, daily scores; 7: team rules and tag Duels; 6: the server's ready check; 5: team battles; 4: 360 move angle
+const NET_VERSION := 16  ## 16: 4 v 4 online (Capture the Flag: size up to the rules' "max_size"); 15: class perks (team rules "class_perks"), Caravan rockslides and escort healing; 14: Capture the Flag fumbles, passes (TAG), shrines, comeback rules and map bridges that fall in (MatchSim.bridges); 13: Caravan and Capture the Flag (team rules "caravan", "ctf"; maps of any size: a map's "size", "track", "bases"; sim.goals); 12: stamina rules (dearer dodge, block drain by move type, exhaustion at 0 drops the guard, regen pauses); 11: a 1v1 rematch outside rooms (Quick match, ranked, direct) picks again (room select status with secs, picks hidden until start, a countdown that locks in the last pick, Quick match draws a new arena; pick; ranked rates every game); 10: rooms last between matches (room, next, pick; wait back; bye room), Sinkhole collapses by rect and only a chasm fall is a ring-out; 9: the 1v1 is best of three rounds; 8: ranked play, player ids, daily scores; 7: team rules and tag Duels; 6: the server's ready check; 5: team battles; 4: 360 move angle
 const DEFAULT_PORT := 7777
 const PINGS := 5
 ## A precise ping (a real link) blocks the host this long at most waiting for the pong.
@@ -540,8 +540,8 @@ func _handle(m: Dictionary) -> void:
 			via_server = true
 			match_found = true
 			accepted = false
-			found_size = clampi(int(m.get("size", 1)), 1, 3)
-			found_need = clampi(int(m.get("need", found_size * 2)), 2, 6)
+			found_size = clampi(int(m.get("size", 1)), 1, TeamSim.MOST_PER_SIDE)
+			found_need = clampi(int(m.get("need", found_size * 2)), 2, TeamSim.MOST_PER_SIDE * 2)
 			found_players = clampi(int(m.get("players", found_need)), 1, found_need)
 			found_secs = clampf(float(m.get("secs", 15.0)), 1.0, 120.0)
 			accepted_have = 0
@@ -581,9 +581,9 @@ func _handle(m: Dictionary) -> void:
 				_start_watching(m)
 				return
 			var teams = m.get("teams")
-			var size := clampi(int(m.get("size", 1)), 1, 3)
-			if not (teams is Array) or (teams as Array).size() != 2 or not _valid_team(teams[0]) \
-					or not _valid_team(teams[1]) or (size > 1 and ((teams[0] as Array).size() != size
+			var size := clampi(int(m.get("size", 1)), 1, TeamSim.MOST_PER_SIDE)
+			if not (teams is Array) or (teams as Array).size() != 2 or not _valid_side(teams[0]) \
+					or not _valid_side(teams[1]) or (size > 1 and ((teams[0] as Array).size() != size
 					or (teams[1] as Array).size() != size)):
 				_fail("Bad match setup from the host")
 				return
@@ -594,7 +594,7 @@ func _handle(m: Dictionary) -> void:
 			ping_ms = float(m.get("ping", 0.0))
 			var rules := String(m.get("rules", ""))
 			var arena := String(m.get("arena", ArenaMap.DEFAULT))
-			if not (rules in TeamSim.RULE_IDS) or not (arena in ArenaMap.IDS):
+			if not (rules in TeamSim.RULE_IDS) or not ArenaMap.known(arena):
 				_fail("Bad match setup from the host")
 				return
 			rules_id = rules
@@ -672,11 +672,11 @@ func _room_status(m: Dictionary) -> void:
 ## everything stepped so far.
 func _start_watching(m: Dictionary) -> void:
 	var teams = m.get("teams")
-	var size := clampi(int(m.get("size", 1)), 1, 3)
+	var size := clampi(int(m.get("size", 1)), 1, TeamSim.MOST_PER_SIDE)
 	var rules := String(m.get("rules", ""))
 	var arena := String(m.get("arena", ArenaMap.DEFAULT))
-	if not (teams is Array) or (teams as Array).size() != 2 or not _valid_team(teams[0]) \
-			or not _valid_team(teams[1]) or not (rules in TeamSim.RULE_IDS) or not (arena in ArenaMap.IDS):
+	if not (teams is Array) or (teams as Array).size() != 2 or not _valid_side(teams[0]) \
+			or not _valid_side(teams[1]) or not (rules in TeamSim.RULE_IDS) or not ArenaMap.known(arena):
 		_fail("Bad match setup from the server")
 		return
 	via_server = true
@@ -797,8 +797,14 @@ func _valid_team(team) -> bool:
 	return valid_team(team)
 
 
-static func valid_team(team) -> bool:
-	if not (team is Array) or (team as Array).is_empty() or (team as Array).size() > 3:
+## One side of a match as "start" lists it: up to four fighters (a 4 v 4).
+func _valid_side(team) -> bool:
+	return valid_team(team, TeamSim.MOST_PER_SIDE)
+
+
+## A player's pick: one fighter, or three for a tag Duel (`most`: the longest allowed).
+static func valid_team(team, most := 3) -> bool:
+	if not (team is Array) or (team as Array).is_empty() or (team as Array).size() > most:
 		return false
 	for id in team:
 		if not (String(id) in MatchFactory.FIGHTERS):

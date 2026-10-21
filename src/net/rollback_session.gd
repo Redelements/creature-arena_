@@ -1,7 +1,7 @@
 class_name RollbackSession
 extends RefCounted
 ## Rollback netcode (GGPO-style) for one player's machine in a match of 2 or more
-## players (a 1v1, or a 2v2/3v3 team battle with every player on their own machine).
+## players (a 1v1, or a 2v2/3v3/4v4 team battle with every player on their own machine).
 ##
 ## Every machine runs the full deterministic simulation. Each tick:
 ##   1. The local player's input is scheduled `input_delay` frames ahead and sent to
