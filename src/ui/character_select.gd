@@ -471,18 +471,18 @@ func _draw_panel(side: int) -> void:
 		status = "Pick %d more" % (team_size - team.size()) if team_size > 1 else "Pick a fighter"
 	_text(Vector2(x + 6, PANEL_Y + 11), status, 6, UiTheme.C_ACCENT if team.size() >= team_size else UiTheme.C_DIM,
 		HORIZONTAL_ALIGNMENT_RIGHT, PANEL_W - 12)
-	# The team so far.
-	var slot_w := 34.0
+	# The team so far: slots narrow so four still fit inside the panel.
+	var slot_w := minf(34.0, (PANEL_W - 108.0 - 4.0 * (team_size - 1)) / maxf(1.0, team_size))
 	for k in team_size:
 		var r := Rect2(x + 102 + k * (slot_w + 4), PANEL_Y + PANEL_H - 42, slot_w, 36)
 		draw_rect(r, C_TILE)
 		draw_rect(r, col if k < team.size() else Color(1, 1, 1, 0.15), false, 1.0)
 		if k < team.size():
-			_draw_mini(String(team[k]), Vector2(r.get_center().x, r.end.y - 2), side == 1)
+			_draw_mini(String(team[k]), Vector2(r.get_center().x, r.end.y - 2), side == 1, slot_w / 34.0)
 
 
 ## A fighter's first idle frame, small, standing at `feet`.
-func _draw_mini(id: String, feet: Vector2, face_left: bool) -> void:
+func _draw_mini(id: String, feet: Vector2, face_left: bool, scale := 1.0) -> void:
 	var tex: Texture2D = _tex.get(id)
 	if tex == null:
 		return
@@ -492,7 +492,7 @@ func _draw_mini(id: String, feet: Vector2, face_left: bool) -> void:
 	var fh := float(fsz[1]) if fsz is Array else fpx
 	var o: Array = sp.get("origin", [24, 43])
 	var idle: Array = sp.get("anims", {}).get("idle", [0, 0, 1])
-	var k := float(sp.get("select_scale", minf(1.0, 55.0 / fpx))) * 0.6
+	var k := float(sp.get("select_scale", minf(1.0, 55.0 / fpx))) * 0.6 * scale
 	draw_set_transform(feet + _o, 0.0, Vector2(-k if face_left else k, k))
 	draw_texture_rect_region(tex, Rect2(-float(o[0]), -float(o[1]), fpx, fh),
 		Rect2(int(idle[1]) * fpx, int(idle[0]) * fh, fpx, fh))

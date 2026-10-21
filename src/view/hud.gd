@@ -75,6 +75,8 @@ const MOMENT_TICKS := 100
 var _combo_show := [0, 0]
 var _combo_last := [{}, {}]
 var _combo_pop := [0, 0]
+## How far each side's combo counter moves down to clear its panels (a 4 v 4's fourth card).
+var _combo_dy := [0.0, 0.0]
 var _cut := {}
 var _tick := 0
 var _font: Font = ThemeDB.fallback_font
@@ -217,6 +219,7 @@ func _draw_now() -> void:
 		return
 	if sim == null or sim.creatures.size() < 2:
 		return
+	_combo_dy = [0.0, 0.0]
 	if team != null:
 		_team_panels()
 	elif brawl != null:
@@ -305,6 +308,7 @@ func _team_panels() -> void:
 				continue
 			_card(i, x, y, right)
 			y += 16.0
+		_combo_dy[side] = maxf(0.0, y - 74.0)
 
 
 ## Brawl: slots 0 and 1 down the left edge, 2 and 3 down the right; yours the full panel.
@@ -576,6 +580,7 @@ func _combo(side: int) -> void:
 		return
 	var a := minf(1.0, _combo_show[side] / 15.0)
 	var x := _hl + 8.0 if side == 0 else _hr - 128.0
+	var dy: float = _combo_dy[side]
 	var mult := float(info["mult"])
 	var col := C_ACCENT
 	if mult >= 1.5:
@@ -586,23 +591,23 @@ func _combo(side: int) -> void:
 	var pop := float(_combo_pop[side]) / 8.0
 	var s := 1.0 + 0.35 * pop * pop + minf(0.25, (int(info["hits"]) - 2) * 0.02)
 	var jit := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * pop * 1.5
-	draw_set_transform(Vector2(x, 86) + jit, 0.0, Vector2(s, s))
+	draw_set_transform(Vector2(x, 86 + dy) + jit, 0.0, Vector2(s, s))
 	_text(Vector2.ZERO, "%d HITS" % int(info["hits"]), 14, Color(1, 1, 1, a))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	var mult_txt := "x" + ("1.0" if mult <= 1.0 else String.num(mult, 2))
-	_text(Vector2(x + 70 + 20.0 * (s - 1.0), 86), mult_txt, 10, col)
-	_text(Vector2(x, 98), "%d damage" % int(round(float(info["dmg"]))), 7, Color(C_DIM.r, C_DIM.g, C_DIM.b, a))
+	_text(Vector2(x + 70 + 20.0 * (s - 1.0), 86 + dy), mult_txt, 10, col)
+	_text(Vector2(x, 98 + dy), "%d damage" % int(round(float(info["dmg"]))), 7, Color(C_DIM.r, C_DIM.g, C_DIM.b, a))
 
 	# Which attack types have landed: mixing all four is the x1.5 bonus.
 	var types := int(info.get("types", 0))
 	for i in TYPE_PIPS.size():
 		var lit := (types & int(SimDefs.TYPE_BIT[TYPE_PIPS[i][0]])) != 0
-		var r := Rect2(x + i * 15.0, 102, 13, 8)
+		var r := Rect2(x + i * 15.0, 102 + dy, 13, 8)
 		draw_rect(r, Color(col.r, col.g, col.b, a * 0.9) if lit else Color(0.2, 0.22, 0.26, a * 0.8))
 		_text(Vector2(r.position.x, r.position.y + 6.5), String(TYPE_PIPS[i][1]), 5,
 			Color(0.08, 0.08, 0.1, a) if lit else Color(C_DIM.r, C_DIM.g, C_DIM.b, a), HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
 	if mult >= 1.5:
-		_text(Vector2(x + 62, 109), "FULL MIX!", 6, col)
+		_text(Vector2(x + 62, 109 + dy), "FULL MIX!", 6, col)
 
 
 func _draw_caption() -> void:
