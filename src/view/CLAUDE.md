@@ -69,6 +69,9 @@ dig/slosh/poof/chop_chop/shout sounds.
   training tags and DPS → `_training_tags`, `_watch_dummy`, `_dps`, `dps_meter.gd`
 - Surge aura → `surge_aura.gd` (look from the JSON `surge_aura` block)
 - Range rings → `range_rings.gd:rings`; F1 hitbox overlay → `debug_view.gd`
+- Map art → `arena_view.gd:_draw_on_art` (`arena_<id>.png` under everything; a changed cell
+  shows its piece of `_cracked` / `_alt`; `_draw_pit_lips`); the pictures come from
+  `tools/gen_arenas.py`, which reads the pieces from `data/arenas/<id>.json`
 - Footsteps / swing sounds → `audio_view.gd:watch`; buses → `_make_buses`, `set_volume`
 
 ## Files

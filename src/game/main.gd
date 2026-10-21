@@ -1474,6 +1474,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 			cpus[i] = CpuController.new(i, _cpu_level_override if _cpu_level_override >= 0 else level,
 				seed_base * 101 + round_num * 7 + i)
 	arena.ground = String(sim.arena.get("ground", "dirt"))
+	arena.arena_id = String(sim.arena.get("id", ""))
 	arena.set_terrain(sim.terrain)
 	for v in views:
 		v.queue_free()

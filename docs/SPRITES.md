@@ -475,6 +475,19 @@ Facing down and up: [`crease_views_preview.png`](crease_views_preview.png).
 One row of 10 tiles: 0–3 dirt variants, 4–7 cracked variants (each with a different
 fracture direction), 8 pit with lit far rim, 9 deep pit.
 
+## Arena art: one picture per map
+
+`tools/gen_arenas.py` draws each map whole: `assets/sprites/arena_<id>.png` (1504×526:
+the floor, walls and stands, plus `ArenaView.MARGIN` past them; pixel (0, 0) is world
+(-400, -80)) with the map's pieces baked in as it starts (rubble walls, the water channel
+and bridges, bushes, fences). Two floor-sized companions (672×288, the floor rect only):
+`arena_<id>_cracked.png`, the same floor broken by one network of cracks, and
+`arena_<id>_alt.png` (maps whose pieces change), the floor with each piece changed
+(smashed walls as rubble, flattened brush). `ArenaView` shows a cell's piece of the
+cracked or changed picture when the cell's state differs from the map's, so a cracked
+patch joins up. A map without art falls back to the tiles below. The pieces' rects come
+from `data/arenas/<id>.json`: move a piece there and rerun the generator.
+
 ## Crowd — 12×16
 
 Four fan variants, two frames each (seated, cheering), in one row.
