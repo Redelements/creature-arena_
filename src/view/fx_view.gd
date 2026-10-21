@@ -2052,6 +2052,12 @@ func _pebbles(c: CreatureSim, charge: int) -> Array:
 # ------------------------------------------------------------------ drawing
 
 func _draw() -> void:
+	var t0 := PerfLog.now()
+	_draw_now()
+	PerfLog.since("fx draw", t0)
+
+
+func _draw_now() -> void:
 	_paint(self, false)
 
 

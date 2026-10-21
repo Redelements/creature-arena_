@@ -76,7 +76,11 @@ size only: a map's `size` can be bigger, so code with a match asks `sim.floor_re
   shrines `_shrine_step`); CPU goals a mode sets → `match_sim.gd:goals` (saved)
 - Map bridges that break → `match_sim.gd:_step_bridges`, `bridge_strain`, `bridges` (saved)
 - Win / time-out rules → `duel_sim.gd:_time_out`, `team_sim.gd:_time_out`
-- Who can see whom → `vision.gd` (not stepped by the sim; reads it, keeps a memory of hits)
+- Who can see whom → `vision.gd` (not stepped by the sim; reads it, keeps a memory of hits;
+  its line answers are memoized per terrain version, under a lock: CPUs may ask from threads)
+- Box counts of walls, fences and pits → `terrain_index.gd` (`TerrainIndex.of(terrain)`, rebuilt
+  on `terrain.version`; not match state, so not snapshotted). Any code that writes
+  `terrain.cells` must bump `terrain.version`, or these caches go stale
 - Input bits → `sim_defs.gd` (layout in `docs/MECHANICS.md`, "Input bits")
 
 ## Files
@@ -91,5 +95,6 @@ size only: a map's `size` can be bigger, so code with a match asks `sim.floor_re
 - `sim_defs.gd` (SimDefs) — Shared constants for the deterministic simulation. Nothing in src/sim/ reads the clock, the screen, or a random number…
 - `team_sim.gd` (TeamSim) — Team battle: two sides of 1 to 3 creatures each, all on the field at once (2v2, 3v3).
 - `terrain_grid.gd` (TerrainGrid) — The arena floor as a grid of 8x8 cells. Attacks crack cells and punch holes; damaged cells heal back one step every HEA…
+- `terrain_index.gd` (TerrainIndex) — Summed-area counts over a TerrainGrid's cells, so "is there any wall, fence or pit in this box of cells?" is four looku…
 - `vision.gd` (Vision) — Who can see whom: brush hides, fences and walls block the line of sight.
 <!-- END GENERATED -->

@@ -166,6 +166,24 @@ func test_pause_freezes_the_fight_and_resume_carries_on() -> void:
 	g.free()
 
 
+func test_cpus_thinking_while_the_frame_draws_choose_what_they_would_in_the_tick() -> void:
+	# With a screen, main sets the CPUs going on the next tick's inputs at the end of a
+	# tick (_think_ahead), so they think while the frame draws. The headless tests think
+	# in the tick; turned on here, the match must play out input for input the same.
+	var frames := []
+	for early in [true, false]:
+		var g := _game()
+		g._cpus_early = early
+		g._cpu_vs_cpu = true
+		g._start_match(32)  # Team Deathmatch 3v3, every slot a CPU
+		g._on_teams_chosen([["cairn", "sno", "pete"], ["culvert", "digby", "hissy"]])
+		_tick(g, 400)
+		assert_gt(float(g.replay.frames.size()), 200.0, "the fight ran:")
+		frames.append(var_to_str(g.replay.frames))
+		g.free()
+	assert_true(frames[0] == frames[1], "thinking ahead gives the same inputs, tick for tick")
+
+
 func test_quitting_from_the_pause_menu_asks_first() -> void:
 	var g := _game()
 	g._start_match(2)

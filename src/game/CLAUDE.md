@@ -30,7 +30,8 @@ player and live here, outside the sim.
 - Start a match → `_start_match` → `_start_round` (1v1), `_start_duel`, `_start_team`,
   `_start_coach`, `_start_showcase`, `_open_lobby`; pick screen → `_has_pick`,
   `_on_teams_chosen`, `_padded_teams`; sim + views → `_new_sim`; inputs → `_side_bits`,
-  `_dummy_bits`; flow → `_update_flow`; ends → `_end_round`, `_show_match_over`,
+  `_dummy_bits`, CPU sides all at once → `_think_cpus` (worked out while the last frame
+  drew: `_think_ahead`, joined in `_join_cpus` on `frame_post_draw`); flow → `_update_flow`; ends → `_end_round`, `_show_match_over`,
   `_duel_flow`, `_team_flow`
 - Camera → `_update_camera`, `_frame_fight`, `_cam_axis`; `CAM_PAD`, `KO_ZOOM`, `SHOWCASE_ZOOM`;
   on a map bigger than the stadium it follows the local player (`_cam_anchor`, `FOLLOW_R`,
@@ -65,7 +66,10 @@ After `--`; the full list is in the `main.gd` header, modes in `MODES`.
 `--mode=N`, `--level=0..3` (3 = Rage), `--seed=N`, `--showcase=<fighter>|angles|twinstick|counterplay`,
 `--pad-layout=standard|twinstick`, `--autoplay`, `--hitboxes`, `--cpu-vs-cpu`, `--pick`,
 `--teams=a,b,c:d,e,f`, `--arena=stadium|quarry|floodgate|greenhouse`, `--menu=main|single|single:<group>|settings|game|video|audio|controls|remap:<classic|league|gamepad>`,
-`--training-screen=pause|options|fighters` (with a training `--mode`), `--training-flags=no_cooldowns,full_energy`. Modes: 5 showcases, 6 Duel vs CPU, 7 Duel 2P,
+`--training-screen=pause|options|fighters` (with a training `--mode`), `--training-flags=no_cooldowns,full_energy`,
+`--perf` (frame and tick percentiles on quit, with each part's share: the tick's
+steps, each view's `_draw` via `PerfLog.since`, the renderer's CPU and GPU time, and when
+the slowest frames came; `perf_log.gd`), `--cpu-threads=off`. Modes: 5 showcases, 6 Duel vs CPU, 7 Duel 2P,
 8 Versus 2P, 9 Combo Trials, 10/11 Reaction Drills, 12–19 and 21–28 each fighter's "vs CPU"
 and "training" pair (Craglash, Barkley, Gillbert, Cerebro, Hissy, Digby, Pete, Sno), 20 Online,
 29/30 Team 2v2/3v3 vs CPU,
@@ -85,6 +89,7 @@ and "training" pair (Craglash, Barkley, Gillbert, Cerebro, Hissy, Digby, Pete, S
 - `main.gd` — Scene flow: menu, versus rounds against the CPU (or CPU vs CPU), and training.
 - `match_factory.gd` (MatchFactory) — Builds matches from the creature definitions in data/creatures/.
 - `online_lobby.gd` (OnlineLobby) — The online screen, in pages: Online Quick match / Rooms / More / Back Quick match 1 v 1 / 2 v 2 / 3 v 3 (whoever is wai…
+- `perf_log.gd` (PerfLog) — Frame pacing during fights, for `--perf`: every drawn frame's wall time (measured between frames, not Godot's smoothed…
 - `presence.gd` (Presence) — What Discord shows on the player's profile ("Rich Presence"): built from main's state once a second and handed to Disco…
 - `progress.gd` (Progress) — What the player has earned, kept in user://progress.json (outside the simulation): the best CPU level each fighter has…
 - `replay_builder.gd` (ReplayBuilder) — Rebuilds the match a replay was recorded on from the setup saved with it (main writes `Replay.setup` when a match start…
