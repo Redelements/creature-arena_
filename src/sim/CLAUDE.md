@@ -70,7 +70,8 @@ size only: a map's `size` can be bigger, so code with a match asks `sim.floor_re
 - Paper Stock and fold-then-use (Crease) → `creature_sim.gd:_regrow_sheets`, `needs_fold`,
   `_resolve_fold`; the held Gulp → `match_sim.gd:_swallow`, `_step_swallows`, `_poop`
 - Tag swap, KO swap, bench regen → `duel_sim.gd:_tag`, `_enter_next`, `_bench_regen`
-- Team modes → `team_sim.gd:_deathmatch_step`, `_respawn`, `_sinkhole_step`, `_crater_step`
+- Team modes → `team_sim.gd:_deathmatch_step`, `_respawn`, `_sinkhole_step`, `_crater_step`,
+  `_caravan_step`, `_ctf_step`; CPU goals a mode sets → `match_sim.gd:goals` (saved)
 - Win / time-out rules → `duel_sim.gd:_time_out`, `team_sim.gd:_time_out`
 - Who can see whom → `vision.gd` (not stepped by the sim; reads it, keeps a memory of hits)
 - Input bits → `sim_defs.gd` (layout in `docs/MECHANICS.md`, "Input bits")

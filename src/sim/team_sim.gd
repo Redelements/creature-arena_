@@ -44,6 +44,18 @@ extends RefCounted
 ## out a round goes on while an attacker is at the caravan (up to `overtime_seconds`).
 ## Round 1 stops as soon as it is decided: past round 0's distance, or slower than round
 ## 0's finish. The winner finished faster, or pushed further. KOs score nothing.
+##
+## Capture the Flag (rules with "ctf": data/rules/ctf.json, on top of the deathmatch
+## respawns): each side's flag stands on its base (the map's "bases"). A fighter touching
+## the other side's flag (within `pickup_radius` of it plus its body) takes it; a carrier
+## is slowed (`carry_slow`) and drops it where it goes down or falls. A dropped flag goes
+## home when one of its own side touches it, or by itself after `return_seconds`. A
+## carrier who reaches its own base while its own flag is home scores a capture (`score`);
+## first to `captures_to_win` wins, or more at time, and a tie at time is sudden death
+## (the next capture). Every tick the rules give each fighter a goal (`sim.goals`) for the
+## CPU: the carrier runs home, the first `defenders` of a side guard its base, the rest go
+## for the enemy flag or escort its carrier, and anyone goes after their own flag when it's
+## taken. KOs score nothing.
 
 enum Phase { INTRO, FIGHT, OVER }
 
@@ -94,12 +106,23 @@ var cv_time := [-1, -1]
 ## to each one.
 var _track: Array[Vector2] = []
 var _track_at: Array[float] = []
+## Capture the Flag only: per side (whose flag) its position, state (FLAG_HOME, FLAG_CARRIED,
+## FLAG_DROPPED), carrier slot (-1) and ticks until a dropped flag goes home.
+var ctf := false
+var flag_pos := [Vector2.ZERO, Vector2.ZERO]
+var flag_state := [0, 0]
+var flag_carrier := [-1, -1]
+var flag_t := [0, 0]
+const FLAG_HOME := 0
+const FLAG_CARRIED := 1
+const FLAG_DROPPED := 2
 
 
 ## The rules a mode id names ("" is the plain team battle), for the menus and the net.
-const RULE_IDS := ["", "deathmatch", "sinkhole", "crater", "caravan"]
-const RULE_NAMES := ["Team battle", "Team Deathmatch", "Sinkhole", "King of the Crater", "Caravan"]
+const RULE_IDS := ["", "deathmatch", "sinkhole", "crater", "caravan", "ctf"]
+const RULE_NAMES := ["Team battle", "Team Deathmatch", "Sinkhole", "King of the Crater", "Caravan", "Capture the Flag"]
 const CARAVAN_PATH := "res://data/rules/caravan.json"
+const CTF_PATH := "res://data/rules/ctf.json"
 
 
 static func rules_by_id(id: String) -> Dictionary:
@@ -108,6 +131,7 @@ static func rules_by_id(id: String) -> Dictionary:
 		"sinkhole": return load_rules(SINKHOLE_PATH)
 		"crater": return load_rules(CRATER_PATH)
 		"caravan": return load_rules(CARAVAN_PATH)
+		"ctf": return load_rules(CTF_PATH)
 	return {}
 
 
@@ -124,7 +148,7 @@ func _init(team_ids: Array, per_side := 0, p_rules: Dictionary = {}) -> void:
 	sim = MatchSim.new()
 	sim.set_arena(String(rules.get("arena", MatchFactory.arena)))
 	var most := mini((team_ids[0] as Array).size(), (team_ids[1] as Array).size())
-	size = clampi(per_side if per_side > 0 else most, 1, mini(3, most))
+	size = clampi(per_side if per_side > 0 else most, 1, mini(int(rules.get("max_size", 3)), most))
 	for side in 2:
 		for k in size:
 			var c := sim.add_creature(MatchFactory.load_def(String(team_ids[side][k])),
@@ -147,6 +171,11 @@ func _init(team_ids: Array, per_side := 0, p_rules: Dictionary = {}) -> void:
 	if caravan:
 		_load_track()
 		_cv_start_round(0)
+	ctf = bool(rules.get("ctf", false))
+	if ctf:
+		for side in 2:
+			flag_pos[side] = base_of(side)
+		_ctf_goals()
 
 
 ## Team Deathmatch: where slot k of a side respawns, on its pad against its own side wall
@@ -161,8 +190,10 @@ func pad_point(side: int, k: int) -> Vector2:
 	return Vector2(x, fl.get_center().y + (float(k) - float(size - 1) * 0.5) * spread)
 
 
-## The KOs a side needs to win (Team Deathmatch).
+## The KOs a side needs to win (Team Deathmatch); captures in Capture the Flag.
 func score_to_win() -> int:
+	if ctf:
+		return int(rules.get("captures_to_win", 3))
 	var t = rules.get("score_to_win", [8, 8, 12, 15])
 	if t is Array:
 		return int(t[clampi(size, 0, (t as Array).size() - 1)])
@@ -231,6 +262,10 @@ func step(inputs: PackedInt32Array) -> void:
 		_caravan_step()
 		if phase != Phase.FIGHT:
 			return
+	if ctf and sim.ko_freeze == 0:
+		_ctf_step()
+		if phase != Phase.FIGHT:
+			return
 	if deathmatch:
 		_deathmatch_step()
 		return
@@ -261,7 +296,7 @@ func _deathmatch_step() -> void:
 			var side := 1 - c.team
 			respawn_t[slot] = int(float(rules.get("respawn_seconds", 4)) * SimDefs.TICK_RATE)
 			guard_t[slot] = 0
-			if not crater and not caravan:  # the Crater and the Caravan score objectives, not KOs
+			if not crater and not caravan and not ctf:  # objective modes score objectives, not KOs
 				score[side] += 1
 				sim.emit_event("score", c.pos, float(score[side]), {"who": c.id, "team": side,
 					"score": score.duplicate()})
@@ -357,6 +392,8 @@ func goal_text() -> String:
 		return "ROUND %d: %s PUSHES" % [cv_round + 1, "RED" if cv_attacker() == 0 else "BLUE"]
 	if overtime:
 		return "SUDDEN DEATH"
+	if ctf:
+		return "FIRST TO %d CAPTURES" % score_to_win()
 	if crater:
 		return "HOLD %d s" % (score_to_win() / SimDefs.TICK_RATE)
 	return "FIRST TO %d" % score_to_win()
@@ -646,6 +683,127 @@ func _cv_respawn_point(k: int) -> Vector2:
 	return at + across * (float(k) - float(size - 1) * 0.5) * spread
 
 
+# ------------------------------------------------------------------ capture the flag
+
+## Where a side's flag stands: the map's "bases" (floor pixels), else its pad row's middle.
+func base_of(side: int) -> Vector2:
+	var b: Dictionary = sim.arena.get("bases", {})
+	var key := "left" if side == 0 else "right"
+	if b.has(key):
+		var v: Array = b[key]
+		return Vector2(float(v[0]), float(v[1]))
+	var fl := sim.floor_rect()
+	var inset := float(rules.get("pad_inset", 44)) + 24.0
+	return Vector2(fl.position.x + inset if side == 0 else fl.end.x - inset, fl.get_center().y)
+
+
+func _touches_flag(c: CreatureSim, side: int) -> bool:
+	return not _down(c) and c.state != CreatureSim.State.FALLING \
+		and c.pos.distance_to(flag_pos[side]) <= float(rules.get("pickup_radius", 14)) + float(c.radius)
+
+
+func _flag_home(side: int) -> void:
+	flag_state[side] = FLAG_HOME
+	flag_carrier[side] = -1
+	flag_t[side] = 0
+	flag_pos[side] = base_of(side)
+
+
+func _ctf_step() -> void:
+	for side in 2:  # side: whose flag
+		match int(flag_state[side]):
+			FLAG_CARRIED:
+				var c := sim.creatures[int(flag_carrier[side])]
+				if _down(c) or c.state == CreatureSim.State.FALLING:
+					flag_state[side] = FLAG_DROPPED
+					flag_carrier[side] = -1
+					flag_t[side] = int(float(rules.get("return_seconds", 12)) * SimDefs.TICK_RATE)
+					flag_pos[side] = sim.terrain.nearest_solid(c.pos)
+					sim.emit_event("flag_drop", flag_pos[side], 0.0, {"team": side, "who": c.id})
+				else:
+					flag_pos[side] = c.pos
+					if c.slow <= 1:  # carrying slows you (a real slow already on you wins)
+						c.slow = 2
+						c.slow_mult = float(rules.get("carry_slow", 0.88))
+			FLAG_DROPPED:
+				flag_t[side] = int(flag_t[side]) - 1
+				if int(flag_t[side]) <= 0:
+					_flag_home(side)
+					sim.emit_event("flag_return", flag_pos[side], 0.0, {"team": side, "who": -1})
+					continue
+				for c in sim.creatures:
+					if not _touches_flag(c, side):
+						continue
+					if c.team == side:
+						_flag_home(side)
+						sim.emit_event("flag_return", flag_pos[side], 0.0, {"team": side, "who": c.id})
+					else:
+						_take_flag(side, c)
+					break
+			FLAG_HOME:
+				for c in sim.creatures:
+					if c.team != side and _touches_flag(c, side) and _carrying(c) < 0:
+						_take_flag(side, c)
+						break
+	# A capture: a carrier at its own base while its own flag is home.
+	for s in 2:
+		var other := 1 - s
+		if int(flag_state[other]) != FLAG_CARRIED or int(flag_state[s]) != FLAG_HOME:
+			continue
+		var c := sim.creatures[int(flag_carrier[other])]
+		if c.pos.distance_to(base_of(s)) <= float(rules.get("pickup_radius", 14)) + float(c.radius) + 8.0:
+			score[s] += 1
+			_flag_home(other)
+			sim.emit_event("capture", c.pos, float(score[s]), {"team": s, "who": c.id, "score": score.duplicate()})
+			if int(score[s]) >= score_to_win() or overtime:
+				_finish(s, "capture")
+				return
+	_ctf_goals()
+
+
+func _take_flag(side: int, c: CreatureSim) -> void:
+	flag_state[side] = FLAG_CARRIED
+	flag_carrier[side] = c.id
+	flag_t[side] = 0
+	flag_pos[side] = c.pos
+	sim.emit_event("flag_take", c.pos, 0.0, {"team": side, "who": c.id})
+
+
+## The flag `c` carries (its side), or -1.
+func _carrying(c: CreatureSim) -> int:
+	for side in 2:
+		if int(flag_state[side]) == FLAG_CARRIED and int(flag_carrier[side]) == c.id:
+			return side
+	return -1
+
+
+## Every fighter's goal for the CPU (sim.goals): see the header.
+func _ctf_goals() -> void:
+	sim.goals.resize(sim.creatures.size())
+	var defenders := int(rules.get("defenders", 1))
+	var k := [0, 0]
+	for c in sim.creatures:
+		var me := c.team
+		var foe := 1 - me
+		var role := int(k[me])
+		k[me] += 1
+		var g: Array = []
+		if _down(c):
+			g = []
+		elif _carrying(c) == foe:
+			g = [base_of(me), 6.0, true]  # run it home
+		elif int(flag_state[me]) != FLAG_HOME and (role >= defenders or int(flag_state[me]) == FLAG_DROPPED):
+			g = [flag_pos[me], 8.0, false]  # get our flag back
+		elif role < defenders and size > 1:
+			var toward := (sim.floor_rect().get_center() - base_of(me)).normalized()
+			g = [base_of(me) + toward * 48.0, 36.0, false]  # guard the base
+		elif int(flag_state[foe]) == FLAG_CARRIED:
+			g = [flag_pos[foe], 44.0, false]  # escort our carrier
+		else:
+			g = [flag_pos[foe], 6.0, false]  # go take theirs
+		sim.goals[c.id] = g
+
+
 func _time_out() -> void:
 	var share := [0.0, 0.0]
 	for side in 2:
@@ -666,7 +824,8 @@ func snapshot() -> Dictionary:
 	return {"phase": phase, "phase_t": phase_t, "timer": timer, "winner": winner, "match": sim.snapshot(),
 		"score": score.duplicate(), "respawn_t": respawn_t.duplicate(), "guard_t": guard_t.duplicate(),
 		"overtime": overtime, "ring": ring, "sink_t": sink_t, "warned": warned, "zone_i": zone_i, "zone_t": zone_t,
-		"cv": [cv_round, cv_p, cv_cp, cv_t, cv_ot, cv_state, cv_best.duplicate(), cv_time.duplicate()]}
+		"cv": [cv_round, cv_p, cv_cp, cv_t, cv_ot, cv_state, cv_best.duplicate(), cv_time.duplicate()],
+		"flags": [flag_pos.duplicate(), flag_state.duplicate(), flag_carrier.duplicate(), flag_t.duplicate()]}
 
 
 func restore(s: Dictionary) -> void:
@@ -692,6 +851,11 @@ func restore(s: Dictionary) -> void:
 	cv_state = int(cv[5])
 	cv_best = (cv[6] as Array).duplicate()
 	cv_time = (cv[7] as Array).duplicate()
+	var fl: Array = s.get("flags", [[Vector2.ZERO, Vector2.ZERO], [0, 0], [-1, -1], [0, 0]])
+	flag_pos = (fl[0] as Array).duplicate()
+	flag_state = (fl[1] as Array).duplicate()
+	flag_carrier = (fl[2] as Array).duplicate()
+	flag_t = (fl[3] as Array).duplicate()
 	sim.restore(s["match"])
 
 
@@ -699,7 +863,8 @@ func state_digest() -> String:
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(var_to_bytes([sim.state_digest(), phase, phase_t, timer, winner, score, respawn_t, guard_t,
-		overtime, ring, sink_t, warned, zone_i, zone_t, cv_round, cv_p, cv_cp, cv_t, cv_ot, cv_state, cv_best, cv_time]))
+		overtime, ring, sink_t, warned, zone_i, zone_t, cv_round, cv_p, cv_cp, cv_t, cv_ot, cv_state, cv_best, cv_time,
+		flag_pos, flag_state, flag_carrier, flag_t]))
 	return ctx.finish().hex_encode()
 
 

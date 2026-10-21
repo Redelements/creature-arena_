@@ -959,6 +959,204 @@ def caravan_pass():
     return img, bare[FY0:FY0 + FH, FX0:FX0 + FW].copy(), (SAND[0], SAND[6])
 
 
+# ------------------------------------------------------------------ Twin Keeps (Capture the Flag)
+
+PAVE = [(92, 90, 86), (110, 108, 102), (128, 125, 118), (146, 142, 134), (164, 160, 150), (182, 178, 168)]
+KEEP = [(52, 50, 54), (78, 76, 80), (104, 102, 106), (132, 130, 132), (164, 162, 160)]
+PLANK = [(70, 46, 26), (102, 70, 40), (136, 98, 58), (166, 126, 80)]
+
+
+def water_body(img, rng, prng, water):
+    """A body of water in the floor mask `water`: deeper and darker away from its edges,
+    a foam line on them, glints, the bank's shadow on its top edge, wet ground round it."""
+    near = dist_in(~water, 4)
+    wet = (~water) & (near <= 2)
+    blk = img[FY0:FY0 + FH, FX0:FX0 + FW, :3].astype(float)
+    blk[wet] *= 0.8
+    img[FY0:FY0 + FH, FX0:FX0 + FW, :3] = blk.astype(np.uint8)
+    d = dist_in(water, 14)
+    wv = 0.78 - np.minimum(d, 14) / 14.0 * 0.5 + (value_noise(FH, FW, 18, rng) - 0.5) * 0.16
+    wi = dither(wv, WATER, spread=0.5)
+    wi = np.where(d == 1, 6, np.where(d == 2, 5, wi))
+    rgb = np.array(WATER, np.uint8)[wi]
+    blk = img[FY0:FY0 + FH, FX0:FX0 + FW, :3]
+    blk[water] = rgb[water]
+    ys, xs = np.nonzero(water & (d > 3))
+    for k in range(len(ys)):
+        if prng.random() < 0.012:
+            ln = 2 + int(prng.random() * 3)
+            for j in range(ln):
+                x = xs[k] + j
+                if x < FW and water[ys[k], x] and d[ys[k], x] > 2:
+                    blk[ys[k], x] = WATER[5] if j in (0, ln - 1) else WATER[6]
+    for k in range(1, 4):
+        sh = np.zeros_like(water)
+        sh[k:, :] = ~water[:-k, :]
+        sh &= water & (d > 1)
+        blk[sh] = (blk[sh].astype(float) * (0.70 + 0.08 * k)).astype(np.uint8)
+
+
+def keep_wall(img, rng, rect_):
+    """A stone keep wall: courses of blocks on its top, the front face (its bottom 8 px when
+    it runs left to right) in darker blocks, mortar between, a lit top edge."""
+    x0, y0, w, h = rect_
+    face = 8 if w > h else 0
+    top_h = h - face
+    for yy in range(y0, y0 + top_h):
+        course = (yy - y0) // 4
+        off = (course * 5) % 9
+        for xx in range(x0, x0 + w):
+            k = 3
+            if (yy - y0) % 4 == 3 or (xx - x0 + off) % 9 == 0:
+                k = 1
+            elif (yy - y0) % 4 == 0:
+                k = 4
+            rect(img, xx, yy, 1, 1, KEEP[k])
+    for yy in range(y0 + top_h, y0 + h):
+        course = (yy - y0 - top_h) // 4
+        off = (course * 4) % 7
+        for xx in range(x0, x0 + w):
+            k = 2 if not ((yy - y0 - top_h) % 4 == 3 or (xx - x0 + off) % 7 == 0) else 0
+            rect(img, xx, yy, 1, 1, KEEP[k])
+    rect(img, x0, y0, w, 1, KEEP[4])
+    for yy in range(y0, y0 + h):   # outline the sides
+        rect(img, x0, yy, 1, 1, KEEP[0])
+        rect(img, x0 + w - 1, yy, 1, 1, KEEP[0])
+    rect(img, x0, y0 + h - 1, w, 1, KEEP[0])
+
+
+def chasm_pit(img, rng, rect_):
+    """A map's chasm, baked in: the floor's edge breaking off ragged round it, a lit lip on
+    its far (top) wall, rock strata going down, black at the bottom."""
+    x0, y0, w, h = rect_
+    for yy in range(y0 - 1, y0 + h + 1):
+        for xx in range(x0 - 1, x0 + w + 1):
+            inside = x0 <= xx < x0 + w and y0 <= yy < y0 + h
+            edge = min(xx - x0, x0 + w - 1 - xx, yy - y0, y0 + h - 1 - yy)
+            if not inside:
+                if rng.random() < 0.45:
+                    blend_px(img, xx, yy, (30, 22, 18), 0.6)   # the crumbling rim
+                continue
+            depth = yy - y0
+            if depth < 2:
+                col = (124, 104, 86) if depth == 0 else (92, 76, 64)       # the far wall's lit lip
+            elif depth < 7:
+                col = (58, 46, 40) if (depth + (xx // 3)) % 3 else (70, 56, 48)  # strata
+            else:
+                col = (14, 10, 12) if edge > 1 else (26, 20, 20)
+            if edge == 0 and depth >= 2:
+                col = (40, 32, 28)
+            rect(img, xx, yy, 1, 1, col)
+
+
+def twin_keeps():
+    rng = np.random.default_rng(97)
+    prng = random.Random(97)
+    m = load_map("twin_keeps")
+    img = np.zeros((H, W, 4), np.uint8)
+    _stands(img, rng)
+    _back_wall(img)
+    _side_and_front(img, rng, pad=[LEAF[0], None, LEAF[2]], cap=KEEP)
+    v = ground(rng, amp=0.32, base=0.36, worn=0.0)
+    paint(img, dither(v, GRASS, spread=0.4), GRASS, FX0, FY0)
+    yy, xx = np.mgrid[0:FH, 0:FW].astype(float)
+    # Worn dirt lanes: the middle road from gate to bridge to gate, and the two flank paths.
+    wob = (value_noise(FH, FW, 40, rng) - 0.5) * 18.0
+    lane = np.minimum(np.abs(yy - FH / 2 + wob), np.minimum(np.abs(yy - 70 + wob), np.abs(yy - (FH - 70) + wob)))
+    n = value_noise(FH, FW, 5, rng)
+    dirt = (lane < 7 + n * 5) & (xx > 150) & (xx < FW - 150)
+    dirt |= (np.abs(yy - FH / 2 + wob) < 7 + n * 5)
+    blk = img[FY0:FY0 + FH, FX0:FX0 + FW, :3].astype(float)
+    blk[dirt] = blk[dirt] * 0.4 + np.array(SOIL[2], float) * 0.6
+    img[FY0:FY0 + FH, FX0:FX0 + FW, :3] = blk.astype(np.uint8)
+    for _ in range(6000):
+        x, y = 2 + int(prng.random() * (FW - 4)), 6 + int(prng.random() * (FH - 8))
+        if dirt[y, x]:
+            continue
+        rect(img, FX0 + x, FY0 + y, 1, 1, GRASS[6] if prng.random() < 0.5 else GRASS[5])
+        rect(img, FX0 + x, FY0 + y + 1, 1, 1, GRASS[1])
+    specks(img, prng, 380, [(246, 244, 236), (246, 214, 80), (230, 130, 170), (170, 150, 230)], mask=dirt, shadow=GRASS[0])
+    # Each keep's courtyard: paved in big stones.
+    seam, lip = crack_net(FH, FW, rng, spacing=22.0, width=0.6)
+    pv = dither(value_noise(FH, FW, 12, rng) * 0.4 + 0.35, PAVE, spread=0.4)
+    court = np.zeros((FH, FW), bool)
+    for x0c in (0, FW - 20 * CELL):
+        court[20 * CELL:46 * CELL, x0c:x0c + 20 * CELL] = True
+    blk = img[FY0:FY0 + FH, FX0:FX0 + FW, :3]
+    blk[court] = np.array(PAVE, np.uint8)[pv][court]
+    blk[court & lip] = PAVE[5]
+    blk[court & seam] = PAVE[0]
+    # The flag stands: a round plinth ringed in the side's colour.
+    for key, col in (("left", (214, 72, 64)), ("right", (72, 120, 220))):
+        bx, by = m["bases"][key]
+        cx, cy = int(bx) + MARGIN[0], int(by) + MARGIN[1]
+        for yy2 in range(cy - 12, cy + 13):
+            for xx2 in range(cx - 12, cx + 13):
+                d = math.hypot(xx2 - cx, yy2 - cy)
+                if d <= 12:
+                    rect(img, xx2, yy2, 1, 1, PAVE[4] if d < 9 else (col if d < 11 else PAVE[0]))
+        for (x, y) in _circle_pts(cx, cy, 5):
+            blend_px(img, x, y, PAVE[1], 0.8)
+    # The river and its bridge.
+    water = piece_mask(m, "shallows")
+    water_body(img, rng, prng, water)
+    sh = [pc["rect"] for pc in m["pieces"] if pc["kind"] == "shallows"]
+    c0, cw = sh[0][0], sh[0][2]
+    a1 = min(r[1] + r[3] for r in sh)
+    b0 = max(r[1] for r in sh)
+    bx, by, bw, bh = FX0 + c0 * CELL - 4, FY0 + a1 * CELL, cw * CELL + 8, (b0 - a1) * CELL
+    for xx2 in range(bx, bx + bw):
+        k = 2 if (xx2 - bx) % 6 not in (0, 5) else (1 if (xx2 - bx) % 6 == 5 else 3)
+        for yy2 in range(by, by + bh):
+            rect(img, xx2, yy2, 1, 1, PLANK[k])
+    for xx2 in range(bx, bx + bw):
+        rect(img, xx2, by, 1, 1, PLANK[0])
+        rect(img, xx2, by + bh - 1, 1, 1, PLANK[0])
+        blend_px(img, xx2, by + bh, (10, 20, 40), 0.5)
+        blend_px(img, xx2, by + bh + 1, (10, 20, 40), 0.3)
+    for xx2 in range(bx + 2, bx + bw, 12):
+        rect(img, xx2, by - 2, 2, 4, PLANK[1])
+        rect(img, xx2, by + bh - 3, 2, 4, PLANK[1])
+    bare = img.copy()
+    floor_shadow(img, piece_mask(m, "wall"), 3, 4, 0.45)
+    for r in piece_rects(m, "chasm"):
+        chasm_pit(img, prng, r)
+        chasm_pit(bare, prng, r)
+    for r in piece_rects(m, "wall"):
+        keep_wall(img, prng, r)
+    for r in piece_rects(m, "brush"):
+        bushes(img, prng, r)
+    for r in piece_rects(m, "fence"):
+        fence(img, r)
+    for r in piece_rects(m, "wall"):
+        rubble_floor(bare, prng, r)
+    for r in piece_rects(m, "brush"):
+        flattened(bare, prng, r)
+    for r in piece_rects(m, "fence"):
+        fence(bare, r)
+    return img, bare[FY0:FY0 + FH, FX0:FX0 + FW].copy(), (SOIL[0], GRASS[6])
+
+
+def flag_sprite():
+    """A flag's cloth, white so the view can tint it the side's colour: four frames of it
+    waving, 12x10 each, the pole edge on the left (the view draws the pole)."""
+    fw, fh, n = 12, 10, 4
+    out = np.zeros((fh, fw * n, 4), np.uint8)
+    tones = [(150, 150, 156), (196, 196, 202), (232, 232, 236), (255, 255, 255)]
+    for f in range(n):
+        for x in range(fw):
+            sway = math.sin(x * 0.7 - f * math.pi / 2) * (x / fw) * 1.6
+            top = int(round(1 + sway))
+            bot = int(round(7 + sway * 0.6 + x * 0.12))
+            for y in range(top, min(fh, bot + 1)):
+                lit = math.cos(x * 0.7 - f * math.pi / 2)
+                k = 3 if lit > 0.5 else (2 if lit > -0.3 else 1)
+                if y == top or y == bot:
+                    k = 0
+                out[y, f * fw + x] = (*tones[k], 255)
+    return out
+
+
 # ------------------------------------------------------------------ the caravan
 
 CV_WOOD = [(58, 34, 20), (92, 58, 32), (128, 86, 48), (164, 118, 70)]
@@ -1039,12 +1237,15 @@ def stadium_set():
 
 
 MAPS = {"stadium": stadium_set, "quarry": quarry, "floodgate": floodgate, "greenhouse": greenhouse,
-        "caravan_pass": caravan_pass}
+        "caravan_pass": caravan_pass, "twin_keeps": twin_keeps}
 
 if __name__ == "__main__":
     picks = sys.argv[1:] or list(MAPS)
     path = os.path.join(SPRITES, "caravan.png")
     Image.fromarray(caravan_sprite(), "RGBA").save(path)
+    print("wrote", os.path.relpath(path, ROOT))
+    path = os.path.join(SPRITES, "flag.png")
+    Image.fromarray(flag_sprite(), "RGBA").save(path)
     print("wrote", os.path.relpath(path, ROOT))
     for name in picks:
         sz = load_map(name).get("size", [84, 36])

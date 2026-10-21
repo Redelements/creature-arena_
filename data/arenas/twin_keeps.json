@@ -1,0 +1,266 @@
+{
+	"_doc": "Twin Keeps, the Capture the Flag map: two walled keeps (three ways in: the front gate and a gap at each corner) at either end, a river down the middle with one bridge, brush, fences and pits on the flanks. Mirrored left to right. Each flag stands on its side's base ('bases', floor pixels). Rects are [col, row, width, height] in 8 px cells on the 150x64 grid.",
+	"id": "twin_keeps",
+	"name": "Twin Keeps",
+	"ground": "grass",
+	"size": [
+		150,
+		64
+	],
+	"spawns": {
+		"left": [
+			72,
+			320
+		],
+		"right": [
+			1160,
+			320
+		]
+	},
+	"bases": {
+		"left": [
+			104,
+			320
+		],
+		"right": [
+			1128,
+			320
+		]
+	},
+	"pieces": [
+		{
+			"kind": "wall",
+			"rect": [
+				0,
+				20,
+				14,
+				2
+			]
+		},
+		{
+			"kind": "wall",
+			"rect": [
+				0,
+				44,
+				14,
+				2
+			]
+		},
+		{
+			"kind": "wall",
+			"rect": [
+				18,
+				22,
+				2,
+				7
+			]
+		},
+		{
+			"kind": "wall",
+			"rect": [
+				18,
+				37,
+				2,
+				7
+			]
+		},
+		{
+			"kind": "brush",
+			"rect": [
+				30,
+				4,
+				10,
+				8
+			]
+		},
+		{
+			"kind": "brush",
+			"rect": [
+				30,
+				52,
+				10,
+				8
+			]
+		},
+		{
+			"kind": "wall",
+			"rect": [
+				40,
+				28,
+				2,
+				8
+			]
+		},
+		{
+			"kind": "fence",
+			"rect": [
+				44,
+				14,
+				12,
+				1
+			]
+		},
+		{
+			"kind": "fence",
+			"rect": [
+				44,
+				49,
+				12,
+				1
+			]
+		},
+		{
+			"kind": "chasm",
+			"rect": [
+				56,
+				22,
+				4,
+				4
+			]
+		},
+		{
+			"kind": "chasm",
+			"rect": [
+				56,
+				38,
+				4,
+				4
+			]
+		},
+		{
+			"kind": "brush",
+			"rect": [
+				60,
+				30,
+				6,
+				4
+			]
+		},
+		{
+			"kind": "wall",
+			"rect": [
+				136,
+				20,
+				14,
+				2
+			]
+		},
+		{
+			"kind": "wall",
+			"rect": [
+				136,
+				44,
+				14,
+				2
+			]
+		},
+		{
+			"kind": "wall",
+			"rect": [
+				130,
+				22,
+				2,
+				7
+			]
+		},
+		{
+			"kind": "wall",
+			"rect": [
+				130,
+				37,
+				2,
+				7
+			]
+		},
+		{
+			"kind": "brush",
+			"rect": [
+				110,
+				4,
+				10,
+				8
+			]
+		},
+		{
+			"kind": "brush",
+			"rect": [
+				110,
+				52,
+				10,
+				8
+			]
+		},
+		{
+			"kind": "wall",
+			"rect": [
+				108,
+				28,
+				2,
+				8
+			]
+		},
+		{
+			"kind": "fence",
+			"rect": [
+				94,
+				14,
+				12,
+				1
+			]
+		},
+		{
+			"kind": "fence",
+			"rect": [
+				94,
+				49,
+				12,
+				1
+			]
+		},
+		{
+			"kind": "chasm",
+			"rect": [
+				90,
+				22,
+				4,
+				4
+			]
+		},
+		{
+			"kind": "chasm",
+			"rect": [
+				90,
+				38,
+				4,
+				4
+			]
+		},
+		{
+			"kind": "brush",
+			"rect": [
+				84,
+				30,
+				6,
+				4
+			]
+		},
+		{
+			"kind": "shallows",
+			"rect": [
+				71,
+				0,
+				8,
+				26
+			]
+		},
+		{
+			"kind": "shallows",
+			"rect": [
+				71,
+				38,
+				8,
+				26
+			]
+		}
+	]
+}

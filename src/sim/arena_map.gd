@@ -13,8 +13,8 @@ const DEFAULT := "stadium"
 ## Every map, in menu order.
 const IDS := ["stadium", "quarry", "floodgate", "greenhouse"]
 ## Maps only a mode plays (its rules' "arena"), not in the map choices: they're far bigger
-## than the stadium. Dustwind Pass: the Caravan's.
-const MODE_IDS := ["caravan_pass"]
+## than the stadium. Dustwind Pass: the Caravan's; Twin Keeps: Capture the Flag's.
+const MODE_IDS := ["caravan_pass", "twin_keeps"]
 
 static var _cache := {}
 

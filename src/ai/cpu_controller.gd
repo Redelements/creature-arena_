@@ -289,6 +289,16 @@ func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 		_go_to(sim, me, sim.floor_rect().get_center())
 		return
 	var to_foe := _seen(foe) - me.pos
+	# A goal the mode's rules give this fighter (Capture the Flag: the flag, home, the
+	# carrier, the base): go there when outside it, unless the foe is in reach to fight;
+	# an urgent one (running the flag home) even then.
+	if me.id < sim.goals.size() and not (sim.goals[me.id] as Array).is_empty() \
+			and me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE, CreatureSim.State.GUARD]:
+		var g: Array = sim.goals[me.id]
+		var gp: Vector2 = g[0]
+		if me.pos.distance_to(gp) > float(g[1]) and (bool(g[2]) or to_foe.length() > _reach_of(me, foe) + 12.0):
+			_go_to(sim, me, gp)
+			return
 	# King of the Crater: the zone is the point. Outside it, go to it unless the foe is
 	# right here to fight; inside, fight as usual (and come back if the fight drifts).
 	if sim.zone_r > 0.0 and me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE, CreatureSim.State.GUARD]:
