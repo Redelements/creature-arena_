@@ -46,7 +46,8 @@ without it for detail.
 - `.github/workflows/playable-build.yml`, PRs and pushes to main: export Windows + Linux,
   smoke-test the Linux build (cairn showcase, then `--server=7777`; fails on SCRIPT ERROR /
   Parse Error / Failed to load), `--sim-check` (seed 20261010) on Linux and Windows (fails if
-  the digests differ), upload the builds and comment the links on the PR.
+  the digests differ), upload the builds; a debug Android APK (job `android`: SDK from the runner's
+  `ANDROID_HOME`, a fresh debug key); the `comment` job links all three on the PR.
 
 ## Files
 
