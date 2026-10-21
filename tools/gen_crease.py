@@ -28,7 +28,7 @@ import os
 import sys
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import splat3d as S  # noqa: E402
@@ -311,6 +311,23 @@ def shuriken(c, size, normal, spin=0.0, mat="craft"):
     return parts
 
 
+def dart(c, size, fwd, up=(0.0, 1.0, 0.0), mat="craft"):
+    """A little paper dart pinched in the fingers (Paper Cut): a pointed nose, two swept
+    wings and a keel."""
+    c = np.asarray(c, float)
+    f = nz(fwd)
+    u = nz(np.asarray(up, float) - f * np.dot(up, f))
+    l = nz(np.cross(u, f))
+    s = size
+    nose, tail = c + f * s * 1.2, c - f * s
+    pid = S._new_part()
+    parts = []
+    for side in (1, -1):
+        parts += plate_pts([nose, tail + l * side * s * 0.6 + u * s * 0.15, tail], mat, part=pid)
+    parts += plate_pts([nose, tail, tail - u * s * 0.45], mat, part=pid)
+    return parts
+
+
 def frog(c, size, fwd, mat="craft", squash=0.0):
     """A paper frog: a faceted back, two folded hind legs, front feet."""
     c = np.asarray(c, float)
@@ -384,12 +401,55 @@ class Pose:
         self.form = kw.get("form", "man")           # man | plane | crane | gone
         self.wing = kw.get("wing", 0.0)
         self.bow = kw.get("bow", 0.0)               # the victory bow: torso and hat down
+        # The animation pass (tween() relies on these being plain numbers):
+        self.stretch = kw.get("stretch", 0.0)       # squash (-) and stretch (+) of the torso, -1..1 (about 7%)
+        self.reach = kw.get("reach", ((0.0, 0.0, 0.0), (0.0, 0.0, 0.0)))  # (lat, up, fwd) added to a default hand
+        self.hipw = kw.get("hipw", None)            # per hand, 0..1: how far the elbow is the hand-on-hip elbow
+        self.fan = kw.get("fan", None)              # per hand, 0..1: an open fan of fingers (over 0.5)
+        self.toe = kw.get("toe", (0.0, 0.0))        # per foot, 0..1: heel up, toe pointed down
 
 
 def _hand_default(p, k, pelvis, up, fw, lt, chest):
     if k == 0:
         return pelvis + up * 2.5 + lt * 6.4 + fw * 0.8 if p.hip_hand[0] else chest + fw * 6.0 + lt * 3.0 - up * 2.0
     return chest + up * 0.5 - lt * 8.0 + fw * 9.0 if p.palm[1] else chest + fw * 5.5 - lt * 3.0 - up * 3.0
+
+
+def _body(p):
+    """The torso's frame: pelvis, up, forward, lateral, chest, neck, shoulders."""
+    sq = p.squash
+    pelvis = V(0.0, p.hip * (1 - sq * 0.75), p.hipf)
+    up = nz(rot_up(rot_lat((0.0, 1.0, 0.0), -(p.lean + p.bow)), p.turn))
+    fw = nz(rot_up(rot_lat((0.0, 0.0, 1.0), -(p.lean + p.bow)), p.turn))
+    if sq > 0:
+        up = nz(up * (1 - sq) + fw * -sq * 0.9 + V(0, 0.05, 0))
+        fw = nz(np.cross(np.cross(up, fw), up))
+    lt = nz(np.cross(up, fw))
+    torso_len = 19.0 * (1 - sq * 0.6) * (1 + 0.07 * p.stretch)
+    chest = pelvis + up * torso_len * 0.62
+    neck = pelvis + up * torso_len
+    wk = 1 - 0.04 * p.stretch
+    shoulders = [chest + up * 4.8 + lt * 7.0 * wk, chest + up * 4.8 - lt * 7.0 * wk]
+    return pelvis, up, fw, lt, chest, neck, shoulders
+
+
+def _hand_at(p, k, pelvis, up, fw, lt, chest):
+    if p.hands[k] is not None:
+        return np.asarray(p.hands[k], float)
+    r = p.reach[k]
+    return _hand_default(p, k, pelvis, up, fw, lt, chest) + lt * r[0] + up * r[1] + fw * r[2]
+
+
+def _hipw(p, k):
+    if p.hipw is not None:
+        return p.hipw[k]
+    return 1.0 if (p.hip_hand[k] and p.hands[k] is None) else 0.0
+
+
+def _fan(p, k):
+    if p.fan is not None:
+        return p.fan[k]
+    return 1.0 if (p.palm[k] and p.hands[k] is None) else 0.0
 
 
 def build(p, view):
@@ -402,18 +462,10 @@ def build(p, view):
         return _big_crane(p)
     parts = []
     sq = p.squash
-    pelvis = V(0.0, p.hip * (1 - sq * 0.75), p.hipf)
-    up = nz(rot_up(rot_lat((0.0, 1.0, 0.0), -(p.lean + p.bow)), p.turn))
-    fw = nz(rot_up(rot_lat((0.0, 0.0, 1.0), -(p.lean + p.bow)), p.turn))
-    if sq > 0:
-        up = nz(up * (1 - sq) + fw * -sq * 0.9 + V(0, 0.05, 0))
-        fw = nz(np.cross(np.cross(up, fw), up))
-    lt = nz(np.cross(up, fw))
-    torso_len = 19.0 * (1 - sq * 0.6)
-    chest = pelvis + up * torso_len * 0.62
-    neck = pelvis + up * torso_len
+    pelvis, up, fw, lt, chest, neck, shoulders = _body(p)
+    wk = 1 - 0.04 * p.stretch
     # legs: long navy prisms, pointed orange paper shoes
-    for s, foot in ((1.0, p.feet[0]), (-1.0, p.feet[1])):
+    for s, foot, tp in ((1.0, p.feet[0], p.toe[0]), (-1.0, p.feet[1], p.toe[1])):
         hip = pelvis + lt * s * 3.0
         f = np.asarray(foot, float)
         knee = (hip + f) / 2 + fw * 2.2 + V(0, 0.5, 0)
@@ -421,6 +473,10 @@ def build(p, view):
         ahead = nz(V(fw[0], 0, fw[2]) if sq < 0.5 else V(0, 0, 1))
         toe = f + V(0, 0.6, 0) + ahead * 4.8
         heel = f + V(0, 0.6, 0) - ahead * 2.0
+        if tp:
+            # the toe pointed: the heel lifts, the toe drops (never into the floor)
+            heel = heel + V(0, 2.2 * tp, 0)
+            toe = toe - V(0, min(1.6 * tp, toe[1] - 0.3), 0)
         sl = lt * 1.7
         spid = S._new_part()
         parts += plate_pts([heel - sl, heel + sl, toe + V(0, 0.3, 0)], "shoe", part=spid)
@@ -429,7 +485,7 @@ def build(p, view):
         parts += plate_pts([heel + sl, heel + sl + V(0, 1.6, 0), toe + V(0, 0.8, 0), toe + V(0, 0.3, 0)], "shoe", part=spid)
     # torso: a jacket of panels, broad at the shoulders, nipped at the waist
     parts += prism([pelvis + up * 0.5, pelvis + up * 6.0, chest, neck - up * 0.8],
-                   [5.0, 4.4, 6.8, 7.2], "suit", sides=6, phase=0.26, ref=lt, flat=0.72)
+                   [5.0 * wk, 4.4 * wk, 6.8 * wk, 7.2 * wk], "suit", sides=6, phase=0.26, ref=lt, flat=0.72)
     # the vest: a maroon V under the lapels, and the red collar point
     vf = fw * 5.0
     parts += plate_pts([neck - up * 1.4 + vf + lt * 2.6, neck - up * 1.4 + vf - lt * 2.6, chest - up * 3.5 + fw * 5.3], "vest")
@@ -456,7 +512,6 @@ def build(p, view):
         parts += plate_curled(tail, "suit", curls=(2,), frac=0.34 if abs(sw) > 0.3 else 0.26)
     # the cape: from the shoulders down behind him in two panels with a fold between them
     # (`wave` kinks it: stiff paper flapping), its hem corners curled over
-    shoulders = [chest + up * 4.8 + lt * 7.0, chest + up * 4.8 - lt * 7.0]
     if p.cape_up:
         # the guard: the cape swept up in front of him like a curtain, both hands holding
         # its top corners up past his shoulders, wider than he is, so it reads from every
@@ -491,16 +546,17 @@ def build(p, view):
     hands = []
     for k in (0, 1):
         sh = shoulders[k]
-        hand = np.asarray(p.hands[k], float) if p.hands[k] is not None else _hand_default(p, k, pelvis, up, fw, lt, chest)
+        hand = _hand_at(p, k, pelvis, up, fw, lt, chest)
         side = 1.0 if k == 0 else -1.0
         elbow = (sh + hand) / 2 + lt * side * 3.0 - fw * 1.5 - up * 1.0
-        if p.hip_hand[k] and p.hands[k] is None:
-            elbow = sh + lt * side * 5.5 - up * 5.5 - fw * 2.0
+        hw = _hipw(p, k)
+        if hw:
+            elbow = elbow * (1 - hw) + (sh + lt * side * 5.5 - up * 5.5 - fw * 2.0) * hw
         parts += prism([sh, elbow, hand], [2.8, 2.3, 1.8], "suit", sides=4, phase=0.5, ref=fw)
         hands.append(hand)
         # the hand: a flat paper fan of fingers (an open palm), or a folded point
         out = nz(hand - elbow)
-        if p.palm[k] and p.hands[k] is None:
+        if _fan(p, k) > 0.5:
             hpid = S._new_part()
             for j in range(3):
                 d = nz(out + lt * side * (0.4 - j * 0.4) + up * 0.3)
@@ -570,6 +626,8 @@ def _craft(item, p, hands, chest, neck, up, fw, lt, hc):
     elif where == "arc":
         t = extra.get("t", 0.5)
         at = far_at * (1 - t) + shoulder_at * t + up * math.sin(math.pi * t) * 5.0
+    elif where in ("tip0", "tip1"):  # pinched in that hand's fingers
+        at = hands[int(where[-1])] + nz(extra.get("fwd", fw)) * 1.5 + up * 0.6
     elif where == "floor":
         at = V(0.0, 1.4, 0.0) + nz(V(fw[0], 0.0, fw[2])) * extra.get("ahead", 8.0)
     else:
@@ -578,6 +636,8 @@ def _craft(item, p, hands, chest, neck, up, fw, lt, hc):
     flat_fw = nz(V(fw[0], 0.0, fw[2]))
     if kind == "crane":
         return crane(at, 3.2 * size, extra.get("fwd", fw), V(0, 1, 0), wing=extra.get("wing", 0.0))
+    if kind == "dart":
+        return dart(at, 2.6 * size, extra.get("fwd", fw))
     if kind == "shuriken":
         return shuriken(at, 3.0 * size, extra.get("normal", fw if where != "band" else fw), spin=extra.get("spin", 0.0))
     if kind == "frog":
@@ -792,57 +852,171 @@ def P(**kw):
     return Pose(**kw)
 
 
-def stride(a, length=8.0, lift=3.0):
-    nf = math.sin(a) * length
-    nu = max(0.0, math.cos(a)) * lift
-    fu = max(0.0, -math.cos(a)) * lift
-    return ((3.4, nu, nf), (-3.4, fu, -nf))
-
-
 STAND = ((3.6, 0.0, 2.5), (-3.6, 0.0, -2.5))
+
+# Tweening between key poses (the animation pass). Every number in a Pose blends; a hand
+# left to its default is first resolved to where build() would put it, so a hand can
+# travel from the hip or the palm to an explicit spot. Discrete fields (forms, crafts held,
+# cape_up) come from whichever key is nearer.
+_NUMS = ("hip", "hipf", "lean", "turn", "cape", "wave", "tails", "brim", "lift", "roll", "squash", "wing", "bow",
+         "stretch")
+_PAIRS = ("hat", "hipw", "fan", "toe")
+
+
+def ease(t):
+    """Slow in and out of the key poses, fast through the middle."""
+    return t * t * (3 - 2 * t)
+
+
+def resolved(p):
+    """The pose with both hands placed and their elbow and fingers explicit."""
+    q = Pose(**vars(p))
+    pelvis, up, fw, lt, chest, _neck, _sh = _body(p)
+    q.hands = tuple(tuple(_hand_at(p, k, pelvis, up, fw, lt, chest)) for k in (0, 1))
+    q.hipw = (_hipw(p, 0), _hipw(p, 1))
+    q.fan = (_fan(p, 0), _fan(p, 1))
+    q.reach = ((0.0, 0.0, 0.0), (0.0, 0.0, 0.0))
+    return q
+
+
+def tween(a, b, t, arc=(None, None), **over):
+    """The pose `t` of the way from key `a` to key `b`. `arc` bows a hand's path: per hand a
+    (lat, up, fwd) offset of the curve's middle from the straight line, so hands swing on
+    curves. `over` sets fields outright (the secondary motion, keyed on its own)."""
+    a, b = resolved(a), resolved(b)
+    lerp = lambda x, y: x + (y - x) * t
+    kw = {}
+    for name in _NUMS:
+        kw[name] = lerp(getattr(a, name), getattr(b, name))
+    for name in _PAIRS:
+        kw[name] = tuple(lerp(x, y) for x, y in zip(getattr(a, name), getattr(b, name)))
+    kw["feet"] = tuple(tuple(lerp(x, y) for x, y in zip(fa, fb)) for fa, fb in zip(a.feet, b.feet))
+    hands = []
+    for k in (0, 1):
+        ha, hb = np.asarray(a.hands[k]), np.asarray(b.hands[k])
+        c = (ha + hb) / 2 + (np.asarray(arc[k], float) if arc[k] is not None else 0.0)
+        hands.append(tuple((1 - t) ** 2 * ha + 2 * (1 - t) * t * c + t * t * hb))
+    kw["hands"] = tuple(hands)
+    near = a if t < 0.5 else b
+    for name in ("hip_hand", "palm", "cape_up", "hat_off", "held", "form"):
+        kw[name] = getattr(near, name)
+    kw.update(over)
+    return Pose(**kw)
+
+
+def idle_key(u):
+    """The idle breath, `u` from 0 (A, presenting: chest up, the palm raised, fingers
+    fanned) to 1 (B, settled: weight sunk, a little squash, the palm lower)."""
+    bump = math.sin(math.pi * u)  # the palm rises and falls on a small curve, not a line
+    return P(hip=25.2 - 0.8 * u, stretch=0.4 - 0.75 * u, hat=(-1.5 + 2.5 * u, 0.0), palm=(False, True),
+             reach=((0.0, 0.0, 0.0), (0.4 * u, 2.0 - 3.5 * u, 0.5 - 1.0 * u + 0.8 * bump)))
+
+
+IDLE_U = (0.0, 0.12, 0.5, 0.88, 1.0, 0.88, 0.5, 0.12)  # eased spacing: lingers at A and at B
 
 
 def idle():
-    """Hand on hip, the far palm up as if showing a trick; the cape settling in a slow
-    flap, the brim flexing with it."""
-    return [P(cape=0.0, wave=0.0, brim=0.0, hip=25.0, palm=(False, True)),
-            P(cape=0.25, wave=0.45, brim=0.35, hip=24.7, hat=(1.5, 0.0), palm=(False, True)),
-            P(cape=0.4, wave=0.75, brim=0.6, hip=24.5, hat=(2.0, 0.0), tails=0.1, palm=(False, True)),
-            P(cape=0.2, wave=0.3, brim=0.3, hip=24.8, hat=(1.0, 0.0), palm=(False, True))]
+    """Hand on hip, the far palm up as if about to produce something: the breath between
+    presenting (A) and settled (B), eased so he lingers at each. The paper lags behind: the
+    brim a frame, the cape and tails two, the cape's mid fold three (the flap travels down
+    to the hem)."""
+    n = len(IDLE_U)
+    out = []
+    for i, u in enumerate(IDLE_U):
+        p = idle_key(u)
+        p.brim = -0.1 + 0.55 * IDLE_U[(i - 1) % n]
+        p.cape = 0.05 + 0.35 * IDLE_U[(i - 2) % n]
+        p.tails = 0.15 * IDLE_U[(i - 2) % n]
+        p.wave = -0.1 + 0.7 * IDLE_U[(i - 3) % n]
+        out.append(p)
+    return out
+
+
+RUN_L = 11.0                                   # half a stride: the planted foot slides back 2 * RUN_L a step
+RUN_BOB = (0.0, -1.2, -0.9, 0.1, 1.0, 0.5)     # per step: contact, down, load, passing, up, reach
+RUN_STRETCH = (0.0, -0.6, -0.45, 0.2, 0.7, 0.3)
+
+
+def _run_foot(i):
+    """The near foot over the 12-frame cycle: planted from frame 0 (contact, in front) to
+    6, sliding back at an even pace (so it holds the floor), the heel peeling up to push
+    off; then the swing: eased, the knee high at passing, the toe pointed as it reaches."""
+    i %= 12
+    if i <= 6:
+        toe = (0.0, 0.0, 0.0, 0.2, 0.6, 1.0, 1.0)[i]
+        return (RUN_L - 2 * RUN_L * i / 6.0, 0.0, toe)
+    s = (i - 6) / 6.0
+    return (-RUN_L + 2 * RUN_L * ease(s), 4.8 * math.sin(math.pi * s) ** 0.7, (0.6, 0.3, 0.2, 0.5, 1.0)[i - 7])
 
 
 def run():
-    """The strut: long swaggering strides, shoulders rolling, the cape and the coat tails
-    lagging a beat behind the stride and the brim fluttering."""
+    """The strut: per step contact, down, load (the anticipation), passing with the knee
+    high, push-off, the reach with the toe pointed. Chest out, nearly upright, shoulders
+    rolling; the far arm swings on an arc and fans its fingers out front like a stage wave.
+    The paper lags: the brim a frame behind the bob, the cape two, its fold three, the
+    tails flicking up after the push-off."""
     out = []
-    for k in range(6):
-        a = k / 6.0 * 2 * math.pi
-        out.append(P(feet=stride(a, 9.5, 3.8), hip=25.0 + abs(math.cos(a)) * 1.0, lean=12, turn=math.sin(a) * 12,
-                     cape=0.7 + 0.35 * math.sin(a - math.pi / 2), wave=0.8 * math.cos(a),
-                     tails=0.5 + 0.3 * math.cos(a - math.pi / 3), brim=-0.4 + 0.5 * math.cos(2 * a),
-                     hat=(-3.0, 0.0), hip_hand=(True, False), palm=(False, False),
-                     hands=(None, (-6.0, 22.0 + math.sin(a) * 3, -math.sin(a) * 8.0))))
+    for i in range(12):
+        j = i % 6
+        nf, nu, nt = _run_foot(i)
+        ff, fu, ft = _run_foot(i + 6)
+        swing = _run_foot(i - 1)[0] / RUN_L      # the far arm follows the near leg, a frame late
+        phi = math.radians(60.0 * swing if swing > 0 else 35.0 * swing)
+        sh_up = 25.0 + RUN_BOB[j] + 16.6
+        far = (-6.5, sh_up - 18.0 * math.cos(phi), 18.0 * math.sin(phi) + 1.5)
+        lag = lambda d: RUN_BOB[(j - d) % 6] / 1.2
+        out.append(P(feet=((3.4, nu, nf), (-3.4, fu, ff)), toe=(nt, ft), hip=25.0 + RUN_BOB[j],
+                     stretch=RUN_STRETCH[j], lean=7.0 + (2.0 if j == 4 else 1.0 if j == 5 else 0.0),
+                     turn=12.0 * nf / RUN_L, hat=(-3.0, 0.0), hip_hand=(True, False), palm=(False, False),
+                     hands=(None, far), fan=(0.0, 1.0 if swing > 0.7 else 0.0),
+                     brim=-0.2 + 0.5 * lag(1), cape=0.7 - 0.3 * lag(2), wave=-0.6 * lag(3),
+                     tails=0.5 + 0.25 * _run_foot(i - 2)[0] / RUN_L + 0.2 * max(0.0, lag(1))))
     return out
 
 
 def flick(near=True):
-    """A paper dart off the fingers: a wind back (the cape whipped forward), the flick,
-    follow through, recover."""
+    """Paper Cut, a dart off the fingers: the anticipation (turning away), the coil (the
+    dart behind his ear, squashed, the cape whipped forward), the whip (the fast middle),
+    the release (fingers fanned, stretched, held), the follow-through past the target, the
+    flourish (palm up: ta-da), the settle, back to the idle stance."""
     k = 0 if near else 1
     s = 1.0 if near else -1.0
-    keys = [((s * 7.0, 34.0, -6.0), 14, 4, -0.2, 0.0, 0.0, 0.3), ((s * 4.0, 34.0, 15.0), -16, 12, 0.5, 0.6, 0.3, -0.4),
-            ((s * 3.0, 31.0, 17.0), -22, 14, 0.7, -0.5, 0.4, -0.2), (None, 0, 6, 0.25, 0.2, 0.0, 0.1)]
-    out = []
-    for hand, turn, lean, cape, wave, tails, brim in keys:
-        hands = [None, None]
-        hands[k] = hand
-        hip_hand = [True, False]
-        hip_hand[k] = False if hand is not None else hip_hand[k]
-        palm = [False, True]
-        palm[k] = False
-        out.append(P(hands=tuple(hands), turn=turn * s, lean=lean, cape=cape, wave=wave, tails=tails, brim=brim,
-                     hip_hand=tuple(hip_hand), palm=tuple(palm), feet=((3.6, 0.0, 4.0), (-3.6, 0.0, -3.0))))
-    return out
+
+    def hand(x, y, z):
+        h = [None, None]
+        h[k] = (s * x, y, z)
+        return tuple(h)
+
+    def arm(fan_=0.0):
+        # the throwing hand's fingers; the other hand rests as in idle (near on the hip,
+        # far palm up)
+        f = [0.0, 1.0 if near else 0.0]
+        f[k] = fan_
+        hw = [1.0, 0.0]
+        hw[k] = 0.0
+        return dict(fan=tuple(f), hipw=tuple(hw), hip_hand=(True, False), palm=(False, near))
+
+    dart_at = lambda fwd: [("dart", "tip%d" % k, {"fwd": fwd, "size": 1.5})]
+    feet = ((3.6, 0.0, 4.0), (-3.6, 0.0, -3.0))
+    wide = ((3.6, 0.0, 5.0), (-3.6, 0.0, -3.5))
+    ant = P(hands=hand(8.0, 36.0, -6.0), turn=8 * s, lean=2, hip=24.8, cape=0.0, wave=0.0, brim=0.2, feet=feet,
+            held=dart_at((0.0, 0.3, 1.0)), **arm())
+    coil = P(hands=hand(8.5, 37.0, -12.5), turn=18 * s, lean=-2, hip=24.2, stretch=-0.6, cape=-0.3, wave=-0.3,
+             brim=0.5, hat=(-1.0, 0.0), feet=feet, held=dart_at((0.0, 0.4, 1.0)), **arm())
+    whip = P(hands=hand(7.0, 41.0, 4.0), turn=0, lean=8, hip=24.9, stretch=0.4, cape=0.15, wave=-0.4, tails=0.1,
+             brim=0.2, hat=(-3.0, 0.0), feet=wide, held=dart_at((0.0, -0.2, 1.0)), **arm())
+    rel = P(hands=hand(4.0, 35.0, 17.5), turn=-18 * s, lean=13, hip=25.4, hipf=1.5, stretch=0.7, cape=0.45,
+            wave=0.1, tails=0.35, brim=-0.5, hat=(-6.0, 0.0), feet=wide, **arm(1.0))
+    follow = P(hands=hand(2.5, 28.0, 15.0), turn=-24 * s, lean=15, hip=25.0, hipf=1.5, stretch=0.2, cape=0.75,
+               wave=0.6, tails=0.5, brim=-0.2, hat=(-6.0, 0.0), feet=wide, **arm())
+    flourish = P(hands=hand(6.0, 34.0, 12.5), turn=-12 * s, lean=8, hip=25.0, hipf=0.8, cape=0.55, wave=-0.3,
+                 tails=0.3, brim=0.35, hat=(3.0, 0.0), feet=wide, **arm(1.0))
+    rest = idle_key(0.0)
+    bow_out = [None, None]
+    bow_out[k] = (s * 2.0, 2.0, -1.0)  # the hand curls back toward the hip on a curve
+    settle = tween(flourish, rest, 0.6, arc=tuple(bow_out), cape=-0.15, wave=0.35, tails=0.0, brim=0.15)
+    recover = tween(flourish, rest, 1.0, cape=0.1, wave=0.15, brim=0.05)
+    return [ant, coil, whip, rel, follow, flourish, settle, recover]
 
 
 def fold_row(kind):
@@ -928,24 +1102,59 @@ def frog_row():
     ]
 
 
+SURGE_SHEETS = 5
+
+
+def _spiral(i):
+    """The charge's sheets spiralling in, frame `i` of 4: each sheet rides a spiral from wide
+    and low to tight and high over the hands; the five are a fifth of the path apart and
+    each frame moves them a twentieth, so frame 4 would be frame 0 again (a seamless loop)."""
+    ring = []
+    for k in range(SURGE_SHEETS):
+        u = (k / SURGE_SHEETS + i / (4.0 * SURGE_SHEETS)) % 1.0
+        ring.append((18.0 - 12.0 * u, -14.0 + 26.0 * u, 90.0 + 300.0 * u))
+    return ("sheets", None, {"ring": ring})
+
+
 def surge_row():
-    """Both arms up, the sheets spiral in, the throw (the lob), watching it fly, the bow as
-    it bursts, recover. Frame 2 is the cut-in."""
-    ring = lambda a0: ("sheets", None, {"ring": [(14.0, 6.0 + 4 * k, a0 + k * 72) for k in range(5)]})
-    return [
-        P(hands=((7.0, 54.0, 2.0), (-7.0, 54.0, 2.0)), hip_hand=(False, False), palm=(False, False), lean=-4, cape=0.5,
-          held=[ring(0)], brim=0.5, wave=0.3),
-        P(hands=((5.0, 56.0, 4.0), (-5.0, 56.0, 4.0)), hip_hand=(False, False), palm=(False, False), lean=-6, cape=0.7,
-          held=[ring(40), ("crane", (0.0, 64.0, 4.0), {"size": 1.3, "wing": 0.5})], brim=0.8, wave=0.5),
-        P(hands=((4.0, 40.0, 18.0), None), hip_hand=(False, True), palm=(False, False), lean=16, turn=-20, hipf=2.0,
-          cape=1.0, wave=0.8, tails=0.7, brim=-0.6, hat=(-4.0, 0.0), feet=((3.6, 0.0, 6.0), (-3.6, 0.0, -4.0)),
-          held=[("crane", (4.0, 50.0, 26.0), {"size": 1.3, "wing": -0.4})]),
-        P(hands=((4.0, 46.0, 8.0), None), hip_hand=(False, True), palm=(False, False), lean=-2, hat=(-8.0, 0.0), cape=0.4,
-          wave=-0.4, brim=0.6),
-        P(bow=22.0, hands=((6.0, 22.0, 10.0), (-6.0, 30.0, -6.0)), hip_hand=(False, False), palm=(False, False),
-          feet=((3.6, 0.0, 5.0), (-3.6, 0.0, -5.0)), cape=0.2, hat=(8.0, 0.0), brim=-0.3),
-        P(cape=0.2, lean=6, wave=0.1),
-    ]
+    """Thousand Cranes. Frames 0-3, the charge loop: arms up in a V, up on his toes, the
+    sheets spiralling in to a crane over his hands, the cape lifted by the updraft. Then,
+    from the release: the gather (squashed, the crane pulled down over his near shoulder),
+    the drive (up and over), the throw at the top of its arc (frame 6, the cut-in), the
+    release (hand open, held), watching it fly, the arm sweeping across into the bow, the
+    deep bow (held), and the rise."""
+    out = []
+    for i in range(4):
+        b = math.sin(math.pi * i / 2.0)  # a small breath through the loop: 0, 1, 0, -1
+        out.append(P(hands=((7.0, 55.0 + b * 0.6, 2.0), (-7.0, 55.0 + b * 0.6, 2.0)), hip_hand=(False, False),
+                     palm=(False, False), fan=(1.0, 1.0), lean=-5, hip=25.4 + b * 0.3, stretch=0.5 + b * 0.1,
+                     toe=(0.5, 0.5), cape=0.6 + 0.1 * b, wave=0.4 * math.cos(math.pi * i / 2.0), brim=0.6 + 0.15 * b,
+                     held=[_spiral(i), ("crane", (0.0, 70.0 + b * 0.5, 2.0), {"size": 1.1, "wing": 0.6 * b})]))
+    crane_in = lambda at, w: ("crane", at, {"size": 1.3, "wing": w})
+    gather = P(hands=((8.0, 36.0, -13.0), (-6.0, 38.0, 8.0)), hip_hand=(False, False), palm=(False, False),
+               fan=(0.0, 1.0), hip=23.6, stretch=-0.7, lean=-6, turn=22, cape=0.55, wave=-0.4, tails=0.1, brim=0.8,
+               feet=((3.6, 0.0, 5.0), (-3.6, 0.0, -5.0)), held=[crane_in((8.0, 39.0, -16.0), 0.3)])
+    drive = P(hands=((6.0, 55.0, 3.0), (-6.0, 34.0, 4.0)), hip_hand=(False, False), palm=(False, False),
+              fan=(0.0, 1.0), hip=25.0, stretch=0.4, lean=4, turn=4, cape=0.8, wave=0.5, tails=0.3, brim=0.3,
+              feet=((3.6, 0.0, 5.5), (-3.6, 0.0, -4.5)), held=[crane_in((6.0, 59.0, 5.0), 0.8)])
+    throw = P(hands=((4.0, 47.0, 20.0), (-6.0, 32.0, -6.0)), hip_hand=(False, False), palm=(False, False),
+              fan=(0.0, 1.0), hip=26.0, hipf=2.0, stretch=0.8, lean=12, turn=-18, cape=1.0, wave=0.8, tails=0.7,
+              brim=-0.6, hat=(-4.0, 0.0), toe=(0.0, 1.0), feet=((3.6, 0.0, 6.0), (-3.6, 0.0, -5.0)),
+              held=[crane_in((4.0, 53.0, 27.0), -0.4)])
+    release = P(hands=((4.0, 41.0, 21.0), (-6.0, 31.0, -6.5)), hip_hand=(False, False), palm=(False, False),
+                fan=(1.0, 1.0), hip=25.8, hipf=2.0, stretch=0.6, lean=13, turn=-20, cape=1.0, wave=0.4, tails=0.8,
+                brim=-0.4, hat=(-4.0, 0.0), toe=(0.0, 0.8), feet=((3.6, 0.0, 6.0), (-3.6, 0.0, -5.0)))
+    watch = P(hands=((5.0, 44.0, 11.0), None), hip_hand=(False, True), palm=(False, False), fan=(1.0, 0.0),
+              hip=25.2, stretch=0.2, lean=-2, hat=(-8.0, 0.0), cape=0.6, wave=-0.3, tails=0.4, brim=0.6,
+              feet=((3.6, 0.0, 5.0), (-3.6, 0.0, -4.5)))
+    into = P(bow=10.0, hands=((-2.0, 34.0, 9.0), (-6.0, 29.0, -6.0)), hip_hand=(False, False), palm=(False, False),
+             fan=(1.0, 0.0), hip=25.0, cape=0.4, wave=-0.1, tails=0.2, brim=0.25, hat=(4.0, 0.0),
+             feet=((3.6, 0.0, 5.0), (-3.6, 0.0, -5.0)))
+    bow = P(bow=24.0, hands=((-3.0, 24.0, 8.0), (-6.0, 30.0, -7.0)), hip_hand=(False, False), palm=(False, False),
+            fan=(0.0, 0.0), hip=24.6, stretch=-0.2, cape=0.25, wave=0.15, tails=0.1, brim=-0.3, hat=(8.0, 0.0),
+            feet=((3.6, 0.0, 5.0), (-3.6, 0.0, -5.0)))
+    rise = tween(bow, idle_key(0.0), 0.7, cape=0.15, wave=0.25, brim=0.1)
+    return out + [gather, drive, throw, release, watch, into, bow, rise]
 
 
 def dodge_row():
@@ -1016,8 +1225,197 @@ ROWS = [
 ]
 VIEW_ROWS = ROWS
 
+
+# ------------------------------------------------------------------ animation previews
+# `python3 tools/gen_crease.py anim` renders the animation pass's previews into
+# docs/anim_preview/ (looping GIFs at game speed, the current sheet's frames beside the new
+# ones, all three views, a contact sheet), without touching the game's sheets.
+
+ANIM_DIR = os.path.join(ROOT, "docs", "anim_preview")
+PREVIEW_BG = (70, 58, 46)
+# Where each animation sits on the current sheets (row, frames), to compare against.
+OLD_ROWS = {"idle": (0, 4), "run": (1, 6), "flick": (2, 4), "flick2": (3, 4), "surge": (10, 6)}
+OLD_COLS = 8
+
+
+def _timed(anim_at, length):
+    """A move's frame per tick from its anim_at timeline."""
+    out = []
+    for t in range(length + 1):
+        f = 0
+        for at, fr in anim_at:
+            if t >= at:
+                f = fr
+        out.append(f)
+    return out
+
+
+def _idle_tail(ticks, idle_ticks, idle_n):
+    return [("idle", (t // idle_ticks) % idle_n) for t in range(ticks)]
+
+
+# Each clip: per version, a list of (animation, frame) per tick; marks: (from, to, label).
+def _clips():
+    old_idle, new_idle = (10, 4), (8, 8)
+    move = lambda name, at, length, idle: [(name, f) for f in _timed(at, length)] + _idle_tail(30, *idle)
+    l1_old, l1_new = [[0, 0], [4, 1], [7, 2], [12, 3]], [[0, 0], [2, 1], [4, 2], [6, 3], [9, 4], [11, 5], [14, 6], [17, 7]]
+    l3_old, l3_new = [[0, 0], [5, 1], [9, 2], [16, 3]], [[0, 0], [2, 1], [6, 2], [8, 3], [11, 4], [14, 5], [18, 6], [22, 7]]
+    su_old = [[0, 2], [5, 2], [10, 3], [16, 4], [26, 5]]
+    su_new = [[0, 4], [4, 5], [7, 6], [11, 7], [16, 8], [21, 9], [25, 10], [33, 11]]
+    return {
+        "idle": ({"old": [("idle", (t // 10) % 4) for t in range(320)],
+                  "new": [("idle", (t // 8) % 8) for t in range(320)]}, []),
+        "run": ({"old": [("run", (t // 4) % 6) for t in range(48)],
+                 "new": [("run", (t // 2) % 12) for t in range(48)]}, []),
+        "flick": ({"old": move("flick", l1_old, 21, old_idle), "new": move("flick", l1_new, 21, new_idle)},
+                  [(7, 10, "dart out (light 1)")]),
+        "flick_light3": ({"old": move("flick", l3_old, 26, old_idle), "new": move("flick", l3_new, 26, new_idle)},
+                         [(9, 12, "dart out (light 3)")]),
+        "flick2": ({"old": move("flick2", l1_old, 21, old_idle), "new": move("flick2", l1_new, 21, new_idle)},
+                   [(7, 10, "dart out (light 2)")]),
+        "surge": ({"old": [("surge", (t // 6) % 2) for t in range(24)] + move("surge", su_old, 40, old_idle),
+                   "new": [("surge", (t // 6) % 4) for t in range(24)] + move("surge", su_new, 40, new_idle)},
+                  [(0, 24, "held charge"), (24 + 11, 24 + 15, "lob thrown")]),
+    }
+
+
+class _Frames:
+    """Renders (and remembers) the new frames, and cuts the current ones off the sheets."""
+
+    def __init__(self):
+        self.rows = dict(ROWS)
+        self.cache = {}
+        self.sheets = {}
+
+    def spec(self, view):
+        return SIDE if view == "side" else VIEWS[view]
+
+    def new(self, anim, f, view="side"):
+        key = ("new", anim, f, view)
+        if key not in self.cache:
+            sp = self.spec(view)
+            S.set_frame(sp["w"], sp["h"], sp["origin"])
+            self.cache[key] = render_paper(self.rows[anim][f], view, build, decorate)
+        return self.cache[key]
+
+    def old(self, anim, f, view="side"):
+        if view not in self.sheets:
+            path = OUT if view == "side" else OUT.replace(".png", "_%s.png" % view)
+            self.sheets[view] = Image.open(os.environ.get("CREASE_OLD_" + view.upper(), path)).convert("RGBA")
+        sp = self.spec(view)
+        row, _n = OLD_ROWS[anim]
+        x, y = f * sp["w"], row * sp["h"]
+        return self.sheets[view].crop((x, y, x + sp["w"], y + sp["h"]))
+
+    def get(self, version, anim, f, view="side"):
+        return self.new(anim, f, view) if version == "new" else self.old(anim, f, view)
+
+
+def _tile(img, scale, view):
+    """A frame on the preview background, enlarged, with a tick under the feet."""
+    sp = SIDE if view == "side" else VIEWS[view]
+    bg = Image.new("RGBA", img.size, PREVIEW_BG + (255,))
+    bg.alpha_composite(img)
+    d = ImageDraw.Draw(bg)
+    ox, oy = sp["origin"]
+    d.line([(ox - 10, oy), (ox + 10, oy)], fill=(50, 40, 32, 255))
+    return bg.resize((img.width * scale, img.height * scale), Image.NEAREST)
+
+
+def _save_gif(ticks, path):
+    """Per-tick pictures to a looping GIF at 60 ticks a second (runs of the same picture
+    merged, delays rounded so the loop keeps time)."""
+    frames, durs = [], []
+    start = 0
+    for t in range(1, len(ticks) + 1):
+        if t == len(ticks) or ticks[t][0] != ticks[start][0]:
+            cs0, cs1 = round(start * 100 / 60), round(t * 100 / 60)
+            frames.append(ticks[start][1].convert("RGB"))
+            durs.append(max(2, cs1 - cs0) * 10)
+            start = t
+    frames[0].save(path, save_all=True, append_images=frames[1:], duration=durs, loop=0, optimize=False, disposal=1)
+    print("wrote", os.path.relpath(path, ROOT), len(frames), "frames")
+
+
+def _label(img, text, sub=""):
+    out = Image.new("RGBA", (img.width, img.height + 30), (40, 32, 26, 255))
+    out.alpha_composite(img, (0, 30))
+    d = ImageDraw.Draw(out)
+    d.text((6, 3), text, fill=(240, 230, 210, 255))
+    if sub:
+        d.text((6, 16), sub, fill=(255, 200, 90, 255))
+    return out
+
+
+def anim_previews():
+    os.makedirs(ANIM_DIR, exist_ok=True)
+    fr = _Frames()
+    for name, (versions, marks) in _clips().items():
+        new = versions["new"]
+        # 1x and 3x of the new version alone
+        for scale in (1, 3):
+            seq = []
+            for t, (anim, f) in enumerate(new):
+                seq.append(((anim, f), _tile(fr.new(anim, f), scale, "side")))
+            _save_gif(seq, os.path.join(ANIM_DIR, "crease_%s_%dx.gif" % (name, scale)))
+        # current next to new, 3x, with the tick and the moments that matter
+        seq = []
+        for t in range(max(len(v) for v in versions.values())):
+            panels = []
+            key = [t >= m0 and t < m1 and lab for m0, m1, lab in marks]
+            note = next((k for k in key if k), "")
+            for version in ("old", "new"):
+                v = versions[version]
+                anim, f = v[t % len(v)]
+                title = "%s  %s %d" % ("current" if version == "old" else "new", anim, f)
+                panels.append(_label(_tile(fr.get(version, anim, f), 3, "side"), title, note))
+            pic = Image.new("RGBA", (sum(p.width for p in panels) + 8, panels[0].height), (20, 16, 12, 255))
+            pic.alpha_composite(panels[0], (0, 0))
+            pic.alpha_composite(panels[1], (panels[0].width + 8, 0))
+            sig = tuple(tuple(versions[v][t % len(versions[v])]) for v in ("old", "new")) + (note,)
+            seq.append((sig, pic))
+        _save_gif(seq, os.path.join(ANIM_DIR, "crease_%s_compare_3x.gif" % name))
+    # all three views, new, for idle and the strut
+    for name in ("idle", "run"):
+        n = len(fr.rows[name])
+        per = 8 if name == "idle" else 2
+        seq = []
+        for t in range(n * per):
+            f = t // per
+            tiles = [_label(_tile(fr.new(name, f, v), 3, v), "%s %s %d" % (v, name, f)) for v in ("side", "down", "up")]
+            dy = [0, 0, (SIDE["origin"][1] - VIEWS["up"]["origin"][1]) * 3]
+            pic = Image.new("RGBA", (sum(x.width for x in tiles), tiles[0].height + dy[2]), PREVIEW_BG + (255,))
+            x = 0
+            for tl, off in zip(tiles, dy):
+                pic.alpha_composite(tl, (x, off))
+                x += tl.width
+            seq.append((f, pic))
+        _save_gif(seq, os.path.join(ANIM_DIR, "crease_%s_views_3x.gif" % name))
+    # contact sheet: every new frame, in all three views, 2x
+    names = ("idle", "run", "flick", "flick2", "surge")
+    s = 2
+    label_w = 90
+    cols = max(len(fr.rows[n]) for n in names)
+    rows = [(n, v) for n in names for v in ("side", "down", "up")]
+    sheet = Image.new("RGBA", (label_w + cols * SIDE["w"] * s, len(rows) * SIDE["h"] * s), PREVIEW_BG + (255,))
+    d = ImageDraw.Draw(sheet)
+    for r, (n, v) in enumerate(rows):
+        y = r * SIDE["h"] * s
+        d.text((6, y + 8), "%s\n%s" % (n, v), fill=(240, 230, 210, 255))
+        d.line([(label_w, y), (sheet.width, y)], fill=(50, 40, 32, 255))
+        for c in range(len(fr.rows[n])):
+            img = _tile(fr.new(n, c, v), s, v)
+            sheet.alpha_composite(img, (label_w + c * SIDE["w"] * s, y))
+            d.text((label_w + c * SIDE["w"] * s + 4, y + 4), str(c), fill=(255, 200, 90, 255))
+    path = os.path.join(ANIM_DIR, "crease_contact_sheet.png")
+    sheet.save(path)
+    print("wrote", os.path.relpath(path, ROOT))
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "inspect":
         S.inspect(ROWS, sys.argv[2:], SIDE, VIEWS, build, decorate, path=os.environ.get("INSPECT_OUT"))
+    elif len(sys.argv) > 1 and sys.argv[1] == "anim":
+        anim_previews()
     else:
         S.write_sheets(ROWS, VIEW_ROWS, OUT, PREVIEW, SIDE, VIEWS, build, decorate)
