@@ -1,7 +1,7 @@
 class_name OnlineMatch
 extends RefCounted
 ## One online match: a 1v1 Duel between two machines (DuelSim), or a 2v2/3v3 team
-## battle with each player on their own machine (TeamSim), driven by a RollbackSession,
+## battle (4v4 for Capture the Flag) with each player on their own machine (TeamSim), driven by a RollbackSession,
 ## with the input streams on a NetLink. Netplay makes these; main shows whatever `duel`
 ## or `team` holds and plays `events`.
 ##
@@ -138,8 +138,8 @@ func _init(p_teams: Array, p_slot: int, p_delay: int, p_link: NetLink, p_id: int
 		p_arena := ArenaMap.DEFAULT) -> void:
 	teams = p_teams
 	rules_id = p_rules
-	arena_id = p_arena if p_arena in ArenaMap.IDS else ArenaMap.DEFAULT
-	size = clampi(p_size, 1, 3)
+	arena_id = p_arena if ArenaMap.known(p_arena) else ArenaMap.DEFAULT
+	size = clampi(p_size, 1, TeamSim.MOST_PER_SIDE)
 	players = size * 2
 	local_slot = clampi(p_slot, 0, players - 1)
 	input_delay = p_delay

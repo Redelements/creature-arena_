@@ -43,7 +43,7 @@ extends Node2D
 ##   --online-watch=ADDR[:PORT][/ROOM] watch a server's match (a room's, from match to match)
 ##   --server[=PORT]       run as a dedicated server (with --headless); --max-players=N
 ##   --fighter=ID          your fighter online
-##   --online-size=N       with --online-join to a server: 2 or 3 asks for a 2v2 / 3v3
+##   --online-size=N       with --online-join to a server: 2, 3 or 4 asks for a 2v2 / 3v3 / 4v4 (4: Capture the Flag)
 ##   --net-lag=N --net-loss=F   hold back / drop the input stream (feel rollback on a LAN)
 ##   --net-delay=N         force the input delay (frames) instead of picking it from the ping
 ##   --net-report=PATH     write the online match's report (inputs, state fingerprints) on exit; after a
@@ -3144,7 +3144,7 @@ func _parse_args() -> int:
 		elif a.begins_with("--net-loss="):
 			_net_args["loss"] = float(a.get_slice("=", 1))
 		elif a.begins_with("--online-size="):
-			_net_args["size"] = clampi(int(a.get_slice("=", 1)), 1, 3)
+			_net_args["size"] = clampi(int(a.get_slice("=", 1)), 1, TeamSim.MOST_PER_SIDE)
 		elif a.begins_with("--net-delay="):
 			_net_args["delay"] = int(a.get_slice("=", 1))
 		elif a.begins_with("--net-report="):
@@ -3361,7 +3361,7 @@ func _net_join(fighter: String, address: String, port: int, room := "", remember
 		return
 	netplay.room = room
 	netplay.team_size = size
-	netplay.rules_id = _pending_rules if size > 1 else ""
+	netplay.rules_id = TeamSim.rules_for_size(_pending_rules, size) if size > 1 else ""
 	netplay.ranked = _pending_ranked and size == 1
 	_pending_ranked = false
 	netplay.auto_ready = _auto_accept or _cpu_vs_cpu

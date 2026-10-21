@@ -27,7 +27,7 @@ is the short reference.
 | `--server[=PORT]` | 7777 | run as a server on this UDP port |
 | `--max-players=N` | 32 | players connected at once (16 matches); more are told the server is full |
 | `--net-delay=N` | picked per match | force every match's input delay (frames) |
-| `--cpu-fill=SECONDS` | 20 | a Quick match 2v2/3v3 that has waited this long starts with CPUs in the empty slots (0: never) |
+| `--cpu-fill=SECONDS` | 20 | a Quick match 2v2/3v3/4v4 that has waited this long starts with CPUs in the empty slots (0: never) |
 | `--room-fill=SECONDS` | 45 | the same for a room (longer: friends are typing the code) |
 | `--ready=SECONDS` | 15 | how long players have to accept a match found; those who accepted go back to waiting if someone doesn't |
 | `--cpu-level=N` | 1 | how well those CPUs play: 0 Easy, 1 Normal, 2 Hard |

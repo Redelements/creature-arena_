@@ -58,7 +58,7 @@ plain-UDP JSON: `creature-arena?` / `creature-arena`.
 
 ## Command-line flags
 
-Online: `--online-host[=PORT]`, `--online-join=ADDR[:PORT][/ROOM]`, `--online-watch=ADDR[:PORT][/ROOM]`, `--online-size=2|3`,
+Online: `--online-host[=PORT]`, `--online-join=ADDR[:PORT][/ROOM]`, `--online-watch=ADDR[:PORT][/ROOM]`, `--online-size=2|3|4` (4: Capture the Flag),
 `--fighter=ID`, `--net-lag=N`, `--net-loss=F`, `--net-delay=N`, `--net-report=PATH`. Two
 processes on one machine with `--cpu-vs-cpu` play each other; compare their reports.
 Dedicated server: `--headless -- --server[=PORT] [--max-players=N] [--net-delay=N]`.
@@ -75,11 +75,11 @@ Dedicated server: `--headless -- --server[=PORT] [--max-players=N] [--net-delay=
 - `loop_link.gd` (LoopLink) — Two links joined in memory, for tests: what one sends, the other receives a few polls later.
 - `net_link.gd` (NetLink) — A connection to the other player, carrying small Dictionary messages.
 - `netplay.gd` (Netplay) — An online session between two machines: connect, agree on the match, play it with rollback, rematch.
-- `online_match.gd` (OnlineMatch) — One online match: a 1v1 Duel between two machines (DuelSim), or a 2v2/3v3 team battle with each player on their own mac…
+- `online_match.gd` (OnlineMatch) — One online match: a 1v1 Duel between two machines (DuelSim), or a 2v2/3v3 team battle (4v4 for Capture the Flag) with e…
 - `ratings.gd` (Ratings) — The dedicated server's book of ranked players and daily scores, kept in a JSON file.
-- `referee.gd` (Referee) — The dedicated server's copy of one online match (a 1v1 Duel or a 2v2/3v3 team battle).
+- `referee.gd` (Referee) — The dedicated server's copy of one online match (a 1v1 Duel or a 2v2/3v3/4v4 team battle).
 - `relay_server.gd` (RelayServer) — A dedicated server for online matches: players connect to it (with the game's ordinary Join), it groups them (two for a…
-- `rollback_session.gd` (RollbackSession) — Rollback netcode (GGPO-style) for one player's machine in a match of 2 or more players (a 1v1, or a 2v2/3v3 team battle…
+- `rollback_session.gd` (RollbackSession) — Rollback netcode (GGPO-style) for one player's machine in a match of 2 or more players (a 1v1, or a 2v2/3v3/4v4 team ba…
 - `server_beacon.gd` (ServerBeacon) — A dedicated server's answer to "is there a Creature Arena server on this network?".
 - `sim_check.gd` (SimCheck) — Cross-platform determinism check. Plays a long seeded match of random button mashing (fighters start in reach, so it's…
 <!-- END GENERATED -->

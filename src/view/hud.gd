@@ -251,7 +251,7 @@ func _draw_now() -> void:
 		_text(Vector2(_sw * 0.5 - 150.0, _sh - 34.0), _toast, 8, Color(1, 1, 1, a), HORIZONTAL_ALIGNMENT_CENTER, 300)
 
 	if net_info != "":
-		_text(Vector2(_hr - 304, _sh - 15.0), net_info, 6, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, 300)
+		_text(Vector2(_hr - 404, _sh - 15.0), net_info, 6, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, 400)  # room for a long map name
 
 	if show_help:
 		draw_rect(Rect2(0, _sh - 11.0, _sw, 11), C_PANEL)

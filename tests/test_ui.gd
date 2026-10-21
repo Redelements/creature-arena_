@@ -545,7 +545,7 @@ func test_online_opens_on_quick_match_rooms_and_more() -> void:
 	_press("ui_accept")
 	assert_eq(lobby.page, OnlineLobby.Page.QUICK, "Quick match opens its page")
 	assert_eq(_focus(), lobby._quick, "on 1 v 1")
-	assert_true(lobby._quick2.visible and lobby._quick3.visible, "with 2 v 2 and 3 v 3")
+	assert_true(lobby._quick2.visible and lobby._quick3.visible and lobby._quick4.visible, "with 2 v 2, 3 v 3 and 4 v 4")
 	assert_false(lobby._quick_page.visible, "")
 	_press("ui_cancel")
 	assert_eq(lobby.page, OnlineLobby.Page.MAIN, "Back goes up a page")

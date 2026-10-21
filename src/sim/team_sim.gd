@@ -169,6 +169,8 @@ const RULE_IDS := ["", "deathmatch", "sinkhole", "crater", "caravan", "ctf"]
 const RULE_NAMES := ["Team battle", "Team Deathmatch", "Sinkhole", "King of the Crater", "Caravan", "Capture the Flag"]
 const CARAVAN_PATH := "res://data/rules/caravan.json"
 const CTF_PATH := "res://data/rules/ctf.json"
+## The most players a side any rules allow (a rules file's "max_size", 3 if it has none).
+const MOST_PER_SIDE := 4
 
 
 static func rules_by_id(id: String) -> Dictionary:
@@ -181,6 +183,22 @@ static func rules_by_id(id: String) -> Dictionary:
 	return {}
 
 
+## The most players a side the rules `id` names can take (Capture the Flag: 4).
+static func max_size_for(id: String) -> int:
+	return clampi(int(rules_by_id(id).get("max_size", 3)), 1, MOST_PER_SIDE)
+
+
+## `id` if its rules take `size` a side, else the first rules that do (a 4 v 4 asked
+## for under the plain team battle plays Capture the Flag).
+static func rules_for_size(id: String, size: int) -> String:
+	if max_size_for(id) >= size:
+		return id
+	for r in RULE_IDS:
+		if max_size_for(String(r)) >= size:
+			return String(r)
+	return id
+
+
 static func load_rules(path := RULES_PATH) -> Dictionary:
 	var f := FileAccess.open(path, FileAccess.READ)
 	var d = JSON.parse_string(f.get_as_text()) if f != null else null
@@ -188,7 +206,7 @@ static func load_rules(path := RULES_PATH) -> Dictionary:
 
 
 ## `team_ids` is [[left ids], [right ids]]. `per_side` creatures fight on each side (1 to
-## 3; 0: as many as the shorter list), the first ones of each list.
+## the rules' "max_size", 3 by default; 0: as many as the shorter list), the first ones of each list.
 func _init(team_ids: Array, per_side := 0, p_rules: Dictionary = {}) -> void:
 	rules = p_rules if not p_rules.is_empty() else load_rules()
 	sim = MatchSim.new()

@@ -16,6 +16,11 @@ const IDS := ["stadium", "quarry", "floodgate", "greenhouse"]
 ## than the stadium. Dustwind Pass: the Caravan's; Twin Keeps: Capture the Flag's.
 const MODE_IDS := ["caravan_pass", "twin_keeps"]
 
+
+## Any map a match may be played on: a menu map or a mode's own.
+static func known(id: String) -> bool:
+	return id in IDS or id in MODE_IDS
+
 static var _cache := {}
 
 
