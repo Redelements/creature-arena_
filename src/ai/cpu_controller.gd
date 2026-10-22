@@ -286,7 +286,7 @@ func _go_to(sim: MatchSim, me: CreatureSim, goal: Vector2, weave := Vector2.ZERO
 			_move_toward(v)
 		return
 	_path_t -= 1
-	if _path.is_empty() or _path_t <= 0 or _path_goal.distance_to(goal) > 20.0:
+	if (_path.is_empty() or _path_t <= 0 or _path_goal.distance_to(goal) > 20.0) and _replan_turn(sim):
 		var t1 := PerfLog.now()
 		_path = NavGrid.shared(sim.terrain).path(me.pos, goal)
 		PerfLog.since("ai path", t1)
@@ -302,6 +302,17 @@ func _go_to(sim: MatchSim, me: CreatureSim, goal: Vector2, weave := Vector2.ZERO
 	var d := _steer(sim, me, _path[0] - me.pos)
 	if d != Vector2.ZERO:
 		_move_toward(d)
+
+
+## Whether this CPU may run a path search this tick. A search costs up to a few ms on a
+## big map, and a goal that keeps moving (a flag carrier) asks for one every tick, so on
+## a crowded field the CPUs take turns: one search a tick at most, each CPU's turn coming
+## round every `creatures.size()` ticks (a 4v4: 133 ms). Meanwhile it keeps to its last
+## path, or walks straight at the goal. With two on the field there's no need, so a 1v1
+## plays exactly as before.
+func _replan_turn(sim: MatchSim) -> bool:
+	var n := sim.creatures.size()
+	return n <= 2 or (sim.tick + me_idx) % n == 0
 
 
 func _ai(me: CreatureSim) -> Dictionary:
