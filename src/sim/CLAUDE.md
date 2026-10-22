@@ -82,8 +82,10 @@ size only: a map's `size` can be bigger, so code with a match asks `sim.floor_re
 - Who can see whom → `vision.gd` (not stepped by the sim; reads it, keeps a memory of hits;
   its line answers are memoized per terrain version, under a lock: CPUs may ask from threads)
 - Box counts of walls, fences and pits → `terrain_index.gd` (`TerrainIndex.of(terrain)`, rebuilt
-  on `terrain.version`; not match state, so not snapshotted). Any code that writes
-  `terrain.cells` must bump `terrain.version`, or these caches go stale
+  on `terrain.version`; not match state, so not snapshotted), and the terrain's own list
+  of damaged cells (`TerrainGrid._damaged`: `tick` heals only those, a big map's every
+  cell no longer walked each tick). Any code that writes `terrain.cells` must bump
+  `terrain.version`, or these caches go stale
 - Input bits → `sim_defs.gd` (layout in `docs/MECHANICS.md`, "Input bits")
 
 ## Files
