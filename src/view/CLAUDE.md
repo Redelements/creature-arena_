@@ -22,8 +22,14 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
 - Cost: views redraw on the 60 Hz tick, and that frame has to fit a 240 Hz budget. Redraw
   only what changed: the floor is drawn in row bands (`ArenaView.BAND_ROWS`; a changed cell
   redraws its band and its neighbours'), the crowd only when someone stands, a flash pops
-  or the camera nears the edge of the seats drawn (`_drawn_key`, `CULL_PAD`). A `_draw`
-  reports its time with `PerfLog.now()` / `PerfLog.since(...)` for `--perf`.
+  or the camera nears the edge of the seats drawn (`_drawn_key`, `CULL_PAD`; its camera
+  flashes are a layer of their own, `FlashLayer`, so they don't redraw the seats). On a big
+  map most of the field is off screen: `FxView` draws only particles and fighters near the
+  view (`_view_rect`, `_in_view`, `CULL_PAD`, a wider `CULL_PAD_FIGHTER` so a telegraph can
+  reach in), and a `SurgeAura` skips a fighter off screen. A floor change repaints its
+  bands a few per frame (`ArenaView._pending`, `SPREAD_FRAMES`), not all in one tick. A
+  `_draw` reports its time with `PerfLog.now()` / `PerfLog.since(...)` for `--perf`
+  (main thread only: `PerfLog` ignores a worker thread).
 - The camera is not here: `src/game/main.gd:_update_camera`, `_frame_fight`, `CAM_PAD`, `KO_ZOOM`.
 
 ## Hidden foes

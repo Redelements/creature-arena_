@@ -205,6 +205,15 @@ const SETTINGS_PATH := "user://settings.cfg"
 const MENU_FPS := 60
 const FPS_CHOICES := [60, 120, 144, 165, 240, 0]
 const DEFAULT_FPS := 144
+## On a phone or a handheld (Android) fights default to 60: on the Odin 3 the release build
+## holds 60 without a dropped frame, while at 120 every other frame carries a tick that
+## doesn't fit the 8 ms, so it stutters. The setting still offers the higher rates.
+const DEFAULT_FPS_MOBILE := 60
+
+
+## The fight frame rate to start with: `mobile` is the platform's (a test passes its own).
+static func default_fps(mobile := OS.has_feature("mobile")) -> int:
+	return DEFAULT_FPS_MOBILE if mobile else DEFAULT_FPS
 # Knockouts: the simulation itself freezes and then runs at half speed (MatchSim's
 # ko_freeze / slowmo, so online peers agree); the camera pushes in on the loser.
 const KO_ZOOM := 1.45
@@ -255,7 +264,7 @@ var _setting_rows := {}  ## Settings key -> its OptionRow, while the page is ope
 var _match_over_status: Label = null
 var _recent_servers: Array = []
 var fullscreen := false
-var fight_fps := DEFAULT_FPS
+var fight_fps := default_fps()
 ## Where settings are kept (tests point it elsewhere, so they never touch the player's).
 var settings_path := SETTINGS_PATH
 var vsync := true
@@ -405,7 +414,6 @@ func _ready() -> void:
 		return
 	Controls.setup()
 	_cpus_early = DisplayServer.get_name() != "headless"
-	RenderingServer.frame_post_draw.connect(_join_cpus)
 	_fps_caps = DisplayServer.get_name() != "headless" and not ("--fixed-fps" in OS.get_cmdline_args()) \
 		and not ("--write-movie" in OS.get_cmdline_args())
 	menu_stick = MenuStick.new()
@@ -1636,6 +1644,7 @@ func _end_showcase() -> void:
 
 
 func _new_sim(s: MatchSim, p_sides: Array) -> void:
+	_join_cpus()  # the CPUs may still be reading the old match
 	sim = s
 	_cam_zoom = 0.0  # frame the new fight straight away
 	sides = p_sides.duplicate()
@@ -2084,10 +2093,14 @@ func _cpu_list() -> Array:
 
 
 ## At the end of a tick: the CPUs start on the next tick's inputs now, on the worker
-## threads, so their thinking overlaps the frame being drawn instead of adding to it.
-## _join_cpus waits for them once the frame is drawn (frame_post_draw), before any input
-## event or the next tick can change the match. Something that changes the match between
-## ticks (a training reset) leaves the CPUs one tick behind it, as a player would be.
+## threads, so their thinking overlaps the whole gap to the next tick instead of adding
+## to it. _join_cpus waits for them at the next tick (_physics_process), or sooner when
+## something could change the match before then: a press or a click (_input; mouse
+## motion never touches the match), a training option, a fighter swap, a new match.
+## Joining once the frame was drawn, as before, gave them only the draw's millisecond or
+## two: a slow think (an A* replan) then stalled the frame. Something that changes the
+## match between ticks (a training reset) leaves the CPUs one tick behind it, as a
+## player would be.
 func _think_ahead() -> void:
 	if not _cpus_early or not CpuController.threaded:
 		return
@@ -2454,6 +2467,8 @@ static func _cam_axis(v: float, half: float, arena: float) -> float:
 # ------------------------------------------------------------------ input
 
 func _input(event: InputEvent) -> void:
+	if not (event is InputEventMouseMotion):
+		_join_cpus()  # a press may change the match (a reset, a swap) while the CPUs read it
 	var before := player_input.label_set()
 	player_input.note_event(event)
 	if player_input.label_set() != before:
@@ -2606,6 +2621,7 @@ func _open_fighter_swap() -> void:
 ## mode, the arena and the training options, and a short fade covers the cut. Restart
 ## and F4 keep it until you leave training.
 func change_training_fighter(id: String) -> void:
+	_join_cpus()
 	if not in_training() or not (id in MatchFactory.FIGHTERS):
 		return
 	_training_fighter = id
@@ -2636,6 +2652,7 @@ func _open_training_options() -> void:
 ## Puts the training options on the match being played (a replay being recorded notes
 ## the change at this frame, so it plays back the same).
 func _apply_training_opts() -> void:
+	_join_cpus()
 	if not in_training():
 		return
 	if not sim.set_training_flags(training_opts):
@@ -3008,8 +3025,8 @@ func _load_settings() -> void:
 			training_opts[k] = bool(cfg.get_value("training", k, false))
 		dummy_mode = clampi(int(cfg.get_value("training", "dummy_mode", 0)), 0, DUMMY_MODES.size() - 1)
 		Controls.apply_overrides(cfg.get_value("controls", "bindings", {}))
-		var fps := int(cfg.get_value("video", "fight_fps", DEFAULT_FPS))
-		fight_fps = fps if fps in FPS_CHOICES else DEFAULT_FPS
+		var fps := int(cfg.get_value("video", "fight_fps", default_fps()))
+		fight_fps = fps if fps in FPS_CHOICES else default_fps()
 		perf_overlay.mode = clampi(int(cfg.get_value("video", "perf_overlay", 0)), 0,
 			PerfOverlay.MODE_NAMES.size() - 1) as PerfOverlay.Mode
 	# After everything is loaded: saving here first would write defaults over it.

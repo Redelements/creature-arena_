@@ -16,12 +16,25 @@ var _flashes: Array[Dictionary] = []
 ## camera nearing the edge of the seats last drawn (only seats on screen, plus CULL_PAD,
 ## are drawn: a big map's stands are mostly off screen).
 var _drawn_key := Vector4i(-1, -1, -1, -1)
-var _drawn_flashes := false
 var _drawn_rect := Rect2()
 const CULL_PAD := 96.0
+## The camera flashes, on a layer of their own over the seats: they pop on most ticks of
+## a busy fight, and redrawing a few pixels is nothing next to redrawing every seat.
+var _flash_layer: FlashLayer
+var _drawn_flashes := false
+
+
+class FlashLayer extends Node2D:
+	var crowd: CrowdView
+
+	func _draw() -> void:
+		crowd._draw_flashes(self)
 
 
 func _ready() -> void:
+	_flash_layer = FlashLayer.new()
+	_flash_layer.crowd = self
+	add_child(_flash_layer)
 	set_width(SimDefs.ARENA_W)
 
 
@@ -72,10 +85,12 @@ func advance() -> void:
 	_flashes = _flashes.filter(func(f): return int(f["t"]) > 0)
 	var cheering := 10 if _roar > 0 else int(excitement * 10.0)
 	var key := Vector4i(cheering, _tick / 6, _tick / 4, int(_roar > 0))
-	if key != _drawn_key or _drawn_flashes or not _flashes.is_empty() 			or not _drawn_rect.encloses(_view_rect().grow(-CULL_PAD * 0.5)):
+	if key != _drawn_key or not _drawn_rect.encloses(_view_rect().grow(-CULL_PAD * 0.5)):
 		_drawn_key = key
-		_drawn_flashes = not _flashes.is_empty()
 		queue_redraw()
+	if _flash_layer != null and (_drawn_flashes or not _flashes.is_empty()):
+		_drawn_flashes = not _flashes.is_empty()
+		_flash_layer.queue_redraw()
 
 
 ## The part of this node's space on screen now.
@@ -104,10 +119,13 @@ func _draw_now() -> void:
 		if up and (_tick / 4 + int(s["phase"])) % 2 == 0:
 			p.y -= 3 if _roar > 0 else 2
 		draw_texture_rect_region(SHEET, Rect2(p, Vector2(W, H)), Rect2(frame * W, 0, W, H))
+
+
+func _draw_flashes(ci: CanvasItem) -> void:
 	for f in _flashes:
 		var fp: Vector2 = f["pos"]
 		var big := int(f["t"]) >= 3
-		draw_rect(Rect2(fp - Vector2(1, 1), Vector2(3, 3)) if big else Rect2(fp, Vector2(1, 1)), Color(1, 1, 0.92, 0.95))
+		ci.draw_rect(Rect2(fp - Vector2(1, 1), Vector2(3, 3)) if big else Rect2(fp, Vector2(1, 1)), Color(1, 1, 0.92, 0.95))
 		if big:
-			draw_rect(Rect2(fp - Vector2(3, 0), Vector2(7, 1)), Color(1, 1, 0.9, 0.5))
-			draw_rect(Rect2(fp - Vector2(0, 3), Vector2(1, 7)), Color(1, 1, 0.9, 0.5))
+			ci.draw_rect(Rect2(fp - Vector2(3, 0), Vector2(7, 1)), Color(1, 1, 0.9, 0.5))
+			ci.draw_rect(Rect2(fp - Vector2(0, 3), Vector2(1, 7)), Color(1, 1, 0.9, 0.5))

@@ -21,7 +21,13 @@ goes for showcases, trials and drills.
   `think_all` before the threads start, or locked (`NavGrid._label_lock`, Vision's memo).
   `tests/test_cpu_pathing.gd` checks threaded inputs equal sequential ones.
 - Cost: a 4v4 has eight CPUs in one tick. Measure with `tests/bench_ai_cost.gd` before and
-  after a change to thinking that walks the map (paths, line checks, `_steer`).
+  after a change to thinking that walks the map (paths, line checks, `_steer`); with
+  `--threads=off` it also prints where the time goes (`PerfLog.since` probes in `bits`,
+  `_go_to`, `_steer` and the decision branches, each wrapped as `<name>_now`). The probes
+  cost nothing otherwise: `PerfLog` records only on the main thread, so a CPU thinking on
+  a worker thread never touches it (it did once, and the game stalled before its first
+  tick). In the game, main joins the threads at the next tick, not once the frame is
+  drawn, so a slow think (an A* replan, up to a few ms) no longer stalls a frame.
 - Win rates are noisy: `tests/bench_cpu.gd --matrix` plays 6 games a pair at `--seeds=3`.
   Use `--only=<id> --seeds=6` (132 games) before trusting a few-percent change.
 

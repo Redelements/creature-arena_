@@ -121,6 +121,12 @@ var _pit_bands: Array[Band] = []
 var _marks: Band = null
 ## The cells as the bands last drew them, to find the rows that changed.
 var _seen := PackedByteArray()
+## Bands waiting to be repainted. A change to the floor can dirty many at once (a slam's
+## ring, a Sinkhole collapse) and each costs a fraction of a millisecond, so they're
+## repainted a few per frame (`_process`) over at most SPREAD_FRAMES frames instead of
+## all in the tick that changed them, which read as a hitch at high frame rates.
+var _pending: Array[int] = []
+const SPREAD_FRAMES := 4
 
 
 ## Starts the drawing over: a new terrain, map art or ground.
@@ -132,6 +138,7 @@ func _rebuild() -> void:
 		_marks.queue_free()
 	_floor_bands.clear()
 	_pit_bands.clear()
+	_pending.clear()
 	_marks = null
 	if terrain == null:
 		return
@@ -170,8 +177,21 @@ func refresh() -> void:
 				dirty[r / BAND_ROWS] = true
 	_seen = terrain.cells.duplicate()
 	for k in dirty:
-		_floor_bands[k].queue_redraw()
-		_pit_bands[k].queue_redraw()
+		if not (k in _pending):
+			_pending.append(k)
+
+
+## A few of the pending bands each frame (every band paints the floor as it is now, so a
+## band that changed again meanwhile is still right).
+func _process(_delta: float) -> void:
+	if _pending.is_empty():
+		return
+	var n := maxi(1, ceili(_pending.size() / float(SPREAD_FRAMES)))
+	for i in mini(n, _pending.size()):
+		var k: int = _pending.pop_front()
+		if k < _floor_bands.size():
+			_floor_bands[k].queue_redraw()
+			_pit_bands[k].queue_redraw()
 
 
 ## Under the bands: the map's art, or the stands and walls round a tiled floor.

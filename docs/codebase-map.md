@@ -60,6 +60,8 @@ update the map in the same change.
 | training options (no cooldowns, full energy) | `src/sim/match_sim.gd:set_training_flags`, `_apply_training` | training |
 | a fighter's numbers, moves, frame data | `data/creatures/<id>.json` (keys in `docs/MECHANICS.md`) | `<id>`, combos, showcase, trials |
 | CPU difficulty, Rage, class styles | `src/ai/cpu_controller.gd` `LEVELS`, `STYLES` | test_ai, rage |
+| CPU thinking cost, AI profile, worker threads, what main waits on | `tests/bench_ai_cost.gd` (`--threads=off` breakdown), `src/ai/cpu_controller.gd:think_start`, `src/game/main.gd:_think_ahead`, `_join_cpus`, `src/game/perf_log.gd` | perf_main_thread, cpu_pathing, test_ui |
+| off-screen culling, floor repaint spreading, crowd redraws | `src/view/fx_view.gd:_view_rect`, `_in_view`; `src/view/arena_view.gd:_pending`; `src/view/crowd_view.gd:FlashLayer`; `src/view/surge_aura.gd:_on_screen` | perf_main_thread, views |
 | CPU defence (guard, dodge, step) | `src/ai/cpu_controller.gd:_defend`, `_rage_defend`, `_guard_answer` | rage, stamina |
 | CPU offence, combo routes, pokes, zones, kiting | `src/ai/cpu_controller.gd:_continue_attack`, `_pick_route`, `_neutral`, `_rage_neutral`, `_rage_kit` | test_ai, rage |
 | CPU pathing round walls and pits | `src/ai/nav_grid.gd`, `src/ai/cpu_controller.gd:_go_to` | cpu_pathing |
