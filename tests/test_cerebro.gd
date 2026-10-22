@@ -30,17 +30,19 @@ func _events(sim: MatchSim, kind: String) -> Array:
 
 ## His skills reach about 120 px (what Gillbert's Cast Line reached before it was doubled)
 ## and his lights half again as far.
-func test_his_throws_reach_about_120_px_and_his_lights_half_again() -> void:
+func test_his_throws_reach_about_120_px_and_his_lights_about_115() -> void:
 	var sim := _duel()
 	var chef := sim.creatures[0]
 	var cast := 119.0
 	for mid in ["skill_1", "surge"]:
 		var r := chef.move_range(mid)
 		assert_true(absf(r - cast) <= cast * 0.15, "%s reaches %.0f px, about %.0f px" % [mid, r, cast])
+	# The lights reached half again as far until the Oct 2026 kit pass: the thrown string
+	# outranged every melee kit and did about 90% of his damage, so now it reaches about
+	# 115 px (the mallet a little further) and his skills are what reach further.
 	for mid in ["light_1", "light_2", "light_3"]:
 		var r := chef.move_range(mid)
-		assert_true(absf(r - cast * 1.5) <= cast * 0.15,
-			"%s reaches %.0f px, half again %.0f px" % [mid, r, cast])
+		assert_true(absf(r - 115.0) <= 15.0, "%s reaches %.0f px, about 115 px" % [mid, r])
 
 
 func test_knife_flick_hits_from_range() -> void:
@@ -63,10 +65,10 @@ func test_only_the_mallet_toss_staggers() -> void:
 	assert_eq(stuns.slice(0, 3), [false, false, true], "only the third, the Mallet Toss, staggers:")
 
 
-func test_knife_flick_hits_from_half_again_as_far() -> void:
+func test_knife_flick_misses_from_half_again_as_far() -> void:
 	var sim := _duel("cairn", 140.0)
-	var hit := run_until(sim, func(): return not _events(sim, "hit").is_empty(), 50, L)
-	assert_true(hit, "a knife flicked from 140 px away lands")
+	tap(sim, L, 50)
+	assert_eq(sim.creatures[1].hp, sim.creatures[1].max_hp, "a knife flicked from 140 px away falls short (it reached since the Oct 2026 kit pass):")
 
 
 func test_knife_flick_misses_past_its_range() -> void:

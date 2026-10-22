@@ -175,7 +175,7 @@ func test_mountain_maw_is_a_skill_on_a_cooldown() -> void:
 	assert_eq(crag.move_id, "skill_2", "Mountain Maw is Skill 2:")
 	assert_near(crag.energy, 0.0, 0.001, "and costs no meter:")
 	assert_eq(int(crag.cooldowns["skill_2"]), int(crag.def["moves"]["skill_2"]["cooldown"]), "on cooldown:")
-	assert_gt(int(crag.def["moves"]["skill_2"]["cooldown"]), 240, "a long one (5 s):")
+	assert_gt(int(crag.def["moves"]["skill_2"]["cooldown"]), 180, "a long one (about 3.3 s since the Oct 2026 kit pass):")
 
 
 func test_mountain_maw_bites_from_far_hauls_in_and_crumples() -> void:
@@ -376,7 +376,7 @@ func test_the_slow_string_still_combos() -> void:
 		if cairn.combo_hits >= 3:
 			break
 	assert_eq(int(cairn.combo_hits), 3, "all three lights in one combo:")
-	assert_gt(float(first), 15.0, "and the Rake takes its time to land:")
+	assert_gt(float(first), 10.0, "and the Rake takes its time to land (12 frames since the Oct 2026 kit pass; a jab takes 4-5):")
 
 
 func test_landslide_charge_cancels_from_the_headbutt() -> void:

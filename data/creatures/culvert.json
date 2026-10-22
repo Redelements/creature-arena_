@@ -3,7 +3,8 @@
   "name": "Culvert",
   "title": "Storm-drain toad",
   "affinity": "stone",
-  "max_hp": 140,
+  "max_hp": 165,
+  "role": "tank",
   "speed": 1.82,
   "wades": true,
   "accel": 0.33,
@@ -94,7 +95,7 @@
     "heavy": {
       "name": "Slam", "anim": "heavy", "windup": 8, "tell": "guard_break",
       "charge_max": 32, "startup": 6, "active": 4, "recovery": 18,
-      "damage": 10, "damage_charged": 24,
+      "damage": 10, "damage_charged": 18,
       "knockback": 2.2, "knockback_charged": 7.0,
       "hitstun": 34, "hitstun_charged": 40,
       "hitstop": 8, "hitstop_charged": 14,
@@ -105,12 +106,12 @@
     },
     "skill_1": {
       "name": "Gulp", "anim": "gulp", "anim_at": [[0, 1], [6, 2], [16, 3]],
-      "windup": 12, "tell": "unblockable", "cooldown": 300,
+      "windup": 12, "tell": "unblockable", "cooldown": 240,
       "charge_max": 20, "startup": 6, "active": 0, "recovery": 24,
       "damage": 6, "hitstun": 34, "knockback": 0.0, "hitstop": 8,
       "grab": true, "pull": 2,
       "hold": { "damage": 12, "pull": 0, "swallow": 16, "flip": 6, "launch": 16, "hitstop": 10 },
-      "projectile": { "speed": 8.35, "life": 13, "radius": 8, "radius_end": 14, "offset": 14, "crack_trail": false,
+      "projectile": { "speed": 8.35, "life": 13, "radius": 12, "radius_end": 20, "offset": 14, "crack_trail": false,
         "sound": "gulp", "end_sound": "grab" },
       "fx": { "projectile": "tongue", "suction": true }
     },
@@ -126,7 +127,7 @@
     "surge": {
       "name": "Storm Drain", "anim": "storm", "anim_at": [[0, 0], [3, 1], [8, 2], [12, 3], [15, 4], [26, 5]], "energy_cost": 100,
       "startup": 14, "active": 4, "recovery": 30,
-      "damage": 30, "knockback": 5.0, "knockdown": 30, "hitstop": 14,
+      "damage": 22, "knockback": 5.0, "knockdown": 30, "hitstop": 14,
       "reach": 0, "hit_radius": 50, "juggle": true,
       "dash": { "speed": 1.4, "from": 1, "to": 14 },
       "terrain_heal": 1.5, "terrain_ring": { "inner": 18, "outer": 52 },

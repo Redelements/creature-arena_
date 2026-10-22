@@ -4,7 +4,7 @@
   "title": "Folded from a magician's last playbill",
   "affinity": "gale",
   "role": "mage",
-  "max_hp": 92,
+  "max_hp": 100,
   "speed": 2.32,
   "accel": 0.44,
   "radius": 10,
@@ -61,7 +61,7 @@
     "poke_range": [70, 200],
     "burrow": "skill_2",
     "burrow_range": [60, 140],
-    "fold_safe": 90,
+    "fold_safe": 150,
     "fold": ["skill_1", "heavy", "skill_2"],
     "surge_range": 150,
     "routes": [
@@ -90,7 +90,7 @@
       "startup": 6, "active": 0, "recovery": 15, "cancel_from": 10,
       "damage": 3, "knockback": 0.5, "hitstun": 28, "hitstop": 1, "no_flinch": true, "juggle": true,
       "next": "light_2",
-      "projectile": { "speed": 7.0, "life": 18, "radius": 5, "offset": 12, "crack_trail": false,
+      "projectile": { "speed": 7.0, "life": 14, "radius": 5, "offset": 12, "crack_trail": false,
         "sound": "knife_throw", "end_sound": "knife_hit" },
       "anim_at": [[0, 0], [2, 1], [4, 2], [6, 3], [9, 4], [11, 5], [14, 6], [17, 7]],
       "fx": { "projectile": "dart" }
@@ -100,17 +100,17 @@
       "startup": 6, "active": 0, "recovery": 15, "cancel_from": 10,
       "damage": 3, "knockback": 0.5, "hitstun": 28, "hitstop": 1, "no_flinch": true, "juggle": true,
       "next": "light_3",
-      "projectile": { "speed": 7.0, "life": 18, "radius": 5, "offset": 12, "crack_trail": false,
+      "projectile": { "speed": 7.0, "life": 14, "radius": 5, "offset": 12, "crack_trail": false,
         "sound": "knife_throw", "end_sound": "knife_hit" },
       "anim_at": [[0, 0], [2, 1], [4, 2], [6, 3], [9, 4], [11, 5], [14, 6], [17, 7]],
       "fx": { "projectile": "dart" }
     },
     "light_3": {
       "name": "Paper Cut", "anim": "flick", "mobile": 0.5,
-      "startup": 8, "active": 0, "recovery": 18,
+      "startup": 8, "active": 0, "recovery": 24,
       "damage": 5, "knockback": 0.9, "hitstun": 30, "hitstop": 5, "juggle": true,
       "next": "",
-      "projectile": { "speed": 7.0, "life": 20, "radius": 6, "offset": 12, "crack_trail": false,
+      "projectile": { "speed": 7.0, "life": 16, "radius": 6, "offset": 12, "crack_trail": false,
         "sound": "swing_heavy", "end_sound": "thwack" },
       "anim_at": [[0, 0], [2, 1], [6, 2], [8, 3], [11, 4], [14, 5], [18, 6], [22, 7]],
       "fx": { "projectile": "dart", "size": 1.3 }

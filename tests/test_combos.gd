@@ -77,7 +77,7 @@ func test_culvert_full_meter() -> void:
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"],
 		[H, "heavy"], [S2, "skill_2", RUNOFF_HOLD], [SU, "surge"]])
-	var expected := 18 + 10 * 1.15 + 9 * 1.3 + 30 * 1.5
+	var expected := 18 + 10 * 1.15 + 9 * 1.3 + 22 * 1.5  # Storm Drain 22 since the Oct 2026 kit pass
 	assert_near(dmg, expected, 0.05, "Jab, Jab, Hook > Slam > Runoff (held) > Storm Drain:")
 
 
@@ -228,7 +228,7 @@ func test_digby_pop_up_cave_in() -> void:
 	var sim := _digby()
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [SU, "surge"]])
-	assert_near(dmg, 20 + 8 * 1.15 + 14 * 1.3, 0.05, "3 lights > Pickaxe Pop-Up > Cave-In:")
+	assert_near(dmg, 20 + 10 * 1.15 + 14 * 1.3, 0.05, "3 lights > Pickaxe Pop-Up > Cave-In:")  # Pop-Up 10 since the Oct 2026 kit pass
 
 
 ## Sneaky Pete (left) facing Cairn at close range.
@@ -263,11 +263,11 @@ func _sno() -> MatchSim:
 
 func test_sno_ice_spray_slush_slide() -> void:
 	var dmg := route(_sno(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S2, "skill_2"]])
-	assert_near(dmg, 19 + 12 * 1.15 + 10 * 1.3, 0.05, "Cold Cross, Brain Freeze > Shaved Ice > Slush Slide:")
+	assert_near(dmg, 21 + 12 * 1.15 + 10 * 1.3, 0.05, "Cold Cross, Brain Freeze > Shaved Ice > Slush Slide:")
 
 
 func test_sno_flavor_blast() -> void:
 	var sim := _sno()
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [SU, "surge"]])
-	assert_near(dmg, 19 + 12 * 1.15 + 16 * 1.3, 0.05, "... > Shaved Ice > Flavor Blast:")
+	assert_near(dmg, 21 + 12 * 1.15 + 16 * 1.3, 0.05, "... > Shaved Ice > Flavor Blast:")

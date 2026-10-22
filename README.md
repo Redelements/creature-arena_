@@ -191,20 +191,25 @@ meant to be played), checked by `tests/test_balance.gd`:
 
 | Matchup | Rage vs Rage |
 | --- | --- |
-| Digby vs Chef Cerebro | 70–75% Digby |
+| Digby vs Chef Cerebro | about even since the Oct 2026 kit pass (was 70–75% Digby); the next pass favours the assassin again |
 | Sneaky Pete vs Chef Cerebro | about 25% Pete |
-| Chef Cerebro vs Cairn, Hissy Fitz, Culvert, Craglash | 75–100% Cerebro |
+| Chef Cerebro vs Cairn, Hissy Fitz, Culvert | 75–100% Cerebro |
+| Chef Cerebro vs Craglash | about even since the Oct 2026 kit pass (a 12-frame Rake, Mountain Maw every 3.3 s) |
 | Cairn or Hissy Fitz vs an assassin | 60–100% the fighter |
 | Craglash vs Culvert (tanks) | about 10% Craglash (his pits; 30–45% before Craglash's balance pass) |
 | Digby vs Sneaky Pete (assassins) | about 90% Digby (not pinned) |
 | Hissy Fitz vs Cairn (fighters) | about even |
 | Barkley vs Sno Mercy (bruisers) | 25% Barkley at Rage, 75% at Hard |
 | Mister Crease vs Chef Cerebro (mages) | about even (40–60%) |
-| Mister Crease vs Cairn, Hissy Fitz, Culvert, Craglash, Barkley, Sno Mercy | 90–100% Crease |
-| Digby vs Mister Crease | about 60–70% Digby; Sneaky Pete loses to him like he loses to Cerebro (not pinned) |
+| Mister Crease vs Cairn, Hissy Fitz, Culvert, Barkley, Sno Mercy | 80–100% Crease |
+| Mister Crease vs Craglash | about even since the Oct 2026 kit pass |
+| Digby vs Mister Crease | about even since the Oct 2026 kit pass (was 60–70% Digby); Sneaky Pete loses to him like he loses to Cerebro (not pinned) |
 
-Tanks against assassins went to the assassins (Pete especially): a slow tank can't
-catch a fighter who vanishes, which fits the classes. Hard CPUs don't kite, so Chef
+Tanks against assassins used to go to the assassins (Pete especially): a slow tank can't
+catch a fighter who vanishes. Since the Oct 2026 kit pass Craglash beats Digby outright
+(12 of 12 at six seeds): his hook comes back every 3.3 s and his Rake lands in 12 frames.
+The Oct 2026 pass also cut both mages' thrown reach from about 170 px to 115, which is why
+the mage rows above moved: the thrown strings had been about 90% of their damage. Hard CPUs don't kite, so Chef
 Cerebro loses almost everything at Hard; that's the CPU, not the kit.
 
 ## Controls
@@ -567,7 +572,7 @@ full speed, so every combo below still works.
 | Glow | Means | Moves (windup) | Answer |
 | --- | --- | --- | --- |
 | **Red** + "!" | Can't be blocked | Gulp (12f), Branch Grab (8f), Slam (8f, breaks guard), Flip Out (12f), Mountain Maw (12f, the hook), Coil Uppercut (8f, breaks guard), Slush Slide (8f, breaks guard), Burrow's pop-up (breaks guard) | Roll away or through it, or hit them first |
-| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f), Runoff (6f), Rockslide Stomp (18f), Landslide Charge (14f), Timber Twister (8f), Splash Zone (8f), Flop Dash (12f), Cast Line (6f), Tenderize (8f), Cleaver Toss (6f), Sack Smack (8f; held to a full charge it flashes red with "GUARD BREAK" and breaks guard) | Guard, then punish |
+| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f; held to a full charge it breaks guard, like Sack Smack), Runoff (6f), Rockslide Stomp (18f), Landslide Charge (14f), Timber Twister (8f), Splash Zone (8f), Flop Dash (12f), Cast Line (6f), Tenderize (8f), Cleaver Toss (6f), Sack Smack (8f; held to a full charge it flashes red with "GUARD BREAK" and breaks guard) | Guard, then punish |
 
 That puts at least 15 frames (a quarter second) between the glow and the hit, and a jab
 landed during a windup cancels the move. Surges freeze the screen for their cut-in: a
@@ -580,6 +585,10 @@ freeze or slow the match. With two on the field, hits and KOs stop the whole mat
 
 ### Cairn — stacked-stone boxer
 
+A fighter (115 HP, Stone affinity): the duelist class, who wins by reading the
+opponent rather than by stats. His Slip counter turns a dodged hit into damage, and a
+fully charged Haymaker breaks guard, so a turtle can't wall him out.
+
 | Button | Move | What it does |
 | --- | --- | --- |
 | Light | Jab, Jab, Cross, Hook | Fastest string in the game |
@@ -590,6 +599,9 @@ freeze or slow the match. With two on the field, hits and KOs stop the whole mat
 | Passive | Stack | Each landed light adds a stone (max 3); Haymaker and Rush spend them for +4 damage each |
 
 ### Culvert — storm-drain toad
+
+A tank (165 HP, Stone affinity): slow and heavy, with a fat tongue that is hard to
+miss with and pits that stay open long enough to fence off a floor.
 
 | Button | Move | What it does |
 | --- | --- | --- |
@@ -614,10 +626,10 @@ three-second lockdown while his team does the damage.
 
 | Button | Move | What it does |
 | --- | --- | --- |
-| Light | Rake, Backhand, Headbutt | Two claw swipes, then the neck snaps the head forward. **Slow and heavy**: about half the speed of anyone else's string (18, 16 and 23 frames to hit, against 4–5 for most fighters) but they hit harder, and **every hit staggers** (the only string that does) for long enough that the string is still a true combo |
+| Light | Rake, Backhand, Headbutt | Two claw swipes, then the neck snaps the head forward. **Slow and heavy**: about half the speed of anyone else's string (13, 16 and 23 frames to hit, against 4–5 for most fighters) but they hit harder, and **every hit staggers** (the only string that does) for long enough that the string is still a true combo |
 | Heavy | Rockslide Stomp | Slams the ground and knocks up everyone close, all around him (16 frames to land out of a combo, a slow recovery). **Armored** once its windup is over: a jab only chips it (thrown raw, its tell can still be jabbed; out of Bedrock it comes out armored) |
 | Skill 1 | Landslide Charge | A slow, heavy shoulder charge about 65 px forward that **stuns** whoever it hits for a quarter second (crumple), long enough to follow up. A gold windup tell |
-| Skill 2 | Mountain Maw | The hook, on a 5 s cooldown. His head shoots out on its stone neck, **far** (about 160 px), and **can't be blocked**: it has to be dodged. It bites the first foe it reaches and **hauls them back** to his feet, **crumpled**, so a Rake (or a teammate) follows. A red tell and a dotted lane show it coming |
+| Skill 2 | Mountain Maw | The hook, back every 3.3 s. His head shoots out on its stone neck, **far** (about 160 px), and **can't be blocked**: it has to be dodged. It bites the first foe it reaches and **hauls them back** to his feet, **crumpled**, so a Rake (or a teammate) follows. A red tell and a dotted lane show it coming |
 | Surge | Bedrock | Roots in place for 3 s: hits only chip him (75% less damage) and nothing moves him. Every foe within 140 px is **taunted** for 3 s: they walk at 60% speed, their attacks swing at him, and they're **dragged in** toward him, hard. Any attack button answers out of it after 18 frames, so the Stomp meets them as they arrive. Loses to grabs. A tank's meter fills from the hits he takes, so soaking damage is what earns it |
 | Passive | Stoneskin | A 30-point stone shield that soaks damage first; it grows back only after **7 s out of combat**: no damage taken and none dealt (his hits and chip count too), so it doesn't refresh mid-brawl. Shown as a pale rim on him and as pale stone on the end of his health bar ("STONESKIN") |
 | Dodge | Landslide Ram | His roll is a shoulder charge: **twice as far** as anyone's (about 90 px) and it costs 60% of his stamina, like any dodge. The first foe it reaches is **hit** (4 damage, a short stun that a Rake links after, and it counts in the combo) and the dash stops there. Running into the wall stops it too and cracks the floor. Still invincible in the middle, like any roll |
@@ -651,7 +663,7 @@ floor like a landed fish, his rod tumbling behind him on the line.
 | Light | Snout Jab, Tail Whip, Rod Flail | A nose bonk, a half turn that lashes the tail across, then a jerk of the head swings the rod over him onto the foe |
 | Heavy | Splash Zone | Curls up and slaps the floor with his tail: hits all around him, pops foes up and **slows** them (walk ×0.6 for 2 s). Hold to charge (bigger and harder) |
 | Skill 1 | Flop Dash | A long skidding belly-flop forward (about 100 px in a quarter of a second), kicking up water; keeps a juggle going |
-| Skill 2 | Cast Line | **Throws his rod** on its line, about 220 px. If it hooks someone he's **reeled in to them** at a steady pull, across pits and all, like a fish on a line; arriving ends the cast while they're still stunned, so lights link straight after. Blockable; a miss leaves him stuck in recovery |
+| Skill 2 | Cast Line | **Throws his rod** on its line, about 220 px. If it hooks someone he's **reeled in to them** at a steady pull, across pits and all, like a fish on a line; arriving ends the cast while they're still stunned, so lights link straight after. Blockable; a miss still leaves him open for a moment |
 | Surge | The One That Got Away | Leaps straight up off the screen, **out of reach** of everything (he sails over bodies and pits), then belly-flops in a huge splash that knocks foes down. The mark **follows the nearest foe** while he's rising (up to about 70 px), then locks, so a dodge on the landing still beats it |
 
 ![Gillbert's showcase](docs/gillbert_demo.gif)
@@ -671,7 +683,7 @@ range; up close he softens them up or flips them away. Voice line: "CHOP CHOP!"
 
 | Button | Move | What it does |
 | --- | --- | --- |
-| Light | Knife Flick, Backhand Flick, Mallet Toss | Two small knives and then the meat mallet, all **thrown** about 170 px, and he **keeps gliding** while he throws them (at 60% speed, any direction). On the Twin-stick layout the right stick throws them on its own. The knives only chip: they **don't stagger**. The Mallet Toss at the end of the string is the hit that staggers, so Flick, Flick, Mallet → Cleaver Toss → Knife Flurry works from across the floor (within the Cleaver's 120 px) |
+| Light | Knife Flick, Backhand Flick, Mallet Toss | Two small knives and then the meat mallet, all **thrown** about 115 px, and he **keeps gliding** while he throws them (at 60% speed, any direction). On the Twin-stick layout the right stick throws them on its own. The knives only chip: they **don't stagger**. The Mallet Toss at the end of the string is the hit that staggers, so Flick, Flick, Mallet → Cleaver Toss → Knife Flurry works from across the floor (within the Cleaver's 120 px) |
 | Heavy | Tenderize | Pounds the floor with the mallet: hits everyone close, all around him, pops them up and **tenderizes** them (they take 20% more damage for 4 s; a pink arrow shows it). Hold to charge (bigger and harder) |
 | Skill 1 | Cleaver Toss | Flings the big knife in a straight line, about 120 px; it hits the **first** foe in its path. Keeps a juggle going |
 | Skill 2 | Flip Out | Scoops a close foe with the spatula and **flips them over his head**, to land behind him; he turns to follow. A grab: it beats guard (red tell) |
@@ -695,7 +707,7 @@ gaze slows anyone who comes at her face first. Voice line: "Hiss off!"
 | Light | Snake Jab, Snake Jab, Hair Lash | A fast one-two from the gloved snakes, then her hair snakes whip forward and bite |
 | Heavy | Coil Uppercut | The glove coils low and comes up under the guard: **breaks guards** and launches. Hold to charge (bigger and harder) |
 | Skill 1 | Venom Spit | Her hair snakes spit a glob of venom about 100 px. It **poisons**: 2 damage every half second for 3 s (12 in all), outside any combo, so it keeps ticking after the combo ends. Green bubbles show it. Keeps a juggle going |
-| Skill 2 | Stone Gaze | She stares for about 1.5 s. Anyone within 110 px, **in front of her and facing her**, is slowed, more the longer they look (down to 35% speed), and stays slowed 1.5 s after. **Look away, or get behind her, and it does nothing.** She can break out of the stare with any attack after the first moments |
+| Skill 2 | Stone Gaze | She stares for about 1 s. Anyone within 110 px, **in front of her and facing her**, is slowed, more the longer they look (down to 35% speed), and stays slowed 1.5 s after. **Look away, or get behind her, and it does nothing.** She can break out of the stare with any attack after the first moments |
 | Surge | Petrify Punch | A wound-up haymaker (a long, readable startup). The foe it hits is **turned to stone** for 1.5 s, stunned where it stands, even out of the air. The next clean hit **shatters** the statue for 25% extra damage |
 | Passive | Venom Frenzy | **Land 4 hits in one string** (jabs count; each within 0.75 s of the last) and she goes into a frenzy for 5 s: venom drips off her snakes, and **every clean hit stacks poison** on the target (up to 5 stacks, green pips at its feet). Each stack adds 0.6 damage a pulse, two pulses a second, for 3 s after her latest hit; Venom Spit's poison adds on top. Another 4-hit string starts the 5 s over |
 
@@ -714,9 +726,9 @@ Voice line: a placeholder "I DIG IT!" (see the PR).
 | Button | Move | What it does |
 | --- | --- | --- |
 | Light | Claw Swipe, Claw Swipe, Pickaxe Swing | A quick double slash with his claws, then the pickaxe |
-| Heavy | Pickaxe Pop-Up | He digs in and bursts up **under a foe about 40 px ahead** with the pickaxe: launches. A ring on the floor marks the spot. Hold to charge |
+| Heavy | Pickaxe Pop-Up | He digs in and bursts up **under a foe about 40 px ahead** with the pickaxe, in a burst wide enough to catch anyone standing close: launches (10 damage, 14 charged). A ring on the floor marks the spot. Hold to charge |
 | Skill 1 | Headlamp Flash | Flicks on his helmet light: a foe it catches is **blinded**, and **their next attack misses** (or the blind wears off after 4 s). Guarding stops it |
-| Skill 2 | Burrow | Dives underground and tunnels about 115 px, **steered with the stick**: out of reach, under bodies and across pits, under a moving mound of dirt. Pops up at the end and knocks up whoever is on top; an uppercut from below, it **breaks guards** |
+| Skill 2 | Burrow | Dives underground and tunnels about 115 px, steering harder than it used to, **steered with the stick**: out of reach, under bodies and across pits, under a moving mound of dirt. Pops up at the end and knocks up whoever is on top; an uppercut from below, it **breaks guards** |
 | Surge | Cave-In | Rears up and slams the floor: the ground caves in all around the spot ahead, damaging and **rooting** everyone caught for 2 s (they can still attack and guard, but can't walk or dodge) |
 
 No passive on the sheet. His victory emote (jumping out of the ground with a flip) waits
@@ -745,7 +757,7 @@ the air) waits for a victory-pose system.
 
 ### Sno Mercy — dropped on the sidewalk; now he makes everyone else cry
 
-A bruiser (125 HP, Tide affinity: the sheet says Ice, slow and heavy). A snow cone with a
+A bruiser (145 HP, Tide affinity: the sheet says Ice, slow and heavy). A snow cone with a
 red-and-green shaved-ice top, an angry face, stick limbs, red boxing gloves, and syrup
 dripping off his point. He makes the floor and the foe slow, then hits hard. Voice line:
 "Chill out."
@@ -765,7 +777,7 @@ shivering) waits for a victory-pose system.
 
 ### Mister Crease — folded from a magician's last playbill
 
-A mage (92 HP, Gale affinity: the sheet says Flying; he's the first Gale fighter). Folded
+A mage (100 HP, Gale affinity: the sheet says Flying; he's the first Gale fighter). Folded
 paper all over: a huge pleated orange hat with nothing under it but shadow and a red
 collar point, a navy suit cut in panels, a maroon vest and cape, orange paper shoes.
 He's paper, so he's light (weight 0.75): knockback carries him further than anyone.
@@ -781,7 +793,7 @@ start from neutral, never as a combo cancel; a folded craft cancels like any mov
 
 | Button | Move | What it does |
 | --- | --- | --- |
-| Light | Paper Cut ×3 | Flicks origami darts (about 140 px) **while he keeps walking** at half speed. The first two chip without staggering; the third staggers. On the Twin-stick layout the right stick flicks them on its own |
+| Light | Paper Cut ×3 | Flicks origami darts (about 115 px) **while he keeps walking** at half speed. The first two chip without staggering; the third staggers. On the Twin-stick layout the right stick flicks them on its own |
 | Heavy | Paper Shuriken (fold 1 sheet) | A spinning star thrown along a line that hits the first foe and leaves them **bleeding** (a few ticks of damage, red, "BLEEDING"). Hold to charge: at a **full charge it breaks guard** |
 | Skill 1 | Paper Crane (fold 1 sheet) | A crane that **homes in** on the nearest foe for about half a second, then flies straight, and **pops them up** for a juggle. 4 s cooldown |
 | Skill 2 | Paper Frog (fold 1 sheet) | Sends **three frogs hopping forward side by side** (18 px apart, about 150 px). Each deals 4 and **slows**: the middle frog **shoves the foe straight back**, the outer frogs **shove them out to their side**. A foe is hit by one frog at most; blockable. 5 s cooldown |
@@ -805,7 +817,7 @@ storm.
 | Cairn | Jab, Jab, Cross → Haymaker → Rockslide Rush → Avalanche | 75 |
 | Culvert | Jab, Jab → Gulp | 15 |
 | Culvert | Jab, Jab, Hook → Slam → Runoff (held) | 41 |
-| Culvert | Jab, Jab, Hook → Slam → Runoff (held) → Storm Drain | 86 |
+| Culvert | Jab, Jab, Hook → Slam → Runoff (held) → Storm Drain | 74 |
 | Craglash | Rake, Backhand, Headbutt → Landslide Charge | 31.2 |
 | Craglash | Rake, Backhand, Headbutt → Rockslide Stomp → Landslide Charge | 45 |
 | Craglash | Mountain Maw (hook) → Rake, Backhand, Headbutt → Rockslide Stomp → Landslide Charge | 56 |
@@ -821,11 +833,11 @@ storm.
 | Hissy Fitz | Snake Jab, Snake Jab, Hair Lash → Coil Uppercut → Venom Spit (then 12 poison) | 27.1 |
 | Hissy Fitz | Snake Jab, Snake Jab, Hair Lash → Coil Uppercut → Venom Spit → Petrify Punch, then shatter the statue | 54.1 + |
 | Digby | Claw Swipe, Claw Swipe, Pickaxe Swing → Headlamp Flash | 22.3 |
-| Digby | Claw Swipe, Claw Swipe, Pickaxe Swing → Pickaxe Pop-Up → Cave-In | 47.4 |
+| Digby | Claw Swipe, Claw Swipe, Pickaxe Swing → Pickaxe Pop-Up → Cave-In | 49.7 |
 | Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket | 36.9 |
 | Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket → The Big Heist (with stolen power: +20%) | 81.9 |
-| Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Slush Slide | 45.8 |
-| Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Flavor Blast, then shatter the ice | 53.6 + |
+| Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Slush Slide | 47.8 |
+| Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Flavor Blast, then shatter the ice | 55.6 + |
 | Mister Crease | (shuriken and crane folded) Paper Cut ×3 → Paper Shuriken → Paper Crane | about 21 + bleed |
 
 Every one of these is checked by an automated test (`tests/test_combos.gd`).

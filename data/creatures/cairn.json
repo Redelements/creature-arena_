@@ -4,6 +4,7 @@
   "title": "Stacked-stone boxer",
   "affinity": "stone",
   "max_hp": 115,
+  "role": "fighter",
   "speed": 2.6,
   "accel": 0.45,
   "radius": 10,
@@ -97,7 +98,7 @@
       "fx": { "smear": "arc" }
     },
     "heavy": {
-      "name": "Haymaker", "anim": "heavy", "windup": 8, "tell": "strong",
+      "name": "Haymaker", "anim": "heavy", "windup": 8, "tell": "strong", "hold": {"guard_break": true},
       "charge_max": 30, "startup": 6, "active": 4, "recovery": 22,
       "damage": 9, "damage_charged": 18,
       "knockback": 1.0, "knockback_charged": 1.4,

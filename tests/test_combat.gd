@@ -69,7 +69,7 @@ func test_full_charge_slam_digs_hole_and_target_falls() -> void:
 	assert_true(fell, "dummy should drop into the slam hole")
 	assert_gt(sim.terrain.count(TerrainGrid.HOLE), 0, "holes after full slam:")
 	run(sim, 0, 80)
-	assert_near(d.hp, d.max_hp - 24.0 - CreatureSim.FALL_DAMAGE, 0.001, "slam + fall damage:")
+	assert_near(d.hp, d.max_hp - 18.0 - CreatureSim.FALL_DAMAGE, 0.001, "slam + fall damage:")  # a charged Slam does 18 since the Oct 2026 kit pass
 	assert_false(sim.terrain.is_hole_at(d.pos), "dummy should climb out onto solid ground")
 
 

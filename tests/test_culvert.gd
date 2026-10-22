@@ -56,11 +56,12 @@ func test_a_held_gulp_swallows_and_spits_them_out_behind() -> void:
 
 func test_the_tongue_reaches_half_as_far_again_in_the_same_time() -> void:
 	# 87 px (offset 14 + 5 px a tick for 13 ticks + an 8 px tip) became about 130 px,
-	# still out and back in 13 ticks: it flies faster, not longer.
+	# still out and back in 13 ticks: it flies faster, not longer. The Oct 2026 kit pass
+	# fattened the tip (radius 12, 20 at the end) so it is easier to land: about 134 px.
 	var p: Dictionary = MatchFactory.load_def("culvert")["moves"]["skill_1"]["projectile"]
 	assert_eq(int(p["life"]), 13, "same travel time (ticks):")
 	var reach := float(p["offset"]) + float(p["speed"]) * float(p["life"]) + float(p["radius"])
-	assert_near(reach, 87.0 * 1.5, 1.0, "reach (px):")
+	assert_near(reach, 87.0 * 1.5 + 4.0, 1.0, "reach (px):")
 
 
 func test_sidestepping_the_tongue_beats_it() -> void:

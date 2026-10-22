@@ -222,7 +222,7 @@
     "light_1": {
       "name": "Rake",
       "anim": "claw",
-      "startup": 17,
+      "startup": 12,
       "active": 5,
       "recovery": 24,
       "cancel_from": 24,
@@ -343,7 +343,7 @@
       "anim": "lash",
       "windup": 12,
       "tell": "unblockable",
-      "cooldown": 300,
+      "cooldown": 200,
       "startup": 20,
       "active": 0,
       "recovery": 46,
