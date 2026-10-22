@@ -266,7 +266,12 @@ off-angle Landslide Charge; `--pad-layout=twinstick` picks the layout from the c
 
 Tools: F1 hitbox overlay, F2 cycle the training dummy, F3 hide the controls strip,
 F4 reset training, F5 next palette (Arcade clears unlock them), F6 save a replay (watch it from
-Single player > Replay theater), F7 range rings, F8 change fighter (training), M mute music.
+Single player > Replay theater), F7 range rings, F8 change fighter (training), F9 performance overlay, M mute music.
+
+**Performance overlay** (Settings > Video, or F9 in a fight; off by default): FPS shows the
+frame rate and the 1% low in the bottom-right corner; FPS + graph adds the last 240 frame
+times against lines at the 240, 120 and 60 Hz budgets (a spike over a line missed it), the
+last tick's cost and the renderer's CPU and GPU time. `--perf` gives the full report on quit.
 
 **Range rings** (Settings > Controls, or F7 in a fight; off by default): a thin ring on the
 floor under each attack while it can hit, in the attacker's colour, showing where a foe's

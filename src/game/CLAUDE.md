@@ -20,7 +20,7 @@ player and live here, outside the sim.
 - Paused: `_physics_process` returns early (only `_capture` runs). Pause during a showcase
   returns to the menu.
 - Bindings made in code must set `device = Controls.ALL_DEVICES` (-1) or only controller 0
-  hears them. F1–F6, Esc and M stay reserved (`RemapScreen.RESERVED_KEYS`).
+  hears them. F1–F6, F9, Esc and M stay reserved (`RemapScreen.RESERVED_KEYS`).
 - A showcase scripts fixed health and timing (`"hp"`, `place`): a buff can make a combo
   finish early and skip a later part, so re-run `tests/test_showcase.gd` after tuning.
 
