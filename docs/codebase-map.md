@@ -47,6 +47,7 @@ update the map in the same change.
 | poison, slow, freeze, stone, root, blind, stealth | `src/sim/creature_sim.gd:_tick_status` | hissy, sno, pete |
 | knockdown, launch, crumple, reactions | `src/sim/creature_sim.gd:enter_hitstun`, `enter_crumple`, `enter_air`, `enter_knockdown` | combat |
 | energy, Surge meter, breakaway | `src/sim/match_sim.gd:gain_energy`, `breakaway` | combo_rules, surge_ready |
+| hitstop, freeze-frame, KO freeze and slow motion, what stops on a crowded field | `src/sim/match_sim.gd:impact_stop`, `freeze_all`, `emit_event` ("ko"), `step`; `src/sim/creature_sim.gd:hitstop`, `buffer_input` | hitstop, counterplay, combat |
 | pits, holes, falling, floor breaking and healing | `src/sim/terrain_grid.gd`; falls `src/sim/match_sim.gd:_check_falls` | terrain |
 | walls, fences, brush, arena pieces | `data/arenas/<id>.json`, `src/sim/arena_map.gd`, `src/sim/terrain_grid.gd:load_map` | arena, crossings |
 | line of sight, hidden fighters | `src/sim/vision.gd`; main's `src/game/main.gd:_update_vision` | vision |

@@ -25,7 +25,10 @@ it must give bit-identical results on Linux and Windows (CI compares a seeded fi
 - `restore()` bumps `terrain.version` so the view redraws. The digest hashes floats bit for
   bit: any cross-platform float difference shows as a desync.
 - During ko_freeze, odd slowmo ticks and hitstop the sim only calls `buffer_input`, so
-  presses aren't lost. A dummy's KO doesn't freeze.
+  presses aren't lost. A dummy's KO doesn't freeze. Those are match-wide only with two on
+  the field (`MatchSim.freeze_all`): on a crowded one (2v2+, a Brawl of 3–4) a hit freezes
+  just the attacker and target (`CreatureSim.hitstop`, `MatchSim.impact_stop`), a shot only
+  its target, and a KO freezes nobody.
 - Regen and other per-tick timers run in `CreatureSim.step` *before* the state handler, so
   a creature regenerates one tick before it spends (a dodge from exactly its cost leaves
   a little stamina).

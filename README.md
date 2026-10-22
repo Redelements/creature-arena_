@@ -568,7 +568,10 @@ That puts at least 15 frames (a quarter second) between the glow and the hit, an
 landed during a windup cancels the move. Surges freeze the screen for their cut-in: a
 dodge pressed during the freeze comes out the moment it ends. With more than two on the
 field (team matches of 2 v 2 and up, a Brawl of three or four) nothing freezes and there's
-no cut-in: a Surge thrown raw winds up for 18 frames instead, its name over the caster.
+no cut-in: a Surge thrown raw winds up for 18 frames instead, its name over the caster. The
+same goes for every hit there: the freeze-frame on impact holds only the attacker and the
+target (a shot, only its target) while everyone else keeps fighting, and a knockout doesn't
+freeze or slow the match. With two on the field, hits and KOs stop the whole match as before.
 
 ### Cairn — stacked-stone boxer
 

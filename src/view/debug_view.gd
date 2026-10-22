@@ -24,6 +24,8 @@ func _draw() -> void:
 			label = "%s %s %d" % [STATE_NAMES[c.state], c.move_id, c.state_t]
 			if c.charging:
 				label += " charge %d" % c.charge
+			if c.hitstop > 0:
+				label += " stop %d" % c.hitstop
 		draw_string_outline(_font, c.pos + Vector2(-50, 12), label, HORIZONTAL_ALIGNMENT_CENTER, 100, 6, 2, Color.BLACK)
 		draw_string(_font, c.pos + Vector2(-50, 12), label, HORIZONTAL_ALIGNMENT_CENTER, 100, 6, Color.WHITE)
 	for pr in sim.projectiles:

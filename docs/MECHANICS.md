@@ -13,15 +13,15 @@ Abbreviations: **cs** = `src/sim/creature_sim.gd`, **ms** = `src/sim/match_sim.g
 1. `events.clear()`, `tick += 1`.
 2. `ko_freeze > 0`: count down, only buffer presses (`buffer_input`), return.
 3. `slowmo > 0`: on odd ticks only buffer presses, return.
-4. `hitstop > 0`: count down, buffer presses, return.
+4. `hitstop > 0`: count down, buffer presses, return. (Match-wide hitstop is only set while `freeze_all`: two on the field.)
 5. `terrain.tick()`: damaged cells mend a step when their timer runs out.
-6. `CreatureSim.step()` per creature: buffer presses, count down timers and cooldowns, regen stamina, `_tick_status` (taunt drag, statuses, poison, Stoneskin), breakaway check, the state handler (`_update_free` / `_update_attack` / `_update_dodge` / `_update_guard` / stun / landing / falling), then `_reel_step`, `_flip_step`, `_apply_knockback`.
+6. `CreatureSim.step()` per creature, unless its own `hitstop > 0` (a crowded field, ms:`impact_stop`): then it counts down and only buffers presses while the rest of the match goes on. Otherwise: buffer presses, count down timers and cooldowns, regen stamina, `_tick_status` (taunt drag, statuses, poison, Stoneskin), breakaway check, the state handler (`_update_free` / `_update_attack` / `_update_dodge` / `_update_guard` / stun / landing / falling), then `_reel_step`, `_flip_step`, `_apply_knockback`.
 6b. `_step_swallows()`: a swallowed creature rides inside its swallower; when its time is up it is pushed out behind (`_poop`).
 7. `_step_projectiles()`: move, crack trail, hit or burst.
 8. `_step_zones()`: wear off, slow foes standing in them.
 9. `_resolve_hits()`: every active hit segment against every foe, through `_apply_hit`.
-10. `_separate()`: push solid bodies apart (an armored body doesn't budge).
-11. `_check_falls()`: anyone over a hole starts falling.
+10. `_separate()`: push solid bodies apart (an armored body doesn't budge, nor one in its own hitstop).
+11. `_check_falls()`: anyone over a hole starts falling (not while in its own hitstop).
 11b. `_step_bridges()` (maps with `bridges` only): this tick's heavy hits crack the bridge under whoever they hit; a bridge strained enough falls in, a fallen one counts down to standing again.
 12. Training only (`training` and a flag on): `_apply_training()` (see Training options below).
 
@@ -82,8 +82,8 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `energy_cost` | energy | Spent on start; required to start | all surges | cs:`can_use` |
 | `sheets_cost` | sheets | Spent on start; required to start (Thousand Cranes: 3) | crease surge | cs:`can_use`, `_start_attack` |
 | `fold` | `{anim, startup, recovery, cost=1, mobile}` | Fold-then-use: while the move isn't folded (`CreatureSim.folded`), its press starts a generated `fold_<move>` step instead (type `fold`, no hit, played with `anim`). At `startup` the fold completes: `cost` sheets are spent and the craft is folded (`fold` event, `craft`); a hit before that cancels it and nothing is spent (a no_flinch melee hit interrupts it like a windup: `is_folding`). The next press uses the move, and the craft is gone. Any number of crafts can be carried at once. A fold is never a combo cancel (only from neutral); a folded craft cancels as usual. Needs `cost` sheets (`can_use`); the CPU only presses an unfolded craft to fold it (`_usable`, `_maybe_fold`) | crease heavy, skill_1, skill_2 | cs:`_init`, `needs_fold`, `_resolve_fold`, `_update_attack` |
-| `freeze` | ticks (18) | Surge only: sets `MatchSim.hitstop` on start, only while `MatchSim.surge_freeze` (two on the field: 1v1, a 1 v 1 team mode, a tag Duel, a Brawl of two) | none in data (all use 18) | cs:`_start_attack` |
-| `crowd_windup` | ticks (`MatchSim.SURGE_CROWD_WINDUP` 18) | Surge only, when `surge_freeze` is off (a team match of 2 v 2 and up, a Brawl of three or four: set by `TeamSim`/`BrawlSim`, fixed for the match): nothing freezes, and a raw Surge winds up instead for the larger of this and its `windup` (`windup` event with its `tell`). Cancelled into, it doesn't | none in data | cs:`_start_attack` |
+| `freeze` | ticks (18) | Surge only: sets `MatchSim.hitstop` on start, only while `MatchSim.freeze_all` (two on the field: 1v1, a 1 v 1 team mode, a tag Duel, a Brawl of two; the same flag makes hitstop local and skips the KO freeze on a crowded field) | none in data (all use 18) | cs:`_start_attack` |
+| `crowd_windup` | ticks (`MatchSim.SURGE_CROWD_WINDUP` 18) | Surge only, when `freeze_all` is off (a team match of 2 v 2 and up, a Brawl of three or four: set by `TeamSim`/`BrawlSim`, fixed for the match): nothing freezes, and a raw Surge winds up instead for the larger of this and its `windup` (`windup` event with its `tell`). Cancelled into, it doesn't | none in data | cs:`_start_attack` |
 | `counter` | `{from, to, move, invuln=12}` | A non-grab strike landing in the window starts `move` facing the attacker, with `invuln` | cairn (Slip) | ms:`_apply_hit`, cs:`trigger_counter` |
 
 ### Hit keys (cs:`hit_params`, resolved in ms:`_apply_hit`)
@@ -94,7 +94,7 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `damage` | hp | seg, chg | Base damage | all |
 | `knockback` | px/tick | seg, chg | Push speed, ÷ target weight | all |
 | `hitstun` | ticks | seg, chg | Before decay and stale | all |
-| `hitstop` | ticks | seg, chg | Freeze on impact (×0.5 blocked, ×0.6 on armor) | all |
+| `hitstop` | ticks | seg, chg | Freeze on impact (×0.5 blocked, ×0.6 on armor), through ms:`impact_stop`: the whole match while `freeze_all` (two on the field); on a crowded field only the attacker and target (`CreatureSim.hitstop`), and a ranged hit (shot, storm, zone: `_apply_hit`'s `ranged`) only the target | all |
 | `launch` | ticks | seg, chg | Airborne this long (extends if already airborne) | most |
 | `crumple` | ticks | seg | Crumple stun | cairn, craglash, barkley seg |
 | `knockdown` | ticks | seg | Knockdown (invulnerable while down) | culvert, gillbert, sno, pete seg, cerebro volley `last` |
@@ -213,7 +213,7 @@ Constants: cs (`BUFFER_TICKS` 10, `JUGGLE_MAX` 3, `JUGGLE_FLOAT` 16, `LAND_KNOCK
 - **Armor:** hits deal `× (1 − reduction)`, no stun or knockback, hitstop ×0.6; grabs ignore it; an armored body isn't pushed.
 - **Energy:** the attacker gains `ENERGY_PER_DAMAGE` × damage dealt (clean, blocked chip or armor chip), except from surge-type hits; the defender gains `ENERGY_PER_DAMAGE_TAKEN` × clean damage. `surge_ready` fires when a meter fills.
 - **Breakaway:** Guard + Dodge while stunned, with `combo_hits >= 3` and 50 energy: combo reset, `BREAKAWAY_INVULN`, pushed away; the attacker's attack is cancelled.
-- **KO:** `ko_freeze_ticks` 18 frozen, then `ko_slowmo_ticks` 70 at half speed (ms:`emit_event`; not for the dummy).
+- **KO:** `ko_freeze_ticks` 18 frozen, then `ko_slowmo_ticks` 70 at half speed (ms:`emit_event`; not for the dummy, and not on a crowded field: `freeze_all` off).
 - **Falls:** `FALL_TICKS` 45, `FALL_DAMAGE` 8, respawn at the nearest solid cell with `RESPAWN_INVULN` 40.
 
 ## Status effects
