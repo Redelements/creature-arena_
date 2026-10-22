@@ -816,7 +816,7 @@ func _watch_all() -> void:
 
 func _move_started(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 	if String(mv.get("type", "")) == "surge":
-		if sim.surge_freeze:
+		if sim.freeze_all:
 			_dark = maxf(_dark, 0.6)
 		else:
 			# No freeze or cut-in on a crowded field: the Surge's name over the caster.

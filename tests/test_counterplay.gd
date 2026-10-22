@@ -113,7 +113,7 @@ func test_reacting_to_a_raw_grab_with_a_dodge_works() -> void:
 	assert_eq(cairn.hp, cairn.max_hp, "no damage taken:")
 
 
-func test_dodge_pressed_during_a_surge_freeze_comes_out() -> void:
+func test_dodge_pressed_during_a_freeze_all_comes_out() -> void:
 	var sim := _duel("cairn", "culvert", 20.0)
 	var cairn := sim.creatures[0]
 	var culvert := sim.creatures[1]
@@ -158,14 +158,14 @@ func _ins(n: int, first: int, at := 0) -> PackedInt32Array:
 
 
 func test_only_a_two_fighter_field_freezes_for_a_surge() -> void:
-	assert_true(TeamSim.new([["cairn"], ["culvert"]], 1).sim.surge_freeze, "a team match of 1 v 1 freezes")
-	assert_false(TeamSim.new([["cairn", "culvert"], ["culvert", "cairn"]], 2).sim.surge_freeze, "2 v 2 doesn't")
-	assert_false(TeamSim.new([["cairn", "culvert", "barkley"], ["culvert", "cairn", "sno"]], 3).sim.surge_freeze,
+	assert_true(TeamSim.new([["cairn"], ["culvert"]], 1).sim.freeze_all, "a team match of 1 v 1 freezes")
+	assert_false(TeamSim.new([["cairn", "culvert"], ["culvert", "cairn"]], 2).sim.freeze_all, "2 v 2 doesn't")
+	assert_false(TeamSim.new([["cairn", "culvert", "barkley"], ["culvert", "cairn", "sno"]], 3).sim.freeze_all,
 		"3 v 3 doesn't")
-	assert_true(BrawlSim.new(["cairn", "culvert"]).sim.surge_freeze, "a Brawl of two freezes")
-	assert_false(BrawlSim.new(["cairn", "culvert", "sno"]).sim.surge_freeze, "a Brawl of three doesn't")
-	assert_true(MatchFactory.versus("cairn", "culvert").surge_freeze, "a 1v1 freezes")
-	assert_true(DuelSim.new([["cairn", "culvert"], ["culvert", "cairn"]]).sim.surge_freeze,
+	assert_true(BrawlSim.new(["cairn", "culvert"]).sim.freeze_all, "a Brawl of two freezes")
+	assert_false(BrawlSim.new(["cairn", "culvert", "sno"]).sim.freeze_all, "a Brawl of three doesn't")
+	assert_true(MatchFactory.versus("cairn", "culvert").freeze_all, "a 1v1 freezes")
+	assert_true(DuelSim.new([["cairn", "culvert"], ["culvert", "cairn"]]).sim.freeze_all,
 		"a tag Duel (two on the field) freezes")
 
 

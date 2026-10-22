@@ -150,6 +150,7 @@ func test_cpu_teams_take_flags_and_capture() -> void:
 		cpus.append(CpuController.new(i, 2, 90 + i))
 	var takes := 0
 	var defended := 0
+	var checks := 0
 	for tick in 14000:
 		var ins := PackedInt32Array()
 		for i in t.slot_count():
@@ -160,6 +161,7 @@ func test_cpu_teams_take_flags_and_capture() -> void:
 				takes += 1
 		if tick % 60 == 0:
 			for side in 2:
+				checks += 1
 				for c in t.members(side):
 					if (c as CreatureSim).pos.distance_to(t.base_of(side)) < 90.0:
 						defended += 1
@@ -167,5 +169,8 @@ func test_cpu_teams_take_flags_and_capture() -> void:
 		if t.phase == TeamSim.Phase.OVER or int(t.score[0]) + int(t.score[1]) > 0:
 			break
 	assert_gt(float(takes), 0.0, "the CPUs went and took a flag (%d takes)" % takes)
-	assert_gt(float(defended), 20.0, "and someone stayed home to guard (%d checks)" % defended)
+	# Checked once a second per side until the first capture: a share, not a count, since
+	# a crowded field no longer stops for hits and KOs, so that capture comes sooner
+	# (19 of 44 on this seed; it used to be a flat 20).
+	assert_gt(float(defended), checks / 3.0, "and someone stayed home to guard (%d of %d checks)" % [defended, checks])
 	assert_gt(float(t.score[0]) + float(t.score[1]), 0.0, "and someone captured one")
