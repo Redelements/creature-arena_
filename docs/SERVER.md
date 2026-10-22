@@ -168,6 +168,69 @@ WantedBy=multi-user.target
 mid-match see the connection drop within 5 seconds. Restart between matches (the log
 shows when nobody's playing).
 
+## Monitoring
+
+[Netdata](https://www.netdata.cloud/) gives the box a live dashboard with history:
+temperatures, CPU, memory, disks, network, and the `creature-arena` service's own CPU and
+memory. It needs no setup beyond installing it, and has alerts built in.
+
+```sh
+sudo apt install -y lm-sensors smartmontools
+sudo sensors-detect --auto       # finds the CPU and board temperature chips
+sensors                          # should now print temperatures
+
+wget -O /tmp/netdata-kickstart.sh https://get.netdata.cloud/kickstart.sh
+sh /tmp/netdata-kickstart.sh --stable-channel --disable-telemetry
+```
+
+Netdata Cloud is optional: skip it in the installer, and on the dashboard's sign-in
+screen choose to use it without an account.
+
+**Keep it on your own network.** Never forward port 19999 on the router. Let your network
+in through the firewall (match its range, as for 7778):
+
+```sh
+sudo ufw allow from 192.168.0.0/24 to any port 19999 proto tcp
+```
+
+and make Netdata refuse everyone else (`sudo /etc/netdata/edit-config netdata.conf`,
+then `sudo systemctl restart netdata`):
+
+```ini
+[web]
+    allow connections from = localhost 192.168.*
+```
+
+Open `http://SERVER-IP:19999` from any device at home. Where to look:
+
+| Section | What it shows |
+| --- | --- |
+| Sensors | CPU, board and drive temperatures |
+| System Overview | CPU, load, memory, disk I/O, network |
+| Systemd Services > creature-arena | the game server alone (see [Resources](#resources) for normal) |
+| Disks / S.M.A.R.T. | drive health |
+
+A temperature that creeps up over weeks while the load stays flat usually means dust or
+a failing fan.
+
+**Alerts in Discord.** Netdata already warns about overheating, a filling disk and memory
+pressure; to get those on your phone, make a webhook (Discord channel settings >
+Integrations > Webhooks > New Webhook > Copy URL), then
+`sudo /etc/netdata/edit-config health_alarm_notify.conf`:
+
+```sh
+SEND_DISCORD="YES"
+DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
+DEFAULT_RECIPIENT_DISCORD="alerts"
+```
+
+```sh
+sudo systemctl restart netdata
+sudo -u netdata /usr/libexec/netdata/plugins.d/alarm-notify.sh test   # or /opt/netdata/usr/libexec/...
+```
+
+The dashboard is for checking from home: away from the home network it doesn't load.
+
 ## Updating to the latest main build
 
 Builds are GitHub Actions artifacts (kept 30 days; downloading needs a GitHub login, so
