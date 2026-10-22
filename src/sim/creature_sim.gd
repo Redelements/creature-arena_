@@ -1023,14 +1023,20 @@ func _start_attack(mid: String, sim: MatchSim, raw := false) -> void:
 	if mv.has("sheets_cost"):
 		sheets = maxi(0, sheets - int(mv["sheets_cost"]))
 	_set_state(State.ATTACK)
+	var surge := String(mv["type"]) == "surge"
 	windup_total = int(mv.get("windup", 0)) if raw else 0
+	if surge and raw and not sim.surge_freeze:
+		# A crowded field doesn't stop for a Surge: the caster winds up in its place.
+		windup_total = maxi(windup_total, int(mv.get("crowd_windup", MatchSim.SURGE_CROWD_WINDUP)))
 	windup_left = windup_total
 	if windup_total > 0:
 		sim.emit_event("windup", pos, float(windup_total),
 			{"who": id, "move": mid, "tell": String(mv.get("tell", "strong"))})
-	if String(mv["type"]) == "surge":
-		sim.hitstop = maxi(sim.hitstop, int(mv.get("freeze", 18)))
-		sim.emit_event("surge", pos, 1.0, {"who": id, "name": String(mv.get("name", "SURGE"))})
+	if surge:
+		if sim.surge_freeze:
+			sim.hitstop = maxi(sim.hitstop, int(mv.get("freeze", 18)))
+		sim.emit_event("surge", pos, 1.0, {"who": id, "name": String(mv.get("name", "SURGE")),
+			"freeze": sim.surge_freeze})
 
 
 func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:

@@ -1,6 +1,7 @@
 extends TestCase
 ## Counterplay: big moves thrown raw must be readable and answerable, and reacting to a
-## Surge's freeze must work. Combo routes stay fast (see test_combos.gd).
+## Surge's freeze must work. On a crowded field (2 v 2 and up, a Brawl of three or four) a
+## Surge doesn't freeze anyone: thrown raw, it winds up instead, long enough to react to. Combo routes stay fast (see test_combos.gd).
 
 const L := SimDefs.IN_LIGHT
 const H := SimDefs.IN_HEAVY
@@ -131,3 +132,91 @@ func test_dodge_pressed_during_a_surge_freeze_comes_out() -> void:
 			if e["type"] == "hit" and int(e["target"]) == 0:
 				hit = true
 	assert_false(hit, "dodging Storm Drain on reaction to the cut-in should avoid it")
+
+
+## A 2 v 2 with Culvert (slot 0) next to a Cairn (slot 2); the other two far off.
+func _crowd(gap := 20.0) -> TeamSim:
+	var t := TeamSim.new([["culvert", "cairn"], ["cairn", "barkley"]], 2)
+	var zero := PackedInt32Array()
+	zero.resize(t.slot_count())
+	while t.phase == TeamSim.Phase.INTRO:
+		t.step(zero)
+	var c := t.sim.floor_rect().get_center()
+	var cs := t.sim.creatures
+	cs[0].pos = c
+	cs[2].pos = c + Vector2(cs[0].radius + cs[2].radius + gap, 0)
+	cs[1].pos = c + Vector2(-140, -60)
+	cs[3].pos = c + Vector2(-140, 60)
+	return t
+
+
+func _ins(n: int, first: int, at := 0) -> PackedInt32Array:
+	var ins := PackedInt32Array()
+	ins.resize(n)
+	ins[at] = first
+	return ins
+
+
+func test_only_a_two_fighter_field_freezes_for_a_surge() -> void:
+	assert_true(TeamSim.new([["cairn"], ["culvert"]], 1).sim.surge_freeze, "a team match of 1 v 1 freezes")
+	assert_false(TeamSim.new([["cairn", "culvert"], ["culvert", "cairn"]], 2).sim.surge_freeze, "2 v 2 doesn't")
+	assert_false(TeamSim.new([["cairn", "culvert", "barkley"], ["culvert", "cairn", "sno"]], 3).sim.surge_freeze,
+		"3 v 3 doesn't")
+	assert_true(BrawlSim.new(["cairn", "culvert"]).sim.surge_freeze, "a Brawl of two freezes")
+	assert_false(BrawlSim.new(["cairn", "culvert", "sno"]).sim.surge_freeze, "a Brawl of three doesn't")
+	assert_true(MatchFactory.versus("cairn", "culvert").surge_freeze, "a 1v1 freezes")
+	assert_true(DuelSim.new([["cairn", "culvert"], ["culvert", "cairn"]]).sim.surge_freeze,
+		"a tag Duel (two on the field) freezes")
+
+
+func test_every_surge_winds_up_long_enough_on_a_crowded_field() -> void:
+	for id in MatchFactory.FIGHTERS:
+		var mv: Dictionary = MatchFactory.load_def(String(id))["moves"].get("surge", {})
+		if mv.is_empty():
+			continue
+		var wind := maxi(int(mv.get("windup", 0)), int(mv.get("crowd_windup", MatchSim.SURGE_CROWD_WINDUP)))
+		var warning := wind + int(mv.get("startup", 0)) + 1
+		assert_true(warning >= REACTION, "%s's Surge gives only %d frames of warning in a team fight"
+			% [id, warning])
+
+
+func test_a_surge_in_a_team_fight_winds_up_instead_of_freezing() -> void:
+	var t := _crowd()
+	var sim := t.sim
+	var culvert := sim.creatures[0]
+	culvert.energy = 100.0
+	var far := sim.creatures[1]
+	t.step(_ins(4, SU))
+	assert_eq(sim.hitstop, 0, "nobody is frozen")
+	assert_true(culvert.is_winding_up(), "the Surge winds up")
+	assert_eq(culvert.windup_total, MatchSim.SURGE_CROWD_WINDUP, "windup length:")
+	var seen := {}
+	for e in sim.events:
+		seen[String(e["type"])] = e
+	assert_true(seen.has("windup"), "the windup tell is shown")
+	assert_true(seen.has("surge") and not bool(seen["surge"]["freeze"]), "the surge event says no freeze")
+	var from := far.pos
+	for i in 6:
+		t.step(_ins(4, SimDefs.IN_UP, 1))
+	assert_gt(from.distance_to(far.pos), 1.0, "everyone else keeps moving through it")
+
+
+## Whether Storm Drain hits the Cairn next to it, which dodges `react` ticks in (-1: never).
+func _team_surge_hits(react: int) -> bool:
+	var t := _crowd()
+	var sim := t.sim
+	sim.creatures[0].energy = 100.0
+	t.step(_ins(4, SU))
+	var hit := false
+	for i in 100:
+		t.step(_ins(4, D | SimDefs.IN_RIGHT if i == react else 0, 2))
+		for e in sim.events:
+			if e["type"] == "hit" and int(e["target"]) == 2:
+				hit = true
+	return hit
+
+
+func test_dodge_on_reaction_to_a_team_fight_surge() -> void:
+	assert_true(_team_surge_hits(-1), "Storm Drain hits a Cairn that stands there")
+	# Reaction time, then press dodge (input lag included).
+	assert_false(_team_surge_hits(REACTION - 3), "dodging Storm Drain on reaction to its windup should avoid it")

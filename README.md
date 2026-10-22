@@ -566,7 +566,9 @@ full speed, so every combo below still works.
 
 That puts at least 15 frames (a quarter second) between the glow and the hit, and a jab
 landed during a windup cancels the move. Surges freeze the screen for their cut-in: a
-dodge pressed during the freeze comes out the moment it ends.
+dodge pressed during the freeze comes out the moment it ends. With more than two on the
+field (team matches of 2 v 2 and up, a Brawl of three or four) nothing freezes and there's
+no cut-in: a Surge thrown raw winds up for 18 frames instead, its name over the caster.
 
 ### Cairn — stacked-stone boxer
 

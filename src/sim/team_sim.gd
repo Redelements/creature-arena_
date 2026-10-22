@@ -219,6 +219,7 @@ func _init(team_ids: Array, per_side := 0, p_rules: Dictionary = {}) -> void:
 				spawn_point(side, k, size, float(rules.get("spawn_spread", 60))))
 			c.team = side
 			c.facing = Vector2.RIGHT if side == 0 else Vector2.LEFT
+	sim.surge_freeze = size == 1  # 2 v 2 and up: a Surge winds up instead of stopping everyone
 	timer = int(float(rules.get("time_seconds", 150)) * SimDefs.TICK_RATE)
 	deathmatch = bool(rules.get("deathmatch", false))
 	sinkhole = bool(rules.get("sinkhole", false))

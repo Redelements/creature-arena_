@@ -41,6 +41,7 @@ func _init(ids: Array, p_rules: Dictionary = {}, mutators: Dictionary = {}, seed
 		var c := sim.add_creature(MatchFactory.load_def(String(ids[k])), at)
 		c.team = k
 		c.facing = Vector2.RIGHT if at.x < fr.get_center().x else Vector2.LEFT
+	sim.surge_freeze = n == 2  # three or four: a Surge winds up instead of stopping everyone
 	if not mutators.is_empty():
 		sim.apply_mutators(mutators, seed_)
 	timer = int(float(rules.get("time_seconds", 120)) * SimDefs.TICK_RATE)

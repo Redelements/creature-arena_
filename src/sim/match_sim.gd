@@ -22,6 +22,9 @@ const BLOCKED_ENDER_DISADVANTAGE := 16
 ## Defaults for a poison move without "poison_every" and a reel without "reel_speed".
 const POISON_EVERY_DEFAULT := 30
 const REEL_SPEED_DEFAULT := 5.0
+## A raw Surge's windup when it doesn't freeze the match (surge_freeze off), unless the
+## move sets "crowd_windup": as long as the freeze it replaces.
+const SURGE_CROWD_WINDUP := 18
 ## Training options a training match can turn on (set_training_flags).
 const TRAINING_FLAGS := ["no_cooldowns", "full_energy"]
 ## Hit size of straight projectiles: radius_mult on every "radius" / "radius_end".
@@ -45,6 +48,10 @@ var arena := {}
 ## Rules a mode sets on the match: a fall knocks out (Sinkhole), and the ring of the
 ## floor that is cracked and about to drop (-1: none), so the CPU knows to get off it.
 var fall_ko := false
+## A Surge freezes the whole match for its cut-in, but only with two on the field: with
+## more (a team match of 2 v 2 and up, a Brawl of three or four) it doesn't stop anyone,
+## and a raw Surge winds up instead (SURGE_CROWD_WINDUP). Fixed for the match by the mode.
+var surge_freeze := true
 var sink_ring := -1
 ## Sinkhole: the cells that stay floor once the cracked ring drops (empty: no warning).
 var sink_safe := Rect2i()
