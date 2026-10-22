@@ -58,7 +58,7 @@ default 22), `routes` (lists of action names), `far_routes`/`far_from`, `poke`/`
 - Kiting / ranged → `_plan_kite`, `_kite_vector`, `_is_ranged`; running a kiter down → `_chase`
 - Walls and pits → `nav_grid.gd` (16 px nodes, integer-cost A* in a fixed order, one grid
   per terrain shared by every CPU (`NavGrid.shared`), rebuilt row by row on `terrain.version`,
-  regions for unreachable goals), `_go_to`, `_steer`, `_open_dir`, `_clearance`; fast
+  regions for unreachable goals), `_go_to` (on a crowded field one search a tick, the CPUs taking turns: `_replan_turn`), `_steer`, `_open_dir`, `_clearance`; fast
   open-floor checks `NavGrid.clear_line`, `NavGrid.body_blocked` (via `TerrainIndex`)
 - Threads → `think_all`, `think_start` / `think_wait`, `threaded`, `last_bits`
 - Leading shots → `_aim_point`; team targeting → `_pick_target`, `_hurt_ally`; Duel tag-out
