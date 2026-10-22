@@ -25,6 +25,7 @@ func _tick(g: Node, n: int) -> void:
 
 func test_a_saved_brawl_plays_back_the_same() -> void:
 	var g := _game()
+	g._skip_select = true  # (like --mode=N: no pick screen)
 	g._start_match(g.mode_index("Chaos Cup"))  # Chaos Cup: a Brawl with mutators, the hardest setup to rebuild
 	_tick(g, 240)
 	assert_true(g.brawl != null, "a Brawl is on")

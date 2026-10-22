@@ -587,7 +587,7 @@ func _open_single() -> void:
 
 ## One page of Single player: the rows of a MENU_GROUPS entry. Rows with choices pick
 ## the fighter (or size) with Left/Right; Enter starts.
-func _open_single_group(gid: String) -> void:
+func _open_single_group(gid: String, focus_row := -1) -> void:
 	var group := {}
 	for g in MENU_GROUPS:
 		if String(g["id"]) == gid:
@@ -607,13 +607,19 @@ func _open_single_group(gid: String) -> void:
 			var desc := String(row.get("desc", ""))
 			if row.has("choices"):
 				var o := s.add_option(String(row["label"]), row["choices"], int(_row_choice[r]),
-					func(i: int): _row_choice[r] = i, desc)
+					func(i: int):
+						_row_choice[r] = i
+						_save_settings(), desc)
+				if r == focus_row:
+					s.default_focus = o
 				o.activates = true
 				o.activated.connect(func():
 					ui.notify_chosen()
 					_start_row(r))
 			else:
-				s.add_button(String(row["label"]), func(): _start_row(r), desc)
+				var b := s.add_button(String(row["label"]), func(): _start_row(r), desc)
+				if r == focus_row:
+					s.default_focus = b
 		s.add_space(3)
 		s.add_button("Back", s.back)
 	ui.push(scr)
@@ -631,8 +637,24 @@ func _set_arena(id: String) -> void:
 		_save_settings()
 
 
+## Where the last Single player row was started from, so leaving a match lands back on
+## that page and row instead of the title.
+var _row_from := {}
+
+
+## Back from a match (or its pick screen): the Single player page and row it started
+## from, else the title.
+func _back_to_row() -> void:
+	if _row_from.is_empty():
+		_open_menu()
+		return
+	_open_menu("single")
+	_open_single_group(String(_row_from["group"]), int(_row_from["row"]))
+
+
 func _start_row(row: int) -> void:
 	var r: Dictionary = MENU_ROWS[row]
+	_row_from = {"group": String(r.get("group", "")), "row": row} if r.has("group") else {}
 	if r.has("screen"):
 		_open_replays()
 		return
@@ -779,6 +801,8 @@ static func mode_index(label: String) -> int:
 ## `keep_teams`: a rematch with the same teams (no pick screen).
 func _start_match(m: int, keep_teams := false) -> void:
 	_close_ui()
+	_over_by = ""
+	_arcade_cleared = false
 	if not (keep_teams and m == mode):
 		_training_fighter = ""  # a swapped fighter lasts until you leave training
 	mode = m
@@ -809,6 +833,9 @@ func _start_match(m: int, keep_teams := false) -> void:
 		var size := int(DuelSim.load_rules().get("team_size", 3)) if cfg.get("duel", false) else 1
 		var labels := ["PLAYER 1", "PLAYER 2" if two_players else "CPU"]
 		var title := "DUEL" if cfg.get("duel", false) else "VERSUS"
+		if cfg.get("brawl", false):  # one pick per human seat; the other seats fill from the roster
+			title = "CHAOS CUP" if cfg.get("chaos", false) else "BRAWL"
+			labels = ["PLAYER 1", "PLAYER 2" if two_players else "CPU"]
 		if cfg.has("team"):
 			size = int(cfg["team"])
 			labels = ["YOU + CPU", "CPU TEAM"]
@@ -822,7 +849,7 @@ func _start_match(m: int, keep_teams := false) -> void:
 		pick.p1_pad = player_input.pad_device
 		pick.p2_pad = player2_input.pad_device
 		pick.chosen.connect(_on_teams_chosen)
-		pick.cancelled.connect(func(): _open_menu("single"))
+		pick.cancelled.connect(_back_to_row)
 		ui.push(pick)
 		return
 	_start_round()
@@ -830,7 +857,7 @@ func _start_match(m: int, keep_teams := false) -> void:
 
 ## Modes that open the pick screen first.
 func _has_pick(cfg: Dictionary) -> bool:
-	return cfg.get("duel", false) or cfg.get("versus2p", false) or cfg.has("team")
+	return cfg.get("duel", false) or cfg.get("versus2p", false) or cfg.has("team") or cfg.get("brawl", false)
 
 
 func _on_teams_chosen(teams: Array) -> void:
@@ -904,7 +931,8 @@ func _start_round() -> void:
 		return
 	if cfg.get("trials", false):
 		coach = ComboTrials.new(Callable(player_input, "label"))
-		_start_coach("F2 watch the demo again    F4 next trial    Esc menu")
+		_start_coach("%s watch the demo again    %s next trial    Esc menu" % [
+			Controls.binding_text("debug_dummy_mode", "classic"), Controls.binding_text("reset", "classic")])
 		return
 	if cfg.has("drill"):
 		coach = ReactionDrill.new(String(cfg["drill"]), seed_base)
@@ -1003,6 +1031,7 @@ func _arcade_result(won: bool) -> bool:
 		_start_arcade_stage()
 		return true
 	# The boss is down: the Arcade is cleared on this level.
+	_arcade_cleared = true
 	var new_best := Progress.record_clear(arcade.fighter, arcade.level)
 	flow = Flow.MATCH_OVER
 	flow_t = 0
@@ -1123,7 +1152,7 @@ func _brawl_flow() -> void:
 					hud.banner = "DRAW"
 				else:
 					hud.banner = "%s WINS!" % String(sim.creatures[w].def["name"]).to_upper()
-					hud.banner_sub = _side_name(w) if sides[w] in LOCAL_SIDES else ""
+					hud.banner_sub = ("%s   ·   %s" % [_side_name(w), _over_reason()]) if sides[w] in LOCAL_SIDES 						else _over_reason()
 
 
 # ------------------------------------------------------------------ replay theater
@@ -1378,7 +1407,7 @@ func _team_flow() -> void:
 					_ctf_toast(e)
 			if team_battle.overtime and team_battle.timer > -90:
 				hud.banner = "SUDDEN DEATH"
-				hud.banner_sub = "Next capture wins" if team_battle.ctf else "Next KO wins"
+				hud.banner_sub = "Next capture wins" if team_battle.ctf 					else ("First alone in the zone wins" if team_battle.crater else "Next KO wins")
 			else:
 				hud.banner = ""
 				hud.banner_sub = ""
@@ -1388,7 +1417,7 @@ func _team_flow() -> void:
 			if team_battle.phase_t == 1:
 				if team_battle.deathmatch:
 					hud.banner = "GAME!" if team_battle.timer > 0 or team_battle.overtime else "TIME"
-					hud.banner_sub = "%d  -  %d" % [team_battle.score[0], team_battle.score[1]]
+					hud.banner_sub = "%s  -  %s" % [team_battle.score_text(0), team_battle.score_text(1)]
 				else:
 					hud.banner = "K.O." if team_battle.timer > 0 else "TIME"
 					hud.banner_sub = ""
@@ -1403,7 +1432,7 @@ func _team_flow() -> void:
 					hud.banner = "YOUR TEAM WINS!" if sim.creatures[me].team == w else "YOUR TEAM LOSES"
 				else:
 					hud.banner = "%s TEAM WINS!" % ("RED" if w == 0 else "BLUE")
-				hud.banner_sub = ""
+				hud.banner_sub = _over_reason()
 
 
 ## Capture the Flag: what each play says at the bottom of the screen; the local team's
@@ -1566,6 +1595,9 @@ func _duel_flow() -> void:
 					player_input.label("tag")] if t < 60 else ""
 			else:
 				hud.banner_sub = "1 v 1" if t < 60 else ""
+			if arcade != null and t < 60:  # the Arcade's boss stage: which stage, against whom
+				hud.banner = arcade.stage_label()
+				hud.banner_sub = arcade.versus_label()
 			if t == 2 or t == 60:
 				audio.play("round_start", 0.0, 0.75 if t == 2 else 1.0)
 		DuelSim.Phase.FIGHT, DuelSim.Phase.SWAP:
@@ -1592,7 +1624,40 @@ func _duel_flow() -> void:
 					hud.banner = "YOU WIN!" if duel.winner == online.local_side else "YOU LOSE"
 				else:
 					hud.banner = "%s WINS!" % _side_name(duel.winner)
-				hud.banner_sub = ""
+				hud.banner_sub = _over_reason()
+
+
+## How the last fight ended (the sim's `by`: ko, time, score, hold, capture, caravan),
+## as the line under the winner on the final banner.
+var _over_by := ""
+## The Arcade run just ended in a clear (the match-over menu offers a new run, not a retry).
+var _arcade_cleared := false
+
+
+func _over_reason() -> String:
+	var tb := team_battle
+	var scores := ""
+	if tb != null and tb.deathmatch:
+		var a := tb.score_text(0)
+		var b := tb.score_text(1)
+		if tb.caravan:
+			scores = ("Faster finish" if int(tb.cv_time[0]) >= 0 or int(tb.cv_time[1]) >= 0 else "Pushed further") 				+ ":  %s - %s" % [a, b]
+		elif tb.ctf:
+			scores = "Captures  %s - %s" % [a, b]
+		elif tb.crater:
+			scores = "Zone time  %s s - %s s" % [a, b]
+		else:
+			scores = "Score  %s - %s" % [a, b]
+	match _over_by:
+		"ko":
+			return "K.O."
+		"time":
+			return ("Time: " + scores) if scores != "" else "Time: more health left"
+		"score", "hold", "capture":
+			return ("Sudden death: " if tb != null and tb.overtime else "") + scores
+		"caravan":
+			return scores
+	return ""
 
 
 func _side_name(i: int) -> String:
@@ -1689,6 +1754,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	fx.vision = vision
 	_ko_cam_t = -1
 	hud.dummy_mode_name = DUMMY_MODES[dummy_mode]
+	hud.mutator_text = "  ·  ".join(Daily.mutator_names(sim.mutators).map(func(n): return String(n).to_upper()))
 	# Red for the left side (P1), blue for the right (P2 or the CPU): a marker over each
 	# fighter and a stripe on its health panel.
 	fx.side_marks = []
@@ -1849,6 +1915,8 @@ func _physics_process(_delta: float) -> void:
 			duel.step(inputs)
 		elif team_battle != null:
 			team_battle.step(inputs)
+		elif brawl != null:
+			brawl.step(inputs)
 		else:
 			sim.step(inputs)
 		PerfLog.since("sim", t_sim)
@@ -1988,7 +2056,7 @@ func _update_flow() -> void:
 					flow_t = 0
 					var w := 0 if wins[0] >= needed else 1
 					hud.banner = "%s WINS!" % String(sim.creatures[w].def["name"]).to_upper()
-					hud.banner_sub = ""
+					hud.banner_sub = _over_reason()
 				else:
 					round_num += 1
 					_start_round()
@@ -2033,6 +2101,7 @@ func _end_round(ko: int) -> void:
 	if winner >= 0:
 		wins[winner] += 1
 	hud.wins = wins
+	_over_by = "ko" if ko != -2 else "time"
 	hud.banner = "K.O." if ko != -2 else "TIME"
 	hud.banner_sub = "%s takes the round" % String(sim.creatures[winner].def["name"]) if winner >= 0 else "Draw"
 	crowd.cheer(1.0)
@@ -2285,6 +2354,7 @@ func _react(e: Dictionary) -> void:
 			audio.play("surge_ready_ally" if mine else "surge_ready_foe")
 			crowd.cheer(0.15)
 		"duel_over":
+			_over_by = String(e.get("by", ""))
 			crowd.roar(150)
 		"round_start":
 			# A Duel's next round: everyone is back at the start, so drop old effects.
@@ -2484,6 +2554,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			var now := _setting("vol_Music")
 			(_setting_rows["vol_Music"] as OptionRow).set_values(now["values"], int(now["index"]))
 		return
+	if flow == Flow.MATCH_OVER and event.is_action_pressed("save_replay") and not _replaying() and sim != null:
+		_save_replay()  # the fight just finished (the match-over menu has the other keys)
+		return
 	if ui.is_open():
 		return  # the screen on top has the input
 	if flow == Flow.MENU or flow == Flow.SELECT or flow == Flow.LOBBY or flow == Flow.MATCH_OVER:
@@ -2521,27 +2594,32 @@ func _unhandled_input(event: InputEvent) -> void:
 			(views[me] as CreatureView).palette = i
 			hud.show_toast("Palette %d of %d" % [i + 1, n] + ("" if n > 1 else "   ·   clear the Arcade to unlock more"))
 	elif event.is_action_pressed("save_replay"):
-		var stamp := Time.get_datetime_string_from_system().replace(":", "-")
-		var path := "user://replays/replay_%s.json" % stamp
-		if online != null:
-			# Online: the confirmed inputs (what both machines agreed on), with the setup.
-			replay = Replay.new()
-			replay.setup = online.setup_dict()
-			for row in online.confirmed_rows():
-				replay.record(row)
-		elif watch != null:
-			replay = Replay.new()
-			replay.setup = watch.setup_dict()
-			for row in watch.log:
-				replay.record(row)
-		if replay.save(path) == OK:
-			hud.show_toast("Replay saved: %d ticks" % replay.frames.size())
-			print("Replay saved to ", ProjectSettings.globalize_path(path))
-		else:
-			hud.show_toast("Could not save replay")
+		_save_replay()
 	elif event.is_action_pressed("reset") and MODES[mode].get("training", false):
 		_start_round()
 		hud.show_toast("Reset")
+
+
+## F6: save the fight so far (or just finished) to the Replay theater.
+func _save_replay() -> void:
+	var stamp := Time.get_datetime_string_from_system().replace(":", "-")
+	var path := "user://replays/replay_%s.json" % stamp
+	if online != null:
+		# Online: the confirmed inputs (what both machines agreed on), with the setup.
+		replay = Replay.new()
+		replay.setup = online.setup_dict()
+		for row in online.confirmed_rows():
+			replay.record(row)
+	elif watch != null:
+		replay = Replay.new()
+		replay.setup = watch.setup_dict()
+		for row in watch.log:
+			replay.record(row)
+	if replay.save(path) == OK:
+		hud.show_toast("Replay saved: %d ticks" % replay.frames.size())
+		print("Replay saved to ", ProjectSettings.globalize_path(path))
+	else:
+		hud.show_toast("Could not save replay")
 
 
 ## Back in a menu: Esc, B or View.
@@ -2553,25 +2631,51 @@ static func _back_pressed(event: InputEvent) -> bool:
 ## it can't, so it asks whether to leave while the match carries on (your fighter stands
 ## still meanwhile).
 func _open_pause() -> void:
-	if online != null:
-		var c := ConfirmScreen.new("Leave the match?", "The match keeps going while this is open.", "Leave", "Stay")
+	if online != null or watch != null:  # a spectated room keeps going too
+		var c := ConfirmScreen.new("Leave the match?" if online != null else "Stop watching?",
+			"The match keeps going while this is open.", "Leave", "Stay")
 		c.answered.connect(func(yes: bool): if yes: _leave_online())
 		ui.push(c)
 		return
 	paused = true
+	if _replaying():  # a saved fight: nothing to restart, so Resume / Replay theater / Main menu
+		var rp := PauseScreen.new(false, "")
+		rp.quit_text = "Main menu"
+		rp.extras = [["Replay theater", func():
+			_close_ui()
+			_open_menu("single")
+			_open_replays(), "Pick another saved fight"]]
+		rp.resumed.connect(func(): paused = false)
+		rp.quit_requested.connect(func():
+			_close_ui()
+			_open_menu())
+		ui.push(rp)
+		return
 	var p := PauseScreen.new(true, player_input.help_text().replace("   ", "\n").replace("  ", "\n") + _tools_help())
 	if in_training():
 		p.extras = [["Change fighter", _open_fighter_swap, "Swap your fighter here: the dummy, arena and options stay"],
 			["Training options", _open_training_options, "No cooldowns, Surge always full, what the dummy does"]]
+	if arcade is Gauntlet:  # Restart is a whole new run, from wave 1
+		var waves := (arcade as Gauntlet).waves()
+		p.restart_question = "Start a new run from wave 1?"
+		p.restart_note = ("This run ends here at %d wave%s cleared; your best is kept." % [waves, "" if waves == 1 else "s"]) 			if waves > 0 else "The run so far is lost."
 	p.resumed.connect(func(): paused = false)
 	p.restart_requested.connect(func():
+		_record_gauntlet_best()
 		_close_ui()
 		seed_base += 1
 		_start_match(mode, true))
 	p.quit_requested.connect(func():
+		_record_gauntlet_best()
 		_close_ui()
-		_open_menu())
+		_back_to_row())
 	ui.push(p)
+
+
+## A Gauntlet run left before it was lost (pause Restart or Quit) still counts its waves.
+func _record_gauntlet_best() -> void:
+	if arcade is Gauntlet and (arcade as Gauntlet).waves() > 0:
+		Progress.record_gauntlet(arcade.fighter, (arcade as Gauntlet).waves())
 
 
 func _close_ui() -> void:
@@ -3029,6 +3133,12 @@ func _load_settings() -> void:
 		fight_fps = fps if fps in FPS_CHOICES else default_fps()
 		perf_overlay.mode = clampi(int(cfg.get_value("video", "perf_overlay", 0)), 0,
 			PerfOverlay.MODE_NAMES.size() - 1) as PerfOverlay.Mode
+		var saved_rows = cfg.get_value("game", "row_choice", {})
+		if saved_rows is Dictionary:
+			for r in MENU_ROWS.size():
+				var lbl := String(MENU_ROWS[r]["label"])
+				if saved_rows.has(lbl) and MENU_ROWS[r].has("choices"):
+					_row_choice[r] = clampi(int(saved_rows[lbl]), 0, (MENU_ROWS[r]["choices"] as Array).size() - 1)
 	# After everything is loaded: saving here first would write defaults over it.
 	if Netplay.player_id.length() < 8:
 		Netplay.player_id = Netplay.make_player_id()
@@ -3061,6 +3171,11 @@ func _save_settings() -> void:
 		cfg.set_value("training", k, bool(training_opts.get(k, false)))
 	cfg.set_value("training", "dummy_mode", dummy_mode)
 	cfg.set_value("game", "discord", discord_status)
+	var rows := {}
+	for r in MENU_ROWS.size():
+		if MENU_ROWS[r].has("choices") and r < _row_choice.size():
+			rows[String(MENU_ROWS[r]["label"])] = int(_row_choice[r])
+	cfg.set_value("game", "row_choice", rows)
 	cfg.set_value("controls", "bindings", Controls.overrides())
 	for bus in AudioView.DEFAULT_VOLUMES:
 		cfg.set_value("audio", "volume_" + String(bus).to_lower(), audio.volume(bus))
@@ -3939,6 +4054,8 @@ func _show_match_over() -> void:
 	scr.hints = ["move", "select", "back"]
 	var cfg: Dictionary = MODES[mode]
 	scr.builder = func(s: UiScreen):
+		if sim != null and not _replaying() and mode != REPLAY_MODE and showcase == null and coach == null:
+			s.add_text("F6  save this fight's replay", UiTheme.SIZE_HINT, UiTheme.C_DIM)
 		for line in _ctf_summary():
 			s.add_text(String(line[0]), UiTheme.SIZE_HINT + (2 if line[1] == UiTheme.C_ACCENT else 0), line[1])
 		if online != null and netplay.in_room():
@@ -3979,24 +4096,24 @@ func _show_match_over() -> void:
 			s.add_button("Main menu", func(): _open_menu(), "Back to the title menu")
 			s.on_back = func(): _open_menu()
 		else:
-			if arcade != null and arcade.can_retry():
+			if arcade != null and arcade.can_retry() and not _arcade_cleared:
 				s.add_button("Retry the stage", func():
 					_close_ui()
 					wins = [0, 0]
 					round_num = 1
 					_start_arcade_stage(), "The same stage again")
 			elif arcade != null:
-				s.add_button("Play again", func():
+				s.add_button("Play again" if arcade is Daily else "New run", func():
 					seed_base += 1
-					_start_match(mode), "A fresh run")
+					_start_match(mode), "Today's fight again" if arcade is Daily else "A fresh run from the start")
 			else:
 				s.add_button("Rematch", func():
 					seed_base += 1
 					_start_match(mode, true), "The same fighters again")
 			if _has_pick(cfg) and not _skip_select:
 				s.add_button("Change fighters", func(): _start_match(mode), "Back to the pick screen")
-			s.add_button("Main menu", func(): _open_menu(), "Back to the title menu")
-			s.on_back = func(): _open_menu()
+			s.add_button("Main menu", _back_to_row, "Back to where you picked this mode")
+			s.on_back = _back_to_row
 	ui.push(scr)
 
 

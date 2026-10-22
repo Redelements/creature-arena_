@@ -992,3 +992,259 @@ func test_the_hud_anchors_to_the_screen() -> void:
 	assert_lt(h._hr - h._hl, Hud.HUD_MAX_W + 0.01, "the health panels stay within the HUD width")
 	assert_near((h._hl + h._hr) * 0.5, vs.x * 0.5, 0.01, "centred:")
 	h.free()
+
+
+# ------------------------------------------------------------------ menu and mode fixes
+
+func _row_index(label: String) -> int:
+	var rows: Array = load("res://src/game/main.gd").MENU_ROWS
+	for i in rows.size():
+		if String(rows[i]["label"]) == label:
+			return i
+	return -1
+
+
+## Plays a team mode to its end: picks fighters, forces the sim's finish, runs the banner out.
+func _finish_team(g: Node, label: String, winner: int, how: String, prep: Callable = Callable()) -> void:
+	g._start_match(g.mode_index(label))
+	g._on_teams_chosen([["cairn", "sno", "pete"], ["culvert", "digby", "hissy"]])
+	_tick(g, 200)
+	if prep.is_valid():
+		prep.call(g.team_battle)
+	g.team_battle._finish(winner, how)
+	for e in g.sim.events:  # the event the sim emits in its step (called outside one it isn't read)
+		if e["type"] == "duel_over":
+			g._react(e)
+	_tick(g, 200)
+	assert_eq(g.flow, g.Flow.MATCH_OVER, label + " is over:")
+
+
+func test_the_final_banner_says_why_the_match_ended() -> void:
+	var g := _game()
+	_finish_team(g, "Team Deathmatch: 3v3 vs CPU", 0, "score", func(t): t.score = [12, 9])
+	assert_eq(g.hud.banner, "YOUR TEAM WINS!", "")
+	assert_true(g.hud.banner_sub.contains("12 - 9"), "a score: " + g.hud.banner_sub)
+	_finish_team(g, "King of the Crater: 3v3 vs CPU", 1, "hold", func(t): t.score = [1200, 3600])
+	assert_true(g.hud.banner_sub.contains("20 s - 60 s") and not g.hud.banner_sub.contains("3600"),
+		"the Crater prints seconds, not ticks: " + g.hud.banner_sub)
+	_finish_team(g, "Caravan: 3v3 vs CPU", 0, "caravan", func(t):
+		t.cv_round = 1
+		t.cv_time = [2400, 3000])
+	assert_true(g.hud.banner_sub.contains("Faster finish") and g.hud.banner_sub.contains("40 s - 50 s"),
+		"the Caravan says the finish times: " + g.hud.banner_sub)
+	_finish_team(g, "Capture the Flag: 3v3 vs CPU", 0, "capture", func(t): t.score = [3, 1])
+	assert_true(g.hud.banner_sub.contains("Captures") and g.hud.banner_sub.contains("3 - 1"), g.hud.banner_sub)
+	_finish_team(g, "Team battle: 3v3 vs CPU", 0, "ko")
+	assert_eq(g.hud.banner_sub, "K.O.", "a team battle by knockout:")
+	_finish_team(g, "Sinkhole: 3v3 vs CPU", 1, "time")
+	assert_eq(g.hud.banner_sub, "Time: more health left", "by the clock:")
+	g.free()
+
+
+func test_the_duel_and_versus_reasons() -> void:
+	var g := _game()
+	g._over_by = "time"
+	assert_eq(g._over_reason(), "Time: more health left", "")
+	g._over_by = "ko"
+	assert_eq(g._over_reason(), "K.O.", "")
+	# A Versus round ends through _end_round, which remembers how.
+	g._start_match(g.mode_index("Versus CPU") if g.mode_index("Versus CPU") >= 0 else 0)
+	_tick(g, 200)
+	g._end_round(-2)
+	assert_eq(g._over_by, "time", "")
+	g._end_round(0)
+	assert_eq(g._over_by, "ko", "")
+	g.free()
+
+
+func test_the_crater_sudden_death_text_is_about_the_zone() -> void:
+	var g := _game()
+	g._start_match(g.mode_index("King of the Crater: 3v3 vs CPU"))
+	g._on_teams_chosen([["cairn", "sno", "pete"], ["culvert", "digby", "hissy"]])
+	_tick(g, 200)
+	g.team_battle.overtime = true
+	g.team_battle.timer = -5
+	g._team_flow()
+	assert_eq(g.hud.banner, "SUDDEN DEATH", "")
+	assert_false(g.hud.banner_sub.contains("KO"), "KOs score nothing in the Crater: " + g.hud.banner_sub)
+	assert_true(g.hud.banner_sub.contains("zone"), g.hud.banner_sub)
+	g.free()
+
+
+func test_every_team_mode_has_a_goal_line() -> void:
+	var plain := TeamSim.new([["cairn", "sno"], ["culvert", "digby"]], 2)
+	assert_eq(plain.goal_text(), "LAST TEAM STANDING", "a team battle:")
+	var sink := TeamSim.new([["cairn", "sno"], ["culvert", "digby"]], 2, TeamSim.load_rules(TeamSim.SINKHOLE_PATH))
+	assert_eq(sink.goal_text(), "THE EDGE FALLS IN", "the Sinkhole:")
+
+
+func test_active_mutators_stay_on_the_hud() -> void:
+	var g := _game()
+	g._skip_select = true
+	g._start_match(g.mode_index("Chaos Cup"))
+	_tick(g, 300)
+	assert_eq(g.brawl.phase, BrawlSim.Phase.FIGHT, "the Brawl is stepped: past its intro")
+	assert_true(g.hud.mutator_text != "", "Chaos Cup names its mutators beside the clock")
+	assert_eq(g.hud.banner_sub, "", "after the intro line is gone")
+	g._start_match(g.mode_index("Daily Challenge"))
+	_tick(g, 300)
+	assert_true(g.hud.mutator_text != "", "and so does the Daily Challenge: " + g.hud.mutator_text)
+	g._start_match(g.mode_index("Brawl: you vs 3 CPUs"))
+	assert_eq(g.hud.mutator_text, "", "a plain Brawl has none")
+	g.free()
+
+
+func test_brawl_and_chaos_cup_open_the_pick_screen() -> void:
+	var g := _game()
+	g._start_match(g.mode_index("Chaos Cup"))
+	assert_eq(g.flow, g.Flow.SELECT, "the pick comes first")
+	assert_true(g.ui.top() is CharacterSelect, "")
+	g._on_teams_chosen([["digby"], ["cairn"]])
+	assert_true(g.brawl != null, "then the Brawl")
+	assert_eq(String(g.sim.creatures[0].def["id"]), "digby", "you play the pick:")
+	var lone := _game()
+	lone._start_match(lone.mode_index("Brawl: you vs 3 CPUs"))
+	assert_true(lone.ui.top() is CharacterSelect, "Brawl too")
+	lone.free()
+	var skip := _game()
+	skip._skip_select = true  # --mode=N
+	skip._start_match(skip.mode_index("Brawl: you vs 3 CPUs"))
+	assert_true(skip.brawl != null and not skip.ui.is_open(), "--mode=N skips it:")
+	skip.free()
+	g.free()
+
+
+func test_leaving_a_match_returns_to_the_page_and_row_it_came_from() -> void:
+	var g := _game()
+	g._open_menu()
+	_press("ui_accept")  # Single player
+	_open_card(g, "Team battles")
+	var page: UiScreen = g.ui.top()
+	for r in page.rows():
+		if r is OptionRow and (r as OptionRow).label == "Capture the Flag vs CPU":
+			r.grab_focus()
+	_press("ui_accept")
+	assert_true(g.ui.top() is CharacterSelect, "the pick screen")
+	_press("ui_cancel")  # the pick's Back
+	assert_true(g.ui.top() is UiScreen and (g.ui.top() as UiScreen).title == page.title, "back on the group page")
+	assert_eq(((g.ui.top() as UiScreen).crumbs), ["SINGLE PLAYER"], "")
+	assert_true(_focus() is OptionRow and (_focus() as OptionRow).label == "Capture the Flag vs CPU",
+		"on the same row")
+	# And from a match: pause > Quit.
+	_press("ui_accept")
+	g._on_teams_chosen([["cairn"], ["culvert"]])
+	_tick(g, 30)
+	_press("pause")
+	g.ui.top().quit_requested.emit()
+	assert_eq(g.flow, g.Flow.MENU, "")
+	assert_eq((g.ui.top() as UiScreen).title, page.title, "Quit lands on the page too")
+	# A match started from the command line has no page to go back to.
+	g._row_from = {}
+	g._back_to_row()
+	assert_true(g.ui.top() is TitleScreen, "the title:")
+	g.free()
+
+
+func test_the_left_right_fighter_choice_is_kept_between_launches() -> void:
+	var g := _game()
+	var r := _row_index("Versus CPU")
+	g._row_choice[r] = 5
+	g._save_settings()
+	g.free()
+	var again: Node = load("res://scenes/main.tscn").instantiate()
+	again.settings_path = TEST_SETTINGS
+	_root().add_child(again)
+	assert_eq(int(again._row_choice[r]), 5, "")
+	again.free()
+
+
+func test_gauntlet_restart_says_what_it_does_and_leaving_records_the_best() -> void:
+	var p := "user://test_progress_menu_%d.json" % Time.get_ticks_usec()
+	Progress.reset_for_tests(p)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(p))
+	var g := _game()
+	g._arcade_fighter = "sno"
+	g._skip_select = true
+	g._start_match(g.mode_index("Gauntlet"))
+	g.arcade.stage = 4
+	g._open_pause()
+	var pause: PauseScreen = g.ui.top()
+	assert_true(pause.restart_question.contains("new run"), pause.restart_question)
+	assert_true(pause.restart_note.contains("4 wave"), pause.restart_note)
+	pause.quit_requested.emit()
+	assert_eq(Progress.gauntlet_best("sno"), 4, "Quit counts the waves cleared:")
+	g.free()
+	Progress.reset_for_tests("user://progress.json")
+
+
+func test_the_arcade_boss_has_its_own_intro_and_a_clear_offers_a_new_run() -> void:
+	var p := "user://test_progress_menu_%d.json" % Time.get_ticks_usec()
+	Progress.reset_for_tests(p)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(p))
+	var g := _game()
+	g._skip_select = true
+	g._start_match(g.mode_index("Arcade"))
+	g.arcade.stage = Arcade.STAGES - 1
+	g._start_arcade_stage()
+	_tick(g, 10)
+	assert_eq(g.hud.banner, "STAGE 6 of 6", "")
+	assert_true(g.hud.banner_sub.contains("BOSS TEAM"), g.hud.banner_sub)
+	assert_true(g._arcade_result(true), "the boss falls")
+	g.flow_t = 0
+	_tick(g, g.MATCH_OVER_MENU_AT + 1)
+	var labels: Array = []
+	for r in g.ui.top().rows():
+		labels.append((r as Button).text)
+	assert_true("New run" in labels and not ("Retry the stage" in labels), "after a clear: " + str(labels))
+	g.free()
+	Progress.reset_for_tests("user://progress.json")
+
+
+func test_f6_saves_the_replay_at_the_match_over_screen() -> void:
+	var g := _game()
+	g._start_match(2)  # CPU vs CPU
+	_tick(g, 60)
+	var before := Array(DirAccess.get_files_at("user://replays"))
+	g.flow = g.Flow.MATCH_OVER
+	g.flow_t = g.MATCH_OVER_MENU_AT - 1
+	_tick(g, 2)
+	assert_true(g.ui.is_open(), "the match-over menu is up")
+	_press("save_replay")
+	var added := Array(DirAccess.get_files_at("user://replays")).filter(func(f): return not (f in before))
+	assert_eq(added.size(), 1, "F6 saved the fight just finished:")
+	for f in added:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path("user://replays/" + String(f)))
+	g.free()
+
+
+func test_pausing_a_watched_replay_or_a_spectated_room_has_no_restart() -> void:
+	var g := _game()
+	g._start_match(0)
+	_tick(g, 140)
+	var path := "user://replays/replay_test_pause_%d.json" % Time.get_ticks_usec()
+	assert_eq(g.replay.save(path), OK, "")
+	g._play_replay(path)
+	_tick(g, 5)
+	_press("pause")
+	assert_true(g.ui.top() is PauseScreen, "")
+	var labels: Array = []
+	for r in g.ui.top().rows():
+		labels.append((r as Button).text)
+	assert_eq(labels, ["Resume", "Replay theater", "Main menu"], "")
+	_press("ui_cancel")
+	assert_false(g.paused, "Resume")
+	g.watch = Referee.new([["cairn"], ["culvert"]], 0)
+	g._open_pause()
+	assert_true(g.ui.top() is ConfirmScreen, "a spectator gets the leave confirm, not the offline pause")
+	g.watch = null
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	g.free()
+
+
+func test_the_trials_help_reads_the_bound_keys() -> void:
+	var g := _game()
+	g._skip_select = true
+	g._start_match(9)
+	assert_eq(g.hud.help_text, "%s watch the demo again    %s next trial    Esc menu" % [
+		Controls.binding_text("debug_dummy_mode", "classic"), Controls.binding_text("reset", "classic")], "")
+	g.free()

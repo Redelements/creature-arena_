@@ -122,4 +122,4 @@ func test_a_daily_score_is_what_its_replay_says() -> void:
 		assert_eq(got, expect, "the replay scores the same:")
 	assert_eq(fair.verify(rep2), got, "and verifies the same twice:")
 	assert_eq(d.score_fight(false, 0.5, 100), 0, "a loss scores nothing:")
-	assert_eq(d.score_fight(true, 1.0, 0), 1000 + 180 * 5, "a perfect instant win:")
+	assert_eq(d.score_fight(true, 1.0, 0), 1000 + 90 * 5, "a perfect instant win (the fight is 90 s):")

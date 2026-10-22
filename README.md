@@ -518,7 +518,7 @@ follows you, and arrows at the screen's edge point at both flags when they're ou
   the last of three goes for a ready shrine, and anyone goes after your flag when it's
   taken.
 
-4 v 4 is vs CPU only for now (online rooms are 2 v 2 and 3 v 3). Tuning:
+4 v 4 plays offline vs CPU and online (Quick match > 4 v 4 Capture the Flag, or a 4 v 4 room). Tuning:
 `data/rules/ctf.json`; the map: `data/arenas/twin_keeps.json`.
 
 ### Training

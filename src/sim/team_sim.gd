@@ -67,7 +67,8 @@ extends RefCounted
 ## carrier who reaches its own base while its own flag is home scores a capture (`score`);
 ## first to `captures_to_win` wins, or more at time, and a tie at time is sudden death
 ## (the next capture). Every tick the rules give each fighter a goal (`sim.goals`) for the
-## CPU: the carrier runs home, the first `defenders` of a side guard its base, the rest go
+## CPU: the carrier runs home, `defenders` fighters of a side guard its base (the ones after
+## its first slot, which is where a human plays, so the human's team has a CPU guard too), the rest go
 ## for the enemy flag or escort its carrier, and anyone goes after their own flag when it's
 ## taken. KOs score nothing.
 ##
@@ -487,6 +488,10 @@ func goal_text() -> String:
 		return "ROUND %d: %s PUSHES" % [cv_round + 1, "RED" if cv_attacker() == 0 else "BLUE"]
 	if overtime:
 		return "SUDDEN DEATH"
+	if sinkhole:
+		return "THE EDGE FALLS IN"
+	if not deathmatch:
+		return "LAST TEAM STANDING"
 	if ctf:
 		return "FIRST TO %d CAPTURES" % score_to_win()
 	if crater:
@@ -1233,14 +1238,17 @@ func _ctf_goals() -> void:
 		var foe := 1 - me
 		var role := int(k[me])
 		k[me] += 1
+		# Slot 0 of a side is the human's in a match against the CPU: the base guards are the
+		# next `defenders` slots, so both teams have the same roles and a CPU guard.
+		var guard := role >= 1 and role <= defenders
 		var g: Array = []
 		if _down(c):
 			g = []
 		elif _carrying(c) == foe:
 			g = [base_of(me), 6.0, true, _pass_hint(c)]  # run it home
-		elif int(flag_state[me]) != FLAG_HOME and (role >= defenders or int(flag_state[me]) != FLAG_CARRIED):
+		elif int(flag_state[me]) != FLAG_HOME and (not guard or int(flag_state[me]) != FLAG_CARRIED):
 			g = [flag_pos[me], 8.0, false]  # get our flag back
-		elif role < defenders and size > 1:
+		elif guard and size > 1:
 			var toward := (sim.floor_rect().get_center() - base_of(me)).normalized()
 			g = [base_of(me) + toward * 48.0, 36.0, false]  # guard the base
 		elif role == size - 1 and size >= 3 and _ready_shrine(c) >= 0:
