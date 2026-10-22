@@ -205,6 +205,15 @@ const SETTINGS_PATH := "user://settings.cfg"
 const MENU_FPS := 60
 const FPS_CHOICES := [60, 120, 144, 165, 240, 0]
 const DEFAULT_FPS := 144
+## On a phone or a handheld (Android) fights default to 60: on the Odin 3 the release build
+## holds 60 without a dropped frame, while at 120 every other frame carries a tick that
+## doesn't fit the 8 ms, so it stutters. The setting still offers the higher rates.
+const DEFAULT_FPS_MOBILE := 60
+
+
+## The fight frame rate to start with: `mobile` is the platform's (a test passes its own).
+static func default_fps(mobile := OS.has_feature("mobile")) -> int:
+	return DEFAULT_FPS_MOBILE if mobile else DEFAULT_FPS
 # Knockouts: the simulation itself freezes and then runs at half speed (MatchSim's
 # ko_freeze / slowmo, so online peers agree); the camera pushes in on the loser.
 const KO_ZOOM := 1.45
@@ -255,7 +264,7 @@ var _setting_rows := {}  ## Settings key -> its OptionRow, while the page is ope
 var _match_over_status: Label = null
 var _recent_servers: Array = []
 var fullscreen := false
-var fight_fps := DEFAULT_FPS
+var fight_fps := default_fps()
 ## Where settings are kept (tests point it elsewhere, so they never touch the player's).
 var settings_path := SETTINGS_PATH
 var vsync := true
@@ -3016,8 +3025,8 @@ func _load_settings() -> void:
 			training_opts[k] = bool(cfg.get_value("training", k, false))
 		dummy_mode = clampi(int(cfg.get_value("training", "dummy_mode", 0)), 0, DUMMY_MODES.size() - 1)
 		Controls.apply_overrides(cfg.get_value("controls", "bindings", {}))
-		var fps := int(cfg.get_value("video", "fight_fps", DEFAULT_FPS))
-		fight_fps = fps if fps in FPS_CHOICES else DEFAULT_FPS
+		var fps := int(cfg.get_value("video", "fight_fps", default_fps()))
+		fight_fps = fps if fps in FPS_CHOICES else default_fps()
 		perf_overlay.mode = clampi(int(cfg.get_value("video", "perf_overlay", 0)), 0,
 			PerfOverlay.MODE_NAMES.size() - 1) as PerfOverlay.Mode
 	# After everything is loaded: saving here first would write defaults over it.

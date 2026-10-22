@@ -83,3 +83,14 @@ func test_the_match_plays_the_same_with_it_on() -> void:
 		digests.append(g.sim.state_digest())
 		g.free()
 	assert_eq(digests[0], digests[1], "the same match:")
+
+
+func test_fights_default_to_60_fps_on_mobile_and_144_elsewhere() -> void:
+	# The Odin 3's release build holds 60 clean; at 120 the tick frames don't fit.
+	var main_script: GDScript = load("res://src/game/main.gd")
+	assert_eq(main_script.default_fps(true), 60, "mobile:")
+	assert_eq(main_script.default_fps(false), 144, "desktop:")
+	assert_true(main_script.default_fps(true) in main_script.FPS_CHOICES, "a choice the setting offers")
+	var g := _game()
+	assert_eq(g.fight_fps, main_script.default_fps(), "this platform's default:")
+	g.free()
