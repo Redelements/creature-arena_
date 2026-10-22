@@ -198,7 +198,7 @@ then `sudo systemctl restart netdata`):
 
 ```ini
 [web]
-    allow connections from = localhost 192.168.* 100.*
+    allow connections from = localhost 192.168.*
 ```
 
 Open `http://SERVER-IP:19999` from any device at home. Where to look:
@@ -229,18 +229,7 @@ sudo systemctl restart netdata
 sudo -u netdata /usr/libexec/netdata/plugins.d/alarm-notify.sh test   # or /opt/netdata/usr/libexec/...
 ```
 
-**From outside the house**, use [Tailscale](https://tailscale.com/) rather than opening a
-port: it puts your phone on the home network privately (its addresses are the `100.*` in
-the setting above).
-
-```sh
-curl -fsSL https://tailscale.com/install.sh | sh
-sudo tailscale up                                     # log in with the link it prints
-sudo ufw allow in on tailscale0 to any port 19999 proto tcp
-```
-
-Install the Tailscale app on the phone with the same account and open
-`http://SERVER-NAME:19999`.
+The dashboard is for checking from home: away from the home network it doesn't load.
 
 ## Updating to the latest main build
 
