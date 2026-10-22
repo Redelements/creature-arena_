@@ -120,7 +120,7 @@ bad connection: `--net-lag=6 --net-loss=0.1`. Details: [docs/NETCODE.md](docs/NE
 2. Open Godot, click **Import**, and pick this folder's `project.godot`.
 3. Press **F5** (or the ▶ button). The title menu has **Single player** (every mode against
    the CPU, training, trials and local 2-player), **Online**, **Settings** (Game: CPU level, rumble, screen shake, Discord status, online server; Video: fullscreen, vsync, the
-   fight frame rate, 144 fps unless changed; Audio: master, music, effects and menu volume;
+   fight frame rate, 144 fps on a PC and 60 on a phone or handheld unless changed; Audio: master, music, effects and menu volume;
    Controls: keyboard layout, range rings, and remapping for both keyboard layouts and the controller) and **Exit**. Menus always
    run at 60 fps. The game itself runs 60 steps a second whatever the frame rate.
 
