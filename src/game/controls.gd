@@ -58,6 +58,7 @@ const BINDINGS := {
 	# In a fight: the pause menu (B can't be Back there: it's Skill 2).
 	"pause": {"keys": [KEY_ESCAPE], "buttons": [JOY_BUTTON_START, JOY_BUTTON_BACK]},
 	"debug_hitboxes": {"keys": [KEY_F1]},
+	"debug_perf": {"keys": [KEY_F9]},  # the performance overlay: off, FPS, FPS + graph
 	# Range rings on/off in a fight: one action per remap group, so each can be rebound
 	# (the controller has none until the player picks a button).
 	"kb_range_rings": {"keys": [KEY_F7]},

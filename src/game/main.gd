@@ -118,7 +118,7 @@ const REPLAY_MODE := 47
 ## The Settings pages and their rows, in order (see _setting()).
 const SETTING_PAGES := {
 	"game": ["level", "rumble", "shake", "discord", "server", "delay"],
-	"video": ["fullscreen", "wide", "vsync", "fps"],
+	"video": ["fullscreen", "wide", "vsync", "fps", "perf_overlay"],
 	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu"],
 }
 const SHAKE_CHOICES := [["Full", 1.0], ["Reduced", 0.5], ["Off", 0.0]]
@@ -266,6 +266,8 @@ var rumble := true
 var shake_scale := 1.0  ## screen shake: 1 full, 0.5 reduced, 0 off
 var range_rings := false  ## floor rings showing each attack's real reach (Settings > Controls)
 var rings: RangeRings
+## The frame-rate overlay (Settings > Video, F9): PerfOverlay.Mode, over everything.
+var perf_overlay: PerfOverlay
 var paper: PaperFx
 var discord_status := true  ## show what you play on your Discord profile (Settings)
 var discord: DiscordRpc = null  ## null: off, headless, or no client id in data/discord.json
@@ -457,6 +459,11 @@ func _ready() -> void:
 	layer.add_child(fade_rect)
 	hud = Hud.new()
 	layer.add_child(hud)
+	var top := CanvasLayer.new()
+	top.layer = 30  # over the menus (ScreenStack is 20)
+	add_child(top)
+	perf_overlay = PerfOverlay.new()
+	top.add_child(perf_overlay)
 	_row_choice.resize(MENU_ROWS.size())
 	_row_choice.fill(0)
 	for pin in [player2_input, player3_input, player4_input]:
@@ -1897,6 +1904,7 @@ func _physics_process(_delta: float) -> void:
 		_think_ahead()
 	if _perf != null:
 		_perf.tick(flow == Flow.FIGHT, Time.get_ticks_usec() - tick_start)
+	perf_overlay.tick(Time.get_ticks_usec() - tick_start)
 	_capture()
 
 
@@ -2478,6 +2486,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("debug_hitboxes"):
 		debug.visible = not debug.visible
 		debug.queue_redraw()
+	elif event.is_action_pressed("debug_perf"):
+		_set_setting("perf_overlay", (perf_overlay.mode + 1) % PerfOverlay.MODE_NAMES.size())
+		_toast("Performance overlay: " + PerfOverlay.MODE_NAMES[perf_overlay.mode])
 	elif _range_rings_pressed(event):
 		_set_setting("range_rings", 0 if range_rings else 1)
 		_toast("Range rings " + ("on" if range_rings else "off"))
@@ -2725,6 +2736,9 @@ func _setting(key: String) -> Dictionary:
 				vals.append("Unlimited" if int(f) == 0 else "%d fps" % int(f))
 			return {"label": "Fight frame rate", "values": vals, "index": maxi(0, FPS_CHOICES.find(fight_fps)),
 				"desc": "Menus always run at 60 fps; this sets fights (up to your screen's refresh rate)"}
+		"perf_overlay":
+			return {"label": "Performance overlay", "values": PerfOverlay.MODE_NAMES, "index": perf_overlay.mode,
+				"desc": "The frame rate in a corner; with the graph, the last few seconds of frame times (F9 in a fight)"}
 	return {"label": key, "values": [""], "index": 0, "desc": ""}
 
 
@@ -2781,6 +2795,8 @@ func _set_setting(key: String, i: int) -> void:
 				_apply_discord()
 			"fps":
 				fight_fps = int(FPS_CHOICES[clampi(i, 0, FPS_CHOICES.size() - 1)])
+			"perf_overlay":
+				perf_overlay.mode = clampi(i, 0, PerfOverlay.MODE_NAMES.size() - 1) as PerfOverlay.Mode
 	_save_settings()
 
 
@@ -2868,6 +2884,8 @@ func _tools_help() -> String:
 	var swap := player_input.label("change_fighter")
 	if in_training() and swap != "" and swap != "-":
 		out += "\n%s change fighter" % swap
+	if player_input.device != PlayerInput.Device.GAMEPAD:
+		out += "\nF9 performance overlay"
 	return out
 
 
@@ -3000,6 +3018,8 @@ func _load_settings() -> void:
 		Controls.apply_overrides(cfg.get_value("controls", "bindings", {}))
 		var fps := int(cfg.get_value("video", "fight_fps", DEFAULT_FPS))
 		fight_fps = fps if fps in FPS_CHOICES else DEFAULT_FPS
+		perf_overlay.mode = clampi(int(cfg.get_value("video", "perf_overlay", 0)), 0,
+			PerfOverlay.MODE_NAMES.size() - 1) as PerfOverlay.Mode
 	# After everything is loaded: saving here first would write defaults over it.
 	if Netplay.player_id.length() < 8:
 		Netplay.player_id = Netplay.make_player_id()
@@ -3024,6 +3044,7 @@ func _save_settings() -> void:
 	cfg.set_value("video", "fight_fps", fight_fps)
 	cfg.set_value("video", "vsync", vsync)
 	cfg.set_value("video", "wide_fill", wide_fill)
+	cfg.set_value("video", "perf_overlay", perf_overlay.mode)
 	cfg.set_value("game", "rumble", rumble)
 	cfg.set_value("game", "shake", shake_scale)
 	cfg.set_value("game", "range_rings", range_rings)
