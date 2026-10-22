@@ -22,7 +22,7 @@ const BLOCKED_ENDER_DISADVANTAGE := 16
 ## Defaults for a poison move without "poison_every" and a reel without "reel_speed".
 const POISON_EVERY_DEFAULT := 30
 const REEL_SPEED_DEFAULT := 5.0
-## A raw Surge's windup when it doesn't freeze the match (surge_freeze off), unless the
+## A raw Surge's windup when it doesn't freeze the match (freeze_all off), unless the
 ## move sets "crowd_windup": as long as the freeze it replaces.
 const SURGE_CROWD_WINDUP := 18
 ## Training options a training match can turn on (set_training_flags).
@@ -48,10 +48,13 @@ var arena := {}
 ## Rules a mode sets on the match: a fall knocks out (Sinkhole), and the ring of the
 ## floor that is cracked and about to drop (-1: none), so the CPU knows to get off it.
 var fall_ko := false
-## A Surge freezes the whole match for its cut-in, but only with two on the field: with
-## more (a team match of 2 v 2 and up, a Brawl of three or four) it doesn't stop anyone,
-## and a raw Surge winds up instead (SURGE_CROWD_WINDUP). Fixed for the match by the mode.
-var surge_freeze := true
+## Whether the whole match stops for the big moments: hitstop on impact, a Surge's
+## cut-in, a KO's freeze and slow motion. True with two on the field (1v1, a tag Duel, a
+## Brawl of two). On a crowded field (a team match of 2 v 2 and up, a Brawl of three or
+## four) nobody else should stutter for a hit across the map: hitstop is local to the two
+## involved (`impact_stop`), a raw Surge winds up instead (SURGE_CROWD_WINDUP) and a KO
+## freezes nobody. Fixed for the match by the mode (TeamSim, BrawlSim).
+var freeze_all := true
 var sink_ring := -1
 ## Sinkhole: the cells that stay floor once the cracked ring drops (empty: no warning).
 var sink_safe := Rect2i()
@@ -180,11 +183,23 @@ func emit_event(kind: String, p: Vector2, power: float, extra := {}) -> void:
 	var e := {"type": kind, "pos": p, "power": power, "tick": tick}
 	e.merge(extra)
 	events.append(e)
-	if kind == "ko":
+	if kind == "ko" and freeze_all:
 		var who := int(extra.get("who", -1))
 		if who < 0 or who >= creatures.size() or not creatures[who].is_dummy:
 			ko_freeze = maxi(ko_freeze, ko_freeze_ticks)
 			slowmo = maxi(slowmo, ko_slowmo_ticks)
+
+
+## Freeze-frame on impact for `ticks`. With two on the field the whole match stops
+## (`hitstop`); on a crowded one only the attacker and the target do (their own
+## `CreatureSim.hitstop`), and a ranged hit (a shot, a storm, a zone) only the target.
+func impact_stop(a: CreatureSim, d: CreatureSim, ticks: int, ranged := false) -> void:
+	if freeze_all:
+		hitstop = maxi(hitstop, ticks)
+		return
+	d.hitstop = maxi(d.hitstop, ticks)
+	if not ranged:
+		a.hitstop = maxi(a.hitstop, ticks)
 
 
 func step(inputs: PackedInt32Array) -> void:
@@ -211,7 +226,13 @@ func step(inputs: PackedInt32Array) -> void:
 		for c in creatures:  # Surge rush: everyone's meter fills
 			gain_energy(c, CreatureSim.MAX_ENERGY)
 	for i in creatures.size():
-		creatures[i].step(_input(inputs, i), self)
+		var c := creatures[i]
+		if c.hitstop > 0:
+			# Its own freeze-frame (a crowded field): it holds while the match goes on.
+			c.hitstop -= 1
+			c.buffer_input(_input(inputs, i), self)
+		else:
+			c.step(_input(inputs, i), self)
 	_step_swallows()
 	_step_projectiles()
 	_step_zones()
@@ -456,7 +477,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 			gain_energy(a, taken * ENERGY_PER_DAMAGE)
 		if same_attack:
 			a.connected = true
-		hitstop = maxi(hitstop, int(float(hit["hitstop"]) * 0.6))
+		impact_stop(a, d, int(float(hit["hitstop"]) * 0.6), ranged)
 		emit_event("armor", fx_pos, taken, {"attacker": a.id, "target": d.id})
 		d.check_ko(self)
 		return "armor"
@@ -483,7 +504,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 			if same_attack:
 				a.connected = true
 				_punish_blocked_ender(a, d)
-			hitstop = maxi(hitstop, int(float(hit["hitstop"]) * 0.5))
+			impact_stop(a, d, int(float(hit["hitstop"]) * 0.5), ranged)
 			emit_event("block", fx_pos, damage, {"attacker": a.id, "target": d.id})
 			d.check_ko(self)
 			return "block"
@@ -654,7 +675,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		a.start_reel(d, reel, reel_speed if reel_speed > 0.0 else REEL_SPEED_DEFAULT)
 		emit_event("reel", a.pos, gap, {"attacker": a.id, "target": d.id})
 
-	hitstop = maxi(hitstop, int(hit["hitstop"]))
+	impact_stop(a, d, int(hit["hitstop"]), ranged)
 	emit_event("hit", fx_pos, total, {
 		"attacker": a.id, "target": d.id, "type": String(hit["type"]),
 		"combo": n, "variety": variety, "stale": stale < 1.0,
@@ -1119,8 +1140,13 @@ func _separate() -> void:
 			if dist >= min_d:
 				continue
 			var n := d / dist if dist > 0.0001 else Vector2.RIGHT
-			# A rooted creature (Bedrock) doesn't budge; the other one takes the whole push.
-			var share_a := 0.0 if a.is_armored() else (1.0 if b.is_armored() else 0.5)
+			# A rooted creature (Bedrock) doesn't budge, nor one in its own freeze-frame;
+			# the other one takes the whole push.
+			var a_still := a.is_armored() or a.hitstop > 0
+			var b_still := b.is_armored() or b.hitstop > 0
+			if a_still and b_still:
+				continue
+			var share_a := 0.0 if a_still else (1.0 if b_still else 0.5)
 			var overlap := min_d - dist
 			a.pos -= n * overlap * share_a
 			b.pos += n * overlap * (1.0 - share_a)
@@ -1213,5 +1239,7 @@ func _check_falls() -> void:
 			continue
 		if c.invuln > 0 and c.state != CreatureSim.State.KNOCKDOWN:
 			continue
+		if c.hitstop > 0:
+			continue  # held in its freeze-frame: the fall waits, as it did when everyone froze
 		if terrain.is_hole_at(c.pos):
 			c.start_fall(self)

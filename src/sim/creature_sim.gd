@@ -59,7 +59,7 @@ const STATE_FIELDS := [
 	"flip_t", "flip_total", "flip_from", "flip_to",
 	"swallow_t", "swallow_by", "swallow_gap", "swallow_air",
 	"poison", "poison_every", "poison_dmg", "poison_by", "poison_stacks", "poison_stack_dmg", "frenzy_t", "hit_streak", "streak_t", "stone",
-	"blind", "whiff_serial", "ambush_serial", "root",
+	"blind", "whiff_serial", "ambush_serial", "root", "hitstop",
 	"stealth", "haste", "haste_mult", "atk_buff", "atk_mult", "stone_ice", "covered",
 	"block_lag", "punish_serial", "home_speed", "fall_chasm",
 	"sheets", "sheet_t", "folded", "poison_look", "regen_wait",
@@ -144,6 +144,9 @@ var last_attacker := -1
 var dodge_dir := Vector2.RIGHT
 var prev_buttons := 0
 var dodge_buffer := 0  ## a dodge pressed during hitstop, kept until it can happen
+## This creature's own freeze-frame on impact, on a crowded field (MatchSim.impact_stop):
+## while it counts down only buffer_input runs, and the rest of the match goes on.
+var hitstop := 0
 var dodge_buffer_dir := Vector2.ZERO  ## the direction held when it was pressed
 
 # Status
@@ -664,6 +667,7 @@ func buffer_input(buttons: int, sim: MatchSim) -> void:
 	prev_buttons = buttons
 	if is_stunned() and _wants_breakaway(buttons, pressed):
 		sim.hitstop = 0
+		hitstop = 0
 		sim.breakaway(self)
 		return
 	_buffer_presses(pressed)
@@ -1025,7 +1029,7 @@ func _start_attack(mid: String, sim: MatchSim, raw := false) -> void:
 	_set_state(State.ATTACK)
 	var surge := String(mv["type"]) == "surge"
 	windup_total = int(mv.get("windup", 0)) if raw else 0
-	if surge and raw and not sim.surge_freeze:
+	if surge and raw and not sim.freeze_all:
 		# A crowded field doesn't stop for a Surge: the caster winds up in its place.
 		windup_total = maxi(windup_total, int(mv.get("crowd_windup", MatchSim.SURGE_CROWD_WINDUP)))
 	windup_left = windup_total
@@ -1033,10 +1037,10 @@ func _start_attack(mid: String, sim: MatchSim, raw := false) -> void:
 		sim.emit_event("windup", pos, float(windup_total),
 			{"who": id, "move": mid, "tell": String(mv.get("tell", "strong"))})
 	if surge:
-		if sim.surge_freeze:
+		if sim.freeze_all:
 			sim.hitstop = maxi(sim.hitstop, int(mv.get("freeze", 18)))
 		sim.emit_event("surge", pos, 1.0, {"who": id, "name": String(mv.get("name", "SURGE")),
-			"freeze": sim.surge_freeze})
+			"freeze": sim.freeze_all})
 
 
 func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
@@ -1406,7 +1410,7 @@ func _ram_step(ram: Dictionary, sim: MatchSim, moved: Vector2, wanted: Vector2) 
 		var at := pos + dodge_dir * float(radius)
 		if float(ram.get("crack", 0.0)) > 0.0:
 			sim.terrain.crack_circle(at, float(ram["crack"]))
-		sim.hitstop = maxi(sim.hitstop, int(hit["hitstop"]))
+		sim.impact_stop(self, self, int(hit["hitstop"]))
 		sim.emit_event("ram_wall", at, float(hit["damage"]), {"who": id})
 	if impact:
 		_set_state(State.IDLE)
