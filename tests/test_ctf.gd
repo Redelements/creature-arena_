@@ -174,3 +174,21 @@ func test_cpu_teams_take_flags_and_capture() -> void:
 	# (19 of 44 on this seed; it used to be a flat 20).
 	assert_gt(float(defended), checks / 3.0, "and someone stayed home to guard (%d of %d checks)" % [defended, checks])
 	assert_gt(float(t.score[0]) + float(t.score[1]), 0.0, "and someone captured one")
+
+
+func test_both_teams_get_a_cpu_base_guard_even_with_a_human_in_slot_0() -> void:
+	# Slot 0 of a side is where a human plays, so the guard is the next slot: the player's
+	# team has a CPU guard like the other one.
+	var t := _ctf(3)
+	t.step(PackedInt32Array())
+	for side in 2:
+		var m := t.members(side)
+		var attacker: Array = t.sim.goals[(m[0] as CreatureSim).id]
+		var guard: Array = t.sim.goals[(m[1] as CreatureSim).id]
+		assert_eq(float(attacker[1]), 6.0, "side %d slot 0 goes for the enemy flag:" % side)
+		assert_eq(float(guard[1]), 36.0, "side %d slot 1 guards the base:" % side)
+	var snap := t.snapshot()
+	var d := t.state_digest()
+	_idle(t, 30)
+	t.restore(snap)
+	assert_eq(t.state_digest(), d, "and it rolls back")

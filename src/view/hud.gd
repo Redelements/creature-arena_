@@ -47,6 +47,8 @@ var wins := [0, 0]
 var wins_needed := 2
 var banner := ""
 var banner_sub := ""
+## The match's mutators (Chaos Cup, Daily Challenge), short names beside the clock.
+var mutator_text := ""
 var dummy_mode_name := ""
 ## Online: ping, input delay, rollback; drawn small in the bottom corner.
 var net_info := ""
@@ -509,11 +511,31 @@ func _center() -> void:
 	_text(Vector2(218 + _cx, 19), str(secs), 13, C_HP_LO if secs <= 10 else C_TEXT, HORIZONTAL_ALIGNMENT_CENTER, 44)
 	if team != null and team.deathmatch:
 		_deathmatch_score()
+	elif team != null:
+		_team_goal()
+	if mutator_text != "":
+		_text(Vector2(140 + _cx, 52), mutator_text, 5, C_ACCENT, HORIZONTAL_ALIGNMENT_CENTER, 200)
 	for side in 2:
 		for i in wins_needed:
 			var px := 232.0 + _cx + (i * 7.0 if side == 1 else -i * 7.0) + (14.0 if side == 1 else 0.0)
 			var won := i < int(wins[side])
 			draw_circle(Vector2(px, 32), 2.5, C_ACCENT if won else Color(0.25, 0.27, 0.3))
+
+
+## Team battle and Sinkhole: what wins, and for the Sinkhole the ring the edge is on and
+## how long until the next crack.
+func _team_goal() -> void:
+	_text(Vector2(184 + _cx, 34), team.goal_text(), 5, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, 112)
+	if team.sinkhole:
+		var rings := int(team.rules.get("max_rings", 16))
+		var total := float(team.rules.get("shrink_warn", 120) if team.warned else team.rules.get("shrink_every", 420))
+		var left := clampf(float(team.sink_t) / maxf(total, 1.0), 0.0, 1.0)
+		if team.ring >= rings:
+			_text(Vector2(184 + _cx, 42), "THE EDGE HOLDS", 5, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, 112)
+			return
+		_bar(Rect2(204 + _cx, 38, 72, 2), 1.0 - left, C_HP_LO if team.warned else C_ACCENT)
+		_text(Vector2(184 + _cx, 47), ("CRACKING!   " if team.warned else "") + "RING %d / %d" % [team.ring + 1, rings], 5,
+			C_HP_LO if team.warned else C_DIM, HORIZONTAL_ALIGNMENT_CENTER, 112)
 
 
 ## Team Deathmatch: each team's KOs either side of the clock, what wins, and your respawn.

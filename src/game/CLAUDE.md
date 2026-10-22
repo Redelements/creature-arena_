@@ -34,6 +34,8 @@ player and live here, outside the sim.
   worker threads: `_think_ahead` at the end of a tick, joined in `_join_cpus` at the next
   tick, or first on a press, a training change or a new match); flow → `_update_flow`; ends → `_end_round`, `_show_match_over`,
   `_duel_flow`, `_team_flow`
+- Back from a match → `_back_to_row` (the Single player page and row `_start_row` remembered in `_row_from`);
+  why a match ended → `_over_by` (the sim's `duel_over` `by`) and `_over_reason`; `_row_choice` is saved by label
 - Camera → `_update_camera`, `_frame_fight`, `_cam_axis`; `CAM_PAD`, `KO_ZOOM`, `SHOWCASE_ZOOM`;
   on a map bigger than the stadium it follows the local player (`_cam_anchor`, `FOLLOW_R`,
   `FOLLOW_ZOOM`, `BIG_MAP_MIN_ZOOM`)

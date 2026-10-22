@@ -9,7 +9,7 @@ extends Ladder
 
 const MUTATORS_PATH := "res://data/rules/mutators.json"
 const PICKS := 2
-const FIGHT_TICKS := 180 * 60
+const FIGHT_TICKS := 90 * 60  ## the fight's clock (main.gd ROUND_TICKS)
 
 var date := 0  ## YYYYMMDD, UTC
 var picks: Array = []  ## mutator ids
@@ -29,6 +29,25 @@ static func mutator_table() -> Dictionary:
 		for k in d:
 			if not String(k).begins_with("_"):
 				out[k] = d[k]
+	return out
+
+
+## The names of the mutators in a merged mutator dictionary (MatchSim.mutators).
+static func mutator_names(m: Dictionary) -> Array:
+	var out: Array = []
+	var table := mutator_table()
+	for id in table:
+		var entry: Dictionary = table[id]
+		var all := true
+		var any := false
+		for k in entry:
+			if k == "name":
+				continue
+			any = true
+			if not m.has(k) or m[k] != entry[k]:
+				all = false
+		if any and all:
+			out.append(String(entry.get("name", id)))
 	return out
 
 
