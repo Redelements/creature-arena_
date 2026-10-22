@@ -280,6 +280,13 @@ func _paint_pit_band(ci: CanvasItem, row0: int, row1: int) -> void:
 		_paint_lips(ci, row0, row1)
 
 
+## Whether the art already shows cell `i` as a chasm: only the map's own chasms are in the
+## picture. A cell sunk during the match (Sinkhole's rings, the Floor of pits mutator) has
+## `base` CHASM too, so it never heals, but it has to be drawn.
+func _in_art(i: int) -> bool:
+	return _art != null and terrain.map_base[i] == TerrainGrid.CHASM
+
+
 ## A pit whose upper neighbour is solid gets the lit rim tile, which reads as the pit's
 ## far wall. On a map with art, the map's own chasms are in the picture already.
 func _paint_pits(ci: CanvasItem, row0: int, row1: int) -> void:
@@ -288,7 +295,7 @@ func _paint_pits(ci: CanvasItem, row0: int, row1: int) -> void:
 			var v := terrain.cells[cy * terrain.cols + cx]
 			if not TerrainGrid.is_pit(v):
 				continue
-			if _art != null and v == TerrainGrid.CHASM and terrain.base[cy * terrain.cols + cx] == TerrainGrid.CHASM:
+			if v == TerrainGrid.CHASM and _in_art(cy * terrain.cols + cx):
 				continue
 			if _bridge_gone(cx, cy):
 				continue
@@ -308,11 +315,11 @@ func _paint_changed(ci: CanvasItem, row0: int, row1: int) -> void:
 	for cy in range(row0, row1):
 		var a := cy * terrain.cols
 		# The art already shows the floor and every piece as the map made it.
-		if terrain.cells.slice(a, a + terrain.cols) == terrain.base.slice(a, a + terrain.cols):
+		if terrain.cells.slice(a, a + terrain.cols) == terrain.map_base.slice(a, a + terrain.cols):
 			continue
 		for cx in terrain.cols:
 			var v := terrain.cells[a + cx]
-			var b := terrain.base[a + cx]
+			var b := terrain.map_base[a + cx]
 			if v == b:
 				continue
 			var cell := _cell_rect(cx, cy)
@@ -362,7 +369,7 @@ func _paint_lips(ci: CanvasItem, row0: int, row1: int) -> void:
 	for cy in range(row0, row1):
 		for cx in terrain.cols:
 			var i := cy * terrain.cols + cx
-			if not TerrainGrid.is_pit(terrain.cells[i]) or terrain.base[i] == TerrainGrid.CHASM or _bridge_gone(cx, cy):
+			if not TerrainGrid.is_pit(terrain.cells[i]) or _in_art(i) or _bridge_gone(cx, cy):
 				continue
 			var r := _cell_rect(cx, cy)
 			var n := posmod(cx * 7 + cy * 11, 5)

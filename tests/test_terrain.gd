@@ -84,3 +84,21 @@ func test_healing_walks_only_the_damaged_cells_and_survives_a_restore() -> void:
 	assert_eq(a.get_cell(Vector2i(40, 20)), TerrainGrid.CRACKED, "the later hole healed a step:")
 	assert_true(a.cells == b.cells and a.timers == b.timers, "the restored grid healed the same")
 	assert_eq(a._damaged.size(), 1, "one damaged cell left to walk:")
+
+
+func test_a_sunk_cell_stays_a_chasm_but_is_not_the_map_s_own() -> void:
+	# Sinkhole's rings and the Floor of pits mutator sink cells for the match: `base` turns
+	# CHASM so healing never refills them, while `map_base` keeps what the map (and its
+	# art) put there, so the view knows to draw them.
+	var t := TerrainGrid.new()
+	t.load_map({"pieces": [{"kind": "chasm", "rect": [0, 0, 2, 2]}]})
+	var map_pit := Vector2i(1, 1)
+	var sunk := Vector2i(10, 10)
+	t.sink(sunk)
+	assert_eq(t.get_cell(sunk), TerrainGrid.CHASM, "sunk:")
+	assert_eq(int(t.base[sunk.y * t.cols + sunk.x]), TerrainGrid.CHASM, "it heals back to a chasm (never refills):")
+	assert_eq(int(t.map_base[sunk.y * t.cols + sunk.x]), TerrainGrid.INTACT, "but the map had floor there:")
+	assert_eq(int(t.map_base[map_pit.y * t.cols + map_pit.x]), TerrainGrid.CHASM, "the map's own chasm is the map's:")
+	for i in 2000:
+		t.tick()
+	assert_eq(t.get_cell(sunk), TerrainGrid.CHASM, "still sunk after a long heal:")
