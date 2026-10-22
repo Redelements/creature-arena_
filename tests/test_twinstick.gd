@@ -207,7 +207,7 @@ func test_mister_crease_auto_flicks_and_still_folds_and_throws() -> void:
 		for e in sim.events:
 			if String(e["type"]) == "projectile" and int(e["who"]) == 0 and i < 60:
 				darts += 1
-	assert_gt(float(darts), 3.0, "a stream of darts from the right stick alone:")
+	assert_true(darts >= 3, "a stream of darts from the right stick alone (%d; three in the first second since the third dart recovers slower, Oct 2026 kit pass):" % darts)
 	assert_lt(c.pos.y, start.y - 20.0, "while he walks the other way:")
 	assert_gt(c.facing.x, 0.9, "facing the right stick's aim:")
 	assert_true(shuriken, "the folded shuriken still comes out on the second press")

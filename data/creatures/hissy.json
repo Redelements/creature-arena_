@@ -120,9 +120,9 @@
     },
     "skill_2": {
       "name": "Stone Gaze", "anim": "gaze", "cooldown": 300,
-      "startup": 8, "active": 0, "recovery": 104, "length": 112,
-      "gaze": { "from": 9, "to": 98, "every": 10, "range": 110, "cone": 0.7, "facing": 0.3,
-        "step": 0.09, "min_mult": 0.35, "slow_ticks": 90, "release_from": 24 },
+      "startup": 8, "active": 0, "recovery": 60, "length": 68,
+      "gaze": { "from": 9, "to": 66, "every": 10, "range": 110, "cone": 0.7, "facing": 0.3,
+        "step": 0.12, "min_mult": 0.35, "slow_ticks": 90, "release_from": 24 },
       "anim_at": [[0, 0], [8, 1], [12, 2], [16, 1], [20, 2], [24, 1], [28, 2], [32, 1], [36, 2], [40, 1],
         [44, 2], [48, 1], [52, 2], [56, 1], [60, 2], [64, 1], [68, 2], [72, 1], [76, 2], [80, 1], [84, 2],
         [88, 1], [92, 2], [99, 3]],

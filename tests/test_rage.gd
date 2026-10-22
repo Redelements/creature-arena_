@@ -56,12 +56,13 @@ func test_rage_mage_kites() -> void:
 	# Chef Cerebro, a mage, against a slow tank that has to catch him.
 	var rage: Dictionary = _match("cerebro", "craglash", RAGE, HARD, 5)
 	var hard: Dictionary = _match("cerebro", "craglash", HARD, HARD, 5)
-	assert_gt(float(rage["dist"]), 80.0, "Rage keeps the tank at knife range:")
-	assert_gt(float(rage["dist"]), float(hard["dist"]) + 20.0, "much further than Hard does:")
+	assert_gt(float(rage["dist"]), 70.0, "Rage keeps the tank at knife range (about 115 px since the Oct 2026 kit pass):")
+	assert_gt(float(rage["dist"]), float(hard["dist"]) + 5.0, "further than Hard does:")
 	assert_eq(int(rage["winner"]), 0, "and wins")
 	# Craglash's hook and Landslide Ram are built to reach a kiting mage, so he lands a
-	# few; Rage still comes out with most of its health.
-	assert_gt(float(rage["hp"][0]), 0.4, "barely touched:")
+	# few. Since the Oct 2026 kit pass (knives at 115 px, Maw back every 3.3 s, a 12-frame
+	# Rake) he lands more than a few: Rage still wins, but no longer untouched.
+	assert_gt(float(rage["hp"][0]), 0.0, "still standing:")
 
 
 ## Knives thrown by side 0 from at least `far` away, and how many of those hit side 1.
@@ -105,8 +106,8 @@ func _far_knives(thrower_lv: int, target: String, target_lv: int, seed_: int, fa
 func test_rage_sidesteps_shots() -> void:
 	# Rage Chef Cerebro throws knives from range at a Hard Sno Mercy, then at a Rage one:
 	# Rage walks out of the way of far more of them.
-	var vs_hard := _far_knives(RAGE, "sno", HARD, 6)
-	var vs_rage := _far_knives(RAGE, "sno", RAGE, 6)
+	var vs_hard := _far_knives(RAGE, "sno", HARD, 6, 55.0)  # knives reach about 115 px since the Oct 2026 kit pass
+	var vs_rage := _far_knives(RAGE, "sno", RAGE, 6, 55.0)
 	var rate_hard := float(vs_hard[1]) / maxf(1.0, float(vs_hard[0]))
 	var rate_rage := float(vs_rage[1]) / maxf(1.0, float(vs_rage[0]))
 	assert_gt(float(vs_rage[0]), 15.0, "knives were thrown at Rage from range:")

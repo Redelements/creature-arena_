@@ -214,8 +214,8 @@ func test_a_fighter_wins_a_contest() -> void:
 	_escort(t, [t.sim.creatures[0], t.sim.creatures[1]], 300)
 	assert_eq(t.cv_state, 2, "contested")
 	assert_gt(t.cv_p, p + 3.0, "and still creeping forward")
-	# Two fighters: no edge, it holds.
-	var t2 := _caravan([["hissy"], ["culvert"]])
+	# Two fighters: no edge, it holds (Culvert is a tank since the Oct 2026 kit pass, so Cairn).
+	var t2 := _caravan([["hissy"], ["cairn"]])
 	var p2 := t2.cv_p
 	_escort(t2, [t2.sim.creatures[0], t2.sim.creatures[1]], 300)
 	assert_eq(t2.cv_p, p2, "fighter against fighter: it holds")

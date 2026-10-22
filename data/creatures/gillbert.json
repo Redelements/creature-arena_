@@ -112,8 +112,8 @@
       "fx": { "afterimage": [1, 16], "ghost_color": "#b4e626aa", "trail": "splash", "impact": "droplets" }
     },
     "skill_2": {
-      "name": "Cast Line", "anim": "cast", "windup": 6, "tell": "strong", "cooldown": 210,
-      "startup": 10, "active": 0, "recovery": 28,
+      "name": "Cast Line", "anim": "cast", "windup": 6, "tell": "strong", "cooldown": 180,
+      "startup": 10, "active": 0, "recovery": 18,
       "damage": 4, "knockback": 0.2, "hitstun": 46, "hitstop": 6,
       "reel": 2, "reel_speed": 10.0,
       "projectile": { "speed": 11.0, "life": 18, "radius": 8, "offset": 12, "crack_trail": false },

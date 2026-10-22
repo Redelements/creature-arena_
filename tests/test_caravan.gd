@@ -4,7 +4,7 @@ extends TestCase
 ## round that stops once decided, the winner by time or distance, rollback, and CPU teams
 ## that escort it.
 
-const TEAMS := [["cairn", "sno", "pete"], ["culvert", "digby", "hissy"]]
+const TEAMS := [["cairn", "sno", "pete"], ["hissy", "digby", "culvert"]]  # a fighter faces a fighter in the 1v1 (Culvert is a tank since the Oct 2026 kit pass)
 
 
 func _caravan(size := 1, over := {}) -> TeamSim:

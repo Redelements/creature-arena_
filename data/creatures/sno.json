@@ -72,7 +72,7 @@
       "no_flinch": true,
       "name": "Cold Cross (jab)", "anim": "jab",
       "startup": 4, "active": 2, "recovery": 8, "cancel_from": 6,
-      "damage": 5, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
+      "damage": 6, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
       "slow_ticks": 60, "slow_mult": 0.8,
       "reach": 27, "hit_radius": 10, "lunge": 1.2, "next": "light_2", "juggle": true,
       "fx": { "smear": "thrust", "impact": "frost" }
@@ -81,7 +81,7 @@
       "no_flinch": true,
       "name": "Cold Cross (cross)", "anim": "cross",
       "startup": 5, "active": 2, "recovery": 9, "cancel_from": 7,
-      "damage": 6, "knockback": 0.9, "hitstun": 18, "hitstop": 4,
+      "damage": 7, "knockback": 0.9, "hitstun": 18, "hitstop": 4,
       "slow_ticks": 60, "slow_mult": 0.75,
       "reach": 28, "hit_radius": 10, "lunge": 1.0, "next": "light_3", "juggle": true,
       "fx": { "smear": "thrust", "impact": "frost" }

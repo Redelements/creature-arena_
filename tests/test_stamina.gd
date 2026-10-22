@@ -200,9 +200,11 @@ func test_the_rage_cpu_does_not_block_a_hit_that_would_empty_its_guard() -> void
 
 
 func test_the_rage_cpu_wears_down_a_low_guard() -> void:
-	# Cairn: no grab or guard-breaker, so wearing the guard down is all he has.
+	# Gillbert: no grab or guard-breaker (his hook is blockable), so wearing the guard down
+	# is all he has. Cairn played this part until the Oct 2026 kit pass gave his charged
+	# Haymaker a guard break, which Rage now holds for instead.
 	_log = []
-	var sim := MatchFactory.training("cairn")
+	var sim := MatchFactory.training("gillbert")
 	sim.creatures[0].pos = Vector2(280, 164)
 	sim.creatures[1].pos = Vector2(304, 164)
 	var cpu := CpuController.new(0, CpuController.RAGE, 5)
