@@ -78,6 +78,7 @@ update the map in the same change.
 | HUD, stamina bar, cooldowns, combo counter, cut-in | `src/view/hud.gd:_panel`, `_combo`, `cut_in` | test_ui, training |
 | health bars over fighters | `src/view/fx_view.gd:_draw_side_marks` | overhead_bars |
 | range rings, hitbox overlay | `src/view/range_rings.gd`, `src/view/debug_view.gd` | range_rings |
+| fps counter, frame-time graph, performance overlay | `src/view/perf_overlay.gd`; `--perf` report `src/game/perf_log.gd` | perf_overlay |
 | DPS meter | `src/view/dps_meter.gd` | training |
 | sound effects, music, volume | `src/view/audio_view.gd:on_event`, `data/audio.json`, `docs/AUDIO.md` | scripts_load |
 | arena drawing, crowd, map art | `src/view/arena_view.gd` (`_paint_changed`, row bands `BAND_ROWS`), `src/view/crowd_view.gd`; art from `tools/gen_arenas.py` (rerun after moving a piece in `data/arenas/`) | arena |
