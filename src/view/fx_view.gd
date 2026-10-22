@@ -816,7 +816,12 @@ func _watch_all() -> void:
 
 func _move_started(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 	if String(mv.get("type", "")) == "surge":
-		_dark = maxf(_dark, 0.6)
+		if sim.surge_freeze:
+			_dark = maxf(_dark, 0.6)
+		else:
+			# No freeze or cut-in on a crowded field: the Surge's name over the caster.
+			_text(c.pos + Vector2(0, -_top(c) - 22), String(mv.get("name", "SURGE")).to_upper(),
+				Color("ffd166"), 10, 60.0, 220.0)
 	if bool(fx.get("burrow", false)):
 		cue.emit("dig")
 	if bool(fx.get("syrup", false)):
@@ -2031,8 +2036,9 @@ func _drop(pos: Vector2, z: float, vel: Vector2, vz: float, pool: bool, col := C
 		"dsize": size})
 
 
-func _text(pos: Vector2, text: String, color: Color, size := 8, life := 40.0) -> void:
-	_add({"kind": "text", "pos": pos, "text": text, "color": color, "size": size, "life": life})
+## `width`: the box the text is centred in (longer text is clipped).
+func _text(pos: Vector2, text: String, color: Color, size := 8, life := 40.0, width := 80.0) -> void:
+	_add({"kind": "text", "pos": pos, "text": text, "color": color, "size": size, "life": life, "width": width})
 
 
 ## Orbiting pebbles while Haymaker charges: more of them, higher, the longer it's held.
@@ -2163,10 +2169,11 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 			var pos: Vector2 = p["pos"]
 			var col: Color = p["color"]
 			col.a = 1.0 - maxf(0.0, k - 0.6) / 0.4
-			var at := pos + Vector2(-40, -t * 0.5)
+			var w := float(p.get("width", 80.0))
+			var at := pos + Vector2(-w * 0.5, -t * 0.5)
 			var fs: int = p["size"]
-			ci.draw_string_outline(_font, at, String(p["text"]), HORIZONTAL_ALIGNMENT_CENTER, 80, fs, 3, Color(0.1, 0.08, 0.1, col.a))
-			ci.draw_string(_font, at, String(p["text"]), HORIZONTAL_ALIGNMENT_CENTER, 80, fs, col)
+			ci.draw_string_outline(_font, at, String(p["text"]), HORIZONTAL_ALIGNMENT_CENTER, w, fs, 3, Color(0.1, 0.08, 0.1, col.a))
+			ci.draw_string(_font, at, String(p["text"]), HORIZONTAL_ALIGNMENT_CENTER, w, fs, col)
 		"glint":
 			# A four-point star that flares and shrinks over the windup.
 			var pos: Vector2 = Vector2(p["pos"]).round()

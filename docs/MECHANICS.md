@@ -82,7 +82,8 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `energy_cost` | energy | Spent on start; required to start | all surges | cs:`can_use` |
 | `sheets_cost` | sheets | Spent on start; required to start (Thousand Cranes: 3) | crease surge | cs:`can_use`, `_start_attack` |
 | `fold` | `{anim, startup, recovery, cost=1, mobile}` | Fold-then-use: while the move isn't folded (`CreatureSim.folded`), its press starts a generated `fold_<move>` step instead (type `fold`, no hit, played with `anim`). At `startup` the fold completes: `cost` sheets are spent and the craft is folded (`fold` event, `craft`); a hit before that cancels it and nothing is spent (a no_flinch melee hit interrupts it like a windup: `is_folding`). The next press uses the move, and the craft is gone. Any number of crafts can be carried at once. A fold is never a combo cancel (only from neutral); a folded craft cancels as usual. Needs `cost` sheets (`can_use`); the CPU only presses an unfolded craft to fold it (`_usable`, `_maybe_fold`) | crease heavy, skill_1, skill_2 | cs:`_init`, `needs_fold`, `_resolve_fold`, `_update_attack` |
-| `freeze` | ticks (18) | Surge only: sets `MatchSim.hitstop` on start | none in data (all use 18) | cs:`_start_attack` |
+| `freeze` | ticks (18) | Surge only: sets `MatchSim.hitstop` on start, only while `MatchSim.surge_freeze` (two on the field: 1v1, a 1 v 1 team mode, a tag Duel, a Brawl of two) | none in data (all use 18) | cs:`_start_attack` |
+| `crowd_windup` | ticks (`MatchSim.SURGE_CROWD_WINDUP` 18) | Surge only, when `surge_freeze` is off (a team match of 2 v 2 and up, a Brawl of three or four: set by `TeamSim`/`BrawlSim`, fixed for the match): nothing freezes, and a raw Surge winds up instead for the larger of this and its `windup` (`windup` event with its `tell`). Cancelled into, it doesn't | none in data | cs:`_start_attack` |
 | `counter` | `{from, to, move, invuln=12}` | A non-grab strike landing in the window starts `move` facing the attacker, with `invuln` | cairn (Slip) | ms:`_apply_hit`, cs:`trigger_counter` |
 
 ### Hit keys (cs:`hit_params`, resolved in ms:`_apply_hit`)
@@ -276,7 +277,7 @@ Views, audio, drills and the CPU read `sim.events`; the sim never reads them.
 | Event | When |
 | --- | --- |
 | `windup` | Raw move starts with a windup (`tell`, `move`) |
-| `surge`, `surge_ready` | Surge starts; a meter fills |
+| `surge`, `surge_ready` | Surge starts (`name`, `freeze`: whether it froze the match; without it the view skips the cut-in and flash); a meter fills |
 | `dodge`, `warp`, `ram_wall` | Dodge starts; a blink dodge teleports; a ramming dodge hits the wall (`who`, power = its damage) |
 | `hit`, `block`, `armor`, `miss`, `slip`, `guard_break`, `punishable` | Hit outcomes (`slip`: counter; `punishable`: blocked ender; `guard_break` with `drained`: stamina ran out under the hit, drawn as "EXHAUSTED") |
 | `grab`, `hook`, `pull`, `reel`, `reeled_in` | Grab (`flip` flag), hook, pull, reel start, reel arrival |

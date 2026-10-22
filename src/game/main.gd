@@ -2197,9 +2197,14 @@ func _react(e: Dictionary) -> void:
 		"guard_break", "breakaway", "slip":
 			crowd.cheer(0.3)
 		"surge":
+			crowd.cheer(0.6)
+			if not bool(e.get("freeze", true)):
+				# A crowded field doesn't stop for it: no cut-in or flash, just the caster's
+				# own call-out and windup (fx_view).
+				shake = maxf(shake, 1.5)
+				return
 			_flash(Color(1, 0.95, 0.75), 0.55)
 			shake = maxf(shake, 3.0)
-			crowd.cheer(0.6)
 			var who := int(e.get("who", 0))
 			hud.cut_in(sim.creatures[who], clampi(sim.creatures[who].team, 0, 1), String(e.get("name", "Surge")))
 		"score":
