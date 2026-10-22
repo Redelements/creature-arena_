@@ -2067,16 +2067,40 @@ func _draw_now() -> void:
 	_paint(self, false)
 
 
+## Culling: on a big map most of the field is off screen, so nothing is drawn unless it
+## is within these pads of the view. Particles are centred on `pos` and reach at most a
+## smear's or a burst ring's length; a fighter's extras include telegraphs that can reach
+## into view from well outside it, so they get a wider margin.
+const CULL_PAD := 160.0
+const CULL_PAD_FIGHTER := 320.0
+
+
+## The part of `ci`'s space on screen, grown by `pad`; everything when there's no screen.
+static func _view_rect(ci: CanvasItem, pad: float) -> Rect2:
+	if not ci.is_inside_tree():
+		return Rect2(-1e9, -1e9, 2e9, 2e9)
+	return (ci.get_global_transform_with_canvas().affine_inverse() * ci.get_viewport_rect()).grow(pad)
+
+
+## Whether the particle is near enough the screen to draw (one without a `pos` always is).
+static func _in_view(p: Dictionary, view: Rect2) -> bool:
+	var pos = p.get("pos")
+	return pos == null or view.has_point(pos)
+
+
 func _paint(ci: CanvasItem, floor_layer: bool) -> void:
+	var view := _view_rect(ci, CULL_PAD)
 	if floor_layer:
 		if _dark > 0.0:
 			ci.draw_rect(Rect2(-ArenaView.MARGIN, (sim.arena_size() if sim != null else SimDefs.arena_size()) + ArenaView.MARGIN * 2.0),
 				Color(C_DIM, _dark))
 		_draw_pads(ci)
 		for p in _parts:  # flat things first, so debris sits on top of puddles and cracks
-			if String(p["kind"]) in ["puddle", "decal", "ripple", "lost"]:
+			if String(p["kind"]) in ["puddle", "decal", "ripple", "lost"] and _in_view(p, view):
 				_draw_part(ci, p)
 		for p in _parts:
+			if not _in_view(p, view):
+				continue
 			var kind := String(p["kind"])
 			if kind == "ghost" or (kind in ["spire", "root"] and not bool(p.get("front", false))):
 				_draw_part(ci, p)
@@ -2093,6 +2117,8 @@ func _paint(ci: CanvasItem, floor_layer: bool) -> void:
 	for p in _parts:
 		var kind := String(p["kind"])
 		if kind in ["puddle", "decal", "ripple", "ghost", "later", "emit", "lost"]:
+			continue
+		if not _in_view(p, view):
 			continue
 		if p.has("orbit") and not shown(_creature(int(p["orbit"]))):
 			continue  # circling a fighter the local team can't see
@@ -2735,11 +2761,14 @@ func _draw_buffs(ci: CanvasItem) -> void:
 ## Who's who: a coloured marker over each side's fighter (red for the left side, P1;
 ## blue for the right, P2 or the CPU) with its label.
 func _draw_side_marks(ci: CanvasItem) -> void:
+	var view := _view_rect(ci, CULL_PAD)
 	for i in mini(side_marks.size(), sim.creatures.size()):
 		var c := sim.creatures[i]
 		if c.state == CreatureSim.State.KO:
 			_trail.erase(c)
 			continue
+		if not view.has_point(c.pos):
+			continue  # off screen (a big map)
 		if c.swallow_t > 0:
 			continue  # inside Culvert: nothing to show
 		if not shown(c):
@@ -2970,9 +2999,12 @@ func _draw_wave(ci: CanvasItem, p: Vector2, vel: Vector2) -> void:
 func _draw_creature_extras(ci: CanvasItem, floor_layer: bool) -> void:
 	if floor_layer:
 		_draw_zones(ci)
+	var view := _view_rect(ci, CULL_PAD_FIGHTER)
 	for c in sim.creatures:
 		if not shown(c):
 			continue  # no aim mark, telegraph or status icons for a fighter out of sight
+		if not view.has_point(c.pos):
+			continue  # far off screen: even its telegraphs can't reach the view
 		var attacking := c.state == CreatureSim.State.ATTACK
 		var mv := c.move_def() if attacking else {}
 		var fx: Dictionary = mv.get("fx", {})

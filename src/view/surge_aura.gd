@@ -106,8 +106,19 @@ func _draw() -> void:
 	PerfLog.since("aura draw", t0)
 
 
+## How far off screen a fighter can be and still have its aura drawn (the shell and the
+## motes reach a little past the body).
+const CULL_PAD := 96.0
+
+
+func _on_screen() -> bool:
+	if not is_inside_tree():
+		return true
+	return get_viewport_rect().grow(CULL_PAD).has_point(get_global_transform_with_canvas().origin)
+
+
 func _draw_now() -> void:
-	if c == null or (not lit and burst_t < 0):
+	if c == null or (not lit and burst_t < 0) or not _on_screen():
 		return
 	var b := _burst_k()
 	if not front:

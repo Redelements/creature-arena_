@@ -156,8 +156,10 @@ static func think_start(cpus: Array, sim: MatchSim) -> int:
 			c.bits(sim)
 		return -1
 	SimDefs.aim_dirs()
+	var t0 := PerfLog.now()
 	NavGrid.shared(sim.terrain)  # (and its TerrainIndex) built here, read-only on the threads
 	TerrainIndex.of(sim.terrain)
+	PerfLog.since("ai nav update", t0)
 	return WorkerThreadPool.add_group_task(func(k: int) -> void: list[k].bits(sim),
 		list.size(), -1, true, "CPU players")
 
@@ -188,10 +190,16 @@ func bits(sim: MatchSim) -> int:
 			_quiet_t = 0
 	if _quiet_t > 75:
 		_blocked_streak = 0  # a standoff: try again rather than stand there
+	var t0 := PerfLog.now()
 	_look(sim, me)
+	PerfLog.since("ai look", t0)
+	t0 = PerfLog.now()
 	var foe := _pick_target(sim, me) if _rage() else _nearest_known(sim, me)
+	PerfLog.since("ai target", t0)
 	if foe != null and me.state != CreatureSim.State.KO:
+		t0 = PerfLog.now()
 		_decide(sim, me, foe)
+		PerfLog.since("ai decide", t0)
 		# Normal and up aim attacks exactly (360 degrees), like a stick or a mouse; Easy
 		# keeps to the 8 directions a keyboard gives. Rage leads a moving target. A foe out
 		# of sight is aimed at where it was last seen.
@@ -266,7 +274,10 @@ func _move_toward(v: Vector2) -> void:
 ## the goal moves). `weave` is added to the straight step (the chase's sidestep), never
 ## to the path, so the detour stays on open floor.
 func _go_to(sim: MatchSim, me: CreatureSim, goal: Vector2, weave := Vector2.ZERO) -> void:
-	if NavGrid.clear_line(sim.terrain, me.pos, goal, me.radius, false):
+	var t0 := PerfLog.now()
+	var straight := NavGrid.clear_line(sim.terrain, me.pos, goal, me.radius, false)
+	PerfLog.since("ai line", t0)
+	if straight:
 		_path = PackedVector2Array()
 		var v := (goal - me.pos).normalized() + weave
 		if _rage():
@@ -276,7 +287,9 @@ func _go_to(sim: MatchSim, me: CreatureSim, goal: Vector2, weave := Vector2.ZERO
 		return
 	_path_t -= 1
 	if _path.is_empty() or _path_t <= 0 or _path_goal.distance_to(goal) > 20.0:
+		var t1 := PerfLog.now()
 		_path = NavGrid.shared(sim.terrain).path(me.pos, goal)
+		PerfLog.since("ai path", t1)
 		_path_goal = goal
 		_path_t = REPLAN_TICKS
 	# Drop waypoints already reached, or that the next one can be walked to straight.
@@ -411,6 +424,12 @@ func _maybe_tag(me: CreatureSim, dist: float) -> bool:
 
 
 func _continue_attack(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float) -> void:
+	var t0 := PerfLog.now()
+	_continue_attack_now(sim, me, foe, dist)
+	PerfLog.since("ai attack", t0)
+
+
+func _continue_attack_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float) -> void:
 	if me.charging:
 		# A move that does something else when held to a full charge (Gulp: tapped, a hook;
 		# held, a swallow): decide once per throw whether to hold it all the way.
@@ -537,6 +556,13 @@ func _pick_route(me: CreatureSim, dist: float) -> Array:
 
 
 func _defend(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float) -> bool:
+	var t0 := PerfLog.now()
+	var out := _defend_now(sim, me, foe, dist)
+	PerfLog.since("ai defend", t0)
+	return out
+
+
+func _defend_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float) -> bool:
 	# Keep doing a defense already chosen.
 	if _defense != "":
 		_defense_t -= 1
@@ -640,6 +666,12 @@ func _maybe_fold(me: CreatureSim, foe: CreatureSim, dist: float) -> bool:
 
 
 func _neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float) -> void:
+	var t0 := PerfLog.now()
+	_neutral_now(sim, me, foe, to_foe, dist)
+	PerfLog.since("ai neutral", t0)
+
+
+func _neutral_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float) -> void:
 	_route = []
 	_route_drop = false
 	var ai := _ai(me)
@@ -940,6 +972,13 @@ func _go(sim: MatchSim, me: CreatureSim, v: Vector2) -> void:
 ## The walkable direction closest to `v`: steps that would end in a hole or against a
 ## wall score lower.
 func _steer(sim: MatchSim, me: CreatureSim, v: Vector2) -> Vector2:
+	var t0 := PerfLog.now()
+	var out := _steer_now(sim, me, v)
+	PerfLog.since("ai steer", t0)
+	return out
+
+
+func _steer_now(sim: MatchSim, me: CreatureSim, v: Vector2) -> Vector2:
 	if v.length_squared() < 0.0001:
 		return Vector2.ZERO
 	var want := v.normalized()
@@ -1030,6 +1069,13 @@ func _reach_of(o: CreatureSim, me: CreatureSim) -> float:
 ## Whether a light thrown now would land: `foe` is in reach and can't walk out of it
 ## before the strike comes out (or is stuck: attacking, guarding, stunned, cornered).
 func _lands(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float, reach: float) -> bool:
+	var t0 := PerfLog.now()
+	var out := _lands_now(sim, me, foe, dist, reach)
+	PerfLog.since("ai lands", t0)
+	return out
+
+
+func _lands_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float, reach: float) -> bool:
 	if dist > reach or foe.state == CreatureSim.State.GUARD or not _sees(foe):
 		return false  # a guard is grabbed, not jabbed; a foe out of sight can't be aimed at
 	if _blocked_streak >= 2 and foe.state != CreatureSim.State.ATTACK and not foe.is_stunned():
@@ -1104,6 +1150,13 @@ static func _recovery_left(o: CreatureSim) -> int:
 ## step out of reach when there's time, time a dodge so its invincible frames cover the
 ## hit, or guard.
 func _rage_defend(sim: MatchSim, me: CreatureSim) -> bool:
+	var t0 := PerfLog.now()
+	var out := _rage_defend_now(sim, me)
+	PerfLog.since("ai rage defend", t0)
+	return out
+
+
+func _rage_defend_now(sim: MatchSim, me: CreatureSim) -> bool:
 	if _defense == "step":
 		_defense_t -= 1
 		if _defense_t > 0:
@@ -1291,6 +1344,13 @@ func _dodge_dir(me: CreatureSim, dir: Vector2) -> void:
 ## Punish: a foe whose move is spent is open until it recovers. Hit it if a light gets
 ## there in time, a poke if that does, or close in if the window is long enough.
 func _rage_punish(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float) -> bool:
+	var t0 := PerfLog.now()
+	var out := _rage_punish_now(sim, me, foe, to_foe, dist)
+	PerfLog.since("ai rage punish", t0)
+	return out
+
+
+func _rage_punish_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float) -> bool:
 	var left := _recovery_left(foe)
 	if left < 0 or foe.is_invulnerable():
 		return false
@@ -1335,6 +1395,12 @@ func _strafe(sim: MatchSim, me: CreatureSim, foe: CreatureSim, v: Vector2) -> vo
 
 
 func _rage_neutral(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float) -> void:
+	var t0 := PerfLog.now()
+	_rage_neutral_now(sim, me, foe, to_foe, dist)
+	PerfLog.since("ai rage neutral", t0)
+
+
+func _rage_neutral_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float) -> void:
 	_route = []
 	_route_drop = false
 	var ai := _ai(me)

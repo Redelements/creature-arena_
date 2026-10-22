@@ -6,6 +6,9 @@ extends SceneTree
 ## a release build, and its threads gain less, so compare runs with each other.
 ##   godot --headless --path . --script res://tests/bench_ai_cost.gd -- [--mode=ctf|caravan|sinkhole]
 ##       [--size=4] [--level=3] [--seconds=180] [--seed=7] [--threads=off]
+## --threads=off also prints where the thinking goes (the probes in cpu_controller.gd:
+## look, target, decide, line, path, steer and the decision branches) as per-tick sums
+## over every CPU; the probes only count on the main thread, so threads must be off.
 
 const ROSTER := ["cairn", "sno", "pete", "craglash", "culvert", "digby", "hissy", "barkley", "gillbert", "cerebro"]
 const PATHS := {"ctf": TeamSim.CTF_PATH, "caravan": TeamSim.CARAVAN_PATH, "sinkhole": TeamSim.SINKHOLE_PATH}
@@ -31,6 +34,11 @@ func _init() -> void:
 			seed = int(v)
 		elif arg == "--threads=off":
 			CpuController.threaded = false
+	# The AI's timing probes (PerfLog.since in cpu_controller.gd) add up per tick; they
+	# aren't thread-safe, so the breakdown is only taken with the CPUs thinking in turn.
+	var log := PerfLog.new()
+	if not CpuController.threaded:
+		PerfLog.current = log
 	var teams := [[], []]
 	for k in size * 2:
 		teams[k % 2].append(ROSTER[(seed + k) % ROSTER.size()])
@@ -50,10 +58,14 @@ func _init() -> void:
 		t.step(ins)
 		think.append((b - a) / 1000.0)
 		step.append((Time.get_ticks_usec() - b) / 1000.0)
+		log.frame(true)  # folds this tick's probes into the breakdown
 		if t.phase == TeamSim.Phase.OVER:
 			break
 	print("%s %dv%d, CPU %s, threads %s, %d ticks" % [mode, size, size, CpuController.LEVELS[level]["name"],
 		"on" if CpuController.threaded else "off", think.size()])
 	print(PerfLog._line("cpu think", think).trim_prefix("PERF "))
 	print(PerfLog._line("sim step", step).trim_prefix("PERF "))
+	for part in log.parts:  # per tick, all CPUs together (nested: decide holds the rest)
+		print(PerfLog._line("  " + part, log.parts[part], 0).trim_prefix("PERF "))
+	PerfLog.current = null
 	quit()

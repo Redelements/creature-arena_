@@ -30,8 +30,9 @@ player and live here, outside the sim.
 - Start a match → `_start_match` → `_start_round` (1v1), `_start_duel`, `_start_team`,
   `_start_coach`, `_start_showcase`, `_open_lobby`; pick screen → `_has_pick`,
   `_on_teams_chosen`, `_padded_teams`; sim + views → `_new_sim`; inputs → `_side_bits`,
-  `_dummy_bits`, CPU sides all at once → `_think_cpus` (worked out while the last frame
-  drew: `_think_ahead`, joined in `_join_cpus` on `frame_post_draw`); flow → `_update_flow`; ends → `_end_round`, `_show_match_over`,
+  `_dummy_bits`, CPU sides all at once → `_think_cpus` (worked out between ticks on the
+  worker threads: `_think_ahead` at the end of a tick, joined in `_join_cpus` at the next
+  tick, or first on a press, a training change or a new match); flow → `_update_flow`; ends → `_end_round`, `_show_match_over`,
   `_duel_flow`, `_team_flow`
 - Camera → `_update_camera`, `_frame_fight`, `_cam_axis`; `CAM_PAD`, `KO_ZOOM`, `SHOWCASE_ZOOM`;
   on a map bigger than the stadium it follows the local player (`_cam_anchor`, `FOLLOW_R`,

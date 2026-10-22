@@ -25,12 +25,19 @@ var slow: Array[String] = []
 var _start_us := 0
 
 
+## Only the main thread records: `_part_us` is a plain Dictionary, and the CPU players
+## think on worker threads (CpuController.think_all) with probes of their own in the way
+## (cpu_controller.gd). Those count only when the CPUs think in turn (the AI bench with
+## --threads=off); on a worker thread they do nothing, and the game never stalls on them.
+static var _main_thread := OS.get_main_thread_id()
+
+
 static func now() -> int:
-	return Time.get_ticks_usec() if current != null else 0
+	return Time.get_ticks_usec() if current != null and OS.get_thread_caller_id() == _main_thread else 0
 
 
 static func since(part: String, t0: int) -> void:
-	if current != null:
+	if current != null and t0 > 0 and OS.get_thread_caller_id() == _main_thread:
 		current._part_us[part] = current._part_us.get(part, 0) + Time.get_ticks_usec() - t0
 
 
