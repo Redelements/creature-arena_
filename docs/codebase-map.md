@@ -96,7 +96,7 @@ update the map in the same change.
 | rollback, prediction | `src/net/rollback_session.gd`, `src/net/online_match.gd` | online |
 | desyncs, version or data mismatch | `src/net/online_match.gd:_check_digest`, `src/net/netplay.gd:data_hash` (`NET_VERSION`) | online, server |
 | ping, input delay, lag | `src/net/netplay.gd:pick_delay`, `_live_ping_step`; `src/net/lag_link.gd` | online |
-| dedicated server, matchmaking, rooms, rematch | `src/net/relay_server.gd`, `src/net/dedicated_server.gd`, `docs/SERVER.md` | server, server_teams, rooms |
+| dedicated server, matchmaking, rooms, rematch, server monitoring | `src/net/relay_server.gd`, `src/net/dedicated_server.gd`, `docs/SERVER.md` | server, server_teams, rooms |
 | ranked ratings, daily scores | `src/net/ratings.gd`, `src/net/daily_client.gd` | ranked |
 | spectators, server replays | `src/net/referee.gd`, `src/net/relay_server.gd` | spectate |
 | LAN discovery | `src/net/lan_finder.gd`, `src/net/server_beacon.gd` | server |
