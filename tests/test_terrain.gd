@@ -61,3 +61,26 @@ func test_out_of_bounds_reads_as_solid() -> void:
 	var t := TerrainGrid.new()
 	assert_eq(t.get_cell(Vector2i(-1, 0)), TerrainGrid.INTACT, "left of grid:")
 	assert_eq(t.get_cell(Vector2i(0, 999)), TerrainGrid.INTACT, "below grid:")
+
+
+func test_healing_walks_only_the_damaged_cells_and_survives_a_restore() -> void:
+	# tick() keeps the cells that differ from the base and walks only those, found again
+	# whenever version moves: damage added later heals too, and a grid restored wholesale
+	# (as rollback does: cells, timers, base and a version bump) heals exactly the same.
+	var a := TerrainGrid.new()
+	a.crack_circle(a.cell_center(Vector2i(20, 10)), 20.0)
+	for i in 100:
+		a.tick()
+	a.set_cell(Vector2i(40, 20), TerrainGrid.HOLE)  # fresh damage after the walk began
+	var b := TerrainGrid.new()
+	b.cells = a.cells.duplicate()
+	b.timers = a.timers.duplicate()
+	b.base = a.base.duplicate()
+	b.version = a.version + 1
+	for i in TerrainGrid.HEAL_TICKS + 1:
+		a.tick()
+		b.tick()
+	assert_eq(a.get_cell(Vector2i(20, 10)), TerrainGrid.INTACT, "the cracks healed:")
+	assert_eq(a.get_cell(Vector2i(40, 20)), TerrainGrid.CRACKED, "the later hole healed a step:")
+	assert_true(a.cells == b.cells and a.timers == b.timers, "the restored grid healed the same")
+	assert_eq(a._damaged.size(), 1, "one damaged cell left to walk:")

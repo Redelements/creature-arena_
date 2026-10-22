@@ -14,7 +14,7 @@ Abbreviations: **cs** = `src/sim/creature_sim.gd`, **ms** = `src/sim/match_sim.g
 2. `ko_freeze > 0`: count down, only buffer presses (`buffer_input`), return.
 3. `slowmo > 0`: on odd ticks only buffer presses, return.
 4. `hitstop > 0`: count down, buffer presses, return.
-5. `terrain.tick()`: damaged cells mend a step when their timer runs out.
+5. `terrain.tick()`: damaged cells mend a step when their timer runs out (it walks only the cells that differ from the base, `_damaged`, found again whenever `version` has moved).
 6. `CreatureSim.step()` per creature: buffer presses, count down timers and cooldowns, regen stamina, `_tick_status` (taunt drag, statuses, poison, Stoneskin), breakaway check, the state handler (`_update_free` / `_update_attack` / `_update_dodge` / `_update_guard` / stun / landing / falling), then `_reel_step`, `_flip_step`, `_apply_knockback`.
 6b. `_step_swallows()`: a swallowed creature rides inside its swallower; when its time is up it is pushed out behind (`_poop`).
 7. `_step_projectiles()`: move, crack trail, hit or burst.

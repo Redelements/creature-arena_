@@ -458,8 +458,26 @@ static func heal_step(v: int, b: int) -> int:
 ## Heals every damaged cell a step when its timer runs out. `blocked` (a cell → bool),
 ## when given, says a body is standing there: a wall waits a tick rather than rebuilding
 ## under someone.
-func tick(blocked := Callable()) -> void:
+## The cells that differ from the map's base (the ones with a healing clock), found again
+## whenever `version` has moved since (every write to the floor bumps it, restore() too),
+## so a tick walks the few damaged cells and not a big map's every cell. Derived from the
+## state, not part of it: a restore rebuilds it through `version`.
+var _damaged := PackedInt32Array()
+var _damaged_version := -1
+
+
+func _find_damaged() -> void:
+	_damaged_version = version
+	_damaged.clear()
 	for i in cells.size():
+		if cells[i] != base[i]:
+			_damaged.append(i)
+
+
+func tick(blocked := Callable()) -> void:
+	if version != _damaged_version:
+		_find_damaged()
+	for i in _damaged:  # ascending, as the walk over every cell was
 		if cells[i] == base[i]:
 			continue
 		timers[i] -= 1
