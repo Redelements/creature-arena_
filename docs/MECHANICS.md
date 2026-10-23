@@ -107,7 +107,7 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `flip` | px | seg | With `grab`: carried over the attacker's head to `flip` px behind, airborne `max(launch, 2)` ticks; attacker turns round. With `swallow`: how far behind the body it comes out | cerebro, culvert `hold` |
 | `swallow` | ticks | seg | With `grab`: swallowed. Rides inside the attacker this long (`swallow_t`; hidden, invulnerable, not solid), then pushed out `flip` px behind him, hopping away from him (`POOP_SPEED` 2.2 px/tick) for `launch` ticks. The attacker keeps facing forward. Events `swallow`, `poop` | culvert `hold` (Gulp held) |
 | `reel`, `reel_speed` | px, px/tick | seg | Attacker hauled to `reel` px short of the target at `reel_speed` (default 5); at most 60 ticks; ends the move on arrival | gillbert skill_2 |
-| `skip_struck` | bool | seg | This segment passes over a foe an earlier segment of the same attack already hit (a wide finisher that would shatter the statue its first hit made); ms:`_resolve_hits`, cs:`struck_before` | none yet |
+| `skip_struck` | bool | seg | This segment passes over a foe an earlier segment of the same attack already hit (a wide finisher that would shatter the statue its first hit made); ms:`_resolve_hits`, cs:`struck_before` | hissy surge |
 | `cone` | dot threshold | move | Only foes with `facing·dir >= cone` (melee only) | culvert skill_2, sno heavy |
 | `no_flinch` | bool | move | Damage only: no stun state, no knockback; resets the combo on a free target. A melee one still interrupts a windup (hitstun) and reveals stealth; a ranged one (projectile or lob) does neither | every fighter's lights except the last of the string (Craglash's slower string staggers on every hit); cerebro's thrown flicks |
 | `stack_bonus` | hp per stack | move | Adds `stack × bonus`, consumes stacks | cairn |
@@ -124,8 +124,8 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `poison_look` | move | How the poison shows: `"bleed"` (a red cut, "BLEEDING") instead of venom; kept on the target (`poison_look`) and in the `poisoned` / `poison` events (`look`) | crease heavy |
 | `petrify` | seg | Statue for N ticks | hissy surge |
 | `freeze_ticks` | seg | Ice statue for N ticks | sno surge |
-| `blind_ticks` | seg | Next attack misses | digby skill_1 |
-| `root_ticks` | seg | No walking, no dodging | digby surge |
+| `blind_ticks` | seg | Next attack misses | digby skill_1, pete surge |
+| `root_ticks` | seg | No walking, no dodging | digby surge, barkley surge (last ring) |
 | `steal_ticks`, `steal` | seg / move | Attacker deals ×(1+steal), target ×(1−steal) | pete skill_2 |
 
 ### Self buffs, zones, gaze
@@ -134,7 +134,7 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | --- | --- | --- | --- |
 | `self.stealth` | Invisible for N ticks | pete skill_1, surge | cs:`_start_attack` |
 | `self.haste`, `self.haste_mult` (1.4) | Walk × mult for N ticks | pete skill_1 | cs:`_start_attack` |
-| `zone` `{at=startup, radius=32, ticks=240, slow_mult=0.5}` | Floor puddle at the user's position | sno skill_1 | ms:`add_zone` |
+| `zone` `{at=startup, radius=32, ticks=240, slow_mult=0.5}` | Floor puddle at the user's position | sno skill_1, sno surge, gillbert surge | ms:`add_zone` |
 | `gaze` `{from, to, every=10, range=110, cone=0.7, facing=0.3, step=0.08, min_mult=0.35, slow_ticks=90, release_from}` | Pulsed stare, see "Status effects" | hissy skill_2 | cs:`_gaze` |
 
 ### Charge
@@ -154,8 +154,8 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `terrain_radius_charged`, `terrain_core_charged` | At full charge: crack radius, and the core that opens holes | none in data | cs:`_slam` |
 | `terrain_rect` `[w, h]` | Block of cells (w and h swap when facing mostly up/down): 1 step plain, 2 steps plus a cracked rim at full charge | culvert heavy | tg:`damage_rect` |
 | `terrain_at` | px | Where a `terrain_rect` block is centred ahead of the body (default `reach`), so a deeper block can reach further out without coming under the feet | culvert heavy (38) | cs:`_slam` |
-| `terrain_ring` `{inner, outer}` | Holes between the radii around the user, cracked band `CRACK_BAND` 10 outside | culvert surge | tg:`damage_ring` |
-| `terrain_crack` | Cracks (never opens) a circle at `pos + facing × reach` | barkley surge, cerebro heavy | tg:`crack_circle` |
+| `terrain_ring` `{inner, outer, side_lanes}` | Holes between the radii around the user, cracked band `CRACK_BAND` 10 outside. `side_lanes` (px): to the user's left and right (across its facing) the ring is only cracked in a lane that wide, so a fighter who sidestepped can walk in and punish; in front and behind the pits stay | culvert surge (36) | tg:`damage_ring` |
+| `terrain_crack` | Cracks (never opens) a circle at `pos + facing × reach` | barkley surge, craglash surge, cerebro heavy, digby surge | tg:`crack_circle` |
 | `terrain_heal` | × `HEAL_TICKS` before that damage mends (radius, rect, ring only) | culvert (1.5) | cs:`_terrain_heal` |
 
 ### Projectile keys (`projectile`, ms:`spawn_projectile`)
@@ -216,7 +216,7 @@ Constants: cs (`BUFFER_TICKS` 10, `JUGGLE_MAX` 3, `JUGGLE_FLOAT` 16, `LAND_KNOCK
 - **Energy** (`data/rules/energy.json`, `MatchSim.energy_rules()`, in `Netplay.data_hash`): the attacker gains `per_damage_dealt` (0.75) × damage dealt (clean, blocked chip or armor chip), except from surge-type hits; the defender gains `per_damage_taken` (0.5) × clean damage. `carry_between_rounds` (true): a best-of-three keeps each side's meter into the next round (`DuelSim._next_round`; offline Versus in `main.gd`, `_carried_energy`); health, stamina and the floor still reset. `surge_ready` fires when a meter fills.
 - **Breakaway:** Guard + Dodge while stunned, with `combo_hits >= 3` and 50 energy: combo reset, `BREAKAWAY_INVULN`, pushed away; the attacker's attack is cancelled.
 - **KO:** `ko_freeze_ticks` 18 frozen, then `ko_slowmo_ticks` 70 at half speed (ms:`emit_event`; not for the dummy, and not on a crowded field: `freeze_all` off).
-- **Falls:** `FALL_TICKS` 45, `FALL_DAMAGE` 8, respawn at the nearest solid cell with `RESPAWN_INVULN` 40.
+- **Falls:** `FALL_TICKS` 45, `FALL_DAMAGE` 8, respawn at the nearest solid cell with floor all round it (`nearest_solid(pos, 1)`: not at a pit's lip; the closest walkable cell if none has room) with `RESPAWN_INVULN` 40.
 
 ## Status effects
 

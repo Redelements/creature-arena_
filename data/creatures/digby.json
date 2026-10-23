@@ -52,7 +52,7 @@
     "poke_range": [18, 44],
     "burrow": "skill_2",
     "burrow_range": [80, 220],
-    "surge_range": 40,
+    "surge_range": 90,
     "routes": [
       ["light", "light", "light", "heavy", "surge"],
       ["light", "light", "light", "heavy"],
@@ -126,8 +126,8 @@
     "surge": {
       "name": "Cave-In", "anim": "cavein", "energy_cost": 100,
       "startup": 18, "active": 4, "recovery": 28,
-      "damage": 14, "knockback": 0.6, "hitstun": 40, "hitstop": 14, "root_ticks": 120,
-      "reach": 36, "hit_radius": 40, "juggle": true,
+      "damage": 14, "knockback": 0.6, "hitstun": 40, "hitstop": 14, "root_ticks": 150, "terrain_crack": 60,
+      "reach": 40, "hit_radius": 65, "juggle": true,
       "anim_at": [[0, 0], [8, 1], [18, 2], [25, 3], [32, 4], [44, 5]],
       "fx": { "shout": { "text": "I DIG IT!", "sound": "dig_it" }, "telegraph": true, "impact": "cavein" }
     }

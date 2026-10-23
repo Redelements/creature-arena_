@@ -175,3 +175,26 @@ func test_timber_twister_has_a_cooldown() -> void:
 	var barkley := sim.creatures[0]
 	tap(sim, H, 70)
 	assert_false(barkley.can_use("heavy"), "the spin can't be thrown again straight away")
+
+
+func test_root_eruption_last_ring_roots_a_foe_85_px_away() -> void:
+	var sim := _duel("cairn", 34.0)
+	sim.creatures[0].energy = 100.0
+	var foe := sim.creatures[1]
+	foe.pos = sim.creatures[0].pos + Vector2(0, -85)  # only the third ring reaches
+	var hit := run_until(sim, func(): return not _events(sim, "hit").is_empty(), 80, SU)
+	assert_true(hit, "the outer ring reaches 85 px away")
+	assert_eq(foe.state, CreatureSim.State.CRUMPLE, "the last ring crumples")
+	run_until(sim, func(): return foe.state != CreatureSim.State.CRUMPLE, 120)
+	assert_gt(foe.root, 0, "and the roots still hold after the stun: no walking, no rolling away")
+
+
+func test_three_blocked_rings_do_not_exhaust_a_full_guard() -> void:
+	var sim := _duel("cairn", 20.0)
+	sim.creatures[0].energy = 100.0
+	var foe := sim.creatures[1]
+	run_until(sim, func(): return sim.creatures[0].move_id == "surge", 10, SU)
+	for i in 70:
+		sim.step(PackedInt32Array([0, GUARD]))
+	assert_gt(foe.stamina, 25.0, "a full guard keeps a third of its stamina through the three rings:")
+	assert_true(foe.state != CreatureSim.State.CRUMPLE, "and isn't broken")

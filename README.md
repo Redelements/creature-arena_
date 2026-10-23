@@ -597,7 +597,7 @@ fully charged Haymaker breaks guard, so a turtle can't wall him out.
 | Heavy | Haymaker | Uppercut that always launches |
 | Skill 1 | Slip | Weave; if a strike lands in the window, counter with a Cross that crumples. Loses to grabs |
 | Skill 2 | Rockslide Rush | Dash punch; the main combo extender |
-| Surge | Avalanche | Six-punch flurry and a launching uppercut |
+| Surge | Avalanche | Six-punch flurry (26 px wide, catching foes around the lane) and a launching uppercut 45 px wide |
 | Passive | Stack | Each landed light adds a stone (max 3); Haymaker and Rush spend them for +4 damage each |
 
 ### Culvert — storm-drain toad
@@ -611,7 +611,7 @@ miss with and pits that stay open long enough to fence off a floor.
 | Heavy | Slam | Cracks a block of floor 5 cells deep by 5 across **in front of him, clear of his own feet** (a wall across his facing; the same block wherever it lands; a second Slam there opens it into a rectangular pit); a full charge opens it at once. Breaks guard. His pits stay open 18 s, half as long again as anyone else's |
 | Skill 1 | Gulp | His **tongue shoots out about 130 px**, out and back in the same 13 frames as before (it flies faster), red tell, can't be blocked. **Tapped: a hook** that stuns whoever it catches and **hauls them in** to him, like a grappling hook. **Held (about a third of a second): he swallows them** whole, and a moment later they come out the back end with a plop, skidding away behind him (12 damage, where the hook does 6). Holding works on every layout: Q, Y on a pad, or U on the classic keys. The tongue chases down its lane, so **sidestep it** or roll through; rolling straight away doesn't outrun it |
 | Skill 2 | Runoff | **Tapped: a short shove** right in front of him (3 damage) that **knocks the foe well back**. **Held (a fifth of a second): the wave**, a sheet of water in a cone in front of him that hits everything in it, pushes it back, does 9 damage and **slows** it (walk ×0.6 for 2 s). After a Slam, hold it: the Slam knocks them out of the shove's reach |
-| Surge | Storm Drain | Leaping slam that hits all around and leaves a ring of pits (18 s, like his Slam's) that starts **right at his feet** and reaches 52 px out. Swallow someone straight after and they come out the back end into a pit |
+| Surge | Storm Drain | Leaping slam that hits all around and leaves a ring of pits (18 s, like his Slam's) that starts **right at his feet** and reaches 80 px out, knocking down everyone inside it onto the opening pits. A cracked **side lane** is left open to his **left and right**: you can't out-roll an 80 px ring, so roll toward his flank 5-12 frames after the freeze ends (the i-frames cover the hit and you land in the lane, on solid ground, to punish his recovery), or walk away from past ~110 px. Blocking is wrong, you fall. Swallow someone straight after and they come out the back end into a pit |
 
 A squat toad cast in storm-drain concrete: amber eyes, a mouth that opens into a drain
 with iron bars across the jaw, a manhole cover on his back, and big back legs he hops on.
@@ -632,7 +632,7 @@ three-second lockdown while his team does the damage.
 | Heavy | Rockslide Stomp | Slams the ground and knocks up everyone close, all around him (16 frames to land out of a combo, a slow recovery). **Armored** once its windup is over: a jab only chips it (thrown raw, its tell can still be jabbed; out of Bedrock it comes out armored) |
 | Skill 1 | Landslide Charge | A slow, heavy shoulder charge about 65 px forward that **stuns** whoever it hits for a quarter second (crumple), long enough to follow up. A gold windup tell |
 | Skill 2 | Mountain Maw | The hook, back every 3.3 s. His head shoots out on its stone neck, **far** (about 160 px), and **can't be blocked**: it has to be dodged. It bites the first foe it reaches and **hauls them back** to his feet, **crumpled**, so a Rake (or a teammate) follows. A red tell and a dotted lane show it coming |
-| Surge | Bedrock | Roots in place for 3 s: hits only chip him (75% less damage) and nothing moves him. Every foe within 140 px is **taunted** for 3 s: they walk at 60% speed, their attacks swing at him, and they're **dragged in** toward him, hard. Any attack button answers out of it after 18 frames, so the Stomp meets them as they arrive. Loses to grabs. A tank's meter fills from the hits he takes, so soaking damage is what earns it |
+| Surge | Bedrock | Roots in place for 3 s: hits only chip him (75% less damage) and nothing moves him. Every foe within 200 px is **taunted** for 3 s: they walk at 60% speed, their attacks swing at him, and they're **dragged in** toward him, hard. Any attack button answers out of it after 18 frames, so the Stomp meets them as they arrive. Loses to grabs. A tank's meter fills from the hits he takes, so soaking damage is what earns it |
 | Passive | Stoneskin | A 30-point stone shield that soaks damage first; it grows back only after **7 s out of combat**: no damage taken and none dealt (his hits and chip count too), so it doesn't refresh mid-brawl. Shown as a pale rim on him and as pale stone on the end of his health bar ("STONESKIN") |
 | Dodge | Landslide Ram | His roll is a shoulder charge: **twice as far** as anyone's (about 90 px) and it costs 60% of his stamina, like any dodge. The first foe it reaches is **hit** (4 damage, a short stun that a Rake links after, and it counts in the combo) and the dash stops there. Running into the wall stops it too and cracks the floor. Still invincible in the middle, like any roll |
 
@@ -647,7 +647,7 @@ in, spins, and fills the space around him with pinecones and roots.
 | Heavy | Timber Twister | Arms out, he spins on his roots: three hits all around him, the last one knocks up and away. Hold to charge (more damage, throws farther). Can't be cancelled until the last hit. **Armored** while it spins: hits only chip him (half damage) and don't stop it, though the windup can still be interrupted. A 2.5 s cooldown |
 | Skill 1 | Branch Grab | A branch arm shoots out to long range, snags, and **reels the target in** to point-blank, still stunned, so a light string links after it. A **grab**: it can't be blocked (red warning), so dodge it; it misses a target in the air |
 | Skill 2 | Pinecone Bomb | Lobs a pinecone; it bursts where it lands in a **wide** burst (32 px around the spot), popping up everything in it, even a foe right beside him on the shortest throw. **Tap** for the shortest throw (about 54 px), **hold** to throw it further (up to about 115 px): a ring on the floor slides out to show where it will land. On release it **turns toward a foe** within about 45° of where you aimed |
-| Surge | Root Eruption | Plunges his arms into the floor: roots burst out in three growing rings (26, 40 and 54 px), all around him; the last ring stuns. Cracks the floor but opens no pits |
+| Surge | Root Eruption | Plunges his arms into the floor: roots burst out in three growing rings (40, 65 and 90 px), all around him; the last ring stuns and **roots** for 1.5 s, past the stun. Block it (chip only), roll through at the right moment, or be 90+ px away. Cracks the floor but opens no pits |
 
 The sheet gives Barkley no passive, so he has none.
 
@@ -666,7 +666,7 @@ floor like a landed fish, his rod tumbling behind him on the line.
 | Heavy | Splash Zone | Curls up and slaps the floor with his tail: hits all around him, pops foes up and **slows** them (walk ×0.6 for 2 s). Hold to charge (bigger and harder) |
 | Skill 1 | Flop Dash | A long skidding belly-flop forward (about 100 px in a quarter of a second), kicking up water; keeps a juggle going |
 | Skill 2 | Cast Line | **Throws his rod** on its line, about 220 px. If it hooks someone he's **reeled in to them** at a steady pull, across pits and all, like a fish on a line; arriving ends the cast while they're still stunned, so lights link straight after. Blockable; a miss still leaves him open for a moment |
-| Surge | The One That Got Away | Leaps straight up off the screen, **out of reach** of everything (he sails over bodies and pits), then belly-flops in a huge splash that knocks foes down. The mark **follows the nearest foe** while he's rising (up to about 70 px), then locks, so a dodge on the landing still beats it |
+| Surge | The One That Got Away | Leaps straight up off the screen, **out of reach** of everything (he sails over bodies and pits), then belly-flops in a huge splash that knocks foes down (65 px wide) and leaves a slowing pool where he lands. The mark **follows the nearest foe** while he's rising (up to about 70 px), then locks, so a dodge on the landing still beats it |
 
 ![Gillbert's showcase](docs/gillbert_demo.gif)
 
@@ -710,7 +710,7 @@ gaze slows anyone who comes at her face first. Voice line: "Hiss off!"
 | Heavy | Coil Uppercut | The glove coils low and comes up under the guard: **breaks guards** and launches. Hold to charge (bigger and harder) |
 | Skill 1 | Venom Spit | Her hair snakes spit a glob of venom about 100 px. It **poisons**: 2 damage every half second for 3 s (12 in all), outside any combo, so it keeps ticking after the combo ends. Green bubbles show it. Keeps a juggle going |
 | Skill 2 | Stone Gaze | She stares for about 1 s. Anyone within 110 px, **in front of her and facing her**, is slowed, more the longer they look (down to 35% speed), and stays slowed 1.5 s after. **Look away, or get behind her, and it does nothing.** She can break out of the stare with any attack after the first moments |
-| Surge | Petrify Punch | A wound-up haymaker (a long, readable startup). The foe it hits is **turned to stone** for 1.5 s, stunned where it stands, even out of the air. The next clean hit **shatters** the statue for 25% extra damage |
+| Surge | Petrify Punch | A wound-up haymaker (a long, readable startup). The foe it hits is **turned to stone** for 1.5 s, and the shockwave behind it (45 px wide) stones everyone near for 1 s, stunned where it stands, even out of the air. The next clean hit **shatters** the statue for 25% extra damage |
 | Passive | Venom Frenzy | **Land 4 hits in one string** (jabs count; each within 0.75 s of the last) and she goes into a frenzy for 5 s: venom drips off her snakes, and **every clean hit stacks poison** on the target (up to 5 stacks, green pips at its feet). Each stack adds 0.6 damage a pulse, two pulses a second, for 3 s after her latest hit; Venom Spit's poison adds on top. Another 4-hit string starts the 5 s over |
 
 There's no passive on the sheet, so she has none. Her victory emote (a kiss blown while
@@ -731,7 +731,7 @@ Voice line: a placeholder "I DIG IT!" (see the PR).
 | Heavy | Pickaxe Pop-Up | He digs in and bursts up **under a foe about 40 px ahead** with the pickaxe, in a burst wide enough to catch anyone standing close: launches (10 damage, 14 charged). A ring on the floor marks the spot. Hold to charge |
 | Skill 1 | Headlamp Flash | Flicks on his helmet light: a foe it catches is **blinded**, and **their next attack misses** (or the blind wears off after 4 s). Guarding stops it |
 | Skill 2 | Burrow | Dives underground and tunnels about 115 px, steering harder than it used to, **steered with the stick**: out of reach, under bodies and across pits, under a moving mound of dirt. Pops up at the end and knocks up whoever is on top; an uppercut from below, it **breaks guards** |
-| Surge | Cave-In | Rears up and slams the floor: the ground caves in all around the spot ahead, damaging and **rooting** everyone caught for 2 s (they can still attack and guard, but can't walk or dodge) |
+| Surge | Cave-In | Rears up and slams the floor: the ground caves in all around the spot ahead, (65 px wide, cracking the floor) damaging and **rooting** everyone caught for 2.5 s (they can still attack and guard, but can't walk or dodge) |
 
 No passive on the sheet. His victory emote (jumping out of the ground with a flip) waits
 for a victory-pose system.
@@ -750,7 +750,7 @@ shoulder. He wins by not being where you're looking. Voice line: "Finders keeper
 | Heavy | Sack Smack | A big wound-up swing of the money bag that knocks the foe well back. Hold to charge: tapped it's an ordinary heavy that can be blocked; **held to a full charge it breaks guards**, and he flashes red with "GUARD BREAK" over his head the moment the charge is full |
 | Skill 1 | Tiptoe | He sneaks forward and goes **invisible** for 3 s (a faint shimmer is all you see) and **55% quicker**. A staggering hit gives him away (a knife flick doesn't); so does his own attack, but only as it lands, and that **ambush hits 35% harder**. The CPU loses track of him and goes where it last saw him |
 | Skill 2 | Pickpocket | A low dash that **steers onto** the nearest foe, runs right **through**, hits on the way past and **steals 20% of their attack power** for 5 s: his hits land 20% harder, theirs 20% softer. A gold windup tell gives it away |
-| Surge | The Big Heist | A puff of smoke and he's gone, then he **reappears behind the foe** (on their far side if the spot behind is a pit or a wall) for a flurry of bag hits and a big finishing smack that knocks down |
+| Surge | The Big Heist | A puff of smoke and he's gone, then he **reappears behind the foe** (on their far side if the spot behind is a pit or a wall) for a flurry of bag hits and a big finishing smack that knocks down, its smoke **blinding** everyone within 45 px |
 
 No passive on the sheet. His victory emote (dumping out the bag and throwing the cash in
 the air) waits for a victory-pose system.
@@ -770,7 +770,7 @@ dripping off his point. He makes the floor and the foe slow, then hits hard. Voi
 | Heavy | Shaved Ice Spray | He shakes his head and sprays ice shards in a **cone in front of him** (about 46 px, wider charged): damage and a strong slow (×0.6 for 1.5 s). Nothing behind him is hit. Hold to charge |
 | Skill 1 | Syrup Slick | Leaks a **sticky puddle** 160 px across around him that lasts 7.5 s: foes standing in it walk at 42% speed. He isn't slowed by his own syrup |
 | Skill 2 | Slush Slide | Slides forward feet first on his own slush, about 75 px, **through a guard**, and **knocks down** the first foe he hits. A red windup tell gives it away |
-| Surge | Flavor Blast | Rears back and slams his head into the floor: everyone around him (all sides, about 60 px) is **frozen solid** for 1.5 s, and the next clean hit **shatters** the ice for 25% extra damage, like Hissy Fitz's statues |
+| Surge | Flavor Blast | Rears back and slams his head into the floor: everyone around him (all sides, about 90 px) is **frozen solid** for 2 s and he leaves a 60 px slowing puddle at his feet, and the next clean hit **shatters** the ice for 25% extra damage, like Hissy Fitz's statues |
 
 No passive on the sheet. His victory emote (licking the syrup off his glove, then
 shivering) waits for a victory-pose system.

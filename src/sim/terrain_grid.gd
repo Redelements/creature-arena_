@@ -400,18 +400,26 @@ func crack_ring(center: Vector2, inner: float, outer: float) -> void:
 
 
 ## Opens a ring of holes between inner and outer radius, and cracks a band just outside it.
-func damage_ring(center: Vector2, inner: float, outer: float, heal := HEAL_TICKS) -> void:
+## Holes between `inner` and `outer` round `center`, a cracked band outside. With
+## `side_lanes` > 0 the ring is only cracked, not opened, in two lanes that wide to the
+## left and right of `axis` (the user's facing): a channel to walk in through, so a fighter
+## who sidestepped the move can still reach the one standing on the island to punish it.
+func damage_ring(center: Vector2, inner: float, outer: float, heal := HEAL_TICKS,
+		side_lanes := 0.0, axis := Vector2.ZERO) -> void:
 	var edge := outer + CRACK_BAND
 	var c0 := world_to_cell(center - Vector2(edge, edge))
 	var c1 := world_to_cell(center + Vector2(edge, edge))
+	var lanes := side_lanes > 0.0 and axis != Vector2.ZERO
 	for cy in range(c0.y, c1.y + 1):
 		for cx in range(c0.x, c1.x + 1):
 			var c := Vector2i(cx, cy)
 			if not in_bounds(c):
 				continue
-			var d := cell_center(c).distance_to(center)
+			var v := cell_center(c) - center
+			var d := v.length()
 			if d >= inner and d <= outer:
-				damage_cell(c, 2, heal)
+				var in_lane := lanes and absf(v.dot(axis)) <= side_lanes * 0.5
+				damage_cell(c, 1 if in_lane else 2, heal)
 			elif d > outer and d <= edge:
 				damage_cell(c, 1, heal)
 
@@ -498,8 +506,13 @@ func tick(blocked := Callable()) -> void:
 			version += 1
 
 
-## Centre of the closest cell a creature can stand on (searches outward in rings).
-func nearest_solid(p: Vector2) -> Vector2:
+## Centre of the closest cell a creature can stand on (searches outward in rings). With
+## `clear` > 0 the cells within that many of it must be walkable too (out of bounds counts
+## as floor), so a fighter put down after a fall doesn't stand at a pit's lip to be knocked
+## straight back in; if no cell has that much room, the closest walkable one is used.
+## `avoid` (Vector3: x, y, distance) skips cells whose centre is within that distance of a
+## point, so a faller isn't put down on top of someone standing there.
+func nearest_solid(p: Vector2, clear := 0, avoid: Array[Vector3] = []) -> Vector2:
 	var start := world_to_cell(p)
 	for r in range(0, maxi(cols, rows)):
 		var best := Vector2.INF
@@ -509,7 +522,7 @@ func nearest_solid(p: Vector2) -> Vector2:
 				if maxi(absi(cx - start.x), absi(cy - start.y)) != r:
 					continue
 				var c := Vector2i(cx, cy)
-				if not in_bounds(c) or not is_walkable(get_cell(c)):
+				if not in_bounds(c) or not _clear_around(c, clear) or _near_any(cell_center(c), avoid):
 					continue
 				var d := cell_center(c).distance_squared_to(p)
 				if d < best_d:
@@ -517,7 +530,24 @@ func nearest_solid(p: Vector2) -> Vector2:
 					best = cell_center(c)
 		if best_d < INF:
 			return best
-	return p
+	return nearest_solid(p, 0, avoid) if clear > 0 else p
+
+
+func _near_any(at: Vector2, avoid: Array[Vector3]) -> bool:
+	for a in avoid:
+		if at.distance_to(Vector2(a.x, a.y)) < a.z:
+			return true
+	return false
+
+
+## Every cell within `clear` of `c` (Chebyshev) is walkable; `get_cell` reads out of
+## bounds as intact floor.
+func _clear_around(c: Vector2i, clear: int) -> bool:
+	for dy in range(-clear, clear + 1):
+		for dx in range(-clear, clear + 1):
+			if not is_walkable(get_cell(c + Vector2i(dx, dy))):
+				return false
+	return true
 
 
 func count(state: int) -> int:
