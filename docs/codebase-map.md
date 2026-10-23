@@ -84,7 +84,7 @@ update the map in the same change.
 | sound effects, music, volume | `src/view/audio_view.gd:on_event`, `data/audio.json`, `docs/AUDIO.md` | scripts_load |
 | arena drawing, crowd, map art | `src/view/arena_view.gd` (`_paint_changed`, row bands `BAND_ROWS`), `src/view/crowd_view.gd`; art from `tools/gen_arenas.py` (rerun after moving a piece in `data/arenas/`) | arena |
 | camera, zoom, screen shake | `src/game/main.gd:_update_camera`, `_frame_fight` | test_ui |
-| game modes, mode numbers, menus' rows | `src/game/main.gd` `MODES`, `MENU_ROWS`, `_start_match` | test_ui |
+| game modes, mode numbers, menus' rows | `src/game/main.gd` `MODES`, `MENU_ROWS`, `_start_match` | test_ui, test_journey |
 | settings | `src/game/main.gd` `SETTING_PAGES`, `_setting`, `_set_setting` | test_ui |
 | CLI flags | `src/game/main.gd:_parse_args` (list in `src/game/CLAUDE.md`) | test_ui |
 | roster, adding a fighter | `src/game/match_factory.gd` `FIGHTERS`; `src/game/main.gd` `MODES` | views, ko_fx, showcase |
@@ -94,7 +94,7 @@ update the map in the same change.
 | replays, Replay theater | `src/sim/replay.gd`, `src/game/replay_builder.gd` | replays, determinism |
 | unlocks, progress | `src/game/progress.gd` | arcade |
 | Discord status | `src/game/presence.gd`, `src/game/discord_rpc.gd`, `data/discord.json` | presence |
-| menu screens, theme | `src/ui/ui_screen.gd`, `src/ui/screen_stack.gd`, `src/ui/ui_theme.gd` | test_ui, menu_stick |
+| menu screens, theme | `src/ui/ui_screen.gd`, `src/ui/screen_stack.gd`, `src/ui/ui_theme.gd` | test_ui, menu_stick, journey |
 | character select, picking fighters | `src/ui/character_select.gd` | test_ui, rooms |
 | online lobby, room codes, Quick match | `src/game/online_lobby.gd`, `src/net/netplay.gd` | rooms, online |
 | rollback, prediction | `src/net/rollback_session.gd`, `src/net/online_match.gd` | online |

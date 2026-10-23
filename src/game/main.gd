@@ -2562,7 +2562,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if flow == Flow.MENU or flow == Flow.SELECT or flow == Flow.LOBBY or flow == Flow.MATCH_OVER:
 		return  # their screens take the input
 	if event.is_action_pressed("pause") and showcase != null:
-		_open_menu()  # a demo: straight back
+		_back_to_row()  # a demo: straight back to the row it came from
 	elif event.is_action_pressed("pause"):
 		_open_pause()
 	elif event.is_action_pressed("debug_hitboxes"):
