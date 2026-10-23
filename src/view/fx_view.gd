@@ -2661,10 +2661,10 @@ func _draw_caravan(ci: CanvasItem) -> void:
 	# the wagon
 	var heading: Vector2 = caravan.get("heading", Vector2.RIGHT)
 	var flip := heading.x < 0.0
-	ci.draw_set_transform(at + Vector2(0, 1), 0.0, Vector2(1.0, 0.38))
-	ci.draw_circle(Vector2.ZERO, 22.0, Color(0, 0, 0, 0.3))
-	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	var frame := int(float(caravan.get("travel", 0.0)) / 3.0) % 4
+	var light := ShadowLayer.light_of(sim.arena if sim != null else {})  # its shadow along the map's light
+	ShadowLayer.draw_silhouette(ci, CARAVAN, Rect2(frame * 48, 0, 48, 40), Vector2(24, 36), flip, at,
+		light["cast"], float(light["alpha"]))
 	var dst := Rect2(at - Vector2(24, 36), Vector2(48, 40))
 	if flip:
 		dst = Rect2(at + Vector2(24, -36), Vector2(-48, 40))
@@ -2686,11 +2686,14 @@ func _draw_flag(ci: CanvasItem, f: Dictionary) -> void:
 	var col: Color = Hud.SIDE_COLORS[clampi(int(f["team"]), 0, 1)]
 	var st := int(f["state"])
 	var foot := at - Vector2(0, float(f.get("lift", 0.0)))
-	if st != TeamSim.FLAG_CARRIED:
-		var shadow := 5.0 if st != TeamSim.FLAG_THROWN else maxf(2.5, 5.0 - float(f.get("lift", 0.0)) * 0.06)
-		ci.draw_set_transform(at + Vector2(1, 1), 0.0, Vector2(1.0, 0.4))
-		ci.draw_circle(Vector2.ZERO, shadow, Color(0, 0, 0, 0.3))
-		ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	if st != TeamSim.FLAG_CARRIED:  # the pole's and the cloth's shadow along the map's light
+		var k := 1.0 if st != TeamSim.FLAG_THROWN else maxf(0.5, 1.0 - float(f.get("lift", 0.0)) * 0.012)
+		var light := ShadowLayer.light_of(sim.arena if sim != null else {})
+		var cast: Vector2 = light["cast"] * k
+		var a := float(light["alpha"]) * k
+		ci.draw_line(at.round(), (at + cast * 20.0).round(), Color(0, 0, 0, a), 1.0)
+		ShadowLayer.draw_silhouette(ci, FLAG, Rect2((_tick / 6) % 4 * 12, 0, 12, 10), Vector2(-1, 20), false, at,
+			light["cast"], a, Vector2(k, k))
 	if st == TeamSim.FLAG_THROWN:  # where it comes down: a ring on the floor in its colour
 		ci.draw_arc(at, 9.0, 0.0, TAU, 24, Color(col, 0.5), 1.0)
 	if st == TeamSim.FLAG_DROPPED:

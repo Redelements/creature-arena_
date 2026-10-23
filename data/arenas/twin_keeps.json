@@ -3,6 +3,7 @@
 	"id": "twin_keeps",
 	"name": "Twin Keeps",
 	"ground": "grass",
+	"light": {"_doc": "morning sun from the top left", "dir": [0.6, 0.8], "length": 0.55, "alpha": 0.34},
 	"size": [
 		150,
 		64
