@@ -50,6 +50,11 @@ static func build(setup: Dictionary) -> Dictionary:
 		_:
 			out["sim"] = MatchFactory.versus(String(ids[0]), String(ids[1] if ids.size() > 1 else "culvert"))
 	MatchFactory.arena = was
+	# A round that began with Surge energy carried over from the last one.
+	var start_energy: Array = setup.get("energy", [])
+	if kind == "versus" and start_energy.size() == 2:
+		for i in 2:
+			(out["sim"] as MatchSim).creatures[i].energy = float(start_energy[i])
 	var muts: Dictionary = setup.get("mutators", {})
 	if not muts.is_empty() and kind != "brawl":
 		(out["sim"] as MatchSim).apply_mutators(muts, int(setup.get("mut_seed", 0)))

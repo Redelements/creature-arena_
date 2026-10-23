@@ -318,7 +318,9 @@ cancel into a move of a higher rank, so combos climb the ranks. The exception: a
 third light** (or later) can't be cancelled, and leaves the attacker at least 16 frames
 behind the blocker ("OPEN!" pops up over them), time enough to punish with a jab.
 
-**Stamina pays for dodges and blocks.** A dodge costs **60% of the stamina bar**, so you get one, then a wait. A blocked
+**Stamina pays for dodges and blocks.** A dodge costs **60% of the stamina bar**, so you get one, then a wait.
+**You can dodge out of your own attack at any time** (leave a string, feint out of a windup, skip a whiffed heavy's
+recovery): that dodge costs **75% of the bar**, and a blocked third light still has to be served. A blocked
 hit chips a little health and drains stamina: lights drain less, heavies more, and every
 blocked hit holds stamina regen off for half a second, so you can't recover under pressure.
 At **0 stamina you're exhausted**: you can't start a guard, a guard you're holding drops and

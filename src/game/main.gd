@@ -1083,6 +1083,9 @@ func _start_round() -> void:
 		for i in 2:
 			if float(_carried_energy[i]) >= 0.0:
 				sim.creatures[i].energy = minf(float(_carried_energy[i]), CreatureSim.MAX_ENERGY)
+		# The replay rebuilds the round with the meters it started with.
+		if replay != null and replay.setup is Dictionary:
+			replay.setup["energy"] = [sim.creatures[0].energy, sim.creatures[1].energy]
 	timer = ROUND_TICKS
 	hud.timer_ticks = timer
 	hud.wins = wins
@@ -2032,7 +2035,9 @@ func _physics_process(_delta: float) -> void:
 			inputs = showcase.inputs(sim)
 		elif coach != null and flow == Flow.FIGHT:
 			inputs = coach.inputs(_side_bits(0, true))
-		if flow == Flow.FIGHT:
+		if flow == Flow.FIGHT or flow == Flow.INTRO:
+			# The intro too: the sim idles through it, and a replay side reads its frame by
+			# sim.tick, so a Versus round's recording has to start where the sim does.
 			replay.record(inputs)
 		if _replaying() and sim.training:
 			ReplayBuilder.apply_flag_changes(sim, _replay_watched, sim.tick)
