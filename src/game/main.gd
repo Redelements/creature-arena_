@@ -131,7 +131,7 @@ const ONLINE_MODE := 20
 const MENU_GROUPS := [
 	{"id": "cpu", "title": "Fight the CPU", "sub": "Versus rounds as any fighter, or a 3v3 tag Duel",
 		"desc": "The classic fights against the CPU at the level set in Settings"},
-	{"id": "team", "title": "Team battles", "sub": "2v2 to 4v4 with CPU teammates, in six modes",
+	{"id": "team", "title": "Team battles", "sub": "Six modes from 1v1 to 4v4, CPU teammates beside you",
 		"desc": "Everyone on the field at once; pick the rules and the team size"},
 	{"id": "challenge", "title": "Challenges", "sub": "Arcade, Gauntlet, the Daily, Combo Trials, Reaction Drills",
 		"desc": "Runs and lessons with something to clear or beat"},
