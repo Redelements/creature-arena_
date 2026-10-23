@@ -28,7 +28,7 @@ update the map in the same change.
 | Tests and benches | `tests/` | `tests/run_tests.gd` | the test runner, per-topic tests, CPU benches |
 | Generators | `tools/` | `tools/splat3d.py` | sprite and audio generators, this map's generator |
 | Docs | `docs/` | `docs/MECHANICS.md` | data keys, netcode, server, sprite and audio specs, plans; open items in `docs/open-items.md` |
-| Art and sound files | `assets/` | `assets/sprites/` | generated sheets and placeholder audio |
+| Art and sound files | `assets/` | `assets/sprites/` | generated sheets, placeholder audio, the pixel font (`assets/fonts/`) |
 | Scene | `scenes/` | `scenes/main.tscn` | the one scene; `src/game/main.gd` builds the rest in code |
 
 ## Go here for
@@ -95,6 +95,7 @@ update the map in the same change.
 | unlocks, progress | `src/game/progress.gd` | arcade |
 | Discord status | `src/game/presence.gd`, `src/game/discord_rpc.gd`, `data/discord.json` | presence |
 | menu screens, theme | `src/ui/ui_screen.gd`, `src/ui/screen_stack.gd`, `src/ui/ui_theme.gd`; the panel's cards `src/ui/detail_card.gd`, `src/game/main.gd:_mode_facts` | test_ui, menu_stick, journey, menu_contract |
+| resolution, window scale, pixel font, text size | `project.godot` `[display]` (960 x 540 base, scale 2), `src/game/main.gd:_apply_pixel_scale`, `_fit_window`; `src/ui/ui_theme.gd:font`, `px`, `outline` | test_ui |
 | character select, picking fighters | `src/ui/character_select.gd` | test_ui, rooms |
 | online lobby, room codes, Quick match | `src/game/online_lobby.gd`, `src/net/netplay.gd` | rooms, online |
 | rollback, prediction | `src/net/rollback_session.gd`, `src/net/online_match.gd` | online |

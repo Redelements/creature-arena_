@@ -34,7 +34,7 @@ func _ready() -> void:
 	_toast.offset_top = 4
 	_toast.offset_bottom = 16
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_toast.add_theme_font_size_override("font_size", 8)
+	_toast.add_theme_font_size_override("font_size", UiTheme.px(8))
 	_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_toast.z_index = 10
 	add_child(_toast)

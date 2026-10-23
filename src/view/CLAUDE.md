@@ -30,6 +30,9 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   bands a few per frame (`ArenaView._pending`, `SPREAD_FRAMES`), not all in one tick. A
   `_draw` reports its time with `PerfLog.now()` / `PerfLog.since(...)` for `--perf`
   (main thread only: `PerfLog` ignores a worker thread).
+- Text: `UiTheme.font()` and `UiTheme.px(size)` (see `src/ui/CLAUDE.md`). The canvas is still
+  480 x 270 units (project.godot: a 960 x 540 base at content scale 2), so coordinates and
+  the camera's zoom are unchanged; text in world space (damage numbers) scales with the zoom.
 - The camera is not here: `src/game/main.gd:_update_camera`, `_frame_fight`, `CAM_PAD`, `KO_ZOOM`.
 
 ## Hidden foes

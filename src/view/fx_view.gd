@@ -139,7 +139,7 @@ var shake_out := 0.0  ## extra screen shake asked for by effects; main takes it 
 
 var _parts: Array[Dictionary] = []
 var _incoming: Array[Dictionary] = []
-var _font: Font = ThemeDB.fallback_font
+var _font: Font = UiTheme.font()  ## the pixel font; sizes through UiTheme.px
 var _tick := 0
 var _watch := {}
 var _last_push := {}
@@ -2155,9 +2155,9 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 			var a := 0.5 * (1.0 - k)
 			ci.draw_arc(pos.round(), float(p["r"]) + 3.0, 0.0, TAU, 24, Color(C_WARN, a), 1.0)
 			var q := (pos + Vector2(0, -float(p["top"]) * 0.6)).round()
-			ci.draw_string_outline(_font, q + Vector2(-10, 0), "?", HORIZONTAL_ALIGNMENT_CENTER, 20, 10, 2,
+			ci.draw_string_outline(_font, q + Vector2(-10, 0), "?", HORIZONTAL_ALIGNMENT_CENTER, 20, UiTheme.px(10), 1,
 				Color(C_OUTLINE, a))
-			ci.draw_string(_font, q + Vector2(-10, 0), "?", HORIZONTAL_ALIGNMENT_CENTER, 20, 10, Color(C_WARN, a))
+			ci.draw_string(_font, q + Vector2(-10, 0), "?", HORIZONTAL_ALIGNMENT_CENTER, 20, UiTheme.px(10), Color(C_WARN, a))
 		"spark":
 			var pos: Vector2 = p["pos"]
 			var s: float = p["scale"]
@@ -2199,8 +2199,8 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 			col.a = 1.0 - maxf(0.0, k - 0.6) / 0.4
 			var w := float(p.get("width", 80.0))
 			var at := pos + Vector2(-w * 0.5, -t * 0.5)
-			var fs: int = p["size"]
-			ci.draw_string_outline(_font, at, String(p["text"]), HORIZONTAL_ALIGNMENT_CENTER, w, fs, 3, Color(0.1, 0.08, 0.1, col.a))
+			var fs := UiTheme.px(int(p["size"]))
+			ci.draw_string_outline(_font, at, String(p["text"]), HORIZONTAL_ALIGNMENT_CENTER, w, fs, UiTheme.outline(fs) + 1, Color(0.1, 0.08, 0.1, col.a))
 			ci.draw_string(_font, at, String(p["text"]), HORIZONTAL_ALIGNMENT_CENTER, w, fs, col)
 		"glint":
 			# A four-point star that flares and shrinks over the windup.
@@ -2623,8 +2623,8 @@ func _draw_pads(ci: CanvasItem) -> void:
 		var n := int(pd.get("count", 0))
 		if n > 0:
 			var txt := str(n)
-			ci.draw_string_outline(_font, at + Vector2(-20, -10), txt, HORIZONTAL_ALIGNMENT_CENTER, 40, 12, 3, C_OUTLINE)
-			ci.draw_string(_font, at + Vector2(-20, -10), txt, HORIZONTAL_ALIGNMENT_CENTER, 40, 12, col)
+			ci.draw_string_outline(_font, at + Vector2(-20, -10), txt, HORIZONTAL_ALIGNMENT_CENTER, 40, UiTheme.px(12), 2, C_OUTLINE)
+			ci.draw_string(_font, at + Vector2(-20, -10), txt, HORIZONTAL_ALIGNMENT_CENTER, 40, UiTheme.px(12), col)
 
 
 ## The Caravan: its push radius on the floor (the attackers' colour while they push, gold
@@ -2717,8 +2717,8 @@ func _draw_shrine(ci: CanvasItem, s: Dictionary) -> void:
 	ci.draw_arc(at, r, 0.0, TAU, 48, Color(0.1, 0.1, 0.12, 0.6), 3.0)
 	if rest > 0:
 		ci.draw_arc(at, r, 0.0, TAU, 48, Color(col, 0.25), 1.0)
-		ci.draw_string_outline(_font, at + Vector2(-12, 3), str(rest), HORIZONTAL_ALIGNMENT_CENTER, 24, 7, 2, Color(C_OUTLINE, 0.7))
-		ci.draw_string(_font, at + Vector2(-12, 3), str(rest), HORIZONTAL_ALIGNMENT_CENTER, 24, 7, Color(col, 0.6))
+		ci.draw_string_outline(_font, at + Vector2(-12, 3), str(rest), HORIZONTAL_ALIGNMENT_CENTER, 24, UiTheme.px(7), 1, Color(C_OUTLINE, 0.7))
+		ci.draw_string(_font, at + Vector2(-12, 3), str(rest), HORIZONTAL_ALIGNMENT_CENTER, 24, UiTheme.px(7), Color(col, 0.6))
 		return
 	var glow := 0.5 + 0.5 * sin(float(_tick) * 0.12)
 	ci.draw_circle(at, r, Color(col, 0.08 + 0.06 * glow))
@@ -2788,9 +2788,9 @@ func _draw_side_marks(ci: CanvasItem) -> void:
 		var label := String(mk.get("label", ""))
 		if label != "":
 			var lc := Color(col, alpha)
-			ci.draw_string_outline(_font, at + Vector2(-20, -3), label, HORIZONTAL_ALIGNMENT_CENTER, 41, 6, 2,
+			ci.draw_string_outline(_font, at + Vector2(-20, -3), label, HORIZONTAL_ALIGNMENT_CENTER, 41, UiTheme.px(6), 1,
 				Color(C_OUTLINE, alpha))
-			ci.draw_string(_font, at + Vector2(-20, -3), label, HORIZONTAL_ALIGNMENT_CENTER, 41, 6, lc)
+			ci.draw_string(_font, at + Vector2(-20, -3), label, HORIZONTAL_ALIGNMENT_CENTER, 41, UiTheme.px(6), lc)
 
 
 ## The bar itself, centred on `at` (its top edge).
