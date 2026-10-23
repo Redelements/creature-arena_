@@ -236,6 +236,7 @@ var entities: Node2D
 var views: Array[CreatureView] = []
 var fx: FxView
 var fx_ground: FxGround
+var shadows: ShadowLayer
 var audio: AudioView
 var debug: DebugView
 var hud: Hud
@@ -439,6 +440,9 @@ func _ready() -> void:
 	add_child(crowd)
 	fx_ground = FxGround.new()
 	add_child(fx_ground)
+	shadows = ShadowLayer.new()  # the fighters' shadows, on the floor under everyone
+	shadows.views = views
+	add_child(shadows)
 	rings = RangeRings.new()
 	rings.visible = false
 	rings.fx = fx  # what the local team can see (Vision): no rings for a hidden foe
@@ -1862,6 +1866,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 				seed_base * 101 + round_num * 7 + i)
 	arena.ground = String(sim.arena.get("ground", "dirt"))
 	arena.arena_id = String(sim.arena.get("id", ""))
+	shadows.light = ShadowLayer.light_of(sim.arena)
 	crowd.set_width(sim.arena_size().x)
 	arena.set_terrain(sim.terrain)
 	for v in views:

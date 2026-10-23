@@ -15,6 +15,15 @@ Maps whose pieces change also get arena_<id>_alt.png (floor-sized): every piece 
 (the Quarry's walls smashed to rubble, the Greenhouse's brush flattened), shown cell by
 cell where the sim says a piece has changed. Pieces come from data/arenas/<id>.json.
 
+Shadows fall along the map's light (its "light": {"dir", "length", "alpha"}; the game's
+ShadowLayer.light_of reads the same key and casts the fighters' shadows the same way): each
+piece's footprint swept along the light by its height (CAST_HEIGHT), darkened, with a one
+pixel soft edge. The walls round the floor cast theirs too. Pieces that never change (fences,
+posts, the walls round the floor) have their shadows in both pictures; pieces that do change
+(walls, brush, a bridge) have theirs only in the main picture, so the _alt picture is the
+floor without them: ArenaView shows a cell's piece of it once every piece shading it has
+changed.
+
 The look, so the floors stop reading as one repeated tile:
   - the ground is several octaves of smooth value noise, shaded (wall shadows, a worn
     centre) and then ordered-dithered into a short ramp of tones: big soft patches with
@@ -397,6 +406,7 @@ def stadium():
     _scuffs(img, prng, 60)
     _pebbles(img, prng, 260)
     _markings(img, rng)
+    cast_shadows(img, [], perimeter_mask())
     return img
 
 
@@ -484,15 +494,93 @@ def ground(rng, amp=0.4, base=0.3, worn=0.13):
     return v
 
 
-def floor_shadow(img, mask, dx, dy, a):
-    """A piece's shadow cast on the floor: the mask shifted by (dx, dy), darkened, not
-    on the piece itself."""
-    sh = np.zeros_like(mask)
-    sh[dy:, dx:] = mask[:FH - dy, :FW - dx]
-    sh &= ~mask
+# The light: (x, y) where a point one pixel up throws its shadow, and how dark. set_light.
+LIGHT_DEFAULT = {"dir": [0.25, 1.0], "length": 0.38, "alpha": 0.32}   # ShadowLayer.DEFAULT_LIGHT
+LIGHT = (0.092, 0.369, 0.32)
+# How tall each kind of piece stands, px (ArenaView.CAST_HEIGHT for the ones that change).
+CAST_HEIGHT = {"wall": 12, "brush": 6, "fence": 8, "bridge": 3, "post": 11, "back_wall": 12, "side_wall": 8}
+
+
+def set_light(m):
+    """The map's "light", as ShadowLayer.light_of reads it (keep in step)."""
+    global LIGHT
+    l = dict(LIGHT_DEFAULT)
+    l.update(m.get("light", {}))
+    dx, dy = float(l["dir"][0]), float(l["dir"][1])
+    n = math.hypot(dx, dy) or 1.0
+    cx, cy = dx / n * float(l["length"]), dy / n * float(l["length"])
+    if abs(cy) < 0.2:
+        cy = -0.2 if cy < 0 else 0.2
+    LIGHT = (cx, cy, float(l["alpha"]))
+
+
+def shift(mask, dx, dy):
+    """`mask` moved by whole pixels (dx, dy), empty where it moved in from outside."""
+    h, w = mask.shape
+    out = np.zeros_like(mask)
+    if abs(dx) >= w or abs(dy) >= h:
+        return out
+    ys0, ys1 = max(0, -dy), min(h, h - dy)
+    xs0, xs1 = max(0, -dx), min(w, w - dx)
+    out[ys0 + dy:ys1 + dy, xs0 + dx:xs1 + dx] = mask[ys0:ys1, xs0:xs1]
+    return out
+
+
+def swept(mask, height):
+    """A footprint's shadow: the mask swept along the light by `height` px of height."""
+    sx, sy = LIGHT[0] * height, LIGHT[1] * height
+    steps = max(1, int(math.ceil(max(abs(sx), abs(sy)) * 2)))
+    out = mask.copy()
+    for k in range(1, steps + 1):
+        out |= shift(mask, int(round(sx * k / steps)), int(round(sy * k / steps)))
+    return out
+
+
+def perimeter_mask():
+    """The floor in the shadow of the walls round it (the back wall's ad boards, the side
+    walls), for the light."""
+    yy, xx = np.mgrid[0:FH, 0:FW]
+    out = yy < int(round(CAST_HEIGHT["back_wall"] * LIGHT[1]))
+    side = int(round(CAST_HEIGHT["side_wall"] * abs(LIGHT[0])))
+    if LIGHT[0] > 0:
+        out |= xx < side
+    elif LIGHT[0] < 0:
+        out |= xx >= FW - side
+    return out
+
+
+def cast_shadows(img, casters, extra=None):
+    """Darkens the floor in the shadow of `casters` ([(footprint mask, height), ...]) and
+    `extra` (a ready shadow mask): one union, so overlapping shadows don't darken twice. The
+    core at the light's alpha, a one-pixel soft edge at under half; never on a footprint."""
+    core = np.zeros((FH, FW), bool) if extra is None else extra.copy()
+    feet = np.zeros((FH, FW), bool)
+    for mask, height in casters:
+        core |= swept(mask, height)
+        feet |= mask
+    if not core.any():
+        return
+    edge = shift(core, 1, 0) | shift(core, -1, 0) | shift(core, 0, 1) | shift(core, 0, -1)
+    edge &= ~core & ~feet
+    core &= ~feet
+    a = LIGHT[2]
     blk = img[FY0:FY0 + FH, FX0:FX0 + FW, :3].astype(float)
-    blk[sh] *= (1.0 - a)
+    blk[core] *= (1.0 - a)
+    blk[edge] *= (1.0 - a * 0.45)
     img[FY0:FY0 + FH, FX0:FX0 + FW, :3] = blk.astype(np.uint8)
+
+
+def fence_feet(m):
+    """Where the map's fences stand on the floor: the base line of a run left to right, the
+    posts' column of a run up and down."""
+    mask = np.zeros((FH, FW), bool)
+    for x, y, w, h in piece_rects(m, "fence"):
+        x, y = x - FX0, y - FY0
+        if w >= h:
+            mask[y + 7, x:x + w] = True
+        else:
+            mask[y:y + h, x + 2:x + 6] = True
+    return mask
 
 
 def dist_in(mask, limit=16):
@@ -633,8 +721,9 @@ def quarry():
         for i in range(-3, 4):
             blend_px(img, FX0 + mx + i, FY0 + my + i, (238, 120, 40), 0.7)
             blend_px(img, FX0 + mx + i, FY0 + my - i, (238, 120, 40), 0.7)
+    cast_shadows(img, [], perimeter_mask())
     bare = img.copy()
-    floor_shadow(img, piece_mask(m, "wall"), 3, 4, 0.45)
+    cast_shadows(img, [(piece_mask(m, "wall"), CAST_HEIGHT["wall"])])
     for r in piece_rects(m, "wall"):
         boulders(img, prng, r)
     for r in piece_rects(m, "wall"):
@@ -735,6 +824,7 @@ def floodgate():
             rect(img, FX0 + gx, FY0 + gy, 8, 5, (40, 42, 46))
             for k in range(1, 8, 2):
                 rect(img, FX0 + gx + k, FY0 + gy + 1, 1, 3, (20, 20, 24))
+    cast_shadows(img, [], perimeter_mask())
     return img, None, (CONC[0], CONC[6])
 
 
@@ -749,18 +839,14 @@ BRICK = [(66, 34, 30), (96, 50, 40), (132, 70, 52), (156, 92, 70), (180, 118, 92
 
 def bushes(img, rng, rect_, leaf=None):
     """A bed of brush: leafy clumps packed into `rect_` (spilling a pixel or two past it),
-    back to front, lit from the top left, a dark outline round the whole bed."""
+    back to front, lit from the top left, a dark outline round the whole bed. Its shadow is
+    cast_shadows'."""
     x0, y0, w, h = rect_
     clumps = []
     for _ in range(int(w * h / 22) + 4):
         r = 4.0 + rng.random() * 3.5
         clumps.append((y0 + 2 + rng.random() * (h - 4), x0 + 2 + rng.random() * (w - 4), r))
     clumps.sort()
-    for cy, cx, r in clumps:   # their shadow on the grass first
-        for yy in range(int(cy - r) + 3, int(cy + r) + 4):
-            for xx in range(int(cx - r) + 2, int(cx + r) + 3):
-                if ((xx - cx - 2) / r) ** 2 + ((yy - cy - 3) / r) ** 2 <= 1.0:
-                    blend_px(img, xx, yy, (14, 30, 16), 0.35)
     sil = np.zeros((h + 8, w + 8), bool)
     for cy, cx, r in clumps:
         for yy in range(int(cy - r), int(cy + r) + 1):
@@ -796,12 +882,10 @@ def flattened(img, rng, rect_):
 
 def fence(img, rect_):
     """Wooden fence: posts every cell and two rails. A run left to right shows its face; a
-    run up and down shows the posts' tops and the rails from above. Shadow to the lower right."""
+    run up and down shows the posts' tops and the rails from above. Its shadow is
+    cast_shadows' (fence_feet)."""
     x0, y0, w, h = rect_
     if w >= h:
-        for xx in range(x0, x0 + w):
-            blend_px(img, xx, y0 + 7, (10, 24, 10), 0.4)
-            blend_px(img, xx, y0 + 8, (10, 24, 10), 0.25)
         for ry in (y0 + 1, y0 + 4):
             rect(img, x0, ry, w, 2, WOOD[2])
             rect(img, x0, ry, w, 1, WOOD[3])
@@ -811,9 +895,6 @@ def fence(img, rect_):
             rect(img, px_ + 3, y0 - 2, 2, 1, WOOD[3])
             rect(img, px_ + 5, y0 - 1, 1, 8, WOOD[0])
     else:
-        for yy in range(y0, y0 + h):
-            blend_px(img, x0 + 6, yy + 1, (10, 24, 10), 0.4)
-            blend_px(img, x0 + 7, yy + 2, (10, 24, 10), 0.25)
         for rx in (x0 + 2, x0 + 5):
             rect(img, rx, y0, 1, h, WOOD[2])
         for py_ in range(y0, y0 + h, CELL):
@@ -852,7 +933,9 @@ def greenhouse():
         rect(img, FX0 + x, FY0 + y + 1, 1, 1, GRASS[1])
     specks(img, prng, 220, [(246, 244, 236), (246, 214, 80), (230, 130, 170), (170, 150, 230)], mask=soil, shadow=GRASS[0])
     court_lines(img, rng, (246, 246, 236), 0.45)
+    cast_shadows(img, [(fence_feet(m), CAST_HEIGHT["fence"])], perimeter_mask())
     bare = img.copy()
+    cast_shadows(img, [(piece_mask(m, "brush"), CAST_HEIGHT["brush"])])
     for r in piece_rects(m, "brush"):
         bushes(img, prng, r)
     for r in piece_rects(m, "fence"):
@@ -926,6 +1009,12 @@ def caravan_pass():
             rect(img, FX0 + x, FY0 + y + 1, 1, 1, RUT)
             rect(img, FX0 + x, FY0 + y, 1, 1, (186, 168, 140))
     # Checkpoint posts either side of the road, gold flags; gates in each side's colour at the ends.
+    posts = np.zeros((FH, FW), bool)
+    for share in (1.0 / 3.0, 2.0 / 3.0):
+        cx, cy = track_point_px(pts, share)
+        for side in (-1, 1):
+            posts[int(cy + side * 20), int(cx) - 1:int(cx) + 1] = True
+    cast_shadows(img, [(posts, CAST_HEIGHT["post"]), (fence_feet(m), CAST_HEIGHT["fence"])], perimeter_mask())
     for share in (1.0 / 3.0, 2.0 / 3.0):
         cx, cy = track_point_px(pts, share)
         for side in (-1, 1):
@@ -934,7 +1023,6 @@ def caravan_pass():
             rect(img, px_ - 1, py_ - 10, 2, 1, CV_WOOD[3])
             rect(img, px_ + 1, py_ - 10, 6, 4, (232, 184, 56))
             rect(img, px_ + 1, py_ - 7, 6, 1, (170, 120, 30))
-            blend_px(img, px_, py_ + 1, (40, 24, 12), 0.6)
         for k in range(-14, 15, 3):   # a painted line across the road
             blend_px(img, int(cx) + FX0, int(cy) + k + FY0, (240, 220, 160), 0.6)
     for end, col in ((0.0, (214, 72, 64)), (1.0, (72, 120, 220))):
@@ -943,7 +1031,7 @@ def caravan_pass():
             for (x, y) in _circle_pts(int(cx) + FX0, int(cy) + FY0, r):
                 blend_px(img, x, y, col, 0.7)
     bare = img.copy()
-    floor_shadow(img, piece_mask(m, "wall"), 3, 4, 0.45)
+    cast_shadows(img, [(piece_mask(m, "wall"), CAST_HEIGHT["wall"]), (piece_mask(m, "brush"), CAST_HEIGHT["brush"])])
     for r in piece_rects(m, "wall"):
         boulders(img, prng, r)
     for r in piece_rects(m, "brush"):
@@ -1138,11 +1226,12 @@ def twin_keeps():
     for xx2 in range(bx, bx + bw):
         rect(img, xx2, by, 1, 1, PLANK[0])
         rect(img, xx2, by + bh - 1, 1, 1, PLANK[0])
-        blend_px(img, xx2, by + bh, (10, 20, 40), 0.5)
-        blend_px(img, xx2, by + bh + 1, (10, 20, 40), 0.3)
     for xx2 in range(bx + 2, bx + bw, 12):
         rect(img, xx2, by - 2, 2, 4, PLANK[1])
         rect(img, xx2, by + bh - 3, 2, 4, PLANK[1])
+    for r in piece_rects(m, "chasm"):
+        chasm_pit(img, prng, r)
+    cast_shadows(img, [(fence_feet(m), CAST_HEIGHT["fence"])], perimeter_mask())
     bare = img.copy()
     # A fallen bridge: the river where it stood, a few broken planks and the stumps of its posts.
     y0, y1, x0, x1 = br[1] * CELL, (br[1] + br[3]) * CELL, br[0] * CELL, (br[0] + br[2]) * CELL
@@ -1156,10 +1245,10 @@ def twin_keeps():
     for xx2 in range(FX0 + x0, FX0 + x1, 12):
         for yy2 in (FY0 + y0 + 1, FY0 + y1 - 3):
             rect(bare, xx2, yy2, 2, 2, PLANK[0])
-    floor_shadow(img, piece_mask(m, "wall"), 3, 4, 0.45)
-    for r in piece_rects(m, "chasm"):
-        chasm_pit(img, prng, r)
-        chasm_pit(bare, prng, r)
+    deck = np.zeros((FH, FW), bool)
+    deck[y0:y1, max(0, x0 - 4):x1 + 4] = True
+    cast_shadows(img, [(piece_mask(m, "wall"), CAST_HEIGHT["wall"]), (piece_mask(m, "brush"), CAST_HEIGHT["brush"]),
+                       (deck, CAST_HEIGHT["bridge"])])
     for r in piece_rects(m, "wall"):
         keep_wall(img, prng, r)
     for r in piece_rects(m, "brush"):
@@ -1288,6 +1377,7 @@ if __name__ == "__main__":
     for name in picks:
         sz = load_map(name).get("size", [84, 36])
         set_size(int(sz[0]), int(sz[1]))
+        set_light(load_map(name))
         img, alt, crack_cols = MAPS[name]()
         path = os.path.join(SPRITES, "arena_%s.png" % name)
         Image.fromarray(img, "RGBA").save(path)

@@ -53,7 +53,11 @@ var victory := false:
 			_victory_t = 0
 		victory = v
 var _victory_t := 0
-var _shadow_r := -1.0
+## The shadow (ShadowLayer draws it, `draw_shadow`): its size (1 on the floor, smaller up in
+## the air) and how strong it is (0: none, falling into a pit or gone in a death animation;
+## faint while hidden in the brush or invisible).
+var shadow_size := 1.0
+var shadow_fade := 1.0
 ## Squash and stretch: the sprite scales around its feet on a damped spring, so a
 ## landing squashes it flat and it wobbles back.
 var pivot := Node2D.new()
@@ -98,7 +102,6 @@ func rebind(creature: CreatureSim) -> void:
 	_prev_flash = 0
 	_sq = Vector2.ONE
 	_sq_vel = Vector2.ZERO
-	_shadow_r = -1.0
 	layout = c.def.get("sprite", {})
 	var side := _load_view(layout, layout, [])
 	frame_px = int(side["size"].x)
@@ -261,12 +264,14 @@ func refresh() -> void:
 	alpha *= blink_alpha(c)
 	modulate = Color(shade, shade, shade, alpha)
 
-	var r := -1.0
+	# The shadow shrinks and fades as the fighter goes up; a fighter hidden in the brush or
+	# invisible leaves only as faint a shadow as its sprite (it mustn't give them away).
+	shadow_fade = 0.0
 	if c.state != CreatureSim.State.FALLING and not ko_hidden:
-		r = c.radius + 3.0 - minf(lift * 0.15, 4.0 if lift < 30.0 else 7.0)
-	if absf(r - _shadow_r) > 0.25:
-		_shadow_r = r
-		queue_redraw()
+		shadow_size = maxf(0.45, 1.0 - lift * 0.011)
+		shadow_fade = maxf(0.4, 1.0 - lift * 0.009) * blink_alpha(c)
+		if c.stealth > 0 or c.covered:
+			shadow_fade *= minf(1.0, alpha * 1.5)
 
 
 ## The creature's move breaks guard only at a full charge ("hold": {"guard_break": true},
@@ -380,18 +385,29 @@ func snapshot() -> Dictionary:
 	}
 
 
-func _draw() -> void:
-	var t0 := PerfLog.now()
-	_draw_now()
-	PerfLog.since("creatures draw", t0)
+## What the shadow looks like (ShadowLayer redraws it only when this changes; moving
+## doesn't): the frame, facing, squash, size and strength.
+func shadow_key() -> Array:
+	return [sprite.texture, sprite.frame, flip, (_sq * shadow_size).snapped(Vector2(0.02, 0.02)),
+		snappedf(shadow_fade, 0.02), pivot.position.x]
 
 
-func _draw_now() -> void:
-	if _shadow_r <= 0.0:
+## Draws this fighter's shadow onto `ci` (a ShadowLayer caster standing at its feet, on the
+## floor under everyone): the frame showing now as a silhouette from the feet along the light,
+## squashing with it.
+func draw_shadow(ci: CanvasItem, cast: Vector2, alpha: float) -> void:
+	if _cur.is_empty() or shadow_fade <= 0.0:
 		return
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.38))
-	draw_circle(Vector2.ZERO, _shadow_r, Color(0, 0, 0, 0.32))
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var size: Vector2 = _cur["size"]
+	var vc := int(_cur["cols"])
+	var region := Rect2((sprite.frame % vc) * size.x, (sprite.frame / vc) * size.y, size.x, size.y)
+	# A faint contact mark under the feet first, so a floater's floor spot (Chef Cerebro, whose
+	# silhouette only starts well above the floor) still reads where it stands.
+	var a := alpha * shadow_fade
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.38))
+	ci.draw_circle(Vector2.ZERO, c.radius * 0.8 * shadow_size, Color(0, 0, 0, a * 0.45))
+	ShadowLayer.draw_silhouette(ci, sprite.texture, region, _cur["origin"], flip,
+		Vector2(pivot.position.x, 0.0), cast, a, _sq * shadow_size)
 
 
 ## The victory animation's frame: the first frame (getting ready), then frames 1..n-3 in

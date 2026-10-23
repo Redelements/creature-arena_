@@ -3,6 +3,7 @@
 	"id": "quarry",
 	"name": "Quarry Bowl",
 	"ground": "stone",
+	"light": {"_doc": "low afternoon sun from the top left: long shadows raking right", "dir": [0.8, 0.6], "length": 0.75, "alpha": 0.38},
 	"pieces": [
 		{"kind": "wall", "rect": [20, 5, 2, 26]},
 		{"kind": "wall", "rect": [62, 5, 2, 26]}

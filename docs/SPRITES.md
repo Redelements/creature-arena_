@@ -33,7 +33,8 @@ side/down/up), [`culvert_views_preview.png`](culvert_views_preview.png), [`cragl
 ## Creatures — 48×48 frames, 6 columns
 
 Creatures face **right**. Feet rest at the **origin** pixel (Cairn: x 22, y 43), which
-sits on the ground where the shadow is drawn. The game mirrors the
+sits on the ground where the shadow is drawn (the frame itself, as a silhouette laid along
+the arena's light, so every opaque pixel casts). The game mirrors the
 sprite to face left and raises it off its shadow when launched. Leave at least 1 px of
 transparent margin on every side. Unused cells stay transparent.
 
