@@ -26,8 +26,12 @@ var cols: int
 var rows: int
 var cells := PackedByteArray()
 var timers := PackedInt32Array()
-## What each cell heals back to: INTACT, or the map's piece there. Set once per match.
+## What each cell heals back to: INTACT, or the map's piece there. Set by the map, and by
+## `sink` (a sunk cell stays a chasm).
 var base := PackedByteArray()
+## The map's own pieces, as loaded, never changed afterwards: what the arena's art shows.
+## The view tells a map chasm (in the picture) from a sunk one (drawn over it) with this.
+var map_base := PackedByteArray()
 ## Bumps whenever any cell changes, so the view knows when to redraw.
 var version := 0
 
@@ -49,6 +53,8 @@ func _init(c: int = SimDefs.GRID_COLS, r: int = SimDefs.GRID_ROWS) -> void:
 	timers.resize(cols * rows)
 	timers.fill(0)
 	base.resize(cols * rows)
+	map_base.resize(cols * rows)
+	map_base.fill(INTACT)
 	base.fill(INTACT)
 
 
@@ -78,6 +84,7 @@ func load_map(map: Dictionary) -> void:
 					base[cy * cols + cx] = v
 	for i in cells.size():
 		cells[i] = base[i]
+	map_base = base.duplicate()
 	version += 1
 
 

@@ -87,6 +87,10 @@ dig/slosh/poof/chop_chop/shout sounds.
 - Surge aura → `surge_aura.gd` (look from the JSON `surge_aura` block)
 - Range rings → `range_rings.gd:rings`; F1 hitbox overlay → `debug_view.gd`; F9 performance
   overlay → `perf_overlay.gd` (main feeds `tick(us)`; the setting is `perf_overlay`)
+- A chasm the match made (Sinkhole's rings, the Floor of pits mutator: `TerrainGrid.sink`) has
+  `base` CHASM so it never heals, but only `map_base` says what the art already shows: the
+  view's "is it in the picture" test is `_in_art` (`map_base`), never `base`, or sunk floor is
+  invisible on an art map (it was, until Oct 2026).
 - Map art → `arena_view.gd:_paint_changed` (`arena_<id>.png` under everything; a changed cell
   shows its piece of `_cracked` / `_alt`; `_paint_lips`; a hole in a bridge, or a fallen one,
   shows the water of `_alt`, `_bridge_gone`); the pictures come from

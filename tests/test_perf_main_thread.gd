@@ -117,3 +117,32 @@ func test_main_joins_the_cpu_threads_on_a_press_not_on_mouse_motion() -> void:
 	_tick(g, 1)
 	assert_true(g._cpu_task >= 0, "and they go again")
 	g.free()
+
+
+func test_sunk_floor_is_drawn_over_the_arena_art() -> void:
+	# Sinkhole's fallen rings and the Floor of pits mutator used to be invisible on a map
+	# with art: the view took every chasm whose heal target is a chasm for one of the map's
+	# own, already in the picture. Only the map's own chasms (`map_base`) are in it.
+	var sim := MatchFactory.versus("cairn", "culvert")
+	var av := ArenaView.new()
+	_root().add_child(av)
+	av.arena_id = "stadium"
+	assert_true(av._art != null, "the stadium has art")
+	av.set_terrain(sim.terrain)
+	var c := sim.terrain.world_to_cell(sim.floor_rect().get_center())
+	var i := c.y * sim.terrain.cols + c.x
+	assert_false(av._in_art(i), "floor is not a chasm in the picture")
+	sim.terrain.sink(c)
+	assert_false(av._in_art(i), "a cell sunk during the match is drawn, not left to the art:")
+	var keeps := MatchSim.new()
+	keeps.set_arena("twin_keeps")
+	av.arena_id = "twin_keeps"
+	av.set_terrain(keeps.terrain)
+	var found := false
+	for k in keeps.terrain.cells.size():
+		if keeps.terrain.cells[k] == TerrainGrid.CHASM:
+			assert_true(av._in_art(k) or av._art == null, "the map's own chasm is in its art:")
+			found = true
+			break
+	assert_true(found, "twin_keeps has a chasm")
+	av.free()
