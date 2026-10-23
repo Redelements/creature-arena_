@@ -18,7 +18,7 @@ player and live here, outside the sim.
 - Coaches supply both sides' inputs each tick and judge in `after_step`. The camera uses
   showcase framing when `showcase` or `coach` is set.
 - Paused: `_physics_process` returns early (only `_capture` runs). Pause during a showcase
-  returns to the menu.
+  returns to the menu row it was started from (`_back_to_row`; the title from the command line).
 - Bindings made in code must set `device = Controls.ALL_DEVICES` (-1) or only controller 0
   hears them. F1–F6, F9, Esc and M stay reserved (`RemapScreen.RESERVED_KEYS`).
 - A showcase scripts fixed health and timing (`"hp"`, `place`): a buff can make a combo
