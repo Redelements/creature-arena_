@@ -59,7 +59,7 @@ const STATE_FIELDS := [
 	"flip_t", "flip_total", "flip_from", "flip_to",
 	"swallow_t", "swallow_by", "swallow_gap", "swallow_air",
 	"poison", "poison_every", "poison_dmg", "poison_by", "poison_stacks", "poison_stack_dmg", "frenzy_t", "hit_streak", "streak_t", "stone",
-	"blind", "whiff_serial", "ambush_serial", "root", "hitstop",
+	"blind", "whiff_serial", "ambush_serial", "ambush_t", "root", "hitstop",
 	"stealth", "haste", "haste_mult", "atk_buff", "atk_mult", "stone_ice", "covered",
 	"block_lag", "punish_serial", "home_speed", "fall_chasm",
 	"sheets", "sheet_t", "folded", "poison_look", "regen_wait",
@@ -195,6 +195,10 @@ var whiff_serial := 0  ## the attack (attack_serial) that a blind made miss
 ## The attack that sprang out of stealth (Tiptoe): its hits land harder, by the
 ## creature's "ambush" multiplier. A sneak attack is the assassin's whole point.
 var ambush_serial := 0
+## Ticks left in the ambush window ("ambush_ticks"): opened by the strike that sprang
+## the ambush, every hit of his inside it lands harder too, so the whole opening string
+## counts, not just its first hit.
+var ambush_t := 0
 var root := 0  ## ticks left rooted in place (Cave-In): no walking, no dodging
 ## Ticks left invisible (Sneaky Pete's Tiptoe). Being hit ends it; so does an attack,
 ## but only as its strike comes out (or its projectile flies): the ambush out of
@@ -808,6 +812,8 @@ func _tick_status(sim: MatchSim) -> void:
 		root -= 1
 	if stealth > 0:
 		stealth -= 1
+	if ambush_t > 0:
+		ambush_t -= 1
 	if haste > 0:
 		haste -= 1
 	if atk_buff > 0:
@@ -1072,6 +1078,13 @@ func _start_attack(mid: String, sim: MatchSim, raw := false) -> void:
 		# A crowded field doesn't stop for a Surge: the caster winds up in its place.
 		windup_total = maxi(windup_total, int(mv.get("crowd_windup", MatchSim.SURGE_CROWD_WINDUP)))
 	windup_left = windup_total
+	# A move that goes to ground ("hidden": Burrow): out of sight from the start until the
+	# strike comes out, which springs the ambush (_reveal) like an attack out of Tiptoe.
+	# The margin covers a freeze that holds the attack while the status ticks.
+	if bool(mv.get("hidden", false)):
+		var hs: Array = mv["_segs"]
+		var hide_until := int(hs[0]["at"]) if hs.size() > 0 else int(mv.get("startup", 0)) + 1
+		stealth = maxi(stealth, hide_until + windup_total + 20)
 	if windup_total > 0:
 		sim.emit_event("windup", pos, float(windup_total),
 			{"who": id, "move": mid, "tell": String(mv.get("tell", "strong"))})
@@ -1255,6 +1268,7 @@ func _reveal(sim: MatchSim) -> void:
 	if stealth > 0:
 		stealth = 0
 		ambush_serial = attack_serial
+		ambush_t = int(def.get("ambush_ticks", 0))
 		sim.emit_event("unstealth", pos, 0.0, {"who": id})
 
 
@@ -1514,6 +1528,8 @@ func _recover() -> void:
 
 
 func cancel_attack() -> void:
+	if bool(move_def().get("hidden", false)):
+		stealth = 0  # left the tunnel early (a dodge cancel): back in sight
 	charging = false
 	windup_left = 0
 	connected = false

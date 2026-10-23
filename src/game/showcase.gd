@@ -541,7 +541,7 @@ const SCRIPTS := {
 			{"do": "place", "part": 1, "gap": 22.0},
 			{"do": "wait", "t": 25},
 			{"do": "press", "who": 1, "bit": SU, "move": "surge", "show": 0},
-			{"do": "wait", "t": 24},  # the freeze (18) plus a few ticks: i-frames cover the hit, the roll ends in his side lane
+			{"do": "wait", "t": 24},  # the freeze (23) plus a tick: i-frames cover the hit, the roll ends in his side lane
 			{"do": "dodge", "who": 0, "dir": "flank", "show": 1},
 			{"do": "until", "cond": "settled"},
 			{"do": "wait", "t": 50, "show": 2},

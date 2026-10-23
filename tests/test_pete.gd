@@ -165,3 +165,28 @@ func _events_of(sim: MatchSim, kind: String) -> Array:
 		if String(e["type"]) == kind:
 			out.append(e)
 	return out
+
+
+## The ambush isn't one hit: for ambush_ticks after the strike out of stealth, everything he
+## lands is 35% harder too (the opening string); then the bonus is gone.
+func test_the_ambush_carries_through_the_opening_string() -> void:
+	var sim := _duel("cairn", 4.0)
+	var pete := sim.creatures[0]
+	var foe := sim.creatures[1]
+	var jab := float(pete.def["moves"]["light_1"]["damage"])
+	var mult := float(pete.def["ambush"])
+	pete.stealth = 100
+	var hp0 := foe.hp
+	assert_true(run_until(sim, func(): return foe.hp < hp0, 40, L), "the jab lands")
+	assert_near(hp0 - foe.hp, jab * mult, 0.01, "the ambush jab:")
+	assert_gt(pete.ambush_t, 0, "the window is open")
+	run(sim, 0, 30)  # a no_flinch jab: Cairn is free again, so the next one is a fresh combo
+	hp0 = foe.hp
+	assert_true(run_until(sim, func(): return foe.hp < hp0, 40, L), "the second jab lands")
+	assert_near(hp0 - foe.hp, jab * mult, 0.01, "inside the window it lands harder too:")
+	pete.ambush_t = 1
+	run(sim, 0, 30)
+	assert_eq(pete.ambush_t, 0, "the window closes")
+	hp0 = foe.hp
+	assert_true(run_until(sim, func(): return foe.hp < hp0, 40, L), "the third jab lands")
+	assert_near(hp0 - foe.hp, jab, 0.01, "after it, plain damage:")

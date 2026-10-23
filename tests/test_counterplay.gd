@@ -151,17 +151,18 @@ func test_dodge_pressed_during_a_freeze_all_comes_out() -> void:
 
 func test_a_flank_roll_after_the_freeze_dodges_storm_drain_and_lands_in_the_lane() -> void:
 	# The ring is 80 px wide: no roll gets out of it. The answer is a roll toward his flank
-	# 5-12 ticks after the freeze ends (23-30 after the Surge press): i-frames cover the hit and
-	# he lands in a side lane, on solid ground.
-	for delay in range(5, 13):
+	# any time during the cut-in freeze (a dodge pressed then comes out as it ends) or up to 9
+	# ticks after it: the i-frames (2-12 of the roll) cover the one hit, 12 ticks after the
+	# freeze, and he lands in a side lane, on solid ground. (It was 5-12 ticks after the
+	# freeze before the Oct 2026 pass: a dodge on the cut-in itself was punished.)
+	for delay in range(0, 10):
 		var r := _freeze_roll(delay)
 		assert_false(r["hit"], "a flank roll %d ticks after the freeze is clean" % delay)
 		assert_false(r["fell"], "and doesn't fall (%d)" % delay)
 		assert_false(r["hole"], "and ends on solid ground (%d)" % delay)
 		assert_eq(r["hp"], r["max"], "hp untouched (%d):" % delay)
 		assert_gt(r["holes"], 40, "the ring opened around them (%d):" % delay)
-	assert_true(_freeze_roll(4)["hit"], "a press at 22 ticks (4 after the freeze) is too early: hit")
-	assert_true(_freeze_roll(13)["hit"], "and 13 after the freeze is too late: hit")
+	assert_true(_freeze_roll(10)["hit"], "10 after the freeze is too late: hit")
 
 
 ## A 2 v 2 with Culvert (slot 0) next to a Cairn (slot 2); the other two far off.
@@ -248,11 +249,12 @@ func _team_surge_hits(react: int) -> bool:
 
 func test_dodge_on_reaction_to_a_team_fight_surge() -> void:
 	assert_true(_team_surge_hits(-1), "Storm Drain hits a Cairn that stands there")
-	# A roll toward his flank is clean when pressed 23-30 ticks after the Surge (windup 18 first).
-	for react in range(23, 31):
+	# A roll toward his flank is clean when pressed 17-27 ticks after the Surge (windup 18 first,
+	# then the hit 12 ticks in; the roll's i-frames are 2-12).
+	for react in range(17, 28):
 		assert_false(_team_surge_hits(react), "a flank roll at %d ticks dodges Storm Drain" % react)
-	assert_true(_team_surge_hits(22), "22 ticks is too early: hit")
-	assert_true(_team_surge_hits(31), "31 ticks is too late: hit")
+	assert_true(_team_surge_hits(16), "16 ticks is too early: hit")
+	assert_true(_team_surge_hits(28), "28 ticks is too late: hit")
 
 
 func test_every_surge_gives_warning_in_a_1v1() -> void:

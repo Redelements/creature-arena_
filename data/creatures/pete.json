@@ -5,6 +5,7 @@
   "affinity": "lumen",
   "role": "assassin",
   "ambush": 1.35,
+  "ambush_ticks": 90,
   "max_hp": 95,
   "speed": 2.99,
   "accel": 0.55,

@@ -125,11 +125,11 @@
       "fx": { "wave_cone": true }
     },
     "surge": {
-      "name": "Storm Drain", "anim": "storm", "anim_at": [[0, 0], [3, 1], [8, 2], [12, 3], [15, 4], [26, 5]], "energy_cost": 100,
-      "startup": 14, "active": 4, "recovery": 30,
+      "name": "Storm Drain", "anim": "storm", "anim_at": [[0, 0], [2, 1], [6, 2], [9, 3], [12, 4], [23, 5]], "energy_cost": 100,
+      "startup": 11, "active": 1, "recovery": 33, "freeze": 23,
       "damage": 22, "knockback": 5.0, "knockdown": 40, "hitstop": 14,
       "reach": 0, "hit_radius": 80, "juggle": true,
-      "dash": { "speed": 1.4, "from": 1, "to": 14 },
+      "dash": { "speed": 1.4, "from": 1, "to": 11 },
       "terrain_heal": 1.5, "terrain_ring": { "inner": 18, "outer": 80, "side_lanes": 36 },
       "fx": { "rain": true, "telegraph": true, "impact": "geysers" }
     }
