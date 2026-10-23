@@ -147,8 +147,8 @@ func test_energy_fills_from_damage() -> void:
 	var a := sim.creatures[0]
 	var d := sim.creatures[1]
 	tap(sim, L, 20)
-	assert_near(a.energy, 4.5, 0.001, "attacker energy:")
-	assert_near(d.energy, 3.0, 0.001, "defender energy:")
+	assert_near(a.energy, 2.25, 0.001, "attacker energy:")
+	assert_near(d.energy, 1.5, 0.001, "defender energy:")
 
 
 func test_surge_needs_a_full_bar() -> void:
@@ -325,3 +325,54 @@ func test_only_the_last_hit_of_each_light_string_staggers() -> void:
 				assert_false(nf, "%s's last light (%s) staggers" % [id, chain[k]])
 			else:
 				assert_true(nf, "%s's %s only deals damage" % [id, chain[k]])
+
+
+## data/rules/energy.json: one jab charges the attacker by damage x per_damage_dealt and
+## the defender by damage x per_damage_taken (0.75 and 0.5 since Oct 2026).
+func test_energy_rules_file_sets_the_rates() -> void:
+	assert_near(MatchSim.energy_rate_dealt(), 0.75, 0.0001, "dealt rate:")
+	assert_near(MatchSim.energy_rate_taken(), 0.5, 0.0001, "taken rate:")
+	assert_true(MatchSim.energy_carries(), "the meter carries between rounds")
+	var sim := _duel()
+	var a := sim.creatures[0]
+	var d := sim.creatures[1]
+	a.energy = 0.0
+	d.energy = 0.0
+	var hp0 := d.hp
+	sim.step(PackedInt32Array([L, 0]))
+	for i in 30:
+		if d.hp < hp0:
+			break
+		sim.step(PackedInt32Array([0, 0]))
+	var dmg := hp0 - d.hp
+	assert_gt(dmg, 0.0, "the jab landed")
+	assert_near(a.energy, dmg * 0.75, 0.001, "attacker gains damage x 0.75:")
+	assert_near(d.energy, dmg * 0.5, 0.001, "defender gains damage x 0.5:")
+
+
+## A hand-built move of two hit segments, both reaching the foe. `skip` sets skip_struck
+## on the second one. Returns how many hits landed.
+func _two_segment_hits(skip: bool) -> int:
+	var sim := _duel()
+	var a := sim.creatures[0]
+	var seg2 := {"at": 10, "active": 2}
+	if skip:
+		seg2["skip_struck"] = true
+	var mv := {"type": "skill", "startup": 4, "recovery": 12, "reach": 14, "hit_radius": 20,
+		"damage": 3.0, "hitstun": 6, "knockback": 0.0, "hitstop": 0,
+		"hits": [{"at": 5, "active": 2}, seg2]}
+	CreatureSim._normalize_move("test_two", mv)
+	a.moves()["test_two"] = mv
+	a._start_attack("test_two", sim)
+	var hits := 0
+	for i in 30:
+		sim.step(PackedInt32Array([0, 0]))
+		for e in sim.events:
+			if e["type"] == "hit":
+				hits += 1
+	return hits
+
+
+func test_skip_struck_passes_over_a_foe_an_earlier_segment_hit() -> void:
+	assert_eq(_two_segment_hits(false), 2, "both segments hit without the flag:")
+	assert_eq(_two_segment_hits(true), 1, "the flagged segment skips the foe already struck:")

@@ -363,6 +363,20 @@ func seg_value(seg: int, key: String) -> float:
 	return move_value(key)
 
 
+## A boolean flag on a hit segment (only the segment's own entry; "skip_struck").
+func seg_flag(seg: int, key: String) -> bool:
+	var segs: Array = move_def().get("_segs", [])
+	return seg >= 0 and seg < segs.size() and bool(segs[seg].get(key, false))
+
+
+## An earlier segment (before `seg`) of this attack already hit foe `foe_id`.
+func struck_before(foe_id: int, seg: int) -> bool:
+	for s in seg:
+		if seg_hit.has("%d:%d" % [foe_id, s]):
+			return true
+	return false
+
+
 func hit_center(seg: int = -2) -> Vector2:
 	if seg == -2:
 		seg = active_seg()
@@ -643,9 +657,15 @@ func move_range(mid: String) -> float:
 	if mv.has("projectile"):
 		var p: Dictionary = mv["projectile"]
 		if bool(p.get("lob", false)):
-			return float(p.get("offset", 16)) + float(p["range"]) + float(p.get("burst", 0))
+			var area := float((p.get("storm", {}) as Dictionary).get("radius", p.get("burst", 0)))
+			return float(p.get("offset", 16)) + float(p["range"]) + area
 		return float(p.get("offset", 16)) + float(p["speed"]) * float(p["life"]) + float(p.get("radius", 0))
-	return float(mv.get("reach", 14)) + float(mv.get("hit_radius", 9))
+	# A strike: the widest of its segments (a segment may set its own reach and radius).
+	var best := float(mv.get("reach", 14)) + float(mv.get("hit_radius", 9))
+	for seg in mv.get("_segs", []):
+		var r := float(seg.get("reach", mv.get("reach", 14))) + float(seg.get("hit_radius", mv.get("hit_radius", 9)))
+		best = maxf(best, r)
+	return best
 
 
 func move_rank(mid: String) -> int:
@@ -1166,7 +1186,7 @@ func _update_attack(buttons: int, pressed: int, dir: Vector2, sim: MatchSim) -> 
 		if k % every == 0 and k / every < int(vol.get("count", 1)):
 			if mv.has("aim"):
 				_aim(float(mv["aim"]), sim)  # each throw of a volley tracks the foe
-			sim.spawn_projectile(self, mv, k / every == int(vol.get("count", 1)) - 1)
+			sim.spawn_projectile(self, mv, k / every == int(vol.get("count", 1)) - 1, k / every)
 
 	# A zone left on the floor (Syrup Slick).
 	var zn: Dictionary = mv.get("zone", {})

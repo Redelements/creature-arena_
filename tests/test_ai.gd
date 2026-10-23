@@ -175,3 +175,46 @@ func test_sno_cpu_uses_its_whole_kit() -> void:
 			used[mid] = true
 	for mid in ["light_1", "light_3", "heavy", "skill_1", "skill_2"]:
 		assert_true(used.has(mid), "the Sno Mercy CPU should use %s" % mid)
+
+
+## A foe's threat range comes from its move's widest hit segment (Barkley's last Timber
+## Twister ring), not just the move-level radius.
+func test_threat_range_uses_the_widest_segment() -> void:
+	var sim := MatchFactory.versus("barkley", "cairn")
+	var barkley := sim.creatures[0]
+	var me := sim.creatures[1]
+	barkley.move_id = "surge"
+	barkley.moves()["surge"]["hit_radius"] = 10  # the move-level radius alone would say 10
+	var cpu := CpuController.new(1, 3, 1)
+	assert_near(cpu._threat_range(barkley, me), 54.0 + 1.0 + me.radius + 6.0, 0.001, "widest ring (54):")
+	assert_near(barkley.move_range("surge"), 54.0, 0.001, "move_range is the per-segment max")
+
+
+## A Surge with no surge_range in the JSON, no projectile and no armor gets one from its reach.
+func test_surge_range_defaults_from_the_move() -> void:
+	var sim := MatchFactory.versus("barkley", "cairn")
+	var cpu := CpuController.new(0, 3, 1)
+	var b := sim.creatures[0]
+	var ai := {}
+	assert_near(cpu._surge_range(b, ai), b.move_range("surge") - 10.0, 0.001, "default:")
+	assert_near(cpu._surge_range(b, {"surge_range": 77}), 77.0, 0.001, "the JSON wins:")
+	var cerebro := MatchFactory.versus("cerebro", "cairn").creatures[0]
+	assert_eq(cpu._surge_range(cerebro, ai), 0.0, "a projectile Surge has none:")
+
+
+## A roll carries about 50 px: the CPU's open-floor check looks that far, so a sideways
+## roll under a Surge never lands in a pit 45 px away.
+func test_a_roll_direction_keeps_clear_of_pits_at_roll_distance() -> void:
+	var sim := MatchFactory.versus("cairn", "sno")
+	var me := sim.creatures[0]
+	me.pos = Vector2(220, 164)
+	for cx in range(32, 36):  # a strip of pits 45 px to the right (x 256-288), every row
+		for cy in sim.terrain.rows:
+			sim.terrain.set_cell(Vector2i(cx, cy), TerrainGrid.HOLE)
+	sim.terrain.version += 1
+	var cpu := CpuController.new(0, 3, 1)
+	var roll := CpuController._roll_distance(me)
+	assert_near(roll, 50.0, 6.0, "about 50 px for Cairn:")
+	var d := cpu._open_dir(sim, me, Vector2.RIGHT, roll)
+	assert_true(not sim.terrain.is_hole_at(me.pos + d * (me.radius + roll)), "the roll doesn't end in the pits")
+	assert_true(not sim.terrain.is_hole_at(me.pos + d * roll), "(nor at its plain distance)")

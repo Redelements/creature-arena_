@@ -334,9 +334,38 @@ func _foe_grab_ready(foe: CreatureSim) -> bool:
 	return false
 
 
+## How far this fighter's roll carries: its speed for the frames, slowed to 0.4 in the last
+## four ticks (CreatureSim._update_dodge). A blink dodge uses its teleport distance.
+static func _roll_distance(me: CreatureSim) -> float:
+	var dg: Dictionary = me.def["dodge"]
+	if dg.has("blink"):
+		return float(dg["blink"].get("distance", 0.0))
+	var frames := int(dg["frames"])
+	var spd := float(dg["speed"])
+	return spd * float(maxi(0, frames - 4)) + spd * 0.4 * float(mini(4, frames))
+
+
+## About how far a roll carries.
+const DODGE_DISTANCE := 50.0
+
+
+## How close the foe must be for an area Surge: the fighter's "surge_range", else (a strike
+## Surge with no projectile and no armor) its widest segment's reach minus a margin.
+func _surge_range(me: CreatureSim, ai: Dictionary) -> float:
+	if ai.has("surge_range"):
+		return float(ai["surge_range"])
+	var mv: Dictionary = me.moves().get("surge", {})
+	if mv.is_empty() or mv.has("projectile") or mv.has("armor"):
+		return 0.0
+	return me.move_range("surge") - 10.0
+
+
 func _threat_range(foe: CreatureSim, me: CreatureSim) -> float:
 	var mv := foe.move_def()
 	var r := float(mv.get("reach", 14)) + float(mv.get("hit_radius", 10)) + me.radius
+	if not mv.has("projectile"):
+		# The widest hit segment of the move (a Surge's last ring is wider than its first).
+		r = foe.move_range(foe.move_id) + 1.0 + me.radius
 	var dash: Dictionary = mv.get("dash", {})
 	if not dash.is_empty():
 		r += float(dash["speed"]) * float(int(dash["to"]) - int(dash["from"]))
@@ -809,7 +838,7 @@ func _neutral_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vect
 		return
 
 	# An area Surge (Storm Drain) works straight from neutral when the foe is close.
-	var surge_range := float(ai.get("surge_range", 0))
+	var surge_range := _surge_range(me, ai)
 	if surge_range > 0.0 and dist < surge_range and _usable(me, "surge") \
 			and not (me.moves()["surge"].has("armor") and _foe_grab_ready(foe)) and _roll(0.3 + 0.2 * level):
 		_press(SimDefs.IN_SURGE)
@@ -1017,7 +1046,7 @@ func _steer_now(sim: MatchSim, me: CreatureSim, v: Vector2) -> Vector2:
 
 ## A way to back off from `away` that keeps to open floor: away from the foe, but
 ## preferring directions with room to keep going (out of corners, around holes).
-func _open_dir(sim: MatchSim, me: CreatureSim, away: Vector2) -> Vector2:
+func _open_dir(sim: MatchSim, me: CreatureSim, away: Vector2, look := 34.0) -> Vector2:
 	var a := away.normalized() if away.length_squared() > 0.0001 else Vector2.RIGHT
 	var room := sim.floor_rect().grow(-me.radius - 4.0)
 	var best := a
@@ -1027,7 +1056,7 @@ func _open_dir(sim: MatchSim, me: CreatureSim, away: Vector2) -> Vector2:
 		var d: Vector2 = dirs[i * 4]
 		var clear := _clearance(room, me.pos, d)
 		var s := d.dot(a) * 1.2 + minf(clear, 100.0) / 100.0
-		for k in [8.0, 20.0, 34.0]:
+		for k in [8.0, 20.0, look * 0.5, look]:
 			var at: Vector2 = me.pos + d * (me.radius + k)
 			if sim.terrain.is_hole_at(at) or NavGrid.body_blocked(sim.terrain, at, me.radius):
 				s -= 1.5
@@ -1209,7 +1238,7 @@ func _rage_defend_now(sim: MatchSim, me: CreatureSim) -> bool:
 		var mv := o.move_def()
 		drain = _strike_drain(me, o)
 		kind = "unblockable" if _breaks_guard(mv) and (not _breaks_guard_held_only(mv) or o.charge_ratio >= 1.0) \
-			or String(mv.get("type", "")) == "surge" else "strike"
+			or (String(mv.get("type", "")) == "surge" and mv.has("terrain_ring")) else "strike"
 	for pr in sim.projectiles:
 		var owner_id := int(pr["owner"])
 		if owner_id < 0 or owner_id >= sim.creatures.size() or not me.is_foe(sim.creatures[owner_id]):
@@ -1277,7 +1306,7 @@ func _rage_defend_now(sim: MatchSim, me: CreatureSim) -> bool:
 				return true
 			var ivs := int(me.def["dodge"].get("iframes_start", 2))
 			if when <= ivs + 2 and me.can_dodge():
-				_dodge_dir(me, _open_dir(sim, me, me.pos - from))
+				_dodge_dir(me, _open_dir(sim, me, me.pos - from, _roll_distance(me)))
 			return true
 		_:  # a strike
 			# Blocking it would empty the stamina (the guard drops and it lands clean):
@@ -1300,7 +1329,11 @@ func _rage_defend_now(sim: MatchSim, me: CreatureSim) -> bool:
 			if not guard_ok:
 				var ivs := int(me.def["dodge"].get("iframes_start", 2))
 				if when <= ivs + 2 and me.can_dodge():
-					_dodge_dir(me, _open_dir(sim, me, me.pos - from))
+					# Too wide to out-roll: the i-frames save us, not the distance, so go across.
+					var away := me.pos - from
+					if need > DODGE_DISTANCE and away.length_squared() > 0.0001:
+						away = Vector2(-away.y, away.x)
+					_dodge_dir(me, _open_dir(sim, me, away, _roll_distance(me)))
 				else:
 					_go(sim, me, _open_dir(sim, me, me.pos - from))
 				return true
@@ -1510,7 +1543,7 @@ func _rage_kit(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2
 	var ai := _ai(me)
 	var busy := _recovery_left(foe) >= 6 or foe.is_stunned() or foe.state == CreatureSim.State.GUARD
 	# Surges: an area one with the foe close and stuck, a line one with the foe in range.
-	var surge_range := float(ai.get("surge_range", 0))
+	var surge_range := _surge_range(me, ai)
 	if surge_range > 0.0 and _usable(me, "surge") and dist < surge_range * (1.0 if busy else 0.65) \
 			and not (me.moves()["surge"].has("armor") and _foe_grab_ready(foe)):
 		_press(SimDefs.IN_SURGE)
@@ -1691,7 +1724,7 @@ func _plan_kite(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector
 			_press(int(ACTION_BIT[grab]))
 			return
 		if me.can_dodge() and _roll(0.5):
-			_dodge_dir(me, _open_dir(sim, me, -to_foe))
+			_dodge_dir(me, _open_dir(sim, me, -to_foe, _roll_distance(me)))
 			return
 	_strafe(sim, me, foe, _kite_vector(sim, me, foe))
 	var max_r := me.move_range("light_1")

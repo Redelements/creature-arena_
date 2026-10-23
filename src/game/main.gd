@@ -256,6 +256,9 @@ var arcade: Ladder = null
 var _arcade_fighter := "cairn"
 var _cpu_level_override := -1
 var wins := [0, 0]
+## Each side's Surge meter at the end of the last offline round (-1: none), carried into the
+## next round of a Versus match when data/rules/energy.json says so; cleared on a new match.
+var _carried_energy := [-1.0, -1.0]
 var timer := ROUND_TICKS
 var seed_base := 1
 ## --menu=PAGE: open a menu page on start (captures): single, single:<group>, settings, game, video, audio, controls.
@@ -925,6 +928,7 @@ func _start_match(m: int, keep_teams := false) -> void:
 		_training_fighter = ""  # a swapped fighter lasts until you leave training
 	mode = m
 	wins = [0, 0]
+	_carried_energy = [-1.0, -1.0]
 	round_num = 1
 	hud.menu_visible = false
 	_save_settings()
@@ -1075,6 +1079,13 @@ func _start_round() -> void:
 		_new_sim(MatchFactory.versus(String(_teams[0][0]), String(_teams[1][0])), cfg["sides"])
 	else:
 		_new_sim(MatchFactory.versus(String(cfg["left"]), String(cfg["right"])), cfg["sides"])
+	if MatchSim.energy_carries():
+		for i in 2:
+			if float(_carried_energy[i]) >= 0.0:
+				sim.creatures[i].energy = minf(float(_carried_energy[i]), CreatureSim.MAX_ENERGY)
+		# The replay rebuilds the round with the meters it started with.
+		if replay != null and replay.setup is Dictionary:
+			replay.setup["energy"] = [sim.creatures[0].energy, sim.creatures[1].energy]
 	timer = ROUND_TICKS
 	hud.timer_ticks = timer
 	hud.wins = wins
@@ -2024,7 +2035,9 @@ func _physics_process(_delta: float) -> void:
 			inputs = showcase.inputs(sim)
 		elif coach != null and flow == Flow.FIGHT:
 			inputs = coach.inputs(_side_bits(0, true))
-		if flow == Flow.FIGHT:
+		if flow == Flow.FIGHT or flow == Flow.INTRO:
+			# The intro too: the sim idles through it, and a replay side reads its frame by
+			# sim.tick, so a Versus round's recording has to start where the sim does.
 			replay.record(inputs)
 		if _replaying() and sim.training:
 			ReplayBuilder.apply_flag_changes(sim, _replay_watched, sim.tick)
@@ -2204,6 +2217,7 @@ func _ko_side() -> int:
 
 
 func _end_round(ko: int) -> void:
+	_carried_energy = [sim.creatures[0].energy, sim.creatures[1].energy]
 	flow = Flow.ROUND_OVER
 	flow_t = 0
 	audio.play("round_end")
