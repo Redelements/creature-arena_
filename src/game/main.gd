@@ -566,9 +566,10 @@ func _menu_background() -> void:
 func _open_single() -> void:
 	var scr := UiScreen.new()
 	scr.title = "SINGLE PLAYER"  # no logo: six cards and the arena row fill the screen
-	scr.row_width = 262.0
+	scr.row_width = 240.0
 	scr.row_gap = 2
-	scr.show_desc = false  # the cards say what they hold
+	scr.detail = true
+	scr.blurb = "Fight the CPU, train, take on Combo Trials, or play 2 players on one screen"
 	scr.hints = ["move", "change", "select", "back"]
 	scr.builder = func(s: UiScreen):
 		var maps: Array = []
@@ -596,8 +597,10 @@ func _open_single_group(gid: String, focus_row := -1) -> void:
 	scr.logo = true
 	scr.crumbs = ["SINGLE PLAYER"]
 	scr.title = String(group.get("title", "")).to_upper()
-	scr.row_width = 262.0
+	scr.row_width = 236.0
 	scr.row_gap = 2
+	scr.detail = true
+	scr.blurb = String(group.get("desc", ""))
 	scr.hints = ["move", "change", "select", "back"]
 	scr.builder = func(s: UiScreen):
 		for r in MENU_ROWS.size():
@@ -670,8 +673,9 @@ func _open_settings() -> void:
 	var scr := UiScreen.new()
 	scr.logo = true
 	scr.title = "SETTINGS"
-	scr.row_width = 200.0
-	scr.row_width = 240.0
+	scr.row_width = 230.0
+	scr.detail = true
+	scr.blurb = "CPU level, keyboard layout, volume, fullscreen, frame rate"
 	scr.builder = func(s: UiScreen):
 		s.add_card("Game", "CPU level, rumble, screen shake, online server, input delay",
 			func(): _open_settings_page("game"), "How the game plays and where it plays online")
@@ -693,7 +697,10 @@ func _open_settings_page(page: String) -> void:
 	scr.logo = true
 	scr.crumbs = ["SETTINGS"]
 	scr.title = page.to_upper()
-	scr.row_width = 270.0
+	scr.row_width = 236.0
+	scr.detail = true
+	scr.blurb = {"game": "How the game plays and where it plays online", "video": "The screen and the frame rate",
+		"audio": "Volumes"}.get(page, "")
 	scr.hints = ["move", "change", "back"]
 	scr.builder = func(s: UiScreen):
 		for key in SETTING_PAGES[page]:
@@ -733,6 +740,7 @@ func _add_server_row(s: UiScreen) -> LineEdit:
 		_online_server = t.strip_edges()
 		_save_settings())
 	s.add_row(f, "Where Quick match and rooms play. Leave it empty for %s" % default_server())
+	s.entitle(f, "Online server")
 	return f
 
 
@@ -756,7 +764,9 @@ func _open_controls() -> void:
 	scr.logo = true
 	scr.crumbs = ["SETTINGS"]
 	scr.title = "CONTROLS"
-	scr.row_width = 250.0
+	scr.row_width = 236.0
+	scr.detail = true
+	scr.blurb = "Who presses what"
 	scr.hints = ["move", "change", "select", "back"]
 	scr.builder = func(s: UiScreen):
 		_add_setting_row(s, "layout")
@@ -2741,7 +2751,9 @@ func _open_training_options() -> void:
 	var scr := UiScreen.new()
 	scr.crumbs = ["PAUSED"]
 	scr.title = "TRAINING OPTIONS"
-	scr.row_width = 230.0
+	scr.row_width = 220.0
+	scr.detail = true
+	scr.blurb = "No cooldowns, Surge always full, what the dummy does"
 	scr.hints = ["move", "change", "back"]
 	scr.builder = func(s: UiScreen):
 		_add_setting_row(s, "no_cooldowns")

@@ -1,8 +1,13 @@
 class_name UiScreen
 extends Control
-## One menu screen: a heading, a column of rows, a line describing the focused row, and
-## a hint line at the bottom. Subclasses (or whoever makes one) add rows in build();
-## ScreenStack shows it and handles Back.
+## One menu screen: a heading, a column of rows, a description of the focused row (in a
+## panel on the right with `detail`, else a line under the column) and a hint line at the
+## bottom. Subclasses (or whoever makes one) add rows in build(); ScreenStack shows it and
+## handles Back.
+##
+## Nothing on a screen moves while it is open: the description's box is sized once, for
+## the longest text it will show, so a longer line can't grow the panel and shift the rows
+## under a still mouse (which refocused another row, which changed the text again).
 ##
 ## Rows are ordinary Controls (Buttons, OptionRows, a LineEdit...), so Godot's focus
 ## system moves between them with the arrows, the d-pad and the stick (MenuStick), and the
@@ -21,6 +26,13 @@ var crumbs: Array = []
 var framed := true
 ## The line under the rows describing the focused one (off where the rows say it all).
 var show_desc := true
+## Two panes: the rows on the left and a panel on the right, the same height as the
+## column, with the focused row's title and its description (and room for more). For
+## pages with a lot to say; the pause and match-over menus keep the line.
+var detail := false
+var detail_width := 150.0
+## What the panel says for a row with no description of its own (Back): the page's.
+var blurb := ""
 ## Hint line items for Prompts.line(); empty: no hint line.
 var hints: Array = ["move", "select", "back"]
 ## How dark the screen behind is drawn (0: not at all).
@@ -46,9 +58,11 @@ var on_back := Callable()
 
 var _list: VBoxContainer
 var _desc: Label
+var _detail_title: Label
 var _hint: Label
 var _gamepad := false
 var _descriptions := {}  ## row -> text shown while it's focused
+var _titles := {}  ## row -> the panel's title when the row has no text of its own
 
 
 func _init() -> void:
@@ -93,7 +107,42 @@ func _ready() -> void:
 	_list.custom_minimum_size = Vector2(row_width, 0)
 	_list.add_theme_constant_override("separation", row_gap)
 	_desc = _label("", UiTheme.SIZE_HINT, UiTheme.C_DIM)
-	if framed:
+	_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if framed and detail:
+		# Two panes in one frame: the column, a rule, and the panel. The panel's width is
+		# fixed and its text box is sized after build() for the longest description.
+		var frame := PanelContainer.new()
+		frame.mouse_filter = MOUSE_FILTER_IGNORE
+		center.add_child(frame)
+		var panes := HBoxContainer.new()
+		panes.add_theme_constant_override("separation", 7)
+		panes.mouse_filter = MOUSE_FILTER_IGNORE
+		frame.add_child(panes)
+		panes.add_child(_list)
+		var vr := ColorRect.new()
+		vr.color = UiTheme.C_RULE
+		vr.custom_minimum_size = Vector2(1, 0)
+		vr.mouse_filter = MOUSE_FILTER_IGNORE
+		panes.add_child(vr)
+		var side := VBoxContainer.new()
+		side.custom_minimum_size = Vector2(detail_width, 0)
+		side.add_theme_constant_override("separation", 3)
+		side.mouse_filter = MOUSE_FILTER_IGNORE
+		panes.add_child(side)
+		_detail_title = _label("", UiTheme.SIZE_ROW, UiTheme.C_ACCENT)
+		_detail_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		_detail_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_detail_title.custom_minimum_size = Vector2(detail_width, row_height)
+		_detail_title.clip_text = true
+		side.add_child(_detail_title)
+		side.add_child(_rule(detail_width))
+		_desc.add_theme_font_size_override("font_size", UiTheme.SIZE_HINT + 1)
+		_desc.add_theme_color_override("font_color", Color(UiTheme.C_TEXT, 0.9))
+		_desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		_desc.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		_desc.custom_minimum_size = Vector2(detail_width, 0)
+		side.add_child(_desc)
+	elif framed:
 		# The column and its description line in one panel.
 		var frame := PanelContainer.new()
 		frame.mouse_filter = MOUSE_FILTER_IGNORE
@@ -105,8 +154,9 @@ func _ready() -> void:
 		inner.add_child(_list)
 		if show_desc:
 			inner.add_child(_rule(row_width))
-			_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			_desc.custom_minimum_size = Vector2(row_width, 9)
+			# Two lines, always: a one-line text leaves the second empty, a longer one is cut.
+			_desc.max_lines_visible = 2
+			_desc.custom_minimum_size = Vector2(row_width, _lines_height(_desc, 2))
 			_desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			_desc.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 			inner.add_child(_desc)
@@ -124,6 +174,28 @@ func _ready() -> void:
 	build()
 	link_focus()
 	refresh_hint()
+	if _detail_title != null:
+		_size_detail()
+
+
+## The panel's text box, sized once for the longest text any row (or the page) shows.
+func _size_detail() -> void:
+	var texts: Array = _descriptions.values()
+	texts.append(blurb)
+	var font := _desc.get_theme_font("font")
+	var fs := _desc.get_theme_font_size("font_size")
+	var tallest := 0.0
+	for t in texts:
+		var sz := font.get_multiline_string_size(String(t), HORIZONTAL_ALIGNMENT_LEFT, detail_width, fs,
+			-1, TextServer.BREAK_MANDATORY | TextServer.BREAK_WORD_BOUND)
+		tallest = maxf(tallest, sz.y)
+	# A line of slack: the Label's own wrapping can differ from the measure by a word.
+	_desc.custom_minimum_size = Vector2(detail_width, tallest + font.get_height(fs))
+
+
+## The height of `n` lines of a label's font.
+func _lines_height(l: Label, n: int) -> float:
+	return l.get_theme_font("font").get_height(l.get_theme_font_size("font_size")) * n + 1.0
 
 
 ## Subclasses add their rows here (or set `builder`).
@@ -230,6 +302,14 @@ func describe(c: Control, text: String) -> void:
 		_show_description(c)
 
 
+## The panel's title while `c` is focused, for a row that isn't a Button or an OptionRow
+## (a text field).
+func entitle(c: Control, text: String) -> void:
+	_titles[c] = text
+	if c.has_focus():
+		_show_description(c)
+
+
 func rows() -> Array:
 	var out: Array = []
 	for c in _list.get_children():
@@ -270,8 +350,25 @@ func refresh_hint() -> void:
 
 
 func _show_description(c: Control) -> void:
-	if _desc != null:
-		_desc.text = String(_descriptions.get(c, ""))
+	if _desc == null:
+		return
+	var text := String(_descriptions.get(c, ""))
+	if _detail_title != null:
+		_detail_title.text = _row_title(c)
+		_desc.text = text if text != "" else blurb
+	else:
+		_desc.text = text
+
+
+## What the panel calls a row: an OptionRow's label, a Button's text, or what `entitle` said.
+func _row_title(c: Control) -> String:
+	if _titles.has(c):
+		return String(_titles[c])
+	if c is OptionRow:
+		return (c as OptionRow).label
+	if c is Button:
+		return (c as Button).text
+	return ""
 
 
 func _label(text: String, size_px: int, col: Color) -> Label:
