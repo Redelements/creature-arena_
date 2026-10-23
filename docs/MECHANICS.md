@@ -182,7 +182,7 @@ Spawned at tick `startup + 1` (and each volley tick) with move-level hit values 
 | --- | --- | --- | --- |
 | `frames`, `speed` | Length; speed (× 0.4 in the last 5 ticks); ignores holes | all | cs:`_update_dodge` |
 | `iframes_start`, `iframes_end` | Invulnerable window (inclusive) | all | cs:`is_invulnerable` |
-| (cost) | Not in the fighter file: `dodge_cost` = max stamina × `dodge_cost_share` (0.6) or the fighter's entry in `dodge_cost_share_by_fighter` (`data/rules/stamina.json`); needs at least this | all | cs:`can_dodge`, `dodge_share` |
+| (cost) | Not in the fighter file: `dodge_cost` = max stamina × `dodge_cost_share` (0.6) or the fighter's entry in `dodge_cost_share_by_fighter` (`data/rules/stamina.json`); needs at least this. A dodge out of your own attack costs `dodge_cancel_cost_mult` (1.25) × that | all | cs:`can_dodge`, `dodge_share`, `can_dodge_cancel`, `dodge_cancel_cost` |
 | `passes` | `["fence"]`: fences don't stop the dodge | crease (Paper Plane) | cs:`passes_fences` |
 | `cooldown` | Ticks before the next dodge; a press meanwhile is buffered | cerebro (45) | cs:`_start_dodge` |
 | `blink` `{at, distance}` | Teleport `distance` px the dodge way at tick `at` (walls clamp it, pits don't stop it) | cerebro | cs:`_update_dodge` |
@@ -196,7 +196,8 @@ Spawned at tick `startup + 1` (and each volley tick) with move-level hit values 
 
 Constants: cs (`BUFFER_TICKS` 10, `JUGGLE_MAX` 3, `JUGGLE_FLOAT` 16, `LAND_KNOCKDOWN` 24, `GETUP_INVULN` 12, `BREAKAWAY_COST` 50, `BREAKAWAY_MIN_HITS` 3, `BREAKAWAY_INVULN` 30, `WALL_BOUNCE_MIN` 2.0, `WALL_BOUNCE_STUN` 12, `TAUNT_SPEED` 0.6, `TAUNT_PULL` 0.6, `STRAFE_SPEED` 0.85, `MAX_ENERGY` 100, `FRICTION` 0.82, `AIR_FRICTION` 0.92); ms (`HITSTUN_DECAY` 0.07, `HITSTUN_FLOOR` 0.4, `STALE_MULT` 0.5, `ENERGY_PER_DAMAGE` 1.5, `ENERGY_PER_DAMAGE_TAKEN` 1.0, `STONE_SHATTER_MULT` 1.25, `BLOCKED_ENDER_DISADVANTAGE` 16); sim_defs (`TYPE_RANK` light 1, heavy 2, skill 3, surge 4; `VARIETY` [1.0, 1.0, 1.15, 1.3, 1.5]).
 
-- **Buffer:** a press is kept `BUFFER_TICKS`, including presses during hitstop, KO freeze and slow motion. Dodge is buffered only during hitstop or the dodge cooldown; otherwise it isn't read during an attack.
+- **Buffer:** a press is kept `BUFFER_TICKS`, including presses during hitstop, KO freeze and slow motion. A Dodge press is kept (`dodge_buffer`) when it can't happen yet: during hitstop, the dodge cooldown, or an attack it can't cancel (below); pressed during an attack it waits until the attack ends, then `BUFFER_TICKS` more. A kept press from before an attack is dropped when that attack starts raw (cs:`_try_start_buffered`): only a press during the attack may cancel it.
+- **Dodge cancel:** Dodge during your own attack leaves it at any point (windup, charge, startup, active or recovery: cs:`_update_attack` → `can_dodge_cancel`, `cancel_attack`, `_start_dodge`) for `dodge_cancel_cost` (the dodge's cost × `dodge_cancel_cost_mult`). Not while a blocked ender is being served (`punish_serial`), rooted, on the dodge cooldown, or short of that stamina. The cancelled move lands no more hits; a projectile already thrown flies on. A Dodge pressed in the hitstop of your own hit cancels on the first tick after it.
 - **String cancel:** a buffered light during a light from `cancel_from` starts `next` (no hit needed), re-aimed where you hold.
 - **Rank cancel:** once the move `connected` (hit, blocked or armored), any usable move of a higher rank from `rank_cancel_from`.
 - **Release:** from `armor.release_from` or `gaze.release_from` to the window's end, any other usable move (no hit or rank needed).
@@ -209,7 +210,7 @@ Constants: cs (`BUFFER_TICKS` 10, `JUGGLE_MAX` 3, `JUGGLE_FLOAT` 16, `LAND_KNOCK
 - **Juggles:** airborne targets take only `juggle` non-grab hits from at most `JUGGLE_MAX` attacks. Landing: `LAND_KNOCKDOWN`, then `GETUP_INVULN`.
 - **Wall bounce:** knockback ≥ `WALL_BOUNCE_MIN` bounces (×0.6); the first per combo adds `WALL_BOUNCE_STUN`.
 - **Guard:** guarding turns to the nearest foe; a hit within `dot > 0.3` of facing is blocked: chip `× (1 − reduction)`, stamina drain (`MatchSim.block_drain`: damage × `drain_per_damage` × `block_drain_mult[type]`), regen paused `block_regen_pause_seconds` (restarted by every blocked hit), knockback ×0.4, stun `hitstun × 0.5`. A blocked hit whose drain would take stamina to 0 isn't blocked: stamina goes to 0, the guard drops (`drop_guard`, a `guard_break` event with `drained`) and the hit lands clean, with only its own reaction. Hits from behind are clean.
-- **Stamina** (`data/rules/stamina.json`, `CreatureSim.stamina_rules`): at 0 from any source (`spend_stamina`: a dodge or a blocked hit) the creature is exhausted (`is_exhausted`): `can_guard` is false, so a held Guard does nothing, and `regen_wait` is set to `exhaust_delay_seconds`, replacing a block pause rather than adding to it. `regen_wait` counts down every tick, in any state.
+- **Stamina** (`data/rules/stamina.json`, `CreatureSim.stamina_rules`): at 0 from any source (`spend_stamina`: a dodge, a dodge cancel or a blocked hit) the creature is exhausted (`is_exhausted`): `can_guard` is false, so a held Guard does nothing, and `regen_wait` is set to `exhaust_delay_seconds`, replacing a block pause rather than adding to it. `regen_wait` counts down every tick, in any state.
 - **Armor:** hits deal `× (1 − reduction)`, no stun or knockback, hitstop ×0.6; grabs ignore it; an armored body isn't pushed.
 - **Energy:** the attacker gains `ENERGY_PER_DAMAGE` × damage dealt (clean, blocked chip or armor chip), except from surge-type hits; the defender gains `ENERGY_PER_DAMAGE_TAKEN` × clean damage. `surge_ready` fires when a meter fills.
 - **Breakaway:** Guard + Dodge while stunned, with `combo_hits >= 3` and 50 energy: combo reset, `BREAKAWAY_INVULN`, pushed away; the attacker's attack is cancelled.
@@ -278,7 +279,7 @@ Views, audio, drills and the CPU read `sim.events`; the sim never reads them.
 | --- | --- |
 | `windup` | Raw move starts with a windup (`tell`, `move`) |
 | `surge`, `surge_ready` | Surge starts (`name`, `freeze`: whether it froze the match; without it the view skips the cut-in and flash); a meter fills |
-| `dodge`, `warp`, `ram_wall` | Dodge starts; a blink dodge teleports; a ramming dodge hits the wall (`who`, power = its damage) |
+| `dodge`, `warp`, `ram_wall` | Dodge starts (`who`, `cancel`: it left the dodger's own attack); a blink dodge teleports; a ramming dodge hits the wall (`who`, power = its damage) |
 | `hit`, `block`, `armor`, `miss`, `slip`, `guard_break`, `punishable` | Hit outcomes (`slip`: counter; `punishable`: blocked ender; `guard_break` with `drained`: stamina ran out under the hit, drawn as "EXHAUSTED") |
 | `grab`, `hook`, `pull`, `reel`, `reeled_in` | Grab (`flip` flag), hook, pull, reel start, reel arrival |
 | `swallow`, `poop` | A held Gulp swallows (`attacker`, `target`); the swallowed fighter comes out behind (`pos`) |
@@ -343,6 +344,6 @@ Pitfalls found while checking:
 6. **"`no_flinch` hits only deal damage"** (CLAUDE.md:148–149): there is still no stun and no knockback, but statuses, `pull`, hitstop and energy gain all still apply (ms:308–362, 410–424).
 7. **`hold` "overrides any hit value"; "flip, the swallow"** (CLAUDE.md:158–161): `hold` replaces only the `hit_params` dictionary (cs:347–349). A held Gulp now goes through its own `swallow` branch (ms:`_swallow`), not `_flip`.
 8. **"Root: no walking or dodging"** (CLAUDE.md:134): correct, but dashes and lunges still move a rooted fighter (they use `_move`, not `walk_speed`); `mobile` stops (cs:831).
-9. **"Dodge isn't buffered during attacks"** (CLAUDE.md:233–234): mostly right, but a dodge pressed during hitstop (including the hitstop of your own hit) is buffered for `BUFFER_TICKS` (cs:515–517) and comes out if the attack ends within that time. A press during the dodge cooldown is buffered too (cs:532–535). Cancelling an attack with a dodge is still impossible.
+9. **"Dodge isn't buffered during attacks"** (CLAUDE.md:233–234): no longer true (October 2026, issue #9). A Dodge during your own attack cancels it (`can_dodge_cancel`, dearer: `dodge_cancel_cost_mult`); when it can't, the press is kept until the attack ends and `BUFFER_TICKS` after. See "Dodge cancel" above.
 10. **"`gain_energy()` is the only way energy goes up"** (CLAUDE.md:168–169): within the sim, DuelSim also assigns energy on tag and on entry (duel_sim.gd:153, 216). That is a carry-over and emits no `surge_ready`. Trials and showcases set it directly (src/game).
 11. **"Sno Mercy added `cone`"** (CLAUDE.md:141): accurate as history, but Culvert's Runoff also uses `cone` (0.45), and `cone` has no effect on projectiles (ms:`_step_projectiles` doesn't check it).
