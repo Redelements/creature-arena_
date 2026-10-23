@@ -51,7 +51,7 @@
     "range": 30,
     "poke": "skill_2",
     "poke_range": [40, 200],
-    "surge_range": 46,
+    "surge_range": 70,
     "routes": [
       ["light", "light", "light", "heavy", "skill_1", "surge"],
       ["light", "light", "light", "heavy", "skill_1"],
@@ -124,8 +124,9 @@
     "surge": {
       "name": "The One That Got Away", "anim": "leap", "energy_cost": 100,
       "startup": 24, "active": 4, "recovery": 24,
-      "damage": 22, "knockback": 6.0, "knockdown": 30, "hitstop": 14,
-      "reach": 0, "hit_radius": 40, "juggle": true,
+      "damage": 22, "knockback": 6.0, "knockdown": 40, "hitstop": 14,
+      "reach": 0, "hit_radius": 65, "juggle": true,
+      "zone": { "radius": 50, "ticks": 180, "slow_mult": 0.7, "at": 24 },
       "leap": { "from": 3, "to": 23 },
       "dash": {"speed": 1.8, "from": 3, "to": 22, "home": {"until": 16, "max": 3.6}},
       "anim_at": [[0, 0], [3, 1], [8, 2], [17, 3], [25, 4], [38, 5]],

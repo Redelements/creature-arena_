@@ -166,3 +166,16 @@ func test_reel_without_reel_speed_uses_the_default() -> void:
 		run(sim, 0, 1)
 		fastest = maxf(fastest, gill.pos.distance_to(before))
 	assert_near(fastest, MatchSim.REEL_SPEED_DEFAULT, 0.05, "reeled at the default speed, not 1 px a tick:")
+
+
+func test_the_landing_leaves_a_slowing_pool() -> void:
+	var sim := _duel("cairn", 2.0)
+	var gill := sim.creatures[0]
+	gill.energy = 100.0
+	var landed := run_until(sim, func(): return not _events(sim, "hit").is_empty(), 60, SU)
+	assert_true(landed, "he comes down on Cairn")
+	run(sim, 0, 4)
+	assert_false(sim.zones.is_empty(), "a pool is left where he landed")
+	var z = sim.zones[0]
+	assert_near(float(z["radius"]), 50.0, 0.01, "50 px wide:")
+	assert_near(float(z["slow_mult"]), 0.7, 0.001, "slowing:")

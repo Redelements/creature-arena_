@@ -218,3 +218,26 @@ func test_frenzy_state_rolls_back() -> void:
 	sim.restore(snap)
 	assert_eq(sim.creatures[1].poison_stacks, stacks, "stacks restored")
 	assert_gt(sim.creatures[0].frenzy_t, 0, "frenzy restored")
+
+
+## The Surge's shockwave is a wide circle: a foe 40 px off to the side of the punch is stoned
+## too (60 ticks), while the one she punched keeps its 90 and no `shatter` fires.
+func test_petrify_shockwave_stones_a_foe_off_to_the_side() -> void:
+	var sim := _duel("cairn", 2.0)
+	var hissy := sim.creatures[0]
+	var foe := sim.creatures[1]
+	var side := sim.add_creature(MatchFactory.load_def("cairn"), foe.pos + Vector2(0, 40))
+	side.team = foe.team
+	hissy.energy = 100.0
+	var shattered := false
+	var foe_stone := 0
+	var side_stone := 0
+	for i in 90:
+		sim.step(PackedInt32Array([SU if i < 4 else 0, 0, 0]))
+		shattered = shattered or not _events(sim, "shatter").is_empty()
+		foe_stone = maxi(foe_stone, foe.stone)
+		side_stone = maxi(side_stone, side.stone)
+	assert_false(shattered, "her own shockwave doesn't shatter the statue it just made")
+	assert_gt(float(foe_stone), 60.0, "the punched foe is stone for the long 90:")
+	assert_gt(float(side_stone), 0.0, "the one 40 px to the side is stoned too")
+	assert_true(float(side_stone) <= 60.0, "for the shockwave's 60:")
