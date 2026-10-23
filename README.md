@@ -597,7 +597,7 @@ fully charged Haymaker breaks guard, so a turtle can't wall him out.
 | Heavy | Haymaker | Uppercut that always launches |
 | Skill 1 | Slip | Weave; if a strike lands in the window, counter with a Cross that crumples. Loses to grabs |
 | Skill 2 | Rockslide Rush | Dash punch; the main combo extender |
-| Surge | Avalanche | Six-punch flurry and a launching uppercut |
+| Surge | Avalanche | Six-punch flurry (26 px wide, catching foes around the lane) and a launching uppercut 45 px wide |
 | Passive | Stack | Each landed light adds a stone (max 3); Haymaker and Rush spend them for +4 damage each |
 
 ### Culvert — storm-drain toad
@@ -666,7 +666,7 @@ floor like a landed fish, his rod tumbling behind him on the line.
 | Heavy | Splash Zone | Curls up and slaps the floor with his tail: hits all around him, pops foes up and **slows** them (walk ×0.6 for 2 s). Hold to charge (bigger and harder) |
 | Skill 1 | Flop Dash | A long skidding belly-flop forward (about 100 px in a quarter of a second), kicking up water; keeps a juggle going |
 | Skill 2 | Cast Line | **Throws his rod** on its line, about 220 px. If it hooks someone he's **reeled in to them** at a steady pull, across pits and all, like a fish on a line; arriving ends the cast while they're still stunned, so lights link straight after. Blockable; a miss still leaves him open for a moment |
-| Surge | The One That Got Away | Leaps straight up off the screen, **out of reach** of everything (he sails over bodies and pits), then belly-flops in a huge splash that knocks foes down. The mark **follows the nearest foe** while he's rising (up to about 70 px), then locks, so a dodge on the landing still beats it |
+| Surge | The One That Got Away | Leaps straight up off the screen, **out of reach** of everything (he sails over bodies and pits), then belly-flops in a huge splash that knocks foes down (65 px wide) and leaves a slowing pool where he lands. The mark **follows the nearest foe** while he's rising (up to about 70 px), then locks, so a dodge on the landing still beats it |
 
 ![Gillbert's showcase](docs/gillbert_demo.gif)
 
@@ -710,7 +710,7 @@ gaze slows anyone who comes at her face first. Voice line: "Hiss off!"
 | Heavy | Coil Uppercut | The glove coils low and comes up under the guard: **breaks guards** and launches. Hold to charge (bigger and harder) |
 | Skill 1 | Venom Spit | Her hair snakes spit a glob of venom about 100 px. It **poisons**: 2 damage every half second for 3 s (12 in all), outside any combo, so it keeps ticking after the combo ends. Green bubbles show it. Keeps a juggle going |
 | Skill 2 | Stone Gaze | She stares for about 1 s. Anyone within 110 px, **in front of her and facing her**, is slowed, more the longer they look (down to 35% speed), and stays slowed 1.5 s after. **Look away, or get behind her, and it does nothing.** She can break out of the stare with any attack after the first moments |
-| Surge | Petrify Punch | A wound-up haymaker (a long, readable startup). The foe it hits is **turned to stone** for 1.5 s, stunned where it stands, even out of the air. The next clean hit **shatters** the statue for 25% extra damage |
+| Surge | Petrify Punch | A wound-up haymaker (a long, readable startup). The foe it hits is **turned to stone** for 1.5 s, and the shockwave behind it (45 px wide) stones everyone near for 1 s, stunned where it stands, even out of the air. The next clean hit **shatters** the statue for 25% extra damage |
 | Passive | Venom Frenzy | **Land 4 hits in one string** (jabs count; each within 0.75 s of the last) and she goes into a frenzy for 5 s: venom drips off her snakes, and **every clean hit stacks poison** on the target (up to 5 stacks, green pips at its feet). Each stack adds 0.6 damage a pulse, two pulses a second, for 3 s after her latest hit; Venom Spit's poison adds on top. Another 4-hit string starts the 5 s over |
 
 There's no passive on the sheet, so she has none. Her victory emote (a kiss blown while
@@ -731,7 +731,7 @@ Voice line: a placeholder "I DIG IT!" (see the PR).
 | Heavy | Pickaxe Pop-Up | He digs in and bursts up **under a foe about 40 px ahead** with the pickaxe, in a burst wide enough to catch anyone standing close: launches (10 damage, 14 charged). A ring on the floor marks the spot. Hold to charge |
 | Skill 1 | Headlamp Flash | Flicks on his helmet light: a foe it catches is **blinded**, and **their next attack misses** (or the blind wears off after 4 s). Guarding stops it |
 | Skill 2 | Burrow | Dives underground and tunnels about 115 px, steering harder than it used to, **steered with the stick**: out of reach, under bodies and across pits, under a moving mound of dirt. Pops up at the end and knocks up whoever is on top; an uppercut from below, it **breaks guards** |
-| Surge | Cave-In | Rears up and slams the floor: the ground caves in all around the spot ahead, damaging and **rooting** everyone caught for 2 s (they can still attack and guard, but can't walk or dodge) |
+| Surge | Cave-In | Rears up and slams the floor: the ground caves in all around the spot ahead, (65 px wide, cracking the floor) damaging and **rooting** everyone caught for 2.5 s (they can still attack and guard, but can't walk or dodge) |
 
 No passive on the sheet. His victory emote (jumping out of the ground with a flip) waits
 for a victory-pose system.
@@ -750,7 +750,7 @@ shoulder. He wins by not being where you're looking. Voice line: "Finders keeper
 | Heavy | Sack Smack | A big wound-up swing of the money bag that knocks the foe well back. Hold to charge: tapped it's an ordinary heavy that can be blocked; **held to a full charge it breaks guards**, and he flashes red with "GUARD BREAK" over his head the moment the charge is full |
 | Skill 1 | Tiptoe | He sneaks forward and goes **invisible** for 3 s (a faint shimmer is all you see) and **55% quicker**. A staggering hit gives him away (a knife flick doesn't); so does his own attack, but only as it lands, and that **ambush hits 35% harder**. The CPU loses track of him and goes where it last saw him |
 | Skill 2 | Pickpocket | A low dash that **steers onto** the nearest foe, runs right **through**, hits on the way past and **steals 20% of their attack power** for 5 s: his hits land 20% harder, theirs 20% softer. A gold windup tell gives it away |
-| Surge | The Big Heist | A puff of smoke and he's gone, then he **reappears behind the foe** (on their far side if the spot behind is a pit or a wall) for a flurry of bag hits and a big finishing smack that knocks down |
+| Surge | The Big Heist | A puff of smoke and he's gone, then he **reappears behind the foe** (on their far side if the spot behind is a pit or a wall) for a flurry of bag hits and a big finishing smack that knocks down, its smoke **blinding** everyone within 45 px |
 
 No passive on the sheet. His victory emote (dumping out the bag and throwing the cash in
 the air) waits for a victory-pose system.

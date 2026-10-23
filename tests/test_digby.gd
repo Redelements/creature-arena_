@@ -131,3 +131,14 @@ func test_rollback_with_blind_root_and_burrow() -> void:
 	sim.restore(snap)
 	run(sim, 0, 80, L)
 	assert_eq(sim.state_digest(), once, "replaying from the snapshot gives the same state:")
+
+
+func test_cave_in_roots_a_foe_95_px_ahead_and_cracks_the_floor() -> void:
+	var sim := _duel("cairn", 95.0)
+	var digby := sim.creatures[0]
+	var foe := sim.creatures[1]
+	digby.energy = 100.0
+	var cracked := sim.terrain.count(TerrainGrid.CRACKED)
+	var rooted := run_until(sim, func(): return foe.root > 0, 80, SU)
+	assert_true(rooted, "Cave-In roots a foe 95 px ahead of him")
+	assert_gt(sim.terrain.count(TerrainGrid.CRACKED), cracked, "and the floor cracks where it lands")

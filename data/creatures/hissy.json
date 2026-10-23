@@ -56,7 +56,7 @@
     "poke_range": [36, 100],
     "gaze": "skill_2",
     "gaze_range": [30, 110],
-    "surge_range": 30,
+    "surge_range": 50,
     "routes": [
       ["light", "light", "light", "heavy", "skill_1", "surge"],
       ["light", "light", "light", "heavy", "skill_1"],
@@ -130,9 +130,13 @@
     },
     "surge": {
       "name": "Petrify Punch", "anim": "petrify", "energy_cost": 100,
-      "startup": 22, "active": 4, "recovery": 26,
+      "startup": 22, "active": 4, "recovery": 26, "length": 52,
       "damage": 18, "knockback": 1.0, "petrify": 90, "hitstop": 16,
       "reach": 18, "hit_radius": 13, "lunge": 0.6, "juggle": true,
+      "hits": [
+        { "at": 23, "active": 4, "reach": 18, "hit_radius": 13, "petrify": 90 },
+        { "at": 27, "active": 3, "reach": 18, "hit_radius": 45, "damage": 6, "knockback": 0.4, "petrify": 60, "hitstop": 6, "skip_struck": true }
+      ],
       "anim_at": [[0, 0], [6, 1], [14, 2], [21, 3], [27, 4], [40, 5]],
       "fx": { "shout": { "text": "HISS OFF!", "sound": "hiss" }, "smear": "thrust", "size": 1.6, "impact": "petrify" }
     }

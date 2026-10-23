@@ -141,3 +141,27 @@ func test_rollback_with_stealth_and_steal() -> void:
 	sim.restore(snap)
 	run(sim, 0, 80, L)
 	assert_eq(sim.state_digest(), once, "replaying from the snapshot gives the same state:")
+
+
+func test_big_heist_smoke_blinds_a_foe_beside_the_victim() -> void:
+	var sim := _duel("cairn", 60.0)
+	var pete := sim.creatures[0]
+	var foe := sim.creatures[1]
+	foe.facing = Vector2.LEFT
+	var by := sim.add_creature(MatchFactory.load_def("cairn"), foe.pos + Vector2(0, 40))
+	by.team = foe.team
+	pete.energy = 100.0
+	var blinded: Array = []
+	for i in 110:
+		sim.step(PackedInt32Array([SU if i < 4 else 0, 0, 0]))
+		for e in _events_of(sim, "blinded"):
+			blinded.append(int(e["who"]))
+	assert_true(blinded.has(by.id), "the smoke blinds the foe 40 px from the victim too")
+
+
+func _events_of(sim: MatchSim, kind: String) -> Array:
+	var out: Array = []
+	for e in sim.events:
+		if String(e["type"]) == kind:
+			out.append(e)
+	return out

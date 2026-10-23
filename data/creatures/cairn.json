@@ -135,13 +135,13 @@
       "reach": 15, "hit_radius": 13, "juggle": true,
       "dash": { "speed": 0.7, "from": 1, "to": 40 },
       "hits": [
-        { "at": 9, "active": 2, "damage": 2, "knockback": 0.2, "hitstun": 22, "hitstop": 2 },
-        { "at": 14, "active": 2, "damage": 2, "knockback": 0.2, "hitstun": 22, "hitstop": 2 },
-        { "at": 19, "active": 2, "damage": 2, "knockback": 0.2, "hitstun": 22, "hitstop": 2 },
-        { "at": 24, "active": 2, "damage": 2, "knockback": 0.2, "hitstun": 22, "hitstop": 2 },
-        { "at": 29, "active": 2, "damage": 2, "knockback": 0.2, "hitstun": 22, "hitstop": 2 },
-        { "at": 34, "active": 2, "damage": 2, "knockback": 0.2, "hitstun": 22, "hitstop": 2 },
-        { "at": 44, "active": 3, "damage": 14, "knockback": 1.5, "hitstun": 30, "hitstop": 12, "launch": 40, "hit_radius": 15 }
+        { "at": 9, "active": 2, "damage": 2, "knockback": 0.2, "hitstun": 22, "hitstop": 2, "hit_radius": 26 },
+        { "at": 14, "active": 2, "damage": 2, "knockback": 0.2, "hitstun": 22, "hitstop": 2, "hit_radius": 26 },
+        { "at": 19, "active": 2, "damage": 2, "knockback": 0.2, "hitstun": 22, "hitstop": 2, "hit_radius": 26 },
+        { "at": 24, "active": 2, "damage": 2, "knockback": 0.2, "hitstun": 22, "hitstop": 2, "hit_radius": 26 },
+        { "at": 29, "active": 2, "damage": 2, "knockback": 0.2, "hitstun": 22, "hitstop": 2, "hit_radius": 26 },
+        { "at": 34, "active": 2, "damage": 2, "knockback": 0.2, "hitstun": 22, "hitstop": 2, "hit_radius": 26 },
+        { "at": 44, "active": 3, "damage": 14, "knockback": 1.5, "hitstun": 30, "hitstop": 12, "launch": 40, "hit_radius": 45 }
       ],
       "fx": { "smear": "flurry", "size": 1.1, "speedlines": true, "impact": "spire" }
     }

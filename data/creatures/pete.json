@@ -124,7 +124,7 @@
     },
     "surge": {
       "name": "The Big Heist", "anim": "heist", "energy_cost": 100,
-      "startup": 12, "length": 56, "reach": 14, "hit_radius": 15, "juggle": true,
+      "startup": 12, "length": 56, "reach": 14, "hit_radius": 24, "juggle": true,
       "self": { "stealth": 10 },
       "leap": { "from": 2, "to": 10 },
       "blink": { "at": 10, "gap": 2 },
@@ -132,7 +132,7 @@
       "hits": [
         {"at": 13, "active": 2}, {"at": 17, "active": 2}, {"at": 21, "active": 2}, {"at": 25, "active": 2},
         {"at": 29, "active": 2},
-        {"at": 35, "active": 3, "damage": 10, "knockback": 3.4, "knockdown": 30, "hitstop": 12}
+        {"at": 35, "active": 3, "reach": 0, "hit_radius": 45, "blind_ticks": 90, "damage": 10, "knockback": 3.4, "knockdown": 30, "hitstop": 12}
       ],
       "anim_at": [[0, 0], [3, 1], [10, 2], [13, 3], [15, 4], [17, 3], [19, 4], [21, 3], [23, 4], [25, 3], [27, 4],
         [29, 3], [33, 2], [35, 4], [43, 5]],
