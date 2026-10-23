@@ -94,7 +94,13 @@ func test_a_strike_out_of_stealth_is_hidden_until_it_comes_out_and_hits_harder()
 	run(sim, 0, 30)
 	tap(sim, L, 2)
 	run_until(sim, func(): return foe.hp < hp, 20)
-	assert_near(hp - foe.hp, base, 0.05, "the next jab is an ordinary one:")
+	assert_near(hp - foe.hp, base * float(pete.def["ambush"]), 0.05, "a jab inside the ambush window (ambush_ticks) lands harder too:")
+	pete.ambush_t = 0  # the window has closed
+	hp = foe.hp
+	run(sim, 0, 30)
+	tap(sim, L, 2)
+	run_until(sim, func(): return foe.hp < hp, 20)
+	assert_near(hp - foe.hp, base, 0.05, "after it, an ordinary jab:")
 
 
 func test_a_knife_flick_doesnt_blow_petes_cover_but_a_mallet_does() -> void:
@@ -199,10 +205,13 @@ func test_the_cpu_holds_sack_smack_to_a_full_charge_against_a_guard() -> void:
 ## breaking guard only at a full charge) the Rage CPU playing him wins about 3 of 12 here,
 ## so only Digby is held to the class rule.
 func test_assassins_beat_the_mage() -> void:
-	# At least an even split: under the stamina rules (Oct 2026: a dash costs 60% of the
-	# bar, 40% for the assassins, and shots hit wider) Digby takes about 5 of 10.
+	# The Game Plan wants the assassin favoured (58-70%) once his sneak engage lands. Since the
+	# Oct 2026 sneak-engage pass (Burrow hides him until the pop-up, which is an ambush that
+	# carries through the juggle string; the CPU only sees the mound within 34 px) Rage Digby
+	# takes about 13 of 16 from Chef Cerebro (3 of 12 before it), so this asks for a clear
+	# majority. The plain brawl without the engage still goes the mage's way: the knives.
 	var d := _wins("digby", "cerebro")
-	assert_true(float(d[0]) >= d[1] * 0.5, "Digby holds his own against Chef Cerebro (%d of %d)" % d)
+	assert_true(float(d[0]) >= d[1] * 0.55, "Digby beats Chef Cerebro (%d of %d)" % d)
 
 
 func test_the_mage_beats_fighters_and_tanks() -> void:
@@ -213,21 +222,19 @@ func test_the_mage_beats_fighters_and_tanks() -> void:
 		assert_gt(float(r[0]), r[1] * 0.5, "Chef Cerebro beats %s (%d of %d):" % [foe, r[0], r[1]])
 
 
-## Mister Crease is the second mage: Digby holds his own against him as against Chef Cerebro, he
+## Mister Crease is the second mage: Digby is favoured against him as against Chef Cerebro, he
 ## beats the fighters and tanks, and the mage mirror stays close. (Pete, like against
 ## Cerebro, isn't held to the rule.)
 func test_crease_plays_as_a_mage() -> void:
-	# The Oct 2026 kit pass (knives and darts at 115 px, Crease at 100 HP folding only out of
-	# dart range, Digby at 105 HP with a wider Pop-Up) left Digby about even with both mages
-	# (5 of 12 each way at six seeds); the Game Plan wants the assassin favoured 58-70%, so
-	# the next pass (an ambush pop-up out of Burrow) moves this pin back up to a half.
-	# Surge energy at half the old rate (data/rules/energy.json) and the CPU's wider threat
-	# range (move_range) cost Digby a few points: 80 Rage games measured 28 wins before (35%),
-	# 24 with only the new rates, 20 with both (25%). The sample is 40 games (20 seeds) and
-	# the pin 20%: the 10-game seeded sample was noise around that. The assassin lead over
-	# the mages is for the kit pass to restore.
+	# The Oct 2026 kit pass left Digby about even with Crease, and the Surge energy rules
+	# took him down to 25% (20 of 80 Rage games). The sneak-engage pass (Burrow hides him
+	# until the pop-up, which is an ambush that carries through the juggle string; the CPU
+	# sees the mound only within 34 px, and burrows from no farther than the tunnel reaches)
+	# read 10 of 16 (63%: the Game Plan's 58-70%). The sample is 40 games (20 seeds) and
+	# the pin 45%: Crease's paper dodge still carries her out of a string often enough to
+	# swing a small sample.
 	var d := _wins("digby", "crease", 20)
-	assert_true(float(d[0]) >= d[1] * 0.2, "Digby holds his own against Mister Crease (%d of %d)" % d)
+	assert_true(float(d[0]) >= d[1] * 0.45, "Digby is favoured against Mister Crease (%d of %d)" % d)
 	# Craglash sits at even with the mages since the Oct 2026 kit pass gave him a 12-frame
 	# Rake and Mountain Maw every 3.3 s, so this asks for at least a half.
 	for foe in ["cairn", "hissy", "culvert", "craglash"]:

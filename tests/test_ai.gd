@@ -218,3 +218,52 @@ func test_a_roll_direction_keeps_clear_of_pits_at_roll_distance() -> void:
 	var d := cpu._open_dir(sim, me, Vector2.RIGHT, roll)
 	assert_true(not sim.terrain.is_hole_at(me.pos + d * (me.radius + roll)), "the roll doesn't end in the pits")
 	assert_true(not sim.terrain.is_hole_at(me.pos + d * roll), "(nor at its plain distance)")
+
+
+## An assassin on an arena with brush lurks in it: the Rage CPU walks into a patch within
+## burst range of the foe and waits there out of sight, then strikes from cover. On the
+## Stadium there is none, so it circles as before.
+func test_an_assassin_lurks_in_brush_when_the_arena_has_it() -> void:
+	var was: String = MatchFactory.arena
+	MatchFactory.arena = "greenhouse"
+	var sim := MatchFactory.versus("digby", "cerebro")
+	MatchFactory.arena = was
+	var cpus := [CpuController.new(0, CpuController.RAGE, 5), CpuController.new(1, CpuController.RAGE, 6)]
+	var covered := 0
+	for t in 900:
+		sim.step(PackedInt32Array([cpus[0].bits(sim), cpus[1].bits(sim)]))
+		if sim.creatures[0].covered:
+			covered += 1
+		if sim.creatures[0].state == CreatureSim.State.KO or sim.creatures[1].state == CreatureSim.State.KO:
+			break
+	assert_gt(covered, 30, "Rage Digby spends time hidden in the Greenhouse brush (%d ticks)" % covered)
+	var plain := MatchFactory.versus("digby", "cerebro")
+	var cpu := CpuController.new(0, CpuController.RAGE, 5)
+	var foe := CpuController.new(1, CpuController.RAGE, 6)
+	for t in 120:
+		plain.step(PackedInt32Array([cpu.bits(plain), foe.bits(plain)]))
+	assert_eq(cpu._cover, Vector2.INF, "no brush on the Stadium: nothing to lurk in")
+
+
+## A landed pop-up out of Burrow is an opener: the route that starts with skill_2 carries
+## on into the juggle string instead of steering a tunnel that is over.
+func test_rage_digby_juggles_after_a_landed_pop_up() -> void:
+	var sim := MatchFactory.versus("digby", "cerebro")
+	var dig := sim.creatures[0]
+	var foe := sim.creatures[1]
+	var cpu := CpuController.new(0, CpuController.RAGE, 11)
+	var popped := -1
+	var followed := false
+	for t in 1800:
+		sim.step(PackedInt32Array([cpu.bits(sim), 0]))
+		if popped < 0:
+			for e in sim.events:
+				if e["type"] == "hit" and int(e["attacker"]) == 0 and dig.move_id == "skill_2":
+					popped = t
+		elif dig.state == CreatureSim.State.ATTACK and dig.move_id.begins_with("light") and foe.is_airborne():
+			followed = true
+			break
+		if popped >= 0 and t > popped + 60:
+			break
+	assert_true(popped >= 0, "the pop-up landed on the standing Chef")
+	assert_true(followed, "and a light followed it while he was still in the air")

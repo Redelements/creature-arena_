@@ -46,7 +46,14 @@ default 22), `routes` (lists of action names), `far_routes`/`far_from`, `poke`/`
 - Per-class Rage behaviour → `STYLES` via `_style()`
 - Decision tree → `_decide` (stunned → breakaway; attacking → `_continue_attack`; Rage →
   `_rage_defend` / `_maybe_tag` / `_rage_punish` / `_rage_neutral`; else `_defend` / `_neutral`)
-- Combo route → `_pick_route` (Rage: longest affordable, never drops; below: 80% roll)
+- Combo route → `_pick_route` (Rage: longest affordable, never drops; below: 80% roll). A route
+  whose first action is a skill is an opener route, followed when that skill landed (Digby's
+  pop-up out of Burrow → the juggle string); the light-opener search skips it
+- Hidden foes → `_look` (stealth or Vision says no → chased where last seen, `_seen`); a tunnelling
+  (`hidden` move) foe's mound is seen within `MOUND_SIGHT` (Vision.HIDE_RANGE, 34 px) (`_mound_in_sight`)
+- Assassin lurk → `_plan_lurk`: on an arena with brush, `_cover_spot` (nearest standing brush cell
+  within 160 px that lies in burst range of the foe, every 30 ticks) and the engage comes from
+  there; a steerable dash (Burrow) is steered only while it runs (`dash.to`), then the route goes on
 - Guarding, dodging → `_defend`, `_dodge_away` (non-Rage); `_rage_defend`, `_guard_for`,
   `_dodge_dir`, `_step` (Rage); stamina-aware guard → `_guard_holds`, `_strike_drain`
 - Beating a guard → `_guard_answer` (grab or guard-breaker, `_breaks_guard`); wearing a low

@@ -493,8 +493,8 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		damage *= a.atk_mult  # Pickpocket: stolen power, or power stolen
 	if d.vuln > 0:
 		damage *= d.vuln_mult  # tenderized: every hit lands harder, chip included
-	if a.ambush_serial > 0 and int(hit["serial"]) == a.ambush_serial:
-		damage *= float(a.def.get("ambush", 1.0))  # a sneak attack out of stealth
+	if (a.ambush_serial > 0 and int(hit["serial"]) == a.ambush_serial) or a.ambush_t > 0:
+		damage *= float(a.def.get("ambush", 1.0))  # a sneak attack out of stealth, and its opening string
 	var gd: Dictionary = d.def["guard"]
 
 	# Armor (Bedrock): the hit only chips, and the target doesn't flinch or move.

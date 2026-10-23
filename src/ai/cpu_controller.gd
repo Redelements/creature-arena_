@@ -113,6 +113,9 @@ var _target_t := 0
 var _orbit := 1.0  ## which way it circles (+1 / -1)
 var _orbit_t := 0
 var _engage_t := 0  ## ticks left in a committed attack run (assassin, skirmisher)
+const MOUND_SIGHT := Vision.HIDE_RANGE  ## px: a tunnelling (hidden) foe's mound is plain to see this close, like a shape in brush
+var _cover := Vector2.INF  ## brush to lurk in (assassin), or INF when the arena has none in reach
+var _cover_t := 0  ## ticks until the cover spot is looked for again
 var _step_dir := Vector2.ZERO
 var _kit_t := 0
 var _dance_t := 0
@@ -222,12 +225,18 @@ func _look(sim: MatchSim, me: CreatureSim) -> void:
 	for o in sim.creatures:
 		if not me.is_foe(o):
 			continue
-		if o.stealth > 0 or not _vision.team_sees(sim, me.team, o):
+		if (o.stealth > 0 and not _mound_in_sight(me, o)) or not _vision.team_sees(sim, me.team, o):
 			_unseen[o] = true
 			if not _last_seen.has(o):
 				_last_seen[o] = o.pos
 		else:
 			_last_seen[o] = o.pos
+
+
+## A foe hidden by its own move ("hidden": Digby's Burrow) is still a moving mound of dirt a
+## player can see: up close, within MOUND_SIGHT (the brush rule's 34 px), the CPU sees it too and can step off it.
+func _mound_in_sight(me: CreatureSim, o: CreatureSim) -> bool:
+	return o.state == CreatureSim.State.ATTACK and bool(o.move_def().get("hidden", false)) 		and o.pos.distance_squared_to(me.pos) <= MOUND_SIGHT * MOUND_SIGHT
 
 
 ## The nearest foe by where this team knows it to be (the sim's nearest_opponent, with
@@ -494,8 +503,10 @@ func _continue_attack_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist
 			_hold(_hold_bit if me.move_id != "heavy" else SimDefs.IN_HEAVY)
 		_guard_press = false
 		return
-	# A steerable dash (Burrow): steer it toward the foe, to come up under them.
-	if float(me.move_def().get("dash", {}).get("steer", 0.0)) > 0.0:
+	# A steerable dash (Burrow): steer it toward the foe, to come up under them, while it
+	# runs; once he has popped up the string below carries on (the juggle after the launch).
+	var steer_dash: Dictionary = me.move_def().get("dash", {})
+	if float(steer_dash.get("steer", 0.0)) > 0.0 and me.state_t <= int(steer_dash.get("to", 0)):
 		_hold(SimDefs.bits_from_dir((_seen(foe) - me.pos).normalized()))
 		return
 	# Holding a gaze (Stone Gaze): break out with a jab once the foe walks in close.
@@ -558,6 +569,11 @@ func _continue_attack_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist
 
 func _pick_route(me: CreatureSim, dist: float) -> Array:
 	if me.move_id != "light_1":
+		# A route that opens with this very move (Digby's pop-up out of Burrow: the launch,
+		# then the juggle string and the heavy) is followed as written.
+		for r in _ai(me).get("routes", []):
+			if r.size() > 1 and String(r[0]) != "light" and me.action_move(String(r[0])) == me.move_id:
+				return r.duplicate()
 		# Started with something else (a counter, a poke): finish with whatever ranks higher.
 		var tail: Array = [me.move_id]
 		for act in ["heavy", "skill_2", "skill_1", "surge"]:
@@ -575,6 +591,8 @@ func _pick_route(me: CreatureSim, dist: float) -> Array:
 	var longest: Array = []
 	var whole: Array = []  ## the first route affordable in full
 	for r in routes:
+		if String(r[0]) != "light":
+			continue  # an opener route (a skill first) is for that opener, above
 		var ok := true
 		var prefix: Array = []
 		for act in r:
@@ -1098,6 +1116,49 @@ func _orbit_dir(sim: MatchSim, me: CreatureSim, foe: CreatureSim, r: float) -> V
 	return tangent + n * clampf((dist - r) / 30.0, -1.0, 1.0)
 
 
+## Whether the assassin's way in (Burrow or Tiptoe, `ai.burrow` / `ai.stealth`) is usable now.
+func _burst_ready(me: CreatureSim) -> bool:
+	var ai := _ai(me)
+	for key in ["burrow", "stealth"]:
+		var mid := String(ai.get(key, ""))
+		if mid != "" and _usable(me, mid) and not (key == "stealth" and me.stealth > 0):
+			return true
+	return false
+
+
+## Brush to lurk in: the centre of the nearest standing brush cell within 160 px of `me`
+## that lies within this fighter's burst range of where the foe was last seen (its Burrow
+## or Tiptoe range, else 40 px past its reach), looked for again every 30 ticks. INF when
+## there is none (most arenas): the lurk plan circles instead.
+func _cover_spot(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> Vector2:
+	_cover_t -= 1
+	if _cover_t > 0:
+		if _cover != Vector2.INF and sim.terrain.get_cell(sim.terrain.world_to_cell(_cover)) != TerrainGrid.BRUSH:
+			_cover = Vector2.INF  # flattened under someone's dash
+		return _cover
+	_cover_t = 30
+	_cover = Vector2.INF
+	var ai := _ai(me)
+	var burst: Array = ai.get("burrow_range", ai.get("stealth_range", [0, 0]))
+	var lo := float(burst[0])
+	var hi := float(burst[1])
+	if hi <= 0.0:
+		lo = 0.0
+		hi = _reach_of(me, foe) + 40.0
+	var target := _seen(foe)
+	var best := INF
+	for c in sim.terrain.cells_touching(me.pos, 160.0, TerrainGrid.BRUSH):
+		var p := sim.terrain.cell_center(c)
+		var to_foe := p.distance_to(target)
+		if to_foe < lo or to_foe > hi:
+			continue
+		var d := p.distance_squared_to(me.pos)
+		if d < best:
+			best = d
+			_cover = p
+	return _cover
+
+
 ## How far `o`'s light (with its lunge) reaches from its centre, to the edge of `me`.
 func _reach_of(o: CreatureSim, me: CreatureSim) -> float:
 	var mv: Dictionary = o.moves().get("light_1", {})
@@ -1514,8 +1575,16 @@ func _rage_neutral_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe:
 	if _rage_kit(sim, me, foe, to_foe, dist, plan):
 		return
 
-	# A foe that fights from range (a kiting mage) is run down, not waited for.
+	# A foe that fights from range (a kiting mage) is run down, not waited for. An assassin
+	# whose burst (Burrow, Tiptoe) is cooling lurks in brush instead when the arena has some
+	# in reach, rather than walk through the knives, and comes out of it when the burst is up.
 	if plan != "kite" and _is_ranged(foe) and dist > reach:
+		if plan == "lurk" and not _burst_ready(me):
+			var cover := _cover_spot(sim, me, foe)
+			if cover != Vector2.INF:
+				if not (me.covered and me.pos.distance_to(cover) < 10.0):
+					_go_to(sim, me, cover)
+				return
 		_chase(sim, me, foe, to_foe, dist, reach)
 		return
 
@@ -1748,6 +1817,17 @@ func _plan_lurk(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector
 			or (foe.state == CreatureSim.State.MOVE and _roll(0.03)):
 		_engage_t = 80
 	if _engage_t <= 0:
+		# Cover first: on an arena with brush, slip into a patch within burst range of the foe
+		# and wait there out of sight, so the engage (Burrow, Tiptoe, a dash) comes from
+		# where it can't be seen coming. Without brush in reach, circle out of range.
+		var cover := _cover_spot(sim, me, foe)
+		if cover != Vector2.INF:
+			if me.covered and me.pos.distance_to(cover) < 10.0:
+				if _roll(0.06):
+					_engage_t = 80  # strike from cover
+				return  # hold still in the leaves
+			_go_to(sim, me, cover)
+			return
 		_go(sim, me, _orbit_dir(sim, me, foe, danger + 22.0))
 		return
 	var burrow := String(ai.get("burrow", ""))

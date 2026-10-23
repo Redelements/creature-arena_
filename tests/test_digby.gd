@@ -142,3 +142,43 @@ func test_cave_in_roots_a_foe_95_px_ahead_and_cracks_the_floor() -> void:
 	var rooted := run_until(sim, func(): return foe.root > 0, 80, SU)
 	assert_true(rooted, "Cave-In roots a foe 95 px ahead of him")
 	assert_gt(sim.terrain.count(TerrainGrid.CRACKED), cracked, "and the floor cracks where it lands")
+
+
+## Underground he is out of sight (stealth: the CPU and Vision lose him; a player still sees
+## the mound), and the pop-up that ends the tunnel springs an ambush: 35% harder, and so is
+## everything he lands for 1.5 s after.
+func test_burrow_hides_him_and_the_pop_up_is_an_ambush() -> void:
+	var sim := _duel("cairn", 96.0)
+	var dig := sim.creatures[0]
+	var foe := sim.creatures[1]
+	var hp0 := foe.hp
+	tap(sim, S2, 12)
+	assert_gt(dig.stealth, 0, "underground: out of sight")
+	var launched := run_until(sim, func(): return foe.state == CreatureSim.State.AIRBORNE, 60)
+	assert_true(launched, "he pops up under Cairn")
+	assert_eq(dig.stealth, 0, "the pop-up gives him away")
+	assert_eq(dig.ambush_t, int(dig.def["ambush_ticks"]), "and opens the ambush window:")
+	var base := float(dig.def["moves"]["skill_2"]["damage"])
+	assert_near(hp0 - foe.hp, base * float(dig.def["ambush"]), 0.01, "the pop-up lands 35% harder:")
+
+
+func test_the_cpu_loses_him_underground() -> void:
+	var sim := _duel("cairn", 160.0)
+	var dig := sim.creatures[0]
+	var cpu := CpuController.new(1, 1, 3)
+	sim.step(PackedInt32Array([0, cpu.bits(sim)]))
+	assert_false(cpu._unseen.has(dig), "in plain sight before the dive")
+	for i in 12:
+		sim.step(PackedInt32Array([S2 if i == 0 else 0, cpu.bits(sim)]))
+	assert_true(cpu._unseen.has(dig), "the CPU lost him when he went under")
+
+
+func test_a_dodge_cancel_out_of_the_tunnel_ends_the_hiding() -> void:
+	var sim := _duel("cairn", 160.0)
+	var dig := sim.creatures[0]
+	run(sim, S2, 1)
+	run(sim, 0, 10)
+	assert_gt(dig.stealth, 0, "hidden in the tunnel")
+	run(sim, SimDefs.IN_DODGE | SimDefs.IN_LEFT, 1)
+	assert_eq(dig.state, CreatureSim.State.DODGE, "the dodge cancels the tunnel")
+	assert_eq(dig.stealth, 0, "and he is back in sight")

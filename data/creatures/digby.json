@@ -9,6 +9,8 @@
   "accel": 0.55,
   "radius": 9,
   "weight": 0.9,
+  "ambush": 1.35,
+  "ambush_ticks": 90,
   "stamina": 100,
   "stamina_regen": 0.6,
   "dodge": { "frames": 15, "iframes_start": 2, "iframes_end": 11, "speed": 3.8 },
@@ -51,13 +53,14 @@
     "poke": "skill_1",
     "poke_range": [18, 44],
     "burrow": "skill_2",
-    "burrow_range": [80, 220],
+    "burrow_range": [80, 160],
     "surge_range": 90,
     "routes": [
       ["light", "light", "light", "heavy", "surge"],
       ["light", "light", "light", "heavy"],
       ["light", "light", "light", "skill_1"],
-      ["light", "light", "light"]
+      ["light", "light", "light"],
+      ["skill_2", "light", "light", "light", "heavy"]
     ]
   },
   "moves": {
@@ -113,7 +116,7 @@
       "fx": { "flash": true }
     },
     "skill_2": {
-      "guard_break": true,
+      "guard_break": true, "hidden": true,
       "name": "Burrow", "anim": "burrow", "cooldown": 210,
       "startup": 45, "active": 4, "recovery": 16,
       "damage": 6, "knockback": 0.6, "hitstun": 24, "hitstop": 6, "launch": 26,
