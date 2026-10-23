@@ -288,7 +288,7 @@ func test_storm_drain_rings_culvert_with_pits() -> void:
 	var c := sim.creatures[0]
 	c.energy = 100.0
 	tap(sim, SU, 60)
-	assert_gt(sim.terrain.count(TerrainGrid.HOLE), 20, "pit ring:")
+	assert_gt(sim.terrain.count(TerrainGrid.HOLE), 40, "pit ring:")
 	assert_false(sim.terrain.is_hole_at(c.pos), "Culvert stands on the island")
 
 

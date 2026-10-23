@@ -1141,7 +1141,8 @@ func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
 			_slam(mv, sim)
 		if mv.has("terrain_ring"):
 			var r: Dictionary = mv["terrain_ring"]
-			sim.terrain.damage_ring(pos, float(r["inner"]), float(r["outer"]), _terrain_heal(mv))
+			sim.terrain.damage_ring(pos, float(r["inner"]), float(r["outer"]), _terrain_heal(mv),
+				float(r.get("side_lanes", 0.0)))
 			sim.emit_event("slam", pos, 1.0)
 		if mv.has("terrain_crack"):
 			# Cracks the floor without opening holes (Root Eruption's roots break the surface).

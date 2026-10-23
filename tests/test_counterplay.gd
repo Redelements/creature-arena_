@@ -114,24 +114,31 @@ func test_reacting_to_a_raw_grab_with_a_dodge_works() -> void:
 
 
 func test_dodge_pressed_during_a_freeze_all_comes_out() -> void:
+	# Storm Drain's ring is 80 px wide: no roll gets out of it, so the answer is a roll with
+	# i-frames over the hit that ends in the solid lane along his diagonal (side_lanes).
 	var sim := _duel("cairn", "culvert", 20.0)
 	var cairn := sim.creatures[0]
 	var culvert := sim.creatures[1]
 	culvert.energy = 100.0
 	sim.step(PackedInt32Array([0, SU]))
 	assert_gt(sim.hitstop, 0, "Storm Drain freezes the screen")
+	run_until(sim, func(): return sim.hitstop == 0, 200)
 	run(sim, 0, 6)
-	sim.step(PackedInt32Array([D | SimDefs.IN_LEFT, 0]))  # react to the cut-in
-	assert_gt(sim.hitstop, 0, "still frozen when dodge was pressed")
-	var dodged := run_until(sim, func(): return cairn.state == CreatureSim.State.DODGE, 30)
-	assert_true(dodged, "the dodge should come out when the freeze ends")
+	sim.step(PackedInt32Array([D | SimDefs.IN_LEFT | SimDefs.IN_UP, 0]))  # roll into his flank lane
+	assert_eq(cairn.state, CreatureSim.State.DODGE, "the roll comes out")
 	var hit := false
-	for i in 80:
+	var fell := false
+	for i in 90:
 		sim.step(PackedInt32Array([0, 0]))
+		fell = fell or cairn.state == CreatureSim.State.FALLING
 		for e in sim.events:
 			if e["type"] == "hit" and int(e["target"]) == 0:
 				hit = true
-	assert_false(hit, "dodging Storm Drain on reaction to the cut-in should avoid it")
+	assert_false(hit, "a roll timed after the cut-in dodges Storm Drain")
+	assert_false(fell, "and lands in the lane, not in a pit")
+	assert_eq(cairn.hp, cairn.max_hp, "hp untouched:")
+	assert_false(sim.terrain.is_hole_at(cairn.pos), "he stands on solid ground beside Culvert")
+	assert_gt(sim.terrain.count(TerrainGrid.HOLE), 40, "the ring opened around them")
 
 
 ## A 2 v 2 with Culvert (slot 0) next to a Cairn (slot 2); the other two far off.
@@ -209,7 +216,7 @@ func _team_surge_hits(react: int) -> bool:
 	t.step(_ins(4, SU))
 	var hit := false
 	for i in 100:
-		t.step(_ins(4, D | SimDefs.IN_RIGHT if i == react else 0, 2))
+		t.step(_ins(4, D | SimDefs.IN_RIGHT | SimDefs.IN_UP if i == react else 0, 2))
 		for e in sim.events:
 			if e["type"] == "hit" and int(e["target"]) == 2:
 				hit = true
@@ -219,4 +226,17 @@ func _team_surge_hits(react: int) -> bool:
 func test_dodge_on_reaction_to_a_team_fight_surge() -> void:
 	assert_true(_team_surge_hits(-1), "Storm Drain hits a Cairn that stands there")
 	# Reaction time, then press dodge (input lag included).
-	assert_false(_team_surge_hits(REACTION - 3), "dodging Storm Drain on reaction to its windup should avoid it")
+	# Reaction time to the windup, then a roll toward his flank (the ring is too wide to out-roll).
+	assert_false(_team_surge_hits(MatchSim.SURGE_CROWD_WINDUP + 8), "rolling toward his flank dodges Storm Drain")
+
+
+func test_every_surge_gives_warning_in_a_1v1() -> void:
+	# The cut-in freeze plus the startup is the time to answer a Surge in a duel.
+	for id in MatchFactory.FIGHTERS:
+		var mv: Dictionary = MatchFactory.load_def(String(id))["moves"].get("surge", {})
+		if mv.is_empty():
+			continue
+		var freeze := int(mv.get("freeze", 18))
+		var warning := freeze + int(mv.get("windup", 0)) + int(mv.get("startup", 0))
+		assert_true(warning >= REACTION + 10, "%s's Surge gives only %d frames of warning in a 1v1"
+			% [id, warning])

@@ -141,9 +141,23 @@ func test_storm_drain_then_a_swallow_poops_them_into_a_pit() -> void:
 	tap(sim, SimDefs.IN_SURGE, 80)
 	assert_false(sim.terrain.is_hole_at(culv.pos), "he stands on his island")
 	var ring: Dictionary = culv.moves()["surge"]["terrain_ring"]
-	assert_near(float(ring["outer"]), 40.0 * 1.3, 0.5, "the ring reaches 30% further out:")
+	assert_near(float(ring["outer"]), 80.0, 0.5, "the ring reaches 80 px:")
 	cairn.pos = culv.pos + Vector2(90, 0)
 	culv.facing = Vector2.RIGHT
 	run(sim, S1, 40)  # Gulp, held
 	var fell := run_until(sim, func(): return cairn.state == CreatureSim.State.FALLING, 80)
 	assert_true(fell, "out the back end and into the pit")
+
+
+func test_storm_drain_leaves_solid_lanes_along_the_diagonals() -> void:
+	var sim := _duel("cairn", 200.0)
+	var c := sim.creatures[0]
+	c.pos = Vector2(220, 164)
+	c.energy = 100.0
+	tap(sim, SimDefs.IN_SURGE, 80)
+	var at := c.pos
+	assert_true(sim.terrain.is_hole_at(at + Vector2(0, 50)), "straight below him is a pit")
+	assert_true(sim.terrain.is_hole_at(at + Vector2(-50, 0)), "and straight beside him")
+	assert_false(sim.terrain.is_hole_at(at + Vector2(-35, 35)), "the diagonal is a lane")
+	assert_false(sim.terrain.is_hole_at(at + Vector2(35, -35)), "on every diagonal")
+	assert_false(sim.terrain.is_hole_at(at + Vector2(-50, -50)), "out to the rim")

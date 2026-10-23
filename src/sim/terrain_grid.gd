@@ -400,7 +400,10 @@ func crack_ring(center: Vector2, inner: float, outer: float) -> void:
 
 
 ## Opens a ring of holes between inner and outer radius, and cracks a band just outside it.
-func damage_ring(center: Vector2, inner: float, outer: float, heal := HEAL_TICKS) -> void:
+## `lanes` (the ring's "side_lanes"): width of four solid strips along the diagonals through
+## the center, so a diagonal roll out of the blast lands on ground that holds. Integers/sqrt-free:
+## a cell is on a strip when ||dx|-|dy|| <= lanes / sqrt(2).
+func damage_ring(center: Vector2, inner: float, outer: float, heal := HEAL_TICKS, lanes := 0.0) -> void:
 	var edge := outer + CRACK_BAND
 	var c0 := world_to_cell(center - Vector2(edge, edge))
 	var c1 := world_to_cell(center + Vector2(edge, edge))
@@ -411,6 +414,10 @@ func damage_ring(center: Vector2, inner: float, outer: float, heal := HEAL_TICKS
 				continue
 			var d := cell_center(c).distance_to(center)
 			if d >= inner and d <= outer:
+				if lanes > 0.0:
+					var off := cell_center(c) - center
+					if absf(absf(off.x) - absf(off.y)) <= lanes * 0.70710678:
+						continue
 				damage_cell(c, 2, heal)
 			elif d > outer and d <= edge:
 				damage_cell(c, 1, heal)
