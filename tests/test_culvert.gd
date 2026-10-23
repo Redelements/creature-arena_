@@ -189,10 +189,13 @@ func test_a_fall_into_the_ring_lands_clear_of_the_pits() -> void:
 	culv.energy = 100.0
 	tap(sim, SimDefs.IN_SURGE, 0)
 	assert_true(run_until(sim, func(): return sim.terrain.count(TerrainGrid.HOLE) > 0, 60), "the ring opens")
+	var at := culv.pos
 	cairn.pos = culv.pos + Vector2(35, 0)  # in the ring, ahead of him
 	cairn.invuln = 0
 	assert_true(run_until(sim, func(): return cairn.state == CreatureSim.State.FALLING, 5), "falls in")
 	assert_true(run_until(sim, func(): return cairn.state != CreatureSim.State.FALLING, 60), "lands")
+	assert_near(culv.pos.distance_to(at), 0.0, 0.01, "Culvert wasn't shoved:")
+	assert_gt(cairn.pos.distance_to(culv.pos), culv.radius + cairn.radius + 2.0, "not put down on his island:")
 	var c := sim.terrain.world_to_cell(cairn.pos)
 	for dy in range(-1, 2):
 		for dx in range(-1, 2):
