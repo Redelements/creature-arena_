@@ -130,7 +130,7 @@
       "damage": 22, "knockback": 5.0, "knockdown": 30, "hitstop": 14,
       "reach": 0, "hit_radius": 50, "juggle": true,
       "dash": { "speed": 1.4, "from": 1, "to": 14 },
-      "terrain_heal": 1.5, "terrain_ring": { "inner": 18, "outer": 52 },
+      "terrain_heal": 1.5, "terrain_ring": { "inner": 18, "outer": 52, "side_lanes": 24 },
       "fx": { "rain": true, "telegraph": true, "impact": "geysers" }
     }
   }

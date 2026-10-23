@@ -27,6 +27,5 @@ Priorities are in the Game Plan doc, "Game modes".
 - **Planned:** dodge timing. Kevin wants to leave a combo at any time to dodge; today
   Dodge isn't buffered during attacks (except in hitstop) and can't cancel them (issue #9
   has the options).
-- **Known issues:** Storm Drain can't be punished even when dodged (its pit ring walls
-  Culvert in); a fighter can fall into pits several times in a row after a Storm Drain
-  (respawn lands next to holes).
+- **Known issues:** none open. (Storm Drain's ring now leaves side lanes to punish through,
+  and a fall puts you down clear of the pits.)

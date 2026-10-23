@@ -102,3 +102,22 @@ func test_a_sunk_cell_stays_a_chasm_but_is_not_the_map_s_own() -> void:
 	for i in 2000:
 		t.tick()
 	assert_eq(t.get_cell(sunk), TerrainGrid.CHASM, "still sunk after a long heal:")
+
+
+## After a fall a fighter is put down with floor all round it, not at the pit's lip.
+func test_nearest_solid_can_ask_for_clear_floor_round_it() -> void:
+	var t := TerrainGrid.new()
+	for x in range(18, 23):
+		for y in range(10, 15):
+			t.set_cell(Vector2i(x, y), TerrainGrid.HOLE)
+	var p := t.cell_center(Vector2i(22, 12))
+	assert_eq(t.world_to_cell(t.nearest_solid(p)), Vector2i(23, 12), "the lip, when any floor will do:")
+	assert_eq(t.world_to_cell(t.nearest_solid(p, 1)), Vector2i(24, 12), "one cell in, with room all round:")
+	# Nowhere has room: the closest walkable cell is still the answer.
+	var tiny := TerrainGrid.new()
+	for x in range(0, tiny.cols):
+		for y in range(0, tiny.rows):
+			if (x + y) % 2 == 0:
+				tiny.set_cell(Vector2i(x, y), TerrainGrid.HOLE)
+	var q := tiny.cell_center(Vector2i(4, 4))
+	assert_eq(tiny.nearest_solid(q, 1), tiny.nearest_solid(q), "falls back to any floor")
