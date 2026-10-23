@@ -724,7 +724,7 @@ func step(buttons: int, sim: MatchSim) -> void:
 			State.IDLE, State.MOVE:
 				_update_free(buttons, pressed, dir, aim, sim)
 			State.ATTACK:
-				_update_attack(buttons, aim, sim)
+				_update_attack(buttons, pressed, aim, sim)
 			State.DODGE:
 				_update_dodge(sim)
 			State.GUARD:
@@ -763,7 +763,9 @@ func step(buttons: int, sim: MatchSim) -> void:
 		buffer_t -= 1
 		if buffer_t == 0:
 			buffered = ""
-	if dodge_buffer > 0:
+	# A dodge pressed during an attack is kept until the attack ends (a dodge cancel it
+	# couldn't afford, or a blocked ender to serve), then BUFFER_TICKS more.
+	if dodge_buffer > 0 and state != State.ATTACK:
 		dodge_buffer -= 1
 
 
@@ -889,6 +891,20 @@ func can_dodge() -> bool:
 	return stamina >= dodge_cost and root <= 0 and int(cooldowns.get("dodge", 0)) <= 0
 
 
+## A dodge may leave this creature's own attack at any point (a dodge cancel: out of a
+## string, a windup feint, or skipping a whiffed move's recovery), for `dodge_cancel_cost`,
+## unless a blocked ender left it open (`punish_serial`): that recovery has to be served.
+func can_dodge_cancel() -> bool:
+	return state == State.ATTACK and punish_serial != attack_serial and root <= 0 \
+		and int(cooldowns.get("dodge", 0)) <= 0 and stamina >= dodge_cancel_cost()
+
+
+## What a dodge out of your own attack costs: the dodge's cost × `dodge_cancel_cost_mult`
+## (data/rules/stamina.json), so a whiff can't be made safe for free every time.
+func dodge_cancel_cost() -> float:
+	return dodge_cost * float(stamina_rules().get("dodge_cancel_cost_mult", 1.25))
+
+
 ## Stamina to block with. Exhausted (at 0) a guard can't start.
 func can_guard() -> bool:
 	return stamina > 0.0
@@ -946,9 +962,9 @@ func dodge_cooldown_ratio() -> float:
 	return float(cooldowns.get("dodge", 0)) / total if total > 0.0 else 0.0
 
 
-func _start_dodge(dir: Vector2, sim: MatchSim) -> void:
+func _start_dodge(dir: Vector2, sim: MatchSim, cancel := false) -> void:
 	var dg: Dictionary = def["dodge"]
-	spend_stamina(dodge_cost)
+	spend_stamina(dodge_cancel_cost() if cancel else dodge_cost)
 	if int(dg.get("cooldown", 0)) > 0:
 		cooldowns["dodge"] = int(dg["cooldown"])
 	if dg.has("ram"):
@@ -962,7 +978,7 @@ func _start_dodge(dir: Vector2, sim: MatchSim) -> void:
 	dodge_dir = dir if dir != Vector2.ZERO else facing
 	walk_vel = Vector2.ZERO
 	_set_state(State.DODGE)
-	sim.emit_event("dodge", pos, 0.0)
+	sim.emit_event("dodge", pos, 0.0, {"who": id, "cancel": cancel})
 
 
 ## Starts the buffered attack from a neutral state, if it's usable.
@@ -975,6 +991,9 @@ func _try_start_buffered(dir: Vector2, sim: MatchSim) -> bool:
 	if dir != Vector2.ZERO:
 		facing = dir
 	facing = _taunt_aim(facing, sim)
+	# A dodge pressed before this attack (while the blink recharged, or in a freeze) is
+	# stale now: the attack is the newer wish, and only a press during it may cancel it.
+	dodge_buffer = 0
 	_start_attack(mid, sim, true)
 	return true
 
@@ -1043,7 +1062,19 @@ func _start_attack(mid: String, sim: MatchSim, raw := false) -> void:
 			"freeze": sim.freeze_all})
 
 
-func _update_attack(buttons: int, dir: Vector2, sim: MatchSim) -> void:
+func _update_attack(buttons: int, pressed: int, dir: Vector2, sim: MatchSim) -> void:
+	# Dodge out of your own attack (a dodge cancel): at any point, windup included, at a
+	# dearer stamina cost (can_dodge_cancel). A press that can't cancel right now is kept
+	# so the dodge comes out on the first free frame instead of being dropped.
+	if (pressed & SimDefs.IN_DODGE) or dodge_buffer > 0:
+		var ddir := SimDefs.move_from_bits(buttons)
+		if can_dodge_cancel():
+			cancel_attack()
+			_start_dodge(ddir if ddir != Vector2.ZERO else dodge_buffer_dir, sim, true)
+			return
+		if pressed & SimDefs.IN_DODGE:
+			dodge_buffer = BUFFER_TICKS
+			dodge_buffer_dir = ddir
 	var mv := move_def()
 	if windup_left > 0:
 		windup_left -= 1
