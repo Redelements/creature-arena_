@@ -236,6 +236,7 @@ var entities: Node2D
 var views: Array[CreatureView] = []
 var fx: FxView
 var fx_ground: FxGround
+var water: WaterView
 var audio: AudioView
 var debug: DebugView
 var hud: Hud
@@ -436,6 +437,8 @@ func _ready() -> void:
 	add_child(crowd)
 	fx_ground = FxGround.new()
 	add_child(fx_ground)
+	water = WaterView.new()  # living water over the shallows, under the fighters
+	add_child(water)
 	rings = RangeRings.new()
 	rings.visible = false
 	rings.fx = fx  # what the local team can see (Vision): no rings for a hidden foe
@@ -1873,6 +1876,8 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 		views.append(v)
 	debug.sim = sim
 	rings.set_sim(sim)
+	water.set_sim(sim)
+	water.fx = fx
 	paper.set_sim(sim)
 	hud.sim = sim
 	fx.sim = sim
@@ -2080,6 +2085,7 @@ func _physics_process(_delta: float) -> void:
 
 	var t_fx := PerfLog.now()
 	arena.refresh()
+	water.advance()
 	crowd.advance()
 	fx.advance()
 	PerfLog.since("fx advance", t_fx)

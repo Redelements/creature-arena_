@@ -30,6 +30,7 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   bands a few per frame (`ArenaView._pending`, `SPREAD_FRAMES`), not all in one tick. A
   `_draw` reports its time with `PerfLog.now()` / `PerfLog.since(...)` for `--perf`
   (main thread only: `PerfLog` ignores a worker thread).
+- Shallows water (flow, foam, wading wakes, entry splash) is `water_view.gd`, a layer between the floor and the fighters, all 1 px rects on the 60 Hz tick clock; it draws only where the terrain grid says `SHALLOWS`, so a fallen bridge gets it too. Its wake skips a fighter `FxView.shown` hides.
 - The camera is not here: `src/game/main.gd:_update_camera`, `_frame_fight`, `CAM_PAD`, `KO_ZOOM`.
 
 ## Hidden foes
@@ -114,4 +115,5 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `perf_overlay.gd` (PerfOverlay) — The performance overlay (Settings > Video, or F9): the frame rate in a corner, and in its second mode a chart of the la…
 - `range_rings.gd` (RangeRings) — "Range rings" (Settings > Controls, or F7 in a fight): thin floor rings that show where an attack really reaches, so a…
 - `surge_aura.gd` (SurgeAura) — The power-up aura a fighter wears while their Surge is ready: a flickering shell of energy rising off them, motes that…
+- `water_view.gd` (WaterView) — Living water over the shallows (Floodgate's channel, Twin Keeps' pools): a slow flow down the map, twinkling highlights…
 <!-- END GENERATED -->

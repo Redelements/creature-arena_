@@ -82,7 +82,7 @@ update the map in the same change.
 | fps counter, frame-time graph, performance overlay | `src/view/perf_overlay.gd`; `--perf` report `src/game/perf_log.gd` | perf_overlay |
 | DPS meter | `src/view/dps_meter.gd` | training |
 | sound effects, music, volume | `src/view/audio_view.gd:on_event`, `data/audio.json`, `docs/AUDIO.md` | scripts_load |
-| arena drawing, crowd, map art | `src/view/arena_view.gd` (`_paint_changed`, row bands `BAND_ROWS`), `src/view/crowd_view.gd`; art from `tools/gen_arenas.py` (rerun after moving a piece in `data/arenas/`) | arena |
+| arena drawing, crowd, map art, shallows water (flow, foam, wading wakes, splash) | `src/view/arena_view.gd` (`_paint_changed`, row bands `BAND_ROWS`), `src/view/crowd_view.gd`, `src/view/water_view.gd` (`_paint_surface`, `_watch_fighters`); art from `tools/gen_arenas.py` (rerun after moving a piece in `data/arenas/`) | arena |
 | camera, zoom, screen shake | `src/game/main.gd:_update_camera`, `_frame_fight` | test_ui |
 | game modes, mode numbers, menus' rows | `src/game/main.gd` `MODES`, `MENU_ROWS`, `_start_match` | test_ui, test_journey, menu_contract |
 | settings | `src/game/main.gd` `SETTING_PAGES`, `_setting`, `_set_setting` | test_ui |
