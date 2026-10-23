@@ -1248,3 +1248,41 @@ func test_the_trials_help_reads_the_bound_keys() -> void:
 	assert_eq(g.hud.help_text, "%s watch the demo again    %s next trial    Esc menu" % [
 		Controls.binding_text("debug_dummy_mode", "classic"), Controls.binding_text("reset", "classic")], "")
 	g.free()
+
+
+func test_the_description_box_never_changes_size_as_focus_moves() -> void:
+	# The mouse focuses whatever it's over: if a longer description grew the panel, the
+	# rows would shift under a still cursor, focus another row, and the text would
+	# change again. So the box is sized once, for the longest text the page shows.
+	var g := _game()
+	g._open_menu()
+	_press("ui_accept")  # Single player
+	for card in ["Team battles", "Challenges"]:
+		_open_card(g, card)
+		var page: UiScreen = g.ui.top()
+		assert_true(page.detail, card + ": rows on the left, the panel on the right")
+		var sizes := {}
+		var texts := {}
+		for r in page.rows():
+			(r as Control).grab_focus()
+			sizes[page._desc.get_combined_minimum_size()] = true
+			texts[page._desc.text] = true
+			var label: String = (r as OptionRow).label if r is OptionRow else (r as Button).text
+			assert_eq(page._detail_title.text, label, card + ": the panel is titled after the row")
+		assert_true(texts.size() > 1, card + ": the text changes with the row")
+		assert_eq(sizes.size(), 1, card + ": the box never does: " + str(sizes.keys()))
+		(page.rows().back() as Control).grab_focus()  # Back has no text of its own
+		assert_eq(page._desc.text, page.blurb, card + ": Back shows the page's own line")
+		_press("ui_cancel")
+	# A page that keeps the line under the column holds two lines whatever the text.
+	g._start_match(2)
+	_tick(g, 30)
+	_press("pause")
+	var pause: UiScreen = g.ui.top()
+	var pause_sizes := {}
+	for r in pause.rows():
+		(r as Control).grab_focus()
+		pause_sizes[pause._desc.get_combined_minimum_size()] = true
+	assert_eq(pause_sizes.size(), 1, "the pause menu's line: " + str(pause_sizes.keys()))
+	assert_eq(pause._desc.max_lines_visible, 2, "two lines")
+	g.free()

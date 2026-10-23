@@ -11,12 +11,21 @@ Menus are `Control` nodes on a `ScreenStack` of `UiScreen`s, styled by one share
 - Tests drive menus with real input events (`tests/test_ui.gd`); keep focus and Back
   behaviour working with keyboard, mouse and pad.
 - Headless runs have no clipboard: `RoomCodeButton.last_copied` stands in.
+- Nothing on a screen moves while it is open. The description's box is sized once for the
+  longest text the page shows (`UiScreen._size_detail`; two lines for the line under a
+  column), because the mouse focuses whatever it is over: a box that grew with the text
+  shifted the rows under a still cursor, which focused another row, which changed the text
+  again (Oct 2026). `tests/test_ui.gd` pins it.
 
 ## Where to look
 
 - A new screen → subclass `UiScreen`, override `build()` (`add_button`, `add_option`,
   `add_card`, `add_heading`, `add_text`, `add_row`; `crumbs`, `framed`, `show_desc`), then
   `ui.push()`; examples `main.gd:_open_single`, `_open_settings`, `_open_controls`
+- Rows on the left, a panel on the right with the focused row's title and text → `detail`,
+  `detail_width`, `blurb` (what the panel says on a row with no text, like Back),
+  `entitle()` for a row that is not a Button or an OptionRow; the Single player and
+  Settings pages use it, the pause and match-over menus keep the line under the column
 - The stack, Back, focus restore, toasts → `screen_stack.gd` (`push`, `pop`, signals
   `moved`, `chosen`, `emptied`)
 - "label < value >" rows → `option_row.gd`; hub cards → `card_button.gd`
