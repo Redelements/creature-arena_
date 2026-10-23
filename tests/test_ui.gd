@@ -1265,8 +1265,12 @@ func test_the_description_box_never_changes_size_as_focus_moves() -> void:
 		var texts := {}
 		for r in page.rows():
 			(r as Control).grab_focus()
-			sizes[page._desc.get_combined_minimum_size()] = true
+			sizes[[page._desc.get_combined_minimum_size(), page._extra.get_combined_minimum_size()]] = true
 			texts[page._desc.text] = true
+			if r is OptionRow:  # Left/Right swap what the card shows, never how much
+				for i in 3:
+					_press("ui_right")
+					sizes[[page._desc.get_combined_minimum_size(), page._extra.get_combined_minimum_size()]] = true
 			var label: String = (r as OptionRow).label if r is OptionRow else (r as Button).text
 			assert_eq(page._detail_title.text, label, card + ": the panel is titled after the row")
 		assert_true(texts.size() > 1, card + ": the text changes with the row")
@@ -1285,4 +1289,51 @@ func test_the_description_box_never_changes_size_as_focus_moves() -> void:
 		pause_sizes[pause._desc.get_combined_minimum_size()] = true
 	assert_eq(pause_sizes.size(), 1, "the pause menu's line: " + str(pause_sizes.keys()))
 	assert_eq(pause._desc.max_lines_visible, 2, "two lines")
+	g.free()
+
+
+func test_the_card_shows_the_fighter_the_row_names_and_the_modes_facts() -> void:
+	var g := _game()
+	g._open_menu()
+	_press("ui_accept")  # Single player
+	_open_card(g, "Challenges")
+	var page: UiScreen = g.ui.top()
+	var arcade: OptionRow = page.rows()[0]
+	assert_eq(arcade.label, "Arcade", "")
+	arcade.grab_focus()
+	var card: DetailCard = page.card(arcade)
+	assert_true(card.visible, "the focused row's card shows")
+	assert_eq(card.fighter, MatchFactory.FIGHTERS[0], "the first choice's fighter:")
+	_press("ui_right")
+	_press("ui_right")
+	assert_eq(card.fighter, MatchFactory.FIGHTERS[2], "Right twice: the third:")
+	assert_true(String(card.facts[0]).begins_with("%d stages" % Arcade.STAGES), "the Arcade's facts: " + str(card.facts))
+	_press("ui_down")
+	assert_false(card.visible, "another row: its card hides")
+	assert_true((page.card(page.rows()[1]) as DetailCard).visible, "and that row's shows")
+	_press("ui_cancel")
+	_open_card(g, "Team battles")
+	page = g.ui.top()
+	var tdm: OptionRow = page.rows()[1]
+	assert_eq(tdm.label, "Team Deathmatch vs CPU", "")
+	var want: Array = TeamSim.rules_by_id("deathmatch")["score_to_win"]
+	var tc: DetailCard = page.card(tdm)
+	assert_eq(tc.fighter, "", "a team row shows no fighter")
+	assert_true(String(tc.facts[0]).begins_with("First to %d KOs" % int(want[2])), "2 v 2: " + str(tc.facts))
+	tdm.grab_focus()
+	_press("ui_right")  # 3 v 3
+	assert_true(String(tc.facts[0]).begins_with("First to %d KOs" % int(want[3])), "3 v 3: " + str(tc.facts))
+	assert_true(tc.facts.size() <= 3, "three lines at most")
+	for r in page.rows():
+		var k: DetailCard = page.card(r)
+		if r is Button and (r as Button).text == "Back":
+			assert_true(k == null or k.facts.is_empty(), "Back has no facts")
+		else:
+			assert_true(k != null and not k.facts.is_empty(), "every mode row has facts: " + str(r))
+	# The hub's Arena row shows the map.
+	_press("ui_cancel")
+	var hub: UiScreen = g.ui.top()
+	var arena: OptionRow = hub.rows()[0]
+	assert_eq(arena.label, "Arena", "")
+	assert_true((hub.card(arena) as DetailCard).picture != null, "a picture of the arena")
 	g.free()

@@ -94,7 +94,7 @@ update the map in the same change.
 | replays, Replay theater | `src/sim/replay.gd`, `src/game/replay_builder.gd` | replays, determinism |
 | unlocks, progress | `src/game/progress.gd` | arcade |
 | Discord status | `src/game/presence.gd`, `src/game/discord_rpc.gd`, `data/discord.json` | presence |
-| menu screens, theme | `src/ui/ui_screen.gd`, `src/ui/screen_stack.gd`, `src/ui/ui_theme.gd` | test_ui, menu_stick, journey |
+| menu screens, theme | `src/ui/ui_screen.gd`, `src/ui/screen_stack.gd`, `src/ui/ui_theme.gd`; the panel's cards `src/ui/detail_card.gd`, `src/game/main.gd:_mode_facts` | test_ui, menu_stick, journey, menu_contract |
 | character select, picking fighters | `src/ui/character_select.gd` | test_ui, rooms |
 | online lobby, room codes, Quick match | `src/game/online_lobby.gd`, `src/net/netplay.gd` | rooms, online |
 | rollback, prediction | `src/net/rollback_session.gd`, `src/net/online_match.gd` | online |
