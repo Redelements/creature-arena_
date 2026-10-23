@@ -95,6 +95,17 @@ dig/slosh/poof/chop_chop/shout sounds.
   shows its piece of `_cracked` / `_alt`; `_paint_lips`; a hole in a bridge, or a fallen one,
   shows the water of `_alt`, `_bridge_gone`); the pictures come from
   `tools/gen_arenas.py`, which reads the pieces from `data/arenas/<id>.json`
+- Hit sparks, shake direction, footstep and landing dust → `fx_view.gd:_hit_sparks` (light: a few
+  pixels along the push; heavy: a radial burst on top of the hit flash's white silhouette; skill:
+  a burst in `fx.spark_color` / `ghost_color`; surge: heavy plus `flash_out`, which main turns
+  into `flash_rect`). The hit event's own `type` is "hit": the move's type is read off the
+  attacker (`move_type()`), or `fx.spark` overrides it. `shake_dir` is the push; main leans the
+  camera offset along it (`main.gd` shake block). Light hits keep a half-tint flash
+  (`CreatureView.soft_flash`). Footsteps: `_footstep` (per-frame watch) puffs on the frames in
+  the sprite block's `step_frames` (default the first and the middle run frame; Crease `[0, 6]`),
+  `_floor_kind` picks the look (shallows splash, the sprite's `step` e.g. `"slush"` for Sno,
+  else the arena `ground`), `_landing_puff` for land / land_hard / bounce; `puff` particles draw
+  on the floor layer, capped by `STEP_CAP`, culled to the view.
 - Footsteps / swing sounds → `audio_view.gd:watch`; buses → `_make_buses`, `set_volume`
 
 ## Files
