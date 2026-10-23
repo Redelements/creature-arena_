@@ -1250,7 +1250,9 @@ func _avalanche(at: Vector2) -> void:
 
 ## Storm Drain: water erupts from the ring of pits it leaves behind.
 func _geysers(c: CreatureSim, mv: Dictionary) -> void:
-	var ring: Dictionary = mv.get("terrain_ring", {"inner": 24, "outer": 40})
+	var ring: Dictionary = mv.get("terrain_ring", {})
+	if ring.is_empty():
+		return
 	var r := (float(ring["inner"]) + float(ring["outer"])) * 0.5
 	var n := 8
 	for i in n:
@@ -1353,7 +1355,7 @@ func _twister_gust(c: CreatureSim, mv: Dictionary) -> void:
 
 ## Root Eruption: roots punch up through the floor in a ring at the reach of each hit.
 func _roots(c: CreatureSim, r: float, last: bool) -> void:
-	var n := int(clampf(r / 4.5, 6.0, 14.0))
+	var n := int(clampf(r / 4.5, 6.0, 22.0))
 	var off := randf() * TAU
 	for i in n:
 		var a := off + TAU * i / n + randf_range(-0.15, 0.15)
@@ -3082,6 +3084,8 @@ func _draw_telegraph(ci: CanvasItem, c: CreatureSim, mv: Dictionary) -> void:
 			land = c.pos + c.facing * maxf(0.0, float(dash["to"]) - c.state_t) * c.home_speed
 	var k := clampf(float(c.state_t) / maxf(1.0, float(mv.get("startup", 1))), 0.0, 1.0)
 	var r := float(mv.get("hit_radius", 40))
+	for seg in mv.get("_segs", []):  # the widest hit of the move (a Surge may grow per segment)
+		r = maxf(r, float(seg.get("hit_radius", 0.0)))
 	var pulse := 0.5 + 0.5 * sin(_tick * 0.6)
 	ci.draw_arc(land, r, 0.0, TAU, 48, Color(C_WARN, 0.25 + 0.35 * pulse * k), 1.0)
 	ci.draw_arc(land, r * k, 0.0, TAU, 40, Color(C_WARN, 0.35), 1.0)

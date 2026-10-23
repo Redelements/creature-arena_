@@ -128,6 +128,12 @@ static func move_bits(v: Vector2) -> int:
 static func aim_bits(v: Vector2) -> int:
 	if v.length_squared() < 1e-6:
 		return 0
+	return IN_AIM | (aim_index(v) << AIM_SHIFT)
+
+
+## The index (0-63) of the aim table entry nearest to `v`: the largest dot product, ties
+## to the lower index. 0 for a zero vector. No trig.
+static func aim_index(v: Vector2) -> int:
 	var best := 0
 	var best_dot := -INF
 	var dirs := aim_dirs()
@@ -136,7 +142,7 @@ static func aim_bits(v: Vector2) -> int:
 		if d > best_dot:
 			best_dot = d
 			best = i
-	return IN_AIM | (best << AIM_SHIFT)
+	return best
 
 
 static func bits_from_dir(d: Vector2) -> int:

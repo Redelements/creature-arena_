@@ -305,7 +305,13 @@ func _next_round() -> void:
 	var wins := round_wins.duplicate()
 	var n := round_num + 1
 	var last := round_winner
+	# The Surge meter carries between rounds (data/rules/energy.json): each side's
+	# fighter on the field keeps its energy across the reset.
+	var energy := [active_creature(0).energy, active_creature(1).energy]
 	restore(_fresh)
+	if MatchSim.energy_carries():
+		for side in 2:
+			active_creature(side).energy = energy[side]
 	sim.tick = t
 	round_wins = wins
 	round_num = n

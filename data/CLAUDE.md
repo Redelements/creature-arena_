@@ -11,6 +11,7 @@ online data hash (`src/net/netplay.gd:data_hash`): changing one needs the server
 | `rules/duel.json`, `duel_1v1.json`, `team.json`, `deathmatch.json` | Match rules (duel_1v1: the online 1v1, best of three rounds): time, intro ticks, tag cooldown/energy, bench regen, KO swap, spawn spread; deathmatch adds respawn time, spawn protection, pad inset/spread and `score_to_win` by team size |
 | `rules/sinkhole.json`, `crater.json`, `caravan.json`, `ctf.json`, `brawl.json` | Sinkhole's shrink schedule (chasm falls KO); King of the Crater's zone and score; Caravan's push, checkpoints, rockslides, escort healing, rounds and its map (`arena`); both modes' `class_perks` (per fighter role); Capture the Flag's pickup, carry slow, returns, captures, CPU defenders, `max_size`, fumbles, passes, comebacks, capture slow motion and `shrines`; Brawl's 2 to 4 fighters, one life each |
 | `rules/stamina.json` | Stamina every fighter shares: `dodge_cost_share` (0.6 of the bar) and `dodge_cost_share_by_fighter`, `block_drain_mult` per move type, `block_regen_pause_seconds`, `exhaust_delay_seconds` |
+| `rules/energy.json` | Surge energy: `per_damage_dealt` (0.75), `per_damage_taken` (0.5), `carry_between_rounds` (the meter carries into the next round of a best-of-three) |
 | `rules/projectiles.json` | `radius_mult`: every straight projectile's hit radius (and `radius_end`) × this |
 | `rules/mutators.json` | Match mutators (`air_mult`, `speed_mult`, `damage_mult`, `surge_every`, `pit_floor`); the Daily Challenge draws two, Chaos Cup stacks them |
 | `arenas/<id>.json` | One arena: `id`, `name`, `ground`, optional `size` `[cols, rows]` (default the stadium's 84x36 grid of 8 px cells; bigger maps for Caravan and Capture the Flag), optional `spawns`, optional `track` (Caravan: floor points the caravan rides, side 0's end first), optional `bases` (Capture the Flag: where each flag stands), optional `bridges` (`rect`, `strain`, `reform_seconds`, `crack`: a bridge that heavy hits break and that falls in for a while), optional `shrines` (`pos`, `kind` haste/might, `radius`: Capture the Flag's buffs), `pieces` (`wall` (rubble a charge can smash), `fence`, `chasm`, `shallows`, `brush`, each a `[col, row, w, h]` rect on the grid) |
@@ -36,6 +37,6 @@ online data hash (`src/net/netplay.gd:data_hash`): changing one needs the server
 - `creatures/` — barkley, cairn, cerebro, craglash, crease, culvert, digby, dummy, gillbert, hissy, pete, sno
 - `discord.json`
 - `online.json`
-- `rules/` — brawl, caravan, crater, ctf, deathmatch, duel, duel_1v1, mutators, projectiles, sinkhole, stamina, team
+- `rules/` — brawl, caravan, crater, ctf, deathmatch, duel, duel_1v1, energy, mutators, projectiles, sinkhole, stamina, team
 - `trials.json`
 <!-- END GENERATED -->

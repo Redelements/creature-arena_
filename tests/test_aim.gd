@@ -78,3 +78,31 @@ func test_a_raw_windup_move_stays_committed() -> void:
 	assert_true(crag.is_winding_up(), "raw Landslide Charge winds up")
 	run(sim, UP, 12)
 	assert_eq(crag.facing, Vector2.RIGHT, "the Lash still goes where its tell pointed:")
+
+
+func test_aim_index_is_the_nearest_table_entry_without_trig() -> void:
+	var dirs := SimDefs.aim_dirs()
+	for i in [0, 1, 5, 16, 33, 63]:
+		assert_eq(SimDefs.aim_index(dirs[i]), i, "entry %d:" % i)
+	assert_eq(SimDefs.aim_index(Vector2.UP), 48, "up")
+	assert_eq(SimDefs.aim_index(Vector2.ZERO), 0, "no direction")
+	assert_eq(SimDefs.aim_bits(Vector2.DOWN), SimDefs.IN_AIM | (16 << SimDefs.AIM_SHIFT), "aim_bits still agrees")
+
+
+## A volley's "fan" turns knives by steps of the 64-step table, alternating sides, at most
+## fan_max steps: 0, +f, -f, +2f, -2f... with the cap.
+func test_volley_fan_alternates_sides_and_is_capped() -> void:
+	var sim := MatchFactory.training("cerebro")
+	var c := sim.creatures[0]
+	c.facing = Vector2.RIGHT
+	c.move_id = "surge"
+	var mv: Dictionary = c.moves()["surge"]
+	mv["projectile"]["volley"]["fan"] = 2
+	mv["projectile"]["volley"]["fan_max"] = 3
+	for k in 6:
+		sim.spawn_projectile(c, mv, false, k)
+	var got: Array = []
+	for pr in sim.projectiles:
+		got.append(SimDefs.aim_index(pr["vel"]))
+	assert_eq(got, [0, 2, 62, 3, 61, 3], "knife angles in table steps (index 5 is capped at +3):")
+	assert_near(sim.projectiles[1]["vel"].y, -sim.projectiles[2]["vel"].y, 0.0001, "1 and 2 are mirror images")

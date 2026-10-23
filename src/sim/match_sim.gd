@@ -13,6 +13,7 @@ extends RefCounted
 const HITSTUN_DECAY := 0.07
 const HITSTUN_FLOOR := 0.4
 const STALE_MULT := 0.5
+## Defaults for the energy rates; data/rules/energy.json overrides them (energy_rules()).
 const ENERGY_PER_DAMAGE := 1.5
 const ENERGY_PER_DAMAGE_TAKEN := 1.0
 const STONE_SHATTER_MULT := 1.25
@@ -30,6 +31,9 @@ const TRAINING_FLAGS := ["no_cooldowns", "full_energy"]
 ## Hit size of straight projectiles: radius_mult on every "radius" / "radius_end".
 const PROJECTILES_PATH := "res://data/rules/projectiles.json"
 static var _projectile_rules := {}
+## Energy rates and whether the meter carries between rounds (data/rules/energy.json).
+const ENERGY_PATH := "res://data/rules/energy.json"
+static var _energy_rules := {}
 
 var tick := 0
 var hitstop := 0
@@ -404,11 +408,15 @@ func _resolve_hits() -> void:
 			continue
 		var center := a.hit_center(seg)
 		var reach := a.hit_radius(seg)
+		var skip_struck := a.seg_flag(seg, "skip_struck")
 		for d in creatures:
 			if not a.is_foe(d):
 				continue
 			var key := "%d:%d" % [d.id, seg]
 			if a.seg_hit.has(key):
+				continue
+			# "skip_struck": this segment passes over a foe an earlier segment already hit.
+			if skip_struck and a.struck_before(d.id, seg):
 				continue
 			var hit := a.hit_params(seg)
 			if not _hittable(d, hit):
@@ -424,6 +432,28 @@ func _resolve_hits() -> void:
 			var push := d.pos - a.pos
 			push = push.normalized() if push.length_squared() > 0.0001 else a.facing
 			_apply_hit(a, d, hit, push, (center + d.pos) * 0.5 + Vector2(0, -12))
+
+
+## The energy rules (data/rules/energy.json), loaded once: per_damage_dealt,
+## per_damage_taken, carry_between_rounds. Missing keys fall back to the constants.
+static func energy_rules() -> Dictionary:
+	if _energy_rules.is_empty():
+		var f := FileAccess.open(ENERGY_PATH, FileAccess.READ)
+		var d = JSON.parse_string(f.get_as_text()) if f != null else null
+		_energy_rules = d if d is Dictionary else {}
+	return _energy_rules
+
+
+static func energy_rate_dealt() -> float:
+	return float(energy_rules().get("per_damage_dealt", ENERGY_PER_DAMAGE))
+
+
+static func energy_rate_taken() -> float:
+	return float(energy_rules().get("per_damage_taken", ENERGY_PER_DAMAGE_TAKEN))
+
+
+static func energy_carries() -> bool:
+	return bool(energy_rules().get("carry_between_rounds", false))
 
 
 static func projectile_radius_mult() -> float:
@@ -474,7 +504,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		a.dealt_damage()
 		d.flash = 3
 		if String(hit["type"]) != "surge":  # a Surge never charges the next one
-			gain_energy(a, taken * ENERGY_PER_DAMAGE)
+			gain_energy(a, taken * energy_rate_dealt())
 		if same_attack:
 			a.connected = true
 		impact_stop(a, d, int(float(hit["hitstop"]) * 0.6), ranged)
@@ -500,7 +530,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 			d.guard_hit = 10
 			d.stun = int(float(hit["hitstun"]) * 0.5)
 			if String(hit["type"]) != "surge":
-				gain_energy(a, chip * ENERGY_PER_DAMAGE)
+				gain_energy(a, chip * energy_rate_dealt())
 			if same_attack:
 				a.connected = true
 				_punish_blocked_ender(a, d)
@@ -552,8 +582,8 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	d.combo_damage += total
 	d.last_attacker = a.id
 	if String(hit["type"]) != "surge":  # a Surge's hits never charge the next Surge
-		gain_energy(a, total * ENERGY_PER_DAMAGE)
-	gain_energy(d, total * ENERGY_PER_DAMAGE_TAKEN)
+		gain_energy(a, total * energy_rate_dealt())
+	gain_energy(d, total * energy_rate_taken())
 	if same_attack:
 		a.connected = true
 	var stack_def: Dictionary = a.def.get("stack", {})
@@ -835,7 +865,7 @@ func _step_zones() -> void:
 ## Two kinds: a ground projectile ("speed", "life") that travels until it hits someone,
 ## and a lob ("lob": true, "range", "time") that arcs over everyone and bursts where it
 ## lands, hitting everything within "burst" of that spot (Pinecone Bomb).
-func spawn_projectile(owner: CreatureSim, mv: Dictionary, last := true) -> void:
+func spawn_projectile(owner: CreatureSim, mv: Dictionary, last := true, index := 0) -> void:
 	var p: Dictionary = mv["projectile"]
 	var hit := owner.hit_params(-1)
 	# The last of a volley can hit differently (Knife Flurry's final knife knocks down).
@@ -854,6 +884,14 @@ func spawn_projectile(owner: CreatureSim, mv: Dictionary, last := true) -> void:
 	# outer ones push out to their own side (tilted forward by `side_push`), and a foe
 	# touched by one of the row is passed by the rest.
 	var row: Dictionary = {} if lob else p.get("row", {})
+	# A fan ("volley" {fan, fan_max}): knife `index` leaves `fan` steps of the 64-step aim
+	# table off the aim, alternating sides (0, +f, -f, +2f, -2f...), at most `fan_max` steps.
+	var vol: Dictionary = {} if lob else p.get("volley", {})
+	var fan := int(vol.get("fan", 0))
+	if fan > 0 and index > 0:
+		var steps := mini(((index + 1) / 2) * fan, int(vol.get("fan_max", 1000)))
+		var base := SimDefs.aim_index(owner.facing)
+		vel = SimDefs.aim_dirs()[posmod(base + (steps if index % 2 == 1 else -steps), SimDefs.AIM_STEPS)] * float(p["speed"])
 	var count := maxi(1, int(row.get("count", 1)))
 	var across := Vector2(-owner.facing.y, owner.facing.x)
 	for k in count:

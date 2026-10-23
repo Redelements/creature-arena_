@@ -341,3 +341,26 @@ func test_rollback_across_a_new_round_replays_exactly() -> void:
 	for ins in inputs:
 		d.step(ins)
 	assert_eq(d.state_digest(), digest, "the same round two:")
+
+
+## data/rules/energy.json carry_between_rounds: each side keeps its Surge meter into the
+## next round, while health and the floor reset.
+func test_energy_carries_between_rounds() -> void:
+	var d := _one_v_one()
+	d.active_creature(0).energy = 40.0
+	d.active_creature(1).energy = 60.0
+	_ko(d, 1)
+	assert_eq(d.phase, DuelSim.Phase.ROUND_OVER, "")
+	var kept := [d.active_creature(0).energy, d.active_creature(1).energy]
+	assert_gt(float(kept[0]), 39.9, "fighting only added to the meter:")
+	assert_gt(float(kept[1]), 59.9, "")
+	var guard := 0
+	while d.phase == DuelSim.Phase.ROUND_OVER and guard < 600:
+		kept = [d.active_creature(0).energy, d.active_creature(1).energy]
+		d.step(PackedInt32Array([0, 0]))
+		guard += 1
+	assert_eq(d.phase, DuelSim.Phase.INTRO, "the next round")
+	for side in 2:
+		var c := d.active_creature(side)
+		assert_near(c.energy, float(kept[side]), 0.001, "side %d keeps its energy:" % side)
+		assert_near(c.hp, c.max_hp, 0.001, "but health is full:")

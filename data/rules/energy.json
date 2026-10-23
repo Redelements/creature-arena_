@@ -1,0 +1,6 @@
+{
+	"_doc": "Surge energy. per_damage_dealt: energy the attacker gains per point of damage it deals (a Surge's own hits never charge the next one); per_damage_taken: energy the defender gains per point taken. carry_between_rounds: in a best-of-three the meter you ended a round with is the one you start the next with (damage and stamina still reset). Read by MatchSim.energy_rules(); part of Netplay.data_hash.",
+	"per_damage_dealt": 0.75,
+	"per_damage_taken": 0.5,
+	"carry_between_rounds": true
+}

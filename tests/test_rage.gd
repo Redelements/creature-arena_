@@ -187,3 +187,28 @@ func test_rage_matches_replay_exactly() -> void:
 	var b: Dictionary = _match("cerebro", "digby", RAGE, RAGE, 8)
 	assert_eq(a["ticks"], b["ticks"], "match length:")
 	assert_eq((a["sim"] as MatchSim).state_hash(), (b["sim"] as MatchSim).state_hash(), "final state:")
+
+
+## A Surge isn't unblockable (only a floor-opening or guard-breaking one is): Rage answers
+## Sno's Flavor Blast at 30 px (a block, a counter or a timed roll) and is never frozen.
+func test_rage_blocks_or_rolls_a_blockable_surge() -> void:
+	for seed_ in [1, 2, 3, 4]:
+		var sim := MatchFactory.versus("sno", "cairn")
+		sim.creatures[0].pos = Vector2(220, 164)
+		sim.creatures[1].pos = Vector2(250, 164)
+		sim.creatures[0].facing = Vector2.RIGHT
+		sim.creatures[1].facing = Vector2.LEFT
+		sim.creatures[0].energy = CreatureSim.MAX_ENERGY
+		var cpu := CpuController.new(1, RAGE, seed_)
+		var frozen := false
+		var pressed := false
+		for t in 150:
+			var b0 := 0
+			if t == 0:
+				b0 = SimDefs.IN_SURGE
+				pressed = true
+			sim.step(PackedInt32Array([b0, 0 if t == 0 else cpu.bits(sim)]))  # the Surge starts first
+			if sim.creatures[1].stone > 0:
+				frozen = true
+		assert_true(pressed, "")
+		assert_true(not frozen, "seed %d: Cairn was frozen by a blockable Surge" % seed_)
