@@ -149,15 +149,52 @@ func test_storm_drain_then_a_swallow_poops_them_into_a_pit() -> void:
 	assert_true(fell, "out the back end and into the pit")
 
 
-func test_storm_drain_leaves_solid_lanes_along_the_diagonals() -> void:
-	var sim := _duel("cairn", 200.0)
-	var c := sim.creatures[0]
-	c.pos = Vector2(220, 164)
-	c.energy = 100.0
-	tap(sim, SimDefs.IN_SURGE, 80)
-	var at := c.pos
-	assert_true(sim.terrain.is_hole_at(at + Vector2(0, 50)), "straight below him is a pit")
-	assert_true(sim.terrain.is_hole_at(at + Vector2(-50, 0)), "and straight beside him")
-	assert_false(sim.terrain.is_hole_at(at + Vector2(-35, 35)), "the diagonal is a lane")
-	assert_false(sim.terrain.is_hole_at(at + Vector2(35, -35)), "on every diagonal")
-	assert_false(sim.terrain.is_hole_at(at + Vector2(-50, -50)), "out to the rim")
+## Storm Drain's ring leaves a cracked lane open to his left and right: a fighter who
+## sidestepped it walks in and punishes him in his recovery. The front stays walled off.
+func test_storm_drain_can_be_punished_through_its_side_lanes() -> void:
+	var sim := MatchFactory.versus("culvert", "cairn")
+	var culv := sim.creatures[0]
+	var cairn := sim.creatures[1]
+	culv.pos = Vector2(220, 164)
+	cairn.pos = Vector2(330, 164)
+	culv.facing = Vector2.RIGHT
+	culv.energy = 100.0
+	tap(sim, SimDefs.IN_SURGE, 0)
+	assert_true(run_until(sim, func(): return sim.terrain.count(TerrainGrid.HOLE) > 0, 60), "the ring opens")
+	assert_eq(culv.state, CreatureSim.State.ATTACK, "he's still in the move")
+	assert_near(cairn.hp, cairn.max_hp, 0.001, "the sidestepper wasn't hit:")
+	# From his side: straight in through the lane, in reach before he has recovered.
+	cairn.pos = culv.pos + Vector2(0, 100)
+	var reached := run_until(sim, func(): return cairn.pos.distance_to(culv.pos) < 30.0, 45, 0, SimDefs.IN_UP)
+	assert_true(reached, "walked in through the lane (%.0f px off)" % cairn.pos.distance_to(culv.pos))
+	assert_eq(culv.state, CreatureSim.State.ATTACK, "while he's still recovering")
+	run(sim, 0, 1, L)
+	assert_true(run_until(sim, func(): return culv.hp < culv.max_hp, 20), "and the jab lands")
+	# From the front the pits still wall him off.
+	cairn.pos = culv.pos + Vector2(100, 0)
+	cairn.state = CreatureSim.State.IDLE
+	run(sim, 0, 45, SimDefs.IN_LEFT)
+	assert_gt(cairn.pos.distance_to(culv.pos), 45.0, "stopped at the pits' edge in front:")
+
+
+## A fighter who falls into the ring is put down clear of it, not at a pit's lip to be
+## knocked straight back in.
+func test_a_fall_into_the_ring_lands_clear_of_the_pits() -> void:
+	var sim := MatchFactory.versus("culvert", "cairn")
+	var culv := sim.creatures[0]
+	var cairn := sim.creatures[1]
+	culv.pos = Vector2(220, 164)
+	cairn.pos = Vector2(330, 164)
+	culv.facing = Vector2.RIGHT
+	culv.energy = 100.0
+	tap(sim, SimDefs.IN_SURGE, 0)
+	assert_true(run_until(sim, func(): return sim.terrain.count(TerrainGrid.HOLE) > 0, 60), "the ring opens")
+	cairn.pos = culv.pos + Vector2(50, 0)  # in the ring, ahead of him
+	cairn.invuln = 0
+	assert_true(run_until(sim, func(): return cairn.state == CreatureSim.State.FALLING, 5), "falls in")
+	assert_true(run_until(sim, func(): return cairn.state != CreatureSim.State.FALLING, 60), "lands")
+	var c := sim.terrain.world_to_cell(cairn.pos)
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			assert_true(TerrainGrid.is_walkable(sim.terrain.get_cell(c + Vector2i(dx, dy))),
+				"floor at %s round the landing cell %s" % [Vector2i(dx, dy), c])

@@ -13,7 +13,7 @@ extends RefCounted
 ##                        exactly at the other fighter, 360 degrees; strafe: and face it)
 ##   walk who hold t      hold a direction for t ticks (aim_at / strafe as above)
 ##   together bits        press [left, right] on the same tick
-##   dodge who dir        roll "away" from, "through", or "flank" (away, bent 45 degrees up) the other fighter
+##   dodge who dir        roll "away" from, "through", or "flank" (up and toward) the other fighter
 ##   guard who            hold guard until an attack is blocked
 ##   approach who         walk until in jab range, lined up horizontally
 ##   until cond           wait for "settled" (both free) or "move:<side>:<id>"
@@ -541,7 +541,7 @@ const SCRIPTS := {
 			{"do": "place", "part": 1, "gap": 22.0},
 			{"do": "wait", "t": 25},
 			{"do": "press", "who": 1, "bit": SU, "move": "surge", "show": 0},
-			{"do": "wait", "t": 24},  # the freeze (18) plus a few ticks: i-frames must cover the hit
+			{"do": "wait", "t": 24},  # the freeze (18) plus a few ticks: i-frames cover the hit, the roll ends in his side lane
 			{"do": "dodge", "who": 0, "dir": "flank", "show": 1},
 			{"do": "until", "cond": "settled"},
 			{"do": "wait", "t": 50, "show": 2},
@@ -662,7 +662,7 @@ func inputs(sim: MatchSim) -> PackedInt32Array:
 			var away := (c.pos - o.pos).normalized()
 			var dir := -away if String(s["dir"]) == "through" else away
 			if String(s["dir"]) == "flank":
-				dir = (away + Vector2(0, -1)).normalized()  # diagonal: lands in Storm Drain's lane
+				dir = (-away + Vector2(0, -1)).normalized()  # up and toward him: lands in his side lane
 			if HOLD_BITS.has(String(s["dir"])):
 				dir = SimDefs.dir_from_bits(HOLD_BITS[String(s["dir"])])
 			out[who] = D | SimDefs.bits_from_dir(dir)

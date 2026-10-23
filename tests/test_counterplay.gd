@@ -124,7 +124,7 @@ func test_dodge_pressed_during_a_freeze_all_comes_out() -> void:
 	assert_gt(sim.hitstop, 0, "Storm Drain freezes the screen")
 	run_until(sim, func(): return sim.hitstop == 0, 200)
 	run(sim, 0, 6)
-	sim.step(PackedInt32Array([D | SimDefs.IN_LEFT | SimDefs.IN_UP, 0]))  # roll into his flank lane
+	sim.step(PackedInt32Array([D | SimDefs.IN_RIGHT | SimDefs.IN_UP, 0]))  # roll toward his flank lane
 	assert_eq(cairn.state, CreatureSim.State.DODGE, "the roll comes out")
 	var hit := false
 	var fell := false
@@ -216,7 +216,7 @@ func _team_surge_hits(react: int) -> bool:
 	t.step(_ins(4, SU))
 	var hit := false
 	for i in 100:
-		t.step(_ins(4, D | SimDefs.IN_RIGHT | SimDefs.IN_UP if i == react else 0, 2))
+		t.step(_ins(4, D | SimDefs.IN_LEFT | SimDefs.IN_UP if i == react else 0, 2))
 		for e in sim.events:
 			if e["type"] == "hit" and int(e["target"]) == 2:
 				hit = true

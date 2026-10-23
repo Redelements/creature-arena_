@@ -154,7 +154,7 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `terrain_radius_charged`, `terrain_core_charged` | At full charge: crack radius, and the core that opens holes | none in data | cs:`_slam` |
 | `terrain_rect` `[w, h]` | Block of cells (w and h swap when facing mostly up/down): 1 step plain, 2 steps plus a cracked rim at full charge | culvert heavy | tg:`damage_rect` |
 | `terrain_at` | px | Where a `terrain_rect` block is centred ahead of the body (default `reach`), so a deeper block can reach further out without coming under the feet | culvert heavy (38) | cs:`_slam` |
-| `terrain_ring` `{inner, outer, side_lanes}` | Holes between the radii around the user, cracked band `CRACK_BAND` 10 outside; `side_lanes` (width, optional) keeps four solid strips along the diagonals so a diagonal roll lands on ground | culvert surge | tg:`damage_ring` |
+| `terrain_ring` `{inner, outer, side_lanes}` | Holes between the radii around the user, cracked band `CRACK_BAND` 10 outside. `side_lanes` (px): to the user's left and right (across its facing) the ring is only cracked in a lane that wide, so a fighter who sidestepped can walk in and punish; in front and behind the pits stay | culvert surge (24) | tg:`damage_ring` |
 | `terrain_crack` | Cracks (never opens) a circle at `pos + facing × reach` | barkley surge, craglash surge, cerebro heavy | tg:`crack_circle` |
 | `terrain_heal` | × `HEAL_TICKS` before that damage mends (radius, rect, ring only) | culvert (1.5) | cs:`_terrain_heal` |
 
@@ -215,7 +215,7 @@ Constants: cs (`BUFFER_TICKS` 10, `JUGGLE_MAX` 3, `JUGGLE_FLOAT` 16, `LAND_KNOCK
 - **Energy** (`data/rules/energy.json`, `MatchSim.energy_rules()`, in `Netplay.data_hash`): the attacker gains `per_damage_dealt` (0.75) × damage dealt (clean, blocked chip or armor chip), except from surge-type hits; the defender gains `per_damage_taken` (0.5) × clean damage. `carry_between_rounds` (true): a best-of-three keeps each side's meter into the next round (`DuelSim._next_round`; offline Versus in `main.gd`, `_carried_energy`); health, stamina and the floor still reset. `surge_ready` fires when a meter fills.
 - **Breakaway:** Guard + Dodge while stunned, with `combo_hits >= 3` and 50 energy: combo reset, `BREAKAWAY_INVULN`, pushed away; the attacker's attack is cancelled.
 - **KO:** `ko_freeze_ticks` 18 frozen, then `ko_slowmo_ticks` 70 at half speed (ms:`emit_event`; not for the dummy, and not on a crowded field: `freeze_all` off).
-- **Falls:** `FALL_TICKS` 45, `FALL_DAMAGE` 8, respawn at the nearest solid cell with `RESPAWN_INVULN` 40.
+- **Falls:** `FALL_TICKS` 45, `FALL_DAMAGE` 8, respawn at the nearest solid cell with floor all round it (`nearest_solid(pos, 1)`: not at a pit's lip; the closest walkable cell if none has room) with `RESPAWN_INVULN` 40.
 
 ## Status effects
 
