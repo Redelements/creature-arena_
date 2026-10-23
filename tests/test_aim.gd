@@ -106,3 +106,7 @@ func test_volley_fan_alternates_sides_and_is_capped() -> void:
 		got.append(SimDefs.aim_index(pr["vel"]))
 	assert_eq(got, [0, 2, 62, 3, 61, 3], "knife angles in table steps (index 5 is capped at +3):")
 	assert_near(sim.projectiles[1]["vel"].y, -sim.projectiles[2]["vel"].y, 0.0001, "1 and 2 are mirror images")
+	sim.projectiles.clear()
+	sim.spawn_projectile(c, mv, true, 7)
+	assert_eq(SimDefs.aim_index(sim.projectiles[0]["vel"]), 0, "the last knife flies straight along the aim:")
+	assert_near(sim.projectiles[0]["vel"].y, 0.0, 0.0001, "with no sideways drift")

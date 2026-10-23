@@ -888,7 +888,7 @@ func spawn_projectile(owner: CreatureSim, mv: Dictionary, last := true, index :=
 	# table off the aim, alternating sides (0, +f, -f, +2f, -2f...), at most `fan_max` steps.
 	var vol: Dictionary = {} if lob else p.get("volley", {})
 	var fan := int(vol.get("fan", 0))
-	if fan > 0 and index > 0:
+	if fan > 0 and index > 0 and not last:  # the last knife (knockdown, Tenderize) flies straight
 		var steps := mini(((index + 1) / 2) * fan, int(vol.get("fan_max", 1000)))
 		var base := SimDefs.aim_index(owner.facing)
 		vel = SimDefs.aim_dirs()[posmod(base + (steps if index % 2 == 1 else -steps), SimDefs.AIM_STEPS)] * float(p["speed"])
