@@ -26,6 +26,11 @@ Menus are `Control` nodes on a `ScreenStack` of `UiScreen`s, styled by one share
   `detail_width`, `blurb` (what the panel says on a row with no text, like Back),
   `entitle()` for a row that is not a Button or an OptionRow; the Single player and
   Settings pages use it, the pause and match-over menus keep the line under the column
+- A row's card at the panel's foot (a fighter's idle preview with name, title and class; a
+  picture; up to three lines of facts) → `detail_card.gd`, made by `UiScreen.card(row)`;
+  what goes on it → `main.gd:_fill_card`, `_mode_facts` (numbers read from the rules files,
+  never typed into the menu), `_arena_picture`. A row keeps its card's height: swap what it
+  shows, not how much (the slot is the tallest card high, `_size_extra`)
 - The stack, Back, focus restore, toasts → `screen_stack.gd` (`push`, `pop`, signals
   `moved`, `chosen`, `emptied`)
 - "label < value >" rows → `option_row.gd`; hub cards → `card_button.gd`
@@ -41,6 +46,7 @@ Menus are `Control` nodes on a `ScreenStack` of `UiScreen`s, styled by one share
 - `card_button.gd` (CardButton) — A menu card: a row twice the usual height with its title on the first line and a dimmer second line saying what's behin…
 - `character_select.gd` (CharacterSelect) — Fighting-game character select: every fighter in a portrait grid, a cursor per player (red for player 1, blue for playe…
 - `confirm_screen.gd` (ConfirmScreen) — "Are you sure?": Yes / No, with No focused, so a stray press can't do it.
+- `detail_card.gd` (DetailCard) — What a menu row shows under its text in the panel on the right (UiScreen `detail`): a fighter's idle preview with its n…
 - `fighter_preview.gd` (FighterPreview) — A fighter's idle animation, standing on the bottom-centre of this control, at 60 frames a second of real time whatever…
 - `help_screen.gd` (HelpScreen) — The controls for the device in use (PlayerInput's help text, one control a line), in two columns.
 - `option_row.gd` (OptionRow) — A menu row with a value, shown on the right: "Music < 70% >".

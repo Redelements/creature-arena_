@@ -27,8 +27,9 @@ var framed := true
 ## The line under the rows describing the focused one (off where the rows say it all).
 var show_desc := true
 ## Two panes: the rows on the left and a panel on the right, the same height as the
-## column, with the focused row's title and its description (and room for more). For
-## pages with a lot to say; the pause and match-over menus keep the line.
+## column, with the focused row's title, its description and its card (`card()`: a
+## fighter's preview, a picture, a few facts). For pages with a lot to say; the pause and
+## match-over menus keep the line.
 var detail := false
 var detail_width := 150.0
 ## What the panel says for a row with no description of its own (Back): the page's.
@@ -59,6 +60,8 @@ var on_back := Callable()
 var _list: VBoxContainer
 var _desc: Label
 var _detail_title: Label
+var _extra: Control  ## the cards' slot under the text, the tallest card high
+var _cards := {}  ## row -> DetailCard
 var _hint: Label
 var _gamepad := false
 var _descriptions := {}  ## row -> text shown while it's focused
@@ -132,7 +135,7 @@ func _ready() -> void:
 		_detail_title = _label("", UiTheme.SIZE_ROW, UiTheme.C_ACCENT)
 		_detail_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		_detail_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		_detail_title.custom_minimum_size = Vector2(detail_width, row_height)
+		_detail_title.custom_minimum_size = Vector2(detail_width, 13.0)
 		_detail_title.clip_text = true
 		side.add_child(_detail_title)
 		side.add_child(_rule(detail_width))
@@ -142,6 +145,14 @@ func _ready() -> void:
 		_desc.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 		_desc.custom_minimum_size = Vector2(detail_width, 0)
 		side.add_child(_desc)
+		var spring := Control.new()  # the card sits at the panel's foot, the text at its head
+		spring.size_flags_vertical = SIZE_EXPAND_FILL
+		spring.mouse_filter = MOUSE_FILTER_IGNORE
+		side.add_child(spring)
+		_extra = Control.new()
+		_extra.mouse_filter = MOUSE_FILTER_IGNORE
+		_extra.custom_minimum_size = Vector2(detail_width, 0)
+		side.add_child(_extra)
 	elif framed:
 		# The column and its description line in one panel.
 		var frame := PanelContainer.new()
@@ -189,8 +200,38 @@ func _size_detail() -> void:
 		var sz := font.get_multiline_string_size(String(t), HORIZONTAL_ALIGNMENT_LEFT, detail_width, fs,
 			-1, TextServer.BREAK_MANDATORY | TextServer.BREAK_WORD_BOUND)
 		tallest = maxf(tallest, sz.y)
-	# A line of slack: the Label's own wrapping can differ from the measure by a word.
-	_desc.custom_minimum_size = Vector2(detail_width, tallest + font.get_height(fs))
+	# Half a line of slack: the Label's own wrapping can differ from the measure by a hair.
+	_desc.custom_minimum_size = Vector2(detail_width, tallest + font.get_height(fs) * 0.5)
+	_size_extra()
+
+
+## The cards' slot: as tall as the tallest card, so a row's card never moves the frame.
+func _size_extra() -> void:
+	if _extra == null:
+		return
+	var tallest := 0.0
+	for c in _cards.values():
+		tallest = maxf(tallest, (c as DetailCard).height())
+	_extra.custom_minimum_size = Vector2(detail_width, tallest)
+
+
+## The card shown under the text while `c` is focused (made on first ask; null on a
+## screen without the panel). A row keeps its card's height constant: swap what it
+## shows, not how much.
+func card(c: Control) -> DetailCard:
+	if _extra == null:
+		return null
+	if _cards.has(c):
+		return _cards[c]
+	var k := DetailCard.new(detail_width)
+	k.size = Vector2(detail_width, 0)
+	k.visible = c.has_focus()
+	k.changed.connect(func():
+		k.size = Vector2(detail_width, k.height())
+		_size_extra())
+	_extra.add_child(k)
+	_cards[c] = k
+	return k
 
 
 ## The height of `n` lines of a label's font.
@@ -356,6 +397,8 @@ func _show_description(c: Control) -> void:
 	if _detail_title != null:
 		_detail_title.text = _row_title(c)
 		_desc.text = text if text != "" else blurb
+		for row in _cards:
+			(_cards[row] as DetailCard).visible = row == c
 	else:
 		_desc.text = text
 

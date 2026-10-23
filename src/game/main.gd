@@ -575,8 +575,12 @@ func _open_single() -> void:
 		var maps: Array = []
 		for id in ArenaMap.IDS:
 			maps.append(ArenaMap.name_of(id))
-		s.add_option("Arena", maps, maxi(0, ArenaMap.IDS.find(MatchFactory.arena)),
+		var arena_row := s.add_option("Arena", maps, maxi(0, ArenaMap.IDS.find(MatchFactory.arena)),
 			func(i: int): _set_arena(ArenaMap.IDS[i]), "Where every match is fought. Left/Right: the map")
+		var arena_card := s.card(arena_row)
+		if arena_card != null:
+			arena_card.picture = _arena_picture(MatchFactory.arena)
+			arena_row.changed.connect(func(i: int): arena_card.picture = _arena_picture(ArenaMap.IDS[i]))
 		s.add_space(2)
 		for g in MENU_GROUPS:
 			var gid := String(g["id"])
@@ -619,13 +623,117 @@ func _open_single_group(gid: String, focus_row := -1) -> void:
 				o.activated.connect(func():
 					ui.notify_chosen()
 					_start_row(r))
+				var oc := s.card(o)
+				if oc != null:
+					_fill_card(oc, r, int(_row_choice[r]))
+					o.changed.connect(func(i: int): _fill_card(oc, r, i))
 			else:
 				var b := s.add_button(String(row["label"]), func(): _start_row(r), desc)
 				if r == focus_row:
 					s.default_focus = b
+				var bc := s.card(b)
+				if bc != null:
+					_fill_card(bc, r, 0)
 		s.add_space(3)
 		s.add_button("Back", s.back)
 	ui.push(scr)
+
+
+## A row's card in the panel: the fighter the row's choice names, and the mode's facts
+## read from the rules it plays by (never typed into the menu, so they can't drift).
+func _fill_card(card: DetailCard, r: int, choice: int) -> void:
+	var row: Dictionary = MENU_ROWS[r]
+	if not row.has("modes"):
+		return
+	var cfg: Dictionary = MODES[int(row["modes"][0 if row.get("fighter_choice", false) else choice])]
+	var fighter := ""
+	if row.get("fighter_choice", false):
+		fighter = MatchFactory.FIGHTERS[clampi(choice, 0, MatchFactory.FIGHTERS.size() - 1)]
+	elif cfg.has("left") and (cfg.get("training", false) or Side.PLAYER in cfg.get("sides", [])):
+		fighter = String(cfg["left"])
+	card.fighter = fighter
+	card.facts = _mode_facts(row, cfg)
+
+
+## A picture of an arena for the menu (its floor art), if it has one.
+func _arena_picture(id: String) -> Texture2D:
+	var path := "res://assets/sprites/arena_%s.png" % id
+	return load(path) if ResourceLoader.exists(path) else null
+
+
+## Ticks as m:ss.
+static func _mmss(ticks: int) -> String:
+	var s := ticks / 60
+	return "%d:%02d" % [s / 60, s % 60]
+
+
+## Three lines at most, the numbers from the rules files and the code that plays them.
+func _mode_facts(row: Dictionary, cfg: Dictionary) -> Array:
+	var two: bool = Side.PLAYER2 in cfg.get("sides", [])
+	if cfg.has("team"):
+		var size := int(cfg["team"])
+		var kind := String(cfg.get("rules", "deathmatch" if cfg.get("deathmatch", false) else ""))
+		var rules := TeamSim.rules_by_id(kind)
+		var clock := "Clock %s" % _mmss(int(float(rules.get("time_seconds", 150)) * 60))
+		match kind:
+			"deathmatch":
+				var t: Array = rules.get("score_to_win", [8, 8, 12, 15])
+				return ["First to %d KOs, unlimited respawns" % int(t[clampi(size, 0, t.size() - 1)]),
+					clock + ", then sudden death"]
+			"crater":
+				return ["Hold the zone %d s in all" % (int(rules.get("score_to_win", 3600)) / 60),
+					"It moves, and the floor round it breaks", clock]
+			"ctf":
+				return ["First to %d captures" % int(rules.get("captures_to_win", 3)),
+					"Your flag must be home to score", clock + ", then sudden death"]
+			"caravan":
+				return ["Two rounds of %s, one side escorting" % _mmss(int(float(rules.get("round_seconds", 120)) * 60)),
+					"A checkpoint adds %d s and a rockslide" % int(rules.get("checkpoint_seconds", 30)),
+					"Faster finish or further push wins"]
+			"sinkhole":
+				return ["One life each: the chasm is a KO",
+					"A ring falls every %d s, up to %d" % [int(rules.get("shrink_every", 300)) / 60, int(rules.get("max_rings", 14))],
+					clock + ": more health left wins"]
+		return ["One life each, no respawns", clock + ": more health left wins"]
+	if cfg.get("duel", false):
+		var d := DuelSim.load_rules()
+		var n := int(d.get("team_size", 3))
+		return ["%d v %d: tag in and out, the bench heals" % [n, n], "Clock %s" % _mmss(int(float(d.get("time_seconds", 180)) * 60)),
+			"Two players on one screen" if two else "You pick both teams"]
+	if cfg.get("brawl", false):
+		var b := BrawlSim.load_rules()
+		var out := ["%d fighters, one life each" % BrawlSim.MAX_PLAYERS,
+			"Clock %s: the healthiest wins" % _mmss(int(float(b.get("time_seconds", 120)) * 60))]
+		if cfg.get("chaos", false):
+			out.append("Three mutators, drawn each match")
+		return out
+	if cfg.get("arcade", false):
+		return ["%d stages, the last a 3v3 Duel" % Arcade.STAGES, "The boss team fights one level up", "Clears unlock palettes"]
+	if cfg.get("gauntlet", false):
+		return ["Endless waves, health carrying over", "Harder every %d waves, up to Rage" % Gauntlet.WAVES_PER_LEVEL,
+			"Your best is kept"]
+	if cfg.get("daily", false):
+		return ["Today's seed: the same for everyone", "%d mutators on the fight" % Daily.PICKS,
+			"Clock %s: health and time left score" % _mmss(Daily.FIGHT_TICKS)]
+	if cfg.get("trials", false):
+		return ["One route at a time, with a demo", "Land it to clear it"]
+	if cfg.has("drill"):
+		return ["Red tell: roll away, or hit first", "Gold tell: guard"]
+	if cfg.get("training", false):
+		return ["A dummy that stands, guards, walks or dodges", "Pause for no cooldowns, full Surge, Change fighter"]
+	if cfg.get("showcase", false):
+		return ["Every fighter's kit, scripted", "Esc comes back here"]
+	if cfg.has("left") or cfg.get("versus2p", false):
+		var out := ["Best of %d, rounds of %s" % [WINS_NEEDED * 2 - 1, _mmss(ROUND_TICKS)],
+			"K.O., or more health left at time"]
+		if two:
+			out.append("Two players on one screen")
+		elif Side.PLAYER in cfg.get("sides", []):
+			out.append("The CPU at the level in Settings")
+		else:
+			out.append("The CPU against itself, at the level in Settings")
+		return out
+	return []
 
 
 ## The arena offline matches play on (the menu's choice is saved with the settings;
