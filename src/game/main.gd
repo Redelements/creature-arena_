@@ -1083,6 +1083,8 @@ func _start_round() -> void:
 		for i in 2:
 			if float(_carried_energy[i]) >= 0.0:
 				sim.creatures[i].energy = minf(float(_carried_energy[i]), CreatureSim.MAX_ENERGY)
+		# The replay rebuilds the round with the meters it started with.
+		replay.setup["energy"] = [sim.creatures[0].energy, sim.creatures[1].energy]
 	timer = ROUND_TICKS
 	hud.timer_ticks = timer
 	hud.wins = wins

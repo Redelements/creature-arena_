@@ -108,3 +108,19 @@ func test_the_theater_lists_saved_replays() -> void:
 	assert_true(found, "the saved replay is listed")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	g.free()
+
+
+## An offline round that starts with energy carried over (60 / 40) replays to the same state.
+func test_a_replay_of_a_round_with_carried_energy_plays_back_the_same() -> void:
+	var g := _game()
+	g._skip_select = true
+	g._start_match(0)
+	g._carried_energy = [60.0, 40.0]
+	g._start_round()
+	_tick(g, 200)
+	assert_eq(g.replay.setup["energy"], [60.0, 40.0], "the setup keeps the starting meters:")
+	var digest: String = g.sim.state_digest()
+	var frames: int = g.replay.frames.size()
+	assert_gt(float(frames), 0.0, "ticks recorded")
+	assert_eq(ReplayBuilder.play(g.replay), digest, "the rebuilt round reaches the same state:")
+	g.free()

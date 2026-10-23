@@ -334,6 +334,17 @@ func _foe_grab_ready(foe: CreatureSim) -> bool:
 	return false
 
 
+## How far this fighter's roll carries: its speed for the frames, slowed to 0.4 in the last
+## four ticks (CreatureSim._update_dodge). A blink dodge uses its teleport distance.
+static func _roll_distance(me: CreatureSim) -> float:
+	var dg: Dictionary = me.def["dodge"]
+	if dg.has("blink"):
+		return float(dg["blink"].get("distance", 0.0))
+	var frames := int(dg["frames"])
+	var spd := float(dg["speed"])
+	return spd * float(maxi(0, frames - 4)) + spd * 0.4 * float(mini(4, frames))
+
+
 ## About how far a roll carries.
 const DODGE_DISTANCE := 50.0
 
@@ -1035,7 +1046,7 @@ func _steer_now(sim: MatchSim, me: CreatureSim, v: Vector2) -> Vector2:
 
 ## A way to back off from `away` that keeps to open floor: away from the foe, but
 ## preferring directions with room to keep going (out of corners, around holes).
-func _open_dir(sim: MatchSim, me: CreatureSim, away: Vector2) -> Vector2:
+func _open_dir(sim: MatchSim, me: CreatureSim, away: Vector2, look := 34.0) -> Vector2:
 	var a := away.normalized() if away.length_squared() > 0.0001 else Vector2.RIGHT
 	var room := sim.floor_rect().grow(-me.radius - 4.0)
 	var best := a
@@ -1045,7 +1056,7 @@ func _open_dir(sim: MatchSim, me: CreatureSim, away: Vector2) -> Vector2:
 		var d: Vector2 = dirs[i * 4]
 		var clear := _clearance(room, me.pos, d)
 		var s := d.dot(a) * 1.2 + minf(clear, 100.0) / 100.0
-		for k in [8.0, 20.0, 34.0]:
+		for k in [8.0, 20.0, look * 0.5, look]:
 			var at: Vector2 = me.pos + d * (me.radius + k)
 			if sim.terrain.is_hole_at(at) or NavGrid.body_blocked(sim.terrain, at, me.radius):
 				s -= 1.5
@@ -1295,7 +1306,7 @@ func _rage_defend_now(sim: MatchSim, me: CreatureSim) -> bool:
 				return true
 			var ivs := int(me.def["dodge"].get("iframes_start", 2))
 			if when <= ivs + 2 and me.can_dodge():
-				_dodge_dir(me, _open_dir(sim, me, me.pos - from))
+				_dodge_dir(me, _open_dir(sim, me, me.pos - from, _roll_distance(me)))
 			return true
 		_:  # a strike
 			# Blocking it would empty the stamina (the guard drops and it lands clean):
@@ -1322,7 +1333,7 @@ func _rage_defend_now(sim: MatchSim, me: CreatureSim) -> bool:
 					var away := me.pos - from
 					if need > DODGE_DISTANCE and away.length_squared() > 0.0001:
 						away = Vector2(-away.y, away.x)
-					_dodge_dir(me, _open_dir(sim, me, away))
+					_dodge_dir(me, _open_dir(sim, me, away, _roll_distance(me)))
 				else:
 					_go(sim, me, _open_dir(sim, me, me.pos - from))
 				return true
@@ -1713,7 +1724,7 @@ func _plan_kite(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector
 			_press(int(ACTION_BIT[grab]))
 			return
 		if me.can_dodge() and _roll(0.5):
-			_dodge_dir(me, _open_dir(sim, me, -to_foe))
+			_dodge_dir(me, _open_dir(sim, me, -to_foe, _roll_distance(me)))
 			return
 	_strafe(sim, me, foe, _kite_vector(sim, me, foe))
 	var max_r := me.move_range("light_1")
