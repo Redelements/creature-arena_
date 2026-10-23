@@ -167,7 +167,7 @@
       150
     ],
     "wakeup_charge": true,
-    "surge_range": 110,
+    "surge_range": 160,
     "routes": [
       [
         "light",
@@ -412,10 +412,11 @@
         "release_from": 18
       },
       "taunt": {
-        "radius": 140,
+        "radius": 200,
         "ticks": 180,
-        "pull": 1.2
+        "pull": 1.6
       },
+      "terrain_crack": 40,
       "fx": {
         "armor": true
       }

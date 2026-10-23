@@ -1172,7 +1172,8 @@ func _update_attack(buttons: int, pressed: int, dir: Vector2, sim: MatchSim) -> 
 			_slam(mv, sim)
 		if mv.has("terrain_ring"):
 			var r: Dictionary = mv["terrain_ring"]
-			sim.terrain.damage_ring(pos, float(r["inner"]), float(r["outer"]), _terrain_heal(mv))
+			sim.terrain.damage_ring(pos, float(r["inner"]), float(r["outer"]), _terrain_heal(mv),
+				float(r.get("side_lanes", 0.0)), facing)
 			sim.emit_event("slam", pos, 1.0)
 		if mv.has("terrain_crack"):
 			# Cracks the floor without opening holes (Root Eruption's roots break the surface).
@@ -1639,7 +1640,13 @@ func start_fall(sim: MatchSim) -> void:
 
 
 func _land_from_fall(sim: MatchSim) -> void:
-	pos = _clamp_to_floor(sim.terrain.nearest_solid(pos))
+	# A cell with floor all round it, so the lander isn't knocked straight back in.
+	# ...and not on top of anyone standing there (Culvert on his island).
+	var avoid: Array[Vector3] = []
+	for o in sim.creatures:
+		if o != self and o.state != State.KO and o.state != State.FALLING:
+			avoid.append(Vector3(o.pos.x, o.pos.y, radius + o.radius + 2.0))
+	pos = _clamp_to_floor(sim.terrain.nearest_solid(pos, 1, avoid))
 	hp -= FALL_DAMAGE
 	if sim.fall_ko and fall_chasm:
 		hp = 0.0  # Sinkhole: the chasm is the end (a creature's hole only hurts)

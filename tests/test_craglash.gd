@@ -133,17 +133,17 @@ func test_bedrock_releases_into_any_attack_without_a_windup() -> void:
 
 
 func test_bedrock_reaches_far_and_drags_the_taunted_in_fast() -> void:
-	var sim := _duel("cairn", 110.0)
+	var sim := _duel("cairn", 170.0)
 	var crag := sim.creatures[0]
 	var cairn := sim.creatures[1]
 	var d0 := cairn.pos.distance_to(crag.pos)
 	_bedrock(sim)
-	assert_gt(float(cairn.taunt), 0.0, "taunted from 110 px away")
+	assert_gt(float(cairn.taunt), 0.0, "taunted from 170 px away")
 	var pull := float(crag.def["moves"]["surge"]["taunt"]["pull"])
 	assert_near(cairn.taunt_pull, pull, 0.001, "the taunt's own pull, not the default:")
 	assert_gt(pull, CreatureSim.TAUNT_PULL, "and it drags harder than a plain taunt")
 	run(sim, 0, 60)
-	assert_lt(cairn.pos.distance_to(crag.pos), d0 - 50.0, "dragged a long way in one second:")
+	assert_lt(cairn.pos.distance_to(crag.pos), d0 - 60.0, "dragged a long way in one second:")
 
 
 func test_a_taunt_without_a_pull_key_uses_the_default() -> void:

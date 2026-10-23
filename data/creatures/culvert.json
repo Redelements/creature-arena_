@@ -52,7 +52,7 @@
     "poke": "skill_2",
     "poke_range": [20, 62],
     "wakeup_charge": true,
-    "surge_range": 50,
+    "surge_range": 75,
     "routes": [
       ["light", "light", "light", "heavy", "skill_2", "surge"],
       ["light", "light", "light", "heavy", "skill_2"],
@@ -127,10 +127,10 @@
     "surge": {
       "name": "Storm Drain", "anim": "storm", "anim_at": [[0, 0], [3, 1], [8, 2], [12, 3], [15, 4], [26, 5]], "energy_cost": 100,
       "startup": 14, "active": 4, "recovery": 30,
-      "damage": 22, "knockback": 5.0, "knockdown": 30, "hitstop": 14,
-      "reach": 0, "hit_radius": 50, "juggle": true,
+      "damage": 22, "knockback": 5.0, "knockdown": 40, "hitstop": 14,
+      "reach": 0, "hit_radius": 80, "juggle": true,
       "dash": { "speed": 1.4, "from": 1, "to": 14 },
-      "terrain_heal": 1.5, "terrain_ring": { "inner": 18, "outer": 52 },
+      "terrain_heal": 1.5, "terrain_ring": { "inner": 18, "outer": 80, "side_lanes": 36 },
       "fx": { "rain": true, "telegraph": true, "impact": "geysers" }
     }
   }
