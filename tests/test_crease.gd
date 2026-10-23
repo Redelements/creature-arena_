@@ -302,6 +302,7 @@ func test_the_storm_pulses_then_pushes_out_and_cracks_a_ring() -> void:
 	foe.walk_vel = Vector2.ZERO
 	var hits := 0
 	var ended := false
+	var slowed := false
 	for i in 300:  # 120 storm ticks, plus the hitstop each pulse adds
 		sim.step(PackedInt32Array([0, 0]))
 		for e in sim.events:
@@ -309,17 +310,20 @@ func test_the_storm_pulses_then_pushes_out_and_cracks_a_ring() -> void:
 				hits += 1
 			if e["type"] == "storm_end":
 				ended = true
+		if foe.slow > 0:
+			slowed = true
 		if ended:
 			break
+	assert_true(slowed, "the storm slows whoever stands in it")
 	assert_true(ended, "it ends")
 	assert_gt(float(hits), 4.0, "it hit them again and again:")
 	var cracked := 0
 	var at: Vector2 = st["pos"]
-	for dy in range(-8, 9):
-		for dx in range(-8, 9):
+	for dy in range(-10, 11):
+		for dx in range(-10, 11):
 			var cl := sim.terrain.world_to_cell(at) + Vector2i(dx, dy)
 			var d := sim.terrain.cell_center(cl).distance_to(at)
-			if d >= 42.0 and d <= 62.0 and sim.terrain.get_cell(cl) == TerrainGrid.CRACKED:
+			if d >= 70.0 and d <= 95.0 and sim.terrain.get_cell(cl) == TerrainGrid.CRACKED:
 				cracked += 1
 	assert_gt(float(cracked), 8.0, "a ring of cracked floor:")
 
