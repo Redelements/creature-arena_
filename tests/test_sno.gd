@@ -109,3 +109,15 @@ func test_rollback_with_zones_and_ice() -> void:
 	sim.restore(snap)
 	run(sim, 0, 80, L)
 	assert_eq(sim.state_digest(), once, "replaying from the snapshot gives the same state:")
+
+
+func test_flavor_blast_freezes_75_px_away_and_leaves_a_slow_puddle() -> void:
+	var sim := _duel("cairn", 20.0)
+	var sno := sim.creatures[0]
+	var foe := sim.creatures[1]
+	foe.pos = sno.pos + Vector2(75, 0)
+	sno.energy = 100.0
+	assert_eq(_count(sim, "freeze", 80, SU), 1, "frozen from 75 px away")
+	assert_eq(sim.zones.size(), 1, "a puddle at his feet")
+	assert_near(float(sim.zones[0]["radius"]), 60.0, 0.5, "60 px wide:")
+	assert_eq(foe.state, CreatureSim.State.CRUMPLE, "stunned")

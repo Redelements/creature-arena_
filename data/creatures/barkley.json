@@ -135,13 +135,13 @@
       "name": "Root Eruption", "anim": "eruption", "energy_cost": 100,
       "startup": 16, "recovery": 30, "length": 62,
       "damage": 9, "knockback": 0.6, "hitstun": 24, "hitstop": 6,
-      "reach": 0, "hit_radius": 54, "juggle": true,
+      "reach": 0, "hit_radius": 90, "juggle": true,
       "hits": [
-        { "at": 17, "active": 3, "hit_radius": 26 },
-        { "at": 23, "active": 3, "hit_radius": 40 },
-        { "at": 29, "active": 4, "hit_radius": 54, "damage": 12, "crumple": 64, "hitstop": 14, "knockback": 0.4 }
+        { "at": 17, "active": 3, "hit_radius": 40 },
+        { "at": 23, "active": 3, "hit_radius": 65 },
+        { "at": 29, "active": 4, "hit_radius": 90, "root_ticks": 90, "damage": 12, "crumple": 64, "hitstop": 14, "knockback": 0.4 }
       ],
-      "terrain_crack": 50,
+      "terrain_crack": 90,
       "anim_at": [[0, 0], [5, 1], [11, 2], [16, 3], [29, 4], [48, 5]],
       "fx": { "telegraph": true, "speedlines": true, "impact": "roots" }
     }

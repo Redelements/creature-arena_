@@ -186,8 +186,8 @@ func test_threat_range_uses_the_widest_segment() -> void:
 	barkley.move_id = "surge"
 	barkley.moves()["surge"]["hit_radius"] = 10  # the move-level radius alone would say 10
 	var cpu := CpuController.new(1, 3, 1)
-	assert_near(cpu._threat_range(barkley, me), 54.0 + 1.0 + me.radius + 6.0, 0.001, "widest ring (54):")
-	assert_near(barkley.move_range("surge"), 54.0, 0.001, "move_range is the per-segment max")
+	assert_near(cpu._threat_range(barkley, me), 90.0 + 1.0 + me.radius + 6.0, 0.001, "widest ring (90):")
+	assert_near(barkley.move_range("surge"), 90.0, 0.001, "move_range is the per-segment max")
 
 
 ## A Surge with no surge_range in the JSON, no projectile and no armor gets one from its reach.
