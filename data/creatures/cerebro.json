@@ -142,11 +142,12 @@
       "name": "Knife Flurry", "anim": "flurry", "energy_cost": 100, "aim": 0.4,
       "startup": 9, "active": 0, "recovery": 34,
       "damage": 3, "knockback": 0.3, "hitstun": 18, "hitstop": 2, "juggle": true, "juggle_float": 14,
+      "vuln_mult": 1.25,
       "projectile": {
-        "speed": 8.0, "life": 14, "radius": 6, "offset": 14, "crack_trail": false, "pierce": true,
+        "speed": 8.0, "life": 14, "radius": 9, "offset": 14, "crack_trail": false, "pierce": true,
         "sound": "knife_throw", "end_sound": "knife_hit",
-        "volley": { "count": 8, "every": 3,
-          "last": { "damage": 6.0, "knockback": 3.0, "knockdown": 36.0, "hitstop": 12.0 } }
+        "volley": { "count": 8, "every": 3, "fan": 1, "fan_max": 2,
+          "last": { "damage": 6.0, "knockback": 3.0, "knockdown": 36.0, "hitstop": 12.0, "vuln_ticks": 240 } }
       },
       "anim_at": [[0, 0], [5, 1], [10, 2], [12, 3], [14, 4], [16, 3], [18, 4], [20, 3], [22, 4], [24, 3],
         [26, 4], [28, 3], [30, 4], [34, 5]],

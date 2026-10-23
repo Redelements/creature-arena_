@@ -154,10 +154,12 @@ func test_knife_flurry_throws_a_stream_through_everyone_in_line() -> void:
 	var thrown := 0
 	var hits := [0, 0, 0]
 	var knocked_down := false
+	var tenderized := false
 	sim.step(PackedInt32Array([SU, 0, 0]))
 	for i in 140:
 		sim.step(PackedInt32Array([0, 0, 0]))
 		knocked_down = knocked_down or sim.creatures[1].state == CreatureSim.State.KNOCKDOWN
+		tenderized = tenderized or sim.creatures[1].vuln > 0
 		for e in sim.events:
 			if String(e["type"]) == "projectile" and int(e["who"]) == 0:
 				thrown += 1
@@ -168,6 +170,7 @@ func test_knife_flurry_throws_a_stream_through_everyone_in_line() -> void:
 	assert_gt(hits[1], 2, "the first in line takes a stream of knives:")
 	assert_gt(hits[2], 0, "and they fly on into the one behind:")
 	assert_true(knocked_down, "the last knife knocks down")
+	assert_true(tenderized, "and tenderizes: the team's damage goes up for a while")
 
 
 func test_rollback_with_knives_in_the_air() -> void:
