@@ -108,3 +108,27 @@ func test_the_theater_lists_saved_replays() -> void:
 	assert_true(found, "the saved replay is listed")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	g.free()
+
+
+## An offline round that starts with energy carried over (60 / 40) plays back the same, headless
+## and through the theater. (A Versus round's sim idles through the 90-tick intro, and a replay
+## side reads its frame by sim.tick, so the intro is recorded too.)
+func test_a_replay_of_a_round_with_carried_energy_plays_back_the_same() -> void:
+	var g := _game()
+	g._skip_select = true
+	g._start_match(0)
+	g._carried_energy = [60.0, 40.0]
+	g._start_round()
+	assert_eq(g.replay.setup["energy"], [60.0, 40.0], "the setup keeps the starting meters:")
+	_tick(g, 300)  # the intro, then 210 fight ticks
+	var digest: String = g.sim.state_digest()
+	assert_eq(g.replay.frames.size(), 300, "every tick recorded, the intro's included:")
+	assert_eq(ReplayBuilder.play(g.replay), digest, "the rebuilt round reaches the same state:")
+	var path := "user://replays/replay_test_%d.json" % Time.get_ticks_usec()
+	assert_eq(g.replay.save(path), OK, "saved:")
+	g._play_replay(path)
+	assert_eq(g.sim.creatures[0].energy, 60.0, "the rebuilt round starts with the carried meter:")
+	_tick(g, 300)
+	assert_eq(g.sim.state_digest(), digest, "the same round, meters included:")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	g.free()
