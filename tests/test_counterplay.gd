@@ -113,19 +113,16 @@ func test_reacting_to_a_raw_grab_with_a_dodge_works() -> void:
 	assert_eq(cairn.hp, cairn.max_hp, "no damage taken:")
 
 
-func test_dodge_pressed_during_a_freeze_all_comes_out() -> void:
-	# Storm Drain's ring is 80 px wide: no roll gets out of it, so the answer is a roll with
-	# i-frames over the hit that ends in the solid lane along his diagonal (side_lanes).
+## Whether a flank roll pressed `delay` ticks after the cut-in freeze ends hits Cairn (who stands
+## 20 px from Culvert) or lands him in a pit; also returns the end state for the lane checks.
+func _freeze_roll(delay: int) -> Dictionary:
 	var sim := _duel("cairn", "culvert", 20.0)
 	var cairn := sim.creatures[0]
-	var culvert := sim.creatures[1]
-	culvert.energy = 100.0
+	sim.creatures[1].energy = 100.0
 	sim.step(PackedInt32Array([0, SU]))
-	assert_gt(sim.hitstop, 0, "Storm Drain freezes the screen")
 	run_until(sim, func(): return sim.hitstop == 0, 200)
-	run(sim, 0, 6)
-	sim.step(PackedInt32Array([D | SimDefs.IN_RIGHT | SimDefs.IN_UP, 0]))  # roll toward his flank lane
-	assert_eq(cairn.state, CreatureSim.State.DODGE, "the roll comes out")
+	run(sim, 0, delay)
+	sim.step(PackedInt32Array([D | SimDefs.IN_RIGHT | SimDefs.IN_UP, 0]))  # toward his flank lane
 	var hit := false
 	var fell := false
 	for i in 90:
@@ -134,11 +131,37 @@ func test_dodge_pressed_during_a_freeze_all_comes_out() -> void:
 		for e in sim.events:
 			if e["type"] == "hit" and int(e["target"]) == 0:
 				hit = true
-	assert_false(hit, "a roll timed after the cut-in dodges Storm Drain")
-	assert_false(fell, "and lands in the lane, not in a pit")
-	assert_eq(cairn.hp, cairn.max_hp, "hp untouched:")
-	assert_false(sim.terrain.is_hole_at(cairn.pos), "he stands on solid ground beside Culvert")
-	assert_gt(sim.terrain.count(TerrainGrid.HOLE), 40, "the ring opened around them")
+	return {"hit": hit, "fell": fell, "hp": cairn.hp, "max": cairn.max_hp,
+		"hole": sim.terrain.is_hole_at(cairn.pos), "holes": sim.terrain.count(TerrainGrid.HOLE)}
+
+
+func test_dodge_pressed_during_a_freeze_all_comes_out() -> void:
+	# The buffered-dodge rule: a dodge pressed while the match is frozen is not lost.
+	var sim := _duel("cairn", "culvert", 20.0)
+	var cairn := sim.creatures[0]
+	sim.creatures[1].energy = 100.0
+	sim.step(PackedInt32Array([0, SU]))
+	assert_gt(sim.hitstop, 0, "Storm Drain freezes the screen")
+	run(sim, 0, 6)
+	sim.step(PackedInt32Array([D | SimDefs.IN_LEFT, 0]))
+	assert_gt(sim.hitstop, 0, "still frozen when dodge was pressed")
+	var dodged := run_until(sim, func(): return cairn.state == CreatureSim.State.DODGE, 30)
+	assert_true(dodged, "the dodge comes out when the freeze ends")
+
+
+func test_a_flank_roll_after_the_freeze_dodges_storm_drain_and_lands_in_the_lane() -> void:
+	# The ring is 80 px wide: no roll gets out of it. The answer is a roll toward his flank
+	# 5-12 ticks after the freeze ends (23-30 after the Surge press): i-frames cover the hit and
+	# he lands in a side lane, on solid ground.
+	for delay in range(5, 13):
+		var r := _freeze_roll(delay)
+		assert_false(r["hit"], "a flank roll %d ticks after the freeze is clean" % delay)
+		assert_false(r["fell"], "and doesn't fall (%d)" % delay)
+		assert_false(r["hole"], "and ends on solid ground (%d)" % delay)
+		assert_eq(r["hp"], r["max"], "hp untouched (%d):" % delay)
+		assert_gt(r["holes"], 40, "the ring opened around them (%d):" % delay)
+	assert_true(_freeze_roll(4)["hit"], "a press at 22 ticks (4 after the freeze) is too early: hit")
+	assert_true(_freeze_roll(13)["hit"], "and 13 after the freeze is too late: hit")
 
 
 ## A 2 v 2 with Culvert (slot 0) next to a Cairn (slot 2); the other two far off.
@@ -225,9 +248,11 @@ func _team_surge_hits(react: int) -> bool:
 
 func test_dodge_on_reaction_to_a_team_fight_surge() -> void:
 	assert_true(_team_surge_hits(-1), "Storm Drain hits a Cairn that stands there")
-	# Reaction time, then press dodge (input lag included).
-	# Reaction time to the windup, then a roll toward his flank (the ring is too wide to out-roll).
-	assert_false(_team_surge_hits(MatchSim.SURGE_CROWD_WINDUP + 8), "rolling toward his flank dodges Storm Drain")
+	# A roll toward his flank is clean when pressed 23-30 ticks after the Surge (windup 18 first).
+	for react in range(23, 31):
+		assert_false(_team_surge_hits(react), "a flank roll at %d ticks dodges Storm Drain" % react)
+	assert_true(_team_surge_hits(22), "22 ticks is too early: hit")
+	assert_true(_team_surge_hits(31), "31 ticks is too late: hit")
 
 
 func test_every_surge_gives_warning_in_a_1v1() -> void:

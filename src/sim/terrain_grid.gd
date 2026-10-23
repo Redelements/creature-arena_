@@ -510,7 +510,9 @@ func tick(blocked := Callable()) -> void:
 ## `clear` > 0 the cells within that many of it must be walkable too (out of bounds counts
 ## as floor), so a fighter put down after a fall doesn't stand at a pit's lip to be knocked
 ## straight back in; if no cell has that much room, the closest walkable one is used.
-func nearest_solid(p: Vector2, clear := 0) -> Vector2:
+## `avoid` (Vector3: x, y, distance) skips cells whose centre is within that distance of a
+## point, so a faller isn't put down on top of someone standing there.
+func nearest_solid(p: Vector2, clear := 0, avoid: Array[Vector3] = []) -> Vector2:
 	var start := world_to_cell(p)
 	for r in range(0, maxi(cols, rows)):
 		var best := Vector2.INF
@@ -520,7 +522,7 @@ func nearest_solid(p: Vector2, clear := 0) -> Vector2:
 				if maxi(absi(cx - start.x), absi(cy - start.y)) != r:
 					continue
 				var c := Vector2i(cx, cy)
-				if not in_bounds(c) or not _clear_around(c, clear):
+				if not in_bounds(c) or not _clear_around(c, clear) or _near_any(cell_center(c), avoid):
 					continue
 				var d := cell_center(c).distance_squared_to(p)
 				if d < best_d:
@@ -528,7 +530,14 @@ func nearest_solid(p: Vector2, clear := 0) -> Vector2:
 					best = cell_center(c)
 		if best_d < INF:
 			return best
-	return nearest_solid(p, 0) if clear > 0 else p
+	return nearest_solid(p, 0, avoid) if clear > 0 else p
+
+
+func _near_any(at: Vector2, avoid: Array[Vector3]) -> bool:
+	for a in avoid:
+		if at.distance_to(Vector2(a.x, a.y)) < a.z:
+			return true
+	return false
 
 
 ## Every cell within `clear` of `c` (Chebyshev) is walkable; `get_cell` reads out of
