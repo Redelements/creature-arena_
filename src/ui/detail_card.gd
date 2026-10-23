@@ -101,5 +101,6 @@ func _draw() -> void:
 
 
 func _text(font: Font, at: Vector2, s: String, fs: int, col: Color, width: float) -> void:
-	draw_string_outline(font, at, s, HORIZONTAL_ALIGNMENT_LEFT, width, fs, 2, Color(0, 0, 0, 0.8))
-	draw_string(font, at, s, HORIZONTAL_ALIGNMENT_LEFT, width, fs, col)
+	var size_px := UiTheme.px(fs)
+	draw_string_outline(font, at, s, HORIZONTAL_ALIGNMENT_LEFT, width, size_px, UiTheme.outline(size_px), Color(0, 0, 0, 0.8))
+	draw_string(font, at, s, HORIZONTAL_ALIGNMENT_LEFT, width, size_px, col)

@@ -33,7 +33,7 @@ class KeyRow extends Button:
 		var col := get_theme_color("font_focus_color" if has_focus() else "font_color")
 		var w := font.get_string_size(value, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		var base := (size.y + font.get_ascent(fs) - font.get_descent(fs)) * 0.5
-		draw_string_outline(font, Vector2(size.x - 8 - w, base), value, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 2,
+		draw_string_outline(font, Vector2(size.x - 8 - w, base), value, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, UiTheme.outline(fs),
 			Color(0, 0, 0, 0.8))
 		draw_string(font, Vector2(size.x - 8 - w, base), value, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
 
@@ -68,7 +68,7 @@ func build() -> void:
 		var what := "Press Enter / A, then the new %s" % ("button" if group == "gamepad" else "key")
 		r.custom_minimum_size = Vector2((row_width - 4) * 0.5, row_height)
 		r.focus_mode = Control.FOCUS_ALL
-		r.add_theme_font_size_override("font_size", row_font)
+		r.add_theme_font_size_override("font_size", UiTheme.px(row_font))
 		r.mouse_entered.connect(func(): if r.is_visible_in_tree(): r.grab_focus())
 		r.focus_entered.connect(func(): _show_description(r))
 		_descriptions[r] = what
