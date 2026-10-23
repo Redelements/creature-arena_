@@ -236,6 +236,7 @@ var entities: Node2D
 var views: Array[CreatureView] = []
 var fx: FxView
 var fx_ground: FxGround
+var shadows: ShadowLayer
 var audio: AudioView
 var debug: DebugView
 var hud: Hud
@@ -416,6 +417,9 @@ var _cpu_shown := 0
 func _ready() -> void:
 	if _run_sim_check() or _run_server():
 		return
+	_fit_window()
+	_apply_pixel_scale()
+	get_window().size_changed.connect(_apply_pixel_scale)
 	Controls.setup()
 	_cpus_early = DisplayServer.get_name() != "headless"
 	_fps_caps = DisplayServer.get_name() != "headless" and not ("--fixed-fps" in OS.get_cmdline_args()) \
@@ -437,6 +441,9 @@ func _ready() -> void:
 	add_child(crowd)
 	fx_ground = FxGround.new()
 	add_child(fx_ground)
+	shadows = ShadowLayer.new()  # the fighters' shadows, on the floor under everyone
+	shadows.views = views
+	add_child(shadows)
 	rings = RangeRings.new()
 	rings.visible = false
 	rings.fx = fx  # what the local team can see (Vision): no rings for a hidden foe
@@ -1860,6 +1867,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 				seed_base * 101 + round_num * 7 + i)
 	arena.ground = String(sim.arena.get("ground", "dirt"))
 	arena.arena_id = String(sim.arena.get("id", ""))
+	shadows.light = ShadowLayer.light_of(sim.arena)
 	crowd.set_width(sim.arena_size().x)
 	arena.set_terrain(sim.terrain)
 	for v in views:
@@ -3082,6 +3090,52 @@ func _apply_frame_rate() -> void:
 		var cap := MENU_FPS if menus else fight_fps
 		if Engine.max_fps != cap:
 			Engine.max_fps = cap
+
+
+## The pixel grid. project.godot draws on a 960 x 540 base (`viewport_width/height`) with a
+## content scale of 2 (`window/stretch/scale`): one canvas unit is two grid pixels, so the
+## world, the camera (zoom 1 shows a 480 x 270 view, as before) and every layout keep their
+## numbers, while the pixel font (UiTheme) is drawn on the finer grid. The window's scale is
+## snapped down to a whole number of screen pixels per canvas unit (3 at 1440 x 810, 4 at
+## 1920 x 1080, 5 at 2560 x 1440): a fighter's pixels and 2x text are always whole screen
+## pixels and never wobble between sizes. The edge left over shows a little more of the
+## stadium (aspect expand), never a black bar. Text one grid pixel per glyph pixel is exact
+## only when the window is a whole multiple of 960 x 540 (1920 x 1080, 3840 x 2160).
+func _apply_pixel_scale() -> void:
+	if DisplayServer.get_name() == "headless":
+		return  # no screen (tests, servers): the project's scale 2 keeps the canvas in 480 x 270 units
+	var win := get_window()
+	var factor := pixel_scale_factor(Vector2(win.size), Vector2(win.content_scale_size))
+	if factor > 0.0 and not is_equal_approx(win.content_scale_factor, factor):
+		win.content_scale_factor = factor
+
+
+## The content scale factor for a window `size` over the `base` grid: whole screen pixels
+## per canvas unit (base.x / VIEW_W grid pixels: 2), at least 1. 0 for a size or base of nothing.
+static func pixel_scale_factor(size: Vector2, base: Vector2) -> float:
+	if base.x <= 0.0 or base.y <= 0.0 or size.x <= 0.0 or size.y <= 0.0:
+		return 0.0
+	var grid := minf(size.x / base.x, size.y / base.y)  # screen px per grid px, unsnapped
+	var unit_px := maxf(1.0, floorf(grid * base.x / SimDefs.VIEW_W + 0.001))  # per canvas unit
+	return unit_px / grid
+
+
+## A windowed start opens at 1920 x 1080 (project.godot), where every text size is whole
+## screen pixels. On a screen too small for that window, it opens at the biggest whole
+## multiple of 480 x 270 that fits instead (1440 x 810 on a 1080p screen). A window that
+## fits (any size given with `--resolution`) and fullscreen are left alone.
+func _fit_window() -> void:
+	if DisplayServer.get_name() == "headless" or OS.has_feature("mobile"):
+		return
+	var win := get_window()
+	if win.mode != Window.MODE_WINDOWED:
+		return
+	var room := Vector2(DisplayServer.screen_get_usable_rect(win.current_screen).size) - Vector2(16, 48)  # frame, title bar
+	if win.size.x <= room.x and win.size.y <= room.y:
+		return
+	var units := floori(minf(room.x / SimDefs.VIEW_W, room.y / SimDefs.VIEW_H))
+	win.size = Vector2i(maxi(units, 2) * SimDefs.VIEW_W, maxi(units, 2) * SimDefs.VIEW_H)
+	win.move_to_center()
 
 
 func _apply_aspect() -> void:

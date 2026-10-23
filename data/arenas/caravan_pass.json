@@ -3,6 +3,7 @@
 	"id": "caravan_pass",
 	"name": "Dustwind Pass",
 	"ground": "dirt",
+	"light": {"_doc": "hard desert sun from the top left: dark shadows", "dir": [0.7, 0.71], "length": 0.65, "alpha": 0.4},
 	"size": [220, 40],
 	"spawns": {"left": [60, 224], "right": [1732, 224]},
 	"track": [[90, 224], [300, 224], [420, 150], [640, 150], [760, 260], [896, 260],

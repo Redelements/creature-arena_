@@ -38,7 +38,7 @@ var mode := Mode.OFF:
 		_last_us = 0
 		queue_redraw()
 
-var _font: Font = ThemeDB.fallback_font
+var _font: Font = UiTheme.font()
 var _viewport := RID()
 var _ms := PackedFloat32Array()  ## ring buffer of frame times
 var _at := 0
@@ -141,5 +141,6 @@ static func _color(ms: float) -> Color:
 
 
 func _text(at: Vector2, s: String, fs: int, col: Color) -> void:
-	draw_string_outline(_font, at, s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 1, Color(0, 0, 0, 0.8))
-	draw_string(_font, at, s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
+	var size_px := UiTheme.px(fs)
+	draw_string_outline(_font, at, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, 1, Color(0, 0, 0, 0.8))
+	draw_string(_font, at, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, col)

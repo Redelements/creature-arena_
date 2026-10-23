@@ -3,5 +3,6 @@
 	"id": "stadium",
 	"name": "Stadium",
 	"ground": "dirt",
+	"light": {"_doc": "floodlights high over the stands: short shadows, nearly straight down", "dir": [0.25, 1.0], "length": 0.38, "alpha": 0.32},
 	"pieces": []
 }

@@ -26,9 +26,9 @@ func _draw() -> void:
 	var focus := has_focus()
 	var col: Color = UiTheme.C_ACCENT if focus else UiTheme.C_DIM
 	if subtitle != "":
-		var fs := UiTheme.SIZE_SUB
+		var fs := UiTheme.px(UiTheme.SIZE_SUB)
 		var y := size.y - 3.5
-		draw_string_outline(font, Vector2(10, y), subtitle, HORIZONTAL_ALIGNMENT_LEFT, size.x - 24, fs, 2, Color(0, 0, 0, 0.8))
+		draw_string_outline(font, Vector2(10, y), subtitle, HORIZONTAL_ALIGNMENT_LEFT, size.x - 24, fs, UiTheme.outline(fs), Color(0, 0, 0, 0.8))
 		draw_string(font, Vector2(10, y), subtitle, HORIZONTAL_ALIGNMENT_LEFT, size.x - 24, fs, Color(col, 0.85 if focus else 1.0))
 	if chevron:
 		var cx := size.x - 9.0

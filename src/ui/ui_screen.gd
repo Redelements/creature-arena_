@@ -93,7 +93,7 @@ func _ready() -> void:
 		if title == "":
 			col.add_child(_label("prototype build", UiTheme.SIZE_HINT + 1, UiTheme.C_DIM))
 	if not crumbs.is_empty():
-		col.add_child(_label("  ›  ".join(PackedStringArray(crumbs)) + "  ›", UiTheme.SIZE_HINT + 1, UiTheme.C_DIM))
+		col.add_child(_label("  >  ".join(PackedStringArray(crumbs)) + "  >", UiTheme.SIZE_HINT + 1, UiTheme.C_DIM))
 	if title != "":
 		col.add_child(_label(title, UiTheme.SIZE_HEADING if logo else UiTheme.SIZE_TITLE,
 			UiTheme.C_ACCENT if logo else UiTheme.C_TEXT))
@@ -139,7 +139,7 @@ func _ready() -> void:
 		_detail_title.clip_text = true
 		side.add_child(_detail_title)
 		side.add_child(_rule(detail_width))
-		_desc.add_theme_font_size_override("font_size", UiTheme.SIZE_HINT + 1)
+		_desc.add_theme_font_size_override("font_size", UiTheme.px(UiTheme.SIZE_HINT + 1))
 		_desc.add_theme_color_override("font_color", Color(UiTheme.C_TEXT, 0.9))
 		_desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		_desc.vertical_alignment = VERTICAL_ALIGNMENT_TOP
@@ -329,7 +329,7 @@ func add_row(c: Control, description := "") -> void:
 	if row_variation != "" and c is Button and not (c is OptionRow) and not (c is CardButton):
 		c.theme_type_variation = row_variation
 	if row_font > 0:
-		c.add_theme_font_size_override("font_size", row_font)
+		c.add_theme_font_size_override("font_size", UiTheme.px(row_font))
 	c.mouse_entered.connect(func(): if c.is_visible_in_tree() and c.focus_mode != FOCUS_NONE: c.grab_focus())
 	_descriptions[c] = description
 	c.focus_entered.connect(func(): _show_description(c))
@@ -418,7 +418,7 @@ func _label(text: String, size_px: int, col: Color) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", size_px)
+	l.add_theme_font_size_override("font_size", UiTheme.px(size_px))
 	l.add_theme_color_override("font_color", col)
 	l.mouse_filter = MOUSE_FILTER_IGNORE
 	return l
