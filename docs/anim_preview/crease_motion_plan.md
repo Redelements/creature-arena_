@@ -235,3 +235,26 @@ check in the previews:
 
 Phase 3 note: changing `anim_at` and `cut_in_frame` in `crease.json` changes the online
 data hash, so the server will need a rebuild when this ships.
+
+
+---
+
+## Batch 4: the rest of the kit (folds, throws, Paper Plane, the fidget)
+
+The first pass (#112) did the idle, strut, flicks and Surge. This one finishes every
+remaining ability with the same recipe: key poses, eased in-betweens, the cape a frame or two
+behind (`_secondary`: brim 1, cape 2, wave 3), and every timeline matched to the frame
+data (no frame-data number changed).
+
+| Row | Frames | Timeline | What it shows |
+| --- | --- | --- | --- |
+| fold_shuriken / fold_crane / fold_frog | 4 -> 8 | `fold.anim_at` (view-only key; startup 14 / 16 / 14 + recovery 6) | reach, the sheet arriving, creases, the turn-over, the craft formed, put away |
+| shuriken (heavy) | 6 -> 11 | `anim_charge [0,4,6]` loop, then `[[0,4],[2,5],[5,6],[8,7],[12,8],[16,9],[21,10]]` | a 4-frame charge breath, wind-back (squashed), rise, whip (star mid-air), fling held from tick 8 (the star spawns at 9), follow, settle, recover |
+| crane (skill 1) | 5 -> 10 | `[[0,0],[2,1],[4,2],[6,3],[8,4],[9,5],[13,6],[17,7],[21,8],[25,9]]` | dip, hand up, lift-off with wings opening, carried out, launch held from tick 9, palm-up flourish |
+| frog (skill 2) | 6 -> 12 | `[[0,0],[1,1],[3,2],[4,3],[6,4],[7,5],[8,6],[9,7],[11,8],[15,9],[19,10],[24,11]]` | sheet out, folds, crouch, frogs set down, hands drawn back (anticipation), whip, release held from tick 11, follow-through |
+| dodge (Paper Plane) | 4 -> 8 | `dodge.anim_at [[0,0],[2,1],[4,2],[5,3],[8,4],[12,5],[15,6],[18,7]]` | duck, fold flat, crease into the plane, bank left, bank right, glide down, unfold, settle (the planes sit inside the iframes 2-12) |
+| idle_alt (new) | 8 | `idle_alt_after` default 300 ticks, 8 ticks a frame | the fidget: a hat tip toward the foe with a small nod, then back to the idle pose |
+
+The fold's craft is small and mostly hidden by his hands at side view (as before); the
+body language (lean, shoulder, brim) carries it. Hurt, guard and the knockout are not
+abilities and stay as they are.

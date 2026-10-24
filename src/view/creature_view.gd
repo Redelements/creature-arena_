@@ -56,6 +56,14 @@ var victory := false:
 			_victory_t = 0
 		victory = v
 var _victory_t := 0
+## Idle variety: a sheet with an "idle_alt" animation plays it once after the fighter has
+## stood in IDLE for the sprite block's "idle_alt_after" ticks (default 300), then goes back to
+## the idle and counts again. `_still` counts ticks of standing; `_alt_t` runs while it plays
+## (-1: not playing). Anything but a plain idle (moving, attacking, hurt, victory, the arena
+## intro) resets both.
+const IDLE_ALT_AFTER := 300
+var _still := 0
+var _alt_t := -1
 ## The arena intro (main, ArenaIntro): the sim waits before its first tick, so the idle plays
 ## on this clock instead of the sim's (-1: the sim's), and `intro_pose()` gives a white pop.
 var intro_clock := -1
@@ -157,6 +165,7 @@ func _pick_view() -> String:
 func refresh() -> void:
 	if intro_clock >= 0:
 		intro_clock += 1
+	_update_idle_alt()
 	position = c.pos.round()
 	if c.facing.x < -0.1:
 		flip = true
@@ -448,6 +457,23 @@ func draw_shadow(ci: CanvasItem, cast: Vector2, alpha: float) -> void:
 		Vector2(pivot.position.x, 0.0), cast, a, _sq * shadow_size)
 
 
+## Counts the stand-still for the idle variety, one step a tick (see `_alt_t`).
+func _update_idle_alt() -> void:
+	if c.state != CreatureSim.State.IDLE or victory or intro_clock >= 0 or not _layout_has("idle_alt"):
+		_still = 0
+		_alt_t = -1
+		return
+	if _alt_t >= 0:
+		_alt_t += 1
+		if _alt_t >= int(_anim("idle_alt")[2]) * maxi(1, int(layout.get("idle_ticks", 10))):
+			_alt_t = -1
+			_still = 0
+		return
+	_still += 1
+	if _still > int(layout.get("idle_alt_after", IDLE_ALT_AFTER)):
+		_alt_t = 0
+
+
 ## The victory animation's frame: the first frame (getting ready), then frames 1..n-3 in
 ## a loop for a while (the celebration), then the last two (the finish, held).
 func _victory_frame() -> int:
@@ -470,6 +496,8 @@ func _pick() -> Array:
 		return ["victory", _victory_frame(), false]
 	match c.state:
 		CreatureSim.State.IDLE:
+			if _alt_t >= 0:
+				return ["idle_alt", _alt_t / maxi(1, int(layout.get("idle_ticks", 10))), false]
 			var clock := intro_clock if intro_clock >= 0 else c.anim_t
 			return ["idle", clock / maxi(1, int(layout.get("idle_ticks", 10))), true]
 		CreatureSim.State.MOVE:
@@ -529,6 +557,15 @@ func _attack_frame() -> Array:
 
 	if mv.has("anim_reel") and c.reel_t > 0:  # being reeled in on the line (Cast Line)
 		return [name, mini(int(mv["anim_reel"]), n - 1), false]
+
+	if mv.has("fold_of"):  # a fold step: its timeline is the move's "fold" -> "anim_at"
+		var fd: Dictionary = c.moves()[String(mv["fold_of"])].get("fold", {})
+		if fd.has("anim_at"):
+			var ff := 0
+			for pair in fd["anim_at"]:
+				if t >= int(pair[0]):
+					ff = int(pair[1])
+			return [name, mini(ff, n - 1), false]
 
 	if mv.has("anim_at"):  # an explicit timeline: [[tick, frame], ...], each from its tick on
 		var f := 0
