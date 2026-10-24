@@ -132,3 +132,32 @@ are regenerated, and `gillbert.json` has `cols` 16, the row table, `idle_ticks` 
 `step_frames`, every `anim_at` above, `anim_charge` `[0, 4, 3]`, `anim_reel` 8, Splashdown's
 `anim_at` in place of `anim_from`, and `cut_in_frame` `[8, 4]`. The HUD `portrait` crop is kept
 (idle frame 0 is unchanged at the crop). Frame data is unchanged; `NET_VERSION` waits for batch 3.
+
+## Reactions (Oct 24, on Kevin's ask)
+
+The pass left hurt, guard and the knockout alone; in a brawler the hurt pose is the frame
+players see most, so they get the same recipe now. The clock is the view's, unchanged
+(`src/view/creature_view.gd` `_pick`): no new data keys, frame data and stun numbers
+untouched, only the row table in `gillbert.json` grows. Squash stays capped at 12% (the
+assert in `ROWS` now covers every row). Preview, old frames above the new, every view:
+`gillbert_reactions_3x.gif`.
+
+| Row | Frames | How the view plays it | The frames |
+| --- | --- | --- | --- |
+| hurt | 2 → 4 | `state_t / 4`, looping through longer hitstun (16 to 24 ticks: 0-3 then 0-1); frame 0 is also the fall into a pit, the rise of a launch and the get-up; frame 1 is the crumple and the drop of a launch | 0 the snap: head flung back and up first, the body arching after it (stretch 6%), fins and rod not yet moved; 1 thrown onto his side, squashed 10%, fins and tail flung a frame late; 2 the rebound, rolling back, the tail overshooting; 3 a settle that still flinches, so the loop back to 0 reads as another shudder. The rod follows a frame late (`drag_rod`), the line kinks |
+| guard | 2 → 4 | frame 0 held, frame 1 while a blocked hit lands (`guard_hit`, 10 ticks); 2 and 3 are not played today | 0 curled behind the ring; 1 the blocked hit: squashed 10%, pushed back 2 px, gills flaring; 2 the shiver back (stretch 3%); 3 the re-set |
+| ko | 4 → 8 | `state_t / 6`, held on the last; a knockdown shows frame 1 then holds frame 2; the flop fx lands at tick 10 | 0 flung up nose first; 1 rolling in the air, the rod thrown high; 2 slapped down on his side (12% squash: the knockdown's hold); 3 a bounce; 4 down again; 5 the rod clattering down across him a beat late; 6 a last twitch of the tail, gills fluttering; 7 still |
+
+**Victory and idle_alt:** looked at in every view; nothing clearly wrong, left alone.
+
+**The diagonal reach cheat** (`Cam.NEAR`, `Painter.P`): the flattened zone of `depth_y` is
+20 px head-on (he lies along the depth axis there and must stay inside the ring) but 12 on
+the diagonals, and a lunge (the body's `shift`) travels one to one along the diagonal (0.707
+right, 0.707 down or up) instead of being flattened with his roundness. The Snout Jab now
+lands down-right on `down_side` instead of sliding sideways; the floor rule holds. The
+side, down and up sheets are byte-identical apart from the reaction rows; the two diagonal
+sheets move wherever a pose has a `shift` or reaches past 12 px of depth.
+
+**Open:** guard frames 2 and 3 only play if the view walks the whole row (say, frames
+1-2-3 over the 10 `guard_hit` ticks); that is a `creature_view.gd` change for Kevin to rule
+on, shared with the other fighters.
