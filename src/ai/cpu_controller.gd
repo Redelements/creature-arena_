@@ -1160,7 +1160,7 @@ func _cover_spot(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> Vector2:
 
 
 ## How far `o`'s light (with its lunge) reaches from its centre, to the edge of `me`.
-func _reach_of(o: CreatureSim, me: CreatureSim) -> float:
+static func _reach_of(o: CreatureSim, me: CreatureSim) -> float:
 	var mv: Dictionary = o.moves().get("light_1", {})
 	if mv.has("projectile"):
 		return float(mv.get("reach", 14)) + float(mv.get("hit_radius", 10)) + me.radius + 4.0
@@ -1772,14 +1772,21 @@ func _chase(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, d
 func _kite_vector(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> Vector2:
 	var to_foe := _seen(foe) - me.pos
 	var dist := to_foe.length()
-	var max_r := me.move_range("light_1")
-	var hi := max_r * 0.8
-	var lo := clampf(_reach_of(foe, me) + 48.0, 56.0, hi - 20.0)
+	var band := kite_band(me, foe)
+	var lo := band.x
+	var hi := band.y
 	if dist < lo:
 		return _open_dir(sim, me, -to_foe) + _orbit_dir(sim, me, foe, hi) * 0.25
 	if dist > hi:
 		return to_foe.normalized() + _orbit_dir(sim, me, foe, hi) * 0.5
 	return _orbit_dir(sim, me, foe, (lo + hi) * 0.5)
+
+
+## The centre-to-centre distances a kiter holds `foe` between (x = near, y = far): inside
+## 80% of its light's range, and well outside the foe's light.
+static func kite_band(me: CreatureSim, foe: CreatureSim) -> Vector2:
+	var hi := me.move_range("light_1") * 0.8
+	return Vector2(clampf(_reach_of(foe, me) + 48.0, 56.0, hi - 20.0), hi)
 
 
 ## Mage: keep the foe at the edge of its range, strafing (facing it) and throwing all

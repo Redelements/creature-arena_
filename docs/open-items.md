@@ -32,9 +32,9 @@ Priorities are in the Game Plan doc, "Game modes".
   90 damage taken visible, 5 hidden, per game); he beats Chef Cerebro 9 of 12. Numbers from
   `bench_fighter.gd --fighter=pete --foes=crease --seeds=6` (Oct 23): Pete wins 1 of 6 and takes
   2x what he deals, but mostly from Crease's *light string* (light_2 53, light_3 51), not the
-  knives (skill_1 6). Pete lands 0 of 17 skill_1 and 3 of 21 skill_2 (10 blocked). And
-  `bench_cpu.gd --only=crease --detail` shows Crease at his `ai.range` (110 px gap) only 1–7% of
-  ticks (average distance 78 px between centres): Rage Crease brawls instead of kiting. That makes it
-  look like a CPU problem first (scored-kit plan, piece 2), not a kit one. Not pinned; a
+  knives (skill_1 6): his light is a thrown dart, so this is the kite working. Pete lands 0 of 17
+  skill_1 and 3 of 21 skill_2 (10 blocked). `bench_cpu.gd --only=crease --detail`: Crease holds
+  his kite band 46% of ticks against Pete (51% Gillbert, 62-80% the rest). Kevin's call (Oct 23):
+  the only Pete change is a truly invisible Tiptoe (PR #160). Not pinned; a
   Pete or Crease kit question for Kevin. (Storm Drain's ring leaves side lanes to punish
   through, and a fall puts you down clear of the pits.)

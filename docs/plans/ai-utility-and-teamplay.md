@@ -5,7 +5,7 @@ branch and PR, in this order:
 
 | # | Piece | Branch | Status |
 |---|---|---|---|
-| 1 | Richer CPU metrics in the benches (measure first) | `ai-metrics` | done (spacing target not met: piece 2's job) |
+| 1 | Richer CPU metrics in the benches (measure first) | `ai-metrics` | done |
 | 2 | Scored kit: Rage's neutral choices by utility score, weights in creature JSON | `ai-scored-kit` | not started |
 | 3 | Team intent: shared focus target, peel/front-line roles for 2v2/3v3 | `ai-team-intent` | not started |
 
@@ -77,7 +77,7 @@ Steps:
       of the new columns; decide with Kevin whether it is a Pete, a Crease or a CPU problem.
 - [x] `tests/CLAUDE.md` benches section and `docs/codebase-map.md` row 69 updated.
 
-Baseline (Oct 23): Crease at spacing 1–7% against every foe; 3v3 Rage `--seeds=2`: 16 target switches /min/CPU, 13% at spacing. Per-button hit rates are `bench_fighter.gd`'s table (already there).
+Baseline (Oct 23): Crease in his kite band (`CpuController.kite_band`, not `ai.range`: the kite plan never reads it) 62–80% of ticks, but 46% vs Pete and 51% vs Gillbert (the divers); 3v3 Rage `--seeds=2`: 16 target switches /min/CPU, 13% at spacing. Per-button hit rates are `bench_fighter.gd`'s table (already there).
 
 Done when: `bench_cpu.gd --only=crease --detail` shows Crease at preferred spacing ≥ 70% of
 ticks on the Stadium against the field, and the Pete-vs-Crease note has numbers.
@@ -160,8 +160,8 @@ What the scorer should make visible, then tunable:
 - First `ai.weights` entry in the repo lives in `data/creatures/crease.json`, with a comment
   line in `src/ai/CLAUDE.md` explaining each key once.
 
-Acceptance for him: at Rage he holds 95–125 px against melee fighters for ≥ 70% of neutral
-ticks on the Stadium; against Pete the matchup stays decided by the kits (whatever Kevin
+Acceptance for him: at Rage he holds his kite band for ≥ 70% of ticks against every foe,
+divers included, on the Stadium (`ai.range` 110 is not what he kites at; his darts reach ~113 px); against Pete the matchup stays decided by the kits (whatever Kevin
 decides on the open item), not by the CPU standing in knife range.
 
 ## 3. Team intent: shared focus and roles for 2v2 / 3v3

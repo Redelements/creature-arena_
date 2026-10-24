@@ -4,8 +4,8 @@ extends SceneTree
 ##   godot --headless --path . --script res://tests/bench_cpu.gd -- [--a=3] [--b=2] [--seeds=2] [--only=cerebro] [--detail]
 ##   --matrix: every pair at level --a;  --pairs=a:b,c:d: just those, at level --a, both sides
 ##   --arena=ID: play on that arena map (default stadium; greenhouse and quarry test sight)
-##   --detail: per foe, also the share of ticks at preferred spacing (ai.range ± 15%, at least
-##     ± 8 px, between body edges), ticks with stamina empty and guard breaks taken
+##   --detail: per foe, also the share of ticks at preferred spacing (a kiter: its kite band;
+##     else ai.range ± 15%, at least ± 8 px, between body edges), ticks with stamina empty and guard breaks taken
 ##   --teams=3: 3v3 Rage (or --a) through TeamSim, a tank, a mage and an assassin a side: win
 ##     rate, length, target switches a minute per CPU, spacing share (a baseline for team AI)
 
@@ -125,8 +125,13 @@ func _match(f: String, o: String, a_lv: int, b_lv: int, side: int, seed_: int) -
 		"spacing": at_spacing / float(ticks), "empty": empty, "breaks": breaks}
 
 
-## At the CPU's preferred spacing: the gap between bodies within ai.range ± 15% (± 8 px at least).
+## At the CPU's preferred spacing: a kiter (a ranged light, or ai.kite) inside the band its
+## kite plan holds (CpuController.kite_band); anyone else with the gap between bodies within
+## ai.range ± 15% (± 8 px at least).
 static func _at_spacing(c: CreatureSim, foe: CreatureSim, d: float) -> bool:
+	if c.moves().get("light_1", {}).has("projectile") or bool(c.def.get("ai", {}).get("kite", false)):
+		var band := CpuController.kite_band(c, foe)
+		return d >= band.x - 4.0 and d <= band.y + 4.0
 	var want := float(c.def.get("ai", {}).get("range", 22))
 	return absf(d - c.radius - foe.radius - want) <= maxf(want * 0.15, 8.0)
 
