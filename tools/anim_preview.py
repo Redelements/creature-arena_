@@ -50,7 +50,8 @@ if TOOLS not in sys.path:
     sys.path.insert(0, TOOLS)
 ANIM_DIR = os.path.join(ROOT, "docs", "anim_preview")
 PREVIEW_BG = (70, 58, 46)
-FIGHTERS = ("crease", "pete", "sno", "digby", "culvert", "cerebro", "hissy", "gillbert", "barkley", "craglash")
+FIGHTERS = ("crease", "pete", "sno", "digby", "culvert", "cerebro", "hissy", "gillbert", "barkley", "craglash", "cairn",
+            "dummy")
 # As in src/view/creature_view.gd: an animation a sheet lacks falls back to these.
 # The views a fighter can have, in preview order (tools/splat3d.py VIEW_ORDER): the side,
 # the front, the front three-quarter, the back, the back three-quarter.
