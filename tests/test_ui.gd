@@ -1337,3 +1337,18 @@ func test_the_card_shows_the_fighter_the_row_names_and_the_modes_facts() -> void
 	assert_eq(arena.label, "Arena", "")
 	assert_true((hub.card(arena) as DetailCard).picture != null, "a picture of the arena")
 	g.free()
+
+
+func test_the_text_font_setting_switches_menus_and_saves() -> void:
+	var g := _game()
+	g._open_settings_page("video")
+	g._set_setting("font", 1)
+	assert_true(UiTheme.smooth, "Smooth is on")
+	assert_true(g.ui.ui_theme.default_font == ThemeDB.fallback_font, "the open menus take the smooth font")
+	var cfg := ConfigFile.new()
+	cfg.load(TEST_SETTINGS)
+	assert_eq(String(cfg.get_value("video", "font", "")), "smooth", "and it is saved")
+	g._set_setting("font", 0)
+	assert_false(UiTheme.smooth, "Pixel again")
+	assert_true(g.ui.ui_theme.default_font == UiTheme.font(), "back to the pixel font")
+	g.queue_free()

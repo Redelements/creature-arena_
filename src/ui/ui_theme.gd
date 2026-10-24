@@ -41,12 +41,19 @@ const FONT_PATH := "res://assets/fonts/m5x7.ttf"
 const FONT_NATIVE := 8
 
 static var _font: Font
+## Settings > Video > Text font: false draws every string in the pixel font, true in the
+## engine's smooth font at the old design sizes (the look before Oct 2026). Views read the
+## font and sizes through font() and px() every draw, so a change shows at once; menus
+## pick it up through ScreenStack.restyle().
+static var smooth := false
 
 
 ## The pixel font (imported with antialiasing, hinting and subpixel positioning off and a
 ## fixed oversampling of 2: one canvas unit is two grid pixels, so a glyph is rasterised
 ## on the grid and scaled up like a sprite).
 static func font() -> Font:
+	if smooth:
+		return ThemeDB.fallback_font
 	if _font == null:
 		_font = load(FONT_PATH) as Font
 		if _font == null:
@@ -58,6 +65,8 @@ static func font() -> Font:
 ## size, a whole multiple of FONT_NATIVE: 5-6 → 8 (the small print: hints, tags, the
 ## controls strip), 7-11 → 16 (names, rows), 12-15 → 24, 16-20 → 32, 21-26 → 40, 27+ → 48.
 static func px(design_size: int) -> int:
+	if smooth:
+		return design_size
 	for step in PX_STEPS:
 		if design_size <= int(step[0]):
 			return int(step[1])
@@ -69,6 +78,8 @@ const PX_STEPS := [[6, 8], [11, 16], [15, 24], [20, 32], [26, 40]]
 ## The pixel font with narrower spaces (2 grid pixels instead of 4), for a line of small
 ## print that would run off a narrow screen (the controls strip).
 static func font_tight() -> Font:
+	if smooth:
+		return font()
 	if _tight == null:
 		var v := FontVariation.new()
 		v.base_font = font()
@@ -82,6 +93,8 @@ static var _tight: Font
 ## An outline round pixel text: one glyph pixel at 2x and up (canvas units), one canvas
 ## unit under that.
 static func outline(size_px: int) -> int:
+	if smooth:
+		return maxi(1, roundi(size_px / 4.0))
 	return maxi(1, size_px / (FONT_NATIVE * 2))
 
 

@@ -81,7 +81,8 @@ var _combo_pop := [0, 0]
 var _combo_dy := [0.0, 0.0]
 var _cut := {}
 var _tick := 0
-var _font: Font = UiTheme.font()
+var _font: Font:  ## read each draw, so Settings > Video > Text font shows at once
+	get: return UiTheme.font()
 ## Training: damage per second on the dummy, drawn in the dummy's panel (DpsMeter).
 var dps := DpsMeter.new()
 var _dps_sim: MatchSim = null

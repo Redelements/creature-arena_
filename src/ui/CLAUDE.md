@@ -21,7 +21,9 @@ Menus are `Control` nodes on a `ScreenStack` of `UiScreen`s, styled by one share
   they become a font size (theme sizes, `_label`, `row_font`, each `draw_string`), so a glyph
   pixel is always whole pixels of the 960 x 540 grid; outlines through `UiTheme.outline()`.
   Pixel text is wider than the old font: check a long line at 16:9 (the HUD's `_text`
-  switches to `UiTheme.font_tight()` when a line overruns its box).
+  switches to `UiTheme.font_tight()` when a line overruns its box). Settings > Video > Text
+  font can turn `UiTheme.smooth` on (the engine font at the design sizes): never cache a font
+  or a `px()` size in a view past one draw, and menus restyle through `ScreenStack.restyle()`.
 
 ## Where to look
 

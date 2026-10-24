@@ -5,7 +5,8 @@ extends Node2D
 const STATE_NAMES := ["IDLE", "MOVE", "ATTACK", "DODGE", "GUARD", "HITSTUN", "FALLING", "KO", "AIR", "CRUMPLE", "DOWN"]
 
 var sim: MatchSim
-var _font: Font = UiTheme.font()
+var _font: Font:  ## read each draw, so Settings > Video > Text font shows at once
+	get: return UiTheme.font()
 
 
 func _draw() -> void:
