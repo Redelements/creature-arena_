@@ -124,7 +124,7 @@ Facing down and up: [`culvert_views_preview.png`](culvert_views_preview.png).
 Design note for Cairn: keep it **tall and stacked**. A round boulder with two arms would
 read as an existing franchise creature.
 
-### Craglash — 96×96 frames, 6 × 13 (576×1248 px)
+### Craglash — 96×96 frames, 12 × 14 (1152×1344 px)
 
 Craglash is the first creature from the artist's character sheets. His sheet is a
 pixel recreation of that sheet made by `tools/gen_craglash.py`, a small puppet rig
@@ -148,21 +148,28 @@ x 64, y 112 (down) and y 124 (up); the same rig draws them from the front and fr
 
 ![Craglash sheet, 3x](craglash_preview.png)
 
+Animated with the roster pass (motion plan, previews and before/after GIFs:
+[`anim_preview/craglash_motion_plan.md`](anim_preview/craglash_motion_plan.md)): stone, so
+no squash (`sy` stays 1); weight is timing (slow lift, one fast frame, held landings) and
+the neck, head, mane and arms lag the body. `idle_ticks` 8 (a 64-tick idle), `run_ticks` 2
+(the run still 24 ticks), every move on an `anim_at`, the heavy's charge loop `[0, 4, 6]`.
+
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
-| 0 | idle | 4 | standing easy, arms hanging, breathing, neck swaying |
-| 1 | run | 6 | stomping walk cycle, arms swinging low |
-| 2 | claw | 4 | Rake (light 1): front claw wind, swipe, follow-through, recover |
-| 3 | backhand | 4 | Backhand (light 2): the far arm swings across the body |
-| 4 | headbutt | 4 | Headbutt (light 3) and Landslide Entry: neck pulls back, head snaps forward |
-| 5 | stomp | 6 | Rockslide Stomp: charge A, charge B (foot raised), rise, stomp, impact, recover |
-| 6 | lash | 6 | Boulder Lash: coil back ×3, full extension, retract, recover |
-| 7 | bedrock | 4 | Bedrock: brace, rooted hold (cracks glowing), roar, stand |
-| 8 | coil | 6 | Avalanche Coil: neck rises, hooks overhead ×2, crash, impact, recover |
-| 9 | dodge | 4 | tuck, head pulled in low |
-| 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
-| 11 | guard | 2 | forearms crossed, head tucked behind them |
-| 12 | ko | 4 | stagger, topple, down, neck stones scattered |
+| 0 | idle | 8 | breath on eased spacing; head, neck and mane sway late |
+| 1 | run | 12 | stomp walk: planted foot slides back evenly, slow lift, fast plant; the stomp travels up the neck |
+| 2 | claw | 8 | Rake (light 1): coil held, snap, hit held, claw drags |
+| 3 | backhand | 8 | Backhand (light 2): the far arm cocks back, whips across the body |
+| 4 | headbutt | 8 | Headbutt (light 3) and Landslide Entry (own `anim_at`): the head launches ahead of its neck |
+| 5 | stomp | 12 | Rockslide Stomp: 0-3 the charge loop (foot lifted, trembling), top of the lift, drop, held impact, overshoot, slow rise |
+| 6 | lash | 12 | Mountain Maw: the neck coils back, snaps out, shivers while the head flies, reels in |
+| 7 | bedrock | 12 | Bedrock: wide stance, fists down, sunk in, a 4-frame pulse loop (3-6) while rooted, release roar |
+| 8 | coil | 6 | Avalanche Coil: only the Surge's cut-in picture now (`cut_in_frame` `[8, 2]`) |
+| 9 | charge | 12 | Landslide Charge: crouch, drive, a 4-frame head-low run (2-5), brake, skid, settle |
+| 10 | dodge | 8 | dip, tuck behind the spikes (invulnerable frames 1-4), skid, uncurl |
+| 11 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
+| 12 | guard | 2 | forearms crossed, head tucked behind them |
+| 13 | ko | 4 | stagger, topple, down, neck stones scattered |
 
 When the artist's final Craglash arrives, either keep this layout (then it drops in), or
 change the `"sprite"` block in `data/creatures/craglash.json` to match theirs. Design
