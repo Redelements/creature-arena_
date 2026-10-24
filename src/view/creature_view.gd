@@ -55,6 +55,10 @@ var victory := false:
 			_victory_t = 0
 		victory = v
 var _victory_t := 0
+## The arena intro (main, ArenaIntro): the sim waits before its first tick, so the idle plays
+## on this clock instead of the sim's (-1: the sim's), and `intro_pose()` gives a white pop.
+var intro_clock := -1
+var _intro_flash := 0
 ## The shadow (ShadowLayer draws it, `draw_shadow`): its size (1 on the floor, smaller up in
 ## the air) and how strong it is (0: none, falling into a pit or gone in a death animation;
 ## faint while hidden in the brush or invisible).
@@ -150,6 +154,8 @@ func _pick_view() -> String:
 
 
 func refresh() -> void:
+	if intro_clock >= 0:
+		intro_clock += 1
 	position = c.pos.round()
 	if c.facing.x < -0.1:
 		flip = true
@@ -235,6 +241,10 @@ func refresh() -> void:
 	elif c.slow > 0 and c.state != CreatureSim.State.KO:
 		flash_col = SLOW_BLUE
 		flash_amt = 0.14
+	if _intro_flash > 0:
+		flash_amt = 1.0 if _intro_flash > 4 else 0.45
+		flash_col = Color.WHITE
+		_intro_flash -= 1
 	mat.set_shader_parameter("flash", flash_amt)
 	mat.set_shader_parameter("flash_color", flash_col)
 	# Stoneskin: a pale stone rim around the silhouette while the shield holds. Otherwise,
@@ -371,6 +381,15 @@ func _kick(to: Vector2) -> void:
 	_sq_vel = Vector2.ZERO
 
 
+## The intro's beat on this fighter: a white flash and a stretch up, and the victory
+## pose where the sheet has one (main clears `victory` when the round starts).
+func intro_pose() -> void:
+	_intro_flash = 8
+	_kick(Vector2(0.84, 1.2))
+	if _layout_has("victory"):
+		victory = true
+
+
 ## A squash or stretch started from outside (FxView, on an event: Culvert's gulp).
 func kick(to: Vector2) -> void:
 	_kick(to)
@@ -445,7 +464,8 @@ func _pick() -> Array:
 		return ["victory", _victory_frame(), false]
 	match c.state:
 		CreatureSim.State.IDLE:
-			return ["idle", c.anim_t / maxi(1, int(layout.get("idle_ticks", 10))), true]
+			var clock := intro_clock if intro_clock >= 0 else c.anim_t
+			return ["idle", clock / maxi(1, int(layout.get("idle_ticks", 10))), true]
 		CreatureSim.State.MOVE:
 			# legs keep up with the faster walk
 			return ["run", c.anim_t / maxi(1, int(layout.get("run_ticks", 4))), true]

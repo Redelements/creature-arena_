@@ -19,6 +19,9 @@ extends Node2D
 ##   --training-screen=pause|options|fighters  open the training pause menu, its Training
 ##                         options page or the Change fighter grid once training starts (captures)
 ##   --hitboxes            start with the hitbox overlay on
+##   --intro / --no-intro  force the arena intro on / off (default: it plays before offline
+##                         matches started from the menu; off headless and for a --mode,
+##                         --showcase or --autoplay start, so captures and tests keep their timing)
 ##   --range-rings         start with the range rings on (Settings > Controls; F7 in a fight)
 ##   --shots=60,120        save screenshots at those frame numbers
 ##   --shot-dir=PATH       where screenshots go (default user://shots)
@@ -117,7 +120,7 @@ const REPLAY_MODE := 47
 ## one of several modes with Left/Right.
 ## The Settings pages and their rows, in order (see _setting()).
 const SETTING_PAGES := {
-	"game": ["level", "rumble", "shake", "discord", "server", "delay"],
+	"game": ["level", "intros", "rumble", "shake", "discord", "server", "delay"],
 	"video": ["fullscreen", "wide", "vsync", "fps", "font", "perf_overlay"],
 	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu"],
 }
@@ -311,6 +314,16 @@ var wide_fill := true
 var rumble := true
 var shake_scale := 1.0  ## screen shake: 1 full, 0.5 reduced, 0 off
 var range_rings := false  ## floor rings showing each attack's real reach (Settings > Controls)
+## Settings > Game > Match intros: the arena intro before an offline match (ArenaIntro).
+var match_intros := true
+## --intro (1) / --no-intro (-1); 0: the default (see _intro_wanted).
+var _intro_arg := 0
+## The match was started from the command line (--mode, --showcase, --autoplay): no intro
+## unless --intro, so captures keep their frame numbers.
+var _cli_start := false
+## The arena intro playing now (null: none). The sim is not stepped while it plays.
+var intro: ArenaIntro = null
+var _screen_layer: CanvasLayer
 var rings: RangeRings
 ## The frame-rate overlay (Settings > Video, F9): PerfOverlay.Mode, over everything.
 var perf_overlay: PerfOverlay
@@ -514,6 +527,7 @@ func _ready() -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 10
 	add_child(layer)
+	_screen_layer = layer
 	letterbox = Letterbox.new()  # first on the screen layer: under the flash, the fade and the HUD
 	layer.add_child(letterbox)
 	flash_rect = ColorRect.new()
@@ -543,6 +557,7 @@ func _ready() -> void:
 	if UiTheme.smooth:
 		ui.restyle()  # the menu theme was built before the saved Text font was read
 	var start_mode := _parse_args()
+	_cli_start = start_mode >= 0
 	_apply_device()
 	_apply_discord()
 	_apply_range_rings()
@@ -1047,6 +1062,8 @@ func _start_match(m: int, keep_teams := false) -> void:
 		ui.push(pick)
 		return
 	_start_round()
+	if not keep_teams:
+		_maybe_intro()
 
 
 ## Modes that open the pick screen first.
@@ -1060,6 +1077,7 @@ func _on_teams_chosen(teams: Array) -> void:
 	_teams = teams
 	audio.play("ui_select", 0.0, 1.0, true)
 	_start_round()
+	_maybe_intro()
 
 
 ## How many people play at this machine in a mode.
@@ -1230,6 +1248,8 @@ func _arcade_result(won: bool) -> bool:
 		wins = [0, 0]
 		round_num = 1
 		_start_arcade_stage()
+		if arcade is Arcade:
+			_maybe_intro()  # a new opponent up the ladder (not each Gauntlet wave)
 		return true
 	# The boss is down: the Arcade is cleared on this level.
 	_arcade_cleared = true
@@ -1919,6 +1939,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	_exchange_t = 0
 	_exchange_hits = 0
 	_surge_bars = 0
+	_drop_intro()
 	if letterbox != null:
 		letterbox.clear()
 	sides = p_sides.duplicate()
@@ -2080,6 +2101,11 @@ func _physics_process(_delta: float) -> void:
 	if paused:
 		_capture()
 		return  # frozen behind the pause menu: nothing steps, the picture holds
+	if intro != null:
+		_intro_step()
+		perf_overlay.tick(Time.get_ticks_usec() - tick_start)
+		_capture()
+		return  # the arena intro: the sim waits at its first tick, the views play it
 	flow_t += 1
 	if _finder != null:
 		_finder_step()
@@ -2648,7 +2674,10 @@ func _update_camera() -> void:
 	var base_z := 1.0
 	var base_focus := size * 0.5
 	var ko_focus := _ko_focus
-	if sim != null and showcase == null and coach == null:
+	if intro != null:
+		base_z = intro.zoom
+		base_focus = intro.focus
+	elif sim != null and showcase == null and coach == null:
 		_frame_fight(view, size)
 		base_z = _cam_zoom
 		base_focus = _cam_follow + _cam_lead
@@ -2692,14 +2721,178 @@ static func ko_push(t: int) -> float:
 	return smoothstep(0.0, 1.0, k_in) * (1.0 - smoothstep(0.0, 1.0, k_out))
 
 
-## The letterbox: in for a knockout's push-in (until it starts easing back) and a Surge's
-## freeze, out otherwise. Not over the title's background match.
+## The letterbox: in for a knockout's push-in (until it starts easing back), a Surge's
+## freeze and its cut-in (held until the cut-in is gone, which outlasts the freeze), and the
+## arena intro; out otherwise. Not over the title's background match.
 func _update_letterbox() -> void:
 	if _surge_bars > 0:
 		_surge_bars -= 1
 	var ko := _ko_cam_t >= 0 and _ko_cam_t < KO_HOLD_UNTIL
-	letterbox.shown = flow != Flow.MENU and (ko or _surge_bars > 0)
+	letterbox.shown = flow != Flow.MENU and (ko or _surge_bars > 0 or hud.cutting_in() or intro != null)
 	letterbox.advance()
+
+
+# ------------------------------------------------------------------ arena intro
+
+## Whether a match starting now gets the arena intro: offline matches against the CPU or
+## local players, with Settings > Game > Match intros on. Never online (both peers must
+## start the sim on the same tick, and a watcher follows the server's), in a replay,
+## training, trials, drills or showcases, or behind the menu. Headless runs and command-line
+## starts skip it unless --intro (tests and captures keep their frame numbers).
+func _intro_wanted() -> bool:
+	if _intro_arg < 0 or not match_intros:
+		return false
+	if _intro_arg == 0 and (DisplayServer.get_name() == "headless" or _cli_start or autoplay != null):
+		return false
+	if sim == null or online != null or watch != null or netplay != null or _replaying():
+		return false
+	if showcase != null or coach != null or sim.training or MODES[mode].get("training", false):
+		return false
+	return flow == Flow.INTRO or flow == Flow.FIGHT
+
+
+## Starts the arena intro for the match just set up, if it gets one. The sim stays at its
+## first tick until the intro ends (or a press skips it); then the round goes on exactly as
+## it would have without it.
+func _maybe_intro() -> void:
+	if not _intro_wanted():
+		return
+	_drop_intro()
+	intro = ArenaIntro.new()
+	intro.sim = sim
+	intro.arena_name = String(sim.arena.get("name", ArenaMap.name_of(sim.arena_id)))
+	intro.subtitle = _intro_subtitle()
+	intro.groups = _intro_groups()
+	_screen_layer.add_child(intro)
+	_screen_layer.move_child(intro, hud.get_index())  # over the letterbox and the flash, under the HUD
+	hud.cinema = true
+	hud.banner = ""
+	hud.banner_sub = ""
+	for v in views:
+		v.intro_clock = 0
+	crowd.roar(90)
+	audio.play("crowd_roar")
+
+
+## What the arena's card says under its name: the mode.
+func _intro_subtitle() -> String:
+	var cfg: Dictionary = MODES[mode]
+	if arcade != null:
+		return arcade.stage_label()
+	if team_battle != null:
+		var what := "KING OF THE CRATER" if team_battle.crater else ("SINKHOLE" if team_battle.sinkhole else
+			("TEAM DEATHMATCH" if team_battle.deathmatch else ("CARAVAN" if team_battle.caravan else
+			("CAPTURE THE FLAG" if team_battle.ctf else "TEAM BATTLE"))))
+		return "%s   %d v %d" % [what, team_battle.size, team_battle.size]
+	if duel != null:
+		return "DUEL   %d v %d" % [(duel.teams[0] as Array).size(), (duel.teams[1] as Array).size()]
+	if brawl != null:
+		return "CHAOS CUP" if _chaos_names != "" else "BRAWL"
+	return "VERSUS" if cfg.get("versus2p", false) else "1 v 1"
+
+
+## The intro's beats: one per fighter in a 1v1, one per team in a team battle or a Duel
+## (introduced together), and one for everyone in a Brawl.
+func _intro_groups() -> Array:
+	var out: Array = []
+	var n := sim.creatures.size()
+	if brawl != null:
+		var names: Array = []
+		var all: Array = []
+		for i in n:
+			names.append(String(sim.creatures[i].def.get("name", "?")).to_upper())
+			all.append(i)
+		return [{"slots": all, "side": 0, "color": Hud.C_ACCENT, "tag": "FREE-FOR-ALL",
+			"name": "%d FIGHTERS" % n, "lines": ["  ·  ".join(names)]}]
+	if team_battle != null or duel != null:
+		for side in 2:
+			var slots: Array = []
+			var names: Array = []
+			for i in n:
+				if sim.creatures[i].team == side:
+					slots.append(i)
+			if duel != null:
+				for id in duel.teams[side]:
+					names.append(String(MatchFactory.load_def(String(id)).get("name", id)).to_upper())
+			else:
+				for i in slots:
+					names.append(String(sim.creatures[i].def.get("name", "?")).to_upper())
+			var you := false
+			for i in slots:
+				you = you or (i < sides.size() and sides[i] in LOCAL_SIDES)
+			out.append({"slots": slots, "side": side, "color": Hud.SIDE_COLORS[side],
+				"tag": "YOUR TEAM" if you else "CPU TEAM",
+				"name": ["RED TEAM", "BLUE TEAM"][side], "lines": ["  ·  ".join(names)]})
+		return out
+	for i in mini(n, 2):
+		var d: Dictionary = sim.creatures[i].def
+		var bits := PackedStringArray()
+		for k in ["role", "affinity"]:
+			var v = d.get(k)
+			if v != null and String(v) != "" and String(v) != "none":
+				bits.append(String(v).capitalize())
+		var lines: Array = []
+		if String(d.get("title", "")) != "":
+			lines.append(String(d["title"]))
+		lines.append("  ·  ".join(bits))
+		out.append({"slots": [i], "side": i, "color": Hud.SIDE_COLORS[i], "tag": _side_name(i),
+			"name": String(d.get("name", "?")).to_upper(), "lines": lines})
+	return out
+
+
+## One tick of the intro: only views move (the sim is not stepped, no events, no CPUs).
+func _intro_step() -> void:
+	var view := get_viewport().get_visible_rect().size
+	var g := intro.advance(view, sim.arena_size())
+	if g >= 0:
+		for i in intro.groups[g]["slots"]:
+			if int(i) < views.size():
+				views[int(i)].intro_pose()
+		crowd.cheer(0.5)
+		audio.play("round_start", -6.0, 1.25)
+	if intro.t == ArenaIntro.CARD_IN + 3:
+		audio.play("slam", -6.0, 0.8)
+		shake = maxf(shake, 2.0)
+	arena.refresh()
+	water.advance()
+	ambient.advance()
+	wear.advance()
+	crowd.advance()
+	fx.advance()
+	hud.advance()
+	for v in views:
+		v.refresh()
+	shake *= 0.82
+	_update_camera()
+	_update_letterbox()
+	var sh := shake * shake_scale
+	camera.offset = Vector2.ZERO if sh <= 0.3 else Vector2(randf_range(-sh, sh), randf_range(-sh, sh)).round()
+	flash_rect.color.a = maxf(0.0, flash_rect.color.a - 0.04)
+	if intro.finished():
+		_end_intro()
+
+
+## The intro is over (or skipped): the fight camera eases on from where the intro left
+## it, the HUD comes back, and the round's banners start on the next tick.
+func _end_intro() -> void:
+	if intro == null:
+		return
+	_cam_zoom = intro.zoom
+	_cam_follow = intro.focus
+	_cam_lead = Vector2.ZERO
+	_drop_intro()
+
+
+## Takes the intro off without touching the camera (a new match, the menu).
+func _drop_intro() -> void:
+	if intro == null:
+		return
+	intro.queue_free()
+	intro = null
+	hud.cinema = false
+	for v in views:
+		v.intro_clock = -1
+		v.victory = false
 
 
 ## Big maps: arrows at the screen's edge toward objectives out of shot (the caravan, the
@@ -2860,12 +3053,23 @@ static func _cam_axis(v: float, half: float, arena: float, lo := 0.0, hi := 0.0)
 # ------------------------------------------------------------------ input
 
 func _input(event: InputEvent) -> void:
+	if intro != null and _skips_intro(event):
+		_end_intro()
+		get_viewport().set_input_as_handled()  # the press only skips (Esc doesn't also pause)
+		return
 	if not (event is InputEventMouseMotion):
 		_join_cpus()  # a press may change the match (a reset, a swap) while the CPUs read it
 	var before := player_input.label_set()
 	player_input.note_event(event)
 	if player_input.label_set() != before:
 		_apply_device()
+
+
+## Any button skips the arena intro: a key, a controller button, a mouse click.
+static func _skips_intro(event: InputEvent) -> bool:
+	if event is InputEventKey:
+		return event.pressed and not event.echo
+	return (event is InputEventJoypadButton or event is InputEventMouseButton or event is InputEventAction) and event.pressed
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -3153,6 +3357,9 @@ func _setting(key: String) -> Dictionary:
 		"dummy_mode":
 			return {"label": "Dummy", "values": DUMMY_MODES, "index": dummy_mode,
 				"desc": "What the dummy does (F2 cycles it in a fight)"}
+		"intros":
+			return {"label": "Match intros", "values": ["Off", "On"], "index": 1 if match_intros else 0,
+				"desc": "Before an offline match: a fly-over of the arena and each side's entrance (any button skips it)"}
 		"rumble":
 			return {"label": "Controller rumble", "values": ["Off", "On"], "index": 1 if rumble else 0,
 				"desc": "A buzz when you land a hit or get hit"}
@@ -3216,6 +3423,8 @@ func _set_setting(key: String, i: int) -> void:
 			"vsync":
 				vsync = i == 1
 				_apply_vsync()
+			"intros":
+				match_intros = i == 1
 			"rumble":
 				rumble = i == 1
 				if rumble and player_input.device == PlayerInput.Device.GAMEPAD:
@@ -3501,6 +3710,7 @@ func _load_settings() -> void:
 		wide_fill = bool(cfg.get_value("video", "wide_fill", true))
 		_apply_aspect()
 		rumble = bool(cfg.get_value("game", "rumble", true))
+		match_intros = bool(cfg.get_value("game", "intros", true))
 		discord_status = bool(cfg.get_value("game", "discord", true))
 		shake_scale = float(cfg.get_value("game", "shake", 1.0))
 		range_rings = bool(cfg.get_value("game", "range_rings", false))
@@ -3546,6 +3756,7 @@ func _save_settings() -> void:
 	cfg.set_value("video", "perf_overlay", perf_overlay.mode)
 	cfg.set_value("video", "font", "smooth" if UiTheme.smooth else "pixel")
 	cfg.set_value("game", "rumble", rumble)
+	cfg.set_value("game", "intros", match_intros)
 	cfg.set_value("game", "shake", shake_scale)
 	cfg.set_value("game", "range_rings", range_rings)
 	for k in MatchSim.TRAINING_FLAGS:
@@ -3609,6 +3820,10 @@ func _parse_args() -> int:
 			start = 4
 		elif a == "--hitboxes":
 			debug.visible = true
+		elif a == "--intro":
+			_intro_arg = 1
+		elif a == "--no-intro":
+			_intro_arg = -1
 		elif a == "--range-rings":
 			range_rings = true
 		elif a.begins_with("--mode="):
