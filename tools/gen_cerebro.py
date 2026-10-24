@@ -175,11 +175,16 @@ class Cam:
         else:
             self.cam = np.array([0.0, 0.0, -1.0])
 
-    @staticmethod
-    def depth_y(f):
-        # Barkley's flattening of the body's own roundness, with the near zone sized
-        # to the brain, so the sunglasses stay on the face instead of sliding down.
-        k, near = 0.35, 18.0
+    # Barkley's flattening of the body's own roundness, with the near zone sized to the
+    # brain, so the sunglasses stay on the face instead of sliding down. The diagonals get
+    # a smaller near zone (the reactions batch): with 18 there, a tool floated or thrown a
+    # short way toward or away from the camera was flattened into a sideways move; at 12 it
+    # reads along the facing diagonal and the sunglasses stay on the face.
+    NEAR = {"down_side": 12.0, "up_side": 12.0}
+    NEAR_DEFAULT = 18.0
+
+    def depth_y(self, f):
+        k, near = 0.35, self.NEAR.get(self.view, self.NEAR_DEFAULT)
         a = np.abs(f)
         g = np.where(a <= near, a * k, near * k + (a - near))
         return np.sign(f) * g
@@ -951,50 +956,109 @@ def hover(k, n, amp=1.2):
     return HOVER + amp * math.sin(2.0 * math.pi * k / n)
 
 
+# ------------------------------------------------------------------ reactions
+# The reactions batch (cerebro_motion_plan.md, "Reactions"): hurt 2 -> 4, guard 2 -> 4, the
+# knockout 4 -> 8, on the clocks creature_view.gd plays them at. The brain takes the blow
+# first (a 10% squash, then a wobble that settles over 2 frames: jelly), the kit follows on
+# its own lags (TOOL_LAG: the knives and the cleaver 1 frame, the spatula 2, the mallet 3).
+
+HURT_FLING = (0.15, 0.7, 1.0, 0.55)   # how far the blow throws the kit out, per frame (a loop)
+
+
+def _lagged_kit(curve, k, n, spin=40.0, drop=5.0, out=0.38, loop=True):
+    """The rest kit thrown out from the brain by `curve`, each tool reading it TOOL_LAG
+    frames late (the mallet last), spinning and sagging as it goes."""
+    tools = {}
+    for name in REST:
+        j = k - TOOL_LAG.get(name, 1)
+        c = curve[j % len(curve)] if loop else curve[max(0, j)]
+        tools[name] = kit(k, n, scale=1.0 + out * c, spin=spin * c, move=(0.0, -drop * c, 0.0))[name]
+    return tools
+
+
 def hurt():
-    """Knocked back: he reels, shades askew, and his grip on the kit slips."""
-    return [
-        P(pitch=-12, shift=-2.0, glasses="askew", tail=-0.6, tools=kit(0, 2, scale=1.15, spin=20.0)),
-        P(pitch=-16, roll=18, shift=-3.0, lift=HOVER - 1.0, glasses="down", tail=-1.0,
-          tools=kit(1, 2, scale=1.3, spin=35.0, move=(0.0, -4.0, 0.0))),
-    ]
+    """Hurt, 4 frames (looped at 4 ticks in hitstun; frame 0 also plays in the first half of
+    a launch and when getting up, frame 1 is held in a crumple): 0 the blow, the brain
+    snapped back and squashed, the shades knocked askew, the kit still where it was; 1 the
+    reel (the old crumple pose), the brain springing back stretched, the knives thrown out,
+    the mallet not yet; 2 the brain wobbling, the kit at its widest (the mallet last); 3 the
+    kit drifting back in, so the loop's next blow lands on a settling kit."""
+    out = []
+    poses = (dict(pitch=-14, shift=-2.5, squash=0.90, glasses="askew", tail=-0.6),
+             dict(pitch=-16, roll=18, shift=-3.0, lift=HOVER - 1.0, squash=1.06, glasses="down", tail=-1.0),
+             dict(pitch=-10, roll=10, shift=-2.6, lift=HOVER - 1.5, squash=0.96, glasses="down", tail=-0.4),
+             dict(pitch=-12, roll=4, shift=-2.2, lift=HOVER - 0.5, squash=1.0, glasses="askew", tail=-0.7))
+    for i, kw in enumerate(poses):
+        out.append(P(tools=_lagged_kit(HURT_FLING, i, 4), **kw))
+    return out
+
+
+GUARD_WALL = {
+    "cleaver": ((-7.0, 20.0, 29.0), (95.0, 55.0, 25.0)),
+    "spatula": ((7.0, 22.0, 30.0), (95.0, 55.0, -25.0)),
+    "mallet": ((0.0, 40.0, 25.0), (95.0, 55.0, 0.0)),
+}
 
 
 def guard():
-    """Guarding: the cleaver, spatula and mallet swing in front of him into a wall, flat
-    faces to the foe."""
-    wall = {
-        "cleaver": ((-7.0, 20.0, 29.0), (95.0, 55.0, 25.0)),
-        "spatula": ((7.0, 22.0, 30.0), (95.0, 55.0, -25.0)),
-        "mallet": ((0.0, 40.0, 25.0), (95.0, 55.0, 0.0)),
-    }
+    """Guard, 4 frames (the view shows 0 while he holds it and 1 for the 10 ticks after a
+    block; 2 and 3 wait for the view, see the motion plan): 0 the hold, the cleaver, spatula
+    and mallet swung in front of him into a wall, flat faces to the foe; 1 the jolt, the
+    wall knocked back into him, the brain squashed, the shades askew; 2 the shiver, the
+    tools rattling back out of step (the cleaver first, the mallet last); 3 the brace, the
+    wall swinging into place from the kit's rest."""
     g = dict(psy=0.8, squash=0.93, pitch=-4, active=("cleaver", "spatula", "mallet"))
-    hit = {k: ((v[0][0], v[0][1], v[0][2] - 3.0), v[1]) for k, v in wall.items()}
-    return [P(tools=kit(0, 2, wall, scale=0.85), **g),
-            P(tools=kit(1, 2, hit, scale=0.85), shift=-2.0, glasses="askew", **g)]
+
+    def wall(d):
+        return {k: ((v[0][0], v[0][1], v[0][2] + d.get(k, 0.0)), v[1]) for k, v in GUARD_WALL.items()}
+    brace = {k: S._blend(kit(3, 4)[k], v, 0.6) for k, v in GUARD_WALL.items()}
+    return [P(tools=kit(0, 4, wall({}), scale=0.85), **g),
+            P(tools=kit(1, 4, wall({"cleaver": -3.0, "spatula": -3.0, "mallet": -3.0}), scale=0.85),
+              **dict(g, squash=0.88, shift=-2.0, glasses="askew")),
+            P(tools=kit(2, 4, wall({"cleaver": 1.5, "spatula": -0.5, "mallet": -2.0}), scale=0.85),
+              **dict(g, squash=0.97, shift=-0.8)),
+            P(tools=kit(3, 4, brace, scale=0.92), **dict(g, psy=0.55, squash=0.96, pitch=-2))]
+
+
+KO_FLOOR = {
+    "cleaver": ((-17.0, 1.0, 22.0), (0.0, -20.0, 90.0)),
+    "spatula": ((16.0, 1.2, -20.0), (0.0, 160.0, 90.0)),
+    "mallet": ((12.0, 2.0, 8.0), (0.0, 40.0, 0.0)),
+    "k1": ((-8.0, 0.8, 32.0), (0.0, 10.0, 90.0)),
+    "k2": ((5.0, 0.8, 30.0), (0.0, -30.0, 90.0)),
+    "k3": ((19.0, 0.8, 16.0), (0.0, 60.0, 90.0)),
+}
 
 
 def ko():
-    """Out cold: his mind lets go, the kit clatters to the floor, and the brain sinks
-    after it and deflates."""
-    floor = {
-        "cleaver": ((-17.0, 1.0, 22.0), (0.0, -20.0, 90.0)),
-        "spatula": ((16.0, 1.2, -20.0), (0.0, 160.0, 90.0)),
-        "mallet": ((12.0, 2.0, 8.0), (0.0, 40.0, 0.0)),
-        "k1": ((-8.0, 0.8, 32.0), (0.0, 10.0, 90.0)),
-        "k2": ((5.0, 0.8, 30.0), (0.0, -30.0, 90.0)),
-        "k3": ((19.0, 0.8, 16.0), (0.0, 60.0, 90.0)),
-    }
+    """Knocked out, 8 frames at 6 ticks (side only; the knockdown shows 1 then 2): 0 the
+    blow, the brain snapped back and squashed, the kit starting to drop; 1 a last lift as
+    his mind lets go, the kit falling (the knives first, the mallet last); 2 the brain hits
+    the floor, squashed flat, the kit clattering down around him; 3 a jelly bounce, the
+    tools hopping on the floor, the sunglasses off (the game skids them away); 4 down
+    again; 5-7 the brain sinks and deflates, the last wobble going out of it."""
+    floor = KO_FLOOR
     falling = {k: ((v[0][0], v[0][1] * 0.45 + 2.0, v[0][2]), (v[1][0] * 0.4, v[1][1], v[1][2] + 50.0))
                for k, v in kit(0, 4).items()}
+    high = {k: ((v[0][0], v[0][1] - 4.0, v[0][2]), (v[1][0], v[1][1], v[1][2] + 25.0)) for k, v in kit(1, 4).items()}
+    # each tool reaches the floor on its own lag: 1 frame for the light ones, 3 for the mallet
+    def drop(k):
+        return {n: (high[n] if k < TOOL_LAG.get(n, 1) else falling[n] if k == TOOL_LAG.get(n, 1) else floor[n])
+                for n in floor}
+    hop = {"cleaver": 2.5, "k1": 1.5, "spatula": 1.0, "k3": 2.0}   # the clatter: tools hopping on the floor
+    bounced = {n: ((v[0][0], v[0][1] + hop.get(n, 0.0), v[0][2]), (v[1][0] + 6.0 * hop.get(n, 0.0), v[1][1], v[1][2]))
+               for n, v in floor.items()}
     return [
-        P(pitch=-14, lift=HOVER - 3.0, glasses="askew", tools=kit(0, 4, move=(0.0, -9.0, 0.0), spin=30.0)),
-        P(roll=25, lift=HOVER - 8.0, glasses="down", tools=falling),
-        P(squash=0.8, roll=50, lift=0.0, glasses="down", tools=floor),
+        P(pitch=-16, lift=HOVER - 1.5, squash=0.9, glasses="askew", tools=kit(0, 4, move=(0.0, -3.0, 0.0), spin=20.0)),
+        P(pitch=-8, roll=12, lift=HOVER + 1.5, squash=1.07, glasses="down", tail=-0.8, tools=drop(1)),
+        P(roll=40, lift=0.0, squash=0.76, stretch=1.03, glasses="down", tools=drop(2)),
+        P(roll=55, lift=2.5, squash=1.0, stretch=0.98, glasses="off", tools=dict(drop(3), **{
+            n: bounced[n] for n in hop})),
+        P(roll=62, lift=0.0, squash=0.78, stretch=1.03, glasses="off", tools=floor),
+        P(roll=66, lift=0.0, squash=0.70, stretch=1.05, glasses="off", tools=floor),
+        P(roll=69, lift=0.0, squash=0.65, stretch=1.07, glasses="off", tools=floor),
         P(squash=0.62, stretch=1.08, roll=70, lift=0.0, glasses="off", tools=floor),
     ]
-
-
 
 
 def sheet(view, rows, fw, fh, origin):
