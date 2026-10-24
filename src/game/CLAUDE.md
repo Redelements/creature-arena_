@@ -38,7 +38,12 @@ player and live here, outside the sim.
   why a match ended → `_over_by` (the sim's `duel_over` `by`) and `_over_reason`; `_row_choice` is saved by label
 - Camera → `_update_camera`, `_frame_fight`, `_cam_axis`; `CAM_PAD`, `KO_ZOOM`, `SHOWCASE_ZOOM`;
   on a map bigger than the stadium it follows the local player (`_cam_anchor`, `FOLLOW_R`,
-  `FOLLOW_ZOOM`, `BIG_MAP_MIN_ZOOM`)
+  `FOLLOW_ZOOM`, `BIG_MAP_MIN_ZOOM`); look-ahead `_lead_of` / `_lead_room` (`LEAD_*`, never
+  pushes a fighter out of shot; a big map leads with the followed player only); the exchange
+  push-in `_note_exchange` (`EXCHANGE_*`, from hit/block events in `_react`); the KO push-in
+  `ko_push` (`KO_PUSH_*`, `KO_HOLD_UNTIL`); the letterbox `_update_letterbox` →
+  `src/view/letterbox.gd` (KO push-in and a freezing Surge's `_surge_bars`). All per tick, no
+  interpolation between ticks
 - Add a setting → `SETTING_PAGES` + `_setting(key)` + `_set_setting(key, i)` +
   `_add_setting_row`; persistence `_load_settings` / `_save_settings`; a Controls-page
   setting (like `range_rings`) is added in `_open_controls`
