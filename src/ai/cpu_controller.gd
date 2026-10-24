@@ -41,8 +41,8 @@ const STYLES := {
 	"assassin": {"plan": "lurk", "target": "weakest", "defense": "evade"},
 	"tank": {"plan": "press", "target": "peel", "defense": "guard"},
 	"bruiser": {"plan": "press", "target": "nearest", "defense": "guard"},
-	"skirmisher": {"plan": "skirmish", "target": "nearest", "defense": "evade"},
-	"fighter": {"plan": "footsie", "target": "nearest", "defense": "mixed"},
+	"skirmisher": {"plan": "skirmish", "target": "nearest", "defense": "evade", "weights": {"poke": 1.0}},
+	"fighter": {"plan": "footsie", "target": "nearest", "defense": "mixed", "weights": {"poke": 1.0}},
 }
 
 const ACTION_BIT := {
@@ -119,6 +119,8 @@ var _cover_t := 0  ## ticks until the cover spot is looked for again
 var _step_dir := Vector2.ZERO
 var _kit_t := 0
 var scored: bool = scored_default
+## Extra px a scored kiter keeps its near edge out (`_give_ground`); 0 otherwise.
+var _give := 0.0
 var _dance_t := 0
 var _blocked_serial := -1  ## the attack of ours that was last blocked
 var _blocked_streak := 0  ## attacks of ours blocked in a row (a hit resets it)
@@ -1592,6 +1594,7 @@ func _rage_neutral_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe:
 		_chase(sim, me, foe, to_foe, dist, reach)
 		return
 
+	_give = _give_ground(me, foe, to_foe) if scored and plan == "kite" else 0.0
 	match plan:
 		"kite":
 			_plan_kite(sim, me, foe, to_foe, dist, danger)
@@ -1691,7 +1694,9 @@ func _fire_lob(me: CreatureSim, foe: CreatureSim, lob: String) -> void:
 # style's "weights", then the creature's ai.weights.
 
 const SCORE_MIN := 0.3
-const WEIGHTS := {"surge": 1.0, "lob": 0.8, "gaze": 0.8, "zone": 0.9, "poke": 0.7}
+const WEIGHTS := {"surge": 1.0, "lob": 0.8, "gaze": 0.8, "zone": 0.9, "poke": 0.7, "give_ground": 1.0}
+## How far a kiter giving ground keeps the near edge of its band out.
+const GIVE_PX := 24.0
 ## The class triangle: assassin > mage > fighter/tank (and bruiser, skirmisher) > assassin.
 const BEATS := {"assassin": ["mage"], "mage": ["fighter", "tank", "bruiser", "skirmisher"],
 	"fighter": ["assassin"], "tank": ["assassin"], "bruiser": ["assassin"], "skirmisher": ["assassin"]}
@@ -1769,17 +1774,17 @@ func _score_candidates(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe:
 	var w := _weights(me)
 	var out: Array = []
 	var closing := f_closing(foe, to_foe)
-	# Surge: an area one with the foe close (and stuck), a line one with the foe in range.
+	# Surge: the ladder's rule (an area one with the foe close, and stuck unless very close;
+	# a line one with the foe in range), scored 1 so it comes first as it did there: a Surge
+	# thrown on a free foe is a long cooldown wasted.
+	var busy := _recovery_left(foe) >= 6 or foe.is_stunned() or foe.state == CreatureSim.State.GUARD
 	if _usable(me, "surge"):
-		var best := 0.0
 		var sr := _surge_range(me, ai)
-		if sr > 0.0 and dist < sr and not (me.moves()["surge"].has("armor") and _foe_grab_ready(foe)):
-			best = compensate(f_band(dist, 0.0, sr * 0.65, sr * 0.35) * maxf(0.5, f_busy(foe, 6)), 2)
 		var sl := float(ai.get("surge_line", 0))
-		if sl > 0.0 and dist < sl * 0.85:
-			best = maxf(best, compensate(f_band(dist, 0.0, sl * 0.5, sl * 0.35) * maxf(0.5, f_busy(foe, 6)), 2))
-		if best > 0.0:
-			out.append(["surge", best * float(w["surge"])])
+		if (sr > 0.0 and dist < sr * (1.0 if busy else 0.65)
+				and not (me.moves()["surge"].has("armor") and _foe_grab_ready(foe))) \
+				or (sl > 0.0 and dist < sl * 0.85 and (busy or dist < sl * 0.5)):
+			out.append(["surge", float(w["surge"])])
 	var lob := String(ai.get("lob", ""))
 	var lr: Array = ai.get("lob_range", [0, 0])
 	if lob != "" and _usable(me, lob) and dist >= float(lr[0]) and dist <= float(lr[1]):
@@ -1802,8 +1807,19 @@ func _score_candidates(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe:
 	var pr: Array = ai.get("poke_range", [0, 0])
 	if poke != "" and plan != "lurk" and _usable(me, poke) and dist >= float(pr[0]) and dist <= float(pr[1]):
 		var into := 0.0 if plan == "press" else closing
-		out.append(["poke", maxf(f_busy(foe, 6), into) * float(w["poke"]) * _jitter()])
+		# Footsies and skirmishes poke in neutral too (the ladder's 20% roll).
+		var free := 0.35 if plan in ["footsie", "skirmish"] else 0.0
+		out.append(["poke", maxf(maxf(f_busy(foe, 6), into), free) * float(w["poke"]) * _jitter()])
 	return out
+
+
+## Movement for a kiter: hold its band ("kite") or give ground ("give_ground": the band's
+## near edge GIVE_PX further out) when a foe walks in that wins the class matchup, the more
+## when behind on health. Returns the px to add to the near edge.
+func _give_ground(me: CreatureSim, foe: CreatureSim, to_foe: Vector2) -> float:
+	var w := _weights(me)
+	var s := f_closing(foe, to_foe) * lerpf(1.0, 0.4, f_matchup(me, foe)) * lerpf(1.2, 0.8, f_hp_edge(me, foe))
+	return GIVE_PX if minf(1.0, s) * float(w["give_ground"]) > SCORE_MIN else 0.0
 
 
 func _jitter() -> float:
@@ -1934,8 +1950,8 @@ func _kite_vector(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> Vector2:
 	var to_foe := _seen(foe) - me.pos
 	var dist := to_foe.length()
 	var band := kite_band(me, foe)
-	var lo := band.x
 	var hi := band.y
+	var lo := minf(band.x + _give, hi - 8.0)
 	if dist < lo:
 		return _open_dir(sim, me, -to_foe) + _orbit_dir(sim, me, foe, hi) * 0.25
 	if dist > hi:
