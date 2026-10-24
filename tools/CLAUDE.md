@@ -9,8 +9,8 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   docstring and `docs/SPRITES.md`, "Palette"). `ramp(name, shift)`, `ramp_for(rgb)`,
   `ink_for`, `nearest` / `snap` (images, dithered) / `snap_ramp` (arena ramps);
   `python3 tools/palette.py` redraws `docs/palette.png`. The splat3d rigs and the arenas
-  use it; the five custom renderers (Cerebro, Hissy, Barkley, Gillbert, Craglash) and
-  `gen_sprites.py` aren't ported yet.
+  use it, and so does Craglash's 2D shader; the other custom renderers (Cerebro, Hissy,
+  Barkley, Gillbert) and `gen_sprites.py` aren't ported yet.
 - `splat3d.py`: the shared renderer (pose a 3D rig, sample parts as points, splat per view,
   ramp-shade from the master palette with a rim light, outline in each material's ink).
   Prefer this shape for new fighters, like `gen_digby.py`: `build(pose, view)`, a `MAT`
@@ -21,7 +21,10 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
 - `gen_cerebro.py`, `gen_hissy.py`: point-sampling rigs with their own copy of the splat code.
 - `gen_barkley.py`, `gen_gillbert.py`, `gen_craglash.py`: older (Barkley/Gillbert project a
   3D rig per view; Craglash is a 2D IK puppet whose renderer rounds to whole pixels in
-  `whole_pixels()`, so its poses may hold floats; its up/down sheets come from `VRig`, its
+  `whole_pixels()`, so its poses may hold floats; it shades each layer from palette ramps
+  with splat3d's steps and rim light (`shade`), draws outlines as per-material markers
+  that `finish()` turns into ink on the silhouette and the deep step on seams, so every
+  `render*` must end in `finish()`; its up/down sheets come from `VRig`, its
   diagonals from `DRig`, which turns the VRig's 3D reading 45 degrees: `docs/SPRITES.md`).
 - `gen_sprites.py`: placeholders (Cairn, dummy, tiles, crowd). `gen_arenas.py`: each map's
   whole picture (stands on all sides: `_stands`, `_side_stands`, `_front_stands`, in step with

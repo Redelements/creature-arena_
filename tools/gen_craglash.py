@@ -11,10 +11,12 @@ shaded and outlined on its own layer. Every frame is one pose (a dict of where t
 hands and head go), so new animations are a list of poses. See docs/SPRITES.md for the
 row layout.
 
-Shading is cel-style from a distance field: each part's pixels know how far they are
-from the part's edge and which way the edge faces, so a limb gets a lit rim on the top
-left, a two-tone shadow on the bottom right and a flat base in between, like hand
-pixelled art. Fur strokes, the pale cracks across the chest and forearms and the mane's
+Colours are master-palette ramps (tools/palette.py) and the shading is splat3d's, ported
+to 2D (`shade`): each part's distance field gives a pillow normal, so a limb gets a small
+highlight and the light step on the top left, the base, a hard terminator, one dark step
+on the bottom right and a one-pixel rim light on its shadowed edge. Outlines are markers
+until `finish()` turns them into each material's ink on the silhouette and its deep step
+on the seams inside it. Fur strokes, the pale cracks across the chest and forearms and the mane's
 grey streaks are drawn in each part's own coordinates so they stay put as he moves.
 
 This is a recreation for the soft launch; when the artist delivers final sprites in
@@ -28,6 +30,9 @@ import sys
 import numpy as np
 from PIL import Image, ImageDraw
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import palette as PAL  # noqa: E402  (the master palette; P is the pose constructor here)
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 OUT = os.path.join(ROOT, "assets", "sprites", "craglash.png")
 PREVIEW = os.path.join(ROOT, "docs", "craglash_preview.png")
@@ -36,36 +41,66 @@ F = 96  # frame size
 COLS = 12  # the stomp, Mountain Maw, Bedrock and Landslide Charge have 12 frames
 OX, OY = 34, 90  # feet origin inside the frame
 
-# Palette, sampled from the character sheet. Materials carry five tones:
-# highlight, light, base, dark, deep.
+# Palette: every colour is from the master palette (tools/palette.py, docs/SPRITES.md
+# "Palette"). A shaded material is a five-step ramp, deep, dark, base, light, highlight:
+# the shader paints with the top four, the deep step is for seams and the darkest details.
+_L = PAL.LINES
 MAT = {
-    "body": [(232, 176, 162), (208, 140, 130), (180, 102, 98), (138, 68, 70), (100, 46, 50)],
-    "mane": [(178, 112, 102), (150, 88, 82), (120, 66, 62), (88, 46, 46), (60, 28, 30)],
-    "stone": [(224, 222, 218), (186, 184, 182), (142, 140, 140), (102, 100, 104), (72, 68, 74)],
+    # the clay-red hide: the rust ramp one step lighter. That window runs off the rust
+    # line's top, so its highlight is the pale rose of the pink line, the nearest hue (the
+    # earth line's tan read as yellow blotches); and its deep (seam) step is the rust
+    # line's darkest, two steps under the dark one, so an arm in front of the chest still
+    # parts from it as clearly as the old near-black seams did.
+    "body": [_L["rust"][0]] + [tuple(c) for c in PAL.ramp("rust", 1)[1:4]] + [_L["pink"][3]],
+    # the mane one step darker than the hide, on the same line
+    "mane": [tuple(c) for c in PAL.ramp("rust")],
+    # the neck's stone slabs and the back's plates
+    "stone": [tuple(c) for c in PAL.ramp("stone")],
 }
+# Each material's silhouette ink (palette.ink_for: umber for the hide and mane, the plain
+# blue-black ink for stone) and its seam colour one step lighter: the deep step.
+INK = {m: tuple(PAL.ink_for(r)) for m, r in MAT.items()}
+SEAM = {m: r[0] for m, r in MAT.items()}
 C = {
-    "outline": (34, 16, 18, 255),
-    "stone_rim": (92, 46, 50, 255),
-    "crack": (170, 182, 204, 255),
-    "crack_d": (126, 136, 158, 255),
-    "gem": (104, 118, 224, 255),
-    "eye": (255, 206, 24, 255),
-    "eye_d": (216, 140, 16, 255),
-    "pupil": (26, 10, 10, 255),
-    "mouth": (228, 26, 32, 255),
-    "mouth_d": (126, 12, 24, 255),
-    "fang": (246, 238, 230, 255),
-    "glow": (255, 200, 96, 255),
+    "outline": INK["mane"] + (255,),           # brows, lids, the line under a roar
+    "crack": _L["steel"][4] + (255,),          # the pale stone veins
+    "crack_d": _L["steel"][3] + (255,),
+    "gem": _L["blue"][4] + (255,),
+    "eye": _L["gold"][2] + (255,),
+    "eye_d": _L["gold"][1] + (255,),
+    "pupil": _L["neutral"][1] + (255,),
+    "mouth": _L["red"][2] + (255,),
+    "mouth_d": _L["red"][0] + (255,),
+    "fang": _L["neutral"][8] + (255,),
+    "glow": _L["orange"][4] + (255,),          # Bedrock and the charge light the veins
 }
 for _m, _tones in MAT.items():
-    C[_m + "_hi"], C[_m + "_l"], C[_m], C[_m + "_d"], C[_m + "_dd"] = [t + (255,) for t in _tones]
+    C[_m + "_dd"], C[_m + "_d"], C[_m], C[_m + "_l"], C[_m + "_hi"] = [t + (255,) for t in _tones]
 C["body_l2"] = C["body_l"]  # kept for callers that name the belly tone
+# Outlines are drawn in a marker colour per material (off the palette) and resolved on the
+# finished frame by finish(): the material's ink where the line meets the outside, its
+# seam colour where it falls inside the silhouette (a piece passing in front of another).
+_MARK = {m: (1, 2, 3 + k, 255) for k, m in enumerate(MAT)}
+_MARK_OF = {v[:3]: m for m, v in _MARK.items()}
 
 
 # ------------------------------------------------------------------ layer helpers
 
 FH = None  # frame height when it differs from the width (the up/down sheets)
-LIGHT = (-0.62, -0.78)  # from the top left
+# The key light, from the top left and in front (splat3d.LIGHT), normalised.
+_LV = np.array((-0.55, -0.7, 0.45))
+_LV = _LV / np.linalg.norm(_LV)
+LIGHT = (float(_LV[0]), float(_LV[1]))  # its direction on screen
+# Ramp thresholds, the same steps as splat3d.shade: a small highlight, light, base, a hard
+# terminator, one dark step for the core shadow; the rim light lifts the shadowed far edge
+# one step. The numbers sit a little higher than splat3d's (0.90, 0.45, -0.12) because the
+# pillow normals below face the camera more than a real 3D rig's: these give the same
+# split, the light step on the upper-left third, base in the middle, the core shadow on
+# the lower right.
+LUM_HIGH = 0.97
+LUM_LIGHT = 0.72
+LUM_SHADOW = 0.10
+RIM_SIDE = 0.25
 
 
 def layer():
@@ -96,56 +131,120 @@ def dist_field(m, cap=6):
     return dist
 
 
-def shade(img, mat, band=None, flat=False):
-    """Cel-shades a filled shape in the material's five tones.
+def _blur(a):
+    """3x3 box blur (zero outside)."""
+    out = np.zeros_like(a)
+    for dx in (-1, 0, 1):
+        for dy in (-1, 0, 1):
+            out += _shift(a, dx, dy)
+    return out / 9.0
 
-    The edge pixels face outward along the gradient of the distance field; those that
-    face the light get the light tone (the highlight where they face it squarely) and
-    those facing away get the dark tone, deep in the crease. Bands are wider on big
-    parts. `flat` keeps the base tone everywhere but a one-pixel rim."""
+
+def _despeckle(level, m, passes=2):
+    """A lone pixel whose step none of its four neighbours share takes the step most of
+    them have (as splat3d._despeckle), so light and shadow edges stay clean."""
+    for _ in range(passes):
+        same = np.zeros(level.shape, np.int8)
+        votes = np.zeros(level.shape + (5,), np.int8)
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            nl = _shift(np.where(m, level, -1).astype(np.int8) + 1, dx, dy).astype(np.int8) - 1
+            ok = m & (nl >= 0)
+            same += (ok & (nl == level)).astype(np.int8)
+            for k in range(5):
+                votes[..., k] += (ok & (nl == k)).astype(np.int8)
+        lone = m & (same == 0) & (votes.max(axis=2) >= 2)
+        if not lone.any():
+            break
+        level = np.where(lone, votes.argmax(axis=2).astype(np.int8), level)
+    return level
+
+
+def shade(img, mat, band=None, flat=False):
+    """Ramp-shades a filled shape from its material's ramp, the 2D port of splat3d.shade.
+
+    Each pixel gets a normal as if the part were a rounded pillow: its screen direction
+    is the outward gradient of the (smoothed) distance from the edge, and it tilts toward
+    the camera with the distance in, so the middle faces us and the edge faces out. Lit
+    by the key light from the top left, that gives a small highlight and the light step
+    on the upper left, the base, a hard terminator and one dark step on the lower right,
+    then a one-pixel rim light (one step up) on the shadowed edge facing away from the
+    light, and a cleanup of lone pixels. `band` > 1 rounds a part over a wider rim (the
+    default rounds it over its whole half-width); `flat` is a flat face with a one-pixel
+    bevel (the neck's stone slabs): base inside, light and dark on the edge only."""
     a = np.array(img)
     m = a[:, :, 3] > 0
     if not m.any():
         return img
-    hi, light, base, dark, deep = [C[mat + s] for s in ("_hi", "_l", "", "_d", "_dd")]
-    dist = dist_field(m)
+    r5 = MAT[mat]
+    dist = dist_field(m, cap=8)
     dmax = int(dist.max())
-    if band is None:
-        band = 1 if dmax <= 2 else 2 if dmax <= 4 else 3
-    if flat:
-        band = 1
-    df = dist.astype(float)
-    df[~m] = -1.0
-    gx = _shift(df, 1, 0) - _shift(df, -1, 0)
-    gy = _shift(df, 0, 1) - _shift(df, 0, -1)
+    df = dist.astype(float) + 1.0
+    df[~m] = 0.0
+    sm = _blur(_blur(df))
+    gx = _shift(sm, 1, 0) - _shift(sm, -1, 0)
+    gy = _shift(sm, 0, 1) - _shift(sm, 0, -1)
     ln = np.hypot(gx, gy)
     ln[ln == 0] = 1.0
-    nx, ny = -gx / ln, -gy / ln  # outward normal
-    lit = nx * LIGHT[0] + ny * LIGHT[1]
+    nx, ny = -gx / ln, -gy / ln  # outward, on screen
+    toward = nx * LIGHT[0] + ny * LIGHT[1]  # > 0: the edge faces the light
+    level = np.full(m.shape, 2, np.int8)
+    if flat:
+        edge = m & (dist == 0)
+        level[edge & (toward > 0.3)] = 3
+        level[edge & (toward < -0.3)] = 1
+    else:
+        rad = float(dmax + 1)
+        if band is not None:
+            rad = min(rad, float(band) + 1.0)
+        s = np.clip((rad - dist - 0.5) / rad, 0.0, 0.96)  # sine of the tilt away from us
+        nz = np.sqrt(1.0 - s * s)
+        lum = s * toward + nz * _LV[2]
+        level[lum > LUM_LIGHT] = 3
+        level[lum > LUM_HIGH] = 4
+        level[lum < LUM_SHADOW] = 1
+        if dmax < 3 or band is not None:
+            level[level == 4] = 3  # spikes and slivers have no room for a highlight
+    level = _despeckle(level, m)
+    # a highlight is a sheen along the lit side, not a dot: a speck (fewer than four of
+    # its 3x3 block, on the round end of a limb or a corner) goes back to the light step
+    hi = level == 4
+    if hi.any():
+        near = sum(_shift(hi.astype(np.int8), dx, dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1))
+        level[hi & (near < 4)] = 3
+    # rim light: the edge pixels in shadow that face away from the key light
+    rim = m & (dist == 0) & (-toward > RIM_SIDE) & (level <= 1)
+    level[rim] += 1
+    ramp = np.array(r5, np.uint8)
     out = np.zeros_like(a)
-    out[m] = base
-    dk = m & (dist < band) & (lit < -0.2)
-    out[dk] = dark
-    dp = m & (dist < max(1, band - 1)) & (lit < -0.62)
-    out[dp] = deep
-    lt = m & (dist < band) & (lit > 0.3) & ~dk
-    out[lt] = light
-    if dmax >= 2 and not flat:
-        hl = m & (dist < max(1, band - 1)) & (lit > 0.8)
-        out[hl] = hi
-    # The far side of a wide part turns away from the light: a soft core shadow.
-    if dmax >= 4 and not flat:
-        core = m & (dist >= band) & (_shift(dist, -1, -1) >= band) & (_shift(dist, -2, -2) < dist)
-        core &= (_shift(df, 2, 2) < df) & (_shift(df, 3, 3) <= df - 1)
-        out[core & (out == base).all(axis=2)] = dark
+    out[m, :3] = ramp[level[m]]
+    out[m, 3] = 255
     return Image.fromarray(out)
 
 
-def outline(img, color="outline"):
+def outline(img, color="body"):
+    """A one-pixel line round the layer in `color`'s marker: finish() turns it into that
+    material's ink on the silhouette and its seam colour inside it."""
     a = np.array(img)
     m = a[:, :, 3] > 0
     ring = (_shift(m, 1, 0) | _shift(m, -1, 0) | _shift(m, 0, 1) | _shift(m, 0, -1)) & ~m
-    a[ring] = C[color]
+    a[ring] = _MARK[color]
+    return Image.fromarray(a)
+
+
+def finish(img):
+    """The finished frame's lines: each outline marker becomes its material's ink where
+    it touches the outside (the silhouette) and its seam colour, the ramp's deep step one
+    step lighter than the ink, where it lies inside (a piece in front of another)."""
+    a = np.array(img)
+    m = a[:, :, 3] > 0
+    outside = ~(_shift(m, 1, 0) & _shift(m, -1, 0) & _shift(m, 0, 1) & _shift(m, 0, -1))
+    # the frame's own border counts as outside (_shift fills with False there)
+    for key, mat in _MARK_OF.items():
+        mk = m & (a[:, :, 0] == key[0]) & (a[:, :, 1] == key[1]) & (a[:, :, 2] == key[2])
+        if not mk.any():
+            continue
+        a[mk & outside, :3] = INK[mat]
+        a[mk & ~outside, :3] = SEAM[mat]
     return Image.fromarray(a)
 
 
@@ -156,12 +255,52 @@ def clip_to(detail, shape):
     return Image.fromarray(d)
 
 
-def darken(img, k=0.8):
+def _step_map():
+    """Palette colour -> the colour one step darker along its palette line (the hide's
+    dark step to the rust line's next step, not to its deeper seam colour); a ramp colour
+    borrowed from another line (the hide's rose highlight) steps down its ramp instead."""
+    down, line_of = {}, {}
+    for name, cols in PAL.LINES.items():
+        for i, c in enumerate(cols):
+            down.setdefault(tuple(c), tuple(cols[max(0, i - 1)]))
+            line_of.setdefault(tuple(c), name)
+    for r5 in MAT.values():
+        for i in range(1, 5):
+            if line_of.get(r5[i]) != line_of.get(r5[2]):
+                down[r5[i]] = r5[i - 1]
+    return down
+
+
+_DOWN = None
+
+
+def darken(img, k=None):
+    """The far limbs sit in shadow: every palette colour one step down its ramp (so the
+    shading keeps its steps and stays on the palette); outline markers are left alone."""
+    global _DOWN
+    if _DOWN is None:
+        _DOWN = _step_map()
     a = np.array(img)
     m = a[:, :, 3] > 0
-    a[m, :3] = (a[m, :3] * k).astype(np.uint8)
+    if not m.any():
+        return img
+    cols, inv = np.unique(a[m][:, :3], axis=0, return_inverse=True)
+    lut = np.array([_DOWN.get(tuple(int(v) for v in c), tuple(int(v) for v in c)) for c in cols], np.uint8)
+    px = a[m]
+    px[:, :3] = lut[inv.reshape(-1)]
+    a[m] = px
     return Image.fromarray(a)
 
+
+def lighten(img, mask, mat):
+    """One step up `mat`'s ramp where `mask` is set, the light step at most (the belly
+    patch keeps the shading under it, a step lighter)."""
+    a = np.array(img)
+    r5 = MAT[mat]
+    for i in range(2, -1, -1):
+        hit = mask & (a[:, :, :3] == r5[i]).all(axis=2) & (a[:, :, 3] > 0)
+        a[hit, :3] = r5[i + 1]
+    return Image.fromarray(a)
 
 def disc(d, c, r, col):
     d.ellipse([c[0] - r, c[1] - r, c[0] + r, c[1] + r], fill=C[col])
@@ -319,6 +458,19 @@ def draw_spikes(T, spikes, w=5.0):
     return outline(shade(img, "body", band=1))
 
 
+BELLY = [(-7, -3), (-9, -7), (-8, -12), (-4, -15), (0, -16), (4, -15), (8, -12), (9, -7), (7, -3), (0, -2)]
+
+
+def chest(body, T, glow):
+    """The front of the torso: the belly patch one step up the hide's ramp (so the shading
+    carries across it), then torso_details on top."""
+    m = layer()
+    ImageDraw.Draw(m).polygon([T(v) for v in BELLY], fill=C["body"])
+    body = lighten(body, _mask(m), "body")
+    body.alpha_composite(clip_to(torso_details(T, glow), body))
+    return body
+
+
 def torso_details(T, glow, front=True):
     """The chest as on the sheet: a lighter belly with fur, pale cracks, two gems and a
     shaggy band at the hips. `T` maps torso-local points to the frame."""
@@ -326,8 +478,7 @@ def torso_details(T, glow, front=True):
     dd = ImageDraw.Draw(det)
     if front:
         # belly patch
-        belly = [(-7, -3), (-9, -7), (-8, -12), (-4, -15), (0, -16), (4, -15), (8, -12), (9, -7), (7, -3), (0, -2)]
-        dd.polygon([T(v) for v in belly], fill=C["body_l"])
+        # (the belly patch itself is chest()'s: the hide one step lighter)
         for seg in ([(-6, -6), (-4, -5), (-2, -6)], [(1, -5), (3, -4), (5, -5)], [(-3, -10), (-1, -9), (1, -10)]):
             dd.line([T(v) for v in seg], fill=C["body"])
     # a crack down the sternum, then the pale stone veins
@@ -359,7 +510,7 @@ def draw_torso(rig):
     d = ImageDraw.Draw(body)
     d.polygon([T(v) for v in TORSO], fill=C["body"])
     body = shade(body, "body")
-    body.alpha_composite(clip_to(torso_details(T, rig.p.glow), body))
+    body = chest(body, T, rig.p.glow)
     body = outline(body)
     img.alpha_composite(body)
     img.alpha_composite(draw_spikes(T, FLANK, 4.5))
@@ -435,7 +586,7 @@ def draw_arm(rig, i):
         dd.line([a, add(a, (us[0] * 1.5, us[1] * 1.5))], fill=C["body_dd"])
     img.alpha_composite(clip_to(det, img))
     if i == 0:
-        img = darken(img, 0.74)
+        img = darken(img)
     return outline(img)
 
 
@@ -475,7 +626,7 @@ def draw_leg(rig, i):
         dd.line([a, add(a, (uk[0] * 1.5, uk[1] * 1.5))], fill=C["body_dd"])
     img.alpha_composite(clip_to(det, img))
     if i == 0:  # the far leg sits in shadow
-        img = darken(img, 0.74)
+        img = darken(img)
     return outline(img)
 
 
@@ -538,7 +689,7 @@ def stone_disc(center, tangent, f, img_out, along=2.9):
              (center[0] + nx * b * 0.6 + tx * 1.2, center[1] + ny * b * 0.6 + ty * 1.2)], fill=C["stone_d"])
     dd.point((center[0] + nx * b * 0.45 + tx, center[1] + ny * b * 0.45 + ty), fill=C["stone_dd"])
     img.alpha_composite(clip_to(det, img))
-    img_out.alpha_composite(outline(img, "stone_rim"))
+    img_out.alpha_composite(outline(img, "stone"))
 
 
 def draw_neck(rig):
@@ -546,7 +697,7 @@ def draw_neck(rig):
     pts = neck_points(rig)
     for (c, t, f) in pts[:-1]:
         stone_disc(c, t, f, img)
-    return outline(img)
+    return outline(img, "stone")
 
 
 def scattered_neck():
@@ -555,7 +706,7 @@ def scattered_neck():
     spots = [(-4, -8), (2, -7), (23, -7), (29, -8), (35, -7), (18, -6)]
     for k, (x, y) in enumerate(spots):
         stone_disc(O((x, y)), (1.0, 0.25 * (k % 3 - 1)), 0.3, img)
-    return outline(img)
+    return outline(img, "stone")
 
 
 # Head mane: spike radii by angle (0 = forward), fixed so every frame matches. Two
@@ -592,7 +743,7 @@ def head_shape(cx, cy, flare, facing="side"):
     img = layer()
     back = layer()
     ImageDraw.Draw(back).polygon(mane_polygon(cx, cy, MANE_BACK, base_angle, flare), fill=C["mane"])
-    img.alpha_composite(outline(darken(shade(back, "mane", band=1), 0.78)))
+    img.alpha_composite(outline(darken(shade(back, "mane", band=1)), "mane"))
     front = layer()
     d = ImageDraw.Draw(front)
     d.polygon(mane_polygon(cx, cy, MANE_FRONT, base_angle, flare), fill=C["mane"])
@@ -611,7 +762,7 @@ def head_shape(cx, cy, flare, facing="side"):
             seg = [(x, y) if abs(x) > 6 or y < -8 else (x, y - 4) for x, y in seg]
         dd.line([(cx + x, cy + y) for x, y in seg], fill=C["stone_l"])
     front.alpha_composite(clip_to(det, front))
-    img.alpha_composite(outline(front))
+    img.alpha_composite(outline(front, "mane"))
     return img
 
 
@@ -699,7 +850,7 @@ def render(pose):
     for part in parts:
         img.alpha_composite(part)
     img.alpha_composite(draw_head(rig))
-    return img
+    return finish(img)
 
 
 # ------------------------------------------------------------------ up and down views
@@ -789,7 +940,7 @@ def v_torso(vr):
     d.polygon([P(v) for v in TORSO], fill=C["body"])
     body = shade(body, "body")
     if vr.view == "down":
-        body.alpha_composite(clip_to(torso_details(P, vr.p.glow), body))
+        body = chest(body, P, vr.p.glow)
     else:
         det = layer()
         dd = ImageDraw.Draw(det)
@@ -919,7 +1070,7 @@ def v_neck_stones(vr):
         fore = min(1.0, seg2[j] / max(seg3[j], 1e-6))
         lay = layer()
         stone_disc(a, (b[0] - a[0] + 1e-6, b[1] - a[1]), k / max(1, n - 1), lay, along=2.9 + (1.0 - fore) * 2.0)
-        out.append((vr.depth3(pts3[j]), outline(lay)))
+        out.append((vr.depth3(pts3[j]), outline(lay, "stone")))
     return out
 
 
@@ -992,7 +1143,7 @@ def render_view(pose, view):
         lay = layer()
         for k, (lat, fwd) in enumerate([(-14, -6), (-8, 8), (12, 4), (17, -4), (4, 12), (-3, -10)]):
             stone_disc(vr.P((lat, 2, fwd)), (1.0, 0.25 * (k % 3 - 1)), 0.3, lay)
-        parts.append((-100, 0, outline(lay)))
+        parts.append((-100, 0, outline(lay, "stone")))
     for i in (0, 1):
         parts.append((vr.depth(vr.hip3[2]) - 0.5, 1, v_leg(vr, i)))  # tucked under the torso
     parts.append((vr.depth(vr.hip3[2]), 2, v_torso(vr)))
@@ -1007,7 +1158,7 @@ def render_view(pose, view):
     img = layer()
     for _dep, _o, lay in sorted(parts, key=lambda t: (t[0], t[1])):
         img.alpha_composite(lay)
-    return img
+    return finish(img)
 
 
 # ------------------------------------------------------------------ the diagonals
@@ -1090,7 +1241,7 @@ def d_torso(dr):
     body = shade(body, "body")
     if dr.view == "down_side":
         # the chest turns toward forward: down-right
-        body.alpha_composite(clip_to(torso_details(lambda v: P(v, face=1.0, squeeze=0.75), dr.p.glow), body))
+        body = chest(body, lambda v: P(v, face=1.0, squeeze=0.75), dr.p.glow)
     else:
         # the back turns toward the camera, down-left: the spine's stone plates and fur
         B = lambda v: P(v, face=-1.0, squeeze=0.75)  # noqa: E731
@@ -1159,7 +1310,7 @@ def d_leg(dr, i):
     img = shade(img, "body")
     img = finish_claws(img, tips, dirn)
     if i == 0:  # the far leg sits in shadow
-        img = darken(img, 0.74)
+        img = darken(img)
     return outline(img)
 
 
@@ -1194,7 +1345,7 @@ def d_arm(dr, i):
     dd.line(pts, fill=C["crack"])
     img.alpha_composite(clip_to(det, img))
     if i == 0:
-        img = darken(img, 0.74)
+        img = darken(img)
     return outline(img)
 
 
@@ -1291,7 +1442,7 @@ def render_diag(pose, view):
     img = layer()
     for _dep, _o, lay in sorted(parts, key=lambda t: (t[0], t[1])):
         img.alpha_composite(lay)
-    return img
+    return finish(img)
 
 
 # ------------------------------------------------------------------ animations
