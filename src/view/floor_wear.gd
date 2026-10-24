@@ -245,8 +245,8 @@ func _build(g: String) -> ImageTexture:
 			_line(img, o, 2, dv * -9.0 + nv * 2.4 * s, dv * 9.0 + nv * 2.4 * s, furrow, 0.6)
 		_line(img, o, 2, dv * -8.0, dv * 8.0, lip, 0.4, 2)
 		# scuff: a short pale streak with two specks; stuck: a blade standing in the floor (same in every atlas)
-		_line(img, o, 10, dv * -5.0, dv * 3.0, lip, 0.55)
-		_line(img, o, 10, dv * -3.0 + nv * 1.0, dv * 1.0 + nv * 1.0, furrow, 0.5)
+		_line(img, o, 10, dv * -5.0, dv * 3.0, lip, 0.8)
+		_line(img, o, 10, dv * -3.0 + nv * 1.0, dv * 1.0 + nv * 1.0, furrow, 0.75)
 		_px(img, Vector2i(d * CELL + CELL / 2, 10 * CELL + CELL / 2) + Vector2i(roundi(dv.x * 6.0), roundi(dv.y * 6.0)), lip, 0.6)
 		_line(img, o, 11, dv * -4.0, dv * 4.0, Color("2a2628"), 0.9)
 		_line(img, o, 11, dv * -2.0 - nv * 1.0, dv * 4.0 - nv * 1.0, Color("cfd3d8"), 0.9)
@@ -367,7 +367,7 @@ static func _clods(img: Image, o: Vector2i, row: int, furrow: Color, lip: Color,
 ## A splat of venom: a green blob with a darker core and a few flung drops.
 static func _splat(img: Image, o: Vector2i, row: int, rng: RandomNumberGenerator) -> void:
 	var cen := Vector2i(o.x + CELL / 2, row * CELL + CELL / 2)
-	var rx := 3.0 + rng.randf() * 1.5
+	var rx := 4.0 + rng.randf() * 1.5
 	for y in range(-3, 4):
 		for x in range(-5, 6):
 			var u := float(x) / rx

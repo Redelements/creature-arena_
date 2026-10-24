@@ -202,7 +202,7 @@ const LOST_TICKS := 60.0
 ## Projectile style by the move's fx.projectile kind: [trail colour, trail height (negative: none), landing mark].
 const PROJ_STYLE := {
 	"knife": [Color("d58cff"), THROW_Z, "stuck"], "cleaver": [Color("d58cff"), THROW_Z, "stuck"],
-	"mallet": [Color("d58cff"), THROW_Z, "mallet"], "rod": [Color("a0625c"), 10.0, "scuff"],
+	"mallet": [Color("d58cff"), THROW_Z, "mallet"], "rod": [Color("e6d2b0"), 10.0, "scuff"],
 	"venom": [Color("7fd64e"), 20.0, "splat"], "dart": [Color("f6f4ec"), 18.0, "scuff"],
 	"shuriken": [Color("ff9a2e"), 18.0, "stuck"], "crane": [Color("f6f4ec"), 20.0, "none"],
 	"frog": [Color("f6f4ec"), -1.0, "none"], "head": [Color("b5665f"), -1.0, "none"],
@@ -210,7 +210,7 @@ const PROJ_STYLE := {
 	"pinecone": [Color("c48c54"), -1.0, "none"], "crane_bundle": [Color("f6f4ec"), -1.0, "none"],
 }
 const TRAIL_STEPS := 3
-const TRAIL_ALPHA: Array[float] = [0.5, 0.34, 0.2]
+const TRAIL_ALPHA: Array[float] = [0.62, 0.42, 0.26]
 const WALL_MARK_CAP := 24
 var _pstyles := {}  ## "owner/move" -> {kind, color, z, mark}
 var _proj_prev: Array = []  ## last tick's shots: [owner, pos, vel, style], to tell what a projectile_end was
