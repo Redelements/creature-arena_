@@ -238,7 +238,7 @@ all three views: [`gillbert_run.gif`](gillbert_run.gif).
 Design note: the life ring, the barbels and the rod on its line are what make him read as
 Gillbert, not as a fish from an existing franchise.
 
-### Chef Cerebro — 128×128 frames, 8 × 13 (1024×1664 px)
+### Chef Cerebro — 128×128 frames, 12 × 13 (1536×1664 px)
 
 Chef Cerebro is the fourth creature from the artist's sheets, reworked as a **floating
 brain who fights by telekinesis**. `tools/gen_cerebro.py` uses the same cameras as Barkley
@@ -264,22 +264,31 @@ floor under him) at **x 62, y 100**. The rig is modelled large and drawn at 0.72
 (`SCALE`). Up and down sheets (`cerebro_down.png`, `cerebro_up.png`) are **112×128**,
 feet at x 56, y 88 (down) and y 76 (up).
 
+Animated with the roster pass (motion plan, previews and before/after GIFs:
+[`anim_preview/cerebro_motion_plan.md`](anim_preview/cerebro_motion_plan.md)): every tool
+in the kit follows the brain on its own lag (1 to 3 frames, the mallet latest), the brain
+squashes up to 10% and wobbles back over 2 frames (jelly), throws are draw-back (held),
+one fast frame with a violet speed streak (`smear`), and a held release with the brain
+pitched after the tool; the blink has a `flash`. `idle_ticks` 8 (64 ticks), `run_ticks` 2
+(24 ticks), no footstep dust (`step_frames` `[]`: he floats). Mind Blink plays on the
+dodge block's `anim_at`, drawn at full strength on its flash ticks (`blink.solid`).
+
 ![Chef Cerebro sheet, 3x](cerebro_preview.png)
 
 Facing down and up: [`cerebro_views_preview.png`](cerebro_views_preview.png).
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
-| 0 | idle | 4 | floating, a slow bob, the kit drifting round him, a glint across the sunglasses |
-| 1 | run | 6 | gliding: leaning in, the brainstem streaming back, the kit trailing a little |
-| 2 | flick | 4 | Knife Flick (light 1): a paring knife swings round to point at the foe, draws back, is gone (thrown); a new one floats up |
-| 3 | flick2 | 4 | Backhand Flick (light 2): the same from his other side |
-| 4 | toss | 5 | Mallet Toss (light 3): the mallet lifts, wheels back over him, is hurled; back in its place |
-| 5 | tenderize | 6 | Tenderize: charge A, charge B (mallet high overhead), swing over, pound the floor in front, impact, recover; Order Up plays from frame 3 |
-| 6 | cleaver | 6 | Cleaver Toss: the big knife rises, wheels back over his head, snaps forward, thrown (two frames without it), back at his side |
-| 7 | flipout | 6 | Flip Out: the spatula dives low, skims under the foe, flips up and over his head, recover |
-| 8 | flurry | 6 | Knife Flurry: five knives swing into a fan pointed at the foe, draw back, fly in alternating frames (looped while the stream flies), recover |
-| 9 | dodge | 4 | Mind Blink: the kit folds in, he pinches to a sliver (gone), reappears as a sliver, the kit unfolds. `CreatureView` picks these by the blink's timing and fades him out and back in |
+| 0 | idle | 8 | floating, an eased bob; each tool riding it 1-3 frames late on its own small orbit, the stem 2 frames behind, a glint across the sunglasses on the top frame |
+| 1 | run | 12 | gliding: leaning in, stretched along the way (to 10%), one gentle bob; the stem 3 frames behind, the kit trailing and catching up (the mallet latest), the flush pulsing |
+| 2 | flick | 8 | Knife Flick (light 1): the knife swings round over his brow, aims, draws back (held), the throw with a streak, gone (held, the brain pitched after it), wobble, a fresh knife rising, settle |
+| 3 | flick2 | 8 | Backhand Flick (light 2): the same from his other side |
+| 4 | toss | 8 | Mallet Toss (light 3): lift, wheel back, coil (held), the fling with a streak, gone (held 5), wobble, the mallet floating home |
+| 5 | tenderize | 12 | Tenderize: 0-3 the charge loop (`anim_charge` `[0, 4, 6]`, the mallet trembling overhead), the peak, over the top, coming down, the pound (held, 10% squash), wobble, wobble, lifting off, home; Order Up has its own `anim_at` from frame 5 |
+| 6 | cleaver | 8 | Cleaver Toss: rise, wheel back, coil above the paring knives (held), the snap with a streak, gone (held), wobble, settle, back at his side |
+| 7 | flipout | 12 | Flip Out: swung back low (held through the windup), dive, skim, the scoop (held over the grab), lift, a big arc over his head, the flip behind him, overshoot, home |
+| 8 | flurry | 12 | Knife Flurry: the fan gathers, aims, draws back (held, the cut-in frame `[8, 2]`), a 4-frame throw loop (one frame per knife: the slot empty with a streak, the next knife drawn back, the brain pitching and rolling), the last knife (held), wobble, the knives home |
+| 9 | dodge | 8 | Mind Blink: squashed wide with the kit folding in, stretched thin, a needle, a point in a flash, the flash at the new spot, back stretched, a wobble with the kit flung out, settle. The dodge's `anim_at` times them; `CreatureView` fades him out and back in, but not on the flash ticks |
 | 10 | hurt | 2 | reeling, sunglasses knocked askew, his grip on the kit slipping; frame 1 doubles as the crumple pose |
 | 11 | guard | 2 | the cleaver, spatula and mallet swing in front of him into a wall |
 | 12 | ko | 4 | his mind lets go: the kit falls, clatters to the floor, the brain sinks after it and deflates, sunglasses off |

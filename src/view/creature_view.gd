@@ -8,7 +8,8 @@ extends Node2D
 ## to time its frames exactly (Barkley's spin and lob), "anim_charge" for the frames looped
 ## while a charge is held, and "view_lift" to raise the sprite off its shadow (Gillbert's
 ## leap). The sprite block's "idle_ticks" and "run_ticks" set how long each idle and run
-## frame shows (10 and 4 unless given).
+## frame shows (10 and 4 unless given). The dodge block's "anim_at" times the dodge's frames
+## the same way (Mind Blink's 8).
 ##
 ## Views: fighters can face any of 8 ways. The "sprite" block is the side view (facing
 ## right, mirrored for left). Optional "views": {"up": {...}, "down": {...}} add sheets
@@ -311,7 +312,8 @@ static func full_charge_breaks_guard(cr: CreatureSim) -> bool:
 
 
 ## A teleporting dodge (Chef Cerebro): he fades out over the moment before the jump and
-## flickers back in after it. 1 the rest of the time.
+## flickers back in after it, except on the blink's "solid" ticks ([from, to), the flash
+## frames), drawn at full strength. 1 the rest of the time.
 static func blink_alpha(cr: CreatureSim) -> float:
 	if cr.state != CreatureSim.State.DODGE:
 		return 1.0
@@ -320,6 +322,9 @@ static func blink_alpha(cr: CreatureSim) -> float:
 		return 1.0
 	var at := int(bl["at"])
 	var t := cr.state_t
+	var solid: Array = bl.get("solid", [])
+	if solid.size() == 2 and t >= int(solid[0]) and t < int(solid[1]):
+		return 1.0
 	if t < at:
 		return lerpf(1.0, 0.2, clampf(float(t) / float(maxi(1, at)), 0.0, 1.0))
 	return clampf(0.35 + float(t - at) * 0.16, 0.0, 1.0) if (t - at) % 2 == 0 or t - at > 4 else 0.15
@@ -475,6 +480,12 @@ func _pick() -> Array:
 		CreatureSim.State.DODGE:
 			var n := int(_anim("dodge")[2])
 			var frames := maxi(1, int(c.def["dodge"]["frames"]))
+			if c.def["dodge"].has("anim_at"):  # an explicit timeline, as a move's anim_at
+				var fa := 0
+				for pair in c.def["dodge"]["anim_at"]:
+					if c.state_t >= int(pair[0]):
+						fa = int(pair[1])
+				return ["dodge", mini(fa, n - 1), false]
 			var bl: Dictionary = c.def["dodge"].get("blink", {})
 			if not bl.is_empty() and n >= 4:
 				# A teleport: gather, vanish, (the jump), flicker back in, settle.
