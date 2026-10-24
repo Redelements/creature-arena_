@@ -351,6 +351,97 @@ def _back_wall(img):
     rect(img, 0, y + 11, W, 1, (14, 16, 28))
 
 
+# The side stands and the front rows. CrowdView seats its fans on the same spots: keep these
+# in step with src/view/crowd_view.gd (SIDE_*, FRONT_*).
+SIDE_RAIL = 4        # the rail between a side wall and the first column of seats
+SIDE_COL_W = 13      # one column of seats (a row of the stand, running up the screen)
+SIDE_COLS = 9        # columns drawn; the crowd sits in the first five, the rest fade out
+SIDE_FANS = 5
+SIDE_Y0 = 70         # world y of the first seat
+SIDE_STEP = 12       # seat to seat down a column
+SIDE_AISLE = 9       # every ninth seat is a stair
+FRONT_GAP = 2        # world px from the bottom of the front wall to the first row
+FRONT_STEP = 13      # row to row
+FRONT_ROWS = 5       # rows drawn; the crowd sits in the first two
+FRONT_FANS = 2
+
+
+def side_dy(k):
+    """Column k's seats sit a little higher the further out it is (banked), staggered."""
+    return (k % 2) * 6 - k * 2
+
+
+def _side_stands(img):
+    """Banked seats in the margins left and right of the floor, facing it: concrete steps
+    in columns, a seat back per place, stairs every SIDE_AISLE seats with a hand rail, the
+    rail along the side wall. Left seats red, right blue (the two sides' sections)."""
+    oy, ox = MARGIN[1], MARGIN[0]
+    top, bottom = oy + 64, oy + ARENA_H
+    for side in (0, 1):
+        seat = SEATS[0] if side == 0 else SEATS[1]
+        for k in range(SIDE_COLS):
+            if side == 0:
+                x = ox - SIDE_RAIL - (k + 1) * SIDE_COL_W
+            else:
+                x = ox + ARENA_W + SIDE_RAIL + k * SIDE_COL_W
+            rect(img, x, top, SIDE_COL_W, bottom - top, CONCRETE[2])
+            # the riser facing the floor in shadow, the outer edge lit
+            rect(img, x + (SIDE_COL_W - 2 if side == 0 else 0), top, 2, bottom - top, CONCRETE[1])
+            rect(img, x + (0 if side == 0 else SIDE_COL_W - 1), top, 1, bottom - top, CONCRETE[3])
+            j = 0
+            while True:
+                y = oy + SIDE_Y0 + j * SIDE_STEP + side_dy(k)
+                if y + 16 > bottom:
+                    break
+                sx = x + (1 if side == 0 else 0)
+                if j % SIDE_AISLE == SIDE_AISLE - 1:
+                    # stairs: treads across the column, a steel hand rail down the middle
+                    for t in range(0, SIDE_STEP, 3):
+                        rect(img, x, y + 4 + t, SIDE_COL_W, 1, CONCRETE[3])
+                        rect(img, x, y + 5 + t, SIDE_COL_W, 1, CONCRETE[1])
+                    rect(img, x, y + 9, SIDE_COL_W, 1, (150, 156, 170))
+                else:
+                    rect(img, sx + 3, y + 6, 6, 7, seat)
+                    rect(img, sx + 3, y + 6, 6, 1, tuple(min(255, c + 40) for c in seat))
+                    rect(img, sx + 3, y + 12, 6, 1, tuple(int(c * 0.6) for c in seat))
+                j += 1
+            if k >= SIDE_FANS:
+                shade(img, x, top, SIDE_COL_W, bottom - top, max(0.25, 1.0 - (k - SIDE_FANS + 1) * 0.15))
+        # the rail along the side wall: a navy face, a steel top, posts
+        x = ox - SIDE_RAIL if side == 0 else ox + ARENA_W
+        rect(img, x, top - 12, SIDE_RAIL, bottom - top + 12, NAVY[1])
+        rect(img, x + (1 if side == 0 else 2), top - 12, 1, bottom - top + 12, (150, 156, 170))
+        rect(img, x + (2 if side == 0 else 1), top - 12, 1, bottom - top + 12, (96, 100, 114))
+        for y in range(top, bottom, 24):
+            rect(img, x + 1, y, 2, 1, (70, 74, 88))
+
+
+def _front_stands(img):
+    """Rows of seats below the front wall, their fans' backs to the camera (CrowdView), the
+    nearer rows fading into the dark of the concourse."""
+    oy, ox = MARGIN[1], MARGIN[0]
+    y0 = oy + ARENA_H + FRONT_GAP
+    rect(img, 0, oy + ARENA_H, W, FRONT_GAP, NAVY[0])
+    section = 144
+    for r in range(FRONT_ROWS):
+        y = y0 + r * FRONT_STEP
+        if y >= H:
+            break
+        rect(img, 0, y, W, FRONT_STEP, CONCRETE[2])
+        rect(img, 0, y, W, 1, CONCRETE[3])
+        rect(img, 0, y + FRONT_STEP - 2, W, 2, CONCRETE[1])
+        for sx in range(-MARGIN[0] - section, ARENA_W + MARGIN[0] + section, section):
+            col = SEATS[((sx // section) + r + 1) % len(SEATS)]
+            x = sx + MARGIN[0]
+            for k in range(0, section - 6, 6):
+                # seat backs face the floor: we see the plain back, lit along its top
+                rect(img, x + k + 3, y + 7, 5, 5, tuple(int(c * 0.75) for c in col))
+                rect(img, x + k + 3, y + 7, 5, 1, col)
+            rect(img, x, y, 1, FRONT_STEP, CONCRETE[4])
+        if r >= FRONT_FANS:
+            shade(img, 0, y, W, FRONT_STEP, max(0.25, 1.0 - (r - FRONT_FANS + 1) * 0.18))
+
+
 def _side_and_front(img, rng, pad=None, cap=None):
     pad = pad or NAVY
     cap = cap or CONCRETE
@@ -368,6 +459,8 @@ def _side_and_front(img, rng, pad=None, cap=None):
         rect(img, ox, y, ARENA_W, 1, CONCRETE[0])
     for x in range(ox, ox + ARENA_W, 24):
         rect(img, x, oy + ARENA_H, 1, H - oy - ARENA_H, CONCRETE[0])
+    _side_stands(img)
+    _front_stands(img)
     yy, xx = np.mgrid[0:H, 0:W].astype(float)
     dist = np.maximum(np.maximum(ox - xx, xx - (ox + ARENA_W)), (yy - (oy + ARENA_H)))
     f = 1.0 - np.clip(dist / 260.0, 0.0, 0.7)
