@@ -395,7 +395,7 @@ Facing down and up: [`pete_views_preview.png`](pete_views_preview.png).
 | 11 | guard | 2 | hiding behind the money bag |
 | 12 | ko | 4 | flat on his back, the bag beside him, x eyes |
 
-### Sno Mercy — 128×128 frames, 8 × 13 (1024×1664 px)
+### Sno Mercy — 128×128 frames, 12 × 13 (1536×1664 px)
 
 `tools/gen_sno.py`, on the shared renderer. The rig: an icy cyan cone (a tapered tube from
 his point to the rim) with a navy rim, a dome of shaved ice on top (red on his right half,
@@ -410,18 +410,27 @@ toward the camera (`SIDE_CHEAT`) so the face reads. Drawn at 0.8 scale, feet at
 
 Facing down and up: [`sno_views_preview.png`](sno_views_preview.png).
 
+Animated with the roster pass (the Crease recipe, `anim_preview/sno_motion_plan.md`; the
+previews are `anim_preview/sno_*`): doubled frames on the same clock (`idle_ticks` 8 = a
+64-tick idle, `run_ticks` 2), eased spacing, held releases, overlap on the gloves, drip,
+shards and puddle, and a cone squash capped at 5% (`sq`; the gloves and stick limbs are
+free). The rig's pass additions: `sq`, `knees` (a stick leg's knee bows by its slack as
+the hip sinks), `yaw`, `pivot`, `carry` (limbs ride the cone in the tumble), `drip_sw`,
+`blob`, `shard_a`, and `stick` (the dome's flecks picked in the dome's own coordinates, so
+they don't sparkle in motion).
+
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
-| 0 | idle | 4 | a boxer's bounce on stick legs, gloves up, syrup dripping |
-| 1 | run | 6 | a stiff-legged jog |
-| 2 | jab | 4 | Cold Cross, the jab |
-| 3 | cross | 4 | Cold Cross, the cross |
-| 4 | headbutt | 5 | Brain Freeze (light 3): rears back, drives the dome forward |
-| 5 | spray | 6 | Shaved Ice Spray: charge A/B (shivering), the head shake (frames 2 and 3 alternate) with shards flying, follow-through, recover |
-| 6 | syrup | 4 | Syrup Slick: he squeezes and the syrup gushes into a puddle |
-| 7 | slide | 5 | Slush Slide: crouch, leaning back sliding feet first, the kick, up, recover; Cold Shoulder plays from frame 2 |
-| 8 | blast | 6 | Flavor Blast: rears back, holds, the head slam into the floor, holds, recover |
-| 9 | dodge | 4 | a cartwheel |
+| 0 | idle | 8 | a boxer's bounce, eased: up on his toes (stretched), down with the knees folded and the cone squashed; gloves a frame behind, the drip runs long after each landing |
+| 1 | run | 12 | a boxer's advance: the cone upright and nearly rigid, the stick legs do contact, down, load, passing, up, reach (feet land on frames 0 and 6); gloves up, pumping a frame behind |
+| 2 | jab | 8 | Cold Cross, the jab: dip, coil, snap, extension (held 3 ticks), overshoot, back, settle, return |
+| 3 | cross | 8 | Cold Cross, the cross: load, the hips turn, the shoulders follow, extension with the whole cone turned (held 4), overshoot, back, settle, return |
+| 4 | headbutt | 8 | Brain Freeze (light 3): rear, rear deep (held), the dome over on its arc, impact (held, squashed), follow-through flinging a drop of syrup, recoil, settle, return |
+| 5 | spray | 12 | Shaved Ice Spray: frames 0-3 the charge loop (a head shake that builds, `anim_charge` [0, 4, 3]); then pinch, rear (held), the shake left / through / right / through (played twice) with the shards spraying, follow-through, recover |
+| 6 | syrup | 8 | Syrup Slick: crouch, squeeze (held), the gush, the puddle spreading a frame behind, shake off, recover |
+| 7 | slide | 8 | Slush Slide: lean in, thrown back, the slide (Cold Shoulder plays from frame 2), the lead foot rising, the kick, sit up, rise, settle |
+| 8 | blast | 12 | Flavor Blast: brace, rear ×2, the gather (held 4), the slam (1 tick), the impact (held 5), the shards burst (frame 6, the cut-in), shards out, a slow rise ×3, stance |
+| 9 | dodge | 8 | a full cartwheel in a hop about his middle, limbs tucked; crouch, spring, four roll frames, land, settle (2 ticks a frame) |
 | 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose (frozen, tinted ice-blue by `CreatureView`) |
 | 11 | guard | 2 | gloves up in front of his face |
 | 12 | ko | 4 | topples and melts into a puddle |

@@ -3,8 +3,9 @@
 
 Run from anywhere:  python3 tools/gen_sno.py   (Pillow and numpy)
 Look at a few frames while working on a pose:  python3 tools/gen_sno.py inspect idle:0 run:2
+Animation previews (docs/anim_preview/):  python3 tools/gen_sno.py anim
 
-Writes assets/sprites/sno.png (128x128 frames, 8 columns, the side view), sno_down.png and
+Writes assets/sprites/sno.png (128x128 frames, 12 columns, the side view), sno_down.png and
 sno_up.png (112x128: facing the camera, and facing away), plus labelled previews in docs/.
 Rendered with the shared splat renderer (tools/splat3d.py).
 
@@ -47,6 +48,7 @@ MAT = {
     "syrup": ((248, 230, 30), (255, 250, 140), (206, 180, 10)),
 }
 S.configure(MAT, outline=(14, 12, 14, 255), scale=0.8, near=14.0)
+S.COLS = 12  # the run, the heavy and the Surge have 12 frames
 AXES = ((0, 0, 1), (0, 1, 0), (1, 0, 0))
 
 TIP = 13.0   # height of the cone's point at rest
@@ -238,10 +240,7 @@ def _clip(part):
     return {k: (v[keep] if isinstance(v, np.ndarray) and len(v) == len(keep) else v) for k, v in part.items()}
 
 
-# ------------------------------------------------------------------ the game's current rows
-# The sheets in assets/sprites/ are drawn from these until Kevin approves the animation
-# pass (docs/anim_preview/sno_motion_plan.md); then the new rows below replace them and
-# this block goes.
+# ------------------------------------------------------------------ animations
 
 def P(**kw):
     return Pose(**kw)
@@ -251,134 +250,19 @@ GN = (8.0, 30.0, 9.0)
 GF = (-8.0, 31.0, 7.0)
 
 
-def _v1_idle():
-    """A boxer's bounce on his stick legs, gloves up, syrup dripping."""
-    return [
-        P(lift=0.0, drip=0.8),
-        P(lift=0.8, near=(8.0, 30.8, 9.0), far=(-8.0, 31.8, 7.0), drip=0.9),
-        P(lift=1.2, near=(8.0, 31.2, 9.0), far=(-8.0, 32.2, 7.0), drip=1.0),
-        P(lift=0.6, near=(8.0, 30.6, 9.0), far=(-8.0, 31.6, 7.0), drip=0.7),
-    ]
-
-
-def _v1_run():
-    out = []
-    for k in range(6):
-        a = k / 6.0 * 2 * math.pi
-        st = math.sin(a) * 6.0
-        out.append(P(pitch=8, lift=0.8 * abs(math.cos(a)), fwd=1.0,
-                     feet=((4.5, 2.0 + max(0.0, math.cos(a)) * 3.0, 2.0 + st),
-                           (-4.5, 2.0 + max(0.0, -math.cos(a)) * 3.0, -st)),
-                     near=(8.0, 29.0, 9.0 - st * 0.4), far=(-8.0, 30.0, 7.0 + st * 0.4), drip=0.6))
-    return out
-
-
-def _v1_jab():
-    """Cold Cross, the jab: the near glove straight out."""
-    return [
-        P(near=(7.0, 30.0, 6.0), pitch=-4),
-        P(near=(4.0, 31.0, 22.0), pitch=10, fwd=2.0, roll=-6),
-        P(near=(5.5, 30.5, 15.0), pitch=6, fwd=1.0),
-        P(),
-    ]
-
-
-def _v1_cross():
-    """Cold Cross, the cross: the far glove across his body."""
-    return [
-        P(far=(-7.0, 31.0, 4.0), pitch=-4, roll=6),
-        P(far=(-1.0, 31.0, 23.0), pitch=12, fwd=2.5, roll=10),
-        P(far=(-3.0, 31.0, 15.0), pitch=6, fwd=1.0, roll=4),
-        P(),
-    ]
-
-
-def _v1_headbutt():
-    """Brain Freeze (light 3): rears back, then drives the icy dome forward."""
-    return [
-        P(pitch=-14, lift=0.5, near=(9.0, 28.0, 2.0), far=(-9.0, 28.0, 0.0)),
-        P(pitch=-22, lift=1.0, near=(9.0, 27.0, 0.0), far=(-9.0, 27.0, -2.0), face="ow"),
-        P(pitch=46, fwd=4.0, near=(9.0, 22.0, 6.0), far=(-9.0, 22.0, 4.0)),
-        P(pitch=34, fwd=3.0, near=(9.0, 24.0, 6.0), far=(-9.0, 24.0, 4.0)),
-        P(pitch=6),
-    ]
-
-
-def _v1_spray():
-    """Shaved Ice Spray: charge A/B (head tucked, shivering), then he shakes his head
-    side to side (frames 2 and 3 alternate) flinging shards, follow-through, recover."""
-    return [
-        P(pitch=-10, roll=8, near=(9.0, 30.0, 4.0), far=(-9.0, 30.0, 2.0)),
-        P(pitch=-14, roll=-8, near=(9.0, 30.0, 3.0), far=(-9.0, 30.0, 1.0), face="ow"),
-        P(pitch=14, roll=-22, fwd=1.0, shards=0.6),
-        P(pitch=14, roll=22, fwd=1.0, shards=1.0),
-        P(pitch=8, roll=-8, shards=1.4),
-        P(),
-    ]
-
-
-def _v1_syrup():
-    """Syrup Slick: he squeezes, the syrup gushes off his point into a spreading puddle."""
-    return [
-        P(lift=-1.0, near=(7.0, 26.0, 6.0), far=(-7.0, 26.0, 4.0), drip=1.5, puddle=3.0),
-        P(lift=-2.0, near=(6.0, 25.0, 5.0), far=(-6.0, 25.0, 3.0), drip=2.0, puddle=7.0, face="ow",
-          feet=((6.0, 2.0, 2.0), (-6.0, 2.0, -2.0))),
-        P(lift=-1.5, drip=2.0, puddle=12.0, feet=((6.0, 2.0, 2.0), (-6.0, 2.0, -2.0))),
-        P(drip=1.0, puddle=12.0),
-    ]
-
-
-def _v1_slide():
-    """Slush Slide: a crouch, then leaning back on his slush, sliding feet first; the kick
-    at the end; recover. Cold Shoulder plays from frame 2."""
-    return [
-        P(lift=-2.0, pitch=10, feet=((4.5, 2.0, 4.0), (-4.5, 2.0, -3.0))),
-        P(pitch=-50, lift=-8.0, fwd=-2.0, feet=((4.0, 2.0, 16.0), (-4.0, 2.0, 12.0)),
-          near=(9.0, 18.0, -2.0), far=(-9.0, 18.0, -4.0), drip=0.0, puddle=4.0),
-        P(pitch=-58, lift=-9.0, fwd=-2.0, feet=((4.0, 6.0, 22.0), (-4.0, 2.0, 12.0)),
-          near=(9.0, 16.0, -4.0), far=(-9.0, 16.0, -6.0), drip=0.0, puddle=4.0),
-        P(pitch=-20, lift=-3.0, feet=((4.5, 2.0, 6.0), (-4.5, 2.0, -2.0))),
-        P(),
-    ]
-
-
-def _v1_blast():
-    """Flavor Blast: rears right back ("Chill out."), holds, slams his head down into the
-    floor (the dome hits the ground), holds, comes back up, recover."""
-    return [
-        P(pitch=-18, lift=1.0, near=(10.0, 36.0, 0.0), far=(-10.0, 36.0, -2.0)),
-        P(pitch=-30, lift=2.0, near=(11.0, 40.0, -3.0), far=(-11.0, 40.0, -5.0), face="ow"),
-        P(pitch=-32, lift=2.0, near=(11.0, 41.0, -4.0), far=(-11.0, 41.0, -6.0)),
-        P(pitch=100, lift=-2.0, fwd=-6.0, near=(9.0, 12.0, 14.0), far=(-9.0, 12.0, 12.0), shards=1.2,
-          feet=((5.0, 2.0, -6.0), (-5.0, 2.0, -9.0))),
-        P(pitch=92, lift=-2.0, fwd=-6.0, near=(9.0, 13.0, 13.0), far=(-9.0, 13.0, 11.0), shards=1.6,
-          feet=((5.0, 2.0, -6.0), (-5.0, 2.0, -9.0))),
-        P(pitch=10),
-    ]
-
-
-def _v1_dodge():
-    return [
-        P(lift=-2.0, pitch=10),
-        P(roll=-70, lift=4.0, drip=0.0),
-        P(roll=-150, lift=14.0, drip=0.0),
-        P(lift=-1.0),
-    ]
-
-
-def _v1_hurt():
+def hurt():
     return [
         P(pitch=-16, fwd=-2.0, face="ow", near=(9.0, 32.0, 2.0), far=(-9.0, 32.0, 0.0)),
         P(pitch=-26, fwd=-4.0, face="ow", roll=12, near=(10.0, 33.0, -1.0), far=(-10.0, 33.0, -3.0), lift=-1.0),
     ]
 
 
-def _v1_guard():
+def guard():
     g = dict(pitch=6, near=(4.0, 36.0, 10.0), far=(-4.0, 35.0, 11.0), lift=-1.0)
     return [P(**g), P(**dict(g, face="ow", fwd=-1.5))]
 
 
-def _v1_ko():
+def ko():
     """Melting: he topples, then sinks into a spreading puddle of syrup and slush."""
     return [
         P(pitch=-20, fwd=-3.0, face="ow", puddle=4.0),
@@ -656,64 +540,29 @@ def dodge():
     ]
 
 
-def hurt():
-    return _v1_hurt()
-
-
-def guard():
-    return _v1_guard()
-
-
-def ko():
-    return _v1_ko()
-
-
-ANIM_ROWS = [
+ROWS = [
     ("idle", idle()), ("run", run()), ("jab", jab()), ("cross", cross()), ("headbutt", headbutt()),
     ("spray", spray()), ("syrup", syrup()), ("slide", slide()), ("blast", blast()),
     ("dodge", dodge()), ("hurt", hurt()), ("guard", guard()), ("ko", ko()),
 ]
 
-for _n, _poses in ANIM_ROWS:
+for _n, _poses in ROWS:
     for _p in _poses:
         _p.stick = True
 # snow and ice: the cone never squashes or stretches past 5% (tweens stay inside their keys)
-assert all(abs(p.sq) <= 1.0 for _n, poses in ANIM_ROWS for p in poses)
-
-
-# The game's rows: what assets/sprites/sno*.png and data/creatures/sno.json hold today. They
-# switch to ANIM_ROWS when the previews are approved (with the sheets and the JSON).
-ROWS = [
-    ("idle", _v1_idle()), ("run", _v1_run()), ("jab", _v1_jab()), ("cross", _v1_cross()),
-    ("headbutt", _v1_headbutt()), ("spray", _v1_spray()), ("syrup", _v1_syrup()), ("slide", _v1_slide()),
-    ("blast", _v1_blast()), ("dodge", _v1_dodge()), ("hurt", _v1_hurt()), ("guard", _v1_guard()), ("ko", _v1_ko()),
-]
+assert all(abs(p.sq) <= 1.0 for _n, poses in ROWS for p in poses)
 VIEW_ROWS = ROWS[:-1]
 
 
 # ------------------------------------------------------------------ animation tools
 # The adapter for the shared animation pipeline (tools/anim_preview.py):
-# `python3 tools/gen_sno.py anim` renders preview GIFs of ANIM_ROWS into docs/anim_preview/,
+# `python3 tools/gen_sno.py anim` renders preview GIFs into docs/anim_preview/,
 # and `python3 tools/anim_preview.py --check sno` checks the JSON's timelines against ROWS.
 # In-betweens and overlap come from splat3d (tween, cycle, lag, lag_at).
 render_frame, frame_spec = S.frame_adapter(SIDE, VIEWS, build)
-ANIM_CYCLES = {"idle": 40, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks); idle 64 after the pass
-ANIM_TICKS = {"idle": 8, "run": 2}     # the pass: 8 x 8 = 64-tick idle, 12 x 2 = 24-tick run
-
-# The new timelines (sno_motion_plan.md); every startup, active and recovery number is kept.
-NEW_AT = {
-    "light_1": [[0, 0], [1, 1], [3, 2], [4, 3], [7, 4], [9, 5], [11, 6], [13, 7]],
-    "light_2": [[0, 0], [2, 1], [4, 2], [5, 3], [9, 4], [11, 5], [13, 6], [15, 7]],
-    "light_3": [[0, 0], [3, 1], [7, 2], [8, 3], [12, 4], [15, 5], [19, 6], [22, 7]],
-    "heavy": [[0, 4], [5, 5], [10, 6], [12, 7], [14, 8], [16, 9], [18, 6], [20, 7], [22, 8], [24, 10], [30, 11]],
-    "skill_1": [[0, 0], [3, 1], [6, 2], [9, 3], [11, 4], [14, 5], [18, 6], [21, 7]],
-    "skill_2": [[0, 0], [3, 1], [6, 2], [14, 3], [22, 4], [26, 5], [31, 6], [36, 7]],
-    "surge": [[0, 0], [3, 1], [6, 2], [8, 3], [12, 4], [13, 5], [18, 6], [22, 7], [26, 8], [30, 9], [34, 10],
-              [38, 11]],
-}
-NEW_CHARGE = [0, 4, 3]       # the heavy's head-shake charge loop
-NEW_CUT_IN = [8, 6]          # the Surge's cut-in: the slam with the shards bursting
-
+ANIM_CYCLES = {"idle": 64, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks)
+# The sheets and JSON before the animation pass: the "current" side of the compare GIFs.
+OLD_REF = os.environ.get("SNO_OLD_REF", "6d26f20")
 
 def _old_default(mv, n):
     """The view's frame per tick for a move without anim_at (creature_view.gd: windup
@@ -734,12 +583,13 @@ def _old_default(mv, n):
 
 def _clips():
     import anim_preview as A
-    old = A.creature_json("sno", "HEAD")
+    old = A.creature_json("sno", OLD_REF)
+    new_moves = A.creature_json("sno")["moves"]
     moves, anims = old["moves"], old["sprite"]["anims"]
     old_idle, new_idle = (10, 4), (8, 8)
     tail = 30
 
-    def move_clip(mid, label):
+    def move_clip(mid):
         mv = moves[mid]
         anim = mv["anim"]
         length = A.move_length(mv)
@@ -747,7 +597,7 @@ def _clips():
             o = A.move_ticks(anim, mv["anim_at"], length, old_idle, tail)
         else:
             o = [(anim, f) for f in _old_default(mv, anims[anim][2])] + A.idle_tail(tail, *old_idle)
-        nw = A.move_ticks(anim, NEW_AT[mid], length, new_idle, tail)
+        nw = A.move_ticks(anim, new_moves[mid]["anim_at"], length, new_idle, tail)
         su, act = int(mv["startup"]), int(mv.get("active", 0))
         return {"old": o, "new": nw}, su, act
 
@@ -756,19 +606,20 @@ def _clips():
         "run": ({"old": A.loop_ticks("run", 4, 6, 48), "new": A.loop_ticks("run", 2, 12, 48)}, []),
     }
     for name, mid in (("jab", "light_1"), ("cross", "light_2"), ("headbutt", "light_3")):
-        v, su, act = move_clip(mid, name)
+        v, su, act = move_clip(mid)
         clips[name] = (v, [(0, su, "startup"), (su + 1, su + 1 + act, "hit (%s)" % mid)])
     # the heavy: 24 ticks of held charge, then the release
-    v, su, act = move_clip("heavy", "spray")
+    v, su, act = move_clip("heavy")
     v["old"] = A.charge_ticks("spray", 0, 2, 6, 24) + v["old"]
-    v["new"] = A.charge_ticks("spray", *NEW_CHARGE[:2], NEW_CHARGE[2], 24) + v["new"]
+    first, count, each = new_moves["heavy"]["anim_charge"]
+    v["new"] = A.charge_ticks("spray", first, count, each, 24) + v["new"]
     clips["spray"] = (v, [(0, 24, "held charge"), (24 + su + 1, 24 + su + 1 + act, "spray hits (heavy)")])
-    v, su, act = move_clip("skill_1", "syrup")
+    v, su, act = move_clip("skill_1")
     at = int(moves["skill_1"]["zone"]["at"])
     clips["syrup"] = (v, [(at, at + 6, "puddle zone down")])
-    v, su, act = move_clip("skill_2", "slide")
+    v, su, act = move_clip("skill_2")
     clips["slide"] = (v, [(0, su, "startup (raw: +8 windup on frame 0)"), (su + 1, su + 1 + act, "sliding hit")])
-    v, su, act = move_clip("surge", "blast")
+    v, su, act = move_clip("surge")
     clips["blast"] = (v, [(0, su, "gather"), (su + 1, su + 1 + act, "SLAM (surge)")])
     # the dodge: no anim_at, the view spreads the frames over its 16 ticks
     frames = int(old["dodge"]["frames"])
@@ -781,19 +632,11 @@ def _clips():
 CLIPS = _clips
 
 
-def _use_anim_rows():
-    """The previews and `inspect` show the new rows."""
-    global ROWS, VIEW_ROWS
-    ROWS, VIEW_ROWS = ANIM_ROWS, ANIM_ROWS[:-1]
-
-
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "inspect":
-        rows = ROWS if os.environ.get("SNO_ROWS") == "game" else ANIM_ROWS
-        S.inspect(rows, sys.argv[2:], SIDE, VIEWS, build, path=os.environ.get("INSPECT_OUT"))
+        S.inspect(ROWS, sys.argv[2:], SIDE, VIEWS, build, path=os.environ.get("INSPECT_OUT"))
     elif len(sys.argv) > 1 and sys.argv[1] == "anim":
         import anim_preview
-        _use_anim_rows()
         anim_preview.main(sys.modules[__name__], sys.argv[2:])
     else:
         S.write_sheets(ROWS, VIEW_ROWS, OUT, PREVIEW, SIDE, VIEWS, build)

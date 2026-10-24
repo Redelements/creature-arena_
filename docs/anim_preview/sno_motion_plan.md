@@ -2,9 +2,9 @@
 
 Sno Mercy is the second fighter in the roster animation pass (`roster_anim_plan.md`, batch
 1). Same recipe as Mister Crease: shading, palette and outlines stay exactly as they are,
-only motion changes. This is the preview phase: the new frames are in
-`tools/gen_sno.py` (`ANIM_ROWS`) and in the GIFs next to this file; the game's sheets and
-`data/creatures/sno.json` are untouched until Kevin approves.
+only motion changes. The new frames are in the game's sheets and `data/creatures/sno.json`
+(Kevin wanted to play them in a build before approving); the compare GIFs next to this
+file show them beside the sheets from before the pass (`OLD_REF` in `gen_sno.py`).
 
 Timings are in sim ticks (60 per second). An attack frame shows from its `anim_at` tick
 until the next one. A hit is live from tick `startup + 1` for `active` ticks.
@@ -36,9 +36,7 @@ render byte for byte the same (checked against the committed sheets).
 | `stick`: the dome's white flecks picked in the dome's own coordinates | they were hashed in world space and re-rolled whenever he moved (a sparkle at 8 frames); now they ride with the ice. Same density and colours |
 | `tween` (the shared `splat3d.tweener`): gloves (`near`, `far`) on arcs; `face`, `carry`, `blob`, `pivot` snap | in-betweens with curved glove paths |
 
-The new rows sit beside the old ones: `ROWS` stays the game's (what `--check` holds the
-JSON to), `ANIM_ROWS` is the pass, and `python3 tools/gen_sno.py anim` previews it. On
-approval `ROWS` becomes `ANIM_ROWS` and the `_v1_` functions go.
+`S.COLS` is 12 (the run, the heavy and the Surge have 12 frames), as on Crease's sheet.
 
 ---
 
@@ -229,8 +227,8 @@ snapped back upright; now the turn completes.
 
 ## Hurt, guard, knockout
 
-Unchanged (Kevin: not abilities). They're in `ANIM_ROWS` as the same poses; the only
-difference on the new sheet will be the fleck pattern on the dome (`stick`).
+Unchanged (Kevin: not abilities): the same poses. The only difference on the new sheet is
+the fleck pattern on the dome (`stick`).
 
 ---
 
@@ -259,15 +257,9 @@ The poses are 3D, so the down and up sheets get the same motion. What I checked:
   flicker in the previews. The dome's flecks were the real sparkle (fixed with `stick`).
 - **Squash:** capped at 5% by an assert. More would make ice look like rubber.
 
-## Questions for Kevin
+## Kevin's answers (Oct 23)
 
-1. **Cut-in frame:** the Surge's cut-in shows frame 6 (the slam with the shards bursting),
-   the same moment as today's frame 4. Or would you rather the cut-in showed the gather
-   (frame 3, reared back shouting "Chill out.")?
-2. **The Surge's slam timing:** today the slam frame shows at tick 19, six ticks after the
-   hit (13). The new timeline slams at 12 and hits the floor at 13, with the hit. OK to
-   sync it, or was the late slam on purpose?
-3. **The heavy's charge loop:** a 4-frame head shake that builds (3 ticks a frame), as the
-   plan says. Fine at that speed, or slower (4 ticks, a 16-tick shake)?
-4. **The dodge:** a full cartwheel in a hop (today it rolls half way and snaps back). Keep
-   the cartwheel, or would you rather a boxer's duck-and-slip (low, under, back up)?
+1. **Cut-in frame:** frame 6, the slam with the shards bursting (`cut_in_frame` `[8, 6]`).
+2. **The Surge's slam:** synced to the hit (slam at tick 12, the floor at 13).
+3. **The heavy's charge loop:** 3 ticks a frame (`anim_charge` `[0, 4, 3]`).
+4. **The dodge:** the full cartwheel.
