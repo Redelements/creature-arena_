@@ -280,8 +280,9 @@ func refresh() -> void:
 	var blink := c.invuln > 0 and c.state != CreatureSim.State.ATTACK and (c.anim_t / 3) % 2 == 0
 	var alpha := 0.4 if blink else (0.55 if see_through else 1.0)
 	if c.stealth > 0:
-		# Invisible (Tiptoe): only a faint shimmer gives him away.
-		alpha = 0.12 + 0.06 * float((c.anim_t / 6) % 2)
+		# Invisible (Tiptoe): foes don't draw him at all (main hides him, `out_of_sight`);
+		# he and his team see a ghost so they can follow him.
+		alpha = 0.4 + 0.08 * float((c.anim_t / 6) % 2)
 	elif c.covered:
 		alpha = minf(alpha, 0.45)  # in the brush: a shape in the leaves
 	alpha *= blink_alpha(c)

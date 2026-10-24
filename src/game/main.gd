@@ -2627,13 +2627,15 @@ func _viewer_team() -> int:
 
 
 ## Works out which fighters the local team can't see this tick (Vision: brush, fences,
-## walls), after noting this tick's hits. Views and the camera skip them.
+## walls; a foe in stealth, Tiptoe, is fully invisible to them), after noting this tick's
+## hits. Views and the camera skip them.
 func _update_vision(events: Array) -> void:
 	vision.observe(events)
 	var team := _viewer_team()
 	_hidden.resize(sim.creatures.size())
 	for i in sim.creatures.size():
-		_hidden[i] = team >= 0 and not vision.team_sees(sim, team, sim.creatures[i])
+		var c: CreatureSim = sim.creatures[i]
+		_hidden[i] = team >= 0 and ((c.stealth > 0 and c.team != team) or not vision.team_sees(sim, team, c))
 	fx.unseen = _hidden
 	fx.viewer_team = team
 
