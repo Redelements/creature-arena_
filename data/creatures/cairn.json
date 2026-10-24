@@ -11,38 +11,48 @@
   "weight": 1.0,
   "stamina": 100,
   "stamina_regen": 0.5,
-  "dodge": { "frames": 18, "iframes_start": 2, "iframes_end": 12, "speed": 3.2 },
+  "dodge": { "frames": 18, "iframes_start": 2, "iframes_end": 12, "speed": 3.2, "anim_at": [[0, 0], [2, 1], [4, 2], [7, 3], [10, 4], [13, 5], [15, 6], [17, 7]] },
   "guard": { "reduction": 0.8, "drain_per_damage": 2.0, "speed_mult": 0.4, "break_stun": 55 },
   "stack": { "max": 3, "timeout": 180 },
-  "fx_height": 22,
-  "fx_top": 37,
+  "fx_height": 26,
+  "fx_top": 44,
   "fx_color": "#e04848",
   "surge_aura": {"colors": ["#ff7a10", "#ffd23f", "#fff6d0"], "motes": "pebbles", "spikes": 7, "sharp": 0.85, "speed": 1.2, "height": 1.0},
-  "cut_in_frame": [11, 4],
-  "ko_fx": { "style": "scatter", "frame": [0, 0], "pieces": [[6, 19], [19, 27], [27, 34], [34, 45]], "x_eyes": [[25, 14], [28, 14]] },
+  "cut_in_frame": [12, 8],
+  "ko_fx": { "style": "scatter", "frame": [0, 0], "pieces": [[40, 55], [55, 65], [65, 72], [72, 87]], "x_eyes": [[47, 49], [52, 49]] },
   "sprite": {
     "path": "res://assets/sprites/cairn.png",
-    "frame": 48,
-    "cols": 6,
-    "origin": [22, 43],
+    "frame": 96,
+    "portrait": [34, 39, 24, 28],
+    "cols": 12,
+    "origin": [46, 84],
+    "idle_ticks": 8,
+    "run_ticks": 2,
+    "step_frames": [0, 6],
     "anims": {
-      "idle": [0, 0, 4],
-      "run": [1, 0, 6],
-      "jab": [2, 0, 4],
-      "power": [3, 0, 4],
-      "heavy": [4, 0, 6],
-      "dodge": [5, 0, 4],
-      "hurt": [6, 0, 2],
-      "guard": [7, 0, 2],
-      "ko": [8, 0, 4],
-      "slip": [9, 0, 4],
-      "rush": [10, 0, 4],
-      "surge": [11, 0, 6]
+      "idle": [0, 0, 8],
+      "run": [1, 0, 12],
+      "jab": [2, 0, 8],
+      "power": [3, 0, 8],
+      "hook": [4, 0, 8],
+      "heavy": [5, 0, 12],
+      "dodge": [6, 0, 8],
+      "hurt": [7, 0, 4],
+      "guard": [8, 0, 2],
+      "ko": [9, 0, 6],
+      "slip": [10, 0, 12],
+      "rush": [11, 0, 12],
+      "surge": [12, 0, 12],
+      "victory": [13, 0, 10],
+      "idle_alt": [14, 0, 8]
     },
     "side_only": ["ko"],
+    "select_scale": 0.5,
     "views": {
-      "down": { "path": "res://assets/sprites/cairn_down.png", "origin": [24, 43] },
-      "up": { "path": "res://assets/sprites/cairn_up.png", "origin": [24, 43] }
+      "down": { "path": "res://assets/sprites/cairn_down.png", "origin": [48, 78] },
+      "up": { "path": "res://assets/sprites/cairn_up.png", "origin": [48, 84] },
+      "down_side": { "path": "res://assets/sprites/cairn_down_side.png", "origin": [44, 80] },
+      "up_side": { "path": "res://assets/sprites/cairn_up_side.png", "origin": [44, 84] }
     }
   },
   "ai": {
@@ -60,6 +70,7 @@
   "moves": {
     "tag_in": {
       "name": "Rockfall Entry", "type": "skill", "anim": "rush",
+      "anim_at": [[0, 1], [2, 2], [5, 3], [8, 4], [11, 5], [15, 6], [18, 7], [21, 8], [24, 9], [26, 10], [27, 11]],
       "startup": 6, "active": 8, "recovery": 14,
       "damage": 6, "knockback": 3.0, "hitstun": 24, "hitstop": 6,
       "reach": 14, "hit_radius": 12, "juggle": true,
@@ -69,6 +80,7 @@
     "light_1": {
       "no_flinch": true,
       "name": "Jab", "anim": "jab",
+      "anim_at": [[0, 0], [2, 1], [4, 2], [5, 3], [9, 4], [11, 5], [13, 6], [14, 7]],
       "startup": 4, "active": 2, "recovery": 9, "cancel_from": 7,
       "damage": 3, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
       "reach": 25, "hit_radius": 9, "lunge": 1.0, "next": "light_2", "juggle": true,
@@ -77,6 +89,7 @@
     "light_2": {
       "no_flinch": true,
       "name": "Jab", "anim": "jab",
+      "anim_at": [[0, 0], [2, 1], [4, 2], [5, 3], [9, 4], [11, 5], [13, 6], [14, 7]],
       "startup": 4, "active": 2, "recovery": 9, "cancel_from": 7,
       "damage": 3, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
       "reach": 25, "hit_radius": 9, "lunge": 1.0, "next": "light_3", "juggle": true,
@@ -85,13 +98,15 @@
     "light_3": {
       "no_flinch": true,
       "name": "Cross", "anim": "power",
+      "anim_at": [[0, 0], [2, 1], [5, 2], [6, 3], [10, 4], [12, 5], [15, 6], [17, 7]],
       "startup": 5, "active": 3, "recovery": 11, "cancel_from": 9,
       "damage": 5, "knockback": 1.0, "hitstun": 20, "hitstop": 5,
       "reach": 25, "hit_radius": 10, "lunge": 1.1, "next": "light_4",
       "fx": { "smear": "thrust", "size": 1.4 }
     },
     "light_4": {
-      "name": "Hook", "anim": "power",
+      "name": "Hook", "anim": "hook",
+      "anim_at": [[0, 0], [2, 1], [6, 2], [7, 3], [11, 4], [15, 5], [19, 6], [22, 7]],
       "startup": 6, "active": 3, "recovery": 16,
       "damage": 6, "knockback": 2.0, "hitstun": 26, "hitstop": 6,
       "reach": 26, "hit_radius": 11, "lunge": 1.2, "next": "",
@@ -99,6 +114,7 @@
     },
     "heavy": {
       "name": "Haymaker", "anim": "heavy", "windup": 8, "tell": "strong", "hold": {"guard_break": true},
+      "anim_charge": [0, 4, 5], "anim_at": [[0, 4], [4, 5], [6, 6], [11, 7], [14, 8], [18, 9], [24, 10], [29, 11]],
       "charge_max": 30, "startup": 6, "active": 4, "recovery": 22,
       "damage": 9, "damage_charged": 18,
       "knockback": 1.0, "knockback_charged": 1.4,
@@ -110,12 +126,14 @@
     },
     "skill_1": {
       "name": "Slip", "anim": "slip", "cooldown": 240,
+      "anim_at": [[0, 0], [2, 1], [7, 2], [12, 1], [17, 3], [26, 4]],
       "startup": 20, "active": 0, "recovery": 14,
       "counter": { "from": 2, "to": 14, "move": "slip_counter", "invuln": 12 },
       "fx": { "afterimage": [0, 14], "ghost_color": "#9ee6ffaa" }
     },
     "slip_counter": {
-      "name": "Counter Cross", "type": "skill", "anim": "slip", "anim_from": 2,
+      "name": "Counter Cross", "type": "skill", "anim": "slip", "anim_from": 5,
+      "anim_at": [[0, 5], [2, 6], [3, 7], [8, 8], [11, 9], [14, 10], [17, 11]],
       "startup": 3, "active": 3, "recovery": 14,
       "damage": 10, "knockback": 0.4, "hitstun": 20, "crumple": 50, "hitstop": 10,
       "reach": 25, "hit_radius": 12,
@@ -123,6 +141,7 @@
     },
     "skill_2": {
       "name": "Rockslide Rush", "anim": "rush", "windup": 12, "tell": "strong", "cooldown": 180,
+      "anim_at": [[0, 0], [3, 1], [5, 2], [8, 3], [11, 4], [14, 5], [19, 6], [22, 7], [25, 8], [28, 9], [30, 10], [31, 11]],
       "startup": 6, "active": 10, "recovery": 16,
       "damage": 8, "knockback": 4.5, "hitstun": 26, "hitstop": 7,
       "reach": 14, "hit_radius": 14, "stack_bonus": 4, "juggle": true,
@@ -131,6 +150,7 @@
     },
     "surge": {
       "name": "Avalanche", "anim": "surge", "energy_cost": 100,
+      "anim_at": [[0, 0], [5, 1], [8, 2], [11, 3], [13, 4], [16, 5], [18, 2], [21, 3], [23, 4], [26, 5], [28, 2], [31, 3], [33, 4], [36, 5], [38, 6], [42, 7], [44, 8], [52, 9], [56, 10], [60, 11]],
       "startup": 8, "length": 64,
       "reach": 15, "hit_radius": 13, "juggle": true,
       "dash": { "speed": 0.7, "from": 1, "to": 40 },

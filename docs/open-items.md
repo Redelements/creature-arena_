@@ -3,8 +3,9 @@
 Placeholders, what's built and what isn't, planned work and known issues.
 Priorities are in the Game Plan doc, "Game modes".
 
-- **Art:** Cairn and the dummy are programmer art (`tools/gen_sprites.py`); every other
-  fighter is a generated rig (`tools/gen_<id>.py`). An artist is making new characters
+- **Art:** every fighter, Cairn and the training dummy included (Oct 2026), is a generated
+  rig (`tools/gen_<id>.py`); only the floor tiles, the crowd and the effects sheet are still
+  programmer art (`tools/gen_sprites.py`). An artist is making new characters
   and movesets; the delivery format (ideally Aseprite + JSON with animation tags) is still
   to be agreed. Spec for drop-in art: `docs/SPRITES.md`. A character sheet (one drawing
   plus a kit) becomes a fighter as: a pixel rig, the kit mapped onto Light/Heavy/Skill 1/

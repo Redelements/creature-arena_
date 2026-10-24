@@ -11,7 +11,7 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   `python3 tools/palette.py` redraws `docs/palette.png`. Every fighter and the arenas use it:
   the splat3d rigs, Cerebro and Hissy (they call `S.shade`/`S.outline` on their own buffers),
   Barkley and Gillbert (through `shade2d.py`) and Craglash's 2D shader; only `gen_sprites.py`
-  (placeholders) isn't ported. A new line or ramp goes at the end of `LINES` / `WINDOWS`;
+  (tiles, crowd, effects) isn't ported. A new line or ramp goes at the end of `LINES` / `WINDOWS`;
   a line a fighter names but the arenas must not pick up goes in `NAMED_ONLY` (adding colours
   to the snap tables moves arena floor pixels on a rerun of `gen_arenas.py`).
 - `shade2d.py`: splat3d's shading look for generators that paint flat 2D shapes per part
@@ -26,8 +26,13 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   Prefer this shape for new fighters, like `gen_digby.py`: `build(pose, view)`, a `MAT`
   table of palette ramp names, `ROWS` / `VIEW_ROWS`, pose functions;
   `python3 tools/gen_<id>.py inspect idle:0 run:2` previews frames.
-- `gen_culvert.py`, `gen_digby.py`, `gen_pete.py`, `gen_sno.py`, `gen_crease.py`: splat3d rigs
-  (Crease: faceted paper, 128x160 frames, `decorate` draws creases).
+- `gen_culvert.py`, `gen_digby.py`, `gen_pete.py`, `gen_sno.py`, `gen_crease.py`, `gen_cairn.py`,
+  `gen_dummy.py`: splat3d rigs (Crease: faceted paper, 128x160 frames, `decorate` draws creases).
+  Cairn's stones are rigid (no squash): `pack` and per-stone `off` / `tilt` carry the weight
+  and the overlap; `decorate` paints his face and grain from stone-local coordinates (each
+  stone's `local` is offset by 100 per stone, so one buffer tells the stones apart), and
+  `python3 tools/gen_cairn.py kofx` prints `ko_fx.pieces` / `x_eyes` for `cairn.json` after
+  the rig changes. The dummy is training equipment, not a creature (a sack on a spring).
 - `gen_cerebro.py`, `gen_hissy.py`: point-sampling rigs with their own copy of splat3d's
   primitives, `Cam` and rasteriser, but splat3d's shading and outlines: `S.configure(MAT,
   ...)` with MAT on palette ramps, then `S.shade(r)` / `S.outline(r, img)` on their buffers,
@@ -43,7 +48,8 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   that `finish()` turns into ink on the silhouette and the deep step on seams, so every
   `render*` must end in `finish()`; its up/down sheets come from `VRig`, its
   diagonals from `DRig`, which turns the VRig's 3D reading 45 degrees: `docs/SPRITES.md`).
-- `gen_sprites.py`: placeholders (Cairn, dummy, tiles, crowd). `gen_arenas.py`: each map's
+- `gen_sprites.py`: the small placeholder sheets (floor tiles, crowd, effects) and
+  `docs/sprite_preview.png`. `gen_arenas.py`: each map's
   whole picture (stands on all sides: `_stands`, `_side_stands`, `_front_stands`, in step with
   `CrowdView`'s seats) plus its cracked and changed-piece floors (and `_crackmask`, the cracks
   alone, which the view lights as cracks spread and heal), the Caravan's wagon and the CTF flag (reads `data/arenas/<id>.json`;
@@ -62,8 +68,8 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
 Every character has three sheets with the same rows (side, facing down, facing up); all
 generators draw all three. The diagonals (`down_side`, `up_side`: facing down-right and
 up-right, `<id>_down_side.png`, `<id>_up_side.png`) are optional extra sheets: a splat3d
-rig adds them to its `VIEWS` and the JSON's `"views"` (every fighter but Cairn and the dummy has
-them; Craglash draws his with `DRig`), and `Cam` projects them; `write_sheets`, `inspect` and the `anim` previews draw every view in `VIEWS`. A
+rig adds them to its `VIEWS` and the JSON's `"views"` (every fighter has
+them, the dummy too; Craglash draws his with `DRig`), and `Cam` projects them; `write_sheets`, `inspect` and the `anim` previews draw every view in `VIEWS`. A
 `build(pose, view)` branch on the view name (Pete's `_dollar`) needs a case for them.
 Cerebro and Hissy have them too, through their own copies of `Cam` (the two diagonal
 branches ported from splat3d; their `main`/`inspect` loop over `S.view_names(VIEWS)`);
@@ -115,17 +121,19 @@ tools, so a fighter's pass is posing work only.
 - `gen_arenas.py` — Arena art: each map's whole backdrop as one picture, drawn by ArenaView under the floor's cracks, holes and pieces.
 - `gen_audio.py` — Generate PLACEHOLDER sound effects and music for Creature Arena.
 - `gen_barkley.py` — Barkley sprite sheets, a pixel-art recreation of the artist's character sheet.
+- `gen_cairn.py` — Cairn sprite sheets: a boxer made of stacked river stones, drawn as a posed 3D rig.
 - `gen_cerebro.py` — Chef Cerebro sprite sheets: a floating brain who throws his kitchen with his mind.
 - `gen_craglash.py` — Craglash sprite sheet, a pixel-art recreation of the artist's character sheet.
 - `gen_crease.py` — Mister Crease sprite sheets: a pixel-art take on the concept art (an origami magician).
 - `gen_culvert.py` — Culvert sprite sheets: the storm-drain toad, drawn as a posed 3D rig.
 - `gen_digby.py` — Digby sprite sheets, a pixel-art recreation of the artist's character sheet.
+- `gen_dummy.py` — Training dummy sprite sheets: a stuffed sack on a spring stand, drawn as a posed 3D rig.
 - `gen_gillbert.py` — Gillbert sprite sheets, a pixel-art recreation of the artist's character sheet.
 - `gen_hissy.py` — Hissy Fitz sprite sheets, a pixel-art recreation of the artist's character sheet.
 - `gen_logo.py` — The title wordmark: CREATURE / ARENA in the m5x7 pixel font, scaled up by whole pixels, filled with hard-edged gold ban…
 - `gen_pete.py` — Sneaky Pete sprite sheets, a pixel-art recreation of the artist's character sheet.
 - `gen_sno.py` — Sno Mercy sprite sheets, a pixel-art recreation of the artist's character sheet.
-- `gen_sprites.py` — Generate placeholder pixel-art sprite sheets for Creature Arena.
+- `gen_sprites.py` — Generate the small placeholder sheets for Creature Arena: floor tiles, the crowd, effects.
 - `palette.py` — The master palette: one published set of colours for every fighter and arena.
 - `shade2d.py` — Master-palette shading for the 2D painters (Barkley's and Gillbert's rigs).
 - `splat3d.py` — Shared renderer for the sheet-recreation sprite generators (tools/gen_digby.py and later).

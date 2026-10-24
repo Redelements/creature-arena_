@@ -5,13 +5,13 @@ row layout, it drops in with no code changes. If a layout does change, update th
 `"sprite"` block in the creature's JSON file in `data/creatures/`; each move picks its
 animation by name with its `"anim"` field.
 
-![Current placeholder sheets](sprite_preview.png)
+![The tiles, crowd and effects sheets](sprite_preview.png)
 
 ## Directions per creature: three sheets, five with the diagonals
 
 Fighters face any of 8 ways, so every creature has **three sheets with the same rows**,
-and have **two more for the diagonals** (every fighter but Cairn and the dummy, since the
-Oct 2026 diagonal round):
+and **two more for the diagonals** (every fighter since the Oct 2026 diagonal round;
+Cairn and the training dummy since their rigs replaced the placeholders):
 
 | Sheet | Shows | Used when facing |
 | --- | --- | --- |
@@ -49,14 +49,14 @@ in the others. Pete's five views side by side:
 [`anim_preview/pete_diagonals_3x.png`](anim_preview/pete_diagonals_3x.png) and
 [`pete_views_preview.png`](pete_views_preview.png); every other fighter has its own
 `anim_preview/<id>_diagonals_3x.png` and `<id>_views_preview.png` (Craglash's diagonals:
-[`craglash_diagonal_views_preview.png`](craglash_diagonal_views_preview.png)). Preview: [`sprite_views_preview.png`](sprite_views_preview.png) (Cairn,
-side/down/up), [`culvert_views_preview.png`](culvert_views_preview.png), [`craglash_views_preview.png`](craglash_views_preview.png) and
+[`craglash_diagonal_views_preview.png`](craglash_diagonal_views_preview.png)). Preview: [`cairn_views_preview.png`](cairn_views_preview.png),
+[`culvert_views_preview.png`](culvert_views_preview.png), [`craglash_views_preview.png`](craglash_views_preview.png) and
 [`barkley_views_preview.png`](barkley_views_preview.png) and
 [`gillbert_views_preview.png`](gillbert_views_preview.png).
 
-## Creatures — 48×48 frames, 6 columns
+## Creatures — frames of 96 to 128 px, 12 columns
 
-Creatures face **right**. Feet rest at the **origin** pixel (Cairn: x 22, y 43), which
+Creatures face **right**. Feet rest at the **origin** pixel (Cairn: x 46, y 84), which
 sits on the ground where the shadow is drawn (the frame itself, as a silhouette laid along
 the arena's light, so every opaque pixel casts). The game mirrors the
 sprite to face left and raises it off its shadow when launched. Leave at least 1 px of
@@ -66,8 +66,9 @@ Two effects read the art directly, so check them when sheets are replaced:
 
 - **Cairn's knockout** slices idle frame 0 into horizontal bands, one per stone, and
   tumbles them separately. The band rows are `ko_fx.pieces` in `cairn.json` (head first),
-  and `ko_fx.x_eyes` marks where the eyes are so they can be drawn as X's. If the final
-  art moves the stones or the face, update those numbers.
+  and `ko_fx.x_eyes` marks where the eyes are so they can be drawn as X's. If the rig
+  moves the stones or the face, update those numbers: `python3 tools/gen_cairn.py kofx`
+  prints them from idle frame 0.
 - **Surge cut-ins** show one frame of the Surge animation enlarged, picked by
   `cut_in_frame` ([row, column]) in each creature's JSON.
 
@@ -137,25 +138,64 @@ or away from the camera reads along the diagonal instead of sideways. Five views
 | 12 | idle_alt | 8 | the fidget (played once after a long stand): the throat swells into a bubble croak and pops, then a sideways eye toward the foe |
 | 13 | ko | 8 | thrown back, lifted and tipping, slammed down on the cover, a small bounce, down again, rocking on the round cover twice, still (eyes crossed out, tongue lolling); 6 ticks a frame; the game cracks him and gushes the water |
 
-### Cairn — 6 × 12 (288×576 px)
+### Cairn — 96×96 frames, 12 × 15 (1152×1440 px)
+
+Cairn is drawn by `tools/gen_cairn.py` on the shared splat renderer (`tools/splat3d.py`),
+like the roster: a posed 3D rig projected into five views, shaded from the master palette.
+He is four flat river stones stacked into a boxer: a broad warm-grey hip stone (`grey`), a
+narrow dark waist stone (`steel`), the widest stone for the shoulders (`concrete`) and a
+round pale head stone (`stone`; there is no dedicated stone line, so the four sit on the
+neutral and steel lines), each a little off the line and tipped at rest, as a real cairn
+is. A red sparring headband (`red`) with two tails that flutter behind; stubby arms that
+are chains of loose dark pebbles (`slate`) ending in white-taped fists (`white`); two flat
+pebbles for feet. The face (a heavy brow that frowns harder when he commits, two dark eyes,
+a set, gritted, open or grinning mouth) is painted on the head stone by `decorate`, pinned
+to the stone's own coordinates so it turns and tips with it; side-on it is cheated 40°
+toward the camera (`FACE_CHEAT`) or it would sit on the head's edge. `decorate` also
+pins a little grain to each stone and lights each stone's upper lip one step brighter.
+Every keyed fist is drawn 2 px lower and a little wider than posed (`FIST_DROP`,
+`FIST_SPREAD`) so the guard never covers the face facing the camera. Feet at **x 46,
+y 84**; the other views are 96×96 too, feet at x 48, y 78 (`down`), x 48, y 84 (`up`),
+x 44, y 80 (`down_side`) and x 44, y 84 (`up_side`). Design note: keep him **tall and
+stacked**; a round boulder with two arms would read as an existing franchise creature.
+
+**Material rule (stone): no squash.** Every stone is rigid. The weight shows in the stack
+instead: `pack` presses the stones together on a landing or a crouch and lifts them apart
+on the uppercut (the gaps open), and the stones slide off the stack's line a frame after
+the one beneath them (`off`, `tilt` per stone: the overlap, with the head stone last and
+farthest). Punches turn the stack bottom to top (hips, waist, shoulders, then the head a
+frame late). The headband tails are the free overlap (`_tails`: a flutter, lifted by how
+fast the head moved two frames before).
+
+Animated with the roster pass from the start (motion plan, timelines and the
+before/after GIFs against the placeholder:
+[`anim_preview/cairn_motion_plan.md`](anim_preview/cairn_motion_plan.md);
+`python3 tools/gen_cairn.py anim`). `idle_ticks` 8 (a 64-tick idle), `run_ticks` 2 (24
+ticks, unchanged), footsteps on `step_frames` `[0, 6]`. `select_scale` 0.5, portrait crop
+`[34, 39, 24, 28]`.
+
+![Cairn sheet, 3x](cairn_preview.png)
+
+Five views: [`cairn_views_preview.png`](cairn_views_preview.png) and
+[`anim_preview/cairn_diagonals_3x.png`](anim_preview/cairn_diagonals_3x.png).
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
-| 0 | idle | 4 | bouncing guard stance |
-| 1 | run | 6 | loop |
-| 2 | jab | 4 | lead hand: Jab, Jab |
-| 3 | power | 4 | rear hand: Cross, Hook |
-| 4 | heavy | 6 | Haymaker: charge A, charge B, dip, uppercut, follow-through, recover |
-| 5 | dodge | 4 | weave: the stones slide sideways |
-| 6 | hurt | 2 | hitstun; frame 1 doubles as the crumple pose |
-| 7 | guard | 2 | fists up, blocking a hit |
-| 8 | ko | 4 | stack topples and scatters; frames 1–2 double as the knockdown pose |
-| 9 | slip | 4 | Slip: weave low, deeper, counter cross, recover |
-| 10 | rush | 4 | Rockslide Rush: lean in, dash, punch, recover |
-| 11 | surge | 6 | Avalanche: flurry A, B, C (cycled), wind up, uppercut, recover |
-
-Design note for Cairn: keep it **tall and stacked**. A round boulder with two arms would
-read as an existing franchise creature.
+| 0 | idle | 8 | the boxer's bounce on eased spacing, the stones packing on the down; each stone sways a frame after the one under it, the fists a frame behind, a one-frame blink |
+| 1 | run | 12 | a bounding run: two steps, each foot planted 3 frames sliding back at ground speed, then 3 in the air (the stones open up); leaning in, fists pumping |
+| 2 | jab | 8 | Jab (lights 1 and 2, the lead hand): weight back, the coil (held), one fast frame, the extension held over the hit, the head stone a frame late, snap back, settle |
+| 3 | power | 8 | Cross (light 3, the rear hand): the stack twists bottom to top, the coil held, the drive, the extension held, the head overshooting, the return |
+| 4 | hook | 8 | Hook (light 4, the lead hand on a wide arc): dip, the wind (held), the swing led by the hips, the connect held, the follow-through past his face, unwind, settle |
+| 5 | heavy | 12 | Haymaker: 0-3 the charge loop (the stack rumbling, `anim_charge` `[0, 4, 5]`), the gather (held), rise, the uppercut with the stones lifted apart (held: the hit), overshoot, drop, the landing with the stones clacking together (held), recovery, settle |
+| 6 | dodge | 8 | the duck-and-shuffle (`dodge.anim_at`): folds low and leans in, the head stone trailing, two low shuffle frames, the rise with the head overshooting, settle |
+| 7 | hurt | 4 | the head stone knocked back first, the peak recoil (frame 1 doubles as the crumple pose), the head swinging forward past the stack, recovery; loops in hitstun |
+| 8 | guard | 2 | fists high, chin tucked, the stones packed; frame 1 is the block (pushed back, the head a beat behind) |
+| 9 | ko | 6 | struck, toppling back over his heel, flat on the floor (frames 1-2 double as the knockdown), the stones rolling apart, the head farthest with x eyes; the game scatters him from idle frame 0 (`ko_fx`) |
+| 10 | slip | 12 | Slip and Counter Cross: 0-4 the slip (duck, the stones sliding sideways off the line, a 2-frame wobble while the window is open, rise, settle); 5-11 the counter cross up out of the slip (coil, drive, extension held, the head overshooting, return) |
+| 11 | rush | 12 | Rockslide Rush: crouched and leaning in (held through the windup), push-off, three charge frames with the upper stones trailing, the punch at the end of the dash (held), the skid with the stones sliding on forward over the hips, settle; Rockfall Entry plays from frame 1 |
+| 12 | surge | 12 | Avalanche: the gather (held), step in, the 4-frame flurry loop (one punch out per hit: lead high, back, rear low, back), the deep gather (held), rise, the uppercut with the stones flung apart (held; the cut-in frame, `[12, 8]`), the crash down (held), settle |
+| 13 | victory | 10 | settles (0), then a 7-frame loop of the rear fist pumped overhead (behind his head side-on, so the grin shows), the lead fist on his hip (1-7), then the rear fist held high, the stones lifted proud (8-9) |
+| 14 | idle_alt | 8 | the fidget: the fists drop, the head stone grinds round a full turn on the stack (the band tails swinging round with it), then the fists knock together |
 
 ### Craglash — 96×96 frames, 12 × 16 (1152×1536 px)
 
@@ -787,9 +827,28 @@ run cycles against the generator before the sheets go in. On the game side nothi
 is needed: per-fighter `idle_ticks` / `run_ticks`, `anim_at`, `anim_charge` for longer
 charge loops. Start with the run and the lights, which show the most.
 
-## Training dummy — 48×48 frames
+## Training dummy — 96×96 frames, 8 × 6 (768×576 px)
 
-4 columns × 2 rows. Row 0: idle, hurt A, hurt B, guard. Row 1: knock-over, 4 frames.
+Drawn by `tools/gen_dummy.py` on the shared splat renderer, five views like a fighter,
+and deliberately **training equipment, not a creature**: a weighted rubber base (`slate`),
+a steel spring (`concrete`), a short wooden post and two wooden peg arms (`earth`), a
+burlap torso (`sand`) bound with two leather straps with a red target painted on the
+front, a smaller sack head tied off with rope with two X stitches, and straw poking out of
+the top. Everything above the spring bends on it (`bend`, `sway`, `twist`), the head
+(`nod`) and the straw a frame late. Feet at x 52, y 84 (side), x 48, y 80 / 84 / 82 / 84
+(down, up, down_side, up_side). `idle_ticks` 10, `run_ticks` 3, `step_frames` `[2, 6]`.
+Previews: [`dummy_preview.png`](dummy_preview.png),
+[`anim_preview/dummy_diagonals_3x.png`](anim_preview/dummy_diagonals_3x.png),
+`python3 tools/gen_dummy.py anim`.
+
+| Row | Animation | Frames | Notes |
+| --- | --- | --- | --- |
+| 0 | idle | 4 | a small, slow settle on the spring |
+| 1 | run | 8 | training's "walk": it rocks along on its base, two hops a cycle, the sack a frame behind |
+| 2 | dodge | 8 | throws itself over sideways on the spring and springs back past upright (`dodge.anim_at`) |
+| 3 | hurt | 4 | knocked back on the spring, the peak (also the crumple), springing forward past upright, settling; loops in hitstun |
+| 4 | guard | 2 | the pegs swung up crossed in front of the head; frame 1 takes the hit |
+| 5 | ko | 6 | rocks back, topples over the base, bounces, lies flat (frames 1-2 double as the knockdown) |
 
 ## Floor tiles — 8×8
 
@@ -885,8 +944,8 @@ One master palette for the whole game: `tools/palette.py`, drawn as a labelled s
 - **Craglash** (a 2D puppet, `tools/gen_craglash.py`) ports the same rules to his own
   layer shader: `MAT` holds ramps, `shade` the five steps and the rim, `finish` the inks
   and seams.
-- **Not ported:** only the placeholders in `tools/gen_sprites.py` (Cairn, the dummy, the
-  crowd and tiles) still use their own colours.
+- **Not ported:** only the small placeholder sheets in `tools/gen_sprites.py` (the floor
+  tiles, the crowd and the effects) still use their own colours.
 
 Before/after comparisons from the pass that added it: [`palette/`](palette/).
 

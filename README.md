@@ -856,7 +856,7 @@ src/game/     Scene flow (menu, rounds, training), controls, match setup
 data/         Creature stats, movesets, combo routes and sprite layouts (JSON)
 assets/       Sprite sheets (placeholder art)
 tests/        Headless tests
-tools/        Sprite generators (Python + Pillow): placeholders, and the recreations of the artist's sheets
+tools/        Sprite generators (Python + Pillow + numpy): every fighter's rig, the arenas, tiles and effects
 ```
 
 The simulation runs at a fixed 60 ticks per second and only takes **input bitmasks** and
@@ -899,9 +899,10 @@ controls. A test that crashes counts as a failure. They run on every push via Gi
 
 ## Art
 
-Everything in `assets/sprites/` is **placeholder programmer art**: Cairn, the dummy, the
-tiles and effects from `tools/gen_sprites.py`, and the fighters from the artist's sheets
-(and Culvert) from posed 3D rigs (`tools/gen_*.py`). Sheet layouts are documented in [docs/SPRITES.md](docs/SPRITES.md);
+Everything in `assets/sprites/` is **generated placeholder art**: every fighter (from the
+artist's sheets, plus Culvert, Cairn and the training dummy) from posed 3D rigs on the
+master palette (`tools/gen_*.py`), and the tiles, crowd and effects from
+`tools/gen_sprites.py`. Sheet layouts are documented in [docs/SPRITES.md](docs/SPRITES.md);
 replacement art with the same layout drops in without code changes.
 
 Text uses the pixel font **m5x7** by Daniel Linssen (CC0, `assets/fonts/`, license beside
