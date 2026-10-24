@@ -59,7 +59,7 @@ tools, so a fighter's pass is posing work only.
 - **`python3 tools/anim_preview.py --check <id>`** (or `all`): the JSON's row table against
   `ROWS` / `VIEW_ROWS` (names, frame counts, columns), the sheet PNG sizes, idle and run
   cycles against `ANIM_CYCLES`, `step_frames`, every move's `anim_at` / `anim_charge` /
-  `anim_from` / `anim_reel` frame, `cut_in_frame`. Run it before a fighter's sheets and
+  `anim_from` / `anim_reel` frame, the dodge block's `anim_at`, `cut_in_frame`. Run it before a fighter's sheets and
   JSON change. `--selftest` runs the tools' own checks (tween, lag, lag_at, the check on
   toy data); there is no Python test runner in CI.
 

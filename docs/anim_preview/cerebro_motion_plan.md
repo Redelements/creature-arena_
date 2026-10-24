@@ -11,11 +11,11 @@ until the next one. A melee hit is live from tick `startup + 1` for `active` tic
 projectile leaves at tick `startup + 1` (and each volley tick). **No frame data changes**:
 every startup, active, recovery, windup and throw tick below is today's.
 
-This is the preview phase. The new rows live in `ANIM_ROWS` in `tools/gen_cerebro.py`;
-`ROWS` (what the game's sheets are drawn from) and `data/creatures/cerebro.json` are
-untouched until Kevin approves (every current frame still renders byte for byte the same,
-checked with a hash of all three views). `python3 tools/gen_cerebro.py anim` renders the
-previews against the sheets on main before the pass (`OLD_REF`).
+**Status:** in the game (commit 2, after Kevin approved the previews). The sheets,
+`data/creatures/cerebro.json`, `docs/SPRITES.md` and the view change for Mind Blink carry
+everything below; `python3 tools/gen_cerebro.py anim` re-renders the previews, comparing
+against the sheets before the pass (`OLD_REF`). Hurt, guard and the knockout render byte
+for byte as before.
 
 ## Character
 
@@ -72,8 +72,8 @@ bob. The kit trails 6 units back and catches up on the bob at different rates: k
 cleaver 1 frame late, the spatula 2, **the mallet 3 and 1.7× as far** (the heaviest). The
 violet flush pulses with the bob (`psy` 0.1 to 0.35, no halo).
 
-**Footsteps:** the view puffs dust on run frames 0 and 6 (`step_frames` default, as on
-frames 0 and 3 today); see question 2.
+**Footsteps:** none. He floats, so `step_frames` is `[]` (the view used to puff dust on two
+run frames by default).
 
 ---
 
@@ -249,12 +249,14 @@ from full to 20% over ticks 0-5 and flickers him back in over 5-9 (`blink_alpha`
 | 6 | 9 | **wobble**: squashed 12% wide, the kit flung out past its rest (118%) |
 | 7 | 12 | **settle**: stretched 3%, the kit back in orbit (96%) |
 
-**The view needs one change for this:** a blink dodge picks its frames by the jump's
-timing with four frames hardcoded (`creature_view.gd` `_pick`: 0 until `at − 2`, 1 until
-`at`, 2 until `at + 4`, then 3). An 8-frame dodge needs a timeline; the proposal is an
-optional `anim_at` in the dodge block, `[[0,0],[2,1],[3,2],[4,3],[5,4],[7,5],[9,6],[12,7]]`,
-read by `_pick` when present (a new data key: MECHANICS.md in the same change). See
-question 1.
+**The view change:** a blink dodge used to pick its frames by the jump's timing with four
+frames hardcoded (`creature_view.gd` `_pick`). The dodge block now has its own `anim_at`,
+`[[0,0],[2,1],[3,2],[4,3],[5,4],[7,5],[9,6],[12,7]]`, read by `_pick` like a move's (any
+dodge can use it). **The flash at full strength:** `blink.solid` `[4, 7]` keeps
+`blink_alpha` at 1 on ticks 4-6 (the point, the jump, the flash at the new spot), so the
+flash isn't faded to 20-35%; the fade out before it and the flicker back in after it stay.
+Both keys are view-only (MECHANICS.md, cosmetic keys): the sim doesn't read them, and the
+determinism fingerprint is unchanged.
 
 ---
 
@@ -270,12 +272,13 @@ question 1.
 | cleaver | 6 | 8 |
 | flipout | 6 | 12 |
 | flurry | 6 | 12 (`cut_in_frame` `[8, 2]`, unchanged) |
-| dodge | 4 | 8 (`dodge.anim_at`, new) |
+| dodge | 4 | 8 (`dodge.anim_at`, `blink.solid`, both new) |
 | hurt, guard, ko | 2, 2, 4 | unchanged |
 
-`cols` 8 → 12 (a 1536 px side sheet, 1344 px for the 112 px up/down sheets). Every new
-timeline was run through `anim_preview.check` against the new rows with the new row table
-(`cols` 12, idle 64 ticks, run 24): no errors, no notes.
+`cols` 8 → 12 (a 1536 px side sheet, 1344 px for the 112 px up/down sheets);
+`step_frames` `[]`; `portrait` `[52, 58, 24, 32]` → `[52, 59, 24, 32]` (the new idle frame 0
+sits a pixel lower). `anim_preview.py --check cerebro` passes (it now checks the dodge's
+`anim_at` frames too).
 
 ## Risks at this size (the brain about 30×22 px, the kit out to 90×60)
 
@@ -300,20 +303,21 @@ timeline was run through `anim_preview.check` against the new rows with the new 
 `cerebro_<anim>_1x.gif`, `_3x.gif`, `_compare_3x.gif` (the sheets on main beside the new
 frames, at game speed, the throws and hits labelled) for idle, run, flick, flick2, toss,
 tenderize (with 24 ticks of held charge), tenderize_tag_in (Order Up), cleaver (with the
-6-tick raw windup), flipout (with the 12-tick windup), flurry and dodge (on the proposed
-timeline; the GIFs don't apply the view's fade); `cerebro_idle_views_3x.gif`,
+6-tick raw windup), flipout (with the 12-tick windup), flurry and dodge (the GIFs don't
+apply the view's fade); `cerebro_idle_views_3x.gif`,
 `cerebro_run_views_3x.gif` (side, down, up); `cerebro_contact_sheet.png` (every new frame,
 all three views).
 
-## Questions for Kevin
+## Questions, answered (Kevin, Oct 24 2026)
 
-1. **Mind Blink's 8 frames need a small view change**: an optional `anim_at` in the dodge
-   block, read by `CreatureView._pick` for a blink dodge (today four frames are hardcoded
-   there). OK to add in phase 2? And the view fades him to 20-35% around the jump, so the
-   new flash shows at that strength in the game; keep the fade as it is, or let the flash
-   frames (ticks 4-6) draw at full strength?
-2. **Footstep puffs on a floater:** the view puffs dust under him on two run frames, as it
-   does today (he has no feet). Keep them as a hover wash, or turn them off
-   (`step_frames: []`)?
-3. **Speed streaks:** the throw frames now draw a short violet streak behind the tool (in
-   the sprite, his telekinesis colour). Keep them, or motion only?
+1. **Mind Blink:** yes to the 8 frames on a dodge `anim_at`, and the flash at full strength
+   instead of the fade (`blink.solid`).
+2. **Footstep dust:** off for the floater (`step_frames: []`).
+3. **Speed streaks:** keep them.
+
+Commit 2 put it in the game: `ROWS` are the new poses (the old ones dropped), the three
+sheets at 12 columns, `cerebro.json` (`cols` 12, the row table, `idle_ticks` 8, `run_ticks`
+2, `step_frames`, the `anim_at`s above, `anim_charge`, an Order Up `anim_at` with
+`anim_from` dropped, the dodge's `anim_at`, `blink.solid`, the portrait nudge),
+`creature_view.gd` (`_pick`, `blink_alpha`), MECHANICS.md and SPRITES.md. The
+`NET_VERSION` bump comes once with the batch (Culvert, Hissy, Cerebro).

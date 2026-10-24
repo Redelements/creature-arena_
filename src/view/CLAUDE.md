@@ -16,7 +16,7 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   per shadow row shifted whole pixels (crisp, no overlap). Never draw a fighter's shadow on its
   own node: y-sort would put it over the fighter behind.
 - Art layout is data-driven: frame size (`[w, h]` frames allowed, Crease's are 128x160),
-  origin, `anims`, `side_only`, `idle_ticks`, `run_ticks`, `anim`, `anim_at`, `anim_reel`,
+  origin, `anims`, `side_only`, `idle_ticks`, `run_ticks`, `step_frames`, `anim`, `anim_at` (also the dodge's), `anim_reel`,
   `anim_charge`, `view_lift` from the creature JSON (`FighterPreview` reads `idle_ticks` too). Up/down sheets are optional; diagonals stay side-on.
 - An area drawn from data (a burst ring, an ice blast, a zone) reads the same number the
   sim hits with, so a bigger hit area shows as bigger. Projectiles are not drawn from their

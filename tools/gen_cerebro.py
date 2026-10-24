@@ -4,7 +4,7 @@
 Run from anywhere:  python3 tools/gen_cerebro.py
 Requires Pillow and numpy.
 
-Writes assets/sprites/cerebro.png (128x128 frames, 8 columns, the side view),
+Writes assets/sprites/cerebro.png (128x128 frames, 12 columns, the side view),
 cerebro_down.png and cerebro_up.png (112x128 frames: facing the camera, and facing
 away), plus labelled previews in docs/.
 
@@ -44,7 +44,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 OUT = os.path.join(ROOT, "assets", "sprites", "cerebro.png")
 PREVIEW = os.path.join(ROOT, "docs", "cerebro_preview.png")
 
-COLS = 8
+COLS = 12  # the run, Tenderize, Flip Out and Knife Flurry have 12 frames
 SIDE = {"w": 128, "h": 128, "origin": (62, 100)}
 VIEWS = {
     "down": {"w": 112, "h": 128, "origin": (56, 88)},
@@ -943,134 +943,6 @@ def hover(k, n, amp=1.2):
     return HOVER + amp * math.sin(2.0 * math.pi * k / n)
 
 
-def idle():
-    """Floating in place: a slow bob, the kit drifting round him, a glint on the shades."""
-    return [P(lift=hover(k, 4), tail=0.4 * math.sin(2 * math.pi * k / 4), glint=k / 3.0, tools=kit(k, 4))
-            for k in range(4)]
-
-
-def run():
-    """Gliding: leaning into it, the stem streaming back, the kit trailing a little."""
-    out = []
-    for k in range(6):
-        a = 2 * math.pi * k / 6
-        out.append(P(lift=hover(k, 6, 1.0) + 1.0, pitch=-9, shift=1.5, tail=1.0 + 0.3 * math.sin(a),
-                     tools=kit(k, 6, move=(0.0, 1.0, -5.0), amp=1.2, wob=7.0)))
-    return out
-
-
-def flick():
-    """Knife Flick: a paring knife swings round to point at the foe, draws back and is
-    gone (the game throws it); another floats up in its place."""
-    return [
-        P(lift=hover(0, 4), psy=0.5, active=("k1",), tools=kit(0, 4, {"k1": ((-8.0, 33.0, 24.0), (0.0, -20.0, 0.0))})),
-        P(lift=hover(1, 4), psy=0.9, active=("k1",), tools=kit(1, 4, {"k1": ((-8.0, 35.0, 16.0), (8.0, -20.0, 0.0))})),
-        P(lift=hover(2, 4), psy=1.0, pitch=5, tools=kit(2, 4, {"k1": None})),
-        P(lift=hover(3, 4), psy=0.3, tools=kit(3, 4)),
-    ]
-
-
-def flick2():
-    """Backhand Flick: the same from his other side."""
-    return [
-        P(lift=hover(0, 4), psy=0.5, yaw=-6, active=("k3",), tools=kit(0, 4, {"k3": ((11.0, 31.0, 22.0), (0.0, 20.0, 0.0))})),
-        P(lift=hover(1, 4), psy=0.9, yaw=-10, active=("k3",), tools=kit(1, 4, {"k3": ((13.0, 33.0, 14.0), (6.0, 20.0, 0.0))})),
-        P(lift=hover(2, 4), psy=1.0, yaw=6, pitch=4, tools=kit(2, 4, {"k3": None})),
-        P(lift=hover(3, 4), psy=0.3, tools=kit(3, 4)),
-    ]
-
-
-def toss():
-    """Mallet Toss: the mallet lifts, swings back over him end over end, and is hurled."""
-    return [
-        P(lift=hover(0, 5), psy=0.6, active=("mallet",), tools=kit(0, 5, {"mallet": ((4.0, 50.0, -4.0), (115.0, 0.0, 0.0))})),
-        P(lift=hover(1, 5), psy=0.9, pitch=3, active=("mallet",),
-          tools=kit(1, 5, {"mallet": ((2.0, 54.0, -12.0), (165.0, 0.0, 0.0))})),
-        P(lift=hover(2, 5), psy=1.0, active=("mallet",), tools=kit(2, 5, {"mallet": ((2.0, 46.0, 16.0), (30.0, 0.0, 0.0))})),
-        P(lift=hover(3, 5), psy=1.0, pitch=6, tools=kit(3, 5, {"mallet": None})),
-        P(lift=hover(4, 5), psy=0.2, tools=kit(4, 5)),
-    ]
-
-
-def tenderize():
-    """Tenderize (and Order Up from frame 3): the mallet rises high over him, charging,
-    swings over and pounds the floor in front, then floats back."""
-    return [
-        P(psy=0.7, glint=0.2, squash=1.02, active=("mallet",), tools=kit(0, 6, {"mallet": ((0.0, 56.0, 2.0), (95.0, 0.0, 0.0))})),
-        P(psy=1.0, glint=0.7, squash=1.05, lift=HOVER + 1.5, active=("mallet",),
-          tools=kit(1, 6, {"mallet": ((0.0, 61.0, -1.0), (100.0, 0.0, 0.0))})),
-        P(psy=1.0, pitch=-3, lift=HOVER + 1.0, active=("mallet",),
-          tools=kit(2, 6, {"mallet": ((0.0, 56.0, 14.0), (55.0, 0.0, 0.0))})),
-        P(psy=1.0, pitch=-9, squash=0.92, lift=HOVER - 2.0, active=("mallet",),
-          tools=kit(3, 6, {"mallet": ((0.0, 15.0, 27.0), (-78.0, 0.0, 0.0))}, move=(0.0, -2.0, 0.0))),
-        P(psy=0.8, pitch=-6, squash=0.95, lift=HOVER - 1.0, active=("mallet",),
-          tools=kit(4, 6, {"mallet": ((0.0, 16.0, 26.0), (-72.0, 0.0, 0.0))})),
-        P(psy=0.3, tools=kit(5, 6, {"mallet": ((5.0, 36.0, -4.0), (82.0, 25.0, 0.0))})),
-    ]
-
-
-def cleaver():
-    """Cleaver Toss: the big knife rises, wheels back over his head, snaps forward and
-    is thrown; a moment later it's back at his side."""
-    return [
-        P(psy=0.6, active=("cleaver",), tools=kit(0, 6, {"cleaver": ((-12.0, 34.0, 20.0), (125.0, -25.0, 0.0))})),
-        P(psy=0.9, pitch=-4, squash=1.03, active=("cleaver",),
-          tools=kit(1, 6, {"cleaver": ((-8.0, 48.0, 0.0), (175.0, -25.0, 0.0))})),
-        P(psy=1.0, active=("cleaver",), tools=kit(2, 6, {"cleaver": ((-8.0, 38.0, 30.0), (5.0, -25.0, 0.0))})),
-        P(psy=1.0, pitch=7, squash=0.95, tools=kit(3, 6, {"cleaver": None})),
-        P(psy=0.5, pitch=3, tools=kit(4, 6, {"cleaver": None})),
-        P(psy=0.3, tools=kit(5, 6)),
-    ]
-
-
-def flipout():
-    """Flip Out: the spatula dives low, skims the floor to slide under the foe, and flips
-    them up over his head."""
-    return [
-        P(psy=0.6, yaw=5, active=("spatula",), tools=kit(0, 6, {"spatula": ((10.0, 8.0, -22.0), (20.0, 160.0, 0.0))})),
-        P(psy=0.9, pitch=-4, active=("spatula",), tools=kit(1, 6, {"spatula": ((8.0, 3.0, 12.0), (-4.0, 0.0, 90.0))})),
-        P(psy=1.0, pitch=-6, shift=2.0, active=("spatula",),
-          tools=kit(2, 6, {"spatula": ((6.0, 2.0, 30.0), (-4.0, 0.0, 90.0))})),
-        P(psy=1.0, pitch=6, active=("spatula",), tools=kit(3, 6, {"spatula": ((6.0, 26.0, 26.0), (60.0, 0.0, 90.0))})),
-        P(psy=0.8, pitch=-5, active=("spatula",), tools=kit(4, 6, {"spatula": ((6.0, 47.0, 4.0), (130.0, 0.0, 90.0))})),
-        P(psy=0.2, tools=kit(5, 6)),
-    ]
-
-
-def fan(back, gone=()):
-    """Knife Flurry's fan: five paring knives in an arc in front of him, points at the foe."""
-    out = {}
-    for name, (lat, up) in zip(KNIVES, [(-15.0, 32.0), (-8.0, 40.0), (0.0, 45.0), (8.0, 40.0), (15.0, 32.0)]):
-        out[name] = None if name in gone else ((lat, up, 31.0 - back), (2.0, -lat * 0.8, lat * 1.5))
-    return out
-
-
-def flurry():
-    """Knife Flurry: every paring knife swings round into a fan pointed at the foe, draws
-    back, and they fly one after another (alternating frames), then the rest come home."""
-    knives = KNIVES
-    return [
-        P(psy=0.8, glint=0.5, squash=1.03, active=knives, tools=kit(0, 6, fan(4.0))),
-        P(psy=1.0, glint=1.0, squash=1.05, pitch=-3, active=knives, tools=kit(1, 6, fan(9.0))),
-        P(psy=1.0, pitch=4, active=knives, tools=kit(2, 6, fan(2.0, gone=("k3",)))),
-        P(psy=1.0, pitch=6, squash=0.97, active=knives, tools=kit(3, 6, fan(2.0, gone=("k2", "k4")))),
-        P(psy=1.0, pitch=3, active=knives, tools=kit(4, 6, fan(4.0, gone=("k1", "k3", "k5")))),
-        P(psy=0.3, tools=kit(5, 6)),
-    ]
-
-
-def dodge():
-    """The teleport: his kit folds in and he pinches to a sliver and is gone; he appears
-    the same way and the kit unfolds round him."""
-    gone = {n: None for n in REST}
-    return [
-        P(psy=1.0, squash=0.9, active=tuple(REST), tools=kit(0, 4, scale=0.55, spin=40.0)),
-        P(psy=1.0, thin=0.45, squash=1.35, lift=HOVER + 2.0, tools=gone),
-        P(psy=1.0, thin=0.6, squash=1.25, lift=HOVER + 2.0, tools=gone, stem=False),
-        P(psy=0.5, squash=0.95, active=tuple(REST), tools=kit(3, 4, scale=0.8, spin=-25.0)),
-    ]
-
-
 def hurt():
     """Knocked back: he reels, shades askew, and his grip on the kit slips."""
     return [
@@ -1115,23 +987,6 @@ def ko():
     ]
 
 
-ROWS = [
-    ("idle", idle()),
-    ("run", run()),
-    ("flick", flick()),
-    ("flick2", flick2()),
-    ("toss", toss()),
-    ("tenderize", tenderize()),
-    ("cleaver", cleaver()),
-    ("flipout", flipout()),
-    ("flurry", flurry()),
-    ("dodge", dodge()),
-    ("hurt", hurt()),
-    ("guard", guard()),
-    ("ko", ko()),
-]
-# Up and down sheets: every row but the knockout, which falls over sideways in any view.
-VIEW_ROWS = ROWS[:-1]
 
 
 def sheet(view, rows, fw, fh, origin):
@@ -1166,10 +1021,9 @@ def preview(sh, rows, fw, fh, origin, scale, path):
 # Chef Cerebro's motion pass (docs/anim_preview/cerebro_motion_plan.md): every ability
 # redrawn with eased spacing, anticipation and held releases, his brain squashing up to
 # 10% and wobbling back over 2 frames (jelly), and every tool in the floating kit moving
-# on its own lag, so the kit never moves as one block. Not in the game yet: ROWS above are
-# still the sheets the game uses; ANIM_ROWS are the new ones, which
-# `python3 tools/gen_cerebro.py anim` previews. After approval ANIM_ROWS replace ROWS and
-# cerebro.json gets the new row table and timelines.
+# on its own lag, so the kit never moves as one block. Hurt, guard and the knockout are as
+# they were. `python3 tools/gen_cerebro.py anim` renders the previews against the sheets
+# before the pass (OLD_REF).
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import splat3d as S  # noqa: E402  (only its animation tools: tween, ease, EASE_8, lag)
@@ -1216,7 +1070,7 @@ def still(over=None, jolt=0.0, lags=None, i=0, push=(0.0, 1.4, -2.6), scale=1.0,
     return out
 
 
-def idle_new():
+def idle():
     """Floating in place, 8 frames: the bob on eased spacing (he lingers at the top and the
     bottom), the brain a touch squashed at the bottom; every tool rides the bob 1 to 3
     frames late and drifts round its own small orbit; the stem swings 2 frames behind; a
@@ -1236,7 +1090,7 @@ def idle_new():
     return out
 
 
-def run_new():
+def run():
     """The glide, 12 frames: leaning in, stretched along the way he goes (10% at the top of
     the bob), one gentle bob a cycle; the stem streams back 3 frames behind; the kit trails
     and catches up, each tool at its own lag (the mallet the latest and the furthest); the
@@ -1296,20 +1150,20 @@ def _throw(name, aim, back, snap, side=1.0, body=None, extra=None):
     return q
 
 
-def flick_new():
+def flick():
     """Knife Flick (light 1): the near paring knife (k1)."""
     return _throw("k1", aim=((-8.0, 44.0, 20.0), (-6.0, -20.0, 0.0)), back=((-8.0, 47.0, 7.0), (6.0, -20.0, 0.0)),
                   snap=((-8.0, 41.0, 38.0), (-9.0, -20.0, 0.0)))
 
 
-def flick2_new():
+def flick2():
     """Backhand Flick (light 2): the same from his other side (k3), his front turning away
     on the draw-back and back through on the throw."""
     return _throw("k3", aim=((11.0, 43.0, 19.0), (-6.0, 20.0, 0.0)), back=((13.0, 46.0, 6.0), (6.0, 20.0, 0.0)),
                   snap=((10.0, 40.0, 37.0), (-9.0, 20.0, 0.0)), body={"yaw": -7.0})
 
 
-def toss_new():
+def toss():
     """Mallet Toss (light 3), 8 frames: the mallet lifts (0), wheels back over him (1),
     coils furthest back with the brain leaning back (2, held 4 ticks), is flung over the top
     in one fast frame (3), and is gone with his whole brain pitched forward after it (4,
@@ -1337,7 +1191,7 @@ def toss_new():
     ]
 
 
-def tenderize_new():
+def tenderize():
     """Tenderize, 12 frames. Frames 0-3 are the held charge (anim_charge [0, 4, 6]): the
     mallet high over him, trembling up and down as the glow pulses and the brain swells.
     Then from the release: the peak, tipped back (4), the swing over (5) and down (6) with
@@ -1380,7 +1234,7 @@ def tenderize_new():
     return out
 
 
-def cleaver_new():
+def cleaver():
     """Cleaver Toss, 8 frames: the big knife rises (0, held through the raw windup), wheels
     back over his head (1), coils furthest back with the brain leaning back (2, held 4
     ticks), snaps forward in one fast frame (3), and is gone with the brain pitched after
@@ -1403,7 +1257,7 @@ def cleaver_new():
     ]
 
 
-def flipout_new():
+def flipout():
     """Flip Out, 12 frames: the scoop. The spatula swung back low behind him, the brain
     leaning back (0: the anticipation, held through the red windup), dives under him (1),
     skims the floor (2) and slides furthest under the foe (3, held through the grab), then
@@ -1444,7 +1298,7 @@ FAN_SLOTS = [(-15.0, 32.0), (-8.0, 40.0), (0.0, 45.0), (8.0, 40.0), (15.0, 32.0)
 FLURRY_ORDER = ("k3", "k4", "k2", "k5")
 
 
-def fan_new(back, drawn=None, gone=(), spread=1.0):
+def fan(back, drawn=None, gone=(), spread=1.0):
     """The flurry's fan, points at the foe; `drawn` {knife: extra draw-back}."""
     out = {}
     for name, (lat, up) in zip(KNIVES, FAN_SLOTS):
@@ -1454,7 +1308,7 @@ def fan_new(back, drawn=None, gone=(), spread=1.0):
     return out
 
 
-def flurry_new():
+def flurry():
     """Knife Flurry, 12 frames: the paring knives swing round into a fan (0, 1), the fan
     draws back with the glow at full (2, held: the cut-in frame), then a 4-frame throw loop
     (3-6), one frame per knife: the knife that just left gone with a streak, the next one
@@ -1465,9 +1319,9 @@ def flurry_new():
     knives = KNIVES
     out = [
         P(psy=0.75, squash=1.02, active=knives, glint=GLINT_OFF,
-          tools=still(fan_new(7.0, spread=0.75))),
-        P(psy=0.9, squash=1.03, active=knives, glint=GLINT_OFF, tools=still(fan_new(4.0))),
-        P(psy=1.0, squash=1.06, pitch=4.0, lift=HOVER + 1.0, active=knives, glint=0.7, tools=still(fan_new(10.0))),
+          tools=still(fan(7.0, spread=0.75))),
+        P(psy=0.9, squash=1.03, active=knives, glint=GLINT_OFF, tools=still(fan(4.0))),
+        P(psy=1.0, squash=1.06, pitch=4.0, lift=HOVER + 1.0, active=knives, glint=0.7, tools=still(fan(10.0))),
     ]
     slots = dict(zip(KNIVES, FAN_SLOTS))
     pitches = (-4.0, -6.0, -3.0, -7.0)
@@ -1478,7 +1332,7 @@ def flurry_new():
         out.append(P(psy=1.0, pitch=pitches[j], yaw=yaws[j], roll=(4.0 if j % 2 else -4.0), shift=1.0,
                      squash=0.95 if j % 2 else 0.98, active=knives, glint=GLINT_OFF,
                      smear=(((lat, up, 34.0), (lat * 1.3, up - 3.0, 60.0)),),
-                     tools=still(fan_new(2.0, drawn={nxt: 11.0}, gone=(name,)))))
+                     tools=still(fan(2.0, drawn={nxt: 11.0}, gone=(name,)))))
     out += [
         P(psy=1.0, pitch=-11.0, shift=3.0, squash=0.9, glint=GLINT_OFF,
           smear=(((0.0, 45.0, 34.0), (0.0, 42.0, 60.0)),), tools=still({k: None for k in knives}, jolt=1.0, i=4)),
@@ -1491,7 +1345,7 @@ def flurry_new():
     return out
 
 
-def dodge_new():
+def dodge():
     """Mind Blink, 8 frames: the kit folds in and the brain squashes down wide (0: the
     anticipation), springs up thin as the kit tightens (1), a needle (2), pinches to a point
     with a flash (3); at the jump (tick 5) a flash at the new spot (4), he reappears
@@ -1511,23 +1365,23 @@ def dodge_new():
     ]
 
 
-ANIM_ROWS = [
-    ("idle", idle_new()),
-    ("run", run_new()),
-    ("flick", flick_new()),
-    ("flick2", flick2_new()),
-    ("toss", toss_new()),
-    ("tenderize", tenderize_new()),
-    ("cleaver", cleaver_new()),
-    ("flipout", flipout_new()),
-    ("flurry", flurry_new()),
-    ("dodge", dodge_new()),
+ROWS = [
+    ("idle", idle()),
+    ("run", run()),
+    ("flick", flick()),
+    ("flick2", flick2()),
+    ("toss", toss()),
+    ("tenderize", tenderize()),
+    ("cleaver", cleaver()),
+    ("flipout", flipout()),
+    ("flurry", flurry()),
+    ("dodge", dodge()),
     ("hurt", hurt()),
     ("guard", guard()),
     ("ko", ko()),
 ]
-ANIM_VIEW_ROWS = ANIM_ROWS[:-1]
-ANIM_COLS = 12
+# Up and down sheets: every row but the knockout, which falls over sideways in any view.
+VIEW_ROWS = ROWS[:-1]
 
 
 # ------------------------------------------------------------------ animation tools
@@ -1536,8 +1390,7 @@ ANIM_COLS = 12
 # `python3 tools/anim_preview.py --check cerebro` checks the JSON's timelines against ROWS.
 # In-betweens and overlap come from splat3d (tween, cycle, lag, lag_at), which only touch
 # pose attributes; this generator's renderer is its own.
-ANIM_CYCLES = {"idle": 40, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks), as cerebro.json has them
-ANIM_TICKS = {"idle": 8, "run": 2}     # the new rows' ticks per frame (idle 64 ticks, run 24; the JSON after approval)
+ANIM_CYCLES = {"idle": 64, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks)
 OLD_REF = os.environ.get("CEREBRO_OLD_REF", "25d385d")  # main before the pass: the "current" frames
 
 
@@ -1555,7 +1408,7 @@ def render_frame(pose, view):
 
 
 # The timelines: the current ones (as the view plays the sheets today) and the new ones
-# (what cerebro.json gets after approval). Every startup, active, recovery and windup stays.
+# (what cerebro.json has). Every startup, active, recovery and windup stays.
 OLD_AT = {
     "flick": [[0, 0], [3, 1], [6, 2], [12, 3]],
     "flick2": [[0, 0], [3, 1], [6, 2], [12, 3]],
@@ -1581,8 +1434,8 @@ NEW_AT = {
 }
 NEW_CHARGE = [0, 4, 6]  # Tenderize's held charge: frames 0-3, 6 ticks each (today [0, 2, 6])
 NEW_CUT_IN = [8, 2]     # the Surge cut-in: the drawn-back fan (frame 2 both before and after)
-# Mind Blink: the view picks a blink dodge's frames by the jump's timing (creature_view.gd
-# `_pick`, four frames hardcoded); 8 frames need this timeline in the dodge block.
+# Mind Blink: the view used to pick a blink dodge's 4 frames by the jump's timing; the 8
+# new ones play on the dodge block's `anim_at` (creature_view.gd `_pick`).
 OLD_DODGE = [[0, 0], [3, 1], [5, 2], [9, 3]]
 NEW_DODGE = [[0, 0], [2, 1], [3, 2], [4, 3], [5, 4], [7, 5], [9, 6], [12, 7]]
 
@@ -1678,13 +1531,10 @@ def main():
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "inspect":
-        # python3 tools/gen_cerebro.py inspect idle:0 run:2 (CEREBRO_NEW=1: the new rows)
-        rows = ANIM_ROWS if os.environ.get("CEREBRO_NEW") else ROWS
-        inspect(rows, sys.argv[2:], os.environ.get("INSPECT_OUT", os.path.join(ROOT, "cerebro_inspect.png")))
+        # python3 tools/gen_cerebro.py inspect idle:0 run:2
+        inspect(ROWS, sys.argv[2:], os.environ.get("INSPECT_OUT", os.path.join(ROOT, "cerebro_inspect.png")))
     elif len(sys.argv) > 1 and sys.argv[1] == "anim":
         import anim_preview
-        # previews show the new rows; the game's sheets (ROWS) stay as they are until approval
-        ROWS, VIEW_ROWS = ANIM_ROWS, ANIM_VIEW_ROWS
         anim_preview.main(sys.modules[__name__], sys.argv[2:])
     else:
         main()
