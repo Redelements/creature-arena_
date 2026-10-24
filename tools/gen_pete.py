@@ -13,6 +13,7 @@ moustache and a toothy grin, a black eye mask, an orange striped knit beanie, a 
 sweater, navy jeans, brown shoes, and a big green money bag with a dollar sign slung over
 his shoulder. A point is (lat, up, fwd), like the other rigs.
 """
+import copy
 import math
 import os
 import sys
@@ -66,6 +67,19 @@ class Pose:
         self.roll = kw.get("roll", 0.0)             # rolled over (dodge, knockout)
         self.lift = kw.get("lift", 0.0)             # the whole body off the floor (hop)
         self.hidden = kw.get("hidden", False)       # vanished (The Big Heist): only a puff
+        # the animation pass (all default to "as before", so the current rows draw the same)
+        self.stretch = kw.get("stretch", 0.0)       # -1..1: squashed (-) or stretched (+), 12% at 1
+        self.look = kw.get("look", 0.0)             # head turned on the neck (deg, + toward the camera)
+        self.cap = kw.get("cap", 0.0)               # the beanie's dome flopped forward (+) / back (deg)
+        self.knees = kw.get("knees", (0.0, 0.0))    # near, far knee pushed further forward (a high knee)
+        self.bag_sq = kw.get("bag_sq", 0.0)         # the bag squashed (+, it lands) or stretched (-)
+        self.flop = kw.get("flop", 0.0)             # the bag's neck bent forward (+) / back
+        self.knot_hand = kw.get("knot_hand", False)  # the neck is tied at the grip hand wherever it is
+        self.flip = kw.get("flip", 0.0)             # somersault about his middle (deg, + forward)
+        self.rise = kw.get("rise", 0.0)             # off the floor, after the flip
+
+
+SQUASH = 0.12  # flesh: 12% at stretch 1 (docs/anim_preview/roster_anim_plan.md)
 
 
 def _world(p, v):
@@ -73,7 +87,29 @@ def _world(p, v):
     if p.roll:
         c = np.array([0.0, 10.0, 0.0])
         v = np.array(S.rot_fwd(tuple(v - c), p.roll)) + c
-    return v
+    if p.flip:
+        c = np.array([0.0, 12.0, p.hipf])
+        v = np.array(rot_lat(tuple(v - c), -p.flip)) + c
+    return v + np.array([0.0, p.rise, 0.0])
+
+
+def _squash(p, pos):
+    """Squash and stretch keeping volume: taller and narrower (+) or shorter and wider (-),
+    the floor fixed and the feet planted (the widening fades out below the knees)."""
+    k = SQUASH * p.stretch
+    out = pos.copy()
+    out[:, 1] = pos[:, 1] * (1.0 + k)
+    w = np.clip((pos[:, 1] - 3.0) / 9.0, 0.0, 1.0) * (1.0 / math.sqrt(1.0 + k) - 1.0)
+    out[:, 0] = pos[:, 0] * (1.0 + w)
+    out[:, 2] = p.hipf + (pos[:, 2] - p.hipf) * (1.0 + w)
+    return out
+
+
+def _turned(v, axis, deg):
+    """v turned about a unit axis (Rodrigues)."""
+    a = math.radians(deg)
+    v, axis = np.asarray(v, float), np.asarray(axis, float)
+    return v * math.cos(a) + np.cross(axis, v) * math.sin(a) + axis * np.dot(axis, v) * (1 - math.cos(a))
 
 
 def limb(a, b, bend, r0, r1, mat):
@@ -84,22 +120,38 @@ def limb(a, b, bend, r0, r1, mat):
     return tube(pts, [r0 + (r1 - r0) * k / 8.0 for k in range(9)], mat)
 
 
-def build(p, view):
-    if p.hidden:
-        return [ellipsoid_oriented((0.0, -400.0, 0.0), (0.6, 0.4, 0.6), *AXES, "black")]  # off the frame: empty
-    parts = []
+def _body(p):
+    """The torso's frame: pelvis, up, forward, left, chest, neck, the two shoulders."""
     pelvis = np.array([0.0, p.hip, p.hipf])
     up = np.array(rot_up(rot_lat((0.0, 1.0, 0.0), -p.lean), p.turn))
     fw = np.array(rot_up(rot_lat((0.0, 0.0, 1.0), -p.lean), p.turn))
     lt = np.cross(up, fw)
     chest = pelvis + up * 10.0
     neck = pelvis + up * 16.5
+    sh = [chest + up * 5.5 + lt * 7.0, chest + up * 5.5 - lt * 7.0]
+    return pelvis, up, fw, lt, chest, neck, sh
+
+
+def _slung(p, up, fw, lt, neck, sh):
+    """Where build() puts the bag and its knot when the pose leaves the bag to its default."""
+    bag = np.asarray(p.bag, float) if p.bag is not None else neck + up * 2.0 - fw * 9.0 + lt * 3.0
+    knot = bag + (sh[p.grip] - bag) / (np.linalg.norm(sh[p.grip] - bag) + 1e-9) * (p.bag_r + 2.0)
+    return bag, knot
+
+
+def build(p, view):
+    if p.hidden:
+        return [ellipsoid_oriented((0.0, -400.0, 0.0), (0.6, 0.4, 0.6), *AXES, "black")]  # off the frame: empty
+    parts = []
+    pelvis, up, fw, lt, chest, neck, sh = _body(p)
     # torso: a sweater, hips in jeans
     parts.append(ellipsoid_oriented(chest, (8.0, 9.0, 6.0), fw, up, lt, "sweater"))
     parts.append(ellipsoid_oriented(pelvis + up * 1.5, (5.0, 4.0, 6.8), fw, up, lt, "jeans"))
     # head
     hu = np.array(rot_lat(tuple(up), p.head))
     hf = np.array(rot_lat(tuple(fw), p.head))
+    if p.look:
+        hf = _turned(hf, hu, p.look)
     hl = np.cross(hu, hf)
     hc = neck + hu * 7.6 + hf * 1.0
     parts.append(ellipsoid_oriented(hc, (7.6, 7.6, 7.4), hf, hu, hl, "skin"))
@@ -124,20 +176,26 @@ def build(p, view):
         parts.append(tube([mouth - hl * 2.0, mouth + hl * 2.0], [0.4, 0.4], "black"))
     # beanie: a knit dome with two darker stripes and a rolled brim
     cap = hc + hu * 5.0 - hf * 0.6
-    parts.append(ellipsoid_oriented(cap, (7.8, 5.0, 7.7), hf, hu, hl, "beanie"))
+    cu, cf = hu, hf
+    if p.cap:  # the knit dome flops on the head, turned about his left-right axis
+        cu, cf = _turned(hu, hl, -p.cap), _turned(hf, hl, -p.cap)
+        cap = hc + cu * 5.0 - cf * 0.6
+    parts.append(ellipsoid_oriented(cap, (7.8, 5.0, 7.7), cf, cu, hl, "beanie"))
     for k, h in enumerate((1.2, 3.1)):
-        parts.append(ellipsoid_oriented(cap + hu * h, (7.85 - k * 1.2, 0.7, 7.75 - k * 1.2), hf, hu, hl, "stripe"))
+        parts.append(ellipsoid_oriented(cap + cu * h, (7.85 - k * 1.2, 0.7, 7.75 - k * 1.2), cf, cu, hl, "stripe"))
     parts.append(ellipsoid_oriented(cap - hu * 1.0, (8.2, 1.4, 8.1), hf, hu, hl, "beanie"))
     # legs: navy jeans, brown shoes, knees bent forward
     for s, foot in ((1.0, p.feet[0]), (-1.0, p.feet[1])):
         hip = pelvis + lt * s * 3.4
         f = np.asarray(foot, float)
-        parts.append(limb(hip, f + np.array([0.0, 1.5, -1.0]), (0.0, 1.0, 4.0), 3.0, 2.2, "jeans"))
+        kn = p.knees[0 if s > 0 else 1]
+        bend = (0.0, 1.0 - 0.4 * kn, 4.0 + 1.3 * kn)  # a high knee: further forward, a little lower
+        parts.append(limb(hip, f + np.array([0.0, 1.5, -1.0]), bend, 3.0, 2.2, "jeans"))
         parts.append(ellipsoid_oriented(f + np.array([0.0, 0.0, 1.6]), (4.0, 1.9, 2.4), *AXES, "shoe"))
     # arms: grey sleeves, pink hands
-    sh = [chest + up * 5.5 + lt * 7.0, chest + up * 5.5 - lt * 7.0]
-    bag = np.asarray(p.bag, float) if p.bag is not None else neck + up * 2.0 - fw * 9.0 + lt * 3.0
-    knot = bag + (sh[p.grip] - bag) / (np.linalg.norm(sh[p.grip] - bag) + 1e-9) * (p.bag_r + 2.0)
+    bag, knot = _slung(p, up, fw, lt, neck, sh)
+    if p.knot_hand and p.hands[p.grip] is not None:
+        knot = np.asarray(p.hands[p.grip], float)
     default = [knot, chest + fw * 6.0 - up * 2.0 - lt * 2.0]
     for k in (0, 1):
         hand = np.asarray(p.hands[k], float) if p.hands[k] is not None else default[k]
@@ -148,17 +206,24 @@ def build(p, view):
         parts.append(ellipsoid_oriented(hand, (1.9, 1.9, 1.9), *AXES, "skin"))
     # the money bag, its neck tied off at his grip, a dollar sign on the side
     r = p.bag_r
-    parts.append(ellipsoid_oriented(bag, (r * 0.95, r, r * 0.95), *AXES, "bag"))
+    wq = 1.0 + 0.5 * p.bag_sq
+    parts.append(ellipsoid_oriented(bag, (r * 0.95 * wq, r * (1.0 - p.bag_sq), r * 0.95 * wq), *AXES, "bag"))
     to_k = knot - bag
     to_k = to_k / (np.linalg.norm(to_k) + 1e-9)
-    parts.append(tube([bag + to_k * r * 0.7, knot], [2.6, 1.6], "bag"))
+    if p.flop:  # the sack's loose top folds over: the neck bows
+        a0 = bag + to_k * r * 0.7
+        mid = (a0 + knot) / 2 + fw * p.flop
+        parts.append(tube([a0, mid, knot], [2.6, 2.2, 1.6], "bag"))
+    else:
+        parts.append(tube([bag + to_k * r * 0.7, knot], [2.6, 1.6], "bag"))
     parts.append(tube([knot - to_k * 0.6, knot + to_k * 0.6], [1.9, 1.9], "cord"))
-    parts += _dollar(bag, r, view)
+    parts += _dollar(bag, r, view, p.bag_sq)
     return [_xf(p, q) for q in _flat(parts)]
 
 
-def _dollar(c, r, view):
-    """A dollar sign drawn on the bag's surface, on the side the camera sees."""
+def _dollar(c, r, view, sq=0.0):
+    """A dollar sign drawn on the bag's surface, on the side the camera sees (squashed with
+    the bag, `sq`)."""
     if view == "side":
         n = np.array([0.55, 0.0, 0.83])
     elif view == "down":
@@ -167,6 +232,9 @@ def _dollar(c, r, view):
         n = np.array([0.0, 0.0, -1.0])
     u = np.array([0.0, 1.0, 0.0])
     v = np.cross(u, n)
+    if sq:  # on the squashed bag's surface: further out, shorter
+        u = u * (1.0 - sq)
+        n = n * max(1.0, 0.95 * (1.0 + 0.5 * sq) + 0.02)
     pts = []
     for k in range(17):
         t = k / 16.0
@@ -185,7 +253,9 @@ def _flat(parts):
 
 
 def _xf(p, part):
-    if not p.roll and not p.lift:
+    if p.stretch:
+        part["pos"] = _squash(p, part["pos"])
+    if not p.roll and not p.lift and not p.flip and not p.rise:
         return part
     o = _world(p, np.zeros(3))
     part["pos"] = np.array([_world(p, q) for q in part["pos"]])
@@ -352,20 +422,448 @@ ROWS = [
 VIEW_ROWS = ROWS[:-1]
 
 
+# ------------------------------------------------------------------ the animation pass
+# Pete's motion pass (docs/anim_preview/pete_motion_plan.md): every ability redrawn with
+# twice the frames, eased spacing, anticipation and held releases, and the bag and the
+# beanie moving late. Not in the game yet: ROWS above are still the sheets the game uses;
+# ANIM_ROWS are the new ones, which `python3 tools/gen_pete.py anim` previews. After
+# approval ANIM_ROWS replace ROWS and pete.json gets the new row table and timelines.
+
+def resolved(p):
+    """The pose with its bag, knot and both hands placed where build() would put them, so
+    a tween can carry the bag off his shoulder or a hand off the bag's neck smoothly."""
+    q = copy.copy(p)
+    _pelvis, up, fw, lt, chest, neck, sh = _body(p)
+    bag, knot = _slung(p, up, fw, lt, neck, sh)
+    default = [knot, chest + fw * 6.0 - up * 2.0 - lt * 2.0]
+    hands = list(p.hands)
+    if hands[p.grip] is None:
+        hands[p.grip] = knot
+        q.knot_hand = True
+    for k in (0, 1):
+        if hands[k] is None:
+            hands[k] = default[k]
+    q.hands = tuple(tuple(float(c) for c in h) for h in hands)
+    q.bag = tuple(float(c) for c in bag)
+    return q
+
+
+tween = S.tweener(arc_fields=("hands", "bag"), resolve=resolved, snap=("grip", "hidden", "knot_hand"))
+
+
+def K(hr=(None, None), br=None, world=False, **kw):
+    """A key pose with the hands (`hr`, near and far) and the bag (`br`) placed in the
+    body's own frame: (left, up, forward) from the pelvis, so they lean and turn with him
+    (world=True: plain (lat, up, fwd) points, for a bag that has to sit on the floor).
+    A bag placed this way hangs from the grip hand (knot_hand)."""
+    p = P(**kw)
+    pelvis, up, fw, lt, _chest, _neck, _sh = _body(p)
+
+    def w(v):
+        if world:
+            return tuple(float(c) for c in v)
+        return tuple(float(c) for c in pelvis + lt * v[0] + up * v[1] + fw * v[2])
+    p.hands = tuple(w(h) if h is not None else None for h in hr)
+    if br is not None:
+        p.bag = w(br)
+        if p.hands[p.grip] is not None:
+            p.knot_hand = True
+    return resolved(p)
+
+
+def _lag_hand(frames, k, n, loop=True):
+    """One hand (k: 0 near, 1 far) taken from n frames earlier (overlap on a dangling hand)."""
+    src = [f.hands[k] for f in frames]
+    for i, f in enumerate(frames):
+        h = list(f.hands)
+        h[k] = src[(i - n) % len(frames) if loop else max(0, i - n)]
+        f.hands = tuple(h)
+    return frames
+
+
+# --- idle: 8 frames x 5 ticks = 40 (quick: he's nervous)
+
+IDLE_LOOK = (0.0, 0.0, 0.0, 32.0, 46.0, 46.0, 46.0, 14.0)  # glance toward the camera: snap, hold, snap back
+IDLE_TURN = (0.0, 0.0, 0.0, 4.0, 6.0, 6.0, 6.0, 2.0)
+
+
+def idle_key(u):
+    """The rock on tiptoe: u 0 settled (heels nearly down, a little squash), 1 risen and
+    tipped forward onto his toes (a little stretch)."""
+    return K(feet=tiptoe_feet(0.4, 6.0, 1.0 + 0.8 * u), hip=18.8 + 1.1 * u, lean=12.0 + 4.0 * u, hipf=0.8 * u,
+             stretch=-0.25 + 0.5 * u, head=1.5 - 3.0 * u)
+
+
+def idle_new():
+    """Rocking on his toes with eased spacing, glancing over at the camera and back (a fast
+    in-between each way, long holds). The bag swings 2 frames behind the rock, the free hand
+    dangles a frame behind it."""
+    out = S.cycle(idle_key, S.EASE_8)
+    S.lag(out, "bag", 2)
+    _lag_hand(out, 1, 1)
+    for p, lk, tn in zip(out, IDLE_LOOK, IDLE_TURN):
+        p.look, p.turn = lk, tn
+    return out
+
+
+# --- run: the cartoon sneak, 12 frames x 2 ticks = 24 (unchanged, so the stride keeps pace)
+# Per step (6 frames): contact (the front toe set down, squash), settle, then the back
+# leg's slow lift (3 frames, knee high, he rises onto the planted toe and freezes), and the
+# fast place (1 frame). Each foot is planted for 8 frames, sliding back at an even pace,
+# and swings for 4.
+
+RUN_L = 10.0                                         # half a stride: the planted foot slides 2 * RUN_L per step
+RUN_HIP = (-1.4, -0.7, 0.1, 0.6, 1.0, 0.3)            # per step: contact, settle, lift 1-3, place
+RUN_STRETCH = (-0.75, -0.3, 0.1, 0.3, 0.45, 0.05)
+RUN_SWING_F = (0.18, 0.48, 0.70, 0.92)                # the swinging foot's way forward: slow lift, fast place
+RUN_SWING_U = (2.0, 5.5, 7.5, 3.2)                    # its height over the tiptoe
+RUN_KNEE = (2.0, 6.0, 8.0, 2.5)                       # the knee pushed forward: high on the lift
+
+
+def _sneak_foot(i):
+    """One foot over the 12-frame cycle, contact at frame 0: (fwd, up, knee)."""
+    i %= 12
+    if i < 8:   # planted: slides back evenly; the heel peels up on the last frame
+        return (RUN_L - 2 * RUN_L * i / 8.0, 2.5 + (0.6 if i == 7 else 0.0), 0.0)
+    s = i - 8
+    return (-RUN_L + 2 * RUN_L * RUN_SWING_F[s], 2.5 + RUN_SWING_U[s], RUN_KNEE[s])
+
+
+def sneak_key(i, hip=17.4, lean=26.0, far_hand=(-2.5, 12.5, 9.0), lift=1.0, **kw):
+    """Run frame i (0-11) of the sneak: the near foot sets down on 0, the far on 6."""
+    j = i % 6
+    nf, nu, nk = _sneak_foot(i)
+    ff, fu, fk = _sneak_foot(i + 6)
+    nu = 2.5 + (nu - 2.5) * lift
+    fu = 2.5 + (fu - 2.5) * lift
+    paw = (far_hand[0], far_hand[1] + 0.6 * RUN_HIP[(j - 1) % 6], far_hand[2])  # the paw bobs a frame late
+    kw.setdefault("hr", (None, paw))
+    return K(feet=((3.5, nu, nf), (-3.5, fu, ff)), knees=(nk * lift, fk * lift), hip=hip + RUN_HIP[j],
+             hipf=1.5, lean=lean + (2.0 if j == 5 else 0.0), stretch=RUN_STRETCH[j],
+             turn=5.0 * nf / RUN_L, head=-2.0 * RUN_HIP[j], **kw)
+
+
+def run_new():
+    """The sneak: crouched over, the near hand on the bag's neck, the far one up by his chest
+    like a paw. The bag bounces 2 frames behind the bob and its top flops over on the down;
+    the beanie flops a frame behind the head."""
+    out = [sneak_key(i) for i in range(12)]
+    for i, p in enumerate(out):
+        j2 = (i - 2) % 6
+        j1 = (i - 1) % 6
+        p.bag_sq = -0.08 * RUN_HIP[j2]
+        p.flop = -1.8 * RUN_HIP[j2]
+        p.cap = -7.0 * RUN_HIP[j1]
+    S.lag(out, "bag", 2)
+    return out
+
+
+# --- the lights: 8 frames each
+
+def jab_new(near=False):
+    """Sucker Punch (far fist) / Cheap Shot (near fist, the bag passed to the far hand on
+    the first frame): the shoulder turns away (anticipation), the fist cocks by the cheek,
+    one fast frame, the extension (held 3 ticks), a small recoil, back to the stance. The
+    bag swings a frame behind the shoulders."""
+    s = 1.0 if near else -1.0          # the punching side's lat
+    k = 0 if near else 1               # the punching hand
+    grip = 1 if near else 0
+    f = tiptoe_feet(0.9, 7.0, 0.5)
+
+    def hands(fist, bag_hand=None):
+        h = [None, None]
+        h[k] = fist
+        if bag_hand is not None:
+            h[1 - k] = bag_hand
+        return tuple(h)
+
+    t = -s  # turning the punching shoulder forward: + turn brings the far shoulder forward
+    # the near fist cocks up by his cheek; the far one would hide behind his head there, so it
+    # cocks low by his belt instead (a sucker punch comes from low)
+    ready, cocked = ((s * 4.0, 18.5, 9.0), (s * 4.5, 17.5, 6.5)) if near else ((s * 3.0, 14.5, 9.5),
+                                                                              (s * 2.5, 12.0, 7.5))
+    keys = [
+        K(feet=f, grip=grip, hr=hands(ready), lean=12, turn=10 * t, hip=19.0),
+        K(feet=f, grip=grip, hr=hands(cocked), lean=9, turn=20 * t, hip=18.6, stretch=-0.35,
+          head=2.0),
+        K(feet=f, grip=grip, hr=hands((s * 3.0, 17.5, 12.5)), lean=16, turn=0, hip=19.0, hipf=1.0, stretch=0.2,
+          cap=-5.0),
+        K(feet=f, grip=grip, hr=hands((s * 1.5, 17.5, 18.0)), lean=21, turn=-24 * t, hip=19.2, hipf=2.2,
+          stretch=0.4, cap=-8.0),
+        K(feet=f, grip=grip, hr=hands((s * 2.0, 16.5, 15.5)), lean=20, turn=-26 * t, hip=19.0, hipf=2.0,
+          stretch=0.15, cap=6.0),
+        K(feet=f, grip=grip, hr=hands((s * 4.0, 17.0, 9.0)), lean=17, turn=-12 * t, hip=19.0, hipf=1.0, cap=3.0),
+    ]
+    rest = idle_key(0.0)
+    keys.append(tween(keys[-1], rest, 0.55, grip=grip))
+    keys.append(tween(keys[-1], rest, 1.0))
+    S.lag(keys, "bag", 1, loop=False)
+    return keys
+
+
+def swing_new():
+    """Bag Swing: the bag comes off his shoulder (anticipation), winds back low (the coil,
+    squashed), the fast arc round his near side, the impact out front (held 3), the
+    follow-through carrying the bag past him to the far side and pulling him onto one toe,
+    the hoist back over the shoulder. The bag trails the hand by a frame on the arc."""
+    f = tiptoe_feet(1.0, 8.0, 0.5)
+    hand = [(6.0, 22.0, -2.0), (8.0, 15.0, -6.0), (9.0, 12.0, 6.0), (2.0, 12.0, 15.0), (-7.0, 13.0, 11.0),
+            (-9.0, 12.0, 5.0), (3.0, 22.0, 2.0)]
+    bag = [(6.0, 22.0, -15.0), (10.0, 9.0, -16.0), (14.0, 7.0, -4.0), (3.0, 10.0, 27.0), (-14.0, 13.0, 20.0),
+           (-20.0, 10.0, 4.0), (4.0, 28.0, -8.0)]
+    body = [dict(turn=24, lean=10, hip=19.0), dict(turn=34, lean=6, hip=18.2, stretch=-0.45, head=3.0),
+            dict(turn=8, lean=16, hip=19.0, stretch=0.2), dict(turn=-26, lean=22, hip=19.2, hipf=2.0, stretch=0.4,
+                                                              cap=-8.0),
+            dict(turn=-46, lean=20, hip=18.8, hipf=2.0, cap=7.0), dict(turn=-52, lean=17, hip=18.6, hipf=1.5, cap=3.0),
+            dict(turn=-8, lean=12, hip=19.0)]
+    keys = [K(feet=f, hr=(h, None), br=b, bag_sq=sq, **bd) for h, b, bd, sq in
+            zip(hand, bag, body, (0.0, -0.1, -0.15, 0.2, -0.1, 0.0, 0.0))]
+    keys.append(idle_key(0.0))
+    return keys
+
+
+# --- the heavy: Sack Smack, 12 frames (0-3 the charge loop, 4-11 the swing)
+
+def _smack_charge(i):
+    """The held charge (a 4-frame loop, 6 ticks each): the bag wound up over his head,
+    jiggling with the coins as he bounces on his toes."""
+    a = i * math.pi / 2
+    f = tiptoe_feet(1.2, 9.0, 0.3 + 0.4 * max(0.0, math.sin(a)))
+    return K(feet=f, hr=(None, (-1.0, 26.0, -2.0)), br=(2.0 + 1.5 * math.cos(a), 33.0 + 1.6 * math.sin(a), -9.0),
+             grip=1, turn=30, lean=-2.0 + 1.5 * math.sin(a), hip=19.0 + 0.5 * math.sin(a), stretch=0.15 * math.sin(a),
+             bag_sq=0.08 * math.cos(a), face="ow" if i in (1, 2) else "grin", cap=-3.0 * math.cos(a))
+
+
+def smack_new():
+    """Sack Smack: the charge loop, then the gather (bag furthest back, squashed down, held),
+    up onto his toes, the fast overhead arc, the slam out front (held 5, the bag squashed
+    on the floor), the bounce, the drag, the hoist, back to the stance."""
+    f = tiptoe_feet(1.2, 9.0, 0.3)
+    charge = [_smack_charge(i) for i in range(4)]
+    swing = [
+        K(feet=f, grip=1, hr=(None, (-1.0, 24.0, -5.0)), br=(3.0, 30.0, -15.0), turn=36, lean=-8, hip=18.2,
+          stretch=-0.5, face="ow", head=2.0),
+        K(feet=f, grip=1, hr=(None, (-1.0, 30.0, -1.0)), br=(3.0, 39.0, -8.0), turn=26, lean=0, hip=19.6,
+          stretch=0.45, cap=4.0),
+        K(feet=f, grip=1, hr=(None, (0.0, 30.0, 4.0)), br=(3.0, 41.0, 3.0), turn=8, lean=14, hip=19.2, hipf=2.0,
+          stretch=0.25, bag_sq=-0.15, cap=-6.0),
+        # the slam: the bag flattened on the floor out front, then bouncing and dragged back
+        K(feet=f, grip=1, world=True, hr=(None, (-1.0, 18.0, 18.0)), br=(0.0, 7.0, 24.5), turn=-10, lean=32,
+          hip=16.2, hipf=4.0, stretch=-0.55, bag_sq=0.32, cap=8.0, bag_r=10.0),
+        K(feet=f, grip=1, world=True, hr=(None, (-1.0, 19.0, 18.5)), br=(0.0, 12.0, 25.5), turn=-12, lean=30,
+          hip=16.6, hipf=4.0, stretch=-0.25, bag_sq=-0.15, cap=4.0, bag_r=10.0),
+        K(feet=f, grip=1, world=True, hr=(None, (-1.0, 19.0, 16.0)), br=(0.0, 9.0, 22.5), turn=-8, lean=26,
+          hip=17.4, hipf=3.0, bag_sq=0.08),
+        K(feet=f, grip=1, hr=(None, (2.0, 21.0, 6.0)), br=(4.0, 22.0, -4.0), turn=6, lean=16, hip=18.6, hipf=1.0),
+        idle_key(0.0),
+    ]
+    return charge + swing
+
+
+# --- the skills
+
+def tiptoe_new():
+    """Tiptoe: "shhh" (a finger to his lips, sinking: the anticipation), a look round, then
+    two big sneak steps with the run's own lift, freeze, place, settle timing (but higher
+    knees), a freeze on one toe, back to the stance. The finger stays at his lips."""
+    # the near hand shushes (the far one would be hidden behind his face side on), so the
+    # bag passes to the far hand for the move
+    shush = (2.0, 19.5, 9.5)
+    hr = (shush, None)
+    a = K(feet=tiptoe_feet(0.3, 5.0, 1.0), grip=1, hr=hr, head=4, hip=19.0, lean=14, stretch=0.1)
+    b = K(feet=tiptoe_feet(0.3, 5.0, 1.0), grip=1, hr=hr, head=5, hip=18.0, lean=20, stretch=-0.35,
+          look=35.0, cap=3.0)
+    steps = []
+    for i in (9, 10, 11, 0, 3, 4, 5, 6):   # near leg: lift, high, place, contact; far: the same
+        steps.append(sneak_key(i, hip=18.0, lean=27.0, lift=1.25, grip=1, hr=hr))
+    stop = K(feet=((3.5, 2.5, 3.0), (-3.5, 7.5, -5.0)), knees=(0.0, 4.0), grip=1, hr=hr, hip=19.4, lean=18,
+             stretch=0.3, look=20.0, head=2)
+    rest = idle_key(0.0)
+    out = [a, b] + steps + [stop, rest]
+    for i, p in enumerate(out):
+        if 2 <= i <= 9:
+            p.cap = -7.0 * RUN_HIP[((3, 4, 5, 0, 3, 4, 5, 0)[i - 2] - 1) % 6]
+    S.lag(out, "bag", 1, loop=False)
+    return out
+
+
+def pick_new():
+    """Pickpocket: a low crouch with the hand out ready (held through the windup), the
+    launch, the low dash with the hand out, the reach, the snatch, the loot pulled to his
+    chest, a skid on his heels, back up."""
+    low = ((3.5, 2.5, 4.0), (-3.5, 3.0, -8.0))
+    dash = ((3.5, 2.5, 10.0), (-3.5, 6.0, -10.0))
+    keys = [
+        K(feet=low, hr=(None, (-3.0, 14.0, 10.0)), hip=15.0, lean=30, stretch=-0.45, head=-6, cap=3.0),
+        K(feet=((3.5, 2.5, 8.0), (-3.5, 4.5, -12.0)), hr=(None, (-2.0, 15.0, 15.0)), hip=15.6, lean=42, hipf=3.0,
+          stretch=0.4, head=-12, cap=-6.0),
+        K(feet=dash, hr=(None, (-1.0, 14.0, 20.0)), hip=15.0, lean=42, hipf=4.0, stretch=0.35, head=-10, cap=-8.0),
+        K(feet=dash, hr=(None, (-1.0, 12.0, 22.0)), hip=15.0, lean=44, hipf=4.0, stretch=0.3, head=-10, cap=-8.0),
+        K(feet=dash, hr=(None, (-2.0, 15.0, 14.0)), hip=15.2, lean=40, hipf=4.0, stretch=0.1, head=-8, cap=-4.0),
+        K(feet=((3.5, 2.5, 6.0), (-3.5, 3.5, -4.0)), hr=(None, (-3.0, 13.0, 7.0)), hip=15.5, lean=30, hipf=2.0,
+          head=-4, cap=2.0),
+        K(feet=((3.5, 2.5, 9.0), (-3.5, 2.5, 1.0)), hr=(None, (-3.0, 12.0, 6.0)), hip=16.5, lean=4, hipf=-1.0,
+          stretch=-0.4, head=4, cap=8.0),
+        idle_key(0.0),
+    ]
+    S.lag(keys, "bag", 1, loop=False)
+    return keys
+
+
+# --- the Surge: The Big Heist, 12 frames
+
+def heist_new():
+    """The Big Heist: a crouch, a spring onto his toes (then the puff, frame 2 is empty), back
+    in a crouch with the bag up, a 4-frame flurry (bag swung to the near side, the far side,
+    overhead, low) so no two hits in a row look alike, the coil for the finisher (held 4),
+    the smack into the floor (held 5, the bag squashed), the bounce, back to the stance."""
+    f = tiptoe_feet(1.2, 8.0, 0.3)
+    crouch = K(feet=tiptoe_feet(0.3, 5.0, 1.0), br=(1.0, 14.0, -10.0), hr=(None, None), hip=15.0, lean=30,
+               stretch=-0.5, head=-4)
+    spring = K(feet=tiptoe_feet(0.3, 5.0, 2.5), hip=20.0, lean=8, stretch=0.6, cap=-6.0)
+    gone = P(hidden=True)
+    ready = K(feet=f, br=(3.0, 24.0, -10.0), hr=(None, (-1.0, 18.0, 6.0)), hip=16.0, lean=26, turn=18,
+              stretch=-0.2)
+    body = dict(feet=f, hip=16.4, hipf=2.0)
+    flurry = [
+        K(hr=((7.0, 14.0, 12.0), None), br=(16.0, 14.0, 14.0), turn=26, lean=22, cap=-5.0, **body),
+        K(hr=((-4.0, 14.0, 12.0), None), br=(-14.0, 12.0, 16.0), turn=-26, lean=22, cap=5.0, **body),
+        K(hr=((1.0, 28.0, 3.0), None), br=(2.0, 39.0, 2.0), turn=0, lean=10, stretch=0.35, bag_sq=-0.12,
+          **dict(body, hip=17.6)),
+        K(world=True, hr=((1.0, 17.0, 19.0), None), br=(1.0, 8.0, 26.0), turn=-6, lean=34, stretch=-0.35,
+          bag_sq=0.25, cap=8.0, **dict(body, hip=15.6, hipf=3.0)),   # low: the bag on the floor
+    ]
+    coil = K(feet=f, hr=((1.0, 24.0, -4.0), None), br=(3.0, 32.0, -15.0), turn=34, lean=-6, hip=16.6,
+             stretch=-0.55, head=3, cap=-4.0)
+    smack = K(feet=f, world=True, hr=((0.0, 17.0, 18.0), None), br=(0.0, 7.0, 24.5), turn=-10, lean=34, hip=15.4,
+              hipf=4.0, stretch=-0.6, bag_sq=0.35, cap=9.0, bag_r=10.0)
+    bounce = K(feet=f, world=True, hr=((0.0, 19.0, 18.5), None), br=(0.0, 12.0, 25.5), turn=-12, lean=28, hip=16.4,
+               hipf=3.5, stretch=-0.2, bag_sq=-0.15, cap=4.0, bag_r=10.0)
+    rest = tween(K(feet=tiptoe_feet(0.4, 6.0, 1.0), hip=19.0, lean=12, stretch=0.1), idle_key(0.0), 0.5)
+    return [crouch, spring, gone, ready] + flurry + [coil, smack, bounce, rest]
+
+
+# --- the dodge: a forward tuck roll, 8 frames (frame = tick x 8 / 15)
+
+def dodge_new():
+    """A tuck and roll: the crouch, the dive (stretched), three tumbling frames round the
+    roll (knees tucked, the bag on his back), the landing in a squash, back up."""
+    tuck = ((3.5, 9.0, 8.0), (-3.5, 9.5, 6.0))
+    paw = (None, (-3.0, 9.0, 9.0))
+    keys = [
+        K(feet=((3.5, 2.5, 3.0), (-3.5, 2.5, -3.0)), hip=14.5, lean=32, stretch=-0.5, head=-4,
+          hr=(None, (-3.0, 12.0, 8.0))),
+        K(feet=((3.5, 2.5, -2.0), (-3.5, 4.0, -7.0)), hip=15.0, lean=55, hipf=3.0, stretch=0.45, flip=20.0,
+          hr=(None, (-3.0, 11.0, 14.0))),
+        K(feet=tuck, knees=(4.0, 4.0), hip=14.0, lean=62, head=25, flip=100.0, hr=paw),
+        K(feet=tuck, knees=(4.0, 4.0), hip=14.0, lean=62, head=25, flip=190.0, hr=paw),
+        K(feet=tuck, knees=(4.0, 4.0), hip=14.0, lean=62, head=25, flip=280.0, hr=paw),
+        K(feet=((3.5, 2.5, 4.0), (-3.5, 3.0, -2.0)), hip=13.5, lean=40, flip=330.0, stretch=-0.3,
+          hr=(None, (-3.0, 10.0, 9.0))),
+        K(feet=((3.5, 2.5, 4.0), (-3.5, 2.5, -3.0)), hip=14.0, lean=26, stretch=-0.6, head=3, cap=8.0),
+        K(feet=((3.5, 2.5, 3.0), (-3.5, 2.5, -3.0)), hip=17.5, lean=16, stretch=0.15),
+    ]
+    # the tumbling frames sit on the floor (their lowest point at the floor), plus the hop
+    for p, air in zip(keys[1:6], (1.5, 3.0, 4.0, 2.5, 0.0)):
+        low = min(float(q["pos"][:, 1].min()) for q in build(p, "side"))
+        p.rise = -low + 0.5 + air
+    return keys
+
+
+ANIM_ROWS = [
+    ("idle", idle_new()), ("run", run_new()), ("jab", jab_new(False)), ("jab2", jab_new(True)), ("swing", swing_new()),
+    ("smack", smack_new()), ("tiptoe", tiptoe_new()), ("pick", pick_new()), ("heist", heist_new()),
+    ("dodge", dodge_new()), ("hurt", hurt()), ("guard", guard()), ("ko", ko()),
+]
+ANIM_VIEW_ROWS = ANIM_ROWS[:-1]
+
+
 # ------------------------------------------------------------------ animation tools
 # The adapter for the shared animation pipeline (tools/anim_preview.py):
-# `python3 tools/gen_pete.py anim` renders preview GIFs into docs/anim_preview/, and
+# `python3 tools/gen_pete.py anim` renders preview GIFs of ANIM_ROWS into
+# docs/anim_preview/ (the compare GIFs put the current sheets beside them), and
 # `python3 tools/anim_preview.py --check pete` checks the JSON's timelines against ROWS.
 # In-betweens and overlap come from splat3d (tween, cycle, lag, lag_at).
 render_frame, frame_spec = S.frame_adapter(SIDE, VIEWS, build)
 ANIM_CYCLES = {"idle": 40, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks)
+ANIM_TICKS = {"idle": 5, "run": 2}     # the new rows' ticks per frame (pete.json gets them after approval)
+
+# The timelines: the current ones (as the view plays the sheets today) and the new ones
+# (what pete.json gets after approval). Every startup, active and recovery number stays.
+OLD_AT = {
+    "jab": [[0, 0], [5, 1], [7, 2], [10, 3]],          # no anim_at today: the view's default split
+    "jab2": [[0, 0], [5, 1], [7, 2], [11, 3]],
+    "swing": [[0, 0], [3, 1], [5, 2], [9, 3], [14, 4]],
+    "smack": [[0, 0], [5, 1], [9, 2], [11, 3], [16, 4], [26, 5]],
+    "tag_in": [[0, 3], [15, 5]],                        # anim_from 3: the strike until active + 2, then the last
+    "tiptoe": [[0, 0], [3, 1], [7, 2], [11, 1], [15, 2], [20, 3]],
+    "pick": [[0, 0], [5, 1], [9, 2], [16, 3], [22, 4]],
+    "heist": [[0, 0], [3, 1], [10, 2], [13, 3], [15, 4], [17, 3], [19, 4], [21, 3], [23, 4], [25, 3], [27, 4],
+              [29, 3], [33, 2], [35, 4], [43, 5]],
+}
+NEW_AT = {
+    "jab": [[0, 0], [2, 1], [4, 2], [5, 3], [8, 4], [10, 5], [12, 6], [13, 7]],
+    "jab2": [[0, 0], [2, 1], [4, 2], [5, 3], [8, 4], [10, 5], [12, 6], [14, 7]],
+    "swing": [[0, 0], [2, 1], [5, 2], [6, 3], [9, 4], [12, 5], [15, 6], [19, 7]],
+    "smack": [[0, 4], [6, 5], [9, 6], [11, 7], [16, 8], [20, 9], [25, 10], [30, 11]],
+    "tag_in": [[0, 5], [4, 6], [9, 7], [14, 8], [18, 9], [22, 10], [25, 11]],
+    "tiptoe": [[0, 0], [2, 1], [4, 2], [6, 3], [9, 4], [10, 5], [12, 6], [14, 7], [17, 8], [18, 9], [20, 10],
+               [22, 11]],
+    "pick": [[0, 0], [4, 1], [6, 2], [10, 3], [14, 4], [19, 5], [22, 6], [26, 7]],
+    "heist": [[0, 0], [2, 1], [3, 2], [10, 3], [13, 4], [17, 5], [21, 6], [25, 7], [29, 4], [31, 8], [35, 9],
+              [40, 10], [46, 11]],
+}
+NEW_CHARGE = [0, 4, 6]     # Sack Smack's held charge: frames 0-3, 6 ticks each (today [0, 2, 6])
+NEW_CUT_IN = [8, 9]        # the Surge cut-in: the finishing smack (today [8, 4])
+
+
+def _clips():
+    import anim_preview as A
+    old_idle, new_idle = (10, 4), (5, 8)
+    mv = A.move_ticks
+
+    def move(anim, length, key=None, marks=()):
+        key = key or anim
+        return ({"old": mv(anim, OLD_AT[key], length, old_idle), "new": mv(anim, NEW_AT[key], length, new_idle)},
+                list(marks))
+
+    def dodge(n):
+        return [("dodge", t * n // 15) for t in range(15)]
+
+    clips = {
+        "idle": ({"old": A.loop_ticks("idle", 10, 4, 80), "new": A.loop_ticks("idle", 5, 8, 80)}, []),
+        "run": ({"old": A.loop_ticks("run", 4, 6, 48), "new": A.loop_ticks("run", 2, 12, 48)}, []),
+        "jab": move("jab", 14, marks=[(5, 7, "hit (Sucker Punch)"), (6, 7, "cancel from 6")]),
+        "jab2": move("jab2", 15, marks=[(5, 7, "hit (Cheap Shot)")]),
+        "swing": move("swing", 22, marks=[(6, 9, "hit (Bag Swing)")]),
+        "smack": ({"old": A.charge_ticks("smack", 0, 2, 6, 24) + mv("smack", OLD_AT["smack"], 34, old_idle),
+                   "new": A.charge_ticks("smack", *NEW_CHARGE, 24) + mv("smack", NEW_AT["smack"], 34, new_idle)},
+                  [(0, 24, "held charge"), (24 + 11, 24 + 15, "hit (Sack Smack)")]),
+        "smack_tag_in": move("smack", 28, "tag_in", marks=[(9, 13, "hit (Smash and Grab)")]),
+        "tiptoe": move("tiptoe", 24, marks=[(2, 19, "dash (invisible)")]),
+        "pick": ({"old": [("pick", 0)] * 9 + mv("pick", OLD_AT["pick"], 30, old_idle),
+                  "new": [("pick", 0)] * 9 + mv("pick", NEW_AT["pick"], 30, new_idle)},
+                 [(0, 9, "windup (gold tell)"), (9 + 7, 9 + 21, "hit window (dash through)")]),
+        "heist": move("heist", 56, marks=[(3, 10, "gone (smoke)"), (13, 15, "hit 1"), (17, 19, "hit 2"),
+                                          (21, 23, "hit 3"), (25, 27, "hit 4"), (29, 31, "hit 5"),
+                                          (35, 38, "finisher")]),
+        "dodge": ({"old": dodge(4) + A.idle_tail(30, *old_idle), "new": dodge(8) + A.idle_tail(30, *new_idle)},
+                  [(2, 12, "invulnerable")]),
+    }
+    return clips
+
+
+CLIPS = _clips
 
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "inspect":
-        S.inspect(ROWS, sys.argv[2:], SIDE, VIEWS, build, path=os.environ.get("INSPECT_OUT"))
+        rows = ANIM_ROWS if os.environ.get("PETE_NEW") else ROWS
+        S.inspect(rows, sys.argv[2:], SIDE, VIEWS, build, path=os.environ.get("INSPECT_OUT"))
     elif len(sys.argv) > 1 and sys.argv[1] == "anim":
         import anim_preview
+        # previews show the new rows; the game's sheets (ROWS) stay as they are until approval
+        ROWS, VIEW_ROWS = ANIM_ROWS, ANIM_VIEW_ROWS
         anim_preview.main(sys.modules[__name__], sys.argv[2:])
     else:
         S.write_sheets(ROWS, VIEW_ROWS, OUT, PREVIEW, SIDE, VIEWS, build)
