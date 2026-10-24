@@ -51,7 +51,9 @@
     "select_scale": 0.55,
     "views": {
       "down": { "path": "res://assets/sprites/digby_down.png", "frame": [112, 128], "origin": [56, 100] },
-      "up": { "path": "res://assets/sprites/digby_up.png", "frame": [112, 128], "origin": [56, 90] }
+      "up": { "path": "res://assets/sprites/digby_up.png", "frame": [112, 128], "origin": [56, 90] },
+      "down_side": { "path": "res://assets/sprites/digby_down_side.png", "frame": [128, 128], "origin": [64, 100] },
+      "up_side": { "path": "res://assets/sprites/digby_up_side.png", "frame": [128, 128], "origin": [64, 90] }
     }
   },
   "ai": {
