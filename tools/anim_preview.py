@@ -509,6 +509,15 @@ def check(gid, mod=None, data=None, sheets=True):
             if key in mv and not 0 <= int(mv[key]) < n:
                 errors.append("%s: %s %d, %r has frames 0-%d" % (mid, key, int(mv[key]), anim, n - 1))
 
+    # the dodge's own timeline (Mind Blink)
+    dodge_at = d.get("dodge", {}).get("anim_at")
+    if dodge_at is not None:
+        anim = _resolve_anim("dodge", anims)
+        n = int(anims[anim][2]) if anim else 0
+        for tick, f in dodge_at:
+            if not 0 <= f < n:
+                errors.append("dodge: anim_at frame %d at tick %d, %r has frames 0-%d" % (f, tick, anim, n - 1))
+
     # the Surge cut-in
     if "cut_in_frame" in d:
         r, c = d["cut_in_frame"]

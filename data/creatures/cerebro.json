@@ -12,7 +12,8 @@
   "stamina": 100,
   "stamina_regen": 0.5,
   "dodge": { "frames": 16, "iframes_start": 2, "iframes_end": 11, "speed": 0, "cooldown": 45,
-    "blink": { "at": 5, "distance": 116 } },
+    "blink": { "at": 5, "distance": 116, "solid": [4, 7] },
+    "anim_at": [[0, 0], [2, 1], [3, 2], [4, 3], [5, 4], [7, 5], [9, 6], [12, 7]] },
   "guard": { "reduction": 0.78, "drain_per_damage": 2.2, "speed_mult": 0.45, "break_stun": 58 },
   "fx_height": 22,
   "fx_top": 42,
@@ -24,20 +25,23 @@
   "sprite": {
     "path": "res://assets/sprites/cerebro.png",
     "frame": 128,
-    "portrait": [52, 58, 24, 32],
-    "cols": 8,
+    "portrait": [52, 59, 24, 32],
+    "cols": 12,
     "origin": [62, 100],
+    "idle_ticks": 8,
+    "run_ticks": 2,
+    "step_frames": [],
     "anims": {
-      "idle": [0, 0, 4],
-      "run": [1, 0, 6],
-      "flick": [2, 0, 4],
-      "flick2": [3, 0, 4],
-      "toss": [4, 0, 5],
-      "tenderize": [5, 0, 6],
-      "cleaver": [6, 0, 6],
-      "flipout": [7, 0, 6],
-      "flurry": [8, 0, 6],
-      "dodge": [9, 0, 4],
+      "idle": [0, 0, 8],
+      "run": [1, 0, 12],
+      "flick": [2, 0, 8],
+      "flick2": [3, 0, 8],
+      "toss": [4, 0, 8],
+      "tenderize": [5, 0, 12],
+      "cleaver": [6, 0, 8],
+      "flipout": [7, 0, 12],
+      "flurry": [8, 0, 12],
+      "dodge": [9, 0, 8],
       "hurt": [10, 0, 2],
       "guard": [11, 0, 2],
       "ko": [12, 0, 4]
@@ -74,10 +78,11 @@
   },
   "moves": {
     "tag_in": {
-      "name": "Order Up", "type": "skill", "anim": "tenderize", "anim_from": 3,
+      "name": "Order Up", "type": "skill", "anim": "tenderize",
       "startup": 8, "active": 4, "recovery": 16,
       "damage": 6, "knockback": 2.4, "hitstun": 24, "hitstop": 7, "launch": 22,
       "reach": 6, "hit_radius": 18, "juggle": true,
+      "anim_at": [[0, 5], [4, 6], [8, 7], [13, 8], [16, 9], [20, 10], [24, 11]],
       "fx": { "impact": "tenderize" }
     },
     "light_1": {
@@ -87,7 +92,7 @@
       "next": "light_2",
       "projectile": { "speed": 7.0, "life": 14, "radius": 5, "offset": 12, "crack_trail": false,
         "sound": "knife_throw", "end_sound": "knife_hit" },
-      "anim_at": [[0, 0], [3, 1], [6, 2], [12, 3]],
+      "anim_at": [[0, 0], [2, 1], [4, 2], [6, 3], [7, 4], [10, 5], [13, 6], [16, 7]],
       "fx": { "projectile": "knife", "projectile_light": { "color": "#d58cff", "radius": 22, "strength": 0.4 } }
     },
     "light_2": {
@@ -97,7 +102,7 @@
       "next": "light_3",
       "projectile": { "speed": 7.0, "life": 14, "radius": 5, "offset": 12, "crack_trail": false,
         "sound": "knife_throw", "end_sound": "knife_hit" },
-      "anim_at": [[0, 0], [3, 1], [6, 2], [12, 3]],
+      "anim_at": [[0, 0], [2, 1], [4, 2], [6, 3], [7, 4], [10, 5], [13, 6], [16, 7]],
       "fx": { "projectile": "knife", "projectile_light": { "color": "#d58cff", "radius": 22, "strength": 0.4 } }
     },
     "light_3": {
@@ -107,7 +112,7 @@
       "next": "",
       "projectile": { "speed": 6.0, "life": 18, "radius": 6, "offset": 12, "crack_trail": false,
         "sound": "swing_heavy", "end_sound": "thwack" },
-      "anim_at": [[0, 0], [3, 1], [7, 2], [10, 3], [22, 4]],
+      "anim_at": [[0, 0], [2, 1], [4, 2], [8, 3], [10, 4], [15, 5], [19, 6], [24, 7]],
       "fx": { "projectile": "mallet", "projectile_light": { "color": "#d58cff", "radius": 22, "strength": 0.4 } }
     },
     "heavy": {
@@ -120,7 +125,7 @@
       "reach": 6, "hit_radius": 26, "hit_radius_charged": 32, "juggle": true,
       "vuln_ticks": 240, "vuln_mult": 1.2,
       "terrain_crack": 14,
-      "anim_at": [[0, 2], [5, 3], [9, 4], [20, 5]],
+      "anim_at": [[0, 4], [3, 5], [5, 6], [8, 7], [13, 8], [16, 9], [20, 10], [26, 11]], "anim_charge": [0, 4, 6],
       "fx": { "charge": "psychic", "impact": "tenderize",
         "light": { "color": "#d58cff", "radius": 40, "height": 30, "charge": true, "strength": 0.55 } }
     },
@@ -130,7 +135,7 @@
       "damage": 8, "knockback": 1.0, "hitstun": 40, "hitstop": 7, "juggle": true, "juggle_float": 34,
       "projectile": { "speed": 6.0, "life": 17, "radius": 7, "offset": 12, "crack_trail": false,
         "sound": "knife_throw", "end_sound": "hit_heavy" },
-      "anim_at": [[0, 0], [4, 1], [8, 2], [10, 3], [20, 4], [28, 5]],
+      "anim_at": [[0, 0], [2, 1], [4, 2], [8, 3], [10, 4], [14, 5], [18, 6], [26, 7]],
       "fx": { "projectile": "cleaver", "projectile_light": { "color": "#d58cff", "radius": 22, "strength": 0.4 } }
     },
     "skill_2": {
@@ -138,7 +143,8 @@
       "startup": 7, "active": 4, "recovery": 24,
       "damage": 7, "hitstop": 8, "launch": 34, "flip": 8,
       "reach": 30, "hit_radius": 13, "grab": true,
-      "anim_at": [[0, 0], [5, 1], [8, 2], [12, 3], [18, 4], [28, 5]],
+      "anim_at": [[0, 0], [3, 1], [5, 2], [7, 3], [11, 4], [13, 5], [15, 6], [17, 7], [20, 8], [24, 9], [28, 10],
+        [31, 11]],
       "fx": { "smear": "rise", "size": 1.3, "flip": true }
     },
     "surge": {
@@ -152,8 +158,8 @@
         "volley": { "count": 8, "every": 3, "fan": 1, "fan_max": 2,
           "last": { "damage": 6.0, "knockback": 3.0, "knockdown": 36.0, "hitstop": 12.0, "vuln_ticks": 240 } }
       },
-      "anim_at": [[0, 0], [5, 1], [10, 2], [12, 3], [14, 4], [16, 3], [18, 4], [20, 3], [22, 4], [24, 3],
-        [26, 4], [28, 3], [30, 4], [34, 5]],
+      "anim_at": [[0, 0], [3, 1], [6, 2], [10, 3], [13, 4], [16, 5], [19, 6], [22, 3], [25, 4], [28, 5], [31, 7],
+        [35, 8], [37, 9], [39, 10], [41, 11]],
       "fx": { "telegraph_line": true, "projectile": "knife", "chop": true,
         "projectile_light": { "color": "#d58cff", "radius": 22, "strength": 0.4 } }
     }

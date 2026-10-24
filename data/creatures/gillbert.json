@@ -17,26 +17,29 @@
   "fx_top": 26,
   "fx_color": "#b4e626",
   "surge_aura": {"colors": ["#139c9c", "#b4e626", "#f4ffd2"], "motes": "bubbles", "spikes": 8, "sharp": 0.4, "speed": 1.7, "height": 0.9},
-  "cut_in_frame": [8, 2],
+  "cut_in_frame": [8, 4],
   "ko_fx": { "style": "flop" },
   "step_sound": { "sound": "flop", "every": 20, "volume_db": -8 },
   "sprite": {
     "path": "res://assets/sprites/gillbert.png",
     "frame": 128,
     "portrait": [56, 88, 24, 24],
-    "cols": 8,
+    "cols": 16,
+    "idle_ticks": 8,
+    "run_ticks": 2,
+    "step_frames": [6, 14],
     "origin": [70, 112],
     "anims": {
-      "idle": [0, 0, 4],
-      "run": [1, 0, 8],
-      "jab": [2, 0, 4],
-      "whip": [3, 0, 4],
-      "flail": [4, 0, 6],
-      "splash": [5, 0, 6],
-      "flopdash": [6, 0, 4],
-      "cast": [7, 0, 6],
-      "leap": [8, 0, 6],
-      "dodge": [9, 0, 4],
+      "idle": [0, 0, 8],
+      "run": [1, 0, 16],
+      "jab": [2, 0, 8],
+      "whip": [3, 0, 8],
+      "flail": [4, 0, 8],
+      "splash": [5, 0, 12],
+      "flopdash": [6, 0, 12],
+      "cast": [7, 0, 12],
+      "leap": [8, 0, 12],
+      "dodge": [9, 0, 8],
       "hurt": [10, 0, 2],
       "guard": [11, 0, 2],
       "ko": [12, 0, 4]
@@ -62,7 +65,8 @@
   },
   "moves": {
     "tag_in": {
-      "name": "Splashdown", "type": "skill", "anim": "leap", "anim_from": 3,
+      "name": "Splashdown", "type": "skill", "anim": "leap",
+      "anim_at": [[0, 6], [3, 7], [6, 8], [9, 9], [14, 10], [20, 11]],
       "startup": 8, "active": 4, "recovery": 16,
       "damage": 6, "knockback": 2.4, "hitstun": 24, "hitstop": 7, "launch": 22,
       "reach": 4, "hit_radius": 18, "juggle": true,
@@ -74,6 +78,7 @@
       "startup": 4, "active": 2, "recovery": 9, "cancel_from": 7,
       "damage": 4, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
       "reach": 26, "hit_radius": 10, "lunge": 1.2, "next": "light_2", "juggle": true,
+      "anim_at": [[0, 0], [1, 1], [3, 2], [4, 3], [5, 4], [8, 5], [10, 6], [12, 7]],
       "fx": { "smear": "thrust" }
     },
     "light_2": {
@@ -82,6 +87,7 @@
       "startup": 5, "active": 3, "recovery": 10, "cancel_from": 8,
       "damage": 5, "knockback": 1.0, "hitstun": 18, "hitstop": 4,
       "reach": 27, "hit_radius": 12, "lunge": 0.6, "next": "light_3", "juggle": true,
+      "anim_at": [[0, 0], [2, 1], [4, 2], [5, 3], [6, 4], [9, 5], [12, 6], [15, 7]],
       "fx": { "smear": "arc", "impact": "droplets" }
     },
     "light_3": {
@@ -89,7 +95,7 @@
       "startup": 8, "active": 3, "recovery": 15,
       "damage": 6, "knockback": 1.6, "hitstun": 24, "hitstop": 6,
       "reach": 34, "hit_radius": 11, "lunge": 0.4, "next": "",
-      "anim_at": [[0, 0], [3, 1], [6, 2], [9, 3], [13, 4], [20, 5]],
+      "anim_at": [[0, 0], [3, 1], [6, 2], [8, 3], [9, 4], [13, 5], [17, 6], [21, 7]],
       "fx": { "smear": "rise", "size": 1.2 }
     },
     "heavy": {
@@ -101,6 +107,8 @@
       "launch": 30, "launch_charged": 38,
       "reach": 10, "hit_radius": 26, "hit_radius_charged": 32, "juggle": true,
       "slow_ticks": 120, "slow_mult": 0.6,
+      "anim_charge": [0, 4, 3],
+      "anim_at": [[0, 4], [2, 5], [4, 6], [6, 7], [8, 8], [12, 9], [16, 10], [22, 11]],
       "fx": { "charge": "drips", "impact": "splash" }
     },
     "skill_1": {
@@ -109,7 +117,7 @@
       "damage": 8, "knockback": 2.6, "hitstun": 24, "hitstop": 6,
       "reach": 8, "hit_radius": 11, "juggle": true, "juggle_float": 36,
       "dash": { "speed": 6.8, "from": 1, "to": 16, "shallows_mult": 1.5 },
-      "anim_at": [[0, 0], [5, 1], [8, 2], [17, 3]],
+      "anim_at": [[0, 0], [1, 1], [2, 2], [4, 3], [7, 4], [10, 5], [13, 6], [16, 7], [18, 8], [21, 9], [24, 10], [27, 11]],
       "fx": { "afterimage": [1, 16], "ghost_color": "#b4e626aa", "trail": "splash", "impact": "droplets" }
     },
     "skill_2": {
@@ -118,8 +126,8 @@
       "damage": 4, "knockback": 0.2, "hitstun": 46, "hitstop": 6,
       "reel": 2, "reel_speed": 10.0,
       "projectile": { "speed": 11.0, "life": 18, "radius": 8, "offset": 12, "crack_trail": false },
-      "anim_at": [[0, 0], [5, 1], [9, 2], [13, 3], [32, 5]],
-      "anim_reel": 4,
+      "anim_at": [[0, 0], [2, 1], [5, 2], [8, 3], [11, 4], [14, 5], [18, 6], [23, 7], [32, 9], [36, 10], [40, 11]],
+      "anim_reel": 8,
       "fx": { "cast": true, "projectile": "rod" }
     },
     "surge": {
@@ -130,7 +138,7 @@
       "zone": { "radius": 50, "ticks": 180, "slow_mult": 0.7, "at": 24 },
       "leap": { "from": 3, "to": 23 },
       "dash": {"speed": 1.8, "from": 3, "to": 22, "home": {"until": 16, "max": 3.6}},
-      "anim_at": [[0, 0], [3, 1], [8, 2], [17, 3], [25, 4], [38, 5]],
+      "anim_at": [[0, 0], [2, 1], [3, 2], [5, 3], [8, 4], [12, 5], [16, 6], [19, 7], [22, 8], [25, 9], [30, 10], [36, 11]],
       "view_lift": [[0, 0], [3, 4], [9, 90], [15, 120], [20, 70], [24, 0]],
       "fx": { "telegraph": true, "impact": "bellyflop" }
     }
