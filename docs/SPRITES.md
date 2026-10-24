@@ -124,7 +124,7 @@ Facing down and up: [`culvert_views_preview.png`](culvert_views_preview.png).
 Design note for Cairn: keep it **tall and stacked**. A round boulder with two arms would
 read as an existing franchise creature.
 
-### Craglash — 96×96 frames, 12 × 14 (1152×1344 px)
+### Craglash — 96×96 frames, 12 × 16 (1152×1536 px)
 
 Craglash is the first creature from the artist's character sheets. His sheet is a
 pixel recreation of that sheet made by `tools/gen_craglash.py`, a small puppet rig
@@ -169,14 +169,16 @@ the neck, head, mane and arms lag the body. `idle_ticks` 8 (a 64-tick idle), `ru
 | 10 | dodge | 8 | dip, tuck behind the spikes (invulnerable frames 1-4), skid, uncurl |
 | 11 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
 | 12 | guard | 2 | forearms crossed, head tucked behind them |
-| 13 | ko | 4 | stagger, topple, down, neck stones scattered |
+| 13 | victory | 8 | a slow mountain roar: breathe in and rear back, 1-5 loop (head high, fists up, mane bristling, a pixel of hip shudder to shake the stones), 6-7 breathe out and hold |
+| 14 | idle_alt | 8 | grinds his jaw (angry and strain faces), the head turns slowly toward the foe and back, the mane bristles once |
+| 15 | ko | 4 | stagger, topple, down, neck stones scattered|
 
 When the artist's final Craglash arrives, either keep this layout (then it drops in), or
 change the `"sprite"` block in `data/creatures/craglash.json` to match theirs. Design
 note: keep the neck as flat slabs rimmed in red rather than round grey boulders, so it
 doesn't read as a chain of boulders from an existing franchise.
 
-### Barkley — 96×96 frames, 12 × 13 (1152×1248 px)
+### Barkley — 96×96 frames, 12 × 15 (1152×1440 px)
 
 Barkley is the second creature from the artist's sheets. `tools/gen_barkley.py`
 recreates him as a small **3D puppet** (a trunk that forks into two leg-trunks with
@@ -218,14 +220,16 @@ Facing down and up: [`barkley_views_preview.png`](barkley_views_preview.png).
 | 9 | dodge | 8 | bow low under the swing: gather, the bow (held), two lurching steps, rise; on its own `dodge.anim_at` timeline (a view-only key) |
 | 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
 | 11 | guard | 2 | branch arms crossed in front |
-| 12 | ko | 4 | stagger, then topples over backward like a felled tree, roots torn up |
+| 12 | victory | 8 | arms thrown up like boughs, trunk stretched tall; frame 0 gathers, 1-5 loop (boughs sway, leaf and twigs rustling a beat behind), 6-7 hold the proud stance (no bird prop) |
+| 13 | idle_alt | 8 | a creak: trunk leans and turns toward the foe, an arm shakes a leaf loose, straightens (played once after a long stand) |
+| 14 | ko | 4 | stagger, then topples over backward like a felled tree, roots torn up |
 
 Moves time their frames with `"anim_at"` (`[[tick, frame], ...]` in the move's JSON),
 so the spin and the lob play exactly in step with the hits. Design note: the log across
 the head, the moss beard and the root feet are what make him read as Barkley; a round
 tree body with leafy hands would drift toward existing franchise creatures.
 
-### Gillbert — 128×128 frames, 16 × 13 (2048×1664 px)
+### Gillbert — 128×128 frames, 16 × 15 (2048×1920 px)
 
 Gillbert is the third creature from the artist's sheets. `tools/gen_gillbert.py` builds
 him on Barkley's 3D approach: a fish body as a tube along a bendable spine (curl, arch,
@@ -266,7 +270,9 @@ all three views: [`gillbert_run.gif`](gillbert_run.gif).
 | 9 | dodge | 8 | a sideways tumble in a hop, five eased steps of roll, a squashed landing |
 | 10 | hurt | 2 | recoil; frame 1 (on his side) doubles as the crumple pose |
 | 11 | guard | 2 | curled up behind the life ring |
-| 12 | ko | 4 | a last flop, then on his side with the rod across him |
+| 12 | victory | 8 | rears up proud, the rod held high and the line swinging; frame 0 gathers, 1-5 loop (flop in place, gills flaring), 6-7 settle into the held pose |
+| 13 | idle_alt | 8 | a gasp: gills flare and flutter, head up and turned toward the foe, settle (played once after a long stand) |
+| 14 | ko | 4 | a last flop, then on his side with the rod across him |
 
 Design note: the life ring, the barbels and the rod on its line are what make him read as
 Gillbert, not as a fish from an existing franchise.

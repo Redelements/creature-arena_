@@ -996,12 +996,23 @@ def flick(near=True):
     return [ant, coil, whip, rel, follow, flourish, settle, recover]
 
 
+def _secondary(frames, brim=1, cape=2, wave=3):
+    """Overlap for an attack's frames: the brim a frame behind the body, the cape two, its
+    fold three (the first frames keep their own value)."""
+    S.lag(frames, "brim", brim, loop=False)
+    S.lag(frames, "cape", cape, loop=False)
+    S.lag(frames, "wave", wave, loop=False)
+    return frames
+
+
 def fold_row(kind):
     """A sheet drops into his hands, quick folds, the craft formed, then put away: the
     shuriken tucked in the hat band, the crane set on the near hand, the three frogs
-    hopping off to his far shoulder (his hands free again)."""
+    hopping off to his far shoulder (his hands free again). Eight frames: reach, the sheet
+    arriving, the first creases, the fold turning over, the last creases, the craft formed,
+    lifted away, put away."""
     both = ((4.0, 30.0, 8.0), (-4.0, 30.0, 8.0))
-    sheet = lambda f, spin: ("sheet", "between", {"fold": f, "spin": spin, "size": 1.0})
+    sheet = lambda f, spin: [("sheet", "between", {"fold": f, "spin": spin, "size": 1.0})]
     put = {"shuriken": [("shuriken", "band", {"size": 0.8})],
            "crane": [("crane", "near", {"size": 0.9})],
            "frog": [("frog", "shoulder", {"size": 0.5}), ("frog", "arc", {"size": 0.5, "t": 0.55}),
@@ -1012,71 +1023,133 @@ def fold_row(kind):
     mid = {"shuriken": [("shuriken", "between", {"size": 0.9, "spin": 20})],
            "crane": [("crane", "between", {"size": 0.8})],
            "frog": [("frogs", "between", {"size": 0.55, "up": 3.0})]}[kind]
-    return [
-        P(hands=((4.0, 33.0, 9.0), (-4.0, 33.0, 9.0)), hip_hand=(False, False), palm=(False, False), lean=10,
-          held=[sheet(0.0, 0)], brim=0.3, cape=-0.1),
-        P(hands=both, hip_hand=(False, False), palm=(False, False), lean=13, held=[sheet(0.45, 15)], cape=0.15,
-          brim=-0.3, wave=0.3),
-        P(hands=both, hip_hand=(False, False), palm=(False, False), lean=12, held=mid, cape=0.2, wave=0.5),
-        P(hands=put_hands, hip_hand=(put_hands[0] is None, False), palm=put_palm, lean=6, held=put, cape=0.1,
-          wave=0.2, brim=0.2),
+    nohip = dict(hip_hand=(False, False), palm=(False, False))
+    k0 = P(hands=((4.0, 33.0, 9.0), (-4.0, 33.0, 9.0)), lean=10, held=sheet(0.0, 0), brim=0.3, cape=-0.1, **nohip)
+    k1 = P(hands=both, lean=13, held=sheet(0.45, 15), cape=0.15, brim=-0.3, wave=0.3, **nohip)
+    k2 = P(hands=both, lean=12, held=mid, cape=0.2, wave=0.5, **nohip)
+    k3 = P(hands=put_hands, hip_hand=(put_hands[0] is None, False), palm=put_palm, lean=6, held=put, cape=0.1,
+           wave=0.2, brim=0.2)
+    reach = tween(idle_key(0.0), k0, 0.6, held=[], lean=4, hip=24.8, brim=0.2, **nohip)
+    out = [
+        reach, k0,
+        tween(k0, k1, 0.5, held=sheet(0.22, 8), stretch=-0.3, brim=0.0),
+        k1,
+        tween(k1, k2, 0.4, held=sheet(0.8, 28), stretch=-0.4, lean=14, brim=-0.4),
+        tween(k1, k2, 1.0, held=mid, stretch=0.2, lean=11, brim=0.1),
+        tween(k2, k3, 0.5, stretch=0.3, lean=9),
+        k3,
     ]
+    return _secondary(out, cape=2, wave=2)
+
+
+FOLD_AT = {"shuriken": [[0, 0], [2, 1], [4, 2], [6, 3], [8, 4], [10, 5], [12, 6], [15, 7]],
+           "crane": [[0, 0], [2, 1], [4, 2], [6, 3], [9, 4], [11, 5], [13, 6], [16, 7]],
+           "frog": [[0, 0], [2, 1], [4, 2], [6, 3], [8, 4], [10, 5], [12, 6], [15, 7]]}
 
 
 def shuriken_row():
-    """Charge A, charge B (the star raised by his hat), rise, the fling, follow-through, recover."""
+    """Paper Shuriken. Frames 0-3 are the charge loop (the star raised by his hat, turning,
+    the hat and brim breathing: 0, A-B, B, B-A, back to 0). Then, from the release: the
+    wind-back (squashed, the star drawn behind), the rise, the whip (the star halfway,
+    nothing yet in the hand), the fling (held), the follow-through past the target, the
+    settle and the recover."""
     # the star's face turned toward the camera, so it reads as a star and not an edge
     star = lambda w, spin: ("shuriken", w, {"size": 0.9, "spin": spin, "normal": (0.75, 0.35, 0.55)})
-    return [
-        P(hands=((8.0, 58.0, -6.0), None), hip_hand=(False, True), palm=(False, False), turn=24, lean=0, cape=0.1,
-          held=[star((8.0, 63.0, -6.0), 0)], brim=0.3),
-        P(hands=((8.0, 60.0, -9.0), None), hip_hand=(False, True), palm=(False, False), turn=28, lean=-2, cape=0.2,
-          held=[star((8.0, 65.0, -9.0), 30)], hat=(-3.0, 0.0), brim=0.5, wave=0.3),
-        P(hands=((7.0, 56.0, 4.0), None), hip_hand=(False, True), palm=(False, False), turn=14, lean=4, cape=0.2,
-          held=[star((7.0, 61.0, 6.0), 10)], brim=0.2),
-        P(hands=((3.0, 34.0, 18.0), None), hip_hand=(False, True), palm=(False, False), turn=-18, lean=14, hipf=2.0,
-          cape=0.6, wave=0.7, tails=0.5, brim=-0.5, feet=((3.6, 0.0, 6.0), (-3.6, 0.0, -4.0))),
-        P(hands=((1.0, 30.0, 16.0), None), hip_hand=(False, True), palm=(False, False), turn=-26, lean=16, hipf=2.0,
-          cape=0.8, wave=-0.6, tails=0.6, brim=-0.3, feet=((3.6, 0.0, 6.0), (-3.6, 0.0, -4.0))),
-        P(cape=0.3, lean=6, wave=0.2, brim=0.1),
+    solo = dict(hip_hand=(False, True), palm=(False, False))
+    c0 = P(hands=((8.0, 58.0, -6.0), None), turn=24, lean=0, cape=0.1, held=[star((8.0, 63.0, -6.0), 0)], brim=0.3, **solo)
+    c1 = P(hands=((8.0, 60.0, -9.0), None), turn=28, lean=-2, cape=0.2, held=[star((8.0, 65.0, -9.0), 30)],
+           hat=(-3.0, 0.0), brim=0.5, wave=0.3, **solo)
+    rise = P(hands=((7.0, 56.0, 4.0), None), turn=14, lean=4, cape=0.2, held=[star((7.0, 61.0, 6.0), 10)], brim=0.2, **solo)
+    fling = P(hands=((3.0, 34.0, 18.0), None), turn=-18, lean=14, hipf=2.0, cape=0.6, wave=0.7, tails=0.5, brim=-0.5,
+              feet=((3.6, 0.0, 6.0), (-3.6, 0.0, -4.0)), **solo)
+    follow = P(hands=((1.0, 30.0, 16.0), None), turn=-26, lean=16, hipf=2.0, cape=0.8, wave=-0.6, tails=0.6, brim=-0.3,
+               feet=((3.6, 0.0, 6.0), (-3.6, 0.0, -4.0)), **solo)
+    rec = P(cape=0.3, lean=6, wave=0.2, brim=0.1)
+    charge = [
+        c0,
+        tween(c0, c1, 0.5, held=[star((8.0, 64.0, -7.5), 15)], hat=(-1.5, 0.0), brim=0.45),
+        c1,
+        tween(c1, c0, 0.5, held=[star((8.0, 64.0, -7.5), 45)], hat=(-1.5, 0.0), brim=0.2),
     ]
+    wind = tween(c1, rise, 0.25, held=[star((9.0, 58.0, -13.0), 25)], hands=((9.0, 56.0, -13.0), None), turn=34,
+                 lean=-6, hip=24.2, stretch=-0.6, brim=0.6, cape=0.0, wave=-0.3, hat=(-4.0, 0.0))
+    whip = tween(rise, fling, 0.55, held=[star((6.0, 50.0, 16.0), 50)], stretch=0.5, turn=-4, lean=9, cape=0.4, wave=0.2)
+    settle = tween(follow, rec, 0.5, cape=0.5, wave=0.1, tails=0.3)
+    out = charge + [wind, rise, whip, fling, follow, settle, rec]
+    # the charge loop keeps its own secondary motion; the throw's lags behind the body
+    rest = out[4:]
+    _secondary(rest, cape=2, wave=3)
+    return out
 
 
 def crane_row():
-    """Hand up, the crane lifts off his fingers, launched, follow-through, recover."""
+    """Paper Crane. A dip (the anticipation), the hand up with the crane on his fingers,
+    the crane lifting off and its wings opening, carried out ahead of the hand, launched
+    (held), the follow-through, the palm turning up (ta-da), the settle, recover."""
     cr = lambda at, w: ("crane", at, {"size": 0.9, "wing": w})
-    return [
-        P(hands=((5.0, 40.0, 8.0), None), hip_hand=(False, True), palm=(False, False), held=[cr("near", 0.0)], lean=4),
-        P(hands=((5.0, 44.0, 10.0), None), hip_hand=(False, True), palm=(False, False), held=[cr((5.0, 52.0, 12.0), 0.8)],
-          lean=2, brim=0.3),
-        P(hands=((4.0, 42.0, 16.0), None), hip_hand=(False, True), palm=(False, False), held=[cr((4.0, 50.0, 24.0), -0.6)],
-          lean=12, cape=0.4, wave=0.5, tails=0.2, brim=-0.3),
-        P(hands=((3.0, 38.0, 17.0), None), hip_hand=(False, True), palm=(False, False), lean=12, cape=0.5, wave=-0.4,
-          tails=0.3, brim=-0.1),
-        P(cape=0.2, lean=6, wave=0.1),
+    solo = dict(hip_hand=(False, True), palm=(False, False))
+    k0 = P(hands=((5.0, 40.0, 8.0), None), held=[cr("near", 0.0)], lean=4, **solo)
+    k1 = P(hands=((5.0, 44.0, 10.0), None), held=[cr((5.0, 52.0, 12.0), 0.8)], lean=2, brim=0.3, **solo)
+    k2 = P(hands=((4.0, 42.0, 16.0), None), held=[cr((4.0, 50.0, 24.0), -0.6)], lean=12, cape=0.4, wave=0.5, tails=0.2,
+           brim=-0.3, **solo)
+    k3 = P(hands=((3.0, 38.0, 17.0), None), lean=12, cape=0.5, wave=-0.4, tails=0.3, brim=-0.1, **solo)
+    k4 = P(cape=0.2, lean=6, wave=0.1)
+    dip = tween(idle_key(0.0), k0, 0.5, held=[cr("near", 0.0)], hip=24.3, stretch=-0.5, lean=1, brim=0.3, **solo)
+    out = [
+        dip, k0,
+        tween(k0, k1, 0.5, held=[cr((5.0, 48.0, 11.0), 0.4)], stretch=0.2),
+        k1,
+        tween(k1, k2, 0.5, held=[cr((4.5, 52.0, 18.0), 0.1)], lean=8, stretch=0.5, cape=0.3),
+        k2,
+        k3,
+        tween(k3, k4, 0.15, fan=(1.0, 0.0), palm=(True, False), hands=((6.0, 36.0, 12.0), None), cape=0.6, wave=0.3,
+              hat=(3.0, 0.0)),
+        tween(k3, k4, 0.55, cape=0.45, wave=0.05),
+        k4,
     ]
+    return _secondary(out, cape=2, wave=2)
 
 
 def frog_row():
     """Paper Frog: he whips out a sheet, tears and folds three little frogs, crouches to set
-    them on the floor, flicks them off with a low forward sweep (the release), leans into the
-    follow-through, recovers. The frogs are PaperFx projectiles once sent."""
+    them on the floor, draws the hands back (the anticipation), flicks them off with a low
+    forward sweep (the release, held), leans into the follow-through, recovers. The frogs
+    are PaperFx projectiles once sent."""
     stance = ((3.6, 0.0, 5.0), (-3.6, 0.0, -4.0))
-    return [
-        P(hands=((8.0, 36.0, 9.0), None), hip_hand=(False, True), palm=(False, False), turn=14, lean=-2, cape=-0.3,
-          wave=-0.3, brim=0.4, hat=(-2.0, 0.0),
-          held=[("sheet", "near", {"size": 1.4, "spin": 20, "normal": (0.8, 0.3, 0.5)})]),
-        P(hands=((4.0, 32.0, 9.0), (-4.0, 32.0, 9.0)), hip_hand=(False, False), palm=(False, False), lean=14, cape=0.2,
-          brim=-0.2, held=[("frogs", "between", {"size": 0.6, "up": 3.5})]),
-        P(hip=13.0, lean=32, hip_hand=(False, False), palm=(False, False), hands=((4.0, 8.0, 10.0), (-4.0, 9.0, 9.0)),
-          feet=stance, cape=0.5, wave=0.5, tails=0.3, brim=-0.5, hat=(2.0, 0.0),
-          held=[("frogs", "floor", {"size": 0.6, "ahead": 15.5})]),
-        P(hip=15.0, lean=28, turn=-14, hip_hand=(False, False), palm=(False, False), hands=((5.0, 9.0, 19.0), (-5.0, 16.0, -2.0)),
-          feet=((3.6, 0.0, 7.0), (-3.6, 0.0, -5.0)), cape=0.6, wave=0.8, tails=0.7, brim=0.5, hat=(0.0, 0.0)),
-        P(hip=17.0, lean=36, turn=-20, hip_hand=(False, False), palm=(False, False), hands=((3.0, 12.0, 23.0), (-6.0, 20.0, -4.0)),
-          feet=((3.6, 0.0, 7.0), (-3.6, 0.0, -5.0)), cape=1.0, wave=-0.7, tails=0.9, brim=0.8, hat=(4.0, 0.0)),
-        P(hip=24.0, lean=10, cape=0.35, wave=0.3, brim=0.2),
+    nohip = dict(hip_hand=(False, False), palm=(False, False))
+    f0 = P(hands=((8.0, 36.0, 9.0), None), hip_hand=(False, True), palm=(False, False), turn=14, lean=-2, cape=-0.3,
+           wave=-0.3, brim=0.4, hat=(-2.0, 0.0),
+           held=[("sheet", "near", {"size": 1.4, "spin": 20, "normal": (0.8, 0.3, 0.5)})])
+    f1 = P(hands=((4.0, 32.0, 9.0), (-4.0, 32.0, 9.0)), lean=14, cape=0.2, brim=-0.2,
+           held=[("frogs", "between", {"size": 0.6, "up": 3.5})], **nohip)
+    f2 = P(hip=13.0, lean=32, hands=((4.0, 8.0, 10.0), (-4.0, 9.0, 9.0)), feet=stance, cape=0.5, wave=0.5, tails=0.3,
+           brim=-0.5, hat=(2.0, 0.0), held=[("frogs", "floor", {"size": 0.6, "ahead": 15.5})], **nohip)
+    f3 = P(hip=15.0, lean=28, turn=-14, hands=((5.0, 9.0, 19.0), (-5.0, 16.0, -2.0)),
+           feet=((3.6, 0.0, 7.0), (-3.6, 0.0, -5.0)), cape=0.6, wave=0.8, tails=0.7, brim=0.5, hat=(0.0, 0.0), **nohip)
+    f4 = P(hip=17.0, lean=36, turn=-20, hands=((3.0, 12.0, 23.0), (-6.0, 20.0, -4.0)),
+           feet=((3.6, 0.0, 7.0), (-3.6, 0.0, -5.0)), cape=1.0, wave=-0.7, tails=0.9, brim=0.8, hat=(4.0, 0.0), **nohip)
+    f5 = P(hip=24.0, lean=10, cape=0.35, wave=0.3, brim=0.2)
+    pull = tween(f2, f3, 0.25, hands=((4.0, 9.0, 3.0), (-4.0, 10.0, 4.0)), turn=10, lean=34, hip=12.6,
+                 held=[("frogs", "floor", {"size": 0.6, "ahead": 15.5})], stretch=-0.5)
+    out = [
+        tween(idle_key(0.0), f0, 0.55, held=f0.held, hip_hand=(False, True), turn=7, lean=0),
+        f0,
+        tween(f0, f1, 0.5, held=[("sheet", "between", {"size": 1.2, "fold": 0.6, "spin": 10})], hip_hand=(False, False),
+              hands=((5.0, 34.0, 9.0), (-5.0, 34.0, 9.0)), lean=7),
+        f1,
+        tween(f1, f2, 0.5, held=[("frogs", "between", {"size": 0.6, "up": 1.5})], lean=24, hip=18.0),
+        f2,
+        pull,
+        tween(f2, f3, 0.7, held=[], stretch=0.4, cape=0.7),
+        f3,
+        tween(f3, f4, 0.5, cape=0.85, wave=0.0),
+        f4,
+        f5,
     ]
+    return _secondary(out, cape=2, wave=2)
+
+
+FROG_AT = [[0, 0], [1, 1], [3, 2], [4, 3], [6, 4], [7, 5], [8, 6], [9, 7], [11, 8], [15, 9], [19, 10], [24, 11]]
 
 
 SURGE_SHEETS = 5
@@ -1135,16 +1208,48 @@ def surge_row():
 
 
 def dodge_row():
-    """Folds flat, the airplane (two gliding frames, banking so its paper back shows),
-    unfolds on landing."""
-    return [
-        P(hip=14.0, lean=38, hip_hand=(False, False), palm=(False, False), hands=((4.0, 16.0, 10.0), (-4.0, 16.0, 10.0)),
-          feet=((3.4, 0.0, 4.0), (-3.4, 0.0, -4.0)), cape=0.8, wave=0.6, brim=-0.6, tails=0.5),
+    """Paper Plane. A crouch, folds flat, creases into the airplane (it banks one way, then
+    the other, so its paper back shows), glides down, unfolds on landing, and settles."""
+    nohip = dict(hip_hand=(False, False), palm=(False, False))
+    d0 = P(hip=14.0, lean=38, hands=((4.0, 16.0, 10.0), (-4.0, 16.0, 10.0)), feet=((3.4, 0.0, 4.0), (-3.4, 0.0, -4.0)),
+           cape=0.8, wave=0.6, brim=-0.6, tails=0.5, **nohip)
+    land = P(hip=20.0, lean=20, hands=((7.0, 26.0, 6.0), (-7.0, 26.0, 6.0)), feet=((3.4, 0.0, 4.0), (-3.4, 0.0, -4.0)),
+             cape=-0.4, wave=0.6, brim=0.7, **nohip)
+    duck = tween(idle_key(0.0), d0, 0.5, hip_hand=(False, False), palm=(False, False), cape=0.3, brim=-0.2)
+    out = [
+        duck, d0,
+        P(form="plane", lift=6.0, roll=8.0),
         P(form="plane", lift=10.0, roll=22.0),
         P(form="plane", lift=12.0, roll=-22.0),
-        P(hip=20.0, lean=20, hip_hand=(False, False), palm=(False, False), hands=((7.0, 26.0, 6.0), (-7.0, 26.0, 6.0)),
-          feet=((3.4, 0.0, 4.0), (-3.4, 0.0, -4.0)), cape=-0.4, wave=0.6, brim=0.7),
+        P(form="plane", lift=8.0, roll=12.0),
+        land,
+        tween(land, idle_key(0.0), 0.7, cape=0.15, wave=0.3, brim=0.2),
     ]
+    return out
+
+
+DODGE_AT = [[0, 0], [2, 1], [4, 2], [5, 3], [8, 4], [12, 5], [15, 6], [18, 7]]
+
+
+def idle_alt_row():
+    """The fidget: after a long stand he looks to his foe and tips his hat (the near hand to
+    the brim, the hat tilted back with a small nod), holds it, and lowers the hand again. The
+    last frame is the idle's first pose, so it hands back cleanly."""
+    a = idle_key(0.0)
+    tip = P(hands=((5.0, 55.0, 15.0), None), hip_hand=(False, False), palm=(False, True), hat=(-9.0, 0.0), lean=-1,
+            stretch=0.4, hip=25.2, cape=0.2, brim=0.4, fan=(1.0, 1.0),
+            reach=((0.0, 0.0, 0.0), (0.0, 2.0, 0.5)))
+    out = [
+        a,
+        tween(a, tip, 0.3, arc=((3.0, 4.0, 1.0), None), brim=0.3),
+        tween(a, tip, 0.7, arc=((3.0, 4.0, 1.0), None), brim=0.4),
+        tip,
+        tween(tip, tip, 0.0, bow=7.0, hat=(-12.0, 0.0), brim=0.2, cape=0.3, wave=0.2),
+        tween(tip, tip, 0.0, bow=7.0, hat=(-12.0, 0.0), brim=0.2, cape=0.3, wave=0.2),
+        tween(tip, a, 0.4, brim=0.1),
+        tween(tip, a, 0.8, cape=0.1, brim=0.0),
+    ]
+    return _secondary(out, brim=1, cape=1, wave=2)
 
 
 def hurt_row():
@@ -1199,6 +1304,7 @@ ROWS = [
     ("fold_shuriken", fold_row("shuriken")), ("fold_crane", fold_row("crane")), ("fold_frog", fold_row("frog")),
     ("shuriken", shuriken_row()), ("crane", crane_row()), ("frog", frog_row()), ("surge", surge_row()),
     ("dodge", dodge_row()), ("hurt", hurt_row()), ("guard", guard_row()), ("ko", ko_row()), ("victory", victory_row()),
+    ("idle_alt", idle_alt_row()),
 ]
 VIEW_ROWS = ROWS
 

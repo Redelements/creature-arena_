@@ -4,6 +4,7 @@
 	"name": "Dustwind Pass",
 	"ground": "dirt",
 	"light": {"_doc": "hard desert sun from the top left: dark shadows", "dir": [0.7, 0.71], "length": 0.65, "alpha": 0.4},
+	"grade": {"_doc": "bleached desert warmth; a view-only tint and vignette (GradeView), eased at night/sunset/rain by weather.json", "tint": "#fff2d0", "vignette": 0.2},
 	"ambient": {"_doc": "blown sand, scrub that sways, grit off the boulders, a dust devil and the odd vulture; see AmbientView",
 		"motes": {"kind": "sand", "count": 46},
 		"sway": true,
