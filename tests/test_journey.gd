@@ -12,6 +12,10 @@ const TEST_SETTINGS := "user://test_journey.cfg"
 ## Ticks a fight plays before the clock is run down, and what it is run down to.
 const HURRY_AT := 600
 const HURRY_LEFT := 120
+## Ticks of sudden death before the journey settles it (see _hurry).
+const OVERTIME_HURRY := 1800
+## Ticks the current team battle has spent in sudden death.
+var _overtime_ticks := 0
 ## The most ticks a mode gets to reach its final banner.
 const BUDGET := 14000
 
@@ -136,7 +140,14 @@ func _hurry(g: Node) -> void:
 	if g.duel != null:
 		g.duel.timer = mini(g.duel.timer, HURRY_LEFT)
 	elif g.team_battle != null:
-		g.team_battle.timer = mini(g.team_battle.timer, HURRY_LEFT)
+		var tb = g.team_battle
+		if tb.overtime and _overtime_ticks >= OVERTIME_HURRY:
+			# Capture the Flag's sudden death ends only on a capture, and CPUs can stall
+			# in it for good: hand side 0 the lead and let the clock run out instead.
+			tb.overtime = false
+			tb.score[0] = int(tb.score[0]) + 1
+			tb.timer = 1
+		tb.timer = mini(tb.timer, HURRY_LEFT)
 	elif g.brawl != null:
 		g.brawl.timer = mini(g.brawl.timer, HURRY_LEFT)
 	else:
@@ -150,6 +161,7 @@ func _play_to_over(g: Node, label: String) -> int:
 		_tick(g, 1)
 		if g.flow == g.Flow.FIGHT:
 			fought += 1
+			_overtime_ticks = _overtime_ticks + 1 if g.team_battle != null and g.team_battle.overtime else 0
 			if fought >= HURRY_AT and fought % 60 == 0:
 				_hurry(g)
 		if g.flow == g.Flow.MATCH_OVER and g.ui.is_open():
