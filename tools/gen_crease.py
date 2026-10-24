@@ -25,16 +25,15 @@ The paper look (`render_paper`, swapped in for splat3d's `render` for this gener
     plane's and the big crane's undersides.
 A point is (lat, up, fwd), like the other rigs.
 """
-import io
 import math
 import os
-import subprocess
 import sys
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import anim_preview as A  # noqa: E402
 import splat3d as S  # noqa: E402
 from splat3d import rot_lat, rot_up, rot_fwd  # noqa: E402
 
@@ -859,18 +858,11 @@ def P(**kw):
 
 STAND = ((3.6, 0.0, 2.5), (-3.6, 0.0, -2.5))
 
-# Tweening between key poses (the animation pass). Every number in a Pose blends; a hand
-# left to its default is first resolved to where build() would put it, so a hand can
-# travel from the hip or the palm to an explicit spot. Discrete fields (forms, crafts held,
-# cape_up) come from whichever key is nearer.
-_NUMS = ("hip", "hipf", "lean", "turn", "cape", "wave", "tails", "brim", "lift", "roll", "squash", "wing", "bow",
-         "stretch")
-_PAIRS = ("hat", "hipw", "fan", "toe")
-
-
-def ease(t):
-    """Slow in and out of the key poses, fast through the middle."""
-    return t * t * (3 - 2 * t)
+# Tweening between key poses (the animation pass) uses the shared splat3d.tween: every
+# number in a Pose blends; a hand left to its default is first resolved to where build()
+# would put it, so a hand can travel from the hip or the palm to an explicit spot. Strings
+# and flags (forms, cape_up) come from whichever key is nearer, and so do the crafts held.
+ease = S.ease
 
 
 def resolved(p):
@@ -888,25 +880,8 @@ def tween(a, b, t, arc=(None, None), **over):
     """The pose `t` of the way from key `a` to key `b`. `arc` bows a hand's path: per hand a
     (lat, up, fwd) offset of the curve's middle from the straight line, so hands swing on
     curves. `over` sets fields outright (the secondary motion, keyed on its own)."""
-    a, b = resolved(a), resolved(b)
-    lerp = lambda x, y: x + (y - x) * t
-    kw = {}
-    for name in _NUMS:
-        kw[name] = lerp(getattr(a, name), getattr(b, name))
-    for name in _PAIRS:
-        kw[name] = tuple(lerp(x, y) for x, y in zip(getattr(a, name), getattr(b, name)))
-    kw["feet"] = tuple(tuple(lerp(x, y) for x, y in zip(fa, fb)) for fa, fb in zip(a.feet, b.feet))
-    hands = []
-    for k in (0, 1):
-        ha, hb = np.asarray(a.hands[k]), np.asarray(b.hands[k])
-        c = (ha + hb) / 2 + (np.asarray(arc[k], float) if arc[k] is not None else 0.0)
-        hands.append(tuple((1 - t) ** 2 * ha + 2 * (1 - t) * t * c + t * t * hb))
-    kw["hands"] = tuple(hands)
-    near = a if t < 0.5 else b
-    for name in ("hip_hand", "palm", "cape_up", "hat_off", "held", "form"):
-        kw[name] = getattr(near, name)
-    kw.update(over)
-    return Pose(**kw)
+    return S.tween(a, b, t, arc_fields=("hands",), arc={"hands": arc}, resolve=resolved, snap=("held", "hat_off"),
+                   **over)
 
 
 def idle_key(u):
@@ -917,23 +892,20 @@ def idle_key(u):
              reach=((0.0, 0.0, 0.0), (0.4 * u, 2.0 - 3.5 * u, 0.5 - 1.0 * u + 0.8 * bump)))
 
 
-IDLE_U = (0.0, 0.12, 0.5, 0.88, 1.0, 0.88, 0.5, 0.12)  # eased spacing: lingers at A and at B
-
-
 def idle():
     """Hand on hip, the far palm up as if about to produce something: the breath between
-    presenting (A) and settled (B), eased so he lingers at each. The paper lags behind: the
-    brim a frame, the cape and tails two, the cape's mid fold three (the flap travels down
-    to the hem)."""
-    n = len(IDLE_U)
-    out = []
-    for i, u in enumerate(IDLE_U):
-        p = idle_key(u)
-        p.brim = -0.1 + 0.55 * IDLE_U[(i - 1) % n]
-        p.cape = 0.05 + 0.35 * IDLE_U[(i - 2) % n]
-        p.tails = 0.15 * IDLE_U[(i - 2) % n]
-        p.wave = -0.1 + 0.7 * IDLE_U[(i - 3) % n]
-        out.append(p)
+    presenting (A) and settled (B), eased so he lingers at each (splat3d.EASE_8). The paper
+    lags behind: the brim a frame, the cape and tails two, the cape's mid fold three (the
+    flap travels down to the hem)."""
+    out = S.cycle(idle_key, S.EASE_8)
+    for p, u in zip(out, S.EASE_8):
+        p.brim = -0.1 + 0.55 * u
+        p.cape = 0.05 + 0.35 * u
+        p.tails = 0.15 * u
+        p.wave = -0.1 + 0.7 * u
+    S.lag(out, "brim", 1)
+    S.lag(out, ("cape", "tails"), 2)
+    S.lag(out, "wave", 3)
     return out
 
 
@@ -1233,197 +1205,47 @@ VIEW_ROWS = ROWS
 
 # ------------------------------------------------------------------ animation previews
 # `python3 tools/gen_crease.py anim` renders the animation pass's previews into
-# docs/anim_preview/ (looping GIFs at game speed, the current sheet's frames beside the new
-# ones, all three views, a contact sheet), without touching the game's sheets.
+# docs/anim_preview/ with the shared pipeline (tools/anim_preview.py): looping GIFs at game
+# speed, the current sheet's frames beside the new ones, all three views, a contact sheet,
+# without touching the game's sheets. `python3 tools/anim_preview.py --check crease` checks
+# the JSON's timelines against ROWS.
 
-ANIM_DIR = os.path.join(ROOT, "docs", "anim_preview")
-PREVIEW_BG = (70, 58, 46)
-# Where each animation sat on the sheets before the animation pass (row, frames), and the
-# git revision that has them, to compare against.
+render_frame, frame_spec = S.frame_adapter(SIDE, VIEWS, build, decorate)
+# The git revision whose sheets (and row table) the compare GIFs show as "current": the
+# sheets before the animation pass.
 OLD_REF = os.environ.get("CREASE_OLD_REF", "ee6e767")
-OLD_ROWS = {"idle": (0, 4), "run": (1, 6), "flick": (2, 4), "flick2": (3, 4), "surge": (10, 6)}
+ANIM_CYCLES = {"idle": 64, "run": 24}
 
 
-def _timed(anim_at, length):
-    """A move's frame per tick from its anim_at timeline."""
-    out = []
-    for t in range(length + 1):
-        f = 0
-        for at, fr in anim_at:
-            if t >= at:
-                f = fr
-        out.append(f)
-    return out
-
-
-def _idle_tail(ticks, idle_ticks, idle_n):
-    return [("idle", (t // idle_ticks) % idle_n) for t in range(ticks)]
-
-
-# Each clip: per version, a list of (animation, frame) per tick; marks: (from, to, label).
 def _clips():
     old_idle, new_idle = (10, 4), (8, 8)
-    move = lambda name, at, length, idle: [(name, f) for f in _timed(at, length)] + _idle_tail(30, *idle)
+    move = A.move_ticks
     l1_old, l1_new = [[0, 0], [4, 1], [7, 2], [12, 3]], [[0, 0], [2, 1], [4, 2], [6, 3], [9, 4], [11, 5], [14, 6], [17, 7]]
     l3_old, l3_new = [[0, 0], [5, 1], [9, 2], [16, 3]], [[0, 0], [2, 1], [6, 2], [8, 3], [11, 4], [14, 5], [18, 6], [22, 7]]
     su_old = [[0, 2], [5, 2], [10, 3], [16, 4], [26, 5]]
     su_new = [[0, 4], [4, 5], [7, 6], [11, 7], [16, 8], [21, 9], [25, 10], [33, 11]]
     return {
-        "idle": ({"old": [("idle", (t // 10) % 4) for t in range(320)],
-                  "new": [("idle", (t // 8) % 8) for t in range(320)]}, []),
-        "run": ({"old": [("run", (t // 4) % 6) for t in range(48)],
-                 "new": [("run", (t // 2) % 12) for t in range(48)]}, []),
+        "idle": ({"old": A.loop_ticks("idle", 10, 4, 320), "new": A.loop_ticks("idle", 8, 8, 320)}, []),
+        "run": ({"old": A.loop_ticks("run", 4, 6, 48), "new": A.loop_ticks("run", 2, 12, 48)}, []),
         "flick": ({"old": move("flick", l1_old, 21, old_idle), "new": move("flick", l1_new, 21, new_idle)},
                   [(7, 10, "dart out (light 1)")]),
         "flick_light3": ({"old": move("flick", l3_old, 26, old_idle), "new": move("flick", l3_new, 26, new_idle)},
                          [(9, 12, "dart out (light 3)")]),
         "flick2": ({"old": move("flick2", l1_old, 21, old_idle), "new": move("flick2", l1_new, 21, new_idle)},
                    [(7, 10, "dart out (light 2)")]),
-        "surge": ({"old": [("surge", (t // 6) % 2) for t in range(24)] + move("surge", su_old, 40, old_idle),
-                   "new": [("surge", (t // 6) % 4) for t in range(24)] + move("surge", su_new, 40, new_idle)},
+        "surge": ({"old": A.loop_ticks("surge", 6, 2, 24) + move("surge", su_old, 40, old_idle),
+                   "new": A.loop_ticks("surge", 6, 4, 24) + move("surge", su_new, 40, new_idle)},
                   [(0, 24, "held charge"), (24 + 11, 24 + 15, "lob thrown")]),
     }
 
 
-class _Frames:
-    """Renders (and remembers) the new frames, and cuts the current ones off the sheets."""
-
-    def __init__(self):
-        self.rows = dict(ROWS)
-        self.cache = {}
-        self.sheets = {}
-
-    def spec(self, view):
-        return SIDE if view == "side" else VIEWS[view]
-
-    def new(self, anim, f, view="side"):
-        key = ("new", anim, f, view)
-        if key not in self.cache:
-            sp = self.spec(view)
-            S.set_frame(sp["w"], sp["h"], sp["origin"])
-            self.cache[key] = render_paper(self.rows[anim][f], view, build, decorate)
-        return self.cache[key]
-
-    def old(self, anim, f, view="side"):
-        if view not in self.sheets:
-            # the sheets as they were before this pass (OLD_REF, a git revision)
-            path = os.path.relpath(OUT if view == "side" else OUT.replace(".png", "_%s.png" % view), ROOT)
-            blob = subprocess.check_output(["git", "show", "%s:%s" % (OLD_REF, path.replace(os.sep, "/"))], cwd=ROOT)
-            self.sheets[view] = Image.open(io.BytesIO(blob)).convert("RGBA")
-        sp = self.spec(view)
-        row, _n = OLD_ROWS[anim]
-        x, y = f * sp["w"], row * sp["h"]
-        return self.sheets[view].crop((x, y, x + sp["w"], y + sp["h"]))
-
-    def get(self, version, anim, f, view="side"):
-        return self.new(anim, f, view) if version == "new" else self.old(anim, f, view)
-
-
-def _tile(img, scale, view):
-    """A frame on the preview background, enlarged, with a tick under the feet."""
-    sp = SIDE if view == "side" else VIEWS[view]
-    bg = Image.new("RGBA", img.size, PREVIEW_BG + (255,))
-    bg.alpha_composite(img)
-    d = ImageDraw.Draw(bg)
-    ox, oy = sp["origin"]
-    d.line([(ox - 10, oy), (ox + 10, oy)], fill=(50, 40, 32, 255))
-    return bg.resize((img.width * scale, img.height * scale), Image.NEAREST)
-
-
-def _save_gif(ticks, path):
-    """Per-tick pictures to a looping GIF at 60 ticks a second (runs of the same picture
-    merged, delays rounded so the loop keeps time)."""
-    frames, durs = [], []
-    start = 0
-    for t in range(1, len(ticks) + 1):
-        if t == len(ticks) or ticks[t][0] != ticks[start][0]:
-            cs0, cs1 = round(start * 100 / 60), round(t * 100 / 60)
-            frames.append(ticks[start][1].convert("RGB"))
-            durs.append(max(2, cs1 - cs0) * 10)
-            start = t
-    frames[0].save(path, save_all=True, append_images=frames[1:], duration=durs, loop=0, optimize=False, disposal=1)
-    print("wrote", os.path.relpath(path, ROOT), len(frames), "frames")
-
-
-def _label(img, text, sub=""):
-    out = Image.new("RGBA", (img.width, img.height + 30), (40, 32, 26, 255))
-    out.alpha_composite(img, (0, 30))
-    d = ImageDraw.Draw(out)
-    d.text((6, 3), text, fill=(240, 230, 210, 255))
-    if sub:
-        d.text((6, 16), sub, fill=(255, 200, 90, 255))
-    return out
-
-
-def anim_previews():
-    os.makedirs(ANIM_DIR, exist_ok=True)
-    fr = _Frames()
-    for name, (versions, marks) in _clips().items():
-        new = versions["new"]
-        # 1x and 3x of the new version alone
-        for scale in (1, 3):
-            seq = []
-            for t, (anim, f) in enumerate(new):
-                seq.append(((anim, f), _tile(fr.new(anim, f), scale, "side")))
-            _save_gif(seq, os.path.join(ANIM_DIR, "crease_%s_%dx.gif" % (name, scale)))
-        # current next to new, 3x, with the tick and the moments that matter
-        seq = []
-        for t in range(max(len(v) for v in versions.values())):
-            panels = []
-            key = [t >= m0 and t < m1 and lab for m0, m1, lab in marks]
-            note = next((k for k in key if k), "")
-            for version in ("old", "new"):
-                v = versions[version]
-                anim, f = v[t % len(v)]
-                title = "%s  %s %d" % ("current" if version == "old" else "new", anim, f)
-                panels.append(_label(_tile(fr.get(version, anim, f), 3, "side"), title, note))
-            pic = Image.new("RGBA", (sum(p.width for p in panels) + 8, panels[0].height), (20, 16, 12, 255))
-            pic.alpha_composite(panels[0], (0, 0))
-            pic.alpha_composite(panels[1], (panels[0].width + 8, 0))
-            sig = tuple(tuple(versions[v][t % len(versions[v])]) for v in ("old", "new")) + (note,)
-            seq.append((sig, pic))
-        _save_gif(seq, os.path.join(ANIM_DIR, "crease_%s_compare_3x.gif" % name))
-    # all three views, new, for idle and the strut
-    for name in ("idle", "run"):
-        n = len(fr.rows[name])
-        per = 8 if name == "idle" else 2
-        seq = []
-        for t in range(n * per):
-            f = t // per
-            tiles = [_label(_tile(fr.new(name, f, v), 3, v), "%s %s %d" % (v, name, f)) for v in ("side", "down", "up")]
-            dy = [0, 0, (SIDE["origin"][1] - VIEWS["up"]["origin"][1]) * 3]
-            pic = Image.new("RGBA", (sum(x.width for x in tiles), tiles[0].height + dy[2]), PREVIEW_BG + (255,))
-            x = 0
-            for tl, off in zip(tiles, dy):
-                pic.alpha_composite(tl, (x, off))
-                x += tl.width
-            seq.append((f, pic))
-        _save_gif(seq, os.path.join(ANIM_DIR, "crease_%s_views_3x.gif" % name))
-    # contact sheet: every new frame, in all three views, 2x
-    names = ("idle", "run", "flick", "flick2", "surge")
-    s = 2
-    label_w = 90
-    cols = max(len(fr.rows[n]) for n in names)
-    rows = [(n, v) for n in names for v in ("side", "down", "up")]
-    sheet = Image.new("RGBA", (label_w + cols * SIDE["w"] * s, len(rows) * SIDE["h"] * s), PREVIEW_BG + (255,))
-    d = ImageDraw.Draw(sheet)
-    for r, (n, v) in enumerate(rows):
-        y = r * SIDE["h"] * s
-        d.text((6, y + 8), "%s\n%s" % (n, v), fill=(240, 230, 210, 255))
-        d.line([(label_w, y), (sheet.width, y)], fill=(50, 40, 32, 255))
-        for c in range(len(fr.rows[n])):
-            img = _tile(fr.new(n, c, v), s, v)
-            sheet.alpha_composite(img, (label_w + c * SIDE["w"] * s, y))
-            d.text((label_w + c * SIDE["w"] * s + 4, y + 4), str(c), fill=(255, 200, 90, 255))
-    path = os.path.join(ANIM_DIR, "crease_contact_sheet.png")
-    sheet.save(path)
-    print("wrote", os.path.relpath(path, ROOT))
+CLIPS = _clips
 
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "inspect":
         S.inspect(ROWS, sys.argv[2:], SIDE, VIEWS, build, decorate, path=os.environ.get("INSPECT_OUT"))
     elif len(sys.argv) > 1 and sys.argv[1] == "anim":
-        anim_previews()
+        A.main(sys.modules[__name__], sys.argv[2:])
     else:
         S.write_sheets(ROWS, VIEW_ROWS, OUT, PREVIEW, SIDE, VIEWS, build, decorate)

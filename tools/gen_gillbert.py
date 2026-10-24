@@ -26,6 +26,7 @@ the same layout they drop in with no code changes.
 """
 import math
 import os
+import sys
 
 import numpy as np
 from PIL import Image, ImageDraw
@@ -908,6 +909,28 @@ def preview(sh, rows, fw, fh, origin, scale, path):
     print("wrote", os.path.relpath(path, ROOT))
 
 
+# ------------------------------------------------------------------ animation tools
+# The adapter for the shared animation pipeline (tools/anim_preview.py):
+# `python3 tools/gen_gillbert.py anim` renders preview GIFs into docs/anim_preview/, and
+# `python3 tools/anim_preview.py --check gillbert` checks the JSON's timelines against ROWS.
+# In-betweens and overlap come from splat3d (tween, cycle, lag, lag_at), which only touch
+# pose attributes; this generator's renderer is its own.
+ANIM_CYCLES = {"idle": 40, "run": 32}  # ticks per cycle (frames x idle_ticks / run_ticks)
+
+
+def frame_spec(view):
+    return SIDE if view == "side" else VIEWS[view]
+
+
+def render_frame(pose, view):
+    """One frame on its own, with the frame size and origin set as sheet() sets them."""
+    global W, H, OX, OY
+    sp = frame_spec(view)
+    W, H = sp["w"], sp["h"]
+    OX, OY = sp["origin"]
+    return render(pose, view)
+
+
 def main():
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     side = sheet("side", ROWS, SIDE["w"], SIDE["h"], SIDE["origin"])
@@ -939,4 +962,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "anim":
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import anim_preview
+        anim_preview.main(sys.modules[__name__], sys.argv[2:])
+    else:
+        main()

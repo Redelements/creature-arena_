@@ -391,7 +391,7 @@ ROWS = [
     ("run", run()),
     ("jab", jab()),
     ("hook", hook()),
-    ("slam", slam()),
+    ("heavy", slam()),  # the JSON names the row "heavy"
     ("dodge", dodge()),
     ("hurt", hurt()),
     ("guard", guard()),
@@ -402,8 +402,21 @@ ROWS = [
 ]
 VIEW_ROWS = ROWS[:-1]  # the knockout tips over sideways in any view
 
+
+# ------------------------------------------------------------------ animation tools
+# The adapter for the shared animation pipeline (tools/anim_preview.py):
+# `python3 tools/gen_culvert.py anim` renders preview GIFs into docs/anim_preview/, and
+# `python3 tools/anim_preview.py --check culvert` checks the JSON's timelines against ROWS.
+# In-betweens and overlap come from splat3d (tween, cycle, lag, lag_at).
+render_frame, frame_spec = S.frame_adapter(SIDE, VIEWS, build, decorate)
+ANIM_CYCLES = {"idle": 40, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks)
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "inspect":
         S.inspect(ROWS, sys.argv[2:], SIDE, VIEWS, build, decorate, scale=int(os.environ.get("INSPECT_SCALE", "3")), path=os.environ.get("INSPECT_OUT"))
+    elif len(sys.argv) > 1 and sys.argv[1] == "anim":
+        import anim_preview
+        anim_preview.main(sys.modules[__name__], sys.argv[2:])
     else:
         S.write_sheets(ROWS, VIEW_ROWS, OUT, PREVIEW, SIDE, VIEWS, build, decorate)
