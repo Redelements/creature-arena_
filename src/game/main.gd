@@ -121,7 +121,7 @@ const REPLAY_MODE := 47
 ## The Settings pages and their rows, in order (see _setting()).
 const SETTING_PAGES := {
 	"game": ["level", "intros", "rumble", "shake", "discord", "server", "delay"],
-	"video": ["fullscreen", "wide", "vsync", "fps", "font", "perf_overlay"],
+	"video": ["fullscreen", "wide", "vsync", "fps", "glow", "font", "perf_overlay"],
 	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu"],
 }
 const SHAKE_CHOICES := [["Full", 1.0], ["Reduced", 0.5], ["Off", 0.0]]
@@ -217,6 +217,11 @@ const DEFAULT_FPS_MOBILE := 60
 ## The fight frame rate to start with: `mobile` is the platform's (a test passes its own).
 static func default_fps(mobile := OS.has_feature("mobile")) -> int:
 	return DEFAULT_FPS_MOBILE if mobile else DEFAULT_FPS
+
+
+## Glow starts on, except on a phone or handheld (weaker GPUs; it can be turned on).
+static func default_glow(mobile := OS.has_feature("mobile")) -> bool:
+	return not mobile
 # Knockouts: the simulation itself freezes and then runs at half speed (MatchSim's
 # ko_freeze / slowmo, so online peers agree); the camera pushes in on the loser.
 const KO_ZOOM := 1.45
@@ -273,6 +278,10 @@ var water: WaterView
 var ambient: AmbientView
 var wear: FloorWear
 var shadows: ShadowLayer
+## Glow (Settings > Video): light pools on the floor and halos over the effects (LightView).
+var glow_floor: LightView
+var glow_halo: LightView
+var glow := default_glow()
 var audio: AudioView
 var debug: DebugView
 var hud: Hud
@@ -503,6 +512,8 @@ func _ready() -> void:
 	shadows = ShadowLayer.new()  # the fighters' shadows, on the floor under everyone
 	shadows.views = views
 	add_child(shadows)
+	glow_floor = LightView.new()  # light pools on the floor, over the shadows, under the fighters
+	add_child(glow_floor)
 	rings = RangeRings.new()
 	rings.visible = false
 	rings.fx = fx  # what the local team can see (Vision): no rings for a hidden foe
@@ -517,6 +528,12 @@ func _ready() -> void:
 	paper = PaperFx.new()  # Mister Crease's sheets, crafts and storms, over the fighters
 	paper.fx = fx
 	add_child(paper)
+	glow_floor.fx = fx
+	glow_halo = LightView.new()  # the same lights as halos, over the effects
+	glow_halo.halo = true
+	glow_halo.source = glow_floor
+	add_child(glow_halo)
+	_apply_glow()
 	audio = AudioView.new()
 	add_child(audio)
 	fx.cue.connect(audio.play)
@@ -2201,6 +2218,9 @@ func _physics_process(_delta: float) -> void:
 	crowd.advance()
 	fx.advance()
 	PerfLog.since("fx advance", t_fx)
+	if glow:
+		glow_floor.advance()  # after the effects: it reads their particles
+		glow_halo.queue_redraw()
 	var t_views := PerfLog.now()
 	paper.advance(events)
 	hud.advance()
@@ -3381,6 +3401,9 @@ func _setting(key: String) -> Dictionary:
 				vals.append("Unlimited" if int(f) == 0 else "%d fps" % int(f))
 			return {"label": "Fight frame rate", "values": vals, "index": maxi(0, FPS_CHOICES.find(fight_fps)),
 				"desc": "Menus always run at 60 fps; this sets fights (up to your screen's refresh rate)"}
+		"glow":
+			return {"label": "Glow", "values": ["Off", "On"], "index": 1 if glow else 0,
+				"desc": "Glowing things (auras, sparks, flashes, shots) light the floor around them. Off for weaker devices"}
 		"font":
 			return {"label": "Text font", "values": ["Pixel", "Smooth"], "index": 1 if UiTheme.smooth else 0,
 				"desc": "The menus and the HUD: the pixel font, or the smooth font from before"}
@@ -3447,6 +3470,9 @@ func _set_setting(key: String, i: int) -> void:
 				fight_fps = int(FPS_CHOICES[clampi(i, 0, FPS_CHOICES.size() - 1)])
 			"perf_overlay":
 				perf_overlay.mode = clampi(i, 0, PerfOverlay.MODE_NAMES.size() - 1) as PerfOverlay.Mode
+			"glow":
+				glow = i == 1
+				_apply_glow()
 			"font":
 				if UiTheme.smooth != (i == 1):
 					UiTheme.smooth = i == 1
@@ -3672,6 +3698,15 @@ func _rumble(e: Dictionary) -> void:
 			Input.start_joy_vibration(player_input.pad_id, 0.8, 0.8, 0.5)
 
 
+## Glow on or off: off hides both layers and stops gathering lights (no cost at all).
+func _apply_glow() -> void:
+	for g in [glow_floor, glow_halo]:
+		if g != null:
+			g.visible = glow
+			if not glow:
+				g.clear()
+
+
 func _load_settings() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(settings_path) == OK:
@@ -3721,6 +3756,8 @@ func _load_settings() -> void:
 		var fps := int(cfg.get_value("video", "fight_fps", default_fps()))
 		fight_fps = fps if fps in FPS_CHOICES else default_fps()
 		UiTheme.smooth = String(cfg.get_value("video", "font", "pixel")) == "smooth"
+		glow = bool(cfg.get_value("video", "glow", default_glow()))
+		_apply_glow()
 		perf_overlay.mode = clampi(int(cfg.get_value("video", "perf_overlay", 0)), 0,
 			PerfOverlay.MODE_NAMES.size() - 1) as PerfOverlay.Mode
 		var saved_rows = cfg.get_value("game", "row_choice", {})
@@ -3754,6 +3791,7 @@ func _save_settings() -> void:
 	cfg.set_value("video", "vsync", vsync)
 	cfg.set_value("video", "wide_fill", wide_fill)
 	cfg.set_value("video", "perf_overlay", perf_overlay.mode)
+	cfg.set_value("video", "glow", glow)
 	cfg.set_value("video", "font", "smooth" if UiTheme.smooth else "pixel")
 	cfg.set_value("game", "rumble", rumble)
 	cfg.set_value("game", "intros", match_intros)
