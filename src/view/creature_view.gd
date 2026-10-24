@@ -550,9 +550,19 @@ func _pick() -> Array:
 				return ["dodge", f, false]
 			return ["dodge", c.state_t * n / frames, false]
 		CreatureSim.State.GUARD:
-			return ["guard", 1 if c.guard_hit > 0 else 0, false]
+			if c.guard_hit <= 0:
+				return ["guard", 0, false]
+			# A blocked hit: frame 1 on impact, then the shiver and the re-set across the
+			# 10 ticks of guard_hit when the sheet has them (the reactions pass gives 4).
+			var gn := int(_anim("guard")[2])
+			if gn <= 2:
+				return ["guard", 1, false]
+			var el := 10 - c.guard_hit
+			return ["guard", 1 + mini(gn - 2, el * (gn - 1) / 10), false]
 		CreatureSim.State.HITSTUN:
-			return ["hurt", c.state_t / 4, true]
+			# Recoil, deepest point, settle; a long stun holds the last frame instead of
+			# flinching again every 16 ticks.
+			return ["hurt", mini(c.state_t / 4, int(_anim("hurt")[2]) - 1), true]
 		CreatureSim.State.CRUMPLE:
 			return ["hurt", 0 if c.stone > 0 else 1, false]  # a statue: caught mid-flinch
 		CreatureSim.State.AIRBORNE:
