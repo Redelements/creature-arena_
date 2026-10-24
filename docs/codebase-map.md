@@ -84,6 +84,7 @@ update the map in the same change.
 | sound effects, music, volume | `src/view/audio_view.gd:on_event`, `data/audio.json`, `docs/AUDIO.md` | scripts_load |
 | shadows, light direction, sun | `src/view/shadow_layer.gd` (`light_of`, `draw_silhouette`), `src/view/creature_view.gd:draw_shadow`; a map's `light` in `data/arenas/<id>.json`; piece shadows `tools/gen_arenas.py:cast_shadows`, dropped when a piece changes `src/view/arena_view.gd:_shade` | shadows |
 | arena drawing, crowd, map art, shallows water (flow, foam, wading wakes, splash) | `src/view/arena_view.gd` (`_paint_changed`, row bands `BAND_ROWS`), `src/view/crowd_view.gd`, `src/view/water_view.gd` (`_paint_surface`, `_watch_fighters`); art from `tools/gen_arenas.py` (rerun after moving a piece in `data/arenas/`) | arena |
+| floor wear (scratches, gouges, craters, drag lines, clods, footprints that fade) | `src/view/floor_wear.gd` (`mark`, `_age`, `_build`); what leaves one: `src/view/fx_view.gd` (`_wear_hit`, `_wear_strike`, `_wear_drag`, `_wear_step`), per-move `fx.decal` | view |
 | camera, zoom, screen shake | `src/game/main.gd:_update_camera`, `_frame_fight` | test_ui |
 | game modes, mode numbers, menus' rows | `src/game/main.gd` `MODES`, `MENU_ROWS`, `_start_match` | test_ui, test_journey, menu_contract |
 | settings | `src/game/main.gd` `SETTING_PAGES`, `_setting`, `_set_setting` | test_ui |
