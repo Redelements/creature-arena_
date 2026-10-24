@@ -237,6 +237,7 @@ var views: Array[CreatureView] = []
 var fx: FxView
 var fx_ground: FxGround
 var water: WaterView
+var ambient: AmbientView
 var wear: FloorWear
 var shadows: ShadowLayer
 var audio: AudioView
@@ -447,6 +448,8 @@ func _ready() -> void:
 	add_child(fx_ground)
 	water = WaterView.new()  # living water over the shallows, under the fighters
 	add_child(water)
+	ambient = AmbientView.new()  # a map's ambient life (arena JSON "ambient"): panes, sway, motes, butterflies
+	add_child(ambient)
 	shadows = ShadowLayer.new()  # the fighters' shadows, on the floor under everyone
 	shadows.views = views
 	add_child(shadows)
@@ -1910,6 +1913,8 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	water.set_sim(sim)
 	wear.set_sim(sim)
 	water.fx = fx
+	ambient.set_sim(sim, arena.art())
+	ambient.fx = fx
 	paper.set_sim(sim)
 	hud.sim = sim
 	fx.sim = sim
@@ -2118,6 +2123,7 @@ func _physics_process(_delta: float) -> void:
 	var t_fx := PerfLog.now()
 	arena.refresh()
 	water.advance()
+	ambient.advance()
 	wear.advance()
 	crowd.advance()
 	fx.advance()
