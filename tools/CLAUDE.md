@@ -18,7 +18,13 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   `python3 tools/gen_<id>.py inspect idle:0 run:2` previews frames.
 - `gen_culvert.py`, `gen_digby.py`, `gen_pete.py`, `gen_sno.py`, `gen_crease.py`: splat3d rigs
   (Crease: faceted paper, 128x160 frames, `decorate` draws creases).
-- `gen_cerebro.py`, `gen_hissy.py`: point-sampling rigs with their own copy of the splat code.
+- `gen_cerebro.py`, `gen_hissy.py`: point-sampling rigs with their own copy of splat3d's
+  primitives, `Cam` and rasteriser, but splat3d's shading and outlines: `S.configure(MAT,
+  ...)` with MAT on palette ramps, then `S.shade(r)` / `S.outline(r, img)` on their buffers,
+  with `decorate`-style passes between (Cerebro: wrinkles, sunglasses, then the outline with
+  no line at the stem, the flush, glow, smears; Hissy: the face texture). Cerebro's tools
+  outline black via `outline_mats`; Hissy's silhouette is black (`S.INK` overridden). They
+  import the palette as `PAL`: `P` is their pose constructor.
 - `gen_barkley.py`, `gen_gillbert.py`, `gen_craglash.py`: older (Barkley/Gillbert project a
   3D rig per view; Craglash is a 2D IK puppet whose renderer rounds to whole pixels in
   `whole_pixels()`, so its poses may hold floats; its up/down sheets come from `VRig`, its
