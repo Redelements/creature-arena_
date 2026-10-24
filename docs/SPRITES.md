@@ -330,7 +330,7 @@ Design note: she must not read as Medusa from mythology-themed games or films: t
 gloves, the floating head, the earrings and the cartoon grin carry her look. Snakes for
 hair is a myth motif anyone can use; the name and gloves are hers.
 
-### Digby — 128×128 frames, 8 × 13 (1024×1664 px)
+### Digby — 128×128 frames, 12 × 13 (1536×1664 px)
 
 Digby is the sixth creature from the artist's sheets, and the first generator on the
 shared renderer, `tools/splat3d.py` (the splat renderer Chef Cerebro and Hissy Fitz use,
@@ -348,18 +348,24 @@ dirt mound. Drawn at 0.8 scale, feet at **x 64, y 100**; up and down sheets are
 
 Facing down and up: [`digby_views_preview.png`](digby_views_preview.png).
 
+Every ability had the roster animation pass (Oct 2026): the motion plan with every
+`anim_at` is [`anim_preview/digby_motion_plan.md`](anim_preview/digby_motion_plan.md), and
+`python3 tools/gen_digby.py anim` renders the before/after previews. The idle is 8 frames
+at `idle_ticks` 8 (64 ticks), the gallop 12 at `run_ticks` 2 (24 ticks, unchanged), with
+dust on `step_frames` `[0, 2]` (the front paws landing, the back paws landing).
+
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
-| 0 | idle | 4 | on all fours, sniffing, tail swaying |
-| 1 | run | 6 | a quick scurry, paws alternating, tail streaming |
-| 2 | swipe | 4 | Claw Swipe (light 1): rears up, the far claw slashes across |
-| 3 | swipe2 | 4 | Claw Swipe (light 2): the near claw back the other way, pickaxe and all |
-| 4 | pick | 5 | Pickaxe Swing (light 3): up on his back legs, the pickaxe over his head and down |
-| 5 | popup | 6 | Pickaxe Pop-Up: charge A/B (digging in), underground, bursting up with the pickaxe, follow-through, recover; Pop Goes the Mole plays from frame 3 |
-| 6 | flash | 4 | Headlamp Flash: taps the helmet, the lamp blazes, holds, back down |
-| 7 | burrow | 6 | Burrow: crouch, diving in, the mound (frames 2 and 3 alternate while he tunnels), bursting out, recover |
-| 8 | cavein | 6 | Cave-In: rears right up, holds, slams down, the floor gives, recover |
-| 9 | dodge | 4 | rolls into a ball and tumbles |
+| 0 | idle | 8 | sniffing: two quick sniffs, a held look toward the camera, eased breath; the helmet and tail lag |
+| 1 | run | 12 | a gallop: front paws land (0, 1), back paws 2 frames later (2, 3), the gather (3-5), push-off, a suspension (9-11), the reach |
+| 2 | swipe | 8 | Claw Swipe (light 1): anticipation, rear-up with the far claw cocked over the helmet (held), the slash, the release (held, the hit), follow-through, drop back, land, settle |
+| 3 | swipe2 | 8 | Claw Swipe (light 2): the same with the near paw, the pickaxe trailing it by a frame |
+| 4 | pick | 8 | Pickaxe Swing (light 3): the pick overhead (held), the slash, the impact (held, the hit), follow-through, drop, settle |
+| 5 | popup | 12 | Pickaxe Pop-Up: 0-3 the digging charge loop (`anim_charge` `[0, 4, 4]`), dive, under, the mound bulging, burst, apex (the hit), follow-through, land, recover; Pop Goes the Mole plays from the bulge (6) |
+| 6 | flash | 8 | Headlamp Flash: the pickaxe paw raised over the helmet, the tap, the flash (held, the hit), fading, land, settle |
+| 7 | burrow | 12 | Burrow: crouch, dive, 2-5 the tunnelling loop (the clods churn), the bulge, burst, apex (the hit), land, recover, settle |
+| 8 | cavein | 12 | Cave-In: dip, rearing, up, the peak (held; the cut-in frame, `[8, 3]`), the slam, impact (held, the hit), two frames sinking as the floor gives, settle |
+| 9 | dodge | 8 | tucked into a ball, a full roll, landing squash, settle |
 | 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
 | 11 | guard | 2 | hunkered behind the pickaxe held crossways |
 | 12 | ko | 4 | over onto his back, legs up, x eyes |
