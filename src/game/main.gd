@@ -237,6 +237,7 @@ var views: Array[CreatureView] = []
 var fx: FxView
 var fx_ground: FxGround
 var water: WaterView
+var wear: FloorWear
 var shadows: ShadowLayer
 var audio: AudioView
 var debug: DebugView
@@ -440,6 +441,8 @@ func _ready() -> void:
 	add_child(arena)
 	crowd = CrowdView.new()
 	add_child(crowd)
+	wear = FloorWear.new()  # scratches, gouges, craters, prints: the floor remembers, under everything
+	add_child(wear)
 	fx_ground = FxGround.new()
 	add_child(fx_ground)
 	water = WaterView.new()  # living water over the shallows, under the fighters
@@ -456,6 +459,7 @@ func _ready() -> void:
 	add_child(entities)
 	fx = FxView.new()
 	fx.bind_ground(fx_ground)
+	fx.wear = wear
 	add_child(fx)
 	paper = PaperFx.new()  # Mister Crease's sheets, crafts and storms, over the fighters
 	paper.fx = fx
@@ -1886,7 +1890,10 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	arena.ground = String(sim.arena.get("ground", "dirt"))
 	arena.arena_id = String(sim.arena.get("id", ""))
 	shadows.light = ShadowLayer.light_of(sim.arena)
-	crowd.set_width(sim.arena_size().x)
+	var two_sides := true  # (a Brawl of three or four has no sides for the stands to take)
+	for c in sim.creatures:
+		two_sides = two_sides and c.team >= 0 and c.team <= 1
+	crowd.set_size(sim.arena_size(), two_sides)
 	arena.set_terrain(sim.terrain)
 	for v in views:
 		v.queue_free()
@@ -1901,6 +1908,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	debug.sim = sim
 	rings.set_sim(sim)
 	water.set_sim(sim)
+	wear.set_sim(sim)
 	water.fx = fx
 	paper.set_sim(sim)
 	hud.sim = sim
@@ -2110,6 +2118,7 @@ func _physics_process(_delta: float) -> void:
 	var t_fx := PerfLog.now()
 	arena.refresh()
 	water.advance()
+	wear.advance()
 	crowd.advance()
 	fx.advance()
 	PerfLog.since("fx advance", t_fx)
@@ -2448,6 +2457,8 @@ func _react(e: Dictionary) -> void:
 		"hit":
 			shake = maxf(shake, 1.5 + power * 0.2)
 			crowd.cheer(0.1 + power * 0.015)
+			if fx._event_shown(e):  # (fans near a hidden fighter's hit would give it away)
+				crowd.react(Vector2(e["pos"]), 4 + mini(4, int(power * 0.25)))
 		"block":
 			shake = maxf(shake, 1.0)
 		"slam":
@@ -2611,7 +2622,9 @@ func _update_camera() -> void:
 			_ko_cam_t = -1
 	var half := view * 0.5 / z
 	camera.zoom = Vector2(z, z)
-	camera.position = Vector2(_cam_axis(focus.x, half.x, size.x), _cam_axis(focus.y, half.y, size.y))
+	# Near an edge the shot may run a little past it, into the side stands and front rows.
+	camera.position = Vector2(_cam_axis(focus.x, half.x, size.x, CrowdView.SHOW_SIDE, CrowdView.SHOW_SIDE),
+		_cam_axis(focus.y, half.y, size.y, 0.0, CrowdView.SHOW_FRONT))
 	_update_pointers(view)
 
 
@@ -2700,12 +2713,13 @@ func _cam_anchor() -> int:
 	return found
 
 
-## Keeps the arena filling the screen along one axis; when the screen shows more than
-## the arena (an ultrawide's width), the arena stays centred and the stadium fills the rest.
-static func _cam_axis(v: float, half: float, arena: float) -> float:
-	if half * 2.0 >= arena:
-		return arena * 0.5
-	return clampf(v, half, arena - half)
+## Keeps the arena filling the screen along one axis, the view allowed `lo` / `hi` past its
+## start and end (into the stands); when the screen shows more than that (an ultrawide's
+## width), the view stays centred on it and the stadium fills the rest.
+static func _cam_axis(v: float, half: float, arena: float, lo := 0.0, hi := 0.0) -> float:
+	if half * 2.0 >= arena + lo + hi:
+		return (arena + hi - lo) * 0.5
+	return clampf(v, half - lo, arena + hi - half)
 
 
 # ------------------------------------------------------------------ input

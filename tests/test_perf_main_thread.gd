@@ -66,10 +66,10 @@ func test_crowd_flashes_have_their_own_layer() -> void:
 	assert_true(crowd._flash_layer != null and crowd._flash_layer.get_parent() == crowd, "a flash layer over the seats")
 	crowd.advance()
 	crowd.advance()  # the seats' key is settled for a few ticks now
-	var key := crowd._drawn_key
+	var keys := crowd._blocks.map(func(b): return [b.drawn, b.drawn_version])
 	crowd._flashes.append({"pos": Vector2(10, 10), "t": 3})
 	crowd.advance()
-	assert_eq(crowd._drawn_key, key, "a flash doesn't re-key the seats:")
+	assert_eq(crowd._blocks.map(func(b): return [b.drawn, b.drawn_version]), keys, "a flash doesn't re-key the seats:")
 	assert_true(crowd._drawn_flashes, "the flash layer is what redraws")
 	crowd.free()
 

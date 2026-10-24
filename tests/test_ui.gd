@@ -953,7 +953,55 @@ func test_the_camera_keeps_the_arena_centred_on_a_wide_screen() -> void:
 	assert_eq(g._cam_axis(100.0, 240.0, 480.0), 240.0, "exactly as wide: centred")
 	assert_eq(g._cam_axis(100.0, 165.0, 480.0), 165.0, "zoomed in: clamped to the edge")
 	assert_eq(g._cam_axis(300.0, 165.0, 480.0), 300.0, "and follows inside")
+	# Near an edge the shot may run into the stands, as far as the margin allowed.
+	assert_eq(g._cam_axis(100.0, 165.0, 480.0, 64.0, 64.0), 101.0, "into the side stand, no further")
+	assert_eq(g._cam_axis(470.0, 165.0, 480.0, 64.0, 64.0), 379.0, "and the other side")
+	assert_eq(g._cam_axis(100.0, 300.0, 480.0, 64.0, 64.0), 236.0, "a little wider than the arena: follows a little")
+	assert_eq(g._cam_axis(100.0, 320.0, 480.0, 64.0, 64.0), 240.0, "wider than arena and margins: centred")
 	g.free()
+
+
+func test_the_crowd_stands_up_near_a_hit_and_redraws_only_its_block() -> void:
+	var crowd := CrowdView.new()
+	crowd.set_size(SimDefs.arena_size())
+	var size := SimDefs.arena_size()
+	# A hit by the left wall stands up fans in the left stand, nowhere else.
+	crowd.react(Vector2(30, size.y * 0.5), 6)
+	var up := {}
+	for b in crowd._blocks:
+		for i in b.pos.size():
+			if b.up_until[i] > 0:
+				up[b.stand] = int(up.get(b.stand, 0)) + 1
+	assert_eq(up, {CrowdView.Stand.LEFT: 6}, "six fans in the left stand")
+	var touched := crowd._blocks.filter(func(b): return b.version > 0).size()
+	assert_true(touched >= 1 and touched <= 2, "only the block or two they sit in changes")
+	# Many hits in one tick stand up at most REACT_CAP fans.
+	for k in 10:
+		crowd.react(Vector2(size.x * 0.5, 70), 6)
+	var top := 0
+	for b in crowd._blocks:
+		if b.stand == CrowdView.Stand.TOP:
+			for i in b.pos.size():
+				top += int(b.up_until[i] > 0)
+	assert_eq(top, CrowdView.REACT_CAP - 6, "capped per tick")
+	# They sit down again after REACT_TICKS.
+	for t in CrowdView.REACT_TICKS + 1:
+		crowd.advance()
+	assert_true(crowd._active.is_empty(), "everyone sat down")
+	# The team looks: red shirts left, blue right; a Brawl's are mixed.
+	var looks := {}
+	for b in crowd._blocks:
+		looks[b.stand] = b.look[0]
+	assert_eq(looks[CrowdView.Stand.LEFT], CrowdView.Look.RED, "")
+	assert_eq(looks[CrowdView.Stand.RIGHT], CrowdView.Look.BLUE, "")
+	assert_eq(looks[CrowdView.Stand.FRONT], CrowdView.Look.BACK, "the front rows from behind")
+	crowd.set_size(size, false)
+	for b in crowd._blocks:
+		if b.stand == CrowdView.Stand.LEFT:
+			assert_eq(b.look[0], CrowdView.Look.MIXED, "no sides: mixed")
+			break
+	assert_eq(CrowdView.sheet().get_height(), CrowdView.H * 4, "four looks from one sheet")
+	crowd.free()
 
 
 func test_the_fight_camera_keeps_both_fighters_in_shot() -> void:
