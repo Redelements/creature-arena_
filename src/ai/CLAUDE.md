@@ -38,6 +38,9 @@ default 22), `routes` (lists of action names), `far_routes`/`far_from`, `poke`/`
 [min, max], `lob`/`lob_range`, `gaze`/`gaze_range`, `zone`/`zone_range`,
 `stealth`/`stealth_range`, `burrow`/`burrow_range`, `surge_line`, `surge_range`,
 `grab`/`grab_range`, `kite` (bool), `wakeup_charge` (bool), `counter`, `fold`/`fold_safe`.
+`weights` (Rage's scored kit: per-candidate multipliers `surge`, `lob`, `gaze`, `zone`, `poke`,
+`give_ground` over `CpuController.WEIGHTS` and a `STYLES` entry's `weights`; 0 turns one off,
+e.g. Cerebro's `poke`, whose mallet thrown at a tank walking in loses the matchup).
 
 ## Where to look
 
@@ -68,6 +71,12 @@ default 22), `routes` (lists of action names), `far_routes`/`far_from`, `poke`/`
   regions for unreachable goals), `_go_to` (on a crowded field one search a tick, the CPUs taking turns: `_replan_turn`), `_steer`, `_open_dir`, `_clearance`; fast
   open-floor checks `NavGrid.clear_line`, `NavGrid.body_blocked` (via `TerrainIndex`)
 - Threads → `think_all`, `think_start` / `think_wait`, `threaded`, `last_bits`
+- Scored kit (piece 2 of docs/plans/ai-utility-and-teamplay.md) → `_rage_kit_scored`,
+  `_score_candidates`, the `f_*` considerations and `compensate`, a kiter's `_give_ground`; on
+  for Rage (`scored`, `scored_default`); `false` plays the old ladder. A/B with
+  `tests/bench_cpu.gd --scored --a=3 --b=3` (scored vs ladder), `--ladder` for the baseline.
+  Win rates at `--seeds=3` swing about ±9 of 66 from the rng stream alone: decide at `--seeds=6`+
+- Kite spacing → `kite_band` (80% of the light's range; the kite plan never reads `ai.range`)
 - Leading shots → `_aim_point`; team targeting → `_pick_target`, `_hurt_ally`; Duel tag-out
   → `_maybe_tag`; Crease's folds → `_usable`, `_maybe_fold`
 

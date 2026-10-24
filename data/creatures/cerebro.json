@@ -57,6 +57,7 @@
     "poke_range": [40, 112],
     "grab": "skill_2",
     "grab_range": 34,
+    "weights": {"poke": 0},
     "surge_line": 112,
     "routes": [
       ["light", "light", "light", "heavy", "skill_1", "surge"],
