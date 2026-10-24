@@ -8,9 +8,9 @@ generator names a ramp per material (or hands an old (base, light, dark) triple 
 `ramp_for`, which picks the ramp whose base is nearest), and shades only with that
 ramp's five steps, so every sprite and every arena draws from the same colours.
 
-The rules the lines were built by (OKLCH, a perceptual colour space; the derivation is
-in the PR that added this file, the numbers below are the published result and may be
-hand-tuned):
+The rules the lines were built by (in OKLCH, a perceptual colour space, extrapolated once
+from each line's anchor colour; the numbers below are the published result, hand-tuned
+in places, and are what everything reads):
   - Contrast: one ramp step is about 0.10 of lightness (OKLab L) going down and 0.09
     going up, so neighbouring steps always read as two tones at 1x, and the base sits
     in the middle where the hue is strongest.
@@ -29,6 +29,7 @@ hand-tuned):
 
 API:
   LINES, RAMPS, INKS          the published colours (RGB tuples)
+  GROUND                      half-step lines for arena floors only ("earth_fine", ...)
   ALL                         every distinct colour, in swatch order
   ramp(name, shift=0)         a ramp's five colours; shift moves the window along its line
   flat(name, step=2)          one colour five times (lines, slots: unshaded materials)

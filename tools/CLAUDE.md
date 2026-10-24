@@ -5,9 +5,16 @@ sprites and audio). Each sprite generator writes `assets/sprites/<id>.png`, `<id
 `<id>_up.png` and a `docs/<id>_preview.png`; after regenerating, run `--import` or the game
 keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
 
+- `palette.py`: the master palette (hue lines, five-step ramps, outline inks; rules in its
+  docstring and `docs/SPRITES.md`, "Palette"). `ramp(name, shift)`, `ramp_for(rgb)`,
+  `ink_for`, `nearest` / `snap` (images, dithered) / `snap_ramp` (arena ramps);
+  `python3 tools/palette.py` redraws `docs/palette.png`. The splat3d rigs and the arenas
+  use it; the five custom renderers (Cerebro, Hissy, Barkley, Gillbert, Craglash) and
+  `gen_sprites.py` aren't ported yet.
 - `splat3d.py`: the shared renderer (pose a 3D rig, sample parts as points, splat per view,
-  shade in three tones, outline). Prefer this shape for new fighters, like `gen_digby.py`:
-  `build(pose, view)`, a palette, `ROWS` / `VIEW_ROWS`, pose functions;
+  ramp-shade from the master palette with a rim light, outline in each material's ink).
+  Prefer this shape for new fighters, like `gen_digby.py`: `build(pose, view)`, a `MAT`
+  table of palette ramp names, `ROWS` / `VIEW_ROWS`, pose functions;
   `python3 tools/gen_<id>.py inspect idle:0 run:2` previews frames.
 - `gen_culvert.py`, `gen_digby.py`, `gen_pete.py`, `gen_sno.py`, `gen_crease.py`: splat3d rigs
   (Crease: faceted paper, 128x160 frames, `decorate` draws creases).
@@ -82,5 +89,6 @@ tools, so a fighter's pass is posing work only.
 - `gen_pete.py` — Sneaky Pete sprite sheets, a pixel-art recreation of the artist's character sheet.
 - `gen_sno.py` — Sno Mercy sprite sheets, a pixel-art recreation of the artist's character sheet.
 - `gen_sprites.py` — Generate placeholder pixel-art sprite sheets for Creature Arena.
+- `palette.py` — The master palette: one published set of colours for every fighter and arena.
 - `splat3d.py` — Shared renderer for the sheet-recreation sprite generators (tools/gen_digby.py and later).
 <!-- END GENERATED -->
