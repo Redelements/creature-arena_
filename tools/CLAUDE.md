@@ -8,9 +8,19 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
 - `palette.py`: the master palette (hue lines, five-step ramps, outline inks; rules in its
   docstring and `docs/SPRITES.md`, "Palette"). `ramp(name, shift)`, `ramp_for(rgb)`,
   `ink_for`, `nearest` / `snap` (images, dithered) / `snap_ramp` (arena ramps);
-  `python3 tools/palette.py` redraws `docs/palette.png`. The splat3d rigs and the arenas
-  use it, and so does Craglash's 2D shader; the other custom renderers (Cerebro, Hissy,
-  Barkley, Gillbert) and `gen_sprites.py` aren't ported yet.
+  `python3 tools/palette.py` redraws `docs/palette.png`. Every fighter and the arenas use it:
+  the splat3d rigs, Cerebro and Hissy (they call `S.shade`/`S.outline` on their own buffers),
+  Barkley and Gillbert (through `shade2d.py`) and Craglash's 2D shader; only `gen_sprites.py`
+  (placeholders) isn't ported. A new line or ramp goes at the end of `LINES` / `WINDOWS`;
+  a line a fighter names but the arenas must not pick up goes in `NAMED_ONLY` (adding colours
+  to the snap tables moves arena floor pixels on a rerun of `gen_arenas.py`).
+- `shade2d.py`: splat3d's shading look for generators that paint flat 2D shapes per part
+  (Barkley, Gillbert): `Materials(MAT)` from ramp names, then `shade(img, name)` (a height
+  field from each shape's distance to its edge, the key light, rim light, lone-pixel
+  cleanup), `groove(img, det, k)` (detail lines k ramp steps along), `outline` (each
+  material's ink), `darken` (one step, the far limb), `stack(layers)` (back to front, an
+  outline over a piece behind becomes its deep-step seam). Layers carry their material ids
+  and outline ring in `img.info`; `keep(new, old)` copies them onto a new Image.
 - `splat3d.py`: the shared renderer (pose a 3D rig, sample parts as points, splat per view,
   ramp-shade from the master palette with a rim light, outline in each material's ink).
   Prefer this shape for new fighters, like `gen_digby.py`: `build(pose, view)`, a `MAT`
@@ -20,7 +30,8 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   (Crease: faceted paper, 128x160 frames, `decorate` draws creases).
 - `gen_cerebro.py`, `gen_hissy.py`: point-sampling rigs with their own copy of the splat code.
 - `gen_barkley.py`, `gen_gillbert.py`, `gen_craglash.py`: older (Barkley/Gillbert project a
-  3D rig per view; Craglash is a 2D IK puppet whose renderer rounds to whole pixels in
+  3D rig per view and paint 2D shapes, shaded and outlined by `shade2d.py` from a `MAT`
+  table of ramp names; detail colours in `C` come from those ramps; Craglash is a 2D IK puppet whose renderer rounds to whole pixels in
   `whole_pixels()`, so its poses may hold floats; it shades each layer from palette ramps
   with splat3d's steps and rim light (`shade`), draws outlines as per-material markers
   that `finish()` turns into ink on the silhouette and the deep step on seams, so every
@@ -110,5 +121,6 @@ tools, so a fighter's pass is posing work only.
 - `gen_sno.py` — Sno Mercy sprite sheets, a pixel-art recreation of the artist's character sheet.
 - `gen_sprites.py` — Generate placeholder pixel-art sprite sheets for Creature Arena.
 - `palette.py` — The master palette: one published set of colours for every fighter and arena.
+- `shade2d.py` — Master-palette shading for the 2D painters (Barkley's and Gillbert's rigs).
 - `splat3d.py` — Shared renderer for the sheet-recreation sprite generators (tools/gen_digby.py and later).
 <!-- END GENERATED -->
