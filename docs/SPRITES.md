@@ -351,7 +351,7 @@ seams between pieces in the deep step (which draws the lines between the lobes, 
 sheet; `SOFT_SEAM` is 0 here so every lobe seam gets the deep step), and decorated in the
 brain's own coordinates: the black half-moon sunglasses (turned out to the sides, so they
 read from the side and the front), their bridge and arms, and a few wrinkle strokes on
-each lobe (the wine line). The brain is the `pink` ramp capped at its light step (no
+each lobe (the wine line). The brain is the `salmon` ramp (the peach line) capped at its light step (no
 near-white highlight on a dozen lobes), outlined in its ink (plum, the palette's take on
 the sheet's maroon); the tools (`concrete` steel, `ink` handles, `blue` spatula, `rust`
 mallet) are outlined in black (`outline_mats`). No line where the stem grows out of the
@@ -418,7 +418,7 @@ Hissy Fitz is the fifth creature from the artist's sheets. `tools/gen_hissy.py` 
 like Chef Cerebro's generator (3D points splatted into a depth buffer, then `splat3d`'s
 ramp shading and outlines on master-palette ramps), with a black silhouette line as on the
 sheet (every material's ink set to black) and seams in each material's deep step. Skin
-(`pink` a step lighter), snakes (the green line's dark end) and spots (`gold`) light only
+(the `peach` ramp), snakes (the green line's dark end) and spots (`gold`) light only
 in the highlight (`_matte`: the light step is the base), so the skin doesn't go white and
 the snakes stay the sheet's deep green; the gloves are `red`, also matte, the cuffs a step
 darker, the earrings `violet` a step lighter. The face texture's colours are palette steps
@@ -772,8 +772,11 @@ One master palette for the whole game: `tools/palette.py`, drawn as a labelled s
 [`palette.png`](palette.png) (`python3 tools/palette.py` redraws it).
 
 - **Lines and ramps.** The palette is a set of hue lines (red, wine, pink, orange, gold,
-  rust, earth, green, moss, lime, teal, sky, blue, violet, steel, neutral), each running
-  dark to light, plus six outline inks: 99 colours for sprites. A **ramp** is a named
+  rust, earth, green, moss, lime, teal, sky, blue, violet, steel, neutral, peach), each
+  running dark to light, plus six outline inks: 106 colours for sprites. The peach line
+  (ramps `salmon` and `peach`: Cerebro's brain, Hissy's skin) came later and is
+  `NAMED_ONLY`: `nearest`, `snap`, `snap_ramp`'s best fit and `ramp_for` never land on it,
+  so adding it changed no arena and no old triple; a generator names it to use it. A **ramp** is a named
   five-step window on a line: deep shadow, dark, base, light, highlight (`palette.RAMPS`,
   e.g. `"rust"`, `"ice"`, `"white"`); `palette.ramp(name, shift)` slides the window (+1
   one step lighter). Arena floors also get 18 **ground half-steps** (`palette.GROUND`:

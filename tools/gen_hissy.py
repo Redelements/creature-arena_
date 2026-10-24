@@ -65,7 +65,7 @@ def _matte(name, shift=0):
 
 _G = PAL.LINES["green"]
 MAT = {
-    "skin": _matte("pink", 1),    # the pink line's peach-pink step (Pete's skin is a step deeper)
+    "skin": _matte("peach"),      # the peach line: the sheet's pale peach
     # the green line's dark end, the sheet's deep snake green; its deep step from the moss
     # line, which runs a step darker than the green line's end
     "snake": [PAL.LINES["moss"][0], _G[0], _G[1], _G[1], _G[2]],

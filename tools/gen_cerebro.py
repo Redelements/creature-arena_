@@ -60,11 +60,11 @@ VIEWS = {
 }
 
 # Palette: master-palette ramps (tools/palette.py) picked for the character sheet's
-# colours. The brain is the pink ramp Pete's skin uses, capped at its light step: a matte
+# colours. The brain is the salmon ramp (the peach line), capped at its light step: a matte
 # brain of a dozen lobes salts itself with near-white specks if every lobe gets the
 # highlight. The tools keep the sheet's look (steel blades, black handles, a navy
 # spatula, a rust mallet), each outlined in black.
-BRAIN = PAL.ramp("pink")[:4] + [PAL.ramp("pink")[3]]
+BRAIN = PAL.ramp("salmon")[:4] + [PAL.ramp("salmon")[3]]
 MAT = {
     "brain": BRAIN,
     "stem": BRAIN,
@@ -784,12 +784,12 @@ def _grow(m, n=1):
 
 
 # His flush, in two palette steps instead of a blend (which would leave the palette): at
-# half push the brain's shadows turn violet and its lit side stays pink; at full push the
-# whole brain is pink-violet with pink only in the light. Each maps the brain's colours (the
+# half push the brain's shadows turn violet and its lit side stays salmon; at full push
+# the whole brain is pink-violet, its light pale pink. Each maps the brain's colours (the
 # ramp, its seams, the wrinkles) one for one.
 _V = PAL.LINES["violet"]
 FLUSH_HALF = {BRAIN[0]: _V[3], BRAIN[1]: _V[4], BRAIN[2]: BRAIN[2], BRAIN[3]: BRAIN[3]}
-FLUSH_FULL = {BRAIN[0]: _V[2], BRAIN[1]: _V[3], BRAIN[2]: _V[4], BRAIN[3]: BRAIN[3],
+FLUSH_FULL = {BRAIN[0]: _V[2], BRAIN[1]: _V[3], BRAIN[2]: _V[4], BRAIN[3]: PAL.LINES["pink"][3],
               GYRI_COL[:3]: _V[1]}
 
 
