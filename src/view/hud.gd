@@ -123,7 +123,9 @@ func cut_in(c: CreatureSim, side: int, move_name: String) -> void:
 	var fh := int(fsz[1]) if fsz is Array else fpx
 	var fr: Array = c.def.get("cut_in_frame", [0, 0])
 	var o: Array = sp.get("origin", [24, 43])
+	var chained := not _cut.is_empty()  # a second Surge right behind the first: the dark stays up
 	_cut = {
+		"chain": chained,
 		"side": side, "move": move_name.to_upper(), "who": String(c.def.get("name", "")).to_upper(),
 		"tex": load(String(sp["path"])), "region": Rect2(int(fr[1]) * fpx, int(fr[0]) * fh, fpx, fh),
 		"origin": Vector2(float(o[0]), float(o[1])), "fpx": fpx, "fh": fh,
@@ -222,6 +224,8 @@ func _draw_now() -> void:
 		return
 	if sim == null or sim.creatures.size() < 2:
 		return
+	if not _cut.is_empty():
+		_draw_cut_in_dim()
 	_combo_dy = [0.0, 0.0]
 	if team != null:
 		_team_panels()
@@ -681,47 +685,87 @@ func _draw_caption() -> void:
 		x += w
 
 
+## The arena goes dark behind a Surge cut-in (drawn first, so the panels stay bright).
+func _draw_cut_in_dim() -> void:
+	var t := int(_cut["t"])
+	var k := clampf((t + (4 if _cut.get("chain", false) else 0)) / 4.0, 0.0, 1.0) * (1.0 - clampf((t - 22) / 8.0, 0.0, 1.0))
+	# Four whole steps, so it stays a crisp flat tone rather than a smooth fade.
+	draw_rect(Rect2(0, 0, _sw, _sh), Color(0.0, 0.0, 0.04, floorf(k * 4.0) / 4.0 * 0.6))
+
+
 func _draw_cut_in() -> void:
-	var t := float(_cut["t"])
+	var ti := int(_cut["t"])
+	var t := float(ti)
 	var side := int(_cut["side"])
 	var dir := 1.0 if side == 0 else -1.0
 	var w := _sw
 	# Short on purpose: it has to be gone by the time the move's startup is worth reading.
 	var k_in := clampf(t / 5.0, 0.0, 1.0)
 	var k_out := clampf((t - 20.0) / 9.0, 0.0, 1.0)
-	var off := -pow(1.0 - k_in, 3.0) * (w + 80.0) * dir + k_out * k_out * (w + 80.0) * dir
+	var off := roundf(-pow(1.0 - k_in, 3.0) * (w + 80.0) * dir + k_out * k_out * (w + 80.0) * dir)
 	var y0 := 98.0 + _cy
 	var y1 := 152.0 + _cy
 	var accent: Color = _cut["color"]
+	var hot := accent.lerp(Color.WHITE, 0.55)
 
 	var band := PackedVector2Array([Vector2(off - 60, y1), Vector2(off - 20, y0), Vector2(off + w + 60, y0),
 		Vector2(off + w + 20, y1)])
 	draw_colored_polygon(band, Color(0.04, 0.045, 0.07, 0.92))
 	draw_line(Vector2(off - 20, y0), Vector2(off + w + 60, y0), accent, 3.0)
 	draw_line(Vector2(off - 60, y1), Vector2(off + w + 20, y1), accent, 3.0)
-	for i in 14:  # speed lines rushing through the band
-		var ly := y0 + 6.0 + fposmod(i * 17.3, y1 - y0 - 12.0)
-		var lx := fposmod(i * 71.0 - t * 22.0 * dir, w + 120.0) - 60.0 + off
-		draw_line(Vector2(lx, ly), Vector2(lx + 40.0 + (i % 3) * 18.0, ly), Color(accent, 0.35), 1.0)
+	# Speed streaks in the fighter's colour, in whole pixels: long ones sweep the band, and
+	# a few run on past it, behind the portrait.
+	for i in 22:
+		var wide := i >= 14
+		var ly := roundf((y0 - 14.0 if wide else y0 + 6.0) + fposmod(i * 17.3, (y1 - y0 + 28.0) if wide else (y1 - y0 - 12.0)))
+		var len := 40.0 + (i % 3) * 18.0 + (50.0 if wide else 0.0)
+		var lx := roundf(fposmod(i * 71.0 - t * (30.0 if wide else 22.0) * dir, w + 160.0) - 80.0 + off)
+		var a := 0.55 if i % 4 == 0 else 0.3
+		draw_rect(Rect2(lx if dir > 0.0 else lx - len, ly, len, 2.0 if i % 5 == 0 else 1.0), Color(hot if i % 4 == 0 else accent, a))
 
 	# The portrait breaks out over the top of the band.
 	var tex: Texture2D = _cut["tex"]
 	var fpx := float(_cut["fpx"])
 	var fh := float(_cut.get("fh", fpx))
 	var origin: Vector2 = _cut["origin"]
-	var sc := 2.6 * minf(1.0, 64.0 / fpx)  # big frames (Craglash's 96 px) scale down to fit
-	var feet := Vector2(_cx + (96.0 if side == 0 else SimDefs.VIEW_W - 96.0) + off * 1.25, y1 + 6.0)
+	var sc := maxf(1.0, roundf(2.6 * minf(1.0, 64.0 / fpx)))  # whole multiples only; Craglash's 96 px drops to 2x
+	var feet := Vector2(roundf(_cx + (96.0 if side == 0 else SimDefs.VIEW_W - 96.0) + off * 1.25), roundf(y1 + 6.0))
+	# Colour-keyed glow: the sprite once more in the accent, offset a step behind.
+	draw_set_transform(feet + Vector2(-6.0 * dir, 0.0), 0.0, Vector2(sc * dir, sc))
+	draw_texture_rect_region(tex, Rect2(-origin.x, -origin.y, fpx, fh), _cut["region"], Color(accent, 0.55))
 	draw_set_transform(feet, 0.0, Vector2(sc * dir, sc))
 	draw_texture_rect_region(tex, Rect2(-origin.x, -origin.y, fpx, fh), _cut["region"], Color(0, 0, 0, 0.5))
 	draw_set_transform(feet + Vector2(-3.0 * dir, -2.0), 0.0, Vector2(sc * dir, sc))
 	draw_texture_rect_region(tex, Rect2(-origin.x, -origin.y, fpx, fh), _cut["region"])
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
-	var tx := _cx + (170.0 if side == 0 else 20.0) + off
+	var tx := roundf(_cx + (170.0 if side == 0 else 20.0) + off)
 	_text(Vector2(tx, y0 + 18), String(_cut["who"]), 8, accent, HORIZONTAL_ALIGNMENT_LEFT, 290)
-	_text(Vector2(tx, y0 + 42), String(_cut["move"]) + "!", 24, C_TEXT, HORIZONTAL_ALIGNMENT_LEFT, 290)
-	if t < 3.0:
+	# The move's name slams in: big, then three steps down to its size, held, then out with the band.
+	var name_s := String(_cut["move"]) + "!"
+	var steps := [0, 0, 40, 40, 32, 32, 28, 28]  # size by tick from t=0; 0 = not yet
+	var ns := 24 if ti >= steps.size() else int(steps[ti])
+	if ns > 0:
+		ns = mini(ns, _fit_size(name_s, ns, 290.0))
+		var slam := 0.0 if ti >= 8 else 1.0 - ti / 8.0
+		_text(Vector2(tx, y0 + 42 + roundf(slam * 3.0)), name_s, ns, C_TEXT, HORIZONTAL_ALIGNMENT_LEFT, 290)
+	# Entry: a screen tear, torn strips of the frame shoved sideways by whole pixels, then a flash.
+	if ti < 6:
+		for i in 7:
+			var sy := roundf(fposmod(i * 37.0 + ti * 53.0, _sh - 8.0))
+			var sh := 3.0 + (i % 3) * 3.0
+			var sx := roundf((12.0 + (i * 13) % 40) * (1.0 - t / 6.0)) * (dir if i % 2 == 0 else -dir)
+			draw_rect(Rect2(sx, sy, _sw, sh), Color(hot, 0.28))
+			draw_rect(Rect2(sx, sy, _sw, 1.0), Color(1, 1, 1, 0.5))
+	if ti < 3:
 		draw_rect(Rect2(0, 0, w, _sh), Color(1, 1, 1, 0.5 * (1.0 - t / 3.0)))
+
+
+## The biggest size at most `size` where `s` fits `width` (so a long move name still lands whole).
+func _fit_size(s: String, size: int, width: float) -> int:
+	while size > 24 and _font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, UiTheme.px(size)).x > width:
+		size -= 4
+	return size
 
 
 func _bar(r: Rect2, ratio: float, col: Color, from_right := false) -> void:
