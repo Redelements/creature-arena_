@@ -61,6 +61,8 @@ var caption_index := -1
 # Menu
 ## A menu screen covers the game: draw nothing (the screens dim the match behind).
 var menu_visible := false
+## The arena intro is playing (ArenaIntro draws its own cards): no panels or banners yet.
+var cinema := false
 ## Button hints for a controller (else keyboard and mouse).
 var gamepad := false
 
@@ -86,6 +88,20 @@ var _font: Font:  ## read each draw, so Settings > Video > Text font shows at on
 ## Training: damage per second on the dummy, drawn in the dummy's panel (DpsMeter).
 var dps := DpsMeter.new()
 var _dps_sim: MatchSim = null
+
+## Portrait column beside a full panel, and the bar animation state (all on the 60 Hz tick,
+## whole pixels, nothing tweened between ticks).
+const PW := 28.0  ## width a portrait takes beside a panel (box 26 + gap 2)
+const PORT_W := 24  ## portrait picture area, px
+const PORT_H := 32
+const HP_W := 150
+const CARD_W := 112.0  ## a compact teammate card
+const HP_HOLD := 24  ## ticks the "chunk" of a hit stays before it drains
+var _hp := {}  ## slot -> [fill px, chunk px, hold ticks]
+var _cd_was := {}  ## slot * 3 + box -> was recharging last tick
+var _cd_flash := {}  ## slot * 3 + box -> ticks of "ready" flash left
+var _bars_sim: MatchSim = null
+var _ports := {}  ## sprite path + portrait key -> {tex, src, scale}
 
 
 ## The per-slot labels (tags, key prompts) have one entry per creature slot: 2, or up
@@ -133,6 +149,11 @@ func cut_in(c: CreatureSim, side: int, move_name: String) -> void:
 	}
 
 
+## Whether the Surge cut-in is on screen (main holds the letterbox in until it's gone).
+func cutting_in() -> bool:
+	return not _cut.is_empty()
+
+
 func advance() -> void:
 	_tick += 1
 	if _toast_t > 0:
@@ -158,11 +179,149 @@ func advance() -> void:
 			elif _combo_show[side] > 0:
 				_combo_show[side] -= 1
 	_watch_dummy()
+	_track_bars()
 	if not _cut.is_empty():
 		_cut["t"] = int(_cut["t"]) + 1
 		if int(_cut["t"]) > CUT_IN_TICKS:
 			_cut = {}
 	queue_redraw()
+
+
+## Width a portrait takes beside a panel: none in Team Deathmatch and CTF, where the score
+## boxes beside the clock need the room.
+func _pw() -> float:
+	return 0.0 if team != null and team.deathmatch else PW
+
+
+## Health bars drain in two parts: the fill drops to the new value at once and the pale
+## chunk (what the hit took) waits, then shrinks a whole pixel at a time; a heal ticks the
+## fill up. Skill boxes get a short flash when their cooldown ends.
+func _track_bars() -> void:
+	if sim == null:
+		return
+	if sim != _bars_sim:
+		_bars_sim = sim
+		_hp = {}
+		_cd_was = {}
+		_cd_flash = {}
+	for i in sim.creatures.size():
+		var c := sim.creatures[i]
+		var target := roundi(HP_W * clampf(c.hp / c.max_hp, 0.0, 1.0))
+		if not _hp.has(i):
+			_hp[i] = [target, target, 0]
+		var st: Array = _hp[i]
+		var fill: int = st[0]
+		var chunk: int = st[1]
+		var hold: int = st[2]
+		if target < fill:
+			chunk = maxi(chunk, fill)
+			fill = target
+			hold = HP_HOLD
+		elif target > fill:
+			fill = mini(target, fill + maxi(1, (target - fill) / 8))
+			chunk = maxi(chunk, fill)
+		if chunk > fill:
+			if hold > 0:
+				hold -= 1
+			else:
+				chunk = maxi(fill, chunk - maxi(1, (chunk - fill) / 10))
+		st[0] = fill
+		st[1] = chunk
+		st[2] = hold
+		if c.is_dummy:
+			continue
+		for j in 3:
+			var key := i * 3 + j
+			var mid := String(["heavy", "skill_1", "skill_2"][j])
+			var cooling := c.moves().has(mid) and c.cooldown_ratio(mid) > 0.0
+			if _cd_was.get(key, false) and not cooling:
+				_cd_flash[key] = 8
+			elif int(_cd_flash.get(key, 0)) > 0:
+				_cd_flash[key] = int(_cd_flash[key]) - 1
+			_cd_was[key] = cooling
+
+
+## A health bar for slot `slot` in `r` (HP_W px wide): fill, the pale chunk after a hit,
+## and a blink when low.
+func _hp_bar(r: Rect2, slot: int, right: bool) -> void:
+	var c := sim.creatures[slot]
+	var st: Array = _hp.get(slot, [0, 0, 0])
+	var w := r.size.x
+	var fill := roundi(int(st[0]) * w / HP_W)  # tracked in HP_W px, drawn in the bar's own
+	var chunk := roundi(int(st[1]) * w / HP_W)
+	var ratio := clampf(c.hp / c.max_hp, 0.0, 1.0)
+	draw_rect(r.grow(1), Color(0, 0, 0, 0.6))
+	draw_rect(r, C_BAR_BG)
+	var fx := r.position.x + (w - fill if right else 0.0)
+	if chunk > fill:
+		var cx := r.position.x + (w - chunk if right else float(fill))
+		draw_rect(Rect2(cx, r.position.y, chunk - fill, r.size.y), Color(1, 0.93, 0.8, 0.9))
+	if fill > 0:
+		var col := _hp_color(ratio)
+		if ratio <= 0.25 and ratio > 0.0 and (_tick / 10) % 2 == 0:
+			col = col.lightened(0.45)
+		draw_rect(Rect2(fx, r.position.y, fill, r.size.y), col)
+		if r.size.y > 2:
+			draw_rect(Rect2(fx, r.position.y, fill, 1), col.lightened(0.35))
+
+
+## The head-and-shoulders crop of a fighter's idle frame. `sprite.portrait` [x, y, w, h]
+## (frame pixels, at most PORT_W x PORT_H) overrides the default: the top of the picture's
+## opaque area, centred on it. Scaled by the biggest whole multiple that fits.
+func _portrait_info(c: CreatureSim) -> Dictionary:
+	var sp: Dictionary = c.def.get("sprite", {})
+	var key := String(sp.get("path", "")) + str(sp.get("portrait", ""))
+	if _ports.has(key):
+		return _ports[key]
+	var info := {}
+	if sp.has("path"):
+		var tex: Texture2D = load(String(sp["path"]))
+		var fr = sp.get("frame", 48)
+		var fw := int(fr[0]) if fr is Array else int(fr)
+		var fh := int(fr[1]) if fr is Array else int(fr)
+		var anim: Array = sp.get("anims", {}).get("idle", [0, 0, 1])
+		var frame := Rect2i(int(anim[1]) * fw, int(anim[0]) * fh, fw, fh)
+		var src := Rect2i()
+		if sp.has("portrait"):
+			var pr: Array = sp["portrait"]
+			src = Rect2i(frame.position + Vector2i(int(pr[0]), int(pr[1])),
+				Vector2i(clampi(int(pr[2]), 1, PORT_W), clampi(int(pr[3]), 1, PORT_H)))
+		elif tex != null:
+			var img := tex.get_image()
+			if img != null:
+				if img.is_compressed():
+					img.decompress()
+				var used := img.get_region(frame).get_used_rect()
+				if used.size.x > 0:
+					src = Rect2i(frame.position + Vector2i(used.position.x + used.size.x / 2 - PORT_W / 2,
+						used.position.y), Vector2i(PORT_W, PORT_H))
+		if tex != null and src.size.x > 0:
+			var sc := maxi(1, mini(PORT_W / src.size.x, PORT_H / src.size.y))
+			info = {"tex": tex, "src": Rect2(src), "scale": sc}
+	_ports[key] = info
+	return info
+
+
+func _draw_portrait(c: CreatureSim, x: float, col: Color, right: bool) -> void:
+	var down := c.state == CreatureSim.State.KO or c.hp <= 0.0
+	draw_rect(Rect2(x, 3, PW - 2.0, 34), col)
+	draw_rect(Rect2(x + 1, 4, PORT_W, PORT_H + 1), Color(0.1, 0.11, 0.14))
+	var info := _portrait_info(c)
+	if not info.is_empty():
+		var src: Rect2 = info["src"]
+		var sc: float = info["scale"]
+		var dw := src.size.x * sc
+		var dh := src.size.y * sc
+		var dx := x + 1.0 + floorf((PORT_W - dw) / 2.0)
+		var dy := 4.0 + floorf((PORT_H - dh) / 2.0)
+		if right:  # face the middle
+			draw_set_transform(Vector2(dx + dw, dy), 0.0, Vector2(-1, 1))
+			draw_texture_rect_region(info["tex"], Rect2(0, 0, dw, dh), src)
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		else:
+			draw_texture_rect_region(info["tex"], Rect2(dx, dy, dw, dh), src)
+	if down:
+		draw_rect(Rect2(x + 1, 4, PORT_W, PORT_H + 1), Color(0, 0, 0, 0.6))
 
 
 ## Training: feeds the dummy's health to the DPS meter (a new match starts it over).
@@ -220,20 +379,14 @@ func _draw() -> void:
 
 func _draw_now() -> void:
 	_layout()
-	if menu_visible:
+	if menu_visible or cinema:
 		return
 	if sim == null or sim.creatures.size() < 2:
 		return
 	if not _cut.is_empty():
 		_draw_cut_in_dim()
 	_combo_dy = [0.0, 0.0]
-	if team != null:
-		_team_panels()
-	elif brawl != null:
-		_brawl_panels()
-	else:
-		_panel(0, _hl + 4.0, false)
-		_panel(1, _hr - 164.0, true)
+	_draw_panels()
 	_center()
 	_draw_pointers()
 	for side in 2:
@@ -302,61 +455,131 @@ func _draw_alert() -> void:
 
 ## Team battle: each team down its own edge. The local player's fighter gets the full
 ## panel (skills, Surge, stamina); everyone else a small card: name, health, energy.
-func _team_panels() -> void:
-	for side in 2:
-		var right := side == 1
-		var x := _hl + 4.0 if not right else _hr - 164.0
-		var y := 3.0
-		if sim.creatures[focus].team == side:
-			_panel(focus, x, right, side)
-			y = 39.0
-		for i in sim.creatures.size():
-			if i == focus or sim.creatures[i].team != side:
+const LOCAL_TAGS := ["P1", "P2", "P3", "P4"]  ## the tags a person at this screen or its pads has
+
+
+## Slots a person here plays: their panel tag is P1..P4. Empty when nobody does (a replay,
+## spectating, a demo, a CPU match): then every panel shows.
+func _locals() -> Array:
+	var out := []
+	for i in sim.creatures.size():
+		if i < tags.size() and LOCAL_TAGS.has(String(tags[i])):
+			out.append(i)
+	return out
+
+
+## Which panels show. Where a side has several fighters (team battles, Deathmatch, Caravan,
+## CTF, Brawl, Duel's tag teams) you see your own side only: `panel[col]` is the slot with
+## the full panel in the left (0) or right (1) column (-1 none) and `cards[col]` the slots
+## with a compact card under it. Local players on different sides each keep a full panel
+## (the focus's, plus the first local on the other side); a second local on the same side is
+## a card. Nobody local (replay, spectating, demo): both sides, as before. A plain 1v1
+## shows both panels. Enemies keep the small bars over their heads in the world.
+func panel_plan() -> Dictionary:
+	var panel := [-1, -1]
+	var cards := [[], []]
+	if sim == null:
+		return {"panel": panel, "cards": cards}
+	var loc := _locals()
+	var all := loc.is_empty()
+	var n := sim.creatures.size()
+	if team != null:
+		for side in 2:
+			var mine := []
+			for i in n:
+				if sim.creatures[i].team == side:
+					mine.append(i)
+			var has_local := false
+			for i in mine:
+				has_local = has_local or loc.has(i)
+			if not all and not has_local:
 				continue
-			_card(i, x, y, right)
-			y += 16.0
-		_combo_dy[side] = maxf(0.0, y - 74.0)
+			var p := -1
+			if mine.has(focus):
+				p = focus
+			elif not all:
+				for i in mine:
+					if loc.has(i):
+						p = i
+						break
+			panel[side] = p
+			for i in mine:
+				if i != p:
+					cards[side].append(i)
+	elif brawl != null:
+		for col in 2:
+			var slots := []
+			for sl in [col * 2, col * 2 + 1]:
+				if sl < n:
+					slots.append(sl)
+			var p := -1
+			if slots.has(focus):
+				p = focus
+			else:
+				for sl in slots:
+					if loc.has(sl):
+						p = sl
+						break
+			panel[col] = p
+			for sl in slots:
+				if sl != p and (all or loc.has(sl)):
+					cards[col].append(sl)
+	elif duel != null:
+		for side in 2:
+			if all or loc.has(side):
+				panel[side] = side
+	else:
+		panel = [0, 1]
+	return {"panel": panel, "cards": cards}
 
 
-## Brawl: slots 0 and 1 down the left edge, 2 and 3 down the right; yours the full panel.
-func _brawl_panels() -> void:
+func _draw_panels() -> void:
+	var plan := panel_plan()
 	for col in 2:
 		var right := col == 1
 		var x := _hl + 4.0 if not right else _hr - 164.0
 		var y := 3.0
-		for slot in [col * 2, col * 2 + 1]:
-			if slot >= sim.creatures.size():
-				continue
-			if slot == focus:
-				_panel(slot, x, right, slot % 2)
-				y = 39.0
+		var slot := int(plan["panel"][col])
+		if slot >= 0:
+			if team != null or brawl != null or duel != null:
+				x += -_pw() if right else _pw()
 			else:
-				_card(slot, x, y, right)
-				y += 16.0
+				x += -PW if right else PW
+			var cs := -1
+			if team != null:
+				cs = col
+			elif brawl != null:
+				cs = slot % 2
+			_panel(slot, x, right, cs)
+			y = 39.0
+		for i in plan["cards"][col]:
+			_card(int(i), x, y, right)
+			y += 13.0
+		if team != null:
+			_combo_dy[col] = maxf(0.0, y - 74.0)
 
 
+## A teammate (or second local player): a name, a slim health bar and a Surge pip.
 func _card(slot: int, x: float, y: float, right: bool) -> void:
 	var c := sim.creatures[slot]
 	var down := c.state == CreatureSim.State.KO or c.hp <= 0.0
-	draw_rect(Rect2(x, y, 160, 15), C_PANEL)
+	var w := CARD_W
+	var cx := x if not right else x + 160.0 - w
+	draw_rect(Rect2(cx, y, w, 12), C_PANEL)
 	var stripe := BRAWL_COLORS[slot % BRAWL_COLORS.size()] if brawl != null else SIDE_COLORS[clampi(c.team, 0, 1)]
-	draw_rect(Rect2(x if not right else x + 158, y, 2, 15), stripe)
+	draw_rect(Rect2(cx if not right else cx + w - 2.0, y, 2, 12), stripe)
 	var name := String(c.def.get("name", "?")).to_upper()
-	_text(Vector2(x + 5, y + 7), name, 6, C_DIM if down else C_TEXT)
+	_text(Vector2(cx + 5, y + 6), name, 5, C_DIM if down else C_TEXT, HORIZONTAL_ALIGNMENT_LEFT, w - 30.0)
 	if down:
 		var down_txt := "K.O."
 		if team != null and team.deathmatch and slot < team.respawn_t.size() and int(team.respawn_t[slot]) > 0:
 			down_txt = "BACK IN %d" % ceili(int(team.respawn_t[slot]) / 60.0)
-		_text(Vector2(x + 5, y + 7), down_txt, 6, C_HP_LO, HORIZONTAL_ALIGNMENT_RIGHT, 150)
-		draw_rect(Rect2(x + 5, y + 9, 150, 3), C_BAR_BG)
+		_text(Vector2(cx + 5, y + 6), down_txt, 5, C_HP_LO, HORIZONTAL_ALIGNMENT_RIGHT, w - 10.0)
+		draw_rect(Rect2(cx + 5, y + 8, w - 10.0, 2), C_BAR_BG)
 		return
-	_text(Vector2(x + 5, y + 7), String(tags[slot]) if slot < tags.size() else "", 5, C_DIM,
-		HORIZONTAL_ALIGNMENT_RIGHT, 150)
-	var ratio := clampf(c.hp / c.max_hp, 0.0, 1.0)
-	_bar(Rect2(x + 5, y + 9, 150, 3), ratio, _hp_color(ratio), right)
-	var full := c.energy >= CreatureSim.MAX_ENERGY
-	var ecol := Color.WHITE if full and (_tick / 8) % 2 == 0 else C_ENERGY
-	_bar(Rect2(x + 5, y + 13, 100, 1), c.energy / CreatureSim.MAX_ENERGY, ecol, right)
+	if c.energy >= CreatureSim.MAX_ENERGY:  # a Surge is ready: a blinking pip
+		draw_rect(Rect2(cx + w - 9.0, y + 2, 4, 4), Color.WHITE if (_tick / 8) % 2 == 0 else C_ENERGY)
+	_hp_bar(Rect2(cx + 5, y + 8, w - 10.0, 2), slot, right)
 
 
 ## `side` is a creature slot; `color_side` picks the stripe (its team in a team battle).
@@ -395,7 +618,10 @@ func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 	var c := sim.creatures[side]
 	draw_rect(Rect2(x, 3, 160, 34), C_PANEL)
 	# red left, blue right, like the markers
-	draw_rect(Rect2(x, 3, 160, 2), SIDE_COLORS[side if color_side < 0 else color_side])
+	var team_col: Color = SIDE_COLORS[side if color_side < 0 else color_side]
+	draw_rect(Rect2(x, 3, 160, 2), team_col)
+	if _pw() > 0.0:
+		_draw_portrait(c, x + 162.0 if right else x - PW, team_col, right)
 	var name := String(c.def.get("name", "?")).to_upper()
 	var tag := String(tags[side])
 	if c.is_dummy:
@@ -405,8 +631,8 @@ func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 			_dps(x + 108.0, 46.0)
 	_text(Vector2(x + 5, 12), name, 7, C_TEXT)
 	_text(Vector2(x + 5, 12), tag, 6, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, 150)
-	# Health is over the fighter now (FxView's bars); the panel keeps what isn't: the
-	# Surge, stamina, stones and skills. A shield (Stoneskin) still says so by name.
+	# Health is also over the fighter (FxView's bars); the panel keeps a slim copy that
+	# drains with the chunk. A shield (Stoneskin) still says so by name.
 	if c.shield > 0.0:
 		var shield_name := String(c.def.get("stoneskin", {}).get("name", "Stoneskin")).to_upper()
 		_text(Vector2(x + 5, 12), shield_name + "  ", 5, Color("d8d4cc"), HORIZONTAL_ALIGNMENT_RIGHT, 118)
@@ -418,12 +644,17 @@ func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 	var ecol := C_ENERGY
 	if full and (_tick / 8) % 2 == 0:
 		ecol = Color.WHITE
-	_text(Vector2(x + 5, 21), "SURGE", 5, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT if right else HORIZONTAL_ALIGNMENT_LEFT, 100)
-	_bar(Rect2(x + 5, 23, 100, 4), c.energy / CreatureSim.MAX_ENERGY, ecol, right)
+	_hp_bar(Rect2(x + 5, 15, HP_W, 3), side, right)
+	_bar(Rect2(x + 5, 23, 100, 4), _steps(c.energy / CreatureSim.MAX_ENERGY), ecol, right)
+	if full and (_tick / 8) % 2 == 0:  # a gold frame blinks with the white bar
+		draw_rect(Rect2(x + 4, 22, 102, 6), C_ENERGY, false, 1.0)
 	_bar(Rect2(x + 5, 30, 60, 2), c.stamina / c.max_stamina, C_STAMINA, right)
-	# Exhausted (0 stamina): no guard until regen starts again; the empty bar flashes red.
-	if c.is_exhausted() and (_tick / 8) % 2 == 0:
-		draw_rect(Rect2(x + 5, 30, 60, 2), C_EXHAUSTED)
+	# Exhausted (0 stamina): no guard until regen starts again; the empty bar blinks red
+	# inside a red frame.
+	if c.is_exhausted():
+		draw_rect(Rect2(x + 4, 29, 62, 4), C_EXHAUSTED, false, 1.0)
+		if (_tick / 8) % 2 == 0:
+			draw_rect(Rect2(x + 5, 30, 60, 2), C_EXHAUSTED)
 	# A dodge with a cooldown (Chef Cerebro's blink): a short violet bar beside the stamina
 	# bar drains away while it recharges.
 	var dcd := c.dodge_cooldown_ratio()
@@ -431,7 +662,8 @@ func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 		_bar(Rect2(x + 70, 30, 30, 2), dcd, C_DODGE_CD, right)
 	if full:
 		var ready_txt := "SURGE READY" + (" (%s)" % surge_labels[side] if String(surge_labels[side]) != "" else "")
-		_text(Vector2(x + 5, 35), ready_txt, 5, C_ENERGY,
+		var pulse: Color = [C_ENERGY, Color("fff0a8"), Color.WHITE, Color("fff0a8")][(_tick / 5) % 4]
+		_text(Vector2(x + 5, 35), ready_txt, 5, pulse,
 			HORIZONTAL_ALIGNMENT_RIGHT if right else HORIZONTAL_ALIGNMENT_LEFT, 100 if not right else 100)
 
 	# Cairn's stones.
@@ -461,9 +693,16 @@ func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 			var ready := c.can_use(mid)
 			draw_rect(r, Color(0.16, 0.18, 0.22))
 			var cd := c.cooldown_ratio(mid)
-			var fill := r
-			fill.size.x = round(r.size.x * (1.0 - cd))
-			draw_rect(fill, Color("4f7a5a") if ready else Color(0.3, 0.33, 0.38))
+			if cd <= 0.0:
+				draw_rect(r, Color("4f7a5a") if ready else Color(0.3, 0.33, 0.38))
+			else:  # recharging: the box fills from the bottom a whole row at a time
+				var rows := floorf(r.size.y * (1.0 - cd))
+				if rows > 0.0:
+					draw_rect(Rect2(r.position.x, r.end.y - rows, r.size.x, rows), Color(0.3, 0.36, 0.44))
+					draw_rect(Rect2(r.position.x, r.end.y - rows, r.size.x, 1), Color(0.5, 0.58, 0.68))
+			var fl := int(_cd_flash.get(side * 3 + i, 0))
+			if fl > 0:  # ready again: a stepped flash
+				draw_rect(r, Color(1, 1, 1, 0.85 if fl % 2 == 0 else 0.4))
 			draw_rect(r, Color(0, 0, 0, 0.6), false, 1.0)
 			var lbl := String(key_labels[side][i])
 			if lbl == "":
@@ -511,9 +750,16 @@ func _team_strip(side: int, x: float, right: bool) -> void:
 func _center() -> void:
 	if timer_ticks < 0:
 		return
-	draw_rect(Rect2(218 + _cx, 3, 44, 24), C_PANEL)
 	var secs := int(ceil(timer_ticks / 60.0))
-	_text(Vector2(218 + _cx, 19), str(secs), 13, C_HP_LO if secs <= 10 else C_TEXT, HORIZONTAL_ALIGNMENT_CENTER, 44)
+	var low := secs <= 10 and timer_ticks > 0
+	var tock := low and timer_ticks % 60 >= 52  # the beat after each second turns over
+	draw_rect(Rect2(218 + _cx, 3, 44, 24), C_PANEL)
+	if tock:
+		draw_rect(Rect2(217 + _cx, 2, 46, 26), Color(C_HP_LO.r, C_HP_LO.g, C_HP_LO.b, 0.45))
+	var tcol := C_TEXT
+	if low:
+		tcol = Color.WHITE if (timer_ticks / 15) % 2 == 0 else C_HP_LO
+	_text(Vector2(218 + _cx, 22 if low else 19), str(secs), 17 if low else 13, tcol, HORIZONTAL_ALIGNMENT_CENTER, 44)
 	if team != null and team.deathmatch:
 		_deathmatch_score()
 	elif team != null:
@@ -776,6 +1022,11 @@ func _bar(r: Rect2, ratio: float, col: Color, from_right := false) -> void:
 	draw_rect(fill, col)
 	if fill.size.x > 0 and r.size.y > 3:
 		draw_rect(Rect2(fill.position, Vector2(fill.size.x, 1)), col.lightened(0.35))
+
+
+## A 0..1 meter in 20 steps (full stays exactly full).
+func _steps(ratio: float) -> float:
+	return 1.0 if ratio >= 1.0 else floorf(clampf(ratio, 0.0, 1.0) * 20.0) / 20.0
 
 
 func _hp_color(ratio: float) -> Color:
