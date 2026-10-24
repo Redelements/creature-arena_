@@ -115,7 +115,9 @@ Facing down and up: [`culvert_views_preview.png`](culvert_views_preview.png).
 
 The diagonals (`culvert_down_side.png`, `culvert_up_side.png`): 96×96 like the others
 (no `"frame"` key), feet at x 48, y 80 (`down_side`) and y 74 (`up_side`), the plain
-45-degree cameras with no cheat. Five views side by side:
+45-degree cameras plus one cheat: a fist reaching past its rest is drawn with its reach
+unflattened by the camera's `depth_y` (`_reach_cheat` in `build`), so a short punch toward
+or away from the camera reads along the diagonal instead of sideways. Five views side by side:
 [`anim_preview/culvert_diagonals_3x.png`](anim_preview/culvert_diagonals_3x.png).
 
 | Row | Animation | Frames | Notes |
@@ -126,14 +128,14 @@ The diagonals (`culvert_down_side.png`, `culvert_up_side.png`): 96×96 like the 
 | 3 | hook | 8 | Hook (light 3): wind, wind deep (held), the body turns a frame before the arm, whip, extension held, the fist past his face with the cover sliding, return, settle |
 | 4 | heavy | 12 | Slam: 0–3 the charge loop (a heave, `anim_charge` `[0, 4, 5]`), the peak (held), one fast frame down, impact (held, the cover still up), the cover bounces, clanks down, a slow rise ×2, settle |
 | 5 | dodge | 8 | the roll: a tuck, a full turn over his cover resting on the floor (4 frames), the thud (fists planted), settle, rise |
-| 6 | hurt | 2 | recoil, mouth open; frame 1 doubles as the crumple pose |
-| 7 | guard | 2 | hunkered low, fists up in front of his face |
+| 6 | hurt | 4 | the recoil (head snapped back first, fists and cover still), the deepest reel (fists flung up, the cover lifting late; held as the crumple pose), the drop (the cover clanks down, the throat bulges), sagging back toward 0; looped at 4 ticks in hitstun |
+| 7 | guard | 4 | the hold (hunkered low, fists up in front of his face), the jolt of a block (shoved back, head ducked, the cover rocking), the shiver back, the brace on the way in; the view plays 0 and 1 today |
 | 8 | gulp | 8 | Gulp: 0–2 the charge loop (the drain yawning, the throat pumping, `anim_charge` `[0, 3, 5]`), rock back (held), the lunge mouth gaping (held while the game draws the tongue), the reel-in, the snap shut, the throat bulging |
 | 9 | runoff | 8 | Runoff: 0–1 the charge (reared up), the rise, the peak (held), one fast frame down, the pound (held), the gush a frame later with the cover bouncing, a slow rise |
 | 10 | storm | 12 | Storm Drain: the crouch (held), the push, the leap at full stretch (the cut-in frame, `[10, 2]`), tucked ×2, falling spread ×2, the slam (held, the cover still up), the cover bounce, a slow rise ×3; Manhole Drop has its own `anim_at` from frame 5 |
 | 11 | victory | 10 | crouch (0), then a 7-frame croak-hop loop (frames 1-7: fists pumping, the drain gaping, spray off the thud), drops back onto his haunches (8) and sits smug, chin up, eyes narrowed (9, held) |
 | 12 | idle_alt | 8 | the fidget (played once after a long stand): the throat swells into a bubble croak and pops, then a sideways eye toward the foe |
-| 13 | ko | 4 | thrown back, tips over onto the cover, legs in the air, eyes crossed out; the game cracks him and gushes the water |
+| 13 | ko | 8 | thrown back, lifted and tipping, slammed down on the cover, a small bounce, down again, rocking on the round cover twice, still (eyes crossed out, tongue lolling); 6 ticks a frame; the game cracks him and gushes the water |
 
 ### Cairn — 6 × 12 (288×576 px)
 
@@ -414,8 +416,9 @@ floor under him) at **x 62, y 100**. The rig is modelled large and drawn at 0.72
 (`SCALE`). Up and down sheets (`cerebro_down.png`, `cerebro_up.png`) are **112×128**,
 feet at x 56, y 88 (down) and y 76 (up). The diagonals (`cerebro_down_side.png`,
 `cerebro_up_side.png`) are **128×128**, feet at x 64, y 88 (down-side) and y 76 (up-side),
-projected by the generator's own copy of `splat3d.Cam`'s diagonal cameras; no per-view
-cheats (his props are posed in character space, so they fall where the 3D layout puts
+projected by the generator's own copy of `splat3d.Cam`'s diagonal cameras, with a smaller
+near zone there (`Cam.NEAR`: 12 on the diagonals, 18 elsewhere) so a tool's short reach
+toward or away from the camera reads along the diagonal; no other per-view cheats (his props are posed in character space, so they fall where the 3D layout puts
 them: at rest the spatula, behind-right of him, hangs in front of the brain in `up_side`).
 All five views: [`anim_preview/cerebro_diagonals_3x.png`](anim_preview/cerebro_diagonals_3x.png).
 
@@ -444,11 +447,11 @@ Facing down, down-side, up and up-side: [`cerebro_views_preview.png`](cerebro_vi
 | 7 | flipout | 12 | Flip Out: swung back low (held through the windup), dive, skim, the scoop (held over the grab), lift, a big arc over his head, the flip behind him, overshoot, home |
 | 8 | flurry | 12 | Knife Flurry: the fan gathers, aims, draws back (held, the cut-in frame `[8, 2]`), a 4-frame throw loop (one frame per knife: the slot empty with a streak, the next knife drawn back, the brain pitching and rolling), the last knife (held), wobble, the knives home |
 | 9 | dodge | 8 | Mind Blink: squashed wide with the kit folding in, stretched thin, a needle, a point in a flash, the flash at the new spot, back stretched, a wobble with the kit flung out, settle. The dodge's `anim_at` times them; `CreatureView` fades him out and back in, but not on the flash ticks |
-| 10 | hurt | 2 | reeling, sunglasses knocked askew, his grip on the kit slipping; frame 1 doubles as the crumple pose |
-| 11 | guard | 2 | the cleaver, spatula and mallet swing in front of him into a wall |
+| 10 | hurt | 4 | the blow (brain snapped back and squashed, shades askew, the kit still), the reel (brain springing back stretched, the knives thrown out; held as the crumple pose), the wobble with the kit at its widest (the mallet last), the kit drifting back; looped at 4 ticks in hitstun |
+| 11 | guard | 4 | the hold (the cleaver, spatula and mallet in a wall in front of him), the jolt (the wall knocked back, the brain squashed), the shiver (the tools rattling out of step), the brace (the wall swinging into place); the view plays 0 and 1 today |
 | 12 | victory | 10 | gathers (0), then a 7-frame chef's-kiss loop (1-7: tipped forward in the kiss with a violet sparkle at his middle, the kit orbiting, glasses glinting), the finish tips back (8) and the kit hangs in a proud arc (9, held) |
 | 13 | idle_alt | 8 | the fidget: the spatula taps his brow twice (the thinking tap), then the kit stirs and his gaze goes to the foe, glasses glint |
-| 14 | ko | 4 | his mind lets go: the kit falls, clatters to the floor, the brain sinks after it and deflates, sunglasses off |
+| 14 | ko | 8 | his mind lets go: a last lift, the kit falling (knives first, the mallet last), the brain hits the floor squashed, a jelly bounce with the tools hopping and the sunglasses off, down again, then it sinks and deflates over three frames; 6 ticks a frame |
 
 Design note: the sunglasses and the kitchen floating around a brain are what make him
 read as Chef Cerebro. Name check before release: "Cerebro" is also the name of a
@@ -480,7 +483,9 @@ Expressions: grin, shout, gaze (glowing eyes), hurt, ko.
 Feet at **x 64, y 104**, drawn at 0.72 scale. Up and down sheets (`hissy_down.png`,
 `hissy_up.png`) are **112×128**, feet at x 56, y 104 (down) and y 92 (up). The diagonals
 (`hissy_down_side.png`, `hissy_up_side.png`) are **128×128**, feet at x 64, y 104 and
-y 92, projected by the generator's own copy of `splat3d.Cam`'s diagonal cameras. Facing
+y 92, projected by the generator's own copy of `splat3d.Cam`'s diagonal cameras, with a
+smaller near zone there (`Cam.NEAR`: 12 facing down-right, 8 facing up-right, 18 elsewhere)
+so a glove's short reach toward or away from the camera reads along the diagonal. Facing
 down-right her head turns a further 18 degrees toward the camera (`CHEAT["down_side"]`,
 like `SIDE_CHEAT`) so the far eye and the grin don't crowd the edge; facing up-right
 shows the back of her head as the up view does (no cheat). In both diagonals the
@@ -512,11 +517,11 @@ Facing down, down-side, up and up-side: [`hissy_views_preview.png`](hissy_views_
 | 7 | gaze | 8 | Stone Gaze: lean in, the hood rising; 2–5 the stare loop timed to the 10-tick pulses (2 and 4 flare and sweep left, right; the hood ripples); the hood drops, settle |
 | 8 | petrify | 12 | Petrify Punch: a 4-frame gather (frame 3, held, is the stare and the cut-in frame, `[8, 3]`), the punch in one frame, impact held 5, shockwave held 4, follow-through, pull back, recover, hair settling, settle |
 | 9 | dodge | 8 | duck, a full roll (the hair whipping round), land squashed, pop up |
-| 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose (frame 0 is the petrified statue's pose, tinted grey by `CreatureView`) |
-| 11 | guard | 2 | gloves up in front of her face, snakes pulled in |
+| 10 | hurt | 4 | the recoil (head snapped back and stretched, the gloves and the hair's tips still forward; also the petrified statue's pose, tinted grey by `CreatureView`), the deepest reel (gloves flung back after the head; held as the crumple pose), the head forward and squashed with the gloves overshooting, sagging back; looped at 4 ticks in hitstun |
+| 11 | guard | 4 | the hold (gloves up in front of her face, snakes pulled in), the jolt (gloves knocked back into her face, head squashed), the shiver back, the brace (gloves swinging up); the view plays 0 and 1 today |
 | 12 | victory | 10 | crouch (0), then a 7-frame boxer's bounce loop (1-7: gloves punching the air in turn, hair fanned like a hood, hissing), settle (8), both gloves high (9, held) |
 | 13 | idle_alt | 8 | the fidget: the snakes squabble, lunging and hissing out of step, then all stare at the foe, hair thrown forward, and she relaxes |
-| 14 | ko | 4 | the head drops onto the gloves and tips over, hair limp, tongue out |
+| 14 | ko | 8 | hit, a last lift as the gloves drop, the head slams down onto the gloves (squashed), a small bounce, down again (the gloves bouncing a frame late), rolling onto her side, the hair's last twitch, still: hair limp, tongue out; 6 ticks a frame |
 
 Design note: she must not read as Medusa from mythology-themed games or films: the boxing
 gloves, the floating head, the earrings and the cartoon grin carry her look. Snakes for

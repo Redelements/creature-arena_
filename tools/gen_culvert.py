@@ -171,6 +171,52 @@ def _leg_pts(p):
             1.0 if p.legs in RIDE else 0.0)
 
 
+# The diagonal reach cheat. On the diagonals the camera flattens depth near his feet
+# (`Cam.depth_y`: inside `near`, 16 for him, depth counts 0.35), so a short punch's reach
+# toward or away from the camera was squeezed out: a fist held out on his camera side
+# facing up-right (or his far side facing down-right) slid sideways on screen instead of
+# along the facing diagonal. The cheat: a fist's reach past its rest (fwd 15) is drawn with
+# its depth part unflattened, so the fist moves 0.707 right and 0.707 down (or up) per unit
+# of reach from where it rests, as the floor rule says. It moves the fist along the view's
+# depth diagonal only (lat and fwd together), so its x doesn't change, and fists at rest or
+# drawn back don't move, so idles and guards are untouched. Once splat3d's configure takes
+# a per-view near, a smaller near on the diagonals (about 8) would do most of this for the
+# whole figure and the cheat could go.
+REST_FWD = 15.0
+
+
+def _depth_g(a):
+    """Cam.depth_y on a magnitude, and its inverse."""
+    k, near = 0.35, S.Cam.NEAR
+    return a * k if a <= near else near * k + (a - near)
+
+
+def _depth_inv(g):
+    k, near = 0.35, S.Cam.NEAR
+    return g / k if g <= near * k else g - near * k + near
+
+
+def _reach_cheat(fist, fwd_shift, yaw, view):
+    """A world offset for a fist (pose-local (lat, up, fwd), the body's `fwd` shift, the
+    whole-body `yaw` applied after) on the diagonal views: zero elsewhere, and for a fist
+    not reaching past its rest."""
+    ext = float(fist[2]) - REST_FWD
+    if ext <= 0.0 or view not in ("down_side", "up_side"):
+        return np.zeros(3)
+    D = math.sqrt(0.5)
+    sgn = 1.0 if view == "down_side" else -1.0   # down_side: depth (fwd + lat); up_side: (lat - fwd)
+    k = S.SCALE
+    at = rot_up((float(fist[0]), 0.0, float(fist[2]) + fwd_shift), yaw)       # where it's drawn
+    rest = rot_up((float(fist[0]), 0.0, REST_FWD + fwd_shift), yaw)
+    d = (at[2] * sgn + at[0]) * D * k
+    d_rest = (rest[2] * sgn + rest[0]) * D * k
+    sg = lambda v: (1.0 if v >= 0 else -1.0) * _depth_g(abs(v))  # noqa: E731
+    want = sg(d_rest) + (d - d_rest)  # the rest flattened as the body is, the reach not
+    d_new = (1.0 if want >= 0 else -1.0) * _depth_inv(abs(want))
+    step = (d_new - d) / k        # along the depth diagonal, in rig units
+    return np.array(rot_up((step * D, 0.0, step * D * sgn), -yaw))
+
+
 def build(p, view):
     xf = _xf(p)
     fa, ua, la = _axes(p)
@@ -254,7 +300,7 @@ def build(p, view):
     # Front arms: shoulder on the body, elbow out, a concrete fist where the pose puts it.
     for s, fist in ((1.0, p.near), (-1.0, p.far)):
         sh = xf((s * 10.0, 12.0, 6.0))
-        fw = np.asarray(fist, float) + np.array([0.0, 0.0, p.fwd])
+        fw = np.asarray(fist, float) + np.array([0.0, 0.0, p.fwd]) + _reach_cheat(fist, p.fwd, p.yaw, view)
         elbow = (sh + fw) / 2 + np.array([s * 2.0, 1.5, 0.0])
         parts.append(tube([sh, elbow, fw], [3.0, 2.5, 2.2], "con"))
         parts.append(ell(fw, (2.9, 2.7, 2.9), "fist"))
@@ -310,35 +356,72 @@ def decorate(r, img):
 
 
 # ------------------------------------------------------------------ animations
-# Hurt, guard and the knockout are the poses from before the animation pass; everything
-# else is the pass's (below).
 
 def P(**kw):
     return Pose(**kw)
 
 
+# ------------------------------------------------------------------ reactions
+# The reactions batch (docs/anim_preview/culvert_motion_plan.md, "Reactions"): hurt 2 -> 4,
+# guard 2 -> 4, the knockout 4 -> 8, on the clocks creature_view.gd already plays them at.
+# Concrete still doesn't squash (squash 1 everywhere now, the old guard's 0.92 included):
+# the head snaps, the legs fold, and the cover, the fists and the throat come a frame late.
+
 def hurt():
-    return [
-        P(pitch=14, lift=1.0, fwd=-2.0, eyes="shut", mouth=0.5, near=(10, 9, 6), far=(-10, 9, 5), throat=0.2),
-        P(pitch=22, lift=1.5, fwd=-4.0, roll=-10, eyes="shut", mouth=0.8, near=(11, 12, 3), far=(-11, 12, 2),
-          legs="crouch", leg_k=0.5, throat=0.1),
+    """Hurt, 4 frames (the view loops them at 4 ticks in hitstun; frame 0 also plays in the
+    air's first half, at a fall into a pit and when getting up, frame 1 is held in a crumple):
+    0 the recoil, the head snapped back first (the fists and the cover still where they were),
+    1 the deepest reel, the fists flung up and the cover lifting late (the crumple pose), 2 the
+    body drops back, the cover clanks down and the throat bulges, 3 sagging toward the
+    recoil, so the loop's turn back to 0 is a shudder."""
+    f = [
+        P(pitch=16, lift=1.0, fwd=-2.5, eyes="shut", mouth=0.6, near=(10, 7, 10), far=(-10, 7, 9), throat=0.3,
+          cover_tilt=-4.0),
+        P(pitch=23, lift=1.6, fwd=-4.5, roll=-10, eyes="shut", mouth=0.85, near=(11, 13, 4), far=(-11, 13, 3),
+          legs="crouch", leg_k=0.5, throat=0.1, cover_dy=1.6, cover_tilt=-7.0),
+        P(pitch=11, lift=0.2, fwd=-3.8, roll=-5, eyes="squint", mouth=0.5, near=(11, 9, 8), far=(-11, 9, 7),
+          legs="crouch", leg_k=0.7, throat=0.6, cover_dy=0.0, cover_tilt=3.0),
+        P(pitch=14, lift=0.6, fwd=-3.0, roll=-2, eyes="shut", mouth=0.55, near=(10, 8, 9), far=(-10, 8, 8),
+          legs="crouch", leg_k=0.3, throat=0.4, cover_tilt=-1.0),
     ]
+    return f
 
 
 def guard():
-    """Hunkered low, both fists up in front of his face, eyes narrowed."""
-    g = dict(pitch=-6, lift=-1.5, squash=0.92, legs="crouch", near=(5, 12, 14), far=(-5, 12, 13), eyes="squint",
-             throat=0.2)
-    return [P(**g), P(**dict(g, fwd=-1.5, eyes="shut", near=(5, 11, 12), far=(-5, 11, 11)))]
+    """Guard, 4 frames (the view shows 0 while he holds the guard and 1 for the 10 ticks
+    after a block lands; 2 and 3 wait for the view to play them, see the motion plan):
+    0 the hold, hunkered low, both fists up in front of his face, 1 the jolt of a block,
+    shoved back with the head ducked and the cover rocking, 2 the shiver back the other way,
+    3 the brace, dropping into the guard with the fists coming up."""
+    g = dict(pitch=-6, lift=-2.2, legs="crouch", near=(5.5, 13, 20), far=(-5.5, 13, 19), eyes="squint", throat=0.2)
+    return [
+        P(**g),
+        P(**dict(g, pitch=-9, fwd=-2.0, eyes="shut", near=(5.5, 12, 17.5), far=(-5.5, 12, 16.5), cover_tilt=4.0,
+                 throat=0.5)),
+        P(**dict(g, pitch=-5, fwd=-0.6, near=(5.5, 13.5, 19.5), far=(-5.5, 13.5, 18.5), cover_tilt=-2.0,
+                 cover_dy=0.6, throat=0.3)),
+        P(**dict(g, pitch=-3, lift=-1.2, leg_k=0.6, near=(7.5, 9, 17), far=(-7.5, 9, 16), cover_dy=1.0,
+                 throat=0.25)),
+    ]
 
 
 def ko():
-    """Knocked out: thrown back, tips over onto the manhole cover, legs in the air, eyes
-    crossed out (the game cracks him and gushes the storm water)."""
+    """Knocked out, 8 frames at 6 ticks (side only; the knockdown shows 1 then 2): 0 thrown
+    back, the head snapped up, 1 lifted off his feet and tipping, the legs kicking up late,
+    2 slammed down on the cover, 3 a small bounce (concrete: a thud, not a spring), the legs
+    and fists still flying up, 4 down again, 5 rocking on the round cover, 6 rocking back,
+    7 still: eyes crossed out, the tongue lolling (the game cracks him and gushes the water)."""
     return [
         P(pitch=20, lift=1.5, fwd=-3.0, eyes="shut", mouth=0.6, near=(11, 12, 4), far=(-11, 12, 3)),
-        P(roll=-80, lift=1.0, fwd=-5.0, eyes="x", mouth=0.4, legs="up", near=(8, 12, 6), far=(-8, 12, 5)),
-        P(roll=-165, lift=-1.0, fwd=-6.0, eyes="x", mouth=0.5, legs="up", near=(8, 16, 4), far=(-8, 16, 3)),
+        P(pitch=26, roll=-35, rise=4.0, lift=1.0, fwd=-4.5, eyes="x", mouth=0.7, legs="crouch", leg_k=1.0,
+          near=(11, 14, 3), far=(-11, 14, 2)),
+        P(roll=-150, lift=-1.0, fwd=-6.0, eyes="x", mouth=0.5, legs="up", leg_k=0.6, near=(8, 13, 5), far=(-8, 13, 4)),
+        P(roll=-160, rise=4.0, lift=-1.0, fwd=-6.0, eyes="x", mouth=0.6, legs="up", leg_k=1.0, near=(8, 17, 4),
+          far=(-8, 17, 3)),
+        P(roll=-178, lift=-1.5, fwd=-6.0, eyes="x", mouth=0.7, legs="up", leg_k=1.0, near=(9, 16, 3), far=(-9, 16, 2)),
+        P(roll=-168, lift=-1.5, fwd=-6.0, eyes="x", mouth=0.7, legs="up", leg_k=0.9, near=(9, 15, 2), far=(-9, 15, 1)),
+        P(roll=-178, lift=-1.5, fwd=-6.0, eyes="x", mouth=0.7, legs="up", leg_k=1.0, near=(9, 15, 2), far=(-9, 15, 1),
+          tongue=3.0),
         P(roll=-175, lift=-1.5, fwd=-6.0, eyes="x", mouth=0.7, legs="up", near=(9, 15, 2), far=(-9, 15, 1),
           tongue=6.0),
     ]
@@ -707,9 +790,9 @@ ROWS = [
 for _n, _poses in ROWS:
     for _p in _poses:
         _p.stick = True
-# concrete: the body never squashes or stretches on the new frames (hurt, guard and the
-# knockout keep the game's poses as they are)
-assert all(p.squash == 1.0 for n, poses in ROWS if n not in ("hurt", "guard", "ko") for p in poses)
+# concrete: the body never squashes or stretches, on any frame (the reactions batch took
+# the old guard's squash out too)
+assert all(p.squash == 1.0 for n, poses in ROWS for p in poses)
 
 VIEW_ROWS = ROWS[:-1]  # the knockout tips over sideways in any view
 

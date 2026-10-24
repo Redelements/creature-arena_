@@ -11,6 +11,8 @@ The timeline check, which reads data/creatures/<id>.json against the generator's
 
     python3 tools/anim_preview.py --check <id>      (or --check all)
     python3 tools/anim_preview.py --selftest        (tween, lag, lag_at and --check on toy data)
+    python3 tools/anim_preview.py --reactions <id> [REF]   (hurt, guard and the knockout in every
+                                                    view, the sheets at REF beside the new frames)
 
 What a generator gives this module (the adapter; every gen_<id>.py has one):
   - `ROWS`, `VIEW_ROWS`: [(animation, [pose, ...]), ...], one per sheet row.
@@ -410,6 +412,105 @@ def main(mod, argv):
     previews(mod, clips, old_ref, out_dir, only)
 
 
+# ------------------------------------------------------------------ reactions
+
+def reaction_ticks(n, stun=24, hitstop=6, guard_n=2, guard_plan=False, ko_hold=24):
+    """The hurt, guard and knockout clips as creature_view.gd times them, one (animation,
+    frame) per tick: hurt (`n["hurt"]` frames) holds frame 0 through the hitstop, then loops
+    at 4 ticks a frame for `stun` ticks; guard holds 0 and shows 1 for the 10 ticks after a
+    block (with `guard_plan`, a 4-frame guard as planned: 3 the brace on the way in, then a
+    shiver 1, 2, 1, 2 on the block); the knockout steps every 6 ticks and holds the last."""
+    hurt = [("hurt", 0)] * hitstop + [("hurt", (t // 4) % n["hurt"]) for t in range(stun)] + [("idle", 0)] * 12
+    if guard_plan and n["guard"] >= 4:
+        guard = [("guard", 3)] * 4 + [("guard", 0)] * 12 + [("guard", f) for f in (1, 1, 1, 2, 2, 2, 1, 1, 2, 2)]
+    else:
+        guard = [("guard", 0)] * 16 + [("guard", 1)] * 10
+    guard += [("guard", 0)] * 14
+    ko = [("ko", min(t // 6, n["ko"] - 1)) for t in range(6 * n["ko"] + ko_hold)]
+    return {"hurt": hurt, "guard": guard, "ko": ko}
+
+
+def reaction_previews(mod, old_ref="HEAD", out_dir=ANIM_DIR, path=None, stun=24, hitstop=6):
+    """<id>_reactions_3x.gif: hurt, guard and the knockout in every view, the sheets at
+    `old_ref` beside the generator's frames, on the game's clock (`reaction_ticks`). A
+    side-only animation (the knockout) shows the side frames in every view, as the game
+    does."""
+    gid = gen_id(mod)
+    fr = Frames(mod, old_ref)
+    sp_new = creature_json(gid)["sprite"]
+    side_only = set(sp_new.get("side_only", []))
+    views = views_of(sp_new)
+    n_new = {a: len(fr.rows[a]) for a in ("hurt", "guard", "ko")}
+    n_old = {a: int(fr.old_sprite()["anims"][a][2]) for a in ("hurt", "guard", "ko")}
+    clips = {"old": reaction_ticks(n_old, stun, hitstop), "new": reaction_ticks(n_new, stun, hitstop, guard_plan=True)}
+    notes = {"hurt": "hurt: hitstop %d, then %d ticks of hitstun" % (hitstop, stun),
+             "guard": "guard: held, a block lands (new: brace and shiver as planned)",
+             "ko": "knockout: 6 ticks a frame (side only)"}
+
+    def src(version, anim, view):
+        if anim in side_only:
+            return "side"
+        if version == "new":
+            return view if fr.has(anim, view) else "side"
+        return view if anim in sheet_layout(fr.old_sprite(), view)[3] else "side"
+
+    # one crop per view row: the union of every frame's opaque box, measured from its feet
+    boxes = {}
+    for version, cl in clips.items():
+        for seq in cl.values():
+            for anim, f in set(seq):
+                for v in views:
+                    s_ = src(version, anim, v)
+                    img = fr.get(version, anim, f, s_)
+                    ox, oy = fr.get_spec(version, s_)["origin"]
+                    b = img.getchannel("A").getbbox()
+                    if not b:
+                        continue
+                    b = (b[0] - ox, b[1] - oy, b[2] - ox, b[3] - oy)
+                    o = boxes.get(v, b)
+                    boxes[v] = (min(o[0], b[0]), min(o[1], b[1]), max(o[2], b[2]), max(o[3], b[3]))
+    scale = 3
+
+    def cell(version, anim, f, v):
+        s_ = src(version, anim, v)
+        img = fr.get(version, anim, f, s_)
+        ox, oy = fr.get_spec(version, s_)["origin"]
+        b = boxes[v]
+        x0, y0, x1, y1 = b[0] - 3, b[1] - 3, b[2] + 3, max(b[3], 1) + 3
+        out = Image.new("RGBA", (x1 - x0, y1 - y0), PREVIEW_BG + (255,))
+        out.paste(img, (-x0 - ox, -y0 - oy), img)
+        d = ImageDraw.Draw(out)
+        d.line([(-x0 - 8, -y0), (-x0 + 8, -y0)], fill=(50, 40, 32, 255))
+        return out.resize((out.width * scale, out.height * scale), Image.NEAREST)
+
+    seq = []
+    for clip in ("hurt", "guard", "ko"):
+        old_t, new_t = clips["old"][clip], clips["new"][clip]
+        for t in range(max(len(old_t), len(new_t))):
+            o, nw = old_t[min(t, len(old_t) - 1)], new_t[min(t, len(new_t) - 1)]
+            rows = []
+            for v in views:
+                a = cell("old", o[0], o[1], v)
+                b = cell("new", nw[0], nw[1], v)
+                row = Image.new("RGBA", (a.width + b.width + 8 + 90, max(a.height, b.height)), (20, 16, 12, 255))
+                ImageDraw.Draw(row).text((6, 6), v, fill=(240, 230, 210, 255))
+                row.alpha_composite(a, (90, 0))
+                row.alpha_composite(b, (90 + a.width + 8, 0))
+                rows.append(row)
+            head = 34
+            pic = Image.new("RGBA", (max(r.width for r in rows), head + sum(r.height + 4 for r in rows)), (40, 32, 26, 255))
+            d = ImageDraw.Draw(pic)
+            d.text((6, 3), notes[clip], fill=(255, 200, 90, 255))
+            d.text((96, 18), "current  %s %d" % o, fill=(240, 230, 210, 255))
+            d.text((96 + (rows[0].width - 98) // 2 + 8, 18), "new  %s %d" % nw, fill=(240, 230, 210, 255))
+            y = head
+            for r in rows:
+                pic.alpha_composite(r, (0, y))
+                y += r.height + 4
+            seq.append(((clip, o, nw), pic))
+    save_gif(seq, path or os.path.join(out_dir, "%s_reactions_3x.gif" % gid))
+
+
 # ------------------------------------------------------------------ the timeline check
 
 def _resolve_anim(name, anims):
@@ -630,6 +731,10 @@ def selftest():
 def cli(argv):
     if argv[:1] == ["--selftest"]:
         selftest()
+        return 0
+    if argv[:1] == ["--reactions"] and len(argv) >= 2:
+        # <id>_reactions_3x.gif: hurt, guard and the knockout, every view, current beside new
+        reaction_previews(load_generator(argv[1]), argv[2] if len(argv) > 2 else "HEAD")
         return 0
     if argv[:1] == ["--check"] and len(argv) == 2:
         if argv[1] == "all":

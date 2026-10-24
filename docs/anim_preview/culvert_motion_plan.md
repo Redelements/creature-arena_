@@ -219,8 +219,8 @@ tick. Today the roll turned to −200° and snapped back upright, and floated on
 
 ## Hurt, guard, knockout
 
-Unchanged (Kevin: not abilities). They're in `ROWS` as the same poses; the only
-difference on the new sheet is the grain pattern (`stick`).
+Left alone in the pass (Kevin: not abilities), then redone in the reactions batch: see
+"Reactions" at the end.
 
 ---
 
@@ -259,3 +259,57 @@ The poses are 3D, so the down and up sheets get the same motion. What I checked:
    shadow, so the planted feet nearly stay put and the hop reads as a spring and a sit.
 2. **Cut-in frame:** stays mid-leap, frame 2 (`cut_in_frame` `[10, 2]`), legs at full
    stretch: the same moment as the old frame 1.
+
+---
+
+## Reactions (Oct 24 2026)
+
+Kevin asked for hurt, guard and the knockout after all: in a brawler the hurt pose is the
+frame players see most. Same recipe and the same material rule: concrete doesn't squash
+(`squash` is 1 on every frame now, the old guard's 0.92 included; the assert covers every
+row), so the blow shows in the head snapping, the legs folding and what is loose on him
+coming late.
+
+| Row | Frames | Frame by frame |
+| --- | --- | --- |
+| hurt | 2 → 4 | 0 the recoil: the head snapped back first, the fists and the cover still where they were. 1 the deepest reel (the crumple pose): fists flung up, the cover lifting a frame late. 2 the body drops back, the cover clanks down tipped, the throat bulges. 3 sagging toward the recoil |
+| guard | 2 → 4 | 0 the hold: hunkered low, both fists up in front of his face (they used to sit inside his head and never showed; now at fwd 20). 1 the jolt: shoved back, head ducked, eyes shut, the cover rocking. 2 the shiver back, the cover lifting. 3 the brace: dropping into the guard, fists coming up |
+| ko | 4 → 8 | 0 thrown back (as before). 1 lifted off his feet and tipping. 2 slammed down on the cover. 3 a small bounce (a thud, not a spring), fists still flying. 4 down again. 5 rocking on the round cover. 6 rocking back, the tongue coming out. 7 still, eyes crossed out, tongue lolling. The crack and gush start at once, the rubble at tick 20 (the bounce), the grey from 12 to 32 |
+
+The victory and the fidget were looked at again; nothing needed fixing.
+
+### The diagonal reach cheat
+
+On `down_side` / `up_side` splat3d's camera flattens depth near his feet (`Cam.depth_y`,
+`near` 16 from `S.configure`), so a short punch's reach toward or away from the camera was
+squeezed out and the fist slid sideways: the jab's fist facing up-right ended 27 px right and
+only 4 px up (by its shadow). splat3d isn't touched here (a per-view `near` is coming on
+another branch), so the cheat is in `build`: `_reach_cheat` moves a fist that reaches past its
+rest (fwd 15) along the view's depth diagonal only (lat and fwd together, so its x stays),
+so that its reach is drawn unflattened while its rest stays flattened like the body. Fists at
+rest or drawn back don't move: the side, down and up sheets are byte-identical outside the
+reaction rows, and on the diagonals only reaching frames moved (the run's fists, the jab and
+hook extensions, the Slam, Runoff, Storm Drain and the victory's landing). The jab facing
+up-right now ends about 4 px further up; facing down-right the jab already went down and
+doesn't move. Once splat3d's `configure` takes a per-view near, about 8 on the diagonals
+would do this for the whole figure and the cheat can go.
+
+### The clock (nothing in the sim or the view changed)
+
+`creature_view.gd` picks these frames from the fighter's state, so the new frames are
+posed for the frames it asks for, at the stun lengths the moves really deal:
+
+| State | Frame the view shows | What the new frames are posed for |
+| --- | --- | --- |
+| hitstun | `hurt`, `state_t / 4`, looping | 0 is held through the hitstop (4-8 ticks), then 0-3 at 4 ticks each: a 16-tick pass. A light's hitstun (16-18) plays it once; a heavy's (24-34) loops back to 0, so frame 3 sags toward 0 and the return reads as a second shudder, not a pop |
+| crumple | `hurt` 1, held | frame 1 stays the deepest reel, close to the old crumple pose |
+| launched | `hurt` 0 rising, 1 falling | unchanged meaning |
+| knockdown | `ko` 1 for 5 ticks, then `ko` 2, then `hurt` 0 to get up | `ko` 1 is the fall and `ko` 2 the body on the floor |
+| falling into a pit, petrified | `hurt` 0 | the recoil |
+| guard | `guard` 0 held, 1 for the 10 ticks after a block | 0 is the hold, 1 the jolt. Frames 2 (the shiver back) and 3 (the brace on the way in) are on the sheet but the view doesn't ask for them yet: a later `_pick` change could show 3 for the first 4 ticks of a guard and alternate 1 and 2 through `guard_hit` (the reactions GIF shows that plan) |
+| knockout | `ko`, `state_t / 6`, holding the last | 8 frames over 48 ticks (was 4 over 24) |
+
+`hurt`, `guard` and `ko` in the JSON row table went from 2, 2, 4 frames to 4, 4, 8; no frame
+data or stun number changed. Previews: `culvert_reactions_3x.gif` (hurt with a 6-tick hitstop
+and 24 ticks of hitstun, the guard with a block, the knockout; every view, the sheets
+before beside the new frames; `python3 tools/anim_preview.py --reactions culvert REF`).

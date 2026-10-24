@@ -273,7 +273,7 @@ determinism fingerprint is unchanged.
 | flipout | 6 | 12 |
 | flurry | 6 | 12 (`cut_in_frame` `[8, 2]`, unchanged) |
 | dodge | 4 | 8 (`dodge.anim_at`, `blink.solid`, both new) |
-| hurt, guard, ko | 2, 2, 4 | unchanged |
+| hurt, guard, ko | 2, 2, 4 | 4, 4, 8 in the reactions batch ("Reactions" at the end) |
 
 `cols` 8 → 12 (a 1536 px side sheet, 1344 px for the 112 px up/down sheets);
 `step_frames` `[]`; `portrait` `[52, 58, 24, 32]` → `[52, 59, 24, 32]` (the new idle frame 0
@@ -321,3 +321,48 @@ sheets at 12 columns, `cerebro.json` (`cols` 12, the row table, `idle_ticks` 8, 
 `anim_from` dropped, the dodge's `anim_at`, `blink.solid`, the portrait nudge),
 `creature_view.gd` (`_pick`, `blink_alpha`), MECHANICS.md and SPRITES.md. The
 `NET_VERSION` bump comes once with the batch (Culvert, Hissy, Cerebro).
+
+---
+
+## Reactions (Oct 24 2026)
+
+Kevin asked for hurt, guard and the knockout after all. The brain takes every blow first
+(a 10% squash, then a wobble that settles over 2 frames), and the kit follows on its own
+lags (`TOOL_LAG`: the knives and the cleaver 1 frame, the spatula 2, the mallet 3).
+
+| Row | Frames | Frame by frame |
+| --- | --- | --- |
+| hurt | 2 → 4 | 0 the blow: the brain snapped back and squashed, the shades knocked askew, the kit still where it was. 1 the reel (the old crumple pose): the brain springing back stretched, the knives thrown out, the mallet not yet. 2 the brain wobbling, the kit at its widest, the mallet last. 3 the kit drifting back in (`_lagged_kit` over `HURT_FLING`) |
+| guard | 2 → 4 | 0 the hold: the cleaver, spatula and mallet in a wall (as before). 1 the jolt: the wall knocked back into him, the brain squashed, the shades askew. 2 the shiver: the tools rattling back out of step, the cleaver first, the mallet last. 3 the brace: the wall swinging into place from the kit's rest |
+| ko | 4 → 8 | 0 the blow, the kit starting to drop. 1 a last lift as his mind lets go, the kit falling, knives first. 2 the brain hits the floor, squashed flat, the kit clattering down (the mallet still in the air). 3 a jelly bounce, tools hopping on the floor, the sunglasses gone (the game skids them away on this tick, 18). 4 down again. 5-7 the brain sinks and deflates (the last frame as before) |
+
+The victory and the fidget were looked at again; nothing needed fixing.
+
+### The diagonals' near zone
+
+The generator owns its camera, so the cheat is the real fix: `Cam.NEAR` is per view now,
+18 as before for the side, down and up views and 12 on both diagonals. A tool floated or
+thrown a short way toward or away from the camera now reads along the facing diagonal
+instead of sideways, and the sunglasses stay on the face. Every row of the two diagonal
+sheets moves a little; the side, down and up sheets are byte-identical outside the reaction
+rows. No per-move pose cheat was needed.
+
+### The clock (nothing in the sim or the view changed)
+
+`creature_view.gd` picks these frames from the fighter's state, so the new frames are
+posed for the frames it asks for, at the stun lengths the moves really deal:
+
+| State | Frame the view shows | What the new frames are posed for |
+| --- | --- | --- |
+| hitstun | `hurt`, `state_t / 4`, looping | 0 is held through the hitstop (4-8 ticks), then 0-3 at 4 ticks each: a 16-tick pass. A light's hitstun (16-18) plays it once; a heavy's (24-34) loops back to 0, so frame 3 sags toward 0 and the return reads as a second shudder, not a pop |
+| crumple | `hurt` 1, held | frame 1 stays the deepest reel, close to the old crumple pose |
+| launched | `hurt` 0 rising, 1 falling | unchanged meaning |
+| knockdown | `ko` 1 for 5 ticks, then `ko` 2, then `hurt` 0 to get up | `ko` 1 is the fall and `ko` 2 the body on the floor |
+| falling into a pit, petrified | `hurt` 0 | the recoil |
+| guard | `guard` 0 held, 1 for the 10 ticks after a block | 0 is the hold, 1 the jolt. Frames 2 (the shiver back) and 3 (the brace on the way in) are on the sheet but the view doesn't ask for them yet: a later `_pick` change could show 3 for the first 4 ticks of a guard and alternate 1 and 2 through `guard_hit` (the reactions GIF shows that plan) |
+| knockout | `ko`, `state_t / 6`, holding the last | 8 frames over 48 ticks (was 4 over 24) |
+
+`hurt`, `guard` and `ko` in the JSON row table went from 2, 2, 4 frames to 4, 4, 8; no frame
+data or stun number changed. Previews: `cerebro_reactions_3x.gif` (hurt with a 6-tick hitstop
+and 24 ticks of hitstun, the guard with a block, the knockout; every view, the sheets
+before beside the new frames; `python3 tools/anim_preview.py --reactions cerebro REF`).
