@@ -4,6 +4,13 @@
 	"name": "Twin Keeps",
 	"ground": "grass",
 	"light": {"_doc": "morning sun from the top left", "dir": [0.6, 0.8], "length": 0.55, "alpha": 0.34},
+	"ambient": {"_doc": "leaves on the morning breeze, brush that sways, dragonflies and a jumping fish on the river, the odd bird; see AmbientView",
+		"motes": {"kind": "leaf", "count": 22},
+		"sway": true,
+		"critters": [
+			{"kind": "dragonfly", "count": 4, "area": [67, 2, 16, 60]},
+			{"kind": "fish", "every": 360},
+			{"kind": "bird", "every": 2400, "flock": 2, "first": 600}]},
 	"size": [
 		150,
 		64
