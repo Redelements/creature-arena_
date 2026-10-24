@@ -2,10 +2,9 @@
 
 Hissy Fitz is the fifth fighter in the roster animation pass (`roster_anim_plan.md`, batch
 2). Same recipe as Mister Crease: shading, palette and outlines stay exactly as they are,
-only motion changes. **Preview phase:** the new frames are only in the GIFs next to this
-file (`python3 tools/gen_hissy.py anim`); the game's sheets and `data/creatures/hissy.json`
-are unchanged until Kevin approves. The compare GIFs show the sheets on main before the
-pass (`OLD_REF` in `gen_hissy.py`) beside the new frames.
+only motion changes. The new frames are in the game's sheets and `data/creatures/hissy.json`
+(Kevin approved the previews on Oct 24, answers at the end); the compare GIFs next to this
+file show them beside the sheets from before the pass (`OLD_REF` in `gen_hissy.py`).
 
 Timings are in sim ticks (60 per second). An attack frame shows from its `anim_at` tick
 until the next one. A hit is live from tick `startup + 1` for `active` ticks.
@@ -21,11 +20,8 @@ up to 10%.
 
 ## What the rig needs (in `tools/gen_hissy.py`)
 
-All new `Pose` fields default to what was drawn before, so the game's current rows still
-render the same (checked against the committed sheets: the side sheet differs from the
-committed PNG in the same 2 outline pixels before and after this change, a float rounding
-difference between the machine that made the sheet and this one; the up and down sheets
-are identical).
+All new `Pose` fields default to what was drawn before, so hurt, guard and the knockout
+(not redrawn) render as they did.
 
 | Addition | Why |
 | --- | --- |
@@ -36,10 +32,7 @@ are identical).
 | `tween` (the shared `splat3d.tweener`): gloves on arcs, `face` and `spit` snap | in-betweens with curved glove paths |
 | `inspect` subcommand | `gen_hissy.py inspect jab:3 petrify:5` renders frames in all three views |
 
-In phase 1 the game's rows are kept as `ROWS` (the old pose functions renamed `_v1_*`)
-and the new ones are `ANIM_ROWS`, swapped in by the `anim` command, so
-`anim_preview.py --check hissy` against the unchanged JSON passes. `COLS` goes to 12 in
-phase 2 (the run, the heavy and the Surge have 12 frames).
+`COLS` is 12 (the run, the heavy and the Surge have 12 frames), as on Crease's sheet.
 
 ---
 
@@ -113,7 +106,7 @@ recovery 14; was `[[0,0],[3,1],[7,2],[11,3],[16,4]]`).
 
 ## 6. Coil Uppercut (heavy): 6 → 12 frames, the signature
 
-**Charge loop, frames 0–3** (`anim_charge` `[0, 4, 3]`, was the default `[0, 2, 6]`): the
+**Charge loop, frames 0–3** (`anim_charge` `[0, 4, 4]`, was the default `[0, 2, 6]`): the
 near glove cranks round a small circle low and behind her, a quarter turn a frame, with
 the snake arm winding after it (`trail_arms` around the loop); the head sunk and squashed
 6–7%, bobbing with the crank, the face alternating grin and shout. It's a seamless loop,
@@ -135,8 +128,10 @@ so a long hold reads as winding, not as two poses flickering.
 `anim_at` `[[0,4],[3,5],[6,6],[9,7],[13,8],[17,9],[22,10],[27,11]]` (startup 8, active 4,
 recovery 20; was `[[0,2],[5,3],[9,4],[20,5]]`).
 
-**Hiss Off** (the tag-in, `anim_from` 3 today) plays the uppercut's tail: `anim_from`
-becomes 7 (the top), then frame 11.
+**Hiss Off** (the tag-in, startup 8, active 4, recovery 16) played frame 3 and then the
+last frame (`anim_from` 3). It now has its own timeline over the uppercut's tail, as Pete's
+Smash and Grab does: `anim_at` `[[0,5],[4,6],[8,7],[13,8],[17,9],[21,10],[25,11]]`, the
+top of the uppercut held over the hit (9–12).
 
 ## 7. Venom Spit (skill 1): 5 → 8 frames
 
@@ -241,7 +236,7 @@ The poses are 3D, so the down and up sheets get the same motion. What I checked:
 
 - **Sub-pixel motion:** the idle's eased frames next to the keys move under a pixel, and
   read as the hold. The heavy's charge circle is 2 to 3 px: small, but it moves every
-  3 ticks, with the snake arm swinging round it, so it reads as a crank.
+  4 ticks, with the snake arm swinging round it, so it reads as a crank.
 - **Tone popping:** the head's tones change with its angle; the gather's 31° turn and the
   roll are big enough that it reads as turning.
 - **Squash:** capped at 10% by an assert.
@@ -249,11 +244,12 @@ The poses are 3D, so the down and up sheets get the same motion. What I checked:
   frames they bunch to one side (they mix in world up), which reads as hair flung by the
   roll.
 
-## Questions for Kevin
+## Kevin's answers (Oct 24)
 
-1. **Cut-in frame:** frame 3 (the held gather with the stare: the moment she winds up the
-   petrifying punch) or frame 5 (the impact)? The plan uses 3.
-2. **The dodge:** the full roll (a complete turn, upside down in the middle), or the old
-   half-tip that snaps back upright?
-3. **The heavy's charge loop:** 3 ticks a frame (a 12-tick crank, as Sno's head shake), or
-   slower (4 to 5 ticks) so the coil reads more as winding up than as a wriggle?
+1. **Cut-in frame:** frame 3, the held gather with the stare (`cut_in_frame` `[8, 3]`).
+2. **The dodge:** the full roll.
+3. **The heavy's charge loop:** a little slower than 3 ticks a frame: 4
+   (`anim_charge` `[0, 4, 4]`, a 16-tick crank).
+
+The HUD portrait crop (`sprite.portrait`) moved up 2 px to `[50, 50, 24, 32]`: the new idle
+frame 0 is the top of the bob, 2 px higher than the old one.
