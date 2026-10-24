@@ -249,6 +249,15 @@ overlap (the boughs and their elbows 2 frames behind the trunk, `twig` the arm t
 idle, the slowest), `run_ticks` 2 (the run still 24 ticks), footsteps on the default
 `[0, 6]` (the two hard plants).
 
+Colours and shading come from the master palette ("Palette" below, `tools/shade2d.py`):
+bark `("rust", 1)`, a step lighter than the branch arms and the log (`"rust"`), the cut end
+`"sand"`, the beard `("moss", -1)`, leaves `("lime", -1)`, eyes `"blue"`, the pinecone
+`"earth"`. Each part is ramp-shaded from the top left with a rim light on the far edge and
+outlined in its ink (umber for the wood, moss for the leaves); where an arm, the beard or
+the nose crosses the trunk its outline is the bark's deep step. The bark grain is sparse
+(five lines round the trunk, two down each leg) and one ramp step darker where it falls;
+the brows, the chevrons at the fork and the crease between the legs are the deep step.
+
 ![Barkley sheet, 3x](barkley_preview.png)
 
 Facing down and up, and the diagonals: [`barkley_views_preview.png`](barkley_views_preview.png).
@@ -297,6 +306,14 @@ kept wide enough to read however he turns; head-on or from behind he is split at
 the end nearer the camera is drawn over it and the far end under it. Feet (belly) at **x 70, y 112**; big frames because the rod flies out in front on Cast Line
 and tumbles far behind on the run. Up and down sheets (`gillbert_down.png`,
 `gillbert_up.png`) are **96×144**, feet at x 48, y 92 (down) and y 76 (up).
+
+Colours and shading come from the master palette ("Palette" below, `tools/shade2d.py`): the
+body `"chartreuse"` (a line added for him: lime's base is grass green and turned him minty),
+fins `("moss", -1)`, the ring `"red"` and `"white"` with `"rust"` straps, the rod `"rust"`
+with a `("red", -1)` handle, the reel `"stone"`, eyes `"orange"`. Each ring half is lit as
+one round band with each colour band from its own ramp and outline ink (plum on the red,
+soft pewter on the white). Scale chevrons and fin rays are one ramp step darker where they
+fall, the belly dots one step lighter; the gill line is the body's deep step.
 
 ![Gillbert sheet, 3x](gillbert_preview.png)
 
@@ -756,8 +773,8 @@ One master palette for the whole game: `tools/palette.py`, drawn as a labelled s
 [`palette.png`](palette.png) (`python3 tools/palette.py` redraws it).
 
 - **Lines and ramps.** The palette is a set of hue lines (red, wine, pink, orange, gold,
-  rust, earth, green, moss, lime, teal, sky, blue, violet, steel, neutral), each running
-  dark to light, plus six outline inks: 99 colours for sprites. A **ramp** is a named
+  rust, earth, green, moss, lime, teal, sky, blue, violet, steel, neutral, chartreuse),
+  each running dark to light, plus six outline inks: 104 colours for sprites. A **ramp** is a named
   five-step window on a line: deep shadow, dark, base, light, highlight (`palette.RAMPS`,
   e.g. `"rust"`, `"ice"`, `"white"`); `palette.ramp(name, shift)` slides the window (+1
   one step lighter). Arena floors also get 18 **ground half-steps** (`palette.GROUND`:
@@ -784,7 +801,16 @@ One master palette for the whole game: `tools/palette.py`, drawn as a labelled s
   (`tools/gen_arenas.py`, `snap_constants` and `save`: floor ramps on the ground lines,
   blends and fades ordered-dithered between palette colours; crack masks and the flag,
   which the view tints, stay unsnapped).
-- **Not ported yet:** Cerebro, Hissy, Barkley, Gillbert, Craglash (own renderers) and the
+- **2D painters.** Barkley and Gillbert paint flat 2D shapes per part, so
+  `tools/shade2d.py` gives them the same look: each shape gets a height field (its
+  distance to the edge, rounded like a tube as thick as the shape is there), lit by
+  splat3d's key light with its thresholds; the rim light only where the core shadow is at
+  least two pixels deep (thin twigs keep theirs); lone-pixel cleanup; each material's ink;
+  and `Materials.stack` turns an outline that lands on a piece behind into that piece's
+  deep step (the seam). Detail lines (bark grain, scales, fin rays) are `groove`s: one
+  ramp step darker (Gillbert's belly: lighter) wherever they fall, so they read in the
+  light and in the shadow alike.
+- **Not ported yet:** Cerebro, Hissy, Craglash (own renderers) and the
   placeholders in `tools/gen_sprites.py` still use their own colours. Porting one is
   mostly rewriting its MAT table as ramp names and shading from the five steps.
 

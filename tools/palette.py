@@ -43,7 +43,8 @@ API:
 Porting a generator: replace its MAT table's (base, light, dark) triples with ramp names
 (`"rust"`, `("stone", 1)` for one step lighter), keep `flat(...)` for one-colour
 materials, and shade with the five steps. tools/splat3d.py does this for every splat3d
-rig; the older renderers (Cerebro, Hissy, Barkley, Gillbert, Craglash) aren't ported yet.
+rig and tools/shade2d.py for the 2D painters (Barkley, Gillbert); the other older
+renderers (Cerebro, Hissy, Craglash) aren't ported yet.
 """
 import os
 
