@@ -35,6 +35,11 @@ const BAYER := [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5]
 const POOL_ALPHA := 1.0  ## the floor pool's strength, against a light's own
 const HALO_ALPHA := 0.7
 const HALO_SIZE := 0.45  ## a halo's radius, against the pool's
+## A glow must never hide a fighter: a halo stays small and faint however big or bright the
+## light (a big light's reach goes into the floor pool instead).
+const HALO_MAX_R := 16.0
+const HALO_MAX_ALPHA := 0.22
+const POOL_MAX_ALPHA := 0.4  ## and a pool never bleaches the floor
 
 var fx: FxView
 var halo := false
@@ -293,14 +298,14 @@ func _draw() -> void:
 		var r: int
 		var at: Vector2
 		if halo:
-			r = _bucket(float(l[3]) * HALO_SIZE)
+			r = _bucket(minf(float(l[3]) * HALO_SIZE, HALO_MAX_R))
 			at = pos - Vector2(0, z)
-			col.a = s * HALO_ALPHA * float(l[5])
+			col.a = minf(s * HALO_ALPHA * float(l[5]), HALO_MAX_ALPHA)
 			if col.a < 0.02:
 				continue
 		else:
 			r = _bucket(float(l[3]))
 			at = pos
-			col.a = s * POOL_ALPHA / (1.0 + z / 60.0)  # a light up high lights the floor less
+			col.a = minf(s * POOL_ALPHA / (1.0 + z / 60.0), POOL_MAX_ALPHA)  # a light up high lights the floor less
 		draw_texture(_tex(r), (at - Vector2(r, r)).round(), col)
 	PerfLog.since("glow draw", t0)
