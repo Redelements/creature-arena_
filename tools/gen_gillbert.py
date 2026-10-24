@@ -46,39 +46,40 @@ VIEWS = {
     "up_side": {"w": 128, "h": 144, "origin": (64, 84)},  # the rod trails down-left
 }
 
-# Palette, sampled from the character sheet.
-C = {
-    "outline": (22, 26, 18, 255),
-    "body": (181, 230, 29, 255),
-    "body_l": (214, 246, 96, 255),
-    "body_d": (134, 184, 22, 255),
-    "belly": (220, 240, 120, 255),
-    "scale": (96, 136, 20, 255),
-    "fin": (18, 92, 39, 255),
-    "fin_l": (40, 132, 60, 255),
-    "fin_d": (10, 62, 26, 255),
-    "red": (237, 28, 36, 255),
-    "red_l": (255, 96, 96, 255),
-    "red_d": (168, 14, 24, 255),
-    "white": (246, 246, 246, 255),
-    "white_l": (255, 255, 255, 255),
-    "white_d": (196, 200, 206, 255),
-    "strap": (119, 67, 66, 255),
-    "rod": (119, 67, 66, 255),
-    "rod_l": (156, 98, 92, 255),
-    "rod_d": (84, 46, 46, 255),
-    "handle": (136, 0, 21, 255),
-    "handle_l": (186, 40, 52, 255),
-    "handle_d": (96, 0, 14, 255),
-    "reel": (127, 127, 127, 255),
-    "reel_l": (184, 184, 184, 255),
-    "reel_d": (88, 88, 88, 255),
-    "line": (150, 150, 150, 255),
-    "eye": (255, 127, 39, 255),
-    "eye_d": (206, 84, 16, 255),
-    "pupil": (14, 10, 8, 255),
-    "mouth": (70, 90, 20, 255),
+# Palette: master-palette ramps per material (tools/palette.py; the shading rules are in
+# tools/shade2d.py). The artist's sheet sets the hues: a bright lime body with dark green
+# fins, the red-and-white life ring, a brown rod with a wine-red handle and a grey reel,
+# orange eyes.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import shade2d  # noqa: E402
+
+MAT = {
+    "body": "chartreuse",
+    "fin": ("moss", -1),
+    "red": "red",           # the ring's red quarters
+    "white": "white",       # ... and its white ones
+    "strap": "rust",        # the ring's straps
+    "rod": "rust",
+    "handle": ("red", -1),  # crimson: the red line one step down
+    "reel": "stone",
+    "eye": "orange",
+    "pupil": "ink",
 }
+M = shade2d.Materials(MAT)
+
+C = {name: M.col(name) for name in MAT}   # shape fills (shade() recolours them)
+C.update({
+    "ink": M.ink["body"] + (255,),      # eye rims, the mouth, the barbels
+    "seam": M.seam["body"] + (255,),    # the gill line
+    "red_d": M.col("red", 1),           # the gill flush
+    "eye": M.col("eye", 3),
+    "eye_d": M.col("eye", 2),
+    "pupil": M.col("pupil", 1),
+    "mouth": M.col("body", 0),
+    "line": M.col("reel", 3),           # fishing line
+    "guide": M.col("white", 3),         # the rod's line guides
+    "groove": (255, 0, 255, 255),       # detail lines: one ramp step darker where they fall
+})
 
 # ------------------------------------------------------------------ image helpers
 
@@ -101,25 +102,33 @@ def _shift(m, dx, dy):
     return p[4 + dy:4 + dy + h, 4 + dx:4 + dx + w]
 
 
-def shade(img, base, light, dark):
-    """Recolors a filled shape: lit from the top left, shadowed on the bottom right."""
-    a = np.array(img)
-    m = a[:, :, 3] > 0
-    out = np.zeros_like(a)
-    out[m] = C[base]
-    dk = m & (~_shift(m, 1, 1) | ~_shift(m, 0, 2) | ~_shift(m, 1, 2))
-    out[dk] = C[dark]
-    hl = m & (~_shift(m, -1, -1) | ~_shift(m, 0, -1)) & ~dk
-    out[hl] = C[light]
-    return Image.fromarray(out)
+def shade(img, name, by_colour=()):
+    """Ramp-shades a filled shape from the master palette (shade2d: lit from the top left,
+    a hard terminator, the core shadow, a rim light on the far edge). `by_colour` names
+    other materials whose fill colour marks parts of the shape (the ring's bands)."""
+    labels = None
+    if by_colour:
+        a = np.array(img)
+        labels = np.zeros(a.shape[:2], np.int16)
+        for other in by_colour:
+            labels[np.all(a[:, :, :3] == C[other][:3], axis=2) & (a[:, :, 3] > 0)] = M.id[other]
+    return M.shade(img, name, labels=labels)
 
 
-def outline(img, color="outline"):
+def outline(img):
+    """A 1 px line round the shape in its material's own ink."""
+    return M.outline(img)
+
+
+def masked(img, keep_mask):
+    """The part of a layer inside keep_mask, its material tags kept."""
     a = np.array(img)
-    m = a[:, :, 3] > 0
-    ring = (_shift(m, 1, 0) | _shift(m, -1, 0) | _shift(m, 0, 1) | _shift(m, 0, -1)) & ~m
-    a[ring] = C[color]
-    return Image.fromarray(a)
+    a[~keep_mask] = 0
+    out = Image.fromarray(a)
+    shade2d.keep(out, img)
+    if "ring" in out.info:
+        out.info["ring"] &= keep_mask
+    return out
 
 
 def clip_to(detail, shape):
@@ -393,7 +402,11 @@ class Painter:
             u = -1.0 + 2.0 * k / n
             pts = [self.P(self.f.surface(u, a)) for a in range(0, 360, 20)]
             d.polygon(pts, fill=C["body"])
-        img = shade(img, "body", "body_l", "body_d")
+        img = shade(img, "body")
+        belly = layer()  # a step lighter wherever it falls
+        bd = ImageDraw.Draw(belly)
+        scales = layer()  # a step darker wherever they fall
+        sd = ImageDraw.Draw(scales)
         det = layer()
         dd = ImageDraw.Draw(det)
         # pale belly
@@ -402,7 +415,7 @@ class Painter:
             for a in (150, 180, 210):
                 if self.facing(self.f.normal(u, a)) > -0.2:
                     q = self.P(self.f.surface(u, a, out=-0.6))
-                    dd.point((round(q[0]), round(q[1])), fill=C["belly"])
+                    bd.point((round(q[0]), round(q[1])), fill=C["groove"])
         # scale chevrons along the flank facing us
         for side in (90, -90):
             if self.facing(self.f.normal(0.0, side)) < 0.15:
@@ -412,11 +425,11 @@ class Painter:
                     tip = self.P(self.f.surface(u, a0 + (8 if side > 0 else -8)))
                     a = self.P(self.f.surface(u + 0.07, a0 - 12))
                     b = self.P(self.f.surface(u + 0.07, a0 + 28))
-                    dd.line([a, tip, b], fill=C["scale"])
+                    sd.line([a, tip, b], fill=C["groove"])
             # gill line, just behind the head
             g0 = self.P(self.f.surface(0.62 - self.p.gill * 0.05, side - 50))
             g1 = self.P(self.f.surface(0.58 - self.p.gill * 0.05, side + 35))
-            dd.line([g0, g1], fill=C["outline"])
+            dd.line([g0, g1], fill=C["seam"])
             if self.p.gill > 0.3:
                 dd.line([(g0[0] - 1, g0[1]), (g1[0] - 1, g1[1])], fill=C["red_d"])
         # the line tangled round his body (front half of each loop)
@@ -433,6 +446,8 @@ class Painter:
                     pts = []
             if len(pts) > 1:
                 dd.line(pts, fill=C["line"])
+        M.groove(img, belly, 1)
+        M.groove(img, scales, -1)
         img.alpha_composite(clip_to(det, img))
         img = outline(img)
         self._face(img)
@@ -440,7 +455,7 @@ class Painter:
 
     def _face(self, img):
         dd = ImageDraw.Draw(img)
-        o = C["outline"]
+        o = C["ink"]
         f = self.p.face
         for side in (78, -78):
             # head-on, his bulging eyes still show at the sides of his head
@@ -482,21 +497,21 @@ class Painter:
             base = v_add(c, v_mul(side, s * 1.2))
             mid = v_add(base, v_add(v_mul(t, 5.0), v_add(v_mul(upv, 1.5), v_mul(side, s * 2.0))))
             tip = v_add(mid, v_add(v_mul(t, 5.0), v_add(v_mul(upv, -1.0 + s * 1.5), v_mul(side, s * 2.0))))
-            d.line([self.P(base), self.P(mid), self.P(tip)], fill=C["outline"], width=1)
+            d.line([self.P(base), self.P(mid), self.P(tip)], fill=C["ink"], width=1)
         return img
 
     # -- fins
-    def _fin_poly(self, pts3, base="fin", light="fin_l", dark="fin_d"):
+    def _fin_poly(self, pts3, base="fin"):
         img = layer()
         ImageDraw.Draw(img).polygon([self.P(q) for q in pts3], fill=C[base])
-        img = shade(img, base, light, dark)
+        img = shade(img, base)
         det = layer()
         dd = ImageDraw.Draw(det)
-        # rays: lines from the base toward the edge
+        # rays: lines from the base toward the edge, a step darker
         n = len(pts3)
         for k in range(1, n - 1):
-            dd.line([self.P(pts3[0]), self.P(pts3[k])], fill=C[dark])
-        img.alpha_composite(clip_to(det, img))
+            dd.line([self.P(pts3[0]), self.P(pts3[k])], fill=C["groove"])
+        M.groove(img, det)
         return outline(img)
 
     def tail(self):
@@ -582,19 +597,8 @@ class Painter:
             if not _mask(h).any():
                 out.append(None)
                 continue
-            # shade each colour band separately, keeping its colour
-            a = np.array(h)
-            res = np.zeros_like(a)
-            for base, li, dk in (("white", "white_l", "white_d"), ("red", "red_l", "red_d"),
-                                 ("strap", "rod_l", "rod_d")):
-                m = np.all(a[:, :, :3] == C[base][:3], axis=2) & (a[:, :, 3] > 0)
-                if not m.any():
-                    continue
-                sub = np.zeros_like(a)
-                sub[m] = C[base]
-                sh = np.array(shade(Image.fromarray(sub), base, li, dk))
-                res[m] = sh[m]
-            out.append(outline(Image.fromarray(res)))
+            # light the half as one round band, each colour band from its own ramp
+            out.append(outline(shade(h, "white", by_colour=("red", "strap"))))
         return out, cd
 
     # -- rod and line
@@ -606,29 +610,19 @@ class Painter:
         capsule(d, pb, pt, 1.6, 0.8, "rod")
         h1 = v_add(butt, v_mul(dvec, 8.0))
         capsule(d, pb, self.P(h1), 2.1, 1.8, "handle")
-        img = shade(img, "rod", "rod_l", "rod_d")
-        # recolour the handle end
-        a = np.array(img)
-        hm = layer()
-        capsule(ImageDraw.Draw(hm), pb, self.P(h1), 2.1, 1.8, "handle")
-        hm = shade(hm, "handle", "handle_l", "handle_d")
-        hma = np.array(hm)
-        m = hma[:, :, 3] > 0
-        a[m] = hma[m]
-        img = Image.fromarray(a)
+        img = shade(img, "rod", by_colour=("handle",))  # the handle end from its own ramp
         dd = ImageDraw.Draw(img)
         # line guides: small white loops along the rod
         for k in (0.45, 0.6, 0.75, 0.9):
             q = self.P(v_add(butt, v_mul(dvec, 36.0 * k)))
-            dd.point((round(q[0]), round(q[1]) - 1), fill=C["white"])
+            dd.point((round(q[0]), round(q[1]) - 1), fill=C["guide"])
         img = outline(img)
         # the reel: a grey disc beside the handle
         r = self.P(v_add(v_add(butt, v_mul(dvec, 9.5)), (0.0, 2.2, 0.0)))
         reel = layer()
         disc(ImageDraw.Draw(reel), r, 2.6, "reel")
-        reel = outline(shade(reel, "reel", "reel_l", "reel_d"))
-        img.alpha_composite(reel)
-        return img, self.D(v_lerp(butt, tip, 0.5))
+        reel = outline(shade(reel, "reel"))
+        return M.stack([img, reel]), self.D(v_lerp(butt, tip, 0.5))
 
     def line(self):
         """The fishing line from his mouth to the rod's tip, hanging slack."""
@@ -696,45 +690,34 @@ class Painter:
             # all of him and its near half crosses his flank; the end of him nearer the
             # camera (the head facing down-side, the tail facing up-side) goes over it.
             front = self._part_mask(RING_U, 1.0)
-            a = np.array(body)
-            head = a.copy()
-            head[~front] = 0
-            rest = a.copy()
-            rest[front] = 0
             head_d = self.D(self.f.frame(0.6)[0])
             tail_d = self.D(self.f.frame(-0.4)[0])
+            head, rest = masked(body, front), masked(body, ~front)
             near, far = (head, rest) if head_d >= tail_d else (rest, head)
             if rings[0] is not None:
                 parts.append((body_d - 0.05, 3, rings[0]))
-            parts.append((body_d, 4, Image.fromarray(far)))
+            parts.append((body_d, 4, far))
             if rings[1] is not None:
                 parts.append((body_d + 0.05, 6, rings[1]))
-            parts.append((body_d + 0.07, 6, Image.fromarray(near)))
+            parts.append((body_d + 0.07, 6, near))
             body_d = max(head_d, body_d)  # the barbels come off the snout
         else:
             # Seen head-on or from behind, he passes through the ring: the end of him
             # nearer the camera goes over it, the far end under it, so he is always in it.
             whole = [r for r in rings if r is not None]
-            ring_img = layer()
-            for r in whole:
-                ring_img.alpha_composite(r)
+            ring_img = M.stack(whole) if whole else layer()
             front = self._part_mask(RING_U, 1.0)
-            a = np.array(body)
-            head = a.copy()
-            head[~front] = 0
-            rest = a.copy()
-            rest[front] = 0
             head_d = self.D(self.f.frame(0.6)[0])
             tail_d = self.D(self.f.frame(-0.4)[0])
-            parts.append((tail_d, 4, Image.fromarray(rest)))
+            head, rest = masked(body, front), masked(body, ~front)
+            parts.append((tail_d, 4, rest))
             parts.append((ring_d, 6, ring_img))
-            parts.append((head_d, 4, Image.fromarray(head)))
+            parts.append((head_d, 4, head))
             body_d = head_d  # the barbels come off the snout
         parts.append((body_d + 0.1, 7, self.barbels()))
-        img = layer()
-        for _d, _o, lay in sorted(parts, key=lambda t: (t[0], t[1])):
-            img.alpha_composite(lay)
-        return img
+        # back to front; an outline that lands on a piece behind becomes its seam
+        layers = [lay for _d, _o, lay in sorted(parts, key=lambda t: (t[0], t[1]))]
+        return M.stack(layers)
 
 
 # ------------------------------------------------------------------ animations

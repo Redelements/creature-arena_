@@ -22,10 +22,10 @@ with the same cameras. A point is (lat, up, fwd): lat toward his right side, up 
 floor, fwd the way he faces. Every piece is sampled densely as 3D points (lobes as
 ellipsoids, the stem as a tube, blades as flat plates) and splatted into a depth buffer,
 so a brain made of overlapping lobes gets the right overlaps from any angle. Then, per
-pixel: three-tone shading from the surface normal (lit from the top left), a dark
-outline round the silhouette and along every seam between pieces (the lines between the
-lobes), decals in the brain's own coordinates (sunglasses, wrinkles), and the psychic
-glow.
+pixel: splat3d's ramp shading on master-palette ramps (tools/palette.py; lit from the
+top left, with a rim light), the wrinkles and sunglasses in the brain's own coordinates,
+splat3d's outline round the silhouette (plum round the brain, black round the tools) and
+along every seam between pieces (the lines between the lobes), and the psychic glow.
 
 The tools are posed in character space, not on the brain, so they drift on their own
 as he bobs. A tool that's been thrown is simply missing from the frame; the game draws
@@ -41,6 +41,10 @@ import sys
 import numpy as np
 from PIL import Image, ImageDraw
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import palette as PAL  # noqa: E402  (P is the pose constructor below)
+import splat3d as S  # noqa: E402  (the shading and outline pass, and the animation tools)
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 OUT = os.path.join(ROOT, "assets", "sprites", "cerebro.png")
 PREVIEW = os.path.join(ROOT, "docs", "cerebro_preview.png")
@@ -55,20 +59,30 @@ VIEWS = {
     "up_side": {"w": 128, "h": 128, "origin": (64, 76)},
 }
 
-# Palette, sampled from the character sheet. Each material: (base, light, dark).
+# Palette: master-palette ramps (tools/palette.py) picked for the character sheet's
+# colours. The brain is the salmon ramp (the peach line), capped at its light step: a matte
+# brain of a dozen lobes salts itself with near-white specks if every lobe gets the
+# highlight. The tools keep the sheet's look (steel blades, black handles, a navy
+# spatula, a rust mallet), each outlined in black.
+BRAIN = PAL.ramp("salmon")[:4] + [PAL.ramp("salmon")[3]]
 MAT = {
-    "brain": ((248, 134, 134), (255, 178, 170), (214, 96, 106)),
-    "stem": ((246, 138, 132), (255, 176, 166), (210, 98, 102)),
-    "blade": ((195, 195, 198), (238, 238, 244), (140, 142, 152)),
-    "handle": ((24, 22, 24), (70, 66, 72), (8, 8, 10)),
-    "spatula": ((36, 42, 122), (74, 84, 176), (20, 24, 80)),
-    "mallet": ((140, 76, 72), (176, 104, 96), (100, 52, 52)),
-    "mallet_h": ((150, 92, 86), (186, 122, 110), (108, 62, 58)),
-    "glass": ((10, 10, 12), (60, 62, 72), (0, 0, 0)),
+    "brain": BRAIN,
+    "stem": BRAIN,
+    "blade": ("concrete", 1),     # cool steel: the light end of the steel line
+    "handle": "ink",
+    "spatula": "blue",
+    "mallet": "rust",
+    "mallet_h": ("rust", 1),      # the handle a step lighter than the head
+    "glass": PAL.flat("ink"),
 }
-OUTLINE = (80, 0, 18, 255)       # the sheet's dark maroon line
-OUTLINE_TOOL = (14, 12, 14, 255)  # tools are outlined in black on the sheet
+OUTLINE_TOOL = PAL.INKS["ink"] + (255,)  # tools are outlined in black on the sheet
 TOOL_MATS = {"blade", "handle", "spatula", "mallet", "mallet_h", "glass"}
+# Shading, seams and outlines are splat3d's pass on this rig's buffers: the brain's line
+# in its ramp's ink (plum, the palette's take on the sheet's maroon), every tool's black.
+S.configure(MAT, outline_mats={m: OUTLINE_TOOL for m in TOOL_MATS})
+# The lines between the lobes are the brain's drawing: every seam in the deep step, not
+# the softer dark step splat3d gives touching pieces of one material.
+S.SOFT_SEAM = 0.0
 PSY = (213, 140, 255)  # his telekinesis, the game's psychic colour (fx_color)
 MAT_ID = {name: i + 1 for i, name in enumerate(MAT)}
 ID_MAT = {i: name for name, i in MAT_ID.items()}
@@ -656,27 +670,9 @@ def rasterise(pose, view):
     }
 
 
-def shade_buffers(r):
-    cam = r["cam"]
-    mat = r["mat"]
-    filled = mat > 0
-    img = np.zeros((H, W, 4), np.uint8)
-    sd = cam.screen_dir(r["nrm"].reshape(-1, 3)).reshape(H, W, 3)
-    light = np.array([-0.55, -0.7, 0.45])
-    light /= np.linalg.norm(light)
-    lum = sd @ light
-    for name, mid in MAT_ID.items():
-        m = filled & (mat == mid)
-        if not m.any():
-            continue
-        base, li, dk = MAT[name]
-        col = np.zeros((H, W, 3), np.uint8)
-        col[:] = base
-        col[lum > 0.5] = li
-        col[lum < -0.12] = dk
-        img[m, :3] = col[m]
-        img[m, 3] = 255
-    return img
+GLASS_RIM = PAL.LINES["neutral"][0] + (255,)   # the sunglasses: frames,
+GLASS_LENS = PAL.LINES["neutral"][1] + (255,)  # lenses a step up,
+GLINT = PAL.nearest((120, 128, 150)) + (255,)   # and the shine across them
 
 
 def decals(r, img):
@@ -707,25 +703,25 @@ def decals(r, img):
                 front = brain & (h > -5.0)
                 lens = front & (rr < LENS_R ** 2) & (v < 0.8)
                 rim = front & (rr < (LENS_R + 0.9) ** 2) & (v < 1.6) & ~lens
-            img[rim] = (0, 0, 0, 255)
-            img[lens] = (12, 12, 16, 255)
+            img[rim] = GLASS_RIM
+            img[lens] = GLASS_LENS
             lens_px |= lens
             g = p.glint
             with np.errstate(invalid="ignore"):
                 shine = lens & (np.abs((u * s + v * 0.9) - (-LENS_R * 0.9 + g * LENS_R * 1.8)) < 0.7) & (v < -0.9)
-            img[shine] = (120, 128, 150, 255)
+            img[shine] = GLINT
         with np.errstate(invalid="ignore"):
             bridge = brain & (fwd > 15.0) & (np.abs(lat) < 5.5) & (np.abs(up - (LENS_C[1] - drop + 0.4)) < 0.8)
-        img[bridge] = (0, 0, 0, 255)
+        img[bridge] = GLASS_RIM
         # the arms, back along each side over the ears
         with np.errstate(invalid="ignore"):
             arm = brain & (np.abs(lat) > 12.5) & (fwd > 2.0) & (fwd < 15.0) \
                 & (np.abs(up - (LENS_C[1] - drop + 0.6 + (15.0 - fwd) * 0.15)) < 0.6)
-        img[arm] = (0, 0, 0, 255)
+        img[arm] = GLASS_RIM
     return img
 
 
-GYRI_COL = (128, 22, 44, 255)
+GYRI_COL = PAL.LINES["wine"][2] + (255,)  # the wrinkles: a wine line, darker than the seams
 
 
 def gyri(r, img):
@@ -762,45 +758,18 @@ def gyri(r, img):
 
 
 def outline(r, img):
-    a = img.copy()
-    filled = a[:, :, 3] > 0
+    """splat3d's outline (each material's ink, black round the tools, seams in the deep
+    step), except where the stem grows out of the brain: no line there."""
+    a = S.outline(r, img)
     mat = r["mat"]
-    part = r["part"]
     z = r["z"]
-    tool = np.isin(mat, [MAT_ID[m] for m in TOOL_MATS])
-    # silhouette: transparent pixels next to a filled one
-    ring = np.zeros_like(filled)
-    owner_tool = np.zeros_like(filled)
+    join = np.zeros(mat.shape, bool)
     for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-        sh = np.roll(np.roll(filled, dy, 0), dx, 1)
-        tl = np.roll(np.roll(tool, dy, 0), dx, 1)
-        ring |= sh & ~filled
-        owner_tool |= sh & tl & ~filled
-    a[ring] = OUTLINE
-    a[ring & owner_tool] = OUTLINE_TOOL
-    # seams: a filled pixel next to a different piece that is nearer (or level) gets a line
-    seam = np.zeros_like(filled)
-    seam_tool = np.zeros_like(filled)
-    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-        pz = np.roll(np.roll(z, dy, 0), dx, 1)
-        pp = np.roll(np.roll(part, dy, 0), dx, 1)
-        pf = np.roll(np.roll(filled, dy, 0), dx, 1)
-        pt = np.roll(np.roll(tool, dy, 0), dx, 1)
-        diff = filled & pf & (pp != part) & (pz > z + 0.8)
-        seam |= diff
-        seam_tool |= diff & (pt | tool)
-    # stems join the brain without a seam (they grow out of it)
-    stem_join = (mat == MAT_ID["stem"]) | (mat == MAT_ID["brain"])
-    neigh_soft = np.zeros_like(filled)
-    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-        pm = np.roll(np.roll(mat, dy, 0), dx, 1)
-        pz = np.roll(np.roll(z, dy, 0), dx, 1)
+        pm = S._shifted(mat, dx, dy, 0)
+        pz = S._shifted(z, dx, dy, -np.inf)
         with np.errstate(invalid="ignore"):
-            neigh_soft |= (mat == MAT_ID["brain"]) & (pm == MAT_ID["stem"]) & (np.abs(pz - z) < 2.5)
-    keep = seam & ~(neigh_soft & stem_join)
-    sc = np.array(OUTLINE, np.uint8)
-    a[keep] = sc
-    a[keep & seam_tool] = OUTLINE_TOOL
+            join |= (mat == MAT_ID["brain"]) & (pm == MAT_ID["stem"]) & (np.abs(pz - z) < 2.5)
+    a[join] = img[join]
     return a
 
 
@@ -814,14 +783,28 @@ def _grow(m, n=1):
     return out
 
 
+# His flush, in two palette steps instead of a blend (which would leave the palette): at
+# half push the brain's shadows turn violet and its lit side stays salmon; at full push
+# the whole brain is pink-violet, its light pale pink. Each maps the brain's colours (the
+# ramp, its seams, the wrinkles) one for one.
+_V = PAL.LINES["violet"]
+FLUSH_HALF = {BRAIN[0]: _V[3], BRAIN[1]: _V[4], BRAIN[2]: BRAIN[2], BRAIN[3]: BRAIN[3]}
+FLUSH_FULL = {BRAIN[0]: _V[2], BRAIN[1]: _V[3], BRAIN[2]: _V[4], BRAIN[3]: PAL.LINES["pink"][3],
+              GYRI_COL[:3]: _V[1]}
+
+
 def flush(r, img):
-    """His brain turns violet as he pushes with his mind."""
-    k = 0.42 * r["pose"].psy
-    if k <= 0:
+    """His brain turns violet as he pushes with his mind (after the outline, so the seams
+    between the lobes turn with it)."""
+    psy = r["pose"].psy
+    if psy < 0.5:
         return img
+    table = FLUSH_FULL if psy >= 0.85 else FLUSH_HALF
     m = (r["mat"] == MAT_ID["brain"]) | (r["mat"] == MAT_ID["stem"])
-    col = img[m, :3].astype(float)
-    img[m, :3] = (col * (1.0 - k) + np.array(PSY) * k).astype(np.uint8)
+    src = img[:, :, :3].copy()
+    for a, b in table.items():
+        hit = m & np.all(src == np.array(a, np.uint8), axis=2)
+        img[hit, :3] = b
     return img
 
 
@@ -907,11 +890,11 @@ def flash_burst(r, img):
 def render(pose, view):
     global W, H
     r = rasterise(pose, view)
-    img = shade_buffers(r)
+    img = S.shade(r)
     img = gyri(r, img)
     img = decals(r, img)
-    img = flush(r, img)
     img = outline(r, img)
+    img = flush(r, img)
     img = glow(r, img)
     img = smears(r, img)
     img = flash_burst(r, img)
@@ -1049,9 +1032,6 @@ def preview(sh, rows, fw, fh, origin, scale, path):
 # on its own lag, so the kit never moves as one block. Hurt, guard and the knockout are as
 # they were. `python3 tools/gen_cerebro.py anim` renders the previews against the sheets
 # before the pass (OLD_REF).
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import splat3d as S  # noqa: E402  (only its animation tools: tween, ease, EASE_8, lag)
 
 GLINT_OFF = -1.0  # a glint position off the lenses: no shine on that frame
 # How many frames late each tool follows the brain (the mallet is the heaviest).
@@ -1467,7 +1447,7 @@ VIEW_ROWS = ROWS[:-1]
 # `python3 tools/gen_cerebro.py anim` renders preview GIFs into docs/anim_preview/, and
 # `python3 tools/anim_preview.py --check cerebro` checks the JSON's timelines against ROWS.
 # In-betweens and overlap come from splat3d (tween, cycle, lag, lag_at), which only touch
-# pose attributes; this generator's renderer is its own.
+# pose attributes; this generator's rasteriser is its own (its shading is splat3d's).
 ANIM_CYCLES = {"idle": 64, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks)
 OLD_REF = os.environ.get("CEREBRO_OLD_REF", "25d385d")  # main before the pass: the "current" frames
 
