@@ -4978,6 +4978,10 @@ func results_data() -> Dictionary:
 	var best := -1
 	var best_score := -1.0
 	var win_team := winner.team if winner != null else -1
+	if win_team < 0 and team_battle != null and team_battle.winner in [0, 1]:
+		win_team = team_battle.winner  # a flag or time win: nobody "stands over" every foe
+	elif win_team < 0 and duel != null and duel.winner in [0, 1]:
+		win_team = duel.winner
 	for c in sim.creatures:
 		if c.is_dummy:
 			continue
@@ -4992,11 +4996,26 @@ func results_data() -> Dictionary:
 		if (win_team < 0 or c.team == win_team) and sc > best_score:
 			best_score = sc
 			best = c.id
+	# The pose: in a team battle the winning side's MVP; else whoever stands; else the first
+	# of the winning side. (No pose when nobody won.)
+	var pose: CreatureSim = winner
+	if team_battle != null and win_team >= 0:
+		pose = null
+		for c in sim.creatures:
+			if c.id == best:
+				pose = c
+		if pose == null:
+			winner = null
+	if pose == null and win_team >= 0:
+		for c in sim.creatures:
+			if c.team == win_team and not c.is_dummy:
+				pose = c
+				break
 	var title := hud.banner if hud.banner != "" else "MATCH OVER"
-	var col: Color = Hud.SIDE_COLORS[winner.team] if winner != null and winner.team in [0, 1] else UiTheme.C_ACCENT
+	var col: Color = Hud.SIDE_COLORS[win_team] if win_team in [0, 1] else UiTheme.C_ACCENT
 	return {
 		"title": title, "sub": hud.banner_sub, "color": col,
-		"fighter": String(winner.def.get("id", "")) if winner != null else "",
+		"fighter": String(pose.def.get("id", "")) if pose != null else "",
 		"mvp": best if team_battle != null and best_score > 0.0 else -1,
 		"extra": ["CAP", "RET", "STOP"] if ctf else [],
 		"rows": rows,

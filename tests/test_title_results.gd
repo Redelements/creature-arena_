@@ -185,6 +185,12 @@ func test_results_name_an_mvp_in_a_team_mode() -> void:
 	var d: Dictionary = g.results_data()
 	assert_true(d["rows"].size() >= 4, "every fighter:")
 	assert_true(int(d["mvp"]) >= 0, "an MVP:")
+	# a win by flag or clock leaves nobody standing over every foe: the pose is the winning
+	# side's MVP all the same
+	g.team_battle.winner = g.sim.creatures[1].team
+	d = g.results_data()
+	assert_eq(int(d["mvp"]), 1, "the winning side's best:")
+	assert_eq(String(d["fighter"]), String(g.sim.creatures[1].def.get("id", "")), "and they take the pose:")
 	g.free()
 
 
