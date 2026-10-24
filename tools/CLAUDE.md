@@ -31,6 +31,9 @@ up-right, `<id>_down_side.png`, `<id>_up_side.png`) are optional extra sheets: a
 rig adds them to its `VIEWS` and the JSON's `"views"` (Pete has them), and `Cam` projects
 them; `write_sheets`, `inspect` and the `anim` previews draw every view in `VIEWS`. A
 `build(pose, view)` branch on the view name (Pete's `_dollar`) needs a case for them.
+Cerebro and Hissy have them too, through their own copies of `Cam` (the two diagonal
+branches ported from splat3d; their `main`/`inspect` loop over `S.view_names(VIEWS)`);
+Hissy's `CHEAT` dict turns her head per view (`side`, `down_side`).
 
 ## Animation tools (the roster animation pass)
 
