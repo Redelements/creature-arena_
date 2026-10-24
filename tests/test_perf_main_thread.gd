@@ -146,3 +146,23 @@ func test_sunk_floor_is_drawn_over_the_arena_art() -> void:
 			break
 	assert_true(found, "twin_keeps has a chasm")
 	av.free()
+
+
+func test_a_smaller_map_after_a_big_one_never_draws_the_old_bands() -> void:
+	# Capture the Flag on Twin Keeps, then the menu's stadium: the old bands were only
+	# queue_free'd, so they drew once more that frame with Twin Keeps' rows over the
+	# stadium's smaller grid (index out of bounds in _paint_pit_band).
+	var av := ArenaView.new()
+	_root().add_child(av)
+	var keeps := MatchSim.new()
+	keeps.set_arena("twin_keeps")
+	av.arena_id = "twin_keeps"
+	av.set_terrain(keeps.terrain)
+	var sim := MatchFactory.versus("cairn", "culvert")
+	assert_true(sim.terrain.rows < keeps.terrain.rows, "the stadium is the smaller map")
+	av.arena_id = "stadium"
+	av.set_terrain(sim.terrain)
+	for b in av.get_children():
+		if b is ArenaView.Band:
+			assert_true(b.row1 <= sim.terrain.rows, "every band in the tree fits the new map:")
+	av.free()
