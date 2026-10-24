@@ -19,24 +19,27 @@
   "fx_top": 28,
   "fx_color": "#c98a4b",
   "surge_aura": {"colors": ["#3e2412", "#c08040", "#ffe9a8"], "motes": "clods", "spikes": 6, "sharp": 0.8, "speed": 1.0, "height": 0.85},
-  "cut_in_frame": [8, 2],
+  "cut_in_frame": [8, 3],
   "ko_fx": { "style": "dirt" },
   "sprite": {
     "path": "res://assets/sprites/digby.png",
     "frame": 128,
-    "cols": 8,
+    "cols": 12,
     "origin": [64, 100],
+    "idle_ticks": 8,
+    "run_ticks": 2,
+    "step_frames": [0, 2],
     "anims": {
-      "idle": [0, 0, 4],
-      "run": [1, 0, 6],
-      "swipe": [2, 0, 4],
-      "swipe2": [3, 0, 4],
-      "pick": [4, 0, 5],
-      "popup": [5, 0, 6],
-      "flash": [6, 0, 4],
-      "burrow": [7, 0, 6],
-      "cavein": [8, 0, 6],
-      "dodge": [9, 0, 4],
+      "idle": [0, 0, 8],
+      "run": [1, 0, 12],
+      "swipe": [2, 0, 8],
+      "swipe2": [3, 0, 8],
+      "pick": [4, 0, 8],
+      "popup": [5, 0, 12],
+      "flash": [6, 0, 8],
+      "burrow": [7, 0, 12],
+      "cavein": [8, 0, 12],
+      "dodge": [9, 0, 8],
       "hurt": [10, 0, 2],
       "guard": [11, 0, 2],
       "ko": [12, 0, 4]
@@ -65,8 +68,9 @@
   },
   "moves": {
     "tag_in": {
-      "name": "Pop Goes the Mole", "type": "skill", "anim": "popup", "anim_from": 3,
+      "name": "Pop Goes the Mole", "type": "skill", "anim": "popup",
       "startup": 8, "active": 4, "recovery": 16,
+      "anim_at": [[0, 6], [5, 7], [8, 8], [14, 9], [19, 10], [24, 11]],
       "damage": 6, "knockback": 1.6, "hitstun": 24, "hitstop": 7, "launch": 24,
       "reach": 12, "hit_radius": 16, "juggle": true,
       "fx": { "impact": "popup" }
@@ -75,6 +79,7 @@
       "no_flinch": true,
       "name": "Claw Swipe", "anim": "swipe",
       "startup": 4, "active": 2, "recovery": 8, "cancel_from": 6,
+      "anim_at": [[0, 0], [2, 1], [4, 2], [5, 3], [8, 4], [10, 5], [12, 6], [13, 7]],
       "damage": 6, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
       "reach": 25, "hit_radius": 10, "lunge": 1.1, "next": "light_2", "juggle": true,
       "fx": { "smear": "arc" }
@@ -83,6 +88,7 @@
       "no_flinch": true,
       "name": "Claw Swipe (back claw)", "anim": "swipe2",
       "startup": 4, "active": 2, "recovery": 9, "cancel_from": 7,
+      "anim_at": [[0, 0], [2, 1], [4, 2], [5, 3], [8, 4], [10, 5], [12, 6], [14, 7]],
       "damage": 6, "knockback": 0.9, "hitstun": 17, "hitstop": 4,
       "reach": 25, "hit_radius": 10, "lunge": 0.9, "next": "light_3", "juggle": true,
       "fx": { "smear": "arc" }
@@ -92,7 +98,7 @@
       "startup": 5, "active": 3, "recovery": 14,
       "damage": 8, "knockback": 1.6, "hitstun": 24, "hitstop": 6,
       "reach": 30, "hit_radius": 12, "lunge": 0.6, "next": "", "juggle": true,
-      "anim_at": [[0, 0], [3, 1], [5, 2], [9, 3], [14, 4]],
+      "anim_at": [[0, 0], [2, 1], [5, 2], [6, 3], [9, 4], [12, 5], [15, 6], [18, 7]],
       "fx": { "smear": "arc", "size": 1.3 }
     },
     "heavy": {
@@ -103,7 +109,8 @@
       "hitstun": 22, "hitstop": 7, "hitstop_charged": 11,
       "launch": 34, "launch_charged": 42,
       "reach": 40, "hit_radius": 24, "hit_radius_charged": 30, "juggle": true,
-      "anim_at": [[0, 0], [6, 1], [10, 2], [15, 3], [20, 4], [30, 5]],
+      "anim_charge": [0, 4, 4],
+      "anim_at": [[0, 4], [4, 5], [8, 6], [11, 7], [13, 8], [19, 9], [23, 10], [28, 11]],
       "fx": { "charge": "dirt", "telegraph": true, "impact": "popup" }
     },
     "skill_1": {
@@ -112,7 +119,7 @@
       "damage": 2, "knockback": 0.3, "hitstun": 20, "hitstop": 4, "juggle": true,
       "blind_ticks": 240,
       "reach": 26, "hit_radius": 24,
-      "anim_at": [[0, 0], [6, 1], [9, 2], [20, 3]],
+      "anim_at": [[0, 0], [2, 1], [5, 2], [6, 3], [11, 4], [15, 5], [19, 6], [23, 7]],
       "fx": { "flash": true }
     },
     "skill_2": {
@@ -123,7 +130,7 @@
       "reach": 0, "hit_radius": 30, "juggle": true,
       "leap": { "from": 6, "to": 44 },
       "dash": { "speed": 3.5, "from": 6, "to": 44, "steer": 0.32 },
-      "anim_at": [[0, 0], [3, 1], [6, 2], [12, 3], [18, 2], [24, 3], [30, 2], [36, 3], [42, 2], [45, 4], [52, 5]],
+      "anim_at": [[0, 0], [3, 1], [6, 2], [9, 3], [12, 4], [15, 5], [18, 2], [21, 3], [24, 4], [27, 5], [30, 2], [33, 3], [36, 4], [39, 5], [42, 6], [44, 7], [46, 8], [51, 9], [55, 10], [60, 11]],
       "fx": { "burrow": true, "impact": "popup" }
     },
     "surge": {
@@ -131,7 +138,7 @@
       "startup": 18, "active": 4, "recovery": 28,
       "damage": 14, "knockback": 0.6, "hitstun": 40, "hitstop": 14, "root_ticks": 150, "terrain_crack": 60,
       "reach": 40, "hit_radius": 65, "juggle": true,
-      "anim_at": [[0, 0], [8, 1], [18, 2], [25, 3], [32, 4], [44, 5]],
+      "anim_at": [[0, 0], [4, 1], [8, 2], [14, 3], [18, 4], [19, 5], [24, 6], [27, 7], [31, 8], [36, 9], [41, 10], [46, 11]],
       "fx": { "shout": { "text": "I DIG IT!", "sound": "dig_it" }, "telegraph": true, "impact": "cavein" }
     }
   }
