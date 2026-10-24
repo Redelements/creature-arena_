@@ -227,7 +227,8 @@ snapped back upright; now the turn completes.
 
 ## Hurt, guard, knockout
 
-Unchanged (Kevin: not abilities): the same poses. The only difference on the new sheet is
+Unchanged in the pass (Kevin: not abilities); redrawn later in the reactions batch (see
+"Reactions" at the end). At the time the only difference on the new sheet was
 the fleck pattern on the dome (`stick`).
 
 ---
@@ -263,3 +264,52 @@ The poses are 3D, so the down and up sheets get the same motion. What I checked:
 2. **The Surge's slam:** synced to the hit (slam at tick 12, the floor at 13).
 3. **The heavy's charge loop:** 3 ticks a frame (`anim_charge` `[0, 4, 3]`).
 4. **The dodge:** the full cartwheel.
+
+## Reactions (Oct 24 2026): hurt 2 → 4, guard 2 → 4, knockout 4 → 8
+
+Kevin asked for the reactions after the pass. Snow and ice: the cone squashes 5% at most
+(`sq`), so the gloves on their sticks, the drip and the ice shards carry the overlap.
+
+**How the game plays these** (`src/view/creature_view.gd`, `_pick`, unchanged: no
+`anim_at`, the clock comes from the sim's stun states):
+
+| State | Frame shown | So the row needs |
+| --- | --- | --- |
+| hitstun | `hurt` `state_t / 4`, looping (a 24-tick hitstun plays 0 1 2 3 0 1) | 4 frames that loop: frame 3 leads back into 0 |
+| hitstop | `hurt` 0 held (`state_t` doesn't move) | frame 0 is the sharp recoil |
+| crumple, airborne (second half) | `hurt` 1 | frame 1 the deepest point, no flying bits |
+| airborne (first half), falling, getting up | `hurt` 0 | |
+| guard | `guard` 0, or 1 for the 10 ticks of `guard_hit` after a block | 0 the hold, 1 the blow; 2 and 3 aren't shown yet (open question) |
+| knockout | `ko` `state_t / 6`, the last held; frame 0 trembles through the KO freeze | 8 frames = 48 ticks |
+| knockdown | `ko` 1 for 5 ticks, then `ko` 2 held, `hurt` 0 for the last 8 ticks of stun | frame 1 falling, frame 2 a lying pose that holds |
+
+No frame data or stun number changed; only the row table in the JSON (`hurt` 4, `guard` 4,
+`ko` 8; the sheets stay 12 columns).
+
+**Hurt** (`hurt()`): 0 the recoil: the cone snapped back 20 degrees and stretched (`sq`
+-0.7), tipped 5 sideways so it reads facing the camera, the gloves still out front where
+they were, the drip swung forward (`drip_sw`); 1 the deepest point and the crumple (and the
+frozen statue, tinted blue by the view): back 28, rolled 12, squashed 5%, the gloves flung
+up; 2 the cone coming back while the gloves trail behind and chips of ice fly off the dome
+(`shards` 0.35); 3 the settle, the chips further out. The chips sit on 2 and 3 only:
+frames 0 and 1 also stand in for airborne, falling, getting up and the statue, where
+hanging chips would look wrong.
+
+**Guard** (`guard()`): 0 the hold, knees bent, the cone a little squashed; 1 the blow: the
+gloves knocked back into his face, the cone squashed 5% and sunk, the drip swung forward;
+2 the rebound, the gloves back out, a touch of stretch; 3 the settle.
+
+**Knockout** (`ko()`): 0 the blow stretches him up and back, gloves flung high, chips off
+the dome; 1 toppling back 55 degrees, the gloves trailing, a first puddle; 2 he lands
+squashed, already slumping into the puddle (the knockdown holds this, as it held the old
+half-melted frame 2); 3 a bounce that flings a drop of syrup (`blob`); 4 down, sinking;
+5-6 melting into the spreading puddle, the gloves settling where the last frame has them;
+7 the old final frame. The melt effect fires on tick 8 (frame 1).
+
+**Diagonal reach:** `near` 10 on the diagonals (14 elsewhere); the jab, the cross, the
+headbutt and the slide reach a pixel or two further down the screen. No pose cheat needed.
+
+**Victory, idle_alt:** looked at; nothing clearly wrong, left alone.
+
+Previews: `sno_reactions_3x.gif` (as the game times them, before above new, all five
+views). The other GIFs were re-rendered by `python3 tools/gen_sno.py anim`.
