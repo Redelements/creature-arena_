@@ -267,3 +267,51 @@ func test_rage_digby_juggles_after_a_landed_pop_up() -> void:
 			break
 	assert_true(popped >= 0, "the pop-up landed on the standing Chef")
 	assert_true(followed, "and a light followed it while he was still in the air")
+
+
+## The scored kit's considerations (piece 2 of docs/plans/ai-utility-and-teamplay.md):
+## each 0 to 1, at its ends and in between.
+func test_scored_kit_factors() -> void:
+	assert_eq(CpuController.f_band(50.0, 40.0, 60.0, 20.0), 1.0, "inside the band:")
+	assert_eq(CpuController.f_band(70.0, 40.0, 60.0, 20.0), 0.5, "half the fall past it:")
+	assert_eq(CpuController.f_band(100.0, 40.0, 60.0, 20.0), 0.0, "far past it:")
+	var sim := MatchFactory.versus("crease", "pete")
+	var me := sim.creatures[0]
+	var foe := sim.creatures[1]
+	var to_foe := foe.pos - me.pos
+	foe.walk_vel = Vector2.ZERO
+	assert_eq(CpuController.f_closing(foe, to_foe), 0.0, "standing still isn't closing:")
+	foe.walk_vel = -to_foe.normalized() * 2.0
+	assert_eq(CpuController.f_closing(foe, to_foe), 1.0, "walking straight in:")
+	foe.walk_vel = to_foe.normalized() * 2.0
+	assert_eq(CpuController.f_closing(foe, to_foe), 0.0, "walking away:")
+	foe.facing = -to_foe.normalized()
+	assert_eq(CpuController.f_facing(foe, to_foe), 1.0, "facing me:")
+	foe.facing = to_foe.normalized()
+	assert_eq(CpuController.f_facing(foe, to_foe), 0.0, "facing away:")
+	assert_eq(CpuController.f_matchup(me, foe), 0.0, "a mage loses to an assassin:")
+	assert_eq(CpuController.f_matchup(foe, me), 1.0, "an assassin beats a mage:")
+	assert_eq(CpuController.f_matchup(me, me), 0.5, "a mirror is even:")
+	assert_eq(CpuController.f_hp_edge(me, foe), 0.5, "even health:")
+	foe.hp = 0.0
+	assert_eq(CpuController.f_hp_edge(me, foe), 1.0, "all the health on my side:")
+	assert_eq(CpuController.compensate(1.0, 3), 1.0, "a full score stays full:")
+	assert_eq(CpuController.compensate(0.0, 3), 0.0, "a zero stays zero:")
+	assert_true(CpuController.compensate(0.25, 2) > 0.25, "more factors are made up for:")
+
+
+## The scored kit plays, and one seed replays the same match.
+func test_scored_kit_is_reproducible_and_fights() -> void:
+	var runs: Array = []
+	for k in 2:
+		var sim := MatchFactory.versus("crease", "hissy")
+		var cpus := [CpuController.new(0, 3, 11), CpuController.new(1, 3, 19)]
+		cpus[0].scored = true
+		var kit := 0
+		for t in 1800:
+			sim.step(PackedInt32Array([cpus[0].bits(sim), cpus[1].bits(sim)]))
+			if sim.creatures[0].state == CreatureSim.State.ATTACK and sim.creatures[0].move_id.begins_with("skill"):
+				kit += 1
+		runs.append([sim.state_hash(), kit])
+	assert_eq(runs[0][0], runs[1][0], "same seed, same match:")
+	assert_true(int(runs[0][1]) > 0, "it throws its kit")

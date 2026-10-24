@@ -6,10 +6,14 @@ extends SceneTree
 ##   --arena=ID: play on that arena map (default stadium; greenhouse and quarry test sight)
 ##   --detail: per foe, also the share of ticks at preferred spacing (a kiter: its kite band;
 ##     else ai.range ± 15%, at least ± 8 px, between body edges), ticks with stamina empty and guard breaks taken
+##   --scored: the fighter under test plays the scored kit (CpuController.scored); with
+##     --a=3 --b=3 that is scored Rage against ladder Rage
 ##   --teams=3: 3v3 Rage (or --a) through TeamSim, a tank, a mage and an assassin a side: win
 ##     rate, length, target switches a minute per CPU, spacing share (a baseline for team AI)
 
 const MAX_TICKS := 5400
+
+var _scored_a := false  ## --scored: the fighter under test (side A) uses the scored kit
 
 
 func _init() -> void:
@@ -38,6 +42,8 @@ func _init() -> void:
 			pairs = arg.get_slice("=", 1)
 		elif arg.begins_with("--arena="):
 			MatchFactory.arena = arg.get_slice("=", 1)
+		elif arg == "--scored":
+			_scored_a = true
 		elif arg.begins_with("--teams="):
 			teams = int(arg.get_slice("=", 1))
 	if teams > 0:
@@ -100,6 +106,7 @@ func _match(f: String, o: String, a_lv: int, b_lv: int, side: int, seed_: int) -
 	var cpus := [null, null]
 	cpus[me] = CpuController.new(me, a_lv, seed_ * 7 + 1)
 	cpus[1 - me] = CpuController.new(1 - me, b_lv, seed_ * 13 + 5)
+	cpus[me].scored = _scored_a
 	var dist := 0.0
 	var ticks := 0
 	var at_spacing := 0

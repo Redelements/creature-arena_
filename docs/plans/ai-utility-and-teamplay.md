@@ -6,7 +6,7 @@ branch and PR, in this order:
 | # | Piece | Branch | Status |
 |---|---|---|---|
 | 1 | Richer CPU metrics in the benches (measure first) | `ai-metrics` | done |
-| 2 | Scored kit: Rage's neutral choices by utility score, weights in creature JSON | `ai-scored-kit` | not started |
+| 2 | Scored kit: Rage's neutral choices by utility score, weights in creature JSON | `ai-scored-kit` | steps 1-3 done (scorer off by default) |
 | 3 | Team intent: shared focus target, peel/front-line roles for 2v2/3v3 | `ai-team-intent` | not started |
 
 A session that picks this up: read this file, `src/ai/CLAUDE.md`, and `git log --oneline -5`
@@ -123,14 +123,16 @@ not move: the scorer reproduces today's ladder before anyone tunes it.
 
 Steps:
 
-- [ ] Factors as small pure helpers in `cpu_controller.gd` (one function each, unit-tested in
+- [x] Factors as small pure helpers in `cpu_controller.gd` (one function each, unit-tested in
       `tests/test_ai.gd` at 0, mid and 1); `_score_candidates(sim, me, foe, to_foe, dist)`
       returns the ranked list; a `PerfLog.since("ai score", …)` probe.
-- [ ] `_rage_kit` chooses by score. A/B switch `CpuController.scored := true` (static, like
+- [x] `_rage_kit` chooses by score (A/B Oct 23, `--seeds=3` vs the field at Rage: Crease
+      39 -> 43 of 66, Hissy 36 -> 44, Barkley 22 -> 20; a per-controller `scored` instead of a CLI
+      flag, so one side can play each). Original step: A/B switch `CpuController.scored := true` (static, like
       `threaded`) and a `--cpu-scored=off` flag, so `bench_cpu.gd` can play the two against
       each other and `test_cpu_pathing.gd`-style equality tests can pin the default weights to
       the old ladder's choices on a seed.
-- [ ] `STYLES[*].weights` and `ai.weights`; documented in `src/ai/CLAUDE.md` and
+- [x] `STYLES[*].weights` and `ai.weights`; documented in `src/ai/CLAUDE.md` and
       `docs/MECHANICS.md`.
 - [ ] Movement candidates (`kite` / `chase` / `lurk` / `hold`) join the scorer; the `match
       plan` at the end of `_rage_neutral_now` becomes the fallback when no candidate scores.

@@ -118,6 +118,7 @@ var _cover := Vector2.INF  ## brush to lurk in (assassin), or INF when the arena
 var _cover_t := 0  ## ticks until the cover spot is looked for again
 var _step_dir := Vector2.ZERO
 var _kit_t := 0
+var scored: bool = scored_default
 var _dance_t := 0
 var _blocked_serial := -1  ## the attack of ours that was last blocked
 var _blocked_streak := 0  ## attacks of ours blocked in a row (a hit resets it)
@@ -174,6 +175,9 @@ static func think_wait(task: int) -> void:
 
 ## Whether think_all uses the worker threads (--cpu-threads=off turns it off, to compare).
 static var threaded := true
+## The scored kit (`_rage_kit_scored`) for new controllers; off while it's A/B tested
+## against the ladder (`tests/bench_cpu.gd --scored`). Each controller's `scored` can differ.
+static var scored_default := false
 ## The input chosen by the last bits() call.
 var last_bits := 0
 
@@ -1609,6 +1613,11 @@ func _rage_kit(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2
 	if _kit_t > 0:
 		return false
 	_kit_t = 4
+	if scored:
+		var t0 := PerfLog.now()
+		var fired := _rage_kit_scored(sim, me, foe, to_foe, dist, plan)
+		PerfLog.since("ai score", t0)
+		return fired
 	var ai := _ai(me)
 	var busy := _recovery_left(foe) >= 6 or foe.is_stunned() or foe.state == CreatureSim.State.GUARD
 	# Surges: an area one with the foe close and stuck, a line one with the foe in range.
@@ -1625,16 +1634,7 @@ func _rage_kit(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2
 	var lob := String(ai.get("lob", ""))
 	var lr: Array = ai.get("lob_range", [0, 0])
 	if lob != "" and _usable(me, lob) and dist >= float(lr[0]) and dist <= float(lr[1]) and _roll(0.35):
-		var target := _aim_point(me, foe)
-		var lmv: Dictionary = me.moves().get(lob, {})
-		var lp: Dictionary = lmv.get("projectile", {})
-		_out |= SimDefs.aim_bits(target - me.pos)
-		_press(int(ACTION_BIT[lob]))
-		if lmv.has("charge_max") and lp.has("range_charged"):
-			var far := target.distance_to(me.pos) - float(lp.get("offset", 16))
-			var k := clampf((far - float(lp["range"])) / maxf(1.0, float(lp["range_charged"]) - float(lp["range"])), 0.0, 1.0)
-			_hold_heavy = int(round(k * float(lmv["charge_max"])))
-			_hold_bit = int(ACTION_BIT[lob])
+		_fire_lob(me, foe, lob)
 		return true
 	# A gaze, when the foe is looking this way.
 	var gaze := String(ai.get("gaze", ""))
@@ -1668,6 +1668,167 @@ func _rage_kit(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2
 			_press(int(ACTION_BIT[poke]))
 			return true
 	return false
+
+
+## A lob, charged to land where the foe will be.
+func _fire_lob(me: CreatureSim, foe: CreatureSim, lob: String) -> void:
+	var target := _aim_point(me, foe)
+	var lmv: Dictionary = me.moves().get(lob, {})
+	var lp: Dictionary = lmv.get("projectile", {})
+	_out |= SimDefs.aim_bits(target - me.pos)
+	_press(int(ACTION_BIT[lob]))
+	if lmv.has("charge_max") and lp.has("range_charged"):
+		var far := target.distance_to(me.pos) - float(lp.get("offset", 16))
+		var k := clampf((far - float(lp["range"])) / maxf(1.0, float(lp["range_charged"]) - float(lp["range"])), 0.0, 1.0)
+		_hold_heavy = int(round(k * float(lmv["charge_max"])))
+		_hold_bit = int(ACTION_BIT[lob])
+
+
+# --- Scored kit (piece 2 of docs/plans/ai-utility-and-teamplay.md) ---------------------
+# The ladder above fires the first kit piece whose rule passes, with fixed rolls. The scored
+# kit looks at every piece that could fire, scores each (its weight times its considerations,
+# each 0-1) and fires the best one above SCORE_MIN. Weights are data: WEIGHTS, then the
+# style's "weights", then the creature's ai.weights.
+
+const SCORE_MIN := 0.3
+const WEIGHTS := {"surge": 1.0, "lob": 0.8, "gaze": 0.8, "zone": 0.9, "poke": 0.7}
+## The class triangle: assassin > mage > fighter/tank (and bruiser, skirmisher) > assassin.
+const BEATS := {"assassin": ["mage"], "mage": ["fighter", "tank", "bruiser", "skirmisher"],
+	"fighter": ["assassin"], "tank": ["assassin"], "bruiser": ["assassin"], "skirmisher": ["assassin"]}
+
+
+## 1 inside [lo, hi], falling to 0 over `fall` px either side.
+static func f_band(dist: float, lo: float, hi: float, fall: float) -> float:
+	if dist < lo:
+		return clampf(1.0 - (lo - dist) / maxf(1.0, fall), 0.0, 1.0)
+	if dist > hi:
+		return clampf(1.0 - (dist - hi) / maxf(1.0, fall), 0.0, 1.0)
+	return 1.0
+
+
+## How squarely `foe` walks at `me` (0 standing or walking away, 1 straight in).
+static func f_closing(foe: CreatureSim, to_foe: Vector2) -> float:
+	if foe.walk_vel.length_squared() < 0.0001 or to_foe.length_squared() < 0.0001:
+		return 0.0
+	return clampf(foe.walk_vel.normalized().dot(-to_foe.normalized()), 0.0, 1.0)
+
+
+## How squarely `foe` faces `me`, with a dead zone: 0 at 0.3 or less, 1 at 0.8 and up.
+static func f_facing(foe: CreatureSim, to_foe: Vector2) -> float:
+	if to_foe.length_squared() < 0.0001:
+		return 0.0
+	return clampf((foe.facing.dot(-to_foe.normalized()) - 0.3) / 0.5, 0.0, 1.0)
+
+
+## 1 when the foe can't answer for a while (stunned, guarding, or more than `need` frames
+## of stun or recovery left), else its share of `need`.
+static func f_busy(foe: CreatureSim, need: int) -> float:
+	if foe.is_stunned() or foe.state == CreatureSim.State.GUARD or foe.stun > need:
+		return 1.0
+	return clampf(float(_recovery_left(foe)) / maxf(1.0, float(need)), 0.0, 1.0)
+
+
+## The class triangle from `me`'s side: 1 when its class beats the foe's, 0 when it loses,
+## 0.5 even.
+static func f_matchup(me: CreatureSim, foe: CreatureSim) -> float:
+	var a := String(me.def.get("role", ""))
+	var b := String(foe.def.get("role", ""))
+	if b in BEATS.get(a, []):
+		return 1.0
+	if a in BEATS.get(b, []):
+		return 0.0
+	return 0.5
+
+
+## 0.5 even on health, toward 1 when `me` is ahead, 0 behind.
+static func f_hp_edge(me: CreatureSim, foe: CreatureSim) -> float:
+	return clampf(0.5 + 0.5 * (me.hp / me.max_hp - foe.hp / foe.max_hp), 0.0, 1.0)
+
+
+## A product of `n` considerations, made up so that having more of them doesn't sink a
+## score by count alone (the usual utility-AI compensation: s + (1 - s) * (1 - 1/n) * s).
+static func compensate(s: float, n: int) -> float:
+	if n <= 1:
+		return s
+	return s + (1.0 - s) * (1.0 - 1.0 / float(n)) * s
+
+
+func _weights(me: CreatureSim) -> Dictionary:
+	var w: Dictionary = WEIGHTS.duplicate()
+	w.merge(_style(me).get("weights", {}), true)
+	w.merge(_ai(me).get("weights", {}), true)
+	return w
+
+
+## Every kit piece that could fire now, with its score: [[name, score], ...] in a fixed
+## order (a tie goes to the earlier). The gates (ranges, cooldowns) are the ladder's; what
+## the ladder rolled for is a consideration here, and a small jitter from the controller's
+## own rng keeps a little of the old unpredictability (one seed still replays the same).
+func _score_candidates(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float, plan: String) -> Array:
+	var ai := _ai(me)
+	var w := _weights(me)
+	var out: Array = []
+	var closing := f_closing(foe, to_foe)
+	# Surge: an area one with the foe close (and stuck), a line one with the foe in range.
+	if _usable(me, "surge"):
+		var best := 0.0
+		var sr := _surge_range(me, ai)
+		if sr > 0.0 and dist < sr and not (me.moves()["surge"].has("armor") and _foe_grab_ready(foe)):
+			best = compensate(f_band(dist, 0.0, sr * 0.65, sr * 0.35) * maxf(0.5, f_busy(foe, 6)), 2)
+		var sl := float(ai.get("surge_line", 0))
+		if sl > 0.0 and dist < sl * 0.85:
+			best = maxf(best, compensate(f_band(dist, 0.0, sl * 0.5, sl * 0.35) * maxf(0.5, f_busy(foe, 6)), 2))
+		if best > 0.0:
+			out.append(["surge", best * float(w["surge"])])
+	var lob := String(ai.get("lob", ""))
+	var lr: Array = ai.get("lob_range", [0, 0])
+	if lob != "" and _usable(me, lob) and dist >= float(lr[0]) and dist <= float(lr[1]):
+		out.append(["lob", maxf(0.6, f_busy(foe, 6)) * float(w["lob"]) * _jitter()])
+	var gaze := String(ai.get("gaze", ""))
+	var gzr: Array = ai.get("gaze_range", [0, 0])
+	if gaze != "" and _usable(me, gaze) and dist >= float(gzr[0]) and dist <= float(gzr[1]):
+		out.append(["gaze", f_facing(foe, to_foe) * float(w["gaze"]) * _jitter()])
+	var zone := String(ai.get("zone", ""))
+	var zr: Array = ai.get("zone_range", [0, 0])
+	if zone != "" and _usable(me, zone) and dist >= float(zr[0]) and dist <= float(zr[1]):
+		var zlen := int(me.moves()[zone].get("length", 24))
+		var fta := _frames_to_active(foe)
+		var striking := fta >= 0 and fta <= int(me.moves()[zone].get("startup", 8)) + 2
+		var walk_in := 0.0 if striking or dist > float(zr[1]) * 0.75 else closing
+		out.append(["zone", maxf(f_busy(foe, zlen), walk_in) * float(w["zone"])])
+	# A long poke: on a stuck foe, or one walking into it (a mage's knives on a diver). An
+	# assassin's opener chooses its own moment (_plan_lurk).
+	var poke := String(ai.get("poke", ""))
+	var pr: Array = ai.get("poke_range", [0, 0])
+	if poke != "" and plan != "lurk" and _usable(me, poke) and dist >= float(pr[0]) and dist <= float(pr[1]):
+		var into := 0.0 if plan == "press" else closing
+		out.append(["poke", maxf(f_busy(foe, 6), into) * float(w["poke"]) * _jitter()])
+	return out
+
+
+func _jitter() -> float:
+	return 0.9 + 0.2 * rng.randf()
+
+
+## The scored kit: the best candidate above SCORE_MIN fires, or nothing does.
+func _rage_kit_scored(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float, plan: String) -> bool:
+	var best := ""
+	var top := SCORE_MIN
+	for c in _score_candidates(sim, me, foe, to_foe, dist, plan):
+		if float(c[1]) > top:
+			top = float(c[1])
+			best = String(c[0])
+	if best == "":
+		return false
+	var ai := _ai(me)
+	match best:
+		"surge":
+			_press(SimDefs.IN_SURGE)
+		"lob":
+			_fire_lob(me, foe, String(ai["lob"]))
+		_:
+			_press(int(ACTION_BIT[String(ai[best])]))
+	return true
 
 
 ## The move that beats a guard from `dist` away, if one is ready: a grab (beats armor
