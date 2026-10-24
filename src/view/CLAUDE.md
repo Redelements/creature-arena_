@@ -99,8 +99,16 @@ dig/slosh/poof/chop_chop/shout sounds.
   `base` CHASM so it never heals, but only `map_base` says what the art already shows: the
   view's "is it in the picture" test is `_in_art` (`map_base`), never `base`, or sunk floor is
   invisible on an art map (it was, until Oct 2026).
+- Pits and the moving floor → `arena_view.gd`: a pit's look `_paint_pit_cell` (tones from the
+  map's ground and `light`, `_build_pit_tex`: far wall, dithered dark, side walls, ragged lip,
+  pebbles, lit near edge; chasms colder with mist); cracks running across their cells from the
+  blow `_spread` / `_grow` (under layer `_paint_under`), dust off fresh pits `_motes` (`_paint_dust`),
+  pits closing in before they heal `_heal_cells` (`_paint_over`), cracks about to turn solid
+  glowing in their band `_glowing`, a healed pit's cracks glowing `_knit`. Healing clocks are
+  looked at only when due (`_schedule`, `_due`, `_watch`); the crack glow is the
+  `arena_<id>_crackmask.png` picture. Never repaint bands per tick for these.
 - Map art → `arena_view.gd:_paint_changed` (`arena_<id>.png` under everything; a changed cell
-  shows its piece of `_cracked` / `_alt`; `_paint_lips`; a hole in a bridge, or a fallen one,
+  shows its piece of `_cracked` / `_alt`; pits `_paint_pit_band`; a hole in a bridge, or a fallen one,
   shows the water of `_alt`, `_bridge_gone`); the pictures come from
   `tools/gen_arenas.py`, which reads the pieces from `data/arenas/<id>.json`
 - Hit sparks, shake direction, footstep and landing dust → `fx_view.gd:_hit_sparks` (light: a few

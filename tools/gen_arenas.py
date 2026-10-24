@@ -10,7 +10,8 @@ show: the floor (SimDefs.floor_rect), the walls round it and ArenaView.MARGIN pa
 (stands above, concourse either side and below). Pixel (0, 0) is world (-MARGIN.x, -MARGIN.y).
 Also writes arena_<id>_cracked.png: the same floor (the floor rect only) broken by one
 network of cracks, like dried mud; the view shows a cracked cell's piece of it, so a
-cracked patch joins up into cracks instead of a tile per cell.
+cracked patch joins up into cracks instead of a tile per cell. arena_<id>_crackmask.png is
+that crack network alone, white on clear (the view lights the cracks as they spread and heal).
 Maps whose pieces change also get arena_<id>_alt.png (floor-sized): every piece changed
 (the Quarry's walls smashed to rubble, the Greenhouse's brush flattened), shown cell by
 cell where the sim says a piece has changed. Pieces come from data/arenas/<id>.json.
@@ -450,7 +451,15 @@ def cracked_floor(img, rng, dark=None, lit=None):
     rgb[crack] = np.array(dark or CLAY[0], float) * 0.9
     floor[:, :, :3] = np.clip(rgb, 0, 255).astype(np.uint8)
     floor[:, :, 3] = 255
-    return floor
+    return floor, crack
+
+
+def crack_mask(crack):
+    """The crack network alone (white on clear), the same lines as the cracked picture:
+    ArenaView lights it up where cracks run as they spread and as they knit closed."""
+    out = np.zeros((FH, FW, 4), np.uint8)
+    out[crack] = (255, 255, 255, 255)
+    return out
 
 
 # ------------------------------------------------------------------ shared by the other maps
@@ -1384,7 +1393,11 @@ if __name__ == "__main__":
         print("wrote", os.path.relpath(path, ROOT), (W, H))
         dark, lit = crack_cols or (None, None)
         path = os.path.join(SPRITES, "arena_%s_cracked.png" % name)
-        Image.fromarray(cracked_floor(img, np.random.default_rng(7), dark, lit), "RGBA").save(path)
+        cracked, crack = cracked_floor(img, np.random.default_rng(7), dark, lit)
+        Image.fromarray(cracked, "RGBA").save(path)
+        print("wrote", os.path.relpath(path, ROOT), (FW, FH))
+        path = os.path.join(SPRITES, "arena_%s_crackmask.png" % name)
+        Image.fromarray(crack_mask(crack), "RGBA").save(path)
         print("wrote", os.path.relpath(path, ROOT), (FW, FH))
         if alt is not None:
             path = os.path.join(SPRITES, "arena_%s_alt.png" % name)
