@@ -154,6 +154,12 @@ dig/slosh/poof/chop_chop/shout sounds.
   alpha steps (`FADE_AT`) over 20-40 s (prints 4-6 s), cap 200 (scaled by map area), and the layer
   repaints only when a mark is added, removed, steps its fade or the view leaves the area drawn
   (`advance`). A mark on a cell that became a pit, wall, water or brush is dropped (`_age`).
+- Projectile polish and wall reactions (`fx_view.gd`): every straight shot gets a 3-square whole-pixel trail
+  (`_draw_trail`, from `pos - vel * k`, no stored history) and, when it ends without a hit, a floor mark
+  (`_land_mark` matches the `projectile_end` to last tick's `_proj_prev`; marks `scuff` / `stuck` / `splat` / `mallet`
+  in `floor_wear.gd`). Look data is `PROJ_STYLE` by `fx.projectile`, overridden by the move's `fx.trail_color`,
+  `trail_z`, `land_mark`. A `bounce` event runs `_wall_reaction`: dust, chips and a white flash on any wall, plus
+  fading cracks (`wallmark`, floor layer, capped by `WALL_MARK_CAP`, 10-20 s) only on the arena boundary.
 - Footsteps / swing sounds → `audio_view.gd:watch`; buses → `_make_buses`, `set_volume`
 
 ## Files
