@@ -41,7 +41,9 @@
       "dodge": [9, 0, 8],
       "hurt": [10, 0, 2],
       "guard": [11, 0, 2],
-      "ko": [12, 0, 4]
+      "ko": [12, 0, 4],
+      "victory": [13, 0, 10],
+      "idle_alt": [14, 0, 8]
     },
     "side_only": ["ko"],
     "select_scale": 0.5,

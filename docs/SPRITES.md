@@ -387,7 +387,7 @@ Design note: she must not read as Medusa from mythology-themed games or films: t
 gloves, the floating head, the earrings and the cartoon grin carry her look. Snakes for
 hair is a myth motif anyone can use; the name and gloves are hers.
 
-### Digby — 128×128 frames, 12 × 13 (1536×1664 px)
+### Digby — 128×128 frames, 12 × 15 (1536×1920 px)
 
 Digby is the sixth creature from the artist's sheets, and the first generator on the
 shared renderer, `tools/splat3d.py` (the splat renderer Chef Cerebro and Hissy Fitz use,
@@ -426,8 +426,10 @@ dust on `step_frames` `[0, 2]` (the front paws landing, the back paws landing).
 | 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
 | 11 | guard | 2 | hunkered behind the pickaxe held crossways |
 | 12 | ko | 4 | over onto his back, legs up, x eyes |
+| 13 | victory | 10 | pops up on his back legs; frames 1-7 loop: the far paw dusting off his chest, the tail swishing; then the pickaxe held high over the helmet (8-9, held) |
+| 14 | idle_alt | 8 | a paw up to the helmet to tap the headlamp straight (it flickers), then a long sniff turned toward the foe; played once after 5 s standing still |
 
-### Sneaky Pete — 128×128 frames, 12 × 13 (1536×1664 px)
+### Sneaky Pete — 128×128 frames, 12 × 15 (1536×1920 px)
 
 `tools/gen_pete.py`, on the shared renderer. A cartoon human rig: hips, a leaning torso
 (sweater), a big head (pink skin, a black mask band with eye holes, a big round nose, a
@@ -465,8 +467,10 @@ Facing down and up: [`pete_views_preview.png`](pete_views_preview.png).
 | 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
 | 11 | guard | 2 | hiding behind the money bag |
 | 12 | ko | 4 | flat on his back, the bag beside him, x eyes |
+| 13 | victory | 10 | counts the loot: frames 1-7 loop, the far hand digging in the bag and holding a gold coin up, grinning; then the bag back on his shoulder and a tip of the beanie (8-9, held) |
+| 14 | idle_alt | 8 | the shifty look: head snaps one way, whips back, the other way, then a long look at the foe; played once after 5 s standing still |
 
-### Sno Mercy — 128×128 frames, 12 × 13 (1536×1664 px)
+### Sno Mercy — 128×128 frames, 12 × 15 (1536×1920 px)
 
 `tools/gen_sno.py`, on the shared renderer. The rig: an icy cyan cone (a tapered tube from
 his point to the rim) with a navy rim, a dome of shaved ice on top (red on his right half,
@@ -505,6 +509,8 @@ they don't sparkle in motion).
 | 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose (frozen, tinted ice-blue by `CreatureView`) |
 | 11 | guard | 2 | gloves up in front of his face |
 | 12 | ko | 4 | topples and melts into a puddle |
+| 13 | victory | 10 | the flex: frames 1-7 loop, both gloves pumping up beside his head, the cone wobbling, the syrup running; then one fist raised high (8-9, held) |
+| 14 | idle_alt | 8 | brushes the snow off his dome with a glove (flecks fly), shakes it off, then glares at the foe; played once after 5 s standing still |
 
 ### Mister Crease — 128×160 frames, 12 × 16 (1536×2560 px)
 

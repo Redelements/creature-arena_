@@ -540,10 +540,52 @@ def dodge():
     ]
 
 
+# --- victory: the flex. Frame 0 sinks (ready), frames 1-7 loop (the double-biceps pump, the
+# cone wobbling, the syrup running long), 8-9 the finish (one fist raised high, held).
+
+def victory():
+    out = [P(lift=-2.4, sq=1.0, knees=1.0, pitch=4.0, near=(9.0, 27.0, 8.0), far=(-9.0, 28.0, 6.0), drip=0.8,
+             feet=((5.0, 2.0, 2.0), (-5.0, 2.0, -2.0)))]
+    for i in range(7):
+        a = 2.0 * math.pi * i / 7.0
+        pump = 0.5 + 0.5 * math.cos(a)               # 1 arms flexed high, 0 lowered a little
+        out.append(P(lift=1.4 * pump - 0.4, sq=-0.6 * pump + 0.4 * (1 - pump), knees=1.0,
+                     roll=round(6.0 * math.sin(a), 1), pitch=-3.0,
+                     near=(13.5 + pump, 36.0 + 5.0 * pump, 3.0 + 2.0 * (1 - pump)),
+                     far=(-13.5 - pump, 36.0 + 5.0 * pump, 3.0 + 2.0 * (1 - pump)),
+                     feet=((5.5, 2.0, 2.0), (-5.5, 2.0, -2.0)),
+                     drip=1.2 + 0.4 * math.cos(a - 1.0), drip_sw=(0.0, -0.8 * math.sin(a))))
+    out.append(P(lift=1.6, sq=-0.8, pitch=-4.0, near=(11.0, 54.0, 3.0), far=(-9.0, 28.0, 4.0), drip=1.5,
+                 feet=((5.5, 2.0, 2.0), (-5.5, 2.0, -2.0))))
+    out.append(P(lift=0.8, sq=-0.3, pitch=-5.0, near=(11.0, 53.0, 3.0), far=(-9.0, 28.0, 4.0), drip=1.7,
+                 feet=((5.5, 2.0, 2.0), (-5.5, 2.0, -2.0))))
+    return out
+
+
+# --- idle_alt: he brushes the snow off his dome with a glove, shakes, and glares at the foe.
+
+def idle_alt():
+    base = idle_key(0.0)
+    brush = lambda x, **kw: P(lift=0.2, knees=1.0, near=(x, 53.5, 7.5), far=_g(GF, dfwd=-0.4), drip=0.9, **kw)
+    return [
+        base,
+        P(lift=0.0, knees=1.0, near=(9.0, 47.0, 8.0), far=_g(GF, dfwd=-0.4), drip=0.9),    # the glove rises
+        brush(1.0, roll=3.0, shards=0.2),                                                    # brush across
+        brush(9.0, roll=-3.0, shards=0.2, shard_a=30.0),
+        brush(1.0, roll=3.0, shards=0.12, shard_a=60.0),
+        P(lift=-1.2, sq=0.6, roll=-5.0, knees=1.0, near=_g(GN, dfwd=-1.0), far=_g(GF), drip=1.2,
+          drip_sw=(0.0, 0.8)),                                                               # shake it off
+        P(lift=0.4, pitch=9.0, sq=-0.4, knees=1.0, near=(9.0, 34.0, 12.0), far=(-9.0, 34.0, 11.0),
+          drip=1.0),                                                                         # the glare at the foe
+        tween(P(lift=0.4, pitch=9.0, knees=1.0, near=(9.0, 34.0, 12.0), far=(-9.0, 34.0, 11.0)), base, 0.5),
+    ]
+
+
 ROWS = [
     ("idle", idle()), ("run", run()), ("jab", jab()), ("cross", cross()), ("headbutt", headbutt()),
     ("spray", spray()), ("syrup", syrup()), ("slide", slide()), ("blast", blast()),
     ("dodge", dodge()), ("hurt", hurt()), ("guard", guard()), ("ko", ko()),
+    ("victory", victory()), ("idle_alt", idle_alt()),
 ]
 
 for _n, _poses in ROWS:
@@ -551,7 +593,7 @@ for _n, _poses in ROWS:
         _p.stick = True
 # snow and ice: the cone never squashes or stretches past 5% (tweens stay inside their keys)
 assert all(abs(p.sq) <= 1.0 for _n, poses in ROWS for p in poses)
-VIEW_ROWS = ROWS[:-1]
+VIEW_ROWS = ROWS
 
 
 # ------------------------------------------------------------------ animation tools

@@ -45,6 +45,7 @@ MAT = {
     "shoe": ((130, 84, 48), (168, 116, 72), (92, 56, 30)),
     "bag": ((28, 112, 48), (52, 150, 70), (16, 74, 30)),
     "cord": ((14, 70, 28), (30, 96, 44), (8, 46, 18)),
+    "gold": ((250, 204, 40), (255, 240, 130), (200, 150, 14)),
 }
 S.configure(MAT, outline=(14, 12, 14, 255), scale=0.8, near=12.0)
 S.COLS = 12  # the run, Sack Smack, Tiptoe and The Big Heist have 12 frames
@@ -78,6 +79,7 @@ class Pose:
         self.knot_hand = kw.get("knot_hand", False)  # the neck is tied at the grip hand wherever it is
         self.flip = kw.get("flip", 0.0)             # somersault about his middle (deg, + forward)
         self.rise = kw.get("rise", 0.0)             # off the floor, after the flip
+        self.coin = kw.get("coin", False)           # a gold coin held up in the far hand (the victory count)
 
 
 SQUASH = 0.12  # flesh: 12% at stretch 1 (docs/anim_preview/roster_anim_plan.md)
@@ -205,6 +207,9 @@ def build(p, view):
         bend = (lt * (2.0 if k == 0 else -2.0) - fw * 2.0 - up * 1.0)
         parts.append(limb(sh[k], hand, bend, 2.4, 2.0, "sweater"))
         parts.append(ellipsoid_oriented(hand, (1.9, 1.9, 1.9), *AXES, "skin"))
+    if p.coin:
+        ch = np.asarray(p.hands[1], float) if p.hands[1] is not None else default[1]
+        parts.append(ellipsoid_oriented(ch + np.array([0.0, 2.6, 0.6]), (0.9, 2.2, 2.2), *AXES, "gold"))
     # the money bag, its neck tied off at his grip, a dollar sign on the side
     r = p.bag_r
     wq = 1.0 + 0.5 * p.bag_sq
@@ -650,12 +655,70 @@ def dodge():
     return keys
 
 
+# --- victory: he counts the loot and tips his cap. Frame 0 gets ready (the view holds it a
+# moment), frames 1-7 are the loop (the count: hand into the bag, a coin up to the light, a
+# grin), 8-9 the finish (the bag back on his shoulder, the cap tipped, held).
+
+def _count_key(u, coin):
+    """The bag held out in front of him on its neck, the far hand digging in (u 0) and
+    coming up out of it (u 1), a coin in it when `coin`."""
+    dy = 9.0 * u
+    return K(feet=((3.5, 2.5, 3.0), (-3.5, 2.5, -4.0)), hip=17.5 + 0.8 * u, lean=10.0 + 4.0 * (1 - u),
+             head=14.0 - 20.0 * u, face="grin", stretch=-0.2 + 0.4 * u, coin=coin,
+             br=(1.0, 12.0 + 0.6 * u, 12.0), hr=(None, (-2.5, 17.0 + dy, 12.5 - 2.0 * u)), bag_r=8.5)
+
+
+def victory():
+    ready = K(feet=((3.5, 2.5, 3.0), (-3.5, 2.5, -4.0)), hip=15.5, lean=20.0, stretch=-0.6, head=6.0)
+    keys = [
+        ready,
+        _count_key(0.0, False),       # 1 dig in, head down
+        _count_key(0.5, False),       # 2 hand coming up
+        _count_key(1.0, True),        # 3 a coin held up, eyes on it
+        _count_key(1.0, True),        # 4 hold: the grin
+        _count_key(0.5, False),       # 5 drops it back in
+        _count_key(0.15, False),      # 6 the bag jiggles
+    ]
+    # the loop's last frame leads back into frame 1: a hop on the bag's weight
+    out = [keys[0]] + keys[1:7]
+    hop = _count_key(0.0, False)
+    hop.lift = 1.2
+    hop.stretch = 0.5
+    out.append(hop)  # 7: a little bounce of delight, then back to the dig
+    tip_a = K(feet=((3.5, 2.5, 3.0), (-3.5, 2.5, -4.0)), hip=18.4, lean=8.0, head=-4.0, stretch=0.2, cap=-6.0,
+              hr=(None, (-3.5, 28.0, 8.0)), face="grin")
+    tip_b = K(feet=((3.5, 2.5, 3.0), (-3.5, 2.5, -4.0)), hip=18.0, lean=12.0, head=7.0, stretch=0.0, cap=-16.0,
+              hr=(None, (-4.0, 32.0, 6.5)), face="grin", look=10.0)
+    out += [tip_a, tip_b]
+    return out
+
+
+# --- idle_alt: the shifty look both ways (8 frames x 5 ticks), then the long look at the foe.
+
+def idle_alt():
+    base = idle_key(0.0)
+    away = lambda lk, tn, **kw: K(feet=tiptoe_feet(0.4, 6.0, 1.0), hip=19.5, lean=12.0, look=lk, turn=tn, **kw)
+    out = [
+        tween(base, away(-6.0, -1.0, stretch=0.2), 1.0),
+        away(-40.0, -5.0, stretch=0.3, head=-2.0),    # 1 head snaps away
+        away(-44.0, -6.0, stretch=0.35, head=-2.0),   # 2 hold
+        away(-14.0, -1.0, stretch=0.1),               # 3 whips back through the middle
+        away(36.0, 5.0, stretch=0.3, head=1.0),       # 4 the other way (toward the camera)
+        away(46.0, 6.0, stretch=0.35, head=1.0),      # 5 hold
+        away(40.0, 5.0, stretch=0.1, head=1.0),       # 6 the long look at the foe
+        tween(base, away(30.0, 4.0), 0.5),            # 7 settling
+    ]
+    S.lag(out, "bag", 1, loop=False)
+    return out
+
+
 ROWS = [
     ("idle", idle()), ("run", run()), ("jab", jab(False)), ("jab2", jab(True)), ("swing", swing()),
     ("smack", smack()), ("tiptoe", tiptoe()), ("pick", pick()), ("heist", heist()),
     ("dodge", dodge()), ("hurt", hurt()), ("guard", guard()), ("ko", ko()),
+    ("victory", victory()), ("idle_alt", idle_alt()),
 ]
-VIEW_ROWS = ROWS[:-1]
+VIEW_ROWS = ROWS
 
 
 # ------------------------------------------------------------------ animation tools
