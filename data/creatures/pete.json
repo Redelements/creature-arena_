@@ -50,7 +50,9 @@
     "select_scale": 0.5,
     "views": {
       "down": { "path": "res://assets/sprites/pete_down.png", "frame": [112, 128], "origin": [56, 104] },
-      "up": { "path": "res://assets/sprites/pete_up.png", "frame": [112, 128], "origin": [56, 92] }
+      "up": { "path": "res://assets/sprites/pete_up.png", "frame": [112, 128], "origin": [56, 92] },
+      "down_side": { "path": "res://assets/sprites/pete_down_side.png", "frame": [128, 128], "origin": [64, 104] },
+      "up_side": { "path": "res://assets/sprites/pete_up_side.png", "frame": [128, 128], "origin": [64, 92] }
     }
   },
   "ai": {

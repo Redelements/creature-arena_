@@ -31,6 +31,9 @@ SIDE = {"w": 128, "h": 128, "origin": (64, 104)}
 VIEWS = {
     "down": {"w": 112, "h": 128, "origin": (56, 104)},
     "up": {"w": 112, "h": 128, "origin": (56, 92)},
+    # the diagonals (docs/SPRITES.md, "Directions"): facing down-right and up-right
+    "down_side": {"w": 128, "h": 128, "origin": (64, 104)},
+    "up_side": {"w": 128, "h": 128, "origin": (64, 92)},
 }
 
 MAT = {
@@ -234,6 +237,8 @@ def _dollar(c, r, view, sq=0.0):
         n = np.array([0.55, 0.0, 0.83])
     elif view == "down":
         n = np.array([0.0, 0.0, 1.0])
+    elif view in ("down_side", "up_side"):  # the diagonals: toward their camera
+        n = S.Cam(view).cam / np.linalg.norm(S.Cam(view).cam)
     else:
         n = np.array([0.0, 0.0, -1.0])
     u = np.array([0.0, 1.0, 0.0])
