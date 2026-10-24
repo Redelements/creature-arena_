@@ -4,7 +4,7 @@
 Run from anywhere:  python3 tools/gen_pete.py   (Pillow and numpy)
 Look at a few frames while working on a pose:  python3 tools/gen_pete.py inspect idle:0 run:2
 
-Writes assets/sprites/pete.png (128x128 frames, 8 columns, the side view), pete_down.png
+Writes assets/sprites/pete.png (128x128 frames, 12 columns, the side view), pete_down.png
 and pete_up.png (112x128: facing the camera, and facing away), plus labelled previews in
 docs/. Rendered with the shared splat renderer (tools/splat3d.py).
 
@@ -47,6 +47,7 @@ MAT = {
     "cord": ((14, 70, 28), (30, 96, 44), (8, 46, 18)),
 }
 S.configure(MAT, outline=(14, 12, 14, 255), scale=0.8, near=12.0)
+S.COLS = 12  # the run, Sack Smack, Tiptoe and The Big Heist have 12 frames
 
 AXES = ((0, 0, 1), (0, 1, 0), (1, 0, 0))  # fwd, up, lat: an upright ellipsoid's frame
 
@@ -277,117 +278,6 @@ def tiptoe_feet(a, stride=7.0, lift=3.0):
     return ((3.5, nu, nf), (-3.5, fu, -nf))
 
 
-def idle():
-    """On tiptoe, rocking, glancing about, the bag over his shoulder."""
-    return [
-        P(feet=tiptoe_feet(0.4, 6.0, 1.0), head=0, turn=0),
-        P(feet=tiptoe_feet(0.4, 6.0, 1.5), head=-4, turn=8, hip=19.6),
-        P(feet=tiptoe_feet(0.4, 6.0, 1.0), head=2, turn=0, hip=19.2),
-        P(feet=tiptoe_feet(0.4, 6.0, 1.5), head=-4, turn=-8, hip=19.6),
-    ]
-
-
-def run():
-    """The cartoon sneak: big tiptoe strides, knees high, crouched over."""
-    return [P(feet=tiptoe_feet(k / 6.0 * 2 * math.pi, 9.0, 5.0), lean=24, hip=18.0 + abs(math.cos(k / 6.0 * 2 * math.pi)),
-              hipf=1.0) for k in range(6)]
-
-
-def jab():
-    """Sucker Punch (light 1): the far fist jabs out, bag still on his back."""
-    f = tiptoe_feet(0.9, 7.0, 0.5)
-    return [
-        P(feet=f, hands=(None, (-3.0, 30.0, 6.0)), lean=12),
-        P(feet=f, hands=(None, (-1.0, 31.0, 18.0)), lean=20, hipf=2.0, turn=-20),
-        P(feet=f, hands=(None, (-2.0, 30.0, 12.0)), lean=16, hipf=1.0, turn=-10),
-        P(feet=f, lean=14),
-    ]
-
-
-def jab2():
-    """Cheap Shot (light 2): the other fist, the bag swinging on his back with it."""
-    f = tiptoe_feet(0.9, 7.0, 0.5)
-    return [
-        P(feet=f, grip=1, hands=((4.0, 29.0, 6.0), None), lean=12),
-        P(feet=f, grip=1, hands=((2.0, 31.0, 18.0), None), lean=20, hipf=2.0, turn=20),
-        P(feet=f, grip=1, hands=((3.0, 30.0, 12.0), None), lean=16, hipf=1.0, turn=10),
-        P(feet=f, lean=14),
-    ]
-
-
-def swing():
-    """Bag Swing (light 3): the bag comes off his shoulder and round in front of him."""
-    f = tiptoe_feet(1.0, 8.0, 0.5)
-    return [
-        P(feet=f, bag=(6.0, 36.0, -14.0), turn=30, lean=10),
-        P(feet=f, bag=(12.0, 30.0, -4.0), turn=20, lean=14),
-        P(feet=f, bag=(4.0, 26.0, 18.0), turn=-20, lean=20, hipf=2.0),
-        P(feet=f, bag=(-8.0, 24.0, 12.0), turn=-40, lean=18, hipf=2.0),
-        P(feet=f, lean=14),
-    ]
-
-
-def smack():
-    """Sack Smack: charge A/B (the bag wound right back over his head), the big swing,
-    the follow-through, recover. Smash and Grab plays from frame 3."""
-    f = tiptoe_feet(1.2, 9.0, 0.3)
-    return [
-        P(feet=f, bag=(4.0, 48.0, -12.0), turn=30, lean=2, hands=(None, (0.0, 44.0, -4.0))),
-        P(feet=f, bag=(2.0, 52.0, -16.0), turn=36, lean=-4, hands=(None, (0.0, 46.0, -6.0)), face="ow"),
-        P(feet=f, bag=(4.0, 40.0, 10.0), turn=10, lean=16, hipf=2.0, hands=(None, (2.0, 34.0, 8.0))),
-        P(feet=f, bag=(2.0, 22.0, 22.0), turn=-10, lean=30, hipf=4.0, hip=17.0, bag_r=10.0,
-          hands=(None, (1.0, 26.0, 13.0))),
-        P(feet=f, bag=(-6.0, 12.0, 20.0), turn=-30, lean=32, hipf=4.0, hip=16.0, hands=(None, (-2.0, 20.0, 12.0))),
-        P(feet=f, lean=16),
-    ]
-
-
-def tiptoe():
-    """Tiptoe: a finger to his lips, then tiptoeing off (frames 1 and 2 alternate)."""
-    return [
-        P(feet=tiptoe_feet(0.3, 5.0, 1.0), hands=(None, (-1.0, 40.0, 9.0)), head=4),
-        P(feet=tiptoe_feet(1.0, 9.0, 6.0), lean=26, hip=18.5, hands=(None, (-1.0, 38.0, 10.0)), head=2),
-        P(feet=tiptoe_feet(-2.1, 9.0, 6.0), lean=26, hip=18.5, hands=(None, (-1.0, 38.0, 10.0)), head=2),
-        P(feet=tiptoe_feet(0.3, 5.0, 1.0), lean=16),
-    ]
-
-
-def pick():
-    """Pickpocket: crouch, a low dash with the far hand reaching out, the grab, past, recover."""
-    return [
-        P(feet=((3.5, 2.5, 4.0), (-3.5, 3.0, -8.0)), hip=15.0, lean=30),
-        P(feet=((3.5, 2.5, 10.0), (-3.5, 6.0, -10.0)), hip=15.0, lean=40, hipf=4.0,
-          hands=(None, (-1.0, 22.0, 22.0))),
-        P(feet=((3.5, 2.5, 10.0), (-3.5, 6.0, -10.0)), hip=15.0, lean=40, hipf=4.0,
-          hands=(None, (-2.0, 24.0, 14.0)), face="grin"),
-        P(feet=((3.5, 5.0, -2.0), (-3.5, 2.5, 6.0)), hip=16.0, lean=26, hands=(None, (-3.0, 32.0, 4.0))),
-        P(feet=tiptoe_feet(0.4, 6.0, 1.0), lean=14),
-    ]
-
-
-def heist():
-    """The Big Heist: a puff and he's gone (frame 1 is empty), back in a crouch, two
-    flurry frames (bag high, bag low) that alternate, the big finishing smack, recover."""
-    f = tiptoe_feet(1.2, 8.0, 0.3)
-    return [
-        P(feet=tiptoe_feet(0.3, 5.0, 1.0), hip=15.0, lean=30, bag=(0.0, 32.0, -8.0)),
-        P(hidden=True),
-        P(feet=f, hip=15.0, lean=30, bag=(4.0, 40.0, -10.0), turn=20),
-        P(feet=f, bag=(2.0, 44.0, 8.0), turn=10, lean=10, hands=(None, (1.0, 40.0, 6.0))),
-        P(feet=f, bag=(2.0, 22.0, 18.0), turn=-10, lean=28, hipf=3.0, hands=(None, (1.0, 26.0, 12.0))),
-        P(feet=f, lean=16),
-    ]
-
-
-def dodge():
-    return [
-        P(feet=((3.5, 2.5, 3.0), (-3.5, 2.5, -3.0)), hip=14.0, lean=30),
-        P(roll=-80, hip=14.0, lean=40, lift=8.0),
-        P(roll=-190, hip=14.0, lean=40, lift=26.0),
-        P(feet=((3.5, 2.5, 3.0), (-3.5, 2.5, -3.0)), hip=16.0, lean=20),
-    ]
-
-
 def hurt():
     return [
         P(feet=((3.5, 2.5, 6.0), (-3.5, 2.5, -2.0)), lean=-14, head=-14, face="ow", hipf=-2.0, bag=(4.0, 32.0, -14.0)),
@@ -414,20 +304,10 @@ def ko():
     ]
 
 
-ROWS = [
-    ("idle", idle()), ("run", run()), ("jab", jab()), ("jab2", jab2()), ("swing", swing()),
-    ("smack", smack()), ("tiptoe", tiptoe()), ("pick", pick()), ("heist", heist()),
-    ("dodge", dodge()), ("hurt", hurt()), ("guard", guard()), ("ko", ko()),
-]
-VIEW_ROWS = ROWS[:-1]
-
-
 # ------------------------------------------------------------------ the animation pass
-# Pete's motion pass (docs/anim_preview/pete_motion_plan.md): every ability redrawn with
+# Pete's motion pass (docs/anim_preview/pete_motion_plan.md): every ability drawn with
 # twice the frames, eased spacing, anticipation and held releases, and the bag and the
-# beanie moving late. Not in the game yet: ROWS above are still the sheets the game uses;
-# ANIM_ROWS are the new ones, which `python3 tools/gen_pete.py anim` previews. After
-# approval ANIM_ROWS replace ROWS and pete.json gets the new row table and timelines.
+# beanie moving late. Hurt, guard and the knockout (above) are unchanged.
 
 def resolved(p):
     """The pose with its bag, knot and both hands placed where build() would put them, so
@@ -494,7 +374,7 @@ def idle_key(u):
              stretch=-0.25 + 0.5 * u, head=1.5 - 3.0 * u)
 
 
-def idle_new():
+def idle():
     """Rocking on his toes with eased spacing, glancing over at the camera and back (a fast
     in-between each way, long holds). The bag swings 2 frames behind the rock, the free hand
     dangles a frame behind it."""
@@ -543,7 +423,7 @@ def sneak_key(i, hip=17.4, lean=26.0, far_hand=(-2.5, 12.5, 9.0), lift=1.0, **kw
              turn=5.0 * nf / RUN_L, head=-2.0 * RUN_HIP[j], **kw)
 
 
-def run_new():
+def run():
     """The sneak: crouched over, the near hand on the bag's neck, the far one up by his chest
     like a paw. The bag bounces 2 frames behind the bob and its top flops over on the down;
     the beanie flops a frame behind the head."""
@@ -560,7 +440,7 @@ def run_new():
 
 # --- the lights: 8 frames each
 
-def jab_new(near=False):
+def jab(near=False):
     """Sucker Punch (far fist) / Cheap Shot (near fist, the bag passed to the far hand on
     the first frame): the shoulder turns away (anticipation), the fist cocks by the cheek,
     one fast frame, the extension (held 3 ticks), a small recoil, back to the stance. The
@@ -601,7 +481,7 @@ def jab_new(near=False):
     return keys
 
 
-def swing_new():
+def swing():
     """Bag Swing: the bag comes off his shoulder (anticipation), winds back low (the coil,
     squashed), the fast arc round his near side, the impact out front (held 3), the
     follow-through carrying the bag past him to the far side and pulling him onto one toe,
@@ -634,7 +514,7 @@ def _smack_charge(i):
              bag_sq=0.08 * math.cos(a), face="ow" if i in (1, 2) else "grin", cap=-3.0 * math.cos(a))
 
 
-def smack_new():
+def smack():
     """Sack Smack: the charge loop, then the gather (bag furthest back, squashed down, held),
     up onto his toes, the fast overhead arc, the slam out front (held 5, the bag squashed
     on the floor), the bounce, the drag, the hoist, back to the stance."""
@@ -645,7 +525,7 @@ def smack_new():
           stretch=-0.5, face="ow", head=2.0),
         K(feet=f, grip=1, hr=(None, (-1.0, 30.0, -1.0)), br=(3.0, 39.0, -8.0), turn=26, lean=0, hip=19.6,
           stretch=0.45, cap=4.0),
-        K(feet=f, grip=1, hr=(None, (0.0, 30.0, 4.0)), br=(3.0, 41.0, 3.0), turn=8, lean=14, hip=19.2, hipf=2.0,
+        K(feet=f, grip=1, hr=(None, (-1.0, 31.0, -2.0)), br=(1.0, 45.0, -4.0), turn=8, lean=14, hip=19.2, hipf=2.0,
           stretch=0.25, bag_sq=-0.15, cap=-6.0),
         # the slam: the bag flattened on the floor out front, then bouncing and dragged back
         K(feet=f, grip=1, world=True, hr=(None, (-1.0, 18.0, 18.0)), br=(0.0, 7.0, 24.5), turn=-10, lean=32,
@@ -662,7 +542,7 @@ def smack_new():
 
 # --- the skills
 
-def tiptoe_new():
+def tiptoe():
     """Tiptoe: "shhh" (a finger to his lips, sinking: the anticipation), a look round, then
     two big sneak steps with the run's own lift, freeze, place, settle timing (but higher
     knees), a freeze on one toe, back to the stance. The finger stays at his lips."""
@@ -687,7 +567,7 @@ def tiptoe_new():
     return out
 
 
-def pick_new():
+def pick():
     """Pickpocket: a low crouch with the hand out ready (held through the windup), the
     launch, the low dash with the hand out, the reach, the snatch, the loot pulled to his
     chest, a skid on his heels, back up."""
@@ -712,10 +592,10 @@ def pick_new():
 
 # --- the Surge: The Big Heist, 12 frames
 
-def heist_new():
+def heist():
     """The Big Heist: a crouch, a spring onto his toes (then the puff, frame 2 is empty), back
     in a crouch with the bag up, a 4-frame flurry (bag swung to the near side, the far side,
-    overhead, low) so no two hits in a row look alike, the coil for the finisher (held 4),
+    high on the near side, low) so no two hits in a row look alike, the coil for the finisher (held 4),
     the smack into the floor (held 5, the bag squashed), the bounce, back to the stance."""
     f = tiptoe_feet(1.2, 8.0, 0.3)
     crouch = K(feet=tiptoe_feet(0.3, 5.0, 1.0), br=(1.0, 14.0, -10.0), hr=(None, None), hip=15.0, lean=30,
@@ -728,7 +608,7 @@ def heist_new():
     flurry = [
         K(hr=((7.0, 14.0, 12.0), None), br=(16.0, 14.0, 14.0), turn=26, lean=22, cap=-5.0, **body),
         K(hr=((-4.0, 14.0, 12.0), None), br=(-14.0, 12.0, 16.0), turn=-26, lean=22, cap=5.0, **body),
-        K(hr=((1.0, 28.0, 3.0), None), br=(2.0, 39.0, 2.0), turn=0, lean=10, stretch=0.35, bag_sq=-0.12,
+        K(hr=((8.0, 26.0, 2.0), None), br=(13.0, 36.0, 0.0), turn=0, lean=10, stretch=0.35, bag_sq=-0.12,
           **dict(body, hip=17.6)),
         K(world=True, hr=((1.0, 17.0, 19.0), None), br=(1.0, 8.0, 26.0), turn=-6, lean=34, stretch=-0.35,
           bag_sq=0.25, cap=8.0, **dict(body, hip=15.6, hipf=3.0)),   # low: the bag on the floor
@@ -745,7 +625,7 @@ def heist_new():
 
 # --- the dodge: a forward tuck roll, 8 frames (frame = tick x 8 / 15)
 
-def dodge_new():
+def dodge():
     """A tuck and roll: the crouch, the dive (stretched), three tumbling frames round the
     roll (knees tucked, the bag on his back), the landing in a squash, back up."""
     tuck = ((3.5, 9.0, 8.0), (-3.5, 9.5, 6.0))
@@ -770,26 +650,28 @@ def dodge_new():
     return keys
 
 
-ANIM_ROWS = [
-    ("idle", idle_new()), ("run", run_new()), ("jab", jab_new(False)), ("jab2", jab_new(True)), ("swing", swing_new()),
-    ("smack", smack_new()), ("tiptoe", tiptoe_new()), ("pick", pick_new()), ("heist", heist_new()),
-    ("dodge", dodge_new()), ("hurt", hurt()), ("guard", guard()), ("ko", ko()),
+ROWS = [
+    ("idle", idle()), ("run", run()), ("jab", jab(False)), ("jab2", jab(True)), ("swing", swing()),
+    ("smack", smack()), ("tiptoe", tiptoe()), ("pick", pick()), ("heist", heist()),
+    ("dodge", dodge()), ("hurt", hurt()), ("guard", guard()), ("ko", ko()),
 ]
-ANIM_VIEW_ROWS = ANIM_ROWS[:-1]
+VIEW_ROWS = ROWS[:-1]
 
 
 # ------------------------------------------------------------------ animation tools
 # The adapter for the shared animation pipeline (tools/anim_preview.py):
-# `python3 tools/gen_pete.py anim` renders preview GIFs of ANIM_ROWS into
-# docs/anim_preview/ (the compare GIFs put the current sheets beside them), and
+# `python3 tools/gen_pete.py anim` renders preview GIFs into docs/anim_preview/ (the
+# compare GIFs put the sheets from before the pass beside them), and
 # `python3 tools/anim_preview.py --check pete` checks the JSON's timelines against ROWS.
 # In-betweens and overlap come from splat3d (tween, cycle, lag, lag_at).
 render_frame, frame_spec = S.frame_adapter(SIDE, VIEWS, build)
+# The git revision whose sheets (and row table) the compare GIFs show as "before": the
+# sheets before the animation pass.
+OLD_REF = os.environ.get("PETE_OLD_REF", "6d26f20")
 ANIM_CYCLES = {"idle": 40, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks)
-ANIM_TICKS = {"idle": 5, "run": 2}     # the new rows' ticks per frame (pete.json gets them after approval)
 
-# The timelines: the current ones (as the view plays the sheets today) and the new ones
-# (what pete.json gets after approval). Every startup, active and recovery number stays.
+# The timelines before the pass (as the view played the old sheets) and now (pete.json's,
+# kept in step for the compare GIFs). Every startup, active and recovery number stayed.
 OLD_AT = {
     "jab": [[0, 0], [5, 1], [7, 2], [10, 3]],          # no anim_at today: the view's default split
     "jab2": [[0, 0], [5, 1], [7, 2], [11, 3]],
@@ -813,8 +695,7 @@ NEW_AT = {
     "heist": [[0, 0], [2, 1], [3, 2], [10, 3], [13, 4], [17, 5], [21, 6], [25, 7], [29, 4], [31, 8], [35, 9],
               [40, 10], [46, 11]],
 }
-NEW_CHARGE = [0, 4, 6]     # Sack Smack's held charge: frames 0-3, 6 ticks each (today [0, 2, 6])
-NEW_CUT_IN = [8, 9]        # the Surge cut-in: the finishing smack (today [8, 4])
+NEW_CHARGE = [0, 4, 6]     # Sack Smack's held charge: frames 0-3, 6 ticks each (was [0, 2, 6])
 
 
 def _clips():
@@ -858,12 +739,9 @@ CLIPS = _clips
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "inspect":
-        rows = ANIM_ROWS if os.environ.get("PETE_NEW") else ROWS
-        S.inspect(rows, sys.argv[2:], SIDE, VIEWS, build, path=os.environ.get("INSPECT_OUT"))
+        S.inspect(ROWS, sys.argv[2:], SIDE, VIEWS, build, path=os.environ.get("INSPECT_OUT"))
     elif len(sys.argv) > 1 and sys.argv[1] == "anim":
         import anim_preview
-        # previews show the new rows; the game's sheets (ROWS) stay as they are until approval
-        ROWS, VIEW_ROWS = ANIM_ROWS, ANIM_VIEW_ROWS
         anim_preview.main(sys.modules[__name__], sys.argv[2:])
     else:
         S.write_sheets(ROWS, VIEW_ROWS, OUT, PREVIEW, SIDE, VIEWS, build)

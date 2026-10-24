@@ -10,9 +10,10 @@ until the next one. A melee hit is live from tick `startup + 1` for `active` tic
 **No frame data changes**: every startup, active, recovery, windup and hit tick below is
 today's.
 
-This is the preview phase. The new rows live in `ANIM_ROWS` in `tools/gen_pete.py`;
-`ROWS` (what the game's sheets are drawn from) and `data/creatures/pete.json` are
-untouched until Kevin approves. `python3 tools/gen_pete.py anim` renders the previews.
+**Status:** in the game (commit 2, so Kevin can play it from the build before approving).
+The sheets, `data/creatures/pete.json` and `docs/SPRITES.md` carry everything below;
+`python3 tools/gen_pete.py anim` re-renders the previews, comparing against the sheets
+before the pass (`OLD_REF`).
 
 ## Character
 
@@ -229,7 +230,7 @@ Length 56: the leap and vanish from tick 2 to 10 (blink at 10), five flurry hits
 | 3 | 10 | **back**, crouched behind the foe, the bag cocked |
 | 4 | 13 | **flurry: near side**: the bag swung out on his near side (hit 1) |
 | 5 | 17 | **flurry: far side**: across to the far side (hit 2) |
-| 6 | 21 | **flurry: overhead**: up over his head, stretched (hit 3) |
+| 6 | 21 | **flurry: high**: swung up high on his near side, stretched, the arm and bag clear of his head in every view (hit 3). Straight overhead, the bag sat on his head like a helmet in the game (held through the KO slow motion) |
 | 7 | 25 | **flurry: low**: down on the floor in front, squashed (hit 4) |
 | 4 | 29 | the near side again (hit 5): no two hits in a row look alike |
 | 8 | 31 | **coil**: the bag high behind him, leaning back, squashed (−7%). **Held 4** |
@@ -281,7 +282,7 @@ middle frame; this replaces it (question 4).
 | hurt, guard, ko | 2, 2, 4 | unchanged |
 
 `cols` 8 → 12 (a 1536 px side sheet, 1344 px for the 112 px up/down sheets, like Crease's).
-Every new timeline was run through `anim_preview.check` against `ANIM_ROWS` with the new
+Every new timeline was run through `anim_preview.check` against the new rows with the new
 row table: no errors.
 
 ## Risks at this size (figure about 40×60 px)
@@ -300,24 +301,20 @@ row table: no errors.
 
 ## Previews (`docs/anim_preview/`)
 
-`pete_<anim>_1x.gif`, `_3x.gif`, `_compare_3x.gif` (today's sheets beside the new frames, at
+`pete_<anim>_1x.gif`, `_3x.gif`, `_compare_3x.gif` (the sheets before the pass beside the new frames, at
 game speed, the hits labelled) for idle, run, jab, jab2, swing, smack (with 24 ticks of
 held charge), smack_tag_in, tiptoe, pick (with the 9-tick windup), heist and dodge;
 `pete_idle_views_3x.gif`, `pete_run_views_3x.gif` (side, down, up);
 `pete_contact_sheet.png` (every new frame, all three views).
 
-## Questions for Kevin
+## Questions, answered (Kevin, Oct 23 2026)
 
-1. **Pompom:** the plan has the beanie's pompom lagging a frame, but Pete's beanie has no
-   pompom. I flop the knit dome instead (the `cap` field). Add a pompom (an art change,
-   outside this pass), or keep it as is?
-2. **Bag hand-offs:** Cheap Shot already passes the bag to the far hand; Tiptoe now does
-   too, so the near hand can shush where you can see it side on. The bag's neck jumps
-   shoulders in one frame. OK?
-3. **The idle glance** is at the camera (the audience), not back over his shoulder. OK?
-4. **The dodge** becomes a forward tuck-and-roll instead of today's sideways roll. OK?
+1. **Pompom:** none; keep the knit dome's flop (`cap`).
+2. **Bag hand-offs** (Cheap Shot, and Tiptoe so the near hand can shush side on): fine.
+3. **The idle glance** at the camera: fine.
+4. **The dodge** as a forward tuck-and-roll: fine.
 
-After approval (commit 2): the sheets, `pete.json` (`cols`, the row table, `idle_ticks`,
-`run_ticks`, the `anim_at`s above, `anim_charge`, `tag_in` `anim_at` with `anim_from`
-dropped, `cut_in_frame`), `docs/SPRITES.md`'s row table and previews, and the
-`NET_VERSION` bump with the batch (Pete, Sno, Digby).
+Commit 2 put it in the game: the sheets, `pete.json` (`cols` 12, the row table,
+`idle_ticks` 5, `run_ticks` 2, the `anim_at`s above, `anim_charge`, a `tag_in` `anim_at`
+with `anim_from` dropped, `cut_in_frame`) and `docs/SPRITES.md`. The `NET_VERSION` bump
+comes once with the batch (Pete, Sno, Digby) when it merges.

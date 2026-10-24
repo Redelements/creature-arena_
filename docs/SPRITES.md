@@ -364,7 +364,7 @@ Facing down and up: [`digby_views_preview.png`](digby_views_preview.png).
 | 11 | guard | 2 | hunkered behind the pickaxe held crossways |
 | 12 | ko | 4 | over onto his back, legs up, x eyes |
 
-### Sneaky Pete — 128×128 frames, 8 × 13 (1024×1664 px)
+### Sneaky Pete — 128×128 frames, 12 × 13 (1536×1664 px)
 
 `tools/gen_pete.py`, on the shared renderer. A cartoon human rig: hips, a leaning torso
 (sweater), a big head (pink skin, a black mask band with eye holes, a big round nose, a
@@ -375,22 +375,30 @@ shoulder unless a pose holds it out to swing. Poses place the feet, hands and ba
 at 0.8 scale, feet at **x 64, y 104**; up and down sheets are **112×128**, feet at
 x 56, y 104 (down) and y 92 (up).
 
+Animated with the roster pass (motion plan, previews and before/after GIFs:
+[`anim_preview/pete_motion_plan.md`](anim_preview/pete_motion_plan.md)): the poses are
+keys in the body's own frame, in-betweened with `splat3d.tween` (hands and bag on arcs,
+`grip` snapped), with `stretch` (12% flesh squash, feet planted), the bag lagging,
+squashing and flopping (`bag_sq`, `flop`), the beanie's dome flopping (`cap`), `look`,
+`knees` and a `flip` for the roll. `idle_ticks` 5 (a quick 40-tick idle), `run_ticks` 2
+(the run still 24 ticks), footsteps on the default `[0, 6]`.
+
 ![Sneaky Pete sheet, 3x](pete_preview.png)
 
 Facing down and up: [`pete_views_preview.png`](pete_views_preview.png).
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
-| 0 | idle | 4 | on tiptoe, rocking, glancing about |
-| 1 | run | 6 | the cartoon sneak: big tiptoe strides, crouched over |
-| 2 | jab | 4 | Sucker Punch (light 1) |
-| 3 | jab2 | 4 | Cheap Shot (light 2), the other fist |
-| 4 | swing | 5 | Bag Swing (light 3): the bag off his shoulder and round in front |
-| 5 | smack | 6 | Sack Smack: charge A/B (bag over his head), the swing, follow-through, recover; Smash and Grab plays from frame 3 |
-| 6 | tiptoe | 4 | Tiptoe: finger to his lips, two tiptoe frames that alternate, back up (the game fades him out) |
-| 7 | pick | 5 | Pickpocket: crouch, the low dash with a hand out, the grab, past, recover |
-| 8 | heist | 6 | The Big Heist: crouch, gone (frame 1 is empty), back, two flurry frames that alternate, recover |
-| 9 | dodge | 4 | a tuck and roll |
+| 0 | idle | 8 | rocking on tiptoe (eased), a quick glance at the camera, held, and back; the bag 2 frames behind, the free hand 1 |
+| 1 | run | 12 | the cartoon sneak: per step contact (squash), settle, a slow 3-frame knee lift to a freeze, a fast place; each foot planted 8 frames; the bag 2 frames behind the bob, the beanie 1 |
+| 2 | jab | 8 | Sucker Punch (light 1): shoulder turned away, fist cocked low, whip, extension (held over the hit), recoil, back |
+| 3 | jab2 | 8 | Cheap Shot (light 2): the same with the near fist (the bag passed to the far hand) |
+| 4 | swing | 8 | Bag Swing (light 3): off the shoulder, wound back low, the arc, impact out front, overshoot past him, hoist |
+| 5 | smack | 12 | Sack Smack: 0–3 the charge loop (`anim_charge` `[0, 4, 6]`), gather, rise, overhead whip, slam (the bag flat on the floor), bounce, drag, hoist, stance; Smash and Grab has its own `anim_at` from frame 5 |
+| 6 | tiptoe | 12 | Tiptoe: "shhh" (near hand), sink and glance, two sneak steps (lift, freeze, place, contact), a freeze on one toe, stance (the game fades him out) |
+| 7 | pick | 8 | Pickpocket: crouch (held through the windup), launch, dash, reach, snatch, loot to chest, skid, stance |
+| 8 | heist | 12 | The Big Heist: crouch, spring, gone (frame 2 is empty), back, a 4-frame flurry (near side, far side, high, low), coil, the smack (the cut-in frame, `[8, 9]`), bounce, recover |
+| 9 | dodge | 8 | a forward tuck and roll: crouch, dive, three tumbling frames, landing, squash, up |
 | 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
 | 11 | guard | 2 | hiding behind the money bag |
 | 12 | ko | 4 | flat on his back, the bag beside him, x eyes |
