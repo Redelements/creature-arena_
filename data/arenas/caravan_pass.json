@@ -4,6 +4,13 @@
 	"name": "Dustwind Pass",
 	"ground": "dirt",
 	"light": {"_doc": "hard desert sun from the top left: dark shadows", "dir": [0.7, 0.71], "length": 0.65, "alpha": 0.4},
+	"ambient": {"_doc": "blown sand, scrub that sways, grit off the boulders, a dust devil and the odd vulture; see AmbientView",
+		"motes": {"kind": "sand", "count": 46},
+		"sway": true,
+		"grit": {"every": 140},
+		"critters": [
+			{"kind": "devil", "every": 1500, "life": 420},
+			{"kind": "bird", "every": 2400, "flock": 2, "span": 3, "alpha": 0.5, "first": 600}]},
 	"size": [220, 40],
 	"spawns": {"left": [60, 224], "right": [1732, 224]},
 	"track": [[90, 224], [300, 224], [420, 150], [640, 150], [760, 260], [896, 260],
