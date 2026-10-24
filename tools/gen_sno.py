@@ -5,8 +5,10 @@ Run from anywhere:  python3 tools/gen_sno.py   (Pillow and numpy)
 Look at a few frames while working on a pose:  python3 tools/gen_sno.py inspect idle:0 run:2
 Animation previews (docs/anim_preview/):  python3 tools/gen_sno.py anim
 
-Writes assets/sprites/sno.png (128x128 frames, 12 columns, the side view), sno_down.png and
-sno_up.png (112x128: facing the camera, and facing away), plus labelled previews in docs/.
+Writes assets/sprites/sno.png (128x128 frames, 12 columns, the side view), sno_down.png,
+sno_up.png (112x128: facing the camera, and facing away), sno_down_side.png and
+sno_up_side.png (128x128: the diagonals, facing down-right and up-right), plus labelled
+previews in docs/.
 Rendered with the shared splat renderer (tools/splat3d.py).
 
 Sno Mercy is a snow cone: an icy cyan cone body with a navy rim, a heaped dome of shaved
@@ -32,6 +34,9 @@ SIDE = {"w": 128, "h": 128, "origin": (64, 104)}
 VIEWS = {
     "down": {"w": 112, "h": 128, "origin": (56, 104)},
     "up": {"w": 112, "h": 128, "origin": (56, 92)},
+    # the diagonals (docs/SPRITES.md, "Directions"): facing down-right and up-right
+    "down_side": {"w": 128, "h": 128, "origin": (64, 104)},
+    "up_side": {"w": 128, "h": 128, "origin": (64, 92)},
 }
 
 # Master-palette ramps (tools/palette.py), picked to the character sheet's colours.
@@ -57,6 +62,7 @@ RIM = 44.0   # height of the rim at rest
 CONE_R = 13.0
 LEG = 13.6   # a stick leg's length, hip to ankle, standing
 # In the side view he turns this far toward the camera (a cartoon cheat), so his face reads.
+# The diagonals need none: the 45-degree down_side camera already sees the face.
 SIDE_CHEAT = -24.0
 
 

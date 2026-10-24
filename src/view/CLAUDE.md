@@ -17,7 +17,7 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   own node: y-sort would put it over the fighter behind.
 - Art layout is data-driven: frame size (`[w, h]` frames allowed, Crease's are 128x160),
   origin, `anims`, `side_only`, `idle_ticks`, `run_ticks`, `step_frames`, `anim`, `anim_at` (also the dodge's), `anim_reel`,
-  `anim_charge`, `view_lift` from the creature JSON (`FighterPreview` reads `idle_ticks` too). Up/down sheets are optional; diagonals stay side-on.
+  `anim_charge`, `view_lift` from the creature JSON (`FighterPreview` reads `idle_ticks` too). Up/down sheets are optional, and so are the diagonal sheets `down_side` / `up_side` (mirrored for the left; `pick_view`: 8 sectors of 45 degrees, falling back to the older up/down/side rule when a fighter lacks the sector's sheet, so fighters without them still draw diagonals side-on).
 - An area drawn from data (a burst ring, an ice blast, a zone) reads the same number the
   sim hits with, so a bigger hit area shows as bigger. Projectiles are not drawn from their
   hit `radius`: shots look the same however wide they hit.

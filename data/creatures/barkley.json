@@ -49,7 +49,9 @@
     "select_scale": 0.5,
     "views": {
       "down": { "path": "res://assets/sprites/barkley_down.png", "frame": [128, 160], "origin": [64, 112] },
-      "up": { "path": "res://assets/sprites/barkley_up.png", "frame": [128, 160], "origin": [64, 124] }
+      "up": { "path": "res://assets/sprites/barkley_up.png", "frame": [128, 160], "origin": [64, 124] },
+      "down_side": { "path": "res://assets/sprites/barkley_down_side.png", "frame": [128, 160], "origin": [64, 112] },
+      "up_side": { "path": "res://assets/sprites/barkley_up_side.png", "frame": [128, 160], "origin": [64, 124] }
     }
   },
   "ai": {

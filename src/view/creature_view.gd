@@ -12,12 +12,17 @@ extends Node2D
 ## the same way (Mind Blink's 8).
 ##
 ## Views: fighters can face any of 8 ways. The "sprite" block is the side view (facing
-## right, mirrored for left). Optional "views": {"up": {...}, "down": {...}} add sheets
-## for facing up the screen (seen from behind) and down it (seen from the front), each
-## with its own "path", "frame" (a size, or [width, height]), "origin" and "cols". They
-## use the side sheet's row layout unless they list their own "anims"; animations named
-## in "side_only" (say, a knockout that falls over sideways) always use the side sheet.
-## Facing more up/down than sideways picks the up/down view; diagonals stay side-on.
+## right, mirrored for left). Optional "views" add sheets: "up" (facing up the screen,
+## seen from behind), "down" (facing down it, seen from the front), and the diagonals
+## "down_side" (facing down-right, a front three-quarter view) and "up_side" (facing
+## up-right, a back three-quarter view), both mirrored for down-left and up-left like the
+## side sheet. Each has its own "path", "frame" (a size, or [width, height]), "origin" and
+## "cols", and uses the side sheet's row layout unless it lists its own "anims"; animations
+## named in "side_only" (say, a knockout that falls over sideways) always use the side sheet.
+## `_pick_view`: the facing's 8 sectors of 45 degrees, each centred on a direction, pick
+## side / down_side / down / up_side / up. A fighter without the sheet a sector wants keeps
+## the older rule (more up/down than sideways by 0.05: up/down, else side), so fighters
+## without diagonal sheets draw the diagonals side-on, as they always have.
 
 const FLASH_SHADER := preload("res://src/view/flash.gdshader")
 ## Windup tell colors: red means it can't be blocked, so get out of the way or hit first.
@@ -37,7 +42,7 @@ var frame_px := 48
 var cols := 1
 var origin := Vector2(24, 43)
 var flip := false
-var view := "side"  ## "side", "up" or "down": which sheet is showing
+var view := "side"  ## "side", "up", "down", "down_side" or "up_side": which sheet is showing
 var mat := ShaderMaterial.new()
 var _views := {}  ## view name -> {tex, size, cols, origin, anims}
 var _cur: Dictionary = {}  ## the view whose sheet the sprite is showing
@@ -149,16 +154,39 @@ static func _load_view(v: Dictionary, side: Dictionary, side_only: Array) -> Dic
 
 
 ## Whether this fighter has up/down art (otherwise vertical swings are drawn side-on).
+## The diagonal sheets don't count: FxView's swing already follows a diagonal facing.
 func has_vertical_views() -> bool:
 	return _views.has("up") or _views.has("down")
 
 
+## tan(22.5) and tan(67.5): the edges of the 45-degree sectors round the diagonals.
+const TAN_22 := 0.41421356
+const TAN_67 := 2.41421356
+
+
 func _pick_view() -> String:
-	var f := c.facing
-	if absf(f.y) > absf(f.x) + 0.05:
-		var want := "down" if f.y > 0.0 else "up"
-		if _views.has(want):
-			return want
+	return pick_view(c.facing, _views)
+
+
+## The sheet for a facing, from the views a fighter has (static, so tests can sweep it).
+## The 8 sectors: within 22.5 degrees of straight up or down, the up/down view; within
+## 22.5 degrees of a diagonal, down_side or up_side; otherwise the side view. A sector
+## whose sheet the fighter lacks falls back to the older rule below, so a fighter with
+## only side, up and down picks exactly what it always has.
+static func pick_view(f: Vector2, views: Dictionary) -> String:
+	var ax := absf(f.x)
+	var ay := absf(f.y)
+	var want := "side"
+	if ay > ax * TAN_67:
+		want = "down" if f.y > 0.0 else "up"
+	elif ay > ax * TAN_22:
+		want = "down_side" if f.y > 0.0 else "up_side"
+	if views.has(want):
+		return want
+	if ay > ax + 0.05:
+		var vert := "down" if f.y > 0.0 else "up"
+		if views.has(vert):
+			return vert
 	return "side"
 
 

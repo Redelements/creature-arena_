@@ -7,25 +7,44 @@ animation by name with its `"anim"` field.
 
 ![Current placeholder sheets](sprite_preview.png)
 
-## Three directions per creature
+## Directions per creature: three sheets, five with the diagonals
 
-Fighters face any of 8 ways, so every creature has **three sheets with the same rows**:
+Fighters face any of 8 ways, so every creature has **three sheets with the same rows**,
+and have **two more for the diagonals** (every fighter but Cairn and the dummy, since the
+Oct 2026 diagonal round):
 
 | Sheet | Shows | Used when facing |
 | --- | --- | --- |
-| `name.png` | the side, facing **right** (mirrored for left) | left, right and the four diagonals |
+| `name.png` | the side, facing **right** (mirrored for left) | left and right (and the diagonals, without the two sheets below) |
+| `name_down_side.png` | a **front three-quarter** view, facing down-right (mirrored for down-left) | down-right and down-left |
 | `name_down.png` | the **front**, walking toward the camera | down the screen |
+| `name_up_side.png` | a **back three-quarter** view, facing up-right (mirrored for up-left) | up-right and up-left |
 | `name_up.png` | the **back**, walking away from the camera | up the screen |
+
+Which sheet: the facing's 360 degrees split into 8 sectors of 45, each centred on a
+direction (`CreatureView.pick_view`), so a fighter facing exactly down-right uses
+`down_side`. A fighter without the sheet a sector wants keeps the older rule: more up/down
+than sideways (by 0.05) picks up/down, anything else the side sheet. Fighters with only
+three sheets look exactly as they did.
 
 In the up and down sheets, "forward" is depth: a punch that reaches 20 px in front of
 the feet on the side sheet should land about 20 px below the feet (front view) or above
 them (back view), because that's where the hit lands in the game. Arms and heads that
-reach away from the camera go behind the body.
+reach away from the camera go behind the body. The diagonals follow the same rule along
+their diagonal: hits are circles on the floor, so a punch reaching 20 px lands about
+14 px right and 14 px down the screen (`down_side`) or 14 px right and 14 px up
+(`up_side`). The creature's right side goes the other diagonal (left and down in
+`down_side`, right and down in `up_side`). `tools/splat3d.py` (`Cam`) projects them that
+way, with the body's own depth flattened as in the down/up views (`depth_y`).
 
 Each view can have its own frame size and feet origin (`"views"` in the creature's JSON
 `"sprite"` block). Animations listed in `"side_only"` (all three use it for the knockout,
 which falls over sideways) always come from the side sheet, so those rows can stay empty
-in the other two. Preview: [`sprite_views_preview.png`](sprite_views_preview.png) (Cairn,
+in the others. Pete's five views side by side:
+[`anim_preview/pete_diagonals_3x.png`](anim_preview/pete_diagonals_3x.png) and
+[`pete_views_preview.png`](pete_views_preview.png); every other fighter has its own
+`anim_preview/<id>_diagonals_3x.png` and `<id>_views_preview.png` (Craglash's diagonals:
+[`craglash_diagonal_views_preview.png`](craglash_diagonal_views_preview.png)). Preview: [`sprite_views_preview.png`](sprite_views_preview.png) (Cairn,
 side/down/up), [`culvert_views_preview.png`](culvert_views_preview.png), [`craglash_views_preview.png`](craglash_views_preview.png) and
 [`barkley_views_preview.png`](barkley_views_preview.png) and
 [`gillbert_views_preview.png`](gillbert_views_preview.png).
@@ -89,6 +108,11 @@ still 24 ticks), footsteps on `step_frames` `[2, 7]` (the push-off and the landi
 
 Facing down and up: [`culvert_views_preview.png`](culvert_views_preview.png).
 
+The diagonals (`culvert_down_side.png`, `culvert_up_side.png`): 96×96 like the others
+(no `"frame"` key), feet at x 48, y 80 (`down_side`) and y 74 (`up_side`), the plain
+45-degree cameras with no cheat. Five views side by side:
+[`anim_preview/culvert_diagonals_3x.png`](anim_preview/culvert_diagonals_3x.png).
+
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
 | 0 | idle | 8 | the breath, eased: the front of him rises, the throat fills 2 frames behind, a one-frame blink |
@@ -148,6 +172,27 @@ cut-in and the team select scale to it. His up and down sheets (`craglash_down.p
 `craglash_up.png`) are **128×160** frames with the same rows minus the knockout, feet at
 x 64, y 112 (down) and y 124 (up); the same rig draws them from the front and from behind.
 
+His diagonal sheets (`craglash_down_side.png`, `craglash_up_side.png`, the same 128×160
+frames and rows, feet at x 64, y 112 and y 124) come from a third rig, `DRig`, a
+three-quarter blend of the side puppet and the up/down `VRig`. It keeps the VRig's 3D
+reading of each side pose (feet, hands, neck bends and head as sideways, up and forward,
+with the same foreshortening of the feet and the head's reach) and turns the floor 45
+degrees: forward lands 0.707 right and 0.707 down (`down_side`) or up (`up_side`), so the
+Maw's head lands on the hit as in the other views, and the sideways axis runs the other
+diagonal with its height flattened (`LAT_Y` 0.3) so the shoulders don't slant. The side
+the side sheet shows nearest (arm and leg 1) is toward the camera in both. The torso,
+crown and flank spines are drawn square to the camera (a round body is about as wide
+from any angle) with the belly slid toward forward (`down_side`) or the spine's stone
+ridge toward backward (`up_side`); the legs bend their knees forward in their own plane;
+a hand reaching forward closes in on the middle line, so a Rake sweeps across the chest
+along the diagonal; the far arm and leg are darkened as on the side sheet. Parts sort by
+depth: the near arm in front of the torso, the far one behind unless it swings across
+(`arm0_front`) or reaches toward the camera; the neck bows behind the head (the VRig bows
+it out to the side for the front view). The head has three-quarter faces: `_face_quarter`
+(both eyes, the far one narrower, the snout and mouth slid down-right) and, from behind,
+parted fur with the near eye's corner and the snout's edge at the cheek; it sits on the
+neck's top stones in `up_side` so the mane reads.
+
 ![Craglash sheet, 3x](craglash_preview.png)
 
 Animated with the roster pass (motion plan, previews and before/after GIFs:
@@ -206,7 +251,14 @@ idle, the slowest), `run_ticks` 2 (the run still 24 ticks), footsteps on the def
 
 ![Barkley sheet, 3x](barkley_preview.png)
 
-Facing down and up: [`barkley_views_preview.png`](barkley_views_preview.png).
+Facing down and up, and the diagonals: [`barkley_views_preview.png`](barkley_views_preview.png).
+The diagonal sheets (`barkley_down_side.png`, `barkley_up_side.png`, **128×160** like the up
+and down sheets, feet at x 64, y 112 and y 124) come from two more projections in his `Cam`,
+the same floor rule as splat3d's: reach goes 0.707 right and 0.707 down (or up), his body's
+own depth flattened by `depth_y`. Everything else (the ring end of the log, which eye and
+side of the nose show, which arm is in front) follows from the camera direction, so the
+painter needed no per-view cases. All five views at 3x:
+[`anim_preview/barkley_diagonals_3x.png`](anim_preview/barkley_diagonals_3x.png).
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
@@ -255,8 +307,15 @@ ability redrawn, the tail fin, the fins and the rod each on their own lag (`tail
 `idle_ticks` 8 (a 64-tick idle), `run_ticks` 2 (the run still 32 ticks), `step_frames`
 `[6, 14]` (the slaps); the sheet is 16 columns wide for the 16-frame run.
 
-Facing down and up: [`gillbert_views_preview.png`](gillbert_views_preview.png). The run in
-all three views: [`gillbert_run.gif`](gillbert_run.gif).
+Facing down and up, and the diagonals: [`gillbert_views_preview.png`](gillbert_views_preview.png).
+The run in side, front and back: [`gillbert_run.gif`](gillbert_run.gif). The diagonal sheets
+(`gillbert_down_side.png`, `gillbert_up_side.png`, **128×144**, 16 columns like the others,
+feet at x 72, y 100 facing down-side and x 64, y 84 facing up-side, off centre because the
+rod trails up-left or down-left) come from two more projections in his `Cam` (splat3d's floor
+rule, with his long `depth_y` flattening). The painter's one new case is the ring: he passes
+through it at a slant, so its far half goes behind all of him, its near half over his flank,
+and the end of him nearer the camera (head facing down-side, tail facing up-side) over that.
+All five views at 3x: [`anim_preview/gillbert_diagonals_3x.png`](anim_preview/gillbert_diagonals_3x.png).
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
@@ -303,7 +362,12 @@ missing from the frame (the game draws it in flight, also in violet). Tools are 
 character space, not on the brain, so they drift on their own as he bobs. Feet (the
 floor under him) at **x 62, y 100**. The rig is modelled large and drawn at 0.72 scale
 (`SCALE`). Up and down sheets (`cerebro_down.png`, `cerebro_up.png`) are **112×128**,
-feet at x 56, y 88 (down) and y 76 (up).
+feet at x 56, y 88 (down) and y 76 (up). The diagonals (`cerebro_down_side.png`,
+`cerebro_up_side.png`) are **128×128**, feet at x 64, y 88 (down-side) and y 76 (up-side),
+projected by the generator's own copy of `splat3d.Cam`'s diagonal cameras; no per-view
+cheats (his props are posed in character space, so they fall where the 3D layout puts
+them: at rest the spatula, behind-right of him, hangs in front of the brain in `up_side`).
+All five views: [`anim_preview/cerebro_diagonals_3x.png`](anim_preview/cerebro_diagonals_3x.png).
 
 Animated with the roster pass (motion plan, previews and before/after GIFs:
 [`anim_preview/cerebro_motion_plan.md`](anim_preview/cerebro_motion_plan.md)): every tool
@@ -316,7 +380,7 @@ dodge block's `anim_at`, drawn at full strength on its flash ticks (`blink.solid
 
 ![Chef Cerebro sheet, 3x](cerebro_preview.png)
 
-Facing down and up: [`cerebro_views_preview.png`](cerebro_views_preview.png).
+Facing down, down-side, up and up-side: [`cerebro_views_preview.png`](cerebro_views_preview.png).
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
@@ -356,7 +420,14 @@ head is turned a little toward the camera (`SIDE_CHEAT`), so both eyes and the g
 Expressions: grin, shout, gaze (glowing eyes), hurt, ko.
 
 Feet at **x 64, y 104**, drawn at 0.72 scale. Up and down sheets (`hissy_down.png`,
-`hissy_up.png`) are **112×128**, feet at x 56, y 104 (down) and y 92 (up).
+`hissy_up.png`) are **112×128**, feet at x 56, y 104 (down) and y 92 (up). The diagonals
+(`hissy_down_side.png`, `hissy_up_side.png`) are **128×128**, feet at x 64, y 104 and
+y 92, projected by the generator's own copy of `splat3d.Cam`'s diagonal cameras. Facing
+down-right her head turns a further 18 degrees toward the camera (`CHEAT["down_side"]`,
+like `SIDE_CHEAT`) so the far eye and the grin don't crowd the edge; facing up-right
+shows the back of her head as the up view does (no cheat). In both diagonals the
+earring crystals face the camera. All five views:
+[`anim_preview/hissy_diagonals_3x.png`](anim_preview/hissy_diagonals_3x.png).
 
 Animated with the roster pass (motion plan, previews and before/after GIFs:
 [`anim_preview/hissy_motion_plan.md`](anim_preview/hissy_motion_plan.md)): nothing on her
@@ -369,7 +440,7 @@ glide still 24 ticks).
 
 ![Hissy Fitz sheet, 3x](hissy_preview.png)
 
-Facing down and up: [`hissy_views_preview.png`](hissy_views_preview.png).
+Facing down, down-side, up and up-side: [`hissy_views_preview.png`](hissy_views_preview.png).
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
@@ -410,6 +481,12 @@ dirt mound. Drawn at 0.8 scale, feet at **x 64, y 100**; up and down sheets are
 ![Digby sheet, 3x](digby_preview.png)
 
 Facing down and up: [`digby_views_preview.png`](digby_views_preview.png).
+
+The diagonals (`digby_down_side.png`, `digby_up_side.png`): **128×128** (as wide as the
+side sheet, for the snout-to-tail length on the diagonal), feet at x 64, y 100
+(`down_side`) and y 90 (`up_side`), no cheat; the headlamp and pick are 3D parts of the rig,
+so they sit where each camera sees them. Five views side by side:
+[`anim_preview/digby_diagonals_3x.png`](anim_preview/digby_diagonals_3x.png).
 
 Every ability had the roster animation pass (Oct 2026): the motion plan with every
 `anim_at` is [`anim_preview/digby_motion_plan.md`](anim_preview/digby_motion_plan.md), and
@@ -491,6 +568,12 @@ toward the camera (`SIDE_CHEAT`) so the face reads. Drawn at 0.8 scale, feet at
 
 Facing down and up: [`sno_views_preview.png`](sno_views_preview.png).
 
+The diagonals (`sno_down_side.png`, `sno_up_side.png`): **128×128**, feet at x 64, y 104
+(`down_side`) and y 92 (`up_side`). `SIDE_CHEAT` applies to the side view only: the
+45-degree `down_side` camera already shows his face, and `up_side` is a back three-quarter
+view (the face is out of sight, as in the up view). Five views side by side:
+[`anim_preview/sno_diagonals_3x.png`](anim_preview/sno_diagonals_3x.png).
+
 Animated with the roster pass (the Crease recipe, `anim_preview/sno_motion_plan.md`; the
 previews are `anim_preview/sno_*`): doubled frames on the same clock (`idle_ticks` 8 = a
 64-tick idle, `run_ticks` 2), eased spacing, held releases, overlap on the gloves, drip,
@@ -549,6 +632,12 @@ into the frames; the ones in his hands during a fold or a throw are in the frame
 ![Mister Crease sheet, 3x](crease_preview.png)
 
 Facing down and up: [`crease_views_preview.png`](crease_views_preview.png).
+
+The diagonals (`crease_down_side.png`, `crease_up_side.png`): **128×160**, feet at x 64,
+y 136 (`down_side`) and y 124 (`up_side`), no cheat. The paper pass works for them
+unchanged: `build` takes each view's camera from `S.Cam(view)`, so the paper backs, fold
+lines and seams follow the diagonal cameras. All 16 rows are drawn. Five views side by
+side: [`anim_preview/crease_diagonals_3x.png`](anim_preview/crease_diagonals_3x.png).
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |

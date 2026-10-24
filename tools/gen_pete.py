@@ -4,8 +4,9 @@
 Run from anywhere:  python3 tools/gen_pete.py   (Pillow and numpy)
 Look at a few frames while working on a pose:  python3 tools/gen_pete.py inspect idle:0 run:2
 
-Writes assets/sprites/pete.png (128x128 frames, 12 columns, the side view), pete_down.png
-and pete_up.png (112x128: facing the camera, and facing away), plus labelled previews in
+Writes assets/sprites/pete.png (128x128 frames, 12 columns, the side view), pete_down.png,
+pete_up.png (112x128: facing the camera, and facing away), pete_down_side.png and
+pete_up_side.png (128x128: the diagonals, facing down-right and up-right), plus labelled previews in
 docs/. Rendered with the shared splat renderer (tools/splat3d.py).
 
 Pete is a cartoon burglar, always on tiptoe: pink skin, a big round nose, a black
@@ -31,6 +32,9 @@ SIDE = {"w": 128, "h": 128, "origin": (64, 104)}
 VIEWS = {
     "down": {"w": 112, "h": 128, "origin": (56, 104)},
     "up": {"w": 112, "h": 128, "origin": (56, 92)},
+    # the diagonals (docs/SPRITES.md, "Directions"): facing down-right and up-right
+    "down_side": {"w": 128, "h": 128, "origin": (64, 104)},
+    "up_side": {"w": 128, "h": 128, "origin": (64, 92)},
 }
 
 # Master-palette ramps (tools/palette.py), picked to the character sheet's colours: the
@@ -236,6 +240,8 @@ def _dollar(c, r, view, sq=0.0):
         n = np.array([0.55, 0.0, 0.83])
     elif view == "down":
         n = np.array([0.0, 0.0, 1.0])
+    elif view in ("down_side", "up_side"):  # the diagonals: toward their camera
+        n = S.Cam(view).cam / np.linalg.norm(S.Cam(view).cam)
     else:
         n = np.array([0.0, 0.0, -1.0])
     u = np.array([0.0, 1.0, 0.0])
