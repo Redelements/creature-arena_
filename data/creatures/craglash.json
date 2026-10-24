@@ -109,6 +109,28 @@
           64,
           124
         ]
+      },
+      "down_side": {
+        "path": "res://assets/sprites/craglash_down_side.png",
+        "frame": [
+          128,
+          160
+        ],
+        "origin": [
+          64,
+          112
+        ]
+      },
+      "up_side": {
+        "path": "res://assets/sprites/craglash_up_side.png",
+        "frame": [
+          128,
+          160
+        ],
+        "origin": [
+          64,
+          124
+        ]
       }
     }
   },

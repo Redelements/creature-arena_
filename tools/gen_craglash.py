@@ -581,9 +581,14 @@ def mane_polygon(cx, cy, table, base_angle, flare, wide=0.95, tall=0.84):
     return pts
 
 
+# The mane's forward angle on screen per facing: the side faces right, the front down; the
+# diagonals face down-right and up-right.
+MANE_ANGLE = {"side": 0, "front": 90, "down_side": 45, "up_side": -45}
+
+
 def head_shape(cx, cy, flare, facing="side"):
     """Mane layers and the face disc, each shaded; returns the stacked image."""
-    base_angle = 0 if facing == "side" else 90
+    base_angle = MANE_ANGLE.get(facing, 90)
     img = layer()
     back = layer()
     ImageDraw.Draw(back).polygon(mane_polygon(cx, cy, MANE_BACK, base_angle, flare), fill=C["mane"])
@@ -594,6 +599,10 @@ def head_shape(cx, cy, flare, facing="side"):
     disc(d, (cx, cy), 8.5, "mane")
     if facing == "side":
         disc(d, (cx + 6, cy + 2), 4.5, "mane")  # the snout
+    elif facing == "down_side":
+        disc(d, (cx + 4, cy + 3), 4.0, "mane")  # the snout, turned toward the camera
+    elif facing == "up_side":
+        disc(d, (cx + 6, cy - 1), 3.5, "mane")  # the snout's edge, past the cheek
     front = shade(front, "mane")
     det = layer()
     dd = ImageDraw.Draw(det)
@@ -704,7 +713,9 @@ def render(pose):
 
 VF = 128  # frame width for the up/down sheets
 VFH = 160  # and height: the neck reaches far toward and away from the camera
-VIEW_ORIGIN = {"down": (64, 112), "up": (64, 124)}
+VIEW_ORIGIN = {"down": (64, 112), "up": (64, 124), "down_side": (64, 112), "up_side": (64, 124)}
+# Every sheet, in the preview order (anim_preview.VIEW_ORDER); the diagonals: render_diag.
+VIEWS = ("side", "down", "down_side", "up", "up_side")
 HEAD_REST_FWD = 10  # side poses hold the head this far forward; that's "centered" here
 
 
@@ -719,6 +730,9 @@ class VRig:
     def depth(self, fwd):
         """Bigger = closer to the camera = drawn later."""
         return fwd * self.sgn
+
+    def depth3(self, v3):
+        return self.depth(v3[2])
 
     def P(self, v3):
         lat, up, fwd = v3
@@ -905,7 +919,7 @@ def v_neck_stones(vr):
         fore = min(1.0, seg2[j] / max(seg3[j], 1e-6))
         lay = layer()
         stone_disc(a, (b[0] - a[0] + 1e-6, b[1] - a[1]), k / max(1, n - 1), lay, along=2.9 + (1.0 - fore) * 2.0)
-        out.append((vr.depth(pts3[j][2]), outline(lay)))
+        out.append((vr.depth3(pts3[j]), outline(lay)))
     return out
 
 
@@ -996,6 +1010,290 @@ def render_view(pose, view):
     return img
 
 
+# ------------------------------------------------------------------ the diagonals
+#
+# Facing down-right ("down_side", a front three-quarter view) and up-right ("up_side", a
+# back three-quarter view), mirrored by the game for the other two. The same 3D reading
+# of the side pose as the VRig (feet, hands, neck and head in (sideways, up, forward)),
+# with the floor turned 45 degrees: a point `fwd` ahead of the feet lands 0.707 * fwd to
+# the right and 0.707 * fwd down (or up) the screen, so reach on screen is reach in the
+# game, as in the up/down views. The sideways axis runs the other diagonal, its depth
+# flattened (LAT_Y) so the shoulders don't slant like a floor tile. +sideways is the
+# side the side sheet shows nearest (arm and leg 1): it's toward the camera in both.
+# The torso, crown and flank spines are drawn square to the camera (a round body is
+# about as wide from any angle) with the belly or the back's stone ridge turned toward
+# forward or backward; the limbs, neck and head are placed in 3D and sorted by depth.
+
+DIAG = math.sqrt(0.5)
+LAT_Y = 0.3  # how much of the sideways depth shows as screen height
+
+
+class DRig(VRig):
+    def __init__(self, pose, view):
+        super().__init__(pose, view)
+        self.lx = -1 if view == "down_side" else 1  # screen x of +sideways
+        self.fy = 1 if view == "down_side" else -1  # screen y of forward: toward the camera, or away
+
+    def depth(self, fwd, lat=0.0):
+        """Bigger = closer to the camera."""
+        return DIAG * (fwd * self.fy + lat)
+
+    def depth3(self, v3):
+        return self.depth(v3[2], v3[0])
+
+    def side_to3(self, pt, lat):
+        # The VRig bows the neck out to one side so the front view shows its curve; here
+        # +sideways is toward the camera, so it bows the other way, behind the head.
+        return super().side_to3(pt, -lat * 0.6)
+
+    def head3(self):
+        lat, up, fwd = super().head3()
+        return (0.0, up, fwd)
+
+    def hand3(self, i):
+        """The VRig's hands, but a hand reaching forward closes in on the body's middle line
+        (a strike lands in front of the chest, not off the shoulder), so on the diagonal it
+        reaches along forward rather than straight down the screen."""
+        lat, up, fwd = super().hand3(i)
+        if self.p.vhands:
+            return (lat, up, fwd)
+        sh = self.shoulder3(i)
+        reach = fwd - sh[2]
+        if reach > 4:
+            t = min(1.0, (reach - 4) / 14.0)
+            lat = lat + (sh[0] * 0.25 - lat) * t
+        return (lat, up, fwd)
+
+    def P(self, v3):
+        lat, up, fwd = v3
+        return (OX + DIAG * (fwd + lat * self.lx), OY - up + DIAG * (fwd * self.fy + lat * LAT_Y))
+
+    def torso2(self, v, face=0.0, squeeze=1.0):
+        """Torso-local point on screen, the torso square to the camera. `face` slides the
+        point toward the side the chest faces (+1) or the back faces (-1), squeezed as a
+        detail on a turned surface."""
+        a = math.radians(self.p.lean)
+        h = -v[1] * TS * self.p.sy
+        cx, cy = self.P((0.0, self.hip3[1] + h * math.cos(a), self.hip3[2] + h * math.sin(a)))
+        x = v[0] * TS * squeeze + face * 4.0
+        # the near side (+sideways) sits a little lower, as the shoulders do
+        return (cx + x, cy + x * LAT_Y * DIAG * self.lx)
+
+
+def d_torso(dr):
+    P = dr.torso2
+    img = layer()
+    img.alpha_composite(draw_spikes(P, CROWN, 5.5))
+    body = layer()
+    d = ImageDraw.Draw(body)
+    d.polygon([P(v) for v in TORSO], fill=C["body"])
+    body = shade(body, "body")
+    if dr.view == "down_side":
+        # the chest turns toward forward: down-right
+        body.alpha_composite(clip_to(torso_details(lambda v: P(v, face=1.0, squeeze=0.75), dr.p.glow), body))
+    else:
+        # the back turns toward the camera, down-left: the spine's stone plates and fur
+        B = lambda v: P(v, face=-1.0, squeeze=0.75)  # noqa: E731
+        det = layer()
+        dd = ImageDraw.Draw(det)
+        for y in range(-18, -2, 3):
+            q = B((0, y))
+            dd.rectangle([q[0] - 1, q[1] - 1, q[0] + 1, q[1]], fill=C["stone"])
+            dd.point((q[0] - 1, q[1] - 1), fill=C["stone_hi"])
+            dd.point((q[0] + 1, q[1]), fill=C["stone_d"])
+        for y0 in (-14, -8):
+            dd.line([B((-9, y0)), B((-6, y0 + 1))], fill=C["body_dd"])
+            dd.line([B((9, y0)), B((6, y0 + 1))], fill=C["body_dd"])
+        for x in range(-11, 12, 2):
+            dd.point(B((x, -1 + (x // 2) % 2)), fill=C["body_d"])
+        # the chest's veins round the forward edge, up-right
+        vein = C["glow"] if dr.p.glow > 0.5 else C["crack"]
+        for seg in ([(10, -17), (12, -14)], [(9, -8), (12, -6)]):
+            dd.line([P(v) for v in seg], fill=vein)
+        if dr.p.glow > 0:
+            for v in [(-7, -14), (6, -13), (-3, -7), (8, -5)]:
+                dd.point(B(v), fill=C["glow"])
+        body.alpha_composite(clip_to(det, body))
+    img.alpha_composite(outline(body))
+    img.alpha_composite(draw_spikes(P, FLANK, 4.5))
+    return img
+
+
+def d_leg(dr, i):
+    p = dr.p
+    lat = -5.0 if i == 0 else 5.0
+    hip3 = (lat, dr.hip3[1] + 1, dr.hip3[2])
+    foot3 = dr.foot3(i)
+    ankle3 = (foot3[0], foot3[1] + 3, foot3[2])
+    # The knee bends forward in the leg's own plane (forward and up), as on the side sheet.
+    kf, ku = ik((hip3[2], -hip3[1]), (ankle3[2], -ankle3[1]), LEG[0], LEG[1], -1)
+    knee3 = ((hip3[0] + ankle3[0]) / 2, -ku, kf)
+    hip, knee, ankle = dr.P(hip3), dr.P(knee3), dr.P(ankle3)
+    fwd = (DIAG, DIAG * dr.fy)  # forward on screen
+    img = layer()
+    d = ImageDraw.Draw(img)
+    capsule(d, hip, knee, 4.6, 3.8, "body")
+    capsule(d, knee, ankle, 3.8, 3.2, "body")
+    # fur tufts at the back of the knee
+    spike(d, add(knee, (-fwd[0] * 2, -fwd[1] * 2)), add(knee, (-fwd[0] * 7.5, -fwd[1] * 7.5 + 1)), 3.5, "body")
+    tips = []
+    toe = p.lift[i]
+    if dr.view == "down_side":
+        # clawed foot pointing down-right, toward the camera
+        d.ellipse([ankle[0] - 5, ankle[1] - 1, ankle[0] + 5, ankle[1] + 3], fill=C["body"])
+        for k, off in enumerate((-2.6, 0.0, 2.6)):
+            base = (ankle[0] + 1 + off * DIAG, ankle[1] + 1 - off * DIAG)
+            tip = (base[0] + 6.5 - abs(k - 1), base[1] + 5.5 - abs(k - 1) - toe)
+            spike(d, base, tip, 2.8, "body")
+            tips.append(tip)
+        dirn = unit((1, 1))
+    else:
+        # seen from behind: the heel, the claws peeking out up-right
+        for k, off in enumerate((-2.2, 2.2)):
+            base = (ankle[0] + 2 + off * DIAG, ankle[1] + off * DIAG)
+            tip = (base[0] + 5.5, base[1] - 2.5 - toe)
+            spike(d, base, tip, 2.6, "body")
+            tips.append(tip)
+        d.ellipse([ankle[0] - 4, ankle[1] - 1, ankle[0] + 4, ankle[1] + 2], fill=C["body"])  # heel
+        dirn = unit((1, -0.5))
+    img = shade(img, "body")
+    img = finish_claws(img, tips, dirn)
+    if i == 0:  # the far leg sits in shadow
+        img = darken(img, 0.74)
+    return outline(img)
+
+
+def d_arm(dr, i):
+    p = dr.p
+    sh3 = dr.shoulder3(i)
+    hand3 = dr.hand3(i)
+    sh, hand = dr.P(sh3), dr.P(hand3)
+    side = (-1 if i == 0 else 1) * dr.lx  # which way is out from the body, on screen
+    el = _outward_ik(sh, hand, ARM[0], ARM[1], side)
+    img = layer()
+    d = ImageDraw.Draw(img)
+    capsule(d, sh, el, 4.2, 3.5, "body")
+    capsule(d, el, hand, 3.5, 3.0, "body")
+    u = unit((el[0] - hand[0], el[1] - hand[1]))
+    spike(d, el, add(el, (u[0] * 3.0 + side * 4.5, u[1] * 3.0 + 1.5)), 4.5, "body")
+    direction = unit((hand[0] - el[0], hand[1] - el[1]))
+    tips = []
+    if p.fists[i]:
+        disc(d, hand, 3.8, "body")
+    else:
+        claw_hand(d, hand, direction, False, side, tips)
+    img = shade(img, "body")
+    img = finish_claws(img, tips, direction)
+    det = layer()
+    dd = ImageDraw.Draw(det)
+    n = (-direction[1], direction[0])
+    pts = []
+    for k in range(0, 4):
+        s = 1 if k % 2 else -1
+        pts.append(add(el, (direction[0] * (1.5 + k * 1.4) + n[0] * (1.0 + s), direction[1] * (1.5 + k * 1.4) + n[1] * (1.0 + s))))
+    dd.line(pts, fill=C["crack"])
+    img.alpha_composite(clip_to(det, img))
+    if i == 0:
+        img = darken(img, 0.74)
+    return outline(img)
+
+
+def d_head(dr):
+    p = dr.p
+    cx, cy = dr.P(dr.head3())
+    img = head_shape(cx, cy, p.mane, facing=dr.view)
+    det = layer()
+    dd = ImageDraw.Draw(det)
+    if dr.view == "down_side":
+        _face_quarter(dd, cx, cy + p.tilt, p.face)
+    else:
+        # the back of the head, parted fur turned down-left, and the near eye's corner
+        # at the cheek
+        for seg in ([(-7, -3), (-3, -1), (1, -3)], [(-6, 3), (-2, 5), (2, 3)], [(-9, 0), (-7, 1)]):
+            dd.line([(cx + x, cy + y) for x, y in seg], fill=C["mane_dd"])
+        if p.face not in ("ko", "hurt", "strain"):
+            dd.point((cx + 7, cy - 3), fill=C["eye"])
+            dd.point((cx + 8, cy - 3), fill=C["eye_d"])
+            dd.line([(cx + 6, cy - 5), (cx + 8, cy - 4)], fill=C["outline"])
+        if p.face in ("roar", "strain"):
+            dd.line([(cx + 7, cy + 2), (cx + 9, cy + 1)], fill=C["mouth"])
+    img.alpha_composite(clip_to(det, img))
+    return img
+
+
+def _face_quarter(d, cx, cy, face):
+    """The face turned three-quarters toward the camera, looking down-right: the near eye
+    (left) full, the far eye (right) narrower, the snout and mouth slid toward forward."""
+    o = C["outline"]
+    ne, fe = (cx - 2, cy - 2), (cx + 5, cy - 3)
+    if face == "ko":
+        for e in (ne, fe):
+            d.line([(e[0] - 1, e[1] - 1), (e[0] + 1, e[1] + 1)], fill=o)
+            d.line([(e[0] - 1, e[1] + 1), (e[0] + 1, e[1] - 1)], fill=o)
+    elif face in ("hurt", "strain"):
+        d.line([(ne[0] - 2, ne[1] - 1), (ne[0] + 1, ne[1])], fill=o)
+        d.line([(fe[0] - 1, fe[1]), (fe[0] + 1, fe[1] - 1)], fill=o)
+    else:
+        d.rectangle([ne[0] - 1, ne[1], ne[0] + 1, ne[1] + 1], fill=C["eye"])
+        d.point((ne[0] - 1, ne[1] + 1), fill=C["eye_d"])
+        d.rectangle([ne[0] + 1, ne[1], ne[0] + 1, ne[1] + 1], fill=C["pupil"])
+        d.rectangle([fe[0], fe[1], fe[0] + 1, fe[1] + 1], fill=C["eye"])
+        d.point((fe[0] + 1, fe[1] + 1), fill=C["pupil"])
+        d.line([(ne[0] - 3, ne[1] - 3), (ne[0] + 1, ne[1] - 1)], fill=o)
+        d.line([(fe[0] + 2, fe[1] - 2), (fe[0] - 1, fe[1] - 1)], fill=o)
+        d.line([(ne[0] - 3, ne[1] - 2), (ne[0], ne[1] - 1)], fill=C["mane_dd"])
+    # nostrils on the snout
+    d.point((cx + 3, cy + 2), fill=C["mane_dd"])
+    d.point((cx + 6, cy + 2), fill=C["mane_dd"])
+    mx, my = cx + 3, cy + 5
+    if face in ("roar", "strain"):
+        h = 4 if face == "roar" else 2
+        d.rectangle([mx - 4, my, mx + 3, my + h], fill=C["mouth"])
+        d.rectangle([mx - 3, my + 1, mx + 2, my + h - 1], fill=C["mouth_d"])
+        d.line([(mx - 4, my), (mx + 3, my)], fill=C["mouth_d"])
+        for x in (mx - 3, mx, mx + 3):
+            d.point((x, my), fill=C["fang"])
+            d.point((x, my + 1), fill=C["fang"])
+        d.point((mx - 2, my + h), fill=C["fang"])
+        d.point((mx + 2, my + h), fill=C["fang"])
+        d.line([(mx - 4, my + h + 1), (mx + 3, my + h + 1)], fill=o)
+    elif face == "ko":
+        d.line([(mx - 3, my + 1), (mx + 2, my + 1)], fill=C["mouth_d"])
+    else:
+        d.rectangle([mx - 3, my, mx + 2, my + 1], fill=C["mouth"])
+        d.line([(mx - 4, my - 1), (mx + 3, my - 1)], fill=o)
+        d.point((mx - 2, my), fill=C["fang"])
+        d.point((mx + 1, my), fill=C["fang"])
+        d.line([(mx - 3, my + 2), (mx + 2, my + 2)], fill=C["mane_dd"])
+
+
+def render_diag(pose, view):
+    pose = whole_pixels(pose)
+    dr = DRig(pose, view)
+    body = dr.depth(dr.hip3[2])
+    parts = []  # (depth, order, layer)
+    for i in (0, 1):
+        # under the torso, the near leg over the far one
+        parts.append((body - 1.0 + 0.1 * i, 1, d_leg(dr, i)))
+    parts.append((body, 2, d_torso(dr)))
+    for i in (0, 1):
+        # The near arm hangs in front of the torso; the far one behind it, unless it swings
+        # across the body or reaches well toward the camera.
+        reach = dr.depth3(dr.hand3(i)) - dr.depth3(dr.shoulder3(i))
+        front = i == 1 or pose.arm0_front or reach > 8
+        parts.append((body + (0.5 + max(0.0, reach) * 0.1 if front else -0.5), 3, d_arm(dr, i)))
+    if not pose.scatter:
+        for dep, lay in v_neck_stones(dr):
+            parts.append((dep + 0.2, 4, lay))
+    # From behind, the neck's top stones would hide most of the head; the head sits on them
+    # instead, so the mane and the face's edge read.
+    parts.append((dr.depth3(dr.head3()) + (0.6 if view == "down_side" else 6.0), 5, d_head(dr)))
+    img = layer()
+    for _dep, _o, lay in sorted(parts, key=lambda t: (t[0], t[1])):
+        img.alpha_composite(lay)
+    return img
+
+
 # ------------------------------------------------------------------ animations
 #
 # Poses are written for the feet origin: hip and head are offsets from it, hands are
@@ -1065,37 +1363,48 @@ def ko():
 
 
 
+def render_any(pose, view):
+    """A frame in one of the 128x160 views (the frame size and origin already set)."""
+    return render_diag(pose, view) if view in ("down_side", "up_side") else render_view(pose, view)
+
+
 def view_sheets():
-    """The up and down sheets: same rows as the side sheet, 128x160 frames."""
+    """The up, down and diagonal sheets: same rows as the side sheet, 128x160 frames."""
     global F, FH, OX, OY
     saved = (F, FH, OX, OY)
     out = {}
-    for view in ("down", "up"):
+    for view in VIEWS[1:]:
         F, FH = VF, VFH
         OX, OY = VIEW_ORIGIN[view]
         sh = Image.new("RGBA", (VF * COLS, VFH * len(VIEW_ROWS)), (0, 0, 0, 0))
         for r, (_name, poses) in enumerate(VIEW_ROWS):
             for c, pose in enumerate(poses):
-                sh.alpha_composite(render_view(pose, view), (c * VF, r * VFH))
+                sh.alpha_composite(render_any(pose, view), (c * VF, r * VFH))
         path = OUT.replace(".png", "_%s.png" % view)
         sh.save(path)
         print("wrote", os.path.relpath(path, ROOT), sh.size)
         out[view] = sh
     F, FH, OX, OY = saved
-    # 2x preview: each animation's frames facing down, then facing up.
+    # 2x previews: each animation's frames facing down, then facing up; the diagonals the same
+    # way in their own file.
+    _views_preview(out, ("down", "up"), PREVIEW.replace("_preview", "_views_preview"))
+    _views_preview(out, ("down_side", "up_side"), PREVIEW.replace("_preview", "_diagonal_views_preview"))
+
+
+def _views_preview(out, views, path):
     s = 2
     label_w = 70
     prev = Image.new("RGBA", (label_w + VF * COLS * 2 * s, VFH * len(VIEW_ROWS) * s), (70, 58, 46, 255))
     d = ImageDraw.Draw(prev)
-    for k, view in enumerate(("down", "up")):
+    for k, view in enumerate(views):
         big = out[view].resize((out[view].width * s, out[view].height * s), Image.NEAREST)
         prev.alpha_composite(big, (label_w + k * VF * COLS * s, 0))
         d.text((label_w + k * VF * COLS * s + 6, 4), "facing " + view, fill=(255, 210, 120, 255))
     for r, (name, _poses) in enumerate(VIEW_ROWS):
         d.text((6, r * VFH * s + 20), "%d %s" % (r, name), fill=(240, 230, 210, 255))
         d.line([(label_w, r * VFH * s), (prev.width, r * VFH * s)], fill=(50, 40, 32, 255))
-    prev.save(PREVIEW.replace("_preview", "_views_preview"))
-    print("wrote", os.path.relpath(PREVIEW.replace("_preview", "_views_preview"), ROOT))
+    prev.save(path)
+    print("wrote", os.path.relpath(path, ROOT))
 
 
 def side_sheet():
@@ -1489,7 +1798,7 @@ def render_frame(pose, view):
     else:
         F, FH = VF, VFH
         OX, OY = VIEW_ORIGIN[view]
-        img = render_view(pose, view)
+        img = render_any(pose, view)
     F, FH, OX, OY = saved
     return img
 
@@ -1657,20 +1966,20 @@ def timeline_problems():
 
 
 def inspect_frames(picks):
-    """Frames in all three views, 2x: picks like idle:0 run:2."""
+    """Frames in every view, 2x: picks like idle:0 run:2."""
     rows = dict(ROWS)
     tiles = []
     for pick in picks:
         name, f = pick.split(":")
-        for view in ("side", "down", "up"):
+        for view in VIEWS:
             img = render_frame(rows[name][int(f)], view)
             bg = Image.new("RGBA", (VF, VFH), (70, 58, 46, 255))
             bg.alpha_composite(img)
             ImageDraw.Draw(bg).text((2, 2), "%s %s" % (pick, view), fill=(255, 220, 140, 255))
             tiles.append(bg.resize((VF * 2, VFH * 2), Image.NEAREST))
-    out = Image.new("RGBA", (VF * 2 * 3, VFH * 2 * ((len(tiles) + 2) // 3)), (40, 32, 26, 255))
+    out = Image.new("RGBA", (VF * 2 * 5, VFH * 2 * ((len(tiles) + 4) // 5)), (40, 32, 26, 255))
     for k, t in enumerate(tiles):
-        out.alpha_composite(t, ((k % 3) * VF * 2, (k // 3) * VFH * 2))
+        out.alpha_composite(t, ((k % 5) * VF * 2, (k // 5) * VFH * 2))
     path = os.environ.get("INSPECT_OUT", os.path.join(ROOT, "craglash_inspect.png"))
     out.save(path)
     print("wrote", path)
