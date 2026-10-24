@@ -7,25 +7,42 @@ animation by name with its `"anim"` field.
 
 ![Current placeholder sheets](sprite_preview.png)
 
-## Three directions per creature
+## Directions per creature: three sheets, five with the diagonals
 
-Fighters face any of 8 ways, so every creature has **three sheets with the same rows**:
+Fighters face any of 8 ways, so every creature has **three sheets with the same rows**,
+and can have **two more for the diagonals** (Sneaky Pete has them; the other nine fighters
+draw their diagonals side-on until their round):
 
 | Sheet | Shows | Used when facing |
 | --- | --- | --- |
-| `name.png` | the side, facing **right** (mirrored for left) | left, right and the four diagonals |
+| `name.png` | the side, facing **right** (mirrored for left) | left and right (and the diagonals, without the two sheets below) |
+| `name_down_side.png` | a **front three-quarter** view, facing down-right (mirrored for down-left) | down-right and down-left |
 | `name_down.png` | the **front**, walking toward the camera | down the screen |
+| `name_up_side.png` | a **back three-quarter** view, facing up-right (mirrored for up-left) | up-right and up-left |
 | `name_up.png` | the **back**, walking away from the camera | up the screen |
+
+Which sheet: the facing's 360 degrees split into 8 sectors of 45, each centred on a
+direction (`CreatureView.pick_view`), so a fighter facing exactly down-right uses
+`down_side`. A fighter without the sheet a sector wants keeps the older rule: more up/down
+than sideways (by 0.05) picks up/down, anything else the side sheet. Fighters with only
+three sheets look exactly as they did.
 
 In the up and down sheets, "forward" is depth: a punch that reaches 20 px in front of
 the feet on the side sheet should land about 20 px below the feet (front view) or above
 them (back view), because that's where the hit lands in the game. Arms and heads that
-reach away from the camera go behind the body.
+reach away from the camera go behind the body. The diagonals follow the same rule along
+their diagonal: hits are circles on the floor, so a punch reaching 20 px lands about
+14 px right and 14 px down the screen (`down_side`) or 14 px right and 14 px up
+(`up_side`). The creature's right side goes the other diagonal (left and down in
+`down_side`, right and down in `up_side`). `tools/splat3d.py` (`Cam`) projects them that
+way, with the body's own depth flattened as in the down/up views (`depth_y`).
 
 Each view can have its own frame size and feet origin (`"views"` in the creature's JSON
 `"sprite"` block). Animations listed in `"side_only"` (all three use it for the knockout,
 which falls over sideways) always come from the side sheet, so those rows can stay empty
-in the other two. Preview: [`sprite_views_preview.png`](sprite_views_preview.png) (Cairn,
+in the others. Pete's five views side by side:
+[`anim_preview/pete_diagonals_3x.png`](anim_preview/pete_diagonals_3x.png) and
+[`pete_views_preview.png`](pete_views_preview.png). Preview: [`sprite_views_preview.png`](sprite_views_preview.png) (Cairn,
 side/down/up), [`culvert_views_preview.png`](culvert_views_preview.png), [`craglash_views_preview.png`](craglash_views_preview.png) and
 [`barkley_views_preview.png`](barkley_views_preview.png) and
 [`gillbert_views_preview.png`](gillbert_views_preview.png).
