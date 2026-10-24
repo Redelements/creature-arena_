@@ -23,6 +23,7 @@
   "sprite": {
     "path": "res://assets/sprites/culvert.png",
     "frame": 96,
+    "portrait": [44, 52, 24, 32],
     "cols": 8,
     "origin": [46, 80],
     "anims": {
