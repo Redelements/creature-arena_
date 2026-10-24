@@ -236,7 +236,7 @@ func spawn(e: Dictionary) -> void:
 				col = Color("ffd166")
 			if bool(e.get("stale", false)):
 				col = Color("b8b8b8")
-			_damage_number(e, p + Vector2(0, -6), col)
+			_damage_number(e, p, col)
 			_wear_hit(e, push)
 		"block":
 			_block_feedback(e, p)
@@ -2337,8 +2337,6 @@ func _dmg_size(total: float, kind: String) -> int:
 		sz = 16
 	elif kind == "heavy" or kind == "skill" or total >= 12.0:
 		sz = 12
-	if total >= 28.0:
-		sz = maxi(sz, 16)
 	return sz
 
 
@@ -2346,8 +2344,17 @@ func _dmg_open(run) -> bool:
 	return run != null and float(run["t"]) <= DMG_MERGE and float(run["life"]) > float(run["t"])
 
 
-func _damage_number(e: Dictionary, pos: Vector2, col: Color) -> void:
+## Numbers sit over the target's head (the status callouts' height), never on the body.
+func _num_anchor(tgt: int, fallback: Vector2) -> Vector2:
+	var c := _creature(tgt)
+	if c == null:
+		return fallback + Vector2(0, -6)
+	return c.pos + Vector2(0, -_top(c) - 19.0)
+
+
+func _damage_number(e: Dictionary, hit_pos: Vector2, col: Color) -> void:
 	var tgt := int(e.get("target", -1))
+	var pos := _num_anchor(tgt, hit_pos)
 	var a := _creature(int(e.get("attacker", -1)))
 	var kind := "light"
 	if a != null and a.state == CreatureSim.State.ATTACK:
@@ -2385,7 +2392,7 @@ func _damage_number(e: Dictionary, pos: Vector2, col: Color) -> void:
 		return
 	if _n_dmg >= DMG_CAP:
 		return
-	var p := {"kind": "dmg", "pos": pos, "total": power, "hits": 1, "pop_at": 0.0, "size": _dmg_size(power, kind),
+	var p := {"kind": "dmg", "tgt": tgt, "pos": pos, "total": power, "hits": 1, "pop_at": 0.0, "size": _dmg_size(power, kind),
 		"color": col, "accent": accent, "life": 40.0}
 	p["text"] = _dmg_text(p)
 	_add(p)
@@ -2404,13 +2411,14 @@ func _draw_damage_number(ci: CanvasItem, p: Dictionary) -> void:
 	var t := float(p["t"])
 	var size := int(p["size"])
 	if t - float(p["pop_at"]) < 3.0:
-		size += 4  # one font step up for a moment, then settle
-	var rise := int(minf(t, 24.0) / 2.0)
+		# One font step up for a moment, then settle (16 and 20 are the same pixel step).
+		size += 10 if size >= 16 and not UiTheme.smooth else 4
+	var rise := int(minf(t, 16.0) / 2.0)
 	var left := float(p["life"]) - t
 	var col: Color = p["color"]
 	col.a = 1.0 if left > 12.0 else ceilf(left / 12.0 * 4.0) / 4.0
 	var fs := UiTheme.px(size)
-	var at := (Vector2(p["pos"]) + Vector2(-40.0, -rise)).round()
+	var at := (_num_anchor(int(p["tgt"]), Vector2(p["pos"]) + Vector2(0, 6)) + Vector2(-40.0, -rise)).round()
 	var txt := String(p["text"])
 	ci.draw_string_outline(_font, at, txt, HORIZONTAL_ALIGNMENT_CENTER, 80.0, fs, UiTheme.outline(fs) + 1, Color(0.1, 0.08, 0.1, col.a))
 	ci.draw_string(_font, at, txt, HORIZONTAL_ALIGNMENT_CENTER, 80.0, fs, col)
@@ -2441,7 +2449,7 @@ func _block_feedback(e: Dictionary, p: Vector2) -> void:
 		return
 	if _n_dmg >= DMG_CAP:
 		return
-	var np := {"kind": "dmg", "pos": p + Vector2(0, -6), "total": chip, "hits": 1, "pop_at": 0.0, "size": 8,
+	var np := {"kind": "dmg", "tgt": int(e.get("target", -1)), "pos": _num_anchor(int(e.get("target", -1)), p), "total": chip, "hits": 1, "pop_at": 0.0, "size": 8,
 		"color": C_CHIP, "accent": "", "life": 34.0}
 	np["text"] = _dmg_text(np)
 	_add(np)
