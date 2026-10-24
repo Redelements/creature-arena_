@@ -15,7 +15,11 @@ image (`decorate(r, img)`, for faces and other painted details), and its poses.
     import splat3d as S
     S.configure(MAT, outline=(14, 12, 14, 255), scale=0.72)
     S.write_sheets(ROWS, VIEW_ROWS, OUT, PREVIEW, SIDE, VIEWS, build, decorate)
+
+Animation tools for every generator (tween, ease, cycle, lag, lag_at) are at the end of
+this file; the preview GIFs and the timeline check are in tools/anim_preview.py.
 """
+import copy
 import math
 import os
 
@@ -574,3 +578,170 @@ def inspect(rows, picks, side, views, build, decorate=None, scale=3, path=None):
         x += t.width
     out = out.resize((out.width * scale, out.height * scale), Image.NEAREST)
     out.save(path or os.path.join(ROOT, "inspect.png"))
+
+
+def frame_adapter(side, views, build, decorate=None):
+    """The two functions tools/anim_preview.py asks a generator for, for a splat3d rig:
+    `render_frame(pose, view)` -> one frame as a PIL image, and `frame_spec(view)` -> its
+    {"w", "h", "origin"}. `render` is looked up when a frame is drawn, so a generator that
+    swaps in its own shader (Crease's `S.render = render_paper`) gets it here too."""
+    def frame_spec(view):
+        return side if view == "side" else views[view]
+
+    def render_frame(pose, view):
+        sp = frame_spec(view)
+        set_frame(sp["w"], sp["h"], sp["origin"])
+        return render(pose, view, build, decorate)
+
+    return render_frame, frame_spec
+
+
+# ------------------------------------------------------------------ animation tools
+#
+# Shared by every generator (the splat3d rigs and the older ones alike, which import these
+# without touching their renderers): in-betweens from key poses, eased spacing, and lagged
+# secondary motion. They only read and write a pose's attributes, so they work on any
+# generator's Pose class. The recipe and what worked: docs/SPRITES.md, "Animation pass".
+
+EASE_8 = (0.0, 0.12, 0.5, 0.88, 1.0, 0.88, 0.5, 0.12)  # an 8-frame loop A -> B -> A, lingering at both keys
+
+
+def ease(t):
+    """Slow in and out of the key poses, fast through the middle (smoothstep)."""
+    return t * t * (3 - 2 * t)
+
+
+def _is_num(v):
+    return isinstance(v, (int, float, np.integer, np.floating)) and not isinstance(v, (bool, np.bool_))
+
+
+def _blend(x, y, t):
+    """`x` to `y` at `t`: numbers lerp, tuples and lists of the same length blend element by
+    element (keeping their type), dicts with the same keys key by key, numpy arrays of the
+    same shape as arrays; anything else (strings, bools, None, sets, mismatched shapes)
+    comes from the nearer key."""
+    if _is_num(x) and _is_num(y):
+        return x + (y - x) * t
+    if isinstance(x, (tuple, list)) and isinstance(y, (tuple, list)) and len(x) == len(y):
+        return type(x)(_blend(a, b, t) for a, b in zip(x, y))
+    if isinstance(x, dict) and isinstance(y, dict) and x.keys() == y.keys():
+        return {k: _blend(x[k], y[k], t) for k in x}
+    if isinstance(x, np.ndarray) and isinstance(y, np.ndarray) and x.shape == y.shape:
+        return x + (y - x) * t
+    return x if t < 0.5 else y
+
+
+def _is_point(v):
+    return isinstance(v, (tuple, list, np.ndarray)) and len(v) > 0 and all(_is_num(c) for c in v)
+
+
+def _bow(pa, pb, t, off):
+    """A point on the quadratic Bézier from `pa` to `pb` whose control point sits at the
+    straight line's middle plus `off` (None: on the line)."""
+    ha, hb = np.asarray(pa), np.asarray(pb)
+    c = (ha + hb) / 2 + (np.asarray(off, float) if off is not None else 0.0)
+    return tuple((1 - t) ** 2 * ha + 2 * (1 - t) * t * c + t * t * hb)
+
+
+def _arc(x, y, t, off):
+    """An arc field: a point, or a tuple/list of points (one offset each, None = straight;
+    an entry that isn't a point in both keys blends like any other value)."""
+    if _is_point(x) and _is_point(y) and len(x) == len(y):
+        return _bow(x, y, t, off)
+    if isinstance(x, (tuple, list)) and isinstance(y, (tuple, list)) and len(x) == len(y):
+        offs = off if off is not None else (None,) * len(x)
+        out = [_bow(p, q, t, o) if _is_point(p) and _is_point(q) and len(p) == len(q) else _blend(p, q, t)
+               for p, q, o in zip(x, y, offs)]
+        return type(x)(out)
+    return _blend(x, y, t)
+
+
+def tween(a, b, t, arc_fields=(), arc=None, resolve=None, snap=(), **over):
+    """The pose `t` of the way from key `a` to key `b`, for any generator's Pose.
+
+    Every number on the pose lerps, and every tuple or list of numbers (nested) blends
+    element by element; strings, bools, None and mismatched shapes come from the nearer key
+    (t < 0.5 gives `a`'s). `snap` names fields that always come whole from the nearer key
+    (an index such as Pete's `grip`, the crafts Crease holds). `arc_fields` names fields
+    that travel on a curve instead of a line: each a point, or a tuple of points (hands,
+    paws), bowed along a quadratic Bézier; `arc` gives the control point's offset from the
+    straight line's middle, per field ({"hands": (near_offset, far_offset)}; a missing or
+    None offset is a straight path). `resolve(pose)`, when given, first fills in whatever
+    the generator leaves to defaults (Crease's None hands become where build() puts them),
+    so a hand can travel from its default spot. `over` sets fields outright afterwards (the
+    secondary motion, keyed on its own).
+
+    The result is a copy of (resolved) `a` with its attributes replaced, so a constructor
+    that derives fields from its arguments (Craglash's hip and head lift) is not applied a
+    second time."""
+    if resolve is not None:
+        a, b = resolve(a), resolve(b)
+    arc = arc or {}
+    out = copy.copy(a)
+    for name, x in vars(a).items():
+        if not hasattr(b, name):
+            continue
+        y = getattr(b, name)
+        if name in snap:
+            v = x if t < 0.5 else y
+        elif name in arc_fields:
+            v = _arc(x, y, t, arc.get(name))
+        else:
+            v = _blend(x, y, t)
+        setattr(out, name, v)
+    for name, v in over.items():
+        setattr(out, name, v)
+    return out
+
+
+def tweener(arc_fields=(), resolve=None, snap=()):
+    """A generator's own `tween(a, b, t, arc=None, **over)` with its arc fields, resolve
+    hook and snapped fields filled in."""
+    def tw(a, b, t, arc=None, **over):
+        return tween(a, b, t, arc_fields=arc_fields, arc=arc, resolve=resolve, snap=snap, **over)
+    return tw
+
+
+def cycle(keys, spacing=EASE_8, tween_fn=tween):
+    """A loop of poses at the given spacing, one frame per value. `keys` is either a
+    function of u (0 = key A, 1 = key B) that returns the pose, or a pair (A, B) that is
+    tweened with `tween_fn` (a generator's own, from tweener())."""
+    if callable(keys):
+        return [keys(u) for u in spacing]
+    ka, kb = keys
+    return [tween_fn(ka, kb, u) for u in spacing]
+
+
+def _names(field):
+    return (field,) if isinstance(field, str) else tuple(field)
+
+
+def lag(frames, field, k, loop=True):
+    """Overlap: each frame takes `field` (a name, or several) from `k` frames earlier, the
+    same curve sampled late. Around the loop for a cycle; with loop=False (an attack) the
+    first k frames keep the first frame's value. Changes the poses in place and returns
+    them."""
+    n = len(frames)
+    for name in _names(field):
+        src = [copy.deepcopy(getattr(p, name)) for p in frames]
+        for i, p in enumerate(frames):
+            setattr(p, name, src[(i - k) % n if loop else max(0, i - k)])
+    return frames
+
+
+def lag_at(frames, field, values_by_frame):
+    """Secondary motion keyed by hand in an attack: `values_by_frame` is {frame: value}
+    (several fields: {frame: (value, value)}); a frame not listed holds the value keyed
+    before it, and frames before the first key keep their own. Key the cape or the tail a
+    frame or two after the body's key pose and it reads as overlap. Changes the poses in
+    place and returns them."""
+    names = _names(field)
+    held = None
+    for i, p in enumerate(frames):
+        if i in values_by_frame:
+            held = (values_by_frame[i],) if len(names) == 1 else tuple(values_by_frame[i])
+        if held is None:
+            continue
+        for name, v in zip(names, held):
+            setattr(p, name, copy.deepcopy(v))
+    return frames
