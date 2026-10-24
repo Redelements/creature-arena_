@@ -288,7 +288,7 @@ Design note: the sunglasses and the kitchen floating around a brain are what mak
 read as Chef Cerebro. Name check before release: "Cerebro" is also the name of a
 well-known comic-book device (see the PR notes).
 
-### Hissy Fitz — 128×128 frames, 8 × 13 (1024×1664 px)
+### Hissy Fitz — 128×128 frames, 12 × 13 (1536×1664 px)
 
 Hissy Fitz is the fifth creature from the artist's sheets. `tools/gen_hissy.py` renders
 like Chef Cerebro's generator (3D points splatted into a depth buffer, three-tone shading,
@@ -306,22 +306,31 @@ Expressions: grin, shout, gaze (glowing eyes), hurt, ko.
 Feet at **x 64, y 104**, drawn at 0.72 scale. Up and down sheets (`hissy_down.png`,
 `hissy_up.png`) are **112×128**, feet at x 56, y 104 (down) and y 92 (up).
 
+Animated with the roster pass (motion plan, previews and before/after GIFs:
+[`anim_preview/hissy_motion_plan.md`](anim_preview/hissy_motion_plan.md)): nothing on her
+moves at the same time as anything else. Poses are in-betweened with `splat3d.tween`
+(gloves on arcs); `sq` squashes the head up to 10%; the hair sways as a wave travelling
+down each snake (`wave`, `sway`, `tip_lag`) and is thrown tips last (`lash_tip`,
+`rear_tip`, `raise_tip`); the glove snakes trail their gloves (`trail_arms` sets
+`near_bow` / `far_bow`), which is the whip. `idle_ticks` 8 (64 ticks), `run_ticks` 2 (the
+glide still 24 ticks).
+
 ![Hissy Fitz sheet, 3x](hissy_preview.png)
 
 Facing down and up: [`hissy_views_preview.png`](hissy_views_preview.png).
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
-| 0 | idle | 4 | floating in place with her gloves up in guard: a slow bob, hair snakes swaying |
-| 1 | run | 6 | gliding forward through the air, gloves up and weaving, hair streaming back |
-| 2 | jab | 4 | Snake Jab (light 1): the near glove snaps out at head height |
-| 3 | jab2 | 4 | Snake Jab (light 2): the far glove crosses in |
-| 4 | lash | 5 | Hair Lash (light 3): she ducks, then the hair snakes whip forward and bite |
-| 5 | uppercut | 6 | Coil Uppercut: charge A, charge B (glove coiled low), rise, uppercut, follow-through, recover; Hiss Off plays from frame 3 |
-| 6 | spit | 5 | Venom Spit: rear back, front snakes drawn back, spit (a venom glob at their mouths), recover; the game draws the glob in flight |
-| 7 | gaze | 4 | Stone Gaze: lean in; frames 1 and 2 alternate (glowing eyes, hair raised like a hood) while it lasts; recover |
-| 8 | petrify | 6 | Petrify Punch: wind back, the haymaker held (eyes glowing), the punch at full stretch, follow-through, recover |
-| 9 | dodge | 4 | the head drops between the gloves and rolls |
+| 0 | idle | 8 | the hover bob (eased), the gloves 1 frame behind, the glove snakes after them, the hair swaying as a wave down each snake (tips 2 frames behind) |
+| 1 | run | 12 | the glide: head leading and tipped in, a gentle double bob, the gloves weaving figure-8s 1 frame behind, the hair streaming back 3 frames late |
+| 2 | jab | 8 | Snake Jab (light 1): dip, coil (held), snap (the snake still bent behind the glove), extension held over the hit (the snake straight), overshoot, snap back, settle, return |
+| 3 | jab2 | 8 | Snake Jab (light 2): the same whip with the far glove crossing in |
+| 4 | lash | 8 | Hair Lash (light 3): duck, hair pulled back (held), the bases swing forward, the tips whip through on the hit (held), overshoot, ripple, settle, return |
+| 5 | uppercut | 12 | Coil Uppercut: 0–3 the charge loop (`anim_charge` `[0, 4, 4]`, the glove cranking round low with the snake winding after it), deepest coil, burst, rise, the uppercut held over the hit, overshoot, hang, drop, settle; Hiss Off has its own `anim_at` from frame 5 |
+| 6 | spit | 8 | Venom Spit: rear, rear deep (held), snap forward bases first, spit held 4 ticks (a venom glob at their mouths), recoil, settle, return; the game draws the glob in flight |
+| 7 | gaze | 8 | Stone Gaze: lean in, the hood rising; 2–5 the stare loop timed to the 10-tick pulses (2 and 4 flare and sweep left, right; the hood ripples); the hood drops, settle |
+| 8 | petrify | 12 | Petrify Punch: a 4-frame gather (frame 3, held, is the stare and the cut-in frame, `[8, 3]`), the punch in one frame, impact held 5, shockwave held 4, follow-through, pull back, recover, hair settling, settle |
+| 9 | dodge | 8 | duck, a full roll (the hair whipping round), land squashed, pop up |
 | 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose (frame 0 is the petrified statue's pose, tinted grey by `CreatureView`) |
 | 11 | guard | 2 | gloves up in front of her face, snakes pulled in |
 | 12 | ko | 4 | the head drops onto the gloves and tips over, hair limp, tongue out |
