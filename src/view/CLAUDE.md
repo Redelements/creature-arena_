@@ -34,6 +34,7 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   bands a few per frame (`ArenaView._pending`, `SPREAD_FRAMES`), not all in one tick. A
   `_draw` reports its time with `PerfLog.now()` / `PerfLog.since(...)` for `--perf`
   (main thread only: `PerfLog` ignores a worker thread).
+- Shallows water (flow, foam, wading wakes, entry splash) is `water_view.gd`, a layer between the floor and the fighters, all 1 px rects on the 60 Hz tick clock; it draws only where the terrain grid says `SHALLOWS`, so a fallen bridge gets it too. Its wake skips a fighter `FxView.shown` hides.
 - Text: `UiTheme.font()` and `UiTheme.px(size)` (see `src/ui/CLAUDE.md`). The canvas is still
   480 x 270 units (project.godot: a 960 x 540 base at content scale 2), so coordinates and
   the camera's zoom are unchanged; text in world space (damage numbers) scales with the zoom.
@@ -137,4 +138,5 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `range_rings.gd` (RangeRings) — "Range rings" (Settings > Controls, or F7 in a fight): thin floor rings that show where an attack really reaches, so a…
 - `shadow_layer.gd` (ShadowLayer) — The fighters' shadows, cast along the arena's light: each fighter's current sprite frame as a black silhouette laid on…
 - `surge_aura.gd` (SurgeAura) — The power-up aura a fighter wears while their Surge is ready: a flickering shell of energy rising off them, motes that…
+- `water_view.gd` (WaterView) — Living water over the shallows (Floodgate's channel, Twin Keeps' pools): a slow flow down the map, twinkling highlights…
 <!-- END GENERATED -->

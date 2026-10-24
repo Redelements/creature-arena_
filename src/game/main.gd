@@ -236,6 +236,7 @@ var entities: Node2D
 var views: Array[CreatureView] = []
 var fx: FxView
 var fx_ground: FxGround
+var water: WaterView
 var shadows: ShadowLayer
 var audio: AudioView
 var debug: DebugView
@@ -441,6 +442,8 @@ func _ready() -> void:
 	add_child(crowd)
 	fx_ground = FxGround.new()
 	add_child(fx_ground)
+	water = WaterView.new()  # living water over the shallows, under the fighters
+	add_child(water)
 	shadows = ShadowLayer.new()  # the fighters' shadows, on the floor under everyone
 	shadows.views = views
 	add_child(shadows)
@@ -1882,6 +1885,8 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 		views.append(v)
 	debug.sim = sim
 	rings.set_sim(sim)
+	water.set_sim(sim)
+	water.fx = fx
 	paper.set_sim(sim)
 	hud.sim = sim
 	fx.sim = sim
@@ -2089,6 +2094,7 @@ func _physics_process(_delta: float) -> void:
 
 	var t_fx := PerfLog.now()
 	arena.refresh()
+	water.advance()
 	crowd.advance()
 	fx.advance()
 	PerfLog.since("fx advance", t_fx)
