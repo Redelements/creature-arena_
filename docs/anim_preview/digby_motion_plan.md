@@ -6,10 +6,10 @@ redrawn: idle, run, the three lights, the heavy (and the tag-in that shares its 
 skills, the Surge and the dodge. Hurt, guard and the knockout stay as they are. Shading,
 palette and outlines are untouched; only motion changes.
 
-**This is the preview phase.** The new rows are `PASS_ROWS` in `tools/gen_digby.py`; the
-game's sheets, `ROWS` and `data/creatures/digby.json` are untouched until Kevin approves.
-`python3 tools/gen_digby.py anim` renders the previews (the "current" side of each compare
-GIF is the sheets at `6d26f20`, the commit before the pass).
+**In the game** (phase 2, after Kevin's answers at the end): the rows are `ROWS` in
+`tools/gen_digby.py`, the sheets are regenerated and `data/creatures/digby.json` has the
+timelines below. `python3 tools/gen_digby.py anim` renders the previews (the "current" side
+of each compare GIF is the sheets at `6d26f20`, the commit before the pass).
 
 Timings are in sim ticks (60 a second). A frame shows from its `anim_at` tick until the
 next one. Frame data never changes: every startup, active and recovery number stays.
@@ -223,11 +223,11 @@ question 2).
 
 | Move | Startup / active / recovery (hit ticks) | New `anim_at` |
 | --- | --- | --- |
-| skill_2 | 45 / 4 / 16 (46-49) | `[[0,0],[3,1],[6,2],[9,3],[12,4],[15,5],[18,2],[21,3],[24,4],[27,5],[30,2],[33,3],[36,4],[39,5],[41,6],[44,7],[46,8],[51,9],[55,10],[60,11]]` |
+| skill_2 | 45 / 4 / 16 (46-49) | `[[0,0],[3,1],[6,2],[9,3],[12,4],[15,5],[18,2],[21,3],[24,4],[27,5],[30,2],[33,3],[36,4],[39,5],[42,6],[44,7],[46,8],[51,9],[55,10],[60,11]]` |
 
 Old: `[[0,0],[3,1],[6,2],[12,3],[18,2],[24,3],[30,2],[36,3],[42,2],[45,4],[52,5]]`. The
 leap and dash (ticks 6 to 44) still run under the loop; the pop-up is 2 frames → 4 (bulge
-41-43, burst 44-45, apex 46-50, land 51-54), as Kevin asked.
+42-43, a 2-tick tell as Kevin ruled, burst 44-45, apex 46-50, land 51-54), as Kevin asked.
 
 ## 8. Cave-In (Surge `cavein`): 6 → 12 frames
 
@@ -257,15 +257,16 @@ landing (squash, the tail still up), 7 the settle. Invulnerable ticks 2-11 are f
 
 ---
 
-## Phase 2: what goes into the game (after approval)
+## Phase 2: what went into the game
 
-- `tools/gen_digby.py`: `ROWS = PASS_ROWS`, `VIEW_ROWS = PASS_VIEW_ROWS`, `ANIM_CYCLES`
-  idle 64; regenerate the three sheets (12 columns: 1536 × 1664 side, 1344 × 1536 down/up).
+- `tools/gen_digby.py`: the new rows are `ROWS` (the old pose functions are gone),
+  `S.COLS` 12, `ANIM_CYCLES` idle 64; the three sheets regenerated (12 columns: 1536 × 1664
+  side, 1344 × 1536 down/up).
 - `data/creatures/digby.json`: `cols` 12; rows idle 8, run 12, swipe 8, swipe2 8, pick 8,
   popup 12, flash 8, burrow 12, cavein 12, dodge 8 (hurt, guard, ko unchanged);
   `idle_ticks` 8, `run_ticks` 2, `step_frames` `[0, 2]`; every `anim_at` above, heavy
   `anim_charge` `[0, 4, 4]`, tag_in `anim_at` (drop `anim_from`), `cut_in_frame` `[8, 3]`.
-  Checked: this JSON passes `anim_preview.py --check` against `PASS_ROWS`.
+  `anim_preview.py --check digby` passes.
 - `docs/SPRITES.md` Digby's row table; no new data keys (MECHANICS.md unchanged).
 
 ## All three views
@@ -289,13 +290,9 @@ The poses are 3D, so the down and up sheets move too. What to look at:
 - **The gallop's paws are small** (legs about 8 px). Footfalls read as the paws stepping
   and the body's rise and drop, more than as legs.
 
-## Questions for Kevin
+## Kevin's decisions (Oct 23 2026)
 
-1. **The pop-up bulge as a tell.** Burrow is a hidden ambush. The new bulge shows his
-   snout and helmet poking out of the mound for 3 ticks (41-43), then the burst (44-45),
-   before the hit at 46. Old: the burst frame showed from 45. Keep the bulge (it reads well
-   and the mound already shows players where he is), or shorten it to 2 ticks?
-2. **Headlamp Flash with the near paw** (the one holding the pickaxe) instead of the far
-   one, so the tap can be seen side-on. OK?
-3. **Footstep dust:** two puffs per stride on the gallop (`[0, 2]`: front pair, back
-   pair), as now; or four, one per paw (needs a view change; not planned)?
+1. **The pop-up bulge** is a 2-tick tell (42-43), to keep the ambush fair; the burst at 44,
+   the hit at 46.
+2. **Headlamp Flash with the pickaxe paw** (the near one): fine.
+3. **Footstep dust:** two puffs per stride, `step_frames` `[0, 2]`.

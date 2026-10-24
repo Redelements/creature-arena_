@@ -4,7 +4,7 @@
 Run from anywhere:  python3 tools/gen_digby.py   (Pillow and numpy)
 Look at a few frames while working on a pose:  python3 tools/gen_digby.py inspect idle:0 run:2
 
-Writes assets/sprites/digby.png (128x128 frames, 8 columns, the side view),
+Writes assets/sprites/digby.png (128x128 frames, 12 columns, the side view),
 digby_down.png and digby_up.png (112x128: facing the camera, and facing away), plus
 labelled previews in docs/. Rendered with the shared splat renderer (tools/splat3d.py).
 
@@ -50,6 +50,7 @@ MAT = {
     "dirt": ((122, 86, 52), (156, 116, 76), (86, 58, 34)),
 }
 S.configure(MAT, outline=(14, 12, 14, 255), scale=0.8, near=14.0)
+S.COLS = 12  # the run, the pop-up, Burrow and Cave-In have 12 frames
 
 
 # ------------------------------------------------------------------ the rig
@@ -301,127 +302,6 @@ def paw(lat, up, fwd):
     return (lat, up, fwd)
 
 
-def idle():
-    """On all fours, sniffing: the snout bobs, the tail sways, the pickaxe rests at his paw."""
-    return [
-        P(tail=0.0, head=0.0),
-        P(tail=0.6, head=3.0, lift=-0.4),
-        P(tail=1.2, head=5.0, lift=-0.6),
-        P(tail=1.8, head=2.0, lift=-0.2),
-    ]
-
-
-def run():
-    """A quick scurry: paws alternate, the body bobs, the tail streams out behind."""
-    out = []
-    for k in range(6):
-        a = k / 6.0 * 2 * math.pi
-        n_f = 9.0 + 4.0 * math.sin(a)
-        f_f = 7.0 - 4.0 * math.sin(a)
-        n_u = 2.0 + max(0.0, math.cos(a)) * 3.0
-        f_u = 2.0 + max(0.0, -math.cos(a)) * 3.0
-        out.append(P(near=paw(5.5, n_u, n_f), far=paw(-5.5, f_u, f_f), back=-math.sin(a),
-                     lift=0.8 * abs(math.cos(a)), pitch=-3.0, tail=a, tail_up=-0.2, head=-4.0,
-                     pick=-20.0))
-    return out
-
-
-def swipe():
-    """Claw Swipe (light 1): he rears up and the far claw slashes across, then back down."""
-    return [
-        P(pitch=14, lift=1.0, far=paw(-6.0, 12.0, 8.0), near=paw(5.5, 3.0, 9.0), head=-6, pick=-40),
-        P(pitch=18, lift=2.0, far=paw(2.0, 10.0, 20.0), near=paw(5.5, 3.0, 9.0), head=-8, pick=-40),
-        P(pitch=12, lift=1.0, far=paw(6.0, 6.0, 15.0), near=paw(5.5, 3.0, 9.0), head=-4, pick=-40),
-        P(pitch=4, far=paw(-5.5, 2.5, 8.0), pick=-50),
-    ]
-
-
-def swipe2():
-    """Claw Swipe (light 2): the near claw slashes back the other way, pickaxe and all."""
-    return [
-        P(pitch=14, lift=1.0, near=paw(7.0, 12.0, 8.0), far=paw(-5.5, 3.0, 8.0), head=-6, pick=10, pick_yaw=40),
-        P(pitch=18, lift=2.0, near=paw(-1.0, 10.0, 20.0), far=paw(-5.5, 3.0, 8.0), head=-8, pick=0, pick_yaw=-30),
-        P(pitch=12, lift=1.0, near=paw(-5.0, 6.0, 15.0), far=paw(-5.5, 3.0, 8.0), head=-4, pick=-10, pick_yaw=-50),
-        P(pitch=4, near=paw(5.5, 2.5, 9.0), pick=-50),
-    ]
-
-
-def pick():
-    """Pickaxe Swing (light 3): up on his back legs, the pickaxe over his head, and down."""
-    return [
-        P(pitch=20, lift=2.0, near=paw(5.0, 14.0, 6.0), pick=40, head=-6),
-        P(pitch=34, lift=4.0, near=paw(4.0, 24.0, 2.0), pick=110, head=-10, tail_up=0.3),
-        P(pitch=20, lift=2.0, near=paw(4.0, 16.0, 16.0), pick=10, head=-2),
-        P(pitch=4, near=paw(4.0, 4.0, 20.0), pick=-40, head=4),
-        P(pitch=2, near=paw(5.5, 2.5, 11.0), pick=-60),
-    ]
-
-
-def popup():
-    """Pickaxe Pop-Up: charge A/B (digging in), down into the ground, bursting up with the
-    pickaxe raised, the follow-through, recover. Pop Goes the Mole plays from frame 3."""
-    return [
-        P(pitch=-10, lift=-1.0, head=10, near=paw(5.0, 1.0, 13.0), far=paw(-5.0, 1.0, 12.0), pick=-80, tail_up=0.4),
-        P(pitch=-16, lift=-2.0, head=14, near=paw(5.0, 0.5, 14.0), far=paw(-5.0, 0.5, 13.0), pick=-85, tail_up=0.6,
-          eyes="shut"),
-        P(sink=30.0, mound=0.8, pitch=-20, pick_on=False),
-        P(pitch=40, lift=8.0, near=paw(4.0, 30.0, 10.0), pick=95, head=-12, mound=0.5, clumps=0.7),
-        P(pitch=30, lift=5.0, near=paw(4.0, 24.0, 14.0), pick=70, head=-8, mound=0.3, clumps=1.0),
-        P(pitch=6, lift=0.5, pick=-40),
-    ]
-
-
-def flash():
-    """Headlamp Flash: he rears and taps the helmet, the lamp blazes, holds, back down."""
-    return [
-        P(pitch=16, lift=1.5, far=paw(-3.0, 22.0, 9.0), head=-6, pick=-40),
-        P(pitch=20, lift=2.0, far=paw(-3.0, 23.0, 11.0), head=-10, lamp=1.0, eyes="shut", pick=-40),
-        P(pitch=18, lift=2.0, far=paw(-5.5, 8.0, 10.0), head=-8, lamp=0.6, pick=-40),
-        P(pitch=4, pick=-60),
-    ]
-
-
-def burrow():
-    """Burrow: crouch, diving in head first, under a moving dirt mound (frames 2 and 3
-    alternate while he tunnels), bursting out, recover."""
-    return [
-        P(pitch=-14, lift=-1.5, head=12, near=paw(5.0, 1.0, 14.0), far=paw(-5.0, 1.0, 13.0), tail_up=0.5),
-        P(pitch=-34, sink=8.0, head=20, near=paw(5.0, 0.0, 16.0), far=paw(-5.0, 0.0, 15.0), tail_up=0.9, mound=0.5,
-          pick_on=False),
-        P(sink=40.0, mound=1.0, pick_on=False),
-        P(sink=40.0, mound=0.85, pick_on=False, fwd=1.0),
-        P(pitch=30, lift=6.0, near=paw(4.0, 18.0, 12.0), far=paw(-4.0, 18.0, 10.0), pick=60, head=-10, mound=0.6,
-          clumps=1.0),
-        P(pitch=6, lift=0.5, pick=-50),
-    ]
-
-
-def cavein():
-    """Cave-In: he rears right up on his back legs ("I dig it!"), slams both claws and the
-    pickaxe into the floor, the ground caves in around him, holds, recover."""
-    return [
-        P(pitch=24, lift=3.0, near=paw(5.0, 18.0, 6.0), far=paw(-5.0, 18.0, 6.0), pick=60, head=-10),
-        P(pitch=44, lift=6.0, near=paw(5.0, 32.0, 2.0), far=paw(-5.0, 30.0, 2.0), pick=120, head=-14, tail_up=0.5),
-        P(pitch=48, lift=7.0, near=paw(5.0, 34.0, 0.0), far=paw(-5.0, 32.0, 0.0), pick=130, head=-16, tail_up=0.6,
-          eyes="shut"),
-        P(pitch=-12, lift=-2.0, near=paw(5.0, 1.0, 16.0), far=paw(-5.0, 1.0, 15.0), pick=-75, head=10, mound=0.4,
-          clumps=0.8),
-        P(pitch=-8, lift=-1.5, near=paw(5.0, 1.0, 15.0), far=paw(-5.0, 1.0, 14.0), pick=-75, head=8, mound=0.3,
-          clumps=1.0),
-        P(pitch=2, pick=-60),
-    ]
-
-
-def dodge():
-    """Rolls into a ball and tumbles sideways."""
-    return [
-        P(pitch=-10, lift=-2.0, head=16, tail_up=0.8),
-        P(roll=-90, lift=-1.0, head=20, tail_up=1.0, pick_on=False),
-        P(roll=-200, lift=-1.0, head=20, tail_up=1.0, pick_on=False),
-        P(pitch=-4, lift=-0.5),
-    ]
-
-
 def hurt():
     return [
         P(pitch=12, lift=1.0, head=-14, eyes="shut", fwd=-2.0, tail_up=0.6, near=paw(5.5, 6.0, 6.0),
@@ -448,35 +328,15 @@ def ko():
     ]
 
 
-ROWS = [
-    ("idle", idle()),
-    ("run", run()),
-    ("swipe", swipe()),
-    ("swipe2", swipe2()),
-    ("pick", pick()),
-    ("popup", popup()),
-    ("flash", flash()),
-    ("burrow", burrow()),
-    ("cavein", cavein()),
-    ("dodge", dodge()),
-    ("hurt", hurt()),
-    ("guard", guard()),
-    ("ko", ko()),
-]
-VIEW_ROWS = ROWS[:-1]  # the knockout falls over sideways in any view
-
-
-# ------------------------------------------------------------------ the animation pass
-# Every ability redrawn with the roster recipe (docs/anim_preview/digby_motion_plan.md):
-# twice the frames, eased spacing, a held anticipation and release, 12% squash and stretch
-# (fur), and overlap on the tail, the helmet and the pick. These rows are the previews'
-# (`python3 tools/gen_digby.py anim`); the game's sheets keep ROWS above until Kevin
-# approves, then ROWS becomes PASS_ROWS and the JSON gets the new frame counts and anim_at.
+# The abilities, from the roster animation pass (docs/anim_preview/digby_motion_plan.md):
+# twice the frames of the first sheets, eased spacing, a held anticipation and release,
+# 12% squash and stretch (fur), and overlap on the tail, the helmet and the pick. Hurt,
+# guard and the knockout (above) are from before the pass.
 
 TAU = 2.0 * math.pi
 
 
-def idle8():
+def idle():
     """Sniffing (8 frames, 8 ticks each = 64): two quick sniffs with the snout up, then the
     head turns toward the camera to look, holds, and comes back. The body breathes down and
     up on eased spacing; the helmet nods a frame behind the head, the tail two behind the
@@ -520,7 +380,7 @@ def _paw_at(leg, i):
     return (lat, up + hi * math.sin(math.pi * u ** 0.8), x)
 
 
-def run12():
+def run():
     """A true gallop: front paws land (0, 1), the back paws 2 frames later (2, 3), the
     gather with all four under him (3-5: bunched, back arched), the push-off into the
     extension (6-8: long and low), a suspension frame (9) and the reach (10, 11). The head
@@ -564,7 +424,7 @@ def _helm_from(keys):
     return [0.0] + [keys[i - 1].head - keys[i].head for i in range(1, len(keys))]
 
 
-def swipe8(near=False):
+def swipe(near=False):
     """Claw Swipe: the anticipation (weight back, the claw lifting), the rear-up with the
     claw cocked high and back (held 2), one fast slash across the body, the release with
     the claw fully out (held 3), the follow-through past the target, the drop back to all
@@ -595,7 +455,7 @@ def swipe8(near=False):
                    tail_kink=[0.0, -0.1, -0.2, 0.1, 0.25, 0.3, 0.0, 0.0], helm=_helm_from(keys))
 
 
-def pick8():
+def pick():
     """Pickaxe Swing: the anticipation, up on his back legs with the pick over his head
     (held 3), the slash (the paw already coming down, the pick trailing it), the impact with
     the pick biting the floor ahead (held 3), the follow-through, the drop to all fours with
@@ -634,7 +494,7 @@ def _rise(apex=None):
     ]
 
 
-def popup12():
+def popup():
     """Pickaxe Pop-Up: a 4-frame digging loop while it charges (the paws scooping in turn),
     the dive (head first, half under), under the mound, the mound bulging, the burst (long
     and stretched, clods flying), the apex with the pick high (held: the hit), the
@@ -653,7 +513,7 @@ def popup12():
                    helm=_helm_from(keys))
 
 
-def flash8():
+def flash():
     """Headlamp Flash: up onto his back legs, the near paw (pickaxe and all) raised over the
     helmet (anticipation), the tap (the lamp catching), the flash with the paw bouncing off
     (eyes shut, held: the hit), the glare fading, the paw coming down, the landing with the
@@ -672,7 +532,7 @@ def flash8():
                    tail_kink=[0.0, -0.2, -0.3, -0.2, 0.0, 0.3, -0.2, 0.0], helm=_helm_from(keys))
 
 
-def burrow12():
+def burrow():
     """Burrow: the crouch, the dive (head first, stretched), a 4-frame tunnelling loop (the
     clods churning round the mound, the mound swelling and settling), then the pop-up the
     ambush springs with: the mound bulging, the burst, the apex (both paws up, the hit),
@@ -692,7 +552,7 @@ def burrow12():
                    tail_kink=[0.2, 0.0, 0, 0, 0, 0, 0.0, -0.3, -0.4, 0.5, 0.0, 0.0], helm=_helm_from(keys))
 
 
-def cavein12():
+def cavein():
     """Cave-In: the dip, rearing up, up on his back legs with the pick raised, the peak
     (held 4, the cut-in frame), the slam (one fast frame, the pick trailing the paws), the
     impact (held 5, squashed, clods up), a 2-frame recoil as the floor gives under him (he
@@ -721,7 +581,7 @@ def cavein12():
                    helm=_helm_from(keys))
 
 
-def dodge8():
+def dodge():
     """The roll (8 frames over the dodge's 15 ticks): tucked into a ball, a full turn at
     an even pace, the landing (squash, the tail last to come down), the settle."""
     keys = [P(pitch=-10, lift=-2.0, stretch=-0.8, head=16)]
@@ -732,22 +592,22 @@ def dodge8():
     return _attack(keys, tail_up=[0.8, 1.0, 1.0, 1.0, 1.0, 1.0, 0.75, 0.25])
 
 
-PASS_ROWS = [
-    ("idle", idle8()),
-    ("run", run12()),
-    ("swipe", swipe8()),
-    ("swipe2", swipe8(near=True)),
-    ("pick", pick8()),
-    ("popup", popup12()),
-    ("flash", flash8()),
-    ("burrow", burrow12()),
-    ("cavein", cavein12()),
-    ("dodge", dodge8()),
+ROWS = [
+    ("idle", idle()),
+    ("run", run()),
+    ("swipe", swipe()),
+    ("swipe2", swipe(near=True)),
+    ("pick", pick()),
+    ("popup", popup()),
+    ("flash", flash()),
+    ("burrow", burrow()),
+    ("cavein", cavein()),
+    ("dodge", dodge()),
     ("hurt", hurt()),
     ("guard", guard()),
     ("ko", ko()),
 ]
-PASS_VIEW_ROWS = PASS_ROWS[:-1]
+VIEW_ROWS = ROWS[:-1]  # the knockout falls over sideways in any view
 
 
 # ------------------------------------------------------------------ animation tools
@@ -756,17 +616,14 @@ PASS_VIEW_ROWS = PASS_ROWS[:-1]
 # `python3 tools/anim_preview.py --check digby` checks the JSON's timelines against ROWS.
 # In-betweens and overlap come from splat3d (tween, cycle, lag, lag_at).
 render_frame, frame_spec = S.frame_adapter(SIDE, VIEWS, build)
-ANIM_CYCLES = {"idle": 40, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks)
-# The previews show PASS_ROWS (the `anim` subcommand swaps them in) against the sheets at
-# the commit before the pass; the game's sheets and the --check still use ROWS. Once Kevin
-# approves: ROWS = PASS_ROWS, ANIM_CYCLES idle 64, and the JSON's row table, idle_ticks 8,
-# run_ticks 2, step_frames, anim_at, anim_charge and cut_in_frame from the motion plan.
+ANIM_CYCLES = {"idle": 64, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks)
+# The compare GIFs show the sheets before the animation pass as "current".
 OLD_REF = os.environ.get("DIGBY_OLD_REF", "6d26f20")
-ANIM_TICKS = {"idle": 8, "run": 2}
 OLD_IDLE, NEW_IDLE = (10, 4), (8, 8)  # (ticks a frame, frames)
 
-# Each move's timeline: (old anim_at, new anim_at, length in ticks). light_1, light_2 and
-# tag_in had no anim_at; their "old" is what creature_view.gd's fallbacks showed.
+# Each move's timeline for the previews: (old anim_at, new anim_at as in digby.json,
+# length in ticks). light_1, light_2 and tag_in had no anim_at before the pass; their "old"
+# is what creature_view.gd's fallbacks showed.
 AT = {
     "light_1": ([[0, 0], [5, 1], [7, 2], [10, 3]],
                 [[0, 0], [2, 1], [4, 2], [5, 3], [8, 4], [10, 5], [12, 6], [13, 7]], 14),
@@ -781,7 +638,7 @@ AT = {
                 [[0, 0], [2, 1], [5, 2], [6, 3], [11, 4], [15, 5], [19, 6], [23, 7]], 26),
     "skill_2": ([[0, 0], [3, 1], [6, 2], [12, 3], [18, 2], [24, 3], [30, 2], [36, 3], [42, 2], [45, 4], [52, 5]],
                 [[0, 0], [3, 1]] + [[6 + 3 * k, 2 + k % 4] for k in range(12)]
-                + [[41, 6], [44, 7], [46, 8], [51, 9], [55, 10], [60, 11]], 65),
+                + [[42, 6], [44, 7], [46, 8], [51, 9], [55, 10], [60, 11]], 65),
     "surge": ([[0, 0], [8, 1], [18, 2], [25, 3], [32, 4], [44, 5]],
               [[0, 0], [4, 1], [8, 2], [14, 3], [18, 4], [19, 5], [24, 6], [27, 7], [31, 8], [36, 9], [41, 10],
                [46, 11]], 50),
@@ -813,7 +670,7 @@ def _clips():
                           (24 + 14, 24 + 18, "hit (heavy)")]),
         "popup_tag_in": (move("popup", "tag_in"), [(0, 5, "mound bulges"), (9, 13, "hit (tag in)")]),
         "flash": (move("flash", "skill_1"), [(7, 11, "flash (skill 1)")]),
-        "burrow": (move("burrow", "skill_2"), [(6, 41, "underground, hidden"), (41, 44, "mound bulges"),
+        "burrow": (move("burrow", "skill_2"), [(6, 42, "underground, hidden"), (42, 44, "mound bulges"),
                                                (46, 50, "pop-up hit (skill 2)")]),
         "cavein": (move("cavein", "surge"), [(14, 18, "peak (cut-in frame)"), (19, 24, "slam: hit (surge)"),
                                              (24, 31, "the floor gives")]),
@@ -826,11 +683,9 @@ CLIPS = _clips
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "inspect":
-        rows = PASS_ROWS if os.environ.get("DIGBY_PASS") else ROWS
-        S.inspect(rows, sys.argv[2:], SIDE, VIEWS, build, path=os.environ.get("INSPECT_OUT"))
+        S.inspect(ROWS, sys.argv[2:], SIDE, VIEWS, build, path=os.environ.get("INSPECT_OUT"))
     elif len(sys.argv) > 1 and sys.argv[1] == "anim":
         import anim_preview
-        ROWS, VIEW_ROWS = PASS_ROWS, PASS_VIEW_ROWS  # the previews show the pass
         anim_preview.main(sys.modules[__name__], sys.argv[2:])
     else:
         S.write_sheets(ROWS, VIEW_ROWS, OUT, PREVIEW, SIDE, VIEWS, build)
