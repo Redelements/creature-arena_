@@ -38,6 +38,11 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   `_draw` reports its time with `PerfLog.now()` / `PerfLog.since(...)` for `--perf`
   (main thread only: `PerfLog` ignores a worker thread).
 - Shallows water (flow, foam, wading wakes, entry splash) is `water_view.gd`, a layer between the floor and the fighters, all 1 px rects on the 60 Hz tick clock; it draws only where the terrain grid says `SHALLOWS`, so a fallen bridge gets it too. Its wake skips a fighter `FxView.shown` hides.
+- Statuses: `fx_view.gd:_draw_status` draws every one from creature state (table in the `fx_view.gd`
+  header): frozen ice block / petrify cracks (`_draw_statue`), stun birds (`_draw_birdies`), taunt
+  tether (`_draw_tether`), slow motes, Pickpocket glints and coins; CreatureView tints the sprite
+  (tenderized pink, slowed blue, only when no other flash) and greys petrified. A new status look goes
+  there, skips a fighter `shown` hides, and stays a few 1 px rects (no outline over health bars).
 - Text: `UiTheme.font()` and `UiTheme.px(size)` (see `src/ui/CLAUDE.md`). The canvas is still
   480 x 270 units (project.godot: a 960 x 540 base at content scale 2), so coordinates and
   the camera's zoom are unchanged; text in world space (damage numbers) scales with the zoom.
@@ -130,6 +135,14 @@ dig/slosh/poof/chop_chop/shout sounds.
   `creature_view.gd:refresh` (`shadow_size`, `shadow_fade`, `draw_shadow`); the wagon's and flags'
   in `fx_view.gd:_draw_caravan` / `_draw_flag`; the pieces' are baked into the art
   (`gen_arenas.py:cast_shadows`) and a changed piece's dropped by `arena_view.gd:_shade` / `_unshaded`
+- Floor wear (lasting marks: scratches, gouges, craters, drag lines, clods, mallet marks, wet / slush /
+  syrup footprints) → `floor_wear.gd` (FloorWear, between the crowd and `FxGround`) stores and draws
+  them; `fx_view.gd` decides what leaves one (`_wear_hit`, `_wear_strike`, `_wear_drag`, `_wear_step`,
+  the slam / land_hard arms; a move's `fx.decal` overrides, see the fx_view header). Shapes are built
+  once per ground kind into an atlas (8 directions, no rotation, whole pixels); marks fade in four
+  alpha steps (`FADE_AT`) over 20-40 s (prints 4-6 s), cap 200 (scaled by map area), and the layer
+  repaints only when a mark is added, removed, steps its fade or the view leaves the area drawn
+  (`advance`). A mark on a cell that became a pit, wall, water or brush is dropped (`_age`).
 - Footsteps / swing sounds → `audio_view.gd:watch`; buses → `_make_buses`, `set_volume`
 
 ## Files
@@ -142,6 +155,7 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `debug_view.gd` (DebugView) — F1 overlay: hurtboxes (green), active hitboxes (red), facing, and state/frame counters.
 - `dps_meter.gd` (DpsMeter) — Training's damage-per-second readout for the dummy (drawn by Hud).
 - `flash.gdshader` — Tints a sprite toward flash_color (the white hit flash, the charge glow), and can draw a 1 px rim around its silhouette…
+- `floor_wear.gd` (FloorWear) — The floor remembers the fight: claw scratches, gouges, craters, drag lines, dirt clods, mallet marks and, for a few sec…
 - `fx_ground.gd` (FxGround) — The floor-level half of the effects: puddles, afterimages, crack decals, rock spires, the back half of orbiting pebbles…
 - `fx_view.gd` (FxView) — Cosmetic effects. Two things drive them: - Simulation events (hits, slams, grabs, falls, KOs...), passed in through spa…
 - `hud.gd` (Hud) — Fighter panels (health, energy, stamina, skill cooldowns, Cairn's stones), the combo counter with its damage multiplier…

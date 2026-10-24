@@ -69,6 +69,12 @@ extends Node2D
 ##                             from sim.zones, as a syrup puddle)
 ##   spark        "light" | "heavy" | "skill" | "surge"  the hit-spark shape (default: the move's type)
 ##   spark_color  colour of a skill's burst (default: ghost_color, else amber)
+##   decal        "scratch" | "gouge" | "drag" | "crater_s" | "crater_l" | "clod" | "mallet" | "none"  the lasting
+##                floor mark (FloorWear) this move leaves: on its hits (scratch, gouge, crater), on its last strike
+##                (clod, mallet, crater) or along its dash (drag). Default by attack type: light scratches, heavy
+##                gouges, surge craters; impact popup/tenderize/cavein leave clods/mallet marks/a crater; a dash
+##                with trail "gravel" (or burrow) drags a line. Slams and hard landings crater; wet, slushy and
+##                sticky footprints follow shallows, slush-footed fighters and syrup (all in the _wear_* functions)
 ## Creature sprite keys read here: "step" ("slush" for slush puffs), "step_frames" (run frames
 ## where a foot lands; default the first and the middle one).
 ## Creature "ko_fx" keys: style "scatter" (the sprite breaks into horizontal pieces that
@@ -81,11 +87,16 @@ extends Node2D
 ## snakes' venom dripping) or "dirt" (a puff of dust and clods as he flops over) or
 ## "cash" (the bag bursts: bills flutter down, coins roll away) or "melt" (he melts into a
 ## puddle of syrup and slush).
-## Status drawn from creature state: Stoneskin plates while `shield` > 0, a rooted ring
-## while armored, pebbles at the feet while slowed, a red "!" while taunted, and a pink
-## down-arrow while tenderized (taking extra damage), green bubbles while poisoned,
-## spinning stars while blinded, and rubble round the feet while rooted
-## (a petrified statue's grey is CreatureView's shader).
+## Status drawn from creature state (`_draw_status`; every layer skips a fighter `shown` hides):
+##   shield       Stoneskin plates (and CreatureView's pale rim)   armored  amber ring
+##   rooted       rubble round the feet                            taunted  red "!" and a dotted red tether to the taunter
+##   poisoned     green bubbles, a row of pips per Frenzy stack    blinded  small yellow stars circling the head
+##   stunned      (crumpled) little birds circling the head        slowed   pebbles at the feet, icy motes trailing, a cool tint
+##   tenderized   pink down-arrow, plus CreatureView's slow pink pulse on the sprite
+##   frozen       an ice block round the sprite: faceted outline, glints, cracks as it ends
+##   petrified    CreatureView's grey shader, cracks over it as it ends (dust ring on the shatter)
+##   pickpocket   gold glints on the thief while the stolen might lasts; coins drift from
+##                the victim to the thief while the victim is weakened
 
 const SHEET := preload("res://assets/sprites/fx.png")
 const CARAVAN := preload("res://assets/sprites/caravan.png")  ## 4 frames of 48x40 (tools/gen_arenas.py)
@@ -128,6 +139,10 @@ const C_DIRT: Array[Color] = [Color("56391f"), Color("7a5634"), Color("9c744c")]
 const C_LAMP := Color("fff6b0")
 const C_GOLD: Array[Color] = [Color("c89a1e"), Color("f2c94c"), Color("fff0a0")]
 const C_CASH: Array[Color] = [Color("3f8f3f"), Color("7fd67f")]
+const C_BIRD := Color("cfe6ff")
+const C_BIRD_BEAK := Color("ffa63a")
+const C_SLOW_MOTE := Color("bfe4f5")
+const C_COIN: Array[Color] = [Color("a8781a"), Color("f2c94c"), Color("fff0a0")]
 const C_ICE: Array[Color] = [Color("64bad0"), Color("a8eef8"), Color("f0fcff")]
 const C_SYRUP: Array[Color] = [Color("f0d21e"), Color("e8303a"), Color("46c846")]
 const C_BLEED: Array[Color] = [Color("7a0e1c"), Color("cc2a3a"), Color("ff7f86")]
@@ -138,6 +153,7 @@ signal cue(sound: String)
 var sim: MatchSim
 var views: Array = []  ## CreatureView per creature, same order as sim.creatures
 var ground: FxGround
+var wear: FloorWear  ## the floor's lasting marks (scratches, craters, prints); set by main
 var time_scale := 1.0  ## main slows this for KO slow-motion; 0 holds everything still
 var shake_out := 0.0  ## extra screen shake asked for by effects; main takes it each frame
 var shake_dir := Vector2.ZERO  ## the last hit's push direction; main biases the shake along it
@@ -175,6 +191,8 @@ func bind_ground(g: FxGround) -> void:
 
 
 func clear() -> void:
+	if wear != null:
+		wear.clear()
 	_parts.clear()
 	_lost.clear()
 	_was_hidden = []
@@ -212,6 +230,7 @@ func spawn(e: Dictionary) -> void:
 			if bool(e.get("stale", false)):
 				col = Color("b8b8b8")
 			_text(p + Vector2(0, -6), str(int(round(power))), col)
+			_wear_hit(e, push)
 		"block":
 			_add({"kind": "spark", "pos": p, "life": 6, "scale": 0.75})
 			_add({"kind": "ring", "pos": p + Vector2(0, 4), "life": 8, "radius": 10.0, "color": Color("9ec5ff")})
@@ -231,6 +250,7 @@ func spawn(e: Dictionary) -> void:
 				var r := (22.0 if full else 12.0) + randf() * 6.0
 				_dust(p + Vector2(cos(a), sin(a)) * r, Vector2(cos(a), sin(a) * 0.5 - 0.6) * 0.5)
 			_slam_debris(p, full)
+			_wear_mark("crater_l" if full else "crater_s", p)
 		"bounce":
 			_add({"kind": "spark", "pos": p + Vector2(0, -12), "life": 8, "scale": 1.0})
 			_add({"kind": "lines", "pos": p + Vector2(0, -12), "life": 6, "size": 0.8, "color": C_SPARK[0]})
@@ -550,11 +570,14 @@ func spawn(e: Dictionary) -> void:
 				for i in 5:
 					_dust(c.pos + Vector2(randf_range(-10, 10), randf_range(-3, 3)), Vector2(randf_range(-0.4, 0.4), -0.4))
 				_add({"kind": "lines", "pos": c.pos + Vector2(0, -_chest(c)), "life": 10, "size": 1.6, "color": Color.WHITE})
+				_add({"kind": "ring", "pos": c.pos, "life": 16, "radius": c.radius + 14.0,
+					"color": C_ICE[2] if bool(e.get("ice", false)) else C_GREY[3]})
 				_text(c.pos + Vector2(0, -_top(c) - 22), "SHATTER!", Color("ffd166"), 10, 50.0)
 				shake_out = maxf(shake_out, 3.0)
 		"land_hard":
 			_hard_tick = _tick
 			_landing_puff(p, 2)
+			_wear_mark("crater_s", p)
 
 
 ## A floating call-out (Combo Trials and drills: "CLEAR!", "DODGED!").
@@ -796,6 +819,8 @@ func _watch_all() -> void:
 			_during_move(c, mv, fx)
 		if c.state == CreatureSim.State.DODGE and ticked and c.state_t % 4 == 1 and not c.def["dodge"].has("blink"):
 			_ghost(c, Color(0.75, 0.85, 1.0, 0.4), 10.0)
+		if c.state == CreatureSim.State.DODGE and ticked and c.state_t % 3 == 0 and c.def["dodge"].has("ram"):
+			_wear_mark("drag", c.pos - c.facing * 4.0, c.facing)  # Landslide Ram digs in
 		if c.state == CreatureSim.State.AIRBORNE and ticked and c.air_t < c.air_total / 2 and c.anim_t % 2 == 0:
 			_launch_streak(c)
 		_footstep(c, w, ticked)
@@ -835,6 +860,7 @@ func _move_started(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 				Color("ffd166"), 10, 60.0, 220.0)
 	if bool(fx.get("burrow", false)):
 		cue.emit("dig")
+		_wear_mark("clod", c.pos)
 	if bool(fx.get("syrup", false)):
 		cue.emit("slosh")
 	if bool(fx.get("smoke", false)):
@@ -934,6 +960,7 @@ func _strike(c: CreatureSim, mv: Dictionary, fx: Dictionary, seg: int) -> void:
 			else:
 				_smear_thrust(c, seg, size, randf_range(-6.0, 6.0))
 	if last:
+		_wear_strike(c, fx, seg)
 		match String(fx.get("impact", "")):
 			"spire":
 				_spire(c.hit_center(seg), c.facing)
@@ -1020,6 +1047,7 @@ func _during_move(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 				_add({"kind": "whirl", "pos": c.pos + Vector2(0, -_chest(c) * 0.6), "life": 8, "radius": r,
 					"start": randf() * TAU})
 	var dsh: Dictionary = mv.get("dash", {})
+	_wear_drag(c, fx, dsh, t)
 	if bool(fx.get("slush", false)) and not dsh.is_empty() and t >= int(dsh["from"]) and t <= int(dsh["to"]):
 		_px(c.pos - c.facing * 6.0 + Vector2(randf_range(-4, 4), -randf_range(0, 4)),
 			-c.facing * randf_range(0.3, 0.9) + Vector2(0, -0.3), C_ICE[randi() % 3], 16)
@@ -2149,7 +2177,93 @@ func _footstep(c: CreatureSim, w: Dictionary, ticked: bool) -> void:
 		return
 	if not _view_rect(self, CULL_PAD).has_point(c.pos):
 		return
-	_floor_puff(c.pos + Vector2(-c.facing.x * 3.0, 1.0), _floor_kind(c, c.pos), 0, c.facing)
+	var kind := _floor_kind(c, c.pos)
+	_floor_puff(c.pos + Vector2(-c.facing.x * 3.0, 1.0), kind, 0, c.facing)
+	_wear_step(c, w, kind, frame)
+
+
+# ------------------------------------------------------------------ floor wear
+# What leaves a mark on the floor (FloorWear draws and stores them). A move's `fx.decal`
+# overrides: "scratch" | "gouge" | "drag" | "crater_s" | "crater_l" | "clod" | "mallet" |
+# "none". Defaults: a light hit on a grounded foe scratches, a heavy gouges, a surge
+# craters; impact "popup" leaves clods, "tenderize" mallet marks, "cavein" a big crater;
+# a dash with trail "gravel" (or fx.burrow) drags a line; slams and hard landings crater.
+
+func _wear_mark(kind: String, pos: Vector2, dir := Vector2.RIGHT) -> void:
+	if wear != null and sim != null and _view_rect(self, CULL_PAD).has_point(pos):
+		wear.mark(kind, pos, dir)
+
+
+const WEAR_IMPACT := {"popup": "clod", "tenderize": "mallet", "cavein": "crater_l"}
+
+
+func _wear_hit(e: Dictionary, push: Vector2) -> void:
+	var a := _creature(int(e.get("attacker", -1)))
+	var d := _creature(int(e.get("target", -1)))
+	if a == null or d == null:
+		return
+	var fx: Dictionary = a.move_def().get("fx", {})
+	var kind := String(fx.get("decal", ""))
+	if kind == "":
+		if WEAR_IMPACT.has(String(fx.get("impact", ""))):
+			return  # the strike leaves its own mark
+		match a.move_type():
+			"light":
+				kind = "" if d.is_airborne() else "scratch"
+			"heavy":
+				kind = "gouge"
+			"surge":
+				kind = "crater_s"
+	if kind != "" and kind != "none":
+		_wear_mark(kind, d.pos, push)
+
+
+## The last strike of a move: the floor marks of its `impact`, or its own `fx.decal`.
+func _wear_strike(c: CreatureSim, fx: Dictionary, seg: int) -> void:
+	var kind := String(fx.get("decal", WEAR_IMPACT.get(String(fx.get("impact", "")), "")))
+	if kind == "" or kind == "none":
+		return
+	_wear_mark(kind, c.pos if bool(fx.get("burrow", false)) else c.hit_center(seg), c.facing)
+
+
+## A dash drags a line behind it when it kicks up gravel, burrows, or says `decal: "drag"`.
+func _wear_drag(c: CreatureSim, fx: Dictionary, dsh: Dictionary, t: int) -> void:
+	if wear == null or dsh.is_empty() or t % 3 != 0 or t < int(dsh["from"]) or t > int(dsh["to"]):
+		return
+	var kind := String(fx.get("decal", ""))
+	if kind == "" and (String(fx.get("trail", "")) == "gravel" or bool(fx.get("burrow", false))):
+		kind = "drag"
+	if kind == "drag":
+		_wear_mark("drag", c.pos - c.facing * 4.0, c.facing)
+
+
+## Footprints that last a few seconds: after wading (wet), in a syrup puddle (sticky), and
+## the slush a fighter whose sprite `step` is "slush" tracks.
+func _wear_step(c: CreatureSim, w: Dictionary, kind: String, frame: int) -> void:
+	if wear == null:
+		return
+	var foot := ""
+	if kind == "water":
+		w["wet"] = 5
+	elif _in_syrup(c.pos):
+		foot = "print_syrup"
+		w["wet"] = 0
+	elif kind == "slush":
+		foot = "print_slush"
+	elif int(w.get("wet", 0)) > 0:
+		w["wet"] = int(w["wet"]) - 1
+		foot = "print_wet"
+	if foot == "":
+		return
+	var side := Vector2(-c.facing.y, c.facing.x) * (2.0 if frame % 2 == 0 else -2.0)
+	_wear_mark(foot, c.pos + side + Vector2(0, 1), c.facing)
+
+
+func _in_syrup(pos: Vector2) -> bool:
+	for z in sim.zones:
+		if Vector2(z["pos"]).distance_to(pos) <= float(z["radius"]):
+			return true
+	return false
 
 
 func _note_push(e: Dictionary) -> Vector2:
@@ -3369,6 +3483,17 @@ func _draw_status(ci: CanvasItem, c: CreatureSim) -> void:
 			var at := (c.pos + Vector2(cos(a) * (c.radius + 2.0), sin(a) * 3.0 - 1.0)).round()
 			ci.draw_rect(Rect2(at - Vector2(1, 1), Vector2(3, 2)), C_OUTLINE)
 			ci.draw_rect(Rect2(at - Vector2(0, 1), Vector2(1, 1)), C_GREY[2])
+		_draw_slow_motes(ci, c)
+	if c.stone > 0:
+		_draw_statue(ci, c, lift)
+	elif c.state == CreatureSim.State.CRUMPLE and c.stun > 0:
+		_draw_birdies(ci, c, lift)
+	if c.taunt > 0:
+		_draw_tether(ci, c)
+	if c.atk_buff > 0 and c.atk_mult > 1.0:
+		_draw_glints(ci, c, lift)
+	elif c.atk_buff > 0 and c.atk_mult < 1.0:
+		_draw_stolen_coins(ci, c, lift)
 	if c.taunt > 0 and (c.taunt > 30 or (_tick / 4) % 2 == 0):
 		var top := (c.pos + Vector2(0, -_top(c) - 10.0 - lift)).round()
 		_bang(ci, top)
@@ -3396,6 +3521,120 @@ func _draw_status(ci: CanvasItem, c: CreatureSim) -> void:
 		ci.draw_colored_polygon(tri, C_OUTLINE)
 		var tri2 := PackedVector2Array([at + Vector2(-2, -1), at + Vector2(3, -1), at + Vector2(0.5, 2)])
 		ci.draw_colored_polygon(tri2, C_TENDER)
+
+## Frozen: an ice block round the sprite (a faceted outline, a pale fill, glints that twinkle);
+## petrified: just the cracks. Both crack up more and more as the last 40 ticks run out.
+func _draw_statue(ci: CanvasItem, c: CreatureSim, lift: float) -> void:
+	var top := _top(c)
+	var hw := c.radius + 4.0
+	var base := c.pos + Vector2(0, 2.0 - lift)
+	var ice := c.stone_ice
+	if ice:
+		var pts := PackedVector2Array([
+			Vector2(-hw, 0), Vector2(-hw - 1, -top * 0.3), Vector2(-hw + 2, -top * 0.85),
+			Vector2(-hw * 0.4, -top - 3), Vector2(hw * 0.4, -top - 3), Vector2(hw - 2, -top * 0.85),
+			Vector2(hw + 1, -top * 0.3), Vector2(hw, 0)])
+		for i in pts.size():
+			pts[i] = (base + pts[i]).round()
+		ci.draw_colored_polygon(pts, Color(C_ICE[1], 0.3))
+		var ring := pts.duplicate()
+		ring.append(pts[0])
+		ci.draw_polyline(ring, Color(C_ICE[2], 0.9), 1.0)
+		ci.draw_polyline(PackedVector2Array([ring[1] + Vector2(2, 0), ring[3] + Vector2(0, 2)]), Color(C_ICE[1], 0.5), 1.0)
+		ci.draw_polyline(PackedVector2Array([ring[6] - Vector2(2, 0), ring[4] + Vector2(0, 2)]), Color(C_ICE[0], 0.5), 1.0)
+		for k in 2:
+			var ph := (_tick + c.id * 11 + k * 17) % 40
+			if ph < 6:
+				var gp := (base + Vector2(float((c.id * 5 + k * 7 + _tick / 40 * 3) % 9 - 4) * hw * 0.2,
+					-top * (0.25 + 0.5 * k))).round()
+				var ga := 1.0 - absf(ph - 3.0) / 3.0
+				ci.draw_rect(Rect2(gp - Vector2(2, 0), Vector2(5, 1)), Color(1, 1, 1, ga))
+				ci.draw_rect(Rect2(gp - Vector2(0, 2), Vector2(1, 5)), Color(1, 1, 1, ga))
+	if c.stone < 40:
+		var n := 1 + (40 - c.stone) / 10
+		var col := Color(C_ICE[2], 0.95) if ice else C_CRACK
+		for i in n:
+			var x0 := (float((i * 5 + c.id * 3) % 9) - 4.0) * hw * 0.2
+			var y0 := -top * (0.15 + 0.2 * float(i % 4))
+			var p0 := (base + Vector2(x0, y0)).round()
+			ci.draw_polyline(PackedVector2Array([p0, p0 + Vector2(2, -3), p0 + Vector2(-1, -5), p0 + Vector2(2, -8)]), col, 1.0)
+
+
+## Stunned (crumpled): little birds circling over the head, wide and slow.
+func _draw_birdies(ci: CanvasItem, c: CreatureSim, lift: float) -> void:
+	for i in 3:
+		var a := _tick * 0.1 + TAU * i / 3.0
+		var at := (c.pos + Vector2(cos(a) * 10.0, -_top(c) * 0.85 - lift + sin(a) * 3.0)).round()
+		var dirx := -1.0 if sin(a) > 0.0 else 1.0  # moving left along the near side
+		var flap := (_tick / 4 + i) % 2
+		ci.draw_rect(Rect2(at + Vector2(-2, -1), Vector2(5, 3)), C_OUTLINE)
+		ci.draw_rect(Rect2(at + Vector2(-1, 0), Vector2(3, 1)), C_BIRD)
+		ci.draw_rect(Rect2(at + Vector2(0, -1 if flap == 0 else 1), Vector2(1, 1)), C_BIRD)
+		ci.draw_rect(Rect2(at + Vector2(dirx * 2.0, 0), Vector2.ONE), C_BIRD_BEAK)
+
+
+## Taunted: a dotted red tether from its feet to the one it is being dragged toward.
+func _draw_tether(ci: CanvasItem, c: CreatureSim) -> void:
+	var t := c.taunter(sim)
+	if t == null or not shown(t):
+		return
+	var d := t.pos - c.pos
+	var dist := d.length()
+	if dist < 20.0:
+		return
+	var u := d / dist
+	var a := 0.55 if (c.taunt > 30 or (_tick / 4) % 2 == 0) else 0.25
+	var k := 0
+	var s := c.radius + 6.0 + float(_tick % 8)  # marching toward the taunter
+	while s < dist - t.radius - 4.0 and k < 40:
+		ci.draw_rect(Rect2((c.pos + u * s).round(), Vector2.ONE), Color(C_TAUNT, a))
+		s += 8.0
+		k += 1
+
+
+## Slowed: icy motes shed behind it (opposite its walk; drifting up when it stands still).
+func _draw_slow_motes(ci: CanvasItem, c: CreatureSim) -> void:
+	var back := -c.walk_vel.normalized() if c.walk_vel.length() > 0.1 else Vector2(0, -0.4)
+	for i in 3:
+		var ph := float((_tick + i * 9 + c.id * 5) % 27) / 27.0
+		var jitter := float((i * 7 + c.id * 3) % 5 - 2)
+		var at := (c.pos + back * (3.0 + ph * 12.0) + Vector2(jitter, -1.0 - ph * 3.0)).round()
+		ci.draw_rect(Rect2(at, Vector2(2, 2) if ph < 0.6 else Vector2.ONE), Color(C_SLOW_MOTE, 0.9 * (1.0 - ph)))
+
+
+## Pickpocket, the thief: gold glints twinkling over the stolen might.
+func _draw_glints(ci: CanvasItem, c: CreatureSim, lift: float) -> void:
+	var ph := (_tick + c.id * 9) % 24
+	if ph >= 7:
+		return
+	var a := 1.0 - absf(ph - 3.0) / 3.5
+	var at := (c.pos + Vector2(float((_tick / 24 * 5 + c.id) % 11 - 5) * 1.5,
+		-_top(c) * (0.35 + 0.12 * float((_tick / 24) % 5)) - lift)).round()
+	ci.draw_rect(Rect2(at - Vector2(2, 0), Vector2(5, 1)), Color(C_COIN[2], a))
+	ci.draw_rect(Rect2(at - Vector2(0, 2), Vector2(1, 5)), Color(C_COIN[2], a))
+	ci.draw_rect(Rect2(at, Vector2.ONE), Color(1, 1, 1, a))
+
+
+## Pickpocket, the victim: coins drift off it toward the thief while its power is stolen.
+func _draw_stolen_coins(ci: CanvasItem, c: CreatureSim, lift: float) -> void:
+	var thief: CreatureSim = null
+	var best := 1.0e9
+	for o in sim.creatures:
+		if o.team != c.team and o.atk_buff > 0 and o.atk_mult > 1.0 and o.state != CreatureSim.State.KO:
+			var dd := o.pos.distance_squared_to(c.pos)
+			if dd < best:
+				best = dd
+				thief = o
+	if thief == null:
+		return
+	var from := c.pos + Vector2(0, -_chest(c) - lift)
+	var to := thief.pos + Vector2(0, -_chest(thief) - thief.air_height())
+	for i in 2:
+		var ph := float((_tick + i * 15 + c.id * 4) % 30) / 30.0
+		var at := from.lerp(to, ph) + Vector2(0, -sin(ph * PI) * 6.0)
+		var ar := at.round()
+		ci.draw_rect(Rect2(ar - Vector2(2, 2), Vector2(4, 4)), C_OUTLINE)
+		ci.draw_rect(Rect2(ar - Vector2(1, 1), Vector2(2, 2)), C_COIN[1] if (_tick / 3 + i) % 2 == 0 else C_COIN[2])
 
 
 func _bang(ci: CanvasItem, at: Vector2) -> void:

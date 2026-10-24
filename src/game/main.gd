@@ -237,6 +237,7 @@ var views: Array[CreatureView] = []
 var fx: FxView
 var fx_ground: FxGround
 var water: WaterView
+var wear: FloorWear
 var shadows: ShadowLayer
 var audio: AudioView
 var debug: DebugView
@@ -440,6 +441,8 @@ func _ready() -> void:
 	add_child(arena)
 	crowd = CrowdView.new()
 	add_child(crowd)
+	wear = FloorWear.new()  # scratches, gouges, craters, prints: the floor remembers, under everything
+	add_child(wear)
 	fx_ground = FxGround.new()
 	add_child(fx_ground)
 	water = WaterView.new()  # living water over the shallows, under the fighters
@@ -456,6 +459,7 @@ func _ready() -> void:
 	add_child(entities)
 	fx = FxView.new()
 	fx.bind_ground(fx_ground)
+	fx.wear = wear
 	add_child(fx)
 	paper = PaperFx.new()  # Mister Crease's sheets, crafts and storms, over the fighters
 	paper.fx = fx
@@ -1904,6 +1908,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	debug.sim = sim
 	rings.set_sim(sim)
 	water.set_sim(sim)
+	wear.set_sim(sim)
 	water.fx = fx
 	paper.set_sim(sim)
 	hud.sim = sim
@@ -2113,6 +2118,7 @@ func _physics_process(_delta: float) -> void:
 	var t_fx := PerfLog.now()
 	arena.refresh()
 	water.advance()
+	wear.advance()
 	crowd.advance()
 	fx.advance()
 	PerfLog.since("fx advance", t_fx)
