@@ -1,12 +1,12 @@
-# Barkley: motion plan (animation pass, preview phase)
+# Barkley: motion plan (animation pass)
 
 Part of the roster animation pass (`roster_anim_plan.md`, section 8). Same recipe as Crease,
 Hissy and Cerebro: shading, palette and outlines stay exactly as they are, only motion changes;
 every ability is redrawn on 12 columns; every `startup`, `active`, `recovery`, `windup`,
 `cancel_from` and hit tick in `barkley.json` stays. Only `anim_at`, `anim_charge`,
-`idle_ticks`, `cut_in_frame`, the row table and `cols` change, and only after approval. This
-PR changes none of them: the game's sheets and JSON are untouched, the new rows live in
-`ANIM_ROWS` in `tools/gen_barkley.py` and are rendered by `python3 tools/gen_barkley.py anim`.
+`idle_ticks`, `cut_in_frame`, the row table and `cols` change. The previews came first
+(approved by Kevin); the rows are now in the game (see "In the game" below). `python3
+tools/gen_barkley.py anim` renders the previews against the sheets at `OLD_REF`.
 
 Timings are sim ticks (60 a second). A frame shows from its `anim_at` tick until the next.
 A raw heavy or skill that has a `windup` holds its first `anim_at` frame for the windup, so
@@ -143,9 +143,12 @@ settle (9, 10, 11).
 
 ### Dodge: 19 ticks, invulnerable 2 to 12
 
-8 frames: the gather, the bow, two lurching steps low (the feet alternate), the rise. The view
-picks the dodge's frame as `state_t * 8 / 19` (even, about 2.4 ticks each), so the dodge keeps
-its weight in its poses, not its timing (question 1).
+8 frames: the gather, the bow, two lurching steps low (the feet alternate), the rise. The bow
+is held: the dodge gets its own view-only timeline, `dodge.anim_at` (Cerebro's PR #164 adds
+the key to `CreatureView._pick`; until it merges the view ignores it and plays the 8 frames
+evenly, which is fine, and the batch merges together):
+`"anim_at": [[0,0],[2,1],[5,2],[8,3],[11,4],[13,5],[15,6],[17,7]]`
+(frames 1 and 2 span ticks 2 to 7; the invulnerable ticks 2 to 12 are frames 1 to 4).
 
 ## Previews
 
@@ -156,25 +159,18 @@ grab, pinecone, eruption and dodge; `barkley_idle_views_3x.gif` and `barkley_run
 views). Regenerate: `python3 tools/gen_barkley.py anim`. Check the timelines:
 `python3 tools/anim_preview.py --check barkley`.
 
-## Questions for Kevin (my pick first)
+## Decisions (Kevin, Oct 24 2026)
 
-1. **Dodge timing.** The view picks the frame evenly, so the dodge cannot hold its bow. Pick:
-   keep even timing. The alternative is a small `dodge.anim_at` in the view later.
-2. **Twister has 2 charge frames, not 4.** With 12 columns it is 2 charge + 8 spin + 2 unwind.
-   Pick: keep it; the 8-frame spin is what the plan asks for.
-3. **Bough Swing is the Twig Swipe's mirror**, with more turn. Pick: yes, a one-two reads best;
-   an overhand swing would cost more frames.
-4. **The idle blink** (one slow blink in 80 ticks). Pick: keep.
-5. **Run slip.** The planted foot slides 1.3 px a tick against 1.9 px of ground speed (the old
-   sheet slid 1.2). Pick: keep; a stride of about 11 px each way would remove it but makes the
-   short root legs overreach.
-6. **Timber Drop shares the Log Drop row**, with its own timeline. Pick: share.
-7. **Surge cut-in frame** moves from `[8, 2]` to `[8, 3]`, the arms-high gather. Pick: yes.
+All the picks were approved: Twister 2 charge + 8 spin + 2 unwind, the mirrored Bough Swing,
+the idle blink, the run stride as it is, Timber Drop sharing the Log Drop row, the Surge's
+`cut_in_frame` `[8, 3]`. One change to question 1: **the dodge holds its bow**, on a
+`dodge.anim_at` timeline (above) instead of even frames.
 
-## Not in the game yet
+## In the game
 
-The sheets (`barkley.png`, `_down`, `_up`) and `data/creatures/barkley.json` are unchanged
-(`cols` 8, 4 idle frames); the sim fingerprint is unchanged. After approval: render the
-12-column sheets from `ANIM_ROWS`, update the row table, `cols`, `idle_ticks`, the `anim_at` /
-`anim_charge` / `cut_in_frame` above, `docs/SPRITES.md`, and bump `NET_VERSION` once for the
-batch.
+Phase 2 is in this PR: `ROWS` in `tools/gen_barkley.py` are the new poses (the old rows are
+dropped), the three sheets are regenerated at 12 columns, and `barkley.json` has `cols` 12, the
+row table, `idle_ticks` 10, `run_ticks` 2, every `anim_at` above (Timber Drop's in place of
+the default mapping), Pinecone Bomb's `anim_charge` `[0, 4, 6]`, `dodge.anim_at` and
+`cut_in_frame` `[8, 3]`. Frame data is unchanged. The `portrait` crop is unchanged (the new
+idle frame 0 frames the head the same). `NET_VERSION` waits for the batch.

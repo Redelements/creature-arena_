@@ -158,7 +158,7 @@ change the `"sprite"` block in `data/creatures/craglash.json` to match theirs. D
 note: keep the neck as flat slabs rimmed in red rather than round grey boulders, so it
 doesn't read as a chain of boulders from an existing franchise.
 
-### Barkley — 96×96 frames, 8 × 13 (768×1248 px)
+### Barkley — 96×96 frames, 12 × 13 (1152×1248 px)
 
 Barkley is the second creature from the artist's sheets. `tools/gen_barkley.py`
 recreates him as a small **3D puppet** (a trunk that forks into two leg-trunks with
@@ -170,9 +170,17 @@ side sheet is a cheated 3/4 view: forward is drawn one to one so reach on screen
 matches reach in the simulation, while his sideways span is turned toward the camera
 so the arms and the log across his head still read. Feet at **x 40, y 90**. Up and down
 sheets (`barkley_down.png`, `barkley_up.png`) are **128×160** with the same rows minus
-the knockout, feet at x 64, y 112 (down) and y 124 (up). Eight columns because the
-spin needs them; `"select_scale"` in the sprite block shrinks his portrait on the team
-select (the log makes him tall for his frame).
+the knockout, feet at x 64, y 112 (down) and y 124 (up). Twelve columns for the
+roster animation pass; `"select_scale"` in the sprite block shrinks his portrait on the
+team select (the log makes him tall for his frame).
+
+Animated with the roster pass (motion plan, previews and before/after GIFs:
+[`anim_preview/barkley_motion_plan.md`](anim_preview/barkley_motion_plan.md)). He is wood,
+so the trunk never squashes: weight is timing (slow rises, fast falls, long holds) and
+overlap (the boughs and their elbows 2 frames behind the trunk, `twig` the arm twigs,
+`leaf` the log's leaf, the log landing a frame after the trunk). `idle_ticks` 10 (an 80-tick
+idle, the slowest), `run_ticks` 2 (the run still 24 ticks), footsteps on the default
+`[0, 6]` (the two hard plants).
 
 ![Barkley sheet, 3x](barkley_preview.png)
 
@@ -180,16 +188,16 @@ Facing down and up: [`barkley_views_preview.png`](barkley_views_preview.png).
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
-| 0 | idle | 4 | the sheet's pose: one arm low, one raised in a curl; slow sway |
-| 1 | run | 6 | lumbering stride, arms swinging like boughs |
-| 2 | twig | 4 | Twig Swipe (light 1): right arm whips across |
-| 3 | bough | 4 | Bough Swing (light 2): left arm swings back the other way |
-| 4 | logdrop | 4 | Log Drop (light 3) and Timber Drop: rear back, tip forward, bonk with the log |
-| 5 | twister | 8 | Timber Twister: coil ×2 (charge), spin at 0°, 90°, 180°, 270°, slow, recover |
-| 6 | grab | 6 | Branch Grab: wind back, reach, full extension ×2, reel in, recover |
-| 7 | pinecone | 5 | Pinecone Bomb: pinecone in hand, overhead, throw, follow-through, recover |
-| 8 | eruption | 6 | Root Eruption: arms up ×3 (leaves glowing), plunge into the floor ×2, recover |
-| 9 | dodge | 4 | bow low under the swing |
+| 0 | idle | 8 | the sheet's pose (one arm low, one raised in a curl), a slow eased sway; the raised bough 2 frames behind, the log's leaf 3, one slow blink |
+| 1 | run | 12 | the lumber: per step a hard plant, the trunk settling over it for 2, a slow rise, a slow root lift, a fast swing through; the planted foot slides back evenly; boughs 2 frames behind, bending at the top of the swing |
+| 2 | twig | 8 | Twig Swipe (light 1): weight back, coil, one fast frame, the hit (held 3), the bough carries on, twigs overshoot, settle |
+| 3 | bough | 8 | Bough Swing (light 2): the Twig Swipe from his other side with a deeper coil and a wider arc |
+| 4 | logdrop | 8 | Log Drop (light 3) and Timber Drop: rear back, a held peak, the tip, the log lands (a frame after the trunk), a long hold, a slow rise |
+| 5 | twister | 12 | Timber Twister: 0–1 the charge crank (`anim_charge` `[0, 2, 6]`, frame 1 the windup), 2–9 an 8-frame spin at 45° a frame (boughs trailing), 10 the unwind, 11 the settle |
+| 6 | grab | 12 | Branch Grab: cocked arm (held through the windup), coil, three fast launch frames, open reach, claw closed (held), the reel, settle |
+| 7 | pinecone | 12 | Pinecone Bomb: 0–3 the charge loop (`anim_charge` `[0, 4, 6]`, cone overhead, arm trembling), pull back, throw, the release (frame 7, the cone leaves at tick 10), follow-through, recover |
+| 8 | eruption | 12 | Root Eruption: a four-frame gather (arms up, leaves glowing; frame 3 is the cut-in, `[8, 3]`), the plunge, the strike held over the first ring, ring 2 recoil, ring 3 boughs flung up, settle |
+| 9 | dodge | 8 | bow low under the swing: gather, the bow (held), two lurching steps, rise; on its own `dodge.anim_at` timeline (a view-only key) |
 | 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
 | 11 | guard | 2 | branch arms crossed in front |
 | 12 | ko | 4 | stagger, then topples over backward like a felled tree, roots torn up |

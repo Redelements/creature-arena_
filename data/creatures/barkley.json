@@ -11,31 +11,34 @@
   "weight": 1.25,
   "stamina": 100,
   "stamina_regen": 0.5,
-  "dodge": { "frames": 19, "iframes_start": 2, "iframes_end": 12, "speed": 3.4 },
+  "dodge": { "frames": 19, "iframes_start": 2, "iframes_end": 12, "speed": 3.4,
+    "anim_at": [[0, 0], [2, 1], [5, 2], [8, 3], [11, 4], [13, 5], [15, 6], [17, 7]] },
   "guard": { "reduction": 0.8, "drain_per_damage": 1.9, "speed_mult": 0.38, "break_stun": 52 },
   "fx_height": 26,
   "fx_top": 58,
   "fx_color": "#b56664",
   "surge_aura": {"colors": ["#2b8a37", "#8ed850", "#ecffc4"], "motes": "leaves", "spikes": 6, "sharp": 0.6, "speed": 0.8, "height": 1.05},
-  "cut_in_frame": [8, 2],
+  "cut_in_frame": [8, 3],
   "ko_fx": { "style": "timber", "length": 52 },
   "sprite": {
     "path": "res://assets/sprites/barkley.png",
     "frame": 96,
     "portrait": [30, 18, 24, 32],
-    "cols": 8,
+    "cols": 12,
+    "idle_ticks": 10,
+    "run_ticks": 2,
     "origin": [40, 90],
     "anims": {
-      "idle": [0, 0, 4],
-      "run": [1, 0, 6],
-      "twig": [2, 0, 4],
-      "bough": [3, 0, 4],
-      "logdrop": [4, 0, 4],
-      "twister": [5, 0, 8],
-      "grab": [6, 0, 6],
-      "pinecone": [7, 0, 5],
-      "eruption": [8, 0, 6],
-      "dodge": [9, 0, 4],
+      "idle": [0, 0, 8],
+      "run": [1, 0, 12],
+      "twig": [2, 0, 8],
+      "bough": [3, 0, 8],
+      "logdrop": [4, 0, 8],
+      "twister": [5, 0, 12],
+      "grab": [6, 0, 12],
+      "pinecone": [7, 0, 12],
+      "eruption": [8, 0, 12],
+      "dodge": [9, 0, 8],
       "hurt": [10, 0, 2],
       "guard": [11, 0, 2],
       "ko": [12, 0, 4]
@@ -66,7 +69,7 @@
   },
   "moves": {
     "tag_in": {
-      "name": "Timber Drop", "type": "skill", "anim": "logdrop",
+      "name": "Timber Drop", "type": "skill", "anim": "logdrop", "anim_at": [[0, 0], [2, 1], [5, 2], [7, 3], [9, 4], [13, 5], [18, 6], [24, 7]],
       "startup": 8, "active": 4, "recovery": 16,
       "damage": 9, "knockback": 1.6, "hitstun": 26, "hitstop": 8, "launch": 24,
       "reach": 22, "hit_radius": 14, "juggle": true,
@@ -75,7 +78,7 @@
     },
     "light_1": {
       "no_flinch": true,
-      "name": "Twig Swipe", "anim": "twig",
+      "name": "Twig Swipe", "anim": "twig", "anim_at": [[0, 0], [2, 1], [4, 2], [5, 3], [8, 4], [10, 5], [12, 6], [14, 7]],
       "startup": 4, "active": 3, "recovery": 9, "cancel_from": 8,
       "damage": 4, "knockback": 0.9, "hitstun": 18, "hitstop": 4,
       "reach": 35, "hit_radius": 11, "lunge": 0.8, "next": "light_2", "juggle": true,
@@ -83,14 +86,14 @@
     },
     "light_2": {
       "no_flinch": true,
-      "name": "Bough Swing", "anim": "bough",
+      "name": "Bough Swing", "anim": "bough", "anim_at": [[0, 0], [2, 1], [4, 2], [6, 3], [7, 4], [10, 5], [13, 6], [16, 7]],
       "startup": 6, "active": 3, "recovery": 10, "cancel_from": 9,
       "damage": 6, "knockback": 1.0, "hitstun": 19, "hitstop": 5,
       "reach": 36, "hit_radius": 12, "lunge": 0.8, "next": "light_3", "juggle": true,
       "fx": { "smear": "arc", "size": 1.2 }
     },
     "light_3": {
-      "name": "Log Drop", "anim": "logdrop",
+      "name": "Log Drop", "anim": "logdrop", "anim_at": [[0, 0], [3, 1], [6, 2], [8, 3], [10, 4], [13, 5], [18, 6], [24, 7]],
       "startup": 9, "active": 3, "recovery": 17,
       "damage": 9, "knockback": 1.8, "hitstun": 26, "hitstop": 7,
       "reach": 38, "hit_radius": 12, "lunge": 0.5, "next": "",
@@ -112,7 +115,7 @@
         { "at": 19, "active": 3 }
       ],
       "dash": { "speed": 0.7, "from": 1, "to": 20 },
-      "anim_at": [[0, 2], [3, 3], [5, 4], [7, 5], [9, 2], [11, 3], [13, 4], [15, 5], [17, 2], [19, 3], [21, 6], [32, 7]],
+      "anim_at": [[0, 1], [2, 2], [4, 3], [6, 4], [7, 5], [8, 6], [9, 7], [10, 8], [11, 9], [12, 2], [13, 3], [14, 4], [15, 5], [16, 6], [17, 7], [18, 8], [19, 9], [20, 2], [22, 10], [28, 11]],
       "fx": { "charge": "leaves", "spin": true, "impact": "twister" }
     },
     "skill_1": {
@@ -121,15 +124,15 @@
       "damage": 8, "knockback": 0.4, "hitstun": 34, "hitstop": 7,
       "reach": 45, "hit_radius": 13, "juggle": true, "juggle_float": 26,
       "grab": true, "grab_air": true, "pull": 3,
-      "anim_at": [[0, 0], [5, 1], [10, 2], [15, 3], [22, 4], [28, 5]],
+      "anim_at": [[0, 0], [2, 1], [5, 2], [8, 3], [10, 4], [11, 5], [14, 6], [17, 7], [20, 8], [23, 9], [27, 10], [31, 11]],
       "fx": { "branch": true, "impact": "snag" }
     },
     "skill_2": {
-      "name": "Pinecone Bomb", "anim": "pinecone", "cooldown": 180, "charge_max": 36, "aim": 0.7,
+      "name": "Pinecone Bomb", "anim": "pinecone", "cooldown": 180, "charge_max": 36, "aim": 0.7, "anim_charge": [0, 4, 6],
       "startup": 9, "active": 0, "recovery": 26,
       "damage": 10, "knockback": 1.4, "hitstun": 24, "hitstop": 7, "launch": 30, "juggle": true,
       "projectile": { "lob": true, "range": 48, "range_charged": 110, "time": 22, "burst": 32, "offset": 6, "crack": 10 },
-      "anim_at": [[0, 0], [4, 1], [9, 2], [12, 3], [20, 4]],
+      "anim_at": [[0, 4], [3, 5], [7, 6], [10, 7], [13, 8], [17, 9], [22, 10], [28, 11]],
       "fx": { "projectile": "pinecone" }
     },
     "surge": {
@@ -143,7 +146,7 @@
         { "at": 29, "active": 4, "hit_radius": 90, "root_ticks": 90, "damage": 12, "crumple": 64, "hitstop": 14, "knockback": 0.4 }
       ],
       "terrain_crack": 90,
-      "anim_at": [[0, 0], [5, 1], [11, 2], [16, 3], [29, 4], [48, 5]],
+      "anim_at": [[0, 0], [3, 1], [6, 2], [9, 3], [12, 4], [15, 5], [16, 6], [23, 7], [29, 8], [36, 9], [44, 10], [52, 11]],
       "fx": { "telegraph": true, "speedlines": true, "impact": "roots" }
     }
   }
