@@ -4,7 +4,7 @@
 Run from anywhere:  python3 tools/gen_craglash.py
 Requires Pillow and numpy.
 
-Writes assets/sprites/craglash.png (96x96 frames, 6 columns), the facing-down and
+Writes assets/sprites/craglash.png (96x96 frames, 12 columns), the facing-down and
 facing-up sheets (128x160 frames) and labelled previews in docs/. Craglash is drawn as
 a small puppet: torso, legs, arms, a segmented stone neck and a maned head, each part
 shaded and outlined on its own layer. Every frame is one pose (a dict of where the feet,
@@ -33,7 +33,7 @@ OUT = os.path.join(ROOT, "assets", "sprites", "craglash.png")
 PREVIEW = os.path.join(ROOT, "docs", "craglash_preview.png")
 
 F = 96  # frame size
-COLS = 6
+COLS = 12  # the stomp, Mountain Maw, Bedrock and Landslide Charge have 12 frames
 OX, OY = 34, 90  # feet origin inside the frame
 
 # Palette, sampled from the character sheet. Materials carry five tones:
@@ -1011,126 +1011,6 @@ IDLE_HANDS = [(-9, 11), (9, 12)]  # arms hanging, the near one in front of the b
 REST_HANDS = [(-9, 4), (10, 5)]   # recover frames settle toward the idle arms
 
 
-def idle():
-    """Standing easy, arms hanging, breathing; the head sways on its neck."""
-    out = []
-    frames = [  # hip drop, hand drop, head offset, neck controls
-        (0, 0, (0, 0), ((-9, -48), (-3, -58))),
-        (0, 1, (1, 0), ((-8, -49), (-2, -58))),
-        (1, 1, (1, 1), ((-7, -48), (-1, -57))),
-        (1, 0, (0, 1), ((-8, -47), (-2, -58))),
-    ]
-    for dy, hy, (hx, hdy), (c1, c2) in frames:
-        out.append(P(hip=(0, -9 + dy), sy=1.0 - 0.03 * dy,
-                     hands=[(-9, 11 + hy), (9, 12 + hy)],
-                     head=(11 + hx, -45 + dy + hdy), c1=c1, c2=c2, feet=[(-6, 0), (6, 0)],
-                     mane=0.3 * (dy == 0)))
-    return out
-
-
-def run():
-    """A heavy stomping walk: one foot planted, the other swinging through; the arms
-    counter-swing and the head bobs a frame behind the body."""
-    out = []
-    for k in range(6):
-        ph = k / 6 * 2 * math.pi
-        fx = 8 * math.cos(ph)
-        up_f = max(0.0, math.sin(ph)) * 4
-        up_b = max(0.0, -math.sin(ph)) * 4
-        bob = -abs(math.sin(ph)) * 2           # whole pixels only when drawn (whole_pixels)
-        sw = 4 * math.cos(ph)
-        lag = -abs(math.sin(ph - 0.9)) * 2
-        out.append(P(hip=(1, -9 + bob), lean=8, feet=[(-fx, -up_b), (fx, -up_f)],
-                     hands=[(-8 + sw * 1.5, 10 - abs(sw) * 0.5), (8 - sw * 1.5, 11 - abs(sw) * 0.5)],
-                     head=(14 + sw * 0.3, -44 + lag), c1=(-2, -56 + bob), c2=(4, -46 + lag),
-                     mane=0.3 if k % 2 else 0.0))
-    return out
-
-
-def claw(front=True):
-    """Light: a raking claw with one hand (front on Rake, back arm on Backhand)."""
-    i = 1 if front else 0
-    out = []
-    poses = [
-        ((-4, -13), -6, (8, -47), 0.0),    # wind back and up, leaning away
-        ((15, 2), 10, (14, -43), 0.3),     # swipe down across, leaning in
-        ((13, 7), 12, (15, -42), 0.5),     # follow-through, claws low
-        ((7, 4), 4, (12, -45), 0.0),       # recover, arm dropping
-    ]
-    for hand, lean, head, flare in poses:
-        hands = list(IDLE_HANDS)
-        if front:
-            hands[1] = hand
-            hands[0] = (-9 - lean * 0.3, 3 + lean * 0.3)
-        else:
-            hands[0] = (hand[0] + 9, hand[1] - 1) if hand[0] > 10 else (-8, -11)
-            hands[1] = (10, 6)
-        out.append(P(hip=(1 + (lean > 5), -9), lean=lean, hands=hands, head=head, feet=[(-7, 0), (7, 0)],
-                     face="roar" if lean > 5 else "angry", arm0_front=not front and lean > 5,
-                     c1=(-4, -58), c2=(2 + lean * 0.3, -48), mane=flare, sy=1.0 - (lean > 5) * 0.03))
-    return out
-
-
-def headbutt():
-    """Light finisher: the neck snaps the head forward like a hammer."""
-    return [
-        P(hip=(-1, -9), lean=-8, head=(0, -51), c1=(-8, -62), c2=(-8, -52), face="strain",
-          hands=[(-6, -3), (6, -3)], mane=-0.5),
-        P(hip=(2, -9), lean=12, sy=0.96, head=(29, -35), c1=(4, -56), c2=(14, -42), face="roar",
-          hands=[(-8, -2), (8, 0)], feet=[(-8, 0), (8, 0)], mane=1.0),
-        P(hip=(2, -9), lean=12, sy=0.96, head=(27, -36), c1=(4, -55), c2=(14, -42), face="roar",
-          hands=[(-8, -2), (8, 0)], feet=[(-8, 0), (8, 0)], mane=0.6),
-        P(hip=(1, -9), lean=4, head=(17, -41), face="angry", hands=REST_HANDS, mane=0.2),
-    ]
-
-
-def stomp():
-    """Rockslide Stomp (heavy): lift the front foot, then slam it down."""
-    return [
-        P(hip=(-1, -10), lean=-6, feet=[(-6, 0), (7, -5)], lift=[0, 2], hands=[(-8, -12), (8, -13)],
-          head=(7, -48), face="roar", mane=0.3),
-        P(hip=(-1, -11), lean=-8, feet=[(-6, 0), (8, -7)], lift=[0, 2], hands=[(-8, -14), (8, -15)],
-          head=(6, -49), face="roar", mane=0.6),
-        P(hip=(-2, -12), lean=-12, feet=[(-6, 0), (9, -12)], lift=[0, 3], hands=[(-6, -16), (6, -17)],
-          head=(4, -52), face="roar", tilt=-1, mane=1.0, c1=(-10, -64), c2=(-4, -58)),
-        P(hip=(1, -6), lean=14, sy=0.9, feet=[(-8, 0), (10, 0)], hands=[(-4, 8), (9, 9)],
-          fists=[True, True], head=(18, -37), face="roar", mane=0.6, c1=(0, -50), c2=(10, -42)),
-        P(hip=(1, -5), lean=16, sy=0.86, feet=[(-8, 0), (10, 0)], hands=[(-4, 9), (9, 10)],
-          fists=[True, True], head=(19, -35), face="roar", mane=0.3, c1=(0, -48), c2=(10, -40)),
-        P(hip=(0, -8), lean=4, feet=[(-7, 0), (8, 0)], hands=REST_HANDS, head=(12, -43)),
-    ]
-
-
-def lash():
-    """Boulder Lash (skill 1): coil the neck back, then whip the head out."""
-    return [
-        P(hip=(-1, -9), lean=-8, head=(-6, -49), c1=(2, -62), c2=(8, -56), face="angry",
-          hands=[(-8, -4), (8, -6)], mane=-0.3),
-        P(hip=(-2, -9), lean=-12, head=(-12, -44), c1=(4, -64), c2=(6, -58), face="strain",
-          hands=[(-8, -2), (8, -8)], mane=-0.6),
-        P(hip=(0, -9), lean=6, head=(-10, -54), c1=(-4, -62), c2=(-16, -60), face="roar",
-          hands=[(-9, -3), (9, -2)], feet=[(-8, 0), (7, 0)], mane=0.4),
-        P(hip=(2, -9), lean=12, head=(48, -30), c1=(8, -50), c2=(28, -32), face="roar",
-          hands=[(-9, -1), (9, 0)], feet=[(-9, 0), (8, 0)], mane=1.0),
-        P(hip=(2, -9), lean=10, head=(42, -27), c1=(8, -48), c2=(26, -26), face="angry",
-          hands=[(-9, -1), (9, 0)], feet=[(-9, 0), (8, 0)], mane=0.5),
-        P(hip=(1, -9), lean=4, head=(22, -38), c1=(0, -52), c2=(12, -40), face="angry",
-          hands=REST_HANDS),
-    ]
-
-
-def bedrock():
-    """Bedrock (skill 2): sink into a rooted stance, fists in the ground, and roar."""
-    root = dict(hip=(0, -6), sy=0.9, feet=[(-10, 0), (10, 0)], hands=[(-6, 10), (6, 10)],
-                fists=[True, True])
-    return [
-        P(lean=6, head=(10, -38), face="strain", glow=0.3, mane=-0.3, **root),
-        P(lean=4, head=(10, -39), face="strain", glow=1.0, mane=0.3, **root),
-        P(lean=8, head=(15, -38), face="roar", glow=1.0, mane=1.0, **root),
-        P(hip=(0, -8), lean=2, feet=[(-8, 0), (8, 0)], hands=REST_HANDS, head=(11, -43)),
-    ]
-
-
 def coil():
     """Avalanche Coil (Surge): the neck coils high overhead, then crashes down."""
     return [
@@ -1146,19 +1026,6 @@ def coil():
           hands=[(-6, 7), (9, 7)], fists=[True, True], feet=[(-9, 0), (9, 0)], mane=-0.5),
         P(hip=(1, -8), lean=6, head=(24, -32), c1=(2, -54), c2=(20, -40), face="angry",
           hands=REST_HANDS),
-    ]
-
-
-def dodge():
-    """A tuck and shuffle: head pulled in low, body hunched behind the spikes."""
-    tuck = dict(c1=(-8, -34), c2=(-4, -40), face="strain", mane=-0.8)
-    return [
-        P(hip=(0, -7), lean=14, sy=0.9, head=(6, -34), hands=[(-5, 0), (6, 0)], **tuck),
-        P(hip=(1, -5), lean=22, sy=0.85, head=(9, -30), hands=[(-4, 3), (5, 3)],
-          feet=[(-9, 0), (5, -2)], **tuck),
-        P(hip=(2, -5), lean=20, sy=0.85, head=(10, -30), hands=[(-4, 3), (5, 3)],
-          feet=[(-4, -2), (9, 0)], **tuck),
-        P(hip=(0, -8), lean=6, head=(10, -40), hands=REST_HANDS, face="angry", mane=-0.3),
     ]
 
 
@@ -1195,23 +1062,7 @@ def ko():
     ]
 
 
-ROWS = [
-    ("idle", idle()),
-    ("run", run()),
-    ("claw", claw(True)),
-    ("backhand", claw(False)),
-    ("headbutt", headbutt()),
-    ("stomp", stomp()),
-    ("lash", lash()),
-    ("bedrock", bedrock()),
-    ("coil", coil()),
-    ("dodge", dodge()),
-    ("hurt", hurt()),
-    ("guard", guard()),
-    ("ko", ko()),
-]
-# Up and down sheets: every row but the knockout, which falls over sideways in any view.
-VIEW_ROWS = ROWS[:-1]
+
 
 
 def view_sheets():
@@ -1259,10 +1110,10 @@ def side_sheet():
 # Craglash's motion pass (docs/anim_preview/craglash_motion_plan.md): every ability redrawn
 # with anticipation, a held hit and a follow-through, but as stone: the body never squashes
 # (sy stays 1), the weight is in the timing (slow up, fast down, held landings) and in what
-# flows late, the neck, the head, the mane and the swinging arms. Not in the game yet: ROWS
-# above are still the sheets the game uses; ANIM_ROWS are the new ones, which
-# `python3 tools/gen_craglash.py anim` previews. After approval ANIM_ROWS replace ROWS and
-# craglash.json gets the new row table and timelines. Poses hold floats; whole_pixels()
+# flows late, the neck, the head, the mane and the swinging arms. In the game (Kevin approved the
+# previews): ROWS are these rows, the sheets are at 12 columns and craglash.json has the timelines.
+# `python3 tools/gen_craglash.py anim` renders the previews against OLD_REF (main before the pass).
+# Poses hold floats; whole_pixels()
 # snaps them when drawing, so in-betweens never stair-step.
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -1557,7 +1408,7 @@ def dodge_new():
     ]
 
 
-ANIM_ROWS = [
+ROWS = [
     ("idle", idle_new()),
     ("run", run_new()),
     ("claw", rake()),
@@ -1573,8 +1424,8 @@ ANIM_ROWS = [
     ("guard", guard()),
     ("ko", ko()),
 ]
-ANIM_VIEW_ROWS = ANIM_ROWS[:-1]
-ANIM_COLS = 12
+# Up and down sheets: every row but the knockout, which falls over sideways in any view.
+VIEW_ROWS = ROWS[:-1]
 
 
 # ------------------------------------------------------------------ animation tools
@@ -1583,8 +1434,7 @@ ANIM_COLS = 12
 # `python3 tools/anim_preview.py --check craglash` checks the JSON's timelines against ROWS.
 # In-betweens and overlap come from splat3d (tween, cycle, lag, lag_at): poses may hold
 # floats, the renderer snaps them (whole_pixels).
-ANIM_CYCLES = {"idle": 40, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks), as craglash.json has them
-ANIM_TICKS = {"idle": 8, "run": 2}     # the new rows' ticks per frame (idle 64 ticks, run 24; the JSON after approval)
+ANIM_CYCLES = {"idle": 64, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks), as craglash.json has them
 OLD_REF = os.environ.get("CRAGLASH_OLD_REF", "fce60cc")  # main before the pass: the "current" frames
 SIDE_FRAME = (F, None, OX, OY)
 
@@ -1746,10 +1596,10 @@ CLIPS = _clips
 
 
 def timeline_problems():
-    """The new timelines against ANIM_ROWS and the move data (the same things
+    """The new timelines against ROWS and the move data (the same things
     `anim_preview.py --check` holds the JSON to, before the JSON has them)."""
     d = _data()
-    rows = dict(ANIM_ROWS)
+    rows = dict(ROWS)
     bad = []
     for mid, at in NEW_AT.items():
         mv = d["moves"][mid]
@@ -1773,8 +1623,8 @@ def timeline_problems():
 
 
 def inspect_frames(picks):
-    """Frames in all three views, 2x: picks like idle:0 run:2 (CRAGLASH_NEW=1 for the new rows)."""
-    rows = dict(ANIM_ROWS if os.environ.get("CRAGLASH_NEW") else ROWS)
+    """Frames in all three views, 2x: picks like idle:0 run:2."""
+    rows = dict(ROWS)
     tiles = []
     for pick in picks:
         name, f = pick.split(":")
@@ -1829,7 +1679,7 @@ def main():
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "inspect":
-        # python3 tools/gen_craglash.py inspect idle:0 run:2 (CRAGLASH_NEW=1: the new rows)
+        # python3 tools/gen_craglash.py inspect idle:0 run:2
         inspect_frames(sys.argv[2:])
     elif len(sys.argv) > 1 and sys.argv[1] == "anim":
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -1837,8 +1687,6 @@ if __name__ == "__main__":
         problems = timeline_problems()
         if problems:
             sys.exit("timeline problems:\n  " + "\n  ".join(problems))
-        # previews show the new rows; the game's sheets (ROWS) stay as they are until approval
-        ROWS, VIEW_ROWS = ANIM_ROWS, ANIM_VIEW_ROWS
         anim_preview.main(sys.modules[__name__], sys.argv[2:])
     else:
         main()

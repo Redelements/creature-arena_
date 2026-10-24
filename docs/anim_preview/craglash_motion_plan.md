@@ -2,9 +2,10 @@
 
 Craglash is the ninth fighter in the roster animation pass (`roster_anim_plan.md`, batch 3).
 Same recipe as Mister Crease: shading, palette and outlines stay exactly as they are, only
-motion changes. This is the **preview phase**: the game's sheets and `data/creatures/craglash.json`
-are untouched. The new rows are `ANIM_ROWS` in `tools/gen_craglash.py`, rendered by
-`python tools/gen_craglash.py anim` into this folder; each `craglash_<clip>_compare_3x.gif`
+motion changes. Kevin approved the previews (PR #170) and the new rows are in the game: `ROWS` in
+`tools/gen_craglash.py`, the sheets at 12 columns, and `data/creatures/craglash.json` with the
+row table, `idle_ticks` 8, `run_ticks` 2, every `anim_at` and `anim_charge` `[0, 4, 6]`. The
+clips are rendered by `python tools/gen_craglash.py anim` into this folder; each `craglash_<clip>_compare_3x.gif`
 shows the game's current frames (main at `fce60cc`, `OLD_REF`) beside the new ones.
 
 Timings are sim ticks (60 a second). An attack frame shows from its `anim_at` tick until the
@@ -23,8 +24,7 @@ arrives at the head a frame after the body.
 
 Nothing in the renderer changes: poses already hold floats and `whole_pixels()` snaps them
 when drawing, so the in-betweens never stair-step. Added: `K(...)` (a key pose with every
-field filled, so the shared `splat3d.tweener` and eased spacing always have two numbers to
-blend), the new pose functions, `ANIM_ROWS` (the game's `ROWS` are unchanged, and
+blend), the new pose functions (`ROWS`; the old ones are dropped), `NEW_AT`, `CLIPS`, `timeline_problems()` (new
 `ROWS` renders byte for byte as before), `NEW_AT`, `CLIPS`, `timeline_problems()` (new
 timelines against the rows and the move data, run by `anim`), and an `inspect` subcommand.
 All three views use the same poses (the down and up renderers derive depth from them).
@@ -155,16 +155,13 @@ lean carries it: no squash.
 - Facing down and up: the arms' forward reach is foreshortened (as today); the neck, head
   and mane carry the Maw, the Headbutt and the Stomp in those views.
 
-## Questions for Kevin
+## Kevin's answers (Oct 24)
 
-1. **A new `charge` row for Landslide Charge** (it plays the headbutt frames today)?
-   Recommended: yes. It is a different move and the run-with-head-down is its identity.
-   The cost is one row in the JSON; nothing else changes.
-2. **The Surge's cut-in** keeps using the unchanged `coil` row (Avalanche Coil, an old
-   concept that is now only the cut-in picture). Recommended: leave it. Alternative: pick
-   the cut-in from the new Bedrock (frame 8, the roar).
-3. **Bedrock's loop is 4 frames at 8 ticks.** Recommended: keep it; a faster loop reads
-   as a shiver, not a pulse. Say if you want the cracks pulsing quicker.
-4. **The heavy's charge loop is 6 ticks a frame** (a 24-tick tremble). Recommended: 6, as
-   it is today, since stone should look slow. Hissy's was 4.
-5. **Idle at 64 ticks** (the roster default). Recommended: keep; Barkley is the only slow one.
+1. **A new `charge` row** for Landslide Charge: yes (row 9; the move's `anim` is `charge`).
+2. **The Surge's cut-in** stays on the unchanged `coil` row (`cut_in_frame` `[8, 2]`).
+3. **Bedrock's pulse** stays at 8 ticks a frame.
+4. **The heavy's charge loop** stays at 6 ticks a frame (`anim_charge` `[0, 4, 6]`).
+5. **Idle** stays at 64 ticks.
+
+The HUD portrait crop (`sprite.portrait` `[34, 17, 24, 32]`) is unchanged: the new idle frame 0
+is the old one's pose (the head at the same place).
