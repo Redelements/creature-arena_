@@ -1121,6 +1121,45 @@ def dodge_new():
     ]
 
 
+def victory_new():
+    """Arms thrown up like boughs, the trunk stretching tall; frame 0 gathers, 1 to 5 loop (the
+    boughs sway, leaves and twigs rustling a beat behind), 6 and 7 hold the proud stance."""
+    up = dict(poles=[(-1, 1, 0), (1, 1, 0)], face="shout", fingers=["open", "open"], feet=[(-9, 0, -1), (9, 0, 1)])
+    fr = [
+        Q(lean=10, hip=(19.5, 0), hands=[(-10, -9, 3), (10, -9, 3)], face="grit", feet=[(-8, 0, -1), (8, 0, 1)]),
+        Q(lean=-2, hip=(21.6, 0), roll=-3, hands=[(-12, 19, 0), (14, 22, 1)], **up),
+        Q(lean=-5, hip=(22, 0), roll=0, hands=[(-14, 22, -1), (12, 19, 0)], **up),
+        Q(lean=-3, hip=(21.8, 0), roll=3, hands=[(-15, 20, 1), (11, 22, -1)], **up),
+        Q(lean=-5, hip=(22, 0), roll=0, hands=[(-12, 22, 0), (14, 19, 1)], **up),
+        Q(lean=-3, hip=(21.7, 0), roll=-3, hands=[(-11, 20, -1), (15, 21, 0)], **up),
+        Q(lean=4, hip=(20.4, 0), hands=[(-11, -2, 2), (11, -2, 2)], poles=[(-1, 0.5, 0), (1, 0.5, 0)], face="calm"),
+        Q(lean=2, hip=(20.8, 0), hands=[(-12, 2, 1), (12, 2, 1)], poles=[(-1, 0.8, 0), (1, 0.8, 0)], face="calm"),
+    ]
+    S.lag_at(fr, "twig", {0: 0.0, 1: 2.0, 2: 3.0, 3: 2.0, 4: 3.0, 5: 2.0, 6: -1.0, 7: 0.0})
+    S.lag_at(fr, "leaf", {0: 0.0, 1: -1.0, 2: 2.0, 3: -2.0, 4: 2.0, 5: -2.0, 6: 1.0, 7: 0.0})
+    return fr
+
+
+def idle_alt_new():
+    """A creak: the trunk leans toward the foe with a groan, one arm shakes a leaf loose and
+    the leaf falls away, he straightens."""
+    base = dict(feet=[(-9, 0, -2), (9, 0, 2)], hands=[(-12, -15, -5), (13, 4, 5)],
+                poles=[(-1, -0.4, -0.3), (1, -1.0, 0.2)])
+    fr = [
+        Q(hip=(21.0, 0), lean=1.0, **base),
+        Q(hip=(20.6, 0), lean=5.0, yaw=-8, **base),
+        Q(hip=(20.2, 0), lean=9.0, yaw=-16, roll=-2, **base, face="grit"),
+        Q(hip=(20.2, 0), lean=9.0, yaw=-16, roll=1, **{**base, "hands": [(-12, -15, -5), (13, 8, 6)]}, face="grit"),
+        Q(hip=(20.2, 0), lean=8.0, yaw=-16, roll=-1, **{**base, "hands": [(-12, -15, -5), (13, 6, 4)]}, face="grit"),
+        Q(hip=(20.4, 0), lean=8.0, yaw=-14, roll=1, **{**base, "hands": [(-12, -15, -5), (13, 8, 6)]}),
+        Q(hip=(20.8, 0), lean=4.0, yaw=-6, **base),
+        Q(hip=(21.0, 0), lean=1.5, **base),
+    ]
+    S.lag_at(fr, "leaf", {0: 0.0, 2: 1.0, 3: -3.0, 4: 3.0, 5: -2.0, 6: 1.0, 7: 0.0})
+    S.lag_at(fr, "twig", {0: 0.0, 2: 1.0, 3: 3.0, 4: -2.0, 5: 2.0, 6: 0.0})
+    return fr
+
+
 ROWS = [
     ("idle", idle_new()),
     ("run", run_new()),
@@ -1134,6 +1173,8 @@ ROWS = [
     ("dodge", dodge_new()),
     ("hurt", hurt()),
     ("guard", guard()),
+    ("victory", victory_new()),
+    ("idle_alt", idle_alt_new()),
     ("ko", ko()),
 ]
 # Up and down sheets: every row but the knockout, which falls over sideways in any view.
