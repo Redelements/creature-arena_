@@ -10,12 +10,16 @@ extends SceneTree
 ##     and its foes the old ladder; with --a=3 --b=3 that is scored Rage against ladder Rage.
 ##     --ladder: everyone plays the ladder (the baseline to compare with)
 ##   --teams=3: 3v3 Rage (or --a) through TeamSim, a tank, a mage and an assassin a side: win
-##     rate, length, target switches a minute per CPU, spacing share (a baseline for team AI)
+##     rate, length, target switches a minute per CPU, spacing share, focus switches a minute
+##     per team (a baseline for team AI)
+##     --intent=a: only the first-picks side plays to a team focus (TeamIntent), the other side
+##     picks targets alone; --intent=off: nobody does (the old baseline)
 
 const MAX_TICKS := 5400
 
 var _scored_a := false  ## --scored: the fighter under test (side A) scored, the foe the old ladder
 var _ladder := false  ## --ladder: everyone plays the old ladder kit (a baseline)
+var _intent := "on"  ## --intent=on|a|off: who plays to the team focus in --teams
 
 
 func _init() -> void:
@@ -50,6 +54,8 @@ func _init() -> void:
 			_ladder = true
 		elif arg.begins_with("--teams="):
 			teams = int(arg.get_slice("=", 1))
+		elif arg.begins_with("--intent="):
+			_intent = arg.get_slice("=", 1)
 	if teams > 0:
 		_teams(teams, a_lv, seeds)
 		quit()
@@ -158,6 +164,9 @@ func _teams(size: int, lv: int, seeds: int) -> void:
 	var n := 0
 	var ticks_sum := 0
 	var switches := 0
+	var focus_switches := 0
+	var on_focus := 0  ## CPU-ticks spent on the team's focus, of those playing to one
+	var on_focus_n := 0
 	var space := 0.0
 	for s in seeds:
 		for side in 2:
@@ -168,8 +177,11 @@ func _teams(size: int, lv: int, seeds: int) -> void:
 			var t := TeamSim.new(t_ids, size)
 			var cpus: Array = []
 			for i in t.slot_count():
-				cpus.append(CpuController.new(i, lv, 700 + s * 31 + side * 7 + i))
+				var cpu := CpuController.new(i, lv, 700 + s * 31 + side * 7 + i)
+				cpu.intent = _intent == "on" or (_intent == "a" and t.side_of(i) == side)
+				cpus.append(cpu)
 			var last := {}
+			var last_focus := {}
 			var ticks := 0
 			var at := 0
 			var samples := 0
@@ -177,6 +189,19 @@ func _teams(size: int, lv: int, seeds: int) -> void:
 				var ins := PackedInt32Array()
 				for i in t.slot_count():
 					ins.append((cpus[i] as CpuController).bits(t.sim))
+				for team in 2:
+					var ti := TeamIntent.current(t.sim, team)
+					# (a team of one plays its own pick: its focus is counted no more)
+					if ti != null and ti.focus >= 0 and t.alive_count(team) >= 2:
+						if last_focus.has(team) and last_focus[team] != ti.focus \
+								and t.sim.creatures[last_focus[team]].state != CreatureSim.State.KO:
+							focus_switches += 1
+						last_focus[team] = ti.focus
+						for i in t.slot_count():
+							var cpu: CpuController = cpus[i]
+							if cpu.intent and t.side_of(i) == team and t.sim.creatures[i].state != CreatureSim.State.KO:
+								on_focus_n += 1
+								on_focus += 1 if cpu._target == t.sim.creatures[ti.focus] else 0
 				t.step(ins)
 				ticks += 1
 				for i in t.slot_count():
@@ -196,9 +221,10 @@ func _teams(size: int, lv: int, seeds: int) -> void:
 			print("  seed %d side %d: %s vs %s  winner %d  %4.1f s" % [s, side, t_ids[side], t_ids[1 - side],
 				t.winner, ticks / 60.0])
 	var minutes := ticks_sum / 3600.0
-	print("TEAMS %dv%d %s: first picks won %d/%d  avg %4.1f s  target switches %4.1f /min/CPU  at spacing %3d%%" % [
-		size, size, CpuController.LEVELS[lv]["name"], w, n, ticks_sum / float(n) / 60.0,
-		switches / maxf(0.01, minutes) / (size * 2), roundi(100.0 * space / n)])
+	print("TEAMS %dv%d %s (intent %s): first picks won %d/%d  avg %4.1f s  target switches %4.1f /min/CPU  focus switches %4.1f /min/team  on focus %3d%%  at spacing %3d%%" % [
+		size, size, CpuController.LEVELS[lv]["name"], _intent, w, n, ticks_sum / float(n) / 60.0,
+		switches / maxf(0.01, minutes) / (size * 2), focus_switches / maxf(0.01, minutes) / 2.0,
+		roundi(100.0 * on_focus / maxf(1.0, on_focus_n)), roundi(100.0 * space / n)])
 
 
 ## Every pair at one level, both sides: a grid of win rates (row beats column) and the

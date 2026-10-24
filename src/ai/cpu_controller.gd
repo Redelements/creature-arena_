@@ -166,6 +166,9 @@ static func think_start(cpus: Array, sim: MatchSim) -> int:
 	NavGrid.shared(sim.terrain)  # (and its TerrainIndex) built here, read-only on the threads
 	TerrainIndex.of(sim.terrain)
 	PerfLog.since("ai nav update", t0)
+	t0 = PerfLog.now()
+	TeamIntent.build_all(sim)  # each team's focus, from the match and last tick's choices
+	PerfLog.since("ai intent", t0)
 	return WorkerThreadPool.add_group_task(func(k: int) -> void: list[k].bits(sim),
 		list.size(), -1, true, "CPU players")
 
@@ -180,6 +183,16 @@ static var threaded := true
 ## The scored kit (`_rage_kit_scored`) for new controllers (on; false plays the old ladder,
 ## for A/B with `tests/bench_cpu.gd --scored`). Each controller's `scored` can differ.
 static var scored_default := true
+## Team intent (`TeamIntent`: a shared focus target) for new controllers (on; false picks
+## targets alone, for A/B with `tests/bench_cpu.gd --teams=3 --intent=off`).
+static var intent_default := true
+var intent: bool = intent_default
+## This tick's intent of my team (TeamIntent.of), set in bits(); the focus slot my current
+## target was picked under, so a new focus is weighed at once; whether the target was
+## forced on me by a foe in reach (then it isn't my vote for the team's focus).
+var _team: TeamIntent = null
+var _focus_slot := -1
+var _target_forced := false
 ## The input chosen by the last bits() call.
 var last_bits := 0
 
@@ -203,7 +216,15 @@ func bits(sim: MatchSim) -> int:
 	_look(sim, me)
 	PerfLog.since("ai look", t0)
 	t0 = PerfLog.now()
+	_team = TeamIntent.of(sim, me.team)
 	var foe := _pick_target(sim, me) if _rage() else _nearest_known(sim, me)
+	# My choice, for the team's next build: who I'm on and whom I can see.
+	var saw := 0
+	for i in sim.creatures.size():
+		if me.is_foe(sim.creatures[i]) and not _unseen.has(sim.creatures[i]):
+			saw |= 1 << i
+	var slot := sim.creatures.find(foe) if foe != null else -1
+	_team.note(me_idx, slot, saw, -1 if _target_forced else slot)
 	PerfLog.since("ai target", t0)
 	if foe != null and me.state != CreatureSim.State.KO:
 		t0 = PerfLog.now()
@@ -957,15 +978,22 @@ func _style(me: CreatureSim) -> Dictionary:
 
 ## Who to fight: the nearest foe, or by class in a team battle (an assassin goes for the
 ## weakest, a tank for whoever is on its most hurt teammate). Kept for a moment, so it
-## doesn't dither between two.
+## doesn't dither between two. With a living teammate the team's focus (TeamIntent) comes
+## first, unless the class has a better idea: the assassin's much weaker foe, the tank's
+## peel, and for anyone the foe already in its face.
 func _pick_target(sim: MatchSim, me: CreatureSim) -> CreatureSim:
-	if _target != null and _target_t > 0 and me.is_foe(_target) and _target.state != CreatureSim.State.KO:
+	var focus := _focus(sim, me)
+	var focus_slot := _team.focus if focus != null else -1
+	if _target != null and _target_t > 0 and me.is_foe(_target) and _target.state != CreatureSim.State.KO \
+			and focus_slot == _focus_slot:
 		_target_t -= 1
 		return _target
 	var how := String(_style(me)["target"])
 	var ally := _hurt_ally(sim, me) if how == "peel" else null
 	var best: CreatureSim = null
 	var best_score := INF
+	var nearest: CreatureSim = null
+	var nearest_d := INF
 	for o in sim.creatures:
 		if not me.is_foe(o) or o.state == CreatureSim.State.KO:
 			continue
@@ -979,9 +1007,37 @@ func _pick_target(sim: MatchSim, me: CreatureSim) -> CreatureSim:
 		if score < best_score:
 			best_score = score
 			best = o
+		if d < nearest_d:
+			nearest_d = d
+			nearest = o
+	_target_forced = false
+	if focus != null and best != null and focus != best:
+		# A foe in reach is fought first; for a kiter, one inside the band it kites at.
+		var close := kite_band(me, nearest).x if String(_style(me)["plan"]) == "kite" else _reach_of(nearest, me) + 16.0
+		var in_my_face := nearest != null and nearest_d <= close
+		var much_weaker := how == "weakest" and best.hp / best.max_hp < focus.hp / focus.max_hp - 0.25
+		var peeling := how == "peel" and ally != null
+		if not (much_weaker or peeling):
+			best = nearest if in_my_face else focus
+			_target_forced = in_my_face
+	_focus_slot = focus_slot
 	_target = best
 	_target_t = 30
 	return best if best != null else _nearest_known(sim, me)
+
+
+## The team's focus target, when this CPU plays to it: team intent on, a living teammate
+## (alone, its own pick is the team's), and a focus that is a living foe.
+func _focus(sim: MatchSim, me: CreatureSim) -> CreatureSim:
+	if not intent or _team == null or _team.focus < 0:
+		return null
+	var f: CreatureSim = sim.creatures[_team.focus]
+	if not me.is_foe(f) or f.state == CreatureSim.State.KO:
+		return null
+	for o in sim.creatures:
+		if o != me and o.team == me.team and o.state != CreatureSim.State.KO:
+			return f
+	return null
 
 
 ## The teammate with the least health left, if one is under 70%.
