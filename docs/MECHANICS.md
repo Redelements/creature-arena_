@@ -27,6 +27,8 @@ Abbreviations: **cs** = `src/sim/creature_sim.gd`, **ms** = `src/sim/match_sim.g
 
 `DuelSim.step` and `TeamSim.step` wrap this with phases, timers and win checks.
 
+The arena intro (main `_maybe_intro`, `src/view/arena_intro.gd`) is not part of the sim: while it plays main doesn't call `step` at all, so the match's first tick, its replay frames and every later tick are the same with or without it (`tests/test_ui.gd`). It plays only offline; `--intro` / `--no-intro` force it on or off (default off headless and for command-line starts).
+
 ## Creature-level keys
 
 | Key | Type / units | Meaning | Used by | Code |
