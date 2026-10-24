@@ -195,8 +195,9 @@ the side sheet shows nearest (arm and leg 1) is toward the camera in both. The t
 crown and flank spines are drawn square to the camera (a round body is about as wide
 from any angle) with the belly slid toward forward (`down_side`) or the spine's stone
 ridge toward backward (`up_side`); the legs bend their knees forward in their own plane;
-a hand reaching forward closes in on the middle line, so a Rake sweeps across the chest
-along the diagonal; the far arm and leg are darkened as on the side sheet. Parts sort by
+a hand reaching forward closes in on the middle line and lifts a little (the diagonal
+reach cheat in `DRig.hand3`), so a Rake sweeps across the chest along the diagonal instead
+of hanging straight down; the far arm and leg are darkened as on the side sheet. Parts sort by
 depth: the near arm in front of the torso, the far one behind unless it swings across
 (`arm0_front`) or reaches toward the camera; the neck bows behind the head (the VRig bows
 it out to the side for the front view). The head has three-quarter faces: `_face_quarter`
@@ -211,6 +212,10 @@ Animated with the roster pass (motion plan, previews and before/after GIFs:
 no squash (`sy` stays 1); weight is timing (slow lift, one fast frame, held landings) and
 the neck, head, mane and arms lag the body. `idle_ticks` 8 (a 64-tick idle), `run_ticks` 2
 (the run still 24 ticks), every move on an `anim_at`, the heavy's charge loop `[0, 4, 6]`.
+The reactions (hurt 4, guard 4, knockout 6) followed on Kevin's ask, on the same clock as
+before (the view's `state_t / 4` hurt, guard frames 0 and 1, `state_t / 6` knockout):
+[`anim_preview/craglash_reactions_3x.gif`](anim_preview/craglash_reactions_3x.gif) shows
+them in every view beside the old frames.
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
@@ -225,11 +230,11 @@ the neck, head, mane and arms lag the body. `idle_ticks` 8 (a 64-tick idle), `ru
 | 8 | coil | 6 | Avalanche Coil: only the Surge's cut-in picture now (`cut_in_frame` `[8, 2]`) |
 | 9 | charge | 12 | Landslide Charge: crouch, drive, a 4-frame head-low run (2-5), brake, skid, settle |
 | 10 | dodge | 8 | dip, tuck behind the spikes (invulnerable frames 1-4), skid, uncurl |
-| 11 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
-| 12 | guard | 2 | forearms crossed, head tucked behind them |
+| 11 | hurt | 4 | 4 ticks a frame (the view plays `state_t / 4`, looping): the head snaps back first with the neck still bent behind it, the fold (frame 1, also the crumple) with the neck whipping after and the mane flaring, the arms falling late as he comes up, a settle; no squash |
+| 12 | guard | 4 | forearms crossed, head tucked behind them: 0 held, 1 the blocked hit (head knocked back a pixel, mane flaring), 2 the shiver, 3 the re-set (the view plays 0 and 1) |
 | 13 | victory | 8 | a slow mountain roar: breathe in and rear back, 1-5 loop (head high, fists up, mane bristling, a pixel of hip shudder to shake the stones), 6-7 breathe out and hold |
 | 14 | idle_alt | 8 | grinds his jaw (angry and strain faces), the head turns slowly toward the foe and back, the mane bristles once |
-| 15 | ko | 4 | stagger, topple, down, neck stones scattered|
+| 15 | ko | 6 | 6 ticks a frame: stagger with the head thrown back, topple, the body down with the head still up on its neck (frame 2, a knockdown's hold), the head slams down and the neck stones burst loose (frame 3, with the crumble fx), the mane ripples flat, still; stone doesn't bounce |
 
 When the artist's final Craglash arrives, either keep this layout (then it drops in), or
 change the `"sprite"` block in `data/creatures/craglash.json` to match theirs. Design
@@ -258,7 +263,9 @@ so the trunk never squashes: weight is timing (slow rises, fast falls, long hold
 overlap (the boughs and their elbows 2 frames behind the trunk, `twig` the arm twigs,
 `leaf` the log's leaf, the log landing a frame after the trunk). `idle_ticks` 10 (an 80-tick
 idle, the slowest), `run_ticks` 2 (the run still 24 ticks), footsteps on the default
-`[0, 6]` (the two hard plants).
+`[0, 6]` (the two hard plants). The reactions (hurt 4, guard 4, knockout 8) followed on
+Kevin's ask, on the same clock as before:
+[`anim_preview/barkley_reactions_3x.gif`](anim_preview/barkley_reactions_3x.gif).
 
 Colours and shading come from the master palette ("Palette" below, `tools/shade2d.py`):
 bark `("rust", 1)`, a step lighter than the branch arms and the log (`"rust"`), the cut end
@@ -277,7 +284,10 @@ and down sheets, feet at x 64, y 112 and y 124) come from two more projections i
 the same floor rule as splat3d's: reach goes 0.707 right and 0.707 down (or up), his body's
 own depth flattened by `depth_y`. Everything else (the ring end of the log, which eye and
 side of the nose show, which arm is in front) follows from the camera direction, so the
-painter needed no per-view cases. All five views at 3x:
+painter needed no per-view cases. The diagonal reach cheat: on the diagonals the flattened
+zone is 5 px instead of 8 (`Cam.NEAR`), and a bough reaching more than 6 px forward closes
+in on the trunk's middle line and lifts (`Body.diagonal_reach`), so the swipes point down-
+(or up-) right along the diagonal instead of hanging straight down. All five views at 3x:
 [`anim_preview/barkley_diagonals_3x.png`](anim_preview/barkley_diagonals_3x.png).
 
 | Row | Animation | Frames | Notes |
@@ -292,11 +302,11 @@ painter needed no per-view cases. All five views at 3x:
 | 7 | pinecone | 12 | Pinecone Bomb: 0–3 the charge loop (`anim_charge` `[0, 4, 6]`, cone overhead, arm trembling), pull back, throw, the release (frame 7, the cone leaves at tick 10), follow-through, recover |
 | 8 | eruption | 12 | Root Eruption: a four-frame gather (arms up, leaves glowing; frame 3 is the cut-in, `[8, 3]`), the plunge, the strike held over the first ring, ring 2 recoil, ring 3 boughs flung up, settle |
 | 9 | dodge | 8 | bow low under the swing: gather, the bow (held), two lurching steps, rise; on its own `dodge.anim_at` timeline (a view-only key) |
-| 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
-| 11 | guard | 2 | branch arms crossed in front |
+| 10 | hurt | 4 | 4 ticks a frame (the view plays `state_t / 4`, looping): the head end snaps back first (`bend`) with the boughs still hanging, the trunk folds over (frame 1, also the crumple) with the boughs flung up a frame late, the boughs swing through with the leaf overshooting, a settle; no trunk squash |
+| 11 | guard | 4 | branch arms crossed in front: 0 held, 1 the blocked hit (rocked back, leaf and twigs flung), 2 the shiver, 3 the re-set (the view plays 0 and 1) |
 | 12 | victory | 8 | arms thrown up like boughs, trunk stretched tall; frame 0 gathers, 1-5 loop (boughs sway, leaf and twigs rustling a beat behind), 6-7 hold the proud stance (no bird prop) |
 | 13 | idle_alt | 8 | a creak: trunk leans and turns toward the foe, an arm shakes a leaf loose, straightens (played once after a long stand) |
-| 14 | ko | 4 | stagger, then topples over backward like a felled tree, roots torn up |
+| 14 | ko | 8 | 6 ticks a frame: stagger with the boughs flung up, the slow start of the fall, down hard on his back with the roots torn up (frame 2, under the timber dust; a knockdown's hold), the trunk rocks up a little while the head end and the boughs are still coming down, the log slaps the floor a frame after the trunk, the boughs and the leaf settle |
 
 Moves time their frames with `"anim_at"` (`[[tick, frame], ...]` in the move's JSON),
 so the spin and the lob play exactly in step with the hits. Design note: the log across
@@ -333,14 +343,18 @@ Animated with the roster pass (motion plan, previews and before/after GIFs:
 ability redrawn, the tail fin, the fins and the rod each on their own lag (`tail_lag`,
 `fin_lag`, `drag_rod`), the line kinking (`Pose.kink`), squash and stretch capped at 12%.
 `idle_ticks` 8 (a 64-tick idle), `run_ticks` 2 (the run still 32 ticks), `step_frames`
-`[6, 14]` (the slaps); the sheet is 16 columns wide for the 16-frame run.
+`[6, 14]` (the slaps); the sheet is 16 columns wide for the 16-frame run. The reactions
+(hurt 4, guard 4, knockout 8) followed on Kevin's ask, on the same clock as before:
+[`anim_preview/gillbert_reactions_3x.gif`](anim_preview/gillbert_reactions_3x.gif).
 
 Facing down and up, and the diagonals: [`gillbert_views_preview.png`](gillbert_views_preview.png).
 The run in side, front and back: [`gillbert_run.gif`](gillbert_run.gif). The diagonal sheets
 (`gillbert_down_side.png`, `gillbert_up_side.png`, **128×144**, 16 columns like the others,
 feet at x 72, y 100 facing down-side and x 64, y 84 facing up-side, off centre because the
 rod trails up-left or down-left) come from two more projections in his `Cam` (splat3d's floor
-rule, with his long `depth_y` flattening). The painter's one new case is the ring: he passes
+rule, with his long `depth_y` flattening: 20 px head-on, 12 on the diagonals, `Cam.NEAR`;
+and a lunge, the body's `shift`, travels one to one along the diagonal in `Painter.P`, so
+the Snout Jab reads down-right rather than sideways). The painter's one new case is the ring: he passes
 through it at a slant, so its far half goes behind all of him, its near half over his flank,
 and the end of him nearer the camera (head facing down-side, tail facing up-side) over that.
 All five views at 3x: [`anim_preview/gillbert_diagonals_3x.png`](anim_preview/gillbert_diagonals_3x.png).
@@ -357,11 +371,11 @@ All five views at 3x: [`anim_preview/gillbert_diagonals_3x.png`](anim_preview/gi
 | 7 | cast | 12 | Cast Line: head and rod back, coil, the rod up and over, released (frame 4), follow-through without the rod, recover; 8 is the reel yank (`anim_reel`), 9-11 the stumble after it |
 | 8 | leap | 12 | The One That Got Away: crouch, load, stretched launch, rising and shrinking, apex, tip over, falling spread out, belly flop (frame 9, held 5), bounce, the rod lands last; Splashdown (tag-in) plays frames 6-11 from its own `anim_at`; `"view_lift"` raises him off the screen; `cut_in_frame` `[8, 4]` |
 | 9 | dodge | 8 | a sideways tumble in a hop, five eased steps of roll, a squashed landing |
-| 10 | hurt | 2 | recoil; frame 1 (on his side) doubles as the crumple pose |
-| 11 | guard | 2 | curled up behind the life ring |
+| 10 | hurt | 4 | 4 ticks a frame (the view plays `state_t / 4`, looping): the snap (head flung back and up first, the body arching after, fins and rod still where they were), thrown onto his side (frame 1, also the crumple; squashed 10%), the rebound with the tail overshooting, a settle that still flinches; the rod and line a frame late |
+| 11 | guard | 4 | curled up behind the life ring: 0 held, 1 the blocked hit (squashed, pushed back, gills flaring), 2 the shiver, 3 the re-set (the view plays 0 and 1) |
 | 12 | victory | 8 | rears up proud, the rod held high and the line swinging; frame 0 gathers, 1-5 loop (flop in place, gills flaring), 6-7 settle into the held pose |
 | 13 | idle_alt | 8 | a gasp: gills flare and flutter, head up and turned toward the foe, settle (played once after a long stand) |
-| 14 | ko | 4 | a last flop, then on his side with the rod across him |
+| 14 | ko | 8 | 6 ticks a frame: flung up nose first, rolling in the air, slapped down on his side (frame 2, a knockdown's hold; squashed 12%), a bounce, down again, the rod clattering down across him a beat late, a last twitch of the tail, still |
 
 Design note: the life ring, the barbels and the rod on its line are what make him read as
 Gillbert, not as a fish from an existing franchise.

@@ -39,11 +39,11 @@
       "pinecone": [7, 0, 12],
       "eruption": [8, 0, 12],
       "dodge": [9, 0, 8],
-      "hurt": [10, 0, 2],
-      "guard": [11, 0, 2],
+      "hurt": [10, 0, 4],
+      "guard": [11, 0, 4],
       "victory": [12, 0, 8],
       "idle_alt": [13, 0, 8],
-      "ko": [14, 0, 4]
+      "ko": [14, 0, 8]
     },
     "side_only": ["ko"],
     "select_scale": 0.5,

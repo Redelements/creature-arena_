@@ -165,3 +165,30 @@ lean carries it: no squash.
 
 The HUD portrait crop (`sprite.portrait` `[34, 17, 24, 32]`) is unchanged: the new idle frame 0
 is the old one's pose (the head at the same place).
+
+## Reactions (Oct 24, on Kevin's ask)
+
+The pass left hurt, guard and the knockout alone; they get the recipe now. The clock is the
+view's, unchanged (`src/view/creature_view.gd` `_pick`): no new data keys, frame data and
+stun numbers untouched, only the row table in `craglash.json` grows. Stone: the body never
+squashes (the old hurt's `sy` 0.9 is gone) and never bounces; the hit shows in the head
+snapping first, the neck's bends a frame behind, the mane a frame after that and the arms
+swinging late. Preview, old frames above the new, every view: `craglash_reactions_3x.gif`.
+
+| Row | Frames | How the view plays it | The frames |
+| --- | --- | --- | --- |
+| hurt | 2 → 4 | `state_t / 4`, looping through longer hitstun; frame 0 is also the fall, the rise of a launch and the get-up; frame 1 the crumple and the drop of a launch | 0 the head snaps back first (face tilted up), the neck still bent forward behind it, arms and mane not yet moved; 1 the body folds over (the crumple), the neck whipping after the head, the mane flaring, the arms flung loose; 2 coming back up, the arms still falling, the mane flipping back; 3 a settle, still leaning off the hit |
+| guard | 2 → 4 | frame 0 held, frame 1 while a blocked hit lands (`guard_hit`, 10 ticks); 2 and 3 are not played today | 0 forearms crossed, head tucked; 1 the blocked hit: rocked back a pixel, the head knocked back, the mane flaring; 2 the shiver; 3 the re-set |
+| ko | 4 → 6 | `state_t / 6`, held on the last; a knockdown shows frame 1 then holds frame 2; the crumble fx bursts the neck stones at tick 14 | 0 the stagger, head thrown back first; 1 the topple; 2 the body down hard, the head still held up on its neck a beat behind (the knockdown's hold, neck intact); 3 the head slams down and the neck stones burst loose (tick 18, right after the fx); 4 the mane ripples flat; 5 still. Six frames, not eight: stone does not bounce, so two more would only repeat the settle |
+
+**Victory and idle_alt:** looked at in every view; nothing clearly wrong, left alone.
+
+**The diagonal reach cheat** (`DRig.hand3`): `DRig` has no flattened zone (forward is one to
+one along the diagonal already), so its projection is unchanged; but a hand reaching forward
+now also lifts 0.8 px per px of reach past 4, on top of closing in on the middle line. The
+Rake and the Backhand used to end in a claw hanging below the chest on the diagonals; they
+now point along the diagonal. Only the run, Rake and Backhand rows of the diagonal sheets
+move (plus the reactions); side, down and up are byte-identical apart from the reaction rows.
+
+**Open:** guard frames 2 and 3 only play if the view walks the whole row; a
+`creature_view.gd` ruling shared with the other fighters.
