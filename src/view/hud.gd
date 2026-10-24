@@ -47,6 +47,8 @@ var wins := [0, 0]
 var wins_needed := 2
 var banner := ""
 var banner_sub := ""
+## The results screen says it itself: the banner stays set (tests, flow) but is not drawn.
+var banner_hidden := false
 ## The match's mutators (Chaos Cup, Daily Challenge), short names beside the clock.
 var mutator_text := ""
 var dummy_mode_name := ""
@@ -397,7 +399,7 @@ func _draw_now() -> void:
 	if not _cut.is_empty():
 		_draw_cut_in()
 
-	if banner != "":
+	if banner != "" and not banner_hidden:
 		var y := 128.0 + _cy
 		draw_rect(Rect2(0, y - 22, _sw, 34 if banner_sub == "" else 46), Color(0, 0, 0, 0.45))
 		_text(Vector2(0, y), banner, 20, C_TEXT, HORIZONTAL_ALIGNMENT_CENTER, _sw)

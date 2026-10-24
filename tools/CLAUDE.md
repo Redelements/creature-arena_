@@ -78,6 +78,7 @@ tools, so a fighter's pass is posing work only.
 - `gen_digby.py` — Digby sprite sheets, a pixel-art recreation of the artist's character sheet.
 - `gen_gillbert.py` — Gillbert sprite sheets, a pixel-art recreation of the artist's character sheet.
 - `gen_hissy.py` — Hissy Fitz sprite sheets, a pixel-art recreation of the artist's character sheet.
+- `gen_logo.py` — The title wordmark: CREATURE / ARENA in the m5x7 pixel font, scaled up by whole pixels, filled with hard-edged gold ban…
 - `gen_pete.py` — Sneaky Pete sprite sheets, a pixel-art recreation of the artist's character sheet.
 - `gen_sno.py` — Sno Mercy sprite sheets, a pixel-art recreation of the artist's character sheet.
 - `gen_sprites.py` — Generate placeholder pixel-art sprite sheets for Creature Arena.

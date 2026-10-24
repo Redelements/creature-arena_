@@ -17,6 +17,7 @@ extends Control
 signal backed
 
 ## The game's name over the page (title, Single player and Settings pages).
+const LOGO_PATH := "res://assets/ui/logo.png"
 var logo := false
 var title := ""
 var subtitle := ""
@@ -88,8 +89,20 @@ func _ready() -> void:
 	add_child(col)
 	if logo:
 		# Full size on the title menu; smaller over a page with a title of its own.
-		col.add_child(_label("CREATURE ARENA", UiTheme.SIZE_LOGO if title == "" else UiTheme.SIZE_LOGO_SMALL, UiTheme.C_TEXT))
-		col.add_child(_rule(60.0 if title == "" else 44.0))
+		var wordmark := load(LOGO_PATH) as Texture2D if title == "" and not UiTheme.smooth else null
+		if wordmark != null:
+			# The pixel-art wordmark (tools/gen_logo.py), whole pixels, nearest.
+			var pic := TextureRect.new()
+			pic.texture = wordmark
+			pic.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			pic.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+			pic.custom_minimum_size = wordmark.get_size()
+			pic.mouse_filter = MOUSE_FILTER_IGNORE
+			pic.name = "Wordmark"
+			col.add_child(pic)
+		else:
+			col.add_child(_label("CREATURE ARENA", UiTheme.SIZE_LOGO if title == "" else UiTheme.SIZE_LOGO_SMALL, UiTheme.C_TEXT))
+			col.add_child(_rule(60.0 if title == "" else 44.0))
 		if title == "":
 			col.add_child(_label("prototype build", UiTheme.SIZE_HINT + 1, UiTheme.C_DIM))
 	if not crumbs.is_empty():
@@ -312,6 +325,13 @@ func add_text(text: String, size_px := UiTheme.SIZE_HINT + 1, col := UiTheme.C_D
 	l.custom_minimum_size = Vector2(row_width, 0)
 	_list.add_child(l)
 	return l
+
+
+## Any non-focusable Control in the column (the results screen's stats panel).
+func add_panel(c: Control) -> void:
+	c.mouse_filter = MOUSE_FILTER_IGNORE
+	c.focus_mode = Control.FOCUS_NONE
+	_list.add_child(c)
 
 
 ## A gap in the column.
