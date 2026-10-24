@@ -2,7 +2,9 @@ extends TestCase
 ## Arena furniture (the "furniture" list of data/arenas/<id>.json, FurnitureView) and the
 ## parallax layers behind the floor (BackdropView): the pieces build from data and never sit
 ## on the playable floor, the scoreboard shows the real match clock and score, and parallax
-## moves the sky and far stands in whole pixels while the floor and everything on it stay put.
+## moves the sky and far stands in whole pixels while the floor and everything on it stay put;
+## the foreground strips (ForeView) rest at their edge, slide off it and never cover the floor;
+## the grade's vignette leans toward the side the light comes from.
 
 const MAPS := ["stadium", "quarry", "floodgate", "greenhouse", "twin_keeps", "caravan_pass"]
 
@@ -155,3 +157,54 @@ func test_far_furniture_rides_its_layer() -> void:
 				assert_eq(p.position, p.world)
 	b.free()
 	v.free()
+
+
+func test_foreground_strips_rest_at_their_edge_and_slide_off() -> void:
+	var size := Vector2(704, 366)
+	var half := Vector2(240, 135)
+	var front_rest := Vector2(352, size.y + CrowdView.SHOW_FRONT - half.y)
+	assert_eq(ForeView.front_offset_for(front_rest, half, size), Vector2.ZERO, "camera at its front-most spot: as drawn")
+	var up := ForeView.front_offset_for(front_rest - Vector2(0, 40), half, size)
+	assert_eq(up.y, 40.0 * (ForeView.PARALLAX - 1.0), "40 px back from the front: pushed down a share of it")
+	var hang_rest := Vector2(352, half.y - CrowdView.SHOW_TOP)
+	assert_eq(ForeView.hang_offset_for(hang_rest, half, size), Vector2.ZERO, "camera at its top-most spot: as drawn")
+	assert_true(ForeView.hang_offset_for(hang_rest + Vector2(0, 40), half, size).y < 0.0, "coming off the top: pushed up")
+	for dx in range(-7, 8):
+		var o := ForeView.front_offset_for(Vector2(352.0 + dx * 3.7, 150.3), half, size)
+		assert_eq(o.x, roundf(o.x), "whole pixels")
+		assert_eq(o.y, roundf(o.y), "whole pixels")
+
+
+func test_foreground_never_covers_the_floor() -> void:
+	for id in MAPS:
+		var sim := _sim(id)
+		var size := sim.arena_size()
+		var floor_rect := sim.terrain.floor_rect()
+		var f := ForeView.new()
+		f.set_map(id, size)
+		assert_true((f.front as ForeView.Layer).tex != null, "%s has a front strip" % id)
+		assert_true((f.hang as ForeView.Layer).tex != null, "%s has a hanging strip" % id)
+		for zoom: float in [1.0, 0.75]:
+			var half := Vector2(240, 135) / zoom
+			var lo := half.y - CrowdView.SHOW_TOP
+			var hi := size.y + CrowdView.SHOW_FRONT - half.y
+			var y := lo
+			while y <= hi:
+				var cam := Vector2(size.x * 0.5, y)
+				f._place(cam, half)
+				var view := Rect2(cam - half, half * 2.0)
+				assert_true(f.front.position.y >= floor_rect.end.y, "%s: the front strip stays below the floor" % id)
+				assert_true(f.hang.position.y + ForeView.HANG_H <= floor_rect.position.y, "%s: the hangings stay above it" % id)
+				if zoom == 1.0 and absf(y - (lo + hi) * 0.5) < 8.0:  # (zoomed out, the stands and their hangings share the screen with the floor)
+					assert_true(f.front.position.y > view.end.y or not f.front.visible, "%s: no front strip mid-floor" % id)
+					assert_true(f.hang.position.y + ForeView.HANG_H < view.position.y or not f.hang.visible, "%s: no hangings mid-floor" % id)
+				y += 7.0
+		f.free()
+
+
+func test_grade_vignette_leans_toward_the_light() -> void:
+	var c := GradeView.centre_for({"light": {"dir": [0.8, 0.6], "length": 0.75, "alpha": 0.3}})
+	assert_true(c.x < 0.5, "light from the left (shadows fall right): the open side is on the left")
+	assert_eq(c.y, 0.5, "never up or down: the floor's near band stays lit")
+	var r := GradeView.centre_for({"light": {"dir": [-0.5, 0.87], "length": 0.45, "alpha": 0.3}})
+	assert_true(r.x > 0.5)
