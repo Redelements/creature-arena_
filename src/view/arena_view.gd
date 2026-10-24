@@ -12,6 +12,10 @@ extends Node2D
 ## A hole in a map's bridge ("bridges"), or the bridge fallen in (its cells shallows),
 ## shows the river under it from the _alt picture, rather than a pit or the planks.
 ## A map without one is drawn from the tiles below.
+## The art has the pieces' shadows cast along the map's light ("light", ShadowLayer.light_of).
+## A piece that changes (a wall smashed, brush flattened, a bridge fallen) takes its shadow
+## with it: a floor cell in the shadow of changing pieces shows the _alt picture (which has
+## none of their shadows) once every piece shading it has changed (`_shade`).
 
 const TILES := preload("res://assets/sprites/tiles.png")
 const TILE_HOLE := 8
@@ -78,6 +82,16 @@ var _art_cracked: Texture2D = null
 var _art_alt: Texture2D = null
 ## The map's bridges (cells), whose holes show the water in the _alt picture.
 var _bridges: Array[Rect2i] = []
+## How tall (px) the pieces that change are, as tools/gen_arenas.py casts their shadows
+## (keep in step with CAST_HEIGHT there; taller only widens `_shade`, never wrong).
+const CAST_HEIGHT := {TerrainGrid.WALL: 12.0, TerrainGrid.BRUSH: 6.0}
+const BRIDGE_HEIGHT := 3.0
+## Floor cell -> the cells of changing pieces whose shadow (in the art) falls on it.
+var _shade := {}
+## Row -> its cells in `_shade`.
+var _shade_rows := {}
+## How many rows a piece's shadow reaches above (x) and below (y) it.
+var _shade_reach := Vector2i.ZERO
 
 
 ## A hole in a bridge or a fallen bridge, on a map whose _alt picture shows the water under it.
@@ -150,6 +164,70 @@ func _rebuild() -> void:
 		_pit_bands.append(_band(_paint_pit_band, k))
 	_seen = terrain.cells.duplicate()
 	_drawn_version = terrain.version
+	_build_shade()
+
+
+## Which floor cells lie in the shadow of pieces that can change (`_shade`): each such
+## piece cell's shadow swept along the light, as the art casts it, with a pixel or two spare.
+func _build_shade() -> void:
+	_shade.clear()
+	_shade_rows.clear()
+	_shade_reach = Vector2i.ZERO
+	if _art_alt == null or terrain == null:
+		return
+	var cast: Vector2 = ShadowLayer.light_of(ArenaMap.get_map(arena_id))["cast"]
+	var cols := terrain.cols
+	var casters := {}
+	for i in terrain.map_base.size():
+		var b := terrain.map_base[i]
+		if CAST_HEIGHT.has(b):
+			casters[i] = CAST_HEIGHT[b]
+	for r in _bridges:
+		for cy in range(r.position.y, r.end.y):
+			for cx in range(r.position.x, r.end.x):
+				if not casters.has(cy * cols + cx):
+					casters[cy * cols + cx] = BRIDGE_HEIGHT
+	var cell := float(SimDefs.CELL)
+	for i: int in casters:
+		var cx := i % cols
+		var cy := i / cols
+		var px := Rect2(cx * cell, cy * cell, cell, cell)
+		var box := px.merge(Rect2(px.position + cast * float(casters[i]), px.size)).grow(2.0)
+		var y0 := maxi(0, floori(box.position.y / cell))
+		var y1 := mini(terrain.rows - 1, ceili(box.end.y / cell) - 1)
+		var x0 := maxi(0, floori(box.position.x / cell))
+		var x1 := mini(cols - 1, ceili(box.end.x / cell) - 1)
+		_shade_reach = Vector2i(maxi(_shade_reach.x, cy - y0), maxi(_shade_reach.y, y1 - cy))
+		for y in range(y0, y1 + 1):
+			for x in range(x0, x1 + 1):
+				var p := y * cols + x
+				if casters.has(p):
+					continue
+				if not _shade.has(p):
+					_shade[p] = []
+					if not _shade_rows.has(y):
+						_shade_rows[y] = []
+					_shade_rows[y].append(p)
+				_shade[p].append(i)
+
+
+## Whether a changing piece's cell has changed (its shadow gone with it).
+func _piece_gone(i: int) -> bool:
+	var b := terrain.map_base[i]
+	if CAST_HEIGHT.has(b):
+		return terrain.cells[i] != b
+	return _bridge_gone(i % terrain.cols, i / terrain.cols)
+
+
+## Floor cell `p` (in `_shade`) as the map made it, with every piece shading it changed: its
+## piece of the _alt picture, which has the floor without their shadows.
+func _unshaded(p: int) -> bool:
+	if terrain.cells[p] != terrain.map_base[p]:
+		return false
+	for i: int in _shade[p]:
+		if not _piece_gone(i):
+			return false
+	return true
 
 
 func _band(paint: Callable, k: int) -> Band:
@@ -173,7 +251,7 @@ func refresh() -> void:
 	for cy in terrain.rows:
 		var a := cy * cols
 		if terrain.cells.slice(a, a + cols) != _seen.slice(a, a + cols):
-			for r in range(maxi(0, cy - 1), mini(terrain.rows, cy + 2)):
+			for r in range(maxi(0, cy - 1 - _shade_reach.x), mini(terrain.rows, cy + 2 + _shade_reach.y)):
 				dirty[r / BAND_ROWS] = true
 	_seen = terrain.cells.duplicate()
 	for k in dirty:
@@ -314,6 +392,10 @@ func _paint_pits(ci: CanvasItem, row0: int, row1: int) -> void:
 func _paint_changed(ci: CanvasItem, row0: int, row1: int) -> void:
 	for cy in range(row0, row1):
 		var a := cy * terrain.cols
+		for p: int in _shade_rows.get(cy, []):  # floor out of the shadow of pieces that changed
+			if _unshaded(p):
+				ci.draw_texture_rect_region(_art_alt, _cell_rect(p - a, cy),
+					Rect2((p - a) * SimDefs.CELL, cy * SimDefs.CELL, SimDefs.CELL, SimDefs.CELL))
 		# The art already shows the floor and every piece as the map made it.
 		if terrain.cells.slice(a, a + terrain.cols) == terrain.map_base.slice(a, a + terrain.cols):
 			continue

@@ -10,7 +10,11 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   in the air). A swing aimed down at someone in front draws behind them; sparks and smears
   draw over both.
 - Floor effects that show an area are true circles on the floor (no y squash), or vertical
-  reach looks wrong. `FxView` rings and orbits use `sin(a) * 0.5`; the shadow a 0.38 y-scale.
+  reach looks wrong. `FxView` rings and orbits use `sin(a) * 0.5`.
+- Shadows lie on the floor under everyone: `ShadowLayer` (main adds it between `fx_ground` and
+  the fighters) draws each fighter's frame as a silhouette along the map's `light`, one sprite row
+  per shadow row shifted whole pixels (crisp, no overlap). Never draw a fighter's shadow on its
+  own node: y-sort would put it over the fighter behind.
 - Art layout is data-driven: frame size (`[w, h]` frames allowed, Crease's are 128x160),
   origin, `anims`, `side_only`, `idle_ticks`, `run_ticks`, `anim`, `anim_at`, `anim_reel`,
   `anim_charge`, `view_lift` from the creature JSON (`FighterPreview` reads `idle_ticks` too). Up/down sheets are optional; diagonals stay side-on.
@@ -31,6 +35,9 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   `_draw` reports its time with `PerfLog.now()` / `PerfLog.since(...)` for `--perf`
   (main thread only: `PerfLog` ignores a worker thread).
 - Shallows water (flow, foam, wading wakes, entry splash) is `water_view.gd`, a layer between the floor and the fighters, all 1 px rects on the 60 Hz tick clock; it draws only where the terrain grid says `SHALLOWS`, so a fallen bridge gets it too. Its wake skips a fighter `FxView.shown` hides.
+- Text: `UiTheme.font()` and `UiTheme.px(size)` (see `src/ui/CLAUDE.md`). The canvas is still
+  480 x 270 units (project.godot: a 960 x 540 base at content scale 2), so coordinates and
+  the camera's zoom are unchanged; text in world space (damage numbers) scales with the zoom.
 - The camera is not here: `src/game/main.gd:_update_camera`, `_frame_fight`, `CAM_PAD`, `KO_ZOOM`.
 
 ## Hidden foes
@@ -96,6 +103,10 @@ dig/slosh/poof/chop_chop/shout sounds.
   shows its piece of `_cracked` / `_alt`; `_paint_lips`; a hole in a bridge, or a fallen one,
   shows the water of `_alt`, `_bridge_gone`); the pictures come from
   `tools/gen_arenas.py`, which reads the pieces from `data/arenas/<id>.json`
+- Shadows → `shadow_layer.gd` (`light_of`, `draw_silhouette`); size and fade from
+  `creature_view.gd:refresh` (`shadow_size`, `shadow_fade`, `draw_shadow`); the wagon's and flags'
+  in `fx_view.gd:_draw_caravan` / `_draw_flag`; the pieces' are baked into the art
+  (`gen_arenas.py:cast_shadows`) and a changed piece's dropped by `arena_view.gd:_shade` / `_unshaded`
 - Footsteps / swing sounds → `audio_view.gd:watch`; buses → `_make_buses`, `set_volume`
 
 ## Files
@@ -114,6 +125,7 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `paper_fx.gd` (PaperFx) — Mister Crease's paper, drawn over the fighters: the sheets of his Paper Stock floating above the hat, the crafts he has…
 - `perf_overlay.gd` (PerfOverlay) — The performance overlay (Settings > Video, or F9): the frame rate in a corner, and in its second mode a chart of the la…
 - `range_rings.gd` (RangeRings) — "Range rings" (Settings > Controls, or F7 in a fight): thin floor rings that show where an attack really reaches, so a…
+- `shadow_layer.gd` (ShadowLayer) — The fighters' shadows, cast along the arena's light: each fighter's current sprite frame as a black silhouette laid on…
 - `surge_aura.gd` (SurgeAura) — The power-up aura a fighter wears while their Surge is ready: a flickering shell of energy rising off them, motes that…
 - `water_view.gd` (WaterView) — Living water over the shallows (Floodgate's channel, Twin Keeps' pools): a slow flow down the map, twinkling highlights…
 <!-- END GENERATED -->
