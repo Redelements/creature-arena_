@@ -24,6 +24,7 @@
   "sprite": {
     "path": "res://assets/sprites/crease.png",
     "frame": [128, 160],
+    "portrait": [56, 62, 24, 32],
     "cols": 12,
     "idle_ticks": 8,
     "run_ticks": 2,

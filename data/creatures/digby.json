@@ -24,6 +24,7 @@
   "sprite": {
     "path": "res://assets/sprites/digby.png",
     "frame": 128,
+    "portrait": [64, 78, 24, 28],
     "cols": 8,
     "origin": [64, 100],
     "anims": {

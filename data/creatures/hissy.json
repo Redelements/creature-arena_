@@ -26,6 +26,7 @@
   "sprite": {
     "path": "res://assets/sprites/hissy.png",
     "frame": 128,
+    "portrait": [50, 52, 24, 32],
     "cols": 8,
     "origin": [64, 104],
     "anims": {

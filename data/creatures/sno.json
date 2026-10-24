@@ -23,6 +23,7 @@
     "path": "res://assets/sprites/sno.png",
     "step": "slush",
     "frame": 128,
+    "portrait": [52, 60, 24, 32],
     "cols": 8,
     "origin": [64, 104],
     "anims": {
