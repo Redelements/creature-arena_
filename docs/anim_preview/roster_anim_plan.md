@@ -347,11 +347,12 @@ screenshots or a clip from the fighter's showcase, which drives the moves in ord
 
 ## Effort and batching
 
-Crease took one working day for four animations with the tools built along the way.
-Every ability is about ten rows per fighter instead of four, so with Phase 0 done a
-splat3d fighter is about two and a half days (plan and previews, then the game after
-approval), and the older rigs (Gillbert, Barkley, Craglash) about three and a half. The
-whole pass is roughly five to six weeks of agent work, run as parallel PRs.
+Measured, not guessed: Crease's pass went from previews to the game in about 25 minutes
+of agent time, and the visual-upgrade agents took 10 to 65 minutes each. A fighter's whole
+kit (about ten rows) is one to three hours of agent time, and three fighters run in
+parallel, so a batch is an afternoon and all four batches a few days of building. The
+calendar is set by Kevin's two review stops per fighter (the previews, then the merge),
+not by the building.
 
 | Batch | Fighters | Merges as one | Server |
 | --- | --- | --- | --- |
