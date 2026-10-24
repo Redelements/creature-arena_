@@ -66,7 +66,7 @@ update the map in the same change.
 | CPU offence, combo routes, pokes, zones, kiting | `src/ai/cpu_controller.gd:_continue_attack`, `_pick_route`, `_neutral`, `_rage_neutral`, `_rage_kit` | test_ai, rage |
 | CPU pathing round walls and pits | `src/ai/nav_grid.gd`, `src/ai/cpu_controller.gd:_go_to` | cpu_pathing |
 | performance, stutter, frame drops, CPU cost per tick, threads | measure: `tests/bench_ai_cost.gd`, `--perf` (`src/game/perf_log.gd`); CPUs in parallel `src/ai/cpu_controller.gd:think_all` / `think_start`, thinking while the frame draws (main `_think_cpus`, `_think_ahead`, `_join_cpus`); shared caches `src/sim/terrain_index.gd`, `NavGrid.shared`, `Vision.clear_line` memo; view redraw cost: floor bands `arena_view.gd:BAND_ROWS`, crowd `crowd_view.gd:Block` (fans sitting drawn once, standing on their own layer, `_checked_rect`) | cpu_pathing, vision, ui |
-| balance, win rates, matchups, why a fighter loses | `tests/bench_cpu.gd` (`--matrix`), `tests/bench_fighter.gd`; pins `tests/test_balance.gd` | balance, rage |
+| balance, win rates, matchups, why a fighter loses | `tests/bench_cpu.gd` (`--matrix`, `--detail` spacing/stamina, `--teams=3`), `tests/bench_fighter.gd`; pins `tests/test_balance.gd` | balance, rage |
 | keyboard layouts, gamepad, twin-stick, aim assist | `src/input/player_input.gd` | player_input, twinstick |
 | mouse (League-style) orders | `src/input/mouse_orders.gd` | player_input |
 | key bindings, remapping | `src/game/controls.gd`, `src/ui/remap_screen.gd` | test_ui |

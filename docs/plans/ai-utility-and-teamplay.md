@@ -5,7 +5,7 @@ branch and PR, in this order:
 
 | # | Piece | Branch | Status |
 |---|---|---|---|
-| 1 | Richer CPU metrics in the benches (measure first) | `ai-metrics` | not started |
+| 1 | Richer CPU metrics in the benches (measure first) | `ai-metrics` | done (spacing target not met: piece 2's job) |
 | 2 | Scored kit: Rage's neutral choices by utility score, weights in creature JSON | `ai-scored-kit` | not started |
 | 3 | Team intent: shared focus target, peel/front-line roles for 2v2/3v3 | `ai-team-intent` | not started |
 
@@ -69,13 +69,15 @@ per matchup:
 
 Steps:
 
-- [ ] `tests/bench_cpu.gd`: `--detail` prints the table above for each pair; `--teams=3`
+- [x] `tests/bench_cpu.gd`: `--detail` prints the table above for each pair; `--teams=3`
       runs 3v3 through `TeamSim` with the roster sampled by class (one of each) so later
       team work has a baseline. Seeds and fighter order fixed, so output is exact.
-- [ ] `tests/bench_fighter.gd --fighter=pete --foes=crease --seeds=6`: record the per-button
+- [x] `tests/bench_fighter.gd --fighter=pete --foes=crease --seeds=6`: record the per-button
       hit rates for both in `docs/open-items.md` under the known issue. This is the first use
       of the new columns; decide with Kevin whether it is a Pete, a Crease or a CPU problem.
-- [ ] `tests/CLAUDE.md` benches section and `docs/codebase-map.md` row 69 updated.
+- [x] `tests/CLAUDE.md` benches section and `docs/codebase-map.md` row 69 updated.
+
+Baseline (Oct 23): Crease at spacing 1–7% against every foe; 3v3 Rage `--seeds=2`: 16 target switches /min/CPU, 13% at spacing. Per-button hit rates are `bench_fighter.gd`'s table (already there).
 
 Done when: `bench_cpu.gd --only=crease --detail` shows Crease at preferred spacing ≥ 70% of
 ticks on the Stadium against the field, and the Pete-vs-Crease note has numbers.
