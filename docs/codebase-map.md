@@ -75,7 +75,7 @@ update the map in the same change.
 | projectile looks | `src/view/fx_view.gd:_draw_projectiles`, `_proj_kind`; Crease's paper `src/view/paper_fx.gd` | views, crease |
 | knockout effects | `src/view/fx_view.gd:_ko` | ko_fx |
 | windup tells (red and gold) | `src/view/fx_view.gd:_windup_tell`, `src/view/creature_view.gd` | counterplay, trials |
-| sprites, animation frames, facing sheets | `src/view/creature_view.gd:_pick`, `_attack_frame`; specs `docs/SPRITES.md` | views |
+| sprites, animation frames, facing sheets (side, down, up, diagonals) | `src/view/creature_view.gd:_pick`, `_attack_frame`, `pick_view`; diagonal cameras `tools/splat3d.py:Cam`; specs `docs/SPRITES.md` | views |
 | Surge aura | `src/view/surge_aura.gd` | surge_ready |
 | glow, light pools, bloom, halos (Settings > Video "Glow") | `src/view/light_view.gd` (`advance` gathers: `_creature_lights`, `_projectile_lights`, `_part_light`; `_merge`, `_build`); per-move `fx.light` / `fx.projectile_light`; setting `main.gd:_apply_glow`, `default_glow` | glow, test_ui |
 | HUD, stamina bar, cooldowns, combo counter, cut-in | `src/view/hud.gd:_panel`, `_combo`, `cut_in` | test_ui, training, hud_panels |

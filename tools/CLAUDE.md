@@ -33,7 +33,11 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   `--check` is the CI drift check. Standard library only.
 
 Every character has three sheets with the same rows (side, facing down, facing up); all
-generators draw all three.
+generators draw all three. The diagonals (`down_side`, `up_side`: facing down-right and
+up-right, `<id>_down_side.png`, `<id>_up_side.png`) are optional extra sheets: a splat3d
+rig adds them to its `VIEWS` and the JSON's `"views"` (Pete has them), and `Cam` projects
+them; `write_sheets`, `inspect` and the `anim` previews draw every view in `VIEWS`. A
+`build(pose, view)` branch on the view name (Pete's `_dollar`) needs a case for them.
 
 ## Animation tools (the roster animation pass)
 

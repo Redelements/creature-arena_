@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Animation previews and the timeline check, shared by every sprite generator.
 
-Previews (looping GIFs at game speed, the current sheet's frames beside the new ones, all
-three views, a contact sheet) for one fighter, written into docs/anim_preview/ without
+Previews (looping GIFs at game speed, the current sheet's frames beside the new ones, every
+view, a contact sheet) for one fighter, written into docs/anim_preview/ without
 touching the game's sheets:
 
     python3 tools/gen_<id>.py anim [--out DIR] [--old REF] [clip ...]
@@ -14,10 +14,12 @@ The timeline check, which reads data/creatures/<id>.json against the generator's
 
 What a generator gives this module (the adapter; every gen_<id>.py has one):
   - `ROWS`, `VIEW_ROWS`: [(animation, [pose, ...]), ...], one per sheet row.
-  - `render_frame(pose, view)` -> a PIL RGBA image of one frame ("side", "down", "up"), and
+  - `render_frame(pose, view)` -> a PIL RGBA image of one frame ("side", "down", "up", and
+    "down_side" / "up_side" for a fighter whose JSON lists the diagonal sheets), and
     `frame_spec(view)` -> {"w", "h", "origin"}. splat3d rigs get both from
     `splat3d.frame_adapter(SIDE, VIEWS, build, decorate)`; the older rigs write their own.
-  - `OUT`: the side sheet's path (the up/down sheets are `<id>_down.png`, `<id>_up.png`).
+  - `OUT`: the side sheet's path (the others are `<id>_<view>.png`: `_down`, `_up`, and
+    `_down_side`, `_up_side` where drawn).
   - optional `CLIPS`: {clip name: ({"old": ticks, "new": ticks}, marks)}, where ticks is one
     (animation, frame) per game tick and marks are (from tick, to tick, label) captions on
     the compare GIF. Build them with `timed`, `loop_ticks`, `move_ticks`, `charge_ticks`.
@@ -50,6 +52,9 @@ ANIM_DIR = os.path.join(ROOT, "docs", "anim_preview")
 PREVIEW_BG = (70, 58, 46)
 FIGHTERS = ("crease", "pete", "sno", "digby", "culvert", "cerebro", "hissy", "gillbert", "barkley", "craglash")
 # As in src/view/creature_view.gd: an animation a sheet lacks falls back to these.
+# The views a fighter can have, in preview order (tools/splat3d.py VIEW_ORDER): the side,
+# the front, the front three-quarter, the back, the back three-quarter.
+VIEW_ORDER = ("side", "down", "down_side", "up", "up_side")
 FALLBACK = {"run": "idle", "light": "idle", "jab": "light", "power": "jab", "heavy": "light",
             "dodge": "idle", "hurt": "idle", "guard": "idle", "ko": "hurt"}
 
@@ -291,8 +296,14 @@ def default_clips(mod, old_ref):
 
 # ------------------------------------------------------------------ previews
 
+def views_of(sp):
+    """"side" and the views the sprite block lists, in VIEW_ORDER."""
+    extra = sp.get("views", {})
+    return ["side"] + [v for v in VIEW_ORDER[1:] if v in extra] + [v for v in extra if v not in VIEW_ORDER]
+
+
 def previews(mod, clips=None, old_ref="HEAD", out_dir=ANIM_DIR, only=()):
-    """Writes <id>_<clip>_1x.gif, _3x.gif, _compare_3x.gif for each clip, the three-view
+    """Writes <id>_<clip>_1x.gif, _3x.gif, _compare_3x.gif for each clip, the every-view
     GIFs for the idle and the run, and <id>_contact_sheet.png."""
     gid = gen_id(mod)
     os.makedirs(out_dir, exist_ok=True)
@@ -326,8 +337,9 @@ def previews(mod, clips=None, old_ref="HEAD", out_dir=ANIM_DIR, only=()):
             sig = tuple(tuple(versions[v][t % len(versions[v])]) for v in ("old", "new")) + (note,)
             seq.append((sig, pic))
         save_gif(seq, os.path.join(out_dir, "%s_%s_compare_3x.gif" % (gid, name)))
-    # all three views, new, for the idle and the run
+    # every view, new, for the idle and the run
     sp = creature_json(gid)["sprite"]
+    all_views = views_of(sp)
     nt = getattr(mod, "ANIM_TICKS", {})
     per_of = {"idle": int(nt.get("idle", sp.get("idle_ticks", 10))), "run": int(nt.get("run", sp.get("run_ticks", 4)))}
     for name in ("idle", "run"):
@@ -335,7 +347,7 @@ def previews(mod, clips=None, old_ref="HEAD", out_dir=ANIM_DIR, only=()):
             continue
         n = len(fr.rows[name])
         per = per_of[name]
-        views = [v for v in ("side", "down", "up") if fr.has(name, v)]
+        views = [v for v in all_views if fr.has(name, v)]
         top = max(fr.spec(v)["origin"][1] for v in views)
         seq = []
         for t in range(n * per):
@@ -350,7 +362,7 @@ def previews(mod, clips=None, old_ref="HEAD", out_dir=ANIM_DIR, only=()):
                 x += tl.width
             seq.append((f, pic))
         save_gif(seq, os.path.join(out_dir, "%s_%s_views_3x.gif" % (gid, name)))
-    # contact sheet: every new frame of the clips' animations, in all three views, 2x
+    # contact sheet: every new frame of the clips' animations, in every view, 2x
     names = getattr(mod, "ANIM_CONTACT", None)
     if names is None:
         names = []
@@ -360,9 +372,9 @@ def previews(mod, clips=None, old_ref="HEAD", out_dir=ANIM_DIR, only=()):
                     names.append(anim)
     s = 2
     label_w = 90
-    cw = max(fr.spec(v)["w"] for v in ("side", "down", "up"))
+    cw = max(fr.spec(v)["w"] for v in all_views)
     cols = max(len(fr.rows[n]) for n in names)
-    rows = [(n, v) for n in names for v in ("side", "down", "up") if fr.has(n, v)]
+    rows = [(n, v) for n in names for v in all_views if fr.has(n, v)]
     sheet = Image.new("RGBA", (label_w + cols * cw * s, sum(fr.spec(v)["h"] * s for _n, v in rows)), PREVIEW_BG + (255,))
     d = ImageDraw.Draw(sheet)
     y = 0
