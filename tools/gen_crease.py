@@ -8,8 +8,9 @@ Animation previews (looping GIFs, before/after, all views, a contact sheet) into
 docs/anim_preview/:  python3 tools/gen_crease.py anim
 
 Writes assets/sprites/crease.png (128x160 frames, 12 columns, the side view), crease_down.png
-and crease_up.png (112x160: facing the camera, and facing away), plus labelled previews in
-docs/. Posed and splatted with the shared renderer (tools/splat3d.py), but shaded here: he
+and crease_up.png (112x160: facing the camera, and facing away), crease_down_side.png and
+crease_up_side.png (128x160: the diagonals, facing down-right and up-right), plus labelled
+previews in docs/. Posed and splatted with the shared renderer (tools/splat3d.py), but shaded here: he
 is folded paper, and paper is flat planes.
 
 The paper look (`render_paper`, swapped in for splat3d's `render` for this generator only):
@@ -45,6 +46,9 @@ SIDE = {"w": 128, "h": 160, "origin": (64, 136)}
 VIEWS = {
     "down": {"w": 112, "h": 160, "origin": (56, 136)},
     "up": {"w": 112, "h": 160, "origin": (56, 124)},
+    # the diagonals (docs/SPRITES.md, "Directions"): facing down-right and up-right
+    "down_side": {"w": 128, "h": 160, "origin": (64, 136)},
+    "up_side": {"w": 128, "h": 160, "origin": (64, 124)},
 }
 
 # Master-palette ramps (tools/palette.py); the paper shader uses all five steps, one flat

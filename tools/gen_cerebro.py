@@ -6,7 +6,8 @@ Requires Pillow and numpy.
 
 Writes assets/sprites/cerebro.png (128x128 frames, 12 columns, the side view),
 cerebro_down.png and cerebro_up.png (112x128 frames: facing the camera, and facing
-away), plus labelled previews in docs/.
+away), cerebro_down_side.png and cerebro_up_side.png (128x128: the diagonals, facing down-right
+and up-right), plus labelled previews in docs/.
 
 He hovers a hand's height off the floor, a short brainstem dangling under him, and his
 weapons float in a loose ring around him, each bobbing on its own: the big chef's knife
@@ -49,6 +50,9 @@ SIDE = {"w": 128, "h": 128, "origin": (62, 100)}
 VIEWS = {
     "down": {"w": 112, "h": 128, "origin": (56, 88)},
     "up": {"w": 112, "h": 128, "origin": (56, 76)},
+    # the diagonals (docs/SPRITES.md, "Directions"): facing down-right and up-right
+    "down_side": {"w": 128, "h": 128, "origin": (64, 88)},
+    "up_side": {"w": 128, "h": 128, "origin": (64, 76)},
 }
 
 # Palette, sampled from the character sheet. Each material: (base, light, dark).
@@ -142,6 +146,7 @@ class Cam:
     LAT_X = 0.5
     LAT_Y = 0.18
     FWD_Y = 0.06
+    D = math.sqrt(0.5)  # the diagonals: 45 degrees between the side and the front/back
 
     def __init__(self, view):
         self.view = view
@@ -149,6 +154,10 @@ class Cam:
             self.cam = np.array([math.cos(self.PSI), 0.0, math.sin(self.PSI)])
         elif view == "down":
             self.cam = np.array([0.0, 0.0, 1.0])
+        elif view == "down_side":
+            self.cam = np.array([self.D, 0.0, self.D])
+        elif view == "up_side":
+            self.cam = np.array([self.D, 0.0, -self.D])
         else:
             self.cam = np.array([0.0, 0.0, -1.0])
 
@@ -170,6 +179,16 @@ class Cam:
         elif self.view == "down":
             x = OX - lat
             y = OY - up + self.depth_y(fwd)
+        elif self.view == "down_side":
+            # The diagonals (tools/splat3d.py Cam): facing down-right, forward is the floor
+            # diagonal right and toward the camera, the right side left and toward it;
+            # reach one to one on the floor, the part toward the camera flattened.
+            x = OX + (fwd - lat) * self.D
+            y = OY - up + self.depth_y((fwd + lat) * self.D)
+        elif self.view == "up_side":
+            # Facing up-right: forward is right and away; the right side right and toward.
+            x = OX + (fwd + lat) * self.D
+            y = OY - up + self.depth_y((lat - fwd) * self.D)
         else:
             x = OX + lat
             y = OY - up - self.depth_y(fwd)
@@ -183,6 +202,12 @@ class Cam:
         elif self.view == "down":
             sx = -n[:, 0]
             sy = -n[:, 1] + n[:, 2] * 0.35
+        elif self.view == "down_side":
+            sx = (n[:, 2] - n[:, 0]) * self.D
+            sy = -n[:, 1] + (n[:, 2] + n[:, 0]) * self.D * 0.35
+        elif self.view == "up_side":
+            sx = (n[:, 2] + n[:, 0]) * self.D
+            sy = -n[:, 1] + (n[:, 0] - n[:, 2]) * self.D * 0.35
         else:
             sx = n[:, 0]
             sy = -n[:, 1] - n[:, 2] * 0.35
@@ -1534,20 +1559,23 @@ CLIPS = _clips
 
 
 def inspect(rows, picks, path):
-    """Frames side by side in all three views, 3x: picks like idle:0 run:2."""
+    """Frames side by side in every view (side, down, up and the diagonals), 3x: picks
+    like idle:0 run:2, one row per pick."""
     tiles = []
+    names = S.view_names(VIEWS)
+    nv = len(names)
     for pick in picks:
         name, f = pick.split(":")
         poses = dict(rows)[name]
-        for view in ("side", "down", "up"):
+        for view in names:
             img = render_frame(poses[int(f)], view)
             bg = Image.new("RGBA", img.size, (70, 58, 46, 255))
             bg.alpha_composite(img)
             ImageDraw.Draw(bg).text((2, 2), "%s %s" % (pick, view), fill=(255, 220, 140, 255))
             tiles.append(bg.resize((img.width * 3, img.height * 3), Image.NEAREST))
-    out = Image.new("RGBA", (sum(t.width for t in tiles[:3]), 3 * 128 * ((len(tiles) + 2) // 3)), (40, 32, 26, 255))
+    out = Image.new("RGBA", (sum(t.width for t in tiles[:nv]), 3 * 128 * ((len(tiles) + nv - 1) // nv)), (40, 32, 26, 255))
     for k, t in enumerate(tiles):
-        out.alpha_composite(t, (sum(x.width for x in tiles[:3][:k % 3]), (k // 3) * 384))
+        out.alpha_composite(t, (sum(x.width for x in tiles[:nv][:k % nv]), (k // nv) * 384))
     out.save(path)
     print("wrote", path)
 
@@ -1559,21 +1587,27 @@ def main():
     print("wrote", os.path.relpath(OUT, ROOT), side.size)
     preview(side, ROWS, SIDE["w"], SIDE["h"], SIDE["origin"], 3, PREVIEW)
     views = {}
-    for view, spec in VIEWS.items():
+    for view in S.view_names(VIEWS)[1:]:
+        spec = VIEWS[view]
         sh = sheet(view, VIEW_ROWS, spec["w"], spec["h"], spec["origin"])
         path = OUT.replace(".png", "_%s.png" % view)
         sh.save(path)
         print("wrote", os.path.relpath(path, ROOT), sh.size)
         views[view] = sh
+    # the views preview: down, down-side, up, up-side (every entry in VIEWS), as splat3d's
     s = 2
     label_w = 70
-    fw, fh = VIEWS["down"]["w"], VIEWS["down"]["h"]
-    prev = Image.new("RGBA", (label_w + fw * COLS * 2 * s, fh * len(VIEW_ROWS) * s), (70, 58, 46, 255))
+    shown = S.view_names(VIEWS)[1:]
+    xs = [label_w]
+    for view in shown:
+        xs.append(xs[-1] + VIEWS[view]["w"] * COLS * s)
+    fh = max(VIEWS[v]["h"] for v in shown)
+    prev = Image.new("RGBA", (xs[-1], fh * len(VIEW_ROWS) * s), (70, 58, 46, 255))
     d = ImageDraw.Draw(prev)
-    for k, view in enumerate(("down", "up")):
+    for k, view in enumerate(shown):
         big = views[view].resize((views[view].width * s, views[view].height * s), Image.NEAREST)
-        prev.alpha_composite(big, (label_w + k * fw * COLS * s, 0))
-        d.text((label_w + k * fw * COLS * s + 6, 4), "facing " + view, fill=(255, 210, 120, 255))
+        prev.alpha_composite(big, (xs[k], 0))
+        d.text((xs[k] + 6, 4), "facing " + view.replace("_side", "-side"), fill=(255, 210, 120, 255))
     for r, (name, _poses) in enumerate(VIEW_ROWS):
         d.text((6, r * fh * s + 20), "%d %s" % (r, name), fill=(240, 230, 210, 255))
         d.line([(label_w, r * fh * s), (prev.width, r * fh * s)], fill=(50, 40, 32, 255))

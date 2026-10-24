@@ -52,7 +52,9 @@
     "select_scale": 0.5,
     "views": {
       "down": { "path": "res://assets/sprites/cerebro_down.png", "frame": [112, 128], "origin": [56, 88] },
-      "up": { "path": "res://assets/sprites/cerebro_up.png", "frame": [112, 128], "origin": [56, 76] }
+      "up": { "path": "res://assets/sprites/cerebro_up.png", "frame": [112, 128], "origin": [56, 76] },
+      "down_side": { "path": "res://assets/sprites/cerebro_down_side.png", "frame": [128, 128], "origin": [64, 88] },
+      "up_side": { "path": "res://assets/sprites/cerebro_up_side.png", "frame": [128, 128], "origin": [64, 76] }
     }
   },
   "ai": {
