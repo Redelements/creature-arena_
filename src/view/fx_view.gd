@@ -166,6 +166,11 @@ var _font: Font:  ## the pixel font (or the smooth one, Settings > Video); sizes
 var _tick := 0
 var _watch := {}
 var _last_push := {}
+## Damage numbers: the running number on each target (a flurry merges into one), and when a
+## statue last shattered, so its bonus hit gets an accent.
+var _dmg_run := {}
+var _shatter_seen := {}
+var _n_dmg := 0
 var _dark := 0.0
 var _rain := 0.0
 var _slowed_text := {}
@@ -202,6 +207,8 @@ func clear() -> void:
 	_incoming.clear()
 	_watch.clear()
 	_last_push.clear()
+	_dmg_run.clear()
+	_shatter_seen.clear()
 	_dark = 0.0
 	_rain = 0.0
 	time_scale = 1.0
@@ -229,18 +236,12 @@ func spawn(e: Dictionary) -> void:
 				col = Color("ffd166")
 			if bool(e.get("stale", false)):
 				col = Color("b8b8b8")
-			_text(p + Vector2(0, -6), str(int(round(power))), col)
+			_damage_number(e, p, col)
 			_wear_hit(e, push)
 		"block":
-			_add({"kind": "spark", "pos": p, "life": 6, "scale": 0.75})
-			_add({"kind": "ring", "pos": p + Vector2(0, 4), "life": 8, "radius": 10.0, "color": Color("9ec5ff")})
-			_text(p + Vector2(0, -6), "BLOCK", Color("9ec5ff"))
+			_block_feedback(e, p)
 		"guard_break":
-			_add({"kind": "lines", "pos": p + Vector2(0, -16), "life": 10, "size": 1.3, "color": Color("ff9a5a")})
-			for i in 8:
-				_px(p + Vector2(0, -16), Vector2.from_angle(randf() * TAU) * randf_range(1.0, 2.5), Color("9ec5ff"), 16)
-			# Out of stamina ("drained"): the guard only drops, so it says why.
-			_text(p + Vector2(0, -34), "EXHAUSTED" if bool(e.get("drained", false)) else "GUARD BREAK", Color("ff9a5a"))
+			_guard_break_feedback(e, p)
 		"slam":
 			var full := power >= 1.0
 			_add({"kind": "ring", "pos": p, "life": 18 if full else 12, "radius": 34.0 if full else 18.0})
@@ -560,6 +561,7 @@ func spawn(e: Dictionary) -> void:
 				_text(c.pos + Vector2(0, -_top(c) - 14), "PETRIFIED!", C_GREY[3], 9, 50.0)
 				shake_out = maxf(shake_out, 2.5)
 		"shatter":
+			_shatter_seen[int(e.get("who", -1))] = _tick
 			var c := _creature(int(e.get("who", -1)))
 			if c != null:
 				var push := _note_push(e)
@@ -665,6 +667,7 @@ func advance() -> void:
 	var keep: Array[Dictionary] = []
 	var ends: Array[Callable] = []
 	_n_puff = 0
+	_n_dmg = 0
 	for p in _parts:
 		var dt: float = 1.0 if bool(p.get("real", false)) else ts
 		if dt <= 0.0:
@@ -692,6 +695,8 @@ func advance() -> void:
 			keep.append(p)
 			if String(p["kind"]) == "puff":
 				_n_puff += 1
+			elif String(p["kind"]) == "dmg":
+				_n_dmg += 1
 		elif p.has("on_end"):
 			ends.append(p["on_end"])
 	_parts = keep
@@ -2313,6 +2318,214 @@ func _text(pos: Vector2, text: String, color: Color, size := 8, life := 40.0, wi
 	_add({"kind": "text", "pos": pos, "text": text, "color": color, "size": size, "life": life, "width": width})
 
 
+# --- damage numbers, block chips and the guard break ------------------------------------
+# All stepped on the 60 Hz tick, whole pixels, no tweening: a number pops one font step up
+# for a few ticks and settles, rises in 1 px steps and fades in quarters. A flurry on one
+# target merges into a running total instead of piling up.
+const DMG_CAP := 24
+const DMG_MERGE := 26  ## ticks a number stays open for the next hit on the same target
+const C_CHIP := Color("b9bcc8")
+const C_SHIELD_RIM := Color("cfe4ff")
+const C_SHIELD_FILL := Color("4f7fd6")
+const C_SHIELD_DARK := Color("27407a")
+
+
+## The size ladder is design sizes that UiTheme.px maps to distinct font steps.
+func _dmg_size(total: float, kind: String) -> int:
+	var sz := 8
+	if kind == "surge":
+		sz = 16
+	elif kind == "heavy" or kind == "skill" or total >= 12.0:
+		sz = 12
+	return sz
+
+
+func _dmg_open(run) -> bool:
+	return run != null and float(run["t"]) <= DMG_MERGE and float(run["life"]) > float(run["t"])
+
+
+## Numbers sit over the target's head (the status callouts' height), never on the body.
+func _num_anchor(tgt: int, fallback: Vector2) -> Vector2:
+	var c := _creature(tgt)
+	if c == null:
+		return fallback + Vector2(0, -6)
+	return c.pos + Vector2(0, -_top(c) - 19.0)
+
+
+func _damage_number(e: Dictionary, hit_pos: Vector2, col: Color) -> void:
+	var tgt := int(e.get("target", -1))
+	var pos := _num_anchor(tgt, hit_pos)
+	var a := _creature(int(e.get("attacker", -1)))
+	var kind := "light"
+	if a != null and a.state == CreatureSim.State.ATTACK:
+		kind = a.move_type()
+	if not kind in ["light", "heavy", "skill", "surge"]:
+		kind = "heavy" if bool(e.get("heavy", false)) else "light"
+	var power := float(e["power"])
+	var stale := bool(e.get("stale", false))
+	if not stale:
+		if kind == "surge":
+			col = col.lerp(Color("ff6a2c"), 0.7)
+		elif kind == "heavy":
+			col = col.lerp(Color("ff9a4a"), 0.55)
+	# An accent when the hit carried a bonus: a statue shattering, or a sneak attack.
+	var accent := ""
+	if int(_shatter_seen.get(tgt, -99)) >= _tick - 1:
+		accent = "shatter"
+		col = Color("c8f4ff")
+	elif a != null and float(a.def.get("ambush", 1.0)) > 1.0 and (a.ambush_t > 0 or a.ambush_serial == a.attack_serial):
+		accent = "ambush"
+		col = Color("e59bff")
+	var run = _dmg_run.get(tgt)
+	if _dmg_open(run):
+		run["total"] = float(run["total"]) + power
+		run["hits"] = int(run["hits"]) + 1
+		run["pop_at"] = run["t"]
+		run["pos"] = pos
+		run["life"] = float(run["t"]) + 34.0
+		run["size"] = maxi(int(run["size"]), _dmg_size(float(run["total"]), kind))
+		if not stale:
+			run["color"] = col
+		if accent != "":
+			run["accent"] = accent
+		run["text"] = _dmg_text(run)
+		return
+	if _n_dmg >= DMG_CAP:
+		return
+	var p := {"kind": "dmg", "tgt": tgt, "pos": pos, "total": power, "hits": 1, "pop_at": 0.0, "size": _dmg_size(power, kind),
+		"color": col, "accent": accent, "life": 40.0}
+	p["text"] = _dmg_text(p)
+	_add(p)
+	_dmg_run[tgt] = p
+	_n_dmg += 1
+
+
+func _dmg_text(p: Dictionary) -> String:
+	var s := str(int(round(float(p["total"]))))
+	if String(p["accent"]) != "":
+		s += "!"
+	return s
+
+
+func _draw_damage_number(ci: CanvasItem, p: Dictionary) -> void:
+	var t := float(p["t"])
+	var size := int(p["size"])
+	if t - float(p["pop_at"]) < 3.0:
+		# One font step up for a moment, then settle (16 and 20 are the same pixel step).
+		size += 10 if size >= 16 and not UiTheme.smooth else 4
+	var rise := int(minf(t, 16.0) / 2.0)
+	var left := float(p["life"]) - t
+	var col: Color = p["color"]
+	col.a = 1.0 if left > 12.0 else ceilf(left / 12.0 * 4.0) / 4.0
+	var fs := UiTheme.px(size)
+	var at := (_num_anchor(int(p["tgt"]), Vector2(p["pos"]) + Vector2(0, 6)) + Vector2(-40.0, -rise)).round()
+	var txt := String(p["text"])
+	ci.draw_string_outline(_font, at, txt, HORIZONTAL_ALIGNMENT_CENTER, 80.0, fs, UiTheme.outline(fs) + 1, Color(0.1, 0.08, 0.1, col.a))
+	ci.draw_string(_font, at, txt, HORIZONTAL_ALIGNMENT_CENTER, 80.0, fs, col)
+
+
+## A blocked hit: a grey chip number (what got through) and a shield spark on the guard side.
+func _block_feedback(e: Dictionary, p: Vector2) -> void:
+	var push := _note_push(e)
+	var d := _creature(int(e.get("target", -1)))
+	var reduction := 0.7
+	if d != null:
+		reduction = float(d.def.get("guard", {}).get("reduction", 0.7))
+	var chip := float(e["power"]) * (1.0 - reduction)
+	var side := -push  # toward the attacker: where the shield takes it
+	var at := (d.pos if d != null else p) + side * 13.0 + Vector2(0, -14)
+	_add({"kind": "shield", "pos": at, "life": 10, "scale": 2, "crack": 0.0})
+	for i in 4:
+		_px(at + side * 2.0, side.rotated(randf_range(-1.1, 1.1)) * randf_range(0.8, 1.8), C_SHIELD_RIM, 8)
+	if chip < 0.5:
+		return
+	var tgt := int(e.get("target", -1)) + 100000
+	var run = _dmg_run.get(tgt)
+	if _dmg_open(run):
+		run["total"] = float(run["total"]) + chip
+		run["pop_at"] = run["t"]
+		run["life"] = float(run["t"]) + 30.0
+		run["text"] = _dmg_text(run)
+		return
+	if _n_dmg >= DMG_CAP:
+		return
+	var np := {"kind": "dmg", "tgt": int(e.get("target", -1)), "pos": _num_anchor(int(e.get("target", -1)), p), "total": chip, "hits": 1, "pop_at": 0.0, "size": 8,
+		"color": C_CHIP, "accent": "", "life": 34.0}
+	np["text"] = _dmg_text(np)
+	_add(np)
+	_dmg_run[tgt] = np
+	_n_dmg += 1
+
+
+## A guard break: the shield flashes, cracks across, then bursts into shards. "drained"
+## (stamina ran out) is the same graphic with its own word.
+func _guard_break_feedback(e: Dictionary, p: Vector2) -> void:
+	var c := _creature(int(e.get("who", -1)))
+	var base := (c.pos if c != null else p)
+	var at := base + Vector2(0, -26)
+	_add({"kind": "shield", "pos": at, "life": 16, "scale": 3, "crack": 1.0, "shake": true})
+	_later(16.0, func(): _shield_burst(at))
+	_text(base + Vector2(0, -48), "EXHAUSTED" if bool(e.get("drained", false)) else "GUARD BREAK", Color("ff9a5a"))
+
+
+func _shield_burst(at: Vector2) -> void:
+	_add({"kind": "lines", "pos": at, "life": 8, "size": 1.0, "color": C_SHIELD_RIM})
+	for i in 10:
+		var ang := TAU * i / 10.0 + randf() * 0.5
+		var v := Vector2.from_angle(ang) * randf_range(0.8, 1.9) + Vector2(0, -0.5)
+		_add({"kind": "shard", "pos": at + Vector2.from_angle(ang) * 3.0, "vel": v, "life": 26.0,
+			"color": C_SHIELD_RIM if i % 3 == 0 else (C_SHIELD_FILL if i % 3 == 1 else C_SHIELD_DARK), "shape": i})
+
+
+func _draw_shield_part(ci: CanvasItem, p: Dictionary) -> void:
+	var t := float(p["t"])
+	var s := int(p["scale"])
+	var pos: Vector2 = p["pos"]
+	if bool(p.get("shake", false)) and t > 3.0:
+		pos += Vector2(int(t) % 2 * 2 - 1, (int(t) / 2) % 2 * 2 - 1)
+	pos = pos.round()
+	var rim := C_SHIELD_RIM
+	var fill := C_SHIELD_FILL
+	if t < 2.0:  # the impact flash
+		rim = Color.WHITE
+		fill = Color("cfe4ff")
+	var cr := float(p["crack"])
+	var k := t / float(p["life"])
+	var a := 1.0 if k < 0.7 else (0.66 if k < 0.85 else 0.33)
+	if cr <= 0.0:
+		a = 1.0 if k < 0.5 else 0.5
+	rim.a = a
+	fill.a = a
+	_shield_shape(ci, pos, s, rim, fill)
+	if cr > 0.0:
+		var segs := [Vector2(0, -4), Vector2(-1, -2), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 3), Vector2(0, 4)]
+		var shown_n := mini(segs.size() - 1, 1 + int(k * 7.0))
+		var dark := Color(0.08, 0.1, 0.18, a)
+		for i in shown_n:
+			var a0: Vector2 = segs[i] * s
+			var a1: Vector2 = segs[i + 1] * s
+			ci.draw_line(pos + a0, pos + a1, dark, 1.0)
+			if i == 2 and shown_n > 3:  # a branch
+				ci.draw_line(pos + a1, pos + a1 + Vector2(3, 1) * s, dark, 1.0)
+
+
+## A heater shield of rects: rows top to bottom, rim on the edges, a lit centre line.
+func _shield_shape(ci: CanvasItem, pos: Vector2, s: int, rim: Color, fill: Color) -> void:
+	const ROWS := [9, 9, 9, 9, 7, 7, 5, 3, 1]
+	var top := -4 * s
+	for i in ROWS.size():
+		var w: int = ROWS[i]
+		var y := pos.y + top + i * s
+		var x := pos.x - (w * s) / 2
+		if i == 0 or i == ROWS.size() - 1:
+			ci.draw_rect(Rect2(x, y, w * s, s), rim)
+			continue
+		ci.draw_rect(Rect2(x, y, w * s, s), fill)
+		ci.draw_rect(Rect2(x, y, s, s), rim)
+		ci.draw_rect(Rect2(x + (w - 1) * s, y, s, s), rim)
+	ci.draw_rect(Rect2(pos.x, pos.y + top + s, s, 5 * s), rim)
+
+
 ## Orbiting pebbles while Haymaker charges: more of them, higher, the longer it's held.
 func _pebbles(c: CreatureSim, charge: int) -> Array:
 	var cmax := float(c.move_def().get("charge_max", 30))
@@ -2472,6 +2685,16 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 			var fs := UiTheme.px(int(p["size"]))
 			ci.draw_string_outline(_font, at, String(p["text"]), HORIZONTAL_ALIGNMENT_CENTER, w, fs, UiTheme.outline(fs) + 1, Color(0.1, 0.08, 0.1, col.a))
 			ci.draw_string(_font, at, String(p["text"]), HORIZONTAL_ALIGNMENT_CENTER, w, fs, col)
+		"dmg":
+			_draw_damage_number(ci, p)
+		"shield":
+			_draw_shield_part(ci, p)
+		"shard":
+			var sp: Vector2 = (Vector2(p["pos"]) + Vector2(p["vel"]) * t + Vector2(0, 0.06 * t * t)).round()
+			var sc: Color = p["color"]
+			sc.a = 1.0 if k < 0.65 else (0.66 if k < 0.82 else 0.33)
+			var q := int(p["shape"])
+			ci.draw_colored_polygon(PackedVector2Array([sp + Vector2(0, -3 - q % 2), sp + Vector2(3 + q % 2, 2), sp + Vector2(-3, 2 + q % 3)]), sc)
 		"glint":
 			# A four-point star that flares and shrinks over the windup.
 			var pos: Vector2 = Vector2(p["pos"]).round()

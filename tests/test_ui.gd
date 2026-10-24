@@ -1031,6 +1031,139 @@ func test_the_fight_camera_keeps_both_fighters_in_shot() -> void:
 	g.free()
 
 
+## Two fighters close together in the middle of the stadium, the camera settled on them.
+func _close_pair(g: Node) -> void:
+	var fr := SimDefs.floor_rect()
+	g.sim.creatures[0].pos = fr.get_center()
+	g.sim.creatures[1].pos = fr.get_center() + Vector2(40, 0)
+	for i in 300:
+		g._update_camera()
+
+
+func test_the_camera_leads_an_attack_and_never_leads_anyone_out_of_shot() -> void:
+	var g := _game()
+	g._start_match(2)  # CPU vs CPU
+	_tick(g, 2)
+	_close_pair(g)
+	assert_near(g._cam_lead.length(), 0.0, 0.5, "standing still, no look-ahead:")
+	# Fighter 0 swings to the right: the camera drifts a little that way.
+	var a: CreatureSim = g.sim.creatures[0]
+	a.state = CreatureSim.State.ATTACK
+	a.facing = Vector2.RIGHT
+	for i in 120:
+		g._update_camera()
+	assert_gt(g._cam_lead.x, 5.0, "leads along the attack:")
+	assert_lt(g._cam_lead.length(), g.LEAD_MAX + 0.01, "a little, no more:")
+	a.state = CreatureSim.State.IDLE
+	# However big a lead is asked for, every fighter stays in shot, clear of the edge.
+	var view: Vector2 = g.get_viewport().get_visible_rect().size
+	var fr := SimDefs.floor_rect()
+	var spots := [[fr.position + Vector2(20, 30), fr.end - Vector2(20, 20)], [fr.get_center(), fr.get_center() + Vector2(40, 0)]]
+	for pair in spots:
+		g.sim.creatures[0].pos = pair[0]
+		g.sim.creatures[1].pos = pair[1]
+		for push in [Vector2(400, 0), Vector2(-400, 0), Vector2(0, 400), Vector2(0, -400)]:
+			for i in 60:
+				g._cam_lead = push
+				g._update_camera()
+			var cam: Camera2D = g.camera
+			var shown := Rect2(cam.position - view * 0.5 / cam.zoom.x, view / cam.zoom.x).grow(0.5)
+			for c in g.sim.creatures:
+				assert_true(shown.has_point(c.pos), "lead %s: feet at %s in shot %s" % [push, c.pos, shown])
+	# The rule on its own: a lead is only ever cut back, toward nothing.
+	var tight := Rect2(100, 100, 40, 30)
+	assert_eq(g._lead_room(Vector2(5, 0), tight.get_center(), tight, Vector2(240, 135)), Vector2(5, 0), "room to spare: kept")
+	var cut: Vector2 = g._lead_room(Vector2(500, 0), tight.get_center(), tight, Vector2(80, 60))
+	assert_near(cut.x, 80.0 - 20.0 - g.LEAD_KEEP.x, 0.01, "cut to the room there is:")
+	assert_eq(g._lead_room(Vector2(9, 9), tight.get_center(), tight, Vector2(10, 10)), Vector2.ZERO, "no room: none")
+	g.free()
+
+
+func test_the_camera_pushes_in_on_a_trade_and_eases_out_after() -> void:
+	var g := _game()
+	g._start_match(2)
+	_tick(g, 2)
+	_close_pair(g)
+	assert_near(g.camera.zoom.x, 1.0, 0.01, "before any hit:")
+	# One poke doesn't move the camera.
+	g._note_exchange()
+	for i in 120:
+		g._update_camera()
+	assert_near(g.camera.zoom.x, 1.0, 0.01, "a single hit, no push:")
+	# A trade (hits every half second) pushes in, a little.
+	for i in 300:
+		if i % 30 == 0:
+			g._note_exchange()
+		g._update_camera()
+	assert_gt(g.camera.zoom.x, 1.06, "pushed in on the trade:")
+	assert_lt(g.camera.zoom.x, 1.0 + g.EXCHANGE_PUSH + 0.01, "only a little:")
+	# Smoothly: no tick jumps by much.
+	var before: float = g.camera.zoom.x
+	var worst := 0.0
+	for i in 600:
+		g._update_camera()
+		worst = maxf(worst, absf(g.camera.zoom.x - before))
+		before = g.camera.zoom.x
+	assert_near(g.camera.zoom.x, 1.0, 0.01, "eased back out after the trade:")
+	assert_lt(worst, 0.004, "no pumping:")
+	# Apart, a trade doesn't push in (nobody is up close).
+	g.sim.creatures[1].pos = g.sim.creatures[0].pos + Vector2(220, 0)
+	for i in 300:
+		if i % 30 == 0:
+			g._note_exchange()
+		g._update_camera()
+	assert_near(g._cam_push, 0.0, 0.01, "far apart, no push:")
+	g.free()
+
+
+func test_the_letterbox_comes_in_only_for_a_knockout_or_a_surge_freeze() -> void:
+	var g := _game()
+	g._start_match(2)
+	_tick(g, 60)
+	var lb: Letterbox = g.letterbox
+	assert_eq(lb.h, 0, "a normal fight: no bars")
+	# The KO push-in: bars slide in whole pixels at a time, and go once the push eases out.
+	g._ko_cam_t = 0
+	var seen := []
+	for i in 12:
+		g._update_letterbox()
+		seen.append(lb.h)
+	assert_eq(lb.h, Letterbox.BAR_H, "in for the knockout")
+	assert_eq(seen[0], Letterbox.BAR_STEP_IN, "sliding in, a step a tick")
+	g._ko_cam_t = g.KO_HOLD_UNTIL
+	for i in 30:
+		g._update_letterbox()
+	assert_eq(lb.h, 0, "out as the camera eases back")
+	g._ko_cam_t = -1
+	# A Surge's freeze: as long as it lasts.
+	g._surge_bars = 18
+	for i in 10:
+		g._update_letterbox()
+	assert_eq(lb.h, Letterbox.BAR_H, "in for the Surge")
+	for i in 30:
+		g._update_letterbox()
+	assert_eq(lb.h, 0, "out after the freeze")
+	# The title's background match never gets them.
+	g.flow = g.Flow.MENU
+	g._ko_cam_t = 0
+	for i in 12:
+		g._update_letterbox()
+	assert_eq(lb.h, 0, "not behind the menu")
+	g._ko_cam_t = -1
+	# The push-in: held a beat, then eased in and out, never past 0..1.
+	assert_eq(g.ko_push(0), 0.0, "still on the impact")
+	assert_eq(g.ko_push(g.KO_PUSH_DELAY), 0.0, "")
+	assert_near(g.ko_push(g.KO_PUSH_DELAY + g.KO_PUSH_IN), 1.0, 0.001, "all the way in:")
+	assert_near(g.ko_push(g.KO_HOLD_UNTIL), 1.0, 0.001, "held:")
+	assert_eq(g.ko_push(g.KO_HOLD_UNTIL + g.KO_PUSH_OUT), 0.0, "back out")
+	var prev := 0.0
+	for t in range(g.KO_PUSH_DELAY, g.KO_PUSH_DELAY + g.KO_PUSH_IN + 1):
+		var k: float = g.ko_push(t)
+		assert_true(k >= prev and k - prev < 0.06, "eased in at %d: %.3f after %.3f" % [t, k, prev])
+		prev = k
+	g.free()
+
+
 func test_the_hud_anchors_to_the_screen() -> void:
 	var h := Hud.new()
 	_root().add_child(h)

@@ -85,7 +85,7 @@ update the map in the same change.
 | shadows, light direction, sun | `src/view/shadow_layer.gd` (`light_of`, `draw_silhouette`), `src/view/creature_view.gd:draw_shadow`; a map's `light` in `data/arenas/<id>.json`; piece shadows `tools/gen_arenas.py:cast_shadows`, dropped when a piece changes `src/view/arena_view.gd:_shade` | shadows |
 | arena drawing, crowd (stands on all sides, team sections, fans standing up for hits), map art, shallows water (flow, foam, wading wakes, splash), per-map ambient life (pane shadows, pollen, brush sway, butterflies: arena JSON `ambient`) | `src/view/arena_view.gd` (`_paint_changed`, row bands `BAND_ROWS`), `src/view/crowd_view.gd` (`set_size`, `react`, `sheet`; layout in step with `gen_arenas.py:_side_stands` / `_front_stands`; the camera looks into them via `main.gd:_cam_axis`, `SHOW_SIDE` / `SHOW_FRONT`), `src/view/water_view.gd` (`_paint_surface`, `_watch_fighters`), `src/view/ambient_view.gd` (`_paint_sway`, `_watch_brush`, `_move_flies`; tests `test_ambient`); art from `tools/gen_arenas.py` (rerun after moving a piece in `data/arenas/`) | arena |
 | floor wear (scratches, gouges, craters, drag lines, clods, footprints that fade) | `src/view/floor_wear.gd` (`mark`, `_age`, `_build`); what leaves one: `src/view/fx_view.gd` (`_wear_hit`, `_wear_strike`, `_wear_drag`, `_wear_step`), per-move `fx.decal` | view |
-| camera, zoom, screen shake | `src/game/main.gd:_update_camera`, `_frame_fight` | test_ui |
+| camera, zoom, screen shake, look-ahead, exchange push-in, KO push-in, letterbox | `src/game/main.gd:_update_camera`, `_frame_fight` (`_lead_of`, `_lead_room`, `_note_exchange`, `ko_push`), `_update_letterbox`; bars `src/view/letterbox.gd` | test_ui |
 | game modes, mode numbers, menus' rows | `src/game/main.gd` `MODES`, `MENU_ROWS`, `_start_match` | test_ui, test_journey, menu_contract |
 | settings | `src/game/main.gd` `SETTING_PAGES`, `_setting`, `_set_setting` | test_ui |
 | CLI flags | `src/game/main.gd:_parse_args` (list in `src/game/CLAUDE.md`) | test_ui |
@@ -110,6 +110,7 @@ update the map in the same change.
 | cross-platform determinism check | `src/net/sim_check.gd` (`--sim-check`) | determinism |
 | running tests, a new test | `tests/run_tests.gd`, `tests/test_case.gd` (see `tests/CLAUDE.md`) | |
 | sprite generators, new fighter art | `tools/splat3d.py`, `tools/gen_digby.py` (see `tools/CLAUDE.md`) | views |
+| animation pass: in-betweens, overlap, eased spacing, preview GIFs, frame timelines | `tools/splat3d.py:tween`, `cycle`, `lag`, `lag_at`; `tools/anim_preview.py` (`gen_<id>.py anim`, `--check <id>`); each generator's `render_frame` / `frame_spec`; recipe in `docs/SPRITES.md` "Animation pass" | views (`anim_preview.py --check all`, `--selftest`) |
 | CI, builds | `.github/workflows/tests.yml`, `.github/workflows/playable-build.yml` | |
 
 `TEST_ONLY` matches file names by substring (`ai` would also run `test_training`), so the
@@ -130,5 +131,6 @@ What else moves when you change something. Check these before running the full s
 | a new `CreatureSim` or `MatchSim` variable | `STATE_FIELDS` / `STATIC_FIELDS`, or `snapshot`, `restore` and `state_digest` (`tests/test_rollback.gd`) |
 | a new sim data key, sim event or CLI flag | `docs/MECHANICS.md`; a new event's look and sound in `src/view/fx_view.gd:spawn`, `src/view/audio_view.gd:on_event`, `data/audio.json` |
 | a new file, or a moved or renamed one | `python3 tools/codebase_map.py`, and any row here that names it |
-| a new fighter | `src/game/match_factory.gd` `FIGHTERS`, `MODES` and `MENU_ROWS` in `src/game/main.gd`, a showcase, a `tests/test_<id>.gd`, three sprite sheets |
+| a new fighter | `src/game/match_factory.gd` `FIGHTERS`, `MODES` and `MENU_ROWS` in `src/game/main.gd`, a showcase, a `tests/test_<id>.gd`, three sprite sheets (and `FIGHTERS` in `tools/anim_preview.py`, plus the generator's `render_frame` / `frame_spec` adapter) |
+| a sheet's rows or frame counts, `anim_at`, `anim_charge`, `cut_in_frame`, `idle_ticks` / `run_ticks` | the JSON's row table and the generator's `ROWS` together, `ANIM_CYCLES` in the generator; run `python3 tools/anim_preview.py --check <id>` |
 | stamina or projectile rules | `tests/test_stamina.gd`, `tests/test_projectiles.gd`; blink and dodge chains in fighter tests assume a dodge's cost |

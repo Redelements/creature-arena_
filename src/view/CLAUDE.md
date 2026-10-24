@@ -49,7 +49,9 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   the camera's zoom are unchanged; text in world space (damage numbers) scales with the zoom.
 - The camera is not here: `src/game/main.gd:_update_camera`, `_frame_fight`, `CAM_PAD`, `KO_ZOOM`.
   Near an edge it may look `CrowdView.SHOW_SIDE` / `SHOW_FRONT` past the arena (`_cam_axis`
-  `lo` / `hi`), into the side stands and front rows.
+  `lo` / `hi`), into the side stands and front rows. The letterbox bars are here
+  (`letterbox.gd`, first child of main's screen layer: under the flash, the fade and the HUD);
+  main says when (`_update_letterbox`), and they step whole pixels a tick.
 - The crowd's seats (`CrowdView.SIDE_*`, `FRONT_*`) sit on steps and seat backs that
   `tools/gen_arenas.py` (`_side_stands`, `_front_stands`) paints into each map's picture:
   change one, change the other and regenerate. The side stands wear the sides' colours
@@ -108,7 +110,7 @@ dig/slosh/poof/chop_chop/shout sounds.
   sheet choice → `_pick_view`, `_resolve`, `_load_view`; squash → `_update_squash`, `view_lift`;
   victory pose → `victory`, `_victory_frame`
 - HUD panels, stamina bar (red flash when exhausted), cooldown bars → `hud.gd:_panel`; combo
-  → `_combo`; cut-in → `cut_in`, `_draw_cut_in`; team HUD → `_team_panels`, `_card`;
+  → `_combo`; cut-in → `cut_in`, `_draw_cut_in` (+ `_draw_cut_in_dim`, drawn first so panels stay lit; streaks, tear and name slam all step on `_cut.t` in whole pixels, colour = the fighter's `fx_color`; no cut-in at all when a crowded Surge does not freeze); team HUD → `_team_panels`, `_card`;
   training tags and DPS → `_training_tags`, `_watch_dummy`, `_dps`, `dps_meter.gd`
 - Surge aura → `surge_aura.gd` (look from the JSON `surge_aura` block)
 - Range rings → `range_rings.gd:rings`; F1 hitbox overlay → `debug_view.gd`; F9 performance
@@ -169,6 +171,7 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `fx_ground.gd` (FxGround) — The floor-level half of the effects: puddles, afterimages, crack decals, rock spires, the back half of orbiting pebbles…
 - `fx_view.gd` (FxView) — Cosmetic effects. Two things drive them: - Simulation events (hits, slams, grabs, falls, KOs...), passed in through spa…
 - `hud.gd` (Hud) — Fighter panels (health, energy, stamina, skill cooldowns, Cairn's stones), the combo counter with its damage multiplier…
+- `letterbox.gd` (Letterbox) — Black bars across the top and bottom of the screen for the big moments (a knockout's push-in, a Surge's freeze), on the…
 - `paper_fx.gd` (PaperFx) — Mister Crease's paper, drawn over the fighters: the sheets of his Paper Stock floating above the hat, the crafts he has…
 - `perf_overlay.gd` (PerfOverlay) — The performance overlay (Settings > Video, or F9): the frame rate in a corner, and in its second mode a chart of the la…
 - `range_rings.gd` (RangeRings) — "Range rings" (Settings > Controls, or F7 in a fight): thin floor rings that show where an attack really reaches, so a…
