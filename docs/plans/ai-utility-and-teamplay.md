@@ -205,10 +205,18 @@ end of `bits()` for next tick.
 
 Steps:
 
-- [ ] `TeamIntent` (a `RefCounted` under `src/ai/`), built in `think_start`, read-only on the
+- [x] (Oct 24, branch `ai-team-intent`: `src/ai/team_intent.gd`, `TeamIntent.of` / `build_all`,
+      members write their choice back with `note`; `tests/test_team_intent.gd`.) `TeamIntent` (a `RefCounted` under `src/ai/`), built in `think_start`, read-only on the
       threads; `tests/test_cpu_pathing.gd`-style check that threaded and sequential inputs
       still agree.
-- [ ] Focus target with hysteresis; `_pick_target` consults it before its own scan.
+- [x] (Oct 24: near × hurt summed over the members plus a vote per member already on the foe,
+      run into last tick's score (`SMOOTH` 0.1); `SWITCH_MARGIN` 1.15, `UNSEEN_TICKS` 60;
+      overrides: the assassin's much weaker foe, the tank's peel, any foe in reach (a kiter:
+      inside its kite band). Measured `--teams=3 --seeds=24`: the coordinated side 26/48 vs
+      22/48 with nobody coordinated; focus switches 16.5 → 4.5 /min/team; the CPUs are on
+      the focus 77% of their ticks; `bench_ai_cost` unchanged (think avg 1.97 vs 1.98 ms).
+      So a shared focus alone is worth little: the win has to come from the steps below.)
+      Focus target with hysteresis; `_pick_target` consults it before its own scan.
 - [ ] Engage state and front-line point; `_plan_kite`, `_plan_skirmish`, `_plan_press` read them.
 - [ ] `peel` and `isolated` as scorer considerations.
 - [ ] `bench_cpu.gd --teams=3 --intent=off` A/B; `test_team.gd` gains a pin: coordinated Rage
