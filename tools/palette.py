@@ -78,6 +78,9 @@ LINES = {
     "neutral": [(6, 6, 14), (20, 18, 30), (44, 42, 56), (72, 70, 80), (106, 104, 108),
                 (144, 140, 136), (186, 180, 172), (214, 208, 194), (236, 232, 220),
                 (250, 248, 240), (255, 255, 255)],
+    # yellow-green between lime and gold (Gillbert's body), built by the rules above from
+    # (170, 214, 40); the highlight is pulled back so it doesn't burn out
+    "chartreuse": [(76, 154, 56), (122, 184, 54), (170, 214, 40), (219, 237, 91), (238, 248, 140)],
 }
 
 # Ramps: name -> (line, index of the deep step). The window is five steps from there; a
@@ -97,6 +100,7 @@ WINDOWS = {
     "grey": ("neutral", 2),     # concrete, stone
     "stone": ("neutral", 3),    # steel, light stone
     "white": ("neutral", 6),    # paper, white cloth, teeth
+    "chartreuse": ("chartreuse", 0),  # bright yellow-green skin (Gillbert)
 }
 
 # Outline inks: the deepest, greyest colours, one per hue region.
