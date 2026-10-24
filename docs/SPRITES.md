@@ -526,6 +526,11 @@ dirt mound. Drawn at 0.8 scale, feet at **x 64, y 100**; up and down sheets are
 
 Facing down and up: [`digby_views_preview.png`](digby_views_preview.png).
 
+Hurt, guard and the knockout had the reactions batch (Oct 2026; before/after in every view:
+[`anim_preview/digby_reactions_3x.gif`](anim_preview/digby_reactions_3x.gif);
+`digby_motion_plan.md`, "Reactions"). The diagonals use `near` 10 (the other views 14); no
+pose cheat was needed.
+
 The diagonals (`digby_down_side.png`, `digby_up_side.png`): **128×128** (as wide as the
 side sheet, for the snout-to-tail length on the diagonal), feet at x 64, y 100
 (`down_side`) and y 90 (`up_side`), no cheat; the headlamp and pick are 3D parts of the rig,
@@ -550,9 +555,9 @@ dust on `step_frames` `[0, 2]` (the front paws landing, the back paws landing).
 | 7 | burrow | 12 | Burrow: crouch, dive, 2-5 the tunnelling loop (the clods churn), the bulge, burst, apex (the hit), land, recover, settle |
 | 8 | cavein | 12 | Cave-In: dip, rearing, up, the peak (held; the cut-in frame, `[8, 3]`), the slam, impact (held, the hit), two frames sinking as the floor gives, settle |
 | 9 | dodge | 8 | tucked into a ball, a full roll, landing squash, settle |
-| 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
-| 11 | guard | 2 | hunkered behind the pickaxe held crossways |
-| 12 | ko | 4 | over onto his back, legs up, x eyes |
+| 10 | hurt | 4 | the reactions batch: the recoil (the head snapped up and back, the helmet a beat behind, the tail and pick still low), the deepest point (reared, bunched up, rolled onto a hip; also the crumple pose), the body coming down while the tail whips up and the pick swings late, the settle; 4 ticks a frame, looping |
+| 11 | guard | 4 | hunkered behind the pickaxe held crossways: the hold (frame 0), the blow (bunched up, the helmet jolted back, the tail flicking; frame 1), the rebound, the settle |
+| 12 | ko | 8 | lifted by the blow (the pick flung up), going over, on his back squashed (a knockdown holds this), a bounce with the tail flung, down, a small bounce, the settle, legs up and x eyes; 6 ticks a frame |
 | 13 | victory | 10 | pops up on his back legs; frames 1-7 loop: the far paw dusting off his chest, the tail swishing; then the pickaxe held high over the helmet (8-9, held) |
 | 14 | idle_alt | 8 | a paw up to the helmet to tap the headlamp straight (it flickers), then a long sniff turned toward the foe; played once after 5 s standing still |
 
@@ -618,6 +623,10 @@ toward the camera (`SIDE_CHEAT`) so the face reads. Drawn at 0.8 scale, feet at
 
 Facing down and up: [`sno_views_preview.png`](sno_views_preview.png).
 
+Hurt, guard and the knockout had the reactions batch (Oct 2026; before/after in every view:
+[`anim_preview/sno_reactions_3x.gif`](anim_preview/sno_reactions_3x.gif); `sno_motion_plan.md`,
+"Reactions"). The diagonals use `near` 10 (the other views 14); no pose cheat was needed.
+
 The diagonals (`sno_down_side.png`, `sno_up_side.png`): **128×128**, feet at x 64, y 104
 (`down_side`) and y 92 (`up_side`). `SIDE_CHEAT` applies to the side view only: the
 45-degree `down_side` camera already shows his face, and `up_side` is a back three-quarter
@@ -645,9 +654,9 @@ they don't sparkle in motion).
 | 7 | slide | 8 | Slush Slide: lean in, thrown back, the slide (Cold Shoulder plays from frame 2), the lead foot rising, the kick, sit up, rise, settle |
 | 8 | blast | 12 | Flavor Blast: brace, rear ×2, the gather (held 4), the slam (1 tick), the impact (held 5), the shards burst (frame 6, the cut-in), shards out, a slow rise ×3, stance |
 | 9 | dodge | 8 | a full cartwheel in a hop about his middle, limbs tucked; crouch, spring, four roll frames, land, settle (2 ticks a frame) |
-| 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose (frozen, tinted ice-blue by `CreatureView`) |
-| 11 | guard | 2 | gloves up in front of his face |
-| 12 | ko | 4 | topples and melts into a puddle |
+| 10 | hurt | 4 | the reactions batch: the recoil (the cone snapped back and stretched, the gloves still out front, the drip swung forward), the deepest point (squashed 5%, tipped sideways; also the crumple pose, frozen and tinted ice-blue by `CreatureView`), the cone coming back with chips of ice flying off the dome, the settle; 4 ticks a frame, looping, through the hitstun |
+| 11 | guard | 4 | gloves up in front of his face: the hold (frame 0), the blow (gloves knocked back into his face, the cone squashed; frame 1, after a block), the rebound, the settle |
+| 12 | ko | 8 | stretched up and back by the blow (chips flying), toppling, landing squashed and slumping into a puddle (a knockdown holds this), a bounce flinging a drop of syrup, then melting into the spreading puddle; 6 ticks a frame |
 | 13 | victory | 10 | the flex: frames 1-7 loop, both gloves pumping up beside his head, the cone wobbling, the syrup running; then one fist raised high (8-9, held) |
 | 14 | idle_alt | 8 | brushes the snow off his dome with a glove (flecks fly), shakes it off, then glares at the foe; played once after 5 s standing still |
 
@@ -683,6 +692,11 @@ into the frames; the ones in his hands during a fold or a throw are in the frame
 
 Facing down and up: [`crease_views_preview.png`](crease_views_preview.png).
 
+Hurt, guard and the knockout had the reactions batch (Oct 2026; before/after in every view:
+[`anim_preview/crease_reactions_3x.gif`](anim_preview/crease_reactions_3x.gif);
+`crease_motion_plan.md`, "Reactions"). The diagonals use `near` 8 (the other views 12); no
+pose cheat was needed (facing down, the brim still hides the flick's release, as before).
+
 The diagonals (`crease_down_side.png`, `crease_up_side.png`): **128×160**, feet at x 64,
 y 136 (`down_side`) and y 124 (`up_side`), no cheat. The paper pass works for them
 unchanged: `build` takes each view's camera from `S.Cam(view)`, so the paper backs, fold
@@ -703,9 +717,9 @@ side: [`anim_preview/crease_diagonals_3x.png`](anim_preview/crease_diagonals_3x.
 | 9 | frog | 6 | Paper Frog: he whips out a sheet, tears and folds three frogs, crouches to set them on the floor, the low forward sweep that sends them (the release, frame 3), the follow-through leaning in, recover; the frogs themselves are `PaperFx` projectiles once sent |
 | 10 | surge | 12 | Thousand Cranes: 0-3 the charge loop (`anim_charge`: arms up, the sheets spiralling in to a crane over his hands); then the gather (squashed, the crane pulled back), the drive up and over, the throw (frame 6, the cut-in), the release (hand open, held), watching, the arm sweeping into the bow, the deep bow (held), the rise |
 | 11 | dodge | 4 | Paper Plane: folds down, the airplane (two gliding frames, banking so its cream underside shows), unfolds |
-| 12 | hurt | 2 | recoil, hat knocked askew, the brim bent back; frame 1 doubles as the crumple pose |
-| 13 | guard | 2 | the cape swept up in front like a curtain, both hands holding its top corners above his shoulders, wider than him so it reads from behind too |
-| 14 | ko | 4 | crumples like dropped paper, the hat rolling off |
+| 12 | hurt | 4 | the reactions batch: the recoil (snapped back, stretched 7%, the hands flung up, the hat and cape not yet following), the deepest point (squashed, the hat knocked askew, the cape blown forward; also the crumple pose), the body coming back while the hat overshoots and the cape's fold kinks, the settle; 4 ticks a frame, looping |
+| 13 | guard | 4 | the cape swept up in front like a curtain, both hands holding its top corners above his shoulders, wider than him so it reads from behind too: the hold (frame 0), the blow (pushed back, the fold kinked in; frame 1), the rebound (the fold snapping out), the settle |
+| 14 | ko | 8 | snapped back with the hat knocked up, folding up as the hat flies, crumpled down (a knockdown shows 1 then holds 2), the hat landing and bouncing, rolling to a stop; in a match his knockout scatters the sprite at once (`ko_fx` "scatter"), so only a knockdown shows this row |
 | 15 | victory | 8 | folds into a giant crane, the flight loop (frames 1-5), unfolds, the bow |
 
 ## Animation pass: what worked (Mister Crease, Oct 2026)

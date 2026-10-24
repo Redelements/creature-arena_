@@ -65,7 +65,7 @@ MAT = {
     "craft": ("white", -1),
 }
 SCALE = 1.1
-S.configure(MAT, scale=SCALE, near=12.0)
+S.configure(MAT, scale=SCALE, near=12.0, near_views={"down_side": 8.0, "up_side": 8.0})
 S.COLS = 12  # the strut and the Surge have 12 frames
 
 # Five flat tones per material: sheen, light, base, dark, deep (the ramp, light first).
@@ -1254,29 +1254,70 @@ def idle_alt_row():
 
 
 def hurt_row():
+    """The reactions batch (docs/anim_preview/crease_motion_plan.md, "Reactions"). The view
+    plays these at 4 ticks a frame, looping, through the hitstun; frame 0 holds through the
+    hitstop (and stands in for airborne, falling and getting up), frame 1 is also the
+    crumple. Paper: 7% squash at most; the hat, brim, cape, its fold and the tails lag. 0 the
+    recoil (snapped back and stretched, the hands flung up, the hat and cape not yet
+    following); 1 the deepest point (squashed, the hat knocked askew, the cape blown
+    forward); 2 the body coming back while the hat overshoots and the cape's fold kinks; 3
+    the settle, the fold last."""
+    free = dict(hip_hand=(False, False), palm=(False, False))
     return [
-        P(lean=-14, hat=(-10.0, 8.0), hipf=-2.0, cape=-0.6, wave=-0.5, brim=-0.6, hip_hand=(False, False), palm=(False, False),
-          hands=((7.0, 30.0, -2.0), (-7.0, 32.0, -2.0)), feet=((3.6, 0.0, 5.0), (-3.6, 0.0, -1.0))),
-        P(lean=-24, hat=(-16.0, 12.0), hipf=-4.0, hip=23.0, cape=-0.9, wave=-0.7, brim=-0.8, hip_hand=(False, False),
-          palm=(False, False), hands=((8.0, 28.0, -4.0), (-8.0, 30.0, -4.0)), feet=((3.6, 0.0, 6.0), (-3.6, 0.0, 0.0))),
+        P(lean=-16, hat=(-6.0, 4.0), hipf=-2.0, stretch=0.7, cape=-0.2, wave=0.0, brim=-0.2, tails=-0.2,
+          hands=((7.0, 33.0, 0.0), (-7.0, 34.5, 0.0)), feet=((3.6, 0.0, 5.0), (-3.6, 0.0, -1.0)), toe=(0.0, 0.4),
+          **free),
+        P(lean=-24, hat=(-16.0, 12.0), hipf=-4.0, hip=23.0, stretch=-0.9, cape=-0.7, wave=-0.3, brim=-0.8, tails=-0.5,
+          hands=((8.0, 28.0, -4.0), (-8.0, 30.0, -4.0)), feet=((3.6, 0.0, 6.0), (-3.6, 0.0, 0.0)), **free),
+        P(lean=-18, hat=(-19.0, 15.0), hipf=-3.5, hip=23.6, stretch=-0.25, cape=-0.95, wave=-0.8, brim=-0.5,
+          tails=-0.6, hands=((8.0, 29.5, -2.0), (-8.0, 31.0, -3.0)), feet=((3.6, 0.0, 6.0), (-3.6, 0.0, 0.0)),
+          **free),
+        P(lean=-15, hat=(-12.0, 9.0), hipf=-2.5, hip=24.3, stretch=0.1, cape=-0.6, wave=-0.9, brim=-0.3, tails=-0.3,
+          hands=((7.0, 30.0, -2.0), (-7.0, 32.0, -2.0)), feet=((3.6, 0.0, 5.5), (-3.6, 0.0, -0.5)), **free),
     ]
 
 
 def guard_row():
+    """The cape swept up in front like a curtain. The view shows frame 0 while he holds
+    guard and frame 1 for the 10 ticks after a blocked hit; 2 and 3 finish the shiver for a
+    view that steps through them. 0 the hold; 1 the blow (pushed back, squashed, the cape's
+    fold kinked in, the brim bent); 2 the rebound (the fold snapping out); 3 the settle."""
     g = dict(cape_up=True, hands=((11.0, 46.0, 8.0), (-11.0, 45.0, 8.0)), hip_hand=(False, False), palm=(False, False),
-             lean=6, hip=24.0, feet=((3.6, 0.0, 3.0), (-3.6, 0.0, -4.0)), hat=(4.0, 0.0), brim=0.2)
-    return [P(**g), P(**dict(g, hipf=-1.5, hat=(2.0, 0.0), wave=0.6, brim=-0.2))]
+             lean=6, hip=24.0, feet=((3.6, 0.0, 3.0), (-3.6, 0.0, -4.0)), hat=(4.0, 0.0), brim=0.2, stretch=-0.3)
+    return [
+        P(**g),
+        P(**dict(g, hipf=-1.8, lean=3, hat=(1.0, 0.0), wave=0.8, brim=-0.4, stretch=-0.9,
+                 hands=((11.0, 45.0, 6.3), (-11.0, 44.0, 6.3)))),
+        P(**dict(g, hipf=-0.9, lean=7, hat=(6.0, 0.0), wave=-0.5, brim=0.5, stretch=0.25,
+                 hands=((11.0, 46.5, 9.0), (-11.0, 45.5, 9.0)))),
+        P(**dict(g, hipf=-0.3, hat=(4.5, 0.0), wave=0.2, brim=0.25, stretch=-0.4)),
+    ]
 
 
 def ko_row():
-    """Crumples like dropped paper, flat on the floor, the hat rolling off."""
+    """Crumples like dropped paper, the hat flying off (8 frames at 6 ticks). In the game
+    his knockout scatters the sprite into pieces at once (ko_fx "scatter"), so only a
+    knockdown shows this row: frame 1, then frame 2 held. 0 the blow (snapped back,
+    stretched, the hat knocked up); 1 folding up, the hat in the air; 2 crumpled down, the
+    hat falling; 3 the hat lands, the paper springs open a little; 4 the hat bounces, the
+    paper settles; 5-6 the hat rolls to a stop; 7 flat, still."""
+    free = dict(hip_hand=(False, False), palm=(False, False))
     return [
-        P(lean=-20, hat=(-14.0, 10.0), hipf=-3.0, hip=22.0, squash=0.15, cape=-0.8, wave=-0.6, brim=-0.7,
-          hip_hand=(False, False), palm=(False, False), hands=((8.0, 24.0, -3.0), (-8.0, 26.0, -3.0))),
-        P(squash=0.5, hip_hand=(False, False), palm=(False, False), hands=((8.0, 12.0, 2.0), (-8.0, 12.0, -2.0)),
-          hat_off=(10.0, 4.0, -14.0), cape=-0.4, wave=0.4, brim=0.4),
-        P(squash=0.85, hip_hand=(False, False), palm=(False, False), hands=((8.0, 5.0, 4.0), (-8.0, 5.0, -2.0)),
-          hat_off=(16.0, 4.0, -22.0), cape=-0.2, wave=0.2),
+        P(lean=-22, hat=(-20.0, 12.0), hipf=-3.0, hip=25.5, stretch=0.8, cape=-0.6, wave=0.0, brim=-0.8, tails=-0.4,
+          hands=((9.0, 34.0, -2.0), (-9.0, 36.0, -3.0)), feet=((3.6, 0.0, 5.0), (-3.6, 0.0, -1.0)), toe=(0.0, 0.5),
+          **free),
+        P(squash=0.45, hands=((8.0, 14.0, 2.0), (-8.0, 15.0, -2.0)), hat_off=(8.0, 15.0, -12.0), cape=-0.6, wave=0.5,
+          brim=0.5, **free),
+        P(squash=0.82, hands=((8.0, 6.0, 4.0), (-8.0, 6.0, -2.0)), hat_off=(14.0, 8.0, -20.0), cape=-0.3, wave=0.4,
+          brim=0.3, **free),
+        P(squash=0.74, hands=((8.0, 7.0, 4.0), (-8.0, 7.0, -2.0)), hat_off=(17.0, 3.5, -24.0), cape=-0.25,
+          wave=0.3, brim=-0.4, **free),
+        P(squash=0.88, hands=((8.0, 4.5, 4.0), (-8.0, 4.5, -2.0)), hat_off=(19.0, 5.5, -26.5), cape=-0.2, wave=0.15,
+          brim=0.3, **free),
+        P(squash=0.9, hands=((8.0, 4.0, 4.0), (-8.0, 4.0, -2.0)), hat_off=(20.0, 3.0, -28.0), cape=-0.2, wave=0.05,
+          **free),
+        P(squash=0.92, hands=((8.0, 4.0, 4.0), (-8.0, 4.0, -2.0)), hat_off=(20.0, 3.0, -28.0), cape=-0.2, brim=0.1,
+          **free),
         P(squash=0.92, hip_hand=(False, False), palm=(False, False), hands=((8.0, 4.0, 4.0), (-8.0, 4.0, -2.0)),
           hat_off=(20.0, 3.0, -28.0), cape=-0.2),
     ]
