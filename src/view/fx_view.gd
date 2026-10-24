@@ -87,11 +87,16 @@ extends Node2D
 ## snakes' venom dripping) or "dirt" (a puff of dust and clods as he flops over) or
 ## "cash" (the bag bursts: bills flutter down, coins roll away) or "melt" (he melts into a
 ## puddle of syrup and slush).
-## Status drawn from creature state: Stoneskin plates while `shield` > 0, a rooted ring
-## while armored, pebbles at the feet while slowed, a red "!" while taunted, and a pink
-## down-arrow while tenderized (taking extra damage), green bubbles while poisoned,
-## spinning stars while blinded, and rubble round the feet while rooted
-## (a petrified statue's grey is CreatureView's shader).
+## Status drawn from creature state (`_draw_status`; every layer skips a fighter `shown` hides):
+##   shield       Stoneskin plates (and CreatureView's pale rim)   armored  amber ring
+##   rooted       rubble round the feet                            taunted  red "!" and a dotted red tether to the taunter
+##   poisoned     green bubbles, a row of pips per Frenzy stack    blinded  small yellow stars circling the head
+##   stunned      (crumpled) little birds circling the head        slowed   pebbles at the feet, icy motes trailing, a cool tint
+##   tenderized   pink down-arrow, plus CreatureView's slow pink pulse on the sprite
+##   frozen       an ice block round the sprite: faceted outline, glints, cracks as it ends
+##   petrified    CreatureView's grey shader, cracks over it as it ends (dust ring on the shatter)
+##   pickpocket   gold glints on the thief while the stolen might lasts; coins drift from
+##                the victim to the thief while the victim is weakened
 
 const SHEET := preload("res://assets/sprites/fx.png")
 const CARAVAN := preload("res://assets/sprites/caravan.png")  ## 4 frames of 48x40 (tools/gen_arenas.py)
@@ -134,6 +139,10 @@ const C_DIRT: Array[Color] = [Color("56391f"), Color("7a5634"), Color("9c744c")]
 const C_LAMP := Color("fff6b0")
 const C_GOLD: Array[Color] = [Color("c89a1e"), Color("f2c94c"), Color("fff0a0")]
 const C_CASH: Array[Color] = [Color("3f8f3f"), Color("7fd67f")]
+const C_BIRD := Color("cfe6ff")
+const C_BIRD_BEAK := Color("ffa63a")
+const C_SLOW_MOTE := Color("bfe4f5")
+const C_COIN: Array[Color] = [Color("a8781a"), Color("f2c94c"), Color("fff0a0")]
 const C_ICE: Array[Color] = [Color("64bad0"), Color("a8eef8"), Color("f0fcff")]
 const C_SYRUP: Array[Color] = [Color("f0d21e"), Color("e8303a"), Color("46c846")]
 const C_BLEED: Array[Color] = [Color("7a0e1c"), Color("cc2a3a"), Color("ff7f86")]
@@ -561,6 +570,8 @@ func spawn(e: Dictionary) -> void:
 				for i in 5:
 					_dust(c.pos + Vector2(randf_range(-10, 10), randf_range(-3, 3)), Vector2(randf_range(-0.4, 0.4), -0.4))
 				_add({"kind": "lines", "pos": c.pos + Vector2(0, -_chest(c)), "life": 10, "size": 1.6, "color": Color.WHITE})
+				_add({"kind": "ring", "pos": c.pos, "life": 16, "radius": c.radius + 14.0,
+					"color": C_ICE[2] if bool(e.get("ice", false)) else C_GREY[3]})
 				_text(c.pos + Vector2(0, -_top(c) - 22), "SHATTER!", Color("ffd166"), 10, 50.0)
 				shake_out = maxf(shake_out, 3.0)
 		"land_hard":
@@ -3472,6 +3483,17 @@ func _draw_status(ci: CanvasItem, c: CreatureSim) -> void:
 			var at := (c.pos + Vector2(cos(a) * (c.radius + 2.0), sin(a) * 3.0 - 1.0)).round()
 			ci.draw_rect(Rect2(at - Vector2(1, 1), Vector2(3, 2)), C_OUTLINE)
 			ci.draw_rect(Rect2(at - Vector2(0, 1), Vector2(1, 1)), C_GREY[2])
+		_draw_slow_motes(ci, c)
+	if c.stone > 0:
+		_draw_statue(ci, c, lift)
+	elif c.state == CreatureSim.State.CRUMPLE and c.stun > 0:
+		_draw_birdies(ci, c, lift)
+	if c.taunt > 0:
+		_draw_tether(ci, c)
+	if c.atk_buff > 0 and c.atk_mult > 1.0:
+		_draw_glints(ci, c, lift)
+	elif c.atk_buff > 0 and c.atk_mult < 1.0:
+		_draw_stolen_coins(ci, c, lift)
 	if c.taunt > 0 and (c.taunt > 30 or (_tick / 4) % 2 == 0):
 		var top := (c.pos + Vector2(0, -_top(c) - 10.0 - lift)).round()
 		_bang(ci, top)
@@ -3499,6 +3521,120 @@ func _draw_status(ci: CanvasItem, c: CreatureSim) -> void:
 		ci.draw_colored_polygon(tri, C_OUTLINE)
 		var tri2 := PackedVector2Array([at + Vector2(-2, -1), at + Vector2(3, -1), at + Vector2(0.5, 2)])
 		ci.draw_colored_polygon(tri2, C_TENDER)
+
+## Frozen: an ice block round the sprite (a faceted outline, a pale fill, glints that twinkle);
+## petrified: just the cracks. Both crack up more and more as the last 40 ticks run out.
+func _draw_statue(ci: CanvasItem, c: CreatureSim, lift: float) -> void:
+	var top := _top(c)
+	var hw := c.radius + 4.0
+	var base := c.pos + Vector2(0, 2.0 - lift)
+	var ice := c.stone_ice
+	if ice:
+		var pts := PackedVector2Array([
+			Vector2(-hw, 0), Vector2(-hw - 1, -top * 0.3), Vector2(-hw + 2, -top * 0.85),
+			Vector2(-hw * 0.4, -top - 3), Vector2(hw * 0.4, -top - 3), Vector2(hw - 2, -top * 0.85),
+			Vector2(hw + 1, -top * 0.3), Vector2(hw, 0)])
+		for i in pts.size():
+			pts[i] = (base + pts[i]).round()
+		ci.draw_colored_polygon(pts, Color(C_ICE[1], 0.3))
+		var ring := pts.duplicate()
+		ring.append(pts[0])
+		ci.draw_polyline(ring, Color(C_ICE[2], 0.9), 1.0)
+		ci.draw_polyline(PackedVector2Array([ring[1] + Vector2(2, 0), ring[3] + Vector2(0, 2)]), Color(C_ICE[1], 0.5), 1.0)
+		ci.draw_polyline(PackedVector2Array([ring[6] - Vector2(2, 0), ring[4] + Vector2(0, 2)]), Color(C_ICE[0], 0.5), 1.0)
+		for k in 2:
+			var ph := (_tick + c.id * 11 + k * 17) % 40
+			if ph < 6:
+				var gp := (base + Vector2(float((c.id * 5 + k * 7 + _tick / 40 * 3) % 9 - 4) * hw * 0.2,
+					-top * (0.25 + 0.5 * k))).round()
+				var ga := 1.0 - absf(ph - 3.0) / 3.0
+				ci.draw_rect(Rect2(gp - Vector2(2, 0), Vector2(5, 1)), Color(1, 1, 1, ga))
+				ci.draw_rect(Rect2(gp - Vector2(0, 2), Vector2(1, 5)), Color(1, 1, 1, ga))
+	if c.stone < 40:
+		var n := 1 + (40 - c.stone) / 10
+		var col := Color(C_ICE[2], 0.95) if ice else C_CRACK
+		for i in n:
+			var x0 := (float((i * 5 + c.id * 3) % 9) - 4.0) * hw * 0.2
+			var y0 := -top * (0.15 + 0.2 * float(i % 4))
+			var p0 := (base + Vector2(x0, y0)).round()
+			ci.draw_polyline(PackedVector2Array([p0, p0 + Vector2(2, -3), p0 + Vector2(-1, -5), p0 + Vector2(2, -8)]), col, 1.0)
+
+
+## Stunned (crumpled): little birds circling over the head, wide and slow.
+func _draw_birdies(ci: CanvasItem, c: CreatureSim, lift: float) -> void:
+	for i in 3:
+		var a := _tick * 0.1 + TAU * i / 3.0
+		var at := (c.pos + Vector2(cos(a) * 10.0, -_top(c) * 0.85 - lift + sin(a) * 3.0)).round()
+		var dirx := -1.0 if sin(a) > 0.0 else 1.0  # moving left along the near side
+		var flap := (_tick / 4 + i) % 2
+		ci.draw_rect(Rect2(at + Vector2(-2, -1), Vector2(5, 3)), C_OUTLINE)
+		ci.draw_rect(Rect2(at + Vector2(-1, 0), Vector2(3, 1)), C_BIRD)
+		ci.draw_rect(Rect2(at + Vector2(0, -1 if flap == 0 else 1), Vector2(1, 1)), C_BIRD)
+		ci.draw_rect(Rect2(at + Vector2(dirx * 2.0, 0), Vector2.ONE), C_BIRD_BEAK)
+
+
+## Taunted: a dotted red tether from its feet to the one it is being dragged toward.
+func _draw_tether(ci: CanvasItem, c: CreatureSim) -> void:
+	var t := c.taunter(sim)
+	if t == null or not shown(t):
+		return
+	var d := t.pos - c.pos
+	var dist := d.length()
+	if dist < 20.0:
+		return
+	var u := d / dist
+	var a := 0.55 if (c.taunt > 30 or (_tick / 4) % 2 == 0) else 0.25
+	var k := 0
+	var s := c.radius + 6.0 + float(_tick % 8)  # marching toward the taunter
+	while s < dist - t.radius - 4.0 and k < 40:
+		ci.draw_rect(Rect2((c.pos + u * s).round(), Vector2.ONE), Color(C_TAUNT, a))
+		s += 8.0
+		k += 1
+
+
+## Slowed: icy motes shed behind it (opposite its walk; drifting up when it stands still).
+func _draw_slow_motes(ci: CanvasItem, c: CreatureSim) -> void:
+	var back := -c.walk_vel.normalized() if c.walk_vel.length() > 0.1 else Vector2(0, -0.4)
+	for i in 3:
+		var ph := float((_tick + i * 9 + c.id * 5) % 27) / 27.0
+		var jitter := float((i * 7 + c.id * 3) % 5 - 2)
+		var at := (c.pos + back * (3.0 + ph * 12.0) + Vector2(jitter, -1.0 - ph * 3.0)).round()
+		ci.draw_rect(Rect2(at, Vector2(2, 2) if ph < 0.6 else Vector2.ONE), Color(C_SLOW_MOTE, 0.9 * (1.0 - ph)))
+
+
+## Pickpocket, the thief: gold glints twinkling over the stolen might.
+func _draw_glints(ci: CanvasItem, c: CreatureSim, lift: float) -> void:
+	var ph := (_tick + c.id * 9) % 24
+	if ph >= 7:
+		return
+	var a := 1.0 - absf(ph - 3.0) / 3.5
+	var at := (c.pos + Vector2(float((_tick / 24 * 5 + c.id) % 11 - 5) * 1.5,
+		-_top(c) * (0.35 + 0.12 * float((_tick / 24) % 5)) - lift)).round()
+	ci.draw_rect(Rect2(at - Vector2(2, 0), Vector2(5, 1)), Color(C_COIN[2], a))
+	ci.draw_rect(Rect2(at - Vector2(0, 2), Vector2(1, 5)), Color(C_COIN[2], a))
+	ci.draw_rect(Rect2(at, Vector2.ONE), Color(1, 1, 1, a))
+
+
+## Pickpocket, the victim: coins drift off it toward the thief while its power is stolen.
+func _draw_stolen_coins(ci: CanvasItem, c: CreatureSim, lift: float) -> void:
+	var thief: CreatureSim = null
+	var best := 1.0e9
+	for o in sim.creatures:
+		if o.team != c.team and o.atk_buff > 0 and o.atk_mult > 1.0 and o.state != CreatureSim.State.KO:
+			var dd := o.pos.distance_squared_to(c.pos)
+			if dd < best:
+				best = dd
+				thief = o
+	if thief == null:
+		return
+	var from := c.pos + Vector2(0, -_chest(c) - lift)
+	var to := thief.pos + Vector2(0, -_chest(thief) - thief.air_height())
+	for i in 2:
+		var ph := float((_tick + i * 15 + c.id * 4) % 30) / 30.0
+		var at := from.lerp(to, ph) + Vector2(0, -sin(ph * PI) * 6.0)
+		var ar := at.round()
+		ci.draw_rect(Rect2(ar - Vector2(2, 2), Vector2(4, 4)), C_OUTLINE)
+		ci.draw_rect(Rect2(ar - Vector2(1, 1), Vector2(2, 2)), C_COIN[1] if (_tick / 3 + i) % 2 == 0 else C_COIN[2])
 
 
 func _bang(ci: CanvasItem, at: Vector2) -> void:
