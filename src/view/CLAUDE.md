@@ -109,7 +109,7 @@ dig/slosh/poof/chop_chop/shout sounds.
   sheet choice → `_pick_view`, `_resolve`, `_load_view`; squash → `_update_squash`, `view_lift`;
   victory pose → `victory`, `_victory_frame`
 - HUD panels, stamina bar (red flash when exhausted), cooldown bars → `hud.gd:_panel`; combo
-  → `_combo`; cut-in → `cut_in`, `_draw_cut_in`; team HUD → `_team_panels`, `_card`;
+  → `_combo`; cut-in → `cut_in`, `_draw_cut_in` (+ `_draw_cut_in_dim`, drawn first so panels stay lit; streaks, tear and name slam all step on `_cut.t` in whole pixels, colour = the fighter's `fx_color`; no cut-in at all when a crowded Surge does not freeze); team HUD → `_team_panels`, `_card`;
   training tags and DPS → `_training_tags`, `_watch_dummy`, `_dps`, `dps_meter.gd`
 - Surge aura → `surge_aura.gd` (look from the JSON `surge_aura` block)
 - Range rings → `range_rings.gd:rings`; F1 hitbox overlay → `debug_view.gd`; F9 performance
