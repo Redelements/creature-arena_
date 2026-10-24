@@ -523,6 +523,23 @@ class Pose:
         self.raise_ = kw.get("raise_", 0.0)              # hair raised up like a hood (0..1)
         self.spit = kw.get("spit", False)                # the front snakes spitting
         self.limp = kw.get("limp", 0.0)                  # knocked out: hair droops (0..1)
+        # The animation pass (docs/anim_preview/hissy_motion_plan.md). The defaults draw
+        # what was drawn before, so the game's rows render the same.
+        self.sq = kw.get("sq", 0.0)                      # the head squashes (+) / stretches (-), 10% at 1
+        # Hair sway as a wave travelling down each snake: `wave` is the base's phase
+        # (None: the old wiggle), the tip `tip_lag` radians behind, `sway` units at the tip.
+        self.wave = kw.get("wave", None)
+        self.sway = kw.get("sway", 3.6)
+        self.tip_lag = kw.get("tip_lag", math.pi / 2)
+        # The hair's tips can be thrown later than its bases (None: the same as the base):
+        # each snake bends from the base's direction to the tip's along its length.
+        self.lash_tip = kw.get("lash_tip", None)
+        self.rear_tip = kw.get("rear_tip", None)
+        self.raise_tip = kw.get("raise_tip", None)
+        # The glove snakes' bow: ((dc1), (dc2)) added to the arm curve's control points
+        # (None: straight), so the snake body trails its glove (`trail_arms`).
+        self.near_bow = kw.get("near_bow", None)
+        self.far_bow = kw.get("far_bow", None)
 
 
 # She floats: the gloves never touch the floor. At rest they're up in a boxer's guard,
@@ -544,6 +561,13 @@ class Head:
         self.yaw = pose.yaw + cheat
         h = pose.head
         self.c = np.array([h[0], HEAD_UP * (0.6 + 0.4 * pose.squash) + h[1], h[2]])
+        # squash and stretch (the pass): up to 10% on the head's height, volume kept
+        self.radii = HEAD_R
+        if pose.sq:
+            ky = 1.0 - 0.1 * pose.sq
+            kr = 1.0 / math.sqrt(ky)
+            self.radii = (HEAD_R[0] * kr, HEAD_R[1] * ky, HEAD_R[2] * kr)
+            self.c = self.c + np.array([0.0, HEAD_R[1] * (ky - 1.0) * 0.5, 0.0])
 
     def R(self, v):
         v = rot_fwd(tuple(v), self.p.roll)
@@ -556,22 +580,24 @@ class Head:
 
     def surface(self, az, el, out=0.0):
         a, e = math.radians(az), math.radians(el)
-        rl, ru, rf = HEAD_R
+        rl, ru, rf = self.radii
         local = ((rl + out) * math.cos(e) * math.sin(a), (ru + out) * math.sin(e), (rf + out) * math.cos(e) * math.cos(a))
         return self.world(local)
 
     def normal(self, az, el):
         a, e = math.radians(az), math.radians(el)
-        rl, ru, rf = HEAD_R
+        rl, ru, rf = self.radii
         v = np.array([math.cos(e) * math.sin(a) / rl, math.sin(e) / ru, math.cos(e) * math.cos(a) / rf])
         v /= np.linalg.norm(v)
         return self.R(v)
 
 
 def head_samples(hd):
-    rl, ru, rf = HEAD_R
+    rl, ru, rf = hd.radii
     pos, nrm = ellipsoid((0.0, 0.0, 0.0), (rl, ru, rf))
     local = pos.copy()
+    if hd.radii is not HEAD_R:  # squashed: the face texture is looked up on the unsquashed head
+        local = local * (np.array(HEAD_R) / np.array(hd.radii))
     rot = np.stack([hd.R(e) for e in np.eye(3)], axis=1)  # columns: local axes in world
     wpos = hd.c + pos @ rot.T
     wn = nrm @ rot.T
@@ -580,22 +606,51 @@ def head_samples(hd):
     return pk
 
 
-def snake(root, root_n, tip_dir, length, phase, amp, bend_ref, spit=False, mouth_open=False):
-    """A snake from `root` (on the head) heading `tip_dir`, wriggling sideways."""
-    d = np.asarray(tip_dir, float)
-    d /= np.linalg.norm(d)
+def _side_of(d, bend_ref):
     side = np.cross(d, bend_ref)
     if np.linalg.norm(side) < 1e-3:
         side = np.cross(d, np.array([1.0, 0.0, 0.0]))
-    side /= np.linalg.norm(side)
+    return side / np.linalg.norm(side)
+
+
+def snake(root, root_n, tip_dir, length, phase, amp, bend_ref, spit=False, mouth_open=False,
+          end_dir=None, wave=None):
+    """A snake from `root` (on the head) heading `tip_dir`, wriggling sideways.
+
+    The animation pass adds two options (both None: the snake as it always was).
+    `end_dir`: the direction its far end heads, so the snake bends from `tip_dir` at the
+    base to `end_dir` at the tip (a lash or a toss that reaches the tip later).
+    `wave` = (base phase, tip lag, sway): a sideways sway travelling down the snake, the
+    base leading and the tip `tip lag` radians behind, `sway` units at the tip, on top of
+    the snake's own wiggle (`phase`, `amp`)."""
+    d = np.asarray(tip_dir, float)
+    d /= np.linalg.norm(d)
+    side = _side_of(d, bend_ref)
     n = 18
     pts = []
     root = np.asarray(root, float)
     start = root + np.asarray(root_n) * 1.0
-    for k in range(n + 1):
-        s = length * k / n
-        w = math.sin(s * 0.62 + phase) * amp * min(1.0, s / 4.0)
-        pts.append(start + d * s + side * w)
+    if end_dir is None and wave is None:
+        for k in range(n + 1):
+            s = length * k / n
+            w = math.sin(s * 0.62 + phase) * amp * min(1.0, s / 4.0)
+            pts.append(start + d * s + side * w)
+    else:
+        e = d if end_dir is None else np.asarray(end_dir, float) / np.linalg.norm(end_dir)
+        p = start.copy()
+        for k in range(n + 1):
+            u = k / n
+            s = length * u
+            dk = d * (1.0 - u) + e * u
+            dk /= np.linalg.norm(dk)
+            sk = _side_of(dk, bend_ref)
+            w = math.sin(s * 0.62 + phase) * amp * min(1.0, s / 4.0)
+            if wave is not None:
+                w0, lagr, sway = wave
+                w += sway * u * math.sin(w0 - lagr * u)
+            pts.append(p + sk * w)
+            p = p + dk * (length / n)
+        side = sk
     pts = np.array(pts)
     radii = [1.7 - 0.4 * k / n for k in range(n + 1)]
     parts = [tube_spotted(pts, radii, "snake", "spot", phase=phase)]
@@ -651,15 +706,29 @@ def build(pose, view):
     for i, (az, el, out_up, length, ph, amp) in enumerate(HAIR):
         root = hd.surface(az, el, out=-0.6)
         nrm = hd.normal(az, el)
-        dirv = nrm * (1.0 - out_up) + up * out_up
-        dirv = dirv + fwd * (pose.lash * (1.3 if abs(az) < 120 else 0.6)) - fwd * pose.rear * 0.9 \
-            + up * pose.raise_ * 0.9 - up * pose.limp * 1.4
+        rest = nrm * (1.0 - out_up) + up * out_up
+
+        def toss(lash_, rear_, raise_, az=az, rest=rest):
+            return rest + fwd * (lash_ * (1.3 if abs(az) < 120 else 0.6)) - fwd * rear_ * 0.9 \
+                + up * raise_ * 0.9 - up * pose.limp * 1.4
+        dirv = toss(pose.lash, pose.rear, pose.raise_)
         spit = pose.spit and abs(az) < 50
         if spit:
             dirv = dirv + fwd * 1.4
-        L = length * (1.0 + 0.35 * pose.lash) * (1.0 - 0.15 * pose.limp)
+        end_dir = wave = None
+        lash_len = pose.lash
+        if (pose.lash_tip, pose.rear_tip, pose.raise_tip) != (None, None, None):
+            tl = pose.lash if pose.lash_tip is None else pose.lash_tip
+            end_dir = toss(tl, pose.rear if pose.rear_tip is None else pose.rear_tip,
+                           pose.raise_ if pose.raise_tip is None else pose.raise_tip)
+            if spit:
+                end_dir = end_dir + fwd * 1.4
+            lash_len = max(0.0, (pose.lash + tl) / 2)
+        if pose.wave is not None:
+            wave = (pose.wave + ph, pose.tip_lag, pose.sway * amp / 2.8)
+        L = length * (1.0 + 0.35 * lash_len) * (1.0 - 0.15 * pose.limp)
         parts += snake(root, nrm, dirv, L, pose.phase + ph, amp * pose.amp * (1.0 - 0.6 * pose.limp),
-                       fwd, spit=spit)
+                       fwd, spit=spit, end_dir=end_dir, wave=wave)
     # the two glove snakes, from under her head down to the gloves
     for s, g in ((1.0, pose.near), (-1.0, pose.far)):
         gparts, wrist, a = glove(g[0], g[1])
@@ -667,6 +736,10 @@ def build(pose, view):
         root = hd.surface(52 * s, -58, out=-0.8)
         c1 = root + np.array([s * 2.0, -6.0, -1.0])
         c2 = wrist - a * 5.0 + np.array([0.0, 3.0, 0.0])
+        bow = pose.near_bow if s > 0 else pose.far_bow
+        if bow is not None:
+            c1 = c1 + np.asarray(bow[0], float)
+            c2 = c2 + np.asarray(bow[1], float)
         pts = [bezier(tuple(root), tuple(c1), tuple(c2), tuple(wrist), k / 16.0) for k in range(17)]
         parts.append(tube_spotted(pts, [2.5 - 0.3 * k / 16 for k in range(17)], "snake", "spot",
                                   phase=1.3 * s + pose.phase))
@@ -802,7 +875,7 @@ def guard_up(lift=0.0, near_dy=0.0, far_dy=0.0, near_df=0.0, far_df=0.0, **kw):
              far=G(fl, fu + lift + FLOAT + far_dy, ff + far_df, fp, fy), **kw)
 
 
-def idle():
+def _v1_idle():
     """Floating in place, gloves up: a slow bob, the gloves trailing it a little, hair swaying."""
     return [
         guard_up(0.0, phase=0.0),
@@ -812,7 +885,7 @@ def idle():
     ]
 
 
-def run():
+def _v1_run():
     """Gliding forward through the air, gloves up: she leans in, the hair streams back, and the
     gloves weave like a boxer's shuffle while she bobs."""
     k = dict(pitch=-8, rear=0.55, amp=0.8)
@@ -826,7 +899,7 @@ def run():
     ]
 
 
-def jab():
+def _v1_jab():
     """Snake Jab (light 1): the near glove snaps out at head height and back."""
     return [
         P(near=G(6.5, 14.0, 4.0, 10), far=G(-6.5, 16.0, 8.0, 20), head=(0, 0, -1), yaw=6, face="grin"),
@@ -836,7 +909,7 @@ def jab():
     ]
 
 
-def jab2():
+def _v1_jab2():
     """Snake Jab, the other glove: the far glove crosses in."""
     return [
         P(near=G(6.5, 16.0, 8.0, 20), far=G(-6.5, 14.0, 2.0, 10), head=(0, 0, -1), yaw=-6),
@@ -846,7 +919,7 @@ def jab2():
     ]
 
 
-def lash():
+def _v1_lash():
     """Hair Lash (light 3): she ducks her head and the hair snakes whip forward and bite."""
     return [
         P(rear=0.8, head=(0, 1.0, -2), pitch=10, near=G(7, 12, 4, 10), far=G(-7, 12, 2, 10)),
@@ -857,7 +930,7 @@ def lash():
     ]
 
 
-def uppercut():
+def _v1_uppercut():
     """Coil Uppercut: charge A/B (the near glove coiled low), rise, the uppercut, the
     follow-through, recover. Hiss Off (the tag-in) plays from frame 3."""
     return [
@@ -872,7 +945,7 @@ def uppercut():
     ]
 
 
-def spit():
+def _v1_spit():
     """Venom Spit: the head rears back, the front snakes draw back, then spit; recover."""
     return [
         P(rear=0.5, pitch=12, head=(0, 1.0, -2)),
@@ -883,7 +956,7 @@ def spit():
     ]
 
 
-def gaze():
+def _v1_gaze():
     """Stone Gaze: she leans in and stares, eyes glowing, the hair rising like a hood
     (frames 1 and 2 alternate while it lasts); recover."""
     return [
@@ -896,7 +969,7 @@ def gaze():
     ]
 
 
-def petrify():
+def _v1_petrify():
     """Petrify Punch: the near glove winds far back (a wound-up haymaker), holds, then
     the punch lands at full stretch; follow-through, recover."""
     return [
@@ -914,7 +987,7 @@ def petrify():
     ]
 
 
-def dodge():
+def _v1_dodge():
     """Ducks and rolls: the head drops between the gloves and tips over."""
     return [
         P(head=(0, -8.0, 0), squash=0.8, rear=0.5, near=G(8, 12, 7, 25), far=G(-8, 13, 5, 25)),
@@ -924,7 +997,7 @@ def dodge():
     ]
 
 
-def hurt():
+def _v1_hurt():
     return [
         P(head=(0, 0.0, -4), pitch=16, face="hurt", rear=0.8, near=G(8, 14, 2, -10), far=G(-8, 15, 0, -10)),
         P(head=(0, -6.0, -5), pitch=24, roll=20, face="hurt", rear=1.0, squash=0.85, near=G(8, 11, -1, -20),
@@ -932,14 +1005,14 @@ def hurt():
     ]
 
 
-def guard():
+def _v1_guard():
     """Gloves up in front of her face, snakes pulled in."""
     g = dict(near=G(4.0, 26.0, 9.0, 70), far=G(-4.0, 24.0, 10.0, 70), head=(0, -2.0, -1), pitch=6, rear=0.5,
              amp=0.4)
     return [P(**g), P(**dict(g, head=(0, -3.0, -1.5), face="hurt"))]
 
 
-def ko():
+def _v1_ko():
     """Knocked out: the head drops onto the gloves, then tips onto its side, hair limp."""
     return [
         P(head=(0, -4.0, -4), pitch=20, face="hurt", rear=0.8, limp=0.3),
@@ -952,20 +1025,355 @@ def ko():
     ]
 
 
+# ------------------------------------------------------------------ the animation pass
+# Every ability redrawn with the Crease recipe (docs/anim_preview/hissy_motion_plan.md):
+# doubled frames on the same clock, eased spacing, anticipation and held releases, and
+# overlap everywhere, because nothing on her moves at the same time as anything else:
+# the gloves trail the head, the glove snakes trail the gloves (`trail_arms`), the hair
+# sways as a wave down each snake and is thrown base first, tips last. The head squashes
+# up to 10% (flesh and scales). Not in the game yet: `python3 tools/gen_hissy.py anim`
+# renders these into docs/anim_preview/.
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import splat3d as S  # noqa: E402  (the shared animation tools only; the renderer is this file's)
+
+TAU = 2.0 * math.pi
+# Gloves travel on curves between key poses; the face and the venom come whole.
+tween = S.tweener(arc_fields=("near", "far"), snap=("face", "spit"))
+
+
+def GF(lat, up, fwd, pitch=0.0, yaw=0.0):
+    """A glove at a height measured as the old attack poses measured it (no float)."""
+    return G(lat, up + FLOAT, fwd, pitch, yaw)
+
+
+def HF(up=0.0, fwd=0.0, lat=0.0):
+    """The head's offset, floating."""
+    return (lat, up + FLOAT, fwd)
+
+
+# the hair at rest in the new rows: a gentle travelling sway, the snakes' own wiggle held
+HAIR_K = dict(phase=0.0, amp=0.85, wave=0.0, sway=3.2)
+
+
+def NP(**kw):
+    """A pose of the pass: the hair's sway on unless the pose says otherwise."""
+    for k, v in HAIR_K.items():
+        kw.setdefault(k, v)
+    return P(**kw)
+
+
+def trail_arms(frames, k=0.55, k1=0.2, loop=False):
+    """The glove snakes trail their gloves: each frame's arm curve bows back toward where
+    the glove was a frame earlier (less the head's own move, which carries the arm's root),
+    so a glove that snaps out pulls a bent snake after it, and the snake straightens a
+    frame later when the glove holds. Sets `near_bow` / `far_bow` in place."""
+    n = len(frames)
+    for name in ("near", "far"):
+        gs = [np.array(getattr(p, name)[0], float) for p in frames]
+        hs = [np.array(p.head, float) for p in frames]
+        for i, p in enumerate(frames):
+            j = (i - 1) % n if loop else max(0, i - 1)
+            d = (gs[j] - gs[i]) - 0.5 * (hs[j] - hs[i])
+            setattr(p, name + "_bow", (tuple(d * k1), tuple(d * k)))
+    return frames
+
+
+def wave_on(frames, per_frame, start=0.0):
+    """The hair's sway phase advancing `per_frame` radians a frame."""
+    for i, p in enumerate(frames):
+        p.wave = start + per_frame * i
+    return frames
+
+
+# ---- idle: the hover bob (8 frames x 8 ticks = 64)
+
+def idle_key(u):
+    """The bob, `u` from 0 (A, the top: a touch of stretch) to 1 (B, the bottom: a 4%
+    squash that only comes in near the bottom, so it has an accent)."""
+    return guard_up(2.6 - 3.0 * u, sq=0.4 * u ** 4 - 0.3 * (1 - u) ** 4, **HAIR_K)
+
+
+def idle():
+    """Hovering, gloves up. The bob is eased (she hangs at the top and the bottom); the
+    gloves ride it a frame late, the glove snakes a frame later still, and the hair sways
+    as one wave a cycle travelling from the base to the tip (the tip 2 frames behind)."""
+    out = S.cycle(idle_key, S.EASE_8)
+    wave_on(out, TAU / 8)
+    S.lag(out, ("near", "far"), 1)
+    return trail_arms(out, loop=True)
+
+
+# ---- run: the glide (12 frames x 2 ticks = 24)
+
+def run():
+    """Gliding: the head leads, tipped into the direction; she bobs twice a cycle (gently,
+    no feet), the gloves weave a figure-8 (forward-back once, up-down twice), a frame
+    behind the head, and the hair streams back 3 frames behind the bob, fluttering."""
+    out = []
+    for i in range(12):
+        th = TAU * i / 12
+        bob = math.sin(2 * th)
+        out.append(guard_up(1.2 + 1.1 * bob, head=(0.0, 0.0, 2.5), pitch=-10 - 2 * bob, roll=3 * math.sin(th),
+                            sq=-0.25 * bob,
+                            near_df=3.6 * math.sin(th), near_dy=1.8 * math.sin(2 * th + 0.6),
+                            far_df=-3.6 * math.sin(th), far_dy=1.8 * math.sin(2 * th + 0.6 + math.pi),
+                            rear=0.6 + 0.2 * bob, rear_tip=0.8 + 0.25 * bob, phase=0.0, amp=0.5, sway=2.6))
+    wave_on(out, TAU * 2 / 12)
+    S.lag(out, ("near", "far"), 1)
+    S.lag(out, ("rear", "rear_tip"), 3)
+    return trail_arms(out, loop=True)
+
+
+# ---- the lights: the whip rule
+
+def jab():
+    """Snake Jab (light 1), the near glove. The snake arm coils back (held 2 ticks), the
+    glove snaps out with the snake still bent behind it, the snake straightens a frame
+    later on the held extension (3 ticks, the hit), the glove overshoots down and the snake
+    ripples back to rest."""
+    f = [
+        NP(head=HF(-0.6, -1.0), yaw=4, sq=0.2, near=GF(8.5, 17.0, 9.0, 15), far=GF(-9.0, 18.5, 9.5, 28)),
+        NP(head=HF(0.0, -2.2), yaw=9, pitch=4, sq=0.4, rear=0.25, near=GF(7.5, 13.0, -1.0, -5),
+           far=GF(-8.0, 18.0, 8.0, 25)),
+        NP(head=HF(0.0, 2.0), yaw=-8, sq=-0.3, rear=0.45, face="shout", near=GF(3.0, 23.0, 25.0, 0),
+           far=GF(-8.0, 17.0, 7.0, 22)),
+        NP(head=HF(0.0, 2.6), yaw=-9, sq=-0.4, rear=0.2, lash=0.2, face="shout", near=GF(2.5, 24.0, 28.5, -2),
+           far=GF(-7.5, 16.5, 6.5, 20)),
+        NP(head=HF(-0.4, 2.4), yaw=-7, sq=-0.1, lash=0.3, lash_tip=0.5, near=GF(2.8, 21.5, 29.5, -16),
+           far=GF(-7.5, 16.5, 7.0, 20)),
+        NP(head=HF(-0.6, 1.2), yaw=-3, sq=0.2, lash=0.0, lash_tip=0.3, near=GF(6.5, 17.0, 13.0, 10),
+           far=GF(-8.5, 17.5, 8.0, 24)),
+        NP(head=HF(-0.9, 0.2), yaw=0, sq=0.25, near=GF(8.5, 16.0, 9.0, 22), far=GF(-9.5, 18.0, 9.0, 28)),
+        idle_key(0.1),
+    ]
+    wave_on(f, 0.5)
+    return trail_arms(f)
+
+
+def jab2():
+    """Snake Jab, the other glove (light 2): the far glove crosses in, same whip."""
+    f = [
+        NP(head=HF(-0.6, -1.0), yaw=-4, sq=0.2, near=GF(9.0, 17.0, 9.0, 25), far=GF(-8.5, 17.5, 7.0, 15)),
+        NP(head=HF(0.0, -2.2), yaw=-9, pitch=4, sq=0.4, rear=0.25, near=GF(8.5, 17.5, 8.0, 25),
+           far=GF(-7.5, 13.0, -2.0, -5)),
+        NP(head=HF(0.0, 2.0), yaw=9, sq=-0.3, rear=0.45, face="shout", near=GF(8.0, 16.5, 7.0, 22),
+           far=GF(-1.5, 23.0, 25.0, 0)),
+        NP(head=HF(0.0, 2.6), yaw=11, sq=-0.4, rear=0.2, lash=0.2, face="shout", near=GF(7.5, 16.0, 6.5, 20),
+           far=GF(-1.0, 24.0, 28.0, -2)),
+        NP(head=HF(-0.4, 2.4), yaw=8, sq=-0.1, lash=0.3, lash_tip=0.5, near=GF(7.5, 16.0, 7.0, 20),
+           far=GF(-1.2, 21.5, 29.0, -16)),
+        NP(head=HF(-0.6, 1.2), yaw=3, sq=0.2, lash=0.0, lash_tip=0.3, near=GF(8.5, 17.0, 8.0, 24),
+           far=GF(-5.5, 17.0, 12.0, 10)),
+        NP(head=HF(-0.9, 0.2), yaw=0, sq=0.25, near=GF(9.5, 17.0, 9.0, 26), far=GF(-9.0, 17.0, 8.0, 22)),
+        idle_key(0.1),
+    ]
+    wave_on(f, -0.5)
+    return trail_arms(f)
+
+
+def lash():
+    """Hair Lash (light 3): she ducks and pulls the hair back (held), the bases swing
+    forward first with the tips still trailing, then the tips whip through on the hit
+    (held 3), overshoot down, ripple back, settle."""
+    tuck = dict(near=GF(7.5, 13.0, 5.0, 10), far=GF(-7.5, 13.0, 3.0, 10))
+    f = [
+        NP(head=HF(-0.8, -1.5), pitch=8, sq=0.3, rear=0.45, rear_tip=0.2, **tuck),
+        NP(head=HF(1.0, -3.0), pitch=14, sq=-0.3, rear=0.9, rear_tip=1.0, **tuck),
+        NP(head=HF(-0.5, 1.0), pitch=-6, sq=-0.1, rear=0.0, lash=0.85, rear_tip=0.9, lash_tip=0.0, face="shout",
+           near=GF(7.0, 12.0, 3.5, 5), far=GF(-7.0, 12.0, 1.5, 5)),
+        NP(head=HF(-2.0, 4.0), pitch=-18, sq=0.35, lash=1.0, lash_tip=1.25, face="shout",
+           near=GF(7.0, 10.0, 2.0), far=GF(-7.0, 10.0, 0.0)),
+        NP(head=HF(-1.8, 3.5), pitch=-14, sq=0.15, lash=0.6, lash_tip=1.45, limp=0.15,
+           near=GF(7.0, 9.5, 2.0), far=GF(-7.0, 9.5, 0.0)),
+        NP(head=HF(-0.8, 2.0), pitch=-6, sq=-0.1, lash=0.15, lash_tip=0.6, near=GF(7.5, 12.0, 4.0, 10),
+           far=GF(-7.5, 12.0, 2.0, 10)),
+        NP(head=HF(-0.4, 0.8), pitch=-1, sq=0.1, lash=0.0, lash_tip=0.0, rear=0.0, rear_tip=0.2,
+           near=GF(8.5, 15.5, 8.0, 22), far=GF(-9.0, 17.0, 8.0, 25)),
+        idle_key(0.1),
+    ]
+    wave_on(f, 0.6)
+    return trail_arms(f)
+
+
+# ---- the heavy: Coil Uppercut (12: a 4-frame charge loop, then the uppercut)
+
+def uppercut():
+    """Coil Uppercut. Frames 0-3 loop while it's held: the near glove cranks round a small
+    circle low and behind her, the snake arm winding after it, the head sunk and squashed.
+    On release: the deepest coil, the glove bursting up with the snake bent under it, the
+    top of the uppercut held through the hit (the hair rising a frame late), the
+    overshoot, the hang, the drop, the settle. Hiss Off (the tag-in) plays from frame 7."""
+    out = []
+    for i in range(4):
+        th = TAU * i / 4
+        out.append(NP(head=HF(-4.0 - 0.4 * math.sin(th), -2.0), pitch=10, sq=0.6 + 0.1 * math.cos(th),
+                      yaw=6, rear=0.35, raise_=0.1, face="shout" if i % 2 else "grin",
+                      near=GF(6.0 + 2.2 * math.cos(th), 10.0 + 3.2 * math.sin(th), -3.0 + 3.0 * math.cos(th),
+                              -30 + 12 * math.sin(th)),
+                      far=GF(-7.0, 16.0, 7.0, 22), wave=TAU * i / 4, sway=2.4))
+    trail_arms(out, k=0.9, k1=0.4, loop=True)
+    rel = [
+        NP(head=HF(-5.0, -2.5), pitch=12, sq=0.8, yaw=8, rear=0.4, near=GF(6.0, 8.0, -5.0, -45),
+           far=GF(-7.0, 15.5, 6.0, 20)),
+        NP(head=HF(-2.5, -0.5), pitch=6, sq=0.3, yaw=4, rear=0.3, face="shout", near=GF(5.5, 13.0, 5.0, 25),
+           far=GF(-7.0, 15.5, 6.0, 20)),
+        NP(head=HF(1.0, 1.8), pitch=-6, sq=-0.5, yaw=0, rear=0.1, raise_=0.15, face="shout",
+           near=GF(4.5, 26.0, 16.0, 65), far=GF(-6.5, 14.5, 4.5, 12)),
+        NP(head=HF(4.0, 2.5), pitch=-14, sq=-0.9, raise_=0.45, raise_tip=0.2, face="shout",
+           near=GF(4.0, 37.0, 16.0, 95), far=GF(-6.5, 14.0, 4.0, 10)),
+        NP(head=HF(4.6, 2.2), pitch=-15, sq=-0.6, raise_=0.7, raise_tip=0.85, face="shout",
+           near=GF(4.5, 39.0, 15.0, 100), far=GF(-6.5, 13.5, 4.0, 10)),
+        NP(head=HF(3.6, 1.6), pitch=-11, sq=-0.3, raise_=0.55, raise_tip=0.75, near=GF(5.0, 35.5, 14.0, 88),
+           far=GF(-6.5, 14.0, 4.5, 12)),
+        NP(head=HF(1.0, 1.0), pitch=-3, sq=0.35, raise_=0.2, raise_tip=0.45, near=GF(6.5, 23.0, 10.0, 45),
+           far=GF(-7.5, 15.5, 6.0, 18)),
+        NP(head=HF(-0.2, 0.5), pitch=0, sq=0.1, raise_=0.0, raise_tip=0.1, near=GF(8.5, 17.5, 10.0, 26),
+           far=GF(-9.0, 17.5, 8.5, 25)),
+    ]
+    wave_on(rel, 0.5)
+    trail_arms([out[-1]] + rel)
+    return out + rel
+
+
+# ---- the skills
+
+def spit():
+    """Venom Spit: she rears back with the front snakes drawn back (held through the raw
+    windup and the deep rear), snaps forward with the bases first, spits (held 4 ticks:
+    the venom leaves on the second), the snakes jolt back, settle."""
+    g = dict(near=GF(8.5, 16.5, 8.0, 22), far=GF(-9.0, 17.5, 8.0, 25))
+    f = [
+        NP(head=HF(0.0, -1.5), pitch=8, sq=0.15, rear=0.4, rear_tip=0.2, **g),
+        NP(head=HF(1.0, -2.5), pitch=14, sq=-0.2, rear=0.7, rear_tip=0.55, **g),
+        NP(head=HF(1.6, -3.5), pitch=19, sq=-0.45, rear=1.0, rear_tip=1.05, face="shout",
+           near=GF(8.5, 17.5, 6.0, 25), far=GF(-9.0, 18.5, 6.0, 28)),
+        NP(head=HF(0.2, 1.0), pitch=-4, sq=0.0, rear=0.0, lash=0.55, rear_tip=0.6, lash_tip=0.0, face="shout",
+           near=GF(8.0, 16.0, 9.0, 20), far=GF(-8.5, 17.0, 9.0, 22)),
+        NP(head=HF(-0.6, 2.6), pitch=-11, sq=0.35, lash=0.45, lash_tip=0.75, spit=True, face="shout",
+           near=GF(7.5, 15.5, 10.0, 18), far=GF(-8.0, 16.5, 10.0, 20)),
+        NP(head=HF(0.0, 1.0), pitch=-2, sq=-0.15, lash=0.1, lash_tip=0.45, **g),
+        NP(head=HF(-0.4, 0.3), pitch=0, sq=0.15, lash=0.0, lash_tip=0.1, **g),
+        idle_key(0.1),
+    ]
+    wave_on(f, 0.6)
+    return trail_arms(f)
+
+
+def gaze():
+    """Stone Gaze: she leans in and the hair rises into a hood, the tips last; then a
+    4-frame stare loop over the gaze's pulses (5 ticks a frame, so frames 2 and 4 fall on
+    the 10-tick pulses): on each pulse the eyes flare at the foe, the head pushes in and
+    the hood flares, turning a little left, then right, and the hood's sway runs down the
+    snakes all the while; then the hood drops, tips last."""
+    g = dict(near=GF(10.5, 17.0, 12.0, 30), far=GF(-10.5, 18.0, 10.0, 30))
+    loop = []
+    for i in range(4):
+        flare = i % 2 == 0
+        loop.append(NP(head=HF(0.4 if flare else -0.2, 4.6 if flare else 2.6), pitch=-10 if flare else -6,
+                       yaw=(6, 0, -6, 0)[i], sq=-0.5 if flare else 0.25,
+                       raise_=1.0 if flare else 0.85, raise_tip=1.35 if flare else 0.85, face="gaze",
+                       wave=1.0 + TAU * i / 4, sway=3.0, tip_lag=TAU / 4,
+                       near=GF(10.5, 17.0 + (0.8 if flare else 0.0), 12.5, 30),
+                       far=GF(-10.5, 18.0 + (0.8 if flare else 0.0), 10.5, 30)))
+    f = [
+        NP(head=HF(0.0, 1.5), pitch=-4, raise_=0.3, raise_tip=0.05, sq=0.15, **g),
+        NP(head=HF(0.4, 2.4), pitch=-7, raise_=0.8, raise_tip=0.5, sq=-0.15, face="gaze", **g),
+    ] + loop + [
+        NP(head=HF(-0.3, 1.5), pitch=-3, raise_=0.4, raise_tip=0.8, sq=0.2, **g),
+        NP(head=HF(0.0, 0.6), pitch=0, raise_=0.05, raise_tip=0.3, **g),
+    ]
+    f[0].wave, f[1].wave, f[6].wave, f[7].wave = 0.0, 0.5, 1.0 + TAU, 1.5 + TAU
+    trail_arms(f)
+    return f
+
+
+# ---- the Surge: Petrify Punch
+
+def petrify():
+    """Petrify Punch: a 4-frame gather the foe can read (the head turning away, the near
+    glove drawn all the way back and down, the hair pulled back, the stare on the last
+    held frame), the punch in one fast frame with the snake bent behind the glove, the
+    impact held 5 ticks, the shockwave frame held (the head jolting, the hair flaring),
+    the follow-through, the slow recovery, and the hair settling last."""
+    f = [
+        NP(head=HF(0.0, -1.5), yaw=10, pitch=4, sq=0.15, rear=0.3, rear_tip=0.1,
+           near=GF(9.0, 18.0, -4.0, 5, -10), far=GF(-8.0, 18.5, 10.0, 28)),
+        NP(head=HF(0.5, -3.0), yaw=20, pitch=6, sq=-0.1, rear=0.55, rear_tip=0.35,
+           near=GF(10.0, 18.0, -13.0, 0, -20), far=GF(-7.5, 19.0, 11.0, 30)),
+        NP(head=HF(0.8, -4.0), yaw=28, pitch=8, sq=-0.3, rear=0.8, rear_tip=0.75, raise_=0.25, face="shout",
+           near=GF(10.5, 16.0, -19.0, -8, -28), far=GF(-7.0, 19.5, 11.0, 30)),
+        NP(head=HF(0.2, -4.3), yaw=31, pitch=9, sq=0.45, rear=0.95, rear_tip=1.05, raise_=0.5, face="gaze",
+           near=GF(10.5, 13.5, -21.0, -14, -32), far=GF(-7.0, 19.5, 11.0, 30)),
+        NP(head=HF(0.0, 1.0), yaw=6, pitch=-2, sq=-0.5, rear=0.3, rear_tip=0.9, raise_=0.3, face="shout",
+           near=GF(5.5, 21.0, 10.0, 0, -12), far=GF(-7.0, 16.0, 4.0, 15)),
+        NP(head=HF(-1.0, 4.0), yaw=-14, pitch=-10, sq=-0.6, lash=0.35, rear_tip=0.4, lash_tip=0.0, face="shout",
+           near=GF(2.0, 24.0, 31.0, 0), far=GF(-7.0, 14.0, 0.0, 10)),
+        NP(head=HF(-1.6, 3.4), yaw=-12, pitch=-8, sq=0.5, lash=0.5, lash_tip=0.65, raise_=0.45, face="gaze",
+           near=GF(2.0, 23.0, 30.0, -5), far=GF(-7.0, 13.5, 0.0, 10)),
+        NP(head=HF(-1.0, 3.0), yaw=-10, pitch=-8, sq=0.1, lash=0.3, lash_tip=0.85, raise_=0.2,
+           near=GF(2.5, 21.5, 28.0, -12), far=GF(-7.0, 13.5, 1.0, 10)),
+        NP(head=HF(-0.6, 2.0), yaw=-5, pitch=-4, sq=0.0, lash=0.1, lash_tip=0.55,
+           near=GF(6.0, 17.0, 13.0, 10), far=GF(-8.0, 15.5, 5.0, 18)),
+        NP(head=HF(-0.4, 1.0), yaw=-1, pitch=-1, sq=0.15, lash=0.0, lash_tip=0.25,
+           near=GF(8.0, 16.5, 9.0, 20), far=GF(-9.0, 17.0, 7.5, 24)),
+        NP(head=HF(0.2, 0.4), yaw=0, sq=-0.05, rear=0.0, rear_tip=0.25,
+           near=GF(9.0, 18.5, 9.5, 26), far=GF(-9.5, 18.5, 9.0, 28)),
+        idle_key(0.05),
+    ]
+    wave_on(f, 0.55)
+    f[11].wave = f[10].wave + 0.7
+    return trail_arms(f)
+
+
+# ---- the dodge: duck and roll (8 frames x 2 ticks)
+
+def dodge():
+    """Ducks and rolls: the head drops between the gloves (squashed), rolls right over
+    (a whole turn, the hair whipping round after it), lands squashed and pops back up.
+    The gloves tuck in and follow a frame late."""
+    tuck = lambda d=0.0: dict(near=GF(8.0, 12.0 + d, 6.0, 25), far=GF(-8.0, 12.5 + d, 4.0, 25))  # noqa: E731
+    f = [
+        NP(head=HF(-7.0, 0.0), sq=0.8, rear=0.45, rear_tip=0.2, **tuck(1.0)),
+        NP(head=HF(-10.0, 0.5), roll=-45, sq=0.5, rear=0.6, rear_tip=0.5, **tuck()),
+        NP(head=HF(-10.5, 0.5), roll=-125, sq=0.2, rear=0.6, rear_tip=0.75, **tuck(-0.5)),
+        NP(head=HF(-10.5, 0.5), roll=-205, sq=0.2, rear=0.6, rear_tip=0.8, **tuck(-0.5)),
+        NP(head=HF(-10.0, 0.5), roll=-285, sq=0.3, rear=0.55, rear_tip=0.75, **tuck()),
+        NP(head=HF(-9.0, 0.3), roll=-345, sq=0.5, rear=0.5, rear_tip=0.7, **tuck()),
+        NP(head=HF(-4.0, 0.0), sq=0.7, rear=0.3, rear_tip=0.55, **tuck(2.0)),
+        NP(head=HF(0.6, 0.0), sq=-0.25, rear=0.0, rear_tip=0.2,
+           near=GF(8.5, 17.0, 9.0, 24), far=GF(-9.0, 18.0, 8.5, 26)),
+    ]
+    wave_on(f, 0.8)
+    S.lag(f, ("near", "far"), 1, loop=False)
+    return trail_arms(f)
+
+
+ANIM_ROWS = [
+    ("idle", idle()), ("run", run()), ("jab", jab()), ("jab2", jab2()), ("lash", lash()),
+    ("uppercut", uppercut()), ("spit", spit()), ("gaze", gaze()), ("petrify", petrify()),
+    ("dodge", dodge()), ("hurt", _v1_hurt()), ("guard", _v1_guard()), ("ko", _v1_ko()),
+]
+# flesh and scales: the head never squashes or stretches past 10%
+assert all(abs(p.sq) <= 1.0 for _n, poses in ANIM_ROWS for p in poses)
+
+
+# The game's rows: what assets/sprites/hissy*.png and data/creatures/hissy.json hold today.
+# They switch to ANIM_ROWS when the previews are approved (with the sheets and the JSON).
 ROWS = [
-    ("idle", idle()),
-    ("run", run()),
-    ("jab", jab()),
-    ("jab2", jab2()),
-    ("lash", lash()),
-    ("uppercut", uppercut()),
-    ("spit", spit()),
-    ("gaze", gaze()),
-    ("petrify", petrify()),
-    ("dodge", dodge()),
-    ("hurt", hurt()),
-    ("guard", guard()),
-    ("ko", ko()),
+    ("idle", _v1_idle()),
+    ("run", _v1_run()),
+    ("jab", _v1_jab()),
+    ("jab2", _v1_jab2()),
+    ("lash", _v1_lash()),
+    ("uppercut", _v1_uppercut()),
+    ("spit", _v1_spit()),
+    ("gaze", _v1_gaze()),
+    ("petrify", _v1_petrify()),
+    ("dodge", _v1_dodge()),
+    ("hurt", _v1_hurt()),
+    ("guard", _v1_guard()),
+    ("ko", _v1_ko()),
 ]
 # Up and down sheets: every row but the knockout, which falls over sideways in any view.
 VIEW_ROWS = ROWS[:-1]
@@ -1004,11 +1412,99 @@ def preview(sh, rows, fw, fh, origin, scale, path):
 
 # ------------------------------------------------------------------ animation tools
 # The adapter for the shared animation pipeline (tools/anim_preview.py):
-# `python3 tools/gen_hissy.py anim` renders preview GIFs into docs/anim_preview/, and
-# `python3 tools/anim_preview.py --check hissy` checks the JSON's timelines against ROWS.
+# `python3 tools/gen_hissy.py anim` renders preview GIFs of ANIM_ROWS into docs/anim_preview/,
+# and `python3 tools/anim_preview.py --check hissy` checks the JSON's timelines against ROWS.
 # In-betweens and overlap come from splat3d (tween, cycle, lag, lag_at), which only touch
 # pose attributes; this generator's renderer is its own.
-ANIM_CYCLES = {"idle": 40, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks)
+ANIM_CYCLES = {"idle": 40, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks); idle 64 after the pass
+ANIM_TICKS = {"idle": 8, "run": 2}     # the pass: 8 x 8 = 64-tick idle, 12 x 2 = 24-tick run
+# The "current" side of the compare GIFs: main before the pass.
+OLD_REF = os.environ.get("HISSY_OLD_REF", "25d385d")
+
+# The new timelines (hissy_motion_plan.md); every startup, active and recovery number is kept.
+NEW_AT = {
+    "light_1": [[0, 0], [1, 1], [3, 2], [4, 3], [7, 4], [9, 5], [11, 6], [13, 7]],
+    "light_2": [[0, 0], [1, 1], [3, 2], [4, 3], [7, 4], [9, 5], [12, 6], [14, 7]],
+    "light_3": [[0, 0], [3, 1], [6, 2], [8, 3], [11, 4], [14, 5], [18, 6], [21, 7]],
+    "heavy": [[0, 4], [3, 5], [6, 6], [9, 7], [13, 8], [17, 9], [22, 10], [27, 11]],
+    "skill_1": [[0, 0], [3, 1], [6, 2], [9, 3], [10, 4], [14, 5], [19, 6], [23, 7]],
+    "skill_2": [[0, 0], [4, 1], [9, 2], [14, 3], [19, 4], [24, 5], [29, 2], [34, 3], [39, 4], [44, 5],
+                [49, 2], [54, 3], [59, 4], [64, 6], [66, 7]],
+    "surge": [[0, 0], [4, 1], [9, 2], [14, 3], [20, 4], [22, 5], [27, 6], [31, 7], [35, 8], [39, 9], [44, 10],
+              [48, 11]],
+}
+NEW_CHARGE = [0, 4, 3]       # the heavy's coil: four frames, 3 ticks each
+NEW_CUT_IN = [8, 3]          # the Surge's cut-in: the gather's held frame, the stare
+NEW_TAG_FROM = 7             # Hiss Off (tag_in) plays the uppercut from its top
+
+
+def _old_default(mv, n):
+    """The view's frame per tick for a move without anim_at (creature_view.gd: windup
+    frames over the startup, the strike while active, the follow-through, the recovery)."""
+    su, act = int(mv["startup"]), int(mv.get("active", 1))
+    length = su + act + int(mv.get("recovery", 0))
+    first_at, wind = su + 1, max(1, n - 3)
+    out = []
+    for t in range(length + 1):
+        if t < first_at:
+            out.append(min(wind - 1, t * wind // max(1, first_at)))
+        elif t < first_at + act:
+            out.append(n - 3)
+        else:
+            out.append(n - 2 if t - (first_at + act) < max(1, length - first_at - act) // 2 else n - 1)
+    return out
+
+
+def _clips():
+    import anim_preview as A
+    old = A.creature_json("hissy", OLD_REF)
+    moves, anims = old["moves"], old["sprite"]["anims"]
+    old_idle, new_idle = (10, 4), (8, 8)
+    tail = 30
+
+    def move_clip(mid):
+        mv = moves[mid]
+        anim = mv["anim"]
+        length = A.move_length(mv)
+        if "anim_at" in mv:
+            o = A.move_ticks(anim, mv["anim_at"], length, old_idle, tail)
+        else:
+            o = [(anim, f) for f in _old_default(mv, anims[anim][2])] + A.idle_tail(tail, *old_idle)
+        nw = A.move_ticks(anim, NEW_AT[mid], length, new_idle, tail)
+        return {"old": o, "new": nw}, int(mv["startup"]), int(mv.get("active", 0))
+
+    clips = {
+        "idle": ({"old": A.loop_ticks("idle", 10, 4, 320), "new": A.loop_ticks("idle", 8, 8, 320)}, []),
+        "run": ({"old": A.loop_ticks("run", 4, 6, 48), "new": A.loop_ticks("run", 2, 12, 48)}, []),
+    }
+    for name, mid in (("jab", "light_1"), ("jab2", "light_2"), ("lash", "light_3")):
+        v, su, act = move_clip(mid)
+        clips[name] = (v, [(0, su, "startup"), (su + 1, su + 1 + act, "hit (%s)" % mid)])
+    # the heavy: 24 ticks of held charge, then the release
+    v, su, act = move_clip("heavy")
+    v["old"] = A.charge_ticks("uppercut", 0, 2, 6, 24) + v["old"]
+    v["new"] = A.charge_ticks("uppercut", *NEW_CHARGE[:2], NEW_CHARGE[2], 24) + v["new"]
+    clips["uppercut"] = (v, [(0, 24, "held charge (the coil)"), (24 + su + 1, 24 + su + 1 + act, "UPPERCUT hits (heavy)")])
+    v, su, act = move_clip("skill_1")
+    clips["spit"] = (v, [(0, su, "startup (raw: +6 windup on frame 0)"), (su + 1, su + 3, "venom leaves (skill_1)")])
+    v, su, act = move_clip("skill_2")
+    gz = moves["skill_2"]["gaze"]
+    pulses = [(t, t + 2, "gaze pulse") for t in range(int(gz["from"]), int(gz["to"]) + 1, int(gz["every"]))]
+    clips["gaze"] = (v, [(0, su, "startup")] + pulses)
+    v, su, act = move_clip("surge")
+    hits = moves["surge"]["hits"]
+    clips["petrify"] = (v, [(0, su, "gather (cut-in)"),
+                            (int(hits[0]["at"]), int(hits[0]["at"]) + int(hits[0]["active"]), "PUNCH (surge)"),
+                            (int(hits[1]["at"]), int(hits[1]["at"]) + int(hits[1]["active"]), "shockwave")])
+    # the dodge: no anim_at, the view spreads the frames over its 16 ticks
+    frames = int(old["dodge"]["frames"])
+    clips["dodge"] = ({"old": [("dodge", t * 4 // frames) for t in range(frames)] + A.idle_tail(tail, *old_idle),
+                       "new": [("dodge", t * 8 // frames) for t in range(frames)] + A.idle_tail(tail, *new_idle)},
+                      [(int(old["dodge"]["iframes_start"]), int(old["dodge"]["iframes_end"]) + 1, "invulnerable")])
+    return clips
+
+
+CLIPS = _clips
 
 
 def frame_spec(view):
@@ -1022,6 +1518,30 @@ def render_frame(pose, view):
     W, H = sp["w"], sp["h"]
     OX, OY = sp["origin"]
     return render(pose, view)
+
+
+def _use_anim_rows():
+    """The previews show the new rows."""
+    global ROWS, VIEW_ROWS
+    ROWS, VIEW_ROWS = ANIM_ROWS, ANIM_ROWS[:-1]
+
+
+def inspect(picks, path=None, scale=3):
+    """`gen_hissy.py inspect idle:0 run:2`: a few frames of the new rows (HISSY_ROWS=game
+    for the game's) in all three views side by side, enlarged."""
+    rows = dict(ROWS if os.environ.get("HISSY_ROWS") == "game" else ANIM_ROWS)
+    tiles = []
+    for pick in picks:
+        name, f = pick.split(":")
+        for view in ("side", "down", "up"):
+            tiles.append(render_frame(rows[name][int(f)], view))
+    out = Image.new("RGBA", (sum(t.width for t in tiles), max(t.height for t in tiles)), (70, 58, 46, 255))
+    x = 0
+    for t in tiles:
+        out.alpha_composite(t, (x, 0))
+        x += t.width
+    out = out.resize((out.width * scale, out.height * scale), Image.NEAREST)
+    out.save(path or os.path.join(ROOT, "inspect.png"))
 
 
 def main():
@@ -1055,9 +1575,11 @@ def main():
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "anim":
-        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    if len(sys.argv) > 1 and sys.argv[1] == "inspect":
+        inspect(sys.argv[2:], path=os.environ.get("INSPECT_OUT"))
+    elif len(sys.argv) > 1 and sys.argv[1] == "anim":
         import anim_preview
+        _use_anim_rows()
         anim_preview.main(sys.modules[__name__], sys.argv[2:])
     else:
         main()
