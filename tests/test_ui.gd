@@ -1116,6 +1116,211 @@ func test_the_camera_pushes_in_on_a_trade_and_eases_out_after() -> void:
 	g.free()
 
 
+# ------------------------------------------------------------------ camera behaviour
+
+## The pair from _close_pair standing still: nobody pressing anything, both idle.
+func _still_pair(g: Node) -> void:
+	for c in g.sim.creatures:
+		c.state = CreatureSim.State.IDLE
+		c.prev_buttons = 0
+		c.facing = Vector2.RIGHT
+	_close_pair(g)
+
+
+func test_the_aim_lead_leans_toward_the_aim_and_returns_slowly() -> void:
+	var g := _game()
+	g._start_match(2)  # CPU vs CPU: nobody here, so the HUD's fighter (0) is the one followed
+	_tick(g, 2)
+	g._cam_cli = {"cam_settle": 0, "cam_clash": 0}
+	_still_pair(g)
+	var a: CreatureSim = g.sim.creatures[0]
+	var full: float = g.AIM_LEAD[g.CAM_DEFAULT]
+	assert_gt(g._cam_aim.x, full - 0.5, "facing right: leans right:")
+	# An exact aim (twin-stick, mouse) down the screen: it turns that way, y scaled down.
+	a.prev_buttons = SimDefs.aim_bits(Vector2.DOWN)
+	for i in 200:
+		g._update_camera()
+	assert_near(g._cam_aim.x, 0.0, 0.5, "aiming down, no sideways lead:")
+	assert_near(g._cam_aim.y, full * g.AIM_LEAD_Y, 0.5, "")
+	# A wobble inside the dead zone (one step of 64, about 6 degrees) doesn't move it at all.
+	var held: Vector2 = g._cam_aim_dir
+	a.prev_buttons = SimDefs.IN_AIM | (17 << SimDefs.AIM_SHIFT)
+	for i in 30:
+		g._update_camera()
+	assert_eq(g._cam_aim_dir, held, "a small wobble: the aim held")
+	assert_near(g._cam_aim.x, 0.0, 0.5, "and the lead with it:")
+	# Knocked down into a pit (no aim): the lead goes back, slowly.
+	a.state = CreatureSim.State.FALLING
+	var before: Vector2 = g._cam_aim
+	var worst := 0.0
+	for i in 20:
+		g._update_camera()
+		worst = maxf(worst, (g._cam_aim - before).length())
+		before = g._cam_aim
+	assert_gt(g._cam_aim.length(), full * g.AIM_LEAD_Y * 0.4, "still on its way back after a third of a second:")
+	assert_lt(worst, full * g.AIM_EASE_OUT + 0.01, "no tick moves it more than the slow return:")
+	for i in 400:
+		g._update_camera()
+	assert_eq(g._cam_aim, Vector2.ZERO, "back to nothing")
+	# Off: no lead at all.
+	a.state = CreatureSim.State.IDLE
+	g._cam_cli["cam_lead"] = 0
+	for i in 200:
+		g._update_camera()
+	assert_eq(g._cam_aim, Vector2.ZERO, "off: none")
+	g.free()
+
+
+func test_the_aim_lead_follows_the_local_player_and_keeps_everyone_in_shot() -> void:
+	var g := _game()
+	g._start_match(2)
+	_tick(g, 2)
+	g._cam_cli = {"cam_settle": 0, "cam_lead": 3}
+	g.sides[1] = g.Side.PLAYER  # someone plays fighter 1 here: its aim leads, not the HUD's
+	_still_pair(g)
+	g.sim.creatures[1].prev_buttons = SimDefs.aim_bits(Vector2.LEFT)
+	for i in 200:
+		g._update_camera()
+	assert_lt(g._cam_aim.x, -10.0, "leans the way the player aims:")
+	assert_eq(g._aim_fighters(-1), [1], "")
+	# Far apart and pulled back, a big lead never pushes anyone out of the shot.
+	var view: Vector2 = g.get_viewport().get_visible_rect().size
+	var fr := SimDefs.floor_rect()
+	g.sim.creatures[0].pos = fr.position + Vector2(20, 30)
+	g.sim.creatures[1].pos = fr.end - Vector2(20, 20)
+	g._cam_prev = []
+	for i in 200:
+		g._update_camera()
+	var cam: Camera2D = g.camera
+	var shown := Rect2(cam.position - view * 0.5 / cam.zoom.x, view / cam.zoom.x).grow(0.5)
+	for c in g.sim.creatures:
+		assert_true(shown.has_point(c.pos), "feet at %s in shot %s" % [c.pos, shown])
+	g.free()
+
+
+func test_a_clash_pushes_in_on_the_event_and_lets_go() -> void:
+	var g := _game()
+	g._start_match(2)
+	_tick(g, 2)
+	g._cam_cli = {"cam_settle": 0, "cam_lead": 0}
+	_still_pair(g)
+	var base: float = g.camera.zoom.x
+	assert_near(base, 1.0, 0.01, "settled at 1x:")
+	var b: CreatureSim = g.sim.creatures[1]
+	g._react({"type": "guard_break", "pos": b.pos, "power": 1.0, "who": 1, "tick": g.sim.tick})
+	var zs := []
+	for i in 80:
+		g._update_camera()
+		zs.append(g.camera.zoom.x)
+	var peak: float = zs.max()
+	assert_gt(zs[5], base + 0.05, "in within a few ticks:")
+	assert_lt(peak, base * (1.0 + g.CLASH_PUSH[g.CAM_DEFAULT]) + 0.001, "by the clash's push, no more:")
+	assert_gt(peak, base * (1.0 + g.CLASH_PUSH[g.CAM_DEFAULT]) - 0.01, "")
+	assert_near(zs[79], base, 0.002, "and let go after:")
+	assert_eq(g._cam_zclash, 1.0, "")
+	# The hit that knocks someone out: the KO push-in owns it, no clash.
+	g._ko_cam_t = 0
+	g._note_clash(b.pos, 1.0)
+	g._update_camera()
+	assert_eq(g._clash, 0.0, "no clash on a knockout")
+	g._ko_cam_t = -1
+	# Not on top of a trade's push-in: the larger of the two, never the sum.
+	assert_eq(g.clash_zoom(1.0, 0.07, 0.12, 2.0), 1.0, "the exchange already pushes in further: nothing more")
+	assert_near(g.clash_zoom(1.0, 0.07, 0.03, 2.0), 1.07 / 1.03, 0.0001, "only the difference")
+	assert_eq(g.clash_zoom(1.0, 0.07, 0.0, 1.02), 1.02, "never past the room round the fighters")
+	assert_eq(g.clash_zoom(0.0, 0.07, 0.0, 2.0), 1.0, "")
+	# Off: the event does nothing.
+	g._cam_cli["cam_clash"] = 0
+	g._react({"type": "guard_break", "pos": b.pos, "power": 1.0, "who": 1, "tick": g.sim.tick})
+	for i in 6:
+		g._update_camera()
+	assert_eq(g._clash, 0.0, "off: none")
+	g.free()
+
+
+func test_a_quiet_camera_settles_and_wakes_on_any_input() -> void:
+	var g := _game()
+	g._start_match(2)
+	_tick(g, 2)
+	g._cam_cli = {"cam_lead": 0, "cam_clash": 0}
+	_still_pair(g)
+	assert_gt(g._cam_idle, g.SETTLE_AFTER, "a second with nothing happening:")
+	# Settled, a small shift of the action (inside the dead zone) holds the picture still.
+	var start: Vector2 = g._cam_follow
+	for c in g.sim.creatures:
+		c.pos += Vector2(8, 0)
+	g._cam_prev = []  # (moved without walking, so nothing "happened")
+	for i in 120:
+		g._update_camera()
+	assert_near(g._cam_follow.x, start.x, 0.01, "held through the dead zone:")
+	# Further than the dead zone: it drifts there, slower than usual.
+	for c in g.sim.creatures:
+		c.pos += Vector2(20, 0)
+	g._cam_prev = []
+	g._update_camera()
+	var step: float = g._cam_follow.x - start.x
+	assert_gt(step, 0.0, "past the dead zone: it follows")
+	assert_lt(step, 28.0 * 0.1 * 0.5, "slowly:")
+	for i in 300:
+		g._update_camera()
+	assert_near(g._cam_follow.x, start.x + 28.0, 0.5, "and gets there")
+	# Any press: the normal rules at once.
+	g.sim.creatures[0].prev_buttons = SimDefs.IN_LIGHT
+	g._update_camera()
+	assert_eq(g._cam_idle, 0, "a press wakes it")
+	g.sim.creatures[0].prev_buttons = 0
+	for c in g.sim.creatures:
+		c.pos += Vector2(8, 0)
+	g._cam_prev = []
+	var was: float = g._cam_follow.x
+	g._update_camera()
+	assert_gt(g._cam_follow.x - was, 8.0 * 0.1 - 0.01, "awake, it follows at the usual pace:")
+	# Off: never settles.
+	g._cam_cli["cam_settle"] = 0
+	for i in 120:
+		g._update_camera()
+	assert_eq(g.cam_level("cam_settle"), 0, "")
+	g.free()
+
+
+func test_the_camera_sits_on_whole_screen_pixels() -> void:
+	var g := _game()
+	g._start_match(2)
+	_tick(g, 60)
+	var view: Vector2 = g.get_viewport().get_visible_rect().size
+	for i in 30:
+		_tick(g, 1)
+		var px: float = g.camera.zoom.x * maxf(1.0, float(g.get_window().size.x) / view.x)
+		var p: Vector2 = g.camera.position * px
+		assert_near(p.x, roundf(p.x), 0.01, "x on the grid:")
+		assert_near(p.y, roundf(p.y), 0.01, "y on the grid:")
+	assert_eq(g.snap_cam(Vector2(10.3, 4.6), 4.0), Vector2(10.25, 4.5), "a quarter of a unit at 4 px a unit")
+	g.free()
+
+
+func test_camera_settings_and_flags() -> void:
+	var g := _game()
+	for k in ["cam_lead", "cam_clash", "cam_settle"]:
+		assert_true(k in g.SETTING_PAGES["video"], "a Video setting: " + k)
+		assert_eq(g.cam_level(k), g.CAM_DEFAULT, "Normal by default")
+	g._open_settings_page("video")
+	var row: OptionRow = g._setting_rows["cam_clash"]
+	row.grab_focus()
+	_press("ui_left")
+	_press("ui_left")
+	assert_eq(g.cam_clash, 0, "Off")
+	var cfg := ConfigFile.new()
+	cfg.load(TEST_SETTINGS)
+	assert_eq(int(cfg.get_value("video", "cam_clash", -1)), 0, "and it is saved")
+	assert_eq(g.cam_level_arg("0"), 0, "")
+	assert_eq(g.cam_level_arg("1"), g.CAM_DEFAULT, "")
+	assert_eq(g.cam_level_arg("high"), 3, "")
+	assert_eq(g.cam_level_arg("x"), -1, "")
+	g._cam_cli["cam_lead"] = 0
+	assert_eq(g.cam_level("cam_lead"), 0, "the command line outranks the setting")
+	g.free()
+
+
 func test_the_letterbox_comes_in_only_for_a_knockout_or_a_surge_freeze() -> void:
 	var g := _game()
 	g._start_match(2)

@@ -45,6 +45,18 @@ player and live here, outside the sim.
   `src/view/letterbox.gd` (KO push-in, a freezing Surge's `_surge_bars` and then the
   rest of its cut-in, `Hud.cutting_in()`, and the arena intro). All per tick, no
   interpolation between ticks
+- Camera behaviour (Settings > Video > Camera, each Off / Low / Normal / High, `CAM_LEVELS`;
+  `cam_level(key)` = the `--cam-*` flag's value this session, else the setting): aim lead
+  `_aim_now` / `_aim_fighters` / `aim_dir_of` (`AIM_*`: the players here, online the local
+  slot, else the HUD's `focus`; IN_AIM angle from `prev_buttons`, else facing; a dead zone,
+  a slow return); clash reaction `_note_clash` (from `hit` events whose attacker's
+  `move_type()` is heavy or surge, via `_hit_kind`, and `guard_break`) and `clash_zoom`
+  (`CLASH_*`: the larger of it and the exchange push-in, never the sum; none for the KO hit);
+  Settle (`SETTLE_*`, `_cam_idle`, `_settle_mid` / `_settle_fit`: held target after a quiet
+  second). All three add up in `_cam_off` (cut to the room by `_lead_room`) and
+  `_cam_zclash`. The camera's position is snapped to whole screen pixels (`snap_cam`); the
+  zoom stays continuous (the resolution policy already eases it fractionally). Fight framing
+  only: showcases and coaches keep their own framing
 - Arena intro (fly-over, arena card, each side's entrance; Settings > Game > Match intros) →
   `_intro_wanted` (where it plays: offline only, never online, replays, training, trials,
   drills or showcases), `_maybe_intro` (from `_start_match`, `_on_teams_chosen`, a new
@@ -88,7 +100,7 @@ After `--`; the full list is in the `main.gd` header, modes in `MODES`.
 `--mode=N`, `--level=0..3` (3 = Rage), `--seed=N`, `--showcase=<fighter>|angles|twinstick|counterplay`,
 `--pad-layout=standard|twinstick`, `--autoplay`, `--hitboxes`, `--intro` / `--no-intro` (force the arena intro on or off; by default it plays only for offline matches started from the menu with a screen, never headless or for a `--mode` / `--showcase` / `--autoplay` start, so captures keep their frame numbers), `--cpu-vs-cpu`, `--pick`,
 `--teams=a,b,c:d,e,f`, `--arena=stadium|quarry|floodgate|greenhouse`, `--time=random|day|sunset|night`, `--weather=random|clear|rain|fog|wind|snow` (the look of offline matches this session; one the arena doesn't allow falls back), `--menu=main|single|single:<group>|look|settings|game|video|audio|controls|remap:<classic|league|gamepad>`,
-`--cam=X,Y[,ZOOM]` (hold the camera on a world spot, still clamped to the arena and stands: screenshots of the edges), `--training-screen=pause|options|fighters` (with a training `--mode`), `--training-flags=no_cooldowns,full_energy`,
+`--cam=X,Y[,ZOOM]` (hold the camera on a world spot, still clamped to the arena and stands: screenshots of the edges), `--cam-lead=0|1`, `--cam-clash=0|1`, `--cam-settle=0|1` (camera behaviour off / Normal for this session, not saved; also `low|normal|high`), `--training-screen=pause|options|fighters` (with a training `--mode`), `--training-flags=no_cooldowns,full_energy`,
 `--perf` (frame and tick percentiles on quit, with each part's share: the tick's
 steps, each view's `_draw` via `PerfLog.since`, the renderer's CPU and GPU time, and when
 the slowest frames came; `perf_log.gd`), `--cpu-threads=off`. Modes: 5 showcases, 6 Duel vs CPU, 7 Duel 2P,

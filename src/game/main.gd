@@ -31,6 +31,8 @@ extends Node2D
 ##   --shot-dir=PATH       where screenshots go (default user://shots)
 ##   --cam=X,Y[,ZOOM]      hold the camera on this world spot (and zoom), still clamped to the
 ##                         arena and its stands: for screenshots of the edges
+##   --cam-lead=0|1 --cam-clash=0|1 --cam-settle=0|1  camera behaviour off / on (Normal) for
+##                         this session, not saved (also low|normal|high; Settings > Video > Camera)
 ##   --quit-after=N        exit after N frames
 ##   --perf                log frame and tick times during fights; on quit, prints the
 ##                         percentiles and saves them to user://perf.txt
@@ -124,10 +126,10 @@ const REPLAY_MODE := 47
 ## The menus (src/ui screens): the title menu opens Single player (MENU_ROWS), the online
 ## screen, or Settings. MODES indexes stay stable for --mode=N; rows with choices pick
 ## one of several modes with Left/Right.
-## The Settings pages and their rows, in order (see _setting()).
+## The Settings pages and their rows, in order (see _setting()); "#Name" is a heading.
 const SETTING_PAGES := {
 	"game": ["level", "intros", "rumble", "shake", "discord", "server", "delay"],
-	"video": ["fullscreen", "wide", "vsync", "fps", "glow", "font", "perf_overlay"],
+	"video": ["fullscreen", "wide", "vsync", "fps", "glow", "font", "perf_overlay", "#Camera", "cam_lead", "cam_clash", "cam_settle"],
 	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu"],
 }
 const SHAKE_CHOICES := [["Full", 1.0], ["Reduced", 0.5], ["Off", 0.0]]
@@ -270,9 +272,64 @@ const EXCHANGE_OUT := 0.012
 const EXCHANGE_HOLD := 70
 const EXCHANGE_HITS := 3
 const EXCHANGE_PAD := Vector2(48, 28)
+## Camera behaviour (Settings > Video > Camera), each Off / Low / Normal / High (an index
+## into these tables; `--cam-lead=` / `--cam-clash=` / `--cam-settle=` for a session).
+## All of it eases the camera's target once a tick; nothing reads or writes sim state but
+## the fighters' positions, facing, last input bits and the events.
+const CAM_LEVELS := ["Off", "Low", "Normal", "High"]
+const CAM_DEFAULT := 2
+## Aim lead: the camera leans toward where the viewed fighter aims (its IN_AIM angle, else
+## its facing) by AIM_LEAD px (y x AIM_LEAD_Y: the screen is wider than tall). An aim
+## within AIM_DEAD_DOT (about 20 degrees) of the one held doesn't move it (mouse and stick
+## wobble); it eases toward a new aim at AIM_EASE_IN and back toward nothing at AIM_EASE_OUT.
+const AIM_LEAD := [0.0, 8.0, 14.0, 22.0]
+const AIM_LEAD_Y := 0.75
+const AIM_DEAD_DOT := 0.94
+const AIM_EASE_IN := 0.05
+const AIM_EASE_OUT := 0.025
+## Clash reaction: a heavy hit (CLASH_HEAVY of the full push), a guard break or a Surge's
+## hit punches in by CLASH_PUSH (x the zoom) and leans CLASH_SHIFT px toward the impact,
+## eased in at CLASH_IN, held CLASH_HOLD ticks, eased out at CLASH_OUT. Never on top of the
+## exchange push-in (the larger of the two counts, not the sum), never past EXCHANGE_PAD,
+## and not for the hit that knocks someone out (the KO push-in owns that moment).
+const CLASH_PUSH := [0.0, 0.04, 0.07, 0.11]
+const CLASH_SHIFT := [0.0, 4.0, 8.0, 12.0]
+const CLASH_HEAVY := 0.6
+const CLASH_HOLD := 8
+const CLASH_IN := 0.35
+const CLASH_OUT := 0.08
+## Settle: after SETTLE_AFTER ticks with nothing happening (no buttons or moves pressed,
+## nobody moving or out of IDLE, no hits, no push-in), the camera only follows what drifts
+## more than SETTLE_DEAD px from where it was held, drifting there at SETTLE_DRIFT a tick
+## (normally 0.1), and changes zoom only past SETTLE_ZOOM_DEAD (still pulling back quickly
+## so nobody leaves the shot). Anything at all puts the normal rules back on the next tick.
+const SETTLE_AFTER := 60
+const SETTLE_DEAD := [0.0, 8.0, 14.0, 22.0]
+const SETTLE_DRIFT := [0.0, 0.04, 0.03, 0.02]
+const SETTLE_ZOOM_DEAD := 0.04
+const SETTLE_ZOOM_EASE := 0.03
+## Input bits that count as "something happening" for Settle (every button and a move;
+## not the aim angle alone, which a mouse sends all the time: the aim lead's dead zone
+## decides when an aim counts).
+const CAM_ACT_BITS := SimDefs.IN_ALL | SimDefs.IN_MOVE
 
 var sim: MatchSim
 var _cam_zoom := 0.0  ## eased toward a zoom that fits the fighters (0: snap on the next frame)
+var cam_lead := CAM_DEFAULT  ## Settings > Video > Aim lead (a CAM_LEVELS index)
+var cam_clash := CAM_DEFAULT  ## Settings > Video > Clash reaction
+var cam_settle := CAM_DEFAULT  ## Settings > Video > Settle
+var _cam_cli := {}  ## --cam-lead= and the like: this session only, never saved
+var _cam_aim := Vector2.ZERO  ## the aim lead, eased
+var _cam_aim_dir := Vector2.ZERO  ## the aim the lead holds (changes only past the dead zone)
+var _cam_off := Vector2.ZERO  ## the whole offset from _cam_follow this tick (leads + clash), cut to the room
+var _cam_zclash := 1.0  ## the clash push-in's zoom factor this tick
+var _clash := 0.0  ## the clash reaction, 0..1, eased
+var _clash_want := 0.0
+var _clash_hold := 0
+var _clash_pos := Vector2.ZERO
+var _cam_idle := 0  ## ticks with nothing happening (Settle)
+var _settle_mid := Vector2.ZERO  ## Settle's held target (moved only past SETTLE_DEAD)
+var _settle_fit := 0.0  ## and its held zoom (moved only past SETTLE_ZOOM_DEAD)
 var replay: Replay
 var arena: ArenaView
 var crowd: CrowdView
@@ -1155,6 +1212,8 @@ func _open_settings_page(page: String) -> void:
 		for key in SETTING_PAGES[page]:
 			if key == "server":
 				_add_server_row(s)
+			elif key.begins_with("#"):
+				s.add_heading(key.substr(1))
 			else:
 				_add_setting_row(s, key)
 		s.add_space(4)
@@ -2206,6 +2265,15 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	_cam_push = 0.0
 	_exchange_t = 0
 	_exchange_hits = 0
+	_cam_aim = Vector2.ZERO
+	_cam_aim_dir = Vector2.ZERO
+	_cam_off = Vector2.ZERO
+	_cam_zclash = 1.0
+	_clash = 0.0
+	_clash_want = 0.0
+	_clash_hold = 0
+	_cam_idle = 0
+	_settle_fit = 0.0
 	_surge_bars = 0
 	_drop_intro()
 	if letterbox != null:
@@ -2827,6 +2895,9 @@ func _react(e: Dictionary) -> void:
 			if fx._event_shown(e):  # (fans near a hidden fighter's hit would give it away)
 				crowd.react(Vector2(e["pos"]), 4 + mini(4, int(power * 0.25)))
 				_note_exchange()
+				var kind := _hit_kind(e)
+				if kind == "heavy" or kind == "surge":
+					_note_clash(Vector2(e["pos"]), 1.0 if kind == "surge" else CLASH_HEAVY)
 		"block":
 			shake = maxf(shake, 1.0)
 			_note_exchange()
@@ -2840,6 +2911,8 @@ func _react(e: Dictionary) -> void:
 			crowd.cheer(0.5)
 		"guard_break", "breakaway", "slip":
 			crowd.cheer(0.3)
+			if String(e["type"]) == "guard_break" and fx._event_shown(e):
+				_note_clash(Vector2(e["pos"]), 1.0)
 		"surge":
 			crowd.cheer(0.6)
 			if not bool(e.get("freeze", true)):
@@ -2966,8 +3039,8 @@ func _update_camera() -> void:
 		base_focus = intro.focus
 	elif sim != null and showcase == null and coach == null:
 		_frame_fight(view, size)
-		base_z = _cam_zoom
-		base_focus = _cam_follow + _cam_lead
+		base_z = _cam_zoom * _cam_zclash
+		base_focus = _cam_follow + _cam_off
 	elif (showcase != null or coach != null) and sim != null and sim.creatures.size() >= 2:
 		var a := sim.creatures[0].pos
 		var b := sim.creatures[1].pos
@@ -2998,9 +3071,20 @@ func _update_camera() -> void:
 	var half := view * 0.5 / z
 	camera.zoom = Vector2(z, z)
 	# Near an edge the shot may run a little past it, into the side stands and front rows.
-	camera.position = Vector2(_cam_axis(focus.x, half.x, size.x, CrowdView.SHOW_SIDE, CrowdView.SHOW_SIDE),
+	var pos := Vector2(_cam_axis(focus.x, half.x, size.x, CrowdView.SHOW_SIDE, CrowdView.SHOW_SIDE),
 		_cam_axis(focus.y, half.y, size.y, CrowdView.SHOW_TOP, CrowdView.SHOW_FRONT))
+	# Whole screen pixels: a still thing on the floor moves a whole pixel at a time as the
+	# camera pans, never resampled at a new phase (no shimmer).
+	camera.position = snap_cam(pos, z * maxf(1.0, float(get_window().size.x) / maxf(view.x, 1.0)))
 	_update_pointers(view)
+
+
+## A camera position on the screen's pixel grid: `px` screen pixels per world unit (the
+## zoom x the window's pixels per canvas unit).
+static func snap_cam(pos: Vector2, px: float) -> Vector2:
+	if px <= 0.0:
+		return pos
+	return (pos * px).round() / px
 
 
 ## How far into the KO push-in the camera is, 0..1, `t` ticks after the knockout: held
@@ -3172,6 +3256,8 @@ func _end_intro() -> void:
 	_cam_zoom = intro.zoom
 	_cam_follow = intro.focus
 	_cam_lead = Vector2.ZERO
+	_cam_aim = Vector2.ZERO
+	_cam_off = Vector2.ZERO
 	_drop_intro()
 
 
@@ -3233,10 +3319,14 @@ func _frame_fight(view: Vector2, size: Vector2) -> void:
 		for i in n:
 			_cam_prev[i] = sim.creatures[i].pos
 	var lead := Vector2.ZERO
+	var busy := _cam_push > 0.0 or _clash > 0.0 or _clash_hold > 0 or _ko_cam_t >= 0 or _exchange_t > 0
 	for i in n:
 		var c := sim.creatures[i]
 		var moved := c.pos - _cam_prev[i]
 		_cam_prev[i] = c.pos
+		if c.state != CreatureSim.State.KO:  # (Settle: is anything happening?)
+			busy = busy or moved.length_squared() > 0.04 or c.state != CreatureSim.State.IDLE \
+				or (c.prev_buttons & CAM_ACT_BITS) != 0
 		if i != anchor and c.state == CreatureSim.State.KO and _ko_cam_t < 0:
 			continue
 		if _is_hidden(i):
@@ -3274,17 +3364,164 @@ func _frame_fight(view: Vector2, size: Vector2) -> void:
 		var room := tight.grow_individual(EXCHANGE_PAD.x, EXCHANGE_PAD.y + 24.0, EXCHANGE_PAD.x, EXCHANGE_PAD.y)
 		var cap := minf(view.x / room.size.x, view.y / room.size.y)
 		fit = clampf(fit * (1.0 + EXCHANGE_PUSH * _cam_push), fit, maxf(fit, cap))
+	var room_cap := minf(view.x / (tight.size.x + EXCHANGE_PAD.x * 2.0), view.y / (tight.size.y + EXCHANGE_PAD.y * 2.0 + 24.0))
 	var mid := box.get_center()
+	# Aim lead: where the viewed fighter aims, held through the dead zone.
+	var aim := _aim_now(anchor) if cam_level("cam_lead") > 0 else Vector2.ZERO
+	if aim == Vector2.ZERO:
+		_cam_aim_dir = Vector2.ZERO
+	elif _cam_aim_dir == Vector2.ZERO or aim.dot(_cam_aim_dir) < AIM_DEAD_DOT * aim.length() * _cam_aim_dir.length():
+		_cam_aim_dir = aim
+		busy = true
+	_cam_idle = 0 if busy else _cam_idle + 1
+	var settle := cam_level("cam_settle")
+	var settled := settle > 0 and _cam_idle >= SETTLE_AFTER
 	if _cam_zoom <= 0.0:
 		_cam_zoom = fit
 		_cam_follow = mid
 		_cam_lead = Vector2.ZERO
+		_cam_aim = Vector2.ZERO
+	elif settled:
+		# Nothing happening: the target is held where it was when things went quiet, and
+		# moves only when the live one gets past the dead zone; the camera drifts to it.
+		if _cam_idle == SETTLE_AFTER or _settle_fit <= 0.0:
+			_settle_mid = mid
+			_settle_fit = fit
+		if mid.distance_to(_settle_mid) > float(SETTLE_DEAD[settle]):
+			_settle_mid = mid
+		if absf(fit / _settle_fit - 1.0) > SETTLE_ZOOM_DEAD:
+			_settle_fit = fit
+		_cam_follow = _cam_follow.lerp(_settle_mid, float(SETTLE_DRIFT[settle]))
+		if fit < _cam_zoom:
+			_cam_zoom = lerpf(_cam_zoom, fit, 0.12)  # (never holds anyone out of shot)
+		else:
+			_cam_zoom = lerpf(_cam_zoom, minf(_settle_fit, fit), SETTLE_ZOOM_EASE)
+		_cam_lead = _cam_lead.lerp(lead.limit_length(LEAD_MAX), LEAD_EASE)
 	else:
 		# Pull back quickly (nobody leaves the shot), push in gently.
 		_cam_zoom = lerpf(_cam_zoom, fit, 0.12 if fit < _cam_zoom else 0.03)
 		_cam_follow = _cam_follow.lerp(mid, 0.1)
 		_cam_lead = _cam_lead.lerp(lead.limit_length(LEAD_MAX), LEAD_EASE)
+	var aim_want := _cam_aim_dir * Vector2(1.0, AIM_LEAD_Y) * float(AIM_LEAD[cam_level("cam_lead")])
+	_cam_aim = _cam_aim.lerp(aim_want, AIM_EASE_IN if aim_want.length() >= _cam_aim.length() else AIM_EASE_OUT)
+	if _cam_aim.length_squared() < 0.0025:
+		_cam_aim = Vector2.ZERO
+	# Clash reaction: eased toward the strength asked for while it's held.
+	if _clash_hold > 0:
+		_clash_hold -= 1
+	else:
+		_clash_want = 0.0
+	if _ko_cam_t >= 0:  # the KO push-in owns the moment
+		_clash_want = 0.0
+		_clash_hold = 0
+	_clash = lerpf(_clash, _clash_want, CLASH_IN if _clash_want > _clash else CLASH_OUT)
+	if _clash < 0.01:
+		_clash = 0.0
+	_cam_zclash = clash_zoom(_clash, CLASH_PUSH[cam_level("cam_clash")], EXCHANGE_PUSH * _cam_push,
+		room_cap / maxf(_cam_zoom, 0.01))
+	var clash_off: Vector2 = (_clash_pos - _cam_follow).limit_length(CLASH_SHIFT[cam_level("cam_clash")]) * _clash
 	_cam_lead = _lead_room(_cam_lead, _cam_follow, tight, view * 0.5 / _cam_zoom)
+	_cam_off = _lead_room(_cam_lead + _cam_aim + clash_off, _cam_follow, tight, view * 0.5 / (_cam_zoom * _cam_zclash))
+
+
+## The clash push-in's zoom factor: `amt` (0..1) of `push`, not on top of the exchange
+## push-in already in the fit (`exchange`, its share: the larger counts, not the sum), and
+## never past `cap` (the factor that still leaves EXCHANGE_PAD round the fighters).
+static func clash_zoom(amt: float, push: float, exchange: float, cap: float) -> float:
+	if amt <= 0.0 or push <= 0.0:
+		return 1.0
+	var f := (1.0 + maxf(exchange, push * amt)) / (1.0 + exchange)
+	return clampf(f, 1.0, maxf(1.0, cap))
+
+
+## A heavy hit, a guard break or a Surge's hit at `pos` in shot: the clash reaction,
+## `amt` of the full push-in (see CLASH_*).
+func _note_clash(pos: Vector2, amt: float) -> void:
+	if cam_level("cam_clash") <= 0 or _ko_cam_t >= 0:
+		return
+	_clash_want = maxf(_clash_want if _clash_hold > 0 else 0.0, amt)
+	_clash_hold = CLASH_HOLD
+	_clash_pos = pos
+	_cam_idle = 0
+
+
+## What kind of move a `hit` event came from ("light", "heavy", "skill", "surge"; "" when
+## the attacker has already moved on, as after a shot): the event says only `heavy`, so the
+## attacker's move is read (never written).
+func _hit_kind(e: Dictionary) -> String:
+	if not bool(e.get("heavy", false)):
+		return "light"
+	var a := int(e.get("attacker", -1))
+	if a < 0 or a >= sim.creatures.size():
+		return ""
+	return sim.creatures[a].move_type()
+
+
+## A --cam-lead= / --cam-clash= / --cam-settle= value as a CAM_LEVELS index: 0 / off,
+## 1 / on / normal, low, high; -1 for anything else.
+static func cam_level_arg(v: String) -> int:
+	match v.to_lower():
+		"0", "off":
+			return 0
+		"1", "on", "normal":
+			return CAM_DEFAULT
+		"low":
+			return 1
+		"high":
+			return 3
+	return -1
+
+
+## A camera behaviour's level (CAM_LEVELS index): the command line's for this session,
+## else the setting.
+func cam_level(key: String) -> int:
+	return clampi(int(_cam_cli.get(key, get(key))), 0, CAM_LEVELS.size() - 1)
+
+
+## Whose aim the camera leads with: the players here (online, the local slot); with
+## nobody here playing (watching, a replay, CPU vs CPU) the fighter the HUD follows. On
+## a big map, only the followed player (`anchor`).
+func _aim_fighters(anchor: int) -> Array:
+	var n := sim.creatures.size()
+	if anchor >= 0:
+		return [anchor]
+	if online != null:
+		return [online.local_slot] if online.local_slot < n else []
+	var out := []
+	for k in mini(sides.size(), n):
+		if sides[k] in LOCAL_SIDES:
+			out.append(k)
+	if out.is_empty() and hud.focus < n:
+		out.append(hud.focus)
+	return out
+
+
+## The aim the camera leads toward this tick: the average of the aim fighters' aims (two
+## players here aiming apart cancel out), nothing while knocked out or falling.
+func _aim_now(anchor: int) -> Vector2:
+	var sum := Vector2.ZERO
+	var count := 0
+	for k in _aim_fighters(anchor):
+		if _is_hidden(k):
+			continue
+		var d := aim_dir_of(sim.creatures[k])
+		if d != Vector2.ZERO:
+			sum += d
+			count += 1
+	if count == 0:
+		return Vector2.ZERO
+	sum /= count
+	return sum if sum.length() > 0.3 else Vector2.ZERO
+
+
+## One fighter's aim, read from the sim (never written): its exact aim angle when its last
+## input carried one (twin-stick, mouse), else the way it faces.
+static func aim_dir_of(c: CreatureSim) -> Vector2:
+	if c.state == CreatureSim.State.KO or c.state == CreatureSim.State.FALLING:
+		return Vector2.ZERO
+	if c.prev_buttons & SimDefs.IN_AIM:
+		return SimDefs.aim_from_bits(c.prev_buttons)
+	return c.facing.normalized() if c.facing != Vector2.ZERO else Vector2.ZERO
 
 
 ## A hit or block landed in shot: the exchange goes on (see EXCHANGE_HITS).
@@ -3687,6 +3924,15 @@ func _setting(key: String) -> Dictionary:
 		"font":
 			return {"label": "Text font", "values": ["Pixel", "Smooth"], "index": 1 if UiTheme.smooth else 0,
 				"desc": "The menus and the HUD: the pixel font, or the smooth font from before"}
+		"cam_lead":
+			return {"label": "Aim lead", "values": CAM_LEVELS, "index": cam_lead,
+				"desc": "The camera leans a little toward where you aim, so you see more of the floor in front of you"}
+		"cam_clash":
+			return {"label": "Clash reaction", "values": CAM_LEVELS, "index": cam_clash,
+				"desc": "A heavy hit, a guard break or a Surge's hit: the camera punches in for a moment"}
+		"cam_settle":
+			return {"label": "Settle", "values": CAM_LEVELS, "index": cam_settle,
+				"desc": "When nothing is happening, the camera holds still instead of hunting. Higher: stiller"}
 		"perf_overlay":
 			return {"label": "Performance overlay", "values": PerfOverlay.MODE_NAMES, "index": perf_overlay.mode,
 				"desc": "The frame rate in a corner; with the graph, the last few seconds of frame times (F9 in a fight)"}
@@ -3748,6 +3994,9 @@ func _set_setting(key: String, i: int) -> void:
 				_apply_discord()
 			"fps":
 				fight_fps = int(FPS_CHOICES[clampi(i, 0, FPS_CHOICES.size() - 1)])
+			"cam_lead", "cam_clash", "cam_settle":
+				set(key, clampi(i, 0, CAM_LEVELS.size() - 1))
+				_cam_cli.erase(key)  # (the menu outranks a command-line value from here on)
 			"perf_overlay":
 				perf_overlay.mode = clampi(i, 0, PerfOverlay.MODE_NAMES.size() - 1) as PerfOverlay.Mode
 			"glow":
@@ -4042,6 +4291,8 @@ func _load_settings() -> void:
 		UiTheme.smooth = String(cfg.get_value("video", "font", "pixel")) == "smooth"
 		glow = bool(cfg.get_value("video", "glow", default_glow()))
 		_apply_glow()
+		for k in ["cam_lead", "cam_clash", "cam_settle"]:
+			set(k, clampi(int(cfg.get_value("video", k, CAM_DEFAULT)), 0, CAM_LEVELS.size() - 1))
 		perf_overlay.mode = clampi(int(cfg.get_value("video", "perf_overlay", 0)), 0,
 			PerfOverlay.MODE_NAMES.size() - 1) as PerfOverlay.Mode
 		var saved_rows = cfg.get_value("game", "row_choice", {})
@@ -4077,6 +4328,8 @@ func _save_settings() -> void:
 	cfg.set_value("video", "vsync", vsync)
 	cfg.set_value("video", "wide_fill", wide_fill)
 	cfg.set_value("video", "perf_overlay", perf_overlay.mode)
+	for k in ["cam_lead", "cam_clash", "cam_settle"]:
+		cfg.set_value("video", k, int(get(k)))
 	cfg.set_value("video", "glow", glow)
 	cfg.set_value("video", "font", "smooth" if UiTheme.smooth else "pixel")
 	cfg.set_value("game", "rumble", rumble)
@@ -4200,6 +4453,10 @@ func _parse_args() -> int:
 		elif a.begins_with("--cam="):
 			var cp := a.get_slice("=", 1).split(",")
 			_cam_force = Vector3(float(cp[0]), float(cp[1]), float(cp[2]) if cp.size() > 2 else 0.0)
+		elif a.begins_with("--cam-lead=") or a.begins_with("--cam-clash=") or a.begins_with("--cam-settle="):
+			var lv := cam_level_arg(a.get_slice("=", 1))
+			if lv >= 0:
+				_cam_cli[a.get_slice("=", 0).trim_prefix("--").replace("-", "_")] = lv
 		elif a.begins_with("--shot-dir="):
 			_shot_dir = a.get_slice("=", 1)
 		elif a.begins_with("--quit-after="):
