@@ -101,5 +101,6 @@ tools, so a fighter's pass is posing work only.
 - `gen_sno.py` — Sno Mercy sprite sheets, a pixel-art recreation of the artist's character sheet.
 - `gen_sprites.py` — Generate placeholder pixel-art sprite sheets for Creature Arena.
 - `palette.py` — The master palette: one published set of colours for every fighter and arena.
+- `shade2d.py` — Master-palette shading for the 2D painters (Barkley's and Gillbert's rigs).
 - `splat3d.py` — Shared renderer for the sheet-recreation sprite generators (tools/gen_digby.py and later).
 <!-- END GENERATED -->

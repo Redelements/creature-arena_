@@ -46,30 +46,45 @@ VIEWS = {
     "up_side": {"w": 128, "h": 160, "origin": (64, 124)},
 }
 
-# Palette, sampled from the character sheet.
+# Palette: master-palette ramps per material (tools/palette.py; the shading rules are in
+# tools/shade2d.py). The artist's sheet sets the hues: pink-brown bark (the rust line, a
+# step lighter than his branch arms and the log), a green moss beard, small blue eyes,
+# the log's pale cut end with its rings, bright leaves.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import shade2d  # noqa: E402
+
+MAT = {
+    "bark": ("rust", 1),    # trunk, legs, roots, nose
+    "wood": "rust",         # branch arms, twig fingers, the log
+    "ring": "sand",         # the log's cut end
+    "moss": ("moss", -1),   # the beard: the deep end of the moss line, as on the sheet
+    "leaf": ("lime", -1),   # leaf sprouts
+    "eye": "blue",
+    "cone": "earth",        # the pinecone
+}
+M = shade2d.Materials(MAT)
+
 C = {
-    "outline": (30, 16, 16, 255),
-    "bark": (181, 102, 100, 255),
-    "bark_l": (206, 136, 128, 255),
-    "bark_d": (146, 78, 78, 255),
-    "bark_dd": (119, 67, 66, 255),
-    "grain": (122, 64, 64, 255),
-    "wood": (128, 72, 70, 255),
-    "wood_l": (160, 98, 92, 255),
-    "wood_d": (98, 55, 54, 255),
-    "ring": (214, 170, 140, 255),
-    "ring_l": (232, 196, 164, 255),
-    "ring_d": (150, 96, 80, 255),
-    "moss": (26, 112, 48, 255),
-    "moss_l": (52, 160, 76, 255),
-    "moss_d": (14, 74, 32, 255),
-    "leaf": (40, 180, 80, 255),
-    "leaf_l": (150, 220, 170, 255),
-    "leaf_d": (22, 120, 52, 255),
-    "eye": (60, 70, 200, 255),
-    "eye_hi": (170, 190, 255, 255),
-    "mouth": (70, 30, 32, 255),
-    "glow": (170, 255, 120, 255),
+    "bark": M.col("bark"),
+    "wood": M.col("wood"),
+    "ring": M.col("ring", 3),         # the cut face, in the light
+    "ring_d": M.col("ring", 1),       # its growth rings
+    "moss": M.col("moss"),
+    "moss_l": M.col("moss", 3),
+    "moss_d": M.col("moss", 1),
+    "leaf": M.col("leaf", 2),
+    "leaf_l": M.col("leaf", 3),
+    "leaf_ink": M.ink["leaf"] + (255,),
+    "eye": M.col("eye", 3),
+    "ink": M.ink["bark"] + (255,),    # face lines, the ground hole's rim
+    "seam": M.seam["bark"] + (255,),  # brows, chevrons, the crease between the legs
+    "mouth": M.col("bark", 0),
+    "glow": M.col("leaf", 3),
+    "cone": M.col("cone", 3),
+    "cone_d": M.col("cone", 1),
+    "cone_l": M.col("cone", 4),
+    "cone_ink": M.ink["cone"] + (255,),
+    "groove": (255, 0, 255, 255),     # detail lines: one ramp step darker where they fall
 }
 
 # ------------------------------------------------------------------ image helpers
@@ -94,25 +109,15 @@ def _shift(m, dx, dy):
     return p[4 + dy:4 + dy + h, 4 + dx:4 + dx + w]
 
 
-def shade(img, base, light, dark):
-    """Recolors a filled shape: lit from the top left, shadowed on the bottom right."""
-    a = np.array(img)
-    m = a[:, :, 3] > 0
-    out = np.zeros_like(a)
-    out[m] = C[base]
-    dk = m & (~_shift(m, 1, 1) | ~_shift(m, 0, 2) | ~_shift(m, 1, 2))
-    out[dk] = C[dark]
-    hl = m & (~_shift(m, -1, -1) | ~_shift(m, 0, -1)) & ~dk
-    out[hl] = C[light]
-    return Image.fromarray(out)
+def shade(img, name):
+    """Ramp-shades a filled shape from the master palette (shade2d: lit from the top left,
+    a hard terminator, the core shadow, a rim light on the far edge)."""
+    return M.shade(img, name)
 
 
-def outline(img, color="outline"):
-    a = np.array(img)
-    m = a[:, :, 3] > 0
-    ring = (_shift(m, 1, 0) | _shift(m, -1, 0) | _shift(m, 0, 1) | _shift(m, 0, -1)) & ~m
-    a[ring] = C[color]
-    return Image.fromarray(a)
+def outline(img):
+    """A 1 px line round the shape in its material's own ink."""
+    return M.outline(img)
 
 
 def clip_to(detail, shape):
@@ -121,11 +126,9 @@ def clip_to(detail, shape):
     return Image.fromarray(d)
 
 
-def darken(img, k):
-    a = np.array(img)
-    m = a[:, :, 3] > 0
-    a[m, :3] = (a[m, :3] * k).astype(np.uint8)
-    return Image.fromarray(a)
+def darken(img):
+    """The far arm or leg: one ramp step darker all over."""
+    return M.darken(img)
 
 
 def disc(d, c, r, col):
@@ -151,11 +154,11 @@ def draw_pinecone(img, at):
     """A small pinecone: a brown oval with rows of darker scales."""
     x, y = round(at[0]), round(at[1])
     d = ImageDraw.Draw(img)
-    d.ellipse([x - 3, y - 4, x + 3, y + 4], fill=C["outline"])
-    d.ellipse([x - 2, y - 3, x + 2, y + 3], fill=(150, 96, 52, 255))
+    d.ellipse([x - 3, y - 4, x + 3, y + 4], fill=C["cone_ink"])
+    d.ellipse([x - 2, y - 3, x + 2, y + 3], fill=C["cone"])
     for yy in (-2, 0, 2):
-        d.line([(x - 2, yy + y), (x, yy + y + 1), (x + 2, yy + y)], fill=(96, 56, 30, 255))
-    d.point((x - 1, y - 2), fill=(196, 140, 84, 255))
+        d.line([(x - 2, yy + y), (x, yy + y + 1), (x + 2, yy + y)], fill=C["cone_d"])
+    d.point((x - 1, y - 2), fill=C["cone_l"])
 
 
 # ------------------------------------------------------------------ 3D
@@ -421,7 +424,7 @@ class Painter:
         polyline(d, [self.P(hip), self.P(knee), self.P(ankle)], [5.0, 3.9, 4.1], "bark")
         # the flare where the trunk meets the ground
         disc(d, self.P(v_add(ankle, (0, -1.4, 0))), 4.6, "bark")
-        img = shade(img, "bark", "bark_l", "bark_d")
+        img = shade(img, "bark")
         det = layer()
         dd = ImageDraw.Draw(det)
         a, b = self.P(hip), self.P(ankle)
@@ -429,11 +432,11 @@ class Painter:
             n = (b[1] - a[1], -(b[0] - a[0]))
             ln = math.hypot(*n) or 1.0
             n = (n[0] / ln * off, n[1] / ln * off)
-            dd.line([(a[0] + n[0], a[1] + n[1] + 2), (b[0] + n[0], b[1] + n[1] - 1)], fill=C["grain"])
-        img.alpha_composite(clip_to(det, img))
+            dd.line([(a[0] + n[0], a[1] + n[1] + 2), (b[0] + n[0], b[1] + n[1] - 1)], fill=C["groove"])
+        M.groove(img, det)
         img = outline(img)
         if self.facing((-1.0 if i == 0 else 1.0, 0, 0)) < -0.3:
-            img = darken(img, 0.84)
+            img = darken(img)
         return img
 
     def roots(self, i):
@@ -456,7 +459,7 @@ class Painter:
                 tip = (base[0] + dx * ln, 0.0, base[2] + dz * ln)
                 mid = (base[0] + dx * ln * 0.55 + dz * 0.8, 0.6, base[2] + dz * ln * 0.55 - dx * 0.8)
             polyline(d, [self.P(base), self.P(mid), self.P(tip)], [2.6, 1.4, 0.5], "bark")
-        img = shade(img, "bark", "bark_l", "bark_dd")
+        img = shade(img, "bark")
         return outline(img)
 
     # -- trunk, face and beard
@@ -479,8 +482,10 @@ class Painter:
             a = self.b.T((lat, up, fwd))
             b = self.b.T((lat + dl, up + du, fwd))
             capsule(d, self.P(a), self.P(b), 1.4, 0.8, "bark")
-        img = shade(img, "bark", "bark_l", "bark_d")
-        det = layer()
+        img = shade(img, "bark")
+        grain = layer()  # grooves: one ramp step darker wherever they fall
+        gd = ImageDraw.Draw(grain)
+        det = layer()  # features in fixed colours (seams, eyes)
         dd = ImageDraw.Draw(det)
         # grain down each leg, and a crease where the nearer leg passes over the other
         near = max((0, 1), key=lambda i: self.D(self.b.leg(i)[2]))
@@ -491,7 +496,7 @@ class Painter:
             ln = math.hypot(*n) or 1.0
             for off in (-2, 1):
                 o = (n[0] / ln * off, n[1] / ln * off)
-                dd.line([(a[0] + o[0], a[1] + o[1]), (b[0] + o[0], b[1] + o[1] - 1)], fill=C["grain"])
+                gd.line([(a[0] + o[0], a[1] + o[1]), (b[0] + o[0], b[1] + o[1] - 1)], fill=C["groove"])
         nl = layer()
         self._leg_shape(ImageDraw.Draw(nl), near)
         m = _mask(nl)
@@ -499,10 +504,11 @@ class Painter:
         fork_y = self.P(self.b.hip)[1] - 1
         ys = np.arange(m.shape[0])[:, None] >= fork_y
         da = np.array(det)
-        da[ring & ys] = C["bark_dd"]
+        da[ring & ys] = C["seam"]
         det = Image.fromarray(da)
+        dd = ImageDraw.Draw(det)
         # bark grain: wavy lines running up the trunk, following its turn
-        for theta in (-75, -50, -25, 0, 25, 50, 75, 110, 150, 200, 250):
+        for theta in (-60, 5, 65, 150, 230):  # sparse: the ramp carries the form
             n = self.facing(self.b.face_normal(theta))
             if n < 0.05:
                 continue
@@ -514,25 +520,28 @@ class Painter:
                 wob = math.sin(k * 1.7 + theta) * 6
                 line.append(self.P(self.b.face_point(theta + wob, up, out=-0.5)))
             if len(line) > 1:
-                dd.line(line, fill=C["grain"])
+                gd.line(line, fill=C["groove"])
         # chevrons where the trunk splits, as on the sheet
         if self.facing(self.b.face_normal(0)) > 0.0:
             for th in (-30, 30):
                 a = self.P(self.b.face_point(th * 0.4, 2.0 + FD))
                 b = self.P(self.b.face_point(th, 5.0 + FD))
-                dd.line([a, b], fill=C["bark_dd"])
-        self._face(dd)
-        self._nose(img)
+                dd.line([a, b], fill=C["seam"])
+        self._face(dd, gd)
         if self.p.glow > 0:
             for th, up in ((-40, 6), (30, 13), (-10, 3), (60, 18)):
                 if self.facing(self.b.face_normal(th)) > 0:
                     dd.point(self.P(self.b.face_point(th, up)), fill=C["glow"])
+        M.groove(img, grain)
         img.alpha_composite(clip_to(det, img))
-        return outline(img)
+        img = outline(img)
+        nose = self._nose()
+        # the nose stands off the face: its outline over the trunk is a seam
+        return img if nose is None else M.stack([img, nose])
 
-    def _face(self, dd):
+    def _face(self, dd, gd):
         f = self.p.face
-        o = C["outline"]
+        o = C["ink"]
         for th in (-26, 26):
             if self.facing(self.b.face_normal(th)) < -0.02:
                 continue
@@ -546,27 +555,27 @@ class Painter:
             else:
                 dd.line([(e[0] - 1, e[1] - 1), (e[0] + 1, e[1] - 1)], fill=o)
                 dd.point(e, fill=C["eye"])
-                dd.point((e[0] - 1 if th > 0 else e[0] + 1, e[1]), fill=C["bark_dd"])
+                dd.point((e[0] - 1 if th > 0 else e[0] + 1, e[1]), fill=C["seam"])
                 if f == "shout":
                     dd.point((e[0], e[1] + 1), fill=C["eye"])
             # heavy old brow lines
             b0 = self.P(self.b.face_point(th * 1.35, 27.3 + FD))
             b1 = self.P(self.b.face_point(th * 0.55, (26.6 if f != "shout" else 27.6) + FD))
-            dd.line([b0, b1], fill=C["bark_dd"])
+            dd.line([b0, b1], fill=C["seam"])
         # wrinkles around the eyes
         for th in (-38, 38):
             if self.facing(self.b.face_normal(th)) > 0.1:
                 a = self.P(self.b.face_point(th, 23.0 + FD))
                 b = self.P(self.b.face_point(th * 1.2, 21.5 + FD))
-                dd.line([a, b], fill=C["grain"])
+                gd.line([a, b], fill=C["groove"])
         if f in ("shout", "hurt") and self.facing(self.b.face_normal(0)) > 0.0:
             m = self.P(self.b.face_point(0, 18.0 + FD))
             dd.rectangle([m[0] - 1, m[1] - 1, m[0] + 1, m[1] + 1], fill=C["mouth"])
 
-    def _nose(self, img):
+    def _nose(self):
         """A long wooden nose sticking out of the face (drawn last, over the trunk)."""
         if self.facing(self.b.face_normal(0)) < -0.3:
-            return
+            return None
         root_hi = self.P(self.b.face_point(0, 25.5 + FD, out=-0.5))
         root_l = self.P(self.b.face_point(-14, 21.2 + FD, out=-0.2))
         root_r = self.P(self.b.face_point(14, 21.2 + FD, out=-0.2))
@@ -574,8 +583,7 @@ class Painter:
         lay = layer()
         d = ImageDraw.Draw(lay)
         d.polygon([root_hi, root_l, tip, root_r], fill=C["bark"])
-        lay = outline(shade(lay, "bark", "bark_l", "bark_dd"))
-        img.alpha_composite(lay)
+        return outline(shade(lay, "bark"))
 
     def beard(self):
         """The moss beard: a scribbly clump hanging under the nose."""
@@ -594,7 +602,7 @@ class Painter:
             drawn += 1
         if drawn == 0:
             return None
-        img = shade(img, "moss", "moss_l", "moss_d")
+        img = shade(img, "moss")
         det = layer()
         dd = ImageDraw.Draw(det)
         # scribbled curls of lighter moss
@@ -643,14 +651,14 @@ class Painter:
             b = v_add(a, (dl * (-1 if i == 0 else 1), du, 0.5))
             capsule(d, self.P(a), self.P(b), 1.0, 0.6, "wood")
             twigs.append(b)
-        img = shade(img, "wood", "wood_l", "wood_d")
+        img = shade(img, "wood")
         det = layer()
         dd = ImageDraw.Draw(det)
         p2 = [self.P(q) for q in pts]
         for k in range(len(p2) - 1):
             a, b = p2[k], p2[k + 1]
-            dd.line([(a[0], a[1] + 1), (b[0], b[1] + 1)], fill=C["wood_d"])
-        img.alpha_composite(clip_to(det, img))
+            dd.line([(a[0], a[1] + 1), (b[0], b[1] + 1)], fill=C["groove"])
+        M.groove(img, det)
         img = outline(img)
         lv = ImageDraw.Draw(img)
         for b in twigs:
@@ -660,10 +668,10 @@ class Painter:
             draw_pinecone(img, self.P(v_add(hd, (0, 1.5, 0))))
         if cut is not None:
             g = self.P((cut[0], 0.0, cut[2]))
-            lv.ellipse([g[0] - 4, g[1] - 1, g[0] + 4, g[1] + 2], fill=C["outline"])
-            lv.ellipse([g[0] - 3, g[1] - 1, g[0] + 3, g[1] + 1], fill=C["bark_dd"])
+            lv.ellipse([g[0] - 4, g[1] - 1, g[0] + 4, g[1] + 2], fill=C["ink"])
+            lv.ellipse([g[0] - 3, g[1] - 1, g[0] + 3, g[1] + 1], fill=C["seam"])
         if self.facing((-1.0 if i == 0 else 1.0, 0, 0)) < -0.3:
-            img = darken(img, 0.86)
+            img = darken(img)
         return img
 
     def _fingers(self, d, i, pts):
@@ -690,9 +698,9 @@ class Painter:
 
     def _leaf(self, dd, q):
         x, y = round(q[0]), round(q[1])
-        dd.rectangle([x - 1, y - 2, x + 1, y], fill=C["outline"])
-        dd.point((x, y - 3), fill=C["outline"])
-        dd.point((x - 2, y - 1), fill=C["outline"])
+        dd.rectangle([x - 1, y - 2, x + 1, y], fill=C["leaf_ink"])
+        dd.point((x, y - 3), fill=C["leaf_ink"])
+        dd.point((x - 2, y - 1), fill=C["leaf_ink"])
         dd.point((x, y - 2), fill=C["leaf"])
         dd.point((x - 1, y - 1), fill=C["leaf"])
         dd.point((x, y - 1), fill=C["glow"] if self.p.glow > 0.5 else C["leaf_l"])
@@ -710,7 +718,7 @@ class Painter:
         img = layer()
         d = ImageDraw.Draw(img)
         capsule(d, p0, p1, R, R, "wood")
-        img = shade(img, "wood", "wood_l", "wood_d")
+        img = shade(img, "wood")
         det = layer()
         dd = ImageDraw.Draw(det)
         dx, dy = p1[0] - p0[0], p1[1] - p0[1]
@@ -718,8 +726,8 @@ class Painter:
         nx, ny = -dy / ln, dx / ln
         for off, a0, a1 in ((-1.8, 0.1, 0.8), (0.6, 0.25, 0.95), (2.2, 0.05, 0.55)):
             dd.line([(p0[0] + dx * a0 + nx * off, p0[1] + dy * a0 + ny * off),
-                     (p0[0] + dx * a1 + nx * off, p0[1] + dy * a1 + ny * off)], fill=C["wood_d"])
-        img.alpha_composite(clip_to(det, img))
+                     (p0[0] + dx * a1 + nx * off, p0[1] + dy * a1 + ny * off)], fill=C["groove"])
+        M.groove(img, det)
         # the cut end with its rings faces whichever way is toward the camera
         ends = [(e0, -1.0), (e1, 1.0)]
         end, sgn = max(ends, key=lambda t: self.facing(v_mul(ax, t[1])))
@@ -745,8 +753,8 @@ class Painter:
         lv = ImageDraw.Draw(img)
         sx, sy = round(mid[0]), round(mid[1] - R)
         lx = sx + round(self.p.leaf)  # the leaf's lean (animation pass); 0 draws the original
-        lv.line([(sx, sy), (lx, sy - 2)], fill=C["outline"])
-        lv.ellipse([lx - 2, sy - 7, lx + 2, sy - 2], fill=C["outline"])
+        lv.line([(sx, sy), (lx, sy - 2)], fill=C["leaf_ink"])
+        lv.ellipse([lx - 2, sy - 7, lx + 2, sy - 2], fill=C["leaf_ink"])
         lv.ellipse([lx - 1, sy - 6, lx + 1, sy - 3], fill=C["leaf"])
         lv.point((lx, sy - 5), fill=C["glow"] if self.p.glow > 0.5 else C["leaf_l"])
         return img
@@ -774,10 +782,9 @@ class Painter:
             dep = sh_d + (reach * 0.7 + 1.0 if reach > 3 else 0.0)
             parts.append((dep, 4, self.arm(i)))
         parts.append((trunk_d + 6.0, 5, self.log()))  # it sits on top of the head
-        img = layer()
-        for _d, _o, lay in sorted(parts, key=lambda t: (t[0], t[1])):
-            img.alpha_composite(lay)
-        return img
+        # back to front; an outline that lands on a piece behind becomes its seam
+        layers = [lay for _d, _o, lay in sorted(parts, key=lambda t: (t[0], t[1]))]
+        return M.stack(layers)
 
 
 # ------------------------------------------------------------------ animations
