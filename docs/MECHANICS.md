@@ -29,6 +29,8 @@ Abbreviations: **cs** = `src/sim/creature_sim.gd`, **ms** = `src/sim/match_sim.g
 
 The arena intro (main `_maybe_intro`, `src/view/arena_intro.gd`) is not part of the sim: while it plays main doesn't call `step` at all, so the match's first tick, its replay frames and every later tick are the same with or without it (`tests/test_ui.gd`). It plays only offline; `--intro` / `--no-intro` force it on or off (default off headless and for command-line starts).
 
+Time of day and weather (`data/weather.json`, `src/view/weather_view.gd`) are views only: the sim never reads them, so a match's digest is the same in every look (`tests/test_weather.gd`). An arena's optional `times` / `weathers` lists (in `data/arenas/<id>.json`, so in the online data hash) say which presets it allows. Offline matches take the Single player menu's Time / Weather (Random within the arena's list by default) or `--time=random|day|sunset|night` / `--weather=random|clear|rain|fog|wind|snow` for the session; online matches, spectating and the menu's background fight are always day + clear; a replay records its look in `setup.look` (cosmetic) and an old replay without one plays day + clear.
+
 ## Creature-level keys
 
 | Key | Type / units | Meaning | Used by | Code |

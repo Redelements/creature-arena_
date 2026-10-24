@@ -133,6 +133,17 @@ dig/slosh/poof/chop_chop/shout sounds.
   projectiles where FxView draws them, and particles (spawned only for what was seen; `tests/test_glow.gd`).
   A pool is a true circle on the floor. Keep halos faint over a fighter (an aura's `halo` share is 0.12),
   or the sprite washes out.
+- Time of day and weather → `weather_view.gd` (WeatherView; presets in `data/weather.json`, an arena's
+  allowed `times` / `weathers`). Four depths: `shade` (a MUL layer after the floor wear, before `FxGround`,
+  so floor telegraphs keep their colours: a flat tint, or at night a light map with floodlight pools
+  built once per match, `_build_lightmap`, flat steps with dithered seams), `ground` (fog bands, rain
+  splashes and ripples: after the shadows, before Glow's floor pools), the node itself (rain, snow,
+  debris, lamps: over the fighters, under FxView's telegraphs and bars) and each fighter's
+  `sprite.self_modulate` (night: lit by its pool, never under `fighter_min`; the flash shader's hit
+  flash and tells replace the colour, so they stay exact). It also sets `water.modulate`,
+  `ambient.modulate`, `AmbientView.set_weather` and `ShadowLayer.light`. Counts drop on mobile
+  (`mobile` blocks). Rain streaks and splashes are shared with Rain Dance (`rain_streaks`, `rain_splashes`).
+  Main picks the look (`main.gd:_match_look`); online is always day + clear.
 - Range rings → `range_rings.gd:rings`; F1 hitbox overlay → `debug_view.gd`; F9 performance
   overlay → `perf_overlay.gd` (main feeds `tick(us)`; the setting is `perf_overlay`)
 - A chasm the match made (Sinkhole's rings, the Floor of pits mutator: `TerrainGrid.sink`) has
@@ -206,4 +217,5 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `shadow_layer.gd` (ShadowLayer) — The fighters' shadows, cast along the arena's light: each fighter's current sprite frame as a black silhouette laid on…
 - `surge_aura.gd` (SurgeAura) — The power-up aura a fighter wears while their Surge is ready: a flickering shell of energy rising off them, motes that…
 - `water_view.gd` (WaterView) — Living water over the shallows (Floodgate's channel, Twin Keeps' pools): a slow flow down the map, twinkling highlights…
+- `weather_view.gd` (WeatherView) — Time of day and weather: how a match looks, never how it plays.
 <!-- END GENERATED -->
