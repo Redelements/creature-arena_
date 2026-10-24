@@ -25,9 +25,12 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
 - A new `class_name` needs `--headless --import`.
 - Cost: views redraw on the 60 Hz tick, and that frame has to fit a 240 Hz budget. Redraw
   only what changed: the floor is drawn in row bands (`ArenaView.BAND_ROWS`; a changed cell
-  redraws its band and its neighbours'), the crowd only when someone stands, a flash pops
-  or the camera nears the edge of the seats drawn (`_drawn_key`, `CULL_PAD`; its camera
-  flashes are a layer of their own, `FlashLayer`, so they don't redraw the seats). On a big
+  redraws its band and its neighbours'). The crowd is in blocks (`CrowdView.Block`, about
+  `BLOCK` px): each draws its fans sitting once; the fans on their feet are two layers per
+  block (`Standing`, odd and even phases) redrawn only when who stands changes, near the
+  screen (`_cols`, `CULL_PAD`, `_checked_rect`), and the bounce moves a layer instead of
+  redrawing it; a hit's fans (`react`, capped by `REACT_CAP` a tick) redraw only their
+  block; camera flashes are a layer of their own (`FlashLayer`). On a big
   map most of the field is off screen: `FxView` draws only particles and fighters near the
   view (`_view_rect`, `_in_view`, `CULL_PAD`, a wider `CULL_PAD_FIGHTER` so a telegraph can
   reach in), and a `SurgeAura` skips a fighter off screen. A floor change repaints its
@@ -44,6 +47,15 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   480 x 270 units (project.godot: a 960 x 540 base at content scale 2), so coordinates and
   the camera's zoom are unchanged; text in world space (damage numbers) scales with the zoom.
 - The camera is not here: `src/game/main.gd:_update_camera`, `_frame_fight`, `CAM_PAD`, `KO_ZOOM`.
+  Near an edge it may look `CrowdView.SHOW_SIDE` / `SHOW_FRONT` past the arena (`_cam_axis`
+  `lo` / `hi`), into the side stands and front rows.
+- The crowd's seats (`CrowdView.SIDE_*`, `FRONT_*`) sit on steps and seat backs that
+  `tools/gen_arenas.py` (`_side_stands`, `_front_stands`) paints into each map's picture:
+  change one, change the other and regenerate. The side stands wear the sides' colours
+  (`Look.RED` / `BLUE`, a palette swap of `crowd.png` in `CrowdView.sheet()`, from
+  `Hud.SIDE_COLORS`); the front rows are seen from behind (`Look.BACK`) and drawn only
+  under the front wall, so they never cover a fighter. A hit by a fighter the local team
+  can't see doesn't stand anyone up (main checks `fx._event_shown`).
 
 ## Hidden foes
 
@@ -139,7 +151,7 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `arena_view.gd` (ArenaView) — Draws the stadium: stands, walls, and the breakable floor from the terrain grid.
 - `audio_view.gd` (AudioView) — Sound effects and music. Like the other views it only reads the simulation: sounds come from simulation events (hits, s…
 - `creature_view.gd` (CreatureView) — Shows one CreatureSim: picks the sprite frame from its state, flips it to face, and adds the hit flash, charge glow, in…
-- `crowd_view.gd` (CrowdView) — The crowd in the stands. Big moments raise excitement; more fans cheer and bounce, and camera flashes pop.
+- `crowd_view.gd` (CrowdView) — The crowd all round the stadium: the stands across the top, banked side stands left and right of the floor (the two sid…
 - `debug_view.gd` (DebugView) — F1 overlay: hurtboxes (green), active hitboxes (red), facing, and state/frame counters.
 - `dps_meter.gd` (DpsMeter) — Training's damage-per-second readout for the dummy (drawn by Hud).
 - `flash.gdshader` — Tints a sprite toward flash_color (the white hit flash, the charge glow), and can draw a 1 px rim around its silhouette…
