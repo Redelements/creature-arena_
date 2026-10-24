@@ -57,6 +57,10 @@ Idle and run play at one frame per 10 and 4 ticks. A sheet with longer cycles se
 `"idle_ticks"` and `"run_ticks"` in its `"sprite"` block (Crease: 8 frames at 8 ticks, 12
 at 2, so his run cycle still takes 24 ticks and the stride keeps pace with his speed).
 
+Footstep dust puffs on the run frames where a foot lands: `"step_frames"` in the sprite block
+(default `[0, frames / 2]`: 6-frame runs `[0, 3]`, Crease's 12 `[0, 6]`). `"step": "slush"` makes a
+creature's steps slush instead of the floor's dust (Sno Mercy); shallows always splash.
+
 ### Culvert — 96×96 frames, 8 × 12 (768×1152 px)
 
 Culvert is drawn by `tools/gen_culvert.py` with the shared splat renderer

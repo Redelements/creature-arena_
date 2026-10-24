@@ -66,6 +66,8 @@ var _sq_vel := Vector2.ZERO
 var _prev_state := -1
 var _prev_seg := -1
 var _prev_flash := 0
+## Set by FxView on a light hit: the hit flash stays a half tint instead of a full white.
+var soft_flash := false
 ## Which palette the fighter wears (Progress): a hue turn applied by the flash shader.
 const PALETTE_HUES := [0.0, 0.3, 0.55, 0.8]
 var palette := 0:
@@ -196,8 +198,10 @@ func refresh() -> void:
 	# Hit flash, or a warm pulse once the heavy is fully charged or a Surge starts.
 	var flash_amt := 0.0
 	var flash_col := Color.WHITE
+	if c.flash == 0:
+		soft_flash = false
 	if c.flash > 0:
-		flash_amt = 1.0 if c.flash > 3 else 0.5
+		flash_amt = 1.0 if (c.flash > 3 and not soft_flash) else 0.5
 		if c.poison > 0 and c.flash <= 2:
 			flash_col = Color(0.6, 1.0, 0.35)  # a poison pulse
 	elif c.is_winding_up():

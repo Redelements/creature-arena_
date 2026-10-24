@@ -21,6 +21,7 @@
   "ko_fx": { "style": "melt" },
   "sprite": {
     "path": "res://assets/sprites/sno.png",
+    "step": "slush",
     "frame": 128,
     "cols": 8,
     "origin": [64, 104],
