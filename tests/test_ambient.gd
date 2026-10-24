@@ -226,3 +226,47 @@ func test_twin_keeps_and_caravan_stir_their_brush_for_seen_fighters_only() -> vo
 			_tick(sim, v, 1)
 		assert_gt(v.stirred_cells(), 0, "%s: a seen fighter rustles it" % id)
 		v.free()
+
+
+func test_moths_circle_the_night_lamps_only() -> void:
+	var r := _view("stadium", Sight.new())
+	var v: AmbientView = r[1]
+	assert_eq(v.moth_count(), 0, "no lamps by day, no moths")
+	var w := WeatherView.new()
+	w.apply(r[0], {"time": "night", "weather": "clear"}, null, v, null)
+	assert_gt(v.moth_count(), 0, "night: moths round the lamps")
+	var at := Vector2(100, 100)
+	for t in [0, 37, 500, 1999]:
+		var p := AmbientView.moth_pos(at, 1, t)
+		assert_lt(p.distance_to(at), 24.0, "a moth stays near its lamp")
+	w.apply(r[0], {"time": "day", "weather": "clear"}, null, v, null)
+	assert_eq(v.moth_count(), 0, "day again: none")
+	w.free()
+	v.free()
+
+
+func test_the_cat_walks_sits_licks_and_leaves() -> void:
+	var r := _view("stadium", Sight.new())
+	var v: AmbientView = r[1]
+	v._cat_next = 0
+	v._vis = Rect2(0, 0, 400, 300)
+	v._move_cat(10, Rect2(0, -60, 400, 300))
+	assert_true(v.cat_out(), "a cat comes when the stands are in view")
+	var seen := {}
+	for i in 3000:
+		v._move_cat(11 + i, Rect2(0, -60, 400, 300))
+		if v.cat_out():
+			seen[String(v._cat["state"])] = true
+	for s in ["in", "sit", "lick", "rest", "out"]:
+		assert_true(seen.has(s), "the cat goes through %s" % s)
+	v.free()
+
+
+func test_every_arena_grade_is_gentle() -> void:
+	for id in ["stadium", "greenhouse", "quarry", "caravan_pass", "floodgate", "twin_keeps"]:
+		var f := FileAccess.get_file_as_string("res://data/arenas/%s.json" % id)
+		var g: Dictionary = (JSON.parse_string(f) as Dictionary).get("grade", {})
+		assert_false(g.is_empty(), "%s has a grade" % id)
+		var c := Color(String(g.get("tint", "#ffffff")))
+		assert_gt(minf(c.r, minf(c.g, c.b)), 0.8, "%s: the tint is subtle" % id)
+		assert_lt(float(g.get("vignette", 0.0)), 0.31, "%s: the vignette is subtle" % id)
