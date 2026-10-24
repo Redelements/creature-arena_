@@ -5,8 +5,9 @@ Run from anywhere:  python3 tools/gen_hissy.py
 Requires Pillow and numpy.
 
 Writes assets/sprites/hissy.png (128x128 frames, 12 columns, the side view),
-hissy_down.png and hissy_up.png (112x128 frames: facing the camera, and facing away),
-plus labelled previews in docs/.
+hissy_down.png and hissy_up.png (112x128 frames: facing the camera, and facing
+away), hissy_down_side.png and hissy_up_side.png (128x128: the diagonals, facing down-right
+and up-right), plus labelled previews in docs/.
 
 She is a big round head with a crown of spotted green hair snakes, a pair of red
 boxing gloves on the floor below, and two more snakes from under her chin down to the
@@ -39,6 +40,9 @@ SIDE = {"w": 128, "h": 128, "origin": (64, 104)}
 VIEWS = {
     "down": {"w": 112, "h": 128, "origin": (56, 104)},
     "up": {"w": 112, "h": 128, "origin": (56, 92)},
+    # the diagonals (docs/SPRITES.md, "Directions"): facing down-right and up-right
+    "down_side": {"w": 128, "h": 128, "origin": (64, 104)},
+    "up_side": {"w": 128, "h": 128, "origin": (64, 92)},
 }
 
 # Palette, sampled from the character sheet. Each material: (base, light, dark).
@@ -129,6 +133,7 @@ class Cam:
     LAT_X = 0.5
     LAT_Y = 0.18
     FWD_Y = 0.06
+    D = math.sqrt(0.5)  # the diagonals: 45 degrees between the side and the front/back
 
     def __init__(self, view):
         self.view = view
@@ -136,6 +141,10 @@ class Cam:
             self.cam = np.array([math.cos(self.PSI), 0.0, math.sin(self.PSI)])
         elif view == "down":
             self.cam = np.array([0.0, 0.0, 1.0])
+        elif view == "down_side":
+            self.cam = np.array([self.D, 0.0, self.D])
+        elif view == "up_side":
+            self.cam = np.array([self.D, 0.0, -self.D])
         else:
             self.cam = np.array([0.0, 0.0, -1.0])
 
@@ -157,6 +166,16 @@ class Cam:
         elif self.view == "down":
             x = OX - lat
             y = OY - up + self.depth_y(fwd)
+        elif self.view == "down_side":
+            # The diagonals (tools/splat3d.py Cam): facing down-right, forward is the floor
+            # diagonal right and toward the camera, the right side left and toward it;
+            # reach one to one on the floor, the part toward the camera flattened.
+            x = OX + (fwd - lat) * self.D
+            y = OY - up + self.depth_y((fwd + lat) * self.D)
+        elif self.view == "up_side":
+            # Facing up-right: forward is right and away; the right side right and toward.
+            x = OX + (fwd + lat) * self.D
+            y = OY - up + self.depth_y((lat - fwd) * self.D)
         else:
             x = OX + lat
             y = OY - up - self.depth_y(fwd)
@@ -170,6 +189,12 @@ class Cam:
         elif self.view == "down":
             sx = -n[:, 0]
             sy = -n[:, 1] + n[:, 2] * 0.35
+        elif self.view == "down_side":
+            sx = (n[:, 2] - n[:, 0]) * self.D
+            sy = -n[:, 1] + (n[:, 2] + n[:, 0]) * self.D * 0.35
+        elif self.view == "up_side":
+            sx = (n[:, 2] + n[:, 0]) * self.D
+            sy = -n[:, 1] + (n[:, 0] - n[:, 2]) * self.D * 0.35
         else:
             sx = n[:, 0]
             sy = -n[:, 1] - n[:, 2] * 0.35
@@ -553,6 +578,10 @@ FLOAT = 3.0
 # In the side view her head turns this far toward the camera (a cheat, as cartoons do),
 # so both eyes and the grin read instead of a profile.
 SIDE_CHEAT = -22.0
+# The diagonals: facing down-right her face is already three-quarter on, but the far eye
+# and the grin crowd the edge, so the head turns a little toward the camera too. Facing
+# up-right she shows the back of her head, as in the up view (no cheat).
+CHEAT = {"side": SIDE_CHEAT, "down_side": -18.0}
 
 
 class Head:
@@ -690,14 +719,17 @@ def glove(center, ori):
 
 def build(pose, view):
     _part_counter[0] = 0
-    hd = Head(pose, SIDE_CHEAT if view == "side" else 0.0)
+    hd = Head(pose, CHEAT.get(view, 0.0))
     parts = [head_samples(hd)]
     # earrings: a purple crystal hanging from each side
     for s in (1.0, -1.0):
         ear = hd.surface(92 * s, -18, out=0.3)
         drop = ear + np.array([0.0, -2.8, 0.0])
         parts.append(tube([ear, drop], [0.35, 0.35], "earring"))
-        o = hd.R((0.0, 0.0, 1.0)) * (1.0 if view != "side" else 0.0) + hd.R((1.0, 0.0, 0.0)) * s
+        if view in ("down_side", "up_side"):  # the diagonals: the crystal faces their camera
+            o = Cam(view).cam
+        else:
+            o = hd.R((0.0, 0.0, 1.0)) * (1.0 if view != "side" else 0.0) + hd.R((1.0, 0.0, 0.0)) * s
         parts.append(plate(drop, np.array([0.0, -1.0, 0.0]), np.cross(np.array([0.0, -1.0, 0.0]), o),
                            [(0, 0), (1.6, 1.3), (3.6, 0), (1.6, -1.3)], "earring"))
     # hair snakes
@@ -1421,13 +1453,13 @@ def render_frame(pose, view):
 
 
 def inspect(picks, path=None, scale=3):
-    """`gen_hissy.py inspect idle:0 run:2`: a few frames in all three views side by side,
-    enlarged."""
+    """`gen_hissy.py inspect idle:0 run:2`: a few frames in every view (side, down, up and
+    the diagonals) side by side, enlarged."""
     rows = dict(ROWS)
     tiles = []
     for pick in picks:
         name, f = pick.split(":")
-        for view in ("side", "down", "up"):
+        for view in S.view_names(VIEWS):
             tiles.append(render_frame(rows[name][int(f)], view))
     out = Image.new("RGBA", (sum(t.width for t in tiles), max(t.height for t in tiles)), (70, 58, 46, 255))
     x = 0
@@ -1445,21 +1477,27 @@ def main():
     print("wrote", os.path.relpath(OUT, ROOT), side.size)
     preview(side, ROWS, SIDE["w"], SIDE["h"], SIDE["origin"], 3, PREVIEW)
     views = {}
-    for view, spec in VIEWS.items():
+    for view in S.view_names(VIEWS)[1:]:
+        spec = VIEWS[view]
         sh = sheet(view, VIEW_ROWS, spec["w"], spec["h"], spec["origin"])
         path = OUT.replace(".png", "_%s.png" % view)
         sh.save(path)
         print("wrote", os.path.relpath(path, ROOT), sh.size)
         views[view] = sh
+    # the views preview: down, down-side, up, up-side (every entry in VIEWS), as splat3d's
     s = 2
     label_w = 70
-    fw, fh = VIEWS["down"]["w"], VIEWS["down"]["h"]
-    prev = Image.new("RGBA", (label_w + fw * COLS * 2 * s, fh * len(VIEW_ROWS) * s), (70, 58, 46, 255))
+    shown = S.view_names(VIEWS)[1:]
+    xs = [label_w]
+    for view in shown:
+        xs.append(xs[-1] + VIEWS[view]["w"] * COLS * s)
+    fh = max(VIEWS[v]["h"] for v in shown)
+    prev = Image.new("RGBA", (xs[-1], fh * len(VIEW_ROWS) * s), (70, 58, 46, 255))
     d = ImageDraw.Draw(prev)
-    for k, view in enumerate(("down", "up")):
+    for k, view in enumerate(shown):
         big = views[view].resize((views[view].width * s, views[view].height * s), Image.NEAREST)
-        prev.alpha_composite(big, (label_w + k * fw * COLS * s, 0))
-        d.text((label_w + k * fw * COLS * s + 6, 4), "facing " + view, fill=(255, 210, 120, 255))
+        prev.alpha_composite(big, (xs[k], 0))
+        d.text((xs[k] + 6, 4), "facing " + view.replace("_side", "-side"), fill=(255, 210, 120, 255))
     for r, (name, _poses) in enumerate(VIEW_ROWS):
         d.text((6, r * fh * s + 20), "%d %s" % (r, name), fill=(240, 230, 210, 255))
         d.line([(label_w, r * fh * s), (prev.width, r * fh * s)], fill=(50, 40, 32, 255))

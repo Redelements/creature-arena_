@@ -10,9 +10,8 @@ animation by name with its `"anim"` field.
 ## Directions per creature: three sheets, five with the diagonals
 
 Fighters face any of 8 ways, so every creature has **three sheets with the same rows**,
-and can have **two more for the diagonals** (Sneaky Pete, Culvert, Digby, Sno Mercy and
-Mister Crease have them; the other five fighters draw their diagonals side-on until their
-round):
+and have **two more for the diagonals** (every fighter but Cairn and the dummy, since the
+Oct 2026 diagonal round):
 
 | Sheet | Shows | Used when facing |
 | --- | --- | --- |
@@ -326,7 +325,12 @@ missing from the frame (the game draws it in flight, also in violet). Tools are 
 character space, not on the brain, so they drift on their own as he bobs. Feet (the
 floor under him) at **x 62, y 100**. The rig is modelled large and drawn at 0.72 scale
 (`SCALE`). Up and down sheets (`cerebro_down.png`, `cerebro_up.png`) are **112×128**,
-feet at x 56, y 88 (down) and y 76 (up).
+feet at x 56, y 88 (down) and y 76 (up). The diagonals (`cerebro_down_side.png`,
+`cerebro_up_side.png`) are **128×128**, feet at x 64, y 88 (down-side) and y 76 (up-side),
+projected by the generator's own copy of `splat3d.Cam`'s diagonal cameras; no per-view
+cheats (his props are posed in character space, so they fall where the 3D layout puts
+them: at rest the spatula, behind-right of him, hangs in front of the brain in `up_side`).
+All five views: [`anim_preview/cerebro_diagonals_3x.png`](anim_preview/cerebro_diagonals_3x.png).
 
 Animated with the roster pass (motion plan, previews and before/after GIFs:
 [`anim_preview/cerebro_motion_plan.md`](anim_preview/cerebro_motion_plan.md)): every tool
@@ -339,7 +343,7 @@ dodge block's `anim_at`, drawn at full strength on its flash ticks (`blink.solid
 
 ![Chef Cerebro sheet, 3x](cerebro_preview.png)
 
-Facing down and up: [`cerebro_views_preview.png`](cerebro_views_preview.png).
+Facing down, down-side, up and up-side: [`cerebro_views_preview.png`](cerebro_views_preview.png).
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
@@ -379,7 +383,14 @@ head is turned a little toward the camera (`SIDE_CHEAT`), so both eyes and the g
 Expressions: grin, shout, gaze (glowing eyes), hurt, ko.
 
 Feet at **x 64, y 104**, drawn at 0.72 scale. Up and down sheets (`hissy_down.png`,
-`hissy_up.png`) are **112×128**, feet at x 56, y 104 (down) and y 92 (up).
+`hissy_up.png`) are **112×128**, feet at x 56, y 104 (down) and y 92 (up). The diagonals
+(`hissy_down_side.png`, `hissy_up_side.png`) are **128×128**, feet at x 64, y 104 and
+y 92, projected by the generator's own copy of `splat3d.Cam`'s diagonal cameras. Facing
+down-right her head turns a further 18 degrees toward the camera (`CHEAT["down_side"]`,
+like `SIDE_CHEAT`) so the far eye and the grin don't crowd the edge; facing up-right
+shows the back of her head as the up view does (no cheat). In both diagonals the
+earring crystals face the camera. All five views:
+[`anim_preview/hissy_diagonals_3x.png`](anim_preview/hissy_diagonals_3x.png).
 
 Animated with the roster pass (motion plan, previews and before/after GIFs:
 [`anim_preview/hissy_motion_plan.md`](anim_preview/hissy_motion_plan.md)): nothing on her
@@ -392,7 +403,7 @@ glide still 24 ticks).
 
 ![Hissy Fitz sheet, 3x](hissy_preview.png)
 
-Facing down and up: [`hissy_views_preview.png`](hissy_views_preview.png).
+Facing down, down-side, up and up-side: [`hissy_views_preview.png`](hissy_views_preview.png).
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
