@@ -61,6 +61,8 @@ var caption_index := -1
 # Menu
 ## A menu screen covers the game: draw nothing (the screens dim the match behind).
 var menu_visible := false
+## The arena intro is playing (ArenaIntro draws its own cards): no panels or banners yet.
+var cinema := false
 ## Button hints for a controller (else keyboard and mouse).
 var gamepad := false
 
@@ -131,6 +133,11 @@ func cut_in(c: CreatureSim, side: int, move_name: String) -> void:
 		"origin": Vector2(float(o[0]), float(o[1])), "fpx": fpx, "fh": fh,
 		"color": Color(String(c.def.get("fx_color", "#ffcf3f"))), "t": 0,
 	}
+
+
+## Whether the Surge cut-in is on screen (main holds the letterbox in until it's gone).
+func cutting_in() -> bool:
+	return not _cut.is_empty()
 
 
 func advance() -> void:
@@ -220,7 +227,7 @@ func _draw() -> void:
 
 func _draw_now() -> void:
 	_layout()
-	if menu_visible:
+	if menu_visible or cinema:
 		return
 	if sim == null or sim.creatures.size() < 2:
 		return

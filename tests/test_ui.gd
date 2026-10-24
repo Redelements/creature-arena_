@@ -1164,6 +1164,146 @@ func test_the_letterbox_comes_in_only_for_a_knockout_or_a_surge_freeze() -> void
 	g.free()
 
 
+func test_the_letterbox_holds_for_the_whole_surge_cut_in() -> void:
+	var g := _game()
+	g._start_match(2)
+	_tick(g, 2)
+	var lb: Letterbox = g.letterbox
+	# A freezing Surge: the freeze is shorter than the cut-in, the bars stay for the cut-in.
+	g._surge_bars = 18
+	g.hud.cut_in(g.sim.creatures[0], 0, "Surge")
+	for i in Hud.CUT_IN_TICKS - 2:
+		g.hud.advance()
+		g._update_letterbox()
+	assert_true(g.hud.cutting_in(), "the cut-in is still up")
+	assert_eq(lb.h, Letterbox.BAR_H, "the bars hold past the freeze, through the cut-in")
+	for i in 20:
+		g.hud.advance()
+		g._update_letterbox()
+	assert_false(g.hud.cutting_in(), "")
+	assert_eq(lb.h, 0, "then slide out")
+	g.free()
+
+
+## A game with the intro allowed (headless runs skip it unless --intro).
+func _intro_game() -> Node:
+	var g := _game()
+	g._intro_arg = 1
+	return g
+
+
+func test_the_arena_intro_holds_the_sim_and_hands_over_to_the_round() -> void:
+	var g := _intro_game()
+	g._start_match(0)  # Cairn vs CPU Culvert
+	assert_true(g.intro != null, "an offline 1v1 gets the intro")
+	assert_true(g.hud.cinema, "no HUD panels during it")
+	assert_eq(g.intro.groups.size(), 2, "one beat per fighter")
+	var length: int = g.intro.length()
+	assert_lt(length, 150, "short: about two seconds before the ROUND 1 / FIGHT banners")
+	_tick(g, 40)
+	assert_eq(g.sim.tick, 0, "the sim waits at its first tick")
+	assert_eq(g.flow, g.Flow.INTRO, "")
+	assert_eq(g.flow_t, 0, "the round's own intro hasn't started")
+	assert_gt(g.letterbox.h, 0, "the bars are in")
+	_tick(g, length)
+	assert_true(g.intro == null, "over by itself")
+	assert_false(g.hud.cinema, "")
+	assert_gt(g.sim.tick, 0, "the sim runs")
+	g.free()
+
+
+func test_a_press_skips_the_arena_intro() -> void:
+	var g := _intro_game()
+	g._start_match(0)
+	_tick(g, 20)
+	var ev := InputEventKey.new()
+	ev.physical_keycode = KEY_ESCAPE
+	ev.pressed = true
+	_root().push_input(ev)
+	assert_true(g.intro == null, "any key skips it")
+	assert_false(g.paused, "the press only skips (Esc doesn't also pause)")
+	_tick(g, 1)
+	assert_eq(g.sim.tick, 1, "the sim starts on the next tick")
+	var up := InputEventKey.new()
+	up.physical_keycode = KEY_ESCAPE
+	_root().push_input(up)
+	g.free()
+
+
+func test_the_arena_intro_does_not_change_the_match() -> void:
+	# With and without the intro, the same seed plays the same match tick for tick.
+	var digests := []
+	for with_intro in [false, true]:
+		var g := _intro_game() if with_intro else _game()
+		g.seed_base = 7
+		g._start_match(2)  # CPU vs CPU
+		if with_intro:
+			assert_true(g.intro != null, "")
+			_tick(g, g.intro.length())
+		_tick(g, 400)
+		digests.append([g.sim.tick, g.sim.state_digest()])
+		g.free()
+	assert_eq(digests[1], digests[0], "the intro is a view: same ticks, same state")
+
+
+func test_no_arena_intro_where_it_does_not_belong() -> void:
+	var g := _game()
+	g._start_match(0)
+	assert_true(g.intro == null, "headless (tests, the server, smoke runs): off by default")
+	var no_intro: Array = [3, 5, g.mode_index("Combo Trials")]  # training, showcases, trials
+	g.free()
+	for m in no_intro:
+		g = _intro_game()
+		g._start_match(m)
+		assert_true(g.intro == null, "no intro in %s" % g.MODES[m]["label"])
+		g.free()
+	g = _intro_game()
+	g._intro_arg = -1  # --no-intro
+	g._start_match(0)
+	assert_true(g.intro == null, "--no-intro")
+	g.free()
+	g = _intro_game()
+	g.match_intros = false  # Settings > Game > Match intros: Off
+	g._start_match(0)
+	assert_true(g.intro == null, "the setting turns it off")
+	g.free()
+	g = _intro_game()
+	g._start_match(0)
+	g._open_menu()
+	assert_true(g.intro == null, "back to the menu drops it")
+	g.free()
+
+
+func test_a_team_intro_introduces_each_team_together() -> void:
+	var g := _intro_game()
+	g._skip_select = true
+	g._start_match(30)  # Team battle 3v3 vs CPU
+	assert_true(g.intro != null, "")
+	assert_eq(g.intro.groups.size(), 2, "one beat per team, not per fighter")
+	for side in 2:
+		assert_eq((g.intro.groups[side]["slots"] as Array).size(), 3, "the whole team at once")
+	_tick(g, g.intro.length() + 1)
+	assert_eq(g.team_battle.sim.tick, 1, "then the team battle's own intro starts at its first tick")
+	g.free()
+
+
+func test_the_match_intros_setting_saves() -> void:
+	var g := _game()
+	g._open_menu("game")
+	var row: OptionRow = g._setting_rows["intros"]
+	assert_true(g.match_intros, "on by default")
+	row.grab_focus()
+	_press("ui_right")
+	assert_false(g.match_intros, "Off")
+	g._save_settings()
+	g.free()
+	var g2: Node = load("res://scenes/main.tscn").instantiate()
+	g2.settings_path = TEST_SETTINGS
+	_root().add_child(g2)
+	assert_false(g2.match_intros, "kept after a restart")
+	g2.free()
+
+
 func test_the_hud_anchors_to_the_screen() -> void:
 	var h := Hud.new()
 	_root().add_child(h)
