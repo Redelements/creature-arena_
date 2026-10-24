@@ -223,7 +223,14 @@ idle, the slowest), `run_ticks` 2 (the run still 24 ticks), footsteps on the def
 
 ![Barkley sheet, 3x](barkley_preview.png)
 
-Facing down and up: [`barkley_views_preview.png`](barkley_views_preview.png).
+Facing down and up, and the diagonals: [`barkley_views_preview.png`](barkley_views_preview.png).
+The diagonal sheets (`barkley_down_side.png`, `barkley_up_side.png`, **128×160** like the up
+and down sheets, feet at x 64, y 112 and y 124) come from two more projections in his `Cam`,
+the same floor rule as splat3d's: reach goes 0.707 right and 0.707 down (or up), his body's
+own depth flattened by `depth_y`. Everything else (the ring end of the log, which eye and
+side of the nose show, which arm is in front) follows from the camera direction, so the
+painter needed no per-view cases. All five views at 3x:
+[`anim_preview/barkley_diagonals_3x.png`](anim_preview/barkley_diagonals_3x.png).
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |

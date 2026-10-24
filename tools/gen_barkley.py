@@ -6,7 +6,8 @@ Requires Pillow and numpy.
 
 Writes assets/sprites/barkley.png (96x96 frames, 12 columns, the side view),
 barkley_down.png and barkley_up.png (128x160 frames: facing the camera, and facing
-away), plus labelled previews in docs/.
+away), barkley_down_side.png and barkley_up_side.png (128x160: the diagonals, facing
+down-right and up-right), plus labelled previews in docs/.
 
 Unlike Craglash's rig (a side-view puppet with a separate front/back pass), Barkley
 is posed once in 3D and projected into each view: a point is (lat, up, fwd), with
@@ -40,6 +41,9 @@ SIDE = {"w": 96, "h": 96, "origin": (40, 90)}
 VIEWS = {
     "down": {"w": 128, "h": 160, "origin": (64, 112)},
     "up": {"w": 128, "h": 160, "origin": (64, 124)},
+    # the diagonals (docs/SPRITES.md, "Directions"): facing down-right and up-right
+    "down_side": {"w": 128, "h": 160, "origin": (64, 112)},
+    "up_side": {"w": 128, "h": 160, "origin": (64, 124)},
 }
 
 # Palette, sampled from the character sheet.
@@ -208,11 +212,19 @@ class Cam:
     pixel, so reach on screen matches reach in the simulation; the sideways axis is
     drawn as if he were turned PSI toward the camera, so his arm span and the log across
     his head still read. Depth (what covers what, which features show) uses that turn.
+
+    The diagonals ("down_side": facing down-right, a front three-quarter view;
+    "up_side": facing up-right, a back three-quarter view) turn the floor 45 degrees, as
+    splat3d's Cam does: a point `fwd` ahead lands 0.707 * fwd right and 0.707 * fwd down
+    (or up) the screen, so reach on screen is reach in the game; the part toward the
+    camera is flattened by depth_y like the up/down views. Shading is 2D (top left), so
+    the light needs nothing per view.
     """
     PSI = math.radians(60)
     LAT_X = 0.75  # how far a point toward his right shifts left on screen
     LAT_Y = 0.22  # ... and down (nearer the camera)
     FWD_Y = 0.06
+    DG = math.sqrt(0.5)  # the diagonals: 45 degrees between the side and the front/back
 
     def __init__(self, view):
         self.view = view
@@ -222,6 +234,10 @@ class Cam:
             self.cam = (math.cos(self.PSI), 0.0, math.sin(self.PSI))
         elif view == "down":
             self.cam = (0.0, 0.0, 1.0)
+        elif view == "down_side":  # his front and his right side face the camera
+            self.cam = (self.DG, 0.0, self.DG)
+        elif view == "up_side":  # his back and his right side
+            self.cam = (self.DG, 0.0, -self.DG)
         else:
             self.cam = (0.0, 0.0, -1.0)
 
@@ -233,6 +249,12 @@ class Cam:
             return (OX + x, OY + y)
         if self.view == "down":
             return (OX - lat, OY - up + self.depth_y(fwd))
+        if self.view == "down_side":
+            # forward is right and toward the camera; his right side left and toward it
+            return (OX + (fwd - lat) * self.DG, OY - up + self.depth_y((fwd + lat) * self.DG))
+        if self.view == "up_side":
+            # forward is right and away; his right side right and toward the camera
+            return (OX + (fwd + lat) * self.DG, OY - up + self.depth_y((lat - fwd) * self.DG))
         return (OX + lat, OY - up - self.depth_y(fwd))
 
     @staticmethod
@@ -1317,12 +1339,13 @@ ANIM_CONTACT = ["idle", "run", "twig", "bough", "logdrop", "twister", "grab", "p
 
 
 def inspect(rows, picks, path):
-    """Frames side by side in all three views, 3x: picks like idle:0 run:2."""
+    """Frames side by side in every view (side, down, up and the diagonals), 3x: picks
+    like idle:0 run:2."""
     tiles = []
     for pick in picks:
         name, f = pick.split(":")
         poses = dict(rows)[name]
-        for view in ("side", "down", "up"):
+        for view in S.view_names(VIEWS):
             img = render_frame(poses[int(f)], view)
             bg = Image.new("RGBA", img.size, (70, 58, 46, 255))
             bg.alpha_composite(img)
@@ -1330,9 +1353,10 @@ def inspect(rows, picks, path):
             tiles.append(bg.resize((img.width * 3, img.height * 3), Image.NEAREST))
     cw = max(t.width for t in tiles)
     ch_ = max(t.height for t in tiles)
-    out = Image.new("RGBA", (cw * 3, ch_ * ((len(tiles) + 2) // 3)), (40, 32, 26, 255))
+    n = len(S.view_names(VIEWS))
+    out = Image.new("RGBA", (cw * n, ch_ * ((len(tiles) + n - 1) // n)), (40, 32, 26, 255))
     for k, t in enumerate(tiles):
-        out.alpha_composite(t, ((k % 3) * cw, (k // 3) * ch_))
+        out.alpha_composite(t, ((k % n) * cw, (k // n) * ch_))
     out.save(path)
     print("wrote", path)
 
@@ -1350,16 +1374,20 @@ def main():
         sh.save(path)
         print("wrote", os.path.relpath(path, ROOT), sh.size)
         views[view] = sh
-    # 2x preview: each animation's frames facing down, then facing up.
+    # 2x preview: each animation's frames in every view but the side: down, down-side, up, up-side.
     s = 2
     label_w = 70
-    fw, fh = VIEWS["down"]["w"], VIEWS["down"]["h"]
-    prev = Image.new("RGBA", (label_w + fw * COLS * 2 * s, fh * len(VIEW_ROWS) * s), (70, 58, 46, 255))
+    shown = S.view_names(VIEWS)[1:]
+    xs = [label_w]
+    for view in shown:
+        xs.append(xs[-1] + VIEWS[view]["w"] * COLS * s)
+    fh = max(VIEWS[v]["h"] for v in shown)
+    prev = Image.new("RGBA", (xs[-1], fh * len(VIEW_ROWS) * s), (70, 58, 46, 255))
     d = ImageDraw.Draw(prev)
-    for k, view in enumerate(("down", "up")):
+    for k, view in enumerate(shown):
         big = views[view].resize((views[view].width * s, views[view].height * s), Image.NEAREST)
-        prev.alpha_composite(big, (label_w + k * fw * COLS * s, 0))
-        d.text((label_w + k * fw * COLS * s + 6, 4), "facing " + view, fill=(255, 210, 120, 255))
+        prev.alpha_composite(big, (xs[k], 0))
+        d.text((xs[k] + 6, 4), "facing " + view.replace("_side", "-side"), fill=(255, 210, 120, 255))
     for r, (name, _poses) in enumerate(VIEW_ROWS):
         d.text((6, r * fh * s + 20), "%d %s" % (r, name), fill=(240, 230, 210, 255))
         d.line([(label_w, r * fh * s), (prev.width, r * fh * s)], fill=(50, 40, 32, 255))
