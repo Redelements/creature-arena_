@@ -3188,12 +3188,12 @@ func _wall_crack(q: Vector2, n: Vector2, tier: int) -> void:
 		var cur := Vector2.ZERO
 		for j in 2 + tier:
 			a += randf_range(-0.7, 0.7)
-			var step := randf_range(1.5, 3.0 + tier * 1.0)
+			var step := randf_range(2.0, 3.5 + tier * 1.2)
 			cur += Vector2(roundf(cos(a) * step), roundf(sin(a) * step * 0.8))
 			pts.append(cur)
 		lines.append(pts)
 	var mark := {"kind": "wallmark", "pos": at, "life": float(randi_range(600, 1200)), "lines": lines, "tier": tier,
-		"real": true}
+		"light": n.y < 0.0, "real": true}
 	_add(mark)
 	_wall_marks.append(mark)
 	while _wall_marks.size() > WALL_MARK_CAP:
@@ -3211,15 +3211,18 @@ func _draw_wallmark(ci: CanvasItem, p: Dictionary) -> void:
 			a = FloorWear.FADE_A[i]
 	var at := Vector2(p["pos"]) + Vector2(0.5, 0.5)
 	var grow := clampf(t / 8.0, 0.0, 1.0)
-	ci.draw_rect(Rect2(at + Vector2(-1.5, -1.5), Vector2(3, 3)), Color(C_CRACK, 0.9 * a))
+	var light := bool(p.get("light", false))  # the dark stands wall takes pale cracks
+	var main := Color("e0d8cc") if light else C_CRACK
+	var edge := Color(C_CRACK, 0.16 * 5.0) if light else Color(1, 1, 1, 0.16)
+	ci.draw_rect(Rect2(at + Vector2(-1.5, -1.5), Vector2(3, 3)), Color(main, 0.9 * a))
 	for pts: PackedVector2Array in p["lines"]:
 		var shifted := PackedVector2Array()
 		var lit := PackedVector2Array()
 		for q in pts:
 			shifted.append(at + q)
 			lit.append(at + q + Vector2(1, 1))
-		_draw_partial_line(ci, shifted, grow, Color(C_CRACK, 0.9 * a))
-		_draw_partial_line(ci, lit, grow, Color(1, 1, 1, 0.16 * a))
+		_draw_partial_line(ci, shifted, grow, Color(main, 0.9 * a))
+		_draw_partial_line(ci, lit, grow, Color(edge, edge.a * a))
 	if int(p["tier"]) >= 2:
 		ci.draw_rect(Rect2(at + Vector2(-2.5, -2.5), Vector2(5, 5)), Color(C_CRACK, 0.35 * a))
 
