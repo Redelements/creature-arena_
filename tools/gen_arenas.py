@@ -164,10 +164,9 @@ def _floor_clay(rng):
     # Packed and dusty where they fight: lighter round the middle.
     d = ((xx - cx) / 260.0) ** 2 + ((yy - cy) / 120.0) ** 2
     v += 0.13 * np.exp(-d * 1.6)
-    # Raked clay further out: faint wavy furrows, only where the floor isn't worn flat.
-    wob = value_noise(h, w, 40, rng) * 6.0
-    rake = np.sin((yy + wob) * (2 * math.pi / 5.0)) * 0.035
-    v += rake * np.clip(d * 0.9, 0.0, 1.0)
+    wob = value_noise(h, w, 40, rng) * 6.0   # (drawn by stadium(): clay_drag)
+    global _CLAY_WOB
+    _CLAY_WOB = wob
     # Scuffed starting spots.
     for sx in (cx - 100, cx + 100):
         ds = ((xx - sx) / 22.0) ** 2 + ((yy - cy - 4) / 12.0) ** 2
@@ -503,9 +502,15 @@ def _side_and_front(img, rng, pad=None, cap=None):
     rect(img, ox, y, ARENA_W, FRONT_WALL, cap[3])
     rect(img, ox, y, ARENA_W, 3, pad[2])
     rect(img, ox, y + 3, ARENA_W, 1, pad[0])
-    rect(img, ox, y + FRONT_WALL - 1, ARENA_W, 1, CONCRETE[1])
     for x in range(ox, ox + ARENA_W, 32):
-        rect(img, x, y + 4, 1, FRONT_WALL - 5, cap[2])
+        rect(img, x, y + 4, 1, FRONT_WALL - 9, cap[2])
+    # ...and its face toward the camera: a lit edge where the cap turns down, the face in
+    # the wall's own shade (the light is behind it), darkest at its foot.
+    rect(img, ox, y + FRONT_WALL - 5, ARENA_W, 1, cap[4])
+    rect(img, ox, y + FRONT_WALL - 4, ARENA_W, 3, cap[1])
+    rect(img, ox, y + FRONT_WALL - 1, ARENA_W, 1, cap[0])
+    for x in range(ox + 16, ox + ARENA_W, 32):
+        rect(img, x, y + FRONT_WALL - 4, 1, 3, cap[0])
 
 
 def stadium():
@@ -516,9 +521,13 @@ def stadium():
     _back_wall(img)
     _side_and_front(img, rng)
     paint(img, _floor_clay(rng), CLAY, FX0, FY0)
-    _clods(img, prng, 2600)
+    # Dragged clay: broad stripes 24 px wide running away from the camera, as a groundskeeper's
+    # drag leaves them, wavering a little; and the far-to-near gradient.
+    yy, xx = np.mgrid[0:FH, 0:FW].astype(float)
+    floor_shift(img, "earth_fine", depth_shift() + stripe_shift(xx + _CLAY_WOB, 48.0))
+    _clods(img, prng, 900)
     _scuffs(img, prng, 60)
-    _pebbles(img, prng, 260)
+    _pebbles(img, prng, 140)
     _markings(img, rng)
     cast_shadows(img, [], perimeter_mask())
     return img
@@ -722,6 +731,130 @@ def dist_in(mask, limit=16):
     return d
 
 
+# ------------------------------------------------------------------ depth
+# The floor is a true top-down plane (hits are circles on it, 1:1), so depth comes from
+# everything else: a far-to-near gradient baked into the ground's values, faces on
+# everything with height, contact shadow at their feet, and big directional features.
+
+DEPTH_BACK = 1.2     # palette steps (on the floor's fine ground line) taken off at the back edge
+DEPTH_FRONT = 1.0    # steps added in the band nearest the camera
+DEPTH_BAND = 0.28    # share of the floor's height that band covers
+
+
+def depth_shift():
+    """The far-to-near gradient as a floor_shift field: darker toward the back (farther from
+    the camera), easing to nothing past the middle, and a lighter band toward the front. On
+    the palette's ground lines a darker step is also cooler and duller and a lighter one
+    warmer, so this is the saturation and temperature falloff too."""
+    t = np.arange(FH, dtype=float) / max(1, FH - 1)      # 0 at the back, 1 at the front
+    back = -DEPTH_BACK * np.clip(1.0 - t / 0.5, 0.0, 1.0) ** 1.2
+    s = np.clip((t - (1.0 - DEPTH_BAND)) / DEPTH_BAND, 0.0, 1.0)
+    front = DEPTH_FRONT * s * s * (3.0 - 2.0 * s)
+    g = np.repeat((back + front)[:, None], FW, axis=1)
+    # the tone steps' seams wander a few pixels, so a step reads as light falling off, not
+    # a ruled line across the floor (small-scale wobble only: big patches near a half step
+    # would leave wide areas of sparse dither dots)
+    rng = np.random.default_rng(5)
+    return g + (value_noise(FH, FW, 10, rng) - 0.5) * 0.35 + (value_noise(FH, FW, 64, rng) - 0.5) * 0.25
+
+
+def stripe_shift(coord, period, steps=1.0, edge=3.0):
+    """Bands `period / 2` wide along `coord`, alternately `steps` lighter and as they were,
+    with an `edge` px soft seam between (dithered by floor_shift into a clean pixel seam)."""
+    s = np.clip(np.sin(coord * (2 * math.pi / period)) * (period / (2 * math.pi * edge)), -1.0, 1.0)
+    return (s * 0.5 + 0.5) * steps
+
+
+SEAM_SHARP = 6.0     # how fast floor_shift's dithered seams turn over (a seam is a few px wide)
+
+
+def floor_shift(img, line, steps):
+    """Moves every floor pixel whose colour is on the palette ground line `line` (an arena
+    floor's fine line, palette.GROUND) by `steps` (a floor-sized field, fractions allowed)
+    along the line. Fractions are ordered-dithered with the 4x4 matrix aligned to the
+    floor's corner (the same alignment palette.snap uses), and sharpened (SEAM_SHARP) so a
+    slow gradient still turns over in a seam a few pixels wide: flat tone steps with clean
+    two-tone seams, never a wide checker mesh, and the noise patches keep their shapes.
+    Call it right after the ground is painted, before the details and before a map copies
+    its floor for the changed picture: the main, cracked and changed pictures then all
+    carry it, pixel for pixel."""
+    cols = np.array(P.GROUND[line], int)
+    blk = img[FY0:FY0 + FH, FX0:FX0 + FW]
+    rgb = blk[:, :, :3].astype(int)
+    code = (rgb[:, :, 0] << 16) | (rgb[:, :, 1] << 8) | rgb[:, :, 2]
+    keys = (cols[:, 0] << 16) | (cols[:, 1] << 8) | cols[:, 2]
+    idx = np.full(code.shape, -1)
+    for i, k in enumerate(keys):
+        idx[code == k] = i
+    t = np.tile(BAYER4, (FH // 4 + 1, FW // 4 + 1))[:FH, :FW] + 0.5 / 16.0
+    whole = np.floor(steps)
+    frac = np.clip((steps - whole - 0.5) * SEAM_SHARP + 0.5, 0.0, 1.0)
+    k = (whole + np.floor(frac + t)).astype(int)
+    on = idx >= 0
+    new = np.clip(idx + k, 0, len(cols) - 1)
+    blk[on, :3] = cols[new[on]].astype(np.uint8)
+
+
+def contact_shadow(img, feet, reach=3, strength=0.40, side=2, side_strength=0.26):
+    """Ambient occlusion on the floor at the base of things with height: a short dark
+    gradient hugging the footprint `feet`, `reach` px deep in front (below it, the face
+    side, where the base meets the floor in view) and `side` px elsewhere. On top of the
+    cast shadow, never on the footprint. The touching pixel row is snapped hard to the
+    palette (no dither), so the contact reads as a line, not dots."""
+    if not feet.any():
+        return
+    f = np.ones((FH, FW))
+    d = dist_in(~feet, side + 1)          # 1 touching the feet; side + 1 for everything beyond
+    ring = (~feet) & (d >= 1) & (d <= side)
+    f[ring] = np.minimum(f[ring], 1.0 - side_strength * ((side + 1 - d[ring]) / side))
+    for k in range(1, reach + 1):
+        below = shift(feet, 0, k) & ~feet
+        f[below] = np.minimum(f[below], 1.0 - strength * ((reach + 1 - k) / reach) ** 1.4)
+    blk = img[FY0:FY0 + FH, FX0:FX0 + FW]
+    rgb = blk[:, :, :3].astype(float) * f[:, :, None]
+    blk[:, :, :3] = np.clip(rgb, 0, 255).astype(np.uint8)
+    touch = (shift(feet, 0, 1) & ~feet) | (ring & (d == 1) & (f < 1.0 - side_strength * 0.99))
+    hard = P.snap(blk, dither=False)
+    blk[touch] = hard[touch]
+
+
+def faces(img, sil, ox, oy, ramp, rows, ink=None, top=True):
+    """Gives a drawn mass (silhouette `sil` placed at (ox, oy)) height: in each column the
+    lowest `rows` pixels become its face toward the camera, a ramp step darker (the light
+    comes from the back), the very bottom one more, or `ink`; with `top`, the column's
+    highest pixel is lit a step. Colours are moved along `ramp`."""
+    ramp_np = np.array(ramp, int)
+    hh, ww = sil.shape
+    for x in range(ww):
+        ys = np.nonzero(sil[:, x])[0]
+        if len(ys) == 0:
+            continue
+        y_top, y_bot = ys[0], ys[-1]
+        px = ox + x
+        if not (0 <= px < img.shape[1]):
+            continue
+        for k, y in enumerate(range(y_bot, max(y_top, y_bot - rows), -1)):
+            if not sil[y, x]:
+                break
+            py = oy + y
+            c = img[py, px, :3].astype(int)
+            i = int(np.argmin(np.abs(ramp_np - c).sum(1)))
+            if k == 0 and ink is not None:
+                img[py, px, :3] = ink
+            else:
+                img[py, px, :3] = ramp[max(0, i - (2 if k == 0 else 1))]
+        if top and y_bot - y_top >= rows + 1:
+            py = oy + y_top
+            c = img[py, px, :3].astype(int)
+            i = int(np.argmin(np.abs(ramp_np - c).sum(1)))
+            img[py, px, :3] = ramp[min(len(ramp) - 1, i + 1)]
+
+
+def face_rows(height):
+    """How many pixels of face a piece `height` px tall shows: about 0.4 of it."""
+    return max(1, int(round(height * 0.4)))
+
+
 def court_lines(img, rng, col, a, centre=True):
     x0, y0, x1, y1 = FX0 + 6, FY0 + 6, FX0 + FW - 7, FY0 + FH - 7
     pts = _line_pts(x0, y0, x1, y0) + _line_pts(x0, y1, x1, y1) + _line_pts(x0, y0, x0, y1) + _line_pts(x1, y0, x1, y1)
@@ -791,6 +924,7 @@ def boulders(img, rng, rect_, rmin=3.0, rmax=6.5):
                 k = tone + (1 if lit > 0.35 else 0) - (1 if lit < -0.35 else 0) - (1 if q > 0.8 else 0)
                 rect(img, xx, yy, 1, 1, ROCK[max(0, min(4, k))])
                 sil[yy - y0 + 4, xx - x0 + 4] = True
+    faces(img, sil, x0 - 4, y0 - 4, ROCK, face_rows(CAST_HEIGHT["wall"]))
     outline(img, sil, x0 - 4, y0 - 4, (36, 32, 30))
 
 
@@ -810,6 +944,38 @@ def rubble_floor(img, rng, rect_):
             rect(img, x, y, 1, 1, ROCK[4])
 
 
+def quarry_tracks(rng):
+    """The quarry floor's big marks, as a floor_shift field (palette steps): the tread tracks
+    of a loader swinging across the bowl (two treads 6 px wide, lugs every 5 px) and the
+    drag marks of stone hauled out (three grooves together, a lit lip under each)."""
+    v = np.zeros((FH, FW))
+    yy, xx = np.mgrid[0:FH, 0:FW].astype(float)
+    for k in range(2):
+        y0 = FH * (0.3 + 0.4 * k) + (rng.random() - 0.5) * 20
+        amp, per, ph = 10 + rng.random() * 18, 260 + rng.random() * 200, rng.random() * 6.28
+        path = y0 + amp * np.sin(xx / per * 2 * math.pi + ph)
+        fade = np.clip(1.0 - np.abs(xx - FW * (0.3 + 0.4 * rng.random())) / (FW * 0.4), 0.0, 1.0) ** 0.7
+        for side in (-11.0, 11.0):
+            off = yy - (path + side)
+            tread = np.abs(off) <= 3.0
+            lug = ((xx + (3 if side > 0 else 0)) % 5) < 2
+            v -= np.where(tread, 1.0 + np.where(lug, 1.0, 0.0), 0.0) * fade
+            v += np.where(np.abs(off - 4.0) < 0.5, 1.0, 0.0) * fade     # the lit edge in front
+    for _ in range(7):
+        x0, y0 = rng.random() * FW, 20 + rng.random() * (FH - 40)
+        ang = (rng.random() - 0.5) * 0.5
+        ln = 70 + rng.random() * 90
+        bend = (rng.random() - 0.5) * 0.002
+        t = (xx - x0) * math.cos(ang) + (yy - y0) * math.sin(ang)
+        n = -(xx - x0) * math.sin(ang) + (yy - y0) * math.cos(ang) - bend * t * t
+        along = (t > 0) & (t < ln)
+        taper = np.clip(np.minimum(t, ln - t) / 20.0, 0.0, 1.0)
+        for g in (-4.0, 0.0, 4.0):
+            v -= np.where(along & (np.abs(n - g) < 1.0), 2.0, 0.0) * taper
+            v += np.where(along & (np.abs(n - g - 1.5) < 0.5), 1.0, 0.0) * taper
+    return v
+
+
 def quarry():
     rng = np.random.default_rng(31)
     prng = random.Random(31)
@@ -823,6 +989,7 @@ def quarry():
     stones = value_noise(FH, FW, 30, rng)
     v += (np.floor(stones * 5) / 5 - 0.4) * 0.12
     paint(img, dither(v, GRAVEL, spread=0.4), GRAVEL, FX0, FY0)
+    floor_shift(img, "neutral_fine", depth_shift() + quarry_tracks(prng))
     seam, lip = crack_net(FH, FW, rng, spacing=34.0, width=0.6)
     blk = img[FY0:FY0 + FH, FX0:FX0 + FW, :3]
     blk[lip] = GRAVEL[6]
@@ -836,7 +1003,7 @@ def quarry():
         else:
             for i in range(4):
                 blend_px(img, FX0 + cx + i, FY0 + cy + i // 2, GRAVEL[6], 0.4)
-    specks(img, prng, 2400, [GRAVEL[0], GRAVEL[1], GRAVEL[6], ROCK[3], (150, 128, 104)], shadow=GRAVEL[0])
+    specks(img, prng, 700, [GRAVEL[0], GRAVEL[1], GRAVEL[6], ROCK[3], (150, 128, 104)], shadow=GRAVEL[0])
     court_lines(img, rng, (236, 230, 216), 0.38)
     # Surveyor's spray paint: orange crosses here and there.
     for (mx, my) in ((120, 60), (560, 230), (300, 250), (400, 40)):
@@ -846,6 +1013,7 @@ def quarry():
     cast_shadows(img, [], perimeter_mask())
     bare = img.copy()
     cast_shadows(img, [(piece_mask(m, "wall"), CAST_HEIGHT["wall"])])
+    contact_shadow(img, piece_mask(m, "wall"))
     for r in piece_rects(m, "wall"):
         boulders(img, prng, r)
     for r in piece_rects(m, "wall"):
@@ -858,6 +1026,22 @@ def quarry():
 CONC = [(80, 84, 90), (94, 98, 104), (108, 112, 118), (122, 126, 132), (136, 140, 146), (150, 154, 160), (166, 170, 176)]
 WATER = [(22, 52, 86), (30, 68, 106), (40, 86, 126), (54, 106, 146), (74, 130, 168), (116, 172, 202), (200, 230, 242)]
 HAZARD = (230, 184, 40)
+
+
+def wet_sheen(rng):
+    """Wet concrete catching the floodlights: broad diagonal bands of sheen 16-32 px wide,
+    lighter, broken up where the slab has dried (a floor_shift field, palette steps)."""
+    yy, xx = np.mgrid[0:FH, 0:FW].astype(float)
+    u = xx * 0.82 + yy * 0.57
+    v = np.zeros((FH, FW))
+    c = -FH * 0.6
+    while c < FW + FH:
+        c += 70 + rng.random() * 90
+        wid = 8 + rng.random() * 8
+        band = np.clip((wid - np.abs(u - c)) / 3.0, 0.0, 1.0)
+        v += band * (1.0 + rng.random() * 0.6)
+    dry = value_noise(FH, FW, 36, np.random.default_rng(int(rng.random() * 1e6)))
+    return v * np.clip((dry - 0.3) * 2.5, 0.0, 1.0)
 
 
 def floodgate():
@@ -877,6 +1061,7 @@ def floodgate():
     v -= np.clip(stains - 0.68, 0, 1) * 0.9
     water = piece_mask(m, "shallows")
     paint(img, dither(v, CONC, spread=0.4), CONC, FX0, FY0)
+    floor_shift(img, "steel_fine", depth_shift() + wet_sheen(prng))
     for gy in range(slab, FH, slab):
         rect(img, FX0, FY0 + gy, FW, 1, CONC[1])
         rect(img, FX0, FY0 + gy + 1, FW, 1, CONC[5])
@@ -886,7 +1071,7 @@ def floodgate():
     crack, _ = crack_net(FH, FW, rng, spacing=60.0, width=0.35)   # hairline cracks
     blk = img[FY0:FY0 + FH, FX0:FX0 + FW, :3]
     blk[crack & (rng.random((FH, FW)) < 0.5)] = CONC[1]
-    specks(img, prng, 900, [CONC[0], CONC[6]])
+    specks(img, prng, 300, [CONC[0], CONC[6]])
     court_lines(img, rng, (244, 244, 240), 0.5, centre=False)
     # The channel's edge: wet concrete round the water.
     near = dist_in(~water, 4)
@@ -983,6 +1168,7 @@ def bushes(img, rng, rect_, leaf=None):
                     k += 1 if rng.random() < 0.5 else -1
                 rect(img, xx, yy, 1, 1, (leaf or LEAF)[max(0, min(5, k))])
                 sil[yy - y0 + 4, xx - x0 + 4] = True
+    faces(img, sil, x0 - 4, y0 - 4, leaf or LEAF, face_rows(CAST_HEIGHT["brush"]), top=False)
     outline(img, sil, x0 - 4, y0 - 4, (leaf or LEAF)[0])
     for _ in range(int(w * h / 90)):   # a few berries and blossoms
         bx, by = x0 + 3 + int(rng.random() * (w - 6)), y0 + 3 + int(rng.random() * (h - 6))
@@ -1035,8 +1221,10 @@ def greenhouse():
     _side_and_front(img, rng, pad=[LEAF[0], None, LEAF[2]], cap=BRICK)
     v = ground(rng, amp=0.30, base=0.36, worn=0.0)
     yy, xx = np.mgrid[0:FH, 0:FW].astype(float)
-    v += np.where(((xx // 32) % 2) == 0, 0.04, -0.03)   # mowing stripes
+    # mown in a checker, the way a pitch is cut: broad stripes 32 px wide running away from
+    # the camera, crossed by fainter ones, so the lawn reads as a plane
     paint(img, dither(v, GRASS, spread=0.4), GRASS, FX0, FY0)
+    floor_shift(img, "moss_fine", depth_shift() + stripe_shift(xx + 16, 64.0) + stripe_shift(yy + 8, 64.0, 0.5))
     # trodden pale on the starting spots and between them: worn grass, not bare soil
     wear = np.zeros((FH, FW))
     for sx in (FW / 2 - 100, FW / 2 + 100):
@@ -1047,7 +1235,7 @@ def greenhouse():
     blk += (np.array((150, 156, 92), float)[None, None, :] - blk) * wear[:, :, None]
     img[FY0:FY0 + FH, FX0:FX0 + FW, :3] = blk.astype(np.uint8)
     soil = np.zeros((FH, FW), bool)
-    for _ in range(5200):   # tufts of blades
+    for _ in range(2000):   # tufts of blades
         x, y = 2 + int(prng.random() * (FW - 4)), 6 + int(prng.random() * (FH - 8))
         if soil[y, x]:
             continue
@@ -1056,8 +1244,10 @@ def greenhouse():
     specks(img, prng, 220, [(246, 244, 236), (246, 214, 80), (230, 130, 170), (170, 150, 230)], mask=soil, shadow=GRASS[0])
     court_lines(img, rng, (246, 246, 236), 0.45)
     cast_shadows(img, [(fence_feet(m), CAST_HEIGHT["fence"])], perimeter_mask())
+    contact_shadow(img, fence_feet(m), reach=2, side=1)
     bare = img.copy()
     cast_shadows(img, [(piece_mask(m, "brush"), CAST_HEIGHT["brush"])])
+    contact_shadow(img, piece_mask(m, "brush"))
     for r in piece_rects(m, "brush"):
         bushes(img, prng, r)
     for r in piece_rects(m, "fence"):
@@ -1114,16 +1304,22 @@ def caravan_pass():
     v = ground(rng, amp=0.34, base=0.34, worn=0.0)
     yy, xx = np.mgrid[0:FH, 0:FW].astype(float)
     wob = value_noise(FH, FW, 50, rng) * 10.0
-    v += np.sin((xx * 0.18 + yy * 0.55 + wob) * 0.9) * 0.03   # wind ripples in the sand
     paint(img, dither(v, SAND, spread=0.4), SAND, FX0, FY0)
-    specks(img, prng, 1600, [SAND[0], SAND[6], (150, 130, 110)], shadow=SAND[0])
+    # wind ripples in the sand, 13 px crests
+    floor_shift(img, "earth_fine", depth_shift() + stripe_shift(xx * 0.31 + yy * 0.95 + wob, 26.0, edge=5.0))
+    specks(img, prng, 500, [SAND[0], SAND[6], (150, 130, 110)], shadow=SAND[0])
     # The road the caravan rides: packed dirt along the track, two wheel ruts, stones.
     dist, pts = track_dist(m)
     blk = img[FY0:FY0 + FH, FX0:FX0 + FW, :3].astype(float)
     edge = np.clip((16.0 - dist) / 3.0, 0.0, 1.0) * 0.55
     blk += (np.array(ROAD, float)[None, None, :] - blk) * edge[:, :, None]
-    rut = (np.abs(dist - 6.0) < 0.9)
-    blk[rut] = blk[rut] * 0.45 + np.array(RUT, float) * 0.55
+    # two wheel ruts worn 3 px wide, dark at the bottom, the near bank lit
+    rut = np.abs(dist - 6.0) < 1.5
+    blk[rut] = blk[rut] * 0.35 + np.array(RUT, float) * 0.65
+    hump = (np.abs(dist) < 2.5)                        # the hump between them, a touch lighter
+    blk[hump] = blk[hump] * 0.85 + np.array(SAND[5], float) * 0.15
+    lip = shift(rut, 0, 1) & ~rut
+    blk[lip] = blk[lip] * 0.6 + np.array(SAND[6], float) * 0.4
     img[FY0:FY0 + FH, FX0:FX0 + FW, :3] = blk.astype(np.uint8)
     for _ in range(500):
         x, y = 2 + int(prng.random() * (FW - 4)), 6 + int(prng.random() * (FH - 8))
@@ -1137,6 +1333,7 @@ def caravan_pass():
         for side in (-1, 1):
             posts[int(cy + side * 20), int(cx) - 1:int(cx) + 1] = True
     cast_shadows(img, [(posts, CAST_HEIGHT["post"]), (fence_feet(m), CAST_HEIGHT["fence"])], perimeter_mask())
+    contact_shadow(img, posts | fence_feet(m), reach=2, side=1)
     for share in (1.0 / 3.0, 2.0 / 3.0):
         cx, cy = track_point_px(pts, share)
         for side in (-1, 1):
@@ -1154,6 +1351,7 @@ def caravan_pass():
                 blend_px(img, x, y, col, 0.7)
     bare = img.copy()
     cast_shadows(img, [(piece_mask(m, "wall"), CAST_HEIGHT["wall"]), (piece_mask(m, "brush"), CAST_HEIGHT["brush"])])
+    contact_shadow(img, piece_mask(m, "wall") | piece_mask(m, "brush"))
     for r in piece_rects(m, "wall"):
         boulders(img, prng, r)
     for r in piece_rects(m, "brush"):
@@ -1210,7 +1408,7 @@ def keep_wall(img, rng, rect_):
     """A stone keep wall: courses of blocks on its top, the front face (its bottom 8 px when
     it runs left to right) in darker blocks, mortar between, a lit top edge."""
     x0, y0, w, h = rect_
-    face = 8 if w > h else 0
+    face = 8 if w > h else face_rows(CAST_HEIGHT["wall"]) + 1
     top_h = h - face
     for yy in range(y0, y0 + top_h):
         course = (yy - y0) // 4
@@ -1229,6 +1427,8 @@ def keep_wall(img, rng, rect_):
             k = 2 if not ((yy - y0 - top_h) % 4 == 3 or (xx - x0 + off) % 7 == 0) else 0
             rect(img, xx, yy, 1, 1, KEEP[k])
     rect(img, x0, y0, w, 1, KEEP[4])
+    rect(img, x0, y0 + top_h - 1, w, 1, KEEP[4])   # the top's near edge, lit where it turns down
+    rect(img, x0, y0 + top_h, w, 1, KEEP[0])       # the face's top course in its shadow
     for yy in range(y0, y0 + h):   # outline the sides
         rect(img, x0, yy, 1, 1, KEEP[0])
         rect(img, x0 + w - 1, yy, 1, 1, KEEP[0])
@@ -1291,8 +1491,10 @@ def twin_keeps():
     _back_wall(img)
     _side_and_front(img, rng, pad=[LEAF[0], None, LEAF[2]], cap=KEEP)
     v = ground(rng, amp=0.32, base=0.36, worn=0.0)
-    paint(img, dither(v, GRASS, spread=0.4), GRASS, FX0, FY0)
     yy, xx = np.mgrid[0:FH, 0:FW].astype(float)
+    # the meadow mown in wide bands, 40 px, running away from the camera, crossed faintly
+    paint(img, dither(v, GRASS, spread=0.4), GRASS, FX0, FY0)
+    floor_shift(img, "moss_fine", depth_shift() + stripe_shift(xx + 20, 80.0) + stripe_shift(yy, 96.0, 0.5))
     # Worn dirt lanes: the middle road from gate to bridge to gate, and the two flank paths.
     wob = (value_noise(FH, FW, 40, rng) - 0.5) * 18.0
     lane = np.minimum(np.abs(yy - FH / 2 + wob), np.minimum(np.abs(yy - 70 + wob), np.abs(yy - (FH - 70) + wob)))
@@ -1304,8 +1506,14 @@ def twin_keeps():
     lit_grass = blk.sum(axis=2) >= np.median(blk[dirt].sum(axis=1)) if dirt.any() else dirt
     blk[dirt & lit_grass] = SOIL[2]
     blk[dirt & ~lit_grass] = SOIL[1]
+    # the lanes are worn a little below the turf: the grass bank's shadow on their far edge,
+    # their near edge lit where the turf lips over
+    far_edge = dirt & ~shift(dirt, 0, 1)
+    near_edge = dirt & ~shift(dirt, 0, -1)
+    blk[far_edge] = SOIL[0]
+    blk[shift(near_edge, 0, 1) & ~dirt] = GRASS[5]
     img[FY0:FY0 + FH, FX0:FX0 + FW, :3] = blk.astype(np.uint8)
-    for _ in range(6000):
+    for _ in range(2600):
         x, y = 2 + int(prng.random() * (FW - 4)), 6 + int(prng.random() * (FH - 8))
         if dirt[y, x]:
             continue
@@ -1350,6 +1558,8 @@ def twin_keeps():
             rect(img, xx2, yy2, 1, 1, PLANK[k])
     for xx2 in range(bx, bx + bw):
         rect(img, xx2, by, 1, 1, PLANK[0])
+        rect(img, xx2, by + bh - 3, 1, 1, PLANK[3])   # the deck's near edge, lit
+        rect(img, xx2, by + bh - 2, 1, 1, PLANK[1])   # its face over the water, in shade
         rect(img, xx2, by + bh - 1, 1, 1, PLANK[0])
     for xx2 in range(bx + 2, bx + bw, 12):
         rect(img, xx2, by - 2, 2, 4, PLANK[1])
@@ -1357,6 +1567,7 @@ def twin_keeps():
     for r in piece_rects(m, "chasm"):
         chasm_pit(img, prng, r)
     cast_shadows(img, [(fence_feet(m), CAST_HEIGHT["fence"])], perimeter_mask())
+    contact_shadow(img, fence_feet(m), reach=2, side=1)
     bare = img.copy()
     # A fallen bridge: the river where it stood, a few broken planks and the stumps of its posts.
     y0, y1, x0, x1 = br[1] * CELL, (br[1] + br[3]) * CELL, br[0] * CELL, (br[0] + br[2]) * CELL
@@ -1374,6 +1585,7 @@ def twin_keeps():
     deck[y0:y1, max(0, x0 - 4):x1 + 4] = True
     cast_shadows(img, [(piece_mask(m, "wall"), CAST_HEIGHT["wall"]), (piece_mask(m, "brush"), CAST_HEIGHT["brush"]),
                        (deck, CAST_HEIGHT["bridge"])])
+    contact_shadow(img, piece_mask(m, "wall") | piece_mask(m, "brush"))
     for r in piece_rects(m, "wall"):
         keep_wall(img, prng, r)
     for r in piece_rects(m, "brush"):
@@ -1617,6 +1829,181 @@ def sky_layer(name, seed):
     return img
 
 
+# ------------------------------------------------------------------ foreground overlap
+# Two strips between the camera and the fight, drawn by ForeView (src/view/fore_view.gd)
+# over the fighters and sliding a little faster than the floor (its PARALLAX), so they only
+# come into shot when the camera is at an edge and never cover the floor in the middle:
+#   arena_<id>_fore.png  the front: the nearest fans' heads and a rail, its top FORE_GAP px
+#                        below the bottom of the front wall at rest (FORE_H tall; FORE_GAP is
+#                        negative: the tallest heads and arms rise over the wall's face, never
+#                        past its top, so they never cover the floor)
+#   arena_<id>_hang.png  the back: what hangs from the roof (a lighting truss, bunting, vines),
+#                        its top at world y HANG_TOP at rest (HANG_H tall)
+# Both W wide, x 0 = world -MARGIN.x like the main picture. Keep in step with ForeView.
+FORE_GAP = -8
+FORE_H = 72
+HANG_TOP = -60
+HANG_H = 56
+INK = (20, 18, 30)       # the silhouettes: near things against the light, nearly black
+INK_RIM = (52, 52, 64)   # their lit edge
+FORE = {
+    "stadium": {"rail": "steel", "heads": True, "hang": "truss"},
+    "quarry": {"rail": "rope", "heads": True, "hang": "hook"},
+    "floodgate": {"rail": "pipe", "heads": True, "hang": "pipe"},
+    "greenhouse": {"rail": "leaves", "heads": False, "hang": "vines"},
+    "caravan_pass": {"rail": "rope", "heads": True, "hang": "bunting"},
+    "twin_keeps": {"rail": "parapet", "heads": True, "hang": "bunting"},
+}
+
+
+def _disc(img, cx, cy, r, col):
+    for yy in range(int(cy - r), int(cy + r) + 1):
+        for xx in range(int(cx - r), int(cx + r) + 1):
+            if (xx - cx) ** 2 + (yy - cy) ** 2 <= r * r:
+                rect(img, xx, yy, 1, 1, col)
+
+
+def _rim_top(img, col):
+    """Lights the top pixel of every column of the strip's silhouette (`img` alpha)."""
+    a = img[:, :, 3] > 0
+    top = a & ~np.vstack([np.zeros((1, a.shape[1]), bool), a[:-1]])
+    img[top, :3] = col
+
+
+def fore_layers(name, seed):
+    """The two foreground strips of a map (see above): silhouettes in INK with a lit rim and
+    a few accents, so they read as near and out of the light at any time of day."""
+    spec = FORE.get(name, FORE["stadium"])
+    rng = random.Random(seed)
+    front = np.zeros((FORE_H, W, 4), np.uint8)
+    rail_y = 20
+    if spec["heads"]:
+        x = -rng.randrange(0, 20)
+        while x < W:
+            hy = 14 + rng.randrange(0, 7)
+            r = 8 + rng.randrange(0, 2)
+            rect(front, x - 16, hy + r + 2, 33, FORE_H, INK)          # shoulders
+            rect(front, x - 12, hy + r, 25, 3, INK)
+            _disc(front, x, hy, r, INK)
+            if rng.random() < 0.12:                                   # an arm up
+                ax = x + (12 if rng.random() < 0.5 else -14)
+                rect(front, ax, hy - 12, 4, 26, INK)
+                _disc(front, ax + 1.5, hy - 13, 2.5, INK)
+            x += 24 + rng.randrange(0, 9)
+        _rim_top(front, INK_RIM)
+    rail = spec["rail"]
+    if rail == "steel":
+        rect(front, 0, rail_y, W, 3, (40, 46, 62))
+        rect(front, 0, rail_y, W, 1, (98, 106, 120))
+        for x in range(10, W, 48):
+            rect(front, x, rail_y, 3, FORE_H, (40, 46, 62))
+            rect(front, x, rail_y, 1, FORE_H, (64, 72, 90))
+    elif rail == "pipe":
+        rect(front, 0, rail_y - 1, W, 4, (40, 46, 62))
+        rect(front, 0, rail_y - 1, W, 1, (138, 144, 154))
+        for x in range(10, W, 56):
+            for k in range(0, FORE_H - rail_y, 4):
+                rect(front, x, rail_y + 3 + k, 4, 2, HAZARD if (k // 4) % 2 == 0 else INK)
+    elif rail == "rope":
+        for x0 in range(0, W, 64):
+            rect(front, x0, rail_y - 4, 3, FORE_H, (64, 42, 24))
+            rect(front, x0, rail_y - 4, 3, 1, (134, 98, 58))
+            for i in range(64):
+                sag = int(round(4 * (1 - ((i - 32) / 32.0) ** 2)))
+                rect(front, x0 + i, rail_y - 2 + sag, 1, 1, (100, 70, 40))
+                if name == "caravan_pass" and i % 16 == 8:          # cloth pennants on the rope
+                    for t in range(4):
+                        rect(front, x0 + i - 2 + t // 2, rail_y - 1 + sag + t, 4 - t, 1,
+                             (196, 72, 56) if (x0 // 64) % 2 else (230, 184, 40))
+                elif name == "quarry" and i % 32 == 16:            # warning flags
+                    rect(front, x0 + i, rail_y - 1 + sag, 3, 3, (238, 114, 30))
+    elif rail == "parapet":
+        rect(front, 0, rail_y, W, FORE_H, (44, 42, 56))
+        rect(front, 0, rail_y, W, 1, (106, 104, 108))
+        for x in range(0, W, 16):
+            rect(front, x, rail_y - 6, 9, 6, (44, 42, 56))           # merlons
+            rect(front, x, rail_y - 6, 9, 1, (106, 104, 108))
+            rect(front, x + 8, rail_y - 6, 1, 6, INK)
+        for x in range(4, W, 12):
+            rect(front, x, rail_y + 4 + (x // 12 % 2) * 4, 1, 3, INK)
+    elif rail == "leaves":
+        # broad leaves of the planters along the front, fanned up from below
+        x = -rng.randrange(0, 30)
+        while x < W:
+            base = FORE_H
+            for k in range(rng.randrange(2, 4)):
+                lean = rng.uniform(-0.9, 0.9)
+                ln = 46 + rng.randrange(0, 20)
+                for t in range(ln):
+                    wid = int(round(6 * math.sin(math.pi * t / ln))) + 1
+                    cx = x + lean * t + k * 5
+                    rect(front, int(cx - wid), base - t, wid * 2, 1, (24, 52, 36))
+            x += 22 + rng.randrange(0, 14)
+        _rim_top(front, (58, 100, 50))
+    hang = np.zeros((HANG_H, W, 4), np.uint8)
+    hang_draw = hang
+    hang = hang_draw[12:]                      # the roof's line sits 12 px down the strip
+    kind = spec["hang"]
+    if kind == "truss":
+        rect(hang, 0, 4, W, 2, (98, 106, 120))                          # the truss: two chords,
+        rect(hang, 0, 12, W, 2, (40, 46, 62))                           # lattice between
+        for x in range(0, W, 8):
+            for t in range(6):
+                rect(hang, x + t, 6 + t, 1, 1, (64, 72, 90))
+                rect(hang, x + 7 - t, 6 + t, 1, 1, (40, 46, 62))
+        for x in range(30, W, 96):
+            rect(hang, x, 14, 2, 8, INK)
+            rect(hang, x - 7, 22, 16, 8, INK)
+            rect(hang, x - 7, 22, 16, 1, INK_RIM)
+            rect(hang, x - 6, 29, 14, 2, (255, 230, 106))
+            rect(hang, x - 5, 30, 12, 1, (255, 247, 182))
+    elif kind == "pipe":
+        rect(hang, 0, 4, W, 5, (40, 46, 62))
+        rect(hang, 0, 4, W, 1, (98, 106, 120))
+        for x in range(50, W, 120):
+            rect(hang, x, 9, 4, 8, INK)
+            rect(hang, x - 3, 17, 10, 4, (40, 46, 62))
+            rect(hang, x - 3, 20, 10, 1, (246, 204, 40))
+        for x in range(10, W, 40):
+            rect(hang, x, 9, 1, 2, INK)
+    elif kind == "hook":
+        rect(hang, 0, 5, W, 1, INK_RIM)
+        for x in range(80, W, 240):
+            rect(hang, x, 5, 1, 16, INK)
+            rect(hang, x - 4, 21, 9, 6, (238, 114, 30))
+            rect(hang, x - 4, 21, 9, 1, (252, 160, 60))
+            rect(hang, x - 1, 27, 3, 4, INK)
+            rect(hang, x + 1, 30, 3, 2, INK)
+            rect(hang, x - 2, 31, 3, 1, INK)
+    elif kind == "vines":
+        rect(hang, 0, 2, W, 4, (64, 72, 90))                          # the glass roof's beam
+        rect(hang, 0, 2, W, 1, (178, 184, 190))
+        x = rng.randrange(0, 20)
+        while x < W:
+            ln = 8 + rng.randrange(0, 26)
+            for t in range(ln):
+                sx = x + int(round(math.sin(t * 0.4 + x) * 1.2))
+                rect(hang, sx, 6 + t, 1, 1, (40, 76, 42))
+                if t % 4 == 2:
+                    rect(hang, sx + (1 if t % 8 == 2 else -2), 6 + t, 2, 2, (58, 100, 50))
+            if rng.random() < 0.15:                                    # a hanging pot
+                rect(hang, x - 3, 6 + ln, 7, 5, (122, 80, 46))
+                rect(hang, x - 3, 6 + ln, 7, 1, (159, 114, 72))
+            x += 7 + rng.randrange(0, 12)
+    elif kind == "bunting":
+        cols = [(214, 38, 42), (40, 62, 152), (246, 204, 40), (238, 238, 230)]
+        span = 120
+        for x0 in range(0, W, span):
+            for i in range(span):
+                sag = int(round(9 * (1 - ((i - span / 2) / (span / 2)) ** 2)))
+                rect(hang, x0 + i, 4 + sag, 1, 1, INK)
+                if i % 12 == 6:
+                    col = cols[((x0 // span) + i // 12) % len(cols)]
+                    for t in range(7):
+                        rect(hang, x0 + i - 3 + t // 2, 5 + sag + t, 7 - t, 1, col)
+    return front, hang_draw
+
+
 def split_backdrop(img, name, seed):
     """Cuts the main picture's top into layers. Returns (far, sky) and clears the main
     picture above the crowd's first row, so the layers show through."""
@@ -1691,7 +2078,8 @@ if __name__ == "__main__":
         dark, lit = crack_cols or (None, None)
         cracked, crack = cracked_floor(img, np.random.default_rng(7), dark, lit)
         far, sky = split_backdrop(img, name, 4000 + sum(map(ord, name)))
-        for suffix, layer in (("_far", far), ("_sky", sky)):
+        fore, hang = fore_layers(name, 5000 + sum(map(ord, name)))
+        for suffix, layer in (("_far", far), ("_sky", sky), ("_fore", fore), ("_hang", hang)):
             path = os.path.join(SPRITES, "arena_%s%s.png" % (name, suffix))
             save(layer, path)
             print("wrote", os.path.relpath(path, ROOT), (W, layer.shape[0]))
