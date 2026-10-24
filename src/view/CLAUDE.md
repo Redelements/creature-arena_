@@ -115,8 +115,8 @@ dig/slosh/poof/chop_chop/shout sounds.
 - Sprite frame by state → `creature_view.gd:_pick`; frame in a move → `_attack_frame`;
   sheet choice → `_pick_view`, `_resolve`, `_load_view`; squash → `_update_squash`, `view_lift`;
   victory pose → `victory`, `_victory_frame`
-- HUD panels, stamina bar (red flash when exhausted), cooldown bars → `hud.gd:_panel`; combo
-  → `_combo`; cut-in → `cut_in`, `_draw_cut_in` (+ `_draw_cut_in_dim`, drawn first so panels stay lit; streaks, tear and name slam all step on `_cut.t` in whole pixels, colour = the fighter's `fx_color`; no cut-in at all when a crowded Surge does not freeze); team HUD → `_team_panels`, `_card`;
+- HUD panels (portrait `_draw_portrait`, health bar with its chunk `_hp_bar`, stepped Surge bar, stamina bar blinking red when exhausted, cooldown boxes filling by rows with a ready flash, the timer's last-10-seconds pulse) → `hud.gd:_panel`, `_track_bars`; which panels show (own side only in team modes, Brawl and Duel) → `panel_plan`, `_draw_panels`; compact teammate cards → `_card`; combo
+  → `_combo`; cut-in → `cut_in`, `_draw_cut_in` (+ `_draw_cut_in_dim`, drawn first so panels stay lit; streaks, tear and name slam all step on `_cut.t` in whole pixels, colour = the fighter's `fx_color`; no cut-in at all when a crowded Surge does not freeze); team HUD → `_draw_panels`, `_card`;
   training tags and DPS → `_training_tags`, `_watch_dummy`, `_dps`, `dps_meter.gd`
 - Surge aura → `surge_aura.gd` (look from the JSON `surge_aura` block)
 - Glow (Settings > Video, `main.gd:glow`, default off on mobile) → `light_view.gd`: two LightViews, the

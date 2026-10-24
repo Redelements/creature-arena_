@@ -22,6 +22,7 @@
   "sprite": {
     "path": "res://assets/sprites/barkley.png",
     "frame": 96,
+    "portrait": [30, 18, 24, 32],
     "cols": 8,
     "origin": [40, 90],
     "anims": {

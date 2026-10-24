@@ -23,6 +23,7 @@
   "sprite": {
     "path": "res://assets/sprites/gillbert.png",
     "frame": 128,
+    "portrait": [56, 88, 24, 24],
     "cols": 8,
     "origin": [70, 112],
     "anims": {
