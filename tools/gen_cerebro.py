@@ -423,6 +423,10 @@ class Pose:
         # it's been thrown or put away. `active` tools glow bright.
         self.tools = kw.get("tools", {})
         self.active = set(kw.get("active", ()))
+        # The animation pass (docs/anim_preview/cerebro_motion_plan.md); both draw nothing
+        # at their defaults, so the rows above render as before.
+        self.flash = kw.get("flash", 0.0)      # the teleport's flash at the brain's middle (0..1)
+        self.smear = kw.get("smear", ())       # speed streaks behind a thrown tool: ((from, to), ...)
 
 
 class Brain:
@@ -830,6 +834,51 @@ def glow(r, img):
     return out
 
 
+def smears(r, img):
+    """Speed streaks: a thrown tool's path in his violet, drawn behind everything (only on
+    empty pixels), bright along the middle and faint at the edges, thinning toward the start."""
+    segs = r["pose"].smear
+    if not segs:
+        return img
+    cam = r["cam"]
+    pil = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(pil)
+    for a, b in segs:
+        (x0, y0), (x1, y1) = cam.P(np.array([a, b], float) * SCALE)
+        mx, my = x0 + (x1 - x0) * 0.4, y0 + (y1 - y0) * 0.4
+        d.line([(x0, y0), (x1, y1)], fill=(PSY[0], PSY[1], PSY[2], 110), width=1)
+        d.line([(mx, my), (x1, y1)], fill=(PSY[0], PSY[1], PSY[2], 150), width=3)
+        d.line([(mx, my), (x1, y1)], fill=(246, 226, 255, 230), width=1)
+    over = np.array(pil)
+    m = (img[:, :, 3] == 0) & (over[:, :, 3] > 0)
+    img[m] = over[m]
+    return img
+
+
+def flash_burst(r, img):
+    """The teleport's flash: a white core and a four-point violet star at the brain's
+    middle, drawn over him."""
+    k = r["pose"].flash
+    if k <= 0:
+        return img
+    cam = r["cam"]
+    c = r["br"].world((0.0, 11.0, 0.0))
+    cx, cy = cam.P(np.array([c], float) * SCALE)[0]
+    cx, cy = int(math.floor(cx)), int(math.floor(cy))
+    pil = Image.fromarray(img)
+    d = ImageDraw.Draw(pil)
+    ray, diag, core = round(2 + 9 * k), round(1 + 4 * k), max(1, round(2.6 * k))
+    col, hot = (PSY[0], PSY[1], PSY[2], 255), (252, 240, 255, 255)
+    d.line([(cx - ray, cy), (cx + ray, cy)], fill=col)
+    d.line([(cx, cy - ray), (cx, cy + ray)], fill=col)
+    d.line([(cx - diag, cy - diag), (cx + diag, cy + diag)], fill=col)
+    d.line([(cx - diag, cy + diag), (cx + diag, cy - diag)], fill=col)
+    d.line([(cx - ray // 2, cy), (cx + ray // 2, cy)], fill=hot)
+    d.line([(cx, cy - ray // 2), (cx, cy + ray // 2)], fill=hot)
+    d.ellipse([cx - core, cy - core, cx + core, cy + core], fill=hot)
+    return np.array(pil)
+
+
 def render(pose, view):
     global W, H
     r = rasterise(pose, view)
@@ -839,6 +888,8 @@ def render(pose, view):
     img = flush(r, img)
     img = outline(r, img)
     img = glow(r, img)
+    img = smears(r, img)
+    img = flash_burst(r, img)
     return Image.fromarray(img)
 
 
@@ -1111,13 +1162,383 @@ def preview(sh, rows, fw, fh, origin, scale, path):
     print("wrote", os.path.relpath(path, ROOT))
 
 
+# ------------------------------------------------------------------ the animation pass
+# Chef Cerebro's motion pass (docs/anim_preview/cerebro_motion_plan.md): every ability
+# redrawn with eased spacing, anticipation and held releases, his brain squashing up to
+# 10% and wobbling back over 2 frames (jelly), and every tool in the floating kit moving
+# on its own lag, so the kit never moves as one block. Not in the game yet: ROWS above are
+# still the sheets the game uses; ANIM_ROWS are the new ones, which
+# `python3 tools/gen_cerebro.py anim` previews. After approval ANIM_ROWS replace ROWS and
+# cerebro.json gets the new row table and timelines.
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import splat3d as S  # noqa: E402  (only its animation tools: tween, ease, EASE_8, lag)
+
+GLINT_OFF = -1.0  # a glint position off the lenses: no shine on that frame
+# How many frames late each tool follows the brain (the mallet is the heaviest).
+TOOL_LAG = {"cleaver": 1, "k1": 1, "spatula": 2, "k2": 2, "mallet": 3, "k3": 3}
+# A tool knocked by the throw of another one: each frame's share of the jolt, read late per tool.
+JOLT = (0.0, 0.0, 0.0, 0.35, 1.0, 0.55, 0.15, 0.0)
+
+
+def _off(spec, d=(0.0, 0.0, 0.0), dori=(0.0, 0.0, 0.0)):
+    (g, o) = spec
+    return (v_add(g, d), v_add(o, dori))
+
+
+def _mix(a, b, t):
+    """Two tool specs t of the way from a to b (positions and angles lerped)."""
+    return S._blend(a, b, t)
+
+
+def _arc_spec(a, b, t, bow):
+    """A tool from spec a to spec b on a bowed path (the grip on a quadratic Bezier)."""
+    g = S._bow(a[0], b[0], t, bow)
+    return (tuple(float(x) for x in g), S._blend(a[1], b[1], t))
+
+
+def still(over=None, jolt=0.0, lags=None, i=0, push=(0.0, 1.4, -2.6), scale=1.0, move=(0.0, 0.0, 0.0)):
+    """The rest kit without the bob, `over` on top. With `jolt` (a JOLT table index i) each
+    tool is pushed back and up by the throw, late by its own lag, and settles."""
+    out = {}
+    for name, (g, o) in REST.items():
+        if scale != 1.0:
+            g = tuple(CENTRE[k] + (g[k] - CENTRE[k]) * scale for k in range(3))
+        g = v_add(g, move)
+        if jolt:
+            lag_n = (lags or TOOL_LAG).get(name, 1)
+            j = JOLT[max(0, min(len(JOLT) - 1, i - lag_n))] * jolt
+            g = v_add(g, v_mul(push, j))
+            o = (o[0], o[1], o[2] + 8.0 * j)
+        out[name] = (g, o)
+    for name, spec in (over or {}).items():
+        out[name] = spec
+    return out
+
+
+def idle_new():
+    """Floating in place, 8 frames: the bob on eased spacing (he lingers at the top and the
+    bottom), the brain a touch squashed at the bottom; every tool rides the bob 1 to 3
+    frames late and drifts round its own small orbit; the stem swings 2 frames behind; a
+    glint crosses the shades on the top frame."""
+    u = S.EASE_8
+    n = len(u)
+    out = []
+    for i in range(n):
+        tools = {}
+        for name, ((lat, up, fwd), (pi, ya, ro)) in REST.items():
+            ul = u[(i - TOOL_LAG[name]) % n]
+            a = 2.0 * math.pi * (i / n + PHASE[name])
+            tools[name] = ((lat + 1.1 * math.cos(a), up - 1.5 + 3.0 * ul, fwd + 1.1 * math.sin(a)),
+                           (pi, ya, ro + 5.0 * math.sin(a + 1.3)))
+        out.append(P(lift=HOVER - 1.2 + 2.4 * u[i], squash=0.97 + 0.04 * u[i],
+                     tail=-0.5 + 1.0 * u[(i - 2) % n], glint=0.55 if i == 4 else GLINT_OFF, tools=tools))
+    return out
+
+
+def run_new():
+    """The glide, 12 frames: leaning in, stretched along the way he goes (10% at the top of
+    the bob), one gentle bob a cycle; the stem streams back 3 frames behind; the kit trails
+    and catches up, each tool at its own lag (the mallet the latest and the furthest); the
+    violet flush pulses with the bob."""
+    n = 12
+    u = [0.5 - 0.5 * math.cos(2.0 * math.pi * i / n) for i in range(n)]  # 0 low .. 1 high
+    w = [math.sin(2.0 * math.pi * i / n) for i in range(n)]
+    lagr = {"cleaver": 1, "k1": 1, "k2": 2, "k3": 2, "spatula": 2, "mallet": 3}
+    reach = {"mallet": 1.7, "spatula": 1.2}
+    out = []
+    for i in range(n):
+        tools = {}
+        for name, ((lat, up, fwd), (pi, ya, ro)) in REST.items():
+            k = lagr[name]
+            ul, wl = u[(i - k) % n], w[(i - k) % n]
+            r = reach.get(name, 1.0)
+            tools[name] = ((lat, up + 1.0 + 2.2 * (ul - 0.5) * r, fwd - 6.0 - 2.4 * r * (1.0 - ul)),
+                           (pi - 4.0 * r * wl, ya, ro + 6.0 * r * wl))
+        out.append(P(lift=HOVER + 1.0 + 2.0 * (u[i] - 0.5), pitch=-10.0 - 1.5 * w[i], shift=2.0,
+                     stretch=1.06 + 0.04 * u[i], squash=0.98 - 0.02 * u[i],
+                     tail=1.0 + 0.4 * w[(i - 3) % n], psy=0.1 + 0.25 * u[i], glint=GLINT_OFF, tools=tools))
+    return out
+
+
+def _throw(name, aim, back, snap, side=1.0, body=None, extra=None):
+    """A telekinetic throw in 8 frames: the knife swings round and points at the foe (0, 1),
+    draws back on its own as the glow brightens (2, held), snaps forward in one fast frame
+    with a speed streak (3), is gone (the game throws it) with the brain pitched after it
+    (4, held 3 ticks over the release), then the brain wobbles back and the kit settles over
+    3 frames (5-7) as a fresh knife floats up into its place."""
+    rest = REST[name]
+    body = body or {}
+    yaw = body.get("yaw", 0.0)
+    q = []
+    # 0: swinging round from the fan toward the foe
+    q.append(P(psy=0.45, yaw=yaw * 0.5, active=(name,), glint=GLINT_OFF,
+               tools=still({name: _arc_spec(rest, aim, 0.55, (0.0, 4.0, 0.0))})))
+    # 1: pointed at the foe
+    q.append(P(psy=0.65, yaw=yaw, active=(name,), glint=GLINT_OFF, tools=still({name: aim})))
+    # 2: drawn back, the glow brightening; the brain leans back with it
+    q.append(P(psy=1.0, yaw=yaw * 1.4, pitch=3.0, squash=1.03, lift=HOVER + 0.6, active=(name,), glint=0.3,
+               tools=still({name: back})))
+    # 3: the throw, one fast frame
+    q.append(P(psy=1.0, yaw=-yaw * 0.4, pitch=-3.0, active=(name,), glint=GLINT_OFF,
+               smear=((back[0], snap[0]),), tools=still({name: snap}, jolt=1.0, i=3)))
+    # 4: released (gone): the brain pitched after it, squashed by the push
+    q.append(P(psy=1.0, yaw=-yaw * 0.8, pitch=-7.0, shift=1.5, squash=0.92, glint=GLINT_OFF,
+               tools=still({name: None}, jolt=1.0, i=4)))
+    # 5-7: the wobble back and the kit settling; the fresh knife rising into place
+    q.append(P(psy=0.6, yaw=-yaw * 0.4, pitch=-3.0, shift=0.8, squash=1.05, glint=GLINT_OFF,
+               tools=still({name: _off(rest, (0.0, -9.0, -2.0))}, jolt=1.0, i=5)))
+    q.append(P(psy=0.35, pitch=-1.0, squash=0.98, glint=GLINT_OFF,
+               tools=still({name: _off(rest, (0.0, -3.0, -0.5))}, jolt=1.0, i=6)))
+    q.append(P(psy=0.15, glint=GLINT_OFF, tools=still(jolt=1.0, i=7)))
+    if extra:
+        extra(q)
+    return q
+
+
+def flick_new():
+    """Knife Flick (light 1): the near paring knife (k1)."""
+    return _throw("k1", aim=((-8.0, 44.0, 20.0), (-6.0, -20.0, 0.0)), back=((-8.0, 47.0, 7.0), (6.0, -20.0, 0.0)),
+                  snap=((-8.0, 41.0, 38.0), (-9.0, -20.0, 0.0)))
+
+
+def flick2_new():
+    """Backhand Flick (light 2): the same from his other side (k3), his front turning away
+    on the draw-back and back through on the throw."""
+    return _throw("k3", aim=((11.0, 43.0, 19.0), (-6.0, 20.0, 0.0)), back=((13.0, 46.0, 6.0), (6.0, 20.0, 0.0)),
+                  snap=((10.0, 40.0, 37.0), (-9.0, 20.0, 0.0)), body={"yaw": -7.0})
+
+
+def toss_new():
+    """Mallet Toss (light 3), 8 frames: the mallet lifts (0), wheels back over him (1),
+    coils furthest back with the brain leaning back (2, held 4 ticks), is flung over the top
+    in one fast frame (3), and is gone with his whole brain pitched forward after it (4,
+    held 5 ticks: the light string's ender gets the longest hold); then a big wobble and
+    the kit settling as the mallet floats back from above (5-7)."""
+    rest = REST["mallet"]
+    lift_ = ((4.0, 50.0, -4.0), (115.0, 0.0, 0.0))
+    wheel = ((2.0, 55.0, -11.0), (160.0, 0.0, 0.0))
+    coil = ((2.0, 50.0, -18.0), (200.0, 0.0, 0.0))
+    fling = ((2.0, 46.0, 22.0), (25.0, 0.0, 0.0))
+    return [
+        P(psy=0.55, active=("mallet",), glint=GLINT_OFF, tools=still({"mallet": lift_})),
+        P(psy=0.8, pitch=2.0, active=("mallet",), glint=GLINT_OFF, tools=still({"mallet": wheel})),
+        P(psy=1.0, pitch=6.0, squash=1.05, lift=HOVER + 1.0, active=("mallet",), glint=0.3,
+          tools=still({"mallet": coil})),
+        P(psy=1.0, pitch=-5.0, shift=1.0, active=("mallet",), glint=GLINT_OFF,
+          smear=(((2.0, 58.0, -8.0), (2.0, 52.0, 26.0)),), tools=still({"mallet": fling}, jolt=1.2, i=3)),
+        P(psy=1.0, pitch=-11.0, shift=3.0, squash=0.9, lift=HOVER - 1.0, glint=GLINT_OFF,
+          tools=still({"mallet": None}, jolt=1.2, i=4)),
+        P(psy=0.6, pitch=-4.0, shift=1.5, squash=1.06, glint=GLINT_OFF,
+          tools=still({"mallet": _off(rest, (0.0, 12.0, 4.0), (30.0, 0.0, 0.0))}, jolt=1.2, i=5)),
+        P(psy=0.35, pitch=-1.0, squash=0.97, glint=GLINT_OFF,
+          tools=still({"mallet": _off(rest, (0.0, 4.0, 1.0), (10.0, 0.0, 0.0))}, jolt=1.2, i=6)),
+        P(psy=0.15, glint=GLINT_OFF, tools=still(jolt=1.2, i=7)),
+    ]
+
+
+def tenderize_new():
+    """Tenderize, 12 frames. Frames 0-3 are the held charge (anim_charge [0, 4, 6]): the
+    mallet high over him, trembling up and down as the glow pulses and the brain swells.
+    Then from the release: the peak, tipped back (4), the swing over (5) and down (6) with
+    speed streaks, the pound on the floor in front (7, held through the hit, the brain
+    squashed 10%), the jelly wobble (8, 9), the mallet lifting off (10) and floating home
+    (11). Order Up (tag_in) plays 5-11."""
+    rest = REST["mallet"]
+    hi = lambda up, back, pi: ((0.0, up, back), (pi, 0.0, 0.0))  # noqa: E731
+    pound = ((0.0, 15.0, 27.0), (-78.0, 0.0, 0.0))
+    kit_in = dict(scale=0.88)
+    out = [
+        P(psy=0.7, squash=1.02, active=("mallet",), glint=GLINT_OFF, tools=still({"mallet": hi(57.0, 2.0, 95.0)}, **kit_in)),
+        P(psy=0.85, squash=1.04, lift=HOVER + 0.8, active=("mallet",), glint=GLINT_OFF,
+          tools=still({"mallet": hi(59.5, 0.5, 99.0)}, **kit_in)),
+        P(psy=1.0, squash=1.06, lift=HOVER + 1.5, active=("mallet",), glint=0.6,
+          tools=still({"mallet": hi(61.5, -1.0, 102.0)}, **kit_in)),
+        P(psy=0.85, squash=1.04, lift=HOVER + 0.8, active=("mallet",), glint=GLINT_OFF,
+          tools=still({"mallet": hi(59.5, 0.5, 98.0)}, **kit_in)),
+        # 4: the peak, tipped back
+        P(psy=1.0, squash=1.07, pitch=5.0, lift=HOVER + 2.0, active=("mallet",), glint=GLINT_OFF,
+          tools=still({"mallet": hi(63.0, -6.0, 122.0)}, **kit_in)),
+        # 5: over the top
+        P(psy=1.0, pitch=-2.0, lift=HOVER + 1.0, active=("mallet",), glint=GLINT_OFF,
+          smear=(((0.0, 74.0, -10.0), (0.0, 72.0, 20.0)),), tools=still({"mallet": hi(58.0, 13.0, 50.0)})),
+        # 6: coming down
+        P(psy=1.0, pitch=-6.0, squash=0.97, active=("mallet",), glint=GLINT_OFF,
+          smear=(((0.0, 70.0, 26.0), (0.0, 34.0, 44.0)),), tools=still({"mallet": ((0.0, 36.0, 28.0), (-25.0, 0.0, 0.0))})),
+        # 7: the pound, held through the hit
+        P(psy=1.0, pitch=-9.0, squash=0.9, lift=HOVER - 2.5, active=("mallet",), glint=GLINT_OFF,
+          tools=still({"mallet": pound}, jolt=1.0, i=4, push=(0.0, 2.0, 0.0), move=(0.0, -2.0, 0.0))),
+        # 8, 9: the wobble
+        P(psy=0.8, pitch=-6.0, squash=1.05, lift=HOVER - 1.0, active=("mallet",), glint=GLINT_OFF,
+          tools=still({"mallet": ((0.0, 16.5, 26.5), (-70.0, 0.0, 0.0))}, jolt=1.0, i=5, push=(0.0, 2.0, 0.0))),
+        P(psy=0.6, pitch=-3.0, squash=0.97, active=("mallet",), glint=GLINT_OFF,
+          tools=still({"mallet": ((0.0, 19.0, 25.0), (-55.0, 0.0, 0.0))}, jolt=1.0, i=6, push=(0.0, 2.0, 0.0))),
+        # 10, 11: floating home
+        P(psy=0.4, pitch=-1.0, glint=GLINT_OFF, tools=still({"mallet": ((5.0, 44.0, 10.0), (40.0, -15.0, 0.0))})),
+        P(psy=0.2, glint=GLINT_OFF, tools=still({"mallet": _mix(((8.0, 36.0, -4.0), (60.0, -25.0, 0.0)), rest, 0.5)})),
+    ]
+    return out
+
+
+def cleaver_new():
+    """Cleaver Toss, 8 frames: the big knife rises (0, held through the raw windup), wheels
+    back over his head (1), coils furthest back with the brain leaning back (2, held 4
+    ticks), snaps forward in one fast frame (3), and is gone with the brain pitched after
+    it (4, held 4); the wobble (5, 6) with no cleaver, then it's back at his side (7)."""
+    rest = REST["cleaver"]
+    return [
+        P(psy=0.55, active=("cleaver",), glint=GLINT_OFF,
+          tools=still({"cleaver": ((-15.0, 30.0, 18.0), (105.0, 40.0, 0.0))})),
+        P(psy=0.8, pitch=2.0, active=("cleaver",), glint=GLINT_OFF,
+          tools=still({"cleaver": ((-12.0, 52.0, 12.0), (125.0, 32.0, 0.0))})),
+        P(psy=1.0, pitch=5.0, squash=1.05, lift=HOVER + 1.0, active=("cleaver",), glint=0.3,
+          tools=still({"cleaver": ((-9.0, 62.0, 2.0), (172.0, 28.0, 0.0))})),
+        P(psy=1.0, pitch=-4.0, shift=1.0, active=("cleaver",), glint=GLINT_OFF,
+          smear=(((-9.0, 66.0, 4.0), (-8.0, 47.0, 44.0)),),
+          tools=still({"cleaver": ((-8.0, 40.0, 32.0), (-4.0, 15.0, 0.0))}, jolt=1.0, i=3)),
+        P(psy=1.0, pitch=-9.0, shift=2.5, squash=0.91, glint=GLINT_OFF, tools=still({"cleaver": None}, jolt=1.0, i=4)),
+        P(psy=0.6, pitch=-3.0, shift=1.2, squash=1.05, glint=GLINT_OFF, tools=still({"cleaver": None}, jolt=1.0, i=5)),
+        P(psy=0.35, pitch=-1.0, squash=0.98, glint=GLINT_OFF, tools=still({"cleaver": None}, jolt=1.0, i=6)),
+        P(psy=0.2, glint=GLINT_OFF, tools=still({"cleaver": _off(rest, (0.0, 3.0, 0.0))})),
+    ]
+
+
+def flipout_new():
+    """Flip Out, 12 frames: the scoop. The spatula swung back low behind him, the brain
+    leaning back (0: the anticipation, held through the red windup), dives under him (1),
+    skims the floor (2) and slides furthest under the foe (3, held through the grab), then
+    lifts (4) and carries them up a big arc over his head (5-7, streaks on the fast part,
+    his brain tipping back to watch), overshoots behind (8) and comes home (9-11) with a
+    wobble."""
+    flat = lambda lat, up, fwd, pi: ((lat, up, fwd), (pi, 0.0, 90.0))  # noqa: E731
+    rest = REST["spatula"]
+    return [
+        P(psy=0.6, yaw=6.0, pitch=4.0, squash=1.03, lift=HOVER + 0.8, active=("spatula",), glint=GLINT_OFF,
+          tools=still({"spatula": ((12.0, 9.0, -26.0), (25.0, 160.0, 0.0))})),
+        P(psy=0.85, pitch=-3.0, active=("spatula",), glint=GLINT_OFF,
+          smear=(((10.0, 4.0, -20.0), (8.0, 2.0, 10.0)),), tools=still({"spatula": flat(8.0, 3.0, 4.0, -10.0)})),
+        P(psy=1.0, pitch=-5.0, shift=1.0, active=("spatula",), glint=GLINT_OFF,
+          tools=still({"spatula": flat(7.0, 2.0, 20.0, -4.0)})),
+        P(psy=1.0, pitch=-7.0, shift=2.5, squash=0.94, active=("spatula",), glint=GLINT_OFF,
+          tools=still({"spatula": flat(6.0, 2.0, 32.0, -4.0)})),
+        P(psy=1.0, pitch=-2.0, shift=2.0, squash=1.02, active=("spatula",), glint=GLINT_OFF,
+          tools=still({"spatula": flat(6.0, 12.0, 30.0, 25.0)})),
+        P(psy=1.0, pitch=3.0, shift=1.0, squash=1.04, active=("spatula",), glint=GLINT_OFF,
+          smear=(((6.0, 22.0, 46.0), (6.0, 44.0, 36.0)),), tools=still({"spatula": flat(6.0, 28.0, 24.0, 65.0)})),
+        P(psy=1.0, pitch=7.0, squash=1.05, lift=HOVER + 1.0, active=("spatula",), glint=0.5,
+          smear=(((6.0, 52.0, 30.0), (6.0, 62.0, 8.0)),), tools=still({"spatula": flat(6.0, 46.0, 8.0, 115.0)})),
+        P(psy=1.0, pitch=8.0, squash=1.03, lift=HOVER + 0.8, active=("spatula",), glint=GLINT_OFF,
+          tools=still({"spatula": flat(6.0, 46.0, -12.0, 160.0)})),
+        P(psy=0.8, pitch=3.0, squash=0.95, active=("spatula",), glint=GLINT_OFF,
+          tools=still({"spatula": flat(8.0, 32.0, -24.0, 200.0)})),
+        P(psy=0.55, pitch=-1.0, squash=1.03, active=("spatula",), glint=GLINT_OFF,
+          tools=still({"spatula": ((14.0, 19.0, -25.0), (150.0, 30.0, 30.0))})),
+        P(psy=0.3, squash=0.99, glint=GLINT_OFF, tools=still({"spatula": _off(rest, (0.0, 1.0, -1.0), (6.0, 0.0, 0.0))})),
+        P(psy=0.15, glint=GLINT_OFF, tools=still()),
+    ]
+
+
+# Knife Flurry: the order the knives leave the fan (its slots, his left to right), matching
+# the sim's aim (0, +1, -1, +2 steps), looped twice; the eighth flies straight.
+FAN_SLOTS = [(-15.0, 32.0), (-8.0, 40.0), (0.0, 45.0), (8.0, 40.0), (15.0, 32.0)]
+FLURRY_ORDER = ("k3", "k4", "k2", "k5")
+
+
+def fan_new(back, drawn=None, gone=(), spread=1.0):
+    """The flurry's fan, points at the foe; `drawn` {knife: extra draw-back}."""
+    out = {}
+    for name, (lat, up) in zip(KNIVES, FAN_SLOTS):
+        b = back + (drawn or {}).get(name, 0.0)
+        lat *= spread
+        out[name] = None if name in gone else ((lat, 22.0 + (up - 22.0) * spread, 31.0 - b), (2.0 + b * 0.6, -lat * 0.8, lat * 1.5))
+    return out
+
+
+def flurry_new():
+    """Knife Flurry, 12 frames: the paring knives swing round into a fan (0, 1), the fan
+    draws back with the glow at full (2, held: the cut-in frame), then a 4-frame throw loop
+    (3-6), one frame per knife: the knife that just left gone with a streak, the next one
+    drawn back, the brain pitching and turning after each throw, the slot refilled by the
+    next frame. Played twice over the eight throws; the eighth (7) leaves the fan empty and
+    the brain thrown forward (held 4 ticks), the wobble (8, 9), and the kit coming home
+    (10, 11)."""
+    knives = KNIVES
+    out = [
+        P(psy=0.75, squash=1.02, active=knives, glint=GLINT_OFF,
+          tools=still(fan_new(7.0, spread=0.75))),
+        P(psy=0.9, squash=1.03, active=knives, glint=GLINT_OFF, tools=still(fan_new(4.0))),
+        P(psy=1.0, squash=1.06, pitch=4.0, lift=HOVER + 1.0, active=knives, glint=0.7, tools=still(fan_new(10.0))),
+    ]
+    slots = dict(zip(KNIVES, FAN_SLOTS))
+    pitches = (-4.0, -6.0, -3.0, -7.0)
+    yaws = (0.0, 4.0, -4.0, 6.0)
+    for j, name in enumerate(FLURRY_ORDER):
+        nxt = FLURRY_ORDER[(j + 1) % len(FLURRY_ORDER)]
+        lat, up = slots[name]
+        out.append(P(psy=1.0, pitch=pitches[j], yaw=yaws[j], roll=(4.0 if j % 2 else -4.0), shift=1.0,
+                     squash=0.95 if j % 2 else 0.98, active=knives, glint=GLINT_OFF,
+                     smear=(((lat, up, 34.0), (lat * 1.3, up - 3.0, 60.0)),),
+                     tools=still(fan_new(2.0, drawn={nxt: 11.0}, gone=(name,)))))
+    out += [
+        P(psy=1.0, pitch=-11.0, shift=3.0, squash=0.9, glint=GLINT_OFF,
+          smear=(((0.0, 45.0, 34.0), (0.0, 42.0, 60.0)),), tools=still({k: None for k in knives}, jolt=1.0, i=4)),
+        P(psy=0.7, pitch=-4.0, shift=1.5, squash=1.06, glint=GLINT_OFF, tools=still({k: None for k in knives}, jolt=1.0, i=5)),
+        P(psy=0.45, pitch=-1.0, squash=0.97, glint=GLINT_OFF,
+          tools=still({k: _off(REST[k], (0.0, -10.0, -2.0)) if k in REST else None for k in knives}, jolt=1.0, i=6)),
+        P(psy=0.3, glint=GLINT_OFF, tools=still({k: _off(REST[k], (0.0, -4.0, -1.0)) if k in REST else None for k in knives})),
+        P(psy=0.15, glint=GLINT_OFF, tools=still()),
+    ]
+    return out
+
+
+def dodge_new():
+    """Mind Blink, 8 frames: the kit folds in and the brain squashes down wide (0: the
+    anticipation), springs up thin as the kit tightens (1), a needle (2), pinches to a point
+    with a flash (3); at the jump (tick 5) a flash at the new spot (4), he reappears
+    stretched tall (5), wobbles wide as the kit flies out (6) and settles with the kit
+    back in orbit (7). The view fades him out to the jump and flickers him back in."""
+    gone = {n: None for n in REST}
+    allk = tuple(REST)
+    return [
+        P(psy=1.0, squash=0.9, lift=HOVER - 1.0, active=allk, glint=GLINT_OFF, tools=still(scale=0.7)),
+        P(psy=1.0, thin=0.7, squash=1.2, lift=HOVER + 1.0, active=allk, glint=GLINT_OFF, tools=still(scale=0.4)),
+        P(psy=1.0, thin=0.35, squash=1.5, lift=HOVER + 3.0, glint=GLINT_OFF, tools=gone, stem=False),
+        P(psy=1.0, thin=0.14, squash=0.3, lift=HOVER + 13.0, glint=GLINT_OFF, tools=gone, stem=False, flash=0.7),
+        P(psy=1.0, thin=0.14, squash=0.3, lift=HOVER + 13.0, glint=GLINT_OFF, tools=gone, stem=False, flash=1.0),
+        P(psy=1.0, thin=0.5, squash=1.4, lift=HOVER + 2.0, glint=GLINT_OFF, tools=gone, stem=False, flash=0.25),
+        P(psy=0.8, squash=0.88, lift=HOVER - 1.0, active=allk, glint=GLINT_OFF, tools=still(scale=1.18)),
+        P(psy=0.4, squash=1.03, glint=GLINT_OFF, tools=still(scale=0.96)),
+    ]
+
+
+ANIM_ROWS = [
+    ("idle", idle_new()),
+    ("run", run_new()),
+    ("flick", flick_new()),
+    ("flick2", flick2_new()),
+    ("toss", toss_new()),
+    ("tenderize", tenderize_new()),
+    ("cleaver", cleaver_new()),
+    ("flipout", flipout_new()),
+    ("flurry", flurry_new()),
+    ("dodge", dodge_new()),
+    ("hurt", hurt()),
+    ("guard", guard()),
+    ("ko", ko()),
+]
+ANIM_VIEW_ROWS = ANIM_ROWS[:-1]
+ANIM_COLS = 12
+
+
 # ------------------------------------------------------------------ animation tools
 # The adapter for the shared animation pipeline (tools/anim_preview.py):
 # `python3 tools/gen_cerebro.py anim` renders preview GIFs into docs/anim_preview/, and
 # `python3 tools/anim_preview.py --check cerebro` checks the JSON's timelines against ROWS.
 # In-betweens and overlap come from splat3d (tween, cycle, lag, lag_at), which only touch
 # pose attributes; this generator's renderer is its own.
-ANIM_CYCLES = {"idle": 40, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks)
+ANIM_CYCLES = {"idle": 40, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks), as cerebro.json has them
+ANIM_TICKS = {"idle": 8, "run": 2}     # the new rows' ticks per frame (idle 64 ticks, run 24; the JSON after approval)
+OLD_REF = os.environ.get("CEREBRO_OLD_REF", "25d385d")  # main before the pass: the "current" frames
 
 
 def frame_spec(view):
@@ -1131,6 +1552,98 @@ def render_frame(pose, view):
     W, H = sp["w"], sp["h"]
     OX, OY = sp["origin"]
     return render(pose, view)
+
+
+# The timelines: the current ones (as the view plays the sheets today) and the new ones
+# (what cerebro.json gets after approval). Every startup, active, recovery and windup stays.
+OLD_AT = {
+    "flick": [[0, 0], [3, 1], [6, 2], [12, 3]],
+    "flick2": [[0, 0], [3, 1], [6, 2], [12, 3]],
+    "toss": [[0, 0], [3, 1], [7, 2], [10, 3], [22, 4]],
+    "tenderize": [[0, 2], [5, 3], [9, 4], [20, 5]],
+    "tag_in": [[0, 3], [15, 5]],  # anim_from 3: the strike frame until active + 2, then the last
+    "cleaver": [[0, 0], [4, 1], [8, 2], [10, 3], [20, 4], [28, 5]],
+    "flipout": [[0, 0], [5, 1], [8, 2], [12, 3], [18, 4], [28, 5]],
+    "flurry": [[0, 0], [5, 1], [10, 2], [12, 3], [14, 4], [16, 3], [18, 4], [20, 3], [22, 4], [24, 3],
+               [26, 4], [28, 3], [30, 4], [34, 5]],
+}
+NEW_AT = {
+    "flick": [[0, 0], [2, 1], [4, 2], [6, 3], [7, 4], [10, 5], [13, 6], [16, 7]],
+    "flick2": [[0, 0], [2, 1], [4, 2], [6, 3], [7, 4], [10, 5], [13, 6], [16, 7]],
+    "toss": [[0, 0], [2, 1], [4, 2], [8, 3], [10, 4], [15, 5], [19, 6], [24, 7]],
+    "tenderize": [[0, 4], [3, 5], [5, 6], [8, 7], [13, 8], [16, 9], [20, 10], [26, 11]],
+    "tag_in": [[0, 5], [4, 6], [8, 7], [13, 8], [16, 9], [20, 10], [24, 11]],
+    "cleaver": [[0, 0], [2, 1], [4, 2], [8, 3], [10, 4], [14, 5], [18, 6], [26, 7]],
+    "flipout": [[0, 0], [3, 1], [5, 2], [7, 3], [11, 4], [13, 5], [15, 6], [17, 7], [20, 8], [24, 9], [28, 10],
+                [31, 11]],
+    "flurry": [[0, 0], [3, 1], [6, 2], [10, 3], [13, 4], [16, 5], [19, 6], [22, 3], [25, 4], [28, 5], [31, 7],
+               [35, 8], [37, 9], [39, 10], [41, 11]],
+}
+NEW_CHARGE = [0, 4, 6]  # Tenderize's held charge: frames 0-3, 6 ticks each (today [0, 2, 6])
+NEW_CUT_IN = [8, 2]     # the Surge cut-in: the drawn-back fan (frame 2 both before and after)
+# Mind Blink: the view picks a blink dodge's frames by the jump's timing (creature_view.gd
+# `_pick`, four frames hardcoded); 8 frames need this timeline in the dodge block.
+OLD_DODGE = [[0, 0], [3, 1], [5, 2], [9, 3]]
+NEW_DODGE = [[0, 0], [2, 1], [3, 2], [4, 3], [5, 4], [7, 5], [9, 6], [12, 7]]
+
+
+def _clips():
+    import anim_preview as A
+    old_idle, new_idle = (10, 4), (8, 8)
+    mv = A.move_ticks
+
+    def move(anim, length, key=None, marks=(), pre=0):
+        key = key or anim
+        return ({"old": [(anim, OLD_AT[key][0][1])] * pre + mv(anim, OLD_AT[key], length, old_idle),
+                 "new": [(anim, NEW_AT[key][0][1])] * pre + mv(anim, NEW_AT[key], length, new_idle)}, list(marks))
+
+    throws = [10 + 3 * k for k in range(8)]
+    flurry_marks = [(t, t + 2, "knife %d" % (k + 1)) for k, t in enumerate(throws[:-1])] + \
+        [(31, 35, "knife 8 (knockdown)")]
+    return {
+        "idle": ({"old": A.loop_ticks("idle", 10, 4, 128), "new": A.loop_ticks("idle", 8, 8, 128)}, []),
+        "run": ({"old": A.loop_ticks("run", 4, 6, 48), "new": A.loop_ticks("run", 2, 12, 48)}, []),
+        "flick": move("flick", 22, marks=[(6, 7, "throw frame"), (7, 10, "knife leaves (release held)"),
+                                          (10, 22, "cancel from 10")]),
+        "flick2": move("flick2", 22, marks=[(6, 7, "throw frame"), (7, 10, "knife leaves (release held)"),
+                                            (10, 22, "cancel from 10")]),
+        "toss": move("toss", 35, marks=[(4, 8, "coil (held)"), (8, 10, "throw frame"),
+                                        (10, 15, "mallet leaves (release held)")]),
+        "tenderize": ({"old": A.charge_ticks("tenderize", 0, 2, 6, 24) + mv("tenderize", OLD_AT["tenderize"], 32, old_idle),
+                       "new": A.charge_ticks("tenderize", *NEW_CHARGE, 24) + mv("tenderize", NEW_AT["tenderize"], 32, new_idle)},
+                      [(0, 24, "held charge"), (24 + 9, 24 + 13, "hit (Tenderize)")]),
+        "tenderize_tag_in": move("tenderize", 28, "tag_in", marks=[(9, 13, "hit (Order Up)")]),
+        "cleaver": move("cleaver", 33, pre=6, marks=[(0, 6, "windup (raw)"), (6 + 4, 6 + 8, "coil (held)"),
+                                                     (6 + 8, 6 + 10, "throw frame"), (6 + 10, 6 + 14, "cleaver leaves")]),
+        "flipout": move("flipout", 35, pre=12, marks=[(0, 12, "windup (red tell)"), (12 + 8, 12 + 12, "grab")]),
+        "flurry": move("flurry", 43, marks=[(6, 10, "fan drawn back (cut-in)")] + flurry_marks),
+        "dodge": ({"old": [("dodge", f) for f in A.timed(OLD_DODGE, 15)] + A.idle_tail(30, *old_idle),
+                   "new": [("dodge", f) for f in A.timed(NEW_DODGE, 15)] + A.idle_tail(30, *new_idle)},
+                  [(0, 2, "gather"), (2, 5, "invulnerable (fading out)"), (5, 7, "the jump"),
+                   (7, 12, "invulnerable (flickering in)")]),
+    }
+
+
+CLIPS = _clips
+
+
+def inspect(rows, picks, path):
+    """Frames side by side in all three views, 3x: picks like idle:0 run:2."""
+    tiles = []
+    for pick in picks:
+        name, f = pick.split(":")
+        poses = dict(rows)[name]
+        for view in ("side", "down", "up"):
+            img = render_frame(poses[int(f)], view)
+            bg = Image.new("RGBA", img.size, (70, 58, 46, 255))
+            bg.alpha_composite(img)
+            ImageDraw.Draw(bg).text((2, 2), "%s %s" % (pick, view), fill=(255, 220, 140, 255))
+            tiles.append(bg.resize((img.width * 3, img.height * 3), Image.NEAREST))
+    out = Image.new("RGBA", (sum(t.width for t in tiles[:3]), 3 * 128 * ((len(tiles) + 2) // 3)), (40, 32, 26, 255))
+    for k, t in enumerate(tiles):
+        out.alpha_composite(t, (sum(x.width for x in tiles[:3][:k % 3]), (k // 3) * 384))
+    out.save(path)
+    print("wrote", path)
 
 
 def main():
@@ -1164,9 +1677,14 @@ def main():
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "anim":
-        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    if len(sys.argv) > 1 and sys.argv[1] == "inspect":
+        # python3 tools/gen_cerebro.py inspect idle:0 run:2 (CEREBRO_NEW=1: the new rows)
+        rows = ANIM_ROWS if os.environ.get("CEREBRO_NEW") else ROWS
+        inspect(rows, sys.argv[2:], os.environ.get("INSPECT_OUT", os.path.join(ROOT, "cerebro_inspect.png")))
+    elif len(sys.argv) > 1 and sys.argv[1] == "anim":
         import anim_preview
+        # previews show the new rows; the game's sheets (ROWS) stay as they are until approval
+        ROWS, VIEW_ROWS = ANIM_ROWS, ANIM_VIEW_ROWS
         anim_preview.main(sys.modules[__name__], sys.argv[2:])
     else:
         main()
