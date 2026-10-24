@@ -28,7 +28,13 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   `CrowdView`'s seats) plus its cracked and changed-piece floors (and `_crackmask`, the cracks
   alone, which the view lights as cracks spread and heal), the Caravan's wagon and the CTF flag (reads `data/arenas/<id>.json`;
   rerun after moving a piece or changing a map's `light`: pieces cast their shadows along it,
-  `cast_shadows`, `CAST_HEIGHT`, kept in step with `ArenaView.CAST_HEIGHT` and `ShadowLayer.light_of`). `gen_audio.py`: placeholder
+  `cast_shadows`, `CAST_HEIGHT`, kept in step with `ArenaView.CAST_HEIGHT` and `ShadowLayer.light_of`).
+  Depth rules are in its docstring ("Depth"): the far-to-near gradient and the big floor
+  features go through `floor_shift` (palette fine-line steps, applied right after the ground is
+  painted, before details and the _alt copy), things with height get `faces` and
+  `contact_shadow`. It also draws the foreground strips `arena_<id>_fore.png` / `_hang.png`
+  (`fore_layers`, `FORE` per map; `FORE_GAP` / `FORE_H` / `HANG_TOP` / `HANG_H` in step with
+  `ForeView`). `gen_audio.py`: placeholder
   SFX and music; names must match `data/audio.json`.
 - `codebase_map.py`: writes the generated file list at the end of each area's `CLAUDE.md`;
   `--check` is the CI drift check. Standard library only.

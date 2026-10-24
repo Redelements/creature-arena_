@@ -277,6 +277,7 @@ var replay: Replay
 var arena: ArenaView
 var crowd: CrowdView
 var backdrop: BackdropView
+var fore: ForeView  ## the near layer over the fighters: front rail and fans, what hangs at the back
 var furniture: FurnitureView
 var entities: Node2D
 var views: Array[CreatureView] = []
@@ -562,6 +563,8 @@ func _ready() -> void:
 	entities = Node2D.new()
 	entities.y_sort_enabled = true
 	add_child(entities)
+	fore = ForeView.new()  # the nearest fans and a rail at the front, hangings at the back: over the fighters, faster than the floor
+	add_child(fore)
 	weather.views = views
 	add_child(weather)  # rain, snow, blown debris: over the fighters, under telegraphs and health bars
 	fx = FxView.new()
@@ -2231,6 +2234,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 		two_sides = two_sides and c.team >= 0 and c.team <= 1
 	crowd.set_size(sim.arena_size(), two_sides)
 	backdrop.set_map(arena.arena_id, sim.arena_size())
+	fore.set_map(arena.arena_id, sim.arena_size())
 	furniture.hud = hud
 	furniture.set_arena(sim.arena, sim.arena_size())
 	arena.set_terrain(sim.terrain)
