@@ -154,15 +154,21 @@ read as an existing franchise creature.
 
 Craglash is the first creature from the artist's character sheets. His sheet is a
 pixel recreation of that sheet made by `tools/gen_craglash.py`, a small puppet rig
-(torso, legs, arms, segmented neck, maned head) posed frame by frame, with the palette
-sampled from the artwork. Every part is cel-shaded from its own distance field (a lit
-rim on the top left, a two-tone shadow on the bottom right, a flat base between), then
-outlined, so limbs read as round at the game's zoom. What makes him Craglash, all taken
+(torso, legs, arms, segmented neck, maned head) posed frame by frame, in master-palette
+ramps (see "Palette": the hide is the rust ramp a step lighter with a pale-rose highlight
+and the rust line's darkest step for seams, the mane plain rust, the slabs "stone"). Every
+part is ramp-shaded on its own layer like the splat3d fighters: its distance field gives
+a pillow normal (the outward edge direction, tilting toward the camera inside), lit from
+the top left into a small highlight, the light step, the base, a hard terminator and one
+dark step for the core shadow, plus a one-pixel rim light on the shadowed far edge and a
+cleanup of lone pixels; the far arm and leg sit one step down their lines. Lines are
+resolved on the finished frame (`finish()`): each material's ink on the silhouette, its
+deep step on seams inside it. The neck's slabs are flat faces with a one-pixel bevel. What makes him Craglash, all taken
 from the sheet: the crown of five spikes around the neck base and the spines on his
 flanks, the pale stone veins across his chest and forearms with two small blue gems, the
 lighter furred belly and the shaggy band at his hips, three-clawed mitten hands and
-three-toed feet, elbow spikes and knee tufts, a neck of flat grey slabs rimmed in dark
-red (thicker at the base), and a big two-layer bristling mane round a face with yellow
+three-toed feet, elbow spikes and knee tufts, a neck of flat grey slabs (thicker at
+the base), and a big two-layer bristling mane round a face with yellow
 eyes under heavy brows, a snout and a wide red grin. The mane flares on hits and lies
 flat on windups (`mane` in a pose). Big frames because the neck reaches far: the head is
 50 px in front of the feet on Boulder Lash and 89 px above them at the top of Avalanche
@@ -784,7 +790,10 @@ One master palette for the whole game: `tools/palette.py`, drawn as a labelled s
   (`tools/gen_arenas.py`, `snap_constants` and `save`: floor ramps on the ground lines,
   blends and fades ordered-dithered between palette colours; crack masks and the flag,
   which the view tints, stay unsnapped).
-- **Not ported yet:** Cerebro, Hissy, Barkley, Gillbert, Craglash (own renderers) and the
+- **Craglash** (a 2D puppet, `tools/gen_craglash.py`) ports the same rules to his own
+  layer shader: `MAT` holds ramps, `shade` the five steps and the rim, `finish` the inks
+  and seams.
+- **Not ported yet:** Cerebro, Hissy, Barkley, Gillbert (own renderers) and the
   placeholders in `tools/gen_sprites.py` still use their own colours. Porting one is
   mostly rewriting its MAT table as ramp names and shading from the five steps.
 
