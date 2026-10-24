@@ -115,10 +115,24 @@ dig/slosh/poof/chop_chop/shout sounds.
 - Sprite frame by state → `creature_view.gd:_pick`; frame in a move → `_attack_frame`;
   sheet choice → `_pick_view`, `_resolve`, `_load_view`; squash → `_update_squash`, `view_lift`;
   victory pose → `victory`, `_victory_frame`
-- HUD panels, stamina bar (red flash when exhausted), cooldown bars → `hud.gd:_panel`; combo
-  → `_combo`; cut-in → `cut_in`, `_draw_cut_in` (+ `_draw_cut_in_dim`, drawn first so panels stay lit; streaks, tear and name slam all step on `_cut.t` in whole pixels, colour = the fighter's `fx_color`; no cut-in at all when a crowded Surge does not freeze); team HUD → `_team_panels`, `_card`;
+- HUD panels (portrait `_draw_portrait`, health bar with its chunk `_hp_bar`, stepped Surge bar, stamina bar blinking red when exhausted, cooldown boxes filling by rows with a ready flash, the timer's last-10-seconds pulse) → `hud.gd:_panel`, `_track_bars`; which panels show (own side only in team modes, Brawl and Duel) → `panel_plan`, `_draw_panels`; compact teammate cards → `_card`; combo
+  → `_combo`; cut-in → `cut_in`, `_draw_cut_in` (+ `_draw_cut_in_dim`, drawn first so panels stay lit; streaks, tear and name slam all step on `_cut.t` in whole pixels, colour = the fighter's `fx_color`; no cut-in at all when a crowded Surge does not freeze); team HUD → `_draw_panels`, `_card`;
   training tags and DPS → `_training_tags`, `_watch_dummy`, `_dps`, `dps_meter.gd`
 - Surge aura → `surge_aura.gd` (look from the JSON `surge_aura` block)
+- Glow (Settings > Video, `main.gd:glow`, default off on mobile) → `light_view.gd`: two LightViews, the
+  floor pools (over the shadows, under the fighters) and their `halo` twin (over the effects and Crease's
+  paper), both additive. Not Godot lights and not a blur: one pre-made dithered, stepped radial picture
+  per size (`SIZES`, built once in `_ready`), drawn whole-pixel, so pools read as pixel art and sprites
+  stay crisp. What glows: a ready Surge (pool in the aura's middle colour, a flare on the burst), a move's
+  `fx.light` (`color`, `radius` up to 96, `strength`, `from`/`to` ticks of the move (default its active
+  frames), `ahead`, `height`, `charge`: only while held, `halo` share), a projectile's
+  `fx.projectile_light` (`color`, `radius`, `strength`), and bright particles (`_part_light`: sparks,
+  bursts, glints, coloured rings, streaks, lines). Gathered once a tick (no interpolation), merged by
+  cell (`MERGE_CELL`), capped (`MAX_LIGHTS`). Hidden foes: lights only from fighters `fx.shown` passes and not in `stealth` (Tiptoe, Burrow:
+  Vision doesn't hide those),
+  projectiles where FxView draws them, and particles (spawned only for what was seen; `tests/test_glow.gd`).
+  A pool is a true circle on the floor. Keep halos faint over a fighter (an aura's `halo` share is 0.12),
+  or the sprite washes out.
 - Range rings → `range_rings.gd:rings`; F1 hitbox overlay → `debug_view.gd`; F9 performance
   overlay → `perf_overlay.gd` (main feeds `tick(us)`; the setting is `perf_overlay`)
 - A chasm the match made (Sinkhole's rings, the Floor of pits mutator: `TerrainGrid.sink`) has
@@ -185,6 +199,7 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `fx_view.gd` (FxView) — Cosmetic effects. Two things drive them: - Simulation events (hits, slams, grabs, falls, KOs...), passed in through spa…
 - `hud.gd` (Hud) — Fighter panels (health, energy, stamina, skill cooldowns, Cairn's stones), the combo counter with its damage multiplier…
 - `letterbox.gd` (Letterbox) — Black bars across the top and bottom of the screen for the big moments (a knockout's push-in, a Surge's freeze), on the…
+- `light_view.gd` (LightView) — Glow (Settings > Video): glowing things light the floor around them and get a soft halo, so the arena feels lit.
 - `paper_fx.gd` (PaperFx) — Mister Crease's paper, drawn over the fighters: the sheets of his Paper Stock floating above the hat, the crafts he has…
 - `perf_overlay.gd` (PerfOverlay) — The performance overlay (Settings > Video, or F9): the frame rate in a corner, and in its second mode a chart of the la…
 - `range_rings.gd` (RangeRings) — "Range rings" (Settings > Controls, or F7 in a fight): thin floor rings that show where an attack really reaches, so a…

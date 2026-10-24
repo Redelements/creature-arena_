@@ -24,6 +24,7 @@
   "sprite": {
     "path": "res://assets/sprites/pete.png",
     "frame": 128,
+    "portrait": [56, 61, 24, 32],
     "cols": 8,
     "origin": [64, 104],
     "anims": {

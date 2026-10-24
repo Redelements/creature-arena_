@@ -1660,6 +1660,22 @@ func test_the_card_shows_the_fighter_the_row_names_and_the_modes_facts() -> void
 	g.free()
 
 
+func test_the_glow_setting_hides_the_lights_and_saves() -> void:
+	var main_script: GDScript = load("res://src/game/main.gd")
+	assert_false(main_script.default_glow(true), "off by default on a phone or handheld")
+	assert_true(main_script.default_glow(false), "on by default on a desktop")
+	var g := _game()
+	assert_true("glow" in g.SETTING_PAGES["video"], "a Video setting")
+	g._set_setting("glow", 0)
+	assert_false(g.glow_floor.visible or g.glow_halo.visible, "Off hides both layers")
+	var cfg := ConfigFile.new()
+	cfg.load(TEST_SETTINGS)
+	assert_eq(cfg.get_value("video", "glow", true), false, "and it is saved")
+	g._set_setting("glow", 1)
+	assert_true(g.glow_floor.visible and g.glow_halo.visible, "On again")
+	g.queue_free()
+
+
 func test_the_text_font_setting_switches_menus_and_saves() -> void:
 	var g := _game()
 	g._open_settings_page("video")
