@@ -10,8 +10,8 @@ animation by name with its `"anim"` field.
 ## Directions per creature: three sheets, five with the diagonals
 
 Fighters face any of 8 ways, so every creature has **three sheets with the same rows**,
-and can have **two more for the diagonals** (Sneaky Pete has them; the other nine fighters
-draw their diagonals side-on until their round):
+and can have **two more for the diagonals** (Sneaky Pete and Craglash have them; the other eight
+fighters draw their diagonals side-on until their round):
 
 | Sheet | Shows | Used when facing |
 | --- | --- | --- |
@@ -42,7 +42,9 @@ Each view can have its own frame size and feet origin (`"views"` in the creature
 which falls over sideways) always come from the side sheet, so those rows can stay empty
 in the others. Pete's five views side by side:
 [`anim_preview/pete_diagonals_3x.png`](anim_preview/pete_diagonals_3x.png) and
-[`pete_views_preview.png`](pete_views_preview.png). Preview: [`sprite_views_preview.png`](sprite_views_preview.png) (Cairn,
+[`pete_views_preview.png`](pete_views_preview.png); Craglash's:
+[`anim_preview/craglash_diagonals_3x.png`](anim_preview/craglash_diagonals_3x.png) and
+[`craglash_diagonal_views_preview.png`](craglash_diagonal_views_preview.png). Preview: [`sprite_views_preview.png`](sprite_views_preview.png) (Cairn,
 side/down/up), [`culvert_views_preview.png`](culvert_views_preview.png), [`craglash_views_preview.png`](craglash_views_preview.png) and
 [`barkley_views_preview.png`](barkley_views_preview.png) and
 [`gillbert_views_preview.png`](gillbert_views_preview.png).
@@ -164,6 +166,27 @@ Any creature can use a bigger frame by setting `"frame"` in its JSON; the game, 
 cut-in and the team select scale to it. His up and down sheets (`craglash_down.png`,
 `craglash_up.png`) are **128×160** frames with the same rows minus the knockout, feet at
 x 64, y 112 (down) and y 124 (up); the same rig draws them from the front and from behind.
+
+His diagonal sheets (`craglash_down_side.png`, `craglash_up_side.png`, the same 128×160
+frames and rows, feet at x 64, y 112 and y 124) come from a third rig, `DRig`, a
+three-quarter blend of the side puppet and the up/down `VRig`. It keeps the VRig's 3D
+reading of each side pose (feet, hands, neck bends and head as sideways, up and forward,
+with the same foreshortening of the feet and the head's reach) and turns the floor 45
+degrees: forward lands 0.707 right and 0.707 down (`down_side`) or up (`up_side`), so the
+Maw's head lands on the hit as in the other views, and the sideways axis runs the other
+diagonal with its height flattened (`LAT_Y` 0.3) so the shoulders don't slant. The side
+the side sheet shows nearest (arm and leg 1) is toward the camera in both. The torso,
+crown and flank spines are drawn square to the camera (a round body is about as wide
+from any angle) with the belly slid toward forward (`down_side`) or the spine's stone
+ridge toward backward (`up_side`); the legs bend their knees forward in their own plane;
+a hand reaching forward closes in on the middle line, so a Rake sweeps across the chest
+along the diagonal; the far arm and leg are darkened as on the side sheet. Parts sort by
+depth: the near arm in front of the torso, the far one behind unless it swings across
+(`arm0_front`) or reaches toward the camera; the neck bows behind the head (the VRig bows
+it out to the side for the front view). The head has three-quarter faces: `_face_quarter`
+(both eyes, the far one narrower, the snout and mouth slid down-right) and, from behind,
+parted fur with the near eye's corner and the snout's edge at the cheek; it sits on the
+neck's top stones in `up_side` so the mane reads.
 
 ![Craglash sheet, 3x](craglash_preview.png)
 
