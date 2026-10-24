@@ -17,7 +17,8 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   3D rig per view; Craglash is a 2D IK puppet).
 - `gen_sprites.py`: placeholders (Cairn, dummy, tiles, crowd). `gen_arenas.py`: each map's
   whole picture (stands on all sides: `_stands`, `_side_stands`, `_front_stands`, in step with
-  `CrowdView`'s seats) plus its cracked and changed-piece floors, the Caravan's wagon and the CTF flag (reads `data/arenas/<id>.json`;
+  `CrowdView`'s seats) plus its cracked and changed-piece floors (and `_crackmask`, the cracks
+  alone, which the view lights as cracks spread and heal), the Caravan's wagon and the CTF flag (reads `data/arenas/<id>.json`;
   rerun after moving a piece or changing a map's `light`: pieces cast their shadows along it,
   `cast_shadows`, `CAST_HEIGHT`, kept in step with `ArenaView.CAST_HEIGHT` and `ShadowLayer.light_of`). `gen_audio.py`: placeholder
   SFX and music; names must match `data/audio.json`.

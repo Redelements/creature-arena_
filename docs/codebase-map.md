@@ -48,7 +48,7 @@ update the map in the same change.
 | knockdown, launch, crumple, reactions | `src/sim/creature_sim.gd:enter_hitstun`, `enter_crumple`, `enter_air`, `enter_knockdown` | combat |
 | energy, Surge meter, breakaway | `src/sim/match_sim.gd:gain_energy`, `breakaway` | combo_rules, surge_ready |
 | hitstop, freeze-frame, KO freeze and slow motion, what stops on a crowded field | `src/sim/match_sim.gd:impact_stop`, `freeze_all`, `emit_event` ("ko"), `step`; `src/sim/creature_sim.gd:hitstop`, `buffer_input` | hitstop, counterplay, combat |
-| pits, holes, falling, floor breaking and healing | `src/sim/terrain_grid.gd`; falls `src/sim/match_sim.gd:_check_falls` | terrain |
+| pits, holes, falling, floor breaking and healing | `src/sim/terrain_grid.gd`; falls `src/sim/match_sim.gd:_check_falls`; how they look (pit depth, cracks spreading, pits closing, dust) `src/view/arena_view.gd:_paint_pit_cell`, `_step_fx` | terrain |
 | walls, fences, brush, arena pieces | `data/arenas/<id>.json`, `src/sim/arena_map.gd`, `src/sim/terrain_grid.gd:load_map` | arena, crossings |
 | line of sight, hidden fighters | `src/sim/vision.gd`; main's `src/game/main.gd:_update_vision` | vision |
 | tag, Duel, 3v3 tag rules | `src/sim/duel_sim.gd:_tag`, `_enter_next`, `_bench_regen` | duel |
@@ -61,7 +61,7 @@ update the map in the same change.
 | a fighter's numbers, moves, frame data | `data/creatures/<id>.json` (keys in `docs/MECHANICS.md`) | `<id>`, combos, showcase, trials |
 | CPU difficulty, Rage, class styles | `src/ai/cpu_controller.gd` `LEVELS`, `STYLES` | test_ai, rage |
 | CPU thinking cost, AI profile, worker threads, what main waits on | `tests/bench_ai_cost.gd` (`--threads=off` breakdown), `src/ai/cpu_controller.gd:think_start`, `src/game/main.gd:_think_ahead`, `_join_cpus`, `src/game/perf_log.gd` | perf_main_thread, cpu_pathing, test_ui |
-| off-screen culling, floor repaint spreading, crowd redraws | `src/view/fx_view.gd:_view_rect`, `_in_view`; `src/view/arena_view.gd:_pending`; `src/view/crowd_view.gd:FlashLayer`, `Block` / `Standing`, `_cols`; `src/view/surge_aura.gd:_on_screen` | perf_main_thread, views |
+| off-screen culling, floor repaint spreading, crowd redraws | `src/view/fx_view.gd:_view_rect`, `_in_view`; `src/view/arena_view.gd:_pending` (and its moving-floor layers `_under`/`_over`/`_dust`); `src/view/crowd_view.gd:FlashLayer`, `Block` / `Standing`, `_cols`; `src/view/surge_aura.gd:_on_screen` | perf_main_thread, views |
 | CPU defence (guard, dodge, step) | `src/ai/cpu_controller.gd:_defend`, `_rage_defend`, `_guard_answer` | rage, stamina |
 | CPU offence, combo routes, pokes, zones, kiting | `src/ai/cpu_controller.gd:_continue_attack`, `_pick_route`, `_neutral`, `_rage_neutral`, `_rage_kit` | test_ai, rage |
 | CPU pathing round walls and pits | `src/ai/nav_grid.gd`, `src/ai/cpu_controller.gd:_go_to` | cpu_pathing |

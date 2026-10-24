@@ -16,16 +16,24 @@ extends Node2D
 ## A piece that changes (a wall smashed, brush flattened, a bridge fallen) takes its shadow
 ## with it: a floor cell in the shadow of changing pieces shows the _alt picture (which has
 ## none of their shadows) once every piece shading it has changed (`_shade`).
+##
+## Pits have depth (`_paint_pit_cell`): a far wall under the lip, then dark going down in
+## dithered whole-pixel steps, side walls lit or shaded by the map's light, a ragged lip of
+## floor with pebbles round it, and a lit near edge. Chasms use a colder, deeper set with a
+## little mist. Their tones are one small texture built per map (`_build_pit_tex`).
+## The floor also moves (`refresh` → `_step_fx`, two layers of their own so the bands stay
+## cached): a crack runs across its cell over a few ticks, spreading out from the blow, with
+## a puff of dust (`_grow`, the under layer); a fresh pit breathes dust for a second or two
+## and drops a pebble or two off its rim (`_motes`); a pit about to heal closes in from its
+## rim, and knitting cracks glow faintly before the floor turns solid (`_heal_cells`,
+## `_knit`, arena_<id>_crackmask.png), on the over layer.
 
 const TILES := preload("res://assets/sprites/tiles.png")
-const TILE_HOLE := 8
-const TILE_HOLE_DEEP := 9
-## Arena map pieces (tools/gen_sprites.py tiles_sheet).
+## Arena map pieces (tools/gen_sprites.py tiles_sheet; its pit tiles 8, 9, 14, 15 are unused
+## now that pits are drawn with depth).
 const TILE_WALL_TOP := 10  # two variants
 const TILE_WALL_FACE := 12
 const TILE_FENCE := 13
-const TILE_CHASM_RIM := 14
-const TILE_CHASM := 15
 const TILE_SHALLOWS := 16  # two variants
 const TILE_BRUSH := 18  # two variants
 const TILE_BRUSH_FLAT := 20
@@ -53,10 +61,6 @@ const C_WALL_DARK := Color("464c58")
 const C_LINE := Color(1, 1, 1, 0.2)
 ## Over a cracked cell on a map with art but no cracked picture: a shade darker.
 const C_CRACKED_SHADE := Color(0.18, 0.09, 0.04, 0.16)
-## Pit edges on a map with art (_paint_lips).
-const C_LIP_SHADOW := Color(0.0, 0.0, 0.0, 0.55)
-const C_LIP_LIT := Color(0.95, 0.78, 0.55, 0.55)
-const C_LIP_SIDE := Color(0.25, 0.14, 0.08, 0.6)
 ## How far the stadium carries on past its walls, for when the camera pulls back and for
 ## wider (ultrawide) and taller (16:10) screens: they see more stands and wall.
 const MARGIN := Vector2(400, 80)
@@ -74,12 +78,16 @@ var arena_id := "":
 			_art_cracked = load(cpath) if _art != null and ResourceLoader.exists(cpath) else null
 			var apath := "res://assets/sprites/arena_%s_alt.png" % v
 			_art_alt = load(apath) if _art != null and ResourceLoader.exists(apath) else null
+			var mpath := "res://assets/sprites/arena_%s_crackmask.png" % v
+			_mask = load(mpath) if _art != null and ResourceLoader.exists(mpath) else null
 			_bridges = ArenaMap.bridge_rects(ArenaMap.get_map(v)) if v != "" else []
 			_rebuild()
 var _art: Texture2D = null
 var _art_cracked: Texture2D = null
 ## The floor with its pieces changed (a smashed wall's rubble, flattened brush), if any.
 var _art_alt: Texture2D = null
+## The cracks of the _cracked picture alone, white on clear (lit as they spread and knit).
+var _mask: Texture2D = null
 ## The map's bridges (cells), whose holes show the water in the _alt picture.
 var _bridges: Array[Rect2i] = []
 ## How tall (px) the pieces that change are, as tools/gen_arenas.py casts their shadows
@@ -96,13 +104,29 @@ var _shade_reach := Vector2i.ZERO
 
 ## A hole in a bridge or a fallen bridge, on a map whose _alt picture shows the water under it.
 func _bridge_gone(cx: int, cy: int) -> bool:
-	if _art_alt == null:
+	if _bridge_cells.is_empty():
 		return false
+	var i := cy * terrain.cols + cx
+	if _bridge_cells[i] == 0:
+		return false
+	var v := terrain.cells[i]
+	return v == TerrainGrid.HOLE or v == TerrainGrid.SHALLOWS
+
+
+## 1 for each cell of a bridge (on a map with an _alt picture to show the water under it),
+## so `_bridge_gone` is one lookup: the pits ask it of every neighbour.
+var _bridge_cells := PackedByteArray()
+
+
+func _build_bridge_cells() -> void:
+	_bridge_cells = PackedByteArray()
+	if _art_alt == null or _bridges.is_empty():
+		return
+	_bridge_cells.resize(terrain.cells.size())
 	for r in _bridges:
-		if r.has_point(Vector2i(cx, cy)):
-			var v := terrain.cells[cy * terrain.cols + cx]
-			return v == TerrainGrid.HOLE or v == TerrainGrid.SHALLOWS
-	return false
+		for cy in range(maxi(0, r.position.y), mini(terrain.rows, r.end.y)):
+			for cx in range(maxi(0, r.position.x), mini(terrain.cols, r.end.x)):
+				_bridge_cells[cy * terrain.cols + cx] = 1
 
 
 func set_terrain(t: TerrainGrid) -> void:
@@ -123,16 +147,23 @@ class Band extends Node2D:
 	var paint: Callable
 	var row0 := 0
 	var row1 := 0
+	var label := "arena draw"
 
 	func _draw() -> void:
 		var t0 := PerfLog.now()
 		paint.call(self, row0, row1)
-		PerfLog.since("arena draw", t0)
+		PerfLog.since(label, t0)
 
 
 var _floor_bands: Array[Band] = []
 var _pit_bands: Array[Band] = []
 var _marks: Band = null
+## The moving floor (`_step_fx`): cracks running, over the floor bands and under the pits;
+## pits closing, glowing cracks and dust, over the pits. They redraw only while busy.
+var _under: Band = null
+var _over: Band = null
+## The dust over all of it: it moves every tick, so it is a layer of its own.
+var _dust: Band = null
 ## The cells as the bands last drew them, to find the rows that changed.
 var _seen := PackedByteArray()
 ## Bands waiting to be repainted. A change to the floor can dirty many at once (a slam's
@@ -146,24 +177,48 @@ const SPREAD_FRAMES := 4
 ## Starts the drawing over: a new terrain, map art or ground.
 func _rebuild() -> void:
 	queue_redraw()
-	for b in _floor_bands + _pit_bands:
-		b.queue_free()
-	if _marks != null:
-		_marks.queue_free()
+	var old: Array = [_marks, _under, _over, _dust]
+	old.append_array(_floor_bands)
+	old.append_array(_pit_bands)
+	for b in old:
+		if b != null:
+			b.queue_free()
 	_floor_bands.clear()
 	_pit_bands.clear()
 	_pending.clear()
 	_marks = null
+	_under = null
+	_over = null
+	_dust = null
+	_grow.clear()
+	_settle.clear()
+	_motes.clear()
+	_knit.clear()
+	_glowing.clear()
+	_heal_cells.clear()
+	_due.clear()
+	_watch.clear()
 	if terrain == null:
 		return
+	_build_bridge_cells()
+	_build_pit_tex()
 	var bands := ceili(terrain.rows / float(BAND_ROWS))
 	for k in bands:
 		_floor_bands.append(_band(_paint_floor, k))
 	_marks = _band(_paint_marks, 0)
+	_under = _band(_paint_under, 0)
+	_under.label = "pit fx under"
 	for k in bands:
 		_pit_bands.append(_band(_paint_pit_band, k))
+	_over = _band(_paint_over, 0)
+	_over.label = "pit fx over"
+	_dust = _band(_paint_dust, 0)
+	_dust.label = "pit fx dust"
 	_seen = terrain.cells.duplicate()
 	_drawn_version = terrain.version
+	for i in terrain.cells.size():
+		if terrain.cells[i] != terrain.base[i]:
+			_schedule(i)
 	_build_shade()
 
 
@@ -239,21 +294,50 @@ func _band(paint: Callable, k: int) -> Band:
 	return b
 
 
+## Once a tick (main's _physics_process): repaint what changed, and step the moving floor.
 func refresh() -> void:
-	if terrain == null or terrain.version == _drawn_version:
+	if terrain == null:
 		return
-	_drawn_version = terrain.version
-	if _seen.size() != terrain.cells.size():
-		_rebuild()
-		return
+	var t0 := PerfLog.now()
+	_tick += 1
+	if terrain.version != _drawn_version:
+		_drawn_version = terrain.version
+		if _seen.size() != terrain.cells.size():
+			_rebuild()
+			return
+		_find_changes()
+	_step_fx()
+	PerfLog.since("floor refresh", t0)
+
+
+## The rows whose cells changed since the bands last looked: their bands (and the ones
+## round them: a wall's face, a pit's rim and depth, a piece's shadow look at the cells
+## round them) go on `_pending`, and each changed cell may start something moving.
+func _find_changes() -> void:
 	var cols := terrain.cols
+	var cells := terrain.cells
+	var base := terrain.base
 	var dirty := {}
+	var fresh := {}  # cell -> 0 just cracked, 1 just opened
 	for cy in terrain.rows:
 		var a := cy * cols
-		if terrain.cells.slice(a, a + cols) != _seen.slice(a, a + cols):
-			for r in range(maxi(0, cy - 1 - _shade_reach.x), mini(terrain.rows, cy + 2 + _shade_reach.y)):
-				dirty[r / BAND_ROWS] = true
-	_seen = terrain.cells.duplicate()
+		if cells.slice(a, a + cols) == _seen.slice(a, a + cols):
+			continue
+		for r in range(maxi(0, cy - 1 - _shade_reach.x), mini(terrain.rows, cy + 2 + PIT_DEPTH_CELLS + _shade_reach.y)):
+			dirty[r / BAND_ROWS] = true
+		for c0 in range(a, a + cols, SCAN_CHUNK):
+			var c1 := mini(c0 + SCAN_CHUNK, a + cols)
+			if cells.slice(c0, c1) == _seen.slice(c0, c1):
+				continue
+			for i in range(c0, c1):
+				var v := cells[i]
+				if v != _seen[i]:
+					_cell_changed(i, _seen[i], v, fresh)
+					if v != base[i]:
+						_schedule(i)
+	_seen = cells.duplicate()
+	if not fresh.is_empty():
+		_spread(fresh)
 	for k in dirty:
 		if not (k in _pending):
 			_pending.append(k)
@@ -262,14 +346,25 @@ func refresh() -> void:
 ## A few of the pending bands each frame (every band paints the floor as it is now, so a
 ## band that changed again meanwhile is still right).
 func _process(_delta: float) -> void:
-	if _pending.is_empty():
+	if _pending.is_empty() and _settle.is_empty():
 		return
-	var n := maxi(1, ceili(_pending.size() / float(SPREAD_FRAMES)))
+	var n := maxi(1, ceili(_pending.size() / float(SPREAD_FRAMES))) if not _pending.is_empty() else 0
 	for i in mini(n, _pending.size()):
 		var k: int = _pending.pop_front()
 		if k < _floor_bands.size():
 			_floor_bands[k].queue_redraw()
 			_pit_bands[k].queue_redraw()
+	# A crack that finished running is drawn whole by the under layer until its band has
+	# repainted with it (this frame, if its band just came off the list).
+	if not _settle.is_empty():
+		var gone: Array[int] = []
+		for i: int in _settle:
+			if not ((i / terrain.cols) / BAND_ROWS in _pending):
+				gone.append(i)
+		for i in gone:
+			_settle.erase(i)
+		if not gone.is_empty() and _under != null:
+			_under.queue_redraw()
 
 
 ## Under the bands: the map's art, or the stands and walls round a tiled floor.
@@ -350,41 +445,11 @@ func _paint_marks(ci: CanvasItem, _row0: int, _row1: int) -> void:
 	ci.draw_arc(c, 34.0, 0.0, TAU, 48, C_LINE, 1.0)
 
 
-## A pit band: holes and chasms over everything else, so they cut through the markings;
-## on a map with art, then the ragged lips where they meet the floor.
-func _paint_pit_band(ci: CanvasItem, row0: int, row1: int) -> void:
-	_paint_pits(ci, row0, row1)
-	if _art != null:
-		_paint_lips(ci, row0, row1)
-
-
 ## Whether the art already shows cell `i` as a chasm: only the map's own chasms are in the
 ## picture. A cell sunk during the match (Sinkhole's rings, the Floor of pits mutator) has
 ## `base` CHASM too, so it never heals, but it has to be drawn.
 func _in_art(i: int) -> bool:
 	return _art != null and terrain.map_base[i] == TerrainGrid.CHASM
-
-
-## A pit whose upper neighbour is solid gets the lit rim tile, which reads as the pit's
-## far wall. On a map with art, the map's own chasms are in the picture already.
-func _paint_pits(ci: CanvasItem, row0: int, row1: int) -> void:
-	for cy in range(row0, row1):
-		for cx in terrain.cols:
-			var v := terrain.cells[cy * terrain.cols + cx]
-			if not TerrainGrid.is_pit(v):
-				continue
-			if v == TerrainGrid.CHASM and _in_art(cy * terrain.cols + cx):
-				continue
-			if _bridge_gone(cx, cy):
-				continue
-			var above_solid := cy == 0 or not TerrainGrid.is_pit(terrain.cells[(cy - 1) * terrain.cols + cx])
-			var chasm := v == TerrainGrid.CHASM
-			var idx: int
-			if above_solid:
-				idx = TILE_CHASM_RIM if chasm else TILE_HOLE
-			else:
-				idx = TILE_CHASM if chasm else TILE_HOLE_DEEP
-			ci.draw_texture_rect_region(TILES, _cell_rect(cx, cy), Rect2(idx * 8, 0, 8, 8))
 
 
 ## A map with art: a crack mark on each cracked cell, the map's changed pieces (rubble,
@@ -422,8 +487,12 @@ func _paint_changed(ci: CanvasItem, row0: int, row1: int) -> void:
 					var t := TILE_RUBBLE_FLOOR if v == TerrainGrid.CRACKED else TILE_BRUSH_FLAT
 					ci.draw_texture_rect_region(TILES, cell, Rect2(t * 8, 0, 8, 8))
 			elif v == TerrainGrid.CRACKED:
+				if _grow.has(a + cx):
+					continue  # its crack is still running: the under layer draws it
 				if _art_cracked != null:
 					ci.draw_texture_rect_region(_art_cracked, cell, src)
+					if _glowing.has(a + cx):
+						_glow(ci, cell, Color(C_GLOW, GLOW_BAND))
 				else:
 					ci.draw_rect(cell, C_CRACKED_SHADE)
 
@@ -445,31 +514,704 @@ func _draw_rubble(ci: CanvasItem, cx: int, cy: int) -> void:
 		ci.draw_circle(p - Vector2(rad, rad) * 0.35, rad * 0.45, C_RUBBLE[3])
 
 
-## A map with art: where a pit meets solid floor, the floor's edge breaks off ragged (a
-## dark undercut on the far side, a lit broken edge on the near side and the sides).
-func _paint_lips(ci: CanvasItem, row0: int, row1: int) -> void:
-	for cy in range(row0, row1):
-		for cx in terrain.cols:
-			var i := cy * terrain.cols + cx
-			if not TerrainGrid.is_pit(terrain.cells[i]) or _in_art(i) or _bridge_gone(cx, cy):
-				continue
-			var r := _cell_rect(cx, cy)
-			var n := posmod(cx * 7 + cy * 11, 5)
-			# far side (above): the floor's lip casting a shadow into the pit
-			if cy > 0 and not TerrainGrid.is_pit(terrain.cells[i - terrain.cols]):
-				ci.draw_rect(Rect2(r.position, Vector2(r.size.x, 2)), C_LIP_SHADOW)
-				ci.draw_rect(Rect2(r.position + Vector2(n, 2), Vector2(3, 1)), C_LIP_SHADOW)
-			# near side (below): the broken edge of the floor in front, lit
-			if cy + 1 < terrain.rows and not TerrainGrid.is_pit(terrain.cells[i + terrain.cols]):
-				ci.draw_rect(Rect2(r.position + Vector2(0, r.size.y - 1), Vector2(r.size.x, 1)), C_LIP_LIT)
-				ci.draw_rect(Rect2(r.position + Vector2(n, r.size.y - 2), Vector2(2 + n % 2, 1)), C_LIP_LIT)
-			for side: int in [-1, 1]:
-				var ncx := cx + side
-				if ncx < 0 or ncx >= terrain.cols or TerrainGrid.is_pit(terrain.cells[i + side]):
-					continue
-				var x := r.position.x if side < 0 else r.end.x - 1
-				ci.draw_rect(Rect2(x, r.position.y, 1, r.size.y), C_LIP_SIDE)
-
-
 func _cell_rect(cx: int, cy: int) -> Rect2:
 	return Rect2(SimDefs.GRID_X + cx * SimDefs.CELL, SimDefs.GRID_Y + cy * SimDefs.CELL, SimDefs.CELL, SimDefs.CELL)
+
+
+# ---------------------------------------------------------------- pits with depth
+
+## The pit tones, by the map's ground (a chasm has its own): the floor's edge (`top`, two
+## rows: turf on grass, the slab on concrete), the far wall (`hi`/`mid`/`lo`), then the dark
+## going down (`g`, four steps to near-black) and the undercut under the lip.
+const PIT_SOIL := {
+	"top": [Color8(150, 108, 72), Color8(130, 93, 62)],
+	"hi": Color8(140, 100, 66), "mid": Color8(116, 82, 55), "lo": Color8(94, 66, 44),
+	"g": [Color8(58, 41, 29), Color8(40, 29, 21), Color8(26, 19, 15), Color8(14, 11, 9)],
+	"under": Color8(24, 16, 12),
+}
+const PIT_STONE := {
+	"top": [Color8(150, 144, 134), Color8(126, 120, 112)],
+	"hi": Color8(132, 124, 114), "mid": Color8(108, 101, 93), "lo": Color8(88, 82, 76),
+	"g": [Color8(54, 50, 47), Color8(37, 34, 32), Color8(24, 22, 21), Color8(13, 12, 12)],
+	"under": Color8(20, 18, 17),
+}
+const PIT_CHASM := {
+	"top": [Color8(104, 102, 124), Color8(84, 82, 104)],
+	"hi": Color8(88, 86, 108), "mid": Color8(68, 66, 88), "lo": Color8(52, 51, 70),
+	"g": [Color8(32, 32, 50), Color8(20, 20, 34), Color8(11, 11, 21), Color8(5, 5, 11)],
+	"under": Color8(10, 9, 17), "mist": Color8(86, 92, 120),
+}
+## The top rows of a pit's far wall by ground: turf over the soil, a concrete slab.
+const PIT_TOP := {
+	"grass": [Color8(70, 104, 48), Color8(54, 80, 40)],
+	"concrete": [Color8(156, 158, 162), Color8(120, 122, 128)],
+}
+## Rows of the far wall under the lip (the corner of a side wall runs this far down too).
+const WALL_H := 6
+## A pit's depth tones run over this many cells down from its far wall (then stay black).
+const PIT_DEPTH_CELLS := 3
+## The atlas (`_pit_tex`, 28 x 32): hole and chasm insides 8 px wide, one 8 px slice per
+## cell down from the far wall; then 3 px side walls: hole left, hole right, chasm left,
+## chasm right. A side wall's outer column is the edge against the floor.
+const AX_CHASM := 8.0
+const AX_SIDE_HOLE := 16.0
+const AX_SIDE_CHASM := 22.0
+const C_FLOOR_BIT := Color8(150, 110, 76)  ## a lip's floor on a map without art
+const C_NEAR_LIT := Color(1.0, 0.93, 0.78)
+const C_PEBBLE := Color8(122, 106, 88)
+const C_PEBBLE_LIT := Color8(178, 160, 136)
+const C_PEBBLE_SHADOW := Color(0.0, 0.0, 0.0, 0.42)
+
+var _pit_tex: ImageTexture = null
+## The way the map's light travels (unit), and how strong its shadows are.
+var _light := Vector2(0.25, 0.97)
+var _light_alpha := 0.32
+## How lit the near edge of a pit is (the floor's broken edge, facing into the light).
+var _near_lit := 0.5
+## The undercut tones and a hole's first dark, cached from the palettes.
+var _hole_under := PIT_SOIL["under"] as Color
+var _chasm_under := PIT_CHASM["under"] as Color
+var _hole_dark := PIT_SOIL["g"][0] as Color
+
+
+func _pit_pal(chasm: bool) -> Dictionary:
+	if chasm:
+		return PIT_CHASM
+	var pal: Dictionary = (PIT_STONE if ground == "stone" else PIT_SOIL).duplicate()
+	if PIT_TOP.has(ground):
+		pal["top"] = PIT_TOP[ground]
+	return pal
+
+
+static func _dim(c: Color, f: float) -> Color:
+	return Color(minf(c.r * f, 1.0), minf(c.g * f, 1.0), minf(c.b * f, 1.0), c.a)
+
+
+## Whether a whole-pixel checker picks the first of two tones (the dither between steps).
+static func _chk(x: int, y: int) -> bool:
+	return (x + y) % 2 == 0
+
+
+## The inside of a pit at `y` px down from its far lip: the undercut, the far wall (the
+## floor's edge, then strata), then the dark in dithered steps; a chasm's mist hangs part way.
+func _pit_px(x: int, y: int, pal: Dictionary, f: float, chasm: bool) -> Color:
+	var g: Array = pal["g"]
+	var c: Color
+	match y:
+		0: return pal["under"]
+		1: return _dim(pal["top"][0], f)
+		2: return _dim(pal["top"][1], f)
+		3: return _dim(pal["hi"] if x % 4 == 1 else pal["mid"], f)
+		4: return _dim(pal["mid"] if _chk(x, y) else pal["lo"], f)
+		5: return _dim(pal["lo"], f)
+		6: return _dim(pal["lo"], f) if _chk(x, y) else g[0]
+	if y <= 8:
+		c = g[0]
+	elif y == 9:
+		c = g[0] if _chk(x, y) else g[1]
+	elif y <= 11:
+		c = g[1]
+	elif y == 12:
+		c = g[1] if _chk(x, y) else g[2]
+	elif y <= 15:
+		c = g[2]
+	elif y == 16:
+		c = g[2] if _chk(x, y) else g[3]
+	else:
+		c = g[3]
+	if chasm and y >= 11 and y <= 14 and (x * 5 + y * 3) % 9 == 0:
+		c = pal["mist"]
+	return c
+
+
+## A side wall `k` px in from the floor's edge, `y` px down: the same rock fading to dark
+## more slowly than the floor of the pit; its inner column is ragged into the inside.
+func _side_px(k: int, y: int, pal: Dictionary, f: float) -> Color:
+	if y == 0:
+		return pal["under"]
+	if k == 2 and (y * 5) % 7 >= 3:
+		return Color(0, 0, 0, 0)
+	var g: Array = pal["g"]
+	var tones: Array = [pal["mid"], pal["lo"], g[0], g[1], g[2]]
+	var step := mini((y - 3) / 6, 4) if y >= 3 else 0
+	var c: Color = tones[step]
+	if y >= 9 and (y - 3) % 6 == 0 and step > 0 and not _chk(k, y):
+		c = tones[step - 1]  # the dither row between steps
+	return _dim(c, f)
+
+
+## The pit tones for this map: its ground, shaded by its light. The far wall faces the
+## camera, so it is in shade when the light comes from the top (every map so far); a side
+## wall facing the light is lit, the other shaded.
+func _build_pit_tex() -> void:
+	var l: Dictionary = ShadowLayer.light_of(ArenaMap.get_map(arena_id) if arena_id != "" else {})
+	var cast: Vector2 = l["cast"]
+	_light = cast.normalized() if cast.length() > 0.001 else Vector2.DOWN
+	_light_alpha = float(l["alpha"])
+	var a := _light_alpha
+	var d := _light
+	_near_lit = 0.12 + 0.3 * maxf(0.0, d.y)
+	var f_far := 1.0 - 0.9 * a * maxf(0.0, d.y) + 0.3 * maxf(0.0, -d.y)
+	# the wall on a pit's left faces right (+x): lit by a light travelling left
+	var f_left := clampf(1.0 + 0.45 * maxf(0.0, -d.x) - 0.9 * a * maxf(0.0, d.x), 0.6, 1.3)
+	var f_right := clampf(1.0 + 0.45 * maxf(0.0, d.x) - 0.9 * a * maxf(0.0, -d.x), 0.6, 1.3)
+	var img := Image.create(28, PIT_DEPTH_CELLS * SimDefs.CELL + SimDefs.CELL, false, Image.FORMAT_RGBA8)
+	for chasm: bool in [false, true]:
+		var pal := _pit_pal(chasm)
+		var bx := int(AX_CHASM) if chasm else 0
+		var sx := int(AX_SIDE_CHASM if chasm else AX_SIDE_HOLE)
+		for y in img.get_height():
+			for x in 8:
+				img.set_pixel(bx + x, y, _pit_px(x, y, pal, f_far, chasm))
+			for k in 3:
+				img.set_pixel(sx + k, y, _side_px(k, y, pal, f_left))
+				img.set_pixel(sx + 5 - k, y, _side_px(k, y, pal, f_right))
+	_pit_tex = ImageTexture.create_from_image(img)
+	_hole_under = _pit_pal(false)["under"]
+	_hole_dark = _pit_pal(false)["g"][0]
+
+
+## A pit band: holes and chasms over everything else, so they cut through the markings,
+## each with its lip and the pebbles round it.
+func _paint_pit_band(ci: CanvasItem, row0: int, row1: int) -> void:
+	var cols := terrain.cols
+	for cy in range(row0, row1):
+		for cx in cols:
+			var i := cy * cols + cx
+			var v := terrain.cells[i]
+			if not TerrainGrid.is_pit(v) or (v == TerrainGrid.CHASM and _in_art(i)) or _bridge_gone(cx, cy):
+				continue
+			_paint_pit_cell(ci, cx, cy, v == TerrainGrid.CHASM)
+
+
+## Whether cell (cx, cy) is open (a pit, not the river under a broken bridge). Off the
+## grid counts as floor, so a pit at the edge gets its walls.
+func _pit_at(cx: int, cy: int) -> bool:
+	if cx < 0 or cy < 0 or cx >= terrain.cols or cy >= terrain.rows:
+		return false
+	return TerrainGrid.is_pit(terrain.cells[cy * terrain.cols + cx]) and not _bridge_gone(cx, cy)
+
+
+## How many open cells there are straight above (0: the far wall is this cell's).
+func _pit_depth(cx: int, cy: int) -> int:
+	var d := 0
+	while d < PIT_DEPTH_CELLS and _pit_at(cx, cy - d - 1):
+		d += 1
+	return d
+
+
+## A small fixed hash, so a lip's ragged bits and pebbles stay put through every redraw.
+static func _h(cx: int, cy: int, k: int) -> int:
+	return posmod((cx * 73856093) ^ (cy * 19349663) ^ (k * 83492791), 1021)
+
+
+func _paint_pit_cell(ci: CanvasItem, cx: int, cy: int, chasm: bool) -> void:
+	var r := _cell_rect(cx, cy)
+	var d := _pit_depth(cx, cy)
+	var sy := float(d * SimDefs.CELL)
+	ci.draw_texture_rect_region(_pit_tex, r, Rect2(AX_CHASM if chasm else 0.0, sy, 8, 8))
+	var sx := AX_SIDE_CHASM if chasm else AX_SIDE_HOLE
+	var n_solid := d == 0
+	var s_solid := not _pit_at(cx, cy + 1)
+	var w_solid := not _pit_at(cx - 1, cy)
+	var e_solid := not _pit_at(cx + 1, cy)
+	# Side walls; under the corner of floor up and to the side, that floor's side wall runs on
+	# down into this cell as far as the far wall reaches.
+	if w_solid:
+		ci.draw_texture_rect_region(_pit_tex, Rect2(r.position, Vector2(3, 8)), Rect2(sx, sy, 3, 8))
+	elif not n_solid and not _pit_at(cx - 1, cy - 1):
+		ci.draw_texture_rect_region(_pit_tex, Rect2(r.position, Vector2(3, WALL_H)), Rect2(sx, sy, 3, WALL_H))
+	if e_solid:
+		ci.draw_texture_rect_region(_pit_tex, Rect2(r.end.x - 3, r.position.y, 3, 8), Rect2(sx + 3, sy, 3, 8))
+	elif not n_solid and not _pit_at(cx + 1, cy - 1):
+		ci.draw_texture_rect_region(_pit_tex, Rect2(r.end.x - 3, r.position.y, 3, WALL_H), Rect2(sx + 3, sy, 3, WALL_H))
+	var under := _chasm_under if chasm else _hole_under
+	# The far lip: bits of the floor breaking off over the wall, dark under them, pebbles on it.
+	if n_solid:
+		for k in 1 + _h(cx, cy, 1) % 2:
+			var x := float(_h(cx, cy, 2 + k) % 7)
+			var w := 1.0 + _h(cx, cy, 4 + k) % 2
+			_floor_bit(ci, cx, cy - 1, Rect2(r.position.x + x, r.position.y, w, 1))
+			ci.draw_rect(Rect2(r.position.x + x, r.position.y + 1, w, 1), under)
+		_pebbles(ci, cx, cy, 10, Vector2(r.position.x, r.position.y - 2))
+	# The near edge: the floor in front breaks off ragged, its broken top lit.
+	if s_solid:
+		var lit := Color(C_NEAR_LIT, _near_lit)
+		var bottom := r.end.y - 1
+		_floor_bit(ci, cx, cy + 1, Rect2(r.position.x, bottom, 8, 1))
+		ci.draw_rect(Rect2(r.position.x, bottom, 8, 1), lit)
+		var x := float(_h(cx, cy, 6) % 6)
+		var w := 2.0 + _h(cx, cy, 7) % 2
+		_floor_bit(ci, cx, cy + 1, Rect2(r.position.x + x, bottom - 1, w, 1))
+		ci.draw_rect(Rect2(r.position.x + x, bottom - 1, w, 1), lit)
+		_pebbles(ci, cx, cy, 20, Vector2(r.position.x, r.end.y + 1))
+	# The sides: a bit of floor jutting out over the wall.
+	for side: int in [-1, 1]:
+		if not (w_solid if side < 0 else e_solid):
+			continue
+		var x := r.position.x if side < 0 else r.end.x - 1
+		var y := float(2 + _h(cx, cy, 8 + side) % 4)
+		_floor_bit(ci, cx + side, cy, Rect2(x, r.position.y + y, 1, 1 + _h(cx, cy, 9 + side) % 2))
+		if _h(cx, cy, 12 + side) % 3 == 0:
+			_pebbles(ci, cx, cy, 30 + side, Vector2(x - 2.0 if side < 0 else x + 2.0, r.position.y + 1.0), true)
+
+
+## A pixel or two of the floor next to a pit, drawn over the pit's edge: its own picture
+## (cracked if it is), so the lip breaks off the same ground.
+func _floor_bit(ci: CanvasItem, ncx: int, ncy: int, at: Rect2) -> void:
+	if _art == null:
+		ci.draw_rect(at, C_FLOOR_BIT * GROUND_TINT.get(ground, Color.WHITE))
+		return
+	if ncx >= 0 and ncy >= 0 and ncx < terrain.cols and ncy < terrain.rows and _art_cracked != null:
+		var ni := ncy * terrain.cols + ncx
+		if terrain.cells[ni] == TerrainGrid.CRACKED and terrain.map_base[ni] != TerrainGrid.WALL and not _grow.has(ni):
+			ci.draw_texture_rect_region(_art_cracked, at, Rect2(at.position - Vector2(SimDefs.GRID_X, SimDefs.GRID_Y), at.size))
+			return
+	ci.draw_texture_rect_region(_art, at, Rect2(at.position + MARGIN, at.size))
+
+
+## Loose pebbles on a pit's rim (0 to 2, fixed per cell), each lit on the side the light
+## comes from with its shadow cast the other way. `at` is the left of the row they sit on;
+## `one` puts a single pebble right there.
+func _pebbles(ci: CanvasItem, cx: int, cy: int, salt: int, at: Vector2, one := false) -> void:
+	var count := 1 if one else _h(cx, cy, salt) % 3
+	var shx := signf(_light.x) if absf(_light.x) > 0.3 else 0.0
+	for k in count:
+		var p := at if one else at + Vector2(1 + _h(cx, cy, salt + 1 + k) % 6, -(k % 2))
+		var big := _h(cx, cy, salt + 3 + k) % 2 == 0
+		ci.draw_rect(Rect2(p + Vector2(shx, 1), Vector2(2 if big else 1, 1)), C_PEBBLE_SHADOW)
+		if big:
+			var lit_x := 0.0 if _light.x >= 0.0 else 1.0
+			ci.draw_rect(Rect2(p, Vector2(2, 1)), C_PEBBLE)
+			ci.draw_rect(Rect2(p + Vector2(lit_x, 0), Vector2(1, 1)), C_PEBBLE_LIT)
+		else:
+			ci.draw_rect(Rect2(p, Vector2(1, 1)), C_PEBBLE_LIT)
+
+
+# ---------------------------------------------------------------- the floor moving
+
+## A crack runs across its cell in this many ticks (2 px a tick)...
+const GROW_STEPS := 4
+## ...starting later the farther it is from the middle of the blow (px a tick), at most this late.
+const SPREAD_SPEED := 14.0
+const GROW_DELAY_MAX := 4
+## A pit starts closing this many ticks before it heals (in three steps), and cracked floor
+## starts glowing as long before it turns solid; a pit that just healed to cracks glows for KNIT_TICKS.
+const HEAL_SHOW := 36
+const KNIT_TICKS := 18
+## How often (ticks) the healing clocks are looked at.
+const HEAL_LOOK := 3
+const GLOW_A: Array[float] = [0.22, 0.38, 0.55]
+const GLOW_BAND := 0.4
+const C_GLOW := Color(1.0, 0.9, 0.62)
+const C_CRACK_TIP := Color(1.0, 0.95, 0.82)
+const MOTE_CAP := 96
+const MOTE_CULL := 16.0
+## The over layer redraws only every few ticks, so it draws farther past the screen edge.
+const OVER_CULL := 48.0
+## Dust tones by ground (light to faint), and a chasm's cold breath.
+const DUST := {
+	"dirt": [Color8(222, 190, 148), Color8(192, 158, 120), Color8(164, 132, 100)],
+	"stone": [Color8(208, 202, 192), Color8(176, 170, 162), Color8(148, 142, 136)],
+	"concrete": [Color8(214, 216, 220), Color8(182, 184, 190), Color8(152, 154, 160)],
+	"grass": [Color8(212, 192, 150), Color8(180, 160, 122), Color8(150, 132, 102)],
+}
+const DUST_CHASM: Array[Color] = [Color8(170, 178, 204), Color8(134, 142, 170), Color8(104, 110, 140)]
+const MOTE_ALPHA: Array[float] = [0.7, 0.45, 0.25]
+enum Mote { PIT_DUST, PUFF, PEBBLE, CHASM_DUST }
+
+var _tick := 0
+## Cells whose crack is running: cell -> Vector2i(start tick, side it runs in from:
+## 0 left, 1 right, 2 top, 3 bottom, 4 out from the middle).
+var _grow := {}
+## Cells whose crack has run, drawn whole until their band repaints with them.
+var _settle := {}
+## [x, y, vx, vy, age, life, kind, phase]
+var _motes: Array = []
+## Hole cells that just healed to cracks: cell -> tick.
+var _knit := {}
+## Pits about to heal (closing in), each as cell * 4 + its step (1 to 3), sorted (so by cell).
+var _heal_cells := PackedInt32Array()
+## Cracked cells about to turn solid: their band paints the cracks lit (C_GLOW, GLOW_BAND).
+## A band repaints when one starts and when it heals, so the glow costs no redraw per tick.
+var _glowing := {}
+var _heal_key := 0
+var _over_busy := false
+var _dust_drawn := false
+## When to look at a damaged cell's healing clock next: tick -> its cells, each due when its
+## clock would reach HEAL_SHOW (a clock that was set back in the meantime is put off again),
+## so a tick looks at the few cells near healing, not every damaged one.
+var _due := {}
+## The cells whose clock is within HEAL_SHOW of healing.
+var _watch := {}
+## Scratch marks for `_spread` (1: new this tick, 2: put in a patch).
+var _mark := PackedByteArray()
+## Cells a changed row is compared in (a native slice compare skips the unchanged ones).
+const SCAN_CHUNK := 16
+var _rng := RandomNumberGenerator.new()
+
+
+func _queue_band(i: int) -> void:
+	var k := (i / terrain.cols) / BAND_ROWS
+	if not (k in _pending):
+		_pending.append(k)
+
+
+func _schedule(i: int) -> void:
+	var at := _tick + maxi(1, terrain.timers[i] - HEAL_SHOW)
+	if not _due.has(at):
+		_due[at] = PackedInt32Array()
+	_due[at].append(i)
+
+
+func _cell_changed(i: int, was: int, v: int, fresh: Dictionary) -> void:
+	_grow.erase(i)
+	_settle.erase(i)
+	_knit.erase(i)
+	_glowing.erase(i)
+	var cx := i % terrain.cols
+	var cy := i / terrain.cols
+	if v == TerrainGrid.CRACKED and was == TerrainGrid.INTACT and terrain.map_base[i] == TerrainGrid.INTACT:
+		fresh[i] = 0
+	elif TerrainGrid.is_pit(v) and not TerrainGrid.is_pit(was) and not _bridge_gone(cx, cy) \
+			and not (v == TerrainGrid.CHASM and _in_art(i)):
+		fresh[i] = 1
+	elif was == TerrainGrid.HOLE and v == TerrainGrid.CRACKED:
+		_knit[i] = _tick
+
+
+## New cracks and pits come in patches (one blow each): a crack starts running later the
+## farther it is from its patch's middle, in from the side facing it, so the patch spreads
+## outward; each new pit breathes dust.
+func _spread(fresh: Dictionary) -> void:
+	var cols := terrain.cols
+	var size := terrain.cells.size()
+	if _mark.size() != size:
+		_mark.resize(size)
+	_mark.fill(0)
+	for c: int in fresh:
+		_mark[c] = 1
+	for s: int in fresh:
+		if _mark[s] != 1:
+			continue
+		var patch := PackedInt32Array([s])
+		_mark[s] = 2
+		var q := 0
+		while q < patch.size():
+			var c := patch[q]
+			q += 1
+			var x := c % cols
+			if x > 0 and _mark[c - 1] == 1:
+				_mark[c - 1] = 2
+				patch.append(c - 1)
+			if x < cols - 1 and _mark[c + 1] == 1:
+				_mark[c + 1] = 2
+				patch.append(c + 1)
+			if c >= cols and _mark[c - cols] == 1:
+				_mark[c - cols] = 2
+				patch.append(c - cols)
+			if c + cols < size and _mark[c + cols] == 1:
+				_mark[c + cols] = 2
+				patch.append(c + cols)
+		var mid := Vector2.ZERO
+		for c in patch:
+			mid += Vector2(c % cols, c / cols)
+		mid /= float(patch.size())
+		for c in patch:
+			if fresh[c] == 1:
+				_pit_dust(c)
+				continue
+			if _art_cracked == null:
+				continue
+			var off := Vector2(c % cols, c / cols) - mid
+			var delay := mini(GROW_DELAY_MAX, int(off.length() * SimDefs.CELL / SPREAD_SPEED))
+			var side := 4
+			if off.length() >= 0.75:
+				if absf(off.x) > absf(off.y):
+					side = 0 if off.x > 0.0 else 1
+				else:
+					side = 2 if off.y > 0.0 else 3
+			_grow[c] = Vector2i(_tick + delay, side)
+
+
+func _add_mote(x: float, y: float, vx: float, vy: float, life: int, kind: int) -> void:
+	if _motes.size() >= MOTE_CAP:
+		return
+	_motes.append([x, y, vx, vy, 0, life, kind, _rng.randf() * TAU])
+
+
+## A fresh pit: a mote or two of dust rising out of it, a pebble off its far lip.
+func _pit_dust(i: int) -> void:
+	if _motes.size() >= MOTE_CAP:
+		return
+	var r := _cell_rect(i % terrain.cols, i / terrain.cols)
+	var chasm := terrain.cells[i] == TerrainGrid.CHASM
+	if _rng.randf() < 0.8:
+		_add_mote(r.position.x + _rng.randi_range(0, 7), r.position.y + _rng.randi_range(1, 6),
+			_rng.randf_range(-0.04, 0.04), -_rng.randf_range(0.25, 0.45), _rng.randi_range(50, 100),
+			Mote.CHASM_DUST if chasm else Mote.PIT_DUST)
+	if not _pit_at(i % terrain.cols, i / terrain.cols - 1) and _rng.randf() < 0.6:
+		_add_mote(r.position.x + _rng.randi_range(1, 6), r.position.y, 0.0, 0.5, _rng.randi_range(6, 10), Mote.PEBBLE)
+
+
+## A crack starting to run: a little puff where it breaks out.
+func _crack_puff(i: int, side: int) -> void:
+	if _motes.size() >= MOTE_CAP:
+		return
+	var r := _cell_rect(i % terrain.cols, i / terrain.cols)
+	var dirs := [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1), Vector2.ZERO]
+	var d: Vector2 = dirs[side]
+	for k in 1 + int(_rng.randf() < 0.4):
+		_add_mote(r.position.x + _rng.randi_range(1, 6), r.position.y + _rng.randi_range(2, 6),
+			d.x * 0.3 + _rng.randf_range(-0.15, 0.15), -_rng.randf_range(0.1, 0.3), _rng.randi_range(10, 16), Mote.PUFF)
+
+
+## How far a cell about to heal is along (1 to 3), from its healing clock.
+static func _heal_step(t: int) -> int:
+	return 1 + (HEAL_SHOW - clampi(t, 0, HEAL_SHOW)) * 3 / (HEAL_SHOW + 1)
+
+
+func _step_fx() -> void:
+	if _under == null:
+		return
+	# cracks running
+	if not _grow.is_empty():
+		var done: Array[int] = []
+		for i: int in _grow:
+			var g: Vector2i = _grow[i]
+			var age := _tick - g.x
+			if age == 0:
+				_crack_puff(i, g.y)
+			if age >= GROW_STEPS:
+				done.append(i)
+		for i in done:
+			_grow.erase(i)
+			_settle[i] = true
+			var k := (i / terrain.cols) / BAND_ROWS
+			if not (k in _pending):
+				_pending.push_front(k)
+		_under.queue_redraw()
+	# dust
+	var j := 0
+	while j < _motes.size():
+		var m: Array = _motes[j]
+		m[4] += 1
+		if m[4] >= m[5]:
+			_motes[j] = _motes[_motes.size() - 1]
+			_motes.pop_back()
+			continue
+		m[0] += m[2]
+		m[1] += m[3]
+		if m[6] == Mote.PUFF:
+			m[2] *= 0.85
+		j += 1
+	if not _motes.is_empty() or _dust_drawn:
+		_dust.queue_redraw()
+	_dust_drawn = not _motes.is_empty()
+	# healing: a step lasts HEAL_SHOW / 3 ticks, so every third tick is soon enough to look
+	if _tick % HEAL_LOOK != 0:
+		return
+	_heal_cells.clear()
+	var key := 0
+	var timers := terrain.timers
+	var cells := terrain.cells
+	var base := terrain.base
+	for at in range(_tick - HEAL_LOOK + 1, _tick + 1):
+		if not _due.has(at):
+			continue
+		for i in _due[at]:
+			if cells[i] != base[i]:
+				if timers[i] > HEAL_SHOW:
+					_schedule(i)
+				else:
+					_watch[i] = true
+		_due.erase(at)
+	if not _watch.is_empty():
+		var off: Array[int] = []
+		for i: int in _watch:
+			var t := timers[i]
+			var v := cells[i]
+			if v == base[i] or t > HEAL_SHOW:
+				off.append(i)
+				continue
+			if v == TerrainGrid.HOLE:
+				if not _bridge_gone(i % terrain.cols, i / terrain.cols):
+					var code := i * 4 + _heal_step(t)
+					_heal_cells.append(code)
+					key = key * 31 + code
+			elif v == TerrainGrid.CRACKED and not _glowing.has(i) and base[i] == TerrainGrid.INTACT \
+					and terrain.map_base[i] == TerrainGrid.INTACT:
+				_glowing[i] = true  # its band repaints with the cracks lit
+				_queue_band(i)
+		for i in off:
+			_watch.erase(i)
+			if _glowing.has(i):
+				_glowing.erase(i)
+				_queue_band(i)
+			if cells[i] != base[i]:
+				_schedule(i)
+	if not _knit.is_empty():
+		var old: Array[int] = []
+		for i: int in _knit:
+			var age: int = _tick - _knit[i]
+			if age >= KNIT_TICKS:
+				old.append(i)
+			else:
+				key = key * 31 + i * 4 + age * 3 / KNIT_TICKS
+		for i in old:
+			_knit.erase(i)
+	_heal_cells.sort()
+	var busy := not _heal_cells.is_empty() or not _knit.is_empty()
+	if key != _heal_key or (_over_busy and not busy):
+		_over.queue_redraw()
+	_heal_key = key
+	_over_busy = busy
+
+
+## The cracked picture over `at` (the floor broken), or the plain one on a map without it.
+func _cracked_piece(ci: CanvasItem, at: Rect2) -> void:
+	if _art_cracked != null:
+		ci.draw_texture_rect_region(_art_cracked, at, Rect2(at.position - Vector2(SimDefs.GRID_X, SimDefs.GRID_Y), at.size))
+	elif _art != null:
+		ci.draw_texture_rect_region(_art, at, Rect2(at.position + MARGIN, at.size))
+	else:
+		ci.draw_rect(at, C_FLOOR_BIT * GROUND_TINT.get(ground, Color.WHITE))
+
+
+## The cracks inside `at` lit up in `col` (nothing on a map without a crack mask).
+func _glow(ci: CanvasItem, at: Rect2, col: Color) -> void:
+	if _mask != null:
+		ci.draw_texture_rect_region(_mask, at, Rect2(at.position - Vector2(SimDefs.GRID_X, SimDefs.GRID_Y), at.size), col)
+
+
+## Under the pits: cracks running across their cells, their tips lit.
+func _paint_under(ci: CanvasItem, _row0: int, _row1: int) -> void:
+	var view := FxView._view_rect(ci, MOTE_CULL)
+	for i: int in _settle:
+		var r := _cell_rect(i % terrain.cols, i / terrain.cols)
+		if view.intersects(r):
+			_cracked_piece(ci, r)
+	for i: int in _grow:
+		var g: Vector2i = _grow[i]
+		var age := _tick - g.x
+		if age < 0:
+			continue
+		var r := _cell_rect(i % terrain.cols, i / terrain.cols)
+		if not view.intersects(r):
+			continue
+		var s := mini(age + 1, GROW_STEPS)
+		var w := float(s * 2)
+		var clip: Rect2
+		var tip: Rect2
+		match g.y:
+			0:
+				clip = Rect2(r.position, Vector2(w, 8))
+				tip = Rect2(r.position.x + w - 1, r.position.y, 1, 8)
+			1:
+				clip = Rect2(r.end.x - w, r.position.y, w, 8)
+				tip = Rect2(clip.position, Vector2(1, 8))
+			2:
+				clip = Rect2(r.position, Vector2(8, w))
+				tip = Rect2(r.position.x, r.position.y + w - 1, 8, 1)
+			3:
+				clip = Rect2(r.position.x, r.end.y - w, 8, w)
+				tip = Rect2(clip.position, Vector2(8, 1))
+			_:
+				clip = Rect2(r.get_center() - Vector2(w, w) * 0.5, Vector2(w, w))
+				tip = clip
+		_cracked_piece(ci, clip)
+		if s < GROW_STEPS:
+			_glow(ci, tip, Color(C_CRACK_TIP, 0.8 if g.y < 4 else 0.45))
+
+
+## Over the pits: pits closing in from their rims and knitting cracks glowing before they
+## heal (redrawn only when one of them moves on a step).
+func _paint_over(ci: CanvasItem, _row0: int, _row1: int) -> void:
+	var view := FxView._view_rect(ci, OVER_CULL)
+	# Pits side by side in a row at the same step close in one go: a run of far rims, a run
+	# of near rims (`_run`, `_flush`).
+	var runs: Array = [[Rect2(), -2, 0, RUN_FAR], [Rect2(), -2, 0, RUN_NEAR]]
+	var cols := terrain.cols
+	for code in _heal_cells:  # in order, so a row's cells come together
+		var i := code >> 2
+		var cx := i % cols
+		var cy := i / cols
+		var r := Rect2(SimDefs.GRID_X + cx * SimDefs.CELL, SimDefs.GRID_Y + cy * SimDefs.CELL, SimDefs.CELL, SimDefs.CELL)
+		if not view.intersects(r):
+			continue
+		var s := code & 3
+		# the floor's edge creeping in over the pit, s px, its new lip dark (far) or lit (near)
+		var fs := float(s)
+		if not _pit_at(cx, cy - 1):
+			_run(ci, runs[0], i, cx, s, Rect2(r.position, Vector2(8, fs)))
+		if not _pit_at(cx, cy + 1):
+			_run(ci, runs[1], i, cx, s, Rect2(r.position.x, r.end.y - fs, 8, fs))
+		for side: int in [-1, 1]:
+			if _pit_at(cx + side, cy):
+				continue
+			var strip := Rect2(r.position.x if side < 0 else r.end.x - fs, r.position.y, fs, 8)
+			_cracked_piece(ci, strip)
+			_glow(ci, strip, Color(C_GLOW, GLOW_A[s - 1]))
+	for run: Array in runs:
+		_flush(ci, run)
+	for i: int in _knit:
+		var r := _cell_rect(i % terrain.cols, i / terrain.cols)
+		if view.intersects(r):
+			var step := 2 - mini(2, (_tick - int(_knit[i])) * 3 / KNIT_TICKS)
+			_glow(ci, r, Color(C_GLOW, GLOW_A[step]))
+
+
+enum { RUN_FAR, RUN_NEAR }
+
+
+## Adds cell `i`'s piece `at` to a run ([rect, last cell, step, kind]) if it carries the run
+## on along the row at the same step; else draws the run so far and starts a new one.
+func _run(ci: CanvasItem, run: Array, i: int, cx: int, s: int, at: Rect2) -> void:
+	if i == int(run[1]) + 1 and s == int(run[2]) and cx > 0:
+		var rect: Rect2 = run[0]
+		rect.size.x += at.size.x
+		run[0] = rect
+	else:
+		_flush(ci, run)
+		run[0] = at
+		run[2] = s
+	run[1] = i
+
+
+func _flush(ci: CanvasItem, run: Array) -> void:
+	if int(run[1]) < 0:
+		return
+	var at: Rect2 = run[0]
+	var glow := Color(C_GLOW, GLOW_A[int(run[2]) - 1])
+	match int(run[3]):
+		RUN_FAR:
+			_cracked_piece(ci, at)
+			_glow(ci, at, glow)
+			ci.draw_rect(Rect2(at.position.x, at.end.y, at.size.x, 1), _hole_under)
+		RUN_NEAR:
+			_cracked_piece(ci, at)
+			_glow(ci, at, glow)
+			ci.draw_rect(Rect2(at.position, Vector2(at.size.x, 1)), Color(C_NEAR_LIT, _near_lit))
+	run[1] = -2
+
+
+## Dust rising from fresh pits and puffing off running cracks, pebbles dropping in.
+func _paint_dust(ci: CanvasItem, _row0: int, _row1: int) -> void:
+	var view := FxView._view_rect(ci, MOTE_CULL)
+	var dust: Array = DUST.get(ground, DUST["dirt"])
+	for m: Array in _motes:
+		var p := Vector2(floorf(m[0]), floorf(m[1]))
+		if not view.has_point(p):
+			continue
+		var life_share := float(m[4]) / float(m[5])
+		var step := 0 if life_share < 0.4 else (1 if life_share < 0.75 else 2)
+		match int(m[6]):
+			Mote.PEBBLE:
+				ci.draw_rect(Rect2(p, Vector2(1, 1)), C_PEBBLE if m[4] < 3 else _hole_dark)
+			Mote.PUFF:
+				ci.draw_rect(Rect2(p, Vector2(1, 1)), Color(dust[step], MOTE_ALPHA[step]))
+			_:
+				var cols: Array = DUST_CHASM if int(m[6]) == Mote.CHASM_DUST else dust
+				p.x += roundf(sin(float(m[4]) * 0.09 + float(m[7])))  # a slow sway, whole pixels
+				var w := 2.0 if life_share < 0.2 else 1.0
+				ci.draw_rect(Rect2(p, Vector2(w, 1)), Color(cols[step], MOTE_ALPHA[step]))
