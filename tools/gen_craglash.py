@@ -1255,13 +1255,337 @@ def side_sheet():
     return sheet
 
 
+# ------------------------------------------------------------------ the animation pass
+# Craglash's motion pass (docs/anim_preview/craglash_motion_plan.md): every ability redrawn
+# with anticipation, a held hit and a follow-through, but as stone: the body never squashes
+# (sy stays 1), the weight is in the timing (slow up, fast down, held landings) and in what
+# flows late, the neck, the head, the mane and the swinging arms. Not in the game yet: ROWS
+# above are still the sheets the game uses; ANIM_ROWS are the new ones, which
+# `python3 tools/gen_craglash.py anim` previews. After approval ANIM_ROWS replace ROWS and
+# craglash.json gets the new row table and timelines. Poses hold floats; whole_pixels()
+# snaps them when drawing, so in-betweens never stair-step.
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import splat3d as S  # noqa: E402  (only its animation tools: tweener, EASE_8)
+
+tw = S.tweener()
+
+
+def K(hip=(0, -9), lean=0.0, feet=((-6, 0), (6, 0)), hands=None, head=(11, -45), c1=(-8, -48),
+      c2=(-2, -58), **kw):
+    """A key pose with every field filled in (the neck's bend points too), so in-betweens
+    always have two numbers to blend. Written like the old poses: before the Pose's own
+    lift of the head and the hips."""
+    return P(hip=hip, lean=lean, feet=[tuple(f) for f in feet],
+             hands=[tuple(h) for h in (hands or IDLE_HANDS)], head=head, c1=c1, c2=c2, **kw)
+
+
+def idle_new():
+    """Standing easy, 8 frames (64 ticks): the chest breathes on eased spacing, a pixel or
+    two of hip; the head sways on its neck one frame behind the shoulders, the neck's
+    bends follow it and the mane bristles two frames after that."""
+    u = S.EASE_8
+    n = len(u)
+    out = []
+    for i in range(n):
+        b = u[i]                                   # the breath, 0 up .. 1 down
+        bh = u[(i - 1) % n]                        # the head, one frame late
+        b2 = u[(i - 2) % n]
+        sway = math.sin(2 * math.pi * (i - 1) / n)
+        out.append(K(hip=(0, -9 + 1.6 * b), hands=[(-9, 11 + 1.8 * bh), (9, 12 + 1.8 * bh)],
+                     head=(11 + 1.6 * sway, -45 + 1.8 * bh), c1=(-8 + 0.8 * sway, -48 + 0.6 * b),
+                     c2=(-2 + 1.2 * sway, -58 + 1.2 * b2), mane=0.55 - 0.5 * u[(i - 3) % n]))
+    return out
+
+
+FX = 9.0  # how far a stride reaches either side of the hip
+BOB = (2.0, 1.5, 0.7, 0.0, 0.0, 0.8)  # the hip's drop through a step: plants hard, rises slowly
+
+
+def _foot(ph):
+    """A foot through one stride, ph 0..1 from the plant: on the floor and sliding back for
+    the first 58%, then up slowly, along, and a fast plant. (x, y, toe lift)"""
+    ph %= 1.0
+    if ph < 0.58:
+        return (FX - 2 * FX * ph / 0.58, 0.0, 0)
+    u = (ph - 0.58) / 0.42
+    x = -FX + 2 * FX * u ** 1.9
+    y = min(1.0, 1.5 * math.sin(math.pi * u)) * 5.0
+    return (x, -y, 2 if y > 0.5 else 0)
+
+
+def run_new():
+    """The stomp walk, 12 frames (24 ticks): the planted foot slides back at an even pace,
+    the other lifts slowly and plants hard; the hip drops on the plant and rises slowly; the
+    stomp travels up the neck (its bends one and two frames after the hip, the head two,
+    the mane three); the arms counter-swing a frame behind the legs."""
+    n = 12
+    bob = lambda i, k=0: BOB[(i - k) % 6]  # noqa: E731
+    out = []
+    for i in range(n):
+        f1 = _foot(i / n)
+        f0 = _foot((i + 6) / n)
+        s1 = 4.0 * _foot((i - 1) / n)[0] / FX
+        b = bob(i)
+        out.append(K(hip=(1, -9 + b), lean=8 + 0.9 * b, feet=[f0[:2], f1[:2]], lift=[f0[2], f1[2]],
+                     hands=[(-8 + s1 * 1.5, 10 - abs(s1) * 0.5 - 0.3 * bob(i, 1)),
+                            (8 - s1 * 1.5, 11 - abs(s1) * 0.5 - 0.3 * bob(i, 1))],
+                     head=(14 + s1 * 0.3, -44 + 0.9 * bob(i, 2)), c1=(-2, -56 + 0.5 * bob(i, 1)),
+                     c2=(4, -46 + 0.8 * bob(i, 2)), mane=0.15 + 0.35 * bob(i, 3)))
+    return out
+
+
+# ---- the lights ----------------------------------------------------------------------
+
+def rake():
+    """Rake (light 1), 8 frames: weight shifts and the mane slicks back (0), the claw rises
+    and the body coils (1, 2: held), a fast snap (3), the hit held (4), the claw drags low
+    on the follow-through while the head, a frame late, goes after it (5), recover (6),
+    settle (7)."""
+    f = lambda front, far, **kw: K(hands=[far, front], **kw)  # noqa: E731
+    return [
+        f((3, -6), (-9, 8), lean=-3, hip=(-1, -9), head=(9, -46), mane=-0.3),
+        f((-2, -12), (-9, 6), lean=-6, hip=(-1, -9), head=(8, -48), mane=-0.5, feet=((-7, 0), (6, 0))),
+        f((-5, -15), (-10, 4), lean=-9, hip=(-2, -9), head=(5, -49), mane=-0.8, face="strain",
+          feet=((-8, 0), (7, 0)), c1=(-10, -50)),
+        f((8, -6), (-10, 4), lean=3, hip=(0, -9), head=(10, -46), mane=-0.2, feet=((-8, 0), (7, 0)), c1=(-9, -49)),
+        f((16, 3), (-11, 3), lean=11, hip=(1, -9), head=(14, -43), mane=0.6, face="roar", feet=((-8, 0), (9, 0)),
+          c1=(-5, -52), c2=(2, -50)),
+        f((14, 8), (-11, 3), lean=13, hip=(2, -9), head=(18, -41), mane=1.0, face="roar", feet=((-8, 0), (9, 0)),
+          c1=(-4, -50), c2=(6, -47)),
+        f((9, 7), (-10, 5), lean=6, hip=(1, -9), head=(16, -42), mane=0.5, feet=((-7, 0), (8, 0))),
+        f((8, 6), (-9, 8), lean=2, hip=(0, -9), head=(12, -44), mane=0.15, feet=((-6, 0), (6, 0))),
+    ]
+
+
+def backhand_new():
+    """Backhand (light 2), 8 frames: the far arm, a mirror of Rake. It cocks back behind the
+    shoulder (0, 1, 2: held), whips across in one fast frame (3), the hit held (4) with
+    the arm in front of the body, the follow-through overshoots (5), recover (6), settle (7)."""
+    f = lambda far, near=(10, 6), **kw: K(hands=[far, near], **kw)  # noqa: E731
+    return [
+        f((-8, 4), lean=-3, hip=(-1, -9), head=(9, -46), mane=-0.3),
+        f((-10, -4), lean=-6, hip=(-1, -9), head=(7, -48), mane=-0.5, feet=((-7, 0), (6, 0)), c1=(-10, -49)),
+        f((-11, -11), lean=-9, hip=(-2, -9), head=(5, -49), mane=-0.8, face="strain", feet=((-8, 0), (7, 0)),
+          c1=(-11, -50)),
+        f((10, -4), near=(10, 5), lean=4, hip=(0, -9), head=(10, -46), mane=-0.2, feet=((-8, 0), (7, 0)),
+          arm0_front=True),
+        f((23, 1), near=(10, 4), lean=12, hip=(1, -9), head=(15, -43), mane=0.6, face="roar", feet=((-8, 0), (9, 0)),
+          arm0_front=True, c1=(-5, -52), c2=(2, -50)),
+        f((21, 7), near=(10, 5), lean=14, hip=(2, -9), head=(19, -41), mane=1.0, face="roar", feet=((-8, 0), (9, 0)),
+          arm0_front=True, c1=(-4, -50), c2=(6, -47)),
+        f((14, 7), near=(10, 5), lean=7, hip=(1, -9), head=(16, -42), mane=0.5, feet=((-7, 0), (8, 0)),
+          arm0_front=True),
+        f((-4, 8), lean=2, hip=(0, -9), head=(12, -44), mane=0.15),
+    ]
+
+
+def headbutt_new():
+    """Headbutt (light 3), 8 frames, the whip rule on the neck: a crouch (0), the neck coils
+    back (1) and coils furthest (2: held, the longest hold of the string), the head launches
+    ahead of its neck (3: the neck still bent behind it), the neck straightens a frame
+    after the head (4: the hit, held), overshoot (5), pulled back (6), settle (7)."""
+    h0 = [(-6, -3), (6, -3)]
+    return [
+        K(hip=(-1, -9), lean=-4, head=(6, -47), mane=-0.2, hands=[(-8, 2), (8, 2)], feet=((-7, 0), (7, 0))),
+        K(hip=(-1, -9), lean=-8, head=(1, -51), c1=(-9, -61), c2=(-9, -52), face="strain", hands=h0, mane=-0.5,
+          feet=((-8, 0), (7, 0))),
+        K(hip=(-2, -9), lean=-11, head=(-6, -52), c1=(-12, -62), c2=(-14, -54), face="strain",
+          hands=[(-6, -5), (6, -5)], mane=-0.9, feet=((-9, 0), (7, 0))),
+        K(hip=(1, -9), lean=5, head=(17, -43), c1=(-4, -61), c2=(3, -52), face="roar", hands=[(-7, -3), (7, -2)],
+          mane=0.2, feet=((-9, 0), (8, 0))),
+        K(hip=(2, -9), lean=12, head=(29, -35), c1=(4, -56), c2=(14, -42), face="roar", hands=[(-8, -2), (8, 0)],
+          mane=1.0, feet=((-8, 0), (8, 0))),
+        K(hip=(2, -9), lean=14, head=(33, -33), c1=(8, -54), c2=(20, -40), face="roar", hands=[(-8, -1), (8, 1)],
+          mane=0.7, feet=((-8, 0), (8, 0))),
+        K(hip=(2, -9), lean=8, head=(22, -39), c1=(2, -54), c2=(12, -42), face="angry", hands=[(-8, 3), (8, 3)],
+          mane=0.35),
+        K(hip=(1, -9), lean=3, head=(14, -43), c1=(-6, -50), c2=(2, -52), hands=REST_HANDS, mane=0.15),
+    ]
+
+
+# ---- the heavy ---------------------------------------------------------------------
+
+def stomp_new():
+    """Rockslide Stomp (heavy), 12 frames. 0-3 are the held charge (anim_charge [0, 4, 6]),
+    one foot lifted and trembling as the pebbles shake loose, the mane rising; then from
+    the release: the top of the lift, held (4), the weight tips over (5), the fast drop
+    (6), the impact held through the hit (7), the head and mane go on after the body (8, 9),
+    a slow rise (10), planted (11). The body never squashes: the hip sinks instead."""
+    lift = dict(hands=[(-7, -13), (7, -14)], face="roar", lean=-8, hip=(-1, -11))
+    out = []
+    for k, (fy, hx, dm) in enumerate([(-5, 0, 0.3), (-6, 1, 0.5), (-7, 0, 0.8), (-6, -1, 0.5)]):
+        out.append(K(feet=((-6, 0), (7, fy)), lift=[0, 2], head=(7 + hx, -48), mane=dm,
+                     c1=(-9, -60 - k % 2), c2=(-4, -55), **{**lift, "hip": (-1, -11 + (k % 2))}))
+    out += [
+        K(hip=(-2, -12), lean=-13, feet=((-6, 0), (9, -11)), lift=[0, 3], hands=[(-6, -17), (6, -18)],
+          head=(3, -52), face="roar", tilt=-1, mane=1.0, c1=(-10, -64), c2=(-4, -58)),
+        K(hip=(-1, -11), lean=-3, feet=((-6, 0), (11, -9)), lift=[0, 3], hands=[(-7, -12), (7, -9)],
+          head=(9, -50), face="roar", mane=0.8, c1=(-8, -62), c2=(-2, -56)),
+        K(hip=(0, -8), lean=9, feet=((-7, 0), (10, -2)), lift=[0, 1], hands=[(-5, 1), (8, 3)], fists=[True, True],
+          head=(14, -44), face="roar", mane=0.7, c1=(-4, -56), c2=(4, -50)),
+        K(hip=(1, -6), lean=15, feet=((-8, 0), (10, 0)), hands=[(-4, 8), (9, 9)], fists=[True, True],
+          head=(18, -37), face="roar", mane=0.6, c1=(0, -50), c2=(10, -42)),
+        K(hip=(1, -6), lean=16, feet=((-8, 0), (10, 0)), hands=[(-4, 9), (9, 10)], fists=[True, True],
+          head=(23, -33), face="roar", mane=1.0, c1=(3, -49), c2=(15, -39)),
+        K(hip=(1, -7), lean=12, feet=((-8, 0), (10, 0)), hands=[(-4, 8), (9, 9)], fists=[True, True],
+          head=(18, -37), face="strain", mane=0.9, c1=(1, -51), c2=(11, -43)),
+        K(hip=(0, -8), lean=7, feet=((-7, 0), (9, 0)), hands=[(-6, 6), (8, 7)], head=(15, -41), face="angry",
+          mane=0.5),
+        K(hip=(0, -8), lean=4, feet=((-7, 0), (8, 0)), hands=REST_HANDS, head=(12, -43), mane=0.2),
+    ]
+    return out
+
+
+# ---- the skills and the Surge ------------------------------------------------------------
+
+def charge_new():
+    """Landslide Charge (skill 1), a new row of 12: the crouch with the head down (0), the
+    drive (1), a 4-frame run with the head low and the mane streaming back (2-5, looped
+    over the dash), the brake (6), the skid and the overshoot (7), the head rising (8), then
+    the settle (9-11)."""
+    tuck = dict(face="strain", mane=-0.6)
+    gait = [((-9, 0), (8, -4)), ((-4, 0), (4, 0)), ((6, -4), (-8, 0)), ((3, 0), (-3, 0))]
+    run = lambda ph: K(  # noqa: E731
+        hip=(3, -7 + (1.0 if ph in (1, 3) else 0.0)), lean=22, feet=gait[ph],
+        hands=[(-12 + 3 * (ph % 2), 7), (-9 - 3 * (ph % 2), 8)], head=(26, -31 + (ph % 2)),
+        c1=(8, -48), c2=(18, -38 + (ph % 2)), **tuck)
+    return [
+        K(hip=(-1, -7), lean=9, feet=((-9, 0), (5, 0)), hands=[(-10, 4), (-6, 6)], head=(7, -39), c1=(-8, -42),
+          c2=(-3, -46), **tuck),
+        K(hip=(1, -6), lean=17, feet=((-10, 0), (4, -2)), hands=[(-11, 6), (-8, 7)], head=(17, -35), c1=(0, -46),
+          c2=(8, -42), **tuck),
+        run(0), run(1), run(2), run(3),
+        K(hip=(2, -6), lean=12, feet=((-11, 0), (9, 0)), hands=[(-6, 3), (4, 4)], head=(23, -34), c1=(4, -48),
+          c2=(15, -38), face="roar", mane=0.6),
+        K(hip=(2, -7), lean=7, feet=((-10, 0), (10, 0)), hands=[(-2, 1), (10, 3)], head=(25, -35), c1=(5, -50),
+          c2=(17, -40), face="roar", mane=1.0),
+        K(hip=(1, -8), lean=4, feet=((-8, 0), (8, 0)), hands=[(-6, 5), (9, 6)], head=(19, -39), c1=(1, -52),
+          c2=(11, -44), mane=0.7),
+        K(hip=(1, -9), lean=3, feet=((-7, 0), (7, 0)), hands=REST_HANDS, head=(15, -42), mane=0.45),
+        K(hip=(0, -9), lean=2, head=(13, -44), hands=REST_HANDS, mane=0.3),
+        K(hip=(0, -9), lean=0, head=(11, -45), mane=0.15),
+    ]
+
+
+def maw_new():
+    """Mountain Maw (skill 2), 12 frames: the neck coils back (0-3: 0 held through the raw
+    windup, 3 the deepest), the head snaps out ahead of its neck (4), at full stretch
+    held while the head flies (5, 6 alternate a shiver down the neck), then the neck reels
+    back in (7-11)."""
+    cr = dict(lean=-8)
+    return [
+        K(hip=(-1, -9), lean=-8, head=(-6, -49), c1=(2, -62), c2=(8, -56), face="angry",
+          hands=[(-8, -4), (8, -6)], mane=-0.3),
+        K(hip=(-2, -9), lean=-10, head=(-9, -47), c1=(3, -63), c2=(7, -57), face="strain",
+          hands=[(-8, -3), (8, -7)], mane=-0.5),
+        K(hip=(-2, -9), lean=-12, head=(-12, -44), c1=(4, -64), c2=(6, -58), face="strain",
+          hands=[(-8, -2), (8, -8)], mane=-0.7),
+        K(hip=(-2, -9), lean=-14, head=(-15, -47), c1=(4, -66), c2=(-6, -60), face="strain",
+          hands=[(-8, -1), (8, -9)], mane=-1.0, feet=((-9, 0), (7, 0))),
+        K(hip=(1, -9), lean=7, head=(14, -53), c1=(-6, -63), c2=(-14, -60), face="roar",
+          hands=[(-9, -3), (9, -2)], mane=0.4, feet=((-9, 0), (8, 0))),
+        K(hip=(2, -9), lean=12, head=(48, -30), c1=(8, -50), c2=(28, -32), face="roar",
+          hands=[(-9, -1), (9, 0)], mane=1.0, feet=((-9, 0), (8, 0))),
+        K(hip=(2, -9), lean=11, head=(47, -31), c1=(10, -47), c2=(30, -36), face="roar",
+          hands=[(-9, -1), (9, 0)], mane=0.7, feet=((-9, 0), (8, 0))),
+        K(hip=(2, -9), lean=10, head=(42, -27), c1=(8, -48), c2=(26, -26), face="angry",
+          hands=[(-9, -1), (9, 0)], mane=0.5, feet=((-9, 0), (8, 0))),
+        K(hip=(2, -9), lean=8, head=(32, -33), c1=(5, -50), c2=(19, -33), face="angry",
+          hands=[(-9, 0), (9, 1)], mane=0.4),
+        K(hip=(1, -9), lean=5, head=(22, -38), c1=(0, -52), c2=(12, -40), face="angry", hands=REST_HANDS, mane=0.3),
+        K(hip=(1, -9), lean=3, head=(16, -42), c1=(-4, -54), c2=(4, -50), hands=REST_HANDS, mane=0.2),
+        K(hip=(0, -9), lean=1, head=(12, -44), hands=REST_HANDS, mane=0.1),
+    ]
+
+
+def bedrock_new():
+    """Bedrock (Surge), 12 frames: wide stance and the arms up (0, held through the raw
+    windup), the fists drive down (1), the body sinks into the floor (2: held, cracks
+    lighting), then a 4-frame loop while he is rooted for three seconds (3-6): the cracks
+    pulse, the chest swells, the mane ripples round the head a frame behind each swell;
+    then the release: fists up (7), the roar (8), settle (9-11)."""
+    root = dict(feet=((-10, 0), (10, 0)), fists=[True, True], hands=[(-6, 10), (6, 10)])
+    sink = dict(root, hip=(0, -4), lean=6)
+    out = [
+        K(hip=(0, -8), lean=-2, feet=((-9, 0), (9, 0)), hands=[(-7, -8), (7, -9)], head=(10, -45), face="strain",
+          glow=0.2, mane=-0.3),
+        K(hip=(0, -7), lean=-6, feet=((-10, 0), (10, 0)), hands=[(-6, -15), (6, -15)], fists=[True, True],
+          head=(7, -48), face="roar", glow=0.4, mane=0.6),
+        K(head=(10, -37), face="strain", glow=0.6, mane=-0.3, c1=(-6, -42), c2=(-2, -44), **sink),
+    ]
+    # the 4-frame pulse: glow, swell and mane each on its own beat
+    glow = (0.5, 0.9, 1.0, 0.7)
+    swell = (0.0, 0.0, -1.0, -0.5)   # extra hip rise on the swell: chest out
+    head = ((10, -38), (10, -39), (13, -41), (11, -39))
+    mane = (0.0, -0.3, 0.9, 1.0)     # peaks a frame behind the glow
+    for k in range(4):
+        out.append(K(head=head[k], face="roar" if k == 2 else "strain", glow=glow[k], mane=mane[k],
+                     c1=(-6, -42 + swell[k]), c2=(-2, -44 + swell[k]), **dict(sink, hip=(0, -4 + swell[k] * 0.5))))
+    out += [
+        K(hip=(0, -7), lean=2, feet=((-9, 0), (9, 0)), hands=[(-7, 0), (7, 0)], fists=[True, True], head=(11, -42),
+          face="strain", glow=0.6, mane=0.8),
+        K(hip=(0, -9), lean=-1, feet=((-8, 0), (8, 0)), hands=[(-10, -5), (10, -5)], head=(11, -48),
+          c1=(-9, -52), c2=(-3, -60), face="roar", glow=0.8, mane=1.0),
+        K(hip=(0, -9), lean=1, feet=((-8, 0), (8, 0)), hands=[(-9, 3), (9, 3)], head=(11, -45), glow=0.3, mane=0.6),
+        K(hip=(0, -9), lean=1, hands=REST_HANDS, head=(11, -45), glow=0.1, mane=0.3),
+        K(hip=(0, -9), hands=REST_HANDS, head=(11, -45), mane=0.1),
+    ]
+    return out
+
+
+def dodge_new():
+    """Dodge, 8 frames (20 ticks, 2.5 a frame; invulnerable ticks 3-12 are frames 1-4): the
+    dip (0), tucked in behind the spikes (1), a skid that shuffles the feet (2-5), uncurl
+    (6), up (7). Stone doesn't squash: the hip sinks and the lean carries it."""
+    tuck = dict(face="strain", mane=-0.8)
+    return [
+        K(hip=(0, -8), lean=12, head=(7, -37), c1=(-8, -37), c2=(-4, -42), hands=[(-5, 1), (6, 1)], **tuck),
+        K(hip=(2, -5), lean=22, head=(10, -30), c1=(-8, -34), c2=(-4, -40), hands=[(-4, 3), (5, 3)],
+          feet=((-9, 0), (5, -2)), **tuck),
+        K(hip=(2, -5), lean=23, head=(11, -30), c1=(-8, -34), c2=(-3, -39), hands=[(-4, 3), (5, 3)],
+          feet=((-7, -1), (8, 0)), **tuck),
+        K(hip=(2, -4), lean=22, head=(11, -29), c1=(-8, -33), c2=(-3, -38), hands=[(-4, 3), (5, 3)],
+          feet=((-5, -2), (9, 0)), **tuck),
+        K(hip=(2, -5), lean=22, head=(11, -30), c1=(-8, -34), c2=(-3, -39), hands=[(-4, 3), (5, 3)],
+          feet=((-9, 0), (6, -2)), **tuck),
+        K(hip=(2, -5), lean=21, head=(10, -31), c1=(-8, -35), c2=(-4, -40), hands=[(-4, 3), (5, 3)],
+          feet=((-6, -1), (9, 0)), **tuck),
+        K(hip=(1, -7), lean=13, head=(10, -38), c1=(-8, -42), c2=(-4, -46), hands=[(-6, 4), (7, 4)],
+          feet=((-8, 0), (8, 0)), face="angry", mane=-0.2),
+        K(hip=(0, -9), lean=5, head=(11, -43), hands=REST_HANDS, face="angry", mane=0.1),
+    ]
+
+
+ANIM_ROWS = [
+    ("idle", idle_new()),
+    ("run", run_new()),
+    ("claw", rake()),
+    ("backhand", backhand_new()),
+    ("headbutt", headbutt_new()),
+    ("stomp", stomp_new()),
+    ("lash", maw_new()),
+    ("bedrock", bedrock_new()),
+    ("coil", coil()),            # not an ability: the Surge's cut-in picture (cut_in_frame [8, 2])
+    ("charge", charge_new()),    # new: Landslide Charge (the game borrows the headbutt frames today)
+    ("dodge", dodge_new()),
+    ("hurt", hurt()),
+    ("guard", guard()),
+    ("ko", ko()),
+]
+ANIM_VIEW_ROWS = ANIM_ROWS[:-1]
+ANIM_COLS = 12
+
+
 # ------------------------------------------------------------------ animation tools
 # The adapter for the shared animation pipeline (tools/anim_preview.py):
 # `python3 tools/gen_craglash.py anim` renders preview GIFs into docs/anim_preview/, and
 # `python3 tools/anim_preview.py --check craglash` checks the JSON's timelines against ROWS.
 # In-betweens and overlap come from splat3d (tween, cycle, lag, lag_at): poses may hold
 # floats, the renderer snaps them (whole_pixels).
-ANIM_CYCLES = {"idle": 40, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks)
+ANIM_CYCLES = {"idle": 40, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks), as craglash.json has them
+ANIM_TICKS = {"idle": 8, "run": 2}     # the new rows' ticks per frame (idle 64 ticks, run 24; the JSON after approval)
+OLD_REF = os.environ.get("CRAGLASH_OLD_REF", "fce60cc")  # main before the pass: the "current" frames
 SIDE_FRAME = (F, None, OX, OY)
 
 
@@ -1284,6 +1608,198 @@ def render_frame(pose, view):
         img = render_view(pose, view)
     F, FH, OX, OY = saved
     return img
+
+
+# The timelines: what craglash.json gets after approval (anim_at is [tick, frame] pairs, each
+# frame shown from its tick on; the hit is live from startup + 1 for `active` ticks). Every
+# startup, active, recovery, windup, dash and armor number stays. The current ones are what the
+# view works out today from the old 4- and 6-frame rows (src/view/creature_view.gd
+# `_attack_frame`), which `_old_frames` repeats for the compare GIFs.
+def _bedrock_at():
+    at = [[0, 0], [2, 1], [4, 2]]
+    t = 8
+    while t < 172:
+        at.append([t, 3 + ((t - 8) // 8) % 4])  # the 4-frame pulse, 8 ticks a frame, over the rooted 3 seconds
+        t += 8
+    return at + [[172, 7], [175, 8], [178, 9], [180, 10], [182, 11]]
+
+
+NEW_AT = {
+    "light_1": [[0, 0], [3, 1], [6, 2], [10, 3], [13, 4], [18, 5], [24, 6], [31, 7]],
+    "light_2": [[0, 0], [4, 1], [8, 2], [13, 3], [16, 4], [21, 5], [26, 6], [34, 7]],
+    "light_3": [[0, 0], [5, 1], [11, 2], [19, 3], [23, 4], [28, 5], [36, 6], [46, 7]],
+    "tag_in": [[0, 2], [2, 3], [5, 4], [13, 5], [17, 6], [21, 7]],
+    "heavy": [[0, 4], [10, 5], [14, 6], [16, 7], [21, 8], [27, 9], [35, 10], [46, 11]],
+    "skill_1": [[0, 0], [3, 1], [6, 2], [9, 3], [12, 4], [15, 5], [18, 2], [21, 3], [24, 4], [27, 5], [29, 6],
+                [34, 7], [38, 8], [44, 9], [52, 10], [60, 11]],
+    "skill_2": [[0, 0], [4, 1], [9, 2], [14, 3], [18, 4], [21, 5], [27, 6], [33, 5], [38, 7], [44, 8], [50, 9],
+                [56, 10], [62, 11]],
+    "surge": _bedrock_at(),
+}
+NEW_CHARGE = [0, 4, 6]  # the heavy's held charge: frames 0-3, 6 ticks each (today [0, 2, 6])
+NEW_DODGE_FRAMES = 8     # no anim_at: the view spreads the row over the dodge's 20 ticks
+OLD_ANIM = {"light_1": "claw", "light_2": "backhand", "light_3": "headbutt", "tag_in": "headbutt",
+            "heavy": "stomp", "skill_1": "headbutt", "skill_2": "lash", "surge": "bedrock"}
+NEW_ANIM = dict(OLD_ANIM, skill_1="charge")
+
+
+def _data():
+    import anim_preview as A
+    return A.creature_json("craglash")
+
+
+def _old_frames(mid, mv, n, length):
+    """The frame per tick the view picks today for a move without an anim_at: [(tick, frame)]
+    changes. n is the row's frame count."""
+    out = []
+    su, act = int(mv.get("startup", 0)), int(mv.get("active", 0))
+    for t in range(length + 1):
+        if "anim_at" in mv:
+            f = 0
+            for at, fr in mv["anim_at"]:
+                if t >= at:
+                    f = fr
+        elif "charge_max" in mv:
+            follow = max(8, (length - su - act) // 3)
+            f = 2 if t <= su else 3 if t <= su + act else 4 if t <= su + act + follow else 5
+        elif "armor" in mv:
+            ar = mv["armor"]
+            f = 0 if t < ar["from"] else (2 if t < ar["from"] + 14 else 1 + (t // 10) % 2) if t <= ar["to"] else n - 1
+        else:
+            first, wind = su + 1, max(1, n - 3)
+            rec_start = first + act
+            rec_len = max(1, length - rec_start)
+            if t < first:
+                f = min(wind - 1, t * wind // max(1, first))
+            elif t < first + act:
+                f = n - 3
+            else:
+                f = n - 2 if t - rec_start < rec_len // 2 else n - 1
+        out.append(f)
+    return out
+
+
+def _clips():
+    import anim_preview as A
+    d = _data()
+    mvs = d["moves"]
+    old_idle, new_idle = (10, 4), (8, 8)
+    nframes = {"claw": 4, "backhand": 4, "headbutt": 4, "stomp": 6, "lash": 6, "bedrock": 4}
+
+    def old_ticks(mid, pre=0, length=None):
+        mv = mvs[mid]
+        length = length or A.move_length(mv)
+        anim = OLD_ANIM[mid]
+        seq = [(anim, f) for f in _old_frames(mid, mv, nframes[anim], length)]
+        return [(anim, seq[0][1])] * pre + seq
+
+    def new_ticks(mid, pre=0, length=None):
+        mv = mvs[mid]
+        length = length or A.move_length(mv)
+        anim = NEW_ANIM[mid]
+        at = NEW_AT[mid]
+        return [(anim, at[0][1])] * pre + [(anim, f) for f in A.timed(at, length)]
+
+    def move(mid, name, tail=30, pre=0, marks=(), length=None):
+        old = old_ticks(mid, pre, length) + A.idle_tail(tail, *old_idle)
+        new = new_ticks(mid, pre, length) + A.idle_tail(tail, *new_idle)
+        return {"old": old, "new": new}, list(marks)
+
+    def hit(mid, off=0, label="hit"):
+        su, act = int(mvs[mid].get("startup", 0)), int(mvs[mid].get("active", 0))
+        return (off + su + 1, off + su + 1 + max(act, 1), label)
+
+    clips = {
+        "idle": ({"old": A.loop_ticks("idle", 10, 4, 128), "new": A.loop_ticks("idle", 8, 8, 128)}, []),
+        "run": ({"old": A.loop_ticks("run", 4, 6, 48), "new": A.loop_ticks("run", 2, 12, 48)}, []),
+        "claw": move("light_1", "claw", marks=[(3, 10, "coil (held)"), hit("light_1", label="hit (Rake)"),
+                                              (24, 41, "cancel from 24")]),
+        "backhand": move("light_2", "backhand", marks=[(8, 13, "coil (held)"), hit("light_2", label="hit (Backhand)"),
+                                                      (24, 44, "cancel from 24")]),
+        "headbutt": move("light_3", "headbutt", marks=[(11, 19, "deepest coil (held)"), hit("light_3", label="hit (Headbutt)")]),
+        "headbutt_tag_in": move("tag_in", "headbutt", marks=[hit("tag_in", label="hit (Landslide Entry)")]),
+        "stomp": ({"old": A.charge_ticks("stomp", 0, 2, 6, 24) + old_ticks("heavy") + A.idle_tail(30, *old_idle),
+                   "new": A.charge_ticks("stomp", *NEW_CHARGE, 24) + new_ticks("heavy") + A.idle_tail(30, *new_idle)},
+                  [(0, 24, "held charge"), (24, 34, "top of the lift (armor)"), hit("heavy", 24, "hit (Rockslide Stomp)")]),
+        "charge": move("skill_1", "charge", pre=14, marks=[(0, 14, "windup (red tell)"), hit("skill_1", 14, "hit (Landslide Charge)"),
+                                                             (14 + 3, 14 + 28, "dash")]),
+        "lash": move("skill_2", "lash", pre=12, marks=[(0, 12, "windup (red tell)"), (12 + 14, 12 + 21, "deepest coil"),
+                                                       (12 + 21, 12 + 38, "head flies out")]),
+        "bedrock": move("surge", "bedrock", pre=8, tail=20, marks=[(0, 8, "windup"), (8 + 4, 8 + 172, "rooted (armor)")]),
+    }
+    # the dodge: the view spreads the row over the dodge's frames
+    dfr = int(d["dodge"]["frames"])
+    clips["dodge"] = ({"old": [("dodge", t * 4 // dfr) for t in range(dfr)] + A.idle_tail(30, *old_idle),
+                       "new": [("dodge", t * NEW_DODGE_FRAMES // dfr) for t in range(dfr)] + A.idle_tail(30, *new_idle)},
+                      [(3, 13, "invulnerable"), (5, 15, "Landslide Ram")])
+    # the whole string, cancelled at tick 24 each time
+    def string(version):
+        f = old_ticks if version == "old" else new_ticks
+        idle = old_idle if version == "old" else new_idle
+        return f("light_1")[:24] + f("light_2")[:24] + f("light_3") + A.idle_tail(30, *idle)
+    clips["string"] = ({"old": string("old"), "new": string("new")},
+                       [(13, 18, "hit (Rake)"), (24 + 16, 24 + 21, "hit (Backhand)"), (48 + 23, 48 + 28, "hit (Headbutt)")])
+    return clips
+
+
+CLIPS = _clips
+
+
+def timeline_problems():
+    """The new timelines against ANIM_ROWS and the move data (the same things
+    `anim_preview.py --check` holds the JSON to, before the JSON has them)."""
+    d = _data()
+    rows = dict(ANIM_ROWS)
+    bad = []
+    for mid, at in NEW_AT.items():
+        mv = d["moves"][mid]
+        n = len(rows[NEW_ANIM[mid]])
+        length = int(mv.get("length", mv.get("startup", 0) + mv.get("active", 0) + mv.get("recovery", 0)))
+        if at[0][0] != 0:
+            bad.append("%s: first frame isn't at tick 0" % mid)
+        if [t for t, _f in at] != sorted(t for t, _f in at):
+            bad.append("%s: ticks out of order" % mid)
+        for t, f in at:
+            if f >= n:
+                bad.append("%s: frame %d at tick %d, the row has %d" % (mid, f, t, n))
+            if t >= length:
+                bad.append("%s: tick %d is past the move's length %d" % (mid, t, length))
+        su, act = int(mv.get("startup", 0)), int(mv.get("active", 0))
+        if act and "dash" not in mv:  # the frame at the hit must be the same at its first and last live tick
+            fr = [dict((t, f) for t, f in A_timed(at, length + 1)).get(t) for t in (su + 1, su + min(act, 5))]
+            if fr[0] != fr[1]:
+                bad.append("%s: the hit changes frame (%s) over its first ticks %d-%d" % (mid, fr, su + 1, su + min(act, 5)))
+    return bad
+
+
+def inspect_frames(picks):
+    """Frames in all three views, 2x: picks like idle:0 run:2 (CRAGLASH_NEW=1 for the new rows)."""
+    rows = dict(ANIM_ROWS if os.environ.get("CRAGLASH_NEW") else ROWS)
+    tiles = []
+    for pick in picks:
+        name, f = pick.split(":")
+        for view in ("side", "down", "up"):
+            img = render_frame(rows[name][int(f)], view)
+            bg = Image.new("RGBA", (VF, VFH), (70, 58, 46, 255))
+            bg.alpha_composite(img)
+            ImageDraw.Draw(bg).text((2, 2), "%s %s" % (pick, view), fill=(255, 220, 140, 255))
+            tiles.append(bg.resize((VF * 2, VFH * 2), Image.NEAREST))
+    out = Image.new("RGBA", (VF * 2 * 3, VFH * 2 * ((len(tiles) + 2) // 3)), (40, 32, 26, 255))
+    for k, t in enumerate(tiles):
+        out.alpha_composite(t, ((k % 3) * VF * 2, (k // 3) * VFH * 2))
+    path = os.environ.get("INSPECT_OUT", os.path.join(ROOT, "craglash_inspect.png"))
+    out.save(path)
+    print("wrote", path)
+
+
+def A_timed(at, length):
+    out, f = [], 0
+    for t in range(length):
+        for a, fr in at:
+            if t >= a:
+                f = fr
+        out.append((t, f))
+    return out
 
 
 def main():
@@ -1312,9 +1828,17 @@ def main():
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "anim":
+    if len(sys.argv) > 1 and sys.argv[1] == "inspect":
+        # python3 tools/gen_craglash.py inspect idle:0 run:2 (CRAGLASH_NEW=1: the new rows)
+        inspect_frames(sys.argv[2:])
+    elif len(sys.argv) > 1 and sys.argv[1] == "anim":
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         import anim_preview
+        problems = timeline_problems()
+        if problems:
+            sys.exit("timeline problems:\n  " + "\n  ".join(problems))
+        # previews show the new rows; the game's sheets (ROWS) stay as they are until approval
+        ROWS, VIEW_ROWS = ANIM_ROWS, ANIM_VIEW_ROWS
         anim_preview.main(sys.modules[__name__], sys.argv[2:])
     else:
         main()
