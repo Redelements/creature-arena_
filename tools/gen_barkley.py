@@ -279,6 +279,10 @@ class Pose:
         self.roots_up = kw.get("roots_up", False)     # KO: the root feet tear free
         self.shift = kw.get("shift", 0.0)              # slide the whole body forward (KO: room to fall)
         self.hold = kw.get("hold", -1)                # a hand holding a pinecone (Pinecone Bomb)
+        # The animation pass (docs/anim_preview/barkley_motion_plan.md): secondary motion that
+        # draws nothing different at its defaults, so ROWS render as they always did.
+        self.leaf = kw.get("leaf", 0.0)               # the leaf on his log leans this many px sideways
+        self.twig = kw.get("twig", 0.0)               # the arms' side twigs lift (+) or trail (-) this many px
 
 
 def _rot_lat(p, deg):
@@ -611,6 +615,7 @@ class Painter:
         # side twigs with leaves
         twigs = []
         for k, (t, du, dl) in enumerate(((0.45, 3.5, 1.5), (0.78, -3.0, 1.0))):
+            du += self.p.twig
             seg = int(t * (len(pts) - 1))
             a = v_lerp(pts[seg], pts[min(seg + 1, len(pts) - 1)], t * (len(pts) - 1) - seg)
             b = v_add(a, (dl * (-1 if i == 0 else 1), du, 0.5))
@@ -717,10 +722,11 @@ class Painter:
         mid = self.P(v_add(v_lerp(e0, e1, 0.42), self.b.T((0, 5.6, 0)) if False else (0, 0, 0)))
         lv = ImageDraw.Draw(img)
         sx, sy = round(mid[0]), round(mid[1] - R)
-        lv.line([(sx, sy), (sx, sy - 2)], fill=C["outline"])
-        lv.ellipse([sx - 2, sy - 7, sx + 2, sy - 2], fill=C["outline"])
-        lv.ellipse([sx - 1, sy - 6, sx + 1, sy - 3], fill=C["leaf"])
-        lv.point((sx, sy - 5), fill=C["glow"] if self.p.glow > 0.5 else C["leaf_l"])
+        lx = sx + round(self.p.leaf)  # the leaf's lean (animation pass); 0 draws the original
+        lv.line([(sx, sy), (lx, sy - 2)], fill=C["outline"])
+        lv.ellipse([lx - 2, sy - 7, lx + 2, sy - 2], fill=C["outline"])
+        lv.ellipse([lx - 1, sy - 6, lx + 1, sy - 3], fill=C["leaf"])
+        lv.point((lx, sy - 5), fill=C["glow"] if self.p.glow > 0.5 else C["leaf_l"])
         return img
 
     # -- assemble
@@ -979,13 +985,358 @@ def preview(sh, rows, fw, fh, origin, scale, path, title=None):
     print("wrote", os.path.relpath(path, ROOT))
 
 
+# ------------------------------------------------------------------ the animation pass
+# Barkley's motion pass (docs/anim_preview/barkley_motion_plan.md): every ability redrawn,
+# 12 columns. He is wood, so the trunk never squashes; weight is timing (slow rises, fast
+# falls, long holds) and the boughs, twigs and the log's leaf lag the trunk. Not in the game
+# yet: ROWS above are still the sheets the game uses; ANIM_ROWS are the new ones, which
+# `python3 tools/gen_barkley.py anim` previews. After approval ANIM_ROWS replace ROWS and
+# barkley.json gets the new row table and timelines (NEW_AT below).
+
+import copy  # noqa: E402
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import splat3d as S  # noqa: E402  (only its animation tools: tween, cycle, lag, lag_at)
+
+# hands are arcs (they swing on curves); `hold` is an index, never blended
+tw = S.tweener(arc_fields=("hands",), snap=("hold",))
+U8 = S.EASE_8
+
+
+def Q(**kw):
+    return Pose(**kw)
+
+
+def mirror(p):
+    """The same pose from his other side (the left arm leads)."""
+    m = copy.copy(p)
+    m.hands = [(-p.hands[1][0], p.hands[1][1], p.hands[1][2]), (-p.hands[0][0], p.hands[0][1], p.hands[0][2])]
+    m.feet = [(-p.feet[1][0], p.feet[1][1], p.feet[1][2]), (-p.feet[0][0], p.feet[0][1], p.feet[0][2])]
+    pl = [None if q is None else (-q[0], q[1], q[2]) for q in p.poles]
+    m.poles = [pl[1], pl[0]]
+    m.fingers = [p.fingers[1], p.fingers[0]]
+    m.yaw, m.roll = -p.yaw, -p.roll
+    m.hold = {-1: -1, 0: 1, 1: 0}[p.hold]
+    return m
+
+
+def idle_new():
+    """8 frames, 10 ticks each (80: slower than anyone). The trunk sways on eased spacing and
+    sinks a little at the bottom of the breath; the raised bough drifts 2 frames behind the
+    trunk, the log's leaf 3; the arm twigs 2. One slow blink."""
+    a = Q(hip=(21.0, 0), lean=1.0, roll=-1.2, hands=[(-12, -15, -5), (13, 4, 5)],
+          poles=[(-1, -0.4, -0.3), (1, -1.0, 0.2)], feet=[(-9, 0, -2), (9, 0, 2)])
+    b = Q(hip=(20.3, 0), lean=4.2, roll=1.2, hands=[(-12.5, -15.5, -4.5), (13.5, 6.0, 6)],
+          poles=[(-1, -0.4, -0.3), (1, -1.0, 0.2)], feet=[(-9, 0, -2), (9, 0, 2)])
+    fr = S.cycle((a, b), U8, tw)
+    S.lag(fr, ("hands", "poles"), 2)
+    sway = [2.0 * u - 1.0 for u in U8]
+    for i, p in enumerate(fr):
+        p.leaf = 1.4 * sway[(i - 3) % 8]
+        p.twig = 1.2 * sway[(i - 2) % 8]
+    fr[6].face = "grit"  # the blink
+    return fr
+
+
+# The lumber, one foot's 12-frame cycle (the other foot is 6 frames later). Stance frames 0-6
+# slide the foot back evenly (fwd 8 -> -8: the planted foot rides the ground); then a slow lift
+# (7, 8), a fast swing through (9), the reach (10, 11) and a hard plant (0).
+FOOT_FWD = [8.0, 5.33, 2.67, 0.0, -2.67, -5.33, -8.0, -8.0, -6.5, -1.5, 5.0, 8.2]
+FOOT_UP = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 2.6, 3.4, 2.4, 0.8]
+# the trunk over each step (6 frames): falls hard onto the plant, settles for 2, rises slowly
+HIP_DY = [-0.9, -1.5, -1.0, -0.3, 0.4, 0.5]
+LEAN_DY = [2.0, 1.4, 0.6, -0.4, -1.0, -0.2]
+
+
+def run_new():
+    out = []
+    for i in range(12):
+        k = i % 6
+        fr_, fl_ = FOOT_FWD[i % 12], FOOT_FWD[(i + 6) % 12]
+        up_r, up_l = FOOT_UP[i % 12], FOOT_UP[(i + 6) % 12]
+        c = math.cos(math.pi * i / 6)             # +1 when the right foot is furthest forward
+        out.append(Q(hip=(21 + HIP_DY[k], 1), lean=8 + LEAN_DY[k], roll=2.0 * c,
+                     feet=[(-6, up_l, fl_), (6, up_r, fr_)],
+                     hands=[(-8, -15, 2 + 6 * c), (8, -15, 2 - 6 * c)],
+                     poles=[(-1, -0.6 + 0.9 * max(0.0, c), -0.5), (1, -0.6 + 0.9 * max(0.0, -c), -0.5)]))
+    # the boughs swing 2 frames behind the trunk, bending at the top of the swing; twigs 3
+    S.lag(out, ("hands", "poles"), 2)
+    for i, p in enumerate(out):
+        p.twig = 1.6 * math.cos(math.pi * (i - 3) / 6)
+        p.leaf = HIP_DY[(i - 3) % 6]
+    return out
+
+
+# ---- the light string. The frame data is short (Twig Swipe starts up in 4 ticks), so the
+# anticipation is quick and the weight is in the hold on the hit and the long follow-through.
+
+def twig_new():
+    """Twig Swipe, 8 frames. Timeline (anim_at): 0 -> t0, 1 -> t2 (coil), 2 -> t4 (one fast
+    frame), 3 -> t5 (the hit, held 3), 4 -> t8, 5 -> t10, 6 -> t12, 7 -> t14."""
+    fw = dict(feet=[(-7, 0, -3), (7, 0, 4)])
+    fr = [
+        Q(lean=-1, yaw=4, hip=(21.3, 0), hands=[(-11, -14, -4), (10, 2, -3)], poles=[None, (1, 0.3, -1)], face="grit"),
+        Q(lean=-5, yaw=14, hip=(21.6, 0), hands=[(-11, -13, -4), (11, 9, -8)], poles=[None, (1, 0.4, -1)],
+          face="grit", fingers=["open", "claw"]),
+        Q(lean=4, yaw=-3, hip=(20.4, 0), hands=[(-11, -13, -4), (5, -3, 14)], poles=[None, (1, 0.6, -0.5)],
+          face="shout", feet=[(-7, 0, -2), (7, 0, 2)]),
+        Q(lean=8, yaw=-14, hip=(19.8, 0), hands=[(-11, -13, -4), (-2, -12, 26)], poles=[None, (1, 0.6, 0)],
+          face="shout", **fw),
+        Q(lean=10, yaw=-22, hip=(19.8, 0), hands=[(-11, -13, -4), (-10, -13, 21)], poles=[None, (1, 0.9, 0)],
+          face="shout", **fw),
+        Q(lean=10, yaw=-24, hip=(20, 0), hands=[(-11, -14, -4), (-15, -12, 13)], poles=[None, (1, 1.2, 0)],
+          face="shout", **fw),
+        Q(lean=7, yaw=-14, hip=(20.4, 0), hands=[(-11, -14, -4), (-6, -13, 6)], poles=[None, (1, 0.8, 0)],
+          face="calm", feet=[(-7.5, 0, -2.5), (7.5, 0, 3)]),
+        Q(lean=4, yaw=-5, hip=(20.8, 0), hands=[(-11, -14, -4), (6, -12, 7)], face="calm"),
+    ]
+    S.lag_at(fr, "twig", {0: 0.0, 3: -2.0, 4: -3.0, 5: -1.5, 6: 1.6, 7: 0.0})   # twigs trail the bough
+    S.lag_at(fr, "leaf", {0: 0.0, 3: -1.0, 4: -2.0, 5: -1.0, 6: 1.0, 7: 0.0})
+    return fr
+
+
+def bough_new():
+    """Bough Swing (the heavier second light, from his other side), 8 frames. Timeline: 0 -> t0,
+    1 -> t2, 2 -> t4 (the coil, held), 3 -> t6 (fast), 4 -> t7 (the hit, held 3), 5 -> t10,
+    6 -> t13, 7 -> t16. A deeper coil and a wider arc than the Twig Swipe."""
+    fw = dict(feet=[(-7, 0, -3), (7, 0, 4)])
+    k = [
+        Q(lean=-1, yaw=6, hip=(21.4, 0), hands=[(-11, -14, -4), (10, 0, -4)], poles=[None, (1, 0.3, -1)], face="grit"),
+        Q(lean=-3, yaw=14, hip=(21.8, 0), hands=[(-11, -13, -4), (12, 7, -9)], poles=[None, (1, 0.4, -1)], face="grit",
+          fingers=["open", "claw"]),
+        Q(lean=-4, yaw=20, hip=(22, -0.5), hands=[(-11, -12, -4), (13, 10, -10)], poles=[None, (1, 0.5, -1)],
+          face="grit", fingers=["open", "claw"], roll=2),
+        Q(lean=5, yaw=-4, hip=(20.2, 0), hands=[(-11, -13, -4), (6, -2, 15)], poles=[None, (1, 0.7, -0.5)],
+          face="shout", feet=[(-7, 0, -2), (7, 0, 3)]),
+        Q(lean=9, yaw=-17, hip=(19.6, 0), hands=[(-11, -13, -4), (-4, -12, 27)], poles=[None, (1, 0.6, 0)],
+          face="shout", **fw),
+        Q(lean=11, yaw=-26, hip=(19.8, 0), hands=[(-11, -14, -4), (-16, -13, 17)], poles=[None, (1, 1.1, 0)],
+          face="shout", **fw),
+        Q(lean=8, yaw=-17, hip=(20.4, 0), hands=[(-11, -14, -4), (-10, -13, 7)], poles=[None, (1, 0.9, 0)],
+          face="calm", feet=[(-7.5, 0, -2.5), (7.5, 0, 3)]),
+        Q(lean=4, yaw=-6, hip=(20.8, 0), hands=[(-11, -14, -4), (4, -13, 6)], face="calm"),
+    ]
+    # his left arm leads, so the whole swing is the Twig Swipe's mirror image
+    fr = [mirror(p) for p in k]
+    S.lag_at(fr, "twig", {0: 0.0, 3: -1.0, 4: -3.0, 5: -3.5, 6: 1.5, 7: 0.0})
+    S.lag_at(fr, "leaf", {0: 0.0, 4: 2.0, 5: 2.5, 6: -1.0, 7: 0.0})
+    return fr
+
+
+def logdrop_new():
+    """Log Drop (light 3, and Timber Drop's tag-in), 8 frames. Timeline: 0 -> t0, 1 -> t3, 2 -> t6
+    (rearing back, held), 3 -> t8 (the tip, fast), 4 -> t10 (the log lands, held 3), 5 -> t13
+    (held 5: the ender's long hold), 6 -> t18, 7 -> t24. The trunk stops a frame before the
+    log does (`bend` arrives a frame after `lean`)."""
+    up = dict(hands=[(-10, 5, -7), (10, 5, -7)], poles=[(-1, 0.4, -1), (1, 0.4, -1)])
+    fr = [
+        Q(lean=-4, hip=(21.5, 0), hands=[(-10, -4, -4), (10, -4, -4)], poles=[(-1, 0.2, -1), (1, 0.2, -1)], face="grit"),
+        Q(lean=-12, hip=(22, -1), face="grit", **up),
+        Q(lean=-17, hip=(22.6, -1.5), face="grit", hands=[(-10, 7, -9), (10, 7, -9)],
+          poles=[(-1, 0.5, -1), (1, 0.5, -1)]),
+        Q(lean=34, bend=8, hip=(19.5, 1), hands=[(-10, -7, 4), (10, -7, 4)], face="shout", feet=[(-7, 0, -3), (7, 0, 4)]),
+        Q(lean=43, bend=24, hip=(18, 2), hands=[(-11, -12, 12), (11, -12, 12)], face="shout",
+          feet=[(-7, 0, -3), (7, 0, 5)]),
+        Q(lean=42, bend=21, hip=(18, 2), hands=[(-11, -12, 12), (11, -12, 12)], face="shout",
+          feet=[(-7, 0, -3), (7, 0, 5)]),
+        Q(lean=28, bend=9, hip=(19.2, 1.5), hands=[(-11, -13, 6), (11, -13, 7)], face="calm", feet=[(-7, 0, -3), (7, 0, 4)]),
+        Q(lean=13, bend=2, hip=(20.3, 1), hands=[(-11, -14, 1), (11, -14, 3)], face="calm"),
+    ]
+    S.lag_at(fr, "leaf", {0: 0.0, 2: 1.0, 3: -2.0, 4: -3.0, 5: 2.0, 6: -1.0, 7: 0.0})
+    S.lag_at(fr, "twig", {0: 0.0, 2: 2.0, 3: -3.0, 4: -3.0, 5: 1.5, 6: 0.0})
+    return fr
+
+
+# ---- Timber Twister: 2 charge frames (a trembling crank back), 8 spin frames (45 degrees
+# apiece, the boughs trailing the trunk by a frame), 2 to unwind.
+
+def twister_new():
+    crank = dict(lean=-5, hands=[(-8, -10, 8), (6, -10, -10)], fingers=["fist", "fist"], face="grit")
+    fr = [
+        Q(yaw=44, hip=(20.4, 0), **crank),
+        Q(yaw=58, hip=(20.0, 0), **{**crank, "lean": -7, "hands": [(-7, -9, 10), (5, -9, -12)]}),
+    ]
+    yaws = [18, -27, -72, -117, -162, -207, -252, -297]
+    for k, yw in enumerate(yaws):
+        trail = 7.0 if k < 7 else 5.0
+        spread = 22 + 5 * min(k, 3) / 3.0                    # the boughs fling out as the spin builds
+        fr.append(Q(yaw=yw, lean=4, hip=(20.6, 0),
+                    hands=[(-spread, -2 + k * 0.2, -trail), (spread, -2 + k * 0.2, trail)],
+                    poles=[(-0.4, 1, 0.8), (0.4, 1, -0.8)], feet=[(-7, 0, 0), (7, 0, 0)], face="shout",
+                    fingers=["open", "open"], twig=-2.0, leaf=-2.0 if k < 4 else 2.0))
+    # the unwind: the boughs overshoot ahead of him, then settle
+    fr.append(Q(yaw=-322, lean=6, hip=(20.2, 0), hands=[(-24, -4, 7), (24, -4, -5)], poles=[(0, 1, 0), (0, 1, 0)],
+                feet=[(-7, 0, 0), (7, 0, 0)], face="shout", twig=2.0, leaf=2.0))
+    fr.append(Q(yaw=-350, lean=3, hip=(20.7, 0), hands=[(-13, -13, -1), (13, -13, 2)], face="calm", twig=0.0, leaf=0.0))
+    return fr
+
+
+# ---- Branch Grab, Pinecone Bomb, Root Eruption
+
+def grab_new():
+    """Branch Grab, 12 frames. Timeline: 0 -> t0 (the cocked arm, held through the red windup),
+    1 -> t2, 2 -> t5, 3 -> t8, 4 -> t10, 5 -> t11 (full reach, open), 6 -> t14 (the claw closes,
+    held), then the reel 7 -> t17, 8 -> t20, 9 -> t23, 10 -> t27, 11 -> t31."""
+    def far(ext, lean=10, up=-14, fing="open", face="shout", yaw=-10, pole=(1, 0.5, 0)):
+        return Q(lean=lean, yaw=yaw, hands=[(-11, -12, -6), (-3, up, ext)], poles=[None, pole], face=face,
+                 feet=[(-7, 0, -4), (7, 0, 4)], fingers=["open", fing], hip=(20, 0))
+    fr = [
+        Q(lean=-8, yaw=20, hip=(21.6, 0), hands=[(-10, -12, 2), (6, 2, -14)], poles=[None, (1, 0.2, -1)], face="grit",
+          fingers=["open", "claw"]),
+        Q(lean=-12, yaw=27, hip=(22, -0.5), hands=[(-10, -12, 3), (7, 5, -18)], poles=[None, (1, 0.3, -1)], face="grit",
+          fingers=["open", "claw"]),
+        far(8, lean=3, up=-4, fing="claw", face="grit", yaw=6, pole=(1, 0.4, -0.6)),
+        far(24, lean=8, up=-11, fing="claw", yaw=-4),
+        far(33, up=-14, fing="claw"),
+        far(36, up=-15, fing="open"),
+        far(35, up=-15, fing="fist"),
+        Q(lean=6, yaw=-6, hip=(20, 0), hands=[(-11, -12, -4), (-3, -13, 27)], fingers=["open", "fist"], face="grit",
+          poles=[None, (1, 0.5, 0)], feet=[(-7, 0, -4), (7, 0, 4)]),
+        Q(lean=2, yaw=-3, hip=(20.4, 0), hands=[(-11, -12, -4), (-3, -12, 19)], fingers=["open", "fist"], face="grit",
+          poles=[None, (1, 0.8, 0)]),
+        Q(lean=1, hip=(20.6, 0), hands=[(-11, -13, -3), (3, -12, 10)], fingers=["open", "open"], face="calm"),
+        Q(lean=2, hip=(20.8, 0), hands=[(-11, -14, -3), (8, -12, 5)], face="calm"),
+        Q(lean=1, hip=(21, 0), hands=[(-11, -14, -3), (9, -13, 4)], face="calm"),
+    ]
+    S.lag_at(fr, "twig", {0: 0.0, 2: -1.5, 3: -3.0, 4: -3.0, 6: -1.0, 7: 1.5, 9: 0.0})
+    S.lag_at(fr, "leaf", {0: 0.0, 2: 1.0, 3: -1.0, 5: -2.0, 7: 1.5, 9: 0.0})
+    return fr
+
+
+def pinecone_new():
+    """Pinecone Bomb, 12 frames. 0-3: the held charge loop (anim_charge [0, 4, 6]: the cone
+    overhead, the arm trembling, the trunk leaning back). Then 4 -> t0 (the pull back), 5 -> t3,
+    6 -> t7 (the cone still in the hand, fast), 7 -> t10 (the release, held 3: the cone leaves
+    at tick 10), 8 -> t13, 9 -> t17, 10 -> t22, 11 -> t28."""
+    def hold_(lean, rise, back, **kw):
+        return Q(lean=lean, hands=[(-11, -12, -2), (-1, rise, back)], fingers=["open", "fist"], face="grit", hold=1,
+                 poles=[None, (1, -0.2, -1)], **kw)
+    fr = [hold_(-10, 12.0, -10.0, hip=(21.6, 0)), hold_(-12, 13.0, -9.5, hip=(21.9, 0)),
+          hold_(-14, 14.0, -10.5, hip=(22.2, -0.5)), hold_(-12, 12.8, -10, hip=(21.9, 0))]
+    fr += [
+        Q(lean=-17, hip=(22.5, -1), hands=[(-11, -10, -3), (-2, 14, -15)], fingers=["open", "fist"], face="grit",
+          poles=[None, (1, -0.2, -1)], hold=1),
+        Q(lean=-4, hip=(21, 0), hands=[(-11, -12, -2), (0, 13, -3)], fingers=["open", "fist"], face="grit", hold=1,
+          poles=[None, (1, 0.1, -0.8)], feet=[(-7.5, 0, -2), (7.5, 0, 2)]),
+        Q(lean=9, hip=(20, 0), hands=[(-11, -12, -2), (0, 10, 14)], fingers=["open", "open"], face="shout", hold=1,
+          poles=[None, (1, 0.2, -0.5)], feet=[(-7, 0, -3), (7, 0, 3)]),
+        Q(lean=13, hip=(19.8, 0), hands=[(-11, -12, -2), (0, 2, 22)], fingers=["open", "open"], face="shout",
+          poles=[None, (1, 0.3, 0)], feet=[(-7, 0, -3), (7, 0, 4)]),
+        Q(lean=12, hip=(20, 0), hands=[(-11, -12, -2), (0, -5, 21)], fingers=["open", "open"], face="shout",
+          feet=[(-7, 0, -3), (7, 0, 4)]),
+        Q(lean=8, hip=(20.4, 0), hands=[(-11, -13, -2), (2, -11, 13)], fingers=["open", "open"], face="calm"),
+        Q(lean=4, hip=(20.8, 0), hands=[(-11, -14, -3), (7, -13, 8)], face="calm"),
+        Q(lean=2, hip=(21, 0), hands=[(-11, -14, -3), (9, -13, 4)], face="calm"),
+    ]
+    S.lag_at(fr, "twig", {0: 0.0, 4: 1.5, 6: -2.0, 7: -3.0, 8: -1.5, 9: 1.0, 10: 0.0})
+    S.lag_at(fr, "leaf", {0: 0.0, 4: 1.0, 6: -1.5, 7: -2.0, 8: 1.5, 9: -0.5, 10: 0.0})
+    return fr
+
+
+def eruption_new():
+    """Root Eruption, 12 frames. Timeline: 0 -> t0, 1 -> t3, 2 -> t6, 3 -> t9 (the gather, arms
+    high, glowing: the cut-in), 4 -> t12 (held: the last stretch), 5 -> t15 (the plunge, one fast
+    frame), 6 -> t16 (the strike into the floor, held 7: rings at 17 and 23), 7 -> t23 (ring 2,
+    the trunk recoils), 8 -> t29 (ring 3, the boughs flung up, held 7), 9 -> t36, 10 -> t44,
+    11 -> t52."""
+    def arms(lean, hip, hands, glow, face="shout", poles=None, **kw):
+        return Q(lean=lean, hip=hip, hands=hands, glow=glow, face=face, poles=poles or [(-1, 0, -1), (1, 0, -1)], **kw)
+    fr = [
+        arms(-4, (21.4, 0), [(-13, 0, -1), (13, 0, -1)], 0.3, poles=[(-1, -0.2, -0.5), (1, -0.2, -0.5)]),
+        arms(-7, (21.8, -0.5), [(-14, 6, -2), (14, 6, -2)], 0.5, poles=[(-1, -0.2, -0.5), (1, -0.2, -0.5)]),
+        arms(-10, (22.3, -1), [(-9, 13, -3), (9, 13, -3)], 0.8),
+        arms(-12, (23, -1), [(-6, 15, -4), (6, 15, -4)], 1.0),
+        arms(-14, (23.5, -1.5), [(-5, 16.5, -5), (5, 16.5, -5)], 1.0),
+        arms(16, (18.5, 1), [(-8, -6, 8), (8, -6, 8)], 1.0, poles=[(-1, 0.4, -0.5), (1, 0.4, -0.5)],
+             feet=[(-8, 0, -2), (8, 0, -2)]),
+        arms(34, (15, 2), [(-9, -24, 12), (9, -24, 12)], 1.0, poles=[(-1, 0.4, -0.5), (1, 0.4, -0.5)],
+             feet=[(-8, 0, -2), (8, 0, -2)]),
+        arms(25, (16.5, 2), [(-11, -18, 10), (11, -18, 10)], 0.9, poles=[(-1, 0.4, -0.5), (1, 0.4, -0.5)],
+             feet=[(-8, 0, -2), (8, 0, -2)]),
+        arms(8, (19.5, 1), [(-16, 5, 3), (16, 5, 3)], 1.0, poles=[(-1, 0.5, 0), (1, 0.5, 0)],
+             feet=[(-8, 0, -2), (8, 0, -2)]),
+        arms(5, (20.2, 0.5), [(-13, -5, 1), (13, -5, 1)], 0.6, face="grit"),
+        arms(4, (20.6, 0), [(-12, -12, 0), (12, -12, 0)], 0.25, face="calm", poles=None),
+        arms(2, (21, 0), [(-12, -13, 0), (12, -13, 0)], 0.0, face="calm", poles=None),
+    ]
+    S.lag_at(fr, "twig", {0: 0.0, 2: 1.5, 4: 2.5, 5: -3.0, 6: -2.0, 7: -1.0, 8: 3.0, 9: 1.0, 10: 0.0})
+    S.lag_at(fr, "leaf", {0: 0.0, 2: 1.0, 4: 1.5, 5: -2.5, 6: -1.5, 7: 0.5, 8: 3.0, 9: -1.0, 10: 0.0})
+    return fr
+
+
+def dodge_new():
+    """The crouch-and-lurch, 8 frames spread evenly over its 19 ticks (the view picks the
+    frame by `state_t * 8 / 19`): the gather, the bow, two lurching steps low under the swing
+    (the invulnerable ticks 2-12 are frames 1-5), the rise."""
+    h = dict(hands=[(-7, -8, 8), (7, -8, 8)])
+    return [
+        Q(lean=18, hip=(18.5, 0), hands=[(-8, -10, 4), (8, -10, 4)], face="grit", feet=[(-7, 0, -2), (7, 0, 2)]),
+        Q(lean=34, hip=(15.5, 1), bend=6, face="grit", feet=[(-6, 0, -4), (6, 1.5, 2)], **h),
+        Q(lean=41, hip=(14, 1), bend=12, face="grit", feet=[(-6, 0, -6), (6, 2.5, 5)], **h),
+        Q(lean=41, hip=(13.8, 1), bend=12, face="grit", feet=[(-6, 2.5, -1), (6, 0, 7)], **h),
+        Q(lean=40, hip=(14, 1), bend=11, face="grit", feet=[(-6, 0, 3), (6, 1.5, 5)], **h),
+        Q(lean=30, hip=(15.8, 0.5), bend=6, face="grit", feet=[(-6.5, 0, 2), (6.5, 0, 3)], **h),
+        Q(lean=17, hip=(18.5, 0), bend=2, hands=[(-10, -12, 1), (10, -12, 1)], face="calm"),
+        Q(lean=8, hip=(20.2, 0), hands=[(-11, -13, -1), (11, -13, 1)], face="calm"),
+    ]
+
+
+ANIM_ROWS = [
+    ("idle", idle_new()),
+    ("run", run_new()),
+    ("twig", twig_new()),
+    ("bough", bough_new()),
+    ("logdrop", logdrop_new()),
+    ("twister", twister_new()),
+    ("grab", grab_new()),
+    ("pinecone", pinecone_new()),
+    ("eruption", eruption_new()),
+    ("dodge", dodge_new()),
+    ("hurt", hurt()),
+    ("guard", guard()),
+    ("ko", ko()),
+]
+ANIM_VIEW_ROWS = ANIM_ROWS[:-1]
+ANIM_COLS = 12
+
+
+# The timelines the JSON gets after approval (anim_at: [tick, frame], each from its tick on).
+# Every startup, active, recovery and windup stays; only the frames move. Hits land at
+# startup + 1 (the lights, Timber Drop, the lob's release) or at the listed `at` ticks.
+NEW_AT = {
+    "light_1": [[0, 0], [2, 1], [4, 2], [5, 3], [8, 4], [10, 5], [12, 6], [14, 7]],
+    "light_2": [[0, 0], [2, 1], [4, 2], [6, 3], [7, 4], [10, 5], [13, 6], [16, 7]],
+    "light_3": [[0, 0], [3, 1], [6, 2], [8, 3], [10, 4], [13, 5], [18, 6], [24, 7]],
+    "tag_in": [[0, 0], [2, 1], [5, 2], [7, 3], [9, 4], [13, 5], [18, 6], [24, 7]],
+    "heavy": [[0, 1], [2, 2], [4, 3], [6, 4], [7, 5], [8, 6], [9, 7], [10, 8], [11, 9], [12, 2], [13, 3], [14, 4],
+              [15, 5], [16, 6], [17, 7], [18, 8], [19, 9], [20, 2], [22, 10], [28, 11]],
+    "skill_1": [[0, 0], [2, 1], [5, 2], [8, 3], [10, 4], [11, 5], [14, 6], [17, 7], [20, 8], [23, 9], [27, 10], [31, 11]],
+    "skill_2": [[0, 4], [3, 5], [7, 6], [10, 7], [13, 8], [17, 9], [22, 10], [28, 11]],
+    "surge": [[0, 0], [3, 1], [6, 2], [9, 3], [12, 4], [15, 5], [16, 6], [23, 7], [29, 8], [36, 9], [44, 10], [52, 11]],
+}
+NEW_CHARGE = {"heavy": [0, 2, 6], "skill_2": [0, 4, 6]}   # frames looped while the charge is held
+NEW_CUT_IN = [8, 3]                                       # the Surge cut-in: the arms-high gather
+NEW_DODGE_N = 8                                           # the view picks the dodge's frame: state_t * n / frames
+MOVE_ANIM = {"light_1": "twig", "light_2": "bough", "light_3": "logdrop", "tag_in": "logdrop", "heavy": "twister",
+             "skill_1": "grab", "skill_2": "pinecone", "surge": "eruption"}
+ANIM_COUNT = {name: len(poses) for name, poses in ANIM_ROWS}
+for _mid, _at in NEW_AT.items():  # a typo here would put a blank frame in the game
+    _n = ANIM_COUNT[MOVE_ANIM[_mid]]
+    assert all(0 <= f < _n for _t, f in _at), (_mid, _at)
+    assert [t for t, _f in _at] == sorted(t for t, _f in _at), _mid
+assert NEW_CUT_IN[1] < ANIM_COUNT["eruption"]
+for _mid, (_first, _count, _each) in NEW_CHARGE.items():
+    assert _first + _count <= ANIM_COUNT[MOVE_ANIM[_mid]], _mid
+assert all(len(poses) <= ANIM_COLS for _n, poses in ANIM_ROWS)
+
+
 # ------------------------------------------------------------------ animation tools
 # The adapter for the shared animation pipeline (tools/anim_preview.py):
 # `python3 tools/gen_barkley.py anim` renders preview GIFs into docs/anim_preview/, and
 # `python3 tools/anim_preview.py --check barkley` checks the JSON's timelines against ROWS.
 # In-betweens and overlap come from splat3d (tween, cycle, lag, lag_at), which only touch
 # pose attributes; this generator's renderer is its own.
-ANIM_CYCLES = {"idle": 40, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks)
+ANIM_CYCLES = {"idle": 40, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks), as barkley.json has them
 
 
 def frame_spec(view):
@@ -999,6 +1350,108 @@ def render_frame(pose, view):
     W, H = sp["w"], sp["h"]
     OX, OY = sp["origin"]
     return render(pose, view)
+
+ANIM_TICKS = {"idle": 10, "run": 2}  # the pass: 8 x 10 = an 80-tick idle, 12 x 2 = the same 24-tick run
+OLD_REF = os.environ.get("BARKLEY_OLD_REF", "fce60cc")  # main before the pass: the "current" frames
+
+
+def _old_default(n, su, active, length):
+    """The frame the view picks today for a move with no anim_at (creature_view.gd
+    `_attack_frame`, the last branch): windup frames, the strike, the follow-through."""
+    first_at = su + 1
+    wind = max(1, n - 3)
+    out = []
+    for t in range(length + 1):
+        if t < first_at:
+            out.append(min(wind - 1, t * wind // max(1, first_at)))
+        elif t < first_at + active:
+            out.append(n - 3)
+        else:
+            rec_start = first_at + active
+            out.append(n - 2 if t - rec_start < max(1, length - rec_start) // 2 else n - 1)
+    return out
+
+
+def _clips():
+    import anim_preview as A
+    old = A.creature_json("barkley", OLD_REF)
+    mv = old["moves"]
+    old_idle, new_idle = (10, 4), (10, 8)
+
+    def length(m):
+        return A.move_length(m)
+
+    def old_frames(mid):
+        m = mv[mid]
+        if "anim_at" in m:
+            return A.timed(m["anim_at"], length(m))
+        return _old_default(int(old["sprite"]["anims"][m["anim"]][2]), int(m["startup"]), int(m["active"]), length(m))
+
+    def clip(mid, marks=(), pre=0, charge=None, charge_ticks=0):
+        m = mv[mid]
+        anim = MOVE_ANIM[mid]
+        o = old_frames(mid)
+        n = A.timed(NEW_AT[mid], length(m))
+        old_t = [(anim, o[0])] * pre + [(anim, f) for f in o] + A.idle_tail(30, *old_idle)
+        new_t = [(anim, n[0])] * pre + [(anim, f) for f in n] + A.idle_tail(30, *new_idle)
+        if charge:
+            old_t = A.charge_ticks(anim, 0, 2, 6, charge_ticks) + old_t
+            new_t = A.charge_ticks(anim, *charge, charge_ticks) + new_t
+        return ({"old": old_t, "new": new_t}, list(marks))
+
+    def hits(mid, pre=0, name=None):
+        m = mv[mid]
+        return [(pre + a, pre + b, "hit (%s)" % (name or m["name"])) for a, b in A._hits(m)]
+
+    def dodge():
+        d = old["dodge"]
+        fr = int(d["frames"])
+        o = [("dodge", t * 4 // fr) for t in range(fr)]
+        nw = [("dodge", t * NEW_DODGE_N // fr) for t in range(fr)]
+        return ({"old": o + A.idle_tail(30, *old_idle), "new": nw + A.idle_tail(30, *new_idle)},
+                [(d["iframes_start"], d["iframes_end"], "invulnerable")])
+
+    ch = 24
+    return {
+        "idle": ({"old": A.loop_ticks("idle", 10, 4, 160), "new": A.loop_ticks("idle", 10, 8, 160)}, []),
+        "run": ({"old": A.loop_ticks("run", 4, 6, 48), "new": A.loop_ticks("run", 2, 12, 48)}, []),
+        "twig": clip("light_1", hits("light_1") + [(8, 16, "cancel from 8")]),
+        "bough": clip("light_2", hits("light_2") + [(9, 19, "cancel from 9")]),
+        "logdrop": clip("light_3", hits("light_3")),
+        "logdrop_tag_in": clip("tag_in", hits("tag_in")),
+        "twister": clip("heavy", [(0, ch, "held charge")] + hits("heavy", ch, "Twister"),
+                        charge=NEW_CHARGE["heavy"], charge_ticks=ch),
+        "grab": clip("skill_1", [(0, 8, "windup (red tell)")] + hits("skill_1", 8), pre=8),
+        "pinecone": clip("skill_2", [(0, ch, "held charge"), (ch + 10, ch + 13, "pinecone leaves")], charge=NEW_CHARGE["skill_2"],
+                         charge_ticks=ch),
+        "eruption": clip("surge", hits("surge", 0, "ring")),
+        "dodge": dodge(),
+    }
+
+
+CLIPS = _clips
+ANIM_CONTACT = ["idle", "run", "twig", "bough", "logdrop", "twister", "grab", "pinecone", "eruption", "dodge"]
+
+
+def inspect(rows, picks, path):
+    """Frames side by side in all three views, 3x: picks like idle:0 run:2."""
+    tiles = []
+    for pick in picks:
+        name, f = pick.split(":")
+        poses = dict(rows)[name]
+        for view in ("side", "down", "up"):
+            img = render_frame(poses[int(f)], view)
+            bg = Image.new("RGBA", img.size, (70, 58, 46, 255))
+            bg.alpha_composite(img)
+            ImageDraw.Draw(bg).text((2, 2), "%s %s" % (pick, view), fill=(255, 220, 140, 255))
+            tiles.append(bg.resize((img.width * 3, img.height * 3), Image.NEAREST))
+    cw = max(t.width for t in tiles)
+    ch_ = max(t.height for t in tiles)
+    out = Image.new("RGBA", (cw * 3, ch_ * ((len(tiles) + 2) // 3)), (40, 32, 26, 255))
+    for k, t in enumerate(tiles):
+        out.alpha_composite(t, ((k % 3) * cw, (k // 3) * ch_))
+    out.save(path)
+    print("wrote", path)
 
 
 def main():
@@ -1033,9 +1486,14 @@ def main():
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "anim":
-        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    if len(sys.argv) > 1 and sys.argv[1] == "inspect":
+        # python3 tools/gen_barkley.py inspect idle:0 run:2 (BARKLEY_NEW=1: the new rows)
+        rows = ANIM_ROWS if os.environ.get("BARKLEY_NEW") else ROWS
+        inspect(rows, sys.argv[2:], os.environ.get("INSPECT_OUT", os.path.join(ROOT, "barkley_inspect.png")))
+    elif len(sys.argv) > 1 and sys.argv[1] == "anim":
         import anim_preview
+        # previews show the new rows; the game's sheets (ROWS) stay as they are until approval
+        ROWS, VIEW_ROWS = ANIM_ROWS, ANIM_VIEW_ROWS
         anim_preview.main(sys.modules[__name__], sys.argv[2:])
     else:
         main()
