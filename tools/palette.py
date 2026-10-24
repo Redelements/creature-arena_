@@ -21,15 +21,23 @@ in places, and are what everything reads):
     deep shadows are rich but not neon and highlights don't burn out.
   - Neutrals carry the same shift: the neutral line is blue-black at the bottom and a
     warm paper white at the top.
+  - The peach line (salmon to pale peach, between pink and orange; ramps "salmon" and
+    "peach") was added after the first release for Chef Cerebro's brain and Hissy's skin;
+    it bends the hue rule at its first light step to land on both anchors (see LINES).
+    It's NAMED_ONLY: snapping and ramp_for never land on it, so adding it changed no
+    arena and no old triple.
   - Outline: each ramp's outline is one of a few INKS: the ink nearest the ramp's deep
     step darkened and desaturated. So a ramp's outline is darker and greyer than its
     deep step, never pure black (fighters whose sheet asks for black, like Hissy, can
     still pass their own colour). Internal seam lines use the ramp's deep step, one step
     lighter than its outline, so lines inside the silhouette don't go muddy.
 
+Count: 18 hue lines (16 plus chartreuse and peach, both NAMED_ONLY) and 6 inks, 111 sprite colours; 26 ramps.
+
 API:
   LINES, RAMPS, INKS          the published colours (RGB tuples)
   GROUND                      half-step lines for arena floors only ("earth_fine", ...)
+  NAMED_ONLY                  lines used only by name ("peach"): snapping and ramp_for skip them
   ALL                         every distinct colour, in swatch order
   ramp(name, shift=0)         a ramp's five colours; shift moves the window along its line
   flat(name, step=2)          one colour five times (lines, slots: unshaded materials)
@@ -43,8 +51,9 @@ API:
 Porting a generator: replace its MAT table's (base, light, dark) triples with ramp names
 (`"rust"`, `("stone", 1)` for one step lighter), keep `flat(...)` for one-colour
 materials, and shade with the five steps. tools/splat3d.py does this for every splat3d
-rig and tools/gen_craglash.py ports it to its 2D shader; the other older renderers
-(Cerebro, Hissy, Barkley, Gillbert) aren't ported yet.
+rig, tools/shade2d.py for the 2D painters (Barkley, Gillbert) and tools/gen_craglash.py's own
+2D shader; Cerebro and Hissy call splat3d's shade/outline directly. Only the placeholders in
+tools/gen_sprites.py (Cairn, the dummy, crowd, tiles) aren't on the palette.
 """
 import os
 
@@ -79,6 +88,15 @@ LINES = {
     "neutral": [(6, 6, 14), (20, 18, 30), (44, 42, 56), (72, 70, 80), (106, 104, 108),
                 (144, 140, 136), (186, 180, 172), (214, 208, 194), (236, 232, 220),
                 (250, 248, 240), (255, 255, 255)],
+    # yellow-green between lime and gold (Gillbert's body), built by the rules above from
+    # (170, 214, 40); the highlight is pulled back so it doesn't burn out
+    "chartreuse": [(76, 154, 56), (122, 184, 54), (170, 214, 40), (219, 237, 91), (238, 248, 140)],
+    # warm salmon and peach, between pink and orange: Chef Cerebro's brain (the middle
+    # step) and Hissy's skin (one up). Shadows cool toward wine, lights warm toward a pale
+    # cream. Hand-tuned: the first light step turns about 20 degrees warmer and loses more
+    # chroma than the 8-degree rule, so the peach ramp's base lands on Hissy's skin.
+    "peach": [(127, 57, 85), (165, 81, 103), (206, 107, 120), (248, 134, 134), (251, 190, 168),
+              (255, 224, 200), (255, 246, 226)],
 }
 
 # Ramps: name -> (line, index of the deep step). The window is five steps from there; a
@@ -98,6 +116,10 @@ WINDOWS = {
     "grey": ("neutral", 2),     # concrete, stone
     "stone": ("neutral", 3),    # steel, light stone
     "white": ("neutral", 6),    # paper, white cloth, teeth
+    "chartreuse": ("chartreuse", 0),  # bright yellow-green skin (Gillbert)
+    # the peach line (Cerebro, Hissy)
+    "salmon": ("peach", 1),     # salmon flesh: Chef Cerebro's brain
+    "peach": ("peach", 2),      # pale peach skin: Hissy Fitz
 }
 
 # Outline inks: the deepest, greyest colours, one per hue region.
@@ -110,7 +132,12 @@ INKS = {
     "pewter": (52, 52, 64),     # light ramps (white, ice): a soft line, not a black one
 }
 
-_RAMP_ORDER = list(WINDOWS)
+# Lines and ramps used only by name: snapping (nearest, snap, snap_list, snap_ramp's best
+# fit) and ramp_for skip them, so adding them left every arena and every old
+# (base, light, dark) triple exactly as it was. The peach line is one.
+NAMED_ONLY = ("chartreuse", "peach",)
+NAMED_ONLY_RAMPS = tuple(n for n, (line, _s) in WINDOWS.items() if line in NAMED_ONLY)
+_RAMP_ORDER = [n for n in WINDOWS if n not in NAMED_ONLY_RAMPS]
 
 
 def _window(line, start, shift=0):
@@ -181,7 +208,9 @@ for _cols in GROUND.values():
     for _c in _cols:
         if _c not in ALL:
             ALL.append(_c)
-_ALL_NP = np.array(ALL, float)
+_NAMED = {c for n in NAMED_ONLY for c in LINES[n]}
+_SNAP = [c for c in ALL if c not in _NAMED]   # what snapping lands on
+_ALL_NP = np.array(_SNAP, float)
 _ALL_LAB = oklab(_ALL_NP)
 _BASES = np.array([RAMPS[n][2] for n in _RAMP_ORDER], float)
 _BASES_LAB = oklab(_BASES)
@@ -200,8 +229,9 @@ def _dist(lab_a, lab_b):
 
 
 def nearest(rgb):
-    """The palette colour nearest `rgb` (perceptual distance, hue first)."""
-    return ALL[int(np.argmin(_dist(_ALL_LAB, oklab(rgb))))]
+    """The palette colour nearest `rgb` (perceptual distance, hue first; never a
+    NAMED_ONLY line's)."""
+    return _SNAP[int(np.argmin(_dist(_ALL_LAB, oklab(rgb))))]
 
 
 def snap_list(colours):
@@ -225,7 +255,8 @@ def snap_ramp(colours, contrast=1.0, keep_shadow=False, line=None):
     lo = 1 if keep_shadow else 0
     mid = (labs0[lo:, 0].max() + labs0[lo:, 0].min()) / 2
     best = None
-    lines = dict(LINES, **GROUND) if line is not None else LINES
+    lines = dict(LINES, **GROUND) if line is not None else \
+        {n: c for n, c in LINES.items() if n not in NAMED_ONLY}
     for name, cols in lines.items():
         if line is not None and name != line:
             continue
@@ -293,7 +324,8 @@ def snap(arr, dither=True):
 
 
 def ramp_for(rgb):
-    """(name, five colours) of the ramp whose base is nearest `rgb`."""
+    """(name, five colours) of the ramp whose base is nearest `rgb` (NAMED_ONLY ramps
+    are left out: name them)."""
     name = _RAMP_ORDER[int(np.argmin(_dist(_BASES_LAB, oklab(rgb))))]
     return name, list(RAMPS[name])
 
