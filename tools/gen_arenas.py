@@ -41,9 +41,13 @@ everything else, and these rules keep it consistent:
     and sharpened (SEAM_SHARP): flat tone steps with a few px of two-tone seam, never a wide
     mesh. Lines, pits, decals and pieces are drawn after it and keep their contrast.
   - Big directional floor features, 16-48 px (a floor pixel is 2 px of the 960x540 base
-    screen), through the same floor_shift: drag stripes on the stadium, tool tracks and drag
-    marks in the quarry, wet sheen bands on the floodgate, a mown checker in the greenhouse
-    and twin keeps, wind ripples and deep ruts on the caravan pass. Scattered single-pixel
+    screen), through the same floor_shift: broken drag stripes on the stadium, short curved
+    runs of tread prints and drag marks in the quarry, wet sheen bands on the floodgate, a
+    mown checker in the greenhouse and twin keeps, wind ripples and deep ruts on the caravan
+    pass. Keep them quieter than the chalk and the fighters: the stripes and checkers are a
+    dithered half step (HALF_STEP, a second floor_shift with sharp=1), the stripes break into
+    runs (`mower_stripes`) and fade out over the middle third (`centre_fade`), and the
+    quarry's marks are short, curved and sparse, faded in the middle. Scattered single-pixel
     specks are kept few: at game zoom they read as salt.
   - Everything with height has a face toward the camera (the light always comes from the
     back): `faces` darkens the lowest rows of a mass by ~0.4 of its CAST_HEIGHT and lights
@@ -553,7 +557,8 @@ def stadium():
     # Dragged clay: broad stripes 24 px wide running away from the camera, as a groundskeeper's
     # drag leaves them, wavering a little; and the far-to-near gradient.
     yy, xx = np.mgrid[0:FH, 0:FW].astype(float)
-    floor_shift(img, "earth_fine", depth_shift() + stripe_shift(xx + _CLAY_WOB, 48.0))
+    floor_shift(img, "earth_fine", depth_shift())
+    floor_shift(img, "earth_fine", mower_stripes(prng, 48.0, _CLAY_WOB) * centre_fade() * HALF_STEP, sharp=1.0)
     _clods(img, prng, 900)
     _scuffs(img, prng, 60)
     _pebbles(img, prng, 140)
@@ -794,10 +799,46 @@ def stripe_shift(coord, period, steps=1.0, edge=3.0):
     return (s * 0.5 + 0.5) * steps
 
 
+HALF_STEP = 0.5     # the soft features' strength: a dithered half step on the ground line
+
+
+def centre_fade(inner=0.33, ramp=0.3):
+    """0 over the middle of the floor (an ellipse `inner` of the way out), rising to 1 by
+    `inner + ramp`: features fade out where the fights happen and the chalk rules."""
+    yy, xx = np.mgrid[0:FH, 0:FW].astype(float)
+    d = np.sqrt(((xx - FW / 2) / (FW / 2)) ** 2 + ((yy - FH / 2) / (FH / 2)) ** 2)
+    return np.clip((d - inner) / ramp, 0.0, 1.0)
+
+
+def mower_stripes(rng, period, wob):
+    """Mower or drag stripes running away from the camera: every other band of `period / 2`
+    px (each band's width varied a little), broken into runs that end and restart down
+    the floor, so they read as passes of a machine, not wallpaper. 0 or 1 per pixel."""
+    yy, xx = np.mgrid[0:FH, 0:FW].astype(float)
+    u = (xx + wob) / period
+    k = np.floor(u).astype(int)
+    n = k.max() + 2
+    width = np.array([0.4 + 0.2 * rng.random() for _ in range(n)])
+    on = (u - k) < width[np.clip(k, 0, n - 1)]
+    runs = np.zeros((FH, FW), bool)
+    for i in range(k.min(), n):
+        col = k == i
+        if not col.any():
+            continue
+        prof = value_noise(FH, 1, 36, np.random.default_rng(int(rng.random() * 1e9)))[:, 0]
+        runs |= col & (prof[:, None] > 0.42)
+    return (on & runs).astype(float)
+
+
+def checker(xx, yy, size):
+    """1 on alternate `size` px squares (a pitch mown both ways), else 0."""
+    return (((xx // size) + (yy // size)) % 2).astype(float)
+
+
 SEAM_SHARP = 6.0     # how fast floor_shift's dithered seams turn over (a seam is a few px wide)
 
 
-def floor_shift(img, line, steps):
+def floor_shift(img, line, steps, sharp=None):
     """Moves every floor pixel whose colour is on the palette ground line `line` (an arena
     floor's fine line, palette.GROUND) by `steps` (a floor-sized field, fractions allowed)
     along the line. Fractions are ordered-dithered with the 4x4 matrix aligned to the
@@ -806,7 +847,9 @@ def floor_shift(img, line, steps):
     two-tone seams, never a wide checker mesh, and the noise patches keep their shapes.
     Call it right after the ground is painted, before the details and before a map copies
     its floor for the changed picture: the main, cracked and changed pictures then all
-    carry it, pixel for pixel."""
+    carry it, pixel for pixel. `sharp=1` keeps plain ordered dither: a field of 0.5 is a
+    dithered half step (the soft features, HALF_STEP), applied in a second call so the
+    gradient's seams stay sharp."""
     cols = np.array(P.GROUND[line], int)
     blk = img[FY0:FY0 + FH, FX0:FX0 + FW]
     rgb = blk[:, :, :3].astype(int)
@@ -817,7 +860,8 @@ def floor_shift(img, line, steps):
         idx[code == k] = i
     t = np.tile(BAYER4, (FH // 4 + 1, FW // 4 + 1))[:FH, :FW] + 0.5 / 16.0
     whole = np.floor(steps)
-    frac = np.clip((steps - whole - 0.5) * SEAM_SHARP + 0.5, 0.0, 1.0)
+    k_sharp = SEAM_SHARP if sharp is None else sharp
+    frac = np.clip((steps - whole - 0.5) * k_sharp + 0.5, 0.0, 1.0)
     k = (whole + np.floor(frac + t)).astype(int)
     on = idx >= 0
     new = np.clip(idx + k, 0, len(cols) - 1)
@@ -974,35 +1018,40 @@ def rubble_floor(img, rng, rect_):
 
 
 def quarry_tracks(rng):
-    """The quarry floor's big marks, as a floor_shift field (palette steps): the tread tracks
-    of a loader swinging across the bowl (two treads 6 px wide, lugs every 5 px) and the
-    drag marks of stone hauled out (three grooves together, a lit lip under each)."""
+    """The quarry floor's big marks, as a floor_shift field (palette steps): a few short,
+    curved runs of a loader's tread prints (two treads 18 px apart, a block every 5 px, so
+    they read as prints, not rails) and a few drag marks of stone hauled out (two grooves,
+    a lit lip under each). Kept off the middle of the floor (centre_fade)."""
     v = np.zeros((FH, FW))
     yy, xx = np.mgrid[0:FH, 0:FW].astype(float)
-    for k in range(2):
-        y0 = FH * (0.3 + 0.4 * k) + (rng.random() - 0.5) * 20
-        amp, per, ph = 10 + rng.random() * 18, 260 + rng.random() * 200, rng.random() * 6.28
-        path = y0 + amp * np.sin(xx / per * 2 * math.pi + ph)
-        fade = np.clip(1.0 - np.abs(xx - FW * (0.3 + 0.4 * rng.random())) / (FW * 0.4), 0.0, 1.0) ** 0.7
-        for side in (-11.0, 11.0):
-            off = yy - (path + side)
-            tread = np.abs(off) <= 3.0
-            lug = ((xx + (3 if side > 0 else 0)) % 5) < 2
-            v -= np.where(tread, 1.0 + np.where(lug, 1.0, 0.0), 0.0) * fade
-            v += np.where(np.abs(off - 4.0) < 0.5, 1.0, 0.0) * fade     # the lit edge in front
-    for _ in range(7):
+    for _ in range(3):
+        cx, cy = FW * (0.15 + 0.7 * rng.random()), FH * (0.15 + 0.7 * rng.random())
+        r = 70 + rng.random() * 60                      # the turn's radius
+        a0 = rng.random() * 2 * math.pi
+        span = (130 + rng.random() * 60) / r            # an arc 130-190 px long
+        dx, dy = xx - cx, yy - cy
+        dist = np.sqrt(dx * dx + dy * dy)
+        ang = np.mod(np.arctan2(dy, dx) - a0, 2 * math.pi)
+        along = ang < span
+        s_len = ang * r                                 # px along the arc
+        taper = np.clip(np.minimum(s_len, span * r - s_len) / 24.0, 0.0, 1.0)
+        for off in (-9.0, 9.0):
+            tread = along & (np.abs(dist - (r + off)) <= 2.5)
+            lug = (np.floor(s_len + (2 if off > 0 else 0)) % 5) < 3
+            v -= np.where(tread & lug, 1.0, 0.0) * taper
+    for _ in range(4):
         x0, y0 = rng.random() * FW, 20 + rng.random() * (FH - 40)
-        ang = (rng.random() - 0.5) * 0.5
-        ln = 70 + rng.random() * 90
-        bend = (rng.random() - 0.5) * 0.002
+        ang = (rng.random() - 0.5) * 0.6
+        ln = 60 + rng.random() * 60
+        bend = (rng.random() - 0.5) * 0.004
         t = (xx - x0) * math.cos(ang) + (yy - y0) * math.sin(ang)
         n = -(xx - x0) * math.sin(ang) + (yy - y0) * math.cos(ang) - bend * t * t
         along = (t > 0) & (t < ln)
         taper = np.clip(np.minimum(t, ln - t) / 20.0, 0.0, 1.0)
-        for g in (-4.0, 0.0, 4.0):
-            v -= np.where(along & (np.abs(n - g) < 1.0), 2.0, 0.0) * taper
+        for g in (-2.5, 2.5):
+            v -= np.where(along & (np.abs(n - g) < 1.0), 1.0, 0.0) * taper
             v += np.where(along & (np.abs(n - g - 1.5) < 0.5), 1.0, 0.0) * taper
-    return v
+    return v * (0.25 + 0.75 * centre_fade(0.25, 0.3))
 
 
 def quarry():
@@ -1253,7 +1302,8 @@ def greenhouse():
     # mown in a checker, the way a pitch is cut: broad stripes 32 px wide running away from
     # the camera, crossed by fainter ones, so the lawn reads as a plane
     paint(img, dither(v, GRASS, spread=0.4), GRASS, FX0, FY0)
-    floor_shift(img, "moss_fine", depth_shift() + stripe_shift(xx + 16, 64.0) + stripe_shift(yy + 8, 64.0, 0.5))
+    floor_shift(img, "moss_fine", depth_shift())
+    floor_shift(img, "moss_fine", checker(xx + 16, yy + 8, 32) * HALF_STEP, sharp=1.0)
     # trodden pale on the starting spots and between them: worn grass, not bare soil
     wear = np.zeros((FH, FW))
     for sx in (FW / 2 - 100, FW / 2 + 100):
@@ -1523,7 +1573,8 @@ def twin_keeps():
     yy, xx = np.mgrid[0:FH, 0:FW].astype(float)
     # the meadow mown in wide bands, 40 px, running away from the camera, crossed faintly
     paint(img, dither(v, GRASS, spread=0.4), GRASS, FX0, FY0)
-    floor_shift(img, "moss_fine", depth_shift() + stripe_shift(xx + 20, 80.0) + stripe_shift(yy, 96.0, 0.5))
+    floor_shift(img, "moss_fine", depth_shift())
+    floor_shift(img, "moss_fine", checker(xx + 20, yy, 40) * HALF_STEP, sharp=1.0)
     # Worn dirt lanes: the middle road from gate to bridge to gate, and the two flank paths.
     wob = (value_noise(FH, FW, 40, rng) - 0.5) * 18.0
     lane = np.minimum(np.abs(yy - FH / 2 + wob), np.minimum(np.abs(yy - 70 + wob), np.abs(yy - (FH - 70) + wob)))
