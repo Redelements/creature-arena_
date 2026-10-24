@@ -33,21 +33,23 @@ VIEWS = {
     "up": {"w": 112, "h": 128, "origin": (56, 92)},
 }
 
+# Master-palette ramps (tools/palette.py), picked to the character sheet's colours: the
+# sneak palette is the dark ones (ink mask, slate sweater, deep blue jeans).
 MAT = {
-    "skin": ((246, 160, 176), (255, 196, 206), (214, 120, 140)),
-    "mask": ((20, 18, 22), (60, 60, 70), (6, 6, 8)),
-    "white": ((248, 248, 244), (255, 255, 255), (210, 210, 204)),
-    "black": ((16, 14, 16), (40, 40, 44), (6, 6, 8)),
-    "beanie": ((236, 120, 36), (255, 164, 84), (190, 84, 20)),
-    "stripe": ((196, 84, 18), (220, 110, 40), (150, 60, 10)),
-    "sweater": ((70, 70, 74), (104, 104, 110), (44, 44, 48)),
-    "jeans": ((36, 44, 116), (62, 72, 160), (22, 26, 78)),
-    "shoe": ((130, 84, 48), (168, 116, 72), (92, 56, 30)),
-    "bag": ((28, 112, 48), (52, 150, 70), (16, 74, 30)),
-    "cord": ((14, 70, 28), (30, 96, 44), (8, 46, 18)),
-    "gold": ((250, 204, 40), (255, 240, 130), (200, 150, 14)),
+    "skin": "pink",
+    "mask": "ink",
+    "white": ("white", 1),
+    "black": "ink",
+    "beanie": "orange",
+    "stripe": ("orange", -1),
+    "sweater": "slate",
+    "jeans": ("blue", -1),
+    "shoe": "earth",
+    "bag": ("green", -1),
+    "cord": ("green", -2),
+    "gold": "gold",
 }
-S.configure(MAT, outline=(14, 12, 14, 255), scale=0.8, near=12.0)
+S.configure(MAT, scale=0.8, near=12.0)
 S.COLS = 12  # the run, Sack Smack, Tiptoe and The Big Heist have 12 frames
 
 AXES = ((0, 0, 1), (0, 1, 0), (1, 0, 0))  # fwd, up, lat: an upright ellipsoid's frame

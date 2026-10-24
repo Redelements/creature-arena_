@@ -115,7 +115,7 @@ update the map in the same change.
 | LAN discovery | `src/net/lan_finder.gd`, `src/net/server_beacon.gd` | server |
 | cross-platform determinism check | `src/net/sim_check.gd` (`--sim-check`) | determinism |
 | running tests, a new test | `tests/run_tests.gd`, `tests/test_case.gd` (see `tests/CLAUDE.md`) | |
-| sprite generators, new fighter art | `tools/splat3d.py`, `tools/gen_digby.py` (see `tools/CLAUDE.md`) | views |
+| sprite generators, new fighter art, master palette, shading, outlines | `tools/splat3d.py` (`shade`, `outline`, `configure`), `tools/palette.py` (ramps, inks, `snap`), `tools/gen_digby.py` (see `tools/CLAUDE.md`; rules in `docs/SPRITES.md` "Palette") | views (`anim_preview.py --check all`) |
 | animation pass: in-betweens, overlap, eased spacing, preview GIFs, frame timelines | `tools/splat3d.py:tween`, `cycle`, `lag`, `lag_at`; `tools/anim_preview.py` (`gen_<id>.py anim`, `--check <id>`); each generator's `render_frame` / `frame_spec`; recipe in `docs/SPRITES.md` "Animation pass" | views (`anim_preview.py --check all`, `--selftest`) |
 | CI, builds | `.github/workflows/tests.yml`, `.github/workflows/playable-build.yml` | |
 

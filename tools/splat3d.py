@@ -1,9 +1,12 @@
 """Shared renderer for the sheet-recreation sprite generators (tools/gen_digby.py and later).
 
 A rig is posed in 3D and every piece is sampled densely as points (ellipsoids, tubes,
-flat plates, boxes, cylinders), splatted into a depth buffer per view, then shaded in
-three tones from the surface normal and outlined round the silhouette and along every
-seam between pieces. The cameras are Barkley's (tools/gen_barkley.py): a cheated 3/4 side
+flat plates, boxes, cylinders), splatted into a depth buffer per view, then shaded from
+the surface normal with a five-step ramp of the master palette (tools/palette.py: a
+small highlight, light and base on the lit side, a hard terminator, one dark step for the
+core shadow, a one-pixel rim light on the edge away from the key light) and outlined
+round the silhouette in each material's own ink, and along every seam between pieces one
+step lighter. The cameras are Barkley's (tools/gen_barkley.py): a cheated 3/4 side
 view and facing-down / facing-up views. A point is (lat, up, fwd): lat toward the
 creature's right side, up off the floor, fwd the way it faces.
 
@@ -13,7 +16,8 @@ rig (`build(pose, view)` -> a list of sampled parts), optional decoration of the
 image (`decorate(r, img)`, for faces and other painted details), and its poses.
 
     import splat3d as S
-    S.configure(MAT, outline=(14, 12, 14, 255), scale=0.72)
+    MAT = {"fur": "rust", "belly": ("rust", 1), "eye": "ink"}   # palette ramps per material
+    S.configure(MAT, scale=0.72)
     S.write_sheets(ROWS, VIEW_ROWS, OUT, PREVIEW, SIDE, VIEWS, build, decorate)
 
 Animation tools for every generator (tween, ease, cycle, lag, lag_at) are at the end of
@@ -25,6 +29,8 @@ import os
 
 import numpy as np
 from PIL import Image, ImageDraw
+
+import palette as P
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 COLS = 8
@@ -42,14 +48,62 @@ SCALE = 0.72
 LIGHT = (-0.55, -0.7, 0.45)
 
 
-def configure(mat, outline=(14, 12, 14, 255), scale=0.72, step=0.33, outline_mats=None, near=18.0):
-    """Palette (name -> (base, light, dark)), outline colour, drawing scale, sample step,
-    and how deep the body's roundness is flattened in the up/down views (`near`)."""
-    global MAT, MAT_ID, ID_MAT, OUTLINE, SCALE, STEP, OUTLINE_MATS
+RAMP = {}   # material name -> its five colours (deep, dark, base, light, highlight)
+INK = {}    # material name -> its silhouette outline colour
+SEAM = {}   # material name -> its seam colour (one step lighter than the outline)
+
+
+def _luma(c):
+    return 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]
+
+
+def _is_rgb(c):
+    return isinstance(c, (tuple, list)) and len(c) in (3, 4) and all(isinstance(v, (int, np.integer)) for v in c)
+
+
+def material_ramp(spec):
+    """A material's five colours from any of the forms configure() takes:
+      "rust"                      a master-palette ramp by name
+      ("stone", 1)                a ramp moved along its line (+1 one step lighter)
+      [c0, c1, c2, c3, c4]        five colours already (palette.flat(...) for unshaded ones)
+      (base, light, dark)         the old three-tone triple: snapped through
+                                  palette.ramp_for(base); a triple of one colour stays flat
+    """
+    if isinstance(spec, str):
+        return [tuple(c) for c in P.ramp(spec)]
+    if isinstance(spec, (tuple, list)) and len(spec) == 2 and isinstance(spec[0], str):
+        return [tuple(c) for c in P.ramp(spec[0], int(spec[1]))]
+    if isinstance(spec, (tuple, list)) and len(spec) == 5 and all(_is_rgb(c) for c in spec):
+        return [tuple(c[:3]) for c in spec]
+    if isinstance(spec, (tuple, list)) and len(spec) == 3 and all(_is_rgb(c) for c in spec):
+        base, li, dk = (tuple(c[:3]) for c in spec)
+        if base == li == dk:
+            return [P.nearest(base)] * 5
+        return [tuple(c) for c in P.ramp_for(base)[1]]
+    raise ValueError("material: a ramp name, (name, shift), five colours or (base, light, dark): %r" % (spec,))
+
+
+def configure(mat, outline=None, scale=0.72, step=0.33, outline_mats=None, near=18.0):
+    """Palette (name -> a master-palette ramp, see material_ramp), drawing scale, sample
+    step, and how deep the body's roundness is flattened in the up/down views (`near`).
+    Each material outlines in its own ramp's ink (palette.ink_for); `outline` forces one
+    colour for every silhouette (the old behaviour), `outline_mats` one per material."""
+    global MAT, MAT_ID, ID_MAT, OUTLINE, SCALE, STEP, OUTLINE_MATS, RAMP, INK, SEAM
     MAT = dict(mat)
     MAT_ID = {name: i + 1 for i, name in enumerate(MAT)}
     ID_MAT = {i: name for name, i in MAT_ID.items()}
-    OUTLINE = outline
+    RAMP = {name: material_ramp(spec) for name, spec in MAT.items()}
+    INK = {}
+    SEAM = {}
+    for name, r5 in RAMP.items():
+        if outline is not None:
+            INK[name] = SEAM[name] = tuple(outline[:3])
+            continue
+        ink = tuple(P.ink_for(r5))
+        INK[name] = ink
+        # seams one step lighter than the outline: the deep step, unless that's darker
+        SEAM[name] = next((c for c in r5[:2] if _luma(c) > _luma(ink) + 6), ink)
+    OUTLINE = tuple(outline) if outline is not None else (14, 12, 20, 255)
     SCALE = scale
     STEP = step
     OUTLINE_MATS = dict(outline_mats or {})
@@ -438,51 +492,160 @@ def rasterise(pose, view, build):
     }
 
 
-def shade(r):
-    """Three-tone shading per material, lit from the top left. Leaves r["lum"]."""
+# Ramp shading thresholds on lum (the screen normal against LIGHT): highlight, light, and
+# where the shadow starts (the terminator). Below it everything is one dark step: a low
+# contrast core shadow, so round shapes keep their mass without going muddy.
+LUM_HIGH = 0.90
+LUM_LIGHT = 0.45
+LUM_SHADOW = -0.12
+RIM = True          # a one-pixel rim light on the shadowed edge facing away from the key
+RIM_SIDE = 0.25     # how far the screen normal must point away from the light to catch it
+RIM_DEPTH = 6.0     # a piece this far in front of the one behind counts as an edge too
+SOFT_SEAM = 3.0    # a seam between pieces of one material this close in depth is drawn softer
+
+
+def _lut(table, n_default=3):
+    """Per-material colours as an array indexed by material id (0 = empty)."""
+    first = next(iter(table.values())) if table else None
+    shape = np.asarray(first).shape if first is not None else (n_default,)
+    lut = np.zeros((len(MAT_ID) + 1,) + shape, np.uint8)
+    for name, mid in MAT_ID.items():
+        lut[mid] = np.asarray(table[name], np.uint8)
+    return lut
+
+
+def shade_levels(r):
+    """The ramp step of every pixel (0 deep .. 4 highlight). Leaves r["lum"], r["sd"],
+    r["level"]; the rim light lifts the shadowed edge facing away from the key one step."""
     cam = r["cam"]
     mat = r["mat"]
     filled = mat > 0
-    img = np.zeros((H, W, 4), np.uint8)
-    sd = cam.screen_dir(r["nrm"].reshape(-1, 3)).reshape(H, W, 3)
+    h, w = mat.shape
+    sd = cam.screen_dir(r["nrm"].reshape(-1, 3)).reshape(h, w, 3)
     light = np.array(LIGHT)
     light /= np.linalg.norm(light)
     lum = sd @ light
+    level = np.full((h, w), 2, np.int8)
+    level[lum > LUM_LIGHT] = 3
+    level[lum > LUM_HIGH] = 4
+    level[lum < LUM_SHADOW] = 1
+    level = _despeckle(level, mat, filled)
+    if RIM:
+        # the edge: an empty pixel or a piece well behind, on the side away from the key
+        # light (the light comes from the top left, so the right and lower right)
+        z = r["z"]
+        edge = np.zeros_like(filled)
+        for dx, dy in ((1, 0), (1, 1), (0, 1)):
+            nf = _shifted(filled, dx, dy, False)
+            nz_ = _shifted(z, dx, dy, -np.inf)
+            with np.errstate(invalid="ignore"):
+                edge |= filled & (~nf | (nz_ < z - RIM_DEPTH))
+        away = (sd[:, :, 0] * -light[0] + sd[:, :, 1] * -light[1]) > RIM_SIDE
+        rim = edge & away & (level <= 1)
+        level[rim] += 1
+        r["rim"] = rim
+    level[~filled] = 0
     r["lum"] = lum
-    for name, mid in MAT_ID.items():
-        m = filled & (mat == mid)
-        if not m.any():
-            continue
-        base, li, dk = MAT[name]
-        col = np.zeros((H, W, 3), np.uint8)
-        col[:] = base
-        col[lum > 0.5] = li
-        col[lum < -0.12] = dk
-        img[m, :3] = col[m]
-        img[m, 3] = 255
+    r["sd"] = sd
+    r["level"] = level
+    return level
+
+
+def _despeckle(level, mat, filled, passes=2):
+    """Pixel-art cleanup: a lone pixel whose tone none of its neighbours of the same
+    material share takes the tone most of them have (the splats' normals wobble, which
+    otherwise salts the light and shadow edges with single pixels)."""
+    for _ in range(passes):
+        same_lvl = np.zeros(level.shape, np.int8)
+        votes = np.zeros(level.shape + (5,), np.int8)
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            nl = _shifted(level, dx, dy, -1)
+            nm = _shifted(mat, dx, dy, 0)
+            ok = filled & (nm == mat)
+            same_lvl += (ok & (nl == level)).astype(np.int8)
+            for k in range(5):
+                votes[..., k] += (ok & (nl == k)).astype(np.int8)
+        best = votes.argmax(axis=2).astype(np.int8)
+        lone = filled & (same_lvl == 0) & (votes.max(axis=2) >= 2)
+        if not lone.any():
+            break
+        level = np.where(lone, best, level)
+    return level
+
+
+def _shifted(a, dx, dy, fill):
+    """The value at (x + dx, y + dy), brought to (x, y); `fill` past the frame's edge."""
+    out = np.full_like(a, fill)
+    h, w = a.shape[:2]
+    ys0, ys1 = max(0, -dy), min(h, h - dy)
+    xs0, xs1 = max(0, -dx), min(w, w - dx)
+    out[ys0:ys1, xs0:xs1] = a[ys0 + dy:ys1 + dy, xs0 + dx:xs1 + dx]
+    return out
+
+
+def shade(r):
+    """Ramp shading per material from the master palette (tools/palette.py): highlight,
+    light and base on the lit side, a hard terminator, one dark step for the core shadow,
+    and a one-pixel rim light on the far edge. Leaves r["lum"] and r["level"]."""
+    mat = r["mat"]
+    filled = mat > 0
+    level = shade_levels(r)
+    ramps = _lut(RAMP)                       # (n, 5, 3)
+    img = np.zeros(mat.shape + (4,), np.uint8)
+    img[filled, :3] = ramps[mat[filled], level[filled]]
+    img[filled, 3] = 255
     return img
 
 
+def silhouette(r, filled):
+    """The 1 px ring outside the silhouette and its colour per pixel: the ink of the
+    frontmost material beside it. Returns (ring mask, (H, W, 3) colours)."""
+    z = r["z"]
+    mat = r["mat"]
+    ring = np.zeros_like(filled)
+    best = np.full(z.shape, -np.inf)
+    ring_mat = np.zeros_like(mat)
+    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        nf = _shifted(filled, dx, dy, False)
+        nz_ = _shifted(z, dx, dy, -np.inf)
+        nm = _shifted(mat, dx, dy, 0)
+        take = nf & ~filled & (nz_ > best)
+        ring |= nf & ~filled
+        best = np.where(take, nz_, best)
+        ring_mat = np.where(take, nm, ring_mat)
+    inks = _lut(INK)
+    inks[0] = OUTLINE[:3]   # beside a pixel decorate() painted outside the rig
+    return ring, inks[ring_mat]
+
+
 def outline(r, img):
-    """A 1 px line round the silhouette and along seams where one piece passes in front
-    of another."""
+    """A 1 px line round the silhouette in each material's own ink (the frontmost piece
+    beside it picks), and along seams where one piece passes in front of another, drawn
+    on the piece behind in its seam colour (one step lighter than its ink)."""
     a = img.copy()
     filled = a[:, :, 3] > 0
     part = r["part"]
     z = r["z"]
     mat = r["mat"]
-    ring = np.zeros_like(filled)
-    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-        ring |= np.roll(np.roll(filled, dy, 0), dx, 1) & ~filled
-    a[ring] = OUTLINE
+    seams = _lut(SEAM)
+    ring, ring_col = silhouette(r, filled)
+    a[ring, :3] = ring_col[ring]
+    a[ring, 3] = 255
     seam = np.zeros_like(filled)
+    hard = np.zeros_like(filled)
     for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-        pz = np.roll(np.roll(z, dy, 0), dx, 1)
-        pp = np.roll(np.roll(part, dy, 0), dx, 1)
-        pf = np.roll(np.roll(filled, dy, 0), dx, 1)
+        pz = _shifted(z, dx, dy, -np.inf)
+        pp = _shifted(part, dx, dy, 0)
+        pf = _shifted(filled, dx, dy, False)
+        pm = _shifted(mat, dx, dy, 0)
         with np.errstate(invalid="ignore"):
-            seam |= filled & pf & (pp != part) & (pz > z + 0.8)
-    a[seam] = OUTLINE
+            s = filled & pf & (pp != part) & (pz > z + 0.8)
+            hard |= s & ((pm != mat) | (pz > z + SOFT_SEAM))
+        seam |= s
+    a[seam, :3] = seams[mat[seam]]
+    # pieces of one material close together (claws, tufts, toes) part with the dark step
+    soft = seam & ~hard
+    a[soft, :3] = _lut(RAMP)[mat[soft], 1]
     for name, col in OUTLINE_MATS.items():
         mid = MAT_ID[name]
         near = np.zeros_like(filled)
