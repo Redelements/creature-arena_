@@ -8,6 +8,16 @@
 		"motes": {"kind": "sundust", "count": 38},
 		"grit": {"every": 110},
 		"critters": {"kind": "devil", "every": 1800, "life": 420}},
+	"furniture": [
+		{"kind": "worklight", "pos": [-30, 56], "h": 50},
+		{"kind": "worklight", "pos": [30, 56], "anchor": "tr", "h": 50, "mirror": true},
+		{"kind": "worklight", "pos": [-34, 22], "anchor": "bl", "h": 40},
+		{"kind": "worklight", "pos": [34, 22], "anchor": "br", "h": 40, "mirror": true},
+		{"kind": "crane", "pos": [185, -22], "h": 110},
+		{"kind": "crane", "pos": [335, -22], "h": 90, "mirror": true},
+		{"kind": "sponsor", "pos": [193, 54], "text": "MUD&SONS", "color": "#b0442c", "w": 62},
+		{"kind": "sponsor", "pos": [449, 54], "text": "POP-ROCK", "color": "#d2a028", "w": 62}
+	],
 	"pieces": [
 		{"kind": "wall", "rect": [20, 5, 2, 26]},
 		{"kind": "wall", "rect": [62, 5, 2, 26]}

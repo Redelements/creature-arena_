@@ -15,6 +15,21 @@
 	"spawns": {"left": [60, 224], "right": [1732, 224]},
 	"track": [[90, 224], [300, 224], [420, 150], [640, 150], [760, 260], [896, 260],
 		[1032, 260], [1152, 150], [1372, 150], [1492, 224], [1702, 224]],
+	"furniture": [
+		{"kind": "banner", "pos": [-750, -27], "anchor": "t", "color": "#d2a028", "emblem": 0, "h": 34},
+		{"kind": "banner", "pos": [-450, -27], "anchor": "t", "color": "#b0442c", "emblem": 1, "h": 34},
+		{"kind": "banner", "pos": [-150, -27], "anchor": "t", "color": "#1c7480", "emblem": 2, "h": 34},
+		{"kind": "banner", "pos": [150, -27], "anchor": "t", "color": "#d2a028", "emblem": 0, "h": 34},
+		{"kind": "banner", "pos": [450, -27], "anchor": "t", "color": "#b0442c", "emblem": 1, "h": 34},
+		{"kind": "banner", "pos": [750, -27], "anchor": "t", "color": "#1c7480", "emblem": 2, "h": 34},
+		{"kind": "torch", "pos": [-30, 56]},
+		{"kind": "torch", "pos": [30, 56], "anchor": "tr", "mirror": true},
+		{"kind": "torch", "pos": [-30, 22], "anchor": "bl"},
+		{"kind": "torch", "pos": [30, 22], "anchor": "br", "mirror": true},
+		{"kind": "torch", "pos": [600, 54]},
+		{"kind": "torch", "pos": [1200, 54]},
+		{"kind": "sponsor", "pos": [321, 54], "text": "NOODLE HQ", "color": "#b0442c", "w": 62}
+	],
 	"pieces": [
 		{"kind": "wall", "rect": [30, 2, 2, 6]},
 		{"kind": "wall", "rect": [52, 22, 2, 8]},

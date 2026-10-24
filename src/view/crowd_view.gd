@@ -26,6 +26,8 @@ const FRONT_CROP := 12  ## a front-row fan shows its top 12 px over its seat bac
 ## edge (main._cam_axis), so these stands come into shot.
 const SHOW_SIDE := 64.0
 const SHOW_FRONT := 32.0
+## ...and above it: the two far tiers, the roof edge and a strip of sky (BackdropView).
+const SHOW_TOP := 88.0
 ## Seats are grouped in blocks about this big, each its own canvas item: a picture change
 ## redraws only the blocks near the screen, and a hit's fans only their own block.
 const BLOCK := 96.0
