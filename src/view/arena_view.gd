@@ -182,6 +182,9 @@ func _rebuild() -> void:
 	old.append_array(_pit_bands)
 	for b in old:
 		if b != null:
+			# Out of the tree now: a freed band lingers to the end of the frame and would
+			# still draw its old rows over the new terrain (a big map, then a smaller one).
+			remove_child(b)
 			b.queue_free()
 	_floor_bands.clear()
 	_pit_bands.clear()
