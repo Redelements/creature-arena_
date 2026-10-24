@@ -70,3 +70,50 @@ func test_attacking_down_the_screen_never_draws_over_the_fighter_in_front() -> v
 	v.refresh()
 	assert_eq(v.z_index, 0, "a downward punch stays in depth order:")
 	v.free()
+
+
+func test_idle_alt_plays_once_after_standing_still_and_resets_on_movement() -> void:
+	var v := _view("crease")
+	var c := v.c
+	assert_true(v._layout_has("idle_alt"), "crease has an idle_alt row")
+	var after := int(v.layout.get("idle_alt_after", CreatureView.IDLE_ALT_AFTER))
+	var ticks := int(v.layout.get("idle_ticks", 10)) * int(v._anim("idle_alt")[2])
+	c.state = CreatureSim.State.IDLE
+	v._still = 0
+	v._alt_t = -1
+	for i in range(after):
+		v.refresh()
+	assert_eq(v._pick()[0], "idle", "still idling just before the wait is up:")
+	v.refresh()
+	assert_eq(v._pick()[0], "idle_alt", "the fidget starts after the wait:")
+	assert_eq(int(v._pick()[1]), 0, "from its first frame:")
+	for i in range(ticks - 1):
+		v.refresh()
+	assert_eq(v._pick()[0], "idle_alt", "it plays to its last tick:")
+	v.refresh()
+	assert_eq(v._pick()[0], "idle", "then back to the idle:")
+	for i in range(after):
+		v.refresh()
+	assert_eq(v._pick()[0], "idle", "and the count restarts:")
+	v.refresh()
+	assert_eq(v._pick()[0], "idle_alt", "so it plays again after another wait:")
+	c.state = CreatureSim.State.MOVE
+	v.refresh()
+	assert_eq(v._pick()[0], "run", "moving interrupts it:")
+	c.state = CreatureSim.State.IDLE
+	for i in range(after):
+		v.refresh()
+	assert_eq(v._pick()[0], "idle", "and the wait starts over:")
+	v.free()
+
+
+func test_fighter_without_idle_alt_never_fidgets() -> void:
+	var v := _view("cairn")
+	v.c.state = CreatureSim.State.IDLE
+	if v._layout_has("idle_alt"):
+		v.free()
+		return
+	for i in range(CreatureView.IDLE_ALT_AFTER * 3):
+		v.refresh()
+	assert_eq(v._pick()[0], "idle", "no row, no fidget:")
+	v.free()

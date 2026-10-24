@@ -21,6 +21,7 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
 - An area drawn from data (a burst ring, an ice blast, a zone) reads the same number the
   sim hits with, so a bigger hit area shows as bigger. Projectiles are not drawn from their
   hit `radius`: shots look the same however wide they hit.
+- Idle variety: a sheet `anims` row `idle_alt` plays once after `sprite.idle_alt_after` ticks (default 300) of standing in IDLE (`CreatureView._update_idle_alt`, one step a refresh; anything but a plain idle resets it, the arena intro too). A fold step reads its frames from the move's `fold.anim_at` when it has one. `tests/test_views.gd` pins both.
 - Every sound name needs a `data/audio.json` entry. All audio is placeholder.
 - A new `class_name` needs `--headless --import`.
 - Cost: views redraw on the 60 Hz tick, and that frame has to fit a 240 Hz budget. Redraw
