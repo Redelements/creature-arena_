@@ -10,8 +10,9 @@ animation by name with its `"anim"` field.
 ## Directions per creature: three sheets, five with the diagonals
 
 Fighters face any of 8 ways, so every creature has **three sheets with the same rows**,
-and can have **two more for the diagonals** (Sneaky Pete has them; the other nine fighters
-draw their diagonals side-on until their round):
+and can have **two more for the diagonals** (Sneaky Pete, Culvert, Digby, Sno Mercy and
+Mister Crease have them; the other five fighters draw their diagonals side-on until their
+round):
 
 | Sheet | Shows | Used when facing |
 | --- | --- | --- |
@@ -105,6 +106,11 @@ still 24 ticks), footsteps on `step_frames` `[2, 7]` (the push-off and the landi
 ![Culvert sheet, 3x](culvert_preview.png)
 
 Facing down and up: [`culvert_views_preview.png`](culvert_views_preview.png).
+
+The diagonals (`culvert_down_side.png`, `culvert_up_side.png`): 96×96 like the others
+(no `"frame"` key), feet at x 48, y 80 (`down_side`) and y 74 (`up_side`), the plain
+45-degree cameras with no cheat. Five views side by side:
+[`anim_preview/culvert_diagonals_3x.png`](anim_preview/culvert_diagonals_3x.png).
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
@@ -428,6 +434,12 @@ dirt mound. Drawn at 0.8 scale, feet at **x 64, y 100**; up and down sheets are
 
 Facing down and up: [`digby_views_preview.png`](digby_views_preview.png).
 
+The diagonals (`digby_down_side.png`, `digby_up_side.png`): **128×128** (as wide as the
+side sheet, for the snout-to-tail length on the diagonal), feet at x 64, y 100
+(`down_side`) and y 90 (`up_side`), no cheat; the headlamp and pick are 3D parts of the rig,
+so they sit where each camera sees them. Five views side by side:
+[`anim_preview/digby_diagonals_3x.png`](anim_preview/digby_diagonals_3x.png).
+
 Every ability had the roster animation pass (Oct 2026): the motion plan with every
 `anim_at` is [`anim_preview/digby_motion_plan.md`](anim_preview/digby_motion_plan.md), and
 `python3 tools/gen_digby.py anim` renders the before/after previews. The idle is 8 frames
@@ -508,6 +520,12 @@ toward the camera (`SIDE_CHEAT`) so the face reads. Drawn at 0.8 scale, feet at
 
 Facing down and up: [`sno_views_preview.png`](sno_views_preview.png).
 
+The diagonals (`sno_down_side.png`, `sno_up_side.png`): **128×128**, feet at x 64, y 104
+(`down_side`) and y 92 (`up_side`). `SIDE_CHEAT` applies to the side view only: the
+45-degree `down_side` camera already shows his face, and `up_side` is a back three-quarter
+view (the face is out of sight, as in the up view). Five views side by side:
+[`anim_preview/sno_diagonals_3x.png`](anim_preview/sno_diagonals_3x.png).
+
 Animated with the roster pass (the Crease recipe, `anim_preview/sno_motion_plan.md`; the
 previews are `anim_preview/sno_*`): doubled frames on the same clock (`idle_ticks` 8 = a
 64-tick idle, `run_ticks` 2), eased spacing, held releases, overlap on the gloves, drip,
@@ -566,6 +584,12 @@ into the frames; the ones in his hands during a fold or a throw are in the frame
 ![Mister Crease sheet, 3x](crease_preview.png)
 
 Facing down and up: [`crease_views_preview.png`](crease_views_preview.png).
+
+The diagonals (`crease_down_side.png`, `crease_up_side.png`): **128×160**, feet at x 64,
+y 136 (`down_side`) and y 124 (`up_side`), no cheat. The paper pass works for them
+unchanged: `build` takes each view's camera from `S.Cam(view)`, so the paper backs, fold
+lines and seams follow the diagonal cameras. All 16 rows are drawn. Five views side by
+side: [`anim_preview/crease_diagonals_3x.png`](anim_preview/crease_diagonals_3x.png).
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
