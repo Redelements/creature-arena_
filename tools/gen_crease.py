@@ -34,6 +34,7 @@ from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import anim_preview as A  # noqa: E402
+import palette as P  # noqa: E402
 import splat3d as S  # noqa: E402
 from splat3d import rot_lat, rot_up, rot_fwd  # noqa: E402
 
@@ -46,33 +47,27 @@ VIEWS = {
     "up": {"w": 112, "h": 160, "origin": (56, 124)},
 }
 
-# (base, light, dark); the paper shader adds a sheen above light and a deep below dark.
+# Master-palette ramps (tools/palette.py); the paper shader uses all five steps, one flat
+# tone per face.
 MAT = {
-    "suit": ((34, 76, 156), (62, 114, 204), (18, 44, 102)),
-    "vest": ((132, 24, 72), (170, 48, 102), (86, 10, 46)),
-    "cape": ((122, 20, 64), (158, 40, 90), (76, 8, 40)),
-    "hat": ((246, 140, 24), (255, 184, 76), (200, 98, 12)),
-    "shoe": ((240, 132, 26), (255, 178, 70), (190, 92, 12)),
-    "collar": ((232, 44, 40), (255, 96, 80), (170, 20, 20)),
-    "void": ((14, 12, 22), (26, 24, 38), (6, 6, 12)),
-    "paper": ((236, 232, 220), (250, 248, 240), (204, 198, 184)),
-    "craft": ((222, 220, 212), (246, 246, 240), (178, 176, 168)),
+    "suit": "blue",
+    "vest": "wine",
+    "cape": ("wine", -1),
+    "hat": "orange",
+    "shoe": "orange",
+    "collar": "red",
+    "void": "ink",
+    "paper": "white",
+    "craft": ("white", -1),
 }
 SCALE = 1.1
-S.configure(MAT, outline=(10, 10, 22, 255), scale=SCALE, near=12.0)
+S.configure(MAT, scale=SCALE, near=12.0)
 S.COLS = 12  # the strut and the Surge have 12 frames
 
-
-def _mix(a, b, t):
-    return tuple(int(round(x + (y - x) * t)) for x, y in zip(a, b))
-
-
-# Five flat tones per material: sheen, light, base, dark, deep.
-TONES = {}
-for _name, (_base, _light, _dark) in MAT.items():
-    TONES[_name] = [_mix(_light, (255, 255, 255), 0.38), _light, _base, _dark, _mix(_dark, (0, 0, 0), 0.4)]
-TONES["void"] = [MAT["void"][1]] * 2 + [MAT["void"][0], MAT["void"][2], MAT["void"][2]]
-TONES["paper"] = [(255, 255, 252), (250, 248, 240), (236, 232, 220), (214, 208, 194), (190, 184, 170)]
+# Five flat tones per material: sheen, light, base, dark, deep (the ramp, light first).
+TONES = {name: list(reversed(S.RAMP[name])) for name in MAT}
+_v = S.RAMP["void"]
+TONES["void"] = [_v[3], _v[3], _v[2], _v[1], _v[1]]   # the hat's inside stays black
 
 SEAM_STEP = 2.5   # px of depth before a piece in front casts its thin shadow line on the one behind
 AXES = ((0, 0, 1), (0, 1, 0), (1, 0, 0))
@@ -832,7 +827,9 @@ def outline_paper(r, img):
         m = seam & (mat == mid)
         if m.any():
             a[m, :3] = TONES[name][4]
-    a[ring] = S.OUTLINE
+    ring, ring_col = S.silhouette(r, filled)   # each material's own ink
+    a[ring, :3] = ring_col[ring]
+    a[ring, 3] = 255
     return a
 
 
