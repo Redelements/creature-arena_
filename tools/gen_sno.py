@@ -34,20 +34,21 @@ VIEWS = {
     "up": {"w": 112, "h": 128, "origin": (56, 92)},
 }
 
+# Master-palette ramps (tools/palette.py), picked to the character sheet's colours.
 MAT = {
-    "ice": ((150, 230, 242), (200, 248, 255), (100, 186, 206)),
-    "rim": ((30, 40, 130), (60, 72, 180), (18, 24, 86)),
-    "red": ((236, 36, 40), (255, 100, 96), (180, 18, 26)),
-    "green": ((60, 220, 60), (140, 255, 130), (30, 160, 36)),
-    "fleck": ((246, 250, 255), (255, 255, 255), (210, 220, 230)),
-    "white": ((248, 248, 244), (255, 255, 255), (210, 210, 204)),
-    "black": ((16, 14, 16), (40, 40, 44), (6, 6, 8)),
-    "stick": ((128, 128, 132), (166, 166, 170), (90, 90, 96)),
-    "glove": ((214, 20, 30), (250, 70, 70), (150, 10, 20)),
-    "shoe": ((130, 84, 48), (168, 116, 72), (92, 56, 30)),
-    "syrup": ((248, 230, 30), (255, 250, 140), (206, 180, 10)),
+    "ice": "ice",
+    "rim": "blue",
+    "red": "red",
+    "green": "lime",
+    "fleck": ("white", 1),
+    "white": ("white", 1),
+    "black": "ink",
+    "stick": "concrete",
+    "glove": "red",
+    "shoe": "earth",
+    "syrup": "gold",
 }
-S.configure(MAT, outline=(14, 12, 14, 255), scale=0.8, near=14.0)
+S.configure(MAT, scale=0.8, near=14.0)
 S.COLS = 12  # the run, the heavy and the Surge have 12 frames
 AXES = ((0, 0, 1), (0, 1, 0), (1, 0, 0))
 

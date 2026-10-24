@@ -33,6 +33,15 @@ The look, so the floors stop reading as one repeated tile:
     up where the paint has worn;
   - walls and stands are drawn as solid shapes with a lit top edge and a dark base.
 Everything is seeded, so a run always writes the same pictures.
+
+Colours come from the master palette (tools/palette.py): every named colour is snapped to
+it and every ramp onto one palette line before drawing (`snap_constants`; the ground
+ramps are pulled together first, `FLOOR_CONTRAST`, so a floor is one main tone with
+patches a step off, not stains), and every picture is snapped once more as it's written
+(`save`): blends, soft shadow edges and fades are ordered-dithered between the two
+nearest palette colours, aligned to the floor's corner so the main, cracked and changed
+pictures match pixel for pixel. The crack mask and the flag are masks the view tints,
+not art, and aren't snapped.
 """
 import math
 import os
@@ -41,6 +50,9 @@ import sys
 
 import numpy as np
 from PIL import Image
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import palette as P  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SPRITES = os.path.join(ROOT, "assets", "sprites")
@@ -1288,7 +1300,10 @@ def twin_keeps():
     dirt = (lane < 7 + n * 5) & (xx > 150) & (xx < FW - 150)
     dirt |= (np.abs(yy - FH / 2 + wob) < 7 + n * 5)
     blk = img[FY0:FY0 + FH, FX0:FX0 + FW, :3].astype(float)
-    blk[dirt] = blk[dirt] * 0.4 + np.array(SOIL[2], float) * 0.6
+    # soil in two palette tones, the lighter where the grass under it was lighter
+    lit_grass = blk.sum(axis=2) >= np.median(blk[dirt].sum(axis=1)) if dirt.any() else dirt
+    blk[dirt & lit_grass] = SOIL[2]
+    blk[dirt & ~lit_grass] = SOIL[1]
     img[FY0:FY0 + FH, FX0:FX0 + FW, :3] = blk.astype(np.uint8)
     for _ in range(6000):
         x, y = 2 + int(prng.random() * (FW - 4)), 6 + int(prng.random() * (FH - 8))
@@ -1612,16 +1627,61 @@ def split_backdrop(img, name, seed):
     return far, sky_layer(name, seed)
 
 
+def _is_colour(v):
+    return isinstance(v, tuple) and len(v) == 3 and all(isinstance(c, int) and 0 <= c <= 255 for c in v)
+
+
+UNRAMPED = ("SEATS", "BOARDS")   # lists of separate colours, not dark-to-light ramps
+# The ground ramps, dithered over the whole floor, go on the palette's ground lines
+# (palette.GROUND: the earth, moss, steel and neutral lines with half-steps between), so a
+# floor keeps its soft patches; a full ramp step across a floor reads as a stain.
+FLOOR_LINES = {"CLAY": "earth_fine", "SAND": "earth_fine", "GRASS": "moss_fine",
+               "CONC": "steel_fine", "GRAVEL": "neutral_fine", "PAVE": "neutral_fine"}
+RAMP_LINES = {"CONCRETE": "steel", "NAVY": "sky",                    # cool greys stay cool
+              "SCRUB": "moss", "LEAF": "moss", "SOIL": "earth"}      # desert scrub stays dull
+
+
+def snap_constants():
+    """Every named colour (a module-level RGB tuple) and ramp (a list of them) on the
+    master palette, and the skies' gradient ends. A ramp lands on one palette line in
+    order (palette.snap_ramp) and keeps its length, so dithered indices into it still
+    work; neighbouring tones may land on one colour."""
+    g = globals()
+    for name, v in list(g.items()):
+        if not name.isupper():
+            continue
+        if _is_colour(v):
+            g[name] = P.nearest(v)
+        elif isinstance(v, list) and v and all(_is_colour(c) for c in v):
+            if name in UNRAMPED:
+                g[name] = P.snap_list(v)
+            elif name in FLOOR_LINES:
+                g[name] = P.snap_ramp(v, line=FLOOR_LINES[name])
+            else:
+                g[name] = P.snap_ramp(v, line=RAMP_LINES.get(name))
+    for spec in SKIES.values():
+        for key in ("top", "bot"):
+            spec[key] = P.nearest(spec[key])
+
+
+snap_constants()
+
+
+def save(arr, path, snap=True):
+    """Writes a picture, every colour snapped to the master palette."""
+    Image.fromarray(P.snap(arr) if snap else arr, "RGBA").save(path)
+
+
 MAPS = {"stadium": stadium_set, "quarry": quarry, "floodgate": floodgate, "greenhouse": greenhouse,
         "caravan_pass": caravan_pass, "twin_keeps": twin_keeps}
 
 if __name__ == "__main__":
     picks = sys.argv[1:] or list(MAPS)
     path = os.path.join(SPRITES, "caravan.png")
-    Image.fromarray(caravan_sprite(), "RGBA").save(path)
+    save(caravan_sprite(), path)
     print("wrote", os.path.relpath(path, ROOT))
     path = os.path.join(SPRITES, "flag.png")
-    Image.fromarray(flag_sprite(), "RGBA").save(path)
+    save(flag_sprite(), path, snap=False)   # a white mask the view tints: stays grey
     print("wrote", os.path.relpath(path, ROOT))
     for name in picks:
         sz = load_map(name).get("size", [84, 36])
@@ -1633,18 +1693,18 @@ if __name__ == "__main__":
         far, sky = split_backdrop(img, name, 4000 + sum(map(ord, name)))
         for suffix, layer in (("_far", far), ("_sky", sky)):
             path = os.path.join(SPRITES, "arena_%s%s.png" % (name, suffix))
-            Image.fromarray(layer, "RGBA").save(path)
+            save(layer, path)
             print("wrote", os.path.relpath(path, ROOT), (W, layer.shape[0]))
         path = os.path.join(SPRITES, "arena_%s.png" % name)
-        Image.fromarray(img, "RGBA").save(path)
+        save(img, path)
         print("wrote", os.path.relpath(path, ROOT), (W, H))
         path = os.path.join(SPRITES, "arena_%s_cracked.png" % name)
-        Image.fromarray(cracked, "RGBA").save(path)
+        save(cracked, path)
         print("wrote", os.path.relpath(path, ROOT), (FW, FH))
         path = os.path.join(SPRITES, "arena_%s_crackmask.png" % name)
-        Image.fromarray(crack_mask(crack), "RGBA").save(path)
+        save(crack_mask(crack), path, snap=False)
         print("wrote", os.path.relpath(path, ROOT), (FW, FH))
         if alt is not None:
             path = os.path.join(SPRITES, "arena_%s_alt.png" % name)
-            Image.fromarray(alt, "RGBA").save(path)
+            save(alt, path)
             print("wrote", os.path.relpath(path, ROOT), (FW, FH))

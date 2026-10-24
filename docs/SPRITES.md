@@ -680,8 +680,43 @@ shockwave, 4 frames, facing right (mirrored when it travels left).
 
 ## Palette
 
-The placeholders use a small hand-picked palette defined at the top of
-`tools/gen_sprites.py`. The final art should use one published palette for the whole game.
+One master palette for the whole game: `tools/palette.py`, drawn as a labelled swatch in
+[`palette.png`](palette.png) (`python3 tools/palette.py` redraws it).
+
+- **Lines and ramps.** The palette is a set of hue lines (red, wine, pink, orange, gold,
+  rust, earth, green, moss, lime, teal, sky, blue, violet, steel, neutral), each running
+  dark to light, plus six outline inks: 99 colours for sprites. A **ramp** is a named
+  five-step window on a line: deep shadow, dark, base, light, highlight (`palette.RAMPS`,
+  e.g. `"rust"`, `"ice"`, `"white"`); `palette.ramp(name, shift)` slides the window (+1
+  one step lighter). Arena floors also get 18 **ground half-steps** (`palette.GROUND`:
+  the earth, moss, steel and neutral lines with the midpoint between each middle pair),
+  because a full step across a whole floor reads as a stain; sprites never use them.
+- **Hue shift.** Shadows turn cooler and lights warmer, about 8° per step: yellows and
+  oranges darken toward red (never toward green), greens and blues toward blue-violet;
+  lights turn toward yellow. Each step is about 0.1 of perceptual lightness (OKLab L),
+  so neighbouring steps always read as two tones at 1x.
+- **Outlines.** A ramp's silhouette outline is its ink (`palette.ink_for`): the nearest of
+  a few dark, greyed inks to its deep step (umber for browns and oranges, plum for reds,
+  moss for greens, navy for blues, a soft pewter for white and ice, plain ink for greys
+  and blacks), never pure black. Seams inside the silhouette use the ramp's deep step, one
+  step lighter than its outline, so inner lines don't go muddy.
+- **Using it in a generator.** A splat3d rig names a ramp per material in its `MAT` table
+  (`"fur": "rust"`, `"belly": ("concrete", 1)`, `"slot": P.flat("ink")` for an unshaded
+  colour); `splat3d.configure` still takes an old `(base, light, dark)` triple and snaps it
+  through `palette.ramp_for(base)`. `splat3d.shade` then paints from the ramp: highlight
+  (small), light and base on the lit side, a hard terminator, one dark step for the core
+  shadow (low contrast, so round shapes keep their mass), a one-pixel rim light (one step
+  up) on the shadowed edge facing away from the key light, a cleanup of lone pixels, and
+  outlines in each material's ink. Crease keeps his faceted paper shader on the same
+  ramps. The arenas snap every named colour, ramp and finished picture to the palette
+  (`tools/gen_arenas.py`, `snap_constants` and `save`: floor ramps on the ground lines,
+  blends and fades ordered-dithered between palette colours; crack masks and the flag,
+  which the view tints, stay unsnapped).
+- **Not ported yet:** Cerebro, Hissy, Barkley, Gillbert, Craglash (own renderers) and the
+  placeholders in `tools/gen_sprites.py` still use their own colours. Porting one is
+  mostly rewriting its MAT table as ramp names and shading from the five steps.
+
+Before/after comparisons from the pass that added it: [`palette/`](palette/).
 
 ## HUD portrait crop
 

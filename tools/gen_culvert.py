@@ -25,6 +25,7 @@ import sys
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import palette as P  # noqa: E402
 import splat3d as S  # noqa: E402
 from splat3d import ellipsoid_oriented, tube, box, rot_lat, rot_up  # noqa: E402
 
@@ -37,22 +38,22 @@ VIEWS = {
     "up": {"w": 96, "h": 96, "origin": (48, 74)},
 }
 
-# The game's placeholder palette (tools/gen_sprites.py), so he still matches the arena.
+# Master-palette ramps (tools/palette.py): concrete greys with moss greens, the drain toad.
 MAT = {
-    "con": ((138, 144, 154), (184, 188, 194), (93, 100, 112)),      # concrete
-    "belly": ((172, 176, 182), (212, 214, 218), (128, 134, 144)),   # the lighter underside
-    "fist": ((112, 118, 130), (150, 156, 166), (74, 80, 92)),       # darker, packed concrete
-    "moss": ((111, 156, 74), (150, 190, 100), (63, 106, 58)),
-    "eye": ((242, 182, 50), (255, 222, 120), (196, 136, 30)),
-    "pupil": ((43, 29, 14), (70, 50, 24), (20, 12, 6)),
-    "mouth": ((122, 46, 58), (150, 70, 80), (80, 26, 36)),
-    "lip": ((52, 34, 44), (52, 34, 44), (52, 34, 44)),               # the shut mouth's line
-    "tongue": ((196, 92, 110), (226, 130, 146), (150, 60, 78)),
-    "iron": ((64, 68, 78), (98, 102, 112), (40, 44, 52)),           # the manhole cover
-    "slot": ((26, 28, 34), (26, 28, 34), (26, 28, 34)),             # its slots, and the mouth's bars
-    "water": ((84, 156, 208), (168, 214, 240), (54, 110, 160)),
+    "con": "concrete",
+    "belly": ("concrete", 1),       # the lighter underside
+    "fist": "steel",                # darker, packed concrete
+    "moss": "moss",
+    "eye": "gold",
+    "pupil": "ink",
+    "mouth": "wine",
+    "lip": P.flat("wine", 0),       # the shut mouth's line
+    "tongue": ("pink", -1),
+    "iron": ("steel", -1),          # the manhole cover
+    "slot": P.flat("ink"),          # its slots, and the mouth's bars
+    "water": "sky",
 }
-S.configure(MAT, outline=(27, 30, 38, 255), scale=1.0, near=16.0)
+S.configure(MAT, scale=1.0, near=16.0)
 S.COLS = 12  # the run, the Slam and Storm Drain have 12 frames
 
 HIP = np.array([0.0, 8.0, -4.0])  # the body pivots here when it rears or crouches
@@ -296,10 +297,10 @@ def decorate(r, img):
     lum = r["lum"]
     light = con & (h < 5) & (lum > -0.12)
     dark = con & (h >= 92)
-    for mask, which in ((light, 1), (dark, 2)):
+    for mask, step in ((light, 3), (dark, 1)):   # a ramp step up or down: light, dark
         for name in ("con", "belly", "fist"):
             m = mask & (mat == S.MAT_ID[name])
-            img[m, :3] = MAT[name][which]
+            img[m, :3] = S.RAMP[name][step]
     return img
 
 

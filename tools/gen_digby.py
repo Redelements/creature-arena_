@@ -21,6 +21,7 @@ import sys
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import palette as P  # noqa: E402
 import splat3d as S  # noqa: E402
 from splat3d import ellipsoid_oriented, tube, plate, cylinder, orient, rot_lat, rot_up, bezier  # noqa: E402
 
@@ -33,23 +34,23 @@ VIEWS = {
     "up": {"w": 112, "h": 128, "origin": (56, 90)},
 }
 
-# Palette, sampled from the character sheet: (base, light, dark).
+# Master-palette ramps (tools/palette.py), picked to the character sheet's colours.
 MAT = {
-    "fur": ((134, 74, 80), (168, 104, 108), (96, 50, 58)),
-    "tail": ((178, 92, 30), (210, 124, 52), (132, 64, 20)),
-    "claw": ((246, 214, 24), (255, 240, 120), (196, 160, 10)),
-    "nose": ((150, 60, 170), (190, 110, 210), (100, 36, 120)),
-    "eye": ((12, 10, 12), (60, 60, 70), (0, 0, 0)),
-    "whisker": ((20, 18, 20), (20, 18, 20), (20, 18, 20)),
-    "helmet": ((240, 112, 32), (255, 160, 80), (190, 76, 16)),
-    "band": ((244, 244, 240), (255, 255, 255), (200, 200, 196)),
-    "lamp": ((250, 220, 40), (255, 246, 150), (200, 170, 20)),
-    "lens": ((255, 255, 230), (255, 255, 255), (230, 230, 200)),
-    "steel": ((132, 134, 140), (190, 192, 198), (88, 90, 96)),
-    "handle": ((112, 72, 40), (146, 100, 60), (80, 50, 28)),
-    "dirt": ((122, 86, 52), (156, 116, 76), (86, 58, 34)),
+    "fur": "rust",                  # the mauve-brown coat
+    "tail": ("orange", -1),         # orange-brown, a step under the helmet
+    "claw": "gold",
+    "nose": "violet",
+    "eye": "ink",
+    "whisker": P.flat("ink"),
+    "helmet": "orange",
+    "band": "white",
+    "lamp": "gold",
+    "lens": ("white", 1),
+    "steel": "concrete",
+    "handle": "earth",
+    "dirt": "earth",
 }
-S.configure(MAT, outline=(14, 12, 14, 255), scale=0.8, near=14.0)
+S.configure(MAT, scale=0.8, near=14.0)
 S.COLS = 12  # the run, the pop-up, Burrow and Cave-In have 12 frames
 
 
