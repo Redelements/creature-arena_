@@ -5,7 +5,9 @@ Run from anywhere:  python3 tools/gen_digby.py   (Pillow and numpy)
 Look at a few frames while working on a pose:  python3 tools/gen_digby.py inspect idle:0 run:2
 
 Writes assets/sprites/digby.png (128x128 frames, 12 columns, the side view),
-digby_down.png and digby_up.png (112x128: facing the camera, and facing away), plus
+digby_down.png, digby_up.png (112x128: facing the camera, and facing away),
+digby_down_side.png and digby_up_side.png (128x128: the diagonals, facing down-right and
+up-right), plus
 labelled previews in docs/. Rendered with the shared splat renderer (tools/splat3d.py).
 
 Digby is a long, low mole on all fours: a mauve-brown body, a long snout with a purple
@@ -31,6 +33,9 @@ SIDE = {"w": 128, "h": 128, "origin": (64, 100)}
 VIEWS = {
     "down": {"w": 112, "h": 128, "origin": (56, 100)},
     "up": {"w": 112, "h": 128, "origin": (56, 90)},
+    # the diagonals (docs/SPRITES.md, "Directions"): facing down-right and up-right
+    "down_side": {"w": 128, "h": 128, "origin": (64, 100)},
+    "up_side": {"w": 128, "h": 128, "origin": (64, 90)},
 }
 
 # Palette, sampled from the character sheet: (base, light, dark).
