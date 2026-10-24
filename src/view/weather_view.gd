@@ -218,6 +218,8 @@ func apply(s: MatchSim, p_look: Dictionary, shadows: ShadowLayer = null, ambient
 	_lamps.clear()
 	if _time.has("floodlights"):
 		_build_lightmap(floor_tint, _time["floodlights"])
+	if ambient != null:
+		ambient.set_moths(_moth_points())
 	shade.visible = shade.tex != null or not floor_tint.is_equal_approx(Color.WHITE)
 	shade.queue_redraw()
 	_debris = String((d.get("debris_by_ground", {}) as Dictionary).get(String(s.arena.get("ground", "dirt")), "paper"))
@@ -229,6 +231,41 @@ func apply(s: MatchSim, p_look: Dictionary, shadows: ShadowLayer = null, ambient
 	_apply_fighters()
 	queue_redraw()
 	ground.queue_redraw()
+
+
+## Night: where the moths circle, the lit lamps (the corner towers' and the arena's
+## furniture floodlights' heads); none by day.
+func _moth_points() -> Array:
+	var out: Array = []
+	if _lamps.is_empty():
+		return out
+	for l in _lamps:
+		out.append(Vector2(l[0]) + Vector2(0, 1))
+	var size := sim.arena_size()
+	for e in sim.arena.get("furniture", []):
+		if e is Dictionary and String(e.get("kind", "")) == "floodlight":
+			var p := FurnitureView.world_pos(e, size) + Vector2(0, -int(e.get("h", 96)) - 5)
+			var dup := false
+			for q in out:
+				if (q as Vector2).distance_to(p) < 24.0:
+					dup = true
+					break
+			if not dup:
+				out.append(p)
+	return out
+
+
+## How much of the arena's grade (`grade` in its JSON, GradeView) this time and weather
+## let through: night already darkens and tints the picture, so it takes less of the
+## map's own tint and vignette. Each preset's optional `grade` {tint, vignette} are
+## multipliers, 1 when absent.
+func grade_scale() -> Dictionary:
+	var out := {"tint": 1.0, "vignette": 1.0}
+	for blk in [_time, _weather]:
+		var g: Dictionary = (blk as Dictionary).get("grade", {})
+		for k in out:
+			out[k] = float(out[k]) * float(g.get(k, 1.0))
+	return out
 
 
 ## Back to day and clear (the menu's background fight, online).

@@ -16,7 +16,10 @@ extends Node2D
 ##            sand (fast streaks) | leaf (tumbling), `area` [col,row,w,h] cells to stay in
 ##   critters butterfly (brush beds) | dragonfly (`area`) | bird {every, flock, span, alpha,
 ##            first} high over the whole arena | fish {every} jumps in shallows |
-##            devil {every, life} a wandering dust devil
+##            devil {every, life} a wandering dust devil |
+##            moth {count} circle each floodlight at night (WeatherView hands over the
+##            lamps: `set_moths`) | cat {every, first} walks along the stands' parapet,
+##            sits and licks a paw (seen only when the camera looks up at the top stand)
 ##   grit     {every}: a trickle off the rubble walls that puffs where it lands
 ##   confetti {cap, on: ["ko", "surge"]}: paper scraps fall after those big moments
 ##
@@ -89,6 +92,8 @@ var _sway: Layer
 var _over: Layer
 var _low: Layer  ## under the fighters: grit, splashes, dust devil, confetti on the floor
 var _sky: Layer  ## above everything: birds
+var _moth_layer: Layer  ## moths round the night's floodlights
+var _cat_layer: Layer  ## the cat on the parapet, under the fighters
 var _floor := Rect2()
 var _beds: Array[Rect2] = []  ## the map's brush beds (where butterflies go)
 var _brush := PackedInt32Array()  ## cell indices of standing brush
@@ -112,6 +117,12 @@ var _splash: Array = []  ## {p, t}
 var _birds: Array = []  ## {p, v, age, ph}
 var _bird_next := 0
 var _devil: Dictionary = {}
+var _moth_lights: Array = []  ## world points of the lit lamps (night only)
+var _moth_step := -1
+var _moth_drawn := false
+var _cat: Dictionary = {}  ## {x, dir, state, t, stop, col}: empty when no cat is out
+var _cat_next := 0
+var _cat_step := -1
 var _devil_next := 0
 var _scraps: Array = []  ## {p, v, ty, rest, ph, col}
 var _low_dirty := true
@@ -148,6 +159,9 @@ func _init() -> void:
 	_over.z_index = 1  # above the fighters (tiny and soft: it never hides play)
 	_sky = _layer(_paint_sky, "ambient sky")
 	_sky.z_index = 10  # birds cross high over everything
+	_moth_layer = _layer(_paint_moths, "ambient moths")
+	_moth_layer.z_index = 1
+	_cat_layer = _layer(_paint_cat, "ambient cat")
 	_rng.seed = 2610
 
 
@@ -179,6 +193,11 @@ func set_sim(s: MatchSim, picture: Texture2D = null) -> void:
 	_splash.clear()
 	_birds.clear()
 	_devil = {}
+	_moth_lights.clear()
+	_moth_step = -1
+	_moth_drawn = false
+	_cat = {}
+	_cat_step = -1
 	_scraps.clear()
 	_crit.clear()
 	for cc in _blocks(_cfg.get("critters", {})):
@@ -187,6 +206,7 @@ func set_sim(s: MatchSim, picture: Texture2D = null) -> void:
 	_fish_next = 120
 	_bird_next = int((_crit.get("bird", {}) as Dictionary).get("first", 240))
 	_devil_next = 300
+	_cat_next = int((_crit.get("cat", {}) as Dictionary).get("first", 600))
 	visible = not _cfg.is_empty()
 	_floor = _terrain.floor_rect()
 	_beds.clear()
@@ -205,6 +225,8 @@ func set_sim(s: MatchSim, picture: Texture2D = null) -> void:
 	_over.queue_redraw()
 	_low.queue_redraw()
 	_sky.queue_redraw()
+	_moth_layer.queue_redraw()
+	_cat_layer.queue_redraw()
 
 
 ## The weather (WeatherView): a stronger or calmer breeze, more or fewer motes, critters
@@ -749,6 +771,10 @@ func _life(t: int, view: Rect2) -> void:
 		_move_fish(t)
 	if _crit.has("devil"):
 		_move_devil(t)
+	if _crit.has("moth"):
+		_move_moths(t, view)
+	if _crit.has("cat"):
+		_move_cat(t, view)
 	if _cfg.has("grit"):
 		_move_grit(t)
 	if _cfg.has("confetti"):
@@ -1088,3 +1114,194 @@ func _paint_low(ci: CanvasItem) -> void:
 		_draw_devil(ci, view)
 	_draw_grit(ci, view)
 	_draw_scraps(ci, view, false)
+
+
+# -- moths: at night a few pale specks circle each floodlight (WeatherView says where)
+
+const MOTH_COL := Color(1.0, 0.95, 0.8, 0.95)
+const MOTH_WING := Color(1.0, 0.95, 0.8, 0.6)
+const MOTH_STEP := 2  ## ticks per move: a flutter, not a glide
+
+
+## The lit lamps' world points (night); none by day. Called by WeatherView.apply.
+func set_moths(points: Array) -> void:
+	_moth_lights = points.duplicate()
+	_moth_step = -1
+	if _moth_layer != null:
+		_moth_layer.queue_redraw()
+
+
+func moth_count() -> int:
+	if not _crit.has("moth"):
+		return 0
+	return _moth_lights.size() * int((_crit["moth"] as Dictionary).get("count", 3))
+
+
+## Where moth `j` of the light at `at` is on tick `t`: a lopsided loop that widens and
+## narrows, its own speed and direction. Whole pixels.
+static func moth_pos(at: Vector2, j: int, t: int) -> Vector2:
+	var ph := float(j) * 2.399 + at.x * 0.37
+	var w := (0.045 + float(j % 3) * 0.017) * (1.0 if j % 2 == 0 else -1.0)
+	var a := float(t) * w + ph
+	var r := 7.0 + float((j * 5) % 7) + 3.0 * sin(float(t) * 0.011 + ph * 2.0)
+	var p := at + Vector2(cos(a) * r, sin(a) * r * 0.6 - 2.0 + 2.0 * sin(float(t) * 0.09 + ph))
+	return p.round()
+
+
+func _move_moths(t: int, view: Rect2) -> void:
+	if _moth_lights.is_empty():
+		return
+	var step := t / MOTH_STEP
+	if step == _moth_step:
+		return
+	_moth_step = step
+	var any := false
+	var near := view.grow(30.0)
+	for l in _moth_lights:
+		if near.has_point(l):
+			any = true
+			break
+	if any or _moth_drawn:
+		_moth_drawn = any
+		_moth_layer.queue_redraw()
+
+
+func _paint_moths(ci: CanvasItem) -> void:
+	if sim == null or _moth_lights.is_empty() or not _crit.has("moth"):
+		return
+	var n := int((_crit["moth"] as Dictionary).get("count", 3))
+	var t := _last_tick
+	var view := FxView._view_rect(self, CULL_PAD)
+	var up := (t / 4) % 2 == 0
+	for l in _moth_lights:
+		if not view.grow(30.0).has_point(l):
+			continue
+		for j in n:
+			var p := moth_pos(l, j, t)
+			if not view.has_point(p):
+				continue
+			ci.draw_rect(Rect2(p, Vector2(1, 1)), MOTH_COL)
+			ci.draw_rect(Rect2(p + Vector2(-1, -1 if up else 1), Vector2(1, 1)), MOTH_WING)
+			ci.draw_rect(Rect2(p + Vector2(1, -1 if up else 1), Vector2(1, 1)), MOTH_WING)
+
+
+# -- the cat: walks in along the parapet in front of the lowest stand row, sits, licks a
+# paw, sits a while, and wanders off. Only sent when the camera looks up at the stands.
+
+const CAT_Y := 45.0  ## feet: the top of the parapet in front of the stands
+const CAT_COLORS: Array[Color] = [Color8(60, 58, 72), Color8(200, 124, 62), Color8(186, 186, 196), Color8(34, 32, 40)]
+const CAT_SPEED := 0.3
+const CAT_SIT := 150
+const CAT_LICK := 140
+const CAT_REST := 70
+
+
+func cat_out() -> bool:
+	return not _cat.is_empty()
+
+
+func _move_cat(t: int, view: Rect2) -> void:
+	var cc: Dictionary = _crit["cat"]
+	if _cat.is_empty():
+		if t < _cat_next:
+			return
+		if view.position.y > CAT_Y - 14.0 or not _vis.has_area():
+			_cat_next = t + 120
+			return
+		_cat_next = t + _jitter(int(cc.get("every", 3600)))
+		var d := 1.0 if _rng.randf() < 0.5 else -1.0
+		_cat = {"x": (view.position.x - 8.0) if d > 0.0 else (view.end.x + 8.0), "dir": d, "state": "in", "t": 0,
+			"stop": view.position.x + view.size.x * (0.25 + 0.5 * _rng.randf()),
+			"col": CAT_COLORS[_rng.randi() % CAT_COLORS.size()], "age": 0}
+		_cat_layer.queue_redraw()
+		return
+	var c := _cat
+	c["age"] = int(c["age"]) + 1
+	c["t"] = int(c["t"]) + 1
+	var dir: float = c["dir"]
+	var state := String(c["state"])
+	match state:
+		"in", "out":
+			c["x"] = float(c["x"]) + dir * CAT_SPEED
+			if state == "in" and (float(c["x"]) - float(c["stop"])) * dir >= 0.0:
+				c["state"] = "sit"
+				c["t"] = 0
+			elif state == "out" and int(c["age"]) > 200 and not view.grow(24.0).has_point(Vector2(float(c["x"]), CAT_Y)):
+				_cat = {}
+		"sit":
+			if int(c["t"]) >= CAT_SIT:
+				c["state"] = "lick"
+				c["t"] = 0
+		"lick":
+			if int(c["t"]) >= CAT_LICK:
+				c["state"] = "rest"
+				c["t"] = 0
+		"rest":
+			if int(c["t"]) >= CAT_REST:
+				c["state"] = "out"
+				c["t"] = 0
+	if int(c.get("age", 0)) > 4000:
+		_cat = {}
+	# redraw on a pose change (a step of the walk every 8 ticks, a lick every 10), or a pixel of walking
+	var key := -1
+	if not _cat.is_empty():
+		var st := String(c["state"])
+		key = int(roundf(float(c["x"]))) if st in ["in", "out"] else int(c["t"]) / 10 + st.length() * 1000
+	if key != _cat_step:
+		_cat_step = key
+		_cat_layer.queue_redraw()
+
+
+func _paint_cat(ci: CanvasItem) -> void:
+	if _cat.is_empty():
+		return
+	var view := FxView._view_rect(self, CULL_PAD)
+	var x := roundi(float(_cat["x"]))
+	if not view.has_point(Vector2(x, CAT_Y)):
+		return
+	var col: Color = _cat["col"]
+	var dark := col.darkened(0.35)
+	var lit := col.lightened(0.25)
+	var t: int = _cat["t"]
+	var s := 1 if float(_cat["dir"]) > 0.0 else -1
+	var y := roundi(CAT_Y)
+	# r(): a rect in the cat's own frame (x forward, y up from the feet), mirrored by dir
+	var r := func(rx: int, ry: int, w: int, h: int, c: Color) -> void:
+		var px := x + (rx if s > 0 else -rx - w + 1)
+		ci.draw_rect(Rect2(px, y + ry, w, h), c)
+	var state := String(_cat["state"])
+	if state == "in" or state == "out":
+		var f := (int(roundf(float(_cat["x"]) * 0.5))) % 4
+		r.call(0, -4, 6, 3, col)
+		r.call(0, -2, 6, 1, dark)
+		r.call(5, -6, 3, 3, col)
+		r.call(5, -7, 1, 1, dark)
+		r.call(7, -7, 1, 1, dark)
+		r.call(7, -5, 1, 1, lit)
+		var tail_up := -7 + (f % 2)
+		r.call(-1, tail_up, 1, 4 - (f % 2), dark)
+		r.call(-2, tail_up, 1, 1, dark)
+		r.call(0, -1 if f < 2 else 0, 1, 1, dark)  # legs: diagonal pairs swing
+		r.call(1, 0 if f < 2 else -1, 1, 1, dark)
+		r.call(4, 0 if f < 2 else -1, 1, 1, dark)
+		r.call(5, -1 if f < 2 else 0, 1, 1, dark)
+	else:
+		var licking := state == "lick"
+		var tail_tip := (t / 30) % 2 == 0
+		r.call(0, -3, 4, 3, col)  # haunch
+		r.call(0, -1, 4, 1, dark)
+		r.call(3, -6, 3, 4, col)  # chest
+		r.call(-3, -1, 3, 1, dark)  # tail along the ground
+		r.call(-3, -2 if tail_tip else -1, 1, 1, dark)
+		r.call(5, -1, 1, 1, dark)  # front paw
+		if licking:
+			var down := (t / 10) % 2 == 0
+			r.call(3, -8 if down else -9, 3, 3, col)  # head bowed to the paw
+			r.call(3, -9 if down else -10, 1, 1, dark)
+			r.call(5, -9 if down else -10, 1, 1, dark)
+			r.call(6, -7 if down else -8, 1, 2, lit)  # the raised paw
+		else:
+			r.call(3, -9, 3, 3, col)
+			r.call(3, -10, 1, 1, dark)
+			r.call(5, -10, 1, 1, dark)
+			r.call(5, -8, 1, 1, Color8(250, 232, 120))  # an eye
