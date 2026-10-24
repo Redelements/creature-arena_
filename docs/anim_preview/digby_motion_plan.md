@@ -263,7 +263,7 @@ landing (squash, the tail still up), 7 the settle. Invulnerable ticks 2-11 are f
   `S.COLS` 12, `ANIM_CYCLES` idle 64; the three sheets regenerated (12 columns: 1536 × 1664
   side, 1344 × 1536 down/up).
 - `data/creatures/digby.json`: `cols` 12; rows idle 8, run 12, swipe 8, swipe2 8, pick 8,
-  popup 12, flash 8, burrow 12, cavein 12, dodge 8 (hurt, guard, ko unchanged);
+  popup 12, flash 8, burrow 12, cavein 12, dodge 8 (hurt, guard, ko unchanged then; see "Reactions" below);
   `idle_ticks` 8, `run_ticks` 2, `step_frames` `[0, 2]`; every `anim_at` above, heavy
   `anim_charge` `[0, 4, 4]`, tag_in `anim_at` (drop `anim_from`), `cut_in_frame` `[8, 3]`.
   `anim_preview.py --check digby` passes.
@@ -296,3 +296,49 @@ The poses are 3D, so the down and up sheets move too. What to look at:
    the hit at 46.
 2. **Headlamp Flash with the pickaxe paw** (the near one): fine.
 3. **Footstep dust:** two puffs per stride, `step_frames` `[0, 2]`.
+
+## Reactions (Oct 24 2026): hurt 2 → 4, guard 2 → 4, knockout 4 → 8
+
+Kevin asked for the reactions after the pass. Same rule as the rest of him: the head leads,
+the body follows, the tail follows that; fur squashes up to 12%.
+
+**How the game plays these** (`src/view/creature_view.gd`, `_pick`, unchanged: no
+`anim_at`, the clock comes from the sim's stun states):
+
+| State | Frame shown | So the row needs |
+| --- | --- | --- |
+| hitstun | `hurt` `state_t / 4`, looping (a 24-tick hitstun plays 0 1 2 3 0 1) | 4 frames that loop: frame 3 leads back into 0 |
+| hitstop | `hurt` 0 held (`state_t` doesn't move) | frame 0 is the sharp recoil |
+| crumple, airborne (second half) | `hurt` 1 | frame 1 the deepest point, no flying bits |
+| airborne (first half), falling, getting up | `hurt` 0 | |
+| guard | `guard` 0, or 1 for the 10 ticks of `guard_hit` after a block | 0 the hold, 1 the blow; 2 and 3 aren't shown yet (open question) |
+| knockout | `ko` `state_t / 6`, the last held; frame 0 trembles through the KO freeze | 8 frames = 48 ticks |
+| knockdown | `ko` 1 for 5 ticks, then `ko` 2 held, `hurt` 0 for the last 8 ticks of stun | frame 1 falling, frame 2 a lying pose that holds |
+
+No frame data or stun number changed; only the row table in the JSON (`hurt` 4, `guard` 4,
+`ko` 8; the sheets stay 12 columns).
+
+**Hurt** (`hurt()`): 0 the recoil: the head snapped up and back (`head` -24) with the
+helmet a beat behind it (`helm` 8), the body barely reared yet and stretched, the tail
+and the pick still low; 1 the deepest point and the crumple: reared 20, bunched up (-0.8),
+rolled 14 onto a hip; 2 the body coming back down while the tail whips up (`tail_up` 1.0,
+kinked) and the pick swings up late; 3 the settle, eyes open again, which hands back to 0.
+
+**Guard** (`guard()`): 0 the hold, hunkered behind the crossways pick; 1 the blow: pushed
+back 1.8, bunched up, eyes shut, the helmet jolted back, the tail flicking up; 2 the
+rebound; 3 the settle.
+
+**Knockout** (`ko()`): 0 the blow lifts him (stretched), the head snapped back, the pick
+flung up, the tail still low; 1 going over (rolled 80), the pick gone; 2 on his back,
+squashed (the knockdown holds this); 3 the bounce, the tail flung; 4 down; 5 a small
+bounce, the tail flopping over; 6 the settle; 7 the old final frame, legs up, x eyes.
+Rolled past 90 degrees, `lift` points down the screen, so the bounces are a more negative
+`lift`. The dirt burst fires on tick 10 (frame 1).
+
+**Diagonal reach:** `near` 10 on the diagonals (14 elsewhere); the swipes, the pick and
+Cave-In land a pixel or two further down the screen. No pose cheat needed.
+
+**Victory, idle_alt:** looked at; nothing clearly wrong, left alone.
+
+Previews: `digby_reactions_3x.gif` (as the game times them, before above new, all five
+views). The other GIFs were re-rendered by `python3 tools/gen_digby.py anim`.
