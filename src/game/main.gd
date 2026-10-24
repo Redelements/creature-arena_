@@ -13,6 +13,10 @@ extends Node2D
 ##   --seed=N              CPU random seed
 ##   --arena=ID            the arena map for offline matches (stadium, quarry, floodgate,
 ##                         greenhouse; data/arenas/)
+##   --time=ID             time of day for offline matches this session: random, day, sunset,
+##                         night (data/weather.json; a choice the arena doesn't allow falls back)
+##   --weather=ID          weather for offline matches this session: random, clear, rain, fog,
+##                         wind, snow
 ##   --autoplay            training demo: the player side follows a scripted routine
 ##   --dummy-mode=N        0 stand, 1 guard, 2 walk, 3 dodge
 ##   --training-flags=no_cooldowns,full_energy  training options on (pause > Training options)
@@ -41,7 +45,7 @@ extends Node2D
 ##   --cpu-vs-cpu          every player side is played by the CPU (demos, captures)
 ##   --view-team=N         show the match as team N sees it (brush, fences, walls hide
 ##                         foes), even with nobody playing here (captures of --cpu-vs-cpu)
-##   --menu=PAGE           open a menu page: main, single, single:<group>, settings, game, video, audio, controls,
+##   --menu=PAGE           open a menu page: main, single, single:<group>, look (Time and weather), settings, game, video, audio, controls,
 ##                         remap:classic|league|gamepad (captures)
 ##   --online-host[=PORT]  host an online 1v1 straight away (UDP, default port 7777)
 ##   --online-join=ADDR[:PORT][/ROOM]  join one, or a dedicated server (ROOM: meet a friend there)
@@ -282,6 +286,16 @@ var water: WaterView
 var ambient: AmbientView
 var wear: FloorWear
 var shadows: ShadowLayer
+## Time of day and weather (WeatherView, data/weather.json): views only, never the sim.
+var weather: WeatherView
+## The Single player menu's Time / Weather: an id or "random" (saved; `--time=` / `--weather=`
+## override them for the session).
+var time_choice := WeatherView.RANDOM
+var weather_choice := WeatherView.RANDOM
+var _look_cli := {}
+var _look := {}  ## this match's look (kept across its rounds)
+var _look_fresh := true  ## a new match: pick the look again
+var _menu_bg := false  ## the menu's background fight is being set up
 ## Glow (Settings > Video): light pools on the floor and halos over the effects (LightView).
 var glow_floor: LightView
 var glow_halo: LightView
@@ -513,6 +527,8 @@ func _ready() -> void:
 	add_child(crowd)
 	wear = FloorWear.new()  # scratches, gouges, craters, prints: the floor remembers, under everything
 	add_child(wear)
+	weather = WeatherView.new()
+	add_child(weather.shade)  # the time of day's tint over the floor, crowd and wear, under the floor effects
 	fx_ground = FxGround.new()
 	add_child(fx_ground)
 	water = WaterView.new()  # living water over the shallows, under the fighters
@@ -522,6 +538,7 @@ func _ready() -> void:
 	shadows = ShadowLayer.new()  # the fighters' shadows, on the floor under everyone
 	shadows.views = views
 	add_child(shadows)
+	add_child(weather.ground)  # fog bands, rain splashes: over the shadows, under the fighters
 	glow_floor = LightView.new()  # light pools on the floor, over the shadows, under the fighters
 	add_child(glow_floor)
 	rings = RangeRings.new()
@@ -531,6 +548,8 @@ func _ready() -> void:
 	entities = Node2D.new()
 	entities.y_sort_enabled = true
 	add_child(entities)
+	weather.views = views
+	add_child(weather)  # rain, snow, blown debris: over the fighters, under telegraphs and health bars
 	fx = FxView.new()
 	fx.bind_ground(fx_ground)
 	fx.wear = wear
@@ -643,6 +662,9 @@ func _open_menu(page := "", focus := "") -> void:
 	match page:
 		"single":
 			_open_single()
+		"look":  # the Time and Weather page, for captures
+			_open_single()
+			_open_look_page()
 		"settings":
 			_open_settings()
 		"game", "video", "audio":
@@ -659,7 +681,9 @@ func _open_menu(page := "", focus := "") -> void:
 
 ## A CPU-vs-CPU match behind the menus (restarted now and then; the screens stay).
 func _menu_background() -> void:
+	_menu_bg = true
 	_new_sim(MatchFactory.versus("cairn", "culvert"), [Side.CPU, Side.CPU])
+	_menu_bg = false
 	hud.timer_ticks = -1
 	hud.banner = ""
 	hud.banner_sub = ""
@@ -680,7 +704,12 @@ func _open_single() -> void:
 		for id in ArenaMap.IDS:
 			maps.append(ArenaMap.name_of(id))
 		var arena_row := s.add_option("Arena", maps, maxi(0, ArenaMap.IDS.find(MatchFactory.arena)),
-			func(i: int): _set_arena(ArenaMap.IDS[i]), "Where every match is fought. Left/Right: the map")
+			func(i: int): _set_arena(ArenaMap.IDS[i]),
+			"Where every match is fought. Left/Right: the map. Enter: the time of day and the weather")
+		arena_row.activates = true
+		arena_row.activated.connect(func():
+			ui.notify_chosen()
+			_open_look_page())
 		var arena_card := s.card(arena_row)
 		if arena_card != null:
 			arena_card.picture = _arena_picture(MatchFactory.arena)
@@ -741,6 +770,66 @@ func _open_single_group(gid: String, focus_row := -1) -> void:
 		s.add_space(3)
 		s.add_button("Back", s.back)
 	ui.push(scr)
+
+
+## Enter on the Arena row: a page with the Time and Weather options (the hub has no room
+## for two more rows).
+func _open_look_page() -> void:
+	var scr := UiScreen.new()
+	scr.logo = true
+	scr.crumbs = ["SINGLE PLAYER"]
+	scr.title = "TIME AND WEATHER"
+	scr.row_width = 236.0
+	scr.detail = true
+	scr.blurb = "How offline matches look: never how they play"
+	scr.hints = ["move", "change", "back"]
+	scr.builder = func(p: UiScreen):
+		_add_look_rows(p)
+		p.add_space(4)
+		p.add_button("Back", p.back)
+	ui.push(scr)
+
+
+## The Time and Weather options: Random (one the map allows) or a preset.
+func _add_look_rows(s: UiScreen) -> void:
+	for kind in ["times", "weathers"]:
+		var ids: Array = [WeatherView.RANDOM] + (WeatherView.time_ids() if kind == "times" else WeatherView.weather_ids())
+		var names: Array = []
+		for id in ids:
+			names.append("Random" if id == WeatherView.RANDOM else WeatherView.name_of(kind, String(id)))
+		var cur := time_choice if kind == "times" else weather_choice
+		var label := "Time" if kind == "times" else "Weather"
+		var desc := ("Day, sunset or night: how the match looks, never how it plays. Random: one the map allows"
+			if kind == "times" else
+			"Clear, rain, fog, wind or snow: looks only. Random: one the map allows; one the map doesn't allow plays clear. Online is always day and clear")
+		s.add_option(label, names, maxi(0, ids.find(cur)), func(i: int): _set_look_choice(kind, String(ids[i])), desc)
+
+
+func _set_look_choice(kind: String, id: String) -> void:
+	if kind == "times":
+		time_choice = id
+	else:
+		weather_choice = id
+	_look_cli.erase("time" if kind == "times" else "weather")
+	_save_settings()
+
+
+## The look of the match `s` is starting: day + clear online, while watching a room and
+## for the menu's background fight; a replay's recorded one; else the menu's choice
+## (or the command line's) within what the arena allows, kept across a match's rounds.
+func _match_look(s: MatchSim) -> Dictionary:
+	if online != null or watch != null or _menu_bg:
+		return WeatherView.default_look()
+	if mode == REPLAY_MODE:
+		var rl = _replay_watched.get("look", {})
+		return rl if rl is Dictionary and not (rl as Dictionary).is_empty() else WeatherView.default_look()
+	var aid := String(s.arena.get("id", ""))
+	if _look_fresh or _look.is_empty() or String(_look.get("arena", "")) != aid:
+		_look = WeatherView.resolve(s.arena, String(_look_cli.get("time", time_choice)),
+			String(_look_cli.get("weather", weather_choice)))
+		_look["arena"] = aid
+		_look_fresh = false
+	return {"time": _look["time"], "weather": _look["weather"]}
 
 
 ## A row's card in the panel: the fighter the row's choice names, and the mode's facts
@@ -1041,6 +1130,7 @@ func _start_match(m: int, keep_teams := false) -> void:
 	if not (keep_teams and m == mode):
 		_training_fighter = ""  # a swapped fighter lasts until you leave training
 	mode = m
+	_look_fresh = true  # a new match: a new look
 	wins = [0, 0]
 	_carried_energy = [-1.0, -1.0]
 	round_num = 1
@@ -2013,6 +2103,9 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	water.fx = fx
 	ambient.set_sim(sim, arena.art())
 	ambient.fx = fx
+	var look := _match_look(s)
+	weather.apply(sim, look, shadows, ambient, water)
+	replay.setup["look"] = look.duplicate()  # cosmetic: the replay looks the same
 	paper.set_sim(sim)
 	hud.sim = sim
 	fx.sim = sim
@@ -2227,6 +2320,7 @@ func _physics_process(_delta: float) -> void:
 	arena.refresh()
 	water.advance()
 	ambient.advance()
+	weather.advance()
 	wear.advance()
 	crowd.advance()
 	fx.advance()
@@ -2893,6 +2987,7 @@ func _intro_step() -> void:
 	arena.refresh()
 	water.advance()
 	ambient.advance()
+	weather.advance()
 	wear.advance()
 	crowd.advance()
 	fx.advance()
@@ -3739,6 +3834,10 @@ func _load_settings() -> void:
 		Netplay.player_name = String(cfg.get_value("online", "name", "Player")).strip_edges().left(16)
 		if Netplay.player_name == "":
 			Netplay.player_name = "Player"
+		var tc := String(cfg.get_value("game", "time", WeatherView.RANDOM))
+		time_choice = tc if tc == WeatherView.RANDOM or tc in WeatherView.time_ids() else WeatherView.RANDOM
+		var wc := String(cfg.get_value("game", "weather", WeatherView.RANDOM))
+		weather_choice = wc if wc == WeatherView.RANDOM or wc in WeatherView.weather_ids() else WeatherView.RANDOM
 		var ar := String(cfg.get_value("game", "arena", MatchFactory.arena))
 		if ar in ArenaMap.IDS:
 			_arena_saved = ar
@@ -3795,6 +3894,8 @@ func _save_settings() -> void:
 	cfg.set_value("input", "pad_layout", player_input.pad_layout)
 	cfg.set_value("game", "level", level)
 	cfg.set_value("game", "arena", _arena_saved)
+	cfg.set_value("game", "time", time_choice)
+	cfg.set_value("game", "weather", weather_choice)
 	cfg.set_value("online", "delay", input_delay)
 	cfg.set_value("online", "id", Netplay.player_id)
 	cfg.set_value("online", "name", Netplay.player_name)
@@ -3909,6 +4010,14 @@ func _parse_args() -> int:
 			var ar := a.get_slice("=", 1)
 			if ar in ArenaMap.IDS:
 				MatchFactory.arena = ar
+		elif a.begins_with("--time="):
+			var tid := a.get_slice("=", 1)
+			if tid == WeatherView.RANDOM or tid in WeatherView.time_ids():
+				_look_cli["time"] = tid
+		elif a.begins_with("--weather="):
+			var wid := a.get_slice("=", 1)
+			if wid == WeatherView.RANDOM or wid in WeatherView.weather_ids():
+				_look_cli["weather"] = wid
 		elif a.begins_with("--dummy-mode="):
 			dummy_mode = clampi(int(a.get_slice("=", 1)), 0, DUMMY_MODES.size() - 1)
 		elif a.begins_with("--training-flags="):
@@ -3943,7 +4052,7 @@ func _parse_args() -> int:
 			_net_args["watch"] = true
 		elif a.begins_with("--menu="):
 			var page := a.get_slice("=", 1)
-			if page in ["main", "single", "settings", "game", "video", "audio", "controls"] or page.begins_with("single:") \
+			if page in ["main", "single", "look", "settings", "game", "video", "audio", "controls"] or page.begins_with("single:") \
 					or page in ["remap:classic", "remap:league", "remap:gamepad"]:
 				_menu_arg = "" if page == "main" else page
 		elif a.begins_with("--fighter="):

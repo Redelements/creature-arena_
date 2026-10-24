@@ -116,8 +116,8 @@ dig/slosh/poof/chop_chop/shout sounds.
 - Sprite frame by state → `creature_view.gd:_pick`; frame in a move → `_attack_frame`;
   sheet choice → `_pick_view`, `_resolve`, `_load_view`; squash → `_update_squash`, `view_lift`;
   victory pose → `victory`, `_victory_frame`
-- HUD panels, stamina bar (red flash when exhausted), cooldown bars → `hud.gd:_panel`; combo
-  → `_combo`; cut-in → `cut_in`, `_draw_cut_in` (+ `_draw_cut_in_dim`, drawn first so panels stay lit; streaks, tear and name slam all step on `_cut.t` in whole pixels, colour = the fighter's `fx_color`; no cut-in at all when a crowded Surge does not freeze); team HUD → `_team_panels`, `_card`;
+- HUD panels (portrait `_draw_portrait`, health bar with its chunk `_hp_bar`, stepped Surge bar, stamina bar blinking red when exhausted, cooldown boxes filling by rows with a ready flash, the timer's last-10-seconds pulse) → `hud.gd:_panel`, `_track_bars`; which panels show (own side only in team modes, Brawl and Duel) → `panel_plan`, `_draw_panels`; compact teammate cards → `_card`; combo
+  → `_combo`; cut-in → `cut_in`, `_draw_cut_in` (+ `_draw_cut_in_dim`, drawn first so panels stay lit; streaks, tear and name slam all step on `_cut.t` in whole pixels, colour = the fighter's `fx_color`; no cut-in at all when a crowded Surge does not freeze); team HUD → `_draw_panels`, `_card`;
   training tags and DPS → `_training_tags`, `_watch_dummy`, `_dps`, `dps_meter.gd`
 - Surge aura → `surge_aura.gd` (look from the JSON `surge_aura` block)
 - Glow (Settings > Video, `main.gd:glow`, default off on mobile) → `light_view.gd`: two LightViews, the
@@ -134,6 +134,17 @@ dig/slosh/poof/chop_chop/shout sounds.
   projectiles where FxView draws them, and particles (spawned only for what was seen; `tests/test_glow.gd`).
   A pool is a true circle on the floor. Keep halos faint over a fighter (an aura's `halo` share is 0.12),
   or the sprite washes out.
+- Time of day and weather → `weather_view.gd` (WeatherView; presets in `data/weather.json`, an arena's
+  allowed `times` / `weathers`). Four depths: `shade` (a MUL layer after the floor wear, before `FxGround`,
+  so floor telegraphs keep their colours: a flat tint, or at night a light map with floodlight pools
+  built once per match, `_build_lightmap`, flat steps with dithered seams), `ground` (fog bands, rain
+  splashes and ripples: after the shadows, before Glow's floor pools), the node itself (rain, snow,
+  debris, lamps: over the fighters, under FxView's telegraphs and bars) and each fighter's
+  `sprite.self_modulate` (night: lit by its pool, never under `fighter_min`; the flash shader's hit
+  flash and tells replace the colour, so they stay exact). It also sets `water.modulate`,
+  `ambient.modulate`, `AmbientView.set_weather` and `ShadowLayer.light`. Counts drop on mobile
+  (`mobile` blocks). Rain streaks and splashes are shared with Rain Dance (`rain_streaks`, `rain_splashes`).
+  Main picks the look (`main.gd:_match_look`); online is always day + clear.
 - Range rings → `range_rings.gd:rings`; F1 hitbox overlay → `debug_view.gd`; F9 performance
   overlay → `perf_overlay.gd` (main feeds `tick(us)`; the setting is `perf_overlay`)
 - A chasm the match made (Sinkhole's rings, the Floor of pits mutator: `TerrainGrid.sink`) has
@@ -209,4 +220,5 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `shadow_layer.gd` (ShadowLayer) — The fighters' shadows, cast along the arena's light: each fighter's current sprite frame as a black silhouette laid on…
 - `surge_aura.gd` (SurgeAura) — The power-up aura a fighter wears while their Surge is ready: a flickering shell of energy rising off them, motes that…
 - `water_view.gd` (WaterView) — Living water over the shallows (Floodgate's channel, Twin Keeps' pools): a slow flow down the map, twinkling highlights…
+- `weather_view.gd` (WeatherView) — Time of day and weather: how a match looks, never how it plays.
 <!-- END GENERATED -->

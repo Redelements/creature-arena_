@@ -123,6 +123,11 @@ var _rng := RandomNumberGenerator.new()
 var _over_dirty := true
 var _scared_now := 0
 var _crit: Dictionary = {}  ## critter kind -> its config block
+## The match's weather (WeatherView, `set_weather`): x the breeze, x the motes, and
+## whether butterflies and dragonflies come out (they shelter from rain and snow).
+var wind_mul := 1.0
+var mote_mul := 1.0
+var flies := true
 
 
 class Layer extends Node2D:
@@ -200,6 +205,22 @@ func set_sim(s: MatchSim, picture: Texture2D = null) -> void:
 	_over.queue_redraw()
 	_low.queue_redraw()
 	_sky.queue_redraw()
+
+
+## The weather (WeatherView): a stronger or calmer breeze, more or fewer motes, critters
+## out or sheltering. Called after set_sim; remakes the motes and the critters.
+func set_weather(p_wind: float, p_motes: float, p_flies: bool) -> void:
+	if is_equal_approx(p_wind, wind_mul) and is_equal_approx(p_motes, mote_mul) and p_flies == flies:
+		return
+	wind_mul = p_wind
+	mote_mul = p_motes
+	flies = p_flies
+	if sim == null or _cfg.is_empty():
+		return
+	_make_motes()
+	_make_flies()
+	_over_dirty = true
+	_over.queue_redraw()
 
 
 ## A config entry that may be one block or a list of them, as a list.
@@ -405,7 +426,7 @@ func _make_motes() -> void:
 	_mote_kind = kind
 	_mote_rect = _cells_rect(mc.get("area", []), _floor)
 	var cols: Array = kind["colors"]
-	for i in int(mc.get("count", 30)):
+	for i in int(round(int(mc.get("count", 30)) * mote_mul)):
 		_motes.append({"p": _mote_rect.position + Vector2(_rng.randf() * _mote_rect.size.x, _rng.randf() * _mote_rect.size.y),
 			"ph": _rng.randf() * TAU, "col": cols[i % cols.size()], "seed": _rng.randf() < float(kind["seeds"])})
 
@@ -421,7 +442,7 @@ func _cells_rect(a, fallback: Rect2) -> Rect2:
 ## The breeze: mostly along the map, swelling and slackening, a little lift and fall.
 func _wind(p: Vector2, t: int) -> Vector2:
 	var gust := 0.5 + 0.5 * sin(float(t) * 0.011 + p.y * 0.012)
-	return Vector2(0.06 + 0.16 * gust, 0.02 * sin(float(t) * 0.017 + p.x * 0.02))
+	return Vector2(0.06 + 0.16 * gust, 0.02 * sin(float(t) * 0.017 + p.x * 0.02)) * wind_mul
 
 
 func _move_motes() -> void:
@@ -453,7 +474,7 @@ func _move_motes() -> void:
 func _make_flies() -> void:
 	_flies.clear()
 	for kind in ["butterfly", "dragonfly"]:
-		if not _crit.has(kind):
+		if not _crit.has(kind) or not flies:
 			continue
 		var cc: Dictionary = _crit[kind]
 		var spec: Dictionary = FLY_KINDS[kind]

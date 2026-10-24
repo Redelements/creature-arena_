@@ -573,3 +573,13 @@ shockwave, 4 frames, facing right (mirrored when it travels left).
 
 The placeholders use a small hand-picked palette defined at the top of
 `tools/gen_sprites.py`. The final art should use one published palette for the whole game.
+
+## HUD portrait crop
+
+The fighter panels show a head crop of the idle frame (`hud.gd:_draw_portrait`). The
+sprite block's optional `"portrait": [x, y, w, h]` is that crop in the idle frame's own
+pixels (w up to 24, h up to 32); without it the HUD takes the top of the picture's opaque
+area, centred. The crop is scaled by whole multiples only (a smaller crop shows bigger),
+never shrunk. Adding or changing it changes the creature data, so the online data hash
+changes too (server `update.sh` after merge). Not drawn in Team Deathmatch and CTF (no room
+beside the score boxes).

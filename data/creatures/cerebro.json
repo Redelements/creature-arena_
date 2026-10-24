@@ -24,6 +24,7 @@
   "sprite": {
     "path": "res://assets/sprites/cerebro.png",
     "frame": 128,
+    "portrait": [52, 58, 24, 32],
     "cols": 8,
     "origin": [62, 100],
     "anims": {
