@@ -54,7 +54,9 @@
     "select_scale": 0.45,
     "views": {
       "down": { "path": "res://assets/sprites/crease_down.png", "frame": [112, 160], "origin": [56, 136] },
-      "up": { "path": "res://assets/sprites/crease_up.png", "frame": [112, 160], "origin": [56, 124] }
+      "up": { "path": "res://assets/sprites/crease_up.png", "frame": [112, 160], "origin": [56, 124] },
+      "down_side": { "path": "res://assets/sprites/crease_down_side.png", "frame": [128, 160], "origin": [64, 136] },
+      "up_side": { "path": "res://assets/sprites/crease_up_side.png", "frame": [128, 160], "origin": [64, 124] }
     }
   },
   "ai": {
