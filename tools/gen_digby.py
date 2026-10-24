@@ -592,6 +592,55 @@ def dodge():
     return _attack(keys, tail_up=[0.8, 1.0, 1.0, 1.0, 1.0, 1.0, 0.75, 0.25])
 
 
+# --- victory: he pops up on his back legs, dusts himself off (the far paw sweeping his chest,
+# the tail swishing, frames 1-7 loop), then holds the pickaxe high over the helmet (8-9).
+
+def victory():
+    keys = [P(pitch=-5, lift=-1.5, stretch=-0.7, head=6, near=(5.0, 3.0, 11.0), far=(-5.0, 3.0, 9.0), pick=-60)]
+    for i in range(7):
+        a = TAU * i / 7.0
+        sw = 0.5 + 0.5 * math.sin(a)                   # the dusting paw's sweep, 0 high .. 1 low
+        keys.append(P(pitch=30 + 2.0 * math.cos(a), lift=3.5 + 0.5 * math.cos(2 * a), stretch=-0.3 + 0.3 * math.cos(a),
+                      head=-6 + 3.0 * math.sin(a), eyes="shut" if i == 5 else "open",
+                      near=(5.0, 16.0, 6.0), pick=40,
+                      far=(-4.5, 12.0 + 7.0 * sw, 10.5 + 1.5 * sw)))
+    keys.append(P(pitch=36, lift=5.0, stretch=0.8, head=-12, near=(4.0, 33.0, 6.0), far=(-4.5, 14.0, 9.0), pick=95))
+    keys.append(P(pitch=34, lift=4.4, stretch=0.4, head=-10, near=(4.0, 32.0, 6.0), far=(-4.5, 14.0, 9.0), pick=100))
+    out = []
+    for i, k in enumerate(keys):
+        q = copy.copy(k)
+        q.tail = TAU * i / 8.0
+        q.tail_up = 0.35 + 0.15 * math.sin(TAU * i / 7.0 - 1.0) if 0 < i < 8 else (0.1 if i == 0 else 0.55)
+        q.tail_kink = 0.2 * math.sin(TAU * i / 7.0 - 2.0) if 0 < i < 8 else 0.0
+        q.tail_amp = 1.6 if 0 < i < 8 else 1.0
+        q.helm = 0.0 if i == 0 else keys[i - 1].head - k.head
+        out.append(q)
+    return out
+
+
+# --- idle_alt: a paw up to the helmet to set the headlamp straight (a tap, a flicker), then a
+# long sniff toward the foe.
+
+def idle_alt():
+    keys = [
+        P(head=-6.0, lift=0.0),
+        P(pitch=12, lift=0.8, head=-3, near=(4.5, 17.0, 9.0), pick=20),
+        P(pitch=16, lift=1.2, head=-5, near=(3.5, 24.0, 10.5), pick=70, lamp=0.2),
+        P(pitch=16, lift=1.2, head=-4, near=(3.5, 25.0, 11.0), pick=80, lamp=0.9, eyes="shut"),
+        P(pitch=10, lift=0.6, head=-2, near=(5.0, 13.0, 10.0), pick=10, lamp=0.35),
+        P(pitch=0, lift=-0.4, head=-11, head_yaw=-14, stretch=0.2, near=NEAR_PAW, pick=-60),
+        P(pitch=0, lift=-0.6, head=-5, head_yaw=-20, near=NEAR_PAW, pick=-66),
+        P(pitch=0, lift=-0.5, head=-10, head_yaw=-18, stretch=0.2, near=NEAR_PAW, pick=-68),
+    ]
+    out = []
+    for i, k in enumerate(keys):
+        q = copy.copy(k)
+        q.tail, q.tail_up = TAU * i / 8.0, 0.05 + (0.15 if i in (3, 4) else 0.0)
+        q.helm = 0.0 if i == 0 else keys[i - 1].head - k.head
+        out.append(q)
+    return out
+
+
 ROWS = [
     ("idle", idle()),
     ("run", run()),
@@ -606,8 +655,10 @@ ROWS = [
     ("hurt", hurt()),
     ("guard", guard()),
     ("ko", ko()),
+    ("victory", victory()),
+    ("idle_alt", idle_alt()),
 ]
-VIEW_ROWS = ROWS[:-1]  # the knockout falls over sideways in any view
+VIEW_ROWS = ROWS
 
 
 # ------------------------------------------------------------------ animation tools

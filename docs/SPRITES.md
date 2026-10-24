@@ -61,7 +61,7 @@ Footstep dust puffs on the run frames where a foot lands: `"step_frames"` in the
 (default `[0, frames / 2]`: 6-frame runs `[0, 3]`, Crease's 12 `[0, 6]`). `"step": "slush"` makes a
 creature's steps slush instead of the floor's dust (Sno Mercy); shallows always splash.
 
-### Culvert — 96×96 frames, 12 × 12 (1152×1152 px)
+### Culvert — 96×96 frames, 12 × 14 (1152×1344 px)
 
 Culvert is drawn by `tools/gen_culvert.py` with the shared splat renderer
 (`tools/splat3d.py`), like the sheet recreations: a posed 3D rig projected into the
@@ -102,7 +102,9 @@ Facing down and up: [`culvert_views_preview.png`](culvert_views_preview.png).
 | 8 | gulp | 8 | Gulp: 0–2 the charge loop (the drain yawning, the throat pumping, `anim_charge` `[0, 3, 5]`), rock back (held), the lunge mouth gaping (held while the game draws the tongue), the reel-in, the snap shut, the throat bulging |
 | 9 | runoff | 8 | Runoff: 0–1 the charge (reared up), the rise, the peak (held), one fast frame down, the pound (held), the gush a frame later with the cover bouncing, a slow rise |
 | 10 | storm | 12 | Storm Drain: the crouch (held), the push, the leap at full stretch (the cut-in frame, `[10, 2]`), tucked ×2, falling spread ×2, the slam (held, the cover still up), the cover bounce, a slow rise ×3; Manhole Drop has its own `anim_at` from frame 5 |
-| 11 | ko | 4 | thrown back, tips over onto the cover, legs in the air, eyes crossed out; the game cracks him and gushes the water |
+| 11 | victory | 10 | crouch (0), then a 7-frame croak-hop loop (frames 1-7: fists pumping, the drain gaping, spray off the thud), drops back onto his haunches (8) and sits smug, chin up, eyes narrowed (9, held) |
+| 12 | idle_alt | 8 | the fidget (played once after a long stand): the throat swells into a bubble croak and pops, then a sideways eye toward the foe |
+| 13 | ko | 4 | thrown back, tips over onto the cover, legs in the air, eyes crossed out; the game cracks him and gushes the water |
 
 ### Cairn — 6 × 12 (288×576 px)
 
@@ -124,7 +126,7 @@ Facing down and up: [`culvert_views_preview.png`](culvert_views_preview.png).
 Design note for Cairn: keep it **tall and stacked**. A round boulder with two arms would
 read as an existing franchise creature.
 
-### Craglash — 96×96 frames, 12 × 14 (1152×1344 px)
+### Craglash — 96×96 frames, 12 × 16 (1152×1536 px)
 
 Craglash is the first creature from the artist's character sheets. His sheet is a
 pixel recreation of that sheet made by `tools/gen_craglash.py`, a small puppet rig
@@ -169,14 +171,16 @@ the neck, head, mane and arms lag the body. `idle_ticks` 8 (a 64-tick idle), `ru
 | 10 | dodge | 8 | dip, tuck behind the spikes (invulnerable frames 1-4), skid, uncurl |
 | 11 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
 | 12 | guard | 2 | forearms crossed, head tucked behind them |
-| 13 | ko | 4 | stagger, topple, down, neck stones scattered |
+| 13 | victory | 8 | a slow mountain roar: breathe in and rear back, 1-5 loop (head high, fists up, mane bristling, a pixel of hip shudder to shake the stones), 6-7 breathe out and hold |
+| 14 | idle_alt | 8 | grinds his jaw (angry and strain faces), the head turns slowly toward the foe and back, the mane bristles once |
+| 15 | ko | 4 | stagger, topple, down, neck stones scattered|
 
 When the artist's final Craglash arrives, either keep this layout (then it drops in), or
 change the `"sprite"` block in `data/creatures/craglash.json` to match theirs. Design
 note: keep the neck as flat slabs rimmed in red rather than round grey boulders, so it
 doesn't read as a chain of boulders from an existing franchise.
 
-### Barkley — 96×96 frames, 12 × 13 (1152×1248 px)
+### Barkley — 96×96 frames, 12 × 15 (1152×1440 px)
 
 Barkley is the second creature from the artist's sheets. `tools/gen_barkley.py`
 recreates him as a small **3D puppet** (a trunk that forks into two leg-trunks with
@@ -218,14 +222,16 @@ Facing down and up: [`barkley_views_preview.png`](barkley_views_preview.png).
 | 9 | dodge | 8 | bow low under the swing: gather, the bow (held), two lurching steps, rise; on its own `dodge.anim_at` timeline (a view-only key) |
 | 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
 | 11 | guard | 2 | branch arms crossed in front |
-| 12 | ko | 4 | stagger, then topples over backward like a felled tree, roots torn up |
+| 12 | victory | 8 | arms thrown up like boughs, trunk stretched tall; frame 0 gathers, 1-5 loop (boughs sway, leaf and twigs rustling a beat behind), 6-7 hold the proud stance (no bird prop) |
+| 13 | idle_alt | 8 | a creak: trunk leans and turns toward the foe, an arm shakes a leaf loose, straightens (played once after a long stand) |
+| 14 | ko | 4 | stagger, then topples over backward like a felled tree, roots torn up |
 
 Moves time their frames with `"anim_at"` (`[[tick, frame], ...]` in the move's JSON),
 so the spin and the lob play exactly in step with the hits. Design note: the log across
 the head, the moss beard and the root feet are what make him read as Barkley; a round
 tree body with leafy hands would drift toward existing franchise creatures.
 
-### Gillbert — 128×128 frames, 16 × 13 (2048×1664 px)
+### Gillbert — 128×128 frames, 16 × 15 (2048×1920 px)
 
 Gillbert is the third creature from the artist's sheets. `tools/gen_gillbert.py` builds
 him on Barkley's 3D approach: a fish body as a tube along a bendable spine (curl, arch,
@@ -266,12 +272,14 @@ all three views: [`gillbert_run.gif`](gillbert_run.gif).
 | 9 | dodge | 8 | a sideways tumble in a hop, five eased steps of roll, a squashed landing |
 | 10 | hurt | 2 | recoil; frame 1 (on his side) doubles as the crumple pose |
 | 11 | guard | 2 | curled up behind the life ring |
-| 12 | ko | 4 | a last flop, then on his side with the rod across him |
+| 12 | victory | 8 | rears up proud, the rod held high and the line swinging; frame 0 gathers, 1-5 loop (flop in place, gills flaring), 6-7 settle into the held pose |
+| 13 | idle_alt | 8 | a gasp: gills flare and flutter, head up and turned toward the foe, settle (played once after a long stand) |
+| 14 | ko | 4 | a last flop, then on his side with the rod across him |
 
 Design note: the life ring, the barbels and the rod on its line are what make him read as
 Gillbert, not as a fish from an existing franchise.
 
-### Chef Cerebro — 128×128 frames, 12 × 13 (1536×1664 px)
+### Chef Cerebro — 128×128 frames, 12 × 15 (1536×1920 px)
 
 Chef Cerebro is the fourth creature from the artist's sheets, reworked as a **floating
 brain who fights by telekinesis**. `tools/gen_cerebro.py` uses the same cameras as Barkley
@@ -324,13 +332,15 @@ Facing down and up: [`cerebro_views_preview.png`](cerebro_views_preview.png).
 | 9 | dodge | 8 | Mind Blink: squashed wide with the kit folding in, stretched thin, a needle, a point in a flash, the flash at the new spot, back stretched, a wobble with the kit flung out, settle. The dodge's `anim_at` times them; `CreatureView` fades him out and back in, but not on the flash ticks |
 | 10 | hurt | 2 | reeling, sunglasses knocked askew, his grip on the kit slipping; frame 1 doubles as the crumple pose |
 | 11 | guard | 2 | the cleaver, spatula and mallet swing in front of him into a wall |
-| 12 | ko | 4 | his mind lets go: the kit falls, clatters to the floor, the brain sinks after it and deflates, sunglasses off |
+| 12 | victory | 10 | gathers (0), then a 7-frame chef's-kiss loop (1-7: tipped forward in the kiss with a violet sparkle at his middle, the kit orbiting, glasses glinting), the finish tips back (8) and the kit hangs in a proud arc (9, held) |
+| 13 | idle_alt | 8 | the fidget: the spatula taps his brow twice (the thinking tap), then the kit stirs and his gaze goes to the foe, glasses glint |
+| 14 | ko | 4 | his mind lets go: the kit falls, clatters to the floor, the brain sinks after it and deflates, sunglasses off |
 
 Design note: the sunglasses and the kitchen floating around a brain are what make him
 read as Chef Cerebro. Name check before release: "Cerebro" is also the name of a
 well-known comic-book device (see the PR notes).
 
-### Hissy Fitz — 128×128 frames, 12 × 13 (1536×1664 px)
+### Hissy Fitz — 128×128 frames, 12 × 15 (1536×1920 px)
 
 Hissy Fitz is the fifth creature from the artist's sheets. `tools/gen_hissy.py` renders
 like Chef Cerebro's generator (3D points splatted into a depth buffer, three-tone shading,
@@ -375,13 +385,15 @@ Facing down and up: [`hissy_views_preview.png`](hissy_views_preview.png).
 | 9 | dodge | 8 | duck, a full roll (the hair whipping round), land squashed, pop up |
 | 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose (frame 0 is the petrified statue's pose, tinted grey by `CreatureView`) |
 | 11 | guard | 2 | gloves up in front of her face, snakes pulled in |
-| 12 | ko | 4 | the head drops onto the gloves and tips over, hair limp, tongue out |
+| 12 | victory | 10 | crouch (0), then a 7-frame boxer's bounce loop (1-7: gloves punching the air in turn, hair fanned like a hood, hissing), settle (8), both gloves high (9, held) |
+| 13 | idle_alt | 8 | the fidget: the snakes squabble, lunging and hissing out of step, then all stare at the foe, hair thrown forward, and she relaxes |
+| 14 | ko | 4 | the head drops onto the gloves and tips over, hair limp, tongue out |
 
 Design note: she must not read as Medusa from mythology-themed games or films: the boxing
 gloves, the floating head, the earrings and the cartoon grin carry her look. Snakes for
 hair is a myth motif anyone can use; the name and gloves are hers.
 
-### Digby — 128×128 frames, 12 × 13 (1536×1664 px)
+### Digby — 128×128 frames, 12 × 15 (1536×1920 px)
 
 Digby is the sixth creature from the artist's sheets, and the first generator on the
 shared renderer, `tools/splat3d.py` (the splat renderer Chef Cerebro and Hissy Fitz use,
@@ -420,8 +432,10 @@ dust on `step_frames` `[0, 2]` (the front paws landing, the back paws landing).
 | 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
 | 11 | guard | 2 | hunkered behind the pickaxe held crossways |
 | 12 | ko | 4 | over onto his back, legs up, x eyes |
+| 13 | victory | 10 | pops up on his back legs; frames 1-7 loop: the far paw dusting off his chest, the tail swishing; then the pickaxe held high over the helmet (8-9, held) |
+| 14 | idle_alt | 8 | a paw up to the helmet to tap the headlamp straight (it flickers), then a long sniff turned toward the foe; played once after 5 s standing still |
 
-### Sneaky Pete — 128×128 frames, 12 × 13 (1536×1664 px)
+### Sneaky Pete — 128×128 frames, 12 × 15 (1536×1920 px)
 
 `tools/gen_pete.py`, on the shared renderer. A cartoon human rig: hips, a leaning torso
 (sweater), a big head (pink skin, a black mask band with eye holes, a big round nose, a
@@ -459,8 +473,10 @@ Facing down and up: [`pete_views_preview.png`](pete_views_preview.png).
 | 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
 | 11 | guard | 2 | hiding behind the money bag |
 | 12 | ko | 4 | flat on his back, the bag beside him, x eyes |
+| 13 | victory | 10 | counts the loot: frames 1-7 loop, the far hand digging in the bag and holding a gold coin up, grinning; then the bag back on his shoulder and a tip of the beanie (8-9, held) |
+| 14 | idle_alt | 8 | the shifty look: head snaps one way, whips back, the other way, then a long look at the foe; played once after 5 s standing still |
 
-### Sno Mercy — 128×128 frames, 12 × 13 (1536×1664 px)
+### Sno Mercy — 128×128 frames, 12 × 15 (1536×1920 px)
 
 `tools/gen_sno.py`, on the shared renderer. The rig: an icy cyan cone (a tapered tube from
 his point to the rim) with a navy rim, a dome of shaved ice on top (red on his right half,
@@ -499,6 +515,8 @@ they don't sparkle in motion).
 | 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose (frozen, tinted ice-blue by `CreatureView`) |
 | 11 | guard | 2 | gloves up in front of his face |
 | 12 | ko | 4 | topples and melts into a puddle |
+| 13 | victory | 10 | the flex: frames 1-7 loop, both gloves pumping up beside his head, the cone wobbling, the syrup running; then one fist raised high (8-9, held) |
+| 14 | idle_alt | 8 | brushes the snow off his dome with a glove (flecks fly), shakes it off, then glares at the foe; played once after 5 s standing still |
 
 ### Mister Crease — 128×160 frames, 12 × 16 (1536×2560 px)
 

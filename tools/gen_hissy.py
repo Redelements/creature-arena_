@@ -1226,10 +1226,60 @@ def dodge():
     return trail_arms(f)
 
 
+# ---- the victory (10 frames: 0 getting ready, 1-7 the loop, 8 the finish, 9 held) and the
+# idle fidget (8 frames, played once after a long stand)
+
+def victory():
+    """A boxer's victory bounce: she crouches (0), then springs and bounces on a 7-frame loop
+    (twice a cycle) with the gloves punching the air in turn, the snakes of her hair fanned
+    out like a hood and hissing; she settles (8) and holds both gloves high, hair fanned (9)."""
+    f = [NP(head=HF(-6.0, -1.0), sq=0.8, rear=0.5, rear_tip=0.2,
+            near=GF(8.0, 12.0, 8.0, 25), far=GF(-8.0, 12.5, 7.0, 25))]
+    for i in range(7):
+        th = TAU * i / 7
+        b = 0.5 - 0.5 * math.cos(2 * th)          # the bounce, twice a loop
+        punch = math.sin(th)                      # the gloves alternate
+        f.append(NP(head=HF(-3.0 + 9.0 * b, 0.0), sq=0.45 - 0.9 * b, roll=3.0 * punch,
+                    face="shout" if b > 0.8 else "grin",
+                    raise_=0.9, raise_tip=1.0, rear=0.15, spit=(b > 0.9),
+                    near=GF(17.0, 51.0 + 7.0 * punch + 3.0 * b, 4.0, 0), far=GF(-17.0, 51.0 - 7.0 * punch + 3.0 * b, 4.0, 0)))
+    f.append(NP(head=HF(-2.0, 0.0), sq=0.5, raise_=0.8, raise_tip=0.9,
+                near=GF(16.0, 48.0, 4.0, 0), far=GF(-16.0, 48.0, 4.0, 0)))
+    f.append(NP(head=HF(3.0, 0.0), sq=-0.2, raise_=1.0, raise_tip=1.0,
+                near=GF(18.0, 60.0, 2.0, 0), far=GF(-18.0, 60.0, 2.0, 0)))
+    wave_on(f, 0.7)
+    S.lag(f, ("near", "far"), 1, loop=False)
+    return trail_arms(f)
+
+
+def idle_alt():
+    """The fidget: the snakes squabble (they lunge at each other and back, hissing, out of
+    step, the head jolting a little), then all of them stare at the foe, hair raised and thrown
+    forward, head tipped and gaze fixed, then she relaxes back into the hover."""
+    base = idle()[0]
+    sq = lambda a, b, **k: NP(head=HF(1.0, 0.0), roll=a, lash=0.5 + 0.5 * b, lash_tip=0.1 + 0.5 * (1 - b),   # noqa: E731
+                              rear=0.0, spit=b > 0.5, near=GF(10.0, 20.0, 13.0, 30), far=GF(-10.0, 21.5, 10.0, 30), **k)
+    f = [
+        tween(base, NP(head=HF(0.5, 0.0), roll=-3, near=GF(10.0, 20.0, 13.0, 30), far=GF(-10.0, 21.5, 10.0, 30)), 0.5),
+        sq(-4, 1.0), sq(4, 0.0), sq(-5, 1.0),
+        NP(head=HF(0.0, 1.0), pitch=-6, face="gaze", lash=0.4, lash_tip=0.7, raise_=0.5, raise_tip=0.2,
+           near=GF(10.0, 20.0, 13.0, 30), far=GF(-10.0, 21.5, 10.0, 30)),
+        NP(head=HF(0.0, 1.5), pitch=-8, face="gaze", lash=0.6, lash_tip=0.9, raise_=0.4,
+           near=GF(10.0, 20.0, 14.0, 30), far=GF(-10.0, 21.5, 11.0, 30)),
+        NP(head=HF(0.0, 0.8), pitch=-4, lash=0.3, lash_tip=0.4, near=GF(10.0, 20.0, 13.0, 30),
+           far=GF(-10.0, 21.5, 10.0, 30)),
+        tween(base, idle()[7], 0.5),
+    ]
+    wave_on(f, 0.8)
+    S.lag(f, ("near", "far"), 1, loop=False)
+    return trail_arms(f)
+
+
 ROWS = [
     ("idle", idle()), ("run", run()), ("jab", jab()), ("jab2", jab2()), ("lash", lash()),
     ("uppercut", uppercut()), ("spit", spit()), ("gaze", gaze()), ("petrify", petrify()),
-    ("dodge", dodge()), ("hurt", hurt()), ("guard", guard()), ("ko", ko()),
+    ("dodge", dodge()), ("hurt", hurt()), ("guard", guard()), ("victory", victory()),
+    ("idle_alt", idle_alt()), ("ko", ko()),
 ]
 # flesh and scales: the head never squashes or stretches past 10%
 assert all(abs(p.sq) <= 1.0 for _n, poses in ROWS for p in poses)

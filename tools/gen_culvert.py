@@ -639,6 +639,49 @@ def dodge():
     ]
 
 
+def victory():
+    """The croak-hop, 10 frames (0 getting ready, 1-7 the loop, 8 the finish, 9 held): he
+    crouches low (0), then hops in place on a 7-frame loop, fists pumping, the throat full
+    and the drain gaping in a big croak, water spraying off the landing (a belly-flop's
+    worth of splash on the thud, the cover clanking a frame late); the finish drops back
+    onto his haunches (8) and sits smug (9): chin up, eyes narrowed, a full throat."""
+    crouch = P(lift=-2.8, pitch=-8.0, near=(10.0, 2.0, 13.0), far=(-10.0, 2.0, 12.0), throat=0.8, eyes="squint",
+               **legs("crouch", 1.0))
+    land = P(lift=-2.6, pitch=-10.0, near=(12.0, 1.5, 17.0), far=(-12.0, 1.5, 16.0), mouth=0.8, spray=0.9,
+             throat=0.6, eyes="squint", **legs("crouch", 1.0))
+    rise = P(lift=2.0, pitch=10.0, near=_air((9.0, 8.0, 12.0), 2.0), far=_air((-9.0, 10.0, 11.0), 2.0), mouth=0.5,
+             throat=0.8, **legs("stretch", 0.7))
+    up1 = P(lift=8.0, pitch=16.0, near=_air((8.0, 12.0, 10.0), 8.0), far=_air((-8.0, 16.0, 9.0), 8.0), mouth=1.0,
+            throat=1.0, **legs("stretch", 1.0))
+    up2 = P(lift=9.0, pitch=14.0, near=_air((8.0, 16.0, 10.0), 9.0), far=_air((-8.0, 12.0, 9.0), 9.0), mouth=1.0,
+            throat=1.0, **legs("stretch", 1.0))
+    fall = P(lift=3.0, pitch=0.0, near=_air((10.0, 8.0, 14.0), 3.0), far=_air((-10.0, 8.0, 13.0), 3.0), mouth=0.6,
+             throat=0.7, eyes="squint", **legs("stretch", 0.5, blend=("crouch", 0.4)))
+    croak = P(lift=-1.2, pitch=8.0, near=(10.0, 6.0, 13.0), far=(-10.0, 6.0, 12.0), mouth=0.9, throat=1.0, spray=0.3,
+              **legs("crouch", 0.8))
+    loop = [land, rise, up1, up2, fall, croak, tween(croak, land, 0.5, spray=0.0)]
+    smug1 = P(lift=-1.0, pitch=10.0, near=(10.0, 4.0, 15.0), far=(-10.0, 4.0, 14.0), throat=1.0, eyes="squint",
+              mouth=0.1, cover_tilt=-3.0, **legs("sit", 1.0))
+    smug2 = P(lift=0.8, pitch=14.0, near=(10.0, 4.0, 15.0), far=(-10.0, 4.0, 14.0), throat=0.75, eyes="squint",
+              **legs("sit", 1.0))
+    return _cover_lag([crouch] + loop + [smug1, smug2])
+
+
+def idle_alt():
+    """The fidget, 8 frames: the throat swells and he gives a bubble croak (the mouth
+    cracks open, the sac full, a frame of held bubble), then the pop; he slides a sideways
+    eye toward the foe (squinting, head turned a touch) and goes back to his breathing."""
+    a = IDLE0
+    swell = lambda t, **k: tween(a, P(lift=0.8, pitch=3.0, throat=1.0, mouth=0.2), t, **k)  # noqa: E731
+    f = [swell(0.4), swell(0.8), P(lift=0.6, pitch=2.0, throat=1.0, mouth=0.4),
+         P(lift=0.6, pitch=2.0, throat=1.0, mouth=0.4, spray=0.15),
+         P(lift=0.2, pitch=0.0, throat=0.3, mouth=0.25, eyes="squint"),
+         P(lift=0.0, pitch=0.0, yaw=-12.0, throat=0.35, eyes="squint"),
+         P(lift=0.0, pitch=0.0, yaw=-12.0, throat=0.45, eyes="squint"),
+         tween(a, P(lift=0.0, pitch=0.0, yaw=-4.0, throat=0.3, eyes="squint"), 0.5)]
+    return _cover_lag(f)
+
+
 ROWS = [
     ("idle", idle()),
     ("run", run()),
@@ -651,6 +694,8 @@ ROWS = [
     ("gulp", gulp()),
     ("runoff", runoff()),
     ("storm", storm()),
+    ("victory", victory()),
+    ("idle_alt", idle_alt()),
     ("ko", ko()),
 ]
 for _n, _poses in ROWS:
