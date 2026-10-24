@@ -13,8 +13,9 @@ She is a big round head with a crown of spotted green hair snakes, a pair of red
 boxing gloves on the floor below, and two more snakes from under her chin down to the
 gloves (the "gloved snakes" of Snake Jab). Like Chef Cerebro's (tools/gen_cerebro.py),
 the rig is posed once in 3D and every piece is sampled densely as 3D points and
-splatted into a depth buffer, then shaded in three tones, outlined in black round the
-silhouette and along the seams between pieces. A point is (lat, up, fwd): lat toward
+splatted into a depth buffer, then shaded by splat3d's pass on master-palette ramps
+(tools/palette.py), outlined in black round the silhouette and in each material's deep
+step along the seams between pieces. A point is (lat, up, fwd): lat toward
 her right side, up off the floor, fwd the way she faces.
 
 The face (yellow slit eyes with blue eyeshadow, a cocked brow, the big zigzag grin) is
@@ -31,6 +32,10 @@ import sys
 import numpy as np
 from PIL import Image, ImageDraw
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import palette as PAL  # noqa: E402  (P is the pose constructor below)
+import splat3d as S  # noqa: E402  (the shading and outline pass, and the animation tools)
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 OUT = os.path.join(ROOT, "assets", "sprites", "hissy.png")
 PREVIEW = os.path.join(ROOT, "docs", "hissy_preview.png")
@@ -45,19 +50,39 @@ VIEWS = {
     "up_side": {"w": 128, "h": 128, "origin": (64, 92)},
 }
 
-# Palette, sampled from the character sheet. Each material: (base, light, dark).
+# Palette: master-palette ramps (tools/palette.py) picked for the character sheet's
+# colours: pale peach skin, deep green snakes with gold spots, red gloves with darker
+# cuffs, lilac crystal earrings. Skin, snakes and spots light only in the highlight (the
+# light step is the base again): their lit side is most of each piece, and a full light
+# step there turns the skin white and the snakes grass-green (lost on the green arenas).
+
+
+def _matte(name, shift=0):
+    """A ramp whose light step is its base: lit side base, a small highlight on top."""
+    r = PAL.ramp(name, shift)
+    return [r[0], r[1], r[2], r[2], r[4] if r[4] != r[3] else r[3]]
+
+
+_G = PAL.LINES["green"]
 MAT = {
-    "skin": ((250, 196, 176), (255, 222, 204), (222, 158, 140)),
-    "snake": ((22, 92, 36), (44, 132, 56), (10, 60, 22)),
-    "spot": ((240, 196, 20), (255, 230, 90), (196, 150, 10)),
-    "eye_snake": ((14, 12, 14), (14, 12, 14), (14, 12, 14)),
-    "tongue": ((200, 16, 50), (236, 60, 80), (150, 10, 36)),
-    "venom": ((150, 230, 90), (210, 255, 150), (90, 170, 50)),
-    "glove": ((196, 10, 36), (236, 52, 66), (138, 6, 26)),
-    "cuff": ((170, 8, 30), (210, 40, 56), (120, 4, 22)),
-    "earring": ((196, 120, 220), (230, 170, 250), (140, 80, 170)),
+    "skin": _matte("pink", 1),    # the pink line's peach-pink step (Pete's skin is a step deeper)
+    # the green line's dark end, the sheet's deep snake green; its deep step from the moss
+    # line, which runs a step darker than the green line's end
+    "snake": [PAL.LINES["moss"][0], _G[0], _G[1], _G[1], _G[2]],
+    "spot": _matte("gold"),
+    "eye_snake": PAL.flat("ink"),
+    "tongue": "red",
+    "venom": "lime",
+    "glove": _matte("red"),       # crimson, not the red line's salmon light step
+    "cuff": ("red", -1),
+    "earring": ("violet", 1),
 }
-OUTLINE = (14, 12, 14, 255)  # the sheet's black line
+OUTLINE = PAL.INKS["ink"] + (255,)  # the sheet's black line
+# Shading, seams and outlines are splat3d's pass on this rig's buffers. The silhouette
+# stays black all round, as on the sheet (every material's ink is the black line); seams
+# inside it are each material's deep step, like the other fighters.
+S.configure(MAT)
+S.INK = {name: OUTLINE[:3] for name in MAT}
 MAT_ID = {name: i + 1 for i, name in enumerate(MAT)}
 ID_MAT = {i: name for name, i in MAT_ID.items()}
 
@@ -399,10 +424,36 @@ def _deg(az, el):
     return (az + 180.0, 90.0 - el)
 
 
+# The face's colours, all on the master palette (each a step on one of its lines, so the
+# face's shadow side is the step below: _step_down).
+FACE = {
+    "line": PAL.INKS["ink"] + (255,),
+    "eye": PAL.LINES["gold"][2] + (255,),
+    "eye_glow": PAL.LINES["gold"][4] + (255,),     # Petrify Gaze: the eyes light up
+    "pupil_glow": PAL.LINES["lime"][2] + (255,),
+    "glint": PAL.LINES["neutral"][10] + (255,),
+    "shadow": PAL.LINES["sky"][4] + (255,),        # the blue eyeshadow
+    "lips": PAL.LINES["red"][1] + (255,),
+    "teeth": PAL.LINES["neutral"][9] + (255,),
+    "mouth": PAL.LINES["wine"][1] + (255,),
+    "tongue": PAL.LINES["red"][3] + (255,),
+}
+
+
+def _step_down(rgb):
+    """The palette colour one step darker on rgb's own line (itself if it's an ink or a
+    line's darkest)."""
+    for cols in PAL.LINES.values():
+        if rgb in cols:
+            k = cols.index(rgb)
+            return cols[max(0, k - 1)]
+    return rgb
+
+
 def face_texture(expr):
     img = Image.new("RGBA", (TEX_W, TEX_H), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    blk = (14, 12, 14, 255)
+    blk = FACE["line"]
     for side in (-1, 1):
         cx, cy = _deg(25 * side, 8)
         if expr == "ko":
@@ -416,13 +467,13 @@ def face_texture(expr):
         glow = expr == "gaze"
         # the big yellow eye, outlined in black, with a slit pupil
         d.ellipse([cx - 18, cy - 15, cx + 18, cy + 15], fill=blk)
-        d.ellipse([cx - 15, cy - 12, cx + 15, cy + 12], fill=(255, 255, 140, 255) if glow else (255, 238, 0, 255))
+        d.ellipse([cx - 15, cy - 12, cx + 15, cy + 12], fill=FACE["eye_glow"] if glow else FACE["eye"])
         px = cx - 5 * side
-        d.ellipse([px - 3, cy - 11, px + 3, cy + 10], fill=(40, 200, 90, 255) if glow else blk)
+        d.ellipse([px - 3, cy - 11, px + 3, cy + 10], fill=FACE["pupil_glow"] if glow else blk)
         if glow:
-            d.ellipse([cx + 3, cy - 6, cx + 7, cy - 2], fill=(255, 255, 255, 255))
+            d.ellipse([cx + 3, cy - 6, cx + 7, cy - 2], fill=FACE["glint"])
         # blue eyeshadow arc above, and lashes
-        d.arc([cx - 13, cy - 20, cx + 13, cy + 2], 200, 340, fill=(0, 160, 235, 255), width=4)
+        d.arc([cx - 13, cy - 20, cx + 13, cy + 2], 200, 340, fill=FACE["shadow"], width=4)
         for k in range(3):
             lx = cx - 8 * side + k * 5 * side
             d.line([(lx, cy - 14), (lx - 2 * side, cy - 20)], fill=blk, width=2)
@@ -441,13 +492,13 @@ def face_texture(expr):
         top = [_deg(-22, -20), _deg(0, -22), _deg(24, -18), _deg(40, -12)]
         bot = [_deg(42, -16), _deg(26, -34 - open_), _deg(0, -38 - open_), _deg(-22, -26)]
         outer = top + bot
-        d.polygon(outer, fill=(190, 20, 40, 255))
+        d.polygon(outer, fill=FACE["lips"])
         inner_top = [_deg(-17, -23), _deg(0, -25), _deg(22, -21), _deg(35, -16)]
         inner_bot = [_deg(36, -19), _deg(24, -31 - open_), _deg(0, -34 - open_), _deg(-17, -27)]
-        d.polygon(inner_top + inner_bot, fill=(250, 250, 250, 255))
+        d.polygon(inner_top + inner_bot, fill=FACE["teeth"])
         if open_:
             d.polygon([_deg(-10, -29), _deg(20, -27), _deg(14, -36 - open_), _deg(-6, -36 - open_)],
-                      fill=(70, 10, 20, 255))
+                      fill=FACE["mouth"])
         zig = []
         for k in range(9):
             az = -16 + k * 6.3
@@ -458,7 +509,7 @@ def face_texture(expr):
         d.line([_deg(-14, -28), _deg(-5, -24), _deg(5, -30), _deg(14, -25), _deg(22, -29)], fill=blk, width=3)
     elif expr == "ko":
         d.ellipse([*_deg(-6, -22), *_deg(10, -34)], fill=blk)
-        d.ellipse([*_deg(-1, -30), *_deg(6, -40)], fill=(220, 60, 90, 255))  # tongue out
+        d.ellipse([*_deg(-1, -30), *_deg(6, -40)], fill=FACE["tongue"])  # tongue out
     return np.array(img)
 
 
@@ -466,8 +517,15 @@ _FACE_CACHE = {}
 
 
 def face_lookup(expr):
+    """The face texture and its shadow-side twin (every colour a step down its line)."""
     if expr not in _FACE_CACHE:
-        _FACE_CACHE[expr] = face_texture(expr)
+        tex = face_texture(expr)
+        dark = tex.copy()
+        cols = {tuple(int(v) for v in c) for c in tex[tex[:, :, 3] > 0][:, :3]}
+        for c in cols:
+            hit = np.all(tex[:, :, :3] == np.array(c, np.uint8), axis=2) & (tex[:, :, 3] > 0)
+            dark[hit, :3] = _step_down(c)
+        _FACE_CACHE[expr] = (tex, dark)
     return _FACE_CACHE[expr]
 
 
@@ -812,30 +870,6 @@ def rasterise(pose, view):
     }
 
 
-def shade_buffers(r):
-    cam = r["cam"]
-    mat = r["mat"]
-    filled = mat > 0
-    img = np.zeros((H, W, 4), np.uint8)
-    sd = cam.screen_dir(r["nrm"].reshape(-1, 3)).reshape(H, W, 3)
-    light = np.array([-0.55, -0.7, 0.45])
-    light /= np.linalg.norm(light)
-    lum = sd @ light
-    r["lum"] = lum
-    for name, mid in MAT_ID.items():
-        m = filled & (mat == mid)
-        if not m.any():
-            continue
-        base, li, dk = MAT[name]
-        col = np.zeros((H, W, 3), np.uint8)
-        col[:] = base
-        col[lum > 0.5] = li
-        col[lum < -0.12] = dk
-        img[m, :3] = col[m]
-        img[m, 3] = 255
-    return img
-
-
 def face(r, img):
     """Paints the face texture onto the head where it shows."""
     loc = r["local"]
@@ -844,46 +878,26 @@ def face(r, img):
     with np.errstate(invalid="ignore"):
         az = np.degrees(np.arctan2(loc[:, :, 0] / rl, loc[:, :, 2] / rf))
         el = np.degrees(np.arcsin(np.clip(loc[:, :, 1] / ru, -1.0, 1.0)))
-    tex = face_lookup(r["pose"].face)
+    tex, tex_dark = face_lookup(r["pose"].face)
     tx = np.clip(np.nan_to_num(az + 180.0).astype(int), 0, TEX_W - 1)
     ty = np.clip(np.nan_to_num(90.0 - el).astype(int), 0, TEX_H - 1)
     t = tex[ty, tx]
     m = skin & (t[:, :, 3] > 0)
-    # the shading of the skin carries over a little, so the features sit on a round head
-    lum = r["lum"]
-    shadow = m & (lum < -0.12)
-    out = t[:, :, :3].astype(np.int32)
-    out[shadow] = (out[shadow] * 0.78).astype(np.int32)
-    img[m, :3] = out[m].astype(np.uint8)
+    # the skin's shading carries over, so the features sit on a round head: on the shadow
+    # side of the terminator (splat3d's ramp level) each colour is a step down its line
+    shadow = m & (r["level"] <= 1)
+    out = t[:, :, :3].copy()
+    out[shadow] = tex_dark[ty, tx][shadow, :3]
+    img[m, :3] = out[m]
     img[m, 3] = 255
     return img
 
 
-def outline(r, img):
-    a = img.copy()
-    filled = a[:, :, 3] > 0
-    part = r["part"]
-    z = r["z"]
-    ring = np.zeros_like(filled)
-    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-        ring |= np.roll(np.roll(filled, dy, 0), dx, 1) & ~filled
-    a[ring] = OUTLINE
-    seam = np.zeros_like(filled)
-    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-        pz = np.roll(np.roll(z, dy, 0), dx, 1)
-        pp = np.roll(np.roll(part, dy, 0), dx, 1)
-        pf = np.roll(np.roll(filled, dy, 0), dx, 1)
-        with np.errstate(invalid="ignore"):
-            seam |= filled & pf & (pp != part) & (pz > z + 0.8)
-    a[seam] = OUTLINE
-    return a
-
-
 def render(pose, view):
     r = rasterise(pose, view)
-    img = shade_buffers(r)
+    img = S.shade(r)
     img = face(r, img)
-    img = outline(r, img)
+    img = S.outline(r, img)
     return Image.fromarray(img)
 
 
@@ -942,9 +956,6 @@ def ko():
 # the gloves trail the head, the glove snakes trail the gloves (`trail_arms`), the hair
 # sways as a wave down each snake and is thrown base first, tips last. The head squashes
 # up to 10% (flesh and scales). Hurt, guard and the knockout (above) are unchanged.
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import splat3d as S  # noqa: E402  (the shared animation tools only; the renderer is this file's)
 
 TAU = 2.0 * math.pi
 # Gloves travel on curves between key poses; the face and the venom come whole.
@@ -1355,7 +1366,7 @@ def preview(sh, rows, fw, fh, origin, scale, path):
 # `python3 tools/gen_hissy.py anim` renders preview GIFs into docs/anim_preview/,
 # and `python3 tools/anim_preview.py --check hissy` checks the JSON's timelines against ROWS.
 # In-betweens and overlap come from splat3d (tween, cycle, lag, lag_at), which only touch
-# pose attributes; this generator's renderer is its own.
+# pose attributes; this generator's rasteriser is its own (its shading is splat3d's).
 ANIM_CYCLES = {"idle": 64, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks)
 # The "current" side of the compare GIFs: main before the pass.
 OLD_REF = os.environ.get("HISSY_OLD_REF", "25d385d")
