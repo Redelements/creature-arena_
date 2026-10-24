@@ -35,6 +35,24 @@
 			320
 		]
 	},
+	"furniture": [
+		{"kind": "banner", "pos": [-500, -27], "anchor": "t", "color": "#c43434", "emblem": 0, "h": 34},
+		{"kind": "banner", "pos": [-380, -27], "anchor": "t", "color": "#c43434", "emblem": 1, "h": 34},
+		{"kind": "banner", "pos": [-260, -27], "anchor": "t", "color": "#c43434", "emblem": 2, "h": 34},
+		{"kind": "banner", "pos": [-140, -27], "anchor": "t", "color": "#c43434", "emblem": 0, "h": 34},
+		{"kind": "banner", "pos": [140, -27], "anchor": "t", "color": "#2c5cb4", "emblem": 1, "h": 34},
+		{"kind": "banner", "pos": [260, -27], "anchor": "t", "color": "#2c5cb4", "emblem": 2, "h": 34},
+		{"kind": "banner", "pos": [380, -27], "anchor": "t", "color": "#2c5cb4", "emblem": 0, "h": 34},
+		{"kind": "banner", "pos": [500, -27], "anchor": "t", "color": "#2c5cb4", "emblem": 1, "h": 34},
+		{"kind": "flag", "pos": [-60, -2], "anchor": "t", "h": 34, "color": "#c43434"},
+		{"kind": "flag", "pos": [60, -2], "anchor": "t", "h": 34, "color": "#2c5cb4", "mirror": true},
+		{"kind": "torch", "pos": [-30, 56]},
+		{"kind": "torch", "pos": [30, 56], "anchor": "tr", "mirror": true},
+		{"kind": "torch", "pos": [-30, 22], "anchor": "bl"},
+		{"kind": "torch", "pos": [30, 22], "anchor": "br", "mirror": true},
+		{"kind": "torch", "pos": [280, 54]},
+		{"kind": "torch", "pos": [952, 54]}
+	],
 	"pieces": [
 		{
 			"kind": "wall",

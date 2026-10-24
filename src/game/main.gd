@@ -29,6 +29,8 @@ extends Node2D
 ##   --range-rings         start with the range rings on (Settings > Controls; F7 in a fight)
 ##   --shots=60,120        save screenshots at those frame numbers
 ##   --shot-dir=PATH       where screenshots go (default user://shots)
+##   --cam=X,Y[,ZOOM]      hold the camera on this world spot (and zoom), still clamped to the
+##                         arena and its stands: for screenshots of the edges
 ##   --quit-after=N        exit after N frames
 ##   --perf                log frame and tick times during fights; on quit, prints the
 ##                         percentiles and saves them to user://perf.txt
@@ -274,6 +276,8 @@ var _cam_zoom := 0.0  ## eased toward a zoom that fits the fighters (0: snap on 
 var replay: Replay
 var arena: ArenaView
 var crowd: CrowdView
+var backdrop: BackdropView
+var furniture: FurnitureView
 var entities: Node2D
 var views: Array[CreatureView] = []
 var fx: FxView
@@ -420,6 +424,7 @@ var autoplay: AutoPlay = null
 var frame_count := 0
 var _shots := {}
 var _shot_dir := "user://shots"
+var _cam_force := Vector3.ZERO  ## --cam=x,y,zoom: the camera held here (screenshots)
 var _quit_after := 0
 ## The CPUs' inputs for this tick are worked out (_think_cpus) and wait in last_bits.
 var _cpus_thought := false
@@ -511,9 +516,14 @@ func _ready() -> void:
 	add_child(camera)
 	camera.make_current()
 
+	backdrop = BackdropView.new()  # the sky and the far tiers, sliding less than the camera (parallax)
+	add_child(backdrop)
 	arena = ArenaView.new()
 	add_child(arena)
 	crowd = CrowdView.new()
+	furniture = FurnitureView.new()  # floodlights, flags, the scoreboard, sponsor boards (arena JSON "furniture")
+	furniture.backdrop = backdrop
+	add_child(furniture)
 	add_child(crowd)
 	wear = FloorWear.new()  # scratches, gouges, craters, prints: the floor remembers, under everything
 	add_child(wear)
@@ -2072,6 +2082,9 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	for c in sim.creatures:
 		two_sides = two_sides and c.team >= 0 and c.team <= 1
 	crowd.set_size(sim.arena_size(), two_sides)
+	backdrop.set_map(arena.arena_id, sim.arena_size())
+	furniture.hud = hud
+	furniture.set_arena(sim.arena, sim.arena_size())
 	arena.set_terrain(sim.terrain)
 	for v in views:
 		v.queue_free()
@@ -2808,6 +2821,10 @@ func _update_camera() -> void:
 		base_z = _cam_zoom
 		base_focus = _cam_follow
 		ko_focus = _ko_pos + Vector2(0, -16)  # no K.O. banner in a showcase
+	if _cam_force != Vector3.ZERO:
+		base_focus = Vector2(_cam_force.x, _cam_force.y)
+		if _cam_force.z > 0.0:
+			base_z = _cam_force.z
 	var z := base_z
 	var focus := base_focus
 	if _ko_cam_t >= 0:
@@ -2822,7 +2839,7 @@ func _update_camera() -> void:
 	camera.zoom = Vector2(z, z)
 	# Near an edge the shot may run a little past it, into the side stands and front rows.
 	camera.position = Vector2(_cam_axis(focus.x, half.x, size.x, CrowdView.SHOW_SIDE, CrowdView.SHOW_SIDE),
-		_cam_axis(focus.y, half.y, size.y, 0.0, CrowdView.SHOW_FRONT))
+		_cam_axis(focus.y, half.y, size.y, CrowdView.SHOW_TOP, CrowdView.SHOW_FRONT))
 	_update_pointers(view)
 
 
@@ -4012,6 +4029,9 @@ func _parse_args() -> int:
 		elif a.begins_with("--shots="):
 			for s in a.get_slice("=", 1).split(","):
 				_shots[int(s)] = true
+		elif a.begins_with("--cam="):
+			var cp := a.get_slice("=", 1).split(",")
+			_cam_force = Vector3(float(cp[0]), float(cp[1]), float(cp[2]) if cp.size() > 2 else 0.0)
 		elif a.begins_with("--shot-dir="):
 			_shot_dir = a.get_slice("=", 1)
 		elif a.begins_with("--quit-after="):

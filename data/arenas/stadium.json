@@ -9,5 +9,28 @@
 	"ambient": {"_doc": "paper scraps fall from the stands after a knockout or a Surge; a few birds cross high over the floodlights now and then; see AmbientView",
 		"confetti": {"cap": 90, "on": ["ko", "surge"]},
 		"critters": {"kind": "bird", "every": 1500, "flock": 3, "first": 420}},
+	"furniture": [
+		{"kind": "floodlight", "pos": [-30, 56], "h": 110},
+		{"kind": "floodlight", "pos": [30, 56], "anchor": "tr", "mirror": true, "h": 110},
+		{"kind": "floodlight", "pos": [-34, 22], "anchor": "bl", "h": 70},
+		{"kind": "floodlight", "pos": [34, 22], "anchor": "br", "h": 70},
+		{"kind": "scoreboard", "pos": [-95, -1], "anchor": "t"},
+		{"kind": "flag", "pos": [-260, -2], "anchor": "t", "h": 34, "color": "#c43434"},
+		{"kind": "flag", "pos": [260, -2], "anchor": "t", "h": 34, "color": "#2c5cb4", "mirror": true},
+		{"kind": "banner", "pos": [95, -27], "anchor": "t", "color": "#d2a028", "emblem": 0},
+		{"kind": "banner", "pos": [-190, -27], "anchor": "t", "color": "#c43434", "emblem": 1},
+		{"kind": "banner", "pos": [190, -27], "anchor": "t", "color": "#2c5cb4", "emblem": 1},
+		{"kind": "banner", "pos": [-310, -27], "anchor": "t", "color": "#1c7480", "emblem": 2},
+		{"kind": "banner", "pos": [310, -27], "anchor": "t", "color": "#60348c", "emblem": 2},
+		{"kind": "sponsor", "pos": [65, 54], "text": "WOBBLE-O", "color": "#1c7480", "w": 62},
+		{"kind": "sponsor", "pos": [193, 54], "text": "CRUMBLY", "color": "#b0442c", "w": 62},
+		{"kind": "sponsor", "pos": [321, 54], "text": "BRR-CONE", "color": "#2c64a8", "w": 62},
+		{"kind": "sponsor", "pos": [449, 54], "text": "PAPER CO.", "color": "#d2a028", "w": 62},
+		{"kind": "sponsor", "pos": [577, 54], "text": "GUM-GUM", "color": "#60348c", "w": 62},
+		{"kind": "post", "pos": [4, 60], "color": "#c43434"},
+		{"kind": "post", "pos": [-4, 60], "anchor": "tr", "color": "#2c5cb4", "mirror": true},
+		{"kind": "post", "pos": [4, -4], "anchor": "bl", "color": "#c43434"},
+		{"kind": "post", "pos": [-4, -4], "anchor": "br", "color": "#2c5cb4", "mirror": true}
+	],
 	"pieces": []
 }
