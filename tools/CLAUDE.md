@@ -21,7 +21,8 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
 - `gen_cerebro.py`, `gen_hissy.py`: point-sampling rigs with their own copy of the splat code.
 - `gen_barkley.py`, `gen_gillbert.py`, `gen_craglash.py`: older (Barkley/Gillbert project a
   3D rig per view; Craglash is a 2D IK puppet whose renderer rounds to whole pixels in
-  `whole_pixels()`, so its poses may hold floats).
+  `whole_pixels()`, so its poses may hold floats; its up/down sheets come from `VRig`, its
+  diagonals from `DRig`, which turns the VRig's 3D reading 45 degrees: `docs/SPRITES.md`).
 - `gen_sprites.py`: placeholders (Cairn, dummy, tiles, crowd). `gen_arenas.py`: each map's
   whole picture (stands on all sides: `_stands`, `_side_stands`, `_front_stands`, in step with
   `CrowdView`'s seats) plus its cracked and changed-piece floors (and `_crackmask`, the cracks
@@ -35,8 +36,8 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
 Every character has three sheets with the same rows (side, facing down, facing up); all
 generators draw all three. The diagonals (`down_side`, `up_side`: facing down-right and
 up-right, `<id>_down_side.png`, `<id>_up_side.png`) are optional extra sheets: a splat3d
-rig adds them to its `VIEWS` and the JSON's `"views"` (Pete, Culvert, Digby, Sno and Crease have them), and `Cam` projects
-them; `write_sheets`, `inspect` and the `anim` previews draw every view in `VIEWS`. A
+rig adds them to its `VIEWS` and the JSON's `"views"` (every fighter but Cairn and the dummy has
+them; Craglash draws his with `DRig`), and `Cam` projects them; `write_sheets`, `inspect` and the `anim` previews draw every view in `VIEWS`. A
 `build(pose, view)` branch on the view name (Pete's `_dollar`) needs a case for them.
 Cerebro and Hissy have them too, through their own copies of `Cam` (the two diagonal
 branches ported from splat3d; their `main`/`inspect` loop over `S.view_names(VIEWS)`);
