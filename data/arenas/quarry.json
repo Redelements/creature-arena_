@@ -3,6 +3,8 @@
 	"id": "quarry",
 	"name": "Quarry Bowl",
 	"ground": "stone",
+	"times": ["day", "sunset", "night"],
+	"weathers": ["clear", "rain", "fog", "wind", "snow"],
 	"light": {"_doc": "low afternoon sun from the top left: long shadows raking right", "dir": [0.8, 0.6], "length": 0.75, "alpha": 0.38},
 	"ambient": {"_doc": "dust hanging in the low sun, grit trickling off the rubble walls, a dust devil now and then; see AmbientView",
 		"motes": {"kind": "sundust", "count": 38},

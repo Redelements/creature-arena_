@@ -4098,17 +4098,12 @@ func _bang(ci: CanvasItem, at: Vector2) -> void:
 
 
 func _draw_rain(ci: CanvasItem) -> void:
+	# the same streaks and splashes as the Rain weather (WeatherView), over the view
 	var amount := minf(1.0, _rain / 30.0)
 	var n := int(110 * amount)
-	var col := Color(C_WATER_L, 0.45)
-	for i in n:
-		var x := fposmod(i * 37.7 + _tick * 2.4, 520.0) - 20.0
-		var y := fposmod(i * 61.3 + i * i * 0.37 + _tick * 8.0, 300.0) - 15.0
-		ci.draw_line(Vector2(x, y), Vector2(x - 2.0, y + 7.0), col, 1.0)
+	var view := _view_rect(ci, 0.0)
+	if view.size.x > 1e8:
+		view = Rect2(Vector2.ZERO, Vector2(480, 270))  # headless: no screen
+	WeatherView.rain_streaks(ci, view, n, _tick)
 	var fr := sim.floor_rect() if sim != null else SimDefs.floor_rect()
-	for i in n / 3:
-		var hsh := i * 7919 + (_tick / 4) * 104729
-		var sx := fr.position.x + float(hsh % int(fr.size.x))
-		var sy := fr.position.y + float((hsh / 7) % int(fr.size.y))
-		ci.draw_rect(Rect2(Vector2(sx, sy - 1), Vector2(1, 1)), Color(C_FOAM, 0.6))
-		ci.draw_rect(Rect2(Vector2(sx - 1, sy), Vector2(3, 1)), Color(C_WATER_L, 0.5))
+	WeatherView.rain_splashes(ci, fr, n / 3, _tick)
