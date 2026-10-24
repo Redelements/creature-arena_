@@ -5,13 +5,13 @@ row layout, it drops in with no code changes. If a layout does change, update th
 `"sprite"` block in the creature's JSON file in `data/creatures/`; each move picks its
 animation by name with its `"anim"` field.
 
-![Current placeholder sheets](sprite_preview.png)
+![The tiles, crowd and effects sheets](sprite_preview.png)
 
 ## Directions per creature: three sheets, five with the diagonals
 
 Fighters face any of 8 ways, so every creature has **three sheets with the same rows**,
-and have **two more for the diagonals** (every fighter but Cairn and the dummy, since the
-Oct 2026 diagonal round):
+and **two more for the diagonals** (every fighter since the Oct 2026 diagonal round;
+Cairn and the training dummy since their rigs replaced the placeholders):
 
 | Sheet | Shows | Used when facing |
 | --- | --- | --- |
@@ -35,7 +35,12 @@ their diagonal: hits are circles on the floor, so a punch reaching 20 px lands a
 14 px right and 14 px down the screen (`down_side`) or 14 px right and 14 px up
 (`up_side`). The creature's right side goes the other diagonal (left and down in
 `down_side`, right and down in `up_side`). `tools/splat3d.py` (`Cam`) projects them that
-way, with the body's own depth flattened as in the down/up views (`depth_y`).
+way, with the body's own depth flattened as in the down/up views (`depth_y`). The flattening
+reaches `near` px in front of the body (`configure(near=...)`); a diagonal sees only 0.707 of
+a reach as depth, so a short reach stayed inside it and read sideways. `configure(near_views=
+{"down_side": 8, "up_side": 8})` sets a smaller near for the diagonals (about 0.7 of the
+fighter's `near`; Pete, Sno, Digby and Crease since the reactions batch, Oct 2026), and where
+a move still reads wrong a generator cheats the pose for that view (Pete's `diag_yaw`).
 
 Each view can have its own frame size and feet origin (`"views"` in the creature's JSON
 `"sprite"` block). Animations listed in `"side_only"` (all three use it for the knockout,
@@ -44,14 +49,14 @@ in the others. Pete's five views side by side:
 [`anim_preview/pete_diagonals_3x.png`](anim_preview/pete_diagonals_3x.png) and
 [`pete_views_preview.png`](pete_views_preview.png); every other fighter has its own
 `anim_preview/<id>_diagonals_3x.png` and `<id>_views_preview.png` (Craglash's diagonals:
-[`craglash_diagonal_views_preview.png`](craglash_diagonal_views_preview.png)). Preview: [`sprite_views_preview.png`](sprite_views_preview.png) (Cairn,
-side/down/up), [`culvert_views_preview.png`](culvert_views_preview.png), [`craglash_views_preview.png`](craglash_views_preview.png) and
+[`craglash_diagonal_views_preview.png`](craglash_diagonal_views_preview.png)). Preview: [`cairn_views_preview.png`](cairn_views_preview.png),
+[`culvert_views_preview.png`](culvert_views_preview.png), [`craglash_views_preview.png`](craglash_views_preview.png) and
 [`barkley_views_preview.png`](barkley_views_preview.png) and
 [`gillbert_views_preview.png`](gillbert_views_preview.png).
 
-## Creatures — 48×48 frames, 6 columns
+## Creatures — frames of 96 to 128 px, 12 columns
 
-Creatures face **right**. Feet rest at the **origin** pixel (Cairn: x 22, y 43), which
+Creatures face **right**. Feet rest at the **origin** pixel (Cairn: x 46, y 84), which
 sits on the ground where the shadow is drawn (the frame itself, as a silhouette laid along
 the arena's light, so every opaque pixel casts). The game mirrors the
 sprite to face left and raises it off its shadow when launched. Leave at least 1 px of
@@ -61,8 +66,9 @@ Two effects read the art directly, so check them when sheets are replaced:
 
 - **Cairn's knockout** slices idle frame 0 into horizontal bands, one per stone, and
   tumbles them separately. The band rows are `ko_fx.pieces` in `cairn.json` (head first),
-  and `ko_fx.x_eyes` marks where the eyes are so they can be drawn as X's. If the final
-  art moves the stones or the face, update those numbers.
+  and `ko_fx.x_eyes` marks where the eyes are so they can be drawn as X's. If the rig
+  moves the stones or the face, update those numbers: `python3 tools/gen_cairn.py kofx`
+  prints them from idle frame 0.
 - **Surge cut-ins** show one frame of the Surge animation enlarged, picked by
   `cut_in_frame` ([row, column]) in each creature's JSON.
 
@@ -110,7 +116,9 @@ Facing down and up: [`culvert_views_preview.png`](culvert_views_preview.png).
 
 The diagonals (`culvert_down_side.png`, `culvert_up_side.png`): 96×96 like the others
 (no `"frame"` key), feet at x 48, y 80 (`down_side`) and y 74 (`up_side`), the plain
-45-degree cameras with no cheat. Five views side by side:
+45-degree cameras plus one cheat: a fist reaching past its rest is drawn with its reach
+unflattened by the camera's `depth_y` (`_reach_cheat` in `build`), so a short punch toward
+or away from the camera reads along the diagonal instead of sideways. Five views side by side:
 [`anim_preview/culvert_diagonals_3x.png`](anim_preview/culvert_diagonals_3x.png).
 
 | Row | Animation | Frames | Notes |
@@ -121,34 +129,73 @@ The diagonals (`culvert_down_side.png`, `culvert_up_side.png`): 96×96 like the 
 | 3 | hook | 8 | Hook (light 3): wind, wind deep (held), the body turns a frame before the arm, whip, extension held, the fist past his face with the cover sliding, return, settle |
 | 4 | heavy | 12 | Slam: 0–3 the charge loop (a heave, `anim_charge` `[0, 4, 5]`), the peak (held), one fast frame down, impact (held, the cover still up), the cover bounces, clanks down, a slow rise ×2, settle |
 | 5 | dodge | 8 | the roll: a tuck, a full turn over his cover resting on the floor (4 frames), the thud (fists planted), settle, rise |
-| 6 | hurt | 2 | recoil, mouth open; frame 1 doubles as the crumple pose |
-| 7 | guard | 2 | hunkered low, fists up in front of his face |
+| 6 | hurt | 4 | the recoil (head snapped back first, fists and cover still), the deepest reel (fists flung up, the cover lifting late; held as the crumple pose), the drop (the cover clanks down, the throat bulges), sagging back toward 0; looped at 4 ticks in hitstun |
+| 7 | guard | 4 | the hold (hunkered low, fists up in front of his face), the jolt of a block (shoved back, head ducked, the cover rocking), the shiver back, the brace on the way in; the view plays 0 and 1 today |
 | 8 | gulp | 8 | Gulp: 0–2 the charge loop (the drain yawning, the throat pumping, `anim_charge` `[0, 3, 5]`), rock back (held), the lunge mouth gaping (held while the game draws the tongue), the reel-in, the snap shut, the throat bulging |
 | 9 | runoff | 8 | Runoff: 0–1 the charge (reared up), the rise, the peak (held), one fast frame down, the pound (held), the gush a frame later with the cover bouncing, a slow rise |
 | 10 | storm | 12 | Storm Drain: the crouch (held), the push, the leap at full stretch (the cut-in frame, `[10, 2]`), tucked ×2, falling spread ×2, the slam (held, the cover still up), the cover bounce, a slow rise ×3; Manhole Drop has its own `anim_at` from frame 5 |
 | 11 | victory | 10 | crouch (0), then a 7-frame croak-hop loop (frames 1-7: fists pumping, the drain gaping, spray off the thud), drops back onto his haunches (8) and sits smug, chin up, eyes narrowed (9, held) |
 | 12 | idle_alt | 8 | the fidget (played once after a long stand): the throat swells into a bubble croak and pops, then a sideways eye toward the foe |
-| 13 | ko | 4 | thrown back, tips over onto the cover, legs in the air, eyes crossed out; the game cracks him and gushes the water |
+| 13 | ko | 8 | thrown back, lifted and tipping, slammed down on the cover, a small bounce, down again, rocking on the round cover twice, still (eyes crossed out, tongue lolling); 6 ticks a frame; the game cracks him and gushes the water |
 
-### Cairn — 6 × 12 (288×576 px)
+### Cairn — 96×96 frames, 12 × 15 (1152×1440 px)
+
+Cairn is drawn by `tools/gen_cairn.py` on the shared splat renderer (`tools/splat3d.py`),
+like the roster: a posed 3D rig projected into five views, shaded from the master palette.
+He is four flat river stones stacked into a boxer: a broad warm-grey hip stone (`grey`), a
+narrow dark waist stone (`steel`), the widest stone for the shoulders (`concrete`) and a
+round pale head stone (`stone`; there is no dedicated stone line, so the four sit on the
+neutral and steel lines), each a little off the line and tipped at rest, as a real cairn
+is. A red sparring headband (`red`) with two tails that flutter behind; stubby arms that
+are chains of loose dark pebbles (`slate`) ending in white-taped fists (`white`); two flat
+pebbles for feet. The face (a heavy brow that frowns harder when he commits, two dark eyes,
+a set, gritted, open or grinning mouth) is painted on the head stone by `decorate`, pinned
+to the stone's own coordinates so it turns and tips with it; side-on it is cheated 40°
+toward the camera (`FACE_CHEAT`) or it would sit on the head's edge. `decorate` also
+pins a little grain to each stone and lights each stone's upper lip one step brighter.
+Every keyed fist is drawn 2 px lower and a little wider than posed (`FIST_DROP`,
+`FIST_SPREAD`) so the guard never covers the face facing the camera. Feet at **x 46,
+y 84**; the other views are 96×96 too, feet at x 48, y 78 (`down`), x 48, y 84 (`up`),
+x 44, y 80 (`down_side`) and x 44, y 84 (`up_side`). Design note: keep him **tall and
+stacked**; a round boulder with two arms would read as an existing franchise creature.
+
+**Material rule (stone): no squash.** Every stone is rigid. The weight shows in the stack
+instead: `pack` presses the stones together on a landing or a crouch and lifts them apart
+on the uppercut (the gaps open), and the stones slide off the stack's line a frame after
+the one beneath them (`off`, `tilt` per stone: the overlap, with the head stone last and
+farthest). Punches turn the stack bottom to top (hips, waist, shoulders, then the head a
+frame late). The headband tails are the free overlap (`_tails`: a flutter, lifted by how
+fast the head moved two frames before).
+
+Animated with the roster pass from the start (motion plan, timelines and the
+before/after GIFs against the placeholder:
+[`anim_preview/cairn_motion_plan.md`](anim_preview/cairn_motion_plan.md);
+`python3 tools/gen_cairn.py anim`). `idle_ticks` 8 (a 64-tick idle), `run_ticks` 2 (24
+ticks, unchanged), footsteps on `step_frames` `[0, 6]`. `select_scale` 0.5, portrait crop
+`[34, 39, 24, 28]`.
+
+![Cairn sheet, 3x](cairn_preview.png)
+
+Five views: [`cairn_views_preview.png`](cairn_views_preview.png) and
+[`anim_preview/cairn_diagonals_3x.png`](anim_preview/cairn_diagonals_3x.png).
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
-| 0 | idle | 4 | bouncing guard stance |
-| 1 | run | 6 | loop |
-| 2 | jab | 4 | lead hand: Jab, Jab |
-| 3 | power | 4 | rear hand: Cross, Hook |
-| 4 | heavy | 6 | Haymaker: charge A, charge B, dip, uppercut, follow-through, recover |
-| 5 | dodge | 4 | weave: the stones slide sideways |
-| 6 | hurt | 2 | hitstun; frame 1 doubles as the crumple pose |
-| 7 | guard | 2 | fists up, blocking a hit |
-| 8 | ko | 4 | stack topples and scatters; frames 1–2 double as the knockdown pose |
-| 9 | slip | 4 | Slip: weave low, deeper, counter cross, recover |
-| 10 | rush | 4 | Rockslide Rush: lean in, dash, punch, recover |
-| 11 | surge | 6 | Avalanche: flurry A, B, C (cycled), wind up, uppercut, recover |
-
-Design note for Cairn: keep it **tall and stacked**. A round boulder with two arms would
-read as an existing franchise creature.
+| 0 | idle | 8 | the boxer's bounce on eased spacing, the stones packing on the down; each stone sways a frame after the one under it, the fists a frame behind, a one-frame blink |
+| 1 | run | 12 | a bounding run: two steps, each foot planted 3 frames sliding back at ground speed, then 3 in the air (the stones open up); leaning in, fists pumping |
+| 2 | jab | 8 | Jab (lights 1 and 2, the lead hand): weight back, the coil (held), one fast frame, the extension held over the hit, the head stone a frame late, snap back, settle |
+| 3 | power | 8 | Cross (light 3, the rear hand): the stack twists bottom to top, the coil held, the drive, the extension held, the head overshooting, the return |
+| 4 | hook | 8 | Hook (light 4, the lead hand on a wide arc): dip, the wind (held), the swing led by the hips, the connect held, the follow-through past his face, unwind, settle |
+| 5 | heavy | 12 | Haymaker: 0-3 the charge loop (the stack rumbling, `anim_charge` `[0, 4, 5]`), the gather (held), rise, the uppercut with the stones lifted apart (held: the hit), overshoot, drop, the landing with the stones clacking together (held), recovery, settle |
+| 6 | dodge | 8 | the duck-and-shuffle (`dodge.anim_at`): folds low and leans in, the head stone trailing, two low shuffle frames, the rise with the head overshooting, settle |
+| 7 | hurt | 4 | the head stone knocked back first, the peak recoil (frame 1 doubles as the crumple pose), the head swinging forward past the stack, recovery; loops in hitstun |
+| 8 | guard | 2 | fists high, chin tucked, the stones packed; frame 1 is the block (pushed back, the head a beat behind) |
+| 9 | ko | 6 | struck, toppling back over his heel, flat on the floor (frames 1-2 double as the knockdown), the stones rolling apart, the head farthest with x eyes; the game scatters him from idle frame 0 (`ko_fx`) |
+| 10 | slip | 12 | Slip and Counter Cross: 0-4 the slip (duck, the stones sliding sideways off the line, a 2-frame wobble while the window is open, rise, settle); 5-11 the counter cross up out of the slip (coil, drive, extension held, the head overshooting, return) |
+| 11 | rush | 12 | Rockslide Rush: crouched and leaning in (held through the windup), push-off, three charge frames with the upper stones trailing, the punch at the end of the dash (held), the skid with the stones sliding on forward over the hips, settle; Rockfall Entry plays from frame 1 |
+| 12 | surge | 12 | Avalanche: the gather (held), step in, the 4-frame flurry loop (one punch out per hit: lead high, back, rear low, back), the deep gather (held), rise, the uppercut with the stones flung apart (held; the cut-in frame, `[12, 8]`), the crash down (held), settle |
+| 13 | victory | 10 | settles (0), then a 7-frame loop of the rear fist pumped overhead (behind his head side-on, so the grin shows), the lead fist on his hip (1-7), then the rear fist held high, the stones lifted proud (8-9) |
+| 14 | idle_alt | 8 | the fidget: the fists drop, the head stone grinds round a full turn on the stack (the band tails swinging round with it), then the fists knock together |
 
 ### Craglash — 96×96 frames, 12 × 16 (1152×1536 px)
 
@@ -190,8 +237,9 @@ the side sheet shows nearest (arm and leg 1) is toward the camera in both. The t
 crown and flank spines are drawn square to the camera (a round body is about as wide
 from any angle) with the belly slid toward forward (`down_side`) or the spine's stone
 ridge toward backward (`up_side`); the legs bend their knees forward in their own plane;
-a hand reaching forward closes in on the middle line, so a Rake sweeps across the chest
-along the diagonal; the far arm and leg are darkened as on the side sheet. Parts sort by
+a hand reaching forward closes in on the middle line and lifts a little (the diagonal
+reach cheat in `DRig.hand3`), so a Rake sweeps across the chest along the diagonal instead
+of hanging straight down; the far arm and leg are darkened as on the side sheet. Parts sort by
 depth: the near arm in front of the torso, the far one behind unless it swings across
 (`arm0_front`) or reaches toward the camera; the neck bows behind the head (the VRig bows
 it out to the side for the front view). The head has three-quarter faces: `_face_quarter`
@@ -206,6 +254,10 @@ Animated with the roster pass (motion plan, previews and before/after GIFs:
 no squash (`sy` stays 1); weight is timing (slow lift, one fast frame, held landings) and
 the neck, head, mane and arms lag the body. `idle_ticks` 8 (a 64-tick idle), `run_ticks` 2
 (the run still 24 ticks), every move on an `anim_at`, the heavy's charge loop `[0, 4, 6]`.
+The reactions (hurt 4, guard 4, knockout 6) followed on Kevin's ask, on the same clock as
+before (the view's `state_t / 4` hurt, guard frames 0 and 1, `state_t / 6` knockout):
+[`anim_preview/craglash_reactions_3x.gif`](anim_preview/craglash_reactions_3x.gif) shows
+them in every view beside the old frames.
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
@@ -220,11 +272,11 @@ the neck, head, mane and arms lag the body. `idle_ticks` 8 (a 64-tick idle), `ru
 | 8 | coil | 6 | Avalanche Coil: only the Surge's cut-in picture now (`cut_in_frame` `[8, 2]`) |
 | 9 | charge | 12 | Landslide Charge: crouch, drive, a 4-frame head-low run (2-5), brake, skid, settle |
 | 10 | dodge | 8 | dip, tuck behind the spikes (invulnerable frames 1-4), skid, uncurl |
-| 11 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
-| 12 | guard | 2 | forearms crossed, head tucked behind them |
+| 11 | hurt | 4 | 4 ticks a frame (the view plays `state_t / 4`, looping): the head snaps back first with the neck still bent behind it, the fold (frame 1, also the crumple) with the neck whipping after and the mane flaring, the arms falling late as he comes up, a settle; no squash |
+| 12 | guard | 4 | forearms crossed, head tucked behind them: 0 held, 1 the blocked hit (head knocked back a pixel, mane flaring), 2 the shiver, 3 the re-set (the view plays 0 and 1) |
 | 13 | victory | 8 | a slow mountain roar: breathe in and rear back, 1-5 loop (head high, fists up, mane bristling, a pixel of hip shudder to shake the stones), 6-7 breathe out and hold |
 | 14 | idle_alt | 8 | grinds his jaw (angry and strain faces), the head turns slowly toward the foe and back, the mane bristles once |
-| 15 | ko | 4 | stagger, topple, down, neck stones scattered|
+| 15 | ko | 6 | 6 ticks a frame: stagger with the head thrown back, topple, the body down with the head still up on its neck (frame 2, a knockdown's hold), the head slams down and the neck stones burst loose (frame 3, with the crumble fx), the mane ripples flat, still; stone doesn't bounce |
 
 When the artist's final Craglash arrives, either keep this layout (then it drops in), or
 change the `"sprite"` block in `data/creatures/craglash.json` to match theirs. Design
@@ -253,7 +305,9 @@ so the trunk never squashes: weight is timing (slow rises, fast falls, long hold
 overlap (the boughs and their elbows 2 frames behind the trunk, `twig` the arm twigs,
 `leaf` the log's leaf, the log landing a frame after the trunk). `idle_ticks` 10 (an 80-tick
 idle, the slowest), `run_ticks` 2 (the run still 24 ticks), footsteps on the default
-`[0, 6]` (the two hard plants).
+`[0, 6]` (the two hard plants). The reactions (hurt 4, guard 4, knockout 8) followed on
+Kevin's ask, on the same clock as before:
+[`anim_preview/barkley_reactions_3x.gif`](anim_preview/barkley_reactions_3x.gif).
 
 Colours and shading come from the master palette ("Palette" below, `tools/shade2d.py`):
 bark `("rust", 1)`, a step lighter than the branch arms and the log (`"rust"`), the cut end
@@ -272,7 +326,10 @@ and down sheets, feet at x 64, y 112 and y 124) come from two more projections i
 the same floor rule as splat3d's: reach goes 0.707 right and 0.707 down (or up), his body's
 own depth flattened by `depth_y`. Everything else (the ring end of the log, which eye and
 side of the nose show, which arm is in front) follows from the camera direction, so the
-painter needed no per-view cases. All five views at 3x:
+painter needed no per-view cases. The diagonal reach cheat: on the diagonals the flattened
+zone is 5 px instead of 8 (`Cam.NEAR`), and a bough reaching more than 6 px forward closes
+in on the trunk's middle line and lifts (`Body.diagonal_reach`), so the swipes point down-
+(or up-) right along the diagonal instead of hanging straight down. All five views at 3x:
 [`anim_preview/barkley_diagonals_3x.png`](anim_preview/barkley_diagonals_3x.png).
 
 | Row | Animation | Frames | Notes |
@@ -287,11 +344,11 @@ painter needed no per-view cases. All five views at 3x:
 | 7 | pinecone | 12 | Pinecone Bomb: 0–3 the charge loop (`anim_charge` `[0, 4, 6]`, cone overhead, arm trembling), pull back, throw, the release (frame 7, the cone leaves at tick 10), follow-through, recover |
 | 8 | eruption | 12 | Root Eruption: a four-frame gather (arms up, leaves glowing; frame 3 is the cut-in, `[8, 3]`), the plunge, the strike held over the first ring, ring 2 recoil, ring 3 boughs flung up, settle |
 | 9 | dodge | 8 | bow low under the swing: gather, the bow (held), two lurching steps, rise; on its own `dodge.anim_at` timeline (a view-only key) |
-| 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
-| 11 | guard | 2 | branch arms crossed in front |
+| 10 | hurt | 4 | 4 ticks a frame (the view plays `state_t / 4`, looping): the head end snaps back first (`bend`) with the boughs still hanging, the trunk folds over (frame 1, also the crumple) with the boughs flung up a frame late, the boughs swing through with the leaf overshooting, a settle; no trunk squash |
+| 11 | guard | 4 | branch arms crossed in front: 0 held, 1 the blocked hit (rocked back, leaf and twigs flung), 2 the shiver, 3 the re-set (the view plays 0 and 1) |
 | 12 | victory | 8 | arms thrown up like boughs, trunk stretched tall; frame 0 gathers, 1-5 loop (boughs sway, leaf and twigs rustling a beat behind), 6-7 hold the proud stance (no bird prop) |
 | 13 | idle_alt | 8 | a creak: trunk leans and turns toward the foe, an arm shakes a leaf loose, straightens (played once after a long stand) |
-| 14 | ko | 4 | stagger, then topples over backward like a felled tree, roots torn up |
+| 14 | ko | 8 | 6 ticks a frame: stagger with the boughs flung up, the slow start of the fall, down hard on his back with the roots torn up (frame 2, under the timber dust; a knockdown's hold), the trunk rocks up a little while the head end and the boughs are still coming down, the log slaps the floor a frame after the trunk, the boughs and the leaf settle |
 
 Moves time their frames with `"anim_at"` (`[[tick, frame], ...]` in the move's JSON),
 so the spin and the lob play exactly in step with the hits. Design note: the log across
@@ -328,14 +385,18 @@ Animated with the roster pass (motion plan, previews and before/after GIFs:
 ability redrawn, the tail fin, the fins and the rod each on their own lag (`tail_lag`,
 `fin_lag`, `drag_rod`), the line kinking (`Pose.kink`), squash and stretch capped at 12%.
 `idle_ticks` 8 (a 64-tick idle), `run_ticks` 2 (the run still 32 ticks), `step_frames`
-`[6, 14]` (the slaps); the sheet is 16 columns wide for the 16-frame run.
+`[6, 14]` (the slaps); the sheet is 16 columns wide for the 16-frame run. The reactions
+(hurt 4, guard 4, knockout 8) followed on Kevin's ask, on the same clock as before:
+[`anim_preview/gillbert_reactions_3x.gif`](anim_preview/gillbert_reactions_3x.gif).
 
 Facing down and up, and the diagonals: [`gillbert_views_preview.png`](gillbert_views_preview.png).
 The run in side, front and back: [`gillbert_run.gif`](gillbert_run.gif). The diagonal sheets
 (`gillbert_down_side.png`, `gillbert_up_side.png`, **128×144**, 16 columns like the others,
 feet at x 72, y 100 facing down-side and x 64, y 84 facing up-side, off centre because the
 rod trails up-left or down-left) come from two more projections in his `Cam` (splat3d's floor
-rule, with his long `depth_y` flattening). The painter's one new case is the ring: he passes
+rule, with his long `depth_y` flattening: 20 px head-on, 12 on the diagonals, `Cam.NEAR`;
+and a lunge, the body's `shift`, travels one to one along the diagonal in `Painter.P`, so
+the Snout Jab reads down-right rather than sideways). The painter's one new case is the ring: he passes
 through it at a slant, so its far half goes behind all of him, its near half over his flank,
 and the end of him nearer the camera (head facing down-side, tail facing up-side) over that.
 All five views at 3x: [`anim_preview/gillbert_diagonals_3x.png`](anim_preview/gillbert_diagonals_3x.png).
@@ -352,11 +413,11 @@ All five views at 3x: [`anim_preview/gillbert_diagonals_3x.png`](anim_preview/gi
 | 7 | cast | 12 | Cast Line: head and rod back, coil, the rod up and over, released (frame 4), follow-through without the rod, recover; 8 is the reel yank (`anim_reel`), 9-11 the stumble after it |
 | 8 | leap | 12 | The One That Got Away: crouch, load, stretched launch, rising and shrinking, apex, tip over, falling spread out, belly flop (frame 9, held 5), bounce, the rod lands last; Splashdown (tag-in) plays frames 6-11 from its own `anim_at`; `"view_lift"` raises him off the screen; `cut_in_frame` `[8, 4]` |
 | 9 | dodge | 8 | a sideways tumble in a hop, five eased steps of roll, a squashed landing |
-| 10 | hurt | 2 | recoil; frame 1 (on his side) doubles as the crumple pose |
-| 11 | guard | 2 | curled up behind the life ring |
+| 10 | hurt | 4 | 4 ticks a frame (the view plays `state_t / 4`, looping): the snap (head flung back and up first, the body arching after, fins and rod still where they were), thrown onto his side (frame 1, also the crumple; squashed 10%), the rebound with the tail overshooting, a settle that still flinches; the rod and line a frame late |
+| 11 | guard | 4 | curled up behind the life ring: 0 held, 1 the blocked hit (squashed, pushed back, gills flaring), 2 the shiver, 3 the re-set (the view plays 0 and 1) |
 | 12 | victory | 8 | rears up proud, the rod held high and the line swinging; frame 0 gathers, 1-5 loop (flop in place, gills flaring), 6-7 settle into the held pose |
 | 13 | idle_alt | 8 | a gasp: gills flare and flutter, head up and turned toward the foe, settle (played once after a long stand) |
-| 14 | ko | 4 | a last flop, then on his side with the rod across him |
+| 14 | ko | 8 | 6 ticks a frame: flung up nose first, rolling in the air, slapped down on his side (frame 2, a knockdown's hold; squashed 12%), a bounce, down again, the rod clattering down across him a beat late, a last twitch of the tail, still |
 
 Design note: the life ring, the barbels and the rod on its line are what make him read as
 Gillbert, not as a fish from an existing franchise.
@@ -395,8 +456,9 @@ floor under him) at **x 62, y 100**. The rig is modelled large and drawn at 0.72
 (`SCALE`). Up and down sheets (`cerebro_down.png`, `cerebro_up.png`) are **112×128**,
 feet at x 56, y 88 (down) and y 76 (up). The diagonals (`cerebro_down_side.png`,
 `cerebro_up_side.png`) are **128×128**, feet at x 64, y 88 (down-side) and y 76 (up-side),
-projected by the generator's own copy of `splat3d.Cam`'s diagonal cameras; no per-view
-cheats (his props are posed in character space, so they fall where the 3D layout puts
+projected by the generator's own copy of `splat3d.Cam`'s diagonal cameras, with a smaller
+near zone there (`Cam.NEAR`: 12 on the diagonals, 18 elsewhere) so a tool's short reach
+toward or away from the camera reads along the diagonal; no other per-view cheats (his props are posed in character space, so they fall where the 3D layout puts
 them: at rest the spatula, behind-right of him, hangs in front of the brain in `up_side`).
 All five views: [`anim_preview/cerebro_diagonals_3x.png`](anim_preview/cerebro_diagonals_3x.png).
 
@@ -425,11 +487,11 @@ Facing down, down-side, up and up-side: [`cerebro_views_preview.png`](cerebro_vi
 | 7 | flipout | 12 | Flip Out: swung back low (held through the windup), dive, skim, the scoop (held over the grab), lift, a big arc over his head, the flip behind him, overshoot, home |
 | 8 | flurry | 12 | Knife Flurry: the fan gathers, aims, draws back (held, the cut-in frame `[8, 2]`), a 4-frame throw loop (one frame per knife: the slot empty with a streak, the next knife drawn back, the brain pitching and rolling), the last knife (held), wobble, the knives home |
 | 9 | dodge | 8 | Mind Blink: squashed wide with the kit folding in, stretched thin, a needle, a point in a flash, the flash at the new spot, back stretched, a wobble with the kit flung out, settle. The dodge's `anim_at` times them; `CreatureView` fades him out and back in, but not on the flash ticks |
-| 10 | hurt | 2 | reeling, sunglasses knocked askew, his grip on the kit slipping; frame 1 doubles as the crumple pose |
-| 11 | guard | 2 | the cleaver, spatula and mallet swing in front of him into a wall |
+| 10 | hurt | 4 | the blow (brain snapped back and squashed, shades askew, the kit still), the reel (brain springing back stretched, the knives thrown out; held as the crumple pose), the wobble with the kit at its widest (the mallet last), the kit drifting back; looped at 4 ticks in hitstun |
+| 11 | guard | 4 | the hold (the cleaver, spatula and mallet in a wall in front of him), the jolt (the wall knocked back, the brain squashed), the shiver (the tools rattling out of step), the brace (the wall swinging into place); the view plays 0 and 1 today |
 | 12 | victory | 10 | gathers (0), then a 7-frame chef's-kiss loop (1-7: tipped forward in the kiss with a violet sparkle at his middle, the kit orbiting, glasses glinting), the finish tips back (8) and the kit hangs in a proud arc (9, held) |
 | 13 | idle_alt | 8 | the fidget: the spatula taps his brow twice (the thinking tap), then the kit stirs and his gaze goes to the foe, glasses glint |
-| 14 | ko | 4 | his mind lets go: the kit falls, clatters to the floor, the brain sinks after it and deflates, sunglasses off |
+| 14 | ko | 8 | his mind lets go: a last lift, the kit falling (knives first, the mallet last), the brain hits the floor squashed, a jelly bounce with the tools hopping and the sunglasses off, down again, then it sinks and deflates over three frames; 6 ticks a frame |
 
 Design note: the sunglasses and the kitchen floating around a brain are what make him
 read as Chef Cerebro. Name check before release: "Cerebro" is also the name of a
@@ -461,7 +523,9 @@ Expressions: grin, shout, gaze (glowing eyes), hurt, ko.
 Feet at **x 64, y 104**, drawn at 0.72 scale. Up and down sheets (`hissy_down.png`,
 `hissy_up.png`) are **112×128**, feet at x 56, y 104 (down) and y 92 (up). The diagonals
 (`hissy_down_side.png`, `hissy_up_side.png`) are **128×128**, feet at x 64, y 104 and
-y 92, projected by the generator's own copy of `splat3d.Cam`'s diagonal cameras. Facing
+y 92, projected by the generator's own copy of `splat3d.Cam`'s diagonal cameras, with a
+smaller near zone there (`Cam.NEAR`: 12 facing down-right, 8 facing up-right, 18 elsewhere)
+so a glove's short reach toward or away from the camera reads along the diagonal. Facing
 down-right her head turns a further 18 degrees toward the camera (`CHEAT["down_side"]`,
 like `SIDE_CHEAT`) so the far eye and the grin don't crowd the edge; facing up-right
 shows the back of her head as the up view does (no cheat). In both diagonals the
@@ -493,11 +557,11 @@ Facing down, down-side, up and up-side: [`hissy_views_preview.png`](hissy_views_
 | 7 | gaze | 8 | Stone Gaze: lean in, the hood rising; 2–5 the stare loop timed to the 10-tick pulses (2 and 4 flare and sweep left, right; the hood ripples); the hood drops, settle |
 | 8 | petrify | 12 | Petrify Punch: a 4-frame gather (frame 3, held, is the stare and the cut-in frame, `[8, 3]`), the punch in one frame, impact held 5, shockwave held 4, follow-through, pull back, recover, hair settling, settle |
 | 9 | dodge | 8 | duck, a full roll (the hair whipping round), land squashed, pop up |
-| 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose (frame 0 is the petrified statue's pose, tinted grey by `CreatureView`) |
-| 11 | guard | 2 | gloves up in front of her face, snakes pulled in |
+| 10 | hurt | 4 | the recoil (head snapped back and stretched, the gloves and the hair's tips still forward; also the petrified statue's pose, tinted grey by `CreatureView`), the deepest reel (gloves flung back after the head; held as the crumple pose), the head forward and squashed with the gloves overshooting, sagging back; looped at 4 ticks in hitstun |
+| 11 | guard | 4 | the hold (gloves up in front of her face, snakes pulled in), the jolt (gloves knocked back into her face, head squashed), the shiver back, the brace (gloves swinging up); the view plays 0 and 1 today |
 | 12 | victory | 10 | crouch (0), then a 7-frame boxer's bounce loop (1-7: gloves punching the air in turn, hair fanned like a hood, hissing), settle (8), both gloves high (9, held) |
 | 13 | idle_alt | 8 | the fidget: the snakes squabble, lunging and hissing out of step, then all stare at the foe, hair thrown forward, and she relaxes |
-| 14 | ko | 4 | the head drops onto the gloves and tips over, hair limp, tongue out |
+| 14 | ko | 8 | hit, a last lift as the gloves drop, the head slams down onto the gloves (squashed), a small bounce, down again (the gloves bouncing a frame late), rolling onto her side, the hair's last twitch, still: hair limp, tongue out; 6 ticks a frame |
 
 Design note: she must not read as Medusa from mythology-themed games or films: the boxing
 gloves, the floating head, the earrings and the cartoon grin carry her look. Snakes for
@@ -520,6 +584,11 @@ dirt mound. Drawn at 0.8 scale, feet at **x 64, y 100**; up and down sheets are
 ![Digby sheet, 3x](digby_preview.png)
 
 Facing down and up: [`digby_views_preview.png`](digby_views_preview.png).
+
+Hurt, guard and the knockout had the reactions batch (Oct 2026; before/after in every view:
+[`anim_preview/digby_reactions_3x.gif`](anim_preview/digby_reactions_3x.gif);
+`digby_motion_plan.md`, "Reactions"). The diagonals use `near` 10 (the other views 14); no
+pose cheat was needed.
 
 The diagonals (`digby_down_side.png`, `digby_up_side.png`): **128×128** (as wide as the
 side sheet, for the snout-to-tail length on the diagonal), feet at x 64, y 100
@@ -545,9 +614,9 @@ dust on `step_frames` `[0, 2]` (the front paws landing, the back paws landing).
 | 7 | burrow | 12 | Burrow: crouch, dive, 2-5 the tunnelling loop (the clods churn), the bulge, burst, apex (the hit), land, recover, settle |
 | 8 | cavein | 12 | Cave-In: dip, rearing, up, the peak (held; the cut-in frame, `[8, 3]`), the slam, impact (held, the hit), two frames sinking as the floor gives, settle |
 | 9 | dodge | 8 | tucked into a ball, a full roll, landing squash, settle |
-| 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
-| 11 | guard | 2 | hunkered behind the pickaxe held crossways |
-| 12 | ko | 4 | over onto his back, legs up, x eyes |
+| 10 | hurt | 4 | the reactions batch: the recoil (the head snapped up and back, the helmet a beat behind, the tail and pick still low), the deepest point (reared, bunched up, rolled onto a hip; also the crumple pose), the body coming down while the tail whips up and the pick swings late, the settle; 4 ticks a frame, looping |
+| 11 | guard | 4 | hunkered behind the pickaxe held crossways: the hold (frame 0), the blow (bunched up, the helmet jolted back, the tail flicking; frame 1), the rebound, the settle |
+| 12 | ko | 8 | lifted by the blow (the pick flung up), going over, on his back squashed (a knockdown holds this), a bounce with the tail flung, down, a small bounce, the settle, legs up and x eyes; 6 ticks a frame |
 | 13 | victory | 10 | pops up on his back legs; frames 1-7 loop: the far paw dusting off his chest, the tail swishing; then the pickaxe held high over the helmet (8-9, held) |
 | 14 | idle_alt | 8 | a paw up to the helmet to tap the headlamp straight (it flickers), then a long sniff turned toward the foe; played once after 5 s standing still |
 
@@ -574,6 +643,12 @@ squashing and flopping (`bag_sq`, `flop`), the beanie's dome flopping (`cap`), `
 
 Facing down and up: [`pete_views_preview.png`](pete_views_preview.png).
 
+Hurt, guard and the knockout had the reactions batch (Oct 2026; the before/after in every
+view: [`anim_preview/pete_reactions_3x.gif`](anim_preview/pete_reactions_3x.gif), the poses in
+`pete_motion_plan.md`, "Reactions"). The diagonals use `near` 8 (the other views 12), and the
+Bag Swing's arc is turned 14-30 degrees toward his left on `down_side` only (`diag_yaw`), so the
+impact lands right and down where the hit is instead of straight down the screen.
+
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
 | 0 | idle | 8 | rocking on tiptoe (eased), a quick glance at the camera, held, and back; the bag 2 frames behind, the free hand 1 |
@@ -586,9 +661,9 @@ Facing down and up: [`pete_views_preview.png`](pete_views_preview.png).
 | 7 | pick | 8 | Pickpocket: crouch (held through the windup), launch, dash, reach, snatch, loot to chest, skid, stance |
 | 8 | heist | 12 | The Big Heist: crouch, spring, gone (frame 2 is empty), back, a 4-frame flurry (near side, far side, high, low), coil, the smack (the cut-in frame, `[8, 9]`), bounce, recover |
 | 9 | dodge | 8 | a forward tuck and roll: crouch, dive, three tumbling frames, landing, squash, up |
-| 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
-| 11 | guard | 2 | hiding behind the money bag |
-| 12 | ko | 4 | flat on his back, the bag beside him, x eyes |
+| 10 | hurt | 4 | the reactions batch: the recoil (head snapped back first, up on his toes, the bag still high), the deepest point (knees buckled, squashed; also the crumple pose), the body coming back while the bag swings on and the beanie flops, the settle; played at 4 ticks a frame, looping, through the hitstun |
+| 11 | guard | 4 | hiding behind the money bag: the hold (frame 0), the blow (the bag squashed into him; frame 1, the 10 ticks after a block), the rebound, the settle |
+| 12 | ko | 8 | thrown up onto his toes with the bag flung behind, falling back, flat on his back (squashed), a bounce with the bag landing on him, down, a small rebound, the settle, out cold; 6 ticks a frame (a knockdown shows 1, then holds 2) |
 | 13 | victory | 10 | counts the loot: frames 1-7 loop, the far hand digging in the bag and holding a gold coin up, grinning; then the bag back on his shoulder and a tip of the beanie (8-9, held) |
 | 14 | idle_alt | 8 | the shifty look: head snaps one way, whips back, the other way, then a long look at the foe; played once after 5 s standing still |
 
@@ -606,6 +681,10 @@ toward the camera (`SIDE_CHEAT`) so the face reads. Drawn at 0.8 scale, feet at
 ![Sno Mercy sheet, 3x](sno_preview.png)
 
 Facing down and up: [`sno_views_preview.png`](sno_views_preview.png).
+
+Hurt, guard and the knockout had the reactions batch (Oct 2026; before/after in every view:
+[`anim_preview/sno_reactions_3x.gif`](anim_preview/sno_reactions_3x.gif); `sno_motion_plan.md`,
+"Reactions"). The diagonals use `near` 10 (the other views 14); no pose cheat was needed.
 
 The diagonals (`sno_down_side.png`, `sno_up_side.png`): **128×128**, feet at x 64, y 104
 (`down_side`) and y 92 (`up_side`). `SIDE_CHEAT` applies to the side view only: the
@@ -634,9 +713,9 @@ they don't sparkle in motion).
 | 7 | slide | 8 | Slush Slide: lean in, thrown back, the slide (Cold Shoulder plays from frame 2), the lead foot rising, the kick, sit up, rise, settle |
 | 8 | blast | 12 | Flavor Blast: brace, rear ×2, the gather (held 4), the slam (1 tick), the impact (held 5), the shards burst (frame 6, the cut-in), shards out, a slow rise ×3, stance |
 | 9 | dodge | 8 | a full cartwheel in a hop about his middle, limbs tucked; crouch, spring, four roll frames, land, settle (2 ticks a frame) |
-| 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose (frozen, tinted ice-blue by `CreatureView`) |
-| 11 | guard | 2 | gloves up in front of his face |
-| 12 | ko | 4 | topples and melts into a puddle |
+| 10 | hurt | 4 | the reactions batch: the recoil (the cone snapped back and stretched, the gloves still out front, the drip swung forward), the deepest point (squashed 5%, tipped sideways; also the crumple pose, frozen and tinted ice-blue by `CreatureView`), the cone coming back with chips of ice flying off the dome, the settle; 4 ticks a frame, looping, through the hitstun |
+| 11 | guard | 4 | gloves up in front of his face: the hold (frame 0), the blow (gloves knocked back into his face, the cone squashed; frame 1, after a block), the rebound, the settle |
+| 12 | ko | 8 | stretched up and back by the blow (chips flying), toppling, landing squashed and slumping into a puddle (a knockdown holds this), a bounce flinging a drop of syrup, then melting into the spreading puddle; 6 ticks a frame |
 | 13 | victory | 10 | the flex: frames 1-7 loop, both gloves pumping up beside his head, the cone wobbling, the syrup running; then one fist raised high (8-9, held) |
 | 14 | idle_alt | 8 | brushes the snow off his dome with a glove (flecks fly), shakes it off, then glares at the foe; played once after 5 s standing still |
 
@@ -672,6 +751,11 @@ into the frames; the ones in his hands during a fold or a throw are in the frame
 
 Facing down and up: [`crease_views_preview.png`](crease_views_preview.png).
 
+Hurt, guard and the knockout had the reactions batch (Oct 2026; before/after in every view:
+[`anim_preview/crease_reactions_3x.gif`](anim_preview/crease_reactions_3x.gif);
+`crease_motion_plan.md`, "Reactions"). The diagonals use `near` 8 (the other views 12); no
+pose cheat was needed (facing down, the brim still hides the flick's release, as before).
+
 The diagonals (`crease_down_side.png`, `crease_up_side.png`): **128×160**, feet at x 64,
 y 136 (`down_side`) and y 124 (`up_side`), no cheat. The paper pass works for them
 unchanged: `build` takes each view's camera from `S.Cam(view)`, so the paper backs, fold
@@ -692,9 +776,9 @@ side: [`anim_preview/crease_diagonals_3x.png`](anim_preview/crease_diagonals_3x.
 | 9 | frog | 6 | Paper Frog: he whips out a sheet, tears and folds three frogs, crouches to set them on the floor, the low forward sweep that sends them (the release, frame 3), the follow-through leaning in, recover; the frogs themselves are `PaperFx` projectiles once sent |
 | 10 | surge | 12 | Thousand Cranes: 0-3 the charge loop (`anim_charge`: arms up, the sheets spiralling in to a crane over his hands); then the gather (squashed, the crane pulled back), the drive up and over, the throw (frame 6, the cut-in), the release (hand open, held), watching, the arm sweeping into the bow, the deep bow (held), the rise |
 | 11 | dodge | 4 | Paper Plane: folds down, the airplane (two gliding frames, banking so its cream underside shows), unfolds |
-| 12 | hurt | 2 | recoil, hat knocked askew, the brim bent back; frame 1 doubles as the crumple pose |
-| 13 | guard | 2 | the cape swept up in front like a curtain, both hands holding its top corners above his shoulders, wider than him so it reads from behind too |
-| 14 | ko | 4 | crumples like dropped paper, the hat rolling off |
+| 12 | hurt | 4 | the reactions batch: the recoil (snapped back, stretched 7%, the hands flung up, the hat and cape not yet following), the deepest point (squashed, the hat knocked askew, the cape blown forward; also the crumple pose), the body coming back while the hat overshoots and the cape's fold kinks, the settle; 4 ticks a frame, looping |
+| 13 | guard | 4 | the cape swept up in front like a curtain, both hands holding its top corners above his shoulders, wider than him so it reads from behind too: the hold (frame 0), the blow (pushed back, the fold kinked in; frame 1), the rebound (the fold snapping out), the settle |
+| 14 | ko | 8 | snapped back with the hat knocked up, folding up as the hat flies, crumpled down (a knockdown shows 1 then holds 2), the hat landing and bouncing, rolling to a stop; in a match his knockout scatters the sprite at once (`ko_fx` "scatter"), so only a knockdown shows this row |
 | 15 | victory | 8 | folds into a giant crane, the flight loop (frames 1-5), unfolds, the bow |
 
 ## Animation pass: what worked (Mister Crease, Oct 2026)
@@ -743,9 +827,28 @@ run cycles against the generator before the sheets go in. On the game side nothi
 is needed: per-fighter `idle_ticks` / `run_ticks`, `anim_at`, `anim_charge` for longer
 charge loops. Start with the run and the lights, which show the most.
 
-## Training dummy — 48×48 frames
+## Training dummy — 96×96 frames, 8 × 6 (768×576 px)
 
-4 columns × 2 rows. Row 0: idle, hurt A, hurt B, guard. Row 1: knock-over, 4 frames.
+Drawn by `tools/gen_dummy.py` on the shared splat renderer, five views like a fighter,
+and deliberately **training equipment, not a creature**: a weighted rubber base (`slate`),
+a steel spring (`concrete`), a short wooden post and two wooden peg arms (`earth`), a
+burlap torso (`sand`) bound with two leather straps with a red target painted on the
+front, a smaller sack head tied off with rope with two X stitches, and straw poking out of
+the top. Everything above the spring bends on it (`bend`, `sway`, `twist`), the head
+(`nod`) and the straw a frame late. Feet at x 52, y 84 (side), x 48, y 80 / 84 / 82 / 84
+(down, up, down_side, up_side). `idle_ticks` 10, `run_ticks` 3, `step_frames` `[2, 6]`.
+Previews: [`dummy_preview.png`](dummy_preview.png),
+[`anim_preview/dummy_diagonals_3x.png`](anim_preview/dummy_diagonals_3x.png),
+`python3 tools/gen_dummy.py anim`.
+
+| Row | Animation | Frames | Notes |
+| --- | --- | --- | --- |
+| 0 | idle | 4 | a small, slow settle on the spring |
+| 1 | run | 8 | training's "walk": it rocks along on its base, two hops a cycle, the sack a frame behind |
+| 2 | dodge | 8 | throws itself over sideways on the spring and springs back past upright (`dodge.anim_at`) |
+| 3 | hurt | 4 | knocked back on the spring, the peak (also the crumple), springing forward past upright, settling; loops in hitstun |
+| 4 | guard | 2 | the pegs swung up crossed in front of the head; frame 1 takes the hit |
+| 5 | ko | 6 | rocks back, topples over the base, bounces, lies flat (frames 1-2 double as the knockdown) |
 
 ## Floor tiles — 8×8
 
@@ -841,8 +944,8 @@ One master palette for the whole game: `tools/palette.py`, drawn as a labelled s
 - **Craglash** (a 2D puppet, `tools/gen_craglash.py`) ports the same rules to his own
   layer shader: `MAT` holds ramps, `shade` the five steps and the rim, `finish` the inks
   and seams.
-- **Not ported:** only the placeholders in `tools/gen_sprites.py` (Cairn, the dummy, the
-  crowd and tiles) still use their own colours.
+- **Not ported:** only the small placeholder sheets in `tools/gen_sprites.py` (the floor
+  tiles, the crowd and the effects) still use their own colours.
 
 Before/after comparisons from the pass that added it: [`palette/`](palette/).
 

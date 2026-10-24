@@ -113,7 +113,10 @@ func test_idle_alt_plays_once_after_standing_still_and_resets_on_movement() -> v
 
 
 func test_fighter_without_idle_alt_never_fidgets() -> void:
-	var v := _view("cairn")
+	# The training dummy (every fighter has an idle_alt row now, Cairn included).
+	var v := CreatureView.new()
+	v.setup(MatchFactory.training("cairn").creatures[1])
+	assert_eq(String(v.c.def["id"]), "dummy", "the training sim's second creature is the dummy:")
 	v.c.state = CreatureSim.State.IDLE
 	if v._layout_has("idle_alt"):
 		v.free()

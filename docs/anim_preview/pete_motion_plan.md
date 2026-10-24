@@ -318,3 +318,60 @@ Commit 2 put it in the game: the sheets, `pete.json` (`cols` 12, the row table,
 `idle_ticks` 5, `run_ticks` 2, the `anim_at`s above, `anim_charge`, a `tag_in` `anim_at`
 with `anim_from` dropped, `cut_in_frame`) and `docs/SPRITES.md`. The `NET_VERSION` bump
 comes once with the batch (Pete, Sno, Digby) when it merges.
+
+## Reactions (Oct 24 2026): hurt 2 → 4, guard 2 → 4, knockout 4 → 8
+
+Kevin asked for the reactions after the pass: the hurt pose is the frame players see most,
+and the old 2-frame hurt and guard and 4-frame knockout read flat beside the new attacks.
+Same recipe: the head leads, the bag and the beanie lag, flesh squashes up to 12%.
+
+**How the game plays these** (`src/view/creature_view.gd`, `_pick`, unchanged: no
+`anim_at`, the clock comes from the sim's stun states):
+
+| State | Frame shown | So the row needs |
+| --- | --- | --- |
+| hitstun | `hurt` `state_t / 4`, looping (a 24-tick hitstun plays 0 1 2 3 0 1) | 4 frames that loop: frame 3 leads back into 0 |
+| hitstop | `hurt` 0 held (`state_t` doesn't move) | frame 0 is the sharp recoil |
+| crumple, airborne (second half) | `hurt` 1 | frame 1 the deepest point, no flying bits |
+| airborne (first half), falling, getting up | `hurt` 0 | |
+| guard | `guard` 0, or 1 for the 10 ticks of `guard_hit` after a block | 0 the hold, 1 the blow; 2 and 3 aren't shown yet (open question) |
+| knockout | `ko` `state_t / 6`, the last held; frame 0 trembles through the KO freeze | 8 frames = 48 ticks |
+| knockdown | `ko` 1 for 5 ticks, then `ko` 2 held, `hurt` 0 for the last 8 ticks of stun | frame 1 falling, frame 2 a lying pose that holds |
+
+No frame data or stun number changed; only the row table in the JSON (`hurt` 4, `guard` 4,
+`ko` 8; the sheets stay 12 columns).
+
+**Hurt** (`hurt()`): 0 the recoil: the head snapped back hard (`head` -26) while the torso
+is a beat behind (`lean` -10), up on his toes and stretched (0.35), the beanie flopped
+forward (it hasn't caught up), the bag still high where it was, the far hand flung up; 1 the
+deepest point and the crumple pose: knees buckled, squashed (-0.55), leaning back 24, the bag
+swung down behind; 2 the body coming back while the bag keeps going (low, squashed) and the
+beanie flops back; 3 the settle, which hands back to 0 for a long hitstun. A small sideways
+`tilt` (new, -2 to -8 degrees about the feet) makes the flinch read facing the camera too,
+where a lean back is mostly hidden.
+
+**Guard** (`guard()`): 0 the hold, braced low behind the bag; 1 the blow: the bag squashed
+into him (`bag_sq` 0.28), pushed back 1.8, the beanie jolting forward, "ow"; 2 the rebound,
+the bag springing out (stretched); 3 the settle.
+
+**Knockout** (`ko()`): 0 the blow lifts him onto his toes, thrown back and stretched, the
+bag flung up behind him; 1 falling back (rolled 42), the bag trailing high; 2 flat on his
+back, squashed along his length, the bag still coming down (the knockdown holds this);
+3 the bounce (`rise` 4) with the bag landing on his chest, squashed; 4 down again; 5 a small
+rebound; 6 the settle; 7 out cold, as before. The bag is placed where it lands in the
+world (`_unrolled`), since build() rolls it with him. In the game the cash burst fires on
+tick 10 (frame 1), as he falls.
+
+**Diagonal reach** (the shared `splat3d.configure(near_views=...)`): the diagonals use `near`
+8 (12 elsewhere), so a reach toward the camera goes down the screen about as far as it goes
+right. The Bag Swing still swung the bag round his near side, which faces the `down_side`
+camera, so its impact drew straight down: frames 2-5 turn him 14, 30, 22 and 8 degrees
+toward his left on that sheet only (`diag_yaw`), and the bag lands right and down, where
+the hit is.
+
+**Victory, idle_alt:** looked at in every view; nothing clearly wrong, left alone.
+
+Previews: `pete_reactions_3x.gif` (hurt, guard and knockout as the game times them, before
+above new, all five views; the knockout is side-only, so every column shows the side sheet).
+The other GIFs were re-rendered by `python3 tools/gen_pete.py anim` (the diagonals changed
+with `near`; the side GIFs pick up the shading pass, which landed after they were made).

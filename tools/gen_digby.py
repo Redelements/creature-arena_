@@ -55,7 +55,7 @@ MAT = {
     "handle": "earth",
     "dirt": "earth",
 }
-S.configure(MAT, scale=0.8, near=14.0)
+S.configure(MAT, scale=0.8, near=14.0, near_views={"down_side": 10.0, "up_side": 10.0})
 S.COLS = 12  # the run, the pop-up, Burrow and Cave-In have 12 frames
 
 
@@ -309,35 +309,69 @@ def paw(lat, up, fwd):
 
 
 def hurt():
+    """The reactions batch (docs/anim_preview/digby_motion_plan.md, "Reactions"). The view
+    plays these at 4 ticks a frame, looping, through the hitstun; frame 0 holds through the
+    hitstop (and stands in for airborne, falling and getting up), frame 1 is also the
+    crumple. The head leads, the body follows, the tail follows that. 0 the recoil: the
+    head snapped up and back (the helmet a beat behind it), the body stretched, the tail
+    and the pick still low; 1 the deepest point (reared back, bunched up, rolled onto a
+    hip); 2 the body coming back down while the tail whips up and the pick swings late;
+    3 the settle."""
     return [
-        P(pitch=12, lift=1.0, head=-14, eyes="shut", fwd=-2.0, tail_up=0.6, near=paw(5.5, 6.0, 6.0),
-          far=paw(-5.5, 6.0, 4.0), pick=-20),
-        P(pitch=20, lift=2.0, head=-20, eyes="shut", fwd=-4.0, tail_up=0.9, near=paw(6.0, 9.0, 3.0),
-          far=paw(-6.0, 9.0, 2.0), pick=10, roll=-14),
+        P(pitch=8, lift=0.8, head=-24, helm=8, eyes="shut", fwd=-2.0, stretch=0.4, tail_up=0.1, tail_kink=-0.2,
+          near=paw(5.5, 5.0, 7.0), far=paw(-5.5, 5.0, 5.0), pick=-40),
+        P(pitch=20, lift=2.0, head=-18, helm=-4, eyes="shut", fwd=-4.0, stretch=-0.8, roll=-14, tail_up=0.7,
+          tail_kink=0.3, near=paw(6.0, 9.0, 3.0), far=paw(-6.0, 9.0, 2.0), pick=10),
+        P(pitch=14, lift=1.2, head=-12, helm=-6, eyes="shut", fwd=-3.5, stretch=-0.3, roll=-8, tail_up=1.0,
+          tail_kink=0.5, near=paw(6.0, 7.0, 4.0), far=paw(-6.0, 7.0, 3.0), pick=25),
+        P(pitch=10, lift=0.8, head=-13, eyes="open", fwd=-2.5, roll=-3, tail_up=0.55, tail_kink=0.1,
+          near=paw(5.5, 5.5, 5.5), far=paw(-5.5, 5.5, 4.0), pick=-10),
     ]
 
 
 def guard():
-    """Hunkered down behind the pickaxe, held crossways, the helmet tipped forward."""
+    """Hunkered down behind the pickaxe, held crossways, the helmet tipped forward. The view
+    shows frame 0 while he holds guard and frame 1 for the 10 ticks after a blocked hit; 2
+    and 3 finish the shiver for a view that steps through them. 0 the hold; 1 the blow
+    (pushed back, bunched up, eyes shut, the helmet jolted back, the tail flicking up);
+    2 the rebound; 3 the settle."""
     g = dict(pitch=-6, lift=-1.5, head=12, near=paw(5.0, 8.0, 12.0), far=paw(-5.0, 8.0, 12.0), pick=80,
-             pick_yaw=-90, tail_up=0.4)
-    return [P(**g), P(**dict(g, eyes="shut", fwd=-1.5))]
+             pick_yaw=-90, tail_up=0.4, stretch=-0.3)
+    return [
+        P(**g),
+        P(**dict(g, eyes="shut", fwd=-1.8, stretch=-0.8, lift=-2.2, head=15, helm=-5, near=paw(5.0, 8.0, 10.0),
+                 far=paw(-5.0, 8.0, 10.0), pick=76, tail_up=0.7, tail_kink=0.3)),
+        P(**dict(g, eyes="shut", fwd=-0.9, stretch=0.2, lift=-1.2, head=10, helm=4, near=paw(5.0, 8.5, 12.5),
+                 far=paw(-5.0, 8.5, 12.5), pick=83, tail_up=0.55, tail_kink=-0.1)),
+        P(**dict(g, fwd=-0.3, stretch=-0.4, lift=-1.6, helm=1, tail_up=0.45)),
+    ]
 
 
 def ko():
-    """Knocked out: flat on his back, legs in the air, helmet off to one side."""
+    """Knocked out (8 frames at 6 ticks; the view holds the last, frame 0 trembles through
+    the KO freeze; a knockdown shows frame 1 then holds frame 2). Rolled over, `lift` points
+    down, so a bounce is a more negative lift. 0 the blow lifts him, head snapped back, the
+    pick flung up, the tail still low; 1 going over, the pick gone; 2 on his back (squashed,
+    the helmet knocked); 3 the bounce, the tail flung; 4 down; 5 a small bounce, the tail
+    flopping; 6 the settle; 7 out cold, legs up, x eyes."""
+    lie = dict(eyes="x", pick_on=False)
     return [
-        P(pitch=16, lift=1.0, head=-16, eyes="shut", fwd=-3.0, near=paw(6.0, 8.0, 4.0), far=paw(-6.0, 8.0, 3.0)),
-        P(roll=-90, lift=0.0, head=-10, eyes="x", pick_on=False),
-        P(roll=-170, lift=-2.0, head=-6, eyes="x", pick_on=False),
-        P(roll=-178, lift=-2.5, head=-6, eyes="x", pick_on=False, tail=1.0),
+        P(pitch=24, lift=3.0, stretch=0.8, head=-26, helm=10, eyes="shut", fwd=-3.0, near=paw(6.0, 12.0, 2.0),
+          far=paw(-6.0, 12.0, 1.0), pick=40, tail_up=0.0),
+        P(roll=-80, lift=2.0, stretch=0.3, head=-12, helm=8, tail_up=0.9, **lie),
+        P(roll=-165, lift=-1.0, stretch=-0.8, head=-6, helm=-10, tail_up=1.0, **lie),
+        P(roll=-172, lift=-5.5, stretch=0.4, head=-6, helm=6, tail_up=0.6, tail_kink=0.5, **lie),
+        P(roll=-178, lift=-2.0, stretch=-0.5, head=-6, tail_up=0.3, tail_kink=-0.3, **lie),
+        P(roll=-177, lift=-3.5, stretch=0.1, head=-6, helm=-3, tail=0.6, tail_up=0.5, **lie),
+        P(roll=-178, lift=-2.5, stretch=-0.15, head=-6, tail=0.9, **lie),
+        P(roll=-178, lift=-2.5, head=-6, tail=1.0, **lie),
     ]
 
 
 # The abilities, from the roster animation pass (docs/anim_preview/digby_motion_plan.md):
 # twice the frames of the first sheets, eased spacing, a held anticipation and release,
 # 12% squash and stretch (fur), and overlap on the tail, the helmet and the pick. Hurt,
-# guard and the knockout (above) are from before the pass.
+# guard and the knockout (above) came in the reactions batch.
 
 TAU = 2.0 * math.pi
 

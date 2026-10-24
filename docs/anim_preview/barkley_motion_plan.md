@@ -174,3 +174,32 @@ row table, `idle_ticks` 10, `run_ticks` 2, every `anim_at` above (Timber Drop's 
 the default mapping), Pinecone Bomb's `anim_charge` `[0, 4, 6]`, `dodge.anim_at` and
 `cut_in_frame` `[8, 3]`. Frame data is unchanged. The `portrait` crop is unchanged (the new
 idle frame 0 frames the head the same). `NET_VERSION` waits for the batch.
+
+## Reactions (Oct 24, on Kevin's ask)
+
+The pass left hurt, guard and the knockout alone; they get the recipe now. The clock is the
+view's, unchanged (`src/view/creature_view.gd` `_pick`): no new data keys, frame data and
+stun numbers untouched, only the row table in `barkley.json` grows. Wood: the trunk never
+squashes; the hit shows in the head end snapping first (`bend`), the boughs and twigs a
+frame or two behind, the log's leaf after them. Preview, old frames above the new, every
+view: `barkley_reactions_3x.gif`.
+
+| Row | Frames | How the view plays it | The frames |
+| --- | --- | --- | --- |
+| hurt | 2 → 4 | `state_t / 4`, looping through longer hitstun; frame 0 is also the fall, the rise of a launch and the get-up; frame 1 the crumple and the drop of a launch | 0 the head end snaps back first, the boughs still hanging where they were; 1 the trunk folds over (the crumple), the boughs flung up behind a frame late, the leaf thrown back; 2 the boughs swing through as the trunk comes back, the leaf overshooting; 3 a settle, still leaning off the hit |
+| guard | 2 → 4 | frame 0 held, frame 1 while a blocked hit lands (`guard_hit`, 10 ticks); 2 and 3 are not played today | 0 boughs crossed; 1 rocked back, head end snapped back, leaf and twigs flung; 2 the shiver forward; 3 the re-set |
+| ko | 4 → 8 | `state_t / 6`, held on the last; a knockdown shows frame 1 then holds frame 2; "TIMBER!" at tick 0, the dust line at tick 16 | 0 the stagger, boughs flung up; 1 the slow start of the fall; 2 down hard on his back, roots torn up (the knockdown's hold, under the dust); 3 the trunk rocks up a little while the head end and the boughs are still coming down (wood does not squash: the weight is in the head end landing late); 4 the log slaps the floor a frame after the trunk; 5, 6 the boughs and the leaf settle; 7 still |
+
+**Victory and idle_alt:** looked at in every view; nothing clearly wrong, left alone. The
+knockout's log end touches the left edge of the 96 px frame, as it always did.
+
+**The diagonal reach cheat** (`Cam.NEAR`, `Body.diagonal_reach`): on the diagonals the
+flattened zone of `depth_y` is 5 px instead of 8, and a bough reaching more than 6 px
+forward closes in on the trunk's middle line (all the way at 20 px of reach), lifts 0.7 px
+per px of reach past 6 and reaches up to 4 px further. Forward already runs down (or up) the
+screen there, so a swipe's reach plus the arm's drop read as an arm hanging straight down;
+now the Twig Swipe, the Bough Swing and the Branch Grab point along the diagonal, where the
+hit lands. Side, down and up sheets are byte-identical apart from the reaction rows.
+
+**Open:** guard frames 2 and 3 only play if the view walks the whole row; a
+`creature_view.gd` ruling shared with the other fighters.

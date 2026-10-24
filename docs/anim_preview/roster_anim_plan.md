@@ -7,7 +7,8 @@ the same treatment, one fighter per PR, using the same recipe and the same workf
 **motion plan → preview GIFs → Kevin's approval → into the game.**
 
 Cairn and the dummy are placeholder art (`gen_sprites.py`) and are due to be replaced, so
-they are left out.
+they are left out. (Oct 24 2026: both now have splat3d rigs with the pass built in from the
+start, `tools/gen_cairn.py` and `tools/gen_dummy.py`; see `cairn_motion_plan.md`.)
 
 ## The recipe (unchanged from Crease)
 

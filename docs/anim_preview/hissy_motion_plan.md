@@ -212,7 +212,8 @@ back upright; now the roll completes (question 2).
 
 ## Hurt, guard, knockout
 
-Unchanged (not abilities): the same poses and the old hair wiggle.
+Left alone in the pass (not abilities), then redone in the reactions batch: see
+"Reactions" at the end.
 
 ---
 
@@ -253,3 +254,54 @@ The poses are 3D, so the down and up sheets get the same motion. What I checked:
 
 The HUD portrait crop (`sprite.portrait`) moved up 2 px to `[50, 50, 24, 32]`: the new idle
 frame 0 is the top of the bob, 2 px higher than the old one.
+
+---
+
+## Reactions (Oct 24 2026)
+
+Kevin asked for hurt, guard and the knockout after all. The whip rule carries over: the head
+leads, the gloves come a frame late and the glove snakes after them (`trail_arms`), the
+hair's tips after its bases (`rear_tip`, `raise_tip`), and the head squashes up to 10%
+(`sq`). She still never touches the floor except in the knockout: the hurt and guard heads
+ride where the old ones did.
+
+| Row | Frames | Frame by frame |
+| --- | --- | --- |
+| hurt | 2 → 4 | 0 the recoil: the head snapped back and stretched, the gloves and the hair's tips still forward (also the petrified statue's pose). 1 the deepest reel (the old crumple pose): the gloves flung back after the head, the hair thrown back tips last (less of it than before, so facing up the snakes no longer pile over the back of her head). 2 the head comes forward and squashes, the gloves overshoot past their guard, the tips still back. 3 sagging toward the recoil |
+| guard | 2 → 4 | 0 the hold (as before). 1 the jolt: the gloves knocked back into her face, the head squashed and ducked, the hair's tips flicking forward late. 2 the shiver back, a touch of stretch. 3 the brace: the gloves swinging up into place |
+| ko | 4 → 8 | 0 hit, the head snapped back, the gloves flung up. 1 a last lift as the gloves drop, the eyes gone. 2 the head slams down onto the gloves, squashed, the hair's tips still up. 3 a small bounce, stretched, the hair flopping. 4 down again, the gloves bouncing a frame after the head. 5 rolling onto her side. 6 the hair's last twitch. 7 still, as the old last frame. The "hssssss" lands at tick 12, on the slam |
+
+The victory and the fidget were looked at again. Not changed, but a question for Kevin: in
+the victory's "gloves punching the air" the gloves only reach the top of her head, so from
+the side they cover her eyes and from the front they read like ear muffs; raising them
+clear of the hair would need the glove snakes to cross her face.
+
+### The diagonals' near zone
+
+The generator owns its camera, so the cheat is the real fix: `Cam.NEAR` is per view now,
+18 as before for the side, down and up views, 12 facing down-right and 8 facing up-right
+(the back of her head, no face to keep on the front). A glove's short reach toward or away
+from the camera now reads along the facing diagonal instead of sideways; the face facing
+down-right stays on the front. Every row of the two diagonal sheets moves a little (the
+whole figure's depth is drawn less flat); the side, down and up sheets are byte-identical
+outside the reaction rows. No per-move pose cheat was needed.
+
+### The clock (nothing in the sim or the view changed)
+
+`creature_view.gd` picks these frames from the fighter's state, so the new frames are
+posed for the frames it asks for, at the stun lengths the moves really deal:
+
+| State | Frame the view shows | What the new frames are posed for |
+| --- | --- | --- |
+| hitstun | `hurt`, `state_t / 4`, looping | 0 is held through the hitstop (4-8 ticks), then 0-3 at 4 ticks each: a 16-tick pass. A light's hitstun (16-18) plays it once; a heavy's (24-34) loops back to 0, so frame 3 sags toward 0 and the return reads as a second shudder, not a pop |
+| crumple | `hurt` 1, held | frame 1 stays the deepest reel, close to the old crumple pose |
+| launched | `hurt` 0 rising, 1 falling | unchanged meaning |
+| knockdown | `ko` 1 for 5 ticks, then `ko` 2, then `hurt` 0 to get up | `ko` 1 is the fall and `ko` 2 the body on the floor |
+| falling into a pit, petrified | `hurt` 0 | the recoil |
+| guard | `guard` 0 held, 1 for the 10 ticks after a block | 0 is the hold, 1 the jolt. Frames 2 (the shiver back) and 3 (the brace on the way in) are on the sheet but the view doesn't ask for them yet: a later `_pick` change could show 3 for the first 4 ticks of a guard and alternate 1 and 2 through `guard_hit` (the reactions GIF shows that plan) |
+| knockout | `ko`, `state_t / 6`, holding the last | 8 frames over 48 ticks (was 4 over 24) |
+
+`hurt`, `guard` and `ko` in the JSON row table went from 2, 2, 4 frames to 4, 4, 8; no frame
+data or stun number changed. Previews: `hissy_reactions_3x.gif` (hurt with a 6-tick hitstop
+and 24 ticks of hitstun, the guard with a block, the knockout; every view, the sheets
+before beside the new frames; `python3 tools/anim_preview.py --reactions hissy REF`).

@@ -9,18 +9,30 @@
   "weight": 1.0,
   "stamina": 100,
   "stamina_regen": 0.6,
-  "dodge": { "frames": 18, "iframes_start": 2, "iframes_end": 11, "speed": 2.6 },
+  "dodge": { "frames": 18, "iframes_start": 2, "iframes_end": 11, "speed": 2.6, "anim_at": [[0, 0], [2, 1], [4, 2], [7, 3], [10, 4], [13, 5], [15, 6], [17, 7]] },
   "guard": { "reduction": 0.8, "drain_per_damage": 2.0, "speed_mult": 0.4, "break_stun": 50 },
   "sprite": {
     "path": "res://assets/sprites/dummy.png",
-    "frame": 48,
-    "cols": 4,
-    "origin": [24, 43],
+    "frame": 96,
+    "cols": 8,
+    "origin": [52, 84],
+    "idle_ticks": 10,
+    "run_ticks": 3,
+    "step_frames": [2, 6],
     "anims": {
-      "idle": [0, 0, 1],
-      "hurt": [0, 1, 2],
-      "guard": [0, 3, 1],
-      "ko": [1, 0, 4]
+      "idle": [0, 0, 4],
+      "run": [1, 0, 8],
+      "dodge": [2, 0, 8],
+      "hurt": [3, 0, 4],
+      "guard": [4, 0, 2],
+      "ko": [5, 0, 6]
+    },
+    "side_only": ["ko"],
+    "views": {
+      "down": { "path": "res://assets/sprites/dummy_down.png", "origin": [48, 80] },
+      "up": { "path": "res://assets/sprites/dummy_up.png", "origin": [48, 84] },
+      "down_side": { "path": "res://assets/sprites/dummy_down_side.png", "origin": [48, 82] },
+      "up_side": { "path": "res://assets/sprites/dummy_up_side.png", "origin": [48, 84] }
     }
   },
   "moves": {}

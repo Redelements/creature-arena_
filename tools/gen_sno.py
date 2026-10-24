@@ -53,7 +53,7 @@ MAT = {
     "shoe": "earth",
     "syrup": "gold",
 }
-S.configure(MAT, scale=0.8, near=14.0)
+S.configure(MAT, scale=0.8, near=14.0, near_views={"down_side": 10.0, "up_side": 10.0})
 S.COLS = 12  # the run, the heavy and the Surge have 12 frames
 AXES = ((0, 0, 1), (0, 1, 0), (1, 0, 0))
 
@@ -258,23 +258,65 @@ GF = (-8.0, 31.0, 7.0)
 
 
 def hurt():
+    """The reactions batch (docs/anim_preview/sno_motion_plan.md, "Reactions"). The view
+    plays these at 4 ticks a frame, looping, through the hitstun; frame 0 holds through the
+    hitstop (and stands in for airborne, falling and getting up), frame 1 is also the
+    crumple and the frozen statue, so neither carries flying shards. Ice: the cone squashes
+    5% at most, the gloves and the drip do the overlap. 0 the recoil: the cone snapped back
+    and stretched, the gloves still out front, the drip swung forward; 1 the deepest point
+    (squashed, tipped sideways, the gloves flung up); 2 the cone coming back while the
+    gloves trail and chips of ice fly off the dome; 3 the settle, chips further out."""
     return [
-        P(pitch=-16, fwd=-2.0, face="ow", near=(9.0, 32.0, 2.0), far=(-9.0, 32.0, 0.0)),
-        P(pitch=-26, fwd=-4.0, face="ow", roll=12, near=(10.0, 33.0, -1.0), far=(-10.0, 33.0, -3.0), lift=-1.0),
+        P(pitch=-20, fwd=-2.5, lift=0.4, sq=-0.7, roll=5, knees=1.0, face="ow", near=(9.0, 31.0, 6.0),
+          far=(-9.0, 31.0, 4.0), drip_sw=(0.0, 2.5)),
+        P(pitch=-28, fwd=-4.0, lift=-1.2, sq=1.0, roll=12, knees=1.0, face="ow", near=(10.0, 34.0, -1.0),
+          far=(-10.0, 34.5, -3.0), drip_sw=(0.0, 1.5)),
+        P(pitch=-18, fwd=-3.5, lift=-0.6, sq=0.2, roll=7, knees=1.0, face="ow", near=(10.0, 33.5, -3.0),
+          far=(-10.0, 34.0, -4.5), drip_sw=(0.0, -2.0), shards=0.35, stick=True),
+        P(pitch=-14, fwd=-2.5, lift=0.0, sq=0.0, roll=3, knees=1.0, face="ow", near=(9.0, 32.0, 1.0),
+          far=(-9.0, 32.0, -1.0), drip_sw=(0.0, -1.0), shards=0.8, shard_a=25.0, stick=True),
     ]
 
 
 def guard():
-    g = dict(pitch=6, near=(4.0, 36.0, 10.0), far=(-4.0, 35.0, 11.0), lift=-1.0)
-    return [P(**g), P(**dict(g, face="ow", fwd=-1.5))]
+    """Gloves up in front of his face. The view shows frame 0 while he holds guard and frame
+    1 for the 10 ticks after a blocked hit; 2 and 3 finish the shiver for a view that steps
+    through them. 0 the hold (knees bent, braced); 1 the blow: gloves knocked back into his
+    face, the cone squashed, the drip swung forward; 2 the rebound (gloves back out, a touch
+    of stretch); 3 the settle."""
+    g = dict(pitch=6, near=(4.0, 36.0, 10.0), far=(-4.0, 35.0, 11.0), lift=-1.0, knees=1.0, sq=0.3)
+    return [
+        P(**g),
+        P(**dict(g, face="ow", fwd=-1.8, pitch=1, lift=-1.7, sq=1.0, near=(4.0, 36.5, 7.5), far=(-4.0, 35.5, 8.5),
+                 drip_sw=(0.0, 2.0))),
+        P(**dict(g, face="ow", fwd=-1.0, pitch=7, lift=-0.7, sq=-0.3, near=(4.0, 35.5, 11.5), far=(-4.0, 34.5, 12.5),
+                 drip_sw=(0.0, -1.5))),
+        P(**dict(g, fwd=-0.4, lift=-1.1, sq=0.45, drip_sw=(0.0, -0.5))),
+    ]
 
 
 def ko():
-    """Melting: he topples, then sinks into a spreading puddle of syrup and slush."""
+    """Melting (8 frames at 6 ticks; the view holds the last, frame 0 trembles through the
+    KO freeze; a knockdown shows frame 1 then holds frame 2): 0 the blow stretches him up and
+    back, gloves flung high, chips off the dome; 1 toppling back, the gloves trailing; 2 he
+    lands (the cone squashed 5%), already slumping into a puddle; 3 a bounce, a drop of syrup
+    flung off; 4 down, sinking; 5-6 melting into the spreading puddle; 7 a cone in a puddle
+    (x eyes)."""
     return [
-        P(pitch=-20, fwd=-3.0, face="ow", puddle=4.0),
-        P(pitch=-60, fwd=-6.0, face="x", puddle=10.0, melt=4.0, drip=0.0),
-        P(pitch=-80, fwd=-8.0, face="x", puddle=15.0, melt=12.0, drip=0.0),
+        P(pitch=-24, fwd=-3.0, lift=1.5, sq=-1.0, knees=1.0, face="ow", near=(12.0, 43.0, -4.0),
+          far=(-11.0, 41.0, -3.0), drip_sw=(0.0, 3.0), shards=0.4, stick=True),
+        P(pitch=-55, fwd=-6.0, lift=0.5, face="ow", near=(13.0, 40.0, -10.0), far=(-12.0, 40.0, -11.0),
+          drip=0.5, drip_sw=(0.0, 2.0), puddle=6.0, melt=2.0, shards=0.9, shard_a=20.0, stick=True),
+        P(pitch=-82, fwd=-8.0, sq=1.0, face="x", near=(10.0, 16.0, 8.0), far=(-10.0, 18.0, 7.0), drip=0.0,
+          puddle=11.0, melt=6.0),
+        P(pitch=-76, fwd=-8.0, lift=1.6, sq=-0.4, face="x", near=(10.0, 18.4, 10.0), far=(-10.0, 20.4, 9.0),
+          drip=0.0, puddle=13.0, melt=5.0, blob=(2.0, 9.0, -2.0)),
+        P(pitch=-84, fwd=-8.0, sq=0.8, face="x", near=(9.0, 21.0, 9.0), far=(-9.0, 22.0, 8.0), drip=0.0,
+          puddle=15.0, melt=10.0),
+        P(pitch=-84, fwd=-8.0, sq=0.4, face="x", near=(8.5, 25.5, 9.0), far=(-8.5, 26.5, 8.0), drip=0.0,
+          puddle=16.5, melt=14.0),
+        P(pitch=-84, fwd=-8.0, face="x", near=(8.0, 28.5, 9.0), far=(-8.0, 29.5, 7.5), drip=0.0, puddle=17.5,
+          melt=16.5),
         P(pitch=-84, fwd=-8.0, face="x", puddle=18.0, melt=18.0, drip=0.0),
     ]
 

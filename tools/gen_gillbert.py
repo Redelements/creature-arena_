@@ -237,11 +237,16 @@ class Cam:
         else:
             self.cam = (0.0, 0.0, -1.0)
 
-    @staticmethod
-    def depth_y(f):
+    # How deep the flattened zone round his body reaches, per view (depth_y). Head-on he
+    # lies along the depth axis, so the zone covers his whole half-length and he stays inside
+    # the ring; on the diagonals only part of his length runs toward the camera, and with the
+    # wide zone a Snout Jab's reach toward the camera flattened away and read as sideways.
+    NEAR = {"down": 20.0, "up": 20.0, "down_side": 12.0, "up_side": 12.0}
+
+    def depth_y(self, f):
         # Barkley's flattening, but across a fish's whole length (he lies along the
         # depth axis in these views), so his body stays inside the life ring.
-        k, near = 0.35, 20.0
+        k, near = 0.35, self.NEAR.get(self.view, 20.0)
         a = abs(f)
         g = a * k if a <= near else near * k + (a - near)
         return math.copysign(g, f)
@@ -385,6 +390,14 @@ class Painter:
         self.view = view
 
     def P(self, q):
+        shift = self.p.shift
+        if shift and self.view in ("down_side", "up_side"):
+            # The diagonal reach cheat: depth_y flattens his own roundness, but a lunge
+            # (the whole body's `shift`) is reach on the floor, so it travels one to one
+            # along the diagonal (0.707 right, 0.707 down or up), as a hit lands in the game.
+            x, y = self.cam.P((q[0], q[1], q[2] - shift))
+            dy = shift * Cam.DG
+            return (x + dy, y + (dy if self.view == "down_side" else -dy))
         return self.cam.P(q)
 
     def D(self, q):
@@ -734,31 +747,59 @@ REST_ROD = rod_at(2.0, 1.5, -34.0, -4.0, 6.0)
 
 
 def hurt():
-    return [
-        P(curl=-0.9, pitch=10, lift=2, fins=1.3, rod=REST_ROD, face="hurt", gill=1.0),
-        P(curl=0.8, roll=55, rod=REST_ROD, face="hurt"),
+    """Hit, 4 frames of 4 ticks (the view plays state_t / 4 and loops it through longer
+    hitstun; frame 0 is also the fall and the get-up, frame 1 the crumple). 0: the snap,
+    head flung back and up first, the body arching after it, fins and rod still where they
+    were; 1: thrown onto his side (the crumple), squashed, fins and tail flung a frame late;
+    2: the rebound, rolling back with the tail overshooting; 3: settling, still flinching,
+    so the loop back to 0 reads as another shudder."""
+    f = [
+        P(curl=-1.0, pitch=16, shift=-3, lift=2.5, stretch=1.06, fins=1.0, face="hurt", gill=1.0, sag=0.4),
+        P(curl=0.85, roll=55, shift=-4, squash=0.9, fins=1.35, face="hurt", gill=0.8, wiggle=0.5, sag=0.2),
+        P(curl=0.3, roll=22, shift=-3, lift=1.0, squash=0.97, fins=1.2, face="hurt", gill=0.5, wiggle=-0.4, sag=0.8),
+        P(curl=-0.3, roll=6, pitch=6, shift=-2, lift=0.5, fins=1.1, face="hurt", gill=0.9, wiggle=0.2, sag=1.0),
     ]
+    tail_lag(f, 1, 1.5, loop=True)
+    drag_rod(f, 1, gain=0.8, lift_gain=0.8)
+    for p, k in zip(f, (0.6, -0.8, 0.4, 0.0)):
+        p.kink = k
+    return f
 
 
 def guard():
-    """Curled up behind the life ring, fins tucked."""
+    """Curled up behind the life ring, fins tucked, 4 frames. The game holds frame 0 and shows
+    frame 1 while a blocked hit lands (guard_hit); 2 and 3 are the shiver after it and the
+    re-set, for a view that plays the whole row."""
     g = dict(curl=1.6, pitch=6, fins=0.6, rod=REST_ROD, gill=0.0)
     return [
         P(face="calm", **g),
-        P(face="hurt", squash=0.92, **{k: v for k, v in g.items()}),
+        P(**{**g, "face": "hurt", "squash": 0.9, "pitch": 2, "gill": 0.6, "shift": -2.0, "wiggle": 0.25}),
+        P(**{**g, "face": "hurt", "squash": 0.96, "stretch": 1.03, "pitch": 8, "gill": 0.3, "shift": -1.0,
+             "wiggle": -0.25}),
+        P(**{**g, "face": "calm", "curl": 1.65, "squash": 0.97, "pitch": 5}),
     ]
 
 
 def ko():
-    """One last flop, then he lies on his side, the rod clattering down across him."""
-    return [
-        P(curl=-0.8, pitch=14, lift=5, rod=rod_at(3, 10, -26, 50), face="hurt"),
-        P(curl=1.0, roll=60, lift=2, rod=rod_at(3, 12, -12, 120), face="ko"),
-        P(curl=0.3, roll=88, rod=rod_at(-2, 6, -4, 170), face="ko", fins=0.8),
+    """8 frames of 6 ticks (the view plays state_t / 6 and holds the last; a knockdown shows
+    frame 1 and holds frame 2). One last flop: flung up nose first (0), rolling in the air
+    (1), slapped down on his side (2, squashed: the hold of a knockdown), a bounce (3), down
+    again (4), the rod clattering down across him a beat late (5), a last twitch of the tail
+    (6), still (7)."""
+    f = [
+        P(curl=-0.9, pitch=18, lift=6, stretch=1.08, fins=1.3, rod=rod_at(3, 6, -30, 30), face="hurt", gill=1.0,
+          sag=0.2),
+        P(curl=0.9, roll=55, lift=5, fins=1.4, rod=rod_at(3, 16, -20, 110), face="ko", sag=0.0, kink=0.6),
+        P(curl=0.4, roll=90, squash=0.88, fins=1.2, rod=rod_at(1, 18, -10, 160), face="ko", sag=0.0, kink=-0.7),
+        P(curl=0.1, roll=84, lift=3, stretch=1.05, fins=0.9, rod=rod_at(0, 12, -6, 200, 14), face="ko", sag=0.3,
+          kink=0.5),
+        P(curl=0.3, roll=90, squash=0.92, fins=0.8, rod=rod_at(-2, 4, -3, 170, 10), face="ko", sag=0.6),
+        P(curl=0.25, roll=90, squash=0.97, fins=0.8, rod=rod_at(-3, 5, -2, 186, 8), face="ko", sag=0.8, kink=0.3),
+        P(curl=0.15, roll=90, squash=0.96, fins=0.75, rod=rod_at(-3, 2.0, -2, 178, 10), face="ko", wiggle=0.5,
+          gill=0.6),
         P(curl=0.2, roll=90, squash=0.95, rod=rod_at(-3, 2.0, -2, 178, 10), face="ko", fins=0.7),
     ]
-
-
+    return tail_lag(f, 1, 1.6)
 
 
 # ------------------------------------------------------------------ the animation pass
@@ -1084,9 +1125,8 @@ ROWS = [
     ("dodge", dodge()), ("hurt", hurt()), ("guard", guard()), ("victory", victory()),
     ("idle_alt", idle_alt()), ("ko", ko()),
 ]
-# flesh and scales: no squash or stretch past 12% in the new rows
-assert all(p.squash >= 0.879 and p.stretch <= 1.121 for n, poses in ROWS if n not in ("hurt", "guard", "ko")
-           for p in poses)
+# flesh and scales: no squash or stretch past 12% in any row
+assert all(p.squash >= 0.879 and p.stretch <= 1.121 for n, poses in ROWS for p in poses)
 # Up and down sheets: every row but the knockout, which falls over sideways in any view.
 VIEW_ROWS = ROWS[:-1]
 

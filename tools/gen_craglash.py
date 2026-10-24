@@ -1213,6 +1213,10 @@ class DRig(VRig):
         if reach > 4:
             t = min(1.0, (reach - 4) / 14.0)
             lat = lat + (sh[0] * 0.25 - lat) * t
+            # The diagonal reach cheat: forward already runs down (or up) the screen here,
+            # so the arm's drop plus its reach read as a claw hanging straight down; lifted
+            # a little, a Rake points along the diagonal, where the hit lands.
+            up += 0.8 * (reach - 4)
         return (lat, up, fwd)
 
     def P(self, v3):
@@ -1478,36 +1482,62 @@ def coil():
     ]
 
 
+# The reactions (docs/anim_preview/craglash_motion_plan.md, "Reactions"). Stone: the body never
+# squashes (sy stays 1) and never bounces; the hit shows in the head snapping first, the neck's
+# bends a frame behind it, the mane flaring a frame after that and the arms swinging late.
+
 def hurt():
+    """Hit, 4 frames of 4 ticks (the view plays state_t / 4 and loops it through longer
+    hitstun; frame 0 is also the fall and the get-up, frame 1 the crumple). 0: the head
+    snaps back first, the neck still bent forward behind it, the arms and mane not yet moved;
+    1: the body folds over (the crumple), the neck whipping after the head, the mane flaring,
+    the arms flung loose; 2: coming back up, the arms still falling and the mane flipping
+    back; 3: settling, still leaning off the hit, so the loop back to 0 reads as a shudder."""
     return [
-        P(hip=(-2, -9), lean=-14, head=(-1, -46), c2=(-12, -40), face="hurt",
-          hands=[(-9, -10), (6, -12)], mane=1.0),
-        P(hip=(0, -7), lean=18, sy=0.9, head=(14, -30), c1=(-2, -44), c2=(14, -42), face="hurt",
-          hands=[(-4, 6), (5, 7)], feet=[(-7, 0), (6, 0)], mane=0.5),
+        P(hip=(-1, -9), lean=-10, head=(-6, -47), c1=(-6, -48), c2=(0, -55), face="hurt", tilt=-1,
+          hands=[(-9, 6), (9, 5)], mane=0.4),
+        P(hip=(0, -8), lean=18, head=(14, -31), c1=(-3, -46), c2=(10, -46), face="hurt",
+          hands=[(-7, -2), (6, -4)], feet=[(-7, 0), (6, 0)], mane=1.0),
+        P(hip=(-1, -8), lean=6, head=(8, -40), c1=(-6, -47), c2=(4, -49), face="hurt",
+          hands=[(-5, 7), (6, 8)], feet=[(-7, 0), (6, 0)], mane=-0.2),
+        P(hip=(-1, -9), lean=-3, head=(5, -44), c1=(-8, -48), c2=(-4, -56), face="hurt",
+          hands=[(-9, 6), (8, 5)], mane=0.4),
     ]
 
 
 def guard():
+    """Forearms crossed, head tucked behind them, 4 frames. The game holds frame 0 and shows
+    frame 1 while a blocked hit lands (guard_hit); 2 and 3 are the shiver after it and the
+    re-set, for a view that plays the whole row. The body rocks a pixel; the head behind the
+    arms and the mane carry the shiver."""
     g = dict(hip=(-1, -8), lean=8, hands=[(15, -9), (7, -7)], fists=[True, True], arm0_front=True,
              c1=(-10, -40), c2=(-6, -46), feet=[(-9, 0), (6, 0)], mane=-0.5)
     return [
         P(head=(3, -40), face="angry", **g),
-        P(head=(1, -40), face="strain", **{**g, "hip": (-2, -8), "lean": 4}),
+        P(head=(0, -41), face="strain", **{**g, "hip": (-2, -8), "lean": 3, "mane": 0.4, "c2": (-8, -46)}),
+        P(head=(2, -40), face="strain", **{**g, "hip": (-2, -8), "lean": 6, "mane": -0.1, "c2": (-5, -46)}),
+        P(head=(3, -40), face="angry", **{**g, "mane": -0.4}),
     ]
 
 
 def ko():
-    """Stagger, topple backward, down; the stones scatter. Shifted right so the
+    """6 frames of 6 ticks (the view plays state_t / 6 and holds the last; a knockdown shows
+    frame 1 and holds frame 2). Stagger with the head thrown back first (0), topple (1), the
+    body down hard with the head still held up on the neck a beat behind (2: the knockdown's
+    hold), the head slams down and the neck stones burst loose (3, as the crumble fx does at
+    tick 14), the mane ripples flat (4), still (5). Stone: no bounce. Shifted right so the
     fallen head's mane stays inside the frame."""
+    down = dict(hip=(8, -12), lean=-86, raise_head=False, face="ko", feet=[(20, -5), (25, -5)])
     return [
-        P(hip=(-2, -9), lean=-12, head=(-4, -44), c2=(-14, -40), face="hurt",
-          hands=[(-9, -6), (5, -10)], mane=1.0),
+        P(hip=(-2, -9), lean=-10, head=(-7, -46), c2=(-12, -42), face="hurt",
+          hands=[(-9, -2), (6, -4)], feet=[(-8, 0), (6, 0)], mane=0.6),
         P(hip=(2, -7), lean=-40, head=(-11, -32), raise_head=False, c1=(-9, -36), c2=(-15, -36), face="ko",
-          hands=[(-9, -2), (5, -9)], feet=[(-1, 0), (13, -2)], mane=0.6),
-        P(hip=(8, -12), lean=-80, head=(-13, -13), raise_head=False, c1=(-4, -24), c2=(-10, -21), face="ko",
-          hands=[(-3, -7), (3, -5)], feet=[(19, -6), (24, -5)], mane=-0.5),
-        P(hip=(8, -12), lean=-86, head=(-14, -12), raise_head=False, face="ko", scatter=True,
-          hands=[(-4, -6), (2, -3)], feet=[(20, -5), (25, -5)], mane=-1.0),
+          hands=[(-9, -6), (5, -10)], feet=[(-1, 0), (13, -2)], mane=1.0),
+        P(head=(-12, -18), c1=(-4, -26), c2=(-9, -24), hands=[(-3, -9), (3, -7)], mane=0.8,
+          **{**down, "lean": -82, "feet": [(19, -6), (24, -5)]}),
+        P(head=(-14, -12), scatter=True, hands=[(-3, -5), (3, -3)], mane=0.5, **down),
+        P(head=(-14, -12), scatter=True, hands=[(-4, -7), (2, -4)], mane=-0.5, **down),
+        P(head=(-14, -12), scatter=True, hands=[(-4, -6), (2, -3)], mane=-1.0, **down),
     ]
 
 

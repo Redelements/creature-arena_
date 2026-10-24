@@ -173,11 +173,16 @@ class Cam:
         else:
             self.cam = np.array([0.0, 0.0, -1.0])
 
-    @staticmethod
-    def depth_y(f):
-        # Barkley's flattening of the body's own roundness, with the near zone sized
-        # to the head, so the face stays on the front instead of sliding down.
-        k, near = 0.35, 18.0
+    # Barkley's flattening of the body's own roundness, with the near zone sized to the
+    # head, so the face stays on the front instead of sliding down. The diagonals get a
+    # smaller near zone (the reactions batch): with 18 there, a glove's short reach toward
+    # or away from the camera was flattened into a sideways move; at 12 the reach reads
+    # along the facing diagonal and the head still keeps its face on the front.
+    NEAR = {"down_side": 12.0, "up_side": 8.0}
+    NEAR_DEFAULT = 18.0
+
+    def depth_y(self, f):
+        k, near = 0.35, self.NEAR.get(self.view, self.NEAR_DEFAULT)
         a = np.abs(f)
         g = np.where(a <= near, a * k, near * k + (a - near))
         return np.sign(f) * g
@@ -921,41 +926,13 @@ def guard_up(lift=0.0, near_dy=0.0, far_dy=0.0, near_df=0.0, far_df=0.0, **kw):
              far=G(fl, fu + lift + FLOAT + far_dy, ff + far_df, fp, fy), **kw)
 
 
-def hurt():
-    return [
-        P(head=(0, 0.0, -4), pitch=16, face="hurt", rear=0.8, near=G(8, 14, 2, -10), far=G(-8, 15, 0, -10)),
-        P(head=(0, -6.0, -5), pitch=24, roll=20, face="hurt", rear=1.0, squash=0.85, near=G(8, 11, -1, -20),
-          far=G(-8, 12, -2, -20), limp=0.3),
-    ]
-
-
-def guard():
-    """Gloves up in front of her face, snakes pulled in."""
-    g = dict(near=G(4.0, 26.0, 9.0, 70), far=G(-4.0, 24.0, 10.0, 70), head=(0, -2.0, -1), pitch=6, rear=0.5,
-             amp=0.4)
-    return [P(**g), P(**dict(g, head=(0, -3.0, -1.5), face="hurt"))]
-
-
-def ko():
-    """Knocked out: the head drops onto the gloves, then tips onto its side, hair limp."""
-    return [
-        P(head=(0, -4.0, -4), pitch=20, face="hurt", rear=0.8, limp=0.3),
-        P(head=(0, -14.0, -3), pitch=30, roll=30, face="ko", limp=0.6, near=G(9, 4.6, 6, 0, 30),
-          far=G(-9, 4.6, 6, 0, -30)),
-        P(head=(0, -20.0, -2), pitch=40, roll=70, face="ko", limp=1.0, near=G(10, 4.6, 8, 0, 50),
-          far=G(-10, 4.6, 8, 0, -50)),
-        P(head=(0, -21.0, -2), pitch=42, roll=80, face="ko", limp=1.0, amp=0.2, near=G(10, 4.4, 8, 0, 50),
-          far=G(-10, 4.4, 8, 0, -50)),
-    ]
-
-
 # ------------------------------------------------------------------ the animation pass
 # Every ability redrawn with the Crease recipe (docs/anim_preview/hissy_motion_plan.md):
 # doubled frames on the same clock, eased spacing, anticipation and held releases, and
 # overlap everywhere, because nothing on her moves at the same time as anything else:
 # the gloves trail the head, the glove snakes trail the gloves (`trail_arms`), the hair
 # sways as a wave down each snake and is thrown base first, tips last. The head squashes
-# up to 10% (flesh and scales). Hurt, guard and the knockout (above) are unchanged.
+# up to 10% (flesh and scales). Hurt, guard and the knockout are below, with the victory.
 
 TAU = 2.0 * math.pi
 # Gloves travel on curves between key poses; the face and the venom come whole.
@@ -1266,6 +1243,84 @@ def dodge():
     ]
     wave_on(f, 0.8)
     S.lag(f, ("near", "far"), 1, loop=False)
+    return trail_arms(f)
+
+
+# ------------------------------------------------------------------ reactions
+# The reactions batch (hissy_motion_plan.md, "Reactions"): hurt 2 -> 4, guard 2 -> 4, the
+# knockout 4 -> 8, on the clocks creature_view.gd plays them at. The head leads, the gloves
+# come a frame late and the glove snakes after them (`trail_arms`), the hair's tips after
+# its bases; the head squashes up to 10%. She still never touches the floor but in the
+# knockout (the hurt and guard heads ride where the old ones did, a float lower than idle).
+
+def hurt():
+    """Hurt, 4 frames (looped at 4 ticks in hitstun; frame 0 is also the petrified statue,
+    the first half of a launch and the getting-up pose, frame 1 is held in a crumple): 0 the
+    recoil, the head snapped back and stretched, the gloves and the hair's tips still
+    forward; 1 the deepest reel (the old crumple pose), the gloves flung back after the head,
+    the hair thrown back tips last; 2 the head comes forward and squashes, the gloves
+    overshoot past their guard, the tips still back; 3 sagging back toward the recoil, so the
+    loop's return to 0 is a shudder, not a pop."""
+    f = [
+        NP(head=(0, 0.5, -4.5), pitch=17, face="hurt", sq=-0.5, rear=0.55, rear_tip=0.1,
+           near=G(9, 16, 6, -5), far=G(-9, 17, 4, -5)),
+        NP(head=(0, -6.0, -5.5), pitch=24, roll=18, face="hurt", sq=0.4, squash=0.85, rear=0.3, rear_tip=0.7,
+           limp=0.3, near=G(8, 11, -1, -20), far=G(-8, 12, -2, -20)),
+        NP(head=(0, -3.0, -3.0), pitch=9, roll=8, face="hurt", sq=0.8, rear=0.2, rear_tip=0.75, limp=0.15,
+           near=G(9, 15, 7, 0), far=G(-9, 16, 5, 0)),
+        NP(head=(0, -1.0, -3.8), pitch=14, roll=4, face="hurt", sq=0.1, rear=0.45, rear_tip=0.35,
+           near=G(8.5, 15, 3, -10), far=G(-8.5, 16, 1, -10)),
+    ]
+    wave_on(f, 0.9)
+    return trail_arms(f, loop=True)
+
+
+def guard():
+    """Guard, 4 frames (the view shows 0 while she holds it and 1 for the 10 ticks after a
+    block; 2 and 3 wait for the view, see the motion plan): 0 the hold, both gloves up in
+    front of her face, the hair pulled in; 1 the jolt, the gloves knocked back into her face,
+    the head squashed and ducked, the hair's tips flicking forward late; 2 the shiver back,
+    a touch of stretch; 3 the brace, the gloves swinging up into place."""
+    g = dict(near=G(4.0, 26.0, 9.0, 70), far=G(-4.0, 24.0, 10.0, 70), head=(0, -2.0, -1), pitch=6, rear=0.5,
+             amp=0.4, sway=1.6)
+    f = [
+        NP(**g),
+        NP(**dict(g, head=(0, -3.5, -2.2), pitch=10, face="hurt", sq=0.7, rear=0.7, rear_tip=0.25,
+                  near=G(4.0, 25.0, 6.5, 76), far=G(-4.0, 23.0, 7.5, 76))),
+        NP(**dict(g, head=(0, -2.4, -0.6), pitch=4, sq=-0.25, rear=0.4, rear_tip=0.75,
+                  near=G(4.0, 26.5, 9.8, 66), far=G(-4.0, 24.5, 10.8, 66))),
+        NP(**dict(g, head=(0, -0.5, -0.5), pitch=2, amp=0.6, rear=0.3, rear_tip=0.4,
+                  near=G(7.0, 21.0, 11.5, 45), far=G(-7.0, 21.5, 10.5, 45))),
+    ]
+    wave_on(f, 1.1)
+    return trail_arms(f, loop=True)
+
+
+def ko():
+    """Knocked out, 8 frames at 6 ticks (side only; the knockdown shows 1 then 2): 0 hit,
+    the head snapped back, the gloves flung up; 1 a last lift as the gloves drop, the eyes
+    gone; 2 the head slams down on the gloves, squashed, the hair's tips still up; 3 a
+    small bounce, the head stretched, the hair flopping down; 4 down again, the gloves
+    bouncing a frame after the head; 5 rolling onto her side; 6 the hair's last twitch;
+    7 still: tipped over, hair limp, tongue out."""
+    floor = lambda up=4.6, df=8.0, yw=50: dict(near=G(10, up, df, 0, yw), far=G(-10, up, df, 0, -yw))  # noqa: E731
+    f = [
+        NP(head=(0, -2.0, -5), pitch=22, face="hurt", sq=-0.3, rear=0.9, rear_tip=0.4, limp=0.2,
+           near=G(9, 22, 2, -30), far=G(-9, 23, 0, -30)),
+        NP(head=(0, -1.0, -6), pitch=30, roll=12, face="ko", sq=-0.5, rear=0.6, rear_tip=0.9, limp=0.4,
+           near=G(9, 12, 4, -10, 15), far=G(-9, 13, 2, -10, -15)),
+        NP(head=(0, -21.0, -3), pitch=38, roll=55, face="ko", sq=1.0, limp=0.8, raise_tip=0.6,
+           **floor(4.6, 6.0, 40)),
+        NP(head=(0, -17.0, -2.5), pitch=40, roll=66, face="ko", sq=-0.4, limp=0.9, raise_tip=0.1,
+           **floor(4.6, 7.0, 45)),
+        NP(head=(0, -21.0, -2), pitch=41, roll=76, face="ko", sq=0.6, limp=1.0, **floor(6.5, 8.0, 50)),
+        NP(head=(0, -21.0, -2), pitch=42, roll=80, face="ko", sq=0.2, limp=1.0, amp=0.4, **floor(4.4)),
+        NP(head=(0, -21.0, -2), pitch=42, roll=80, face="ko", limp=1.0, amp=0.3, **floor(4.4)),
+        NP(head=(0, -21.0, -2), pitch=42, roll=80, face="ko", limp=1.0, amp=0.2, **floor(4.4)),
+    ]
+    wave_on(f, 0.7)
+    for p, sw in zip(f, (3.0, 3.0, 3.4, 2.6, 2.0, 1.2, 0.8, 0.0)):
+        p.sway = sw
     return trail_arms(f)
 
 

@@ -257,4 +257,52 @@ data (no frame-data number changed).
 
 The fold's craft is small and mostly hidden by his hands at side view (as before); the
 body language (lean, shoulder, brim) carries it. Hurt, guard and the knockout are not
-abilities and stay as they are.
+abilities and stay as they are (redrawn later: "Reactions" below).
+
+## Reactions (Oct 24 2026): hurt 2 → 4, guard 2 → 4, knockout 4 → 8
+
+Kevin asked for the reactions after the pass. Paper: 7% squash at most; the hat, the brim,
+the cape, its fold (`wave`) and the tails do the overlap.
+
+**How the game plays these** (`src/view/creature_view.gd`, `_pick`, unchanged: no
+`anim_at`, the clock comes from the sim's stun states):
+
+| State | Frame shown | So the row needs |
+| --- | --- | --- |
+| hitstun | `hurt` `state_t / 4`, looping (a 24-tick hitstun plays 0 1 2 3 0 1) | 4 frames that loop: frame 3 leads back into 0 |
+| hitstop | `hurt` 0 held (`state_t` doesn't move) | frame 0 is the sharp recoil |
+| crumple, airborne (second half) | `hurt` 1 | frame 1 the deepest point, no flying bits |
+| airborne (first half), falling, getting up | `hurt` 0 | |
+| guard | `guard` 0, or 1 for the 10 ticks of `guard_hit` after a block | 0 the hold, 1 the blow; 2 and 3 aren't shown yet (open question) |
+| knockout | `ko` `state_t / 6`, the last held; frame 0 trembles through the KO freeze | 8 frames = 48 ticks |
+| knockdown | `ko` 1 for 5 ticks, then `ko` 2 held, `hurt` 0 for the last 8 ticks of stun | frame 1 falling, frame 2 a lying pose that holds |
+
+No frame data or stun number changed; only the row table in the JSON (`hurt` 4, `guard` 4,
+`ko` 8; the sheets stay 12 columns).
+
+**Hurt** (`hurt_row()`): 0 the recoil: snapped back 16 and stretched, the hands flung up,
+the hat tipped only a little and the cape barely moved (they haven't caught up); 1 the
+deepest point and the crumple: back 24, squashed, the hat knocked askew, the cape blown
+forward, the brim bent; 2 the body coming back while the hat overshoots and the cape's fold
+kinks hardest; 3 the settle, the fold last.
+
+**Guard** (`guard_row()`): 0 the hold behind the raised cape; 1 the blow: pushed back 1.8,
+squashed, the cape's fold kinked in, the brim bent down; 2 the rebound, the fold snapping
+out, a touch of stretch; 3 the settle.
+
+**Knockout** (`ko_row()`): 0 snapped back and stretched, the hat knocked up; 1 folding up
+(`squash` 0.45), the hat in the air; 2 crumpled down, the hat falling; 3 the hat lands, the
+paper springs open a little; 4 the hat bounces; 5-6 it rolls to a stop; 7 the old final
+frame. In a match his knockout effect (`ko_fx` "scatter") hides the sprite half a tick in
+and scatters pieces of his idle frame, so only a knockdown shows this row (frame 1, then
+frame 2 held, both checked in the game).
+
+**Diagonal reach:** `near` 8 on the diagonals (12 elsewhere); the flicks and the frog
+sweep land a little further down the screen. The brim's depth is flattened a little less
+there, so it reads a touch rounder on `down_side`. No pose cheat needed (facing down, the
+brim still hides the flick's release, the known design problem).
+
+**Victory, idle_alt:** looked at; nothing clearly wrong, left alone.
+
+Previews: `crease_reactions_3x.gif` (as the game times them, before above new, all five
+views). The other GIFs were re-rendered by `python3 tools/gen_crease.py anim`.

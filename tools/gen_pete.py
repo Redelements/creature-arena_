@@ -53,7 +53,7 @@ MAT = {
     "cord": ("green", -2),
     "gold": "gold",
 }
-S.configure(MAT, scale=0.8, near=12.0)
+S.configure(MAT, scale=0.8, near=12.0, near_views={"down_side": 8.0, "up_side": 8.0})
 S.COLS = 12  # the run, Sack Smack, Tiptoe and The Big Heist have 12 frames
 
 AXES = ((0, 0, 1), (0, 1, 0), (1, 0, 0))  # fwd, up, lat: an upright ellipsoid's frame
@@ -86,6 +86,9 @@ class Pose:
         self.flip = kw.get("flip", 0.0)             # somersault about his middle (deg, + forward)
         self.rise = kw.get("rise", 0.0)             # off the floor, after the flip
         self.coin = kw.get("coin", False)           # a gold coin held up in the far hand (the victory count)
+        # the reactions batch (hurt, guard, knockout) and the diagonal cheat
+        self.diag_yaw = kw.get("diag_yaw", (0.0, 0.0))  # turned toward his left (deg) on the down_side, up_side sheets
+        self.tilt = kw.get("tilt", 0.0)             # the whole body tipped sideways about the feet (+ toward his right)
 
 
 SQUASH = 0.12  # flesh: 12% at stretch 1 (docs/anim_preview/roster_anim_plan.md)
@@ -93,6 +96,8 @@ SQUASH = 0.12  # flesh: 12% at stretch 1 (docs/anim_preview/roster_anim_plan.md)
 
 def _world(p, v):
     v = np.asarray(v, float) + np.array([0.0, p.lift, 0.0])
+    if p.tilt:  # tipped sideways about the feet (a recoil that reads facing the camera too)
+        v = np.array(S.rot_fwd(tuple(v), p.tilt))
     if p.roll:
         c = np.array([0.0, 10.0, 0.0])
         v = np.array(S.rot_fwd(tuple(v - c), p.roll)) + c
@@ -230,7 +235,13 @@ def build(p, view):
         parts.append(tube([bag + to_k * r * 0.7, knot], [2.6, 1.6], "bag"))
     parts.append(tube([knot - to_k * 0.6, knot + to_k * 0.6], [1.9, 1.9], "cord"))
     parts += _dollar(bag, r, view, p.bag_sq)
-    return [_xf(p, q) for q in _flat(parts)]
+    out = [_xf(p, q) for q in _flat(parts)]
+    yaw = {"down_side": p.diag_yaw[0], "up_side": p.diag_yaw[1]}.get(view, 0.0)
+    if yaw:  # a per-view cheat: a reach that runs across the diagonal camera turned toward its forward
+        for q in out:
+            q["pos"] = np.array([rot_up(tuple(v), yaw) for v in q["pos"]])
+            q["nrm"] = np.array([rot_up(tuple(v), yaw) for v in q["nrm"]])
+    return out
 
 
 def _dollar(c, r, view, sq=0.0):
@@ -269,7 +280,7 @@ def _flat(parts):
 def _xf(p, part):
     if p.stretch:
         part["pos"] = _squash(p, part["pos"])
-    if not p.roll and not p.lift and not p.flip and not p.rise:
+    if not p.roll and not p.lift and not p.flip and not p.rise and not p.tilt:
         return part
     o = _world(p, np.zeros(3))
     part["pos"] = np.array([_world(p, q) for q in part["pos"]])
@@ -292,35 +303,84 @@ def tiptoe_feet(a, stride=7.0, lift=3.0):
 
 
 def hurt():
+    """The reactions batch (docs/anim_preview/pete_motion_plan.md, "Reactions"). The view
+    plays these at 4 ticks a frame, looping, through the hitstun; frame 0 holds through the
+    hitstop (and stands in for airborne, falling and getting up), frame 1 is also the
+    crumple. 0 the recoil: the head snapped back first, the body a beat behind, up on his
+    toes (stretched), the bag still high where it was; 1 the deepest point (the crumple):
+    knees buckled (squashed), the bag swung down behind; 2 the body coming back while the
+    bag keeps going and the beanie flops back; 3 the settle, which leads back into 0."""
+    f0 = ((3.5, 2.5, 6.0), (-3.5, 3.4, -2.0))
+    f1 = ((3.5, 2.5, 8.0), (-3.5, 2.5, 0.0))
     return [
-        P(feet=((3.5, 2.5, 6.0), (-3.5, 2.5, -2.0)), lean=-14, head=-14, face="ow", hipf=-2.0, bag=(4.0, 32.0, -14.0)),
-        P(feet=((3.5, 2.5, 8.0), (-3.5, 2.5, 0.0)), lean=-24, head=-20, face="ow", hipf=-4.0, hip=16.0,
-          bag=(4.0, 26.0, -16.0)),
+        P(feet=f0, lean=-10, head=-26, face="ow", hipf=-1.5, hip=19.6, stretch=0.35, cap=12.0, tilt=-5.0,
+          bag=(4.0, 34.0, -10.0), bag_sq=-0.1, hands=(None, (-8.0, 31.0, 4.0))),
+        P(feet=f1, lean=-24, head=-20, face="ow", hipf=-4.0, hip=16.0, stretch=-0.55, cap=4.0, tilt=-8.0,
+          bag=(4.0, 27.0, -16.0), knees=(1.5, 0.0), hands=(None, (-8.5, 27.0, 1.0))),
+        P(feet=f1, lean=-18, head=-11, face="ow", hipf=-3.2, hip=16.6, stretch=-0.2, cap=-9.0, tilt=-4.0,
+          bag=(4.0, 21.0, -15.0), bag_sq=0.2, flop=-2.0, knees=(1.0, 0.0), hands=(None, (-7.5, 24.0, 3.0))),
+        P(feet=f1, lean=-13, head=-15, face="ow", hipf=-2.4, hip=17.4, stretch=0.05, cap=-3.0, tilt=-2.0,
+          bag=(4.0, 26.0, -14.0), bag_sq=0.05, hands=(None, (-7.5, 27.0, 4.0))),
     ]
 
 
 def guard():
-    """Hiding behind the money bag, held up in front with both arms."""
+    """Hiding behind the money bag, held up in front with both arms. The view shows frame 0
+    while he holds guard and frame 1 for the 10 ticks after a blocked hit; 2 and 3 finish
+    the shiver for a view that steps through them (see the plan's open question).
+    0 the hold (braced low, ducked behind the bag); 1 the blow: the bag squashed into him,
+    pushed back, the beanie jolting forward; 2 the rebound, the bag springing back out; 3
+    the settle."""
     g = dict(feet=((3.5, 2.5, 3.0), (-3.5, 2.5, -4.0)), hip=16.0, lean=10, bag=(0.0, 30.0, 12.0), bag_r=9.5,
-             hands=((5.0, 32.0, 6.0), (-5.0, 32.0, 6.0)), head=6)
-    return [P(**g), P(**dict(g, face="ow", hipf=-1.5))]
+             hands=((5.0, 32.0, 6.0), (-5.0, 32.0, 6.0)), head=8, stretch=-0.2)
+    return [
+        P(**g),
+        P(**dict(g, face="ow", hipf=-1.8, lean=5, head=3, stretch=-0.5, bag=(0.0, 30.0, 9.0), bag_sq=0.28,
+                 hands=((5.0, 31.5, 3.5), (-5.0, 31.5, 3.5)), cap=8.0)),
+        P(**dict(g, face="ow", hipf=-1.0, lean=11, head=9, stretch=-0.05, bag=(0.0, 30.5, 13.0), bag_sq=-0.12,
+                 hands=((5.0, 32.5, 6.5), (-5.0, 32.5, 6.5)), cap=-6.0)),
+        P(**dict(g, hipf=-0.4, lean=9, head=7, stretch=-0.25, bag=(0.0, 30.0, 11.5), bag_sq=0.06, cap=2.0)),
+    ]
+
+
+def _unrolled(at, roll):
+    """A world point given for a rolled pose (`roll`, about the knockout's pivot), as the
+    body-frame point build() rolls into it: so the bag can be placed where it lands."""
+    c = np.array([0.0, 10.0, 0.0])
+    return tuple(float(x) for x in np.array(S.rot_fwd(tuple(np.asarray(at, float) - c), -roll)) + c)
 
 
 def ko():
-    """Knocked out flat on his back, the bag spilling beside him."""
+    """Knocked out: 8 frames at 6 ticks (the view plays the row once and holds the last;
+    frame 0 trembles through the KO freeze). A knockdown shows frame 1 then holds frame 2.
+    0 the blow lifts him onto his toes, thrown back, the bag flung up behind; 1 falling
+    back, the bag trailing high; 2 flat on his back (squashed along his length on the
+    landing), the bag still coming down; 3 the bounce, the bag landing on him (squashed);
+    4 down again; 5 a small rebound; 6 the settle; 7 out cold (x eyes)."""
+    toes = ((3.5, 4.0, 7.0), (-3.5, 3.0, -1.0))
+    rest = (3.0, 22.0, -16.0)          # where the bag ends up, on his chest (world)
+    lie = dict(roll=-90, lean=-84, face="x", hip=10.0)
+
+    def bag_at(at, roll=-90):
+        return _unrolled(at, roll)
     return [
-        P(feet=((3.5, 2.5, 8.0), (-3.5, 2.5, 0.0)), lean=-30, head=-20, face="ow", hipf=-4.0, hip=15.0,
-          bag=(8.0, 10.0, -10.0)),
-        P(roll=-60, lean=-60, face="x", hip=12.0, bag=(10.0, 8.0, -14.0)),
-        P(roll=-88, lean=-80, face="x", hip=10.0, bag=(12.0, 7.0, -16.0)),
-        P(roll=-90, lean=-84, face="x", hip=10.0, bag=(12.0, 7.0, -16.0)),
+        P(feet=toes, lean=-30, head=-28, face="ow", hipf=-3.0, hip=19.5, stretch=0.5, rise=1.5, cap=14.0,
+          bag=(-4.0, 35.0, -15.0), bag_sq=-0.15),
+        P(roll=-42, lean=-50, head=-16, face="ow", hip=14.0, rise=1.2, cap=8.0, bag=bag_at((-2.0, 30.0, -18.0), -42),
+          bag_sq=-0.1),
+        P(**dict(lie, lean=-80, stretch=-0.5, cap=-10.0, bag=bag_at((3.0, 29.0, -16.0)), bag_sq=-0.1)),
+        P(**dict(lie, lean=-76, rise=4.0, stretch=0.2, cap=6.0, bag=bag_at((3.0, 23.5, -16.0)), bag_sq=0.35)),
+        P(**dict(lie, stretch=-0.35, cap=-6.0, bag=bag_at(rest), bag_sq=-0.12)),
+        P(**dict(lie, lean=-82, rise=1.5, stretch=0.05, cap=3.0, bag=bag_at(rest), bag_sq=0.1)),
+        P(**dict(lie, stretch=-0.1, bag=bag_at(rest))),
+        P(**dict(lie, bag=bag_at(rest))),
     ]
 
 
 # ------------------------------------------------------------------ the animation pass
 # Pete's motion pass (docs/anim_preview/pete_motion_plan.md): every ability drawn with
 # twice the frames, eased spacing, anticipation and held releases, and the bag and the
-# beanie moving late. Hurt, guard and the knockout (above) are unchanged.
+# beanie moving late. Hurt, guard and the knockout (above) came in the reactions batch.
 
 def resolved(p):
     """The pose with its bag, knot and both hands placed where build() would put them, so
@@ -512,6 +572,11 @@ def swing():
     keys = [K(feet=f, hr=(h, None), br=b, bag_sq=sq, **bd) for h, b, bd, sq in
             zip(hand, bag, body, (0.0, -0.1, -0.15, 0.2, -0.1, 0.0, 0.0))]
     keys.append(idle_key(0.0))
+    # the diagonal cheat: on the down_side sheet the arc round his near side swings the bag
+    # toward the camera, so the impact read as straight down; turned toward his left there,
+    # the bag lands out front (right and down, where the hit is)
+    for k, yaw in ((2, 14.0), (3, 30.0), (4, 22.0), (5, 8.0)):
+        keys[k].diag_yaw = (yaw, 0.0)
     return keys
 
 

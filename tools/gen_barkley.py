@@ -260,15 +260,19 @@ class Cam:
             return (OX + (fwd + lat) * self.DG, OY - up + self.depth_y((lat - fwd) * self.DG))
         return (OX + lat, OY - up - self.depth_y(fwd))
 
-    @staticmethod
-    def depth_y(f):
+    # How deep the flattened zone round the trunk reaches, per view (depth_y). On the
+    # diagonals only part of a reach runs toward the camera, so a smaller zone keeps a
+    # short swipe from flattening into a sideways one.
+    NEAR = {"down": 8.0, "up": 8.0, "down_side": 5.0, "up_side": 5.0}
+
+    def depth_y(self, f):
         """Up/down views: how far down the screen a point `f` toward the camera sits.
 
         Reach is one to one, as on the floor (so a strike lands where its hitbox is),
         but the body's own roundness is flattened: otherwise the face, on the front of
         the trunk, would slide down under the arms and beard.
         """
-        k, near = 0.35, 8.0
+        k, near = 0.35, self.NEAR.get(self.view, 8.0)
         a = abs(f)
         g = a * k if a <= near else near * k + (a - near)
         return math.copysign(g, f)
@@ -334,8 +338,9 @@ def _rot_up(p, deg):
 class Body:
     """A pose turned into 3D points: where every joint is, before projection."""
 
-    def __init__(self, pose):
+    def __init__(self, pose, view="side"):
         self.p = pose
+        self.view = view
         self.hip = (0.0, pose.hip[0], pose.hip[1])
 
     def world(self, q):
@@ -368,7 +373,21 @@ class Body:
 
     def hand(self, i):
         sh = self.shoulder(i)
-        return v_add(sh, self.p.hands[i])
+        h = self.p.hands[i]
+        if self.view in ("down_side", "up_side") and h[2] > 6.0:
+            h = self.diagonal_reach(sh, h)
+        return v_add(sh, h)
+
+    @staticmethod
+    def diagonal_reach(sh, h):
+        """The diagonal reach cheat, diagonal views only: a bough reaching forward closes in
+        on the trunk's middle line and rises a little. On the diagonals forward already runs
+        down (or up) the screen, so a swipe's reach plus the arm's drop read as an arm
+        hanging straight down; on the middle line and lifted, it points along the diagonal,
+        where the hit lands. Nothing reaching less than 6 px forward changes."""
+        t = min(1.0, (h[2] - 6.0) / 14.0)
+        lat = sh[0] + h[0]
+        return (h[0] - lat * t, h[1] + 0.7 * (h[2] - 6.0), h[2] + 4.0 * t)
 
     def elbow(self, i):
         out = -1.0 if i == 0 else 1.0
@@ -401,7 +420,7 @@ class Body:
 
 class Painter:
     def __init__(self, pose, view):
-        self.b = Body(pose)
+        self.b = Body(pose, view)
         self.p = pose
         self.cam = Cam(view)
         self.view = view
@@ -793,29 +812,61 @@ def P(**kw):
     return Pose(**kw)
 
 
+# The reactions (docs/anim_preview/barkley_motion_plan.md, "Reactions"). Wood: the trunk never
+# squashes; the hit shows in the head end snapping first (`bend`), the boughs and twigs a
+# frame or two behind the trunk and the log's leaf after them.
+
 def hurt():
+    """Hit, 4 frames of 4 ticks (the view plays state_t / 4 and loops it through longer
+    hitstun; frame 0 is also the fall and the get-up, frame 1 the crumple). 0: the head end
+    snaps back first, the boughs still hanging where they were; 1: the trunk folds over
+    (the crumple), the boughs flung up behind it a frame late; 2: the boughs swing through
+    as the trunk comes back, the leaf overshooting; 3: settling, still leaning off the hit."""
     return [
-        P(lean=-16, hip=(21, -1), hands=[(-13, -4, -8), (12, 0, -6)], face="hurt"),
-        P(lean=22, hip=(18, 1), roll=6, hands=[(-9, -14, 4), (8, -15, 6)], face="hurt"),
+        P(lean=-12, bend=-10, hip=(21, -1), hands=[(-12, -13, -2), (12, -11, 0)], face="hurt", leaf=1.5, twig=0.5),
+        P(lean=20, bend=6, hip=(18.5, 1), roll=5, hands=[(-13, -4, -8), (12, 0, -6)], face="hurt", leaf=-2.5,
+          twig=-2.0),
+        P(lean=7, bend=2, hip=(19.6, 0.5), roll=2, hands=[(-10, -14, 4), (9, -15, 6)], face="hurt", leaf=2.0,
+          twig=1.5),
+        P(lean=-3, bend=-3, hip=(20.6, 0), hands=[(-11, -15, 0), (11, -14, 1)], face="hurt", leaf=-1.0, twig=-0.5),
     ]
 
 
 def guard():
+    """Branch arms crossed in front, 4 frames. The game holds frame 0 and shows frame 1 while a
+    blocked hit lands (guard_hit); 2 and 3 are the shiver after it and the re-set, for a view
+    that plays the whole row. The trunk only rocks; the leaf and twigs carry the shiver."""
     g = dict(lean=6, hip=(20, 0), fingers=["fist", "fist"], face="grit")
+    poles = [(-1, -0.4, 0.4), (1, -0.4, 0.4)]
     return [
-        P(hands=[(5, -2, 10), (-5, -6, 10)], poles=[(-1, -0.4, 0.4), (1, -0.4, 0.4)], **g),
-        P(hands=[(5, -3, 9), (-5, -7, 9)], poles=[(-1, -0.4, 0.4), (1, -0.4, 0.4)], **{**g, "lean": 2,
-                                                                                        "face": "hurt"}),
+        P(hands=[(5, -2, 10), (-5, -6, 10)], poles=poles, **g),
+        P(hands=[(5, -3, 8), (-5, -7, 8)], poles=poles, **{**g, "lean": 1, "bend": -4, "face": "hurt"}, leaf=-2.0,
+          twig=-2.0),
+        P(hands=[(5, -2, 9), (-5, -6, 9)], poles=poles, **{**g, "lean": 5, "bend": 1, "face": "hurt"}, leaf=1.5,
+          twig=1.2),
+        P(hands=[(5, -2, 10), (-5, -6, 10)], poles=poles, **{**g, "lean": 6}, leaf=-0.6, twig=-0.4),
     ]
 
 
 def ko():
-    """Timber! He topples over backward like a felled tree and his roots tear free."""
+    """Timber! 8 frames of 6 ticks (the view plays state_t / 6 and holds the last; a knockdown
+    shows frame 1 and holds frame 2). A stagger with the boughs flung up (0), the slow start
+    of the fall (1), down hard on his back with the roots torn up (2, where the timber dust
+    lands), the trunk bouncing a little off the floor while the head end and the boughs are
+    still coming down (3), down again with the log slapping the floor a frame after the trunk
+    (4), the boughs and the leaf settling (5, 6), still (7)."""
+    lie = dict(shift=24, hip=(20, 1), face="ko", roots_up=True)
     return [
-        P(lean=-14, hands=[(-14, 2, -6), (14, 4, -6)], face="hurt"),
-        P(tip=-35, lean=-6, hands=[(-14, 6, -4), (13, 8, -4)], face="ko", feet=[(-6, 0, -1), (6, 1, 1)], shift=6),
-        P(tip=-70, lean=-4, hands=[(-15, 4, -2), (14, 6, -2)], face="ko", roots_up=True, shift=16),
-        P(tip=-88, shift=24, hip=(20, 1), hands=[(-16, -2, 2), (15, -1, 2)], face="ko", roots_up=True),
+        P(lean=-12, bend=-6, hip=(21, -1), hands=[(-14, 2, -6), (14, 4, -6)], face="hurt", leaf=1.5, twig=1.0,
+          feet=[(-8, 0, -2), (8, 0, 0)]),
+        P(tip=-30, lean=-6, bend=-4, hands=[(-14, 6, -4), (13, 8, -4)], face="ko", feet=[(-6, 0, -1), (6, 1, 1)],
+          shift=5, leaf=2.5, twig=1.5),
+        P(tip=-88, bend=6, hands=[(-15, 6, -2), (14, 8, -2)], leaf=3.0, twig=2.0, **lie),
+        P(tip=-80, bend=-6, hands=[(-16, -4, 2), (15, -3, 2)], leaf=-2.5, twig=-2.0, **{**lie, "hip": (20, 1)}),
+        P(tip=-88, bend=3, hands=[(-16, 1, 2), (15, 2, 2)], leaf=2.0, twig=1.5, **lie),
+        P(tip=-88, bend=-1, hands=[(-16, -3, 2), (15, -2, 2)], leaf=-1.5, twig=-1.0, **lie),
+        P(tip=-88, hands=[(-16, -2, 2), (15, -1, 2)], leaf=0.8, twig=0.5, **lie),
+        P(tip=-88, hands=[(-16, -2, 2), (15, -1, 2)], **lie),
     ]
 
 
