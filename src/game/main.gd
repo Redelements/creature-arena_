@@ -390,6 +390,7 @@ var _exchange_t := 0  ## ticks left since the last hit or block in shot
 var _exchange_hits := 0  ## hits and blocks in the exchange so far
 var _surge_bars := 0  ## ticks left of a Surge freeze's letterbox
 var letterbox: Letterbox
+var grade: GradeView
 var showcase: Showcase = null
 var duel: DuelSim = null
 ## A team battle (2v2, 3v3): every creature on the field, one per slot (TeamSim).
@@ -575,6 +576,9 @@ func _ready() -> void:
 	add_child(layer)
 	_screen_layer = layer
 	letterbox = Letterbox.new()  # first on the screen layer: under the flash, the fade and the HUD
+	grade = GradeView.new()  # the map's tint and vignette (arena JSON "grade"): under everything on the screen layer
+	layer.add_child(grade)
+	layer.move_child(grade, 0)
 	layer.add_child(letterbox)
 	flash_rect = ColorRect.new()
 	flash_rect.color = Color(1, 0.95, 0.75, 0.0)
@@ -2105,6 +2109,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	ambient.fx = fx
 	var look := _match_look(s)
 	weather.apply(sim, look, shadows, ambient, water)
+	grade.apply(sim.arena, weather.grade_scale())
 	replay.setup["look"] = look.duplicate()  # cosmetic: the replay looks the same
 	paper.set_sim(sim)
 	hud.sim = sim
