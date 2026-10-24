@@ -305,6 +305,7 @@ var _training_fighter := ""
 var _training_screen_arg := ""  ## --training-screen=pause|options|fighters
 var _swap_fade := 0.0  ## the black fade after a fighter swap, 1 → 0
 var shake := 0.0
+var shake_dir := Vector2.ZERO  ## the last hit's push direction: the shake leans along it
 var _ko_cam_t := -1
 var _ko_focus := Vector2.ZERO
 var _ko_pos := Vector2.ZERO
@@ -2108,13 +2109,25 @@ func _physics_process(_delta: float) -> void:
 
 	shake = maxf(shake, fx.shake_out)
 	fx.shake_out = 0.0
+	if fx.shake_dir != Vector2.ZERO:
+		shake_dir = fx.shake_dir
+		fx.shake_dir = Vector2.ZERO
+	if fx.flash_out > 0.0:
+		_flash(Color(1, 0.95, 0.75), fx.flash_out)
+		fx.flash_out = 0.0
 	if sim.ko_freeze <= 0:
 		shake *= 0.82
 	var t_cam := PerfLog.now()
 	_update_camera()
 	PerfLog.since("camera", t_cam)
 	var sh := shake * shake_scale
-	camera.offset = Vector2(randf_range(-sh, sh), randf_range(-sh, sh)).round() if sh > 0.3 else Vector2.ZERO
+	if sh <= 0.3:
+		shake_dir = Vector2.ZERO
+		camera.offset = Vector2.ZERO
+	elif shake_dir != Vector2.ZERO:  # a hit: most of it along the push, a little across
+		camera.offset = (shake_dir * sh * randf_range(-1.0, 1.0) + shake_dir.orthogonal() * sh * randf_range(-0.3, 0.3)).round()
+	else:
+		camera.offset = Vector2(randf_range(-sh, sh), randf_range(-sh, sh)).round()
 	flash_rect.color.a = maxf(0.0, flash_rect.color.a - 0.04)
 	if offline and (flow == Flow.FIGHT or flow == Flow.MENU):
 		_think_ahead()

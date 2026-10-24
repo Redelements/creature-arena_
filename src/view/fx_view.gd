@@ -67,6 +67,10 @@ extends Node2D
 ##   slush        true         a slushy trail behind a dash
 ##   syrup        true         a splash as the move's zone is left (the zone itself is drawn
 ##                             from sim.zones, as a syrup puddle)
+##   spark        "light" | "heavy" | "skill" | "surge"  the hit-spark shape (default: the move's type)
+##   spark_color  colour of a skill's burst (default: ghost_color, else amber)
+## Creature sprite keys read here: "step" ("slush" for slush puffs), "step_frames" (run frames
+## where a foot lands; default the first and the middle one).
 ## Creature "ko_fx" keys: style "scatter" (the sprite breaks into horizontal pieces that
 ## tumble across the floor: "pieces" [[y0, y1], ...] head first, in side-sheet frame
 ## pixels, from "frame" [row, col]; without "pieces", four even bands of the figure), "crack" (cracks, water gushing out, rubble), "crumble"
@@ -136,6 +140,8 @@ var views: Array = []  ## CreatureView per creature, same order as sim.creatures
 var ground: FxGround
 var time_scale := 1.0  ## main slows this for KO slow-motion; 0 holds everything still
 var shake_out := 0.0  ## extra screen shake asked for by effects; main takes it each frame
+var shake_dir := Vector2.ZERO  ## the last hit's push direction; main biases the shake along it
+var flash_out := 0.0  ## a screen flash asked for (a Surge hit); main takes it each frame
 
 var _parts: Array[Dictionary] = []
 var _incoming: Array[Dictionary] = []
@@ -181,6 +187,8 @@ func clear() -> void:
 	_rain = 0.0
 	time_scale = 1.0
 	shake_out = 0.0
+	shake_dir = Vector2.ZERO
+	flash_out = 0.0
 	queue_redraw()
 
 
@@ -193,13 +201,8 @@ func spawn(e: Dictionary) -> void:
 	var power: float = e["power"]
 	match String(e["type"]):
 		"hit":
-			var big := power >= 9.0 or bool(e.get("heavy", false))
-			_add({"kind": "spark", "pos": p, "life": 12 if big else 8, "scale": 2.0 if big else 1.0})
 			var push := _note_push(e)
-			if big:
-				_add({"kind": "lines", "pos": p, "life": 8, "size": 1.4 if power >= 14.0 else 1.0, "color": C_SPARK[0]})
-			for i in (6 if big else 3):
-				_px(p, push.rotated(randf_range(-0.7, 0.7)) * randf_range(1.2, 2.8), C_SPARK[randi() % 3], 12)
+			_hit_sparks(e, p, push)
 			var col := Color("ffe08a")
 			if float(e.get("variety", 1.0)) >= 1.5:
 				col = Color("ff9a5a")
@@ -230,12 +233,15 @@ func spawn(e: Dictionary) -> void:
 		"bounce":
 			_add({"kind": "spark", "pos": p + Vector2(0, -12), "life": 8, "scale": 1.0})
 			_add({"kind": "lines", "pos": p + Vector2(0, -12), "life": 6, "size": 0.8, "color": C_SPARK[0]})
-			_dust(p, Vector2(0, -0.4))
+			_landing_puff(p, 2)
 		"fall":
 			for i in 4:
 				_dust(p + Vector2(randf_range(-8, 8), randf_range(-3, 3)), Vector2(randf_range(-0.4, 0.4), -0.5))
 			_later(CreatureSim.FALL_TICKS - 6, _pit_plume.bind(p))
-		"land", "dodge":
+		"land":
+			if _tick != _hard_tick:  # a hard landing already puffed this tick
+				_landing_puff(p, 1)
+		"dodge":
 			_dust(p + Vector2(0, 1), Vector2(0, -0.3))
 		"ko":
 			var who := int(e.get("who", -1))
@@ -546,8 +552,8 @@ func spawn(e: Dictionary) -> void:
 				_text(c.pos + Vector2(0, -_top(c) - 22), "SHATTER!", Color("ffd166"), 10, 50.0)
 				shake_out = maxf(shake_out, 3.0)
 		"land_hard":
-			for i in 3:
-				_dust(p + Vector2(randf_range(-6, 6), randf_range(-2, 2)), Vector2(randf_range(-0.3, 0.3), -0.4))
+			_hard_tick = _tick
+			_landing_puff(p, 2)
 
 
 ## A floating call-out (Combo Trials and drills: "CLEAR!", "DODGED!").
@@ -634,6 +640,7 @@ func advance() -> void:
 
 	var keep: Array[Dictionary] = []
 	var ends: Array[Callable] = []
+	_n_puff = 0
 	for p in _parts:
 		var dt: float = 1.0 if bool(p.get("real", false)) else ts
 		if dt <= 0.0:
@@ -659,6 +666,8 @@ func advance() -> void:
 				fn.call(float(p["t"]) / float(p["life"]))
 		if float(p["t"]) < float(p["life"]):
 			keep.append(p)
+			if String(p["kind"]) == "puff":
+				_n_puff += 1
 		elif p.has("on_end"):
 			ends.append(p["on_end"])
 	_parts = keep
@@ -788,6 +797,7 @@ func _watch_all() -> void:
 			_ghost(c, Color(0.75, 0.85, 1.0, 0.4), 10.0)
 		if c.state == CreatureSim.State.AIRBORNE and ticked and c.air_t < c.air_total / 2 and c.anim_t % 2 == 0:
 			_launch_streak(c)
+		_footstep(c, w, ticked)
 		if c.stack != int(w["stack"]):
 			_stack_changed(c, int(w["stack"]), attacking)
 		w["stack"] = c.stack
@@ -1996,6 +2006,151 @@ func _creature(i: int) -> CreatureSim:
 	return sim.creatures[i] if i >= 0 and i < sim.creatures.size() else null
 
 
+## How a hit looks, by attack type: light a few pixels, heavy a radial burst, skill a
+## burst in the move's colour, surge the heavy burst and a screen flash. Light and skill
+## sparks fan along the push (attacker to target). A move's fx "spark" overrides the type.
+func _hit_sparks(e: Dictionary, p: Vector2, push: Vector2) -> void:
+	var power: float = e["power"]
+	var a := _creature(int(e.get("attacker", -1)))
+	var d := _creature(int(e.get("target", -1)))
+	var fx: Dictionary = {}
+	if a != null and a.state == CreatureSim.State.ATTACK:
+		fx = a.move_def().get("fx", {})
+	# (the event's own "type" is "hit"; the move's type is on the attacker)
+	var kind := String(fx.get("spark", a.move_type() if a != null and a.state == CreatureSim.State.ATTACK else ""))
+	if not kind in ["light", "heavy", "skill", "surge"]:
+		kind = "heavy" if bool(e.get("heavy", false)) else "light"
+	var dir_a := push.angle()
+	var col: Color = C_SPARK[0]
+	var n := 3
+	var spread := 0.7
+	var r1 := 8.0
+	var ln := 3.0
+	var life := 5.0
+	var width := 1.0
+	match kind:
+		"heavy", "surge":
+			n = 7 if kind == "surge" or power >= 14.0 else 6
+			spread = PI
+			r1 = 20.0 if kind == "surge" else 16.0
+			ln = 6.0
+			life = 8.0
+			width = 2.0
+		"skill":
+			col = Color(fx.get("spark_color", fx.get("ghost_color", C_AMBER)))
+			col.a = 1.0
+			n = 5
+			spread = 2.4
+			r1 = 13.0
+			ln = 5.0
+			life = 7.0
+	var angs: Array = []
+	var lens: Array = []
+	for i in n:
+		var t := (float(i) + 0.5) / n * 2.0 - 1.0
+		angs.append(dir_a + t * spread + randf_range(-0.12, 0.12))
+		lens.append(ln * randf_range(0.7, 1.3))
+	_add({"kind": "burst", "pos": p, "life": life, "angs": angs, "lens": lens, "r0": 2.0, "r1": r1,
+		"width": width, "color": col})
+	match kind:
+		"light":
+			for i in 2:
+				_px(p, push.rotated(randf_range(-0.6, 0.6)) * randf_range(1.0, 2.0), C_SPARK[randi() % 3], 6)
+			if d != null and d.id < views.size():
+				views[d.id].soft_flash = true
+		"heavy", "surge":
+			_add({"kind": "spark", "pos": p, "life": 8, "scale": 1.6 if kind == "heavy" else 2.2})
+			for i in 5:
+				_px(p, push.rotated(randf_range(-0.7, 0.7)) * randf_range(1.2, 2.8), C_SPARK[randi() % 3], 12)
+			if kind == "surge":
+				flash_out = 0.3
+		"skill":
+			_add({"kind": "spark", "pos": p, "life": 7, "scale": 1.2})
+			for i in 4:
+				_px(p, push.rotated(randf_range(-0.9, 0.9)) * randf_range(1.0, 2.4), col, 10)
+	if push.length_squared() > 0.001:
+		shake_dir = push  # main leans the camera shake along it
+
+
+const STEP_CAP := 48  ## puffs alive at once; past it footsteps are skipped
+var _n_puff := 0
+var _hard_tick := -1
+const C_DUST: Dictionary = {
+	"dirt": [Color("a07c54"), Color("c4a276"), Color("dcc29a")],
+	"stone": [Color("94846c"), Color("b2a38a"), Color("cfc3ae")],
+	"concrete": [Color("8a909a"), Color("b8bcc2"), Color("dde0e4")],
+	"grass": [Color("28b450"), Color("5cd072"), Color("96dcaa")],
+	"water": [Color("549cd0"), Color("a8d6f0"), Color("e8f4fa")],
+	"slush": [Color("a8eef8"), Color("f0fcff"), Color("d6e6ee")],
+}
+
+
+## What the floor under `pos` throws up: "water" in shallows, else the sprite's own "step"
+## ("slush"), else the arena's ground (dirt, stone, concrete, grass).
+func _floor_kind(c: CreatureSim, pos: Vector2) -> String:
+	var tg := sim.terrain
+	if tg.get_cell(tg.world_to_cell(pos)) == TerrainGrid.SHALLOWS:
+		return "water"
+	var own := String(c.def.get("sprite", {}).get("step", "")) if c != null else ""
+	if own != "":
+		return own
+	var g := String(sim.arena.get("ground", "dirt"))
+	return g if C_DUST.has(g) else "dirt"
+
+
+## A puff on the floor layer. `size` 0 a footstep, 1 a landing, 2 a hard landing or bounce.
+func _floor_puff(pos: Vector2, kind: String, size: int, dir := Vector2.ZERO) -> void:
+	if _n_puff >= STEP_CAP:
+		return
+	var n: int = [5, 8, 12][size]
+	var spread: float = [5.0, 9.0, 14.0][size]
+	var lifts := kind == "water" or kind == "grass"
+	var bits: Array = []
+	for i in n:
+		var a := randf() * TAU
+		var r := randf_range(0.3, 1.0) * spread
+		var v := Vector2(cos(a), sin(a) * 0.5) * randf_range(0.04, 0.12) * (1.0 + size) - dir * 0.05
+		var vy := v.y - (randf_range(0.25, 0.7) if lifts else randf_range(0.05, 0.2))
+		bits.append([cos(a) * r * 0.4, sin(a) * r * 0.2 - 1.0, v.x, vy,
+			2.0 if size > 0 or randf() < 0.7 else 1.0, randi() % 3])
+	_n_puff += 1
+	_add({"kind": "puff", "pos": pos, "life": 14.0 + 5.0 * size, "bits": bits, "cols": C_DUST[kind],
+		"g": 0.05 if lifts else 0.0})
+
+
+func _landing_puff(p: Vector2, size: int) -> void:
+	if sim == null or not _view_rect(self, CULL_PAD).has_point(p):
+		return
+	_floor_puff(p, _floor_kind(null, p), size)
+
+
+## Dust at a runner's feet on the frames where a foot lands.
+func _footstep(c: CreatureSim, w: Dictionary, ticked: bool) -> void:
+	if c.state != CreatureSim.State.MOVE:
+		w["step"] = -1
+		return
+	if not ticked:
+		return
+	var sp: Dictionary = c.def.get("sprite", {})
+	var run: Array = sp.get("anims", {}).get("run", [])
+	if run.size() < 3:
+		return
+	var frames := int(run[2])
+	var frame := (c.anim_t / maxi(1, int(sp.get("run_ticks", 4)))) % maxi(1, frames)
+	var last := int(w.get("step", -1))
+	if frame == last:
+		return
+	w["step"] = frame
+	if last < 0:
+		return  # the first frame after starting to run isn't a footfall
+	var contact: Array = sp.get("step_frames", [0, frames / 2])
+	if not frame in contact:
+		return
+	if not _view_rect(self, CULL_PAD).has_point(c.pos):
+		return
+	_floor_puff(c.pos + Vector2(-c.facing.x * 3.0, 1.0), _floor_kind(c, c.pos), 0, c.facing)
+
+
 func _note_push(e: Dictionary) -> Vector2:
 	var a := int(e.get("attacker", -1))
 	var d := int(e.get("target", -1))
@@ -2098,7 +2253,7 @@ func _paint(ci: CanvasItem, floor_layer: bool) -> void:
 				Color(C_DIM, _dark))
 		_draw_pads(ci)
 		for p in _parts:  # flat things first, so debris sits on top of puddles and cracks
-			if String(p["kind"]) in ["puddle", "decal", "ripple", "lost"] and _in_view(p, view):
+			if String(p["kind"]) in ["puddle", "decal", "ripple", "lost", "puff"] and _in_view(p, view):
 				_draw_part(ci, p)
 		for p in _parts:
 			if not _in_view(p, view):
@@ -2212,6 +2367,27 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 				pos + Vector2(r, 0), pos + Vector2(w, w), pos + Vector2(0, r), pos + Vector2(-w, w),
 				pos + Vector2(-r, 0), pos + Vector2(-w, -w)]), col)
 			ci.draw_rect(Rect2(pos - Vector2(1, 1), Vector2(2, 2)), Color.WHITE)
+		"puff":  # footstep / landing dust on the floor layer: a few drifting pixels
+			var g := float(p["g"])
+			for b in p["bits"]:
+				var at: Vector2 = Vector2(p["pos"]) + Vector2(b[0], b[1]) + Vector2(b[2], b[3]) * t + Vector2(0, g * t * t * 0.5)
+				var pc: Color = p["cols"][int(b[5])]
+				pc.a = clampf(2.0 * (1.0 - k), 0.0, 1.0)
+				ci.draw_rect(Rect2(at.round(), Vector2.ONE * (float(b[4]) if k < 0.6 else maxf(1.0, float(b[4]) - 1.0))), pc)
+		"burst":  # hit-spark rays, snapped to whole pixels
+			var bc: Color = p["color"]
+			var bpos: Vector2 = p["pos"]
+			var r0 := float(p["r0"])
+			var r1 := float(p["r1"])
+			var bw := float(p["width"])
+			bc.a *= 1.0 - k * k
+			var bi := 0
+			for a in p["angs"]:
+				var d := Vector2.from_angle(a)
+				var base := lerpf(r0, r1, sqrt(k))
+				var ln := float(p["lens"][bi]) * (1.0 - k)
+				ci.draw_line((bpos + d * base).round(), (bpos + d * (base + maxf(1.0, ln))).round(), bc, bw)
+				bi += 1
 		"px":
 			var col: Color = p["color"]
 			col.a = 1.0 - k
