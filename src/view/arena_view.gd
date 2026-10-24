@@ -367,6 +367,11 @@ func _process(_delta: float) -> void:
 			_under.queue_redraw()
 
 
+## The map's picture (null on a tiled map): AmbientView sways pieces of it.
+func art() -> Texture2D:
+	return _art
+
+
 ## Under the bands: the map's art, or the stands and walls round a tiled floor.
 func _draw() -> void:
 	if terrain == null:

@@ -190,3 +190,18 @@ func test_the_ambush_carries_through_the_opening_string() -> void:
 	hp0 = foe.hp
 	assert_true(run_until(sim, func(): return foe.hp < hp0, 40, L), "the third jab lands")
 	assert_near(hp0 - foe.hp, jab, 0.01, "after it, plain damage:")
+
+
+## Tiptoe is real invisibility on screen: the other team draws nothing (no body, shadow, bar
+## or camera framing: main hides him like a foe out of sight), his own side sees his ghost.
+func test_tiptoe_hides_him_from_foes_only() -> void:
+	var g: Node = load("res://scenes/main.tscn").instantiate()
+	g.settings_path = "user://test_settings_pete.cfg"
+	(Engine.get_main_loop() as SceneTree).root.add_child(g)
+	g._start_match(0)  # you (slot 0) vs a CPU
+	g.sim.creatures[0].stealth = 30
+	g.sim.creatures[1].stealth = 30
+	g._update_vision([])
+	assert_true(not g._is_hidden(0), "you still see yourself in stealth")
+	assert_true(g._is_hidden(1), "a foe in stealth isn't drawn at all")
+	g.free()

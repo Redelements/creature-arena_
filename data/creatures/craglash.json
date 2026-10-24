@@ -58,6 +58,7 @@
   "sprite": {
     "path": "res://assets/sprites/craglash.png",
     "frame": 96,
+    "portrait": [34, 17, 24, 32],
     "cols": 6,
     "origin": [
       34,

@@ -23,6 +23,7 @@
     "path": "res://assets/sprites/sno.png",
     "step": "slush",
     "frame": 128,
+    "portrait": [52, 60, 24, 32],
     "cols": 8,
     "origin": [64, 104],
     "anims": {
@@ -130,7 +131,8 @@
       "reach": 0, "hit_radius": 90, "juggle": true,
       "zone": { "at": 12, "radius": 60, "ticks": 240, "slow_mult": 0.6 },
       "anim_at": [[0, 0], [6, 1], [13, 2], [19, 3], [26, 4], [40, 5]],
-      "fx": { "shout": { "text": "CHILL OUT.", "sound": "chill" }, "impact": "blast" }
+      "fx": { "shout": { "text": "CHILL OUT.", "sound": "chill" }, "impact": "blast",
+        "light": { "color": "#a8eef8", "radius": 90, "strength": 0.45, "from": 12, "to": 36 } }
     }
   }
 }

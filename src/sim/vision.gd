@@ -23,8 +23,8 @@ extends RefCounted
 ##   HIDE_RANGE of it, or it is attacking (from the move's first startup frame), or it
 ##   is reeling from a hit (hitstun, crumple, launched, knocked down), or it landed or
 ##   took a hit (or a block) in the last REVEAL_TICKS ticks.
-## Stealth (Tiptoe) is separate and works as before: the views draw it as a shimmer and
-## the CPU treats it as hidden.
+## Stealth (Tiptoe) is separate: main hides a stealthed foe from the local team entirely
+## (`_update_vision`; his own team sees a ghost) and the CPU treats it as hidden.
 
 const HIDE_RANGE := 34.0
 const REVEAL_TICKS := 30

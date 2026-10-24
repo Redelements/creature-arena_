@@ -9,7 +9,8 @@ extends Node2D
 ## floor's own tones, built once per ground kind into a small atlas (`_atlas`) and drawn as
 ## one whole-pixel texture blit. Marks are static, so this layer repaints only when one is
 ## added, removed, steps its fade or the camera leaves the area drawn, never every tick.
-## Marks fade in whole alpha steps (FADE_AT / FADE_A) over 20 to 40 seconds, then go; the
+## Shots leave marks where they end: "scuff" (a dust streak), "stuck" (a knife or shuriken
+## standing in the floor) and "splat" (venom). Marks fade in whole alpha steps (FADE_AT / FADE_A) over 20 to 40 seconds, then go; the
 ## oldest goes first past the cap (`cap()`, 200 on the stadium, more on a big map). A mark
 ## on a cell that became a pit, wall, water or brush is dropped (`_scan`), so a healed
 ## cell is fresh floor. Main adds this between the crowd and FxGround and calls
@@ -29,8 +30,9 @@ const KINDS := {
 	"scratch": [0, 1500], "gouge": [1, 2400], "drag": [2, 1500], "crater_s": [3, 2100],
 	"crater_l": [4, 2400], "clod": [5, 1800], "mallet": [6, 1800],
 	"print_wet": [7, 240], "print_slush": [8, 300], "print_syrup": [9, 360],
+	"scuff": [10, 900], "stuck": [11, 600], "splat": [12, 1200],
 }
-const ROWS := 10
+const ROWS := 13
 
 ## ground -> [furrow, lip, shade]: the tone of a cut, of the edge it throws up, and the
 ## darker tone under a crater. Dirt cuts dark; stone and concrete scratch pale; turf tears
@@ -115,7 +117,7 @@ func mark(kind: String, pos: Vector2, dir := Vector2.RIGHT) -> void:
 				and sim.tick - int(m["born"]) < 90:
 			return
 	var col := 0
-	if kind.begins_with("crater") or kind == "clod" or kind == "mallet":
+	if kind.begins_with("crater") or kind in ["clod", "mallet", "splat"]:
 		col = randi() % 8  # the shape's own variants
 	else:
 		col = _bucket(dir)
@@ -242,6 +244,13 @@ func _build(g: String) -> ImageTexture:
 		for s in [-1.0, 1.0]:
 			_line(img, o, 2, dv * -9.0 + nv * 2.4 * s, dv * 9.0 + nv * 2.4 * s, furrow, 0.6)
 		_line(img, o, 2, dv * -8.0, dv * 8.0, lip, 0.4, 2)
+		# scuff: a short pale streak with two specks; stuck: a blade standing in the floor (same in every atlas)
+		_line(img, o, 10, dv * -5.0, dv * 3.0, lip, 0.8)
+		_line(img, o, 10, dv * -3.0 + nv * 1.0, dv * 1.0 + nv * 1.0, furrow, 0.75)
+		_px(img, Vector2i(d * CELL + CELL / 2, 10 * CELL + CELL / 2) + Vector2i(roundi(dv.x * 6.0), roundi(dv.y * 6.0)), lip, 0.6)
+		_line(img, o, 11, dv * -4.0, dv * 4.0, Color("2a2628"), 0.9)
+		_line(img, o, 11, dv * -2.0 - nv * 1.0, dv * 4.0 - nv * 1.0, Color("cfd3d8"), 0.9)
+		_px(img, Vector2i(d * CELL + CELL / 2, 11 * CELL + CELL / 2) + Vector2i(roundi(-dv.x * 4.0), roundi(-dv.y * 4.0)), furrow, 0.9)
 		# footprints (same in every atlas): a 3 x 2 oval along the heading
 		for kind in PRINT_TONES:
 			var pt: Array = PRINT_TONES[kind]
@@ -260,6 +269,7 @@ func _build(g: String) -> ImageTexture:
 		_crater(img, o, 4, 10.0, furrow, lip, shade, rng, 4)
 		_clods(img, o, 5, furrow, lip, shade, rng)
 		_mallet(img, o, 6, furrow, lip, rng)
+		_splat(img, o, 12, rng)
 	return ImageTexture.create_from_image(img)
 
 
@@ -352,6 +362,24 @@ static func _clods(img: Image, o: Vector2i, row: int, furrow: Color, lip: Color,
 		_px(img, p, lip, 0.85)
 		if rng.randf() < 0.5:
 			_px(img, p + Vector2i(-1, 2), furrow, 0.6)
+
+
+## A splat of venom: a green blob with a darker core and a few flung drops.
+static func _splat(img: Image, o: Vector2i, row: int, rng: RandomNumberGenerator) -> void:
+	var cen := Vector2i(o.x + CELL / 2, row * CELL + CELL / 2)
+	var rx := 4.0 + rng.randf() * 1.5
+	for y in range(-3, 4):
+		for x in range(-5, 6):
+			var u := float(x) / rx
+			var w := float(y) / 2.2
+			var r := u * u + w * w
+			if r <= 1.0:
+				_px(img, cen + Vector2i(x, y), Color("3f8a2a") if r > 0.45 else Color("2c6a1c"), 0.8)
+	for i in 5:
+		var a := rng.randf() * TAU
+		var rr := 5.0 + rng.randf() * 4.0
+		_px(img, cen + Vector2i(roundi(cos(a) * rr), roundi(sin(a) * rr * 0.6)), Color("7fd64e"), 0.85)
+	_px(img, cen + Vector2i(-1, -1), Color("c8f59a"), 0.8)
 
 
 ## A meat mallet's tooth marks: a 3 x 3 grid of dimples.
