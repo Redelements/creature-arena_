@@ -41,6 +41,9 @@ them; `write_sheets`, `inspect` and the `anim` previews draw every view in `VIEW
 Cerebro and Hissy have them too, through their own copies of `Cam` (the two diagonal
 branches ported from splat3d; their `main`/`inspect` loop over `S.view_names(VIEWS)`);
 Hissy's `CHEAT` dict turns her head per view (`side`, `down_side`).
+Barkley and Gillbert have them too, from the same two projections in their own `Cam`; a
+`self.view == "side"` / else branch in their painters treats the diagonals as head-on
+unless it says otherwise (Gillbert's ring has its own diagonal case in `render`).
 
 ## Animation tools (the roster animation pass)
 
