@@ -61,7 +61,7 @@ Footstep dust puffs on the run frames where a foot lands: `"step_frames"` in the
 (default `[0, frames / 2]`: 6-frame runs `[0, 3]`, Crease's 12 `[0, 6]`). `"step": "slush"` makes a
 creature's steps slush instead of the floor's dust (Sno Mercy); shallows always splash.
 
-### Culvert — 96×96 frames, 8 × 12 (768×1152 px)
+### Culvert — 96×96 frames, 12 × 12 (1152×1152 px)
 
 Culvert is drawn by `tools/gen_culvert.py` with the shared splat renderer
 (`tools/splat3d.py`), like the sheet recreations: a posed 3D rig projected into the
@@ -70,9 +70,20 @@ lighter belly, a broad head with two bulging amber eyes (slit pupils) and a mout
 width of his face that opens into a drain with iron bars across the lower jaw, a round
 manhole cover on his back like a shell, big folded back legs with webbed feet (he hops to
 get around), short front arms ending in concrete fists, moss in the cracks, and a throat
-sac that pulses as he breathes. Concrete grain is a per-pixel fleck (`decorate`). Feet
-at **x 46, y 80**. Up and down sheets (`culvert_down.png`, `culvert_up.png`) are 96×96,
-feet at x 48, y 80 (down) and y 74 (up).
+sac that pulses as he breathes. Concrete grain is a fleck pinned to his body (`decorate`,
+hashed on body-local coordinates so it rides with him). Feet at **x 46, y 80**. Up and
+down sheets (`culvert_down.png`, `culvert_up.png`) are 96×96, feet at x 48, y 80 (down)
+and y 74 (up).
+
+Animated with the roster pass (motion plan, previews and before/after GIFs:
+[`anim_preview/culvert_motion_plan.md`](anim_preview/culvert_motion_plan.md)). Concrete
+doesn't squash: `squash` stays 1 on every animated frame (asserted); the legs fold and the
+body drops instead, and the weight is in the timing (slow up, fast down, held landings).
+The overlap is the manhole cover (`cover_dy`, `cover_tilt`, `cover_lat`: it lifts, lands,
+bounces and slides a frame late), the throat, the mouth and the spray. Legs are points
+(`leg_pts`, `leg_ride`) so different leg poses tween; `foot` slides planted feet, `rise`
+keeps the roll on the floor. `idle_ticks` 8 (a 64-tick idle), `run_ticks` 2 (the run
+still 24 ticks), footsteps on `step_frames` `[2, 7]` (the push-off and the landing).
 
 ![Culvert sheet, 3x](culvert_preview.png)
 
@@ -80,17 +91,17 @@ Facing down and up: [`culvert_views_preview.png`](culvert_views_preview.png).
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
-| 0 | idle | 4 | sat on his haunches, breathing: the body swells and the throat pulses |
-| 1 | run | 6 | a toad's hop: crouch, spring, sail with the legs trailing, tuck, land in a squash, settle |
-| 2 | jab | 4 | Jab (lights 1 and 2): the near fist draws back, punches out, follows, returns |
-| 3 | hook | 4 | Hook (light 3): the far fist swings wide across his body and through |
-| 4 | heavy | 6 | Slam: charge A, charge B (both fists raised, rearing up), the rise, both fists into the floor, low in the dust, recover |
-| 5 | dodge | 4 | tucks into a ball behind the manhole cover and rolls sideways |
+| 0 | idle | 8 | the breath, eased: the front of him rises, the throat fills 2 frames behind, a one-frame blink |
+| 1 | run | 12 | the hop: crouch ×2 (feet and fists planted), spring (legs straight, the only stretch), sail ×3 (the cover lifting late), tuck, land as a drop (the cover still up), settle ×2 (the cover clanks down), rise; the body swings about 5 px around his shadow |
+| 2 | jab | 8 | Jab (lights 1 and 2): turn and draw back, coil (held), one fast frame, extension held over the hit, further, snap back, settle, return |
+| 3 | hook | 8 | Hook (light 3): wind, wind deep (held), the body turns a frame before the arm, whip, extension held, the fist past his face with the cover sliding, return, settle |
+| 4 | heavy | 12 | Slam: 0–3 the charge loop (a heave, `anim_charge` `[0, 4, 5]`), the peak (held), one fast frame down, impact (held, the cover still up), the cover bounces, clanks down, a slow rise ×2, settle |
+| 5 | dodge | 8 | the roll: a tuck, a full turn over his cover resting on the floor (4 frames), the thud (fists planted), settle, rise |
 | 6 | hurt | 2 | recoil, mouth open; frame 1 doubles as the crumple pose |
 | 7 | guard | 2 | hunkered low, fists up in front of his face |
-| 8 | gulp | 4 | Gulp: the drain yawns open, lunge and swallow (tongue out), held in a bulging throat, spat out with a spray |
-| 9 | runoff | 4 | Runoff: rears up, both fists pound the floor, a spray, recover |
-| 10 | storm | 6 | Storm Drain: crouch, a huge leap, tucked at the top, falling spread-eagled, the landing slam, recover; Manhole Drop plays from frame 3 |
+| 8 | gulp | 8 | Gulp: 0–2 the charge loop (the drain yawning, the throat pumping, `anim_charge` `[0, 3, 5]`), rock back (held), the lunge mouth gaping (held while the game draws the tongue), the reel-in, the snap shut, the throat bulging |
+| 9 | runoff | 8 | Runoff: 0–1 the charge (reared up), the rise, the peak (held), one fast frame down, the pound (held), the gush a frame later with the cover bouncing, a slow rise |
+| 10 | storm | 12 | Storm Drain: the crouch (held), the push, the leap at full stretch (the cut-in frame, `[10, 2]`), tucked ×2, falling spread ×2, the slam (held, the cover still up), the cover bounce, a slow rise ×3; Manhole Drop has its own `anim_at` from frame 5 |
 | 11 | ko | 4 | thrown back, tips over onto the cover, legs in the air, eyes crossed out; the game cracks him and gushes the water |
 
 ### Cairn — 6 × 12 (288×576 px)

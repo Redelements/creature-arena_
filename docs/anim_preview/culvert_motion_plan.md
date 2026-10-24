@@ -2,9 +2,10 @@
 
 Culvert is the first fighter of batch 2 in the roster animation pass
 (`roster_anim_plan.md`). Same recipe as Mister Crease: shading, palette and outlines stay
-exactly as they are, only motion changes. This is the preview phase: the new frames are
-in `tools/gen_culvert.py` (`ANIM_ROWS`) and in the GIFs next to this file; the game's
-sheets and `data/creatures/culvert.json` are untouched until Kevin approves.
+exactly as they are, only motion changes. Kevin approved the previews (Oct 24 2026; his
+decisions are at the end), so the new frames are in the game: `tools/gen_culvert.py`
+draws them, the three sheets are 12 columns wide, and `data/creatures/culvert.json` has
+the new row table and timelines. Frame data is unchanged.
 
 Timings are in sim ticks (60 per second). An attack frame shows from its `anim_at` tick
 until the next one. A hit is live from tick `startup + 1` for `active` ticks.
@@ -34,12 +35,11 @@ render pixel for pixel the same (checked against the committed sheets).
 | `stick`: the concrete grain picked by where it is on his body | the flecks were hashed on screen pixels, so in motion they crawled across him; now they ride with the concrete. Same density and colours. Hurt, guard and the knockout get it too on the new sheet (their poses don't change) |
 | `tween` (the shared `splat3d.tweener`): fists (`near`, `far`) on arcs; `eyes`, `legs`, `cover` snap | in-betweens with curved fist paths |
 
-The new rows sit beside the old ones: `ROWS` stays the game's (what `--check` holds the
-JSON to), `ANIM_ROWS` is the pass, and `python3 tools/gen_culvert.py anim` previews it
-(`inspect` shows the new rows too; `CULVERT_ROWS=game` for the old). On approval `ROWS`
-becomes `ANIM_ROWS`, the `_v1_` functions go, and the JSON takes the numbers in
-`NEW_AT`, `NEW_CHARGE`, `NEW_ANIM_FROM`, `NEW_CUT_IN` and `NEW_STEP_FRAMES` (all checked
-in memory against the new rows with the same `--check` code).
+In the preview phase the new rows sat beside the old ones (`ANIM_ROWS`); on approval
+they became `ROWS` and the old pose functions went (hurt, guard and the knockout keep
+their poses). The JSON took the numbers in `NEW_AT`, `NEW_CHARGE`, `NEW_ANIM_FROM`,
+`NEW_CUT_IN` and `NEW_STEP_FRAMES`, which stay in the generator in step with it for the
+compare GIFs. The compare GIFs show the sheets from before the pass (`OLD_REF`, 25d385d).
 
 ---
 
@@ -75,7 +75,7 @@ rise and the throat.
 **Ground speed:** he covers about 44 px a cycle. The body swings ahead of his shadow in
 the air (fast) and drifts back behind it on the ground (slow), about ±5 px, and the
 planted feet and fists slide back at nearly the ground's pace (about 3.5 px a frame
-against 3.6), so they almost stay put. See question 1.
+against 3.6), so they almost stay put. Kevin kept the swing.
 
 **`step_frames`:** one landing per cycle now, so the default (frames 0 and 6) is wrong:
 `[2, 7]`, a puff on the push-off and on the landing.
@@ -219,7 +219,7 @@ tick. Today the roll turned to −200° and snapped back upright, and floated on
 
 ## Hurt, guard, knockout
 
-Unchanged (Kevin: not abilities). They're in `ANIM_ROWS` as the same poses; the only
+Unchanged (Kevin: not abilities). They're in `ROWS` as the same poses; the only
 difference on the new sheet is the grain pattern (`stick`).
 
 ---
@@ -253,11 +253,9 @@ The poses are 3D, so the down and up sheets get the same motion. What I checked:
   large enough to read as turning. I saw no flicker. The grain was the real crawl (fixed
   with `stick`).
 
-## Questions for Kevin
+## Decisions (Kevin, Oct 24 2026)
 
-1. **The run's body swing:** the body swings about ±5 px ahead of and behind his shadow
-   so the planted feet nearly stay put and the hop reads as a spring and a sit. Fine, or
-   would you rather the body stay over the shadow (the feet then skate on the ground
-   frames, as today)?
-2. **Cut-in frame:** the Surge's cut-in shows frame 2 (in the air, legs at full stretch),
-   the same moment as today's frame 1. Or the crouch (frame 0), or the tucked apex (4)?
+1. **The run's body swing:** kept. The body swings about ±5 px ahead of and behind his
+   shadow, so the planted feet nearly stay put and the hop reads as a spring and a sit.
+2. **Cut-in frame:** stays mid-leap, frame 2 (`cut_in_frame` `[10, 2]`), legs at full
+   stretch: the same moment as the old frame 1.

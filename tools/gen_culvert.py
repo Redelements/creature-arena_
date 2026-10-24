@@ -4,7 +4,7 @@
 Run from anywhere:  python3 tools/gen_culvert.py   (Pillow and numpy)
 Look at a few frames while working on a pose:  python3 tools/gen_culvert.py inspect idle:0 jab:2
 
-Writes assets/sprites/culvert.png (96x96 frames, 8 columns, the side view),
+Writes assets/sprites/culvert.png (96x96 frames, 12 columns, the side view),
 culvert_down.png and culvert_up.png (96x96: facing the camera, and facing away), plus
 labelled previews in docs/. Rendered with the shared splat renderer (tools/splat3d.py),
 like Digby and the other sheet recreations, which replaces the first 48 px placeholder.
@@ -53,6 +53,7 @@ MAT = {
     "water": ((84, 156, 208), (168, 214, 240), (54, 110, 160)),
 }
 S.configure(MAT, outline=(27, 30, 38, 255), scale=1.0, near=16.0)
+S.COLS = 12  # the run, the Slam and Storm Drain have 12 frames
 
 HIP = np.array([0.0, 8.0, -4.0])  # the body pivots here when it rears or crouches
 NEAR_FIST = (10.0, 4.0, 15.0)
@@ -302,84 +303,15 @@ def decorate(r, img):
     return img
 
 
-# ------------------------------------------------------------------ the game's current rows
-# The sheets in assets/sprites/ are drawn from these until Kevin approves the animation
-# pass (docs/anim_preview/culvert_motion_plan.md); then the new rows below replace them and
-# this block goes.
+# ------------------------------------------------------------------ animations
+# Hurt, guard and the knockout are the poses from before the animation pass; everything
+# else is the pass's (below).
 
 def P(**kw):
     return Pose(**kw)
 
 
-def _v1_idle():
-    """Sat on his haunches, breathing: the body swells and the throat sac pulses."""
-    return [
-        P(squash=1.0, throat=0.2),
-        P(squash=1.02, throat=0.5, lift=0.3),
-        P(squash=1.04, throat=0.9, lift=0.6),
-        P(squash=1.02, throat=0.5, lift=0.3, eyes="open"),
-    ]
-
-
-def _v1_run():
-    """A toad's hop: crouch, spring off the back legs, sail with the legs trailing,
-    tuck, land in a squash, settle."""
-    return [
-        P(legs="crouch", lift=-1.5, squash=0.9, pitch=-4, near=(9, 2.5, 13), far=(-9, 2.5, 12), throat=0.4),
-        P(legs="stretch", leg_k=0.8, lift=4.0, pitch=12, near=(9, 4, 14), far=(-9, 4, 13), throat=0.2),
-        P(legs="stretch", lift=8.0, pitch=8, near=(9, 5, 15), far=(-9, 5, 14), squash=1.04, throat=0.2),
-        P(legs="tuck", leg_k=0.7, lift=8.5, pitch=-2, near=(9, 6, 13), far=(-9, 6, 12), throat=0.3),
-        P(legs="crouch", lift=0.0, pitch=-8, squash=0.86, near=(9, 2.5, 14), far=(-9, 2.5, 13), throat=0.6),
-        P(legs="sit", leg_k=0.6, lift=-0.5, squash=0.96, pitch=-2, throat=0.4),
-    ]
-
-
-def _v1_jab():
-    """Jab (lights 1 and 2): the near fist draws back, punches out, follows, returns."""
-    return [
-        P(near=(10, 6, 6), far=(-9, 4, 12), pitch=2, throat=0.3),
-        P(near=(7, 9, 24), far=(-9, 4, 11), pitch=6, fwd=1.0, eyes="squint", throat=0.2),
-        P(near=(7, 8, 22), far=(-9, 4, 11), pitch=4, fwd=1.0, eyes="squint", throat=0.2),
-        P(near=(9, 4, 13), far=(-9, 3.5, 11), pitch=1, throat=0.4),
-    ]
-
-
-def _v1_hook():
-    """Hook (light 3): the far fist swings wide across his body and through."""
-    return [
-        P(far=(-14, 8, 2), near=(9, 5, 11), yaw=-10, pitch=2, throat=0.3),
-        P(far=(2, 9, 23), near=(9, 5, 10), yaw=8, pitch=6, fwd=1.5, eyes="squint", mouth=0.3),
-        P(far=(9, 8, 20), near=(10, 5, 8), yaw=14, pitch=4, fwd=1.5, eyes="squint", mouth=0.2),
-        P(far=(-9, 4, 11), near=(9, 3.5, 12), yaw=2, pitch=1, throat=0.4),
-    ]
-
-
-def _v1_slam():
-    """Slam (heavy): two charge frames rearing up with both fists raised, the rise, both
-    fists driven into the floor, the body low in the dust, and back up."""
-    return [
-        P(pitch=16, lift=2.0, near=(9, 16, 6), far=(-9, 16, 5), legs="crouch", leg_k=0.5, throat=0.5, mouth=0.2),
-        P(pitch=20, lift=2.5, near=(9, 18, 4), far=(-9, 18, 3), legs="crouch", leg_k=0.5, throat=0.9, mouth=0.3,
-          eyes="squint"),
-        P(pitch=26, lift=4.0, near=(9, 22, 6), far=(-9, 22, 5), legs="crouch", leg_k=0.3, throat=0.6, mouth=0.5),
-        P(pitch=-14, lift=-2.0, squash=0.86, near=(10, 1.5, 19), far=(-10, 1.5, 18), legs="crouch", mouth=0.6,
-          eyes="squint"),
-        P(pitch=-10, lift=-1.5, squash=0.9, near=(10, 1.5, 18), far=(-10, 1.5, 17), legs="crouch", mouth=0.3),
-        P(pitch=0, lift=0.0, near=(9, 4, 12), far=(-9, 4, 11), throat=0.4),
-    ]
-
-
-def _v1_dodge():
-    """Tucks into a ball behind the manhole cover and rolls sideways."""
-    return [
-        P(legs="tuck", lift=-1.0, squash=0.9, pitch=-10, near=(7, 6, 9), far=(-7, 6, 8), eyes="squint"),
-        P(legs="tuck", roll=-95, lift=1.0, near=(6, 8, 6), far=(-6, 8, 5), eyes="shut"),
-        P(legs="tuck", roll=-200, lift=1.0, near=(6, 8, 6), far=(-6, 8, 5), eyes="shut"),
-        P(legs="crouch", leg_k=0.6, lift=-0.5, squash=0.95, pitch=-3, throat=0.4),
-    ]
-
-
-def _v1_hurt():
+def hurt():
     return [
         P(pitch=14, lift=1.0, fwd=-2.0, eyes="shut", mouth=0.5, near=(10, 9, 6), far=(-10, 9, 5), throat=0.2),
         P(pitch=22, lift=1.5, fwd=-4.0, roll=-10, eyes="shut", mouth=0.8, near=(11, 12, 3), far=(-11, 12, 2),
@@ -387,51 +319,14 @@ def _v1_hurt():
     ]
 
 
-def _v1_guard():
+def guard():
     """Hunkered low, both fists up in front of his face, eyes narrowed."""
     g = dict(pitch=-6, lift=-1.5, squash=0.92, legs="crouch", near=(5, 12, 14), far=(-5, 12, 13), eyes="squint",
              throat=0.2)
     return [P(**g), P(**dict(g, fwd=-1.5, eyes="shut", near=(5, 11, 12), far=(-5, 11, 11)))]
 
 
-def _v1_gulp():
-    """Gulp: the drain yawns open as he winds up (two charge frames), the tongue shoots
-    out (the game draws it in flight), then the mouth shuts on whatever it caught, the
-    throat bulging, and he spits."""
-    return [
-        P(mouth=0.6, pitch=6, lift=0.5, near=(10, 7, 9), far=(-10, 7, 8), throat=0.3),
-        P(mouth=1.0, pitch=8, lift=1.0, near=(11, 8, 8), far=(-11, 8, 7), throat=0.2, eyes="squint"),
-        P(mouth=1.0, pitch=4, fwd=3.0, lift=0.0, near=(11, 5, 14), far=(-11, 5, 13), eyes="squint", throat=0.2),
-        P(mouth=0.0, pitch=10, lift=1.0, squash=1.08, throat=1.0, eyes="shut", near=(10, 6, 9), far=(-10, 6, 8)),
-    ]
-
-
-def _v1_runoff():
-    """Runoff: rears up, both fists pound the floor and a wave rolls out ahead."""
-    return [
-        P(pitch=18, lift=2.5, near=(9, 17, 6), far=(-9, 17, 5), legs="crouch", leg_k=0.4, throat=0.6, mouth=0.3),
-        P(pitch=26, lift=4.0, near=(9, 21, 8), far=(-9, 21, 7), legs="crouch", leg_k=0.3, throat=0.8, mouth=0.5),
-        P(pitch=-12, lift=-2.0, squash=0.88, near=(10, 1.5, 18), far=(-10, 1.5, 17), legs="crouch", mouth=0.7,
-          eyes="squint", spray=0.6),
-        P(pitch=-4, lift=-1.0, squash=0.95, near=(9, 3, 14), far=(-9, 3, 13), throat=0.4),
-    ]
-
-
-def _v1_storm():
-    """Storm Drain (and Manhole Drop from frame 3): crouch, a huge leap, tucked at the
-    top, falling spread-eagled, the landing slam that opens the pits, recover."""
-    return [
-        P(legs="crouch", lift=-2.0, squash=0.86, pitch=-8, near=(10, 2, 13), far=(-10, 2, 12), throat=0.7),
-        P(legs="stretch", lift=14.0, pitch=22, near=(9, 10, 12), far=(-9, 10, 11), squash=1.04, mouth=0.3),
-        P(legs="tuck", lift=22.0, pitch=4, near=(7, 8, 8), far=(-7, 8, 7), eyes="squint"),
-        P(legs="stretch", leg_k=0.5, lift=12.0, pitch=-16, near=(11, 2, 16), far=(-11, 2, 15), mouth=0.6),
-        P(legs="crouch", lift=-2.5, squash=0.8, pitch=-12, near=(12, 1.5, 20), far=(-12, 1.5, 19), mouth=0.8,
-          eyes="squint", spray=0.4),
-        P(legs="crouch", leg_k=0.5, lift=-0.5, squash=0.96, pitch=0, throat=0.5),
-    ]
-
-
-def _v1_ko():
+def ko():
     """Knocked out: thrown back, tips over onto the manhole cover, legs in the air, eyes
     crossed out (the game cracks him and gushes the storm water)."""
     return [
@@ -448,8 +343,8 @@ def _v1_ko():
 # doubled frames on the same clock, eased spacing, anticipation and held releases, overlap
 # on the throat, the cover, the mouth and the spray. Concrete doesn't squash: `squash`
 # stays 1 on every new pose (asserted below); the legs fold instead, and the weight is
-# in the timing (slow up, fast down, held landings). Not in the game yet: `python3
-# tools/gen_culvert.py anim` renders these into docs/anim_preview/.
+# in the timing (slow up, fast down, held landings). `python3 tools/gen_culvert.py anim`
+# renders the previews into docs/anim_preview/.
 
 def _resolved(p):
     """A pose with its legs given as points, so two different leg poses can be tweened."""
@@ -744,19 +639,7 @@ def dodge():
     ]
 
 
-def hurt():
-    return _v1_hurt()
-
-
-def guard():
-    return _v1_guard()
-
-
-def ko():
-    return _v1_ko()
-
-
-ANIM_ROWS = [
+ROWS = [
     ("idle", idle()),
     ("run", run()),
     ("jab", jab()),
@@ -770,44 +653,30 @@ ANIM_ROWS = [
     ("storm", storm()),
     ("ko", ko()),
 ]
-for _n, _poses in ANIM_ROWS:
+for _n, _poses in ROWS:
     for _p in _poses:
         _p.stick = True
 # concrete: the body never squashes or stretches on the new frames (hurt, guard and the
 # knockout keep the game's poses as they are)
-assert all(p.squash == 1.0 for n, poses in ANIM_ROWS if n not in ("hurt", "guard", "ko") for p in poses)
+assert all(p.squash == 1.0 for n, poses in ROWS if n not in ("hurt", "guard", "ko") for p in poses)
 
-
-# The game's rows: what assets/sprites/culvert*.png and data/creatures/culvert.json hold
-# today. They switch to ANIM_ROWS when the previews are approved (with the sheets and JSON).
-ROWS = [
-    ("idle", _v1_idle()),
-    ("run", _v1_run()),
-    ("jab", _v1_jab()),
-    ("hook", _v1_hook()),
-    ("heavy", _v1_slam()),  # the JSON names the row "heavy"
-    ("dodge", _v1_dodge()),
-    ("hurt", _v1_hurt()),
-    ("guard", _v1_guard()),
-    ("gulp", _v1_gulp()),
-    ("runoff", _v1_runoff()),
-    ("storm", _v1_storm()),
-    ("ko", _v1_ko()),
-]
 VIEW_ROWS = ROWS[:-1]  # the knockout tips over sideways in any view
 
 
 # ------------------------------------------------------------------ animation tools
 # The adapter for the shared animation pipeline (tools/anim_preview.py):
-# `python3 tools/gen_culvert.py anim` renders preview GIFs of ANIM_ROWS into
-# docs/anim_preview/, and `python3 tools/anim_preview.py --check culvert` checks the
-# JSON's timelines against ROWS. In-betweens and overlap come from splat3d (tween, cycle,
-# lag, lag_at).
+# `python3 tools/gen_culvert.py anim` renders preview GIFs into docs/anim_preview/ (the
+# compare GIFs put the sheets from before the pass beside them), and
+# `python3 tools/anim_preview.py --check culvert` checks the JSON's timelines against ROWS.
+# In-betweens and overlap come from splat3d (tween, cycle, lag, lag_at).
 render_frame, frame_spec = S.frame_adapter(SIDE, VIEWS, build, decorate)
-ANIM_CYCLES = {"idle": 40, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks); idle 64 after the pass
-ANIM_TICKS = {"idle": 8, "run": 2}     # the pass: 8 x 8 = 64-tick idle, 12 x 2 = 24-tick run
+# The revision whose sheets (and JSON) the compare GIFs show as "before": the sheets
+# before the animation pass.
+OLD_REF = os.environ.get("CULVERT_OLD_REF", "25d385d")
+ANIM_CYCLES = {"idle": 64, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks)
 
-# The new timelines (culvert_motion_plan.md); every startup, active and recovery number is kept.
+# The timelines now (culvert.json's, kept in step for the compare GIFs); every startup,
+# active and recovery number stayed.
 NEW_AT = {
     "light_1": [[0, 0], [2, 1], [4, 2], [5, 3], [9, 4], [11, 5], [14, 6], [17, 7]],
     "light_2": [[0, 0], [2, 1], [4, 2], [5, 3], [9, 4], [11, 5], [15, 6], [18, 7]],
@@ -839,7 +708,7 @@ def _old_heavy(mv):
 
 def _clips():
     import anim_preview as A
-    old = A.creature_json("culvert", "HEAD")
+    old = A.creature_json("culvert", OLD_REF)
     moves = old["moves"]
     old_idle, new_idle = (10, 4), (8, 8)
     tail = 30
@@ -891,20 +760,12 @@ def _clips():
 CLIPS = _clips
 
 
-def _use_anim_rows():
-    """The previews and `inspect` show the new rows."""
-    global ROWS, VIEW_ROWS
-    ROWS, VIEW_ROWS = ANIM_ROWS, ANIM_ROWS[:-1]
-
-
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "inspect":
-        rows = ROWS if os.environ.get("CULVERT_ROWS") == "game" else ANIM_ROWS
-        S.inspect(rows, sys.argv[2:], SIDE, VIEWS, build, decorate, scale=int(os.environ.get("INSPECT_SCALE", "3")),
+        S.inspect(ROWS, sys.argv[2:], SIDE, VIEWS, build, decorate, scale=int(os.environ.get("INSPECT_SCALE", "3")),
                   path=os.environ.get("INSPECT_OUT"))
     elif len(sys.argv) > 1 and sys.argv[1] == "anim":
         import anim_preview
-        _use_anim_rows()
         anim_preview.main(sys.modules[__name__], sys.argv[2:])
     else:
         S.write_sheets(ROWS, VIEW_ROWS, OUT, PREVIEW, SIDE, VIEWS, build, decorate)
