@@ -20,6 +20,8 @@ extends Node2D
 
 const FLASH_SHADER := preload("res://src/view/flash.gdshader")
 ## Windup tell colors: red means it can't be blocked, so get out of the way or hit first.
+const TENDER_PINK := Color(1.0, 0.55, 0.66)
+const SLOW_BLUE := Color(0.62, 0.85, 1.0)
 const TELL_RED := Color(1.0, 0.22, 0.18)
 const TELL_GOLD := Color(1.0, 0.8, 0.3)
 const FALLBACK := {
@@ -226,6 +228,13 @@ func refresh() -> void:
 	elif c.state == CreatureSim.State.ATTACK and c.move_type() == "surge" and c.state_t < 12:
 		flash_col = Color(1.0, 0.9, 0.4)
 		flash_amt = 0.6 if (c.anim_t / 2) % 2 == 0 else 0.25
+	elif c.vuln > 0 and c.state != CreatureSim.State.KO:
+		# Tenderized: a slow pink pulse over the sprite while it takes extra damage.
+		flash_col = TENDER_PINK
+		flash_amt = 0.12 + 0.14 * (0.5 + 0.5 * sin(c.anim_t * 0.12))
+	elif c.slow > 0 and c.state != CreatureSim.State.KO:
+		flash_col = SLOW_BLUE
+		flash_amt = 0.14
 	mat.set_shader_parameter("flash", flash_amt)
 	mat.set_shader_parameter("flash_color", flash_col)
 	# Stoneskin: a pale stone rim around the silhouette while the shield holds. Otherwise,

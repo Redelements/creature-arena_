@@ -35,6 +35,11 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   `_draw` reports its time with `PerfLog.now()` / `PerfLog.since(...)` for `--perf`
   (main thread only: `PerfLog` ignores a worker thread).
 - Shallows water (flow, foam, wading wakes, entry splash) is `water_view.gd`, a layer between the floor and the fighters, all 1 px rects on the 60 Hz tick clock; it draws only where the terrain grid says `SHALLOWS`, so a fallen bridge gets it too. Its wake skips a fighter `FxView.shown` hides.
+- Statuses: `fx_view.gd:_draw_status` draws every one from creature state (table in the `fx_view.gd`
+  header): frozen ice block / petrify cracks (`_draw_statue`), stun birds (`_draw_birdies`), taunt
+  tether (`_draw_tether`), slow motes, Pickpocket glints and coins; CreatureView tints the sprite
+  (tenderized pink, slowed blue, only when no other flash) and greys petrified. A new status look goes
+  there, skips a fighter `shown` hides, and stays a few 1 px rects (no outline over health bars).
 - Text: `UiTheme.font()` and `UiTheme.px(size)` (see `src/ui/CLAUDE.md`). The canvas is still
   480 x 270 units (project.godot: a 960 x 540 base at content scale 2), so coordinates and
   the camera's zoom are unchanged; text in world space (damage numbers) scales with the zoom.
