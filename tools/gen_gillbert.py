@@ -35,7 +35,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 OUT = os.path.join(ROOT, "assets", "sprites", "gillbert.png")
 PREVIEW = os.path.join(ROOT, "docs", "gillbert_preview.png")
 
-COLS = 8
+COLS = 16  # the run has 16 frames; every row sits in the first n columns
 SIDE = {"w": 128, "h": 128, "origin": (70, 112)}
 VIEWS = {
     "down": {"w": 96, "h": 144, "origin": (48, 92)},
@@ -708,138 +708,6 @@ def rod_at(lat, up, fwd, pitch, yaw=18.0):
 REST_ROD = rod_at(2.0, 1.5, -34.0, -4.0, 6.0)
 
 
-def _v1_idle():
-    """Lying on his belly, gills working, tail flicking; a little twitch hop now and then."""
-    return [
-        P(curl=0.25, wiggle=0.2, gill=0.0, rod=REST_ROD),
-        P(curl=0.35, wiggle=-0.3, gill=0.8, rod=REST_ROD),
-        P(curl=-0.2, lift=2.5, wiggle=0.5, gill=0.4, pitch=4, rod=REST_ROD, face="shout"),
-        P(curl=0.3, wiggle=-0.1, gill=0.9, rod=REST_ROD),
-    ]
-
-
-def _v1_run():
-    """Flopping across the floor: curl, spring, arch in the air, slap down, bounce. The rod
-    tumbles end over end behind him on the line."""
-    keys = [
-        # curl, lift, pitch, wiggle, squash, face
-        (0.3, 0.0, 0, 0.2, 1.0, "calm"),
-        (1.1, 0.0, -4, 0.0, 0.92, "calm"),
-        (-0.6, 6.0, 12, -0.4, 1.0, "shout"),
-        (-0.9, 10.0, 4, 0.6, 1.0, "shout"),
-        (0.2, 7.0, -12, -0.5, 1.0, "calm"),
-        (0.7, 0.0, -2, 0.3, 0.8, "shout"),
-        (-0.3, 3.0, 6, -0.6, 1.0, "calm"),
-        (0.45, 0.0, 0, 0.3, 0.95, "calm"),
-    ]
-    out = []
-    for k, (curl, lift, pitch, wig, sq, face) in enumerate(keys):
-        ang = -k * 55.0  # rod tumbling end over end
-        bounce = abs(math.sin(math.radians(k * 67.0))) * 9.0
-        rod = rod_at(4.0 + math.sin(k) * 2.0, 4.0 + bounce, -32.0 - 2.0 * math.cos(k * 0.8), ang,
-                     18.0 + 25.0 * math.sin(k * 1.3))
-        out.append(P(curl=curl, lift=lift, pitch=pitch, wiggle=wig, squash=sq, face=face, rod=rod,
-                     sag=0.4 + 0.3 * (k % 2), fins=1.1 if lift > 0 else 0.9, gill=0.5 * (k % 2)))
-    return out
-
-
-def _v1_jab():
-    """Light 1, Snout Jab: rear back, then bonk forward with the nose."""
-    return [
-        P(curl=0.5, pitch=10, shift=-3, rod=REST_ROD, face="calm"),
-        P(curl=-0.3, pitch=-6, shift=8, lift=2, stretch=1.08, rod=REST_ROD, face="shout"),
-        P(curl=-0.2, pitch=-4, shift=7, lift=1, stretch=1.05, rod=REST_ROD, face="shout"),
-        P(curl=0.3, rod=REST_ROD),
-    ]
-
-
-def _v1_whip():
-    """Light 2, Tail Whip: a half turn on the belly so the tail lashes across in front."""
-    return [
-        P(curl=0.6, yaw=-25, wiggle=0.8, rod=REST_ROD, face="calm"),
-        P(curl=0.2, yaw=120, wiggle=-1.2, lift=2, rod=REST_ROD, face="shout"),
-        P(curl=0.2, yaw=165, wiggle=-0.8, lift=1, rod=REST_ROD, face="shout"),
-        P(curl=0.3, yaw=20, wiggle=0.3, rod=REST_ROD),
-    ]
-
-
-def _v1_flail():
-    """Light 3, Rod Flail: a jerk of the head swings the rod up over him on its line and
-    down onto whoever is in front."""
-    return [
-        P(curl=0.4, pitch=8, rod=REST_ROD, face="calm"),
-        P(curl=-0.4, pitch=20, rod=rod_at(2, 18, -22, 70), sag=0.0, face="shout"),
-        P(curl=-0.6, pitch=24, lift=2, rod=rod_at(1, 34, 0, 160), sag=0.0, face="shout"),
-        P(curl=0.3, pitch=-14, rod=rod_at(1, 8, 25, 200, 0), sag=0.0, face="shout"),
-        P(curl=0.3, pitch=-8, rod=rod_at(1, 2.5, 23, 182, 0), sag=0.3),
-        P(curl=0.3, pitch=0, rod=rod_at(2, 12, -16, 40), sag=0.4),
-    ]
-
-
-def _v1_splash():
-    """Heavy, Splash Zone: curl up with the tail high, then slap the floor flat."""
-    return [
-        P(curl=1.3, pitch=-6, fins=1.2, rod=REST_ROD, face="calm", gill=0.6),
-        P(curl=1.5, pitch=-8, fins=1.3, rod=REST_ROD, face="shout", gill=1.0),
-        P(curl=1.0, pitch=-24, lift=6, fins=1.3, rod=REST_ROD, face="shout"),
-        P(curl=-0.5, pitch=2, squash=0.78, fins=1.4, rod=REST_ROD, face="shout"),
-        P(curl=-0.3, pitch=0, squash=0.85, fins=1.3, rod=REST_ROD, face="shout"),
-        P(curl=0.3, rod=REST_ROD),
-    ]
-
-
-def _v1_flopdash():
-    """Skill 1, Flop Dash: a coiled crouch, then a long skidding belly-flop forward."""
-    trail = rod_at(5, 6, -44, 30, 30)
-    return [
-        P(curl=1.2, pitch=6, rod=REST_ROD, face="calm"),
-        P(curl=-0.4, pitch=-6, lift=5, stretch=1.15, wiggle=0.6, fins=1.3, rod=trail, sag=0.0, face="shout"),
-        P(curl=-0.2, pitch=-3, lift=2, stretch=1.15, wiggle=-0.6, fins=1.2, rod=rod_at(4, 3, -46, -40, 0),
-          sag=0.0, face="shout"),
-        P(curl=0.4, squash=0.9, rod=rod_at(3, 1.5, -40, -8)),
-    ]
-
-
-def _v1_cast():
-    """Skill 2, Cast Line: whip the head back, fling the rod out on its line, and get
-    hauled in after it."""
-    return [
-        P(curl=0.5, pitch=14, rod=rod_at(2, 12, -26, 60), sag=0.2, face="calm"),
-        P(curl=-0.5, pitch=26, lift=2, rod=rod_at(0, 30, -6, 150), sag=0.0, face="shout"),
-        # thrown: the rod leaves him, spinning off on its line (the game draws it in flight)
-        P(curl=-0.2, pitch=-10, rod=rod_at(0, 18, 30, 200, 0), sag=0.0, face="shout"),
-        P(curl=-0.1, pitch=-6, rod=None, face="shout", fins=1.2),
-        # hooked: hauled in nose first, stretched out, fins swept back, tail trailing
-        P(curl=-0.5, pitch=-5, lift=3, stretch=1.15, wiggle=0.5, fins=0.7, rod=None, face="shout", gill=1.0),
-        P(curl=0.3, rod=None, face="calm"),
-    ]
-
-
-def _v1_leap():
-    """Surge, The One That Got Away: crouch, spring straight up out of reach, then come
-    down belly first in a huge splash. (The game lifts him off the screen; these frames
-    are the poses.)"""
-    hang = rod_at(1, 6, -10, 70, 0)
-    return [
-        P(curl=1.5, pitch=-4, fins=1.2, rod=REST_ROD, face="calm", gill=0.8),
-        P(curl=-0.6, pitch=60, lift=6, stretch=1.1, fins=1.3, rod=rod_at(2, 6, -20, 40), sag=0.0, face="shout"),
-        P(curl=-0.4, pitch=78, lift=8, wiggle=0.5, fins=1.4, rod=rod_at(1, 8, -16, 60, 0), sag=0.0, face="shout"),
-        P(curl=-0.9, pitch=-8, lift=4, fins=1.4, rod=hang, sag=0.0, face="shout"),
-        P(curl=-0.5, squash=0.72, fins=1.45, rod=rod_at(3, 4, -24, 30), face="shout"),
-        P(curl=0.4, rod=rod_at(3, 1.5, -34, -4)),
-    ]
-
-
-def _v1_dodge():
-    """A flip: he rolls right over sideways in a hop."""
-    return [
-        P(curl=0.9, roll=0, lift=1, rod=REST_ROD, face="calm"),
-        P(curl=-0.3, roll=120, lift=7, fins=0.7, rod=rod_at(3, 4, -36, -20), face="hurt"),
-        P(curl=-0.3, roll=240, lift=6, fins=0.7, rod=rod_at(3, 3, -36, -30), face="hurt"),
-        P(curl=0.3, roll=360, rod=REST_ROD),
-    ]
-
-
 def hurt():
     return [
         P(curl=-0.9, pitch=10, lift=2, fins=1.3, rod=REST_ROD, face="hurt", gill=1.0),
@@ -866,23 +734,6 @@ def ko():
     ]
 
 
-ROWS = [
-    ("idle", _v1_idle()),
-    ("run", _v1_run()),
-    ("jab", _v1_jab()),
-    ("whip", _v1_whip()),
-    ("flail", _v1_flail()),
-    ("splash", _v1_splash()),
-    ("flopdash", _v1_flopdash()),
-    ("cast", _v1_cast()),
-    ("leap", _v1_leap()),
-    ("dodge", _v1_dodge()),
-    ("hurt", hurt()),
-    ("guard", guard()),
-    ("ko", ko()),
-]
-# Up and down sheets: every row but the knockout, which falls over sideways in any view.
-VIEW_ROWS = ROWS[:-1]
 
 
 # ------------------------------------------------------------------ the animation pass
@@ -1169,14 +1020,16 @@ def dodge():
     return f
 
 
-ANIM_ROWS = [
+ROWS = [
     ("idle", idle()), ("run", run()), ("jab", jab()), ("whip", whip()), ("flail", flail()),
     ("splash", splash()), ("flopdash", flopdash()), ("cast", cast()), ("leap", leap()),
     ("dodge", dodge()), ("hurt", hurt()), ("guard", guard()), ("ko", ko()),
 ]
 # flesh and scales: no squash or stretch past 12% in the new rows
-assert all(p.squash >= 0.879 and p.stretch <= 1.121 for n, poses in ANIM_ROWS if n not in ("hurt", "guard", "ko")
+assert all(p.squash >= 0.879 and p.stretch <= 1.121 for n, poses in ROWS if n not in ("hurt", "guard", "ko")
            for p in poses)
+# Up and down sheets: every row but the knockout, which falls over sideways in any view.
+VIEW_ROWS = ROWS[:-1]
 
 
 def render(pose, view):
@@ -1217,7 +1070,7 @@ def preview(sh, rows, fw, fh, origin, scale, path):
 # `python3 tools/anim_preview.py --check gillbert` checks the JSON's timelines against ROWS.
 # In-betweens and overlap come from splat3d (tween, cycle, lag, lag_at), which only touch
 # pose attributes; this generator's renderer is its own.
-ANIM_CYCLES = {"idle": 40, "run": 32}  # ticks per cycle of the game's rows today (4 x 10 idle, 8 x 4 run)
+ANIM_CYCLES = {"idle": 64, "run": 32}  # ticks per cycle: 8 x 8, 16 x 2
 ANIM_TICKS = {"idle": 8, "run": 2}     # the pass: 8 x 8 = 64-tick idle, 16 x 2 = 32-tick run
 # The "current" side of the compare GIFs: main before the pass.
 OLD_REF = os.environ.get("GILLBERT_OLD_REF", "fce60cc")
@@ -1240,7 +1093,7 @@ NEW_STEP_FRAMES = [6, 14]    # the flop's slaps
 
 
 def _check_new_at():
-    n = {name: len(poses) for name, poses in ANIM_ROWS}
+    n = {name: len(poses) for name, poses in ROWS}
     for mid, anim in (("tag_in", "leap"), ("light_1", "jab"), ("light_2", "whip"), ("light_3", "flail"),
                       ("heavy", "splash"), ("skill_1", "flopdash"), ("skill_2", "cast"), ("surge", "leap")):
         ticks = [t for t, _f in NEW_AT[mid]]
@@ -1340,12 +1193,6 @@ def render_frame(pose, view):
     return render(pose, view)
 
 
-def _use_anim_rows():
-    """The previews show the new rows."""
-    global ROWS, VIEW_ROWS
-    ROWS, VIEW_ROWS = ANIM_ROWS, ANIM_ROWS[:-1]
-
-
 def main():
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     side = sheet("side", ROWS, SIDE["w"], SIDE["h"], SIDE["origin"])
@@ -1380,7 +1227,6 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "anim":
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         import anim_preview
-        _use_anim_rows()
         anim_preview.main(sys.modules[__name__], sys.argv[2:])
     else:
         main()

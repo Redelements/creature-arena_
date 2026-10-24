@@ -118,20 +118,17 @@ squashed landing (10%), a settle; the rod trails 2 frames late and spins.
 ## Not animated (as agreed)
 Hurt, guard and the knockout (and their down and up rows) stay as they are.
 
-## Questions for Kevin (each with a pick)
-1. **Sheet width.** The 16-frame run makes every sheet 16 columns (2048 px wide). Alternative: a
-   second row for run frames 12 to 15. Pick: 16 columns, as Crease grew to 12.
-2. **Run step sound.** The slaps are frames 6 and 14, so `step_frames` `[6, 14]`. Pick: yes.
-3. **Windups (heavy 8 ticks, Flop Dash 12).** The view holds one frame for the whole windup (no
-   `anim_at` tick fits inside it). Pick: accept (frame 0 is the held coil); a shiver during the
-   windup would need a view change, outside this pass.
-4. **Squash cap.** 12% everywhere in the new rows (the old poses went to 28% on slaps, so a slap
-   reads less flat). Pick: keep 12%; the slap's weight comes from the held frames and the rod's
-   clatter.
-5. **Surge cut-in frame** `[8, 4]` (the stretched rise) or `[8, 9]` (the flop). Pick: `[8, 4]`.
-6. **Idle hop.** Once per 64 ticks after a long hold. Pick: keep; it is the cycle's one fast frame.
+## Decisions (Kevin approved the previews, Oct 24; my picks all stood)
+1. **16 columns** for every sheet (2048 px wide at 128, 1536 for the 96 px down and up sheets).
+2. **`step_frames` `[6, 14]`**: the step puffs land on the slaps.
+3. **Windups**: the held frame 0 stands in for the whole windup (no view change).
+4. **12% squash cap** kept.
+5. **Surge `cut_in_frame` `[8, 4]`.**
+6. **The idle hop** stays, once per 64 ticks.
 
-## After approval (commit 2)
-The three sheets (`ROWS = ANIM_ROWS`), `gillbert.json` (`cols` 16, the row table, `idle_ticks` 8,
-`run_ticks` 2, `step_frames`, every `anim_at`, `anim_charge`, `anim_reel`, `cut_in_frame`,
-Splashdown), `docs/SPRITES.md`, one `NET_VERSION` bump for batch 3, and in-game clips.
+## In the game (commit 2)
+`ROWS` in `tools/gen_gillbert.py` are now the new poses (the old ones dropped), the three sheets
+are regenerated, and `gillbert.json` has `cols` 16, the row table, `idle_ticks` 8, `run_ticks` 2,
+`step_frames`, every `anim_at` above, `anim_charge` `[0, 4, 3]`, `anim_reel` 8, Splashdown's
+`anim_at` in place of `anim_from`, and `cut_in_frame` `[8, 4]`. The HUD `portrait` crop is kept
+(idle frame 0 is unchanged at the crop). Frame data is unchanged; `NET_VERSION` waits for batch 3.

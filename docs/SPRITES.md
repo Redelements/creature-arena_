@@ -199,7 +199,7 @@ so the spin and the lob play exactly in step with the hits. Design note: the log
 the head, the moss beard and the root feet are what make him read as Barkley; a round
 tree body with leafy hands would drift toward existing franchise creatures.
 
-### Gillbert — 128×128 frames, 8 × 13 (1024×1664 px)
+### Gillbert — 128×128 frames, 16 × 13 (2048×1664 px)
 
 Gillbert is the third creature from the artist's sheets. `tools/gen_gillbert.py` builds
 him on Barkley's 3D approach: a fish body as a tube along a bendable spine (curl, arch,
@@ -216,21 +216,28 @@ and tumbles far behind on the run. Up and down sheets (`gillbert_down.png`,
 
 ![Gillbert sheet, 3x](gillbert_preview.png)
 
+Animated with the roster pass (motion plan, previews and before/after GIFs:
+[`anim_preview/gillbert_motion_plan.md`](anim_preview/gillbert_motion_plan.md)): every
+ability redrawn, the tail fin, the fins and the rod each on their own lag (`tail_lag`,
+`fin_lag`, `drag_rod`), the line kinking (`Pose.kink`), squash and stretch capped at 12%.
+`idle_ticks` 8 (a 64-tick idle), `run_ticks` 2 (the run still 32 ticks), `step_frames`
+`[6, 14]` (the slaps); the sheet is 16 columns wide for the 16-frame run.
+
 Facing down and up: [`gillbert_views_preview.png`](gillbert_views_preview.png). The run in
 all three views: [`gillbert_run.gif`](gillbert_run.gif).
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
-| 0 | idle | 4 | lying on his belly, gills working, tail flicking, a little twitch hop |
-| 1 | run | 8 | a flop: curl, spring, arch in the air, nose down, slap, bounce, settle; the rod tumbles end over end behind |
-| 2 | jab | 4 | Snout Jab (light 1): rear back, nose bonk ×2, recover |
-| 3 | whip | 4 | Tail Whip (light 2): a half turn so the tail lashes across in front |
-| 4 | flail | 6 | Rod Flail (light 3): the rod swings up on its line, over him and down in front |
-| 5 | splash | 6 | Splash Zone: charge A, charge B (tail high), rise, slap, splash, recover |
-| 6 | flopdash | 4 | Flop Dash: coil, launch, skid, recover |
-| 7 | cast | 6 | Cast Line: rod back, over the top, thrown, follow-through without the rod (the game draws it in flight), being reeled in (shown while the line hauls him), recover |
-| 8 | leap | 6 | The One That Got Away (and Splashdown from frame 3): crouch, spring, straight up, falling belly-first, belly-flop, recover; `"view_lift"` raises him off the screen |
-| 9 | dodge | 4 | a sideways flip in a hop |
+| 0 | idle | 8 | lying on his belly: four frames of gills working (eased) with the tail a frame behind, a gather, one fast twitch hop, a squashed landing, a settle; the rod settles 2 frames after the hop |
+| 1 | run | 16 | two flops a cycle, a big one and a small one the other way: curl, coil (held), spring, rise, apex, nose down, slap (frames 6 and 14), bounce. The rod is erratic: spin speed changes every frame, the line kinks and straightens, it clatters on the floor 2 and 4 frames after the slaps |
+| 2 | jab | 8 | Snout Jab (light 1): spine bent back (held 2), snap, extension (the hit frame), overshoot, back |
+| 3 | whip | 8 | Tail Whip (light 2): wind the other way, a half turn on the belly, the tail trailing by 2 frames and overshooting |
+| 4 | flail | 8 | Rod Flail (light 3): head jerk, the rod up over him on a kinking line, a held top, the strike, a bounce off the floor, settle |
+| 5 | splash | 12 | Splash Zone: 0-3 the charge loop (`anim_charge` `[0, 4, 3]`), deepest coil, rise, tail high, fall, slap (frame 8, squash 12%), rebound, settle, recover |
+| 6 | flopdash | 12 | Flop Dash: crouch (held through the windup), load, stretched launch, belly skid snaking side to side, stop in a flop, bounce, settle; the rod streams behind and catches up last |
+| 7 | cast | 12 | Cast Line: head and rod back, coil, the rod up and over, released (frame 4), follow-through without the rod, recover; 8 is the reel yank (`anim_reel`), 9-11 the stumble after it |
+| 8 | leap | 12 | The One That Got Away: crouch, load, stretched launch, rising and shrinking, apex, tip over, falling spread out, belly flop (frame 9, held 5), bounce, the rod lands last; Splashdown (tag-in) plays frames 6-11 from its own `anim_at`; `"view_lift"` raises him off the screen; `cut_in_frame` `[8, 4]` |
+| 9 | dodge | 8 | a sideways tumble in a hop, five eased steps of roll, a squashed landing |
 | 10 | hurt | 2 | recoil; frame 1 (on his side) doubles as the crumple pose |
 | 11 | guard | 2 | curled up behind the life ring |
 | 12 | ko | 4 | a last flop, then on his side with the rod across him |
