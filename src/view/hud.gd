@@ -601,6 +601,19 @@ func _draw_pointers() -> void:
 		_text(at - d * 14.0 + Vector2(-30, 3), String(p.get("label", "")), 5, col, HORIZONTAL_ALIGNMENT_CENTER, 60)
 
 
+## The count's colour by combo size: white, then warmer and warmer.
+func _combo_color(hits: int) -> Color:
+	if hits >= 13:
+		return Color("ff5a3c")
+	if hits >= 9:
+		return Color("ff8a3c")
+	if hits >= 6:
+		return Color("ffc85a")
+	if hits >= 4:
+		return Color("fff0b0")
+	return Color.WHITE
+
+
 func _combo(side: int) -> void:
 	var info: Dictionary = _combo_last[side]
 	if info.is_empty():
@@ -614,15 +627,17 @@ func _combo(side: int) -> void:
 		col = Color("ff9a5a")
 	col.a = a
 
-	# The hit count pops each time it goes up, and grows with the combo.
-	var pop := float(_combo_pop[side]) / 8.0
-	var s := 1.0 + 0.35 * pop * pop + minf(0.25, (int(info["hits"]) - 2) * 0.02)
-	var jit := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * pop * 1.5
-	draw_set_transform(Vector2(x, 86 + dy) + jit, 0.0, Vector2(s, s))
-	_text(Vector2.ZERO, "%d HITS" % int(info["hits"]), 14, Color(1, 1, 1, a))
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	# Each new hit kicks the count: a font step up and a 1 px lift for a few ticks, then it
+	# settles (whole-pixel steps, no tweening). Its colour warms as the combo grows.
+	var hits := int(info["hits"])
+	var kick: int = _combo_pop[side]
+	var big := kick > 5
+	var ccol := _combo_color(hits)
+	ccol.a = a
+	var lift := -2.0 if big else (-1.0 if kick > 0 else 0.0)
+	_text(Vector2(x, 86 + dy + lift), "%d HITS" % hits, (18 if UiTheme.smooth else 20) if big else 14, ccol)
 	var mult_txt := "x" + ("1.0" if mult <= 1.0 else String.num(mult, 2))
-	_text(Vector2(x + 70 + 20.0 * (s - 1.0), 86 + dy), mult_txt, 10, col)
+	_text(Vector2(x + 70 + (8.0 if big else 0.0), 86 + dy), mult_txt, 10, col)
 	_text(Vector2(x, 98 + dy), "%d damage" % int(round(float(info["dmg"]))), 7, Color(C_DIM.r, C_DIM.g, C_DIM.b, a))
 
 	# Which attack types have landed: mixing all four is the x1.5 bonus.

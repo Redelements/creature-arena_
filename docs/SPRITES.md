@@ -512,9 +512,16 @@ and only change `anim_at`.
 - **Small moves** (wrist rolls, a hip sway under the shoulder roll) were dropped: under a
   pixel of travel they jitter or vanish.
 
-**For other fighters:** the tools carry over: `tween()` and arcs for in-betweens, lagged
-secondary motion, per-fighter `idle_ticks` / `run_ticks`, `anim_charge` for longer charge
-loops. Start with the run and the lights, which show the most.
+**For other fighters:** the tools are shared now (`tools/CLAUDE.md`, "Animation tools";
+the rollout plan is `anim_preview/roster_anim_plan.md`). `splat3d.tween` in-betweens any
+generator's poses, with arcs for hands and paws; `splat3d.EASE_8` and `cycle()` give the
+eased spacing; `lag()` (cycles) and `lag_at()` (attacks) give the overlap. `python3
+tools/gen_<id>.py anim` renders any fighter's previews (the GIFs, the before/after
+compare, the three views, the contact sheet), and `python3 tools/anim_preview.py --check
+<id>` checks the JSON's row table, `anim_at`, `anim_charge`, `cut_in_frame` and the idle and
+run cycles against the generator before the sheets go in. On the game side nothing new
+is needed: per-fighter `idle_ticks` / `run_ticks`, `anim_at`, `anim_charge` for longer
+charge loops. Start with the run and the lights, which show the most.
 
 ## Training dummy — 48×48 frames
 
