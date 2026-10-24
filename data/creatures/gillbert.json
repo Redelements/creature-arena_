@@ -50,7 +50,9 @@
     "select_scale": 0.5,
     "views": {
       "down": { "path": "res://assets/sprites/gillbert_down.png", "frame": [96, 144], "origin": [48, 92] },
-      "up": { "path": "res://assets/sprites/gillbert_up.png", "frame": [96, 144], "origin": [48, 76] }
+      "up": { "path": "res://assets/sprites/gillbert_up.png", "frame": [96, 144], "origin": [48, 76] },
+      "down_side": { "path": "res://assets/sprites/gillbert_down_side.png", "frame": [128, 144], "origin": [72, 100] },
+      "up_side": { "path": "res://assets/sprites/gillbert_up_side.png", "frame": [128, 144], "origin": [64, 84] }
     }
   },
   "ai": {

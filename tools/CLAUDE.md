@@ -31,6 +31,9 @@ up-right, `<id>_down_side.png`, `<id>_up_side.png`) are optional extra sheets: a
 rig adds them to its `VIEWS` and the JSON's `"views"` (Pete has them), and `Cam` projects
 them; `write_sheets`, `inspect` and the `anim` previews draw every view in `VIEWS`. A
 `build(pose, view)` branch on the view name (Pete's `_dollar`) needs a case for them.
+Barkley and Gillbert have them too, from the same two projections in their own `Cam`; a
+`self.view == "side"` / else branch in their painters treats the diagonals as head-on
+unless it says otherwise (Gillbert's ring has its own diagonal case in `render`).
 
 ## Animation tools (the roster animation pass)
 

@@ -10,8 +10,8 @@ animation by name with its `"anim"` field.
 ## Directions per creature: three sheets, five with the diagonals
 
 Fighters face any of 8 ways, so every creature has **three sheets with the same rows**,
-and can have **two more for the diagonals** (Sneaky Pete has them; the other nine fighters
-draw their diagonals side-on until their round):
+and can have **two more for the diagonals** (Sneaky Pete, Barkley and Gillbert have them;
+the other seven fighters draw their diagonals side-on until their round):
 
 | Sheet | Shows | Used when facing |
 | --- | --- | --- |
@@ -41,7 +41,8 @@ Each view can have its own frame size and feet origin (`"views"` in the creature
 `"sprite"` block). Animations listed in `"side_only"` (all three use it for the knockout,
 which falls over sideways) always come from the side sheet, so those rows can stay empty
 in the others. Pete's five views side by side:
-[`anim_preview/pete_diagonals_3x.png`](anim_preview/pete_diagonals_3x.png) and
+[`anim_preview/pete_diagonals_3x.png`](anim_preview/pete_diagonals_3x.png) (also
+[Barkley's](anim_preview/barkley_diagonals_3x.png) and [Gillbert's](anim_preview/gillbert_diagonals_3x.png)) and
 [`pete_views_preview.png`](pete_views_preview.png). Preview: [`sprite_views_preview.png`](sprite_views_preview.png) (Cairn,
 side/down/up), [`culvert_views_preview.png`](culvert_views_preview.png), [`craglash_views_preview.png`](craglash_views_preview.png) and
 [`barkley_views_preview.png`](barkley_views_preview.png) and
@@ -279,8 +280,15 @@ ability redrawn, the tail fin, the fins and the rod each on their own lag (`tail
 `idle_ticks` 8 (a 64-tick idle), `run_ticks` 2 (the run still 32 ticks), `step_frames`
 `[6, 14]` (the slaps); the sheet is 16 columns wide for the 16-frame run.
 
-Facing down and up: [`gillbert_views_preview.png`](gillbert_views_preview.png). The run in
-all three views: [`gillbert_run.gif`](gillbert_run.gif).
+Facing down and up, and the diagonals: [`gillbert_views_preview.png`](gillbert_views_preview.png).
+The run in side, front and back: [`gillbert_run.gif`](gillbert_run.gif). The diagonal sheets
+(`gillbert_down_side.png`, `gillbert_up_side.png`, **128×144**, 16 columns like the others,
+feet at x 72, y 100 facing down-side and x 64, y 84 facing up-side, off centre because the
+rod trails up-left or down-left) come from two more projections in his `Cam` (splat3d's floor
+rule, with his long `depth_y` flattening). The painter's one new case is the ring: he passes
+through it at a slant, so its far half goes behind all of him, its near half over his flank,
+and the end of him nearer the camera (head facing down-side, tail facing up-side) over that.
+All five views at 3x: [`anim_preview/gillbert_diagonals_3x.png`](anim_preview/gillbert_diagonals_3x.png).
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |

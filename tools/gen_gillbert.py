@@ -6,7 +6,8 @@ Requires Pillow and numpy.
 
 Writes assets/sprites/gillbert.png (128x128 frames, 8 columns, the side view),
 gillbert_down.png and gillbert_up.png (96x144 frames: facing the camera, and facing
-away), plus labelled previews in docs/.
+away), gillbert_down_side.png and gillbert_up_side.png (128x144 frames: the diagonals,
+facing down-right and up-right), plus labelled previews in docs/.
 
 Like Barkley's, the rig is posed once in 3D and projected into each view. A point is
 (lat, up, fwd): lat toward his right side, up off the floor, fwd the way he faces.
@@ -40,6 +41,9 @@ SIDE = {"w": 128, "h": 128, "origin": (70, 112)}
 VIEWS = {
     "down": {"w": 96, "h": 144, "origin": (48, 92)},
     "up": {"w": 96, "h": 144, "origin": (48, 76)},
+    # the diagonals (docs/SPRITES.md, "Directions"): facing down-right and up-right
+    "down_side": {"w": 128, "h": 144, "origin": (72, 100)},  # the rod trails up-left
+    "up_side": {"w": 128, "h": 144, "origin": (64, 84)},  # the rod trails down-left
 }
 
 # Palette, sampled from the character sheet.
@@ -197,11 +201,19 @@ def rot_up(p, deg):
 class Cam:
     """Barkley's projection (tools/gen_barkley.py): a cheated 3/4 side view with forward
     one to one, and up/down views where reach is one to one on the floor. A fish is flat
-    side-on, so his sideways axis is sheared less than Barkley's arm span."""
+    side-on, so his sideways axis is sheared less than Barkley's arm span.
+
+    The diagonals ("down_side": facing down-right, a front three-quarter view;
+    "up_side": facing up-right, a back three-quarter view) turn the floor 45 degrees, as
+    splat3d's Cam does: a point `fwd` ahead lands 0.707 * fwd right and 0.707 * fwd down
+    (or up) the screen, so reach on screen is reach in the game; depth toward the camera
+    is flattened by depth_y like the up/down views. Shading is 2D (top left), so the light
+    needs nothing per view."""
     PSI = math.radians(60)
     LAT_X = 0.45
     LAT_Y = 0.15
     FWD_Y = 0.06
+    DG = math.sqrt(0.5)  # the diagonals: 45 degrees between the side and the front/back
 
     def __init__(self, view):
         self.view = view
@@ -209,6 +221,10 @@ class Cam:
             self.cam = (math.cos(self.PSI), 0.0, math.sin(self.PSI))
         elif view == "down":
             self.cam = (0.0, 0.0, 1.0)
+        elif view == "down_side":  # his front and his right side face the camera
+            self.cam = (self.DG, 0.0, self.DG)
+        elif view == "up_side":  # his back and his right side
+            self.cam = (self.DG, 0.0, -self.DG)
         else:
             self.cam = (0.0, 0.0, -1.0)
 
@@ -227,6 +243,12 @@ class Cam:
             return (OX + fwd - lat * self.LAT_X, OY - up + lat * self.LAT_Y + fwd * self.FWD_Y)
         if self.view == "down":
             return (OX - lat, OY - up + self.depth_y(fwd))
+        if self.view == "down_side":
+            # forward is right and toward the camera; his right side left and toward it
+            return (OX + (fwd - lat) * self.DG, OY - up + self.depth_y((fwd + lat) * self.DG))
+        if self.view == "up_side":
+            # forward is right and away; his right side right and toward the camera
+            return (OX + (fwd + lat) * self.DG, OY - up + self.depth_y((lat - fwd) * self.DG))
         return (OX + lat, OY - up - self.depth_y(fwd))
 
     def depth(self, p):
@@ -669,6 +691,26 @@ class Painter:
             parts.append((body_d, 4, body))
             if rings[1] is not None:
                 parts.append((body_d + 0.05, 6, rings[1]))
+        elif self.view in ("down_side", "up_side"):
+            # Three-quarter: he passes through the ring at a slant. Its far half goes behind
+            # all of him and its near half crosses his flank; the end of him nearer the
+            # camera (the head facing down-side, the tail facing up-side) goes over it.
+            front = self._part_mask(RING_U, 1.0)
+            a = np.array(body)
+            head = a.copy()
+            head[~front] = 0
+            rest = a.copy()
+            rest[front] = 0
+            head_d = self.D(self.f.frame(0.6)[0])
+            tail_d = self.D(self.f.frame(-0.4)[0])
+            near, far = (head, rest) if head_d >= tail_d else (rest, head)
+            if rings[0] is not None:
+                parts.append((body_d - 0.05, 3, rings[0]))
+            parts.append((body_d, 4, Image.fromarray(far)))
+            if rings[1] is not None:
+                parts.append((body_d + 0.05, 6, rings[1]))
+            parts.append((body_d + 0.07, 6, Image.fromarray(near)))
+            body_d = max(head_d, body_d)  # the barbels come off the snout
         else:
             # Seen head-on or from behind, he passes through the ring: the end of him
             # nearer the camera goes over it, the far end under it, so he is always in it.
@@ -1240,15 +1282,20 @@ def main():
         sh.save(path)
         print("wrote", os.path.relpath(path, ROOT), sh.size)
         views[view] = sh
+    # 2x preview: each animation's frames in every view but the side: down, down-side, up, up-side.
     s = 2
     label_w = 70
-    fw, fh = VIEWS["down"]["w"], VIEWS["down"]["h"]
-    prev = Image.new("RGBA", (label_w + fw * COLS * 2 * s, fh * len(VIEW_ROWS) * s), (70, 58, 46, 255))
+    shown = S.view_names(VIEWS)[1:]
+    xs = [label_w]
+    for view in shown:
+        xs.append(xs[-1] + VIEWS[view]["w"] * COLS * s)
+    fh = max(VIEWS[v]["h"] for v in shown)
+    prev = Image.new("RGBA", (xs[-1], fh * len(VIEW_ROWS) * s), (70, 58, 46, 255))
     d = ImageDraw.Draw(prev)
-    for k, view in enumerate(("down", "up")):
+    for k, view in enumerate(shown):
         big = views[view].resize((views[view].width * s, views[view].height * s), Image.NEAREST)
-        prev.alpha_composite(big, (label_w + k * fw * COLS * s, 0))
-        d.text((label_w + k * fw * COLS * s + 6, 4), "facing " + view, fill=(255, 210, 120, 255))
+        prev.alpha_composite(big, (xs[k], 0))
+        d.text((xs[k] + 6, 4), "facing " + view.replace("_side", "-side"), fill=(255, 210, 120, 255))
     for r, (name, _poses) in enumerate(VIEW_ROWS):
         d.text((6, r * fh * s + 20), "%d %s" % (r, name), fill=(240, 230, 210, 255))
         d.line([(label_w, r * fh * s), (prev.width, r * fh * s)], fill=(50, 40, 32, 255))
