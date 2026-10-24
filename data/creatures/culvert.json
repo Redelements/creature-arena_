@@ -48,7 +48,9 @@
     "side_only": ["ko"],
     "views": {
       "down": { "path": "res://assets/sprites/culvert_down.png", "origin": [48, 80] },
-      "up": { "path": "res://assets/sprites/culvert_up.png", "origin": [48, 74] }
+      "up": { "path": "res://assets/sprites/culvert_up.png", "origin": [48, 74] },
+      "down_side": { "path": "res://assets/sprites/culvert_down_side.png", "origin": [48, 80] },
+      "up_side": { "path": "res://assets/sprites/culvert_up_side.png", "origin": [48, 74] }
     }
   },
   "ai": {

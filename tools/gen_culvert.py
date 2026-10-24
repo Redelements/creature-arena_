@@ -5,7 +5,9 @@ Run from anywhere:  python3 tools/gen_culvert.py   (Pillow and numpy)
 Look at a few frames while working on a pose:  python3 tools/gen_culvert.py inspect idle:0 jab:2
 
 Writes assets/sprites/culvert.png (96x96 frames, 12 columns, the side view),
-culvert_down.png and culvert_up.png (96x96: facing the camera, and facing away), plus
+culvert_down.png, culvert_up.png (96x96: facing the camera, and facing away),
+culvert_down_side.png and culvert_up_side.png (96x96: the diagonals, facing down-right and
+up-right), plus
 labelled previews in docs/. Rendered with the shared splat renderer (tools/splat3d.py),
 like Digby and the other sheet recreations, which replaces the first 48 px placeholder.
 
@@ -35,6 +37,9 @@ SIDE = {"w": 96, "h": 96, "origin": (46, 80)}
 VIEWS = {
     "down": {"w": 96, "h": 96, "origin": (48, 80)},
     "up": {"w": 96, "h": 96, "origin": (48, 74)},
+    # the diagonals (docs/SPRITES.md, "Directions"): facing down-right and up-right
+    "down_side": {"w": 96, "h": 96, "origin": (48, 80)},
+    "up_side": {"w": 96, "h": 96, "origin": (48, 74)},
 }
 
 # The game's placeholder palette (tools/gen_sprites.py), so he still matches the arena.
