@@ -83,9 +83,13 @@ def material_ramp(spec):
     raise ValueError("material: a ramp name, (name, shift), five colours or (base, light, dark): %r" % (spec,))
 
 
-def configure(mat, outline=None, scale=0.72, step=0.33, outline_mats=None, near=18.0):
+def configure(mat, outline=None, scale=0.72, step=0.33, outline_mats=None, near=18.0, near_views=None):
     """Palette (name -> a master-palette ramp, see material_ramp), drawing scale, sample
     step, and how deep the body's roundness is flattened in the up/down views (`near`).
+    `near_views` ({view: near}) overrides it per view: a smaller near on the diagonals
+    (`{"down_side": 9, "up_side": 9}`) lets a short reach toward the camera travel down
+    the screen as far as it goes right, instead of reading sideways. Views it leaves out
+    use `near`, so without it every frame draws as before.
     Each material outlines in its own ramp's ink (palette.ink_for); `outline` forces one
     colour for every silhouette (the old behaviour), `outline_mats` one per material."""
     global MAT, MAT_ID, ID_MAT, OUTLINE, SCALE, STEP, OUTLINE_MATS, RAMP, INK, SEAM
@@ -108,6 +112,7 @@ def configure(mat, outline=None, scale=0.72, step=0.33, outline_mats=None, near=
     STEP = step
     OUTLINE_MATS = dict(outline_mats or {})
     Cam.NEAR = near
+    Cam.NEAR_VIEWS = dict(near_views or {})
 
 
 def set_frame(w, h, origin):
@@ -188,6 +193,7 @@ class Cam:
 
     def __init__(self, view):
         self.view = view
+        self.near = Cam.NEAR_VIEWS.get(view, Cam.NEAR)
         if view == "side":
             self.cam = np.array([math.cos(self.PSI), 0.0, math.sin(self.PSI)])
         elif view == "down":
@@ -200,12 +206,15 @@ class Cam:
             self.cam = np.array([0.0, 0.0, -1.0])
 
     NEAR = 18.0
+    NEAR_VIEWS = {}  # per-view overrides of NEAR (configure(near_views=...))
 
     @staticmethod
-    def depth_y(f):
+    def depth_y(f, near=None):
         # Barkley's flattening of the body's own roundness, with the near zone sized
-        # to the body (configure(near=...)), so the face stays on the front.
-        k, near = 0.35, Cam.NEAR
+        # to the body (configure(near=...), per view with near_views), so the face stays
+        # on the front.
+        k = 0.35
+        near = Cam.NEAR if near is None else near
         a = np.abs(f)
         g = np.where(a <= near, a * k, near * k + (a - near))
         return np.sign(f) * g
@@ -218,21 +227,21 @@ class Cam:
             y = OY - up + lat * self.LAT_Y + fwd * self.FWD_Y
         elif self.view == "down":
             x = OX - lat
-            y = OY - up + self.depth_y(fwd)
+            y = OY - up + self.depth_y(fwd, self.near)
         elif self.view == "down_side":
             # Facing down-right: forward is the floor diagonal (right and toward the
             # camera), the creature's right side the other one (left and toward the camera).
             # Reach stays one to one on the floor; the part toward the camera is flattened
             # like the down view's depth.
             x = OX + (fwd - lat) * self.D
-            y = OY - up + self.depth_y((fwd + lat) * self.D)
+            y = OY - up + self.depth_y((fwd + lat) * self.D, self.near)
         elif self.view == "up_side":
             # Facing up-right: forward is right and away; the right side right and toward.
             x = OX + (fwd + lat) * self.D
-            y = OY - up + self.depth_y((lat - fwd) * self.D)
+            y = OY - up + self.depth_y((lat - fwd) * self.D, self.near)
         else:
             x = OX + lat
-            y = OY - up - self.depth_y(fwd)
+            y = OY - up - self.depth_y(fwd, self.near)
         return np.stack([x, y], axis=1)
 
     def screen_dir(self, n):

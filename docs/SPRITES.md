@@ -35,7 +35,12 @@ their diagonal: hits are circles on the floor, so a punch reaching 20 px lands a
 14 px right and 14 px down the screen (`down_side`) or 14 px right and 14 px up
 (`up_side`). The creature's right side goes the other diagonal (left and down in
 `down_side`, right and down in `up_side`). `tools/splat3d.py` (`Cam`) projects them that
-way, with the body's own depth flattened as in the down/up views (`depth_y`).
+way, with the body's own depth flattened as in the down/up views (`depth_y`). The flattening
+reaches `near` px in front of the body (`configure(near=...)`); a diagonal sees only 0.707 of
+a reach as depth, so a short reach stayed inside it and read sideways. `configure(near_views=
+{"down_side": 8, "up_side": 8})` sets a smaller near for the diagonals (about 0.7 of the
+fighter's `near`; Pete, Sno, Digby and Crease since the reactions batch, Oct 2026), and where
+a move still reads wrong a generator cheats the pose for that view (Pete's `diag_yaw`).
 
 Each view can have its own frame size and feet origin (`"views"` in the creature's JSON
 `"sprite"` block). Animations listed in `"side_only"` (all three use it for the knockout,
@@ -574,6 +579,12 @@ squashing and flopping (`bag_sq`, `flop`), the beanie's dome flopping (`cap`), `
 
 Facing down and up: [`pete_views_preview.png`](pete_views_preview.png).
 
+Hurt, guard and the knockout had the reactions batch (Oct 2026; the before/after in every
+view: [`anim_preview/pete_reactions_3x.gif`](anim_preview/pete_reactions_3x.gif), the poses in
+`pete_motion_plan.md`, "Reactions"). The diagonals use `near` 8 (the other views 12), and the
+Bag Swing's arc is turned 14-30 degrees toward his left on `down_side` only (`diag_yaw`), so the
+impact lands right and down where the hit is instead of straight down the screen.
+
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
 | 0 | idle | 8 | rocking on tiptoe (eased), a quick glance at the camera, held, and back; the bag 2 frames behind, the free hand 1 |
@@ -586,9 +597,9 @@ Facing down and up: [`pete_views_preview.png`](pete_views_preview.png).
 | 7 | pick | 8 | Pickpocket: crouch (held through the windup), launch, dash, reach, snatch, loot to chest, skid, stance |
 | 8 | heist | 12 | The Big Heist: crouch, spring, gone (frame 2 is empty), back, a 4-frame flurry (near side, far side, high, low), coil, the smack (the cut-in frame, `[8, 9]`), bounce, recover |
 | 9 | dodge | 8 | a forward tuck and roll: crouch, dive, three tumbling frames, landing, squash, up |
-| 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose |
-| 11 | guard | 2 | hiding behind the money bag |
-| 12 | ko | 4 | flat on his back, the bag beside him, x eyes |
+| 10 | hurt | 4 | the reactions batch: the recoil (head snapped back first, up on his toes, the bag still high), the deepest point (knees buckled, squashed; also the crumple pose), the body coming back while the bag swings on and the beanie flops, the settle; played at 4 ticks a frame, looping, through the hitstun |
+| 11 | guard | 4 | hiding behind the money bag: the hold (frame 0), the blow (the bag squashed into him; frame 1, the 10 ticks after a block), the rebound, the settle |
+| 12 | ko | 8 | thrown up onto his toes with the bag flung behind, falling back, flat on his back (squashed), a bounce with the bag landing on him, down, a small rebound, the settle, out cold; 6 ticks a frame (a knockdown shows 1, then holds 2) |
 | 13 | victory | 10 | counts the loot: frames 1-7 loop, the far hand digging in the bag and holding a gold coin up, grinning; then the bag back on his shoulder and a tip of the beanie (8-9, held) |
 | 14 | idle_alt | 8 | the shifty look: head snaps one way, whips back, the other way, then a long look at the foe; played once after 5 s standing still |
 
