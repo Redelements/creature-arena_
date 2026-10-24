@@ -1365,6 +1365,57 @@ def dodge():
     ]
 
 
+def victory():
+    """The chef's kiss, 10 frames (0 getting ready, 1-7 the loop, 8 the finish, 9 held): he
+    gathers himself (0), then floats up and flourishes in a loop: tipped forward in a kiss
+    (the brain pushed forward and down, a violet sparkle popping at his middle), the whole
+    kit twirling round him in a slow orbit with the glasses glinting; the finish tips back
+    and settles with the tools hung in a proud arc and the glasses straightened."""
+    n = 7
+    out = [P(lift=HOVER - 1.5, squash=0.92, psy=0.6, glint=GLINT_OFF, tools=still(scale=0.8))]
+    for i in range(n):
+        th = 2.0 * math.pi * i / n
+        w = math.sin(th)
+        kiss = 0.5 - 0.5 * math.cos(th)                     # 0 up and back .. 1 in the kiss
+        tools = {}
+        for name, ((lat, up, fwd), (pi, ya, ro)) in REST.items():
+            a = th + 2.0 * math.pi * PHASE[name]
+            tools[name] = ((lat * 1.3 + 3.0 * math.cos(a), up + 4.0 + 2.0 * math.sin(a), fwd - 1.0 + 3.0 * math.sin(a)),
+                           (pi, ya + 30.0 * math.sin(a), ro + 12.0 * math.sin(a)))
+        out.append(P(lift=HOVER + 3.0 + 3.0 * (1.0 - kiss), pitch=-14.0 * kiss + 6.0 * (1.0 - kiss), shift=2.0 * kiss,
+                     squash=0.96 + 0.05 * (1.0 - kiss), tail=0.8 * w, psy=0.5 + 0.4 * kiss,
+                     flash=(0.8 - 0.3 * abs(w)) if kiss > 0.6 else 0.0,
+                     glint=0.5 if i in (2, 5) else GLINT_OFF, tools=tools))
+    out.append(P(lift=HOVER + 1.0, pitch=8.0, squash=0.98, psy=0.5, tail=-0.3, glint=0.5, tools=still(scale=1.1, move=(0.0, 3.0, 0.0))))
+    out.append(P(lift=HOVER + 2.5, pitch=4.0, squash=1.02, psy=0.4, tail=-0.5, glint=0.5, flash=0.25,
+                 tools=still(scale=1.2, move=(0.0, 4.0, -1.0))))
+    return out
+
+
+def idle_alt():
+    """The fidget, 8 frames: he taps a temple with a tool (the ladle swings up to his brow,
+    twice), the brain wobbling; then the whole kit stirs a slow circle and his gaze goes to
+    the foe: tipped forward, glasses glinting, the tools leaning that way; then back to the
+    bob."""
+    f = []
+    for i in range(8):
+        tap = [0.0, 0.5, 1.0, 0.4, 1.0, 0.3, 0.0, 0.0][i]    # the ladle's taps at his brow
+        look = [0.0, 0.0, 0.0, 0.0, 0.6, 1.0, 0.8, 0.2][i]  # the gaze to the foe
+        tools = dict(still().items())
+        for name, ((lat, up, fwd), (pi, ya, ro)) in REST.items():
+            a = 2.0 * math.pi * (i / 8 + PHASE[name])
+            g = (lat + 1.1 * math.cos(a), up - 1.0 + 1.5 * math.sin(a), fwd + 1.1 * math.sin(a) + 3.0 * look)
+            tools[name] = (g, (pi - 8.0 * look, ya, ro + 5.0 * math.sin(a)))
+        (gl, gu, gf), (po, yo, ro_) = tools["spatula"]
+        tools["spatula"] = ((gl * (1 - tap) + 3.0 * tap, gu * (1 - tap) + 26.0 * tap, gf * (1 - tap) + 4.0 * tap),
+                            (po, yo, ro_ + 40.0 * tap))
+        f.append(P(lift=HOVER + 0.5 * math.sin(2 * math.pi * i / 8) - 0.6 * look, pitch=-10.0 * look,
+                   shift=1.5 * look, squash=1.0 - 0.03 * tap, tail=0.4 * math.sin(2 * math.pi * i / 8 - 1.0),
+                   psy=0.2 * look + 0.15 * tap, glint=0.5 if i == 5 else GLINT_OFF,
+                   active=("spatula",) if tap > 0.9 else (), tools=tools))
+    return f
+
+
 ROWS = [
     ("idle", idle()),
     ("run", run()),
@@ -1378,6 +1429,8 @@ ROWS = [
     ("dodge", dodge()),
     ("hurt", hurt()),
     ("guard", guard()),
+    ("victory", victory()),
+    ("idle_alt", idle_alt()),
     ("ko", ko()),
 ]
 # Up and down sheets: every row but the knockout, which falls over sideways in any view.

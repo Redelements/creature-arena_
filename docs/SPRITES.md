@@ -61,7 +61,7 @@ Footstep dust puffs on the run frames where a foot lands: `"step_frames"` in the
 (default `[0, frames / 2]`: 6-frame runs `[0, 3]`, Crease's 12 `[0, 6]`). `"step": "slush"` makes a
 creature's steps slush instead of the floor's dust (Sno Mercy); shallows always splash.
 
-### Culvert — 96×96 frames, 12 × 12 (1152×1152 px)
+### Culvert — 96×96 frames, 12 × 14 (1152×1344 px)
 
 Culvert is drawn by `tools/gen_culvert.py` with the shared splat renderer
 (`tools/splat3d.py`), like the sheet recreations: a posed 3D rig projected into the
@@ -102,7 +102,9 @@ Facing down and up: [`culvert_views_preview.png`](culvert_views_preview.png).
 | 8 | gulp | 8 | Gulp: 0–2 the charge loop (the drain yawning, the throat pumping, `anim_charge` `[0, 3, 5]`), rock back (held), the lunge mouth gaping (held while the game draws the tongue), the reel-in, the snap shut, the throat bulging |
 | 9 | runoff | 8 | Runoff: 0–1 the charge (reared up), the rise, the peak (held), one fast frame down, the pound (held), the gush a frame later with the cover bouncing, a slow rise |
 | 10 | storm | 12 | Storm Drain: the crouch (held), the push, the leap at full stretch (the cut-in frame, `[10, 2]`), tucked ×2, falling spread ×2, the slam (held, the cover still up), the cover bounce, a slow rise ×3; Manhole Drop has its own `anim_at` from frame 5 |
-| 11 | ko | 4 | thrown back, tips over onto the cover, legs in the air, eyes crossed out; the game cracks him and gushes the water |
+| 11 | victory | 10 | crouch (0), then a 7-frame croak-hop loop (frames 1-7: fists pumping, the drain gaping, spray off the thud), drops back onto his haunches (8) and sits smug, chin up, eyes narrowed (9, held) |
+| 12 | idle_alt | 8 | the fidget (played once after a long stand): the throat swells into a bubble croak and pops, then a sideways eye toward the foe |
+| 13 | ko | 4 | thrown back, tips over onto the cover, legs in the air, eyes crossed out; the game cracks him and gushes the water |
 
 ### Cairn — 6 × 12 (288×576 px)
 
@@ -271,7 +273,7 @@ all three views: [`gillbert_run.gif`](gillbert_run.gif).
 Design note: the life ring, the barbels and the rod on its line are what make him read as
 Gillbert, not as a fish from an existing franchise.
 
-### Chef Cerebro — 128×128 frames, 12 × 13 (1536×1664 px)
+### Chef Cerebro — 128×128 frames, 12 × 15 (1536×1920 px)
 
 Chef Cerebro is the fourth creature from the artist's sheets, reworked as a **floating
 brain who fights by telekinesis**. `tools/gen_cerebro.py` uses the same cameras as Barkley
@@ -324,13 +326,15 @@ Facing down and up: [`cerebro_views_preview.png`](cerebro_views_preview.png).
 | 9 | dodge | 8 | Mind Blink: squashed wide with the kit folding in, stretched thin, a needle, a point in a flash, the flash at the new spot, back stretched, a wobble with the kit flung out, settle. The dodge's `anim_at` times them; `CreatureView` fades him out and back in, but not on the flash ticks |
 | 10 | hurt | 2 | reeling, sunglasses knocked askew, his grip on the kit slipping; frame 1 doubles as the crumple pose |
 | 11 | guard | 2 | the cleaver, spatula and mallet swing in front of him into a wall |
-| 12 | ko | 4 | his mind lets go: the kit falls, clatters to the floor, the brain sinks after it and deflates, sunglasses off |
+| 12 | victory | 10 | gathers (0), then a 7-frame chef's-kiss loop (1-7: tipped forward in the kiss with a violet sparkle at his middle, the kit orbiting, glasses glinting), the finish tips back (8) and the kit hangs in a proud arc (9, held) |
+| 13 | idle_alt | 8 | the fidget: the spatula taps his brow twice (the thinking tap), then the kit stirs and his gaze goes to the foe, glasses glint |
+| 14 | ko | 4 | his mind lets go: the kit falls, clatters to the floor, the brain sinks after it and deflates, sunglasses off |
 
 Design note: the sunglasses and the kitchen floating around a brain are what make him
 read as Chef Cerebro. Name check before release: "Cerebro" is also the name of a
 well-known comic-book device (see the PR notes).
 
-### Hissy Fitz — 128×128 frames, 12 × 13 (1536×1664 px)
+### Hissy Fitz — 128×128 frames, 12 × 15 (1536×1920 px)
 
 Hissy Fitz is the fifth creature from the artist's sheets. `tools/gen_hissy.py` renders
 like Chef Cerebro's generator (3D points splatted into a depth buffer, three-tone shading,
@@ -375,7 +379,9 @@ Facing down and up: [`hissy_views_preview.png`](hissy_views_preview.png).
 | 9 | dodge | 8 | duck, a full roll (the hair whipping round), land squashed, pop up |
 | 10 | hurt | 2 | recoil; frame 1 doubles as the crumple pose (frame 0 is the petrified statue's pose, tinted grey by `CreatureView`) |
 | 11 | guard | 2 | gloves up in front of her face, snakes pulled in |
-| 12 | ko | 4 | the head drops onto the gloves and tips over, hair limp, tongue out |
+| 12 | victory | 10 | crouch (0), then a 7-frame boxer's bounce loop (1-7: gloves punching the air in turn, hair fanned like a hood, hissing), settle (8), both gloves high (9, held) |
+| 13 | idle_alt | 8 | the fidget: the snakes squabble, lunging and hissing out of step, then all stare at the foe, hair thrown forward, and she relaxes |
+| 14 | ko | 4 | the head drops onto the gloves and tips over, hair limp, tongue out |
 
 Design note: she must not read as Medusa from mythology-themed games or films: the boxing
 gloves, the floating head, the earrings and the cartoon grin carry her look. Snakes for
