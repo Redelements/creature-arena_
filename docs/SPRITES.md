@@ -367,20 +367,28 @@ Chef Cerebro is the fourth creature from the artist's sheets, reworked as a **fl
 brain who fights by telekinesis**. `tools/gen_cerebro.py` uses the same cameras as Barkley
 and Gillbert, but renders differently: every piece is sampled as 3D points (the brain as
 ten overlapping lobe ellipsoids, the brainstem as a tube, the blades and spatula head as
-flat plates, the mallet head as a box) and splatted into a depth buffer. Each pixel is
-then shaded from its normal, outlined where the silhouette ends and along every seam
-between pieces (which draws the lines between the lobes, as on the sheet), and decorated
-in the brain's own coordinates: the black half-moon sunglasses (turned out to the sides,
-so they read from the side and the front), their bridge and arms, and a few wrinkle
-strokes on each lobe. Tools are outlined in black and the brain in the sheet's dark
-maroon.
+flat plates, the mallet head as a box) and splatted into a depth buffer. The buffers are
+then shaded and outlined by `splat3d`'s pass on master-palette ramps (`splat3d.shade` /
+`outline`, see "Palette"): a hard terminator, a low-contrast core shadow, a rim light,
+seams between pieces in the deep step (which draws the lines between the lobes, as on the
+sheet; `SOFT_SEAM` is 0 here so every lobe seam gets the deep step), and decorated in the
+brain's own coordinates: the black half-moon sunglasses (turned out to the sides, so they
+read from the side and the front), their bridge and arms, and a few wrinkle strokes on
+each lobe (the wine line). The brain is the `salmon` ramp (the peach line) capped at its light step (no
+near-white highlight on a dozen lobes), outlined in its ink (plum, the palette's take on
+the sheet's maroon); the tools (`concrete` steel, `ink` handles, `blue` spatula, `rust`
+mallet) are outlined in black (`outline_mats`). No line where the stem grows out of the
+brain. Before and after: [`palette/cerebro_before_after_3x.png`](palette/cerebro_before_after_3x.png),
+[`palette/ingame_cerebro.png`](palette/ingame_cerebro.png).
 
 He hovers about 11 px off the floor (`HOVER`), a short brainstem dangling under him, with
 no limbs: his kit floats in a loose ring, each piece bobbing on its own (`REST` and
 `PHASE` in the generator): the big chef's knife out front, the navy spatula behind, the
 meat mallet above his back and three paring knives fanned over his brow. Floating tools
 get a faint violet halo; the one he's working with (`active` in a pose) a bright,
-two-pixel one, and his brain flushes violet as he pushes (`psy`). A thrown tool is simply
+two-pixel one, and his brain flushes violet as he pushes (`psy`: from 0.5 its shadows
+turn violet, from 0.85 the whole brain but its light, `FLUSH_HALF` / `FLUSH_FULL`, palette
+colours swapped one for one rather than blended). A thrown tool is simply
 missing from the frame (the game draws it in flight, also in violet). Tools are posed in
 character space, not on the brain, so they drift on their own as he bobs. Feet (the
 floor under him) at **x 62, y 100**. The rig is modelled large and drawn at 0.72 scale
@@ -430,8 +438,16 @@ well-known comic-book device (see the PR notes).
 ### Hissy Fitz — 128×128 frames, 12 × 15 (1536×1920 px)
 
 Hissy Fitz is the fifth creature from the artist's sheets. `tools/gen_hissy.py` renders
-like Chef Cerebro's generator (3D points splatted into a depth buffer, three-tone shading,
-outlines round the silhouette and along seams), with black outlines as on the sheet. The
+like Chef Cerebro's generator (3D points splatted into a depth buffer, then `splat3d`'s
+ramp shading and outlines on master-palette ramps), with a black silhouette line as on the
+sheet (every material's ink set to black) and seams in each material's deep step. Skin
+(the `peach` ramp), snakes (the green line's dark end) and spots (`gold`) light only
+in the highlight (`_matte`: the light step is the base), so the skin doesn't go white and
+the snakes stay the sheet's deep green; the gloves are `red`, also matte, the cuffs a step
+darker, the earrings `violet` a step lighter. The face texture's colours are palette steps
+(`FACE`), and on the head's shadow side each is the step below on its line. Before and
+after: [`palette/hissy_before_after_3x.png`](palette/hissy_before_after_3x.png),
+[`palette/ingame_hissy.png`](palette/ingame_hissy.png). The
 rig: a big round head floating over the floor (she never touches it: the gloves stay up
 in a guard under her chin, `NEAR_REST`/`FAR_REST`, everywhere but the knockout), nine spotted green hair snakes (each a
 wavy tapered tube ending in a little head with eyes and a forked red tongue) fanned out
@@ -779,8 +795,12 @@ One master palette for the whole game: `tools/palette.py`, drawn as a labelled s
 [`palette.png`](palette.png) (`python3 tools/palette.py` redraws it).
 
 - **Lines and ramps.** The palette is a set of hue lines (red, wine, pink, orange, gold,
-  rust, earth, green, moss, lime, teal, sky, blue, violet, steel, neutral, chartreuse),
-  each running dark to light, plus six outline inks: 104 colours for sprites. A **ramp** is a named
+  rust, earth, green, moss, lime, teal, sky, blue, violet, steel, neutral, chartreuse,
+  peach), each running dark to light, plus six outline inks: 111 colours for sprites. The
+  chartreuse line (Gillbert's body) and the peach line (ramps `salmon` and `peach`: Cerebro's
+  brain, Hissy's skin) came later and are `NAMED_ONLY`: `nearest`, `snap`, `snap_ramp`'s best
+  fit and `ramp_for` never land on them, so adding them changed no arena and no old triple; a
+  generator names them to use them. A **ramp** is a named
   five-step window on a line: deep shadow, dark, base, light, highlight (`palette.RAMPS`,
   e.g. `"rust"`, `"ice"`, `"white"`); `palette.ramp(name, shift)` slides the window (+1
   one step lighter). Arena floors also get 18 **ground half-steps** (`palette.GROUND`:
@@ -803,7 +823,9 @@ One master palette for the whole game: `tools/palette.py`, drawn as a labelled s
   shadow (low contrast, so round shapes keep their mass), a one-pixel rim light (one step
   up) on the shadowed edge facing away from the key light, a cleanup of lone pixels, and
   outlines in each material's ink. Crease keeps his faceted paper shader on the same
-  ramps. The arenas snap every named colour, ramp and finished picture to the palette
+  ramps. Cerebro and Hissy keep their own rasterisers but hand the buffers (`cam`, `mat`,
+  `nrm`, `z`, `part`) to `splat3d.shade` / `outline` after `S.configure(MAT, ...)`; they
+  import the palette as `PAL` (their `P` is the pose constructor). The arenas snap every named colour, ramp and finished picture to the palette
   (`tools/gen_arenas.py`, `snap_constants` and `save`: floor ramps on the ground lines,
   blends and fades ordered-dithered between palette colours; crack masks and the flag,
   which the view tints, stay unsnapped).
