@@ -40,6 +40,14 @@ func _ready() -> void:
 	add_child(_toast)
 
 
+## Settings > Video > Text font changed: the shared theme takes the new font and sizes.
+## Screens already open keep their own size overrides until they are rebuilt.
+func restyle() -> void:
+	ui_theme.merge_with(UiTheme.make())
+	if _toast != null:
+		_toast.add_theme_font_size_override("font_size", UiTheme.px(8))
+
+
 ## A short message over the screens (the HUD's toasts are under them).
 func toast(text: String) -> void:
 	_toast.text = text

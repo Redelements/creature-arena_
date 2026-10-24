@@ -38,7 +38,8 @@ var mode := Mode.OFF:
 		_last_us = 0
 		queue_redraw()
 
-var _font: Font = UiTheme.font()
+var _font: Font:  ## read each draw, so Settings > Video > Text font shows at once
+	get: return UiTheme.font()
 var _viewport := RID()
 var _ms := PackedFloat32Array()  ## ring buffer of frame times
 var _at := 0

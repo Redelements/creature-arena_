@@ -118,7 +118,7 @@ const REPLAY_MODE := 47
 ## The Settings pages and their rows, in order (see _setting()).
 const SETTING_PAGES := {
 	"game": ["level", "rumble", "shake", "discord", "server", "delay"],
-	"video": ["fullscreen", "wide", "vsync", "fps", "perf_overlay"],
+	"video": ["fullscreen", "wide", "vsync", "fps", "font", "perf_overlay"],
 	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu"],
 }
 const SHAKE_CHOICES := [["Full", 1.0], ["Reduced", 0.5], ["Off", 0.0]]
@@ -494,6 +494,8 @@ func _ready() -> void:
 		(pin as PlayerInput).pad_device = PlayerInput.NO_PAD
 
 	_load_settings()
+	if UiTheme.smooth:
+		ui.restyle()  # the menu theme was built before the saved Text font was read
 	var start_mode := _parse_args()
 	_apply_device()
 	_apply_discord()
@@ -834,6 +836,19 @@ func _open_settings_page(page: String) -> void:
 		s.add_button("Back", s.back)
 	scr.backed.connect(func(): _setting_rows.clear())
 	ui.push(scr)
+
+
+## Rebuild an open Settings page in place (its rows carry their own font sizes), with
+## the row that changed focused again: Text font swaps every size on the page.
+func _reopen_settings_page(page: String, key: String) -> void:
+	var top := ui.top()
+	if top == null or top.title != page.to_upper():
+		return
+	ui.pop()
+	_open_settings_page(page)
+	var row: Control = _setting_rows.get(key)
+	if row != null:
+		row.grab_focus()
 
 
 func _add_setting_row(s: UiScreen, key: String) -> OptionRow:
@@ -3010,6 +3025,9 @@ func _setting(key: String) -> Dictionary:
 				vals.append("Unlimited" if int(f) == 0 else "%d fps" % int(f))
 			return {"label": "Fight frame rate", "values": vals, "index": maxi(0, FPS_CHOICES.find(fight_fps)),
 				"desc": "Menus always run at 60 fps; this sets fights (up to your screen's refresh rate)"}
+		"font":
+			return {"label": "Text font", "values": ["Pixel", "Smooth"], "index": 1 if UiTheme.smooth else 0,
+				"desc": "The menus and the HUD: the pixel font, or the smooth font from before"}
 		"perf_overlay":
 			return {"label": "Performance overlay", "values": PerfOverlay.MODE_NAMES, "index": perf_overlay.mode,
 				"desc": "The frame rate in a corner; with the graph, the last few seconds of frame times (F9 in a fight)"}
@@ -3071,6 +3089,11 @@ func _set_setting(key: String, i: int) -> void:
 				fight_fps = int(FPS_CHOICES[clampi(i, 0, FPS_CHOICES.size() - 1)])
 			"perf_overlay":
 				perf_overlay.mode = clampi(i, 0, PerfOverlay.MODE_NAMES.size() - 1) as PerfOverlay.Mode
+			"font":
+				if UiTheme.smooth != (i == 1):
+					UiTheme.smooth = i == 1
+					ui.restyle()
+					_reopen_settings_page.call_deferred("video", "font")
 	_save_settings()
 
 
@@ -3338,6 +3361,7 @@ func _load_settings() -> void:
 		Controls.apply_overrides(cfg.get_value("controls", "bindings", {}))
 		var fps := int(cfg.get_value("video", "fight_fps", default_fps()))
 		fight_fps = fps if fps in FPS_CHOICES else default_fps()
+		UiTheme.smooth = String(cfg.get_value("video", "font", "pixel")) == "smooth"
 		perf_overlay.mode = clampi(int(cfg.get_value("video", "perf_overlay", 0)), 0,
 			PerfOverlay.MODE_NAMES.size() - 1) as PerfOverlay.Mode
 		var saved_rows = cfg.get_value("game", "row_choice", {})
@@ -3371,6 +3395,7 @@ func _save_settings() -> void:
 	cfg.set_value("video", "vsync", vsync)
 	cfg.set_value("video", "wide_fill", wide_fill)
 	cfg.set_value("video", "perf_overlay", perf_overlay.mode)
+	cfg.set_value("video", "font", "smooth" if UiTheme.smooth else "pixel")
 	cfg.set_value("game", "rumble", rumble)
 	cfg.set_value("game", "shake", shake_scale)
 	cfg.set_value("game", "range_rings", range_rings)

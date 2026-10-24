@@ -145,7 +145,8 @@ var flash_out := 0.0  ## a screen flash asked for (a Surge hit); main takes it e
 
 var _parts: Array[Dictionary] = []
 var _incoming: Array[Dictionary] = []
-var _font: Font = UiTheme.font()  ## the pixel font; sizes through UiTheme.px
+var _font: Font:  ## the pixel font (or the smooth one, Settings > Video); sizes through UiTheme.px
+	get: return UiTheme.font()
 var _tick := 0
 var _watch := {}
 var _last_push := {}

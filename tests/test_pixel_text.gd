@@ -58,5 +58,18 @@ func test_the_theme_and_views_use_the_pixel_font() -> void:
 			"res://src/view/perf_overlay.gd", "res://src/ui/character_select.gd", "res://src/ui/ui_theme.gd"]:
 		var src := FileAccess.get_file_as_string(path)
 		var uses := src.count("ThemeDB.fallback_font")
-		var allowed := 1 if path.ends_with("ui_theme.gd") else 0  # its fallback when the file is missing
+		var allowed := 2 if path.ends_with("ui_theme.gd") else 0  # its fallback when the file is missing, and the Smooth setting
 		assert_eq(uses, allowed, "%s draws with the fallback font:" % path)
+
+
+func test_the_smooth_setting_swaps_font_and_sizes_and_back() -> void:
+	var pixel := UiTheme.font()
+	UiTheme.smooth = true
+	assert_true(UiTheme.font() == ThemeDB.fallback_font, "Smooth draws with the engine's font")
+	assert_eq(UiTheme.px(9), 9, "Smooth keeps the old design sizes")
+	assert_true(UiTheme.font_tight() == ThemeDB.fallback_font, "and the tight variant too")
+	var t := UiTheme.make()
+	assert_true(t.default_font == ThemeDB.fallback_font, "the menu theme follows it")
+	UiTheme.smooth = false
+	assert_true(UiTheme.font() == pixel, "Pixel comes back")
+	assert_eq(UiTheme.px(9), 16, "with whole multiples of the pixel font")

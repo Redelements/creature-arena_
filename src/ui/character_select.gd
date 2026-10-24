@@ -57,7 +57,8 @@ var _names: Array = []
 var _blurbs: Array = []
 var _infos: Array = []
 var _tex := {}
-var _font: Font = UiTheme.font()
+var _font: Font:  ## read each draw, so Settings > Video > Text font shows at once
+	get: return UiTheme.font()
 var _hint_text := ""
 var _overlay: Control  ## cursors and the READY banner, over the previews
 ## Everything is laid out in a 480 x 270 stage centred on the screen (wider screens get
