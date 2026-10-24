@@ -1020,10 +1020,44 @@ def dodge():
     return f
 
 
+def victory():
+    """Rears up proud with the rod held high, the line swinging as he flops in place. Frame 0
+    gathers, frames 1 to 5 are the loop (they cycle), 6 and 7 settle into the held pose."""
+    f = [
+        P(curl=0.8, squash=0.92, fins=0.9, gill=0.2, rod=REST_ROD),
+        P(curl=-0.4, pitch=26, lift=3.0, fins=1.3, face="shout", gill=0.8, wiggle=0.3, rod=rod_at(2, 8, -30, 40, 10), sag=0.6),
+        P(curl=-0.7, pitch=38, lift=4.5, fins=1.4, face="shout", gill=1.0, wiggle=-0.3, rod=rod_at(2, 14, -26, 62, 4), sag=0.3, kink=0.5),
+        P(curl=-0.6, pitch=32, lift=3.0, fins=1.35, face="shout", gill=0.6, wiggle=0.4, rod=rod_at(2, 15, -26, 54, 14), sag=0.5, kink=-0.5),
+        P(curl=-0.7, pitch=38, lift=4.0, fins=1.4, face="shout", gill=1.0, wiggle=-0.4, rod=rod_at(2, 14, -26, 66, 6), sag=0.3, kink=0.5),
+        P(curl=-0.5, pitch=30, lift=2.5, fins=1.3, face="shout", gill=0.5, wiggle=0.2, rod=rod_at(2, 12, -28, 50, 10), sag=0.6),
+        P(curl=0.5, squash=0.92, pitch=6, fins=1.1, face="calm", gill=0.8, rod=rod_at(2, 6, -32, 18, 8), sag=1.2),
+        P(curl=0.1, pitch=14, lift=1.0, fins=1.3, face="calm", gill=0.5, rod=rod_at(2, 9, -30, 28, 8), sag=0.9),
+    ]
+    return tail_lag(f, 2, 1.2)
+
+
+def idle_alt():
+    """A gasp: the gills flare and flutter, he lifts his head and eyes the foe, then settles."""
+    f = [
+        P(curl=0.3, gill=0.5, fins=1.0),
+        P(curl=0.1, pitch=6, gill=1.0, fins=1.2, yaw=6),
+        P(curl=0.0, pitch=10, gill=0.3, fins=1.3, yaw=14),
+        P(curl=0.0, pitch=10, gill=1.0, fins=1.25, yaw=16, wiggle=0.15),
+        P(curl=0.0, pitch=9, gill=0.3, fins=1.3, yaw=16, wiggle=-0.15),
+        P(curl=0.05, pitch=8, gill=1.0, fins=1.2, yaw=14, face="shout"),
+        P(curl=0.2, pitch=3, gill=0.4, fins=1.05, yaw=6),
+        P(curl=0.3, gill=0.5, fins=1.0),
+    ]
+    for p in f:
+        p.rod = REST_ROD
+    return tail_lag(f, 2, 1.0)
+
+
 ROWS = [
     ("idle", idle()), ("run", run()), ("jab", jab()), ("whip", whip()), ("flail", flail()),
     ("splash", splash()), ("flopdash", flopdash()), ("cast", cast()), ("leap", leap()),
-    ("dodge", dodge()), ("hurt", hurt()), ("guard", guard()), ("ko", ko()),
+    ("dodge", dodge()), ("hurt", hurt()), ("guard", guard()), ("victory", victory()),
+    ("idle_alt", idle_alt()), ("ko", ko()),
 ]
 # flesh and scales: no squash or stretch past 12% in the new rows
 assert all(p.squash >= 0.879 and p.stretch <= 1.121 for n, poses in ROWS if n not in ("hurt", "guard", "ko")

@@ -1408,6 +1408,38 @@ def dodge_new():
     ]
 
 
+def victory_new():
+    """A slow mountain roar: frame 0 breathes in and rears back, 1 to 5 loop the roar (the head
+    high, the arms up, the mane bristling, a pixel of hip shudder so the stones shake loose),
+    6 breathes out, 7 holds the stance. No squash: weight is the slow pace."""
+    def roar(dx, dy, mane, hand):
+        return K(hip=(dx, -10 + dy), lean=-10, head=(-2 + dx, -58 + dy), c1=(-14, -52 + dy), c2=(10, -64 + dy),
+                 hands=[(-8, -13 + hand), (8, -13 - hand)], fists=[True, True], face="roar", mane=mane,
+                 feet=[(-8, 0), (8, 0)])
+    return [
+        K(hip=(0, -8), lean=-4, head=(6, -48), c1=(-10, -46), c2=(-6, -54), hands=[(-9, 6), (9, 6)], face="strain",
+          mane=-0.4),
+        roar(0, 0, 0.8, 0),
+        roar(1, 1, 1.0, 1),
+        roar(-1, 0, 0.7, -1),
+        roar(1, 1, 1.0, 1),
+        roar(-1, 0, 0.8, -1),
+        K(hip=(0, -9), lean=6, head=(12, -42), hands=[(-9, 4), (9, 4)], face="strain", mane=0.2),
+        K(hip=(0, -9), lean=3, head=(11, -45), hands=REST_HANDS, face="angry", mane=0.5),
+    ]
+
+
+def idle_alt_new():
+    """He grinds his jaw (the face flips between angry and strain), the head turns slowly toward
+    the foe and back; the mane bristles once."""
+    pts = [(11, 0), (13, 1), (15, 2), (16, 2), (16, 2), (16, 2), (14, 1), (11, 0)]
+    faces = ["angry", "angry", "strain", "angry", "strain", "angry", "angry", "angry"]
+    manes = [0.55, 0.7, 0.9, 0.9, 0.7, 0.8, 0.6, 0.55]
+    return [K(hip=(0, -9), lean=1.0 + (3 if 2 <= i <= 5 else 0), head=(x, -45 + dy), c1=(-8 + dy, -48),
+              c2=(-2 + x - 11, -58), face=f, mane=m, tilt=1 if 2 <= i <= 5 else 0)
+            for i, ((x, dy), f, m) in enumerate(zip(pts, faces, manes))]
+
+
 ROWS = [
     ("idle", idle_new()),
     ("run", run_new()),
@@ -1422,6 +1454,8 @@ ROWS = [
     ("dodge", dodge_new()),
     ("hurt", hurt()),
     ("guard", guard()),
+    ("victory", victory_new()),
+    ("idle_alt", idle_alt_new()),
     ("ko", ko()),
 ]
 # Up and down sheets: every row but the knockout, which falls over sideways in any view.
