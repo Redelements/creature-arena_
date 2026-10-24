@@ -42,8 +42,17 @@ player and live here, outside the sim.
   pushes a fighter out of shot; a big map leads with the followed player only); the exchange
   push-in `_note_exchange` (`EXCHANGE_*`, from hit/block events in `_react`); the KO push-in
   `ko_push` (`KO_PUSH_*`, `KO_HOLD_UNTIL`); the letterbox `_update_letterbox` →
-  `src/view/letterbox.gd` (KO push-in and a freezing Surge's `_surge_bars`). All per tick, no
+  `src/view/letterbox.gd` (KO push-in, a freezing Surge's `_surge_bars` and then the
+  rest of its cut-in, `Hud.cutting_in()`, and the arena intro). All per tick, no
   interpolation between ticks
+- Arena intro (fly-over, arena card, each side's entrance; Settings > Game > Match intros) →
+  `_intro_wanted` (where it plays: offline only, never online, replays, training, trials,
+  drills or showcases), `_maybe_intro` (from `_start_match`, `_on_teams_chosen`, a new
+  Arcade stage), `_intro_groups` (a beat per 1v1 fighter, per team, one for a Brawl),
+  `_intro_step` (the tick while it plays: views only, the sim is not stepped), `_end_intro`
+  (a press in `_input` skips it; the camera eases on from where it left off); the drawing
+  and timeline `src/view/arena_intro.gd`. Afterwards the round's own "ROUND 1 / FIGHT!" (or a
+  team battle's sim intro) plays exactly as before
 - Add a setting → `SETTING_PAGES` + `_setting(key)` + `_set_setting(key, i)` +
   `_add_setting_row`; persistence `_load_settings` / `_save_settings`; a Controls-page
   setting (like `range_rings`) is added in `_open_controls`
@@ -72,7 +81,7 @@ player and live here, outside the sim.
 
 After `--`; the full list is in the `main.gd` header, modes in `MODES`.
 `--mode=N`, `--level=0..3` (3 = Rage), `--seed=N`, `--showcase=<fighter>|angles|twinstick|counterplay`,
-`--pad-layout=standard|twinstick`, `--autoplay`, `--hitboxes`, `--cpu-vs-cpu`, `--pick`,
+`--pad-layout=standard|twinstick`, `--autoplay`, `--hitboxes`, `--intro` / `--no-intro` (force the arena intro on or off; by default it plays only for offline matches started from the menu with a screen, never headless or for a `--mode` / `--showcase` / `--autoplay` start, so captures keep their frame numbers), `--cpu-vs-cpu`, `--pick`,
 `--teams=a,b,c:d,e,f`, `--arena=stadium|quarry|floodgate|greenhouse`, `--menu=main|single|single:<group>|settings|game|video|audio|controls|remap:<classic|league|gamepad>`,
 `--training-screen=pause|options|fighters` (with a training `--mode`), `--training-flags=no_cooldowns,full_energy`,
 `--perf` (frame and tick percentiles on quit, with each part's share: the tick's
