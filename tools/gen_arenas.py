@@ -15,6 +15,9 @@ that crack network alone, white on clear (the view lights the cracks as they spr
 Maps whose pieces change also get arena_<id>_alt.png (floor-sized): every piece changed
 (the Quarry's walls smashed to rubble, the Greenhouse's brush flattened), shown cell by
 cell where the sim says a piece has changed. Pieces come from data/arenas/<id>.json.
+arena_<id>_fore.png and arena_<id>_hang.png are the foreground strips ForeView draws over
+the fighters (`fore_layers`: the nearest fans and a rail at the front, what hangs from the
+roof at the back).
 
 Shadows fall along the map's light (its "light": {"dir", "length", "alpha"}; the game's
 ShadowLayer.light_of reads the same key and casts the fighters' shadows the same way): each
@@ -24,6 +27,32 @@ posts, the walls round the floor) have their shadows in both pictures; pieces th
 (walls, brush, a bridge) have theirs only in the main picture, so the _alt picture is the
 floor without them: ArenaView shows a cell's piece of it once every piece shading it has
 changed.
+
+Depth. The floor is a true top-down plane (hits are circles on it, drawn 1:1, so it can never
+be tilted or perspective-scaled) while the fighters are drawn three-quarter; depth comes from
+everything else, and these rules keep it consistent:
+  - A far-to-near gradient (`depth_shift`): the floor a step or so darker toward the back,
+    easing to nothing past the middle, a step lighter in the band nearest the camera. It is
+    applied with `floor_shift`, which moves each ground pixel along its palette fine line by
+    a field of steps, right after the ground is painted and before any detail or the copy
+    for the changed picture, so the main, cracked and changed pictures carry it pixel for
+    pixel. On the ground lines darker is cooler and duller, lighter warmer, so this is also
+    the saturation falloff. Seams are dithered with the matrix aligned to the floor corner
+    and sharpened (SEAM_SHARP): flat tone steps with a few px of two-tone seam, never a wide
+    mesh. Lines, pits, decals and pieces are drawn after it and keep their contrast.
+  - Big directional floor features, 16-48 px (a floor pixel is 2 px of the 960x540 base
+    screen), through the same floor_shift: drag stripes on the stadium, tool tracks and drag
+    marks in the quarry, wet sheen bands on the floodgate, a mown checker in the greenhouse
+    and twin keeps, wind ripples and deep ruts on the caravan pass. Scattered single-pixel
+    specks are kept few: at game zoom they read as salt.
+  - Everything with height has a face toward the camera (the light always comes from the
+    back): `faces` darkens the lowest rows of a mass by ~0.4 of its CAST_HEIGHT and lights
+    its top, keep walls and the bridge deck have a face under a lit edge, the front wall a
+    face under its cap. `contact_shadow` adds ambient occlusion on the floor round each
+    footprint (deeper on the near side, a hard touching line), on top of the cast shadow.
+    Pieces that change get both only in the main picture (the _alt picture is the floor
+    without them); fixed ones (fences, posts) before the copy, so in both. The AO reaches
+    3 px, inside the cells ArenaView already swaps for the _alt picture (`_build_shade`).
 
 The look, so the floors stop reading as one repeated tile:
   - the ground is several octaves of smooth value noise, shaded (wall shadows, a worn

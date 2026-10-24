@@ -39,6 +39,24 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   `_draw` reports its time with `PerfLog.now()` / `PerfLog.since(...)` for `--perf`
   (main thread only: `PerfLog` ignores a worker thread).
 - Parallax and furniture: `backdrop_view.gd` (BackdropView, first child of main, under the arena) draws the sky (`arena_<id>_sky.png`, 0.6 of the camera) and the far tiers under the roof edge (`arena_<id>_far.png`, 0.85) and slides them by `(1 - factor)` of the camera's move, whole pixels, set every frame (no easing); the main picture (the crowd's rows down, the floor) stays at 1.0, so the crowd stays on its stands. The camera may look `CrowdView.SHOW_TOP` above the arena so these show. `furniture_view.gd` (FurnitureView, after the crowd, under the fighters) builds the arena JSON `furniture` list (`data/CLAUDE.md`); pieces on layer `sky` / `far` are children of the backdrop's layers so they slide with them; animated ones step on the physics tick (`ANIM`) and redraw only on a frame change; the scoreboard reads `hud.timer_ticks` / `wins` / `team` and redraws only when its text changes. A piece never sits on the floor (`tests/test_furniture.gd`). The picture is split by `tools/gen_arenas.py:split_backdrop` (`FAR_ROWS`, `ROOF_H`, `SKY_UP`, `FAR_DOWN`: keep in step with `BackdropView`).
+- Layer order (main.gd, back to front): BackdropView (sky, far tiers), ArenaView (the floor
+  picture), FurnitureView, CrowdView, FloorWear, the weather's shade, FxGround, WaterView,
+  AmbientView, ShadowLayer, the weather's ground layer, Glow's floor pools, RangeRings, the
+  entities (y-sorted fighters), ForeView, WeatherView, FxView, PaperFx, Glow's halos; then the
+  screen layer (GradeView, Letterbox, flash, fade, Hud).
+- Foreground: `fore_view.gd` (ForeView, right after the entities: over the fighters, under the
+  weather and FxView, so telegraphs and bars stay on top) draws `arena_<id>_fore.png` (the
+  nearest fans and a rail, its top `FORE_GAP` px below the front wall's foot: the heads rise
+  over the wall's face, never past its top) and `arena_<id>_hang.png` (what hangs from the
+  roof, its top at `HANG_TOP`), from `tools/gen_arenas.py:fore_layers` (keep FORE_GAP, FORE_H,
+  HANG_TOP, HANG_H in step). They slide `PARALLAX` (1.25) of the camera: at rest when the
+  camera is at its front-most / top-most spot (`_cam_axis` with `SHOW_FRONT` / `SHOW_TOP`),
+  pushed off the screen edge by 0.25 of every pixel it is away, so they show only near that
+  edge and never over the floor (`tests/test_furniture.gd`); whole pixels, set every frame, no
+  easing, hidden when well off screen. Map depth otherwise is baked art: see the "Depth" rules
+  in the `tools/gen_arenas.py` docstring (far-to-near gradient, faces, contact shadow, big
+  floor features). The grade's vignette leans toward the side the map's light comes from
+  (`GradeView.centre_for`, sideways only so the floor's lit near band stays lit).
 - Shallows water (flow, foam, wading wakes, entry splash) is `water_view.gd`, a layer between the floor and the fighters, all 1 px rects on the 60 Hz tick clock; it draws only where the terrain grid says `SHALLOWS`, so a fallen bridge gets it too. Its wake skips a fighter `FxView.shown` hides.
 - A map's ambient life (pane shadows, motes, brush sway, butterflies, dragonflies, fish, birds, dust devils, wall grit, confetti) is `ambient_view.gd`, data-driven from the arena JSON `ambient` block (`data/CLAUDE.md`); main puts it between water and shadows, motes and critters at `z_index` 1, birds in a sky layer at 10, grit/splashes/devil/resting confetti in a layer under the fighters; confetti reads `sim.events` (ko, surge), nothing else reads fighters except through `fx.shown`: dragonflies flee and fish skip a jump only for seen fighters. Anything it does in answer to a fighter (rustle, flying leaves, scared butterflies) must go through `fx.shown(c)`: brush hides foes, so a rustle for an unseen one would give it away (`tests/test_ambient.gd`). The sway re-draws strips of the map's own picture (`ArenaView.art()`) a whole pixel sideways.
 - Grade: `grade_view.gd` (GradeView, first child of main's screen layer, under the letterbox and HUD) is one full-screen MUL rect with `grade.gdshader` (tint + stepped dithered vignette); `main.gd` calls `grade.apply(sim.arena, weather.grade_scale())` after `weather.apply`. Moths (night, round `_lamps` and furniture floodlights) and the parapet cat (`_move_cat`, `_paint_cat`) are AmbientView critters.
@@ -210,6 +228,7 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `dps_meter.gd` (DpsMeter) — Training's damage-per-second readout for the dummy (drawn by Hud).
 - `flash.gdshader` — Tints a sprite toward flash_color (the white hit flash, the charge glow), and can draw a 1 px rim around its silhouette…
 - `floor_wear.gd` (FloorWear) — The floor remembers the fight: claw scratches, gouges, craters, drag lines, dirt clods, mallet marks and, for a few sec…
+- `fore_view.gd` (ForeView) — The foreground: things between the camera and the fight, over the fighters, so the arena has a near layer as well as a…
 - `furniture_view.gd` (FurnitureView) — Arena furniture: decor in the margins round the floor, from the optional "furniture" list of data/arenas/<id>.json (a m…
 - `fx_ground.gd` (FxGround) — The floor-level half of the effects: puddles, afterimages, crack decals, rock spires, the back half of orbiting pebbles…
 - `fx_view.gd` (FxView) — Cosmetic effects. Two things drive them: - Simulation events (hits, slams, grabs, falls, KOs...), passed in through spa…
