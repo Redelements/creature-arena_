@@ -113,7 +113,8 @@
       "blind_ticks": 240,
       "reach": 26, "hit_radius": 24,
       "anim_at": [[0, 0], [6, 1], [9, 2], [20, 3]],
-      "fx": { "flash": true }
+      "fx": { "flash": true,
+        "light": { "color": "#fff6b0", "radius": 64, "ahead": 26, "height": 18, "from": 5, "to": 16, "strength": 0.65, "halo": 0.35 } }
     },
     "skill_2": {
       "guard_break": true, "hidden": true,

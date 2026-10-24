@@ -116,7 +116,7 @@
       "projectile": { "speed": 5.0, "life": 18, "radius": 6, "offset": 14, "crack_trail": false,
         "sound": "spit", "end_sound": "splat" },
       "anim_at": [[0, 0], [5, 1], [10, 2], [14, 3], [22, 4]],
-      "fx": { "projectile": "venom" }
+      "fx": { "projectile": "venom", "projectile_light": { "color": "#7fd64e", "radius": 18, "strength": 0.35 } }
     },
     "skill_2": {
       "name": "Stone Gaze", "anim": "gaze", "cooldown": 300,
@@ -126,7 +126,8 @@
       "anim_at": [[0, 0], [8, 1], [12, 2], [16, 1], [20, 2], [24, 1], [28, 2], [32, 1], [36, 2], [40, 1],
         [44, 2], [48, 1], [52, 2], [56, 1], [60, 2], [64, 1], [68, 2], [72, 1], [76, 2], [80, 1], [84, 2],
         [88, 1], [92, 2], [99, 3]],
-      "fx": { "gaze": true }
+      "fx": { "gaze": true,
+        "light": { "color": "#fff27a", "radius": 36, "ahead": 14, "height": 22, "from": 9, "to": 66, "strength": 0.4 } }
     },
     "surge": {
       "name": "Petrify Punch", "anim": "petrify", "energy_cost": 100,

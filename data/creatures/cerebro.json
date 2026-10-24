@@ -86,7 +86,7 @@
       "projectile": { "speed": 7.0, "life": 14, "radius": 5, "offset": 12, "crack_trail": false,
         "sound": "knife_throw", "end_sound": "knife_hit" },
       "anim_at": [[0, 0], [3, 1], [6, 2], [12, 3]],
-      "fx": { "projectile": "knife" }
+      "fx": { "projectile": "knife", "projectile_light": { "color": "#d58cff", "radius": 22, "strength": 0.4 } }
     },
     "light_2": {
       "name": "Backhand Flick", "anim": "flick2", "mobile": 0.6,
@@ -96,7 +96,7 @@
       "projectile": { "speed": 7.0, "life": 14, "radius": 5, "offset": 12, "crack_trail": false,
         "sound": "knife_throw", "end_sound": "knife_hit" },
       "anim_at": [[0, 0], [3, 1], [6, 2], [12, 3]],
-      "fx": { "projectile": "knife" }
+      "fx": { "projectile": "knife", "projectile_light": { "color": "#d58cff", "radius": 22, "strength": 0.4 } }
     },
     "light_3": {
       "name": "Mallet Toss", "anim": "toss", "mobile": 0.6,
@@ -106,7 +106,7 @@
       "projectile": { "speed": 6.0, "life": 18, "radius": 6, "offset": 12, "crack_trail": false,
         "sound": "swing_heavy", "end_sound": "thwack" },
       "anim_at": [[0, 0], [3, 1], [7, 2], [10, 3], [22, 4]],
-      "fx": { "projectile": "mallet" }
+      "fx": { "projectile": "mallet", "projectile_light": { "color": "#d58cff", "radius": 22, "strength": 0.4 } }
     },
     "heavy": {
       "name": "Tenderize", "anim": "tenderize", "windup": 8, "tell": "strong",
@@ -119,7 +119,8 @@
       "vuln_ticks": 240, "vuln_mult": 1.2,
       "terrain_crack": 14,
       "anim_at": [[0, 2], [5, 3], [9, 4], [20, 5]],
-      "fx": { "charge": "psychic", "impact": "tenderize" }
+      "fx": { "charge": "psychic", "impact": "tenderize",
+        "light": { "color": "#d58cff", "radius": 40, "height": 30, "charge": true, "strength": 0.55 } }
     },
     "skill_1": {
       "name": "Cleaver Toss", "anim": "cleaver", "windup": 6, "tell": "strong", "cooldown": 150,
@@ -128,7 +129,7 @@
       "projectile": { "speed": 6.0, "life": 17, "radius": 7, "offset": 12, "crack_trail": false,
         "sound": "knife_throw", "end_sound": "hit_heavy" },
       "anim_at": [[0, 0], [4, 1], [8, 2], [10, 3], [20, 4], [28, 5]],
-      "fx": { "projectile": "cleaver" }
+      "fx": { "projectile": "cleaver", "projectile_light": { "color": "#d58cff", "radius": 22, "strength": 0.4 } }
     },
     "skill_2": {
       "name": "Flip Out", "anim": "flipout", "windup": 12, "tell": "unblockable", "cooldown": 180,
@@ -151,7 +152,8 @@
       },
       "anim_at": [[0, 0], [5, 1], [10, 2], [12, 3], [14, 4], [16, 3], [18, 4], [20, 3], [22, 4], [24, 3],
         [26, 4], [28, 3], [30, 4], [34, 5]],
-      "fx": { "telegraph_line": true, "projectile": "knife", "chop": true }
+      "fx": { "telegraph_line": true, "projectile": "knife", "chop": true,
+        "projectile_light": { "color": "#d58cff", "radius": 22, "strength": 0.4 } }
     }
   }
 }
