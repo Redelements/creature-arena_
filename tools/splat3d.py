@@ -122,11 +122,15 @@ def bezier(p0, p1, p2, p3, t):
 class Cam:
     """Barkley's projection (tools/gen_barkley.py): a cheated 3/4 side view with forward
     one to one, and up/down views where reach is one to one on the floor; the sideways
-    axis is sheared like Gillbert's."""
+    axis is sheared like Gillbert's. The diagonals ("down_side": facing down-right, a
+    front three-quarter view; "up_side": facing up-right, a back three-quarter view) turn
+    the floor 45 degrees: a point `fwd` ahead lands 0.707 * fwd right and 0.707 * fwd down
+    (or up) the screen, so reach on screen is reach in the game, as in the other views."""
     PSI = math.radians(60)
     LAT_X = 0.5
     LAT_Y = 0.18
     FWD_Y = 0.06
+    D = math.sqrt(0.5)  # the diagonals: 45 degrees between the side and the front/back
 
     def __init__(self, view):
         self.view = view
@@ -134,6 +138,10 @@ class Cam:
             self.cam = np.array([math.cos(self.PSI), 0.0, math.sin(self.PSI)])
         elif view == "down":
             self.cam = np.array([0.0, 0.0, 1.0])
+        elif view == "down_side":
+            self.cam = np.array([self.D, 0.0, self.D])
+        elif view == "up_side":
+            self.cam = np.array([self.D, 0.0, -self.D])
         else:
             self.cam = np.array([0.0, 0.0, -1.0])
 
@@ -157,6 +165,17 @@ class Cam:
         elif self.view == "down":
             x = OX - lat
             y = OY - up + self.depth_y(fwd)
+        elif self.view == "down_side":
+            # Facing down-right: forward is the floor diagonal (right and toward the
+            # camera), the creature's right side the other one (left and toward the camera).
+            # Reach stays one to one on the floor; the part toward the camera is flattened
+            # like the down view's depth.
+            x = OX + (fwd - lat) * self.D
+            y = OY - up + self.depth_y((fwd + lat) * self.D)
+        elif self.view == "up_side":
+            # Facing up-right: forward is right and away; the right side right and toward.
+            x = OX + (fwd + lat) * self.D
+            y = OY - up + self.depth_y((lat - fwd) * self.D)
         else:
             x = OX + lat
             y = OY - up - self.depth_y(fwd)
@@ -170,6 +189,12 @@ class Cam:
         elif self.view == "down":
             sx = -n[:, 0]
             sy = -n[:, 1] + n[:, 2] * 0.35
+        elif self.view == "down_side":
+            sx = (n[:, 2] - n[:, 0]) * self.D
+            sy = -n[:, 1] + (n[:, 2] + n[:, 0]) * self.D * 0.35
+        elif self.view == "up_side":
+            sx = (n[:, 2] + n[:, 0]) * self.D
+            sy = -n[:, 1] + (n[:, 0] - n[:, 2]) * self.D * 0.35
         else:
             sx = n[:, 0]
             sy = -n[:, 1] - n[:, 2] * 0.35
@@ -503,6 +528,16 @@ def render(pose, view, build, decorate=None):
 
 # ------------------------------------------------------------------ sheets
 
+# The views a sheet set can have, in preview order: the side sheet, then the front, the
+# front three-quarter, the back and the back three-quarter (docs/SPRITES.md, "Directions").
+VIEW_ORDER = ("side", "down", "down_side", "up", "up_side")
+
+
+def view_names(views):
+    """"side" and the views a generator draws (its VIEWS dict), in VIEW_ORDER."""
+    return ["side"] + [v for v in VIEW_ORDER[1:] if v in views] + [v for v in views if v not in VIEW_ORDER]
+
+
 def sheet(view, rows, fw, fh, origin, build, decorate=None):
     set_frame(fw, fh, origin)
     out = Image.new("RGBA", (fw * COLS, fh * len(rows)), (0, 0, 0, 0))
@@ -530,7 +565,8 @@ def _preview(sh, rows, fw, fh, origin, scale, path):
 
 
 def write_sheets(rows, view_rows, out, preview, side, views, build, decorate=None):
-    """The side sheet, the down and up sheets, and labelled previews."""
+    """The side sheet, a sheet for every entry in `views` (down and up, and the diagonals
+    down_side and up_side where a generator draws them), and labelled previews."""
     os.makedirs(os.path.dirname(out), exist_ok=True)
     sd = sheet("side", rows, side["w"], side["h"], side["origin"], build, decorate)
     sd.save(out)
@@ -545,13 +581,18 @@ def write_sheets(rows, view_rows, out, preview, side, views, build, decorate=Non
         made[view] = sh
     s = 2
     label_w = 70
+    shown = view_names(views)[1:]
     fw, fh = views["down"]["w"], views["down"]["h"]
-    prev = Image.new("RGBA", (label_w + fw * COLS * 2 * s, fh * len(view_rows) * s), (70, 58, 46, 255))
+    xs = [label_w]
+    for view in shown:
+        xs.append(xs[-1] + max(fw, views[view]["w"]) * COLS * s)
+    fh = max(views[v]["h"] for v in shown)
+    prev = Image.new("RGBA", (xs[-1], fh * len(view_rows) * s), (70, 58, 46, 255))
     d = ImageDraw.Draw(prev)
-    for k, view in enumerate(("down", "up")):
+    for k, view in enumerate(shown):
         big = made[view].resize((made[view].width * s, made[view].height * s), Image.NEAREST)
-        prev.alpha_composite(big, (label_w + k * fw * COLS * s, 0))
-        d.text((label_w + k * fw * COLS * s + 6, 4), "facing " + view, fill=(255, 210, 120, 255))
+        prev.alpha_composite(big, (xs[k], 0))
+        d.text((xs[k] + 6, 4), "facing " + view.replace("_side", "-side"), fill=(255, 210, 120, 255))
     for r, (name, _poses) in enumerate(view_rows):
         d.text((6, r * fh * s + 20), "%d %s" % (r, name), fill=(240, 230, 210, 255))
         d.line([(label_w, r * fh * s), (prev.width, r * fh * s)], fill=(50, 40, 32, 255))
@@ -561,13 +602,13 @@ def write_sheets(rows, view_rows, out, preview, side, views, build, decorate=Non
 
 
 def inspect(rows, picks, side, views, build, decorate=None, scale=3, path=None):
-    """Renders a few frames ("row:frame") in all three views side by side, enlarged:
-    for looking at a pose while working on it."""
+    """Renders a few frames ("row:frame") in every view (side, down, up and any diagonals)
+    side by side, enlarged: for looking at a pose while working on it."""
     tiles = []
     for pick in picks:
         name, f = pick.split(":")
         pose = dict(rows)[name][int(f)]
-        for view in ("side", "down", "up"):
+        for view in view_names(views):
             spec = side if view == "side" else views[view]
             set_frame(spec["w"], spec["h"], spec["origin"])
             tiles.append(render(pose, view, build, decorate))
