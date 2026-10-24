@@ -20,8 +20,10 @@ grey streaks are drawn in each part's own coordinates so they stay put as he mov
 This is a recreation for the soft launch; when the artist delivers final sprites in
 the same layout they drop in with no code changes.
 """
+import copy
 import math
 import os
+import sys
 
 import numpy as np
 from PIL import Image, ImageDraw
@@ -260,11 +262,31 @@ class Pose:
         # guess from the side pose isn't right (a guard, crossed arms).
         self.vhands = kw.get("vhands")
         # Most poses hold the head up on the neck; on the ground ones it stays put.
-        if kw.get("raise_head", True):
-            lift = HEAD_LIFT
+        self.head_lift = HEAD_LIFT if kw.get("raise_head", True) else 0
+        if self.head_lift:
+            lift = self.head_lift
             self.head = (self.head[0], self.head[1] - lift)
             self.c1 = (self.c1[0], self.c1[1] - lift * 0.5) if self.c1 else None
             self.c2 = (self.c2[0], self.c2[1] - lift) if self.c2 else None
+
+
+def whole_pixels(p):
+    """The pose as drawn: the pelvis, feet, toes, head and face offset on whole pixels, and
+    the neck's two bend points on whole pixels before the head lift (so they ride a bob
+    with the hip and head). Done here, not in the pose functions, so in-betweens from
+    splat3d.tween stay in floats and only the drawing snaps."""
+    q = copy.copy(p)
+    q.hip = (round(p.hip[0]), round(p.hip[1]))
+    q.feet = [(round(x), round(y)) for x, y in p.feet]
+    q.lift = [round(v) for v in p.lift]
+    q.head = (round(p.head[0]), round(p.head[1]))
+    q.tilt = round(p.tilt)
+    lift = p.head_lift
+    if p.c1:
+        q.c1 = (p.c1[0], round(p.c1[1] + lift * 0.5) - lift * 0.5 if lift else round(p.c1[1]))
+    if p.c2:
+        q.c2 = (p.c2[0], round(p.c2[1] + lift) - lift if lift else round(p.c2[1]))
+    return q
 
 
 def O(p):
@@ -648,6 +670,7 @@ def _face(d, cx, cy, face):
 
 
 def render(pose):
+    pose = whole_pixels(pose)
     rig = Rig(pose)
     img = layer()
     if pose.scatter:
@@ -948,6 +971,7 @@ def _face_front(d, cx, cy, face):
 
 
 def render_view(pose, view):
+    pose = whole_pixels(pose)
     vr = VRig(pose, view)
     parts = []  # (depth, order, layer)
     if pose.scatter:
@@ -1013,12 +1037,12 @@ def run():
         fx = 8 * math.cos(ph)
         up_f = max(0.0, math.sin(ph)) * 4
         up_b = max(0.0, -math.sin(ph)) * 4
-        bob = -round(abs(math.sin(ph)) * 2)
+        bob = -abs(math.sin(ph)) * 2           # whole pixels only when drawn (whole_pixels)
         sw = 4 * math.cos(ph)
-        lag = -round(abs(math.sin(ph - 0.9)) * 2)
-        out.append(P(hip=(1, -9 + bob), lean=8, feet=[(round(-fx), -round(up_b)), (round(fx), -round(up_f))],
+        lag = -abs(math.sin(ph - 0.9)) * 2
+        out.append(P(hip=(1, -9 + bob), lean=8, feet=[(-fx, -up_b), (fx, -up_f)],
                      hands=[(-8 + sw * 1.5, 10 - abs(sw) * 0.5), (8 - sw * 1.5, 11 - abs(sw) * 0.5)],
-                     head=(14 + round(sw * 0.3), -44 + lag), c1=(-2, -56 + bob), c2=(4, -46 + lag),
+                     head=(14 + sw * 0.3, -44 + lag), c1=(-2, -56 + bob), c2=(4, -46 + lag),
                      mane=0.3 if k % 2 else 0.0))
     return out
 
@@ -1231,8 +1255,38 @@ def side_sheet():
     return sheet
 
 
+# ------------------------------------------------------------------ animation tools
+# The adapter for the shared animation pipeline (tools/anim_preview.py):
+# `python3 tools/gen_craglash.py anim` renders preview GIFs into docs/anim_preview/, and
+# `python3 tools/anim_preview.py --check craglash` checks the JSON's timelines against ROWS.
+# In-betweens and overlap come from splat3d (tween, cycle, lag, lag_at): poses may hold
+# floats, the renderer snaps them (whole_pixels).
+ANIM_CYCLES = {"idle": 40, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks)
+SIDE_FRAME = (F, None, OX, OY)
+
+
+def frame_spec(view):
+    if view == "side":
+        return {"w": F, "h": F, "origin": (SIDE_FRAME[2], SIDE_FRAME[3])}
+    return {"w": VF, "h": VFH, "origin": VIEW_ORIGIN[view]}
+
+
+def render_frame(pose, view):
+    """One frame on its own, with the frame size and origin set as the sheets set them."""
+    global F, FH, OX, OY
+    saved = (F, FH, OX, OY)
+    if view == "side":
+        F, FH, OX, OY = SIDE_FRAME
+        img = render(pose)
+    else:
+        F, FH = VF, VFH
+        OX, OY = VIEW_ORIGIN[view]
+        img = render_view(pose, view)
+    F, FH, OX, OY = saved
+    return img
+
+
 def main():
-    import sys
     sheet = side_sheet()
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     sheet.save(OUT)
@@ -1258,4 +1312,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "anim":
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import anim_preview
+        anim_preview.main(sys.modules[__name__], sys.argv[2:])
+    else:
+        main()
