@@ -24,6 +24,9 @@ Priorities are in the Game Plan doc, "Game modes".
   skipped on Kevin's call) and the two arenas that need them (Saltflat Ring, Night Market
   Roof), Raid (needs a boss sheet), a Steam transport. Everything else in that plan is in.
   Priorities: Game Plan doc, "Game modes".
+- **CPU, planned:** richer bench metrics, Rage choosing its kit by utility score with weights in
+  the creature JSON, and shared team intent (focus target, peel, front line) for 2v2/3v3:
+  `docs/plans/ai-utility-and-teamplay.md`. Nothing started.
 - **Known issues:** Sneaky Pete loses to Mister Crease almost every game Rage vs Rage (0 of 12 on
   the Stadium, Oct 2026): Tiptoe is up every 5 s and the knives chip him down in between (about
   90 damage taken visible, 5 hidden, per game); he beats Chef Cerebro 9 of 12. Not pinned; a
