@@ -13,15 +13,24 @@ extends Node2D
 ##   --seed=N              CPU random seed
 ##   --arena=ID            the arena map for offline matches (stadium, quarry, floodgate,
 ##                         greenhouse; data/arenas/)
+##   --time=ID             time of day for offline matches this session: random, day, sunset,
+##                         night (data/weather.json; a choice the arena doesn't allow falls back)
+##   --weather=ID          weather for offline matches this session: random, clear, rain, fog,
+##                         wind, snow
 ##   --autoplay            training demo: the player side follows a scripted routine
 ##   --dummy-mode=N        0 stand, 1 guard, 2 walk, 3 dodge
 ##   --training-flags=no_cooldowns,full_energy  training options on (pause > Training options)
 ##   --training-screen=pause|options|fighters  open the training pause menu, its Training
 ##                         options page or the Change fighter grid once training starts (captures)
 ##   --hitboxes            start with the hitbox overlay on
+##   --intro / --no-intro  force the arena intro on / off (default: it plays before offline
+##                         matches started from the menu; off headless and for a --mode,
+##                         --showcase or --autoplay start, so captures and tests keep their timing)
 ##   --range-rings         start with the range rings on (Settings > Controls; F7 in a fight)
 ##   --shots=60,120        save screenshots at those frame numbers
 ##   --shot-dir=PATH       where screenshots go (default user://shots)
+##   --cam=X,Y[,ZOOM]      hold the camera on this world spot (and zoom), still clamped to the
+##                         arena and its stands: for screenshots of the edges
 ##   --quit-after=N        exit after N frames
 ##   --perf                log frame and tick times during fights; on quit, prints the
 ##                         percentiles and saves them to user://perf.txt
@@ -36,7 +45,7 @@ extends Node2D
 ##   --cpu-vs-cpu          every player side is played by the CPU (demos, captures)
 ##   --view-team=N         show the match as team N sees it (brush, fences, walls hide
 ##                         foes), even with nobody playing here (captures of --cpu-vs-cpu)
-##   --menu=PAGE           open a menu page: main, single, single:<group>, settings, game, video, audio, controls,
+##   --menu=PAGE           open a menu page: main, single, single:<group>, look (Time and weather), settings, game, video, audio, controls,
 ##                         remap:classic|league|gamepad (captures)
 ##   --online-host[=PORT]  host an online 1v1 straight away (UDP, default port 7777)
 ##   --online-join=ADDR[:PORT][/ROOM]  join one, or a dedicated server (ROOM: meet a friend there)
@@ -117,8 +126,8 @@ const REPLAY_MODE := 47
 ## one of several modes with Left/Right.
 ## The Settings pages and their rows, in order (see _setting()).
 const SETTING_PAGES := {
-	"game": ["level", "rumble", "shake", "discord", "server", "delay"],
-	"video": ["fullscreen", "wide", "vsync", "fps", "font", "perf_overlay"],
+	"game": ["level", "intros", "rumble", "shake", "discord", "server", "delay"],
+	"video": ["fullscreen", "wide", "vsync", "fps", "glow", "font", "perf_overlay"],
 	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu"],
 }
 const SHAKE_CHOICES := [["Full", 1.0], ["Reduced", 0.5], ["Off", 0.0]]
@@ -214,6 +223,11 @@ const DEFAULT_FPS_MOBILE := 60
 ## The fight frame rate to start with: `mobile` is the platform's (a test passes its own).
 static func default_fps(mobile := OS.has_feature("mobile")) -> int:
 	return DEFAULT_FPS_MOBILE if mobile else DEFAULT_FPS
+
+
+## Glow starts on, except on a phone or handheld (weaker GPUs; it can be turned on).
+static func default_glow(mobile := OS.has_feature("mobile")) -> bool:
+	return not mobile
 # Knockouts: the simulation itself freezes and then runs at half speed (MatchSim's
 # ko_freeze / slowmo, so online peers agree); the camera pushes in on the loser.
 const KO_ZOOM := 1.45
@@ -262,6 +276,8 @@ var _cam_zoom := 0.0  ## eased toward a zoom that fits the fighters (0: snap on 
 var replay: Replay
 var arena: ArenaView
 var crowd: CrowdView
+var backdrop: BackdropView
+var furniture: FurnitureView
 var entities: Node2D
 var views: Array[CreatureView] = []
 var fx: FxView
@@ -270,6 +286,20 @@ var water: WaterView
 var ambient: AmbientView
 var wear: FloorWear
 var shadows: ShadowLayer
+## Time of day and weather (WeatherView, data/weather.json): views only, never the sim.
+var weather: WeatherView
+## The Single player menu's Time / Weather: an id or "random" (saved; `--time=` / `--weather=`
+## override them for the session).
+var time_choice := WeatherView.RANDOM
+var weather_choice := WeatherView.RANDOM
+var _look_cli := {}
+var _look := {}  ## this match's look (kept across its rounds)
+var _look_fresh := true  ## a new match: pick the look again
+var _menu_bg := false  ## the menu's background fight is being set up
+## Glow (Settings > Video): light pools on the floor and halos over the effects (LightView).
+var glow_floor: LightView
+var glow_halo: LightView
+var glow := default_glow()
 var audio: AudioView
 var debug: DebugView
 var hud: Hud
@@ -311,6 +341,16 @@ var wide_fill := true
 var rumble := true
 var shake_scale := 1.0  ## screen shake: 1 full, 0.5 reduced, 0 off
 var range_rings := false  ## floor rings showing each attack's real reach (Settings > Controls)
+## Settings > Game > Match intros: the arena intro before an offline match (ArenaIntro).
+var match_intros := true
+## --intro (1) / --no-intro (-1); 0: the default (see _intro_wanted).
+var _intro_arg := 0
+## The match was started from the command line (--mode, --showcase, --autoplay): no intro
+## unless --intro, so captures keep their frame numbers.
+var _cli_start := false
+## The arena intro playing now (null: none). The sim is not stepped while it plays.
+var intro: ArenaIntro = null
+var _screen_layer: CanvasLayer
 var rings: RangeRings
 ## The frame-rate overlay (Settings > Video, F9): PerfOverlay.Mode, over everything.
 var perf_overlay: PerfOverlay
@@ -384,6 +424,7 @@ var autoplay: AutoPlay = null
 var frame_count := 0
 var _shots := {}
 var _shot_dir := "user://shots"
+var _cam_force := Vector3.ZERO  ## --cam=x,y,zoom: the camera held here (screenshots)
 var _quit_after := 0
 ## The CPUs' inputs for this tick are worked out (_think_cpus) and wait in last_bits.
 var _cpus_thought := false
@@ -475,12 +516,19 @@ func _ready() -> void:
 	add_child(camera)
 	camera.make_current()
 
+	backdrop = BackdropView.new()  # the sky and the far tiers, sliding less than the camera (parallax)
+	add_child(backdrop)
 	arena = ArenaView.new()
 	add_child(arena)
 	crowd = CrowdView.new()
+	furniture = FurnitureView.new()  # floodlights, flags, the scoreboard, sponsor boards (arena JSON "furniture")
+	furniture.backdrop = backdrop
+	add_child(furniture)
 	add_child(crowd)
 	wear = FloorWear.new()  # scratches, gouges, craters, prints: the floor remembers, under everything
 	add_child(wear)
+	weather = WeatherView.new()
+	add_child(weather.shade)  # the time of day's tint over the floor, crowd and wear, under the floor effects
 	fx_ground = FxGround.new()
 	add_child(fx_ground)
 	water = WaterView.new()  # living water over the shallows, under the fighters
@@ -490,6 +538,9 @@ func _ready() -> void:
 	shadows = ShadowLayer.new()  # the fighters' shadows, on the floor under everyone
 	shadows.views = views
 	add_child(shadows)
+	add_child(weather.ground)  # fog bands, rain splashes: over the shadows, under the fighters
+	glow_floor = LightView.new()  # light pools on the floor, over the shadows, under the fighters
+	add_child(glow_floor)
 	rings = RangeRings.new()
 	rings.visible = false
 	rings.fx = fx  # what the local team can see (Vision): no rings for a hidden foe
@@ -497,6 +548,8 @@ func _ready() -> void:
 	entities = Node2D.new()
 	entities.y_sort_enabled = true
 	add_child(entities)
+	weather.views = views
+	add_child(weather)  # rain, snow, blown debris: over the fighters, under telegraphs and health bars
 	fx = FxView.new()
 	fx.bind_ground(fx_ground)
 	fx.wear = wear
@@ -504,6 +557,12 @@ func _ready() -> void:
 	paper = PaperFx.new()  # Mister Crease's sheets, crafts and storms, over the fighters
 	paper.fx = fx
 	add_child(paper)
+	glow_floor.fx = fx
+	glow_halo = LightView.new()  # the same lights as halos, over the effects
+	glow_halo.halo = true
+	glow_halo.source = glow_floor
+	add_child(glow_halo)
+	_apply_glow()
 	audio = AudioView.new()
 	add_child(audio)
 	fx.cue.connect(audio.play)
@@ -514,6 +573,7 @@ func _ready() -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 10
 	add_child(layer)
+	_screen_layer = layer
 	letterbox = Letterbox.new()  # first on the screen layer: under the flash, the fade and the HUD
 	layer.add_child(letterbox)
 	flash_rect = ColorRect.new()
@@ -543,6 +603,7 @@ func _ready() -> void:
 	if UiTheme.smooth:
 		ui.restyle()  # the menu theme was built before the saved Text font was read
 	var start_mode := _parse_args()
+	_cli_start = start_mode >= 0
 	_apply_device()
 	_apply_discord()
 	_apply_range_rings()
@@ -601,6 +662,9 @@ func _open_menu(page := "", focus := "") -> void:
 	match page:
 		"single":
 			_open_single()
+		"look":  # the Time and Weather page, for captures
+			_open_single()
+			_open_look_page()
 		"settings":
 			_open_settings()
 		"game", "video", "audio":
@@ -617,7 +681,9 @@ func _open_menu(page := "", focus := "") -> void:
 
 ## A CPU-vs-CPU match behind the menus (restarted now and then; the screens stay).
 func _menu_background() -> void:
+	_menu_bg = true
 	_new_sim(MatchFactory.versus("cairn", "culvert"), [Side.CPU, Side.CPU])
+	_menu_bg = false
 	hud.timer_ticks = -1
 	hud.banner = ""
 	hud.banner_sub = ""
@@ -638,7 +704,12 @@ func _open_single() -> void:
 		for id in ArenaMap.IDS:
 			maps.append(ArenaMap.name_of(id))
 		var arena_row := s.add_option("Arena", maps, maxi(0, ArenaMap.IDS.find(MatchFactory.arena)),
-			func(i: int): _set_arena(ArenaMap.IDS[i]), "Where every match is fought. Left/Right: the map")
+			func(i: int): _set_arena(ArenaMap.IDS[i]),
+			"Where every match is fought. Left/Right: the map. Enter: the time of day and the weather")
+		arena_row.activates = true
+		arena_row.activated.connect(func():
+			ui.notify_chosen()
+			_open_look_page())
 		var arena_card := s.card(arena_row)
 		if arena_card != null:
 			arena_card.picture = _arena_picture(MatchFactory.arena)
@@ -699,6 +770,66 @@ func _open_single_group(gid: String, focus_row := -1) -> void:
 		s.add_space(3)
 		s.add_button("Back", s.back)
 	ui.push(scr)
+
+
+## Enter on the Arena row: a page with the Time and Weather options (the hub has no room
+## for two more rows).
+func _open_look_page() -> void:
+	var scr := UiScreen.new()
+	scr.logo = true
+	scr.crumbs = ["SINGLE PLAYER"]
+	scr.title = "TIME AND WEATHER"
+	scr.row_width = 236.0
+	scr.detail = true
+	scr.blurb = "How offline matches look: never how they play"
+	scr.hints = ["move", "change", "back"]
+	scr.builder = func(p: UiScreen):
+		_add_look_rows(p)
+		p.add_space(4)
+		p.add_button("Back", p.back)
+	ui.push(scr)
+
+
+## The Time and Weather options: Random (one the map allows) or a preset.
+func _add_look_rows(s: UiScreen) -> void:
+	for kind in ["times", "weathers"]:
+		var ids: Array = [WeatherView.RANDOM] + (WeatherView.time_ids() if kind == "times" else WeatherView.weather_ids())
+		var names: Array = []
+		for id in ids:
+			names.append("Random" if id == WeatherView.RANDOM else WeatherView.name_of(kind, String(id)))
+		var cur := time_choice if kind == "times" else weather_choice
+		var label := "Time" if kind == "times" else "Weather"
+		var desc := ("Day, sunset or night: how the match looks, never how it plays. Random: one the map allows"
+			if kind == "times" else
+			"Clear, rain, fog, wind or snow: looks only. Random: one the map allows; one the map doesn't allow plays clear. Online is always day and clear")
+		s.add_option(label, names, maxi(0, ids.find(cur)), func(i: int): _set_look_choice(kind, String(ids[i])), desc)
+
+
+func _set_look_choice(kind: String, id: String) -> void:
+	if kind == "times":
+		time_choice = id
+	else:
+		weather_choice = id
+	_look_cli.erase("time" if kind == "times" else "weather")
+	_save_settings()
+
+
+## The look of the match `s` is starting: day + clear online, while watching a room and
+## for the menu's background fight; a replay's recorded one; else the menu's choice
+## (or the command line's) within what the arena allows, kept across a match's rounds.
+func _match_look(s: MatchSim) -> Dictionary:
+	if online != null or watch != null or _menu_bg:
+		return WeatherView.default_look()
+	if mode == REPLAY_MODE:
+		var rl = _replay_watched.get("look", {})
+		return rl if rl is Dictionary and not (rl as Dictionary).is_empty() else WeatherView.default_look()
+	var aid := String(s.arena.get("id", ""))
+	if _look_fresh or _look.is_empty() or String(_look.get("arena", "")) != aid:
+		_look = WeatherView.resolve(s.arena, String(_look_cli.get("time", time_choice)),
+			String(_look_cli.get("weather", weather_choice)))
+		_look["arena"] = aid
+		_look_fresh = false
+	return {"time": _look["time"], "weather": _look["weather"]}
 
 
 ## A row's card in the panel: the fighter the row's choice names, and the mode's facts
@@ -999,6 +1130,7 @@ func _start_match(m: int, keep_teams := false) -> void:
 	if not (keep_teams and m == mode):
 		_training_fighter = ""  # a swapped fighter lasts until you leave training
 	mode = m
+	_look_fresh = true  # a new match: a new look
 	wins = [0, 0]
 	_carried_energy = [-1.0, -1.0]
 	round_num = 1
@@ -1047,6 +1179,8 @@ func _start_match(m: int, keep_teams := false) -> void:
 		ui.push(pick)
 		return
 	_start_round()
+	if not keep_teams:
+		_maybe_intro()
 
 
 ## Modes that open the pick screen first.
@@ -1060,6 +1194,7 @@ func _on_teams_chosen(teams: Array) -> void:
 	_teams = teams
 	audio.play("ui_select", 0.0, 1.0, true)
 	_start_round()
+	_maybe_intro()
 
 
 ## How many people play at this machine in a mode.
@@ -1230,6 +1365,8 @@ func _arcade_result(won: bool) -> bool:
 		wins = [0, 0]
 		round_num = 1
 		_start_arcade_stage()
+		if arcade is Arcade:
+			_maybe_intro()  # a new opponent up the ladder (not each Gauntlet wave)
 		return true
 	# The boss is down: the Arcade is cleared on this level.
 	_arcade_cleared = true
@@ -1919,6 +2056,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	_exchange_t = 0
 	_exchange_hits = 0
 	_surge_bars = 0
+	_drop_intro()
 	if letterbox != null:
 		letterbox.clear()
 	sides = p_sides.duplicate()
@@ -1944,6 +2082,9 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	for c in sim.creatures:
 		two_sides = two_sides and c.team >= 0 and c.team <= 1
 	crowd.set_size(sim.arena_size(), two_sides)
+	backdrop.set_map(arena.arena_id, sim.arena_size())
+	furniture.hud = hud
+	furniture.set_arena(sim.arena, sim.arena_size())
 	arena.set_terrain(sim.terrain)
 	for v in views:
 		v.queue_free()
@@ -1962,6 +2103,9 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	water.fx = fx
 	ambient.set_sim(sim, arena.art())
 	ambient.fx = fx
+	var look := _match_look(s)
+	weather.apply(sim, look, shadows, ambient, water)
+	replay.setup["look"] = look.duplicate()  # cosmetic: the replay looks the same
 	paper.set_sim(sim)
 	hud.sim = sim
 	fx.sim = sim
@@ -2080,6 +2224,11 @@ func _physics_process(_delta: float) -> void:
 	if paused:
 		_capture()
 		return  # frozen behind the pause menu: nothing steps, the picture holds
+	if intro != null:
+		_intro_step()
+		perf_overlay.tick(Time.get_ticks_usec() - tick_start)
+		_capture()
+		return  # the arena intro: the sim waits at its first tick, the views play it
 	flow_t += 1
 	if _finder != null:
 		_finder_step()
@@ -2171,10 +2320,14 @@ func _physics_process(_delta: float) -> void:
 	arena.refresh()
 	water.advance()
 	ambient.advance()
+	weather.advance()
 	wear.advance()
 	crowd.advance()
 	fx.advance()
 	PerfLog.since("fx advance", t_fx)
+	if glow:
+		glow_floor.advance()  # after the effects: it reads their particles
+		glow_halo.queue_redraw()
 	var t_views := PerfLog.now()
 	paper.advance(events)
 	hud.advance()
@@ -2650,7 +2803,10 @@ func _update_camera() -> void:
 	var base_z := 1.0
 	var base_focus := size * 0.5
 	var ko_focus := _ko_focus
-	if sim != null and showcase == null and coach == null:
+	if intro != null:
+		base_z = intro.zoom
+		base_focus = intro.focus
+	elif sim != null and showcase == null and coach == null:
 		_frame_fight(view, size)
 		base_z = _cam_zoom
 		base_focus = _cam_follow + _cam_lead
@@ -2667,6 +2823,10 @@ func _update_camera() -> void:
 		base_z = _cam_zoom
 		base_focus = _cam_follow
 		ko_focus = _ko_pos + Vector2(0, -16)  # no K.O. banner in a showcase
+	if _cam_force != Vector3.ZERO:
+		base_focus = Vector2(_cam_force.x, _cam_force.y)
+		if _cam_force.z > 0.0:
+			base_z = _cam_force.z
 	var z := base_z
 	var focus := base_focus
 	if _ko_cam_t >= 0:
@@ -2681,7 +2841,7 @@ func _update_camera() -> void:
 	camera.zoom = Vector2(z, z)
 	# Near an edge the shot may run a little past it, into the side stands and front rows.
 	camera.position = Vector2(_cam_axis(focus.x, half.x, size.x, CrowdView.SHOW_SIDE, CrowdView.SHOW_SIDE),
-		_cam_axis(focus.y, half.y, size.y, 0.0, CrowdView.SHOW_FRONT))
+		_cam_axis(focus.y, half.y, size.y, CrowdView.SHOW_TOP, CrowdView.SHOW_FRONT))
 	_update_pointers(view)
 
 
@@ -2694,14 +2854,179 @@ static func ko_push(t: int) -> float:
 	return smoothstep(0.0, 1.0, k_in) * (1.0 - smoothstep(0.0, 1.0, k_out))
 
 
-## The letterbox: in for a knockout's push-in (until it starts easing back) and a Surge's
-## freeze, out otherwise. Not over the title's background match.
+## The letterbox: in for a knockout's push-in (until it starts easing back), a Surge's
+## freeze and its cut-in (held until the cut-in is gone, which outlasts the freeze), and the
+## arena intro; out otherwise. Not over the title's background match.
 func _update_letterbox() -> void:
 	if _surge_bars > 0:
 		_surge_bars -= 1
 	var ko := _ko_cam_t >= 0 and _ko_cam_t < KO_HOLD_UNTIL
-	letterbox.shown = flow != Flow.MENU and (ko or _surge_bars > 0)
+	letterbox.shown = flow != Flow.MENU and (ko or _surge_bars > 0 or hud.cutting_in() or intro != null)
 	letterbox.advance()
+
+
+# ------------------------------------------------------------------ arena intro
+
+## Whether a match starting now gets the arena intro: offline matches against the CPU or
+## local players, with Settings > Game > Match intros on. Never online (both peers must
+## start the sim on the same tick, and a watcher follows the server's), in a replay,
+## training, trials, drills or showcases, or behind the menu. Headless runs and command-line
+## starts skip it unless --intro (tests and captures keep their frame numbers).
+func _intro_wanted() -> bool:
+	if _intro_arg < 0 or not match_intros:
+		return false
+	if _intro_arg == 0 and (DisplayServer.get_name() == "headless" or _cli_start or autoplay != null):
+		return false
+	if sim == null or online != null or watch != null or netplay != null or _replaying():
+		return false
+	if showcase != null or coach != null or sim.training or MODES[mode].get("training", false):
+		return false
+	return flow == Flow.INTRO or flow == Flow.FIGHT
+
+
+## Starts the arena intro for the match just set up, if it gets one. The sim stays at its
+## first tick until the intro ends (or a press skips it); then the round goes on exactly as
+## it would have without it.
+func _maybe_intro() -> void:
+	if not _intro_wanted():
+		return
+	_drop_intro()
+	intro = ArenaIntro.new()
+	intro.sim = sim
+	intro.arena_name = String(sim.arena.get("name", ArenaMap.name_of(sim.arena_id)))
+	intro.subtitle = _intro_subtitle()
+	intro.groups = _intro_groups()
+	_screen_layer.add_child(intro)
+	_screen_layer.move_child(intro, hud.get_index())  # over the letterbox and the flash, under the HUD
+	hud.cinema = true
+	hud.banner = ""
+	hud.banner_sub = ""
+	for v in views:
+		v.intro_clock = 0
+	crowd.roar(90)
+	audio.play("crowd_roar")
+
+
+## What the arena's card says under its name: the mode.
+func _intro_subtitle() -> String:
+	var cfg: Dictionary = MODES[mode]
+	if arcade != null:
+		return arcade.stage_label()
+	if team_battle != null:
+		var what := "KING OF THE CRATER" if team_battle.crater else ("SINKHOLE" if team_battle.sinkhole else
+			("TEAM DEATHMATCH" if team_battle.deathmatch else ("CARAVAN" if team_battle.caravan else
+			("CAPTURE THE FLAG" if team_battle.ctf else "TEAM BATTLE"))))
+		return "%s   %d v %d" % [what, team_battle.size, team_battle.size]
+	if duel != null:
+		return "DUEL   %d v %d" % [(duel.teams[0] as Array).size(), (duel.teams[1] as Array).size()]
+	if brawl != null:
+		return "CHAOS CUP" if _chaos_names != "" else "BRAWL"
+	return "VERSUS" if cfg.get("versus2p", false) else "1 v 1"
+
+
+## The intro's beats: one per fighter in a 1v1, one per team in a team battle or a Duel
+## (introduced together), and one for everyone in a Brawl.
+func _intro_groups() -> Array:
+	var out: Array = []
+	var n := sim.creatures.size()
+	if brawl != null:
+		var names: Array = []
+		var all: Array = []
+		for i in n:
+			names.append(String(sim.creatures[i].def.get("name", "?")).to_upper())
+			all.append(i)
+		return [{"slots": all, "side": 0, "color": Hud.C_ACCENT, "tag": "FREE-FOR-ALL",
+			"name": "%d FIGHTERS" % n, "lines": ["  ·  ".join(names)]}]
+	if team_battle != null or duel != null:
+		for side in 2:
+			var slots: Array = []
+			var names: Array = []
+			for i in n:
+				if sim.creatures[i].team == side:
+					slots.append(i)
+			if duel != null:
+				for id in duel.teams[side]:
+					names.append(String(MatchFactory.load_def(String(id)).get("name", id)).to_upper())
+			else:
+				for i in slots:
+					names.append(String(sim.creatures[i].def.get("name", "?")).to_upper())
+			var you := false
+			for i in slots:
+				you = you or (i < sides.size() and sides[i] in LOCAL_SIDES)
+			out.append({"slots": slots, "side": side, "color": Hud.SIDE_COLORS[side],
+				"tag": "YOUR TEAM" if you else "CPU TEAM",
+				"name": ["RED TEAM", "BLUE TEAM"][side], "lines": ["  ·  ".join(names)]})
+		return out
+	for i in mini(n, 2):
+		var d: Dictionary = sim.creatures[i].def
+		var bits := PackedStringArray()
+		for k in ["role", "affinity"]:
+			var v = d.get(k)
+			if v != null and String(v) != "" and String(v) != "none":
+				bits.append(String(v).capitalize())
+		var lines: Array = []
+		if String(d.get("title", "")) != "":
+			lines.append(String(d["title"]))
+		lines.append("  ·  ".join(bits))
+		out.append({"slots": [i], "side": i, "color": Hud.SIDE_COLORS[i], "tag": _side_name(i),
+			"name": String(d.get("name", "?")).to_upper(), "lines": lines})
+	return out
+
+
+## One tick of the intro: only views move (the sim is not stepped, no events, no CPUs).
+func _intro_step() -> void:
+	var view := get_viewport().get_visible_rect().size
+	var g := intro.advance(view, sim.arena_size())
+	if g >= 0:
+		for i in intro.groups[g]["slots"]:
+			if int(i) < views.size():
+				views[int(i)].intro_pose()
+		crowd.cheer(0.5)
+		audio.play("round_start", -6.0, 1.25)
+	if intro.t == ArenaIntro.CARD_IN + 3:
+		audio.play("slam", -6.0, 0.8)
+		shake = maxf(shake, 2.0)
+	arena.refresh()
+	water.advance()
+	ambient.advance()
+	weather.advance()
+	wear.advance()
+	crowd.advance()
+	fx.advance()
+	hud.advance()
+	for v in views:
+		v.refresh()
+	shake *= 0.82
+	_update_camera()
+	_update_letterbox()
+	var sh := shake * shake_scale
+	camera.offset = Vector2.ZERO if sh <= 0.3 else Vector2(randf_range(-sh, sh), randf_range(-sh, sh)).round()
+	flash_rect.color.a = maxf(0.0, flash_rect.color.a - 0.04)
+	if intro.finished():
+		_end_intro()
+
+
+## The intro is over (or skipped): the fight camera eases on from where the intro left
+## it, the HUD comes back, and the round's banners start on the next tick.
+func _end_intro() -> void:
+	if intro == null:
+		return
+	_cam_zoom = intro.zoom
+	_cam_follow = intro.focus
+	_cam_lead = Vector2.ZERO
+	_drop_intro()
+
+
+## Takes the intro off without touching the camera (a new match, the menu).
+func _drop_intro() -> void:
+	if intro == null:
+		return
+	intro.queue_free()
+	intro = null
+	hud.cinema = false
+	for v in views:
+		v.intro_clock = -1
+		v.victory = false
 
 
 ## Big maps: arrows at the screen's edge toward objectives out of shot (the caravan, the
@@ -2862,12 +3187,23 @@ static func _cam_axis(v: float, half: float, arena: float, lo := 0.0, hi := 0.0)
 # ------------------------------------------------------------------ input
 
 func _input(event: InputEvent) -> void:
+	if intro != null and _skips_intro(event):
+		_end_intro()
+		get_viewport().set_input_as_handled()  # the press only skips (Esc doesn't also pause)
+		return
 	if not (event is InputEventMouseMotion):
 		_join_cpus()  # a press may change the match (a reset, a swap) while the CPUs read it
 	var before := player_input.label_set()
 	player_input.note_event(event)
 	if player_input.label_set() != before:
 		_apply_device()
+
+
+## Any button skips the arena intro: a key, a controller button, a mouse click.
+static func _skips_intro(event: InputEvent) -> bool:
+	if event is InputEventKey:
+		return event.pressed and not event.echo
+	return (event is InputEventJoypadButton or event is InputEventMouseButton or event is InputEventAction) and event.pressed
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -3155,6 +3491,9 @@ func _setting(key: String) -> Dictionary:
 		"dummy_mode":
 			return {"label": "Dummy", "values": DUMMY_MODES, "index": dummy_mode,
 				"desc": "What the dummy does (F2 cycles it in a fight)"}
+		"intros":
+			return {"label": "Match intros", "values": ["Off", "On"], "index": 1 if match_intros else 0,
+				"desc": "Before an offline match: a fly-over of the arena and each side's entrance (any button skips it)"}
 		"rumble":
 			return {"label": "Controller rumble", "values": ["Off", "On"], "index": 1 if rumble else 0,
 				"desc": "A buzz when you land a hit or get hit"}
@@ -3176,6 +3515,9 @@ func _setting(key: String) -> Dictionary:
 				vals.append("Unlimited" if int(f) == 0 else "%d fps" % int(f))
 			return {"label": "Fight frame rate", "values": vals, "index": maxi(0, FPS_CHOICES.find(fight_fps)),
 				"desc": "Menus always run at 60 fps; this sets fights (up to your screen's refresh rate)"}
+		"glow":
+			return {"label": "Glow", "values": ["Off", "On"], "index": 1 if glow else 0,
+				"desc": "Glowing things (auras, sparks, flashes, shots) light the floor around them. Off for weaker devices"}
 		"font":
 			return {"label": "Text font", "values": ["Pixel", "Smooth"], "index": 1 if UiTheme.smooth else 0,
 				"desc": "The menus and the HUD: the pixel font, or the smooth font from before"}
@@ -3218,6 +3560,8 @@ func _set_setting(key: String, i: int) -> void:
 			"vsync":
 				vsync = i == 1
 				_apply_vsync()
+			"intros":
+				match_intros = i == 1
 			"rumble":
 				rumble = i == 1
 				if rumble and player_input.device == PlayerInput.Device.GAMEPAD:
@@ -3240,6 +3584,9 @@ func _set_setting(key: String, i: int) -> void:
 				fight_fps = int(FPS_CHOICES[clampi(i, 0, FPS_CHOICES.size() - 1)])
 			"perf_overlay":
 				perf_overlay.mode = clampi(i, 0, PerfOverlay.MODE_NAMES.size() - 1) as PerfOverlay.Mode
+			"glow":
+				glow = i == 1
+				_apply_glow()
 			"font":
 				if UiTheme.smooth != (i == 1):
 					UiTheme.smooth = i == 1
@@ -3465,6 +3812,15 @@ func _rumble(e: Dictionary) -> void:
 			Input.start_joy_vibration(player_input.pad_id, 0.8, 0.8, 0.5)
 
 
+## Glow on or off: off hides both layers and stops gathering lights (no cost at all).
+func _apply_glow() -> void:
+	for g in [glow_floor, glow_halo]:
+		if g != null:
+			g.visible = glow
+			if not glow:
+				g.clear()
+
+
 func _load_settings() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(settings_path) == OK:
@@ -3480,6 +3836,10 @@ func _load_settings() -> void:
 		Netplay.player_name = String(cfg.get_value("online", "name", "Player")).strip_edges().left(16)
 		if Netplay.player_name == "":
 			Netplay.player_name = "Player"
+		var tc := String(cfg.get_value("game", "time", WeatherView.RANDOM))
+		time_choice = tc if tc == WeatherView.RANDOM or tc in WeatherView.time_ids() else WeatherView.RANDOM
+		var wc := String(cfg.get_value("game", "weather", WeatherView.RANDOM))
+		weather_choice = wc if wc == WeatherView.RANDOM or wc in WeatherView.weather_ids() else WeatherView.RANDOM
 		var ar := String(cfg.get_value("game", "arena", MatchFactory.arena))
 		if ar in ArenaMap.IDS:
 			_arena_saved = ar
@@ -3503,6 +3863,7 @@ func _load_settings() -> void:
 		wide_fill = bool(cfg.get_value("video", "wide_fill", true))
 		_apply_aspect()
 		rumble = bool(cfg.get_value("game", "rumble", true))
+		match_intros = bool(cfg.get_value("game", "intros", true))
 		discord_status = bool(cfg.get_value("game", "discord", true))
 		shake_scale = float(cfg.get_value("game", "shake", 1.0))
 		range_rings = bool(cfg.get_value("game", "range_rings", false))
@@ -3513,6 +3874,8 @@ func _load_settings() -> void:
 		var fps := int(cfg.get_value("video", "fight_fps", default_fps()))
 		fight_fps = fps if fps in FPS_CHOICES else default_fps()
 		UiTheme.smooth = String(cfg.get_value("video", "font", "pixel")) == "smooth"
+		glow = bool(cfg.get_value("video", "glow", default_glow()))
+		_apply_glow()
 		perf_overlay.mode = clampi(int(cfg.get_value("video", "perf_overlay", 0)), 0,
 			PerfOverlay.MODE_NAMES.size() - 1) as PerfOverlay.Mode
 		var saved_rows = cfg.get_value("game", "row_choice", {})
@@ -3533,6 +3896,8 @@ func _save_settings() -> void:
 	cfg.set_value("input", "pad_layout", player_input.pad_layout)
 	cfg.set_value("game", "level", level)
 	cfg.set_value("game", "arena", _arena_saved)
+	cfg.set_value("game", "time", time_choice)
+	cfg.set_value("game", "weather", weather_choice)
 	cfg.set_value("online", "delay", input_delay)
 	cfg.set_value("online", "id", Netplay.player_id)
 	cfg.set_value("online", "name", Netplay.player_name)
@@ -3546,8 +3911,10 @@ func _save_settings() -> void:
 	cfg.set_value("video", "vsync", vsync)
 	cfg.set_value("video", "wide_fill", wide_fill)
 	cfg.set_value("video", "perf_overlay", perf_overlay.mode)
+	cfg.set_value("video", "glow", glow)
 	cfg.set_value("video", "font", "smooth" if UiTheme.smooth else "pixel")
 	cfg.set_value("game", "rumble", rumble)
+	cfg.set_value("game", "intros", match_intros)
 	cfg.set_value("game", "shake", shake_scale)
 	cfg.set_value("game", "range_rings", range_rings)
 	for k in MatchSim.TRAINING_FLAGS:
@@ -3611,6 +3978,10 @@ func _parse_args() -> int:
 			start = 4
 		elif a == "--hitboxes":
 			debug.visible = true
+		elif a == "--intro":
+			_intro_arg = 1
+		elif a == "--no-intro":
+			_intro_arg = -1
 		elif a == "--range-rings":
 			range_rings = true
 		elif a.begins_with("--mode="):
@@ -3641,6 +4012,14 @@ func _parse_args() -> int:
 			var ar := a.get_slice("=", 1)
 			if ar in ArenaMap.IDS:
 				MatchFactory.arena = ar
+		elif a.begins_with("--time="):
+			var tid := a.get_slice("=", 1)
+			if tid == WeatherView.RANDOM or tid in WeatherView.time_ids():
+				_look_cli["time"] = tid
+		elif a.begins_with("--weather="):
+			var wid := a.get_slice("=", 1)
+			if wid == WeatherView.RANDOM or wid in WeatherView.weather_ids():
+				_look_cli["weather"] = wid
 		elif a.begins_with("--dummy-mode="):
 			dummy_mode = clampi(int(a.get_slice("=", 1)), 0, DUMMY_MODES.size() - 1)
 		elif a.begins_with("--training-flags="):
@@ -3652,6 +4031,9 @@ func _parse_args() -> int:
 		elif a.begins_with("--shots="):
 			for s in a.get_slice("=", 1).split(","):
 				_shots[int(s)] = true
+		elif a.begins_with("--cam="):
+			var cp := a.get_slice("=", 1).split(",")
+			_cam_force = Vector3(float(cp[0]), float(cp[1]), float(cp[2]) if cp.size() > 2 else 0.0)
 		elif a.begins_with("--shot-dir="):
 			_shot_dir = a.get_slice("=", 1)
 		elif a.begins_with("--quit-after="):
@@ -3672,7 +4054,7 @@ func _parse_args() -> int:
 			_net_args["watch"] = true
 		elif a.begins_with("--menu="):
 			var page := a.get_slice("=", 1)
-			if page in ["main", "single", "settings", "game", "video", "audio", "controls"] or page.begins_with("single:") \
+			if page in ["main", "single", "look", "settings", "game", "video", "audio", "controls"] or page.begins_with("single:") \
 					or page in ["remap:classic", "remap:league", "remap:gamepad"]:
 				_menu_arg = "" if page == "main" else page
 		elif a.begins_with("--fighter="):

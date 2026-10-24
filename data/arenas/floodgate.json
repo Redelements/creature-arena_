@@ -3,7 +3,26 @@
 	"id": "floodgate",
 	"name": "Floodgate Stadium",
 	"ground": "concrete",
+	"times": ["day", "sunset", "night"],
+	"weathers": ["clear", "rain", "fog", "wind"],
 	"light": {"_doc": "evening floodlights from the top right, over the wet concrete", "dir": [-0.5, 0.87], "length": 0.45, "alpha": 0.3},
+	"ambient": {"_doc": "spray over the channel, dragonflies and a jumping fish in the shallows; see AmbientView",
+		"motes": {"kind": "mist", "count": 34, "area": [35, 0, 14, 36]},
+		"critters": [
+			{"kind": "dragonfly", "count": 3, "area": [34, 2, 16, 32]},
+			{"kind": "fish", "every": 240}]},
+	"furniture": [
+		{"kind": "pipe", "pos": [-340, -12], "anchor": "t", "len": 230},
+		{"kind": "pipe", "pos": [110, -12], "anchor": "t", "len": 230},
+		{"kind": "pipe", "pos": [-28, 56], "len": 90, "vertical": true},
+		{"kind": "pipe", "pos": [28, 56], "anchor": "tr", "len": 90, "vertical": true},
+		{"kind": "sign", "pos": [-48, 56]},
+		{"kind": "sign", "pos": [48, 56], "anchor": "tr"},
+		{"kind": "sign", "pos": [-48, 22], "anchor": "bl"},
+		{"kind": "sign", "pos": [48, 22], "anchor": "br"},
+		{"kind": "sponsor", "pos": [193, 54], "text": "SPLASH-IT", "color": "#2c64a8", "w": 62},
+		{"kind": "sponsor", "pos": [449, 54], "text": "SLUICE-CO", "color": "#d2a028", "w": 62}
+	],
 	"pieces": [
 		{"kind": "shallows", "rect": [38, 0, 8, 8]},
 		{"kind": "shallows", "rect": [38, 12, 8, 12]},

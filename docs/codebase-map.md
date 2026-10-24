@@ -76,16 +76,20 @@ update the map in the same change.
 | windup tells (red and gold) | `src/view/fx_view.gd:_windup_tell`, `src/view/creature_view.gd` | counterplay, trials |
 | sprites, animation frames, facing sheets | `src/view/creature_view.gd:_pick`, `_attack_frame`; specs `docs/SPRITES.md` | views |
 | Surge aura | `src/view/surge_aura.gd` | surge_ready |
-| HUD, stamina bar, cooldowns, combo counter, cut-in | `src/view/hud.gd:_panel`, `_combo`, `cut_in` | test_ui, training |
+| glow, light pools, bloom, halos (Settings > Video "Glow") | `src/view/light_view.gd` (`advance` gathers: `_creature_lights`, `_projectile_lights`, `_part_light`; `_merge`, `_build`); per-move `fx.light` / `fx.projectile_light`; setting `main.gd:_apply_glow`, `default_glow` | glow, test_ui |
+| HUD, stamina bar, cooldowns, combo counter, cut-in | `src/view/hud.gd:_panel`, `_combo`, `cut_in` | test_ui, training, hud_panels |
 | health bars over fighters | `src/view/fx_view.gd:_draw_side_marks` | overhead_bars |
 | range rings, hitbox overlay | `src/view/range_rings.gd`, `src/view/debug_view.gd` | range_rings |
 | fps counter, frame-time graph, performance overlay | `src/view/perf_overlay.gd`; `--perf` report `src/game/perf_log.gd` | perf_overlay |
 | DPS meter | `src/view/dps_meter.gd` | training |
 | sound effects, music, volume | `src/view/audio_view.gd:on_event`, `data/audio.json`, `docs/AUDIO.md` | scripts_load |
+| time of day, weather, night, sunset, rain, fog, wind, snow, floodlights | `src/view/weather_view.gd` (`apply`, `_build_lightmap`, `_apply_fighters`, `_paint_ground`, `_draw`); presets `data/weather.json`, an arena's `times` / `weathers`; menu and choice `main.gd:_add_look_rows`, `_match_look`; ambient hook `ambient_view.gd:set_weather` | weather, ambient, shadows |
 | shadows, light direction, sun | `src/view/shadow_layer.gd` (`light_of`, `draw_silhouette`), `src/view/creature_view.gd:draw_shadow`; a map's `light` in `data/arenas/<id>.json`; piece shadows `tools/gen_arenas.py:cast_shadows`, dropped when a piece changes `src/view/arena_view.gd:_shade` | shadows |
+| parallax sky and far stands, arena furniture (floodlights, flags, banners, scoreboard, sponsor boards: arena JSON `furniture`) | `src/view/backdrop_view.gd` (`offset_for`, `_place`; layers `arena_<id>_sky.png` / `_far.png` from `tools/gen_arenas.py:split_backdrop`), `src/view/furniture_view.gd` (`set_arena`, `_draw_piece`, `board_text`, kinds `KINDS`), camera look above the arena `CrowdView.SHOW_TOP` | furniture |
 | arena drawing, crowd (stands on all sides, team sections, fans standing up for hits), map art, shallows water (flow, foam, wading wakes, splash), per-map ambient life (pane shadows, pollen, brush sway, butterflies: arena JSON `ambient`) | `src/view/arena_view.gd` (`_paint_changed`, row bands `BAND_ROWS`), `src/view/crowd_view.gd` (`set_size`, `react`, `sheet`; layout in step with `gen_arenas.py:_side_stands` / `_front_stands`; the camera looks into them via `main.gd:_cam_axis`, `SHOW_SIDE` / `SHOW_FRONT`), `src/view/water_view.gd` (`_paint_surface`, `_watch_fighters`), `src/view/ambient_view.gd` (`_paint_sway`, `_watch_brush`, `_move_flies`; tests `test_ambient`); art from `tools/gen_arenas.py` (rerun after moving a piece in `data/arenas/`) | arena |
 | floor wear (scratches, gouges, craters, drag lines, clods, footprints that fade) | `src/view/floor_wear.gd` (`mark`, `_age`, `_build`); what leaves one: `src/view/fx_view.gd` (`_wear_hit`, `_wear_strike`, `_wear_drag`, `_wear_step`), per-move `fx.decal` | view |
 | camera, zoom, screen shake, look-ahead, exchange push-in, KO push-in, letterbox | `src/game/main.gd:_update_camera`, `_frame_fight` (`_lead_of`, `_lead_room`, `_note_exchange`, `ko_push`), `_update_letterbox`; bars `src/view/letterbox.gd` | test_ui |
+| arena intro, match intro, fly-over, fighter entrances, name card | `src/game/main.gd:_maybe_intro`, `_intro_wanted`, `_intro_groups`, `_intro_step`, `_end_intro`; drawing and timeline `src/view/arena_intro.gd`; `CreatureView.intro_clock` / `intro_pose` | test_ui |
 | game modes, mode numbers, menus' rows | `src/game/main.gd` `MODES`, `MENU_ROWS`, `_start_match` | test_ui, test_journey, menu_contract |
 | settings | `src/game/main.gd` `SETTING_PAGES`, `_setting`, `_set_setting` | test_ui |
 | CLI flags | `src/game/main.gd:_parse_args` (list in `src/game/CLAUDE.md`) | test_ui |

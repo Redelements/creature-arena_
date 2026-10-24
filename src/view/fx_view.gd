@@ -97,6 +97,15 @@ extends Node2D
 ##   petrified    CreatureView's grey shader, cracks over it as it ends (dust ring on the shatter)
 ##   pickpocket   gold glints on the thief while the stolen might lasts; coins drift from
 ##                the victim to the thief while the victim is weakened
+## Projectile polish (every thrown thing, from `PROJ_STYLE` by its "projectile" kind; a move's fx overrides):
+##   trail_color  colour of the 3 whole-pixel afterimages behind a shot (default by kind)
+##   trail_z      height of the trail above the floor in px; negative: no trail (default by kind)
+##   land_mark    "scuff" | "stuck" | "splat" | "mallet" | "none"  the lasting floor mark (FloorWear) where a shot
+##                that hit nothing ends (default by kind); every shot also has a small shadow in its draw
+## Wall reactions (the sim's "bounce" event, `_wall_reaction`): dust, a white flash on the wall face, falling rubble and,
+## on the arena's boundary wall, cracks that spread and fade over 10 to 20 s (`wallmark`, at most WALL_MARK_CAP);
+## bigger knockback is a bigger splat; a rubble wall (Quarry) gets the burst only. A shot stopped by a rubble wall
+## puffs dust and chips there too.
 
 const SHEET := preload("res://assets/sprites/fx.png")
 const CARAVAN := preload("res://assets/sprites/caravan.png")  ## 4 frames of 48x40 (tools/gen_arenas.py)
@@ -190,6 +199,24 @@ var _was_hidden: Array = []
 const LOST_TICKS := 60.0
 
 
+## Projectile style by the move's fx.projectile kind: [trail colour, trail height (negative: none), landing mark].
+const PROJ_STYLE := {
+	"knife": [Color("d58cff"), THROW_Z, "stuck"], "cleaver": [Color("d58cff"), THROW_Z, "stuck"],
+	"mallet": [Color("d58cff"), THROW_Z, "mallet"], "rod": [Color("e6d2b0"), 10.0, "scuff"],
+	"venom": [Color("7fd64e"), 20.0, "splat"], "dart": [Color("f6f4ec"), 18.0, "scuff"],
+	"shuriken": [Color("ff9a2e"), 18.0, "stuck"], "crane": [Color("f6f4ec"), 20.0, "none"],
+	"frog": [Color("f6f4ec"), -1.0, "none"], "head": [Color("b5665f"), -1.0, "none"],
+	"tongue": [Color("c45c6e"), -1.0, "none"], "wave": [Color("a8d6f0"), -1.0, "none"],
+	"pinecone": [Color("c48c54"), -1.0, "none"], "crane_bundle": [Color("f6f4ec"), -1.0, "none"],
+}
+const TRAIL_STEPS := 3
+const TRAIL_ALPHA: Array[float] = [0.62, 0.42, 0.26]
+const WALL_MARK_CAP := 24
+var _pstyles := {}  ## "owner/move" -> {kind, color, z, mark}
+var _proj_prev: Array = []  ## last tick's shots: [owner, pos, vel, style], to tell what a projectile_end was
+var _wall_marks: Array = []
+
+
 func bind_ground(g: FxGround) -> void:
 	ground = g
 	ground.painter = _paint.bind(true)
@@ -209,6 +236,9 @@ func clear() -> void:
 	_last_push.clear()
 	_dmg_run.clear()
 	_shatter_seen.clear()
+	_pstyles.clear()
+	_proj_prev.clear()
+	_wall_marks.clear()
 	_dark = 0.0
 	_rain = 0.0
 	time_scale = 1.0
@@ -256,6 +286,7 @@ func spawn(e: Dictionary) -> void:
 			_add({"kind": "spark", "pos": p + Vector2(0, -12), "life": 8, "scale": 1.0})
 			_add({"kind": "lines", "pos": p + Vector2(0, -12), "life": 6, "size": 0.8, "color": C_SPARK[0]})
 			_landing_puff(p, 2)
+			_wall_reaction(e, p, power)
 		"fall":
 			for i in 4:
 				_dust(p + Vector2(randf_range(-8, 8), randf_range(-3, 3)), Vector2(randf_range(-0.4, 0.4), -0.5))
@@ -325,6 +356,7 @@ func spawn(e: Dictionary) -> void:
 				_dust(at + Vector2(randf_range(-6, 6), randf_range(-2, 2)), Vector2(randf_range(-0.3, 0.3), -0.4))
 		"projectile_end":
 			var owner_c := _creature(int(e.get("who", -1)))
+			_land_mark(p, power)
 			if owner_c != null and _owner_has_venom(owner_c):
 				_venom_splat(p, 10.0, 8 if power >= 1.0 else 5)
 				return
@@ -661,6 +693,7 @@ func advance() -> void:
 		_track_lost()
 		if ts > 0.0:
 			_projectile_spray()
+		_snap_projectiles()
 	_parts.append_array(_incoming)
 	_incoming.clear()
 
@@ -2581,7 +2614,7 @@ func _paint(ci: CanvasItem, floor_layer: bool) -> void:
 				Color(C_DIM, _dark))
 		_draw_pads(ci)
 		for p in _parts:  # flat things first, so debris sits on top of puddles and cracks
-			if String(p["kind"]) in ["puddle", "decal", "ripple", "lost", "puff"] and _in_view(p, view):
+			if String(p["kind"]) in ["puddle", "decal", "ripple", "lost", "puff", "wallmark", "wallflash"] and _in_view(p, view):
 				_draw_part(ci, p)
 		for p in _parts:
 			if not _in_view(p, view):
@@ -2601,7 +2634,7 @@ func _paint(ci: CanvasItem, floor_layer: bool) -> void:
 		_draw_projectiles(ci)
 	for p in _parts:
 		var kind := String(p["kind"])
-		if kind in ["puddle", "decal", "ripple", "ghost", "later", "emit", "lost"]:
+		if kind in ["puddle", "decal", "ripple", "ghost", "later", "emit", "lost", "wallmark", "wallflash"]:
 			continue
 		if not _in_view(p, view):
 			continue
@@ -2797,6 +2830,10 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 				var gl := Vector2.from_angle(_tick * 0.03) * r * 0.5
 				ci.draw_circle(gl, 1.0, Color(C_FOAM, a))
 			ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		"wallmark":
+			_draw_wallmark(ci, p)
+		"wallflash":
+			_draw_wallflash(ci, p)
 		"decal":
 			var grow := clampf(t / float(p["grow"]), 0.0, 1.0)
 			var col := Color(C_CRACK, 0.85 * _alpha(p))
@@ -2955,6 +2992,7 @@ func _draw_root(ci: CanvasItem, p: Dictionary) -> void:
 
 
 func _draw_projectiles(ci: CanvasItem) -> void:
+	var view := _view_rect(ci, CULL_PAD)
 	for pr in sim.projectiles:
 		var pp: Vector2 = pr["pos"]
 		var vel: Vector2 = pr["vel"]
@@ -2967,6 +3005,7 @@ func _draw_projectiles(ci: CanvasItem) -> void:
 				_draw_pinecone(ci, pr)
 			continue
 		if not _is_wave(pr):
+			_draw_trail(ci, pr, _proj_style(pr), view)
 			match _proj_kind(pr):
 				"knife":
 					_draw_thrown_knife(ci, pr)
@@ -3000,11 +3039,202 @@ func _draw_projectiles(ci: CanvasItem) -> void:
 
 ## Which "projectile" fx the move that threw this uses ("rod" when it can't tell).
 func _proj_kind(pr: Dictionary) -> String:
+	return String(_proj_style(pr)["kind"])
+
+
+## A shot's look data, worked out once per owner and move: its kind, trail colour and height,
+## and landing mark (the move's fx keys over PROJ_STYLE).
+func _proj_style(pr: Dictionary) -> Dictionary:
+	var key := "%d/%s" % [int(pr["owner"]), String(pr.get("move", ""))]
+	if _pstyles.has(key):
+		return _pstyles[key]
+	var kind := "rod"
+	var fx := {}
 	var owner := _creature(int(pr["owner"]))
-	if owner == null or not pr.has("move"):
-		return "rod"
-	var mv: Dictionary = owner.moves().get(String(pr["move"]), {})
-	return String(mv.get("fx", {}).get("projectile", "rod"))
+	if owner != null and pr.has("move"):
+		fx = owner.moves().get(String(pr["move"]), {}).get("fx", {})
+		kind = String(fx.get("projectile", "rod"))
+	var base: Array = PROJ_STYLE.get(kind, [Color("e8e4d8"), 12.0, "scuff"])
+	var st := {"kind": kind, "color": base[0], "z": float(base[1]), "mark": String(base[2])}
+	if fx.has("trail_color"):
+		st["color"] = Color(String(fx["trail_color"]))
+	if fx.has("trail_z"):
+		st["z"] = float(fx["trail_z"])
+	if fx.has("land_mark"):
+		st["mark"] = String(fx["land_mark"])
+	_pstyles[key] = st
+	return st
+
+
+## Whole-pixel afterimages along the path a shot just flew (it moves in a straight line, so
+## its last positions are `pos - vel * k`): three squares fading back, spaced about 5 px.
+func _draw_trail(ci: CanvasItem, pr: Dictionary, st: Dictionary, view: Rect2) -> void:
+	var z := float(st["z"])
+	var pp: Vector2 = pr["pos"]
+	if z < 0.0 or not view.has_point(pp):
+		return
+	var vel: Vector2 = pr["vel"]
+	var sp := vel.length()
+	if sp < 0.5:
+		return
+	var gap := float(maxi(1, roundi(5.0 / sp)))
+	var col: Color = st["color"]
+	for i in TRAIL_STEPS:
+		var at := (pp - vel * gap * float(i + 1) + Vector2(0, -z)).round()
+		var s := 3.0 if i == 0 else 2.0
+		ci.draw_rect(Rect2(at - Vector2.ONE, Vector2(s, s)), Color(col, TRAIL_ALPHA[i]))
+
+
+func _snap_projectiles() -> void:
+	_proj_prev.clear()
+	for pr in sim.projectiles:
+		if not bool(pr.get("lob", false)):
+			_proj_prev.append([int(pr["owner"]), pr["pos"], pr["vel"], _proj_style(pr)])
+
+
+## Where a shot ends: a puff, and for one that hit nothing a lasting mark on the floor (its
+## `land_mark`). Told apart from the last tick's shots by owner and where it should have got to.
+func _land_mark(p: Vector2, power: float) -> void:
+	if sim == null or not _view_rect(self, CULL_PAD).has_point(p):
+		return
+	var best := -1
+	var bd := 1600.0
+	for i in _proj_prev.size():
+		var q: Array = _proj_prev[i]
+		var d := (Vector2(q[1]) + Vector2(q[2])).distance_squared_to(p)
+		if d < bd:
+			bd = d
+			best = i
+	if best < 0:
+		return
+	var q: Array = _proj_prev[best]
+	var st: Dictionary = q[3]
+	var vel: Vector2 = q[2]
+	_proj_prev.remove_at(best)
+	var cell := sim.terrain.world_to_cell(p)
+	if power >= 1.0 and TerrainGrid.blocks_shot(sim.terrain.get_cell(cell)):
+		_wall_burst(p, vel.normalized(), 0, p)  # a rubble wall took it: dust and chips
+		return
+	if power < 1.0:
+		_dust(p, Vector2(0, -0.3))
+	var mark := String(st["mark"])
+	if mark != "none" and (power < 1.0 or mark == "splat"):
+		_wear_mark(mark, p, vel)
+
+
+# ------------------------------------------------------------------ wall reactions
+
+## A body knocked into the boundary wall or a rubble wall: dust, a white flash, chips, and on
+## the boundary wall cracks that stay a while. Bigger knockback, bigger splat.
+func _wall_reaction(e: Dictionary, p: Vector2, power: float) -> void:
+	var c := _creature(int(e.get("who", -1)))
+	if c == null or sim == null or not _view_rect(self, CULL_PAD).has_point(p):
+		return
+	var tier := 0 if power < 4.0 else (1 if power < 8.0 else 2)
+	var lo := c.floor_min()
+	var hi := c.floor_max()
+	var n := Vector2.ZERO
+	var edge := false
+	if p.x <= lo.x + 1.0:
+		n = Vector2.LEFT
+		edge = true
+	elif p.x >= hi.x - 1.0:
+		n = Vector2.RIGHT
+		edge = true
+	elif p.y <= lo.y + 1.0:
+		n = Vector2.UP
+		edge = true
+	elif p.y >= hi.y - 1.0:
+		n = Vector2.DOWN
+		edge = true
+	else:
+		for d in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]:
+			var v := sim.terrain.get_cell(sim.terrain.world_to_cell(p + d * (c.radius + 2.0)))
+			if TerrainGrid.blocks_body(v):
+				n = d
+				break
+	if n == Vector2.ZERO:
+		return
+	var q := p + n * (c.radius if n.x != 0.0 else 0.0)
+	_wall_burst(q, n, tier, q + Vector2(0, -8))
+	if edge:
+		_wall_crack(q, n, tier)
+
+
+## Dust blowing off a wall, chips falling and a white flash on the face at `face`.
+func _wall_burst(q: Vector2, n: Vector2, tier: int, face: Vector2) -> void:
+	var pal: Array[Color] = C_STONE if String(sim.arena.get("ground", "dirt")) in ["dirt", "grass"] else C_CON
+	for i in 3 + tier * 3:
+		var side := n.orthogonal() * randf_range(-0.5, 0.5)
+		_dust(face + n.orthogonal() * randf_range(-5.0, 5.0) * (1 + tier) - n * 2.0,
+			-n * randf_range(0.2, 0.6) + side + Vector2(0, randf_range(-0.5, -0.1)))
+	for i in 3 + tier * 3:
+		_chunk(q - n * 2.0, randf_range(6.0, 16.0), -n * randf_range(0.1, 0.5) + n.orthogonal() * randf_range(-0.3, 0.3),
+			randf_range(0.3, 1.0), randf_range(2.0, 3.0), pal[randi() % 3], 50.0)
+	_add({"kind": "wallflash", "pos": face, "life": 6, "tier": tier, "real": true})
+
+
+## Cracks spreading on the boundary wall face at `q`, fading over 10 to 20 s. Skipped when one
+## is already fresh there (a combo into the same spot); the oldest goes past the cap.
+func _wall_crack(q: Vector2, n: Vector2, tier: int) -> void:
+	var at := (q + (Vector2(0, -10) if n.y <= 0.0 else Vector2(0, 5))).round()
+	for m in _wall_marks:
+		if float(m["t"]) < 40.0 and float(m["t"]) < float(m["life"]) and Vector2(m["pos"]).distance_to(at) < 5.0:
+			return
+	var lines: Array = []
+	for i in 3 + tier * 2:
+		var a := randf() * TAU
+		var pts := PackedVector2Array([Vector2.ZERO])
+		var cur := Vector2.ZERO
+		for j in 2 + tier:
+			a += randf_range(-0.7, 0.7)
+			var step := randf_range(2.0, 3.5 + tier * 1.2)
+			cur += Vector2(roundf(cos(a) * step), roundf(sin(a) * step * 0.8))
+			pts.append(cur)
+		lines.append(pts)
+	var mark := {"kind": "wallmark", "pos": at, "life": float(randi_range(600, 1200)), "lines": lines, "tier": tier,
+		"light": n.y < 0.0, "real": true}
+	_add(mark)
+	_wall_marks.append(mark)
+	while _wall_marks.size() > WALL_MARK_CAP:
+		var old: Dictionary = _wall_marks.pop_front()
+		old["life"] = 0.0
+	_wall_marks = _wall_marks.filter(func(m): return float(m["t"]) < float(m["life"]))
+
+
+func _draw_wallmark(ci: CanvasItem, p: Dictionary) -> void:
+	var t := float(p["t"])
+	var f := t / float(p["life"])
+	var a := 1.0
+	for i in FloorWear.FADE_AT.size():
+		if f >= FloorWear.FADE_AT[i]:
+			a = FloorWear.FADE_A[i]
+	var at := Vector2(p["pos"]) + Vector2(0.5, 0.5)
+	var grow := clampf(t / 8.0, 0.0, 1.0)
+	var light := bool(p.get("light", false))  # the dark stands wall takes pale cracks
+	var main := Color("e0d8cc") if light else C_CRACK
+	var edge := Color(C_CRACK, 0.16 * 5.0) if light else Color(1, 1, 1, 0.16)
+	ci.draw_rect(Rect2(at + Vector2(-1.5, -1.5), Vector2(3, 3)), Color(main, 0.9 * a))
+	for pts: PackedVector2Array in p["lines"]:
+		var shifted := PackedVector2Array()
+		var lit := PackedVector2Array()
+		for q in pts:
+			shifted.append(at + q)
+			lit.append(at + q + Vector2(1, 1))
+		_draw_partial_line(ci, shifted, grow, Color(main, 0.9 * a))
+		_draw_partial_line(ci, lit, grow, Color(edge, edge.a * a))
+	if int(p["tier"]) >= 2:
+		ci.draw_rect(Rect2(at + Vector2(-2.5, -2.5), Vector2(5, 5)), Color(C_CRACK, 0.35 * a))
+
+
+func _draw_wallflash(ci: CanvasItem, p: Dictionary) -> void:
+	var step := mini(int(float(p["t"])), 5)
+	var tier := int(p["tier"])
+	var w := 8.0 + tier * 4.0
+	var h := 6.0 + tier * 3.0
+	var at := (Vector2(p["pos"]) - Vector2(w, h) * 0.5).round()
+	var alpha: Array[float] = [0.9, 0.75, 0.55, 0.38, 0.22, 0.1]
+	ci.draw_rect(Rect2(at, Vector2(w, h)), Color(1, 1, 1, alpha[step]))
 
 
 ## Gulp in flight: Culvert's tongue, stretched from his open mouth to a round tip, with
@@ -3868,17 +4098,12 @@ func _bang(ci: CanvasItem, at: Vector2) -> void:
 
 
 func _draw_rain(ci: CanvasItem) -> void:
+	# the same streaks and splashes as the Rain weather (WeatherView), over the view
 	var amount := minf(1.0, _rain / 30.0)
 	var n := int(110 * amount)
-	var col := Color(C_WATER_L, 0.45)
-	for i in n:
-		var x := fposmod(i * 37.7 + _tick * 2.4, 520.0) - 20.0
-		var y := fposmod(i * 61.3 + i * i * 0.37 + _tick * 8.0, 300.0) - 15.0
-		ci.draw_line(Vector2(x, y), Vector2(x - 2.0, y + 7.0), col, 1.0)
+	var view := _view_rect(ci, 0.0)
+	if view.size.x > 1e8:
+		view = Rect2(Vector2.ZERO, Vector2(480, 270))  # headless: no screen
+	WeatherView.rain_streaks(ci, view, n, _tick)
 	var fr := sim.floor_rect() if sim != null else SimDefs.floor_rect()
-	for i in n / 3:
-		var hsh := i * 7919 + (_tick / 4) * 104729
-		var sx := fr.position.x + float(hsh % int(fr.size.x))
-		var sy := fr.position.y + float((hsh / 7) % int(fr.size.y))
-		ci.draw_rect(Rect2(Vector2(sx, sy - 1), Vector2(1, 1)), Color(C_FOAM, 0.6))
-		ci.draw_rect(Rect2(Vector2(sx - 1, sy), Vector2(3, 1)), Color(C_WATER_L, 0.5))
+	WeatherView.rain_splashes(ci, fr, n / 3, _tick)

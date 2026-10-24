@@ -267,17 +267,23 @@ def _markings(img, rng):
             blend_px(img, int(round(cx + math.cos(ang) * i)), int(round(cy + math.sin(ang) * i)), (226, 178, 70), 0.55)
 
 
+FAR_ROWS = 2        # tiers above the crowd's rows, on the far-stands layer (parallax 0.85)
+ROOF_H = 10         # the roof's edge above them, where the sky layer (parallax 0.6) shows
+SKY_UP = 112        # the sky picture starts this far above the main picture's top
+SKY_END = 20        # ...and ends this far above the stands' first row (it hides behind the roof)
+FAR_DOWN = 64       # the far-stands picture runs this far below the first row, hidden by the near art
+
+
 def _stands(img, rng):
-    """Tiers of seats from the top of the picture down to the rail (world y 47), the crowd
-    (CrowdView) sitting on the three lowest; the higher ones fade into the dark."""
+    """Tiers of seats from the roof edge down to the rail (world y 47), the crowd
+    (CrowdView) sitting on the three lowest; FAR_ROWS above them fade into the dark under a
+    roof edge, and the sky layer shows past that (split_backdrop)."""
     oy = MARGIN[1]
-    top = 0
-    rect(img, 0, 0, W, oy + 56, CONCRETE[0])
+    top = oy + 1 - FAR_ROWS * 14 - ROOF_H
+    rect(img, 0, top, W, oy + 56 - top, CONCRETE[0])
     section = 144
-    for row in range(-6, 4):
+    for row in range(-FAR_ROWS, 4):
         y = oy + 1 + row * 14
-        if y + 14 < top:
-            continue
         fade = 1.0 if row >= 0 else max(0.25, 1.0 + row * 0.15)
         # concrete step, then seat backs (sections of colour), a lit lip on each
         rect(img, 0, y, W, 14, CONCRETE[2])
@@ -293,13 +299,15 @@ def _stands(img, rng):
             # an aisle rail between sections
             rect(img, x, y, 1, 14, CONCRETE[4])
         shade(img, 0, y, W, 14, fade)
-    # Floodlight glow far up, behind it all.
-    yy, xx = np.mgrid[0:oy, 0:W]
-    for lx in range(MARGIN[0] + 60, MARGIN[0] + ARENA_W, 200):
-        g = np.exp(-(((xx - lx) / 70.0) ** 2 + ((yy - 4) / 40.0) ** 2)) * 0.22
-        blk = img[0:oy, :, :3].astype(float)
-        blk += (255.0 - blk) * g[:, :, None] * np.array([1.0, 0.95, 0.8])
-        img[0:oy, :, :3] = np.clip(blk, 0, 255).astype(np.uint8)
+    # The roof's edge over the top tier: a dark fascia with a lit lip and a row of lamps.
+    rect(img, 0, top, W, ROOF_H, NAVY[0])
+    rect(img, 0, top, W, 1, (150, 156, 170))
+    rect(img, 0, top + 1, W, 1, NAVY[2])
+    rect(img, 0, top + ROOF_H - 2, W, 2, (12, 14, 24))
+    for x in range(12, W, 48):
+        rect(img, x, top + 4, 3, 2, (255, 232, 160))
+        rect(img, x, top + 6, 3, 1, (150, 120, 70))
+    shade(img, 0, top + ROOF_H, W, 6, 0.75)
     # The parapet in front of the lowest row: a navy face with a steel rail along its top.
     py = oy + 45
     rect(img, 0, py, W, 7, NAVY[1])
@@ -1465,6 +1473,145 @@ def stadium_set():
     return stadium(), None, None
 
 
+# ------------------------------------------------------------------ parallax layers
+# The world beyond the floor is three pictures: the sky (arena_<id>_sky.png, moves 0.6 of the
+# camera), the far tiers under the roof edge (arena_<id>_far.png, 0.85) and the main picture
+# (1.0, the crowd's rows down). BackdropView (src/view/backdrop_view.gd) places them; keep
+# SKY_UP / SKY_END / FAR_DOWN / FAR_ROWS / ROOF_H in step with it.
+
+SKIES = {
+    "stadium": {"top": (14, 18, 50), "bot": (86, 70, 120), "skyline": "city", "stars": True},
+    "quarry": {"top": (88, 132, 190), "bot": (240, 200, 146), "skyline": "cliffs", "clouds": True},
+    "floodgate": {"top": (74, 88, 108), "bot": (146, 158, 170), "skyline": "pylons", "clouds": True},
+    "greenhouse": {"top": (140, 196, 214), "bot": (226, 242, 228), "skyline": "trees", "clouds": True},
+    "twin_keeps": {"top": (36, 44, 98), "bot": (220, 130, 112), "skyline": "castles", "stars": True},
+    "caravan_pass": {"top": (110, 154, 206), "bot": (248, 208, 152), "skyline": "dunes", "clouds": True},
+}
+
+
+def _ridge(rng, n, lo, hi, step):
+    """A smooth ridge of heights (px) over n columns: random knots, eased between."""
+    knots = [lo + (hi - lo) * rng.random() for _ in range(n // step + 2)]
+    out = np.zeros(n)
+    for x in range(n):
+        k, t = divmod(x, step)
+        t = t / step
+        t = t * t * (3 - 2 * t)
+        out[x] = knots[k] * (1 - t) + knots[k + 1] * t
+    return out
+
+
+def _silhouette(img, base, heights, col, rim):
+    """Fills each column from `base` up by its height in `col`, the top pixel in `rim`."""
+    for x, h in enumerate(heights):
+        h = int(h)
+        if h <= 0:
+            continue
+        img[base - h:base, x, :3] = col
+        img[base - h:base, x, 3] = 255
+        img[base - h, x, :3] = rim
+
+
+def sky_layer(name, seed):
+    """The sky picture of a map: a dithered gradient, stars or clouds, and a skyline
+    silhouette sitting on the bottom (which the roof edge hides the foot of)."""
+    spec = SKIES[name]
+    rng = random.Random(seed)
+    nrng = np.random.default_rng(seed)
+    oy = MARGIN[1]
+    h = SKY_UP + oy + 1 - SKY_END
+    img = np.zeros((h, W, 4), np.uint8)
+    top = np.array(spec["top"], float)
+    bot = np.array(spec["bot"], float)
+    yy, xx = np.mgrid[0:h, 0:W]
+    t = (yy / float(h - 1)) ** 1.4
+    bands = 7
+    q = t * (bands - 1)
+    q = np.floor(q + BAYER4[yy % 4, xx % 4] * 0.9)
+    q = np.clip(q, 0, bands - 1) / (bands - 1)
+    img[:, :, :3] = (top[None, None, :] + (bot - top)[None, None, :] * q[:, :, None]).astype(np.uint8)
+    img[:, :, 3] = 255
+    if spec.get("stars"):
+        for _ in range(W // 5):
+            x, y = rng.randrange(W), rng.randrange(h // 2)
+            rect(img, x, y, 1, 1, (236, 236, 250) if rng.random() < 0.7 else (190, 200, 240))
+    if spec.get("clouds"):
+        lite = tuple(min(255, int(c * 0.35 + 255 * 0.65)) for c in spec["bot"])
+        for _ in range(W // 90):
+            cx, cy = rng.randrange(W), rng.randrange(8, h // 2)
+            for k in range(rng.randrange(3, 6)):
+                w = rng.randrange(10, 26)
+                rect(img, cx + k * 6 - w // 2, cy - k % 2, w, 2, lite)
+                rect(img, cx + k * 6 - w // 2 + 2, cy - k % 2 - 1, w - 5, 1, lite)
+    base = h
+    dark = tuple(int(c * 0.34) for c in spec["bot"])
+    mid = tuple(int(c * 0.5) for c in spec["bot"])
+    kind = spec["skyline"]
+    if kind == "city":
+        x = 0
+        while x < W:
+            bw = rng.randrange(8, 24)
+            bh = rng.randrange(14, 54)
+            rect(img, x, base - bh, bw, bh, dark)
+            rect(img, x, base - bh, bw, 1, mid)
+            for _ in range(bw * bh // 60):
+                wx, wy = x + 1 + rng.randrange(max(1, bw - 2)), base - bh + 2 + rng.randrange(max(1, bh - 3))
+                rect(img, wx, wy, 1, 1, (250, 214, 120))
+            x += bw + rng.randrange(0, 3)
+    elif kind == "cliffs":
+        _silhouette(img, base, np.floor(_ridge(nrng, W, 24, 70, 40) / 4) * 4, dark, mid)
+    elif kind == "pylons":
+        _silhouette(img, base, _ridge(nrng, W, 8, 16, 90), dark, mid)
+        for px in range(60, W, 170):
+            ph = 56
+            for y in range(ph):                    # a lattice tower: legs spread toward the foot
+                half = 2 + y // 6
+                rect(img, px - half, base - ph + y, 1, 1, dark)
+                rect(img, px + half, base - ph + y, 1, 1, dark)
+                if y % 6 == 0:
+                    rect(img, px - half, base - ph + y, 2 * half + 1, 1, dark)
+            rect(img, px - 12, base - ph + 8, 25, 1, dark)
+            rect(img, px - 9, base - ph + 16, 19, 1, dark)
+        for px in range(60, W - 170, 170):         # wires sagging between towers
+            for x in range(170):
+                sag = int(6 * (1 - ((x - 85) / 85.0) ** 2))
+                rect(img, px + 12 + x * 146 // 170, base - 48 + 6 - sag, 1, 1, mid)
+    elif kind == "trees":
+        for x in range(0, W, 3):
+            hh = 8 + int(10 * rng.random())
+            r = rng.randrange(7, 14)
+            for dy in range(-r, r + 1):
+                dx = int((r * r - dy * dy) ** 0.5)
+                rect(img, x - dx, base - hh - r + dy + r, 2 * dx + 1, 1, dark)
+        _silhouette(img, base, np.full(W, 10), dark, dark)
+    elif kind == "castles":
+        _silhouette(img, base, _ridge(nrng, W, 14, 40, 70), dark, mid)
+        for cx in range(150, W, 520):
+            for tx, tw, th in ((0, 12, 60), (22, 9, 48), (-18, 9, 44)):
+                rect(img, cx + tx, base - th, tw, th, dark)
+                for k in range(0, tw, 4):
+                    rect(img, cx + tx + k, base - th - 3, 2, 3, dark)
+                rect(img, cx + tx + tw // 2, base - th + 10, 1, 3, (250, 214, 120))
+    elif kind == "dunes":
+        _silhouette(img, base, _ridge(nrng, W, 16, 38, 110), tuple(int(c * 0.62) for c in spec["bot"]), mid)
+        for mx in range(90, W, 380):               # a mesa: flat top, banded
+            mw, mh = rng.randrange(40, 70), rng.randrange(34, 56)
+            rect(img, mx, base - mh, mw, mh, dark)
+            rect(img, mx - 4, base - mh + mh // 2, mw + 8, mh // 2, dark)
+            rect(img, mx, base - mh, mw, 1, mid)
+    return img
+
+
+def split_backdrop(img, name, seed):
+    """Cuts the main picture's top into layers. Returns (far, sky) and clears the main
+    picture above the crowd's first row, so the layers show through."""
+    oy = MARGIN[1]
+    y0 = oy + 1 - FAR_ROWS * 14 - ROOF_H
+    far = img[y0:oy + 1 + FAR_DOWN].copy()
+    img[:oy + 1, :, 3] = 0
+    return far, sky_layer(name, seed)
+
+
 MAPS = {"stadium": stadium_set, "quarry": quarry, "floodgate": floodgate, "greenhouse": greenhouse,
         "caravan_pass": caravan_pass, "twin_keeps": twin_keeps}
 
@@ -1481,12 +1628,17 @@ if __name__ == "__main__":
         set_size(int(sz[0]), int(sz[1]))
         set_light(load_map(name))
         img, alt, crack_cols = MAPS[name]()
+        dark, lit = crack_cols or (None, None)
+        cracked, crack = cracked_floor(img, np.random.default_rng(7), dark, lit)
+        far, sky = split_backdrop(img, name, 4000 + sum(map(ord, name)))
+        for suffix, layer in (("_far", far), ("_sky", sky)):
+            path = os.path.join(SPRITES, "arena_%s%s.png" % (name, suffix))
+            Image.fromarray(layer, "RGBA").save(path)
+            print("wrote", os.path.relpath(path, ROOT), (W, layer.shape[0]))
         path = os.path.join(SPRITES, "arena_%s.png" % name)
         Image.fromarray(img, "RGBA").save(path)
         print("wrote", os.path.relpath(path, ROOT), (W, H))
-        dark, lit = crack_cols or (None, None)
         path = os.path.join(SPRITES, "arena_%s_cracked.png" % name)
-        cracked, crack = cracked_floor(img, np.random.default_rng(7), dark, lit)
         Image.fromarray(cracked, "RGBA").save(path)
         print("wrote", os.path.relpath(path, ROOT), (FW, FH))
         path = os.path.join(SPRITES, "arena_%s_crackmask.png" % name)
