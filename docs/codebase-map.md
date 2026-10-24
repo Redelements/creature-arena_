@@ -28,7 +28,7 @@ update the map in the same change.
 | Tests and benches | `tests/` | `tests/run_tests.gd` | the test runner, per-topic tests, CPU benches |
 | Generators | `tools/` | `tools/splat3d.py` | sprite and audio generators, this map's generator |
 | Docs | `docs/` | `docs/MECHANICS.md` | data keys, netcode, server, sprite and audio specs, plans; open items in `docs/open-items.md` |
-| Art and sound files | `assets/` | `assets/sprites/` | generated sheets and placeholder audio |
+| Art and sound files | `assets/` | `assets/sprites/` | generated sheets, placeholder audio, the pixel font (`assets/fonts/`) |
 | Scene | `scenes/` | `scenes/main.tscn` | the one scene; `src/game/main.gd` builds the rest in code |
 
 ## Go here for
@@ -48,7 +48,7 @@ update the map in the same change.
 | knockdown, launch, crumple, reactions | `src/sim/creature_sim.gd:enter_hitstun`, `enter_crumple`, `enter_air`, `enter_knockdown` | combat |
 | energy, Surge meter, breakaway | `src/sim/match_sim.gd:gain_energy`, `breakaway` | combo_rules, surge_ready |
 | hitstop, freeze-frame, KO freeze and slow motion, what stops on a crowded field | `src/sim/match_sim.gd:impact_stop`, `freeze_all`, `emit_event` ("ko"), `step`; `src/sim/creature_sim.gd:hitstop`, `buffer_input` | hitstop, counterplay, combat |
-| pits, holes, falling, floor breaking and healing | `src/sim/terrain_grid.gd`; falls `src/sim/match_sim.gd:_check_falls` | terrain |
+| pits, holes, falling, floor breaking and healing | `src/sim/terrain_grid.gd`; falls `src/sim/match_sim.gd:_check_falls`; how they look (pit depth, cracks spreading, pits closing, dust) `src/view/arena_view.gd:_paint_pit_cell`, `_step_fx` | terrain |
 | walls, fences, brush, arena pieces | `data/arenas/<id>.json`, `src/sim/arena_map.gd`, `src/sim/terrain_grid.gd:load_map` | arena, crossings |
 | line of sight, hidden fighters | `src/sim/vision.gd`; main's `src/game/main.gd:_update_vision` | vision |
 | tag, Duel, 3v3 tag rules | `src/sim/duel_sim.gd:_tag`, `_enter_next`, `_bench_regen` | duel |
@@ -61,11 +61,11 @@ update the map in the same change.
 | a fighter's numbers, moves, frame data | `data/creatures/<id>.json` (keys in `docs/MECHANICS.md`) | `<id>`, combos, showcase, trials |
 | CPU difficulty, Rage, class styles | `src/ai/cpu_controller.gd` `LEVELS`, `STYLES` | test_ai, rage |
 | CPU thinking cost, AI profile, worker threads, what main waits on | `tests/bench_ai_cost.gd` (`--threads=off` breakdown), `src/ai/cpu_controller.gd:think_start`, `src/game/main.gd:_think_ahead`, `_join_cpus`, `src/game/perf_log.gd` | perf_main_thread, cpu_pathing, test_ui |
-| off-screen culling, floor repaint spreading, crowd redraws | `src/view/fx_view.gd:_view_rect`, `_in_view`; `src/view/arena_view.gd:_pending`; `src/view/crowd_view.gd:FlashLayer`; `src/view/surge_aura.gd:_on_screen` | perf_main_thread, views |
+| off-screen culling, floor repaint spreading, crowd redraws | `src/view/fx_view.gd:_view_rect`, `_in_view`; `src/view/arena_view.gd:_pending` (and its moving-floor layers `_under`/`_over`/`_dust`); `src/view/crowd_view.gd:FlashLayer`, `Block` / `Standing`, `_cols`; `src/view/surge_aura.gd:_on_screen` | perf_main_thread, views |
 | CPU defence (guard, dodge, step) | `src/ai/cpu_controller.gd:_defend`, `_rage_defend`, `_guard_answer` | rage, stamina |
 | CPU offence, combo routes, pokes, zones, kiting | `src/ai/cpu_controller.gd:_continue_attack`, `_pick_route`, `_neutral`, `_rage_neutral`, `_rage_kit` | test_ai, rage |
 | CPU pathing round walls and pits | `src/ai/nav_grid.gd`, `src/ai/cpu_controller.gd:_go_to` | cpu_pathing |
-| performance, stutter, frame drops, CPU cost per tick, threads | measure: `tests/bench_ai_cost.gd`, `--perf` (`src/game/perf_log.gd`); CPUs in parallel `src/ai/cpu_controller.gd:think_all` / `think_start`, thinking while the frame draws (main `_think_cpus`, `_think_ahead`, `_join_cpus`); shared caches `src/sim/terrain_index.gd`, `NavGrid.shared`, `Vision.clear_line` memo; view redraw cost: floor bands `arena_view.gd:BAND_ROWS`, crowd `crowd_view.gd:_drawn_key` | cpu_pathing, vision, ui |
+| performance, stutter, frame drops, CPU cost per tick, threads | measure: `tests/bench_ai_cost.gd`, `--perf` (`src/game/perf_log.gd`); CPUs in parallel `src/ai/cpu_controller.gd:think_all` / `think_start`, thinking while the frame draws (main `_think_cpus`, `_think_ahead`, `_join_cpus`); shared caches `src/sim/terrain_index.gd`, `NavGrid.shared`, `Vision.clear_line` memo; view redraw cost: floor bands `arena_view.gd:BAND_ROWS`, crowd `crowd_view.gd:Block` (fans sitting drawn once, standing on their own layer, `_checked_rect`) | cpu_pathing, vision, ui |
 | balance, win rates, matchups, why a fighter loses | `tests/bench_cpu.gd` (`--matrix`), `tests/bench_fighter.gd`; pins `tests/test_balance.gd` | balance, rage |
 | keyboard layouts, gamepad, twin-stick, aim assist | `src/input/player_input.gd` | player_input, twinstick |
 | mouse (League-style) orders | `src/input/mouse_orders.gd` | player_input |
@@ -82,7 +82,9 @@ update the map in the same change.
 | fps counter, frame-time graph, performance overlay | `src/view/perf_overlay.gd`; `--perf` report `src/game/perf_log.gd` | perf_overlay |
 | DPS meter | `src/view/dps_meter.gd` | training |
 | sound effects, music, volume | `src/view/audio_view.gd:on_event`, `data/audio.json`, `docs/AUDIO.md` | scripts_load |
-| arena drawing, crowd, map art | `src/view/arena_view.gd` (`_paint_changed`, row bands `BAND_ROWS`), `src/view/crowd_view.gd`; art from `tools/gen_arenas.py` (rerun after moving a piece in `data/arenas/`) | arena |
+| shadows, light direction, sun | `src/view/shadow_layer.gd` (`light_of`, `draw_silhouette`), `src/view/creature_view.gd:draw_shadow`; a map's `light` in `data/arenas/<id>.json`; piece shadows `tools/gen_arenas.py:cast_shadows`, dropped when a piece changes `src/view/arena_view.gd:_shade` | shadows |
+| arena drawing, crowd (stands on all sides, team sections, fans standing up for hits), map art, shallows water (flow, foam, wading wakes, splash) | `src/view/arena_view.gd` (`_paint_changed`, row bands `BAND_ROWS`), `src/view/crowd_view.gd` (`set_size`, `react`, `sheet`; layout in step with `gen_arenas.py:_side_stands` / `_front_stands`; the camera looks into them via `main.gd:_cam_axis`, `SHOW_SIDE` / `SHOW_FRONT`), `src/view/water_view.gd` (`_paint_surface`, `_watch_fighters`); art from `tools/gen_arenas.py` (rerun after moving a piece in `data/arenas/`) | arena |
+| floor wear (scratches, gouges, craters, drag lines, clods, footprints that fade) | `src/view/floor_wear.gd` (`mark`, `_age`, `_build`); what leaves one: `src/view/fx_view.gd` (`_wear_hit`, `_wear_strike`, `_wear_drag`, `_wear_step`), per-move `fx.decal` | view |
 | camera, zoom, screen shake | `src/game/main.gd:_update_camera`, `_frame_fight` | test_ui |
 | game modes, mode numbers, menus' rows | `src/game/main.gd` `MODES`, `MENU_ROWS`, `_start_match` | test_ui, test_journey, menu_contract |
 | settings | `src/game/main.gd` `SETTING_PAGES`, `_setting`, `_set_setting` | test_ui |
@@ -95,6 +97,7 @@ update the map in the same change.
 | unlocks, progress | `src/game/progress.gd` | arcade |
 | Discord status | `src/game/presence.gd`, `src/game/discord_rpc.gd`, `data/discord.json` | presence |
 | menu screens, theme | `src/ui/ui_screen.gd`, `src/ui/screen_stack.gd`, `src/ui/ui_theme.gd`; the panel's cards `src/ui/detail_card.gd`, `src/game/main.gd:_mode_facts` | test_ui, menu_stick, journey, menu_contract |
+| resolution, window scale, pixel font, text size | `project.godot` `[display]` (960 x 540 base, scale 2), `src/game/main.gd:_apply_pixel_scale`, `_fit_window`; `src/ui/ui_theme.gd:font`, `px`, `outline` | test_ui |
 | character select, picking fighters | `src/ui/character_select.gd` | test_ui, rooms |
 | online lobby, room codes, Quick match | `src/game/online_lobby.gd`, `src/net/netplay.gd` | rooms, online |
 | rollback, prediction | `src/net/rollback_session.gd`, `src/net/online_match.gd` | online |

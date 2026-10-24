@@ -33,7 +33,8 @@ side/down/up), [`culvert_views_preview.png`](culvert_views_preview.png), [`cragl
 ## Creatures — 48×48 frames, 6 columns
 
 Creatures face **right**. Feet rest at the **origin** pixel (Cairn: x 22, y 43), which
-sits on the ground where the shadow is drawn. The game mirrors the
+sits on the ground where the shadow is drawn (the frame itself, as a silhouette laid along
+the arena's light, so every opaque pixel casts). The game mirrors the
 sprite to face left and raises it off its shadow when launched. Leave at least 1 px of
 transparent margin on every side. Unused cells stay transparent.
 
@@ -55,6 +56,10 @@ more charge frames while held.
 Idle and run play at one frame per 10 and 4 ticks. A sheet with longer cycles sets
 `"idle_ticks"` and `"run_ticks"` in its `"sprite"` block (Crease: 8 frames at 8 ticks, 12
 at 2, so his run cycle still takes 24 ticks and the stride keeps pace with his speed).
+
+Footstep dust puffs on the run frames where a foot lands: `"step_frames"` in the sprite block
+(default `[0, frames / 2]`: 6-frame runs `[0, 3]`, Crease's 12 `[0, 6]`). `"step": "slush"` makes a
+creature's steps slush instead of the floor's dust (Sno Mercy); shallows always splash.
 
 ### Culvert — 96×96 frames, 8 × 12 (768×1152 px)
 

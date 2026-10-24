@@ -81,7 +81,8 @@ var _combo_pop := [0, 0]
 var _combo_dy := [0.0, 0.0]
 var _cut := {}
 var _tick := 0
-var _font: Font = ThemeDB.fallback_font
+var _font: Font:  ## read each draw, so Settings > Video > Text font shows at once
+	get: return UiTheme.font()
 ## Training: damage per second on the dummy, drawn in the dummy's panel (DpsMeter).
 var dps := DpsMeter.new()
 var _dps_sim: MatchSim = null
@@ -360,13 +361,13 @@ func _card(slot: int, x: float, y: float, right: bool) -> void:
 func _training_tags(right_x: float) -> void:
 	if not sim.training:
 		return
-	var font := ThemeDB.fallback_font
+	var font := _font
 	var x := right_x
 	for k in ["full_energy", "no_cooldowns"]:  # right to left
 		if not sim.training_flags.get(k, false):
 			continue
 		var txt := String(TRAINING_TAGS[k])
-		var w := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 5).x + 6.0
+		var w := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, UiTheme.px(5)).x + 6.0
 		x -= w
 		draw_rect(Rect2(x, 39, w, 8), C_PANEL)
 		draw_rect(Rect2(x, 39, 1, 8), C_ENERGY if k == "full_energy" else C_STAMINA)
@@ -378,10 +379,10 @@ func _training_tags(right_x: float) -> void:
 ## the burst's damage per second, then its total and length; dimmed once it has ended.
 func _dps(x: float, w: float) -> void:
 	if not dps.has_burst():
-		_text(Vector2(x, 29), "DPS -", 7, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, w)
+		_text(Vector2(x, 29), "DPS -", 6, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, w)
 		return
 	var live := dps.active()
-	_text(Vector2(x, 29), "DPS %.1f" % dps.dps(), 7, C_ACCENT if live else C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, w)
+	_text(Vector2(x, 29), "DPS %.1f" % dps.dps(), 6, C_ACCENT if live else C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, w)
 	_text(Vector2(x, 36), "%d dmg  %.1f s" % [roundi(dps.total), dps.seconds()], 5,
 		C_TEXT if live else C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, w)
 
@@ -643,18 +644,18 @@ func _draw_caption() -> void:
 	var sep := "  >  "
 	var total := 0.0
 	for i in caption_items.size():
-		total += _font.get_string_size(String(caption_items[i]), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		total += _font.get_string_size(String(caption_items[i]), HORIZONTAL_ALIGNMENT_LEFT, -1, UiTheme.px(size)).x
 		if i > 0:
-			total += _font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+			total += _font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, UiTheme.px(size)).x
 	if total > cw - 30:
 		size = 6
 	var x := left + 14.0
 	for i in caption_items.size():
 		if i > 0:
 			_text(Vector2(x, y + 26), sep, size, C_DIM)
-			x += _font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+			x += _font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, UiTheme.px(size)).x
 		var item := String(caption_items[i])
-		var w := _font.get_string_size(item, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		var w := _font.get_string_size(item, HORIZONTAL_ALIGNMENT_LEFT, -1, UiTheme.px(size)).x
 		var col := C_DIM
 		if i < caption_index:
 			col = C_TEXT
@@ -728,5 +729,9 @@ func _hp_color(ratio: float) -> Color:
 
 func _text(pos: Vector2, s: String, size: int, col: Color,
 		align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0) -> void:
-	draw_string_outline(_font, pos, s, align, width, size, 2, Color(0, 0, 0, col.a * 0.8))
-	draw_string(_font, pos, s, align, width, size, col)
+	var fs := UiTheme.px(size)  # the layout's size as a pixel-font size
+	var f := _font
+	if width > 0.0 and _font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > width:
+		f = UiTheme.font_tight()  # narrower spaces before it runs off its box
+	draw_string_outline(f, pos, s, align, width, fs, UiTheme.outline(fs), Color(0, 0, 0, col.a * 0.8))
+	draw_string(f, pos, s, align, width, fs, col)

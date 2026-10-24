@@ -57,7 +57,8 @@ var _names: Array = []
 var _blurbs: Array = []
 var _infos: Array = []
 var _tex := {}
-var _font: Font = ThemeDB.fallback_font
+var _font: Font:  ## read each draw, so Settings > Video > Text font shows at once
+	get: return UiTheme.font()
 var _hint_text := ""
 var _overlay: Control  ## cursors and the READY banner, over the previews
 ## Everything is laid out in a 480 x 270 stage centred on the screen (wider screens get
@@ -347,7 +348,7 @@ func _tile_rect(i: int) -> Rect2:
 func _make_label(pos: Vector2, size_px: int, col: Color) -> Label:
 	var l := Label.new()
 	l.position = pos
-	l.add_theme_font_size_override("font_size", size_px)
+	l.add_theme_font_size_override("font_size", UiTheme.px(size_px))
 	l.add_theme_color_override("font_color", col)
 	l.mouse_filter = MOUSE_FILTER_IGNORE
 	_stage.add_child(l)
@@ -435,12 +436,12 @@ func _draw_overlay() -> void:
 		var tag := "1P" if side == 0 else ("2P" if two_players else "CPU")
 		var tx := r.position.x if side == 0 else r.end.x - 18.0
 		o.draw_rect(Rect2(tx, r.position.y - 7, 18, 7), col)
-		o.draw_string(_font, Vector2(tx, r.position.y - 1.5), tag, HORIZONTAL_ALIGNMENT_CENTER, 18, 5, UiTheme.C_DARK)
+		o.draw_string(_font, Vector2(tx, r.position.y - 1.5), tag, HORIZONTAL_ALIGNMENT_CENTER, 18, UiTheme.px(5), UiTheme.C_DARK)
 	if is_done():
 		var w := float(SimDefs.VIEW_W)
 		o.draw_rect(Rect2(0, 108, w, 26), Color(0, 0, 0, 0.6))
-		o.draw_string_outline(_font, Vector2(0, 127), done_text, HORIZONTAL_ALIGNMENT_CENTER, w, 16, 2, Color(0, 0, 0, 0.8))
-		o.draw_string(_font, Vector2(0, 127), done_text, HORIZONTAL_ALIGNMENT_CENTER, w, 16, UiTheme.C_ACCENT)
+		o.draw_string_outline(_font, Vector2(0, 127), done_text, HORIZONTAL_ALIGNMENT_CENTER, w, UiTheme.px(16), UiTheme.outline(UiTheme.px(16)), Color(0, 0, 0, 0.8))
+		o.draw_string(_font, Vector2(0, 127), done_text, HORIZONTAL_ALIGNMENT_CENTER, w, UiTheme.px(16), UiTheme.C_ACCENT)
 
 
 func _cursor_shown(side: int) -> bool:
@@ -500,5 +501,6 @@ func _draw_mini(id: String, feet: Vector2, face_left: bool, scale := 1.0) -> voi
 
 
 func _text(pos: Vector2, s: String, size_px: int, col: Color, align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0) -> void:
-	draw_string_outline(_font, pos, s, align, width, size_px, 2, Color(0, 0, 0, col.a * 0.8))
-	draw_string(_font, pos, s, align, width, size_px, col)
+	var fs := UiTheme.px(size_px)
+	draw_string_outline(_font, pos, s, align, width, fs, UiTheme.outline(fs), Color(0, 0, 0, col.a * 0.8))
+	draw_string(_font, pos, s, align, width, fs, col)

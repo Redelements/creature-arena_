@@ -5,7 +5,8 @@ extends Node2D
 const STATE_NAMES := ["IDLE", "MOVE", "ATTACK", "DODGE", "GUARD", "HITSTUN", "FALLING", "KO", "AIR", "CRUMPLE", "DOWN"]
 
 var sim: MatchSim
-var _font: Font = ThemeDB.fallback_font
+var _font: Font:  ## read each draw, so Settings > Video > Text font shows at once
+	get: return UiTheme.font()
 
 
 func _draw() -> void:
@@ -26,10 +27,10 @@ func _draw() -> void:
 				label += " charge %d" % c.charge
 			if c.hitstop > 0:
 				label += " stop %d" % c.hitstop
-		draw_string_outline(_font, c.pos + Vector2(-50, 12), label, HORIZONTAL_ALIGNMENT_CENTER, 100, 6, 2, Color.BLACK)
-		draw_string(_font, c.pos + Vector2(-50, 12), label, HORIZONTAL_ALIGNMENT_CENTER, 100, 6, Color.WHITE)
+		draw_string_outline(_font, c.pos + Vector2(-50, 12), label, HORIZONTAL_ALIGNMENT_CENTER, 100, UiTheme.px(6), 1, Color.BLACK)
+		draw_string(_font, c.pos + Vector2(-50, 12), label, HORIZONTAL_ALIGNMENT_CENTER, 100, UiTheme.px(6), Color.WHITE)
 	for pr in sim.projectiles:
 		draw_arc(pr["pos"], pr["radius"], 0.0, TAU, 16, Color(1.0, 0.3, 0.3, 0.95), 1.0)
 	var head := "tick %d  hitstop %d" % [sim.tick, sim.hitstop]
-	draw_string_outline(_font, Vector2(6, 252), head, HORIZONTAL_ALIGNMENT_LEFT, -1, 6, 2, Color.BLACK)
-	draw_string(_font, Vector2(6, 252), head, HORIZONTAL_ALIGNMENT_LEFT, -1, 6, Color.WHITE)
+	draw_string_outline(_font, Vector2(6, 252), head, HORIZONTAL_ALIGNMENT_LEFT, -1, UiTheme.px(6), 1, Color.BLACK)
+	draw_string(_font, Vector2(6, 252), head, HORIZONTAL_ALIGNMENT_LEFT, -1, UiTheme.px(6), Color.WHITE)

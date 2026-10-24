@@ -119,7 +119,7 @@ bad connection: `--net-lag=6 --net-loss=0.1`. Details: [docs/NETCODE.md](docs/NE
 1. Install [Godot 4.7](https://godotengine.org/download) (standard build, no .NET needed).
 2. Open Godot, click **Import**, and pick this folder's `project.godot`.
 3. Press **F5** (or the ▶ button). The title menu has **Single player** (every mode against
-   the CPU, training, trials and local 2-player), **Online**, **Settings** (Game: CPU level, rumble, screen shake, Discord status, online server; Video: fullscreen, vsync, the
+   the CPU, training, trials and local 2-player), **Online**, **Settings** (Game: CPU level, rumble, screen shake, Discord status, online server; Video: fullscreen, vsync, text font (pixel or smooth), the
    fight frame rate, 144 fps on a PC and 60 on a phone or handheld unless changed; Audio: master, music, effects and menu volume;
    Controls: keyboard layout, range rings, and remapping for both keyboard layouts and the controller) and **Exit**. Menus always
    run at 60 fps. The game itself runs 60 steps a second whatever the frame rate.
@@ -903,6 +903,10 @@ Everything in `assets/sprites/` is **placeholder programmer art**: Cairn, the du
 tiles and effects from `tools/gen_sprites.py`, and the fighters from the artist's sheets
 (and Culvert) from posed 3D rigs (`tools/gen_*.py`). Sheet layouts are documented in [docs/SPRITES.md](docs/SPRITES.md);
 replacement art with the same layout drops in without code changes.
+
+Text uses the pixel font **m5x7** by Daniel Linssen (CC0, `assets/fonts/`, license beside
+it; credit appreciated, not required), drawn on a 960 x 540 grid at whole multiples of its
+size (`src/ui/ui_theme.gd`).
 
 ## Audio
 

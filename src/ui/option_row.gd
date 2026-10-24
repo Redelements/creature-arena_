@@ -109,7 +109,7 @@ func _draw() -> void:
 	var v := _value_rect()
 	var base := (size.y + font.get_ascent(fs) - font.get_descent(fs)) * 0.5
 	draw_string_outline(font, Vector2(v.position.x, base), value_text(), HORIZONTAL_ALIGNMENT_LEFT, -1, fs,
-		2, Color(0, 0, 0, 0.8))
+		UiTheme.outline(fs), Color(0, 0, 0, 0.8))
 	draw_string(font, Vector2(v.position.x, base), value_text(), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
 	if bar < 0.0:
 		return

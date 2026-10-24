@@ -16,6 +16,14 @@ Menus are `Control` nodes on a `ScreenStack` of `UiScreen`s, styled by one share
   column), because the mouse focuses whatever it is over: a box that grew with the text
   shifted the rows under a still cursor, which focused another row, which changed the text
   again (Oct 2026). `tests/test_ui.gd` pins it.
+- Text is the pixel font m5x7 (`UiTheme.font()`), never `ThemeDB.fallback_font`. Sizes in
+  layouts stay the old design sizes (`SIZE_ROW`, 6, 7...) and go through `UiTheme.px()` where
+  they become a font size (theme sizes, `_label`, `row_font`, each `draw_string`), so a glyph
+  pixel is always whole pixels of the 960 x 540 grid; outlines through `UiTheme.outline()`.
+  Pixel text is wider than the old font: check a long line at 16:9 (the HUD's `_text`
+  switches to `UiTheme.font_tight()` when a line overruns its box). Settings > Video > Text
+  font can turn `UiTheme.smooth` on (the engine font at the design sizes): never cache a font
+  or a `px()` size in a view past one draw, and menus restyle through `ScreenStack.restyle()`.
 
 ## Where to look
 

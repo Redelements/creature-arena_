@@ -27,6 +27,7 @@
     "cols": 12,
     "idle_ticks": 8,
     "run_ticks": 2,
+    "step_frames": [0, 6],
     "origin": [64, 136],
     "anims": {
       "idle": [0, 0, 8],

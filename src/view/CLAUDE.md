@@ -10,7 +10,11 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   in the air). A swing aimed down at someone in front draws behind them; sparks and smears
   draw over both.
 - Floor effects that show an area are true circles on the floor (no y squash), or vertical
-  reach looks wrong. `FxView` rings and orbits use `sin(a) * 0.5`; the shadow a 0.38 y-scale.
+  reach looks wrong. `FxView` rings and orbits use `sin(a) * 0.5`.
+- Shadows lie on the floor under everyone: `ShadowLayer` (main adds it between `fx_ground` and
+  the fighters) draws each fighter's frame as a silhouette along the map's `light`, one sprite row
+  per shadow row shifted whole pixels (crisp, no overlap). Never draw a fighter's shadow on its
+  own node: y-sort would put it over the fighter behind.
 - Art layout is data-driven: frame size (`[w, h]` frames allowed, Crease's are 128x160),
   origin, `anims`, `side_only`, `idle_ticks`, `run_ticks`, `anim`, `anim_at`, `anim_reel`,
   `anim_charge`, `view_lift` from the creature JSON (`FighterPreview` reads `idle_ticks` too). Up/down sheets are optional; diagonals stay side-on.
@@ -21,16 +25,37 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
 - A new `class_name` needs `--headless --import`.
 - Cost: views redraw on the 60 Hz tick, and that frame has to fit a 240 Hz budget. Redraw
   only what changed: the floor is drawn in row bands (`ArenaView.BAND_ROWS`; a changed cell
-  redraws its band and its neighbours'), the crowd only when someone stands, a flash pops
-  or the camera nears the edge of the seats drawn (`_drawn_key`, `CULL_PAD`; its camera
-  flashes are a layer of their own, `FlashLayer`, so they don't redraw the seats). On a big
+  redraws its band and its neighbours'). The crowd is in blocks (`CrowdView.Block`, about
+  `BLOCK` px): each draws its fans sitting once; the fans on their feet are two layers per
+  block (`Standing`, odd and even phases) redrawn only when who stands changes, near the
+  screen (`_cols`, `CULL_PAD`, `_checked_rect`), and the bounce moves a layer instead of
+  redrawing it; a hit's fans (`react`, capped by `REACT_CAP` a tick) redraw only their
+  block; camera flashes are a layer of their own (`FlashLayer`). On a big
   map most of the field is off screen: `FxView` draws only particles and fighters near the
   view (`_view_rect`, `_in_view`, `CULL_PAD`, a wider `CULL_PAD_FIGHTER` so a telegraph can
   reach in), and a `SurgeAura` skips a fighter off screen. A floor change repaints its
   bands a few per frame (`ArenaView._pending`, `SPREAD_FRAMES`), not all in one tick. A
   `_draw` reports its time with `PerfLog.now()` / `PerfLog.since(...)` for `--perf`
   (main thread only: `PerfLog` ignores a worker thread).
+- Shallows water (flow, foam, wading wakes, entry splash) is `water_view.gd`, a layer between the floor and the fighters, all 1 px rects on the 60 Hz tick clock; it draws only where the terrain grid says `SHALLOWS`, so a fallen bridge gets it too. Its wake skips a fighter `FxView.shown` hides.
+- Statuses: `fx_view.gd:_draw_status` draws every one from creature state (table in the `fx_view.gd`
+  header): frozen ice block / petrify cracks (`_draw_statue`), stun birds (`_draw_birdies`), taunt
+  tether (`_draw_tether`), slow motes, Pickpocket glints and coins; CreatureView tints the sprite
+  (tenderized pink, slowed blue, only when no other flash) and greys petrified. A new status look goes
+  there, skips a fighter `shown` hides, and stays a few 1 px rects (no outline over health bars).
+- Text: `UiTheme.font()` and `UiTheme.px(size)` (see `src/ui/CLAUDE.md`). The canvas is still
+  480 x 270 units (project.godot: a 960 x 540 base at content scale 2), so coordinates and
+  the camera's zoom are unchanged; text in world space (damage numbers) scales with the zoom.
 - The camera is not here: `src/game/main.gd:_update_camera`, `_frame_fight`, `CAM_PAD`, `KO_ZOOM`.
+  Near an edge it may look `CrowdView.SHOW_SIDE` / `SHOW_FRONT` past the arena (`_cam_axis`
+  `lo` / `hi`), into the side stands and front rows.
+- The crowd's seats (`CrowdView.SIDE_*`, `FRONT_*`) sit on steps and seat backs that
+  `tools/gen_arenas.py` (`_side_stands`, `_front_stands`) paints into each map's picture:
+  change one, change the other and regenerate. The side stands wear the sides' colours
+  (`Look.RED` / `BLUE`, a palette swap of `crowd.png` in `CrowdView.sheet()`, from
+  `Hud.SIDE_COLORS`); the front rows are seen from behind (`Look.BACK`) and drawn only
+  under the front wall, so they never cover a fighter. A hit by a fighter the local team
+  can't see doesn't stand anyone up (main checks `fx._event_shown`).
 
 ## Hidden foes
 
@@ -91,10 +116,41 @@ dig/slosh/poof/chop_chop/shout sounds.
   `base` CHASM so it never heals, but only `map_base` says what the art already shows: the
   view's "is it in the picture" test is `_in_art` (`map_base`), never `base`, or sunk floor is
   invisible on an art map (it was, until Oct 2026).
+- Pits and the moving floor → `arena_view.gd`: a pit's look `_paint_pit_cell` (tones from the
+  map's ground and `light`, `_build_pit_tex`: far wall, dithered dark, side walls, ragged lip,
+  pebbles, lit near edge; chasms colder with mist); cracks running across their cells from the
+  blow `_spread` / `_grow` (under layer `_paint_under`), dust off fresh pits `_motes` (`_paint_dust`),
+  pits closing in before they heal `_heal_cells` (`_paint_over`), cracks about to turn solid
+  glowing in their band `_glowing`, a healed pit's cracks glowing `_knit`. Healing clocks are
+  looked at only when due (`_schedule`, `_due`, `_watch`); the crack glow is the
+  `arena_<id>_crackmask.png` picture. Never repaint bands per tick for these.
 - Map art → `arena_view.gd:_paint_changed` (`arena_<id>.png` under everything; a changed cell
-  shows its piece of `_cracked` / `_alt`; `_paint_lips`; a hole in a bridge, or a fallen one,
+  shows its piece of `_cracked` / `_alt`; pits `_paint_pit_band`; a hole in a bridge, or a fallen one,
   shows the water of `_alt`, `_bridge_gone`); the pictures come from
   `tools/gen_arenas.py`, which reads the pieces from `data/arenas/<id>.json`
+- Hit sparks, shake direction, footstep and landing dust → `fx_view.gd:_hit_sparks` (light: a few
+  pixels along the push; heavy: a radial burst on top of the hit flash's white silhouette; skill:
+  a burst in `fx.spark_color` / `ghost_color`; surge: heavy plus `flash_out`, which main turns
+  into `flash_rect`). The hit event's own `type` is "hit": the move's type is read off the
+  attacker (`move_type()`), or `fx.spark` overrides it. `shake_dir` is the push; main leans the
+  camera offset along it (`main.gd` shake block). Light hits keep a half-tint flash
+  (`CreatureView.soft_flash`). Footsteps: `_footstep` (per-frame watch) puffs on the frames in
+  the sprite block's `step_frames` (default the first and the middle run frame; Crease `[0, 6]`),
+  `_floor_kind` picks the look (shallows splash, the sprite's `step` e.g. `"slush"` for Sno,
+  else the arena `ground`), `_landing_puff` for land / land_hard / bounce; `puff` particles draw
+  on the floor layer, capped by `STEP_CAP`, culled to the view.
+- Shadows → `shadow_layer.gd` (`light_of`, `draw_silhouette`); size and fade from
+  `creature_view.gd:refresh` (`shadow_size`, `shadow_fade`, `draw_shadow`); the wagon's and flags'
+  in `fx_view.gd:_draw_caravan` / `_draw_flag`; the pieces' are baked into the art
+  (`gen_arenas.py:cast_shadows`) and a changed piece's dropped by `arena_view.gd:_shade` / `_unshaded`
+- Floor wear (lasting marks: scratches, gouges, craters, drag lines, clods, mallet marks, wet / slush /
+  syrup footprints) → `floor_wear.gd` (FloorWear, between the crowd and `FxGround`) stores and draws
+  them; `fx_view.gd` decides what leaves one (`_wear_hit`, `_wear_strike`, `_wear_drag`, `_wear_step`,
+  the slam / land_hard arms; a move's `fx.decal` overrides, see the fx_view header). Shapes are built
+  once per ground kind into an atlas (8 directions, no rotation, whole pixels); marks fade in four
+  alpha steps (`FADE_AT`) over 20-40 s (prints 4-6 s), cap 200 (scaled by map area), and the layer
+  repaints only when a mark is added, removed, steps its fade or the view leaves the area drawn
+  (`advance`). A mark on a cell that became a pit, wall, water or brush is dropped (`_age`).
 - Footsteps / swing sounds → `audio_view.gd:watch`; buses → `_make_buses`, `set_volume`
 
 ## Files
@@ -103,15 +159,18 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `arena_view.gd` (ArenaView) — Draws the stadium: stands, walls, and the breakable floor from the terrain grid.
 - `audio_view.gd` (AudioView) — Sound effects and music. Like the other views it only reads the simulation: sounds come from simulation events (hits, s…
 - `creature_view.gd` (CreatureView) — Shows one CreatureSim: picks the sprite frame from its state, flips it to face, and adds the hit flash, charge glow, in…
-- `crowd_view.gd` (CrowdView) — The crowd in the stands. Big moments raise excitement; more fans cheer and bounce, and camera flashes pop.
+- `crowd_view.gd` (CrowdView) — The crowd all round the stadium: the stands across the top, banked side stands left and right of the floor (the two sid…
 - `debug_view.gd` (DebugView) — F1 overlay: hurtboxes (green), active hitboxes (red), facing, and state/frame counters.
 - `dps_meter.gd` (DpsMeter) — Training's damage-per-second readout for the dummy (drawn by Hud).
 - `flash.gdshader` — Tints a sprite toward flash_color (the white hit flash, the charge glow), and can draw a 1 px rim around its silhouette…
+- `floor_wear.gd` (FloorWear) — The floor remembers the fight: claw scratches, gouges, craters, drag lines, dirt clods, mallet marks and, for a few sec…
 - `fx_ground.gd` (FxGround) — The floor-level half of the effects: puddles, afterimages, crack decals, rock spires, the back half of orbiting pebbles…
 - `fx_view.gd` (FxView) — Cosmetic effects. Two things drive them: - Simulation events (hits, slams, grabs, falls, KOs...), passed in through spa…
 - `hud.gd` (Hud) — Fighter panels (health, energy, stamina, skill cooldowns, Cairn's stones), the combo counter with its damage multiplier…
 - `paper_fx.gd` (PaperFx) — Mister Crease's paper, drawn over the fighters: the sheets of his Paper Stock floating above the hat, the crafts he has…
 - `perf_overlay.gd` (PerfOverlay) — The performance overlay (Settings > Video, or F9): the frame rate in a corner, and in its second mode a chart of the la…
 - `range_rings.gd` (RangeRings) — "Range rings" (Settings > Controls, or F7 in a fight): thin floor rings that show where an attack really reaches, so a…
+- `shadow_layer.gd` (ShadowLayer) — The fighters' shadows, cast along the arena's light: each fighter's current sprite frame as a black silhouette laid on…
 - `surge_aura.gd` (SurgeAura) — The power-up aura a fighter wears while their Surge is ready: a flickering shell of energy rising off them, motes that…
+- `water_view.gd` (WaterView) — Living water over the shallows (Floodgate's channel, Twin Keeps' pools): a slow flow down the map, twinkling highlights…
 <!-- END GENERATED -->

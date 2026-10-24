@@ -118,7 +118,7 @@ const REPLAY_MODE := 47
 ## The Settings pages and their rows, in order (see _setting()).
 const SETTING_PAGES := {
 	"game": ["level", "rumble", "shake", "discord", "server", "delay"],
-	"video": ["fullscreen", "wide", "vsync", "fps", "perf_overlay"],
+	"video": ["fullscreen", "wide", "vsync", "fps", "font", "perf_overlay"],
 	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu"],
 }
 const SHAKE_CHOICES := [["Full", 1.0], ["Reduced", 0.5], ["Off", 0.0]]
@@ -236,6 +236,9 @@ var entities: Node2D
 var views: Array[CreatureView] = []
 var fx: FxView
 var fx_ground: FxGround
+var water: WaterView
+var wear: FloorWear
+var shadows: ShadowLayer
 var audio: AudioView
 var debug: DebugView
 var hud: Hud
@@ -304,6 +307,7 @@ var _training_fighter := ""
 var _training_screen_arg := ""  ## --training-screen=pause|options|fighters
 var _swap_fade := 0.0  ## the black fade after a fighter swap, 1 → 0
 var shake := 0.0
+var shake_dir := Vector2.ZERO  ## the last hit's push direction: the shake leans along it
 var _ko_cam_t := -1
 var _ko_focus := Vector2.ZERO
 var _ko_pos := Vector2.ZERO
@@ -415,6 +419,9 @@ var _cpu_shown := 0
 func _ready() -> void:
 	if _run_sim_check() or _run_server():
 		return
+	_fit_window()
+	_apply_pixel_scale()
+	get_window().size_changed.connect(_apply_pixel_scale)
 	Controls.setup()
 	_cpus_early = DisplayServer.get_name() != "headless"
 	_fps_caps = DisplayServer.get_name() != "headless" and not ("--fixed-fps" in OS.get_cmdline_args()) \
@@ -434,8 +441,15 @@ func _ready() -> void:
 	add_child(arena)
 	crowd = CrowdView.new()
 	add_child(crowd)
+	wear = FloorWear.new()  # scratches, gouges, craters, prints: the floor remembers, under everything
+	add_child(wear)
 	fx_ground = FxGround.new()
 	add_child(fx_ground)
+	water = WaterView.new()  # living water over the shallows, under the fighters
+	add_child(water)
+	shadows = ShadowLayer.new()  # the fighters' shadows, on the floor under everyone
+	shadows.views = views
+	add_child(shadows)
 	rings = RangeRings.new()
 	rings.visible = false
 	rings.fx = fx  # what the local team can see (Vision): no rings for a hidden foe
@@ -445,6 +459,7 @@ func _ready() -> void:
 	add_child(entities)
 	fx = FxView.new()
 	fx.bind_ground(fx_ground)
+	fx.wear = wear
 	add_child(fx)
 	paper = PaperFx.new()  # Mister Crease's sheets, crafts and storms, over the fighters
 	paper.fx = fx
@@ -483,6 +498,8 @@ func _ready() -> void:
 		(pin as PlayerInput).pad_device = PlayerInput.NO_PAD
 
 	_load_settings()
+	if UiTheme.smooth:
+		ui.restyle()  # the menu theme was built before the saved Text font was read
 	var start_mode := _parse_args()
 	_apply_device()
 	_apply_discord()
@@ -823,6 +840,19 @@ func _open_settings_page(page: String) -> void:
 		s.add_button("Back", s.back)
 	scr.backed.connect(func(): _setting_rows.clear())
 	ui.push(scr)
+
+
+## Rebuild an open Settings page in place (its rows carry their own font sizes), with
+## the row that changed focused again: Text font swaps every size on the page.
+func _reopen_settings_page(page: String, key: String) -> void:
+	var top := ui.top()
+	if top == null or top.title != page.to_upper():
+		return
+	ui.pop()
+	_open_settings_page(page)
+	var row: Control = _setting_rows.get(key)
+	if row != null:
+		row.grab_focus()
 
 
 func _add_setting_row(s: UiScreen, key: String) -> OptionRow:
@@ -1859,7 +1889,11 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 				seed_base * 101 + round_num * 7 + i)
 	arena.ground = String(sim.arena.get("ground", "dirt"))
 	arena.arena_id = String(sim.arena.get("id", ""))
-	crowd.set_width(sim.arena_size().x)
+	shadows.light = ShadowLayer.light_of(sim.arena)
+	var two_sides := true  # (a Brawl of three or four has no sides for the stands to take)
+	for c in sim.creatures:
+		two_sides = two_sides and c.team >= 0 and c.team <= 1
+	crowd.set_size(sim.arena_size(), two_sides)
 	arena.set_terrain(sim.terrain)
 	for v in views:
 		v.queue_free()
@@ -1873,6 +1907,9 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 		views.append(v)
 	debug.sim = sim
 	rings.set_sim(sim)
+	water.set_sim(sim)
+	wear.set_sim(sim)
+	water.fx = fx
 	paper.set_sim(sim)
 	hud.sim = sim
 	fx.sim = sim
@@ -2080,6 +2117,8 @@ func _physics_process(_delta: float) -> void:
 
 	var t_fx := PerfLog.now()
 	arena.refresh()
+	water.advance()
+	wear.advance()
 	crowd.advance()
 	fx.advance()
 	PerfLog.since("fx advance", t_fx)
@@ -2100,13 +2139,25 @@ func _physics_process(_delta: float) -> void:
 
 	shake = maxf(shake, fx.shake_out)
 	fx.shake_out = 0.0
+	if fx.shake_dir != Vector2.ZERO:
+		shake_dir = fx.shake_dir
+		fx.shake_dir = Vector2.ZERO
+	if fx.flash_out > 0.0:
+		_flash(Color(1, 0.95, 0.75), fx.flash_out)
+		fx.flash_out = 0.0
 	if sim.ko_freeze <= 0:
 		shake *= 0.82
 	var t_cam := PerfLog.now()
 	_update_camera()
 	PerfLog.since("camera", t_cam)
 	var sh := shake * shake_scale
-	camera.offset = Vector2(randf_range(-sh, sh), randf_range(-sh, sh)).round() if sh > 0.3 else Vector2.ZERO
+	if sh <= 0.3:
+		shake_dir = Vector2.ZERO
+		camera.offset = Vector2.ZERO
+	elif shake_dir != Vector2.ZERO:  # a hit: most of it along the push, a little across
+		camera.offset = (shake_dir * sh * randf_range(-1.0, 1.0) + shake_dir.orthogonal() * sh * randf_range(-0.3, 0.3)).round()
+	else:
+		camera.offset = Vector2(randf_range(-sh, sh), randf_range(-sh, sh)).round()
 	flash_rect.color.a = maxf(0.0, flash_rect.color.a - 0.04)
 	if offline and (flow == Flow.FIGHT or flow == Flow.MENU):
 		_think_ahead()
@@ -2406,6 +2457,8 @@ func _react(e: Dictionary) -> void:
 		"hit":
 			shake = maxf(shake, 1.5 + power * 0.2)
 			crowd.cheer(0.1 + power * 0.015)
+			if fx._event_shown(e):  # (fans near a hidden fighter's hit would give it away)
+				crowd.react(Vector2(e["pos"]), 4 + mini(4, int(power * 0.25)))
 		"block":
 			shake = maxf(shake, 1.0)
 		"slam":
@@ -2569,7 +2622,9 @@ func _update_camera() -> void:
 			_ko_cam_t = -1
 	var half := view * 0.5 / z
 	camera.zoom = Vector2(z, z)
-	camera.position = Vector2(_cam_axis(focus.x, half.x, size.x), _cam_axis(focus.y, half.y, size.y))
+	# Near an edge the shot may run a little past it, into the side stands and front rows.
+	camera.position = Vector2(_cam_axis(focus.x, half.x, size.x, CrowdView.SHOW_SIDE, CrowdView.SHOW_SIDE),
+		_cam_axis(focus.y, half.y, size.y, 0.0, CrowdView.SHOW_FRONT))
 	_update_pointers(view)
 
 
@@ -2658,12 +2713,13 @@ func _cam_anchor() -> int:
 	return found
 
 
-## Keeps the arena filling the screen along one axis; when the screen shows more than
-## the arena (an ultrawide's width), the arena stays centred and the stadium fills the rest.
-static func _cam_axis(v: float, half: float, arena: float) -> float:
-	if half * 2.0 >= arena:
-		return arena * 0.5
-	return clampf(v, half, arena - half)
+## Keeps the arena filling the screen along one axis, the view allowed `lo` / `hi` past its
+## start and end (into the stands); when the screen shows more than that (an ultrawide's
+## width), the view stays centred on it and the stadium fills the rest.
+static func _cam_axis(v: float, half: float, arena: float, lo := 0.0, hi := 0.0) -> float:
+	if half * 2.0 >= arena + lo + hi:
+		return (arena + hi - lo) * 0.5
+	return clampf(v, half - lo, arena + hi - half)
 
 
 # ------------------------------------------------------------------ input
@@ -2983,6 +3039,9 @@ func _setting(key: String) -> Dictionary:
 				vals.append("Unlimited" if int(f) == 0 else "%d fps" % int(f))
 			return {"label": "Fight frame rate", "values": vals, "index": maxi(0, FPS_CHOICES.find(fight_fps)),
 				"desc": "Menus always run at 60 fps; this sets fights (up to your screen's refresh rate)"}
+		"font":
+			return {"label": "Text font", "values": ["Pixel", "Smooth"], "index": 1 if UiTheme.smooth else 0,
+				"desc": "The menus and the HUD: the pixel font, or the smooth font from before"}
 		"perf_overlay":
 			return {"label": "Performance overlay", "values": PerfOverlay.MODE_NAMES, "index": perf_overlay.mode,
 				"desc": "The frame rate in a corner; with the graph, the last few seconds of frame times (F9 in a fight)"}
@@ -3044,6 +3103,11 @@ func _set_setting(key: String, i: int) -> void:
 				fight_fps = int(FPS_CHOICES[clampi(i, 0, FPS_CHOICES.size() - 1)])
 			"perf_overlay":
 				perf_overlay.mode = clampi(i, 0, PerfOverlay.MODE_NAMES.size() - 1) as PerfOverlay.Mode
+			"font":
+				if UiTheme.smooth != (i == 1):
+					UiTheme.smooth = i == 1
+					ui.restyle()
+					_reopen_settings_page.call_deferred("video", "font")
 	_save_settings()
 
 
@@ -3069,6 +3133,52 @@ func _apply_frame_rate() -> void:
 		var cap := MENU_FPS if menus else fight_fps
 		if Engine.max_fps != cap:
 			Engine.max_fps = cap
+
+
+## The pixel grid. project.godot draws on a 960 x 540 base (`viewport_width/height`) with a
+## content scale of 2 (`window/stretch/scale`): one canvas unit is two grid pixels, so the
+## world, the camera (zoom 1 shows a 480 x 270 view, as before) and every layout keep their
+## numbers, while the pixel font (UiTheme) is drawn on the finer grid. The window's scale is
+## snapped down to a whole number of screen pixels per canvas unit (3 at 1440 x 810, 4 at
+## 1920 x 1080, 5 at 2560 x 1440): a fighter's pixels and 2x text are always whole screen
+## pixels and never wobble between sizes. The edge left over shows a little more of the
+## stadium (aspect expand), never a black bar. Text one grid pixel per glyph pixel is exact
+## only when the window is a whole multiple of 960 x 540 (1920 x 1080, 3840 x 2160).
+func _apply_pixel_scale() -> void:
+	if DisplayServer.get_name() == "headless":
+		return  # no screen (tests, servers): the project's scale 2 keeps the canvas in 480 x 270 units
+	var win := get_window()
+	var factor := pixel_scale_factor(Vector2(win.size), Vector2(win.content_scale_size))
+	if factor > 0.0 and not is_equal_approx(win.content_scale_factor, factor):
+		win.content_scale_factor = factor
+
+
+## The content scale factor for a window `size` over the `base` grid: whole screen pixels
+## per canvas unit (base.x / VIEW_W grid pixels: 2), at least 1. 0 for a size or base of nothing.
+static func pixel_scale_factor(size: Vector2, base: Vector2) -> float:
+	if base.x <= 0.0 or base.y <= 0.0 or size.x <= 0.0 or size.y <= 0.0:
+		return 0.0
+	var grid := minf(size.x / base.x, size.y / base.y)  # screen px per grid px, unsnapped
+	var unit_px := maxf(1.0, floorf(grid * base.x / SimDefs.VIEW_W + 0.001))  # per canvas unit
+	return unit_px / grid
+
+
+## A windowed start opens at 1920 x 1080 (project.godot), where every text size is whole
+## screen pixels. On a screen too small for that window, it opens at the biggest whole
+## multiple of 480 x 270 that fits instead (1440 x 810 on a 1080p screen). A window that
+## fits (any size given with `--resolution`) and fullscreen are left alone.
+func _fit_window() -> void:
+	if DisplayServer.get_name() == "headless" or OS.has_feature("mobile"):
+		return
+	var win := get_window()
+	if win.mode != Window.MODE_WINDOWED:
+		return
+	var room := Vector2(DisplayServer.screen_get_usable_rect(win.current_screen).size) - Vector2(16, 48)  # frame, title bar
+	if win.size.x <= room.x and win.size.y <= room.y:
+		return
+	var units := floori(minf(room.x / SimDefs.VIEW_W, room.y / SimDefs.VIEW_H))
+	win.size = Vector2i(maxi(units, 2) * SimDefs.VIEW_W, maxi(units, 2) * SimDefs.VIEW_H)
+	win.move_to_center()
 
 
 func _apply_aspect() -> void:
@@ -3265,6 +3375,7 @@ func _load_settings() -> void:
 		Controls.apply_overrides(cfg.get_value("controls", "bindings", {}))
 		var fps := int(cfg.get_value("video", "fight_fps", default_fps()))
 		fight_fps = fps if fps in FPS_CHOICES else default_fps()
+		UiTheme.smooth = String(cfg.get_value("video", "font", "pixel")) == "smooth"
 		perf_overlay.mode = clampi(int(cfg.get_value("video", "perf_overlay", 0)), 0,
 			PerfOverlay.MODE_NAMES.size() - 1) as PerfOverlay.Mode
 		var saved_rows = cfg.get_value("game", "row_choice", {})
@@ -3298,6 +3409,7 @@ func _save_settings() -> void:
 	cfg.set_value("video", "vsync", vsync)
 	cfg.set_value("video", "wide_fill", wide_fill)
 	cfg.set_value("video", "perf_overlay", perf_overlay.mode)
+	cfg.set_value("video", "font", "smooth" if UiTheme.smooth else "pixel")
 	cfg.set_value("game", "rumble", rumble)
 	cfg.set_value("game", "shake", shake_scale)
 	cfg.set_value("game", "range_rings", range_rings)
