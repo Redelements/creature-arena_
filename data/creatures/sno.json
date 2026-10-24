@@ -53,6 +53,7 @@
     "poke_range": [30, 80],
     "zone": "skill_1",
     "zone_range": [0, 80],
+    "weights": {"zone": 0.6},
     "surge_range": 75,
     "routes": [
       ["light", "light", "light", "heavy", "surge"],

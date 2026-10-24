@@ -6,14 +6,16 @@ extends SceneTree
 ##   --arena=ID: play on that arena map (default stadium; greenhouse and quarry test sight)
 ##   --detail: per foe, also the share of ticks at preferred spacing (a kiter: its kite band;
 ##     else ai.range ± 15%, at least ± 8 px, between body edges), ticks with stamina empty and guard breaks taken
-##   --scored: the fighter under test plays the scored kit (CpuController.scored); with
-##     --a=3 --b=3 that is scored Rage against ladder Rage
+##   --scored: the fighter under test plays the scored kit (CpuController.scored, the default)
+##     and its foes the old ladder; with --a=3 --b=3 that is scored Rage against ladder Rage.
+##     --ladder: everyone plays the ladder (the baseline to compare with)
 ##   --teams=3: 3v3 Rage (or --a) through TeamSim, a tank, a mage and an assassin a side: win
 ##     rate, length, target switches a minute per CPU, spacing share (a baseline for team AI)
 
 const MAX_TICKS := 5400
 
-var _scored_a := false  ## --scored: the fighter under test (side A) uses the scored kit
+var _scored_a := false  ## --scored: the fighter under test (side A) scored, the foe the old ladder
+var _ladder := false  ## --ladder: everyone plays the old ladder kit (a baseline)
 
 
 func _init() -> void:
@@ -44,6 +46,8 @@ func _init() -> void:
 			MatchFactory.arena = arg.get_slice("=", 1)
 		elif arg == "--scored":
 			_scored_a = true
+		elif arg == "--ladder":
+			_ladder = true
 		elif arg.begins_with("--teams="):
 			teams = int(arg.get_slice("=", 1))
 	if teams > 0:
@@ -106,7 +110,9 @@ func _match(f: String, o: String, a_lv: int, b_lv: int, side: int, seed_: int) -
 	var cpus := [null, null]
 	cpus[me] = CpuController.new(me, a_lv, seed_ * 7 + 1)
 	cpus[1 - me] = CpuController.new(1 - me, b_lv, seed_ * 13 + 5)
-	cpus[me].scored = _scored_a
+	if _scored_a or _ladder:
+		cpus[me].scored = _scored_a
+		cpus[1 - me].scored = false
 	var dist := 0.0
 	var ticks := 0
 	var at_spacing := 0

@@ -298,6 +298,7 @@ func test_scored_kit_factors() -> void:
 	assert_eq(CpuController.compensate(1.0, 3), 1.0, "a full score stays full:")
 	assert_eq(CpuController.compensate(0.0, 3), 0.0, "a zero stays zero:")
 	assert_true(CpuController.compensate(0.25, 2) > 0.25, "more factors are made up for:")
+	assert_eq(CpuController.f_safe(foe, 8), 1.0, "a foe that isn't striking is safe to start on:")
 
 
 ## The scored kit plays, and one seed replays the same match.

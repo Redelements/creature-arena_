@@ -177,9 +177,9 @@ static func think_wait(task: int) -> void:
 
 ## Whether think_all uses the worker threads (--cpu-threads=off turns it off, to compare).
 static var threaded := true
-## The scored kit (`_rage_kit_scored`) for new controllers; off while it's A/B tested
-## against the ladder (`tests/bench_cpu.gd --scored`). Each controller's `scored` can differ.
-static var scored_default := false
+## The scored kit (`_rage_kit_scored`) for new controllers (on; false plays the old ladder,
+## for A/B with `tests/bench_cpu.gd --scored`). Each controller's `scored` can differ.
+static var scored_default := true
 ## The input chosen by the last bits() call.
 var last_bits := 0
 
@@ -1733,6 +1733,15 @@ static func f_busy(foe: CreatureSim, need: int) -> float:
 	return clampf(float(_recovery_left(foe)) / maxf(1.0, float(need)), 0.0, 1.0)
 
 
+## Safe to start a move with `startup` frames: 1 when the foe isn't striking (or its strike
+## is already out), falling to 0 as its active frames come before ours would.
+static func f_safe(foe: CreatureSim, startup: int) -> float:
+	var fta := _frames_to_active(foe)
+	if fta < 0:
+		return 1.0
+	return clampf(float(fta - startup) / 10.0, 0.0, 1.0)
+
+
 ## The class triangle from `me`'s side: 1 when its class beats the foe's, 0 when it loses,
 ## 0.5 even.
 static func f_matchup(me: CreatureSim, foe: CreatureSim) -> float:
@@ -1807,9 +1816,10 @@ func _score_candidates(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe:
 	var pr: Array = ai.get("poke_range", [0, 0])
 	if poke != "" and plan != "lurk" and _usable(me, poke) and dist >= float(pr[0]) and dist <= float(pr[1]):
 		var into := 0.0 if plan == "press" else closing
-		# Footsies and skirmishes poke in neutral too (the ladder's 20% roll).
-		var free := 0.35 if plan in ["footsie", "skirmish"] else 0.0
-		out.append(["poke", maxf(maxf(f_busy(foe, 6), into), free) * float(w["poke"]) * _jitter()])
+		# Footsies and skirmishes poke in neutral too, on the ladder's 20% roll.
+		var free := 1.0 if plan in ["footsie", "skirmish"] and _roll(0.2) else 0.0
+		var safe := f_safe(foe, int(me.moves()[poke].get("startup", 8)))
+		out.append(["poke", maxf(maxf(f_busy(foe, 6), into), free) * safe * float(w["poke"]) * _jitter()])
 	return out
 
 

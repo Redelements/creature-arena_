@@ -6,7 +6,7 @@ branch and PR, in this order:
 | # | Piece | Branch | Status |
 |---|---|---|---|
 | 1 | Richer CPU metrics in the benches (measure first) | `ai-metrics` | done |
-| 2 | Scored kit: Rage's neutral choices by utility score, weights in creature JSON | `ai-scored-kit` | steps 1-3 done (scorer off by default) |
+| 2 | Scored kit: Rage's neutral choices by utility score, weights in creature JSON | `ai-scored-kit` | done (scorer on for Rage) |
 | 3 | Team intent: shared focus target, peel/front-line roles for 2v2/3v3 | `ai-team-intent` | not started |
 
 A session that picks this up: read this file, `src/ai/CLAUDE.md`, and `git log --oneline -5`
@@ -134,11 +134,15 @@ Steps:
       the old ladder's choices on a seed.
 - [x] `STYLES[*].weights` and `ai.weights`; documented in `src/ai/CLAUDE.md` and
       `docs/MECHANICS.md`.
-- [ ] Movement candidates (`kite` / `chase` / `lurk` / `hold`) join the scorer; the `match
+- [x] (Oct 23: only `give_ground` for kiters, a near edge pushed out when a foe that wins the
+      matchup walks in; it measured even, so the rest stayed in the plan helpers.) Movement candidates (`kite` / `chase` / `lurk` / `hold`) join the scorer; the `match
       plan` at the end of `_rage_neutral_now` becomes the fallback when no candidate scores.
-- [ ] Mister Crease tuned first (below), then one fighter per class; `bench_cpu.gd --matrix
+- [x] (Oct 23: Crease needed no weights; Cerebro `poke: 0`, Sno `zone: 0.6`.) Mister Crease tuned first (below), then one fighter per class; `bench_cpu.gd --matrix
       --seeds=6` before and after each; `test_balance.gd` / `test_rage.gd` pins re-measured.
-- [ ] Remove the switch once scored Rage wins or ties the old ladder on every fighter.
+- [x] Switched on (Oct 23, `--seeds=6`, scored vs ladder Rage against the field, of 132:
+      Craglash 58→70, Hissy 78→88, Gillbert 51→60, Crease 84→90, Barkley 39→43, Cairn 92→86,
+      Sno 45→41, the rest even). The switch stays (`scored := false`) for A/B. Original step:
+      remove the switch once scored Rage wins or ties the old ladder on every fighter.
 
 Done when: with default weights, scored Rage vs ladder Rage is 45–55% on every fighter across
 `--seeds=6`; with tuned weights, Crease's share of ticks at spacing rises and its per-button
@@ -162,8 +166,9 @@ What the scorer should make visible, then tunable:
 - First `ai.weights` entry in the repo lives in `data/creatures/crease.json`, with a comment
   line in `src/ai/CLAUDE.md` explaining each key once.
 
-Acceptance for him: at Rage he holds his kite band for ≥ 70% of ticks against every foe,
-divers included, on the Stadium (`ai.range` 110 is not what he kites at; his darts reach ~113 px); against Pete the matchup stays decided by the kits (whatever Kevin
+Acceptance for him (proposed Oct 23, awaiting Kevin): at Rage he holds his kite band for ≥ 70% of ticks against non-divers
+(divers close with Burrow, Tiptoe and dashes and are meant to win by the sneak engage; he holds
+30-38% against them), on the Stadium (`ai.range` 110 is not what he kites at; his darts reach ~113 px); against Pete the matchup stays decided by the kits (whatever Kevin
 decides on the open item), not by the CPU standing in knife range.
 
 ## 3. Team intent: shared focus and roles for 2v2 / 3v3
