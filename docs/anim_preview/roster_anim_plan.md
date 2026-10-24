@@ -29,9 +29,14 @@ they are left out.
   5. **Squash and stretch sized to the material** (see the table below).
 - **Silhouette beats detail.** Every key pose gets checked for what covers it. Sub-pixel
   moves (under 1 px of travel per frame) are dropped, they jitter or vanish.
-- **Four animations per fighter**: idle, run, the light string, the Surge. Those are what
-  a player sees most. A fifth slot is allowed when the fighter's signature move is
-  something else (listed per fighter below).
+- **Every ability, every fighter (Kevin, Oct 23).** Idle, run, each light, the heavy,
+  both skills, the Surge and the dodge all get the pass. Hurt, guard and the knockout are
+  not abilities and stay as they are unless Kevin asks. The per-fighter sections below
+  seed the idle, run, lights and Surge in detail and name one signature move; the rest of
+  each kit is planned in that fighter's own motion plan with the same recipe.
+- **Crease is included again**: his first pass covered idle, run, the flicks and the
+  Surge. His folds (shuriken, crane, frog), the three throws and the Paper Plane dodge
+  get the same treatment in a follow-up PR, so all ten fighters end on the same quality.
 
 ### Squash and stretch by material
 
@@ -120,7 +125,7 @@ freeze. Timing, not spacing, is his personality.
   flurry. New: a 4-frame flurry loop (bag left, right, overhead, low) so no two
   consecutive hits look alike, the smoke puff as a held frame, and the finishing smack
   with a coil (hold 4) and a release (hold 5).
-- **Fifth slot:** Tiptoe (Skill 1), the invisibility sneak: the same lift-place-settle
+- **Signature:** Tiptoe (Skill 1), the invisibility sneak: the same lift-place-settle
   timing, so the two reads match.
 - **Lag parts:** `bag`, `bag_r`, the pompom. **Squash:** 12%.
 - **Facing down:** the sneak's knee lift must read as a leg coming toward the camera,
@@ -144,7 +149,7 @@ bounce, the slide is a feet-first slide tackle.
 - **Surge (12, Flavor Blast):** the rear back is a gather held 4 ticks (the cone tipped
   back, gloves back), the slam is a 1-frame fast middle, the impact is held 5 ticks with
   the shards (`shards`) spraying a frame later, then a slow rise.
-- **Fifth slot:** Shaved Ice Spray (Heavy): the head shake as a 4-frame loop
+- **Signature:** Shaved Ice Spray (Heavy): the head shake as a 4-frame loop
   (`anim_charge`) so the spray reads as a shake, not a flicker.
 - **Lag parts:** gloves (`near`, `far`), `drip`, `shards`, `puddle`. **Squash:** 5% cone,
   free on the limbs.
@@ -167,7 +172,7 @@ bounce, the slide is a feet-first slide tackle.
   an arc and trails the paw by a frame.
 - **Surge (12, Cave-In):** rear up (gather, held 4, the pick raised), the slam as the fast
   middle, the impact held 5 ticks, then a 2-frame recoil as the floor gives, and a settle.
-- **Fifth slot:** Burrow's pop-up (Skill 2 frames 4 and 5): with the ambush rules of PR
+- **Signature:** Burrow's pop-up (Skill 2 frames 4 and 5): with the ambush rules of PR
   #135 this is his signature; a 2-frame burst becomes 4 (mound bulge, burst, apex, land).
 - **Lag parts:** `tail`, `tail_up`, `lamp`, `head`. **Squash:** 12%.
 
@@ -188,7 +193,7 @@ bounce, the slide is a feet-first slide tackle.
 - **Surge (12, Storm Drain):** crouch held 4 (the gather), the leap as 2 frames of
   stretch on the legs, 2 frames tucked at the apex, 2 falling spread, the slam held 5
   ticks with the cover bouncing a frame later, a slow rise.
-- **Fifth slot:** none; Gulp's tongue is drawn by the view and stays as it is.
+- **Signature:** none; Gulp's tongue is drawn by the view and stays as it is.
 - **Lag parts:** `throat`, `cover`, `mouth`, `spray`. **Squash:** 0 on the body, legs fold
   (`leg_k`) instead.
 
@@ -212,7 +217,7 @@ time as anything else, and that is the whole look.
   coiled all the way back and down, the hair pulled back), the punch is the fast middle,
   the impact holds 5, the shockwave frame holds 3, then the slow recovery with the hair
   settling last.
-- **Fifth slot:** Coil Uppercut (Heavy): the coil is literally the move's name; a 4-frame
+- **Signature:** Coil Uppercut (Heavy): the coil is literally the move's name; a 4-frame
   charge loop (`anim_charge`) of the glove winding tighter.
 - **Lag parts:** hair snakes (`phase`, `amp`, `lash`), gloves (`near`, `far`).
   **Squash:** 10%.
@@ -237,7 +242,7 @@ the kit orbiting him and the brainstem trailing him.
   4-frame throw loop (the fan of knives peeling off one at a time, the brain pitching
   with each) over the same `anim_at` ticks, so eight knives look like eight throws, then
   the last knife with a held release and a wobble.
-- **Fifth slot:** Flip Out (Skill 2): the spatula scoop is a grab and reads best with an
+- **Signature:** Flip Out (Skill 2): the spatula scoop is a grab and reads best with an
   anticipation hold and a big arc over the head.
 - **Lag parts:** every tool, `tail`, `psy`, `glint`. **Squash:** 10% plus a settling
   wobble.
@@ -252,8 +257,12 @@ pause.
   on landing. The rod on its line settles 2 frames after the hop.
 - **Run (16, `run_ticks` 2, the cycle stays 32 ticks):** the flop, with the frames to do
   it properly: curl (anticipation, held), spring (stretch, 1 fast frame), arch, nose down,
-  slap (squash, held 2), bounce, settle, and the rod (`rod`, `sag`) tumbling end over end
-  a full 3 frames behind, so it is still in the air when he lands.
+  slap (squash, held 2), bounce, settle. **The rod goes wild (Kevin):** it is not a smooth
+  end-over-end tumble but erratic: the spin speed changes from frame to frame (a fast
+  whip, a near stop, a snap the other way), the line whips and kinks behind it, the rod
+  clatters and bounces off the floor on the slap, and its lag varies (2 to 4 frames) so
+  the two halves of the cycle never look the same. Still a loop: frame 15 hands back to
+  frame 0.
 - **Lights (8 each, Snout Jab, Tail Whip, Rod Flail):** the jab bends the spine back
   (held 2) and snaps forward; the Tail Whip is a half turn with the tail trailing the
   body by 2 frames and overshooting; the Rod Flail arcs the rod over him on a curve with
@@ -261,7 +270,8 @@ pause.
 - **Surge (12, The One That Got Away):** crouch and curl (gather, held 4), the launch as
   one stretched frame, two frames rising and shrinking, the fall spread out, the belly
   flop held 5 with a 12% squash, the bounce, the settle with the rod landing last.
-- **Fifth slot:** none.
+- **Signature:** Cast Line (Skill 2): the rod thrown on its line, with the same erratic
+  flop in the air and a big yank on the reel-in.
 - **Lag parts:** `rod`, `sag`, `fins`, `gill`, the tail (`wiggle`). **Squash:** 12%.
 
 ### 8. Barkley (bruiser): the tree that got up
@@ -283,7 +293,7 @@ takes a long time to start, a short time to fall, and a long time to stop.
   into the floor 1 fast frame, held 5; then the three rings get a frame each with the
   trunk recoiling and the boughs flung up, and a long settle. The `anim_at` ticks already
   span 48; the new frames fill the gaps.
-- **Fifth slot:** Timber Twister (Heavy): the spin cycles frames 2 to 5 three times
+- **Signature:** Timber Twister (Heavy): the spin cycles frames 2 to 5 three times
   today; an 8-frame spin (two frames per quarter turn, with the boughs trailing the
   trunk by a frame) makes it a spin instead of a flicker, over the same `anim_at` ticks.
 - **Lag parts:** hands (boughs), `poles`, `bend`, the leaves. **Squash:** 0 on the trunk.
@@ -308,7 +318,7 @@ things that flow, and they flow late.
 - **Surge (12, Bedrock):** the rooting-in is a gather (held 4, the body sinking, cracks
   lighting), then a 4-frame glow loop (`anim_charge`-style, via `anim_at`) that pulses
   the `glow` and ripples the mane while he is rooted for 3 seconds, then the release.
-- **Fifth slot:** Rockslide Stomp (Heavy): slow lift (held), one-frame drop, 5-tick hold
+- **Signature:** Rockslide Stomp (Heavy): slow lift (held), one-frame drop, 5-tick hold
   on the impact, a mane and neck ripple after.
 - **Lag parts:** `c1`, `c2`, `head`, `mane`, hands. **Squash:** 0 (`sy` stays 1).
 - **Rig note:** poses are integer pixels today; floats stay in the pose and round in the
@@ -338,9 +348,10 @@ screenshots or a clip from the fighter's showcase, which drives the moves in ord
 ## Effort and batching
 
 Crease took one working day for four animations with the tools built along the way.
-With Phase 0 done, a splat3d fighter is a day: half for the plan and previews, half for
-the game after approval. The older rigs (Gillbert, Barkley, Craglash) are a day and a
-half, mostly rig work.
+Every ability is about ten rows per fighter instead of four, so with Phase 0 done a
+splat3d fighter is about two and a half days (plan and previews, then the game after
+approval), and the older rigs (Gillbert, Barkley, Craglash) about three and a half. The
+whole pass is roughly five to six weeks of agent work, run as parallel PRs.
 
 | Batch | Fighters | Merges as one | Server |
 | --- | --- | --- | --- |
@@ -348,20 +359,16 @@ half, mostly rig work.
 | 1 | Pete, Sno, Digby | one `NET_VERSION` bump on the last to merge | one rebuild |
 | 2 | Culvert, Hissy, Cerebro | same | one rebuild |
 | 3 | Gillbert, Barkley, Craglash | same | one rebuild |
+| 4 | Crease (the rest of his kit) | its own | one rebuild |
 
 Each fighter still gets its own PR and its own approval of the previews, so a fighter
 Kevin wants redirected (as happened with Craglash's kit) does not hold the others.
 
-## Questions for Kevin before Phase 0
+## Decisions (Kevin, Oct 23 2026)
 
-1. **Order.** Pete, Sno, Digby first because their rigs are simplest. Or start with the
-   fighter you play most?
-2. **The fifth slot.** Keep it (one signature move per fighter, listed above), or stay
-   strictly at four animations like Crease and leave heavies and skills for a later pass?
-3. **Idle speeds.** Crease's idle slowed to 64 ticks. The plan gives Pete 40 (nervous),
-   Barkley 80 (slow), everyone else 64. Fine, or keep today's 40 across the board?
-4. **Gillbert's run at 16 frames.** His flop is already 8; doubling keeps the recipe but
-   it is the longest row on any sheet. Or 12 with a shorter cycle?
-5. **Batches of three** for the server rebuilds, or merge each fighter as it is approved
-   and rebuild more often?
-6. **Shading pass.** Still a separate project after this one, as decided for Crease?
+1. **Order:** Claude's choice. Simplest rigs first (Pete, Sno, Digby), as above.
+2. **Scope:** every ability for every fighter, Crease's remaining kit included.
+3. **Idle speeds:** per fighter (Pete 40, Barkley 80, the rest 64 ticks).
+4. **Gillbert's run:** 16 frames, and his rod flops around erratically, not smoothly.
+5. **Batches of three**, one server update per batch.
+6. **Shading pass:** a separate project after this one.
