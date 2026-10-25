@@ -35,7 +35,7 @@ player and live here, outside the sim.
   tick, or first on a press, a training change or a new match); flow → `_update_flow`; ends → `_end_round`, `_show_match_over`,
   `_duel_flow`, `_team_flow`
 - Back from a match → `_back_to_row` (the Single player page and row `_start_row` remembered in `_row_from`);
-  why a match ended → `_over_by` (the sim's `duel_over` `by`) and `_over_reason`; `_row_choice` is saved by label
+  why a match ended → `_over_by` (the sim's `duel_over` `by`) and `_over_reason`, a draw's `_draw_reason` (every "DRAW" says why: level at time, or a double K.O., named when an arena hazard did it, `_ko_by_hazard`); `_row_choice` is saved by label
 - Camera → `_update_camera`, `_frame_fight`, `_cam_axis`; `CAM_PAD`, `KO_ZOOM`, `SHOWCASE_ZOOM`;
   on a map bigger than the stadium it follows the local player (`_cam_anchor`, `FOLLOW_R`,
   `FOLLOW_ZOOM`, `BIG_MAP_MIN_ZOOM`); look-ahead `_lead_of` / `_lead_room` (`LEAD_*`, never
@@ -65,8 +65,15 @@ player and live here, outside the sim.
   (a press in `_input` skips it; the camera eases on from where it left off); the drawing
   and timeline `src/view/arena_intro.gd`. Afterwards the round's own "ROUND 1 / FIGHT!" (or a
   team battle's sim intro) plays exactly as before
-- Time of day and weather → Enter on the Arena row opens `_open_look_page` (Time / Weather options `_add_look_rows`, `_set_look_choice`
-  (`time_choice`, `weather_choice`, saved under `game/time`, `game/weather`)); the match's look `_match_look`
+- Arena options (time of day, weather, hazards) → Enter on the Arena row opens `_open_look_page` ("ARENA OPTIONS";
+  `--menu=look`): Time / Weather options `_add_look_rows`, `_set_look_choice` (`time_choice`, `weather_choice`, saved
+  under `game/time`, `game/weather`; looks only), then one On/Off row per hazard in `data/rules/hazards.json`
+  (`_add_hazard_rows`, `_set_hazard`; `hazards_on`, saved under `game/hazards`, off by default; how the match plays).
+  The hub's Arena row says what's on (`_arena_desc`, re-described when the page closes). Hazards reach a match through
+  `_session_mutators` (the same path as `--mutators`, which wins for the session; applied in `_new_sim` with
+  `seed_base`, so a replay records them with `mut_seed`): every offline match but the Daily, Arcade / Gauntlet stages,
+  coaches, showcases, replays, the menu background and online; Chaos Cup leaves an Off hazard out of its draw
+  (`_chaos_table`); the opening banners name them (`_hazard_line`) and `hud.mutator_text` shows them by the clock; the match's look `_match_look`
   (offline: the choice within the arena's list, kept across rounds until `_start_match`; online, spectating,
   the menu background: day + clear; a replay: its `setup.look`); drawing `src/view/weather_view.gd`
 - Add a setting → `SETTING_PAGES` + `_setting(key)` + `_set_setting(key, i)` +
@@ -110,6 +117,7 @@ After `--`; the full list is in the `main.gd` header, modes in `MODES`.
 `--pad-layout=standard|twinstick`, `--touch-demo[=left]` (a recorded touch script into the touch controls, training as Cairn unless `--mode`; `src/game/touch_demo.gd`), `--autoplay`, `--hitboxes`, `--intro` / `--no-intro` (force the arena intro on or off; by default it plays only for offline matches started from the menu with a screen, never headless or for a `--mode` / `--showcase` / `--autoplay` start, so captures keep their frame numbers), `--cpu-vs-cpu`, `--pick`,
 `--teams=a,b,c:d,e,f`, `--arena=stadium|quarry|floodgate|greenhouse`, `--time=random|day|sunset|night`, `--weather=random|clear|rain|fog|wind|snow` (the look of offline matches this session; one the arena doesn't allow falls back), `--menu=main|single|single:<group>|look|settings|game|video|audio|controls|touch|remap:<classic|league|gamepad>`,
 `--cam=X,Y[,ZOOM]` (hold the camera on a world spot, still clamped to the arena and stands: screenshots of the edges), `--cam-lead=0|1`, `--cam-clash=0|1`, `--cam-settle=0|1` (camera behaviour off / Normal for this session, not saved; also `low|normal|high`), `--training-screen=pause|options|fighters` (with a training `--mode`), `--training-flags=no_cooldowns,full_energy`,
+`--mutators=tidal_wave,meteor_shower` (data/rules/mutators.json ids, merged: on every offline match this session, applied in `_new_sim` with `seed_base`; Chaos Cup plays them instead of its draw; never online, showcases, coaches or the menu background),
 `--perf` (frame and tick percentiles on quit, with each part's share: the tick's
 steps, each view's `_draw` via `PerfLog.since`, the renderer's CPU and GPU time, and when
 the slowest frames came; `perf_log.gd`), `--cpu-threads=off`. Modes: 5 showcases, 6 Duel vs CPU, 7 Duel 2P,

@@ -81,6 +81,11 @@ e.g. Cerebro's `poke`, whose mallet thrown at a tank walking in loses the matchu
   for Rage (`scored`, `scored_default`); `false` plays the old ladder. A/B with
   `tests/bench_cpu.gd --scored --a=3 --b=3` (scored vs ladder), `--ladder` for the baseline.
   Win rates at `--seeds=3` swing about ±9 of 66 from the rng stream alone: decide at `--seeds=6`+
+- Arena hazards → `_mind_hazards` (first in `_decide` after Sinkhole: steps out of a meteor shadow once it
+  notices it, `HAZARD_NOTICE` by level; heads for the spot behind rubble a wave can't reach, `_find_shelter`,
+  `SHELTER_LOOK`, and holds there unless a foe is in reach; Hard and Rage dodge through a wave's front when there's
+  no shelter; walks to a core within 110 px when no foe is on it). Reads `sim.hazards` through
+  `Hazards.wave_now` / `meteors_now` and `sim.hazard_pickups`, like a player reading the screen
 - Kite spacing → `kite_band` (80% of the light's range; the kite plan never reads `ai.range`)
 - Leading shots → `_aim_point`; team targeting → `_pick_target`, `_hurt_ally`; Duel tag-out
   → `_maybe_tag`; Crease's folds → `_usable`, `_maybe_fold`

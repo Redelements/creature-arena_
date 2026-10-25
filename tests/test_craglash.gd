@@ -156,7 +156,8 @@ func test_a_taunt_without_a_pull_key_uses_the_default() -> void:
 func test_lights_are_slow() -> void:
 	var mv: Dictionary = MatchFactory.load_def("craglash")["moves"]
 	assert_gt(float(mv["light_1"]["startup"]), 6.0, "a heavy, deliberate Rake (others start in 4-5):")
-	assert_gt(float(mv["light_3"]["startup"]), 9.0, "and a slow Headbutt:")
+	assert_eq(String(mv["light_1"].get("next", "")), "", "and no string after it (Oct 25 2026 nerf):")
+	assert_false(mv.has("light_2"), "no Backhand")
 
 
 func test_landslide_charge_stuns_for_a_quarter_second() -> void:
@@ -239,7 +240,8 @@ func test_mountain_maw_links_into_the_light_string() -> void:
 
 # ------------------------------------------------------------------ Landslide Ram
 
-func test_the_ram_covers_twice_a_normal_roll() -> void:
+func test_the_ram_covers_about_a_normal_roll() -> void:
+	# Half the old ram's distance since the Oct 25 2026 nerf (it was twice a roll).
 	var sim := _duel("cairn", 300.0)
 	var crag := sim.creatures[0]
 	var cairn := sim.creatures[1]
@@ -249,7 +251,7 @@ func test_the_ram_covers_twice_a_normal_roll() -> void:
 	run(sim, 0, 30)
 	var crag_d := crag.pos.x - x0
 	var cairn_d := cairn.pos.x - x1
-	assert_gt(crag_d, cairn_d * 1.8, "Craglash's dash (%.0f px) is about twice Cairn's roll (%.0f px)" % [crag_d, cairn_d])
+	assert_near(crag_d, cairn_d, cairn_d * 0.2, "Craglash's dash (%.0f px) is about Cairn's roll (%.0f px)" % [crag_d, cairn_d])
 
 
 func test_the_ram_costs_its_share_of_the_bar() -> void:
@@ -264,12 +266,12 @@ func test_the_ram_costs_its_share_of_the_bar() -> void:
 
 
 func test_the_ram_hits_the_foe_in_its_path_and_stops_there() -> void:
-	var sim := _duel("cairn", 50.0)
+	var sim := _duel("cairn", 25.0)
 	var crag := sim.creatures[0]
 	var cairn := sim.creatures[1]
 	var hp := cairn.hp
 	var hit := run_until(sim, func(): return _has_event(sim, "hit"), 30, SimDefs.IN_DODGE | RIGHT)
-	assert_true(hit, "the dash connects with Cairn 50 px away")
+	assert_true(hit, "the dash connects with Cairn 25 px away")
 	assert_near(hp - cairn.hp, float(crag.def["dodge"]["ram"]["damage"]), 0.01, "a small hit:")
 	assert_eq(cairn.state, CreatureSim.State.HITSTUN, "a little stun:")
 	assert_eq(int(cairn.combo_hits), 1, "it counts in the combo:")
@@ -278,7 +280,7 @@ func test_the_ram_hits_the_foe_in_its_path_and_stops_there() -> void:
 
 
 func test_the_ram_links_into_the_rake() -> void:
-	var sim := _duel("cairn", 50.0)
+	var sim := _duel("cairn", 25.0)
 	var crag := sim.creatures[0]
 	var cairn := sim.creatures[1]
 	run_until(sim, func(): return _has_event(sim, "hit"), 30, SimDefs.IN_DODGE | RIGHT)
@@ -289,7 +291,7 @@ func test_the_ram_links_into_the_rake() -> void:
 
 
 func test_the_ram_hits_once_per_dash() -> void:
-	var sim := _duel("cairn", 50.0)
+	var sim := _duel("cairn", 25.0)
 	var hits := 0
 	for i in 40:
 		sim.step(PackedInt32Array([SimDefs.IN_DODGE | RIGHT if i == 0 else 0, 0]))
@@ -358,37 +360,31 @@ func test_a_blocked_hit_counts_as_combat() -> void:
 	assert_lt(float(crag.calm_t), 2.0, "the chip he dealt reset his calm:")
 
 
-func test_the_slow_string_still_combos() -> void:
-	# Rake, Backhand, Headbutt mashed: the foe never gets out of stun between the hits.
+func test_mashed_light_comes_out_once_every_two_seconds() -> void:
+	# One Rake, then a 2 s cooldown: mashing light can't string or spam it (Oct 25 2026 nerf).
 	var sim := _duel("cairn", 2.0)
-	var cairn := sim.creatures[1]
+	var crag := sim.creatures[0]
+	var starts := []
+	var was := ""
 	var press := true
-	var first := -1
-	for i in 160:
+	for i in 300:
 		sim.step(PackedInt32Array([L if press else 0, 0]))
 		press = not press
-		if first < 0 and cairn.combo_hits >= 1:
-			first = i
-		if first >= 0 and cairn.combo_hits < 3:
-			assert_true(cairn.is_stunned(), "Cairn escaped the string at hit %d (tick %d)" % [cairn.combo_hits, i])
-			if not cairn.is_stunned():
-				return
-		if cairn.combo_hits >= 3:
-			break
-	assert_eq(int(cairn.combo_hits), 3, "all three lights in one combo:")
-	assert_gt(float(first), 10.0, "and the Rake takes its time to land (12 frames since the Oct 2026 kit pass; a jab takes 4-5):")
+		var now := crag.move_id if crag.state == CreatureSim.State.ATTACK else ""
+		if now == "light_1" and was != "light_1":
+			starts.append(i)
+		was = now
+	assert_eq(starts.size(), 3, "three Rakes in 5 s of mashing:")
+	for k in range(1, starts.size()):
+		assert_gt(float(starts[k] - starts[k - 1]), 119.0, "at least 2 s apart:")
 
 
-func test_landslide_charge_cancels_from_the_headbutt() -> void:
+func test_landslide_charge_cancels_from_the_rake() -> void:
 	var sim := _duel("cairn", 2.0)
 	var crag := sim.creatures[0]
 	var cairn := sim.creatures[1]
-	var press := true
-	for i in 160:
-		sim.step(PackedInt32Array([L if press else 0, 0]))
-		press = not press
-		if crag.move_id == "light_3" and crag.connected:
-			break
+	var hit := run_until(sim, func(): return crag.move_id == "light_1" and crag.connected, 60, L)
+	assert_true(hit, "the Rake lands")
 	var charged := run_until(sim, func(): return crag.move_id == "skill_1" and crag.connected, 60, S1)
-	assert_true(charged, "the Charge lands after the Headbutt")
-	assert_eq(int(cairn.combo_hits), 4, "as the fourth hit of the combo:")
+	assert_true(charged, "the Charge lands after the Rake")
+	assert_eq(int(cairn.combo_hits), 2, "as the second hit of the combo:")

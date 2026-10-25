@@ -296,6 +296,23 @@ func on_event(e: Dictionary) -> void:
 			play("freeze" if bool(e.get("ice", false)) else "shatter", 0.0, 1.3 if bool(e.get("ice", false)) else 1.0)
 		"blinded":
 			play("flash")
+		# Arena hazards (placeholders: docs/AUDIO.md lists the sounds they want).
+		"hazard_warn":
+			if String(e.get("shape", "")) == "wave":
+				play("roar", 0.0, 0.6)  # the swell's roar
+				play("wave", -2.0, 0.5)
+			else:
+				play("windup_red", -2.0, 0.7)  # a whistle overhead
+		"hazard_strike":
+			if String(e.get("shape", "")) == "wave":
+				play("splash", 2.0, 0.6)
+				play("crowd_cheer", -6.0)
+			else:
+				play("cave_in" if bool(e.get("big", false)) else "slam", -2.0, 1.1)
+		"hazard_hit":
+			play("splash" if String(e.get("shape", "")) == "wave" else "hit_heavy", -4.0, 0.9)
+		"hazard_pickup":
+			play("stoneskin", 0.0, 1.4)
 		"steal":
 			play("coins", 0.0, 1.2)
 		"blink":

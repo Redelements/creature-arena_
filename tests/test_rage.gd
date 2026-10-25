@@ -106,14 +106,23 @@ func _far_knives(thrower_lv: int, target: String, target_lv: int, seed_: int, fa
 func test_rage_sidesteps_shots() -> void:
 	# Rage Chef Cerebro throws knives from range at a Hard Sno Mercy, then at a Rage one:
 	# Rage walks out of the way of far more of them.
-	var vs_hard := _far_knives(RAGE, "sno", HARD, 6, 55.0)  # knives reach about 115 px since the Oct 2026 kit pass
-	var vs_rage := _far_knives(RAGE, "sno", RAGE, 6, 55.0)
+	# Twelve seeds: one seed read either way since the Cerebro nerf.
+	var vs_hard := [0, 0]
+	var vs_rage := [0, 0]
+	for s in range(1, 13):
+		var h := _far_knives(RAGE, "sno", HARD, s, 55.0)  # knives reach about 115 px since the Oct 2026 kit pass
+		var r := _far_knives(RAGE, "sno", RAGE, s, 55.0)
+		for k in 2:
+			vs_hard[k] += h[k]
+			vs_rage[k] += r[k]
 	var rate_hard := float(vs_hard[1]) / maxf(1.0, float(vs_hard[0]))
 	var rate_rage := float(vs_rage[1]) / maxf(1.0, float(vs_rage[0]))
 	assert_gt(float(vs_rage[0]), 15.0, "knives were thrown at Rage from range:")
-	# Under 0.8 of Hard's rate: shots hit 1.6x wider since Oct 2026 (projectiles.json), so
-	# walking out of their way is harder for everyone (Rage about 0.77 of Hard's).
-	assert_lt(rate_rage, rate_hard * 0.8, "Rage is hit by fewer of them (%d/%d; Hard %d/%d):" % [
+	# Shots hit 1.6x wider since Oct 2026 (projectiles.json), so walking out of their way is
+	# harder for everyone. Since the Oct 25 2026 Cerebro nerf (no stagger from the Mallet
+	# Toss, a faster glide) Rage takes about 0.85 of Hard's rate over these twelve seeds
+	# (187/286 against 358/465; 0.77 before the nerf), so the pin is under 0.9.
+	assert_lt(rate_rage, rate_hard * 0.9, "Rage is hit by fewer of them (%d/%d; Hard %d/%d):" % [
 		vs_rage[1], vs_rage[0], vs_hard[1], vs_hard[0]])
 
 

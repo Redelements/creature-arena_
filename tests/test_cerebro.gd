@@ -49,10 +49,11 @@ func test_knife_flick_hits_from_range() -> void:
 	var sim := _duel("cairn", 88.0)
 	var hit := run_until(sim, func(): return not _events(sim, "hit").is_empty(), 40, L)
 	assert_true(hit, "a knife flicked from 88 px away lands")
-	assert_false(sim.creatures[1].is_stunned(), "but doesn't stagger: only the Mallet Toss does")
+	assert_false(sim.creatures[1].is_stunned(), "but doesn't stagger: none of his lights do")
 
 
-func test_only_the_mallet_toss_staggers() -> void:
+## The Mallet Toss staggered until Oct 25 2026 (Kevin's nerf): now none of the string does.
+func test_none_of_the_lights_stagger() -> void:
 	var sim := _duel("cairn", 60.0)
 	var foe := sim.creatures[1]
 	var stuns: Array = []
@@ -62,7 +63,7 @@ func test_only_the_mallet_toss_staggers() -> void:
 			if String(e["type"]) == "hit":
 				stuns.append(foe.is_stunned())
 	assert_true(stuns.size() >= 3, "all three lights land")
-	assert_eq(stuns.slice(0, 3), [false, false, true], "only the third, the Mallet Toss, staggers:")
+	assert_eq(stuns.slice(0, 3), [false, false, false], "not even the third, the Mallet Toss:")
 
 
 func test_knife_flick_misses_from_half_again_as_far() -> void:
