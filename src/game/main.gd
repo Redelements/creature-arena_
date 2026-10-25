@@ -1811,6 +1811,7 @@ func _brawl_flow() -> void:
 		BrawlSim.Phase.FIGHT:
 			hud.banner = ""
 			hud.banner_sub = ""
+			_update_zone()  # the shrines
 		BrawlSim.Phase.OVER:
 			if brawl.phase_t == 1:
 				hud.banner = "K.O." if brawl.timer > 0 else "TIME"
@@ -1953,10 +1954,11 @@ func _show_pads() -> void:
 			fx.pads.append({"pos": team_battle.pad_point(side, k), "color": Hud.SIDE_COLORS[side], "count": 0})
 
 
-## King of the Crater: the zone on the floor, in the holder's colour.
+## King of the Crater: the zone on the floor, in the holder's colour. Also every mode's
+## shrines (`_shrine_marks`) and Capture the Flag's flags.
 func _update_zone() -> void:
 	fx.flags = []
-	fx.shrines = []
+	fx.shrines = _shrine_marks()
 	if team_battle != null and team_battle.ctf:
 		for side in 2:
 			var st := int(team_battle.flag_state[side])
@@ -1970,12 +1972,6 @@ func _update_zone() -> void:
 				lift = from + 4.0 * k * (1.0 - k) * minf(48.0, 8.0 + float(team_battle.flag_fn[side]) * 1.2)
 			fx.flags.append({"pos": team_battle.flag_pos[side], "team": side, "state": st, "lift": lift,
 				"back": float(team_battle.flag_t[side]) / maxf(1.0, float(team_battle.rules.get("return_seconds", 12)) * 60.0)})
-		fx.shrines = []
-		for i in team_battle.shrines.size():
-			var st: Array = team_battle.shrines[i]
-			fx.shrines.append({"pos": team_battle.shrine_pos(i), "radius": team_battle.shrine_radius(i),
-				"kind": team_battle.shrine_kind(i), "side": int(st[0]),
-				"claim": float(st[1]) / maxf(1.0, float(team_battle.shrine_claim_ticks())), "rest": ceili(int(st[2]) / 60.0)})
 		fx.zone = {}
 		return
 	if team_battle != null and team_battle.caravan:
@@ -1995,6 +1991,50 @@ func _update_zone() -> void:
 	var holder := team_battle.zone_holder()
 	fx.zone = {"pos": sim.zone_pos, "radius": sim.zone_r,
 		"color": Hud.SIDE_COLORS[holder] if holder >= 0 else Color("e8d8a0")}
+
+
+## The match's shrines for FxView (any mode with them): where, what, who is claiming it
+## and in what colour (a side's, or a Brawl fighter's), how far, the seconds until it's
+## ready and, in the last `announce_seconds`, how far it has charged (0..1).
+func _shrine_marks() -> Array:
+	var out: Array = []
+	if sim == null or sim.shrines.is_empty():
+		return out
+	var soon := float(Shrines.ticks_of(sim.shrine_rules.get("announce_seconds", 10)))
+	for i in sim.shrines.size():
+		var st: Array = sim.shrines[i]
+		var team := int(st[0])
+		var rest := int(st[2])
+		out.append({"pos": Shrines.pos(sim, i), "radius": Shrines.radius(sim, i), "kind": Shrines.kind(sim, i),
+			"side": team, "claim_color": _team_color(team),
+			"claim": float(st[1]) / maxf(1.0, float(Shrines.claim_ticks(sim))), "rest": ceili(rest / 60.0),
+			"charge": clampf(1.0 - float(rest) / soon, 0.0, 1.0) if rest > 0 and soon > 0.0 and rest <= int(soon) else 0.0})
+	return out
+
+
+## A team's colour: a Brawl fighter's own, else its side's.
+func _team_color(team: int) -> Color:
+	if team < 0:
+		return Color.WHITE
+	if brawl != null and brawl.sim == sim:
+		return Hud.BRAWL_COLORS[team % Hud.BRAWL_COLORS.size()]
+	return Hud.SIDE_COLORS[clampi(team, 0, 1)]
+
+
+## A team's name for a toast: RED / BLUE, or a Brawl fighter's name.
+func _team_word(team: int) -> String:
+	if brawl != null and brawl.sim == sim and team >= 0 and team < sim.creatures.size():
+		return String(sim.creatures[team].def.get("name", "?")).to_upper()
+	return ["RED", "BLUE"][clampi(team, 0, 1)]
+
+
+## Every mode's shrine toasts: the announcement, ready, and a claim.
+func _shrine_toast(e: Dictionary) -> void:
+	var kind := String(e.get("kind", "")).to_upper()
+	match String(e["type"]):
+		"shrine_soon": hud.show_toast("SHRINE IN %d  ·  %s" % [ceili(int(e.get("ticks", 600)) / 60.0), kind])
+		"shrine_ready": hud.show_toast("THE %s SHRINE IS READY" % kind)
+		"shrine": hud.show_toast("%s CLAIMS THE %s SHRINE" % [_team_word(int(e.get("team", 0))), kind])
 
 
 ## Each pad's countdown: the seconds until the fighter whose pad it is comes back.
@@ -2035,10 +2075,9 @@ func _team_flow() -> void:
 				else ("SINKHOLE" if team_battle.sinkhole else ("TEAM DEATHMATCH" if team_battle.deathmatch else "TEAM BATTLE"))
 			if team_battle.caravan:
 				what = "CARAVAN: ROUND %d" % (team_battle.cv_round + 1)
-				_update_zone()
 			elif team_battle.ctf:
 				what = "CAPTURE THE FLAG"
-				_update_zone()
+			_update_zone()  # flags, the caravan and shrines show from the start
 			hud.banner = (("ONLINE " + what) if online != null else what) if t < 60 else "FIGHT!"
 			var sub := "%d v %d" % [team_battle.size, team_battle.size]
 			if team_battle.ctf:
@@ -2077,7 +2116,7 @@ func _team_flow() -> void:
 				elif e["type"] == "rubble_clear":
 					hud.show_toast("THE ROAD IS CLEAR")
 				elif e["type"] in ["flag_take", "flag_drop", "flag_return", "capture", "flag_fumble", "flag_pass",
-						"flag_land", "shrine", "shrine_ready", "bridge_fall", "bridge_strain", "bridge_up"]:
+						"flag_land", "bridge_fall", "bridge_strain", "bridge_up"]:
 					_ctf_toast(e)
 			if team_battle.overtime and team_battle.timer > -90:
 				hud.banner = "SUDDEN DEATH"
@@ -2150,9 +2189,6 @@ func _ctf_toast(e: Dictionary) -> void:
 			hud.show_toast("%s CAPTURES!" % whose)
 			var sc: Array = e.get("score", [0, 0])
 			hud.moment("%s CAPTURES!" % whose, "%d  -  %d" % [int(sc[0]), int(sc[1])], Hud.SIDE_COLORS[side])
-		"shrine":
-			hud.show_toast("%s CLAIMS THE %s SHRINE" % [whose, String(e.get("kind", "")).to_upper()])
-		"shrine_ready": hud.show_toast("THE %s SHRINE IS READY" % String(e.get("kind", "")).to_upper())
 		"bridge_strain": hud.show_toast("THE BRIDGE IS CRACKING")
 		"bridge_fall": hud.show_toast("THE BRIDGE IS DOWN!")
 		"bridge_up": hud.show_toast("THE BRIDGE IS BACK")
@@ -3053,6 +3089,8 @@ func _react(e: Dictionary) -> void:
 	_count_ctf(e)
 	if flow != Flow.MENU:
 		stats.note(e)
+		if String(e["type"]) in ["shrine_soon", "shrine_ready", "shrine"]:
+			_shrine_toast(e)
 	fx.spawn(e)
 	audio.on_event(e)
 	var power: float = e["power"]
@@ -3145,6 +3183,8 @@ func _react(e: Dictionary) -> void:
 			crowd.cheer(0.5)
 		"shrine_ready":
 			audio.play("chill", -6.0, 1.2)
+		"shrine_soon":
+			audio.play("chill", -9.0, 0.8)
 		"bridge_strain":
 			audio.play("crack", 0.0, 0.7)
 		"bridge_fall":

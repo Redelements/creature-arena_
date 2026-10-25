@@ -4,7 +4,9 @@ extends RefCounted
 ## The last one standing wins; at time, the one with the biggest share of its health.
 ## Slot i is player i. Every rule here is simulation code and everything is saved by
 ## snapshot(), so it rolls back like a Duel. Tuning: data/rules/brawl.json. Chaos Cup
-## is a Brawl with mutators (MatchSim.apply_mutators) stacked on.
+## is a Brawl with mutators (MatchSim.apply_mutators) stacked on. With a "shrines" block in
+## the rules (brawl.json has one) the floor has shrines (Shrines), claimed by one fighter
+## alone: each fighter is its own team, so a claim is a fighter's.
 
 enum Phase { INTRO, FIGHT, OVER }
 
@@ -44,6 +46,9 @@ func _init(ids: Array, p_rules: Dictionary = {}, mutators: Dictionary = {}, seed
 	sim.freeze_all = n == 2  # three or four: a Surge winds up instead of stopping everyone
 	if not mutators.is_empty():
 		sim.apply_mutators(mutators, seed_)
+	Shrines.setup(sim, rules.get("shrines", {}))
+	if not sim.shrines.is_empty():
+		Shrines.write_goals(sim)
 	timer = int(float(rules.get("time_seconds", 120)) * SimDefs.TICK_RATE)
 
 
@@ -80,6 +85,9 @@ func step(inputs: PackedInt32Array) -> void:
 		return
 	if sim.ko_freeze == 0:
 		timer -= 1
+		if not sim.shrines.is_empty():
+			Shrines.step(sim)
+			Shrines.write_goals(sim)
 	var left := alive_count()
 	if left <= 1:
 		winner = -1

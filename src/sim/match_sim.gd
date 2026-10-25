@@ -105,6 +105,13 @@ var bridge_rects: Array[Rect2i] = []
 var hazards: Array = []
 var hazard_pickups: Array = []
 var hazard_defs := {}
+## Shrines (a mode's "shrines" rules: Shrines in shrines.gd, stepped by the mode): per
+## shrine [team claiming (-1), ticks claimed, ticks until ready, times claimed]. Saved
+## (in the digest only when there are some). Where each one is ({pos, radius, kind}) and
+## the merged rules are fixed for the match.
+var shrines: Array = []
+var shrine_spots: Array = []
+var shrine_rules := {}
 
 
 ## Lays an arena map on the floor. Call before adding creatures (it resets the grid).
@@ -346,6 +353,7 @@ func snapshot() -> Dictionary:
 		"storms": storms.duplicate(true), "training_flags": training_flags.duplicate(),
 		"bridges": bridges.duplicate(true),
 		"hazards": hazards.duplicate(true), "hazard_pickups": hazard_pickups.duplicate(true),
+		"shrines": shrines.duplicate(true),
 	}
 
 
@@ -374,6 +382,7 @@ func restore(s: Dictionary) -> void:
 	bridges = (s.get("bridges", []) as Array).duplicate(true)
 	hazards = (s.get("hazards", []) as Array).duplicate(true)
 	hazard_pickups = (s.get("hazard_pickups", []) as Array).duplicate(true)
+	shrines = (s.get("shrines", []) as Array).duplicate(true)
 	events.clear()
 
 
@@ -399,6 +408,8 @@ func state_digest() -> String:
 		parts.append(bridges)
 	if not hazards.is_empty():  # (only matches with hazards: every other fingerprint is unchanged)
 		parts.append_array([hazards, hazard_pickups])
+	if not shrines.is_empty():  # (only matches with shrines)
+		parts.append(shrines)
 	if training:  # (only training matches: every other match's fingerprint is unchanged)
 		for k in TRAINING_FLAGS:
 			parts.append(bool(training_flags.get(k, false)))

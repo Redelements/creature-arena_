@@ -1,5 +1,5 @@
 {
-	"_doc": "Team Deathmatch (2v2, 3v3): unlimited lives. A knocked-out fighter comes back after respawn_seconds on its team's spawn pad (against its own side wall), invulnerable for spawn_protect_seconds or until it attacks. Every KO scores for the other team; first to score_to_win (indexed by fighters per side) wins, or the higher score when time runs out. A tie at time goes to sudden death: the next KO wins. Times are in ticks (60 per second) unless named _seconds.",
+	"_doc": "Team Deathmatch (2v2, 3v3): unlimited lives. A knocked-out fighter comes back after respawn_seconds on its team's spawn pad (against its own side wall), invulnerable for spawn_protect_seconds or until it attacks. Every KO scores for the other team; first to score_to_win (indexed by fighters per side) wins, or the higher score when time runs out. A tie at time goes to sudden death: the next KO wins. Times are in ticks (60 per second) unless named _seconds. Shrines (\"shrines\", over data/rules/shrines.json): one in the middle, haste then might, on the shared timings.",
 	"deathmatch": true,
 	"time_seconds": 180,
 	"intro_ticks": 100,
@@ -10,5 +10,6 @@
 	"spawn_protect_seconds": 2,
 	"pad_inset": 44,
 	"pad_spread": 48,
-	"score_to_win": [8, 8, 12, 15]
+	"score_to_win": [8, 8, 12, 15],
+	"shrines": {"kinds": ["haste", "might"]}
 }

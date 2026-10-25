@@ -81,11 +81,13 @@ extends RefCounted
 ## flag's own side sends it home (an interception); uncaught, it lands as a dropped flag.
 ## While a side's own flag is away its fighters respawn faster (`respawn_seconds_flag_away`),
 ## in sudden death the carrier isn't slowed (`overtime_carry_slow`), and a capture plays
-## a moment of slow motion (`capture_slowmo`). Shrines (the map's "shrines", the rules'
-## "shrines"): a side alone in one for `claim_seconds` claims it, which gives every one of
-## its fighters standing a buff for `buff_seconds` (haste: walking `haste_mult`; might:
-## damage `might_mult`); then it's spent for `cooldown_seconds`. Both sides in one hold the
-## claim where it is; the other side alone wears it down twice as fast.
+## a moment of slow motion (`capture_slowmo`).
+##
+## Shrines (any of these rules with a "shrines" block: the Shrines helper, state on the
+## match, `sim.shrines`): a side alone in one for `claim_seconds` claims it, which gives
+## every one of its fighters standing a buff for a while; then it rests. They step after the
+## mode's own rules; Capture the Flag steps them inside `_ctf_step` (before its goals) and
+## keeps its own CPU goal for them, every other mode gives the CPU `Shrines.write_goals`.
 
 enum Phase { INTRO, FIGHT, OVER }
 
@@ -160,9 +162,11 @@ var flag_by := [-1, -1]
 var flag_lock := [0, 0]
 ## Each slot's input last tick (a pass is a fresh press of TAG).
 var prev_in: Array = []
-## The map's shrines (Capture the Flag with "shrines" rules): per shrine [the side
-## claiming it (-1), ticks claimed, ticks until it's ready again].
-var shrines: Array = []
+## The shrines (rules with "shrines"): the match's own state (`MatchSim.shrines`, per
+## shrine [the side claiming it (-1), ticks claimed, ticks until it's ready again, claims]).
+var shrines: Array:
+	get:
+		return sim.shrines
 
 
 ## The rules a mode id names ("" is the plain team battle), for the menus and the net.
@@ -238,15 +242,14 @@ func _init(team_ids: Array, per_side := 0, p_rules: Dictionary = {}) -> void:
 	if caravan:
 		_load_track()
 		_cv_start_round(0)
+	Shrines.setup(sim, rules.get("shrines", {}), rules.get("class_perks", {}))
 	ctf = bool(rules.get("ctf", false))
 	if ctf:
 		for side in 2:
 			flag_pos[side] = base_of(side)
-		var sr: Dictionary = rules.get("shrines", {})
-		if not sr.is_empty():
-			for sd in sim.arena.get("shrines", []):
-				shrines.append([-1, 0.0, int(float(sr.get("first_seconds", 15)) * SimDefs.TICK_RATE)])
 		_ctf_goals()
+	elif not sim.shrines.is_empty():
+		Shrines.write_goals(sim)
 
 
 ## Team Deathmatch: where slot k of a side respawns, on its pad against its own side wall
@@ -358,6 +361,9 @@ func step(inputs: PackedInt32Array) -> void:
 		_ctf_step(ins, pressed)
 		if phase != Phase.FIGHT:
 			return
+	elif not sim.shrines.is_empty() and sim.ko_freeze == 0:
+		Shrines.step(sim)
+		Shrines.write_goals(sim)
 	if deathmatch:
 		_deathmatch_step()
 		return
@@ -1005,8 +1011,8 @@ func _ctf_step(ins := PackedInt32Array(), pressed := PackedInt32Array()) -> void
 			if int(score[s]) >= score_to_win() or overtime:
 				_finish(s, "capture")
 				return
-	if not shrines.is_empty():
-		_shrine_step()
+	if not sim.shrines.is_empty():
+		Shrines.step(sim)
 	_ctf_goals()
 
 
@@ -1107,95 +1113,27 @@ func _fly(side: int) -> void:
 
 
 # ------------------------------------------------------------------ shrines
+# (the rules are in shrines.gd; these read the match's shrines for the screen and tests)
 
 func shrine_pos(i: int) -> Vector2:
-	var v: Array = (sim.arena.get("shrines", [])[i] as Dictionary).get("pos", [0, 0])
-	return Vector2(float(v[0]), float(v[1]))
+	return Shrines.pos(sim, i)
 
 
 func shrine_radius(i: int) -> float:
-	return float((sim.arena.get("shrines", [])[i] as Dictionary).get("radius", 22))
+	return Shrines.radius(sim, i)
 
 
 func shrine_kind(i: int) -> String:
-	return String((sim.arena.get("shrines", [])[i] as Dictionary).get("kind", "haste"))
-
-
-## How many of each side stand in shrine `i`.
-func shrine_counts(i: int) -> Array:
-	var n := [0, 0]
-	var at := shrine_pos(i)
-	var r := shrine_radius(i)
-	for c in sim.creatures:
-		if not _down(c) and c.state != CreatureSim.State.FALLING and c.pos.distance_to(at) <= r:
-			n[c.team] += 1
-	return n
+	return Shrines.kind(sim, i)
 
 
 func shrine_claim_ticks() -> int:
-	return int(float((rules.get("shrines", {}) as Dictionary).get("claim_seconds", 3)) * SimDefs.TICK_RATE)
-
-
-func _shrine_step() -> void:
-	var sr: Dictionary = rules.get("shrines", {})
-	var need := shrine_claim_ticks()
-	for i in shrines.size():
-		var st: Array = shrines[i]
-		if int(st[2]) > 0:
-			st[2] = int(st[2]) - 1
-			if int(st[2]) == 0:
-				sim.emit_event("shrine_ready", shrine_pos(i), 0.0, {"shrine": i, "kind": shrine_kind(i)})
-			continue
-		var n := shrine_counts(i)
-		var rate := [1.0, 1.0]  # the fastest claimer of each side there (`claim` perk)
-		for c in sim.creatures:
-			if not _down(c) and c.state != CreatureSim.State.FALLING and c.pos.distance_to(shrine_pos(i)) <= shrine_radius(i):
-				rate[c.team] = maxf(float(rate[c.team]), float(perk(c, "claim", 1.0)))
-		if int(n[0]) > 0 and int(n[1]) > 0:
-			continue  # both sides in it: the claim holds where it is
-		if int(n[0]) == 0 and int(n[1]) == 0:
-			st[1] = maxf(0.0, float(st[1]) - 1.0)
-		else:
-			var who := 0 if int(n[0]) > 0 else 1
-			if int(st[0]) == who or float(st[1]) <= 0.0:
-				st[0] = who
-				st[1] = float(st[1]) + float(rate[who])
-			else:
-				st[1] = maxf(0.0, float(st[1]) - 2.0 * float(rate[who]))
-		if float(st[1]) <= 0.0:
-			st[0] = -1
-		elif float(st[1]) >= float(need):
-			var side := int(st[0])
-			var kind := shrine_kind(i)
-			var t := int(float(sr.get("buff_seconds", 20)) * SimDefs.TICK_RATE)
-			for o in members(side):
-				var c := o as CreatureSim
-				if _down(c):
-					continue
-				if kind == "might":
-					c.atk_buff = maxi(c.atk_buff, t)
-					c.atk_mult = float(sr.get("might_mult", 1.2))
-				else:
-					c.haste = maxi(c.haste, t)
-					c.haste_mult = float(sr.get("haste_mult", 1.2))
-			st[0] = -1
-			st[1] = 0.0
-			st[2] = int(float(sr.get("cooldown_seconds", 45)) * SimDefs.TICK_RATE)
-			sim.emit_event("shrine", shrine_pos(i), float(t), {"shrine": i, "kind": kind, "team": side})
+	return Shrines.claim_ticks(sim)
 
 
 ## The nearest shrine ready to claim, or -1.
 func _ready_shrine(c: CreatureSim) -> int:
-	var best := -1
-	var best_d := INF
-	for i in shrines.size():
-		if int(shrines[i][2]) > 0:
-			continue
-		var d := c.pos.distance_to(shrine_pos(i))
-		if d < best_d:
-			best_d = d
-			best = i
-	return best
+	return Shrines.nearest_ready(sim, c.pos)
 
 
 ## The carrier's CPU hint: a teammate to pass to (well ahead toward home, in range, with
@@ -1285,7 +1223,7 @@ func snapshot() -> Dictionary:
 		"flags": [flag_pos.duplicate(), flag_state.duplicate(), flag_carrier.duplicate(), flag_t.duplicate(),
 			flag_from.duplicate(), flag_to.duplicate(), flag_ft.duplicate(), flag_fn.duplicate(), flag_by.duplicate(),
 			flag_lock.duplicate()],
-		"prev_in": prev_in.duplicate(), "shrines": shrines.duplicate(true)}
+		"prev_in": prev_in.duplicate()}
 
 
 func restore(s: Dictionary) -> void:
@@ -1326,7 +1264,6 @@ func restore(s: Dictionary) -> void:
 		flag_lock = (fl[9] as Array).duplicate()
 	if s.has("prev_in"):
 		prev_in = (s["prev_in"] as Array).duplicate()
-	shrines = (s.get("shrines", []) as Array).duplicate(true)
 	sim.restore(s["match"])
 
 
@@ -1336,7 +1273,7 @@ func state_digest() -> String:
 	ctx.update(var_to_bytes([sim.state_digest(), phase, phase_t, timer, winner, score, respawn_t, guard_t,
 		overtime, ring, sink_t, warned, zone_i, zone_t, cv_round, cv_p, cv_cp, cv_t, cv_ot, cv_state, cv_best, cv_time, cv_dig,
 		flag_pos, flag_state, flag_carrier, flag_t, flag_from, flag_to, flag_ft, flag_fn, flag_by, flag_lock,
-		prev_in, shrines]))
+		prev_in]))
 	return ctx.finish().hex_encode()
 
 

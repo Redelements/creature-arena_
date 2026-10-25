@@ -434,6 +434,12 @@ down.
   (3v3) wins; at the 3-minute limit, the higher score wins, and a tie goes to **sudden
   death** (the next KO wins).
 - The match starts in the middle as usual; the pads are only for coming back.
+- **A shrine in the middle of the floor**, first ready 30 s in and then every 40 s, haste
+  then might in turn. "SHRINE IN 10" comes up and the ring charges ten seconds before it's
+  ready. A team alone in it for 3 s claims it: every fighter of that team on its feet gets
+  the buff for 15 s. Two teams in it hold the claim; the other team alone wears it down
+  first. Brawl (and Chaos Cup) has one too, claimed by a fighter alone, first ready 12 s in
+  and every 25 s after. Tuning: `data/rules/shrines.json` and each mode's `shrines`.
 
 Offline for now (vs CPU); online Team Deathmatch needs the server to run the mode.
 Tuning: `data/rules/deathmatch.json`.

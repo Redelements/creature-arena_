@@ -76,7 +76,11 @@ size only: a map's `size` can be bigger, so code with a match asks `sim.floor_re
 - Team modes → `team_sim.gd:_deathmatch_step`, `_respawn`, `_sinkhole_step`, `_crater_step`,
   `_caravan_step` (rockslides `_cv_rockslide`, digging `_cv_rubble_ahead` / `_cv_clear_rubble`,
   escort heal `escort_healing`), class perks `perk` / `role_of`, `_ctf_step` (fumbles `_fumble`, passes `_try_pass`, flights `_fly`,
-  shrines `_shrine_step`); CPU goals a mode sets → `match_sim.gd:goals` (saved)
+  shrines: `Shrines.step` there); CPU goals a mode sets → `match_sim.gd:goals` (saved)
+- Shrines in any mode (rules `shrines` over `data/rules/shrines.json`) → `shrines.gd` (`setup` from
+  `TeamSim._init` / `BrawlSim._init`, `step` from the mode's step during the fight, `write_goals` the CPU's
+  goal outside Capture the Flag, `kind`, `nearest_ready`); state `MatchSim.shrines` (saved; in the digest only
+  when there are some), fixed `shrine_spots`, `shrine_rules` (not state). Capture the Flag steps them inside `_ctf_step` and keeps its own goal (a 3v3+ side's last fighter)
 - Map bridges that break → `match_sim.gd:_step_bridges`, `bridge_strain`, `bridges` (saved)
 - Arena hazards (a mutator's `hazards`: tidal wave, meteor shower) → `hazards.gd` (`setup` raises breakwaters,
   `step` after `_resolve_hits`, `hurt` for the shared effects, `sheltered`); state `MatchSim.hazards`,
@@ -101,6 +105,7 @@ size only: a map's `size` can be bigger, so code with a match asks `sim.floor_re
 - `hazards.gd` (Hazards) — Arena hazards: things the arena does to everyone on a schedule (data/rules/hazards.json), switched on by a mutator's "h…
 - `match_sim.gd` (MatchSim) — The whole match state. Call step() once per tick with one input bitmask per creature.
 - `replay.gd` (Replay) — A match recorded as one input bitmask per creature per tick.
+- `shrines.gd` (Shrines) — Shrines: rings on the floor that a team claims for a buff, in any mode whose rules turn them on (a "shrines" block; dat…
 - `sim_defs.gd` (SimDefs) — Shared constants for the deterministic simulation. Nothing in src/sim/ reads the clock, the screen, or a random number…
 - `team_sim.gd` (TeamSim) — Team battle: two sides of 1 to 3 creatures each, all on the field at once (2v2, 3v3).
 - `terrain_grid.gd` (TerrainGrid) — The arena floor as a grid of 8x8 cells. Attacks crack cells and punch holes; damaged cells heal back one step every HEA…
