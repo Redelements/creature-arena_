@@ -158,30 +158,72 @@ func test_drag_off_aims_and_fires_on_release_with_exact_aim() -> void:
 	assert_eq(p.bits(), 0, "then nothing")
 
 
-func test_drag_back_onto_the_button_cancels() -> void:
+func test_release_in_the_cancel_zone_cancels() -> void:
 	var p := _pad()
+	var z := p.cancel_center()
 	for b in TouchPad.DRAG_BUTTONS:
 		var c := p.center(b)
 		_down(p, 1, c)
 		_drag(p, 1, c + Vector2(-50, -20))
 		assert_false(p.aiming().is_empty(), b + ": aiming")
-		_drag(p, 1, c + Vector2(2, 1))
-		assert_true(bool(p.aiming().get("cancel", false)), b + ": back on it shows cancel")
-		_up(p, 1, c + Vector2(2, 1))
+		assert_false(bool(p.aiming()["cancel"]), b + ": not over the zone yet")
+		_drag(p, 1, z + Vector2(3, -2))
+		assert_true(bool(p.aiming().get("cancel", false)), b + ": over the zone shows cancel")
+		_up(p, 1, z + Vector2(3, -2))
 		assert_eq(_ticks(p, 15), 0, b + ": cancelled, nothing sent")
 
 
-func test_aim_again_after_hovering_cancel() -> void:
+func test_release_outside_the_zone_fires_even_back_on_the_button() -> void:
 	var p := _pad()
 	var c := p.center("heavy")
 	_down(p, 1, c)
 	_drag(p, 1, c + Vector2(-50, 0))
-	_drag(p, 1, c)
-	_drag(p, 1, c + Vector2(0, 50))  # off again: aiming down now
+	_drag(p, 1, p.cancel_center())  # over the zone...
+	_drag(p, 1, c + Vector2(0, 50))  # ...and out again: aiming down now
 	_up(p, 1, c + Vector2(0, 50))
 	var b := p.bits()
 	assert_true(b & SimDefs.IN_HEAVY and b & SimDefs.IN_AIM, "fires after all")
 	assert_true(SimDefs.aim_from_bits(b).y > 0.99, "down")
+	_ticks(p, 12)
+	_down(p, 1, c)
+	_drag(p, 1, c + Vector2(50, 0))
+	_drag(p, 1, c + Vector2(4, 0))  # back onto the button is not a cancel any more
+	_up(p, 1, c + Vector2(4, 0))
+	b = p.bits()
+	assert_true(b & SimDefs.IN_HEAVY and b & SimDefs.IN_AIM, "released on the button: fires (only the zone cancels)")
+
+
+func test_cancel_zone_clear_of_the_buttons_and_pause_and_mirrored() -> void:
+	for left in [false, true]:
+		for s in TouchPad.SIZES.size():
+			for tag in [false, true]:
+				var p := TouchPad.new()
+				p.left_handed = left
+				p.size_step = s
+				p.show_tag = tag
+				p.layout(SCREEN)
+				var z := p.cancel_center()
+				assert_true(Rect2(Vector2.ZERO, SCREEN).has_point(z), "on screen")
+				assert_true((z.x > SCREEN.x * 0.5) != left, "the buttons' side (left-handed: %s)" % left)
+				for b in p.buttons():
+					assert_gt(z.distance_to(p.center(b)), p.cancel_radius() + p.radius(b),
+						"size %d tag %s left %s: clear of %s" % [s, tag, left, b])
+	var r := _pad()
+	var l := TouchPad.new()
+	l.left_handed = true
+	l.layout(SCREEN)
+	assert_near(l.cancel_center().x, SCREEN.x - r.cancel_center().x, 0.01, "mirrored")
+	_down(l, 1, l.center("skill_1"))
+	_drag(l, 1, l.cancel_center())
+	_up(l, 1, l.cancel_center())
+	assert_eq(_ticks(l, 12), 0, "left-handed: its zone cancels")
+
+
+func test_cancel_zone_is_not_a_button() -> void:
+	var p := _pad()
+	_down(p, 1, p.cancel_center())
+	assert_eq(_ticks(p, 3), 0, "touching the zone with no drag does nothing")
+	assert_eq(p.fingers_down(), 0, "and takes no finger")
 
 
 func test_holding_a_charge_move_still_charges_it() -> void:

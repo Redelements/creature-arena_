@@ -3,7 +3,8 @@ extends Node2D
 ## The touch controls on screen: the floating move stick, the button arc (Light biggest),
 ## each move's cooldown and the Surge meter on its button, the small Pause button, and
 ## while a drag aims a big move, that move's reach round the fighter as a true circle on
-## the floor (no y squash: reach is the same every way) with a line the way it will go.
+## the floor (no y squash: reach is the same every way) with a line the way it will go,
+## and the red cancel zone (a true circle too) where letting go cancels the cast.
 ##
 ## Draws from the TouchPad's state and reads the sim (cooldowns, energy, where the fighter
 ## stands); it never writes either. It redraws only on a frame where something it shows
@@ -20,6 +21,7 @@ const C_COOL := Color(0, 0, 0, 0.55)
 const C_ENERGY := Hud.C_ENERGY
 const C_AIM := Color("ffd166")
 const C_CANCEL := Color(0.75, 0.75, 0.75, 0.8)
+const C_ZONE := Color(0.9, 0.22, 0.2)
 const CD_STEPS := 16  ## a cooldown or the Surge meter shows in this many steps
 const NAMES := {"light": "LIGHT", "heavy": "HEAVY", "skill_1": "S1", "skill_2": "S2", "surge": "SURGE",
 	"dodge": "DODGE", "guard": "GUARD", "tag": "TAG"}
@@ -112,6 +114,19 @@ func _draw_now() -> void:
 			_draw_pause()
 		else:
 			_draw_button(String(b), me, aim)
+	if not aim.is_empty() and not bool(aim["held"]):
+		_draw_cancel_zone(bool(aim["cancel"]))
+
+
+## Where letting go cancels: red, filled stronger with the finger in it.
+func _draw_cancel_zone(inside: bool) -> void:
+	var c := pad.cancel_center().round()
+	var r := pad.cancel_radius()
+	draw_circle(c, r, Color(C_ZONE, 0.55 if inside else 0.25))
+	draw_arc(c, r, 0.0, TAU, 40, Color(C_ZONE.lightened(0.3), 0.9), 1.0)
+	draw_line(c + Vector2(-4, -4), c + Vector2(4, 4), C_TEXT, 1.0)
+	draw_line(c + Vector2(-4, 4), c + Vector2(4, -4), C_TEXT, 1.0)
+	_text(c + Vector2(-r - 8, r + 8), "CANCEL", 5, C_TEXT if inside else Color(C_TEXT, 0.7), r * 2.0 + 16.0)
 
 
 func _draw_stick() -> void:
@@ -148,12 +163,9 @@ func _draw_button(b: String, me: CreatureSim, aim: Dictionary) -> void:
 	var col := C_TEXT if ready else Hud.C_DIM
 	if b == "surge" and ready:
 		col = Color(0.1, 0.08, 0.02)
-	if not aim.is_empty() and String(aim["button"]) == b:
-		if bool(aim["cancel"]):
-			_text(c + Vector2(-r - 20, -r - 4), "CANCEL", 5, C_CANCEL, 40)
-		else:  # the drag from the button: where the finger is, as a short line
-			var d: Vector2 = aim["dir"]
-			draw_line(c, c + d.limit_length(r * 2.5), Color(C_AIM, 0.8), 1.0)
+	if not aim.is_empty() and String(aim["button"]) == b and not bool(aim["cancel"]):
+		var d: Vector2 = aim["dir"]  # the drag from the button: where the finger is, short
+		draw_line(c, c + d.limit_length(r * 2.5), Color(C_AIM, 0.8), 1.0)
 	_text(c + Vector2(-r, 2), String(NAMES.get(b, b)), size, col, r * 2.0)
 
 

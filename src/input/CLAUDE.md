@@ -34,7 +34,7 @@ Local devices become one bitmask per tick, the same thing the CPU and the networ
   until it starts, since a light outlasts the 10-tick buffer); pad aim timer packing → `PAD_T_SHIFT` (27)
 - Second controller / local 2P → `_device_pad_bits`, `pad_device` (`ANY_PAD` -1, `NO_PAD` -2)
 - Touch fight controls → `touch_pad.gd` (`LAYOUT` from Light's centre, `SIZES`, `STICK_ZONE`,
-  `STICK_DEAD`, `CANCEL`, `HOLD_TICKS`, `DRAG_BUTTONS`, `HOLDS`; `feed`, `bits`, `aiming`,
+  `STICK_DEAD`, `OFF`, the cancel zone `CANCEL_AT` / `CANCEL_R`, `HOLD_TICKS`, `DRAG_BUTTONS`, `HOLDS`; `feed`, `bits`, `aiming`,
   `release_all`); `PlayerInput.touch`, `touch_charges`, `assist(..., deg)`; drawn by
   `src/view/touch_overlay.gd`; scripted for captures by `src/game/touch_demo.gd`
 - Mouse walk-to-spot and chase → `mouse_orders.gd:bits` (`ARRIVE`, `STUCK_TICKS`),

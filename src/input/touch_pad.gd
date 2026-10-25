@@ -12,8 +12,9 @@ extends RefCounted
 ##   - Tap a button: it fires the way you move or face; PlayerInput adds aim assist at the
 ##     wider ASSIST_DEG (25 degrees) for touch.
 ##   - Drag off Heavy, Skill 1, Skill 2 or Surge: it aims instead (the view draws the
-##     move's reach) and fires on release with the exact aim (IN_AIM). Drag back onto the
-##     button and let go to cancel.
+##     move's reach) and fires on release with the exact aim (IN_AIM). While a drag aims, a
+##     red cancel zone shows near the top of the right side (clear of the arc and Pause):
+##     let go inside it to cancel; let go anywhere else and it fires (MOBA style).
 ##   - A move that charges (its data has charge_max) and is held still on its button for
 ##     HOLD_TICKS starts then and charges while held, like a held pad button; dragging off
 ##     it aims the charge exactly.
@@ -32,7 +33,9 @@ const STICK_R := 30.0  ## the knob's travel
 const STICK_DEAD := 0.22  ## of STICK_R: closer to the middle is no walk
 const KNOB_R := 13.0
 const SLOP := 1.2  ## a touch this far out (times a button's radius) still finds it
-const CANCEL := 1.25  ## a drag inside this (times the radius) is back on the button: cancel
+const OFF := 1.25  ## a drag past this (times the button's radius) is off it: aiming
+const CANCEL_R := 16.0  ## the cancel zone's radius (fixed: it never grows with the buttons)
+const CANCEL_AT := Vector2(34, 94)  ## its centre, in from the top-right corner (under Pause)
 const HOLD_TICKS := 18  ## held still this long, a charging move starts and charges
 const AIM_HOLD := MouseOrders.AIM_HOLD  ## ticks an exact aim keeps being sent after a press
 const SIZES := [0.85, 1.0, 1.2]  ## Settings > Controls > Touch > Button size
@@ -85,6 +88,7 @@ var _screen := Vector2(480, 270)
 var _centers := {}
 var _radii := {}
 var _rest := Vector2.ZERO
+var _cancel_at := Vector2.ZERO
 ## index -> {"button": name, "start": Vector2, "pos": Vector2, "mode": armed|aiming|
 ## cancel|held, "t": ticks down}
 var _fingers := {}
@@ -115,6 +119,7 @@ func layout(size: Vector2) -> void:
 	_centers["pause"] = _flip(Vector2(size.x - PAUSE_AT.x, PAUSE_AT.y))
 	_radii["pause"] = PAUSE_R
 	_rest = _flip(Vector2(8.0 + 38.0 * s, size.y - 8.0 - 38.0 * s))
+	_cancel_at = _flip(Vector2(size.x - CANCEL_AT.x, CANCEL_AT.y))
 	if stick_finger < 0:
 		stick_origin = _rest
 		stick_knob = _rest
@@ -145,6 +150,19 @@ func rest_spot() -> Vector2:
 	return _rest
 
 
+## The cancel zone (shown only while a drag aims): let go inside it to cancel the cast.
+func cancel_center() -> Vector2:
+	return _cancel_at
+
+
+func cancel_radius() -> float:
+	return CANCEL_R
+
+
+func in_cancel_zone(pos: Vector2) -> bool:
+	return pos.distance_to(_cancel_at) <= CANCEL_R
+
+
 ## The buttons shown, in drawing order.
 func buttons() -> Array:
 	return _centers.keys()
@@ -167,8 +185,8 @@ func is_down(button: String) -> bool:
 
 
 ## The drag being aimed, if any: {"button", "dir" (from the button's centre to the
-## finger), "cancel" (back on the button: letting go cancels), "held" (a charging move
-## being aimed)}; empty when nothing aims.
+## finger), "cancel" (the finger is in the cancel zone: letting go cancels), "held" (a
+## charging move being aimed: already thrown, so no cancel zone)}; empty when nothing aims.
 func aiming() -> Dictionary:
 	for f in _fingers.values():
 		var mode := String(f["mode"])
@@ -262,10 +280,10 @@ func _drag(index: int, pos: Vector2) -> void:
 	if not (b in DRAG_BUTTONS) or tap_only:
 		return
 	var mode := String(f["mode"])
-	if (mode == "armed" or mode == "cancel") and _off_button(f):
-		f["mode"] = "aiming"
-	elif mode == "aiming" and not _off_button(f):
-		f["mode"] = "cancel"  # back on the button: letting go now cancels
+	if mode == "armed" and not _off_button(f):
+		return  # still on the button: a tap so far
+	if mode == "armed" or mode == "aiming" or mode == "cancel":
+		f["mode"] = "cancel" if in_cancel_zone(pos) else "aiming"
 
 
 func _lift(index: int, fire: bool) -> void:
@@ -290,15 +308,15 @@ func _lift(index: int, fire: bool) -> void:
 	match String(f["mode"]):
 		"armed":  # a tap: fire, aim assist picks the way
 			_queue.append({"bit": int(BITS[b]), "dodge": false})
-		"aiming":  # let go off the button: fire exactly that way
+		"aiming":  # let go anywhere but the cancel zone: fire exactly that way
 			_queue.append({"bit": int(BITS[b]), "dodge": false,
 				"aim": (f["pos"] as Vector2) - center(b)})
-		# "cancel": back on the button, nothing; "held": already pressed, the hold ends
+		# "cancel": let go in the cancel zone, nothing; "held": already pressed, the hold ends
 
 
 func _off_button(f: Dictionary) -> bool:
 	var b := String(f["button"])
-	return (f["pos"] as Vector2).distance_to(center(b)) > radius(b) * CANCEL
+	return (f["pos"] as Vector2).distance_to(center(b)) > radius(b) * OFF
 
 
 func _in_stick_zone(pos: Vector2) -> bool:

@@ -9,11 +9,12 @@ extends RefCounted
 ## Steps name a spot by what is there ("stick": its rest spot, or a button), plus an
 ## offset in canvas units, so the script follows the layout, the size and the mirror:
 ##   [tick, "down", finger, spot, offset]
-##   [tick, "drag", finger, spot, from, to, ticks]   one drag event a tick
+##   [tick, "drag", finger, spot, from, to, ticks]   one drag event a tick (`to` may name a
+##                                                   spot of its own, like "cancel")
 ##   [tick, "up", finger, spot, offset]
 ## Ticks count the fight's ticks from the first one this demo sees.
 ## Suggested shots: 40 (walking), 110 (Skill 1 aimed: its reach), 160 (guard and the
-## stick held together), 225 (a drag back onto Heavy: cancel), 262 (Surge aimed).
+## stick held together), 225 (a Heavy drag in the cancel zone), 262 (Surge aimed).
 
 const SCRIPT := [
 	[20, "down", 0, "stick", Vector2.ZERO],
@@ -33,8 +34,8 @@ const SCRIPT := [
 	[185, "up", 0, "stick", Vector2(-20, 16)],
 	[200, "down", 1, "heavy", Vector2.ZERO],
 	[202, "drag", 1, "heavy", Vector2.ZERO, Vector2(-40, -30), 8],
-	[214, "drag", 1, "heavy", Vector2(-40, -30), Vector2(2, 1), 8],
-	[235, "up", 1, "heavy", Vector2(2, 1)],
+	[214, "drag", 1, "heavy", Vector2(-40, -30), "cancel", 10],
+	[235, "up", 1, "cancel", Vector2.ZERO],
 	[250, "down", 1, "surge", Vector2.ZERO],
 	[251, "drag", 1, "surge", Vector2.ZERO, Vector2(30, -36), 8],
 	[275, "up", 1, "surge", Vector2(30, -36)],
@@ -65,7 +66,7 @@ func step(pad: TouchPad) -> Array:
 				var n := int(s[6])
 				if t > at and t <= at + n:
 					var from: Vector2 = base + _off(s[4])
-					var to: Vector2 = base + _off(s[5])
+					var to: Vector2 = _spot(pad, s[5]) if s[5] is String else base + _off(s[5])
 					var ev := InputEventScreenDrag.new()
 					ev.index = finger
 					ev.position = from.lerp(to, float(t - at) / n)
@@ -80,4 +81,6 @@ func _off(v: Vector2) -> Vector2:
 
 
 func _spot(pad: TouchPad, name: String) -> Vector2:
+	if name == "cancel":
+		return pad.cancel_center()
 	return pad.rest_spot() if name == "stick" else pad.center(name)
