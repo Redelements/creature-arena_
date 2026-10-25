@@ -35,7 +35,12 @@ extends Node2D
 ##                         this session, not saved (also low|normal|high; Settings > Video > Camera)
 ##   --quit-after=N        exit after N frames
 ##   --perf                log frame and tick times during fights; on quit, prints the
-##                         percentiles and saves them to user://perf.txt
+##                         percentiles, the 1% and 0.1% lows, missed frames and the worst
+##                         second, and saves them to user://perf.txt
+##   --fight-fps=N         the fight frame cap this session, not saved (Settings > Video >
+##                         Fight frame rate otherwise): 120 on the Odin for perf runs
+##   --fps-pacing=cap|vsync  vsync: let vsync pace a fight cap at or over the screen's refresh
+##                         rate instead of the frame limiter (an experiment; pace_cap)
 ##   --cpu-threads=off     CPU players think one after another on the main thread
 ##                         (default: together on the worker threads; same answers)
 ##   --layout=league|classic  keyboard layout (saved in the menu otherwise)
@@ -432,6 +437,9 @@ var discord: DiscordRpc = null  ## null: off, headless, or no client id in data/
 var presence: Presence = null
 ## Off for captures and headless runs, which must not be slowed to real time.
 var _fps_caps := true
+var _fight_fps_cli := 0  ## --fight-fps=N: this session's fight cap (0: the setting's)
+var _fps_pacing := "cap"  ## --fps-pacing=cap|vsync (pace_cap)
+var _refresh := -1.0  ## the screen's refresh rate, -1 until read (_refresh_rate)
 var menu_stick: MenuStick
 ## Menu screens on Godot's UI system (the pause menu; more to come).
 var ui: ScreenStack
@@ -600,6 +608,7 @@ func _ready() -> void:
 	_fit_window()
 	_apply_pixel_scale()
 	get_window().size_changed.connect(_apply_pixel_scale)
+	get_window().size_changed.connect(func(): _refresh = -1.0)
 	Controls.setup()
 	_cpus_early = DisplayServer.get_name() != "headless"
 	_fps_caps = DisplayServer.get_name() != "headless" and not ("--fixed-fps" in OS.get_cmdline_args()) \
@@ -4315,12 +4324,31 @@ func in_menus() -> bool:
 	return flow == Flow.MENU or flow == Flow.SELECT or flow == Flow.LOBBY
 
 
+## The engine's frame cap for a fight cap of `cap` fps on a screen of `refresh` Hz. With
+## `pacing` "vsync" (--fps-pacing=vsync), vsync on and a cap at or over the screen's rate:
+## no cap (0), vsync paces each frame. An experiment: a limiter at exactly the refresh rate
+## can beat against vsync, but on the Odin 3 (Oct 2026, GL) the screen showed every frame
+## on time either way, so the limiter stays the default.
+static func pace_cap(cap: int, refresh: float, vsync_on: bool, pacing := "cap") -> int:
+	if pacing == "vsync" and vsync_on and refresh > 0.0 and cap >= roundi(refresh) - 1:
+		return 0
+	return cap
+
+
+## The screen's refresh rate, read once (and again when the window changes size or screen).
+func _refresh_rate() -> float:
+	if _refresh < 0.0:
+		_refresh = DisplayServer.screen_get_refresh_rate() if DisplayServer.get_name() != "headless" else 0.0
+	return _refresh
+
+
 func _apply_frame_rate() -> void:
 	var menus := in_menus()
 	# The character select reads each player's stick itself (two cursors).
 	menu_stick.enabled = (menus or ui.is_open()) and not (ui.top() is CharacterSelect)
 	if _fps_caps:
-		var cap := MENU_FPS if menus else fight_fps
+		var cap := MENU_FPS if menus else pace_cap(_fight_fps_cli if _fight_fps_cli > 0 else fight_fps,
+			_refresh_rate(), vsync, _fps_pacing)
 		if Engine.max_fps != cap:
 			Engine.max_fps = cap
 
@@ -4746,6 +4774,10 @@ func _parse_args() -> int:
 			_perf = PerfLog.new()
 			PerfLog.current = _perf
 			_perf.measure(get_viewport().get_viewport_rid())
+		elif a.begins_with("--fight-fps="):
+			_fight_fps_cli = maxi(0, int(a.get_slice("=", 1)))
+		elif a.begins_with("--fps-pacing="):
+			_fps_pacing = a.get_slice("=", 1)
 		elif a.begins_with("--cpu-threads="):
 			CpuController.threaded = a.get_slice("=", 1) != "off"
 		elif a.begins_with("--arena="):
@@ -5768,8 +5800,10 @@ func _notification(what: int) -> void:
 ## console to print to).
 func _print_perf() -> void:
 	if _perf != null:
-		var text := _perf.report()
-		print(text)
+		var text := _perf.report(Engine.max_fps if Engine.max_fps > 0 else maxi(60, roundi(_refresh_rate())))
+		for line in text.split("
+"):
+			print(line)  # a line at a time: Android's log cuts one long message short
 		var f := FileAccess.open("user://perf.txt", FileAccess.WRITE)
 		if f != null:
 			f.store_string(text + "\n")

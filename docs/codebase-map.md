@@ -106,6 +106,7 @@ update the map in the same change.
 | unlocks, progress | `src/game/progress.gd` | arcade |
 | Discord status | `src/game/presence.gd`, `src/game/discord_rpc.gd`, `data/discord.json` | presence |
 | title logo, attract demo, screen wipes, results screen, match stats, MVP | wordmark `tools/gen_logo.py` -> `assets/ui/logo.png` (drawn by `src/ui/ui_screen.gd:build`); attract `src/game/main.gd:_attract_step`, `_start_attract`, `_end_attract`; wipes `src/view/wipe.gd`, `main.gd:_wipe_step`; results `main.gd:_show_match_over`, `results_data`, `src/ui/results_panel.gd`; counting `src/game/match_stats.gd` (fed from `_react`); the pose `src/ui/fighter_preview.gd` (`anim`) | title_results, test_ui, journey |
+| Android frame pacing, Odin 3 perf runs, 1% lows, what the screen shows | `tools/odin_perf.py`, `src/game/perf_log.gd` (`lows`, `uneven`), `src/game/main.gd:pace_cap` | perf_main_thread |
 | menu screens, theme | `src/ui/ui_screen.gd`, `src/ui/screen_stack.gd`, `src/ui/ui_theme.gd`; the panel's cards `src/ui/detail_card.gd`, `src/game/main.gd:_mode_facts` | test_ui, menu_stick, journey, menu_contract, ui_fit |
 | menus cut off, screen sizes, phones, scrolling pages, text too wide | `src/ui/ui_screen.gd:_fit_rows`, `src/ui/detail_card.gd:fit_font`, `src/game/main.gd:pixel_scale_factor` | ui_fit, pixel_text |
 | resolution, window scale, pixel font, text size | `project.godot` `[display]` (960 x 540 base, scale 2), `src/game/main.gd:_apply_pixel_scale`, `_fit_window`; `src/ui/ui_theme.gd:font`, `px`, `outline` | test_ui |
