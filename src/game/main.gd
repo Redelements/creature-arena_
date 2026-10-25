@@ -46,8 +46,8 @@ extends Node2D
 ##   --pick                show the team pick screen even with --mode
 ##   --cpu-vs-cpu          every player side is played by the CPU (demos, captures)
 ##   --mutators=a,b        these mutators (data/rules/mutators.json ids: tidal_wave,
-##                         meteor_shower, low_gravity...) on every offline match this session;
-##                         Chaos Cup plays them instead of its seeded draw
+##                         meteor_shower, low_gravity...) on every offline match this session
+##                         (over Arena options > Hazards); Chaos Cup plays them instead of its draw
 ##   --view-team=N         show the match as team N sees it (brush, fences, walls hide
 ##                         foes), even with nobody playing here (captures of --cpu-vs-cpu)
 ##   --menu=PAGE           open a menu page: main, single, single:<group>, look (Time and weather), settings, game, video, audio, controls,
@@ -174,7 +174,7 @@ const MENU_ROWS := [
 	{"label": "Brawl", "group": "brawl", "modes": [45, 42, 43, 44], "choices": ["you vs 3 CPUs", "2 players", "3 players", "4 players"],
 		"desc": "Free-for-all, four fighters, one life each; CPUs fill the empty seats. Left/Right: how many play"},
 	{"label": "Chaos Cup", "group": "brawl", "modes": [46],
-		"desc": "A Brawl with three random mutators stacked on: low gravity, Surge rush, a floor of pits, haste, glass cannon, a tidal wave, a meteor shower"},
+		"desc": "A Brawl with three random mutators stacked on: low gravity, Surge rush, a floor of pits, haste, glass cannon; a tidal wave and a meteor shower too, when they're on in Arena options"},
 	{"label": "Replay theater", "group": "practice", "screen": "replays", "desc": "Watch the fights you saved with F6"},
 	{"label": "Versus: 2 players", "group": "local", "modes": [8], "desc": "One fighter each, two players on one screen"},
 	{"label": "Versus CPU", "group": "cpu", "modes": [0, 1, 12, 14, 16, 18, 21, 23, 25, 27, 48],
@@ -353,6 +353,11 @@ var weather: WeatherView
 ## override them for the session).
 var time_choice := WeatherView.RANDOM
 var weather_choice := WeatherView.RANDOM
+## Arena options > Hazards: the arena hazards switched on (Hazards ids), saved under
+## `game/hazards`. Off by default. On every offline match but the Daily, ladders, coaches,
+## showcases, replays and the menu background (`_session_mutators`); in Chaos Cup an Off
+## hazard is left out of the draw instead.
+var hazards_on: Array = []
 var _look_cli := {}
 var _look := {}  ## this match's look (kept across its rounds)
 var _look_fresh := true  ## a new match: pick the look again
@@ -466,6 +471,7 @@ var player4_input := PlayerInput.new()
 ## and a replay being watched (its frames feed every REPLAY side).
 var brawl: BrawlSim = null
 var _chaos_names := ""
+var _arena_row: Control = null  ## the Single player hub's Arena row (its description follows the hazards)
 ## `--mutators=a,b`: these mutators (data/rules/mutators.json ids, merged) on every offline
 ## match this session (Chaos Cup plays them instead of its draw), and their names.
 var _forced_mutators := {}
@@ -916,8 +922,8 @@ func _open_single() -> void:
 		for id in ArenaMap.IDS:
 			maps.append(ArenaMap.name_of(id))
 		var arena_row := s.add_option("Arena", maps, maxi(0, ArenaMap.IDS.find(MatchFactory.arena)),
-			func(i: int): _set_arena(ArenaMap.IDS[i]),
-			"Where every match is fought. Left/Right: the map. Enter: the time of day and the weather")
+			func(i: int): _set_arena(ArenaMap.IDS[i]), _arena_desc())
+		_arena_row = arena_row
 		arena_row.activates = true
 		arena_row.activated.connect(func():
 			ui.notify_chosen()
@@ -984,22 +990,81 @@ func _open_single_group(gid: String, focus_row := -1) -> void:
 	ui.push(scr)
 
 
-## Enter on the Arena row: a page with the Time and Weather options (the hub has no room
-## for two more rows).
+## Enter on the Arena row: Arena options, a page with the Time and Weather options (looks
+## only) and the Hazards (how the match plays): the hub has no room for more rows.
 func _open_look_page() -> void:
 	var scr := UiScreen.new()
 	scr.logo = true
 	scr.crumbs = ["SINGLE PLAYER"]
-	scr.title = "TIME AND WEATHER"
+	scr.title = "ARENA OPTIONS"
 	scr.row_width = 236.0
 	scr.detail = true
-	scr.blurb = "How offline matches look: never how they play"
+	scr.blurb = "Time and weather change how offline matches look; hazards change how they play"
 	scr.hints = ["move", "change", "back"]
 	scr.builder = func(p: UiScreen):
+		p.add_heading("Time and weather")
 		_add_look_rows(p)
+		p.add_space(2)
+		p.add_heading("Hazards")
+		_add_hazard_rows(p)
 		p.add_space(4)
 		p.add_button("Back", p.back)
+	scr.backed.connect(func():  # the hub's Arena row says what's on
+		if _arena_row != null and is_instance_valid(_arena_row) and _arena_row.get_parent() != null:
+			var hub := ui.screens[ui.screens.size() - 2] as UiScreen if ui.screens.size() >= 2 else null
+			if hub != null:
+				hub.describe(_arena_row, _arena_desc()))
 	ui.push(scr)
+
+
+## One On/Off row per hazard in data/rules/hazards.json (a new hazard gets its row).
+func _add_hazard_rows(s: UiScreen) -> void:
+	for id in Hazards.ids():
+		var hid := String(id)
+		var d: Dictionary = Hazards.table()[hid]
+		var desc := "%s. Changes how the match plays: on in every offline match (not the Daily, Arcade, Gauntlet or online); Chaos Cup can draw it only while it's on" \
+			% String(d.get("desc", Hazards.name_of(hid)))
+		s.add_option(Hazards.name_of(hid), ["Off", "On"], 1 if hid in hazards_on else 0,
+			func(i: int): _set_hazard(hid, i == 1), desc)
+
+
+func _set_hazard(id: String, on: bool) -> void:
+	if on and not (id in hazards_on):
+		hazards_on.append(id)
+	elif not on:
+		hazards_on.erase(id)
+	hazards_on.sort()
+	_save_settings()
+
+
+## The Arena row's description: what it does, and the hazards that are on.
+func _arena_desc() -> String:
+	var out := "Where every match is fought. Left/Right: the map. Enter: Arena options (time, weather, hazards)"
+	if not hazards_on.is_empty():
+		out += ". Hazards: " + ", ".join(hazards_on.map(func(h): return Hazards.name_of(String(h))))
+	return out
+
+
+## The mutators a new offline match `s` gets from this session: `--mutators` if given, else
+## the Arena options' hazards. Never for the Daily, a ladder's stage, coaches, showcases,
+## a replay, the menu background, online or a match that already has its own (Chaos Cup).
+func _session_mutators(s: MatchSim) -> Dictionary:
+	if not s.mutators.is_empty() or s.tick != 0 or online != null or watch != null or _menu_bg \
+			or showcase != null or coach != null or mode == REPLAY_MODE:
+		return {}
+	if not _forced_mutators.is_empty():
+		return _forced_mutators
+	if arcade != null or hazards_on.is_empty():
+		return {}
+	return {"hazards": hazards_on.duplicate()}
+
+
+## "Hazards: Tidal wave, Meteor shower" for a match's opening banner ("" without any).
+func _hazard_line() -> String:
+	var hz: Array = sim.mutators.get("hazards", []) if sim != null else []
+	if hz.is_empty():
+		return ""
+	return "Hazards: " + ", ".join(hz.map(func(h): return Hazards.name_of(String(h))))
 
 
 ## The Time and Weather options: Random (one the map allows) or a preset.
@@ -1656,7 +1721,7 @@ func _start_brawl(cfg: Dictionary) -> void:
 		muts = _forced_mutators.duplicate(true)
 		_chaos_names = ", ".join(_forced_names)
 	elif cfg.get("chaos", false):
-		var table := Daily.mutator_table()
+		var table := _chaos_table()
 		var keys: Array = table.keys()
 		keys.sort()
 		var rng := RandomNumberGenerator.new()
@@ -1683,13 +1748,27 @@ func _start_brawl(cfg: Dictionary) -> void:
 	flow_t = 0
 
 
+## Chaos Cup's pool: every mutator, less those whose hazards are Off in Arena options.
+func _chaos_table() -> Dictionary:
+	var out := Daily.mutator_table()
+	for k in out.keys():
+		for h in (out[k] as Dictionary).get("hazards", []):
+			if not (String(h) in hazards_on):
+				out.erase(k)
+				break
+	return out
+
+
 func _brawl_flow() -> void:
 	hud.timer_ticks = maxi(brawl.timer, 0)
 	match brawl.phase:
 		BrawlSim.Phase.INTRO:
 			var t := brawl.phase_t
 			hud.banner = ("CHAOS CUP" if _chaos_names != "" else "BRAWL") if t < 60 else "FIGHT!"
-			hud.banner_sub = (_chaos_names if _chaos_names != "" else "Free-for-all   ·   last one standing") if t < 60 else ""
+			var plain := "Free-for-all   ·   last one standing"
+			if _hazard_line() != "":
+				plain += "   ·   " + _hazard_line()
+			hud.banner_sub = (_chaos_names if _chaos_names != "" else plain) if t < 60 else ""
 			if t == 2 or t == 60:
 				audio.play("round_start", 0.0, 0.75 if t == 2 else 1.0)
 		BrawlSim.Phase.FIGHT:
@@ -1936,6 +2015,8 @@ func _team_flow() -> void:
 				sub += "   ·   first to %d KOs" % team_battle.score_to_win()
 			elif team_battle.sinkhole:
 				sub += "   ·   the edge falls in, the chasm is a KO"
+			if _hazard_line() != "":
+				sub += "   ·   " + _hazard_line()
 			hud.banner_sub = sub if t < 60 else ""
 			if t == 2 or t == 60:
 				audio.play("round_start", 0.0, 0.75 if t == 2 else 1.0)
@@ -2332,8 +2413,9 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 		for i in sides.size():
 			if sides[i] in LOCAL_SIDES:
 				sides[i] = Side.CPU
-	if not _forced_mutators.is_empty() and s.mutators.is_empty() and s.tick == 0 and online == null 			and not _menu_bg and showcase == null and coach == null:
-		s.apply_mutators(_forced_mutators, seed_base)  # --mutators: on any offline match
+	var session := _session_mutators(s)
+	if not session.is_empty():
+		s.apply_mutators(session, seed_base)  # --mutators, or Arena options > Hazards
 	replay = Replay.new()
 	replay.setup = _replay_setup(s)
 	cpus = []
@@ -2663,7 +2745,7 @@ func _update_flow() -> void:
 				hud.banner_sub = arcade.versus_label() if flow_t < 60 else ""
 			else:
 				hud.banner = "ROUND %d" % round_num if flow_t < 60 else "FIGHT!"
-				hud.banner_sub = ""
+				hud.banner_sub = _hazard_line() if flow_t < 60 else ""
 			if flow_t == 2 or flow_t == 60:
 				audio.play("round_start", 0.0, 0.75 if flow_t == 2 else 1.0)
 			if flow_t >= INTRO_TICKS:
@@ -4317,6 +4399,12 @@ func _load_settings() -> void:
 		time_choice = tc if tc == WeatherView.RANDOM or tc in WeatherView.time_ids() else WeatherView.RANDOM
 		var wc := String(cfg.get_value("game", "weather", WeatherView.RANDOM))
 		weather_choice = wc if wc == WeatherView.RANDOM or wc in WeatherView.weather_ids() else WeatherView.RANDOM
+		hazards_on = []
+		var known := Hazards.ids()
+		for h in cfg.get_value("game", "hazards", []):
+			if String(h) in known and not (String(h) in hazards_on):
+				hazards_on.append(String(h))
+		hazards_on.sort()
 		var ar := String(cfg.get_value("game", "arena", MatchFactory.arena))
 		if ar in ArenaMap.IDS:
 			_arena_saved = ar
@@ -4377,6 +4465,7 @@ func _save_settings() -> void:
 	cfg.set_value("game", "arena", _arena_saved)
 	cfg.set_value("game", "time", time_choice)
 	cfg.set_value("game", "weather", weather_choice)
+	cfg.set_value("game", "hazards", hazards_on)
 	cfg.set_value("online", "delay", input_delay)
 	cfg.set_value("online", "id", Netplay.player_id)
 	cfg.set_value("online", "name", Netplay.player_name)

@@ -65,8 +65,15 @@ player and live here, outside the sim.
   (a press in `_input` skips it; the camera eases on from where it left off); the drawing
   and timeline `src/view/arena_intro.gd`. Afterwards the round's own "ROUND 1 / FIGHT!" (or a
   team battle's sim intro) plays exactly as before
-- Time of day and weather → Enter on the Arena row opens `_open_look_page` (Time / Weather options `_add_look_rows`, `_set_look_choice`
-  (`time_choice`, `weather_choice`, saved under `game/time`, `game/weather`)); the match's look `_match_look`
+- Arena options (time of day, weather, hazards) → Enter on the Arena row opens `_open_look_page` ("ARENA OPTIONS";
+  `--menu=look`): Time / Weather options `_add_look_rows`, `_set_look_choice` (`time_choice`, `weather_choice`, saved
+  under `game/time`, `game/weather`; looks only), then one On/Off row per hazard in `data/rules/hazards.json`
+  (`_add_hazard_rows`, `_set_hazard`; `hazards_on`, saved under `game/hazards`, off by default; how the match plays).
+  The hub's Arena row says what's on (`_arena_desc`, re-described when the page closes). Hazards reach a match through
+  `_session_mutators` (the same path as `--mutators`, which wins for the session; applied in `_new_sim` with
+  `seed_base`, so a replay records them with `mut_seed`): every offline match but the Daily, Arcade / Gauntlet stages,
+  coaches, showcases, replays, the menu background and online; Chaos Cup leaves an Off hazard out of its draw
+  (`_chaos_table`); the opening banners name them (`_hazard_line`) and `hud.mutator_text` shows them by the clock; the match's look `_match_look`
   (offline: the choice within the arena's list, kept across rounds until `_start_match`; online, spectating,
   the menu background: day + clear; a replay: its `setup.look`); drawing `src/view/weather_view.gd`
 - Add a setting → `SETTING_PAGES` + `_setting(key)` + `_set_setting(key, i)` +

@@ -175,7 +175,7 @@ func test_enter_on_the_arena_row_opens_time_and_weather() -> void:
 	for r in page.rows():
 		if r is OptionRow:
 			labels.append((r as OptionRow).label)
-	assert_eq(labels, ["Time", "Weather"], "with the two options")
+	assert_eq(labels.slice(0, 2), ["Time", "Weather"], "with the two look options first (then the hazards: tests/test_arena_options.gd)")
 	var t: OptionRow = page.rows()[0]
 	assert_eq(t.values[0], "Random", "Random first, the default")
 	g.free()
