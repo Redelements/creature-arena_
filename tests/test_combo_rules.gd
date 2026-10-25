@@ -309,6 +309,7 @@ func test_launch_ends_in_knockdown() -> void:
 func test_only_the_last_hit_of_each_light_string_staggers() -> void:
 	# Every fighter's light string: the hits before the last only deal damage; the last
 	# staggers. Craglash is the exception: one Rake on a cooldown, no string (Oct 25 2026), and it staggers.
+	# Chef Cerebro is the other: none of his thrown string staggers, the Mallet Toss included (Oct 25 2026).
 	for id in MatchFactory.FIGHTERS:
 		var moves: Dictionary = MatchFactory.load_def(id)["moves"]
 		var chain: Array = []
@@ -326,6 +327,8 @@ func test_only_the_last_hit_of_each_light_string_staggers() -> void:
 			var last := k == chain.size() - 1
 			if id == "craglash":
 				assert_false(nf, "Craglash's %s staggers" % chain[k])
+			elif id == "cerebro":
+				assert_true(nf, "Chef Cerebro's %s only deals damage" % chain[k])
 			elif last:
 				assert_false(nf, "%s's last light (%s) staggers" % [id, chain[k]])
 			else:
