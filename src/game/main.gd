@@ -185,7 +185,7 @@ const MENU_ROWS := [
 	{"label": "Brawl", "group": "brawl", "modes": [45, 42, 43, 44], "choices": ["you vs 3 CPUs", "2 players", "3 players", "4 players"],
 		"desc": "Free-for-all, four fighters, one life each; CPUs fill the empty seats. Left/Right: how many play"},
 	{"label": "Chaos Cup", "group": "brawl", "modes": [46],
-		"desc": "A Brawl with three random mutators stacked on: low gravity, Surge rush, a floor of pits, haste, glass cannon; a tidal wave and a meteor shower too, when they're on in Arena options"},
+		"desc": "A Brawl with three random mutators stacked on: low gravity, Surge rush, a floor of pits, haste, glass cannon, a tidal wave, a meteor shower"},
 	{"label": "Replay theater", "group": "practice", "screen": "replays", "desc": "Watch the fights you saved with F6"},
 	{"label": "Versus: 2 players", "group": "local", "modes": [8], "desc": "One fighter each, two players on one screen"},
 	{"label": "Versus CPU", "group": "cpu", "modes": [0, 1, 12, 14, 16, 18, 21, 23, 25, 27, 48],
@@ -345,6 +345,9 @@ var _cam_idle := 0  ## ticks with nothing happening (Settle)
 var _settle_mid := Vector2.ZERO  ## Settle's held target (moved only past SETTLE_DEAD)
 var _settle_fit := 0.0  ## and its held zoom (moved only past SETTLE_ZOOM_DEAD)
 var replay: Replay
+## Where F6 saves and the Replay theater looks (a test points it at a folder not made yet,
+## as on a fresh install). It may not exist: `Replay.save` makes it.
+var replays_dir := "user://replays"
 var arena: ArenaView
 var crowd: CrowdView
 var backdrop: BackdropView
@@ -366,8 +369,8 @@ var time_choice := WeatherView.RANDOM
 var weather_choice := WeatherView.RANDOM
 ## Arena options > Hazards: the arena hazards switched on (Hazards ids), saved under
 ## `game/hazards`. Off by default. On every offline match but the Daily, ladders, coaches,
-## showcases, replays and the menu background (`_session_mutators`); in Chaos Cup an Off
-## hazard is left out of the draw instead.
+## showcases, replays and the menu background (`_session_mutators`). Chaos Cup ignores
+## them: its draw can always pick a hazard (`_chaos_table`).
 var hazards_on: Array = []
 var _look_cli := {}
 var _look := {}  ## this match's look (kept across its rounds)
@@ -1057,7 +1060,7 @@ func _add_hazard_rows(s: UiScreen) -> void:
 	for id in Hazards.ids():
 		var hid := String(id)
 		var d: Dictionary = Hazards.table()[hid]
-		var desc := "%s. Changes how the match plays: on in every offline match (not the Daily, Arcade, Gauntlet or online); Chaos Cup can draw it only while it's on" \
+		var desc := "%s. Changes how the match plays: on in every offline match (not the Daily, Arcade, Gauntlet or online). Chaos Cup can always draw it" \
 			% String(d.get("desc", Hazards.name_of(hid)))
 		s.add_option(Hazards.name_of(hid), ["Off", "On"], 1 if hid in hazards_on else 0,
 			func(i: int): _set_hazard(hid, i == 1), desc)
@@ -1785,15 +1788,10 @@ func _start_brawl(cfg: Dictionary) -> void:
 	flow_t = 0
 
 
-## Chaos Cup's pool: every mutator, less those whose hazards are Off in Arena options.
+## Chaos Cup's pool: every mutator, the hazards included whatever Arena options says (its
+## On/Off rows govern the normal modes only; Kevin's ruling, Oct 2026).
 func _chaos_table() -> Dictionary:
-	var out := Daily.mutator_table()
-	for k in out.keys():
-		for h in (out[k] as Dictionary).get("hazards", []):
-			if not (String(h) in hazards_on):
-				out.erase(k)
-				break
-	return out
+	return Daily.mutator_table()
 
 
 func _brawl_flow() -> void:
@@ -1841,7 +1839,7 @@ func _open_replays() -> void:
 	scr.hints = ["move", "select", "back"]
 	scr.builder = func(s: UiScreen):
 		var files: Array = []
-		var dir := DirAccess.open("user://replays")
+		var dir := DirAccess.open(replays_dir) if DirAccess.dir_exists_absolute(replays_dir) else null
 		if dir != null:
 			for f in dir.get_files():
 				if f.ends_with(".json"):
@@ -1851,7 +1849,7 @@ func _open_replays() -> void:
 		if files.is_empty():
 			s.add_text("No replays yet. Press F6 during a fight to save one.")
 		for f in files.slice(0, 20):
-			var path: String = "user://replays/" + String(f)
+			var path: String = replays_dir.path_join(String(f))
 			s.add_button(_replay_label(path), func(): _play_replay(path), "Watch it")
 		s.add_space(4)
 		s.add_button("Back", s.back)
@@ -3930,7 +3928,7 @@ func _unhandled_input(event: InputEvent) -> void:
 ## F6: save the fight so far (or just finished) to the Replay theater.
 func _save_replay() -> void:
 	var stamp := Time.get_datetime_string_from_system().replace(":", "-")
-	var path := "user://replays/replay_%s.json" % stamp
+	var path := replays_dir.path_join("replay_%s.json" % stamp)
 	if online != null:
 		# Online: the confirmed inputs (what both machines agreed on), with the setup.
 		replay = Replay.new()

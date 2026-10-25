@@ -1726,20 +1726,37 @@ func test_the_arcade_boss_has_its_own_intro_and_a_clear_offers_a_new_run() -> vo
 	Progress.reset_for_tests("user://progress.json")
 
 
+## On a fresh install the replays folder doesn't exist yet: the Replay theater says there are
+## none (without an engine error), F6 makes the folder and saves, and the theater then lists it.
+## (This test once failed only on a fresh user folder: it listed the missing folder with
+## DirAccess.get_files_at, which logs an error; the folder came from the first run's save.)
 func test_f6_saves_the_replay_at_the_match_over_screen() -> void:
 	var g := _game()
+	var dir := "user://test_replays_fresh_%d" % Time.get_ticks_usec()
+	assert_false(DirAccess.dir_exists_absolute(dir), "a folder not made yet")
+	g.replays_dir = dir
+	g._open_replays()
+	var none: Array = g.ui.top().find_children("*", "Label", true, false).filter(
+		func(l): return (l as Label).text.begins_with("No replays yet"))
+	assert_eq(none.size(), 1, "the theater says none yet:")
+	g.ui.clear()
 	g._start_match(2)  # CPU vs CPU
 	_tick(g, 60)
-	var before := Array(DirAccess.get_files_at("user://replays"))
 	g.flow = g.Flow.MATCH_OVER
 	g.flow_t = g.MATCH_OVER_MENU_AT - 1
 	_tick(g, 2)
 	assert_true(g.ui.is_open(), "the match-over menu is up")
 	_press("save_replay")
-	var added := Array(DirAccess.get_files_at("user://replays")).filter(func(f): return not (f in before))
+	assert_true(DirAccess.dir_exists_absolute(dir), "F6 made the folder")
+	var added := Array(DirAccess.get_files_at(dir))
 	assert_eq(added.size(), 1, "F6 saved the fight just finished:")
+	g.ui.clear()
+	g._open_replays()
+	assert_eq(g.ui.top().rows().size(), 2, "the theater lists it (and Back):")
+	g.ui.clear()
 	for f in added:
-		DirAccess.remove_absolute(ProjectSettings.globalize_path("user://replays/" + String(f)))
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(dir.path_join(String(f))))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(dir))
 	g.free()
 
 

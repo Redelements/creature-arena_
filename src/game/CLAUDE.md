@@ -72,8 +72,8 @@ player and live here, outside the sim.
   The hub's Arena row says what's on (`_arena_desc`, re-described when the page closes). Hazards reach a match through
   `_session_mutators` (the same path as `--mutators`, which wins for the session; applied in `_new_sim` with
   `seed_base`, so a replay records them with `mut_seed`): every offline match but the Daily, Arcade / Gauntlet stages,
-  coaches, showcases, replays, the menu background and online; Chaos Cup leaves an Off hazard out of its draw
-  (`_chaos_table`); the opening banners name them (`_hazard_line`) and `hud.mutator_text` shows them by the clock; the match's look `_match_look`
+  coaches, showcases, replays, the menu background and online; Chaos Cup ignores the rows and can always draw a hazard
+  (`_chaos_table`: the whole mutator table, Kevin's ruling Oct 2026); the opening banners name them (`_hazard_line`) and `hud.mutator_text` shows them by the clock; the match's look `_match_look`
   (offline: the choice within the arena's list, kept across rounds until `_start_match`; online, spectating,
   the menu background: day + clear; a replay: its `setup.look`); drawing `src/view/weather_view.gd`
 - Add a setting → `SETTING_PAGES` + `_setting(key)` + `_set_setting(key, i)` +

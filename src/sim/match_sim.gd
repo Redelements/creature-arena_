@@ -542,7 +542,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		if same_attack:
 			a.connected = true
 		impact_stop(a, d, int(float(hit["hitstop"]) * 0.6), ranged)
-		emit_event("armor", fx_pos, taken, {"attacker": a.id, "target": d.id})
+		emit_event("armor", fx_pos, taken, {"attacker": a.id, "target": d.id, "move_type": String(hit["type"])})
 		d.check_ko(self)
 		return "armor"
 
@@ -569,7 +569,8 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 				a.connected = true
 				_punish_blocked_ender(a, d)
 			impact_stop(a, d, int(float(hit["hitstop"]) * 0.5), ranged)
-			emit_event("block", fx_pos, damage, {"attacker": a.id, "target": d.id})
+			emit_event("block", fx_pos, damage, {"attacker": a.id, "target": d.id, "move_type": String(hit["type"]),
+				"dealt": chip})
 			d.check_ko(self)
 			return "block"
 	var broke_guard := false
@@ -603,7 +604,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	var total := (damage + bonus) * variety * stale
 	var stun := int(round(float(hit["hitstun"]) * maxf(HITSTUN_FLOOR, 1.0 - HITSTUN_DECAY * (n - 1)) * stale))
 
-	d.take_damage(total, self)
+	var dealt := d.take_damage(total, self)
 	a.dealt_damage()
 	d.flash = 6
 	if float(hit.get("slow_ticks", 0.0)) > 0.0:
@@ -741,7 +742,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 
 	impact_stop(a, d, int(hit["hitstop"]), ranged)
 	emit_event("hit", fx_pos, total, {
-		"attacker": a.id, "target": d.id, "type": String(hit["type"]),
+		"attacker": a.id, "target": d.id, "move_type": String(hit["type"]), "dealt": dealt,
 		"combo": n, "variety": variety, "stale": stale < 1.0,
 		"heavy": String(hit["type"]) != "light", "no_flinch": no_flinch})
 	d.check_ko(self)
