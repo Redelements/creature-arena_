@@ -1867,6 +1867,8 @@ func _replay_label(path: String) -> String:
 		return stamp
 	var st: Dictionary = d["setup"]
 	var names: Array = []
+	if not ReplayBuilder.valid_setup(st):
+		return stamp + "   (damaged)"
 	for id in st.get("ids", []):
 		names.append(String(MatchFactory.load_def(String(id)).get("name", id)))
 	return "%s   %s   %s" % [stamp.left(16), String(st.get("kind", "versus")), " v ".join(names)]
@@ -4617,7 +4619,7 @@ func _load_settings() -> void:
 		level = clampi(int(cfg.get_value("game", "level", level)), 0, LEVEL_NAMES.size() - 1)
 		input_delay = clampi(int(cfg.get_value("online", "delay", -1)), -1, 3)
 		Netplay.player_id = String(cfg.get_value("online", "id", ""))
-		Netplay.player_name = String(cfg.get_value("online", "name", "Player")).strip_edges().left(16)
+		Netplay.player_name = Netplay.clean_name(str(cfg.get_value("online", "name", "Player")))
 		if Netplay.player_name == "":
 			Netplay.player_name = "Player"
 		var tc := String(cfg.get_value("game", "time", WeatherView.RANDOM))
@@ -4939,7 +4941,7 @@ func _push_lobby() -> void:
 	lobby.server_join_pressed.connect(_net_join_server)
 	lobby.board_pressed.connect(_net_daily_board)
 	lobby.name_changed.connect(func(t: String):
-		Netplay.player_name = t.strip_edges().left(16) if t.strip_edges() != "" else "Player"
+		Netplay.player_name = Netplay.clean_name(t)
 		_save_settings())
 	lobby.host_pressed.connect(_net_host)
 	lobby.join_pressed.connect(_net_join_typed)

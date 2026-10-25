@@ -43,11 +43,12 @@ func poll() -> bool:
 	while _udp.get_available_packet_count() > 0:
 		var m := ServerBeacon.read(_udp.get_packet())
 		var ip := _udp.get_packet_ip()
-		if String(m.get("t", "")) != ServerBeacon.ANSWER:
+		# Only a server running this very build: anyone on a shared network can answer,
+		# and an answer from another version (or a stranger) would send this player there
+		# instead of to the public name.
+		if not accepts(m):
 			continue
-		# Any version is taken: joining it then says plainly if the builds differ, which
-		# beats falling back to a public name that may not work from here.
-		var p := int(m.get("port", 0))
+		var p := NetLink.int_of(m.get("port", 0))
 		if ip == "" or p <= 0 or p > 65535:
 			continue
 		found = {"address": ip, "port": p, "v": int(m.get("v", -1))}
@@ -59,6 +60,14 @@ func poll() -> bool:
 	elif now - _sent_ms >= RESEND_MS:
 		_ask()
 	return done
+
+
+## Whether a beacon's answer is from a server of this build: the same NET_VERSION and the
+## same game data (Netplay.data_hash). JSON numbers arrive as floats.
+static func accepts(m: Dictionary) -> bool:
+	return str(m.get("t", "")) == ServerBeacon.ANSWER \
+		and NetLink.int_of(m.get("v", -1), -1) == Netplay.NET_VERSION \
+		and typeof(m.get("data")) == TYPE_STRING and String(m["data"]) == Netplay.data_hash()
 
 
 func cancel() -> void:

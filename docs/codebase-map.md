@@ -118,6 +118,8 @@ update the map in the same change.
 | desyncs, version or data mismatch | `src/net/online_match.gd:_check_digest`, `src/net/netplay.gd:data_hash` (`NET_VERSION`) | online, server |
 | ping, input delay, lag | `src/net/netplay.gd:pick_delay`, `_live_ping_step`; `src/net/lag_link.gd` | online |
 | dedicated server, matchmaking, rooms, rematch, server monitoring | `src/net/relay_server.gd`, `src/net/dedicated_server.gd`, `docs/SERVER.md` | server, server_teams, rooms |
+| updating the server box, its systemd unit and token | `tools/server/update.sh` (main push builds only), `docs/SERVER.md` ("Updating to the latest main build", "Tighter limits") | |
+| hostile or malformed peer data on the client (delay, inputs, digests, names, LAN answers, replay files) | `src/net/netplay.gd:start_delay`, `clean_name`; `src/net/rollback_session.gd:receive`; `src/net/online_match.gd:receive`; `src/net/net_link.gd:int_of`; `src/net/lan_finder.gd:accepts`; `src/game/replay_builder.gd:valid_setup` | client_hardening, replays |
 | ranked ratings, daily scores | `src/net/ratings.gd`, `src/net/daily_client.gd` | ranked |
 | spectators, server replays | `src/net/referee.gd`, `src/net/relay_server.gd` | spectate |
 | LAN discovery | `src/net/lan_finder.gd`, `src/net/server_beacon.gd` | server |
@@ -125,7 +127,7 @@ update the map in the same change.
 | running tests, a new test | `tests/run_tests.gd`, `tests/test_case.gd` (see `tests/CLAUDE.md`) | |
 | sprite generators, new fighter art, master palette, shading, outlines | `tools/splat3d.py` (`shade`, `outline`, `configure`), `tools/palette.py` (ramps, inks, `snap`), `tools/shade2d.py` (the same look for the 2D painters: Barkley, Gillbert), `tools/gen_digby.py` (see `tools/CLAUDE.md`; rules in `docs/SPRITES.md` "Palette") | views (`anim_preview.py --check all`) |
 | animation pass: in-betweens, overlap, eased spacing, preview GIFs, frame timelines | `tools/splat3d.py:tween`, `cycle`, `lag`, `lag_at`; `tools/anim_preview.py` (`gen_<id>.py anim`, `--check <id>`); each generator's `render_frame` / `frame_spec`; recipe in `docs/SPRITES.md` "Animation pass" | views (`anim_preview.py --check all`, `--selftest`) |
-| CI, builds | `.github/workflows/tests.yml`, `.github/workflows/playable-build.yml` | |
+| CI, builds | `.github/workflows/tests.yml`, `.github/workflows/playable-build.yml` (least-privilege `permissions`, actions pinned to commit SHAs with the tag in a comment, Godot downloads checked against the release's `SHA512-SUMS.txt`) | |
 
 `TEST_ONLY` matches file names by substring (`ai` would also run `test_training`), so the
 table writes `test_ai` and `test_ui` in full.

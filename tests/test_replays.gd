@@ -75,6 +75,64 @@ func test_a_replay_of_a_removed_mode_is_refused() -> void:
 	g.free()
 
 
+## A replay file is only read from this machine, but it can be shared: a damaged or
+## hand-made setup is refused before anything is built, with a message, and quickly.
+func test_a_crafted_replay_setup_is_refused_cleanly() -> void:
+	var many: Array = []
+	for i in 100000:
+		many.append("cairn")
+	var bad := [
+		{"kind": "versus", "ids": ["../../project", "culvert"]},
+		{"kind": "versus", "ids": ["nobody", "culvert"]},
+		{"kind": "versus", "ids": [7, "culvert"]},
+		{"kind": "versus", "ids": many},
+		{"kind": "versus", "ids": []},
+		{"kind": "versus", "ids": "cairn"},
+		{"kind": "showtime", "ids": ["cairn", "culvert"]},
+		{"kind": ["team"], "ids": ["cairn", "culvert"]},
+		{"kind": "team", "ids": ["cairn", "culvert"], "size": 1000000, "teams": [["cairn"], ["culvert"]], "rules": ""},
+		{"kind": "team", "ids": ["cairn", "culvert"], "size": [], "rules": ""},
+		{"kind": "team", "ids": ["cairn", "culvert"], "size": 2, "teams": [["cairn"], ["culvert"]], "rules": ""},
+		{"kind": "duel", "ids": ["cairn", "culvert"], "teams": [["cairn"], ["nobody"]]},
+		{"kind": "duel", "ids": ["cairn", "culvert"], "teams": "x"},
+		{"kind": "brawl", "ids": ["cairn", "culvert", "sno", "pete", "hissy"]},
+		{"kind": "versus", "ids": ["cairn", "culvert"], "arena": "../../x"},
+		{"kind": "versus", "ids": ["cairn", "culvert"], "mutators": {"pit_floor": 1e30}},
+		{"kind": "versus", "ids": ["cairn", "culvert"], "mutators": {"hazards": "tidal_wave"}},
+		{"kind": "versus", "ids": ["cairn", "culvert"], "mutators": 5},
+		{"kind": "versus", "ids": ["cairn", "culvert"], "energy": 5},
+		{"kind": "training", "ids": ["cairn", "dummy"], "flag_changes": 3},
+	]
+	for setup in bad:
+		var t0 := Time.get_ticks_msec()
+		assert_eq(ReplayBuilder.unsupported(setup), ReplayBuilder.DAMAGED, "refused %s:" % str(setup).left(120))
+		assert_lt(float(Time.get_ticks_msec() - t0), 500.0, "quickly:")
+	# What this game writes still plays (JSON turns whole numbers into floats).
+	for ok in [{"kind": "versus", "ids": ["cairn", "culvert"], "arena": "stadium", "mutators": {}, "mut_seed": 3.0},
+			{"kind": "training", "ids": ["cairn", "dummy"], "training_flags": {}, "flag_changes": []},
+			{"kind": "team", "ids": ["cairn", "culvert", "sno", "pete"], "size": 2.0, "rules": "",
+				"teams": [["cairn", "culvert"], ["sno", "pete"]]},
+			{"kind": "duel", "ids": ["cairn", "culvert"], "teams": [["cairn", "sno", "pete"], ["culvert", "hissy", "digby"]]},
+			{"kind": "brawl", "ids": ["cairn", "culvert", "sno"], "mutators": {"speed_mult": 1.3, "hazards": ["tidal_wave"]}}]:
+		assert_eq(ReplayBuilder.unsupported(ok), "", "plays %s:" % str(ok).left(80))
+	# Through the theater: refused with a message, nothing built.
+	var g := _game()
+	g._open_menu("single")
+	var rep := Replay.new()
+	rep.setup = {"kind": "team", "ids": ["cairn", "culvert"], "size": 1000000, "teams": [["cairn"], ["culvert"]], "rules": ""}
+	rep.record(PackedInt32Array([0, 0]))
+	var path := "user://replays/replay_test_crafted_%d.json" % Time.get_ticks_usec()
+	assert_eq(rep.save(path), OK, "saved:")
+	var t0 := Time.get_ticks_msec()
+	g._play_replay(path)
+	assert_lt(float(Time.get_ticks_msec() - t0), 1000.0, "no hang:")
+	assert_true(g.mode != g.REPLAY_MODE, "the theater doesn't start it")
+	assert_true(g.team_battle == null, "no team battle built")
+	assert_true(g._replay_label(path).ends_with("(damaged)"), "and the list says so: " + g._replay_label(path))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	g.free()
+
+
 func test_the_menu_rows_start_the_modes_they_name() -> void:
 	var g := _game()
 	for name in ["Arcade", "Gauntlet", "Daily Challenge", "Chaos Cup"]:

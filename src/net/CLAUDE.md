@@ -20,6 +20,14 @@ outcome must live in the sim, never here or in `main.gd`.
   the last 8 inputs, up to `MAX_PACKET_INPUTS` = 60 to fill the gap to the lowest ack.
 - `Referee` ignores inputs more than `MAX_AHEAD` = 600 frames ahead and keeps `HISTORY` =
   240 per slot. CPU slots are skipped in time sync and digest waits.
+- Clients bound what peers send too: a "start" `delay` is clamped to
+  `RollbackSession.MAX_INPUT_DELAY` = 8 (`Netplay.start_delay`; the session and
+  `OnlineMatch` clamp again), `RollbackSession.receive` keeps no input more than
+  `MAX_AHEAD` = 600 frames ahead, `OnlineMatch` keeps only `dg` on the 60-frame grid within
+  600 frames, a spectator refuses a log over `Netplay.MAX_WATCH_LOG`. Read numbers from a
+  message with `NetLink.int_of` / `float_of` (never `int()` of an unknown type) and names
+  with `Netplay.clean_name`. `LanFinder` takes only an answer of this build (`accepts`).
+  Tests: `tests/test_client_hardening.gd`.
 - Events reach the views once through rollbacks: `OnlineMatch`'s tap de-duplicates by
   tick, type, attacker, target and who.
 

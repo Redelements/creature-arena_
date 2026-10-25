@@ -76,18 +76,39 @@ func tick() -> void:
 				return
 			"daily_ok":
 				ok = true
-				score = int(m.get("score", 0))
-				rank = int(m.get("rank", 0))
-				board = m.get("board", [])
+				score = NetLink.int_of(m.get("score", 0))
+				rank = NetLink.int_of(m.get("rank", 0))
+				board = clean_board(m.get("board", []))
 				done = true
 				link.close()
 				return
 			"daily_board":
 				ok = true
-				board = m.get("board", [])
+				board = clean_board(m.get("board", []))
 				done = true
 				link.close()
 				return
 	if _t > TIMEOUT_TICKS:
 		_fail("No answer from the server")
 	link.flush()
+
+
+## The most rows of a board this client keeps (the server sends the top few).
+const MAX_BOARD := 100
+
+
+## A board as the server sent it, made safe to show: rows that are dictionaries, a
+## clean name and a whole-number score each, at most MAX_BOARD of them.
+static func clean_board(b) -> Array:
+	var out: Array = []
+	if not (b is Array):
+		return out
+	for row in b:
+		if out.size() >= MAX_BOARD:
+			break
+		if row is Dictionary:
+			var r: Dictionary = (row as Dictionary).duplicate()
+			r["name"] = Netplay.clean_name(str(r.get("name", "Player")))
+			r["score"] = NetLink.int_of(r.get("score", 0))
+			out.append(r)
+	return out

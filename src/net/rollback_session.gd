@@ -28,6 +28,12 @@ var max_rollback := 8
 var redundancy := 8
 ## A packet carries at most this many inputs (when the other side is missing a lot).
 const MAX_PACKET_INPUTS := 60
+## The most input delay a session takes: a "start" from a host or server asking for more
+## is clamped (rollback keeps 8 frames; Netplay.pick_delay picks 1-3).
+const MAX_INPUT_DELAY := 8
+## Remote inputs further ahead of this machine than this many frames are dropped: no
+## honest peer runs that far ahead (the server's Referee uses the same window).
+const MAX_AHEAD := 600
 ## Every other machine has every input of ours up to this frame (each says so in its
 ## packets; this is the lowest): anything after it is sent again, so a burst of lost
 ## packets longer than `redundancy` can't leave the machines waiting for each other.
@@ -71,7 +77,7 @@ var history := {}
 func _init(p_game, p_local_player: int, p_input_delay := 2, p_players := 2) -> void:
 	game = p_game
 	local_player = p_local_player
-	input_delay = p_input_delay
+	input_delay = clampi(p_input_delay, 0, MAX_INPUT_DELAY)
 	players = maxi(2, p_players)
 	for p in players:
 		_remote.append({})
@@ -108,17 +114,24 @@ func receive(packet: Dictionary) -> void:
 	var p := int(packet.get("p", 1 - local_player if players == 2 else -1))
 	if p < 0 or p >= players or p == local_player:
 		return
+	if not (packet.get("inputs") is PackedInt32Array) or not (typeof(packet.get("first")) in [TYPE_INT, TYPE_FLOAT]):
+		return
 	var first := int(packet["first"])
 	var inputs: PackedInt32Array = packet["inputs"]
 	if packet.has("ack"):
-		_acks[p] = maxi(int(_acks[p]), int(packet["ack"]))
+		# Nobody can have confirmed inputs this machine hasn't scheduled yet.
+		_acks[p] = maxi(int(_acks[p]), mini(int(packet["ack"]), frame + input_delay))
 		var lowest := 1 << 30
 		for q in players:
 			if q != local_player:
 				lowest = mini(lowest, int(_acks[q]))
 		remote_ack = lowest
 	var mine: Dictionary = _remote[p]
-	for i in inputs.size():
+	# Only frames this machine still needs, and none past MAX_AHEAD: whatever a packet's
+	# `first` and length, it can't make the session keep (or loop over) more than that.
+	var from := clampi(int(_confirmed_p[p]) - first, 0, inputs.size())
+	var upto := clampi(frame + MAX_AHEAD - first + 1, 0, inputs.size())
+	for i in range(from, upto):
 		var f := first + i
 		if mine.has(f) or f <= int(_confirmed_p[p]) - 1:
 			continue
