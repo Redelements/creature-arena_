@@ -505,6 +505,8 @@ var touch_demo: TouchDemo = null
 ## device in a fight.
 var touch_overlay: TouchOverlay
 var touch_opacity := TOUCH_OPACITY_DEFAULT
+var touch_left := false  ## Settings > Controls > Touch > Hand (saved)
+var _touch_demo_left := false  ## --touch-demo=left: mirrored this session only
 var frame_count := 0
 var _shots := {}
 var _shot_dir := "user://shots"
@@ -3671,6 +3673,7 @@ func _touch_step() -> void:
 ## Settings > Controls > Touch into the touch pad and the overlay.
 func _apply_touch() -> void:
 	touch_overlay.opacity = float(TOUCH_OPACITY[clampi(touch_opacity, 0, TOUCH_OPACITY.size() - 1)])
+	player_input.touch.left_handed = touch_left or _touch_demo_left
 	player_input.touch.layout(player_input.touch.screen())
 
 
@@ -3965,7 +3968,7 @@ func _setting(key: String) -> Dictionary:
 				"desc": "Bigger buttons are easier to hit and cover more of the fight"}
 		"touch_hand":
 			return {"label": "Hand", "values": ["Right-handed", "Left-handed"],
-				"index": 1 if player_input.touch.left_handed else 0,
+				"index": 1 if touch_left else 0,
 				"desc": "Left-handed: the buttons on the left and the stick on the right"}
 		"touch_aim":
 			return {"label": "Aiming", "values": TouchPad.AIM_STYLES, "index": 1 if player_input.touch.tap_only else 0,
@@ -4078,7 +4081,7 @@ func _set_setting(key: String, i: int) -> void:
 				player_input.touch.size_step = clampi(i, 0, TouchPad.SIZES.size() - 1)
 				_apply_touch()
 			"touch_hand":
-				player_input.touch.left_handed = i == 1
+				touch_left = i == 1
 				_apply_touch()
 			"touch_aim":
 				player_input.touch.tap_only = i == 1
@@ -4383,7 +4386,7 @@ func _load_settings() -> void:
 		range_rings = bool(cfg.get_value("game", "range_rings", false))
 		touch_opacity = clampi(int(cfg.get_value("touch", "opacity", TOUCH_OPACITY_DEFAULT)), 0, TOUCH_OPACITY.size() - 1)
 		player_input.touch.size_step = clampi(int(cfg.get_value("touch", "size", 1)), 0, TouchPad.SIZES.size() - 1)
-		player_input.touch.left_handed = bool(cfg.get_value("touch", "left_handed", false))
+		touch_left = bool(cfg.get_value("touch", "left_handed", false))
 		player_input.touch.tap_only = bool(cfg.get_value("touch", "tap_only", false))
 		for k in MatchSim.TRAINING_FLAGS:
 			training_opts[k] = bool(cfg.get_value("training", k, false))
@@ -4441,7 +4444,7 @@ func _save_settings() -> void:
 	cfg.set_value("game", "range_rings", range_rings)
 	cfg.set_value("touch", "opacity", touch_opacity)
 	cfg.set_value("touch", "size", player_input.touch.size_step)
-	cfg.set_value("touch", "left_handed", player_input.touch.left_handed)
+	cfg.set_value("touch", "left_handed", touch_left)
 	cfg.set_value("touch", "tap_only", player_input.touch.tap_only)
 	for k in MatchSim.TRAINING_FLAGS:
 		cfg.set_value("training", k, bool(training_opts.get(k, false)))
@@ -4616,7 +4619,7 @@ func _parse_args() -> int:
 			touch_demo = TouchDemo.new()
 			if a.get_slice("=", 1) == "left":
 				touch_demo.mirror = true
-				player_input.touch.left_handed = true  # this session only (not saved)
+				_touch_demo_left = true  # this session only (not saved)
 	if touch_demo != null and start < 0:
 		start = 3  # training as Cairn: a dummy to aim at
 		_skip_select = true
