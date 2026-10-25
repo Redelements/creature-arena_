@@ -16,7 +16,7 @@ update the map in the same change.
 | --- | --- | --- | --- |
 | Game rules (deterministic sim) | `src/sim/` | `src/sim/match_sim.gd:step` | anything that decides an outcome: hits, damage, combos, guard, stamina, statuses, terrain, mode rules, rollback state |
 | CPU opponent | `src/ai/` | `src/ai/cpu_controller.gd:bits` | CPU behaviour, difficulty levels, Rage, class styles, pathing round walls, team focus |
-| Player input | `src/input/` | `src/input/player_input.gd:bits` | keyboard, mouse, gamepad to input bits; aim assist; twin-stick; menu stick |
+| Player input | `src/input/` | `src/input/player_input.gd:bits` | keyboard, mouse, gamepad, touch to input bits; aim assist; twin-stick; menu stick |
 | Visuals and sound | `src/view/` | `src/view/fx_view.gd:spawn` | effects, sprites, HUD, health bars, sound, arena drawing, range rings |
 | Online | `src/net/` | `src/net/netplay.gd:tick` | rollback, desyncs, ping and delay, the dedicated server, rooms, ranked, spectators |
 | Game flow | `src/game/` | `src/game/main.gd:_physics_process` | modes, starting a match, settings, camera, CLI flags, showcases, trials, drills, ladders, Discord |
@@ -69,6 +69,7 @@ update the map in the same change.
 | performance, stutter, frame drops, CPU cost per tick, threads | measure: `tests/bench_ai_cost.gd`, `--perf` (`src/game/perf_log.gd`); CPUs in parallel `src/ai/cpu_controller.gd:think_all` / `think_start`, thinking while the frame draws (main `_think_cpus`, `_think_ahead`, `_join_cpus`); shared caches `src/sim/terrain_index.gd`, `NavGrid.shared`, `Vision.clear_line` memo; view redraw cost: floor bands `arena_view.gd:BAND_ROWS`, crowd `crowd_view.gd:Block` (fans sitting drawn once, standing on their own layer, `_checked_rect`) | cpu_pathing, vision, ui |
 | balance, win rates, matchups, why a fighter loses | `tests/bench_cpu.gd` (`--matrix`, `--detail` spacing/stamina, `--teams=3`), `tests/bench_fighter.gd`; pins `tests/test_balance.gd` | balance, rage |
 | keyboard layouts, gamepad, twin-stick, aim assist | `src/input/player_input.gd` | player_input, twinstick |
+| touch controls, on-screen stick and buttons, drag to aim, touch settings, `--touch-demo` | `src/input/touch_pad.gd` (`feed`, `bits`, `release_all`), `src/input/player_input.gd` (`Device.TOUCH`, `touch_charges`); drawn by `src/view/touch_overlay.gd`; main `_note_input`, `_touch_step`, `SETTING_PAGES["touch"]`; demo `src/game/touch_demo.gd` | touch, player_input |
 | mouse (League-style) orders | `src/input/mouse_orders.gd` | player_input |
 | key bindings, remapping | `src/game/controls.gd`, `src/ui/remap_screen.gd` | test_ui |
 | hit sparks, smears, particles, event effects | `src/view/fx_view.gd:spawn`, `_draw_part` | views |

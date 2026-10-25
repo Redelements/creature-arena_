@@ -18,12 +18,16 @@ extends RefCounted
 ## (ASSIST_DEG_STICK from a 360-degree left stick, which needs less help than WASD). Assist
 ## lives here, in the input, so online peers simply receive the assisted aim.
 ##
-## The prompts on screen follow whichever device was used last.
+##   Touch:         a floating stick on the left, a button arc on the right (TouchPad);
+##                  taps get the wider ASSIST_DEG, drags off the big moves aim exactly
+##
+## The prompts on screen follow whichever device was used last (a touch shows the touch
+## controls; a key or a pad button hides them again).
 ##
 ## For local 2-player, each player gets their own PlayerInput: `pad_device` picks which
 ## controller it reads (or none), and `keyboard` turns keyboard and mouse off for player 2.
 
-enum Device { KEYBOARD, GAMEPAD }
+enum Device { KEYBOARD, GAMEPAD, TOUCH }
 
 const LAYOUTS := ["league", "classic"]
 const LAYOUT_NAMES := {"league": "League-style (mouse + QWER)", "classic": "Classic (WASD + JKUIO)"}
@@ -44,6 +48,7 @@ const LABELS := {
 	"league": {"light": "A", "heavy": "E", "skill_1": "Q", "skill_2": "W", "surge": "R", "dodge": "D", "guard": "F", "tag": "T"},
 	"classic": {"light": "J", "heavy": "K", "skill_1": "U", "skill_2": "I", "surge": "O", "dodge": "Spc", "guard": "Shift", "tag": "L"},
 	"gamepad": {"light": "A", "heavy": "X", "skill_1": "Y", "skill_2": "B", "surge": "RT", "dodge": "RB", "guard": "LB", "tag": "LT"},
+	"touch": {},  ## the buttons on screen say what they are
 }
 const ANY_PAD := -1
 const NO_PAD := -2
@@ -52,6 +57,7 @@ const HELP := {
 	"league": "Right-click move / attack   {light} or Left-click light   {heavy} heavy (hold)   {skill_1} skill 1   {skill_2} skill 2   {surge} surge   {dodge} dodge   {guard} guard   {dodge}+{guard} breakaway   {tag} tag   {stop} stop   Esc pause",
 	"classic": "{up}{left}{down}{right} move  {light} light  {heavy} heavy  {skill_1} skill 1  {skill_2} skill 2  {surge} surge  {dodge} dodge  {guard} guard  {guard}+{dodge} breakaway  {tag} tag  F1 hitboxes  Esc pause",
 	"gamepad": "L-stick move   R-stick aim   {light} light   {heavy} heavy (hold)   {skill_1} skill 1   {skill_2} skill 2   {surge} surge   {dodge} dodge   {guard} guard   {guard}+{dodge} breakaway   {tag} tag   Start pause",
+	"touch": "Left thumb: move   Tap a button: attack (aimed for you)   Drag Heavy / Skills / Surge off the button: aim, let go to throw (back on it: cancel)   Hold Guard   Dodge goes the way you move",
 	"twinstick": "L-stick move   R-stick aim 360 + face (strafe; Chef Cerebro and Mister Crease throw)   {light} light   {heavy} heavy   {skill_1} skill 1   {skill_2} skill 2   {surge} surge   {dodge} dodge   {guard} guard   {tag} tag   Start pause",
 }
 ## Which action each label set's buttons are bound to (light = the attack action).
@@ -62,6 +68,8 @@ var pad_layout := "standard"
 var device: Device = Device.KEYBOARD
 var pad_id := 0
 var orders := MouseOrders.new()
+## Touch controls (only player 1's is fed: main passes it the screen's touches).
+var touch := TouchPad.new()
 var _pad_aim_t := 0
 ## Which controller this player reads: ANY_PAD (single player), NO_PAD, or a device id.
 var pad_device := ANY_PAD
@@ -77,6 +85,8 @@ var _auto := {"t": 0, "quiet": 0, "pend": 0, "pend_t": 0}
 func label_set() -> String:
 	if not keyboard:
 		return "gamepad"
+	if device == Device.TOUCH:
+		return "touch"
 	return "gamepad" if device == Device.GAMEPAD else layout
 
 
@@ -87,6 +97,8 @@ func label(action: String) -> String:
 
 
 static func label_for(set_name: String, action: String) -> String:
+	if not PREFIX.has(set_name):
+		return String(LABELS.get(set_name, {}).get(action, ""))
 	var name := String(PREFIX[set_name]) + ("attack" if action == "light" and set_name == "league" else action)
 	if InputMap.has_action(name):
 		var group := "gamepad" if set_name == "gamepad" else set_name
@@ -110,6 +122,13 @@ func help_text(tag := true) -> String:
 
 ## Tracks the last device used, so prompts can switch between keyboard and controller.
 func note_event(event: InputEvent) -> void:
+	if event is InputEventScreenTouch or event is InputEventScreenDrag:
+		if keyboard and event is InputEventScreenTouch and event.pressed:
+			device = Device.TOUCH
+		return
+	if (event is InputEventMouseButton or event is InputEventMouseMotion) \
+			and event.device == InputEvent.DEVICE_ID_EMULATION:
+		return  # a touch's copy as a mouse click (emulate_mouse_from_touch): still touch
 	if pad_device >= 0 and (event is InputEventJoypadButton or event is InputEventJoypadMotion) \
 			and event.device != pad_device:
 		return
@@ -129,6 +148,7 @@ func reset() -> void:
 	orders.clear()
 	_pad_aim_t = 0
 	_auto = {"t": 0, "quiet": 0, "pend": 0, "pend_t": 0}
+	touch.release_all()
 
 
 ## The bitmask for this tick. `cursor` is the mouse position in arena coordinates.
@@ -136,6 +156,13 @@ func bits(sim: MatchSim, me_idx: int, cursor: Vector2) -> int:
 	var me := sim.creatures[me_idx]
 	var foe := sim.nearest_opponent(me)
 	var out := 0
+	if device == Device.TOUCH and keyboard:
+		touch_charges(me, touch)
+		out |= touch.bits()
+		if pad_device == ANY_PAD:
+			out |= _gamepad_bits(me)
+		# No keyboard or mouse: a tap also arrives as a mouse click (League's light attack).
+		return assist(out, me, foe, ASSIST_DEG)
 	if pad_device == ANY_PAD:
 		out |= _gamepad_bits(me)
 	elif pad_device >= 0:
@@ -150,10 +177,19 @@ func bits(sim: MatchSim, me_idx: int, cursor: Vector2) -> int:
 	return assist(out, me, foe)
 
 
+## Tells the touch pad which of its drag buttons start a charging move for `me` (held
+## still on the button, those start and charge).
+static func touch_charges(me: CreatureSim, pad: TouchPad) -> void:
+	var mv := me.moves()
+	for b in ["heavy", "skill_1", "skill_2"]:
+		pad.charges[b] = (mv.get(b, {}) as Dictionary).has("charge_max")
+
+
 ## Aim assist: an attack aimed within ASSIST_DEG (ASSIST_DEG_STICK for a 360-degree left
-## stick) of an opponent in range goes straight at them. Exact aims (mouse, right stick)
-## pass through untouched.
-static func assist(bits: int, me: CreatureSim, foe: CreatureSim) -> int:
+## stick) of an opponent in range goes straight at them. Exact aims (mouse, right stick, a
+## touch drag) pass through untouched. `deg` overrides the angle (touch: ASSIST_DEG even
+## with the stick held, since a thumb on glass aims looser than a stick).
+static func assist(bits: int, me: CreatureSim, foe: CreatureSim, deg := -1.0) -> int:
 	if bits & SimDefs.IN_AIM or foe == null or foe.state == CreatureSim.State.KO:
 		return bits
 	if not (bits & ATTACK_BITS) and me.state != CreatureSim.State.ATTACK:
@@ -164,7 +200,8 @@ static func assist(bits: int, me: CreatureSim, foe: CreatureSim) -> int:
 	var want := SimDefs.aim_from_bits(bits)
 	if want == Vector2.ZERO:
 		want = me.facing
-	var deg := ASSIST_DEG_STICK if bits & SimDefs.IN_MOVE else ASSIST_DEG
+	if deg < 0.0:
+		deg = ASSIST_DEG_STICK if bits & SimDefs.IN_MOVE else ASSIST_DEG
 	if want.normalized().dot(to.normalized()) < cos(deg_to_rad(deg)):
 		return bits
 	return bits | SimDefs.aim_bits(to)

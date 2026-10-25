@@ -328,6 +328,8 @@ Views, audio, drills and the CPU read `sim.events`; the sim never reads them.
 
 One int per player per tick (src/sim/sim_defs.gd). Buttons: `IN_UP` 1, `IN_DOWN` 2, `IN_LEFT` 4, `IN_RIGHT` 8, `IN_LIGHT` 16, `IN_HEAVY` 32, `IN_DODGE` 64, `IN_GUARD` 128, `IN_SKILL1` 256, `IN_SKILL2` 512, `IN_SURGE` 1024, `IN_TAG` 2048 (Duel: tag; Capture the Flag: pass the flag). `IN_AIM` 4096 plus a 6-bit index at `AIM_SHIFT` 13; `IN_STRAFE` bit 19 (face the aim while walking at `STRAFE_SPEED`; needs `IN_AIM`); `IN_MOVE` bit 20 plus a 6-bit index at `MOVE_SHIFT` 21. Indexes are 64 steps into `AIM_INT` (integers / 10000, normalized with sqrt only). `aim_from_bits` gives the aim, else the move direction; `move_from_bits` gives the move angle, else the 8-way bits. Encoders: `aim_bits`, `move_bits`.
 
+Touch (src/input/touch_pad.gd, `PlayerInput.Device.TOUCH`) makes these same bits, so nothing in the sim or the online protocol changes: the stick sends `move_bits` (64 steps), a tap sends the button's bit for one tick (aim assist at `ASSIST_DEG` 25 even with the stick held), a drag off Heavy / Skill 1 / Skill 2 / Surge sends the press on release with `IN_AIM` (kept for `AIM_HOLD` ticks, like the mouse), a charging move held still on its button for `HOLD_TICKS` presses then and holds its bit, Guard holds, Dodge adds the stick's last way. `--touch-demo[=left]` plays a recorded touch script (`src/game/touch_demo.gd`) into player 1's pad for overlay screenshots (training as Cairn unless `--mode` is given; `=left` mirrors the controls for the session).
+
 ## Keys in data not read by the sim
 
 - The cosmetic and non-sim keys listed above (read by view, UI, input or CPU code).

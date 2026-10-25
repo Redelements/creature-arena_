@@ -67,6 +67,10 @@ var menu_visible := false
 var cinema := false
 ## Button hints for a controller (else keyboard and mouse).
 var gamepad := false
+## The touch controls are on screen: the bottom corners are under the thumbs, so the
+## controls strip goes (the buttons say what they do) and the online line moves to the
+## bottom middle, between the stick and the buttons.
+var touch := false
 
 var _toast := ""
 var _toast_t := 0
@@ -415,10 +419,12 @@ func _draw_now() -> void:
 		var a := minf(1.0, _toast_t / 20.0)
 		_text(Vector2(_sw * 0.5 - 150.0, _sh - 34.0), _toast, 8, Color(1, 1, 1, a), HORIZONTAL_ALIGNMENT_CENTER, 300)
 
-	if net_info != "":
+	if net_info != "" and touch:
+		_text(Vector2(_sw * 0.5 - 100.0, _sh - 4.0), net_info, 5, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, 200)
+	elif net_info != "":
 		_text(Vector2(_hr - 404, _sh - 15.0), net_info, 6, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, 400)  # room for a long map name
 
-	if show_help:
+	if show_help and not touch:
 		draw_rect(Rect2(0, _sh - 11.0, _sw, 11), C_PANEL)
 		_text(Vector2(0, _sh - 3.0), help_text, 5, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, _sw)
 
