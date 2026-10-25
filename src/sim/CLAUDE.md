@@ -85,6 +85,10 @@ size only: a map's `size` can be bigger, so code with a match asks `sim.floor_re
   state). Permanent buffs → `creature_sim.gd:add_boost`, `boosts`, `set_boosts` (`BOOST_FIELDS`: saved by
   `save_state` but kept out of `STATE_FIELDS` so the digest of a match without shrines doesn't move; `load_state`
   sets `max_hp` from `boost_hp`), kept through `TeamSim._respawn`. Capture the Flag steps them inside `_ctf_step` and keeps its own goal (a 3v3+ side's last fighter)
+- Killing sprees and shutdowns (Team Deathmatch) → `team_sim.gd:_spree_ko`, `spree_level` (`streak`, `hit_by`,
+  `hit_at`); the Brawl crown → `brawl_sim.gd:_crown_step`, `crown_points`, `_time_out` (`crown`, `crown_t`, `gone`);
+  KO credit for both → `match_sim.gd:note_credit` (from the tick's hit / block / poison events) and `credit_of`;
+  the CPU's wanted foes → `MatchSim.marks` (saved; in the digest only when set)
 - Map bridges that break → `match_sim.gd:_step_bridges`, `bridge_strain`, `bridges` (saved)
 - Arena hazards (a mutator's `hazards`: tidal wave, meteor shower) → `hazards.gd` (`setup` raises breakwaters,
   `step` after `_resolve_hits`, `hurt` for the shared effects, `sheltered`); state `MatchSim.hazards`,

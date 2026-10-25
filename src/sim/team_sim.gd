@@ -17,6 +17,15 @@ extends RefCounted
 ## kept), invulnerable for `spawn_protect_seconds` or until it attacks. Every KO scores a
 ## point for the other team; first to `score_to_win` (by fighters per side) wins, or the
 ## higher score at time. A tie at time is sudden death: the next KO wins.
+## Killing sprees (rules with "spree_at", deathmatch.json): a KO is credited to the victim's
+## last hitter if that hit landed within `credit_seconds` (MatchSim.note_credit). A fighter
+## with `spree_at` credited KOs since it last went down is on a spree, level = KOs since then
+## minus `spree_at` - 1 (3 KOs: level 1, 4: level 2, ...); event "spree" each time it rises.
+## KOing a fighter on a spree is a shutdown: the normal point plus `shutdown_bonus` a level,
+## at most `shutdown_cap`, and `shutdown_energy` Surge meter for the killer (event
+## "shutdown"). Going down ends a spree, credited or not. The bonus counts toward
+## `score_to_win`, so a shutdown can win the match. Spree fighters are marked for the CPU
+## (`MatchSim.marks`: `spree_cpu_pull` px a level).
 ##
 ## Sinkhole (rules with "sinkhole": data/rules/sinkhole.json): one life each, and every
 ## `shrink_every` ticks the outermost ring of the floor cracks (a warning the CPU heeds)
@@ -162,6 +171,12 @@ var flag_by := [-1, -1]
 var flag_lock := [0, 0]
 ## Each slot's input last tick (a pass is a fresh press of TAG).
 var prev_in: Array = []
+## Killing sprees (rules with "spree_at"): each slot's credited KOs since it last went down,
+## and who last hit it and when (MatchSim.note_credit).
+var spree := false
+var streak: Array = []
+var hit_by: Array = []
+var hit_at: Array = []
 ## The shrines (rules with "shrines"): the match's own state (`MatchSim.shrines`, per
 ## shrine [the side claiming it (-1), ticks claimed, ticks until it's ready again, claims]).
 var shrines: Array:
@@ -249,6 +264,15 @@ func _init(team_ids: Array, per_side := 0, p_rules: Dictionary = {}, seed_ := 0)
 		respawn_t.append(-1)
 		guard_t.append(0)
 		prev_in.append(0)
+		streak.append(0)
+		hit_by.append(-1)
+		hit_at.append(-1)
+	# (plain Team Deathmatch only: the objective modes score objectives, not KOs)
+	spree = deathmatch and int(rules.get("spree_at", 0)) > 0 and not crater \
+		and not bool(rules.get("caravan", false)) and not bool(rules.get("ctf", false))
+	if spree:
+		sim.marks.resize(slot_count())
+		sim.marks.fill(0.0)
 	caravan = bool(rules.get("caravan", false))
 	if caravan:
 		_load_track()
@@ -366,6 +390,8 @@ func step(inputs: PackedInt32Array) -> void:
 	sim.step(ins)
 	if phase != Phase.FIGHT:
 		return
+	if spree:
+		sim.note_credit(hit_by, hit_at)
 	if sim.ko_freeze == 0:
 		timer -= 1
 	if sinkhole:
@@ -420,7 +446,7 @@ func _deathmatch_step() -> void:
 			respawn_t[slot] = int(wait * SimDefs.TICK_RATE)
 			guard_t[slot] = 0
 			if not crater and not caravan and not ctf:  # objective modes score objectives, not KOs
-				score[side] += 1
+				score[side] += 1 + (_spree_ko(slot) if spree else 0)
 				sim.emit_event("score", c.pos, float(score[side]), {"who": c.id, "team": side,
 					"score": score.duplicate()})
 				if score[side] >= score_to_win() or overtime:
@@ -439,12 +465,51 @@ func _deathmatch_step() -> void:
 			if c.state == CreatureSim.State.ATTACK:
 				guard_t[slot] = 0
 				c.invuln = 0
+	if spree:
+		var pull := float(rules.get("spree_cpu_pull", 60))
+		for slot in slot_count():
+			sim.marks[slot] = pull * float(mini(spree_level(slot), int(rules.get("shutdown_cap", 3))))
 	if timer <= 0 and not overtime and not caravan:
 		if score[0] == score[1]:
 			overtime = true  # sudden death: the next KO (or the next tick held) wins
 			sim.emit_event("overtime", Vector2.ZERO, 0.0)
 		else:
 			_finish(0 if score[0] > score[1] else 1, "time")
+
+
+## A slot's spree level: 0 below `spree_at` credited KOs since it last went down, then 1, 2, ...
+func spree_level(slot: int) -> int:
+	var at := int(rules.get("spree_at", 0))
+	if at <= 0 or slot < 0 or slot >= streak.size():
+		return 0
+	return maxi(0, int(streak[slot]) - at + 1)
+
+
+## `slot` just went down: its spree ends, and its killer (credited, on the other side, still
+## standing) counts the KO, reaching or raising a spree ("spree"), and on a shutdown gets the
+## Surge meter ("shutdown"). Returns the shutdown's bonus points (0 when it wasn't one).
+func _spree_ko(slot: int) -> int:
+	var level := spree_level(slot)
+	streak[slot] = 0
+	var victim := sim.creatures[slot]
+	var k := MatchSim.credit_of(hit_by, hit_at, slot, sim.tick,
+		int(float(rules.get("credit_seconds", 5)) * SimDefs.TICK_RATE))
+	hit_by[slot] = -1
+	if k < 0 or sim.creatures[k].team == victim.team or _down(sim.creatures[k]):
+		return 0
+	var killer := sim.creatures[k]
+	var bonus := 0
+	if level > 0:
+		bonus = mini(level * int(rules.get("shutdown_bonus", 1)), int(rules.get("shutdown_cap", 3)))
+		sim.gain_energy(killer, float(rules.get("shutdown_energy", 40)))
+		sim.emit_event("shutdown", victim.pos, float(bonus), {"who": k, "victim": slot, "team": killer.team,
+			"bonus": bonus, "level": level})
+	streak[k] = int(streak[k]) + 1
+	var now := spree_level(k)
+	if now > 0:
+		sim.emit_event("spree", killer.pos, float(now), {"who": k, "team": killer.team, "level": now,
+			"kos": int(streak[k])})
+	return bonus
 
 
 # ------------------------------------------------------------------ king of the crater
@@ -613,6 +678,7 @@ func _respawn(slot: int) -> void:
 	c.invuln = protect
 	guard_t[slot] = protect
 	respawn_t[slot] = -1
+	hit_by[slot] = -1
 	sim.emit_event("respawn", c.pos, 0.0, {"who": c.id, "team": c.team})
 
 
@@ -1248,7 +1314,7 @@ func snapshot() -> Dictionary:
 		"flags": [flag_pos.duplicate(), flag_state.duplicate(), flag_carrier.duplicate(), flag_t.duplicate(),
 			flag_from.duplicate(), flag_to.duplicate(), flag_ft.duplicate(), flag_fn.duplicate(), flag_by.duplicate(),
 			flag_lock.duplicate()],
-		"prev_in": prev_in.duplicate()}
+		"prev_in": prev_in.duplicate(), "spree": [streak.duplicate(), hit_by.duplicate(), hit_at.duplicate()]}
 
 
 func restore(s: Dictionary) -> void:
@@ -1289,6 +1355,10 @@ func restore(s: Dictionary) -> void:
 		flag_lock = (fl[9] as Array).duplicate()
 	if s.has("prev_in"):
 		prev_in = (s["prev_in"] as Array).duplicate()
+	if s.has("spree"):
+		streak = (s["spree"][0] as Array).duplicate()
+		hit_by = (s["spree"][1] as Array).duplicate()
+		hit_at = (s["spree"][2] as Array).duplicate()
 	sim.restore(s["match"])
 
 
@@ -1298,7 +1368,7 @@ func state_digest() -> String:
 	ctx.update(var_to_bytes([sim.state_digest(), phase, phase_t, timer, winner, score, respawn_t, guard_t,
 		overtime, ring, sink_t, warned, zone_i, zone_t, cv_round, cv_p, cv_cp, cv_t, cv_ot, cv_state, cv_best, cv_time, cv_dig,
 		flag_pos, flag_state, flag_carrier, flag_t, flag_from, flag_to, flag_ft, flag_fn, flag_by, flag_lock,
-		prev_in]))
+		prev_in, streak, hit_by, hit_at]))
 	return ctx.finish().hex_encode()
 
 
