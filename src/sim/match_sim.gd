@@ -521,7 +521,8 @@ func _resolve_hits() -> void:
 
 
 ## The energy rules (data/rules/energy.json), loaded once: per_damage_dealt,
-## per_damage_taken, carry_between_rounds. Missing keys fall back to the constants.
+## per_type_mult, variety_energy, per_damage_taken, carry_between_rounds. Missing keys fall
+## back to the constants (per_type_mult and variety_energy to 1.0: every hit alike).
 static func energy_rules() -> Dictionary:
 	if _energy_rules.is_empty():
 		var f := FileAccess.open(ENERGY_PATH, FileAccess.READ)
@@ -532,6 +533,23 @@ static func energy_rules() -> Dictionary:
 
 static func energy_rate_dealt() -> float:
 	return float(energy_rules().get("per_damage_dealt", ENERGY_PER_DAMAGE))
+
+
+## The Surge energy `amount` of damage from a hit of `hit_type` on `d` earns its attacker:
+## amount × per_damage_dealt × per_type_mult[hit_type] × variety_energy[types], where types
+## is how many move types the combo on `d` has used counting this hit (d.combo_types). A
+## Surge's own hits earn nothing. Used for clean hits, blocked chip and armor chip alike.
+static func energy_dealt(d: CreatureSim, hit_type: String, amount: float) -> float:
+	if hit_type == "surge":  # a Surge never charges the next one
+		return 0.0
+	var r := energy_rules()
+	var mult := float((r.get("per_type_mult", {}) as Dictionary).get(hit_type, 1.0))
+	var table: Array = r.get("variety_energy", [])
+	var v := 1.0
+	if not table.is_empty():
+		var n := SimDefs.type_count(d.combo_types | int(SimDefs.TYPE_BIT.get(hit_type, 0)))
+		v = float(table[mini(n, table.size() - 1)])
+	return amount * energy_rate_dealt() * mult * v
 
 
 static func energy_rate_taken() -> float:
@@ -591,8 +609,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		var taken := d.take_damage(damage * (1.0 - float(ar.get("reduction", 0.6))), self)
 		a.dealt_damage()
 		d.flash = 3
-		if String(hit["type"]) != "surge":  # a Surge never charges the next one
-			gain_energy(a, taken * energy_rate_dealt())
+		gain_energy(a, energy_dealt(d, String(hit["type"]), taken))
 		if same_attack:
 			a.connected = true
 		impact_stop(a, d, int(float(hit["hitstop"]) * 0.6), ranged)
@@ -617,8 +634,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 			d.knock_vel = push * float(hit["knockback"]) * 0.4 / d.weight
 			d.guard_hit = 10
 			d.stun = int(float(hit["hitstun"]) * 0.5)
-			if String(hit["type"]) != "surge":
-				gain_energy(a, chip * energy_rate_dealt())
+			gain_energy(a, energy_dealt(d, String(hit["type"]), chip))
 			if same_attack:
 				a.connected = true
 				_punish_blocked_ender(a, d)
@@ -670,8 +686,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	d.combo_moves[move_key] = int(hit["serial"])
 	d.combo_damage += total
 	d.last_attacker = a.id
-	if String(hit["type"]) != "surge":  # a Surge's hits never charge the next Surge
-		gain_energy(a, total * energy_rate_dealt())
+	gain_energy(a, energy_dealt(d, String(hit["type"]), total))  # d.combo_types includes this hit
 	gain_energy(d, total * energy_rate_taken())
 	if same_attack:
 		a.connected = true
