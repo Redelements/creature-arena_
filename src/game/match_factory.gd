@@ -46,10 +46,11 @@ static func training(fighter := "culvert") -> MatchSim:
 	return sim
 
 
-## Two fighters facing each other. Either side can be a player or the CPU.
-static func versus(left_id := "culvert", right_id := "culvert") -> MatchSim:
+## Two fighters facing each other. Either side can be a player or the CPU. On the
+## session's arena unless `arena_id` names one (the Daily always plays the stadium).
+static func versus(left_id := "culvert", right_id := "culvert", arena_id := "") -> MatchSim:
 	var sim := MatchSim.new()
-	sim.set_arena(arena)
+	sim.set_arena(arena_id if arena_id != "" else arena)
 	sim.add_creature(load_def(left_id), sim.spawn(0))
 	var right := sim.add_creature(load_def(right_id), sim.spawn(1))
 	right.facing = Vector2.LEFT

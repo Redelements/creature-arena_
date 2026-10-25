@@ -129,7 +129,8 @@ const REPLAYS_KEEP_DEFAULT := 500
 const FIELD_TYPES := {
 	"hello": {"v": [TYPE_INT], "data": [TYPE_STRING], "team": [TYPE_ARRAY], "room": [TYPE_STRING],
 		"size": [TYPE_INT], "rules": [TYPE_STRING], "arena": [TYPE_STRING], "id": [TYPE_STRING],
-		"name": [TYPE_STRING], "ranked": [TYPE_BOOL], "submit": [TYPE_BOOL], "watch": [TYPE_BOOL]},
+		"name": [TYPE_STRING], "ranked": [TYPE_BOOL], "submit": [TYPE_BOOL], "watch": [TYPE_BOOL],
+		"secret": [TYPE_STRING]},
 	"ping": {"n": [TYPE_INT]},
 	"pong": {"n": [TYPE_INT]},
 	"daily": {"date": [TYPE_INT], "fighter": [TYPE_STRING], "replay": [TYPE_DICTIONARY]},
@@ -180,6 +181,12 @@ var realtime := false
 ## Connections at once from one address (its host part; 0: no limit). The real server
 ## sets it (--max-per-ip, default 6).
 var max_per_ip := 0
+## Ranked pairs two players from the same address only when this is on (--ranked-same-ip:
+## a LAN party or a test). Off, two games behind one address never play each other rated.
+var ranked_same_ip := false
+## The Daily dates accepted are this day and the one either side of it (YYYYMMDD; 0:
+## today's UTC date, Daily.today(); tests set it).
+var daily_today := 0
 ## Server replays kept in `replay_dir` (the oldest go first).
 var replays_keep := _replays_keep()
 ## Every log line goes here too (the server prints them).
@@ -222,7 +229,8 @@ class Client:
 	var check: Check = null  ## the ready check they're in (state FOUND)
 	var watch := false  ## a spectator: never seated, fed every input of a match
 	var arena := ArenaMap.DEFAULT  ## the map asked for (a room's maker decides; Quick match draws one)
-	var pid := ""  ## the player's id and typed name (for ratings and daily scores)
+	var pid := ""  ## the player's proven id (ranked and Daily only; "" otherwise) and typed name
+	var key := ""  ## Ratings.key_of(pid, their secret): bound to the id at its first rated use
 	var name := "Player"
 	var ranked := false  ## wants a rated 1v1 (paired within a rating band)
 	var heard_ms := 0  ## their last message, on the limits' clock
@@ -464,7 +472,7 @@ func _handle(c: Client, m: Dictionary) -> void:
 			if c.state != State.HELLO:
 				return
 			if int(m.get("v", -1)) != Netplay.NET_VERSION or String(m.get("data", "")) != Netplay.data_hash():
-				_refuse(c, "version", "The server runs a different version of the game. You both need the same build as the server.")
+				_refuse(c, "version", "The server runs a different version of the game. Update your game (or ask the server's owner to update the server) so both are the same build.")
 				return
 			var team = m.get("team")
 			if not Netplay.valid_team(team):
@@ -483,10 +491,13 @@ func _handle(c: Client, m: Dictionary) -> void:
 			c.arena = String(m.get("arena", ArenaMap.DEFAULT))
 			if not (c.arena in ArenaMap.IDS):
 				c.arena = ArenaMap.DEFAULT
-			c.pid = _clean_id(String(m.get("id", "")))
 			c.name = _clean_name(String(m.get("name", "")))
-			c.ranked = bool(m.get("ranked", false)) and c.size == 1 and c.team.size() == 1 and c.pid != "" and c.room == ""
-			if bool(m.get("submit", false)):
+			var submit := bool(m.get("submit", false))
+			c.ranked = bool(m.get("ranked", false)) and not submit and c.size == 1 and c.team.size() == 1 and c.room == ""
+			if (c.ranked or submit) and not _identify(c, m, submit):
+				return  # refused
+			c.ranked = c.ranked and c.pid != ""
+			if submit:
 				# Here to send a Daily score or read the board, then go.
 				c.state = State.SUBMIT
 				c.submit_ms = _clock_ms()
@@ -539,7 +550,8 @@ func _handle(c: Client, m: Dictionary) -> void:
 				_drop(c, "sent a second Daily request")
 				return
 			c.asked = true
-			c.link.send({"t": "daily_board", "date": int(m.get("date", 0)), "board": ratings.daily_board(int(m.get("date", 0)))}, true)
+			c.link.send({"t": "daily_board", "date": int(m.get("date", 0)),
+				"board": ratings.daily_board(int(m.get("date", 0)), Ratings.TOP, c.pid)}, true)
 		"in":
 			var g := c.game
 			if not _seated(c) or int(m.get("n", -1)) != g.n:
@@ -594,8 +606,9 @@ func _handle(c: Client, m: Dictionary) -> void:
 func _wait_text(c: Client, have := 1, need := 2) -> String:
 	var where := (" in room '%s'" % c.room) if c.room != "" else ""
 	if c.ranked:
-		var p := ratings.player(c.pid, c.name)
-		return "Ranked. Your rating %d (%d games). Waiting for someone near it..." % [roundi(float(p["rating"])), int(p["games"])]
+		var p := ratings.peek(c.pid)
+		return "Ranked. Your rating %d (%d games). Waiting for someone near it..." % [
+			roundi(float(p.get("rating", Ratings.START))), int(p.get("games", 0))]
 	if need <= 2:
 		return "On the server%s. Waiting for an opponent..." % where
 	var n := need / 2
@@ -711,6 +724,8 @@ func _pair_ranked(ready: Array) -> void:
 		var best_gap := INF
 		for k in range(1, pool.size()):
 			var b: Client = pool[k]
+			if not _may_rate(a, b):
+				continue
 			var waited := now - mini(a.waiting_since, b.waiting_since)
 			if not ratings.band_ok(a.pid, b.pid, waited):
 				continue
@@ -726,6 +741,47 @@ func _pair_ranked(ready: Array) -> void:
 		_found([a, best], 1, "", true)
 
 
+## Two players may meet in ranked: never the same id, and never two games behind one
+## address unless `ranked_same_ip` (in-memory test links have no address).
+func _may_rate(a: Client, b: Client) -> bool:
+	if a.pid == b.pid:
+		return false
+	return ranked_same_ip or a.address == "" or b.address == "" or _host(a.address) != _host(b.address)
+
+
+## A ranked or Daily hello: who is this? The id counts only with a secret that proves it
+## (Ratings.key_of): an id already bound to another secret is refused, and so is an id
+## that already has a live connection of the same kind (one ranked game, one Daily
+## request per player; the newer one is turned away). An id from before secrets, with
+## history in the book but no key, is bound here to the first secret that claims it.
+## No id or no secret: the player is anonymous (no ranked, no Daily board). False when refused.
+func _identify(c: Client, m: Dictionary, submit: bool) -> bool:
+	c.pid = ""
+	c.key = ""
+	var pid := _clean_id(String(m.get("id", "")))
+	var secret := String(m.get("secret", ""))
+	if pid == "" or not Netplay.valid_secret(secret):
+		return true
+	var key := Ratings.key_of(pid, secret)
+	match ratings.check_key(pid, key):
+		Ratings.Key.WRONG:
+			_refuse(c, "identity", "The server knows your player id from another copy of the game, so it can't "
+				+ "rate this one. Ask the server's owner to reset your player if you moved computers.")
+			return false
+		Ratings.Key.UNKNOWN:
+			if ratings.has_history(pid):
+				ratings.bind_key(pid, key)
+				_log("%s claimed an existing player record (first secret bound to it)" % c.label())
+	for o: Client in clients.values():
+		if o != c and o.pid == pid and (o.state == State.SUBMIT) == submit:
+			_refuse(c, "twice", ("You're already sending a Daily score from another game." if submit else
+				"You're already in ranked from another game. Close it, or wait a minute for it to time out."))
+			return false
+	c.pid = pid
+	c.key = key
+	return true
+
+
 static func _clean_id(s: String) -> String:
 	s = s.strip_edges().to_lower()
 	if s.length() < 8 or s.length() > 32:
@@ -737,8 +793,14 @@ static func _clean_id(s: String) -> String:
 
 
 static func _clean_name(s: String) -> String:
-	s = s.strip_edges().replace("\n", " ").replace("\r", " ").left(16)
-	return s if s != "" else "Player"
+	return Netplay.clean_name(s)
+
+
+## Whether a Daily date is today (the server's UTC date, or `daily_today`) or a day either side.
+func _daily_date_ok(date: int) -> bool:
+	var today := daily_today if daily_today > 0 else Daily.today()
+	var day := Ratings.date_days(date)
+	return day >= 0 and absi(day - Ratings.date_days(today)) <= 1
 
 
 ## A Daily Challenge replay: scored here on a fresh match of that day, never trusted
@@ -747,12 +809,15 @@ func _daily_submit(c: Client, m: Dictionary) -> void:
 	var date := int(m.get("date", 0))
 	var fighter := String(m.get("fighter", ""))
 	var rep_dict = m.get("replay")
-	if date < 20200101 or not (fighter in MatchFactory.FIGHTERS) or not (rep_dict is Dictionary) or c.pid == "":
+	if not (fighter in MatchFactory.FIGHTERS) or not (rep_dict is Dictionary) or c.pid == "":
 		c.link.send({"t": "reject", "why": "daily", "msg": "That score can't be taken: a bad request."}, true)
+		return
+	if not _daily_date_ok(date):
+		c.link.send({"t": "reject", "why": "daily", "msg": "That Daily is over: scores are taken on the day only."}, true)
 		return
 	# Size and shape first, before anything is converted: two inputs a row, no longer
 	# than the fight.
-	var rep := Replay.from_dict(rep_dict, Daily.FIGHT_TICKS + 60, 2)
+	var rep := Replay.from_dict(rep_dict, Daily.max_frames(), 2)
 	if rep == null:
 		c.link.send({"t": "reject", "why": "daily", "msg": "That replay isn't a Daily fight."}, true)
 		return
@@ -776,9 +841,21 @@ func _daily_step() -> void:
 	_daily_jobs.pop_front()
 	var c: Client = job["c"]
 	var date := int(job["date"])
+	if v.mismatch:
+		# Its CPU column isn't what the day's CPU does against those inputs: not the
+		# day's fight as the game plays it (another build, or made up).
+		_log("%s sent a Daily replay for %d that the day's CPU doesn't play the same (frame %d): refused"
+			% [c.label(), date, v.ticks])
+		c.link.send({"t": "reject", "why": "daily", "msg": "The server couldn't replay that fight the same way. "
+			+ "Is your game up to date?"}, true)
+		return
+	if not ratings.bind_key(c.pid, c.key):
+		c.link.send({"t": "reject", "why": "identity", "msg": "That score can't be taken for this player."}, true)
+		return
 	var rank := ratings.submit_daily(date, c.pid, c.name, v.score)
 	_log("%s sent a Daily score for %d: %d (rank %d)" % [c.label(), date, v.score, rank])
-	c.link.send({"t": "daily_ok", "date": date, "score": v.score, "rank": rank, "board": ratings.daily_board(date)}, true)
+	c.link.send({"t": "daily_ok", "date": date, "score": v.score, "rank": rank,
+		"board": ratings.daily_board(date, Ratings.TOP, c.pid)}, true)
 
 
 func _verifying(c: Client) -> bool:
@@ -1101,6 +1178,7 @@ var ratings := Ratings.new()
 
 func _init() -> void:
 	ratings.persist = false  # the dedicated server turns it on; tests keep it in memory
+	ratings.on_log = func(s: String) -> void: _log(s)
 
 
 func _save_replay(g: Game) -> String:
@@ -1149,7 +1227,8 @@ func _report(g: Game) -> void:
 	if save_replays:
 		_save_replay(g)
 	var r := g.referee
-	if g.ranked and r.winner != -2 and g.players.size() == 2 and g.players[0] != null and g.players[1] != null:
+	if g.ranked and r.winner != -2 and g.players.size() == 2 and g.players[0] != null and g.players[1] != null \
+			and _keys_bound(g):
 		# A rated result: both players hear their new rating.
 		var a: Client = g.players[0]
 		var b: Client = g.players[1]
@@ -1179,6 +1258,15 @@ func _report(g: Game) -> void:
 		if r.desync[side] >= 0 and g.players[side] != null:
 			_log("match %d: %s's game went out of sync at frame %d (a bug: their report is in their desyncs folder)"
 				% [g.label, (g.players[side] as Client).label(), r.desync[side]])
+
+
+## Both players' ids are theirs: each key is bound (on its first rated game) or matches.
+func _keys_bound(g: Game) -> bool:
+	for cl: Client in g.players:
+		if not ratings.bind_key(cl.pid, cl.key):
+			_log("match %d not rated: %s's id is bound to another secret" % [g.label, cl.label()])
+			return false
+	return true
 
 
 func _refuse(c: Client, why: String, msg: String) -> void:

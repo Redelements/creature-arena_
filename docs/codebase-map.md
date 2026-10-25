@@ -119,7 +119,7 @@ update the map in the same change.
 | ping, input delay, lag | `src/net/netplay.gd:pick_delay`, `_live_ping_step`; `src/net/lag_link.gd` | online |
 | dedicated server, matchmaking, rooms, rematch, server monitoring | `src/net/relay_server.gd`, `src/net/dedicated_server.gd`, `docs/SERVER.md` | server, server_teams, rooms |
 | server limits, hostile clients, message validation, rate limits, timeouts, packet size | `src/net/relay_server.gd` (`FIELD_TYPES`, `_seated`, `_spend`, the limits at its top), `src/net/net_link.gd:decode`, `src/net/enet_hub.gd:poll`, `src/net/referee.gd` (clock and match caps), `src/sim/replay.gd:from_dict` | server_fuzz, server |
-| ranked ratings, daily scores | `src/net/ratings.gd`, `src/net/daily_client.gd` | ranked |
+| ranked ratings, daily scores, player ids and secrets, Daily verification | `src/net/ratings.gd`, `src/net/daily_client.gd`, `src/game/daily.gd:Verify`, `src/net/relay_server.gd:_identify` | ranked, ladders, server |
 | spectators, server replays | `src/net/referee.gd`, `src/net/relay_server.gd` | spectate |
 | LAN discovery | `src/net/lan_finder.gd`, `src/net/server_beacon.gd` | server |
 | cross-platform determinism check | `src/net/sim_check.gd` (`--sim-check`) | determinism |
