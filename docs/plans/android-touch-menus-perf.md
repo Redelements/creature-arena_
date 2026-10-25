@@ -244,3 +244,18 @@ Vulkan and move render CPU off the main thread. Note: fresh-APPDATA runs print h
   pages: Challenges ran off the bottom at 1080, and most rows' facts were silently clipped.
   Still to do on the Odin: screenshots of the same pages (the safe area wasn't checked).
 - **PR 2 (`touch-controls`)**: in progress in a separate worktree.
+- **Vulkan (Mobile renderer), PC run** (RTX 4090, 4v4 CTF Rage seed 7, 144 cap, 2400 ticks):
+
+  | | render CPU avg / p99 | render GPU avg / p99.9 | frames over 16.7 ms |
+  |---|---|---|---|
+  | gl_compatibility | 0.55 / 1.73 ms | 0.47 / 19.1 ms | 8 |
+  | Mobile (Vulkan) | 0.14 / 0.39 ms | 0.12 / 0.20 ms | 4 |
+  | Mobile + `--render-thread separate` | 0.14 / 0.37 ms | 0.12 / 0.20 ms | 4 |
+
+  The look is the same: with time and weather pinned, no pixel differs by more than
+  rounding (0% over 30/765). The separate render thread runs, but logs
+  `texture_2d_update` errors with an empty image and "finalize can only be called from the
+  render thread", and `PerfLog`'s measured render times force a sync every frame, so its
+  numbers don't mean anything yet. Next: the same comparison on the Odin (Adreno 830), where
+  render cost matters far more than on a 4090. Mobile alone is the safe candidate; the
+  thread needs those errors fixed first.
