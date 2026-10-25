@@ -4,6 +4,8 @@ extends Control
 ## a fighter's idle preview with its name, title and class; a picture (the arena); and
 ## a few short lines of facts. Its height comes from what it holds, and the panel keeps
 ## the tallest card's height for every row, so nothing moves as the focus does.
+## A fact is one line: one too long for the card is drawn with narrower spaces
+## (`UiTheme.font_tight`), and tests/test_ui_fit.gd fails on one that still doesn't fit.
 
 signal changed
 
@@ -100,7 +102,16 @@ func _draw() -> void:
 			y += LINE_H
 
 
+## The font a line of `s` at design size `fs` fits `width` in: the theme's, else the
+## one with narrower spaces.
+static func fit_font(font: Font, s: String, fs: int, width: float) -> Font:
+	if font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, UiTheme.px(fs)).x > width:
+		return UiTheme.font_tight()
+	return font
+
+
 func _text(font: Font, at: Vector2, s: String, fs: int, col: Color, width: float) -> void:
 	var size_px := UiTheme.px(fs)
+	font = fit_font(font, s, fs, width)
 	draw_string_outline(font, at, s, HORIZONTAL_ALIGNMENT_LEFT, width, size_px, UiTheme.outline(size_px), Color(0, 0, 0, 0.8))
 	draw_string(font, at, s, HORIZONTAL_ALIGNMENT_LEFT, width, size_px, col)
