@@ -46,7 +46,7 @@ func _init(ids: Array, p_rules: Dictionary = {}, mutators: Dictionary = {}, seed
 	sim.freeze_all = n == 2  # three or four: a Surge winds up instead of stopping everyone
 	if not mutators.is_empty():
 		sim.apply_mutators(mutators, seed_)
-	Shrines.setup(sim, rules.get("shrines", {}))
+	Shrines.setup(sim, rules.get("shrines", {}), {}, seed_)
 	if not sim.shrines.is_empty():
 		Shrines.write_goals(sim)
 	timer = int(float(rules.get("time_seconds", 120)) * SimDefs.TICK_RATE)

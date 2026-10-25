@@ -1722,7 +1722,7 @@ func _start_team(per_side: int, rules_id := "") -> void:
 	_teams = _padded_teams(per_side)
 	_rules_id = rules_id
 	var rules := TeamSim.rules_by_id(rules_id)
-	team_battle = TeamSim.new(_teams, per_side, rules)
+	team_battle = TeamSim.new(_teams, per_side, rules, seed_base)  # (the seed: the Crater shrine's draws; a replay keeps it as mut_seed)
 	var s: Array = [Side.PLAYER]
 	for i in range(1, team_battle.slot_count()):
 		s.append(Side.CPU)
@@ -2028,13 +2028,25 @@ func _team_word(team: int) -> String:
 	return ["RED", "BLUE"][clampi(team, 0, 1)]
 
 
-## Every mode's shrine toasts: the announcement, ready, and a claim.
+## Every mode's shrine toasts: the announcement, ready, a claim, and the Crater's permanent
+## buff (who got which, or that a fighter at the cap only denied it).
 func _shrine_toast(e: Dictionary) -> void:
 	var kind := String(e.get("kind", "")).to_upper()
+	if kind == "BOOST":
+		kind = "POWER"
 	match String(e["type"]):
 		"shrine_soon": hud.show_toast("SHRINE IN %d  ·  %s" % [ceili(int(e.get("ticks", 600)) / 60.0), kind])
 		"shrine_ready": hud.show_toast("THE %s SHRINE IS READY" % kind)
-		"shrine": hud.show_toast("%s CLAIMS THE %s SHRINE" % [_team_word(int(e.get("team", 0))), kind])
+		"shrine":
+			if kind != "POWER":  # (a permanent-buff claim names the buff instead: shrine_boost)
+				hud.show_toast("%s CLAIMS THE %s SHRINE" % [_team_word(int(e.get("team", 0))), kind])
+		"shrine_boost":
+			var who := int(e.get("who", -1))
+			var name := String(sim.creatures[who].def.get("name", "?")).to_upper() if who >= 0 and who < sim.creatures.size() else "?"
+			if bool(e.get("capped", false)):
+				hud.show_toast("%s HAS %d BUFFS: SHRINE DENIED" % [name, int(e.get("count", 0))])
+			else:
+				hud.show_toast("%s  %s" % [name, String(e.get("text", ""))])
 
 
 ## Each pad's countdown: the seconds until the fighter whose pad it is comes back.
@@ -3089,7 +3101,7 @@ func _react(e: Dictionary) -> void:
 	_count_ctf(e)
 	if flow != Flow.MENU:
 		stats.note(e)
-		if String(e["type"]) in ["shrine_soon", "shrine_ready", "shrine"]:
+		if String(e["type"]) in ["shrine_soon", "shrine_ready", "shrine", "shrine_boost"]:
 			_shrine_toast(e)
 	fx.spawn(e)
 	audio.on_event(e)

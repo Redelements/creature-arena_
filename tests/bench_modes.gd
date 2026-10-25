@@ -2,7 +2,8 @@ extends SceneTree
 ## Mode pacing, the same yardstick for every mode: seeded Rage CPU matches of each mode,
 ## and per mode how long a match runs, how much of it nobody lands a hit (stalemates),
 ## how many separate fights break out a minute, how often the side behind at half time
-## comes back to win, and the shrines claimed (and how often the claiming side won).
+## comes back to win, captures (CTF), the shrines claimed (and how often the claiming side
+## won), and with the Crater's permanent shrine buffs how often the side with more won.
 ## Definitions in docs/plans/mode-metrics.md.
 ##   godot --headless --path . --script res://tests/bench_modes.gd -- [--seeds=6] [--seed0=0] [--level=3]
 ##     [--modes=team2,team3,tdm2,tdm3,crater2,sinkhole2,brawl3,brawl4,caravan3,ctf3]
@@ -59,8 +60,8 @@ func _init() -> void:
 			rows = true
 	print("Mode bench: %d seeds a mode, CPU level %s, shrines %s %s" % [seeds, CpuController.LEVELS[level]["name"], shrines,
 		_shrine_set if not _shrine_set.is_empty() else ""])
-	print("| Mode | Matches | Length (s) | Stalemate | Fights/min | KOs/match | Leader at half | Comebacks | Shrine claims/match | Claimer won |")
-	print("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+	print("| Mode | Matches | Length (s) | Stalemate | Fights/min | KOs/match | Captures/match | Leader at half | Comebacks | Shrine claims/match | Claimer won | More buffs won |")
+	print("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
 	for m in modes:
 		if MODES.has(m):
 			_bench(String(m), seeds, level, shrines, rows)
@@ -83,7 +84,7 @@ func _bench(id: String, seeds: int, level: int, shrines: String, rows: bool) -> 
 	var cfg: Array = MODES[id]
 	var rules := _rules(cfg, shrines)
 	var tot := {"len": 0.0, "fight": 0, "quiet": 0, "fights": 0, "kos": 0, "led": 0, "back": 0, "claims": 0,
-		"claims_won": 0, "claims_decided": 0}
+		"claims_won": 0, "claims_decided": 0, "caps": 0, "buff_led": 0, "buff_won": 0}
 	for s in range(_seed0, _seed0 + seeds):
 		var r := _match(cfg, s, level, rules)
 		for k in tot:
@@ -93,11 +94,12 @@ func _bench(id: String, seeds: int, level: int, shrines: String, rows: bool) -> 
 				id, s, r["len"], r["winner"], 100.0 * r["quiet"] / maxf(1.0, r["fight"]), r["fights"], r["kos"],
 				str(r["leader"]), r["claims"]])
 	var mins := float(tot["fight"]) / 3600.0
-	print("| %s | %d | %.0f | %.0f%% | %.2f | %.1f | %d | %s | %.1f | %s |" % [cfg[3], seeds, tot["len"] / seeds,
+	print("| %s | %d | %.0f | %.0f%% | %.2f | %.1f | %.1f | %d | %s | %.1f | %s | %s |" % [cfg[3], seeds, tot["len"] / seeds,
 		100.0 * tot["quiet"] / maxf(1.0, tot["fight"]), tot["fights"] / maxf(0.01, mins), float(tot["kos"]) / seeds,
-		tot["led"], ("%d of %d" % [tot["back"], tot["led"]]) if tot["led"] > 0 else "n/a",
+		float(tot["caps"]) / seeds, tot["led"], ("%d of %d" % [tot["back"], tot["led"]]) if tot["led"] > 0 else "n/a",
 		float(tot["claims"]) / seeds,
-		("%.0f%%" % (100.0 * tot["claims_won"] / tot["claims_decided"])) if tot["claims_decided"] > 0 else "n/a"])
+		("%.0f%%" % (100.0 * tot["claims_won"] / tot["claims_decided"])) if tot["claims_decided"] > 0 else "n/a",
+		("%d of %d" % [tot["buff_won"], tot["buff_led"]]) if tot["buff_led"] > 0 else "n/a"])
 
 
 func _match(cfg: Array, s: int, level: int, rules: Dictionary) -> Dictionary:
@@ -129,6 +131,8 @@ func _match(cfg: Array, s: int, level: int, rules: Dictionary) -> Dictionary:
 	was_down.fill(false)
 	var samples: Array = []
 	var claims: Array = []  # the team of each claim
+	var caps := 0
+	var buffs := {}  # team -> permanent shrine buffs taken
 	for t in limit:
 		var ins := PackedInt32Array()
 		for i in game.slot_count():
@@ -145,6 +149,11 @@ func _match(cfg: Array, s: int, level: int, rules: Dictionary) -> Dictionary:
 					last_hit = fight
 				"shrine":
 					claims.append(int(e.get("team", -1)))
+				"capture":
+					caps += 1
+				"shrine_boost":
+					if String(e.get("boost", "")) != "":
+						buffs[int(e["team"])] = int(buffs.get(int(e["team"]), 0)) + 1
 		for c in sim.creatures:  # a knockout: going down (the deciding one ends the match before its "ko" event)
 			var down := c.state == CreatureSim.State.KO or c.hp <= 0.0
 			if down and not bool(was_down[c.id]):
@@ -161,6 +170,20 @@ func _match(cfg: Array, s: int, level: int, rules: Dictionary) -> Dictionary:
 	var leader := -1
 	if not samples.is_empty():
 		leader = _leader(samples[mini(samples.size() - 1, samples.size() / 2)])
+	var buff_led := 0
+	var buff_won := 0
+	if winner >= 0 and not buffs.is_empty():
+		var most := -1
+		var top := 0
+		for team in buffs:
+			if int(buffs[team]) > top:
+				top = int(buffs[team])
+				most = int(team)
+			elif int(buffs[team]) == top:
+				most = -1
+		if most >= 0:
+			buff_led = 1
+			buff_won = 1 if most == winner else 0
 	var won := 0
 	for c in claims:
 		if int(c) == winner:
@@ -168,7 +191,7 @@ func _match(cfg: Array, s: int, level: int, rules: Dictionary) -> Dictionary:
 	return {"len": float(sim.tick) / 60.0, "fight": fight, "quiet": quiet, "fights": fights, "kos": kos,
 		"led": 1 if leader >= 0 and winner >= 0 else 0, "back": 1 if leader >= 0 and winner >= 0 and winner != leader else 0,
 		"claims": claims.size(), "claims_won": won if winner >= 0 else 0, "claims_decided": claims.size() if winner >= 0 else 0,
-		"winner": winner, "leader": leader}
+		"winner": winner, "leader": leader, "caps": caps, "buff_led": buff_led, "buff_won": buff_won}
 
 
 ## Each side's standing (higher is ahead): the mode's score where it keeps one, else the

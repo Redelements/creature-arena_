@@ -212,7 +212,7 @@ static func load_rules(path := RULES_PATH) -> Dictionary:
 
 ## `team_ids` is [[left ids], [right ids]]. `per_side` creatures fight on each side (1 to
 ## the rules' "max_size", 3 by default; 0: as many as the shorter list), the first ones of each list.
-func _init(team_ids: Array, per_side := 0, p_rules: Dictionary = {}) -> void:
+func _init(team_ids: Array, per_side := 0, p_rules: Dictionary = {}, seed_ := 0) -> void:
 	rules = p_rules if not p_rules.is_empty() else load_rules()
 	sim = MatchSim.new()
 	sim.set_arena(String(rules.get("arena", MatchFactory.arena)))
@@ -242,14 +242,24 @@ func _init(team_ids: Array, per_side := 0, p_rules: Dictionary = {}) -> void:
 	if caravan:
 		_load_track()
 		_cv_start_round(0)
-	Shrines.setup(sim, rules.get("shrines", {}), rules.get("class_perks", {}))
+	Shrines.setup(sim, rules.get("shrines", {}), rules.get("class_perks", {}), seed_)
 	ctf = bool(rules.get("ctf", false))
 	if ctf:
 		for side in 2:
 			flag_pos[side] = base_of(side)
 		_ctf_goals()
 	elif not sim.shrines.is_empty():
-		Shrines.write_goals(sim)
+		Shrines.write_goals(sim, _shrine_allow())
+
+
+## Which sides' CPUs may send someone to a shrine now. The Crater (unless the shrine rules'
+## `cpu_gate` is false): a side ahead on zone time, or one whose zone the other side holds
+## alone (the rest hold the zone). Others: all.
+func _shrine_allow() -> Array:
+	if not crater or not bool(sim.shrine_rules.get("cpu_gate", true)):
+		return []
+	var holder := zone_holder()
+	return [int(score[0]) > int(score[1]) or holder == 1, int(score[1]) > int(score[0]) or holder == 0]
 
 
 ## Team Deathmatch: where slot k of a side respawns, on its pad against its own side wall
@@ -363,7 +373,7 @@ func step(inputs: PackedInt32Array) -> void:
 			return
 	elif not sim.shrines.is_empty() and sim.ko_freeze == 0:
 		Shrines.step(sim)
-		Shrines.write_goals(sim)
+		Shrines.write_goals(sim, _shrine_allow())
 	if deathmatch:
 		_deathmatch_step()
 		return
@@ -436,6 +446,7 @@ func _place_zone(moved: bool) -> void:
 	sim.zone_r = float(rules.get("zone_radius", 40))
 	sim.zone_pos = Vector2(fr.position.x + fr.size.x * float(p[0]), fr.position.y + fr.size.y * float(p[1]))
 	sim.terrain.crack_circle(sim.zone_pos, sim.zone_r + 6.0)
+	Shrines.follow_zone(sim)  # a shrine that stands opposite the zone moves with it
 	if moved:
 		sim.emit_event("zone_move", sim.zone_pos, sim.zone_r)
 
@@ -581,7 +592,10 @@ func _respawn(slot: int) -> void:
 	var at := sim.terrain.nearest_solid(pad_point(c.team, k))
 	var fresh := CreatureSim.new(c.id, c.def, at, c.is_dummy)
 	var energy := c.energy
+	var kept := c.boosts()  # the Crater shrine's permanent buffs last the match
 	c.load_state(fresh.save_state())
+	c.set_boosts(kept)
+	c.hp = c.max_hp
 	c.energy = energy
 	c.facing = Vector2.RIGHT if c.team == 0 else Vector2.LEFT
 	var protect := int(float(rules.get("spawn_protect_seconds", 2)) * SimDefs.TICK_RATE)

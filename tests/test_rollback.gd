@@ -33,13 +33,13 @@ func test_every_creature_variable_is_saved_or_static() -> void:
 		if not (int(prop["usage"]) & PROPERTY_USAGE_SCRIPT_VARIABLE):
 			continue
 		var n := String(prop["name"])
-		assert_true(n in CreatureSim.STATE_FIELDS or n in CreatureSim.STATIC_FIELDS,
+		assert_true(n in CreatureSim.STATE_FIELDS or n in CreatureSim.STATIC_FIELDS or n in CreatureSim.BOOST_FIELDS,
 			"CreatureSim.%s must be listed in STATE_FIELDS (or STATIC_FIELDS) for rollback" % n)
 
 
 func test_every_match_variable_is_saved_or_static() -> void:
 	var saved := ["tick", "hitstop", "ko_freeze", "slowmo", "terrain", "creatures", "projectiles", "zones", "sink_ring", "sink_safe",
-		"zone_pos", "zone_r", "goals", "training_flags", "storms", "bridges", "hazards", "hazard_pickups", "shrines"]
+		"zone_pos", "zone_r", "goals", "training_flags", "storms", "bridges", "hazards", "hazard_pickups", "shrines", "shrine_rng"]
 	var static_or_scratch := ["ko_freeze_ticks", "ko_slowmo_ticks", "events", "arena_id", "arena", "fall_ko", "freeze_all", "mutators",
 		"training", "bridge_rects", "hazard_defs", "shrine_spots", "shrine_rules"]  # the map, the mode, the hazards and the shrines are fixed for the match
 	for prop in MatchSim.new().get_property_list():

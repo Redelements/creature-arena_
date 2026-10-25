@@ -3348,7 +3348,10 @@ var flags: Array = []
 ## (seconds until ready, 0: ready), "charge" (0..1 through the last seconds before it's
 ## ready, 0 otherwise)}.
 var shrines: Array = []
-const SHRINE_COLORS := {"haste": Color("6fe0ff"), "might": Color("ff9a3c")}
+const SHRINE_COLORS := {"haste": Color("6fe0ff"), "might": Color("ff9a3c"), "boost": Color("ffd84a")}
+## The Crater shrine's permanent buffs, one pip each under a fighter's health bar.
+const BOOST_COLORS := {"damage": Color("ff7a4a"), "speed": Color("6fe0ff"), "hp": Color("7ae07a"),
+	"regen": Color("ffd84a")}
 
 
 func _draw_pads(ci: CanvasItem) -> void:
@@ -3491,9 +3494,12 @@ func _draw_shrine(ci: CanvasItem, s: Dictionary) -> void:
 	var glow := 0.5 + 0.5 * sin(float(_tick) * 0.12)
 	ci.draw_circle(at, r, Color(col, 0.08 + 0.06 * glow))
 	ci.draw_arc(at, r, 0.0, TAU, 48, Color(col, 0.7 + 0.3 * glow), 1.5)
-	# The sign: haste is a double chevron, might a fist-like block.
+	# The sign: haste is a double chevron, might a fist-like block, a permanent buff a plus.
 	var sc := Color(col.lightened(0.3), 0.85)
-	if kind == "haste":
+	if kind == "boost":
+		ci.draw_rect(Rect2(at + Vector2(-1, -5), Vector2(3, 11)), sc)
+		ci.draw_rect(Rect2(at + Vector2(-5, -1), Vector2(11, 3)), sc)
+	elif kind == "haste":
 		for dx in [-3.0, 2.0]:
 			ci.draw_polyline(PackedVector2Array([at + Vector2(dx - 2, -4), at + Vector2(dx + 2, 0), at + Vector2(dx - 2, 4)]), sc, 1.5)
 	else:
@@ -3555,12 +3561,25 @@ func _draw_side_marks(ci: CanvasItem) -> void:
 		var col: Color = REL_COLORS.get(rel, mk["color"])
 		var at := (c.pos + Vector2(0, -_top(c) - 8.0 - c.air_height() - CreatureView.view_lift(c))).round()
 		_draw_plate(ci, c, at, col, alpha)
+		if not c.boost_ids.is_empty():
+			_draw_boost_pips(ci, c, at, alpha)
 		var label := String(mk.get("label", ""))
 		if label != "":
 			var lc := Color(col, alpha)
 			ci.draw_string_outline(_font, at + Vector2(-20, -3), label, HORIZONTAL_ALIGNMENT_CENTER, 41, UiTheme.px(6), 1,
 				Color(C_OUTLINE, alpha))
 			ci.draw_string(_font, at + Vector2(-20, -3), label, HORIZONTAL_ALIGNMENT_CENTER, 41, UiTheme.px(6), lc)
+
+
+## The Crater shrine's permanent buffs: a pip each, in the buff's colour, under the bar.
+func _draw_boost_pips(ci: CanvasItem, c: CreatureSim, at: Vector2, alpha: float) -> void:
+	var n := c.boost_ids.size()
+	var x0 := at.x - float(n) * 3.0 + 1.0
+	var y := at.y + float(PLATE_H) + 4.0
+	for k in n:
+		var pc: Color = BOOST_COLORS.get(String(c.boost_ids[k]), Color.WHITE)
+		ci.draw_rect(Rect2(Vector2(x0 + 6.0 * k - 1.0, y - 1.0), Vector2(6, 6)), Color(C_OUTLINE, 0.9 * alpha))
+		ci.draw_rect(Rect2(Vector2(x0 + 6.0 * k, y), Vector2(4, 4)), Color(pc, alpha))
 
 
 ## The bar itself, centred on `at` (its top edge).
