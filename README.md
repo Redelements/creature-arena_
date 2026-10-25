@@ -193,8 +193,7 @@ meant to be played), checked by `tests/test_balance.gd`:
 | --- | --- |
 | Digby vs Chef Cerebro | about even since the Oct 2026 kit pass (was 70–75% Digby); the next pass favours the assassin again |
 | Sneaky Pete vs Chef Cerebro | about 25% Pete |
-| Chef Cerebro vs Cairn, Hissy Fitz, Culvert | 75–100% Cerebro |
-| Chef Cerebro vs Craglash | about even since the Oct 2026 kit pass (a 12-frame Rake, Mountain Maw every 3.3 s) |
+| Chef Cerebro vs Cairn | Cerebro favoured; Hissy Fitz, Culvert and Craglash beat him since the Oct 25 2026 nerf (the Mallet Toss no longer staggers) |
 | Cairn or Hissy Fitz vs an assassin | 60–100% the fighter |
 | Craglash vs Culvert (tanks) | about 10% Craglash (his pits; 30–45% before Craglash's balance pass) |
 | Digby vs Sneaky Pete (assassins) | about 90% Digby (not pinned) |
@@ -307,8 +306,9 @@ Every fighter has five attack types, ranked: **Light (1) → Heavy (2) → Skill
 Lights chain into the next light in their string. **Only the last hit of a light string
 staggers** (the third; Cairn's Hook, the fourth): the hits before it only deal damage, with no
 hitstun, no push and no combo started, so the other fighter can answer between them.
-Craglash is the exception: every hit of his slower string staggers. A jab still interrupts a
-big move's windup, and still catches an invisible Pete; thrown knife flicks do neither.
+Craglash is the exception: every hit of his slower string staggers. Chef Cerebro's thrown
+string is the other: none of it staggers, the Mallet Toss included. A jab still interrupts a
+big move's windup, and still catches an invisible Pete; Cerebro's thrown knives and mallet do neither.
 **Fights happen at arm's length, not on top of each other:** lights reach about 16 px
 past the two bodies, and a light's forward step stops once the foe is at the strike's
 sweet spot (it still steps in after a foe that the last hit pushed back), so a string
@@ -621,20 +621,20 @@ His roll covers twice the ground of anyone else's in the same 20 frames.
 
 ### Craglash — the mountain that woke up angry
 
-A crowd-control tank (175 HP, heavy, hard to push). His slow, heavy swings don't win
+A crowd-control tank (150 HP, heavy, hard to push). His slow, heavy swings don't win
 races, so he controls where the fight happens instead: he hooks the backline in from
 across the floor, stuns, launches, and with a full meter drags everyone near him into a
 three-second lockdown while his team does the damage.
 
 | Button | Move | What it does |
 | --- | --- | --- |
-| Light | Rake, Backhand, Headbutt | Two claw swipes, then the neck snaps the head forward. **Slow and heavy**: about half the speed of anyone else's string (13, 16 and 23 frames to hit, against 4–5 for most fighters) but they hit harder, and **every hit staggers** (the only string that does) for long enough that the string is still a true combo |
+| Light | Rake | One slow, heavy claw swipe (13 frames to hit, against 4–5 for most fighters) that **staggers**. **No string**: mashing light gets one Rake every **2 s** (a cooldown from when it starts). It still cancels into Rockslide Stomp or Landslide Charge |
 | Heavy | Rockslide Stomp | Slams the ground and knocks up everyone close, all around him (16 frames to land out of a combo, a slow recovery). **Armored** once its windup is over: a jab only chips it (thrown raw, its tell can still be jabbed; out of Bedrock it comes out armored) |
 | Skill 1 | Landslide Charge | A slow, heavy shoulder charge about 65 px forward that **stuns** whoever it hits for a quarter second (crumple), long enough to follow up. A gold windup tell |
 | Skill 2 | Mountain Maw | The hook, back every 3.3 s. His head shoots out on its stone neck, **far** (about 160 px), and **can't be blocked**: it has to be dodged. It bites the first foe it reaches and **hauls them back** to his feet, **crumpled**, so a Rake (or a teammate) follows. A red tell and a dotted lane show it coming |
 | Surge | Bedrock | Roots in place for 3 s: hits only chip him (75% less damage) and nothing moves him. Every foe within 200 px is **taunted** for 3 s: they walk at 60% speed, their attacks swing at him, and they're **dragged in** toward him, hard. Any attack button answers out of it after 18 frames, so the Stomp meets them as they arrive. Loses to grabs. A tank's meter fills from the hits he takes, so soaking damage is what earns it |
 | Passive | Stoneskin | A 30-point stone shield that soaks damage first; it grows back only after **7 s out of combat**: no damage taken and none dealt (his hits and chip count too), so it doesn't refresh mid-brawl. Shown as a pale rim on him and as pale stone on the end of his health bar ("STONESKIN") |
-| Dodge | Landslide Ram | His roll is a shoulder charge: **twice as far** as anyone's (about 90 px) and it costs 60% of his stamina, like any dodge. The first foe it reaches is **hit** (4 damage, a short stun that a Rake links after, and it counts in the combo) and the dash stops there. Running into the wall stops it too and cracks the floor. Still invincible in the middle, like any roll |
+| Dodge | Landslide Ram | His roll is a shoulder charge about as far as anyone's roll (about 45 px), and it costs **70%** of his stamina (most dodges cost 60%). He also gets his stamina back slower than most (0.35 a tick). The first foe it reaches is **hit** (4 damage, a short stun that a Rake links after, and it counts in the combo) and the dash stops there. Running into the wall stops it too and cracks the floor. Still invincible in the middle, like any roll |
 
 ### Barkley — the tree that got up and left
 
@@ -685,7 +685,7 @@ range; up close he softens them up or flips them away. Voice line: "CHOP CHOP!"
 
 | Button | Move | What it does |
 | --- | --- | --- |
-| Light | Knife Flick, Backhand Flick, Mallet Toss | Two small knives and then the meat mallet, all **thrown** about 115 px, and he **keeps gliding** while he throws them (at 60% speed, any direction). On the Twin-stick layout the right stick throws them on its own. The knives only chip: they **don't stagger**. The Mallet Toss at the end of the string is the hit that staggers, so Flick, Flick, Mallet → Cleaver Toss → Knife Flurry works from across the floor (within the Cleaver's 120 px) |
+| Light | Knife Flick, Backhand Flick, Mallet Toss | Two small knives and then the meat mallet, all **thrown** about 115 px, and he **keeps gliding** while he throws them (at 70% speed, any direction). On the Twin-stick layout the right stick throws them on its own. **None of them stagger**, the Mallet Toss included: they only chip, so the string is pressure and poke, and what follows it can be blocked or dodged |
 | Heavy | Tenderize | Pounds the floor with the mallet: hits everyone close, all around him, pops them up and **tenderizes** them (they take 20% more damage for 4 s; a pink arrow shows it). Hold to charge (bigger and harder) |
 | Skill 1 | Cleaver Toss | Flings the big knife in a straight line, about 120 px; it hits the **first** foe in its path. Keeps a juggle going |
 | Skill 2 | Flip Out | Scoops a close foe with the spatula and **flips them over his head**, to land behind him; he turns to follow. A grab: it beats guard (red tell) |
@@ -820,18 +820,18 @@ storm.
 | Culvert | Jab, Jab → Gulp | 15 |
 | Culvert | Jab, Jab, Hook → Slam → Runoff (held) | 41 |
 | Culvert | Jab, Jab, Hook → Slam → Runoff (held) → Storm Drain | 74 |
-| Craglash | Rake, Backhand, Headbutt → Landslide Charge | 31.2 |
-| Craglash | Rake, Backhand, Headbutt → Rockslide Stomp → Landslide Charge | 45 |
-| Craglash | Mountain Maw (hook) → Rake, Backhand, Headbutt → Rockslide Stomp → Landslide Charge | 56 |
+| Craglash | Rake → Landslide Charge | 15.2 |
+| Craglash | Rake → Rockslide Stomp → Landslide Charge | 29.1 |
+| Craglash | Mountain Maw (hook) → Rake → Rockslide Stomp → Landslide Charge | 37.6 |
 | Barkley | Twig, Bough, Log Drop → Timber Twister → Branch Grab | 43.2 |
 | Barkley | Twig, Bough, Log Drop → Timber Twister → Pinecone Bomb | 45.8 |
 | Barkley | Twig, Bough, Log Drop → Timber Twister → Branch Grab → Root Eruption | 88.2 |
 | Gillbert | Snout Jab, Tail Whip, Rod Flail → Flop Dash | 24.2 |
 | Gillbert | Snout Jab, Tail Whip, Rod Flail → Splash Zone → Flop Dash | 32.3 |
 | Gillbert | Snout Jab, Tail Whip, Rod Flail → Splash Zone → Flop Dash → The One That Got Away | 65.3 |
-| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Cleaver Toss | 20.2 |
-| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Tenderize → Cleaver Toss (tenderized: +20%) | 31.5 |
-| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Flip Out → Knife Flurry | 54.2 |
+| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Cleaver Toss | 19.0 (not a combo since Oct 25 2026: a foe can block or dodge the follow-up) |
+| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Tenderize → Cleaver Toss (tenderized: +20%) | 29.0 (not a combo) |
+| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Flip Out → Knife Flurry | 49.1 (not a combo) |
 | Hissy Fitz | Snake Jab, Snake Jab, Hair Lash → Coil Uppercut → Venom Spit (then 12 poison) | 27.1 |
 | Hissy Fitz | Snake Jab, Snake Jab, Hair Lash → Coil Uppercut → Venom Spit → Petrify Punch, then shatter the statue | 54.1 + |
 | Digby | Claw Swipe, Claw Swipe, Pickaxe Swing → Headlamp Flash | 22.3 |

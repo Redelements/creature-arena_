@@ -175,12 +175,13 @@ func test_skills_have_cooldowns() -> void:
 
 
 func test_breakaway_escapes_a_combo() -> void:
-	var sim := _duel("craglash", "cairn")  # his lights stagger on every hit
+	var sim := _duel("craglash", "cairn")  # every hit of his staggers
 	var d := sim.creatures[1]
 	d.energy = 60.0
 	var press := true
-	for i in 120:  # mash lights until the third hit lands
-		run(sim, L if press else 0, 1)
+	for i in 160:  # Rake > Rockslide Stomp > Landslide Charge, mashed, until the third hit lands
+		var bit: int = [L, H, S1][mini(d.combo_hits, 2)]
+		run(sim, bit if press else 0, 1)
 		press = not press
 		if d.combo_hits >= 3:
 			break
@@ -307,7 +308,8 @@ func test_launch_ends_in_knockdown() -> void:
 
 func test_only_the_last_hit_of_each_light_string_staggers() -> void:
 	# Every fighter's light string: the hits before the last only deal damage; the last
-	# staggers. Craglash is the exception: every hit of his slower string staggers.
+	# staggers. Craglash is the exception: one Rake on a cooldown, no string (Oct 25 2026), and it staggers.
+	# Chef Cerebro is the other: none of his thrown string staggers, the Mallet Toss included (Oct 25 2026).
 	for id in MatchFactory.FIGHTERS:
 		var moves: Dictionary = MatchFactory.load_def(id)["moves"]
 		var chain: Array = []
@@ -315,12 +317,18 @@ func test_only_the_last_hit_of_each_light_string_staggers() -> void:
 		while mv != "" and moves.has(mv):
 			chain.append(mv)
 			mv = String(moves[mv].get("next", ""))
+		if id == "craglash":
+			assert_eq(chain.size(), 1, "Craglash has a single light:")
+			assert_false(bool(moves["light_1"].get("no_flinch", false)), "Craglash's Rake staggers")
+			continue
 		assert_gt(float(chain.size()), 1.0, id + " has a light string")
 		for k in chain.size():
 			var nf := bool(moves[chain[k]].get("no_flinch", false))
 			var last := k == chain.size() - 1
 			if id == "craglash":
 				assert_false(nf, "Craglash's %s staggers" % chain[k])
+			elif id == "cerebro":
+				assert_true(nf, "Chef Cerebro's %s only deals damage" % chain[k])
 			elif last:
 				assert_false(nf, "%s's last light (%s) staggers" % [id, chain[k]])
 			else:

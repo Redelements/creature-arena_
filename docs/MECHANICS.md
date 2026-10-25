@@ -116,7 +116,7 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `reel`, `reel_speed` | px, px/tick | seg | Attacker hauled to `reel` px short of the target at `reel_speed` (default 5); at most 60 ticks; ends the move on arrival | gillbert skill_2 |
 | `skip_struck` | bool | seg | This segment passes over a foe an earlier segment of the same attack already hit (a wide finisher that would shatter the statue its first hit made); ms:`_resolve_hits`, cs:`struck_before` | hissy surge |
 | `cone` | dot threshold | move | Only foes with `facing·dir >= cone` (melee only) | culvert skill_2, sno heavy |
-| `no_flinch` | bool | move | Damage only: no stun state, no knockback; resets the combo on a free target. A melee one still interrupts a windup (hitstun) and reveals stealth; a ranged one (projectile or lob) does neither | every fighter's lights except the last of the string (Craglash's slower string staggers on every hit); cerebro's thrown flicks |
+| `no_flinch` | bool | move | Damage only: no stun state, no knockback; resets the combo on a free target. A melee one still interrupts a windup (hitstun) and reveals stealth; a ranged one (projectile or lob) does neither | every fighter's lights except the last of the string (Craglash's slower string staggers on every hit); cerebro's whole thrown string (the Mallet Toss too, since Oct 25 2026) |
 | `stack_bonus` | hp per stack | move | Adds `stack × bonus`, consumes stacks | cairn |
 | `armor` | `{from, to, reduction=0.6, release_from}` | move | See "Combo and cancel rules" | barkley heavy (Timber Twister, 0–22), craglash heavy, surge |
 | `taunt` | `{radius, ticks, pull=TAUNT_PULL}` | move | Fires at `armor.from` (only on armored moves); `pull` is the drag in px/tick | craglash surge |
