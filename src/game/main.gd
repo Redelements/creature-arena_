@@ -1340,6 +1340,8 @@ static func mode_index(label: String) -> int:
 func _start_match(m: int, keep_teams := false) -> void:
 	_close_ui()
 	_over_by = ""
+	_ko_by_hazard = ""
+	_hazard_hit_now.clear()
 	_arcade_cleared = false
 	if not (keep_teams and m == mode):
 		_training_fighter = ""  # a swapped fighter lasts until you leave training
@@ -1703,6 +1705,7 @@ func _brawl_flow() -> void:
 				var w := brawl.winner
 				if w < 0:
 					hud.banner = "DRAW"
+					hud.banner_sub = _draw_reason()
 				else:
 					hud.banner = "%s WINS!" % String(sim.creatures[w].def["name"]).to_upper()
 					hud.banner_sub = ("%s   ·   %s" % [_side_name(w), _over_reason()]) if sides[w] in LOCAL_SIDES 						else _over_reason()
@@ -1985,7 +1988,7 @@ func _team_flow() -> void:
 					hud.banner = "YOUR TEAM WINS!" if sim.creatures[me].team == w else "YOUR TEAM LOSES"
 				else:
 					hud.banner = "%s TEAM WINS!" % ("RED" if w == 0 else "BLUE")
-				hud.banner_sub = _over_reason()
+				hud.banner_sub = _draw_reason() if w < 0 else _over_reason()
 
 
 ## An arena hazard is coming (a mutator's, Hazards): the wave's banner names the edge it
@@ -2188,12 +2191,16 @@ func _duel_flow() -> void:
 					hud.banner = "YOU WIN!" if duel.winner == online.local_side else "YOU LOSE"
 				else:
 					hud.banner = "%s WINS!" % _side_name(duel.winner)
-				hud.banner_sub = _over_reason()
+				hud.banner_sub = _draw_reason() if duel.winner < 0 else _over_reason()
 
 
 ## How the last fight ended (the sim's `by`: ko, time, score, hold, capture, caravan),
 ## as the line under the winner on the final banner.
 var _over_by := ""
+## What knocked out the last fighter to go down: "" (a fighter's hit, a fall) or an arena
+## hazard's shape ("meteors", "wave"), so a draw can say so (`_draw_reason`).
+var _ko_by_hazard := ""
+var _hazard_hit_now := {}  ## who an arena hazard last struck (slot -> [tick, its shape])
 ## The Arcade run just ended in a clear (the match-over menu offers a new run, not a retry).
 var _arcade_cleared := false
 
@@ -2222,6 +2229,26 @@ func _over_reason() -> String:
 		"caravan":
 			return scores
 	return ""
+
+
+## Why a match ended with nobody winning, for the line under "DRAW" (a draw must always
+## say why): level at time (on health, or on the mode's score), or everyone down at once,
+## which an arena hazard can do (the last ones caught by one meteor: `_ko_by_hazard`).
+func _draw_reason() -> String:
+	match _over_by:
+		"ko":
+			if _ko_by_hazard == "meteors":
+				return "Double K.O.  -  a meteor took the last ones down"
+			if _ko_by_hazard == "wave":
+				return "Double K.O.  -  the wave took the last ones down"
+			return "Double K.O.  -  nobody left standing"
+		"time":
+			var r := _over_reason()
+			if r == "" or r.ends_with("more health left"):
+				return "Time: level on health"
+			return r.replace("Time: ", "Time, level: ")
+	var other := _over_reason()
+	return other if other != "" else "Nobody won"
 
 
 func _side_name(i: int) -> String:
@@ -2274,6 +2301,7 @@ func _end_showcase() -> void:
 
 func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	_join_cpus()  # the CPUs may still be reading the old match
+	_hazard_hit_now.clear()  # (event ticks start again with a new sim)
 	sim = s
 	hud.banner_hidden = false
 	if not _menu_bg and round_num <= 1:
@@ -2958,6 +2986,8 @@ func _react(e: Dictionary) -> void:
 			crowd.cheer(0.7)
 		"hazard_warn":
 			_hazard_warn(e)
+		"hazard_hit":
+			_hazard_hit_now[int(e.get("who", -1))] = [int(e.get("tick", 0)), String(e.get("shape", ""))]
 		"hazard_strike":
 			if String(e.get("shape", "")) == "wave":
 				shake = maxf(shake, 4.0)
@@ -3019,6 +3049,8 @@ func _react(e: Dictionary) -> void:
 			fx.clear()
 			_ko_cam_t = -1
 		"ko":
+			var hz: Array = _hazard_hit_now.get(int(e.get("who", -1)), [])
+			_ko_by_hazard = String(hz[1]) if not hz.is_empty() and int(hz[0]) == int(e.get("tick", -1)) else ""
 			shake = maxf(shake, 5.0)
 			crowd.cheer(1.0)
 			_flash(Color.WHITE, 0.6)

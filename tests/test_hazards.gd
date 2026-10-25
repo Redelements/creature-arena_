@@ -380,3 +380,68 @@ func test_cpu_gets_behind_rubble_when_a_wave_comes() -> void:
 		ev.append_array(sim.events)
 	assert_true(_of(ev, "hazard_shelter").any(func(e): return int(e["who"]) == 0), "it sheltered")
 	assert_near(c.hp, hp, 0.001, "and took nothing:")
+
+
+
+func test_one_meteor_can_end_a_brawl_in_a_draw() -> void:
+	var b := BrawlSim.new(["cairn", "culvert"], {}, METEORS, 3)
+	var st := _state(b.sim, "meteors")
+	st["next"] = 1 << 30
+	b.phase = BrawlSim.Phase.FIGHT
+	var mid := (b.sim.creatures[0].pos + b.sim.creatures[1].pos) * 0.5
+	for c in b.sim.creatures:
+		c.hp = 1.0
+		c.pos = mid + (c.pos - mid).normalized() * 6.0
+	st["meteors"] = [{"pos": mid, "land": b.sim.tick + 1, "warn": 70, "radius": 34.0, "big": true, "core": false}]
+	b.step(PackedInt32Array([0, 0]))
+	var ev: Array = b.sim.events.duplicate()
+	assert_eq(b.phase, BrawlSim.Phase.OVER, "both down at once ends it:")
+	assert_eq(b.winner, -1, "a draw:")
+	var over := _of(ev, "duel_over")
+	assert_eq(over.size(), 1, "the match says it's over:")
+	assert_eq(String(over[0]["by"]), "ko", "by knockout:")
+
+
+## Every draw says why, a hazard's double knockout included (test_journey's Chaos Cup
+## once drew at time with nothing under "DRAW").
+func test_a_draw_always_says_why() -> void:
+	var cfg := "user://test_hazards.cfg"
+	if FileAccess.file_exists(cfg):
+		DirAccess.remove_absolute(cfg)
+	var g: Node = load("res://scenes/main.tscn").instantiate()
+	g.settings_path = cfg
+	(Engine.get_main_loop() as SceneTree).root.add_child(g)
+	g._cpu_vs_cpu = true
+	g._forced_mutators = METEORS.duplicate(true)
+	g._forced_names = ["Meteor shower"]
+	g._skip_select = true  # straight in with the default teams, as --mode does
+	g._start_match(g.mode_index("Chaos Cup"))
+	for i in 600:
+		g._physics_process(1.0 / 60.0)
+		if g.brawl != null and g.brawl.phase == BrawlSim.Phase.FIGHT:
+			break
+	assert_true(g.brawl != null and g.brawl.phase == BrawlSim.Phase.FIGHT, "the cup is on")
+	var sim: MatchSim = g.sim
+	var st := _state(sim, "meteors")
+	st["next"] = 1 << 30
+	var ms: Array = []
+	for c in sim.creatures:
+		c.hp = 1.0
+		c.invuln = 0
+		c._set_state(CreatureSim.State.IDLE)
+		ms.append({"pos": c.pos, "land": sim.tick + 1, "warn": 70, "radius": 28.0, "big": false, "core": false})
+	st["meteors"] = ms
+	for i in 600:
+		g._physics_process(1.0 / 60.0)
+		if g.flow == g.Flow.MATCH_OVER:
+			break
+	assert_eq(g.hud.banner, "DRAW", "everyone down at once:")
+	assert_true("meteor" in String(g.hud.banner_sub), "says a meteor did it: " + String(g.hud.banner_sub))
+	for by in ["time", "ko", "score", ""]:
+		g._over_by = by
+		g._ko_by_hazard = ""
+		assert_true(g._draw_reason() != "", "a reason for a draw by '%s'" % by)
+	g._over_by = "time"
+	assert_eq(g._draw_reason(), "Time: level on health", "a Brawl's draw at time:")
+	g.free()
+	DirAccess.remove_absolute(cfg)
