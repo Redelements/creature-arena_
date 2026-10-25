@@ -939,9 +939,10 @@ func _open_single_group(gid: String, focus_row := -1) -> void:
 	scr.logo = true
 	scr.crumbs = ["SINGLE PLAYER"]
 	scr.title = String(group.get("title", "")).to_upper()
-	scr.row_width = 236.0
+	scr.row_width = 226.0
 	scr.row_gap = 2
 	scr.detail = true
+	scr.detail_width = 170.0  # room for a card's facts on one line (tests/test_ui_fit.gd)
 	scr.blurb = String(group.get("desc", ""))
 	scr.hints = ["move", "change", "select", "back"]
 	scr.builder = func(s: UiScreen):
@@ -1076,49 +1077,49 @@ func _mode_facts(row: Dictionary, cfg: Dictionary) -> Array:
 		match kind:
 			"deathmatch":
 				var t: Array = rules.get("score_to_win", [8, 8, 12, 15])
-				return ["First to %d KOs, unlimited respawns" % int(t[clampi(size, 0, t.size() - 1)]),
+				return ["First to %d KOs; respawns" % int(t[clampi(size, 0, t.size() - 1)]),
 					clock + ", then sudden death"]
 			"crater":
 				return ["Hold the zone %d s in all" % (int(rules.get("score_to_win", 3600)) / 60),
-					"It moves, and the floor round it breaks", clock]
+					"It moves, breaking the floor", clock]
 			"ctf":
 				return ["First to %d captures" % int(rules.get("captures_to_win", 3)),
-					"Your flag must be home to score", clock + ", then sudden death"]
+					"Score with your flag home", clock + ", then sudden death"]
 			"caravan":
-				return ["Two rounds of %s, one side escorting" % _mmss(int(float(rules.get("round_seconds", 120)) * 60)),
-					"A checkpoint adds %d s and a rockslide" % int(rules.get("checkpoint_seconds", 30)),
-					"Faster finish or further push wins"]
+				return ["2 rounds of %s, sides swap" % _mmss(int(float(rules.get("round_seconds", 120)) * 60)),
+					"Checkpoints: +%d s, rockslide" % int(rules.get("checkpoint_seconds", 30)),
+					"Faster or further push wins"]
 			"sinkhole":
-				return ["One life each: the chasm is a KO",
+				return ["One life; a fall is a KO",
 					"A ring falls every %d s, up to %d" % [int(rules.get("shrink_every", 300)) / 60, int(rules.get("max_rings", 14))],
-					clock + ": more health left wins"]
-		return ["One life each, no respawns", clock + ": more health left wins"]
+					clock + ", most health wins"]
+		return ["One life each, no respawns", clock + ", most health wins"]
 	if cfg.get("duel", false):
 		var d := DuelSim.load_rules()
 		var n := int(d.get("team_size", 3))
-		return ["%d v %d: tag in and out, the bench heals" % [n, n], "Clock %s" % _mmss(int(float(d.get("time_seconds", 180)) * 60)),
+		return ["%d v %d tag, the bench heals" % [n, n], "Clock %s" % _mmss(int(float(d.get("time_seconds", 180)) * 60)),
 			"Two players on one screen" if two else "You pick both teams"]
 	if cfg.get("brawl", false):
 		var b := BrawlSim.load_rules()
 		var out := ["%d fighters, one life each" % BrawlSim.MAX_PLAYERS,
-			"Clock %s: the healthiest wins" % _mmss(int(float(b.get("time_seconds", 120)) * 60))]
+			"Clock %s, healthiest wins" % _mmss(int(float(b.get("time_seconds", 120)) * 60))]
 		if cfg.get("chaos", false):
-			out.append("Three mutators, drawn each match")
+			out.append("Three mutators each match")
 		return out
 	if cfg.get("arcade", false):
-		return ["%d stages, the last a 3v3 Duel" % Arcade.STAGES, "The boss team fights one level up", "Clears unlock palettes"]
+		return ["%d stages, a 3v3 Duel last" % Arcade.STAGES, "The boss team is a level up", "Clears unlock palettes"]
 	if cfg.get("gauntlet", false):
-		return ["Endless waves, health carrying over", "Harder every %d waves, up to Rage" % Gauntlet.WAVES_PER_LEVEL,
+		return ["Endless waves; health carries", "Up a level every %d waves" % Gauntlet.WAVES_PER_LEVEL,
 			"Your best is kept"]
 	if cfg.get("daily", false):
-		return ["Today's seed: the same for everyone", "%d mutators on the fight" % Daily.PICKS,
-			"Clock %s: health and time left score" % _mmss(Daily.FIGHT_TICKS)]
+		return ["One seed a day, for everyone", "%d mutators on the fight" % Daily.PICKS,
+			"Clock %s, health + time score" % _mmss(Daily.FIGHT_TICKS)]
 	if cfg.get("trials", false):
-		return ["One route at a time, with a demo", "Land it to clear it"]
+		return ["One route at a time, demoed", "Land it to clear it"]
 	if cfg.has("drill"):
 		return ["Red tell: roll away, or hit first", "Gold tell: guard"]
 	if cfg.get("training", false):
-		return ["A dummy that stands, guards, walks or dodges", "Pause for no cooldowns, full Surge, Change fighter"]
+		return ["A dummy: stand, guard, dodge", "Pause menu: training options"]
 	if cfg.get("showcase", false):
 		return ["Every fighter's kit, scripted", "Esc comes back here"]
 	if cfg.has("left") or cfg.get("versus2p", false):
@@ -1127,9 +1128,9 @@ func _mode_facts(row: Dictionary, cfg: Dictionary) -> Array:
 		if two:
 			out.append("Two players on one screen")
 		elif Side.PLAYER in cfg.get("sides", []):
-			out.append("The CPU at the level in Settings")
+			out.append("CPU at the Settings level")
 		else:
-			out.append("The CPU against itself, at the level in Settings")
+			out.append("CPU vs CPU, Settings level")
 		return out
 	return []
 
