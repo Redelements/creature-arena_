@@ -233,7 +233,7 @@ func test_light_hits_dont_crack_the_bridge() -> void:
 
 func test_a_shrine_is_claimed_alone_and_buffs_the_side() -> void:
 	var t := _ctf(2)
-	assert_eq(t.shrines.size(), 2, "two shrines")
+	assert_eq(t.shrines.size(), 3, "three shrines (a home one each side, the middle one on the bridge)")
 	var red := t.sim.creatures[0]
 	var mate := t.sim.creatures[1]
 	var first := int(t.shrines[0][2])

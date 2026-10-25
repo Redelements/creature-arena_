@@ -127,8 +127,11 @@ dig/slosh/poof/chop_chop/shout sounds.
   `full_charge_breaks_guard`
 - Caravan's rockslide rubble on art maps → `arena_view.gd:_draw_rubble`; digging dust and the
   escort's heal crosses → `fx_view.gd:_draw_caravan` (`heal` particles)
-- Capture the Flag → flags `fx_view.gd:_draw_flag` (in the air: `lift` from main), shrines
-  `_draw_shrine`, shrine buffs `_draw_buffs`; the capture banner `hud.gd:moment` /
+- Shrines (any mode with them) → `fx_view.gd:_draw_shrine` (resting, charging up in its last
+  `announce_seconds`, ready, a claim in the claimer's colour: main's `_shrine_marks`; the Crater's permanent-buff
+  shrine is gold with a plus), buffs `_draw_buffs`, the Crater's permanent buffs as pips under the health bar
+  `_draw_boost_pips` (`BOOST_COLORS`); the toasts `main.gd:_shrine_toast` (a buff's words, "... SHRINE DENIED" at the cap)
+- Capture the Flag → flags `fx_view.gd:_draw_flag` (in the air: `lift` from main); the capture banner `hud.gd:moment` /
   `_draw_moment`, the red edge `alert` / `_draw_alert`; toasts, sounds and the end-screen
   MVP in `main.gd:_ctf_toast`, `_react`, `_count_ctf`, `_ctf_summary`
 - Arena hazards (a mutator's tidal wave, meteor shower) → `fx_view.gd:_draw_hazards_floor` (the swell, the shelter

@@ -64,6 +64,11 @@ const STATE_FIELDS := [
 	"block_lag", "punish_serial", "home_speed", "fall_chasm",
 	"sheets", "sheet_t", "folded", "poison_look", "regen_wait",
 ]
+## Permanent buffs from the Crater's shrine (Shrines, "boost" reward): saved by save_state
+## like STATE_FIELDS, but in the match digest only when the match has shrines (so every
+## other fingerprint is unchanged). Kept through a respawn (TeamSim._respawn); max_hp is
+## the sheet's x boost_hp (load_state sets it).
+const BOOST_FIELDS := ["boost_ids", "boost_dmg", "boost_speed", "boost_regen", "boost_hp"]
 ## Set once when the creature is made and never changed by the simulation.
 const STATIC_FIELDS := ["id", "team", "def", "is_dummy", "radius", "weight", "max_hp", "max_stamina",
 	"dodge_cost", "air_mult", "speed_mult", "damage_mult", "floor_end"]
@@ -218,6 +223,13 @@ var haste := 0  ## ticks left of walking faster
 var haste_mult := 1.0
 var atk_buff := 0  ## ticks left of dealing atk_mult x damage (Pickpocket: up for him, down for them)
 var atk_mult := 1.0
+## Permanent buffs (BOOST_FIELDS): the ids taken, in order, and the multipliers they add up
+## to on damage dealt, walking, stamina regen and max HP.
+var boost_ids: Array = []
+var boost_dmg := 1.0
+var boost_speed := 1.0
+var boost_regen := 1.0
+var boost_hp := 1.0
 var stone_ice := false  ## the statue is ice, not stone (Sno Mercy's Flavor Blast)
 ## A blocked combo ender (the third light) leaves the attacker open: extra recovery ticks
 ## on this attack, and no cancelling out of it (punish_serial is the attack's serial).
@@ -303,7 +315,7 @@ static func _normalize_move(mid: String, mv: Dictionary) -> void:
 
 func save_state() -> Dictionary:
 	var d := {}
-	for f in STATE_FIELDS:
+	for f in STATE_FIELDS + BOOST_FIELDS:
 		var v = get(f)
 		d[f] = v.duplicate(true) if (v is Dictionary or v is Array) else v
 	return d
@@ -313,6 +325,43 @@ func load_state(d: Dictionary) -> void:
 	for f in STATE_FIELDS:
 		var v = d[f]
 		set(f, v.duplicate(true) if (v is Dictionary or v is Array) else v)
+	set_boosts(d)
+
+
+## Just the permanent buffs, to carry through a respawn.
+func boosts() -> Dictionary:
+	var d := {}
+	for f in BOOST_FIELDS:
+		var v = get(f)
+		d[f] = v.duplicate(true) if v is Array else v
+	return d
+
+
+## Puts back permanent buffs saved by `boosts()` / `save_state()` (missing: none), and the
+## max HP they give.
+func set_boosts(d: Dictionary) -> void:
+	boost_ids = (d.get("boost_ids", []) as Array).duplicate()
+	boost_dmg = float(d.get("boost_dmg", 1.0))
+	boost_speed = float(d.get("boost_speed", 1.0))
+	boost_regen = float(d.get("boost_regen", 1.0))
+	boost_hp = float(d.get("boost_hp", 1.0))
+	max_hp = float(def.get("max_hp", 100)) * boost_hp
+
+
+## Takes a permanent buff (a "boosts" entry of the shrine rules: `id`, and any of `damage`,
+## `speed`, `regen`, `hp` multipliers). More max HP heals the same amount.
+func add_boost(b: Dictionary) -> void:
+	boost_ids.append(String(b.get("id", "")))
+	boost_dmg *= float(b.get("damage", 1.0))
+	boost_speed *= float(b.get("speed", 1.0))
+	boost_regen *= float(b.get("regen", 1.0))
+	var hm := float(b.get("hp", 1.0))
+	if hm != 1.0:
+		var before := max_hp
+		boost_hp *= hm
+		max_hp = float(def.get("max_hp", 100)) * boost_hp
+		if hp > 0.0:
+			hp = minf(max_hp, hp + (max_hp - before))
 
 
 # ------------------------------------------------------------------ queries
@@ -493,6 +542,8 @@ func walk_speed() -> float:
 	if root > 0:
 		return 0.0
 	var s := float(def["speed"]) * speed_mult
+	if boost_speed != 1.0:
+		s *= boost_speed
 	if slow > 0:
 		s *= slow_mult
 	if taunt > 0:
@@ -736,7 +787,7 @@ func step(buttons: int, sim: MatchSim) -> void:
 	if regen_wait > 0:
 		regen_wait -= 1
 	elif not (state in [State.DODGE, State.GUARD, State.KO]):
-		stamina = minf(max_stamina, stamina + float(def.get("stamina_regen", 0.5)))
+		stamina = minf(max_stamina, stamina + float(def.get("stamina_regen", 0.5)) * boost_regen)
 	_tick_status(sim)
 
 	if is_stunned() and _wants_breakaway(buttons, pressed):

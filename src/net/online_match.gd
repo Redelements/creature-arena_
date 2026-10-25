@@ -118,7 +118,7 @@ func setup_dict() -> Dictionary:
 		for id in t:
 			ids.append(String(id))
 	return {"kind": "team" if size > 1 else "duel", "ids": ids, "teams": teams.duplicate(true), "size": size,
-		"rules": rules_id if size > 1 else DuelSim.rules_id_for(teams), "arena": arena_id, "mutators": {}, "mut_seed": 0}
+		"rules": rules_id if size > 1 else DuelSim.rules_id_for(teams), "arena": arena_id, "mutators": {}, "mut_seed": match_seed}
 
 
 ## The confirmed inputs so far as replay rows (frames 0 up to the first gap).
@@ -132,6 +132,9 @@ func confirmed_rows() -> Array:
 
 
 var arena_id := ArenaMap.DEFAULT
+## The match's seed (TeamSim.online_seed: the setup and the match number every machine got in
+## "start"); kept in the replay as `mut_seed`.
+var match_seed := 0
 
 
 func _init(p_teams: Array, p_slot: int, p_delay: int, p_link: NetLink, p_id: int, p_size := 1, p_rules := "",
@@ -148,7 +151,8 @@ func _init(p_teams: Array, p_slot: int, p_delay: int, p_link: NetLink, p_id: int
 	var menu_arena: String = MatchFactory.arena
 	MatchFactory.arena = arena_id  # the map "start" named: every machine builds the same one
 	if size > 1:
-		team = TeamSim.new(teams, size, TeamSim.rules_by_id(p_rules))
+		match_seed = TeamSim.online_seed(teams, size, p_rules, arena_id, p_id)
+		team = TeamSim.new(teams, size, TeamSim.rules_by_id(p_rules), match_seed)
 		local_side = team.side_of(local_slot)
 		_tap = _Tap.new(team)
 	else:

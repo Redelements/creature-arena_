@@ -105,6 +105,15 @@ var bridge_rects: Array[Rect2i] = []
 var hazards: Array = []
 var hazard_pickups: Array = []
 var hazard_defs := {}
+## Shrines (a mode's "shrines" rules: Shrines in shrines.gd, stepped by the mode): per
+## shrine [team claiming (-1), ticks claimed, ticks until ready, times claimed]. Saved
+## (in the digest only when there are some). Where each one is ({pos, radius, kind}) and
+## the merged rules are fixed for the match.
+var shrines: Array = []
+var shrine_spots: Array = []
+var shrine_rules := {}
+## The permanent-buff shrines' draws: an integer LCG seeded by the match seed (Shrines.setup).
+var shrine_rng := 0
 
 
 ## Lays an arena map on the floor. Call before adding creatures (it resets the grid).
@@ -346,6 +355,7 @@ func snapshot() -> Dictionary:
 		"storms": storms.duplicate(true), "training_flags": training_flags.duplicate(),
 		"bridges": bridges.duplicate(true),
 		"hazards": hazards.duplicate(true), "hazard_pickups": hazard_pickups.duplicate(true),
+		"shrines": shrines.duplicate(true), "shrine_rng": shrine_rng,
 	}
 
 
@@ -374,6 +384,8 @@ func restore(s: Dictionary) -> void:
 	bridges = (s.get("bridges", []) as Array).duplicate(true)
 	hazards = (s.get("hazards", []) as Array).duplicate(true)
 	hazard_pickups = (s.get("hazard_pickups", []) as Array).duplicate(true)
+	shrines = (s.get("shrines", []) as Array).duplicate(true)
+	shrine_rng = int(s.get("shrine_rng", 0))
 	events.clear()
 
 
@@ -399,6 +411,11 @@ func state_digest() -> String:
 		parts.append(bridges)
 	if not hazards.is_empty():  # (only matches with hazards: every other fingerprint is unchanged)
 		parts.append_array([hazards, hazard_pickups])
+	if not shrines.is_empty():  # (only matches with shrines, so every other fingerprint is unchanged)
+		parts.append_array([shrines, shrine_rng])
+		for c in creatures:
+			for f in CreatureSim.BOOST_FIELDS:
+				parts.append(c.get(f))
 	if training:  # (only training matches: every other match's fingerprint is unchanged)
 		for k in TRAINING_FLAGS:
 			parts.append(bool(training_flags.get(k, false)))
@@ -525,6 +542,8 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	var damage := float(hit["damage"])
 	if a.atk_buff > 0:
 		damage *= a.atk_mult  # Pickpocket: stolen power, or power stolen
+	if a.boost_dmg != 1.0:
+		damage *= a.boost_dmg  # the Crater shrine's permanent buff
 	if d.vuln > 0:
 		damage *= d.vuln_mult  # tenderized: every hit lands harder, chip included
 	if (a.ambush_serial > 0 and int(hit["serial"]) == a.ambush_serial) or a.ambush_t > 0:

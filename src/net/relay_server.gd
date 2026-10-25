@@ -805,7 +805,7 @@ func _start(g: Game) -> void:
 			var c = g.players[slot]
 			var fighter: String = String(g.cpu_fighters[slot]) if c == null else String(c.team[0])
 			(teams[slot / g.size] as Array).append(fighter)  # one fighter each
-	g.referee = Referee.new(teams, g.delay, g.size, g.rules, g.arena)
+	g.referee = Referee.new(teams, g.delay, g.size, g.rules, g.arena, g.n)
 	for slot in g.cpu_fighters:
 		g.referee.add_cpu(int(slot), cpu_level, g.label * 31 + int(slot) * 7 + g.n)
 	g.path_ms = Time.get_ticks_msec()
