@@ -20,7 +20,7 @@ online data hash (`src/net/netplay.gd:data_hash`): changing one needs the server
 | `weather.json` | Time of day and weather presets (views only; not read by the sim, so not in the online data hash): `defaults` (`times`, `weathers` an arena without its own lists allows), `times` and `weathers` by id, each with `name` (the menu's word), optional `floor` (multiply tint over the floor art, crowd and floor wear), `fighter` (sprite tint), `life` (tint on the water and ambient life), `shadow` (`length` and `alpha` multipliers, `low_sun`: shadows rake sideways with this y), `ambient` (`wind` x the breeze, `motes` x their count, `flies` false: butterflies and dragonflies shelter); night's `fighter_min` (a fighter's least brightness) and `floodlights` (`color`, `radius`, `spacing` of the pool grid over the floor, `strength`, `levels` flat steps, `lamps`); a weather's `rain` (`streaks`, `splashes`, `ripples`), `fog` (`bands`, `alpha`, `color`, `height`, `length`, `speed` ranges), `debris` (`count`, `speed` range; the kind from `debris_by_ground`), `snow` (`flakes`); `mobile` overrides those counts on a phone or handheld. Read by `WeatherView` |
 | `trials.json` | Combo trials: fighter, name, route (a step `[button, move, "hold"]` is held to a full charge) |
 | `audio.json` | Music volume and tracks, every sound name → file |
-| `online.json` | The game's server host; `rematch_pick_seconds`, `rematch_locked_seconds` |
+| `online.json` | The game's server host; `rematch_pick_seconds`, `rematch_locked_seconds`; `server_replays_keep` (match replays a dedicated server keeps on disk, oldest deleted first; not in the data hash) |
 | `discord.json` | Discord Rich Presence: `client_id` (empty turns it off), `large_image`, `fighter_images` |
 
 ## Gotchas

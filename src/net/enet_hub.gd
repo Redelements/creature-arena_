@@ -5,10 +5,19 @@ extends RefCounted
 ## player exactly the way a game talks to its one opponent. Same channels as EnetLink:
 ## reliable control messages on 0, the unsequenced input stream on 1.
 
+## The biggest packet any player may send, in bytes, before RelayServer narrows it
+## (a full-length Daily replay is about 140 KB). ENet itself takes up to 32 MB; anything
+## over the link's `max_packet` closes that player's connection undecoded.
+const MAX_PACKET_BYTES := 256 * 1024
+## New connections one address may open a minute (0: any); past it they're cut at once,
+## before anything they send is read. Reconnecting after a dropped game takes one.
+var connects_per_minute := 30
+
 var error := ""
 var port := 0
 var _conn: ENetConnection = null
 var _links := {}  ## ENetPacketPeer -> PeerLink
+var _connects := {}  ## address -> [msec of each recent connection]
 
 
 ## One connected player.
@@ -24,6 +33,7 @@ class PeerLink:
 		peer = p_peer
 		address = "%s:%d" % [peer.get_remote_address(), peer.get_remote_port()]
 		status = Status.CONNECTED
+		max_packet = EnetHub.MAX_PACKET_BYTES
 
 	func send(msg: Dictionary, reliable := false) -> void:
 		if status != Status.CONNECTED:
@@ -78,6 +88,9 @@ func poll(wait_ms := 0) -> Array:
 		var peer: ENetPacketPeer = ev[1]
 		match kind:
 			ENetConnection.EVENT_CONNECT:
+				if not _may_connect(peer.get_remote_address()):
+					peer.peer_disconnect_now()
+					continue
 				EnetLink.tune(peer)
 				var l := PeerLink.new(self, peer)
 				_links[peer] = l
@@ -90,12 +103,37 @@ func poll(wait_ms := 0) -> Array:
 						l.error = "disconnected"
 					_links.erase(peer)
 			ENetConnection.EVENT_RECEIVE:
-				var msg = NetLink.decode(peer.get_packet())
-				if msg != null and _links.has(peer):
-					(_links[peer] as PeerLink)._inbox.append(msg)
+				var bytes := peer.get_packet()
+				var l: PeerLink = _links.get(peer)
+				if l == null or l.status != NetLink.Status.CONNECTED:
+					continue
+				if not l.admit(bytes.size()):
+					l.error = "sent a packet too big (%d bytes)" % bytes.size()
+					l.close()  # never decoded
+					continue
+				var msg = NetLink.decode(bytes)
+				if msg != null:
+					l._inbox.append(msg)
 			ENetConnection.EVENT_ERROR:
 				error = "Network error"
 	return fresh
+
+
+## Counts a new connection from `host`; false once it has opened connects_per_minute
+## in the last minute.
+func _may_connect(host: String) -> bool:
+	if connects_per_minute <= 0:
+		return true
+	var now := Time.get_ticks_msec()
+	if _connects.size() > 4096:
+		_connects.clear()  # a flood of addresses: forget them rather than grow
+	var recent: Array = (_connects.get(host, []) as Array).filter(func(t): return now - int(t) < 60000)
+	if recent.size() >= connects_per_minute:
+		_connects[host] = recent
+		return false
+	recent.append(now)
+	_connects[host] = recent
+	return true
 
 
 func flush() -> void:

@@ -131,15 +131,46 @@ func cpu() -> CpuController:
 ## Replays a recorded fight on a fresh match and scores it: the score anyone can check.
 ## The replay's rows are [player bits, cpu bits] per tick, the CPU's as they were.
 func verify(rep: Replay) -> int:
-	var sim := build()
+	var v := Verify.new(self, rep)
+	while not v.step(Daily.FIGHT_TICKS + 60):
+		pass
+	return v.score
+
+
+## A verification done a slice at a time (the server spreads one over several loops, so
+## scoring a replay never holds up the matches it runs): step() until it returns true,
+## then read `score`. Same result as verify().
+class Verify:
+	var daily: Daily
+	var rep: Replay
+	var sim: MatchSim
 	var ticks := 0
-	for f in rep.frames:
-		sim.step(f)
-		ticks += 1
-		if sim.creatures[0].state == CreatureSim.State.KO or sim.creatures[1].state == CreatureSim.State.KO:
-			break
-	var me := sim.creatures[0]
-	var foe := sim.creatures[1]
-	var won := foe.state == CreatureSim.State.KO or (me.state != CreatureSim.State.KO and ticks >= FIGHT_TICKS
-		and me.hp / me.max_hp > foe.hp / foe.max_hp)
-	return score_fight(won, me.hp / me.max_hp, ticks)
+	var score := 0
+	var done := false
+
+	func _init(p_daily: Daily, p_rep: Replay) -> void:
+		daily = p_daily
+		rep = p_rep
+		sim = daily.build()
+
+	## Steps up to `frames` more; true once the fight is over and `score` is set.
+	func step(frames: int) -> bool:
+		if done:
+			return true
+		var until := mini(rep.frames.size(), ticks + frames)
+		while ticks < until:
+			sim.step(rep.frames[ticks])
+			ticks += 1
+			if sim.creatures[0].state == CreatureSim.State.KO or sim.creatures[1].state == CreatureSim.State.KO:
+				break
+		var over := ticks >= rep.frames.size() or sim.creatures[0].state == CreatureSim.State.KO \
+			or sim.creatures[1].state == CreatureSim.State.KO
+		if not over:
+			return false
+		var me := sim.creatures[0]
+		var foe := sim.creatures[1]
+		var won := foe.state == CreatureSim.State.KO or (me.state != CreatureSim.State.KO and ticks >= Daily.FIGHT_TICKS
+			and me.hp / me.max_hp > foe.hp / foe.max_hp)
+		score = daily.score_fight(won, me.hp / me.max_hp, ticks)
+		done = true
+		return true

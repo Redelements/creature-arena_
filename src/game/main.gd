@@ -1860,12 +1860,14 @@ func _open_replays() -> void:
 func _replay_label(path: String) -> String:
 	var stamp := path.get_file().trim_prefix("replay_").trim_suffix(".json").replace("T", " ")
 	var f := FileAccess.open(path, FileAccess.READ)
-	if f == null:
+	if f == null or f.get_length() > Replay.MAX_FILE_BYTES:
 		return stamp
 	var d = JSON.parse_string(f.get_as_text())
 	if not (d is Dictionary) or not (d.get("setup") is Dictionary):
 		return stamp
 	var st: Dictionary = d["setup"]
+	if not ReplayBuilder.valid(st):
+		return stamp
 	var names: Array = []
 	for id in st.get("ids", []):
 		names.append(String(MatchFactory.load_def(String(id)).get("name", id)))

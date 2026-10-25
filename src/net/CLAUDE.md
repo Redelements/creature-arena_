@@ -22,6 +22,20 @@ outcome must live in the sim, never here or in `main.gd`.
   240 per slot. CPU slots are skipped in time sync and digest waits.
 - Events reach the views once through rollbacks: `OnlineMatch`'s tap de-duplicates by
   tick, type, attacker, target and who.
+- The server trusts nothing a client sends. A field the relay reads goes in
+  `RelayServer.FIELD_TYPES` (a message with a field of another type is ignored whole);
+  a handler for a seated player's message checks `_seated(c)` (spectators have slot -1);
+  anything whose cost a client controls (a loop, a stored list, a reply) needs a bound.
+  `tests/test_server_fuzz.gd` throws random traffic at all of it (`FUZZ_TICKS`,
+  `FUZZ_SEEDS` for a longer run) and fails on any script or engine error.
+- `NetLink.decode` walks a packet's encoding before `bytes_to_var` and refuses anything
+  malformed or of a type messages don't carry (objects, vectors, typed containers of
+  classes). A new message carrying another Variant type must be added to `_skip`.
+- The limits' clock (`RelayServer._clock_ms`) is the wall clock only on the real server
+  (`realtime`, set by `DedicatedServer`); in tests every `tick()` counts as a frame plus
+  `clock_skip_ms`, so tests that tick clients and server together never trip the referee's
+  clock cap. Tests that drive a match must tick the server about once per client frame.
+- `Netplay.data_hash()` is computed once and cached.
 
 ## Wire messages
 
@@ -61,7 +75,8 @@ plain-UDP JSON: `creature-arena?` / `creature-arena`.
 Online: `--online-host[=PORT]`, `--online-join=ADDR[:PORT][/ROOM]`, `--online-watch=ADDR[:PORT][/ROOM]`, `--online-size=2|3|4` (4: Capture the Flag),
 `--fighter=ID`, `--net-lag=N`, `--net-loss=F`, `--net-delay=N`, `--net-report=PATH`. Two
 processes on one machine with `--cpu-vs-cpu` play each other; compare their reports.
-Dedicated server: `--headless -- --server[=PORT] [--max-players=N] [--net-delay=N]`.
+Dedicated server: `--headless -- --server[=PORT] [--max-players=N] [--net-delay=N] [--max-per-ip=N]`
+(the rest in `dedicated_server.gd`'s header and `docs/SERVER.md`).
 
 ## Files
 

@@ -31,6 +31,30 @@ is the short reference.
 | `--room-fill=SECONDS` | 45 | the same for a room (longer: friends are typing the code) |
 | `--ready=SECONDS` | 15 | how long players have to accept a match found; those who accepted go back to waiting if someone doesn't |
 | `--cpu-level=N` | 1 | how well those CPUs play: 0 Easy, 1 Normal, 2 Hard |
+| `--max-per-ip=N` | 6 | connections at once from one address (a household behind one router still fits a 2v2 and spectators); 0: no limit |
+
+**Limits.** The server keeps any one connection from costing more than a player does
+(the numbers are named constants at the top of `src/net/relay_server.gd`, `referee.gd` and
+`enet_hub.gd`):
+
+- every message's fields must have the right types, or the message is ignored; packets
+  are checked before they're decoded, and a packet over 8 KB after hello (256 KB before
+  it, for a Daily replay) closes the connection;
+- a connection sending more than about 240 messages a second (480 at once) is dropped;
+- only a seated player sends inputs, fingerprints, rematch and pick for their own slot
+  (spectators only watch);
+- a match is refereed no faster than the clock and at most 8 frames per loop, stops being
+  simulated 10 s after its result (inputs still pass, so the match-over keeps running)
+  and after 30 minutes at most; fingerprints and inputs it can't use aren't relayed;
+- Daily scores are checked one at a time, 120 frames per loop (a few ms added to each
+  loop while one runs, so matches keep being relayed; a full fight takes about a third of
+  a second), at most 4 waiting and 30 a minute; one request per connection, and that
+  connection is let go after 15 s;
+- anyone quiet for 10 s is pinged (every game answers), and dropped after 60 s;
+- the newest `server_replays_keep` match replays are kept (500, `data/online.json`).
+
+The log says why a connection was dropped ("sent too many messages", "sent a packet too
+big", "went quiet", ...).
 
 Players join `ADDRESS` or `ADDRESS:PORT`. Adding `/ROOM` (`game.example.net/kev`, not
 case sensitive) pairs them only with someone who typed the same room; without one,

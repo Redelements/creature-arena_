@@ -713,3 +713,239 @@ func test_with_less_than_three_seconds_left_locking_in_doesnt_add_time() -> void
 	assert_lt(a.pick_seconds_left(), 1.6, "the countdown keeps its 1.5 s:")
 	server.clock_skip_ms += 1600
 	assert_true(_run(server, nets, 200, func(): return a.game != first), "the rematch starts on time")
+
+
+# ------------------------------------------------------------------ hardening
+# What one connection may do and cost (tests/test_server_fuzz.gd throws random traffic
+# at all of it; these pin each rule on its own).
+
+func _raw(server: RelayServer, address := "raw:1") -> LoopLink:
+	var links := LoopLink.pair()
+	server.add_client(links[0], address)
+	(links[1] as LoopLink).keep_heard = true
+	return links[1]
+
+
+func _hello_msg(extra := {}) -> Dictionary:
+	var h := {"t": "hello", "v": Netplay.NET_VERSION, "data": Netplay.data_hash(), "team": TEAM_C}
+	h.merge(extra, true)
+	return h
+
+
+func test_a_spectator_cannot_play_any_slot() -> void:
+	var s := _setup([TEAM_A, TEAM_B])
+	var server: RelayServer = s[0]
+	var nets: Array = s[1]
+	assert_true(_run(server, nets, 200, func(): return _both_playing(nets)), "a match")
+	var w := _raw(server, "watch:1")
+	w.send(_hello_msg({"watch": true}), true)
+	_run(server, nets, 3)
+	var g: RelayServer.Game = server.games[0]
+	assert_eq(g.watchers.size(), 1, "a spectator on it:")
+	var f0: int = g.referee.frame + 20
+	var evil := PackedInt32Array()
+	evil.resize(60)
+	evil.fill(SimDefs.IN_LEFT | SimDefs.IN_HEAVY)
+	w.send({"t": "in", "n": g.n, "first": f0, "inputs": evil, "ack": -1, "f": 0, "adv": 0.0}, false)
+	w.send({"t": "dg", "n": g.n, "f": 60, "d": "forged"}, true)
+	w.send({"t": "rematch"}, true)
+	w.send({"t": "pick", "team": ["sno"]}, true)
+	_run(server, nets, 120)
+	for p in 2:
+		assert_true(int(g.referee.log[f0][p]) != SimDefs.IN_LEFT | SimDefs.IN_HEAVY,
+			"slot %d plays its own player's input" % p)
+	assert_eq(g.rematch, [false, false], "nobody asked for a rematch:")
+	assert_eq((nets[0] as Netplay).game.desync_frame, -1, "and nobody desyncs")
+	assert_eq((nets[1] as Netplay).game.desync_frame, -1, "")
+
+
+func test_wrong_typed_fields_are_ignored_quietly() -> void:
+	var server := RelayServer.new()
+	var l := _raw(server)
+	for m in [{"t": 5}, {"t": []}, {"t": null}, _hello_msg({"v": "abc"}), _hello_msg({"room": 5}),
+			_hello_msg({"name": [1]}), _hello_msg({"size": "9"}), _hello_msg({"team": 5}),
+			_hello_msg({"watch": "yes"}), {"t": "ping", "n": "x".repeat(1000)}]:
+		l.send(m, true)
+	server.tick()
+	assert_eq((server.clients.values()[0] as RelayServer.Client).state, RelayServer.State.HELLO,
+		"none of those was taken as a hello:")
+	l.poll()
+	assert_true(not l.heard.any(func(m): return String(m.get("t")) == "pong"), "a ping with a junk number isn't echoed")
+	l.send(_hello_msg(), true)
+	server.tick()
+	assert_eq((server.clients.values()[0] as RelayServer.Client).state, RelayServer.State.LOBBY, "a proper one is:")
+
+
+func test_a_daily_replay_is_checked_before_it_is_read() -> void:
+	assert_eq(Replay.from_dict({"frames": 9000000000000000000}), null, "frames must be a list:")
+	assert_eq(Replay.from_dict({"frames": [9000000000000000000]}), null, "of rows:")
+	assert_eq(Replay.from_dict({"frames": [[1, 2, 3, 4, 5, 6, 7, 8, 9]]}), null, "of at most eight:")
+	assert_eq(Replay.from_dict({"frames": [["a", 1]]}), null, "of numbers:")
+	assert_eq(Replay.from_dict({"frames": [[1, 2]]}, 10, 3), null, "of the width asked for:")
+	var big: Array = []
+	big.resize(11)
+	big.fill([0, 0])
+	assert_eq(Replay.from_dict({"frames": big}, 10), null, "and no more of them than asked for:")
+	assert_eq(Replay.from_dict({"frames": [[1, 2], [3.0, 4]]}).frames.size(), 2, "a proper one loads")
+	var server := RelayServer.new()
+	var l := _raw(server)
+	l.send(_hello_msg({"submit": true, "id": "0123456789abcdef"}), true)
+	l.send({"t": "daily", "date": 20261025, "fighter": "cairn", "replay": {"frames": [9000000000000000000]}}, true)
+	var t := Time.get_ticks_msec()
+	server.tick()
+	assert_lt(float(Time.get_ticks_msec() - t), 100.0, "refused at once:")
+	l.poll()
+	assert_eq(String(l.heard[-1].get("t")), "reject", "with a reason:")
+
+
+func test_a_daily_connection_asks_once_and_the_server_scores_a_few_at_a_time() -> void:
+	var server := RelayServer.new()
+	var rep := {"frames": [[0, 0], [0, 0]]}
+	var links: Array = []
+	for i in RelayServer.DAILY_QUEUE + 3:
+		var l := _raw(server, "d:%d" % i)
+		l.send(_hello_msg({"submit": true, "id": "%016x" % (i + 1)}), true)
+		l.send({"t": "daily", "date": 20261025, "fighter": "cairn", "replay": rep}, true)
+		links.append(l)
+	server.tick()
+	var busy := 0
+	for l: LoopLink in links:
+		l.poll()
+		for m in l.heard:
+			if String(m.get("t")) == "reject" and String(m.get("why")) == "busy":
+				busy += 1
+	assert_eq(busy, 2, "past one being scored and DAILY_QUEUE waiting, the rest hear the server is busy:")
+	for i in 20:
+		server.tick()
+	var ok := 0
+	for l: LoopLink in links:
+		l.poll()
+		for m in l.heard:
+			if String(m.get("t")) == "daily_ok":
+				ok += 1
+	assert_eq(ok, RelayServer.DAILY_QUEUE + 1, "the others are scored:")
+	(links[0] as LoopLink).send({"t": "board", "date": 20261025}, true)
+	server.tick()
+	assert_eq(server.clients.size(), links.size() - 1, "a second request from one connection drops it:")
+	server.clock_skip_ms += RelayServer.SUBMIT_TIMEOUT_MS + 1
+	server.tick()
+	assert_eq(server.clients.size(), 0, "and a Daily connection doesn't stay:")
+
+
+func test_the_referee_never_runs_ahead_of_the_clock() -> void:
+	var s := _setup([TEAM_A, TEAM_B])
+	var server: RelayServer = s[0]
+	var nets: Array = s[1]
+	assert_true(_run(server, nets, 200, func(): return _both_playing(nets)), "a match")
+	var g: RelayServer.Game = server.games[0]
+	var links: Array = []
+	for c: RelayServer.Client in g.players:
+		links.append((c.link as LoopLink).other)
+	var ins := PackedInt32Array()
+	ins.resize(60)
+	var ahead := 0
+	for burst in 20:  # both players push inputs as far ahead as they can, every tick
+		for p in 2:
+			for k in 10:
+				(links[p] as LoopLink).send({"t": "in", "n": g.n, "first": g.referee.frame + k * 60, "inputs": ins}, false)
+		server.tick()
+		ahead = maxi(ahead, g.referee.frame - server._clock_frame(g))
+	assert_true(ahead <= RelayServer.AHEAD_STEP_FRAMES, "the referee kept to the clock (at most %d frames ahead)" % ahead)
+
+
+func test_a_finished_match_stops_being_simulated() -> void:
+	var ref := Referee.new([TEAM_A, TEAM_B], 0)
+	ref.post_result_frames = 100
+	ref.duel.active_creature(1).hp = 0.5
+	for i in 6000:
+		ref.add_inputs(0, {"first": i, "inputs": PackedInt32Array([SimDefs.IN_LIGHT if i % 2 == 0 else 0])})
+		ref.add_inputs(1, {"first": i, "inputs": PackedInt32Array([0])})
+		ref.advance()
+	assert_true(ref.finished_at >= 0, "the match was decided")
+	assert_eq(ref.frame, 6000, "inputs still pass:")
+	assert_eq(ref.log.size(), ref.finished_at + 1 + 100, "but only 100 more frames were simulated and logged:")
+	assert_false(ref.add_digest(0, 5940, "x"), "fingerprints past that aren't taken")
+
+
+func test_limits_on_connections() -> void:
+	var server := RelayServer.new()
+	server.max_per_ip = 2
+	var a := _raw(server, "1.2.3.4:1")
+	var b := _raw(server, "1.2.3.4:2")
+	var c := _raw(server, "1.2.3.4:3")
+	var d := _raw(server, "5.6.7.8:1")
+	server.tick()
+	c.poll()
+	assert_eq(server.clients.size(), 3, "a third connection from one address is turned away:")
+	assert_eq(String(c.heard[0].get("t")), "reject", "with a reason:")
+	# Oversized packets: before hello up to EnetHub.MAX_PACKET_BYTES, after it MAX_PACKET_PLAYER.
+	a.send(_hello_msg(), true)
+	server.tick()
+	a.send({"t": "ping", "n": 1, "pad": "x".repeat(RelayServer.MAX_PACKET_PLAYER)}, true)
+	server.tick()
+	assert_eq(server.clients.size(), 2, "a player's oversized packet drops them:")
+	# A flood.
+	for i in RelayServer.MSG_BURST + 1:
+		b.send({"t": "ping", "n": i}, true)
+	server.tick()
+	assert_eq(server.clients.size(), 1, "so do too many messages at once:")
+	# Quiet connections are pinged, then let go.
+	d.send(_hello_msg({"watch": true}), true)
+	server.tick()
+	d.poll()
+	d.heard.clear()
+	server.clock_skip_ms += RelayServer.KEEPALIVE_MS + 1
+	server.tick()
+	d.poll()
+	assert_true(d.heard.any(func(m): return String(m.get("t")) == "ping"), "a quiet spectator is pinged")
+	server.clock_skip_ms += RelayServer.IDLE_TIMEOUT_MS
+	server.tick()
+	assert_eq(server.clients.size(), 0, "and dropped if it never answers:")
+
+
+func test_one_big_packet_per_connection() -> void:
+	var server := RelayServer.new()
+	var l := _raw(server)
+	var pad := "x".repeat(NetLink.SMALL_PACKET)
+	l.send(_hello_msg({"submit": true, "id": "0123456789abcdef", "pad": pad}), true)  # a Daily replay's size: fine
+	server.tick()
+	assert_eq(server.clients.size(), 1, "one big packet is taken:")
+	l.send({"t": "ping", "n": 1, "pad": pad}, true)
+	server.tick()
+	assert_eq(server.clients.size(), 0, "a second closes the connection:")
+
+
+func test_a_refused_fingerprint_is_not_passed_on() -> void:
+	var s := _setup([TEAM_A, TEAM_B])
+	var server: RelayServer = s[0]
+	var nets: Array = s[1]
+	assert_true(_run(server, nets, 200, func(): return _both_playing(nets)), "a match")
+	var g: RelayServer.Game = server.games[0]
+	var cheat: LoopLink = ((g.players[0] as RelayServer.Client).link as LoopLink).other
+	var victim: LoopLink = ((g.players[1] as RelayServer.Client).link as LoopLink).other
+	victim.poll()
+	cheat.send({"t": "dg", "n": g.n, "f": 99999999, "d": "forged"}, true)
+	cheat.send({"t": "dg", "n": g.n, "f": -5, "d": "forged"}, true)
+	server.tick()
+	var relayed := 0
+	for m in victim.poll():
+		if String(m.get("t")) == "dg" and String(m.get("d")) == "forged":
+			relayed += 1
+	assert_eq(relayed, 0, "out-of-range fingerprints stop at the server:")
+
+
+func test_server_replays_are_rotated() -> void:
+	var server := RelayServer.new()
+	server.replay_dir = "user://test_rotate_%d" % Time.get_ticks_usec()
+	server.replays_keep = 3
+	DirAccess.make_dir_recursive_absolute(server.replay_dir)
+	for i in 5:
+		var f := FileAccess.open(server.replay_dir.path_join("online_%d_1.json" % i), FileAccess.WRITE)
+		f.store_string("{}")
+		f.close()
+	server._rotate_replays()
+	assert_eq(DirAccess.get_files_at(server.replay_dir).size(), 3, "the newest three are kept:")
+	assert_eq(RelayServer.new().replays_keep, 500, "500 by default (data/online.json):")
+	for f in DirAccess.get_files_at(server.replay_dir):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(server.replay_dir.path_join(f)))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(server.replay_dir))
