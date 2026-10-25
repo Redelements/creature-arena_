@@ -10,7 +10,8 @@ exports a release APK (debug templates run GDScript slower), installs it, plays 
 to `--quit-after`, and reads the `--perf` report from logcat (a release APK isn't
 debuggable, so `run-as` can't read user://perf.txt). The report goes to
 build/perf/<label>.txt. export_presets.cfg and project.godot are put back afterwards,
-whatever happens. `--renderer mobile` tries the Vulkan (Mobile) renderer for the run.
+whatever happens. `--renderer gl` builds with gl_compatibility instead of Vulkan (Mobile).
+Judge by the SCREEN lines (SurfaceFlinger's presents), not the CPU-side PERF frame times.
 
 Needs: Godot at GODOT (or the default path below), adb at ADB, the device's own refresh
 setting at 120 (Settings > Display, or `adb shell settings put system peak_refresh_rate
@@ -65,7 +66,8 @@ def screen_report(times, period, skip_s=3.0):
     t = sorted(times)
     if len(t) < 200 or period <= 0:
         return ["SCREEN not enough presents (%d)" % len(t)]
-    t = [x for x in t if x - t[0] > skip_s * 1e9]
+    t0 = t[0]
+    t = [x for x in t if x - t[0] > skip_s * 1e9][:-1]  # the last frame waits on the quit (the report)
     iv = [(b - a) / 1e6 for a, b in zip(t, t[1:])]
     per = period / 1e6
     skipped = sum(max(0, round(v / per) - 1) for v in iv)
@@ -91,6 +93,9 @@ def screen_report(times, period, skip_s=3.0):
         "SCREEN frames held past one refresh: %d (%.2f%%, %.2f a second), refreshes skipped %d" % (late, 100.0 * late / len(iv), late * 1000.0 / total, skipped),
         "SCREEN refreshes per frame: " + ", ".join("%d: %d" % (k, gaps[k]) for k in sorted(gaps)),
         "SCREEN queued to shown ms: p50 %.1f, p99 %.1f (the frame queue's lag)" % (lag[len(lag) // 2], lag[int(len(lag) * 0.99)]),
+        "SCREEN long gaps (s from the first frame shown, ms): " + (", ".join("%.1fs %.0f" % ((b - t0) / 1e9, (b - a) / 1e6)
+            for a, b in zip(t, t[1:]) if (b - a) / 1e6 > per * 1.5) or "none"),
+        "SCREEN last frame at %.1fs" % ((t[-1] - t0) / 1e9),
     ]
 
 
@@ -110,7 +115,7 @@ def main():
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--fps", type=int, default=120)
     ap.add_argument("--frames", type=int, default=4800, help="--quit-after: 40 s at 120 fps")
-    ap.add_argument("--renderer", choices=["gl", "mobile"], default="gl")
+    ap.add_argument("--renderer", choices=["gl", "mobile"], default="mobile", help="mobile = Vulkan, the default")
     ap.add_argument("--extra", default="", help="more game flags, e.g. --cpu-threads=off")
     ap.add_argument("--no-export", action="store_true", help="reuse the last APK")
     ap.add_argument("--export-only", action="store_true", help="build the APK, no device needed")
@@ -131,8 +136,8 @@ def main():
             shutil.copyfile(p, b)
         try:
             swap(presets, r'^command_line/extra_args=".*"$', f'command_line/extra_args="{flags}"')
-            if a.renderer == "mobile":
-                swap(project, r'^renderer/rendering_method\.mobile=".*"$', 'renderer/rendering_method.mobile="mobile"')
+            method = "mobile" if a.renderer == "mobile" else "gl_compatibility"
+            swap(project, r'^renderer/rendering_method\.mobile=".*"$', f'renderer/rendering_method.mobile="{method}"')
             os.makedirs(os.path.dirname(APK), exist_ok=True)
             env = dict(os.environ,
                 GODOT_ANDROID_KEYSTORE_RELEASE_PATH=KEYSTORE,

@@ -20,6 +20,10 @@ goes for showcases, trials and drills.
   the views must not write anything `bits()` reads either. A cache shared between CPUs is filled in
   `think_all` before the threads start, or locked (`NavGrid._label_lock`, Vision's memo).
   `tests/test_cpu_pathing.gd` checks threaded inputs equal sequential ones.
+- On mobile at 120 fps (`main.gd:cpu_think` "gap") `bits()` runs on the main thread in the
+  frame between ticks, after `CpuController.prepare` (the shared caches and team intent),
+  CPU after CPU until `gap_budget_us` is spent; the tick thinks for the rest. Order must not
+  matter: `tests/test_perf_main_thread.gd` checks a split gap gives the same inputs.
 - Team intent (`team_intent.gd`) is the one thing built *from* the controllers: each team's
   `TeamIntent` is made once a tick on the main thread (`think_start`, or the first `bits()`
   of the tick when they think in turn) from the match and each member's `note` of the tick

@@ -41,10 +41,13 @@ extends Node2D
 ##                         second, and saves them to user://perf.txt
 ##   --fight-fps=N         the fight frame cap this session, not saved (Settings > Video >
 ##                         Fight frame rate otherwise): 120 on the Odin for perf runs
-##   --fps-pacing=cap|vsync  vsync: let vsync pace a fight cap at or over the screen's refresh
-##                         rate instead of the frame limiter (an experiment; pace_cap)
+##   --fps-pacing=cap|vsync  vsync (the default on mobile): vsync paces a fight cap at or
+##                         over the screen's refresh rate instead of the frame limiter (pace_cap)
 ##   --cpu-threads=off     CPU players think one after another on the main thread
 ##                         (default: together on the worker threads; same answers)
+##   --cpu-think=threads|gap  where the next tick's CPU thinking runs at 120 fps and up: the
+##                         worker threads, or the main thread in the frame between ticks
+##                         (default gap on mobile, threads elsewhere; same answers)
 ##   --layout=league|classic  keyboard layout (saved in the menu otherwise)
 ##   --pad-layout=standard|twinstick  controller layout (saved in Settings otherwise)
 ##   --touch-demo[=left]   play a recorded touch script into the touch controls (training as
@@ -472,7 +475,7 @@ var presence: Presence = null
 ## Off for captures and headless runs, which must not be slowed to real time.
 var _fps_caps := true
 var _fight_fps_cli := 0  ## --fight-fps=N: this session's fight cap (0: the setting's)
-var _fps_pacing := "cap"  ## --fps-pacing=cap|vsync (pace_cap)
+var _fps_pacing := "vsync" if OS.has_feature("mobile") else "cap"  ## --fps-pacing=cap|vsync (pace_cap)
 var _refresh := -1.0  ## the screen's refresh rate, -1 until read (_refresh_rate)
 var menu_stick: MenuStick
 ## Menu screens on Godot's UI system (the pause menu; more to come).
@@ -576,6 +579,21 @@ var _cpus_thought := false
 var _cpu_task := -1
 var _cpu_ahead: Array = []
 var _cpus_early := false
+## Where the next tick's CPU thinking runs: "threads" (the worker threads, while the frame
+## draws) or "gap" (on the main thread, in the next frame that steps no tick: at 120 fps
+## every other frame is nearly empty). Gap is the default on mobile: Android keeps the
+## game's thread on the two fast cores, and the worker threads thinking there took them
+## from it for up to 16 ms at a time (Odin 3 trace, Oct 2026). `--cpu-think=threads|gap`.
+var cpu_think := "gap" if OS.has_feature("mobile") else "threads"
+## Gap mode: the match and tick the CPUs should think ahead from in the next tickless frame.
+var _cpu_gap: Array = []
+var _gap_physics_frame := -1  ## the tick count and frame when _cpu_gap was set
+var _gap_process_frame := -1
+## Gap mode's time budget (µs): CPUs think one by one in the gap until it is spent; the
+## rest think in the tick. A slow decision then splits over both frames instead of
+## making one of them miss the screen (9-10 ms of thinking on the Odin 3 at worst).
+var gap_budget_us := 4000
+var _gap_done := 0  ## how many of _cpu_list() the gap thought for (_cpu_ahead's tick)
 ## Frame and tick times (--perf), printed on quit.
 var _perf: PerfLog = null
 
@@ -2787,6 +2805,7 @@ func _process(_delta: float) -> void:
 	if netplay != null and netplay.link != null and netplay.link.realtime:
 		netplay.pump()
 	_voice_step(_delta)
+	_think_in_gap()
 	if discord != null:
 		if Engine.get_process_frames() % 30 == 0:
 			discord.set_activity(presence.activity(self))
@@ -2900,13 +2919,27 @@ func _physics_process(_delta: float) -> void:
 		fade_rect.color.a = _swap_fade
 
 	var t_fx := PerfLog.now()
+	var t_v := t_fx
 	arena.refresh()
+	PerfLog.since("adv arena", t_v)
+	t_v = PerfLog.now()
 	water.advance()
+	PerfLog.since("adv water", t_v)
+	t_v = PerfLog.now()
 	ambient.advance()
+	PerfLog.since("adv ambient", t_v)
+	t_v = PerfLog.now()
 	weather.advance()
+	PerfLog.since("adv weather", t_v)
+	t_v = PerfLog.now()
 	wear.advance()
+	PerfLog.since("adv wear", t_v)
+	t_v = PerfLog.now()
 	crowd.advance()
+	PerfLog.since("adv crowd", t_v)
+	t_v = PerfLog.now()
 	fx.advance()
+	PerfLog.since("adv fx", t_v)
 	PerfLog.since("fx advance", t_fx)
 	if glow:
 		glow_floor.advance()  # after the effects: it reads their particles
@@ -3121,10 +3154,18 @@ func _side_bits(i: int, live: bool) -> int:
 func _think_cpus(live: bool) -> void:
 	var ahead := _cpu_ahead
 	_cpu_ahead = []
+	_cpu_gap = []
 	_join_cpus()
 	if not live:
 		return
 	if ahead.size() == 2 and ahead[0] == sim and ahead[1] == sim.tick:
+		var list := _cpu_list()
+		if _gap_done > 0 and _gap_done < list.size():  # the gap's budget ran out: the rest now
+			var t0 := PerfLog.now()
+			for k in range(_gap_done, list.size()):
+				(list[k] as CpuController).bits(sim)
+			PerfLog.since("cpus after gap", t0)
+		_gap_done = 0
 		_cpus_thought = true
 		return
 	CpuController.think_all(_cpu_list(), sim)
@@ -3154,8 +3195,48 @@ func _think_ahead() -> void:
 	var list := _cpu_list()
 	if list.is_empty():
 		return
+	if _gap_thinking():
+		_cpu_gap = [sim, sim.tick]  # _think_in_gap, in the next frame without a tick
+		_gap_physics_frame = Engine.get_physics_frames()
+		_gap_process_frame = Engine.get_process_frames()  # this frame steps the tick: not here
+		return
+	_gap_done = 0
 	_cpu_ahead = [sim, sim.tick]
 	_cpu_task = CpuController.think_start(list, sim)
+
+
+## Gap thinking needs a frame between ticks: a fight cap of at least twice the tick rate.
+func _gap_thinking() -> bool:
+	if cpu_think != "gap":
+		return false
+	var cap := Engine.max_fps
+	return cap == 0 or cap >= 2 * Engine.physics_ticks_per_second
+
+
+## Every frame (_process): in gap mode, a frame that stepped no tick since the last one
+## works out the next tick's CPU inputs here, one CPU after another on this thread. The
+## tick takes them only if it steps that same match from that same tick (_think_cpus);
+## if no such frame came first, the tick thinks for itself, as before.
+func _think_in_gap() -> void:
+	if _cpu_gap.is_empty() or Engine.get_physics_frames() != _gap_physics_frame \
+			or Engine.get_process_frames() == _gap_process_frame:
+		return
+	var ahead := _cpu_gap
+	_cpu_gap = []
+	if ahead[0] != sim or ahead[1] != sim.tick:
+		return
+	var t0 := PerfLog.now()
+	var start := Time.get_ticks_usec()
+	var list := _cpu_list()
+	CpuController.prepare(sim)
+	_gap_done = 0
+	for c in list:
+		(c as CpuController).bits(sim)
+		_gap_done += 1
+		if Time.get_ticks_usec() - start >= gap_budget_us:
+			break
+	PerfLog.since("cpus in gap", t0)
+	_cpu_ahead = ahead
 
 
 func _join_cpus() -> void:
@@ -4584,10 +4665,10 @@ func in_menus() -> bool:
 
 
 ## The engine's frame cap for a fight cap of `cap` fps on a screen of `refresh` Hz. With
-## `pacing` "vsync" (--fps-pacing=vsync), vsync on and a cap at or over the screen's rate:
-## no cap (0), vsync paces each frame. An experiment: a limiter at exactly the refresh rate
-## can beat against vsync, but on the Odin 3 (Oct 2026, GL) the screen showed every frame
-## on time either way, so the limiter stays the default.
+## `pacing` "vsync" (the default on mobile, --fps-pacing), vsync on and a cap at or over
+## the screen's rate: no cap (0), vsync paces each frame. The Odin 3's panel runs at
+## 121.7 Hz: a limiter at 120 fell 1.7 frames a second short, each one a frame shown twice
+## (Vulkan, Oct 2026; GL's deeper queue hid it). PC keeps the limiter.
 static func pace_cap(cap: int, refresh: float, vsync_on: bool, pacing := "cap") -> int:
 	if pacing == "vsync" and vsync_on and refresh > 0.0 and cap >= roundi(refresh) - 1:
 		return 0
@@ -5270,6 +5351,8 @@ func _parse_args() -> int:
 			_fps_pacing = a.get_slice("=", 1)
 		elif a.begins_with("--cpu-threads="):
 			CpuController.threaded = a.get_slice("=", 1) != "off"
+		elif a.begins_with("--cpu-think="):
+			cpu_think = a.get_slice("=", 1)
 		elif a.begins_with("--arena="):
 			var ar := a.get_slice("=", 1)
 			if ar in ArenaMap.IDS:

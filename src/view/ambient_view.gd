@@ -87,6 +87,9 @@ var art: Texture2D = null  ## the map picture, for the sway (ArenaView.art())
 var _cfg := {}
 var _terrain: TerrainGrid
 var _version := -1
+## The cells _scan read (brush, walls, shallows): a floor change that leaves them alone
+## (a crack, a hole) skips the rescan and the sway layer's redraw (`_kinds_changed`).
+var _scan_key: Array = []
 var _panes: Layer
 var _sway: Layer
 var _over: Layer
@@ -305,7 +308,9 @@ func advance() -> void:
 		return
 	_last_tick = sim.tick
 	if _terrain.version != _version:
-		_scan()
+		if _kinds_changed():
+			_scan()
+		_version = _terrain.version
 	var t := sim.tick
 	var view := FxView._view_rect(self, 0.0)
 	# Panes slide along the light, a pixel at a time.
@@ -349,6 +354,28 @@ func _seen(c: CreatureSim) -> bool:
 ## A fighter that can stir things: alive, on the ground, and seen by the local team.
 func _stirs(c: CreatureSim) -> bool:
 	return c.state != CreatureSim.State.KO and c.air_t <= 0 and c.swallow_t <= 0 and _seen(c)
+
+
+## Whether the cells _scan reads moved since it last ran. Cracks change the floor many
+## times a second in a big fight, and a rescan redrew the whole sway layer each time
+## (8-15 ms on the Odin 3).
+func _kinds_changed() -> bool:
+	var key := [cells_of(_terrain.cells, TerrainGrid.BRUSH), cells_of(_terrain.cells, TerrainGrid.WALL),
+		cells_of(_terrain.cells, TerrainGrid.SHALLOWS), _terrain.cols]
+	if key == _scan_key:
+		return false
+	_scan_key = key
+	return true
+
+
+## The indices of every cell of `kind`, by the native find (no GDScript loop over the grid).
+static func cells_of(cells: PackedByteArray, kind: int) -> PackedInt32Array:
+	var out := PackedInt32Array()
+	var i := cells.find(kind)
+	while i >= 0:
+		out.append(i)
+		i = cells.find(kind, i + 1)
+	return out
 
 
 func _scan() -> void:

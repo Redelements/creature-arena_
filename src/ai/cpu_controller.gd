@@ -163,6 +163,15 @@ static func think_start(cpus: Array, sim: MatchSim) -> int:
 		for c in list:
 			c.bits(sim)
 		return -1
+	prepare(sim)
+	return WorkerThreadPool.add_group_task(func(k: int) -> void: list[k].bits(sim),
+		list.size(), -1, true, "CPU players")
+
+
+## What every CPU reads and none may build alone: the shared nav grid and terrain index
+## (brought up to date for the floor as it is now) and each team's intent. Before the
+## threads start, or before main thinks for them one by one in a frame between ticks.
+static func prepare(sim: MatchSim) -> void:
 	SimDefs.aim_dirs()
 	var t0 := PerfLog.now()
 	NavGrid.shared(sim.terrain)  # (and its TerrainIndex) built here, read-only on the threads
@@ -171,8 +180,6 @@ static func think_start(cpus: Array, sim: MatchSim) -> int:
 	t0 = PerfLog.now()
 	TeamIntent.build_all(sim)  # each team's focus, from the match and last tick's choices
 	PerfLog.since("ai intent", t0)
-	return WorkerThreadPool.add_group_task(func(k: int) -> void: list[k].bits(sim),
-		list.size(), -1, true, "CPU players")
 
 
 static func think_wait(task: int) -> void:
