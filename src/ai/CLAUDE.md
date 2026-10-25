@@ -42,7 +42,12 @@ goes for showcases, trials and drills.
 default 22), `routes` (lists of action names), `far_routes`/`far_from`, `poke`/`poke_range`
 [min, max], `lob`/`lob_range`, `gaze`/`gaze_range`, `zone`/`zone_range`,
 `stealth`/`stealth_range`, `burrow`/`burrow_range`, `surge_line`, `surge_range`,
-`grab`/`grab_range`, `kite` (bool), `wakeup_charge` (bool), `counter`, `fold`/`fold_safe`.
+`grab`/`grab_range`, `kite` (bool), `wakeup_charge` (bool), `counter`, `fold`/`fold_safe`,
+`setup` (`{move, range, mark, chance}`: a move that puts a mark on the foe, `CreatureSim.has_mark`, so a
+`stagger_if` hit pays off later; Rage throws it as a whiff punish that lands before the foe recovers, windup
+included, and in neutral at a foe within `range` px body to body, not swinging, dodging or guarding, `chance`
+of the ticks; never at a foe already marked: `_plan_setup`), `setup_routes` (the near routes while the foe
+lacks the `setup` mark; once marked, `routes`).
 `weights` (Rage's scored kit: per-candidate multipliers `surge`, `lob`, `gaze`, `zone`, `poke`,
 `give_ground` over `CpuController.WEIGHTS` and a `STYLES` entry's `weights`; 0 turns one off,
 e.g. Cerebro's `poke`, whose mallet thrown at a tank walking in loses the matchup).
@@ -56,7 +61,9 @@ e.g. Cerebro's `poke`, whose mallet thrown at a tank walking in loses the matchu
   `_rage_defend` / `_maybe_tag` / `_rage_punish` / `_rage_neutral`; else `_defend` / `_neutral`)
 - Combo route → `_pick_route` (Rage: longest affordable, never drops; below: 80% roll). A route
   whose first action is a skill is an opener route, followed when that skill landed (Digby's
-  pop-up out of Burrow → the juggle string); the light-opener search skips it
+  pop-up out of Burrow → the juggle string); the light-opener search skips it. First contact on a
+  later light of the string (`_string_index`: the first knife missed, the second hit) takes the light
+  routes from that point; before Oct 2026 it cancelled straight into the heavy, which whiffed at range
 - Hidden foes → `_look` (stealth or Vision says no → chased where last seen, `_seen`); a tunnelling
   (`hidden` move) foe's mound is seen within `MOUND_SIGHT` (Vision.HIDE_RANGE, 34 px) (`_mound_in_sight`)
 - Assassin lurk → `_plan_lurk`: on an arena with brush, `_cover_spot` (nearest standing brush cell

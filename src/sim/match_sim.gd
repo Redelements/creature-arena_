@@ -621,8 +621,14 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		d.stone = 0
 		emit_event("shatter", d.pos, damage, {"who": d.id, "by": a.id, "ice": d.stone_ice})
 	# A hit that doesn't stagger (Chef Cerebro's knife flicks): damage only. On a foe who
-	# isn't already stunned it doesn't start a combo either.
+	# isn't already stunned it doesn't start a combo either. Unless it names a mark the
+	# target carries ("stagger_if": a tenderized foe staggers under the Mallet Toss): set
+	# up, then it lands as an ordinary hit.
 	var no_flinch := bool(hit.get("no_flinch", false))
+	var paid_off := false
+	if no_flinch and d.has_mark(String(hit.get("stagger_if", ""))):
+		no_flinch = false
+		paid_off = true
 	var was_stunned := d.is_stunned()
 	var n := d.combo_hits + 1
 	var types := d.combo_types | int(SimDefs.TYPE_BIT[String(hit["type"])])
@@ -683,7 +689,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		d.poison_look = String(hit.get("poison_look", ""))
 		emit_event("poisoned", d.pos, float(hit["poison_ticks"]), {"who": d.id, "by": a.id, "look": d.poison_look})
 
-	if d.stealth > 0 and not (bool(hit["no_flinch"]) and ranged):
+	if d.stealth > 0 and not (no_flinch and ranged):
 		d.stealth = 0  # caught: visible again (a thrown knife flick that doesn't stagger isn't enough)
 		emit_event("unstealth", d.pos, 0.0, {"who": d.id})
 	if float(hit.get("steal_ticks", 0.0)) > 0.0:
@@ -778,7 +784,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	emit_event("hit", fx_pos, total, {
 		"attacker": a.id, "target": d.id, "move_type": String(hit["type"]), "dealt": dealt,
 		"combo": n, "variety": variety, "stale": stale < 1.0,
-		"heavy": String(hit["type"]) != "light", "no_flinch": no_flinch})
+		"heavy": String(hit["type"]) != "light", "no_flinch": no_flinch, "stagger_if": paid_off})
 	d.check_ko(self)
 	return "hit"
 
@@ -1040,6 +1046,8 @@ func _new_projectile(owner: CreatureSim, p: Dictionary, hit: Dictionary, vel: Ve
 		pr["life_total"] = life
 	if bool(p.get("pierce", false)):
 		pr["struck"] = []  # passes through, hitting each body once (Knife Flurry)
+	elif p.has("bounce") and not lob:
+		pr["bounce"] = (p["bounce"] as Dictionary).duplicate(true)  # on to a second foe (Cleaver Toss)
 	if p.has("end_sound"):
 		pr["end_sound"] = String(p["end_sound"])  # cosmetic, passed on to the view
 	if not bool(p.get("crack_trail", true)):
@@ -1104,6 +1112,8 @@ func _step_projectiles() -> void:
 				continue
 			if pierce and (p["struck"] as Array).has(d.id):
 				continue
+			if int(p.get("bounced_from", -1)) == d.id:
+				continue
 			if p.has("row_struck") and (p["row_struck"] as Array).has(d.id):
 				continue
 			if pos.distance_to(d.pos) > float(p["radius"]) + d.radius:
@@ -1116,6 +1126,8 @@ func _step_projectiles() -> void:
 				(p["struck"] as Array).append(d.id)
 				emit_event("projectile_pierce", pos, 1.0, {"who": int(p["owner"]), "sound": String(p.get("end_sound", ""))})
 				continue
+			if p.has("bounce") and _bounce(p, d):
+				break  # flies on at the next foe
 			spent = true
 			break
 		if spent:
@@ -1123,6 +1135,45 @@ func _step_projectiles() -> void:
 		else:
 			keep.append(p)
 	projectiles = keep
+
+
+## A bouncing shot ("bounce" {range, damage_mult}, Cleaver Toss) just hit `from`: it turns
+## toward the nearest other foe whose body is within `range` px of where it hit, its damage
+## × `damage_mult`, once. Foes it can't hit or can't see (stealth, brush) don't count, nor
+## knocked-out ones. Returns false (the shot ends) with nobody in range. Vectors only, so
+## every machine agrees.
+func _bounce(p: Dictionary, from: CreatureSim) -> bool:
+	var b: Dictionary = p["bounce"]
+	p.erase("bounce")  # once: whatever happens now, it doesn't bounce again
+	var owner := creatures[int(p["owner"])]
+	var at: Vector2 = p["pos"]
+	var hit: Dictionary = p["hit"]
+	var best: CreatureSim = null
+	var best_d := float(b.get("range", 80.0))
+	for o in creatures:
+		if o == from or not owner.is_foe(o) or o.state == CreatureSim.State.KO or o.stealth > 0 or o.covered:
+			continue
+		if not _hittable(o, hit):
+			continue
+		var dist := at.distance_to(o.pos) - o.radius
+		if dist < best_d:
+			best = o
+			best_d = dist
+	if best == null:
+		return false
+	var to := best.pos - at
+	var speed := Vector2(p["vel"]).length()
+	if to.length_squared() < 0.0001 or speed <= 0.0:
+		return false
+	p["vel"] = to.normalized() * speed
+	p["life"] = int(to.length() / speed) + 4  # enough to get there, and not much past
+	var nh := hit.duplicate()
+	nh["damage"] = float(hit["damage"]) * float(b.get("damage_mult", 1.0))
+	p["hit"] = nh
+	p["bounced_from"] = from.id
+	emit_event("projectile_bounce", at, 1.0, {"who": owner.id, "from": from.id, "to": best.id,
+		"sound": String(p.get("end_sound", ""))})
+	return true
 
 
 ## One of a row hit `foe_id`: the rest of that row (in flight, or yet to move this tick) pass them by.

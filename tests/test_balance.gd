@@ -227,7 +227,11 @@ func test_the_mage_beats_fighters_and_tanks() -> void:
 	# Since Cerebro's own Oct 25 2026 nerf (Kevin's call: the Mallet Toss doesn't stagger, so
 	# his string starts no combo) he only holds this against Cairn: Hissy 2 of 8, Culvert 0 of
 	# 8 and Craglash 3 of 40. Mister Crease is the mage the class rule is held to (below).
-	for foe in ["cairn"]:
+	# His Oct 2026 kit pass (the Mallet Toss staggers a tenderized foe, the Cleaver Toss
+	# bounces, and the CPU no longer cancels a string whose first knife missed straight into
+	# a Tenderize that whiffs at knife range) brought Hissy back (7 of 8) and Culvert (8 of
+	# 8); Craglash still beats him (2 of 8), so he stays off the list.
+	for foe in ["cairn", "hissy", "culvert"]:
 		var r := _wins("cerebro", foe, 4)
 		assert_gt(float(r[0]), r[1] * 0.5, "Chef Cerebro beats %s (%d of %d):" % [foe, r[0], r[1]])
 
@@ -251,7 +255,7 @@ func test_crease_plays_as_a_mage() -> void:
 		var r := _wins("crease", foe, 4)
 		assert_true(float(r[0]) >= r[1] * 0.5, "Mister Crease beats %s (%d of %d):" % [foe, r[0], r[1]])
 	# The mage mirror (Crease vs Cerebro) isn't pinned since the Oct 25 2026 Cerebro nerf:
-	# Crease took 10 of 10.
+	# Crease took 10 of 10 (6 of 10 after Cerebro's Oct 2026 kit pass; still not pinned).
 
 
 func test_fighters_beat_assassins() -> void:

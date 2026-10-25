@@ -87,14 +87,18 @@ func test_the_whole_ranged_string_combos_from_afar() -> void:
 	assert_gt(sim.creatures[1].combo_damage + 1.0, 1.0, "as one combo")
 
 
-func test_cleaver_toss_hits_only_the_first_foe() -> void:
+## Since the Oct 2026 kit pass the cleaver bounces off the first foe into one more close by
+## (projectile "bounce"; tests/test_kit_keys.gd has the rules), never a third.
+func test_cleaver_toss_bounces_from_the_first_foe_to_one_more() -> void:
 	var sim := _duel("cairn", 30.0)
 	var behind := sim.add_creature(MatchFactory.load_def("culvert"), sim.creatures[1].pos + Vector2(26, 0))
 	behind.facing = Vector2.LEFT
+	var third := sim.add_creature(MatchFactory.load_def("sno"), behind.pos + Vector2(0, 30))
 	run_until(sim, func(): return not _events(sim, "hit").is_empty(), 60, S1)
 	run(sim, 0, 30)
 	assert_lt(sim.creatures[1].hp, sim.creatures[1].max_hp, "the cleaver hits the first in line")
-	assert_eq(behind.hp, behind.max_hp, "and stops there:")
+	assert_lt(behind.hp, behind.max_hp, "bounces into the nearest other foe")
+	assert_eq(third.hp, third.max_hp, "and stops there:")
 
 
 func test_tenderize_hits_all_around_and_softens_them_up() -> void:
