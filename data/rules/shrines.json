@@ -1,0 +1,14 @@
+{
+	"_doc": "Shrines, the defaults for every mode that turns them on (a mode's rules \"shrines\" block, whose keys win over these; Capture the Flag keeps its own). A shrine is a ring on the floor: the map's \"shrines\" ({pos, radius, kind}), else one per \"spots\" entry (fractions of the floor, moved to the nearest solid floor). It is ready first after first_seconds; a team alone in it for claim_seconds claims it, and every fighter of that team on its feet gets the buff for buff_seconds (haste: walking x haste_mult; might: damage x might_mult); then it rests for cooldown_seconds. Two or more teams in it hold the claim where it is; another team alone wears an enemy claim down twice as fast before it starts its own; nobody in it lets a claim fade. announce_seconds before a shrine is ready the sim says so (shrine_soon). \"kinds\" (a list) cycles the kind each time a shrine is claimed (shrine i starts at kinds[i]); without it a shrine keeps the map's kind (haste when none). The CPU: the nearest fighter of each team within cpu_range px of a ready shrine, with no foe within cpu_engaged px of it, goes to claim it (sim.goals). Times are in seconds.",
+	"first_seconds": 30,
+	"claim_seconds": 3,
+	"buff_seconds": 15,
+	"cooldown_seconds": 40,
+	"announce_seconds": 10,
+	"haste_mult": 1.2,
+	"might_mult": 1.2,
+	"radius": 24,
+	"spots": [[0.5, 0.5]],
+	"cpu_range": 260,
+	"cpu_engaged": 56
+}

@@ -40,7 +40,8 @@ static func build(setup: Dictionary) -> Dictionary:
 			out["game"] = d
 		"team":
 			var rules := TeamSim.rules_by_id(String(setup.get("rules", "")))
-			var t := TeamSim.new(setup.get("teams", [[ids[0]], [ids[1]]]), int(setup.get("size", 1)), rules)
+			var t := TeamSim.new(setup.get("teams", [[ids[0]], [ids[1]]]), int(setup.get("size", 1)), rules,
+				int(setup.get("mut_seed", 0)))
 			out["sim"] = t.sim
 			out["game"] = t
 		"brawl":

@@ -1,5 +1,5 @@
 {
-	"_doc": "Twin Keeps, the Capture the Flag map: two walled keeps (three ways in: the front gate and a gap at each corner) at either end, a river down the middle with one bridge (it breaks: 'bridges'), an island up and down the river with a shrine on each ('shrines'), brush, fences and pits on the flanks. Mirrored left to right. Each flag stands on its side's base ('bases', floor pixels). Rects are [col, row, width, height] in 8 px cells on the 150x64 grid.",
+	"_doc": "Twin Keeps, the Capture the Flag map: two walled keeps (three ways in: the front gate and a gap at each corner) at either end, a river down the middle with one bridge (it breaks: 'bridges'), an island up and down the river, three shrines ('shrines': a might shrine on the bridge in the middle, a haste shrine out from each keep's top or bottom corner, 180-degree symmetric so each side has one near home), brush, fences and pits on the flanks. Mirrored left to right. Each flag stands on its side's base ('bases', floor pixels). Rects are [col, row, width, height] in 8 px cells on the 150x64 grid.",
 	"id": "twin_keeps",
 	"name": "Twin Keeps",
 	"ground": "grass",
@@ -398,8 +398,8 @@
 	"shrines": [
 		{
 			"pos": [
-				616,
-				160
+				196,
+				164
 			],
 			"kind": "haste",
 			"radius": 20
@@ -407,9 +407,17 @@
 		{
 			"pos": [
 				616,
-				480
+				320
 			],
 			"kind": "might",
+			"radius": 20
+		},
+		{
+			"pos": [
+				1036,
+				476
+			],
+			"kind": "haste",
 			"radius": 20
 		}
 	]

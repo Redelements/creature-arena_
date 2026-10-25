@@ -1,5 +1,5 @@
 {
-	"_doc": "King of the Crater (1v1, 2v2, 3v3): hold the zone. A side with someone inside the zone and nobody of the other side scores a tick; first to score_to_win ticks (3600 = 60 s) wins, or the longer hold at time. The zone moves every zone_move_every ticks through zone_points (fractions of the floor), cracking the floor round its rim when it lands and chipping a cell of the rim every crack_every ticks while it is held. Lives are unlimited like Team Deathmatch (respawn on the pads), but KOs score nothing. Times are in ticks (60 per second) unless named _seconds.",
+	"_doc": "King of the Crater (1v1, 2v2, 3v3): hold the zone. A side with someone inside the zone and nobody of the other side scores a tick; first to score_to_win ticks (3600 = 60 s) wins, or the longer hold at time. The zone moves every zone_move_every ticks through zone_points (fractions of the floor), cracking the floor round its rim when it lands and chipping a cell of the rim every crack_every ticks while it is held. Lives are unlimited like Team Deathmatch (respawn on the pads), but KOs score nothing. Times are in ticks (60 per second) unless named _seconds. Shrines (\"shrines\", over data/rules/shrines.json): one shrine standing opposite the zone (mirrored through the floor's centre, follow_zone; it moves when the zone does), first ready 20 s in and then 30 s after each claim. Claiming it gives each fighter of the claiming team standing in it one permanent buff for the rest of the match (kept through respawns), drawn from boosts by the match seed; max_boosts each, after which a claim only denies it. Either side's CPUs send one fighter for it (cpu_gate, off by default: only a side ahead on zone time or losing the zone).",
 	"deathmatch": true,
 	"crater": true,
 	"time_seconds": 240,
@@ -15,5 +15,20 @@
 	"zone_radius": 40,
 	"zone_move_every": 1200,
 	"zone_points": [[0.5, 0.5], [0.3, 0.3], [0.7, 0.7], [0.3, 0.7], [0.7, 0.3]],
-	"crack_every": 45
+	"crack_every": 45,
+	"shrines": {
+		"reward": "boost",
+		"follow_zone": true,
+		"zone_gap": 24,
+		"first_seconds": 20,
+		"cooldown_seconds": 30,
+		"max_boosts": 3,
+		"boosts": [
+			{"id": "damage", "text": "+8% DAMAGE", "damage": 1.08},
+			{"id": "speed", "text": "+8% SPEED", "speed": 1.08},
+			{"id": "hp", "text": "+10% MAX HP", "hp": 1.10},
+			{"id": "regen", "text": "+15% STAMINA REGEN", "regen": 1.15}
+		],
+		"cpu_range": 480
+	}
 }

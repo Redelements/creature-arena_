@@ -3343,10 +3343,15 @@ var caravan := {}
 ## "lift" (px above the floor: over a carrier's head), "back" (0..1 of a dropped flag's
 ## return timer left)}.
 var flags: Array = []
-## Capture the Flag's shrines (set by main): each {"pos", "radius", "kind" (haste, might),
-## "side" claiming (-1), "claim" (0..1), "rest" (seconds until ready, 0: ready)}.
+## The match's shrines (set by main, any mode with them): each {"pos", "radius", "kind"
+## (haste, might), "side" claiming (-1), "claim_color" (its colour), "claim" (0..1), "rest"
+## (seconds until ready, 0: ready), "charge" (0..1 through the last seconds before it's
+## ready, 0 otherwise)}.
 var shrines: Array = []
-const SHRINE_COLORS := {"haste": Color("6fe0ff"), "might": Color("ff9a3c")}
+const SHRINE_COLORS := {"haste": Color("6fe0ff"), "might": Color("ff9a3c"), "boost": Color("ffd84a")}
+## The Crater shrine's permanent buffs, one pip each under a fighter's health bar.
+const BOOST_COLORS := {"damage": Color("ff7a4a"), "speed": Color("6fe0ff"), "hp": Color("7ae07a"),
+	"regen": Color("ffd84a")}
 
 
 func _draw_pads(ci: CanvasItem) -> void:
@@ -3461,8 +3466,10 @@ func _draw_flag(ci: CanvasItem, f: Dictionary) -> void:
 
 
 ## A shrine: a stone ring on the floor. Ready, it glows in its colour (haste blue, might
-## orange) with its sign in the middle, and a claim fills round it in the claiming side's
-## colour; resting, it's dim with the seconds left.
+## orange) with its sign in the middle, and a claim fills round it in the claiming team's
+## colour; resting, it's dim with the seconds left. In its last seconds before it's ready
+## it charges up: a ring fills round it clockwise, a light swells inside and four motes
+## spiral in, quicker as it nears (true circles on the floor).
 func _draw_shrine(ci: CanvasItem, s: Dictionary) -> void:
 	var at: Vector2 = s["pos"]
 	var r := float(s["radius"])
@@ -3472,15 +3479,27 @@ func _draw_shrine(ci: CanvasItem, s: Dictionary) -> void:
 	ci.draw_arc(at, r, 0.0, TAU, 48, Color(0.1, 0.1, 0.12, 0.6), 3.0)
 	if rest > 0:
 		ci.draw_arc(at, r, 0.0, TAU, 48, Color(col, 0.25), 1.0)
+		var charge := float(s.get("charge", 0.0))
+		if charge > 0.0:
+			var beat := 0.5 + 0.5 * sin(float(_tick) * (0.15 + 0.35 * charge))
+			ci.draw_circle(at, r * (0.25 + 0.75 * charge), Color(col, 0.05 + 0.10 * charge * beat))
+			ci.draw_arc(at, r + 3.0, -PI * 0.5, -PI * 0.5 + TAU * charge, 48, Color(col, 0.55 + 0.4 * beat), 2.0)
+			for k in 4:
+				var a := float(k) * TAU / 4.0 + float(_tick) * (0.04 + 0.1 * charge)
+				var d := r * (1.6 - 0.6 * charge)
+				ci.draw_rect(Rect2((at + Vector2(cos(a), sin(a)) * d).floor(), Vector2(2, 2)), Color(col.lightened(0.3), 0.5 + 0.5 * charge))
 		ci.draw_string_outline(_font, at + Vector2(-12, 3), str(rest), HORIZONTAL_ALIGNMENT_CENTER, 24, UiTheme.px(7), 1, Color(C_OUTLINE, 0.7))
 		ci.draw_string(_font, at + Vector2(-12, 3), str(rest), HORIZONTAL_ALIGNMENT_CENTER, 24, UiTheme.px(7), Color(col, 0.6))
 		return
 	var glow := 0.5 + 0.5 * sin(float(_tick) * 0.12)
 	ci.draw_circle(at, r, Color(col, 0.08 + 0.06 * glow))
 	ci.draw_arc(at, r, 0.0, TAU, 48, Color(col, 0.7 + 0.3 * glow), 1.5)
-	# The sign: haste is a double chevron, might a fist-like block.
+	# The sign: haste is a double chevron, might a fist-like block, a permanent buff a plus.
 	var sc := Color(col.lightened(0.3), 0.85)
-	if kind == "haste":
+	if kind == "boost":
+		ci.draw_rect(Rect2(at + Vector2(-1, -5), Vector2(3, 11)), sc)
+		ci.draw_rect(Rect2(at + Vector2(-5, -1), Vector2(11, 3)), sc)
+	elif kind == "haste":
 		for dx in [-3.0, 2.0]:
 			ci.draw_polyline(PackedVector2Array([at + Vector2(dx - 2, -4), at + Vector2(dx + 2, 0), at + Vector2(dx - 2, 4)]), sc, 1.5)
 	else:
@@ -3489,8 +3508,10 @@ func _draw_shrine(ci: CanvasItem, s: Dictionary) -> void:
 	var side := int(s["side"])
 	var claim := clampf(float(s["claim"]), 0.0, 1.0)
 	if side >= 0 and claim > 0.0:
-		var sidec: Color = Hud.SIDE_COLORS[side]
-		ci.draw_arc(at, r + 3.0, -PI * 0.5, -PI * 0.5 + TAU * claim, 48, Color(sidec, 0.95), 2.5)
+		var sidec: Color = s.get("claim_color", Hud.SIDE_COLORS[clampi(side, 0, 1)])
+		ci.draw_circle(at, r * claim, Color(sidec, 0.16))  # the claim floods the floor from the middle
+		ci.draw_arc(at, r + 3.0, 0.0, TAU, 48, Color(0.1, 0.1, 0.12, 0.5), 4.0)
+		ci.draw_arc(at, r + 3.0, -PI * 0.5, -PI * 0.5 + TAU * claim, 48, Color(sidec, 0.95), 3.0)
 
 
 ## A shrine's buff on a fighter: a ring at its feet in the shrine's colour, a few sparks
@@ -3540,12 +3561,25 @@ func _draw_side_marks(ci: CanvasItem) -> void:
 		var col: Color = REL_COLORS.get(rel, mk["color"])
 		var at := (c.pos + Vector2(0, -_top(c) - 8.0 - c.air_height() - CreatureView.view_lift(c))).round()
 		_draw_plate(ci, c, at, col, alpha)
+		if not c.boost_ids.is_empty():
+			_draw_boost_pips(ci, c, at, alpha)
 		var label := String(mk.get("label", ""))
 		if label != "":
 			var lc := Color(col, alpha)
 			ci.draw_string_outline(_font, at + Vector2(-20, -3), label, HORIZONTAL_ALIGNMENT_CENTER, 41, UiTheme.px(6), 1,
 				Color(C_OUTLINE, alpha))
 			ci.draw_string(_font, at + Vector2(-20, -3), label, HORIZONTAL_ALIGNMENT_CENTER, 41, UiTheme.px(6), lc)
+
+
+## The Crater shrine's permanent buffs: a pip each, in the buff's colour, under the bar.
+func _draw_boost_pips(ci: CanvasItem, c: CreatureSim, at: Vector2, alpha: float) -> void:
+	var n := c.boost_ids.size()
+	var x0 := at.x - float(n) * 3.0 + 1.0
+	var y := at.y + float(PLATE_H) + 4.0
+	for k in n:
+		var pc: Color = BOOST_COLORS.get(String(c.boost_ids[k]), Color.WHITE)
+		ci.draw_rect(Rect2(Vector2(x0 + 6.0 * k - 1.0, y - 1.0), Vector2(6, 6)), Color(C_OUTLINE, 0.9 * alpha))
+		ci.draw_rect(Rect2(Vector2(x0 + 6.0 * k, y), Vector2(4, 4)), Color(pc, alpha))
 
 
 ## The bar itself, centred on `at` (its top edge).

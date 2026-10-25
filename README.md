@@ -439,6 +439,27 @@ down.
 Offline for now (vs CPU); online Team Deathmatch needs the server to run the mode.
 Tuning: `data/rules/deathmatch.json`.
 
+### Shrines: King of the Crater, Brawl, Capture the Flag
+
+A shrine is a stone ring on the floor. "SHRINE IN 10" comes up and the ring charges ten
+seconds before it's ready. Stand in it with no enemy there for **3 s** to claim it; two
+teams in it hold the claim, and the other team alone wears yours down first. Then it rests
+(the number on it counts down).
+
+- **King of the Crater:** one shrine, always **opposite the zone** (mirrored through the
+  middle of the floor; straight up from a zone in the middle), moving when the zone moves.
+  First ready 20 s in, then 30 s after each claim. Whoever claims it gets a **permanent
+  buff for the rest of the match**, kept through respawns, drawn at random: **+8% damage,
+  +8% speed, +10% max HP** (and heals that much) or **+15% stamina regen**. Up to **3** each
+  (pips under your health bar); at 3 you can still claim it to deny it. Zone time now, or
+  power for later. Each CPU side sends one fighter for it; the rest hold the zone.
+- **Brawl and Chaos Cup:** one in the middle, claimed by a fighter alone: haste then might
+  for 15 s, first ready 12 s in, then every 25 s.
+- **Capture the Flag:** three on Twin Keeps (below).
+
+Tuning: `data/rules/shrines.json` (defaults) and each mode's `shrines` block
+(`crater.json`, `brawl.json`, `ctf.json`).
+
 ### Caravan: 2v2 and 3v3
 
 Single player > Caravan vs CPU, or online (pick **Caravan** as the team rules for a 2 v 2 or
@@ -488,7 +509,7 @@ Single player > Capture the Flag vs CPU (3 v 3 or 4 v 4), or online in 2 v 2 and
 **Capture the Flag** as the team rules) or **4 v 4** (Quick match > 4 v 4 Capture the Flag, or a
 4 v 4 room; CPUs fill the empty slots). Played on **Twin Keeps**, over three times the
 stadium's floor: a walled keep at each end (in by the front gate or a gap at either corner),
-a river down the middle with one bridge and an island up and down it, brush, fences and pits on the flanks. The camera
+a river down the middle with one bridge and an island up and down it, three shrines, brush, fences and pits on the flanks. The camera
 follows you, and arrows at the screen's edge point at both flags when they're out of shot.
 
 - **Take their flag:** touch it on its stand in their keep. Carrying it slows you a little.
@@ -507,8 +528,10 @@ follows you, and arrows at the screen's edge point at both flags when they're ou
 - **The bridge breaks:** heavy hits on someone standing on the bridge crack it; it creaks,
   then falls into the river, and the only way over is wading. It's back after 30 s.
   Defenders can break it on purpose to slow a run.
-- **Shrines:** one on each island up and down the river (haste: walk faster; might: hit
-  harder). Stand in one with no enemy there for 3 s and your whole side gets it for 20 s;
+- **Shrines:** three. A **haste** shrine near each keep (out from red's top corner and
+  blue's bottom corner: a home shrine each) and a **might** shrine on the bridge in the
+  middle, the contested one (when the bridge falls in, it's in the shallows until it's
+  back). Stand in one with no enemy there for 3 s and your whole side gets it for 20 s;
   then it rests for 45 s (the number on it counts down).
 - **Comebacks:** while your own flag is away you respawn in 3 s, not 5; in sudden death the
   carrier isn't slowed.

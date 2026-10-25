@@ -26,6 +26,8 @@ var teams: Array
 var size := 1
 var rules := ""
 var arena := ArenaMap.DEFAULT
+## The match's seed (TeamSim.online_seed, as the players work it out), kept in the replay.
+var match_seed := 0
 var players := 2  ## input slots
 ## Every row of inputs stepped, in order: the match's replay (saved by the server,
 ## sent to a spectator who joins late).
@@ -50,7 +52,8 @@ var _theirs: Array = []  ## slot -> frame -> digest
 
 
 ## `size` players per side: 1 is a Duel, 2 or 3 a team battle.
-func _init(p_teams: Array, input_delay: int, p_size := 1, p_rules := "", p_arena := ArenaMap.DEFAULT) -> void:
+## `p_n`: the match number the players got in "start" (the match's seed comes from it).
+func _init(p_teams: Array, input_delay: int, p_size := 1, p_rules := "", p_arena := ArenaMap.DEFAULT, p_n := 0) -> void:
 	teams = p_teams
 	size = p_size
 	rules = p_rules
@@ -58,7 +61,8 @@ func _init(p_teams: Array, input_delay: int, p_size := 1, p_rules := "", p_arena
 	var menu_arena: String = MatchFactory.arena
 	MatchFactory.arena = arena  # the same map as the players' machines
 	if size > 1:
-		duel = TeamSim.new(teams, size, TeamSim.rules_by_id(rules))
+		match_seed = TeamSim.online_seed(teams, size, rules, arena, p_n)
+		duel = TeamSim.new(teams, size, TeamSim.rules_by_id(rules), match_seed)
 		players = size * 2
 	else:
 		duel = DuelSim.new(teams, DuelSim.rules_for(teams))
@@ -175,7 +179,7 @@ func setup_dict() -> Dictionary:
 		for id in t:
 			ids.append(String(id))
 	return {"kind": "team" if size > 1 else "duel", "ids": ids, "teams": teams.duplicate(true), "size": size,
-		"rules": rules if size > 1 else DuelSim.rules_id_for(teams), "arena": arena, "mutators": {}, "mut_seed": 0}
+		"rules": rules if size > 1 else DuelSim.rules_id_for(teams), "arena": arena, "mutators": {}, "mut_seed": match_seed}
 
 
 func advance() -> int:
