@@ -78,6 +78,9 @@ size only: a map's `size` can be bigger, so code with a match asks `sim.floor_re
   escort heal `escort_healing`), class perks `perk` / `role_of`, `_ctf_step` (fumbles `_fumble`, passes `_try_pass`, flights `_fly`,
   shrines `_shrine_step`); CPU goals a mode sets → `match_sim.gd:goals` (saved)
 - Map bridges that break → `match_sim.gd:_step_bridges`, `bridge_strain`, `bridges` (saved)
+- Arena hazards (a mutator's `hazards`: tidal wave, meteor shower) → `hazards.gd` (`setup` raises breakwaters,
+  `step` after `_resolve_hits`, `hurt` for the shared effects, `sheltered`); state `MatchSim.hazards`,
+  `hazard_pickups` (saved; in the digest only when there are hazards), definitions `hazard_defs` (fixed)
 - Win / time-out rules → `duel_sim.gd:_time_out`, `team_sim.gd:_time_out`
 - Who can see whom → `vision.gd` (not stepped by the sim; reads it, keeps a memory of hits;
   its line answers are memoized per terrain version, under a lock: CPUs may ask from threads)
@@ -95,6 +98,7 @@ size only: a map's `size` can be bigger, so code with a match asks `sim.floor_re
 - `brawl_sim.gd` (BrawlSim) — Brawl: a free-for-all of two to four creatures, each on its own team with one life.
 - `creature_sim.gd` (CreatureSim) — One creature in the simulation: plain data plus rules. No nodes, no clock, no randomness.
 - `duel_sim.gd` (DuelSim) — Duel: 3v3 tag. Each side brings a team; one creature per side fights at a time.
+- `hazards.gd` (Hazards) — Arena hazards: things the arena does to everyone on a schedule (data/rules/hazards.json), switched on by a mutator's "h…
 - `match_sim.gd` (MatchSim) — The whole match state. Call step() once per tick with one input bitmask per creature.
 - `replay.gd` (Replay) — A match recorded as one input bitmask per creature per tick.
 - `sim_defs.gd` (SimDefs) — Shared constants for the deterministic simulation. Nothing in src/sim/ reads the clock, the screen, or a random number…

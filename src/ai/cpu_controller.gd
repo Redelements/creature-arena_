@@ -340,6 +340,93 @@ func _go_to(sim: MatchSim, me: CreatureSim, goal: Vector2, weave := Vector2.ZERO
 		_move_toward(d)
 
 
+# ------------------------------------------------------------------ arena hazards
+
+## How many ticks before a meteor lands each level notices its shadow (Easy late, Hard
+## and Rage as soon as it shows).
+const HAZARD_NOTICE := [28, 48, 999, 999]
+## How far round itself (cells) a CPU looks for rubble to shelter behind from a wave.
+const SHELTER_LOOK := 18
+var _shelter := Vector2.INF  ## the spot behind rubble picked for this wave (INF: none)
+var _shelter_t := 0  ## ticks until it looks again
+
+
+## Arena hazards (Hazards): steps out of a meteor's shadow, gets behind rubble when a wave
+## is coming (Hard and Rage dodge through its front when there's none), and takes a core
+## that's close when no foe is on it. Only moves and presses, like a player. True when it
+## acted (or holds still in shelter) and the rest of the decision waits.
+func _mind_hazards(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> bool:
+	var flee := Vector2.ZERO
+	for m in Hazards.meteors_now(sim):
+		var left := int(m["land"]) - sim.tick
+		if left > int(m["warn"]) or left > int(HAZARD_NOTICE[clampi(level, 0, 3)]):
+			continue  # no shadow yet, or not noticed yet
+		var d := me.pos - Vector2(m["pos"])
+		var need := float(m["radius"]) + me.radius + 6.0
+		var dl := d.length()
+		if dl < need:
+			flee += (d / dl if dl > 0.01 else Vector2.RIGHT) * (need - dl + 4.0)
+	if flee != Vector2.ZERO:
+		_go_to(sim, me, me.pos + flee.normalized() * 28.0)
+		return true
+	var w := Hazards.wave_now(sim)
+	if w.is_empty() or (w["done"] as Array).has(me.id):
+		_shelter = Vector2.INF
+		_shelter_t = 0
+	else:
+		var dir: Vector2 = w["dir"]
+		var near_foe := foe != null and _seen(foe).distance_to(me.pos) <= _reach_of(foe, me) + 6.0
+		if Hazards.shelters(w["def"], sim.terrain, me, dir):
+			return not near_foe  # behind rubble: stay there (fight only what comes to us)
+		_shelter_t -= 1
+		if _shelter_t <= 0:
+			_shelter = _find_shelter(sim, me, dir, w["def"])
+			_shelter_t = 20
+		if _shelter != Vector2.INF:
+			_go_to(sim, me, _shelter)
+			return true
+		if level >= 2 and int(w["phase"]) == Hazards.ACTIVE and me.can_dodge():
+			var fr := sim.floor_rect()
+			var side := int(w["side"])
+			var speed := Hazards.wave_len(fr, side) / float(maxi(1, Hazards.ticks_of((w["def"] as Dictionary).get("sweep_seconds", 1.0))))
+			var gap := Hazards.wave_s(fr, side, me.pos) - float(w["front"])
+			if gap > 0.0 and gap < speed * 3.0:
+				_move_toward(-dir)
+				_press(SimDefs.IN_DODGE)
+				return true
+	for pk in sim.hazard_pickups:
+		var at: Vector2 = pk["pos"]
+		if me.pos.distance_to(at) < 110.0 and not sim.terrain.is_hole_at(at) 				and (foe == null or _seen(foe).distance_to(me.pos) > _reach_of(foe, me) + 16.0):
+			_go_to(sim, me, at)
+			return true
+	return false
+
+
+## The nearest spot behind rubble (downstream of a WALL cell, sheltered from a wave going
+## `dir`) within SHELTER_LOOK cells, on floor it can stand on; INF when there's none.
+func _find_shelter(sim: MatchSim, me: CreatureSim, dir: Vector2, d: Dictionary) -> Vector2:
+	var t := sim.terrain
+	var c0 := t.world_to_cell(me.pos)
+	var best := Vector2.INF
+	var best_d := INF
+	for cy in range(c0.y - SHELTER_LOOK, c0.y + SHELTER_LOOK + 1):
+		for cx in range(c0.x - SHELTER_LOOK, c0.x + SHELTER_LOOK + 1):
+			var c := Vector2i(cx, cy)
+			if t.get_cell(c) != TerrainGrid.WALL:
+				continue
+			var spot := t.cell_center(c) + dir * (SimDefs.CELL * 0.5 + me.radius + 3.0)
+			if not t.is_walkable(t.get_cell(t.world_to_cell(spot))) or t.body_blocked(spot, me.radius) 					or not sim.floor_rect().grow(-me.radius).has_point(spot):
+				continue
+			var sh: Dictionary = d.get("shelter", {})
+			if not Hazards.sheltered(t, spot, me.radius, dir, float(sh.get("depth", 48)), float(sh.get("lane", 0.6))):
+				continue
+			var dd := spot.distance_squared_to(me.pos)
+			if dd < best_d:
+				best_d = dd
+				best = spot
+	return best
+
+
 ## Whether this CPU may run a path search this tick. A search costs up to a few ms on a
 ## big map, and a goal that keeps moving (a flag carrier) asks for one every tick, so on
 ## a crowded field the CPUs take turns: one search a tick at most, each CPU's turn coming
@@ -417,6 +504,9 @@ func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 	if sim.sink_ring >= 0 and me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE, CreatureSim.State.GUARD] \
 			and not sim.sink_safe.grow(-1).has_point(sim.terrain.world_to_cell(me.pos)):
 		_go_to(sim, me, sim.floor_rect().get_center())
+		return
+	# Arena hazards (a mutator's): meteor shadows, a wave coming, a core to pick up.
+	if not sim.hazards.is_empty() and me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE, CreatureSim.State.GUARD] 			and _mind_hazards(sim, me, foe):
 		return
 	var to_foe := _seen(foe) - me.pos
 	# A goal the mode's rules give this fighter (Capture the Flag: the flag, home, the

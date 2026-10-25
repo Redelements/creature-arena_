@@ -1,0 +1,38 @@
+{
+	"_doc": "Arena hazards a mutator switches on (\"hazards\": [ids] in data/rules/mutators.json; read by Hazards in src/sim/hazards.gd, keys in docs/MECHANICS.md \"Arena hazards\"). Each has a shape (wave: a front that sweeps the floor from one seeded edge; meteors: a shower of falling rocks, each a growing shadow first), a schedule (first_seconds: when the first warning starts, every_seconds: from one warning to the next, warn_seconds or warn_ticks: how long the warning shows) and effects: damage_pct (true damage, a share of max HP, ignores guard and shields), role_mult (per sheet role), min_hp (it never takes anyone below this: 1 means it can't KO), push (px a tick, divided by weight), stun (ticks of hitstun with the push), crack / pit / pit_core (floor damage where it strikes), shallows (cells turn to shallows for a while, then back to the map), pickup (left on the floor: the first fighter to touch it takes the buff).",
+	"tidal_wave": {
+		"shape": "wave",
+		"first_seconds": 25,
+		"every_seconds": 30,
+		"warn_seconds": 3,
+		"sweep_seconds": 1.0,
+		"damage_pct": 0.12,
+		"role_mult": {"tank": 0.67},
+		"min_hp": 1,
+		"push": 9.0,
+		"stun": 26,
+		"shelter": {"depth": 48, "lane": 0.6},
+		"breakwaters": {"count": 5, "size": [2, 2], "clear": 56, "gap": 12, "inset": 4},
+		"shallows": {"share": 0.34, "seconds": 5}
+	},
+	"meteor_shower": {
+		"shape": "meteors",
+		"first_seconds": 20,
+		"every_seconds": 25,
+		"count": 8,
+		"spread_seconds": 2,
+		"warn_ticks": 70,
+		"radius": 28,
+		"aimed_share": 0.5,
+		"aim_jitter": 40,
+		"inset": 20,
+		"damage_pct": 0.08,
+		"role_mult": {"tank": 0.67},
+		"min_hp": 0,
+		"push": 3.5,
+		"stun": 16,
+		"crack": 28,
+		"big": {"radius": 34, "damage_pct": 0.1, "crack": 36, "pit": 36, "pit_core": 14},
+		"pickup": {"kind": "might", "seconds": 8, "radius": 10, "buff_seconds": 10, "mult": 1.2}
+	}
+}

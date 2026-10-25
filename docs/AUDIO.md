@@ -107,6 +107,11 @@ buses at start-up; `play(name, ..., ui = true)` sends a sound to Menu sounds.
 | [ ] | (`twister`) | Thousand Cranes lands and whirls (`storm`) | A rustling storm of wings; needs its own sound |
 | [ ] | (`crack`) | The storm ends (`storm_end`) | A paper burst over a floor crack; needs its own sound |
 | [ ] | (none) | Thousand Cranes starts (his voice line, "Fold 'em.") | Only the shout text for now; the real one is his voice |
+| [ ] | (`roar` low + `wave` low) | A tidal wave's warning (`hazard_warn`, arena hazards) | A deep rising swell and a distant roar, 3 s; needs its own sound |
+| [ ] | (`splash` low) | The wave's front crashes in (`hazard_strike`) and strikes someone (`hazard_hit`) | A heavy surf crash; a slap of water on a body; need their own sounds |
+| [ ] | (`windup_red`, low) | A meteor shower starts (`hazard_warn`) | A rising whistle overhead; needs its own sound |
+| [ ] | (`slam` / `cave_in`) | A meteor lands; the big one punches a pit (`hazard_strike`) | A fiery thud with crackle; a bigger one with rock spray; need their own sounds |
+| [ ] | (`stoneskin`, pitched up) | A meteor's core is taken (`hazard_pickup`) | A warm power-up chime; needs its own sound |
 
 Craglash, Barkley, Gillbert, Chef Cerebro, Hissy Fitz, Digby, Sneaky Pete and Sno Mercy have signature sounds; Gillbert also has footsteps
 (`"step_sound"` in his JSON). Cries and footsteps don't exist

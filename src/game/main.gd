@@ -45,6 +45,9 @@ extends Node2D
 ##   --teams=a,b,c:d,e,f   Duel / 2-player teams (default cerebro,gillbert,barkley:culvert,cerebro,craglash)
 ##   --pick                show the team pick screen even with --mode
 ##   --cpu-vs-cpu          every player side is played by the CPU (demos, captures)
+##   --mutators=a,b        these mutators (data/rules/mutators.json ids: tidal_wave,
+##                         meteor_shower, low_gravity...) on every offline match this session;
+##                         Chaos Cup plays them instead of its seeded draw
 ##   --view-team=N         show the match as team N sees it (brush, fences, walls hide
 ##                         foes), even with nobody playing here (captures of --cpu-vs-cpu)
 ##   --menu=PAGE           open a menu page: main, single, single:<group>, look (Time and weather), settings, game, video, audio, controls,
@@ -171,7 +174,7 @@ const MENU_ROWS := [
 	{"label": "Brawl", "group": "brawl", "modes": [45, 42, 43, 44], "choices": ["you vs 3 CPUs", "2 players", "3 players", "4 players"],
 		"desc": "Free-for-all, four fighters, one life each; CPUs fill the empty seats. Left/Right: how many play"},
 	{"label": "Chaos Cup", "group": "brawl", "modes": [46],
-		"desc": "A Brawl with three random mutators stacked on: low gravity, Surge rush, a floor of pits, haste, glass cannon"},
+		"desc": "A Brawl with three random mutators stacked on: low gravity, Surge rush, a floor of pits, haste, glass cannon, a tidal wave, a meteor shower"},
 	{"label": "Replay theater", "group": "practice", "screen": "replays", "desc": "Watch the fights you saved with F6"},
 	{"label": "Versus: 2 players", "group": "local", "modes": [8], "desc": "One fighter each, two players on one screen"},
 	{"label": "Versus CPU", "group": "cpu", "modes": [0, 1, 12, 14, 16, 18, 21, 23, 25, 27, 48],
@@ -463,6 +466,10 @@ var player4_input := PlayerInput.new()
 ## and a replay being watched (its frames feed every REPLAY side).
 var brawl: BrawlSim = null
 var _chaos_names := ""
+## `--mutators=a,b`: these mutators (data/rules/mutators.json ids, merged) on every offline
+## match this session (Chaos Cup plays them instead of its draw), and their names.
+var _forced_mutators := {}
+var _forced_names: Array = []
 var _replay_frames: Array = []
 var _replay_watched := {}  ## that replay's setup (a training one's mid-recording option changes)
 var _rules_id := ""
@@ -1643,7 +1650,10 @@ func _start_brawl(cfg: Dictionary) -> void:
 	ids = ids.slice(0, BrawlSim.MAX_PLAYERS)
 	var muts := {}
 	_chaos_names = ""
-	if cfg.get("chaos", false):
+	if not _forced_mutators.is_empty():
+		muts = _forced_mutators.duplicate(true)
+		_chaos_names = ", ".join(_forced_names)
+	elif cfg.get("chaos", false):
 		var table := Daily.mutator_table()
 		var keys: Array = table.keys()
 		keys.sort()
@@ -1656,9 +1666,7 @@ func _start_brawl(cfg: Dictionary) -> void:
 			keys[j] = t
 		var names: Array = []
 		for k in keys.slice(0, 3):
-			for key in table[k]:
-				if key != "name":
-					muts[key] = table[k][key]
+			MatchSim.merge_mutator(muts, table[k])
 			names.append(String(table[k].get("name", k)))
 		_chaos_names = ", ".join(names)
 	brawl = BrawlSim.new(ids, {}, muts, seed_base)
@@ -1980,6 +1988,17 @@ func _team_flow() -> void:
 				hud.banner_sub = _over_reason()
 
 
+## An arena hazard is coming (a mutator's, Hazards): the wave's banner names the edge it
+## comes from and what to do; a meteor shower gets a toast.
+func _hazard_warn(e: Dictionary) -> void:
+	if String(e.get("shape", "")) == "wave":
+		var side := int(e.get("side", 0))
+		hud.moment("TIDAL WAVE!", "FROM THE %s  -  GET BEHIND THE RUBBLE" % String(Hazards.SIDE_NAMES[clampi(side, 0, 3)]).to_upper(),
+			Color("6fb8f0"))
+	else:
+		hud.show_toast("METEOR SHOWER!  STAY OUT OF THE SHADOWS")
+
+
 ## Capture the Flag: what each play says at the bottom of the screen; the local team's
 ## flag being taken also flashes the screen's edge red, and the local carrier is told how
 ## to pass.
@@ -2285,6 +2304,8 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 		for i in sides.size():
 			if sides[i] in LOCAL_SIDES:
 				sides[i] = Side.CPU
+	if not _forced_mutators.is_empty() and s.mutators.is_empty() and s.tick == 0 and online == null 			and not _menu_bg and showcase == null and coach == null:
+		s.apply_mutators(_forced_mutators, seed_base)  # --mutators: on any offline match
 	replay = Replay.new()
 	replay.setup = _replay_setup(s)
 	cpus = []
@@ -2935,6 +2956,15 @@ func _react(e: Dictionary) -> void:
 		"checkpoint", "caravan_done":
 			audio.play("round_start", -3.0, 1.2)
 			crowd.cheer(0.7)
+		"hazard_warn":
+			_hazard_warn(e)
+		"hazard_strike":
+			if String(e.get("shape", "")) == "wave":
+				shake = maxf(shake, 4.0)
+				crowd.roar(50)
+			else:
+				shake = maxf(shake, 3.0 if bool(e.get("big", false)) else 1.5)
+				crowd.cheer(0.15)
 		"rockslide":
 			audio.play("cave_in")
 			shake = maxf(shake, 5.0)
@@ -4410,6 +4440,16 @@ func _parse_args() -> int:
 			pick = true
 		elif a == "--cpu-vs-cpu":
 			_cpu_vs_cpu = true
+		elif a.begins_with("--mutators="):
+			var table := Daily.mutator_table()
+			_forced_mutators = {}
+			_forced_names = []
+			for id in a.get_slice("=", 1).split(",", false):
+				if table.has(id):
+					MatchSim.merge_mutator(_forced_mutators, table[id])
+					_forced_names.append(String(table[id].get("name", id)))
+				else:
+					push_warning("--mutators: no mutator '%s' (data/rules/mutators.json)" % id)
 		elif a.begins_with("--view-team="):
 			_view_team_arg = int(a.get_slice("=", 1))
 		elif a.begins_with("--teams="):
