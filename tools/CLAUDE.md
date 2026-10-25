@@ -62,6 +62,13 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   (`fore_layers`, `FORE` per map; `FORE_GAP` / `FORE_H` / `HANG_TOP` / `HANG_H` in step with
   `ForeView`). `gen_audio.py`: placeholder
   SFX and music; names must match `data/audio.json`.
+- `odin_perf.py`: frame pacing on an Android device over adb (the Odin 3): bakes the run's
+  flags into the Android preset, exports a release APK (`--renderer mobile` tries Vulkan),
+  plays a seeded fight with `--perf`, reads the report from logcat and the presents from
+  SurfaceFlinger (`SCREEN` lines: what the screen showed, refreshes per frame, the queue's
+  lag), and writes `build/perf/<label>.txt`. Put back `export_presets.cfg` and
+  `project.godot` itself. Judge by the SCREEN lines: the CPU-side frame times look far worse
+  than what's shown.
 - `codebase_map.py`: writes the generated file list at the end of each area's `CLAUDE.md`;
   `--check` is the CI drift check. Standard library only.
 
@@ -134,6 +141,7 @@ tools, so a fighter's pass is posing work only.
 - `gen_pete.py` — Sneaky Pete sprite sheets, a pixel-art recreation of the artist's character sheet.
 - `gen_sno.py` — Sno Mercy sprite sheets, a pixel-art recreation of the artist's character sheet.
 - `gen_sprites.py` — Generate the small placeholder sheets for Creature Arena: floor tiles, the crowd, effects.
+- `odin_perf.py` — Measure frame pacing on an Android device (the AYN Odin 3) over adb.
 - `palette.py` — The master palette: one published set of colours for every fighter and arena.
 - `shade2d.py` — Master-palette shading for the 2D painters (Barkley's and Gillbert's rigs).
 - `splat3d.py` — Shared renderer for the sheet-recreation sprite generators (tools/gen_digby.py and later).

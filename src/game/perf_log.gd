@@ -8,6 +8,9 @@ extends RefCounted
 ## Parts: main and the views add where the time went (`PerfLog.since("fx", t0)` with `t0`
 ## from `PerfLog.now()`), plus the renderer's own CPU and GPU time per frame, so the report
 ## says which part to cut.
+## The frame line is also read as a player would: average fps, the 1% and 0.1% lows (the
+## average fps over the slowest 1% and 0.1% of frames), the frames that missed the cap's
+## refresh (over 1.5 frame intervals: shown twice), and the slowest second of the fight.
 
 const SKIP := 120  ## the first frames of a fight (loading, first draws) are left out
 
@@ -43,6 +46,8 @@ static func since(part: String, t0: int) -> void:
 
 ## Also log the renderer's CPU and GPU time for this viewport's frames.
 func measure(viewport: RID) -> void:
+	if "--render-thread" in OS.get_cmdline_args() or ProjectSettings.get_setting("rendering/driver/threads/thread_model", 1) == 2:
+		return  # reading the times waits for a separate render thread every frame (and slows it)
 	_viewport = viewport
 	RenderingServer.viewport_set_measure_render_time(viewport, true)
 	RenderingServer.frame_pre_draw.connect(_pre_draw)
@@ -50,12 +55,29 @@ func measure(viewport: RID) -> void:
 ## game's own cost for the frame (ticks, views, their drawing), without the renderer or
 ## the wait for the screen or the frame cap.
 var _busy_from := 0
+var _ticks_since := 0  ## ticks stepped since the last frame went to the renderer
+var _no_tick_run := 0
+## Runs of two or more frames without a tick (see _pre_draw).
+var uneven := 0
 
 
 func _pre_draw() -> void:
 	if _busy_from > 0:
 		since("game", _busy_from)
+		# The same time split by what the frame carried: at 120 fps every other frame steps a
+		# 60 Hz tick, and one that steps two (catching up after a slow frame) costs double.
+		# A tick's picture held for three frames or more where two would be even (at 120 Hz):
+		# a judder however steady the frames are. Counted as runs of frames with no tick.
+		if _ticks_since == 0:
+			_no_tick_run += 1
+		else:
+			if _no_tick_run >= 2:
+				uneven += 1
+			_no_tick_run = 0
+		var kind := "game, tick frames" if _ticks_since == 1 else ("game, no-tick frames" if _ticks_since == 0 else "game, 2+ tick frames")
+		since(kind, _busy_from)
 	_busy_from = 0
+	_ticks_since = 0
 
 
 ## Called first thing in a tick and in a frame's process.
@@ -96,21 +118,67 @@ func _add_part(part: String, ms: float) -> void:
 
 
 func tick(fighting: bool, us: int) -> void:
+	_ticks_since += 1
 	if fighting:
 		ticks.append(us / 1000.0)
 
 
-func report() -> String:
-	var lines := ["PERF %s, %d fps now, %d draw calls" % [OS.get_processor_name(),
-		Engine.get_frames_per_second(),
+func report(cap := 60) -> String:
+	var lines := ["PERF %s, %s, %d fps now, %d draw calls" % [OS.get_processor_name(),
+		RenderingServer.get_current_rendering_method(), Engine.get_frames_per_second(),
 		Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)]]
 	lines.append(_line("frame", frames))
+	lines.append(lows(frames, cap))
+	lines.append("PERF ticks held 3+ frames: %d (%.2f a second)" % [uneven, uneven * 1000.0 / maxf(1.0, _sum(frames))])
 	lines.append(_line("tick", ticks))
 	for part in parts:
 		lines.append(_line("  " + part, parts[part], 0))
 	for line in slow:
 		lines.append("PERF slow frame at " + line)
 	return "\n".join(lines)
+
+
+## The frame times as a player reads them, at a cap of `cap` fps (see the header).
+static func lows(values: PackedFloat32Array, cap: int, skip := SKIP) -> String:
+	var a := Array(values).slice(skip)
+	if a.is_empty():
+		return "PERF fps: no samples"
+	var total := 0.0
+	for v in a:
+		total += v
+	var worst_s := INF
+	var i0 := 0
+	var span := 0.0
+	for i in a.size():  # every run of frames a second long
+		span += a[i]
+		while span - a[i0] >= 1000.0:
+			span -= a[i0]
+			i0 += 1
+		if span >= 1000.0:
+			worst_s = minf(worst_s, (i - i0 + 1) * 1000.0 / span)
+	var missed := a.filter(func(v): return v > 1500.0 / cap).size()
+	var by := a.duplicate()
+	by.sort()
+	by.reverse()
+	return "PERF fps at a cap of %d: avg %.1f, 1%% low %.1f, 0.1%% low %.1f, slowest second %s | missed %d of %d (%.2f%%, %.2f a second)" % [
+		cap, a.size() * 1000.0 / total, _low(by, 0.01), _low(by, 0.001),
+		"%.1f" % worst_s if worst_s < INF else "-", missed, a.size(), 100.0 * missed / a.size(), missed * 1000.0 / total]
+
+
+static func _sum(a: PackedFloat32Array) -> float:
+	var t := 0.0
+	for v in a:
+		t += v
+	return t
+
+
+## The average fps over the slowest `share` of frames (`slowest_first` sorted, longest first).
+static func _low(slowest_first: Array, share: float) -> float:
+	var n := maxi(1, int(slowest_first.size() * share))
+	var ms := 0.0
+	for i in n:
+		ms += slowest_first[i]
+	return n * 1000.0 / ms
 
 
 static func _line(label: String, values: PackedFloat32Array, skip := SKIP) -> String:

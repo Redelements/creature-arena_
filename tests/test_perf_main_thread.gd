@@ -4,6 +4,8 @@ extends TestCase
 ## redraw the seats, a Surge aura skips a fighter off screen, PerfLog ignores a worker
 ## thread (the CPU players' probes once stalled the game before its first tick), and main
 ## joins the CPU threads at the next tick, or first on a press (never on mouse motion).
+## The --perf report reads the frames as fps: the 1% and 0.1% lows, missed refreshes, the
+## slowest second.
 
 const TEST_SETTINGS := "user://test_perf_main_thread.cfg"
 
@@ -166,3 +168,28 @@ func test_a_smaller_map_after_a_big_one_never_draws_the_old_bands() -> void:
 		if b is ArenaView.Band:
 			assert_true(b.row1 <= sim.terrain.rows, "every band in the tree fits the new map:")
 	av.free()
+
+
+func test_the_report_gives_the_lows_missed_frames_and_the_slowest_second() -> void:
+	# 2000 frames at 120 fps with two missed refreshes (each shown for two frames) close
+	# together, so one second of the fight holds both.
+	var f := PackedFloat32Array()
+	for i in 2000:
+		f.append(1000.0 / 120.0)
+	f[1500] = 2000.0 / 120.0
+	f[1530] = 2000.0 / 120.0
+	var line := PerfLog.lows(f, 120, 0)
+	assert_true(line.contains("missed 2 of 2000"), line)
+	assert_true(line.contains("0.1% low 60.0"), "the slowest 2 frames are 60 fps: " + line)
+	assert_true(line.contains("1% low 109.1"), "20 frames, 2 of them doubled: " + line)
+	assert_true(line.contains("slowest second 118.0"), "120 refreshes hold 118 frames: " + line)
+
+
+func test_fps_pacing_vsync_paces_a_cap_at_the_screens_rate() -> void:
+	var M := preload("res://src/game/main.gd")
+	assert_eq(M.pace_cap(120, 120.0, true), 120, "by default the limiter, as before")
+	assert_eq(M.pace_cap(120, 120.0, true, "vsync"), 0, "120 on a 120 Hz screen: vsync paces it")
+	assert_eq(M.pace_cap(120, 119.88, true, "vsync"), 0, "a screen a hair under 120 too")
+	assert_eq(M.pace_cap(120, 120.0, false, "vsync"), 120, "no vsync: the limiter")
+	assert_eq(M.pace_cap(144, 360.0, true, "vsync"), 144, "under the screen's rate: the limiter")
+	assert_eq(M.pace_cap(60, 0.0, true, "vsync"), 60, "a rate the screen doesn't report: the limiter")

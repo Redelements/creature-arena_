@@ -103,7 +103,10 @@ After `--`; the full list is in the `main.gd` header, modes in `MODES`.
 `--cam=X,Y[,ZOOM]` (hold the camera on a world spot, still clamped to the arena and stands: screenshots of the edges), `--cam-lead=0|1`, `--cam-clash=0|1`, `--cam-settle=0|1` (camera behaviour off / Normal for this session, not saved; also `low|normal|high`), `--training-screen=pause|options|fighters` (with a training `--mode`), `--training-flags=no_cooldowns,full_energy`,
 `--perf` (frame and tick percentiles on quit, with each part's share: the tick's
 steps, each view's `_draw` via `PerfLog.since`, the renderer's CPU and GPU time, and when
-the slowest frames came; `perf_log.gd`), `--cpu-threads=off`. Modes: 5 showcases, 6 Duel vs CPU, 7 Duel 2P,
+the slowest frames came; the 1% and 0.1% lows, missed frames, the slowest second, game time
+split into tick and no-tick frames, ticks held 3+ frames; `perf_log.gd`), `--fight-fps=N`
+(this session's fight cap), `--fps-pacing=vsync` (an experiment: vsync paces a cap at the
+screen's rate, `pace_cap`), `--cpu-threads=off`. Modes: 5 showcases, 6 Duel vs CPU, 7 Duel 2P,
 8 Versus 2P, 9 Combo Trials, 10/11 Reaction Drills, 12–19 and 21–28 each fighter's "vs CPU"
 and "training" pair (Craglash, Barkley, Gillbert, Cerebro, Hissy, Digby, Pete, Sno), 20 Online,
 29/30 Team 2v2/3v3 vs CPU,
