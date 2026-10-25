@@ -98,6 +98,13 @@ var events: Array[Dictionary] = []
 var bridges: Array = []
 ## The bridges' cells (from the map, fixed for the match).
 var bridge_rects: Array[Rect2i] = []
+## Arena hazards (a mutator's "hazards": Hazards in hazards.gd): each one's state
+## ({id, phase, t, next, rng, side, front, done, puddles, dry, meteors}), and what they left
+## on the floor to pick up ({pos, radius, until, kind, ticks, mult}). Saved. Their
+## definitions (data/rules/hazards.json entries by id) are fixed for the match.
+var hazards: Array = []
+var hazard_pickups: Array = []
+var hazard_defs := {}
 
 
 ## Lays an arena map on the floor. Call before adding creatures (it resets the grid).
@@ -128,7 +135,8 @@ func arena_size() -> Vector2:
 
 ## Applies mutators (data/rules/mutators.json keys): per-fighter multipliers go on
 ## every creature, `surge_every` fills the meters on a timer, `pit_floor` sinks that
-## share of the floor into chasms in a pattern from `seed_`, clear of the spawns.
+## share of the floor into chasms in a pattern from `seed_`, clear of the spawns,
+## `hazards` switches on arena hazards (Hazards.setup: breakwaters rise, clear of everyone).
 ## Call once the creatures are in.
 func apply_mutators(m: Dictionary, seed_: int) -> void:
 	mutators = m.duplicate()
@@ -152,6 +160,25 @@ func apply_mutators(m: Dictionary, seed_: int) -> void:
 						clear = false
 				if clear and terrain.get_cell(c) == TerrainGrid.INTACT:
 					terrain.sink(c)
+	var hz: Array = m.get("hazards", [])
+	if not hz.is_empty():
+		Hazards.setup(self, hz, seed_)
+
+
+## Adds one mutators.json entry's keys to a merged set (`into`): a "hazards" list adds up
+## with the ones already there; any other key replaces. "name" is skipped.
+static func merge_mutator(into: Dictionary, entry: Dictionary) -> void:
+	for k in entry:
+		if k == "name":
+			continue
+		if k == "hazards":
+			var list: Array = (into.get("hazards", []) as Array).duplicate()
+			for h in entry[k]:
+				if not (h in list):
+					list.append(h)
+			into["hazards"] = list
+		else:
+			into[k] = entry[k]
 
 
 ## Where a side's fighters start on this map.
@@ -242,6 +269,8 @@ func step(inputs: PackedInt32Array) -> void:
 	_step_zones()
 	_step_storms()
 	_resolve_hits()
+	if not hazards.is_empty():
+		Hazards.step(self)
 	_separate()
 	_unstick()
 	_check_falls()
@@ -316,6 +345,7 @@ func snapshot() -> Dictionary:
 		"creatures": cs, "projectiles": projectiles.duplicate(true), "zones": zones.duplicate(true),
 		"storms": storms.duplicate(true), "training_flags": training_flags.duplicate(),
 		"bridges": bridges.duplicate(true),
+		"hazards": hazards.duplicate(true), "hazard_pickups": hazard_pickups.duplicate(true),
 	}
 
 
@@ -342,6 +372,8 @@ func restore(s: Dictionary) -> void:
 	storms.assign((s.get("storms", []) as Array).duplicate(true))
 	training_flags = (s.get("training_flags", {}) as Dictionary).duplicate()
 	bridges = (s.get("bridges", []) as Array).duplicate(true)
+	hazards = (s.get("hazards", []) as Array).duplicate(true)
+	hazard_pickups = (s.get("hazard_pickups", []) as Array).duplicate(true)
 	events.clear()
 
 
@@ -365,6 +397,8 @@ func state_digest() -> String:
 			parts.append_array([p["home"]["stop"], p["speed"]])
 	if not bridges.is_empty():  # (only maps with bridges)
 		parts.append(bridges)
+	if not hazards.is_empty():  # (only matches with hazards: every other fingerprint is unchanged)
+		parts.append_array([hazards, hazard_pickups])
 	if training:  # (only training matches: every other match's fingerprint is unchanged)
 		for k in TRAINING_FLAGS:
 			parts.append(bool(training_flags.get(k, false)))

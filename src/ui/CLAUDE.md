@@ -16,6 +16,12 @@ Menus are `Control` nodes on a `ScreenStack` of `UiScreen`s, styled by one share
   column), because the mouse focuses whatever it is over: a box that grew with the text
   shifted the rows under a still cursor, which focused another row, which changed the text
   again (Oct 2026). `tests/test_ui.gd` pins it.
+- Pages must fit 480 x 270 canvas units (any 1080p screen, the Odin 3) and the other
+  shapes in `tests/test_ui_fit.gd` (20:9, 16:10, 4:3). A page short of room drops the game's
+  name over a sub-page's title, then scrolls its column (`UiScreen._fit_rows`); the panel on
+  the right can't scroll, so its tallest text and card must fit. A card's fact is one line
+  of the panel (`DetailCard.fit_font` narrows the spaces; past that, reword it). A big monitor
+  hides all of this: check new pages at `--resolution 1920x1080` (Oct 2026).
 - Text is the pixel font m5x7 (`UiTheme.font()`), never `ThemeDB.fallback_font`. Sizes in
   layouts stay the old design sizes (`SIZE_ROW`, 6, 7...) and go through `UiTheme.px()` where
   they become a font size (theme sizes, `_label`, `row_font`, each `draw_string`), so a glyph

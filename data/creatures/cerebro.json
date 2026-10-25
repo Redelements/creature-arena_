@@ -90,7 +90,7 @@
       "fx": { "impact": "tenderize" }
     },
     "light_1": {
-      "name": "Knife Flick", "anim": "flick", "mobile": 0.6,
+      "name": "Knife Flick", "anim": "flick", "mobile": 0.7,
       "startup": 6, "active": 0, "recovery": 16, "cancel_from": 10,
       "damage": 3, "knockback": 0.5, "hitstun": 30, "hitstop": 1, "no_flinch": true, "juggle": true,
       "next": "light_2",
@@ -100,7 +100,7 @@
       "fx": { "projectile": "knife", "projectile_light": { "color": "#d58cff", "radius": 22, "strength": 0.4 } }
     },
     "light_2": {
-      "name": "Backhand Flick", "anim": "flick2", "mobile": 0.6,
+      "name": "Backhand Flick", "anim": "flick2", "mobile": 0.7,
       "startup": 6, "active": 0, "recovery": 16, "cancel_from": 10,
       "damage": 3, "knockback": 0.5, "hitstun": 30, "hitstop": 1, "no_flinch": true, "juggle": true,
       "next": "light_3",
@@ -110,9 +110,9 @@
       "fx": { "projectile": "knife", "projectile_light": { "color": "#d58cff", "radius": 22, "strength": 0.4 } }
     },
     "light_3": {
-      "name": "Mallet Toss", "anim": "toss", "mobile": 0.6,
+      "name": "Mallet Toss", "anim": "toss", "mobile": 0.7,
       "startup": 9, "active": 0, "recovery": 26,
-      "damage": 5, "knockback": 0.8, "hitstun": 30, "hitstop": 6, "juggle": true,
+      "damage": 5, "knockback": 0.8, "hitstun": 30, "hitstop": 2, "no_flinch": true, "juggle": true,
       "next": "",
       "projectile": { "speed": 6.0, "life": 18, "radius": 6, "offset": 12, "crack_trail": false,
         "sound": "swing_heavy", "end_sound": "thwack" },

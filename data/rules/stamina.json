@@ -1,7 +1,7 @@
 {
 	"_doc": "Stamina rules every fighter shares (each fighter's own max, regen and guard drain stay in data/creatures/<id>.json). A dodge (dash) costs dodge_cost_share of the fighter's max stamina, or its own share from dodge_cost_share_by_fighter (an id and a share, such as digby 0.4, for a cheaper dash). A dodge that cancels the fighter's own attack (pressed while attacking: out of a string, during a windup, or to skip a whiffed move's recovery) costs dodge_cancel_cost_mult x that; a blocked third light can't be left this way. A blocked hit drains damage x guard.drain_per_damage x block_drain_mult[the move's type] stamina, and health chip as before (guard.reduction). A blocked hit pauses regen for block_regen_pause_seconds, restarted by every blocked hit. At 0 stamina (from a dodge or a blocked hit) the fighter is exhausted: it can't start a guard, a held guard drops and the hit that emptied it lands clean (no extra stun), and regen waits exhaust_delay_seconds (instead of the block pause, not on top of it).",
 	"dodge_cost_share": 0.6,
-	"dodge_cost_share_by_fighter": {"digby": 0.4, "pete": 0.4, "gillbert": 0.45, "hissy": 0.5},
+	"dodge_cost_share_by_fighter": {"digby": 0.4, "pete": 0.4, "gillbert": 0.45, "hissy": 0.5, "craglash": 0.7},
 	"dodge_cancel_cost_mult": 1.25,
 	"block_drain_mult": {"light": 0.75, "heavy": 1.25, "skill": 1.0, "surge": 1.0},
 	"block_regen_pause_seconds": 0.5,

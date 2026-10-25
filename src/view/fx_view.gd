@@ -272,6 +272,8 @@ func spawn(e: Dictionary) -> void:
 			_block_feedback(e, p)
 		"guard_break":
 			_guard_break_feedback(e, p)
+		"hazard_strike", "hazard_hit", "hazard_shelter", "hazard_pickup", "hazard_pickup_gone":
+			_hazard_event(e, p)
 		"slam":
 			var full := power >= 1.0
 			_add({"kind": "ring", "pos": p, "life": 18 if full else 12, "radius": 34.0 if full else 18.0})
@@ -693,6 +695,8 @@ func advance() -> void:
 		_track_lost()
 		if ts > 0.0:
 			_projectile_spray()
+			if not sim.hazards.is_empty():
+				_hazard_spray()
 		_snap_projectiles()
 	_parts.append_array(_incoming)
 	_incoming.clear()
@@ -2613,6 +2617,8 @@ func _paint(ci: CanvasItem, floor_layer: bool) -> void:
 			ci.draw_rect(Rect2(-ArenaView.MARGIN, (sim.arena_size() if sim != null else SimDefs.arena_size()) + ArenaView.MARGIN * 2.0),
 				Color(C_DIM, _dark))
 		_draw_pads(ci)
+		if sim != null and not sim.hazards.is_empty():
+			_draw_hazards_floor(ci)
 		for p in _parts:  # flat things first, so debris sits on top of puddles and cracks
 			if String(p["kind"]) in ["puddle", "decal", "ripple", "lost", "puff", "wallmark", "wallflash"] and _in_view(p, view):
 				_draw_part(ci, p)
@@ -2632,6 +2638,8 @@ func _paint(ci: CanvasItem, floor_layer: bool) -> void:
 
 	if sim != null:
 		_draw_projectiles(ci)
+		if not sim.hazards.is_empty():
+			_draw_hazards_top(ci)
 	for p in _parts:
 		var kind := String(p["kind"])
 		if kind in ["puddle", "decal", "ripple", "ghost", "later", "emit", "lost", "wallmark", "wallflash"]:
@@ -4107,3 +4115,265 @@ func _draw_rain(ci: CanvasItem) -> void:
 	WeatherView.rain_streaks(ci, view, n, _tick)
 	var fr := sim.floor_rect() if sim != null else SimDefs.floor_rect()
 	WeatherView.rain_splashes(ci, fr, n / 3, _tick)
+
+
+# ------------------------------------------------------------------ arena hazards
+# (Hazards in src/sim/hazards.gd: a mutator's tidal wave and meteor shower.) Read from the
+# sim's hazard state every frame; the events add the one-off bursts.
+
+const C_SWELL := Color("2f6fa8")
+const C_SAFE := Color("9cf0c0")
+const C_METEOR: Array[Color] = [Color("3a2420"), Color("8a4a2a"), Color("ff7a2a"), Color("ffd27a")]
+## The way a meteor falls on screen (from the upper right), and how long its streak shows.
+const METEOR_FALL := Vector2(-0.42, 1.0)
+const METEOR_STREAK_TICKS := 22
+var _walls_at := PackedVector2Array()  ## centres of every rubble cell (for the shelter lanes)
+var _walls_ver := -1
+
+
+## Floor layer: the swell on the wave's edge and the calm lane behind each rubble block
+## while it warns, the water behind the front while it runs, meteor shadows (true circles
+## growing as they fall, ringed at their full reach), and the cores' glow.
+func _draw_hazards_floor(ci: CanvasItem) -> void:
+	var fr := sim.floor_rect()
+	var w := Hazards.wave_now(sim)
+	if not w.is_empty():
+		var side := int(w["side"])
+		var d: Dictionary = w["def"]
+		if int(w["phase"]) == Hazards.WARN:
+			var total := float(maxi(1, Hazards.ticks_of(d.get("warn_seconds", 3))))
+			var k := clampf(1.0 - float(w["left"]) / total, 0.0, 1.0)
+			var depth := roundf(8.0 + 30.0 * k + 2.0 * sin(float(_tick) * 0.25))
+			_shelter_lanes(ci, w["dir"], d, k)
+			_wave_band(ci, fr, side, 0.0, depth, Color(C_SWELL, 0.3 + 0.3 * k))
+			_wave_band(ci, fr, side, maxf(0.0, depth - 6.0), depth, Color(C_WATER, 0.45 + 0.3 * k))
+			_wave_foam(ci, fr, side, depth, 0.55 + 0.4 * k)
+			_wave_arrows(ci, fr, side, depth + 10.0, k)
+		else:
+			var front := float(w["front"])
+			_wave_band(ci, fr, side, 0.0, front, Color(C_SWELL, 0.4))
+			_wave_band(ci, fr, side, maxf(0.0, front - 22.0), front, Color(C_WATER, 0.5))
+	_draw_puddles(ci)
+	for m in Hazards.meteors_now(sim):
+		var left := int(m["land"]) - sim.tick
+		var warn := int(m["warn"])
+		if left > warn:
+			continue
+		var k := 1.0 - float(left) / float(maxi(1, warn))
+		var at: Vector2 = m["pos"]
+		var r := float(m["radius"])
+		var big := bool(m["big"])
+		ci.draw_circle(at, r * (0.2 + 0.8 * k), Color(0, 0, 0, 0.12 + 0.3 * k))
+		var blink := 1.0 if left > 20 else (1.0 if (_tick / 3) % 2 == 0 else 0.45)
+		var col: Color = C_WARN if big else C_METEOR[2]
+		ci.draw_arc(at, r, 0.0, TAU, 48, Color(col, (0.35 + 0.55 * k) * blink), 2.0 if big else 1.0)
+		if big:
+			ci.draw_arc(at, r - 4.0, 0.0, TAU, 40, Color(col, 0.3 * k * blink), 1.0)
+	for pk in sim.hazard_pickups:
+		var at: Vector2 = pk["pos"]
+		var g := 0.5 + 0.5 * sin(float(_tick) * 0.15)
+		var fading := int(pk["until"]) - sim.tick < 120 and (_tick / 6) % 2 == 1
+		var a := 0.5 if fading else 1.0
+		ci.draw_circle(at, float(pk["radius"]) + 4.0 + 2.0 * g, Color(C_METEOR[2], (0.14 + 0.1 * g) * a))
+		ci.draw_arc(at, float(pk["radius"]), 0.0, TAU, 28, Color(C_METEOR[3], 0.75 * a), 1.0)
+
+
+## Over the fighters: the wave's crest at its front, falling meteors (a rock and its fiery
+## streak, the last METEOR_STREAK_TICKS before it lands), and each core's ember.
+func _draw_hazards_top(ci: CanvasItem) -> void:
+	var fr := sim.floor_rect()
+	var w := Hazards.wave_now(sim)
+	if not w.is_empty() and int(w["phase"]) == Hazards.ACTIVE:
+		_wave_crest(ci, fr, int(w["side"]), float(w["front"]))
+	for m in Hazards.meteors_now(sim):
+		var left := int(m["land"]) - sim.tick
+		if left > METEOR_STREAK_TICKS:
+			continue
+		var at: Vector2 = m["pos"]
+		var fall := METEOR_FALL.normalized()
+		var rock := (at - fall * float(left) * 9.0).round()
+		var big := bool(m["big"])
+		var rr := 5.0 if big else 3.0
+		ci.draw_line(rock, rock - fall * (rr * 7.0), Color(C_METEOR[2], 0.45), rr * 1.6)
+		ci.draw_line(rock, rock - fall * (rr * 4.0), Color(C_METEOR[3], 0.8), rr * 0.9)
+		ci.draw_circle(rock, rr + 1.0, C_METEOR[0])
+		ci.draw_circle(rock, rr, C_METEOR[1])
+		ci.draw_circle(rock + Vector2(-1, -1), rr * 0.45, C_METEOR[3])
+	for pk in sim.hazard_pickups:
+		var at: Vector2 = pk["pos"]
+		var bob := roundf(sin(float(_tick) * 0.1) * 1.5)
+		var o := at + Vector2(0, -5 + bob)
+		ci.draw_circle(o, 4.0, C_METEOR[0])
+		ci.draw_circle(o, 3.0, C_METEOR[2])
+		ci.draw_circle(o + Vector2(-1, -1), 1.5, C_METEOR[3])
+		if (_tick / 4) % 5 == 0:
+			ci.draw_rect(Rect2((o + Vector2(3, -4)).round(), Vector2.ONE), C_FOAM)
+
+
+## A band of the floor between `s0` and `s1` px downstream of the wave's edge.
+func _wave_band(ci: CanvasItem, fr: Rect2, side: int, s0: float, s1: float, col: Color) -> void:
+	if s1 <= s0:
+		return
+	var r: Rect2
+	match side:
+		0: r = Rect2(fr.position.x + s0, fr.position.y, s1 - s0, fr.size.y)
+		1: r = Rect2(fr.end.x - s1, fr.position.y, s1 - s0, fr.size.y)
+		2: r = Rect2(fr.position.x, fr.position.y + s0, fr.size.x, s1 - s0)
+		_: r = Rect2(fr.position.x, fr.end.y - s1, fr.size.x, s1 - s0)
+	ci.draw_rect(r, col)
+
+
+## A point `s` px downstream of the wave's edge, `u` px along it.
+static func _wave_at(fr: Rect2, side: int, s: float, u: float) -> Vector2:
+	match side:
+		0: return Vector2(fr.position.x + s, fr.position.y + u)
+		1: return Vector2(fr.end.x - s, fr.position.y + u)
+		2: return Vector2(fr.position.x + u, fr.position.y + s)
+	return Vector2(fr.position.x + u, fr.end.y - s)
+
+
+## A ragged line of foam along the swell's lip.
+func _wave_foam(ci: CanvasItem, fr: Rect2, side: int, s: float, a: float) -> void:
+	var span := fr.size.y if side < 2 else fr.size.x
+	var u := 0.0
+	while u < span:
+		var jag := float(posmod(int(u) * 7 + _tick / 4, 5)) - 2.0
+		var p := _wave_at(fr, side, s + jag, u).round()
+		ci.draw_rect(Rect2(p, Vector2(2, 2) if side < 2 else Vector2(3, 2)), Color(C_FOAM, a))
+		u += 3.0
+
+
+## Chevrons on the floor pointing the way the wave will go, flashing.
+func _wave_arrows(ci: CanvasItem, fr: Rect2, side: int, s: float, k: float) -> void:
+	if (_tick / 8) % 2 == 1:
+		return
+	var span := fr.size.y if side < 2 else fr.size.x
+	var dir := Hazards.wave_dir(side)
+	var across := Vector2(-dir.y, dir.x)
+	var n := maxi(2, int(span / 72.0))
+	for i in n:
+		var u := span * (float(i) + 0.5) / float(n)
+		var p := _wave_at(fr, side, s, u).round()
+		var col := Color(C_WATER_L, 0.5 + 0.4 * k)
+		ci.draw_polyline(PackedVector2Array([p - dir * 4.0 + across * 5.0, p + dir * 2.0, p - dir * 4.0 - across * 5.0]), col, 2.0)
+
+
+## While a wave warns: the calm water behind every rubble block (where it can't reach),
+## so where to stand reads at a glance.
+func _shelter_lanes(ci: CanvasItem, dir: Vector2, d: Dictionary, k: float) -> void:
+	if _walls_ver != sim.terrain.version:
+		_walls_ver = sim.terrain.version
+		_walls_at = PackedVector2Array()
+		var t := sim.terrain
+		for i in t.cells.size():
+			if t.cells[i] == TerrainGrid.WALL:
+				_walls_at.append(t.cell_center(Vector2i(i % t.cols, i / t.cols)))
+	var depth := float((d.get("shelter", {}) as Dictionary).get("depth", 48))
+	var half := SimDefs.CELL * 0.5
+	var col := Color(C_SAFE, 0.1 + 0.12 * k)
+	var wide := half if dir.x == 0.0 else 0.0
+	var tall := half if dir.y == 0.0 else 0.0
+	for at in _walls_at:
+		var r := Rect2(at + dir * half, Vector2.ZERO).expand(at + dir * (half + depth - 8.0))
+		ci.draw_rect(r.grow_individual(wide, tall, wide, tall), col)
+
+
+## The wave's front: a rolling wall of water with a white crest, a few px tall.
+func _wave_crest(ci: CanvasItem, fr: Rect2, side: int, front: float) -> void:
+	var span := fr.size.y if side < 2 else fr.size.x
+	var u := 0.0
+	while u < span:
+		var p := _wave_at(fr, side, front, u)
+		var h := 10.0 + float(posmod(int(u) * 5 + _tick, 7))
+		if side < 2:  # across the screen: the wall stands up from the floor along the front
+			var back := -Hazards.wave_dir(side).x
+			ci.draw_rect(Rect2(p.x + minf(0.0, back * 12.0), p.y - h * 0.5, 12.0, h * 0.5 + 1.0), Color(C_WATER, 0.6))
+			ci.draw_rect(Rect2(p.x - 3.0, p.y - h, 6.0, h), Color(C_WATER, 0.85))
+			ci.draw_rect(Rect2(p.x - 3.0, p.y - h, 6.0, 2.0), C_FOAM)
+			ci.draw_rect(Rect2(p.x - 3.0 - back * 3.0, p.y - h * 0.5, 2.0, 2.0), Color(C_FOAM, 0.8))
+		else:
+			ci.draw_rect(Rect2(p.x, p.y - h, 4.0, h), Color(C_WATER, 0.75))
+			ci.draw_rect(Rect2(p.x, p.y - h, 4.0, 2.0), C_FOAM)
+		u += 4.0
+
+
+## The wave's puddles (the cells it turned to shallows): a wash of water over them, in
+## runs along each row, fading out over their last second. WaterView adds the ripples.
+func _draw_puddles(ci: CanvasItem) -> void:
+	var t := sim.terrain
+	for st in sim.hazards:
+		var cells: PackedInt32Array = st.get("puddles", PackedInt32Array())
+		if cells.is_empty():
+			continue
+		var left := int(st["dry"]) - sim.tick
+		var col := Color(C_WATER, 0.34 * clampf(float(left) / 60.0, 0.0, 1.0))
+		var run_start := -1
+		var prev := -2
+		for k in cells.size() + 1:
+			var i := cells[k] if k < cells.size() else -10
+			var live := k < cells.size() and t.cells[i] == TerrainGrid.SHALLOWS
+			if live and i == prev + 1 and i % t.cols != 0:
+				prev = i
+				continue
+			if run_start >= 0:
+				var a := t.cell_rect(Vector2i(run_start % t.cols, run_start / t.cols))
+				ci.draw_rect(Rect2(a.position, Vector2(float(prev - run_start + 1) * SimDefs.CELL, SimDefs.CELL)), col)
+			run_start = i if live else -1
+			prev = i if live else -2
+
+
+## Spray off the running wave's front, a few drops a tick.
+func _hazard_spray() -> void:
+	var w := Hazards.wave_now(sim)
+	if w.is_empty() or int(w["phase"]) != Hazards.ACTIVE:
+		return
+	var fr := sim.floor_rect()
+	var side := int(w["side"])
+	var span := fr.size.y if side < 2 else fr.size.x
+	var dir: Vector2 = w["dir"]
+	for i in 4:
+		var p := _wave_at(fr, side, float(w["front"]), randf() * span)
+		_drop(p, randf_range(6.0, 14.0), dir * randf_range(0.8, 2.0) + Vector2(randf_range(-0.4, 0.4), 0),
+			randf_range(0.5, 1.8), false)
+
+
+func _hazard_event(e: Dictionary, p: Vector2) -> void:
+	match String(e["type"]):
+		"hazard_strike":
+			if String(e.get("shape", "")) == "meteors":
+				var r := float(e.get("radius", 28))
+				_add({"kind": "ring", "pos": p, "life": 14, "radius": r, "color": C_METEOR[2]})
+				_dirt_burst(p, r * 0.6)
+				for i in 10:
+					var v := Vector2.from_angle(randf() * TAU) * randf_range(0.8, 2.4)
+					_px(p + Vector2(0, -2), v + Vector2(0, -1.2), C_SPARK[randi() % 3], randf_range(14.0, 26.0))
+				if bool(e.get("big", false)):
+					_cave_in(p, 12.0)
+				shake_out = maxf(shake_out, 4.0 if bool(e.get("big", false)) else 2.0)
+				if bool(e.get("core", false)):
+					_add({"kind": "ring", "pos": p, "life": 24, "radius": 12.0, "color": C_METEOR[3]})
+			else:
+				shake_out = maxf(shake_out, 3.0)
+		"hazard_hit":
+			var c := _creature(int(e.get("who", -1)))
+			var at := c.pos if c != null else p
+			var dmg := float(e.get("damage", 0.0))
+			if String(e.get("shape", "")) == "wave":
+				_splash(at, 8.0, false)
+				if dmg > 0.0:
+					_text(at + Vector2(0, -30), "%d" % roundi(dmg), C_WATER_L, 9)
+			elif dmg > 0.0:
+				_text(at + Vector2(0, -30), "%d" % roundi(dmg), C_METEOR[3], 9)
+		"hazard_shelter":
+			var c := _creature(int(e.get("who", -1)))
+			if c != null:
+				_text(c.pos + Vector2(0, -34), "SHELTERED", C_SAFE, 7, 45.0)
+		"hazard_pickup":
+			var c := _creature(int(e.get("who", -1)))
+			_add({"kind": "ring", "pos": p, "life": 18, "radius": 16.0, "color": C_METEOR[3]})
+			for i in 8:
+				_px(p, Vector2.from_angle(TAU * i / 8.0) * 1.6 + Vector2(0, -0.8), C_METEOR[2 + i % 2], 22.0)
+			if c != null:
+				_text(c.pos + Vector2(0, -34), "MIGHT!" if String(e.get("kind", "")) != "haste" else "HASTE!", C_METEOR[3], 9, 60.0)
+		"hazard_pickup_gone":
+			_smoke(p, 4)

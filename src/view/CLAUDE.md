@@ -102,7 +102,9 @@ stamina ran out, drawn "EXHAUSTED"), slam, bounce, fall, land, land_hard, dodge,
 grab, windup, tag, enter, breakaway, projectile, projectile_end, projectile_pierce, armor,
 shield_up, shield_break, slow, taunt, roar, hook, pull, burst, reel, tenderized,
 punishable, freeze, zone, steal, warp, blink, blinded, miss, rooted, poisoned, poison,
-gaze, petrify, shatter; audio only: surge, duel_over. `FxView.cue(sound)` is a signal for
+gaze, petrify, shatter, hazard_strike, hazard_hit, hazard_shelter, hazard_pickup,
+hazard_pickup_gone; audio only: surge, duel_over; main only: hazard_warn (`main.gd:_hazard_warn`,
+the HUD banner / toast). `FxView.cue(sound)` is a signal for
 dig/slosh/poof/chop_chop/shout sounds.
 
 ## Where to look
@@ -129,6 +131,11 @@ dig/slosh/poof/chop_chop/shout sounds.
   `_draw_shrine`, shrine buffs `_draw_buffs`; the capture banner `hud.gd:moment` /
   `_draw_moment`, the red edge `alert` / `_draw_alert`; toasts, sounds and the end-screen
   MVP in `main.gd:_ctf_toast`, `_react`, `_count_ctf`, `_ctf_summary`
+- Arena hazards (a mutator's tidal wave, meteor shower) → `fx_view.gd:_draw_hazards_floor` (the swell, the shelter
+  lanes behind rubble, the water behind the front, the puddles' wash `_draw_puddles`, meteor shadows: true circles,
+  cores' glow), `_draw_hazards_top` (the crest, falling meteors, the core's ember), `_hazard_spray`, `_hazard_event`;
+  all read from `sim.hazards` / `Hazards.wave_now` / `meteors_now`. Breakwaters are WALL cells the map didn't put
+  there: `arena_view.gd:_draw_rubble` draws them like a rockslide's
 - Health bars over fighters → `fx_view.gd:_draw_side_marks` (`side_marks[i].rel` from main's
   `_relation()`)
 - Telegraphs and aim marks → `_draw_telegraph`, `_draw_aim_mark`, `_draw_lob_mark`,
