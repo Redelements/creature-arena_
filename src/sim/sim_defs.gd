@@ -159,8 +159,13 @@ static func bits_from_dir(d: Vector2) -> int:
 
 
 static func variety_mult(types_mask: int) -> float:
+	return VARIETY[type_count(types_mask)]
+
+
+## How many move types (light, heavy, skill, surge) a TYPE_BIT mask holds.
+static func type_count(types_mask: int) -> int:
 	var n := 0
 	for b in [1, 2, 4, 8]:
 		if types_mask & b:
 			n += 1
-	return VARIETY[n]
+	return n

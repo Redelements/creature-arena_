@@ -59,8 +59,33 @@ What stands out:
   strings. Hissy's damage is split three ways, with 30% from poison ticks.
 - Surges are rare for everyone (0.4-1.3 a minute) and deal under 5% of the damage.
 
-## After
+## After C2 `combo-meter` (Oct 25 2026, NET_VERSION 31, same command)
 
-C2 (`combo-meter`) changes how the Surge meter fills (lights gain less, mixed combos more) and
-will add an "after" table here from the same command, so the light share and Surges a minute
-can be compared before and after.
+A hit now charges damage × `per_damage_dealt` 0.8 × `per_type_mult` (light 0.45, heavy and skill
+1.0) × `variety_energy` by the move types the combo has used (1.0, 1.0, 1.3, 1.6, 1.9), all in
+`data/rules/energy.json` (MECHANICS.md, "Energy").
+
+```
+fighter    light  heavy  skill  surge  other  combo types    2+  surge/m  dmg/m
+cairn        34%    37%    24%     4%     0%   1.96  1.41   29%     1.15  304.4
+culvert      33%    34%    20%     1%    12%   1.32  1.23   22%     0.42  220.4
+craglash     23%    42%    34%     0%     1%   2.60  2.38   75%     1.21  225.2
+barkley      48%     7%    39%     4%     2%   1.40  1.29   28%     0.91  241.6
+gillbert     57%    13%    25%     4%     0%   1.99  1.46   30%     0.48  263.8
+cerebro      89%     2%     9%     0%     0%   1.03  1.02    2%     0.10  226.2
+hissy        28%    31%     8%     3%    30%   1.39  1.37   34%     0.42  326.3
+digby        69%    14%    15%     1%     0%   1.33  1.31   31%     0.30  252.4
+pete         63%    25%     9%     2%     0%   1.40  1.29   26%     0.34  347.4
+sno          58%    11%    31%     0%     0%   1.08  1.06    5%     0.29  238.3
+crease       93%     2%     3%     0%     2%   1.03  1.02    2%     0.00  325.6
+```
+
+- The fighters that mix moves (Cairn, Culvert, Craglash, Barkley, Gillbert, Hissy, Sno) average
+  0.70 Surges a minute, against 0.72 before; Craglash, the one real comboer, goes up (0.83 to 1.21).
+- The light-reliant four get clearly fewer: Pete 0.93 to 0.34, Digby 0.76 to 0.30, Cerebro 0.40
+  to 0.10, Crease 1.29 to 0.00 in a single round (the meter carries into the next round of a
+  best of three, so he still gets one a match, later).
+- The CPU's style hasn't changed yet (light shares and combo lengths within noise): it still
+  plays the same kit, it just Surges less when it only jabs. Kit passes (C3+) are what change it.
+- Class pins in `tests/test_balance.gd` all pass; the `--matrix` totals move a few points
+  (Crease 70% to 63%, Cerebro 20% to 20%, Cairn 73% to 65%).
