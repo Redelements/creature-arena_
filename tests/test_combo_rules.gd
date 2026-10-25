@@ -147,7 +147,7 @@ func test_energy_fills_from_damage() -> void:
 	var a := sim.creatures[0]
 	var d := sim.creatures[1]
 	tap(sim, L, 20)
-	assert_near(a.energy, 2.25, 0.001, "attacker energy:")
+	assert_near(a.energy, 3.0 * MatchSim.energy_rate_dealt() * _rule("light") * _var_energy(1), 0.001, "attacker energy (a light: x the light mult):")
 	assert_near(d.energy, 1.5, 0.001, "defender energy:")
 
 
@@ -335,10 +335,11 @@ func test_only_the_last_hit_of_each_light_string_staggers() -> void:
 				assert_true(nf, "%s's %s only deals damage" % [id, chain[k]])
 
 
-## data/rules/energy.json: one jab charges the attacker by damage x per_damage_dealt and
-## the defender by damage x per_damage_taken (0.75 and 0.5 since Oct 2026).
+## data/rules/energy.json: one jab charges the attacker by damage x per_damage_dealt x the
+## light mult and the defender by damage x per_damage_taken (0.8 and 0.5 since the
+## combo meter, Oct 2026).
 func test_energy_rules_file_sets_the_rates() -> void:
-	assert_near(MatchSim.energy_rate_dealt(), 0.75, 0.0001, "dealt rate:")
+	assert_near(MatchSim.energy_rate_dealt(), 0.8, 0.0001, "dealt rate:")
 	assert_near(MatchSim.energy_rate_taken(), 0.5, 0.0001, "taken rate:")
 	assert_true(MatchSim.energy_carries(), "the meter carries between rounds")
 	var sim := _duel()
@@ -354,7 +355,7 @@ func test_energy_rules_file_sets_the_rates() -> void:
 		sim.step(PackedInt32Array([0, 0]))
 	var dmg := hp0 - d.hp
 	assert_gt(dmg, 0.0, "the jab landed")
-	assert_near(a.energy, dmg * 0.75, 0.001, "attacker gains damage x 0.75:")
+	assert_near(a.energy, dmg * 0.8 * _rule("light") * _var_energy(1), 0.001, "attacker gains damage x 0.8 x the light mult:")
 	assert_near(d.energy, dmg * 0.5, 0.001, "defender gains damage x 0.5:")
 
 
@@ -384,3 +385,100 @@ func _two_segment_hits(skip: bool) -> int:
 func test_skip_struck_passes_over_a_foe_an_earlier_segment_hit() -> void:
 	assert_eq(_two_segment_hits(false), 2, "both segments hit without the flag:")
 	assert_eq(_two_segment_hits(true), 1, "the flagged segment skips the foe already struck:")
+
+
+## --- The Surge meter fills from combos (data/rules/energy.json: per_type_mult, variety_energy)
+
+## Runs `body` with MatchSim's energy rules swapped for `rules`, then puts the file's back.
+func _with_energy_rules(rules: Dictionary, body: Callable) -> void:
+	var saved := MatchSim.energy_rules()
+	MatchSim._energy_rules = rules
+	body.call()
+	MatchSim._energy_rules = saved
+
+
+## Lands `hits` ([type, move_id] pairs) one after another on the foe through _apply_hit
+## (each 10 damage before the variety bonus). Returns [energy the attacker gained, damage dealt].
+func _combo_energy(hits: Array) -> Array:
+	var sim := _duel()
+	var a := sim.creatures[0]
+	var d := sim.creatures[1]
+	a.energy = 0.0
+	a.stack = 0
+	var hp0 := d.hp
+	var serial := 1
+	for h in hits:
+		sim._apply_hit(a, d, _hit(String(h[0]), String(h[1]), serial), Vector2.RIGHT, d.pos)
+		serial += 1
+	return [a.energy, hp0 - d.hp]
+
+
+func _rule(type: String) -> float:
+	return float((MatchSim.energy_rules().get("per_type_mult", {}) as Dictionary).get(type, 1.0))
+
+
+func _var_energy(n: int) -> float:
+	return float(MatchSim.energy_rules()["variety_energy"][n])
+
+
+func test_the_energy_file_sets_type_mults_and_a_variety_table() -> void:
+	assert_lt(_rule("light"), 0.5, "lights charge the meter far less:")
+	assert_near(_rule("heavy"), 1.0, 0.0001, "heavies in full:")
+	assert_near(_rule("skill"), 1.0, 0.0001, "skills in full:")
+	var t: Array = MatchSim.energy_rules().get("variety_energy", [])
+	assert_eq(t.size(), 5, "a factor for 0..4 move types:")
+	for i in range(1, t.size()):
+		assert_true(float(t[i]) >= float(t[i - 1]), "more types never earn less (%d types):" % i)
+
+
+func test_a_light_alone_charges_by_the_light_mult() -> void:
+	var got := _combo_energy([["light", "light_1"]])
+	assert_near(float(got[1]), 10.0, 0.001, "the jab dealt its damage:")
+	assert_near(float(got[0]), 10.0 * MatchSim.energy_rate_dealt() * _rule("light") * _var_energy(1), 0.001,
+		"energy = damage x per_damage_dealt x light mult x variety_energy[1]:")
+
+
+func test_a_mixed_combo_charges_more_per_damage_than_lights_alone() -> void:
+	var lights := _combo_energy([["light", "light_1"], ["light", "light_2"], ["light", "light_3"]])
+	var mixed := _combo_energy([["light", "light_1"], ["heavy", "heavy"], ["skill", "skill_1"]])
+	var per_l := float(lights[0]) / float(lights[1])
+	var per_m := float(mixed[0]) / float(mixed[1])
+	assert_gt(per_m, per_l * 2.0, "light > heavy > skill earns over twice the energy a damage of three lights (%.3f vs %.3f):" % [per_m, per_l])
+	# Each hit counts the types the combo has used so far, itself included: the skill ender
+	# (the third type) earns damage x rate x skill mult x variety_energy[3].
+	var two := _combo_energy([["light", "light_1"], ["heavy", "heavy"]])
+	assert_near(float(mixed[0]) - float(two[0]),
+		(float(mixed[1]) - float(two[1])) * MatchSim.energy_rate_dealt() * _rule("skill") * _var_energy(3), 0.001,
+		"the third type's hit earns at variety_energy[3]:")
+
+
+func test_a_surge_still_charges_nothing() -> void:
+	var got := _combo_energy([["light", "light_1"], ["surge", "surge"]])
+	var only_light := _combo_energy([["light", "light_1"]])
+	assert_near(float(got[0]), float(only_light[0]), 0.001, "the Surge hit added no energy:")
+	assert_near(MatchSim.energy_dealt(_duel().creatures[1], "surge", 50.0), 0.0, 0.0001, "nor would any Surge damage:")
+
+
+func test_blocked_chip_charges_by_type_too() -> void:
+	var sim := _duel()
+	var a := sim.creatures[0]
+	var d := sim.creatures[1]
+	d.facing = Vector2.LEFT
+	d._set_state(CreatureSim.State.GUARD)
+	a.energy = 0.0
+	var hp0 := d.hp
+	assert_eq(sim._apply_hit(a, d, _hit("light", "light_1", 1), Vector2.RIGHT, d.pos), "block", "blocked:")
+	var chip := hp0 - d.hp
+	assert_gt(chip, 0.0, "it chipped")
+	assert_near(a.energy, chip * MatchSim.energy_rate_dealt() * _rule("light") * _var_energy(1), 0.001,
+		"chip energy uses the light mult:")
+
+
+func test_without_the_new_keys_every_hit_charges_alike() -> void:
+	_with_energy_rules({"per_damage_dealt": 0.75, "per_damage_taken": 0.5}, func():
+		var l := _combo_energy([["light", "light_1"]])
+		assert_near(float(l[0]), float(l[1]) * 0.75, 0.001, "a light: damage x 0.75, as before:")
+		var m := _combo_energy([["light", "light_1"], ["heavy", "heavy"], ["skill", "skill_1"]])
+		assert_near(float(m[0]), float(m[1]) * 0.75, 0.001, "a mixed combo: damage x 0.75, as before:")
+		var s := _combo_energy([["surge", "surge"]])
+		assert_near(float(s[0]), 0.0, 0.0001, "a Surge: nothing, as before:"))
