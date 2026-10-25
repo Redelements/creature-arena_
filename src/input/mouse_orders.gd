@@ -127,13 +127,7 @@ func _chase(me: CreatureSim, foe: CreatureSim) -> int:
 		chase = false
 		return 0
 	var v := foe.pos - me.pos
-	var lt: Dictionary = me.moves().get("light_1", {})
-	var reach := float(lt.get("reach", 14)) + float(lt.get("hit_radius", 9)) + foe.radius - 4.0
-	if lt.has("projectile"):
-		# A thrown opener (Chef Cerebro's Knife Flick): attack from range. The throw is
-		# aimed exactly at the target, so there's no lining up to do.
-		reach = me.move_range("light_1") + foe.radius - 8.0
-	if v.length() > reach:
+	if v.length() > chase_reach(me, foe):
 		return _walk_bits(v, 1.0)
 	if not foe.can_be_hit():
 		return 0  # wait for it to get up
@@ -142,6 +136,17 @@ func _chase(me: CreatureSim, foe: CreatureSim) -> int:
 	if not (_prev & SimDefs.IN_LIGHT):
 		out |= SimDefs.IN_LIGHT
 	return out
+
+
+## How close `me` has to be to `foe` for its light opener to land: a chase walks until
+## then (the mouse's auto-attack here, the touch lock's chase in TouchTarget).
+static func chase_reach(me: CreatureSim, foe: CreatureSim) -> float:
+	var lt: Dictionary = me.moves().get("light_1", {})
+	if lt.has("projectile"):
+		# A thrown opener (Chef Cerebro's Knife Flick): attack from range. The throw is
+		# aimed exactly at the target, so there's no lining up to do.
+		return me.move_range("light_1") + foe.radius - 8.0
+	return float(lt.get("reach", 14)) + float(lt.get("hit_radius", 9)) + foe.radius - 4.0
 
 
 ## Direction bits toward `v`, dropping an axis once it's within `slack` pixels

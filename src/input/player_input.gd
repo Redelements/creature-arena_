@@ -70,6 +70,10 @@ var pad_id := 0
 var orders := MouseOrders.new()
 ## Touch controls (only player 1's is fed: main passes it the screen's touches).
 var touch := TouchPad.new()
+## The touch target lock (aims taps at one foe, chases it), and which creatures the local
+## team can't see (main's Vision answer, set each tick): never locked, never revealed.
+var target := TouchTarget.new()
+var touch_hidden: Array = []
 var _pad_aim_t := 0
 ## Which controller this player reads: ANY_PAD (single player), NO_PAD, or a device id.
 var pad_device := ANY_PAD
@@ -149,6 +153,7 @@ func reset() -> void:
 	_pad_aim_t = 0
 	_auto = {"t": 0, "quiet": 0, "pend": 0, "pend_t": 0}
 	touch.release_all()
+	target.clear()
 
 
 ## The bitmask for this tick. `cursor` is the mouse position in arena coordinates.
@@ -158,7 +163,11 @@ func bits(sim: MatchSim, me_idx: int, cursor: Vector2) -> int:
 	var out := 0
 	if device == Device.TOUCH and keyboard:
 		touch_charges(me, touch)
-		out |= touch.bits()
+		var tb := touch.bits()
+		if touch.lock_request >= 0:
+			target.lock_on(sim, me_idx, touch.lock_request, touch_hidden)
+			touch.lock_request = -1
+		out |= target.apply(tb, sim, me_idx, touch_hidden, touch.stick_dir())
 		if pad_device == ANY_PAD:
 			out |= _gamepad_bits(me)
 		# No keyboard or mouse: a tap also arrives as a mouse click (League's light attack).

@@ -133,7 +133,7 @@ const SETTING_PAGES := {
 	"game": ["level", "intros", "rumble", "shake", "discord", "server", "delay"],
 	"video": ["fullscreen", "wide", "vsync", "fps", "glow", "font", "perf_overlay", "#Camera", "cam_lead", "cam_clash", "cam_settle"],
 	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu"],
-	"touch": ["touch_opacity", "touch_size", "touch_hand", "touch_aim"],
+	"touch": ["touch_opacity", "touch_size", "touch_hand", "touch_aim", "#Targeting", "touch_priority", "touch_chase"],
 }
 ## Settings > Controls > Touch: how see-through the touch controls are.
 const TOUCH_OPACITY := [0.3, 0.5, 0.7, 0.9]
@@ -681,6 +681,8 @@ func _ready() -> void:
 	layer.add_child(hud)
 	touch_overlay = TouchOverlay.new()  # over the HUD, under the menus
 	touch_overlay.pad = player_input.touch
+	touch_overlay.target = player_input.target
+	touch_overlay.hud = hud  # its portrait pictures
 	touch_overlay.visible = false
 	layer.add_child(touch_overlay)
 	var top := CanvasLayer.new()
@@ -3661,6 +3663,7 @@ func _touch_step() -> void:
 	touch_overlay.sim = sim
 	touch_overlay.slot = hud.focus
 	hud.touch = touch_overlay.visible
+	_touch_targets()
 	if pad.pause_requested:
 		pad.pause_requested = false
 		if fighting:
@@ -3668,6 +3671,37 @@ func _touch_step() -> void:
 			ev.action = "pause"
 			ev.pressed = true
 			Input.parse_input_event(ev)
+
+
+## The target lock's view of the match: who the local team can't see (never locked or
+## shown), the enemy portraits (foes it could lock, seen and on screen; none with one foe)
+## and Capture the Flag's objective button (the foe carrying our flag).
+func _touch_targets() -> void:
+	var pad := player_input.touch
+	player_input.touch_hidden = _hidden
+	touch_overlay.unseen = _hidden
+	var picks: Array = []
+	var objective := false
+	var me_idx: int = hud.focus
+	if touch_overlay.visible and me_idx >= 0 and me_idx < sim.creatures.size():
+		var me: CreatureSim = sim.creatures[me_idx]
+		var view := get_viewport().get_canvas_transform().affine_inverse() * get_viewport_rect()
+		var foes := 0
+		for i in sim.creatures.size():
+			if not me.is_foe(sim.creatures[i]):
+				continue
+			foes += 1
+			if view.has_point(sim.creatures[i].pos) and TouchTarget.can_lock(sim, me_idx, i, _hidden):
+				picks.append(i)
+		if foes < 2:
+			picks = []  # one foe: a tap already finds it
+		objective = team_battle != null and team_battle.ctf
+		if pad.objective_requested:
+			var o := TouchTarget.ctf_objective(team_battle, me)
+			if o >= 0:
+				pad.lock_request = o
+	pad.objective_requested = false
+	pad.set_picks(picks, objective)
 
 
 ## Settings > Controls > Touch into the touch pad and the overlay.
@@ -3970,6 +4004,12 @@ func _setting(key: String) -> Dictionary:
 			return {"label": "Hand", "values": ["Right-handed", "Left-handed"],
 				"index": 1 if touch_left else 0,
 				"desc": "Left-handed: the buttons on the left and the stick on the right"}
+		"touch_priority":
+			return {"label": "Lock on", "values": TouchTarget.PRIORITY_NAMES, "index": int(player_input.target.priority),
+				"desc": "Which foe a tap locks onto: the one nearest where you point, the nearest, or the one with the least health. Tap a portrait to pick one yourself"}
+		"touch_chase":
+			return {"label": "Chase target", "values": ["Off", "On"], "index": 1 if player_input.target.chase_on else 0,
+				"desc": "Tap Light with your target out of reach and you walk to it (round pits and walls), then hit. The stick always wins"}
 		"touch_aim":
 			return {"label": "Aiming", "values": TouchPad.AIM_STYLES, "index": 1 if player_input.touch.tap_only else 0,
 				"desc": "Tap + drag: tap fires (aimed for you), drag Heavy, Skills or Surge off the button to aim and let go to throw. Tap only: every button fires on the touch"}
@@ -4085,6 +4125,10 @@ func _set_setting(key: String, i: int) -> void:
 				_apply_touch()
 			"touch_aim":
 				player_input.touch.tap_only = i == 1
+			"touch_priority":
+				player_input.target.priority = clampi(i, 0, TouchTarget.PRIORITY_NAMES.size() - 1) as TouchTarget.Priority
+			"touch_chase":
+				player_input.target.chase_on = i == 1
 			"no_cooldowns", "full_energy":
 				training_opts[key] = i == 1
 				_apply_training_opts()
@@ -4388,6 +4432,9 @@ func _load_settings() -> void:
 		player_input.touch.size_step = clampi(int(cfg.get_value("touch", "size", 1)), 0, TouchPad.SIZES.size() - 1)
 		touch_left = bool(cfg.get_value("touch", "left_handed", false))
 		player_input.touch.tap_only = bool(cfg.get_value("touch", "tap_only", false))
+		player_input.target.priority = clampi(int(cfg.get_value("touch", "priority", 0)), 0,
+			TouchTarget.PRIORITY_NAMES.size() - 1) as TouchTarget.Priority
+		player_input.target.chase_on = bool(cfg.get_value("touch", "chase", true))
 		for k in MatchSim.TRAINING_FLAGS:
 			training_opts[k] = bool(cfg.get_value("training", k, false))
 		dummy_mode = clampi(int(cfg.get_value("training", "dummy_mode", 0)), 0, DUMMY_MODES.size() - 1)
@@ -4446,6 +4493,8 @@ func _save_settings() -> void:
 	cfg.set_value("touch", "size", player_input.touch.size_step)
 	cfg.set_value("touch", "left_handed", touch_left)
 	cfg.set_value("touch", "tap_only", player_input.touch.tap_only)
+	cfg.set_value("touch", "priority", int(player_input.target.priority))
+	cfg.set_value("touch", "chase", player_input.target.chase_on)
 	for k in MatchSim.TRAINING_FLAGS:
 		cfg.set_value("training", k, bool(training_opts.get(k, false)))
 	cfg.set_value("training", "dummy_mode", dummy_mode)

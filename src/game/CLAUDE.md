@@ -89,7 +89,10 @@ player and live here, outside the sim.
   Tag, the overlay's `visible`, `hud.touch`, the Pause button, letting go when the fight or the
   device changes), `_apply_touch`; lost focus or an app pause → `_notification` →
   `TouchPad.release_all`; settings `SETTING_PAGES["touch"]` (Settings > Controls > Touch
-  controls; `touch_opacity`, `touch_size`, `touch_hand`, `touch_aim`, saved under `[touch]`)
+  controls; `touch_opacity`, `touch_size`, `touch_hand`, `touch_aim`, `touch_priority`,
+  `touch_chase`, saved under `[touch]`); the lock's view of the match → `_touch_targets` (hands
+  `_hidden` to the input and the overlay, the portraits of foes seen and on screen, CTF's
+  objective → `TouchTarget.ctf_objective`)
 - Showcases → a `SCRIPTS` entry in `showcase.gd` (steps: wait, press, walk, together,
   dodge, guard, approach, until, place); trials → `trials.gd:after_step`,
   `data/trials.json`; drills → `drills.gd:_judge`, `SETS`, `REPS`
