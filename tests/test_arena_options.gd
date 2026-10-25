@@ -2,8 +2,8 @@ extends TestCase
 ## Arena options (Single player > Enter on the Arena row): Time and Weather (looks only) and
 ## one On/Off row per arena hazard in data/rules/hazards.json (how the match plays). Off by
 ## default, saved, shown on the Arena row and the opening banner, on in every offline match
-## but the Daily, the ladders, coaches, showcases and replays; an Off hazard is never in
-## Chaos Cup's draw; a replay rebuilds the same hazards.
+## but the Daily, the ladders, coaches, showcases and replays; Chaos Cup ignores the rows
+## and can always draw a hazard (Kevin's ruling, Oct 2026); a replay rebuilds the same hazards.
 
 const TEST_SETTINGS := "user://test_arena_options.cfg"
 const ON_MODES := ["Cairn  vs  CPU Culvert", "Training: Cairn", "Team battle: 2v2 vs CPU",
@@ -129,14 +129,17 @@ func test_not_in_the_daily_ladders_coaches_or_showcases() -> void:
 	g.free()
 
 
-func test_chaos_cup_never_draws_an_off_hazard() -> void:
+func test_chaos_cup_draws_hazards_whatever_the_rows_say() -> void:
 	var g := _game()
 	var m: int = g.mode_index("Chaos Cup")
-	var seen_on := false
+	var seen_off := false
 	for s in range(1, 41):
 		g.seed_base = s
 		g._start_match(m)
-		assert_true(_hazards(g).is_empty(), "seed %d: both Off, none drawn (%s)" % [s, str(g.sim.mutators)])
+		assert_eq(String(g._chaos_names).split(", ").size(), 3, "three mutators drawn")
+		seen_off = seen_off or not _hazards(g).is_empty()
+	assert_true(seen_off, "both Off: the cup still draws them")
+	var seen_on := false
 	g._set_hazard("meteor_shower", true)
 	g._set_hazard("tidal_wave", true)
 	for s in range(1, 41):
@@ -144,7 +147,7 @@ func test_chaos_cup_never_draws_an_off_hazard() -> void:
 		g._start_match(m)
 		assert_eq(String(g._chaos_names).split(", ").size(), 3, "three mutators drawn")
 		seen_on = seen_on or not _hazards(g).is_empty()
-	assert_true(seen_on, "On: the cup can draw them")
+	assert_true(seen_on, "On: the cup draws them too")
 	g.free()
 
 

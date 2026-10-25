@@ -27,7 +27,7 @@ without it for detail.
   `--seeds=`, `--a=`, `--b=`): moves thrown, landed and blocked, damage dealt and taken,
   hits taken mid-move, pit falls, time guarding, the moves that hit it most.
 - `bench_cpu.gd`: CPU tier win rates: `--matrix` (every pair, `--a=3` = Rage), `--pairs`,
-  `--seeds`, `--only=<id>`, `--detail` (per foe: share of ticks at `ai.range` spacing, stamina-empty ticks, guard breaks taken), `--arena=ID`, `--teams=3` (3v3 tank/mage/assassin a side: win rate, target and focus switches a minute, spacing; `--intent=a` gives only the first-picks side the team focus, `--intent=off` nobody). Six games a pair at `--seeds=3` is
+  `--seeds`, `--only=<id>`, `--detail` (per foe: share of ticks at `ai.range` spacing, stamina-empty ticks, guard breaks taken), `--arena=ID`, `--teams=3` (3v3 tank/mage/assassin a side: win rate, target and focus switches a minute, spacing; `--intent=a` gives only the first-picks side the team focus, `--intent=off` nobody), `--combat` (Rage vs Rage over the roster: each fighter's damage share by move type, combo length and variety, Surges a minute; baseline in `docs/plans/combat-metrics.md`). Six games a pair at `--seeds=3` is
   noisy; `--only=<id> --seeds=6` plays 132 games.
 - `bench_sim.gd`: rollback cost. `bench_sinkhole.gd`: Sinkhole pacing. `bench_caravan.gd`:
   Caravan pacing with Normal CPUs (each round's push, rockslides, digging, healing). `bench_ctf.gd`:

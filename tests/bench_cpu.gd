@@ -14,6 +14,15 @@ extends SceneTree
 ##     per team (a baseline for team AI)
 ##     --intent=a: only the first-picks side plays to a team focus (TeamIntent), the other side
 ##     picks targets alone; --intent=off: nobody does (the old baseline)
+##   --combat: how each fighter deals its damage, Rage (or --a) against Rage, every pair of the
+##     roster from both sides (--seeds games a side, --only=<id> for its pairs): the share of
+##     damage from light / heavy / skill / surge hits (clean, chip and on armor; from the
+##     `move_type` and `dealt` of `hit`, `block` and `armor` events) and other (whatever else
+##     the foe lost: poison, falls, walls, hazards), the average combo length in hits, the
+##     average distinct move types per combo, the share of combos with 2+ types, Surges thrown a
+##     minute and damage a minute. A combo is the sim's: the hits landed on the foe while its
+##     `combo_hits` counts up; it ends when that resets (the foe recovers, or a hit restarts it
+##     at 1). The baseline is in docs/plans/combat-metrics.md.
 
 const MAX_TICKS := 5400
 
@@ -31,6 +40,7 @@ func _init() -> void:
 	var matrix := false
 	var pairs := ""
 	var teams := 0
+	var combat := false
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--a="):
 			a_lv = int(arg.get_slice("=", 1))
@@ -56,6 +66,12 @@ func _init() -> void:
 			teams = int(arg.get_slice("=", 1))
 		elif arg.begins_with("--intent="):
 			_intent = arg.get_slice("=", 1)
+		elif arg == "--combat":
+			combat = true
+	if combat:
+		_combat(MatchFactory.FIGHTERS, a_lv, seeds, only)
+		quit()
+		return
 	if teams > 0:
 		_teams(teams, a_lv, seeds)
 		quit()
@@ -289,3 +305,110 @@ func _pairs(spec: String, lv: int, seeds: int) -> void:
 				n += 1
 		print("%-9s vs %-9s %2d/%2d  hp %3d%%  dist %5.1f  %4.1f s" % [f, o, w, n, roundi(100.0 * hp / n), d / n,
 			ticks / float(n) / 60.0])
+
+
+const COMBAT_TYPES := ["light", "heavy", "skill", "surge"]
+
+
+## --combat: every pair of `field` at level `lv`, both sides, `seeds` games a side; each match
+## adds to both fighters' tallies (see the header for the columns).
+func _combat(field: Array, lv: int, seeds: int, only: String) -> void:
+	var tally := {}
+	for f in field:
+		tally[f] = {"dmg": {"light": 0.0, "heavy": 0.0, "skill": 0.0, "surge": 0.0, "other": 0.0},
+			"combos": 0, "hits": 0, "types": 0, "mixed": 0, "surges": 0, "ticks": 0}
+	for i in field.size():
+		for j in range(i + 1, field.size()):
+			var f: String = field[i]
+			var o: String = field[j]
+			if only != "" and f != only and o != only:
+				continue
+			for s in seeds:
+				for side in 2:
+					var ids := [f, o] if side == 0 else [o, f]
+					_combat_match(ids, lv, 900 + s * 17 + side, [tally[ids[0]], tally[ids[1]]])
+	print("%-9s %6s %6s %6s %6s %6s  %5s %5s %5s  %7s %6s" % ["fighter", "light", "heavy", "skill", "surge",
+		"other", "combo", "types", "2+", "surge/m", "dmg/m"])
+	var rows := []
+	for f in field:
+		var t: Dictionary = tally[f]
+		if int(t["ticks"]) == 0 or (only != "" and f != only):
+			continue
+		var total := 0.0
+		for k in t["dmg"]:
+			total += float(t["dmg"][k])
+		var minutes := int(t["ticks"]) / 3600.0
+		var combos := maxi(1, int(t["combos"]))
+		var line := "%-9s" % f
+		var row := {"fighter": f}
+		for k in COMBAT_TYPES + ["other"]:
+			var share := float(t["dmg"][k]) / maxf(0.001, total)
+			line += " %5d%%" % roundi(100.0 * share)
+			row[k] = snappedf(share, 0.001)
+		row["combo"] = snappedf(float(t["hits"]) / combos, 0.01)
+		row["types"] = snappedf(float(t["types"]) / combos, 0.01)
+		row["mixed"] = snappedf(float(t["mixed"]) / combos, 0.001)
+		row["surge_min"] = snappedf(int(t["surges"]) / minutes, 0.01)
+		row["dmg_min"] = snappedf(total / minutes, 0.1)
+		line += "  %5.2f %5.2f %4d%%  %7.2f %6.1f" % [row["combo"], row["types"], roundi(100.0 * float(row["mixed"])),
+			row["surge_min"], row["dmg_min"]]
+		print(line)
+		rows.append(row)
+	print("COMBAT " + JSON.stringify(rows))
+
+
+## One match for --combat at level `lv`, adding to `tallies` (one per side).
+func _combat_match(ids: Array, lv: int, seed_: int, tallies: Array) -> void:
+	var sim := MatchFactory.versus(ids[0], ids[1])
+	var cpus := [CpuController.new(0, lv, seed_ * 7 + 1), CpuController.new(1, lv, seed_ * 13 + 5)]
+	var open := [null, null]  ## each side's combo on its foe: {hits, types} or null
+	var ticks := 0
+	while ticks < MAX_TICKS:
+		ticks += 1
+		var hp_before := [sim.creatures[0].hp, sim.creatures[1].hp]
+		sim.step(PackedInt32Array([cpus[0].bits(sim), cpus[1].bits(sim)]))
+		var typed := [0.0, 0.0]  ## damage each side's hits dealt this tick
+		for e in sim.events:
+			var kind := String(e["type"])
+			if kind == "surge":
+				var who := int(e.get("who", -1))
+				if who == 0 or who == 1:
+					tallies[who]["surges"] += 1
+				continue
+			if kind != "hit" and kind != "block" and kind != "armor":
+				continue
+			var a := int(e.get("attacker", -1))
+			if (a != 0 and a != 1) or int(e.get("target", -1)) != 1 - a:
+				continue
+			var mt := String(e.get("move_type", ""))
+			var dealt := float(e.get("dealt", e["power"]))
+			if mt in COMBAT_TYPES:
+				tallies[a]["dmg"][mt] += dealt
+				typed[a] += dealt
+			if kind == "hit":
+				if int(e["combo"]) == 1 or open[a] == null:
+					_close_combo(tallies[a], open[a])
+					open[a] = {"hits": 0, "types": {}}
+				open[a]["hits"] += 1
+				open[a]["types"][mt] = true
+		for side in 2:
+			var foe: CreatureSim = sim.creatures[1 - side]
+			var lost := float(hp_before[1 - side]) - foe.hp
+			tallies[side]["dmg"]["other"] += maxf(0.0, lost - typed[side])
+			if foe.combo_hits == 0 and open[side] != null:
+				_close_combo(tallies[side], open[side])
+				open[side] = null
+		if sim.creatures[0].state == CreatureSim.State.KO or sim.creatures[1].state == CreatureSim.State.KO:
+			break
+	for side in 2:
+		_close_combo(tallies[side], open[side])
+		tallies[side]["ticks"] += ticks
+
+
+static func _close_combo(t: Dictionary, c) -> void:
+	if c == null:
+		return
+	t["combos"] += 1
+	t["hits"] += int(c["hits"])
+	t["types"] += c["types"].size()
+	t["mixed"] += 1 if c["types"].size() >= 2 else 0
