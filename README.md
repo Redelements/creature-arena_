@@ -452,9 +452,9 @@ One life each, last standing wins, as before. The **first KO** (credited to whoe
 the last hit within 5 s) gives that fighter the **crown**: drawn over their health bar, an
 arrow at the screen edge for everyone else while they're off screen, and a crown point a
 second (under the clock). **KO the holder and the crown is yours.** If the holder falls to a
-pit or a hazard with nobody's hit behind it, the crown is loose until the next KO. **At
-time, the crown wins** (the standing fighter with the most crown points; nobody crowned:
-the healthiest, as before). CPUs prefer the holder. Tuning: `data/rules/brawl.json`.
+pit or a hazard with nobody's hit behind it, the crown is loose until the next KO. At time the
+healthiest standing fighter still wins; **crown points break a near tie**: among fighters
+within 10% health of the healthiest, the most crown points wins. CPUs prefer the holder. Tuning: `data/rules/brawl.json`.
 
 ### Shrines: King of the Crater, Brawl, Capture the Flag
 

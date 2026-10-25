@@ -1,5 +1,5 @@
 {
-	"_doc": "Brawl: a free-for-all of 2 to 4 fighters, each on their own team with one life. Last one standing wins; at time, the healthiest. Spawns are fractions of the floor, one per slot. Chaos Cup plays these rules with three random mutators (data/rules/mutators.json) on top. Times are in ticks (60 per second) unless named _seconds. Shrines (\"shrines\", over data/rules/shrines.json): one in the middle that a fighter claims alone, haste then might, first ready 12 s in, then every 25 s. The crown (\"crown\": true): a KO is credited to the victim's last hitter if that hit landed within credit_seconds. While nobody wears the crown (the start, or after its holder fell with nobody's hit behind it), the next credited KO gives it to the killer; KOing the holder takes it. The holder scores crown_points_per_second; at time the standing fighter with the most crown points wins (crown_decides_time; a tie falls back to health); crown_points_to_win > 0 also wins outright on reaching it (0: off). The CPU pulls toward the holder by crown_cpu_pull px.",
+	"_doc": "Brawl: a free-for-all of 2 to 4 fighters, each on their own team with one life. Last one standing wins; at time, the healthiest. Spawns are fractions of the floor, one per slot. Chaos Cup plays these rules with three random mutators (data/rules/mutators.json) on top. Times are in ticks (60 per second) unless named _seconds. Shrines (\"shrines\", over data/rules/shrines.json): one in the middle that a fighter claims alone, haste then might, first ready 12 s in, then every 25 s. The crown (\"crown\": true): a KO is credited to the victim's last hitter if that hit landed within credit_seconds. While nobody wears the crown (the start, or after its holder fell with nobody's hit behind it), the next credited KO gives it to the killer; KOing the holder takes it. The holder scores crown_points_per_second. At time the healthiest standing fighter wins, and crown points break a near tie: among those within crown_tie_margin (a share of health) of the healthiest, the most crown points wins. crown_points_to_win > 0 also wins outright on reaching it (0: off). The CPU pulls toward the holder by crown_cpu_pull px.",
 	"time_seconds": 120,
 	"intro_ticks": 100,
 	"over_ticks": 150,
@@ -8,7 +8,7 @@
 	"crown": true,
 	"credit_seconds": 5,
 	"crown_points_per_second": 1,
-	"crown_decides_time": true,
+	"crown_tie_margin": 0.1,
 	"crown_points_to_win": 0,
 	"crown_cpu_pull": 80,
 	"shrines": {"kinds": ["haste", "might"], "first_seconds": 12, "cooldown_seconds": 25}

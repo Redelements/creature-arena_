@@ -1213,11 +1213,10 @@ func _mode_facts(row: Dictionary, cfg: Dictionary) -> Array:
 			"Two players on one screen" if two else "You pick both teams"]
 	if cfg.get("brawl", false):
 		var b := BrawlSim.load_rules()
-		var crowned := bool(b.get("crown", false)) and bool(b.get("crown_decides_time", true))
 		var out := ["%d fighters, one life each" % BrawlSim.MAX_PLAYERS,
-			"Clock %s, %s wins" % [_mmss(int(float(b.get("time_seconds", 120)) * 60)), "the crown" if crowned else "healthiest"]]
+			"Clock %s, healthiest wins" % _mmss(int(float(b.get("time_seconds", 120)) * 60))]
 		if bool(b.get("crown", false)):
-			out.append("The first KO takes the crown")
+			out.append("First KO: the crown, a tie-break")
 		if cfg.get("chaos", false):
 			out.append("Three mutators each match")
 		return out

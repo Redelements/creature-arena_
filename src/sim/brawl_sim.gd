@@ -14,9 +14,10 @@ extends RefCounted
 ## a pit, a hazard), the next credited KO gives it to the killer; KOing the holder takes it.
 ## Event "crown" ({who: the new holder or -1 when it drops, from: who lost it}). The holder
 ## scores `crown_points_per_second` (`crown_points`) and is marked for the CPU
-## (`MatchSim.marks`, `crown_cpu_pull` px). At time the standing fighter with the most
-## crown points wins (`crown_decides_time`; a tie there falls back to health), and with
-## `crown_points_to_win` > 0 reaching it wins outright (by "crown").
+## (`MatchSim.marks`, `crown_cpu_pull` px). At time the healthiest still wins, but crown
+## points break a near tie: among those within `crown_tie_margin` of the best health share,
+## the most crown points wins (`_time_out`). With `crown_points_to_win` > 0 reaching it wins
+## outright (by "crown"; 0, off, as shipped).
 
 enum Phase { INTRO, FIGHT, OVER }
 
@@ -175,27 +176,13 @@ func _set_phase(p: Phase) -> void:
 	phase_t = 0
 
 
+## At time the healthiest standing fighter wins (its share of health). With the crown on,
+## crown points break the tie: among the standing fighters within `crown_tie_margin` (a share
+## of health, 0.1) of the healthiest, the one with the most crown points wins. No crown
+## points among them, or a tie on points: the healthiest; a dead heat on health is a draw.
 func _time_out() -> void:
 	var best := -1.0
 	winner = -1
-	if crown_on and bool(rules.get("crown_decides_time", true)):
-		# The crown first: the standing fighter with the most crown points (a tie: health).
-		var top := 0
-		var at_top: Array = []
-		for i in slot_count():
-			if not alive(i):
-				continue
-			var pts := crown_points(i)
-			if pts > top:
-				top = pts
-				at_top = [i]
-			elif pts == top and top > 0:
-				at_top.append(i)
-		if at_top.size() == 1:
-			winner = int(at_top[0])
-			_set_phase(Phase.OVER)
-			sim.emit_event("duel_over", Vector2.ZERO, 1.0, {"winner": winner, "by": "time"})
-			return
 	for i in slot_count():
 		if not alive(i):
 			continue
@@ -206,6 +193,21 @@ func _time_out() -> void:
 			winner = i
 		elif absf(share - best) <= 0.0001:
 			winner = -1  # a tie at the top is a draw
+	if crown_on:
+		var margin := maxf(float(rules.get("crown_tie_margin", 0.1)), 0.0001)
+		var top := 0
+		var by_crown := -1
+		for i in slot_count():
+			if not alive(i) or sim.creatures[i].hp / sim.creatures[i].max_hp < best - margin:
+				continue
+			var pts := crown_points(i)
+			if pts > top:
+				top = pts
+				by_crown = i
+			elif pts == top and top > 0:
+				by_crown = -1  # level on points too: health decides
+		if by_crown >= 0:
+			winner = by_crown
 	_set_phase(Phase.OVER)
 	sim.emit_event("duel_over", Vector2.ZERO, 1.0, {"winner": winner, "by": "time"})
 

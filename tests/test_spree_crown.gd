@@ -3,7 +3,7 @@ extends TestCase
 ## brawl.json): KO credit to the last hitter within credit_seconds, a spree at spree_at KOs and
 ## its level, shutdown points (capped) that can win the match, the killer's Surge meter, a
 ## spree ending on death; the crown to the first credited KO, taken by whoever KOs the holder,
-## loose after a fall with nobody's hit behind it, crown points, the crown winning at time;
+## loose after a fall with nobody's hit behind it, crown points, crown points breaking a near tie on health at time;
 ## both rolling back; the CPU preferring the marked foe.
 
 const TEAMS := [["cairn", "sno", "pete"], ["culvert", "digby", "hissy"]]
@@ -230,15 +230,29 @@ func test_a_holder_who_falls_with_nobody_behind_it_drops_the_crown() -> void:
 	assert_eq(b.crown, 2, "the next credited KO takes it:")
 
 
-func test_at_time_the_crown_wins_and_without_it_the_healthiest() -> void:
+func test_at_time_crown_points_break_a_near_tie_on_health() -> void:
 	var b := _brawl()
 	_ko_by(b, 1, 0)
 	_idle(b, 120)
-	b.sim.creatures[0].hp = 10.0  # the holder, nearly out
+	for i in [0, 2, 3]:
+		b.sim.creatures[i].hp = b.sim.creatures[i].max_hp
+	b.sim.creatures[0].hp = b.sim.creatures[0].max_hp * 0.95  # the holder, a little behind
 	b.timer = 1
 	_idle(b, 1)
 	assert_eq(b.phase, BrawlSim.Phase.OVER, "time")
-	assert_eq(b.winner, 0, "the crown beats health:")
+	assert_eq(b.winner, 0, "within crown_tie_margin of the healthiest: the crown decides:")
+
+
+func test_at_time_the_healthiest_still_beats_the_crown() -> void:
+	var b := _brawl()
+	_ko_by(b, 1, 0)
+	_idle(b, 120)
+	b.sim.creatures[0].hp = b.sim.creatures[0].max_hp * 0.5  # the holder, well behind
+	b.sim.creatures[2].hp = b.sim.creatures[2].max_hp
+	b.sim.creatures[3].hp = b.sim.creatures[3].max_hp * 0.6
+	b.timer = 1
+	_idle(b, 1)
+	assert_eq(b.winner, 2, "crown points are only a tie-break:")
 	var plain := _brawl()
 	plain.sim.creatures[2].hp = plain.sim.creatures[2].max_hp * 0.5
 	plain.sim.creatures[0].hp = 1.0

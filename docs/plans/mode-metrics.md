@@ -100,8 +100,10 @@ What it says:
   (the CPUs pull 80 px toward the holder). Comebacks 28 → 32 of 47, stalemate 3% → 2%. A
   Brawl of three is unchanged: after its first KO only two are left, a 1v1 the crown can't
   change before time.
-- **No Rage match reaches the clock** (time-outs 0 of 96), so "at time the crown wins" is
-  for humans who play safe; the bench can't measure it. The outright win at 20 crown points
+- **No Rage match reaches the clock** (time-outs 0 of 96), so the time-out rule is for
+  humans who play safe; the bench can't measure it. As measured, crown points decided the
+  time-out; Kevin's ruling after review: they only break a near tie on health
+  (`crown_tie_margin` 0.1). That changes no Rage match (none reaches the clock). The outright win at 20 crown points
   never decides a Rage match either (27-33 s Brawls); it ships **off** (`crown_points_to_win`
   0) so the first KO can't turn into a run-away-and-win. Playtest question.
 
