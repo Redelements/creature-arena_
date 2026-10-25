@@ -451,8 +451,7 @@ teams in it hold the claim, and the other team alone wears yours down first. The
   buff for the rest of the match**, kept through respawns, drawn at random: **+8% damage,
   +8% speed, +10% max HP** (and heals that much) or **+15% stamina regen**. Up to **3** each
   (pips under your health bar); at 3 you can still claim it to deny it. Zone time now, or
-  power for later. A CPU side sends one fighter only while it's ahead on zone time or the
-  other side holds the zone.
+  power for later. Each CPU side sends one fighter for it; the rest hold the zone.
 - **Brawl and Chaos Cup:** one in the middle, claimed by a fighter alone: haste then might
   for 15 s, first ready 12 s in, then every 25 s.
 - **Capture the Flag:** three on Twin Keeps (below).

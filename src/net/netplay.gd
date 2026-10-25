@@ -686,7 +686,7 @@ func _start_watching(m: Dictionary) -> void:
 	if room == "":
 		room_state = ""  # a rematch's pick is over
 		room_players = []
-	watch = Referee.new(teams, int(m.get("delay", 2)), size, rules, arena)
+	watch = Referee.new(teams, int(m.get("delay", 2)), size, rules, arena, _watch_n)
 	var rows = m.get("log", [])
 	if rows is Array:
 		watch.feed_log(rows)

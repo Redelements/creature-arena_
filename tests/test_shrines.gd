@@ -424,13 +424,63 @@ func test_buffs_roll_back_and_are_in_the_digest() -> void:
 	assert_true(t.state_digest() != after, "the buffs are in the digest")
 
 
-func test_the_crater_cpu_sends_someone_only_when_its_side_can_spare_them() -> void:
+func test_the_crater_cpu_goes_from_either_side_one_fighter_each() -> void:
 	var t := _crater()
+	assert_eq(t._shrine_allow(), [], "by default either side may go")
+	_ready_now(t)
+	t.sim.creatures[0].pos = Shrines.pos(t.sim, 0) + Vector2(-150, 0)
+	t.sim.creatures[2].pos = Shrines.pos(t.sim, 0) + Vector2(150, 0)
+	_idle(t, 1)
+	var per_side := [0, 0]
+	for c in t.sim.creatures:
+		if not (t.sim.goals[c.id] as Array).is_empty():
+			per_side[c.team] += 1
+	assert_eq(per_side, [1, 1], "one fighter a side, level score or not")
+	t.sim.creatures[0].boost_ids = ["damage", "speed", "hp"]
+	_idle(t, 1)
+	assert_true((t.sim.goals[0] as Array).is_empty(), "a fighter at the cap doesn't go")
+
+
+func test_the_crater_cpu_gate_is_a_data_option() -> void:
+	var r := TeamSim.rules_by_id("crater")
+	(r["shrines"] as Dictionary)["cpu_gate"] = true
+	var t := TeamSim.new(TEAMS, 2, r)
+	while t.phase == TeamSim.Phase.INTRO:
+		t.step(PackedInt32Array())
 	t.score = [600, 0]
-	assert_eq(t._shrine_allow(), [true, false], "the side ahead on zone time may go")
+	assert_eq(t._shrine_allow(), [true, false], "gated: the side ahead on zone time may go")
 	t.score = [0, 0]
 	_clear(t.sim)
 	t.sim.creatures[2].pos = t.sim.zone_pos  # blue holds the zone alone
-	assert_eq(t._shrine_allow(), [true, false], "a side losing the zone may go")
+	assert_eq(t._shrine_allow(), [true, false], "gated: a side losing the zone may go")
 	t.sim.creatures[0].pos = t.sim.zone_pos + Vector2(6, 0)
-	assert_eq(t._shrine_allow(), [false, false], "level and contested: everyone holds the zone")
+	assert_eq(t._shrine_allow(), [false, false], "gated, level and contested: everyone holds the zone")
+
+
+## The first `k` buffs fighter 0 draws in a Crater built with `seed_`.
+func _draws(seed_: int, k := 3) -> Array:
+	var t := _crater(seed_)
+	for i in k:
+		_claim_crater(t, 0)
+	return t.sim.creatures[0].boost_ids.duplicate()
+
+
+func test_online_matches_draw_from_their_setup_and_number() -> void:
+	var teams := [["cairn", "sno"], ["culvert", "digby"]]
+	var a := TeamSim.online_seed(teams, 2, "crater", "stadium", 7)
+	assert_eq(TeamSim.online_seed(teams.duplicate(true), 2, "crater", "stadium", 7), a, "the same setup: the same seed")
+	assert_true(TeamSim.online_seed(teams, 2, "crater", "stadium", 8) != a, "the next match: another seed")
+	assert_true(TeamSim.online_seed([["cairn", "pete"], ["culvert", "digby"]], 2, "crater", "stadium", 7) != a,
+		"other fighters: another seed")
+	assert_eq(_draws(a), _draws(TeamSim.online_seed(teams, 2, "crater", "stadium", 7)), "the same setup draws the same")
+	var differ := false
+	for n in range(8, 16):
+		if _draws(TeamSim.online_seed(teams, 2, "crater", "stadium", n)) != _draws(a):
+			differ = true
+	assert_true(differ, "different setups draw different buffs")
+	# The server's referee works the seed out the same way and keeps it in the replay.
+	var ref := Referee.new(teams, 2, 2, "crater", "stadium", 7)
+	assert_eq(ref.match_seed, a, "the referee's seed")
+	assert_eq(int(ref.setup_dict()["mut_seed"]), a, "kept in the replay")
+	var built: Dictionary = ReplayBuilder.build(ref.setup_dict())
+	assert_eq((built["game"] as TeamSim).sim.shrine_rng, (ref.duel as TeamSim).sim.shrine_rng, "a replay draws the same")

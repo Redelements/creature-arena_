@@ -174,6 +174,17 @@ const RULE_IDS := ["", "deathmatch", "sinkhole", "crater", "caravan", "ctf"]
 const RULE_NAMES := ["Team battle", "Team Deathmatch", "Sinkhole", "King of the Crater", "Caravan", "Capture the Flag"]
 const CARAVAN_PATH := "res://data/rules/caravan.json"
 const CTF_PATH := "res://data/rules/ctf.json"
+## An online match's seed (the Crater shrine's draws): from what every machine in it already
+## agrees on, the setup in "start" and its match number `n`, so the players, the server's
+## referee, spectators and the replay all draw the same, and the next match draws anew.
+## Integer arithmetic over the setup's bytes: the same on every platform.
+static func online_seed(teams: Array, size: int, rules: String, arena: String, n: int) -> int:
+	var h := 17
+	for b in ("%s|%d|%s|%s|%d" % [str(teams), size, rules, arena, n]).to_utf8_buffer():
+		h = (h * 31 + int(b)) & 0x7fffffff
+	return h
+
+
 ## The most players a side any rules allow (a rules file's "max_size", 3 if it has none).
 const MOST_PER_SIDE := 4
 
@@ -252,11 +263,11 @@ func _init(team_ids: Array, per_side := 0, p_rules: Dictionary = {}, seed_ := 0)
 		Shrines.write_goals(sim, _shrine_allow())
 
 
-## Which sides' CPUs may send someone to a shrine now. The Crater (unless the shrine rules'
-## `cpu_gate` is false): a side ahead on zone time, or one whose zone the other side holds
-## alone (the rest hold the zone). Others: all.
+## Which sides' CPUs may send someone to a shrine now: either side (one fighter a side, by
+## `Shrines.write_goals`), unless the shrine rules' `cpu_gate` is on (off by default): then in
+## the Crater only a side ahead on zone time, or one whose zone the other side holds alone.
 func _shrine_allow() -> Array:
-	if not crater or not bool(sim.shrine_rules.get("cpu_gate", true)):
+	if not crater or not bool(sim.shrine_rules.get("cpu_gate", false)):
 		return []
 	var holder := zone_holder()
 	return [int(score[0]) > int(score[1]) or holder == 1, int(score[1]) > int(score[0]) or holder == 0]

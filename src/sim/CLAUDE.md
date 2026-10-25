@@ -80,7 +80,7 @@ size only: a map's `size` can be bigger, so code with a match asks `sim.floor_re
 - Shrines in any mode (rules `shrines` over `data/rules/shrines.json`) → `shrines.gd` (`setup` from
   `TeamSim._init` / `BrawlSim._init`, `step` from the mode's step during the fight, `write_goals` the CPU's
   goal outside Capture the Flag, `kind`, `nearest_ready`, the reward `_claimed`, the Crater's `follow_zone` from
-  `TeamSim._place_zone`, its CPU gate `TeamSim._shrine_allow`); state `MatchSim.shrines`, `shrine_rng` (saved; in the
+  `TeamSim._place_zone`, its optional CPU gate `TeamSim._shrine_allow`, the online seed `TeamSim.online_seed`); state `MatchSim.shrines`, `shrine_rng` (saved; in the
   digest only when there are some, with each creature's `BOOST_FIELDS`), fixed `shrine_spots`, `shrine_rules` (not
   state). Permanent buffs → `creature_sim.gd:add_boost`, `boosts`, `set_boosts` (`BOOST_FIELDS`: saved by
   `save_state` but kept out of `STATE_FIELDS` so the digest of a match without shrines doesn't move; `load_state`

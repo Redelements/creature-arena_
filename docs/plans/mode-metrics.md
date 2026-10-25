@@ -69,25 +69,24 @@ redesigned** (a shrine opposite the zone that gives a permanent buff); Capture t
 One shrine opposite the zone (mirrored through the floor's centre; straight up from a zone in
 the middle), moving with it. First ready 20 s in, 30 s rest after a claim. Each fighter of
 the claiming team standing in it draws a permanent buff from the pool (seeded by the match
-seed), up to 3 each. The CPU sends one fighter only while its side is ahead on zone time or
-the other side holds the zone (Kevin's rule); `cpu_gate: 0` lets every side go, to see what
-the buffs themselves do.
+seed; online, from the setup and the match number), up to 3 each. Each side's CPUs send one
+fighter for it (Kevin, after round 2's first numbers); the rule that only a side ahead on
+zone time, or losing the zone, may go is a data option (`cpu_gate`, off).
 
 | Crater 2v2 | Matches | Length (s) | Stalemate | Fights/min | KOs/match | Comebacks | Claims/match | Claimer won | More buffs won |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | before (no shrine) | 24 | 214 | 6% | 2.33 | 25.3 | 4 of 24 | 0 | n/a | n/a |
-| **after**: +8% dmg / +8% speed / +10% HP / +15% regen, CPU gate on (shipped) | 24 | 229 | 7% | 2.27 | 26.0 | 7 of 24 | 4.8 | 77% | 19 of 23 |
-| buffs cut to +5 / +5 / +6 / +10, CPU gate on | 24 | 230 | 7% | 2.29 | 26.2 | 3 of 24 | 5.1 | 80% | 19 of 22 |
-| Kevin's buffs, CPU gate off | 24 | 232 | 5% | 2.22 | 26.3 | 4 of 24 | 5.1 | 56% | 15 of 21 |
-| buffs cut, CPU gate off | 24 | 234 | 5% | 2.10 | 26.6 | 4 of 24 | 5.0 | 56% | 13 of 21 |
+| **after (shipped)**: +8% dmg / +8% speed / +10% HP / +15% regen, either side's CPU goes | 24 | 232 | 5% | 2.22 | 26.3 | 4 of 24 | 5.1 | 56% | 15 of 21 |
+| Kevin's buffs, `cpu_gate` on (first try) | 24 | 229 | 7% | 2.27 | 26.0 | 7 of 24 | 4.8 | 77% | 19 of 23 |
+| buffs cut to +5 / +5 / +6 / +10, `cpu_gate` on | 24 | 230 | 7% | 2.29 | 26.2 | 3 of 24 | 5.1 | 80% | 19 of 22 |
+| buffs cut, either side goes | 24 | 234 | 5% | 2.10 | 26.6 | 4 of 24 | 5.0 | 56% | 13 of 21 |
 
-The claimer won 77% with the shipped setup, well over 60%, so I cut the buffs (third row):
-nothing moved (80%). Turning the CPU gate off brings it to 56% with either buff size. So the
-high share is selection, not the buffs: under the gate a side only goes for the shrine when
-it is already ahead on zone time, and the side ahead mostly wins anyway. The buffs on their
-own give a modest edge (56-57% claimer won, and the side with more buffs won 62-71%).
-Comebacks didn't fall (4 → 7 of 24 with the shipped setup). Kevin's buff sizes and CPU gate
-are kept; the question is in mode-ideas.md.
+The first try (the CPU gate on) had the claimer winning 77%, well over 60%, so I cut the
+buffs: nothing moved (80%). With either side free to go it is 56% at either buff size: the
+high share was selection (under the gate a side only went once it was ahead, and the side
+ahead mostly wins anyway). Kevin's ruling: either side goes, his buff sizes. The shipped
+setup: the claimer wins 56%, the side with more buffs 15 of 21, comebacks as before (4 of
+24), 5 claims a match, fights a minute 2.33 → 2.22, matches 18 s longer.
 
 ### Capture the Flag: three shrines
 

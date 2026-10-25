@@ -44,7 +44,7 @@ shipped), **idea** (not built).
 | # | Idea | Status | Evidence | Kevin's decision |
 | --- | --- | --- | --- | --- |
 | 1 | Shrines giving haste / might | measured (round 1), off | Two shrines off the zone points: fights a minute 2.41 → 2.12, the match 20 s longer, comebacks 3 → 2 of 12. The claimant leaves the zone | Replaced by #2 |
-| 2 | A permanent-buff shrine opposite the zone: zone points now, or stat power for later (+8% damage / +8% speed / +10% HP / +15% stamina regen, up to 3 each, drawn by the match seed) | in PR (round 2), **on** | 24 seeds: 4.8 claims a match, comebacks 4 → 7 of 24, fights a minute 2.33 → 2.27, matches 15 s longer. Claimer won 77% under the CPU rule, but 56% with every side free to go (and the same 77-80% with the buffs cut to 5/5/6/10): the share is the side ahead choosing to go, not the buffs (mode-metrics.md) | **On** (Oct 25, Kevin's design). Open: keep the CPU rule, or let a side behind go too? |
+| 2 | A permanent-buff shrine opposite the zone: zone points now, or stat power for later (+8% damage / +8% speed / +10% HP / +15% stamina regen, up to 3 each, drawn by the match seed) | in PR (round 2), **on** | 24 seeds, shipped (either side goes): 5.1 claims a match, claimer won 56%, the side with more buffs won 15 of 21, comebacks 4 of 24 as before, fights a minute 2.33 → 2.22, matches 18 s longer. With the CPU gate on it was 77% (selection: only the side ahead went; cutting the buffs didn't move it) (mode-metrics.md) | **On** (Oct 25, Kevin's design). CPU: either side sends one fighter (the gate is a data option, off); every claimer in it gets a buff; online draws seeded per match |
 | 3 | A shrine that is the next zone (claim it to move the crater there) | idea | would tie the two objectives instead of splitting them | |
 
 ## Sinkhole
@@ -74,5 +74,5 @@ shipped), **idea** (not built).
 | # | Idea | Status | Evidence | Kevin's decision |
 | --- | --- | --- | --- | --- |
 | 1 | Two shrines on the river islands | shipped before M1 | 7.1 claims a match, claimer won 49% (24 seeds) | Replaced by #2 |
-| 2 | Three shrines: a haste shrine near each keep (180-degree symmetric) and a might shrine on the bridge, the contested middle | in PR (round 2) | 24 seeds: claims 7.1 → 9.4 a match, claimer won 52%, fights a minute 2.59 → 2.77, captures 3.95 → 3.85, stalemate 8 → 10% | **On** (Oct 25, Kevin's layout) |
+| 2 | Three shrines: a haste shrine near each keep (180-degree symmetric) and a might shrine on the bridge, the contested middle (in the shallows while the bridge is down; the islands stay empty) | in PR (round 2) | 24 seeds: claims 7.1 → 9.4 a match, claimer won 52%, fights a minute 2.59 → 2.77, captures 3.95 → 3.85, stalemate 8 → 10% | **On** (Oct 25, Kevin's layout) |
 | 3 | Shrine announcement ("SHRINE IN 10" 5 s into the match) | in PR | view only | |
