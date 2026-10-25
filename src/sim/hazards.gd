@@ -51,6 +51,21 @@ static func table() -> Dictionary:
 	return _table
 
 
+## Every hazard's id (data/rules/hazards.json), sorted: the Arena options page has a row each.
+static func ids() -> Array:
+	var out: Array = []
+	for k in table():
+		if not String(k).begins_with("_"):
+			out.append(String(k))
+	out.sort()
+	return out
+
+
+## A hazard's name for the screen ("name" in its entry, else its id).
+static func name_of(id: String) -> String:
+	return String((table().get(id, {}) as Dictionary).get("name", id))
+
+
 static func ticks_of(seconds: Variant) -> int:
 	return int(round(float(seconds) * SimDefs.TICK_RATE))
 

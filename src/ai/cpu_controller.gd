@@ -396,7 +396,8 @@ func _mind_hazards(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> bool:
 				return true
 	for pk in sim.hazard_pickups:
 		var at: Vector2 = pk["pos"]
-		if me.pos.distance_to(at) < 110.0 and not sim.terrain.is_hole_at(at) 				and (foe == null or _seen(foe).distance_to(me.pos) > _reach_of(foe, me) + 16.0):
+		if me.pos.distance_to(at) < 110.0 and not sim.terrain.is_hole_at(at) \
+				and (foe == null or _seen(foe).distance_to(me.pos) > _reach_of(foe, me) + 16.0):
 			_go_to(sim, me, at)
 			return true
 	return false
@@ -415,7 +416,8 @@ func _find_shelter(sim: MatchSim, me: CreatureSim, dir: Vector2, d: Dictionary) 
 			if t.get_cell(c) != TerrainGrid.WALL:
 				continue
 			var spot := t.cell_center(c) + dir * (SimDefs.CELL * 0.5 + me.radius + 3.0)
-			if not t.is_walkable(t.get_cell(t.world_to_cell(spot))) or t.body_blocked(spot, me.radius) 					or not sim.floor_rect().grow(-me.radius).has_point(spot):
+			if not t.is_walkable(t.get_cell(t.world_to_cell(spot))) or t.body_blocked(spot, me.radius) \
+					or not sim.floor_rect().grow(-me.radius).has_point(spot):
 				continue
 			var sh: Dictionary = d.get("shelter", {})
 			if not Hazards.sheltered(t, spot, me.radius, dir, float(sh.get("depth", 48)), float(sh.get("lane", 0.6))):
@@ -506,7 +508,8 @@ func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 		_go_to(sim, me, sim.floor_rect().get_center())
 		return
 	# Arena hazards (a mutator's): meteor shadows, a wave coming, a core to pick up.
-	if not sim.hazards.is_empty() and me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE, CreatureSim.State.GUARD] 			and _mind_hazards(sim, me, foe):
+	if not sim.hazards.is_empty() and me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE, CreatureSim.State.GUARD] \
+			and _mind_hazards(sim, me, foe):
 		return
 	var to_foe := _seen(foe) - me.pos
 	# A goal the mode's rules give this fighter (Capture the Flag: the flag, home, the
