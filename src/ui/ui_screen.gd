@@ -12,6 +12,11 @@ extends Control
 ## Rows are ordinary Controls (Buttons, OptionRows, a LineEdit...), so Godot's focus
 ## system moves between them with the arrows, the d-pad and the stick (MenuStick), and the
 ## mouse focuses whatever it's over. The column wraps round from the last row to the first.
+##
+## A page taller than the screen leaves room for (a short screen, a long page) first drops
+## the game's name over a sub-page's title, then scrolls its column: the rows sit in a
+## ScrollContainer that keeps the focused row in view (`_fit_rows`), so the page's frame,
+## the panel and the hints stay on screen at any size.
 
 ## Pressed Back (B / Esc) on this screen. The default closes it.
 signal backed
@@ -59,6 +64,9 @@ var builder := Callable()
 var on_back := Callable()
 
 var _list: VBoxContainer
+var _scroll: ScrollContainer  ## holds _list; as tall as it, or as the screen allows
+var _col: VBoxContainer
+var _logo_small: Array = []  ## the name over a sub-page's title: dropped when the page is short of room
 var _desc: Label
 var _detail_title: Label
 var _extra: Control  ## the cards' slot under the text, the tallest card high
@@ -87,6 +95,7 @@ func _ready() -> void:
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.mouse_filter = MOUSE_FILTER_IGNORE
 	add_child(col)
+	_col = col
 	if logo:
 		# Full size on the title menu; smaller over a page with a title of its own.
 		var wordmark := load(LOGO_PATH) as Texture2D if title == "" and not UiTheme.smooth else null
@@ -103,6 +112,8 @@ func _ready() -> void:
 		else:
 			col.add_child(_label("CREATURE ARENA", UiTheme.SIZE_LOGO if title == "" else UiTheme.SIZE_LOGO_SMALL, UiTheme.C_TEXT))
 			col.add_child(_rule(60.0 if title == "" else 44.0))
+			if title != "":
+				_logo_small = [col.get_child(col.get_child_count() - 2), col.get_child(col.get_child_count() - 1)]
 		if title == "":
 			col.add_child(_label("prototype build", UiTheme.SIZE_HINT + 1, UiTheme.C_DIM))
 	if not crumbs.is_empty():
@@ -122,6 +133,7 @@ func _ready() -> void:
 	_list = VBoxContainer.new()
 	_list.custom_minimum_size = Vector2(row_width, 0)
 	_list.add_theme_constant_override("separation", row_gap)
+	_scroll = _scroller(_list)
 	_desc = _label("", UiTheme.SIZE_HINT, UiTheme.C_DIM)
 	_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	if framed and detail:
@@ -134,7 +146,7 @@ func _ready() -> void:
 		panes.add_theme_constant_override("separation", 7)
 		panes.mouse_filter = MOUSE_FILTER_IGNORE
 		frame.add_child(panes)
-		panes.add_child(_list)
+		panes.add_child(_scroll)
 		var vr := ColorRect.new()
 		vr.color = UiTheme.C_RULE
 		vr.custom_minimum_size = Vector2(1, 0)
@@ -175,7 +187,7 @@ func _ready() -> void:
 		inner.add_theme_constant_override("separation", 3)
 		inner.mouse_filter = MOUSE_FILTER_IGNORE
 		frame.add_child(inner)
-		inner.add_child(_list)
+		inner.add_child(_scroll)
 		if show_desc:
 			inner.add_child(_rule(row_width))
 			# Two lines, always: a one-line text leaves the second empty, a longer one is cut.
@@ -185,7 +197,7 @@ func _ready() -> void:
 			_desc.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 			inner.add_child(_desc)
 	else:
-		center.add_child(_list)
+		center.add_child(_scroll)
 		_desc.set_anchors_preset(PRESET_BOTTOM_WIDE)
 		_desc.offset_top = -38
 		_desc.offset_bottom = -28
@@ -200,6 +212,60 @@ func _ready() -> void:
 	refresh_hint()
 	if _detail_title != null:
 		_size_detail()
+	_fit_rows()
+	resized.connect(_fit_rows)
+	_list.minimum_size_changed.connect(_fit_rows)
+
+
+## The column's box: scrolls up and down only, follows the focus, a thin bar when it scrolls.
+func _scroller(list: Control) -> ScrollContainer:
+	var sc := ScrollContainer.new()
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.follow_focus = true
+	sc.mouse_filter = MOUSE_FILTER_PASS
+	var bar := sc.get_v_scroll_bar()
+	var track := StyleBoxFlat.new()
+	track.bg_color = UiTheme.C_RULE
+	track.content_margin_left = 1
+	track.content_margin_right = 1
+	var grab := StyleBoxFlat.new()
+	grab.bg_color = Color(UiTheme.C_ACCENT, 0.7)
+	grab.content_margin_left = 1
+	grab.content_margin_right = 1
+	bar.add_theme_stylebox_override("scroll", track)
+	bar.add_theme_stylebox_override("scroll_focus", track)
+	for k in ["grabber", "grabber_highlight", "grabber_pressed"]:
+		bar.add_theme_stylebox_override(k, grab)
+	bar.custom_minimum_size = Vector2(2, 0)
+	sc.add_child(list)
+	return sc
+
+
+## The column's height: all its rows when they fit, else what the screen leaves (the
+## rest of the page keeps its size), and the rows scroll. Re-run when the screen or the
+## rows change size; it settles in one pass because only the column's box changes.
+func _fit_rows() -> void:
+	if _scroll == null or _col == null or not is_inside_tree():
+		return
+	var need := _list.get_combined_minimum_size().y
+	var room := size.y - _col.offset_top + _col.offset_bottom  # the column grows past its anchors when too tall
+	if room <= 0.0:
+		return
+	_scroll.custom_minimum_size.y = need
+	for n in _logo_small:
+		(n as Control).visible = true
+	var over := _col.get_combined_minimum_size().y - room
+	if over > 0.0 and not _logo_small.is_empty():
+		for n in _logo_small:
+			(n as Control).visible = false
+		over = _col.get_combined_minimum_size().y - room
+	var h := need if over <= 0.0 else maxf(row_height * 3, need - over)
+	if not is_equal_approx(_scroll.custom_minimum_size.y, h):
+		_scroll.custom_minimum_size.y = h
+	# Room for the bar beside the rows only when it shows.
+	var scrolls := h < need - 0.5
+	_list.custom_minimum_size.x = row_width
+	_scroll.custom_minimum_size.x = row_width + (4.0 if scrolls else 0.0)
 
 
 ## The panel's text box, sized once for the longest text any row (or the page) shows.

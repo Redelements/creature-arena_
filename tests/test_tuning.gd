@@ -30,6 +30,8 @@ func _block_third_light(sim: MatchSim) -> int:
 
 func test_a_blocked_third_light_leaves_every_fighter_open() -> void:
 	for id in MatchFactory.FIGHTERS:
+		if not MatchFactory.load_def(id)["moves"].has("light_3"):
+			continue  # Craglash: a single Rake on a 2 s cooldown, no string to block
 		var gap := 2.0
 		var lt: Dictionary = MatchFactory.load_def(id)["moves"]["light_3"]
 		if lt.has("projectile"):

@@ -102,7 +102,9 @@ stamina ran out, drawn "EXHAUSTED"), slam, bounce, fall, land, land_hard, dodge,
 grab, windup, tag, enter, breakaway, projectile, projectile_end, projectile_pierce, armor,
 shield_up, shield_break, slow, taunt, roar, hook, pull, burst, reel, tenderized,
 punishable, freeze, zone, steal, warp, blink, blinded, miss, rooted, poisoned, poison,
-gaze, petrify, shatter; audio only: surge, duel_over. `FxView.cue(sound)` is a signal for
+gaze, petrify, shatter, hazard_strike, hazard_hit, hazard_shelter, hazard_pickup,
+hazard_pickup_gone; audio only: surge, duel_over; main only: hazard_warn (`main.gd:_hazard_warn`,
+the HUD banner / toast). `FxView.cue(sound)` is a signal for
 dig/slosh/poof/chop_chop/shout sounds.
 
 ## Where to look
@@ -129,6 +131,11 @@ dig/slosh/poof/chop_chop/shout sounds.
   `_draw_shrine`, shrine buffs `_draw_buffs`; the capture banner `hud.gd:moment` /
   `_draw_moment`, the red edge `alert` / `_draw_alert`; toasts, sounds and the end-screen
   MVP in `main.gd:_ctf_toast`, `_react`, `_count_ctf`, `_ctf_summary`
+- Arena hazards (a mutator's tidal wave, meteor shower) → `fx_view.gd:_draw_hazards_floor` (the swell, the shelter
+  lanes behind rubble, the water behind the front, the puddles' wash `_draw_puddles`, meteor shadows: true circles,
+  cores' glow), `_draw_hazards_top` (the crest, falling meteors, the core's ember), `_hazard_spray`, `_hazard_event`;
+  all read from `sim.hazards` / `Hazards.wave_now` / `meteors_now`. Breakwaters are WALL cells the map didn't put
+  there: `arena_view.gd:_draw_rubble` draws them like a rockslide's
 - Health bars over fighters → `fx_view.gd:_draw_side_marks` (`side_marks[i].rel` from main's
   `_relation()`)
 - Telegraphs and aim marks → `_draw_telegraph`, `_draw_aim_mark`, `_draw_lob_mark`,
@@ -165,6 +172,10 @@ dig/slosh/poof/chop_chop/shout sounds.
   `ambient.modulate`, `AmbientView.set_weather` and `ShadowLayer.light`. Counts drop on mobile
   (`mobile` blocks). Rain streaks and splashes are shared with Rain Dance (`rain_streaks`, `rain_splashes`).
   Main picks the look (`main.gd:_match_look`); online is always day + clear.
+- Touch controls on screen → `touch_overlay.gd` (TouchOverlay, on the screen layer over the HUD):
+  stick, buttons, cooldowns and the Surge meter in `CD_STEPS` steps, the aimed move's reach as a
+  true circle (`_draw_reach`, `CreatureSim.move_range`), the red cancel zone while a drag aims (`_draw_cancel_zone`), the touch lock's floor ring (`_draw_lock`, a true circle) and the enemy portraits / objective button (`_draw_picks`; only foes `TouchTarget.can_lock` allows with `unseen`, never a hidden one); it redraws only when `_key()` changes.
+  `Hud.touch` drops the controls strip and moves the online line to the bottom middle
 - Range rings → `range_rings.gd:rings`; F1 hitbox overlay → `debug_view.gd`; F9 performance
   overlay → `perf_overlay.gd` (main feeds `tick(us)`; the setting is `perf_overlay`)
 - A chasm the match made (Sinkhole's rings, the Floor of pits mutator: `TerrainGrid.sink`) has
@@ -242,6 +253,7 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `range_rings.gd` (RangeRings) — "Range rings" (Settings > Controls, or F7 in a fight): thin floor rings that show where an attack really reaches, so a…
 - `shadow_layer.gd` (ShadowLayer) — The fighters' shadows, cast along the arena's light: each fighter's current sprite frame as a black silhouette laid on…
 - `surge_aura.gd` (SurgeAura) — The power-up aura a fighter wears while their Surge is ready: a flickering shell of energy rising off them, motes that…
+- `touch_overlay.gd` (TouchOverlay) — The touch controls on screen: the floating move stick, the button arc (Light biggest), each move's cooldown and the Sur…
 - `water_view.gd` (WaterView) — Living water over the shallows (Floodgate's channel, Twin Keeps' pools): a slow flow down the map, twinkling highlights…
 - `weather_view.gd` (WeatherView) — Time of day and weather: how a match looks, never how it plays.
 - `wipe.gd` (Wipe) — A pixel wipe between screens: black blocks on a coarse grid that clear away along a diagonal, a step per tick (no inter…

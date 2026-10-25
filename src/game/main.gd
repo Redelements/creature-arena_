@@ -45,11 +45,16 @@ extends Node2D
 ##                         (default: together on the worker threads; same answers)
 ##   --layout=league|classic  keyboard layout (saved in the menu otherwise)
 ##   --pad-layout=standard|twinstick  controller layout (saved in Settings otherwise)
+##   --touch-demo[=left]   play a recorded touch script into the touch controls (training as
+##                         Cairn unless --mode is given; =left mirrors them): overlay captures
 ##   --showcase=NAME       play one scripted demo on a loop: cairn, culvert, craglash, barkley, gillbert,
 ##                         cerebro, hissy, digby, pete, sno, angles, twinstick or counterplay
 ##   --teams=a,b,c:d,e,f   Duel / 2-player teams (default cerebro,gillbert,barkley:culvert,cerebro,craglash)
 ##   --pick                show the team pick screen even with --mode
 ##   --cpu-vs-cpu          every player side is played by the CPU (demos, captures)
+##   --mutators=a,b        these mutators (data/rules/mutators.json ids: tidal_wave,
+##                         meteor_shower, low_gravity...) on every offline match this session
+##                         (over Arena options > Hazards); Chaos Cup plays them instead of its draw
 ##   --view-team=N         show the match as team N sees it (brush, fences, walls hide
 ##                         foes), even with nobody playing here (captures of --cpu-vs-cpu)
 ##   --menu=PAGE           open a menu page: main, single, single:<group>, look (Time and weather), settings, game, video, audio, controls,
@@ -136,7 +141,11 @@ const SETTING_PAGES := {
 	"game": ["level", "intros", "rumble", "shake", "discord", "server", "delay"],
 	"video": ["fullscreen", "wide", "vsync", "fps", "glow", "font", "perf_overlay", "#Camera", "cam_lead", "cam_clash", "cam_settle"],
 	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu"],
+	"touch": ["touch_opacity", "touch_size", "touch_hand", "touch_aim", "#Targeting", "touch_priority", "touch_chase"],
 }
+## Settings > Controls > Touch: how see-through the touch controls are.
+const TOUCH_OPACITY := [0.3, 0.5, 0.7, 0.9]
+const TOUCH_OPACITY_DEFAULT := 2
 const SHAKE_CHOICES := [["Full", 1.0], ["Reduced", 0.5], ["Off", 0.0]]
 const VOLUME_NAMES := {"Master": "Master volume", "Music": "Music", "Effects": "Sound effects",
 	"Menu": "Menu sounds"}
@@ -176,7 +185,7 @@ const MENU_ROWS := [
 	{"label": "Brawl", "group": "brawl", "modes": [45, 42, 43, 44], "choices": ["you vs 3 CPUs", "2 players", "3 players", "4 players"],
 		"desc": "Free-for-all, four fighters, one life each; CPUs fill the empty seats. Left/Right: how many play"},
 	{"label": "Chaos Cup", "group": "brawl", "modes": [46],
-		"desc": "A Brawl with three random mutators stacked on: low gravity, Surge rush, a floor of pits, haste, glass cannon"},
+		"desc": "A Brawl with three random mutators stacked on: low gravity, Surge rush, a floor of pits, haste, glass cannon; a tidal wave and a meteor shower too, when they're on in Arena options"},
 	{"label": "Replay theater", "group": "practice", "screen": "replays", "desc": "Watch the fights you saved with F6"},
 	{"label": "Versus: 2 players", "group": "local", "modes": [8], "desc": "One fighter each, two players on one screen"},
 	{"label": "Versus CPU", "group": "cpu", "modes": [0, 1, 12, 14, 16, 18, 21, 23, 25, 27, 48],
@@ -355,6 +364,11 @@ var weather: WeatherView
 ## override them for the session).
 var time_choice := WeatherView.RANDOM
 var weather_choice := WeatherView.RANDOM
+## Arena options > Hazards: the arena hazards switched on (Hazards ids), saved under
+## `game/hazards`. Off by default. On every offline match but the Daily, ladders, coaches,
+## showcases, replays and the menu background (`_session_mutators`); in Chaos Cup an Off
+## hazard is left out of the draw instead.
+var hazards_on: Array = []
 var _look_cli := {}
 var _look := {}  ## this match's look (kept across its rounds)
 var _look_fresh := true  ## a new match: pick the look again
@@ -471,6 +485,11 @@ var player4_input := PlayerInput.new()
 ## and a replay being watched (its frames feed every REPLAY side).
 var brawl: BrawlSim = null
 var _chaos_names := ""
+var _arena_row: Control = null  ## the Single player hub's Arena row (its description follows the hazards)
+## `--mutators=a,b`: these mutators (data/rules/mutators.json ids, merged) on every offline
+## match this session (Chaos Cup plays them instead of its draw), and their names.
+var _forced_mutators := {}
+var _forced_names: Array = []
 var _replay_frames: Array = []
 var _replay_watched := {}  ## that replay's setup (a training one's mid-recording option changes)
 var _rules_id := ""
@@ -501,6 +520,14 @@ var _showcase_arg := ""  ## --showcase=NAME: loop just that one
 var _showcase_i := 0
 var _showcase_end_t := 0
 var autoplay: AutoPlay = null
+## --touch-demo: a recorded touch script played into the touch controls.
+var touch_demo: TouchDemo = null
+## The touch controls on screen (player 1's PlayerInput.touch), shown while touch is the
+## device in a fight.
+var touch_overlay: TouchOverlay
+var touch_opacity := TOUCH_OPACITY_DEFAULT
+var touch_left := false  ## Settings > Controls > Touch > Hand (saved)
+var _touch_demo_left := false  ## --touch-demo=left: mirrored this session only
 var frame_count := 0
 var _shots := {}
 var _shot_dir := "user://shots"
@@ -674,6 +701,12 @@ func _ready() -> void:
 	layer.add_child(fade_rect)
 	hud = Hud.new()
 	layer.add_child(hud)
+	touch_overlay = TouchOverlay.new()  # over the HUD, under the menus
+	touch_overlay.pad = player_input.touch
+	touch_overlay.target = player_input.target
+	touch_overlay.hud = hud  # its portrait pictures
+	touch_overlay.visible = false
+	layer.add_child(touch_overlay)
 	var top := CanvasLayer.new()
 	top.layer = 30  # over the menus (ScreenStack is 20)
 	add_child(top)
@@ -726,6 +759,7 @@ func _ready() -> void:
 	_apply_device()
 	_apply_discord()
 	_apply_range_rings()
+	_apply_touch()
 	_open_menu(_menu_arg)  # also starts the background match the pick screen sits on
 	if start_mode >= 0:
 		_start_match(start_mode)
@@ -794,6 +828,10 @@ func _open_menu(page := "", focus := "") -> void:
 		"controls":
 			_open_settings()
 			_open_controls()
+		"touch":
+			_open_settings()
+			_open_controls()
+			_open_settings_page("touch")
 		"remap:classic", "remap:league", "remap:gamepad":  # captures of a Remap page
 			_open_settings()
 			_open_controls()
@@ -918,8 +956,8 @@ func _open_single() -> void:
 		for id in ArenaMap.IDS:
 			maps.append(ArenaMap.name_of(id))
 		var arena_row := s.add_option("Arena", maps, maxi(0, ArenaMap.IDS.find(MatchFactory.arena)),
-			func(i: int): _set_arena(ArenaMap.IDS[i]),
-			"Where every match is fought. Left/Right: the map. Enter: the time of day and the weather")
+			func(i: int): _set_arena(ArenaMap.IDS[i]), _arena_desc())
+		_arena_row = arena_row
 		arena_row.activates = true
 		arena_row.activated.connect(func():
 			ui.notify_chosen()
@@ -948,9 +986,10 @@ func _open_single_group(gid: String, focus_row := -1) -> void:
 	scr.logo = true
 	scr.crumbs = ["SINGLE PLAYER"]
 	scr.title = String(group.get("title", "")).to_upper()
-	scr.row_width = 236.0
+	scr.row_width = 226.0
 	scr.row_gap = 2
 	scr.detail = true
+	scr.detail_width = 170.0  # room for a card's facts on one line (tests/test_ui_fit.gd)
 	scr.blurb = String(group.get("desc", ""))
 	scr.hints = ["move", "change", "select", "back"]
 	scr.builder = func(s: UiScreen):
@@ -986,22 +1025,81 @@ func _open_single_group(gid: String, focus_row := -1) -> void:
 	ui.push(scr)
 
 
-## Enter on the Arena row: a page with the Time and Weather options (the hub has no room
-## for two more rows).
+## Enter on the Arena row: Arena options, a page with the Time and Weather options (looks
+## only) and the Hazards (how the match plays): the hub has no room for more rows.
 func _open_look_page() -> void:
 	var scr := UiScreen.new()
 	scr.logo = true
 	scr.crumbs = ["SINGLE PLAYER"]
-	scr.title = "TIME AND WEATHER"
+	scr.title = "ARENA OPTIONS"
 	scr.row_width = 236.0
 	scr.detail = true
-	scr.blurb = "How offline matches look: never how they play"
+	scr.blurb = "Time and weather change how offline matches look; hazards change how they play"
 	scr.hints = ["move", "change", "back"]
 	scr.builder = func(p: UiScreen):
+		p.add_heading("Time and weather")
 		_add_look_rows(p)
+		p.add_space(2)
+		p.add_heading("Hazards")
+		_add_hazard_rows(p)
 		p.add_space(4)
 		p.add_button("Back", p.back)
+	scr.backed.connect(func():  # the hub's Arena row says what's on
+		if _arena_row != null and is_instance_valid(_arena_row) and _arena_row.get_parent() != null:
+			var hub := ui.screens[ui.screens.size() - 2] as UiScreen if ui.screens.size() >= 2 else null
+			if hub != null:
+				hub.describe(_arena_row, _arena_desc()))
 	ui.push(scr)
+
+
+## One On/Off row per hazard in data/rules/hazards.json (a new hazard gets its row).
+func _add_hazard_rows(s: UiScreen) -> void:
+	for id in Hazards.ids():
+		var hid := String(id)
+		var d: Dictionary = Hazards.table()[hid]
+		var desc := "%s. Changes how the match plays: on in every offline match (not the Daily, Arcade, Gauntlet or online); Chaos Cup can draw it only while it's on" \
+			% String(d.get("desc", Hazards.name_of(hid)))
+		s.add_option(Hazards.name_of(hid), ["Off", "On"], 1 if hid in hazards_on else 0,
+			func(i: int): _set_hazard(hid, i == 1), desc)
+
+
+func _set_hazard(id: String, on: bool) -> void:
+	if on and not (id in hazards_on):
+		hazards_on.append(id)
+	elif not on:
+		hazards_on.erase(id)
+	hazards_on.sort()
+	_save_settings()
+
+
+## The Arena row's description: what it does, and the hazards that are on.
+func _arena_desc() -> String:
+	var out := "Where every match is fought. Left/Right: the map. Enter: Arena options (time, weather, hazards)"
+	if not hazards_on.is_empty():
+		out += ". Hazards: " + ", ".join(hazards_on.map(func(h): return Hazards.name_of(String(h))))
+	return out
+
+
+## The mutators a new offline match `s` gets from this session: `--mutators` if given, else
+## the Arena options' hazards. Never for the Daily, a ladder's stage, coaches, showcases,
+## a replay, the menu background, online or a match that already has its own (Chaos Cup).
+func _session_mutators(s: MatchSim) -> Dictionary:
+	if not s.mutators.is_empty() or s.tick != 0 or online != null or watch != null or _menu_bg \
+			or showcase != null or coach != null or mode == REPLAY_MODE:
+		return {}
+	if not _forced_mutators.is_empty():
+		return _forced_mutators
+	if arcade != null or hazards_on.is_empty():
+		return {}
+	return {"hazards": hazards_on.duplicate()}
+
+
+## "Hazards: Tidal wave, Meteor shower" for a match's opening banner ("" without any).
+func _hazard_line() -> String:
+	var hz: Array = sim.mutators.get("hazards", []) if sim != null else []
+	if hz.is_empty():
+		return ""
+	return "Hazards: " + ", ".join(hz.map(func(h): return Hazards.name_of(String(h))))
 
 
 ## The Time and Weather options: Random (one the map allows) or a preset.
@@ -1085,49 +1183,49 @@ func _mode_facts(row: Dictionary, cfg: Dictionary) -> Array:
 		match kind:
 			"deathmatch":
 				var t: Array = rules.get("score_to_win", [8, 8, 12, 15])
-				return ["First to %d KOs, unlimited respawns" % int(t[clampi(size, 0, t.size() - 1)]),
+				return ["First to %d KOs; respawns" % int(t[clampi(size, 0, t.size() - 1)]),
 					clock + ", then sudden death"]
 			"crater":
 				return ["Hold the zone %d s in all" % (int(rules.get("score_to_win", 3600)) / 60),
-					"It moves, and the floor round it breaks", clock]
+					"It moves, breaking the floor", clock]
 			"ctf":
 				return ["First to %d captures" % int(rules.get("captures_to_win", 3)),
-					"Your flag must be home to score", clock + ", then sudden death"]
+					"Score with your flag home", clock + ", then sudden death"]
 			"caravan":
-				return ["Two rounds of %s, one side escorting" % _mmss(int(float(rules.get("round_seconds", 120)) * 60)),
-					"A checkpoint adds %d s and a rockslide" % int(rules.get("checkpoint_seconds", 30)),
-					"Faster finish or further push wins"]
+				return ["2 rounds of %s, sides swap" % _mmss(int(float(rules.get("round_seconds", 120)) * 60)),
+					"Checkpoints: +%d s, rockslide" % int(rules.get("checkpoint_seconds", 30)),
+					"Faster or further push wins"]
 			"sinkhole":
-				return ["One life each: the chasm is a KO",
+				return ["One life; a fall is a KO",
 					"A ring falls every %d s, up to %d" % [int(rules.get("shrink_every", 300)) / 60, int(rules.get("max_rings", 14))],
-					clock + ": more health left wins"]
-		return ["One life each, no respawns", clock + ": more health left wins"]
+					clock + ", most health wins"]
+		return ["One life each, no respawns", clock + ", most health wins"]
 	if cfg.get("duel", false):
 		var d := DuelSim.load_rules()
 		var n := int(d.get("team_size", 3))
-		return ["%d v %d: tag in and out, the bench heals" % [n, n], "Clock %s" % _mmss(int(float(d.get("time_seconds", 180)) * 60)),
+		return ["%d v %d tag, the bench heals" % [n, n], "Clock %s" % _mmss(int(float(d.get("time_seconds", 180)) * 60)),
 			"Two players on one screen" if two else "You pick both teams"]
 	if cfg.get("brawl", false):
 		var b := BrawlSim.load_rules()
 		var out := ["%d fighters, one life each" % BrawlSim.MAX_PLAYERS,
-			"Clock %s: the healthiest wins" % _mmss(int(float(b.get("time_seconds", 120)) * 60))]
+			"Clock %s, healthiest wins" % _mmss(int(float(b.get("time_seconds", 120)) * 60))]
 		if cfg.get("chaos", false):
-			out.append("Three mutators, drawn each match")
+			out.append("Three mutators each match")
 		return out
 	if cfg.get("arcade", false):
-		return ["%d stages, the last a 3v3 Duel" % Arcade.STAGES, "The boss team fights one level up", "Clears unlock palettes"]
+		return ["%d stages, a 3v3 Duel last" % Arcade.STAGES, "The boss team is a level up", "Clears unlock palettes"]
 	if cfg.get("gauntlet", false):
-		return ["Endless waves, health carrying over", "Harder every %d waves, up to Rage" % Gauntlet.WAVES_PER_LEVEL,
+		return ["Endless waves; health carries", "Up a level every %d waves" % Gauntlet.WAVES_PER_LEVEL,
 			"Your best is kept"]
 	if cfg.get("daily", false):
-		return ["Today's seed: the same for everyone", "%d mutators on the fight" % Daily.PICKS,
-			"Clock %s: health and time left score" % _mmss(Daily.FIGHT_TICKS)]
+		return ["One seed a day, for everyone", "%d mutators on the fight" % Daily.PICKS,
+			"Clock %s, health + time score" % _mmss(Daily.FIGHT_TICKS)]
 	if cfg.get("trials", false):
-		return ["One route at a time, with a demo", "Land it to clear it"]
+		return ["One route at a time, demoed", "Land it to clear it"]
 	if cfg.has("drill"):
 		return ["Red tell: roll away, or hit first", "Gold tell: guard"]
 	if cfg.get("training", false):
-		return ["A dummy that stands, guards, walks or dodges", "Pause for no cooldowns, full Surge, Change fighter"]
+		return ["A dummy: stand, guard, dodge", "Pause menu: training options"]
 	if cfg.get("showcase", false):
 		return ["Every fighter's kit, scripted", "Esc comes back here"]
 	if cfg.has("left") or cfg.get("versus2p", false):
@@ -1136,9 +1234,9 @@ func _mode_facts(row: Dictionary, cfg: Dictionary) -> Array:
 		if two:
 			out.append("Two players on one screen")
 		elif Side.PLAYER in cfg.get("sides", []):
-			out.append("The CPU at the level in Settings")
+			out.append("CPU at the Settings level")
 		else:
-			out.append("The CPU against itself, at the level in Settings")
+			out.append("CPU vs CPU, Settings level")
 		return out
 	return []
 
@@ -1215,7 +1313,7 @@ func _open_settings_page(page: String) -> void:
 	scr.row_width = 236.0
 	scr.detail = true
 	scr.blurb = {"game": "How the game plays and where it plays online", "video": "The screen and the frame rate",
-		"audio": "Volumes"}.get(page, "")
+		"audio": "Volumes", "touch": "The on-screen stick and buttons (they show when you touch the screen in a fight)"}.get(page, "")
 	scr.hints = ["move", "change", "back"]
 	scr.builder = func(s: UiScreen):
 		for key in SETTING_PAGES[page]:
@@ -1302,6 +1400,8 @@ func _open_controls() -> void:
 		_add_setting_row(s, "layout")
 		_add_setting_row(s, "pad_layout")
 		_add_setting_row(s, "range_rings")
+		s.add_button("Touch controls", func(): _open_settings_page("touch"),
+			"The on-screen stick and buttons: how see-through, how big, which hand, how to aim")
 		s.add_button("Remap controller", func(): _open_remap("gamepad"), "Change which button does what")
 		s.add_button("Remap Classic keyboard", func(): _open_remap("classic"), "WASD + J K U I O, or your own keys")
 		s.add_button("Remap League-style keyboard", func(): _open_remap("league"),
@@ -1342,6 +1442,8 @@ static func mode_index(label: String) -> int:
 func _start_match(m: int, keep_teams := false) -> void:
 	_close_ui()
 	_over_by = ""
+	_ko_by_hazard = ""
+	_hazard_hit_now.clear()
 	_arcade_cleared = false
 	if not (keep_teams and m == mode):
 		_training_fighter = ""  # a swapped fighter lasts until you leave training
@@ -1652,8 +1754,11 @@ func _start_brawl(cfg: Dictionary) -> void:
 	ids = ids.slice(0, BrawlSim.MAX_PLAYERS)
 	var muts := {}
 	_chaos_names = ""
-	if cfg.get("chaos", false):
-		var table := Daily.mutator_table()
+	if not _forced_mutators.is_empty():
+		muts = _forced_mutators.duplicate(true)
+		_chaos_names = ", ".join(_forced_names)
+	elif cfg.get("chaos", false):
+		var table := _chaos_table()
 		var keys: Array = table.keys()
 		keys.sort()
 		var rng := RandomNumberGenerator.new()
@@ -1665,9 +1770,7 @@ func _start_brawl(cfg: Dictionary) -> void:
 			keys[j] = t
 		var names: Array = []
 		for k in keys.slice(0, 3):
-			for key in table[k]:
-				if key != "name":
-					muts[key] = table[k][key]
+			MatchSim.merge_mutator(muts, table[k])
 			names.append(String(table[k].get("name", k)))
 		_chaos_names = ", ".join(names)
 	brawl = BrawlSim.new(ids, {}, muts, seed_base)
@@ -1682,13 +1785,27 @@ func _start_brawl(cfg: Dictionary) -> void:
 	flow_t = 0
 
 
+## Chaos Cup's pool: every mutator, less those whose hazards are Off in Arena options.
+func _chaos_table() -> Dictionary:
+	var out := Daily.mutator_table()
+	for k in out.keys():
+		for h in (out[k] as Dictionary).get("hazards", []):
+			if not (String(h) in hazards_on):
+				out.erase(k)
+				break
+	return out
+
+
 func _brawl_flow() -> void:
 	hud.timer_ticks = maxi(brawl.timer, 0)
 	match brawl.phase:
 		BrawlSim.Phase.INTRO:
 			var t := brawl.phase_t
 			hud.banner = ("CHAOS CUP" if _chaos_names != "" else "BRAWL") if t < 60 else "FIGHT!"
-			hud.banner_sub = (_chaos_names if _chaos_names != "" else "Free-for-all   ·   last one standing") if t < 60 else ""
+			var plain := "Free-for-all   ·   last one standing"
+			if _hazard_line() != "":
+				plain += "   ·   " + _hazard_line()
+			hud.banner_sub = (_chaos_names if _chaos_names != "" else plain) if t < 60 else ""
 			if t == 2 or t == 60:
 				audio.play("round_start", 0.0, 0.75 if t == 2 else 1.0)
 		BrawlSim.Phase.FIGHT:
@@ -1704,6 +1821,7 @@ func _brawl_flow() -> void:
 				var w := brawl.winner
 				if w < 0:
 					hud.banner = "DRAW"
+					hud.banner_sub = _draw_reason()
 				else:
 					hud.banner = "%s WINS!" % String(sim.creatures[w].def["name"]).to_upper()
 					hud.banner_sub = ("%s   ·   %s" % [_side_name(w), _over_reason()]) if sides[w] in LOCAL_SIDES 						else _over_reason()
@@ -1934,6 +2052,8 @@ func _team_flow() -> void:
 				sub += "   ·   first to %d KOs" % team_battle.score_to_win()
 			elif team_battle.sinkhole:
 				sub += "   ·   the edge falls in, the chasm is a KO"
+			if _hazard_line() != "":
+				sub += "   ·   " + _hazard_line()
 			hud.banner_sub = sub if t < 60 else ""
 			if t == 2 or t == 60:
 				audio.play("round_start", 0.0, 0.75 if t == 2 else 1.0)
@@ -1986,7 +2106,18 @@ func _team_flow() -> void:
 					hud.banner = "YOUR TEAM WINS!" if sim.creatures[me].team == w else "YOUR TEAM LOSES"
 				else:
 					hud.banner = "%s TEAM WINS!" % ("RED" if w == 0 else "BLUE")
-				hud.banner_sub = _over_reason()
+				hud.banner_sub = _draw_reason() if w < 0 else _over_reason()
+
+
+## An arena hazard is coming (a mutator's, Hazards): the wave's banner names the edge it
+## comes from and what to do; a meteor shower gets a toast.
+func _hazard_warn(e: Dictionary) -> void:
+	if String(e.get("shape", "")) == "wave":
+		var side := int(e.get("side", 0))
+		hud.moment("TIDAL WAVE!", "FROM THE %s  -  GET BEHIND THE RUBBLE" % String(Hazards.SIDE_NAMES[clampi(side, 0, 3)]).to_upper(),
+			Color("6fb8f0"))
+	else:
+		hud.show_toast("METEOR SHOWER!  STAY OUT OF THE SHADOWS")
 
 
 ## Capture the Flag: what each play says at the bottom of the screen; the local team's
@@ -2178,12 +2309,16 @@ func _duel_flow() -> void:
 					hud.banner = "YOU WIN!" if duel.winner == online.local_side else "YOU LOSE"
 				else:
 					hud.banner = "%s WINS!" % _side_name(duel.winner)
-				hud.banner_sub = _over_reason()
+				hud.banner_sub = _draw_reason() if duel.winner < 0 else _over_reason()
 
 
 ## How the last fight ended (the sim's `by`: ko, time, score, hold, capture, caravan),
 ## as the line under the winner on the final banner.
 var _over_by := ""
+## What knocked out the last fighter to go down: "" (a fighter's hit, a fall) or an arena
+## hazard's shape ("meteors", "wave"), so a draw can say so (`_draw_reason`).
+var _ko_by_hazard := ""
+var _hazard_hit_now := {}  ## who an arena hazard last struck (slot -> [tick, its shape])
 ## The Arcade run just ended in a clear (the match-over menu offers a new run, not a retry).
 var _arcade_cleared := false
 
@@ -2212,6 +2347,26 @@ func _over_reason() -> String:
 		"caravan":
 			return scores
 	return ""
+
+
+## Why a match ended with nobody winning, for the line under "DRAW" (a draw must always
+## say why): level at time (on health, or on the mode's score), or everyone down at once,
+## which an arena hazard can do (the last ones caught by one meteor: `_ko_by_hazard`).
+func _draw_reason() -> String:
+	match _over_by:
+		"ko":
+			if _ko_by_hazard == "meteors":
+				return "Double K.O.  -  a meteor took the last ones down"
+			if _ko_by_hazard == "wave":
+				return "Double K.O.  -  the wave took the last ones down"
+			return "Double K.O.  -  nobody left standing"
+		"time":
+			var r := _over_reason()
+			if r == "" or r.ends_with("more health left"):
+				return "Time: level on health"
+			return r.replace("Time: ", "Time, level: ")
+	var other := _over_reason()
+	return other if other != "" else "Nobody won"
 
 
 func _side_name(i: int) -> String:
@@ -2264,6 +2419,7 @@ func _end_showcase() -> void:
 
 func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	_join_cpus()  # the CPUs may still be reading the old match
+	_hazard_hit_now.clear()  # (event ticks start again with a new sim)
 	sim = s
 	hud.banner_hidden = false
 	if not _menu_bg and round_num <= 1:
@@ -2294,6 +2450,9 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 		for i in sides.size():
 			if sides[i] in LOCAL_SIDES:
 				sides[i] = Side.CPU
+	var session := _session_mutators(s)
+	if not session.is_empty():
+		s.apply_mutators(session, seed_base)  # --mutators, or Arena options > Hazards
 	replay = Replay.new()
 	replay.setup = _replay_setup(s)
 	cpus = []
@@ -2453,6 +2612,7 @@ func _physics_process(_delta: float) -> void:
 	_apply_frame_rate()
 	_ticks_run += 1
 	_wipe_step()
+	_touch_step()
 	if paused:
 		_capture()
 		return  # frozen behind the pause menu: nothing steps, the picture holds
@@ -2623,7 +2783,7 @@ func _update_flow() -> void:
 				hud.banner_sub = arcade.versus_label() if flow_t < 60 else ""
 			else:
 				hud.banner = "ROUND %d" % round_num if flow_t < 60 else "FIGHT!"
-				hud.banner_sub = ""
+				hud.banner_sub = _hazard_line() if flow_t < 60 else ""
 			if flow_t == 2 or flow_t == 60:
 				audio.play("round_start", 0.0, 0.75 if flow_t == 2 else 1.0)
 			if flow_t >= INTRO_TICKS:
@@ -2944,6 +3104,17 @@ func _react(e: Dictionary) -> void:
 		"checkpoint", "caravan_done":
 			audio.play("round_start", -3.0, 1.2)
 			crowd.cheer(0.7)
+		"hazard_warn":
+			_hazard_warn(e)
+		"hazard_hit":
+			_hazard_hit_now[int(e.get("who", -1))] = [int(e.get("tick", 0)), String(e.get("shape", ""))]
+		"hazard_strike":
+			if String(e.get("shape", "")) == "wave":
+				shake = maxf(shake, 4.0)
+				crowd.roar(50)
+			else:
+				shake = maxf(shake, 3.0 if bool(e.get("big", false)) else 1.5)
+				crowd.cheer(0.15)
 		"rockslide":
 			audio.play("cave_in")
 			shake = maxf(shake, 5.0)
@@ -2998,6 +3169,8 @@ func _react(e: Dictionary) -> void:
 			fx.clear()
 			_ko_cam_t = -1
 		"ko":
+			var hz: Array = _hazard_hit_now.get(int(e.get("who", -1)), [])
+			_ko_by_hazard = String(hz[1]) if not hz.is_empty() and int(hz[0]) == int(e.get("tick", -1)) else ""
 			shake = maxf(shake, 5.0)
 			crowd.cheer(1.0)
 			_flash(Color.WHITE, 0.6)
@@ -3603,12 +3776,93 @@ func _input(event: InputEvent) -> void:
 		_end_intro()
 		get_viewport().set_input_as_handled()  # the press only skips (Esc doesn't also pause)
 		return
-	if not (event is InputEventMouseMotion):
+	var touch := event is InputEventScreenTouch or event is InputEventScreenDrag
+	if not (event is InputEventMouseMotion) and not touch:
 		_join_cpus()  # a press may change the match (a reset, a swap) while the CPUs read it
+	_note_input(event)
+
+
+## One event for player 1's devices: which device is in use (the prompts and the touch
+## controls follow it), and the screen's touches for the touch pad.
+func _note_input(event: InputEvent) -> void:
 	var before := player_input.label_set()
 	player_input.note_event(event)
+	if event is InputEventScreenTouch or event is InputEventScreenDrag:
+		player_input.touch.feed(event)
 	if player_input.label_set() != before:
 		_apply_device()
+
+
+## Once a tick (also while paused): the touch pad's state and the overlay. Touches start
+## fingers only in a fight with a player here; anything else, or another device, lets go
+## of every finger. A tap on the overlay's Pause is the Pause button.
+func _touch_step() -> void:
+	var pad := player_input.touch
+	var here := online != null or sides.has(Side.PLAYER)
+	var fighting := flow == Flow.FIGHT and here and not paused and not ui.is_open() and intro == null \
+			and showcase == null and autoplay == null and not _replaying() and watch == null
+	pad.active = fighting
+	if touch_demo != null and fighting:
+		for ev in touch_demo.step(pad):
+			_note_input(ev)
+	var vs := get_viewport_rect().size
+	var tag := duel != null
+	if pad.show_tag != tag or pad.screen() != vs:
+		pad.show_tag = tag
+		pad.layout(vs)
+	var on := player_input.device == PlayerInput.Device.TOUCH
+	if (not fighting or not on) and pad.fingers_down() > 0:
+		pad.release_all()
+	touch_overlay.visible = fighting and on
+	touch_overlay.sim = sim
+	touch_overlay.slot = hud.focus
+	hud.touch = touch_overlay.visible
+	_touch_targets()
+	if pad.pause_requested:
+		pad.pause_requested = false
+		if fighting:
+			var ev := InputEventAction.new()  # the same as Esc or Start
+			ev.action = "pause"
+			ev.pressed = true
+			Input.parse_input_event(ev)
+
+
+## The target lock's view of the match: who the local team can't see (never locked or
+## shown), the enemy portraits (foes it could lock, seen and on screen; none with one foe)
+## and Capture the Flag's objective button (the foe carrying our flag).
+func _touch_targets() -> void:
+	var pad := player_input.touch
+	player_input.touch_hidden = _hidden
+	touch_overlay.unseen = _hidden
+	var picks: Array = []
+	var objective := false
+	var me_idx: int = hud.focus
+	if touch_overlay.visible and me_idx >= 0 and me_idx < sim.creatures.size():
+		var me: CreatureSim = sim.creatures[me_idx]
+		var view := get_viewport().get_canvas_transform().affine_inverse() * get_viewport_rect()
+		var foes := 0
+		for i in sim.creatures.size():
+			if not me.is_foe(sim.creatures[i]):
+				continue
+			foes += 1
+			if view.has_point(sim.creatures[i].pos) and TouchTarget.can_lock(sim, me_idx, i, _hidden):
+				picks.append(i)
+		if foes < 2:
+			picks = []  # one foe: a tap already finds it
+		objective = team_battle != null and team_battle.ctf
+		if pad.objective_requested:
+			var o := TouchTarget.ctf_objective(team_battle, me)
+			if o >= 0:
+				pad.lock_request = o
+	pad.objective_requested = false
+	pad.set_picks(picks, objective)
+
+
+## Settings > Controls > Touch into the touch pad and the overlay.
+func _apply_touch() -> void:
+	touch_overlay.opacity = float(TOUCH_OPACITY[clampi(touch_opacity, 0, TOUCH_OPACITY.size() - 1)])
+	player_input.touch.left_handed = touch_left or _touch_demo_left
+	player_input.touch.layout(player_input.touch.screen())
 
 
 ## Any button skips the arena intro: a key, a controller button, a mouse click.
@@ -3891,6 +4145,28 @@ func _setting(key: String) -> Dictionary:
 		"vsync":
 			return {"label": "Vsync", "values": ["Off", "On"], "index": 1 if vsync else 0,
 				"desc": "On: no tearing, and the screen's refresh rate caps the frame rate"}
+		"touch_opacity":
+			var ops: Array = []
+			for o in TOUCH_OPACITY:
+				ops.append("%d%%" % roundi(float(o) * 100.0))
+			return {"label": "Opacity", "values": ops, "index": touch_opacity,
+				"desc": "How see-through the touch stick and buttons are"}
+		"touch_size":
+			return {"label": "Button size", "values": TouchPad.SIZE_NAMES, "index": player_input.touch.size_step,
+				"desc": "Bigger buttons are easier to hit and cover more of the fight"}
+		"touch_hand":
+			return {"label": "Hand", "values": ["Right-handed", "Left-handed"],
+				"index": 1 if touch_left else 0,
+				"desc": "Left-handed: the buttons on the left and the stick on the right"}
+		"touch_priority":
+			return {"label": "Lock on", "values": TouchTarget.PRIORITY_NAMES, "index": int(player_input.target.priority),
+				"desc": "Which foe a tap locks onto: the one nearest where you point, the nearest, or the one with the least health. Tap a portrait to pick one yourself"}
+		"touch_chase":
+			return {"label": "Chase target", "values": ["Off", "On"], "index": 1 if player_input.target.chase_on else 0,
+				"desc": "Tap Light with your target out of reach and you walk to it (round pits and walls), then hit. The stick always wins"}
+		"touch_aim":
+			return {"label": "Aiming", "values": TouchPad.AIM_STYLES, "index": 1 if player_input.touch.tap_only else 0,
+				"desc": "Tap + drag: tap fires (aimed for you), drag Heavy, Skills or Surge off the button to aim and let go to throw. Tap only: every button fires on the touch"}
 		"range_rings":
 			return {"label": "Range rings", "values": ["Off", "On"], "index": 1 if range_rings else 0,
 				"desc": "Show each attack's real hit area on the floor"}
@@ -3992,6 +4268,21 @@ func _set_setting(key: String, i: int) -> void:
 			"range_rings":
 				range_rings = i == 1
 				_apply_range_rings()
+			"touch_opacity":
+				touch_opacity = clampi(i, 0, TOUCH_OPACITY.size() - 1)
+				_apply_touch()
+			"touch_size":
+				player_input.touch.size_step = clampi(i, 0, TouchPad.SIZES.size() - 1)
+				_apply_touch()
+			"touch_hand":
+				touch_left = i == 1
+				_apply_touch()
+			"touch_aim":
+				player_input.touch.tap_only = i == 1
+			"touch_priority":
+				player_input.target.priority = clampi(i, 0, TouchTarget.PRIORITY_NAMES.size() - 1) as TouchTarget.Priority
+			"touch_chase":
+				player_input.target.chase_on = i == 1
 			"no_cooldowns", "full_energy":
 				training_opts[key] = i == 1
 				_apply_training_opts()
@@ -4283,6 +4574,12 @@ func _load_settings() -> void:
 		time_choice = tc if tc == WeatherView.RANDOM or tc in WeatherView.time_ids() else WeatherView.RANDOM
 		var wc := String(cfg.get_value("game", "weather", WeatherView.RANDOM))
 		weather_choice = wc if wc == WeatherView.RANDOM or wc in WeatherView.weather_ids() else WeatherView.RANDOM
+		hazards_on = []
+		var known := Hazards.ids()
+		for h in cfg.get_value("game", "hazards", []):
+			if String(h) in known and not (String(h) in hazards_on):
+				hazards_on.append(String(h))
+		hazards_on.sort()
 		var ar := String(cfg.get_value("game", "arena", MatchFactory.arena))
 		if ar in ArenaMap.IDS:
 			_arena_saved = ar
@@ -4310,6 +4607,13 @@ func _load_settings() -> void:
 		discord_status = bool(cfg.get_value("game", "discord", true))
 		shake_scale = float(cfg.get_value("game", "shake", 1.0))
 		range_rings = bool(cfg.get_value("game", "range_rings", false))
+		touch_opacity = clampi(int(cfg.get_value("touch", "opacity", TOUCH_OPACITY_DEFAULT)), 0, TOUCH_OPACITY.size() - 1)
+		player_input.touch.size_step = clampi(int(cfg.get_value("touch", "size", 1)), 0, TouchPad.SIZES.size() - 1)
+		touch_left = bool(cfg.get_value("touch", "left_handed", false))
+		player_input.touch.tap_only = bool(cfg.get_value("touch", "tap_only", false))
+		player_input.target.priority = clampi(int(cfg.get_value("touch", "priority", 0)), 0,
+			TouchTarget.PRIORITY_NAMES.size() - 1) as TouchTarget.Priority
+		player_input.target.chase_on = bool(cfg.get_value("touch", "chase", true))
 		for k in MatchSim.TRAINING_FLAGS:
 			training_opts[k] = bool(cfg.get_value("training", k, false))
 		dummy_mode = clampi(int(cfg.get_value("training", "dummy_mode", 0)), 0, DUMMY_MODES.size() - 1)
@@ -4343,6 +4647,7 @@ func _save_settings() -> void:
 	cfg.set_value("game", "arena", _arena_saved)
 	cfg.set_value("game", "time", time_choice)
 	cfg.set_value("game", "weather", weather_choice)
+	cfg.set_value("game", "hazards", hazards_on)
 	cfg.set_value("online", "delay", input_delay)
 	cfg.set_value("online", "id", Netplay.player_id)
 	cfg.set_value("online", "name", Netplay.player_name)
@@ -4364,6 +4669,12 @@ func _save_settings() -> void:
 	cfg.set_value("game", "intros", match_intros)
 	cfg.set_value("game", "shake", shake_scale)
 	cfg.set_value("game", "range_rings", range_rings)
+	cfg.set_value("touch", "opacity", touch_opacity)
+	cfg.set_value("touch", "size", player_input.touch.size_step)
+	cfg.set_value("touch", "left_handed", touch_left)
+	cfg.set_value("touch", "tap_only", player_input.touch.tap_only)
+	cfg.set_value("touch", "priority", int(player_input.target.priority))
+	cfg.set_value("touch", "chase", player_input.target.chase_on)
 	for k in MatchSim.TRAINING_FLAGS:
 		cfg.set_value("training", k, bool(training_opts.get(k, false)))
 	cfg.set_value("training", "dummy_mode", dummy_mode)
@@ -4438,6 +4749,16 @@ func _parse_args() -> int:
 			pick = true
 		elif a == "--cpu-vs-cpu":
 			_cpu_vs_cpu = true
+		elif a.begins_with("--mutators="):
+			var table := Daily.mutator_table()
+			_forced_mutators = {}
+			_forced_names = []
+			for id in a.get_slice("=", 1).split(",", false):
+				if table.has(id):
+					MatchSim.merge_mutator(_forced_mutators, table[id])
+					_forced_names.append(String(table[id].get("name", id)))
+				else:
+					push_warning("--mutators: no mutator '%s' (data/rules/mutators.json)" % id)
 		elif a.begins_with("--view-team="):
 			_view_team_arg = int(a.get_slice("=", 1))
 		elif a.begins_with("--teams="):
@@ -4509,7 +4830,7 @@ func _parse_args() -> int:
 			_net_args["watch"] = true
 		elif a.begins_with("--menu="):
 			var page := a.get_slice("=", 1)
-			if page in ["main", "single", "look", "settings", "game", "video", "audio", "controls"] or page.begins_with("single:") \
+			if page in ["main", "single", "look", "settings", "game", "video", "audio", "controls", "touch"] or page.begins_with("single:") \
 					or page in ["remap:classic", "remap:league", "remap:gamepad"]:
 				_menu_arg = "" if page == "main" else page
 		elif a.begins_with("--fighter="):
@@ -4537,6 +4858,14 @@ func _parse_args() -> int:
 			var pl := a.get_slice("=", 1)
 			if pl in PlayerInput.PAD_LAYOUTS:
 				_set_pad_layout(pl)
+		elif a == "--touch-demo" or a.begins_with("--touch-demo="):
+			touch_demo = TouchDemo.new()
+			if a.get_slice("=", 1) == "left":
+				touch_demo.mirror = true
+				_touch_demo_left = true  # this session only (not saved)
+	if touch_demo != null and start < 0:
+		start = 3  # training as Cairn: a dummy to aim at
+		_skip_select = true
 	if pick:
 		_skip_select = false
 	return start
@@ -5454,7 +5783,11 @@ func _notification(what: int) -> void:
 		ev.action = "pause"
 		ev.pressed = true
 		Input.parse_input_event(ev)
+	elif what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+		if player_input != null:
+			player_input.touch.release_all()  # a lost touch: no finger stays down
 	elif what == NOTIFICATION_APPLICATION_PAUSED:
+		player_input.touch.release_all()
 		# Switched away on a phone: an offline fight waits under the pause menu.
 		if online == null and showcase == null and not paused and not ui.is_open() \
 				and not (flow in [Flow.MENU, Flow.SELECT, Flow.LOBBY, Flow.MATCH_OVER]):

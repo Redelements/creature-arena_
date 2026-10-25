@@ -44,7 +44,11 @@ static func mutator_names(m: Dictionary) -> Array:
 			if k == "name":
 				continue
 			any = true
-			if not m.has(k) or m[k] != entry[k]:
+			if k == "hazards":  # merged lists add up: each of this entry's hazards is on
+				for h in entry[k]:
+					if not (h in (m.get("hazards", []) as Array)):
+						all = false
+			elif not m.has(k) or m[k] != entry[k]:
 				all = false
 		if any and all:
 			out.append(String(entry.get("name", id)))
@@ -87,9 +91,7 @@ func mutators() -> Dictionary:
 	var out := {}
 	var table := mutator_table()
 	for id in picks:
-		for k in table[id]:
-			if k != "name":
-				out[k] = table[id][k]
+		MatchSim.merge_mutator(out, table[id])
 	return out
 
 

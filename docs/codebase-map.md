@@ -16,7 +16,7 @@ update the map in the same change.
 | --- | --- | --- | --- |
 | Game rules (deterministic sim) | `src/sim/` | `src/sim/match_sim.gd:step` | anything that decides an outcome: hits, damage, combos, guard, stamina, statuses, terrain, mode rules, rollback state |
 | CPU opponent | `src/ai/` | `src/ai/cpu_controller.gd:bits` | CPU behaviour, difficulty levels, Rage, class styles, pathing round walls, team focus |
-| Player input | `src/input/` | `src/input/player_input.gd:bits` | keyboard, mouse, gamepad to input bits; aim assist; twin-stick; menu stick |
+| Player input | `src/input/` | `src/input/player_input.gd:bits` | keyboard, mouse, gamepad, touch to input bits; aim assist; twin-stick; menu stick |
 | Visuals and sound | `src/view/` | `src/view/fx_view.gd:spawn` | effects, sprites, HUD, health bars, sound, arena drawing, range rings |
 | Online | `src/net/` | `src/net/netplay.gd:tick` | rollback, desyncs, ping and delay, the dedicated server, rooms, ranked, spectators |
 | Game flow | `src/game/` | `src/game/main.gd:_physics_process` | modes, starting a match, settings, camera, CLI flags, showcases, trials, drills, ladders, Discord |
@@ -53,7 +53,8 @@ update the map in the same change.
 | line of sight, hidden fighters | `src/sim/vision.gd`; main's `src/game/main.gd:_update_vision` | vision |
 | tag, Duel, 3v3 tag rules | `src/sim/duel_sim.gd:_tag`, `_enter_next`, `_bench_regen` | duel |
 | 2v2, 3v3, Team Deathmatch, Sinkhole, King of the Crater, Caravan, Capture the Flag | `src/sim/team_sim.gd` (`_caravan_step`, `_cv_end_round`, `track_point`, `_cv_rockslide`, `escort_healing`, class perks `perk`; `_ctf_step`, `_ctf_goals`, `base_of`, `_fumble`, `_try_pass`, `_fly`, `_shrine_step`; bridges `match_sim.gd:_step_bridges`) and `data/rules/`; per-fighter CPU goals `match_sim.gd:goals` → `cpu_controller.gd:_decide`; CTF's map `data/arenas/twin_keeps.json` (`bases`), flags `fx_view.gd:_draw_flag`, off-screen arrows `main.gd:_update_pointers` → `hud.gd:_draw_pointers`; Caravan's map `data/arenas/caravan_pass.json` (`track`), drawn by `fx_view.gd:_draw_caravan`, `hud.gd:_caravan_bar` | team, deathmatch, sinkhole, crater, caravan, ctf |
-| Brawl, Chaos Cup, mutators | `src/sim/brawl_sim.gd`, `data/rules/mutators.json`, `src/sim/match_sim.gd:apply_mutators` | brawl, ladders |
+| Brawl, Chaos Cup, mutators | `src/sim/brawl_sim.gd`, `data/rules/mutators.json`, `src/sim/match_sim.gd:apply_mutators`, `merge_mutator`; forcing them `--mutators=` (`main.gd:_parse_args`, `_new_sim`) | brawl, ladders |
+| arena hazards, tidal wave, meteor shower, breakwaters, cores | `data/rules/hazards.json`, `src/sim/hazards.gd` (`setup`, `step`, `_step_wave`, `sheltered`, `_flood`, `_step_meteors`, `_impact`, `hurt`, `_step_pickups`); looks `src/view/fx_view.gd:_draw_hazards_floor`, `_draw_hazards_top`, `_hazard_event`; banner `src/game/main.gd:_hazard_warn`; the menu (Arena options > Hazards, `hazards_on`) `main.gd:_open_look_page`, `_add_hazard_rows`, `_session_mutators`, `_chaos_table`; CPU `src/ai/cpu_controller.gd:_mind_hazards` | hazards, arena_options, rollback |
 | win and time-out rules | `src/sim/duel_sim.gd:_time_out`, `src/sim/team_sim.gd:_time_out` | duel, team |
 | rollback state, snapshot, desync digest | `src/sim/match_sim.gd:snapshot`, `restore`, `state_digest`; `src/sim/creature_sim.gd` `STATE_FIELDS` | rollback, determinism |
 | input bits, aim and move angles | `src/sim/sim_defs.gd` | aim, movement360 |
@@ -69,6 +70,8 @@ update the map in the same change.
 | performance, stutter, frame drops, CPU cost per tick, threads | measure: `tests/bench_ai_cost.gd`, `--perf` (`src/game/perf_log.gd`); CPUs in parallel `src/ai/cpu_controller.gd:think_all` / `think_start`, thinking while the frame draws (main `_think_cpus`, `_think_ahead`, `_join_cpus`); shared caches `src/sim/terrain_index.gd`, `NavGrid.shared`, `Vision.clear_line` memo; view redraw cost: floor bands `arena_view.gd:BAND_ROWS`, crowd `crowd_view.gd:Block` (fans sitting drawn once, standing on their own layer, `_checked_rect`) | cpu_pathing, vision, ui |
 | balance, win rates, matchups, why a fighter loses | `tests/bench_cpu.gd` (`--matrix`, `--detail` spacing/stamina, `--teams=3`), `tests/bench_fighter.gd`; pins `tests/test_balance.gd` | balance, rage |
 | keyboard layouts, gamepad, twin-stick, aim assist | `src/input/player_input.gd` | player_input, twinstick |
+| touch target lock, lock priority, enemy portraits, objective button, chase to target | `src/input/touch_target.gd` (`pick`, `can_lock`, `apply`, `_walk` on `NavGrid`), `MouseOrders.chase_reach`; portraits `TouchPad.set_picks`; main `_touch_targets`; drawn by `src/view/touch_overlay.gd:_draw_lock`, `_draw_picks` | touch_targeting, touch |
+| touch controls, on-screen stick and buttons, drag to aim, touch settings, `--touch-demo` | `src/input/touch_pad.gd` (`feed`, `bits`, `release_all`), `src/input/player_input.gd` (`Device.TOUCH`, `touch_charges`); drawn by `src/view/touch_overlay.gd`; main `_note_input`, `_touch_step`, `SETTING_PAGES["touch"]`; demo `src/game/touch_demo.gd` | touch, player_input |
 | mouse (League-style) orders | `src/input/mouse_orders.gd` | player_input |
 | key bindings, remapping | `src/game/controls.gd`, `src/ui/remap_screen.gd` | test_ui |
 | hit sparks, smears, particles, event effects | `src/view/fx_view.gd:spawn`, `_draw_part` | views |
@@ -104,7 +107,8 @@ update the map in the same change.
 | Discord status | `src/game/presence.gd`, `src/game/discord_rpc.gd`, `data/discord.json` | presence |
 | title logo, attract demo, screen wipes, results screen, match stats, MVP | wordmark `tools/gen_logo.py` -> `assets/ui/logo.png` (drawn by `src/ui/ui_screen.gd:build`); attract `src/game/main.gd:_attract_step`, `_start_attract`, `_end_attract`; wipes `src/view/wipe.gd`, `main.gd:_wipe_step`; results `main.gd:_show_match_over`, `results_data`, `src/ui/results_panel.gd`; counting `src/game/match_stats.gd` (fed from `_react`); the pose `src/ui/fighter_preview.gd` (`anim`) | title_results, test_ui, journey |
 | Android frame pacing, Odin 3 perf runs, 1% lows, what the screen shows | `tools/odin_perf.py`, `src/game/perf_log.gd` (`lows`, `uneven`), `src/game/main.gd:pace_cap` | perf_main_thread |
-| menu screens, theme | `src/ui/ui_screen.gd`, `src/ui/screen_stack.gd`, `src/ui/ui_theme.gd`; the panel's cards `src/ui/detail_card.gd`, `src/game/main.gd:_mode_facts` | test_ui, menu_stick, journey, menu_contract |
+| menu screens, theme | `src/ui/ui_screen.gd`, `src/ui/screen_stack.gd`, `src/ui/ui_theme.gd`; the panel's cards `src/ui/detail_card.gd`, `src/game/main.gd:_mode_facts` | test_ui, menu_stick, journey, menu_contract, ui_fit |
+| menus cut off, screen sizes, phones, scrolling pages, text too wide | `src/ui/ui_screen.gd:_fit_rows`, `src/ui/detail_card.gd:fit_font`, `src/game/main.gd:pixel_scale_factor` | ui_fit, pixel_text |
 | resolution, window scale, pixel font, text size | `project.godot` `[display]` (960 x 540 base, scale 2), `src/game/main.gd:_apply_pixel_scale`, `_fit_window`; `src/ui/ui_theme.gd:font`, `px`, `outline` | test_ui |
 | character select, picking fighters | `src/ui/character_select.gd` | test_ui, rooms |
 | online lobby, room codes, Quick match | `src/game/online_lobby.gd`, `src/net/netplay.gd` | rooms, online |

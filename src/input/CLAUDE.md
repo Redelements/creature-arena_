@@ -8,6 +8,27 @@ Local devices become one bitmask per tick, the same thing the CPU and the networ
   Exact aims (`IN_AIM`) bypass it.
 - `MouseOrders` and `PlayerInput.combine_pad` are pure logic (no `Input` calls) so tests
   can drive them.
+- `TouchPad` is pure logic too: main feeds it `InputEventScreenTouch` / `InputEventScreenDrag`
+  in canvas units (the same space as the HUD) and `PlayerInput.bits` reads one tick from it
+  while `device` is `TOUCH`. Presses are latched (down and up between two ticks still sends
+  one tick) and a press the last tick carried waits a tick, because the sim starts moves on
+  an edge. Release-to-fire buttons (Heavy, Skills, Surge in "Tap + drag") send nothing while
+  the finger is down; that latency is the price of drag-aim, so "Tap only" exists.
+- Touches are also copied as mouse clicks (`emulate_mouse_from_touch`, on by default; menus
+  rely on it). `note_event` ignores mouse events from `InputEvent.DEVICE_ID_EMULATION`, and
+  `bits` skips the keyboard and mouse while on touch, or every tap would be a League light.
+- A lost touch (app paused, focus out, a `canceled` touch, the fight ending, another device)
+  must call `release_all`, or Guard or a charge stays held.
+- `TouchTarget` (the touch lock) must never reveal a hidden foe: it picks, keeps and aims
+  only at foes `can_lock` allows, and `can_lock` reads `PlayerInput.touch_hidden` (main's
+  `_hidden`, Vision's answer: brush, walls, Tiptoe). The overlay's ring and portraits use
+  the same test. Anything new that names a foe on screen goes through it too.
+- The lock's chase walks with `NavGrid` (src/ai) from the main thread. That's safe only
+  because main reads player inputs after `_join_cpus` and before `_think_ahead` starts
+  the CPU threads; keep it so. It checks the centre line for pits (`clear_line(..., 0.0,
+  true)`) and stops with no path, so it never walks into a hole.
+- `TouchTarget.apply` works on press edges (`_prev`): a held charge isn't a new tap. The
+  Light a chase swallows is thrown on arrival, so the sim still sees one fresh press.
 - `MenuStick` turns the left stick into `ui_*` presses because `Controls.setup()` erases
   the built-in joypad `ui_*` events; main turns it off while a `CharacterSelect` (which
   reads each pad itself) is on top.
@@ -22,6 +43,14 @@ Local devices become one bitmask per tick, the same thing the CPU and the networ
   `autofire` (`AUTO_QUIET` 12, `AUTO_PEND` 40: an attack pressed mid-light is re-pressed
   until it starts, since a light outlasts the 10-tick buffer); pad aim timer packing → `PAD_T_SHIFT` (27)
 - Second controller / local 2P → `_device_pad_bits`, `pad_device` (`ANY_PAD` -1, `NO_PAD` -2)
+- Touch fight controls → `touch_pad.gd` (`LAYOUT` from Light's centre, `SIZES`, `STICK_ZONE`,
+  `STICK_DEAD`, `OFF`, the cancel zone `CANCEL_AT` / `CANCEL_R`, `HOLD_TICKS`, `DRAG_BUTTONS`, `HOLDS`; `feed`, `bits`, `aiming`,
+  `release_all`); `PlayerInput.touch`, `touch_charges`, `assist(..., deg)`; drawn by
+  `src/view/touch_overlay.gd`; scripted for captures by `src/game/touch_demo.gd`
+- Touch target lock, chase, portraits, objective → `touch_target.gd` (`Priority`, `LOCK_RANGE`,
+  `CONE_DEG`, `CHASE_RANGE`, `CHASE_TICKS`; `pick`, `can_lock`, `lock_on`, `apply`, `_walk`,
+  `ctf_objective`); the portrait row `TouchPad.set_picks` / `pick_center` / `lock_request` /
+  `objective_requested`; main `_touch_targets`; the shared reach `MouseOrders.chase_reach`
 - Mouse walk-to-spot and chase → `mouse_orders.gd:bits` (`ARRIVE`, `STUCK_TICKS`),
   `_chase`, `_walk_bits`, `_braking`; aim hold after a press → `AIM_HOLD` (10); buttons
   passed on while held → `HOLD_BITS`
@@ -32,4 +61,6 @@ Local devices become one bitmask per tick, the same thing the CPU and the networ
 - `menu_stick.gd` (MenuStick) — Turns a gamepad's left stick into clean menu presses (ui_up / ui_down / ui_left / ui_right), like a d-pad: one press wh…
 - `mouse_orders.gd` (MouseOrders) — League-style mouse controls, turned into the same input bitmask a gamepad produces.
 - `player_input.gd` (PlayerInput) — Reads the local player's devices and produces one simulation input bitmask per tick.
+- `touch_pad.gd` (TouchPad) — Touch fight controls, turned into the same input bitmask a gamepad produces.
+- `touch_target.gd` (TouchTarget) — Target lock for the touch controls: it aims taps at one foe, can walk you to it, and turns the touch pad's bits into th…
 <!-- END GENERATED -->
