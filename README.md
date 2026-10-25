@@ -434,9 +434,26 @@ down.
   (3v3) wins; at the 3-minute limit, the higher score wins, and a tie goes to **sudden
   death** (the next KO wins).
 - The match starts in the middle as usual; the pads are only for coming back.
+- **Killing sprees:** a KO counts for whoever landed the last hit within 5 s. **3 KOs
+  without going down** puts you on a spree: a flame over your health bar (a pip per level:
+  3 KOs level 1, 4 KOs level 2, ...), "<NAME> IS ON A SPREE", and an arrow at the screen
+  edge for the other team while you're off screen. **Shutdown:** KO a fighter on a spree for
+  the normal point **+1 per spree level (at most +3)** and **40 Surge meter**. A spree ends
+  whenever you go down. Bonus points count toward the target, so a shutdown can win the
+  match. CPUs go for a spree fighter when there's nobody in their face.
 
 Offline for now (vs CPU); online Team Deathmatch needs the server to run the mode.
 Tuning: `data/rules/deathmatch.json`.
+
+### The Brawl crown (Brawl and Chaos Cup)
+
+One life each, last standing wins, as before. The **first KO** (credited to whoever landed
+the last hit within 5 s) gives that fighter the **crown**: drawn over their health bar, an
+arrow at the screen edge for everyone else while they're off screen, and a crown point a
+second (under the clock). **KO the holder and the crown is yours.** If the holder falls to a
+pit or a hazard with nobody's hit behind it, the crown is loose until the next KO. **At
+time, the crown wins** (the standing fighter with the most crown points; nobody crowned:
+the healthiest, as before). CPUs prefer the holder. Tuning: `data/rules/brawl.json`.
 
 ### Shrines: King of the Crater, Brawl, Capture the Flag
 

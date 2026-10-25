@@ -23,6 +23,8 @@ const VOTE := 0.5
 ## Share of this tick's raw score that moves the team's running score (the rest is last
 ## tick's): fighters move fast, so the belief lags them a little rather than flapping.
 const SMOOTH := 0.1
+## A marked foe's pull (MatchSim.marks) over this many pixels is added to its score's weight.
+const MARK_PX := 240.0
 
 var team := 0
 var tick := 0
@@ -143,7 +145,7 @@ static func _build(sim: MatchSim, team: int, prev: TeamIntent) -> TeamIntent:
 				var me: CreatureSim = sim.creatures[m]
 				if me.team != team or me.state == CreatureSim.State.KO:
 					continue
-				s += f_near(me.pos.distance_to(foe.pos)) * f_weak(foe)
+				s += f_near(me.pos.distance_to(foe.pos)) * f_weak(foe) * f_mark(sim, foe)
 				if prev != null and prev.member_vote[m] == f:
 					s += VOTE
 		if prev != null and prev.scores.has(f):
@@ -172,6 +174,13 @@ static func _build(sim: MatchSim, team: int, prev: TeamIntent) -> TeamIntent:
 ## 1 for a foe in your face, 1/2 at NEAR_PX, falling with distance.
 static func f_near(d: float) -> float:
 	return NEAR_PX / (NEAR_PX + maxf(0.0, d))
+
+
+## A foe the mode marks as wanted (a spree, the crown; MatchSim.marks in px) scores a little
+## more: 1 + pull / MARK_PX (60 px: x1.25). Nearness still counts first, so a team in a fight
+## doesn't drop it to cross the map.
+static func f_mark(sim: MatchSim, foe: CreatureSim) -> float:
+	return 1.0 + CpuController.mark_of(sim, foe) / MARK_PX
 
 
 ## 1.5 for a foe at full health down to 0.5 at none: the hurt one is the one to finish.

@@ -1186,8 +1186,11 @@ func _mode_facts(row: Dictionary, cfg: Dictionary) -> Array:
 		match kind:
 			"deathmatch":
 				var t: Array = rules.get("score_to_win", [8, 8, 12, 15])
-				return ["First to %d KOs; respawns" % int(t[clampi(size, 0, t.size() - 1)]),
+				var facts := ["First to %d KOs; respawns" % int(t[clampi(size, 0, t.size() - 1)]),
 					clock + ", then sudden death"]
+				if int(rules.get("spree_at", 0)) > 0:
+					facts.append("%d KOs: a spree; end it for +%d" % [int(rules["spree_at"]), int(rules.get("shutdown_cap", 3))])
+				return facts
 			"crater":
 				return ["Hold the zone %d s in all" % (int(rules.get("score_to_win", 3600)) / 60),
 					"It moves, breaking the floor", clock]
@@ -1210,8 +1213,11 @@ func _mode_facts(row: Dictionary, cfg: Dictionary) -> Array:
 			"Two players on one screen" if two else "You pick both teams"]
 	if cfg.get("brawl", false):
 		var b := BrawlSim.load_rules()
+		var crowned := bool(b.get("crown", false)) and bool(b.get("crown_decides_time", true))
 		var out := ["%d fighters, one life each" % BrawlSim.MAX_PLAYERS,
-			"Clock %s, healthiest wins" % _mmss(int(float(b.get("time_seconds", 120)) * 60))]
+			"Clock %s, %s wins" % [_mmss(int(float(b.get("time_seconds", 120)) * 60)), "the crown" if crowned else "healthiest"]]
+		if bool(b.get("crown", false)):
+			out.append("The first KO takes the crown")
 		if cfg.get("chaos", false):
 			out.append("Three mutators each match")
 		return out
@@ -1957,6 +1963,7 @@ func _show_pads() -> void:
 func _update_zone() -> void:
 	fx.flags = []
 	fx.shrines = _shrine_marks()
+	fx.wanted = _wanted_marks()
 	if team_battle != null and team_battle.ctf:
 		for side in 2:
 			var st := int(team_battle.flag_state[side])
@@ -1989,6 +1996,53 @@ func _update_zone() -> void:
 	var holder := team_battle.zone_holder()
 	fx.zone = {"pos": sim.zone_pos, "radius": sim.zone_r,
 		"color": Hud.SIDE_COLORS[holder] if holder >= 0 else Color("e8d8a0")}
+
+
+## Who is wanted, for FxView's marks over their heads: per slot {} or {"kind": "spree",
+## "level"} (Team Deathmatch) / {"kind": "crown"} (a Brawl's crown holder).
+func _wanted_marks() -> Array:
+	var out: Array = []
+	if sim == null:
+		return out
+	for i in sim.creatures.size():
+		out.append(_wanted(i))
+	return out
+
+
+func _wanted(i: int) -> Dictionary:
+	if team_battle != null and team_battle.sim == sim and team_battle.spree:
+		var lv := team_battle.spree_level(i)
+		if lv > 0:
+			return {"kind": "spree", "level": lv}
+	elif brawl != null and brawl.sim == sim and brawl.crown_on and brawl.crown == i:
+		return {"kind": "crown"}
+	return {}
+
+
+## Team Deathmatch's spree and shutdown, and the Brawl crown: the toasts.
+func _wanted_toast(e: Dictionary) -> void:
+	var who := int(e.get("who", -1))
+	var name := _fighter_word(who)
+	match String(e["type"]):
+		"spree":
+			var lv := int(e.get("level", 1))
+			hud.show_toast("%s IS ON A SPREE" % name if lv <= 1 else "%s: %d KOs IN A ROW" % [name, int(e.get("kos", 0))])
+		"shutdown":
+			hud.show_toast("SHUTDOWN! +%d  ·  %s STOPS %s" % [int(e.get("bonus", 0)), name, _fighter_word(int(e.get("victim", -1)))])
+		"crown":
+			if who < 0:
+				hud.show_toast("THE CROWN IS LOOSE  ·  NEXT KO TAKES IT")
+			elif int(e.get("from", -1)) >= 0:
+				hud.show_toast("%s TAKES THE CROWN FROM %s" % [name, _fighter_word(int(e.get("from", -1)))])
+			else:
+				hud.show_toast("%s TAKES THE CROWN" % name)
+
+
+## A fighter's name in capitals for a toast ("?" for no one).
+func _fighter_word(slot: int) -> String:
+	if slot < 0 or sim == null or slot >= sim.creatures.size():
+		return "?"
+	return String(sim.creatures[slot].def.get("name", "?")).to_upper()
 
 
 ## The match's shrines for FxView (any mode with them): where, what, who is claiming it
@@ -3101,6 +3155,8 @@ func _react(e: Dictionary) -> void:
 		stats.note(e)
 		if String(e["type"]) in ["shrine_soon", "shrine_ready", "shrine", "shrine_boost"]:
 			_shrine_toast(e)
+		elif String(e["type"]) in ["spree", "shutdown", "crown"]:
+			_wanted_toast(e)
 	fx.spawn(e)
 	audio.on_event(e)
 	var power: float = e["power"]
@@ -3144,6 +3200,11 @@ func _react(e: Dictionary) -> void:
 			hud.cut_in(sim.creatures[who], clampi(sim.creatures[who].team, 0, 1), String(e.get("name", "Surge")))
 		"score":
 			crowd.cheer(0.5)
+		"spree":
+			crowd.cheer(0.4)
+		"shutdown", "crown":
+			crowd.cheer(0.8)
+			audio.play("round_start", -4.0, 1.3)
 		"respawn":
 			audio.play("warp", -4.0, 0.9)  # back on the pad
 		"overtime":
@@ -3509,11 +3570,12 @@ func _drop_intro() -> void:
 ## flags). Screen = (world - camera) x zoom + half the screen.
 func _update_pointers(view: Vector2) -> void:
 	var out: Array = []
-	if team_battle != null and sim != null and showcase == null:
-		var targets: Array = []
-		if team_battle.caravan:
+	var playing := sim != null and showcase == null
+	if playing and ((team_battle != null and team_battle.sim == sim) or (brawl != null and brawl.sim == sim)):
+		var targets := _wanted_pointers()
+		if team_battle != null and team_battle.caravan:
 			targets.append([team_battle.caravan_pos(), Hud.SIDE_COLORS[team_battle.cv_attacker()], "CARAVAN"])
-		if team_battle.ctf:
+		if team_battle != null and team_battle.ctf:
 			for side in 2:
 				var word: String = ["FLAG", "TAKEN", "DROPPED", "LOOSE"][clampi(int(team_battle.flag_state[side]), 0, 3)]
 				targets.append([team_battle.flag_pos[side], Hud.SIDE_COLORS[side], word])
@@ -3533,6 +3595,24 @@ func _update_pointers(view: Vector2) -> void:
 				k = minf(k, ((inner.end.y if d.y > 0.0 else inner.position.y) - mid.y) / d.y)
 			out.append({"pos": mid + d * k, "dir": d, "color": t[1], "label": t[2]})
 	hud.pointers = out
+
+
+## The wanted fighters' off-screen arrows: a Team Deathmatch spree for the other team (both
+## teams' when nobody here plays), a Brawl's crown holder for everyone but its wearer. Never
+## one the local team can't see (brush, stealth): the arrow would give it away.
+func _wanted_pointers() -> Array:
+	var out: Array = []
+	var mine := _viewer_team()
+	for i in sim.creatures.size():
+		var w := _wanted(i)
+		var c := sim.creatures[i]
+		if w.is_empty() or c.state == CreatureSim.State.KO or _is_hidden(i) or (mine >= 0 and c.team == mine):
+			continue
+		if String(w["kind"]) == "crown":
+			out.append([c.pos, Color("ffd84a"), "CROWN"])
+		else:
+			out.append([c.pos, Color("ff7a3a"), "SPREE"])
+	return out
 
 
 ## A fight: keeps every fighter in shot, heads included, with room around them. Close

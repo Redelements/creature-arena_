@@ -114,6 +114,10 @@ var shrine_spots: Array = []
 var shrine_rules := {}
 ## The permanent-buff shrines' draws: an integer LCG seeded by the match seed (Shrines.setup).
 var shrine_rng := 0
+## Fighters a mode marks as wanted (Team Deathmatch's spree, the Brawl crown): one number
+## per slot, the pixels of pull the CPU's target choice gives that foe (0: none). Empty in
+## every other mode. Written by the mode each tick; saved (in the digest only when set).
+var marks: Array = []
 
 
 ## Lays an arena map on the floor. Call before adding creatures (it resets the grid).
@@ -208,6 +212,34 @@ func add_creature(def: Dictionary, p: Vector2, is_dummy := false) -> CreatureSim
 	c.floor_end = terrain.floor_rect().end
 	creatures.append(c)
 	return c
+
+
+## Who gets the credit for knocking a fighter out, from this tick's events: `by[slot]` is the
+## last fighter whose hit (a clean hit, chip through a block, a poison tick) landed on that
+## slot and `at[slot]` the tick it landed. Modes that score KOs per fighter (Team Deathmatch's
+## spree, the Brawl crown) call it after each step and keep both arrays as their own state.
+func note_credit(by: Array, at: Array) -> void:
+	for e in events:
+		var kind := String(e["type"])
+		var who := -1
+		var from := -1
+		if kind == "hit" or kind == "block":
+			who = int(e.get("target", -1))
+			from = int(e.get("attacker", -1))
+		elif kind == "poison":
+			who = int(e.get("who", -1))
+			from = int(e.get("by", -1))
+		if who >= 0 and who < by.size() and from >= 0 and from != who:
+			by[who] = from
+			at[who] = tick
+
+
+## The fighter credited with knocking out `slot` (see note_credit): its last hitter, if that
+## hit landed within `window` ticks; else -1 (a fall or a hazard with nobody's hit behind it).
+static func credit_of(by: Array, at: Array, slot: int, now: int, window: int) -> int:
+	if slot < 0 or slot >= by.size() or int(by[slot]) < 0:
+		return -1
+	return int(by[slot]) if now - int(at[slot]) <= window else -1
 
 
 ## Adds Surge energy (capped). The moment the meter fills it says so ("surge_ready"),
@@ -355,7 +387,7 @@ func snapshot() -> Dictionary:
 		"storms": storms.duplicate(true), "training_flags": training_flags.duplicate(),
 		"bridges": bridges.duplicate(true),
 		"hazards": hazards.duplicate(true), "hazard_pickups": hazard_pickups.duplicate(true),
-		"shrines": shrines.duplicate(true), "shrine_rng": shrine_rng,
+		"shrines": shrines.duplicate(true), "shrine_rng": shrine_rng, "marks": marks.duplicate(),
 	}
 
 
@@ -386,6 +418,7 @@ func restore(s: Dictionary) -> void:
 	hazard_pickups = (s.get("hazard_pickups", []) as Array).duplicate(true)
 	shrines = (s.get("shrines", []) as Array).duplicate(true)
 	shrine_rng = int(s.get("shrine_rng", 0))
+	marks = (s.get("marks", []) as Array).duplicate()
 	events.clear()
 
 
@@ -416,6 +449,8 @@ func state_digest() -> String:
 		for c in creatures:
 			for f in CreatureSim.BOOST_FIELDS:
 				parts.append(c.get(f))
+	if not marks.is_empty():  # (only modes that mark someone)
+		parts.append(marks)
 	if training:  # (only training matches: every other match's fingerprint is unchanged)
 		for k in TRAINING_FLAGS:
 			parts.append(bool(training_flags.get(k, false)))
