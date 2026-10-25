@@ -174,7 +174,7 @@ dig/slosh/poof/chop_chop/shout sounds.
   Main picks the look (`main.gd:_match_look`); online is always day + clear.
 - Touch controls on screen → `touch_overlay.gd` (TouchOverlay, on the screen layer over the HUD):
   stick, buttons, cooldowns and the Surge meter in `CD_STEPS` steps, the aimed move's reach as a
-  true circle (`_draw_reach`, `CreatureSim.move_range`), the red cancel zone while a drag aims (`_draw_cancel_zone`); it redraws only when `_key()` changes.
+  true circle (`_draw_reach`, `CreatureSim.move_range`), the red cancel zone while a drag aims (`_draw_cancel_zone`), the touch lock's floor ring (`_draw_lock`, a true circle) and the enemy portraits / objective button (`_draw_picks`; only foes `TouchTarget.can_lock` allows with `unseen`, never a hidden one); it redraws only when `_key()` changes.
   `Hud.touch` drops the controls strip and moves the online line to the bottom middle
 - Range rings → `range_rings.gd:rings`; F1 hitbox overlay → `debug_view.gd`; F9 performance
   overlay → `perf_overlay.gd` (main feeds `tick(us)`; the setting is `perf_overlay`)

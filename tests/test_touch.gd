@@ -412,8 +412,10 @@ func test_tap_uses_the_wider_touch_assist_with_the_stick_held() -> void:
 	var foe := sim.creatures[1]
 	foe.pos = me.pos + Vector2(60, 0)
 	var pin := _touch_input()
+	pin.target.chase_on = false  # (a Light tap out of reach would walk there instead)
 	var p := pin.touch
-	# Walking 20 degrees off the foe: the stick's 12 would miss, touch's 25 catches it.
+	# Walking 20 degrees off the foe: the stick's 12 would miss, touch's 25 catches it
+	# (with the target lock on top, the tap locks it and aims exactly at it).
 	var walk := Vector2(cos(deg_to_rad(20.0)), sin(deg_to_rad(20.0)))
 	_down(p, 0, p.rest_spot())
 	_drag(p, 0, p.rest_spot() + walk * 25.0)
@@ -541,7 +543,8 @@ func test_focus_lost_lets_go_of_everything() -> void:
 
 func test_touch_settings_apply_and_are_kept() -> void:
 	var g := _game()
-	assert_eq(g.SETTING_PAGES["touch"], ["touch_opacity", "touch_size", "touch_hand", "touch_aim"], "the Touch page")
+	for k in ["touch_opacity", "touch_size", "touch_hand", "touch_aim", "touch_priority", "touch_chase"]:
+		assert_true(k in g.SETTING_PAGES["touch"], "on the Touch page: " + k)
 	assert_near(g.touch_overlay.opacity, 0.7, 0.001, "70% by default")
 	g._set_setting("touch_opacity", 0)
 	g._set_setting("touch_size", 2)

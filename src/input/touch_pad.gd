@@ -19,6 +19,10 @@ extends RefCounted
 ##     HOLD_TICKS starts then and charges while held, like a held pad button; dragging off
 ##     it aims the charge exactly.
 ##   - Light and Dodge fire on the touch itself (release-to-fire would slow combos).
+## Targeting (TouchTarget does the aiming): a row of small enemy portraits along the
+## bottom, left of Dodge (`set_picks`; a touch on one asks for that foe's lock,
+## `lock_request`), and in Capture the Flag an objective button first in that row
+## (`objective_requested`: main finds the foe carrying our flag).
 ## "Tap only": every button fires on the touch and holds while the finger stays down.
 ##
 ## Pure logic, like MouseOrders: main feeds it InputEventScreenTouch / InputEventScreenDrag
@@ -63,6 +67,9 @@ const LAYOUT := {
 const LIGHT_IN := 42.0  ## Light's centre this far in from the bottom-right corner (Medium)
 const PAUSE_R := 9.0
 const PAUSE_AT := Vector2(14, 58)  ## in from the top-right corner, under the fighter panel
+const PICK_R := 11.0  ## an enemy portrait's (and the objective button's) radius
+const PICK_GAP := 5.0
+const PICK_FROM_BOTTOM := 16.0
 
 # Settings
 var size_step := 1
@@ -83,12 +90,21 @@ var stick_knob := Vector2.ZERO
 var stick_finger := -1
 ## Set by a tap on Pause; main reads and clears it.
 var pause_requested := false
+## The enemy portraits shown (creature indices, main's choice: seen and on screen) and
+## whether the objective button shows (Capture the Flag).
+var picks: Array = []
+var show_objective := false
+## A portrait touched: that foe's index (-1: none); PlayerInput hands it to TouchTarget.
+var lock_request := -1
+## The objective button touched; main turns it into a lock_request.
+var objective_requested := false
 
 var _screen := Vector2(480, 270)
 var _centers := {}
 var _radii := {}
 var _rest := Vector2.ZERO
 var _cancel_at := Vector2.ZERO
+var _pick_x := 0.0  ## the first entry's centre x before the mirror; the row runs left
 ## index -> {"button": name, "start": Vector2, "pos": Vector2, "mode": armed|aiming|
 ## cancel|held, "t": ticks down}
 var _fingers := {}
@@ -120,6 +136,8 @@ func layout(size: Vector2) -> void:
 	_radii["pause"] = PAUSE_R
 	_rest = _flip(Vector2(8.0 + 38.0 * s, size.y - 8.0 - 38.0 * s))
 	_cancel_at = _flip(Vector2(size.x - CANCEL_AT.x, CANCEL_AT.y))
+	var dodge := light + (LAYOUT["dodge"][0] as Vector2) * s
+	_pick_x = dodge.x - float(LAYOUT["dodge"][1]) * s - 4.0 - PICK_R
 	if stick_finger < 0:
 		stick_origin = _rest
 		stick_knob = _rest
@@ -161,6 +179,33 @@ func cancel_radius() -> float:
 
 func in_cancel_zone(pos: Vector2) -> bool:
 	return pos.distance_to(_cancel_at) <= CANCEL_R
+
+
+## Sets the portrait row: `slots` (enemy creature indices) and the objective button.
+func set_picks(slots: Array, objective: bool) -> void:
+	if slots == picks and objective == show_objective:
+		return
+	picks = slots.duplicate()
+	show_objective = objective
+	version += 1
+
+
+## The portrait row in order: "objective" first when it shows, then each foe's index.
+func pick_entries() -> Array:
+	var out: Array = ["objective"] if show_objective else []
+	out.append_array(picks)
+	return out
+
+
+## The centre of the `k`-th entry of `pick_entries()`.
+func pick_center(k: int) -> Vector2:
+	return _flip(Vector2(_pick_x - k * (PICK_R * 2.0 + PICK_GAP), _screen.y - PICK_FROM_BOTTOM))
+
+
+## The centre of foe `slot`'s portrait, or INF when it isn't shown.
+func portrait_center(slot: int) -> Vector2:
+	var k := pick_entries().find(slot)
+	return pick_center(k) if k >= 0 else Vector2.INF
 
 
 ## The buttons shown, in drawing order.
@@ -227,6 +272,8 @@ func release_all() -> void:
 		return
 	_fingers.clear()
 	_queue.clear()
+	lock_request = -1
+	objective_requested = false
 	_aim_t = 0
 	stick_finger = -1
 	stick_origin = _rest
@@ -238,6 +285,15 @@ func _touch(index: int, pos: Vector2) -> void:
 	_lift(index, false)  # a repeated down for one index: start over
 	if not active:
 		return
+	var entries := pick_entries()
+	for k in entries.size():
+		if pos.distance_to(pick_center(k)) <= PICK_R * SLOP:
+			if entries[k] is String:
+				objective_requested = true
+			else:
+				lock_request = int(entries[k])
+			version += 1
+			return
 	var b := _button_at(pos)
 	if b == "pause":
 		_fingers[index] = {"button": "pause", "start": pos, "pos": pos, "mode": "armed", "t": 0}

@@ -14,7 +14,8 @@ extends RefCounted
 ##   [tick, "up", finger, spot, offset]
 ## Ticks count the fight's ticks from the first one this demo sees.
 ## Suggested shots: 40 (walking), 110 (Skill 1 aimed: its reach), 160 (guard and the
-## stick held together), 225 (a Heavy drag in the cancel zone), 262 (Surge aimed).
+## stick held together), 225 (a Heavy drag in the cancel zone), 262 (Surge aimed), 320
+## (team modes: the second portrait locked and a Light tap chasing it).
 
 const SCRIPT := [
 	[20, "down", 0, "stick", Vector2.ZERO],
@@ -39,6 +40,10 @@ const SCRIPT := [
 	[250, "down", 1, "surge", Vector2.ZERO],
 	[251, "drag", 1, "surge", Vector2.ZERO, Vector2(30, -36), 8],
 	[275, "up", 1, "surge", Vector2(30, -36)],
+	[290, "down", 2, "pick1", Vector2.ZERO],  # the second portrait (team modes): lock it
+	[292, "up", 2, "pick1", Vector2.ZERO],
+	[300, "down", 1, "light", Vector2.ZERO],
+	[303, "up", 1, "light", Vector2.ZERO],
 ]
 
 var t := 0
@@ -83,4 +88,6 @@ func _off(v: Vector2) -> Vector2:
 func _spot(pad: TouchPad, name: String) -> Vector2:
 	if name == "cancel":
 		return pad.cancel_center()
+	if name.begins_with("pick"):  # pick0, pick1...: the portrait row (the objective first)
+		return pad.pick_center(int(name.substr(4)))
 	return pad.rest_spot() if name == "stick" else pad.center(name)

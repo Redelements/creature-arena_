@@ -5,6 +5,10 @@ extends Node2D
 ## while a drag aims a big move, that move's reach round the fighter as a true circle on
 ## the floor (no y squash: reach is the same every way) with a line the way it will go,
 ## and the red cancel zone (a true circle too) where letting go cancels the cast.
+## Targeting (TouchTarget): a ring on the floor round the locked foe (a true circle, and
+## a line to it while a chase walks there), the enemy portraits along the bottom (the
+## locked one ringed gold) and Capture the Flag's objective button. The lock and the
+## portraits only ever name foes the local team sees (`unseen`, main's Vision answer).
 ##
 ## Draws from the TouchPad's state and reads the sim (cooldowns, energy, where the fighter
 ## stands); it never writes either. It redraws only on a frame where something it shows
@@ -29,7 +33,10 @@ const NAMES := {"light": "LIGHT", "heavy": "HEAVY", "skill_1": "S1", "skill_2": 
 const MOVES := {"heavy": "heavy", "skill_1": "skill_1", "skill_2": "skill_2", "surge": "surge"}
 
 var pad: TouchPad
+var target: TouchTarget
+var hud: Hud  ## for the fighters' portrait pictures
 var sim: MatchSim
+var unseen: Array = []  ## who the local team can't see (main's Vision answer)
 var slot := 0  ## the local player's creature
 var opacity := 0.7:
 	set(v):
@@ -70,10 +77,28 @@ func _key() -> Array:
 		for b in ["heavy", "skill_1", "skill_2", "dodge"]:
 			k.append(_cool_step(me, b))
 		k.append(_energy_step(me))
-		if not pad.aiming().is_empty():
+		var locked := _locked()
+		if target != null:
+			k.append_array([target.version, locked])
+		for s in pad.picks:  # a portrait's health ring, in steps
+			k.append(_hp_step(sim.creatures[int(s)]))
+		if not pad.aiming().is_empty() or locked >= 0:
 			var xf := get_viewport().get_canvas_transform()
 			k.append_array([me.pos.round(), xf.origin.round(), xf.get_scale().x])
+			if locked >= 0:
+				k.append(sim.creatures[locked].pos.round())
 	return k
+
+
+## The locked foe to mark (-1: none, or one the local team can't see right now).
+func _locked() -> int:
+	if target == null or target.lock < 0 or sim == null:
+		return -1
+	return target.lock if TouchTarget.can_lock(sim, slot, target.lock, unseen) else -1
+
+
+func _hp_step(c: CreatureSim) -> int:
+	return clampi(ceili(c.hp / maxf(c.max_hp, 1.0) * CD_STEPS), 0, CD_STEPS)
 
 
 ## How much of a button's cooldown is left, in CD_STEPS steps (0: ready).
@@ -106,8 +131,12 @@ func _draw_now() -> void:
 		return
 	var me := _me()
 	var aim := pad.aiming()
+	var locked := _locked()
+	if locked >= 0 and me != null:
+		_draw_lock(me, sim.creatures[locked])
 	if not aim.is_empty() and me != null:
 		_draw_reach(me, aim)
+	_draw_picks(locked)
 	_draw_stick()
 	for b in pad.buttons():
 		if b == "pause":
@@ -116,6 +145,56 @@ func _draw_now() -> void:
 			_draw_button(String(b), me, aim)
 	if not aim.is_empty() and not bool(aim["held"]):
 		_draw_cancel_zone(bool(aim["cancel"]))
+
+
+## The lock: a ring on the floor round the foe (a true circle) with four ticks, and while
+## a chase walks there, a faint line to it.
+func _draw_lock(me: CreatureSim, foe: CreatureSim) -> void:
+	var xf := get_viewport().get_canvas_transform()
+	var at := (xf * foe.pos).round()
+	var r := (foe.radius + 6.0) * xf.get_scale().x
+	var col := C_ZONE.lightened(0.15)
+	draw_arc(at, r + 1.0, 0.0, TAU, 48, Color(0, 0, 0, 0.35), 1.0)
+	draw_arc(at, r, 0.0, TAU, 48, Color(col, 0.9), 1.0)
+	for d in [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2.DOWN]:
+		draw_line((at + d * (r - 3.0)).round(), (at + d * (r + 3.0)).round(), col, 1.0)
+	if target.chasing:
+		draw_line((xf * me.pos).round(), at, Color(col, 0.45), 1.0)
+
+
+## The enemy portraits (a tap locks one) and the objective button, along the bottom.
+func _draw_picks(locked: int) -> void:
+	var entries := pad.pick_entries()
+	for k in entries.size():
+		var c := pad.pick_center(k).round()
+		var r := TouchPad.PICK_R
+		draw_circle(c, r, C_FILL)
+		if entries[k] is String:  # the objective: the flag
+			draw_rect(Rect2(c + Vector2(-4, -6), Vector2(1, 12)), C_TEXT)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-3, -6), c + Vector2(5, -3), c + Vector2(-3, 0)]), C_ZONE)
+			draw_arc(c, r, 0.0, TAU, 32, C_RING, 1.0)
+			continue
+		var foe := sim.creatures[int(entries[k])]
+		_draw_portrait(foe, c, r)
+		var hp := _hp_step(foe)
+		draw_arc(c, r, 0.0, TAU, 32, Color(0, 0, 0, 0.5), 2.0)
+		if hp > 0:
+			draw_arc(c, r, -PI * 0.5, -PI * 0.5 + TAU * hp / CD_STEPS, 32, Hud.C_HP_HI if hp > 5 else Hud.C_HP_LO, 2.0)
+		if int(entries[k]) == locked:
+			draw_arc(c, r + 2.0, 0.0, TAU, 32, C_AIM, 1.0)
+
+
+## A foe's face inside its portrait circle: the HUD's portrait crop, else its initials.
+func _draw_portrait(c: CreatureSim, at: Vector2, r: float) -> void:
+	var info: Dictionary = hud._portrait_info(c) if hud != null else {}
+	if info.is_empty():
+		_text(at + Vector2(-r, 2), String(c.def.get("name", "?")).left(2).to_upper(), 5, C_TEXT, r * 2.0)
+		return
+	var src: Rect2 = info["src"]
+	var side := r * 1.6
+	var sc := minf(side / src.size.x, side / src.size.y)
+	var size := (src.size * sc).floor()
+	draw_texture_rect_region(info["tex"], Rect2((at - size * 0.5).round(), size), src)
 
 
 ## Where letting go cancels: red, filled stronger with the finger in it.
