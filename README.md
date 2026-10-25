@@ -621,20 +621,20 @@ His roll covers twice the ground of anyone else's in the same 20 frames.
 
 ### Craglash — the mountain that woke up angry
 
-A crowd-control tank (175 HP, heavy, hard to push). His slow, heavy swings don't win
+A crowd-control tank (150 HP, heavy, hard to push). His slow, heavy swings don't win
 races, so he controls where the fight happens instead: he hooks the backline in from
 across the floor, stuns, launches, and with a full meter drags everyone near him into a
 three-second lockdown while his team does the damage.
 
 | Button | Move | What it does |
 | --- | --- | --- |
-| Light | Rake, Backhand, Headbutt | Two claw swipes, then the neck snaps the head forward. **Slow and heavy**: about half the speed of anyone else's string (13, 16 and 23 frames to hit, against 4–5 for most fighters) but they hit harder, and **every hit staggers** (the only string that does) for long enough that the string is still a true combo |
+| Light | Rake | One slow, heavy claw swipe (13 frames to hit, against 4–5 for most fighters) that **staggers**. **No string**: mashing light gets one Rake every **2 s** (a cooldown from when it starts). It still cancels into Rockslide Stomp or Landslide Charge |
 | Heavy | Rockslide Stomp | Slams the ground and knocks up everyone close, all around him (16 frames to land out of a combo, a slow recovery). **Armored** once its windup is over: a jab only chips it (thrown raw, its tell can still be jabbed; out of Bedrock it comes out armored) |
 | Skill 1 | Landslide Charge | A slow, heavy shoulder charge about 65 px forward that **stuns** whoever it hits for a quarter second (crumple), long enough to follow up. A gold windup tell |
 | Skill 2 | Mountain Maw | The hook, back every 3.3 s. His head shoots out on its stone neck, **far** (about 160 px), and **can't be blocked**: it has to be dodged. It bites the first foe it reaches and **hauls them back** to his feet, **crumpled**, so a Rake (or a teammate) follows. A red tell and a dotted lane show it coming |
 | Surge | Bedrock | Roots in place for 3 s: hits only chip him (75% less damage) and nothing moves him. Every foe within 200 px is **taunted** for 3 s: they walk at 60% speed, their attacks swing at him, and they're **dragged in** toward him, hard. Any attack button answers out of it after 18 frames, so the Stomp meets them as they arrive. Loses to grabs. A tank's meter fills from the hits he takes, so soaking damage is what earns it |
 | Passive | Stoneskin | A 30-point stone shield that soaks damage first; it grows back only after **7 s out of combat**: no damage taken and none dealt (his hits and chip count too), so it doesn't refresh mid-brawl. Shown as a pale rim on him and as pale stone on the end of his health bar ("STONESKIN") |
-| Dodge | Landslide Ram | His roll is a shoulder charge: **twice as far** as anyone's (about 90 px) and it costs 60% of his stamina, like any dodge. The first foe it reaches is **hit** (4 damage, a short stun that a Rake links after, and it counts in the combo) and the dash stops there. Running into the wall stops it too and cracks the floor. Still invincible in the middle, like any roll |
+| Dodge | Landslide Ram | His roll is a shoulder charge about as far as anyone's roll (about 45 px), and it costs **70%** of his stamina (most dodges cost 60%). He also gets his stamina back slower than most (0.35 a tick). The first foe it reaches is **hit** (4 damage, a short stun that a Rake links after, and it counts in the combo) and the dash stops there. Running into the wall stops it too and cracks the floor. Still invincible in the middle, like any roll |
 
 ### Barkley — the tree that got up and left
 
@@ -820,9 +820,9 @@ storm.
 | Culvert | Jab, Jab → Gulp | 15 |
 | Culvert | Jab, Jab, Hook → Slam → Runoff (held) | 41 |
 | Culvert | Jab, Jab, Hook → Slam → Runoff (held) → Storm Drain | 74 |
-| Craglash | Rake, Backhand, Headbutt → Landslide Charge | 31.2 |
-| Craglash | Rake, Backhand, Headbutt → Rockslide Stomp → Landslide Charge | 45 |
-| Craglash | Mountain Maw (hook) → Rake, Backhand, Headbutt → Rockslide Stomp → Landslide Charge | 56 |
+| Craglash | Rake → Landslide Charge | 15.2 |
+| Craglash | Rake → Rockslide Stomp → Landslide Charge | 29.1 |
+| Craglash | Mountain Maw (hook) → Rake → Rockslide Stomp → Landslide Charge | 37.6 |
 | Barkley | Twig, Bough, Log Drop → Timber Twister → Branch Grab | 43.2 |
 | Barkley | Twig, Bough, Log Drop → Timber Twister → Pinecone Bomb | 45.8 |
 | Barkley | Twig, Bough, Log Drop → Timber Twister → Branch Grab → Root Eruption | 88.2 |

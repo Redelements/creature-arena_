@@ -221,11 +221,12 @@ func test_assassins_beat_the_mage() -> void:
 func test_the_mage_beats_fighters_and_tanks() -> void:
 	# Craglash joined the list with his balance pass (175 HP, half-speed strings, Stoneskin
 	# only out of combat): Rage Cerebro now takes about 3 of 4 from him.
-	# Craglash is close enough to even (Oct 2026, scored Rage: 24 of 40, the old ladder 25 of
-	# 40) that 8 games read 4 of 8 on a bad draw, so he gets 40.
-	# Since the Oct 25 2026 nerf (Kevin's call: the Mallet Toss doesn't stagger, so his string
-	# starts no combo) he only holds this against Cairn: Hissy 2 of 8, Culvert 0 of 8 and
-	# Craglash 3 of 40. Mister Crease is the mage the class rule is held to (below).
+	# Craglash left the list with his Oct 25 2026 nerf (one Rake on a 2 s cooldown, half the
+	# ram): his short Rake > Stomp > Charge and the shorter dash keep him on Cerebro, who took
+	# only 11 of 60 (was 34 of 60). Kevin's call: keep the nerf, leave the matchup open.
+	# Since Cerebro's own Oct 25 2026 nerf (Kevin's call: the Mallet Toss doesn't stagger, so
+	# his string starts no combo) he only holds this against Cairn: Hissy 2 of 8, Culvert 0 of
+	# 8 and Craglash 3 of 40. Mister Crease is the mage the class rule is held to (below).
 	for foe in ["cairn"]:
 		var r := _wins("cerebro", foe, 4)
 		assert_gt(float(r[0]), r[1] * 0.5, "Chef Cerebro beats %s (%d of %d):" % [foe, r[0], r[1]])

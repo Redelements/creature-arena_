@@ -90,14 +90,13 @@ func _craglash() -> MatchSim:
 
 
 func test_craglash_rake_to_charge() -> void:
-	var dmg := route(_craglash(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [S1, "skill_1"]])
-	assert_near(dmg, 6 + 6 + 10 + 8 * 1.15, 0.05, "Rake, Backhand, Headbutt > Landslide Charge:")
+	var dmg := route(_craglash(), 0, [[L, "light_1"], [S1, "skill_1"]])
+	assert_near(dmg, 6 + 8 * 1.15, 0.05, "Rake > Landslide Charge (no string since the Oct 25 2026 nerf):")
 
 
 func test_craglash_stomp_launcher() -> void:
-	var dmg := route(_craglash(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"],
-		[S1, "skill_1"]])
-	assert_near(dmg, 22 + 11 * 1.15 + 8 * 1.3, 0.05, "3 lights > Rockslide Stomp > Landslide Charge:")
+	var dmg := route(_craglash(), 0, [[L, "light_1"], [H, "heavy"], [S1, "skill_1"]])
+	assert_near(dmg, 6 + 11 * 1.15 + 8 * 1.3, 0.05, "Rake > Rockslide Stomp > Landslide Charge:")
 
 
 ## Mountain Maw (the hook, now Skill 2) hauls a foe in from far away, crumpled, and the
@@ -105,10 +104,9 @@ func test_craglash_stomp_launcher() -> void:
 func test_craglash_hook_opener() -> void:
 	var sim := _craglash()
 	sim.creatures[1].pos.x += 100.0
-	var dmg := route(sim, 0, [[S2, "skill_2"], [L, "light_1"], [L, "light_2"], [L, "light_3"],
-		[H, "heavy"], [S1, "skill_1"]])
-	assert_near(dmg, 6 + 22 * 1.15 + 11 * 1.3 + 8 * 1.3, 0.05,
-		"Mountain Maw > Rake, Backhand, Headbutt > Rockslide Stomp > Landslide Charge:")
+	var dmg := route(sim, 0, [[S2, "skill_2"], [L, "light_1"], [H, "heavy"], [S1, "skill_1"]])
+	assert_near(dmg, 6 + 6 * 1.15 + 11 * 1.3 + 8 * 1.3, 0.05,
+		"Mountain Maw > Rake > Rockslide Stomp > Landslide Charge:")
 
 
 ## Barkley (left) facing Cairn at close range.
