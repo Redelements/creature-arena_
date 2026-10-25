@@ -40,6 +40,8 @@ extends Node2D
 ##                         (default: together on the worker threads; same answers)
 ##   --layout=league|classic  keyboard layout (saved in the menu otherwise)
 ##   --pad-layout=standard|twinstick  controller layout (saved in Settings otherwise)
+##   --touch-demo[=left]   play a recorded touch script into the touch controls (training as
+##                         Cairn unless --mode is given; =left mirrors them): overlay captures
 ##   --showcase=NAME       play one scripted demo on a loop: cairn, culvert, craglash, barkley, gillbert,
 ##                         cerebro, hissy, digby, pete, sno, angles, twinstick or counterplay
 ##   --teams=a,b,c:d,e,f   Duel / 2-player teams (default cerebro,gillbert,barkley:culvert,cerebro,craglash)
@@ -134,7 +136,11 @@ const SETTING_PAGES := {
 	"game": ["level", "intros", "rumble", "shake", "discord", "server", "delay"],
 	"video": ["fullscreen", "wide", "vsync", "fps", "glow", "font", "perf_overlay", "#Camera", "cam_lead", "cam_clash", "cam_settle"],
 	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu"],
+	"touch": ["touch_opacity", "touch_size", "touch_hand", "touch_aim"],
 }
+## Settings > Controls > Touch: how see-through the touch controls are.
+const TOUCH_OPACITY := [0.3, 0.5, 0.7, 0.9]
+const TOUCH_OPACITY_DEFAULT := 2
 const SHAKE_CHOICES := [["Full", 1.0], ["Reduced", 0.5], ["Off", 0.0]]
 const VOLUME_NAMES := {"Master": "Master volume", "Music": "Music", "Effects": "Sound effects",
 	"Menu": "Menu sounds"}
@@ -506,6 +512,14 @@ var _showcase_arg := ""  ## --showcase=NAME: loop just that one
 var _showcase_i := 0
 var _showcase_end_t := 0
 var autoplay: AutoPlay = null
+## --touch-demo: a recorded touch script played into the touch controls.
+var touch_demo: TouchDemo = null
+## The touch controls on screen (player 1's PlayerInput.touch), shown while touch is the
+## device in a fight.
+var touch_overlay: TouchOverlay
+var touch_opacity := TOUCH_OPACITY_DEFAULT
+var touch_left := false  ## Settings > Controls > Touch > Hand (saved)
+var _touch_demo_left := false  ## --touch-demo=left: mirrored this session only
 var frame_count := 0
 var _shots := {}
 var _shot_dir := "user://shots"
@@ -678,6 +692,10 @@ func _ready() -> void:
 	layer.add_child(fade_rect)
 	hud = Hud.new()
 	layer.add_child(hud)
+	touch_overlay = TouchOverlay.new()  # over the HUD, under the menus
+	touch_overlay.pad = player_input.touch
+	touch_overlay.visible = false
+	layer.add_child(touch_overlay)
 	var top := CanvasLayer.new()
 	top.layer = 30  # over the menus (ScreenStack is 20)
 	add_child(top)
@@ -730,6 +748,7 @@ func _ready() -> void:
 	_apply_device()
 	_apply_discord()
 	_apply_range_rings()
+	_apply_touch()
 	_open_menu(_menu_arg)  # also starts the background match the pick screen sits on
 	if start_mode >= 0:
 		_start_match(start_mode)
@@ -798,6 +817,10 @@ func _open_menu(page := "", focus := "") -> void:
 		"controls":
 			_open_settings()
 			_open_controls()
+		"touch":
+			_open_settings()
+			_open_controls()
+			_open_settings_page("touch")
 		"remap:classic", "remap:league", "remap:gamepad":  # captures of a Remap page
 			_open_settings()
 			_open_controls()
@@ -1279,7 +1302,7 @@ func _open_settings_page(page: String) -> void:
 	scr.row_width = 236.0
 	scr.detail = true
 	scr.blurb = {"game": "How the game plays and where it plays online", "video": "The screen and the frame rate",
-		"audio": "Volumes"}.get(page, "")
+		"audio": "Volumes", "touch": "The on-screen stick and buttons (they show when you touch the screen in a fight)"}.get(page, "")
 	scr.hints = ["move", "change", "back"]
 	scr.builder = func(s: UiScreen):
 		for key in SETTING_PAGES[page]:
@@ -1366,6 +1389,8 @@ func _open_controls() -> void:
 		_add_setting_row(s, "layout")
 		_add_setting_row(s, "pad_layout")
 		_add_setting_row(s, "range_rings")
+		s.add_button("Touch controls", func(): _open_settings_page("touch"),
+			"The on-screen stick and buttons: how see-through, how big, which hand, how to aim")
 		s.add_button("Remap controller", func(): _open_remap("gamepad"), "Change which button does what")
 		s.add_button("Remap Classic keyboard", func(): _open_remap("classic"), "WASD + J K U I O, or your own keys")
 		s.add_button("Remap League-style keyboard", func(): _open_remap("league"),
@@ -2576,6 +2601,7 @@ func _physics_process(_delta: float) -> void:
 	_apply_frame_rate()
 	_ticks_run += 1
 	_wipe_step()
+	_touch_step()
 	if paused:
 		_capture()
 		return  # frozen behind the pause menu: nothing steps, the picture holds
@@ -3739,12 +3765,61 @@ func _input(event: InputEvent) -> void:
 		_end_intro()
 		get_viewport().set_input_as_handled()  # the press only skips (Esc doesn't also pause)
 		return
-	if not (event is InputEventMouseMotion):
+	var touch := event is InputEventScreenTouch or event is InputEventScreenDrag
+	if not (event is InputEventMouseMotion) and not touch:
 		_join_cpus()  # a press may change the match (a reset, a swap) while the CPUs read it
+	_note_input(event)
+
+
+## One event for player 1's devices: which device is in use (the prompts and the touch
+## controls follow it), and the screen's touches for the touch pad.
+func _note_input(event: InputEvent) -> void:
 	var before := player_input.label_set()
 	player_input.note_event(event)
+	if event is InputEventScreenTouch or event is InputEventScreenDrag:
+		player_input.touch.feed(event)
 	if player_input.label_set() != before:
 		_apply_device()
+
+
+## Once a tick (also while paused): the touch pad's state and the overlay. Touches start
+## fingers only in a fight with a player here; anything else, or another device, lets go
+## of every finger. A tap on the overlay's Pause is the Pause button.
+func _touch_step() -> void:
+	var pad := player_input.touch
+	var here := online != null or sides.has(Side.PLAYER)
+	var fighting := flow == Flow.FIGHT and here and not paused and not ui.is_open() and intro == null \
+			and showcase == null and autoplay == null and not _replaying() and watch == null
+	pad.active = fighting
+	if touch_demo != null and fighting:
+		for ev in touch_demo.step(pad):
+			_note_input(ev)
+	var vs := get_viewport_rect().size
+	var tag := duel != null
+	if pad.show_tag != tag or pad.screen() != vs:
+		pad.show_tag = tag
+		pad.layout(vs)
+	var on := player_input.device == PlayerInput.Device.TOUCH
+	if (not fighting or not on) and pad.fingers_down() > 0:
+		pad.release_all()
+	touch_overlay.visible = fighting and on
+	touch_overlay.sim = sim
+	touch_overlay.slot = hud.focus
+	hud.touch = touch_overlay.visible
+	if pad.pause_requested:
+		pad.pause_requested = false
+		if fighting:
+			var ev := InputEventAction.new()  # the same as Esc or Start
+			ev.action = "pause"
+			ev.pressed = true
+			Input.parse_input_event(ev)
+
+
+## Settings > Controls > Touch into the touch pad and the overlay.
+func _apply_touch() -> void:
+	touch_overlay.opacity = float(TOUCH_OPACITY[clampi(touch_opacity, 0, TOUCH_OPACITY.size() - 1)])
+	player_input.touch.left_handed = touch_left or _touch_demo_left
+	player_input.touch.layout(player_input.touch.screen())
 
 
 ## Any button skips the arena intro: a key, a controller button, a mouse click.
@@ -4027,6 +4102,22 @@ func _setting(key: String) -> Dictionary:
 		"vsync":
 			return {"label": "Vsync", "values": ["Off", "On"], "index": 1 if vsync else 0,
 				"desc": "On: no tearing, and the screen's refresh rate caps the frame rate"}
+		"touch_opacity":
+			var ops: Array = []
+			for o in TOUCH_OPACITY:
+				ops.append("%d%%" % roundi(float(o) * 100.0))
+			return {"label": "Opacity", "values": ops, "index": touch_opacity,
+				"desc": "How see-through the touch stick and buttons are"}
+		"touch_size":
+			return {"label": "Button size", "values": TouchPad.SIZE_NAMES, "index": player_input.touch.size_step,
+				"desc": "Bigger buttons are easier to hit and cover more of the fight"}
+		"touch_hand":
+			return {"label": "Hand", "values": ["Right-handed", "Left-handed"],
+				"index": 1 if touch_left else 0,
+				"desc": "Left-handed: the buttons on the left and the stick on the right"}
+		"touch_aim":
+			return {"label": "Aiming", "values": TouchPad.AIM_STYLES, "index": 1 if player_input.touch.tap_only else 0,
+				"desc": "Tap + drag: tap fires (aimed for you), drag Heavy, Skills or Surge off the button to aim and let go to throw. Tap only: every button fires on the touch"}
 		"range_rings":
 			return {"label": "Range rings", "values": ["Off", "On"], "index": 1 if range_rings else 0,
 				"desc": "Show each attack's real hit area on the floor"}
@@ -4128,6 +4219,17 @@ func _set_setting(key: String, i: int) -> void:
 			"range_rings":
 				range_rings = i == 1
 				_apply_range_rings()
+			"touch_opacity":
+				touch_opacity = clampi(i, 0, TOUCH_OPACITY.size() - 1)
+				_apply_touch()
+			"touch_size":
+				player_input.touch.size_step = clampi(i, 0, TouchPad.SIZES.size() - 1)
+				_apply_touch()
+			"touch_hand":
+				touch_left = i == 1
+				_apply_touch()
+			"touch_aim":
+				player_input.touch.tap_only = i == 1
 			"no_cooldowns", "full_energy":
 				training_opts[key] = i == 1
 				_apply_training_opts()
@@ -4433,6 +4535,10 @@ func _load_settings() -> void:
 		discord_status = bool(cfg.get_value("game", "discord", true))
 		shake_scale = float(cfg.get_value("game", "shake", 1.0))
 		range_rings = bool(cfg.get_value("game", "range_rings", false))
+		touch_opacity = clampi(int(cfg.get_value("touch", "opacity", TOUCH_OPACITY_DEFAULT)), 0, TOUCH_OPACITY.size() - 1)
+		player_input.touch.size_step = clampi(int(cfg.get_value("touch", "size", 1)), 0, TouchPad.SIZES.size() - 1)
+		touch_left = bool(cfg.get_value("touch", "left_handed", false))
+		player_input.touch.tap_only = bool(cfg.get_value("touch", "tap_only", false))
 		for k in MatchSim.TRAINING_FLAGS:
 			training_opts[k] = bool(cfg.get_value("training", k, false))
 		dummy_mode = clampi(int(cfg.get_value("training", "dummy_mode", 0)), 0, DUMMY_MODES.size() - 1)
@@ -4488,6 +4594,10 @@ func _save_settings() -> void:
 	cfg.set_value("game", "intros", match_intros)
 	cfg.set_value("game", "shake", shake_scale)
 	cfg.set_value("game", "range_rings", range_rings)
+	cfg.set_value("touch", "opacity", touch_opacity)
+	cfg.set_value("touch", "size", player_input.touch.size_step)
+	cfg.set_value("touch", "left_handed", touch_left)
+	cfg.set_value("touch", "tap_only", player_input.touch.tap_only)
 	for k in MatchSim.TRAINING_FLAGS:
 		cfg.set_value("training", k, bool(training_opts.get(k, false)))
 	cfg.set_value("training", "dummy_mode", dummy_mode)
@@ -4639,7 +4749,7 @@ func _parse_args() -> int:
 			_net_args["watch"] = true
 		elif a.begins_with("--menu="):
 			var page := a.get_slice("=", 1)
-			if page in ["main", "single", "look", "settings", "game", "video", "audio", "controls"] or page.begins_with("single:") \
+			if page in ["main", "single", "look", "settings", "game", "video", "audio", "controls", "touch"] or page.begins_with("single:") \
 					or page in ["remap:classic", "remap:league", "remap:gamepad"]:
 				_menu_arg = "" if page == "main" else page
 		elif a.begins_with("--fighter="):
@@ -4667,6 +4777,14 @@ func _parse_args() -> int:
 			var pl := a.get_slice("=", 1)
 			if pl in PlayerInput.PAD_LAYOUTS:
 				_set_pad_layout(pl)
+		elif a == "--touch-demo" or a.begins_with("--touch-demo="):
+			touch_demo = TouchDemo.new()
+			if a.get_slice("=", 1) == "left":
+				touch_demo.mirror = true
+				_touch_demo_left = true  # this session only (not saved)
+	if touch_demo != null and start < 0:
+		start = 3  # training as Cairn: a dummy to aim at
+		_skip_select = true
 	if pick:
 		_skip_select = false
 	return start
@@ -5584,7 +5702,11 @@ func _notification(what: int) -> void:
 		ev.action = "pause"
 		ev.pressed = true
 		Input.parse_input_event(ev)
+	elif what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+		if player_input != null:
+			player_input.touch.release_all()  # a lost touch: no finger stays down
 	elif what == NOTIFICATION_APPLICATION_PAUSED:
+		player_input.touch.release_all()
 		# Switched away on a phone: an offline fight waits under the pause menu.
 		if online == null and showcase == null and not paused and not ui.is_open() \
 				and not (flow in [Flow.MENU, Flow.SELECT, Flow.LOBBY, Flow.MATCH_OVER]):

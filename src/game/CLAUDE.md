@@ -91,6 +91,12 @@ player and live here, outside the sim.
   `_write_net_report`; rooms and rematches → `_room_next`, `_open_rematch_pick`
 - Title, attract, wipes, results (Visual Upgrade item 26) → the title idles `ATTRACT_AT` ticks (1200, only on the bare TitleScreen; any event in `_input` resets `_idle_t`), then `_start_attract` hides the menu and plays a CPU-vs-CPU demo (`_menu_background(true)`, other fighters each restart) under the logo and a blinking prompt; any press (`_attract_pressed`) returns. Wipes: `_wipe_step` starts a `Wipe` (16 ticks, uncovers an already-changed screen, never delays state, a press skips it) when the screen kind changes between menus and fights, and `_show_match_over` starts one for the results. Results: `results_data` builds the table (stats from `MatchStats`, fed in `_react`, reset in `_new_sim` at round 1; MVP only in team battles; CTF adds caps, returns, stops). Online and replay match-overs keep the old menu.
 - Sim events → flash / rumble → `_react`, `_flash`, `_rumble`
+- Touch controls → `_note_input` (every event: the device, and touches into `player_input.touch`),
+  `_touch_step` (each tick, also paused: who may touch, the layout for the screen and Duel's
+  Tag, the overlay's `visible`, `hud.touch`, the Pause button, letting go when the fight or the
+  device changes), `_apply_touch`; lost focus or an app pause → `_notification` →
+  `TouchPad.release_all`; settings `SETTING_PAGES["touch"]` (Settings > Controls > Touch
+  controls; `touch_opacity`, `touch_size`, `touch_hand`, `touch_aim`, saved under `[touch]`)
 - Showcases → a `SCRIPTS` entry in `showcase.gd` (steps: wait, press, walk, together,
   dodge, guard, approach, until, place); trials → `trials.gd:after_step`,
   `data/trials.json`; drills → `drills.gd:_judge`, `SETS`, `REPS`
@@ -105,8 +111,8 @@ player and live here, outside the sim.
 
 After `--`; the full list is in the `main.gd` header, modes in `MODES`.
 `--mode=N`, `--level=0..3` (3 = Rage), `--seed=N`, `--showcase=<fighter>|angles|twinstick|counterplay`,
-`--pad-layout=standard|twinstick`, `--autoplay`, `--hitboxes`, `--intro` / `--no-intro` (force the arena intro on or off; by default it plays only for offline matches started from the menu with a screen, never headless or for a `--mode` / `--showcase` / `--autoplay` start, so captures keep their frame numbers), `--cpu-vs-cpu`, `--pick`,
-`--teams=a,b,c:d,e,f`, `--arena=stadium|quarry|floodgate|greenhouse`, `--time=random|day|sunset|night`, `--weather=random|clear|rain|fog|wind|snow` (the look of offline matches this session; one the arena doesn't allow falls back), `--menu=main|single|single:<group>|look|settings|game|video|audio|controls|remap:<classic|league|gamepad>`,
+`--pad-layout=standard|twinstick`, `--touch-demo[=left]` (a recorded touch script into the touch controls, training as Cairn unless `--mode`; `src/game/touch_demo.gd`), `--autoplay`, `--hitboxes`, `--intro` / `--no-intro` (force the arena intro on or off; by default it plays only for offline matches started from the menu with a screen, never headless or for a `--mode` / `--showcase` / `--autoplay` start, so captures keep their frame numbers), `--cpu-vs-cpu`, `--pick`,
+`--teams=a,b,c:d,e,f`, `--arena=stadium|quarry|floodgate|greenhouse`, `--time=random|day|sunset|night`, `--weather=random|clear|rain|fog|wind|snow` (the look of offline matches this session; one the arena doesn't allow falls back), `--menu=main|single|single:<group>|look|settings|game|video|audio|controls|touch|remap:<classic|league|gamepad>`,
 `--cam=X,Y[,ZOOM]` (hold the camera on a world spot, still clamped to the arena and stands: screenshots of the edges), `--cam-lead=0|1`, `--cam-clash=0|1`, `--cam-settle=0|1` (camera behaviour off / Normal for this session, not saved; also `low|normal|high`), `--training-screen=pause|options|fighters` (with a training `--mode`), `--training-flags=no_cooldowns,full_energy`,
 `--mutators=tidal_wave,meteor_shower` (data/rules/mutators.json ids, merged: on every offline match this session, applied in `_new_sim` with `seed_base`; Chaos Cup plays them instead of its draw; never online, showcases, coaches or the menu background),
 `--perf` (frame and tick percentiles on quit, with each part's share: the tick's
@@ -137,5 +143,6 @@ and "training" pair (Craglash, Barkley, Gillbert, Cerebro, Hissy, Digby, Pete, S
 - `progress.gd` (Progress) — What the player has earned, kept in user://progress.json (outside the simulation): the best CPU level each fighter has…
 - `replay_builder.gd` (ReplayBuilder) — Rebuilds the match a replay was recorded on from the setup saved with it (main writes `Replay.setup` when a match start…
 - `showcase.gd` (Showcase) — Scripted demos that show each fighter's whole kit, and how to answer the big moves.
+- `touch_demo.gd` (TouchDemo) — `--touch-demo`: a recorded touch script played into the touch controls, for screenshots of the overlay (and a smoke tes…
 - `trials.gd` (ComboTrials) — Combo Trials: "perform this route" challenges, from data/trials.json.
 <!-- END GENERATED -->
