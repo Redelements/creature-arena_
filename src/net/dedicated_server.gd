@@ -4,7 +4,9 @@ extends Node
 ##
 ##   CreatureArena.x86_64 --headless -- --server[=PORT] [--max-players=N] [--net-delay=N]
 ##       [--cpu-fill=SECONDS] [--room-fill=SECONDS] [--cpu-level=0..3] [--ready=SECONDS]
+##       [--max-per-ip=N]
 ##
+## --max-per-ip caps connections from one address (default 6, 0: no limit).
 ## Team battles (2v2, 3v3) that have waited --cpu-fill seconds in Quick match (default
 ## 20) or --room-fill in a room (default 45) start with CPUs in the empty slots (0:
 ## never); --cpu-level is how well they play (0 Easy, 1 Normal, 2 Hard, 3 Rage).
@@ -21,6 +23,9 @@ const STATUS_EVERY_MS := 10 * 60 * 1000
 ## second, so a packet waits at most a millisecond to be relayed, at a few percent of
 ## one CPU core when idle.
 const LOOP_SLEEP_USEC := 1000
+## Connections at once from one address (--max-per-ip; 0: no limit): a household behind
+## one router can still bring a 2 v 2 and spectators.
+const DEFAULT_MAX_PER_IP := 6
 
 var port := Netplay.DEFAULT_PORT
 var hub := EnetHub.new()
@@ -37,6 +42,8 @@ func configure(args: PackedStringArray) -> bool:
 	var wanted := false
 	relay.save_replays = true  # every match's replay, for the Replay theater
 	relay.ratings.persist = true  # ranked ratings and daily scores, in user://ratings.json
+	relay.realtime = true  # the limits run on the wall clock (the referee never runs ahead of it)
+	relay.max_per_ip = DEFAULT_MAX_PER_IP
 	for a in args:
 		if a == "--server":
 			wanted = true
@@ -55,6 +62,8 @@ func configure(args: PackedStringArray) -> bool:
 			relay.cpu_level = clampi(int(a.get_slice("=", 1)), 0, CpuController.LEVELS.size() - 1)
 		elif a.begins_with("--ready="):
 			relay.ready_ms = clampi(int(a.get_slice("=", 1)), 3, 120) * 1000
+		elif a.begins_with("--max-per-ip="):
+			relay.max_per_ip = clampi(int(a.get_slice("=", 1)), 0, 1000)
 	if port <= 0 or port > 65535:
 		port = Netplay.DEFAULT_PORT
 	return wanted

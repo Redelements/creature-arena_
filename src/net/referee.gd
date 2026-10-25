@@ -20,6 +20,14 @@ const MAX_AHEAD := 600
 ## Every slot's inputs this far back are kept, so when a CPU takes over a slot whoever
 ## missed some of the leaver's last inputs can still get them.
 const HISTORY := 240
+## The server's limits on one match (RelayServer turns them on; a spectator's copy runs
+## without): once the result is in, this many more frames are simulated (the match-over
+## the players see), and no match is simulated past MAX_MATCH_FRAMES (30 minutes; the
+## longest mode, Capture the Flag, is 6 minutes and a sudden death). Past either the
+## referee only passes inputs on (the CPUs' are 0): no simulation, nothing logged, no
+## fingerprints, so a match nobody leaves costs next to nothing and its log stays bounded.
+const POST_RESULT_FRAMES := 600
+const MAX_MATCH_FRAMES := 60 * 60 * 30
 
 var duel  ## the match: a DuelSim (1v1) or a TeamSim (team battle)
 var teams: Array
@@ -40,6 +48,10 @@ var finished_at := -1  ## frame the result was decided
 ## Frame of the first fingerprint each player got wrong (-1: none yet), by slot.
 var desync: Array = []
 var checked := 0  ## fingerprints that matched
+## Frames simulated after the result (-1: no limit) and the most frames simulated at all
+## (-1: no limit); see POST_RESULT_FRAMES. The server sets both.
+var post_result_frames := -1
+var max_frames := -1
 
 var _inputs: Array = []  ## slot -> frame -> bits
 var _history: Array = []  ## slot -> frame -> bits, the last HISTORY frames stepped
@@ -77,13 +89,18 @@ func _init(p_teams: Array, input_delay: int, p_size := 1, p_rules := "", p_arena
 			_inputs[p][f] = 0
 
 
-## An input packet from slot `side` ({first, inputs}). Returns false if it's malformed.
-func add_inputs(side: int, m: Dictionary) -> bool:
+## An input packet from slot `side` ({first, inputs}). Returns false if it's malformed
+## or reaches past `limit` (the last frame the server's clock allows; -1: none).
+func add_inputs(side: int, m: Dictionary, limit := -1) -> bool:
 	var inputs = m.get("inputs")
-	if not (inputs is PackedInt32Array) or (inputs as PackedInt32Array).size() > MAX_PACKET_INPUTS:
+	var first_v = m.get("first", -1)
+	if side < 0 or side >= players or not (first_v is int) or not (inputs is PackedInt32Array) \
+			or (inputs as PackedInt32Array).size() > MAX_PACKET_INPUTS:
 		return false
-	var first := int(m.get("first", -1))
+	var first := int(first_v)
 	if first < 0 or first > frame + MAX_AHEAD:
+		return false
+	if limit >= 0 and first + (inputs as PackedInt32Array).size() - 1 > limit:
 		return false
 	var d: Dictionary = _inputs[side]
 	for i in (inputs as PackedInt32Array).size():
@@ -149,12 +166,24 @@ func inputs_since(slot: int, from: int) -> Array:
 	return out
 
 
-## A state fingerprint from `side`.
-func add_digest(side: int, f: int, digest: String) -> void:
-	if f <= 0 or f > frame + MAX_AHEAD or (_theirs[side] as Dictionary).size() > 64:
-		return
+## A state fingerprint from `side`. Returns false if it's refused (out of range, too
+## many waiting, or past the frames this referee simulates): the server passes on only
+## the ones it took.
+func add_digest(side: int, f: int, digest: String) -> bool:
+	if side < 0 or side >= players or f <= 0 or f > frame + MAX_AHEAD or f >= _stop_frame() \
+			or (_theirs[side] as Dictionary).size() > 64:
+		return false
 	_theirs[side][f] = digest
 	_check(f)
+	return true
+
+
+## The first frame not simulated (post_result_frames after the result, or max_frames).
+func _stop_frame() -> int:
+	var stop := max_frames if max_frames >= 0 else 1 << 62
+	if post_result_frames >= 0 and finished_at >= 0:
+		stop = mini(stop, finished_at + 1 + post_result_frames)
+	return stop
 
 
 ## Simulates every frame all players' inputs have arrived for.
@@ -182,10 +211,14 @@ func setup_dict() -> Dictionary:
 		"rules": rules if size > 1 else DuelSim.rules_id_for(teams), "arena": arena, "mutators": {}, "mut_seed": match_seed}
 
 
-func advance() -> int:
+## Steps the frames everyone's input is in for: before frame `until` (-1: no limit) and
+## at most `most` of them (0: all), so the server never runs ahead of the clock or spends
+## a whole loop on one match. Returns how many it stepped.
+func advance(until := -1, most := 0) -> int:
 	var n := 0
 	events.clear()
-	while _all_have(frame):
+	while _all_have(frame) and (until < 0 or frame < until) and (most <= 0 or n < most):
+		var live := frame < _stop_frame()
 		var ins := PackedInt32Array()
 		for p in players:
 			var bits := 0
@@ -193,7 +226,7 @@ func advance() -> int:
 				bits = int(_inputs[p][frame])
 				_inputs[p].erase(frame)
 			else:
-				bits = (cpus[p] as CpuController).bits(duel.sim)
+				bits = (cpus[p] as CpuController).bits(duel.sim) if live else 0
 				# Packed arrays copy on assignment: build it, then put it back.
 				var pkt: Dictionary = _cpu_out.get(p, {"first": frame, "inputs": PackedInt32Array()})
 				var list: PackedInt32Array = pkt["inputs"]
@@ -203,6 +236,10 @@ func advance() -> int:
 			ins.append(bits)
 			_history[p][frame] = bits
 			_history[p].erase(frame - HISTORY)
+		if not live:
+			frame += 1  # over: inputs pass on, nothing is simulated or kept
+			n += 1
+			continue
 		duel.step(ins)
 		log.append(ins)
 		events.append_array(duel.sim.events)

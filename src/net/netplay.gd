@@ -807,7 +807,7 @@ static func valid_team(team, most := 3) -> bool:
 	if not (team is Array) or (team as Array).is_empty() or (team as Array).size() > most:
 		return false
 	for id in team:
-		if not (String(id) in MatchFactory.FIGHTERS):
+		if not (id is String or id is StringName) or not (String(id) in MatchFactory.FIGHTERS):
 			return false
 	return true
 
@@ -829,6 +829,15 @@ func _fail(why: String) -> bool:
 ## A fingerprint of the game data both machines must share: every fighter's file, arena and
 ## rules file. Different data would make the two simulations disagree.
 static func data_hash() -> String:
+	if _data_hash == "":
+		_data_hash = _hash_data()  # the files never change while the game runs: once is enough
+	return _data_hash
+
+
+static var _data_hash := ""
+
+
+static func _hash_data() -> String:
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(("v%d" % NET_VERSION).to_utf8_buffer())

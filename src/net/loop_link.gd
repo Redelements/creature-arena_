@@ -40,7 +40,12 @@ func send(msg: Dictionary, reliable := false) -> void:
 	var at := other._clock + lag + (0 if reliable or jitter == 0 else rng.randi_range(0, jitter))
 	_order += 1
 	# Through the encoder, as on the wire, so tests catch anything that won't survive it.
-	other._inbox.append([at, _order, NetLink.decode(NetLink.encode(msg))])
+	var bytes := NetLink.encode(msg)
+	if not other.admit(bytes.size()):
+		other.error = "sent a packet too big (%d bytes)" % bytes.size()
+		other.status = Status.CLOSED  # as EnetHub does: the receiving end closes, undecoded
+		return
+	other._inbox.append([at, _order, NetLink.decode(bytes)])
 
 
 func poll(_wait_ms := 0) -> Array:
