@@ -81,45 +81,104 @@ func test_the_daily_is_the_same_for_the_same_date() -> void:
 	assert_false(a.stage_won(50.0), "one fight only")
 
 
-func test_a_daily_score_is_what_its_replay_says() -> void:
-	var d := Daily.new("cairn", 20261015)
+## A Daily fight played as main plays it: INTRO_TICKS rows of nothing, then a Rage CPU
+## in the player's seat against the day's CPU, recorded row by row until a knockout or
+## the clock. Returns [replay, the score main gives it].
+static func play_daily(d: Daily, seed_ := 7) -> Array:
 	var sim := d.build()
+	var me := CpuController.new(0, CpuController.RAGE, seed_)
+	var foe := d.cpu()
 	var rep := Replay.new()
-	var me := sim.creatures[0]
-	var foe := sim.creatures[1]
-	foe.hp = 6.0  # a short fight: the player jabs it down
-	foe.pos = me.pos + Vector2(24, 0)
-	me.facing = Vector2.RIGHT
-	var ticks := 0
-	for i in 300:
-		# The foe stands still here: what matters is that a recorded fight rescored
-		# on a fresh match gives the same number (the fair run below).
-		var ins := PackedInt32Array([SimDefs.IN_LIGHT if i % 10 == 0 else 0, 0])
+	var end := Daily.INTRO_TICKS + Daily.FIGHT_TICKS
+	while sim.tick < end:
+		var ins := PackedInt32Array([0, 0])
+		if sim.tick >= Daily.INTRO_TICKS:
+			ins = PackedInt32Array([me.bits(sim), foe.bits(sim)])
 		rep.record(ins)
 		sim.step(ins)
-		ticks += 1
-		if foe.state == CreatureSim.State.KO:
+		if sim.creatures[0].state == CreatureSim.State.KO or sim.creatures[1].state == CreatureSim.State.KO:
 			break
-	assert_eq(foe.state, CreatureSim.State.KO, "the player won:")
-	var score := d.score_fight(true, me.hp / me.max_hp, ticks)
-	assert_gt(float(score), 0.0, "a win scores")
-	# Verification replays the inputs on a fresh match of the day: the foe has full
-	# health there, so the hand-weakened fight can't be reproduced; a fair run can.
-	var fair := Daily.new("cairn", 20261015)
-	var sim2 := fair.build()
-	var cpu2 := fair.cpu()
-	var rep2 := Replay.new()
-	var t2 := 0
-	for i in 600:
-		var ins := PackedInt32Array([0, cpu2.bits(sim2)])
-		rep2.record(ins)
-		sim2.step(ins)
-		t2 += 1
-	var expect := fair.score_fight(false, sim2.creatures[0].hp / sim2.creatures[0].max_hp, t2) \
-		if sim2.creatures[0].state == CreatureSim.State.KO or sim2.creatures[1].state != CreatureSim.State.KO else -1
-	var got := fair.verify(rep2)
-	if expect >= 0:
-		assert_eq(got, expect, "the replay scores the same:")
-	assert_eq(fair.verify(rep2), got, "and verifies the same twice:")
+	var a := sim.creatures[0]
+	var b := sim.creatures[1]
+	var ko_a := a.state == CreatureSim.State.KO
+	var ko_b := b.state == CreatureSim.State.KO
+	var won := (ko_b and not ko_a) or (not ko_a and not ko_b and a.hp / a.max_hp > b.hp / b.max_hp)
+	return [rep, d.score_fight(won, clampf(a.hp / a.max_hp, 0.0, 1.0), sim.tick)]
+
+
+func test_a_daily_score_is_what_its_replay_says() -> void:
+	var d := Daily.new("cairn", 20261015)
+	var played := play_daily(d)
+	var rep: Replay = played[0]
+	var score: int = played[1]
+	assert_gt(float(score), 0.0, "the Rage player wins the day's fight:")
+	assert_eq(d.verify(rep), score, "and the replay, played again against the day's own CPU, scores the same:")
+	assert_eq(Daily.new("cairn", 20261015).verify(rep), score, "every time:")
+	# The CPU's column is never trusted: a replay where the CPU stood still is refused.
+	var forged := Replay.new()
+	for row in rep.frames:
+		forged.record(PackedInt32Array([row[0], 0]))
+	assert_eq(d.verify(forged), -1, "a replay whose CPU column is all zeros is refused:")
+	var moved := Replay.new()
+	for k in rep.frames.size():
+		var row: PackedInt32Array = rep.frames[k].duplicate()
+		if k == Daily.INTRO_TICKS + 30:
+			row[1] ^= SimDefs.IN_GUARD
+		moved.record(row)
+	assert_eq(d.verify(moved), -1, "and so is one with a single CPU input changed:")
+	# Moving early doesn't help: the intro's rows are played as nobody pressing anything.
+	var early := Replay.new()
+	for k in rep.frames.size():
+		var row: PackedInt32Array = rep.frames[k].duplicate()
+		if k < Daily.INTRO_TICKS:
+			row[0] = SimDefs.IN_LIGHT
+		early.record(row)
+	assert_eq(d.verify(early), score, "inputs during the intro count for nothing:")
+	assert_eq(Daily.max_frames(), Daily.INTRO_TICKS + Daily.FIGHT_TICKS + 60, "room for a fight that goes the distance")
+	assert_eq(load("res://src/game/main.gd").INTRO_TICKS, Daily.INTRO_TICKS, "the intro is main's:")
 	assert_eq(d.score_fight(false, 0.5, 100), 0, "a loss scores nothing:")
 	assert_eq(d.score_fight(true, 1.0, 0), 1000 + 90 * 5, "a perfect instant win (the fight is 90 s):")
+
+
+func test_the_daily_is_on_the_stadium_whatever_arena_was_picked() -> void:
+	var was := MatchFactory.arena
+	MatchFactory.arena = "quarry"
+	var sim := Daily.new("cairn", 20261015).build()
+	MatchFactory.arena = was
+	assert_eq(String(sim.arena.get("id", "")), ArenaMap.DEFAULT, "the same fight for everyone:")
+
+
+## The game itself plays a Daily (a Rage CPU in the player's seat, headless): the score it
+## shows and saves is the one the server's verification gives its saved replay.
+func test_a_daily_played_in_the_game_verifies_to_the_same_score() -> void:
+	var root := (Engine.get_main_loop() as SceneTree).root
+	const SETTINGS := "user://test_ladders_daily.cfg"
+	Progress.reset_for_tests("user://test_progress_ladders_%d.json" % Time.get_ticks_usec())
+	var g: Node = load("res://scenes/main.tscn").instantiate()
+	g.settings_path = SETTINGS
+	root.add_child(g)
+	g._online_server = ""  # no server: nothing is sent
+	g._cpu_vs_cpu = true  # a CPU plays the player's seat
+	g.level = 3
+	var path := "user://daily/daily_%d.json" % Daily.today()
+	var kept := FileAccess.get_file_as_string(path) if FileAccess.file_exists(path) else ""
+	g._start_match(g.mode_index("Daily Challenge"))
+	var d: Daily = g.arcade
+	for i in Daily.max_frames() + 400:
+		g._physics_process(1.0 / 60.0)
+		if g.flow == g.Flow.MATCH_OVER:
+			break
+	assert_eq(g.flow, g.Flow.MATCH_OVER, "the fight ends:")
+	var saved = JSON.parse_string(FileAccess.get_file_as_string(path))
+	assert_true(saved is Dictionary, "and is saved with its replay")
+	var rep := Replay.from_dict(saved["replay"], Daily.max_frames(), 2)
+	assert_true(rep != null, "a replay the server takes")
+	assert_eq(Daily.new(d.fighter, d.date).verify(rep), int(saved["score"]), "the server's score is the game's:")
+	g.free()
+	if kept != "":
+		var f := FileAccess.open(path, FileAccess.WRITE)
+		f.store_string(kept)
+		f.close()
+	else:
+		DirAccess.remove_absolute(path)
+	DirAccess.remove_absolute(SETTINGS)

@@ -3,7 +3,9 @@ extends RefCounted
 ## A short connection to the dedicated server outside any match: sends a Daily
 ## Challenge replay to be scored and ranked, or asks for the day's top ten. Says hello
 ## like a player (so the version and data checks apply), then one request, then
-## waits for the answer. `tick()` every frame until `done`.
+## waits for the answer. `tick()` every frame until `done`. The hello carries the
+## player's id and secret (Netplay.secret): the board comes back as {name, score},
+## with `you: true` on this player's row.
 
 const TIMEOUT_TICKS := 60 * 12
 
@@ -66,7 +68,7 @@ func tick() -> void:
 		_said_hello = true
 		link.send({"t": "hello", "v": Netplay.NET_VERSION, "data": Netplay.data_hash(),
 			"team": [String(_request.get("fighter", MatchFactory.FIGHTERS[0]))], "submit": true,
-			"id": Netplay.player_id, "name": Netplay.player_name}, true)
+			"id": Netplay.player_id, "secret": Netplay.secret(), "name": Netplay.player_name}, true)
 		link.send(_request, true)
 		link.flush()
 	for m in link.poll():

@@ -32,6 +32,8 @@ is the short reference.
 | `--ready=SECONDS` | 15 | how long players have to accept a match found; those who accepted go back to waiting if someone doesn't |
 | `--cpu-level=N` | 1 | how well those CPUs play: 0 Easy, 1 Normal, 2 Hard |
 | `--max-per-ip=N` | 6 | connections at once from one address (a household behind one router still fits a 2v2 and spectators); 0: no limit |
+| `--ranked-same-ip` | off | let two games behind one address play each other ranked (a LAN party, or testing on one machine) |
+| `--reset-player=ID` | | forget the secret bound to that player id in `ratings.json`, then exit (see "Ranked identity") |
 
 **Limits.** The server keeps any one connection from costing more than a player does
 (the numbers are named constants at the top of `src/net/relay_server.gd`, `referee.gd` and
@@ -100,9 +102,10 @@ Rooms:
 [2026-10-15 20:09:02] room 'kx7p' closed
 ```
 
-**Update the server with the clients.** This build's online protocol is NET_VERSION 11
-(a 1v1 rematch picks again; ranked rematches): a server on an older build refuses these
-games ("a different version of the game"), and this server refuses older games.
+**Update the server with the clients.** The protocol (`NET_VERSION` in
+`src/net/netplay.gd`, printed in the first log line) changes with most releases: a server
+on an older build refuses newer games ("a different version of the game"), and a newer
+server refuses older games the same way, so update both together.
 
 **CPU players.** In a team battle the server plays CPUs itself, on its referee's copy of
 the match, and sends their inputs to everyone like a player's. It uses them in two cases:
@@ -131,6 +134,47 @@ Never forward 7778 on the router: it's only for the local network.
 game data). The first log line shows `game data <hash>`; a player with another build is
 told "The server runs a different version of the game". Update the server whenever you
 hand out a new build.
+
+## Ranked identity and the ratings file
+
+Ratings and Daily scores live in the server's `user://ratings.json` (under systemd,
+`~arena/.local/share/godot/app_userdata/Creature Arena/ratings.json`).
+
+- **Who a player is.** Each game makes a player id and a secret once and keeps them in its
+  settings (`settings.cfg` in the game's user folder: `[online] id` and `secret`). The
+  secret is never shown or sent to other players; only ranked and Daily connections send
+  it, to the server. The server stores just a hash of id and secret (`keys` in
+  `ratings.json`), never the secret.
+- **Existing ratings.** Nothing is lost on the update. An id that already has a rating or
+  a Daily score but no key is bound to the first game that claims it with a secret
+  (normally its owner's, on their first ranked game or Daily after updating). From then
+  on a game with the same id and another secret is refused ("The server knows your
+  player id from another copy of the game"), and its rating and name are left alone.
+- **Losing the settings loses the ranked identity.** A player who deletes their settings
+  or moves to another computer gets a new id (a fresh rating). To give them their old
+  one back, they copy `id` and `secret` from the old `settings.cfg`; if the secret is gone
+  too, reset their player and they copy only the old `id`: their next ranked game or
+  Daily binds the new secret, rating and scores kept. Find the id by their name in
+  `ratings.json` (`players`), then:
+
+  ```sh
+  sudo systemctl stop creature-arena
+  sudo -u arena /opt/creature-arena/CreatureArena.x86_64 --headless -- --server --reset-player=0123456789abcdef
+  sudo systemctl start creature-arena
+  ```
+
+- **One game per player.** One ranked connection and one Daily connection per id at a
+  time: a second is turned away ("You're already in ranked from another game") until the
+  first leaves or times out (60 s). Ranked never pairs two games from the same address
+  (`--ranked-same-ip` allows it).
+- **Daily scores** are taken for the server's UTC date and the day either side only, and
+  the server replays each one against the day's CPU itself: a replay its CPU doesn't play
+  the same way is refused (and logged). The last 60 days are kept, up to 5000 players a day.
+- **A safe file.** Every save writes `ratings.json.tmp` and renames it over
+  `ratings.json`, keeping the previous one as `ratings.json.bak`, so a crash or a full disk
+  mid-save never loses the book. A `ratings.json` that can't be read at start-up is moved
+  to `ratings.json.corrupt-<time>` (never overwritten), the log says so in capitals
+  (`RATINGS FILE UNREADABLE`), and the `.bak` is loaded instead.
 
 ## What it logs
 

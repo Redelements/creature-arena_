@@ -579,6 +579,8 @@ var input_delay := -1
 var _pending_ranked := false
 ## A Daily score on its way to the server, or the board on its way back.
 var _daily_client: DailyClient = null
+## The tick a round ended on and the player's health share then ([] before one ends).
+var _round_end: Array = []
 var _daily_sent_toast := ""
 var _rb_seen := 0
 var _rb_rate := 0
@@ -1664,7 +1666,9 @@ func _arcade_result(won: bool) -> bool:
 	if arcade is Daily:
 		# One fight, scored, saved with its replay so the score can be checked.
 		var d := arcade as Daily
-		var score := d.score_fight(won, share, sim.tick)
+		var end_tick := int(_round_end[0]) if _round_end.size() == 2 else sim.tick
+		var end_share := float(_round_end[1]) if _round_end.size() == 2 else share
+		var score := d.score_fight(won, end_share, end_tick)
 		var best := Progress.record_daily(d.date, score)
 		var path := "user://daily/daily_%d.json" % d.date
 		DirAccess.make_dir_recursive_absolute("user://daily")
@@ -2970,6 +2974,8 @@ func _ko_side() -> int:
 
 func _end_round(ko: int) -> void:
 	_carried_energy = [sim.creatures[0].energy, sim.creatures[1].energy]
+	# The Daily scores the round as it ends (the server's Daily.Verify stops here too).
+	_round_end = [sim.tick, clampf(sim.creatures[0].hp / sim.creatures[0].max_hp, 0.0, 1.0)]
 	flow = Flow.ROUND_OVER
 	flow_t = 0
 	audio.play("round_end")
@@ -4698,7 +4704,8 @@ func _load_settings() -> void:
 		level = clampi(int(cfg.get_value("game", "level", level)), 0, LEVEL_NAMES.size() - 1)
 		input_delay = clampi(int(cfg.get_value("online", "delay", -1)), -1, 3)
 		Netplay.player_id = String(cfg.get_value("online", "id", ""))
-		Netplay.player_name = String(cfg.get_value("online", "name", "Player")).strip_edges().left(16)
+		Netplay.player_secret = String(cfg.get_value("online", "secret", ""))
+		Netplay.player_name = Netplay.clean_name(String(cfg.get_value("online", "name", "Player")))
 		if Netplay.player_name == "":
 			Netplay.player_name = "Player"
 		var tc := String(cfg.get_value("game", "time", WeatherView.RANDOM))
@@ -4765,8 +4772,13 @@ func _load_settings() -> void:
 				if saved_rows.has(lbl) and MENU_ROWS[r].has("choices"):
 					_row_choice[r] = clampi(int(saved_rows[lbl]), 0, (MENU_ROWS[r]["choices"] as Array).size() - 1)
 	# After everything is loaded: saving here first would write defaults over it.
-	if Netplay.player_id.length() < 8:
-		Netplay.player_id = Netplay.make_player_id()
+	# The secret proves the id is this install's to a server (never shown or sent to
+	# another player); made with the id, or once for an id from before secrets.
+	if Netplay.player_id.length() < 8 or not Netplay.valid_secret(Netplay.player_secret):
+		if Netplay.player_id.length() < 8:
+			Netplay.player_id = Netplay.make_player_id()
+		if not Netplay.valid_secret(Netplay.player_secret):
+			Netplay.player_secret = Netplay.make_secret()
 		_save_settings()
 
 
@@ -4781,6 +4793,7 @@ func _save_settings() -> void:
 	cfg.set_value("game", "hazards", hazards_on)
 	cfg.set_value("online", "delay", input_delay)
 	cfg.set_value("online", "id", Netplay.player_id)
+	cfg.set_value("online", "secret", Netplay.player_secret)
 	cfg.set_value("online", "name", Netplay.player_name)
 	cfg.set_value("audio", "music_muted", audio.music_muted)
 	cfg.set_value("online", "fighter", _online_fighter)
@@ -5020,7 +5033,7 @@ func _push_lobby() -> void:
 	lobby.server_join_pressed.connect(_net_join_server)
 	lobby.board_pressed.connect(_net_daily_board)
 	lobby.name_changed.connect(func(t: String):
-		Netplay.player_name = t.strip_edges().left(16) if t.strip_edges() != "" else "Player"
+		Netplay.player_name = Netplay.clean_name(t)
 		_save_settings())
 	lobby.host_pressed.connect(_net_host)
 	lobby.join_pressed.connect(_net_join_typed)
@@ -5161,7 +5174,9 @@ func _daily_step() -> void:
 	elif c.ok and lobby != null:
 		var lines: Array = []
 		for i in c.board.size():
-			lines.append("%d. %s  %d" % [i + 1, String(c.board[i]["name"]), int(c.board[i]["score"])])
+			var row: Dictionary = c.board[i] if c.board[i] is Dictionary else {}
+			lines.append("%d. %s%s  %d" % [i + 1, Netplay.clean_name(String(row.get("name", ""))),
+				" (you)" if row.get("you", false) == true else "", int(row.get("score", 0))])
 		lobby.status = "Today's Daily top 10:  " + ("   ".join(lines) if not lines.is_empty() else "nobody yet")
 		lobby.status_bad = false
 	elif not c.ok:
