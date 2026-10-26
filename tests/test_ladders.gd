@@ -137,7 +137,7 @@ func test_a_daily_score_is_what_its_replay_says() -> void:
 	assert_eq(Daily.max_frames(), Daily.INTRO_TICKS + Daily.FIGHT_TICKS + 60, "room for a fight that goes the distance")
 	assert_eq(load("res://src/game/main.gd").INTRO_TICKS, Daily.INTRO_TICKS, "the intro is main's:")
 	assert_eq(d.score_fight(false, 0.5, 100), 0, "a loss scores nothing:")
-	assert_eq(d.score_fight(true, 1.0, 0), 1000 + 90 * 5, "a perfect instant win (the fight is 90 s):")
+	assert_eq(d.score_fight(true, 1.0, 0), 1000 + Daily.FIGHT_TICKS / 60 * 5, "a perfect instant win (5 points a second left on the clock):")
 
 
 func test_the_daily_is_on_the_stadium_whatever_arena_was_picked() -> void:
