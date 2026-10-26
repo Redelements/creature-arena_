@@ -152,6 +152,9 @@ func report(cap := 60) -> String:
 	var lines := ["PERF %s, %s, %d fps now, %d draw calls" % [OS.get_processor_name(),
 		RenderingServer.get_current_rendering_method(), Engine.get_frames_per_second(),
 		Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)]]
+	lines.append("PERF memory: textures %.1f MB, video %.1f MB" % [
+		Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED) / 1048576.0,
+		Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0])
 	lines.append(_line("frame", frames))
 	lines.append(lows(frames, cap))
 	lines.append("PERF ticks held 3+ frames: %d (%.2f a second)" % [uneven, uneven * 1000.0 / maxf(1.0, _sum(frames))])

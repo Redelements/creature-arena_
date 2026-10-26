@@ -83,7 +83,8 @@ def material_ramp(spec):
     raise ValueError("material: a ramp name, (name, shift), five colours or (base, light, dark): %r" % (spec,))
 
 
-def configure(mat, outline=None, scale=0.72, step=0.33, outline_mats=None, near=18.0, near_views=None):
+def configure(mat, outline=None, scale=0.72, step=0.33, outline_mats=None, near=18.0, near_views=None,
+              emissive=None):
     """Palette (name -> a master-palette ramp, see material_ramp), drawing scale, sample
     step, and how deep the body's roundness is flattened in the up/down views (`near`).
     `near_views` ({view: near}) overrides it per view: a smaller near on the diagonals
@@ -91,8 +92,9 @@ def configure(mat, outline=None, scale=0.72, step=0.33, outline_mats=None, near=
     the screen as far as it goes right, instead of reading sideways. Views it leaves out
     use `near`, so without it every frame draws as before.
     Each material outlines in its own ramp's ink (palette.ink_for); `outline` forces one
-    colour for every silhouette (the old behaviour), `outline_mats` one per material."""
-    global MAT, MAT_ID, ID_MAT, OUTLINE, SCALE, STEP, OUTLINE_MATS, RAMP, INK, SEAM
+    colour for every silhouette (the old behaviour), `outline_mats` one per material.
+    `emissive` names the materials that glow in the emissive sheets (see EMISSIVE)."""
+    global MAT, MAT_ID, ID_MAT, OUTLINE, SCALE, STEP, OUTLINE_MATS, RAMP, INK, SEAM, EMISSIVE
     MAT = dict(mat)
     MAT_ID = {name: i + 1 for i, name in enumerate(MAT)}
     ID_MAT = {i: name for name, i in MAT_ID.items()}
@@ -113,6 +115,7 @@ def configure(mat, outline=None, scale=0.72, step=0.33, outline_mats=None, near=
     OUTLINE_MATS = dict(outline_mats or {})
     Cam.NEAR = near
     Cam.NEAR_VIEWS = dict(near_views or {})
+    EMISSIVE = dict(emissive or {})
 
 
 def set_frame(w, h, origin):
@@ -693,26 +696,25 @@ def outline(r, img):
 # game lights a fighter per pixel from them. NORMAL_BLUR is the half-width of the box that
 # smooths the splats' wobbly normals, within one piece, so light shows the form and not noise.
 NORMAL_BLUR = 2
-_last_normal = [None]  # the normal frame of the last render(), when asked for
+# What sheet() collects beside each colour frame (set while it runs): the normal frame and
+# the emissive frame of the last finished frame, from finish_frame().
+EXTRAS = {"on": False}
+_last = {"n": None, "e": None}
 
 
-def normal_frame(r, img):
-    """The frame's normal map as RGBA bytes: R, G = the screen normal's x (right) and y (up,
-    OpenGL style, as Godot reads it) mapped -1..1 to 0..255, B = its z (toward the camera),
-    A = the colour frame's alpha. The normal is the one the ramp shading used
-    (`Cam.screen_dir`), box-blurred over NORMAL_BLUR px among pixels of the same piece and
-    renormalised. Pixels the rig didn't fill (the outline ring, decorations outside the
-    body) face the camera, so they keep their ink under any light."""
-    part = r["part"]
-    filled = r["mat"] > 0
-    h, w = part.shape
-    sd = r["cam"].screen_dir(r["nrm"].reshape(-1, 3)).reshape(h, w, 3)
-    sd[~filled] = 0.0
+def pack_normals(sd, piece, filled, alpha):
+    """Screen normals (H, W, 3: x right, y down, z toward the camera) as normal-sheet RGBA:
+    box-blurred over NORMAL_BLUR px among `filled` pixels of the same `piece` and
+    renormalised, R, G = x and y (up, OpenGL style, as Godot reads it) mapped -1..1 to
+    0..255, B = z, A = `alpha` (the colour frame's). Pixels not `filled` (the outline ring,
+    decoration outside the body) face the camera, so they keep their ink under any light."""
+    h, w = piece.shape
+    sd = np.where(filled[..., None], sd, 0.0)
     acc = np.zeros_like(sd)
     k = NORMAL_BLUR
     for dy in range(-k, k + 1):
         for dx in range(-k, k + 1):
-            same = filled & (_shifted(part, dx, dy, -1) == part)
+            same = filled & (_shifted(piece, dx, dy, -1) == piece)
             acc += np.where(same[..., None], _shifted(sd, dx, dy, 0.0), 0.0)
     n = acc / (np.linalg.norm(acc, axis=2, keepdims=True) + 1e-9)
     n[~filled] = (0.0, 0.0, 1.0)
@@ -720,18 +722,102 @@ def normal_frame(r, img):
     out[..., 0] = np.clip(np.round((n[..., 0] * 0.5 + 0.5) * 255), 0, 255)
     out[..., 1] = np.clip(np.round((-n[..., 1] * 0.5 + 0.5) * 255), 0, 255)
     out[..., 2] = np.clip(np.round((n[..., 2] * 0.5 + 0.5) * 255), 0, 255)
-    out[..., 3] = img[..., 3]
-    out[img[..., 3] == 0] = 0
+    out[..., 3] = alpha
+    out[alpha == 0] = 0
     return out
 
 
-def render(pose, view, build, decorate=None, normals=False):
+def normal_frame(r, img, piece=None):
+    """The frame's normal map as RGBA bytes (`pack_normals`). The normal is the one the
+    ramp shading used (`Cam.screen_dir`), smoothed within each piece (`piece`, default
+    r["part"]; Crease's paper passes one per flat face so his folds stay sharp)."""
+    part = r["part"] if piece is None else piece
+    filled = r["mat"] > 0
+    h, w = part.shape
+    sd = r["cam"].screen_dir(r["nrm"].reshape(-1, 3)).reshape(h, w, 3)
+    return pack_normals(sd, part, filled, img[..., 3])
+
+
+# Emissive sheets (docs/SPRITES.md "Emissive sheets"): <sheet>_e.png, RGB the colour a pixel
+# emits, A how strongly (0 not at all). EMISSIVE (configure(emissive=...)) names the glowing
+# materials: name -> strength 0..255, or {"a": strength, "rgb": colour (default the pixel's
+# own), "min_level": the lowest ramp step that glows (4 = only the highlight)}. A pixel of
+# that material glows only where it still shows the material's own ramp (not where an
+# outline, seam or decoration painted over it). EMISSIVE_FN[0](r, img) -> (H, W, 4) or None
+# adds a generator's own glowing pixels (painted eyes, halos), see emissive_colours.
+EMISSIVE = {}
+EMISSIVE_FN = [None]
+
+
+def emissive_colours(img, table, where=None):
+    """Emissive pixels by colour: `table` maps (r, g, b) or (r, g, b, a) to a strength
+    (or (strength, emitted rgb)); pixels of the frame `img` (H, W, 4) with that colour (and
+    alpha, when given), inside `where`, glow. Returns (H, W, 4) uint8."""
+    h, w = img.shape[:2]
+    out = np.zeros((h, w, 4), np.uint8)
+    for col, spec in table.items():
+        a, rgb = (spec, None) if isinstance(spec, (int, float)) else spec
+        hit = np.all(img[:, :, :len(col)] == np.array(col, np.uint8), axis=2) & (img[:, :, 3] > 0)
+        if where is not None:
+            hit &= where
+        out[hit, :3] = img[hit, :3] if rgb is None else np.array(rgb[:3], np.uint8)
+        out[hit, 3] = np.maximum(out[hit, 3], int(a))
+    return out
+
+
+def over_emissive(base, add):
+    """`add` on top of `base` (both (H, W, 4)): the stronger glow wins per pixel."""
+    if add is None:
+        return base
+    take = add[..., 3] > base[..., 3]
+    base[take] = add[take]
+    return base
+
+
+def emissive_frame(r, img):
+    """The frame's emissive map (H, W, 4 uint8) from EMISSIVE and EMISSIVE_FN; all zero when
+    nothing on it glows. Only where the colour frame is opaque."""
+    h, w = img.shape[:2]
+    out = np.zeros((h, w, 4), np.uint8)
+    if r is not None and "mat" in r:
+        for name, spec in EMISSIVE.items():
+            if name not in MAT_ID:
+                continue
+            spec = spec if isinstance(spec, dict) else {"a": spec}
+            m = r["mat"] == MAT_ID[name]
+            if not m.any():
+                continue
+            ramp = np.array(RAMP[name], np.uint8)
+            own = np.zeros_like(m)
+            for k in range(int(spec.get("min_level", 0)), 5):
+                own |= np.all(img[:, :, :3] == ramp[k], axis=2)
+            hit = m & own & (img[:, :, 3] > 0)
+            rgb = spec.get("rgb")
+            out[hit, :3] = img[hit, :3] if rgb is None else np.array(rgb[:3], np.uint8)
+            out[hit, 3] = int(spec["a"])
+    if EMISSIVE_FN[0] is not None:
+        out = over_emissive(out, EMISSIVE_FN[0](r, img))
+    out[img[:, :, 3] == 0] = 0
+    return out
+
+
+def finish_frame(r, img, piece=None, normals=None):
+    """Every renderer calls this on its finished frame (an (H, W, 4) array): while collect()
+    gathers extras, it keeps the frame's normal map (from the rasterised `r`, or `normals`
+    given ready-made) and emissive map. Changes nothing in the colour frame."""
+    if not EXTRAS["on"]:
+        return
+    _last["n"] = normals if normals is not None else normal_frame(r, img, piece)
+    _last["e"] = emissive_frame(r, img)
+
+
+def render(pose, view, build, decorate=None):
     r = rasterise(pose, view, build)
     img = shade(r)
     if decorate is not None:
         img = decorate(r, img)
     img = outline(r, img)
-    _last_normal[0] = Image.fromarray(normal_frame(r, img)) if normals else None
+    finish_frame(r, img)
     return Image.fromarray(img)
 
 
@@ -748,18 +834,45 @@ def view_names(views):
 
 
 def sheet(view, rows, fw, fh, origin, build, decorate=None, normals=False):
-    """One view's sheet; with `normals`, (sheet, normal sheet) in the same layout."""
+    """One view's sheet; with `normals`, (sheet, normal sheet, emissive sheet or None) in the
+    same layout (the emissive sheet only when something on it glows)."""
     set_frame(fw, fh, origin)
-    out = Image.new("RGBA", (fw * COLS, fh * len(rows)), (0, 0, 0, 0))
-    nout = Image.new("RGBA", out.size, (0, 0, 0, 0)) if normals else None
-    for r, (_name, poses) in enumerate(rows):
-        for c, pose in enumerate(poses):
-            if normals:
-                out.alpha_composite(render(pose, view, build, decorate, normals=True), (c * fw, r * fh))
-                nout.paste(_last_normal[0], (c * fw, r * fh))
-            else:  # (a generator's own render, like Crease's render_paper, needn't know normals)
-                out.alpha_composite(render(pose, view, build, decorate), (c * fw, r * fh))
-    return (out, nout) if normals else out
+    # `render` is looked up per frame: Crease swaps in his paper shader
+    return collect(rows, fw, fh, lambda pose: render(pose, view, build, decorate), normals)
+
+
+def collect(rows, fw, fh, render_fn, extras=True, cols=None):
+    """A sheet of `rows` from `render_fn(pose)` -> a PIL frame. With `extras` the renderer's
+    finish_frame() output is gathered too: returns (sheet, normal sheet, emissive sheet or
+    None when nothing on it glows); without, just the sheet. The colour sheet is the same
+    either way. Every generator's sheet code uses it (the painters' own renderers call
+    finish_frame themselves)."""
+    cols = cols or COLS
+    out = Image.new("RGBA", (fw * cols, fh * len(rows)), (0, 0, 0, 0))
+    if not extras:
+        for r, (_name, poses) in enumerate(rows):
+            for c, pose in enumerate(poses):
+                out.alpha_composite(render_fn(pose), (c * fw, r * fh))
+        return out
+    nout = np.zeros((out.height, out.width, 4), np.uint8)
+    eout = np.zeros_like(nout)
+    EXTRAS["on"] = True
+    try:
+        for r, (_name, poses) in enumerate(rows):
+            for c, pose in enumerate(poses):
+                _last["n"] = _last["e"] = None
+                frame = render_fn(pose)
+                out.alpha_composite(frame, (c * fw, r * fh))
+                if _last["n"] is None:
+                    raise RuntimeError("the renderer never called splat3d.finish_frame")
+                fa = np.array(frame)
+                if not np.array_equal(_last["n"][..., 3] > 0, fa[..., 3] > 0):
+                    raise RuntimeError("normal frame and colour frame differ in coverage")
+                nout[r * fh:(r + 1) * fh, c * fw:(c + 1) * fw] = _last["n"]
+                eout[r * fh:(r + 1) * fh, c * fw:(c + 1) * fw] = _last["e"]
+    finally:
+        EXTRAS["on"] = False
+    return out, Image.fromarray(nout), (Image.fromarray(eout) if eout[..., 3].any() else None)
 
 
 def _preview(sh, rows, fw, fh, origin, scale, path):
@@ -785,10 +898,24 @@ def _save_sheet(made, path, normals):
     sh.save(path)
     print("wrote", os.path.relpath(path, ROOT), sh.size)
     if normals:
-        npath = path.replace(".png", "_n.png")
-        made[1].save(npath)
-        print("wrote", os.path.relpath(npath, ROOT), made[1].size)
+        save_extras(path, made[1], made[2])
     return sh
+
+
+def save_extras(path, nsheet, esheet):
+    """Writes a colour sheet's normal sheet (<name>_n.png) and emissive sheet (<name>_e.png;
+    removed, with its .import, when `esheet` is None, so nothing stale is left behind)."""
+    npath = path.replace(".png", "_n.png")
+    nsheet.save(npath)
+    print("wrote", os.path.relpath(npath, ROOT), nsheet.size)
+    epath = path.replace(".png", "_e.png")
+    if esheet is not None:
+        esheet.save(epath)
+        print("wrote", os.path.relpath(epath, ROOT), esheet.size)
+    else:
+        for stale in (epath, epath + ".import"):
+            if os.path.exists(stale):
+                os.remove(stale)
 
 
 def write_sheets(rows, view_rows, out, preview, side, views, build, decorate=None, normals=False):

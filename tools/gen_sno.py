@@ -53,7 +53,11 @@ MAT = {
     "shoe": "earth",
     "syrup": "gold",
 }
-S.configure(MAT, scale=0.8, near=14.0, near_views={"down_side": 10.0, "up_side": 10.0})
+# The flecks of white ice on the dome glint in the emissive sheets (docs/SPRITES.md "Emissive
+# sheets"), faintly: a few sparkles, not a glowing cone (the ice's own highlight only shows when
+# he tips over, so it would blink on and off).
+S.configure(MAT, scale=0.8, near=14.0, near_views={"down_side": 10.0, "up_side": 10.0},
+            emissive={"fleck": {"a": 90, "min_level": 3}})
 S.COLS = 12  # the run, the heavy and the Surge have 12 frames
 AXES = ((0, 0, 1), (0, 1, 0), (1, 0, 0))
 
@@ -730,4 +734,4 @@ if __name__ == "__main__":
         import anim_preview
         anim_preview.main(sys.modules[__name__], sys.argv[2:])
     else:
-        S.write_sheets(ROWS, VIEW_ROWS, OUT, PREVIEW, SIDE, VIEWS, build)
+        S.write_sheets(ROWS, VIEW_ROWS, OUT, PREVIEW, SIDE, VIEWS, build, normals=True)

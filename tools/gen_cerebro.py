@@ -903,7 +903,19 @@ def render(pose, view):
     img = glow(r, img)
     img = smears(r, img)
     img = flash_burst(r, img)
+    S.finish_frame(r, img)
     return Image.fromarray(img)
+
+
+# The emissive sheets (docs/SPRITES.md "Emissive sheets"): his telekinesis glows. The bright
+# halo round the tools he is working with (alpha 235), a thrown tool's speed streak and the
+# teleport's flash; not the faint halo every resting tool wears, nor his flushed brain.
+GLOW_EMIT = {
+    PSY + (235,): 200,                       # glow(): the working tools' halo
+    PSY + (150,): 170, (246, 226, 255, 230): 230,   # smears(): the streak's middle and core
+    PSY + (255,): 255, (252, 240, 255, 255): 255,   # flash_burst(): the star and its core
+}
+S.EMISSIVE_FN[0] = lambda r, img: S.emissive_colours(img, GLOW_EMIT)
 
 
 # ------------------------------------------------------------------ animations
@@ -1061,15 +1073,13 @@ def ko():
     ]
 
 
-def sheet(view, rows, fw, fh, origin):
+def sheet(view, rows, fw, fh, origin, extras=False):
+    """One view's sheet; with `extras`, (sheet, normal sheet, emissive sheet or None)
+    (splat3d.collect: render() hands each frame's maps to splat3d.finish_frame)."""
     global W, H, OX, OY
     W, H = fw, fh
     OX, OY = origin
-    out = Image.new("RGBA", (fw * COLS, fh * len(rows)), (0, 0, 0, 0))
-    for r, (_name, poses) in enumerate(rows):
-        for c, pose in enumerate(poses):
-            out.alpha_composite(render(pose, view), (c * fw, r * fh))
-    return out
+    return S.collect(rows, fw, fh, lambda pose: render(pose, view), extras, cols=COLS)
 
 
 def preview(sh, rows, fw, fh, origin, scale, path):
@@ -1626,17 +1636,19 @@ def inspect(rows, picks, path):
 
 def main():
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    side = sheet("side", ROWS, SIDE["w"], SIDE["h"], SIDE["origin"])
+    side, side_n, side_e = sheet("side", ROWS, SIDE["w"], SIDE["h"], SIDE["origin"], extras=True)
     side.save(OUT)
     print("wrote", os.path.relpath(OUT, ROOT), side.size)
+    S.save_extras(OUT, side_n, side_e)   # the normal and emissive sheets (docs/SPRITES.md)
     preview(side, ROWS, SIDE["w"], SIDE["h"], SIDE["origin"], 3, PREVIEW)
     views = {}
     for view in S.view_names(VIEWS)[1:]:
         spec = VIEWS[view]
-        sh = sheet(view, VIEW_ROWS, spec["w"], spec["h"], spec["origin"])
+        sh, sh_n, sh_e = sheet(view, VIEW_ROWS, spec["w"], spec["h"], spec["origin"], extras=True)
         path = OUT.replace(".png", "_%s.png" % view)
         sh.save(path)
         print("wrote", os.path.relpath(path, ROOT), sh.size)
+        S.save_extras(path, sh_n, sh_e)
         views[view] = sh
     # the views preview: down, down-side, up, up-side (every entry in VIEWS), as splat3d's
     s = 2

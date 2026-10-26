@@ -424,6 +424,13 @@ class Painter:
         self.p = pose
         self.cam = Cam(view)
         self.view = view
+        # where the Surge's glow points were drawn (the emissive sheets: _emissive)
+        self.glow_px = Image.new("L", (W, H), 0)
+
+    def _glow(self, d, xy):
+        """A Surge glow point: drawn as before, and remembered for the emissive sheet."""
+        d.point(xy, fill=C["glow"])
+        ImageDraw.Draw(self.glow_px).point(xy, fill=255)
 
     def P(self, q):
         return self.cam.P(self.b.world(q))
@@ -550,7 +557,7 @@ class Painter:
         if self.p.glow > 0:
             for th, up in ((-40, 6), (30, 13), (-10, 3), (60, 18)):
                 if self.facing(self.b.face_normal(th)) > 0:
-                    dd.point(self.P(self.b.face_point(th, up)), fill=C["glow"])
+                    self._glow(dd, self.P(self.b.face_point(th, up)))
         M.groove(img, grain)
         img.alpha_composite(clip_to(det, img))
         img = outline(img)
@@ -629,7 +636,10 @@ class Painter:
             if self.facing(self.b.face_normal(th)) < 0:
                 continue
             c = self.P(self.b.face_point(th, up, out=1.6))
-            dd.point((round(c[0]), round(c[1])), fill=C["glow"] if self.p.glow > 0.5 else C["moss_l"])
+            if self.p.glow > 0.5:
+                self._glow(dd, (round(c[0]), round(c[1])))
+            else:
+                dd.point((round(c[0]), round(c[1])), fill=C["moss_l"])
             dd.point((round(c[0]) + 1, round(c[1]) + 1), fill=C["moss_d"])
         img.alpha_composite(clip_to(det, img))
         return outline(img)
@@ -722,7 +732,10 @@ class Painter:
         dd.point((x - 2, y - 1), fill=C["leaf_ink"])
         dd.point((x, y - 2), fill=C["leaf"])
         dd.point((x - 1, y - 1), fill=C["leaf"])
-        dd.point((x, y - 1), fill=C["glow"] if self.p.glow > 0.5 else C["leaf_l"])
+        if self.p.glow > 0.5:
+            self._glow(dd, (x, y - 1))
+        else:
+            dd.point((x, y - 1), fill=C["leaf_l"])
 
     # -- the log on his head
     def log(self):
@@ -775,7 +788,10 @@ class Painter:
         lv.line([(sx, sy), (lx, sy - 2)], fill=C["leaf_ink"])
         lv.ellipse([lx - 2, sy - 7, lx + 2, sy - 2], fill=C["leaf_ink"])
         lv.ellipse([lx - 1, sy - 6, lx + 1, sy - 3], fill=C["leaf"])
-        lv.point((lx, sy - 5), fill=C["glow"] if self.p.glow > 0.5 else C["leaf_l"])
+        if self.p.glow > 0.5:
+            self._glow(lv, (lx, sy - 5))
+        else:
+            lv.point((lx, sy - 5), fill=C["leaf_l"])
         return img
 
     # -- assemble
@@ -873,18 +889,23 @@ def ko():
 
 
 def render(pose, view):
-    return Painter(pose, view).render()
+    pt = Painter(pose, view)
+    img = pt.render()
+    a = np.array(img)
+    # the normal and emissive sheets (docs/SPRITES.md): the shading's normals, and the
+    # Surge's glow points where they still show in the finished frame
+    glow = (np.array(pt.glow_px) > 0) & np.all(a[:, :, :3] == np.array(C["glow"][:3], np.uint8), axis=2)
+    S.EMISSIVE_FN[0] = lambda _r, _img: S.emissive_colours(_img, {C["glow"][:3]: 230}, where=glow)
+    S.finish_frame(None, a, normals=shade2d.normal_map(img))
+    return img
 
 
-def sheet(view, rows, fw, fh, origin):
+def sheet(view, rows, fw, fh, origin, extras=False):
+    """One view's sheet; with `extras`, (sheet, normal sheet, emissive sheet or None)."""
     global W, H, OX, OY
     W, H = fw, fh
     OX, OY = origin
-    out = Image.new("RGBA", (fw * COLS, fh * len(rows)), (0, 0, 0, 0))
-    for r, (_name, poses) in enumerate(rows):
-        for c, pose in enumerate(poses):
-            out.alpha_composite(render(pose, view), (c * fw, r * fh))
-    return out
+    return S.collect(rows, fw, fh, lambda pose: render(pose, view), extras, cols=COLS)
 
 
 def preview(sh, rows, fw, fh, origin, scale, path, title=None):
@@ -916,7 +937,7 @@ def preview(sh, rows, fw, fh, origin, scale, path, title=None):
 import copy  # noqa: E402
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import splat3d as S  # noqa: E402  (only its animation tools: tween, cycle, lag, lag_at)
+import splat3d as S  # noqa: E402  (the animation tools, and the normal/emissive sheet writer)
 
 # hands are arcs (they swing on curves); `hold` is an index, never blended
 tw = S.tweener(arc_fields=("hands",), snap=("hold",))
@@ -1421,16 +1442,18 @@ def inspect(rows, picks, path):
 
 def main():
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    side = sheet("side", ROWS, SIDE["w"], SIDE["h"], SIDE["origin"])
+    side, side_n, side_e = sheet("side", ROWS, SIDE["w"], SIDE["h"], SIDE["origin"], extras=True)
     side.save(OUT)
     print("wrote", os.path.relpath(OUT, ROOT), side.size)
+    S.save_extras(OUT, side_n, side_e)   # the normal and emissive sheets (docs/SPRITES.md)
     preview(side, ROWS, SIDE["w"], SIDE["h"], SIDE["origin"], 3, PREVIEW)
     views = {}
     for view, spec in VIEWS.items():
-        sh = sheet(view, VIEW_ROWS, spec["w"], spec["h"], spec["origin"])
+        sh, sh_n, sh_e = sheet(view, VIEW_ROWS, spec["w"], spec["h"], spec["origin"], extras=True)
         path = OUT.replace(".png", "_%s.png" % view)
         sh.save(path)
         print("wrote", os.path.relpath(path, ROOT), sh.size)
+        S.save_extras(path, sh_n, sh_e)
         views[view] = sh
     # 2x preview: each animation's frames in every view but the side: down, down-side, up, up-side.
     s = 2
