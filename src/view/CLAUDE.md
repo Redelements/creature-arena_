@@ -35,6 +35,17 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   cleared from the scene's Pieces layer until they heal (`_sync_pieces`). The floor, marks
   and pit bands paint nothing on such a map; the running cracks, closing pits and dust
   still draw over it. Ids and the artist's layers: `assets/README.md`; `tests/test_tiles.gd`.
+- Move effects as hand-drawn frames (`MoveFx` resources, `assets/vfx/<name>.tres`, built by
+  `tools/build_vfx.gd` from `tools/cut_vfx.py`'s cuts of kiddolink's pack at ppu 2): a move
+  names them in one line, `fx.move_fx` (a path or a list). `MoveFxView` (a child of `FxView`,
+  a pool of `CAP` AnimatedSprite2Ds) spawns them from the same hooks FxView draws its own
+  effects: `on_strike` from `_strike` (the sim's `active_seg`: the hitbox's first live tick,
+  so the timing is the move's own `startup`, never a second number), `on_start`, `on_tick`,
+  `on_shot` / `on_event` from `spawn` (hit, projectile, projectile_end, burst; a shot's end
+  looks up the move it was thrown from, `_shot_move`). Frames are set from FxView's clock
+  (`advance(time_scale)`), never autoplayed, so a freeze holds them and a rollback can't
+  drift them; a `follow` effect rides its fighter, others stay put; culled by `_view_rect`.
+  `tests/test_move_fx.gd`.
 - Art layout is data-driven: frame size (`[w, h]` frames allowed, Crease's are 128x160),
   origin, `anims`, `side_only`, `idle_ticks`, `run_ticks`, `step_frames`, `anim`, `anim_at` (also the dodge's), `anim_reel`,
   `anim_charge`, `view_lift` from the creature JSON (`FighterPreview` reads `idle_ticks` too). Up/down sheets are optional, and so are the diagonal sheets `down_side` / `up_side` (mirrored for the left; `pick_view`: 8 sectors of 45 degrees, falling back to the older up/down/side rule when a fighter lacks the sector's sheet, so fighters without them still draw diagonals side-on).
@@ -358,6 +369,8 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `letterbox.gd` (Letterbox) — Black bars across the top and bottom of the screen for the big moments (a knockout's push-in, a Surge's freeze), on the…
 - `light2d_view.gd` (Light2DView) — Real 2D lights (Settings > Video > Lighting): Godot PointLight2Ds that light the fighters per pixel through their norma…
 - `light_view.gd` (LightView) — Glow (Settings > Video): glowing things light the floor around them and get a soft halo, so the arena feels lit.
+- `move_fx.gd` (MoveFx) — One hand-drawn effect attached to a move: which frames play, where they appear and when.
+- `move_fx_view.gd` (MoveFxView) — Plays the MoveFx of moves (hand-drawn frames, assets/vfx/*.tres): a fixed pool of AnimatedSprite2D children, each told…
 - `paper_fx.gd` (PaperFx) — Mister Crease's paper, drawn over the fighters: the sheets of his Paper Stock floating above the hat, the crafts he has…
 - `perf_overlay.gd` (PerfOverlay) — The performance overlay (Settings > Video, or F9): the frame rate in a corner, and in its second mode a chart of the la…
 - `range_rings.gd` (RangeRings) — "Range rings" (Settings > Controls, or F7 in a fight): thin floor rings that show where an attack really reaches, so a…

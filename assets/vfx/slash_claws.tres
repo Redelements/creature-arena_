@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="MoveFx" format=3]
+
+[ext_resource type="SpriteFrames" path="res://assets/vfx/slash_claws_frames.tres" id="1_ro7pf"]
+[ext_resource type="Script" path="res://src/view/move_fx.gd" id="2_4d8lt"]
+
+[resource]
+script = ExtResource("2_4d8lt")
+frames = ExtResource("1_ro7pf")
+ticks_per_frame = 2
+offset = Vector2(14, -14)
+follow = true

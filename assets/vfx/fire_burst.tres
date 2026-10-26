@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="MoveFx" format=3]
+
+[ext_resource type="SpriteFrames" path="res://assets/vfx/fire_burst_frames.tres" id="1_ia35x"]
+[ext_resource type="Script" path="res://src/view/move_fx.gd" id="2_wl5gg"]
+
+[resource]
+script = ExtResource("2_wl5gg")
+frames = ExtResource("1_ia35x")
+on = "burst"
+offset = Vector2(0, -16)
+flip_with_facing = false

@@ -137,7 +137,7 @@
       "damage": 10, "knockback": 1.4, "hitstun": 24, "hitstop": 7, "launch": 30, "juggle": true,
       "projectile": { "lob": true, "range": 48, "range_charged": 110, "time": 22, "burst": 32, "offset": 6, "crack": 10 },
       "anim_at": [[0, 4], [3, 5], [7, 6], [10, 7], [13, 8], [17, 9], [22, 10], [28, 11]],
-      "fx": { "projectile": "pinecone" }
+      "fx": { "projectile": "pinecone", "move_fx": "res://assets/vfx/fire_burst.tres" }
     },
     "surge": {
       "name": "Root Eruption", "anim": "eruption", "energy_cost": 100,
