@@ -1,4 +1,4 @@
-# Creature Arena
+# Ready 4 Rambles
 
 A real-time 2D creature brawler. Small pixel-art creatures fight live in a stadium,
 chaining attacks into combos while the floor cracks, breaks and opens into pits.
@@ -48,8 +48,8 @@ a Linux and an Android download (sign in to GitHub, unzip, run). Builds of `main
 unknown publisher: choose **More info → Run anyway**.
 
 **Android** (arm64; played on an AYN Odin 3 with its built-in controls, or any phone with a
-Bluetooth controller; there are no touch controls yet): copy `CreatureArena.apk` to the device
-and open it, or `adb install -r CreatureArena.apk`. Android's Back acts as Esc, and switching
+Bluetooth controller; there are no touch controls yet): copy `Ready4Rambles.apk` to the device
+and open it, or `adb install -r Ready4Rambles.apk`. Android's Back acts as Esc, and switching
 away pauses an offline fight. It plays online against PCs (same match fingerprint).
 
 ## Play online (1v1)
@@ -971,8 +971,8 @@ replacement checklist; which file plays for what, and how loud, lives in
 
 ## Originality
 
-Creature Arena is an original game. It uses no characters, names, art, sounds or trademarks
-from any other franchise. There is no capture mechanic and no trainer character: you play as
-the creature. Designs are checked against existing creatures for look-alikes (for example,
+Ready 4 Rambles (called Creature Arena until October 2026) is an original game. It uses no
+characters, names, art, sounds or trademarks from any other franchise. There is no capture
+mechanic and no trainer character: you play as the creature. Designs are checked against existing creatures for look-alikes (for example,
 Cairn is a tall stack of stones rather than a round boulder with arms; Craglash's neck is
 flat slab-like vertebrae rimmed in red, not a chain of round boulders).

@@ -44,7 +44,7 @@ func activity(g: Node, now := int(Time.get_unix_time_from_system())) -> Dictiona
 	var large := String(config.get("large_image", ""))
 	if large != "":
 		assets["large_image"] = large
-		assets["large_text"] = String(d.get("arena", "Creature Arena"))
+		assets["large_text"] = String(d.get("arena", "Ready 4 Rambles"))
 	var fighter := String(d.get("fighter", ""))
 	if fighter != "" and fighter in config.get("fighter_images", []):
 		assets["small_image"] = fighter
@@ -73,7 +73,7 @@ static func describe(g: Node) -> Dictionary:
 	if me != null:
 		out["fighter"] = String(me.def.get("id", ""))
 		out["fighter_name"] = String(me.def.get("name", ""))
-	out["arena"] = String(g.sim.arena.get("name", "Creature Arena"))
+	out["arena"] = String(g.sim.arena.get("name", "Ready 4 Rambles"))
 	if g.flow == g.Flow.SELECT:
 		out["details"] = _mode_title(g, cfg)
 		out["state"] = "Picking fighters"

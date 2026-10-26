@@ -12,10 +12,13 @@ relays their match and referees it with its own copy of the game (design:
 3v3 six; until then each player sees how many are there.
 
 A full step-by-step home setup (Ubuntu Server install, static IP, router, firewall, a
-free domain name, updates) is in the **Creature Arena home server guide** doc. This page
-is the short reference.
+free domain name, updates) is in the **home server guide** doc (titled "Creature Arena
+home server guide", from before the rename). This page is the short reference.
 
 ## Command line
+
+The Linux binary keeps its old name, `CreatureArena.x86_64` (and so do the service, its
+paths and the CI artifact `update.sh` downloads), so the server updates as before.
 
 ```sh
 ./CreatureArena.x86_64 --headless -- --server            # UDP port 7777
@@ -141,7 +144,8 @@ hand out a new build.
 ## Ranked identity and the ratings file
 
 Ratings and Daily scores live in the server's `user://ratings.json` (under systemd,
-`~arena/.local/share/godot/app_userdata/Creature Arena/ratings.json`).
+`~arena/.local/share/godot/app_userdata/Creature Arena/ratings.json`; the folder keeps the
+game's old name on purpose, see `custom_user_dir_name` in project.godot).
 
 - **Who a player is.** Each game makes a player id and a secret once and keeps them in its
   settings (`settings.cfg` in the game's user folder: `[online] id` and `secret`). The
@@ -185,7 +189,7 @@ One line per event, to standard output (so `journalctl -u creature-arena -f` und
 systemd):
 
 ```
-[2026-10-11 13:21:08] Creature Arena server on UDP port 7777 (protocol 3, game data 67e12f686788fffb), up to 32 players
+[2026-10-11 13:21:08] Ready 4 Rambles server on UDP port 7777 (protocol 3, game data 67e12f686788fffb), up to 32 players
 [2026-10-11 13:21:08] players on this network join 192.168.0.103:7777
 [2026-10-11 13:21:08] games on this network find the server by itself (UDP port 7778; allow it in the firewall)
 [2026-10-11 13:21:08] player 1 connected from 203.0.113.9:53086
@@ -213,7 +217,7 @@ needs only glibc, so a minimal Ubuntu Server install runs it.
 
 ```ini
 [Unit]
-Description=Creature Arena dedicated server
+Description=Ready 4 Rambles dedicated server
 After=network-online.target
 Wants=network-online.target
 
@@ -291,7 +295,7 @@ Then:
 
 ```sh
 sudo systemctl daemon-reload && sudo systemctl restart creature-arena
-journalctl -u creature-arena -n 5 --no-pager        # "Creature Arena server on UDP port 7777"
+journalctl -u creature-arena -n 5 --no-pager        # "Ready 4 Rambles server on UDP port 7777"
 systemctl show creature-arena -p MemoryMax -p ProtectSystem -p ReadWritePaths -p Restart
 systemd-analyze security creature-arena | tail -1   # lower is better
 ```
