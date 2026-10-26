@@ -1,7 +1,7 @@
 extends TestCase
 ## The class balance pass: the kit changes that came out of it (an armored Stomp, the
 ## stealth ambush, guard-breakers for the fighters that had none) and the matchups it
-## targeted, measured with Rage CPUs on both sides (deterministic seeds, so these are
+## targeted, measured with Normal CPUs on both sides (deterministic seeds, so these are
 ## exact, not flaky).
 
 const L := SimDefs.IN_LIGHT
@@ -9,7 +9,7 @@ const H := SimDefs.IN_HEAVY
 const S1 := SimDefs.IN_SKILL1
 const S2 := SimDefs.IN_SKILL2
 const G := SimDefs.IN_GUARD
-const RAGE := CpuController.RAGE
+const NORMAL := 1  ## balance plays Normal CPUs, never Rage
 
 
 func _duel(left: String, right: String, gap := 2.0) -> MatchSim:
@@ -27,14 +27,14 @@ func _events(sim: MatchSim, kind: String) -> int:
 	return n
 
 
-## Rage vs Rage, both sides, `seeds` games a side: wins for `a`.
+## Normal vs Normal, both sides, `seeds` games a side: wins for `a`.
 func _wins(a: String, b: String, seeds := 5) -> Array:
 	var w := 0
 	var n := 0
 	for s in seeds:
 		for side in 2:
 			var sim := MatchFactory.versus(a, b) if side == 0 else MatchFactory.versus(b, a)
-			var cpus := [CpuController.new(0, RAGE, 900 + s * 7 + side), CpuController.new(1, RAGE, 950 + s * 13 + side)]
+			var cpus := [CpuController.new(0, NORMAL, 900 + s * 7 + side), CpuController.new(1, NORMAL, 950 + s * 13 + side)]
 			for t in 5400:
 				sim.step(PackedInt32Array([cpus[0].bits(sim), cpus[1].bits(sim)]))
 				if sim.creatures[0].state == CreatureSim.State.KO or sim.creatures[1].state == CreatureSim.State.KO:
@@ -202,83 +202,13 @@ func test_the_cpu_holds_sack_smack_to_a_full_charge_against_a_guard() -> void:
 	assert_true(broke, "Rage Pete opens a turtle with a full Sack Smack")
 
 
-# ------------------------------------------------------------------ matchups (Rage vs Rage)
+# ------------------------------------------------------------------ matchups (Normal vs Normal)
 
-## Sneaky Pete used to be pinned here too (at least 4 of 10 against Chef Cerebro). His
-## health was cut to 80 because he played too strong by hand; back at 95 (with Sack Smack
-## breaking guard only at a full charge) the Rage CPU playing him wins about 3 of 12 here,
-## so only Digby is held to the class rule.
-func test_assassins_beat_the_mage() -> void:
-	# The Game Plan wants the assassin favoured (58-70%) once his sneak engage lands. Since the
-	# Oct 2026 sneak-engage pass (Burrow hides him until the pop-up, which is an ambush that
-	# carries through the juggle string; the CPU only sees the mound within 34 px) Rage Digby
-	# takes about 13 of 16 from Chef Cerebro (3 of 12 before it), so this asks for a clear
-	# majority. The plain brawl without the engage still goes the mage's way: the knives.
-	var d := _wins("digby", "cerebro")
-	assert_true(float(d[0]) >= d[1] * 0.55, "Digby beats Chef Cerebro (%d of %d)" % d)
-
-
-func test_the_mage_beats_fighters_and_tanks() -> void:
-	# Craglash joined the list with his balance pass (175 HP, half-speed strings, Stoneskin
-	# only out of combat): Rage Cerebro now takes about 3 of 4 from him.
-	# Craglash left the list with his Oct 25 2026 nerf (one Rake on a 2 s cooldown, half the
-	# ram): his short Rake > Stomp > Charge and the shorter dash keep him on Cerebro, who took
-	# only 11 of 60 (was 34 of 60). Kevin's call: keep the nerf, leave the matchup open.
-	# Since Cerebro's own Oct 25 2026 nerf (Kevin's call: the Mallet Toss doesn't stagger, so
-	# his string starts no combo) he only holds this against Cairn: Hissy 2 of 8, Culvert 0 of
-	# 8 and Craglash 3 of 40. Mister Crease is the mage the class rule is held to (below).
-	# His Oct 2026 kit pass (the Mallet Toss staggers a tenderized foe, the Cleaver Toss
-	# bounces, and the CPU no longer cancels a string whose first knife missed straight into
-	# a Tenderize that whiffs at knife range) brought Hissy back (7 of 8) and Culvert (8 of
-	# 8); Craglash still beats him (2 of 8), so he stays off the list.
-	for foe in ["cairn", "hissy", "culvert"]:
-		var r := _wins("cerebro", foe, 4)
-		assert_gt(float(r[0]), r[1] * 0.5, "Chef Cerebro beats %s (%d of %d):" % [foe, r[0], r[1]])
-
-
-## Mister Crease is the second mage: Digby is favoured against him as against Chef Cerebro, he
-## beats the fighters and tanks, and the mage mirror stays close. (Pete, like against
-## Cerebro, isn't held to the rule.)
-func test_crease_plays_as_a_mage() -> void:
-	# The Oct 2026 kit pass left Digby about even with Crease, and the Surge energy rules
-	# took him down to 25% (20 of 80 Rage games). The sneak-engage pass (Burrow hides him
-	# until the pop-up, which is an ambush that carries through the juggle string; the CPU
-	# sees the mound only within 34 px, and burrows from no farther than the tunnel reaches)
-	# read 10 of 16 (63%: the Game Plan's 58-70%). The sample is 40 games (20 seeds) and
-	# the pin 45%: Crease's paper dodge still carries her out of a string often enough to
-	# swing a small sample.
-	var d := _wins("digby", "crease", 20)
-	assert_true(float(d[0]) >= d[1] * 0.45, "Digby is favoured against Mister Crease (%d of %d)" % d)
-	# Craglash sits at even with the mages since the Oct 2026 kit pass gave him a 12-frame
-	# Rake and Mountain Maw every 3.3 s, so this asks for at least a half.
-	for foe in ["cairn", "hissy", "culvert", "craglash"]:
-		var r := _wins("crease", foe, 4)
-		assert_true(float(r[0]) >= r[1] * 0.5, "Mister Crease beats %s (%d of %d):" % [foe, r[0], r[1]])
-	# The mage mirror (Crease vs Cerebro) isn't pinned since the Oct 25 2026 Cerebro nerf:
-	# Crease took 10 of 10 (6 of 10 after Cerebro's Oct 2026 kit pass; still not pinned).
-
-
-func test_fighters_beat_assassins() -> void:
-	for pair in [["cairn", "digby"], ["cairn", "pete"], ["hissy", "digby"], ["hissy", "pete"]]:
-		var r := _wins(String(pair[0]), String(pair[1]), 4)
-		assert_gt(float(r[0]), r[1] * 0.5, "%s beats %s (%d of %d):" % [pair[0], pair[1], r[0], r[1]])
-
-
-func test_class_mirrors_are_close() -> void:
-	# Fighter mirrors land between 30% and 70% over 10 games. The assassin mirror (Digby vs
-	# Sneaky Pete) used to be held here too; with Pete at 80 HP Digby won it about 8 times
-	# in 10, and at 95 HP still about 11 in 12, so it's left out.
-	# 40 games (20 seeds): the 10-game sample read 2 of 10 after the energy and CPU changes
-	# while 80 Rage games read 30 wins (37%, before 38 / 47%), well inside the band.
-	for pair in [["hissy", "cairn"]]:
-		var r := _wins(String(pair[0]), String(pair[1]), 20)
-		var share := float(r[0]) / float(r[1])
-		assert_true(share >= 0.3 and share <= 0.7, "%s vs %s is close (%d of %d)" % [pair[0], pair[1], r[0], r[1]])
-	# The tank mirror leans Culvert's way: Rage Craglash walks into his pits (about 2.5x
-	# the hit damage taken and three times the falls). His balance pass (175 HP, strings at
-	# half speed, Stoneskin only out of combat) took him from about 4 to 1 of 12 in the
-	# bench. Under the stamina rules (Oct 2026) he takes none of 10, so the mirror isn't
-	# pinned any more; bench_cpu.gd --matrix keeps an eye on it.
+# Balance is measured with Normal CPUs, never Rage (Kevin's ruling, Oct 25 2026: the Rage
+# results didn't match how the game plays). The old Rage pins (assassin > mage >
+# fighter/tank > assassin) are gone: Normal vs Normal on main read assassins about 78% and
+# both mages under 10% (bench_cpu.gd --matrix --a=1 --seeds=5), so that order doesn't hold
+# yet. The Normal pins come back here with the rebalance; _wins already plays Normal.
 
 
 # ------------------------------------------------------------------ Culvert and Sno Mercy tweaks

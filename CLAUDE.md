@@ -52,8 +52,10 @@ Read on demand, not up front:
   shortcuts. Coaches (trials, drills) drive the partner and judge the player; they live
   in `src/game/`, outside the sim.
 - **Class balance** (mirrors even, assassin > mage > fighter/tank > assassin) is measured
-  Rage vs Rage with `tests/bench_cpu.gd --matrix` / `--pairs` and pinned by
-  `tests/test_balance.gd`. A fighter's sheet "type" maps to the Game Plan's affinities
+  **Normal vs Normal, never with Rage CPUs** (Kevin, Oct 2026: Rage results don't match how
+  the game plays) with `tests/bench_cpu.gd --matrix` / `--pairs` (the benches default to
+  Normal) and pinned by `tests/test_balance.gd`. Rage is still a difficulty; its tests check
+  how it plays, never balance. A fighter's sheet "type" maps to the Game Plan's affinities
   (closest fit; check with Kevin), never to a type chart.
 - **The game was renamed** from Creature Arena to Ready 4 Rambles (Oct 2026). Players see
   the new name; the old one stays wherever changing it would break something: the user

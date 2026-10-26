@@ -1,11 +1,11 @@
 extends SceneTree
-## Mode pacing, the same yardstick for every mode: seeded Rage CPU matches of each mode,
+## Mode pacing, the same yardstick for every mode: seeded Normal CPU matches of each mode,
 ## and per mode how long a match runs, how much of it nobody lands a hit (stalemates),
 ## how many separate fights break out a minute, how often the side behind at half time
 ## comes back to win, captures (CTF), the shrines claimed (and how often the claiming side
 ## won), and with the Crater's permanent shrine buffs how often the side with more won.
 ## Definitions in docs/plans/mode-metrics.md.
-##   godot --headless --path . --script res://tests/bench_modes.gd -- [--seeds=6] [--seed0=0] [--level=3]
+##   godot --headless --path . --script res://tests/bench_modes.gd -- [--seeds=6] [--seed0=0] [--level=1]
 ##     [--modes=team2,team3,tdm2,tdm3,crater2,sinkhole2,brawl3,brawl4,caravan3,ctf3]
 ##     [--shrines=data|on|off] [--shrine-set=first_seconds:15,...] [--set=crown_points_to_win:20,...] [--rows]
 ## --shrines=on turns shrines on in a mode whose rules leave them out (with the shared
@@ -42,7 +42,7 @@ const MODES := {
 
 func _init() -> void:
 	var seeds := 6
-	var level := 3
+	var level := 1  # Normal CPUs (Kevin, Oct 2026: no Rage benches)
 	var modes: Array = MODES.keys()
 	var shrines := "data"
 	var rows := false
