@@ -121,13 +121,15 @@ update the map in the same change.
 | dedicated server, matchmaking, rooms, rematch, server monitoring | `src/net/relay_server.gd`, `src/net/dedicated_server.gd`, `docs/SERVER.md` | server, server_teams, rooms |
 | server limits, hostile clients, message validation, rate limits, timeouts, packet size | `src/net/relay_server.gd` (`FIELD_TYPES`, `_seated`, `_spend`, the limits at its top), `src/net/net_link.gd:decode`, `src/net/enet_hub.gd:poll`, `src/net/referee.gd` (clock and match caps), `src/sim/replay.gd:from_dict` | server_fuzz, server |
 | ranked ratings, daily scores, player ids and secrets, Daily verification | `src/net/ratings.gd`, `src/net/daily_client.gd`, `src/game/daily.gd:Verify`, `src/net/relay_server.gd:_identify` | ranked, ladders, server |
+| updating the server box, its systemd unit and token | `tools/server/update.sh` (main push builds only), `docs/SERVER.md` ("Updating to the latest main build", "Tighter limits") | |
+| hostile or malformed peer data on the client (delay, inputs, digests, names, LAN answers, replay files) | `src/net/netplay.gd:start_delay`, `clean_name`; `src/net/rollback_session.gd:receive`; `src/net/online_match.gd:receive`; `src/net/net_link.gd:int_of`; `src/net/lan_finder.gd:accepts`; `src/game/replay_builder.gd:valid_setup` | client_hardening, replays |
 | spectators, server replays | `src/net/referee.gd`, `src/net/relay_server.gd` | spectate |
 | LAN discovery | `src/net/lan_finder.gd`, `src/net/server_beacon.gd` | server |
 | cross-platform determinism check | `src/net/sim_check.gd` (`--sim-check`) | determinism |
 | running tests, a new test | `tests/run_tests.gd`, `tests/test_case.gd` (see `tests/CLAUDE.md`) | |
 | sprite generators, new fighter art, master palette, shading, outlines | `tools/splat3d.py` (`shade`, `outline`, `configure`), `tools/palette.py` (ramps, inks, `snap`), `tools/shade2d.py` (the same look for the 2D painters: Barkley, Gillbert), `tools/gen_digby.py` (see `tools/CLAUDE.md`; rules in `docs/SPRITES.md` "Palette") | views (`anim_preview.py --check all`) |
 | animation pass: in-betweens, overlap, eased spacing, preview GIFs, frame timelines | `tools/splat3d.py:tween`, `cycle`, `lag`, `lag_at`; `tools/anim_preview.py` (`gen_<id>.py anim`, `--check <id>`); each generator's `render_frame` / `frame_spec`; recipe in `docs/SPRITES.md` "Animation pass" | views (`anim_preview.py --check all`, `--selftest`) |
-| CI, builds | `.github/workflows/tests.yml`, `.github/workflows/playable-build.yml` | |
+| CI, builds | `.github/workflows/tests.yml`, `.github/workflows/playable-build.yml` (least-privilege `permissions`, actions pinned to commit SHAs with the tag in a comment, Godot downloads checked against the release's `SHA512-SUMS.txt`) | |
 
 `TEST_ONLY` matches file names by substring (`ai` would also run `test_training`), so the
 table writes `test_ai` and `test_ui` in full.

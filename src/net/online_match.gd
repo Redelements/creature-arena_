@@ -145,7 +145,7 @@ func _init(p_teams: Array, p_slot: int, p_delay: int, p_link: NetLink, p_id: int
 	size = clampi(p_size, 1, TeamSim.MOST_PER_SIDE)
 	players = size * 2
 	local_slot = clampi(p_slot, 0, players - 1)
-	input_delay = p_delay
+	input_delay = clampi(p_delay, 0, RollbackSession.MAX_INPUT_DELAY)
 	link = p_link
 	id = p_id
 	var menu_arena: String = MatchFactory.arena
@@ -186,30 +186,46 @@ func winner() -> int:
 
 ## A message for this match from another machine (`p`: whose; a 1v1 may leave it out).
 func receive(m: Dictionary) -> void:
-	var p := int(m.get("p", 1 - local_slot if players == 2 else -1))
+	var p := NetLink.int_of(m.get("p", 1 - local_slot if players == 2 else -1), -1)
 	if p < 0 or p >= players or p == local_slot:
 		return
-	match String(m.get("t", "")):
+	match str(m.get("t", "")):
 		"in":
 			var inputs = m.get("inputs")
 			if not (inputs is PackedInt32Array):
 				return
-			session.receive({"p": p, "first": int(m.get("first", 0)), "inputs": inputs,
-				"ack": int(m.get("ack", -1))})
+			session.receive({"p": p, "first": NetLink.int_of(m.get("first", 0)), "inputs": inputs,
+				"ack": NetLink.int_of(m.get("ack", -1), -1)})
 			if cpu_slots.has(p):
 				return
-			_remote_frame[p] = maxi(int(_remote_frame[p]), int(m.get("f", -1)))
+			# Their frame as they report it, kept within the window anyone can be ahead.
+			var their_f := NetLink.int_of(m.get("f", -1), -1, -1, session.frame + RollbackSession.MAX_AHEAD)
+			_remote_frame[p] = maxi(int(_remote_frame[p]), their_f)
 			# How far ahead of this machine they think they are: from their per-player
 			# list, or (a 1v1) their single figure.
 			var advs = m.get("advs")
 			if advs is PackedFloat32Array and local_slot < (advs as PackedFloat32Array).size():
-				_remote_adv[p] = float((advs as PackedFloat32Array)[local_slot])
+				_remote_adv[p] = _sane_adv((advs as PackedFloat32Array)[local_slot])
 			else:
-				_remote_adv[p] = float(m.get("adv", 0.0))
+				_remote_adv[p] = _sane_adv(m.get("adv", 0.0))
 		"dg":
-			var f := int(m.get("f", -1))
-			_remote_digests["%d:%d" % [p, f]] = String(m.get("d", ""))
+			# Fingerprints come every DIGEST_EVERY frames, near this machine's own frame:
+			# anything else is dropped, so a peer can't pile them up.
+			var f := NetLink.int_of(m.get("f", -1), -1)
+			if f <= 0 or f % DIGEST_EVERY != 0 or absi(f - session.frame) > RollbackSession.MAX_AHEAD:
+				return
+			_remote_digests["%d:%d" % [p, f]] = str(m.get("d", "")).left(128)
 			_check_digest(f)
+
+
+## A frame advantage a peer reported: a finite number within the input window, else 0.
+static func _sane_adv(v) -> float:
+	if typeof(v) != TYPE_FLOAT and typeof(v) != TYPE_INT:
+		return 0.0
+	var a := float(v)
+	if is_nan(a) or is_inf(a):
+		return 0.0
+	return clampf(a, -RollbackSession.MAX_AHEAD, RollbackSession.MAX_AHEAD)
 
 
 func tick(local_bits: int) -> void:

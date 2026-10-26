@@ -74,6 +74,9 @@ const LIVE_PING_KEEP := 5  ## the live ping is the best of this many recent samp
 const ATTENTIVE_WAIT_MS := 12  ## the guest waits on the socket this long a tick while being pinged
 ## Give up on a join that hasn't connected after this long.
 const CONNECT_TIMEOUT_TICKS := 10 * 60
+## The most frames a spectator takes from the server's log of a match in progress (an
+## hour; a real match is minutes). A longer one is refused, not stepped.
+const MAX_WATCH_LOG := 60 * 60 * 60
 
 enum Phase { IDLE, WAITING, CONNECTING, HANDSHAKE, PLAYING, ENDED }
 
@@ -556,7 +559,7 @@ func _handle(m: Dictionary) -> void:
 		"hello":
 			if not hosting or phase == Phase.PLAYING:
 				return
-			if int(m.get("v", -1)) != NET_VERSION or String(m.get("data", "")) != data_hash():
+			if NetLink.int_of(m.get("v", -1), -1) != NET_VERSION or str(m.get("data", "")) != data_hash():
 				link.send({"t": "reject", "why": "version"}, true)
 				link.flush()
 				_fail("The other player has a different version of the game. Both need the same build.")
@@ -643,7 +646,7 @@ func _handle(m: Dictionary) -> void:
 				_start_watching(m)
 				return
 			var teams = m.get("teams")
-			var size := clampi(int(m.get("size", 1)), 1, TeamSim.MOST_PER_SIDE)
+			var size := NetLink.int_of(m.get("size", 1), 1, 1, TeamSim.MOST_PER_SIDE)
 			if not (teams is Array) or (teams as Array).size() != 2 or not _valid_side(teams[0]) \
 					or not _valid_side(teams[1]) or (size > 1 and ((teams[0] as Array).size() != size
 					or (teams[1] as Array).size() != size)):
@@ -652,16 +655,16 @@ func _handle(m: Dictionary) -> void:
 			var slot := 1
 			if m.has("side"):  # from a dedicated server, which picks the sides
 				via_server = true
-				slot = clampi(int(m.get("slot", m["side"])), 0, size * 2 - 1)
-			ping_ms = float(m.get("ping", 0.0))
-			var rules := String(m.get("rules", ""))
-			var arena := String(m.get("arena", ArenaMap.DEFAULT))
+				slot = NetLink.int_of(m.get("slot", m["side"]), 0, 0, size * 2 - 1)
+			ping_ms = NetLink.float_of(m.get("ping", 0.0), 0.0, 0.0, 5000.0)
+			var rules := str(m.get("rules", ""))
+			var arena := str(m.get("arena", ArenaMap.DEFAULT))
 			if not (rules in TeamSim.RULE_IDS) or not ArenaMap.known(arena):
 				_fail("Bad match setup from the host")
 				return
 			rules_id = rules
 			arena_id = arena
-			_begin(int(m.get("n", 0)), teams, int(m.get("delay", 2)), slot, size, rules, arena)
+			_begin(NetLink.int_of(m.get("n", 0)), teams, start_delay(m), slot, size, rules, arena)
 			their_team = teams[1 - local_side]
 			if size == 1:
 				my_team = (teams[local_side] as Array).duplicate()
@@ -703,9 +706,9 @@ func _handle(m: Dictionary) -> void:
 					_fail(OPPONENT_LEFT)
 		"in", "dg":
 			if watch != null:
-				if String(m.get("t", "")) == "in" and int(m.get("n", -1)) == _watch_n:
-					watch.add_inputs(clampi(int(m.get("p", 0)), 0, watch.players - 1), m)
-			elif game != null and int(m.get("n", -1)) == game.id:
+				if str(m.get("t", "")) == "in" and NetLink.int_of(m.get("n", -1), -1) == _watch_n:
+					watch.add_inputs(NetLink.int_of(m.get("p", 0), 0, 0, watch.players - 1), m)
+			elif game != null and NetLink.int_of(m.get("n", -1), -1) == game.id:
 				game.receive(m)
 
 
@@ -720,7 +723,7 @@ func _room_status(m: Dictionary) -> void:
 	if who is Array:
 		for p in who:
 			if p is Dictionary:
-				var e := {"name": String(p.get("name", "Player")).left(16),
+				var e := {"name": clean_name(str(p.get("name", "Player"))),
 					"fighter": String(p.get("fighter", "")), "locked": bool(p.get("locked", false)),
 					"playing": bool(p.get("playing", false))}
 				room_players.append(e)
@@ -734,26 +737,33 @@ func _room_status(m: Dictionary) -> void:
 ## everything stepped so far.
 func _start_watching(m: Dictionary) -> void:
 	var teams = m.get("teams")
-	var size := clampi(int(m.get("size", 1)), 1, TeamSim.MOST_PER_SIDE)
-	var rules := String(m.get("rules", ""))
-	var arena := String(m.get("arena", ArenaMap.DEFAULT))
+	var size := NetLink.int_of(m.get("size", 1), 1, 1, TeamSim.MOST_PER_SIDE)
+	var rules := str(m.get("rules", ""))
+	var arena := str(m.get("arena", ArenaMap.DEFAULT))
+	var rows = m.get("log", [])
 	if not (teams is Array) or (teams as Array).size() != 2 or not _valid_side(teams[0]) \
-			or not _valid_side(teams[1]) or not (rules in TeamSim.RULE_IDS) or not ArenaMap.known(arena):
+			or not _valid_side(teams[1]) or not (rules in TeamSim.RULE_IDS) or not ArenaMap.known(arena) \
+			or (size > 1 and ((teams[0] as Array).size() != size or (teams[1] as Array).size() != size)) \
+			or not (rows is Array) or (rows as Array).size() > MAX_WATCH_LOG:
 		_fail("Bad match setup from the server")
 		return
 	via_server = true
 	match_found = false
-	_watch_n = int(m.get("n", 0))
+	_watch_n = NetLink.int_of(m.get("n", 0))
 	arena_id = arena
 	if room == "":
 		room_state = ""  # a rematch's pick is over
 		room_players = []
-	watch = Referee.new(teams, int(m.get("delay", 2)), size, rules, arena, _watch_n)
-	var rows = m.get("log", [])
-	if rows is Array:
-		watch.feed_log(rows)
+	watch = Referee.new(teams, start_delay(m), size, rules, arena, _watch_n)
+	watch.feed_log(rows)
 	phase = Phase.PLAYING
 	status = "Watching"
+
+
+## The input delay a "start" asks for, clamped to what a session takes (a host or server
+## asking for millions of frames would otherwise freeze this machine building them).
+static func start_delay(m: Dictionary) -> int:
+	return NetLink.int_of(m.get("delay", 2), 2, 0, RollbackSession.MAX_INPUT_DELAY)
 
 
 ## Host: measure the round trip with a few pings, then start the match. On a real link

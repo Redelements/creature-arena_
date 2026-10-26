@@ -128,7 +128,10 @@ sudo ufw allow from 192.168.0.0/24 to any port 7778 proto udp
 ```
 
 Without the rule, players at home just join the public name (and may get no answer).
-Never forward 7778 on the router: it's only for the local network.
+Never forward 7778 on the router: it's only for the local network. The game only takes
+an answer from a server of exactly its own build (the same protocol and game data); any
+other answer on the network (an older server, or a stranger's on a shared network) is
+ignored and the public name is used instead, so keep the server up to date.
 
 **Same build everywhere.** The server and both players need the same build (the same
 game data). The first log line shows `game data <hash>`; a player with another build is
@@ -236,6 +239,79 @@ WantedBy=multi-user.target
 mid-match see the connection drop within 5 seconds. Restart between matches (the log
 shows when nobody's playing).
 
+### Tighter limits (a drop-in)
+
+The game port faces the internet, so the service should be able to do as little as
+possible and never take the whole box down with it. Add these on top of the unit with
+`sudo systemctl edit creature-arena` (it writes
+`/etc/systemd/system/creature-arena.service.d/override.conf`):
+
+```ini
+[Unit]
+# Restarted at most 5 times in 5 minutes; after that it stays down (a crash loop).
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+# Restart on a crash, not on a clean stop.
+Restart=on-failure
+RestartSec=5
+# A runaway server is killed at 4 GB instead of pushing the box into swap.
+MemoryMax=4G
+TasksMax=256
+# Nothing to gain: no setuid, no new privileges, no capabilities.
+NoNewPrivileges=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=true
+# The file system is read-only except its own data folder (Godot's user://, where the
+# ratings, daily scores and saved replays live); /tmp is private; no home folders.
+ProtectSystem=strict
+ReadWritePaths=/var/lib/creature-arena
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+UMask=0077
+# No kernel, clock, hostname or control-group changes.
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+# Only the sockets a game server needs.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+SystemCallArchitectures=native
+```
+
+Then:
+
+```sh
+sudo systemctl daemon-reload && sudo systemctl restart creature-arena
+journalctl -u creature-arena -n 5 --no-pager        # "Creature Arena server on UDP port 7777"
+systemctl show creature-arena -p MemoryMax -p ProtectSystem -p ReadWritePaths -p Restart
+systemd-analyze security creature-arena | tail -1   # lower is better
+```
+
+Join it once from a game to check. If it won't start, `journalctl -u creature-arena -n 30`
+says why: remove the last lines you added and try again. `MemoryDenyWriteExecute` is
+left out on purpose (Godot's script engine may need it). If the data folder is somewhere
+else (`getent passwd arena` shows the home), use that path in `ReadWritePaths`.
+
+### Keep the logs from filling the disk
+
+Every log line goes to journald. Cap it in `/etc/systemd/journald.conf`, under
+`[Journal]`:
+
+```ini
+SystemMaxUse=1G
+```
+
+then `sudo systemctl restart systemd-journald`, and check with `journalctl --disk-usage`.
+
 ## Monitoring
 
 [Netdata](https://www.netdata.cloud/) gives the box a live dashboard with history:
@@ -261,13 +337,19 @@ in through the firewall (match its range, as for 7778):
 sudo ufw allow from 192.168.0.0/24 to any port 19999 proto tcp
 ```
 
-and make Netdata refuse everyone else (`sudo /etc/netdata/edit-config netdata.conf`,
-then `sudo systemctl restart netdata`):
+and make Netdata listen on the server's LAN address only and refuse everyone else
+(`sudo /etc/netdata/edit-config netdata.conf`, then `sudo systemctl restart netdata`;
+use the server's own address and your network's range):
 
 ```ini
 [web]
+    bind to = localhost 192.168.0.103
     allow connections from = localhost 192.168.*
+    allow connections by dns = no
 ```
+
+`sudo ss -tlpn | grep 19999` should then show `192.168.0.103:19999` and `127.0.0.1:19999`,
+not `*:19999`. The dashboard has no login: anyone on your Wi-Fi (guests too) can see it.
 
 Open `http://SERVER-IP:19999` from any device at home. Where to look:
 
@@ -297,27 +379,76 @@ sudo systemctl restart netdata
 sudo -u netdata /usr/libexec/netdata/plugins.d/alarm-notify.sh test   # or /opt/netdata/usr/libexec/...
 ```
 
+The webhook URL is a secret (anyone with it can post to the channel). Keep the file
+readable by Netdata only:
+
+```sh
+sudo chown root:netdata /etc/netdata/health_alarm_notify.conf
+sudo chmod 640 /etc/netdata/health_alarm_notify.conf
+sudo stat -c '%U:%G %a' /etc/netdata/health_alarm_notify.conf   # root:netdata 640
+```
+
+If it ever leaks (a screenshot, a pasted config), delete the webhook in Discord and make
+a new one.
+
 The dashboard is for checking from home: away from the home network it doesn't load.
 
 ## Updating to the latest main build
 
-Builds are GitHub Actions artifacts (kept 30 days; downloading needs a GitHub login, so
-run `gh auth login` once). `/opt/creature-arena/update.sh`:
+Builds are GitHub Actions artifacts (kept 30 days; downloading needs a GitHub token).
+The script is [`tools/server/update.sh`](../tools/server/update.sh) in the repository.
+It installs only the build GitHub made for a **push to main, of the commit main points
+at now**, built in this repository. A pull request's build is never installed (a fork's
+branch can also be called `main`), and if main's newest build hasn't finished or
+failed, it refuses and changes nothing:
+
+```
+update.sh: no successful push build of main 3f04189... yet (still running, failed, or main just moved): try again later
+update.sh: nothing was installed; the server keeps running its current build.
+```
+
+It prints the binary's SHA-256, the same figure the run's "Export builds" step prints,
+and then the server's log lines since the restart.
+
+**Install or update the script** (from a checkout, or download the file from GitHub and
+read it first):
 
 ```sh
-#!/bin/sh
-# Downloads the newest successful main build and restarts the server on it.
-set -e
-REPO=Redelements/creature-arena_
-RUN=$(gh run list -R $REPO -w playable-build.yml -b main -s success -L 1 --json databaseId -q '.[0].databaseId')
-TMP=$(mktemp -d)
-gh run download "$RUN" -R $REPO -p 'CreatureArena-linux-*' -D "$TMP"
-BIN=$(find "$TMP" -name CreatureArena.x86_64 | head -n 1)
-sudo install -m 755 -o root -g root "$BIN" /opt/creature-arena/CreatureArena.x86_64
-rm -rf "$TMP"
-sudo systemctl restart creature-arena
-journalctl -u creature-arena -n 3 --no-pager
+sudo install -m 755 -o root -g root tools/server/update.sh /opt/creature-arena/update.sh
+diff tools/server/update.sh /opt/creature-arena/update.sh && echo same
 ```
+
+Root owns it and nobody else can write it, since it runs `sudo`. Run it as your own user
+(`/opt/creature-arena/update.sh`), not as `arena`.
+
+### A read-only GitHub token for the box
+
+`gh auth login`'s default token can write to every repository you own. The server's
+game port faces the internet, so give the box a token that can only read this one
+repository's builds:
+
+1. On github.com: **Settings > Developer settings > Personal access tokens >
+   Fine-grained tokens > Generate new token**.
+2. Name it `creature-arena server`, expiration 90 days (a reminder to rotate it), resource
+   owner Redelements, **Only select repositories**: `Redelements/creature-arena_`.
+3. Repository permissions: **Actions: Read-only** and **Contents: Read-only** (Metadata:
+   Read-only is added by itself). Nothing else, no account permissions.
+4. Generate it and copy it once into a file on the box, as the user who runs update.sh:
+   ```sh
+   gh auth logout                        # drops the old full-access login, if any
+   umask 077; cat > ~/gh-token.txt       # paste the token, Enter, then Ctrl+D
+   gh auth login --with-token < ~/gh-token.txt && shred -u ~/gh-token.txt
+   gh auth status                        # a github_pat_ token, and no "Token scopes: 'repo'"
+   ```
+5. Check: `/opt/creature-arena/update.sh` still downloads and installs. After 90 days
+   GitHub emails a reminder; make a new token the same way.
+
+Then revoke the old token on github.com (**Settings > Applications > Authorized OAuth
+Apps > GitHub CLI**, if the box was the only place it was used).
+
+**GitHub settings that go with it** (repository **Settings > Actions > General**): under
+"Approval for running fork pull request workflows from contributors", choose **Require
+approval for all external contributors**, and keep main's branch protection.
 
 Players get the Windows build of the same run from that PR's or commit's build comment.
 

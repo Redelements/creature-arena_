@@ -86,6 +86,24 @@ static func decode(bytes: PackedByteArray) -> Variant:
 	return v if v is Dictionary else null
 
 
+## A whole number from a peer's message: `def` when it isn't a number (int() of an
+## array or a dictionary would be a script error), clamped to [lo, hi].
+static func int_of(v, def := 0, lo := -(1 << 62), hi := 1 << 62) -> int:
+	if typeof(v) != TYPE_INT and typeof(v) != TYPE_FLOAT:
+		return def
+	if typeof(v) == TYPE_FLOAT and (is_nan(v) or is_inf(v)):
+		return def
+	return clampi(int(clampf(v, lo, hi)) if typeof(v) == TYPE_FLOAT else int(v), lo, hi)
+
+
+## A finite number from a peer's message, clamped to [lo, hi]; `def` when it isn't one.
+static func float_of(v, def := 0.0, lo := -1e9, hi := 1e9) -> float:
+	if typeof(v) != TYPE_INT and typeof(v) != TYPE_FLOAT:
+		return def
+	var x := float(v)
+	if is_nan(x) or is_inf(x):
+		return def
+	return clampf(x, lo, hi)
 ## Containers nested deeper than this are refused (no message comes near it).
 const MAX_DEPTH := 16
 const _FLAG_64 := 1 << 16

@@ -1875,8 +1875,8 @@ func _replay_label(path: String) -> String:
 	if not (d is Dictionary) or not (d.get("setup") is Dictionary):
 		return stamp
 	var st: Dictionary = d["setup"]
-	if not ReplayBuilder.valid(st):
-		return stamp
+	if ReplayBuilder.unsupported(st) == ReplayBuilder.DAMAGED:
+		return stamp + "   (damaged)"
 	var names: Array = []
 	for id in st.get("ids", []):
 		names.append(String(MatchFactory.load_def(String(id)).get("name", id)))
