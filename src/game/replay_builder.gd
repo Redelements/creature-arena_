@@ -11,6 +11,7 @@ extends RefCounted
 ## Returns {"sim": MatchSim, "game": the DuelSim / TeamSim / BrawlSim or null}.
 
 const REMOVED_MODE := "This replay is from a mode that was removed"
+const DAMAGED := "This replay file is damaged"
 
 
 ## Why a setup can't be rebuilt any more ("" when it can): a team replay whose rules id
@@ -20,20 +21,20 @@ const REMOVED_MODE := "This replay is from a mode that was removed"
 ## unknown fighter or kind, a team of the wrong size) is refused the same way, with
 ## DAMAGED, before anything is built from it.
 static func unsupported(setup: Dictionary) -> String:
-	if not valid_setup(setup):
+	if not valid(setup) or not valid_setup(setup):
 		return DAMAGED
 	if str(setup.get("kind", "versus")) == "team" and not TeamSim.RULE_IDS.has(str(setup.get("rules", ""))):
 		return REMOVED_MODE
 	return ""
 
 
-const DAMAGED := "This replay file is damaged or from an unknown build"
 const KINDS := ["versus", "training", "duel", "team", "brawl"]
 
 
-## Whether every part of a setup `build` reads is the right type and in range: the kind,
-## each fighter id (one this build has), the teams (two sides of known fighters, `size`
-## each in a team battle), the size, the arena, and the optional mutators, energy,
+## On top of `valid`: whether every part of a setup `build` reads is the right type and
+## in range for its kind: a known kind, each fighter id one this build has, the teams (two
+## sides of known fighters, `size` each in a team battle), the size, a known arena, a
+## Brawl's player count, and the optional mutators (their numbers in range), energy,
 ## training flags and flag changes.
 static func valid_setup(setup: Dictionary) -> bool:
 	var kind = setup.get("kind", "versus")
@@ -86,6 +87,47 @@ static func valid_setup(setup: Dictionary) -> bool:
 				if kind == "team" and (side as Array).size() != size:
 					return false
 		elif (ids as Array).size() < 2:
+			return false
+	return true
+
+
+## Whether a setup (from a file someone may have edited) names a match that can be
+## built: known fighters (or the training dummy), two sides of at most a 4 v 4 (three
+## each for a tag Duel), and a sane size. build() trusts what passes.
+static func valid(setup: Dictionary) -> bool:
+	if not (setup.get("kind", "versus") is String):
+		return false
+	var ids = setup.get("ids", ["cairn", "culvert"])
+	if not _ids_ok(ids, Replay.MAX_WIDTH):
+		return false
+	if setup.has("teams"):
+		var teams = setup["teams"]
+		if not (teams is Array) or (teams as Array).size() != 2:
+			return false
+		for t in teams:
+			if not _ids_ok(t, TeamSim.MOST_PER_SIDE):
+				return false
+	if setup.has("size"):
+		var size = setup["size"]
+		if not (size is int or size is float) or int(size) < 1 or int(size) > TeamSim.MOST_PER_SIDE:
+			return false
+	for k in ["arena", "rules"]:
+		if setup.has(k) and not (setup[k] is String):
+			return false
+	for k in ["mutators", "training_flags"]:
+		if setup.has(k) and not (setup[k] is Dictionary):
+			return false
+	if setup.has("flag_changes") and not (setup["flag_changes"] is Array):
+		return false
+	return true
+
+
+static func _ids_ok(ids, most: int) -> bool:
+	if not (ids is Array) or (ids as Array).is_empty() or (ids as Array).size() > most:
+		return false
+	for id in ids:
+		if not (id is String) or not (id as String).is_valid_identifier() \
+				or not FileAccess.file_exists(MatchFactory.CREATURE_DIR + String(id) + ".json"):
 			return false
 	return true
 

@@ -579,6 +579,8 @@ var input_delay := -1
 var _pending_ranked := false
 ## A Daily score on its way to the server, or the board on its way back.
 var _daily_client: DailyClient = null
+## The tick a round ended on and the player's health share then ([] before one ends).
+var _round_end: Array = []
 var _daily_sent_toast := ""
 var _rb_seen := 0
 var _rb_rate := 0
@@ -1186,8 +1188,11 @@ func _mode_facts(row: Dictionary, cfg: Dictionary) -> Array:
 		match kind:
 			"deathmatch":
 				var t: Array = rules.get("score_to_win", [8, 8, 12, 15])
-				return ["First to %d KOs; respawns" % int(t[clampi(size, 0, t.size() - 1)]),
+				var facts := ["First to %d KOs; respawns" % int(t[clampi(size, 0, t.size() - 1)]),
 					clock + ", then sudden death"]
+				if int(rules.get("spree_at", 0)) > 0:
+					facts.append("%d KOs: a spree; end it for +%d" % [int(rules["spree_at"]), int(rules.get("shutdown_cap", 3))])
+				return facts
 			"crater":
 				return ["Hold the zone %d s in all" % (int(rules.get("score_to_win", 3600)) / 60),
 					"It moves, breaking the floor", clock]
@@ -1212,6 +1217,8 @@ func _mode_facts(row: Dictionary, cfg: Dictionary) -> Array:
 		var b := BrawlSim.load_rules()
 		var out := ["%d fighters, one life each" % BrawlSim.MAX_PLAYERS,
 			"Clock %s, healthiest wins" % _mmss(int(float(b.get("time_seconds", 120)) * 60))]
+		if bool(b.get("crown", false)):
+			out.append("First KO: the crown, a tie-break")
 		if cfg.get("chaos", false):
 			out.append("Three mutators each match")
 		return out
@@ -1659,7 +1666,9 @@ func _arcade_result(won: bool) -> bool:
 	if arcade is Daily:
 		# One fight, scored, saved with its replay so the score can be checked.
 		var d := arcade as Daily
-		var score := d.score_fight(won, share, sim.tick)
+		var end_tick := int(_round_end[0]) if _round_end.size() == 2 else sim.tick
+		var end_share := float(_round_end[1]) if _round_end.size() == 2 else share
+		var score := d.score_fight(won, end_share, end_tick)
 		var best := Progress.record_daily(d.date, score)
 		var path := "user://daily/daily_%d.json" % d.date
 		DirAccess.make_dir_recursive_absolute("user://daily")
@@ -1860,15 +1869,15 @@ func _open_replays() -> void:
 func _replay_label(path: String) -> String:
 	var stamp := path.get_file().trim_prefix("replay_").trim_suffix(".json").replace("T", " ")
 	var f := FileAccess.open(path, FileAccess.READ)
-	if f == null:
+	if f == null or f.get_length() > Replay.MAX_FILE_BYTES:
 		return stamp
 	var d = JSON.parse_string(f.get_as_text())
 	if not (d is Dictionary) or not (d.get("setup") is Dictionary):
 		return stamp
 	var st: Dictionary = d["setup"]
-	var names: Array = []
-	if not ReplayBuilder.valid_setup(st):
+	if ReplayBuilder.unsupported(st) == ReplayBuilder.DAMAGED:
 		return stamp + "   (damaged)"
+	var names: Array = []
 	for id in st.get("ids", []):
 		names.append(String(MatchFactory.load_def(String(id)).get("name", id)))
 	return "%s   %s   %s" % [stamp.left(16), String(st.get("kind", "versus")), " v ".join(names)]
@@ -1959,6 +1968,7 @@ func _show_pads() -> void:
 func _update_zone() -> void:
 	fx.flags = []
 	fx.shrines = _shrine_marks()
+	fx.wanted = _wanted_marks()
 	if team_battle != null and team_battle.ctf:
 		for side in 2:
 			var st := int(team_battle.flag_state[side])
@@ -1991,6 +2001,53 @@ func _update_zone() -> void:
 	var holder := team_battle.zone_holder()
 	fx.zone = {"pos": sim.zone_pos, "radius": sim.zone_r,
 		"color": Hud.SIDE_COLORS[holder] if holder >= 0 else Color("e8d8a0")}
+
+
+## Who is wanted, for FxView's marks over their heads: per slot {} or {"kind": "spree",
+## "level"} (Team Deathmatch) / {"kind": "crown"} (a Brawl's crown holder).
+func _wanted_marks() -> Array:
+	var out: Array = []
+	if sim == null:
+		return out
+	for i in sim.creatures.size():
+		out.append(_wanted(i))
+	return out
+
+
+func _wanted(i: int) -> Dictionary:
+	if team_battle != null and team_battle.sim == sim and team_battle.spree:
+		var lv := team_battle.spree_level(i)
+		if lv > 0:
+			return {"kind": "spree", "level": lv}
+	elif brawl != null and brawl.sim == sim and brawl.crown_on and brawl.crown == i:
+		return {"kind": "crown"}
+	return {}
+
+
+## Team Deathmatch's spree and shutdown, and the Brawl crown: the toasts.
+func _wanted_toast(e: Dictionary) -> void:
+	var who := int(e.get("who", -1))
+	var name := _fighter_word(who)
+	match String(e["type"]):
+		"spree":
+			var lv := int(e.get("level", 1))
+			hud.show_toast("%s IS ON A SPREE" % name if lv <= 1 else "%s: %d KOs IN A ROW" % [name, int(e.get("kos", 0))])
+		"shutdown":
+			hud.show_toast("SHUTDOWN! +%d  ·  %s STOPS %s" % [int(e.get("bonus", 0)), name, _fighter_word(int(e.get("victim", -1)))])
+		"crown":
+			if who < 0:
+				hud.show_toast("THE CROWN IS LOOSE  ·  NEXT KO TAKES IT")
+			elif int(e.get("from", -1)) >= 0:
+				hud.show_toast("%s TAKES THE CROWN FROM %s" % [name, _fighter_word(int(e.get("from", -1)))])
+			else:
+				hud.show_toast("%s TAKES THE CROWN" % name)
+
+
+## A fighter's name in capitals for a toast ("?" for no one).
+func _fighter_word(slot: int) -> String:
+	if slot < 0 or sim == null or slot >= sim.creatures.size():
+		return "?"
+	return String(sim.creatures[slot].def.get("name", "?")).to_upper()
 
 
 ## The match's shrines for FxView (any mode with them): where, what, who is claiming it
@@ -2917,6 +2974,8 @@ func _ko_side() -> int:
 
 func _end_round(ko: int) -> void:
 	_carried_energy = [sim.creatures[0].energy, sim.creatures[1].energy]
+	# The Daily scores the round as it ends (the server's Daily.Verify stops here too).
+	_round_end = [sim.tick, clampf(sim.creatures[0].hp / sim.creatures[0].max_hp, 0.0, 1.0)]
 	flow = Flow.ROUND_OVER
 	flow_t = 0
 	audio.play("round_end")
@@ -3103,6 +3162,8 @@ func _react(e: Dictionary) -> void:
 		stats.note(e)
 		if String(e["type"]) in ["shrine_soon", "shrine_ready", "shrine", "shrine_boost"]:
 			_shrine_toast(e)
+		elif String(e["type"]) in ["spree", "shutdown", "crown"]:
+			_wanted_toast(e)
 	fx.spawn(e)
 	audio.on_event(e)
 	var power: float = e["power"]
@@ -3146,6 +3207,11 @@ func _react(e: Dictionary) -> void:
 			hud.cut_in(sim.creatures[who], clampi(sim.creatures[who].team, 0, 1), String(e.get("name", "Surge")))
 		"score":
 			crowd.cheer(0.5)
+		"spree":
+			crowd.cheer(0.4)
+		"shutdown", "crown":
+			crowd.cheer(0.8)
+			audio.play("round_start", -4.0, 1.3)
 		"respawn":
 			audio.play("warp", -4.0, 0.9)  # back on the pad
 		"overtime":
@@ -3511,11 +3577,12 @@ func _drop_intro() -> void:
 ## flags). Screen = (world - camera) x zoom + half the screen.
 func _update_pointers(view: Vector2) -> void:
 	var out: Array = []
-	if team_battle != null and sim != null and showcase == null:
-		var targets: Array = []
-		if team_battle.caravan:
+	var playing := sim != null and showcase == null
+	if playing and ((team_battle != null and team_battle.sim == sim) or (brawl != null and brawl.sim == sim)):
+		var targets := _wanted_pointers()
+		if team_battle != null and team_battle.caravan:
 			targets.append([team_battle.caravan_pos(), Hud.SIDE_COLORS[team_battle.cv_attacker()], "CARAVAN"])
-		if team_battle.ctf:
+		if team_battle != null and team_battle.ctf:
 			for side in 2:
 				var word: String = ["FLAG", "TAKEN", "DROPPED", "LOOSE"][clampi(int(team_battle.flag_state[side]), 0, 3)]
 				targets.append([team_battle.flag_pos[side], Hud.SIDE_COLORS[side], word])
@@ -3535,6 +3602,24 @@ func _update_pointers(view: Vector2) -> void:
 				k = minf(k, ((inner.end.y if d.y > 0.0 else inner.position.y) - mid.y) / d.y)
 			out.append({"pos": mid + d * k, "dir": d, "color": t[1], "label": t[2]})
 	hud.pointers = out
+
+
+## The wanted fighters' off-screen arrows: a Team Deathmatch spree for the other team (both
+## teams' when nobody here plays), a Brawl's crown holder for everyone but its wearer. Never
+## one the local team can't see (brush, stealth): the arrow would give it away.
+func _wanted_pointers() -> Array:
+	var out: Array = []
+	var mine := _viewer_team()
+	for i in sim.creatures.size():
+		var w := _wanted(i)
+		var c := sim.creatures[i]
+		if w.is_empty() or c.state == CreatureSim.State.KO or _is_hidden(i) or (mine >= 0 and c.team == mine):
+			continue
+		if String(w["kind"]) == "crown":
+			out.append([c.pos, Color("ffd84a"), "CROWN"])
+		else:
+			out.append([c.pos, Color("ff7a3a"), "SPREE"])
+	return out
 
 
 ## A fight: keeps every fighter in shot, heads included, with room around them. Close
@@ -4619,7 +4704,8 @@ func _load_settings() -> void:
 		level = clampi(int(cfg.get_value("game", "level", level)), 0, LEVEL_NAMES.size() - 1)
 		input_delay = clampi(int(cfg.get_value("online", "delay", -1)), -1, 3)
 		Netplay.player_id = String(cfg.get_value("online", "id", ""))
-		Netplay.player_name = Netplay.clean_name(str(cfg.get_value("online", "name", "Player")))
+		Netplay.player_secret = String(cfg.get_value("online", "secret", ""))
+		Netplay.player_name = Netplay.clean_name(String(cfg.get_value("online", "name", "Player")))
 		if Netplay.player_name == "":
 			Netplay.player_name = "Player"
 		var tc := String(cfg.get_value("game", "time", WeatherView.RANDOM))
@@ -4686,8 +4772,13 @@ func _load_settings() -> void:
 				if saved_rows.has(lbl) and MENU_ROWS[r].has("choices"):
 					_row_choice[r] = clampi(int(saved_rows[lbl]), 0, (MENU_ROWS[r]["choices"] as Array).size() - 1)
 	# After everything is loaded: saving here first would write defaults over it.
-	if Netplay.player_id.length() < 8:
-		Netplay.player_id = Netplay.make_player_id()
+	# The secret proves the id is this install's to a server (never shown or sent to
+	# another player); made with the id, or once for an id from before secrets.
+	if Netplay.player_id.length() < 8 or not Netplay.valid_secret(Netplay.player_secret):
+		if Netplay.player_id.length() < 8:
+			Netplay.player_id = Netplay.make_player_id()
+		if not Netplay.valid_secret(Netplay.player_secret):
+			Netplay.player_secret = Netplay.make_secret()
 		_save_settings()
 
 
@@ -4702,6 +4793,7 @@ func _save_settings() -> void:
 	cfg.set_value("game", "hazards", hazards_on)
 	cfg.set_value("online", "delay", input_delay)
 	cfg.set_value("online", "id", Netplay.player_id)
+	cfg.set_value("online", "secret", Netplay.player_secret)
 	cfg.set_value("online", "name", Netplay.player_name)
 	cfg.set_value("audio", "music_muted", audio.music_muted)
 	cfg.set_value("online", "fighter", _online_fighter)
@@ -5082,7 +5174,9 @@ func _daily_step() -> void:
 	elif c.ok and lobby != null:
 		var lines: Array = []
 		for i in c.board.size():
-			lines.append("%d. %s  %d" % [i + 1, String(c.board[i]["name"]), int(c.board[i]["score"])])
+			var row: Dictionary = c.board[i] if c.board[i] is Dictionary else {}
+			lines.append("%d. %s%s  %d" % [i + 1, Netplay.clean_name(String(row.get("name", ""))),
+				" (you)" if row.get("you", false) == true else "", int(row.get("score", 0))])
 		lobby.status = "Today's Daily top 10:  " + ("   ".join(lines) if not lines.is_empty() else "nobody yet")
 		lobby.status_bad = false
 	elif not c.ok:

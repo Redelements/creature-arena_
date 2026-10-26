@@ -1097,6 +1097,7 @@ func _pick_target(sim: MatchSim, me: CreatureSim) -> CreatureSim:
 			score = d * 0.5 + o.hp / o.max_hp * 220.0
 		elif ally != null:
 			score = at.distance_to(ally.pos) + d * 0.3
+		score -= mark_of(sim, o)  # a wanted foe (a spree, the crown) counts as that much nearer
 		if score < best_score:
 			best_score = score
 			best = o
@@ -1110,13 +1111,25 @@ func _pick_target(sim: MatchSim, me: CreatureSim) -> CreatureSim:
 		var in_my_face := nearest != null and nearest_d <= close
 		var much_weaker := how == "weakest" and best.hp / best.max_hp < focus.hp / focus.max_hp - 0.25
 		var peeling := how == "peel" and ally != null
-		if not (much_weaker or peeling):
+		var wanted := mark_of(sim, best) > mark_of(sim, focus)  # (a spree or the crown the focus isn't)
+		if not (much_weaker or peeling or wanted):
 			best = nearest if in_my_face else focus
 			_target_forced = in_my_face
+		elif wanted and in_my_face:
+			best = nearest  # the wanted foe can wait for the one in its face
+			_target_forced = true
 	_focus_slot = focus_slot
 	_target = best
 	_target_t = 30
 	return best if best != null else _nearest_known(sim, me)
+
+
+## The pull the mode gives foe `o` as a target (MatchSim.marks: a Team Deathmatch spree, the
+## Brawl crown), in pixels; 0 when the mode marks nobody.
+static func mark_of(sim: MatchSim, o: CreatureSim) -> float:
+	if o == null or o.id >= sim.marks.size():
+		return 0.0
+	return float(sim.marks[o.id])
 
 
 ## The team's focus target, when this CPU plays to it: team intent on, a living teammate

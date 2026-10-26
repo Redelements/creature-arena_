@@ -7,11 +7,14 @@ extends SceneTree
 ## Definitions in docs/plans/mode-metrics.md.
 ##   godot --headless --path . --script res://tests/bench_modes.gd -- [--seeds=6] [--seed0=0] [--level=3]
 ##     [--modes=team2,team3,tdm2,tdm3,crater2,sinkhole2,brawl3,brawl4,caravan3,ctf3]
-##     [--shrines=data|on|off] [--shrine-set=first_seconds:15,...] [--rows]
+##     [--shrines=data|on|off] [--shrine-set=first_seconds:15,...] [--set=crown_points_to_win:20,...] [--rows]
 ## --shrines=on turns shrines on in a mode whose rules leave them out (with the shared
 ## defaults, data/rules/shrines.json, and the haste/might cycle); off takes them out of
 ## any mode (Capture the Flag too); --shrine-set tries a shrine tuning (numbers) in every
-## mode that has them. --rows prints every match.
+## mode that has them. --set tries top-level rules numbers in every mode (spree_at:0 or crown:0
+## turns off Team Deathmatch's sprees or the Brawl crown). Also counted: time-outs, how often the
+## side (a Brawl: the fighter) that landed the last hit on the first one down won, and the
+## spree, shutdown and crown events. --rows prints every match.
 
 ## A hit after this many ticks of quiet starts a new fight; this many ticks without a hit
 ## landed is a stalemate tick.
@@ -19,6 +22,7 @@ const QUIET := 180
 ## Standings are sampled this often (ticks) for the half-time leader.
 const SAMPLE := 30
 var _shrine_set := {}
+var _rule_set := {}  ## --set=key:value,... top-level rules numbers tried in every mode (spree_at:0 turns sprees off, crown:0 the crown)
 var _seed0 := 0  ## the first seed (--seed0: more matches on top of an earlier run)
 const ROSTER := ["cairn", "sno", "pete", "craglash", "culvert", "digby", "hissy", "barkley", "gillbert", "cerebro"]
 ## id: [kind, rules id, fighters a side (team) or players (brawl), name]
@@ -56,12 +60,15 @@ func _init() -> void:
 		elif arg.begins_with("--shrine-set="):
 			for kv in arg.get_slice("=", 1).split(",", false):
 				_shrine_set[kv.get_slice(":", 0)] = float(kv.get_slice(":", 1))
+		elif arg.begins_with("--set="):
+			for kv in arg.get_slice("=", 1).split(",", false):
+				_rule_set[kv.get_slice(":", 0)] = float(kv.get_slice(":", 1))
 		elif arg == "--rows":
 			rows = true
-	print("Mode bench: %d seeds a mode, CPU level %s, shrines %s %s" % [seeds, CpuController.LEVELS[level]["name"], shrines,
-		_shrine_set if not _shrine_set.is_empty() else ""])
-	print("| Mode | Matches | Length (s) | Stalemate | Fights/min | KOs/match | Captures/match | Leader at half | Comebacks | Shrine claims/match | Claimer won | More buffs won |")
-	print("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+	print("Mode bench: %d seeds a mode, CPU level %s, shrines %s %s %s" % [seeds, CpuController.LEVELS[level]["name"], shrines,
+		_shrine_set if not _shrine_set.is_empty() else "", _rule_set if not _rule_set.is_empty() else ""])
+	print("| Mode | Matches | Length (s) | Stalemate | Fights/min | KOs/match | Captures/match | Leader at half | Comebacks | Shrine claims/match | Claimer won | More buffs won | Time-outs | First KO won | Sprees/match | Shutdowns/match | Crown changes/match |")
+	print("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
 	for m in modes:
 		if MODES.has(m):
 			_bench(String(m), seeds, level, shrines, rows)
@@ -77,6 +84,7 @@ func _rules(cfg: Array, shrines: String) -> Dictionary:
 		r["shrines"] = {"kinds": ["haste", "might"]}
 	if r.has("shrines"):
 		(r["shrines"] as Dictionary).merge(_shrine_set, true)
+	r.merge(_rule_set, true)
 	return r
 
 
@@ -84,7 +92,8 @@ func _bench(id: String, seeds: int, level: int, shrines: String, rows: bool) -> 
 	var cfg: Array = MODES[id]
 	var rules := _rules(cfg, shrines)
 	var tot := {"len": 0.0, "fight": 0, "quiet": 0, "fights": 0, "kos": 0, "led": 0, "back": 0, "claims": 0,
-		"claims_won": 0, "claims_decided": 0, "caps": 0, "buff_led": 0, "buff_won": 0}
+		"claims_won": 0, "claims_decided": 0, "caps": 0, "buff_led": 0, "buff_won": 0, "timeouts": 0, "first_ko": 0,
+		"first_won": 0, "sprees": 0, "shutdowns": 0, "crowns": 0}
 	for s in range(_seed0, _seed0 + seeds):
 		var r := _match(cfg, s, level, rules)
 		for k in tot:
@@ -94,12 +103,14 @@ func _bench(id: String, seeds: int, level: int, shrines: String, rows: bool) -> 
 				id, s, r["len"], r["winner"], 100.0 * r["quiet"] / maxf(1.0, r["fight"]), r["fights"], r["kos"],
 				str(r["leader"]), r["claims"]])
 	var mins := float(tot["fight"]) / 3600.0
-	print("| %s | %d | %.0f | %.0f%% | %.2f | %.1f | %.1f | %d | %s | %.1f | %s | %s |" % [cfg[3], seeds, tot["len"] / seeds,
+	print("| %s | %d | %.0f | %.0f%% | %.2f | %.1f | %.1f | %d | %s | %.1f | %s | %s | %d | %s | %.1f | %.1f | %.1f |" % [cfg[3], seeds, tot["len"] / seeds,
 		100.0 * tot["quiet"] / maxf(1.0, tot["fight"]), tot["fights"] / maxf(0.01, mins), float(tot["kos"]) / seeds,
 		float(tot["caps"]) / seeds, tot["led"], ("%d of %d" % [tot["back"], tot["led"]]) if tot["led"] > 0 else "n/a",
 		float(tot["claims"]) / seeds,
 		("%.0f%%" % (100.0 * tot["claims_won"] / tot["claims_decided"])) if tot["claims_decided"] > 0 else "n/a",
-		("%d of %d" % [tot["buff_won"], tot["buff_led"]]) if tot["buff_led"] > 0 else "n/a"])
+		("%d of %d" % [tot["buff_won"], tot["buff_led"]]) if tot["buff_led"] > 0 else "n/a",
+		tot["timeouts"], ("%d of %d" % [tot["first_won"], tot["first_ko"]]) if tot["first_ko"] > 0 else "n/a",
+		float(tot["sprees"]) / seeds, float(tot["shutdowns"]) / seeds, float(tot["crowns"]) / seeds])
 
 
 func _match(cfg: Array, s: int, level: int, rules: Dictionary) -> Dictionary:
@@ -133,6 +144,11 @@ func _match(cfg: Array, s: int, level: int, rules: Dictionary) -> Dictionary:
 	var claims: Array = []  # the team of each claim
 	var caps := 0
 	var buffs := {}  # team -> permanent shrine buffs taken
+	var first_by := -1  # the team (a Brawl: the slot) whose fighter landed the last hit on the first fighter down
+	var timeout := false
+	var sprees := 0
+	var shutdowns := 0
+	var crowns := 0
 	for t in limit:
 		var ins := PackedInt32Array()
 		for i in game.slot_count():
@@ -151,6 +167,14 @@ func _match(cfg: Array, s: int, level: int, rules: Dictionary) -> Dictionary:
 					claims.append(int(e.get("team", -1)))
 				"capture":
 					caps += 1
+				"duel_over":
+					timeout = String(e.get("by", "")) == "time"
+				"spree":
+					sprees += 1
+				"shutdown":
+					shutdowns += 1
+				"crown":
+					crowns += 1
 				"shrine_boost":
 					if String(e.get("boost", "")) != "":
 						buffs[int(e["team"])] = int(buffs.get(int(e["team"]), 0)) + 1
@@ -158,6 +182,8 @@ func _match(cfg: Array, s: int, level: int, rules: Dictionary) -> Dictionary:
 			var down := c.state == CreatureSim.State.KO or c.hp <= 0.0
 			if down and not bool(was_down[c.id]):
 				kos += 1
+				if kos == 1 and c.last_attacker >= 0:
+					first_by = sim.creatures[c.last_attacker].team
 			was_down[c.id] = down
 		if last_hit < 0 or fight - last_hit > QUIET:
 			quiet += 1
@@ -191,7 +217,10 @@ func _match(cfg: Array, s: int, level: int, rules: Dictionary) -> Dictionary:
 	return {"len": float(sim.tick) / 60.0, "fight": fight, "quiet": quiet, "fights": fights, "kos": kos,
 		"led": 1 if leader >= 0 and winner >= 0 else 0, "back": 1 if leader >= 0 and winner >= 0 and winner != leader else 0,
 		"claims": claims.size(), "claims_won": won if winner >= 0 else 0, "claims_decided": claims.size() if winner >= 0 else 0,
-		"winner": winner, "leader": leader, "caps": caps, "buff_led": buff_led, "buff_won": buff_won}
+		"winner": winner, "leader": leader, "caps": caps, "buff_led": buff_led, "buff_won": buff_won,
+		"timeouts": 1 if timeout else 0, "first_ko": 1 if first_by >= 0 and winner >= 0 else 0,
+		"first_won": 1 if first_by >= 0 and winner == first_by else 0, "sprees": sprees, "shutdowns": shutdowns,
+		"crowns": crowns}
 
 
 ## Each side's standing (higher is ahead): the mode's score where it keeps one, else the

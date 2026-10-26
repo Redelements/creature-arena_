@@ -139,7 +139,7 @@ func test_names_are_cleaned() -> void:
 	assert_eq(Netplay.clean_name("\u202Elive\u202C"), "live", "bidi overrides dropped:")
 	assert_eq(Netplay.clean_name("a\u200Bb\u2066c\uFEFF"), "abc", "zero-width and isolates dropped:")
 	assert_eq(Netplay.clean_name("  a \t\n  b  "), "a b", "spaces collapsed and trimmed:")
-	assert_eq(Netplay.clean_name("x\u0001\u0007\u001b[31my"), "x[31my", "control characters dropped:")
+	assert_eq(Netplay.clean_name("x\u0001\u0007\u001b[31my"), "x [31my", "control characters are a space at most:")
 	assert_eq(Netplay.clean_name("\u0001\u200B "), "Player", "nothing left: the default:")
 	assert_eq(Netplay.clean_name("abcdefghijklmnopqrstuvwxyz"), "abcdefghijklmnop", "16 at most:")
 	var zoe := "Zo\u00EB " + String.chr(0x1F642) + " \u00DCnal"

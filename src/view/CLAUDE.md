@@ -104,7 +104,7 @@ shield_up, shield_break, slow, taunt, roar, hook, pull, burst, reel, tenderized,
 punishable, freeze, zone, steal, warp, blink, blinded, miss, rooted, poisoned, poison,
 gaze, petrify, shatter, hazard_strike, hazard_hit, hazard_shelter, hazard_pickup,
 hazard_pickup_gone; audio only: surge, duel_over; main only: hazard_warn (`main.gd:_hazard_warn`,
-the HUD banner / toast). `FxView.cue(sound)` is a signal for
+the HUD banner / toast), spree, shutdown, crown (`main.gd:_wanted_toast`, the crowd). `FxView.cue(sound)` is a signal for
 dig/slosh/poof/chop_chop/shout sounds.
 
 ## Where to look
@@ -139,6 +139,10 @@ dig/slosh/poof/chop_chop/shout sounds.
   cores' glow), `_draw_hazards_top` (the crest, falling meteors, the core's ember), `_hazard_spray`, `_hazard_event`;
   all read from `sim.hazards` / `Hazards.wave_now` / `meteors_now`. Breakwaters are WALL cells the map didn't put
   there: `arena_view.gd:_draw_rubble` draws them like a rockslide's
+- Wanted marks over the bar (a Team Deathmatch spree's flame with a pip a level, the Brawl crown) →
+  `fx_view.gd:_draw_wanted` (`FxView.wanted`, from `main.gd:_wanted_marks`); their off-screen arrows
+  `main.gd:_wanted_pointers` (never for a fighter the local team can't see); the toasts `main.gd:_wanted_toast`;
+  the crown points under the clock `hud.gd:_crown_points`
 - Health bars over fighters → `fx_view.gd:_draw_side_marks` (`side_marks[i].rel` from main's
   `_relation()`)
 - Telegraphs and aim marks → `_draw_telegraph`, `_draw_aim_mark`, `_draw_lob_mark`,

@@ -87,6 +87,9 @@ e.g. Cerebro's `poke`, whose mallet thrown at a tank walking in loses the matchu
   no shelter; walks to a core within 110 px when no foe is on it). Reads `sim.hazards` through
   `Hazards.wave_now` / `meteors_now` and `sim.hazard_pickups`, like a player reading the screen
 - Kite spacing → `kite_band` (80% of the light's range; the kite plan never reads `ai.range`)
+- Wanted foes (a Team Deathmatch spree, the Brawl crown: `MatchSim.marks`, px of pull from the rules) →
+  `mark_of`; `_pick_target` counts a marked foe that much nearer and keeps it over the team focus unless
+  another foe is in its face; `TeamIntent.f_mark` weights the team score by 1 + pull / `MARK_PX`
 - Leading shots → `_aim_point`; team targeting → `_pick_target`, `_hurt_ally`; Duel tag-out
   → `_maybe_tag`; Crease's folds → `_usable`, `_maybe_fold`
 - Team play (piece 3 of the plan) → `team_intent.gd`: the team's focus target (`TeamIntent.of`,

@@ -772,6 +772,8 @@ func _center() -> void:
 		_deathmatch_score()
 	elif team != null:
 		_team_goal()
+	elif brawl != null and brawl.crown_on:
+		_crown_points()
 	if mutator_text != "":
 		_text(Vector2(140 + _cx, 52), mutator_text, 5, C_ACCENT, HORIZONTAL_ALIGNMENT_CENTER, 200)
 	for side in 2:
@@ -779,6 +781,36 @@ func _center() -> void:
 			var px := 232.0 + _cx + (i * 7.0 if side == 1 else -i * 7.0) + (14.0 if side == 1 else 0.0)
 			var won := i < int(wins[side])
 			draw_circle(Vector2(px, 32), 2.5, C_ACCENT if won else Color(0.25, 0.27, 0.3))
+
+
+## The Brawl crown under the clock: each fighter's crown points in its colour (the holder's
+## with a little crown, standing fighters only), or what takes the crown while nobody wears it.
+func _crown_points() -> void:
+	var shown: Array = []
+	for i in brawl.slot_count():
+		if brawl.crown == i or (brawl.crown_points(i) > 0 and brawl.alive(i)):
+			shown.append(i)
+	if shown.is_empty():
+		_text(Vector2(184 + _cx, 34), "NEXT KO TAKES THE CROWN", 5, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, 112)
+		return
+	var w := 36.0
+	var x0 := 240.0 + _cx - w * shown.size() * 0.5
+	for k in shown.size():
+		var i := int(shown[k])
+		var x := x0 + w * k
+		var col := BRAWL_COLORS[i % BRAWL_COLORS.size()]
+		draw_rect(Rect2(x, 29, w - 2, 13), C_PANEL)
+		draw_rect(Rect2(x, 29, w - 2, 1), col)
+		if brawl.crown == i:
+			var g := Color("ffd84a")
+			draw_rect(Rect2(x + 3, 37, 9, 3), g)
+			draw_rect(Rect2(x + 3, 32, 1, 5), g)
+			draw_rect(Rect2(x + 7, 31, 1, 6), g)
+			draw_rect(Rect2(x + 11, 32, 1, 5), g)
+			draw_rect(Rect2(x + 4, 35, 7, 2), g)
+		else:
+			draw_rect(Rect2(x + 4, 33, 6, 6), col)
+		_text(Vector2(x + 14, 40), str(brawl.crown_points(i)), 8, col, HORIZONTAL_ALIGNMENT_LEFT, w - 15)
 
 
 ## Team battle and Sinkhole: what wins, and for the Sinkhole the ring the edge is on and
