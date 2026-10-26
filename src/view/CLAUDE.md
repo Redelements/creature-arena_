@@ -25,6 +25,16 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   pixels: `CreatureView.snapshot()` carries `ppu` for the afterimages and death pieces, the
   HUD's portrait and cut-in, the select screen and `FighterPreview` divide their scale by it.
   Never scale the sim or its data for art: `tests/test_art_scale.gd`, `docs/plans/32px-migration.md`.
+- Tiled arenas (`ArenaView` "tiled maps", `tiled()`): a map with `assets/arenas/<id>.tscn`
+  (built by `tools/build_tiles.gd` from its JSON `tiles` block and pieces) draws no baked
+  picture: the scene (TileMapLayers Ground, Grass, Pieces, 32 px tiles) sits under the floor
+  at half scale, and the breaking ground is two TileMapLayers of 16 px tiles, `_overlay`
+  (a crack, or a pit's far wall / floor by depth: `overlay_tile`) and `_edges` (the floor's
+  edge down a pit's sides and its near rim: `edge_tile`), set per changed row in
+  `_retile` from `_find_changes`; a smashed wall's boulder and flattened brush's tuft are
+  cleared from the scene's Pieces layer until they heal (`_sync_pieces`). The floor, marks
+  and pit bands paint nothing on such a map; the running cracks, closing pits and dust
+  still draw over it. Ids and the artist's layers: `assets/README.md`; `tests/test_tiles.gd`.
 - Art layout is data-driven: frame size (`[w, h]` frames allowed, Crease's are 128x160),
   origin, `anims`, `side_only`, `idle_ticks`, `run_ticks`, `step_frames`, `anim`, `anim_at` (also the dodge's), `anim_reel`,
   `anim_charge`, `view_lift` from the creature JSON (`FighterPreview` reads `idle_ticks` too). Up/down sheets are optional, and so are the diagonal sheets `down_side` / `up_side` (mirrored for the left; `pick_view`: 8 sectors of 45 degrees, falling back to the older up/down/side rule when a fighter lacks the sector's sheet, so fighters without them still draw diagonals side-on).

@@ -1,0 +1,43 @@
+{
+	"_doc": "Meadow Pitch: the first arena on bought ground tiles (Szadi art's RPG Worlds Set 1) instead of a baked picture. Its floor is assets/arenas/meadow.tscn, built by tools/build_tiles.gd from the \"tiles\" block here (rects in 32 px tiles, 2 x 2 cells each) and the pieces below (cells); the breaking ground draws over it from the overlay tiles (assets/README.md). Rects are [col, row, width, height] in 8 px cells on the 84x36 grid. The deathmatch pads (the side walls' middle) stay clear.",
+	"id": "meadow",
+	"name": "Meadow Pitch",
+	"ground": "dirt",
+	"times": ["day", "sunset"],
+	"weathers": ["clear", "rain", "wind", "fog"],
+	"light": {"_doc": "an afternoon sun over open country: longer shadows, a little to the right", "dir": [0.3, 1.0], "length": 0.42, "alpha": 0.3, "sun": {"color": "#fff1d6", "energy": 0.55}},
+	"grade": {"_doc": "warm open air; a view-only tint and vignette (GradeView)", "tint": "#fbf6ea", "vignette": 0.14},
+	"ambient": {"_doc": "pollen on the breeze, brush that sways, butterflies over the beds; see AmbientView",
+		"motes": {"kind": "pollen", "count": 30},
+		"sway": true,
+		"critters": [
+			{"kind": "butterfly", "count": 3},
+			{"kind": "bird", "every": 1800, "flock": 4, "first": 600}]},
+	"tiles": {
+		"_doc": "set: the cut pack (assets/tiles/<set>_manifest.json); ground: its fill under everything; grass: rects of autotiled grass in tiles",
+		"set": "set1",
+		"ground": "dirt",
+		"grass": [
+			[2, 1, 9, 4], [4, 5, 4, 2],
+			[31, 13, 9, 4], [34, 11, 4, 2],
+			[16, 0, 10, 2], [19, 2, 4, 1],
+			[16, 16, 10, 2], [19, 15, 4, 1],
+			[0, 7, 2, 5], [40, 6, 2, 5]
+		]
+	},
+	"furniture": [
+		{"kind": "post", "pos": [4, 60], "color": "#c43434"},
+		{"kind": "post", "pos": [-4, 60], "anchor": "tr", "color": "#2c5cb4", "mirror": true},
+		{"kind": "flag", "pos": [-260, -2], "anchor": "t", "h": 34, "color": "#c43434"},
+		{"kind": "flag", "pos": [260, -2], "anchor": "t", "h": 34, "color": "#2c5cb4", "mirror": true}
+	],
+	"pieces": [
+		{"kind": "wall", "rect": [12, 6, 2, 2]},
+		{"kind": "wall", "rect": [70, 6, 2, 2]},
+		{"kind": "wall", "rect": [12, 28, 2, 2]},
+		{"kind": "wall", "rect": [70, 28, 2, 2]},
+		{"kind": "wall", "rect": [40, 16, 4, 4]},
+		{"kind": "brush", "rect": [14, 14, 6, 8]},
+		{"kind": "brush", "rect": [64, 14, 6, 8]}
+	]
+}

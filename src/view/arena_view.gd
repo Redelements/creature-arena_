@@ -81,8 +81,148 @@ var arena_id := "":
 			var mpath := "res://assets/sprites/arena_%s_crackmask.png" % v
 			_mask = load(mpath) if _art != null and ResourceLoader.exists(mpath) else null
 			_bridges = ArenaMap.bridge_rects(ArenaMap.get_map(v)) if v != "" else []
+			var spath := "res://assets/arenas/%s.tscn" % v
+			_scene = load(spath) if v != "" and ResourceLoader.exists(spath) else null
+			var tset := String(ArenaMap.get_map(v).get("tiles", {}).get("set", "set1")) if v != "" else ""
+			var opath := "res://assets/tiles/%s_overlay.tres" % tset
+			_overlay_set = load(opath) if _scene != null and ResourceLoader.exists(opath) else null
 			_rebuild()
 var _art: Texture2D = null
+
+# ---------------------------------------------------------------- tiled maps
+## A map built from ground tiles instead of a baked picture (assets/arenas/<id>.tscn, made by
+## tools/build_tiles.gd from a cut pack): its scene is instanced under the floor at
+## 1 / ArtScale.PX_PER_UNIT scale (a 32 px tile is 2 x 2 cells), and the breaking ground is
+## two TileMapLayers of 16 px overlay tiles (one a cell) set from the terrain: `_overlay`
+## carries a cracked cell's crack or a pit cell's far wall / floor by depth, `_edges` the
+## floor's edge down a pit's sides and along its near rim. The ids are the overlay atlas's
+## (assets/tiles/<set>_overlay.png, index = column + 8 * row; assets/README.md names them
+## for the artist). The scene's "Pieces" layer loses a boulder whose wall is smashed and a
+## tuft whose brush is flattened, and gets them back when the floor heals.
+var _scene: PackedScene = null
+var _overlay_set: TileSet = null
+var _tiles: Node2D = null
+var _overlay: TileMapLayer = null
+var _edges: TileMapLayer = null
+var _piece_cells := {}  ## the scene's pieces as built: tile -> [source, atlas coords]
+const OV_COLS := 8
+const OV_CRACK := [0, 1, 2, 3]
+const OV_WALL_TOP := 8
+const OV_WALL_MID := 9
+const OV_WALL_BOTTOM := 10
+const OV_FLOOR := 11
+const OV_CHASM_TOP := 12  ## the same four for a chasm, OV_CHASM_TOP + depth
+const OV_EDGE_L := 16
+const OV_EDGE_R := 17
+const OV_EDGE_LR := 18
+const OV_RIM := 19  ## the near rim; + 1 with the left side, + 2 the right, + 3 both
+
+
+## Whether this map draws from ground tiles (no baked picture).
+func tiled() -> bool:
+	return _scene != null
+
+
+## The overlay tile for a cell: a crack (by its hash), a pit's far wall or floor by how
+## many open cells are above it (OV_WALL_TOP .. OV_FLOOR, or the chasm's), -1 for none.
+static func overlay_tile(v: int, depth: int, chasm: bool, hash: int = 0) -> int:
+	if v == TerrainGrid.CRACKED:
+		return OV_CRACK[posmod(hash, OV_CRACK.size())]
+	if TerrainGrid.is_pit(v):
+		return (OV_CHASM_TOP if chasm else OV_WALL_TOP) + mini(depth, PIT_DEPTH_CELLS)
+	return -1
+
+
+## The edge tile over a pit cell: the floor's edge down its left or right side and along
+## its near rim (floor below it), -1 when every neighbour is open too.
+static func edge_tile(left_open: bool, right_open: bool, below_open: bool) -> int:
+	var sides := (0 if left_open else 1) | (0 if right_open else 2)
+	if below_open:
+		return [-1, OV_EDGE_L, OV_EDGE_R, OV_EDGE_LR][sides]
+	return OV_RIM + sides
+
+
+static func _ov_coords(id: int) -> Vector2i:
+	return Vector2i(id % OV_COLS, id / OV_COLS)
+
+
+func _build_tiles() -> void:
+	_tiles = _scene.instantiate()
+	_tiles.position = Vector2(SimDefs.GRID_X, SimDefs.GRID_Y)
+	_tiles.scale = ArtScale.scale_of(ArtScale.PX_PER_UNIT)
+	add_child(_tiles)
+	move_child(_tiles, 0)
+	_piece_cells.clear()
+	var pieces := _tiles.get_node_or_null("Pieces") as TileMapLayer
+	if pieces != null:
+		for c in pieces.get_used_cells():
+			_piece_cells[c] = [pieces.get_cell_source_id(c), pieces.get_cell_atlas_coords(c)]
+	for which in 2:
+		var layer := TileMapLayer.new()
+		layer.name = "Overlay" if which == 0 else "Edges"
+		layer.tile_set = _overlay_set
+		layer.position = _tiles.position
+		layer.scale = _tiles.scale
+		add_child(layer)
+		if which == 0:
+			_overlay = layer
+		else:
+			_edges = layer
+
+
+## Sets the overlay cells of rows row0..row1-1 from the terrain, and the pieces on them.
+func _retile(row0: int, row1: int) -> void:
+	if _overlay == null:
+		return
+	var cols := terrain.cols
+	var per := ArtScale.TILE_CELLS
+	var pieces := _tiles.get_node_or_null("Pieces") as TileMapLayer
+	for cy in range(maxi(0, row0), mini(terrain.rows, row1)):
+		for cx in cols:
+			var i := cy * cols + cx
+			var v := terrain.cells[i]
+			var at := Vector2i(cx, cy)
+			var pit := _pit_at(cx, cy)
+			var id := -1
+			if pit:
+				id = overlay_tile(v, _pit_depth(cx, cy), v == TerrainGrid.CHASM)
+			elif v == TerrainGrid.CRACKED:
+				id = overlay_tile(v, 0, false, _h(cx, cy, 3))
+			if id < 0:
+				_overlay.erase_cell(at)
+			else:
+				_overlay.set_cell(at, 0, _ov_coords(id))
+			var eid := edge_tile(_pit_at(cx - 1, cy), _pit_at(cx + 1, cy), _pit_at(cx, cy + 1)) if pit else -1
+			if eid < 0:
+				_edges.erase_cell(at)
+			else:
+				_edges.set_cell(at, 0, _ov_coords(eid))
+		if pieces != null and cy % per == 0:
+			_sync_pieces(pieces, cy / per)
+
+
+## The scene's pieces on tile row `ty`: a boulder stays while every cell under it is still
+## the map's wall, a tuft while its brush stands; otherwise the tile is cleared.
+func _sync_pieces(pieces: TileMapLayer, ty: int) -> void:
+	var per := ArtScale.TILE_CELLS
+	for c: Vector2i in _piece_cells:
+		if c.y != ty:
+			continue
+		var whole := true
+		for dy in per:
+			for dx in per:
+				var cx := c.x * per + dx
+				var cy := c.y * per + dy
+				if cx < 0 or cy < 0 or cx >= terrain.cols or cy >= terrain.rows:
+					continue
+				var i := cy * terrain.cols + cx
+				if terrain.cells[i] != terrain.map_base[i]:
+					whole = false
+		if whole:
+			var was: Array = _piece_cells[c]
+			pieces.set_cell(c, int(was[0]), was[1])
+		else:
+			pieces.erase_cell(c)
 var _art_cracked: Texture2D = null
 ## The floor with its pieces changed (a smashed wall's rubble, flattened brush), if any.
 var _art_alt: Texture2D = null
@@ -203,7 +343,7 @@ const SPREAD_FRAMES := 4
 ## Starts the drawing over: a new terrain, map art or ground.
 func _rebuild() -> void:
 	queue_redraw()
-	var old: Array = [_marks, _under, _over, _dust]
+	var old: Array = [_marks, _under, _over, _dust, _tiles, _overlay, _edges]
 	old.append_array(_floor_bands)
 	old.append_array(_pit_bands)
 	for b in old:
@@ -219,6 +359,9 @@ func _rebuild() -> void:
 	_under = null
 	_over = null
 	_dust = null
+	_tiles = null
+	_overlay = null
+	_edges = null
 	_grow.clear()
 	_settle.clear()
 	_motes.clear()
@@ -231,12 +374,18 @@ func _rebuild() -> void:
 		return
 	_build_bridge_cells()
 	_build_pit_tex()
+	if _scene != null and _overlay_set != null:
+		_build_tiles()
 	var bands := ceili(terrain.rows / float(BAND_ROWS))
 	for k in bands:
 		_floor_bands.append(_band(_paint_floor, k))
 	_marks = _band(_paint_marks, 0)
 	_under = _band(_paint_under, 0)
 	_under.label = "pit fx under"
+	if _overlay != null:
+		# the breaking ground as tiles, where the pit bands would be
+		move_child(_overlay, get_child_count() - 1)
+		move_child(_edges, get_child_count() - 1)
 	for k in bands:
 		_pit_bands.append(_band(_paint_pit_band, k))
 	_over = _band(_paint_over, 0)
@@ -249,6 +398,8 @@ func _rebuild() -> void:
 		if terrain.cells[i] != terrain.base[i]:
 			_schedule(i)
 	_build_shade()
+	if _overlay != null:
+		_retile(0, terrain.rows)
 
 
 ## Which floor cells lie in the shadow of pieces that can change (`_shade`): each such
@@ -370,6 +521,8 @@ func _find_changes() -> void:
 	for k in dirty:
 		if not (k in _pending):
 			_pending.append(k)
+		if _overlay != null:
+			_retile(k * BAND_ROWS, (k + 1) * BAND_ROWS)
 
 
 ## A few of the pending bands each frame (every band paints the floor as it is now, so a
@@ -437,6 +590,8 @@ func _draw() -> void:
 ## A floor band: on a map with art, the cells that differ from it; else the floor tiles
 ## (intact and cracked cells, then the map's pieces that sit on them).
 func _paint_floor(ci: CanvasItem, row0: int, row1: int) -> void:
+	if _tiles != null:
+		return  # the ground scene and the overlay tiles draw it all
 	if _art != null:
 		_paint_changed(ci, row0, row1)
 		return
@@ -471,7 +626,7 @@ func _paint_floor(ci: CanvasItem, row0: int, row1: int) -> void:
 
 ## Court markings over a tiled floor (the art has its own), under the pits.
 func _paint_marks(ci: CanvasItem, _row0: int, _row1: int) -> void:
-	if _art != null:
+	if _art != null or _tiles != null:
 		return
 	var fr := terrain.floor_rect()
 	var c := fr.get_center()
@@ -707,6 +862,8 @@ func _build_pit_tex() -> void:
 ## A pit band: holes and chasms over everything else, so they cut through the markings,
 ## each with its lip and the pebbles round it.
 func _paint_pit_band(ci: CanvasItem, row0: int, row1: int) -> void:
+	if _tiles != null:
+		return  # the overlay tiles are the pits
 	var cols := terrain.cols
 	for cy in range(row0, row1):
 		for cx in cols:
