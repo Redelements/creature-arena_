@@ -868,7 +868,7 @@ need regenerating. Idle and every other row are untouched (`tests/test_light2d.g
 | --- | --- | --- |
 | Pete | the whites in his mask's eye holes (the pupils stay dark) | `#8a5cd6` |
 | Culvert | his amber eyes' lit half, the same glow turned up from 150 to 255 | his own amber |
-| Digby | his beady black eyes | `#c08040` |
+| Digby | his beady black eyes | `#ffe9a8` (the aura's light colour; its middle one, `#c08040`, read too dim) |
 | Sno Mercy | the whites of his eyes | `#bdf1ff` |
 | Hissy Fitz | her eyes: the plain yellow turned up from 110 to 255 (the lit-up eye colours were full already) | her own |
 | Chef Cerebro | a spot in the middle of each sunglasses lens (his eyes behind them) | `#d58cff` |

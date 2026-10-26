@@ -59,8 +59,9 @@ MAT = {
 # warm white, the brass housing's lit side a little.
 S.configure(MAT, scale=0.8, near=14.0, near_views={"down_side": 10.0, "up_side": 10.0},
             emissive={"lens": {"a": 240, "rgb": (255, 236, 176)}, "lamp": {"a": 150, "min_level": 3}})
-# In Cave-In his beady eyes glow full in the Surge's colour.
-S.surge_eyes("digby")
+# In Cave-In his beady eyes glow full in the Surge aura's light colour (its middle one, #c08040,
+# reads too dim on his dark fur).
+S.surge_eyes("digby", rgb=(0xff, 0xe9, 0xa8))
 S.COLS = 12  # the run, the pop-up, Burrow and Cave-In have 12 frames
 
 
