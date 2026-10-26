@@ -179,37 +179,37 @@ CPU levels: 0 Easy, 1 Normal, 2 Hard, 3 Rage.
   uses gap closers.
 
 `tests/bench_cpu.gd` pits any two levels against each other across the roster (Rage
-beats Hard about 98% of the time). Rage against Rage shows the kits' balance:
-`--matrix` prints every pair, `--pairs=a:b,c:d` just those, both with `--seeds=N`.
+beats Hard about 98% of the time). Balance is measured **Normal against Normal**, never
+with Rage CPUs (Kevin's ruling, Oct 2026: the Rage results didn't match how the game
+plays); the benches default to Normal. `--matrix` prints every pair, `--pairs=a:b,c:d` just
+those, both with `--seeds=N`.
 
 ### Class balance
 
-The roster is balanced **within each class** (mirrors close to even) and along a class
+The goal: balanced **within each class** (mirrors close to even) and along a class
 triangle: **assassins beat the mage; the mage beats fighters and tanks; fighters beat
-assassins.** Measured Rage against Rage (the only CPU that plays each kit the way it's
-meant to be played), checked by `tests/test_balance.gd`:
+assassins.** Measured Normal against Normal and pinned by `tests/test_balance.gd`.
 
-| Matchup | Rage vs Rage |
-| --- | --- |
-| Digby vs Chef Cerebro | 80–100% Digby (his hidden Burrow engage) |
-| Sneaky Pete vs Chef Cerebro | Pete favoured (about 85%; not pinned) |
-| Chef Cerebro vs Cairn, Hissy Fitz, Culvert | Cerebro favoured (75–100%) since his Oct 2026 kit pass (the Mallet Toss staggers a tenderized foe); Craglash beats him (about 25% Cerebro) |
-| Cairn or Hissy Fitz vs an assassin | 60–100% the fighter |
-| Craglash vs Culvert (tanks) | about 10% Craglash (his pits; 30–45% before Craglash's balance pass) |
-| Digby vs Sneaky Pete (assassins) | about 90% Digby (not pinned) |
-| Hissy Fitz vs Cairn (fighters) | about even |
-| Barkley vs Sno Mercy (bruisers) | 25% Barkley at Rage, 75% at Hard |
-| Mister Crease vs Chef Cerebro (mages) | about even (40–60%; not pinned) |
-| Mister Crease vs Cairn, Hissy Fitz, Culvert, Barkley, Sno Mercy | 80–100% Crease |
-| Mister Crease vs Craglash | about even since the Oct 2026 kit pass |
-| Digby vs Mister Crease | about even since the Oct 2026 kit pass (was 60–70% Digby); Sneaky Pete loses to him like he loses to Cerebro (not pinned) |
+**Where it stands (Oct 25 2026): not there yet.** Normal against Normal on main
+(`--matrix --a=1 --seeds=5`, each fighter's wins against the whole field):
 
-Tanks against assassins used to go to the assassins (Pete especially): a slow tank can't
-catch a fighter who vanishes. Since the Oct 2026 kit pass Craglash beats Digby outright
-(12 of 12 at six seeds): his hook comes back every 3.3 s and his Rake lands in 12 frames.
-The Oct 2026 pass also cut both mages' thrown reach from about 170 px to 115, which is why
-the mage rows above moved: the thrown strings had been about 90% of their damage. Hard CPUs don't kite, so Chef
-Cerebro loses almost everything at Hard; that's the CPU, not the kit.
+| Fighter | Class | Wins vs the field |
+| --- | --- | --- |
+| Sneaky Pete | assassin | 79% |
+| Digby | assassin | 78% |
+| Sno Mercy | bruiser | 72% |
+| Hissy Fitz | fighter | 70% |
+| Barkley | bruiser | 63% |
+| Culvert | tank | 52% |
+| Cairn | fighter | 48% |
+| Craglash | tank | 34% |
+| Gillbert | skirmisher | 31% |
+| Mister Crease | mage | 9% |
+| Chef Cerebro | mage | 7% |
+
+The assassins beat everyone and the mages beat no one, so the old Rage pins are gone
+from `test_balance.gd` until a rebalance measured at Normal (first the Normal CPU's mage
+spacing, then the kits) brings the triangle back.
 
 ## Controls
 
