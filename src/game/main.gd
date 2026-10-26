@@ -242,9 +242,9 @@ const SETTINGS_PATH := "user://settings.cfg"
 const MENU_FPS := 60
 const FPS_CHOICES := [60, 120, 144, 165, 240, 0]
 const DEFAULT_FPS := 144
-## On a phone or a handheld (Android) fights default to 60: on the Odin 3 the release build
-## holds 60 without a dropped frame, while at 120 every other frame carries a tick that
-## doesn't fit the 8 ms, so it stutters. The setting still offers the higher rates.
+## On a phone or a handheld (Android) fights default to 60 (Kevin's call, Oct 2026: not
+## every phone holds 120). The Odin 3 holds 120 when picked in Settings > Video (Vulkan, CPU
+## thinking between ticks, vsync pacing: one frame held in 76 s of 4v4 CTF).
 const DEFAULT_FPS_MOBILE := 60
 
 
@@ -6375,6 +6375,7 @@ func _notification(what: int) -> void:
 			player_input.touch.release_all()  # a lost touch: no finger stays down
 	elif what == NOTIFICATION_APPLICATION_PAUSED:
 		player_input.touch.release_all()
+		_print_perf(true)
 		# Switched away on a phone: an offline fight waits under the pause menu.
 		if online == null and showcase == null and not paused and not ui.is_open() \
 				and not (flow in [Flow.MENU, Flow.SELECT, Flow.LOBBY, Flow.MATCH_OVER]):
@@ -6384,18 +6385,22 @@ func _notification(what: int) -> void:
 
 
 ## Prints the --perf report and saves it as user://perf.txt (a player's build has no
-## console to print to).
-func _print_perf() -> void:
+## console to print to). `keep`: the app went to the background (a player's session on a
+## phone ends there, not with a quit): report what was logged so far and carry on logging.
+func _print_perf(keep := false) -> void:
 	if _perf != null:
-		var text := _perf.report(Engine.max_fps if Engine.max_fps > 0 else maxi(60, roundi(_refresh_rate())))
-		for line in text.split("
-"):
+		var text := "PERF setup: vsync %s, fight cap %d (setting %d, --fight-fps %d), engine cap %d, pacing %s, cpu think %s, screen %.2f Hz, %s\n" % [
+			"on" if vsync else "off", _fight_fps_cli if _fight_fps_cli > 0 else fight_fps, fight_fps, _fight_fps_cli,
+			Engine.max_fps, _fps_pacing, cpu_think, _refresh_rate(), RenderingServer.get_current_rendering_method()]
+		text += _perf.report(Engine.max_fps if Engine.max_fps > 0 else maxi(60, roundi(_refresh_rate())))
+		for line in text.split("\n"):
 			print(line)  # a line at a time: Android's log cuts one long message short
 		var f := FileAccess.open("user://perf.txt", FileAccess.WRITE)
 		if f != null:
 			f.store_string(text + "\n")
 			f.close()
-		_perf = null
+		if not keep:
+			_perf = null
 
 
 func _capture() -> void:

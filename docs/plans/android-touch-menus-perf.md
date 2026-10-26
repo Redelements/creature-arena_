@@ -259,3 +259,29 @@ Vulkan and move render CPU off the main thread. Note: fresh-APPDATA runs print h
   numbers don't mean anything yet. Next: the same comparison on the Odin (Adreno 830), where
   render cost matters far more than on a 4090. Mobile alone is the safe candidate; the
   thread needs those errors fixed first.
+
+## Progress (2026-10-26): PRs 5 and 6 done, branch `odin-120`
+
+What made 120 hold (from Kevin's Oct 24 `odin-perf-cpu-gap` commit, brought up to main):
+Vulkan (Mobile) on Android, the next tick's CPU thinking done on the main thread in the
+frame between ticks (`--cpu-think=gap`, the mobile default), vsync pacing on mobile (the
+panel runs at 121.7 Hz), and cheaper floor fx (ambient and water skip unchanged rescans, one
+sorting pass). Per Kevin's answer (4) the Android default stays **60**; 120 is picked in
+Settings > Video.
+
+Odin 3, release APK, 4v4 CTF (`--mode=53`), **Normal** CPUs (no Rage runs any more), 120 cap,
+judged by SurfaceFlinger presents:
+
+| Run | Shown fps avg | 1% low | 0.1% low | Frames held |
+|---|---|---|---|---|
+| First run after install | 121.6 | 116.5 | 84.2 | 1 (41 ms at 25 s: Vulkan shader compile, once per install) |
+| Second run, 76 s | 121.6 | 120.3 | 109.4 | 1 |
+| Long run, 461 s on screen | 121.7 | 121.2 | 117.4 | 2 |
+
+Queue lag 18 ms (GL was 34). The long run's fight ended after ~2 minutes and the rest ran on
+the results screen, so it isn't a true 10-minute heat soak (the SoC ended at 25 °C).
+`tools/odin_perf.py --play` measures a real session: you play, Home ends it, and SCREEN keeps
+only the fights.
+
+Still open: a true heat soak (a mode whose fight runs 10 minutes), the Settings hint when
+Android pins the screen to 60, and the first-install shader hitch (a warm-up pass would hide it).
