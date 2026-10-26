@@ -29,6 +29,12 @@ extends Node2D
 ## shade it per pixel (Settings > Video > Lighting): while such a sheet shows, the sprite's
 ## `light_mask` is Light2DView.FIGHTER_MASK. A sheet without normals keeps the default mask,
 ## which no light uses, so a fighter without normal sheets draws exactly as before.
+##
+## Emissive sheets: a view whose sheet has a `<sheet>_e.png` beside it (or an "emissive" path
+## in its block; RGB the colour a pixel gives off, A how strongly, docs/SPRITES.md) draws it
+## as a layer over the sprite (`emit`, `_sync_emit`), untouched by the lights and the night's
+## tint, so the glowing parts stay bright in the dark; BloomView blooms it (`emit_frame`).
+## Lighting Off (`emissive_on`) and fighters without the sheet draw exactly as before.
 
 const FLASH_SHADER := preload("res://src/view/flash.gdshader")
 ## Windup tell colors: red means it can't be blocked, so get out of the way or hit first.
@@ -107,16 +113,28 @@ var aura_front := SurgeAura.new()
 
 const RIM_STONE := Color(0.85, 0.85, 0.88)
 
+## Emissive sheets: the glowing parts of the frame showing now, drawn over the sprite at their
+## own colour (`_sync_emit`); none while no `_e.png` shows or Lighting is Off (`emissive_on`).
+var emit := Sprite2D.new()
+var emit_mat := ShaderMaterial.new()
+## Main sets it from Settings > Video > Lighting: Off draws no emissive layer (the game before it).
+static var emissive_on := true
+
 
 func setup(creature: CreatureSim) -> void:
 	mat.shader = FLASH_SHADER
 	sprite.material = mat
 	sprite.centered = false
+	emit_mat.shader = FLASH_SHADER  # the same hit flash, stone and palette as the sprite
+	emit.material = emit_mat
+	emit.centered = false
+	emit.visible = false
 	add_child(pivot)
 	aura_front.front = true
 	aura.twin = aura_front
 	pivot.add_child(aura)
 	pivot.add_child(sprite)
+	pivot.add_child(emit)
 	pivot.add_child(aura_front)
 	rebind(creature)
 
@@ -158,13 +176,26 @@ static func _load_view(v: Dictionary, side: Dictionary, side_only: Array) -> Dic
 		ct.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		lit = ct
 	var fr = v.get("frame", side.get("frame", 48))
+	var emit_tex := load_emissive(String(v.get("emissive", String(v["path"]).get_basename() + "_e.png")))
 	var size := Vector2(float(fr[0]), float(fr[1])) if fr is Array else Vector2(float(fr), float(fr))
 	var o: Array = v.get("origin", side.get("origin", [24, 43]))
 	var anims: Dictionary = v.get("anims", side.get("anims", {})).duplicate()
 	for n in side_only:
 		anims.erase(n)
 	return {"tex": tex, "lit": lit, "size": size, "cols": int(v.get("cols", side.get("cols", 1))),
-		"origin": Vector2(float(o[0]), float(o[1])), "anims": anims}
+		"origin": Vector2(float(o[0]), float(o[1])), "anims": anims, "emit": emit_tex}
+
+
+## A view's emissive sheet (`<sheet>_e.png`, or its block's "emissive"), or null: an imported
+## resource, else a PNG outside res:// read straight from disk (a test's fixture in user://).
+static func load_emissive(path: String) -> Texture2D:
+	if ResourceLoader.exists(path):
+		return load(path)
+	if not path.begins_with("res://") and FileAccess.file_exists(path):
+		var img := Image.load_from_file(path)
+		if img != null and not img.is_empty():
+			return ImageTexture.create_from_image(img)
+	return null
 
 
 ## Whether this fighter has up/down art (otherwise vertical swings are drawn side-on).
@@ -340,6 +371,7 @@ func refresh() -> void:
 		alpha = minf(alpha, 0.45)  # in the brush: a shape in the leaves
 	alpha *= blink_alpha(c)
 	modulate = Color(shade, shade, shade, alpha)
+	_sync_emit()
 
 	# The shadow shrinks and fades as the fighter goes up; a fighter hidden in the brush or
 	# invisible leaves only as faint a shadow as its sprite (it mustn't give them away).
@@ -451,6 +483,46 @@ func intro_pose() -> void:
 ## A squash or stretch started from outside (FxView, on an event: Culvert's gulp).
 func kick(to: Vector2) -> void:
 	_kick(to)
+
+
+## The emissive layer follows the sprite exactly (frame, flip, place) with its own sheet, over
+## it and outside every light and tint (the sprite's `self_modulate` is the night's dark, not
+## the layer's): a glowing part stays its own colour at night. It takes the sprite's flash,
+## stone and palette, so a hit flash or Petrify covers it too.
+func _sync_emit() -> void:
+	var tex: Texture2D = _cur.get("emit") if emissive_on else null
+	if tex == null:
+		emit.visible = false
+		return
+	emit.visible = true
+	if emit.texture != tex:
+		emit.texture = tex
+		emit.hframes = sprite.hframes
+		emit.vframes = sprite.vframes
+	emit.frame = sprite.frame
+	emit.flip_h = sprite.flip_h
+	emit.position = sprite.position
+	for k in ["flash", "flash_color", "stone", "ice", "hue"]:
+		emit_mat.set_shader_parameter(k, mat.get_shader_parameter(k))
+
+
+## Whether an emissive sheet is showing now (BloomView blooms it).
+func emitting() -> bool:
+	return emit.visible and emit.texture != null and pivot.visible
+
+
+## The emissive frame showing now, for BloomView: {tex, region, xform (the sprite's world
+## transform, mirrored when flipped)}; empty when none shows.
+func emit_frame() -> Dictionary:
+	if not emitting():
+		return {}
+	var size: Vector2 = _cur["size"]
+	var vc := int(_cur["cols"])
+	var region := Rect2((emit.frame % vc) * size.x, (emit.frame / vc) * size.y, size.x, size.y)
+	var xf := emit.get_global_transform() if emit.is_inside_tree() else emit.transform
+	if emit.flip_h:
+		xf = xf * Transform2D(Vector2(-1, 0), Vector2(0, 1), Vector2(size.x, 0))
+	return {"tex": emit.texture, "region": region, "xform": xf, "size": size}
 
 
 ## Whether the sheet showing now has normals (the lights shade it; WeatherView dims it by day).

@@ -217,6 +217,21 @@ dig/slosh/poof/chop_chop/shout sounds.
   flat square, which is why `project.godot` turns it off
   (`rendering/shader_compiler/shader_cache/enabled=false`). The bloom's SubViewports get a World2D
   of their own, so they draw only the bloom's sources. `tests/test_light2d.gd`.
+  Fight lights (phase 1): Light2DView gathers everything Glow does (`LightView.gather`: Surge,
+  `fx.light`, `fx.projectile_light`, sparks) plus flashes on big hits and Surges (`on_event` from
+  main's `_react`, stepped every `FLASH_STEP` ticks), and `take` makes `cap()` of them real (High 8,
+  Low 2) by priority: Surge, then nearest the camera's centre in `FOCUS_BAND` rings, then newest;
+  candidates within `REAL_MERGE` share one light. Each real one is a fighter light and a floor light
+  on `GLOW_MASK` (8), which only `Light2DView.FloorGlow` takes: a black world-size rect at Glow's
+  floor-pool depth, `blend_add`, whose `light()` returns the light's colour alone (a light on the MUL
+  night shade can't lift a lamp-lit floor, and does nothing by day). `gathered` feeds the bloom and
+  Glow's halos, `pools` (the rest) Glow's dithered floor pools: when Lighting isn't Off main calls
+  `glow_floor.show_lights` instead of `glow_floor.advance`, and in High hides Glow's halos (the
+  bloom draws them), so nothing is lit twice. Emissive sheets (`<sheet>_e.png` or a view's
+  "emissive"; `CreatureView.load_emissive`, `_sync_emit`): a second Sprite2D (`emit`) over the
+  sprite on the same frame, light mask 1, the sprite's flash/stone/palette, unaffected by the
+  sprite's `self_modulate` night tint; off when `CreatureView.emissive_on` (Lighting Off).
+  BloomView also blooms `emit_frame()` of seen fighters and `WaterView.glints` (lamp-lit at night).
 - Time of day and weather → `weather_view.gd` (WeatherView; presets in `data/weather.json`, an arena's
   allowed `times` / `weathers`). Four depths: `shade` (a MUL layer after the floor wear, before `FxGround`,
   so floor telegraphs keep their colours: a flat tint, or at night a light map with floodlight pools

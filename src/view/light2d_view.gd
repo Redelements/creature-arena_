@@ -9,13 +9,15 @@ extends Node2D
 ## Three tiers (`tier`, main's `lighting` setting):
 ##   - OFF: no lights at all; the look is the baked one (WeatherView's light map at night,
 ##     LightView's dithered pools for Glow).
-##   - LOW: the sun on the fighters by day, and a ready Surge's and a move's `fx.light`
-##     lighting the fighter sprites (the Glow pools still light the floor). Night keeps the
-##     baked light map.
-##   - HIGH: LOW, plus the arena's `lights` (data/arenas/<id>.json) at night: each lamp lights
+##   - LOW: the sun on the fighters by day, and the first `LOW_DYNAMIC` fight lights (`take`)
+##     real, on the fighters and the floor; Glow's dithered pools light the floor
+##     for the rest. Night keeps the baked light map. No halos are lost: Glow still draws them.
+##   - HIGH: LOW with `MAX_DYNAMIC` fight lights, plus the arena's `lights`
+##     (data/arenas/<id>.json) at night: each lamp lights
 ##     the floor (through WeatherView's flat night shade, which takes the light: `FLOOR_MASK`)
 ##     and the fighters standing near it (from above, `height`), instead of the baked pools.
-##     Bloom (BloomView) is on in this tier only.
+##     Bloom (BloomView) is on in this tier only, and stands in for Glow's halos (main hides
+##     them), so nothing glows twice.
 ##
 ## Light masks: a light lights only canvas items whose `light_mask` shares a bit with its
 ## `range_item_cull_mask`. Everything in the game keeps the default mask (1), which no light
@@ -28,13 +30,29 @@ extends Node2D
 ## along the shadows' light from the fighter, wide enough to be even across the sprite.
 ##
 ## Hidden foes never light anything: the moving lights are gathered by a LightView's own
-## `_creature_lights` (fighters `fx.shown` passes and not in stealth only), capped at
-## `MAX_DYNAMIC`. Gathered once a tick, no interpolation.
+## `gather` (fighters `fx.shown` passes and not in stealth, projectiles where FxView draws
+## them, particles spawned only for what was seen), capped at `MAX_DYNAMIC`. Gathered once a
+## tick, no interpolation.
+##
+## The fight's lights (`take`): everything Glow gathers (a ready Surge, a move's `fx.light`, a
+## projectile's `fx.projectile_light`, bright particles) plus short flashes on big hits and
+## Surges (`on_event`, stepped on the tick), merged by cell and again when closer than
+## `REAL_MERGE`, then chosen by priority: Surge first, then nearest the camera's centre (in
+## `FOCUS_BAND` rings), then newest. High makes `MAX_DYNAMIC` of them real, Low `LOW_DYNAMIC`.
+## Each real one is a fighter light (FIGHTER_MASK, up at its height) and a floor light
+## (`GLOW_MASK`, on the floor under it). The floor light shines on `FloorGlow`, a black rect
+## at Glow's floor-pool depth that adds only the light falling on it (its shader's `light()`),
+## so it brightens the floor by day and night alike, under a lamp too (the night shade only
+## multiplies, so a light on it can't lift a lamp-lit floor). `gathered` is every light (the
+## bloom's and Glow's halos' source), `pools` the ones Glow's dithered floor pools still draw
+## (those not made real), so no floor is lit twice. Main hands both to Glow's LightView
+## (`show_lights`) instead of it gathering.
 
 enum Tier {OFF, LOW, HIGH}
 
 const FIGHTER_MASK := 2  ## fighter sprites (CreatureView.sprite.light_mask)
 const FLOOR_MASK := 4  ## the night shade over the floor (WeatherView.shade.light_mask)
+const GLOW_MASK := 8  ## FloorGlow: the fight lights on the floor
 const MAX_DYNAMIC := 8  ## Surge and move lights at once (the strongest)
 const TEX_SIZE := 256  ## the radial light texture, built once
 ## A lamp without `fighter_energy` lights the fighters near it with this share of its floor
@@ -48,6 +66,24 @@ const LAMP_LIFT := 0.4
 ## turned to the camera most and the sides a little.
 const DYNAMIC_ENERGY := 1.4
 const DYNAMIC_HEIGHT := 28.0
+const LOW_DYNAMIC := 2  ## Low: the fight lights made real (the rest stay Glow's pools)
+const REAL_MERGE := 40.0  ## real candidates this close share one light
+const MIN_REAL := 0.06  ## fainter than this stays a pool (a spark's last ticks)
+const FOCUS_BAND := 128.0  ## distance from the camera's centre counts in rings this wide
+## A real light on the floor (FloorGlow, added to the picture as Glow's pools are): energy per
+## unit of strength, less for a light up high (as a pool: 1 + height / 60), at most FLOOR_MAX
+## (a pool never bleaches the floor), and its reach against the light's radius (the smooth
+## falloff fades sooner than a dithered pool).
+const FLOOR_ENERGY := 1.2
+const FLOOR_MAX := 0.5
+const FLOOR_REACH := 1.3
+## Flashes (`on_event`): a heavy hit dealing at least FLASH_HIT_MIN, and a Surge starting.
+## [radius, strength, ticks]; the strength steps down every FLASH_STEP ticks.
+const FLASH_HIT := [64.0, 0.75, 8]
+const FLASH_SURGE := [96.0, 0.9, 12]
+const FLASH_HIT_MIN := 10.0
+const FLASH_STEP := 2
+const MAX_FLASHES := 6
 ## The sun by day (and its low warm version at sunset): energy on the fighters' lit side,
 ## its elevation (`height`: 0 grazing .. 1 straight down the camera), and how
 ## much the rest of the fighter is dimmed (`WeatherView.fighter_scale`), so the side away from
@@ -65,6 +101,14 @@ var sim: MatchSim
 ## This tick's moving lights, as LightView gathers them: [floor pos, height, colour, radius,
 ## strength, halo share]; at most MAX_DYNAMIC.
 var dynamic: Array = []
+## Every light gathered this tick (merged, LightView.MAX_LIGHTS at most): bloom and halos.
+var gathered: Array = []
+## The lights Glow's floor pools draw (`gathered` less those lit by a real floor light).
+var pools: Array = []
+## Whether it is night (a time with floodlights), set by `apply`: BloomView's water glints.
+var night := false
+## The camera's centre in the world, when not in a tree (tests); in one, read off the viewport.
+var focus := Vector2.ZERO
 ## The arena's lamps lit this match (HIGH, at night), parsed: {pos, color, radius, energy,
 ## height, fighter_color, fighter_energy, lamp}.
 var lamps: Array = []
@@ -72,8 +116,36 @@ var _suns: Array[PointLight2D] = []
 var _sun := {}  ## this match's sun: {dir, color, energy, height}; empty at night or Off
 var _gather := LightView.new()
 var _pool: Array[PointLight2D] = []
+var _floor_pool: Array[PointLight2D] = []
+var _flashes: Array = []  ## [pos, height, colour, radius, strength, age, life, surge]
 var _lamp_lights: Array[PointLight2D] = []
 static var _tex: Texture2D = null
+## Main's FloorGlow (at Glow's floor-pool depth): shown only while a floor light is on.
+var floor_glow: FloorGlow = null
+
+
+## Takes the fight's floor lights and adds just them to the picture: a black rect over the
+## whole world, drawn additively, whose `light()` returns the light's colour alone (an ordinary
+## lit item would multiply it by its own black). On GLOW_MASK only.
+class FloorGlow extends Node2D:
+	const CODE := "shader_type canvas_item;\nrender_mode blend_add;\n" \
+		+ "void fragment() { COLOR = vec4(0.0, 0.0, 0.0, 1.0); }\n" \
+		+ "void light() { LIGHT = vec4(LIGHT_COLOR.rgb * LIGHT_ENERGY, 1.0); }\n"
+	static var _shader: Shader = null
+
+	func _init() -> void:
+		if _shader == null:
+			_shader = Shader.new()
+			_shader.code = CODE
+		var m := ShaderMaterial.new()
+		m.shader = _shader
+		material = m
+		light_mask = GLOW_MASK
+		visible = false
+
+	func _draw() -> void:
+		const BIG := 100000.0
+		draw_rect(Rect2(-BIG, -BIG, BIG * 2.0, BIG * 2.0), Color.BLACK)
 
 
 func _ready() -> void:
@@ -84,6 +156,9 @@ func _ready() -> void:
 		l.height = DYNAMIC_HEIGHT
 		l.enabled = false
 		_pool.append(l)
+		var f := _point(GLOW_MASK)
+		f.enabled = false
+		_floor_pool.append(f)
 	for i in MAX_SUNS:
 		var l := _point(FIGHTER_MASK)
 		l.texture_scale = SUN_RADIUS * 2.0 / TEX_SIZE
@@ -135,6 +210,9 @@ func apply(s: MatchSim, look: Dictionary, cast: Vector2) -> void:
 	sim = s
 	_gather.fx = fx
 	dynamic.clear()
+	gathered.clear()
+	pools.clear()
+	_flashes.clear()
 	lamps.clear()
 	for l in _lamp_lights:
 		l.queue_free()
@@ -142,6 +220,7 @@ func apply(s: MatchSim, look: Dictionary, cast: Vector2) -> void:
 	var t := String(look.get("time", "day"))
 	var w := String(look.get("weather", "clear"))
 	var on := tier != Tier.OFF
+	night = on and ((WeatherView.data().get("times", {}) as Dictionary).get(t, {}) as Dictionary).has("floodlights")
 	# the sun
 	var sd: Dictionary = SUN.get(t, {})
 	_sun = {}
@@ -206,13 +285,16 @@ func _lamp_light(lamp: Dictionary, mask: int) -> PointLight2D:
 
 func clear() -> void:
 	dynamic.clear()
+	gathered.clear()
+	pools.clear()
+	_flashes.clear()
 	_sync()
 
 
 ## Once a tick (main, after the effects): gather the moving lights and place the pool.
 func advance() -> void:
 	if tier == Tier.OFF or fx == null or fx.sim == null:
-		if not dynamic.is_empty():
+		if not dynamic.is_empty() or not gathered.is_empty():
 			clear()
 		_place_suns()
 		return
@@ -221,29 +303,163 @@ func advance() -> void:
 	if fx.time_scale > 0.0:
 		_gather._tick += 1
 	var raw: Array = []
-	_gather._creature_lights(raw)
+	_gather.gather(raw)
+	_flash_lights(raw, fx.time_scale > 0.0)
 	take(raw)
 	_place_suns()
 	PerfLog.since("light2d gather", t0)
 
 
-## This tick's moving lights (LightView's format): merged by cell, the strongest
-## MAX_DYNAMIC kept, and the pool placed on them.
+## The fight lights made real now: MAX_DYNAMIC on High, LOW_DYNAMIC on Low, none Off.
+func cap() -> int:
+	match tier:
+		Tier.HIGH:
+			return MAX_DYNAMIC
+		Tier.LOW:
+			return LOW_DYNAMIC
+	return 0
+
+
+## This tick's lights (LightView's format): merged by cell (`gathered`), the real ones chosen
+## by priority with close ones merged into one (`dynamic`), the rest left to Glow's pools
+## (`pools`), and the lights placed on them.
 func take(raw: Array) -> void:
-	var merged := _gather._merge(raw)
-	if merged.size() > MAX_DYNAMIC:
-		merged.sort_custom(func(a, b): return float(a[4]) > float(b[4]))
-		merged.resize(MAX_DYNAMIC)
-	dynamic = merged
+	if tier == Tier.OFF:
+		clear()
+		return
+	gathered = _gather._merge(raw)
+	var centre := _focus()
+	var cand: Array = []
+	for l in gathered:
+		if float(l[4]) >= MIN_REAL:
+			cand.append(l)
+	cand.sort_custom(func(a, b): return _before(a, b, centre))
+	var real: Array = []
+	var covered: Array = []  # the gathered lights a real one stands for
+	var n := cap()
+	for l in cand:
+		var into := -1
+		for i in real.size():
+			if Vector2(real[i][0]).distance_to(l[0]) < REAL_MERGE:
+				into = i
+				break
+		if into >= 0:
+			_absorb(real[into], l)
+		elif real.size() < n:
+			real.append(l.duplicate())
+		else:
+			continue
+		covered.append(l)
+	dynamic = real
+	pools = []
+	for l in gathered:
+		if not covered.has(l):
+			pools.append(l)
 	_sync()
 
 
-## Puts the pool's lights where `dynamic` says; the rest off.
+## Priority order: Surge first, then nearer the camera's centre (by FOCUS_BAND rings), then
+## newest, then stronger.
+static func _before(a: Array, b: Array, centre: Vector2) -> bool:
+	var sa := a.size() > 6 and bool(a[6])
+	var sb := b.size() > 6 and bool(b[6])
+	if sa != sb:
+		return sa
+	var ra := int(Vector2(a[0]).distance_to(centre) / FOCUS_BAND)
+	var rb := int(Vector2(b[0]).distance_to(centre) / FOCUS_BAND)
+	if ra != rb:
+		return ra < rb
+	var ga: int = int(a[7]) if a.size() > 7 else 0
+	var gb: int = int(b[7]) if b.size() > 7 else 0
+	if ga != gb:
+		return ga < gb
+	return float(a[4]) > float(b[4])
+
+
+## `l` merged into the real light `m` (LightView._merge's rule: strength adds up to 1, place and
+## colour by strength, the widest reach).
+static func _absorb(m: Array, l: Array) -> void:
+	var s0 := float(m[4])
+	var s1 := float(l[4])
+	var w := s1 / maxf(0.001, s0 + s1)
+	m[0] = Vector2(m[0]).lerp(l[0], w)
+	m[1] = lerpf(float(m[1]), float(l[1]), w)
+	m[2] = Color(m[2]).lerp(l[2], w)
+	m[3] = maxf(float(m[3]), float(l[3]))
+	m[4] = minf(1.0, s0 + s1)
+
+
+## The camera's centre in the world (`focus` outside a tree).
+func _focus() -> Vector2:
+	if not is_inside_tree():
+		return focus
+	return get_global_transform_with_canvas().affine_inverse() * (get_viewport_rect().size * 0.5)
+
+
+## A short flash of light for a big hit or a Surge starting (main, for each sim event): view
+## only, and never for what the local team didn't see (FxView's `_event_shown`).
+func on_event(e: Dictionary) -> void:
+	if tier == Tier.OFF or fx == null or fx.sim == null:
+		return
+	var kind := String(e.get("type", ""))
+	var spec: Array = []
+	var col := Color("fff2d0")
+	var who: CreatureSim = null
+	if kind == "hit":
+		var surge := String(e.get("move_type", "")) == "surge"
+		if not surge and not (bool(e.get("heavy", false)) and float(e.get("power", 0.0)) >= FLASH_HIT_MIN):
+			return
+		spec = FLASH_SURGE if surge else FLASH_HIT
+	elif kind == "surge":
+		spec = FLASH_SURGE
+		who = fx._creature(int(e.get("who", -1)))
+		if who != null:
+			col = Color(LightView._fx_color(who))
+	else:
+		return
+	if not fx._event_shown(e):
+		return
+	if who != null and (who.stealth > 0 or not fx.shown(who)):
+		return
+	var top := 16.0 if who == null else maxf(24.0, float(who.def.get("fx_top", 32))) * 0.5
+	_flashes.append([Vector2(e["pos"]), top, col, float(spec[0]), float(spec[1]), 0, int(spec[2]), kind == "surge"])
+	if _flashes.size() > MAX_FLASHES:
+		_flashes.pop_front()
+
+
+## The flashes still shining, stepped down every FLASH_STEP ticks (no fade between ticks);
+## `step` ages them (not while the fight is held still).
+func _flash_lights(raw: Array, step: bool) -> void:
+	var keep: Array = []
+	for f in _flashes:
+		var age := int(f[5])
+		var life := int(f[6])
+		if age >= life:
+			continue
+		var steps := maxi(1, life / FLASH_STEP)
+		var k := 1.0 - float(age / FLASH_STEP) / float(steps)
+		raw.append([f[0], f[1], f[2], f[3], float(f[4]) * k, 0.3, bool(f[7]), age])
+		if step:
+			f[5] = age + 1
+		keep.append(f)
+	_flashes = keep
+
+
+## Flashes shining now (tests).
+func flashes() -> int:
+	return _flashes.size()
+
+
+## Puts the pool's lights where `dynamic` says (and their floor lights); the rest off.
 func _sync() -> void:
+	if floor_glow != null:
+		floor_glow.visible = tier != Tier.OFF and not dynamic.is_empty()
 	for i in _pool.size():
 		var l := _pool[i]
+		var f := _floor_pool[i]
 		if i >= dynamic.size() or tier == Tier.OFF:
 			l.enabled = false
+			f.enabled = false
 			continue
 		var d: Array = dynamic[i]
 		l.enabled = true
@@ -251,6 +467,11 @@ func _sync() -> void:
 		l.color = d[2]
 		l.energy = float(d[4]) * DYNAMIC_ENERGY
 		l.texture_scale = maxf(8.0, float(d[3])) * 2.0 / TEX_SIZE
+		f.enabled = true
+		f.position = Vector2(d[0]).round()
+		f.color = d[2]
+		f.energy = minf(float(d[4]) * FLOOR_ENERGY / (1.0 + float(d[1]) / 60.0), FLOOR_MAX)
+		f.texture_scale = l.texture_scale * FLOOR_REACH
 
 
 ## The sun behind each fighter the local team sees (a hidden one gets none: nothing of it
@@ -274,7 +495,7 @@ func _place_suns() -> void:
 ## How many point lights are on now (moving ones, suns, lamps).
 func lights_on() -> int:
 	var n := 0
-	for l in _pool + _suns:
+	for l in _pool + _floor_pool + _suns:
 		if l.enabled:
 			n += 1
 	return n + _lamp_lights.size()
