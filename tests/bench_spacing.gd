@@ -6,7 +6,7 @@ extends SceneTree
 ## average gap overall.
 ##   godot --headless --path . --script res://tests/bench_spacing.gd -- [--lv=1] [--seeds=1] [--only=hissy]
 
-const MAX_TICKS := 5400
+const MAX_TICKS := 7200  ## a 1v1 round (120 s)
 const TOUCH := 4.0
 
 

@@ -275,17 +275,20 @@ func test_the_paper_plane_glides_far_and_through_fences() -> void:
 	assert_gt(c.pos.x - x0, 60.0, "a long glide, over the fence:")
 
 
-func test_thousand_cranes_needs_three_sheets_and_a_full_meter() -> void:
+## Since Oct 2026 Thousand Cranes costs no paper (Kevin): a full meter is all it takes.
+func test_thousand_cranes_needs_only_a_full_meter() -> void:
 	var sim := _duel("cairn", 100.0)
 	var c := sim.creatures[0]
 	c.energy = CreatureSim.MAX_ENERGY
+	c.sheets = 0
+	assert_true(c.can_use("surge"), "no sheets needed, just the meter")
+	c.energy = CreatureSim.MAX_ENERGY - 1.0
+	assert_false(c.can_use("surge"), "the meter still has to be full")
+	c.energy = CreatureSim.MAX_ENERGY
 	c.sheets = 2
-	assert_false(c.can_use("surge"), "two sheets aren't enough")
-	c.sheets = 3
-	assert_true(c.can_use("surge"), "three and a full meter")
 	tap(sim, SU, 0)
 	assert_eq(c.move_id, "surge", "")
-	assert_eq(c.sheets, 0, "it spends all three:")
+	assert_eq(c.sheets, 2, "and it leaves his sheets alone:")
 
 
 func test_the_storm_pulses_then_pushes_out_and_cracks_a_ring() -> void:
@@ -399,7 +402,9 @@ func test_it_all_rolls_back() -> void:
 	assert_eq(sim.state_digest(), later, "the same 400 ticks again:")
 
 
-func test_the_paper_plane_glides_as_far_as_cerebros_blink() -> void:
+## The Paper Plane used to match Chef Cerebro's blink (116 px); his blink went to 90 px in
+## the Oct 2026 assassin pass and the plane was left alone (no mage changes beyond that nerf).
+func test_the_paper_plane_glides_at_least_as_far_as_cerebros_blink() -> void:
 	var dist := {}
 	for id in ["cerebro", "crease"]:
 		var sim := MatchFactory.training(id)
@@ -410,4 +415,5 @@ func test_the_paper_plane_glides_as_far_as_cerebros_blink() -> void:
 		run(sim, SimDefs.IN_DODGE | SimDefs.IN_RIGHT, 1)
 		run(sim, 0, 30)
 		dist[id] = c.pos.x - x0
-	assert_near(float(dist["crease"]), float(dist["cerebro"]), 1.0, "the same distance:")
+	assert_gt(float(dist["crease"]), float(dist["cerebro"]) - 1.0, "at least as far:")
+	assert_near(float(dist["crease"]), 116.0, 1.0, "the plane still glides about 116 px:")

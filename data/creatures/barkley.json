@@ -4,7 +4,7 @@
   "title": "A thousand-year-old tree, up and walking",
   "affinity": "wild",
   "role": "bruiser",
-  "max_hp": 145,
+  "max_hp": 290,
   "speed": 1.89,
   "accel": 0.34,
   "radius": 11,
@@ -142,12 +142,12 @@
     "surge": {
       "name": "Root Eruption", "anim": "eruption", "energy_cost": 100,
       "startup": 16, "recovery": 30, "length": 62,
-      "damage": 9, "knockback": 0.6, "hitstun": 24, "hitstop": 6,
+      "damage": 12.6, "knockback": 0.6, "hitstun": 24, "hitstop": 6,
       "reach": 0, "hit_radius": 90, "juggle": true,
       "hits": [
         { "at": 17, "active": 3, "hit_radius": 40 },
         { "at": 23, "active": 3, "hit_radius": 65 },
-        { "at": 29, "active": 4, "hit_radius": 90, "root_ticks": 90, "damage": 12, "crumple": 64, "hitstop": 14, "knockback": 0.4 }
+        { "at": 29, "active": 4, "hit_radius": 90, "root_ticks": 90, "damage": 16.8, "crumple": 64, "hitstop": 14, "knockback": 0.4 }
       ],
       "terrain_crack": 90,
       "anim_at": [[0, 0], [3, 1], [6, 2], [9, 3], [12, 4], [15, 5], [16, 6], [23, 7], [29, 8], [36, 9], [44, 10], [52, 11]],

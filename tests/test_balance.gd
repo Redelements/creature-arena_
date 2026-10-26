@@ -35,7 +35,7 @@ func _wins(a: String, b: String, seeds := 5) -> Array:
 		for side in 2:
 			var sim := MatchFactory.versus(a, b) if side == 0 else MatchFactory.versus(b, a)
 			var cpus := [CpuController.new(0, NORMAL, 900 + s * 7 + side), CpuController.new(1, NORMAL, 950 + s * 13 + side)]
-			for t in 5400:
+			for t in 7200:  # a 1v1 round (120 s)
 				sim.step(PackedInt32Array([cpus[0].bits(sim), cpus[1].bits(sim)]))
 				if sim.creatures[0].state == CreatureSim.State.KO or sim.creatures[1].state == CreatureSim.State.KO:
 					break
@@ -205,10 +205,39 @@ func test_the_cpu_holds_sack_smack_to_a_full_charge_against_a_guard() -> void:
 # ------------------------------------------------------------------ matchups (Normal vs Normal)
 
 # Balance is measured with Normal CPUs, never Rage (Kevin's ruling, Oct 25 2026: the Rage
-# results didn't match how the game plays). The old Rage pins (assassin > mage >
-# fighter/tank > assassin) are gone: Normal vs Normal on main read assassins about 78% and
-# both mages under 10% (bench_cpu.gd --matrix --a=1 --seeds=5), so that order doesn't hold
-# yet. The Normal pins come back here with the rebalance; _wins already plays Normal.
+# results didn't match how the game plays). Normal vs Normal on main first read assassins
+# about 78% and both mages under 10%; the Normal mage AI (kiting) and the assassin pass that
+# followed (Pete: ambush 1.2, Tiptoe 1.35x and 7 s, Pickpocket steals 10% every 4 s, lights
+# 5/5/7, a slower Bag Swing, 170 HP; Digby: ambush 1.25; Cerebro: blink 90 px on a 1 s
+# cooldown, a slower Mallet Toss) left this (bench_cpu.gd --matrix --seeds=5, wins against
+# the field): Sno 69, Digby 66, Barkley 63, Hissy 62, Pete 60, Cerebro 55, Culvert 44,
+# Cairn 43, Crease 39, Craglash 23, Gillbert 16. What holds of the class triangle is pinned
+# here; what doesn't is written down instead:
+#   - assassins beat Mister Crease (Pete about 75%, Digby about 55%), but not Chef Cerebro
+#     (Pete about 40%, Digby about 10%: Normal Digby's Burrow engage doesn't reach a mage who
+#     kites, so that is the CPU as much as the kit);
+#   - Chef Cerebro beats the fighters and tanks (Hissy about 90%, Culvert 75%, Craglash 65%);
+#     Mister Crease doesn't (Cairn about 5%);
+#   - the fighters don't beat the assassins (Cairn 15-20%).
+# Kevin's call for the pass: trim the assassins and nerf Cerebro a little, never buff a mage.
+
+
+func test_no_assassin_runs_away_with_it() -> void:
+	# Pete beat the field 85% before the pass (Cairn 10 of 10); now about 80% on Cairn and
+	# 60% overall. Held loosely: he must drop a game to Cairn in 20.
+	var r := _wins("pete", "cairn", 10)
+	assert_lt(float(r[0]), float(r[1]), "Sneaky Pete doesn't sweep Cairn (%d of %d)" % r)
+
+
+func test_assassins_beat_crease() -> void:
+	var r := _wins("pete", "crease", 5)
+	assert_gt(float(r[0]), r[1] * 0.5, "Sneaky Pete beats Mister Crease (%d of %d)" % r)
+
+
+func test_cerebro_beats_fighters_and_tanks() -> void:
+	for foe in ["hissy", "culvert", "craglash"]:
+		var r := _wins("cerebro", foe, 4)
+		assert_gt(float(r[0]), r[1] * 0.5, "Chef Cerebro beats %s (%d of %d):" % [foe, r[0], r[1]])
 
 
 # ------------------------------------------------------------------ Culvert and Sno Mercy tweaks

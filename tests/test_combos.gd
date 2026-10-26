@@ -34,7 +34,7 @@ func test_cairn_full_meter() -> void:
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"],
 		[H, "heavy"], [S2, "skill_2"], [SU, "surge"]])
-	var expected := 11.0 + (9 + 12) + 8 * 1.15 + 26 * 1.3  # the combo starts at the Haymaker
+	var expected := 11.0 + (9 + 12) + 8 * 1.15 + 52 * 1.3  # the combo starts at the Haymaker; Avalanche doubled (Oct 2026)
 	assert_near(dmg, expected, 0.05, "Jab, Jab, Cross > Haymaker > Rush > Avalanche:")
 
 
@@ -77,7 +77,7 @@ func test_culvert_full_meter() -> void:
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"],
 		[H, "heavy"], [S2, "skill_2", RUNOFF_HOLD], [SU, "surge"]])
-	var expected := 18 + 10 * 1.15 + 9 * 1.3 + 22 * 1.5  # Storm Drain 22 since the Oct 2026 kit pass
+	var expected := 18 + 10 * 1.15 + 9 * 1.3 + 30.8 * 1.5  # Storm Drain 22 x1.4 (area Surges, Oct 2026)
 	assert_near(dmg, expected, 0.05, "Jab, Jab, Hook > Slam > Runoff (held) > Storm Drain:")
 
 
@@ -132,7 +132,7 @@ func test_barkley_full_meter() -> void:
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"],
 		[S1, "skill_1"], [SU, "surge"]])
-	assert_near(dmg, 19 + 4 * 1.15 * 3 + 8 * 1.3 + (9 + 9 + 12) * 1.5, 0.05, "... > Root Eruption:")
+	assert_near(dmg, 19 + 4 * 1.15 * 3 + 8 * 1.3 + (12.6 + 12.6 + 16.8) * 1.5, 0.05, "... > Root Eruption:")  # x1.4: an area Surge
 
 
 ## Gillbert (left) facing Cairn at close range.
@@ -158,7 +158,7 @@ func test_gillbert_full_meter() -> void:
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"],
 		[S1, "skill_1"], [SU, "surge"]])
-	assert_near(dmg, 15 + 6 * 1.15 + 8 * 1.3 + 22 * 1.5, 0.05, "... > The One That Got Away:")
+	assert_near(dmg, 15 + 6 * 1.15 + 8 * 1.3 + 30.8 * 1.5, 0.05, "... > The One That Got Away:")  # x1.4: an area Surge
 
 
 ## Chef Cerebro (left) facing Cairn at close range. Since Oct 25 2026 the Mallet Toss
@@ -198,7 +198,7 @@ func test_cerebro_flip_out_knife_flurry() -> void:
 	var sim := _cerebro()
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [S2, "skill_2"], [SU, "surge"]])
-	assert_near(dmg, 11 + 7 + (3 * 7 + 6) * 1.15, 0.05, "3 lights, then Flip Out > Knife Flurry:")
+	assert_near(dmg, 11 + 7 + (4.2 * 7 + 8.4) * 1.15, 0.05, "3 lights, then Flip Out > Knife Flurry:")
 
 
 ## Hissy Fitz (left) facing Cairn at close range.
@@ -220,7 +220,7 @@ func test_hissy_petrify_punch() -> void:
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S1, "skill_1"],
 		[SU, "surge"]])
-	assert_near(dmg, 14 + 8 * 1.15 + 3 * 1.3 + 18 * 1.5, 0.05, "... > Venom Spit > Petrify Punch:")
+	assert_near(dmg, 14 + 8 * 1.15 + 3 * 1.3 + 36 * 1.5, 0.05, "... > Venom Spit > Petrify Punch:")  # x2: a single-target Surge
 
 
 ## Digby (left) facing Cairn at close range.
@@ -240,7 +240,7 @@ func test_digby_pop_up_cave_in() -> void:
 	var sim := _digby()
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [SU, "surge"]])
-	assert_near(dmg, 20 + 10 * 1.15 + 14 * 1.3, 0.05, "3 lights > Pickaxe Pop-Up > Cave-In:")  # Pop-Up 10 since the Oct 2026 kit pass
+	assert_near(dmg, 20 + 10 * 1.15 + 19.6 * 1.3, 0.05, "3 lights > Pickaxe Pop-Up > Cave-In:")  # Pop-Up 10 since the Oct 2026 kit pass
 
 
 ## Sneaky Pete (left) facing Cairn at close range.
@@ -253,7 +253,7 @@ func _pete() -> MatchSim:
 
 func test_pete_sack_smack_pickpocket() -> void:
 	var dmg := route(_pete(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S2, "skill_2"]])
-	assert_near(dmg, 20 + 9 * 1.15 + 5 * 1.3, 0.05, "3 lights > Sack Smack > Pickpocket:")  # 6 + 6 + 8
+	assert_near(dmg, 17 + 9 * 1.15 + 5 * 1.3, 0.05, "3 lights > Sack Smack > Pickpocket:")  # 5 + 5 + 7 since the Oct 2026 assassin pass
 
 
 func test_pete_big_heist() -> void:
@@ -261,8 +261,8 @@ func test_pete_big_heist() -> void:
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S2, "skill_2"],
 		[SU, "surge"]])
-	# After Pickpocket his hits land 20% harder (stolen power): the whole Heist does.
-	assert_near(dmg, 20 + 9 * 1.15 + 5 * 1.3 + (5 * 3 + 10) * 1.5 * 1.2, 0.05, "... > The Big Heist:")
+	# After Pickpocket his hits land 10% harder (stolen power): the whole Heist does.
+	assert_near(dmg, 17 + 9 * 1.15 + 5 * 1.3 + (5 * 6 + 20) * 1.5 * 1.1, 0.05, "... > The Big Heist:")
 
 
 ## Sno Mercy (left) facing Cairn at close range.
@@ -282,4 +282,4 @@ func test_sno_flavor_blast() -> void:
 	var sim := _sno()
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [SU, "surge"]])
-	assert_near(dmg, 21 + 12 * 1.15 + 16 * 1.3, 0.05, "... > Shaved Ice > Flavor Blast:")
+	assert_near(dmg, 21 + 12 * 1.15 + 22.4 * 1.3, 0.05, "... > Shaved Ice > Flavor Blast:")  # x1.4: an area Surge

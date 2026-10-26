@@ -4,10 +4,10 @@
   "title": "Robbed every bank in town, twice",
   "affinity": "lumen",
   "role": "assassin",
-  "ambush": 1.35,
+  "ambush": 1.2,
   "ambush_ticks": 90,
   "lifesteal": 0.08,
-  "max_hp": 95,
+  "max_hp": 170,
   "speed": 2.99,
   "accel": 0.55,
   "radius": 9,
@@ -83,7 +83,7 @@
       "no_flinch": true,
       "name": "Sucker Punch", "anim": "jab",
       "startup": 4, "active": 2, "recovery": 8, "cancel_from": 6,
-      "damage": 6, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
+      "damage": 5, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
       "reach": 25, "hit_radius": 10, "lunge": 1.1, "next": "light_2", "juggle": true,
       "anim_at": [[0, 0], [2, 1], [4, 2], [5, 3], [8, 4], [10, 5], [12, 6], [13, 7]],
       "fx": { "smear": "thrust" }
@@ -92,15 +92,15 @@
       "no_flinch": true,
       "name": "Cheap Shot", "anim": "jab2",
       "startup": 4, "active": 2, "recovery": 9, "cancel_from": 7,
-      "damage": 6, "knockback": 0.9, "hitstun": 17, "hitstop": 4,
+      "damage": 5, "knockback": 0.9, "hitstun": 17, "hitstop": 4,
       "reach": 24, "hit_radius": 10, "lunge": 0.9, "next": "light_3", "juggle": true,
       "anim_at": [[0, 0], [2, 1], [4, 2], [5, 3], [8, 4], [10, 5], [12, 6], [14, 7]],
       "fx": { "smear": "thrust" }
     },
     "light_3": {
       "name": "Bag Swing", "anim": "swing",
-      "startup": 5, "active": 3, "recovery": 14,
-      "damage": 8, "knockback": 1.6, "hitstun": 24, "hitstop": 6,
+      "startup": 5, "active": 3, "recovery": 18,
+      "damage": 7, "knockback": 1.6, "hitstun": 24, "hitstop": 6,
       "reach": 28, "hit_radius": 13, "lunge": 0.6, "next": "", "juggle": true,
       "anim_at": [[0, 0], [2, 1], [5, 2], [6, 3], [9, 4], [12, 5], [15, 6], [19, 7]],
       "fx": { "smear": "arc", "size": 1.3 }
@@ -117,19 +117,19 @@
       "fx": { "charge": "coins", "smear": "arc", "size": 1.6, "impact": "cash" }
     },
     "skill_1": {
-      "name": "Tiptoe", "anim": "tiptoe", "cooldown": 300,
+      "name": "Tiptoe", "anim": "tiptoe", "cooldown": 420,
       "startup": 4, "active": 0, "recovery": 20, "length": 24,
-      "self": { "stealth": 180, "haste": 150, "haste_mult": 1.55 },
+      "self": { "stealth": 180, "haste": 150, "haste_mult": 1.35 },
       "dash": { "speed": 2.6, "from": 2, "to": 18 },
       "anim_at": [[0, 0], [2, 1], [4, 2], [6, 3], [9, 4], [10, 5], [12, 6], [14, 7], [17, 8], [18, 9], [20, 10],
         [22, 11]],
       "fx": { "smoke": true }
     },
     "skill_2": {
-      "name": "Pickpocket", "anim": "pick", "windup": 9, "tell": "strong", "cooldown": 180,
+      "name": "Pickpocket", "anim": "pick", "windup": 9, "tell": "strong", "cooldown": 240,
       "startup": 6, "active": 14, "recovery": 10,
       "damage": 5, "knockback": 0.6, "hitstun": 28, "hitstop": 5, "juggle": true,
-      "steal_ticks": 300, "steal": 0.2,
+      "steal_ticks": 300, "steal": 0.1,
       "reach": 4, "hit_radius": 14,
       "dash": { "speed": 4.6, "from": 4, "to": 18, "ghost": true, "home": { "until": 12, "max": 4.6, "through": true } },
       "anim_at": [[0, 0], [4, 1], [6, 2], [10, 3], [14, 4], [19, 5], [22, 6], [26, 7]],
@@ -141,11 +141,11 @@
       "self": { "stealth": 10 },
       "leap": { "from": 2, "to": 10 },
       "blink": { "at": 10, "gap": 2 },
-      "damage": 3, "knockback": 0.2, "hitstun": 22, "hitstop": 3,
+      "damage": 6, "knockback": 0.2, "hitstun": 22, "hitstop": 3,
       "hits": [
         {"at": 13, "active": 2}, {"at": 17, "active": 2}, {"at": 21, "active": 2}, {"at": 25, "active": 2},
         {"at": 29, "active": 2},
-        {"at": 35, "active": 3, "reach": 0, "hit_radius": 45, "blind_ticks": 90, "damage": 10, "knockback": 3.4, "knockdown": 30, "hitstop": 12}
+        {"at": 35, "active": 3, "reach": 0, "hit_radius": 45, "blind_ticks": 90, "damage": 20, "knockback": 3.4, "knockdown": 30, "hitstop": 12}
       ],
       "anim_at": [[0, 0], [2, 1], [3, 2], [10, 3], [13, 4], [17, 5], [21, 6], [25, 7], [29, 4], [31, 8], [35, 9],
         [40, 10], [46, 11]],

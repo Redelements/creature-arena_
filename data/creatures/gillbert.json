@@ -4,7 +4,7 @@
   "title": "Hooked, yanked out of the river, still flopping",
   "affinity": "tide",
   "role": "skirmisher",
-  "max_hp": 110,
+  "max_hp": 220,
   "speed": 2.93,
   "accel": 0.55,
   "radius": 9,
@@ -137,7 +137,7 @@
     "surge": {
       "name": "The One That Got Away", "anim": "leap", "energy_cost": 100,
       "startup": 24, "active": 4, "recovery": 24,
-      "damage": 22, "knockback": 6.0, "knockdown": 40, "hitstop": 14,
+      "damage": 30.8, "knockback": 6.0, "knockdown": 40, "hitstop": 14,
       "reach": 0, "hit_radius": 65, "juggle": true,
       "zone": { "radius": 50, "ticks": 180, "slow_mult": 0.7, "at": 24 },
       "leap": { "from": 3, "to": 23 },

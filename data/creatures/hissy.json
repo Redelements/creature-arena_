@@ -4,7 +4,7 @@
   "title": "Kicked out of the museum for turning the guards to stone",
   "affinity": "wild",
   "role": "fighter",
-  "max_hp": 130,
+  "max_hp": 260,
   "speed": 2.6,
   "accel": 0.49,
   "radius": 10,
@@ -141,11 +141,11 @@
     "surge": {
       "name": "Petrify Punch", "anim": "petrify", "energy_cost": 100,
       "startup": 22, "active": 4, "recovery": 26, "length": 52,
-      "damage": 18, "knockback": 1.0, "petrify": 90, "hitstop": 16,
+      "damage": 36, "knockback": 1.0, "petrify": 90, "hitstop": 16,
       "reach": 18, "hit_radius": 13, "lunge": 0.6, "juggle": true,
       "hits": [
         { "at": 23, "active": 4, "reach": 18, "hit_radius": 13, "petrify": 90 },
-        { "at": 27, "active": 3, "reach": 18, "hit_radius": 45, "damage": 6, "knockback": 0.4, "petrify": 60, "hitstop": 6, "skip_struck": true }
+        { "at": 27, "active": 3, "reach": 18, "hit_radius": 45, "damage": 12, "knockback": 0.4, "petrify": 60, "hitstop": 6, "skip_struck": true }
       ],
       "anim_at": [[0, 0], [4, 1], [9, 2], [14, 3], [20, 4], [22, 5], [27, 6], [31, 7], [35, 8], [39, 9], [44, 10],
         [48, 11]],

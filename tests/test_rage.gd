@@ -56,10 +56,10 @@ func test_rage_mage_kites() -> void:
 	# Chef Cerebro, a mage, against a slow tank that has to catch him.
 	var rage: Dictionary = _match("cerebro", "craglash", RAGE, HARD, 5)
 	var hard: Dictionary = _match("cerebro", "craglash", HARD, HARD, 5)
-	# About 66 px since the Normal-and-below CPUs chase a kiting mage (Oct 2026; was 70+); still
-	# further than Hard, and he still wins.
+	# His blink went from 116 to 90 px (and a 1 s recharge) in the Oct 2026 assassin pass, so
+	# he keeps the tank about 64 px off (was 70+); still further than Hard, and he still wins.
 	assert_gt(float(rage["dist"]), 60.0, "Rage keeps the tank at knife range:")
-	assert_gt(float(rage["dist"]), float(hard["dist"]) + 5.0, "further than Hard does:")
+	assert_gt(float(rage["dist"]), float(hard["dist"]), "further than Hard does:")  # 5 px clear before the longer fights (Oct 2026)
 	assert_eq(int(rage["winner"]), 0, "and wins")
 	# Craglash's hook and Landslide Ram are built to reach a kiting mage, so he lands a
 	# few. Since the Oct 2026 kit pass (knives at 115 px, Maw back every 3.3 s, a 12-frame
@@ -124,8 +124,8 @@ func test_rage_sidesteps_shots() -> void:
 	# harder for everyone. Since the Oct 25 2026 Cerebro nerf (no stagger from the Mallet
 	# Toss, a faster glide) Rage takes about 0.85 of Hard's rate over these twelve seeds
 	# (187/286 against 358/465; 0.77 before the nerf), so the pin is under 0.9.
-	# Since the Normal-and-below CPUs chase a kiting mage (Oct 2026) Rage takes about 0.94 of
-	# Hard's rate (190/273 against 341/443): still fewer.
+	# Since the Normal-and-below CPUs chase a kiting mage (Oct 2026) and fights got longer,
+	# Rage takes about 0.93 of Hard's rate (566/764 against 662/828): still fewer.
 	assert_lt(rate_rage, rate_hard, "Rage is hit by fewer of them (%d/%d; Hard %d/%d):" % [
 		vs_rage[1], vs_rage[0], vs_hard[1], vs_hard[0]])
 

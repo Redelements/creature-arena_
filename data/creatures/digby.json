@@ -4,12 +4,12 @@
   "title": "Digs well. Digs VERY well",
   "affinity": "stone",
   "role": "assassin",
-  "max_hp": 105,
+  "max_hp": 210,
   "speed": 3.12,
   "accel": 0.55,
   "radius": 9,
   "weight": 0.9,
-  "ambush": 1.35,
+  "ambush": 1.25,
   "ambush_ticks": 90,
   "stamina": 100,
   "stamina_regen": 0.6,
@@ -142,7 +142,7 @@
     "surge": {
       "name": "Cave-In", "anim": "cavein", "energy_cost": 100,
       "startup": 18, "active": 4, "recovery": 28,
-      "damage": 14, "knockback": 0.6, "hitstun": 40, "hitstop": 14, "root_ticks": 150, "terrain_crack": 60,
+      "damage": 19.6, "knockback": 0.6, "hitstun": 40, "hitstop": 14, "root_ticks": 150, "terrain_crack": 60,
       "reach": 40, "hit_radius": 65, "juggle": true,
       "anim_at": [[0, 0], [4, 1], [8, 2], [14, 3], [18, 4], [19, 5], [24, 6], [27, 7], [31, 8], [36, 9], [41, 10], [46, 11]],
       "fx": { "shout": { "text": "I DIG IT!", "sound": "dig_it" }, "telegraph": true, "impact": "cavein" }

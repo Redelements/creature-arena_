@@ -196,5 +196,7 @@ func test_three_blocked_rings_do_not_exhaust_a_full_guard() -> void:
 	run_until(sim, func(): return sim.creatures[0].move_id == "surge", 10, SU)
 	for i in 70:
 		sim.step(PackedInt32Array([0, GUARD]))
-	assert_gt(foe.stamina, 25.0, "a full guard keeps a third of its stamina through the three rings:")
+	# The rings hit 40% harder since Oct 2026 (area Surges x1.4), so the guard ends nearly
+	# spent (about 16 of 100) but holds.
+	assert_gt(foe.stamina, 0.0, "a full guard holds through the three rings:")
 	assert_true(foe.state != CreatureSim.State.CRUMPLE, "and isn't broken")
