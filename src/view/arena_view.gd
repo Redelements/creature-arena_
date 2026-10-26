@@ -88,6 +88,32 @@ var _art_cracked: Texture2D = null
 var _art_alt: Texture2D = null
 ## The cracks of the _cracked picture alone, white on clear (lit as they spread and knit).
 var _mask: Texture2D = null
+
+
+## A picture's density (ArtScale.picture_ppu): 1 for the baked pictures as they are, 2 for
+## one twice the size of the world it covers. The main picture covers the stadium and its
+## margins; the cracked, alt and mask pictures cover the floor.
+func _ppu(tex: Texture2D) -> int:
+	if tex == null or terrain == null:
+		return 1
+	var units := terrain.arena_size() + MARGIN * 2.0 if tex == _art else terrain.floor_rect().size
+	return ArtScale.picture_ppu(tex.get_size(), units)
+
+
+## The source rect in `tex` for the world rect `at` whose picture starts at world `origin`.
+func _src(tex: Texture2D, at: Rect2, origin: Vector2) -> Rect2:
+	var k := float(_ppu(tex))
+	return Rect2((at.position - origin) * k, at.size * k)
+
+
+## The source rect for a floor cell in a floor-sized picture (cracked, alt, mask).
+func _src_cell(tex: Texture2D, cx: int, cy: int) -> Rect2:
+	var k := float(_ppu(tex)) * SimDefs.CELL
+	return Rect2(cx * k, cy * k, k, k)
+
+
+## The cells a floor picture's origin starts at (the floor's corner), as world units.
+const FLOOR_ORIGIN := Vector2(SimDefs.GRID_X, SimDefs.GRID_Y)
 ## The map's bridges (cells), whose holes show the water in the _alt picture.
 var _bridges: Array[Rect2i] = []
 ## How tall (px) the pieces that change are, as tools/gen_arenas.py casts their shadows
@@ -380,7 +406,8 @@ func _draw() -> void:
 	if terrain == null:
 		return
 	if _art != null:
-		draw_texture(_art, -MARGIN)
+		# at its own density: a 2x picture covers the same world at half scale
+		draw_texture_rect(_art, Rect2(-MARGIN, _art.get_size() / float(_ppu(_art))), false)
 		return
 	var fr := terrain.floor_rect()
 	var size := terrain.arena_size()
@@ -467,8 +494,7 @@ func _paint_changed(ci: CanvasItem, row0: int, row1: int) -> void:
 		var a := cy * terrain.cols
 		for p: int in _shade_rows.get(cy, []):  # floor out of the shadow of pieces that changed
 			if _unshaded(p):
-				ci.draw_texture_rect_region(_art_alt, _cell_rect(p - a, cy),
-					Rect2((p - a) * SimDefs.CELL, cy * SimDefs.CELL, SimDefs.CELL, SimDefs.CELL))
+				ci.draw_texture_rect_region(_art_alt, _cell_rect(p - a, cy), _src_cell(_art_alt, p - a, cy))
 		# The art already shows the floor and every piece as the map made it.
 		if terrain.cells.slice(a, a + terrain.cols) == terrain.map_base.slice(a, a + terrain.cols):
 			continue
@@ -478,9 +504,8 @@ func _paint_changed(ci: CanvasItem, row0: int, row1: int) -> void:
 			if v == b:
 				continue
 			var cell := _cell_rect(cx, cy)
-			var src := Rect2(cx * SimDefs.CELL, cy * SimDefs.CELL, SimDefs.CELL, SimDefs.CELL)
 			if (v == TerrainGrid.HOLE or v == TerrainGrid.SHALLOWS) and _bridge_gone(cx, cy):
-				ci.draw_texture_rect_region(_art_alt, cell, src)  # the river under the broken bridge
+				ci.draw_texture_rect_region(_art_alt, cell, _src_cell(_art_alt, cx, cy))  # the river under the broken bridge
 				continue
 			if TerrainGrid.is_pit(v):
 				continue
@@ -490,7 +515,7 @@ func _paint_changed(ci: CanvasItem, row0: int, row1: int) -> void:
 			if (v == TerrainGrid.CRACKED and b == TerrainGrid.WALL) or v == TerrainGrid.BRUSH_FLAT:
 				# a smashed wall's rubble, flattened brush: the map's changed-piece picture
 				if _art_alt != null:
-					ci.draw_texture_rect_region(_art_alt, cell, src)
+					ci.draw_texture_rect_region(_art_alt, cell, _src_cell(_art_alt, cx, cy))
 				else:
 					var t := TILE_RUBBLE_FLOOR if v == TerrainGrid.CRACKED else TILE_BRUSH_FLAT
 					ci.draw_texture_rect_region(TILES, cell, Rect2(t * 8, 0, 8, 8))
@@ -498,7 +523,7 @@ func _paint_changed(ci: CanvasItem, row0: int, row1: int) -> void:
 				if _grow.has(a + cx):
 					continue  # its crack is still running: the under layer draws it
 				if _art_cracked != null:
-					ci.draw_texture_rect_region(_art_cracked, cell, src)
+					ci.draw_texture_rect_region(_art_cracked, cell, _src_cell(_art_cracked, cx, cy))
 					if _glowing.has(a + cx):
 						_glow(ci, cell, Color(C_GLOW, GLOW_BAND))
 				else:
@@ -773,9 +798,9 @@ func _floor_bit(ci: CanvasItem, ncx: int, ncy: int, at: Rect2) -> void:
 	if ncx >= 0 and ncy >= 0 and ncx < terrain.cols and ncy < terrain.rows and _art_cracked != null:
 		var ni := ncy * terrain.cols + ncx
 		if terrain.cells[ni] == TerrainGrid.CRACKED and terrain.map_base[ni] != TerrainGrid.WALL and not _grow.has(ni):
-			ci.draw_texture_rect_region(_art_cracked, at, Rect2(at.position - Vector2(SimDefs.GRID_X, SimDefs.GRID_Y), at.size))
+			ci.draw_texture_rect_region(_art_cracked, at, _src(_art_cracked, at, FLOOR_ORIGIN))
 			return
-	ci.draw_texture_rect_region(_art, at, Rect2(at.position + MARGIN, at.size))
+	ci.draw_texture_rect_region(_art, at, _src(_art, at, -MARGIN))
 
 
 ## Loose pebbles on a pit's rim (0 to 2, fixed per cell), each lit on the side the light
@@ -1079,9 +1104,9 @@ func _step_fx() -> void:
 ## The cracked picture over `at` (the floor broken), or the plain one on a map without it.
 func _cracked_piece(ci: CanvasItem, at: Rect2) -> void:
 	if _art_cracked != null:
-		ci.draw_texture_rect_region(_art_cracked, at, Rect2(at.position - Vector2(SimDefs.GRID_X, SimDefs.GRID_Y), at.size))
+		ci.draw_texture_rect_region(_art_cracked, at, _src(_art_cracked, at, FLOOR_ORIGIN))
 	elif _art != null:
-		ci.draw_texture_rect_region(_art, at, Rect2(at.position + MARGIN, at.size))
+		ci.draw_texture_rect_region(_art, at, _src(_art, at, -MARGIN))
 	else:
 		ci.draw_rect(at, C_FLOOR_BIT * GROUND_TINT.get(ground, Color.WHITE))
 
@@ -1089,7 +1114,7 @@ func _cracked_piece(ci: CanvasItem, at: Rect2) -> void:
 ## The cracks inside `at` lit up in `col` (nothing on a map without a crack mask).
 func _glow(ci: CanvasItem, at: Rect2, col: Color) -> void:
 	if _mask != null:
-		ci.draw_texture_rect_region(_mask, at, Rect2(at.position - Vector2(SimDefs.GRID_X, SimDefs.GRID_Y), at.size), col)
+		ci.draw_texture_rect_region(_mask, at, _src(_mask, at, FLOOR_ORIGIN), col)
 
 
 ## Under the pits: cracks running across their cells, their tips lit.

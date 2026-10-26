@@ -104,6 +104,15 @@ art pixel of 2x art), not per world unit. 1920 x 1080 and 3840 x 2160 are unchan
 (4 and 8 per unit); 1440 x 810 shows 2 per unit instead of 3 and 2560 x 1440 shows 4
 instead of 5, so the HUD is a step smaller there and every art pixel is even.
 
+## Proof
+
+Crease's sheets upscaled 2x (nearest) and declared `ppu` 2 render the same picture as the
+1x sheets at camera zoom 1: the silhouette's extents match to the pixel, every texel is
+the same 4 x 4 screen-pixel block at 1920 x 1080 scale, and the full suite (1,174 tests)
+passes unchanged. The one difference is the flash shader's rim (Surge ready, Stoneskin):
+it is one texel thick (`TEXTURE_PIXEL_SIZE`), so on a 2x sheet it is one grid pixel instead
+of two, in step with the finer outlines. Nothing in `data/` or `src/sim/` moved.
+
 ## What this changes in the plan
 
 - Existing fighters don't get blockier: they already draw at 2 grid px per art px, and

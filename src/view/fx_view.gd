@@ -1800,18 +1800,19 @@ func _scatter(c: CreatureSim) -> void:
 	var fsize: Vector2 = snap["side_size"]
 	var origin: Vector2 = snap["side_origin"]
 	var flip := bool(snap["flip"])
+	var sppu := int(snap.get("side_ppu", 1))  # the bands and `pieces` are sheet pixels
 	var dir: Vector2 = _last_push.get(c.id, -c.facing)
 	var pieces: Array = ko.get("pieces", [])
 	if pieces.is_empty():
-		pieces = _scatter_bands(c, origin.y, fsize.y)
+		pieces = _scatter_bands(c, origin.y, fsize.y, sppu)
 	for i in pieces.size():
 		var y0 := int(pieces[i][0])
 		var y1 := int(pieces[i][1])
-		var zc := origin.y - (y0 + y1) * 0.5
+		var zc := (origin.y - (y0 + y1) * 0.5) / float(sppu)
 		var head := i == 0
 		var spread := dir.rotated(randf_range(-0.8, 0.8))
 		var speed := randf_range(0.7, 1.6) + (1.3 if head else 0.0)
-		_add({"kind": "chunk", "piece": true, "tex": snap["side_tex"], "flip": flip,
+		_add({"kind": "chunk", "piece": true, "tex": snap["side_tex"], "flip": flip, "ppu": sppu,
 			"region": Rect2(int(frame[1]) * fsize.x, int(frame[0]) * fsize.y + y0, fsize.x, y1 - y0),
 			"ox": origin.x, "band_c": (y0 + y1) * 0.5,
 			"pos": c.pos + Vector2(randf_range(-2, 2), randf_range(-1, 1)), "z": zc,
@@ -1831,9 +1832,9 @@ func _scatter(c: CreatureSim) -> void:
 
 ## Scatter bands for a fighter whose ko_fx names no "pieces": four even bands from the
 ## top of the figure (`fx_top` above the feet) down to the feet, head first.
-func _scatter_bands(c: CreatureSim, feet_y: float, frame_h: float) -> Array:
-	var top := clampf(feet_y - _top(c) - 4.0, 0.0, feet_y)
-	var bottom := minf(feet_y + 2.0, frame_h)
+func _scatter_bands(c: CreatureSim, feet_y: float, frame_h: float, sppu := 1) -> Array:
+	var top := clampf(feet_y - (_top(c) + 4.0) * sppu, 0.0, feet_y)
+	var bottom := minf(feet_y + 2.0 * sppu, frame_h)
 	var out: Array = []
 	var n := 4
 	for i in n:
@@ -2806,7 +2807,8 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 			var feet: Vector2 = p["feet"]
 			var origin: Vector2 = p["origin"]
 			var size: Vector2 = p["frame_size"]
-			ci.draw_set_transform(feet, 0.0, Vector2(-1.0 if bool(p["flip"]) else 1.0, 1.0))
+			var gs := ArtScale.scale_of(int(p.get("ppu", 1)))  # sheet pixels to world units
+			ci.draw_set_transform(feet, 0.0, Vector2(-gs.x if bool(p["flip"]) else gs.x, gs.y))
 			ci.draw_texture_rect_region(p["tex"], Rect2(-origin.x, -origin.y, size.x, size.y), p["region"], tint)
 			ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		"chunk":
@@ -2902,7 +2904,8 @@ func _draw_chunk(ci: CanvasItem, p: Dictionary) -> void:
 		var region: Rect2 = p["region"]
 		var h := region.size.y
 		var ox := float(p["ox"])
-		ci.draw_set_transform(at, float(p["rot"]), Vector2(-1.0 if bool(p["flip"]) else 1.0, 1.0))
+		var ps := ArtScale.scale_of(int(p.get("ppu", 1)))  # sheet pixels to world units
+		ci.draw_set_transform(at, float(p["rot"]), Vector2(-ps.x if bool(p["flip"]) else ps.x, ps.y))
 		ci.draw_texture_rect_region(p["tex"], Rect2(-ox, -h * 0.5, region.size.x, h), region)
 		var eyes: Array = p.get("x_eyes", [])
 		var vel: Vector2 = p["vel"]

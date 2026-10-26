@@ -4726,12 +4726,18 @@ func _apply_pixel_scale() -> void:
 
 
 ## The content scale factor for a window `size` over the `base` grid: whole screen pixels
-## per canvas unit (base.x / VIEW_W grid pixels: 2), at least 1. 0 for a size or base of nothing.
+## per grid pixel (a 2x sheet's art pixel; base.x / VIEW_W = ArtScale.PX_PER_UNIT of them a
+## canvas unit) once the window has two or more of them, so 2x art never draws uneven; below
+## that (1440 x 810: 1.5 a grid pixel) whole screen pixels per canvas unit, as the older 1x
+## sheets want, so a window that can't fit two keeps its size. At least 1. 0 for a size or
+## base of nothing.
 static func pixel_scale_factor(size: Vector2, base: Vector2) -> float:
 	if base.x <= 0.0 or base.y <= 0.0 or size.x <= 0.0 or size.y <= 0.0:
 		return 0.0
 	var grid := minf(size.x / base.x, size.y / base.y)  # screen px per grid px, unsnapped
-	var unit_px := maxf(1.0, floorf(grid * base.x / SimDefs.VIEW_W + 0.001))  # per canvas unit
+	var per_unit := base.x / SimDefs.VIEW_W  # grid px per canvas unit (2)
+	var grid_px := floorf(grid + 0.001)
+	var unit_px := grid_px * per_unit if grid_px >= 2.0 else maxf(1.0, floorf(grid * per_unit + 0.001))
 	return unit_px / grid
 
 

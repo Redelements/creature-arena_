@@ -670,7 +670,15 @@ func _paint_panes(ci: CanvasItem) -> void:
 
 ## One 2-row strip of the map picture, moved `s` px sideways over itself.
 func _strip(ci: CanvasItem, x: int, y: int, w: int, h: int, s: int) -> void:
-	ci.draw_texture_rect_region(art, Rect2(x + s, y, w, h), Rect2(Vector2(x, y) + MARGIN, Vector2(w, h)))
+	var k := float(_art_ppu())  # a 2x picture: twice the source pixels for the same strip
+	ci.draw_texture_rect_region(art, Rect2(x + s, y, w, h), Rect2((Vector2(x, y) + MARGIN) * k, Vector2(w, h) * k))
+
+
+## The map picture's density (ArtScale.picture_ppu: a 2x picture is twice the stadium's size).
+func _art_ppu() -> int:
+	if art == null or sim == null:
+		return 1
+	return ArtScale.picture_ppu(art.get_size(), sim.arena_size() + MARGIN * 2.0)
 
 
 func _paint_sway(ci: CanvasItem) -> void:

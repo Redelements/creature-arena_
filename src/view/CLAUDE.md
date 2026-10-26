@@ -15,6 +15,16 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   the fighters) draws each fighter's frame as a silhouette along the map's `light`, one sprite row
   per shadow row shifted whole pixels (crisp, no overlap). Never draw a fighter's shadow on its
   own node: y-sort would put it over the fighter behind.
+- Art density (`art_scale.gd`, `ArtScale`): the world stays in sim units and the screen grid
+  is `PX_PER_UNIT` (2) pixels a unit (project.godot: 960 x 540 at stretch scale 2). Every
+  older sheet and picture is 1 texture pixel a unit and draws as it always did; art made for
+  this scale is 2 a unit and draws at half scale on half-unit positions (`ArtScale.snap`), so
+  each of its pixels is one grid pixel. A sheet says so with `sprite.ppu` (per view too), an
+  arena picture by being twice the size (`ArtScale.picture_ppu`, `ArenaView._ppu`), a
+  flipbook effect by its own `ppu`. Frame sizes, origins, portraits and regions stay in sheet
+  pixels: `CreatureView.snapshot()` carries `ppu` for the afterimages and death pieces, the
+  HUD's portrait and cut-in, the select screen and `FighterPreview` divide their scale by it.
+  Never scale the sim or its data for art: `tests/test_art_scale.gd`, `docs/plans/32px-migration.md`.
 - Art layout is data-driven: frame size (`[w, h]` frames allowed, Crease's are 128x160),
   origin, `anims`, `side_only`, `idle_ticks`, `run_ticks`, `step_frames`, `anim`, `anim_at` (also the dodge's), `anim_reel`,
   `anim_charge`, `view_lift` from the creature JSON (`FighterPreview` reads `idle_ticks` too). Up/down sheets are optional, and so are the diagonal sheets `down_side` / `up_side` (mirrored for the left; `pick_view`: 8 sectors of 45 degrees, falling back to the older up/down/side rule when a fighter lacks the sector's sheet, so fighters without them still draw diagonals side-on).
@@ -317,6 +327,7 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `ambient_view.gd` (AmbientView) — A map's ambient life, from the optional "ambient" block of data/arenas/<id>.json (a map without the key draws nothing).
 - `arena_intro.gd` (ArenaIntro) — The arena intro before an offline match: the camera flies in from the stands to the whole floor, the arena's name card…
 - `arena_view.gd` (ArenaView) — Draws the stadium: stands, walls, and the breakable floor from the terrain grid.
+- `art_scale.gd` (ArtScale) — Where the art density lives: how many art pixels one world unit is.
 - `audio_view.gd` (AudioView) — Sound effects and music. Like the other views it only reads the simulation: sounds come from simulation events (hits, s…
 - `backdrop_view.gd` (BackdropView) — The world beyond the floor, in depth. A map's picture (ArenaView) holds the crowd's rows and everything below them; abo…
 - `bloom.gdshader` — (no header comment)
