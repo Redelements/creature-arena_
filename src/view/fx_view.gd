@@ -268,6 +268,11 @@ func spawn(e: Dictionary) -> void:
 				col = Color("b8b8b8")
 			_damage_number(e, p, col)
 			_wear_hit(e, push)
+			if bool(e.get("stagger_if", false)):
+				# A no_flinch hit that staggered because the target was set up (stagger_if).
+				var c := _creature(int(e.get("target", -1)))
+				if c != null:
+					_text(c.pos + Vector2(0, -_top(c) * 0.5), "STAGGERED!", C_TENDER, 7, 40.0)  # mid-body: TENDERIZED is above
 		"block":
 			_block_feedback(e, p)
 		"guard_break":
@@ -480,6 +485,9 @@ func spawn(e: Dictionary) -> void:
 				_text(c.pos + Vector2(0, -_top(c) - 14), "TENDERIZED", C_TENDER, 7, 44.0)
 		"projectile_pierce":
 			_add({"kind": "spark", "pos": p, "life": 6, "scale": 0.8})
+		"projectile_bounce":
+			_add({"kind": "spark", "pos": p, "life": 8, "scale": 1.0})
+			_add({"kind": "ring", "pos": p, "life": 8, "radius": 10.0})
 		"punishable":
 			var c := _creature(int(e.get("who", -1)))
 			if c != null:
@@ -639,7 +647,7 @@ func _event_shown(e: Dictionary) -> bool:
 	if viewer_team < 0 or sim == null:
 		return true
 	var kind := String(e["type"])
-	if kind in ["projectile_end", "projectile_pierce", "burst", "zone"]:
+	if kind in ["projectile_end", "projectile_pierce", "projectile_bounce", "burst", "zone"]:
 		return sight_to(Vector2(e["pos"]))
 	var any := false
 	for k in _EVENT_IDS:

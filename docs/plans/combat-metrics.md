@@ -89,3 +89,26 @@ crease       93%     2%     3%     0%     2%   1.03  1.02    2%     0.00  325.6
   plays the same kit, it just Surges less when it only jabs. Kit passes (C3+) are what change it.
 - Class pins in `tests/test_balance.gd` all pass; the `--matrix` totals move a few points
   (Crease 70% to 63%, Cerebro 20% to 20%, Cairn 73% to 65%).
+
+## After C3 `cerebro-kit` (Oct 25 2026, NET_VERSION 34, same command)
+
+Chef Cerebro's kit pass: the Mallet Toss staggers a tenderized foe (`stagger_if`), the Cleaver
+Toss bounces to a second foe (`bounce`, no effect in these 1v1s), the CPU sets up with Tenderize
+(`ai.setup`, `setup_routes`), and a CPU fix for everyone: first contact on a later light of the
+string (the first knife missed) now follows the light routes from there, where it used to
+cancel straight into the heavy (a Tenderize that whiffed from knife range).
+
+```
+fighter    light  heavy  skill  surge  other  combo types    2+  surge/m  dmg/m
+cerebro      78%     1%    20%     1%     0%   1.06  1.05    5%     0.13  264.9
+crease       94%     2%     3%     0%     1%   1.02  1.02    2%     0.00  314.6
+```
+
+(The rest of the roster is within noise of the C2 table.) Cerebro's skill share doubles (9% to
+20%: the cleaver cashes out strings whose second knife was the first to land) and his damage a
+minute goes from 226 to 265; Rage vs Rage he wins 50% of the `--matrix` (15% before) and 43% of
+`--only=cerebro --seeds=4` (23%). The light share and combo length barely move: the CPU's raw
+Tenderize is read and guarded (a gold tell), so it rarely tenderizes, and a thrown knife on a
+free foe is a one-hit combo by definition. The setup-then-payoff combo is there for players
+(Tenderize, then Flick, Flick, Mallet staggers, Cleaver: 2 hits, 2 types); the CPU lands it a
+few times a match at most.

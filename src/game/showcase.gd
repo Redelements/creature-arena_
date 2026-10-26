@@ -25,6 +25,9 @@ extends RefCounted
 ##                        "restock": true refills Paper Stock sheets, like the energy a
 ##                        script starts with)
 ## "part" switches the caption line, "show" highlights an item on it.
+## A script's optional "extra" list ({id, off [x, y]}) adds fighters who stand still on the
+## right-hand fighter's side, `off` px from it, put back there by every place (the
+## cleaver's bounce needs a second foe).
 
 const L := SimDefs.IN_LIGHT
 const H := SimDefs.IN_HEAVY
@@ -221,7 +224,7 @@ const SCRIPTS := {
 		"captions": [
 			["From range:", "Knife Flick", "Backhand Flick", "Mallet Toss", "Cleaver Toss"],
 			["Dodge: he teleports", "away", "and back"],
-			["Up close:", "Flick", "Flick", "Mallet", "Tenderize (softens them up)", "Cleaver Toss"],
+			["Up close:", "Tenderize (sets them up)", "then:", "Flick", "Flick", "Mallet staggers them", "Cleaver Toss"],
 			["Flick", "Flick", "Mallet", "Flip Out", "Knife Flurry"],
 		],
 		"steps": [
@@ -238,11 +241,13 @@ const SCRIPTS := {
 			{"do": "wait", "t": 50},
 			{"do": "place", "part": 2, "gap": 2.0},
 			{"do": "wait", "t": 20, "show": 0},
-			{"do": "press", "who": 0, "bit": L, "move": "light_1", "show": 1},
-			{"do": "press", "who": 0, "bit": L, "move": "light_2", "show": 2},
-			{"do": "press", "who": 0, "bit": L, "move": "light_3", "show": 3},
-			{"do": "press", "who": 0, "bit": H, "move": "heavy", "show": 4},
-			{"do": "press", "who": 0, "bit": S1, "move": "skill_1", "show": 5},
+			{"do": "press", "who": 0, "bit": H, "move": "heavy", "show": 1},
+			{"do": "until", "cond": "settled"},
+			{"do": "place", "gap": 60.0, "show": 2},
+			{"do": "press", "who": 0, "bit": L, "move": "light_1", "show": 3},
+			{"do": "press", "who": 0, "bit": L, "move": "light_2", "show": 4},
+			{"do": "press", "who": 0, "bit": L, "move": "light_3", "show": 5},
+			{"do": "press", "who": 0, "bit": S1, "move": "skill_1", "show": 6},
 			{"do": "until", "cond": "settled"},
 			{"do": "wait", "t": 40},
 			{"do": "place", "part": 3, "gap": 2.0},
@@ -509,6 +514,21 @@ const SCRIPTS := {
 			{"do": "wait", "t": 60},
 		],
 	},
+	"cleaver": {
+		"left": "cerebro", "right": "cairn", "energy": [0, 0], "gap": 50.0,
+		"extra": [{"id": "culvert", "off": [16, -50]}],
+		"title": "CHEF CEREBRO  -  CLEAVER BOUNCE",
+		"captions": [
+			["Cleaver Toss", "bounces on to the next foe (60% damage)"],
+		],
+		"steps": [
+			{"do": "wait", "t": 40, "part": 0, "show": 0},
+			{"do": "press", "who": 0, "bit": S1, "move": "skill_1", "show": 0},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 10, "show": 1},
+			{"do": "wait", "t": 90},
+		],
+	},
 	"counterplay": {
 		"left": "cairn", "right": "culvert", "energy": [0, 100], "gap": 2.0,
 		"title": "COUNTERPLAY  -  READ THE WINDUP",
@@ -577,6 +597,9 @@ func _init(p_name: String, p_def: Dictionary = {}) -> void:
 ## The match this showcase starts from: two fighters close together, centre stage.
 func build() -> MatchSim:
 	var sim := MatchFactory.versus(String(script_def["left"]), String(script_def["right"]))
+	for x in script_def.get("extra", []):
+		var c := sim.add_creature(MatchFactory.load_def(String(x["id"])), sim.spawn(1))
+		c.team = sim.creatures[1].team
 	_place(sim, float(script_def.get("gap", 2.0)), String(script_def.get("dir", "right")))
 	var energy: Array = script_def.get("energy", [0, 0])
 	var hp: Array = script_def.get("hp", [-1, -1])
@@ -599,6 +622,7 @@ func caption_items() -> Array:
 ## Inputs for both fighters this tick. Call once per simulation step.
 func inputs(sim: MatchSim) -> PackedInt32Array:
 	var out := PackedInt32Array([0, 0])
+	out.resize(maxi(2, sim.creatures.size()))  # extra fighters stand still
 	var steps: Array = script_def["steps"]
 	if finished or step >= steps.size():
 		finished = true
@@ -762,7 +786,13 @@ func _place(sim: MatchSim, gap: float, dir := "right", angle := NAN) -> void:
 	b.pos = a.pos + d * (a.radius + b.radius + gap)
 	a.facing = SimDefs.aim_from_bits(SimDefs.aim_bits(d))  # one of the 64 aim directions
 	b.facing = SimDefs.aim_from_bits(SimDefs.aim_bits(-d))
-	for c in [a, b]:
+	var extra: Array = script_def.get("extra", [])
+	for i in range(2, sim.creatures.size()):
+		var off: Array = (extra[i - 2] as Dictionary).get("off", [0, 40]) if i - 2 < extra.size() else [0, 40]
+		var c := sim.creatures[i]
+		c.pos = b.pos + Vector2(float(off[0]), float(off[1]))
+		c.facing = (a.pos - c.pos).normalized()
+	for c in sim.creatures:
 		c.knock_vel = Vector2.ZERO
 		c.walk_vel = Vector2.ZERO
 

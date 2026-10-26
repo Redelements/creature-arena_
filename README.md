@@ -130,7 +130,7 @@ From a terminal:
 godot --path .                          # menu
 godot --path . -- --mode=0 --level=2    # Cairn vs a Hard CPU Culvert
 godot --path . -- --mode=2              # watch CPU vs CPU
-godot --path . -- --showcase=cerebro    # scripted demo: cairn, culvert, craglash, barkley, gillbert, cerebro, hissy, digby, pete, sno or counterplay
+godot --path . -- --showcase=cerebro    # scripted demo: cairn, culvert, craglash, barkley, gillbert, cerebro, cleaver, hissy, digby, pete, sno or counterplay
 godot --path . -- --mode=6              # Duel vs CPU with the default teams (add --pick to choose)
 godot --headless --path . -- --server   # a dedicated server on UDP 7777 (docs/SERVER.md)
 ```
@@ -191,15 +191,15 @@ meant to be played), checked by `tests/test_balance.gd`:
 
 | Matchup | Rage vs Rage |
 | --- | --- |
-| Digby vs Chef Cerebro | about even since the Oct 2026 kit pass (was 70–75% Digby); the next pass favours the assassin again |
-| Sneaky Pete vs Chef Cerebro | about 25% Pete |
-| Chef Cerebro vs Cairn | Cerebro favoured; Hissy Fitz, Culvert and Craglash beat him since the Oct 25 2026 nerf (the Mallet Toss no longer staggers) |
+| Digby vs Chef Cerebro | 80–100% Digby (his hidden Burrow engage) |
+| Sneaky Pete vs Chef Cerebro | Pete favoured (about 85%; not pinned) |
+| Chef Cerebro vs Cairn, Hissy Fitz, Culvert | Cerebro favoured (75–100%) since his Oct 2026 kit pass (the Mallet Toss staggers a tenderized foe); Craglash beats him (about 25% Cerebro) |
 | Cairn or Hissy Fitz vs an assassin | 60–100% the fighter |
 | Craglash vs Culvert (tanks) | about 10% Craglash (his pits; 30–45% before Craglash's balance pass) |
 | Digby vs Sneaky Pete (assassins) | about 90% Digby (not pinned) |
 | Hissy Fitz vs Cairn (fighters) | about even |
 | Barkley vs Sno Mercy (bruisers) | 25% Barkley at Rage, 75% at Hard |
-| Mister Crease vs Chef Cerebro (mages) | about even (40–60%) |
+| Mister Crease vs Chef Cerebro (mages) | about even (40–60%; not pinned) |
 | Mister Crease vs Cairn, Hissy Fitz, Culvert, Barkley, Sno Mercy | 80–100% Crease |
 | Mister Crease vs Craglash | about even since the Oct 2026 kit pass |
 | Digby vs Mister Crease | about even since the Oct 2026 kit pass (was 60–70% Digby); Sneaky Pete loses to him like he loses to Cerebro (not pinned) |
@@ -307,7 +307,8 @@ Lights chain into the next light in their string. **Only the last hit of a light
 staggers** (the third; Cairn's Hook, the fourth): the hits before it only deal damage, with no
 hitstun, no push and no combo started, so the other fighter can answer between them.
 Craglash is the exception: every hit of his slower string staggers. Chef Cerebro's thrown
-string is the other: none of it staggers, the Mallet Toss included. A jab still interrupts a
+string is the other: none of it staggers, except the Mallet Toss on a foe he has **tenderized**
+(setup, then payoff). A jab still interrupts a
 big move's windup, and still catches an invisible Pete; Cerebro's thrown knives and mallet do neither.
 **Fights happen at arm's length, not on top of each other:** lights reach about 16 px
 past the two bodies, and a light's forward step stops once the foe is at the strike's
@@ -726,9 +727,9 @@ range; up close he softens them up or flips them away. Voice line: "CHOP CHOP!"
 
 | Button | Move | What it does |
 | --- | --- | --- |
-| Light | Knife Flick, Backhand Flick, Mallet Toss | Two small knives and then the meat mallet, all **thrown** about 115 px, and he **keeps gliding** while he throws them (at 70% speed, any direction). On the Twin-stick layout the right stick throws them on its own. **None of them stagger**, the Mallet Toss included: they only chip, so the string is pressure and poke, and what follows it can be blocked or dodged |
+| Light | Knife Flick, Backhand Flick, Mallet Toss | Two small knives and then the meat mallet, all **thrown** about 115 px, and he **keeps gliding** while he throws them (at 70% speed, any direction). On the Twin-stick layout the right stick throws them on its own. The knives never stagger: they only chip. **Mise en place:** the Mallet Toss staggers a foe he has **tenderized** ("STAGGERED!"), so Tenderize first and then the string is a real combo: Flick, Flick, Mallet, then Cleaver Toss or Tenderize again. On a foe that isn't tenderized it only chips, and what follows it can be blocked or dodged |
 | Heavy | Tenderize | Pounds the floor with the mallet: hits everyone close, all around him, pops them up and **tenderizes** them (they take 20% more damage for 4 s; a pink arrow shows it). Hold to charge (bigger and harder) |
-| Skill 1 | Cleaver Toss | Flings the big knife in a straight line, about 120 px; it hits the **first** foe in its path. Keeps a juggle going |
+| Skill 1 | Cleaver Toss | Flings the big knife in a straight line, about 120 px; it hits the first foe in its path and then **bounces once** to the nearest other foe within 80 px (60% damage). Keeps a juggle going |
 | Skill 2 | Flip Out | Scoops a close foe with the spatula and **flips them over his head**, to land behind him; he turns to follow. A grab: it beats guard (red tell) |
 | Surge | Knife Flurry | A stream of eight knives in a straight line, about 130 px, that fly **through** everyone in the line (a fat knife, with the outer ones fanned a little wider so a lane isn't a single pixel); the last one knocks down and **tenderizes** (takes 25% more damage for 4 s), so follow it up. Block it (3 chip) or sidestep the lane. It **aims at the nearest foe** within about 65° of where he faces (every knife tracks them), so they needn't be lined up on one of the 8 directions. A dotted line on the floor shows the lane during the startup |
 
@@ -873,6 +874,7 @@ storm.
 | Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Cleaver Toss | 19.0 (not a combo since Oct 25 2026: a foe can block or dodge the follow-up) |
 | Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Tenderize → Cleaver Toss (tenderized: +20%) | 29.0 (not a combo) |
 | Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Flip Out → Knife Flurry | 49.1 (not a combo) |
+| Chef Cerebro | On a tenderized foe: Knife Flick, Backhand Flick, Mallet Toss (staggers) → Cleaver Toss | 24.2 (a combo: the mallet staggers) |
 | Hissy Fitz | Snake Jab, Snake Jab, Hair Lash → Coil Uppercut → Venom Spit (then 12 poison) | 27.1 |
 | Hissy Fitz | Snake Jab, Snake Jab, Hair Lash → Coil Uppercut → Venom Spit → Petrify Punch, then shatter the statue | 54.1 + |
 | Digby | Claw Swipe, Claw Swipe, Pickaxe Swing → Headlamp Flash | 22.3 |

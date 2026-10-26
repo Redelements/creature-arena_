@@ -493,7 +493,8 @@ func _hit_base(mv: Dictionary, mid: String, type: String) -> Dictionary:
 	var out := {"attacker": id, "move_id": mid, "type": type, "serial": attack_serial,
 		"stack_bonus": float(mv.get("stack_bonus", 0.0)), "slow_mult": float(mv.get("slow_mult", 1.0)),
 		"vuln_mult": float(mv.get("vuln_mult", 1.0)), "steal": float(mv.get("steal", 0.0)),
-		"cone": float(mv.get("cone", 0.0)), "poison_look": String(mv.get("poison_look", ""))}
+		"cone": float(mv.get("cone", 0.0)), "poison_look": String(mv.get("poison_look", "")),
+		"stagger_if": String(mv.get("stagger_if", ""))}
 	for k in HIT_FLAG_KEYS:
 		out[k] = bool(mv.get(k, false))
 	return out
@@ -563,6 +564,26 @@ func is_airborne() -> bool:
 
 func is_stunned() -> bool:
 	return state == State.HITSTUN or state == State.CRUMPLE or state == State.AIRBORNE
+
+
+## Whether this creature carries `mark`, a state a hit's "stagger_if" can name: a
+## no_flinch hit staggers a target that has it (setup, then payoff: Chef Cerebro's Mallet
+## Toss staggers a tenderized foe). An unknown mark is never there.
+func has_mark(mark: String) -> bool:
+	match mark:
+		"tenderized":
+			return vuln > 0
+		"poisoned":
+			return poison > 0
+		"bleeding":
+			return poison > 0 and poison_look == "bleed"
+		"slowed":
+			return slow > 0
+		"rooted":
+			return root > 0
+		"blinded":
+			return blind > 0
+	return false
 
 
 ## Whether this creature pushes and gets pushed by other bodies.
@@ -1301,14 +1322,22 @@ func _update_attack(buttons: int, pressed: int, dir: Vector2, sim: MatchSim) -> 
 				_start_attack(nxt, sim)
 				return
 		else:
-			var mid := action_move(want)
-			# A multi-hit move can hold its cancel back until its last hit ("rank_cancel_from").
-			if connected and punish_serial != attack_serial and move_rank(mid) > move_rank(move_id) \
-					and can_use(mid) and not needs_fold(mid) and t >= int(mv.get("rank_cancel_from", 0)):
-				if dir != Vector2.ZERO:
-					facing = dir
-				_start_attack(mid, sim)
-				return
+			# A string branch ("branches" {button: move id}): that button pressed here starts
+			# the named move in place of the usual one, under the same rank-cancel rules; if
+			# the branch can't start (a cooldown), the usual cancel still can.
+			var picks: Array[String] = []
+			var branch := String((mv.get("branches", {}) as Dictionary).get(want, ""))
+			if branch != "":
+				picks.append(branch)
+			picks.append(action_move(want))
+			for mid in picks:
+				# A multi-hit move can hold its cancel back until its last hit ("rank_cancel_from").
+				if connected and punish_serial != attack_serial and move_rank(mid) > move_rank(move_id) \
+						and can_use(mid) and not needs_fold(mid) and t >= int(mv.get("rank_cancel_from", 0)):
+					if dir != Vector2.ZERO:
+						facing = dir
+					_start_attack(mid, sim)
+					return
 
 	if t >= int(mv["length"]) + block_lag:
 		_set_state(State.IDLE)
