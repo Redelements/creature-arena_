@@ -38,7 +38,7 @@ const SRC_GROUND := 0
 const SRC_PIECES := 1
 const SIDES := [TileSet.CELL_NEIGHBOR_LEFT_SIDE, TileSet.CELL_NEIGHBOR_RIGHT_SIDE,
 	TileSet.CELL_NEIGHBOR_TOP_SIDE, TileSet.CELL_NEIGHBOR_BOTTOM_SIDE]
-const DEFAULT_STYLES := {"wall": "boulder", "brush": "tuft", "fence": "fence"}
+const DEFAULT_STYLES := {"wall": "boulder", "brush": "tuft", "fence": "fence", "bridge": "bridge"}
 
 
 func _init() -> void:
@@ -236,17 +236,28 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 					if not c in cells:
 						cells.append(c)
 		if name == "water":
+			# the map's shallows, and the water under its bridges (shown when one falls in)
+			var wet: Array = []
 			for piece in map.get("pieces", []):
 				if String(piece.get("kind", "")) == "shallows":
-					for c in _tiles_of(piece.get("rect", [0, 0, 0, 0]), per):
-						if not c in cells:
-							cells.append(c)
+					wet.append(piece.get("rect", [0, 0, 0, 0]))
+			for b in map.get("bridges", []):
+				wet.append(b.get("rect", [0, 0, 0, 0]))
+			for r in wet:
+				for c in _tiles_of(r, per):
+					if not c in cells:
+						cells.append(c)
 		counts[name] = _terrain(layer, ts, name, cells)
 
 	var pieces := _layer(root, "Pieces", ts)
 	var styles: Dictionary = DEFAULT_STYLES.duplicate()
 	styles.merge(tiles.get("styles", {}), true)
-	for piece in map.get("pieces", []):
+	# the map's bridges are pieces too (style "bridge"): ArenaView clears a tile whose cells
+	# left the map's state, so a fallen bridge shows the water painted under it
+	var placed: Array = map.get("pieces", []).duplicate()
+	for b in map.get("bridges", []):
+		placed.append({"kind": "bridge", "rect": b.get("rect", [0, 0, 0, 0])})
+	for piece in placed:
 		var kind := String(piece.get("kind", ""))
 		var r: Array = piece.get("rect", [0, 0, 0, 0])
 		if r.size() < 4 or not styles.has(kind):
