@@ -71,6 +71,19 @@ Set 1, cut by `tools/cut_tiles.py` from `tools/tile_recipes/rock.json` for the Q
 - `assets/tiles/rock_manifest.json`, `assets/tiles/rock_ground.tres`,
   `assets/tiles/rock_overlay.tres`, `assets/arenas/quarry.tscn`.
 
+Twin Keeps (the Capture the Flag map; cut by `tools/cut_tiles.py` from
+`tools/tile_recipes/keeps.json`, colours snapped to the game's palette):
+
+- `assets/tiles/keeps_ground.png`, `assets/tiles/keeps_pieces.png`,
+  `assets/tiles/keeps_overlay.png`: from Set 1 (grass and water blobs and fills, cobbles,
+  boulders, tall grass, the cliff strips), from **RPG Buildings Castle**
+  (`RPG_Buildings_CASTLE_v1.0`, the same licence: the keeps' battlement and tower wall
+  tiles) and from **RPG Worlds Decorative Props** (`RPGW_DecorativeProps_v1.0`, the same
+  licence: the fence tiles).
+- `assets/tiles/keeps_decor_*.png` (Set 1 trees and a bush), `assets/tiles/keeps_anim_waterfall.png`
+  (Set 1) and `assets/tiles/keeps_anim_torch.png` (RPG Buildings Castle).
+- `assets/tiles/keeps_manifest.json`, `assets/tiles/keeps_*.tres`, `assets/arenas/twin_keeps.tscn`.
+
 Fantasy Lands Warrior: nothing from it is in the repository yet. Add its files here when
 they are.
 
