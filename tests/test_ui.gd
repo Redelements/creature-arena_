@@ -1923,7 +1923,13 @@ func test_the_glow_setting_hides_the_lights_and_saves() -> void:
 	cfg.load(TEST_SETTINGS)
 	assert_eq(cfg.get_value("video", "glow", true), false, "and it is saved")
 	g._set_setting("glow", 1)
-	assert_true(g.glow_floor.visible and g.glow_halo.visible, "On again")
+	assert_true(g.glow_floor.visible, "On again")
+	assert_eq(g.glow_halo.visible, g.lighting_tier() != Light2DView.Tier.HIGH,
+		"its halos too, except with Lighting High (the bloom draws them)")
+	g._set_setting("lighting", Light2DView.Tier.LOW)
+	assert_true(g.glow_halo.visible, "Lighting Low: halos back")
+	g._set_setting("lighting", Light2DView.Tier.HIGH)
+	assert_false(g.glow_halo.visible, "High: the bloom stands in for them")
 	g.queue_free()
 
 
