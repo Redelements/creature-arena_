@@ -96,11 +96,14 @@ func frame(np: Netplay, game, local_slot: int, listener: Vector2, ptt: bool, del
 		var s := int(slot)
 		var c := fighter(game, s)
 		var pl := Vector2.ZERO  # a slot with no fighter (gone): silent
-		if c != null:
+		var hear := chat.hearing(s)  # muted (or everyone is): silent and no icon, whatever is queued
+		if c != null and hear:
 			pl = place(c.pos, at, me != null and c.team == me.team)
+		if not hear:
+			_gain[s] = 0.0  # straight to the floor, no fade
 		_place[s] = pl
 		_play(chat, s, pl.x, pl.y, delta)
-		if chat.speaking(s):
+		if hear and chat.speaking(s):
 			heard[s] = chat.level(s)
 	if tone:
 		_log(chat, delta)

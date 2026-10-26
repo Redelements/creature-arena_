@@ -84,9 +84,21 @@ player and live here, outside the sim.
 - Voice chat → `_voice_step` (every rendered frame, after `netplay.pump()`: hands
   `VoiceView.frame` the match, the local slot, the camera centre and `_talk_held`), the
   mode `voice_mode_now()` (`--voice-test` > `--voice` > the setting) applied by `_apply_voice`
-  at each `Netplay.new()`, match start and setting change; Settings > Audio rows `voice`,
+  at each `Netplay.new()`, match start and setting change; Settings > Audio rows `voice`, `voice_hear`,
   `mic`, `vol_Voice`, saved as `audio/voice_mode` (int) and `audio/mic_device`; push to
   talk is `kb_talk` / `lol_talk` (V) and `pad_talk` (left stick click), held
+- Voice safety → Esc online opens `_open_online_pause` (a `PauseScreen` with no Restart;
+  `paused` is never set online, the match keeps stepping; Leave match / Stop watching asks
+  first via `quit_question`) whose Voice chat row opens `_open_voice_screen` ("VOICE CHAT"):
+  Mute everyone (`netplay.voice.mute_all`), Mute my mic (`mic_muted`; players only, voice not
+  Off), a Hearing / Muted row per other human (`voice_rows()`: not CPU slots, not you; label
+  "name · fighter", `VoiceChat.set_muted`, which also remembers the name for the session),
+  and the `voice` mode row (changing it rebuilds the screen, `_reopen_voice_screen`).
+  Settings > Audio > Hear voices from (`voice_hear`, `VOICE_HEAR`, saved as
+  `audio/voice_hear`): `_apply_voice_hear` at `_start_online_match`, once per Netplay (a
+  `voice_hear_applied` meta, so a rematch keeps the player's pause-menu choice), is the only
+  place `mute_all` is first set: Rooms and friends + `via_server` + no room code (Quick
+  match, ranked) starts it true; rooms and direct host / join start false
 - Training → `in_training`, `_training_fighter`, `_open_fighter_swap`,
   `change_training_fighter`, `_open_training_options`, `_apply_training_opts`
 - Display → `_apply_frame_rate`, `_apply_vsync`, `_apply_aspect`, `_apply_fullscreen`

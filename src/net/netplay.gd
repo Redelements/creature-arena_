@@ -152,6 +152,10 @@ var _pick_until := 0
 ## sender and the size; this checks the match). The game sets `voice.mode` from its
 ## setting, feeds the microphone in and plays the queues (src/view/voice_view.gd).
 var voice := VoiceChat.new()
+## Each slot's player name in the match on now ("" unknown, "CPU" for a CPU's), from
+## "start": the voice chat mutes by name (VoiceChat.blocked), so a room's re-seating
+## or a rematch keeps a muted player muted.
+var player_names: Array = []
 
 ## What a player is told when the other player of a 1v1 leaves.
 const OPPONENT_LEFT := "Your opponent left"
@@ -223,6 +227,23 @@ static func secret() -> String:
 ## characters, runs of spaces as one, trimmed, at most NAME_MAX characters; "Player" if
 ## nothing is left. The server cleans every name it hears (players can't trust each other's).
 const NAME_MAX := 16
+## A "start"'s `names`, made safe: an Array of `players` Strings, each cleaned (an empty
+## one stays "": unknown). Anything else is all "".
+static func names_from(v, players: int) -> Array:
+	var out: Array = []
+	out.resize(players)
+	out.fill("")
+	if not (v is Array) or (v as Array).size() != players:
+		return out
+	for k in players:
+		if not ((v as Array)[k] is String):
+			out.fill("")
+			return out
+		var s := String((v as Array)[k])
+		out[k] = clean_name(s) if s.strip_edges() != "" else ""
+	return out
+
+
 static func clean_name(s: String) -> String:
 	var out := ""
 	var space := false
@@ -303,6 +324,7 @@ func host(port: int, team: Array, p_link: NetLink = null) -> bool:
 		link = p_link
 	else:
 		var e := EnetLink.new()
+		e.max_packet = NetLink.SMALL_PACKET  # every direct-play message is far smaller
 		if e.host(port) != OK:
 			return _fail(e.error)
 		link = e
@@ -328,6 +350,10 @@ func join(address: String, port: int, team: Array, p_link: NetLink = null) -> bo
 		link = p_link
 	else:
 		var e := EnetLink.new()
+		# A player's messages from a host or a server are all small; a spectator's first
+		# "start" carries the match's whole log so far, so it takes any size.
+		if not watching:
+			e.max_packet = NetLink.SMALL_PACKET
 		if e.join(address, port) != OK:
 			return _fail(e.error)
 		link = e
@@ -670,7 +696,10 @@ func _handle(m: Dictionary) -> void:
 				return
 			rules_id = rules
 			arena_id = arena
+			player_names = names_from(m.get("names"), size * 2)
 			_begin(NetLink.int_of(m.get("n", 0)), teams, start_delay(m), slot, size, rules, arena)
+			if size == 1 and String(player_names[1 - local_slot]) != "":
+				their_name = String(player_names[1 - local_slot])
 			their_team = teams[1 - local_side]
 			if size == 1:
 				my_team = (teams[local_side] as Array).duplicate()
@@ -769,7 +798,8 @@ func _start_watching(m: Dictionary) -> void:
 		room_players = []
 	watch = Referee.new(teams, start_delay(m), size, rules, arena, _watch_n)
 	watch.feed_log(rows)
-	voice.reset(_watch_n, -1)  # a spectator listens, never talks
+	player_names = names_from(m.get("names"), size * 2)
+	voice.reset(_watch_n, -1, player_names)  # a spectator listens, never talks
 	phase = Phase.PLAYING
 	status = "Watching"
 
@@ -813,8 +843,9 @@ func _start_match() -> void:
 	_match_count += 1
 	var teams := [my_team.duplicate(), their_team.duplicate()]
 	var delay := forced_delay if forced_delay >= 0 else pick_delay(ping_ms)
+	player_names = [_my_name(), their_name]  # the joiner's from its hello
 	link.send({"t": "start", "n": _match_count, "teams": teams, "delay": delay, "ping": ping_ms,
-		"rules": rules_id, "arena": arena_id}, true)
+		"rules": rules_id, "arena": arena_id, "names": player_names}, true)
 	_begin(_match_count, teams, delay, -1, 1, rules_id, arena_id)
 
 
@@ -827,7 +858,7 @@ func _begin(n: int, teams: Array, delay: int, slot := -1, size := 1, rules := ""
 	game.ping_ms = ping_ms
 	local_slot = game.local_slot
 	local_side = game.local_side
-	voice.reset(n, local_slot)  # nothing from the last match plays into this one
+	voice.reset(n, local_slot, player_names)  # nothing from the last match plays into this one
 	rematch_local = false
 	rematch_remote = false
 	rematch_asked = {}

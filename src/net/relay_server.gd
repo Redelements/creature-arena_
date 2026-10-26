@@ -19,6 +19,9 @@ extends RefCounted
 ##
 ## To a player the server looks like a host that gives them a side: Netplay needs only
 ## the `side` in "start" (and the opponent's round trip, `via`, for its time sync).
+## "start" also lists every slot's player name (`names`, "CPU" for a CPU's) for the voice
+## chat's mutes. Voice ("vc") goes to the other players who said `voice` in hello, and to
+## spectators only in a room's match (they typed its code), never Quick match or ranked.
 ##
 ## Ready check: a group that's been put together isn't started straight away. Everyone
 ## in it gets "found" and has `ready_ms` to answer "ready"; once every player has, the
@@ -106,6 +109,14 @@ const IDLE_TIMEOUT_MS := 60000
 ## Over it, the connection is dropped.
 const MSG_RATE := 240
 const MSG_BURST := 480
+## Voice packets a connection may send on top of that: VOICE_RATE a second on average,
+## VOICE_BURST at once. A talker sends 25 a second; a voice packet is ~440 bytes (an input
+## packet ~40) and goes out to everyone else in the match, so without this one client
+## could have the server send 240 x 440 x 7 = ~740 KB/s in an 8-player match (with it:
+## 30 x 440 x 7 = ~92 KB/s at most). Over it, the packet is dropped, not relayed; the
+## connection stays (a hitch can bunch up a few packets of an honest talker).
+const VOICE_RATE := 30
+const VOICE_BURST := 60
 ## The biggest packet once a connection has said hello (a player's are a few hundred
 ## bytes); before hello and for a Daily submission, EnetHub.MAX_PACKET_BYTES.
 const MAX_PACKET_PLAYER := NetLink.SMALL_PACKET
@@ -243,6 +254,9 @@ class Client:
 	var voice := false  ## said in hello that they hear voice chat (off: none is relayed to them)
 	var tokens := float(RelayServer.MSG_BURST)  ## their message budget left
 	var tokens_ms := 0
+	var voice_tokens := float(RelayServer.VOICE_BURST)  ## their voice packet budget left
+	var voice_tokens_ms := 0
+	var voice_dropped := 0  ## voice packets over that budget, not relayed
 
 	func label() -> String:
 		return "player %d (%s)" % [id, ", ".join(PackedStringArray(team))] if not team.is_empty() \
@@ -373,6 +387,20 @@ func _spend(c: Client, clock: int) -> bool:
 	if c.tokens < 1.0:
 		return false
 	c.tokens -= 1.0
+	return true
+
+
+## Takes one voice packet from `c`'s voice budget (refilled at VOICE_RATE a second up to
+## VOICE_BURST). False when it's spent: the packet isn't relayed (the first time, logged).
+func _spend_voice(c: Client, clock: int) -> bool:
+	c.voice_tokens = minf(float(VOICE_BURST), c.voice_tokens + float(clock - c.voice_tokens_ms) * VOICE_RATE / 1000.0)
+	c.voice_tokens_ms = clock
+	if c.voice_tokens < 1.0:
+		c.voice_dropped += 1
+		if c.voice_dropped == 1:
+			_log("%s sends voice faster than %d packets a second: the extra isn't relayed" % [c.label(), VOICE_RATE])
+		return false
+	c.voice_tokens -= 1.0
 	return true
 
 
@@ -585,10 +613,15 @@ func _handle(c: Client, m: Dictionary) -> void:
 			# Voice chat: only from a seated player, for the match on now, exactly one packet's
 			# worth of audio. Rebuilt from known fields (the slot is the server's, never the
 			# sender's `p`) and sent unreliably only to whoever asked for voice: the other
-			# players with it on and the spectators who didn't turn it off. Never from a
-			# spectator (_seated). The message budget (_spend, in tick) caps how many.
+			# players with it on and, in a room's match only, the spectators who didn't turn
+			# it off (they typed its code; Quick match and ranked spectators are strangers
+			# watching whatever is on, so they hear nothing). Never from a spectator
+			# (_seated). Each spends from the message budget (_spend, in tick) and the voice
+			# budget (_spend_voice: over it, dropped quietly).
 			var g := c.game
 			if not _seated(c) or int(m.get("n", -1)) != g.n:
+				return
+			if not _spend_voice(c, _clock_ms()):
 				return
 			var d = m.get("d")
 			var s := int(m.get("s", -1))
@@ -598,9 +631,10 @@ func _handle(c: Client, m: Dictionary) -> void:
 			for o: Client in g.others(c):
 				if o.voice:
 					o.link.send(out)
-			for w: Client in g.watchers:
-				if w.voice:
-					w.link.send(out)
+			if g.room != "":
+				for w: Client in g.watchers:
+					if w.voice:
+						w.link.send(out)
 		"dg":
 			var g := c.game
 			if not _seated(c) or int(m.get("n", -1)) != g.n:
@@ -742,7 +776,16 @@ func _attach_watchers() -> void:
 
 func _send_watch_start(g: Game, c: Client) -> void:
 	c.link.send({"t": "start", "watch": true, "n": g.n, "teams": g.referee.teams, "size": g.size, "rules": g.rules,
-		"arena": g.arena, "delay": g.delay, "log": g.referee.log.duplicate()}, true)
+		"arena": g.arena, "delay": g.delay, "log": g.referee.log.duplicate(), "names": _names(g)}, true)
+
+
+## Each slot's player name in slot order ("CPU" for a CPU's), for "start": the voice
+## chat mutes by name, so a muted player stays muted when a room re-seats everyone.
+func _names(g: Game) -> Array:
+	var out: Array = []
+	for c in g.players:
+		out.append("CPU" if c == null else (c as Client).name)
+	return out
 
 
 ## Ranked: the longest waiter first, paired with the closest rating within the band
@@ -1125,12 +1168,13 @@ func _start(g: Game) -> void:
 	g.label = matches_started
 	var cpu_slots: Array = g.cpu_fighters.keys()
 	cpu_slots.sort()
+	var slot_names := _names(g)
 	for c: Client in g.humans():
 		var worst := 0.0
 		for o: Client in g.others(c):
 			worst = maxf(worst, o.rtt)
 		var m := {"t": "start", "n": g.n, "teams": teams, "delay": g.delay, "ping": c.rtt + worst,
-			"side": c.side, "via": worst, "rules": g.rules, "arena": g.arena}
+			"side": c.side, "via": worst, "rules": g.rules, "arena": g.arena, "names": slot_names}
 		if g.size > 1:
 			m["slot"] = c.slot
 			m["size"] = g.size

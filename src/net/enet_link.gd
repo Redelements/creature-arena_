@@ -5,6 +5,9 @@ extends NetLink
 ## the input stream on channel 1 (unsequenced: a late packet still counts, since the
 ## rollback session sorts inputs by frame itself).
 ##
+## With `max_packet` set (Netplay sets NetLink.SMALL_PACKET for direct play), a bigger
+## packet is dropped undecoded; the connection stays.
+##
 ## The host must be reachable: on the same network, through a forwarded UDP port, or
 ## over a virtual LAN such as Tailscale. A relay or Steam's network removes that need
 ## later, behind the same NetLink interface.
@@ -93,8 +96,11 @@ func poll(wait_ms := 0) -> Array:
 						error = "The other player left or the connection dropped"
 					_peer = null
 			ENetConnection.EVENT_RECEIVE:
-				var msg = NetLink.decode(peer.get_packet())
-				if peer == _peer and msg != null:
+				var bytes := peer.get_packet()
+				if peer != _peer or not admit(bytes.size()):
+					continue  # a stranger's, or bigger than any message (max_packet): never decoded
+				var msg = NetLink.decode(bytes)
+				if msg != null:
 					out.append(msg)
 			ENetConnection.EVENT_ERROR:
 				status = Status.CLOSED

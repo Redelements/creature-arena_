@@ -48,6 +48,14 @@ outcome must live in the sim, never here or in `main.gd`.
   Netplay and for size and sender by VoiceChat; the server rebuilds it with the sender's
   real slot. `data/voice.json` isn't in `data_hash` (it decides no outcome); a change to
   the packet layout still needs a `NET_VERSION` bump (the server checks `d`'s size).
+- Voice has its own flood budget on the server (`_spend_voice`: `VOICE_RATE` = 30/s,
+  `VOICE_BURST` = 60, on the limits' clock) besides `MSG_RATE`: a "vc" over it is dropped
+  quietly (`Client.voice_dropped`), the connection kept. Honest talk is 25/s; tests that
+  talk must tick the server about once per client frame or the budget won't refill.
+- Spectators get voice only in a room's game (`g.room != ""`): a Quick match or ranked
+  spectator is a stranger who attached to whatever is on. Players see `room_watchers`.
+- Direct `EnetLink`s are capped at `NetLink.SMALL_PACKET` (`Netplay.host` / `join`);
+  `spectate` isn't (its first "start" carries the match's whole log).
 - Identity: only ranked hellos and `DailyClient` send `id` and `secret`; `RelayServer._identify`
   checks the secret against `Ratings.keys` (a hash, `Ratings.key_of`), refuses a wrong one
   or a second live connection of the same kind, and binds keys at first rated use
@@ -62,7 +70,8 @@ outcome must live in the sim, never here or in `main.gd`.
 ## Wire messages
 
 Dictionaries keyed `"t"`: `hello`, `reject`, `wait`, `found`, `ready`, `accepted`,
-`ping`/`pong`, `path`, `start`, `cpu`, `in` (inputs), `dg` (digest), `rematch`, `room` (also
+`ping`/`pong`, `path`, `start` (with `names`: each slot's player name, "CPU" for a CPU's,
+for the voice mutes), `cpu`, `in` (inputs), `dg` (digest), `rematch`, `room` (also
 a 1v1 rematch's pick status, code ""), `next`, `pick`, `rating`, `bye`; Daily: `daily`,
 `daily_ok`, `board`, `daily_board` (rows `{name, score, you}`); `vc` (voice: `n`, `p`, `s`, `d`
 bytes, unreliable; hello's `voice` says whether to relay it to this player). Beacon packets are

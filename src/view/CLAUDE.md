@@ -31,6 +31,14 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   The "Voice" bus is a volume group like Music / Effects / Menu (`AudioView.BUSES`). A voice's
   slot is its fighter's creature slot (`VoiceView.fighter`), so `hud.speaking` and
   `fx.speaking` (slot -> level, the speaker icon `VoiceView.draw_glyph`) index like the panels.
+  A slot the chat isn't hearing (`VoiceChat.hearing`: muted, or Mute everyone) plays at
+  gain 0 and is never in `heard`, so it gets no icon whatever is queued.
+- HUD voice notices (`hud.gd:_draw_mic`, bottom left on the net line's row; main sets them
+  in `_voice_step`, players only): MIC with a red dot while sending, NO MIC, MIC MUTED
+  (`hud.mic_muted`: Mute my mic, voice not Off) instead of either, and VOICE MUTED
+  (`hud.voice_muted`: Mute everyone) beside it, all dim but MIC. In a room with watchers main
+  appends `N WATCHING (THEY HEAR VOICE)` to `hud.net_info` (`_online_status`). A spectator's
+  HUD shows none of these.
 - A new `class_name` needs `--headless --import`.
 - Cost: views redraw on the 60 Hz tick, and that frame has to fit a 240 Hz budget. Redraw
   only what changed: the floor is drawn in row bands (`ArenaView.BAND_ROWS`; a changed cell
@@ -240,7 +248,7 @@ dig/slosh/poof/chop_chop/shout sounds.
   fading cracks (`wallmark`, floor layer, capped by `WALL_MARK_CAP`, 10-20 s) only on the arena boundary.
 - Footsteps / swing sounds → `audio_view.gd:watch`; buses → `_make_buses`, `set_volume`
 - Voice chat sound → `voice_view.gd:frame` (capture `_capture_step`, speakers `_play`, placing
-  `place`), the HUD's MIC light `hud.gd:_draw_mic`, speaker icons `hud.gd:_speaker_after` and
+  `place`), the HUD's MIC light and MIC MUTED / VOICE MUTED `hud.gd:_draw_mic`, speaker icons `hud.gd:_speaker_after` and
   `fx_view.gd:_draw_side_marks`
 
 ## Files

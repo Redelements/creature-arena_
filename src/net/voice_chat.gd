@@ -36,6 +36,19 @@ var talking := false
 var sent := 0
 var received := 0
 var dropped := 0  ## packets that arrived too late or malformed
+var muted_packets := 0  ## packets from muted players (or with everyone muted), not played
+
+## Mutes, the player's own: `mute_all` hears nobody (the pause menu's "Mute everyone",
+## and what the game sets when the Hear setting keeps strangers quiet); `mic_muted` sends
+## nothing whatever the mode (the pause menu's "Mute my mic"); per-player mutes are by
+## slot for this match (`set_muted`) and remembered by name in `blocked` for the rest of
+## the session, so a muted player stays muted through rematches and re-seating.
+var mute_all := false
+var mic_muted := false
+var blocked := {}  ## player name -> true
+## Each slot's player name ("" unknown; the server's "start" lists them).
+var names: Array = []
+var _muted := {}  ## slot -> true
 
 var seq := 0
 var _pending := PackedFloat32Array()  ## mic samples not yet a whole frame
@@ -99,8 +112,10 @@ func enabled() -> bool:
 ## Whole frames are encoded; with push to talk `ptt_held` opens the mic (plus a short
 ## release), with an open mic the level gate does. Quiet frames are thrown away.
 func push_mic(pcm: PackedFloat32Array, ptt_held: bool) -> void:
-	if not enabled() or slot < 0:
+	if not enabled() or slot < 0 or mic_muted:
 		talking = false
+		_pending.clear()
+		_frames.clear()
 		return
 	if ptt_held:
 		_held_ms = clock_ms
@@ -152,6 +167,9 @@ func receive(m: Dictionary) -> void:
 	var d = m.get("d")
 	if p < 0 or p == slot or s < 0 or not (d is PackedByteArray) or (d as PackedByteArray).size() != packet_bytes():
 		dropped += 1
+		return
+	if mute_all or _muted.has(p):
+		muted_packets += 1  # taken off the wire and forgotten: never queued, never "speaking"
 		return
 	received += 1
 	var sp: _Speaker = _speakers.get(p)
@@ -257,14 +275,59 @@ func heard_slots() -> Array:
 
 
 ## A new match (a rematch, the room's next): old packets must not play into it.
-func reset(p_match_id: int, p_slot: int) -> void:
+## `p_names` is each slot's player name when known; players muted by name stay muted.
+func reset(p_match_id: int, p_slot: int, p_names: Array = []) -> void:
 	match_id = p_match_id
 	slot = p_slot
+	names = p_names.duplicate()
 	_speakers.clear()
 	_pending.clear()
 	_frames.clear()
 	_enc_state.clear()
 	talking = false
+	_muted.clear()
+	for k in names.size():
+		if k != slot and _sticky(String(names[k])) and blocked.has(String(names[k])):
+			_muted[k] = true
+
+
+# ------------------------------------------------------------------ mutes
+
+## Mute or unmute player `p` for this match, and by name for the session when known.
+func set_muted(p: int, on: bool) -> void:
+	if p < 0 or p == slot:
+		return
+	if on:
+		_muted[p] = true
+	else:
+		_muted.erase(p)
+	var nm := name_of(p)
+	if _sticky(nm):
+		if on:
+			blocked[nm] = true
+		else:
+			blocked.erase(nm)
+	if on:
+		_speakers.erase(p)  # whatever they were saying stops now
+
+
+func is_muted(p: int) -> bool:
+	return _muted.has(p)
+
+
+## Whether player `p`'s voice plays at all.
+func hearing(p: int) -> bool:
+	return not mute_all and not _muted.has(p)
+
+
+func name_of(p: int) -> String:
+	return String(names[p]) if p >= 0 and p < names.size() else ""
+
+
+## A name worth remembering a mute by: not unknown, not the default every new player
+## has (muting one "Player" must not mute every later one), not a CPU.
+static func _sticky(nm: String) -> bool:
+	return nm != "" and nm != "Player" and nm != "CPU"
 
 
 # ------------------------------------------------------------------ placing a voice

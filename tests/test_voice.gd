@@ -4,8 +4,10 @@ extends TestCase
 ## gate send only while talking, the jitter buffer plays in order and skips what's lost,
 ## the placing (gain_for, pan_for) fades with distance, and the "vc" packets travel
 ## between two Netplay sessions and through the dedicated server: only for the match on
-## now, never to a player who turned voice off, never from a spectator, always carrying
-## the sender's real slot. Nothing here touches the simulation: the match stays in sync.
+## now, never to a player who turned voice off, never from a spectator, to spectators
+## only in a room's match, at most VOICE_RATE a second per sender, always carrying the
+## sender's real slot. "start" names every slot, so a mute by slot carries over by name
+## through a room's re-seating. Nothing here touches the simulation: the match stays in sync.
 
 const RATE := 16000
 
@@ -290,6 +292,20 @@ func test_a_burst_after_a_short_pause_waits_for_stragglers_again() -> void:
 	assert_gt(float(v.pull(0, 1 << 20).size()), 0.0, "and plays once the wait has passed")
 
 
+func test_a_mute_sticks_by_name_but_never_by_the_default_name() -> void:
+	var v := VoiceChat.new()
+	v.reset(1, 0, ["Me", "Rival", "Player", "CPU"])
+	v.set_muted(1, true)
+	v.set_muted(2, true)
+	assert_true(v.is_muted(1) and v.is_muted(2), "both muted this match")
+	assert_true(v.blocked.has("Rival"), "a real name is remembered:")
+	assert_false(v.blocked.has("Player"), "the default name isn't:")
+	v.reset(2, 0, ["Me", "Player", "Rival", "Someone"])
+	assert_true(v.is_muted(2), "Rival is still muted on the new slot")
+	assert_false(v.is_muted(1), "a new 'Player' isn't")
+	assert_false(v.is_muted(3), "nor anyone else")
+
+
 func test_malformed_packets_and_your_own_echo_are_dropped() -> void:
 	var v := _listener()
 	var bad := _vc(v, 0, 0)
@@ -450,11 +466,13 @@ func test_a_player_with_voice_off_still_plays_and_hears_nothing() -> void:
 
 # ------------------------------------------------------------------ through the server
 
-func _client(server: RelayServer, i: int, size: int, fighter: String) -> Netplay:
+func _client(server: RelayServer, i: int, size: int, fighter: String, p_room := "") -> Netplay:
 	var links := LoopLink.pair(1, 0, 0.0, 5 + i * 13)
 	server.add_client(links[0], "test:%d" % i)
 	var n := Netplay.new()
 	n.team_size = size
+	n.room = p_room
+	n.my_name = "P%d" % i
 	n.join("server", 0, [fighter], links[1])
 	(n.link as LoopLink).keep_heard = true
 	return n
@@ -464,7 +482,24 @@ func _heard_vc(n: Netplay) -> Array:
 	return (n.link as LoopLink).heard.filter(func(m): return String(m.get("t", "")) == "vc")
 
 
-func test_the_server_relays_voice_to_those_who_want_it_and_the_spectators() -> void:
+func _watcher(server: RelayServer, i: int, p_room := "", mode := VoiceChat.Mode.PUSH_TO_TALK) -> Netplay:
+	var links := LoopLink.pair(1, 0, 0.0, 99 + i * 13)
+	server.add_client(links[0], "watch:%d" % i)
+	var w := Netplay.new()
+	w.voice.mode = mode
+	w.spectate("server", 0, p_room, links[1])
+	(w.link as LoopLink).keep_heard = true
+	return w
+
+
+## One packet's worth of silence, well-formed.
+func _blank(n: Netplay) -> PackedByteArray:
+	var d := PackedByteArray()
+	d.resize(n.voice.packet_bytes())
+	return d
+
+
+func test_the_server_relays_voice_to_those_who_want_it_but_not_quick_match_spectators() -> void:
 	var server := RelayServer.new()
 	var fighters := ["cairn", "culvert", "sno", "barkley"]
 	var nets: Array = []
@@ -473,10 +508,7 @@ func test_the_server_relays_voice_to_those_who_want_it_and_the_spectators() -> v
 	var off: Netplay = nets[3]
 	off.voice.mode = VoiceChat.Mode.OFF  # said in hello: the server sends this one nothing
 	assert_true(_until(nets, 300, func(): return _all_playing(nets), server), "a 2v2 starts")
-	var links := LoopLink.pair(1, 0, 0.0, 99)
-	server.add_client(links[0], "watch:0")
-	var w := Netplay.new()
-	w.spectate("server", 0, "", links[1])
+	var w := _watcher(server, 0)  # Quick match: a stranger watching whatever is on
 	var all: Array = nets + [w]
 	assert_true(_until(all, 300, func(): return w.is_watching(), server), "a spectator joins the match")
 	var talker: Netplay = nets[0]
@@ -487,7 +519,12 @@ func test_the_server_relays_voice_to_those_who_want_it_and_the_spectators() -> v
 		assert_gt(float((nets[k] as Netplay).voice.received), 0.0, "player %d hears it" % k)
 	assert_eq(off.voice.received, 0, "the player with voice off hears nothing:")
 	assert_eq(_heard_vc(off).size(), 0, "and the server sent them nothing:")
-	assert_gt(float(w.voice.received), 0.0, "the spectator hears it")
+	assert_eq(w.voice.received, 0, "a Quick match spectator hears nothing:")
+	assert_eq(_heard_vc(w).size(), 0, "the server sends them none of it:")
+	for n: Netplay in nets:
+		assert_eq(w.voice.name_of(n.local_slot), n.my_name, "the spectator's start names slot %d:" % n.local_slot)
+		for o: Netplay in nets:
+			assert_eq(n.voice.name_of(o.local_slot), o.my_name, "slot %d's start names slot %d:" % [n.local_slot, o.local_slot])
 	for m in _heard_vc(nets[1]):
 		if int(m["p"]) != talker.local_slot:
 			fail("a relayed packet carries slot %s, not the talker's %d" % [str(m["p"]), talker.local_slot])
@@ -543,3 +580,192 @@ func test_after_a_rematch_the_last_matchs_voice_is_ignored() -> void:
 	assert_eq(b.voice.received, heard + 1, "but match 2's is:")
 	_talk(nets, 20, a, server)
 	assert_gt(float(b.voice.received), float(heard + 1), "and A's voice in match 2 comes through")
+
+
+func test_a_rooms_spectators_hear_its_voices_and_the_players_see_them_come_and_go() -> void:
+	var server := RelayServer.new()
+	var a := _client(server, 0, 1, "cairn", "v")
+	var b := _client(server, 1, 1, "culvert", "v")
+	var nets := [a, b]
+	assert_true(_until(nets, 300, func(): return _all_playing(nets), server), "a room's 1v1 starts")
+	var w := _watcher(server, 0, "v")
+	var deaf := _watcher(server, 1, "v", VoiceChat.Mode.OFF)  # turned voice off: hears nothing
+	var all: Array = nets + [w, deaf]
+	assert_true(_until(all, 300, func(): return w.is_watching() and deaf.is_watching(), server), "two spectators join by code")
+	assert_true(_until(all, 30, func(): return a.room_watchers == 2 and b.room_watchers == 2, server),
+		"the players are told two are watching (%d, %d)" % [a.room_watchers, b.room_watchers])
+	_talk(all, 40, a, server)
+	_talk(all, 10, null, server)
+	assert_gt(float(a.voice.sent), 10.0, "A talked")
+	assert_gt(float(b.voice.received), 0.0, "B hears it")
+	assert_gt(float(w.voice.received), 0.0, "the room's spectator hears it too")
+	assert_eq(_heard_vc(deaf).size(), 0, "but not the one who turned voice off:")
+	assert_eq(w.voice.name_of(a.local_slot), "P0", "the spectator's start names the players:")
+	assert_eq(w.voice.name_of(b.local_slot), "P1", "")
+	w.leave()
+	assert_true(_until(nets, 30, func(): return a.room_watchers == 1 and b.room_watchers == 1, server),
+		"one spectator leaves mid-match: the players are told (%d, %d)" % [a.room_watchers, b.room_watchers])
+	deaf.leave()
+	assert_true(_until(nets, 30, func(): return a.room_watchers == 0 and b.room_watchers == 0, server),
+		"the other leaves: nobody is listening (%d, %d)" % [a.room_watchers, b.room_watchers])
+	assert_true(_all_playing(nets), "and the match plays on")
+	assert_eq(a.game.desync_frame, -1, "in sync:")
+
+
+func test_the_server_relays_at_most_the_voice_budget_and_keeps_the_connection() -> void:
+	var server := RelayServer.new()
+	var a := _client(server, 0, 1, "cairn")
+	var b := _client(server, 1, 1, "culvert")
+	var nets := [a, b]
+	assert_true(_until(nets, 300, func(): return _all_playing(nets), server), "a 1v1 starts")
+	var d := _blank(a)
+	for k in 200:
+		a.link.send({"t": "vc", "n": a.game.id, "p": a.local_slot, "s": 10000 + k, "d": d})
+	_talk(nets, 6, null, server)
+	var first := _heard_vc(b).filter(func(m): return int(m["s"]) >= 10000 and int(m["s"]) < 10200).size()
+	assert_eq(first, RelayServer.VOICE_BURST, "200 voice packets at once: VOICE_BURST relayed:")
+	var sc: RelayServer.Client = null
+	for c: RelayServer.Client in server.clients.values():
+		if c.slot == a.local_slot and not c.watch:
+			sc = c
+	assert_true(sc != null and sc.voice_dropped == 200 - RelayServer.VOICE_BURST,
+		"the rest counted as dropped (%d)" % (sc.voice_dropped if sc != null else -1))
+	assert_eq(a.link.status, NetLink.Status.CONNECTED, "the connection is kept:")
+	assert_eq(server.clients.size(), 2, "nobody dropped:")
+	var frame := b.game.session.frame
+	_talk(nets, 60, null, server)  # a second of the limits' clock refills the budget
+	assert_gt(float(b.game.session.frame), float(frame + 40), "inputs are still relayed: the match plays on")
+	for k in 40:
+		a.link.send({"t": "vc", "n": a.game.id, "p": a.local_slot, "s": 20000 + k, "d": d})
+	_talk(nets, 6, null, server)
+	var again := _heard_vc(b).filter(func(m): return int(m["s"]) >= 20000).size()
+	assert_true(again >= RelayServer.VOICE_RATE and again < 40,
+		"a second later about VOICE_RATE more get through (%d of 40)" % again)
+	# An honest talker (25 packets a second) is never held back.
+	_talk(nets, 120, null, server)  # the budget fills up again
+	var dropped := sc.voice_dropped
+	var before := _heard_vc(b).size()
+	var sent := a.voice.sent
+	_talk(nets, 180, a, server)
+	_talk(nets, 6, null, server)
+	assert_gt(float(a.voice.sent - sent), 60.0, "A talked for three seconds")
+	assert_eq(sc.voice_dropped, dropped, "none of honest talk is dropped:")
+	assert_eq(_heard_vc(b).size() - before, a.voice.sent - sent, "every packet relayed:")
+	assert_eq(b.game.desync_frame, -1, "in sync:")
+
+
+func test_direct_play_names_both_players_in_start() -> void:
+	var nets := _pair()
+	var host: Netplay = nets[0]
+	var guest: Netplay = nets[1]
+	host.my_name = "Hosty"
+	guest.my_name = "Guesty"
+	assert_true(_until(nets, 200, func(): return _all_playing(nets)), "both start playing")
+	assert_eq(host.voice.names, ["Hosty", "Guesty"], "the host names both (the guest's from its hello):")
+	assert_eq(guest.voice.names, ["Hosty", "Guesty"], "and so does the guest, from the host's start:")
+	assert_eq(guest.their_name, "Hosty", "the guest knows the host's name now:")
+
+
+func test_start_names_are_checked() -> void:
+	assert_eq(Netplay.names_from(["a", "b"], 2), ["a", "b"], "well-formed:")
+	assert_eq(Netplay.names_from(["a"], 2), ["", ""], "the wrong count: all unknown:")
+	assert_eq(Netplay.names_from(["a", 5], 2), ["", ""], "not all Strings: all unknown:")
+	assert_eq(Netplay.names_from("ab", 2), ["", ""], "not an Array:")
+	assert_eq(Netplay.names_from(null, 2), ["", ""], "missing:")
+	var long := Netplay.names_from(["x".repeat(200), "  "], 2)
+	assert_eq(String(long[0]).length(), Netplay.NAME_MAX, "a long name is cut:")
+	assert_eq(long[1], "", "a blank one stays unknown:")
+	assert_eq(Netplay.names_from(["a" + char(0x202e) + "b", "CPU"], 2), ["ab", "CPU"], "cleaned like any name:")
+
+
+func test_mute_by_slot_mute_everyone_and_mute_my_mic() -> void:
+	var ab := _two()
+	var a: VoiceChat = ab[0]
+	var b: VoiceChat = ab[1]
+	var n := a.frame_samples()
+	a.mode = VoiceChat.Mode.PUSH_TO_TALK
+	a.mic_muted = true
+	for k in 20:
+		a.clock_ms += 20
+		a.push_mic(_voice(0.02, 0.4, k * n), true)
+	assert_eq(a.sent, 0, "my mic muted: nothing sent while held:")
+	assert_false(a.talking, "and not shown as talking")
+	a.mic_muted = false
+	b.set_muted(0, true)
+	assert_true(b.is_muted(0), "B mutes slot 0")
+	assert_false(b.hearing(0), "and doesn't hear it")
+	for k in 20:
+		a.clock_ms += 20
+		b.clock_ms = a.clock_ms
+		a.push_mic(_voice(0.02, 0.4, k * n), true)
+		_deliver(b)
+	_deliver(b)
+	assert_gt(float(a.sent), 0.0, "A talks")
+	assert_eq(b.received, 0, "a muted player's packets aren't taken:")
+	assert_eq(b.muted_packets, a.sent, "they're counted as muted:")
+	assert_false(b.speaking(0), "and never shown as speaking")
+	b.set_muted(0, false)
+	b.mute_all = true
+	var muted := b.muted_packets
+	var sent := a.sent
+	for k in 20:
+		a.clock_ms += 20
+		b.clock_ms = a.clock_ms
+		a.push_mic(_voice(0.02, 0.4, k * n), true)
+		_deliver(b)
+	_deliver(b)
+	assert_eq(b.received, 0, "mute everyone: nothing taken:")
+	assert_eq(b.muted_packets - muted, a.sent - sent, "all of it counted as muted:")
+	assert_false(b.hearing(0), "")
+	b.mute_all = false
+	for k in 20:
+		a.clock_ms += 20
+		b.clock_ms = a.clock_ms
+		a.push_mic(_voice(0.02, 0.4, k * n), true)
+		_deliver(b)
+	assert_gt(float(b.received), 0.0, "unmuted: heard again")
+
+
+func test_a_mute_carries_over_by_name_when_a_room_reseats_everyone() -> void:
+	var server := RelayServer.new()
+	server.rematch_locked_ms = 0
+	var fighters := ["cairn", "culvert", "sno", "barkley"]
+	var nets: Array = []
+	for i in 4:
+		nets.append(_client(server, i, 2 if i == 0 else 0, fighters[i], "m"))
+	assert_true(_until(nets, 400, func(): return _all_playing(nets), server), "a 2v2 room starts")
+	var me: Netplay = nets[0]
+	var them: Netplay = nets[2]
+	for n: Netplay in nets:
+		for o: Netplay in nets:
+			assert_eq(n.voice.name_of(o.local_slot), o.my_name, "match 1: slot %d's start names slot %d:" % [n.local_slot, o.local_slot])
+	var old_slot := them.local_slot
+	me.voice.set_muted(old_slot, true)
+	assert_true(me.voice.blocked.has("P2"), "muted by slot, remembered by name")
+	# Everyone picks again; two on one side picking the same fighter makes seat() move people.
+	for n: Netplay in nets:
+		n.request_next()
+	_talk(nets, 10, null, server)
+	var picks := ["sno", "culvert", "sno", "barkley"]
+	for i in 4:
+		(nets[i] as Netplay).send_pick([picks[i]])
+	assert_true(_until(nets, 300, func():
+		for n: Netplay in nets:
+			if n.game == null or n.game.id != 2 or not n.is_playing():
+				return false
+		return true, server), "the room's next match starts")
+	assert_true(them.local_slot != old_slot, "P2 was re-seated (slot %d -> %d)" % [old_slot, them.local_slot])
+	for n: Netplay in nets:
+		for o: Netplay in nets:
+			assert_eq(n.voice.name_of(o.local_slot), o.my_name, "match 2: slot %d's start names slot %d:" % [n.local_slot, o.local_slot])
+	assert_true(me.voice.is_muted(them.local_slot), "P2 is still muted on their new slot")
+	assert_false(me.voice.is_muted(old_slot), "and whoever sits on the old one isn't")
+	var heard := me.voice.received
+	var muted := me.voice.muted_packets
+	var others_heard := (nets[1] as Netplay).voice.received
+	_talk(nets, 40, them, server)
+	_talk(nets, 10, null, server)
+	assert_gt(float(them.voice.sent), 10.0, "P2 talks")
+	assert_eq(me.voice.received, heard, "P0 takes none of it:")
+	assert_gt(float(me.voice.muted_packets), float(muted), "it's counted as muted")
+	assert_gt(float((nets[1] as Netplay).voice.received), float(others_heard), "the others still hear P2")

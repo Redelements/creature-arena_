@@ -56,10 +56,13 @@ var dummy_mode_name := ""
 var net_info := ""
 ## Voice chat (VoiceView): slots speaking now -> level, for the speaker icon by their name;
 ## `mic_on` while this machine is sending (a red dot and MIC at the bottom left), `mic_missing`
-## when voice is on but no microphone is heard (NO MIC).
+## when voice is on but no microphone is heard (NO MIC); `mic_muted` (the pause menu's Mute
+## my mic) says MIC MUTED instead, `voice_muted` (Mute everyone) VOICE MUTED beside it.
 var speaking := {}
 var mic_on := false
 var mic_missing := false
+var mic_muted := false
+var voice_muted := false
 
 # Showcase captions: a title, the chain of moves, and which one is happening now.
 var caption_title := ""
@@ -430,7 +433,7 @@ func _draw_now() -> void:
 	elif net_info != "":
 		_text(Vector2(_hr - 404, _sh - 15.0), net_info, 6, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, 400)  # room for a long map name
 
-	if mic_on or mic_missing:
+	if mic_on or mic_missing or mic_muted or voice_muted:
 		_draw_mic()
 
 	if show_help and not touch:
@@ -439,15 +442,28 @@ func _draw_now() -> void:
 
 
 ## Voice chat: a red dot and MIC while this machine sends, NO MIC (dim) when voice is on
-## and nothing is heard from the microphone. Bottom left, on the net line's row.
+## and nothing is heard from the microphone, MIC MUTED (dim) when the player muted it, and
+## VOICE MUTED (dim) beside it with everyone muted. Bottom left, on the net line's row.
 func _draw_mic() -> void:
 	var y := _sh - 4.0 if touch else _sh - 15.0
 	var x := _hl + 6.0
-	if mic_on:
+	var size := 6 if not touch else 5
+	var text := ""
+	if mic_muted:
+		text = "MIC MUTED"
+		_text(Vector2(x, y), text, size, C_DIM)
+	elif mic_on:
 		draw_rect(Rect2(x, y - 4.0, 3, 3), Color("e5534b"))
-		_text(Vector2(x + 5.0, y), "MIC", 6 if not touch else 5, C_TEXT)
-	else:
-		_text(Vector2(x, y), "NO MIC", 6 if not touch else 5, C_DIM)
+		text = "MIC"
+		_text(Vector2(x + 5.0, y), text, size, C_TEXT)
+		x += 5.0
+	elif mic_missing:
+		text = "NO MIC"
+		_text(Vector2(x, y), text, size, C_DIM)
+	if voice_muted:
+		if text != "":
+			x += _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, UiTheme.px(size)).x + 8.0
+		_text(Vector2(x, y), "VOICE MUTED", size, C_DIM)
 
 
 ## The speaker icon after a name drawn at `x` (its left edge) of `size`, while that slot talks.

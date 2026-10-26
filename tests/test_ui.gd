@@ -1803,7 +1803,11 @@ func test_pausing_a_watched_replay_or_a_spectated_room_has_no_restart() -> void:
 	assert_false(g.paused, "Resume")
 	g.watch = Referee.new([["cairn"], ["culvert"]], 0)
 	g._open_pause()
-	assert_true(g.ui.top() is ConfirmScreen, "a spectator gets the leave confirm, not the offline pause")
+	assert_true(g.ui.top() is PauseScreen and not g.paused, "a spectator gets the online pause: the match keeps going")
+	var watching: Array = []
+	for r in g.ui.top().rows():
+		watching.append((r as Button).text)
+	assert_true("Stop watching" in watching and not ("Restart" in watching), "Stop watching, no Restart: %s" % [watching])
 	g.watch = null
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	g.free()
@@ -2089,3 +2093,137 @@ func test_a_voice_is_placed_by_where_its_fighter_stands() -> void:
 	vv.stop()
 	assert_false(vv.speaking(1), "stop() clears it")
 	vv.free()
+
+
+# ------------------------------------------------------------------ voice chat safety
+
+func test_hear_voices_from_is_on_the_audio_page_and_kept() -> void:
+	var g := _game()
+	g._open_settings_page("audio")
+	assert_true(g._setting_rows.has("voice_hear"), "Settings > Audio has Hear voices from")
+	var row: OptionRow = g._setting_rows["voice_hear"]
+	assert_eq(row.label, "Hear voices from", "")
+	assert_eq(String(row.values[row.index]), "Everyone", "everyone by default:")
+	row.grab_focus()
+	_press("ui_right")
+	assert_eq(g.voice_hear, 1, "Right picks Rooms and friends:")
+	g.free()
+	var again: Node = load("res://scenes/main.tscn").instantiate()
+	again.settings_path = TEST_SETTINGS
+	_root().add_child(again)
+	assert_eq(again.voice_hear, 1, "and the next launch reads it back:")
+	again.free()
+
+
+## The game in an online match on an in-memory server with another player (a Quick match
+## with `room` "", else that room), `hear` the Hear voices from setting. Returns
+## [server, other] once the match is on (or not, if it never started).
+func _voice_match(g: Node, room: String, hear: int) -> Array:
+	g.voice_hear = hear
+	g._start_match(20)  # Online
+	var server := RelayServer.new()
+	var la := LoopLink.pair()
+	var lb := LoopLink.pair()
+	server.add_client(la[0])
+	server.add_client(lb[0])
+	var me := Netplay.new()
+	me.room = room
+	me.my_name = "Me"
+	me.join("server", 0, ["cairn"], la[1])
+	var other := Netplay.new()
+	other.room = room
+	other.my_name = "Rival"
+	other.team_size = 0 if room != "" else 1
+	other.join("server", 0, ["sno"], lb[1])
+	g.lobby.use_fighter("cairn")
+	g.netplay = me
+	g.lobby.busy = true
+	var s := [server, other]
+	_step_online(g, s, 400, func(): return g.online != null)
+	return s
+
+
+func test_rooms_and_friends_mutes_quick_match_strangers_but_not_a_room() -> void:
+	var g := _game()
+	var s := _voice_match(g, "", 1)
+	assert_true(g.online != null, "the Quick match starts")
+	assert_true(g.netplay.voice.mute_all, "Rooms and friends: strangers start muted")
+	g.netplay.voice.mute_all = false  # the player unmutes them in the pause menu...
+	g._apply_voice_hear()  # ...and the next match of this session (a rematch) keeps that
+	assert_false(g.netplay.voice.mute_all, "a rematch doesn't mute them again")
+	g._leave_online()
+	g.free()
+	g = _game()
+	s = _voice_match(g, "", 0)
+	assert_true(g.online != null, "")
+	assert_false(g.netplay.voice.mute_all, "Everyone: a Quick match starts unmuted")
+	g._leave_online()
+	g.free()
+	g = _game()
+	s = _voice_match(g, "fox7", 1)
+	assert_true(g.online != null, "the room's match starts")
+	assert_false(g.netplay.voice.mute_all, "a room starts unmuted even with Rooms and friends")
+	g._leave_online()
+	g.free()
+
+
+func _option(scr: UiScreen, label: String) -> OptionRow:
+	for r in scr.rows():
+		if r is OptionRow and (r as OptionRow).label == label:
+			return r
+	return null
+
+
+func test_the_online_pause_menu_keeps_the_match_going_and_opens_the_voice_screen() -> void:
+	var g := _game()
+	var s := _voice_match(g, "", 0)
+	assert_true(g.online != null, "the match starts")
+	g._open_pause()
+	assert_true(g.ui.top() is PauseScreen, "Esc online: the pause menu")
+	assert_false(g.paused, "the match isn't paused")
+	var labels: Array = []
+	var voice_btn: Button = null
+	for r in g.ui.top().rows():
+		if r is Button:
+			labels.append((r as Button).text)
+			if (r as Button).text == "Voice chat":
+				voice_btn = r
+	assert_true("Leave match" in labels and "Resume" in labels and voice_btn != null, "Resume, Voice chat, Leave match: %s" % [labels])
+	assert_false("Restart" in labels, "no Restart online")
+	voice_btn.pressed.emit()
+	var scr: UiScreen = g.ui.top()
+	assert_eq(scr.title, "VOICE CHAT", "Voice chat opens its screen:")
+	var rows: Array = g.voice_rows()
+	assert_eq(rows.size(), 1, "one other player: %s" % [rows])
+	var slot := 1 - int(g.online.local_slot)
+	assert_eq(int(rows[0]["slot"]), slot, "the other slot")
+	assert_true(String(rows[0]["label"]).contains("· Sno"), "named with their fighter: " + String(rows[0]["label"]))
+	var everyone := _option(scr, "Mute everyone")
+	var mic := _option(scr, "Mute my mic")
+	var them := _option(scr, String(rows[0]["label"]))
+	assert_true(everyone != null and mic != null and them != null, "the rows are there")
+	assert_true(_option(scr, "Voice chat") != null, "and the mode setting")
+	everyone.step(1)
+	assert_true(g.netplay.voice.mute_all, "Mute everyone flips mute_all")
+	everyone.step(1)
+	assert_false(g.netplay.voice.mute_all, "and back")
+	mic.step(1)
+	assert_true(g.netplay.voice.mic_muted, "Mute my mic flips mic_muted")
+	assert_eq(String(them.values[them.index]), "Hearing", "")
+	them.step(1)
+	assert_true(g.netplay.voice.is_muted(slot), "a player's row mutes them")
+	assert_false(g.netplay.voice.hearing(slot), "")
+	them.step(1)
+	assert_false(g.netplay.voice.is_muted(slot), "and unmutes")
+	# The HUD says what's muted.
+	g._voice_step(1.0 / 60.0)
+	assert_true(g.hud.mic_muted, "MIC MUTED on the HUD")
+	g.netplay.voice.mute_all = true
+	g._voice_step(1.0 / 60.0)
+	assert_true(g.hud.voice_muted, "VOICE MUTED on the HUD")
+	# The match went on underneath.
+	var before: int = g.sim.tick
+	_step_online(g, s, 30, func(): return false)
+	assert_gt(float(g.sim.tick), float(before), "the match keeps stepping with the screens open")
+	g._leave_online()
+	g.free()
