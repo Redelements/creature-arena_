@@ -4,14 +4,14 @@ extends SceneTree
 ## both radii), so 0 is touching. Prints, per fighter: the average gap when its light
 ## hits land, the share of fighting time spent touching (gap under 4 px), and the
 ## average gap overall.
-##   godot --headless --path . --script res://tests/bench_spacing.gd -- [--lv=3] [--seeds=1] [--only=hissy]
+##   godot --headless --path . --script res://tests/bench_spacing.gd -- [--lv=1] [--seeds=1] [--only=hissy]
 
 const MAX_TICKS := 5400
 const TOUCH := 4.0
 
 
 func _init() -> void:
-	var lv := 3
+	var lv := 1  # Normal CPUs (Kevin, Oct 2026: no Rage benches)
 	var seeds := 1
 	var only := ""
 	for arg in OS.get_cmdline_user_args():
