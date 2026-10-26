@@ -1,0 +1,81 @@
+[gd_resource type="SpriteFrames" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/vfx/fire_burst.png" id="1_cgi47"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_q2u3y"]
+atlas = ExtResource("1_cgi47")
+region = Rect2(0, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_3liee"]
+atlas = ExtResource("1_cgi47")
+region = Rect2(96, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_vag2m"]
+atlas = ExtResource("1_cgi47")
+region = Rect2(192, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_4qpp3"]
+atlas = ExtResource("1_cgi47")
+region = Rect2(288, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ohbpo"]
+atlas = ExtResource("1_cgi47")
+region = Rect2(384, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_06n1d"]
+atlas = ExtResource("1_cgi47")
+region = Rect2(480, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_t8tsx"]
+atlas = ExtResource("1_cgi47")
+region = Rect2(576, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_6cekb"]
+atlas = ExtResource("1_cgi47")
+region = Rect2(672, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_lsi6c"]
+atlas = ExtResource("1_cgi47")
+region = Rect2(768, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_alcs4"]
+atlas = ExtResource("1_cgi47")
+region = Rect2(864, 0, 96, 96)
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_q2u3y")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_3liee")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_vag2m")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_4qpp3")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ohbpo")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_06n1d")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_t8tsx")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_6cekb")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_lsi6c")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_alcs4")
+}],
+"loop": 0,
+"name": &"default",
+"speed": 20.0
+}]

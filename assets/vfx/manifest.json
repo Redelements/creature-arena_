@@ -1,0 +1,60 @@
+{
+ "_doc": "Written by tools/cut_vfx.py from kiddolink's VFX Complete Set S1 (LICENSES.md); tools/build_vfx.gd makes assets/vfx/<name>_frames.tres (SpriteFrames) and <name>.tres (MoveFx) from it. Frames are 96 px at ppu 2.",
+ "ppu": 2,
+ "effects": {
+  "slash_claws": {
+   "frames": 7,
+   "size": 96,
+   "source": "vfx_slash-Sheet.png row 3 frames 1-7",
+   "on": "strike",
+   "follow": true,
+   "flip_with_facing": true,
+   "ticks_per_frame": 2,
+   "offset": [
+    14,
+    -14
+   ]
+  },
+  "impact_burst": {
+   "frames": 6,
+   "size": 96,
+   "source": "vfx_hit_effects-Sheet.png row 1 frames 0-5",
+   "on": "hit",
+   "follow": false,
+   "flip_with_facing": false,
+   "ticks_per_frame": 3,
+   "offset": [
+    0,
+    -12
+   ]
+  },
+  "fire_burst": {
+   "frames": 10,
+   "size": 96,
+   "source": "vfx_fire-Sheet.png row 3 frames 0-9",
+   "on": "burst",
+   "follow": false,
+   "flip_with_facing": false,
+   "ticks_per_frame": 3,
+   "offset": [
+    0,
+    -16
+   ]
+  },
+  "aura_buff": {
+   "frames": 13,
+   "size": 96,
+   "source": "vfx_energy-Sheet.png row 0 frames 0-12",
+   "on": "start",
+   "follow": true,
+   "flip_with_facing": false,
+   "ticks_per_frame": 3,
+   "offset": [
+    0,
+    -20
+   ],
+   "loop": true,
+   "loop_ticks": 90
+  }
+ }
+}
