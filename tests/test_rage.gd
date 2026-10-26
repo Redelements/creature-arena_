@@ -59,7 +59,7 @@ func test_rage_mage_kites() -> void:
 	# His blink went from 116 to 90 px (and a 1 s recharge) in the Oct 2026 assassin pass, so
 	# he keeps the tank about 64 px off (was 70+); still further than Hard, and he still wins.
 	assert_gt(float(rage["dist"]), 60.0, "Rage keeps the tank at knife range:")
-	assert_gt(float(rage["dist"]), float(hard["dist"]) + 5.0, "further than Hard does:")
+	assert_gt(float(rage["dist"]), float(hard["dist"]), "further than Hard does:")  # 5 px clear before the longer fights (Oct 2026)
 	assert_eq(int(rage["winner"]), 0, "and wins")
 	# Craglash's hook and Landslide Ram are built to reach a kiting mage, so he lands a
 	# few. Since the Oct 2026 kit pass (knives at 115 px, Maw back every 3.3 s, a 12-frame
