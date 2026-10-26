@@ -719,7 +719,7 @@ they don't sparkle in motion).
 | 13 | victory | 10 | the flex: frames 1-7 loop, both gloves pumping up beside his head, the cone wobbling, the syrup running; then one fist raised high (8-9, held) |
 | 14 | idle_alt | 8 | brushes the snow off his dome with a glove (flecks fly), shakes it off, then glares at the foe; played once after 5 s standing still |
 
-### Mister Crease — 128×160 frames, 12 × 16 (1536×2560 px)
+### Mister Crease — 96×96 frames, 12 × 17 (1152×1632 px)
 
 `tools/gen_crease.py`, posed and splatted with the shared renderer but shaded by its own
 paper pass (`render_paper`, swapped in for splat3d's `render` for this generator only), from
@@ -740,10 +740,11 @@ the lapels' folded edges, the underside of the brim, the paper plane's and the b
 undersides as they bank. Paper is light, so the cape has a mid fold that kinks (`wave`), the
 coat tails swing a beat behind the stride (`tails`) and the brim flexes (`brim`).
 
-Drawn at 1.1 scale (the figure is about 38×74 px with the hat; the hat tip is 73 px above
-the feet, so `fx_top` is 74), feet at **x 64, y 136** (the frames are taller for the hat and
-the victory crane); up and down sheets are **112×160**, feet at x 56, y 136 (down) and
-y 124 (up). All 16 rows are in all three views (`ko` is still side-only in the data). The
+Drawn at 0.54 scale (Oct 2026; it was 1.1, which made him as tall as the tanks): the figure
+is about 24×37 px with the hat (Pete is 42, Sno 46), so `fx_top` is 38, and the HUD portrait
+crops the hat and upper coat (`[37, 35, 24, 32]`). Feet at **x 48, y 72**; the down sheet is
+96×96 with the feet at y 72 too, the up sheet y 64 (the tallest pose, the victory crane, reaches
+50 px up). `PaperFx` draws the crafts he carries at the same scale (`BAND`, `HAND`, `SHOULDER`). All 16 rows are in all three views (`ko` is still side-only in the data). The
 crafts he carries between moves and the frogs he sends are drawn by `PaperFx`, not baked
 into the frames; the ones in his hands during a fold or a throw are in the frames.
 
@@ -756,8 +757,8 @@ Hurt, guard and the knockout had the reactions batch (Oct 2026; before/after in 
 `crease_motion_plan.md`, "Reactions"). The diagonals use `near` 8 (the other views 12); no
 pose cheat was needed (facing down, the brim still hides the flick's release, as before).
 
-The diagonals (`crease_down_side.png`, `crease_up_side.png`): **128×160**, feet at x 64,
-y 136 (`down_side`) and y 124 (`up_side`), no cheat. The paper pass works for them
+The diagonals (`crease_down_side.png`, `crease_up_side.png`): **96×96**, feet at x 48,
+y 72 (`down_side`) and y 64 (`up_side`), no cheat. The paper pass works for them
 unchanged: `build` takes each view's camera from `S.Cam(view)`, so the paper backs, fold
 lines and seams follow the diagonal cameras. All 16 rows are drawn. Five views side by
 side: [`anim_preview/crease_diagonals_3x.png`](anim_preview/crease_diagonals_3x.png).

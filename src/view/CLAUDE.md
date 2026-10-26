@@ -23,6 +23,24 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   hit `radius`: shots look the same however wide they hit.
 - Idle variety: a sheet `anims` row `idle_alt` plays once after `sprite.idle_alt_after` ticks (default 300) of standing in IDLE (`CreatureView._update_idle_alt`, one step a refresh; anything but a plain idle resets it, the arena intro too). A fold step reads its frames from the move's `fold.anim_at` when it has one. `tests/test_views.gd` pins both.
 - Every sound name needs a `data/audio.json` entry. All audio is placeholder.
+- Voice chat (`VoiceView`): the microphone plays into a muted "Mic" bus (made by VoiceView,
+  an `AudioEffectCapture` of `CAPTURE_SECONDS` on it; `audio/driver/enable_input` in
+  project.godot) and runs only while voice is on, an online match or a watched one is on
+  and this machine is a player: never in menus (except Settings > Audio > Test microphone:
+  `test_start` records `TEST_SECONDS` with a level for the row's bar, then plays it back as a WAV
+  on the Voice bus; a match's capture stops it), never for a spectator. Headless never opens
+  the mic or a speaker (it still drains the queues, so `--voice-test=tone` works headless).
+  The "Voice" bus is a volume group like Music / Effects / Menu (`AudioView.BUSES`). A voice's
+  slot is its fighter's creature slot (`VoiceView.fighter`), so `hud.speaking` and
+  `fx.speaking` (slot -> level, the speaker icon `VoiceView.draw_glyph`) index like the panels.
+  A slot the chat isn't hearing (`VoiceChat.hearing`: muted, or Mute everyone) plays at
+  gain 0 and is never in `heard`, so it gets no icon whatever is queued.
+- HUD voice notices (`hud.gd:_draw_mic`, bottom left on the net line's row; main sets them
+  in `_voice_step`, players only): MIC with a red dot while sending, NO MIC, MIC MUTED
+  (`hud.mic_muted`: Mute my mic, voice not Off) instead of either, and VOICE MUTED
+  (`hud.voice_muted`: Mute everyone) beside it, all dim but MIC. In a room with watchers main
+  appends `N WATCHING (THEY HEAR VOICE)` to `hud.net_info` (`_online_status`). A spectator's
+  HUD shows none of these.
 - A new `class_name` needs `--headless --import`.
 - Cost: views redraw on the 60 Hz tick, and that frame has to fit a 240 Hz budget. Redraw
   only what changed: the floor is drawn in row bands (`ArenaView.BAND_ROWS`; a changed cell
@@ -239,6 +257,9 @@ dig/slosh/poof/chop_chop/shout sounds.
   `trail_z`, `land_mark`. A `bounce` event runs `_wall_reaction`: dust, chips and a white flash on any wall, plus
   fading cracks (`wallmark`, floor layer, capped by `WALL_MARK_CAP`, 10-20 s) only on the arena boundary.
 - Footsteps / swing sounds → `audio_view.gd:watch`; buses → `_make_buses`, `set_volume`
+- Voice chat sound → `voice_view.gd:frame` (capture `_capture_step`, speakers `_play`, placing
+  `place`), the HUD's MIC light and MIC MUTED / VOICE MUTED `hud.gd:_draw_mic`, speaker icons `hud.gd:_speaker_after` and
+  `fx_view.gd:_draw_side_marks`
 
 ## Files
 
@@ -269,6 +290,7 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `shadow_layer.gd` (ShadowLayer) — The fighters' shadows, cast along the arena's light: each fighter's current sprite frame as a black silhouette laid on…
 - `surge_aura.gd` (SurgeAura) — The power-up aura a fighter wears while their Surge is ready: a flickering shell of energy rising off them, motes that…
 - `touch_overlay.gd` (TouchOverlay) — The touch controls on screen: the floating move stick, the button arc (Light biggest), each move's cooldown and the Sur…
+- `voice_view.gd` (VoiceView) — Proximity voice chat's sound: the microphone into VoiceChat and the other players' voices out of it, each placed by whe…
 - `water_view.gd` (WaterView) — Living water over the shallows (Floodgate's channel, Twin Keeps' pools): a slow flow down the map, twinkling highlights…
 - `weather_view.gd` (WeatherView) — Time of day and weather: how a match looks, never how it plays.
 - `wipe.gd` (Wipe) — A pixel wipe between screens: black blocks on a coarse grid that clear away along a diagonal, a step per tick (no inter…

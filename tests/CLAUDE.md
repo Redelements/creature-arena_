@@ -15,8 +15,8 @@ without it for detail.
   step (see `tests/test_stamina.gd:_step`).
 - The training dummy doesn't flinch; compare against a control run rather than assuming a
   reaction state.
-- Balance pins (`test_balance.gd`, `test_rage.gd`) are seeded CPU matches: a rules or
-  tuning change can move them. Measure with the benches before relaxing one, and say why
+- Balance pins (`test_balance.gd`) are seeded Normal-vs-Normal CPU matches (never Rage;
+  `test_rage.gd` only checks how Rage plays): a rules or tuning change can move them. Measure with the benches before relaxing one, and say why
   in the test's comment.
 - Scratch probes (a `SceneTree` script run with `--script`) are fine for investigating;
   delete them before committing.
@@ -26,14 +26,14 @@ without it for detail.
 - `bench_fighter.gd`: why one fighter wins or loses (`--fighter=sno`, `--foes=`,
   `--seeds=`, `--a=`, `--b=`): moves thrown, landed and blocked, damage dealt and taken,
   hits taken mid-move, pit falls, time guarding, the moves that hit it most.
-- `bench_cpu.gd`: CPU tier win rates: `--matrix` (every pair, `--a=3` = Rage), `--pairs`,
+- `bench_cpu.gd`: CPU tier win rates: `--matrix` (every pair at `--a`, default 1 = Normal; balance never uses Rage), `--pairs`,
   `--seeds`, `--only=<id>`, `--detail` (per foe: share of ticks at `ai.range` spacing, stamina-empty ticks, guard breaks taken), `--arena=ID`, `--teams=3` (3v3 tank/mage/assassin a side: win rate, target and focus switches a minute, spacing; `--intent=a` gives only the first-picks side the team focus, `--intent=off` nobody), `--combat` (Rage vs Rage over the roster: each fighter's damage share by move type, combo length and variety, Surges a minute; baseline in `docs/plans/combat-metrics.md`). Six games a pair at `--seeds=3` is
   noisy; `--only=<id> --seeds=6` plays 132 games.
 - `bench_sim.gd`: rollback cost. `bench_sinkhole.gd`: Sinkhole pacing. `bench_caravan.gd`:
   Caravan pacing with Normal CPUs (each round's push, rockslides, digging, healing). `bench_ctf.gd`:
   Capture the Flag pacing with Normal CPUs (`--seeds`, `--sizes=3,4`, `--level`,
   `--set=key:value` to try a tuning): match length, score, and every play's count.
-  `bench_modes.gd`: every mode's pacing on one yardstick, Rage CPUs (`--modes=team2,tdm3,brawl4,...`,
+  `bench_modes.gd`: every mode's pacing on one yardstick, Normal CPUs (`--modes=team2,tdm3,brawl4,...`,
   `--seeds`, `--shrines=data|on|off`, `--shrine-set=key:value`, `--set=key:value` (a top-level rules number, e.g.
   `spree_at:0`, `crown:0`, `crown_points_to_win:20`), `--rows`): match length, stalemate share,
   fights a minute, KOs, comebacks from behind at half time, shrine claims, time-outs, how often the first KO's
@@ -62,9 +62,9 @@ without it for detail.
 - `bench_cpu.gd` — CPU tiers against each other: every fighter as one level against a field of opponents at another, from both sides.
 - `bench_ctf.gd` — Capture the Flag pacing: seeded CPU matches (Normal by default) on the CTF rules.
 - `bench_fighter.gd` — Why a fighter wins or loses: seeded CPU matches of one fighter against a field, counting each move it throws, lands and…
-- `bench_modes.gd` — Mode pacing, the same yardstick for every mode: seeded Rage CPU matches of each mode, and per mode how long a match run…
+- `bench_modes.gd` — Mode pacing, the same yardstick for every mode: seeded Normal CPU matches of each mode, and per mode how long a match r…
 - `bench_sim.gd` — Rollback cost benchmark (not a test): godot --headless --path . --script res://tests/bench_sim.gd Prints the time to st…
-- `bench_sinkhole.gd` — Sinkhole pacing: seeded Rage CPU matches (1v1, 2v2, 3v3) on the Sinkhole rules.
+- `bench_sinkhole.gd` — Sinkhole pacing: seeded Normal CPU matches (1v1, 2v2, 3v3) on the Sinkhole rules.
 - `bench_spacing.gd` — How far apart fighters fight: CPU against CPU, each fighter against the field, from both sides.
 - `run_tests.gd` — Headless test runner. From the repo root: godot --headless --path . --import godot --headless --path . --script res://t…
 - `test_ai.gd` — The CPU opponent: deterministic, actually fights, and difficulty matters.
@@ -158,5 +158,6 @@ without it for detail.
 - `test_user_dir.gd` — The game is called Ready 4 Rambles, but its user data folder keeps the old name (`app_userdata/Creature Arena`), so set…
 - `test_views.gd` — Directional art: every fighter has up and down sheets, and the view follows facing: the 8 sectors pick side / down_side…
 - `test_vision.gd` — Vision: brush hides a fighter from the other team (not from itself or its allies) unless they're close, it attacks, or…
+- `test_voice.gd` — Proximity voice chat (VoiceChat, VoiceCodec, data/voice.json): the codec keeps speech clear, the resampler keeps the le…
 - `test_weather.gd` — Time of day and weather (WeatherView, data/weather.json): presets from data, the arena's allowed set, the menu choice s…
 <!-- END GENERATED -->

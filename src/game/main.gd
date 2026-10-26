@@ -67,6 +67,13 @@ extends Node2D
 ##   --online-size=N       with --online-join to a server: 2, 3 or 4 asks for a 2v2 / 3v3 / 4v4 (4: Capture the Flag)
 ##   --net-lag=N --net-loss=F   hold back / drop the input stream (feel rollback on a LAN)
 ##   --net-delay=N         force the input delay (frames) instead of picking it from the ping
+##   --voice=off|ptt|open  voice chat off / push to talk / open mic this session, not saved
+##                         (Settings > Audio > Voice chat otherwise)
+##   --voice-test=tone     online: send a 220 Hz tone instead of the microphone (open mic,
+##                         always held) and log "voice: sent N" and "voice: heard slot ..."
+##                         once a second: two processes test the voice path on one machine
+##                         (run them in real time: with --fixed-fps game time outruns the
+##                         clock, the tone comes faster than it plays and the queue drops)
 ##   --net-report=PATH     write the online match's report (inputs, state fingerprints) on exit; after a
 ##                         rematch or a room's next match, each earlier one is kept as PATH_m<n>.json
 ##   --net-no-pick[=N]     with --cpu-vs-cpu: don't lock in for a 1v1 rematch (the first N, or every
@@ -140,7 +147,7 @@ const REPLAY_MODE := 47
 const SETTING_PAGES := {
 	"game": ["level", "intros", "rumble", "shake", "discord", "server", "delay"],
 	"video": ["fullscreen", "wide", "vsync", "fps", "glow", "font", "perf_overlay", "#Camera", "cam_lead", "cam_clash", "cam_settle"],
-	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu"],
+	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu", "#Voice chat", "voice", "voice_hear", "mic", "mic_test", "vol_Voice"],
 	"touch": ["touch_opacity", "touch_size", "touch_hand", "touch_aim", "#Targeting", "touch_priority", "touch_chase"],
 }
 ## Settings > Controls > Touch: how see-through the touch controls are.
@@ -148,7 +155,7 @@ const TOUCH_OPACITY := [0.3, 0.5, 0.7, 0.9]
 const TOUCH_OPACITY_DEFAULT := 2
 const SHAKE_CHOICES := [["Full", 1.0], ["Reduced", 0.5], ["Off", 0.0]]
 const VOLUME_NAMES := {"Master": "Master volume", "Music": "Music", "Effects": "Sound effects",
-	"Menu": "Menu sounds"}
+	"Menu": "Menu sounds", "Voice": "Voice volume"}
 ## Volume steps in Settings (10 steps of 10%).
 const VOLUME_STEP := 0.1
 const ONLINE_MODE := 20
@@ -381,6 +388,16 @@ var glow_floor: LightView
 var glow_halo: LightView
 var glow := default_glow()
 var audio: AudioView
+## Proximity voice chat's microphone and speakers (online only; Settings > Audio).
+var voice_view: VoiceView
+var voice_mode: int = VoiceChat.Mode.PUSH_TO_TALK  ## the saved setting (audio/voice_mode)
+var mic_device := ""  ## the saved microphone (audio/mic_device; "" the system's default)
+## Settings > Audio > Hear voices from (audio/voice_hear): 0 Everyone, 1 Rooms and friends
+## (a server Quick match or ranked match starts with everyone muted: `_apply_voice_hear`).
+const VOICE_HEAR := ["Everyone", "Rooms and friends"]
+var voice_hear := 0
+var _voice_cli := -1  ## --voice=: this session's mode, never saved (-1: the setting)
+var _voice_test := false  ## --voice-test=tone
 var debug: DebugView
 var hud: Hud
 var camera: Camera2D
@@ -681,6 +698,8 @@ func _ready() -> void:
 	audio = AudioView.new()
 	add_child(audio)
 	fx.cue.connect(audio.play)
+	voice_view = VoiceView.new()
+	add_child(voice_view)
 	debug = DebugView.new()
 	debug.visible = false
 	add_child(debug)
@@ -1304,7 +1323,7 @@ func _open_settings() -> void:
 			func(): _open_settings_page("game"), "How the game plays and where it plays online")
 		s.add_card("Video", "Fullscreen, wide screens, vsync, frame rate",
 			func(): _open_settings_page("video"), "The screen and the frame rate")
-		s.add_card("Audio", "Master, music, sound effects, menu sounds",
+		s.add_card("Audio", "Master, music, sound effects, menu sounds, voice chat",
 			func(): _open_settings_page("audio"), "Volumes")
 		s.add_card("Controls", "Keyboard and controller layouts; remap keys and buttons",
 			_open_controls, "Who presses what")
@@ -1323,7 +1342,7 @@ func _open_settings_page(page: String) -> void:
 	scr.row_width = 236.0
 	scr.detail = true
 	scr.blurb = {"game": "How the game plays and where it plays online", "video": "The screen and the frame rate",
-		"audio": "Volumes", "touch": "The on-screen stick and buttons (they show when you touch the screen in a fight)"}.get(page, "")
+		"audio": "Volumes and voice chat", "touch": "The on-screen stick and buttons (they show when you touch the screen in a fight)"}.get(page, "")
 	scr.hints = ["move", "change", "back"]
 	scr.builder = func(s: UiScreen):
 		for key in SETTING_PAGES[page]:
@@ -1331,11 +1350,16 @@ func _open_settings_page(page: String) -> void:
 				_add_server_row(s)
 			elif key.begins_with("#"):
 				s.add_heading(key.substr(1))
+			elif key == "mic_test":
+				_add_mic_test_row(s)
 			else:
 				_add_setting_row(s, key)
 		s.add_space(4)
 		s.add_button("Back", s.back)
-	scr.backed.connect(func(): _setting_rows.clear())
+	scr.backed.connect(func():
+		_setting_rows.clear()
+		if voice_view != null:
+			voice_view.test_stop())
 	ui.push(scr)
 
 
@@ -1365,6 +1389,33 @@ func _add_setting_row(s: UiScreen, key: String) -> OptionRow:
 		o.bar = float(now.get("bar", -1.0)))
 	_setting_rows[key] = o
 	return o
+
+
+## Settings > Audio > Test microphone: Enter records a few seconds with a live level bar,
+## then plays them back (VoiceView.test_start); `_voice_step` keeps the row current.
+func _add_mic_test_row(s: UiScreen) -> OptionRow:
+	var o := s.add_option("Test microphone", [voice_view.test_text()], 0, func(_i): pass,
+		"Press, say a few words, and hear them played back. The bar shows how loud the microphone hears you. Nothing heard: pick another Microphone, or allow the game to use it in your system settings")
+	o.activates = true
+	o.bar = voice_view.test_level
+	o.activated.connect(func():
+		_apply_mic()
+		voice_view.test_start()
+		_refresh_mic_test())
+	_setting_rows["mic_test"] = o
+	return o
+
+
+func _refresh_mic_test() -> void:
+	var o: OptionRow = _setting_rows.get("mic_test")
+	if o == null or voice_view == null:
+		return
+	var t := voice_view.test_text()
+	if o.values.size() != 1 or String(o.values[0]) != t:
+		o.set_values([t], 0)
+	if not is_equal_approx(o.bar, voice_view.test_level):
+		o.bar = voice_view.test_level
+		o.queue_redraw()
 
 
 ## Settings > Game > Online server: a text box, saved as it's typed. Empty means the
@@ -2708,6 +2759,7 @@ func _process(_delta: float) -> void:
 		_perf.frame(flow == Flow.FIGHT and not paused)
 	if netplay != null and netplay.link != null and netplay.link.realtime:
 		netplay.pump()
+	_voice_step(_delta)
 	if discord != null:
 		if Engine.get_process_frames() % 30 == 0:
 			discord.set_activity(presence.activity(self))
@@ -4108,14 +4160,10 @@ static func _back_pressed(event: InputEvent) -> bool:
 
 
 ## Start / Esc / View in a fight. Offline the match freezes behind the pause menu; online
-## it can't, so it asks whether to leave while the match carries on (your fighter stands
-## still meanwhile).
+## it can't (`_open_online_pause`).
 func _open_pause() -> void:
 	if online != null or watch != null:  # a spectated room keeps going too
-		var c := ConfirmScreen.new("Leave the match?" if online != null else "Stop watching?",
-			"The match keeps going while this is open.", "Leave", "Stay")
-		c.answered.connect(func(yes: bool): if yes: _leave_online())
-		ui.push(c)
+		_open_online_pause()
 		return
 	paused = true
 	if _replaying():  # a saved fight: nothing to restart, so Resume / Replay theater / Main menu
@@ -4371,6 +4419,18 @@ func _setting(key: String) -> Dictionary:
 		"cam_settle":
 			return {"label": "Settle", "values": CAM_LEVELS, "index": cam_settle,
 				"desc": "When nothing is happening, the camera holds still instead of hunting. Higher: stiller"}
+		"voice":
+			var talk := Controls.binding_text("lol_talk" if player_input.layout == "league" else "kb_talk",
+				"league" if player_input.layout == "league" else "classic")
+			return {"label": "Voice chat", "values": VoiceChat.MODE_NAMES, "index": voice_mode_now(),
+				"desc": "Online: talk to players near your fighter (teammates always faintly). Push to talk holds %s. Voice isn't encrypted: treat it like a phone call on open Wi-Fi. Open mic sends any sound above a whisper, TV included; push to talk is the safer default" % talk}
+		"voice_hear":
+			return {"label": "Hear voices from", "values": VOICE_HEAR, "index": voice_hear,
+				"desc": "Everyone: anyone in your match. Rooms and friends: Quick match and ranked strangers start muted; unmute them from the pause menu"}
+		"mic":
+			var mics := mic_choices()
+			return {"label": "Microphone", "values": mics, "index": maxi(0, mics.find(mic_device)),
+				"desc": "Which microphone voice chat listens to"}
 		"perf_overlay":
 			return {"label": "Performance overlay", "values": PerfOverlay.MODE_NAMES, "index": perf_overlay.mode,
 				"desc": "The frame rate in a corner; with the graph, the last few seconds of frame times (F9 in a fight)"}
@@ -4452,6 +4512,16 @@ func _set_setting(key: String, i: int) -> void:
 				_cam_cli.erase(key)  # (the menu outranks a command-line value from here on)
 			"perf_overlay":
 				perf_overlay.mode = clampi(i, 0, PerfOverlay.MODE_NAMES.size() - 1) as PerfOverlay.Mode
+			"voice":
+				voice_mode = clampi(i, 0, VoiceChat.MODE_NAMES.size() - 1)
+				_voice_cli = -1  # (the menu outranks --voice from here on)
+				_apply_voice()
+			"voice_hear":
+				voice_hear = clampi(i, 0, VOICE_HEAR.size() - 1)
+			"mic":
+				var mics := mic_choices()
+				mic_device = String(mics[clampi(i, 0, mics.size() - 1)])
+				_apply_mic()
 			"glow":
 				glow = i == 1
 				_apply_glow()
@@ -4594,6 +4664,190 @@ func _apply_range_rings() -> void:
 	if range_rings and sim != null:
 		rings.set_sim(sim)
 		rings.advance()
+
+
+# ------------------------------------------------------------------ voice chat
+
+## The voice chat mode this session: --voice-test (open mic), else --voice, else the setting.
+func voice_mode_now() -> int:
+	if _voice_test:
+		return VoiceChat.Mode.OPEN_MIC
+	return _voice_cli if _voice_cli >= 0 else voice_mode
+
+
+## --voice=off|ptt|open (this session's mode, never saved) and --voice-test=tone.
+func _voice_arg(a: String) -> void:
+	if a.begins_with("--voice="):
+		var vm := ["off", "ptt", "open"].find(a.get_slice("=", 1))
+		if vm >= 0:
+			_voice_cli = vm
+	elif a == "--voice-test=tone":
+		_voice_test = true
+		voice_view.tone = true
+	_apply_voice()
+
+
+## The session's voice chat follows the setting (a new Netplay, a change mid-match).
+func _apply_voice() -> void:
+	var m := voice_mode_now()
+	if netplay != null and netplay.voice != null:
+		netplay.voice.mode = m
+	if m != VoiceChat.Mode.OFF:
+		VoiceView.ask_permission()
+
+
+## Settings > Audio > Hear voices from, at a Netplay's first match: "Rooms and friends"
+## starts a server Quick match or ranked match (no room code: strangers) with everyone
+## muted; a room or a direct host / join starts unmuted. Once per Netplay, so a rematch
+## keeps what the player chose in the pause menu since.
+func _apply_voice_hear() -> void:
+	if netplay == null or netplay.voice == null or netplay.has_meta("voice_hear_applied"):
+		return
+	netplay.set_meta("voice_hear_applied", true)
+	netplay.voice.mute_all = voice_hear == 1 and netplay.via_server and netplay.room == ""
+
+
+## Online (playing or watching): the pause menu over a match that keeps going (never
+## `paused`; your fighter stands still while it's open): Resume, Voice chat, and Leave
+## match (or Stop watching), which asks first.
+func _open_online_pause() -> void:
+	var playing := online != null
+	var p := PauseScreen.new(false, "")
+	p.subtitle = "The match keeps going while this is open"
+	p.quit_text = "Leave match" if playing else "Stop watching"
+	p.quit_question = "Leave the match?" if playing else "Stop watching?"
+	p.quit_note = "The match keeps going while this is open."
+	p.quit_yes = "Leave"
+	p.quit_no = "Stay"
+	if netplay != null and netplay.voice != null:
+		p.extras = [["Voice chat", _open_voice_screen, "Mute players, everyone, or your own mic"]]
+	p.quit_requested.connect(func(): _leave_online())
+	ui.push(p)
+
+
+## The voice screen's player rows: every other human in the match on now (not a CPU, not
+## this player), each {"label": "<name> · <fighter>", "slot": slot}. The name is the
+## server's (VoiceChat.names), else "Player N".
+func voice_rows() -> Array:
+	var out: Array = []
+	if netplay == null or netplay.voice == null:
+		return out
+	var game = null
+	var players := 0
+	var cpu: Dictionary = {}
+	var me := -1
+	if online != null:
+		game = online.game_sim()
+		players = online.players
+		cpu = online.cpu_slots
+		me = online.local_slot
+	elif watch != null:
+		game = watch.duel
+		players = watch.players
+		cpu = watch.cpus
+	else:
+		return out
+	for slot in players:
+		if slot == me or cpu.has(slot):
+			continue
+		var who := Netplay.clean_name(netplay.voice.name_of(slot)).strip_edges()
+		if who == "":
+			who = "Player %d" % (slot + 1)
+		var c := VoiceView.fighter(game, slot)
+		var fighter := String(c.def.get("name", "")) if c != null else ""
+		out.append({"label": "%s · %s" % [who, fighter] if fighter != "" else who, "slot": slot})
+	return out
+
+
+## Pause > Voice chat: Mute everyone, Mute my mic (players only, voice on), a Hearing /
+## Muted row per other player (VoiceChat.set_muted: by name for the session too), and the
+## Voice chat mode setting. Straight onto `netplay.voice`; the match keeps going.
+func _open_voice_screen() -> void:
+	if netplay == null or netplay.voice == null:
+		return
+	var scr := UiScreen.new()
+	scr.title = "VOICE CHAT"
+	scr.subtitle = "The match keeps going while this is open"
+	scr.row_width = 236.0
+	scr.hints = ["move", "change", "back"]
+	scr.builder = func(s: UiScreen):
+		var chat: VoiceChat = netplay.voice
+		s.add_option("Mute everyone", ["Off", "On"], 1 if chat.mute_all else 0,
+			func(i: int): chat.mute_all = i == 1,
+			"Hear nobody in this match. Your own mic still works")
+		if online != null and voice_mode_now() != VoiceChat.Mode.OFF:
+			s.add_option("Mute my mic", ["Off", "On"], 1 if chat.mic_muted else 0,
+				func(i: int): chat.mic_muted = i == 1,
+				"Send nothing, whatever you press. Push to talk already only sends while the key is held")
+		for r in voice_rows():
+			var slot := int(r["slot"])
+			s.add_option(String(r["label"]), ["Hearing", "Muted"], 1 if chat.is_muted(slot) else 0,
+				func(i: int): chat.set_muted(slot, i == 1),
+				"Muted: you hear nothing from this player, for the rest of this session")
+		_add_setting_row(s, "voice").changed.connect(func(_i): _reopen_voice_screen.call_deferred())
+		s.add_space(4)
+		s.add_button("Back", s.back)
+	scr.backed.connect(func(): _setting_rows.erase("voice"))
+	ui.push(scr)
+
+
+## The voice screen again after the mode changed (Mute my mic shows only with voice on),
+## focused on the mode row.
+func _reopen_voice_screen() -> void:
+	var top := ui.top()
+	if top == null or top.title != "VOICE CHAT":
+		return
+	ui.pop()
+	_open_voice_screen()
+	var row: Control = _setting_rows.get("voice")
+	if row != null:
+		row.grab_focus()
+
+
+## Settings > Audio > Microphone's choices: the system's input devices.
+func mic_choices() -> Array:
+	var out: Array = Array(AudioServer.get_input_device_list())
+	if out.is_empty():
+		out = ["Default"]
+	return out
+
+
+func _apply_mic() -> void:
+	if mic_device != "" and mic_device in AudioServer.get_input_device_list():
+		AudioServer.input_device = mic_device
+
+
+## Push to talk: the talk key of the keyboard layout in use, or the controller's.
+func _talk_held() -> bool:
+	if _voice_test:
+		return true
+	var kb := "lol_talk" if player_input.layout == "league" else "kb_talk"
+	return Input.is_action_pressed(kb) or Input.is_action_pressed("pad_talk")
+
+
+## Every rendered frame: the microphone in and the voices out during an online match or
+## a watched one (VoiceView), and the HUD's MIC light and speaker icons.
+func _voice_step(delta: float) -> void:
+	if voice_view == null or hud == null:
+		return
+	var game = null
+	var slot := -1
+	if netplay != null and online != null:
+		game = online.game_sim()
+		slot = online.local_slot
+	elif netplay != null and watch != null:
+		game = watch.duel
+	_refresh_mic_test()
+	voice_view.frame(netplay if game != null else null, game, slot,
+		camera.get_screen_center_position() if camera != null else Vector2.ZERO, _talk_held(), delta)
+	hud.mic_on = voice_view.sending
+	hud.mic_missing = voice_view.mic_missing and slot >= 0 and voice_mode_now() != VoiceChat.Mode.OFF
+	var chat: VoiceChat = netplay.voice if netplay != null and game != null and slot >= 0 else null
+	hud.mic_muted = chat != null and chat.mic_muted and voice_mode_now() != VoiceChat.Mode.OFF
+	hud.voice_muted = chat != null and chat.mute_all
+	hud.speaking = voice_view.heard
+	if fx != null:
+		fx.speaking = voice_view.heard
 
 
 ## The range rings key of the player's own controls: the keyboard layout in use, or the
@@ -4781,6 +5035,11 @@ func _load_settings() -> void:
 			set(k, clampi(int(cfg.get_value("video", k, CAM_DEFAULT)), 0, CAM_LEVELS.size() - 1))
 		perf_overlay.mode = clampi(int(cfg.get_value("video", "perf_overlay", 0)), 0,
 			PerfOverlay.MODE_NAMES.size() - 1) as PerfOverlay.Mode
+		voice_mode = clampi(int(cfg.get_value("audio", "voice_mode", VoiceChat.Mode.PUSH_TO_TALK)), 0,
+			VoiceChat.MODE_NAMES.size() - 1)
+		mic_device = String(cfg.get_value("audio", "mic_device", ""))
+		voice_hear = clampi(int(cfg.get_value("audio", "voice_hear", 0)), 0, VOICE_HEAR.size() - 1)
+		_apply_mic()
 		var saved_rows = cfg.get_value("game", "row_choice", {})
 		if saved_rows is Dictionary:
 			for r in MENU_ROWS.size():
@@ -4812,6 +5071,9 @@ func _save_settings() -> void:
 	cfg.set_value("online", "secret", Netplay.player_secret)
 	cfg.set_value("online", "name", Netplay.player_name)
 	cfg.set_value("audio", "music_muted", audio.music_muted)
+	cfg.set_value("audio", "voice_mode", voice_mode)
+	cfg.set_value("audio", "voice_hear", voice_hear)
+	cfg.set_value("audio", "mic_device", mic_device)
 	cfg.set_value("online", "fighter", _online_fighter)
 	cfg.set_value("online", "address", _online_address)
 	cfg.set_value("online", "server", _online_server)
@@ -5008,6 +5270,8 @@ func _parse_args() -> int:
 			_net_args["delay"] = int(a.get_slice("=", 1))
 		elif a.begins_with("--net-report="):
 			_net_args["report"] = a.get_slice("=", 1)
+		elif a.begins_with("--voice"):
+			_voice_arg(a)
 		elif a == "--net-no-pick" or a.begins_with("--net-no-pick="):
 			_net_no_pick = int(a.get_slice("=", 1)) if a.contains("=") else 1 << 30
 		elif a.begins_with("--layout="):
@@ -5089,6 +5353,7 @@ func _net_host(fighter: String) -> void:
 	_online_fighter = fighter
 	_save_settings()
 	netplay = Netplay.new()
+	_apply_voice()
 	netplay.forced_delay = int(_net_args.get("delay", input_delay))
 	netplay.arena_id = MatchFactory.arena
 	var port := int(_net_args.get("host", Netplay.DEFAULT_PORT))
@@ -5219,6 +5484,7 @@ func _net_join(fighter: String, address: String, port: int, room := "", remember
 		_remember_server(_online_address)
 	_save_settings()
 	netplay = Netplay.new()
+	_apply_voice()
 	netplay.forced_delay = int(_net_args.get("delay", input_delay))
 	netplay.arena_id = MatchFactory.arena
 	var link := _make_link(0, address, port)
@@ -5349,6 +5615,8 @@ func _start_online_match() -> void:
 		_start_watching()
 		return
 	online = netplay.game
+	_apply_voice()  # (on Android: asks for the microphone at the first match with voice on)
+	_apply_voice_hear()  # (strangers start muted with Hear voices from: Rooms and friends)
 	if lobby != null:
 		_room_made = lobby.room_created
 	_close_ui()  # the lobby (and Match found), a match-over screen on a rematch, or a room's select
@@ -5440,6 +5708,8 @@ func _online_status() -> void:
 		_rb_t = 0
 	hud.net_info = "PING %d ms   DELAY %d   ROLLBACKS %d/s (MAX %d)   %s" % [roundi(netplay.ping_ms), g.input_delay,
 		_rb_rate, g.session.max_rollback_seen, ArenaMap.name_of(g.arena_id).to_upper()]
+	if netplay.in_room() and netplay.room_watchers > 0:  # watchers hear voice only in rooms (the server's rule)
+		hud.net_info += "   %d WATCHING (THEY HEAR VOICE)" % netplay.room_watchers
 	if g.desync_frame >= 0:
 		hud.net_info = "DESYNC at frame %d: report saved   " % g.desync_frame + hud.net_info
 	var waiting := "WAITING FOR PLAYERS" if g.players > 2 else "WAITING FOR OPPONENT"
@@ -5906,8 +6176,12 @@ func _end_online() -> void:
 	netplay = null
 	online = null
 	watch = null
+	if voice_view != null:
+		voice_view.stop()
 	if hud != null:
 		hud.net_info = ""
+		hud.mic_on = false
+		hud.mic_missing = false
 
 
 ## --net-report=PATH: the match's inputs and state fingerprints as JSON, so two

@@ -1,9 +1,9 @@
 extends SceneTree
-## Sinkhole pacing: seeded Rage CPU matches (1v1, 2v2, 3v3) on the Sinkhole rules. Prints,
+## Sinkhole pacing: seeded Normal CPU matches (1v1, 2v2, 3v3) on the Sinkhole rules. Prints,
 ## per ring, the tick it dropped (average over the matches that got that far) and the
 ## floor left (in cells), then how the fighters went down (a fall into a pit or damage),
 ## how the matches ended and how long they ran.
-##   godot --headless --path . --script res://tests/bench_sinkhole.gd -- [--seeds=6] [--sizes=1,2,3] [--level=3]
+##   godot --headless --path . --script res://tests/bench_sinkhole.gd -- [--seeds=6] [--sizes=1,2,3] [--level=1]
 
 const MAX_TICKS := 15000
 
@@ -11,7 +11,7 @@ const MAX_TICKS := 15000
 func _init() -> void:
 	var seeds := 6
 	var sizes := [1, 2, 3]
-	var level := 3
+	var level := 1  # Normal CPUs (Kevin, Oct 2026: no Rage benches)
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--seeds="):
 			seeds = int(arg.get_slice("=", 1))

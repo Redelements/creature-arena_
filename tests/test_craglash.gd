@@ -357,7 +357,7 @@ func test_a_blocked_hit_counts_as_combat() -> void:
 		if chipped:
 			break
 	assert_true(chipped, "Cairn blocks the Rake")
-	assert_lt(float(crag.calm_t), 2.0, "the chip he dealt reset his calm:")
+	assert_lt(float(crag.calm_t), 2.0, "the hit he had blocked reset his calm:")
 
 
 func test_mashed_light_comes_out_once_every_two_seconds() -> void:

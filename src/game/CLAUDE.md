@@ -81,6 +81,24 @@ player and live here, outside the sim.
   setting (like `range_rings`) is added in `_open_controls`
 - A rebindable fight key → one action per remap group in `controls.gd:BINDINGS` (`kb_`,
   `lol_`, `pad_`) and a row in each `Controls.REMAP` group
+- Voice chat → `_voice_step` (every rendered frame, after `netplay.pump()`: hands
+  `VoiceView.frame` the match, the local slot, the camera centre and `_talk_held`), the
+  mode `voice_mode_now()` (`--voice-test` > `--voice` > the setting) applied by `_apply_voice`
+  at each `Netplay.new()`, match start and setting change; Settings > Audio rows `voice`, `voice_hear`,
+  `mic`, `vol_Voice`, saved as `audio/voice_mode` (int) and `audio/mic_device`; push to
+  talk is `kb_talk` / `lol_talk` (V) and `pad_talk` (left stick click), held
+- Voice safety → Esc online opens `_open_online_pause` (a `PauseScreen` with no Restart;
+  `paused` is never set online, the match keeps stepping; Leave match / Stop watching asks
+  first via `quit_question`) whose Voice chat row opens `_open_voice_screen` ("VOICE CHAT"):
+  Mute everyone (`netplay.voice.mute_all`), Mute my mic (`mic_muted`; players only, voice not
+  Off), a Hearing / Muted row per other human (`voice_rows()`: not CPU slots, not you; label
+  "name · fighter", `VoiceChat.set_muted`, which also remembers the name for the session),
+  and the `voice` mode row (changing it rebuilds the screen, `_reopen_voice_screen`).
+  Settings > Audio > Hear voices from (`voice_hear`, `VOICE_HEAR`, saved as
+  `audio/voice_hear`): `_apply_voice_hear` at `_start_online_match`, once per Netplay (a
+  `voice_hear_applied` meta, so a rematch keeps the player's pause-menu choice), is the only
+  place `mute_all` is first set: Rooms and friends + `via_server` + no room code (Quick
+  match, ranked) starts it true; rooms and direct host / join start false
 - Training → `in_training`, `_training_fighter`, `_open_fighter_swap`,
   `change_training_fighter`, `_open_training_options`, `_apply_training_opts`
 - Display → `_apply_frame_rate`, `_apply_vsync`, `_apply_aspect`, `_apply_fullscreen`
@@ -117,6 +135,7 @@ After `--`; the full list is in the `main.gd` header, modes in `MODES`.
 `--pad-layout=standard|twinstick`, `--touch-demo[=left]` (a recorded touch script into the touch controls, training as Cairn unless `--mode`; `src/game/touch_demo.gd`), `--autoplay`, `--hitboxes`, `--intro` / `--no-intro` (force the arena intro on or off; by default it plays only for offline matches started from the menu with a screen, never headless or for a `--mode` / `--showcase` / `--autoplay` start, so captures keep their frame numbers), `--cpu-vs-cpu`, `--pick`,
 `--teams=a,b,c:d,e,f`, `--arena=stadium|quarry|floodgate|greenhouse`, `--time=random|day|sunset|night`, `--weather=random|clear|rain|fog|wind|snow` (the look of offline matches this session; one the arena doesn't allow falls back), `--menu=main|single|single:<group>|look|settings|game|video|audio|controls|touch|remap:<classic|league|gamepad>`,
 `--cam=X,Y[,ZOOM]` (hold the camera on a world spot, still clamped to the arena and stands: screenshots of the edges), `--cam-lead=0|1`, `--cam-clash=0|1`, `--cam-settle=0|1` (camera behaviour off / Normal for this session, not saved; also `low|normal|high`), `--training-screen=pause|options|fighters` (with a training `--mode`), `--training-flags=no_cooldowns,full_energy`,
+`--voice=off|ptt|open` (voice chat this session, not saved), `--voice-test=tone` (online: a 220 Hz tone instead of the mic, open mic and always held, logging `voice: sent N` and `voice: heard slot P gain G pan P received N` once a second, for a two-process test) (real time only: under `--fixed-fps` game time outruns the clock, so the tone arrives faster than it plays and the listener drops the surplus),
 `--mutators=tidal_wave,meteor_shower,rolling_boulder,fault_line` (data/rules/mutators.json ids, merged: on every offline match this session, applied in `_new_sim` with `seed_base`; Chaos Cup plays them instead of its draw; never online, showcases, coaches or the menu background),
 `--perf` (frame and tick percentiles on quit, with each part's share: the tick's
 steps, each view's `_draw` via `PerfLog.since`, the renderer's CPU and GPU time, and when

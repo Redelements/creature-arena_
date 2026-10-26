@@ -52,7 +52,7 @@ func _init(p_group := "classic") -> void:
 	hints = ["move", "select", "back"]
 
 
-## The bindings sit in two columns (fourteen on a keyboard would not fit in one), the
+## The bindings sit in two columns (fifteen on a keyboard would not fit in one), the
 ## two buttons under them.
 func build() -> void:
 	var grid := GridContainer.new()

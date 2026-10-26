@@ -1,7 +1,7 @@
 extends SceneTree
 ## CPU tiers against each other: every fighter as one level against a field of opponents
 ## at another, from both sides. Prints win rates, health left and average distance.
-##   godot --headless --path . --script res://tests/bench_cpu.gd -- [--a=3] [--b=2] [--seeds=2] [--only=cerebro] [--detail]
+##   godot --headless --path . --script res://tests/bench_cpu.gd -- [--a=1] [--b=1] [--seeds=2] [--only=cerebro] [--detail]
 ##   --matrix: every pair at level --a;  --pairs=a:b,c:d: just those, at level --a, both sides
 ##   --arena=ID: play on that arena map (default stadium; greenhouse and quarry test sight)
 ##   --detail: per foe, also the share of ticks at preferred spacing (a kiter: its kite band;
@@ -9,12 +9,12 @@ extends SceneTree
 ##   --scored: the fighter under test plays the scored kit (CpuController.scored, the default)
 ##     and its foes the old ladder; with --a=3 --b=3 that is scored Rage against ladder Rage.
 ##     --ladder: everyone plays the ladder (the baseline to compare with)
-##   --teams=3: 3v3 Rage (or --a) through TeamSim, a tank, a mage and an assassin a side: win
+##   --teams=3: 3v3 Normal (or --a) through TeamSim, a tank, a mage and an assassin a side: win
 ##     rate, length, target switches a minute per CPU, spacing share, focus switches a minute
 ##     per team (a baseline for team AI)
 ##     --intent=a: only the first-picks side plays to a team focus (TeamIntent), the other side
 ##     picks targets alone; --intent=off: nobody does (the old baseline)
-##   --combat: how each fighter deals its damage, Rage (or --a) against Rage, every pair of the
+##   --combat: how each fighter deals its damage, Normal (or --a) against Normal, every pair of the
 ##     roster from both sides (--seeds games a side, --only=<id> for its pairs): the share of
 ##     damage from light / heavy / skill / surge hits (clean, chip and on armor; from the
 ##     `move_type` and `dealt` of `hit`, `block` and `armor` events) and other (whatever else
@@ -32,8 +32,8 @@ var _intent := "on"  ## --intent=on|a|off: who plays to the team focus in --team
 
 
 func _init() -> void:
-	var a_lv := 3
-	var b_lv := 2
+	var a_lv := 1  # Normal: balance is measured with Normal CPUs, never Rage (Kevin, Oct 2026)
+	var b_lv := 1
 	var seeds := 2
 	var only := ""
 	var detail := false

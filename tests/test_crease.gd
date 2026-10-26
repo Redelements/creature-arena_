@@ -252,12 +252,14 @@ func test_the_frogs_can_be_blocked() -> void:
 	var foe := sim.creatures[1]
 	_press_and_settle(sim, S2)
 	var hp := foe.hp
+	var st := foe.stamina
 	tap(sim, S2, 0, SimDefs.IN_GUARD)
 	var stunned := false
 	for i in 40:
 		sim.step(PackedInt32Array([0, SimDefs.IN_GUARD]))
 		stunned = stunned or foe.state == CreatureSim.State.HITSTUN
-	assert_lt(foe.hp, hp, "it lands on the guard")
+	assert_lt(foe.stamina, st, "it lands on the guard")
+	assert_near(foe.hp, hp, 0.001, "and takes no health (no chip):")
 	assert_false(stunned, "no guard break: the guard holds")
 	assert_true(foe.state == CreatureSim.State.GUARD, "still guarding")
 

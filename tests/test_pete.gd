@@ -1,6 +1,7 @@
 extends TestCase
 ## Sneaky Pete's kit: Tiptoe goes invisible and quicker (an attack or a hit gives him
 ## away), Pickpocket dashes through a foe and steals some of their attack power, and The
+## Five-Finger Discount heals him a share of the health his hits take.
 ## Big Heist vanishes and reappears behind the foe for a flurry.
 
 const L := SimDefs.IN_LIGHT
@@ -205,3 +206,30 @@ func test_tiptoe_hides_him_from_foes_only() -> void:
 	assert_true(not g._is_hidden(0), "you still see yourself in stealth")
 	assert_true(g._is_hidden(1), "a foe in stealth isn't drawn at all")
 	g.free()
+
+
+func test_five_finger_discount_heals_a_share_of_what_he_deals() -> void:
+	var sim := _duel()
+	var pete := sim.creatures[0]
+	var foe := sim.creatures[1]
+	var share := float(pete.def["lifesteal"])
+	assert_near(share, 0.08, 0.0001, "8% lifesteal:")
+	pete.hp = 50.0
+	_count(sim, "hit", 1, L)
+	_count(sim, "hit", 30)
+	var dealt := foe.max_hp - foe.hp
+	assert_gt(dealt, 0.0, "the jab landed")
+	assert_near(pete.hp, 50.0 + dealt * share, 0.001, "healed by the share:")
+
+
+func test_five_finger_discount_caps_at_full_and_skips_blocks() -> void:
+	var sim := _duel()
+	var pete := sim.creatures[0]
+	_count(sim, "hit", 1, L)
+	_count(sim, "hit", 30)
+	assert_near(pete.hp, pete.max_hp, 0.001, "no overheal:")
+	sim = _duel()
+	pete = sim.creatures[0]
+	pete.hp = 50.0
+	assert_eq(_count(sim, "block", 1, L, SimDefs.IN_GUARD) + _count(sim, "block", 30, 0, SimDefs.IN_GUARD), 1, "blocked")
+	assert_near(pete.hp, 50.0, 0.001, "a block takes nothing, so heals nothing:")

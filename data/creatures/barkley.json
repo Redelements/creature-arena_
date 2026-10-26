@@ -13,7 +13,7 @@
   "stamina_regen": 0.5,
   "dodge": { "frames": 19, "iframes_start": 2, "iframes_end": 12, "speed": 3.4,
     "anim_at": [[0, 0], [2, 1], [5, 2], [8, 3], [11, 4], [13, 5], [15, 6], [17, 7]] },
-  "guard": { "reduction": 0.8, "drain_per_damage": 1.9, "speed_mult": 0.38, "break_stun": 52 },
+  "guard": { "drain_per_damage": 1.9, "speed_mult": 0.38, "break_stun": 52 },
   "fx_height": 26,
   "fx_top": 58,
   "fx_color": "#b56664",
