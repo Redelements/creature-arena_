@@ -4,7 +4,7 @@
   "title": "The mountain that woke up angry",
   "affinity": "stone",
   "role": "tank",
-  "max_hp": 150,
+  "max_hp": 300,
   "speed": 2.02,
   "accel": 0.36,
   "radius": 12,
@@ -36,7 +36,7 @@
   },
   "stoneskin": {
     "name": "Stoneskin",
-    "shield": 30,
+    "shield": 60,
     "delay": 420,
     "reset_on_deal": true
   },

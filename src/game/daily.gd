@@ -9,7 +9,7 @@ extends Ladder
 
 const MUTATORS_PATH := "res://data/rules/mutators.json"
 const PICKS := 2
-const FIGHT_TICKS := 90 * 60  ## the fight's clock (main.gd ROUND_TICKS)
+const FIGHT_TICKS := 120 * 60  ## the fight's clock (main.gd ROUND_TICKS)
 const INTRO_TICKS := 90  ## the round's intro before it (main.gd INTRO_TICKS): nobody moves
 
 var date := 0  ## YYYYMMDD, UTC
