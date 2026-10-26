@@ -3359,6 +3359,9 @@ var shrines: Array = []
 ## Who is wanted (set by main): per slot {} or {"kind": "spree", "level"} (Team Deathmatch)
 ## or {"kind": "crown"} (the Brawl crown), drawn over the health bar (`_draw_wanted`).
 var wanted: Array = []
+## Voice chat: creature slots speaking now -> level (VoiceView.heard): a speaker icon by
+## their name plate.
+var speaking := {}
 const CROWN_GOLD := Color("ffd84a")
 const CROWN_SHADE := Color("c08a1c")
 const SPREE_HOT := Color("ff7a3a")
@@ -3594,6 +3597,10 @@ func _draw_side_marks(ci: CanvasItem) -> void:
 			ci.draw_string_outline(_font, at + Vector2(-20, -3), label, HORIZONTAL_ALIGNMENT_CENTER, 41, UiTheme.px(6), 1,
 				Color(C_OUTLINE, alpha))
 			ci.draw_string(_font, at + Vector2(-20, -3), label, HORIZONTAL_ALIGNMENT_CENTER, 41, UiTheme.px(6), lc)
+		if speaking.has(i):
+			var lw := _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, UiTheme.px(6)).x if label != "" else 0.0
+			VoiceView.draw_glyph(ci, at + Vector2(roundf(lw * 0.5) + 3.0, -5.0 if label != "" else -3.0),
+				float(speaking[i]), Color(col, alpha))
 
 
 ## A wanted fighter's mark, its bottom at `at` (over the bar and its label): a gold crown

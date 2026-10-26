@@ -360,6 +360,7 @@ Touch (src/input/touch_pad.gd, `PlayerInput.Device.TOUCH`) makes these same bits
 
 - The cosmetic and non-sim keys listed above (read by view, UI, input or CPU code).
 - `stoneskin.name` (craglash.json) is read by the HUD for the shield label (src/view/hud.gd).
+- `data/voice.json` (proximity voice chat: codec rate and frame, the hearing radii, the teammates' floor, the gate, the jitter wait) is read by `src/net/voice_chat.gd` and `src/view/voice_view.gd` only; it isn't in `data_hash`, since nothing in it touches the sim. The flags `--voice=off|ptt|open` (this session's mode) and `--voice-test=tone` (a tone for the microphone, with a log line a second) are in `src/game/CLAUDE.md`.
 
 Pitfalls found while checking:
 
