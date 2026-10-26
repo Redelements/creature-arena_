@@ -698,6 +698,7 @@ func ping(pos: Vector2, attack: bool) -> void:
 func advance() -> void:
 	_tick += 1
 	var ts := time_scale
+	var t0 := PerfLog.now()
 	if sim != null:
 		_watch_all()
 		_track_lost()
@@ -706,8 +707,11 @@ func advance() -> void:
 			if not sim.hazards.is_empty():
 				_hazard_spray()
 		_snap_projectiles()
+	PerfLog.since("fx watch", t0)
+	t0 = PerfLog.now()
 	_parts.append_array(_incoming)
 	_incoming.clear()
+	PerfLog.count("fx parts", _parts.size())
 
 	var keep: Array[Dictionary] = []
 	var ends: Array[Callable] = []
@@ -745,6 +749,7 @@ func advance() -> void:
 		elif p.has("on_end"):
 			ends.append(p["on_end"])
 	_parts = keep
+	PerfLog.since("fx parts loop", t0)
 	for fn in ends:
 		fn.call()
 	_parts.append_array(_incoming)
@@ -2604,18 +2609,25 @@ func _paint(ci: CanvasItem, floor_layer: bool) -> void:
 		_draw_pads(ci)
 		if sim != null and not sim.hazards.is_empty():
 			_draw_hazards_floor(ci)
-		for p in _parts:  # flat things first, so debris sits on top of puddles and cracks
-			if String(p["kind"]) in ["puddle", "decal", "ripple", "lost", "puff", "wallmark", "wallflash"] and _in_view(p, view):
-				_draw_part(ci, p)
+		# One pass sorts them: flat things first, so debris sits on top of puddles and
+		# cracks. (A big break throws ~400 pieces; two passes of string lists cost ms.)
+		var later: Array[Dictionary] = []
 		for p in _parts:
 			if not _in_view(p, view):
 				continue
 			var kind := String(p["kind"])
-			if kind == "ghost" or (kind in ["spire", "root"] and not bool(p.get("front", false))):
+			if FLAT_KINDS.has(kind):
+				_draw_part(ci, p)
+			elif kind == "ghost" or (UNDER_KINDS.has(kind) and not bool(p.get("front", false))) \
+					or (p.has("vz") and float(p["z"]) > 1.0) or (kind == "chunk" and bool(p.get("grounded", false))):
+				later.append(p)
+		for p in later:
+			var kind := String(p["kind"])
+			if kind == "ghost" or (UNDER_KINDS.has(kind) and not bool(p.get("front", false))):
 				_draw_part(ci, p)
 			elif p.has("vz") and float(p["z"]) > 1.0:
 				_draw_shadow(ci, p)
-			elif kind == "chunk" and bool(p.get("grounded", false)):
+			else:
 				_draw_part(ci, p)
 		if sim != null:
 			_draw_creature_extras(ci, true)
@@ -2916,13 +2928,45 @@ func _draw_chunk(ci: CanvasItem, p: Dictionary) -> void:
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
+## The kinds drawn flat on the floor before anything else, and those that stand under the
+## fighters unless marked "front" (_paint's floor pass).
+const FLAT_KINDS := {"puddle": true, "decal": true, "ripple": true, "lost": true, "puff": true,
+	"wallmark": true, "wallflash": true}
+const UNDER_KINDS := {"spire": true, "root": true}
+
+
 func _draw_shadow(ci: CanvasItem, p: Dictionary) -> void:
 	var s := 2.0 if String(p["kind"]) == "drop" else (8.0 if bool(p.get("piece", false)) else float(p.get("size", 2.0)))
 	var z := float(p["z"])
 	var a := clampf(0.3 - z * 0.006, 0.08, 0.3)
-	ci.draw_set_transform(Vector2(p["pos"]), 0.0, Vector2(1.0, 0.4))
-	ci.draw_circle(Vector2.ZERO, s * 0.6, Color(0, 0, 0, a))
-	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	# An ellipse 1.2 s wide and 0.48 s tall, as a texture: one batched quad instead of a
+	# transform, a tessellated circle and a transform back (3 commands that break batching).
+	var r := s * 0.6
+	var size := Vector2(r * 2.0, r * 0.8)
+	ci.draw_texture_rect(_shadow_tex(r), Rect2(Vector2(p["pos"]) - size * 0.5, size), false, Color(0, 0, 0, a))
+
+
+## A white ellipse of radius `r` (squashed to 0.4 tall), rasterised at 4 texels a canvas
+## unit, hard-edged like draw_circle; one per radius, kept.
+static var _shadows := {}
+
+
+static func _shadow_tex(r: float) -> Texture2D:
+	var key := snappedf(r, 0.25)
+	if _shadows.has(key):
+		return _shadows[key]
+	var w := maxi(2, ceili(key * 2.0 * 4.0))
+	var h := maxi(1, ceili(key * 0.8 * 4.0))
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	for y in h:
+		for x in w:
+			var dx := (x + 0.5) / w * 2.0 - 1.0
+			var dy := (y + 0.5) / h * 2.0 - 1.0
+			if dx * dx + dy * dy <= 1.0:
+				img.set_pixel(x, y, Color.WHITE)
+	var tex := ImageTexture.create_from_image(img)
+	_shadows[key] = tex
+	return tex
 
 
 func _draw_spire(ci: CanvasItem, p: Dictionary) -> void:

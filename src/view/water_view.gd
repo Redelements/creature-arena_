@@ -28,6 +28,7 @@ var fx: FxView = null
 
 var _terrain: TerrainGrid
 var _version := -1
+var _shallows_at := PackedInt32Array()  ## the shallows _scan read (AmbientView.cells_of)
 var _water := PackedByteArray()  ## 1 where a cell is shallows
 var _cols := 0
 var _rows := 0
@@ -86,7 +87,12 @@ func advance() -> void:
 	if sim == null or _terrain == null:
 		return
 	if _terrain.version != _version:
-		_scan()
+		# A crack or a hole elsewhere leaves the water alone: no rescan, no surface redraw.
+		var at := AmbientView.cells_of(_terrain.cells, TerrainGrid.SHALLOWS)
+		if at != _shallows_at or _terrain.cols != _cols:
+			_shallows_at = at
+			_scan()
+		_version = _terrain.version
 	if not _any_water:
 		return
 	var view := FxView._view_rect(self, 0.0)

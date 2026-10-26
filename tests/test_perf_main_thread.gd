@@ -193,3 +193,40 @@ func test_fps_pacing_vsync_paces_a_cap_at_the_screens_rate() -> void:
 	assert_eq(M.pace_cap(120, 120.0, false, "vsync"), 120, "no vsync: the limiter")
 	assert_eq(M.pace_cap(144, 360.0, true, "vsync"), 144, "under the screen's rate: the limiter")
 	assert_eq(M.pace_cap(60, 0.0, true, "vsync"), 60, "a rate the screen doesn't report: the limiter")
+
+
+func test_cpus_thinking_in_the_frame_between_ticks_choose_what_they_would_in_the_tick() -> void:
+	# Gap mode (the default on mobile): the next tick's CPU inputs are worked out on the main
+	# thread in a frame that steps no tick. Here each tick is followed by such a frame; the
+	# match must play out input for input as when the CPUs think in the tick, and the tick
+	# must have used the gap's answers.
+	var frames := []
+	var used := 0
+	var split := 0
+	for gap in [true, false, true]:
+		var g := _game()
+		g._cpus_early = gap
+		g.cpu_think = "gap"
+		if gap and frames.size() == 2:
+			g.gap_budget_us = 0  # one CPU in the gap, the other five in the tick
+		g._cpu_vs_cpu = true
+		g._start_match(32)  # Team Deathmatch 3v3, every slot a CPU
+		g._on_teams_chosen([["cairn", "sno", "pete"], ["culvert", "digby", "hissy"]])
+		for i in 400:
+			g._physics_process(1.0 / 60.0)
+			if gap:
+				g._think_in_gap()  # the same frame as the tick: must not think yet
+				assert_true(g._cpu_ahead.is_empty() or i == 0, "not in the tick's own frame")
+				g._gap_process_frame = -2  # the next frame, with no tick in between
+				g._think_in_gap()
+				if not g._cpu_ahead.is_empty():
+					used += 1
+				if g._gap_done == 1:
+					split += 1
+		assert_gt(float(g.replay.frames.size()), 200.0, "the fight ran:")
+		frames.append(var_to_str(g.replay.frames))
+		g.free()
+	assert_gt(float(used), 600.0, "the ticks took the gap's answers:")
+	assert_gt(float(split), 300.0, "with no budget, the gap thought for one CPU and the tick the rest:")
+	assert_true(frames[0] == frames[1], "thinking in the gap gives the same inputs, tick for tick")
+	assert_true(frames[2] == frames[1], "and so does a gap that runs out of time")

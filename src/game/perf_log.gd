@@ -25,6 +25,8 @@ var _part_us := {}
 var _viewport := RID()
 ## When the slowest frames came (seconds into the log) and what each part took in them.
 var slow: Array[String] = []
+const SLOW_KEPT := 40  ## the slowest frames kept for the report
+var _slow_ms := PackedFloat32Array()
 var _start_us := 0
 
 
@@ -42,6 +44,12 @@ static func now() -> int:
 static func since(part: String, t0: int) -> void:
 	if current != null and t0 > 0 and OS.get_thread_caller_id() == _main_thread:
 		current._part_us[part] = current._part_us.get(part, 0) + Time.get_ticks_usec() - t0
+
+
+## A number to report like a part (a count, not ms): the most it reached in a frame.
+static func count(part: String, n: int) -> void:
+	if current != null and OS.get_thread_caller_id() == _main_thread:
+		current._part_us[part] = maxi(int(current._part_us.get(part, 0)), n * 1000)
 
 
 ## Also log the renderer's CPU and GPU time for this viewport's frames.
@@ -94,12 +102,21 @@ func frame(fighting: bool) -> void:
 		frames.append(ms)
 		if _start_us == 0:
 			_start_us = now
-		if ms > 12.0 and frames.size() > SKIP and slow.size() < 40:
+		if ms > 12.0 and frames.size() > SKIP and (slow.size() < SLOW_KEPT or ms > _slow_ms[_slowest_kept_min()]):
 			var what := []
 			for part in _part_us:
 				if _part_us[part] > 500:
 					what.append("%s %.1f" % [part, _part_us[part] / 1000.0])
-			slow.append("%.2fs %.1f ms (%s)" % [(now - _start_us) / 1e6, ms, ", ".join(what)])
+			var line := "%.2fs %.1f ms (%s)" % [(now - _start_us) / 1e6, ms, ", ".join(what)]
+			if slow.size() < SLOW_KEPT:
+				slow.append(line)
+				_slow_ms.append(ms)
+			else:  # keep the slowest SLOW_KEPT, in the order they came
+				var k := _slowest_kept_min()
+				slow.remove_at(k)
+				_slow_ms.remove_at(k)
+				slow.append(line)
+				_slow_ms.append(ms)
 		for part in _part_us:
 			_add_part(part, _part_us[part] / 1000.0)
 		if _viewport.is_valid():
@@ -107,6 +124,14 @@ func frame(fighting: bool) -> void:
 			_add_part("render gpu", RenderingServer.viewport_get_measured_render_time_gpu(_viewport))
 	_part_us.clear()
 	_last_us = now
+
+
+func _slowest_kept_min() -> int:
+	var k := 0
+	for i in _slow_ms.size():
+		if _slow_ms[i] < _slow_ms[k]:
+			k = i
+	return k
 
 
 func _add_part(part: String, ms: float) -> void:
