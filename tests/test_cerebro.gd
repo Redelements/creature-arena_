@@ -230,7 +230,7 @@ func test_his_teleport_has_a_cooldown() -> void:
 	var chef := sim.creatures[0]
 	var dg: Dictionary = chef.def["dodge"]
 	var cd := int(dg["cooldown"])
-	assert_eq(cd, 45, "0.75 s:")
+	assert_eq(cd, 60, "1 s (0.75 s before the Oct 2026 assassin pass):")
 	run(sim, SimDefs.IN_DODGE | SimDefs.IN_UP, 1)
 	run(sim, 0, int(dg["frames"]) + 1)
 	assert_eq(chef.state, CreatureSim.State.IDLE, "the blink is over")
@@ -242,7 +242,7 @@ func test_his_teleport_has_a_cooldown() -> void:
 	assert_ne_state(chef)
 	assert_lt(chef.pos.distance_to(at), 1.0, "a dodge pressed too soon doesn't blink (a step at most):")
 	run(sim, 0, cd)
-	assert_true(chef.can_dodge(), "ready again after 0.75 s")
+	assert_true(chef.can_dodge(), "ready again after 1 s")
 	at = chef.pos
 	run(sim, SimDefs.IN_DODGE | SimDefs.IN_DOWN, 1)
 	run(sim, 0, int(dg["blink"]["at"]) + 1)

@@ -402,7 +402,9 @@ func test_it_all_rolls_back() -> void:
 	assert_eq(sim.state_digest(), later, "the same 400 ticks again:")
 
 
-func test_the_paper_plane_glides_as_far_as_cerebros_blink() -> void:
+## The Paper Plane used to match Chef Cerebro's blink (116 px); his blink went to 90 px in
+## the Oct 2026 assassin pass and the plane was left alone (no mage changes beyond that nerf).
+func test_the_paper_plane_glides_at_least_as_far_as_cerebros_blink() -> void:
 	var dist := {}
 	for id in ["cerebro", "crease"]:
 		var sim := MatchFactory.training(id)
@@ -413,4 +415,5 @@ func test_the_paper_plane_glides_as_far_as_cerebros_blink() -> void:
 		run(sim, SimDefs.IN_DODGE | SimDefs.IN_RIGHT, 1)
 		run(sim, 0, 30)
 		dist[id] = c.pos.x - x0
-	assert_near(float(dist["crease"]), float(dist["cerebro"]), 1.0, "the same distance:")
+	assert_gt(float(dist["crease"]), float(dist["cerebro"]) - 1.0, "at least as far:")
+	assert_near(float(dist["crease"]), 116.0, 1.0, "the plane still glides about 116 px:")
