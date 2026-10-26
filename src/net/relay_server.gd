@@ -92,6 +92,55 @@ const PING_TIMEOUT_MS := 2000
 const PATH_EVERY_MS := 2000
 const MAX_ROOM_LENGTH := 32
 
+## What one connection may cost the server (nothing an honest game comes near).
+## Timeouts and rates run on the limits' clock (`_clock_ms`: the wall clock on the real
+## server, `realtime`; in tests every tick() counts as a frame).
+## A Daily submission's connection (state SUBMIT) is let go after this long.
+const SUBMIT_TIMEOUT_MS := 15000
+## Anyone quiet this long is pinged (every game answers), and dropped after IDLE_TIMEOUT_MS.
+const KEEPALIVE_MS := 10000
+const IDLE_TIMEOUT_MS := 60000
+## Messages a connection may send: MSG_RATE a second on average, MSG_BURST at once (a
+## player sends about 62 a second). Over it, the connection is dropped.
+const MSG_RATE := 240
+const MSG_BURST := 480
+## The biggest packet once a connection has said hello (a player's are a few hundred
+## bytes); before hello and for a Daily submission, EnetHub.MAX_PACKET_BYTES.
+const MAX_PACKET_PLAYER := NetLink.SMALL_PACKET
+## The referee keeps to the clock: inputs reaching more than AHEAD_INPUT_FRAMES past the
+## frame the match's clock is on are refused, it steps at most AHEAD_STEP_FRAMES past it,
+## and at most STEPS_PER_TICK frames per match per server loop (the real server loops
+## about a thousand times a second, so a match keeps up at 60 frames a second easily).
+const AHEAD_INPUT_FRAMES := 120
+const AHEAD_STEP_FRAMES := 30
+const STEPS_PER_TICK := 8
+## Daily scores are verified a slice at a time, DAILY_FRAMES_PER_TICK frames a loop (a
+## full fight is about 5500), one at a time with at most DAILY_QUEUE waiting, and
+## DAILY_PER_MINUTE accepted server-wide (DAILY_BURST at once). One request per connection.
+const DAILY_FRAMES_PER_TICK := 120
+const DAILY_QUEUE := 4
+const DAILY_PER_MINUTE := 30
+const DAILY_BURST := 5
+## Server replays kept on disk when data/online.json has no `server_replays_keep`.
+const REPLAYS_KEEP_DEFAULT := 500
+
+## The type(s) each field of a message must have; a message with a field of any other
+## type is ignored whole (so nothing is half applied). Fields not listed aren't read.
+const FIELD_TYPES := {
+	"hello": {"v": [TYPE_INT], "data": [TYPE_STRING], "team": [TYPE_ARRAY], "room": [TYPE_STRING],
+		"size": [TYPE_INT], "rules": [TYPE_STRING], "arena": [TYPE_STRING], "id": [TYPE_STRING],
+		"name": [TYPE_STRING], "ranked": [TYPE_BOOL], "submit": [TYPE_BOOL], "watch": [TYPE_BOOL],
+		"secret": [TYPE_STRING]},
+	"ping": {"n": [TYPE_INT]},
+	"pong": {"n": [TYPE_INT]},
+	"daily": {"date": [TYPE_INT], "fighter": [TYPE_STRING], "replay": [TYPE_DICTIONARY]},
+	"board": {"date": [TYPE_INT]},
+	"in": {"n": [TYPE_INT], "first": [TYPE_INT], "inputs": [TYPE_PACKED_INT32_ARRAY], "ack": [TYPE_INT],
+		"f": [TYPE_INT], "adv": [TYPE_FLOAT, TYPE_INT], "advs": [TYPE_PACKED_FLOAT32_ARRAY]},
+	"dg": {"n": [TYPE_INT], "f": [TYPE_INT], "d": [TYPE_STRING]},
+	"pick": {"team": [TYPE_ARRAY]},
+}
+
 enum State { HELLO, LOBBY, FOUND, PLAYING, WATCHING, SUBMIT, ROOM }
 ## What a room is doing: waiting for players (its first match, or a 1v1 whose other
 ## player left), playing a match, or picking fighters for the next.
@@ -126,6 +175,20 @@ var rematch_locked_ms := roundi(Netplay.rematch_locked_seconds() * 1000.0)
 ## Added to the server's clock for the pick's countdown: tests move time on with it
 ## instead of sleeping.
 var clock_skip_ms := 0
+## The real server (DedicatedServer) turns this on: the limits' clock is the wall clock.
+## Off (tests), every tick() counts as one frame (1000/60 ms) plus `clock_skip_ms`.
+var realtime := false
+## Connections at once from one address (its host part; 0: no limit). The real server
+## sets it (--max-per-ip, default 6).
+var max_per_ip := 0
+## Ranked pairs two players from the same address only when this is on (--ranked-same-ip:
+## a LAN party or a test). Off, two games behind one address never play each other rated.
+var ranked_same_ip := false
+## The Daily dates accepted are this day and the one either side of it (YYYYMMDD; 0:
+## today's UTC date, Daily.today(); tests set it).
+var daily_today := 0
+## Server replays kept in `replay_dir` (the oldest go first).
+var replays_keep := _replays_keep()
 ## Every log line goes here too (the server prints them).
 var on_log := Callable()
 var log_lines: Array = []
@@ -137,6 +200,11 @@ var rooms := {}  ## code -> Room
 var matches_started := 0
 var matches_finished := 0
 var _next_id := 1
+var _ticks := 0
+## Daily verifications under way, oldest first: {"c": Client, "verify": Daily.Verify, "date": int}.
+var _daily_jobs: Array = []
+var _daily_tokens := float(DAILY_BURST)
+var _daily_tokens_ms := 0
 
 
 class Client:
@@ -161,9 +229,16 @@ class Client:
 	var check: Check = null  ## the ready check they're in (state FOUND)
 	var watch := false  ## a spectator: never seated, fed every input of a match
 	var arena := ArenaMap.DEFAULT  ## the map asked for (a room's maker decides; Quick match draws one)
-	var pid := ""  ## the player's id and typed name (for ratings and daily scores)
+	var pid := ""  ## the player's proven id (ranked and Daily only; "" otherwise) and typed name
+	var key := ""  ## Ratings.key_of(pid, their secret): bound to the id at its first rated use
 	var name := "Player"
 	var ranked := false  ## wants a rated 1v1 (paired within a rating band)
+	var heard_ms := 0  ## their last message, on the limits' clock
+	var keepalive_ms := 0  ## the last keepalive ping sent them
+	var submit_ms := 0  ## when they said hello as a Daily submission
+	var asked := false  ## a Daily submission's one request is in
+	var tokens := float(RelayServer.MSG_BURST)  ## their message budget left
+	var tokens_ms := 0
 
 	func label() -> String:
 		return "player %d (%s)" % [id, ", ".join(PackedStringArray(team))] if not team.is_empty() \
@@ -229,6 +304,7 @@ class Game:
 	var all_locked := false  ## both picks are in: frozen and shown until the countdown ends
 	var reported := false
 	var path_ms := 0
+	var clock_ms := 0  ## when this match started, on the limits' clock
 
 	## The opponent in a 1v1.
 	func other(c: Client) -> Client:
@@ -250,31 +326,110 @@ func add_client(link: NetLink, address := "") -> Client:
 	c.link = link
 	c.address = address
 	c.since_ms = Time.get_ticks_msec()
+	var clock := _clock_ms()
+	c.heard_ms = clock
+	c.keepalive_ms = clock
+	c.tokens_ms = clock
+	if link.max_packet <= 0 or link.max_packet > EnetHub.MAX_PACKET_BYTES:
+		link.max_packet = EnetHub.MAX_PACKET_BYTES
 	clients[c.id] = c
 	_log("player %d connected%s" % [c.id, (" from " + address) if address != "" else ""])
 	if clients.size() > max_players:
 		_refuse(c, "full", "The server is full (%d players). Try again later." % max_players)
+	elif max_per_ip > 0 and address != "" and _from_host(_host(address)) > max_per_ip:
+		_refuse(c, "busy", "Too many connections from your address. Close another game and try again.")
 	return c
+
+
+## The host part of an address ("1.2.3.4:5678" -> "1.2.3.4"; an IPv6 one keeps its colons).
+static func _host(address: String) -> String:
+	var at := address.rfind(":")
+	return address.substr(0, at) if at > 0 else address
+
+
+func _from_host(host: String) -> int:
+	var n := 0
+	for o: Client in clients.values():
+		if _host(o.address) == host:
+			n += 1
+	return n
+
+
+## The limits' clock, in ms: the wall clock on the real server (`realtime`), else a
+## frame's worth for every tick() so far (tests), plus `clock_skip_ms` either way.
+func _clock_ms() -> int:
+	return _now() if realtime else _ticks * 1000 / 60 + clock_skip_ms
+
+
+## Takes one message from `c`'s budget (refilled at MSG_RATE a second up to MSG_BURST).
+## False when it's spent.
+func _spend(c: Client, clock: int) -> bool:
+	c.tokens = minf(float(MSG_BURST), c.tokens + float(clock - c.tokens_ms) * MSG_RATE / 1000.0)
+	c.tokens_ms = clock
+	if c.tokens < 1.0:
+		return false
+	c.tokens -= 1.0
+	return true
+
+
+## Whether every field of `m` that the server reads has the type it must (FIELD_TYPES).
+static func _well_typed(m: Dictionary) -> bool:
+	var t = m.get("t")
+	if not (t is String):
+		return false
+	var spec: Dictionary = FIELD_TYPES.get(t, {})
+	for k in spec:
+		if m.has(k) and not (typeof(m[k]) in (spec[k] as Array)):
+			return false
+	return true
+
+
+## `c` is a player seated in their match (not a spectator, not someone it's done with):
+## only they may send its inputs, fingerprints, rematch and pick.
+func _seated(c: Client) -> bool:
+	var g := c.game
+	return g != null and not c.watch and c.state == State.PLAYING and c.slot >= 0 \
+		and c.slot < g.players.size() and g.players[c.slot] == c
 
 
 ## Once per server loop: read every player's messages, pair players, referee matches.
 func tick() -> void:
 	var now := Time.get_ticks_msec()
+	_ticks += 1
+	var clock := _clock_ms()
 	for c: Client in clients.values():
 		if not clients.has(c.id):
 			continue  # dropped while handling someone else's message
-		for m in c.link.poll():
+		var msgs: Array = c.link.poll()
+		if msgs.size() > MSG_BURST:
+			_drop(c, "sent too many messages (%d at once)" % msgs.size())
+			continue
+		for m in msgs:
 			if not clients.has(c.id):
 				break
-			_handle(c, m)
+			if not _spend(c, clock):
+				_drop(c, "sent too many messages")
+				break
+			c.heard_ms = clock
+			if m is Dictionary and _well_typed(m):
+				_handle(c, m)
 		if not clients.has(c.id):
 			continue
 		if c.link.status == NetLink.Status.CLOSED:
-			_drop(c, "disconnected")
+			_drop(c, c.link.error if c.link.error.begins_with("sent ") else "disconnected")
 		elif c.state == State.HELLO and now - c.since_ms > hello_timeout_ms:
 			_drop(c, "never said hello")
-		elif c.state == State.LOBBY:
-			_ping_step(c)
+		elif c.state == State.SUBMIT and clock - c.submit_ms > SUBMIT_TIMEOUT_MS and not _verifying(c):
+			_drop(c, "took too long over its Daily request")
+		elif c.state != State.HELLO and clock - c.heard_ms > IDLE_TIMEOUT_MS:
+			_drop(c, "went quiet")
+		else:
+			if c.state == State.LOBBY:
+				_ping_step(c)
+			if c.state != State.HELLO and clock - c.heard_ms > KEEPALIVE_MS and clock - c.keepalive_ms > KEEPALIVE_MS:
+				c.keepalive_ms = clock
+				c.link.send({"t": "ping", "n": 0}, true)  # every game answers; n 0 is never a timed ping
+	_daily_step()
 	_pair_waiting()
 	_attach_watchers()
 	_check_step(now)
@@ -282,7 +437,7 @@ func tick() -> void:
 		if g.picking and _now() >= g.pick_deadline_ms:
 			_pick_timeout(g)
 	for g: Game in games:
-		_referee_step(g, now)
+		_referee_step(g, now, clock)
 	for c: Client in clients.values():
 		c.link.flush()
 
@@ -310,13 +465,14 @@ func shutdown() -> void:
 
 # ------------------------------------------------------------------ messages
 
+## One message from `c`, its fields' types already checked (_well_typed).
 func _handle(c: Client, m: Dictionary) -> void:
 	match String(m.get("t", "")):
 		"hello":
 			if c.state != State.HELLO:
 				return
 			if int(m.get("v", -1)) != Netplay.NET_VERSION or String(m.get("data", "")) != Netplay.data_hash():
-				_refuse(c, "version", "The server runs a different version of the game. You both need the same build as the server.")
+				_refuse(c, "version", "The server runs a different version of the game. Update your game (or ask the server's owner to update the server) so both are the same build.")
 				return
 			var team = m.get("team")
 			if not Netplay.valid_team(team):
@@ -335,16 +491,22 @@ func _handle(c: Client, m: Dictionary) -> void:
 			c.arena = String(m.get("arena", ArenaMap.DEFAULT))
 			if not (c.arena in ArenaMap.IDS):
 				c.arena = ArenaMap.DEFAULT
-			c.pid = _clean_id(String(m.get("id", "")))
 			c.name = _clean_name(String(m.get("name", "")))
-			c.ranked = bool(m.get("ranked", false)) and c.size == 1 and c.team.size() == 1 and c.pid != "" and c.room == ""
-			if bool(m.get("submit", false)):
+			var submit := bool(m.get("submit", false))
+			c.ranked = bool(m.get("ranked", false)) and not submit and c.size == 1 and c.team.size() == 1 and c.room == ""
+			if (c.ranked or submit) and not _identify(c, m, submit):
+				return  # refused
+			c.ranked = c.ranked and c.pid != ""
+			if submit:
 				# Here to send a Daily score or read the board, then go.
 				c.state = State.SUBMIT
+				c.submit_ms = _clock_ms()
 				return
+			c.link.max_packet = MAX_PACKET_PLAYER  # a player's messages are all small
 			if bool(m.get("watch", false)):
 				# A spectator: attached to a match as soon as there is one to watch.
 				c.watch = true
+				c.slot = -1  # never anyone's slot
 				c.state = State.WATCHING
 				c.waiting_since = Time.get_ticks_msec()
 				_log("%s wants to watch%s" % [c.label(), (" room '%s'" % c.room) if c.room != "" else ""])
@@ -376,16 +538,25 @@ func _handle(c: Client, m: Dictionary) -> void:
 		"daily":
 			if c.state != State.SUBMIT:
 				return
+			if c.asked:
+				_drop(c, "sent a second Daily request")
+				return
+			c.asked = true
 			_daily_submit(c, m)
 		"board":
 			if c.state != State.SUBMIT:
 				return
-			c.link.send({"t": "daily_board", "date": int(m.get("date", 0)), "board": ratings.daily_board(int(m.get("date", 0)))}, true)
+			if c.asked:
+				_drop(c, "sent a second Daily request")
+				return
+			c.asked = true
+			c.link.send({"t": "daily_board", "date": int(m.get("date", 0)),
+				"board": ratings.daily_board(int(m.get("date", 0)), Ratings.TOP, c.pid)}, true)
 		"in":
 			var g := c.game
-			if g == null or int(m.get("n", -1)) != g.n:
+			if not _seated(c) or int(m.get("n", -1)) != g.n:
 				return
-			if not g.referee.add_inputs(c.slot, m):
+			if not g.referee.add_inputs(c.slot, m, _clock_frame(g) + AHEAD_INPUT_FRAMES):
 				return
 			# Passed on rebuilt from known fields only, never as the player sent it.
 			var out := {"t": "in", "n": g.n, "p": c.slot, "first": int(m["first"]), "inputs": m["inputs"],
@@ -399,16 +570,17 @@ func _handle(c: Client, m: Dictionary) -> void:
 				w.link.send(out)
 		"dg":
 			var g := c.game
-			if g == null or int(m.get("n", -1)) != g.n:
+			if not _seated(c) or int(m.get("n", -1)) != g.n:
 				return
 			var f := int(m.get("f", -1))
 			var d := String(m.get("d", "")).left(128)
-			g.referee.add_digest(c.slot, f, d)
+			if not g.referee.add_digest(c.slot, f, d):
+				return  # refused: not passed on either
 			for o: Client in g.others(c):
 				o.link.send({"t": "dg", "n": g.n, "p": c.slot, "f": f, "d": d}, true)
 		"rematch":
 			var g := c.game
-			if g == null or g.rematch[c.slot] or g.room != "":
+			if not _seated(c) or g.rematch[c.slot] or g.room != "":
 				return  # a room picks again instead
 			g.rematch[c.slot] = true
 			for o: Client in g.others(c):
@@ -423,7 +595,8 @@ func _handle(c: Client, m: Dictionary) -> void:
 			_room_next(c)
 		"pick":
 			if c.game != null and c.game.picking:
-				_rematch_pick(c, m.get("team"))
+				if _seated(c):
+					_rematch_pick(c, m.get("team"))
 			else:
 				_room_pick(c, m.get("team"))
 		"bye":
@@ -433,8 +606,9 @@ func _handle(c: Client, m: Dictionary) -> void:
 func _wait_text(c: Client, have := 1, need := 2) -> String:
 	var where := (" in room '%s'" % c.room) if c.room != "" else ""
 	if c.ranked:
-		var p := ratings.player(c.pid, c.name)
-		return "Ranked. Your rating %d (%d games). Waiting for someone near it..." % [roundi(float(p["rating"])), int(p["games"])]
+		var p := ratings.peek(c.pid)
+		return "Ranked. Your rating %d (%d games). Waiting for someone near it..." % [
+			roundi(float(p.get("rating", Ratings.START))), int(p.get("games", 0))]
 	if need <= 2:
 		return "On the server%s. Waiting for an opponent..." % where
 	var n := need / 2
@@ -550,6 +724,8 @@ func _pair_ranked(ready: Array) -> void:
 		var best_gap := INF
 		for k in range(1, pool.size()):
 			var b: Client = pool[k]
+			if not _may_rate(a, b):
+				continue
 			var waited := now - mini(a.waiting_since, b.waiting_since)
 			if not ratings.band_ok(a.pid, b.pid, waited):
 				continue
@@ -565,6 +741,47 @@ func _pair_ranked(ready: Array) -> void:
 		_found([a, best], 1, "", true)
 
 
+## Two players may meet in ranked: never the same id, and never two games behind one
+## address unless `ranked_same_ip` (in-memory test links have no address).
+func _may_rate(a: Client, b: Client) -> bool:
+	if a.pid == b.pid:
+		return false
+	return ranked_same_ip or a.address == "" or b.address == "" or _host(a.address) != _host(b.address)
+
+
+## A ranked or Daily hello: who is this? The id counts only with a secret that proves it
+## (Ratings.key_of): an id already bound to another secret is refused, and so is an id
+## that already has a live connection of the same kind (one ranked game, one Daily
+## request per player; the newer one is turned away). An id from before secrets, with
+## history in the book but no key, is bound here to the first secret that claims it.
+## No id or no secret: the player is anonymous (no ranked, no Daily board). False when refused.
+func _identify(c: Client, m: Dictionary, submit: bool) -> bool:
+	c.pid = ""
+	c.key = ""
+	var pid := _clean_id(String(m.get("id", "")))
+	var secret := String(m.get("secret", ""))
+	if pid == "" or not Netplay.valid_secret(secret):
+		return true
+	var key := Ratings.key_of(pid, secret)
+	match ratings.check_key(pid, key):
+		Ratings.Key.WRONG:
+			_refuse(c, "identity", "The server knows your player id from another copy of the game, so it can't "
+				+ "rate this one. Ask the server's owner to reset your player if you moved computers.")
+			return false
+		Ratings.Key.UNKNOWN:
+			if ratings.has_history(pid):
+				ratings.bind_key(pid, key)
+				_log("%s claimed an existing player record (first secret bound to it)" % c.label())
+	for o: Client in clients.values():
+		if o != c and o.pid == pid and (o.state == State.SUBMIT) == submit:
+			_refuse(c, "twice", ("You're already sending a Daily score from another game." if submit else
+				"You're already in ranked from another game. Close it, or wait a minute for it to time out."))
+			return false
+	c.pid = pid
+	c.key = key
+	return true
+
+
 static func _clean_id(s: String) -> String:
 	s = s.strip_edges().to_lower()
 	if s.length() < 8 or s.length() > 32:
@@ -576,8 +793,14 @@ static func _clean_id(s: String) -> String:
 
 
 static func _clean_name(s: String) -> String:
-	s = s.strip_edges().replace("\n", " ").replace("\r", " ").left(16)
-	return s if s != "" else "Player"
+	return Netplay.clean_name(s)
+
+
+## Whether a Daily date is today (the server's UTC date, or `daily_today`) or a day either side.
+func _daily_date_ok(date: int) -> bool:
+	var today := daily_today if daily_today > 0 else Daily.today()
+	var day := Ratings.date_days(date)
+	return day >= 0 and absi(day - Ratings.date_days(today)) <= 1
 
 
 ## A Daily Challenge replay: scored here on a fresh match of that day, never trusted
@@ -586,18 +809,71 @@ func _daily_submit(c: Client, m: Dictionary) -> void:
 	var date := int(m.get("date", 0))
 	var fighter := String(m.get("fighter", ""))
 	var rep_dict = m.get("replay")
-	if date < 20200101 or not (fighter in MatchFactory.FIGHTERS) or not (rep_dict is Dictionary) or c.pid == "":
+	if not (fighter in MatchFactory.FIGHTERS) or not (rep_dict is Dictionary) or c.pid == "":
 		c.link.send({"t": "reject", "why": "daily", "msg": "That score can't be taken: a bad request."}, true)
 		return
-	var rep := Replay.from_dict(rep_dict)
-	if rep.frames.size() > Daily.FIGHT_TICKS + 60:
-		c.link.send({"t": "reject", "why": "daily", "msg": "That replay is too long to be a Daily fight."}, true)
+	if not _daily_date_ok(date):
+		c.link.send({"t": "reject", "why": "daily", "msg": "That Daily is over: scores are taken on the day only."}, true)
 		return
-	var d := Daily.new(fighter, date)
-	var score := d.verify(rep)
-	var rank := ratings.submit_daily(date, c.pid, c.name, score)
-	_log("%s sent a Daily score for %d: %d (rank %d)" % [c.label(), date, score, rank])
-	c.link.send({"t": "daily_ok", "date": date, "score": score, "rank": rank, "board": ratings.daily_board(date)}, true)
+	# Size and shape first, before anything is converted: two inputs a row, no longer
+	# than the fight.
+	var rep := Replay.from_dict(rep_dict, Daily.max_frames(), 2)
+	if rep == null:
+		c.link.send({"t": "reject", "why": "daily", "msg": "That replay isn't a Daily fight."}, true)
+		return
+	if _daily_jobs.size() > DAILY_QUEUE or not _take_daily_token():
+		c.link.send({"t": "reject", "why": "busy", "msg": "The server is busy scoring. Try again in a minute."}, true)
+		return
+	_daily_jobs.append({"c": c, "verify": Daily.Verify.new(Daily.new(fighter, date), rep), "date": date})
+
+
+## One Daily verification spends DAILY_FRAMES_PER_TICK frames of this loop; once one is
+## scored it goes on the board and its sender hears the rank.
+func _daily_step() -> void:
+	while not _daily_jobs.is_empty() and not clients.has((_daily_jobs[0]["c"] as Client).id):
+		_daily_jobs.pop_front()  # its sender left: nobody to tell
+	if _daily_jobs.is_empty():
+		return
+	var job: Dictionary = _daily_jobs[0]
+	var v: Daily.Verify = job["verify"]
+	if not v.step(DAILY_FRAMES_PER_TICK):
+		return
+	_daily_jobs.pop_front()
+	var c: Client = job["c"]
+	var date := int(job["date"])
+	if v.mismatch:
+		# Its CPU column isn't what the day's CPU does against those inputs: not the
+		# day's fight as the game plays it (another build, or made up).
+		_log("%s sent a Daily replay for %d that the day's CPU doesn't play the same (frame %d): refused"
+			% [c.label(), date, v.ticks])
+		c.link.send({"t": "reject", "why": "daily", "msg": "The server couldn't replay that fight the same way. "
+			+ "Is your game up to date?"}, true)
+		return
+	if not ratings.bind_key(c.pid, c.key):
+		c.link.send({"t": "reject", "why": "identity", "msg": "That score can't be taken for this player."}, true)
+		return
+	var rank := ratings.submit_daily(date, c.pid, c.name, v.score)
+	_log("%s sent a Daily score for %d: %d (rank %d)" % [c.label(), date, v.score, rank])
+	c.link.send({"t": "daily_ok", "date": date, "score": v.score, "rank": rank,
+		"board": ratings.daily_board(date, Ratings.TOP, c.pid)}, true)
+
+
+func _verifying(c: Client) -> bool:
+	for job in _daily_jobs:
+		if job["c"] == c:
+			return true
+	return false
+
+
+## The server-wide Daily budget: DAILY_PER_MINUTE, DAILY_BURST at once.
+func _take_daily_token() -> bool:
+	var clock := _clock_ms()
+	_daily_tokens = minf(float(DAILY_BURST), _daily_tokens + float(clock - _daily_tokens_ms) * DAILY_PER_MINUTE / 60000.0)
+	_daily_tokens_ms = clock
+	if _daily_tokens < 1.0:
+		return false
+	_daily_tokens -= 1.0
+	return true
 
 
 ## A group is ready to play: ask everyone in it to accept (the ready check).
@@ -806,9 +1082,12 @@ func _start(g: Game) -> void:
 			var fighter: String = String(g.cpu_fighters[slot]) if c == null else String(c.team[0])
 			(teams[slot / g.size] as Array).append(fighter)  # one fighter each
 	g.referee = Referee.new(teams, g.delay, g.size, g.rules, g.arena, g.n)
+	g.referee.post_result_frames = Referee.POST_RESULT_FRAMES
+	g.referee.max_frames = Referee.MAX_MATCH_FRAMES
 	for slot in g.cpu_fighters:
 		g.referee.add_cpu(int(slot), cpu_level, g.label * 31 + int(slot) * 7 + g.n)
 	g.path_ms = Time.get_ticks_msec()
+	g.clock_ms = _clock_ms()
 	matches_started += 1
 	g.label = matches_started
 	var cpu_slots: Array = g.cpu_fighters.keys()
@@ -842,8 +1121,13 @@ func _start(g: Game) -> void:
 		_room_status(rooms[g.room])
 
 
-func _referee_step(g: Game, now: int) -> void:
-	g.referee.advance()
+## The frame match `g` is on by the limits' clock (frame 0 when it started).
+func _clock_frame(g: Game, clock := -1) -> int:
+	return int((float(_clock_ms() if clock < 0 else clock) - float(g.clock_ms)) * 60.0 / 1000.0)
+
+
+func _referee_step(g: Game, now: int, clock: int) -> void:
+	g.referee.advance(_clock_frame(g, clock) + AHEAD_STEP_FRAMES, STEPS_PER_TICK)
 	_send_cpu_inputs(g)
 	if g.referee.winner != -2 and not g.reported:
 		_report(g)
@@ -894,6 +1178,7 @@ var ratings := Ratings.new()
 
 func _init() -> void:
 	ratings.persist = false  # the dedicated server turns it on; tests keep it in memory
+	ratings.on_log = func(s: String) -> void: _log(s)
 
 
 func _save_replay(g: Game) -> String:
@@ -904,8 +1189,34 @@ func _save_replay(g: Game) -> String:
 	var path := replay_dir.path_join("online_%d_%d.json" % [g.label, g.n])
 	if rep.save(path) == OK:
 		_log("replay of match %d saved: %s (%d frames)" % [g.label, path, rep.frames.size()])
+		_rotate_replays()
 		return path
 	return ""
+
+
+## Keeps the newest `replays_keep` server replays in `replay_dir`; older ones are deleted.
+func _rotate_replays() -> void:
+	if replays_keep <= 0:
+		return
+	var files: Array = []
+	for f in DirAccess.get_files_at(replay_dir):
+		if f.begins_with("online_") and f.ends_with(".json"):
+			var p := replay_dir.path_join(f)
+			files.append([FileAccess.get_modified_time(p), f, p])
+	if files.size() <= replays_keep:
+		return
+	files.sort()  # oldest first (then by name)
+	for k in files.size() - replays_keep:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(String(files[k][2])))
+
+
+## data/online.json `server_replays_keep`, or REPLAYS_KEEP_DEFAULT.
+static func _replays_keep() -> int:
+	var f := FileAccess.open("res://data/online.json", FileAccess.READ)
+	var d = JSON.parse_string(f.get_as_text()) if f != null else null
+	if d is Dictionary and (d.get("server_replays_keep") is float or d.get("server_replays_keep") is int):
+		return maxi(0, int(d["server_replays_keep"]))
+	return REPLAYS_KEEP_DEFAULT
 
 
 ## Logs how the match went, once.
@@ -916,7 +1227,8 @@ func _report(g: Game) -> void:
 	if save_replays:
 		_save_replay(g)
 	var r := g.referee
-	if g.ranked and r.winner != -2 and g.players.size() == 2 and g.players[0] != null and g.players[1] != null:
+	if g.ranked and r.winner != -2 and g.players.size() == 2 and g.players[0] != null and g.players[1] != null \
+			and _keys_bound(g):
 		# A rated result: both players hear their new rating.
 		var a: Client = g.players[0]
 		var b: Client = g.players[1]
@@ -946,6 +1258,15 @@ func _report(g: Game) -> void:
 		if r.desync[side] >= 0 and g.players[side] != null:
 			_log("match %d: %s's game went out of sync at frame %d (a bug: their report is in their desyncs folder)"
 				% [g.label, (g.players[side] as Client).label(), r.desync[side]])
+
+
+## Both players' ids are theirs: each key is bound (on its first rated game) or matches.
+func _keys_bound(g: Game) -> bool:
+	for cl: Client in g.players:
+		if not ratings.bind_key(cl.pid, cl.key):
+			_log("match %d not rated: %s's id is bound to another secret" % [g.label, cl.label()])
+			return false
+	return true
 
 
 func _refuse(c: Client, why: String, msg: String) -> void:

@@ -3,7 +3,9 @@ extends RefCounted
 ## A short connection to the dedicated server outside any match: sends a Daily
 ## Challenge replay to be scored and ranked, or asks for the day's top ten. Says hello
 ## like a player (so the version and data checks apply), then one request, then
-## waits for the answer. `tick()` every frame until `done`.
+## waits for the answer. `tick()` every frame until `done`. The hello carries the
+## player's id and secret (Netplay.secret): the board comes back as {name, score},
+## with `you: true` on this player's row.
 
 const TIMEOUT_TICKS := 60 * 12
 
@@ -66,7 +68,7 @@ func tick() -> void:
 		_said_hello = true
 		link.send({"t": "hello", "v": Netplay.NET_VERSION, "data": Netplay.data_hash(),
 			"team": [String(_request.get("fighter", MatchFactory.FIGHTERS[0]))], "submit": true,
-			"id": Netplay.player_id, "name": Netplay.player_name}, true)
+			"id": Netplay.player_id, "secret": Netplay.secret(), "name": Netplay.player_name}, true)
 		link.send(_request, true)
 		link.flush()
 	for m in link.poll():
@@ -76,18 +78,39 @@ func tick() -> void:
 				return
 			"daily_ok":
 				ok = true
-				score = int(m.get("score", 0))
-				rank = int(m.get("rank", 0))
-				board = m.get("board", [])
+				score = NetLink.int_of(m.get("score", 0))
+				rank = NetLink.int_of(m.get("rank", 0))
+				board = clean_board(m.get("board", []))
 				done = true
 				link.close()
 				return
 			"daily_board":
 				ok = true
-				board = m.get("board", [])
+				board = clean_board(m.get("board", []))
 				done = true
 				link.close()
 				return
 	if _t > TIMEOUT_TICKS:
 		_fail("No answer from the server")
 	link.flush()
+
+
+## The most rows of a board this client keeps (the server sends the top few).
+const MAX_BOARD := 100
+
+
+## A board as the server sent it, made safe to show: rows that are dictionaries, a
+## clean name and a whole-number score each, at most MAX_BOARD of them.
+static func clean_board(b) -> Array:
+	var out: Array = []
+	if not (b is Array):
+		return out
+	for row in b:
+		if out.size() >= MAX_BOARD:
+			break
+		if row is Dictionary:
+			var r: Dictionary = (row as Dictionary).duplicate()
+			r["name"] = Netplay.clean_name(str(r.get("name", "Player")))
+			r["score"] = NetLink.int_of(r.get("score", 0))
+			out.append(r)
+	return out

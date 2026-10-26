@@ -14,9 +14,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Least privilege: every job reads the repository; only the comment job writes (the PR
+# comment), and it asks for that itself.
 permissions:
   contents: read
-  pull-requests: write
 
 concurrency:
   group: playable-build-${{ github.ref }}
@@ -34,7 +35,9 @@ jobs:
       win_url: ${{ steps.win.outputs.artifact-url }}
       linux_url: ${{ steps.linux.outputs.artifact-url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Short commit id
         id: sha
@@ -45,10 +48,10 @@ jobs:
 
       - name: Cache Godot and export templates
         id: cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/godot-cache
-          key: godot-${{ env.GODOT_VERSION }}-win-linux-v1
+          key: godot-${{ env.GODOT_VERSION }}-win-linux-v2
 
       - name: Download Godot and export templates
         if: steps.cache.outputs.cache-hit != 'true'
@@ -56,11 +59,18 @@ jobs:
           mkdir -p ~/godot-cache/templates
           cd ~/godot-cache
           base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
-          curl -sSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
-          unzip -q godot.zip && rm godot.zip
+          # Each download is checked against the release's own SHA512-SUMS.txt.
+          curl -fsSL -o SHA512-SUMS.txt "$base/SHA512-SUMS.txt"
+          zip="Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          curl -fsSL -o "$zip" "$base/$zip"
+          grep " ${zip}\$" SHA512-SUMS.txt | sha512sum -c -
+          unzip -q "$zip" && rm "$zip"
           mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot && chmod +x godot
           # The full template archive is ~1.2 GB; keep only the two platforms we ship.
-          curl -sSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          tpz="Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          curl -fsSL -o templates.tpz "$base/$tpz"
+          echo "$(grep " ${tpz}\$" SHA512-SUMS.txt | cut -d' ' -f1)  templates.tpz" | sha512sum -c -
+          rm SHA512-SUMS.txt
           unzip -q -j templates.tpz templates/windows_release_x86_64.exe \
             templates/linux_release.x86_64 templates/version.txt -d templates
           rm templates.tpz
@@ -82,6 +92,8 @@ jobs:
           test -s build/windows/CreatureArena.exe
           test -s build/windows/CreatureArena.pck
           test -s build/linux/CreatureArena.x86_64
+          # The server's update script prints the same for the binary it installs.
+          sha256sum build/linux/CreatureArena.x86_64 build/windows/CreatureArena.pck
 
       # The Windows game data ships as CreatureArena.pck beside the exe, not embedded in
       # it. An exe with the data glued in is a new, unsigned program on every build, and
@@ -141,7 +153,7 @@ jobs:
 
       - name: Upload Windows build
         id: win
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: CreatureArena-windows-${{ env.SHORT_SHA }}
           path: build/windows
@@ -149,7 +161,7 @@ jobs:
 
       - name: Upload Linux build
         id: linux
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: CreatureArena-linux-${{ env.SHORT_SHA }}
           path: build/linux
@@ -165,14 +177,16 @@ jobs:
     outputs:
       apk_url: ${{ steps.apk.outputs.artifact-url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Short commit id
         run: |
           SHA="${{ github.event.pull_request.head.sha || github.sha }}"
           echo "SHORT_SHA=${SHA::7}" >> "$GITHUB_ENV"
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
         with:
           distribution: temurin
           java-version: 17
@@ -184,10 +198,10 @@ jobs:
 
       - name: Cache Godot and Android templates
         id: cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/godot-cache
-          key: godot-${{ env.GODOT_VERSION }}-android-v1
+          key: godot-${{ env.GODOT_VERSION }}-android-v2
 
       - name: Download Godot and Android templates
         if: steps.cache.outputs.cache-hit != 'true'
@@ -195,10 +209,17 @@ jobs:
           mkdir -p ~/godot-cache/templates
           cd ~/godot-cache
           base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
-          curl -sSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
-          unzip -q godot.zip && rm godot.zip
+          # Each download is checked against the release's own SHA512-SUMS.txt.
+          curl -fsSL -o SHA512-SUMS.txt "$base/SHA512-SUMS.txt"
+          zip="Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          curl -fsSL -o "$zip" "$base/$zip"
+          grep " ${zip}\$" SHA512-SUMS.txt | sha512sum -c -
+          unzip -q "$zip" && rm "$zip"
           mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot && chmod +x godot
-          curl -sSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          tpz="Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          curl -fsSL -o templates.tpz "$base/$tpz"
+          echo "$(grep " ${tpz}\$" SHA512-SUMS.txt | cut -d' ' -f1)  templates.tpz" | sha512sum -c -
+          rm SHA512-SUMS.txt
           unzip -q -j templates.tpz templates/android_debug.apk templates/version.txt -d templates
           rm templates.tpz
 
@@ -225,7 +246,7 @@ jobs:
 
       - name: Upload Android build
         id: apk
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: CreatureArena-android-${{ env.SHORT_SHA }}
           path: build/android
@@ -235,10 +256,12 @@ jobs:
     if: github.event_name == 'pull_request' && !cancelled()
     needs: [build, android]
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     steps:
       - name: Comment download links on the PR
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         env:
           SHORT_SHA: ${{ needs.build.outputs.short_sha }}
           WIN_URL: ${{ needs.build.outputs.win_url }}
@@ -279,12 +302,21 @@ jobs:
       GODOT_VERSION: 4.7.2
       SIM_CHECK_SEED: 20261010
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Download Godot for macOS
         run: |
-          curl -sSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_macos.universal.zip"
-          unzip -q godot.zip
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          zip="Godot_v${GODOT_VERSION}-stable_macos.universal.zip"
+          curl -fsSL -o "$zip" "$base/$zip"
+          curl -fsSL -o SHA512-SUMS.txt "$base/SHA512-SUMS.txt"
+          want=$(grep " ${zip}\$" SHA512-SUMS.txt | cut -d' ' -f1)
+          have=$(shasum -a 512 "$zip" | cut -d' ' -f1)
+          echo "want $want"; echo "have $have"
+          test -n "$want" && test "$want" = "$have"
+          unzip -q "$zip"
           chmod +x Godot.app/Contents/MacOS/Godot
 
       - name: Import project
@@ -309,7 +341,7 @@ jobs:
     env:
       SIM_CHECK_SEED: 20261010
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: CreatureArena-windows-${{ needs.build.outputs.short_sha }}
           path: win

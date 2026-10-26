@@ -1,5 +1,6 @@
 {
 	"server": "kevarena.duckdns.org",
 	"rematch_pick_seconds": 20,
-	"rematch_locked_seconds": 3
+	"rematch_locked_seconds": 3,
+	"server_replays_keep": 500
 }

@@ -11,15 +11,144 @@ extends RefCounted
 ## Returns {"sim": MatchSim, "game": the DuelSim / TeamSim / BrawlSim or null}.
 
 const REMOVED_MODE := "This replay is from a mode that was removed"
+const DAMAGED := "This replay file is damaged"
 
 
 ## Why a setup can't be rebuilt any more ("" when it can): a team replay whose rules id
 ## is no longer one of TeamSim.RULE_IDS (Showtime, removed) would rebuild as a different
 ## match and play its inputs into nonsense, so the theater refuses it instead.
+## A setup that isn't one this game could have written (a damaged or hand-made file: an
+## unknown fighter or kind, a team of the wrong size) is refused the same way, with
+## DAMAGED, before anything is built from it.
 static func unsupported(setup: Dictionary) -> String:
-	if String(setup.get("kind", "versus")) == "team" and not TeamSim.RULE_IDS.has(String(setup.get("rules", ""))):
+	if not valid(setup) or not valid_setup(setup):
+		return DAMAGED
+	if str(setup.get("kind", "versus")) == "team" and not TeamSim.RULE_IDS.has(str(setup.get("rules", ""))):
 		return REMOVED_MODE
 	return ""
+
+
+const KINDS := ["versus", "training", "duel", "team", "brawl"]
+
+
+## On top of `valid`: whether every part of a setup `build` reads is the right type and
+## in range for its kind: a known kind, each fighter id one this build has, the teams (two
+## sides of known fighters, `size` each in a team battle), the size, a known arena, a
+## Brawl's player count, and the optional mutators (their numbers in range), energy,
+## training flags and flag changes.
+static func valid_setup(setup: Dictionary) -> bool:
+	var kind = setup.get("kind", "versus")
+	if not (kind is String) or not (kind in KINDS):
+		return false
+	var ids = setup.get("ids", ["cairn", "culvert"])
+	if not (ids is Array) or (ids as Array).is_empty() or (ids as Array).size() > TeamSim.MOST_PER_SIDE * 2:
+		return false
+	for id in ids:
+		if not (id is String) or not (id in MatchFactory.FIGHTERS or id == "dummy"):
+			return false
+	if kind == "brawl" and ((ids as Array).size() < 2 or (ids as Array).size() > BrawlSim.MAX_PLAYERS):
+		return false
+	if kind == "versus" and (ids as Array).size() > 2:
+		return false
+	if setup.has("arena") and not (setup["arena"] is String and ArenaMap.known(String(setup["arena"]))):
+		return false
+	for k in ["rules"]:
+		if setup.has(k) and not (setup[k] is String):
+			return false
+	for k in ["mut_seed"]:
+		if setup.has(k) and typeof(setup[k]) != TYPE_INT and typeof(setup[k]) != TYPE_FLOAT:
+			return false
+	for k in ["mutators", "training_flags"]:
+		if setup.has(k) and not (setup[k] is Dictionary):
+			return false
+	for k in ["energy", "flag_changes"]:
+		if setup.has(k) and not (setup[k] is Array):
+			return false
+	if setup.has("energy") and (setup["energy"] as Array).size() > 8:
+		return false
+	if setup.has("mutators") and not _valid_mutators(setup["mutators"]):
+		return false
+	if kind == "duel" or kind == "team":
+		var size := 1
+		if kind == "team":
+			var s = setup.get("size", 1)
+			if typeof(s) != TYPE_INT and typeof(s) != TYPE_FLOAT:
+				return false
+			size = int(s)
+			if size < 1 or size > TeamSim.MOST_PER_SIDE:
+				return false
+		if setup.has("teams"):
+			var teams = setup["teams"]
+			if not (teams is Array) or (teams as Array).size() != 2:
+				return false
+			for side in teams:
+				if not Netplay.valid_team(side, TeamSim.MOST_PER_SIDE):
+					return false
+				if kind == "team" and (side as Array).size() != size:
+					return false
+		elif (ids as Array).size() < 2:
+			return false
+	return true
+
+
+## Whether a setup (from a file someone may have edited) names a match that can be
+## built: known fighters (or the training dummy), two sides of at most a 4 v 4 (three
+## each for a tag Duel), and a sane size. build() trusts what passes.
+static func valid(setup: Dictionary) -> bool:
+	if not (setup.get("kind", "versus") is String):
+		return false
+	var ids = setup.get("ids", ["cairn", "culvert"])
+	if not _ids_ok(ids, Replay.MAX_WIDTH):
+		return false
+	if setup.has("teams"):
+		var teams = setup["teams"]
+		if not (teams is Array) or (teams as Array).size() != 2:
+			return false
+		for t in teams:
+			if not _ids_ok(t, TeamSim.MOST_PER_SIDE):
+				return false
+	if setup.has("size"):
+		var size = setup["size"]
+		if not (size is int or size is float) or int(size) < 1 or int(size) > TeamSim.MOST_PER_SIDE:
+			return false
+	for k in ["arena", "rules"]:
+		if setup.has(k) and not (setup[k] is String):
+			return false
+	for k in ["mutators", "training_flags"]:
+		if setup.has(k) and not (setup[k] is Dictionary):
+			return false
+	if setup.has("flag_changes") and not (setup["flag_changes"] is Array):
+		return false
+	return true
+
+
+static func _ids_ok(ids, most: int) -> bool:
+	if not (ids is Array) or (ids as Array).is_empty() or (ids as Array).size() > most:
+		return false
+	for id in ids:
+		if not (id is String) or not (id as String).is_valid_identifier() \
+				or not FileAccess.file_exists(MatchFactory.CREATURE_DIR + String(id) + ".json"):
+			return false
+	return true
+
+
+## The mutator keys MatchSim.apply_mutators reads, each a number in a sane range, and
+## `hazards` a short list of ids (unknown ones are skipped by Hazards.setup).
+static func _valid_mutators(m: Dictionary) -> bool:
+	var most := {"air_mult": 10.0, "speed_mult": 10.0, "damage_mult": 10.0, "pit_floor": 1.0, "surge_every": 1e6}
+	for k in most:
+		if m.has(k):
+			var v = m[k]
+			if (typeof(v) != TYPE_INT and typeof(v) != TYPE_FLOAT) or is_nan(float(v)) \
+					or float(v) < 0.0 or float(v) > float(most[k]):
+				return false
+	if m.has("hazards"):
+		if not (m["hazards"] is Array) or (m["hazards"] as Array).size() > 8:
+			return false
+		for h in m["hazards"]:
+			if not (h is String):
+				return false
+	return true
 
 
 static func build(setup: Dictionary) -> Dictionary:
@@ -40,7 +169,7 @@ static func build(setup: Dictionary) -> Dictionary:
 			out["game"] = d
 		"team":
 			var rules := TeamSim.rules_by_id(String(setup.get("rules", "")))
-			var t := TeamSim.new(setup.get("teams", [[ids[0]], [ids[1]]]), int(setup.get("size", 1)), rules,
+			var t := TeamSim.new(setup.get("teams", [[ids[0]], [ids[1]]]), clampi(int(setup.get("size", 1)), 1, TeamSim.MOST_PER_SIDE), rules,
 				int(setup.get("mut_seed", 0)))
 			out["sim"] = t.sim
 			out["game"] = t

@@ -90,7 +90,7 @@ crease       93%     2%     3%     0%     2%   1.03  1.02    2%     0.00  325.6
 - Class pins in `tests/test_balance.gd` all pass; the `--matrix` totals move a few points
   (Crease 70% to 63%, Cerebro 20% to 20%, Cairn 73% to 65%).
 
-## After C3 `cerebro-kit` (Oct 25 2026, NET_VERSION 35, same command)
+## After C3 `cerebro-kit` (Oct 25 2026, NET_VERSION 34, same command)
 
 Chef Cerebro's kit pass: the Mallet Toss staggers a tenderized foe (`stagger_if`), the Cleaver
 Toss bounces to a second foe (`bounce`, no effect in these 1v1s), the CPU sets up with Tenderize

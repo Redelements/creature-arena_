@@ -237,7 +237,28 @@ match-over screen shows. A Daily Challenge win is sent to the configured server 
 short connection (`DailyClient`: hello with `submit`, then the replay); the server
 rescores it on a fresh match of that day (`Daily.verify`), never trusting the client's
 number, keeps each player's best per day and answers with the rank; "Daily top 10"
-fetches the board the same way. A home server trusts ids and names as sent.
+fetches the board the same way.
+
+**Player secrets and a Daily the server plays itself (NET_VERSION 33).** Next to the id
+the game makes a secret once (settings `online/secret`, 64 hex characters from the
+system's cryptographic random source); a ranked hello and a Daily connection carry both,
+and nothing else does (Quick match, rooms, watching and direct play send neither). The
+server keeps only a hash of id and secret (`Ratings.keys`, `Ratings.key_of`), bound the
+first time the id is rated or scores a Daily; an id from before secrets, with a rating
+or a score but no key, is bound to the first secret that claims it. A hello whose secret
+doesn't match the id's key is refused ("identity") and the book is untouched; without a
+valid secret a player is anonymous (no ranked, no Daily). One ranked connection and one
+Daily connection per id at a time: a second is refused ("twice"). Ranked never pairs two
+games behind one address (`--ranked-same-ip` allows it). The board carries names and
+scores only, the asker's own row marked `you`. `Daily.verify` plays only the player's
+column: the intro's `Daily.INTRO_TICKS` rows as nobody pressing anything, then the
+player's recorded inputs against the day's CPU (`Daily.cpu()`, deterministic, seeded by
+the date), which chooses its own input each tick; the replay's CPU column must equal
+what it pressed, or the submission is refused. The round ends as main ends it (a
+knockout, or the clock `FIGHT_TICKS` after the intro), on the stadium whatever arena the
+player picked. Only the server's UTC date and the day either side are taken. Names are
+cleaned on the server (`Netplay.clean_name`: no control, invisible or direction-changing
+characters, at most 16).
 
 **Rooms that last (NET_VERSION 10).** A room code is a `RelayServer.Room` that outlives
 its matches; a `Game` is one match. The first player to ask for a size (the maker) sets

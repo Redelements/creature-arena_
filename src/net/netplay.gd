@@ -63,7 +63,7 @@ extends RefCounted
 ## last pick and starts the match. A Quick match rematch on a server is on a new arena
 ## (in "start"); a direct one keeps the host's.
 
-const NET_VERSION := 35  ## 35: Chef Cerebro kit pass (data keys stagger_if, projectile bounce, branches; Mallet Toss staggers a tenderized foe, Cleaver Toss bounces; open PRs took 32-34, the later to merge renumbers); 31: the Surge meter fills from combos (data/rules/energy.json per_type_mult and variety_energy: lights charge less, combos of several move types more); 30: shrines as a shared helper (src/sim/shrines.gd, data/rules/shrines.json; the "shrines" blocks of crater.json (permanent buffs, CreatureSim boost fields, MatchSim.shrine_rng) and brawl.json; Twin Keeps' three shrines; MatchSim.shrines; another PR may also bump: the second to merge renumbers); 29: arena hazards (data/rules/hazards.json, the tidal_wave and meteor_shower mutators; MatchSim.hazards); 28: reaction animations (hurt, guard and knockout rows in every fighter's JSON) and Cairn and the dummy as real rigs (their sprite blocks), which change data_hash; 27: diagonal 3/4 sheets (every fighter's JSON gains down_side and up_side views, which changes data_hash); 26: victory poses and idle variants for the roster, Crease batch 4 (folds, throws, Paper Plane), arena grade and ambient keys (fighter and arena JSON change data_hash); 25: roster animation pass (every fighter but Crease and Cairn gets new sheets and anim timelines in its JSON, which changes data_hash); 24: Rage CPU scored kit (ai.weights in Cerebro and Sno change data_hash); 23: assassin sneak engage (a hidden Burrow, ambush_ticks and the ambush_t state field, Storm Drain timing); 22: Surge energy rules (data/rules/energy.json: slower fill, meter carries between rounds), segment flag skip_struck, volley fan, widest-segment move_range; 21: a dodge cancels your own attack at a dearer cost (CreatureSim.can_dodge_cancel, stamina rules dodge_cancel_cost_mult); 20: Capture the Flag guards are the slots after a side's first (TeamSim._ctf_goals); 19: kit data pass (mage light reach, Digby Burrow and Pop-Up, Culvert HP and Gulp, Craglash, Gillbert, Barkley, Sno, roles); 18: on a crowded field hitstop is local to the attacker and target (CreatureSim.hitstop) and a KO neither freezes nor slows the match (MatchSim.freeze_all); 17: a Surge doesn't freeze a crowded field (2 v 2 and up, a Brawl of 3-4): it winds up instead (MatchSim.freeze_all); 16: 4 v 4 online (Capture the Flag: size up to the rules' "max_size"); 15: class perks (team rules "class_perks"), Caravan rockslides and escort healing; 14: Capture the Flag fumbles, passes (TAG), shrines, comeback rules and map bridges that fall in (MatchSim.bridges); 13: Caravan and Capture the Flag (team rules "caravan", "ctf"; maps of any size: a map's "size", "track", "bases"; sim.goals); 12: stamina rules (dearer dodge, block drain by move type, exhaustion at 0 drops the guard, regen pauses); 11: a 1v1 rematch outside rooms (Quick match, ranked, direct) picks again (room select status with secs, picks hidden until start, a countdown that locks in the last pick, Quick match draws a new arena; pick; ranked rates every game); 10: rooms last between matches (room, next, pick; wait back; bye room), Sinkhole collapses by rect and only a chasm fall is a ring-out; 9: the 1v1 is best of three rounds; 8: ranked play, player ids, daily scores; 7: team rules and tag Duels; 6: the server's ready check; 5: team battles; 4: 360 move angle
+const NET_VERSION := 34  ## 34: Chef Cerebro kit pass (data keys stagger_if, projectile bounce, branches; the Mallet Toss staggers a tenderized foe, the Cleaver Toss bounces; CPU ai.setup / setup_routes); 33: player secrets (hello carries "secret"; the server refuses an id whose bound secret differs), the Daily board without ids ({name, score, you}), the Daily verified against the day's own CPU (its fight always on the stadium); other open PRs hold 34 and 35 (the second to merge renumbers); 32: Team Deathmatch killing sprees and shutdowns, the Brawl crown (deathmatch.json and brawl.json keys, TeamSim streak / credit, BrawlSim crown, MatchSim.marks); 31: the Surge meter fills from combos (data/rules/energy.json per_type_mult and variety_energy: lights charge less, combos of several move types more); 30: shrines as a shared helper (src/sim/shrines.gd, data/rules/shrines.json; the "shrines" blocks of crater.json (permanent buffs, CreatureSim boost fields, MatchSim.shrine_rng) and brawl.json; Twin Keeps' three shrines; MatchSim.shrines; another PR may also bump: the second to merge renumbers); 29: arena hazards (data/rules/hazards.json, the tidal_wave and meteor_shower mutators; MatchSim.hazards); 28: reaction animations (hurt, guard and knockout rows in every fighter's JSON) and Cairn and the dummy as real rigs (their sprite blocks), which change data_hash; 27: diagonal 3/4 sheets (every fighter's JSON gains down_side and up_side views, which changes data_hash); 26: victory poses and idle variants for the roster, Crease batch 4 (folds, throws, Paper Plane), arena grade and ambient keys (fighter and arena JSON change data_hash); 25: roster animation pass (every fighter but Crease and Cairn gets new sheets and anim timelines in its JSON, which changes data_hash); 24: Rage CPU scored kit (ai.weights in Cerebro and Sno change data_hash); 23: assassin sneak engage (a hidden Burrow, ambush_ticks and the ambush_t state field, Storm Drain timing); 22: Surge energy rules (data/rules/energy.json: slower fill, meter carries between rounds), segment flag skip_struck, volley fan, widest-segment move_range; 21: a dodge cancels your own attack at a dearer cost (CreatureSim.can_dodge_cancel, stamina rules dodge_cancel_cost_mult); 20: Capture the Flag guards are the slots after a side's first (TeamSim._ctf_goals); 19: kit data pass (mage light reach, Digby Burrow and Pop-Up, Culvert HP and Gulp, Craglash, Gillbert, Barkley, Sno, roles); 18: on a crowded field hitstop is local to the attacker and target (CreatureSim.hitstop) and a KO neither freezes nor slows the match (MatchSim.freeze_all); 17: a Surge doesn't freeze a crowded field (2 v 2 and up, a Brawl of 3-4): it winds up instead (MatchSim.freeze_all); 16: 4 v 4 online (Capture the Flag: size up to the rules' "max_size"); 15: class perks (team rules "class_perks"), Caravan rockslides and escort healing; 14: Capture the Flag fumbles, passes (TAG), shrines, comeback rules and map bridges that fall in (MatchSim.bridges); 13: Caravan and Capture the Flag (team rules "caravan", "ctf"; maps of any size: a map's "size", "track", "bases"; sim.goals); 12: stamina rules (dearer dodge, block drain by move type, exhaustion at 0 drops the guard, regen pauses); 11: a 1v1 rematch outside rooms (Quick match, ranked, direct) picks again (room select status with secs, picks hidden until start, a countdown that locks in the last pick, Quick match draws a new arena; pick; ranked rates every game); 10: rooms last between matches (room, next, pick; wait back; bye room), Sinkhole collapses by rect and only a chasm fall is a ring-out; 9: the 1v1 is best of three rounds; 8: ranked play, player ids, daily scores; 7: team rules and tag Duels; 6: the server's ready check; 5: team battles; 4: 360 move angle
 const DEFAULT_PORT := 7777
 const PINGS := 5
 ## A precise ping (a real link) blocks the host this long at most waiting for the pong.
@@ -74,6 +74,9 @@ const LIVE_PING_KEEP := 5  ## the live ping is the best of this many recent samp
 const ATTENTIVE_WAIT_MS := 12  ## the guest waits on the socket this long a tick while being pinged
 ## Give up on a join that hasn't connected after this long.
 const CONNECT_TIMEOUT_TICKS := 10 * 60
+## The most frames a spectator takes from the server's log of a match in progress (an
+## hour; a real match is minutes). A longer one is refused, not stepped.
+const MAX_WATCH_LOG := 60 * 60 * 60
 
 enum Phase { IDLE, WAITING, CONNECTING, HANDSHAKE, PLAYING, ENDED }
 
@@ -107,8 +110,14 @@ var arena_id := ArenaMap.DEFAULT
 ## name. A session can carry its own (tests); otherwise the game's.
 static var player_id := ""
 static var player_name := "Player"
+## What proves the id is this install's: 64 random hex characters made once (settings,
+## next to the id), sent only to the server in hello, never shown. Losing it loses the
+## ranked identity on servers that have seen it. Empty until the game loads it;
+## secret() makes one for this run if nothing did (tests, tools).
+static var player_secret := ""
 var my_id := ""
 var my_name := ""
+var my_secret := ""
 ## Ranked: ask the server for a rated 1v1 within a rating band; the server's answer
 ## after the match ({old, new, rd, games, wins}).
 var ranked := false
@@ -184,8 +193,60 @@ static func make_player_id() -> String:
 	return s
 
 
+## A fresh player secret: 32 bytes from the system's cryptographic random source, as hex.
+static func make_secret() -> String:
+	return Crypto.new().generate_random_bytes(32).hex_encode()
+
+
+## Whether `s` looks like a player secret (what the server accepts).
+static func valid_secret(s: String) -> bool:
+	if s.length() < 32 or s.length() > 128:
+		return false
+	for ch in s:
+		if not "0123456789abcdef".contains(ch):
+			return false
+	return true
+
+
+## This install's secret (made for this run if the game hasn't loaded one).
+static func secret() -> String:
+	if not valid_secret(player_secret):
+		player_secret = make_secret()
+	return player_secret
+
+
+## A typed name made safe to show: no control, invisible or direction-changing
+## characters, runs of spaces as one, trimmed, at most NAME_MAX characters; "Player" if
+## nothing is left. The server cleans every name it hears (players can't trust each other's).
+const NAME_MAX := 16
+static func clean_name(s: String) -> String:
+	var out := ""
+	var space := false
+	for ch in s:
+		var u := ch.unicode_at(0)
+		if u == 0x00AD or u == 0x061C or u == 0x180E or (u >= 0x200B and u <= 0x200F) \
+				or (u >= 0x202A and u <= 0x202E) or (u >= 0x2060 and u <= 0x206F) or u == 0xFEFF \
+				or (u >= 0xFFF0 and u <= 0xFFFF) or (u >= 0xD800 and u <= 0xDFFF) or (u >= 0xE0000 and u <= 0xE007F):
+			continue  # invisible or direction-changing (format characters): gone
+		if u < 32 or (u >= 127 and u < 160) or u == 0x2028 or u == 0x2029:
+			u = 32  # a control character or a line break: a space at most
+		if u == 32 or u == 0x3000 or u == 0x00A0:
+			space = true
+			continue
+		if space and out != "":
+			out += " "
+		space = false
+		out += ch
+	out = out.left(NAME_MAX).strip_edges()
+	return out if out != "" else "Player"
+
+
 func _my_id() -> String:
 	return my_id if my_id != "" else player_id
+
+
+func _my_secret() -> String:
+	return my_secret if my_secret != "" else secret()
 
 
 func _my_name() -> String:
@@ -300,9 +361,15 @@ func tick(local_bits: int) -> void:
 	match phase:
 		Phase.CONNECTING:
 			if link.status == NetLink.Status.CONNECTED:
-				link.send({"t": "hello", "v": NET_VERSION, "data": data_hash(), "team": my_team, "room": room,
+				var hello := {"t": "hello", "v": NET_VERSION, "data": data_hash(), "team": my_team, "room": room,
 					"size": team_size, "rules": rules_id, "watch": watching, "arena": arena_id,
-					"id": _my_id(), "name": _my_name(), "ranked": ranked}, true)
+					"name": _my_name(), "ranked": ranked}
+				if ranked:
+					# Who this player is goes only where it counts (ranked, on a server): never to
+					# a direct host or for an unrated match.
+					hello["id"] = _my_id()
+					hello["secret"] = _my_secret()
+				link.send(hello, true)
 				phase = Phase.HANDSHAKE
 				status = "Connected. Setting up the match..."
 			elif _t > CONNECT_TIMEOUT_TICKS:
@@ -492,7 +559,7 @@ func _handle(m: Dictionary) -> void:
 		"hello":
 			if not hosting or phase == Phase.PLAYING:
 				return
-			if int(m.get("v", -1)) != NET_VERSION or String(m.get("data", "")) != data_hash():
+			if NetLink.int_of(m.get("v", -1), -1) != NET_VERSION or str(m.get("data", "")) != data_hash():
 				link.send({"t": "reject", "why": "version"}, true)
 				link.flush()
 				_fail("The other player has a different version of the game. Both need the same build.")
@@ -502,9 +569,7 @@ func _handle(m: Dictionary) -> void:
 				_fail("The other player picked a fighter this build doesn't have.")
 				return
 			their_team = team
-			their_name = String(m.get("name", "Player")).strip_edges().replace("\n", " ").left(16)
-			if their_name == "":
-				their_name = "Player"
+			their_name = clean_name(String(m.get("name", "Player")) if m.get("name") is String else "Player")
 			phase = Phase.HANDSHAKE
 			status = "Player connected. Measuring the connection..."
 			_next_ping = _t
@@ -581,7 +646,7 @@ func _handle(m: Dictionary) -> void:
 				_start_watching(m)
 				return
 			var teams = m.get("teams")
-			var size := clampi(int(m.get("size", 1)), 1, TeamSim.MOST_PER_SIDE)
+			var size := NetLink.int_of(m.get("size", 1), 1, 1, TeamSim.MOST_PER_SIDE)
 			if not (teams is Array) or (teams as Array).size() != 2 or not _valid_side(teams[0]) \
 					or not _valid_side(teams[1]) or (size > 1 and ((teams[0] as Array).size() != size
 					or (teams[1] as Array).size() != size)):
@@ -590,16 +655,16 @@ func _handle(m: Dictionary) -> void:
 			var slot := 1
 			if m.has("side"):  # from a dedicated server, which picks the sides
 				via_server = true
-				slot = clampi(int(m.get("slot", m["side"])), 0, size * 2 - 1)
-			ping_ms = float(m.get("ping", 0.0))
-			var rules := String(m.get("rules", ""))
-			var arena := String(m.get("arena", ArenaMap.DEFAULT))
+				slot = NetLink.int_of(m.get("slot", m["side"]), 0, 0, size * 2 - 1)
+			ping_ms = NetLink.float_of(m.get("ping", 0.0), 0.0, 0.0, 5000.0)
+			var rules := str(m.get("rules", ""))
+			var arena := str(m.get("arena", ArenaMap.DEFAULT))
 			if not (rules in TeamSim.RULE_IDS) or not ArenaMap.known(arena):
 				_fail("Bad match setup from the host")
 				return
 			rules_id = rules
 			arena_id = arena
-			_begin(int(m.get("n", 0)), teams, int(m.get("delay", 2)), slot, size, rules, arena)
+			_begin(NetLink.int_of(m.get("n", 0)), teams, start_delay(m), slot, size, rules, arena)
 			their_team = teams[1 - local_side]
 			if size == 1:
 				my_team = (teams[local_side] as Array).duplicate()
@@ -641,9 +706,9 @@ func _handle(m: Dictionary) -> void:
 					_fail(OPPONENT_LEFT)
 		"in", "dg":
 			if watch != null:
-				if String(m.get("t", "")) == "in" and int(m.get("n", -1)) == _watch_n:
-					watch.add_inputs(clampi(int(m.get("p", 0)), 0, watch.players - 1), m)
-			elif game != null and int(m.get("n", -1)) == game.id:
+				if str(m.get("t", "")) == "in" and NetLink.int_of(m.get("n", -1), -1) == _watch_n:
+					watch.add_inputs(NetLink.int_of(m.get("p", 0), 0, 0, watch.players - 1), m)
+			elif game != null and NetLink.int_of(m.get("n", -1), -1) == game.id:
 				game.receive(m)
 
 
@@ -658,7 +723,7 @@ func _room_status(m: Dictionary) -> void:
 	if who is Array:
 		for p in who:
 			if p is Dictionary:
-				var e := {"name": String(p.get("name", "Player")).left(16),
+				var e := {"name": clean_name(str(p.get("name", "Player"))),
 					"fighter": String(p.get("fighter", "")), "locked": bool(p.get("locked", false)),
 					"playing": bool(p.get("playing", false))}
 				room_players.append(e)
@@ -672,26 +737,33 @@ func _room_status(m: Dictionary) -> void:
 ## everything stepped so far.
 func _start_watching(m: Dictionary) -> void:
 	var teams = m.get("teams")
-	var size := clampi(int(m.get("size", 1)), 1, TeamSim.MOST_PER_SIDE)
-	var rules := String(m.get("rules", ""))
-	var arena := String(m.get("arena", ArenaMap.DEFAULT))
+	var size := NetLink.int_of(m.get("size", 1), 1, 1, TeamSim.MOST_PER_SIDE)
+	var rules := str(m.get("rules", ""))
+	var arena := str(m.get("arena", ArenaMap.DEFAULT))
+	var rows = m.get("log", [])
 	if not (teams is Array) or (teams as Array).size() != 2 or not _valid_side(teams[0]) \
-			or not _valid_side(teams[1]) or not (rules in TeamSim.RULE_IDS) or not ArenaMap.known(arena):
+			or not _valid_side(teams[1]) or not (rules in TeamSim.RULE_IDS) or not ArenaMap.known(arena) \
+			or (size > 1 and ((teams[0] as Array).size() != size or (teams[1] as Array).size() != size)) \
+			or not (rows is Array) or (rows as Array).size() > MAX_WATCH_LOG:
 		_fail("Bad match setup from the server")
 		return
 	via_server = true
 	match_found = false
-	_watch_n = int(m.get("n", 0))
+	_watch_n = NetLink.int_of(m.get("n", 0))
 	arena_id = arena
 	if room == "":
 		room_state = ""  # a rematch's pick is over
 		room_players = []
-	watch = Referee.new(teams, int(m.get("delay", 2)), size, rules, arena, _watch_n)
-	var rows = m.get("log", [])
-	if rows is Array:
-		watch.feed_log(rows)
+	watch = Referee.new(teams, start_delay(m), size, rules, arena, _watch_n)
+	watch.feed_log(rows)
 	phase = Phase.PLAYING
 	status = "Watching"
+
+
+## The input delay a "start" asks for, clamped to what a session takes (a host or server
+## asking for millions of frames would otherwise freeze this machine building them).
+static func start_delay(m: Dictionary) -> int:
+	return NetLink.int_of(m.get("delay", 2), 2, 0, RollbackSession.MAX_INPUT_DELAY)
 
 
 ## Host: measure the round trip with a few pings, then start the match. On a real link
@@ -807,7 +879,7 @@ static func valid_team(team, most := 3) -> bool:
 	if not (team is Array) or (team as Array).is_empty() or (team as Array).size() > most:
 		return false
 	for id in team:
-		if not (String(id) in MatchFactory.FIGHTERS):
+		if not (id is String or id is StringName) or not (String(id) in MatchFactory.FIGHTERS):
 			return false
 	return true
 
@@ -829,6 +901,15 @@ func _fail(why: String) -> bool:
 ## A fingerprint of the game data both machines must share: every fighter's file, arena and
 ## rules file. Different data would make the two simulations disagree.
 static func data_hash() -> String:
+	if _data_hash == "":
+		_data_hash = _hash_data()  # the files never change while the game runs: once is enough
+	return _data_hash
+
+
+static var _data_hash := ""
+
+
+static func _hash_data() -> String:
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(("v%d" % NET_VERSION).to_utf8_buffer())

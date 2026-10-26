@@ -3356,6 +3356,21 @@ var flags: Array = []
 ## (seconds until ready, 0: ready), "charge" (0..1 through the last seconds before it's
 ## ready, 0 otherwise)}.
 var shrines: Array = []
+## Who is wanted (set by main): per slot {} or {"kind": "spree", "level"} (Team Deathmatch)
+## or {"kind": "crown"} (the Brawl crown), drawn over the health bar (`_draw_wanted`).
+var wanted: Array = []
+const CROWN_GOLD := Color("ffd84a")
+const CROWN_SHADE := Color("c08a1c")
+const SPREE_HOT := Color("ff7a3a")
+const SPREE_CORE := Color("ffe08a")
+const SPREE_DEEP := Color("d8361f")
+## The spree flame, two frames (o outline, d deep red, r orange, y the hot core).
+const FLAME := [
+	["....o....", "...odo...", "...orro..", "..ordro.o", "..orrroro", ".odrrrrro", ".orryrrro",
+		"odryyyrro", "orryyyyro", "orryyyyro", ".orryyro.", "..odrro..", "...ooo..."],
+	["...o.....", "..odo....", "..orro...", "o.ordro..", "ororrro..", "orrrrrdo.", "orrryrro.",
+		"orryyyrdo", "orryyyyro", "orryyyyro", ".orryyro.", "..orrdo..", "...ooo..."],
+]
 const SHRINE_COLORS := {"haste": Color("6fe0ff"), "might": Color("ff9a3c"), "boost": Color("ffd84a")}
 ## The Crater shrine's permanent buffs, one pip each under a fighter's health bar.
 const BOOST_COLORS := {"damage": Color("ff7a4a"), "speed": Color("6fe0ff"), "hp": Color("7ae07a"),
@@ -3571,12 +3586,54 @@ func _draw_side_marks(ci: CanvasItem) -> void:
 		_draw_plate(ci, c, at, col, alpha)
 		if not c.boost_ids.is_empty():
 			_draw_boost_pips(ci, c, at, alpha)
+		if i < wanted.size() and not (wanted[i] as Dictionary).is_empty():
+			_draw_wanted(ci, wanted[i], at + Vector2(0, -10 if String(mk.get("label", "")) != "" else -2), alpha)
 		var label := String(mk.get("label", ""))
 		if label != "":
 			var lc := Color(col, alpha)
 			ci.draw_string_outline(_font, at + Vector2(-20, -3), label, HORIZONTAL_ALIGNMENT_CENTER, 41, UiTheme.px(6), 1,
 				Color(C_OUTLINE, alpha))
 			ci.draw_string(_font, at + Vector2(-20, -3), label, HORIZONTAL_ALIGNMENT_CENTER, 41, UiTheme.px(6), lc)
+
+
+## A wanted fighter's mark, its bottom at `at` (over the bar and its label): a gold crown
+## (the Brawl crown), or a flame with a pip a spree level (Team Deathmatch). Whole pixels,
+## a dark outline so it reads on any floor.
+func _draw_wanted(ci: CanvasItem, w: Dictionary, at: Vector2, alpha: float) -> void:
+	var o := Color(C_OUTLINE, 0.9 * alpha)
+	var x := roundf(at.x)
+	var y := roundf(at.y)
+	if String(w.get("kind", "")) == "crown":
+		# A three-pointed crown, 11 x 8: points, then the band.
+		var bob := float((_tick / 20) % 2)  # a one-pixel bob, so it catches the eye
+		var b := y - 1.0 - bob
+		ci.draw_rect(Rect2(x - 6, b - 4, 13, 5), o)
+		ci.draw_rect(Rect2(x - 6, b - 9, 3, 6), o)
+		ci.draw_rect(Rect2(x - 1, b - 10, 3, 7), o)
+		ci.draw_rect(Rect2(x + 4, b - 9, 3, 6), o)
+		ci.draw_rect(Rect2(x - 5, b - 3, 11, 3), Color(CROWN_GOLD, alpha))
+		ci.draw_rect(Rect2(x - 5, b - 1, 11, 1), Color(CROWN_SHADE, alpha))
+		ci.draw_rect(Rect2(x - 5, b - 8, 1, 5), Color(CROWN_GOLD, alpha))
+		ci.draw_rect(Rect2(x, b - 9, 1, 6), Color(CROWN_GOLD, alpha))
+		ci.draw_rect(Rect2(x + 5, b - 8, 1, 5), Color(CROWN_GOLD, alpha))
+		ci.draw_rect(Rect2(x - 4, b - 5, 9, 2), Color(CROWN_GOLD, alpha))
+		ci.draw_rect(Rect2(x - 1, b - 2, 2, 1), Color("ff5a5a", alpha))  # a jewel
+		return
+	# A flame (FLAME: 9 x 13 pixel art, two frames that flicker), and a pip a spree level beside it.
+	var lv := clampi(int(w.get("level", 1)), 1, 3)
+	var rows: Array = FLAME[(_tick / 8) % FLAME.size()]
+	var top := y - float(rows.size())
+	var cols := {"o": o, "r": Color(SPREE_HOT, alpha), "d": Color(SPREE_DEEP, alpha), "y": Color(SPREE_CORE, alpha)}
+	for r in rows.size():
+		var row: String = rows[r]
+		for k in row.length():
+			var ch := row[k]
+			if cols.has(ch):
+				ci.draw_rect(Rect2(x - 4.0 + k, top + r, 1, 1), cols[ch])
+	for k in lv:
+		var px := x + 7.0 + 5.0 * k
+		ci.draw_rect(Rect2(px - 1, y - 6, 5, 5), o)
+		ci.draw_rect(Rect2(px, y - 5, 3, 3), Color(SPREE_HOT, alpha))
 
 
 ## The Crater shrine's permanent buffs: a pip each, in the buff's colour, under the bar.
