@@ -59,6 +59,8 @@ MAT = {
 # warm white, the brass housing's lit side a little.
 S.configure(MAT, scale=0.8, near=14.0, near_views={"down_side": 10.0, "up_side": 10.0},
             emissive={"lens": {"a": 240, "rgb": (255, 236, 176)}, "lamp": {"a": 150, "min_level": 3}})
+# In Cave-In his beady eyes glow full in the Surge's colour.
+S.surge_eyes("digby")
 S.COLS = 12  # the run, the pop-up, Burrow and Cave-In have 12 frames
 
 
@@ -190,9 +192,9 @@ def build(p, view):
             parts.append(tube([root, (root + w) / 2 + hu * 0.6, w], [0.22, 0.2, 0.18], "whisker"))
         eye = hc + ha * 3.6 + hu * 2.0 + hl * s * 4.2
         if p.eyes == "open":
-            parts.append(ellipsoid_oriented(eye, (1.2, 1.2, 1.0), ha, hu, hl, "eye"))
+            parts.append(S.eye_part(ellipsoid_oriented(eye, (1.2, 1.2, 1.0), ha, hu, hl, "eye")))
         elif p.eyes == "shut":
-            parts.append(tube([eye - ha * 1.0, eye + ha * 1.0], [0.35, 0.35], "eye"))
+            parts.append(S.eye_part(tube([eye - ha * 1.0, eye + ha * 1.0], [0.35, 0.35], "eye")))
         else:  # x
             parts.append(tube([eye - ha * 1.0 + hu, eye + ha * 1.0 - hu], [0.35, 0.35], "eye"))
             parts.append(tube([eye - ha * 1.0 - hu, eye + ha * 1.0 + hu], [0.35, 0.35], "eye"))

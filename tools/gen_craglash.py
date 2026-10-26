@@ -150,7 +150,9 @@ def _with_normals(draw, pose):
     n[a[:, :, 3] == 0] = 0
     glow = getattr(pose, "glow", 0.0) > 0
     S.EMISSIVE_FN[0] = (lambda _r, _img: S.emissive_colours(_img, {C["glow"][:3]: 220})) if glow else None
-    S.finish_frame(None, a, normals=n)
+    # the Surge eyes (splat3d.SURGE_EYES): his gold eyes (colours nothing else on him uses,
+    # the pupils left dark) glow in Bedrock
+    S.finish_frame({"eye_px": np.ones(a.shape[:2], bool), "eye_cols": [C["eye"], C["eye_d"]]}, a, normals=n)
     return img
 
 
@@ -1681,6 +1683,8 @@ def side_sheet():
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import splat3d as S  # noqa: E402  (its animation tools, and the normal/emissive sheet writer)
+
+S.surge_eyes("craglash")   # his eyes glow in Bedrock (_with_normals)
 
 tw = S.tweener()
 

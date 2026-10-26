@@ -814,6 +814,8 @@ def ko():
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import splat3d as S  # noqa: E402  (the shared animation tools and the normal sheet writer; the renderer is this file's)
 
+S.surge_eyes("gillbert")   # his eyes glow in The One That Got Away (render())
+
 tween = S.tweener(snap=("face",))
 
 
@@ -1133,8 +1135,11 @@ VIEW_ROWS = ROWS[:-1]
 
 def render(pose, view):
     img = Painter(pose, view).render()
-    # the normal sheets (docs/SPRITES.md): the shading's normals, kept by shade2d's layers
-    S.finish_frame(None, np.array(img), normals=shade2d.normal_map(img))
+    # the normal sheets (docs/SPRITES.md): the shading's normals, kept by shade2d's layers;
+    # the emissive sheets: his orange eyes (colours nothing else on him uses, the pupil
+    # left dark) glow in the Surge's frames (splat3d.SURGE_EYES)
+    S.finish_frame({"eye_px": np.ones((img.height, img.width), bool), "eye_cols": [C["eye"], C["eye_d"]]},
+                   np.array(img), normals=shade2d.normal_map(img))
     return img
 
 

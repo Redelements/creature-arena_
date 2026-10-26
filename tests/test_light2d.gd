@@ -173,6 +173,52 @@ func test_emissive_sheets_match_their_colour_sheets() -> void:
 	assert_gt(found, 0, "some fighters glow")
 
 
+## Full-strength emissive pixels per row of a sheet's _e.png (read as is, not the
+## VRAM-compressed import), or [] when it has no emissive sheet.
+static func _full_glow_rows(path: String, frame_h: int) -> Array:
+	var e := path.get_basename() + "_e.png"
+	if not FileAccess.file_exists(e):
+		return []
+	var img := Image.new()
+	img.load_png_from_buffer(FileAccess.get_file_as_bytes(e))
+	var out := []
+	for r in img.get_height() / frame_h:
+		var n := 0
+		for y in range(r * frame_h, (r + 1) * frame_h):
+			for x in img.get_width():
+				if img.get_pixel(x, y).a8 == 255:
+					n += 1
+		out.append(n)
+	return out
+
+
+func test_surge_frames_light_the_eyes() -> void:
+	# Every fighter's eyes glow at full strength in the rows its Surge plays (docs/SPRITES.md
+	# "Emissive sheets"), in the views that show the face; nothing glows full in idle. Pete,
+	# Gillbert, Mister Crease and Cairn glow nowhere but in the Surge.
+	for id in MatchFactory.FIGHTERS:
+		var d := MatchFactory.load_def(id)
+		var sp: Dictionary = d["sprite"]
+		var row := int(sp["anims"][String(d["moves"]["surge"]["anim"])][0])
+		var idle := int(sp["anims"]["idle"][0])
+		var sheets := [[String(sp["path"]), sp["frame"]]]
+		for vname in ["down", "down_side"]:
+			sheets.append([String(sp["views"][vname]["path"]), sp["views"][vname].get("frame", sp["frame"])])
+		for s in sheets:
+			var fh := int(s[1][1]) if s[1] is Array else int(s[1])
+			var rows := _full_glow_rows(s[0], fh)
+			assert_true(rows.size() > row and rows[row] > 0, "%s: the Surge row glows in %s" % [id, s[0]])
+			if rows.size() <= row:
+				continue
+			assert_eq(rows[idle], 0, "%s: nothing glows full in idle in %s" % [id, s[0]])
+			if id in ["pete", "gillbert", "crease", "cairn"]:
+				var other := 0
+				for r in rows.size():
+					if r != row:
+						other += rows[r]
+				assert_eq(other, 0, "%s: only the Surge glows in %s" % [id, s[0]])
+
+
 func test_a_sheet_without_normals_draws_exactly_as_before() -> void:
 	# No light reaches a sheet without a normal sheet (its plain texture, the default mask).
 	var v := CreatureView._load_view({"path": "res://assets/sprites/caravan.png", "frame": [32, 32]}, {}, [])

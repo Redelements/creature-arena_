@@ -58,6 +58,7 @@ MAT = {
     "tape": "white",       # taped fists
 }
 S.configure(MAT, scale=1.0, near=14.0)
+S.surge_eyes("cairn")   # in Avalanche the dark eyes in his head stone glow in the Surge's gold
 S.COLS = 12
 
 # The stack, bottom to top: (name, material, centre height, radii (lat, up, fwd)).
@@ -293,19 +294,26 @@ def decorate(r, img):
     ink = S.RAMP["head"][0]
     dark = S.RAMP["head"][1]
     ex, ey = 2.5, 0.4
+    eye_px = np.zeros(face.shape, bool)
     for sx in (1.0, -1.0):
         dx, dy = lat - sx * ex, up - ey
         if p.eyes in ("open", "wide"):
             k = 1.25 if p.eyes == "wide" else 1.0
-            img[face & ((dx / (1.15 * k)) ** 2 + (dy / (1.3 * k)) ** 2 < 1.0), :3] = (14, 12, 20)
+            e = face & ((dx / (1.15 * k)) ** 2 + (dy / (1.3 * k)) ** 2 < 1.0)
+            img[e, :3] = (14, 12, 20)
+            eye_px |= e
         elif p.eyes == "shut":
-            img[face & (np.abs(dy + 0.2) < 0.5) & (np.abs(dx) < 1.2), :3] = (14, 12, 20)
+            e = face & (np.abs(dy + 0.2) < 0.5) & (np.abs(dx) < 1.2)
+            img[e, :3] = (14, 12, 20)
+            eye_px |= e
         elif p.eyes == "x":
             img[face & ((np.abs(dx - dy) < 0.45) | (np.abs(dx + dy) < 0.45)) & (np.abs(dx) < 1.1), :3] = (14, 12, 20)
         # the brow: a heavy ridge over each eye, lower toward the nose when he frowns
         a = np.abs(lat)
         line = 2.0 + 0.4 * (a - 0.8) * (0.5 + p.brow)
         img[face & (a > 0.6) & (a < 4.0) & (np.abs(up - line) < 0.6), :3] = dark
+    # the Surge eyes (splat3d.SURGE_EYES): the dark eye spots where they still show
+    r["eye_px"], r["eye_cols"] = eye_px, [(14, 12, 20)]
     # the mouth
     if p.mouth == "set":
         img[face & (np.abs(up + 2.4) < 0.45) & (np.abs(lat) < 1.6), :3] = dark

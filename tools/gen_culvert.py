@@ -61,6 +61,9 @@ MAT = {
 # The amber eyes (their lit half) glow a little in the emissive sheets (docs/SPRITES.md "Emissive sheets"):
 # a toad's eyes catching the light in a storm drain at night.
 S.configure(MAT, scale=1.0, near=16.0, emissive={"eye": {"a": 150, "min_level": 2}})
+# In Storm Drain the same glow is turned up to full strength (the lit half, its own amber):
+# no second effect.
+S.surge_eyes("culvert", own=True, min_level=2)
 S.COLS = 12  # the run, the Slam and Storm Drain have 12 frames
 
 HIP = np.array([0.0, 8.0, -4.0])  # the body pivots here when it rears or crouches
@@ -242,7 +245,7 @@ def build(p, view):
                                   [0.4, 0.4], "pupil"))
             parts.append(ell_axes(ec, (3.0, 2.2, 3.0), fa, ua, la, "con"))
             continue
-        parts.append(ell_axes(ec, (3.8, 3.8, 3.8), fa, ua, la, "eye"))
+        parts.append(S.eye_part(ell_axes(ec, (3.8, 3.8, 3.8), fa, ua, la, "eye")))
         parts.append(ell_axes(ec + fa * 3.1 + ua * 0.3, (0.9, 2.3, 1.1), fa, ua, la, "pupil"))
         if p.eyes == "shut":
             parts.append(ell_axes(ec + ua * 0.4, (4.1, 3.2, 4.1), fa, ua, la, "con"))

@@ -691,6 +691,7 @@ def decals(r, img):
     if p.glasses != "off":
         drop = {"on": 0.0, "askew": 1.4, "down": 3.4}[p.glasses]
         lens_px = np.zeros(brain.shape, bool)
+        eye_px = np.zeros(brain.shape, bool)
         for s in (1.0, -1.0):
             tilt = (1.0 if s > 0 else -1.0) if p.glasses == "askew" else 0.0
             c = np.array([LENS_C[0] * s, LENS_C[1] - drop + tilt, LENS_C[2]])
@@ -715,6 +716,9 @@ def decals(r, img):
             with np.errstate(invalid="ignore"):
                 shine = lens & (np.abs((u * s + v * 0.9) - (-LENS_R * 0.9 + g * LENS_R * 1.8)) < 0.7) & (v < -0.9)
             img[shine] = GLINT
+            # the Surge eyes (splat3d.SURGE_EYES): his eyes behind the lens, a spot in its middle
+            with np.errstate(invalid="ignore"):
+                eye_px |= lens & ~shine & (u * u + (v + 2.6) ** 2 < 1.9 ** 2)
         with np.errstate(invalid="ignore"):
             bridge = brain & (fwd > 15.0) & (np.abs(lat) < 5.5) & (np.abs(up - (LENS_C[1] - drop + 0.4)) < 0.8)
         img[bridge] = GLASS_RIM
@@ -723,6 +727,7 @@ def decals(r, img):
             arm = brain & (np.abs(lat) > 12.5) & (fwd > 2.0) & (fwd < 15.0) \
                 & (np.abs(up - (LENS_C[1] - drop + 0.6 + (15.0 - fwd) * 0.15)) < 0.6)
         img[arm] = GLASS_RIM
+        r["eye_px"], r["eye_cols"] = eye_px, [GLASS_LENS]
     return img
 
 
@@ -916,6 +921,8 @@ GLOW_EMIT = {
     PSY + (255,): 255, (252, 240, 255, 255): 255,   # flash_burst(): the star and its core
 }
 S.EMISSIVE_FN[0] = lambda r, img: S.emissive_colours(img, GLOW_EMIT)
+# In Knife Flurry his eyes glow through the sunglasses: a spot in each lens, the Surge's violet.
+S.surge_eyes("cerebro")
 
 
 # ------------------------------------------------------------------ animations

@@ -908,19 +908,21 @@ def render(pose, view):
     return Image.fromarray(img)
 
 
-def _eye_emit():
+def _eye_emit(full=False):
     """The face colours that glow in the emissive sheets (docs/SPRITES.md "Emissive
     sheets"), lit side and shadow side: her yellow eyes a little (a snake's eyes in the
-    dark), Petrify Gaze's lit-up eyes and pupils fully."""
+    dark), Petrify Gaze's lit-up eyes and pupils fully. `full` (the Surge's frames, Petrify
+    Punch): her eyes at full strength too, the same glow turned up, not a second one."""
     out = {}
-    for key, a in (("eye", 110), ("eye_glow", 255), ("pupil_glow", 255)):
+    for key, a in (("eye", 255 if full else 110), ("eye_glow", 255), ("pupil_glow", 255)):
         rgb = FACE[key][:3]
         out[rgb] = a
         out.setdefault(tuple(_step_down(rgb)), a)
     return out
 
 
-S.EMISSIVE_FN[0] = lambda r, img: S.emissive_colours(img, _eye_emit(), where=r.get("face_px"))
+S.surge_eyes("hissy", own=True)   # only for S.surge_row(): her eyes are the face texture's
+S.EMISSIVE_FN[0] = lambda r, img: S.emissive_colours(img, _eye_emit(S.surge_row()), where=r.get("face_px"))
 
 
 # ------------------------------------------------------------------ animations

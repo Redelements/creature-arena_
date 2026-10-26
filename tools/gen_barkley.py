@@ -896,7 +896,9 @@ def render(pose, view):
     # Surge's glow points where they still show in the finished frame
     glow = (np.array(pt.glow_px) > 0) & np.all(a[:, :, :3] == np.array(C["glow"][:3], np.uint8), axis=2)
     S.EMISSIVE_FN[0] = lambda _r, _img: S.emissive_colours(_img, {C["glow"][:3]: 230}, where=glow)
-    S.finish_frame(None, a, normals=shade2d.normal_map(img))
+    # the Surge eyes (splat3d.SURGE_EYES): his eyes, C["eye"], glow in Root Eruption
+    S.finish_frame({"eye_px": np.ones(a.shape[:2], bool), "eye_cols": [C["eye"]]}, a,
+                   normals=shade2d.normal_map(img))
     return img
 
 
@@ -938,6 +940,8 @@ import copy  # noqa: E402
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import splat3d as S  # noqa: E402  (the animation tools, and the normal/emissive sheet writer)
+
+S.surge_eyes("barkley")   # his eyes glow in Root Eruption (render())
 
 # hands are arcs (they swing on curves); `hold` is an index, never blended
 tw = S.tweener(arc_fields=("hands",), snap=("hold",))

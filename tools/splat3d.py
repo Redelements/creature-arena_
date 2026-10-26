@@ -499,6 +499,7 @@ def rasterise(pose, view, build):
     body-local coordinates (for decals)."""
     cam = Cam(view)
     _part_counter[0] = 0
+    _eye_parts.clear()
     parts = build(pose, view)
     data = merge(parts)
     pos, nrm = data["pos"] * SCALE, data["nrm"]
@@ -526,6 +527,7 @@ def rasterise(pose, view, build):
     return {
         "cam": cam, "z": zbuf.reshape(H, W), "mat": mat.reshape(H, W), "part": part.reshape(H, W),
         "nrm": nbuf.reshape(H, W, 3), "local": lbuf.reshape(H, W, 3), "pose": pose, "view": view,
+        "eye_parts": sorted(_eye_parts),
     }
 
 
@@ -748,6 +750,79 @@ def normal_frame(r, img, piece=None):
 EMISSIVE = {}
 EMISSIVE_FN = [None]
 
+# Surge eyes: in the frames of the rows a fighter's Surge plays, its eyes glow fully in the
+# Surge's colour (docs/SPRITES.md "Emissive sheets"). SURGE_EYES = {"rows": row names,
+# "rgb": colour (None: the pixel's own), "a": strength} (surge_eyes() fills it from the
+# fighter's JSON). The eyes are the rig pieces a build marked with eye_part() (pixels still
+# showing their material's own ramp, not an outline over them), or r["eye_px"], a mask a
+# renderer sets itself (painted eyes), kept to the colours r["eye_cols"] when given.
+# ROW is the name of the row collect() is drawing.
+SURGE_EYES = {}
+ROW = [None]
+_eye_parts = set()
+
+
+def eye_part(pack):
+    """Marks a rig piece (a primitive's packed points) as an eye, for the Surge eyes."""
+    _eye_parts.add(int(pack["part"][0]))
+    return pack
+
+
+def surge_eyes(fighter, rows=None, a=255, rgb=None, own=False, min_level=0):
+    """Sets SURGE_EYES for `fighter`: the rows its Surge plays (default the Surge move's
+    "anim" in data/creatures/<fighter>.json) and its colour (default the Surge aura's middle
+    colour, "surge_aura" "colors"[1]; `own` keeps each eye pixel's own colour). `min_level`:
+    an eye_part pixel glows only from this ramp step up (2 = its lit half)."""
+    import json
+    with open(os.path.join(ROOT, "data", "creatures", fighter + ".json"), encoding="utf-8") as f:
+        d = json.load(f)
+    if rows is None:
+        rows = (d["moves"]["surge"]["anim"],)
+    if rgb is None and not own:
+        h = d["surge_aura"]["colors"][1].lstrip("#")
+        rgb = tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+    SURGE_EYES.clear()
+    SURGE_EYES.update({"rows": tuple(rows), "rgb": None if own else tuple(rgb), "a": int(a),
+                       "min_level": int(min_level)})
+
+
+def surge_row():
+    """True while collect() draws one of the Surge's rows (SURGE_EYES)."""
+    return bool(SURGE_EYES) and ROW[0] in SURGE_EYES["rows"]
+
+
+def surge_eye_layer(r, img):
+    """The Surge eyes' emissive pixels for this frame ((H, W, 4)), or None outside a Surge row."""
+    if not surge_row() or r is None:
+        return None
+    eye = r.get("eye_px")
+    if eye is None:
+        parts = r.get("eye_parts") or []
+        if not parts or "part" not in r:
+            return None
+        eye = np.zeros(img.shape[:2], bool)
+        inpart = np.isin(r["part"], parts)
+        for name, mid in MAT_ID.items():
+            m = inpart & (r["mat"] == mid)
+            if m.any():
+                ramp = np.array(RAMP[name], np.uint8)
+                own = np.zeros_like(m)
+                for k in range(SURGE_EYES.get("min_level", 0), 5):
+                    own |= np.all(img[:, :, :3] == ramp[k], axis=2)
+                eye |= m & own
+    eye = eye & (img[:, :, 3] > 0)
+    cols = r.get("eye_cols")
+    if cols is not None:
+        eye = eye & np.any([np.all(img[:, :, :3] == np.array(c[:3], np.uint8), axis=2) for c in cols], axis=0)
+    if not eye.any():
+        return None
+    out = np.zeros(img.shape[:2] + (4,), np.uint8)
+    rgb = SURGE_EYES["rgb"]
+    out[eye, :3] = img[eye, :3] if rgb is None else np.array(rgb[:3], np.uint8)
+    out[eye, 3] = SURGE_EYES["a"]
+    return out
+
+
 
 def emissive_colours(img, table, where=None):
     """Emissive pixels by colour: `table` maps (r, g, b) or (r, g, b, a) to a strength
@@ -797,6 +872,7 @@ def emissive_frame(r, img):
             out[hit, 3] = int(spec["a"])
     if EMISSIVE_FN[0] is not None:
         out = over_emissive(out, EMISSIVE_FN[0](r, img))
+    out = over_emissive(out, surge_eye_layer(r, img))
     out[img[:, :, 3] == 0] = 0
     return out
 
@@ -861,6 +937,7 @@ def collect(rows, fw, fh, render_fn, extras=True, cols=None):
         for r, (_name, poses) in enumerate(rows):
             for c, pose in enumerate(poses):
                 _last["n"] = _last["e"] = None
+                ROW[0] = _name
                 frame = render_fn(pose)
                 out.alpha_composite(frame, (c * fw, r * fh))
                 if _last["n"] is None:
@@ -872,6 +949,7 @@ def collect(rows, fw, fh, render_fn, extras=True, cols=None):
                 eout[r * fh:(r + 1) * fh, c * fw:(c + 1) * fw] = _last["e"]
     finally:
         EXTRAS["on"] = False
+        ROW[0] = None
     return out, Image.fromarray(nout), (Image.fromarray(eout) if eout[..., 3].any() else None)
 
 
