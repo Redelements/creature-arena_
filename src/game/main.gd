@@ -147,7 +147,7 @@ const REPLAY_MODE := 47
 const SETTING_PAGES := {
 	"game": ["level", "intros", "rumble", "shake", "discord", "server", "delay"],
 	"video": ["fullscreen", "wide", "vsync", "fps", "glow", "font", "perf_overlay", "#Camera", "cam_lead", "cam_clash", "cam_settle"],
-	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu", "#Voice chat", "voice", "voice_hear", "mic", "vol_Voice"],
+	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu", "#Voice chat", "voice", "voice_hear", "mic", "mic_test", "vol_Voice"],
 	"touch": ["touch_opacity", "touch_size", "touch_hand", "touch_aim", "#Targeting", "touch_priority", "touch_chase"],
 }
 ## Settings > Controls > Touch: how see-through the touch controls are.
@@ -1350,11 +1350,16 @@ func _open_settings_page(page: String) -> void:
 				_add_server_row(s)
 			elif key.begins_with("#"):
 				s.add_heading(key.substr(1))
+			elif key == "mic_test":
+				_add_mic_test_row(s)
 			else:
 				_add_setting_row(s, key)
 		s.add_space(4)
 		s.add_button("Back", s.back)
-	scr.backed.connect(func(): _setting_rows.clear())
+	scr.backed.connect(func():
+		_setting_rows.clear()
+		if voice_view != null:
+			voice_view.test_stop())
 	ui.push(scr)
 
 
@@ -1384,6 +1389,33 @@ func _add_setting_row(s: UiScreen, key: String) -> OptionRow:
 		o.bar = float(now.get("bar", -1.0)))
 	_setting_rows[key] = o
 	return o
+
+
+## Settings > Audio > Test microphone: Enter records a few seconds with a live level bar,
+## then plays them back (VoiceView.test_start); `_voice_step` keeps the row current.
+func _add_mic_test_row(s: UiScreen) -> OptionRow:
+	var o := s.add_option("Test microphone", [voice_view.test_text()], 0, func(_i): pass,
+		"Press, say a few words, and hear them played back. The bar shows how loud the microphone hears you. Nothing heard: pick another Microphone, or allow the game to use it in your system settings")
+	o.activates = true
+	o.bar = voice_view.test_level
+	o.activated.connect(func():
+		_apply_mic()
+		voice_view.test_start()
+		_refresh_mic_test())
+	_setting_rows["mic_test"] = o
+	return o
+
+
+func _refresh_mic_test() -> void:
+	var o: OptionRow = _setting_rows.get("mic_test")
+	if o == null or voice_view == null:
+		return
+	var t := voice_view.test_text()
+	if o.values.size() != 1 or String(o.values[0]) != t:
+		o.set_values([t], 0)
+	if not is_equal_approx(o.bar, voice_view.test_level):
+		o.bar = voice_view.test_level
+		o.queue_redraw()
 
 
 ## Settings > Game > Online server: a text box, saved as it's typed. Empty means the
@@ -4805,6 +4837,7 @@ func _voice_step(delta: float) -> void:
 		slot = online.local_slot
 	elif netplay != null and watch != null:
 		game = watch.duel
+	_refresh_mic_test()
 	voice_view.frame(netplay if game != null else null, game, slot,
 		camera.get_screen_center_position() if camera != null else Vector2.ZERO, _talk_held(), delta)
 	hud.mic_on = voice_view.sending

@@ -17,6 +17,10 @@ extends Node
 ##
 ## `--voice-test=tone`: a 220 Hz tone instead of the microphone, always "held", and a log
 ## line a second of what was sent and heard (two processes on one machine test the path).
+##
+## Settings > Audio > Test microphone (`test_start`): a few seconds of the microphone with a
+## live level, then played back on the Voice bus, so a player hears how they sound. Only
+## outside an online match's capture; `--voice-test=tone` records the tone instead.
 
 const MIC_BUS := "Mic"
 const VOICE_BUS := "Voice"
@@ -34,6 +38,14 @@ const NO_MIC_MS := 2000.0
 const TONE_HZ := 220.0
 const TONE_AMP := 0.3
 const ANDROID_MIC := "android.permission.RECORD_AUDIO"
+## Test microphone: how long it records.
+const TEST_SECONDS := 3.0
+## Test microphone's level bar: this many dB below full scale reads empty, 0 dB full.
+const TEST_FLOOR_DB := 50.0
+## Under this peak the whole recording counts as silence ("Nothing heard").
+const TEST_QUIET_PEAK := 0.01
+
+enum Test { IDLE, RECORDING, PLAYING, NO_MIC, QUIET }
 
 ## --voice-test=tone: the tone instead of the microphone, and the log lines.
 var tone := false
@@ -62,6 +74,14 @@ var _gain := {}  ## slot -> the gain playing now (smoothed)
 var _place := {}  ## slot -> Vector2(target gain, pan), for the test log
 var _frames := PackedVector2Array()
 var _log_ms := 0.0
+## Test microphone: the state, the level (0..1) for the bar, seconds left in the state.
+var test_state := Test.IDLE
+var test_level := 0.0
+var test_left := 0.0
+var _test_pcm := PackedFloat32Array()
+var _test_rate := 0
+var _test_player: AudioStreamPlayer = null
+var _test_waited := 0.0  ## recording with nothing from the microphone, this long
 
 
 func _exit_tree() -> void:
@@ -190,6 +210,7 @@ func _capture_step(chat: VoiceChat, ptt: bool, delta: float) -> void:
 func _start_capture() -> void:
 	if _capturing:
 		return
+	test_stop()  # a match takes the microphone from Test microphone
 	_ensure_mic()
 	_capture.clear_buffer()
 	_rs_state.clear()
@@ -247,6 +268,149 @@ func _tone(rate: int, delta: float) -> PackedFloat32Array:
 		_tone_buf[k] = TONE_AMP * sin(_tone_phase)
 		_tone_phase = fmod(_tone_phase + step, TAU)
 	return _tone_buf
+
+
+# ------------------------------------------------------------------ test microphone
+
+## Settings > Audio > Test microphone: record TEST_SECONDS, then play it back. A press
+## while it runs stops it. Not while an online match has the microphone.
+func test_start() -> void:
+	if test_state == Test.RECORDING or test_state == Test.PLAYING:
+		test_stop()
+		return
+	if _capturing:
+		return
+	ask_permission()
+	_test_pcm.clear()
+	_test_rate = int(AudioServer.get_mix_rate())
+	_test_waited = 0.0
+	test_level = 0.0
+	test_left = TEST_SECONDS
+	if not tone and not _silent:
+		_ensure_mic()
+		_capture.clear_buffer()
+		_mic.play()
+	test_state = Test.RECORDING
+	set_process(true)
+
+
+## The test stops where it is (leaving the page, a second press); a result stays shown.
+func test_stop() -> void:
+	if test_state == Test.RECORDING and _mic != null and not _capturing:
+		_mic.stop()
+	if _test_player != null:
+		_test_player.stop()
+	if test_state == Test.RECORDING or test_state == Test.PLAYING:
+		test_state = Test.IDLE
+	test_level = 0.0
+	test_left = 0.0
+
+
+## What the Test microphone row says now.
+func test_text() -> String:
+	match test_state:
+		Test.RECORDING:
+			return "Speak now... %d" % ceili(test_left)
+		Test.PLAYING:
+			return "Playing back"
+		Test.NO_MIC:
+			return "No microphone"
+		Test.QUIET:
+			return "Nothing heard"
+	return "Press to test"
+
+
+func _process(delta: float) -> void:
+	test_step(delta)
+
+
+## One frame of the test (public so tests drive it headless).
+func test_step(delta: float) -> void:
+	if test_state == Test.RECORDING:
+		_test_record(delta)
+	elif test_state == Test.PLAYING:
+		test_left -= delta
+		var at := int((TEST_SECONDS - test_left) * _test_rate)
+		if _test_player != null and _test_player.playing:
+			at = int(_test_player.get_playback_position() * _test_rate)
+		test_level = _level_db(_test_pcm, at - _test_rate / 30, _test_rate / 30)
+		if test_left <= 0.0:
+			test_stop()
+	else:
+		set_process(false)
+
+
+func _test_record(delta: float) -> void:
+	var got := PackedFloat32Array()
+	if tone:
+		got = _tone(_test_rate, delta)
+	elif not _silent:
+		var n := _capture.get_frames_available()
+		if n > 0:
+			got = VoiceCodec.to_mono(_capture.get_buffer(n))
+	if got.is_empty():
+		_test_waited += delta
+	else:
+		_test_waited = 0.0
+		_test_pcm.append_array(got)
+		test_level = _level_db(got, 0, got.size())
+	test_left -= delta
+	if _test_waited >= NO_MIC_MS / 1000.0 or (_silent and not tone):
+		if _mic != null:
+			_mic.stop()
+		test_state = Test.NO_MIC
+		test_level = 0.0
+		return
+	if test_left > 0.0:
+		return
+	if _mic != null and not tone:
+		_mic.stop()
+	var peak := 0.0
+	for v in _test_pcm:
+		peak = maxf(peak, absf(v))
+	if peak < TEST_QUIET_PEAK:
+		test_state = Test.QUIET
+		test_level = 0.0
+		return
+	test_state = Test.PLAYING
+	test_left = float(_test_pcm.size()) / _test_rate
+	if not _silent:
+		_test_playback()
+
+
+## The recording as a 16-bit WAV on the Voice bus (its volume row applies).
+func _test_playback() -> void:
+	var data := PackedByteArray()
+	data.resize(_test_pcm.size() * 2)
+	for k in _test_pcm.size():
+		data.encode_s16(k * 2, clampi(int(_test_pcm[k] * 32767.0), -32768, 32767))
+	var wav := AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = _test_rate
+	wav.stereo = false
+	wav.data = data
+	if _test_player == null:
+		_test_player = AudioStreamPlayer.new()
+		_test_player.bus = VOICE_BUS
+		add_child(_test_player)
+	_test_player.stream = wav
+	_test_player.play()
+
+
+## The loudness of pcm[from, from + n) for a level bar: RMS in dB, TEST_FLOOR_DB below
+## full scale -> 0, full scale -> 1.
+static func _level_db(pcm: PackedFloat32Array, from: int, n: int) -> float:
+	from = maxi(0, from)
+	var to := mini(pcm.size(), from + n)
+	if to <= from:
+		return 0.0
+	var sum := 0.0
+	for k in range(from, to):
+		sum += pcm[k] * pcm[k]
+	var rms := sqrt(sum / (to - from))
+	if rms <= 0.0:
+		return 0.0
+	return clampf(1.0 + linear_to_db(rms) / TEST_FLOOR_DB, 0.0, 1.0)
 
 
 # ------------------------------------------------------------------ the speakers

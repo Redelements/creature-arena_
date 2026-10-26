@@ -26,7 +26,9 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
 - Voice chat (`VoiceView`): the microphone plays into a muted "Mic" bus (made by VoiceView,
   an `AudioEffectCapture` of `CAPTURE_SECONDS` on it; `audio/driver/enable_input` in
   project.godot) and runs only while voice is on, an online match or a watched one is on
-  and this machine is a player: never in menus, never for a spectator. Headless never opens
+  and this machine is a player: never in menus (except Settings > Audio > Test microphone:
+  `test_start` records `TEST_SECONDS` with a level for the row's bar, then plays it back as a WAV
+  on the Voice bus; a match's capture stops it), never for a spectator. Headless never opens
   the mic or a speaker (it still drains the queues, so `--voice-test=tone` works headless).
   The "Voice" bus is a volume group like Music / Effects / Menu (`AudioView.BUSES`). A voice's
   slot is its fighter's creature slot (`VoiceView.fighter`), so `hud.speaking` and

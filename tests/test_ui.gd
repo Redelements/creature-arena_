@@ -1963,6 +1963,40 @@ func test_the_audio_page_has_the_voice_chat_rows() -> void:
 	g.free()
 
 
+func test_test_microphone_records_shows_a_level_and_plays_back() -> void:
+	var g := _game()
+	g._open_menu("game")
+	g._open_settings_page("audio")
+	var row: OptionRow = g._setting_rows.get("mic_test")
+	assert_true(row != null, "a Test microphone row on the Audio page")
+	if row == null:
+		g.free()
+		return
+	assert_eq(row.value_text(), "Press to test", "idle, and no arrows on a one-value row")
+	var v: VoiceView = g.voice_view
+	v.tone = true  # headless: the tone stands in for the microphone
+	row.activated.emit()
+	assert_eq(v.test_state, VoiceView.Test.RECORDING, "Enter starts recording")
+	v.test_step(0.5)
+	g._refresh_mic_test()
+	assert_true(row.value_text().begins_with("Speak now"), "counts down: " + row.value_text())
+	assert_gt(row.bar, 0.3, "the bar shows the tone's level")
+	for k in 6:
+		v.test_step(0.5)
+	assert_eq(v.test_state, VoiceView.Test.PLAYING, "after the recording it plays back")
+	assert_gt(v._test_pcm.size(), int(AudioServer.get_mix_rate() * 2.5), "about three seconds recorded")
+	for k in 8:
+		v.test_step(0.5)
+	assert_eq(v.test_state, VoiceView.Test.IDLE, "and ends")
+	v.tone = false
+	row.activated.emit()
+	v.test_step(0.1)
+	assert_eq(v.test_state, VoiceView.Test.NO_MIC, "no microphone headless: it says so")
+	g._refresh_mic_test()
+	assert_eq(row.value_text(), "No microphone", "")
+	g.free()
+
+
 func test_the_voice_chat_setting_is_saved_and_read_back() -> void:
 	var g := _game()
 	g._open_menu("game")
