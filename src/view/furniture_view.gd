@@ -18,6 +18,11 @@ extends Node2D
 ## sponsor (an invented name on the wall), post (ring post), crane, worklight, planter
 ## (sways), sprinkler (sprays), pipe, sign, torch (flickers).
 ##
+## Lit lamps (Settings > Video > Lighting: High, at night): a floodlight, worklight or torch
+## whose head has one of the arena's `"lamp": true` lights on it (`head_of`, `set_lit`, from
+## Light2DView.lamp_heads) draws its lamps bright with a wider glow; that light lifts the night
+## shade round the head, and the bloom haloes it. Otherwise it draws as it always has.
+##
 ## Pixel rules: rects on whole pixels; animation steps on the 60 Hz physics tick clock, no
 ## easing; a piece redraws only when its frame (or the scoreboard's text) changes.
 
@@ -34,6 +39,7 @@ const C_STEEL := Color8(74, 78, 92)
 const C_STEEL_LIT := Color8(150, 156, 170)
 const C_STEEL_DARK := Color8(40, 44, 56)
 const C_LAMP := Color8(255, 244, 200)
+const C_LAMP_LIT := Color8(255, 255, 240)  ## a lamp lit at night
 
 var backdrop: BackdropView
 var hud: Hud  ## the scoreboard reads its timer and score
@@ -51,6 +57,7 @@ class Piece extends Node2D:
 	var world := Vector2.ZERO  ## where it stands, world px
 	var frame := 0
 	var text_key := ""  ## the scoreboard's current text, drawn
+	var lit := false  ## a lit lamp sits on its head (set_lit)
 
 	func _draw() -> void:
 		view._draw_piece(self)
@@ -83,6 +90,36 @@ func set_arena(arena: Dictionary, size: Vector2) -> void:
 		parent.add_child(p)
 	_clock = -1
 	_board_key = ""
+
+
+## The kinds with a lamp head, and where the head is against the piece's base (its `h` up).
+const HEADS := {"floodlight": 5, "worklight": 4, "torch": 5}
+const HEAD_H := {"floodlight": 96, "worklight": 36, "torch": 28}
+
+
+## Where a lamp-headed piece's lamp is in the world (a floodlight's bank, a worklight's
+## lamp, a torch's flame); Vector2.INF for a piece without one.
+static func head_of(e: Dictionary, size: Vector2) -> Vector2:
+	var k := String(e.get("kind", ""))
+	if not HEADS.has(k):
+		return Vector2.INF
+	var h := int(e.get("h", HEAD_H[k]))
+	return world_pos(e, size) + Vector2(0, -h - int(HEADS[k]))
+
+
+## Lights the lamp heads within Light2DView.HEAD_NEAR of `points` (world px), the rest dark.
+func set_lit(points: Array) -> void:
+	for p in pieces:
+		var was := p.lit
+		p.lit = false
+		if HEADS.has(p.kind):
+			var at := p.world + Vector2(0, -int(p.data.get("h", HEAD_H[p.kind])) - int(HEADS[p.kind]))
+			for q in points:
+				if at.distance_to(q) <= Light2DView.HEAD_NEAR:
+					p.lit = true
+					break
+		if p.lit != was:
+			p.queue_redraw()
 
 
 ## Where a piece's `pos` is in the world, given its `anchor` corner of a map `size` px big.
@@ -181,7 +218,7 @@ func _draw_piece(p: Piece) -> void:
 	if d.get("mirror", false):
 		p.draw_set_transform(Vector2.ZERO, 0.0, Vector2(-1, 1))
 	match p.kind:
-		"floodlight": _floodlight(p, int(d.get("h", 96)))
+		"floodlight": _floodlight(p, int(d.get("h", 96)), p.lit)
 		"flag": _flag(p, int(d.get("h", 44)), int(d.get("w", 24)), _col(d, "color", Color8(196, 52, 52)))
 		"banner": _banner(p, int(d.get("w", 22)), int(d.get("h", 30)), _col(d, "color", Color8(40, 84, 150)),
 			int(d.get("emblem", 0)))
@@ -189,28 +226,34 @@ func _draw_piece(p: Piece) -> void:
 		"sponsor": _sponsor(p, int(d.get("w", 62)), String(d.get("text", "")), _col(d, "color", Color8(40, 92, 168)))
 		"post": _post(p, int(d.get("h", 22)), _col(d, "color", Color8(196, 52, 52)))
 		"crane": _crane(p, int(d.get("h", 80)), _col(d, "color", Color8(34, 38, 52)))
-		"worklight": _worklight(p, int(d.get("h", 36)))
+		"worklight": _worklight(p, int(d.get("h", 36)), p.lit)
 		"planter": _planter(p, int(d.get("len", 16)))
 		"sprinkler": _sprinkler(p, int(d.get("h", 18)))
 		"pipe": _pipe(p, int(d.get("len", 60)), bool(d.get("vertical", false)))
 		"sign": _sign(p)
-		"torch": _torch(p, int(d.get("h", 28)))
+		"torch": _torch(p, int(d.get("h", 28)), p.lit)
 
 
-func _floodlight(p: Node2D, h: int) -> void:
+func _floodlight(p: Node2D, h: int, lit := false) -> void:
 	# A tower with a bank of lamps, and the glow round them in stepped, low-alpha boxes.
 	_r(p, -1, -h, 3, h, C_STEEL)
 	_r(p, -1, -h, 1, h, C_STEEL_LIT)
 	_r(p, -4, -3, 9, 3, C_STEEL_DARK)
 	for y in range(8, h, 16):
 		_r(p, -2, -y, 5, 1, C_STEEL_DARK)
-	_r(p, -26, -h - 24, 53, 38, Color(1.0, 0.95, 0.7, 0.07))
-	_r(p, -17, -h - 16, 35, 22, Color(1.0, 0.95, 0.7, 0.09))
+	var g := 2.5 if lit else 1.0  # lit at night: the glow boxes stronger
+	if lit:
+		_r(p, -36, -h - 32, 73, 54, Color(1.0, 0.95, 0.7, 0.06))
+	_r(p, -26, -h - 24, 53, 38, Color(1.0, 0.95, 0.7, 0.07 * g))
+	_r(p, -17, -h - 16, 35, 22, Color(1.0, 0.95, 0.7, 0.09 * g))
 	_r(p, -10, -h - 9, 21, 9, C_STEEL_DARK)
 	_r(p, -10, -h - 9, 21, 1, C_STEEL)
 	for i in 3:
-		_r(p, -9 + i * 7, -h - 7, 5, 3, C_LAMP)
-		_r(p, -9 + i * 7, -h - 3, 5, 2, Color8(214, 200, 150))
+		_r(p, -9 + i * 7, -h - 7, 5, 3, C_LAMP_LIT if lit else C_LAMP)
+		_r(p, -9 + i * 7, -h - 3, 5, 2, C_LAMP if lit else Color8(214, 200, 150))
+	if lit:  # the beams' first reach, down toward the floor
+		_r(p, -10, -h + 1, 21, 2, Color(1.0, 0.95, 0.75, 0.22))
+		_r(p, -8, -h + 3, 17, 3, Color(1.0, 0.95, 0.75, 0.12))
 
 
 func _flag(p: Piece, h: int, w: int, c: Color) -> void:
@@ -307,13 +350,15 @@ func _crane(p: Piece, h: int, c: Color) -> void:
 	_r(p, 36, -h + 26, 5, 3, c)
 
 
-func _worklight(p: Node2D, h: int) -> void:
+func _worklight(p: Node2D, h: int, lit := false) -> void:
 	_r(p, -1, -h, 2, h, C_STEEL)
 	_r(p, -6, -2, 13, 2, C_STEEL_DARK)
-	_r(p, -6, -h - 14, 13, 14, Color(1.0, 0.8, 0.45, 0.07))
+	if lit:
+		_r(p, -14, -h - 22, 29, 30, Color(1.0, 0.8, 0.45, 0.08))
+	_r(p, -6, -h - 14, 13, 14, Color(1.0, 0.8, 0.45, 0.2 if lit else 0.07))
 	_r(p, -7, -h - 8, 15, 8, Color8(214, 140, 40))
 	_r(p, -7, -h - 8, 15, 1, Color8(240, 180, 90))
-	_r(p, -6, -h - 6, 13, 4, Color8(255, 236, 170))
+	_r(p, -6, -h - 6, 13, 4, C_LAMP_LIT if lit else Color8(255, 236, 170))
 
 
 func _planter(p: Piece, ln: int) -> void:
@@ -371,11 +416,13 @@ func _sign(p: Node2D) -> void:
 	_r(p, 0, -21, 1, 1, Color8(20, 20, 24))
 
 
-func _torch(p: Piece, h: int) -> void:
+func _torch(p: Piece, h: int, lit := false) -> void:
 	_r(p, -1, -h, 3, h, Color8(96, 70, 44))
 	_r(p, -4, -h - 3, 9, 3, Color8(60, 50, 44))
 	var f: int = FLAME[p.frame % 6]
-	_r(p, -9, -h - 14, 19, 14, Color(1.0, 0.7, 0.3, 0.07))
+	if lit:  # flickers with the flame
+		_r(p, -15 - f, -h - 20 - f, 31 + f * 2, 26 + f, Color(1.0, 0.7, 0.3, 0.08))
+	_r(p, -9, -h - 14, 19, 14, Color(1.0, 0.7, 0.3, 0.18 if lit else 0.07))
 	_r(p, -2, -h - 7, 5, 4, Color8(240, 120, 30))
 	_r(p, -1, -h - 7 - f, 3, 3 + f, Color8(250, 170, 50))
-	_r(p, 0, -h - 6, 1, 2, Color8(255, 236, 160))
+	_r(p, 0, -h - 6, 1, 2, Color8(255, 248, 210) if lit else Color8(255, 236, 160))

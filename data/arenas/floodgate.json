@@ -5,7 +5,7 @@
 	"ground": "concrete",
 	"times": ["day", "sunset", "night"],
 	"weathers": ["clear", "rain", "fog", "wind"],
-	"light": {"_doc": "evening floodlights from the top right, over the wet concrete", "dir": [-0.5, 0.87], "length": 0.45, "alpha": 0.3},
+	"light": {"_doc": "evening floodlights from the top right, over the wet concrete", "dir": [-0.5, 0.87], "length": 0.45, "alpha": 0.3, "sun": {"color": "#fff2dc", "energy": 0.58}},
 	"grade": {"_doc": "damp, cool concrete; a view-only tint and vignette (GradeView), eased at night/sunset/rain by weather.json", "tint": "#e6f0fb", "vignette": 0.24},
 	"ambient": {"_doc": "spray over the channel, dragonflies and a jumping fish in the shallows; see AmbientView",
 		"motes": {"kind": "mist", "count": 34, "area": [35, 0, 14, 36]},

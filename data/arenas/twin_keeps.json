@@ -3,7 +3,7 @@
 	"id": "twin_keeps",
 	"name": "Twin Keeps",
 	"ground": "grass",
-	"light": {"_doc": "morning sun from the top left", "dir": [0.6, 0.8], "length": 0.55, "alpha": 0.34},
+	"light": {"_doc": "morning sun from the top left", "dir": [0.6, 0.8], "length": 0.55, "alpha": 0.34, "sun": {"color": "#fff4e0", "energy": 0.6}},
 	"grade": {"_doc": "fresh morning, a faint warm cast; a view-only tint and vignette (GradeView), eased at night/sunset/rain by weather.json", "tint": "#fff6e4", "vignette": 0.18},
 	"ambient": {"_doc": "leaves on the morning breeze, brush that sways, dragonflies and a jumping fish on the river, the odd bird; see AmbientView",
 		"motes": {"kind": "leaf", "count": 22},
@@ -38,6 +38,23 @@
 			320
 		]
 	},
+	"lights": [
+		{"_doc": "the night's lamps as real 2D lights (Settings > Video > Lighting: High; view only, Light2DView): the roof's lamp row lights the middle lane end to end (keeps, bridge and flags: five pools) and a pool under each wall torch above and below; then the six torches (furniture) on the walls and corners", "pos": [116, 320], "color": "#ffcc70", "radius": 150, "energy": 2.4, "height": 120, "fighter_color": "#fff0d8", "fighter_energy": 0.6},
+		{"pos": [366, 320], "color": "#ffcc70", "radius": 150, "energy": 2.4, "height": 120, "fighter_color": "#fff0d8", "fighter_energy": 0.6},
+		{"pos": [616, 320], "color": "#ffcc70", "radius": 150, "energy": 2.4, "height": 120, "fighter_color": "#fff0d8", "fighter_energy": 0.6},
+		{"pos": [866, 320], "color": "#ffcc70", "radius": 150, "energy": 2.4, "height": 120, "fighter_color": "#fff0d8", "fighter_energy": 0.6},
+		{"pos": [1116, 320], "color": "#ffcc70", "radius": 150, "energy": 2.4, "height": 120, "fighter_color": "#fff0d8", "fighter_energy": 0.6},
+		{"pos": [280, 156], "color": "#ffcc70", "radius": 160, "energy": 2.4, "height": 120, "fighter_color": "#fff0d8", "fighter_energy": 0.6},
+		{"pos": [952, 156], "color": "#ffcc70", "radius": 160, "energy": 2.4, "height": 120, "fighter_color": "#fff0d8", "fighter_energy": 0.6},
+		{"pos": [280, 484], "color": "#ffcc70", "radius": 160, "energy": 2.4, "height": 120, "fighter_color": "#fff0d8", "fighter_energy": 0.6},
+		{"pos": [952, 484], "color": "#ffcc70", "radius": 160, "energy": 2.4, "height": 120, "fighter_color": "#fff0d8", "fighter_energy": 0.6},
+		{"pos": [-30, 23], "color": "#ffa040", "radius": 70, "energy": 1.8, "height": 30, "fighter_energy": 0, "lamp": true},
+		{"pos": [1262, 23], "color": "#ffa040", "radius": 70, "energy": 1.8, "height": 30, "fighter_energy": 0, "lamp": true},
+		{"pos": [-30, 579], "color": "#ffa040", "radius": 70, "energy": 1.8, "height": 30, "fighter_energy": 0, "lamp": true},
+		{"pos": [1262, 579], "color": "#ffa040", "radius": 70, "energy": 1.8, "height": 30, "fighter_energy": 0, "lamp": true},
+		{"pos": [280, 21], "color": "#ffa040", "radius": 70, "energy": 1.8, "height": 30, "fighter_energy": 0, "lamp": true},
+		{"pos": [952, 21], "color": "#ffa040", "radius": 70, "energy": 1.8, "height": 30, "fighter_energy": 0, "lamp": true}
+	],
 	"furniture": [
 		{"kind": "banner", "pos": [-500, -27], "anchor": "t", "color": "#c43434", "emblem": 0, "h": 34},
 		{"kind": "banner", "pos": [-380, -27], "anchor": "t", "color": "#c43434", "emblem": 1, "h": 34},

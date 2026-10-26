@@ -5,7 +5,7 @@
 	"ground": "grass",
 	"times": ["day", "sunset", "night"],
 	"weathers": ["clear", "rain", "fog"],
-	"light": {"_doc": "high sun through the glass: short, soft shadows", "dir": [0.1, 1.0], "length": 0.36, "alpha": 0.3},
+	"light": {"_doc": "high sun through the glass: short, soft shadows", "dir": [0.1, 1.0], "length": 0.36, "alpha": 0.3, "sun": {"color": "#f2ffe2", "energy": 0.5}},
 	"grade": {"_doc": "warm green-gold light through the glass; a view-only tint and vignette (GradeView), eased at night/sunset/rain by weather.json", "tint": "#f4fbe4", "vignette": 0.16},
 	"ambient": {"_doc": "glass-dome pane shadows sliding along the light, pollen and seeds on a slow breeze, brush that sways and rustles, butterflies over the beds; see AmbientView",
 		"panes": {"w": 72, "h": 56, "bar": 3, "alpha": 0.09, "drift": 30},
@@ -14,6 +14,11 @@
 		"critters": [
 			{"kind": "butterfly", "count": 3},
 			{"kind": "moth", "count": 2}]},
+	"lights": [
+		{"_doc": "the night's lamps as real 2D lights (Settings > Video > Lighting: High; view only, Light2DView): grow lamps hung from the dome's frame, a row of three soft pools over the beds, one to each third", "pos": [128, 208], "color": "#e8ffc8", "radius": 160, "energy": 2.0, "height": 100, "fighter_color": "#f2fff0", "fighter_energy": 0.5},
+		{"pos": [352, 208], "color": "#e8ffc8", "radius": 160, "energy": 2.0, "height": 100, "fighter_color": "#f2fff0", "fighter_energy": 0.5},
+		{"pos": [576, 208], "color": "#e8ffc8", "radius": 160, "energy": 2.0, "height": 100, "fighter_color": "#f2fff0", "fighter_energy": 0.5}
+	],
 	"furniture": [
 		{"kind": "planter", "pos": [-340, -27], "anchor": "t", "len": 14},
 		{"kind": "planter", "pos": [-220, -27], "anchor": "t", "len": 14},

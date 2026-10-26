@@ -5,7 +5,7 @@
 	"ground": "stone",
 	"times": ["day", "sunset", "night"],
 	"weathers": ["clear", "rain", "fog", "wind", "snow"],
-	"light": {"_doc": "low afternoon sun from the top left: long shadows raking right", "dir": [0.8, 0.6], "length": 0.75, "alpha": 0.38},
+	"light": {"_doc": "low afternoon sun from the top left: long shadows raking right", "dir": [0.8, 0.6], "length": 0.75, "alpha": 0.38, "sun": {"color": "#ffe8c4", "energy": 0.68}},
 	"grade": {"_doc": "dusty low sun, a sandy cast; a view-only tint and vignette (GradeView), eased at night/sunset/rain by weather.json", "tint": "#fff0d6", "vignette": 0.26},
 	"ambient": {"_doc": "dust hanging in the low sun, grit trickling off the rubble walls, a dust devil now and then; see AmbientView",
 		"motes": {"kind": "sundust", "count": 38},
@@ -13,6 +13,15 @@
 		"critters": [
 			{"kind": "devil", "every": 1800, "life": 420},
 			{"kind": "moth", "count": 2}]},
+	"lights": [
+		{"_doc": "the night's lamps as real 2D lights (Settings > Video > Lighting: High; view only, Light2DView): the four corner worklights (furniture) and the cranes' lamps throw a warm pool on each lane; then their lamp heads", "pos": [128, 208], "color": "#ffb860", "radius": 160, "energy": 2.2, "height": 90, "fighter_color": "#ffe8c8", "fighter_energy": 0.6},
+		{"pos": [352, 208], "color": "#ffb860", "radius": 160, "energy": 2.2, "height": 90, "fighter_color": "#ffe8c8", "fighter_energy": 0.6},
+		{"pos": [576, 208], "color": "#ffb860", "radius": 160, "energy": 2.2, "height": 90, "fighter_color": "#ffe8c8", "fighter_energy": 0.6},
+		{"pos": [-30, 2], "color": "#ffc070", "radius": 48, "energy": 1.6, "height": 30, "fighter_energy": 0, "lamp": true},
+		{"pos": [734, 2], "color": "#ffc070", "radius": 48, "energy": 1.6, "height": 30, "fighter_energy": 0, "lamp": true},
+		{"pos": [-34, 344], "color": "#ffc070", "radius": 48, "energy": 1.6, "height": 30, "fighter_energy": 0, "lamp": true},
+		{"pos": [738, 344], "color": "#ffc070", "radius": 48, "energy": 1.6, "height": 30, "fighter_energy": 0, "lamp": true}
+	],
 	"furniture": [
 		{"kind": "worklight", "pos": [-30, 56], "h": 50},
 		{"kind": "worklight", "pos": [30, 56], "anchor": "tr", "h": 50, "mirror": true},
