@@ -38,5 +38,40 @@
 		"crack": 28,
 		"big": {"radius": 34, "damage_pct": 0.1, "crack": 36, "pit": 36, "pit_core": 14},
 		"pickup": {"kind": "might", "seconds": 8, "radius": 10, "buff_seconds": 10, "mult": 1.2}
+	},
+	"rolling_boulder": {
+		"name": "Rolling boulder",
+		"desc": "A boulder rolls down a marked lane: step out of it, or hit it with a heavy to send it back at the others",
+		"shape": "boulder",
+		"first_seconds": 25,
+		"every_seconds": 30,
+		"warn_seconds": 1.5,
+		"sides": [0, 1, 2, 3],
+		"inset": 36,
+		"radius": 18,
+		"speed": 3.2,
+		"reverse_types": ["heavy", "surge"],
+		"reverse_max": 2,
+		"reverse_speed_mult": 1.25,
+		"damage_pct": 0.12,
+		"role_mult": {"tank": 0.67},
+		"min_hp": 0,
+		"push": 6.0,
+		"knockdown": 40
+	},
+	"fault_line": {
+		"name": "Fault line",
+		"desc": "The ground cracks along a line, then splits into a chasm for a while: get off the crack before it opens",
+		"shape": "fault",
+		"first_seconds": 30,
+		"every_seconds": 35,
+		"warn_seconds": 2,
+		"open_seconds": 10,
+		"axes": ["v", "h"],
+		"width": 3,
+		"wander": 2,
+		"wander_every": 3,
+		"inset": 0.25,
+		"spawn_clear": 40
 	}
 }

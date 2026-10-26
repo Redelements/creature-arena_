@@ -272,7 +272,7 @@ func spawn(e: Dictionary) -> void:
 			_block_feedback(e, p)
 		"guard_break":
 			_guard_break_feedback(e, p)
-		"hazard_strike", "hazard_hit", "hazard_shelter", "hazard_pickup", "hazard_pickup_gone":
+		"hazard_strike", "hazard_hit", "hazard_shelter", "hazard_pickup", "hazard_pickup_gone", "hazard_reverse", "hazard_end":
 			_hazard_event(e, p)
 		"slam":
 			var full := power >= 1.0
@@ -4267,6 +4267,10 @@ func _draw_hazards_floor(ci: CanvasItem) -> void:
 		var a := 0.5 if fading else 1.0
 		ci.draw_circle(at, float(pk["radius"]) + 4.0 + 2.0 * g, Color(C_METEOR[2], (0.14 + 0.1 * g) * a))
 		ci.draw_arc(at, float(pk["radius"]), 0.0, TAU, 28, Color(C_METEOR[3], 0.75 * a), 1.0)
+	for b in Hazards.boulders_now(sim):
+		_boulder_lane(ci, fr, b)
+	for f in Hazards.faults_now(sim):
+		_fault_floor(ci, f)
 
 
 ## Over the fighters: the wave's crest at its front, falling meteors (a rock and its fiery
@@ -4299,6 +4303,185 @@ func _draw_hazards_top(ci: CanvasItem) -> void:
 		ci.draw_circle(o + Vector2(-1, -1), 1.5, C_METEOR[3])
 		if (_tick / 4) % 5 == 0:
 			ci.draw_rect(Rect2((o + Vector2(3, -4)).round(), Vector2.ONE), C_FOAM)
+	for b in Hazards.boulders_now(sim):
+		if int(b["phase"]) == Hazards.ACTIVE:
+			_boulder_ball(ci, b)
+
+
+# The rolling boulder and the fault line (shapes "boulder", "fault").
+const C_BOULDER: Array[Color] = [Color("2e2620"), Color("5a4a3c"), Color("85715c"), Color("b39c80")]
+const C_SENT := Color("ffd27a")  ## a boulder someone sent back: its rim
+const C_FAULT := Color("1a1210")
+const C_FAULT_GLOW := Color("ff8a3a")
+var _fault_last := {"axis": 0, "cells": PackedInt32Array()}  ## the open fault seen last tick (its closing dust)
+
+
+## A boulder's lane on the floor: while it warns, a band its width across the whole floor
+## (flashing faster as it nears), its edges dashed and chevrons marching the way it will
+## roll; while it rolls, the band ahead of it, fainter, and its shadow (a true circle).
+func _boulder_lane(ci: CanvasItem, fr: Rect2, b: Dictionary) -> void:
+	var r := float(b["radius"])
+	var side := int(b["side"])
+	var dir: Vector2 = b["dir"]
+	var lane := float(b["lane"])
+	var band: Rect2 = Rect2(fr.position.x, fr.position.y + lane - r, fr.size.x, r * 2.0) if side < 2 \
+		else Rect2(fr.position.x + lane - r, fr.position.y, r * 2.0, fr.size.y)
+	var warn := int(b["phase"]) == Hazards.WARN
+	var col := C_WARN if int(b["by"]) < 0 else C_SENT
+	if warn:
+		var total := float(maxi(1, Hazards.ticks_of((b["def"] as Dictionary).get("warn_seconds", 1.5))))
+		var k := clampf(1.0 - float(b["left"]) / total, 0.0, 1.0)
+		var period := 10 if k < 0.6 else 5
+		var lit := (_tick / period) % 2 == 0
+		ci.draw_rect(band, Color(col, (0.1 + 0.14 * k) * (1.0 if lit else 0.6)))
+		_lane_edges(ci, band, side, Color(col, 0.5 + 0.4 * k))
+		_lane_chevrons(ci, band, dir, Color(col, 0.45 + 0.4 * k), 0.0)
+	else:
+		# Only the part still ahead of it.
+		var at: Vector2 = b["pos"]
+		var ahead := band
+		if dir.x > 0.0:
+			ahead = Rect2(Vector2(at.x, band.position.y), Vector2(maxf(0.0, band.end.x - at.x), band.size.y))
+		elif dir.x < 0.0:
+			ahead = Rect2(band.position, Vector2(maxf(0.0, at.x - band.position.x), band.size.y))
+		elif dir.y > 0.0:
+			ahead = Rect2(Vector2(band.position.x, at.y), Vector2(band.size.x, maxf(0.0, band.end.y - at.y)))
+		else:
+			ahead = Rect2(band.position, Vector2(band.size.x, maxf(0.0, at.y - band.position.y)))
+		ci.draw_rect(ahead, Color(col, 0.08))
+		_lane_edges(ci, ahead, side, Color(col, 0.3))
+		ci.draw_circle(at, r, Color(0, 0, 0, 0.28))
+		ci.draw_circle(at, r * 0.7, Color(0, 0, 0, 0.12))
+
+
+## A lane's two long edges, dashed, the dashes marching.
+func _lane_edges(ci: CanvasItem, band: Rect2, side: int, col: Color) -> void:
+	var off := float(_tick % 8)
+	if side < 2:
+		var x := band.position.x - 8.0 + off
+		while x < band.end.x:
+			var x0 := maxf(x, band.position.x)
+			var x1 := minf(x + 4.0, band.end.x)
+			if x1 > x0:
+				ci.draw_rect(Rect2(x0, band.position.y, x1 - x0, 1.0), col)
+				ci.draw_rect(Rect2(x0, band.end.y - 1.0, x1 - x0, 1.0), col)
+			x += 8.0
+	else:
+		var y := band.position.y - 8.0 + off
+		while y < band.end.y:
+			var y0 := maxf(y, band.position.y)
+			var y1 := minf(y + 4.0, band.end.y)
+			if y1 > y0:
+				ci.draw_rect(Rect2(band.position.x, y0, 1.0, y1 - y0), col)
+				ci.draw_rect(Rect2(band.end.x - 1.0, y0, 1.0, y1 - y0), col)
+			y += 8.0
+
+
+## Chevrons down the middle of a lane, pointing (and marching) along `dir`.
+func _lane_chevrons(ci: CanvasItem, band: Rect2, dir: Vector2, col: Color, _phase: float) -> void:
+	var across := Vector2(-dir.y, dir.x)
+	var mid := band.get_center()
+	var span := band.size.x if dir.y == 0.0 else band.size.y
+	var step := 40.0
+	var start := -span * 0.5 + float((_tick * 2) % int(step))
+	var u := start
+	while u < span * 0.5:
+		var p := (mid + dir * u).round()
+		var w := minf(band.size.x, band.size.y) * 0.3
+		ci.draw_polyline(PackedVector2Array([p - dir * 4.0 + across * w, p + dir * 3.0, p - dir * 4.0 - across * w]), col, 2.0)
+		u += step
+
+
+## The boulder itself, a ball standing on its shadow: a dark rim, a lit cap, and marks on
+## its face that roll the way it goes (the turn is worked out from where it is: looks only).
+func _boulder_ball(ci: CanvasItem, b: Dictionary) -> void:
+	var r := float(b["radius"])
+	var at: Vector2 = b["pos"]
+	var dir: Vector2 = b["dir"]
+	var c := (at + Vector2(0, -r * 0.85)).round()
+	ci.draw_circle(c, r + 1.0, C_BOULDER[0])
+	ci.draw_circle(c, r, C_BOULDER[1])
+	ci.draw_circle(c + Vector2(-r * 0.15, -r * 0.2), r * 0.78, C_BOULDER[2])
+	ci.draw_circle(c + Vector2(-r * 0.35, -r * 0.42), r * 0.3, C_BOULDER[3])
+	var roll := (at.x + at.y) / r  # the turn, from how far it has come
+	var face := dir if dir.y == 0.0 else Vector2(0, dir.y * 0.6)
+	for i in 3:
+		var ph := roll + TAU * float(i) / 3.0
+		var s := sin(ph)
+		if cos(ph) < 0.0:
+			continue  # round the back
+		var p := c + face * s * r * 0.7 + Vector2(-face.y, face.x) * (float(i) - 1.0) * r * 0.35
+		ci.draw_rect(Rect2(p.round() - Vector2(2, 1), Vector2(4, 2)), C_BOULDER[0])
+		ci.draw_rect(Rect2(p.round() - Vector2(1, 2), Vector2(2, 1)), Color(C_BOULDER[0], 0.7))
+	if int(b["by"]) >= 0:
+		ci.draw_arc(c, r + 2.0, 0.0, TAU, 32, Color(C_SENT, 0.85 if (_tick / 3) % 2 == 0 else 0.5), 2.0)
+
+
+## A fault line: while it warns, a crack that runs out along the strip from its middle
+## (dark, with a hot glow in it that flickers faster near the end) over a faint band of its
+## cells; open, the chasm is the floor's own pit look (ArenaView), and in its last second
+## the edges glow as it grinds shut.
+func _fault_floor(ci: CanvasItem, f: Dictionary) -> void:
+	var t := sim.terrain
+	var warn := int(f["phase"]) == Hazards.WARN
+	var cells: PackedInt32Array = f["cells"] if warn else f["open"]
+	if cells.is_empty():
+		return
+	var axis := int(f["axis"])
+	if warn:
+		var k := clampf(1.0 - float(f["left"]) / float(maxi(1, int(f["warn"]))), 0.0, 1.0)
+		var blink := 1.0 if k < 0.75 or (_tick / 3) % 2 == 0 else 0.5
+		for i in cells:
+			ci.draw_rect(t.cell_rect(Vector2i(i % t.cols, i / t.cols)), Color(C_WARN, (0.06 + 0.16 * k) * blink))
+		var line := _fault_line(f)
+		var n := line.size()
+		var half := int(ceil(float(n) * 0.5 * minf(1.0, k * 1.6)))
+		var mid := n / 2
+		var lo := maxi(0, mid - half)
+		var hi := mini(n - 1, mid + half)
+		if hi > lo:
+			var seg := line.slice(lo, hi + 1)
+			ci.draw_polyline(seg, C_FAULT, 3.0)
+			ci.draw_polyline(seg, Color(C_FAULT_GLOW, (0.3 + 0.6 * k) * blink), 1.0)
+			# Hairline branches off it every few cells.
+			for j in range(lo, hi, 5):
+				var p := seg[j - lo]
+				var out := Vector2(3, 2) if axis == 0 else Vector2(2, 3)
+				if (j / 5) % 2 == 1:
+					out = -out
+				ci.draw_line(p, p + out * (1.0 + k), C_FAULT, 1.0)
+	else:
+		var left := int(f["heal"]) - sim.tick
+		if left > 60:
+			return
+		var k := 1.0 - float(left) / 60.0
+		var g := 0.3 + 0.45 * k
+		for i in cells:
+			var rc := t.cell_rect(Vector2i(i % t.cols, i / t.cols))
+			ci.draw_rect(rc, Color(C_FAULT_GLOW, g * (1.0 if (_tick / 4 + i) % 3 == 0 else 0.7)))
+			ci.draw_rect(rc.grow(-2.0 - 2.0 * k), Color(C_FAULT, 0.5))  # the gap narrowing
+
+
+## The middle of a fault's strip, one point a cell down its length (ragged by a pixel).
+func _fault_line(f: Dictionary) -> PackedVector2Array:
+	var t := sim.terrain
+	var axis := int(f["axis"])
+	var sums := {}
+	for i in (f["cells"] as PackedInt32Array):
+		var c := Vector2i(i % t.cols, i / t.cols)
+		var k := c.y if axis == 0 else c.x
+		var at := t.cell_center(c)
+		var acc: Vector3 = sums.get(k, Vector3.ZERO)
+		sums[k] = acc + Vector3(at.x, at.y, 1.0)
+	var keys := sums.keys()
+	keys.sort()
+	var out := PackedVector2Array()
+	for k in keys:
+		var acc: Vector3 = sums[k]
+		var p := Vector2(acc.x, acc.y) / acc.z
+		var jag := float(posmod(int(k) * 7, 3) - 1)
+		out.append((p + (Vector2(jag, 0) if axis == 0 else Vector2(0, jag))).round())
+	return out
 
 
 ## A band of the floor between `s0` and `s1` px downstream of the wave's edge.
@@ -4415,6 +4598,24 @@ func _draw_puddles(ci: CanvasItem) -> void:
 
 ## Spray off the running wave's front, a few drops a tick.
 func _hazard_spray() -> void:
+	for f in Hazards.faults_now(sim):
+		if int(f["phase"]) == Hazards.ACTIVE:
+			_fault_last = {"axis": f["axis"], "cells": f["open"]}
+	# Dust kicked up behind a rolling boulder; grit rumbling at a lane's edge while it warns.
+	for b in Hazards.boulders_now(sim):
+		var r := float(b["radius"])
+		var dir: Vector2 = b["dir"]
+		var at: Vector2 = b["pos"]
+		if int(b["phase"]) == Hazards.ACTIVE:
+			if _tick % 2 == 0:
+				var back := at - dir * r * 0.8 + Vector2(-dir.y, dir.x) * randf_range(-r, r) * 0.7
+				_dust(back, -dir * randf_range(0.2, 0.6) + Vector2(0, -0.25))
+			if _tick % 5 == 0:
+				_px(at - dir * r + Vector2(randf_range(-4, 4), -2), -dir * 0.6 + Vector2(0, -0.8), C_DIRT[randi() % 3], 18)
+		elif _tick % 4 == 0:
+			var edge: Vector2 = b["start"] + dir * r
+			_px(edge + Vector2(-dir.y, dir.x) * randf_range(-r, r) + Vector2(0, -randf_range(0, 6)),
+				Vector2(randf_range(-0.3, 0.3), -0.6), C_DIRT[randi() % 3], 16)
 	var w := Hazards.wave_now(sim)
 	if w.is_empty() or int(w["phase"]) != Hazards.ACTIVE:
 		return
@@ -4443,8 +4644,42 @@ func _hazard_event(e: Dictionary, p: Vector2) -> void:
 				shake_out = maxf(shake_out, 4.0 if bool(e.get("big", false)) else 2.0)
 				if bool(e.get("core", false)):
 					_add({"kind": "ring", "pos": p, "life": 24, "radius": 12.0, "color": C_METEOR[3]})
+			elif String(e.get("shape", "")) == "boulder":
+				_smoke(p, 5)
+				shake_out = maxf(shake_out, 2.0)
+			elif String(e.get("shape", "")) == "fault":
+				for f in Hazards.faults_now(sim):
+					var line := _fault_line({"axis": f["axis"], "cells": f["open"]})
+					for j in range(0, line.size(), 3):
+						_dust(line[j], Vector2(randf_range(-0.6, 0.6), -0.4))
+						_chunk(line[j], randf_range(4, 10), Vector2(randf_range(-0.6, 0.6), randf_range(-0.3, 0.3)),
+							randf_range(1.0, 2.0), randf_range(1.5, 2.5), C_DIRT[randi() % 3], 40.0)
+				shake_out = maxf(shake_out, 5.0)
 			else:
 				shake_out = maxf(shake_out, 3.0)
+		"hazard_reverse":
+			_add({"kind": "ring", "pos": p + Vector2(0, -12), "life": 16, "radius": 26.0, "color": C_SENT})
+			for i in 10:
+				_px(p + Vector2(0, -12), Vector2.from_angle(randf() * TAU) * randf_range(1.0, 2.4), C_SPARK[randi() % 3], 20)
+			_text(p + Vector2(0, -40), "SENT BACK!", C_SENT, 9, 50.0)
+			shake_out = maxf(shake_out, 4.0)
+		"hazard_end":
+			match String(e.get("shape", "")):
+				"boulder":
+					var r := float(e.get("power", 18.0))
+					if String(e.get("how", "")) == "pit":
+						_cave_in(p, r * 0.6)
+					elif String(e.get("how", "")) == "wall":
+						for i in 12:
+							_chunk(p + Vector2(0, -r), randf_range(6, 16), Vector2.from_angle(randf() * TAU) * randf_range(0.6, 1.8),
+								randf_range(1.5, 3.0), randf_range(2.0, 4.0), C_BOULDER[1 + randi() % 3], 60.0)
+						_smoke(p, 6)
+						shake_out = maxf(shake_out, 3.0)
+				"fault":  # it grinds shut: dust all along where it was
+					var line := _fault_line(_fault_last)
+					for j in range(0, line.size(), 4):
+						_dust(line[j], Vector2(randf_range(-0.4, 0.4), -0.3))
+					shake_out = maxf(shake_out, 2.0)
 		"hazard_hit":
 			var c := _creature(int(e.get("who", -1)))
 			var at := c.pos if c != null else p

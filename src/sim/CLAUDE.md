@@ -90,8 +90,11 @@ size only: a map's `size` can be bigger, so code with a match asks `sim.floor_re
   KO credit for both → `match_sim.gd:note_credit` (from the tick's hit / block / poison events) and `credit_of`;
   the CPU's wanted foes → `MatchSim.marks` (saved; in the digest only when set)
 - Map bridges that break → `match_sim.gd:_step_bridges`, `bridge_strain`, `bridges` (saved)
-- Arena hazards (a mutator's `hazards`: tidal wave, meteor shower) → `hazards.gd` (`setup` raises breakwaters,
-  `step` after `_resolve_hits`, `hurt` for the shared effects, `sheltered`); state `MatchSim.hazards`,
+- Arena hazards (a mutator's `hazards`: tidal wave, meteor shower, rolling boulder, fault line) → `hazards.gd` (`setup`
+  raises breakwaters, `step` after `_resolve_hits`, `hurt` for the shared effects, `sheltered`; the boulder `_step_boulder`,
+  sent back by a heavy's strike in `_reverse_boulder`, its hits credited through `hazard_hit` `by` in `note_credit`; the
+  fault `_plan_fault` / `_step_fault` / `_close_fault`: CHASM cells with their healing clocks held, put back to `base` like
+  the wave's puddles); state `MatchSim.hazards` (each shape's keys in its own dictionary, so they're saved for free),
   `hazard_pickups` (saved; in the digest only when there are hazards), definitions `hazard_defs` (fixed)
 - Win / time-out rules → `duel_sim.gd:_time_out`, `team_sim.gd:_time_out`
 - Who can see whom → `vision.gd` (not stepped by the sim; reads it, keeps a memory of hits;

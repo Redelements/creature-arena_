@@ -112,6 +112,14 @@ buses at start-up; `play(name, ..., ui = true)` sends a sound to Menu sounds.
 | [ ] | (`windup_red`, low) | A meteor shower starts (`hazard_warn`) | A rising whistle overhead; needs its own sound |
 | [ ] | (`slam` / `cave_in`) | A meteor lands; the big one punches a pit (`hazard_strike`) | A fiery thud with crackle; a bigger one with rock spray; need their own sounds |
 | [ ] | (`stoneskin`, pitched up) | A meteor's core is taken (`hazard_pickup`) | A warm power-up chime; needs its own sound |
+| [ ] | (`cave_in`, low and slow) | A boulder's lane warns (`hazard_warn`, shape boulder) | A deep rumble growing from one end of the arena, 1.5 s; needs its own sound |
+| [ ] | (`slam`, low) | The boulder drops in and starts rolling (`hazard_strike`); while it rolls, nothing | A heavy thud, then a looping stone rumble while it rolls (needs a loop: AudioView has none for hazards yet) |
+| [ ] | (`hit_heavy`, low) | The boulder runs someone over (`hazard_hit`, shape boulder) | A crunching stone impact; needs its own sound |
+| [ ] | (`hit_heavy` + `crowd_cheer`) | A heavy sends the boulder back (`hazard_reverse`) | A big stone "clonk" with a crowd gasp; needs its own sound |
+| [ ] | (`cave_in`) | The boulder falls into a pit or shatters on rubble (`hazard_end`, how pit / wall) | A stone tumbling into depth; a stone shattering; need their own sounds |
+| [ ] | (`crack` low + `cave_in` quiet) | A fault line cracks (`hazard_warn`, shape fault) | The ground groaning and splitting slowly, 2 s; needs its own sound |
+| [ ] | (`cave_in`, low) | The fault opens into a chasm (`hazard_strike`, shape fault) | A deep earth-splitting roar with falling rock; needs its own sound |
+| [ ] | (`crack`, low) | The fault grinds shut (`hazard_end`, shape fault) | A grinding rumble that settles; needs its own sound |
 
 Craglash, Barkley, Gillbert, Chef Cerebro, Hissy Fitz, Digby, Sneaky Pete and Sno Mercy have signature sounds; Gillbert also has footsteps
 (`"step_sound"` in his JSON). Cries and footsteps don't exist

@@ -349,6 +349,7 @@ const HAZARD_NOTICE := [28, 48, 999, 999]
 const SHELTER_LOOK := 18
 var _shelter := Vector2.INF  ## the spot behind rubble picked for this wave (INF: none)
 var _shelter_t := 0  ## ticks until it looks again
+var _boulder_swing := false  ## the heavy under way was thrown to send a boulder back
 
 
 ## Arena hazards (Hazards): steps out of a meteor's shadow, gets behind rubble when a wave
@@ -368,6 +369,8 @@ func _mind_hazards(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> bool:
 			flee += (d / dl if dl > 0.01 else Vector2.RIGHT) * (need - dl + 4.0)
 	if flee != Vector2.ZERO:
 		_go_to(sim, me, me.pos + flee.normalized() * 28.0)
+		return true
+	if _mind_boulder(sim, me) or _mind_fault(sim, me):
 		return true
 	var w := Hazards.wave_now(sim)
 	if w.is_empty() or (w["done"] as Array).has(me.id):
@@ -400,6 +403,101 @@ func _mind_hazards(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> bool:
 				and (foe == null or _seen(foe).distance_to(me.pos) > _reach_of(foe, me) + 16.0):
 			_go_to(sim, me, at)
 			return true
+	return false
+
+
+## A boulder's lane (Hazards.boulders_now): once it notices one coming its way (warning or
+## rolling, `HAZARD_NOTICE` ticks before it would arrive), it steps out of the lane to the
+## nearer side. Hard and Rage in its path hold their ground facing a rolling one and throw
+## a raw heavy timed to meet it, sending it back (while it can still be sent back). A boulder that
+## spares its team (one its team sent back) is ignored.
+func _mind_boulder(sim: MatchSim, me: CreatureSim) -> bool:
+	for b in Hazards.boulders_now(sim):
+		var by := int(b["by"])
+		if by >= 0 and by < sim.creatures.size() and sim.creatures[by].team == me.team:
+			continue
+		var dir: Vector2 = b["dir"]
+		var across := Vector2(-dir.y, dir.x)
+		var rel: Vector2 = me.pos - Vector2(b["pos"])
+		var along := rel.dot(dir)
+		var off := rel.dot(across)
+		var r := float(b["radius"])
+		var need := r + me.radius + 8.0
+		if along < -(r + me.radius) or absf(off) >= need:
+			continue  # gone past, or not in its lane
+		var speed := maxf(0.5, float(b["speed"]))
+		var eta := int(b["left"]) + int(maxf(0.0, along - r - me.radius) / speed)
+		if eta > int(HAZARD_NOTICE[clampi(level, 0, 3)]) + 30:
+			continue  # far off yet (Easy notices late)
+		var d: Dictionary = b["def"]
+		var can_send := int(b["rev"]) < int(d.get("reverse_max", 1)) and _usable(me, "heavy")
+		if level >= 2 and can_send and int(b["phase"]) == Hazards.WARN and absf(off) < r + me.radius:
+			continue  # Hard and Rage stay in its way to send it back once it rolls
+		if level >= 2 and int(b["phase"]) == Hazards.ACTIVE and int(b["rev"]) < int(d.get("reverse_max", 1)) \
+				and absf(off) < r + me.radius and along > 0.0 and _usable(me, "heavy") \
+				and me.state != CreatureSim.State.GUARD:
+			var mv: Dictionary = me.moves().get("heavy", {})
+			var segs: Array = mv.get("_segs", [])
+			if not segs.is_empty():
+				var startup := int(mv.get("windup", 0)) + int(segs[0]["at"]) + 1
+				# Its strike's far edge meets the boulder as the strike comes out.
+				var reach := float(mv.get("reach", 20)) + float(mv.get("hit_radius", 10)) * 0.5 + r
+				var meet := int((rel.length() - reach) / speed)
+				if meet <= startup:
+					_out |= SimDefs.aim_bits(Vector2(b["pos"]) - me.pos)
+					_press(SimDefs.IN_HEAVY)
+					_boulder_swing = true
+					return true
+				if meet <= startup + 60:
+					_out |= SimDefs.aim_bits(Vector2(b["pos"]) - me.pos)
+					return true  # holds its ground, facing it, for the swing
+				continue  # far off yet: fight on, and look again as it comes
+		var side := signf(off)
+		if side == 0.0:
+			side = 1.0 if (sim.floor_rect().get_center() - me.pos).dot(across) >= 0.0 else -1.0
+		var goal := me.pos + across * side * (need - absf(off) + 10.0)
+		if not sim.floor_rect().grow(-me.radius).has_point(goal):
+			goal = me.pos - across * side * (need + absf(off) + 10.0)  # the wall's that way: cross over
+		_go_to(sim, me, goal)
+		return true
+	return false
+
+
+## A fault line cracking (Hazards.faults_now, while it warns): off the crack to the nearer
+## side before it opens, once it's noticed (`HAZARD_NOTICE`). Once it's open the nav grid
+## sees the chasm like any other.
+func _mind_fault(sim: MatchSim, me: CreatureSim) -> bool:
+	var t := sim.terrain
+	for f in Hazards.faults_now(sim):
+		if int(f["phase"]) != Hazards.WARN or int(f["left"]) > int(HAZARD_NOTICE[clampi(level, 0, 3)]) + 60:
+			continue
+		var axis := int(f["axis"])
+		var mine := t.world_to_cell(me.pos)
+		var reach := int(ceil((me.radius + 6.0) / SimDefs.CELL))
+		var lo := 1 << 30
+		var hi := -(1 << 30)
+		for i in (f["cells"] as PackedInt32Array):
+			var c := Vector2i(i % t.cols, i / t.cols)
+			var near := absi(c.y - mine.y) if axis == 0 else absi(c.x - mine.x)
+			if near > reach:
+				continue
+			var v := c.x if axis == 0 else c.y
+			lo = mini(lo, v)
+			hi = maxi(hi, v)
+		if lo > hi:
+			continue
+		var me_v := me.pos.x if axis == 0 else me.pos.y
+		var r_lo := t.cell_rect(Vector2i(lo, lo))
+		var r_hi := t.cell_rect(Vector2i(hi, hi))
+		var lo_px := r_lo.position.x if axis == 0 else r_lo.position.y
+		var hi_px := r_hi.end.x if axis == 0 else r_hi.end.y
+		var pad := me.radius + 6.0
+		if me_v < lo_px - pad or me_v > hi_px + pad:
+			continue
+		var to := lo_px - pad - 6.0 if me_v - lo_px < hi_px - me_v else hi_px + pad + 6.0
+		var goal := Vector2(to, me.pos.y) if axis == 0 else Vector2(me.pos.x, to)
+		_go_to(sim, me, goal)
+		return true
 	return false
 
 
@@ -552,6 +650,13 @@ func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 		return
 	_break_combo_checked = -1
 
+	if _boulder_swing:  # a heavy thrown at a boulder (_mind_boulder): a tap, aimed at it
+		if me.state == CreatureSim.State.ATTACK and me.move_id == "heavy":
+			var bl := Hazards.boulders_now(sim)
+			if not bl.is_empty():
+				_out |= SimDefs.aim_bits(Vector2(bl[0]["pos"]) - me.pos)
+			return
+		_boulder_swing = false
 	if me.state == CreatureSim.State.ATTACK:
 		_continue_attack(sim, me, foe, dist)
 		if _rage():
