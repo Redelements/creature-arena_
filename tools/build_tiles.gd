@@ -21,6 +21,7 @@ extends SceneTree
 ##   set        the cut set (default "set1")
 ##   ground     the fill under everything (a manifest fill name)
 ##   edge       a fill for the one-tile ring past the floor (default the ground)
+##   patches    [{fill, rect: [tx, ty, w, h]}]: rects of another fill over the ground
 ##   grass      rects [tx, ty, w, h] in tiles painted with the "grass" terrain (autotiled)
 ##   water      rects in tiles painted with the "water" terrain; the map's shallows pieces
 ##              are painted with it as well (rounded out to whole tiles)
@@ -224,6 +225,18 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 			var f := edge if ring else fill
 			var block := int(sqrt(float(f.size())))  # a fill is a square block of seamless tiles
 			ground.set_cell(Vector2i(tx, ty), SRC_GROUND, _v(f[posmod(ty, block) * block + posmod(tx, block)]))
+	# `patches`: rects of another fill laid over the ground (a worn lane, a cobbled corner),
+	# for sets without a blob terrain. [{fill, rect: [tx, ty, w, h]}] in tiles.
+	for patch in tiles.get("patches", []):
+		var f: Array = g["fills"].get(String(patch.get("fill", "")), [])
+		var r: Array = patch.get("rect", [])
+		if f.is_empty() or r.size() < 4:
+			push_warning("a patch needs a known fill and a rect: " + str(patch))
+			continue
+		var block := int(sqrt(float(f.size())))
+		for ty in range(int(r[1]), int(r[1]) + int(r[3])):
+			for tx in range(int(r[0]), int(r[0]) + int(r[2])):
+				ground.set_cell(Vector2i(tx, ty), SRC_GROUND, _v(f[posmod(ty, block) * block + posmod(tx, block)]))
 
 	var counts := {}
 	for name in ["grass", "water"]:

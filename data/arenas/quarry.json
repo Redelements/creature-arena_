@@ -3,6 +3,21 @@
 	"id": "quarry",
 	"name": "Quarry Bowl",
 	"ground": "stone",
+	"tiles": {
+		"_doc": "The floor is tiles (assets/arenas/quarry.tscn, built by tools/build_tiles.gd from this block; the recipe tools/tile_recipes/rock.json): Mountains sandstone scree with a darker rock kerb, worn dirt cart lanes along the inside of each rubble wall and a trampled middle, cobbled loading corners; Set 1 boulders on the walls. Patches are [tx, ty, w, h] in 32 px tiles (2 x 2 cells).",
+		"set": "rock",
+		"ground": "stone",
+		"edge": "rock_dark",
+		"patches": [
+			{"fill": "dirt", "rect": [11, 0, 2, 18]},
+			{"fill": "dirt", "rect": [29, 0, 2, 18]},
+			{"fill": "dirt", "rect": [18, 7, 6, 4]},
+			{"fill": "cobble", "rect": [0, 0, 4, 3]},
+			{"fill": "cobble", "rect": [38, 0, 4, 3]},
+			{"fill": "cobble", "rect": [0, 15, 4, 3]},
+			{"fill": "cobble", "rect": [38, 15, 4, 3]}
+		]
+	},
 	"times": ["day", "sunset"],
 	"weathers": ["clear", "rain", "fog", "wind", "snow"],
 	"light": {"_doc": "low afternoon sun from the top left: long shadows raking right", "dir": [0.8, 0.6], "length": 0.75, "alpha": 0.38, "sun": {"color": "#ffe8c4", "energy": 0.68}},

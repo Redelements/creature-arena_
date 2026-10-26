@@ -60,6 +60,17 @@ snapped to the game's palette):
 - `assets/tiles/set1_*.tres`: the Godot TileSets `tools/build_tiles.gd` makes from them.
 - `assets/arenas/<id>.tscn`: each tiled arena's ground, painted with those tiles.
 
+Files from the **RPG Worlds Mountains** pack (`RPGW_Mountains_v1.2`, part of the bundle) and
+Set 1, cut by `tools/cut_tiles.py` from `tools/tile_recipes/rock.json` for the Quarry Bowl:
+
+- `assets/tiles/rock_ground.png`: the sandstone scree and darker rock fills (Mountains), the
+  dirt and cobble fills (Set 1).
+- `assets/tiles/rock_pieces.png`: boulders and tall grass (Set 1).
+- `assets/tiles/rock_overlay.png`: pit walls cut from the Mountains cliff faces and its cave
+  mouth, with generated cracks and edges.
+- `assets/tiles/rock_manifest.json`, `assets/tiles/rock_ground.tres`,
+  `assets/tiles/rock_overlay.tres`, `assets/arenas/quarry.tscn`.
+
 Fantasy Lands Warrior: nothing from it is in the repository yet. Add its files here when
 they are.
 

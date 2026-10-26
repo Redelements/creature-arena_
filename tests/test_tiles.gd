@@ -218,8 +218,16 @@ func test_a_piece_is_cleared_while_its_cells_are_broken() -> void:
 
 
 func test_a_baked_map_is_not_tiled() -> void:
-	var pair := _on("quarry")
+	# whichever map still has no ground scene (the old maps are retiled one by one)
+	var baked := ""
+	for id in ArenaMap.IDS + ArenaMap.MODE_IDS:
+		if not ResourceLoader.exists("res://assets/arenas/%s.tscn" % id):
+			baked = id
+			break
+	if baked == "":
+		return  # every map is tiled now: nothing left to check here
+	var pair := _on(baked)
 	var v: ArenaView = pair[1]
-	assert_false(v.tiled())
+	assert_false(v.tiled(), baked + " draws its baked picture")
 	assert_true(v._overlay == null, "no overlay layers on a baked map")
 	v.free()
