@@ -45,6 +45,10 @@ var _rng := RandomNumberGenerator.new()
 var _any_water := false
 var _bounds := Rect2()  ## the box round all the water
 var _wakes_drawn := false
+## The brightest highlights the surface drew last (their middles, world px) and a count that
+## changes each redraw: BloomView blooms them where the lamps shine.
+var glints := PackedVector2Array()
+var glint_ver := 0
 
 
 ## A drawing layer: `paint` runs in its _draw.
@@ -175,6 +179,8 @@ static func _hash(a: int, b: int) -> int:
 # ------------------------------------------------------------------ the surface
 
 func _paint_surface(ci: CanvasItem) -> void:
+	glints.clear()
+	glint_ver += 1
 	if sim == null:
 		return
 	var view := _drawn.intersection(_bounds)
@@ -207,6 +213,8 @@ func _paint_surface(ci: CanvasItem) -> void:
 			if tone == 3:
 				continue  # dark moment: the dash is out
 			ci.draw_rect(Rect2(x, y, ln, 1), WATER[6] if tone == 0 else WATER[5])
+			if tone == 0:
+				glints.append(Vector2(x + ln * 0.5, y + 0.5))
 			if ln > 2:
 				ci.draw_rect(Rect2(x + 1, y + 1, ln - 2, 1), WATER[1])  # its trough
 	# Foam flickers along the banks (and where the water ends under a bridge deck).

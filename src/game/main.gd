@@ -401,6 +401,7 @@ var glow := default_glow()
 ## Lighting (Settings > Video): real 2D lights on the fighters and, High, the night's lamps and
 ## bloom (Light2DView, BloomView). `--lighting=` overrides it for the session.
 var light2d: Light2DView
+var light_floor: Light2DView.FloorGlow
 var bloom: BloomView
 var lighting := default_lighting()
 var _lighting_cli := -1
@@ -704,6 +705,8 @@ func _ready() -> void:
 	add_child(weather.ground)  # fog bands, rain splashes: over the shadows, under the fighters
 	glow_floor = LightView.new()  # light pools on the floor, over the shadows, under the fighters
 	add_child(glow_floor)
+	light_floor = Light2DView.FloorGlow.new()  # the fight's real lights on the floor (Lighting), at the pools' depth
+	add_child(light_floor)
 	rings = RangeRings.new()
 	rings.visible = false
 	rings.fx = fx  # what the local team can see (Vision): no rings for a hidden foe
@@ -730,11 +733,14 @@ func _ready() -> void:
 	_apply_glow()
 	light2d = Light2DView.new()  # real 2D lights (Lighting): only fighter sprites and the night shade take them
 	light2d.fx = fx
+	light2d.floor_glow = light_floor
 	light2d.views = views  # each seen fighter's own sun
 	add_child(light2d)
 	bloom = BloomView.new()  # half-size bloom of the bright things, added onto the screen layer
 	bloom.glow = glow_floor
 	bloom.light2d = light2d
+	bloom.fx = fx
+	bloom.water = water
 	add_child(bloom)
 	audio = AudioView.new()
 	add_child(audio)
@@ -2709,6 +2715,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	fx.sim = sim
 	fx.clear()
 	fx.views = views
+	bloom.views = views
 	vision.clear()
 	_hidden = []
 	fx.vision = vision
@@ -2944,10 +2951,13 @@ func _physics_process(_delta: float) -> void:
 	fx.advance()
 	PerfLog.since("adv fx", t_v)
 	PerfLog.since("fx advance", t_fx)
+	light2d.advance()  # after the effects: it reads their particles
 	if glow:
-		glow_floor.advance()  # after the effects: it reads their particles
+		if light2d.tier == Light2DView.Tier.OFF:
+			glow_floor.advance()  # Lighting Off: Glow gathers its own, as before
+		else:
+			glow_floor.show_lights(light2d.gathered, light2d.pools)  # the pools the real lights left
 		glow_halo.queue_redraw()
-	light2d.advance()
 	bloom.advance()
 	var t_views := PerfLog.now()
 	paper.advance(events)
@@ -3337,6 +3347,7 @@ func _react(e: Dictionary) -> void:
 		elif String(e["type"]) in ["spree", "shutdown", "crown"]:
 			_wanted_toast(e)
 	fx.spawn(e)
+	light2d.on_event(e)  # a big hit's or a Surge's flash of light (Lighting Low / High)
 	audio.on_event(e)
 	var power: float = e["power"]
 	_rumble(e)
@@ -5084,6 +5095,8 @@ func _light_look() -> void:
 	var t := lighting_tier()
 	light2d.tier = t
 	bloom.set_on(t == Light2DView.Tier.HIGH)
+	CreatureView.emissive_on = t != Light2DView.Tier.OFF
+	_apply_glow()  # High: the bloom stands in for Glow's halos
 	var time := String(_lit_look.get("time", "day"))
 	weather.lamp_lights = sim != null and t == Light2DView.Tier.HIGH and Light2DView.lamps_on(sim.arena, time)
 	var sd := Light2DView.sun_at(sim.arena if sim != null else {}, time, String(_lit_look.get("weather", "clear")), t)
@@ -5102,13 +5115,16 @@ func _apply_lighting() -> void:
 		furniture.set_lit(light2d.lamp_heads())
 
 
-## Glow on or off: off hides both layers and stops gathering lights (no cost at all).
+## Glow on or off: off hides both layers and stops gathering lights (no cost at all). With
+## Lighting High the halos stay hidden: the bloom draws the same lights' glow.
 func _apply_glow() -> void:
 	for g in [glow_floor, glow_halo]:
 		if g != null:
 			g.visible = glow
 			if not glow:
 				g.clear()
+	if glow_halo != null and light2d != null and lighting_tier() == Light2DView.Tier.HIGH:
+		glow_halo.visible = false
 
 
 func _load_settings() -> void:
