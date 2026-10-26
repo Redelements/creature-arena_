@@ -14,7 +14,7 @@
   "sheets": { "max": 3, "regen": 300 },
   "dodge": { "frames": 20, "iframes_start": 2, "iframes_end": 12, "speed": 6.824, "passes": ["fence"], "trail": "paper",
     "anim_at": [[0, 0], [2, 1], [4, 2], [5, 3], [8, 4], [12, 5], [15, 6], [18, 7]] },
-  "guard": { "reduction": 0.78, "drain_per_damage": 2.2, "speed_mult": 0.45, "break_stun": 58 },
+  "guard": { "drain_per_damage": 2.2, "speed_mult": 0.45, "break_stun": 58 },
   "fx_height": 12,
   "fx_top": 38,
   "fx_color": "#ff9a2e",

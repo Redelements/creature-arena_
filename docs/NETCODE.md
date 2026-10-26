@@ -374,6 +374,106 @@ pick to match 2, fingerprints agreeing).
 
 Still to do: a Steam transport (below).
 
+## Proximity voice chat (NET_VERSION 36)
+
+Players in a match talk to each other, and a voice is louder the closer its fighter
+stands. It rides the match's own link; nothing about it reaches the simulation, so it
+can't desync anything (`tests/test_voice.gd` plays a match through it and checks).
+
+**Codec.** Godot has no Opus, so the game encodes speech itself in GDScript
+(`src/net/voice_codec.gd`): IMA ADPCM, 4 bits a sample at 16 kHz mono (64 kbit/s of audio,
+a phone call with the top end kept). The microphone's mix rate (44.1 or 48 kHz) is taken
+down by `VoiceCodec.resample` (two one-pole lowpasses near 5.4 kHz, then linear
+interpolation, seamless across pieces). Measured in the tests: a voice-like signal (180 Hz
+with 900 Hz and 2.4 kHz overtones) comes back at 31 dB SNR; 44.1 or 48 kHz fed in 60 pieces
+gives 16000 ± 0 samples a second with a 440 Hz tone's level within 0.1 dB. One 20 ms frame
+costs about 60 µs to encode and 35 µs to decode on the dev PC.
+
+**Packets.** A 20 ms frame of 320 samples is 163 bytes: a 3-byte header (predictor and step
+index) and 160 bytes of nibbles, so every frame decodes on its own. A packet carries two
+frames (`frames_per_packet`): `{"t": "vc", "n": match, "p": slot, "s": sequence, "d": 326
+bytes}`, which Godot's encoding makes 440 bytes (114 of envelope), about 480 with the
+UDP/IP/ENet headers. 25 packets a second is about 96 kbit/s per talker on the wire. They go
+unreliably (`link.send(msg)`, then `flush` straight away: the view feeds the mic between
+ticks). A lost packet costs only its 40 ms; nothing waits for a resend.
+
+**Receiving.** Per speaker, packets queue by sequence (`VoiceChat._Speaker`). A burst
+starts playing once `jitter_ms` (80) of it has queued or that long has passed since its
+first packet; a missing packet is waited for up to `jitter_ms` and then skipped (counted
+in `dropped`); one older than what's already played is dropped; more than `max_buffer_ms`
+(360) queued drops the oldest; after `max_buffer_ms * 2` of silence a new burst starts
+fresh. A packet of the wrong size, or carrying this machine's own slot, is dropped.
+
+**Talking.** Push to talk (`ptt_held`, with `ptt_release_ms` = 180 after the release so the
+last word isn't clipped) or an open mic behind a level gate (`gate_db` = -40 with
+`gate_hold_ms` = 450 of hold). Quiet frames are never sent, so a silent player costs
+nothing. `mode` Off sends nothing and ignores what comes in.
+
+**Matches.** Netplay owns one `VoiceChat` (`Netplay.voice`) on the session's link. Every
+match start (`_begin`, rematches and a room's next included) calls
+`voice.reset(n, slot, player_names)`, and `_handle` "vc" takes only packets whose `n` is the
+match on now, so a rematch never plays the last match's stragglers. A spectator resets to
+slot -1 (`_start_watching`): it listens, never sends. Hello carries `"voice"`: whether this
+player has voice on.
+
+**Names.** "start" (the players' and a spectator's) carries `names`: each slot's player
+name in slot order (the server's `Client.name`, `"CPU"` for a CPU's slot). Netplay checks
+it (`Netplay.names_from`: an Array of exactly `size * 2` Strings, each through
+`clean_name`, a blank one kept as `""`; anything else makes them all `""`) into
+`Netplay.player_names`. Direct play: the host knows the joiner's name from its hello and
+sends `[host, joiner]` in its own "start", so both ends name both slots.
+
+**Mutes** are the listener's own (`VoiceChat`): `set_muted(slot, on)` mutes one player for
+this match and remembers their name in `blocked` for the session, so `reset` mutes them
+again on whatever slot the next match seats them (a room re-seats everyone through
+`seat()`; slots alone would mute the wrong person). `mute_all` hears nobody; `mic_muted`
+sends nothing (and `talking` stays false) whatever the mode. A muted packet is counted in
+`muted_packets` and forgotten: never queued, never shown as speaking. Two players with the
+same name are muted together across matches (names aren't unique).
+
+**The server** (`relay_server.gd` "vc") takes a voice packet only from a seated player
+(`_seated`: never from a spectator) for the match on now, with exactly
+`VoiceChat.packet_bytes()` of audio, and rebuilds it from known fields: the slot is the
+server's record of the sender, never the `p` it sent. It goes out unreliably to the other
+players whose hello said `voice`; a player with voice off gets none of it. In an 8-player
+match one talker costs the server 7 × ~96 kbit/s (about 670 kbit/s) out, and only while
+they talk.
+
+**Spectators hear only a room's match.** "Watch a match" without a code attaches to the
+newest match on the server, so a Quick match or ranked game's spectator is a stranger:
+the server relays voice to a game's watchers only when it's a room's (`g.room != ""`:
+they typed its code), and then only to those whose hello said `voice`. A room's players
+see how many are watching (`room_watchers`, from the "room" status the server sends when
+a spectator joins or leaves, mid-match included).
+
+**A voice budget.** Every voice packet spends from the connection's message budget like
+any other (`_spend`, `MSG_RATE` = 240/s; a talking player sends about 62 input packets +
+25 voice packets = 87 a second), and from a voice budget of its own (`_spend_voice`,
+`VOICE_RATE` = 30 a second, `VOICE_BURST` = 60 at once, on the limits' clock). A voice
+packet is ~440 bytes against ~40 for an input packet and goes to everyone else in the
+match, so the message budget alone would let one client make the server send
+240 × 440 × 7 ≈ 740 KB/s in an 8-player match; with the voice budget it's at most
+30 × 440 × 7 ≈ 92 KB/s. Over it, a packet is dropped quietly (not relayed; the connection
+stays, since a hitch can bunch an honest talker's packets): counted in
+`Client.voice_dropped`, logged the first time per connection.
+
+**Direct links are capped.** The server's hub checks every packet's size before decoding
+(`NetLink.admit`, `max_packet`); a direct `EnetLink` now does too: `Netplay.host` and
+`join` set `max_packet = NetLink.SMALL_PACKET` (8 KB; every direct-play message is far
+smaller, and a Daily submission never goes over a direct link), and `EnetLink.poll` drops
+a bigger packet undecoded, keeping the connection. A spectator's link (`spectate`) isn't
+capped: its first "start" carries the whole log of the match so far.
+
+**Placing a voice** is the view's (`src/view/voice_view.gd`): `VoiceChat.gain_for(dist,
+same_team)` is full inside `full_radius` (110 world px), falls (squared) to nothing at
+`silent_radius` (420), and a teammate never drops below `team_floor` (0.25) so a team can
+call plays across the map; `pan_for(dx)` places it left or right, at the edges
+`pan_width` (240) away. Tuning in `data/voice.json` (not in `data_hash`: it changes no
+outcome).
+
+Not yet: a mid-match change of the voice setting doesn't tell the server (hello said it
+once); Opus, if Godot ever ships it, would cut the bandwidth by about four.
+
 ## Transport (to decide)
 
 | Option | Good for | Watch out for |
