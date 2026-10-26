@@ -1,7 +1,8 @@
 class_name PauseScreen
 extends UiScreen
-## The pause menu (Start / Esc / View in a fight): the match is frozen behind it.
-## Quitting asks first. Back (or Start again) resumes.
+## The pause menu (Start / Esc / View in a fight): offline the match is frozen behind it;
+## online it keeps going (main never sets `paused` there). Quitting asks first. Back (or
+## Start again) resumes.
 
 signal resumed
 signal restart_requested
@@ -13,8 +14,12 @@ var quit_text := "Quit to main menu"
 ## What the Restart and Quit confirms ask and say (a mode with more at stake changes them).
 var restart_question := "Restart the match?"
 var restart_note := "The match so far is lost."
+var quit_question := "Quit to the main menu?"
+var quit_note := "The match so far is lost."
+var quit_yes := "Yes"
+var quit_no := "No"
 ## Rows a mode adds after Restart, each [text, Callable, description] (training: Change
-## fighter, Training options).
+## fighter, Training options; online: Voice chat).
 var extras: Array = []
 
 
@@ -35,7 +40,7 @@ func build() -> void:
 		add_button(String(e[0]), e[1], String(e[2]) if (e as Array).size() > 2 else "")
 	if help_body != "":
 		add_button("Controls", func(): stack.push(HelpScreen.new(help_body)))
-	add_button(quit_text, func(): _confirm("Quit to the main menu?", quit_requested))
+	add_button(quit_text, func(): _confirm(quit_question, quit_requested, quit_note, quit_yes, quit_no))
 
 
 func back() -> void:
@@ -44,7 +49,7 @@ func back() -> void:
 	resumed.emit()
 
 
-func _confirm(question: String, then: Signal, note := "The match so far is lost.") -> void:
-	var c := ConfirmScreen.new(question, note)
-	c.answered.connect(func(yes: bool): if yes: then.emit())
+func _confirm(question: String, then: Signal, note := "The match so far is lost.", yes := "Yes", no := "No") -> void:
+	var c := ConfirmScreen.new(question, note, yes, no)
+	c.answered.connect(func(yes_now: bool): if yes_now: then.emit())
 	stack.push(c)
