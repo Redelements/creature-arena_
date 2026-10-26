@@ -10,6 +10,7 @@ godot --headless --path . --script res://tests/bench_modes.gd -- --seeds=12
 #   --modes=team2,team3,tdm2,tdm3,crater2,sinkhole2,brawl3,brawl4,caravan3,ctf3   (default: all)
 #   --shrines=data|on|off   on: shrines in a mode whose rules leave them out; off: none anywhere
 #   --shrine-set=first_seconds:12,cooldown_seconds:25   try a shrine tuning (numbers)
+#   --set=crown_points_to_win:20   try top-level rules numbers (spree_at:0 / crown:0 turn those off)
 #   --seed0=12   start further on (more matches on top of an earlier run)   --rows: every match
 ```
 
@@ -55,6 +56,56 @@ humans stand around is a playtest question.
 | Brawl (4) | 12 | 34 | 3% | 2.81 | 3.0 | 12 | 7 of 12 | 0.0 | n/a |
 | Caravan 3v3 | 12 | 276 | 9% | 1.65 | 35.3 | 0 | n/a | 0.0 | n/a |
 | Capture the Flag 3v3 | 12 | 223 | 9% | 2.65 | 24.1 | 10 | 2 of 10 | 6.9 | 53% |
+
+## M2: Team Deathmatch spree shutdown and the Brawl crown (PR `spree-crown`)
+
+Kevin's design (Oct 25): a killing-spree shutdown in Team Deathmatch instead of the bounty
+and the shrines, and a crown in the Brawl. Rules and keys in `docs/MECHANICS.md`. "Before"
+is `main` at 5d6e129 (shrines everywhere merged); the bench gained columns for this round:
+
+| Column | Meaning |
+| --- | --- |
+| Time-outs | Matches decided by the clock (`duel_over` by `time`). |
+| First KO won | Of the matches with a winner where the first fighter down had a last hitter (`last_attacker`), how often that hitter's side (a Brawl: the fighter) won. |
+| Sprees/match, Shutdowns/match, Crown changes/match | `spree`, `shutdown`, `crown` events. |
+
+Team Deathmatch: 48 seeds a size (`--seeds=24` and `--seed0=24 --seeds=24`, the two halves
+summed). Brawl: 48 seeds a size. `--set=crown_points_to_win:20` tried the outright crown win.
+
+| Mode | Rules | Matches | Length (s) | Stalemate | Fights/min | KOs/match | Leader at half | Comebacks | Time-outs | First KO won | Sprees/match | Shutdowns/match | Crown changes/match |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Team Deathmatch 2v2 | before | 48 | 163 | 3% | 1.62 | 20.0 | 41 | 8 of 41 | 13 | 29 of 48 | 0 | 0 | 0 |
+| Team Deathmatch 2v2 | **spree + shutdown** | 48 | 161 | 3% | 1.78 | 19.5 | 40 | 11 of 40 | 11 | 29 of 48 | 1.9 | 1.2 | 0 |
+| Team Deathmatch 3v3 | before | 48 | 151 | 1% | 0.80 | 27.1 | 40 | 12 of 40 | 0 | 30 of 48 | 0 | 0 | 0 |
+| Team Deathmatch 3v3 | **spree + shutdown** | 48 | 142 | 1% | 0.81 | 25.5 | 39 | 10 of 39 | 0 | 29 of 48 | 2.4 | 1.5 | 0 |
+| Brawl (3) | before | 48 | 27 | 5% | 3.54 | 2.0 | 48 | 17 of 48 | 0 | 23 of 48 | 0 | 0 | 0 |
+| Brawl (3) | **crown** | 48 | 27 | 5% | 3.60 | 2.0 | 48 | 17 of 48 | 0 | 23 of 48 | 0 | 0 | 1.5 |
+| Brawl (3) | crown + 20 points wins | 48 | 27 | 5% | 3.62 | 2.0 | 48 | 17 of 48 | 0 | 25 of 48 | 0 | 0 | 1.5 |
+| Brawl (4) | before | 48 | 33 | 3% | 2.61 | 3.0 | 47 | 28 of 47 | 0 | 19 of 48 | 0 | 0 | 0 |
+| Brawl (4) | **crown** | 48 | 32 | 2% | 2.69 | 3.0 | 47 | 32 of 47 | 0 | 10 of 48 | 0 | 0 | 2.0 |
+| Brawl (4) | crown + 20 points wins | 48 | 32 | 2% | 2.65 | 3.0 | 47 | 31 of 47 | 0 | 11 of 48 | 0 | 0 | 2.0 |
+
+(Shrine columns as before: unchanged, Brawl 0.4 / 0.7 claims a match; no captures.)
+
+What it says:
+
+- **Team Deathmatch:** about two sprees and 1.2-1.5 shutdowns a match. 2v2 fights a minute
+  1.62 → 1.78 and comebacks 8 → 11 of ~40; 3v3 comebacks 12 → 10 (noise at these counts) and
+  matches 9 s shorter (the bonus points reach 15 sooner). The first KO's side wins 60% either
+  way. The shutdown is a modest catch-up, not a swing; a bigger `shutdown_bonus` or a lower
+  `spree_at` would push harder (Kevin's call after a playtest).
+- **Brawl:** the crown makes the first KO matter less, not more. In a Brawl of four the
+  fighter credited with the first KO went on to win 19 of 48 before (40%, against 25% by
+  chance) and **10 of 48 with the crown** (21%): wearing it makes you everyone's target
+  (the CPUs pull 80 px toward the holder). Comebacks 28 → 32 of 47, stalemate 3% → 2%. A
+  Brawl of three is unchanged: after its first KO only two are left, a 1v1 the crown can't
+  change before time.
+- **No Rage match reaches the clock** (time-outs 0 of 96), so the time-out rule is for
+  humans who play safe; the bench can't measure it. As measured, crown points decided the
+  time-out; Kevin's ruling after review: they only break a near tie on health
+  (`crown_tie_margin` 0.1). That changes no Rage match (none reaches the clock). The outright win at 20 crown points
+  never decides a Rage match either (27-33 s Brawls); it ships **off** (`crown_points_to_win`
+  0) so the first KO can't turn into a run-away-and-win. Playtest question.
 
 ## Round 2: Kevin's rulings (2026-10-25, the same PR)
 
@@ -162,5 +213,7 @@ were `"spots": [[0.5, 0.16], [0.5, 0.84]]` in its rules for that run.
 ## Log
 
 - 2026-10-25: bench written, baseline taken, shrines measured in every mode (M1).
+- 2026-10-25: M2 (`spree-crown`): time-outs, first-KO-won, spree / shutdown / crown columns and
+  `--set=key:value`; Team Deathmatch spree shutdown and the Brawl crown measured.
 - 2026-10-25: round 2 after Kevin's review: TDM off, the Crater's permanent-buff shrine,
   CTF's three shrines; captures and "more buffs won" columns added to the bench.
