@@ -794,7 +794,7 @@ func _continue_attack_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist
 			return
 	# On the first contact, pick a route; each new move after that is one step along it.
 	if _route.is_empty():
-		_route = _pick_route(me, dist)
+		_route = _pick_route(me, dist, foe)
 		_route_step = 1
 		_route_serial = me.attack_serial
 		if not _roll(float(p["combo"])):
@@ -812,8 +812,11 @@ func _continue_attack_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist
 			_press(int(ACTION_BIT[action]))
 
 
-func _pick_route(me: CreatureSim, dist: float) -> Array:
-	if me.move_id != "light_1":
+func _pick_route(me: CreatureSim, dist: float, foe: CreatureSim = null) -> Array:
+	# First contact on a later light of the string (the first knife missed, the second hit):
+	# the light routes still apply, from that point of the string.
+	var k := _string_index(me)
+	if k < 0:
 		# A route that opens with this very move (Digby's pop-up out of Burrow: the launch,
 		# then the juggle string and the heavy) is followed as written.
 		for r in _ai(me).get("routes", []):
@@ -833,11 +836,23 @@ func _pick_route(me: CreatureSim, dist: float) -> Array:
 	# moves that reach that far.
 	if _ai(me).has("far_routes") and dist > float(_ai(me).get("far_from", 9999)):
 		routes = _ai(me)["far_routes"]
+	elif _ai(me).has("setup_routes") and foe != null \
+			and not foe.has_mark(String((_ai(me).get("setup", {}) as Dictionary).get("mark", ""))):
+		# Up close on a foe not set up yet (not tenderized): routes that set it up first.
+		routes = _ai(me)["setup_routes"]
 	var longest: Array = []
 	var whole: Array = []  ## the first route affordable in full
-	for r in routes:
-		if String(r[0]) != "light":
+	for r0 in routes:
+		if String(r0[0]) != "light":
 			continue  # an opener route (a skill first) is for that opener, above
+		var r: Array = r0
+		if k > 0:
+			var lead := 0
+			while lead < r0.size() and String(r0[lead]) == "light":
+				lead += 1
+			if lead <= k:
+				continue  # the string is already past this route's lights
+			r = r0.slice(k)
 		var ok := true
 		var prefix: Array = []
 		for act in r:
@@ -854,8 +869,25 @@ func _pick_route(me: CreatureSim, dist: float) -> Array:
 	# Rage takes the longest run it can afford: a route that ends in a cooling skill
 	# still has its heavy, which beats a plain three-light string.
 	if _rage():
+		if whole.is_empty() and longest.is_empty():
+			return [me.move_id]  # no route reaches this far into the string: it ends here
 		return whole if whole.size() >= longest.size() else longest
+	if whole.is_empty() and k > 0:
+		return [me.move_id]
 	return whole if not whole.is_empty() else routes[routes.size() - 1].duplicate()
+
+
+## Where the current move sits in the light string: 0 for light_1, 1 for the light its
+## "next" leads to, and so on; -1 for anything that isn't in the string.
+func _string_index(me: CreatureSim) -> int:
+	var mid := "light_1"
+	for i in 8:
+		if mid == me.move_id:
+			return i
+		mid = String(me.moves().get(mid, {}).get("next", ""))
+		if mid == "":
+			break
+	return -1
 
 
 func _defend(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float) -> bool:
@@ -1752,6 +1784,9 @@ func _rage_punish_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: 
 	var left := _recovery_left(foe)
 	if left < 0 or foe.is_invulnerable():
 		return false
+	# A whiff in reach of the setup move (Tenderize) is the safest time to set it up.
+	if _plan_setup(me, foe, to_foe, dist, left):
+		return true
 	var light: Dictionary = me.moves().get("light_1", {})
 	var su := int(light.get("startup", 4)) + 1
 	var reach := _reach_of(me, foe) - 4.0
@@ -1865,6 +1900,9 @@ func _rage_neutral_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe:
 		_press(SimDefs.IN_HEAVY if _usable(me, "heavy") else SimDefs.IN_LIGHT)
 		return
 
+	if _plan_setup(me, foe, to_foe, dist):
+		return
+
 	if _rage_kit(sim, me, foe, to_foe, dist, plan):
 		return
 
@@ -1893,6 +1931,35 @@ func _rage_neutral_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe:
 			_plan_skirmish(sim, me, foe, to_foe, dist, reach, danger)
 		_:
 			_plan_footsie(sim, me, foe, to_foe, dist, reach, danger)
+
+
+## A setup move (ai "setup" {move, range, mark, chance}): thrown at a foe whose body is
+## within `range` px of its own that doesn't carry `mark` yet (CreatureSim.has_mark: the
+## pink of a tenderized foe is on screen), so the string after it pays off (Chef
+## Cerebro's Tenderize, then a Mallet Toss that staggers). As a punish (`left`: the foe's
+## recovery ticks) only when it lands before the foe recovers, windup included; in
+## neutral not into a swing, a dodge or a guard, and only `chance` of the ticks it could.
+func _plan_setup(me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float, left := -1) -> bool:
+	var su: Dictionary = _ai(me).get("setup", {})
+	if su.is_empty():
+		return false
+	var act := String(su.get("move", ""))
+	if not ACTION_BIT.has(act) or not _usable(me, me.action_move(act)):
+		return false
+	if foe.has_mark(String(su.get("mark", ""))) or _foe_hidden:
+		return false
+	if dist - me.radius - foe.radius > float(su.get("range", 16.0)):
+		return false
+	if left >= 0:
+		var mv: Dictionary = me.moves()[me.action_move(act)]
+		if left < int(mv.get("windup", 0)) + int(mv.get("startup", 0)) + 1:
+			return false
+	elif foe.state in [CreatureSim.State.ATTACK, CreatureSim.State.DODGE, CreatureSim.State.GUARD] \
+			or not _roll(float(su.get("chance", 1.0))):
+		return false
+	_hold(SimDefs.move_bits(to_foe))
+	_press(int(ACTION_BIT[act]))
+	return true
 
 
 ## The rest of the kit, used when it's sure to pay off: a Surge that can't miss, a lob

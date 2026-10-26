@@ -316,3 +316,60 @@ func test_scored_kit_is_reproducible_and_fights() -> void:
 		runs.append([sim.state_hash(), kit])
 	assert_eq(runs[0][0], runs[1][0], "same seed, same match:")
 	assert_true(int(runs[0][1]) > 0, "it throws its kit")
+
+
+## Chef Cerebro's setup (ai "setup", "setup_routes"): up close on a foe that isn't
+## tenderized his string sets it up (a knife, then Tenderize, then the cleaver); once
+## it's tenderized, the long string whose Mallet Toss now staggers.
+func test_cerebro_cpu_sets_up_then_cashes_out() -> void:
+	var sim := MatchFactory.versus("cerebro", "cairn")
+	var chef := sim.creatures[0]
+	var foe := sim.creatures[1]
+	var cpu := CpuController.new(0, 3, 5)
+	chef.move_id = "light_1"
+	var near := chef.radius + foe.radius + 10.0
+	var r: Array = cpu._pick_route(chef, near, foe)
+	assert_eq(r.slice(0, 2), ["light", "heavy"], "not tenderized: a knife, then Tenderize:")
+	foe.vuln = 200
+	r = cpu._pick_route(chef, near, foe)
+	assert_eq(r.slice(0, 4), ["light", "light", "light", "heavy"], "tenderized: the whole string first:")
+	# Tenderize itself is an opener route: the cleaver after it.
+	chef.move_id = "heavy"
+	assert_eq(cpu._pick_route(chef, near, foe), ["heavy", "skill_1"], "Tenderize, then the cleaver:")
+
+
+## A string whose first hit missed: contact on the second light picks up the routes from
+## there (it used to cancel straight into the heavy, which whiffed from knife range).
+func test_first_contact_on_a_later_light_follows_the_string() -> void:
+	var sim := MatchFactory.versus("cerebro", "cairn")
+	var chef := sim.creatures[0]
+	var foe := sim.creatures[1]
+	foe.vuln = 200
+	var cpu := CpuController.new(0, 3, 5)
+	chef.move_id = "light_2"
+	assert_eq(cpu._string_index(chef), 1, "the second light of the string:")
+	var r: Array = cpu._pick_route(chef, 100.0, foe)
+	assert_eq(r.slice(0, 3), ["light", "light", "skill_1"], "from afar: the mallet, then the cleaver:")
+	chef.move_id = "light_3"
+	r = cpu._pick_route(chef, 100.0, foe)
+	assert_eq(r.slice(0, 2), ["light", "skill_1"], "on the mallet: the cleaver next:")
+	chef.move_id = "skill_2"
+	assert_eq(cpu._string_index(chef), -1, "a skill isn't in the string")
+
+
+## The Rage CPU throws its setup at a whiff it can punish in time, and not at a foe
+## already set up.
+func test_cerebro_cpu_tenderizes_a_whiff_in_reach() -> void:
+	for marked in [false, true]:
+		var sim := MatchFactory.versus("cerebro", "cairn")
+		var chef := sim.creatures[0]
+		var foe := sim.creatures[1]
+		var cpu := CpuController.new(0, 3, 9)
+		foe.pos = chef.pos + Vector2(chef.radius + foe.radius + 8.0, 0)
+		if marked:
+			foe.vuln = 200
+			foe.vuln_mult = 1.2
+		var pressed := cpu._plan_setup(chef, foe, foe.pos - chef.pos, chef.pos.distance_to(foe.pos), 40)
+		assert_eq(pressed, not marked, "a 40-tick whiff in reach, tenderized %s:" % marked)
+		var late := cpu._plan_setup(chef, foe, foe.pos - chef.pos, chef.pos.distance_to(foe.pos), 6)
+		assert_false(late, "not when the foe recovers first (windup + startup is 16)")

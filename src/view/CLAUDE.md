@@ -99,7 +99,7 @@ skips them (`_frame_fight`, `_hides_someone`).
 
 Emitted by the sim (triggers in `docs/MECHANICS.md`): hit, block, guard_break (`drained`:
 stamina ran out, drawn "EXHAUSTED"), slam, bounce, fall, land, land_hard, dodge, ko, slip,
-grab, windup, tag, enter, breakaway, projectile, projectile_end, projectile_pierce, armor,
+grab, windup, tag, enter, breakaway, projectile, projectile_end, projectile_pierce, projectile_bounce, armor,
 shield_up, shield_break, slow, taunt, roar, hook, pull, burst, reel, tenderized,
 punishable, freeze, zone, steal, warp, blink, blinded, miss, rooted, poisoned, poison,
 gaze, petrify, shatter, hazard_strike, hazard_hit, hazard_shelter, hazard_pickup,

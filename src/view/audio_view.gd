@@ -252,7 +252,7 @@ func on_event(e: Dictionary) -> void:
 			play("snag")
 		"reel":
 			play("reel")
-		"projectile_end", "projectile_pierce":
+		"projectile_end", "projectile_pierce", "projectile_bounce":
 			if String(e.get("sound", "")) != "":
 				if power >= 1.0:  # a thrown utensil is silent when it misses
 					play(String(e["sound"]))

@@ -48,7 +48,7 @@ extends Node2D
 ##   --touch-demo[=left]   play a recorded touch script into the touch controls (training as
 ##                         Cairn unless --mode is given; =left mirrors them): overlay captures
 ##   --showcase=NAME       play one scripted demo on a loop: cairn, culvert, craglash, barkley, gillbert,
-##                         cerebro, hissy, digby, pete, sno, angles, twinstick or counterplay
+##                         cerebro, cleaver (the Cleaver Toss bounce), hissy, digby, pete, sno, angles, twinstick or counterplay
 ##   --teams=a,b,c:d,e,f   Duel / 2-player teams (default cerebro,gillbert,barkley:culvert,cerebro,craglash)
 ##   --pick                show the team pick screen even with --mode
 ##   --cpu-vs-cpu          every player side is played by the CPU (demos, captures)
@@ -3354,10 +3354,16 @@ func _update_camera() -> void:
 	elif (showcase != null or coach != null) and sim != null and sim.creatures.size() >= 2:
 		var a := sim.creatures[0].pos
 		var b := sim.creatures[1].pos
+		# A showcase's extra fighters (the cleaver's second foe) are framed too.
+		var lo := Vector2(minf(a.x, b.x), minf(a.y, b.y))
+		var hi := Vector2(maxf(a.x, b.x), maxf(a.y, b.y))
+		for i in range(2, sim.creatures.size()):
+			lo = lo.min(sim.creatures[i].pos)
+			hi = hi.max(sim.creatures[i].pos)
 		# Fighters stacked up and down the screen: aim a little higher and zoom out to
 		# keep both (and their heads) in shot.
-		var dy := absf(a.y - b.y)
-		var mid := (a + b) * 0.5 + Vector2(0, -8 - minf(dy, 40.0) * 0.3)
+		var dy := hi.y - lo.y
+		var mid := (lo + hi) * 0.5 + Vector2(0, -8 - minf(dy, 40.0) * 0.3)
 		_cam_follow = mid if _cam_follow == Vector2.ZERO else _cam_follow.lerp(mid, 0.12)
 		var fit := lerpf(SHOWCASE_ZOOM, 1.3, clampf(dy / 40.0, 0.0, 1.0))
 		_cam_zoom = fit if _cam_zoom <= 0.0 else lerpf(_cam_zoom, fit, 0.08)
