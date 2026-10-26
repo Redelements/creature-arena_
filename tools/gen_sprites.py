@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the small placeholder sheets for Creature Arena: floor tiles, the crowd, effects.
+"""Generate the small placeholder sheets for Ready 4 Rambles: floor tiles, the crowd, effects.
 
 Run from anywhere:  python3 tools/gen_sprites.py   (or --tiles for the floor tiles alone)
 Requires Pillow (pip install pillow).

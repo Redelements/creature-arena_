@@ -10,8 +10,12 @@ config_version=5
 
 [application]
 
-config/name="Creature Arena"
-config/description="Real-time 2D creature brawler prototype."
+config/name="Ready 4 Rambles"
+config/description="Ready 4 Rambles: a real-time 2D creature brawler prototype."
+config/use_custom_user_dir=true
+config/custom_user_dir_name="godot/app_userdata/Creature Arena"
+config/custom_user_dir_name.windows="Godot/app_userdata/Creature Arena"
+config/custom_user_dir_name.macos="Godot/app_userdata/Creature Arena"
 run/main_scene="res://scenes/main.tscn"
 run/flush_stdout_on_print=true
 config/quit_on_go_back=false

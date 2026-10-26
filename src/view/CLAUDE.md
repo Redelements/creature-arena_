@@ -119,7 +119,7 @@ grab, windup, tag, enter, breakaway, projectile, projectile_end, projectile_pier
 shield_up, shield_break, slow, taunt, roar, hook, pull, burst, reel, tenderized,
 punishable, freeze, zone, steal, warp, blink, blinded, miss, rooted, poisoned, poison,
 gaze, petrify, shatter, hazard_strike, hazard_hit, hazard_shelter, hazard_pickup,
-hazard_pickup_gone; audio only: surge, duel_over; main only: hazard_warn (`main.gd:_hazard_warn`,
+hazard_pickup_gone, hazard_reverse, hazard_ricochet, hazard_end; audio only: surge, duel_over; main only: hazard_warn (`main.gd:_hazard_warn`,
 the HUD banner / toast), spree, shutdown, crown (`main.gd:_wanted_toast`, the crowd). `FxView.cue(sound)` is a signal for
 dig/slosh/poof/chop_chop/shout sounds.
 
@@ -153,7 +153,15 @@ dig/slosh/poof/chop_chop/shout sounds.
 - Arena hazards (a mutator's tidal wave, meteor shower) → `fx_view.gd:_draw_hazards_floor` (the swell, the shelter
   lanes behind rubble, the water behind the front, the puddles' wash `_draw_puddles`, meteor shadows: true circles,
   cores' glow), `_draw_hazards_top` (the crest, falling meteors, the core's ember), `_hazard_spray`, `_hazard_event`;
-  all read from `sim.hazards` / `Hazards.wave_now` / `meteors_now`. Breakwaters are WALL cells the map didn't put
+  all read from `sim.hazards` / `Hazards.wave_now` / `meteors_now`. The rolling boulders (one entry each in
+  `Hazards.boulders_now`): each lane `_boulder_lane` (a band across the floor with marching dashed edges and chevrons
+  while they warn together, the part still ahead while it rolls; its shadow a true circle of its hit radius), once it has
+  turned (`turned`: a ricochet, a wall, a send-back) its way ahead instead, `_boulder_path` (dashed edges fading over
+  `BOULDER_PATH` px, bold with an arrow for the data's `preview_ticks`), gold once someone sent it back; the ball
+  `_boulder_ball` (its turn worked out from where it is: looks only), dust in `_hazard_spray`, "SENT BACK!" on
+  `hazard_reverse`, sparks and "CLACK!" on `hazard_ricochet`. The fault line `_fault_floor`: the
+  crack running out from its middle while it warns (`_fault_line`), the open chasm is ArenaView's own pit look, its cells
+  glow and narrow in its last second; dust when it opens and closes (`_fault_last`). Breakwaters are WALL cells the map didn't put
   there: `arena_view.gd:_draw_rubble` draws them like a rockslide's
 - Wanted marks over the bar (a Team Deathmatch spree's flame with a pip a level, the Brawl crown) →
   `fx_view.gd:_draw_wanted` (`FxView.wanted`, from `main.gd:_wanted_marks`); their off-screen arrows

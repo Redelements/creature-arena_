@@ -1,6 +1,6 @@
 class_name LanFinder
 extends RefCounted
-## Looks for a Creature Arena dedicated server on this computer's own network, so a
+## Looks for a Ready 4 Rambles dedicated server on this computer's own network, so a
 ## player at the server's house joins it directly (see ServerBeacon for why).
 ##
 ##   var f := LanFinder.new()

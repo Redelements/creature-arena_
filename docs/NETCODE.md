@@ -374,7 +374,7 @@ pick to match 2, fingerprints agreeing).
 
 Still to do: a Steam transport (below).
 
-## Proximity voice chat (NET_VERSION 35)
+## Proximity voice chat (NET_VERSION 36)
 
 Players in a match talk to each other, and a voice is louder the closer its fighter
 stands. It rides the match's own link; nothing about it reaches the simulation, so it
