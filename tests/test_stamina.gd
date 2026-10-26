@@ -54,7 +54,8 @@ func _ticks_until_regen(sim: MatchSim, c: CreatureSim, limit: int) -> int:
 
 func test_the_numbers_live_in_one_rules_file() -> void:
 	var r := CreatureSim.stamina_rules()
-	for k in ["dodge_cost_share", "block_drain_mult", "block_regen_pause_seconds", "exhaust_delay_seconds"]:
+	for k in ["dodge_cost_share", "block_drain_mult", "block_regen_pause_seconds", "exhaust_delay_seconds",
+			"exhaust_speed_mult", "exhaust_slow_seconds"]:
 		assert_true(r.has(k), "stamina.json has %s" % k)
 	var m: Dictionary = r["block_drain_mult"]
 	assert_lt(float(m["light"]), float(m["heavy"]), "a light drains less than a heavy:")
@@ -85,7 +86,7 @@ func test_a_blocked_light_drains_less_than_a_blocked_heavy_per_damage() -> void:
 	_go(sim, 0, 30, G)
 	assert_eq(_seen("block").size(), 1, "the light was blocked")
 	assert_near(d.stamina, d.max_stamina - MatchSim.block_drain(d, "light", 4.0), 0.001, "drain:")
-	assert_lt(d.hp, d.max_hp, "chip damage still goes through")
+	assert_near(d.hp, d.max_hp, 0.001, "no chip damage while stamina holds:")
 
 
 func test_no_guard_at_zero_stamina() -> void:
@@ -218,3 +219,20 @@ func test_the_rage_cpu_wears_down_a_low_guard() -> void:
 			break
 	assert_false(_seen("block").is_empty(), "it attacked the guard instead of waiting")
 	assert_lt(d.stamina, start, "and blocked hits wore it down")
+
+
+func test_exhaustion_slows_the_walk_for_a_moment() -> void:
+	var sim := _close()
+	var p := sim.creatures[0]
+	var fresh := p.walk_speed()
+	p.spend_stamina(p.stamina)
+	assert_true(p.is_exhausted(), "emptied")
+	var mult := float(CreatureSim.stamina_rules()["exhaust_speed_mult"])
+	var ticks := CreatureSim.stamina_ticks("exhaust_slow_seconds", 1.5)
+	assert_lt(mult, 1.0, "a real slow:")
+	assert_lt(ticks, CreatureSim.stamina_ticks("exhaust_delay_seconds", 2.0), "shorter than the regen wait:")
+	assert_eq(p.exhaust_slow, ticks, "the slow timer:")
+	assert_near(p.walk_speed(), fresh * mult, 0.001, "exhausted walk:")
+	_go(sim, 0, ticks)
+	assert_true(p.is_exhausted(), "still out of stamina")
+	assert_near(p.walk_speed(), fresh, 0.001, "but walking at full speed again:")

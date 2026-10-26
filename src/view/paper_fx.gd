@@ -17,11 +17,12 @@ const C_OUT := Color("1b1e26")
 const C_ORANGE := Color("ff9a2e")
 const C_NAVY := Color("1e488e")
 const C_MAROON := Color("761240")
-const THROW_Z := 18.0
-## Where the carried crafts sit on him (px above his feet; x is toward his facing).
-const BAND := Vector2(5.0, -58.0)
-const HAND := Vector2(12.0, -35.0)
-const SHOULDER := Vector2(-8.0, -47.0)
+const THROW_Z := 14.0  ## darts and planes fly at his hand height (he is 37 px tall)
+## Where the carried crafts sit on him (px above his feet; x is toward his facing), for
+## his 37 px figure: the crafts he carries are drawn small to match.
+const BAND := Vector2(3.0, -29.0)
+const HAND := Vector2(6.0, -18.0)
+const SHOULDER := Vector2(-4.0, -24.0)
 const TRAIL := 14
 ## A Paper Frog's hop: `HOP` ticks from one landing to the next, `HOP_H` px high at the top.
 const HOP := 9
@@ -151,15 +152,15 @@ func _draw_sheets(c: CreatureSim) -> void:
 	var jolt := float(_scatter.get(c.id, 0))
 	for i in c.sheets:
 		var a := _tick * 0.035 + TAU * i / 3.0
-		var r := 9.0 + jolt * 0.6
+		var r := 6.0 + jolt * 0.5
 		var at := centre + Vector2(cos(a) * r, sin(a) * r * 0.35 + sin(_tick * 0.08 + i) * 1.2)
 		if jolt > 0.0:
 			at += Vector2(sin(_tick * 1.7 + i * 2.0), cos(_tick * 1.3 + i)) * jolt * 0.3
 		var fresh := i == c.sheets - 1 and _flourish.has(c.id)
 		var turn := cos(_tick * 0.06 + i * 2.1 + jolt * 0.4)  # the sheet turning over, slowly
-		_paper_sheet(at.round(), 3.0, a * 0.6 + i, turn, fresh and (int(_flourish[c.id]) / 3) % 2 == 0)
+		_paper_sheet(at.round(), 2.0, a * 0.6 + i, turn, fresh and (int(_flourish[c.id]) / 3) % 2 == 0)
 		if fresh and int(_flourish[c.id]) < 10:
-			draw_arc(at, 3.0 + float(_flourish[c.id]) * 0.5, 0.0, TAU, 10,
+			draw_arc(at, 2.0 + float(_flourish[c.id]) * 0.4, 0.0, TAU, 10,
 				Color(1, 1, 1, 1.0 - float(_flourish[c.id]) / 10.0), 1.0)
 
 
@@ -174,23 +175,23 @@ func _draw_carried(c: CreatureSim) -> void:
 	var xs := 0.35 if (up or down) else 1.0
 	if c.folded.has("heavy"):
 		var b := c.pos + lift + Vector2(BAND.x * s * xs, BAND.y)
-		draw_shuriken(self, b.round(), 2.6, _tick * 0.0, false)
+		draw_shuriken(self, b.round(), 1.5, _tick * 0.0, false)
 	if c.folded.has("skill_1"):
 		var h := c.pos + lift + Vector2(HAND.x * s * xs, HAND.y + (2.0 if down else 0.0))
-		draw_crane(self, h.round(), Vector2(s, 0), 0.75, sin(_tick * 0.12) * 0.5)
+		draw_crane(self, h.round(), Vector2(s, 0), 0.45, sin(_tick * 0.12) * 0.5)
 	if c.folded.has("skill_2"):
 		# the three frogs, a little cluster on his shoulder: the back one higher and smaller
 		var f := c.pos + lift + Vector2(SHOULDER.x * s * xs, SHOULDER.y)
 		var dir := Vector2(s, 0)
-		draw_frog(self, (f + Vector2(s * 1.0, -4.0)).round(), dir, 0.55, 0.0)
-		draw_frog(self, (f + Vector2(-s * 3.5 * xs, 0.0)).round(), dir, 0.62, 0.0)
-		draw_frog(self, (f + Vector2(s * 3.0 * xs, 0.5)).round(), dir, 0.62, 0.0)
+		draw_frog(self, (f + Vector2(s * 0.5, -2.0)).round(), dir, 0.33, 0.0)
+		draw_frog(self, (f + Vector2(-s * 2.0 * xs, 0.0)).round(), dir, 0.38, 0.0)
+		draw_frog(self, (f + Vector2(s * 1.5 * xs, 0.5)).round(), dir, 0.38, 0.0)
 
 
 ## The Paper Plane's trail: a ribbon of paper that thins and fades behind him, with a
 ## loose sheet or two turning over in it.
 func _draw_trail(tr: Array) -> void:
-	var z := Vector2(0, -16.0)
+	var z := Vector2(0, -9.0)
 	for i in range(1, tr.size()):
 		var a: Vector2 = tr[i - 1]
 		var b: Vector2 = tr[i]

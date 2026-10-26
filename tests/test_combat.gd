@@ -110,12 +110,12 @@ func test_dodge_iframes_avoid_the_same_jab() -> void:
 	assert_near(b.hp, b.max_hp, 0.001, "dodger hp:")
 
 
-func test_guard_blocks_most_damage_and_drains_stamina() -> void:
+func test_guard_blocks_all_damage_and_drains_stamina() -> void:
 	var sim := _close_training()
 	var d := sim.creatures[1]
 	run(sim, 0, 1, G)
 	tap(sim, L, 30, G)
-	assert_near(d.hp, d.max_hp - 4.0 * 0.2, 0.001, "chip damage through guard:")
+	assert_near(d.hp, d.max_hp, 0.001, "no chip damage through guard:")
 	assert_near(d.stamina, d.max_stamina - MatchSim.block_drain(d, "light", 4.0), 0.001, "guard stamina:")
 	assert_eq(d.state, CreatureSim.State.GUARD, "still guarding:")
 

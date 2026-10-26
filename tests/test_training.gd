@@ -392,9 +392,9 @@ func _step_hud(hud: Hud, sim: MatchSim, ticks: int, p0 := 0, p1 := 0) -> void:
 		hud.advance()
 
 
-func test_dps_counts_chip_poison_projectiles_and_falls() -> void:
+func test_dps_counts_poison_projectiles_and_falls_not_blocks() -> void:
 	var hud := Hud.new()
-	# Block chip: the dummy guards Cairn's lights.
+	# A block takes no health: the dummy guards Cairn's lights.
 	var sim := MatchFactory.training("cairn")
 	var d := sim.creatures[1]
 	d.pos = sim.creatures[0].pos + Vector2(22, 0)
@@ -404,8 +404,8 @@ func test_dps_counts_chip_poison_projectiles_and_falls() -> void:
 		_step_hud(hud, sim, 1, SimDefs.IN_LIGHT if i % 15 == 0 else 0, SimDefs.IN_GUARD)
 		blocked = blocked or d.state == CreatureSim.State.GUARD
 	assert_true(blocked, "the dummy guarded")
-	assert_gt(hud.dps.total, 0.0, "chip damage counts:")
-	assert_near(hud.dps.total, d.max_hp - d.hp, 0.001, "all of it:")
+	assert_near(d.hp, d.max_hp, 0.001, "no chip through the guard:")
+	assert_near(hud.dps.total, 0.0, 0.001, "so nothing to count:")
 	# Poison ticking with nobody pressing anything.
 	sim = MatchFactory.training("hissy")
 	d = sim.creatures[1]

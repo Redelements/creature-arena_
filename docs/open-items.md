@@ -16,7 +16,9 @@ Priorities are in the Game Plan doc, "Game modes".
   online 2v2/3v3 through the server (any team rules: deathmatch, Sinkhole, Crater, Caravan, Capture the Flag), online 4v4 Capture the Flag,
   3v3 tag Duels, spectators, saved online replays, arenas online (the host's or
   the room's, random for Quick match), an input delay setting, ranked 1v1 with Glicko
-  ratings and Daily scores on the server. Not yet: a Steam transport (behind `NetLink`).
+  ratings and Daily scores on the server, proximity voice chat (push to talk or an open mic,
+  IMA ADPCM in GDScript, relayed by the server to players who turned it on and to spectators;
+  `docs/NETCODE.md`). Not yet: a Steam transport (behind `NetLink`).
 - **Android:** a debug APK builds in CI (arm64, export preset "Android") and runs on an
   AYN Odin 3 with the same match fingerprint as PC. No touch controls (a controller is
   needed), no app icon, no release signing or Play Store listing yet. iPhone: not started

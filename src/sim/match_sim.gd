@@ -215,7 +215,7 @@ func add_creature(def: Dictionary, p: Vector2, is_dummy := false) -> CreatureSim
 
 
 ## Who gets the credit for knocking a fighter out, from this tick's events: `by[slot]` is the
-## last fighter whose hit (a clean hit, chip through a block, a poison tick, a boulder it
+## last fighter whose hit (a clean hit, a poison tick, a boulder it
 ## sent back with a heavy: Hazards) landed on that
 ## slot and `at[slot]` the tick it landed. Modes that score KOs per fighter (Team Deathmatch's
 ## spree, the Brawl crown) call it after each step and keep both arrays as their own state.
@@ -576,6 +576,14 @@ static func block_drain(d: CreatureSim, hit_type: String, damage: float) -> floa
 	return damage * float(d.def["guard"]["drain_per_damage"]) * float(mult.get(hit_type, 1.0))
 
 
+## Lifesteal (Sneaky Pete's Five-Finger Discount): the attacker heals its "lifesteal" share
+## of the health its hit took, up to max HP.
+func _lifesteal(a: CreatureSim, dealt: float) -> void:
+	var share := float(a.def.get("lifesteal", 0.0))
+	if share > 0.0 and dealt > 0.0 and a.state != CreatureSim.State.KO:
+		a.hp = minf(a.max_hp, a.hp + dealt * share)
+
+
 ## Resolves one hit: Slip counters, guarding, then damage with the combo rules.
 ## Returns "slip", "block" or "hit".
 ## `ranged`: the hit came from a projectile or a lob, not a strike in reach.
@@ -599,7 +607,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	if a.boost_dmg != 1.0:
 		damage *= a.boost_dmg  # the Crater shrine's permanent buff
 	if d.vuln > 0:
-		damage *= d.vuln_mult  # tenderized: every hit lands harder, chip included
+		damage *= d.vuln_mult  # tenderized: every hit lands harder, armor chip included
 	if (a.ambush_serial > 0 and int(hit["serial"]) == a.ambush_serial) or a.ambush_t > 0:
 		damage *= float(a.def.get("ambush", 1.0))  # a sneak attack out of stealth, and its opening string
 	var gd: Dictionary = d.def["guard"]
@@ -609,6 +617,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 		var ar: Dictionary = d.move_def()["armor"]
 		var taken := d.take_damage(damage * (1.0 - float(ar.get("reduction", 0.6))), self)
 		a.dealt_damage()
+		_lifesteal(a, taken)
 		d.flash = 3
 		gain_energy(a, energy_dealt(d, String(hit["type"]), taken))
 		if same_attack:
@@ -628,21 +637,21 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 			d.drop_guard()
 			emit_event("guard_break", d.pos, 1.0, {"who": d.id, "drained": true})
 		elif facing_attacker and not bool(hit["guard_break"]):
-			var chip := d.take_damage(damage * (1.0 - float(gd["reduction"])), self)
+			# Blocked with stamina to spare: no health lost (no chip), the guard pays in stamina.
+			# It still counts as combat for both (Stoneskin's calm timer).
+			d.calm_t = 0
 			a.dealt_damage()
 			d.spend_stamina(drain)
 			d.pause_regen_for_block()
 			d.knock_vel = push * float(hit["knockback"]) * 0.4 / d.weight
 			d.guard_hit = 10
 			d.stun = int(float(hit["hitstun"]) * 0.5)
-			gain_energy(a, energy_dealt(d, String(hit["type"]), chip))
 			if same_attack:
 				a.connected = true
 				_punish_blocked_ender(a, d)
 			impact_stop(a, d, int(float(hit["hitstop"]) * 0.5), ranged)
 			emit_event("block", fx_pos, damage, {"attacker": a.id, "target": d.id, "move_type": String(hit["type"]),
-				"dealt": chip})
-			d.check_ko(self)
+				"dealt": 0.0})
 			return "block"
 	var broke_guard := false
 	if d.state == CreatureSim.State.GUARD and not bool(hit["grab"]) and bool(hit["guard_break"]) \
@@ -682,6 +691,7 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	var stun := int(round(float(hit["hitstun"]) * maxf(HITSTUN_FLOOR, 1.0 - HITSTUN_DECAY * (n - 1)) * stale))
 
 	var dealt := d.take_damage(total, self)
+	_lifesteal(a, dealt)
 	a.dealt_damage()
 	d.flash = 6
 	if float(hit.get("slow_ticks", 0.0)) > 0.0:

@@ -322,10 +322,10 @@ behind the blocker ("OPEN!" pops up over them), time enough to punish with a jab
 **Stamina pays for dodges and blocks.** A dodge costs **60% of the stamina bar**, so you get one, then a wait.
 **You can dodge out of your own attack at any time** (leave a string, feint out of a windup, skip a whiffed heavy's
 recovery): that dodge costs **75% of the bar**, and a blocked third light still has to be served. A blocked
-hit chips a little health and drains stamina: lights drain less, heavies more, and every
+hit takes **no health** while you have the stamina for it; it drains stamina instead: lights drain less, heavies more, and every
 blocked hit holds stamina regen off for half a second, so you can't recover under pressure.
 At **0 stamina you're exhausted**: you can't start a guard, a guard you're holding drops and
-the hit that emptied it lands clean ("EXHAUSTED"; no extra stun), and regen waits 2 seconds.
+the hit that emptied it lands clean ("EXHAUSTED"; no extra stun), you walk at 80% speed for 1.5 seconds, and regen waits 3 seconds.
 The stamina bar flashes red while you're exhausted. The numbers are in `data/rules/stamina.json`.
 
 **Shots are easy to land:** every straight projectile hits in a wider circle than it's drawn
@@ -587,7 +587,7 @@ burst's total and length under it ("DPS 16.7", "40 dmg 2.4 s"). A burst starts a
 first damage and ends after 2.5 s without any; its DPS is the total over the time from
 its first damage to its last (at least a second, so one hit reads as its damage). The
 number is gold while the burst is going and stays, dimmed, until your next hit starts a
-new one. Everything that takes the dummy's health counts: clean hits, block and armor
+new one. Everything that takes the dummy's health counts: clean hits, armor
 chip, projectiles, poison, falls; the dummy refilling after a KO doesn't. Paused time
 doesn't count.
 
@@ -675,7 +675,7 @@ three-second lockdown while his team does the damage.
 | Skill 1 | Landslide Charge | A slow, heavy shoulder charge about 65 px forward that **stuns** whoever it hits for a quarter second (crumple), long enough to follow up. A gold windup tell |
 | Skill 2 | Mountain Maw | The hook, back every 3.3 s. His head shoots out on its stone neck, **far** (about 160 px), and **can't be blocked**: it has to be dodged. It bites the first foe it reaches and **hauls them back** to his feet, **crumpled**, so a Rake (or a teammate) follows. A red tell and a dotted lane show it coming |
 | Surge | Bedrock | Roots in place for 3 s: hits only chip him (75% less damage) and nothing moves him. Every foe within 200 px is **taunted** for 3 s: they walk at 60% speed, their attacks swing at him, and they're **dragged in** toward him, hard. Any attack button answers out of it after 18 frames, so the Stomp meets them as they arrive. Loses to grabs. A tank's meter fills from the hits he takes, so soaking damage is what earns it |
-| Passive | Stoneskin | A 30-point stone shield that soaks damage first; it grows back only after **7 s out of combat**: no damage taken and none dealt (his hits and chip count too), so it doesn't refresh mid-brawl. Shown as a pale rim on him and as pale stone on the end of his health bar ("STONESKIN") |
+| Passive | Stoneskin | A 30-point stone shield that soaks damage first; it grows back only after **7 s out of combat**: no damage taken and none dealt (his hits count too, blocked ones included), so it doesn't refresh mid-brawl. Shown as a pale rim on him and as pale stone on the end of his health bar ("STONESKIN") |
 | Dodge | Landslide Ram | His roll is a shoulder charge about as far as anyone's roll (about 45 px), and it costs **70%** of his stamina (most dodges cost 60%). He also gets his stamina back slower than most (0.35 a tick). The first foe it reaches is **hit** (4 damage, a short stun that a Rake links after, and it counts in the combo) and the dash stops there. Running into the wall stops it too and cracks the floor. Still invincible in the middle, like any roll |
 
 ### Barkley — the tree that got up and left
@@ -689,7 +689,7 @@ in, spins, and fills the space around him with pinecones and roots.
 | Heavy | Timber Twister | Arms out, he spins on his roots: three hits all around him, the last one knocks up and away. Hold to charge (more damage, throws farther). Can't be cancelled until the last hit. **Armored** while it spins: hits only chip him (half damage) and don't stop it, though the windup can still be interrupted. A 2.5 s cooldown |
 | Skill 1 | Branch Grab | A branch arm shoots out to long range, snags, and **reels the target in** to point-blank, still stunned, so a light string links after it. A **grab**: it can't be blocked (red warning), so dodge it; it misses a target in the air |
 | Skill 2 | Pinecone Bomb | Lobs a pinecone; it bursts where it lands in a **wide** burst (32 px around the spot), popping up everything in it, even a foe right beside him on the shortest throw. **Tap** for the shortest throw (about 54 px), **hold** to throw it further (up to about 115 px): a ring on the floor slides out to show where it will land. On release it **turns toward a foe** within about 45° of where you aimed |
-| Surge | Root Eruption | Plunges his arms into the floor: roots burst out in three growing rings (40, 65 and 90 px), all around him; the last ring stuns and **roots** for 1.5 s, past the stun. Block it (chip only), roll through at the right moment, or be 90+ px away. Cracks the floor but opens no pits |
+| Surge | Root Eruption | Plunges his arms into the floor: roots burst out in three growing rings (40, 65 and 90 px), all around him; the last ring stuns and **roots** for 1.5 s, past the stun. Block it (it only drains stamina), roll through at the right moment, or be 90+ px away. Cracks the floor but opens no pits |
 
 The sheet gives Barkley no passive, so he has none.
 
@@ -731,7 +731,7 @@ range; up close he softens them up or flips them away. Voice line: "CHOP CHOP!"
 | Heavy | Tenderize | Pounds the floor with the mallet: hits everyone close, all around him, pops them up and **tenderizes** them (they take 20% more damage for 4 s; a pink arrow shows it). Hold to charge (bigger and harder) |
 | Skill 1 | Cleaver Toss | Flings the big knife in a straight line, about 120 px; it hits the first foe in its path and then **bounces once** to the nearest other foe within 80 px (60% damage). Keeps a juggle going |
 | Skill 2 | Flip Out | Scoops a close foe with the spatula and **flips them over his head**, to land behind him; he turns to follow. A grab: it beats guard (red tell) |
-| Surge | Knife Flurry | A stream of eight knives in a straight line, about 130 px, that fly **through** everyone in the line (a fat knife, with the outer ones fanned a little wider so a lane isn't a single pixel); the last one knocks down and **tenderizes** (takes 25% more damage for 4 s), so follow it up. Block it (3 chip) or sidestep the lane. It **aims at the nearest foe** within about 65° of where he faces (every knife tracks them), so they needn't be lined up on one of the 8 directions. A dotted line on the floor shows the lane during the startup |
+| Surge | Knife Flurry | A stream of eight knives in a straight line, about 130 px, that fly **through** everyone in the line (a fat knife, with the outer ones fanned a little wider so a lane isn't a single pixel); the last one knocks down and **tenderizes** (takes 25% more damage for 4 s), so follow it up. Block it (it only drains stamina) or sidestep the lane. It **aims at the nearest foe** within about 65° of where he faces (every knife tracks them), so they needn't be lined up on one of the 8 directions. A dotted line on the floor shows the lane during the startup |
 
 The sheet gives him no passive, so he has none. His victory emote (hibachi tricks) waits
 for a victory-pose system.
@@ -793,8 +793,9 @@ shoulder. He wins by not being where you're looking. Voice line: "Finders keeper
 | Skill 1 | Tiptoe | He sneaks forward and goes **invisible** for 3 s (a faint shimmer is all you see) and **55% quicker**. A staggering hit gives him away (a knife flick doesn't); so does his own attack, but only as it lands, and that **ambush hits 35% harder, and so does everything he lands in the next 1.5 s**. The CPU loses track of him and goes where it last saw him |
 | Skill 2 | Pickpocket | A low dash that **steers onto** the nearest foe, runs right **through**, hits on the way past and **steals 20% of their attack power** for 5 s: his hits land 20% harder, theirs 20% softer. A gold windup tell gives it away |
 | Surge | The Big Heist | A puff of smoke and he's gone, then he **reappears behind the foe** (on their far side if the spot behind is a pit or a wall) for a flurry of bag hits and a big finishing smack that knocks down, its smoke **blinding** everyone within 45 px |
+| Passive | Five-Finger Discount | **Lifesteal:** he heals 8% of the health every hit of his takes (clean hits and hits on armor; a blocked hit takes none, so it heals none), up to his max HP |
 
-No passive on the sheet. His victory emote (dumping out the bag and throwing the cash in
+His victory emote (dumping out the bag and throwing the cash in
 the air) waits for a victory-pose system.
 
 ![Sneaky Pete's showcase](docs/pete_demo.gif)

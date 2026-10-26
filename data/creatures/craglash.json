@@ -29,7 +29,6 @@
     }
   },
   "guard": {
-    "reduction": 0.82,
     "drain_per_damage": 1.8,
     "speed_mult": 0.35,
     "break_stun": 50
