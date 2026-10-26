@@ -277,6 +277,10 @@ dig/slosh/poof/chop_chop/shout sounds.
   shows its piece of `_cracked` / `_alt`; pits `_paint_pit_band`; a hole in a bridge, or a fallen one,
   shows the water of `_alt`, `_bridge_gone`); the pictures come from
   `tools/gen_arenas.py`, which reads the pieces from `data/arenas/<id>.json`
+- Flipbook hit effects (bought kiddolink VFX, cut by `tools/cut_packs.py`) → `flipbook_view.gd` (FlipbookView, a child of
+  FxView so it draws over the sparks; `fx.flip`), driven by `data/vfx.json` (a move's hits play a strip; `replace`
+  drops FxView's own burst in `_hit_sparks`). Whole-pixel at 1:1: never scale or rotate a strip (mixed pixel sizes).
+  A fixed pool (`CAP`) in packed arrays, no allocation per hit; steps in `FxView.advance` on its `time_scale`.
 - Hit sparks, shake direction, footstep and landing dust → `fx_view.gd:_hit_sparks` (light: a few
   pixels along the push; heavy: a radial burst on top of the hit flash's white silhouette; skill:
   a burst in `fx.spark_color` / `ghost_color`; surge: heavy plus `flash_out`, which main turns
@@ -326,6 +330,7 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `debug_view.gd` (DebugView) — F1 overlay: hurtboxes (green), active hitboxes (red), facing, and state/frame counters.
 - `dps_meter.gd` (DpsMeter) — Training's damage-per-second readout for the dummy (drawn by Hud).
 - `flash.gdshader` — Tints a sprite toward flash_color (the white hit flash, the charge glow), and can draw a 1 px rim around its silhouette…
+- `flipbook_view.gd` (FlipbookView) — Flipbook hit effects: hand-drawn frame strips (assets/sprites/vfx/<name>.png, cut from kiddolink's VFX pack by tools/cu…
 - `floor_wear.gd` (FloorWear) — The floor remembers the fight: claw scratches, gouges, craters, drag lines, dirt clods, mallet marks and, for a few sec…
 - `fore_view.gd` (ForeView) — The foreground: things between the camera and the fight, over the fighters, so the arena has a near layer as well as a…
 - `furniture_view.gd` (FurnitureView) — Arena furniture: decor in the margins round the floor, from the optional "furniture" list of data/arenas/<id>.json (a m…

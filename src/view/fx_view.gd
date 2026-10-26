@@ -97,6 +97,8 @@ extends Node2D
 ##   petrified    CreatureView's grey shader, cracks over it as it ends (dust ring on the shatter)
 ##   pickpocket   gold glints on the thief while the stolen might lasts; coins drift from
 ##                the victim to the thief while the victim is weakened
+## Flipbook hit effects: data/vfx.json (not the move's fx) lists moves whose hits play a hand-drawn strip
+## (FlipbookView, `flip`, a child drawn over these sparks); its `replace` drops this burst for that hit.
 ## Projectile polish (every thrown thing, from `PROJ_STYLE` by its "projectile" kind; a move's fx overrides):
 ##   trail_color  colour of the 3 whole-pixel afterimages behind a shot (default by kind)
 ##   trail_z      height of the trail above the floor in px; negative: no trail (default by kind)
@@ -213,8 +215,15 @@ const TRAIL_STEPS := 3
 const TRAIL_ALPHA: Array[float] = [0.62, 0.42, 0.26]
 const WALL_MARK_CAP := 24
 var _pstyles := {}  ## "owner/move" -> {kind, color, z, mark}
+## Flipbook hit effects (data/vfx.json): a child, so it draws over the sparks. Made here, so
+## every FxView has one (main, tests, previews).
+var flip := FlipbookView.new()
 var _proj_prev: Array = []  ## last tick's shots: [owner, pos, vel, style], to tell what a projectile_end was
 var _wall_marks: Array = []
+
+
+func _init() -> void:
+	add_child(flip)
 
 
 func bind_ground(g: FxGround) -> void:
@@ -239,6 +248,7 @@ func clear() -> void:
 	_pstyles.clear()
 	_proj_prev.clear()
 	_wall_marks.clear()
+	flip.clear()
 	_dark = 0.0
 	_rain = 0.0
 	time_scale = 1.0
@@ -698,6 +708,7 @@ func ping(pos: Vector2, attack: bool) -> void:
 func advance() -> void:
 	_tick += 1
 	var ts := time_scale
+	flip.advance(ts)
 	var t0 := PerfLog.now()
 	if sim != null:
 		_watch_all()
@@ -2104,6 +2115,8 @@ func _hit_sparks(e: Dictionary, p: Vector2, push: Vector2) -> void:
 	var kind := String(fx.get("spark", a.move_type() if a != null and a.state == CreatureSim.State.ATTACK else ""))
 	if not kind in ["light", "heavy", "skill", "surge"]:
 		kind = "heavy" if bool(e.get("heavy", false)) else "light"
+	# a flipbook for this move (data/vfx.json) stands in for the burst unless its entry says not
+	var replaced := flip.hit(a, p)
 	var dir_a := push.angle()
 	var col: Color = C_SPARK[0]
 	var n := 3
@@ -2134,8 +2147,9 @@ func _hit_sparks(e: Dictionary, p: Vector2, push: Vector2) -> void:
 		var t := (float(i) + 0.5) / n * 2.0 - 1.0
 		angs.append(dir_a + t * spread + randf_range(-0.12, 0.12))
 		lens.append(ln * randf_range(0.7, 1.3))
-	_add({"kind": "burst", "pos": p, "life": life, "angs": angs, "lens": lens, "r0": 2.0, "r1": r1,
-		"width": width, "color": col})
+	if not replaced:
+		_add({"kind": "burst", "pos": p, "life": life, "angs": angs, "lens": lens, "r0": 2.0, "r1": r1,
+			"width": width, "color": col})
 	match kind:
 		"light":
 			for i in 2:
@@ -2143,13 +2157,15 @@ func _hit_sparks(e: Dictionary, p: Vector2, push: Vector2) -> void:
 			if d != null and d.id < views.size():
 				views[d.id].soft_flash = true
 		"heavy", "surge":
-			_add({"kind": "spark", "pos": p, "life": 8, "scale": 1.6 if kind == "heavy" else 2.2})
+			if not replaced:
+				_add({"kind": "spark", "pos": p, "life": 8, "scale": 1.6 if kind == "heavy" else 2.2})
 			for i in 5:
 				_px(p, push.rotated(randf_range(-0.7, 0.7)) * randf_range(1.2, 2.8), C_SPARK[randi() % 3], 12)
 			if kind == "surge":
 				flash_out = 0.3
 		"skill":
-			_add({"kind": "spark", "pos": p, "life": 7, "scale": 1.2})
+			if not replaced:
+				_add({"kind": "spark", "pos": p, "life": 7, "scale": 1.2})
 			for i in 4:
 				_px(p, push.rotated(randf_range(-0.9, 0.9)) * randf_range(1.0, 2.4), col, 10)
 	if push.length_squared() > 0.001:

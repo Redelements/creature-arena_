@@ -67,6 +67,13 @@ The look, so the floors stop reading as one repeated tile:
   - walls and stands are drawn as solid shapes with a lit top edge and a dark base.
 Everything is seeded, so a run always writes the same pictures.
 
+Bought tiles: maps in TILESET (Twin Keeps) paint their ground, lanes, courtyards and brush from
+tools/art_src/set1_twin_keeps.png, a cut of Szadi art's RPG Worlds Set 1 made by
+tools/cut_packs.py (the pack itself stays outside the repo: ASSETS-LICENSES.md). The tiles' tones
+are remapped by brightness onto the floor's palette ground line (SET1_TONE), so everything below
+still applies. `python3 tools/gen_arenas.py twin_keeps --raw-set1` writes the pack's own colours
+instead, for comparison only (never commit that).
+
 Colours come from the master palette (tools/palette.py): every named colour is snapped to
 it and every ramp onto one palette line before drawing (`snap_constants`; the ground
 ramps are pulled together first, `FLOOR_CONTRAST`, so a floor is one main tone with
@@ -1561,6 +1568,172 @@ def shrine_plinth(img, prng, sh):
         blend_px(img, x, y, PAVE[1], 0.8)
 
 
+# ------------------------------------------------------------------ bought tiles (Set 1)
+# Maps listed here paint their floor from a cut of Szadi art's RPG Worlds Set 1 (32 px tiles;
+# the cut is tools/art_src/set1_twin_keeps.png, made by tools/cut_packs.py from the pack,
+# which never enters the repo: ASSETS-LICENSES.md). Remove a map from this table and it goes
+# back to its procedural floor. The map's geometry, pieces, pits, shadows and depth rules
+# are unchanged: only the ground's texture, the lanes, the courtyards and the brush change.
+TILESET = {"twin_keeps": "set1"}
+SET1_SWATCH = os.path.join(ROOT, "tools", "art_src", "set1_twin_keeps.png")
+# Rects in the swatch (x, y, w, h); keep in step with tools/cut_packs.py SWATCH.
+SET1_RECT = {"grass": (0, 0, 128, 128), "grass_dark": (128, 0, 128, 128), "dirt": (256, 0, 128, 128),
+             "cobble": (384, 0, 64, 64)}
+SET1_TUFTS = [(32 * i, 128, 32, 32) for i in range(3)]       # tall grass (gold, olive, green)
+SET1_SPRIGS = [(96 + 32 * i, 128, 32, 32) for i in range(3)]  # small tufts, same tints
+# Colour match (everything on the master palette, tools/palette.py): the tiles' tones are
+# remapped by brightness onto the floor's ground line, so they keep their texture and take
+# the map's hue: `centre` is the line index the average lands on, `spread` how many line
+# steps one standard deviation of brightness covers. SET1_RAW keeps the pack's own colours
+# instead (comparison only: `python3 tools/gen_arenas.py twin_keeps --raw-set1`).
+SET1_TONE = {"grass": ("moss_fine", 4.2, 1.5), "grass_dark": ("moss_fine", 2.6, 1.4),
+             "dirt": ("earth_fine", 3.0, 1.4), "cobble": ("neutral_fine", 3.2, 1.2)}
+SET1_RAW = False
+_set1 = None
+
+
+def set1_swatch():
+    global _set1
+    if _set1 is None:
+        if not os.path.exists(SET1_SWATCH):
+            sys.exit("missing %s: run tools/cut_packs.py <packs dir> first" % SET1_SWATCH)
+        _set1 = np.array(Image.open(SET1_SWATCH).convert("RGBA"))
+    return _set1
+
+
+def set1_tex(name, ox=0, oy=0):
+    """A floor-sized RGB field tiled from one seamless Set 1 tile, offset (ox, oy) px,
+    colour-matched onto its ground line (or raw with SET1_RAW)."""
+    x, y, w, h = SET1_RECT[name]
+    tile = set1_swatch()[y:y + h, x:x + w, :3].astype(float)
+    if not SET1_RAW:
+        line, centre, spread = SET1_TONE[name]
+        cols = np.array(P.GROUND[line], np.uint8)
+        lum = tile @ np.array([0.30, 0.59, 0.11])
+        idx = np.clip(np.round(centre + (lum - lum.mean()) / (lum.std() + 1e-6) * spread), 0, len(cols) - 1).astype(int)
+        tile = cols[idx].astype(float)
+    big = np.tile(tile, (FH // h + 2, FW // w + 2, 1))
+    return big[oy % h:oy % h + FH, ox % w:ox % w + FW].astype(np.uint8)
+
+
+def leafy_edge(mask, rng, reach=3.0, period=5):
+    """`mask` grown into its neighbours by leafy bumps (0..`reach` px, a bump every
+    `period` px or so): the edge of turf lipping over bare ground, Set 1's look."""
+    bump = value_noise(FH, FW, period, rng) * reach
+    d = dist_in(~mask, int(reach) + 1)   # px from the mask, outside it
+    return mask | ((d > 0) & (d <= bump))
+
+
+def set1_turf_edge(rgb, turf, bare, dark):
+    """Where `turf` lips over `bare` ground: the turf's edge outlined in `dark`, and its
+    two-pixel shadow on the ground below it (the light comes from the back)."""
+    edge = turf & (shift(bare, 0, -1) | shift(bare, 0, 1) | shift(bare, 1, 0) | shift(bare, -1, 0))
+    under = bare & (shift(turf, 0, 1) | shift(turf, 0, 2))
+    rgb[under] = (rgb[under].astype(float) * 0.62).astype(np.uint8)
+    rgb[edge] = dark
+
+
+def set1_stamp(img, rect_, sprite, x, y, sil=None):
+    """Draws a swatch sprite (its slot rect) at picture (x, y), clipped to `rect_` (a piece's
+    picture rect) grown by the spill the procedural bushes have (2 px at the sides, 3 at the
+    top, 1 below), so a flattened bed doesn't leave much standing. Colour-matched like the
+    tiles: brightness onto the moss line, a step lighter than the meadow so the bed reads."""
+    sx, sy, sw, sh = sprite
+    spr = set1_swatch()[sy:sy + sh, sx:sx + sw]
+    rgb = spr[:, :, :3]
+    if not SET1_RAW:
+        cols = np.array(P.GROUND["moss_fine"], np.uint8)
+        lum = rgb.astype(float) @ np.array([0.30, 0.59, 0.11])
+        on = spr[:, :, 3] > 128
+        m, sd = lum[on].mean(), lum[on].std() + 1e-6
+        rgb = cols[np.clip(np.round(3.3 + (lum - m) / sd * 2.4), 0, len(cols) - 1).astype(int)]
+    x0, y0, w, h = rect_
+    for j in range(sh):
+        py = y + j
+        if not (y0 - 3 <= py < y0 + h + 1):
+            continue
+        for i in range(sw):
+            px = x + i
+            if x0 - 2 <= px < x0 + w + 2 and spr[j, i, 3] > 128:
+                img[py, px, :3] = rgb[j, i]
+                img[py, px, 3] = 255
+                if sil is not None:
+                    sil[py - y0 + 4, px - x0 + 4] = True
+
+
+def set1_brush(img, rng, rect_):
+    """A brush bed of Set 1 tall grass: the deep meadow under it and tufts packed back to
+    front, sprigs along the near edge, all inside the bed's cells."""
+    x0, y0, w, h = rect_
+    base = set1_tex("grass_dark", 17, 9)
+    img[y0:y0 + h, x0:x0 + w, :3] = base[y0 - FY0:y0 - FY0 + h, x0 - FX0:x0 - FX0 + w]
+    spots = []
+    for yy in range(y0 - 3, y0 + h - 22, 6):
+        for xx in range(x0 - 4, x0 + w - 22, 8):
+            spots.append((yy + int(rng.random() * 4), xx + int(rng.random() * 5), SET1_TUFTS))
+    for xx in range(x0 - 4, x0 + w - 18, 7):   # the near edge: smaller sprigs, in front
+        spots.append((y0 + h - 25 + int(rng.random() * 2), xx + int(rng.random() * 3), SET1_SPRIGS))
+    spots.sort(key=lambda s: s[0])
+    sil = np.zeros((h + 8, w + 8), bool)
+    sil[4:4 + h, 4:4 + w] = True
+    for yy, xx, kinds in spots:
+        r = rng.random()
+        k = 1 if r < 0.5 else (2 if r < 0.9 else 0)   # olive and green, a little gold (raw: tints differ)
+        set1_stamp(img, rect_, kinds[k], xx, yy, sil)
+    # a mass with height, like the procedural beds: a face toward the camera and an outline
+    ramp = P.GROUND["moss_fine"] if not SET1_RAW else None
+    if ramp is not None:
+        faces(img, sil, x0 - 4, y0 - 4, ramp, face_rows(CAST_HEIGHT["brush"]), top=False)
+    outline(img, sil, x0 - 4, y0 - 4, set1_ink())
+
+
+def set1_meadow(img, rng, prng):
+    """Twin Keeps' meadow from Set 1: the bright and deep grass tiles in big soft patches, the
+    depth gradient, then the worn lanes as bare earth with the turf lipping over them.
+    Returns the lanes' mask."""
+    blk = img[FY0:FY0 + FH, FX0:FX0 + FW]
+    light = set1_tex("grass")
+    deep = set1_tex("grass_dark", 64, 32)
+    patch = fbm(FH, FW, rng, octaves=((128, 0.5), (64, 0.3), (32, 0.2)))
+    t = np.tile(BAYER4, (FH // 4 + 1, FW // 4 + 1))[:FH, :FW]
+    use_deep = np.clip((0.42 - patch) * 6.0 + 0.5, 0, 1) > t
+    blk[:, :, :3] = np.where(use_deep[:, :, None], deep, light)
+    blk[:, :, 3] = 255
+    if not SET1_RAW:
+        floor_shift(img, "moss_fine", depth_shift())
+    else:
+        f = 1.0 + depth_shift() * 0.06
+        blk[:, :, :3] = np.clip(blk[:, :, :3].astype(float) * f[:, :, None], 0, 255).astype(np.uint8)
+    # the lanes, where the procedural map has them, worn through the turf
+    yy, xx = np.mgrid[0:FH, 0:FW].astype(float)
+    wob = (value_noise(FH, FW, 40, rng) - 0.5) * 18.0
+    lane = np.minimum(np.abs(yy - FH / 2 + wob), np.minimum(np.abs(yy - 70 + wob), np.abs(yy - (FH - 70) + wob)))
+    n = value_noise(FH, FW, 5, rng)
+    dirt = (lane < 7 + n * 5) & (xx > 150) & (xx < FW - 150)
+    dirt |= (np.abs(yy - FH / 2 + wob) < 7 + n * 5)
+    dirt &= ~leafy_edge(~dirt, rng)
+    earth = set1_tex("dirt", 40, 0)
+    blk[dirt, :3] = earth[dirt]
+    set1_turf_edge(blk[:, :, :3], ~dirt, dirt, set1_ink())
+    # a few flowers in the turf, few enough not to read as salt
+    specks(img, prng, 160, [(246, 244, 236), (246, 214, 80), (230, 130, 170)], mask=dirt, shadow=GRASS[0])
+    return dirt
+
+
+def set1_ink():
+    """The turf edge's outline: the darkest moss tone (Set 1's own near-black green raw)."""
+    return (30, 52, 30) if SET1_RAW else P.GROUND["moss_fine"][0]
+
+
+def set1_courts(img, rng, court):
+    """The keeps' courtyards in Set 1 cobbles, the turf lipping over their edges."""
+    blk = img[FY0:FY0 + FH, FX0:FX0 + FW]
+    cob = set1_tex("cobble")
+    paved = court & ~leafy_edge(~court, rng, reach=2.5, period=4)
+    blk[paved, :3] = cob[paved]
+    set1_turf_edge(blk[:, :, :3], ~paved, paved, set1_ink())
+
+
 def twin_keeps():
     rng = np.random.default_rng(97)
     prng = random.Random(97)
@@ -1569,6 +1742,9 @@ def twin_keeps():
     _stands(img, rng)
     _back_wall(img)
     _side_and_front(img, rng, pad=[LEAF[0], None, LEAF[2]], cap=KEEP)
+    if TILESET.get("twin_keeps") == "set1":
+        set1_meadow(img, rng, prng)
+        return _twin_keeps_rest(m, img, rng, prng)
     v = ground(rng, amp=0.32, base=0.36, worn=0.0)
     yy, xx = np.mgrid[0:FH, 0:FW].astype(float)
     # the meadow mown in wide bands, 40 px, running away from the camera, crossed faintly
@@ -1600,6 +1776,11 @@ def twin_keeps():
         rect(img, FX0 + x, FY0 + y, 1, 1, GRASS[6] if prng.random() < 0.5 else GRASS[5])
         rect(img, FX0 + x, FY0 + y + 1, 1, 1, GRASS[1])
     specks(img, prng, 380, [(246, 244, 236), (246, 214, 80), (230, 130, 170), (170, 150, 230)], mask=dirt, shadow=GRASS[0])
+    return _twin_keeps_rest(m, img, rng, prng)
+
+
+def _twin_keeps_rest(m, img, rng, prng):
+    set1 = TILESET.get("twin_keeps") == "set1"
     # Each keep's courtyard: paved in big stones.
     seam, lip = crack_net(FH, FW, rng, spacing=22.0, width=0.6)
     pv = dither(value_noise(FH, FW, 12, rng) * 0.4 + 0.35, PAVE, spread=0.4)
@@ -1607,9 +1788,12 @@ def twin_keeps():
     for x0c in (0, FW - 20 * CELL):
         court[20 * CELL:46 * CELL, x0c:x0c + 20 * CELL] = True
     blk = img[FY0:FY0 + FH, FX0:FX0 + FW, :3]
-    blk[court] = np.array(PAVE, np.uint8)[pv][court]
-    blk[court & lip] = PAVE[5]
-    blk[court & seam] = PAVE[0]
+    if set1:
+        set1_courts(img, rng, court)
+    else:
+        blk[court] = np.array(PAVE, np.uint8)[pv][court]
+        blk[court & lip] = PAVE[5]
+        blk[court & seam] = PAVE[0]
     # The flag stands: a round plinth ringed in the side's colour.
     for key, col in (("left", (214, 72, 64)), ("right", (72, 120, 220))):
         bx, by = m["bases"][key]
@@ -1669,7 +1853,10 @@ def twin_keeps():
     for r in piece_rects(m, "wall"):
         keep_wall(img, prng, r)
     for r in piece_rects(m, "brush"):
-        bushes(img, prng, r)
+        if set1:
+            set1_brush(img, prng, r)
+        else:
+            bushes(img, prng, r)
     for r in piece_rects(m, "fence"):
         fence(img, r)
     for r in piece_rects(m, "wall"):
@@ -2143,7 +2330,8 @@ MAPS = {"stadium": stadium_set, "quarry": quarry, "floodgate": floodgate, "green
         "caravan_pass": caravan_pass, "twin_keeps": twin_keeps}
 
 if __name__ == "__main__":
-    picks = sys.argv[1:] or list(MAPS)
+    SET1_RAW = "--raw-set1" in sys.argv   # comparison only: Set 1 maps keep the pack's colours
+    picks = [a for a in sys.argv[1:] if not a.startswith("--")] or list(MAPS)
     path = os.path.join(SPRITES, "caravan.png")
     save(caravan_sprite(), path)
     print("wrote", os.path.relpath(path, ROOT))
@@ -2154,6 +2342,7 @@ if __name__ == "__main__":
         sz = load_map(name).get("size", [84, 36])
         set_size(int(sz[0]), int(sz[1]))
         set_light(load_map(name))
+        raw = SET1_RAW and name in TILESET
         img, alt, crack_cols = MAPS[name]()
         dark, lit = crack_cols or (None, None)
         cracked, crack = cracked_floor(img, np.random.default_rng(7), dark, lit)
@@ -2161,18 +2350,18 @@ if __name__ == "__main__":
         fore, hang = fore_layers(name, 5000 + sum(map(ord, name)))
         for suffix, layer in (("_far", far), ("_sky", sky), ("_fore", fore), ("_hang", hang)):
             path = os.path.join(SPRITES, "arena_%s%s.png" % (name, suffix))
-            save(layer, path)
+            save(layer, path, snap=not raw)
             print("wrote", os.path.relpath(path, ROOT), (W, layer.shape[0]))
         path = os.path.join(SPRITES, "arena_%s.png" % name)
-        save(img, path)
+        save(img, path, snap=not raw)
         print("wrote", os.path.relpath(path, ROOT), (W, H))
         path = os.path.join(SPRITES, "arena_%s_cracked.png" % name)
-        save(cracked, path)
+        save(cracked, path, snap=not raw)
         print("wrote", os.path.relpath(path, ROOT), (FW, FH))
         path = os.path.join(SPRITES, "arena_%s_crackmask.png" % name)
         save(crack_mask(crack), path, snap=False)
         print("wrote", os.path.relpath(path, ROOT), (FW, FH))
         if alt is not None:
             path = os.path.join(SPRITES, "arena_%s_alt.png" % name)
-            save(alt, path)
+            save(alt, path, snap=not raw)
             print("wrote", os.path.relpath(path, ROOT), (FW, FH))

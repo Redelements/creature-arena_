@@ -1,0 +1,16 @@
+{
+	"_doc": "Flipbook hit effects (FlipbookView, src/view/flipbook_view.gd). View only: not read by the sim and not in the online data hash. effects: one strip per name in assets/sprites/vfx/ (frames side by side, cut by tools/cut_packs.py from kiddolink's VFX pack: ASSETS-LICENSES.md), its frame count, frame size and ticks per frame. moves: '<fighter id>/<move slot>' -> effect played on each hit of that move; flip 'face' mirrors it when the attacker faces left; lift moves it up (px); replace (default true) drops FxView's own burst for that hit, keeping its pixels, flash and shake.",
+	"effects": {
+		"impact_burst": {"frames": 6, "size": [96, 82], "ticks": 3},
+		"slash_arc": {"frames": 6, "size": [90, 78], "ticks": 3},
+		"slash_claws": {"frames": 7, "size": [92, 92], "ticks": 2},
+		"spark_star": {"frames": 6, "size": [86, 78], "ticks": 3}
+	},
+	"moves": {
+		"cairn/heavy": {"effect": "impact_burst"},
+		"digby/light_1": {"effect": "slash_claws", "flip": "face"},
+		"digby/light_2": {"effect": "slash_claws", "flip": "face"},
+		"digby/light_3": {"effect": "slash_arc", "flip": "face"},
+		"hissy/heavy": {"effect": "spark_star"}
+	}
+}
