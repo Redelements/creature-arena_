@@ -78,13 +78,20 @@ block.
 ## 4. The skeleton reference: Fantasy Lands Warrior poses
 
 Szadi art's Fantasy Lands Warrior (`FL_Warrior_v1.1/_PNG/`, 80 x 80 frames, bought; never
-in the repo) is the pose and timing reference: give PixelLab the named frames below as the
-"animation reference" / skeleton input, with the instruction to keep Crease's proportions
-(78 px tall, hat a third of it), not the Warrior's. Rows are 0-based from the top, frames
-0-based from the left. The sheets have one row per facing: **row 1 is the side view facing
-right** (row 0 its mirror, row 2 the front, row 3 the back); Crease's side sheet faces right,
-so use row 1 everywhere. (If a sheet's row 1 turns out to face left in the app, take row 0:
-the importer never mirrors.)
+in the repo) is the pose and timing reference **for you, not for the tool**. Szadi art's
+licence allows editing and cutting their assets for a game but says nothing about feeding
+them to a generative tool, and PixelLab's uploads may be kept or trained on, so stay
+clearly inside the licence: **don't upload a Warrior frame, strip or sheet to PixelLab**,
+not as the character image, the style sample or the animation / skeleton reference.
+Instead: open the named frames below beside PixelLab and
+pose its skeleton by hand to match them, or start from Crease's own frames in
+`docs/pixellab/crease_reference.png` (ours) as the animation reference and adjust the
+keyframes to the Warrior's timing. Keep Crease's proportions (78 px tall, hat a third of
+it), not the Warrior's. Rows are 0-based from the top, frames 0-based from the left. The
+sheets have one row per facing: **row 1 is the side view facing right** (row 0 its mirror,
+row 2 the front, row 3 the back); Crease's side sheet faces right, so read row 1
+everywhere. (If a sheet's row 1 turns out to face left, read row 0: the importer never
+mirrors.)
 
 | Crease row | frames | Warrior sheet, row 1 frames | notes |
 | --- | --- | --- | --- |
