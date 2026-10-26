@@ -183,6 +183,17 @@ func test_cerebro_tenderized() -> void:
 	assert_near(dmg, 11 + 7 + 8 * 1.2 * 1.15, 0.05, "3 lights, then Tenderize > Cleaver Toss:")
 
 
+## Mise en place (Oct 2026 kit pass): on a tenderized foe the Mallet Toss staggers
+## ("stagger_if"), so the Cleaver Toss after it is the same combo: the variety bonus, and
+## everything 20% harder.
+func test_cerebro_mise_en_place() -> void:
+	var sim := _cerebro()
+	sim.creatures[1].vuln = 400
+	sim.creatures[1].vuln_mult = 1.2
+	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [S1, "skill_1"]])
+	assert_near(dmg, 11 * 1.2 + 8 * 1.2 * 1.15, 0.05, "tenderized: Flick, Flick, Mallet (staggers) > Cleaver Toss:")
+
+
 func test_cerebro_flip_out_knife_flurry() -> void:
 	var sim := _cerebro()
 	sim.creatures[0].energy = 100.0

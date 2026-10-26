@@ -6,7 +6,7 @@ extends TestCase
 func _play(name: String) -> Dictionary:
 	var sc := Showcase.new(name)
 	var sim := sc.build()
-	var log := {"grabbed": [false, false], "hit": [0, 0], "ko": [false, false], "parts": []}
+	var log := {"grabbed": [false, false], "hit": [0, 0], "ko": [false, false], "parts": [], "staggered": 0}
 	for i in 5000:
 		if sc.finished:
 			break
@@ -18,6 +18,8 @@ func _play(name: String) -> Dictionary:
 					log["grabbed"][int(e["target"])] = true
 				"hit":
 					log["hit"][int(e["target"])] += 1
+					if bool(e.get("stagger_if", false)):
+						log["staggered"] += 1
 				"ko":
 					log["ko"][int(e["who"])] = true
 	assert_true(sc.finished, "%s showcase should finish" % name)
@@ -103,6 +105,7 @@ func test_cerebro_showcase_plays_through_to_a_knockout() -> void:
 		if String(ev[1]) == "grab":
 			flips += 1
 	assert_eq(flips, 1, "Flip Out should throw Cairn over his head:")
+	assert_gt(int(r["staggered"]), 0, "the Mallet Toss staggers the tenderized Cairn")
 	assert_true(r["ko"][1], "Knife Flurry should finish Cairn")
 	assert_false(r["ko"][0], "Chef Cerebro stays up")
 

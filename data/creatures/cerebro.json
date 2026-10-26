@@ -60,14 +60,21 @@
   "ai": {
     "range": 100,
     "kite": true,
-    "far_from": 48,
+    "far_from": 42,
     "poke": "skill_1",
     "poke_range": [40, 112],
     "grab": "skill_2",
     "grab_range": 34,
     "weights": {"poke": 0},
     "surge_line": 112,
+    "setup": { "move": "heavy", "range": 16, "mark": "tenderized", "chance": 0.1 },
+    "setup_routes": [
+      ["light", "heavy", "skill_1", "surge"],
+      ["light", "heavy", "skill_1"],
+      ["light", "heavy"]
+    ],
     "routes": [
+      ["heavy", "skill_1"],
       ["light", "light", "light", "heavy", "skill_1", "surge"],
       ["light", "light", "light", "skill_2", "surge"],
       ["light", "light", "light", "heavy", "skill_1"],
@@ -112,8 +119,8 @@
     "light_3": {
       "name": "Mallet Toss", "anim": "toss", "mobile": 0.7,
       "startup": 9, "active": 0, "recovery": 26,
-      "damage": 5, "knockback": 0.8, "hitstun": 30, "hitstop": 2, "no_flinch": true, "juggle": true,
-      "next": "",
+      "damage": 5, "knockback": 0.8, "hitstun": 30, "hitstop": 2, "no_flinch": true, "stagger_if": "tenderized",
+      "juggle": true, "next": "",
       "projectile": { "speed": 6.0, "life": 18, "radius": 6, "offset": 12, "crack_trail": false,
         "sound": "swing_heavy", "end_sound": "thwack" },
       "anim_at": [[0, 0], [2, 1], [4, 2], [8, 3], [10, 4], [15, 5], [19, 6], [24, 7]],
@@ -138,6 +145,7 @@
       "startup": 9, "active": 0, "recovery": 24,
       "damage": 8, "knockback": 1.0, "hitstun": 40, "hitstop": 7, "juggle": true, "juggle_float": 34,
       "projectile": { "speed": 6.0, "life": 17, "radius": 7, "offset": 12, "crack_trail": false,
+        "bounce": { "range": 80, "damage_mult": 0.6 },
         "sound": "knife_throw", "end_sound": "hit_heavy" },
       "anim_at": [[0, 0], [2, 1], [4, 2], [8, 3], [10, 4], [14, 5], [18, 6], [26, 7]],
       "fx": { "projectile": "cleaver", "projectile_light": { "color": "#d58cff", "radius": 22, "strength": 0.4 } }
