@@ -174,3 +174,72 @@ func _ctf_inputs(threaded: bool) -> PackedInt32Array:
 		out.append_array(ins)
 		t.step(ins)
 	return out
+
+
+func test_one_pit_cell_leaves_a_node_open_two_block_it() -> void:
+	# Scattered pits (Floor of Pits) cut the map into islands that weren't there when any
+	# pit cell blocked its 16 px node: a body walks past a lone cell.
+	var sim := _with([])
+	var nav := NavGrid.new()
+	sim.terrain.sink(Vector2i(20, 10))
+	nav.update(sim.terrain)
+	assert_false(nav.is_blocked(Vector2i(10, 5)), "one pit cell: the node stays open")
+	sim.terrain.sink(Vector2i(21, 10))
+	nav.update(sim.terrain)
+	assert_true(nav.is_blocked(Vector2i(10, 5)), "two pit cells block it")
+
+
+func test_roll_end_is_where_the_roll_ends() -> void:
+	# CpuController.roll_end replays the sim's dodge: over a chasm, along a wall, a blink.
+	# (A ram, Craglash's, ends on an impact or smashes the wall: only its lip stop counts,
+	# so it's checked for never ending in the chasm instead.)
+	var pieces := [{"kind": "chasm", "rect": [30, 10, 3, 16]}, {"kind": "wall", "rect": [20, 4, 2, 6]}]
+	var starts := [[Vector2i(27, 18), Vector2.RIGHT], [Vector2i(17, 8), Vector2(1, -0.3)],
+		[Vector2i(40, 30), Vector2(-1, -1)], [Vector2i(10, 20), Vector2.DOWN]]
+	for id in ["cairn", "culvert", "cerebro", "crease", "craglash"]:
+		for s in starts:
+			var sim := _with(pieces, id, "cairn")
+			var me := sim.creatures[0]
+			sim.creatures[1].pos = sim.terrain.cell_center(Vector2i(80, 2))
+			me.pos = sim.terrain.cell_center(s[0])
+			var want := CpuController.roll_end(sim, me, s[1])
+			run(sim, SimDefs.move_bits(s[1]) | SimDefs.IN_DODGE, 1)
+			assert_eq(me.state, CreatureSim.State.DODGE, "%s rolls" % id)
+			run_until(sim, func(): return me.state != CreatureSim.State.DODGE, 60)
+			if id == "craglash":
+				assert_false(sim.terrain.is_hole_at(me.pos), "the ram from %s stays out of the chasm" % s[0])
+				continue
+			assert_lt(me.pos.distance_to(want), 0.01, "%s from %s: ends at %s, predicted %s:" % [id, s[0], me.pos, want])
+
+
+func test_a_cpu_cut_off_by_a_chasm_rolls_over_it() -> void:
+	# A chasm from wall to wall: no walking round. Normal rolls over it, lands on floor
+	# and reaches the foe; Craglash's ram stops at the lip, so he waits there unharmed.
+	var pieces := [{"kind": "chasm", "rect": [30, 0, 4, 36]}]
+	for id in ["cairn", "hissy", "culvert", "pete"]:
+		var sim := _with(pieces, id, "cairn")
+		sim.creatures[0].pos = sim.terrain.cell_center(Vector2i(20, 18))
+		sim.creatures[1].pos = sim.terrain.cell_center(Vector2i(50, 18))
+		assert_true(_cpu_reaches(sim, 1, 900) >= 0, "%s rolls over to the foe" % id)
+		assert_eq(sim.creatures[0].hp, sim.creatures[0].max_hp, "%s didn't fall in:" % id)
+	var ram := _with(pieces, "craglash", "cairn")
+	ram.creatures[0].pos = ram.terrain.cell_center(Vector2i(20, 18))
+	ram.creatures[1].pos = ram.terrain.cell_center(Vector2i(50, 18))
+	_cpu_reaches(ram, 1, 600)
+	assert_eq(ram.creatures[0].hp, ram.creatures[0].max_hp, "Craglash stays out of the chasm:")
+
+
+func test_a_dodge_never_ends_in_a_pit() -> void:
+	# Backing off toward a pit that a roll would end in: the dodge turns to a way that
+	# lands on floor; one that carries clean over the pit is kept.
+	var sim := _with([{"kind": "chasm", "rect": [24, 0, 4, 36]}], "cairn", "culvert")
+	var me := sim.creatures[0]
+	var into := Vector2.LEFT
+	me.pos = sim.terrain.cell_center(Vector2i(32, 18))
+	assert_true(sim.terrain.is_hole_at(CpuController.roll_end(sim, me, into)), "straight back lands in it")
+	var d := CpuController._safe_roll_dir(sim, me, into)
+	assert_true(d != Vector2.ZERO and CpuController._lands_safe(sim.terrain, CpuController.roll_end(sim, me, d)),
+		"turned to floor: %s" % d)
+	me.pos = sim.terrain.cell_center(Vector2i(28, 18))
+	assert_true(CpuController._lands_safe(sim.terrain, CpuController.roll_end(sim, me, into)), "from the lip it clears it")
+	assert_eq(CpuController._safe_roll_dir(sim, me, into), into, "so it keeps that way:")
