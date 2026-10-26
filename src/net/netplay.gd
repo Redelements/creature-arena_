@@ -63,7 +63,7 @@ extends RefCounted
 ## last pick and starts the match. A Quick match rematch on a server is on a new arena
 ## (in "start"); a direct one keeps the host's.
 
-const NET_VERSION := 34  ## 34: Chef Cerebro kit pass (data keys stagger_if, projectile bounce, branches; the Mallet Toss staggers a tenderized foe, the Cleaver Toss bounces; CPU ai.setup / setup_routes); 33: player secrets (hello carries "secret"; the server refuses an id whose bound secret differs), the Daily board without ids ({name, score, you}), the Daily verified against the day's own CPU (its fight always on the stadium); other open PRs hold 34 and 35 (the second to merge renumbers); 32: Team Deathmatch killing sprees and shutdowns, the Brawl crown (deathmatch.json and brawl.json keys, TeamSim streak / credit, BrawlSim crown, MatchSim.marks); 31: the Surge meter fills from combos (data/rules/energy.json per_type_mult and variety_energy: lights charge less, combos of several move types more); 30: shrines as a shared helper (src/sim/shrines.gd, data/rules/shrines.json; the "shrines" blocks of crater.json (permanent buffs, CreatureSim boost fields, MatchSim.shrine_rng) and brawl.json; Twin Keeps' three shrines; MatchSim.shrines; another PR may also bump: the second to merge renumbers); 29: arena hazards (data/rules/hazards.json, the tidal_wave and meteor_shower mutators; MatchSim.hazards); 28: reaction animations (hurt, guard and knockout rows in every fighter's JSON) and Cairn and the dummy as real rigs (their sprite blocks), which change data_hash; 27: diagonal 3/4 sheets (every fighter's JSON gains down_side and up_side views, which changes data_hash); 26: victory poses and idle variants for the roster, Crease batch 4 (folds, throws, Paper Plane), arena grade and ambient keys (fighter and arena JSON change data_hash); 25: roster animation pass (every fighter but Crease and Cairn gets new sheets and anim timelines in its JSON, which changes data_hash); 24: Rage CPU scored kit (ai.weights in Cerebro and Sno change data_hash); 23: assassin sneak engage (a hidden Burrow, ambush_ticks and the ambush_t state field, Storm Drain timing); 22: Surge energy rules (data/rules/energy.json: slower fill, meter carries between rounds), segment flag skip_struck, volley fan, widest-segment move_range; 21: a dodge cancels your own attack at a dearer cost (CreatureSim.can_dodge_cancel, stamina rules dodge_cancel_cost_mult); 20: Capture the Flag guards are the slots after a side's first (TeamSim._ctf_goals); 19: kit data pass (mage light reach, Digby Burrow and Pop-Up, Culvert HP and Gulp, Craglash, Gillbert, Barkley, Sno, roles); 18: on a crowded field hitstop is local to the attacker and target (CreatureSim.hitstop) and a KO neither freezes nor slows the match (MatchSim.freeze_all); 17: a Surge doesn't freeze a crowded field (2 v 2 and up, a Brawl of 3-4): it winds up instead (MatchSim.freeze_all); 16: 4 v 4 online (Capture the Flag: size up to the rules' "max_size"); 15: class perks (team rules "class_perks"), Caravan rockslides and escort healing; 14: Capture the Flag fumbles, passes (TAG), shrines, comeback rules and map bridges that fall in (MatchSim.bridges); 13: Caravan and Capture the Flag (team rules "caravan", "ctf"; maps of any size: a map's "size", "track", "bases"; sim.goals); 12: stamina rules (dearer dodge, block drain by move type, exhaustion at 0 drops the guard, regen pauses); 11: a 1v1 rematch outside rooms (Quick match, ranked, direct) picks again (room select status with secs, picks hidden until start, a countdown that locks in the last pick, Quick match draws a new arena; pick; ranked rates every game); 10: rooms last between matches (room, next, pick; wait back; bye room), Sinkhole collapses by rect and only a chasm fall is a ring-out; 9: the 1v1 is best of three rounds; 8: ranked play, player ids, daily scores; 7: team rules and tag Duels; 6: the server's ready check; 5: team battles; 4: 360 move angle
+const NET_VERSION := 35  ## 35: proximity voice chat ("vc" packets relayed by the server, hello "voice"); 34: Chef Cerebro kit pass (data keys stagger_if, projectile bounce, branches; the Mallet Toss staggers a tenderized foe, the Cleaver Toss bounces; CPU ai.setup / setup_routes); 33: player secrets (hello carries "secret"; the server refuses an id whose bound secret differs), the Daily board without ids ({name, score, you}), the Daily verified against the day's own CPU (its fight always on the stadium); other open PRs hold 34 and 35 (the second to merge renumbers); 32: Team Deathmatch killing sprees and shutdowns, the Brawl crown (deathmatch.json and brawl.json keys, TeamSim streak / credit, BrawlSim crown, MatchSim.marks); 31: the Surge meter fills from combos (data/rules/energy.json per_type_mult and variety_energy: lights charge less, combos of several move types more); 30: shrines as a shared helper (src/sim/shrines.gd, data/rules/shrines.json; the "shrines" blocks of crater.json (permanent buffs, CreatureSim boost fields, MatchSim.shrine_rng) and brawl.json; Twin Keeps' three shrines; MatchSim.shrines; another PR may also bump: the second to merge renumbers); 29: arena hazards (data/rules/hazards.json, the tidal_wave and meteor_shower mutators; MatchSim.hazards); 28: reaction animations (hurt, guard and knockout rows in every fighter's JSON) and Cairn and the dummy as real rigs (their sprite blocks), which change data_hash; 27: diagonal 3/4 sheets (every fighter's JSON gains down_side and up_side views, which changes data_hash); 26: victory poses and idle variants for the roster, Crease batch 4 (folds, throws, Paper Plane), arena grade and ambient keys (fighter and arena JSON change data_hash); 25: roster animation pass (every fighter but Crease and Cairn gets new sheets and anim timelines in its JSON, which changes data_hash); 24: Rage CPU scored kit (ai.weights in Cerebro and Sno change data_hash); 23: assassin sneak engage (a hidden Burrow, ambush_ticks and the ambush_t state field, Storm Drain timing); 22: Surge energy rules (data/rules/energy.json: slower fill, meter carries between rounds), segment flag skip_struck, volley fan, widest-segment move_range; 21: a dodge cancels your own attack at a dearer cost (CreatureSim.can_dodge_cancel, stamina rules dodge_cancel_cost_mult); 20: Capture the Flag guards are the slots after a side's first (TeamSim._ctf_goals); 19: kit data pass (mage light reach, Digby Burrow and Pop-Up, Culvert HP and Gulp, Craglash, Gillbert, Barkley, Sno, roles); 18: on a crowded field hitstop is local to the attacker and target (CreatureSim.hitstop) and a KO neither freezes nor slows the match (MatchSim.freeze_all); 17: a Surge doesn't freeze a crowded field (2 v 2 and up, a Brawl of 3-4): it winds up instead (MatchSim.freeze_all); 16: 4 v 4 online (Capture the Flag: size up to the rules' "max_size"); 15: class perks (team rules "class_perks"), Caravan rockslides and escort healing; 14: Capture the Flag fumbles, passes (TAG), shrines, comeback rules and map bridges that fall in (MatchSim.bridges); 13: Caravan and Capture the Flag (team rules "caravan", "ctf"; maps of any size: a map's "size", "track", "bases"; sim.goals); 12: stamina rules (dearer dodge, block drain by move type, exhaustion at 0 drops the guard, regen pauses); 11: a 1v1 rematch outside rooms (Quick match, ranked, direct) picks again (room select status with secs, picks hidden until start, a countdown that locks in the last pick, Quick match draws a new arena; pick; ranked rates every game); 10: rooms last between matches (room, next, pick; wait back; bye room), Sinkhole collapses by rect and only a chasm fall is a ring-out; 9: the 1v1 is best of three rounds; 8: ranked play, player ids, daily scores; 7: team rules and tag Duels; 6: the server's ready check; 5: team battles; 4: 360 move angle
 const DEFAULT_PORT := 7777
 const PINGS := 5
 ## A precise ping (a real link) blocks the host this long at most waiting for the pong.
@@ -148,6 +148,10 @@ var locked_ticks := -1
 ## hosting, the host's own record of it).
 var pick_all_locked := false
 var _pick_until := 0
+## Proximity voice chat: the "vc" packets of the match on now (VoiceChat checks the
+## sender and the size; this checks the match). The game sets `voice.mode` from its
+## setting, feeds the microphone in and plays the queues (src/view/voice_view.gd).
+var voice := VoiceChat.new()
 
 ## What a player is told when the other player of a 1v1 leaves.
 const OPPONENT_LEFT := "Your opponent left"
@@ -302,6 +306,7 @@ func host(port: int, team: Array, p_link: NetLink = null) -> bool:
 		if e.host(port) != OK:
 			return _fail(e.error)
 		link = e
+	voice.link = link
 	phase = Phase.WAITING
 	status = "Waiting for a player on UDP port %d" % port
 	return true
@@ -326,6 +331,7 @@ func join(address: String, port: int, team: Array, p_link: NetLink = null) -> bo
 		if e.join(address, port) != OK:
 			return _fail(e.error)
 		link = e
+	voice.link = link
 	phase = Phase.CONNECTING
 	status = "Connecting to %s" % _address
 	return true
@@ -363,7 +369,7 @@ func tick(local_bits: int) -> void:
 			if link.status == NetLink.Status.CONNECTED:
 				var hello := {"t": "hello", "v": NET_VERSION, "data": data_hash(), "team": my_team, "room": room,
 					"size": team_size, "rules": rules_id, "watch": watching, "arena": arena_id,
-					"name": _my_name(), "ranked": ranked}
+					"name": _my_name(), "ranked": ranked, "voice": voice.mode != VoiceChat.Mode.OFF}
 				if ranked:
 					# Who this player is goes only where it counts (ranked, on a server): never to
 					# a direct host or for an unrated match.
@@ -704,6 +710,13 @@ func _handle(m: Dictionary) -> void:
 					_fail("The match ended: its players left")
 				_:
 					_fail(OPPONENT_LEFT)
+		"vc":  # someone's voice: only the match on now's (a rematch's old packets never play)
+			var vn := NetLink.int_of(m.get("n", -1), -1)
+			if watch != null:
+				if vn == _watch_n:
+					voice.receive(m)
+			elif game != null and vn == game.id:
+				voice.receive(m)
 		"in", "dg":
 			if watch != null:
 				if str(m.get("t", "")) == "in" and NetLink.int_of(m.get("n", -1), -1) == _watch_n:
@@ -756,6 +769,7 @@ func _start_watching(m: Dictionary) -> void:
 		room_players = []
 	watch = Referee.new(teams, start_delay(m), size, rules, arena, _watch_n)
 	watch.feed_log(rows)
+	voice.reset(_watch_n, -1)  # a spectator listens, never talks
 	phase = Phase.PLAYING
 	status = "Watching"
 
@@ -813,6 +827,7 @@ func _begin(n: int, teams: Array, delay: int, slot := -1, size := 1, rules := ""
 	game.ping_ms = ping_ms
 	local_slot = game.local_slot
 	local_side = game.local_side
+	voice.reset(n, local_slot)  # nothing from the last match plays into this one
 	rematch_local = false
 	rematch_remote = false
 	rematch_asked = {}

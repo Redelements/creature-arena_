@@ -101,7 +101,9 @@ const SUBMIT_TIMEOUT_MS := 15000
 const KEEPALIVE_MS := 10000
 const IDLE_TIMEOUT_MS := 60000
 ## Messages a connection may send: MSG_RATE a second on average, MSG_BURST at once (a
-## player sends about 62 a second). Over it, the connection is dropped.
+## player sends about 62 a second, 87 while talking: 62 input packets plus 25 voice
+## packets, each spent like any other message, so a talker is still well under 240).
+## Over it, the connection is dropped.
 const MSG_RATE := 240
 const MSG_BURST := 480
 ## The biggest packet once a connection has said hello (a player's are a few hundred
@@ -130,7 +132,7 @@ const FIELD_TYPES := {
 	"hello": {"v": [TYPE_INT], "data": [TYPE_STRING], "team": [TYPE_ARRAY], "room": [TYPE_STRING],
 		"size": [TYPE_INT], "rules": [TYPE_STRING], "arena": [TYPE_STRING], "id": [TYPE_STRING],
 		"name": [TYPE_STRING], "ranked": [TYPE_BOOL], "submit": [TYPE_BOOL], "watch": [TYPE_BOOL],
-		"secret": [TYPE_STRING]},
+		"secret": [TYPE_STRING], "voice": [TYPE_BOOL]},
 	"ping": {"n": [TYPE_INT]},
 	"pong": {"n": [TYPE_INT]},
 	"daily": {"date": [TYPE_INT], "fighter": [TYPE_STRING], "replay": [TYPE_DICTIONARY]},
@@ -139,6 +141,7 @@ const FIELD_TYPES := {
 		"f": [TYPE_INT], "adv": [TYPE_FLOAT, TYPE_INT], "advs": [TYPE_PACKED_FLOAT32_ARRAY]},
 	"dg": {"n": [TYPE_INT], "f": [TYPE_INT], "d": [TYPE_STRING]},
 	"pick": {"team": [TYPE_ARRAY]},
+	"vc": {"n": [TYPE_INT], "s": [TYPE_INT], "d": [TYPE_PACKED_BYTE_ARRAY]},
 }
 
 enum State { HELLO, LOBBY, FOUND, PLAYING, WATCHING, SUBMIT, ROOM }
@@ -237,6 +240,7 @@ class Client:
 	var keepalive_ms := 0  ## the last keepalive ping sent them
 	var submit_ms := 0  ## when they said hello as a Daily submission
 	var asked := false  ## a Daily submission's one request is in
+	var voice := false  ## said in hello that they hear voice chat (off: none is relayed to them)
 	var tokens := float(RelayServer.MSG_BURST)  ## their message budget left
 	var tokens_ms := 0
 
@@ -384,6 +388,14 @@ static func _well_typed(m: Dictionary) -> bool:
 	return true
 
 
+## The size of a well-formed voice packet's audio (VoiceChat.packet_bytes), worked out once.
+static var _voice_packet_bytes := 0
+static func _voice_bytes() -> int:
+	if _voice_packet_bytes <= 0:
+		_voice_packet_bytes = VoiceChat.new().packet_bytes()
+	return _voice_packet_bytes
+
+
 ## `c` is a player seated in their match (not a spectator, not someone it's done with):
 ## only they may send its inputs, fingerprints, rematch and pick.
 func _seated(c: Client) -> bool:
@@ -492,6 +504,7 @@ func _handle(c: Client, m: Dictionary) -> void:
 			if not (c.arena in ArenaMap.IDS):
 				c.arena = ArenaMap.DEFAULT
 			c.name = _clean_name(String(m.get("name", "")))
+			c.voice = bool(m.get("voice", false))
 			var submit := bool(m.get("submit", false))
 			c.ranked = bool(m.get("ranked", false)) and not submit and c.size == 1 and c.team.size() == 1 and c.room == ""
 			if (c.ranked or submit) and not _identify(c, m, submit):
@@ -568,6 +581,26 @@ func _handle(c: Client, m: Dictionary) -> void:
 				o.link.send(out)
 			for w: Client in g.watchers:
 				w.link.send(out)
+		"vc":
+			# Voice chat: only from a seated player, for the match on now, exactly one packet's
+			# worth of audio. Rebuilt from known fields (the slot is the server's, never the
+			# sender's `p`) and sent unreliably only to whoever asked for voice: the other
+			# players with it on and the spectators who didn't turn it off. Never from a
+			# spectator (_seated). The message budget (_spend, in tick) caps how many.
+			var g := c.game
+			if not _seated(c) or int(m.get("n", -1)) != g.n:
+				return
+			var d = m.get("d")
+			var s := int(m.get("s", -1))
+			if not (d is PackedByteArray) or (d as PackedByteArray).size() != _voice_bytes() or s < 0:
+				return
+			var out := {"t": "vc", "n": g.n, "p": c.slot, "s": s, "d": d}
+			for o: Client in g.others(c):
+				if o.voice:
+					o.link.send(out)
+			for w: Client in g.watchers:
+				if w.voice:
+					w.link.send(out)
 		"dg":
 			var g := c.game
 			if not _seated(c) or int(m.get("n", -1)) != g.n:

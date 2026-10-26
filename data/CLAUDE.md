@@ -20,6 +20,7 @@ online data hash (`src/net/netplay.gd:data_hash`): changing one needs the server
 | `weather.json` | Time of day and weather presets (views only; not read by the sim, so not in the online data hash): `defaults` (`times`, `weathers` an arena without its own lists allows), `times` and `weathers` by id, each with `name` (the menu's word), optional `floor` (multiply tint over the floor art, crowd and floor wear), `fighter` (sprite tint), `life` (tint on the water and ambient life), `shadow` (`length` and `alpha` multipliers, `low_sun`: shadows rake sideways with this y), `ambient` (`wind` x the breeze, `motes` x their count, `flies` false: butterflies and dragonflies shelter); night's `fighter_min` (a fighter's least brightness) and `floodlights` (`color`, `radius`, `spacing` of the pool grid over the floor, `strength`, `levels` flat steps, `lamps`); a weather's `rain` (`streaks`, `splashes`, `ripples`), `fog` (`bands`, `alpha`, `color`, `height`, `length`, `speed` ranges), `debris` (`count`, `speed` range; the kind from `debris_by_ground`), `snow` (`flakes`); `mobile` overrides those counts on a phone or handheld. Read by `WeatherView` |
 | `trials.json` | Combo trials: fighter, name, route (a step `[button, move, "hold"]` is held to a full charge) |
 | `audio.json` | Music volume and tracks, every sound name → file |
+| `voice.json` | Proximity voice chat (`VoiceChat`, `VoiceView`; not read by the sim): `sample_rate` (Hz on the wire), `frame_ms` (one codec frame), `frames_per_packet`, `full_radius` / `silent_radius` (world px: full volume inside, silent past it, squared fade between), `team_floor` (a teammate's least gain), `pan_width` (px to the side for full left/right), `gate_db` / `gate_hold_ms` (open mic: the level that opens it, how long it stays open), `ptt_release_ms` (push to talk keeps sending after the key is let go), `jitter_ms` (wait before a burst plays), `max_buffer_ms` (most queued per speaker), `talk_show_ms` (how long the speaker icon stays after a packet) |
 | `online.json` | The game's server host; `rematch_pick_seconds`, `rematch_locked_seconds`; `server_replays_keep` (match replays a dedicated server keeps on disk, oldest deleted first; not in the data hash) |
 | `discord.json` | Discord Rich Presence: `client_id` (empty turns it off), `large_image`, `fighter_images` |
 
@@ -42,5 +43,6 @@ online data hash (`src/net/netplay.gd:data_hash`): changing one needs the server
 - `online.json`
 - `rules/` — brawl, caravan, crater, ctf, deathmatch, duel, duel_1v1, energy, hazards, mutators, projectiles, shrines, sinkhole, stamina, team
 - `trials.json`
+- `voice.json`
 - `weather.json`
 <!-- END GENERATED -->

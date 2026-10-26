@@ -44,6 +44,10 @@ outcome must live in the sim, never here or in `main.gd`.
   `clock_skip_ms`, so tests that tick clients and server together never trip the referee's
   clock cap. Tests that drive a match must tick the server about once per client frame.
 - `Netplay.data_hash()` is computed once and cached.
+- Voice (`vc`) never touches the sim: a packet is checked for the match on now (`n`) by
+  Netplay and for size and sender by VoiceChat; the server rebuilds it with the sender's
+  real slot. `data/voice.json` isn't in `data_hash` (it decides no outcome); a change to
+  the packet layout still needs a `NET_VERSION` bump (the server checks `d`'s size).
 - Identity: only ranked hellos and `DailyClient` send `id` and `secret`; `RelayServer._identify`
   checks the secret against `Ratings.keys` (a hash, `Ratings.key_of`), refuses a wrong one
   or a second live connection of the same kind, and binds keys at first rated use
@@ -60,7 +64,8 @@ outcome must live in the sim, never here or in `main.gd`.
 Dictionaries keyed `"t"`: `hello`, `reject`, `wait`, `found`, `ready`, `accepted`,
 `ping`/`pong`, `path`, `start`, `cpu`, `in` (inputs), `dg` (digest), `rematch`, `room` (also
 a 1v1 rematch's pick status, code ""), `next`, `pick`, `rating`, `bye`; Daily: `daily`,
-`daily_ok`, `board`, `daily_board` (rows `{name, score, you}`). Beacon packets are
+`daily_ok`, `board`, `daily_board` (rows `{name, score, you}`); `vc` (voice: `n`, `p`, `s`, `d`
+bytes, unreliable; hello's `voice` says whether to relay it to this player). Beacon packets are
 plain-UDP JSON: `creature-arena?` / `creature-arena`.
 
 ## Where to look
@@ -86,6 +91,10 @@ plain-UDP JSON: `creature-arena?` / `creature-arena`.
 - Leaver → CPU takeover → `relay_server.gd:_cpu_takes_over`, `referee.gd:inputs_since`
 - Ranked → `ratings.gd` (Glicko), `relay_server.gd` "rating"; Daily scores →
   `daily_client.gd`, `ratings.gd:submit_daily`
+- Voice chat → `netplay.gd` `voice` (reset in `_begin` / `_start_watching`, "vc" in `_handle`),
+  `voice_chat.gd` (`push_mic`, `receive`, `pull`, `gain_for`, `pan_for`), `voice_codec.gd` (IMA ADPCM,
+  `resample`); server `relay_server.gd` "vc" (`_voice_bytes`, `Client.voice`); tuning
+  `data/voice.json`; design in `docs/NETCODE.md` "Proximity voice chat"
 - Server flags → `dedicated_server.gd:configure`; LAN discovery → `lan_finder.gd`,
   `server_beacon.gd`; cross-platform fingerprint → `sim_check.gd`
 
@@ -116,4 +125,6 @@ Dedicated server: `--headless -- --server[=PORT] [--max-players=N] [--net-delay=
 - `rollback_session.gd` (RollbackSession) — Rollback netcode (GGPO-style) for one player's machine in a match of 2 or more players (a 1v1, or a 2v2/3v3/4v4 team ba…
 - `server_beacon.gd` (ServerBeacon) — A dedicated server's answer to "is there a Creature Arena server on this network?".
 - `sim_check.gd` (SimCheck) — Cross-platform determinism check. Plays a long seeded match of random button mashing (fighters start in reach, so it's…
+- `voice_chat.gd` (VoiceChat) — Proximity voice chat for an online match: what this machine says goes out as small unreliable packets, what the others…
+- `voice_codec.gd` (VoiceCodec) — The voice chat's sound codec: IMA ADPCM, 4 bits a sample, which the game encodes and decodes itself in GDScript (Godot…
 <!-- END GENERATED -->

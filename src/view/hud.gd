@@ -54,6 +54,12 @@ var mutator_text := ""
 var dummy_mode_name := ""
 ## Online: ping, input delay, rollback; drawn small in the bottom corner.
 var net_info := ""
+## Voice chat (VoiceView): slots speaking now -> level, for the speaker icon by their name;
+## `mic_on` while this machine is sending (a red dot and MIC at the bottom left), `mic_missing`
+## when voice is on but no microphone is heard (NO MIC).
+var speaking := {}
+var mic_on := false
+var mic_missing := false
 
 # Showcase captions: a title, the chain of moves, and which one is happening now.
 var caption_title := ""
@@ -424,9 +430,32 @@ func _draw_now() -> void:
 	elif net_info != "":
 		_text(Vector2(_hr - 404, _sh - 15.0), net_info, 6, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, 400)  # room for a long map name
 
+	if mic_on or mic_missing:
+		_draw_mic()
+
 	if show_help and not touch:
 		draw_rect(Rect2(0, _sh - 11.0, _sw, 11), C_PANEL)
 		_text(Vector2(0, _sh - 3.0), help_text, 5, C_DIM, HORIZONTAL_ALIGNMENT_CENTER, _sw)
+
+
+## Voice chat: a red dot and MIC while this machine sends, NO MIC (dim) when voice is on
+## and nothing is heard from the microphone. Bottom left, on the net line's row.
+func _draw_mic() -> void:
+	var y := _sh - 4.0 if touch else _sh - 15.0
+	var x := _hl + 6.0
+	if mic_on:
+		draw_rect(Rect2(x, y - 4.0, 3, 3), Color("e5534b"))
+		_text(Vector2(x + 5.0, y), "MIC", 6 if not touch else 5, C_TEXT)
+	else:
+		_text(Vector2(x, y), "NO MIC", 6 if not touch else 5, C_DIM)
+
+
+## The speaker icon after a name drawn at `x` (its left edge) of `size`, while that slot talks.
+func _speaker_after(slot: int, name: String, x: float, y: float, size: int) -> void:
+	if not speaking.has(slot):
+		return
+	var w := _font.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, UiTheme.px(size)).x
+	VoiceView.draw_glyph(self, Vector2(x + w + 3.0, y), float(speaking[slot]), C_TEXT)
 
 
 ## A capture: a slanted band in the side's colour across the middle, the words over it,
@@ -578,6 +607,7 @@ func _card(slot: int, x: float, y: float, right: bool) -> void:
 	draw_rect(Rect2(cx if not right else cx + w - 2.0, y, 2, 12), stripe)
 	var name := String(c.def.get("name", "?")).to_upper()
 	_text(Vector2(cx + 5, y + 6), name, 5, C_DIM if down else C_TEXT, HORIZONTAL_ALIGNMENT_LEFT, w - 30.0)
+	_speaker_after(slot, name, cx + 5, y + 4, 5)
 	if down:
 		var down_txt := "K.O."
 		if team != null and team.deathmatch and slot < team.respawn_t.size() and int(team.respawn_t[slot]) > 0:
@@ -638,6 +668,7 @@ func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 		if sim.training:
 			_dps(x + 108.0, 46.0)
 	_text(Vector2(x + 5, 12), name, 7, C_TEXT)
+	_speaker_after(side, name, x + 5, 9, 7)
 	_text(Vector2(x + 5, 12), tag, 6, C_DIM, HORIZONTAL_ALIGNMENT_RIGHT, 150)
 	# Health is also over the fighter (FxView's bars); the panel keeps a slim copy that
 	# drains with the chunk. A shield (Stoneskin) still says so by name.

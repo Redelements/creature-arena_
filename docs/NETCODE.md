@@ -374,6 +374,67 @@ pick to match 2, fingerprints agreeing).
 
 Still to do: a Steam transport (below).
 
+## Proximity voice chat (NET_VERSION 35)
+
+Players in a match talk to each other, and a voice is louder the closer its fighter
+stands. It rides the match's own link; nothing about it reaches the simulation, so it
+can't desync anything (`tests/test_voice.gd` plays a match through it and checks).
+
+**Codec.** Godot has no Opus, so the game encodes speech itself in GDScript
+(`src/net/voice_codec.gd`): IMA ADPCM, 4 bits a sample at 16 kHz mono (64 kbit/s of audio,
+a phone call with the top end kept). The microphone's mix rate (44.1 or 48 kHz) is taken
+down by `VoiceCodec.resample` (two one-pole lowpasses near 5.4 kHz, then linear
+interpolation, seamless across pieces). Measured in the tests: a voice-like signal (180 Hz
+with 900 Hz and 2.4 kHz overtones) comes back at 31 dB SNR; 44.1 or 48 kHz fed in 60 pieces
+gives 16000 ± 0 samples a second with a 440 Hz tone's level within 0.1 dB. One 20 ms frame
+costs about 60 µs to encode and 35 µs to decode on the dev PC.
+
+**Packets.** A 20 ms frame of 320 samples is 163 bytes: a 3-byte header (predictor and step
+index) and 160 bytes of nibbles, so every frame decodes on its own. A packet carries two
+frames (`frames_per_packet`): `{"t": "vc", "n": match, "p": slot, "s": sequence, "d": 326
+bytes}`, which Godot's encoding makes 440 bytes (114 of envelope), about 480 with the
+UDP/IP/ENet headers. 25 packets a second is about 96 kbit/s per talker on the wire. They go
+unreliably (`link.send(msg)`, then `flush` straight away: the view feeds the mic between
+ticks). A lost packet costs only its 40 ms; nothing waits for a resend.
+
+**Receiving.** Per speaker, packets queue by sequence (`VoiceChat._Speaker`). A burst
+starts playing once `jitter_ms` (80) of it has queued or that long has passed since its
+first packet; a missing packet is waited for up to `jitter_ms` and then skipped (counted
+in `dropped`); one older than what's already played is dropped; more than `max_buffer_ms`
+(360) queued drops the oldest; after `max_buffer_ms * 2` of silence a new burst starts
+fresh. A packet of the wrong size, or carrying this machine's own slot, is dropped.
+
+**Talking.** Push to talk (`ptt_held`, with `ptt_release_ms` = 180 after the release so the
+last word isn't clipped) or an open mic behind a level gate (`gate_db` = -40 with
+`gate_hold_ms` = 450 of hold). Quiet frames are never sent, so a silent player costs
+nothing. `mode` Off sends nothing and ignores what comes in.
+
+**Matches.** Netplay owns one `VoiceChat` (`Netplay.voice`) on the session's link. Every
+match start (`_begin`, rematches and a room's next included) calls `voice.reset(n, slot)`,
+and `_handle` "vc" takes only packets whose `n` is the match on now, so a rematch never
+plays the last match's stragglers. A spectator resets to slot -1: it listens, never sends.
+Hello carries `"voice"`: whether this player has voice on.
+
+**The server** (`relay_server.gd` "vc") takes a voice packet only from a seated player
+(`_seated`: never from a spectator) for the match on now, with exactly
+`VoiceChat.packet_bytes()` of audio, and rebuilds it from known fields: the slot is the
+server's record of the sender, never the `p` it sent. It goes out unreliably to the other
+players whose hello said `voice` and to the spectators (who didn't turn it off); a player
+with voice off gets none of it. In an 8-player match one talker costs the server
+7 × ~96 kbit/s (about 670 kbit/s) out, and only while they talk. Every voice packet
+spends from the connection's message budget like any other (`_spend`, `MSG_RATE` = 240/s):
+a talking player sends about 62 input packets + 25 voice packets = 87 a second.
+
+**Placing a voice** is the view's (`src/view/voice_view.gd`): `VoiceChat.gain_for(dist,
+same_team)` is full inside `full_radius` (110 world px), falls (squared) to nothing at
+`silent_radius` (420), and a teammate never drops below `team_floor` (0.25) so a team can
+call plays across the map; `pan_for(dx)` places it left or right, at the edges
+`pan_width` (240) away. Tuning in `data/voice.json` (not in `data_hash`: it changes no
+outcome).
+
+Not yet: a mid-match change of the voice setting doesn't tell the server (hello said it
+once); Opus, if Godot ever ships it, would cut the bandwidth by about four.
+
 ## Transport (to decide)
 
 | Option | Good for | Watch out for |

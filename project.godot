@@ -17,6 +17,10 @@ run/flush_stdout_on_print=true
 config/quit_on_go_back=false
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
+[audio]
+
+driver/enable_input=true
+
 [display]
 
 window/size/viewport_width=960

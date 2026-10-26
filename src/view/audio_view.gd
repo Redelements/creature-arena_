@@ -14,8 +14,9 @@ const VOICES := 16
 ##   Music    the music tracks
 ##   Effects  everything in a fight (hits, moves, the crowd, knockouts)
 ##   Menu     navigation sounds: moving through menus and confirming
-const BUSES := ["Music", "Effects", "Menu"]
-const DEFAULT_VOLUMES := {"Master": 0.8, "Music": 0.7, "Effects": 1.0, "Menu": 0.8}
+##   Voice    other players' voices in an online match (VoiceView plays them)
+const BUSES := ["Music", "Effects", "Menu", "Voice"]
+const DEFAULT_VOLUMES := {"Master": 0.8, "Music": 0.7, "Effects": 1.0, "Menu": 0.8, "Voice": 1.0}
 
 var sfx_enabled := true  ## off while the menu's background match plays
 var music_muted := false
@@ -121,7 +122,7 @@ func preview(name: String, bus: String) -> void:
 
 # ------------------------------------------------------------------ volume
 
-## Adds the Music, Effects and Menu buses (each sending to Master) if the project
+## Adds the Music, Effects, Menu and Voice buses (each sending to Master) if the project
 ## doesn't have them yet.
 func _make_buses() -> void:
 	for bus in BUSES:
@@ -133,7 +134,7 @@ func _make_buses() -> void:
 		AudioServer.set_bus_send(i, "Master")
 
 
-## Sets a volume group ("Master", "Music", "Effects" or "Menu") from 0 (silent) to 1.
+## Sets a volume group ("Master", "Music", "Effects", "Menu" or "Voice") from 0 (silent) to 1.
 func set_volume(bus: String, level: float) -> void:
 	level = clampf(level, 0.0, 1.0)
 	_volumes[bus] = level
