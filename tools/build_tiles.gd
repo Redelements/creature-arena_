@@ -26,8 +26,12 @@ extends SceneTree
 ##   water      rects in tiles painted with the "water" terrain; the map's shallows pieces
 ##              are painted with it as well (rounded out to whole tiles)
 ##   styles     {wall: "boulder", brush: "tuft", fence: "fence"}: the piece kind (manifest
-##              "pieces" key) each map piece is drawn with; a kind the set lacks is skipped
-##   decor      [{kind, at: [tx, ty]} | {kind, pos: [x, y] world units}]: a decor sprite
+##              "pieces" key) each map piece is drawn with; a kind the set lacks is skipped.
+##              A kind may come oriented (`fence_h` / `fence_v`, by the rect's longer side) and
+##              halved (`fence_v_l` / `_r`, `fence_h_t` / `_b`: the half of the tile a one-cell
+##              piece lies in); the most specific pool the set has wins
+##   decor      [{kind, at: [tx, ty]} | {kind, pos: [x, y] units from the floor's top-left
+##              corner, so the margins are negative or past the floor}]: a decor sprite
 ##              (manifest "decor") standing with its feet at the tile's bottom middle
 ##   anim       [{kind, at | pos}]: an animated piece (manifest "anim", a waterfall)
 ##   markings   true: ArenaView draws the court lines over the tiles (the Stadium)
@@ -195,7 +199,7 @@ static func _terrain(layer: TileMapLayer, ts: TileSet, name: String, cells: Arra
 
 
 ## Where a decor or anim entry stands, in scene pixels (2 a unit): a tile's bottom middle
-## (`at`) or a world point (`pos`).
+## (`at`) or a point in units from the floor's top-left corner (`pos`).
 static func _spot(e: Dictionary, tile: int) -> Vector2:
 	if e.has("pos"):
 		return Vector2(float(e["pos"][0]), float(e["pos"][1])) * ArtScale.PX_PER_UNIT
@@ -276,9 +280,13 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 		if r.size() < 4 or not styles.has(kind):
 			continue
 		var style := String(styles[kind])
-		# a kind with oriented tiles (fence_h / fence_v) picks by the rect's longer side
-		var oriented := style + ("_v" if int(r[3]) > int(r[2]) else "_h")
-		var pool: Array = p.get(oriented, p.get(style, []))
+		# a kind with oriented tiles (fence_h / fence_v) picks by the rect's longer side, and
+		# one with half tiles (fence_v_l / fence_v_r, fence_h_t / fence_h_b) by which half of
+		# the 2 x 2-cell tile a one-cell-wide piece lies in
+		var vertical := int(r[3]) > int(r[2])
+		var oriented := style + ("_v" if vertical else "_h")
+		var half := oriented + (("_l" if int(r[0]) % per == 0 else "_r") if vertical else ("_t" if int(r[1]) % per == 0 else "_b"))
+		var pool: Array = p.get(half, p.get(oriented, p.get(style, [])))
 		var alt: Array = p.get("sprig", []) if style == "tuft" else []
 		if pool.is_empty():
 			continue

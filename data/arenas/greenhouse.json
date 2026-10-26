@@ -3,6 +3,18 @@
 	"id": "greenhouse",
 	"name": "Greenhouse Dome",
 	"ground": "grass",
+	"tiles": {
+		"_doc": "The floor is tiles (assets/arenas/greenhouse.tscn, built by tools/build_tiles.gd): GrassLand turf with a moss kerb, Set 1's bright grass blob round each brush bed (rects in 32 px tiles, 2 x 2 cells), Decorative Props fences on the fence lines, tufts on the brush, pots, barrels and crates in the margins",
+		"set": "grassland",
+		"ground": "turf",
+		"edge": "moss",
+		"grass": [[3, 1, 7, 5], [32, 12, 7, 5], [17, 6, 8, 6], [4, 13, 6, 5], [32, 1, 6, 5]],
+		"decor": [
+			{"kind": "bush", "pos": [-8, -2]}, {"kind": "bush", "pos": [680, -2]},
+			{"kind": "pot_tall", "pos": [-8, 40]}, {"kind": "pot_fat", "pos": [-8, 100]}, {"kind": "barrel", "pos": [-8, 180]}, {"kind": "pot_fern", "pos": [-8, 250]},
+			{"kind": "pot_fat", "pos": [680, 40]}, {"kind": "crate", "pos": [680, 110]}, {"kind": "pot_tall", "pos": [680, 190]}, {"kind": "barrel", "pos": [680, 260]},
+			{"kind": "crate_tall", "pos": [104, -2]}, {"kind": "crate", "pos": [130, -2]}, {"kind": "pot_fat", "pos": [344, -2]}, {"kind": "pot_tall", "pos": [368, -2]}, {"kind": "barrel", "pos": [544, -2]}, {"kind": "crate", "pos": [570, -2]}
+		]	},
 	"times": ["day", "sunset"],
 	"weathers": ["clear", "rain", "fog"],
 	"light": {"_doc": "high sun through the glass: short, soft shadows", "dir": [0.1, 1.0], "length": 0.36, "alpha": 0.3, "sun": {"color": "#f2ffe2", "energy": 0.5}},
