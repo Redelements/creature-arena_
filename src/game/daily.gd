@@ -4,12 +4,13 @@ extends Ladder
 ## picks the opponent, the CPU level (Normal or Hard) and two mutators from
 ## data/rules/mutators.json. A win scores by health left and time to spare; a loss
 ## scores nothing. The replay of the fight is saved with the score, and `verify`
-## replays it on a fresh match to recompute the score, so a score can be checked
-## by anyone with the inputs (a server, later).
+## replays the player's inputs on a fresh match against the day's CPU to recompute the
+## score, so a score can be checked by anyone with the inputs (the server does).
 
 const MUTATORS_PATH := "res://data/rules/mutators.json"
 const PICKS := 2
 const FIGHT_TICKS := 90 * 60  ## the fight's clock (main.gd ROUND_TICKS)
+const INTRO_TICKS := 90  ## the round's intro before it (main.gd INTRO_TICKS): nobody moves
 
 var date := 0  ## YYYYMMDD, UTC
 var picks: Array = []  ## mutator ids
@@ -116,9 +117,10 @@ func cleared_banner() -> Array:
 
 ## The match this challenge plays: the fighter against the day's opponent, with its
 ## mutators, seeded by the date (the CPU's seed is the date too, so the fight is the
-## same for the same inputs anywhere).
+## same for the same inputs anywhere). Always the stadium, whatever arena the player
+## last picked: the day's fight is the same for everyone.
 func build() -> MatchSim:
-	var sim := MatchFactory.versus(fighter, opponent())
+	var sim := MatchFactory.versus(fighter, opponent(), ArenaMap.DEFAULT)
 	sim.apply_mutators(mutators(), date)
 	return sim
 
@@ -128,49 +130,82 @@ func cpu() -> CpuController:
 	return CpuController.new(1, stage_level(), date)
 
 
+## The most rows a Daily replay can have: the intro, the fight's clock, and a little over.
+static func max_frames() -> int:
+	return INTRO_TICKS + FIGHT_TICKS + 60
+
+
 ## Replays a recorded fight on a fresh match and scores it: the score anyone can check.
-## The replay's rows are [player bits, cpu bits] per tick, the CPU's as they were.
+## Only the player's column of the replay is played: the day's CPU plays itself again,
+## as it did in the game. -1 when the replay's CPU column isn't what that CPU pressed
+## (not the day's fight, or a forged one).
 func verify(rep: Replay) -> int:
 	var v := Verify.new(self, rep)
-	while not v.step(Daily.FIGHT_TICKS + 60):
+	while not v.step(max_frames()):
 		pass
-	return v.score
+	return -1 if v.mismatch else v.score
 
 
 ## A verification done a slice at a time (the server spreads one over several loops, so
 ## scoring a replay never holds up the matches it runs): step() until it returns true,
-## then read `score`. Same result as verify().
+## then read `score` (and `mismatch`). Same result as verify().
+##
+## The fight is played as main plays it: INTRO_TICKS rows of nobody pressing anything
+## (the "ROUND 1 / FIGHT!" banner), then the player's recorded input against the day's
+## CPU (cpu()), which chooses its own input every tick from the match, exactly as it
+## did offline. The recorded CPU column is never stepped: it is only compared with
+## what the CPU pressed, and the first difference ends the run (`mismatch`). The round
+## ends as main ends it: a knockout, or the clock (FIGHT_TICKS after the intro), where
+## the bigger health share wins.
 class Verify:
 	var daily: Daily
 	var rep: Replay
 	var sim: MatchSim
+	var cpu: CpuController
 	var ticks := 0
 	var score := 0
 	var done := false
+	var mismatch := false  ## the replay's CPU column differs from the day's CPU
 
 	func _init(p_daily: Daily, p_rep: Replay) -> void:
 		daily = p_daily
 		rep = p_rep
 		sim = daily.build()
+		cpu = daily.cpu()
 
 	## Steps up to `frames` more; true once the fight is over and `score` is set.
 	func step(frames: int) -> bool:
 		if done:
 			return true
-		var until := mini(rep.frames.size(), ticks + frames)
+		var end := Daily.INTRO_TICKS + Daily.FIGHT_TICKS
+		var until := mini(mini(rep.frames.size(), end), ticks + frames)
 		while ticks < until:
-			sim.step(rep.frames[ticks])
+			var row: PackedInt32Array = rep.frames[ticks]
+			var ins := PackedInt32Array([0, 0])
+			if ticks >= Daily.INTRO_TICKS:
+				ins[0] = row[0]
+				ins[1] = cpu.bits(sim)
+			if row.size() < 2 or row[1] != ins[1]:
+				mismatch = true
+				done = true
+				return true
+			sim.step(ins)
 			ticks += 1
-			if sim.creatures[0].state == CreatureSim.State.KO or sim.creatures[1].state == CreatureSim.State.KO:
+			if _ko(0) or _ko(1):
 				break
-		var over := ticks >= rep.frames.size() or sim.creatures[0].state == CreatureSim.State.KO \
-			or sim.creatures[1].state == CreatureSim.State.KO
+		var over := ticks >= rep.frames.size() or ticks >= end or _ko(0) or _ko(1)
 		if not over:
 			return false
 		var me := sim.creatures[0]
 		var foe := sim.creatures[1]
-		var won := foe.state == CreatureSim.State.KO or (me.state != CreatureSim.State.KO and ticks >= Daily.FIGHT_TICKS
-			and me.hp / me.max_hp > foe.hp / foe.max_hp)
-		score = daily.score_fight(won, me.hp / me.max_hp, ticks)
+		var won := false
+		if _ko(0) or _ko(1):
+			won = _ko(1) and not _ko(0)
+		elif ticks >= end:
+			won = me.hp / me.max_hp > foe.hp / foe.max_hp
+		score = daily.score_fight(won, clampf(me.hp / me.max_hp, 0.0, 1.0), ticks)
 		done = true
 		return true
+
+	func _ko(i: int) -> bool:
+		return sim.creatures[i].state == CreatureSim.State.KO

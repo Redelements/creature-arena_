@@ -726,6 +726,10 @@ func _raw(server: RelayServer, address := "raw:1") -> LoopLink:
 	return links[1]
 
 
+## A player secret for raw hellos (any 64 hex characters).
+const SECRET := "5ec7e75ec7e75ec7e75ec7e75ec7e75ec7e75ec7e75ec7e75ec7e75ec7e75ec7"
+
+
 func _hello_msg(extra := {}) -> Dictionary:
 	var h := {"t": "hello", "v": Netplay.NET_VERSION, "data": Netplay.data_hash(), "team": TEAM_C}
 	h.merge(extra, true)
@@ -788,8 +792,9 @@ func test_a_daily_replay_is_checked_before_it_is_read() -> void:
 	assert_eq(Replay.from_dict({"frames": big}, 10), null, "and no more of them than asked for:")
 	assert_eq(Replay.from_dict({"frames": [[1, 2], [3.0, 4]]}).frames.size(), 2, "a proper one loads")
 	var server := RelayServer.new()
+	server.daily_today = 20261025
 	var l := _raw(server)
-	l.send(_hello_msg({"submit": true, "id": "0123456789abcdef"}), true)
+	l.send(_hello_msg({"submit": true, "id": "0123456789abcdef", "secret": SECRET}), true)
 	l.send({"t": "daily", "date": 20261025, "fighter": "cairn", "replay": {"frames": [9000000000000000000]}}, true)
 	var t := Time.get_ticks_msec()
 	server.tick()
@@ -800,11 +805,12 @@ func test_a_daily_replay_is_checked_before_it_is_read() -> void:
 
 func test_a_daily_connection_asks_once_and_the_server_scores_a_few_at_a_time() -> void:
 	var server := RelayServer.new()
+	server.daily_today = 20261025
 	var rep := {"frames": [[0, 0], [0, 0]]}
 	var links: Array = []
 	for i in RelayServer.DAILY_QUEUE + 3:
 		var l := _raw(server, "d:%d" % i)
-		l.send(_hello_msg({"submit": true, "id": "%016x" % (i + 1)}), true)
+		l.send(_hello_msg({"submit": true, "id": "%016x" % (i + 1), "secret": SECRET}), true)
 		l.send({"t": "daily", "date": 20261025, "fighter": "cairn", "replay": rep}, true)
 		links.append(l)
 	server.tick()

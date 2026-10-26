@@ -20,6 +20,14 @@ outcome must live in the sim, never here or in `main.gd`.
   the last 8 inputs, up to `MAX_PACKET_INPUTS` = 60 to fill the gap to the lowest ack.
 - `Referee` ignores inputs more than `MAX_AHEAD` = 600 frames ahead and keeps `HISTORY` =
   240 per slot. CPU slots are skipped in time sync and digest waits.
+- Clients bound what peers send too: a "start" `delay` is clamped to
+  `RollbackSession.MAX_INPUT_DELAY` = 8 (`Netplay.start_delay`; the session and
+  `OnlineMatch` clamp again), `RollbackSession.receive` keeps no input more than
+  `MAX_AHEAD` = 600 frames ahead, `OnlineMatch` keeps only `dg` on the 60-frame grid within
+  600 frames, a spectator refuses a log over `Netplay.MAX_WATCH_LOG`. Read numbers from a
+  message with `NetLink.int_of` / `float_of` (never `int()` of an unknown type) and names
+  with `Netplay.clean_name`. `LanFinder` takes only an answer of this build (`accepts`).
+  Tests: `tests/test_client_hardening.gd`.
 - Events reach the views once through rollbacks: `OnlineMatch`'s tap de-duplicates by
   tick, type, attacker, target and who.
 - The server trusts nothing a client sends. A field the relay reads goes in
@@ -36,12 +44,23 @@ outcome must live in the sim, never here or in `main.gd`.
   `clock_skip_ms`, so tests that tick clients and server together never trip the referee's
   clock cap. Tests that drive a match must tick the server about once per client frame.
 - `Netplay.data_hash()` is computed once and cached.
+- Identity: only ranked hellos and `DailyClient` send `id` and `secret`; `RelayServer._identify`
+  checks the secret against `Ratings.keys` (a hash, `Ratings.key_of`), refuses a wrong one
+  or a second live connection of the same kind, and binds keys at first rated use
+  (`_keys_bound`, `_daily_step`). Never send an id to another player (the board is
+  `{name, score, you}`). Tests give each `Netplay` its own `my_secret` (or rely on
+  `Netplay.secret()`, made per run) and each server client its own address, or ranked
+  won't pair them (`_may_rate`).
+- The Daily's CPU is replayed by the server (`Daily.Verify`), so `CpuController.bits` must
+  stay deterministic across platforms (the sim's rules apply to it) and main must play the
+  Daily exactly as `Verify` does (`Daily.INTRO_TICKS`, the score taken at `_end_round`).
 
 ## Wire messages
 
 Dictionaries keyed `"t"`: `hello`, `reject`, `wait`, `found`, `ready`, `accepted`,
 `ping`/`pong`, `path`, `start`, `cpu`, `in` (inputs), `dg` (digest), `rematch`, `room` (also
-a 1v1 rematch's pick status, code ""), `next`, `pick`, `rating`, `bye`. Beacon packets are
+a 1v1 rematch's pick status, code ""), `next`, `pick`, `rating`, `bye`; Daily: `daily`,
+`daily_ok`, `board`, `daily_board` (rows `{name, score, you}`). Beacon packets are
 plain-UDP JSON: `creature-arena?` / `creature-arena`.
 
 ## Where to look
@@ -75,7 +94,7 @@ plain-UDP JSON: `creature-arena?` / `creature-arena`.
 Online: `--online-host[=PORT]`, `--online-join=ADDR[:PORT][/ROOM]`, `--online-watch=ADDR[:PORT][/ROOM]`, `--online-size=2|3|4` (4: Capture the Flag),
 `--fighter=ID`, `--net-lag=N`, `--net-loss=F`, `--net-delay=N`, `--net-report=PATH`. Two
 processes on one machine with `--cpu-vs-cpu` play each other; compare their reports.
-Dedicated server: `--headless -- --server[=PORT] [--max-players=N] [--net-delay=N] [--max-per-ip=N]`
+Dedicated server: `--headless -- --server[=PORT] [--max-players=N] [--net-delay=N] [--max-per-ip=N] [--ranked-same-ip] [--reset-player=ID]`
 (the rest in `dedicated_server.gd`'s header and `docs/SERVER.md`).
 
 ## Files

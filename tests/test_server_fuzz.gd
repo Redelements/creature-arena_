@@ -24,7 +24,7 @@ const FINISH_TICKS := 20000
 
 ## A hostile connection: what it does, its end of the link, what it learned.
 class Hostile:
-	var role := ""  ## "silent", "lobby", "watch", "submit", "seat"
+	var role := ""  ## "silent", "lobby", "ranked", "watch", "submit", "seat"
 	var link: LoopLink
 	var n := 0  ## the match number it last heard in "start"
 	var sent_bytes := 0
@@ -69,10 +69,14 @@ func _connect(h: Hostile) -> void:
 	match h.role:
 		"lobby":
 			_send(h, _hello())
+		"ranked":
+			# Ranked with an id and secret: often one of a few ids (so ids collide, keys
+			# get bound, a second connection or a wrong secret is refused), sometimes junk.
+			_send(h, _hello({"ranked": true, "id": _pid(), "secret": _secret(), "name": _string()}))
 		"watch":
 			_send(h, _hello({"watch": true}))
 		"submit":
-			_send(h, _hello({"submit": true, "id": "%016x" % rng.randi(), "name": "fuzz"}))
+			_send(h, _hello({"submit": true, "id": _pid(), "secret": _secret(), "name": "fuzz"}))
 		"seat":
 			_send(h, _hello({"room": "fz", "size": 2}))
 
@@ -105,6 +109,26 @@ func _set_int_pool() -> void:
 
 func _int() -> int:
 	return int(int_pool[rng.randi_range(0, int_pool.size() - 1)]) if rng.randf() < 0.8 else rng.randi_range(-1000, 100000)
+
+
+## A player id: one of a few (so they collide), a fresh one, or junk.
+func _pid() -> String:
+	var roll := rng.randf()
+	if roll < 0.5:
+		return "%016x" % rng.randi_range(1, 4)
+	if roll < 0.8:
+		return "%016x" % rng.randi()
+	return _string()
+
+
+## A player secret: one of two (right or wrong for an id), a fresh one, or junk.
+func _secret() -> String:
+	var roll := rng.randf()
+	if roll < 0.5:
+		return ("a1" if rng.randf() < 0.5 else "b2").repeat(32)
+	if roll < 0.8:
+		return "%016x" % rng.randi() + "%016x" % rng.randi() + "%016x" % rng.randi() + "%016x" % rng.randi()
+	return _string()
 
 
 func _string() -> String:
@@ -197,7 +221,8 @@ func _frames() -> Variant:
 
 const TYPES := ["hello", "pong", "ping", "ready", "daily", "board", "in", "dg", "rematch", "next", "pick", "bye"]
 const FIELDS := {
-	"hello": ["v", "data", "team", "room", "size", "rules", "arena", "id", "name", "ranked", "submit", "watch"],
+	"hello": ["v", "data", "team", "room", "size", "rules", "arena", "id", "name", "ranked", "submit", "watch",
+		"secret"],
 	"pong": ["n"], "ping": ["n"], "ready": [], "daily": ["date", "fighter", "replay"], "board": ["date"],
 	"in": ["n", "first", "inputs", "ack", "f", "adv", "advs"], "dg": ["n", "f", "d"], "rematch": [], "next": [],
 	"pick": ["team"], "bye": [],
@@ -319,6 +344,8 @@ func _check_bounds(msg: String) -> bool:
 	ok = ok and server.rooms.size() <= maxi(1, server.clients.size())
 	ok = ok and server.log_lines.size() <= 200
 	ok = ok and server.ratings.daily.size() <= 200
+	ok = ok and server.ratings.keys.size() <= 2000
+	ok = ok and server.ratings.players.size() <= 2000
 	for g: RelayServer.Game in server.games:
 		var r: Referee = g.referee
 		for p in r.players:
@@ -346,6 +373,7 @@ func _run_seed(seed_: int) -> void:
 	server.rematch_locked_ms = 0
 	server.room_fill_ms = 1  # the hostile's room fills with CPUs at once
 	server.cpu_level = 0
+	server.daily_today = 20261025  # the corpus's Daily date is today: its replays are scored
 	_set_int_pool()
 	# The honest pair and a spectator.
 	var la := LoopLink.pair(1, 0, 0.0, seed_ + 1)
@@ -381,13 +409,15 @@ func _run_seed(seed_: int) -> void:
 		if m is Dictionary:
 			corpus.append(m)
 	corpus.append(_hello({"room": "x", "size": 2, "rules": "ctf", "arena": "stadium", "name": "n", "id": "abcdef0123456789"}))
+	corpus.append(_hello({"ranked": true, "name": "r", "id": "abcdef0123456789", "secret": "a1".repeat(32)}))
+	corpus.append(_hello({"submit": true, "name": "s", "id": "0000000000000002", "secret": "b2".repeat(32)}))
 	corpus.append({"t": "daily", "date": 20261025, "fighter": "cairn", "replay": {"frames": [[0, 0], [1, 1]]}})
 	corpus.append({"t": "board", "date": 20261025})
 	corpus.append({"t": "pick", "team": ["cairn"]})
 	corpus.append({"t": "dg", "n": 1, "f": 60, "d": "abc"})
 	(la[0] as LoopLink).keep_heard = false
 	# The hostiles.
-	for role in ["silent", "lobby", "lobby", "watch", "submit", "seat"]:
+	for role in ["silent", "lobby", "ranked", "ranked", "watch", "submit", "seat"]:
 		var h := Hostile.new()
 		h.role = role
 		hostiles.append(h)

@@ -776,22 +776,47 @@ func test_no_answer_after_a_missed_home_lookup_says_what_to_check() -> void:
 	g.free()
 
 
-func test_an_older_server_nearby_is_still_found() -> void:
+## Only a server of this very build is taken from the LAN: an older one, or anyone else
+## answering on a shared network, is ignored and the public name is used instead.
+func test_a_nearby_answer_from_another_build_is_ignored() -> void:
+	var bad := [
+		{"t": ServerBeacon.ANSWER, "v": 2, "port": 0},  # an old server (no data hash)
+		{"t": ServerBeacon.ANSWER, "v": Netplay.NET_VERSION, "port": 0, "data": "not-this-build"},
+		{"t": ServerBeacon.ANSWER, "v": Netplay.NET_VERSION + 1, "port": 0, "data": Netplay.data_hash()},
+		{"t": ServerBeacon.ANSWER, "v": [Netplay.NET_VERSION], "port": 0, "data": [1]},
+	]
+	for answer in bad:
+		var port := 20000 + (Time.get_ticks_usec() % 20000)
+		answer["port"] = port
+		var udp := PacketPeerUDP.new()
+		assert_eq(udp.bind(ServerBeacon.discovery_port(port), "*"), OK, "a stand-in server")
+		var finder := LanFinder.new()
+		finder.start(port, "127.0.0.1")
+		var t0 := Time.get_ticks_msec()
+		while not finder.poll() and Time.get_ticks_msec() - t0 < 3000:
+			if udp.get_available_packet_count() > 0:
+				udp.get_packet()
+				udp.set_dest_address(udp.get_packet_ip(), udp.get_packet_port())
+				udp.put_packet(JSON.stringify(answer).to_utf8_buffer())
+			OS.delay_usec(2000)
+		assert_true(finder.done and finder.found.is_empty(), "ignored %s" % JSON.stringify(answer))
+		udp.close()
+	# The same stand-in answering as this build is taken.
 	var port := 20000 + (Time.get_ticks_usec() % 20000)
 	var udp := PacketPeerUDP.new()
-	assert_eq(udp.bind(ServerBeacon.discovery_port(port), "*"), OK, "a stand-in old server")
+	assert_eq(udp.bind(ServerBeacon.discovery_port(port), "*"), OK, "a stand-in server")
 	var finder := LanFinder.new()
 	finder.start(port, "127.0.0.1")
 	for i in 200:
 		if udp.get_available_packet_count() > 0:
 			udp.get_packet()
 			udp.set_dest_address(udp.get_packet_ip(), udp.get_packet_port())
-			udp.put_packet(JSON.stringify({"t": ServerBeacon.ANSWER, "v": 2, "port": port}).to_utf8_buffer())
+			udp.put_packet(JSON.stringify({"t": ServerBeacon.ANSWER, "v": Netplay.NET_VERSION, "port": port,
+				"data": Netplay.data_hash()}).to_utf8_buffer())
 		if finder.poll():
 			break
 		OS.delay_usec(2000)
-	assert_eq(finder.found.get("address", ""), "127.0.0.1",
-		"found, so joining it can say the builds differ instead of 'no answer':")
+	assert_eq(finder.found.get("address", ""), "127.0.0.1", "this build's answer is found:")
 	udp.close()
 
 
