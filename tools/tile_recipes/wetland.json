@@ -1,0 +1,32 @@
+{
+	"_doc": "The Floodgate's set: Szadi art's RPG Worlds Wetland (RPGW_Wetland_v1.1) for the paved concrete yard, the stone face the pit walls come from, reeds and posts for the margins; Set 1 (RPGFW_Set1_v1.0) for the water blob and fill under the shallows and the cobble kerb. Keys: tools/cut_tiles.py. Paths are relative to the packs dir.",
+	"ground": {
+		"fills": {
+			"paving": {"src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "block": [2, 37], "size": 2},
+			"kerb": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "block": [37, 0], "size": 2},
+			"water": {"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "block": [12, 0], "tint": {"mul": [2.0, 2.2, 2.6], "add": [2, 2, 17]}}
+		},
+		"terrains": {
+			"water": {"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "blob": [0, 0], "variants": [[4, 0, 8, 4]], "tint": {"mul": [2.0, 2.2, 2.6], "add": [2, 2, 17]}}
+		},
+		"surfaces": {
+			"water": {"src": "RPGFW_Set1_v1.0/_PNG/anim/water_surface_transparent.png", "frame": 32, "frames": 16, "cols": 4, "fps": 8, "over": "water", "alpha_mul": 5}
+		}
+	},
+	"pieces": {
+		"boulder": [
+			{"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png", "tile": [24, 1]},
+			{"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png", "tile": [24, 2]}
+		]
+	},
+	"overlay": {
+		"cliff": {"src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "x": 552, "rows": {"wall_top": [36, 52], "wall_mid": [72, 88], "wall_bottom": [104, 120]}},
+		"floor": {"src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "box": [200, 584, 216, 600]}
+	},
+	"decor": {
+		"reeds": {"src": "RPGW_Wetland_v1.1/_PNG/Dec_props2.png", "box": [128, 896, 192, 960], "feet": [32, 58]},
+		"reeds_small": {"src": "RPGW_Wetland_v1.1/_PNG/Dec_props2.png", "box": [192, 896, 256, 960], "feet": [32, 58]},
+		"post": {"src": "RPGW_Wetland_v1.1/_PNG/Dec_props2.png", "box": [32, 928, 64, 992], "feet": [16, 60]}
+	},
+	"anim": {}
+}

@@ -23,11 +23,13 @@ extends SceneTree
 ##   edge       a fill for the one-tile ring past the floor (default the ground)
 ##   grass      rects [tx, ty, w, h] in tiles painted with the "grass" terrain (autotiled)
 ##   water      rects in tiles painted with the "water" terrain; the map's shallows pieces
-##              are painted with it as well (rounded out to whole tiles)
+##              are painted with it as well (rounded out to whole tiles); a set with an
+##              animated surface over water (manifest "surfaces") gets a WaterSurface layer
 ##   styles     {wall: "boulder", brush: "tuft", fence: "fence"}: the piece kind (manifest
 ##              "pieces" key) each map piece is drawn with; a kind the set lacks is skipped
-##   decor      [{kind, at: [tx, ty]} | {kind, pos: [x, y] world units}]: a decor sprite
-##              (manifest "decor") standing with its feet at the tile's bottom middle
+##   decor      [{kind, at: [tx, ty]} | {kind, pos: [x, y]}]: a decor sprite (manifest
+##              "decor") standing with its feet at the tile's bottom middle, or at `pos` in
+##              units from the floor's top-left corner (negative y: the margin above it)
 ##   anim       [{kind, at | pos}]: an animated piece (manifest "anim", a waterfall)
 ##   markings   true: ArenaView draws the court lines over the tiles (the Stadium)
 ## Rerun after a cut or a map's "tiles" block changes; the game and CI use the saved files.
@@ -36,6 +38,7 @@ const TILES_DIR := "res://assets/tiles/"
 const ARENAS_DIR := "res://assets/arenas/"
 const SRC_GROUND := 0
 const SRC_PIECES := 1
+const SRC_SURFACE := 2  ## the first animated surface; one source per surface from here
 const SIDES := [TileSet.CELL_NEIGHBOR_LEFT_SIDE, TileSet.CELL_NEIGHBOR_RIGHT_SIDE,
 	TileSet.CELL_NEIGHBOR_TOP_SIDE, TileSet.CELL_NEIGHBOR_BOTTOM_SIDE]
 const DEFAULT_STYLES := {"wall": "boulder", "brush": "tuft", "fence": "fence"}
@@ -127,8 +130,33 @@ static func _ground_set(set_name: String, man: Dictionary) -> TileSet:
 		if p[kind] is Array:
 			for at in p[kind]:
 				pieces.create_tile(_v(at))
+	# Animated surfaces (a translucent water sheet): one source each, from SRC_SURFACE up,
+	# a single tile whose frames run along the strip.
+	var sid := SRC_SURFACE
+	for name in g.get("surfaces", {}):
+		var s: Dictionary = g["surfaces"][name]
+		var surf := TileSetAtlasSource.new()
+		surf.texture = load(TILES_DIR + String(s["source"]))
+		surf.texture_region_size = ts.tile_size
+		ts.add_source(surf, sid)
+		surf.create_tile(Vector2i.ZERO)
+		surf.set_tile_animation_columns(Vector2i.ZERO, int(s["frames"]))
+		surf.set_tile_animation_frames_count(Vector2i.ZERO, int(s["frames"]))
+		for k in int(s["frames"]):
+			surf.set_tile_animation_frame_duration(Vector2i.ZERO, k, 1.0 / maxf(1.0, float(s["fps"])))
+		sid += 1
 	_save(ts, TILES_DIR + set_name + "_ground.tres")
 	return ts
+
+
+## The source id of the animated surface laid over `terrain` (-1: none).
+static func _surface_source(man: Dictionary, terrain: String) -> int:
+	var sid := SRC_SURFACE
+	for name in man["ground"].get("surfaces", {}):
+		if String(man["ground"]["surfaces"][name].get("over", name)) == terrain:
+			return sid
+		sid += 1
+	return -1
 
 
 ## The overlay TileSet: 16 px tiles, one per id, in the order ArenaView draws them.
@@ -242,6 +270,12 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 						if not c in cells:
 							cells.append(c)
 		counts[name] = _terrain(layer, ts, name, cells)
+		# the terrain's animated surface, if the set has one, on its own layer over it
+		var sid := _surface_source(man, name)
+		if sid >= 0 and not cells.is_empty():
+			var surface := _layer(root, name.capitalize() + "Surface", ts)
+			for c in cells:
+				surface.set_cell(c, sid, Vector2i.ZERO)
 
 	var pieces := _layer(root, "Pieces", ts)
 	var styles: Dictionary = DEFAULT_STYLES.duplicate()

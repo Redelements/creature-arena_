@@ -3,6 +3,12 @@
 	"id": "floodgate",
 	"name": "Floodgate Stadium",
 	"ground": "concrete",
+	"tiles": {"_doc": "the floor as tiles (assets/arenas/floodgate.tscn, built by tools/build_tiles.gd): Wetland paving with a Set 1 cobble kerb, Set 1 water autotiled under the shallows, reeds at the channel's mouths in the margins",
+		"set": "wetland", "ground": "paving", "edge": "kerb",
+		"decor": [
+			{"kind": "reeds", "pos": [318, -3]}, {"kind": "reeds_small", "pos": [356, -5]},
+			{"kind": "reeds_small", "pos": [322, 299]}, {"kind": "reeds", "pos": [360, 301]}
+		]},
 	"times": ["day", "sunset", "night"],
 	"weathers": ["clear", "rain", "fog", "wind"],
 	"light": {"_doc": "evening floodlights from the top right, over the wet concrete", "dir": [-0.5, 0.87], "length": 0.45, "alpha": 0.3, "sun": {"color": "#fff2dc", "energy": 0.58}},
