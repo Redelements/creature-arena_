@@ -55,7 +55,10 @@ MAT = {
     "handle": "earth",
     "dirt": "earth",
 }
-S.configure(MAT, scale=0.8, near=14.0, near_views={"down_side": 10.0, "up_side": 10.0})
+# The headlamp glows in the emissive sheets (docs/SPRITES.md "Emissive sheets"): the lens
+# warm white, the brass housing's lit side a little.
+S.configure(MAT, scale=0.8, near=14.0, near_views={"down_side": 10.0, "up_side": 10.0},
+            emissive={"lens": {"a": 240, "rgb": (255, 236, 176)}, "lamp": {"a": 150, "min_level": 3}})
 S.COLS = 12  # the run, the pop-up, Burrow and Cave-In have 12 frames
 
 
@@ -779,4 +782,4 @@ if __name__ == "__main__":
         import anim_preview
         anim_preview.main(sys.modules[__name__], sys.argv[2:])
     else:
-        S.write_sheets(ROWS, VIEW_ROWS, OUT, PREVIEW, SIDE, VIEWS, build)
+        S.write_sheets(ROWS, VIEW_ROWS, OUT, PREVIEW, SIDE, VIEWS, build, normals=True)

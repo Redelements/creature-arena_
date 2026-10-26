@@ -128,35 +128,55 @@ func test_floodgate_lamps_light_the_night_in_high_only() -> void:
 	_free(r)
 
 
-func test_pete_and_culvert_have_normal_sheets_the_sprite_uses() -> void:
-	for id in ["pete", "culvert"]:
-		var sp: Dictionary = MatchFactory.load_def(id)["sprite"]
-		var paths: Array = [String(sp["path"])]
-		for vname in sp.get("views", {}):
-			paths.append(String(sp["views"][vname]["path"]))
-		for p in paths:
+## Every sheet of a fighter (and the training dummy): its colour sheet's path and those of
+## its views.
+static func _sheet_paths(id: String) -> Array:
+	var sp: Dictionary = MatchFactory.load_def(id)["sprite"]
+	var paths: Array = [String(sp["path"])]
+	for vname in sp.get("views", {}):
+		paths.append(String(sp["views"][vname]["path"]))
+	return paths
+
+
+func test_every_fighter_has_normal_sheets_the_sprite_uses() -> void:
+	for id in MatchFactory.FIGHTERS + ["dummy"]:
+		for p in _sheet_paths(id):
 			var n := String(p).get_basename() + "_n.png"
 			assert_true(ResourceLoader.exists(n), "%s has %s" % [id, n])
 			if ResourceLoader.exists(n):
 				var a: Texture2D = load(p)
 				var b: Texture2D = load(n)
 				assert_eq(b.get_size(), a.get_size(), "%s: same layout as its colour sheet" % n)
-		var sim := MatchFactory.training(id)
+		var sim := MatchFactory.training(id) if id != "dummy" else MatchFactory.training("cairn")
 		var v := CreatureView.new()
-		v.setup(sim.creatures[0])
+		v.setup(sim.creatures[0 if id != "dummy" else 1])
 		assert_true(v.sprite.texture is CanvasTexture, "%s draws through a CanvasTexture" % id)
 		assert_true(v.lit(), "%s takes the lights" % id)
 		assert_eq(v.sprite.light_mask, Light2DView.FIGHTER_MASK, "%s is on the fighter light mask" % id)
-		assert_eq(v.sheet().resource_path, String(sp["path"]), "the colour sheet is still the sheet")
+		assert_eq(v.sheet().resource_path, _sheet_paths(id)[0], "the colour sheet is still the sheet")
 		v.free()
-	# A fighter without normal sheets draws exactly as before: no lights reach it.
-	var sim2 := MatchFactory.training("cairn")
-	var v2 := CreatureView.new()
-	v2.setup(sim2.creatures[0])
-	assert_false(v2.sprite.texture is CanvasTexture, "cairn keeps a plain texture")
-	assert_false(v2.lit(), "and no light reaches him")
-	assert_eq(v2.sprite.light_mask, 1, "default mask: no light uses it")
-	v2.free()
+
+
+func test_emissive_sheets_match_their_colour_sheets() -> void:
+	# Optional per sheet (docs/SPRITES.md "Emissive sheets"): where one exists it has the colour
+	# sheet's layout.
+	var found := 0
+	for id in MatchFactory.FIGHTERS + ["dummy"]:
+		for p in _sheet_paths(id):
+			var e := String(p).get_basename() + "_e.png"
+			if not ResourceLoader.exists(e):
+				continue
+			found += 1
+			var a: Texture2D = load(p)
+			var b: Texture2D = load(e)
+			assert_eq(b.get_size(), a.get_size(), "%s: same layout as its colour sheet" % e)
+	assert_gt(found, 0, "some fighters glow")
+
+
+func test_a_sheet_without_normals_draws_exactly_as_before() -> void:
+	# No light reaches a sheet without a normal sheet (its plain texture, the default mask).
+	var v := CreatureView._load_view({"path": "res://assets/sprites/caravan.png", "frame": [32, 32]}, {}, [])
+	assert_eq(v["lit"], v["tex"], "no CanvasTexture without a normal sheet")
 
 
 func test_the_light_texture_fades_to_black_at_its_edge() -> void:

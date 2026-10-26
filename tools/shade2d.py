@@ -27,6 +27,13 @@ Material specs are anything splat3d.material_ramp takes (a ramp name, (name, shi
 five colours). Each layer carries its material ids and outline ring in `img.info`
 ("mat", "ring"), so keep using the same Image object (alpha_composite and ImageDraw
 work in place) or copy the info with `keep(new, old)`.
+
+Normal sheets (docs/SPRITES.md "Normal sheets"): `shade` also keeps the shading's normal
+in `img.info["nrm"]`, and `stack` composites them with the layers into `info["nrm"]`,
+`info["fill"]` (the pixels a shaded shape filled; outlines, seams and anything painted
+outside the shape face the camera) and `info["piece"]` (which layer, for the smoothing);
+`normal_map(img)` packs a finished frame's for splat3d.finish_frame. A layer whose tags got
+lost (an Image rebuilt without `keep`) lights flat, as if it faced the camera.
 """
 import numpy as np
 from PIL import Image
@@ -56,7 +63,7 @@ N4 = ((1, 0), (-1, 0), (0, 1), (0, -1))
 
 def keep(new, old):
     """Copy a layer's material tags onto a new Image made from it."""
-    for k in ("mat", "ring"):
+    for k in ("mat", "ring", "nrm", "fill", "piece"):
         if k in old.info:
             new.info[k] = old.info[k].copy()
     return new
@@ -171,6 +178,7 @@ class Materials:
         res = Image.fromarray(out)
         res.info["mat"] = mat
         res.info["ring"] = np.zeros(m.shape, bool)
+        res.info["nrm"] = self._nrm
         return res
 
     def levels(self, m, mat, rim=True):
@@ -179,6 +187,7 @@ class Materials:
         gy = (_shifted(z, 0, 1, 0.0) - _shifted(z, 0, -1, 0.0)) * 0.5
         n = np.stack([-gx, -gy, np.ones_like(z)], axis=2)
         n /= np.linalg.norm(n, axis=2, keepdims=True)
+        self._nrm = n  # the shading's normal (x right, y down, z toward us), for normal sheets
         light = np.array(LIGHT, np.float32)
         light /= np.linalg.norm(light)
         lum = n @ light
@@ -241,6 +250,7 @@ class Materials:
         mat = mat.copy()
         mat[mask] = self.id[name]
         out = Image.fromarray(a)
+        keep(out, img)
         out.info["mat"] = mat
         out.info["ring"] = ring & ~mask
         return out
@@ -263,6 +273,7 @@ class Materials:
             a[new_ring, :3] = self.ink_lut[rmat[new_ring]]
         a[new_ring, 3] = 255
         out = Image.fromarray(a)
+        keep(out, img)
         out.info["mat"] = mat
         out.info["ring"] = ring | new_ring
         return out
@@ -276,7 +287,12 @@ class Materials:
         canvas = np.zeros((h, w, 4), np.uint8)
         cmat = np.zeros((h, w), np.int16)
         cring = np.zeros((h, w), bool)
-        for lay in layers:
+        cnrm = np.zeros((h, w, 3), np.float32)
+        cnrm[..., 2] = 1.0
+        cfill = np.zeros((h, w), bool)
+        cpiece = np.zeros((h, w), np.int64)
+        for li, lay in enumerate(layers):
+            lnrm, lfill, lpiece = _normal_tags(lay)
             a, mat, ring = tags(lay)
             la = a[:, :, 3] > 0
             ring = ring & la
@@ -289,7 +305,42 @@ class Materials:
             canvas[:, :, 3] = np.maximum(canvas[:, :, 3], a[:, :, 3])
             cmat = np.where(la, np.where(ring, 0, mat), cmat)
             cring = np.where(la, ring, cring)
+            cnrm = np.where(la[..., None], lnrm, cnrm)
+            cfill = np.where(la, lfill & ~under, cfill)
+            cpiece = np.where(la, (li + 1) * 4096 + lpiece, cpiece)
         out = Image.fromarray(canvas)
         out.info["mat"] = cmat
         out.info["ring"] = cring
+        out.info["nrm"] = cnrm
+        out.info["fill"] = cfill
+        out.info["piece"] = cpiece
         return out
+
+
+def _normal_tags(img):
+    """A layer's normals, the pixels they hold for, and its pieces (a stacked layer keeps
+    its own): a shaded layer's normal where its shape is (not its outline ring), facing the
+    camera everywhere else."""
+    a, mat, ring = tags(img)
+    h, w = a.shape[:2]
+    nrm = img.info.get("nrm")
+    if nrm is None or nrm.shape[:2] != (h, w):
+        nrm = np.zeros((h, w, 3), np.float32)
+        nrm[..., 2] = 1.0
+        return nrm, np.zeros((h, w), bool), np.zeros((h, w), np.int64)
+    fill = img.info.get("fill")
+    if fill is None or fill.shape != (h, w):
+        fill = (mat > 0) & ~ring
+    piece = img.info.get("piece")
+    if piece is None or piece.shape != (h, w):
+        piece = np.zeros((h, w), np.int64)
+    fill = fill & (a[:, :, 3] > 0)
+    return nrm, fill, piece
+
+
+def normal_map(img):
+    """A finished (stacked) frame's normal sheet RGBA for splat3d.finish_frame(normals=...)."""
+    import splat3d
+    a = np.array(img)
+    nrm, fill, piece = _normal_tags(img)
+    return splat3d.pack_normals(nrm.astype(float), piece, fill, a[:, :, 3])

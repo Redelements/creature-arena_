@@ -843,6 +843,10 @@ def render_paper(pose, view, build_fn, decorate_fn=None):
     if decorate_fn is not None:
         img = decorate_fn(r, img)
     img = outline_paper(r, img)
+    # normal sheets: smoothed within each flat face (a piece and its face index), not
+    # across a fold, so the paper's planes stay planes under the live light too
+    face = np.nan_to_num(r["local"][:, :, 0], nan=-1.0).astype(np.int64)
+    S.finish_frame(r, img, piece=r["part"].astype(np.int64) * 1024 + face + 1)
     return Image.fromarray(img)
 
 
@@ -1396,4 +1400,4 @@ if __name__ == "__main__":
     elif len(sys.argv) > 1 and sys.argv[1] == "anim":
         A.main(sys.modules[__name__], sys.argv[2:])
     else:
-        S.write_sheets(ROWS, VIEW_ROWS, OUT, PREVIEW, SIDE, VIEWS, build, decorate)
+        S.write_sheets(ROWS, VIEW_ROWS, OUT, PREVIEW, SIDE, VIEWS, build, decorate, normals=True)

@@ -890,4 +890,4 @@ if __name__ == "__main__":
     elif len(sys.argv) > 1 and sys.argv[1] == "kofx":
         print(ko_fx_numbers())
     else:
-        S.write_sheets(ROWS, VIEW_ROWS, OUT, PREVIEW, SIDE, VIEWS, build, decorate)
+        S.write_sheets(ROWS, VIEW_ROWS, OUT, PREVIEW, SIDE, VIEWS, build, decorate, normals=True)

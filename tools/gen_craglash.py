@@ -107,6 +107,53 @@ def layer():
     return Image.new("RGBA", (F, FH or F), (0, 0, 0, 0))
 
 
+# The normal pass (normal sheets, docs/SPRITES.md): with NORMAL_PASS on, the same drawing
+# runs again with shade() painting each part's pillow normal (packed as a normal sheet
+# pixel) instead of its ramp colour, outlines facing the camera, and the colour-only steps
+# (darken, lighten, finish) left out; detail strokes take the normal under them (clip_to).
+# `_with_normals` runs it beside the colour frame, so the colour frames never change.
+NORMAL_PASS = [False]
+FACING = (128, 128, 255, 255)  # a normal-sheet pixel facing the camera
+
+
+def _pack(nx, ny, nz):
+    """Screen normals (x right, y down, z toward us) as normal-sheet RGB bytes."""
+    ln = np.sqrt(nx * nx + ny * ny + nz * nz) + 1e-9
+    out = np.zeros(nx.shape + (3,), np.uint8)
+    out[..., 0] = np.clip(np.round((nx / ln * 0.5 + 0.5) * 255), 0, 255)
+    out[..., 1] = np.clip(np.round((-ny / ln * 0.5 + 0.5) * 255), 0, 255)
+    out[..., 2] = np.clip(np.round((nz / ln * 0.5 + 0.5) * 255), 0, 255)
+    return out
+
+
+def _with_normals(draw, pose):
+    """draw() -> the colour frame; while splat3d collects sheets, draws it again as the
+    normal pass and hands both maps to splat3d.finish_frame: the normals, and the veins'
+    glow (Bedrock and the charge: C["glow"], a colour nothing else on him uses)."""
+    img = draw()
+    if not S.EXTRAS["on"]:
+        return img
+    NORMAL_PASS[0] = True
+    try:
+        nimg = draw()
+    finally:
+        NORMAL_PASS[0] = False
+    a = np.array(img)
+    n = np.array(nimg)
+    if not np.array_equal(a[:, :, 3] > 0, n[:, :, 3] > 0):
+        raise RuntimeError("Craglash's normal pass covers other pixels than the colour frame")
+    # anything drawn straight onto a shaded part in colour (not a normal) faces the camera
+    v = n[:, :, :3].astype(float) / 127.5 - 1.0
+    bad = (a[:, :, 3] > 0) & (np.abs(np.linalg.norm(v, axis=2) - 1.0) > 0.08)
+    n[bad] = FACING
+    n[:, :, 3] = a[:, :, 3]
+    n[a[:, :, 3] == 0] = 0
+    glow = getattr(pose, "glow", 0.0) > 0
+    S.EMISSIVE_FN[0] = (lambda _r, _img: S.emissive_colours(_img, {C["glow"][:3]: 220})) if glow else None
+    S.finish_frame(None, a, normals=n)
+    return img
+
+
 def _mask(img):
     return np.array(img)[:, :, 3] > 0
 
@@ -188,6 +235,21 @@ def shade(img, mat, band=None, flat=False):
     nx, ny = -gx / ln, -gy / ln  # outward, on screen
     toward = nx * LIGHT[0] + ny * LIGHT[1]  # > 0: the edge faces the light
     level = np.full(m.shape, 2, np.int8)
+    if NORMAL_PASS[0]:
+        if flat:  # a flat face toward us, its one-pixel bevel tipped out
+            edge = m & (dist == 0)
+            k = np.where(edge, 0.55, 0.0)
+            px = _pack(nx * k, ny * k, np.where(edge, 0.83, 1.0))
+        else:
+            rad = float(dmax + 1)
+            if band is not None:
+                rad = min(rad, float(band) + 1.0)
+            s = np.clip((rad - dist - 0.5) / rad, 0.0, 0.96)
+            px = _pack(s * nx, s * ny, np.sqrt(1.0 - s * s))
+        out = np.zeros_like(a)
+        out[m, :3] = px[m]
+        out[m, 3] = 255
+        return Image.fromarray(out)
     if flat:
         edge = m & (dist == 0)
         level[edge & (toward > 0.3)] = 3
@@ -227,7 +289,7 @@ def outline(img, color="body"):
     a = np.array(img)
     m = a[:, :, 3] > 0
     ring = (_shift(m, 1, 0) | _shift(m, -1, 0) | _shift(m, 0, 1) | _shift(m, 0, -1)) & ~m
-    a[ring] = _MARK[color]
+    a[ring] = FACING if NORMAL_PASS[0] else _MARK[color]
     return Image.fromarray(a)
 
 
@@ -235,6 +297,8 @@ def finish(img):
     """The finished frame's lines: each outline marker becomes its material's ink where
     it touches the outside (the silhouette) and its seam colour, the ramp's deep step one
     step lighter than the ink, where it lies inside (a piece in front of another)."""
+    if NORMAL_PASS[0]:
+        return img
     a = np.array(img)
     m = a[:, :, 3] > 0
     outside = ~(_shift(m, 1, 0) & _shift(m, -1, 0) & _shift(m, 0, 1) & _shift(m, 0, -1))
@@ -249,9 +313,14 @@ def finish(img):
 
 
 def clip_to(detail, shape):
-    """Keeps detail pixels only where `shape` is opaque."""
+    """Keeps detail pixels only where `shape` is opaque (in the normal pass, the shape's
+    own normals there: painted-on strokes light like the part they are painted on)."""
     d = np.array(detail)
     d[~_mask(shape)] = 0
+    if NORMAL_PASS[0]:
+        sa = np.array(shape)
+        on = d[:, :, 3] > 0
+        d[on, :3] = sa[on, :3]
     return Image.fromarray(d)
 
 
@@ -278,6 +347,8 @@ def darken(img, k=None):
     """The far limbs sit in shadow: every palette colour one step down its ramp (so the
     shading keeps its steps and stays on the palette); outline markers are left alone."""
     global _DOWN
+    if NORMAL_PASS[0]:
+        return img
     if _DOWN is None:
         _DOWN = _step_map()
     a = np.array(img)
@@ -295,6 +366,8 @@ def darken(img, k=None):
 def lighten(img, mask, mat):
     """One step up `mat`'s ramp where `mask` is set, the light step at most (the belly
     patch keeps the shading under it, a step lighter)."""
+    if NORMAL_PASS[0]:
+        return img
     a = np.array(img)
     r5 = MAT[mat]
     for i in range(2, -1, -1):
@@ -830,6 +903,10 @@ def _face(d, cx, cy, face):
 
 
 def render(pose):
+    return _with_normals(lambda: _render(pose), pose)
+
+
+def _render(pose):
     pose = whole_pixels(pose)
     rig = Rig(pose)
     img = layer()
@@ -1546,7 +1623,8 @@ def ko():
 
 def render_any(pose, view):
     """A frame in one of the 128x160 views (the frame size and origin already set)."""
-    return render_diag(pose, view) if view in ("down_side", "up_side") else render_view(pose, view)
+    return _with_normals(lambda: render_diag(pose, view) if view in ("down_side", "up_side")
+                         else render_view(pose, view), pose)
 
 
 def view_sheets():
@@ -1557,13 +1635,11 @@ def view_sheets():
     for view in VIEWS[1:]:
         F, FH = VF, VFH
         OX, OY = VIEW_ORIGIN[view]
-        sh = Image.new("RGBA", (VF * COLS, VFH * len(VIEW_ROWS)), (0, 0, 0, 0))
-        for r, (_name, poses) in enumerate(VIEW_ROWS):
-            for c, pose in enumerate(poses):
-                sh.alpha_composite(render_any(pose, view), (c * VF, r * VFH))
+        sh, sh_n, sh_e = S.collect(VIEW_ROWS, VF, VFH, lambda pose: render_any(pose, view), cols=COLS)
         path = OUT.replace(".png", "_%s.png" % view)
         sh.save(path)
         print("wrote", os.path.relpath(path, ROOT), sh.size)
+        S.save_extras(path, sh_n, sh_e)
         out[view] = sh
     F, FH, OX, OY = saved
     # 2x previews: each animation's frames facing down, then facing up; the diagonals the same
@@ -1589,11 +1665,8 @@ def _views_preview(out, views, path):
 
 
 def side_sheet():
-    sheet = Image.new("RGBA", (F * COLS, F * len(ROWS)), (0, 0, 0, 0))
-    for r, (_name, poses) in enumerate(ROWS):
-        for c, pose in enumerate(poses):
-            sheet.alpha_composite(render(pose), (c * F, r * F))
-    return sheet
+    """The side sheet, its normal sheet and its emissive sheet (or None)."""
+    return S.collect(ROWS, F, F, render, cols=COLS)
 
 
 # ------------------------------------------------------------------ the animation pass
@@ -1607,7 +1680,7 @@ def side_sheet():
 # snaps them when drawing, so in-betweens never stair-step.
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import splat3d as S  # noqa: E402  (only its animation tools: tweener, EASE_8)
+import splat3d as S  # noqa: E402  (its animation tools, and the normal/emissive sheet writer)
 
 tw = S.tweener()
 
@@ -2177,10 +2250,11 @@ def A_timed(at, length):
 
 
 def main():
-    sheet = side_sheet()
+    sheet, sheet_n, sheet_e = side_sheet()
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     sheet.save(OUT)
     print("wrote", os.path.relpath(OUT, ROOT), sheet.size)
+    S.save_extras(OUT, sheet_n, sheet_e)   # the normal and emissive sheets (docs/SPRITES.md)
 
     # Labelled 3x preview on a floor-coloured background, for docs and review.
     s = 3
