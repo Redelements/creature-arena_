@@ -4,7 +4,7 @@
   "title": "A floating brain that cooks with its mind",
   "affinity": "lumen",
   "role": "mage",
-  "max_hp": 105,
+  "max_hp": 210,
   "speed": 2.21,
   "accel": 0.42,
   "radius": 11,
@@ -162,13 +162,13 @@
     "surge": {
       "name": "Knife Flurry", "anim": "flurry", "energy_cost": 100, "aim": 0.4,
       "startup": 9, "active": 0, "recovery": 34,
-      "damage": 3, "knockback": 0.3, "hitstun": 18, "hitstop": 2, "juggle": true, "juggle_float": 14,
+      "damage": 4.2, "knockback": 0.3, "hitstun": 18, "hitstop": 2, "juggle": true, "juggle_float": 14,
       "vuln_mult": 1.25,
       "projectile": {
         "speed": 8.0, "life": 14, "radius": 9, "offset": 14, "crack_trail": false, "pierce": true,
         "sound": "knife_throw", "end_sound": "knife_hit",
         "volley": { "count": 8, "every": 3, "fan": 1, "fan_max": 2,
-          "last": { "damage": 6.0, "knockback": 3.0, "knockdown": 36.0, "hitstop": 12.0, "vuln_ticks": 240 } }
+          "last": { "damage": 8.4, "knockback": 3.0, "knockdown": 36.0, "hitstop": 12.0, "vuln_ticks": 240 } }
       },
       "anim_at": [[0, 0], [3, 1], [6, 2], [10, 3], [13, 4], [16, 5], [19, 6], [22, 3], [25, 4], [28, 5], [31, 7],
         [35, 8], [37, 9], [39, 10], [41, 11]],

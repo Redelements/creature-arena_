@@ -4,7 +4,7 @@
   "title": "Dropped on the sidewalk; now he makes everyone else cry",
   "affinity": "tide",
   "role": "bruiser",
-  "max_hp": 145,
+  "max_hp": 290,
   "speed": 2.47,
   "accel": 0.44,
   "radius": 11,
@@ -137,7 +137,7 @@
     "surge": {
       "name": "Flavor Blast", "anim": "blast", "energy_cost": 100,
       "startup": 12, "active": 4, "recovery": 26,
-      "damage": 16, "knockback": 0.5, "freeze_ticks": 120, "hitstop": 14,
+      "damage": 22.4, "knockback": 0.5, "freeze_ticks": 120, "hitstop": 14,
       "reach": 0, "hit_radius": 90, "juggle": true,
       "zone": { "at": 12, "radius": 60, "ticks": 240, "slow_mult": 0.6 },
       "anim_at": [[0, 0], [3, 1], [6, 2], [8, 3], [12, 4], [13, 5], [18, 6], [22, 7], [26, 8], [30, 9], [34, 10], [38, 11]],

@@ -24,7 +24,7 @@ extends SceneTree
 ##     `combo_hits` counts up; it ends when that resets (the foe recovers, or a hit restarts it
 ##     at 1). The baseline is in docs/plans/combat-metrics.md.
 
-const MAX_TICKS := 5400
+const MAX_TICKS := 7200  ## a 1v1 round (120 s)
 
 var _scored_a := false  ## --scored: the fighter under test (side A) scored, the foe the old ladder
 var _ladder := false  ## --ladder: everyone plays the old ladder kit (a baseline)
