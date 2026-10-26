@@ -13,8 +13,10 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   only when a cut changes; lasting tweaks go in `EFFECTS`, since a rebuild overwrites the `.tres`.
 - `cut_tiles.py <packs dir> <set>`: cuts a tiled-arena set out of the bought packs (never in
   the repo) from the recipe `tile_recipes/<set>.json` (keys in its docstring: fills, blob
-  terrains whose 16 side combinations are read off the art, pieces by kind, the overlay's
-  cliff strips, decor sprites, animated strips) into `assets/tiles/<set>_*.png` plus
+  terrains whose 16 side combinations are read off the art, animated translucent surfaces
+  over a terrain (Set 1's water sheet over its river bed, alpha kept; fills, terrains and
+  surfaces take a `tint`), pieces by kind, the overlay's cliff strips, decor sprites,
+  animated strips) into `assets/tiles/<set>_*.png` plus
   `<set>_manifest.json` (the overlay ids `OVERLAY` that `ArenaView.OV_*` and `assets/README.md`
   name). Colours snapped to the palette. Then `build_tiles.gd [-- --set=<set>]` (Godot,
   `--headless --script res://tools/build_tiles.gd` after `--import`) makes

@@ -28,6 +28,12 @@ packs dir; "tile" positions are [column, row] of 32 px tiles in the source sheet
                            the horizontal strip, the 3 x 3 the blob proper; Szadi art's
                            sheets all use it), and blocks of variants whose connected sides
                            are read off their alpha (an empty slot or a lone island is skipped)
+  ground.surfaces.<name>   {"src", "frame": 32, "frames": n, "cols": c, "fps": f, "over": "water"}
+                           an animated, translucent sheet laid over every tile of the `over`
+                           terrain (Set 1's water_surface_transparent.png over its river bed);
+                           frames read row-major from a sheet `cols` wide; alpha kept
+                           ("alpha_mul" scales it). Fills, terrains and surfaces take an
+                           optional "tint" {"mul": [r, g, b], "add": [r, g, b]} before the snap
   pieces.<kind>            [{"src", "tile": [tx, ty]} | {"src", "box": [x0, y0, x1, y1],
                            "at": "bottom"|"centre"}, ...]  32 px tiles of one kind
   overlay.cliff            {"src", "x", "rows": {"wall_top": [y0, y1], "wall_mid": ..,
@@ -112,9 +118,20 @@ def snap(img):
     return Image.fromarray(P.snap(arr, dither=False), "RGBA")
 
 
-def save(img, name):
+def snap_translucent(img):
+    """Palette-snap the colours but keep the alpha as drawn: a water surface, a shadow."""
+    arr = np.array(img.convert("RGBA"))
+    alpha = arr[:, :, 3].copy()
+    arr[:, :, 3] = 255
+    out = P.snap(arr, dither=False)
+    out[:, :, 3] = alpha
+    out[alpha == 0] = 0
+    return Image.fromarray(out, "RGBA")
+
+
+def save(img, name, translucent=False):
     path = os.path.join(OUT, name)
-    snap(img).save(path)
+    (snap_translucent(img) if translucent else snap(img)).save(path)
     print("wrote assets/tiles/%s %dx%d" % (name, img.width, img.height))
 
 
@@ -139,22 +156,35 @@ class Sheet:
         return out
 
 
+def tinted(img, spec):
+    """A recipe's optional "tint" {"mul": [r, g, b], "add": [r, g, b]} on a cut (Set 1's
+    river bed is drawn for a dark pond; lifted, it reads as a shallows channel). Alpha kept."""
+    t = spec.get("tint")
+    if not t:
+        return img
+    arr = np.array(img.convert("RGBA")).astype(float)
+    mul = np.array(t.get("mul", [1, 1, 1]), float)
+    add = np.array(t.get("add", [0, 0, 0]), float)
+    arr[:, :, :3] = np.clip(arr[:, :, :3] * mul + add, 0, 255)
+    return Image.fromarray(arr.astype(np.uint8), "RGBA")
+
+
 def cut_ground(cut, set_name, g):
     sheet = Sheet(T, 20)
     man = {"source": set_name + "_ground.png", "tile": T, "fills": {}, "terrains": {}}
     for name, f in g.get("fills", {}).items():
         size = int(f.get("size", 4))
         bx, by = f["block"]
-        man["fills"][name] = [sheet.add(cut.tile(f["src"], bx + i % size, by + i // size)) for i in range(size * size)]
+        man["fills"][name] = [sheet.add(tinted(cut.tile(f["src"], bx + i % size, by + i // size), f)) for i in range(size * size)]
     for name, t in g.get("terrains", {}).items():
         out = []
         bx, by = t["blob"]
         for (sx, sy), sides in BLOB_SIDES.items():
-            out.append({"at": sheet.add(cut.tile(t["src"], bx + sx, by + sy)), "sides": list(sides), "prob": 1.0})
+            out.append({"at": sheet.add(tinted(cut.tile(t["src"], bx + sx, by + sy), t)), "sides": list(sides), "prob": 1.0})
         for (vx, vy, vw, vh) in t.get("variants", []):
             for sy in range(vh):
                 for sx in range(vw):
-                    img = cut.tile(t["src"], vx + sx, vy + sy)
+                    img = tinted(cut.tile(t["src"], vx + sx, vy + sy), t)
                     a = np.array(img)[:, :, 3] > 0
                     if a.mean() < 0.01:
                         continue  # the sheet's empty slots
@@ -165,6 +195,25 @@ def cut_ground(cut, set_name, g):
         man["terrains"][name] = out
         print("  terrain %s: %d tiles" % (name, len(out)))
     save(sheet.image(), man["source"])
+    # Animated surfaces laid over a terrain (Set 1's translucent water sheet over its river
+    # bed): one strip each, frames side by side, alpha kept.
+    man["surfaces"] = {}
+    for name, s in g.get("surfaces", {}).items():
+        fs = int(s.get("frame", T))
+        n = int(s["frames"])
+        cols = int(s.get("cols", n))
+        src = cut.load(s["src"])
+        strip = Image.new("RGBA", (fs * n, fs), (0, 0, 0, 0))
+        for k in range(n):
+            strip.paste(src.crop(((k % cols) * fs, (k // cols) * fs, (k % cols + 1) * fs, (k // cols + 1) * fs)), (k * fs, 0))
+        if "alpha_mul" in s:  # Set 1's surface is drawn at 7 %: too faint over a lifted bed
+            arr = np.array(strip)
+            arr[:, :, 3] = np.clip(arr[:, :, 3].astype(float) * float(s["alpha_mul"]), 0, 255).astype(np.uint8)
+            strip = Image.fromarray(arr, "RGBA")
+        strip = tinted(strip, s)
+        file = "%s_surface_%s.png" % (set_name, name)
+        save(strip, file, translucent=True)
+        man["surfaces"][name] = {"source": file, "frames": n, "fps": float(s.get("fps", 6)), "over": str(s.get("over", name))}
     return man
 
 

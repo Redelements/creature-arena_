@@ -98,6 +98,20 @@ Props** (`RPGW_DecorativeProps_v1.0`), both in the same bundle, with Set 1 (cut 
 - `assets/tiles/grassland_manifest.json`, `assets/tiles/grassland_*.tres` and
   `assets/arenas/greenhouse.tscn`: derived from the above.
 
+Files from **RPG Worlds Wetland** (`RPGW_Wetland_v1.1`, in the same bundle) and Set 1, cut
+by `tools/cut_tiles.py` from `tools/tile_recipes/wetland.json` for the Floodgate:
+
+- `assets/tiles/wetland_ground.png`: the paving fill (Wetland's cobbled yard) with Set 1's
+  cobble kerb, water blob and water fill (lifted lighter for a shallows channel).
+- `assets/tiles/wetland_surface_water.png`: Set 1's translucent animated water surface, as a
+  strip of 16 frames.
+- `assets/tiles/wetland_pieces.png` (Set 1 boulders), `assets/tiles/wetland_overlay.png`
+  (Wetland's stone face as the pit walls, its cave dark as the pit floor, generated cracks).
+- `assets/tiles/wetland_decor_reeds.png`, `wetland_decor_reeds_small.png`,
+  `wetland_decor_post.png` (Wetland's reeds and a post).
+- `assets/tiles/wetland_manifest.json`, `assets/tiles/wetland_ground.tres`,
+  `assets/tiles/wetland_overlay.tres`, `assets/arenas/floodgate.tscn`.
+
 Fantasy Lands Warrior: nothing from it is in the repository yet. Add its files here when
 they are.
 
