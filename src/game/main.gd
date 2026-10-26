@@ -64,7 +64,8 @@ extends Node2D
 ##   --view-team=N         show the match as team N sees it (brush, fences, walls hide
 ##                         foes), even with nobody playing here (captures of --cpu-vs-cpu)
 ##   --menu=PAGE           open a menu page: main, single, single:<group>, look (Time and weather), settings, game, video, audio, controls,
-##                         remap:classic|league|gamepad (captures)
+##                         remap:classic|league|gamepad, credits, credits:<row> (game, szadi,
+##                         kiddolink, font, godot, notices) (captures)
 ##   --online-host[=PORT]  host an online 1v1 straight away (UDP, default port 7777)
 ##   --online-join=ADDR[:PORT][/ROOM]  join one, or a dedicated server (ROOM: meet a friend there)
 ##   --online-watch=ADDR[:PORT][/ROOM] watch a server's match (a room's, from match to match)
@@ -441,7 +442,7 @@ var wins := [0, 0]
 var _carried_energy := [-1.0, -1.0]
 var timer := ROUND_TICKS
 var seed_base := 1
-## --menu=PAGE: open a menu page on start (captures): single, single:<group>, settings, game, video, audio, controls.
+## --menu=PAGE: open a menu page on start (captures): single, single:<group>, settings, game, video, audio, controls, credits[:row].
 var _menu_arg := ""
 var _setting_rows := {}  ## Settings key -> its OptionRow, while the page is open
 var _match_over_status: Label = null
@@ -875,7 +876,8 @@ func _open_menu(page := "", focus := "") -> void:
 	hud.menu_visible = true
 	audio.play_music("menu")
 	_menu_background()
-	var land := focus if focus != "" else ("settings" if page in SETTING_PAGES or page == "controls" or page.begins_with("remap:") else page)
+	var land := focus if focus != "" else ("settings" if page in SETTING_PAGES or page == "controls" or page.begins_with("remap:") \
+		or page.begins_with("credits") else page)
 	var t := TitleScreen.new(land)
 	t.single_pressed.connect(_open_single)
 	t.online_pressed.connect(func(): _start_match(ONLINE_MODE))
@@ -904,6 +906,13 @@ func _open_menu(page := "", focus := "") -> void:
 			_open_settings()
 			_open_controls()
 			_open_settings_page("touch")
+		"credits":
+			_open_settings()
+			_open_credits()
+		"credits:game", "credits:szadi", "credits:kiddolink", "credits:font", "credits:godot", "credits:notices":
+			_open_settings()
+			_open_credits()
+			(ui.top() as CreditsScreen).open_page(page.get_slice(":", 1))
 		"remap:classic", "remap:league", "remap:gamepad":  # captures of a Remap page
 			_open_settings()
 			_open_controls()
@@ -1358,7 +1367,7 @@ func _start_row(row: int) -> void:
 	_start_match(int(r["modes"][_row_choice[row] if row < _row_choice.size() else 0]))
 
 
-## Settings: four pages, like most games: Game, Video, Audio, Controls.
+## Settings: four pages, like most games: Game, Video, Audio, Controls; and the Credits.
 func _open_settings() -> void:
 	var scr := UiScreen.new()
 	scr.logo = true
@@ -1375,9 +1384,16 @@ func _open_settings() -> void:
 			func(): _open_settings_page("audio"), "Volumes")
 		s.add_card("Controls", "Keyboard and controller layouts; remap keys and buttons",
 			_open_controls, "Who presses what")
+		s.add_card("Credits", "Who made the game; art, font and engine licences",
+			_open_credits, "Credits and licences, and the engine's third-party notices")
 		s.add_space(3)
 		s.add_button("Back", s.back)
 	ui.push(scr)
+
+
+## Settings > Credits (src/ui/credits_screen.gd; LICENSES.md says it at length).
+func _open_credits() -> void:
+	ui.push(CreditsScreen.new())
 
 
 ## One Settings page: each row's values and description come from _setting(); a change
@@ -5430,6 +5446,7 @@ func _parse_args() -> int:
 		elif a.begins_with("--menu="):
 			var page := a.get_slice("=", 1)
 			if page in ["main", "single", "look", "settings", "game", "video", "audio", "controls", "touch"] or page.begins_with("single:") \
+					or page.begins_with("credits") \
 					or page in ["remap:classic", "remap:league", "remap:gamepad"]:
 				_menu_arg = "" if page == "main" else page
 		elif a.begins_with("--fighter="):
