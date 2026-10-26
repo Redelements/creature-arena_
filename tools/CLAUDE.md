@@ -15,6 +15,15 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   arena's `assets/arenas/<id>.tscn` from its JSON `tiles` block. Rerun both only when a cut
   or a map changes; the game and CI use the committed files. `hills2.png` draws its cliff
   ledge 16 px down the tile: the overlay's 16 px strips are cut from the rows it occupies.
+- `import_frames.py <id> [--view side]`: an artist's or PixelLab's frames
+  (a drop zone `incoming/<id>/<view>/<anim>/<nn>.png` under `assets/sprites`, or strips, `frames.json` beside them
+  with the canvas, the feet point, an integer export scale and the `ppu`; the spec is
+  `docs/pixellab-spec.md`) into one of the game's sheets: palette-snapped (no dither, alpha
+  hardened), downsampled by the scale, every frame padded to `--frame` (192) with the feet
+  on `--origin` (96, 144), rows in the creature's `sprite.anims` order (a missing row stays
+  blank and is reported), plus a `SpriteFrames` `.tres` and the `sprite` JSON block to paste
+  (`ppu` 2). `--split <sheet>` cuts an existing sheet into that layout for a dry run, `--check
+  <png>` compares the result pixel for pixel (the 1x Crease sheet rebuilds identically).
 - `palette.py`: the master palette (hue lines, five-step ramps, outline inks; rules in its
   docstring and `docs/SPRITES.md`, "Palette"). `ramp(name, shift)`, `ramp_for(rgb)`,
   `ink_for`, `nearest` / `snap` (images, dithered) / `snap_ramp` (arena ramps);
@@ -168,6 +177,7 @@ tools, so a fighter's pass is posing work only.
 - `gen_pete.py` — Sneaky Pete sprite sheets, a pixel-art recreation of the artist's character sheet.
 - `gen_sno.py` — Sno Mercy sprite sheets, a pixel-art recreation of the artist's character sheet.
 - `gen_sprites.py` — Generate the small placeholder sheets for Ready 4 Rambles: floor tiles, the crowd, effects.
+- `import_frames.py` — Imports a folder of PNG frames (PixelLab's output, or any artist's) as one of the game's sprite sheets: quantized to th…
 - `odin_perf.py` — Measure frame pacing on an Android device (the AYN Odin 3) over adb.
 - `palette.py` — The master palette: one published set of colours for every fighter and arena.
 - `shade2d.py` — Master-palette shading for the 2D painters (Barkley's and Gillbert's rigs).
