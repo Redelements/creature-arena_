@@ -1,5 +1,5 @@
 {
-	"_doc": "Match mutators (the Daily Challenge draws two; Chaos Cup stacks them). Each is a set of keys MatchSim.apply_mutators reads: air_mult scales every launch's air time, speed_mult every fighter's walking speed, damage_mult every hit's damage (both ways), surge_every fills every Surge meter every N ticks, pit_floor sinks that share of the floor into chasms at the start (clear of the spawns, in a seeded pattern). hazards lists arena hazards from data/rules/hazards.json (a tidal wave, a meteor shower); two mutators' hazards add up.",
+	"_doc": "Match mutators (the Daily Challenge draws two; Chaos Cup stacks them). Each is a set of keys MatchSim.apply_mutators reads: air_mult scales every launch's air time, speed_mult every fighter's walking speed, damage_mult every hit's damage (both ways), surge_every fills every Surge meter every N ticks, pit_floor sinks that share of the floor into chasms at the start (clear of the spawns, in a seeded pattern). hazards lists arena hazards from data/rules/hazards.json (a tidal wave, a meteor shower, a rolling boulder, a fault line); two mutators' hazards add up.",
 	"low_gravity": {"name": "Low gravity", "air_mult": 1.6},
 	"surge_rush": {"name": "Surge rush", "surge_every": 600},
 	"pit_floor": {"name": "Floor of pits", "pit_floor": 0.22},
