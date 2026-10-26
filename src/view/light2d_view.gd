@@ -95,7 +95,7 @@ var _lamp_lights: Array[PointLight2D] = []
 static var _tex: Texture2D = null
 static var _pool_tex: Texture2D = null
 ## A lamp's floor pool keeps full strength out to this share of its radius (`pool`).
-const POOL_CORE := 0.55
+const POOL_CORE := 0.6
 
 
 func _ready() -> void:

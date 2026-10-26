@@ -191,6 +191,21 @@ static func _lamp_at(lp: Dictionary, p: Vector2) -> float:
 	return f * f * (3.0 - 2.0 * f) * float(lp["energy"])
 
 
+func test_night_is_offered_only_where_an_arena_lists_it() -> void:
+	var nights: Array = []
+	for id in ArenaMap.IDS + ArenaMap.MODE_IDS:
+		if "night" in WeatherView.times_of(_arena(id)):
+			nights.append(id)
+	assert_eq(nights, ["floodgate"], "night on the Floodgate only (Kevin, Oct 2026)")
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3
+	for i in 60:
+		assert_true(String(WeatherView.resolve(_arena("stadium"), "random", "clear", rng)["time"]) != "night",
+			"Random never draws night on a map without it")
+	assert_eq(String(WeatherView.resolve(_arena("twin_keeps"), "night", "clear")["time"]), "day",
+		"asking for night there plays day")
+
+
 func test_every_arena_with_a_night_has_lamps_on_its_floor() -> void:
 	for id in ArenaMap.IDS + ArenaMap.MODE_IDS:
 		var a := _arena(id)
@@ -223,12 +238,30 @@ func test_every_arena_with_a_night_has_lamps_on_its_floor() -> void:
 			for q in heads:
 				near = near or h.distance_to(q) <= Light2DView.HEAD_NEAR
 			assert_true(near, "%s: the %s head at %s has a lamp" % [id, e["kind"], h])
-		# pools down the middle of the floor and over most of it (night is dark between
-		# them; a fighter there keeps `lit_fighter_min` and the moon), and no spot takes more
-		# fighter lights than fit on a sprite
-		var least := 99.0
+		# separate pools: no two bright cores overlap, and the night stays dark between them
+		# (a fighter there keeps `lit_fighter_min` and the moon, not a brighter floor)
+		for i in lamps.size():
+			for j in range(i + 1, lamps.size()):
+				var a1: Dictionary = lamps[i]
+				var a2: Dictionary = lamps[j]
+				if bool(a1["lamp"]) or bool(a2["lamp"]):
+					continue
+				var d := Vector2(a1["pos"]).distance_to(a2["pos"])
+				var cores := (float(a1["radius"]) + float(a2["radius"])) * Light2DView.POOL_CORE
+				assert_gt(d, cores, "%s: the pools at %s and %s keep their cores apart" % [id, a1["pos"], a2["pos"]])
+				var mid := (Vector2(a1["pos"]) + Vector2(a2["pos"])) * 0.5
+				var between := false  # another pool sits between them: they aren't neighbours
+				for k in lamps.size():
+					if k != i and k != j and not bool(lamps[k]["lamp"]) and mid.distance_to(lamps[k]["pos"]) < float(lamps[k]["radius"]):
+						between = true
+				if between:
+					continue
+				var gap := 0.0
+				for lp in lamps:
+					gap += _lamp_at(lp, mid)
+				assert_lt(gap, 0.5, "%s: dark between the pools at %s and %s (%.2f)" % [id, a1["pos"], a2["pos"], gap])
 		var most := 0
-		var lit := 0
+		var dark := 0
 		var pts := _floor_points(fr)
 		for p in pts:
 			var sum := 0.0
@@ -237,13 +270,11 @@ func test_every_arena_with_a_night_has_lamps_on_its_floor() -> void:
 				sum += _lamp_at(lp, p)
 				if float(lp["fighter_energy"]) > 0.0 and p.distance_to(lp["pos"]) < float(lp["radius"]) + 40.0:
 					n += 1
-			if sum >= 0.3:
-				lit += 1
-			if absf(p.y - fr.get_center().y) < 8.0 and p.x > fr.position.x + 32.0 and p.x < fr.end.x - 32.0:
-				least = minf(least, sum)
+			if sum < 0.1:
+				dark += 1
 			most = maxi(most, n)
-		assert_gt(least, 0.5, "%s: the middle of the floor is lit end to end (least %.2f)" % [id, least])
-		assert_gt(float(lit) / pts.size(), 0.5, "%s: most of the floor is in a pool" % id)
+		assert_gt(float(dark) / pts.size(), 0.3, "%s: a real night: much of the floor is dark" % id)
+		assert_gt(float(WeatherView.data()["times"]["night"]["lit_fighter_min"]), 0.6, "a fighter in the dark still reads")
 		assert_true(most + Light2DView.MAX_DYNAMIC + 1 <= 15, "%s: lamps + moving lights + its moon fit a sprite's 15 lights (%d lamps)" % [id, most])
 
 

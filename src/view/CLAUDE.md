@@ -217,7 +217,8 @@ dig/slosh/poof/chop_chop/shout sounds.
   flat square, which is why `project.godot` turns it off
   (`rendering/shader_compiler/shader_cache/enabled=false`). The bloom's SubViewports get a World2D
   of their own, so they draw only the bloom's sources. `tests/test_light2d.gd`.
-- Arena lamps and the sun → `light2d_view.gd`. Every map with a night lists `lights` (at most
+- Arena lamps and the sun → `light2d_view.gd`. Night is offered on the Floodgate only (Kevin, Oct
+  2026: weather.json `defaults.times` is day and sunset); a map with a night lists `lights` (at most
   `MAX_LAMPS` 15: a whole big map can be on screen and every lamp lights the one night-shade item);
   a floor pool uses the `pool` texture (a flat core, `POOL_CORE`), a lamp with `fighter_energy` 0
   (a `lamp` head) gives no fighter light. FurnitureView lights a floodlight / worklight / torch

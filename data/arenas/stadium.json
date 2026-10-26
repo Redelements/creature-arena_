@@ -3,7 +3,7 @@
 	"id": "stadium",
 	"name": "Stadium",
 	"ground": "dirt",
-	"times": ["day", "sunset", "night"],
+	"times": ["day", "sunset"],
 	"weathers": ["clear", "rain", "fog", "wind", "snow"],
 	"light": {"_doc": "floodlights high over the stands: short shadows, nearly straight down", "dir": [0.25, 1.0], "length": 0.38, "alpha": 0.32, "sun": {"color": "#f4f6ff", "energy": 0.6}},
 	"grade": {"_doc": "floodlit, a touch cool and clean; a view-only tint and vignette (GradeView), eased at night/sunset/rain by weather.json", "tint": "#f2f5ff", "vignette": 0.22},
@@ -13,15 +13,6 @@
 			{"kind": "bird", "every": 1500, "flock": 3, "first": 420},
 			{"kind": "moth", "count": 3},
 			{"kind": "cat", "every": 3000, "first": 480}]},
-	"lights": [
-		{"_doc": "the night's lamps as real 2D lights (Settings > Video > Lighting: High; view only, Light2DView): the four corner floodlight towers (furniture) and the roof's lamps throw a row of pools down the floor, where the baked light map put them; then the towers' lamp heads (lamp: bloom, FurnitureView lights them)", "pos": [128, 208], "color": "#ffc868", "radius": 160, "energy": 2.2, "height": 110, "fighter_color": "#fff4e0", "fighter_energy": 0.6},
-		{"pos": [352, 208], "color": "#ffc868", "radius": 160, "energy": 2.2, "height": 110, "fighter_color": "#fff4e0", "fighter_energy": 0.6},
-		{"pos": [576, 208], "color": "#ffc868", "radius": 160, "energy": 2.2, "height": 110, "fighter_color": "#fff4e0", "fighter_energy": 0.6},
-		{"pos": [-30, -59], "color": "#fff0c0", "radius": 56, "energy": 1.6, "height": 30, "fighter_energy": 0, "lamp": true},
-		{"pos": [734, -59], "color": "#fff0c0", "radius": 56, "energy": 1.6, "height": 30, "fighter_energy": 0, "lamp": true},
-		{"pos": [-34, 313], "color": "#fff0c0", "radius": 56, "energy": 1.6, "height": 30, "fighter_energy": 0, "lamp": true},
-		{"pos": [738, 313], "color": "#fff0c0", "radius": 56, "energy": 1.6, "height": 30, "fighter_energy": 0, "lamp": true}
-	],
 	"furniture": [
 		{"kind": "floodlight", "pos": [-30, 56], "h": 110},
 		{"kind": "floodlight", "pos": [30, 56], "anchor": "tr", "mirror": true, "h": 110},

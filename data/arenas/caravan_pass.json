@@ -16,20 +16,6 @@
 	"spawns": {"left": [60, 224], "right": [1732, 224]},
 	"track": [[90, 224], [300, 224], [420, 150], [640, 150], [760, 260], [896, 260],
 		[1032, 260], [1152, 150], [1372, 150], [1492, 224], [1702, 224]],
-	"lights": [
-		{"_doc": "the night's lamps as real 2D lights (Settings > Video > Lighting: High; view only, Light2DView): lanterns over the road: six warm pools along the pass; then the six torches (furniture) on the walls and corners", "pos": [163, 224], "color": "#ffbc68", "radius": 165, "energy": 2.4, "height": 110, "fighter_color": "#ffecd0", "fighter_energy": 0.6},
-		{"pos": [456, 224], "color": "#ffbc68", "radius": 165, "energy": 2.4, "height": 110, "fighter_color": "#ffecd0", "fighter_energy": 0.6},
-		{"pos": [749, 224], "color": "#ffbc68", "radius": 165, "energy": 2.4, "height": 110, "fighter_color": "#ffecd0", "fighter_energy": 0.6},
-		{"pos": [1043, 224], "color": "#ffbc68", "radius": 165, "energy": 2.4, "height": 110, "fighter_color": "#ffecd0", "fighter_energy": 0.6},
-		{"pos": [1336, 224], "color": "#ffbc68", "radius": 165, "energy": 2.4, "height": 110, "fighter_color": "#ffecd0", "fighter_energy": 0.6},
-		{"pos": [1629, 224], "color": "#ffbc68", "radius": 165, "energy": 2.4, "height": 110, "fighter_color": "#ffecd0", "fighter_energy": 0.6},
-		{"pos": [-30, 23], "color": "#ffa040", "radius": 70, "energy": 1.8, "height": 30, "fighter_energy": 0, "lamp": true},
-		{"pos": [1822, 23], "color": "#ffa040", "radius": 70, "energy": 1.8, "height": 30, "fighter_energy": 0, "lamp": true},
-		{"pos": [-30, 387], "color": "#ffa040", "radius": 70, "energy": 1.8, "height": 30, "fighter_energy": 0, "lamp": true},
-		{"pos": [1822, 387], "color": "#ffa040", "radius": 70, "energy": 1.8, "height": 30, "fighter_energy": 0, "lamp": true},
-		{"pos": [600, 21], "color": "#ffa040", "radius": 70, "energy": 1.8, "height": 30, "fighter_energy": 0, "lamp": true},
-		{"pos": [1200, 21], "color": "#ffa040", "radius": 70, "energy": 1.8, "height": 30, "fighter_energy": 0, "lamp": true}
-	],
 	"furniture": [
 		{"kind": "banner", "pos": [-750, -27], "anchor": "t", "color": "#d2a028", "emblem": 0, "h": 34},
 		{"kind": "banner", "pos": [-450, -27], "anchor": "t", "color": "#b0442c", "emblem": 1, "h": 34},

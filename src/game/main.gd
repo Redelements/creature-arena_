@@ -14,7 +14,8 @@ extends Node2D
 ##   --arena=ID            the arena map for offline matches (stadium, quarry, floodgate,
 ##                         greenhouse; data/arenas/)
 ##   --time=ID             time of day for offline matches this session: random, day, sunset,
-##                         night (data/weather.json; a choice the arena doesn't allow falls back)
+##                         night (data/weather.json; a choice the arena doesn't allow falls back:
+##                         night is the Floodgate's only)
 ##   --weather=ID          weather for offline matches this session: random, clear, rain, fog,
 ##                         wind, snow
 ##   --autoplay            training demo: the player side follows a scripted routine
@@ -1176,7 +1177,7 @@ func _add_look_rows(s: UiScreen) -> void:
 			names.append("Random" if id == WeatherView.RANDOM else WeatherView.name_of(kind, String(id)))
 		var cur := time_choice if kind == "times" else weather_choice
 		var label := "Time" if kind == "times" else "Weather"
-		var desc := ("Day, sunset or night: how the match looks, never how it plays. Random: one the map allows"
+		var desc := ("Day, sunset or night: how the match looks, never how it plays. Night is on the Floodgate only; other maps play day. Random: one the map allows"
 			if kind == "times" else
 			"Clear, rain, fog, wind or snow: looks only. Random: one the map allows; one the map doesn't allow plays clear. Online is always day and clear")
 		s.add_option(label, names, maxi(0, ids.find(cur)), func(i: int): _set_look_choice(kind, String(ids[i])), desc)
@@ -4521,7 +4522,7 @@ func _setting(key: String) -> Dictionary:
 				"desc": "Glowing things (auras, sparks, flashes, shots) light the floor around them. Off for weaker devices"}
 		"lighting":
 			return {"label": "Lighting", "values": ["Off", "Low", "High"], "index": lighting,
-				"desc": "Real light on the fighters (sun, auras, flashes); High adds the night's lamps and bloom. Lower for weaker devices"}
+				"desc": "Real light on the fighters (sun, auras, flashes); High adds the Floodgate's night lamps and bloom. Lower for weaker devices"}
 		"font":
 			return {"label": "Text font", "values": ["Pixel", "Smooth"], "index": 1 if UiTheme.smooth else 0,
 				"desc": "The menus and the HUD: the pixel font, or the smooth font from before"}

@@ -15,9 +15,9 @@
 			{"kind": "moth", "count": 2},
 			{"kind": "cat", "every": 3600, "first": 900}]},
 	"lights": [
-		{"_doc": "the night's floodlights as real 2D lights (Settings > Video > Lighting: High; view only, Light2DView): the three pools where the baked light map puts them, then the corner tower lamps (lamp: a bright head that blooms); color/energy light the floor through the cold night tint, so they run warm and strong, fighter_color/fighter_energy model the fighters", "pos": [128, 208], "color": "#ffd15c", "radius": 140, "energy": 3.0, "height": 90, "fighter_color": "#fff0d8", "fighter_energy": 0.7},
-		{"pos": [352, 208], "color": "#ffd15c", "radius": 140, "energy": 3.0, "height": 90, "fighter_color": "#fff0d8", "fighter_energy": 0.7},
-		{"pos": [576, 208], "color": "#ffd15c", "radius": 140, "energy": 3.0, "height": 90, "fighter_color": "#fff0d8", "fighter_energy": 0.7},
+		{"_doc": "the night's floodlights as real 2D lights (Settings > Video > Lighting: High; view only, Light2DView): the three pools where the baked light map puts them, then the corner tower lamps (lamp: a bright head that blooms); color/energy light the floor through the cold night tint, so they run warm and strong, fighter_color/fighter_energy model the fighters", "pos": [128, 208], "color": "#ffb436", "radius": 95, "energy": 2.7, "height": 90, "fighter_color": "#fff0d8", "fighter_energy": 0.7},
+		{"pos": [352, 208], "color": "#ffb436", "radius": 95, "energy": 2.7, "height": 90, "fighter_color": "#fff0d8", "fighter_energy": 0.7},
+		{"pos": [576, 208], "color": "#ffb436", "radius": 95, "energy": 2.7, "height": 90, "fighter_color": "#fff0d8", "fighter_energy": 0.7},
 		{"pos": [16, 34], "color": "#ffd870", "radius": 64, "energy": 1.4, "height": 30, "fighter_color": "#fff8e0", "fighter_energy": 0.4, "lamp": true},
 		{"pos": [688, 34], "color": "#ffd870", "radius": 64, "energy": 1.4, "height": 30, "fighter_color": "#fff8e0", "fighter_energy": 0.4, "lamp": true},
 		{"pos": [16, 362], "color": "#ffd870", "radius": 64, "energy": 1.4, "height": 30, "fighter_color": "#fff8e0", "fighter_energy": 0.4, "lamp": true},

@@ -1,6 +1,6 @@
 {
 	"_doc": "Time of day and weather: how a match looks, never how it plays (views only, not in the online data hash; online matches always use day + clear). An arena lists which of these it allows with \"times\" / \"weathers\"; without them it gets \"defaults\". Read by WeatherView (src/view/weather_view.gd); keys in data/CLAUDE.md.",
-	"defaults": {"times": ["day", "sunset", "night"], "weathers": ["clear", "rain", "fog", "wind"]},
+	"defaults": {"times": ["day", "sunset"], "weathers": ["clear", "rain", "fog", "wind"]},
 	"times": {
 		"day": {"name": "Day",
 			"sun": {"_doc": "the sun on the fighters (Lighting Low/High, Light2DView.sun_of): the arena's light.sun times energy; color replaces the arena's; height 0 grazing .. 1 overhead; shade dims the side away from it", "energy": 1.0, "height": 0.45, "shade": 0.86}},
