@@ -1,8 +1,8 @@
-# Creature Arena: notes for Claude sessions
+# Ready 4 Rambles: notes for Claude sessions
 
 Real-time 2D creature brawler in **Godot 4.7.2 / GDScript**. Original creatures, a
-stadium, ground that breaks into pits. Design source of truth: the **Creature Arena —
-Game Plan** doc (https://claude.ai/artifact/4u3EdX5vUQZUceeNQpVuud), which covers the
+stadium, ground that breaks into pits. Design source of truth: the **Game Plan** doc
+(https://claude.ai/artifact/4u3EdX5vUQZUceeNQpVuud), which covers the
 concept, legal guardrails, roster, affinities, arenas, game modes and roadmap.
 
 **Before searching broadly, check docs/codebase-map.md to locate the relevant module.** It's
@@ -55,6 +55,12 @@ Read on demand, not up front:
   Rage vs Rage with `tests/bench_cpu.gd --matrix` / `--pairs` and pinned by
   `tests/test_balance.gd`. A fighter's sheet "type" maps to the Game Plan's affinities
   (closest fit; check with Kevin), never to a type chart.
+- **The game was renamed** from Creature Arena to Ready 4 Rambles (Oct 2026). Players see
+  the new name; the old one stays wherever changing it would break something: the user
+  data folder (`custom_user_dir_name` in project.godot keeps `app_userdata/Creature Arena`,
+  pinned by `tests/test_user_dir.gd`), the Android package id, the LAN beacon words and
+  ratings salt in `src/net/`, the Linux binary `CreatureArena.x86_64` and its CI artifact
+  (the server's `update.sh` downloads them), the `creature-arena` service and its paths.
 - **Legally distinct.** No names, art, sounds or mechanics from Pokémon (no capture, no
   trainer, no type chart). See "Staying legally distinct" in the Game Plan.
 

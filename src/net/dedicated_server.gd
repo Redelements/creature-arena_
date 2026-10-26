@@ -100,7 +100,7 @@ func _ready() -> void:
 		printerr(_stamp() + hub.error)
 		get_tree().quit(1)
 		return
-	_print("Creature Arena server on UDP port %d (protocol %d, game data %s), up to %d players" % [
+	_print("Ready 4 Rambles server on UDP port %d (protocol %d, game data %s), up to %d players" % [
 		port, Netplay.NET_VERSION, Netplay.data_hash(), relay.max_players])
 	var addrs := Netplay.local_addresses()
 	if not addrs.is_empty():

@@ -126,7 +126,7 @@ tools, so a fighter's pass is posing work only.
 - `anim_preview.py` — Animation previews and the timeline check, shared by every sprite generator.
 - `codebase_map.py` — Writes the generated file lists and checks the codebase map for drift.
 - `gen_arenas.py` — Arena art: each map's whole backdrop as one picture, drawn by ArenaView under the floor's cracks, holes and pieces.
-- `gen_audio.py` — Generate PLACEHOLDER sound effects and music for Creature Arena.
+- `gen_audio.py` — Generate PLACEHOLDER sound effects and music for Ready 4 Rambles.
 - `gen_barkley.py` — Barkley sprite sheets, a pixel-art recreation of the artist's character sheet.
 - `gen_cairn.py` — Cairn sprite sheets: a boxer made of stacked river stones, drawn as a posed 3D rig.
 - `gen_cerebro.py` — Chef Cerebro sprite sheets: a floating brain who throws his kitchen with his mind.
@@ -137,10 +137,10 @@ tools, so a fighter's pass is posing work only.
 - `gen_dummy.py` — Training dummy sprite sheets: a stuffed sack on a spring stand, drawn as a posed 3D rig.
 - `gen_gillbert.py` — Gillbert sprite sheets, a pixel-art recreation of the artist's character sheet.
 - `gen_hissy.py` — Hissy Fitz sprite sheets, a pixel-art recreation of the artist's character sheet.
-- `gen_logo.py` — The title wordmark: CREATURE / ARENA in the m5x7 pixel font, scaled up by whole pixels, filled with hard-edged gold ban…
+- `gen_logo.py` — The title wordmark: READY 4 / RAMBLES in the m5x7 pixel font, scaled up by whole pixels, filled with hard-edged gold ba…
 - `gen_pete.py` — Sneaky Pete sprite sheets, a pixel-art recreation of the artist's character sheet.
 - `gen_sno.py` — Sno Mercy sprite sheets, a pixel-art recreation of the artist's character sheet.
-- `gen_sprites.py` — Generate the small placeholder sheets for Creature Arena: floor tiles, the crowd, effects.
+- `gen_sprites.py` — Generate the small placeholder sheets for Ready 4 Rambles: floor tiles, the crowd, effects.
 - `odin_perf.py` — Measure frame pacing on an Android device (the AYN Odin 3) over adb.
 - `palette.py` — The master palette: one published set of colours for every fighter and arena.
 - `shade2d.py` — Master-palette shading for the 2D painters (Barkley's and Gillbert's rigs).

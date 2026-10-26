@@ -114,6 +114,7 @@ func save() -> void:
 
 ## The hash the book keeps for a player's id and secret.
 static func key_of(id: String, secret: String) -> String:
+	# The salt keeps the game's old name: changing it would change every player's key.
 	return ("creature-arena|%s|%s" % [id, secret]).sha256_text()
 
 

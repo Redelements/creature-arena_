@@ -110,7 +110,7 @@ func _ready() -> void:
 			pic.name = "Wordmark"
 			col.add_child(pic)
 		else:
-			col.add_child(_label("CREATURE ARENA", UiTheme.SIZE_LOGO if title == "" else UiTheme.SIZE_LOGO_SMALL, UiTheme.C_TEXT))
+			col.add_child(_label("READY 4 RAMBLES", UiTheme.SIZE_LOGO if title == "" else UiTheme.SIZE_LOGO_SMALL, UiTheme.C_TEXT))
 			col.add_child(_rule(60.0 if title == "" else 44.0))
 			if title != "":
 				_logo_small = [col.get_child(col.get_child_count() - 2), col.get_child(col.get_child_count() - 1)]

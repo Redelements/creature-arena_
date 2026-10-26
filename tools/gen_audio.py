@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate PLACEHOLDER sound effects and music for Creature Arena.
+"""Generate PLACEHOLDER sound effects and music for Ready 4 Rambles.
 
     python3 tools/gen_audio.py        (needs numpy)
 
