@@ -262,7 +262,7 @@ const SCRIPTS := {
 		],
 	},
 	"hissy": {
-		"left": "hissy", "right": "cairn", "energy": [100, 0], "gap": 70.0, "hp": [-1, 85],
+		"left": "hissy", "right": "cairn", "energy": [100, 0], "gap": 70.0, "hp": [-1, 112],
 		"title": "HISSY FITZ  -  FULL KIT",
 		"captions": [
 			["Stone Gaze: slows whoever looks at her", "Cairn walks in, slowed", "Snake Jab", "Snake Jab",
@@ -407,7 +407,7 @@ const SCRIPTS := {
 		],
 	},
 	"sno": {
-		"left": "sno", "right": "cairn", "energy": [100, 0], "gap": 30.0, "hp": [-1, 108],
+		"left": "sno", "right": "cairn", "energy": [100, 0], "gap": 30.0, "hp": [-1, 117],
 		"title": "SNO MERCY  -  FULL KIT",
 		"captions": [
 			["Syrup Slick: a sticky puddle", "Cairn wades in, slowed", "Cold Cross", "Cold Cross", "Brain Freeze",

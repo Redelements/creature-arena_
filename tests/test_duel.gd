@@ -120,7 +120,7 @@ func test_benched_creature_heals_back_part_of_its_damage() -> void:
 	var a := d.active_creature(0)
 	a.hp = a.max_hp * 0.4
 	_press(d, T)
-	for i in 60 * 30:
+	for i in 60 * 60:  # a minute: the cap is a share of max HP (doubled Oct 2026), the rate flat
 		d.step(PackedInt32Array([0, 0]))
 	var cap := a.max_hp * 0.4 + a.max_hp * float(d.rules["bench_regen_cap"])
 	assert_near(a.hp, cap, 0.01, "heals up to the cap, no further:")
@@ -257,7 +257,7 @@ func test_a_one_creature_duel_online_is_best_of_three() -> void:
 	assert_eq(DuelSim.new([TEAM_A, TEAM_B], DuelSim.rules_for([TEAM_A, TEAM_B])).rounds_to_win(), 1, "")
 	var d := _one_v_one()
 	assert_eq(d.rounds_to_win(), 2, "")
-	assert_near(d.timer, int(d.rules["time_seconds"]) * 60, 1.0, "a 90 s round:")
+	assert_near(d.timer, int(d.rules["time_seconds"]) * 60, 1.0, "a 120 s round:")
 	_ko(d, 1)
 	assert_eq(d.phase, DuelSim.Phase.ROUND_OVER, "one KO ends the round, not the match:")
 	assert_eq(d.round_wins, [1, 0], "")

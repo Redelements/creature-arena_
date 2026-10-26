@@ -275,17 +275,20 @@ func test_the_paper_plane_glides_far_and_through_fences() -> void:
 	assert_gt(c.pos.x - x0, 60.0, "a long glide, over the fence:")
 
 
-func test_thousand_cranes_needs_three_sheets_and_a_full_meter() -> void:
+## Since Oct 2026 Thousand Cranes costs no paper (Kevin): a full meter is all it takes.
+func test_thousand_cranes_needs_only_a_full_meter() -> void:
 	var sim := _duel("cairn", 100.0)
 	var c := sim.creatures[0]
 	c.energy = CreatureSim.MAX_ENERGY
+	c.sheets = 0
+	assert_true(c.can_use("surge"), "no sheets needed, just the meter")
+	c.energy = CreatureSim.MAX_ENERGY - 1.0
+	assert_false(c.can_use("surge"), "the meter still has to be full")
+	c.energy = CreatureSim.MAX_ENERGY
 	c.sheets = 2
-	assert_false(c.can_use("surge"), "two sheets aren't enough")
-	c.sheets = 3
-	assert_true(c.can_use("surge"), "three and a full meter")
 	tap(sim, SU, 0)
 	assert_eq(c.move_id, "surge", "")
-	assert_eq(c.sheets, 0, "it spends all three:")
+	assert_eq(c.sheets, 2, "and it leaves his sheets alone:")
 
 
 func test_the_storm_pulses_then_pushes_out_and_cracks_a_ring() -> void:

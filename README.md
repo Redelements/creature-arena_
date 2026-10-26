@@ -72,7 +72,7 @@ have. If someone doesn't, the players who accepted go back to searching. Mirror
 matches are fine; in a 2v2 or 3v3 the server puts two of the same fighter on opposite
 teams when it can.
 
-A **1 v 1** is best of three rounds of 90 seconds, like Versus against the CPU: a K.O.
+A **1 v 1** is best of three rounds of 2 minutes, like Versus against the CPU: a K.O.
 (or more health left at time) takes the round, then both fighters, the floor and the
 clock reset. A drawn round counts for nobody; after five rounds the leader wins. The
 Duel 3v3 tag and the team battles stay one round.
@@ -629,7 +629,7 @@ freeze or slow the match. With two on the field, hits and KOs stop the whole mat
 
 ### Cairn — stacked-stone boxer
 
-A fighter (115 HP, Stone affinity): the duelist class, who wins by reading the
+A fighter (230 HP, Stone affinity): the duelist class, who wins by reading the
 opponent rather than by stats. His Slip counter turns a dodged hit into damage, and a
 fully charged Haymaker breaks guard, so a turtle can't wall him out.
 
@@ -644,7 +644,7 @@ fully charged Haymaker breaks guard, so a turtle can't wall him out.
 
 ### Culvert — storm-drain toad
 
-A tank (165 HP, Stone affinity): slow and heavy, with a fat tongue that is hard to
+A tank (330 HP, Stone affinity): slow and heavy, with a fat tongue that is hard to
 miss with and pits that stay open long enough to fence off a floor.
 
 | Button | Move | What it does |
@@ -663,7 +663,7 @@ His roll covers twice the ground of anyone else's in the same 20 frames.
 
 ### Craglash — the mountain that woke up angry
 
-A crowd-control tank (150 HP, heavy, hard to push). His slow, heavy swings don't win
+A crowd-control tank (300 HP, heavy, hard to push). His slow, heavy swings don't win
 races, so he controls where the fight happens instead: he hooks the backline in from
 across the floor, stuns, launches, and with a full meter drags everyone near him into a
 three-second lockdown while his team does the damage.
@@ -675,12 +675,12 @@ three-second lockdown while his team does the damage.
 | Skill 1 | Landslide Charge | A slow, heavy shoulder charge about 65 px forward that **stuns** whoever it hits for a quarter second (crumple), long enough to follow up. A gold windup tell |
 | Skill 2 | Mountain Maw | The hook, back every 3.3 s. His head shoots out on its stone neck, **far** (about 160 px), and **can't be blocked**: it has to be dodged. It bites the first foe it reaches and **hauls them back** to his feet, **crumpled**, so a Rake (or a teammate) follows. A red tell and a dotted lane show it coming |
 | Surge | Bedrock | Roots in place for 3 s: hits only chip him (75% less damage) and nothing moves him. Every foe within 200 px is **taunted** for 3 s: they walk at 60% speed, their attacks swing at him, and they're **dragged in** toward him, hard. Any attack button answers out of it after 18 frames, so the Stomp meets them as they arrive. Loses to grabs. A tank's meter fills from the hits he takes, so soaking damage is what earns it |
-| Passive | Stoneskin | A 30-point stone shield that soaks damage first; it grows back only after **7 s out of combat**: no damage taken and none dealt (his hits count too, blocked ones included), so it doesn't refresh mid-brawl. Shown as a pale rim on him and as pale stone on the end of his health bar ("STONESKIN") |
+| Passive | Stoneskin | A 60-point stone shield that soaks damage first; it grows back only after **7 s out of combat**: no damage taken and none dealt (his hits count too, blocked ones included), so it doesn't refresh mid-brawl. Shown as a pale rim on him and as pale stone on the end of his health bar ("STONESKIN") |
 | Dodge | Landslide Ram | His roll is a shoulder charge about as far as anyone's roll (about 45 px), and it costs **70%** of his stamina (most dodges cost 60%). He also gets his stamina back slower than most (0.35 a tick). The first foe it reaches is **hit** (4 damage, a short stun that a Rake links after, and it counts in the combo) and the dash stops there. Running into the wall stops it too and cracks the floor. Still invincible in the middle, like any roll |
 
 ### Barkley — the tree that got up and left
 
-A bruiser (145 HP, Wild affinity, slow on his roots) with long branch arms: he pulls foes
+A bruiser (290 HP, Wild affinity, slow on his roots) with long branch arms: he pulls foes
 in, spins, and fills the space around him with pinecones and roots.
 
 | Button | Move | What it does |
@@ -697,7 +697,7 @@ The sheet gives Barkley no passive, so he has none.
 
 ### Gillbert — the one that got away
 
-A small, quick skirmisher (110 HP, Tide affinity, the fastest walker). He flops across the
+A small, quick skirmisher (220 HP, Tide affinity, the fastest walker). He flops across the
 floor like a landed fish, his rod tumbling behind him on the line.
 
 ![Gillbert's flopping run: side, front and back](docs/gillbert_run.gif)
@@ -714,7 +714,7 @@ floor like a landed fish, his rod tumbling behind him on the line.
 
 ### Chef Cerebro — a floating brain that cooks with its mind
 
-A mage (105 HP, Lumen affinity). He floats a hand's height off the floor with his
+A mage (210 HP, Lumen affinity). He floats a hand's height off the floor with his
 kitchen hovering around him (big knife, spatula, meat mallet, a fan of paring knives) and
 throws it all with his mind: whatever he's moving glows violet, and so does he.
 **Dodge: Mind Blink.** Instead of rolling he teleports: a short delay (5 frames, already
@@ -740,7 +740,7 @@ for a victory-pose system.
 
 ### Hissy Fitz — kicked out of the museum for turning the guards to stone
 
-A fighter (130 HP, Wild affinity: the sheet says Poison). A big head crowned with hair
+A fighter (260 HP, Wild affinity: the sheet says Poison). A big head crowned with hair
 snakes that floats around the arena, two red boxing gloves held up in guard on two more
 snakes. She wins up close with
 quick gloves, and makes foes pay for walking in: the spit poisons them on the way, and the
@@ -762,7 +762,7 @@ the hair snakes bump gloves) waits for a victory-pose system.
 
 ### Digby — digs well. Digs VERY well
 
-An assassin (105 HP, Stone affinity: the sheet says Ground, quick on his feet). A long,
+An assassin (210 HP, Stone affinity: the sheet says Ground, quick on his feet). A long,
 low mole on all fours in an orange miner's helmet, with big yellow claws, a bushy tail and
 a pickaxe. He picks his moment: tunnel in out of reach, blind the foe, punish the miss.
 Voice line: a placeholder "I DIG IT!" (see the PR).
@@ -782,7 +782,7 @@ for a victory-pose system.
 
 ### Sneaky Pete — robbed every bank in town, twice
 
-An assassin (95 HP, Lumen affinity: the sheet says Dark). A cartoon burglar always on
+An assassin (190 HP, Lumen affinity: the sheet says Dark). A cartoon burglar always on
 tiptoe: black eye mask, orange striped beanie, and a big green money bag over his
 shoulder. He wins by not being where you're looking. Voice line: "Finders keepers!"
 
@@ -802,7 +802,7 @@ the air) waits for a victory-pose system.
 
 ### Sno Mercy — dropped on the sidewalk; now he makes everyone else cry
 
-A bruiser (145 HP, Tide affinity: the sheet says Ice, slow and heavy). A snow cone with a
+A bruiser (290 HP, Tide affinity: the sheet says Ice, slow and heavy). A snow cone with a
 red-and-green shaved-ice top, an angry face, stick limbs, red boxing gloves, and syrup
 dripping off his point. He makes the floor and the foe slow, then hits hard. Voice line:
 "Chill out."
@@ -822,7 +822,7 @@ shivering) waits for a victory-pose system.
 
 ### Mister Crease — folded from a magician's last playbill
 
-A mage (100 HP, Gale affinity: the sheet says Flying; he's the first Gale fighter). Folded
+A mage (200 HP, Gale affinity: the sheet says Flying; he's the first Gale fighter). Folded
 paper all over: a huge pleated orange hat with nothing under it but shadow and a red
 collar point, a navy suit cut in panels, a maroon vest and cape, orange paper shoes.
 He's paper, so he's light (weight 0.75): knockback carries him further than anyone.
@@ -842,7 +842,7 @@ start from neutral, never as a combo cancel; a folded craft cancels like any mov
 | Heavy | Paper Shuriken (fold 1 sheet) | A spinning star thrown along a line that hits the first foe and leaves them **bleeding** (a few ticks of damage, red, "BLEEDING"). Hold to charge: at a **full charge it breaks guard** |
 | Skill 1 | Paper Crane (fold 1 sheet) | A crane that **homes in** on the nearest foe for about half a second, then flies straight, and **pops them up** for a juggle. 4 s cooldown |
 | Skill 2 | Paper Frog (fold 1 sheet) | Sends **three frogs hopping forward side by side** (18 px apart, about 150 px). Each deals 4 and **slows**: the middle frog **shoves the foe straight back**, the outer frogs **shove them out to their side**. A foe is hit by one frog at most; blockable. 5 s cooldown |
-| Surge | Thousand Cranes (full meter **and** 3 sheets) | A lob that **locks on**: point it at a foe (within about 23°, up to about 270 px) and even a tap lands it on them (the landing ring turns gold); point it at empty floor and hold for distance (about 95 to 220 px). It bursts into a **storm of cranes** about 160 px across for 2.5 s: hit after hit inside it, and it **slows** whoever stays in, then everyone is pushed out and the floor cracks in a wide ring. Leave the circle (a roll covers it even slowed) |
+| Surge | Thousand Cranes (full meter; no sheets needed) | A lob that **locks on**: point it at a foe (within about 23°, up to about 270 px) and even a tap lands it on them (the landing ring turns gold); point it at empty floor and hold for distance (about 95 to 220 px). It bursts into a **storm of cranes** about 160 px across for 2.5 s: hit after hit inside it, and it **slows** whoever stays in, then everyone is pushed out and the floor cracks in a wide ring. Leave the circle (a roll covers it even slowed) |
 | Dodge | Paper Plane | Folds into a paper airplane and glides as far as Chef Cerebro's blink (about 116 px), **over fences** |
 
 **Victory pose:** he folds himself into a giant crane, flies a loop and unfolds with a
@@ -859,31 +859,31 @@ storm.
 | --- | --- | --- |
 | Cairn | Jab, Jab, Cross → Rockslide Rush | 31 |
 | Cairn | Slip counter → Jab, Jab, Cross, Hook → Haymaker | 57 |
-| Cairn | Jab, Jab, Cross → Haymaker → Rockslide Rush → Avalanche | 75 |
+| Cairn | Jab, Jab, Cross → Haymaker → Rockslide Rush → Avalanche | 108.8 |
 | Culvert | Jab, Jab → Gulp | 15 |
 | Culvert | Jab, Jab, Hook → Slam → Runoff (held) | 41 |
-| Culvert | Jab, Jab, Hook → Slam → Runoff (held) → Storm Drain | 74 |
+| Culvert | Jab, Jab, Hook → Slam → Runoff (held) → Storm Drain | 87.4 |
 | Craglash | Rake → Landslide Charge | 15.2 |
 | Craglash | Rake → Rockslide Stomp → Landslide Charge | 29.1 |
 | Craglash | Mountain Maw (hook) → Rake → Rockslide Stomp → Landslide Charge | 37.6 |
 | Barkley | Twig, Bough, Log Drop → Timber Twister → Branch Grab | 43.2 |
 | Barkley | Twig, Bough, Log Drop → Timber Twister → Pinecone Bomb | 45.8 |
-| Barkley | Twig, Bough, Log Drop → Timber Twister → Branch Grab → Root Eruption | 88.2 |
+| Barkley | Twig, Bough, Log Drop → Timber Twister → Branch Grab → Root Eruption | 106.2 |
 | Gillbert | Snout Jab, Tail Whip, Rod Flail → Flop Dash | 24.2 |
 | Gillbert | Snout Jab, Tail Whip, Rod Flail → Splash Zone → Flop Dash | 32.3 |
-| Gillbert | Snout Jab, Tail Whip, Rod Flail → Splash Zone → Flop Dash → The One That Got Away | 65.3 |
+| Gillbert | Snout Jab, Tail Whip, Rod Flail → Splash Zone → Flop Dash → The One That Got Away | 78.5 |
 | Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Cleaver Toss | 19.0 (not a combo since Oct 25 2026: a foe can block or dodge the follow-up) |
 | Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Tenderize → Cleaver Toss (tenderized: +20%) | 29.0 (not a combo) |
-| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Flip Out → Knife Flurry | 49.1 (not a combo) |
+| Chef Cerebro | Knife Flick, Backhand Flick, Mallet Toss → Flip Out → Knife Flurry | 61.5 (not a combo) |
 | Chef Cerebro | On a tenderized foe: Knife Flick, Backhand Flick, Mallet Toss (staggers) → Cleaver Toss | 24.2 (a combo: the mallet staggers) |
 | Hissy Fitz | Snake Jab, Snake Jab, Hair Lash → Coil Uppercut → Venom Spit (then 12 poison) | 27.1 |
-| Hissy Fitz | Snake Jab, Snake Jab, Hair Lash → Coil Uppercut → Venom Spit → Petrify Punch, then shatter the statue | 54.1 + |
+| Hissy Fitz | Snake Jab, Snake Jab, Hair Lash → Coil Uppercut → Venom Spit → Petrify Punch, then shatter the statue | 81.1 + |
 | Digby | Claw Swipe, Claw Swipe, Pickaxe Swing → Headlamp Flash | 22.3 |
-| Digby | Claw Swipe, Claw Swipe, Pickaxe Swing → Pickaxe Pop-Up → Cave-In | 49.7 |
+| Digby | Claw Swipe, Claw Swipe, Pickaxe Swing → Pickaxe Pop-Up → Cave-In | 57.0 |
 | Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket | 36.9 |
-| Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket → The Big Heist (with stolen power: +20%) | 81.9 |
+| Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket → The Big Heist (with stolen power: +20%) | 126.9 |
 | Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Slush Slide | 47.8 |
-| Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Flavor Blast, then shatter the ice | 55.6 + |
+| Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Flavor Blast, then shatter the ice | 63.9 + |
 | Mister Crease | (shuriken and crane folded) Paper Cut ×3 → Paper Shuriken → Paper Crane | about 21 + bleed |
 
 Every one of these is checked by an automated test (`tests/test_combos.gd`).
