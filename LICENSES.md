@@ -63,6 +63,21 @@ snapped to the game's palette):
 Fantasy Lands Warrior: nothing from it is in the repository yet. Add its files here when
 they are.
 
+### RPG Worlds Desert (`RPGW_Desert_v2.01`)
+
+Part of the same bundle and licence (its `_license.txt` is the text quoted above). Files from
+it (cut by `tools/cut_tiles.py` from `tools/tile_recipes/desert.json`, colours snapped to
+the game's palette):
+
+- `assets/tiles/desert_ground.png` (sand, gravel, dry-scrub and packed-earth fills, the
+  earth and scrub blobs), `assets/tiles/desert_pieces.png` (desert rocks, agave, a wooden
+  fence), `assets/tiles/desert_overlay.png` (the plateau's cliff face as pit walls, with
+  generated cracks).
+- `assets/tiles/desert_decor_*.png` (rock spires and stacks, agave) and
+  `assets/tiles/desert_anim_palm.png`, `desert_anim_palm_b.png` (the swaying palms).
+- `assets/tiles/desert_manifest.json`, `assets/tiles/desert_*.tres` and
+  `assets/arenas/caravan_pass.tscn` (Dustwind Pass's ground, painted with those tiles).
+
 ## kiddolink
 
 - Source: <https://kiddolink.itch.io/vfx-complete-set-season-1-pixel-art>

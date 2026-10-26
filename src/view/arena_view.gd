@@ -594,7 +594,15 @@ func _draw() -> void:
 ## (intact and cracked cells, then the map's pieces that sit on them).
 func _paint_floor(ci: CanvasItem, row0: int, row1: int) -> void:
 	if _tiles != null:
-		return  # the ground scene and the overlay tiles draw it all
+		# The ground scene and the overlay tiles draw it all, except rubble the sim adds
+		# where the map laid none (a Caravan rockslide): its heap is drawn here as on a map
+		# with art, since the scene's pieces are only the map's own.
+		for cy in range(row0, row1):
+			for cx in terrain.cols:
+				var i := cy * terrain.cols + cx
+				if terrain.cells[i] == TerrainGrid.WALL and terrain.map_base[i] != TerrainGrid.WALL:
+					_draw_rubble(ci, cx, cy)
+		return
 	if _art != null:
 		_paint_changed(ci, row0, row1)
 		return
