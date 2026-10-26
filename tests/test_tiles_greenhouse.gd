@@ -53,20 +53,33 @@ func test_the_scene_fences_every_fence_line_and_plants_every_bed() -> void:
 	var pieces := root.get_node("Pieces") as TileMapLayer
 	var map := ArenaMap.get_map("greenhouse")
 	var expected := 0
+	var brush := root.get_node("Brush")
+	var beds := 0
 	for piece in map["pieces"]:
 		var r: Array = piece["rect"]
 		var kind := String(piece["kind"])
+		if kind == "brush":
+			# a bed of bush clumps (a nine-slice of canopy clumps), not tuft tiles
+			beds += 1
+			var bed := Rect2i(int(r[0]), int(r[1]), int(r[2]), int(r[3]))
+			var inside := 0
+			for s in brush.get_children():
+				var cells: Rect2i = s.get_meta("cells")
+				if bed.encloses(cells):
+					inside += 1
+			assert_gt(inside, 5, "bed %s: corners, edges and a middle (%d clumps)" % [bed, inside])
+			continue
 		for c in _tiles_of(r):
 			expected += 1
 			assert_eq(pieces.get_cell_source_id(c), 1, "%s at %s has a piece tile" % [kind, c])
 			var at := pieces.get_cell_atlas_coords(c)
-			if kind == "fence":
-				var vertical: bool = int(r[3]) > int(r[2])
-				var pool: Array = _coords(p["fence_h"]) if not vertical else _coords(p["fence_v_l" if int(r[0]) % 2 == 0 else "fence_v_r"])
-				assert_true(at in pool, "%s: a fence tile the right way round, in the right half (%s)" % [c, at])
-			else:
-				assert_true(at in _coords(p["tuft"]) + _coords(p["sprig"]), "%s: tall grass on the bed (%s)" % [c, at])
-	assert_eq(pieces.get_used_cells().size(), expected, "a piece tile on every piece's tile and nowhere else")
+			var vertical: bool = int(r[3]) > int(r[2])
+			var pool: Array = _coords(p["fence_h"]) if not vertical else _coords(p["fence_v_l" if int(r[0]) % 2 == 0 else "fence_v_r"])
+			assert_true(at in pool, "%s: a fence tile the right way round, in the right half (%s)" % [c, at])
+	assert_eq(pieces.get_used_cells().size(), expected, "a piece tile on every fence tile and nowhere else")
+	assert_eq(beds, 5, "five beds")
+	for s in brush.get_children():
+		assert_true(s is AnimatedSprite2D and (s as AnimatedSprite2D).sprite_frames.get_frame_count(s.animation) == 5, "%s sways over 5 frames" % s.name)
 	var ground := root.get_node("Ground") as TileMapLayer
 	assert_true(ground.get_cell_atlas_coords(Vector2i(20, 9)) in _coords(man["ground"]["fills"]["turf"]), "turf under the floor")
 	assert_true(ground.get_cell_atlas_coords(Vector2i(-1, 9)) in _coords(man["ground"]["fills"]["moss"]), "a moss kerb round it")
@@ -93,14 +106,21 @@ func test_the_greenhouse_is_tiled_and_flattened_brush_loses_its_tuft() -> void:
 	v.set_terrain(sim.terrain)
 	assert_true(v.tiled(), "the Greenhouse draws from tiles")
 	assert_false(v._markings, "no court lines under the glass")
-	var pieces := v._tiles.get_node("Pieces") as TileMapLayer
-	var tile := Vector2i(4, 2)  # the brush bed at cells [8, 4, 10, 6]
-	assert_eq(pieces.get_cell_source_id(tile), 1, "tall grass on the bed")
+	var brush := v._tiles.get_node("Brush")
+	var over: Array = []  # the clumps over cell (8, 4), the bed's corner
+	for s in brush.get_children():
+		if (s.get_meta("cells") as Rect2i).has_point(Vector2i(8, 4)):
+			over.append(s)
+	assert_gt(over.size(), 0, "a clump covers the bed's corner cell")
+	for s in over:
+		assert_true(s.visible, "the bush stands")
 	assert_true(sim.terrain.flatten(Vector2i(8, 4)), "a dash flattens a brush cell")
 	v.refresh()
-	assert_eq(pieces.get_cell_source_id(tile), -1, "its tuft is gone while the brush lies flat")
+	for s in over:
+		assert_false(s.visible, "%s hides while the brush under it lies flat" % s.name)
 	sim.terrain.set_cell(Vector2i(8, 4), TerrainGrid.BRUSH)
 	v.refresh()
-	assert_eq(pieces.get_cell_source_id(tile), 1, "and back when it grows")
+	for s in over:
+		assert_true(s.visible, "and shows again when it grows")
 	assert_eq(sim.terrain.get_cell(Vector2i(26, 3)), TerrainGrid.FENCE, "the fence lines still stand in the sim")
 	v.free()

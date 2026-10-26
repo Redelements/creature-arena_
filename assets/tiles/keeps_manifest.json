@@ -1515,6 +1515,14 @@
      "prob": 0.5
     }
    ]
+  },
+  "surfaces": {
+   "water": {
+    "source": "keeps_surface_water.png",
+    "frames": 16,
+    "fps": 8.0,
+    "over": "water"
+   }
   }
  },
  "pieces": {
@@ -1712,13 +1720,13 @@
    "source": "keeps_anim_waterfall.png",
    "frame": [
     128,
-    96
+    160
    ],
    "frames": 8,
    "fps": 8.0,
    "feet": [
     64,
-    84
+    150
    ]
   },
   "torch": {
@@ -1733,6 +1741,66 @@
     16,
     60
    ]
+  }
+ },
+ "bushes": {
+  "green": {
+   "source": "keeps_bush_green.png",
+   "cell": [
+    72,
+    64
+   ],
+   "frames": 5,
+   "fps": 4.0,
+   "clumps": [
+    "tl",
+    "t",
+    "tr",
+    "l",
+    "c",
+    "r",
+    "bl",
+    "b",
+    "br"
+   ],
+   "sizes": {
+    "tl": [
+     56,
+     56
+    ],
+    "t": [
+     56,
+     46
+    ],
+    "tr": [
+     48,
+     64
+    ],
+    "l": [
+     40,
+     56
+    ],
+    "c": [
+     72,
+     48
+    ],
+    "r": [
+     40,
+     60
+    ],
+    "bl": [
+     38,
+     48
+    ],
+    "b": [
+     40,
+     48
+    ],
+    "br": [
+     70,
+     54
+    ]
+   }
   }
  }
 }

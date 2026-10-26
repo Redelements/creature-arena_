@@ -8,47 +8,400 @@
 		"set": "grassland",
 		"ground": "turf",
 		"edge": "moss",
-		"grass": [[3, 1, 7, 5], [32, 12, 7, 5], [17, 6, 8, 6], [4, 13, 6, 5], [32, 1, 6, 5]],
+		"grass": [
+			[
+				3,
+				1,
+				7,
+				5
+			],
+			[
+				32,
+				12,
+				7,
+				5
+			],
+			[
+				17,
+				6,
+				8,
+				6
+			],
+			[
+				4,
+				13,
+				6,
+				5
+			],
+			[
+				32,
+				1,
+				6,
+				5
+			]
+		],
 		"decor": [
-			{"kind": "bush", "pos": [-8, -2]}, {"kind": "bush", "pos": [680, -2]},
-			{"kind": "pot_tall", "pos": [-8, 40]}, {"kind": "pot_fat", "pos": [-8, 100]}, {"kind": "barrel", "pos": [-8, 180]}, {"kind": "pot_fern", "pos": [-8, 250]},
-			{"kind": "pot_fat", "pos": [680, 40]}, {"kind": "crate", "pos": [680, 110]}, {"kind": "pot_tall", "pos": [680, 190]}, {"kind": "barrel", "pos": [680, 260]},
-			{"kind": "crate_tall", "pos": [104, -2]}, {"kind": "crate", "pos": [130, -2]}, {"kind": "pot_fat", "pos": [344, -2]}, {"kind": "pot_tall", "pos": [368, -2]}, {"kind": "barrel", "pos": [544, -2]}, {"kind": "crate", "pos": [570, -2]}
-		]	},
-	"times": ["day", "sunset"],
-	"weathers": ["clear", "rain", "fog"],
-	"light": {"_doc": "high sun through the glass: short, soft shadows", "dir": [0.1, 1.0], "length": 0.36, "alpha": 0.3, "sun": {"color": "#f2ffe2", "energy": 0.5}},
-	"grade": {"_doc": "warm green-gold light through the glass; a view-only tint and vignette (GradeView), eased at night/sunset/rain by weather.json", "tint": "#f4fbe4", "vignette": 0.16},
-	"ambient": {"_doc": "glass-dome pane shadows sliding along the light, pollen and seeds on a slow breeze, brush that sways and rustles, butterflies over the beds; see AmbientView",
-		"panes": {"w": 72, "h": 56, "bar": 3, "alpha": 0.09, "drift": 30},
-		"motes": {"kind": "pollen", "count": 44},
+			{
+				"kind": "bush",
+				"pos": [
+					-8,
+					-2
+				]
+			},
+			{
+				"kind": "bush",
+				"pos": [
+					680,
+					-2
+				]
+			},
+			{
+				"kind": "pot_tall",
+				"pos": [
+					-8,
+					40
+				]
+			},
+			{
+				"kind": "pot_fat",
+				"pos": [
+					-8,
+					100
+				]
+			},
+			{
+				"kind": "barrel",
+				"pos": [
+					-8,
+					180
+				]
+			},
+			{
+				"kind": "pot_fern",
+				"pos": [
+					-8,
+					250
+				]
+			},
+			{
+				"kind": "pot_fat",
+				"pos": [
+					680,
+					40
+				]
+			},
+			{
+				"kind": "crate",
+				"pos": [
+					680,
+					110
+				]
+			},
+			{
+				"kind": "pot_tall",
+				"pos": [
+					680,
+					190
+				]
+			},
+			{
+				"kind": "barrel",
+				"pos": [
+					680,
+					260
+				]
+			},
+			{
+				"kind": "crate_tall",
+				"pos": [
+					104,
+					-2
+				]
+			},
+			{
+				"kind": "crate",
+				"pos": [
+					130,
+					-2
+				]
+			},
+			{
+				"kind": "pot_fat",
+				"pos": [
+					344,
+					-2
+				]
+			},
+			{
+				"kind": "pot_tall",
+				"pos": [
+					368,
+					-2
+				]
+			},
+			{
+				"kind": "barrel",
+				"pos": [
+					544,
+					-2
+				]
+			},
+			{
+				"kind": "crate",
+				"pos": [
+					570,
+					-2
+				]
+			}
+		],
+		"styles": {
+			"brush": "bush:green"
+		}
+	},
+	"times": [
+		"day",
+		"sunset"
+	],
+	"weathers": [
+		"clear",
+		"rain",
+		"fog"
+	],
+	"light": {
+		"_doc": "high sun through the glass: short, soft shadows",
+		"dir": [
+			0.1,
+			1.0
+		],
+		"length": 0.36,
+		"alpha": 0.3,
+		"sun": {
+			"color": "#f2ffe2",
+			"energy": 0.5
+		}
+	},
+	"grade": {
+		"_doc": "warm green-gold light through the glass; a view-only tint and vignette (GradeView), eased at night/sunset/rain by weather.json",
+		"tint": "#f4fbe4",
+		"vignette": 0.16
+	},
+	"ambient": {
+		"_doc": "glass-dome pane shadows sliding along the light, pollen and seeds on a slow breeze, brush that sways and rustles, butterflies over the beds; see AmbientView",
+		"panes": {
+			"w": 72,
+			"h": 56,
+			"bar": 3,
+			"alpha": 0.09,
+			"drift": 30
+		},
+		"motes": {
+			"kind": "pollen",
+			"count": 44
+		},
 		"sway": true,
 		"critters": [
-			{"kind": "butterfly", "count": 3},
-			{"kind": "moth", "count": 2}]},
+			{
+				"kind": "butterfly",
+				"count": 3
+			},
+			{
+				"kind": "moth",
+				"count": 2
+			}
+		]
+	},
 	"furniture": [
-		{"kind": "planter", "pos": [-340, -27], "anchor": "t", "len": 14},
-		{"kind": "planter", "pos": [-220, -27], "anchor": "t", "len": 14},
-		{"kind": "planter", "pos": [-100, -27], "anchor": "t", "len": 14},
-		{"kind": "planter", "pos": [100, -27], "anchor": "t", "len": 14},
-		{"kind": "planter", "pos": [220, -27], "anchor": "t", "len": 14},
-		{"kind": "planter", "pos": [340, -27], "anchor": "t", "len": 14},
-		{"kind": "sprinkler", "pos": [-24, 56], "h": 18},
-		{"kind": "sprinkler", "pos": [24, 56], "anchor": "tr", "h": 18},
-		{"kind": "sprinkler", "pos": [-26, 22], "anchor": "bl", "h": 18},
-		{"kind": "sprinkler", "pos": [26, 22], "anchor": "br", "h": 18},
-		{"kind": "sponsor", "pos": [65, 54], "text": "SPROUT-O", "color": "#3c8a48", "w": 62},
-		{"kind": "sponsor", "pos": [577, 54], "text": "NOODLE HQ", "color": "#b0442c", "w": 62}
+		{
+			"kind": "planter",
+			"pos": [
+				-340,
+				-27
+			],
+			"anchor": "t",
+			"len": 14
+		},
+		{
+			"kind": "planter",
+			"pos": [
+				-220,
+				-27
+			],
+			"anchor": "t",
+			"len": 14
+		},
+		{
+			"kind": "planter",
+			"pos": [
+				-100,
+				-27
+			],
+			"anchor": "t",
+			"len": 14
+		},
+		{
+			"kind": "planter",
+			"pos": [
+				100,
+				-27
+			],
+			"anchor": "t",
+			"len": 14
+		},
+		{
+			"kind": "planter",
+			"pos": [
+				220,
+				-27
+			],
+			"anchor": "t",
+			"len": 14
+		},
+		{
+			"kind": "planter",
+			"pos": [
+				340,
+				-27
+			],
+			"anchor": "t",
+			"len": 14
+		},
+		{
+			"kind": "sprinkler",
+			"pos": [
+				-24,
+				56
+			],
+			"h": 18
+		},
+		{
+			"kind": "sprinkler",
+			"pos": [
+				24,
+				56
+			],
+			"anchor": "tr",
+			"h": 18
+		},
+		{
+			"kind": "sprinkler",
+			"pos": [
+				-26,
+				22
+			],
+			"anchor": "bl",
+			"h": 18
+		},
+		{
+			"kind": "sprinkler",
+			"pos": [
+				26,
+				22
+			],
+			"anchor": "br",
+			"h": 18
+		},
+		{
+			"kind": "sponsor",
+			"pos": [
+				65,
+				54
+			],
+			"text": "SPROUT-O",
+			"color": "#3c8a48",
+			"w": 62
+		},
+		{
+			"kind": "sponsor",
+			"pos": [
+				577,
+				54
+			],
+			"text": "NOODLE HQ",
+			"color": "#b0442c",
+			"w": 62
+		}
 	],
 	"pieces": [
-		{"kind": "fence", "rect": [26, 0, 1, 10]},
-		{"kind": "fence", "rect": [57, 26, 1, 10]},
-		{"kind": "fence", "rect": [22, 30, 10, 1]},
-		{"kind": "fence", "rect": [52, 8, 10, 1]},
-		{"kind": "brush", "rect": [8, 4, 10, 6]},
-		{"kind": "brush", "rect": [66, 26, 10, 6]},
-		{"kind": "brush", "rect": [36, 14, 12, 8]},
-		{"kind": "brush", "rect": [10, 28, 8, 5]},
-		{"kind": "brush", "rect": [66, 3, 8, 5]}
+		{
+			"kind": "fence",
+			"rect": [
+				26,
+				0,
+				1,
+				10
+			]
+		},
+		{
+			"kind": "fence",
+			"rect": [
+				57,
+				26,
+				1,
+				10
+			]
+		},
+		{
+			"kind": "fence",
+			"rect": [
+				22,
+				30,
+				10,
+				1
+			]
+		},
+		{
+			"kind": "fence",
+			"rect": [
+				52,
+				8,
+				10,
+				1
+			]
+		},
+		{
+			"kind": "brush",
+			"rect": [
+				8,
+				4,
+				10,
+				6
+			]
+		},
+		{
+			"kind": "brush",
+			"rect": [
+				66,
+				26,
+				10,
+				6
+			]
+		},
+		{
+			"kind": "brush",
+			"rect": [
+				36,
+				14,
+				12,
+				8
+			]
+		},
+		{
+			"kind": "brush",
+			"rect": [
+				10,
+				28,
+				8,
+				5
+			]
+		},
+		{
+			"kind": "brush",
+			"rect": [
+				66,
+				3,
+				8,
+				5
+			]
+		}
 	]
 }

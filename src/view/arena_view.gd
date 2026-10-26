@@ -201,6 +201,31 @@ func _retile(row0: int, row1: int) -> void:
 				_edges.set_cell(at, 0, _ov_coords(eid))
 		if pieces != null and cy % per == 0:
 			_sync_pieces(pieces, cy / per)
+	_sync_brush(row0, row1)
+
+
+## The scene's bush clumps (a "Brush" node of sprites, each with the cells it covers in its
+## meta "cells"): a clump shows while every cell under it is still the map's brush, and
+## hides while a dash has flattened any of them, until the brush grows back.
+func _sync_brush(row0: int, row1: int) -> void:
+	var brush := _tiles.get_node_or_null("Brush")
+	if brush == null:
+		return
+	for s in brush.get_children():
+		if not s.has_meta("cells"):
+			continue
+		var cells: Rect2i = s.get_meta("cells")
+		if cells.end.y <= row0 or cells.position.y >= row1:
+			continue
+		var whole := true
+		for cy in range(cells.position.y, cells.end.y):
+			for cx in range(cells.position.x, cells.end.x):
+				if cx < 0 or cy < 0 or cx >= terrain.cols or cy >= terrain.rows:
+					continue
+				var i := cy * terrain.cols + cx
+				if terrain.cells[i] != terrain.map_base[i]:
+					whole = false
+		s.visible = whole
 
 
 ## The scene's pieces on tile row `ty`: a boulder stays while every cell under it is still

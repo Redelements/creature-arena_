@@ -1,10 +1,11 @@
 [gd_resource type="TileSet" format=3]
 
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_ground.png" id="1_5u8f5"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_pieces.png" id="2_qj60u"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_ground.png" id="1_qj60u"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_pieces.png" id="2_b7vlg"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_surface_water.png" id="3_gwelp"]
 
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_b7vlg"]
-texture = ExtResource("1_5u8f5")
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_7ybw8"]
+texture = ExtResource("1_qj60u")
 texture_region_size = Vector2i(32, 32)
 0:0/0 = 0
 1:0/0 = 0
@@ -711,8 +712,8 @@ texture_region_size = Vector2i(32, 32)
 1:8/0/terrains_peering_bit/left_side = 1
 1:8/0/terrains_peering_bit/top_side = 1
 
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_gwelp"]
-texture = ExtResource("2_qj60u")
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_sxm1b"]
+texture = ExtResource("2_b7vlg")
 texture_region_size = Vector2i(32, 32)
 0:0/0 = 0
 1:0/0 = 0
@@ -739,6 +740,28 @@ texture_region_size = Vector2i(32, 32)
 2:2/0 = 0
 3:2/0 = 0
 
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_jerge"]
+texture = ExtResource("3_gwelp")
+texture_region_size = Vector2i(32, 32)
+0:0/animation_columns = 16
+0:0/animation_frame_0/duration = 0.125
+0:0/animation_frame_1/duration = 0.125
+0:0/animation_frame_2/duration = 0.125
+0:0/animation_frame_3/duration = 0.125
+0:0/animation_frame_4/duration = 0.125
+0:0/animation_frame_5/duration = 0.125
+0:0/animation_frame_6/duration = 0.125
+0:0/animation_frame_7/duration = 0.125
+0:0/animation_frame_8/duration = 0.125
+0:0/animation_frame_9/duration = 0.125
+0:0/animation_frame_10/duration = 0.125
+0:0/animation_frame_11/duration = 0.125
+0:0/animation_frame_12/duration = 0.125
+0:0/animation_frame_13/duration = 0.125
+0:0/animation_frame_14/duration = 0.125
+0:0/animation_frame_15/duration = 0.125
+0:0/0 = 0
+
 [resource]
 tile_size = Vector2i(32, 32)
 terrain_set_0/mode = 2
@@ -746,5 +769,6 @@ terrain_set_0/terrain_0/name = "grass"
 terrain_set_0/terrain_0/color = Color(0.3, 0.7, 0.3, 1)
 terrain_set_0/terrain_1/name = "water"
 terrain_set_0/terrain_1/color = Color(0.2, 0.4, 0.8, 1)
-sources/0 = SubResource("TileSetAtlasSource_b7vlg")
-sources/1 = SubResource("TileSetAtlasSource_gwelp")
+sources/0 = SubResource("TileSetAtlasSource_7ybw8")
+sources/1 = SubResource("TileSetAtlasSource_sxm1b")
+sources/2 = SubResource("TileSetAtlasSource_jerge")

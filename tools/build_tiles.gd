@@ -225,6 +225,113 @@ static func _terrain(layer: TileMapLayer, ts: TileSet, name: String, cells: Arra
 	return 0
 
 
+## The SpriteFrames of a bush (manifest "bushes"): one animation per clump, its sway frames.
+static func _bush_sprite_frames(man: Dictionary, name: String, cache: Dictionary) -> SpriteFrames:
+	if cache.has(name):
+		return cache[name]
+	var b: Dictionary = man.get("bushes", {}).get(name, {})
+	if b.is_empty():
+		return null
+	var tex: Texture2D = load(TILES_DIR + String(b["source"]))
+	var frames := SpriteFrames.new()
+	frames.remove_animation("default")
+	var cw := int(b["cell"][0])
+	var ch := int(b["cell"][1])
+	for row in b["clumps"].size():
+		var key := String(b["clumps"][row])
+		var size: Array = b["sizes"][key]
+		frames.add_animation(key)
+		frames.set_animation_speed(key, float(b["fps"]))
+		for k in int(b["frames"]):
+			var at := AtlasTexture.new()
+			at.atlas = tex
+			at.region = Rect2(k * cw, row * ch, int(size[0]), int(size[1]))
+			frames.add_frame(key, at)
+	cache[name] = frames
+	return frames
+
+
+## One bed of bushes over the brush rect `r` (cells): corner clumps flush with the bed's
+## corners (their outward sides carry the canopy's outline), edge clumps along its sides,
+## inner clumps filling the middle, each an AnimatedSprite2D of the clump's sway frames
+## started at its own phase, sorted by its foot. `cell_px` is a cell in scene pixels (16).
+## Each clump records the cells it covers (`meta "cells"`), so ArenaView can hide it while
+## a dash has flattened them.
+static func _bush_bed(brush: Node2D, root: Node, man: Dictionary, name: String, r: Array, cell_px: int, cache: Dictionary) -> void:
+	var frames := _bush_sprite_frames(man, name, cache)
+	if frames == null:
+		push_warning("no bush " + name)
+		return
+	var b: Dictionary = man["bushes"][name]
+	var sizes: Dictionary = b["sizes"]
+	var x0 := int(r[0]) * cell_px
+	var y0 := int(r[1]) * cell_px
+	var w := int(r[2]) * cell_px
+	var h := int(r[3]) * cell_px
+	var n := int(b["frames"])
+	var spots: Array = []  # [key, x, y] top-left corners in scene px
+
+	var sz := func(key: String) -> Vector2i:
+		return Vector2i(int(sizes[key][0]), int(sizes[key][1]))
+	# the middle first (drawn under), then the edges, then the corners on top
+	var c: Vector2i = sz.call("c")
+	var yy := y0 + 10
+	var row_k := 0
+	while yy + c.y <= y0 + h - 6 or row_k == 0:
+		var xx := x0 + 10 + (int(c.x * 0.35) if row_k % 2 == 1 else 0)
+		while xx + c.x <= x0 + w - 6 or xx == x0 + 10:
+			spots.append(["c", xx + _h(xx, yy, 5) % 7 - 3, yy + _h(xx, yy, 6) % 5 - 2])
+			xx += int(c.x * 0.72)
+		yy += int(c.y * 0.6)
+		row_k += 1
+	var t: Vector2i = sz.call("t")
+	var bt: Vector2i = sz.call("b")
+	var tl: Vector2i = sz.call("tl")
+	var tr: Vector2i = sz.call("tr")
+	var bl: Vector2i = sz.call("bl")
+	var br: Vector2i = sz.call("br")
+	var xx2 := x0 + tl.x - int(t.x * 0.4)
+	while xx2 + t.x < x0 + w - tr.x + int(t.x * 0.4):
+		spots.append(["t", xx2 + _h(xx2, y0, 7) % 5 - 2, y0])
+		spots.append(["b", xx2 + _h(xx2, y0 + h, 8) % 5 - 2, y0 + h - bt.y])
+		xx2 += int(t.x * 0.75)
+	var l: Vector2i = sz.call("l")
+	var rr: Vector2i = sz.call("r")
+	var yy2 := y0 + tl.y - int(l.y * 0.4)
+	while yy2 + l.y < y0 + h - bl.y + int(l.y * 0.4):
+		spots.append(["l", x0, yy2 + _h(x0, yy2, 9) % 5 - 2])
+		spots.append(["r", x0 + w - rr.x, yy2 + _h(x0 + w, yy2, 10) % 5 - 2])
+		yy2 += int(l.y * 0.75)
+	spots.append(["tl", x0, y0])
+	spots.append(["tr", x0 + w - tr.x, y0])
+	spots.append(["bl", x0, y0 + h - bl.y])
+	spots.append(["br", x0 + w - br.x, y0 + h - br.y])
+
+	for s in spots:
+		var key := String(s[0])
+		var size: Vector2i = sz.call(key)
+		var px := int(s[1])
+		var py := int(s[2])
+		var sprite := AnimatedSprite2D.new()
+		sprite.name = "%s_%d" % [key, brush.get_child_count()]
+		sprite.sprite_frames = frames
+		sprite.animation = key
+		sprite.centered = false
+		sprite.offset = Vector2(0, -size.y)  # y-sorted by its foot
+		sprite.position = Vector2(px, py + size.y)
+		sprite.autoplay = key
+		sprite.frame = _h(px, py, 11) % n
+		sprite.speed_scale = 0.85 + 0.3 * float(_h(px, py, 12) % 10) / 10.0
+		# the cells this clump covers, clipped to the bed (what a dash can flatten)
+		var cx0 := clampi(floori(float(px) / cell_px), int(r[0]), int(r[0]) + int(r[2]) - 1)
+		var cy0 := clampi(floori(float(py) / cell_px), int(r[1]), int(r[1]) + int(r[3]) - 1)
+		var cx1 := clampi(ceili(float(px + size.x) / cell_px), cx0 + 1, int(r[0]) + int(r[2]))
+		var cy1 := clampi(ceili(float(py + size.y) / cell_px), cy0 + 1, int(r[1]) + int(r[3]))
+		sprite.set_meta("cells", Rect2i(cx0, cy0, cx1 - cx0, cy1 - cy0))
+		brush.add_child(sprite)
+		sprite.owner = root
+
+
 ## Where a decor or anim entry stands, in scene pixels (2 a unit): a tile's bottom middle
 ## (`at`) or a point in units from the floor's top-left corner (`pos`).
 static func _spot(e: Dictionary, tile: int) -> Vector2:
@@ -311,12 +418,24 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 	var placed: Array = map.get("pieces", []).duplicate()
 	for b in map.get("bridges", []):
 		placed.append({"kind": "bridge", "rect": b.get("rect", [0, 0, 0, 0])})
+	# brush drawn as bushes (`styles.brush: "bush:<name>"`): a nine-slice of swaying canopy
+	# clumps per bed, under the fighters like the rest of the scene; ArenaView hides a clump
+	# whose cells are flattened (`_sync_brush`)
+	var brush := Node2D.new()
+	brush.name = "Brush"
+	brush.y_sort_enabled = true
+	root.add_child(brush)
+	brush.owner = root
+	var bush_frames := {}
 	for piece in placed:
 		var kind := String(piece.get("kind", ""))
 		var r: Array = piece.get("rect", [0, 0, 0, 0])
 		if r.size() < 4 or not styles.has(kind):
 			continue
 		var style := String(styles[kind])
+		if style.begins_with("bush:"):
+			_bush_bed(brush, root, man, style.trim_prefix("bush:"), r, tile / per, bush_frames)
+			continue
 		# a kind with oriented tiles (fence_h / fence_v) picks by the rect's longer side, and
 		# one with half tiles (fence_v_l / fence_v_r, fence_h_t / fence_h_b) by which half of
 		# the 2 x 2-cell tile a one-cell-wide piece lies in
@@ -379,6 +498,8 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 	var packed := PackedScene.new()
 	packed.pack(root)
 	var path := ARENAS_DIR + String(map["id"]) + ".tscn"
+	if brush.get_child_count() > 0:
+		print("  bush clumps: ", brush.get_child_count())
 	DirAccess.make_dir_recursive_absolute(ARENAS_DIR)
 	var err := ResourceSaver.save(packed, path)
 	if err != OK:

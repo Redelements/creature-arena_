@@ -361,6 +361,39 @@ def cut_anim(cut, set_name, a):
     return man
 
 
+## A bush is a nine-slice of leaf clumps cut from a tree's canopy: corners whose outward
+## sides carry the canopy's real outline, edge clumps, and an inner fill, each taken from the
+## same box on every sway frame of the tree sheet, so a bed built from them sways.
+BUSH_CLUMPS = ("tl", "t", "tr", "l", "c", "r", "bl", "b", "br")
+
+
+def cut_bushes(cut, set_name, b):
+    """recipe bushes.<name>: {"src", "frame": [w, h], "frames": n, "fps", "clumps": {tl, t,
+    tr, l, c, r, bl, b, br: [x0, y0, x1, y1] in the first frame}}. Writes a sheet with one row
+    per clump and one column per frame, every cell the size of the biggest clump (each clump
+    sits at its cell's top left), and records each clump's size."""
+    man = {}
+    for name, it in b.items():
+        fw, fh = it["frame"]
+        n = int(it["frames"])
+        src = cut.load(it["src"])
+        clumps = it["clumps"]
+        cw = max(c[2] - c[0] for c in clumps.values())
+        ch = max(c[3] - c[1] for c in clumps.values())
+        sheet = Image.new("RGBA", (cw * n, ch * len(BUSH_CLUMPS)), (0, 0, 0, 0))
+        sizes = {}
+        for row, key in enumerate(BUSH_CLUMPS):
+            x0, y0, x1, y1 = clumps[key]
+            sizes[key] = [x1 - x0, y1 - y0]
+            for k in range(n):
+                sheet.paste(src.crop((k * fw + x0, y0, k * fw + x1, y1)), (k * cw, row * ch))
+        file = "%s_bush_%s.png" % (set_name, name)
+        save(sheet, file)
+        man[name] = {"source": file, "cell": [cw, ch], "frames": n, "fps": float(it.get("fps", 4)),
+            "clumps": list(BUSH_CLUMPS), "sizes": sizes}
+    return man
+
+
 def main(packs, set_name):
     with open(os.path.join(RECIPES, set_name + ".json")) as f:
         recipe = json.load(f)
@@ -376,6 +409,7 @@ def main(packs, set_name):
         "overlay": cut_overlay(cut, set_name, recipe["overlay"]),
         "decor": cut_decor(cut, set_name, recipe.get("decor", {})),
         "anim": cut_anim(cut, set_name, recipe.get("anim", {})),
+        "bushes": cut_bushes(cut, set_name, recipe.get("bushes", {})),
     }
     with open(os.path.join(OUT, set_name + "_manifest.json"), "w", newline="\n") as f:
         json.dump(man, f, indent=1)

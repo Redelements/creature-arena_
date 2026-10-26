@@ -2,71 +2,462 @@
 	"_doc": "Twin Keeps (Capture the Flag): Szadi art's RPG Fantasy Worlds Set 1 (grass and water blobs, boulders, tall grass, the cliff strips, trees, the waterfall), RPG Buildings Castle (the keeps' walls, the gate torches) and Decorative Props (the fences). Keys: tools/cut_tiles.py. Paths are relative to the packs dir.",
 	"ground": {
 		"fills": {
-			"grass": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "block": [12, 0]},
-			"grass_dark": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "block": [12, 4]},
-			"dirt": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain3.png", "block": [12, 0]},
-			"cobble": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "block": [37, 0], "size": 2},
-			"water": {"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "block": [12, 0]}
+			"grass": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+				"block": [
+					12,
+					0
+				]
+			},
+			"grass_dark": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+				"block": [
+					12,
+					4
+				]
+			},
+			"dirt": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain3.png",
+				"block": [
+					12,
+					0
+				]
+			},
+			"cobble": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+				"block": [
+					37,
+					0
+				],
+				"size": 2
+			},
+			"water": {
+				"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png",
+				"block": [
+					12,
+					0
+				]
+			}
 		},
 		"terrains": {
-			"grass": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "blob": [0, 0], "variants": [[4, 0, 8, 4]]},
-			"water": {"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "blob": [0, 0], "variants": [[4, 0, 8, 4]]}
+			"grass": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+				"blob": [
+					0,
+					0
+				],
+				"variants": [
+					[
+						4,
+						0,
+						8,
+						4
+					]
+				]
+			},
+			"water": {
+				"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png",
+				"blob": [
+					0,
+					0
+				],
+				"variants": [
+					[
+						4,
+						0,
+						8,
+						4
+					]
+				]
+			}
+		},
+		"surfaces": {
+			"water": {
+				"src": "RPGFW_Set1_v1.0/_PNG/anim/water_surface_transparent.png",
+				"frame": 32,
+				"frames": 16,
+				"cols": 4,
+				"fps": 8,
+				"over": "water",
+				"alpha_mul": 5
+			}
 		}
 	},
 	"pieces": {
 		"boulder": [
-			{"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png", "tile": [24, 1]},
-			{"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png", "tile": [24, 2]},
-			{"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png", "tile": [24, 3]},
-			{"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png", "tile": [24, 4]}
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png",
+				"tile": [
+					24,
+					1
+				]
+			},
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png",
+				"tile": [
+					24,
+					2
+				]
+			},
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png",
+				"tile": [
+					24,
+					3
+				]
+			},
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png",
+				"tile": [
+					24,
+					4
+				]
+			}
 		],
 		"tuft": [
-			{"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [2, 673, 29, 702]},
-			{"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [34, 673, 61, 702]},
-			{"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [66, 673, 93, 702]}
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+				"box": [
+					2,
+					673,
+					29,
+					702
+				]
+			},
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+				"box": [
+					34,
+					673,
+					61,
+					702
+				]
+			},
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+				"box": [
+					66,
+					673,
+					93,
+					702
+				]
+			}
 		],
 		"sprig": [
-			{"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [6, 643, 26, 665]},
-			{"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [38, 643, 58, 665]},
-			{"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [70, 643, 90, 665]}
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+				"box": [
+					6,
+					643,
+					26,
+					665
+				]
+			},
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+				"box": [
+					38,
+					643,
+					58,
+					665
+				]
+			},
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+				"box": [
+					70,
+					643,
+					90,
+					665
+				]
+			}
 		],
 		"castle_h": [
-			{"src": "RPG_Buildings_CASTLE_v1.0/castle_outside.png", "tile": [0, 9]},
-			{"src": "RPG_Buildings_CASTLE_v1.0/castle_outside.png", "tile": [1, 9]},
-			{"src": "RPG_Buildings_CASTLE_v1.0/castle_outside.png", "tile": [2, 9]}
+			{
+				"src": "RPG_Buildings_CASTLE_v1.0/castle_outside.png",
+				"tile": [
+					0,
+					9
+				]
+			},
+			{
+				"src": "RPG_Buildings_CASTLE_v1.0/castle_outside.png",
+				"tile": [
+					1,
+					9
+				]
+			},
+			{
+				"src": "RPG_Buildings_CASTLE_v1.0/castle_outside.png",
+				"tile": [
+					2,
+					9
+				]
+			}
 		],
 		"castle_v": [
-			{"src": "RPG_Buildings_CASTLE_v1.0/castle_outside.png", "tile": [25, 2]},
-			{"src": "RPG_Buildings_CASTLE_v1.0/castle_outside.png", "tile": [25, 3]}
+			{
+				"src": "RPG_Buildings_CASTLE_v1.0/castle_outside.png",
+				"tile": [
+					25,
+					2
+				]
+			},
+			{
+				"src": "RPG_Buildings_CASTLE_v1.0/castle_outside.png",
+				"tile": [
+					25,
+					3
+				]
+			}
 		],
 		"fence_h": [
-			{"src": "RPGW_DecorativeProps_v1.0/fence.png", "tile": [4, 1]},
-			{"src": "RPGW_DecorativeProps_v1.0/fence.png", "tile": [5, 1]},
-			{"src": "RPGW_DecorativeProps_v1.0/fence.png", "tile": [6, 1]}
+			{
+				"src": "RPGW_DecorativeProps_v1.0/fence.png",
+				"tile": [
+					4,
+					1
+				]
+			},
+			{
+				"src": "RPGW_DecorativeProps_v1.0/fence.png",
+				"tile": [
+					5,
+					1
+				]
+			},
+			{
+				"src": "RPGW_DecorativeProps_v1.0/fence.png",
+				"tile": [
+					6,
+					1
+				]
+			}
 		],
 		"fence_v": [
-			{"src": "RPGW_DecorativeProps_v1.0/fence.png", "tile": [0, 2]},
-			{"src": "RPGW_DecorativeProps_v1.0/fence.png", "tile": [0, 3]}
+			{
+				"src": "RPGW_DecorativeProps_v1.0/fence.png",
+				"tile": [
+					0,
+					2
+				]
+			},
+			{
+				"src": "RPGW_DecorativeProps_v1.0/fence.png",
+				"tile": [
+					0,
+					3
+				]
+			}
 		],
 		"bridge": [
-			{"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "tile": [37, 0]},
-			{"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "tile": [38, 0]},
-			{"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "tile": [37, 1]},
-			{"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "tile": [38, 1]}
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+				"tile": [
+					37,
+					0
+				]
+			},
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+				"tile": [
+					38,
+					0
+				]
+			},
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+				"tile": [
+					37,
+					1
+				]
+			},
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+				"tile": [
+					38,
+					1
+				]
+			}
 		]
 	},
 	"overlay": {
-		"cliff": {"src": "RPGFW_Set1_v1.0/_PNG/hills2.png", "x": 292, "rows": {"wall_top": [44, 60], "wall_mid": [72, 88], "wall_bottom": [124, 140]}},
-		"floor": {"src": "RPGFW_Set1_v1.0/_PNG/hills2.png", "box": [648, 52, 664, 68]}
+		"cliff": {
+			"src": "RPGFW_Set1_v1.0/_PNG/hills2.png",
+			"x": 292,
+			"rows": {
+				"wall_top": [
+					44,
+					60
+				],
+				"wall_mid": [
+					72,
+					88
+				],
+				"wall_bottom": [
+					124,
+					140
+				]
+			}
+		},
+		"floor": {
+			"src": "RPGFW_Set1_v1.0/_PNG/hills2.png",
+			"box": [
+				648,
+				52,
+				664,
+				68
+			]
+		}
 	},
 	"decor": {
-		"oak": {"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [0, 0, 128, 256], "feet": [64, 236]},
-		"birch": {"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [384, 32, 480, 224], "feet": [48, 206]},
-		"pine": {"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [576, 32, 672, 224], "feet": [48, 208]},
-		"bush": {"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [288, 160, 384, 256], "feet": [48, 236]}
+		"oak": {
+			"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+			"box": [
+				0,
+				0,
+				128,
+				256
+			],
+			"feet": [
+				64,
+				236
+			]
+		},
+		"birch": {
+			"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+			"box": [
+				384,
+				32,
+				480,
+				224
+			],
+			"feet": [
+				48,
+				206
+			]
+		},
+		"pine": {
+			"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+			"box": [
+				576,
+				32,
+				672,
+				224
+			],
+			"feet": [
+				48,
+				208
+			]
+		},
+		"bush": {
+			"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+			"box": [
+				288,
+				160,
+				384,
+				256
+			],
+			"feet": [
+				48,
+				236
+			]
+		}
 	},
 	"anim": {
-		"waterfall": {"src": "RPGFW_Set1_v1.0/_PNG/anim/waterfall/1x2_waterfall.png", "frame": [128, 96], "frames": 8, "fps": 8, "feet": [64, 84]},
-		"torch": {"src": "RPG_Buildings_CASTLE_v1.0/Anim/torch.png", "frame": [32, 64], "frames": 4, "fps": 6, "feet": [16, 60]}
+		"waterfall": {
+			"src": "RPGFW_Set1_v1.0/_PNG/anim/waterfall/3x2_waterfall.png",
+			"frame": [
+				128,
+				160
+			],
+			"frames": 8,
+			"fps": 8,
+			"feet": [
+				64,
+				150
+			]
+		},
+		"torch": {
+			"src": "RPG_Buildings_CASTLE_v1.0/Anim/torch.png",
+			"frame": [
+				32,
+				64
+			],
+			"frames": 4,
+			"fps": 6,
+			"feet": [
+				16,
+				60
+			]
+		}
+	},
+	"bushes": {
+		"green": {
+			"src": "RPGW_Wetland_v1.1/_PNG/anim/tree2A.png",
+			"frame": [
+				160,
+				224
+			],
+			"frames": 5,
+			"fps": 4,
+			"_doc": "a hedge-bush nine-slice from the green Wetland tree's canopy clumps (the first frame's boxes; the sheet's 5 sway frames give the bed its sway): corners and edges keep the canopy's outline on their outward sides, the centre is pure leaf",
+			"clumps": {
+				"tl": [
+					14,
+					40,
+					70,
+					96
+				],
+				"t": [
+					56,
+					14,
+					112,
+					60
+				],
+				"tr": [
+					100,
+					36,
+					148,
+					100
+				],
+				"l": [
+					10,
+					70,
+					50,
+					126
+				],
+				"c": [
+					44,
+					62,
+					116,
+					110
+				],
+				"r": [
+					110,
+					66,
+					150,
+					126
+				],
+				"bl": [
+					14,
+					118,
+					52,
+					166
+				],
+				"b": [
+					100,
+					130,
+					140,
+					178
+				],
+				"br": [
+					76,
+					124,
+					146,
+					178
+				]
+			}
+		}
 	}
 }

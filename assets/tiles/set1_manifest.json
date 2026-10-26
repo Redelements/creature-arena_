@@ -1515,7 +1515,8 @@
      "prob": 0.5
     }
    ]
-  }
+  },
+  "surfaces": {}
  },
  "pieces": {
   "source": "set1_pieces.png",

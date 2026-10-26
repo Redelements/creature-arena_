@@ -2,59 +2,408 @@
 	"_doc": "The Greenhouse Dome: Set 1's bright grass for the turf (GrassLand v2's own turf, kept here as turf_grassland, reads too dark under the dome), GrassLand v2's moss kerb, flower meadow and cliff face (RPGW_GrassLand_v2.01: the solid blocks on the right of MainLev2.0.png are seamless fills), Set 1's darker grass blob and tall grass for the beds (RPGFW_Set1_v1.0), Decorative Props' wooden fences, pots, barrels and crates (RPGW_DecorativeProps_v1.0). Keys: tools/cut_tiles.py. Paths are relative to the packs dir.",
 	"ground": {
 		"fills": {
-			"turf": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "block": [12, 0]},
-			"turf_grassland": {"src": "RPGW_GrassLand_v2.01/MainLev2.0.png", "block": [48, 17]},
-			"meadow": {"src": "RPGW_GrassLand_v2.01/MainLev2.0.png", "block": [48, 22]},
-			"moss": {"src": "RPGW_GrassLand_v2.01/MainLev2.0.png", "block": [58, 11]},
-			"dirt": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain3.png", "block": [12, 0]}
+			"turf": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+				"block": [
+					12,
+					0
+				]
+			},
+			"turf_grassland": {
+				"src": "RPGW_GrassLand_v2.01/MainLev2.0.png",
+				"block": [
+					48,
+					17
+				]
+			},
+			"meadow": {
+				"src": "RPGW_GrassLand_v2.01/MainLev2.0.png",
+				"block": [
+					48,
+					22
+				]
+			},
+			"moss": {
+				"src": "RPGW_GrassLand_v2.01/MainLev2.0.png",
+				"block": [
+					58,
+					11
+				]
+			},
+			"dirt": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain3.png",
+				"block": [
+					12,
+					0
+				]
+			}
 		},
 		"terrains": {
-			"grass": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "blob": [0, 4], "variants": [[4, 4, 8, 4]]},
-			"water": {"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "blob": [0, 0], "variants": [[4, 0, 8, 4]]}
+			"grass": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+				"blob": [
+					0,
+					4
+				],
+				"variants": [
+					[
+						4,
+						4,
+						8,
+						4
+					]
+				]
+			},
+			"water": {
+				"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png",
+				"blob": [
+					0,
+					0
+				],
+				"variants": [
+					[
+						4,
+						0,
+						8,
+						4
+					]
+				]
+			}
 		}
 	},
 	"pieces": {
 		"boulder": [
-			{"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png", "tile": [24, 1]},
-			{"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png", "tile": [24, 2]}
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png",
+				"tile": [
+					24,
+					1
+				]
+			},
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png",
+				"tile": [
+					24,
+					2
+				]
+			}
 		],
 		"tuft": [
-			{"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [2, 673, 29, 702]},
-			{"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [34, 673, 61, 702]},
-			{"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [66, 673, 93, 702]}
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+				"box": [
+					2,
+					673,
+					29,
+					702
+				]
+			},
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+				"box": [
+					34,
+					673,
+					61,
+					702
+				]
+			},
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+				"box": [
+					66,
+					673,
+					93,
+					702
+				]
+			}
 		],
 		"sprig": [
-			{"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [6, 643, 26, 665]},
-			{"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [38, 643, 58, 665]},
-			{"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [70, 643, 90, 665]}
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+				"box": [
+					6,
+					643,
+					26,
+					665
+				]
+			},
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+				"box": [
+					38,
+					643,
+					58,
+					665
+				]
+			},
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+				"box": [
+					70,
+					643,
+					90,
+					665
+				]
+			}
 		],
 		"fence_h": [
-			{"src": "RPGW_DecorativeProps_v1.0/fence.png", "tile": [4, 1]},
-			{"src": "RPGW_DecorativeProps_v1.0/fence.png", "tile": [5, 1]},
-			{"src": "RPGW_DecorativeProps_v1.0/fence.png", "tile": [6, 1]},
-			{"src": "RPGW_DecorativeProps_v1.0/fence.png", "tile": [7, 1]}
+			{
+				"src": "RPGW_DecorativeProps_v1.0/fence.png",
+				"tile": [
+					4,
+					1
+				]
+			},
+			{
+				"src": "RPGW_DecorativeProps_v1.0/fence.png",
+				"tile": [
+					5,
+					1
+				]
+			},
+			{
+				"src": "RPGW_DecorativeProps_v1.0/fence.png",
+				"tile": [
+					6,
+					1
+				]
+			},
+			{
+				"src": "RPGW_DecorativeProps_v1.0/fence.png",
+				"tile": [
+					7,
+					1
+				]
+			}
 		],
 		"fence_v_l": [
-			{"src": "RPGW_DecorativeProps_v1.0/fence.png", "tile": [0, 2]},
-			{"src": "RPGW_DecorativeProps_v1.0/fence.png", "tile": [0, 3]}
+			{
+				"src": "RPGW_DecorativeProps_v1.0/fence.png",
+				"tile": [
+					0,
+					2
+				]
+			},
+			{
+				"src": "RPGW_DecorativeProps_v1.0/fence.png",
+				"tile": [
+					0,
+					3
+				]
+			}
 		],
 		"fence_v_r": [
-			{"src": "RPGW_DecorativeProps_v1.0/fence.png", "tile": [12, 3]}
+			{
+				"src": "RPGW_DecorativeProps_v1.0/fence.png",
+				"tile": [
+					12,
+					3
+				]
+			}
 		]
 	},
 	"overlay": {
-		"cliff": {"src": "RPGW_GrassLand_v2.01/MainLev_autotiling.png", "x": 40, "rows": {"wall_top": [100, 116], "wall_mid": [136, 152], "wall_bottom": [164, 180]}},
-		"floor": {"src": "RPGW_GrassLand_v2.01/MainLev2.0.png", "box": [8, 596, 24, 612]}
+		"cliff": {
+			"src": "RPGW_GrassLand_v2.01/MainLev_autotiling.png",
+			"x": 40,
+			"rows": {
+				"wall_top": [
+					100,
+					116
+				],
+				"wall_mid": [
+					136,
+					152
+				],
+				"wall_bottom": [
+					164,
+					180
+				]
+			}
+		},
+		"floor": {
+			"src": "RPGW_GrassLand_v2.01/MainLev2.0.png",
+			"box": [
+				8,
+				596,
+				24,
+				612
+			]
+		}
 	},
 	"decor": {
-		"pot_tall": {"src": "RPGW_DecorativeProps_v1.0/propsA.png", "box": [32, 36, 64, 64], "feet": [16, 27]},
-		"pot_fat": {"src": "RPGW_DecorativeProps_v1.0/propsA.png", "box": [160, 36, 192, 64], "feet": [16, 27]},
-		"pot_fern": {"src": "RPGW_DecorativeProps_v1.0/propsA.png", "box": [0, 32, 32, 64], "feet": [16, 28]},
-		"barrel": {"src": "RPGW_DecorativeProps_v1.0/propsA.png", "box": [0, 416, 32, 448], "feet": [16, 30]},
-		"crate": {"src": "RPGW_DecorativeProps_v1.0/propsA.png", "box": [64, 512, 96, 544], "feet": [16, 30]},
-		"crate_tall": {"src": "RPGW_DecorativeProps_v1.0/propsA.png", "box": [128, 496, 160, 544], "feet": [16, 46]},
-		"birch": {"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [384, 32, 480, 224], "feet": [48, 206]},
-		"bush": {"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [288, 160, 384, 256], "feet": [48, 236]}
+		"pot_tall": {
+			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
+			"box": [
+				32,
+				36,
+				64,
+				64
+			],
+			"feet": [
+				16,
+				27
+			]
+		},
+		"pot_fat": {
+			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
+			"box": [
+				160,
+				36,
+				192,
+				64
+			],
+			"feet": [
+				16,
+				27
+			]
+		},
+		"pot_fern": {
+			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
+			"box": [
+				0,
+				32,
+				32,
+				64
+			],
+			"feet": [
+				16,
+				28
+			]
+		},
+		"barrel": {
+			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
+			"box": [
+				0,
+				416,
+				32,
+				448
+			],
+			"feet": [
+				16,
+				30
+			]
+		},
+		"crate": {
+			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
+			"box": [
+				64,
+				512,
+				96,
+				544
+			],
+			"feet": [
+				16,
+				30
+			]
+		},
+		"crate_tall": {
+			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
+			"box": [
+				128,
+				496,
+				160,
+				544
+			],
+			"feet": [
+				16,
+				46
+			]
+		},
+		"birch": {
+			"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+			"box": [
+				384,
+				32,
+				480,
+				224
+			],
+			"feet": [
+				48,
+				206
+			]
+		},
+		"bush": {
+			"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+			"box": [
+				288,
+				160,
+				384,
+				256
+			],
+			"feet": [
+				48,
+				236
+			]
+		}
 	},
-	"anim": {}
+	"anim": {},
+	"bushes": {
+		"green": {
+			"src": "RPGW_Wetland_v1.1/_PNG/anim/tree2A.png",
+			"frame": [
+				160,
+				224
+			],
+			"frames": 5,
+			"fps": 4,
+			"_doc": "a hedge-bush nine-slice from the green Wetland tree's canopy clumps (the first frame's boxes; the sheet's 5 sway frames give the bed its sway): corners and edges keep the canopy's outline on their outward sides, the centre is pure leaf",
+			"clumps": {
+				"tl": [
+					14,
+					40,
+					70,
+					96
+				],
+				"t": [
+					56,
+					14,
+					112,
+					60
+				],
+				"tr": [
+					100,
+					36,
+					148,
+					100
+				],
+				"l": [
+					10,
+					70,
+					50,
+					126
+				],
+				"c": [
+					44,
+					62,
+					116,
+					110
+				],
+				"r": [
+					110,
+					66,
+					150,
+					126
+				],
+				"bl": [
+					14,
+					118,
+					52,
+					166
+				],
+				"b": [
+					100,
+					130,
+					140,
+					178
+				],
+				"br": [
+					76,
+					124,
+					146,
+					178
+				]
+			}
+		}
+	}
 }

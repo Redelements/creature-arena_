@@ -8,31 +8,205 @@
 		"set": "keeps",
 		"ground": "grass",
 		"edge": "grass_dark",
-		"styles": {"wall": "castle"},
+		"styles": {
+			"wall": "castle",
+			"brush": "bush:green"
+		},
 		"decor": [
-			{"kind": "oak", "at": [4, -1]}, {"kind": "bush", "at": [8, -1]}, {"kind": "birch", "at": [12, -1]},
-			{"kind": "pine", "at": [17, -1]}, {"kind": "oak", "at": [22, -1]}, {"kind": "bush", "at": [26, -1]},
-			{"kind": "pine", "at": [30, -1]}, {"kind": "pine", "at": [44, -1]}, {"kind": "bush", "at": [48, -1]},
-			{"kind": "oak", "at": [52, -1]}, {"kind": "pine", "at": [57, -1]}, {"kind": "birch", "at": [62, -1]},
-			{"kind": "bush", "at": [66, -1]}, {"kind": "oak", "at": [70, -1]}
+			{
+				"kind": "oak",
+				"at": [
+					4,
+					-1
+				]
+			},
+			{
+				"kind": "bush",
+				"at": [
+					8,
+					-1
+				]
+			},
+			{
+				"kind": "birch",
+				"at": [
+					12,
+					-1
+				]
+			},
+			{
+				"kind": "pine",
+				"at": [
+					17,
+					-1
+				]
+			},
+			{
+				"kind": "oak",
+				"at": [
+					22,
+					-1
+				]
+			},
+			{
+				"kind": "bush",
+				"at": [
+					26,
+					-1
+				]
+			},
+			{
+				"kind": "pine",
+				"at": [
+					30,
+					-1
+				]
+			},
+			{
+				"kind": "pine",
+				"at": [
+					44,
+					-1
+				]
+			},
+			{
+				"kind": "bush",
+				"at": [
+					48,
+					-1
+				]
+			},
+			{
+				"kind": "oak",
+				"at": [
+					52,
+					-1
+				]
+			},
+			{
+				"kind": "pine",
+				"at": [
+					57,
+					-1
+				]
+			},
+			{
+				"kind": "birch",
+				"at": [
+					62,
+					-1
+				]
+			},
+			{
+				"kind": "bush",
+				"at": [
+					66,
+					-1
+				]
+			},
+			{
+				"kind": "oak",
+				"at": [
+					70,
+					-1
+				]
+			}
 		],
 		"anim": [
-			{"kind": "waterfall", "at": [37, 0]},
-			{"kind": "torch", "at": [9, 14]}, {"kind": "torch", "at": [9, 18]},
-			{"kind": "torch", "at": [65, 14]}, {"kind": "torch", "at": [65, 18]}
+			{
+				"kind": "waterfall",
+				"at": [
+					37,
+					0
+				]
+			},
+			{
+				"kind": "torch",
+				"at": [
+					9,
+					14
+				]
+			},
+			{
+				"kind": "torch",
+				"at": [
+					9,
+					18
+				]
+			},
+			{
+				"kind": "torch",
+				"at": [
+					65,
+					14
+				]
+			},
+			{
+				"kind": "torch",
+				"at": [
+					65,
+					18
+				]
+			}
 		]
 	},
-	"light": {"_doc": "morning sun from the top left", "dir": [0.6, 0.8], "length": 0.55, "alpha": 0.34, "sun": {"color": "#fff4e0", "energy": 0.6}},
-	"grade": {"_doc": "fresh morning, a faint warm cast; a view-only tint and vignette (GradeView), eased at night/sunset/rain by weather.json", "tint": "#fff6e4", "vignette": 0.18},
-	"ambient": {"_doc": "leaves on the morning breeze, brush that sways, dragonflies and a jumping fish on the river, the odd bird; see AmbientView",
-		"motes": {"kind": "leaf", "count": 22},
+	"light": {
+		"_doc": "morning sun from the top left",
+		"dir": [
+			0.6,
+			0.8
+		],
+		"length": 0.55,
+		"alpha": 0.34,
+		"sun": {
+			"color": "#fff4e0",
+			"energy": 0.6
+		}
+	},
+	"grade": {
+		"_doc": "fresh morning, a faint warm cast; a view-only tint and vignette (GradeView), eased at night/sunset/rain by weather.json",
+		"tint": "#fff6e4",
+		"vignette": 0.18
+	},
+	"ambient": {
+		"_doc": "leaves on the morning breeze, brush that sways, dragonflies and a jumping fish on the river, the odd bird; see AmbientView",
+		"motes": {
+			"kind": "leaf",
+			"count": 22
+		},
 		"sway": true,
 		"critters": [
-			{"kind": "dragonfly", "count": 4, "area": [67, 2, 16, 60]},
-			{"kind": "fish", "every": 360},
-			{"kind": "bird", "every": 2400, "flock": 2, "first": 600},
-			{"kind": "moth", "count": 2},
-			{"kind": "cat", "every": 4200, "first": 1200}]},
+			{
+				"kind": "dragonfly",
+				"count": 4,
+				"area": [
+					67,
+					2,
+					16,
+					60
+				]
+			},
+			{
+				"kind": "fish",
+				"every": 360
+			},
+			{
+				"kind": "bird",
+				"every": 2400,
+				"flock": 2,
+				"first": 600
+			},
+			{
+				"kind": "moth",
+				"count": 2
+			},
+			{
+				"kind": "cat",
+				"every": 4200,
+				"first": 1200
+			}
+		]
+	},
 	"size": [
 		150,
 		64
@@ -58,22 +232,162 @@
 		]
 	},
 	"furniture": [
-		{"kind": "banner", "pos": [-500, -27], "anchor": "t", "color": "#c43434", "emblem": 0, "h": 34},
-		{"kind": "banner", "pos": [-380, -27], "anchor": "t", "color": "#c43434", "emblem": 1, "h": 34},
-		{"kind": "banner", "pos": [-260, -27], "anchor": "t", "color": "#c43434", "emblem": 2, "h": 34},
-		{"kind": "banner", "pos": [-140, -27], "anchor": "t", "color": "#c43434", "emblem": 0, "h": 34},
-		{"kind": "banner", "pos": [140, -27], "anchor": "t", "color": "#2c5cb4", "emblem": 1, "h": 34},
-		{"kind": "banner", "pos": [260, -27], "anchor": "t", "color": "#2c5cb4", "emblem": 2, "h": 34},
-		{"kind": "banner", "pos": [380, -27], "anchor": "t", "color": "#2c5cb4", "emblem": 0, "h": 34},
-		{"kind": "banner", "pos": [500, -27], "anchor": "t", "color": "#2c5cb4", "emblem": 1, "h": 34},
-		{"kind": "flag", "pos": [-60, -2], "anchor": "t", "h": 34, "color": "#c43434"},
-		{"kind": "flag", "pos": [60, -2], "anchor": "t", "h": 34, "color": "#2c5cb4", "mirror": true},
-		{"kind": "torch", "pos": [-30, 56]},
-		{"kind": "torch", "pos": [30, 56], "anchor": "tr", "mirror": true},
-		{"kind": "torch", "pos": [-30, 22], "anchor": "bl"},
-		{"kind": "torch", "pos": [30, 22], "anchor": "br", "mirror": true},
-		{"kind": "torch", "pos": [280, 54]},
-		{"kind": "torch", "pos": [952, 54]}
+		{
+			"kind": "banner",
+			"pos": [
+				-500,
+				-27
+			],
+			"anchor": "t",
+			"color": "#c43434",
+			"emblem": 0,
+			"h": 34
+		},
+		{
+			"kind": "banner",
+			"pos": [
+				-380,
+				-27
+			],
+			"anchor": "t",
+			"color": "#c43434",
+			"emblem": 1,
+			"h": 34
+		},
+		{
+			"kind": "banner",
+			"pos": [
+				-260,
+				-27
+			],
+			"anchor": "t",
+			"color": "#c43434",
+			"emblem": 2,
+			"h": 34
+		},
+		{
+			"kind": "banner",
+			"pos": [
+				-140,
+				-27
+			],
+			"anchor": "t",
+			"color": "#c43434",
+			"emblem": 0,
+			"h": 34
+		},
+		{
+			"kind": "banner",
+			"pos": [
+				140,
+				-27
+			],
+			"anchor": "t",
+			"color": "#2c5cb4",
+			"emblem": 1,
+			"h": 34
+		},
+		{
+			"kind": "banner",
+			"pos": [
+				260,
+				-27
+			],
+			"anchor": "t",
+			"color": "#2c5cb4",
+			"emblem": 2,
+			"h": 34
+		},
+		{
+			"kind": "banner",
+			"pos": [
+				380,
+				-27
+			],
+			"anchor": "t",
+			"color": "#2c5cb4",
+			"emblem": 0,
+			"h": 34
+		},
+		{
+			"kind": "banner",
+			"pos": [
+				500,
+				-27
+			],
+			"anchor": "t",
+			"color": "#2c5cb4",
+			"emblem": 1,
+			"h": 34
+		},
+		{
+			"kind": "flag",
+			"pos": [
+				-60,
+				-2
+			],
+			"anchor": "t",
+			"h": 34,
+			"color": "#c43434"
+		},
+		{
+			"kind": "flag",
+			"pos": [
+				60,
+				-2
+			],
+			"anchor": "t",
+			"h": 34,
+			"color": "#2c5cb4",
+			"mirror": true
+		},
+		{
+			"kind": "torch",
+			"pos": [
+				-30,
+				56
+			]
+		},
+		{
+			"kind": "torch",
+			"pos": [
+				30,
+				56
+			],
+			"anchor": "tr",
+			"mirror": true
+		},
+		{
+			"kind": "torch",
+			"pos": [
+				-30,
+				22
+			],
+			"anchor": "bl"
+		},
+		{
+			"kind": "torch",
+			"pos": [
+				30,
+				22
+			],
+			"anchor": "br",
+			"mirror": true
+		},
+		{
+			"kind": "torch",
+			"pos": [
+				280,
+				54
+			]
+		},
+		{
+			"kind": "torch",
+			"pos": [
+				952,
+				54
+			]
+		}
 	],
 	"pieces": [
 		{

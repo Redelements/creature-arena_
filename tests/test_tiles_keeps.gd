@@ -36,7 +36,6 @@ func test_the_scene_covers_the_map_with_its_pieces_in_place() -> void:
 	assert_eq(ground.get_used_cells().size(), 77 * 34, "75 x 32 tiles of floor and a tile round it")
 	var castle: Array = _coords(man["pieces"]["castle_h"]) + _coords(man["pieces"]["castle_v"])
 	var fence: Array = _coords(man["pieces"]["fence_h"]) + _coords(man["pieces"]["fence_v"])
-	var tuft: Array = _coords(man["pieces"]["tuft"]) + _coords(man["pieces"]["sprig"])
 	var bridge: Array = _coords(man["pieces"]["bridge"])
 	for piece in map["pieces"]:
 		var kind := String(piece["kind"])
@@ -47,7 +46,7 @@ func test_the_scene_covers_the_map_with_its_pieces_in_place() -> void:
 				"fence":
 					assert_true(pieces.get_cell_atlas_coords(c) in fence, "%s: a fence tile" % c)
 				"brush":
-					assert_true(pieces.get_cell_atlas_coords(c) in tuft, "%s: tall grass" % c)
+					assert_eq(pieces.get_cell_source_id(c), -1, "%s: no tuft tile, the bed is bush clumps" % c)
 				"shallows":
 					assert_eq(water.get_cell_source_id(c), 0, "%s: water under the shallows" % c)
 					var td := water.get_cell_tile_data(c)
@@ -78,7 +77,7 @@ func test_the_trees_the_waterfall_and_the_torches_stand_where_the_map_says() -> 
 	assert_eq(falls.size(), 1, "one waterfall")
 	var w := falls[0] as AnimatedSprite2D
 	# feet [64, 84] at tile (37, 0)'s bottom middle: x 37.5 * 32 - 64, y 32 - 84, over the river's head
-	assert_eq(w.position, Vector2(1136, -52), "the waterfall lands on the river's first water tile")
+	assert_eq(w.position, Vector2(1136, -118), "the waterfall (128 x 160, feet at 150) lands on the river's first water tile")
 	assert_eq(w.sprite_frames.get_frame_count("default"), 8, "its eight frames")
 	assert_true(w.autoplay == "default", "and it plays")
 	var torches := anim.get_children().filter(func(n): return String(n.name).begins_with("torch"))
