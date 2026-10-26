@@ -2,7 +2,7 @@
 
 - `sprites/`: the fighters' sheets and the baked arena pictures, all made by `tools/gen_*.py`
   (layouts in `docs/SPRITES.md`).
-- `tiles/`: ground, piece and overlay tiles cut from bought packs (`tools/cut_set1.py`), the
+- `tiles/`: ground, piece and overlay tiles cut from bought packs (`tools/cut_tiles.py`), the
   Godot TileSets built from them (`tools/build_tiles.gd`) and the manifest between the two.
   Licences in `LICENSES.md` at the repo root; the raw packs never enter the repo.
 - `arenas/`: the tiled arenas' ground scenes (`<id>.tscn`, built by `tools/build_tiles.gd`
@@ -34,7 +34,7 @@ The atlas is `assets/tiles/set1_overlay.png`, 8 columns of 16 px tiles; a tile's
 (`hills2.png`, tile column 9: its ledge sits 16 px down the tile, so the strips are cut from
 the rows the rim and rock actually occupy) and generated cracks. Paint replacements in a
 copy of the Set 1 PSDs at 16 px cell granularity, one layer per id below, and export the
-atlas in this layout (or hand the 16 px tiles over and `tools/cut_set1.py` will place them).
+atlas in this layout (or hand the 16 px tiles over and `tools/cut_tiles.py` will place them).
 
 | id | name | what it shows |
 | --- | --- | --- |
@@ -65,5 +65,5 @@ Rules the renderer relies on:
   its colours and nothing moves.
 - Ground tiles (Set 1 grass over dirt) are a 16-tile set matched by sides: the 4 x 4 block
   at the sheet's columns 0-3 holds one tile per combination of connected sides, columns
-  4-11 hold variants. `tools/cut_set1.py` reads a variant's sides off its alpha. A ground
+  4-11 hold variants. `tools/cut_tiles.py` reads a variant's sides off its alpha. A ground
   sheet with the same layout (Set 1's `g_terrain1..4.png`) drops in with one line there.

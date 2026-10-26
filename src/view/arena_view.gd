@@ -86,6 +86,7 @@ var arena_id := "":
 			var tset := String(ArenaMap.get_map(v).get("tiles", {}).get("set", "set1")) if v != "" else ""
 			var opath := "res://assets/tiles/%s_overlay.tres" % tset
 			_overlay_set = load(opath) if _scene != null and ResourceLoader.exists(opath) else null
+			_markings = bool(ArenaMap.get_map(v).get("tiles", {}).get("markings", false)) if v != "" else false
 			_rebuild()
 var _art: Texture2D = null
 
@@ -101,6 +102,7 @@ var _art: Texture2D = null
 ## tuft whose brush is flattened, and gets them back when the floor heals.
 var _scene: PackedScene = null
 var _overlay_set: TileSet = null
+var _markings := false  ## the map's `tiles.markings`: court lines over the tiles (the Stadium)
 var _tiles: Node2D = null
 var _overlay: TileMapLayer = null
 var _edges: TileMapLayer = null
@@ -549,9 +551,10 @@ func _process(_delta: float) -> void:
 			_under.queue_redraw()
 
 
-## The map's picture (null on a tiled map): AmbientView sways pieces of it.
+## The map's picture (null on a tiled map, whose brush is tiles): AmbientView sways pieces
+## of it. A tiled map may still have the picture: it draws the stands round the floor.
 func art() -> Texture2D:
-	return _art
+	return null if _tiles != null else _art
 
 
 ## Under the bands: the map's art, or the stands and walls round a tiled floor.
@@ -626,20 +629,53 @@ func _paint_floor(ci: CanvasItem, row0: int, row1: int) -> void:
 
 ## Court markings over a tiled floor (the art has its own), under the pits.
 func _paint_marks(ci: CanvasItem, _row0: int, _row1: int) -> void:
-	if _art != null or _tiles != null:
+	if (_tiles == null and _art != null) or (_tiles != null and not _markings):
 		return
 	var fr := terrain.floor_rect()
 	var c := fr.get_center()
-	ci.draw_rect(fr.grow(-4), C_LINE, false, 1.0)
-	ci.draw_line(Vector2(c.x, fr.position.y + 4), Vector2(c.x, fr.end.y - 4), C_LINE, 1.0)
-	ci.draw_arc(c, 34.0, 0.0, TAU, 48, C_LINE, 1.0)
+	if _tiles == null:
+		ci.draw_rect(fr.grow(-4), C_LINE, false, 1.0)
+		ci.draw_line(Vector2(c.x, fr.position.y + 4), Vector2(c.x, fr.end.y - 4), C_LINE, 1.0)
+		ci.draw_arc(c, 34.0, 0.0, TAU, 48, C_LINE, 1.0)
+		return
+	# Chalk on the tiles, the baked Stadium's layout (tools/gen_arenas.py:_markings): the
+	# boundary, a centre line broken at a double centre circle, corner arcs, the two sides'
+	# starting brackets in their colours, and the eight-point emblem in faded gold.
+	var box := fr.grow(-6)
+	ci.draw_rect(box, C_CHALK, false, 1.0)
+	ci.draw_line(Vector2(c.x, box.position.y), Vector2(c.x, c.y - 34), C_CHALK, 1.0)
+	ci.draw_line(Vector2(c.x, c.y + 34), Vector2(c.x, box.end.y), C_CHALK, 1.0)
+	ci.draw_arc(c, 34.0, 0.0, TAU, 64, C_CHALK, 1.0)
+	ci.draw_arc(c, 31.0, 0.0, TAU, 64, C_CHALK, 1.0)
+	for k in 4:
+		var corner := Vector2(box.position.x if k % 3 == 0 else box.end.x, box.position.y if k < 2 else box.end.y)
+		ci.draw_arc(corner, 10.0, PI * 0.5 * k, PI * 0.5 * (k + 1), 10, C_CHALK, 1.0)
+	for side in 2:
+		var s := Vector2(c.x + (100.0 if side == 1 else -100.0), c.y + 4.0)
+		var col: Color = C_START[side]
+		for dx in [-1.0, 1.0]:
+			for dy in [-1.0, 1.0]:
+				var b := s + Vector2(dx * 9.0, dy * 7.0)
+				ci.draw_line(b, b - Vector2(dx * 4.0, 0.0), col, 1.0)
+				ci.draw_line(b, b - Vector2(0.0, dy * 3.0), col, 1.0)
+	ci.draw_arc(c, 12.0, 0.0, TAU, 32, Color(C_CHALK, 0.5), 1.0)
+	for k in 8:
+		var ang := k * PI / 4.0
+		var ln := 9.0 if k % 2 == 0 else 5.0
+		ci.draw_line(c, c + Vector2(cos(ang), sin(ang)) * ln, C_EMBLEM, 1.0)
+
+
+## Chalk and paint on a tiled floor's markings.
+const C_CHALK := Color(1.0, 0.98, 0.94, 0.62)
+const C_START: Array[Color] = [Color8(236, 104, 92, 200), Color8(104, 150, 240, 200)]
+const C_EMBLEM := Color8(226, 178, 70, 150)
 
 
 ## Whether the art already shows cell `i` as a chasm: only the map's own chasms are in the
 ## picture. A cell sunk during the match (Sinkhole's rings, the Floor of pits mutator) has
 ## `base` CHASM too, so it never heals, but it has to be drawn.
 func _in_art(i: int) -> bool:
-	return _art != null and terrain.map_base[i] == TerrainGrid.CHASM
+	return _tiles == null and _art != null and terrain.map_base[i] == TerrainGrid.CHASM
 
 
 ## A map with art: a crack mark on each cracked cell, the map's changed pieces (rubble,
