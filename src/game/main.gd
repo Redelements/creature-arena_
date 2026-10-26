@@ -2226,7 +2226,7 @@ func _hazard_warn(e: Dictionary) -> void:
 			hud.moment("TIDAL WAVE!", "FROM THE %s  -  GET BEHIND THE RUBBLE" % String(Hazards.SIDE_NAMES[clampi(side, 0, 3)]).to_upper(),
 				Color("6fb8f0"))
 		"boulder":
-			hud.show_toast("BOULDER!  STEP ASIDE OR HEAVY IT BACK")
+			hud.show_toast("BOULDERS!  STEP ASIDE OR HEAVY ONE BACK")
 		"fault":
 			hud.show_toast("FAULT LINE!  GET OFF THE CRACK BEFORE IT SPLITS")
 		_:

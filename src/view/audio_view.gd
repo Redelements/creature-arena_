@@ -328,6 +328,9 @@ func on_event(e: Dictionary) -> void:
 					play("hit_heavy", -1.0, 0.7)
 				_:
 					play("hit_heavy", -4.0, 0.9)
+		"hazard_ricochet":
+			play("slam", -2.0, 1.5)  # stone on stone (or on a wall)
+			play("stones_scatter", -6.0, 1.2)
 		"hazard_reverse":
 			play("hit_heavy", 0.0, 0.8)  # a heavy meets the rock
 			play("crowd_cheer", -4.0)

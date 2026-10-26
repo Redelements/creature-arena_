@@ -116,6 +116,7 @@ buses at start-up; `play(name, ..., ui = true)` sends a sound to Menu sounds.
 | [ ] | (`slam`, low) | The boulder drops in and starts rolling (`hazard_strike`); while it rolls, nothing | A heavy thud, then a looping stone rumble while it rolls (needs a loop: AudioView has none for hazards yet) |
 | [ ] | (`hit_heavy`, low) | The boulder runs someone over (`hazard_hit`, shape boulder) | A crunching stone impact; needs its own sound |
 | [ ] | (`hit_heavy` + `crowd_cheer`) | A heavy sends the boulder back (`hazard_reverse`) | A big stone "clonk" with a crowd gasp; needs its own sound |
+| [ ] | (`slam` pitched up + `stones_scatter` quiet) | Two boulders ricochet off each other, or one bounces off a wall (`hazard_ricochet`) | A sharp stone-on-stone clack with chips; needs its own sound |
 | [ ] | (`cave_in`) | The boulder falls into a pit or shatters on rubble (`hazard_end`, how pit / wall) | A stone tumbling into depth; a stone shattering; need their own sounds |
 | [ ] | (`crack` low + `cave_in` quiet) | A fault line cracks (`hazard_warn`, shape fault) | The ground groaning and splitting slowly, 2 s; needs its own sound |
 | [ ] | (`cave_in`, low) | The fault opens into a chasm (`hazard_strike`, shape fault) | A deep earth-splitting roar with falling rock; needs its own sound |

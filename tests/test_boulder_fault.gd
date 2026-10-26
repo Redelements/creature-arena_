@@ -1,11 +1,14 @@
 extends TestCase
 ## The rolling boulder and the fault line (src/sim/hazards.gd shapes "boulder" and "fault",
 ## data/rules/hazards.json): warnings long enough to read and nothing happening during them,
-## the boulder's lane and roll, its hit (a share of max HP by role, a knockdown, a push
-## along its path), a heavy sending it back with the KO credit to the striker, where it
-## goes away (the far edge, a pit, a wall), the fault opening into chasm and closing back to
-## exactly the map, never on the map's own pieces, seeded placement, rollback mid-roll and
-## mid-open, and CPUs that step out of the lane and off the crack.
+## several boulders a roll from different edges, each one's lane and roll, its hit (a share
+## of max HP by role, a knockdown, a push along its path), a heavy sending it back with the
+## KO credit to the striker, boulders ricocheting off each other (deterministic, through a
+## rollback, keeping the sender's credit) and off walls until they shatter, where they go
+## away (the far edge, a pit), the fault opening into chasm and closing back to exactly the
+## map, never on the map's own pieces, seeded placement, rollback mid-roll and mid-open, and
+## CPUs that step out of a boulder's way (its lane, or its new way after a ricochet) and off
+## the crack.
 
 const BOULDER := {"hazards": ["rolling_boulder"]}
 const FAULT := {"hazards": ["fault_line"]}
@@ -39,22 +42,32 @@ func _bdef(sim: MatchSim) -> Dictionary:
 	return sim.hazard_defs["rolling_boulder"]
 
 
-## Puts a boulder rolling at `pos` going `dir` (no warning), with nothing scheduled after.
-func _roll(sim: MatchSim, pos: Vector2, dir: Vector2) -> Dictionary:
+## Puts boulders rolling (no warning), one per [pos, dir] in `rocks`, with nothing scheduled
+## after; returns the boulders' dictionaries.
+func _roll_many(sim: MatchSim, rocks: Array) -> Array:
 	var st := _state(sim, "boulder")
 	st["next"] = 1 << 30
 	st["phase"] = Hazards.ACTIVE
 	st["t"] = 0
-	st["pos"] = pos
-	st["dir"] = dir
-	st["side"] = 0 if dir == Vector2.RIGHT else 1
-	st["lane"] = pos.y - sim.floor_rect().position.y
-	st["speed"] = float(_bdef(sim)["speed"])
-	st["by"] = -1
-	st["by_team"] = -1
-	st["rev"] = 0
-	st["done"] = []
-	return st
+	st["pairs"] = {}
+	var fr := sim.floor_rect()
+	var r := float(_bdef(sim)["radius"])
+	var out: Array = []
+	for pd in rocks:
+		var dir: Vector2 = pd[1]
+		var side := 0 if dir.x > 0.0 else (1 if dir.x < 0.0 else (2 if dir.y > 0.0 else 3))
+		var lane: float = (pd[0].y - fr.position.y) if side < 2 else (pd[0].x - fr.position.x)
+		var rk := Hazards._new_rock(fr, side, lane, r, float(_bdef(sim)["speed"]))
+		rk["pos"] = pd[0]
+		rk["dir"] = dir
+		out.append(rk)
+	st["rocks"] = out
+	return out
+
+
+## One boulder rolling at `pos` going `dir`; returns its dictionary.
+func _roll(sim: MatchSim, pos: Vector2, dir: Vector2) -> Dictionary:
+	return _roll_many(sim, [[pos, dir]])[0]
 
 
 ## Both fighters well apart on one row, the foe out of the way unless placed.
@@ -63,37 +76,45 @@ func _place(sim: MatchSim, a: Vector2, b: Vector2) -> void:
 	sim.creatures[1].pos = b
 
 
-func test_the_boulder_warns_then_rolls_down_its_lane() -> void:
+func test_the_boulders_warn_together_then_roll_down_their_lanes() -> void:
 	var sim := _sim(BOULDER)
 	var d := _bdef(sim)
 	var st := _state(sim, "boulder")
+	var n := int(d["count"])
+	assert_true(n >= 2, "several boulders a roll (%d)" % n)
 	assert_eq(int(st["next"]), Hazards.ticks_of(d["first_seconds"]), "the first warning at first_seconds:")
 	st["next"] = sim.tick + 1
 	var ev := _steps(sim, 1)
 	var warn := _of(ev, "hazard_warn")
-	assert_eq(warn.size(), 1, "it warns:")
+	assert_eq(warn.size(), n, "every boulder warns, all at once:")
 	var ticks := Hazards.ticks_of(d["warn_seconds"])
-	assert_eq(int(warn[0]["ticks"]), ticks, "for warn_seconds:")
-	assert_true(ticks >= 60, "a second or more to step out (%d ticks)" % ticks)
-	assert_eq(int(st["next"]), sim.tick - 1 + Hazards.ticks_of(d["every_seconds"]) + 1, "the next one every_seconds on:")
+	for w in warn:
+		assert_eq(int(w["ticks"]), ticks, "each for warn_seconds:")
+	assert_true(ticks >= 90, "1.5 s or more to step out (%d ticks)" % ticks)
+	assert_eq(int(st["next"]), sim.tick - 1 + Hazards.ticks_of(d["every_seconds"]) + 1, "the next roll every_seconds on:")
 	var fr := sim.floor_rect()
-	var lane := float(st["lane"])
-	var span := fr.size.y if int(st["side"]) < 2 else fr.size.x
-	assert_true(lane >= float(d["inset"]) and lane <= span - float(d["inset"]), "the lane is inset from the sides: %s" % lane)
-	# Put both fighters in the lane: the warning hurts nobody.
-	var bl: Dictionary = Hazards.boulders_now(sim)[0]
+	var rocks: Array = st["rocks"]
+	assert_eq(rocks.size(), n, "")
+	var edges := {}
+	for rk in rocks:
+		var lane := float(rk["lane"])
+		var span := fr.size.y if int(rk["side"]) < 2 else fr.size.x
+		assert_true(lane >= float(d["inset"]) and lane <= span - float(d["inset"]), "each lane is inset from the sides: %s" % lane)
+		edges[int(rk["side"])] = true
+	assert_eq(edges.size(), mini(n, (d["sides"] as Array).size()), "from different edges, so the lanes cross:")
+	var bl: Array = Hazards.boulders_now(sim)
 	var hp0 := sim.creatures[0].hp
 	ev = _steps(sim, ticks - 2)
 	assert_eq(_of(ev, "hazard_hit").size(), 0, "nothing hits during the warning:")
 	assert_eq(int(st["phase"]), Hazards.WARN, "still warning:")
 	ev = _steps(sim, 2)
-	assert_eq(_of(ev, "hazard_strike").size(), 1, "then it rolls:")
+	assert_eq(_of(ev, "hazard_strike").size(), n, "then they all roll:")
 	assert_eq(int(st["phase"]), Hazards.ACTIVE, "rolling:")
-	var p0: Vector2 = st["pos"]
+	var p0: Vector2 = rocks[0]["pos"]
 	_steps(sim, 10)
-	var moved: Vector2 = Vector2(st["pos"]) - p0
+	var moved: Vector2 = Vector2(rocks[0]["pos"]) - p0
 	assert_near(moved.length(), float(d["speed"]) * 10.0, 0.01, "at speed px a tick:")
-	assert_near(moved.normalized().dot(bl["dir"]), 1.0, 0.001, "straight down the lane:")
+	assert_near(moved.normalized().dot(bl[0]["dir"]), 1.0, 0.001, "straight down the lane:")
 	assert_near(sim.creatures[0].hp, hp0, 0.001, "")
 
 
@@ -157,7 +178,7 @@ func test_a_heavy_sends_it_back_at_the_others_with_the_credit() -> void:
 	_place(sim, Vector2(fr.position.x + 200, row), Vector2(fr.position.x + 420, row))
 	a.facing = Vector2.RIGHT
 	# Rolling left at the striker from just past where its heavy will reach.
-	var st := _roll(sim, Vector2(a.pos.x + 98, row), Vector2.LEFT)
+	var st := _roll(sim, Vector2(a.pos.x + 98, row), Vector2.LEFT)  # (the boulder)
 	b.pos = Vector2(a.pos.x + 200, row)  # behind the boulder: it has already passed
 	var by: Array = [-1, -1]
 	var at: Array = [0, 0]
@@ -195,50 +216,140 @@ func test_a_light_doesnt_send_it_back() -> void:
 	assert_eq(_of(ev, "hazard_hit").filter(func(e): return int(e["who"]) == 0).size(), 1, "it rolls on over the jabber")
 
 
-func test_it_goes_away_at_the_far_edge_and_at_a_wall() -> void:
+func test_it_goes_away_at_the_far_edge_and_bounces_off_walls_until_it_shatters() -> void:
 	var sim := _sim(BOULDER)
 	var fr := sim.floor_rect()
+	var d := _bdef(sim)
 	_place(sim, Vector2(fr.get_center().x, fr.end.y - 20), Vector2(fr.get_center().x + 40, fr.end.y - 20))
-	var r := float(_bdef(sim)["radius"])
-	var st := _roll(sim, Vector2(fr.end.x - 30, fr.position.y + 60), Vector2.RIGHT)
+	var st := _state(sim, "boulder")
+	_roll(sim, Vector2(fr.end.x - 30, fr.position.y + 60), Vector2.RIGHT)
 	var ev := _steps(sim, 30)
 	var end := _of(ev, "hazard_end")
 	assert_eq(end.size(), 1, "gone past the far edge:")
 	assert_eq(String(end[0]["how"]), "edge", "")
-	assert_eq(int(st["phase"]), Hazards.IDLE, "and done:")
-	# Rubble in the lane stops it.
-	var wall := sim.terrain.world_to_cell(Vector2(fr.get_center().x, fr.position.y + 60))
-	for dy in range(-3, 4):
-		sim.terrain.set_cell(wall + Vector2i(0, dy), TerrainGrid.WALL)
-	_roll(sim, Vector2(fr.get_center().x - 80, fr.position.y + 60), Vector2.RIGHT)
-	ev = _steps(sim, 60)
+	assert_eq(int(st["phase"]), Hazards.IDLE, "and the roll is over:")
+	# Two rubble walls across its lane: it bounces between them wall_bounces times, then shatters.
+	var row := fr.position.y + 60
+	var left := sim.terrain.world_to_cell(Vector2(fr.get_center().x - 100, row))
+	var right := sim.terrain.world_to_cell(Vector2(fr.get_center().x + 100, row))
+	for dy in range(-4, 5):
+		sim.terrain.set_cell(left + Vector2i(0, dy), TerrainGrid.WALL)
+		sim.terrain.set_cell(right + Vector2i(0, dy), TerrainGrid.WALL)
+	var rk := _roll(sim, Vector2(fr.get_center().x, row), Vector2.RIGHT)
+	var speed0 := float(rk["speed"])
+	ev = _steps(sim, 600)
+	var bounces := _of(ev, "hazard_ricochet").filter(func(e): return int(e["other"]) == -1)
+	assert_eq(bounces.size(), int(d["wall_bounces"]), "it bounces off rubble wall_bounces times:")
+	if not bounces.is_empty():
+		assert_near(Vector2(bounces[0]["dir"]).x, -1.0, 0.001, "straight back off a wall across its way:")
 	end = _of(ev, "hazard_end")
-	assert_eq(end.size(), 1, "stopped by rubble:")
+	assert_eq(end.size(), 1, "then it's gone:")
 	if not end.is_empty():
-		assert_eq(String(end[0]["how"]), "wall", "")
-		assert_lt(Vector2(end[0]["pos"]).x, fr.get_center().x, "short of it")
-	assert_gt(r, 0.0, "")
+		assert_eq(String(end[0]["how"]), "wall", "it shattered on the next one:")
+		var x := Vector2(end[0]["pos"]).x
+		assert_true(x > fr.get_center().x - 100 and x < fr.get_center().x + 100, "between the walls")
+	assert_lt(float(rk["speed"]), speed0, "each bounce slows it (ricochet_speed_mult)")
 
 
-func test_the_lane_is_seeded() -> void:
+func test_the_lanes_are_seeded() -> void:
 	var seen := {}
-	for s in [3, 3, 4, 5, 6, 9]:
+	for s in [3, 4, 5, 6, 9]:
 		var sim := _sim(BOULDER, s)
 		_state(sim, "boulder")["next"] = 1
 		_steps(sim, 1)
-		var st := _state(sim, "boulder")
-		seen[s] = [int(st["side"]), float(st["lane"])]
-	assert_eq(seen[3], seen[3], "")
+		var out: Array = []
+		for rk in _state(sim, "boulder")["rocks"]:
+			out.append([int(rk["side"]), float(rk["lane"])])
+		seen[s] = out
 	var a := _sim(BOULDER, 3)
 	var b := _sim(BOULDER, 3)
 	for sim: MatchSim in [a, b]:
 		_state(sim, "boulder")["next"] = 1
 		_steps(sim, 1)
-	assert_eq([_state(a, "boulder")["side"], _state(a, "boulder")["lane"]], [_state(b, "boulder")["side"], _state(b, "boulder")["lane"]], "same seed, same lane:")
+	assert_eq(_state(a, "boulder")["rocks"], _state(b, "boulder")["rocks"], "same seed, same lanes:")
 	var distinct := {}
 	for s in seen:
 		distinct[str(seen[s])] = true
-	assert_gt(distinct.size(), 2, "seeds pick different lanes: %s" % seen)
+	assert_gt(distinct.size(), 2, "seeds pick different lanes: %s" % str(seen))
+
+
+# ------------------------------------------------------------------ ricochets
+
+## Two boulders head on down one lane: they meet, bounce straight back, each its own way.
+func test_two_boulders_ricochet_off_each_other() -> void:
+	var sim := _sim(BOULDER)
+	var fr := sim.floor_rect()
+	var d := _bdef(sim)
+	_place(sim, Vector2(fr.position.x + 30, fr.end.y - 20), Vector2(fr.end.x - 30, fr.end.y - 20))
+	var row := fr.position.y + 80
+	var mid := fr.get_center().x
+	var rocks := _roll_many(sim, [[Vector2(mid - 60, row), Vector2.RIGHT], [Vector2(mid + 60, row), Vector2.LEFT]])
+	var ev := _steps(sim, 30)
+	var ric := _of(ev, "hazard_ricochet").filter(func(e): return int(e["other"]) >= 0)
+	assert_eq(ric.size(), 2, "one bounce, told for each:")
+	assert_near(Vector2(rocks[0]["dir"]).x, -1.0, 0.001, "the first goes back left:")
+	assert_near(Vector2(rocks[1]["dir"]).x, 1.0, 0.001, "the second back right:")
+	assert_near(float(rocks[0]["speed"]), float(d["speed"]) * float(d["ricochet_speed_mult"]), 0.001, "a little slower:")
+	assert_gt(Vector2(rocks[1]["pos"]).distance_to(rocks[0]["pos"]), 2.0 * float(d["radius"]), "and apart")
+	# A glancing blow: one across the other's way. Both turn, both keep their own speed.
+	var sim2 := _sim(BOULDER)
+	_place(sim2, Vector2(fr.position.x + 30, fr.end.y - 20), Vector2(fr.end.x - 30, fr.end.y - 20))
+	var c := fr.get_center()
+	var r2 := _roll_many(sim2, [[c + Vector2(-60, 0), Vector2.RIGHT], [c + Vector2(4, -60), Vector2.DOWN]])
+	ev = _steps(sim2, 40)
+	assert_eq(_of(ev, "hazard_ricochet").filter(func(e): return int(e["other"]) >= 0).size(), 2, "they meet:")
+	for rk in r2:
+		assert_near(Vector2(rk["dir"]).length(), 1.0, 0.0001, "a unit way:")
+	assert_true(Vector2(r2[0]["dir"]) != Vector2.RIGHT and Vector2(r2[1]["dir"]) != Vector2.DOWN, "both turned")
+	# The pair can't bounce again straight away (no sticking).
+	var pairs: Dictionary = _state(sim2, "boulder")["pairs"]
+	assert_eq(pairs.size(), 1, "the pair's cooldown is noted:")
+
+
+func test_ricochets_are_deterministic_and_roll_back() -> void:
+	var hashes: Array = []
+	for k in 2:
+		var sim := _sim(BOULDER, 11)
+		var fr := sim.floor_rect()
+		var c := fr.get_center()
+		_roll_many(sim, [[c + Vector2(-90, -10), Vector2.RIGHT], [c + Vector2(90, 10), Vector2.LEFT],
+			[c + Vector2(6, -100), Vector2.DOWN]])
+		_steps(sim, 120)
+		hashes.append(sim.state_digest())
+	assert_eq(hashes[0], hashes[1], "the same bounces every time:")
+	# Rollback across the moment they meet.
+	var sim := _sim(BOULDER, 11)
+	var c2 := sim.floor_rect().get_center()
+	_roll_many(sim, [[c2 + Vector2(-90, -10), Vector2.RIGHT], [c2 + Vector2(90, 10), Vector2.LEFT],
+		[c2 + Vector2(6, -100), Vector2.DOWN]])
+	_steps(sim, 15)
+	_roll_check(sim, 60)
+
+
+func test_a_ricochet_keeps_the_credit_with_who_sent_it_back() -> void:
+	var sim := _sim(BOULDER, 7, "cairn", "culvert")
+	var fr := sim.floor_rect()
+	var c := fr.get_center()
+	var b := sim.creatures[1]
+	_place(sim, Vector2(fr.position.x + 30, fr.end.y - 20), c + Vector2(-110, 0))
+	# Boulder 0 was sent back by fighter 0 (it spares team 0 now); it meets boulder 1 head on
+	# and bounces straight back into fighter 1.
+	var rocks := _roll_many(sim, [[c + Vector2(-60, 0), Vector2.RIGHT], [c + Vector2(30, 0), Vector2.LEFT]])
+	rocks[0]["by"] = 0
+	rocks[0]["by_team"] = sim.creatures[0].team
+	rocks[0]["rev"] = 1
+	var by: Array = [-1, -1]
+	var at: Array = [0, 0]
+	var ev: Array = []
+	for i in 60:
+		sim.step(PackedInt32Array([0, 0]))
+		ev.append_array(sim.events)
+		sim.note_credit(by, at)
+	assert_true(_of(ev, "hazard_ricochet").any(func(e): return int(e["rock"]) == 0 and int(e["by"]) == 0), "it bounced, still the sender's")
+	var on_b := _of(ev, "hazard_hit").filter(func(e): return int(e["who"]) == 1 and int(e["by"]) == 0)
+	assert_eq(on_b.size(), 1, "it struck the other fighter, credited to the sender:")
+	assert_eq(int(by[1]), 0, "note_credit gives the sender the KO credit:")
+	assert_gt(b.max_hp, b.hp, "")
 
 
 # ------------------------------------------------------------------ the fault line
@@ -392,8 +503,7 @@ func test_cpu_steps_out_of_the_boulder_lane() -> void:
 		st["next"] = 1 << 30
 		st["phase"] = Hazards.WARN
 		st["t"] = 0
-		st["side"] = 0
-		st["lane"] = c.pos.y - fr.position.y
+		st["rocks"] = [Hazards._new_rock(fr, 0, c.pos.y - fr.position.y, float(_bdef(sim)["radius"]), float(_bdef(sim)["speed"]))]
 		var ev: Array = []
 		for i in 400:
 			sim.step(PackedInt32Array([cpu.bits(sim) if level >= 0 else 0, 0]))
@@ -405,6 +515,33 @@ func test_cpu_steps_out_of_the_boulder_lane() -> void:
 			assert_eq(hit, 1, "standing still in the lane, it's struck:")
 		else:
 			assert_eq(hit, 0, "level %d stepped out of the lane" % level)
+
+
+## After a ricochet a boulder's way is its new one: a CPU in that new way steps out of it.
+func test_cpu_steps_out_of_a_turned_boulders_new_way() -> void:
+	for level in [-1, 1, 3]:  # -1: a control that stands still
+		var sim := _sim(BOULDER)
+		var cpu := CpuController.new(0, maxi(level, 0), 5)
+		var c := sim.creatures[0]
+		var fr := sim.floor_rect()
+		_place(sim, fr.get_center() + Vector2(-40, 30), Vector2(fr.end.x - 30, fr.position.y + 20))
+		# Coming at it on a diagonal, having just bounced (no lane was ever shown on this way).
+		var way := Vector2(1, 1).normalized()
+		var rk := _roll(sim, c.pos - way * 150.0, way)
+		rk["turned"] = sim.tick
+		rk["bounces"] = 1
+		var ev: Array = []
+		for i in 120:
+			sim.step(PackedInt32Array([cpu.bits(sim) if level >= 0 else 0, 0]))
+			ev.append_array(sim.events)
+		var hit := _of(ev, "hazard_hit").filter(func(e): return int(e["who"]) == 0).size()
+		if level < 0:
+			assert_eq(hit, 1, "standing still in its new way, it's struck:")
+		elif level == 1:
+			assert_eq(hit, 0, "Normal stepped out of its new way")
+		else:
+			var sent := _of(ev, "hazard_reverse").size()
+			assert_true(hit == 0 or sent > 0, "Rage stepped out or sent it back (hit %d, sent %d)" % [hit, sent])
 
 
 func test_hard_cpu_sends_the_boulder_back() -> void:

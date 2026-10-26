@@ -84,8 +84,9 @@ e.g. Cerebro's `poke`, whose mallet thrown at a tank walking in loses the matchu
 - Arena hazards → `_mind_hazards` (first in `_decide` after Sinkhole: steps out of a meteor shadow once it
   notices it, `HAZARD_NOTICE` by level; heads for the spot behind rubble a wave can't reach, `_find_shelter`,
   `SHELTER_LOOK`, and holds there unless a foe is in reach; Hard and Rage dodge through a wave's front when there's
-  no shelter; walks to a core within 110 px when no foe is on it). The rolling boulder `_mind_boulder`: once it
-  notices one coming down its lane, steps out to the nearer side; Hard and Rage with a heavy ready (and sending back
+  no shelter; walks to a core within 110 px when no foe is on it). The rolling boulders `_mind_boulder`: once it
+  notices one coming its way (its current way, so after a ricochet its new one), steps out to the nearer side (the far
+  side when the near one is in another boulder's way, `_in_boulder_way`); Hard and Rage with a heavy ready (and sending back
   still allowed) stay in its way, face it and throw a raw heavy timed so the strike meets it (`_boulder_swing` keeps
   that heavy a tap aimed at the boulder: `_continue_attack` would charge it at the foe); a boulder its own team sent
   back is ignored. The fault line `_mind_fault`: off the crack to the nearer side while it warns; open, the nav grid

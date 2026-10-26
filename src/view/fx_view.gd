@@ -272,7 +272,7 @@ func spawn(e: Dictionary) -> void:
 			_block_feedback(e, p)
 		"guard_break":
 			_guard_break_feedback(e, p)
-		"hazard_strike", "hazard_hit", "hazard_shelter", "hazard_pickup", "hazard_pickup_gone", "hazard_reverse", "hazard_end":
+		"hazard_strike", "hazard_hit", "hazard_shelter", "hazard_pickup", "hazard_pickup_gone", "hazard_reverse", "hazard_end", "hazard_ricochet":
 			_hazard_event(e, p)
 		"slam":
 			var full := power >= 1.0
@@ -4313,6 +4313,7 @@ const C_BOULDER: Array[Color] = [Color("2e2620"), Color("5a4a3c"), Color("85715c
 const C_SENT := Color("ffd27a")  ## a boulder someone sent back: its rim
 const C_FAULT := Color("1a1210")
 const C_FAULT_GLOW := Color("ff8a3a")
+const BOULDER_PATH := 220.0  ## how far ahead a turned boulder's way is drawn (px)
 var _fault_last := {"axis": 0, "cells": PackedInt32Array()}  ## the open fault seen last tick (its closing dust)
 
 
@@ -4337,21 +4338,54 @@ func _boulder_lane(ci: CanvasItem, fr: Rect2, b: Dictionary) -> void:
 		_lane_edges(ci, band, side, Color(col, 0.5 + 0.4 * k))
 		_lane_chevrons(ci, band, dir, Color(col, 0.45 + 0.4 * k), 0.0)
 	else:
-		# Only the part still ahead of it.
 		var at: Vector2 = b["pos"]
-		var ahead := band
-		if dir.x > 0.0:
-			ahead = Rect2(Vector2(at.x, band.position.y), Vector2(maxf(0.0, band.end.x - at.x), band.size.y))
-		elif dir.x < 0.0:
-			ahead = Rect2(band.position, Vector2(maxf(0.0, at.x - band.position.x), band.size.y))
-		elif dir.y > 0.0:
-			ahead = Rect2(Vector2(band.position.x, at.y), Vector2(band.size.x, maxf(0.0, band.end.y - at.y)))
+		if int(b["turned"]) < 0:
+			# Still on its first lane: only the part ahead of it.
+			var ahead := band
+			if dir.x > 0.0:
+				ahead = Rect2(Vector2(at.x, band.position.y), Vector2(maxf(0.0, band.end.x - at.x), band.size.y))
+			elif dir.x < 0.0:
+				ahead = Rect2(band.position, Vector2(maxf(0.0, at.x - band.position.x), band.size.y))
+			elif dir.y > 0.0:
+				ahead = Rect2(Vector2(band.position.x, at.y), Vector2(band.size.x, maxf(0.0, band.end.y - at.y)))
+			else:
+				ahead = Rect2(band.position, Vector2(band.size.x, maxf(0.0, at.y - band.position.y)))
+			ci.draw_rect(ahead, Color(col, 0.08))
+			_lane_edges(ci, ahead, side, Color(col, 0.3))
 		else:
-			ahead = Rect2(band.position, Vector2(band.size.x, maxf(0.0, at.y - band.position.y)))
-		ci.draw_rect(ahead, Color(col, 0.08))
-		_lane_edges(ci, ahead, side, Color(col, 0.3))
+			_boulder_path(ci, fr, b, col)
 		ci.draw_circle(at, r, Color(0, 0, 0, 0.28))
 		ci.draw_circle(at, r * 0.7, Color(0, 0, 0, 0.12))
+
+
+## A boulder that has turned (a ricochet, a wall, a send-back): its way ahead as two dashed
+## edges a boulder wide, fading out over BOULDER_PATH px; for `preview_ticks` after the
+## turn, bold and blinking with an arrow off the ball, so the new way reads at once.
+func _boulder_path(ci: CanvasItem, fr: Rect2, b: Dictionary, col: Color) -> void:
+	var r := float(b["radius"])
+	var at: Vector2 = b["pos"]
+	var dir: Vector2 = b["dir"]
+	var across := Vector2(-dir.y, dir.x)
+	var since := sim.tick - int(b["turned"])
+	var fresh := since < int((b["def"] as Dictionary).get("preview_ticks", 30))
+	var a := (0.75 if (_tick / 4) % 2 == 0 else 0.45) if fresh else 0.25
+	# Dashed edges, marching along, fading out over BOULDER_PATH px ahead.
+	var s := r * 0.5 + float(_tick % 12)
+	while s < BOULDER_PATH:
+		var p := at + dir * s
+		if not fr.grow(r).has_point(p):
+			break
+		var fade := 1.0 - s / BOULDER_PATH
+		for e in [-1.0, 1.0]:
+			var q: Vector2 = p + across * r * float(e)
+			ci.draw_line(q.round(), (q + dir * 6.0).round(), Color(col, a * fade), 2.0)
+		s += 12.0
+	if fresh:
+		var tip := at + dir * (r + 30.0)
+		var base := at + dir * (r + 6.0)
+		ci.draw_line(base.round(), tip.round(), Color(col, 0.9), 3.0)
+		ci.draw_polyline(PackedVector2Array([(tip - dir * 9.0 + across * 7.0).round(), tip.round(),
+			(tip - dir * 9.0 - across * 7.0).round()]), Color(col, 0.95), 3.0)
 
 
 ## A lane's two long edges, dashed, the dashes marching.
@@ -4657,6 +4691,18 @@ func _hazard_event(e: Dictionary, p: Vector2) -> void:
 				shake_out = maxf(shake_out, 5.0)
 			else:
 				shake_out = maxf(shake_out, 3.0)
+		"hazard_ricochet":
+			# Stone on stone (or on a wall): a white-hot spark burst and chips at the point of contact.
+			var at := p + Vector2(0, -float(e.get("power", 18.0)) * 0.85)
+			_add({"kind": "ring", "pos": at, "life": 10, "radius": 14.0, "color": C_SPARK[0]})
+			for i in 12:
+				_px(at, Vector2.from_angle(randf() * TAU) * randf_range(1.2, 3.0), C_SPARK[randi() % 3], randf_range(12.0, 20.0))
+			for i in 4:
+				_chunk(at, randf_range(4, 10), Vector2.from_angle(randf() * TAU) * randf_range(0.6, 1.4),
+					randf_range(1.0, 2.0), 2.0, C_BOULDER[1 + randi() % 3], 40.0)
+			if int(e.get("other", -1)) >= 0:
+				_text(at + Vector2(0, -16), "CLACK!", C_SPARK[0], 8, 30.0)
+			shake_out = maxf(shake_out, 2.5)
 		"hazard_reverse":
 			_add({"kind": "ring", "pos": p + Vector2(0, -12), "life": 16, "radius": 26.0, "color": C_SENT})
 			for i in 10:

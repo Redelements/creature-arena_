@@ -91,8 +91,10 @@ size only: a map's `size` can be bigger, so code with a match asks `sim.floor_re
   the CPU's wanted foes → `MatchSim.marks` (saved; in the digest only when set)
 - Map bridges that break → `match_sim.gd:_step_bridges`, `bridge_strain`, `bridges` (saved)
 - Arena hazards (a mutator's `hazards`: tidal wave, meteor shower, rolling boulder, fault line) → `hazards.gd` (`setup`
-  raises breakwaters, `step` after `_resolve_hits`, `hurt` for the shared effects, `sheltered`; the boulder `_step_boulder`,
-  sent back by a heavy's strike in `_reverse_boulder`, its hits credited through `hazard_hit` `by` in `note_credit`; the
+  raises breakwaters, `step` after `_resolve_hits`, `hurt` for the shared effects, `sheltered`; the boulders `_step_boulder`
+  (`count` a roll in `rocks`, `_plan_rocks`; moves and wall bounces `_roll_rock`, ricochets off each other `_ricochets`
+  with per-pair cooldowns in `pairs`, `_turned`, hits `_rock_hits`), sent back by a heavy's strike in `_reverse_boulder`,
+  their hits credited through `hazard_hit` `by` in `note_credit` (kept through ricochets); the
   fault `_plan_fault` / `_step_fault` / `_close_fault`: CHASM cells with their healing clocks held, put back to `base` like
   the wave's puddles); state `MatchSim.hazards` (each shape's keys in its own dictionary, so they're saved for free),
   `hazard_pickups` (saved; in the digest only when there are hazards), definitions `hazard_defs` (fixed)

@@ -456,10 +456,27 @@ func _mind_boulder(sim: MatchSim, me: CreatureSim) -> bool:
 		if side == 0.0:
 			side = 1.0 if (sim.floor_rect().get_center() - me.pos).dot(across) >= 0.0 else -1.0
 		var goal := me.pos + across * side * (need - absf(off) + 10.0)
-		if not sim.floor_rect().grow(-me.radius).has_point(goal):
-			goal = me.pos - across * side * (need + absf(off) + 10.0)  # the wall's that way: cross over
+		var other := me.pos - across * side * (need + absf(off) + 10.0)  # across to its far side
+		var room := sim.floor_rect().grow(-me.radius)
+		# The near side unless it's off the floor or in another boulder's way.
+		if not room.has_point(goal) or (room.has_point(other) and _in_boulder_way(sim, me, goal, b)
+				and not _in_boulder_way(sim, me, other, b)):
+			goal = other
 		_go_to(sim, me, goal)
 		return true
+	return false
+
+
+## Whether `p` lies in the way of a boulder other than `skip` (its current way ahead of it,
+## a body's width either side), for the step-out's choice of side.
+func _in_boulder_way(sim: MatchSim, me: CreatureSim, p: Vector2, skip: Dictionary) -> bool:
+	for b in Hazards.boulders_now(sim):
+		if Vector2(b["pos"]) == Vector2(skip["pos"]):
+			continue
+		var dir: Vector2 = b["dir"]
+		var rel: Vector2 = p - Vector2(b["pos"])
+		if rel.dot(dir) > -float(b["radius"]) and absf(rel.dot(Vector2(-dir.y, dir.x))) < float(b["radius"]) + me.radius + 8.0:
+			return true
 	return false
 
 
@@ -652,9 +669,12 @@ func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 
 	if _boulder_swing:  # a heavy thrown at a boulder (_mind_boulder): a tap, aimed at it
 		if me.state == CreatureSim.State.ATTACK and me.move_id == "heavy":
-			var bl := Hazards.boulders_now(sim)
-			if not bl.is_empty():
-				_out |= SimDefs.aim_bits(Vector2(bl[0]["pos"]) - me.pos)
+			var near := Vector2.INF
+			for b in Hazards.boulders_now(sim):
+				if Vector2(b["pos"]).distance_squared_to(me.pos) < near.distance_squared_to(me.pos):
+					near = b["pos"]
+			if near != Vector2.INF:
+				_out |= SimDefs.aim_bits(near - me.pos)
 			return
 		_boulder_swing = false
 	if me.state == CreatureSim.State.ATTACK:
