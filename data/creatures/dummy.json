@@ -10,7 +10,7 @@
   "stamina": 100,
   "stamina_regen": 0.6,
   "dodge": { "frames": 18, "iframes_start": 2, "iframes_end": 11, "speed": 2.6, "anim_at": [[0, 0], [2, 1], [4, 2], [7, 3], [10, 4], [13, 5], [15, 6], [17, 7]] },
-  "guard": { "reduction": 0.8, "drain_per_damage": 2.0, "speed_mult": 0.4, "break_stun": 50 },
+  "guard": { "drain_per_damage": 2.0, "speed_mult": 0.4, "break_stun": 50 },
   "sprite": {
     "path": "res://assets/sprites/dummy.png",
     "frame": 96,

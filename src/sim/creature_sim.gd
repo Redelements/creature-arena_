@@ -62,7 +62,7 @@ const STATE_FIELDS := [
 	"blind", "whiff_serial", "ambush_serial", "ambush_t", "root", "hitstop",
 	"stealth", "haste", "haste_mult", "atk_buff", "atk_mult", "stone_ice", "covered",
 	"block_lag", "punish_serial", "home_speed", "fall_chasm",
-	"sheets", "sheet_t", "folded", "poison_look", "regen_wait",
+	"sheets", "sheet_t", "folded", "poison_look", "regen_wait", "exhaust_slow",
 ]
 ## Permanent buffs from the Crater's shrine (Shrines, "boost" reward): saved by save_state
 ## like STATE_FIELDS, but in the match digest only when the match has shrines (so every
@@ -107,6 +107,7 @@ var stamina := 0.0
 var max_stamina := 0.0
 var dodge_cost := 0.0  ## max_stamina × the dodge share (data/rules/stamina.json)
 var regen_wait := 0  ## ticks before stamina regrows: a blocked hit's pause, or exhaustion at 0
+var exhaust_slow := 0  ## ticks left of the slower walk after stamina hit 0 (`exhaust_slow_seconds`)
 var energy := 0.0
 
 var state: State = State.IDLE
@@ -549,6 +550,8 @@ func walk_speed() -> float:
 		s *= slow_mult
 	if taunt > 0:
 		s *= TAUNT_SPEED
+	if exhaust_slow > 0:  # just ran out of stamina: worn out for a moment
+		s *= float(stamina_rules().get("exhaust_speed_mult", 1.0))
 	if haste > 0:
 		s *= haste_mult
 	return s
@@ -805,6 +808,8 @@ func step(buttons: int, sim: MatchSim) -> void:
 		if stack_t <= 0:
 			stack = 0
 	_regrow_sheets(sim)
+	if exhaust_slow > 0:
+		exhaust_slow -= 1
 	if regen_wait > 0:
 		regen_wait -= 1
 	elif not (state in [State.DODGE, State.GUARD, State.KO]):
@@ -846,6 +851,7 @@ func step(buttons: int, sim: MatchSim) -> void:
 					hp = max_hp
 					stamina = max_stamina
 					regen_wait = 0
+					exhaust_slow = 0
 					reset_combo()
 					invuln = 20
 					_set_state(State.IDLE)
@@ -1008,7 +1014,8 @@ func can_guard() -> bool:
 	return stamina > 0.0
 
 
-## Out of stamina: no guard, and regen waits out the exhaustion delay.
+## Out of stamina: no guard, and regen waits out the exhaustion delay (the first
+## `exhaust_slow_seconds` of it also slow the walk to `exhaust_speed_mult`).
 func is_exhausted() -> bool:
 	return stamina <= 0.0
 
@@ -1020,6 +1027,7 @@ func spend_stamina(amount: float) -> void:
 	if stamina <= 0.0:
 		stamina = 0.0
 		regen_wait = stamina_ticks("exhaust_delay_seconds", 2.0)
+		exhaust_slow = stamina_ticks("exhaust_slow_seconds", 1.5)
 
 
 ## A blocked hit holds regen off for `block_regen_pause_seconds`, restarted by every

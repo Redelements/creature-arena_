@@ -42,8 +42,11 @@ func set_values(p_values: Array, p_index: int) -> void:
 	refresh()
 
 
+## "<  70%  >"; a row with one value (a status, a lone choice) has no arrows.
 func value_text() -> String:
-	return "<  %s  >" % String(values[index]) if index < values.size() else ""
+	if index >= values.size():
+		return ""
+	return String(values[0]) if values.size() == 1 else "<  %s  >" % String(values[index])
 
 
 func refresh() -> void:

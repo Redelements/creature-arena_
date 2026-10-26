@@ -4,7 +4,7 @@ extends SceneTree
 ## pit falls, time spent guarding and the moves that hit it most. Not a test.
 ##   godot --headless --path . --script res://tests/bench_fighter.gd -- --fighter=sno
 ##   [--foes=cairn,hissy] (default: the whole roster) [--seeds=2] [--a=3] [--b=3]
-## --a is the fighter's CPU level, --b the opponents' (3 = Rage). It plays the left side.
+## --a is the fighter's CPU level, --b the opponents' (default 1, Normal; 3 = Rage). It plays the left side.
 
 const TICKS := 7200
 
@@ -13,8 +13,8 @@ func _init() -> void:
 	var me_id := "barkley"
 	var foes: Array = []
 	var seeds := 2
-	var lv_a := 3
-	var lv_b := 3
+	var lv_a := 1  # Normal CPUs (Kevin, Oct 2026: no Rage benches)
+	var lv_b := 1
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--fighter="):
 			me_id = arg.get_slice("=", 1)

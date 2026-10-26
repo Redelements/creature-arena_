@@ -943,7 +943,7 @@ func test_the_remap_grid_walks_in_columns_and_crosses_with_left_right() -> void:
 	assert_eq((_focus() as Button).text, "Back", "Up from the top wraps to the last button")
 	_press("ui_down")
 	assert_eq((_focus() as Button).text, "Move up", "and Down from it to the first binding")
-	for i in 7:  # thirteen bindings: seven in the left column (Range rings last), six on the right
+	for i in 8:  # fifteen bindings: eight in the left column (Talk last), seven on the right
 		_press("ui_down")
 	assert_eq((_focus() as Button).text, "Reset to defaults", "the bottom of a column leads to the buttons")
 	st.free()
@@ -1803,7 +1803,11 @@ func test_pausing_a_watched_replay_or_a_spectated_room_has_no_restart() -> void:
 	assert_false(g.paused, "Resume")
 	g.watch = Referee.new([["cairn"], ["culvert"]], 0)
 	g._open_pause()
-	assert_true(g.ui.top() is ConfirmScreen, "a spectator gets the leave confirm, not the offline pause")
+	assert_true(g.ui.top() is PauseScreen and not g.paused, "a spectator gets the online pause: the match keeps going")
+	var watching: Array = []
+	for r in g.ui.top().rows():
+		watching.append((r as Button).text)
+	assert_true("Stop watching" in watching and not ("Restart" in watching), "Stop watching, no Restart: %s" % [watching])
 	g.watch = null
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	g.free()
@@ -1936,3 +1940,324 @@ func test_the_text_font_setting_switches_menus_and_saves() -> void:
 	assert_false(UiTheme.smooth, "Pixel again")
 	assert_true(g.ui.ui_theme.default_font == UiTheme.font(), "back to the pixel font")
 	g.queue_free()
+
+
+# ------------------------------------------------------------------ voice chat
+
+func test_the_audio_page_has_the_voice_chat_rows() -> void:
+	var g := _game()
+	g._open_menu("game")
+	g._open_settings_page("audio")
+	var labels := {}
+	for key in ["voice", "mic", "vol_Voice"]:
+		var row: OptionRow = g._setting_rows.get(key)
+		assert_true(row != null, "a %s row" % key)
+		if row != null:
+			labels[key] = row.label
+	assert_eq(labels.get("voice"), "Voice chat", "")
+	assert_eq(labels.get("mic"), "Microphone", "")
+	assert_eq(labels.get("vol_Voice"), "Voice volume", "and its own volume")
+	assert_eq((g._setting_rows["voice"] as OptionRow).values, VoiceChat.MODE_NAMES, "off, push to talk, open mic")
+	assert_gt((g._setting_rows["mic"] as OptionRow).values.size(), 0, "a microphone choice (Default without devices)")
+	assert_true(AudioServer.get_bus_index("Voice") >= 0, "the Voice bus is a volume group")
+	g.free()
+
+
+func test_test_microphone_records_shows_a_level_and_plays_back() -> void:
+	var g := _game()
+	g._open_menu("game")
+	g._open_settings_page("audio")
+	var row: OptionRow = g._setting_rows.get("mic_test")
+	assert_true(row != null, "a Test microphone row on the Audio page")
+	if row == null:
+		g.free()
+		return
+	assert_eq(row.value_text(), "Press to test", "idle, and no arrows on a one-value row")
+	var v: VoiceView = g.voice_view
+	v.tone = true  # headless: the tone stands in for the microphone
+	row.activated.emit()
+	assert_eq(v.test_state, VoiceView.Test.RECORDING, "Enter starts recording")
+	v.test_step(0.5)
+	g._refresh_mic_test()
+	assert_true(row.value_text().begins_with("Speak now"), "counts down: " + row.value_text())
+	assert_gt(row.bar, 0.3, "the bar shows the tone's level")
+	for k in 6:
+		v.test_step(0.5)
+	assert_eq(v.test_state, VoiceView.Test.PLAYING, "after the recording it plays back")
+	assert_gt(v._test_pcm.size(), int(AudioServer.get_mix_rate() * 2.5), "about three seconds recorded")
+	for k in 8:
+		v.test_step(0.5)
+	assert_eq(v.test_state, VoiceView.Test.IDLE, "and ends")
+	v.tone = false
+	row.activated.emit()
+	v.test_step(0.1)
+	assert_eq(v.test_state, VoiceView.Test.NO_MIC, "no microphone headless: it says so")
+	g._refresh_mic_test()
+	assert_eq(row.value_text(), "No microphone", "")
+	g.free()
+
+
+func test_the_voice_chat_setting_is_saved_and_read_back() -> void:
+	var g := _game()
+	g._open_menu("game")
+	g._open_settings_page("audio")
+	assert_eq(g.voice_mode, VoiceChat.Mode.PUSH_TO_TALK, "push to talk by default")
+	var row: OptionRow = g._setting_rows["voice"]
+	row.grab_focus()
+	_press("ui_right")
+	assert_eq(g.voice_mode, VoiceChat.Mode.OPEN_MIC, "Right: open mic")
+	var cfg := ConfigFile.new()
+	cfg.load(TEST_SETTINGS)
+	assert_eq(int(cfg.get_value("audio", "voice_mode", -1)), VoiceChat.Mode.OPEN_MIC, "saved at once")
+	g.free()
+	var again: Node = load("res://scenes/main.tscn").instantiate()
+	again.settings_path = TEST_SETTINGS
+	_root().add_child(again)
+	assert_eq(again.voice_mode, VoiceChat.Mode.OPEN_MIC, "kept after a restart")
+	again.free()
+
+
+func test_the_voice_flag_lasts_the_session_and_is_never_saved() -> void:
+	var g := _game()
+	g._voice_arg("--voice=off")
+	assert_eq(g.voice_mode_now(), VoiceChat.Mode.OFF, "--voice=off")
+	g._voice_arg("--voice=open")
+	assert_eq(g.voice_mode_now(), VoiceChat.Mode.OPEN_MIC, "--voice=open")
+	assert_eq(g.voice_mode, VoiceChat.Mode.PUSH_TO_TALK, "the setting itself stays")
+	g.netplay = Netplay.new()
+	g._apply_voice()
+	assert_eq(g.netplay.voice.mode, VoiceChat.Mode.OPEN_MIC, "a session gets the flag's mode")
+	g.netplay = null
+	g._save_settings()
+	var cfg := ConfigFile.new()
+	cfg.load(TEST_SETTINGS)
+	assert_eq(int(cfg.get_value("audio", "voice_mode", -1)), VoiceChat.Mode.PUSH_TO_TALK, "not saved")
+	g.free()
+
+
+func test_push_to_talk_is_bound_in_every_group_and_listed_for_remapping() -> void:
+	Controls.setup()
+	Controls.reset()
+	for a in ["kb_talk", "lol_talk", "pad_talk"]:
+		assert_true(InputMap.has_action(a), a + " exists")
+	assert_true(_key(KEY_V).is_action_pressed("kb_talk"), "V talks (classic)")
+	assert_true(_key(KEY_V).is_action_pressed("lol_talk"), "V talks (league)")
+	var ls := InputEventJoypadButton.new()
+	ls.button_index = JOY_BUTTON_LEFT_STICK
+	ls.pressed = true
+	ls.device = 1
+	assert_true(ls.is_action_pressed("pad_talk"), "the left stick click talks, on any controller")
+	for a in Controls.BINDINGS:
+		if a.ends_with("_talk"):
+			continue
+		assert_false(_key(KEY_V).is_action_pressed(a), "V does nothing else (%s)" % a)
+	var groups := {"classic": "kb_talk", "league": "lol_talk", "gamepad": "pad_talk"}
+	var st := _stack()
+	for group in groups:
+		var listed := false
+		for pair in Controls.REMAP[group]:
+			listed = listed or String(pair[0]) == groups[group]
+		assert_true(listed, "%s lists Talk" % group)
+		var scr := RemapScreen.new(group)
+		st.push(scr)
+		var texts := []
+		for b in scr.rows():
+			if b is Button:
+				texts.append((b as Button).text)
+		assert_true("Talk (push to talk)" in texts, "the %s remap screen shows it: %s" % [group, str(texts)])
+		st.pop()
+	st.free()
+
+
+func test_the_voice_view_does_nothing_without_an_online_match() -> void:
+	var vv := VoiceView.new()
+	_root().add_child(vv)
+	vv.frame(null, null, -1, Vector2.ZERO, true, 1.0 / 60.0)
+	assert_false(vv.sending, "nothing sent")
+	assert_false(vv.speaking(0), "nobody speaking")
+	assert_true(vv.heard.is_empty(), "")
+	assert_true(vv._mic == null, "the microphone never opened")
+	assert_true(vv._players.is_empty(), "no speakers")
+	vv.free()
+
+
+func test_a_voice_is_placed_by_where_its_fighter_stands() -> void:
+	var p := VoiceView.place(Vector2(300, 100), Vector2(100, 100), false)
+	assert_near(p.x, VoiceChat.gain_for(200.0, false), 0.0001, "gain from the distance:")
+	assert_near(p.y, VoiceChat.pan_for(200.0), 0.0001, "to the right:")
+	var q := VoiceView.place(Vector2(-400, 100), Vector2(400, 100), true)
+	assert_near(q.x, VoiceChat.gain_for(800.0, true), 0.0001, "a far teammate keeps the floor:")
+	assert_near(q.y, -1.0, 0.0001, "far left")
+	# A real packet from slot 1 (the other side's fighter, 250 px right and 100 down).
+	var d := DuelSim.new([["cairn"], ["culvert"]])
+	d.active_creature(0).pos = Vector2(200, 150)
+	d.active_creature(1).pos = Vector2(450, 250)
+	var links := LoopLink.pair()
+	var np := Netplay.new()
+	np.voice.link = links[1]
+	np.voice.reset(1, 0)
+	var far := VoiceChat.new()
+	far.link = links[0]
+	far.reset(1, 1)
+	var now := Time.get_ticks_msec()
+	var n := far.frame_samples()
+	var pcm := PackedFloat32Array()
+	pcm.resize(n)
+	for i in n:
+		pcm[i] = 0.4 * sin(TAU * 220.0 * i / far.sample_rate())
+	for k in 6:
+		far.clock_ms = now
+		far.push_mic(pcm, true)
+	np.voice.clock_ms = now
+	for m in links[1].poll():
+		if String(m.get("t", "")) == "vc":
+			np.voice.receive(m)
+	assert_gt(np.voice.received, 0, "packets arrived")
+	var vv := VoiceView.new()
+	_root().add_child(vv)
+	vv.frame(np, d, 0, Vector2.ZERO, false, 1.0 / 60.0)
+	var want := VoiceView.place(Vector2(450, 250), Vector2(200, 150), false)
+	var got: Vector2 = vv._place.get(1, Vector2(-1, -1))
+	assert_near(got.x, want.x, 0.0001, "the gain heard is gain_for its distance:")
+	assert_near(got.y, want.y, 0.0001, "and the pan pan_for its offset:")
+	assert_near(got.x, VoiceChat.gain_for(Vector2(250, 100).length(), false), 0.0001, "")
+	assert_true(vv.speaking(1), "slot 1 is speaking (the icon)")
+	assert_false(vv.speaking(0), "we are not")
+	assert_true(vv._players.is_empty(), "headless: no speakers made")
+	vv.stop()
+	assert_false(vv.speaking(1), "stop() clears it")
+	vv.free()
+
+
+# ------------------------------------------------------------------ voice chat safety
+
+func test_hear_voices_from_is_on_the_audio_page_and_kept() -> void:
+	var g := _game()
+	g._open_settings_page("audio")
+	assert_true(g._setting_rows.has("voice_hear"), "Settings > Audio has Hear voices from")
+	var row: OptionRow = g._setting_rows["voice_hear"]
+	assert_eq(row.label, "Hear voices from", "")
+	assert_eq(String(row.values[row.index]), "Everyone", "everyone by default:")
+	row.grab_focus()
+	_press("ui_right")
+	assert_eq(g.voice_hear, 1, "Right picks Rooms and friends:")
+	g.free()
+	var again: Node = load("res://scenes/main.tscn").instantiate()
+	again.settings_path = TEST_SETTINGS
+	_root().add_child(again)
+	assert_eq(again.voice_hear, 1, "and the next launch reads it back:")
+	again.free()
+
+
+## The game in an online match on an in-memory server with another player (a Quick match
+## with `room` "", else that room), `hear` the Hear voices from setting. Returns
+## [server, other] once the match is on (or not, if it never started).
+func _voice_match(g: Node, room: String, hear: int) -> Array:
+	g.voice_hear = hear
+	g._start_match(20)  # Online
+	var server := RelayServer.new()
+	var la := LoopLink.pair()
+	var lb := LoopLink.pair()
+	server.add_client(la[0])
+	server.add_client(lb[0])
+	var me := Netplay.new()
+	me.room = room
+	me.my_name = "Me"
+	me.join("server", 0, ["cairn"], la[1])
+	var other := Netplay.new()
+	other.room = room
+	other.my_name = "Rival"
+	other.team_size = 0 if room != "" else 1
+	other.join("server", 0, ["sno"], lb[1])
+	g.lobby.use_fighter("cairn")
+	g.netplay = me
+	g.lobby.busy = true
+	var s := [server, other]
+	_step_online(g, s, 400, func(): return g.online != null)
+	return s
+
+
+func test_rooms_and_friends_mutes_quick_match_strangers_but_not_a_room() -> void:
+	var g := _game()
+	var s := _voice_match(g, "", 1)
+	assert_true(g.online != null, "the Quick match starts")
+	assert_true(g.netplay.voice.mute_all, "Rooms and friends: strangers start muted")
+	g.netplay.voice.mute_all = false  # the player unmutes them in the pause menu...
+	g._apply_voice_hear()  # ...and the next match of this session (a rematch) keeps that
+	assert_false(g.netplay.voice.mute_all, "a rematch doesn't mute them again")
+	g._leave_online()
+	g.free()
+	g = _game()
+	s = _voice_match(g, "", 0)
+	assert_true(g.online != null, "")
+	assert_false(g.netplay.voice.mute_all, "Everyone: a Quick match starts unmuted")
+	g._leave_online()
+	g.free()
+	g = _game()
+	s = _voice_match(g, "fox7", 1)
+	assert_true(g.online != null, "the room's match starts")
+	assert_false(g.netplay.voice.mute_all, "a room starts unmuted even with Rooms and friends")
+	g._leave_online()
+	g.free()
+
+
+func _option(scr: UiScreen, label: String) -> OptionRow:
+	for r in scr.rows():
+		if r is OptionRow and (r as OptionRow).label == label:
+			return r
+	return null
+
+
+func test_the_online_pause_menu_keeps_the_match_going_and_opens_the_voice_screen() -> void:
+	var g := _game()
+	var s := _voice_match(g, "", 0)
+	assert_true(g.online != null, "the match starts")
+	g._open_pause()
+	assert_true(g.ui.top() is PauseScreen, "Esc online: the pause menu")
+	assert_false(g.paused, "the match isn't paused")
+	var labels: Array = []
+	var voice_btn: Button = null
+	for r in g.ui.top().rows():
+		if r is Button:
+			labels.append((r as Button).text)
+			if (r as Button).text == "Voice chat":
+				voice_btn = r
+	assert_true("Leave match" in labels and "Resume" in labels and voice_btn != null, "Resume, Voice chat, Leave match: %s" % [labels])
+	assert_false("Restart" in labels, "no Restart online")
+	voice_btn.pressed.emit()
+	var scr: UiScreen = g.ui.top()
+	assert_eq(scr.title, "VOICE CHAT", "Voice chat opens its screen:")
+	var rows: Array = g.voice_rows()
+	assert_eq(rows.size(), 1, "one other player: %s" % [rows])
+	var slot := 1 - int(g.online.local_slot)
+	assert_eq(int(rows[0]["slot"]), slot, "the other slot")
+	assert_true(String(rows[0]["label"]).contains("· Sno"), "named with their fighter: " + String(rows[0]["label"]))
+	var everyone := _option(scr, "Mute everyone")
+	var mic := _option(scr, "Mute my mic")
+	var them := _option(scr, String(rows[0]["label"]))
+	assert_true(everyone != null and mic != null and them != null, "the rows are there")
+	assert_true(_option(scr, "Voice chat") != null, "and the mode setting")
+	everyone.step(1)
+	assert_true(g.netplay.voice.mute_all, "Mute everyone flips mute_all")
+	everyone.step(1)
+	assert_false(g.netplay.voice.mute_all, "and back")
+	mic.step(1)
+	assert_true(g.netplay.voice.mic_muted, "Mute my mic flips mic_muted")
+	assert_eq(String(them.values[them.index]), "Hearing", "")
+	them.step(1)
+	assert_true(g.netplay.voice.is_muted(slot), "a player's row mutes them")
+	assert_false(g.netplay.voice.hearing(slot), "")
+	them.step(1)
+	assert_false(g.netplay.voice.is_muted(slot), "and unmutes")
+	# The HUD says what's muted.
+	g._voice_step(1.0 / 60.0)
+	assert_true(g.hud.mic_muted, "MIC MUTED on the HUD")
+	g.netplay.voice.mute_all = true
+	g._voice_step(1.0 / 60.0)
+	assert_true(g.hud.voice_muted, "VOICE MUTED on the HUD")
+	# The match went on underneath.
+	var before: int = g.sim.tick
+	_step_online(g, s, 30, func(): return false)
+	assert_gt(float(g.sim.tick), float(before), "the match keeps stepping with the screens open")
+	g._leave_online()
+	g.free()

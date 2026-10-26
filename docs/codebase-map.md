@@ -39,7 +39,7 @@ update the map in the same change.
 | hit detection, hitboxes, reach, who can be hit | `src/sim/match_sim.gd:_resolve_hits`, `_hittable`; shapes `src/sim/creature_sim.gd:hit_params` | movement360, combat |
 | damage, hitstun, stale, variety, block, grab, hook, statuses on hit | `src/sim/match_sim.gd:_apply_hit` | combat, combo_rules |
 | stamina, dash cost, exhaustion, block drain, regen pause | `data/rules/stamina.json`; `src/sim/creature_sim.gd:spend_stamina`, `can_guard`; `src/sim/match_sim.gd:block_drain` | stamina |
-| guard, blocking, guard break, chip | `src/sim/match_sim.gd:_apply_hit` (guard branch); `src/sim/creature_sim.gd:_update_guard` | combat, stamina, balance |
+| guard, blocking, guard break, block chip (none: blocks cost stamina) | `src/sim/match_sim.gd:_apply_hit` (guard branch); `src/sim/creature_sim.gd:_update_guard` | combat, stamina, balance |
 | dodge, dash, blink, roll, dodge cancel | `src/sim/creature_sim.gd:_start_dodge`, `_update_dodge`, `can_dodge`, `can_dodge_cancel` | combat, stamina, dodge_cancel |
 | combos, cancels, input buffer, windup | `src/sim/creature_sim.gd:_start_attack`, `buffer_input`, `_try_start_buffered`; rules in `docs/MECHANICS.md` | combo_rules, combos, counterplay |
 | projectiles, skill shots, hooks, lobs, burst | `src/sim/match_sim.gd:spawn_projectile`, `_step_projectiles`, `_burst`; size `data/rules/projectiles.json` | projectiles |
@@ -71,7 +71,7 @@ update the map in the same change.
 | CPU pathing round walls and pits | `src/ai/nav_grid.gd`, `src/ai/cpu_controller.gd:_go_to` | cpu_pathing |
 | CPU team play, focus target, who a CPU teammate attacks | `src/ai/team_intent.gd` (`build_all`, `_build`), `src/ai/cpu_controller.gd:_pick_target`, `_focus`; A/B `tests/bench_cpu.gd --teams=3 --intent=` | team_intent, rage |
 | performance, stutter, frame drops, CPU cost per tick, threads | measure: `tests/bench_ai_cost.gd`, `--perf` (`src/game/perf_log.gd`); CPUs in parallel `src/ai/cpu_controller.gd:think_all` / `think_start`, thinking while the frame draws (main `_think_cpus`, `_think_ahead`, `_join_cpus`); shared caches `src/sim/terrain_index.gd`, `NavGrid.shared`, `Vision.clear_line` memo; view redraw cost: floor bands `arena_view.gd:BAND_ROWS`, crowd `crowd_view.gd:Block` (fans sitting drawn once, standing on their own layer, `_checked_rect`) | cpu_pathing, vision, ui |
-| balance, win rates, matchups, why a fighter loses | `tests/bench_cpu.gd` (`--matrix`, `--detail` spacing/stamina, `--teams=3`, `--combat` damage by move type, combo length and variety, baseline `docs/plans/combat-metrics.md`), `tests/bench_fighter.gd`; pins `tests/test_balance.gd` | balance, rage |
+| balance, win rates, matchups, why a fighter loses | `tests/bench_cpu.gd` (`--matrix`, `--detail` spacing/stamina, `--teams=3`, `--combat` damage by move type, combo length and variety, baseline `docs/plans/combat-metrics.md`), `tests/bench_fighter.gd`; pins `tests/test_balance.gd` | balance (Normal CPUs, never Rage) |
 | keyboard layouts, gamepad, twin-stick, aim assist | `src/input/player_input.gd` | player_input, twinstick |
 | touch target lock, lock priority, enemy portraits, objective button, chase to target | `src/input/touch_target.gd` (`pick`, `can_lock`, `apply`, `_walk` on `NavGrid`), `MouseOrders.chase_reach`; portraits `TouchPad.set_picks`; main `_touch_targets`; drawn by `src/view/touch_overlay.gd:_draw_lock`, `_draw_picks` | touch_targeting, touch |
 | touch controls, on-screen stick and buttons, drag to aim, touch settings, `--touch-demo` | `src/input/touch_pad.gd` (`feed`, `bits`, `release_all`), `src/input/player_input.gd` (`Device.TOUCH`, `touch_charges`); drawn by `src/view/touch_overlay.gd`; main `_note_input`, `_touch_step`, `SETTING_PAGES["touch"]`; demo `src/game/touch_demo.gd` | touch, player_input |
@@ -124,6 +124,7 @@ update the map in the same change.
 | updating the server box, its systemd unit and token | `tools/server/update.sh` (main push builds only), `docs/SERVER.md` ("Updating to the latest main build", "Tighter limits") | |
 | hostile or malformed peer data on the client (delay, inputs, digests, names, LAN answers, replay files) | `src/net/netplay.gd:start_delay`, `clean_name`; `src/net/rollback_session.gd:receive`; `src/net/online_match.gd:receive`; `src/net/net_link.gd:int_of`; `src/net/lan_finder.gd:accepts`; `src/game/replay_builder.gd:valid_setup` | client_hardening, replays |
 | spectators, server replays | `src/net/referee.gd`, `src/net/relay_server.gd` | spectate |
+| voice chat, proximity chat, microphone, push to talk | `src/net/voice_chat.gd` (`push_mic`, `receive`, `pull`, `gain_for`), `src/net/voice_codec.gd`, relay `src/net/relay_server.gd` "vc", `src/view/voice_view.gd`; tuning `data/voice.json`; settings `main.gd:_setting` "voice" | voice, server |
 | LAN discovery | `src/net/lan_finder.gd`, `src/net/server_beacon.gd` | server |
 | cross-platform determinism check | `src/net/sim_check.gd` (`--sim-check`) | determinism |
 | running tests, a new test | `tests/run_tests.gd`, `tests/test_case.gd` (see `tests/CLAUDE.md`) | |

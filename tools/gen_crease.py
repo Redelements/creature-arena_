@@ -7,9 +7,9 @@ Look at a few frames while working on a pose:  python3 tools/gen_crease.py inspe
 Animation previews (looping GIFs, before/after, all views, a contact sheet) into
 docs/anim_preview/:  python3 tools/gen_crease.py anim
 
-Writes assets/sprites/crease.png (128x160 frames, 12 columns, the side view), crease_down.png
-and crease_up.png (112x160: facing the camera, and facing away), crease_down_side.png and
-crease_up_side.png (128x160: the diagonals, facing down-right and up-right), plus labelled
+Writes assets/sprites/crease.png (96x96 frames, 12 columns, the side view), crease_down.png
+and crease_up.png (96x96: facing the camera, and facing away), crease_down_side.png and
+crease_up_side.png (96x96: the diagonals, facing down-right and up-right), plus labelled
 previews in docs/. Posed and splatted with the shared renderer (tools/splat3d.py), but shaded here: he
 is folded paper, and paper is flat planes.
 
@@ -42,13 +42,13 @@ from splat3d import rot_lat, rot_up, rot_fwd  # noqa: E402
 ROOT = S.ROOT
 OUT = os.path.join(ROOT, "assets", "sprites", "crease.png")
 PREVIEW = os.path.join(ROOT, "docs", "crease_preview.png")
-SIDE = {"w": 128, "h": 160, "origin": (64, 136)}
+SIDE = {"w": 96, "h": 96, "origin": (48, 72)}
 VIEWS = {
-    "down": {"w": 112, "h": 160, "origin": (56, 136)},
-    "up": {"w": 112, "h": 160, "origin": (56, 124)},
+    "down": {"w": 96, "h": 96, "origin": (48, 72)},
+    "up": {"w": 96, "h": 96, "origin": (48, 64)},
     # the diagonals (docs/SPRITES.md, "Directions"): facing down-right and up-right
-    "down_side": {"w": 128, "h": 160, "origin": (64, 136)},
-    "up_side": {"w": 128, "h": 160, "origin": (64, 124)},
+    "down_side": {"w": 96, "h": 96, "origin": (48, 72)},
+    "up_side": {"w": 96, "h": 96, "origin": (48, 64)},
 }
 
 # Master-palette ramps (tools/palette.py); the paper shader uses all five steps, one flat
@@ -64,7 +64,7 @@ MAT = {
     "paper": "white",
     "craft": ("white", -1),
 }
-SCALE = 1.1
+SCALE = 0.54
 S.configure(MAT, scale=SCALE, near=12.0, near_views={"down_side": 8.0, "up_side": 8.0})
 S.COLS = 12  # the strut and the Surge have 12 frames
 
