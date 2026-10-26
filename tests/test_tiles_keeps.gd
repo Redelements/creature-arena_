@@ -77,7 +77,7 @@ func test_the_trees_the_waterfall_and_the_torches_stand_where_the_map_says() -> 
 	assert_eq(falls.size(), 1, "one waterfall")
 	var w := falls[0] as AnimatedSprite2D
 	# feet [64, 84] at tile (37, 0)'s bottom middle: x 37.5 * 32 - 64, y 32 - 84, over the river's head
-	assert_eq(w.position, Vector2(1136, -118), "the waterfall (128 x 160, feet at 150) lands on the river's first water tile")
+	assert_eq(w.position, Vector2(1136, -86), "the waterfall (128 x 160, feet at 150) pours onto the river's second tile row, its pool on the floor past the crowd")
 	assert_eq(w.sprite_frames.get_frame_count("default"), 8, "its eight frames")
 	assert_true(w.autoplay == "default", "and it plays")
 	var torches := anim.get_children().filter(func(n): return String(n.name).begins_with("torch"))
