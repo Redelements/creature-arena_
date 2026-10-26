@@ -66,9 +66,15 @@ they are.
 Licence (the itch.io page; the download has no licence file): commercial use allowed;
 editing allowed. Not allowed: reselling or redistributing the pack.
 
-Files from it: `assets/vfx/` (kiddolink cuts: single rows of frames, cropped, colours
-snapped to the game's palette). Everything in `assets/vfx/` that comes from the pack falls
-under this section.
+Files from it (cut by `tools/cut_vfx.py`: single rows of frames at their 96 px, colours
+snapped to the game's palette; `tools/build_vfx.gd` makes the resources from them):
+
+- `assets/vfx/slash_claws.png` (vfx_slash), `assets/vfx/impact_burst.png` (vfx_hit_impact),
+  `assets/vfx/fire_burst.png` (vfx_fire), `assets/vfx/aura_buff.png` (vfx_energy);
+- `assets/vfx/manifest.json` and the derived `assets/vfx/<name>_frames.tres` /
+  `assets/vfx/<name>.tres` resources, which reference those strips.
+
+Everything in `assets/vfx/` that comes from the pack falls under this section.
 
 ## m5x7 font
 
