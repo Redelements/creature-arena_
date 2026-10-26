@@ -23,6 +23,10 @@ Recipe keys (tools/tile_recipes/set1.json is the reference; paths are relative t
 packs dir; "tile" positions are [column, row] of 32 px tiles in the source sheet):
   ground.fills.<name>      {"src", "block": [tx, ty], "size": 4}  a size x size seamless block
   ground.terrains.<name>   {"src", "blob": [tx, ty], "variants": [[tx, ty, w, h], ...]}
+                           or {"src", "blob9": [tx, ty]}: a 5 x 5 block of opaque tiles,
+                           corners and edges round a 3 x 3 middle (the RPG Worlds "MainLev"
+                           sheets, Desert first): nine side combinations, the painter picks
+                           its nearest tile for a one-tile-wide patch
                            the 4 x 4 blob block at `blob` (layout BLOB_SIDES: column 0 the
                            one-tile-wide vertical strip top / middle / bottom / island, row 3
                            the horizontal strip, the 3 x 3 the blob proper; Szadi art's
@@ -35,7 +39,10 @@ packs dir; "tile" positions are [column, row] of 32 px tiles in the source sheet
                            ("alpha_mul" scales it). Fills, terrains and surfaces take an
                            optional "tint" {"mul": [r, g, b], "add": [r, g, b]} before the snap
   pieces.<kind>            [{"src", "tile": [tx, ty]} | {"src", "box": [x0, y0, x1, y1],
-                           "at": "bottom"|"centre"}, ...]  32 px tiles of one kind
+                           "at": "bottom"|"centre", "fit": true}, ...]  32 px tiles of one
+                           kind; "fit" shrinks a bigger prop by a whole factor to one tile.
+                           Kinds the scene builder knows: boulder (walls), tuft + sprig
+                           (brush), fence_h / fence_v (fences, by the rect's longer side)
   overlay.cliff            {"src", "x", "rows": {"wall_top": [y0, y1], "wall_mid": ..,
                            "wall_bottom": ..}}  16 px strips of a cliff face for the pit walls
   overlay.floor            {"src", "box": [x0, y0, x1, y1]}  a 16 px dark for the pit floor
@@ -71,6 +78,14 @@ BLOB_SIDES = {
     (1, 1): (0, 1, 1, 1), (2, 1): (1, 1, 1, 1), (3, 1): (1, 0, 1, 1),
     (1, 2): (0, 1, 1, 0), (2, 2): (1, 1, 1, 0), (3, 2): (1, 0, 1, 0),
     (1, 3): (0, 1, 0, 0), (2, 3): (1, 1, 0, 0), (3, 3): (1, 0, 0, 0),
+}
+
+# A 5 x 5 block of opaque tiles (recipe key "blob9"): the corners and edges round a 3 x 3
+# middle, connected sides (L, R, T, B).
+BLOB9_SIDES = {
+    (0, 0): (0, 1, 0, 1), (1, 0): (1, 1, 0, 1), (4, 0): (1, 0, 0, 1),
+    (0, 1): (0, 1, 1, 1), (1, 1): (1, 1, 1, 1), (4, 1): (1, 0, 1, 1),
+    (0, 4): (0, 1, 1, 0), (1, 4): (1, 1, 1, 0), (4, 4): (1, 0, 1, 0),
 }
 
 # Overlay tile ids: index = column + 8 * row in the 16 px atlas. Keep in step with
@@ -178,9 +193,17 @@ def cut_ground(cut, set_name, g):
         man["fills"][name] = [sheet.add(tinted(cut.tile(f["src"], bx + i % size, by + i // size), f)) for i in range(size * size)]
     for name, t in g.get("terrains", {}).items():
         out = []
-        bx, by = t["blob"]
-        for (sx, sy), sides in BLOB_SIDES.items():
-            out.append({"at": sheet.add(tinted(cut.tile(t["src"], bx + sx, by + sy), t)), "sides": list(sides), "prob": 1.0})
+        if "blob9" in t:
+            # a 5 x 5 block of opaque tiles: corners and edges round a 3 x 3 middle (the
+            # Desert and other RPG Worlds "MainLev" sheets); no caps, strips or island, so the
+            # terrain painter falls back to its nearest tile for a one-tile-wide patch
+            bx, by = t["blob9"]
+            for (sx, sy), sides in BLOB9_SIDES.items():
+                out.append({"at": sheet.add(tinted(cut.tile(t["src"], bx + sx, by + sy), t)), "sides": list(sides), "prob": 1.0})
+        else:
+            bx, by = t["blob"]
+            for (sx, sy), sides in BLOB_SIDES.items():
+                out.append({"at": sheet.add(tinted(cut.tile(t["src"], bx + sx, by + sy), t)), "sides": list(sides), "prob": 1.0})
         for (vx, vy, vw, vh) in t.get("variants", []):
             for sy in range(vh):
                 for sx in range(vw):
@@ -227,6 +250,10 @@ def cut_pieces(cut, set_name, p):
                 img = cut.tile(it["src"], *it["tile"])
             else:
                 src = cut.box(it["src"], it["box"])
+                if it.get("fit") and (src.width > T or src.height > T):
+                    # a bigger prop shrunk by a whole factor to fit one tile (nearest)
+                    k = -(-max(src.width, src.height) // T)
+                    src = src.resize((max(1, src.width // k), max(1, src.height // k)), Image.NEAREST)
                 img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
                 x = (T - src.width) // 2
                 y = T - src.height - 1 if it.get("at", "bottom") == "bottom" else (T - src.height) // 2

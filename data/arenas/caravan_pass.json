@@ -3,6 +3,33 @@
 	"id": "caravan_pass",
 	"name": "Dustwind Pass",
 	"ground": "dirt",
+	"tiles": {
+		"_doc": "Szadi art's Desert (tools/tile_recipes/desert.json): sand with a gravel verge, a packed-earth road under the caravan's track, scrub round the brush beds; rock spires, agave and palms stand in the margins only (decor draws under the fighters). Rects are [tx, ty, w, h] in 32 px tiles (2 x 2 cells) on the 110 x 20 floor. Built into assets/arenas/caravan_pass.tscn by tools/build_tiles.gd.",
+		"set": "desert",
+		"ground": "sand",
+		"edge": "gravel",
+		"grass": [],
+		"water": [],
+		"earth": [
+			[3, 9, 15, 3], [17, 7, 3, 3], [19, 5, 4, 3], [22, 4, 18, 3], [39, 6, 3, 3], [41, 8, 3, 3], [43, 10, 3, 3],
+			[45, 11, 20, 3], [64, 9, 3, 3], [66, 7, 3, 3], [68, 5, 3, 3], [70, 4, 16, 3], [85, 6, 3, 3], [87, 8, 3, 3],
+			[89, 9, 18, 3]
+		],
+		"scrub": [
+			[31, 12, 9, 5], [47, 14, 8, 5], [54, 14, 8, 5], [70, 12, 9, 5],
+			[13, 0, 4, 3], [26, 0, 3, 3], [62, 0, 4, 3], [92, 0, 4, 3], [0, 16, 6, 4], [104, 16, 6, 4]
+		],
+		"decor": [
+			{"kind": "spire", "at": [6, -1]}, {"kind": "stack", "at": [20, -1]}, {"kind": "spire_small", "at": [33, -1]},
+			{"kind": "spire", "at": [58, -1]}, {"kind": "stack", "at": [79, -1]}, {"kind": "spire_small", "at": [98, -1]},
+			{"kind": "agave", "at": [12, -1]}, {"kind": "agave_pale", "at": [45, -1]}, {"kind": "agave", "at": [70, -1]},
+			{"kind": "agave_pale", "at": [91, -1]}, {"kind": "agave", "at": [27, 20]}, {"kind": "agave_pale", "at": [84, 20]}
+		],
+		"anim": [
+			{"kind": "palm", "at": [2, -1]}, {"kind": "palm_b", "at": [40, -1]}, {"kind": "palm", "at": [52, -1]},
+			{"kind": "palm_b", "at": [66, -1]}, {"kind": "palm", "at": [107, -1]}
+		]
+	},
 	"light": {"_doc": "hard desert sun from the top left: dark shadows", "dir": [0.7, 0.71], "length": 0.65, "alpha": 0.4, "sun": {"color": "#fff0d0", "energy": 0.72}},
 	"grade": {"_doc": "bleached desert warmth; a view-only tint and vignette (GradeView), eased at night/sunset/rain by weather.json", "tint": "#fff2d0", "vignette": 0.2},
 	"ambient": {"_doc": "blown sand, scrub that sways, grit off the boulders, a dust devil and the odd vulture; see AmbientView",

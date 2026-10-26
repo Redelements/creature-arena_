@@ -270,7 +270,11 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 				ground.set_cell(Vector2i(tx, ty), SRC_GROUND, _v(f[posmod(ty, block) * block + posmod(tx, block)]))
 
 	var counts := {}
-	for name in ["grass", "water"]:
+	var names := ["grass", "water"]  # always there (tests look for the layers), then the set's own
+	for i in ts.get_terrains_count(0):
+		if not ts.get_terrain_name(0, i) in names:
+			names.append(ts.get_terrain_name(0, i))
+	for name in names:
 		var layer := _layer(root, name.capitalize(), ts)
 		var cells: Array[Vector2i] = []
 		for r in tiles.get(name, []):
@@ -379,6 +383,6 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 	var err := ResourceSaver.save(packed, path)
 	if err != OK:
 		push_error("could not save %s: %d" % [path, err])
-	print("wrote ", path, ": ", cols, "x", rows, " tiles, grass ", counts["grass"], ", water ", counts["water"],
+	print("wrote ", path, ": ", cols, "x", rows, " tiles, terrains ", counts,
 		", pieces ", pieces.get_used_cells().size(), ", decor ", decor.get_child_count(), ", anim ", anim.get_child_count())
 	root.free()

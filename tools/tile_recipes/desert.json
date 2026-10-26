@@ -1,0 +1,56 @@
+{
+	"_doc": "Szadi art's RPG Worlds Desert (RPGW_Desert_v2.01): Dustwind Pass's sand, packed earth and dry scrub, desert rocks for the rubble walls, agave for the brush, a wooden fence, the plateau's cliff face for the pit walls, rock spires and palms for the margins. The MainLev sheet's blobs are opaque 5 x 5 blocks (corners, edges, a 3 x 3 middle): recipe key blob9. Keys: tools/cut_tiles.py. Paths are relative to the packs dir.",
+	"ground": {
+		"fills": {
+			"sand": {"src": "RPGW_Desert_v2.01/MainLev2.0.png", "block": [1, 1]},
+			"gravel": {"src": "RPGW_Desert_v2.01/MainLev2.0.png", "block": [40, 27]},
+			"scrub_fill": {"src": "RPGW_Desert_v2.01/MainLev2.0.png", "block": [30, 32]},
+			"earth_fill": {"src": "RPGW_Desert_v2.01/MainLev2.0.png", "block": [26, 27], "size": 3}
+		},
+		"terrains": {
+			"earth": {"src": "RPGW_Desert_v2.01/MainLev2.0.png", "blob9": [25, 26]},
+			"scrub": {"src": "RPGW_Desert_v2.01/MainLev2.0.png", "blob9": [5, 26]}
+		}
+	},
+	"pieces": {
+		"boulder": [
+			{"src": "RPGW_Desert_v2.01/decorative1.png", "box": [448, 160, 512, 224], "at": "bottom", "fit": true},
+			{"src": "RPGW_Desert_v2.01/decorative1.png", "box": [512, 160, 576, 224], "at": "bottom", "fit": true},
+			{"src": "RPGW_Desert_v2.01/decorative1.png", "box": [704, 160, 768, 224], "at": "bottom", "fit": true},
+			{"src": "RPGW_Desert_v2.01/decorative1.png", "box": [546, 288, 576, 312], "at": "bottom"}
+		],
+		"tuft": [
+			{"src": "RPGW_Desert_v2.01/decorative2.png", "box": [576, 352, 601, 377], "at": "bottom"},
+			{"src": "RPGW_Desert_v2.01/decorative2.png", "box": [611, 359, 636, 384], "at": "bottom"},
+			{"src": "RPGW_Desert_v2.01/decorative2.png", "box": [650, 361, 684, 397], "at": "bottom", "fit": true}
+		],
+		"sprig": [
+			{"src": "RPGW_Desert_v2.01/decorative2.png", "box": [583, 384, 608, 408], "at": "bottom"},
+			{"src": "RPGW_Desert_v2.01/decorative2.png", "box": [615, 392, 640, 416], "at": "bottom"}
+		],
+		"fence_h": [
+			{"src": "RPGW_Desert_v2.01/MainLev2.0.png", "tile": [41, 20]},
+			{"src": "RPGW_Desert_v2.01/MainLev2.0.png", "tile": [42, 20]},
+			{"src": "RPGW_Desert_v2.01/MainLev2.0.png", "tile": [43, 20]}
+		],
+		"fence_v": [
+			{"src": "RPGW_Desert_v2.01/MainLev2.0.png", "tile": [40, 22]},
+			{"src": "RPGW_Desert_v2.01/MainLev2.0.png", "tile": [40, 23]}
+		]
+	},
+	"overlay": {
+		"cliff": {"src": "RPGW_Desert_v2.01/MainLev2.0.png", "x": 72, "rows": {"wall_top": [158, 174], "wall_mid": [176, 192], "wall_bottom": [188, 204]}},
+		"floor": {"src": "RPGW_Desert_v2.01/MainLev2.0.png", "box": [236, 390, 252, 406]}
+	},
+	"decor": {
+		"spire": {"src": "RPGW_Desert_v2.01/decorative1.png", "box": [0, 0, 128, 128], "feet": [64, 118]},
+		"spire_small": {"src": "RPGW_Desert_v2.01/decorative1.png", "box": [352, 32, 448, 128], "feet": [48, 90]},
+		"stack": {"src": "RPGW_Desert_v2.01/decorative1.png", "box": [0, 160, 128, 256], "feet": [64, 88]},
+		"agave": {"src": "RPGW_Desert_v2.01/decorative2.png", "box": [0, 352, 96, 416], "feet": [48, 58]},
+		"agave_pale": {"src": "RPGW_Desert_v2.01/decorative2.png", "box": [0, 864, 96, 928], "feet": [48, 58]}
+	},
+	"anim": {
+		"palm": {"src": "RPGW_Desert_v2.01/animated/tree1a.png", "frame": [64, 96], "frames": 10, "fps": 6, "feet": [32, 92]},
+		"palm_b": {"src": "RPGW_Desert_v2.01/animated/tree2a.png", "frame": [64, 96], "frames": 10, "fps": 6, "feet": [32, 92]}
+	}
+}
