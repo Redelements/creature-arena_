@@ -2363,13 +2363,12 @@ func _text(pos: Vector2, text: String, color: Color, size := 8, life := 40.0, wi
 	_add({"kind": "text", "pos": pos, "text": text, "color": color, "size": size, "life": life, "width": width})
 
 
-# --- damage numbers, block chips and the guard break ------------------------------------
+# --- damage numbers, block sparks and the guard break ------------------------------------
 # All stepped on the 60 Hz tick, whole pixels, no tweening: a number pops one font step up
 # for a few ticks and settles, rises in 1 px steps and fades in quarters. A flurry on one
 # target merges into a running total instead of piling up.
 const DMG_CAP := 24
 const DMG_MERGE := 26  ## ticks a number stays open for the next hit on the same target
-const C_CHIP := Color("b9bcc8")
 const C_SHIELD_RIM := Color("cfe4ff")
 const C_SHIELD_FILL := Color("4f7fd6")
 const C_SHIELD_DARK := Color("27407a")
@@ -2469,37 +2468,15 @@ func _draw_damage_number(ci: CanvasItem, p: Dictionary) -> void:
 	ci.draw_string(_font, at, txt, HORIZONTAL_ALIGNMENT_CENTER, 80.0, fs, col)
 
 
-## A blocked hit: a grey chip number (what got through) and a shield spark on the guard side.
+## A blocked hit: a shield spark on the guard side (a block costs stamina, no health).
 func _block_feedback(e: Dictionary, p: Vector2) -> void:
 	var push := _note_push(e)
 	var d := _creature(int(e.get("target", -1)))
-	var reduction := 0.7
-	if d != null:
-		reduction = float(d.def.get("guard", {}).get("reduction", 0.7))
-	var chip := float(e["power"]) * (1.0 - reduction)
 	var side := -push  # toward the attacker: where the shield takes it
 	var at := (d.pos if d != null else p) + side * 13.0 + Vector2(0, -14)
 	_add({"kind": "shield", "pos": at, "life": 10, "scale": 2, "crack": 0.0})
 	for i in 4:
 		_px(at + side * 2.0, side.rotated(randf_range(-1.1, 1.1)) * randf_range(0.8, 1.8), C_SHIELD_RIM, 8)
-	if chip < 0.5:
-		return
-	var tgt := int(e.get("target", -1)) + 100000
-	var run = _dmg_run.get(tgt)
-	if _dmg_open(run):
-		run["total"] = float(run["total"]) + chip
-		run["pop_at"] = run["t"]
-		run["life"] = float(run["t"]) + 30.0
-		run["text"] = _dmg_text(run)
-		return
-	if _n_dmg >= DMG_CAP:
-		return
-	var np := {"kind": "dmg", "tgt": int(e.get("target", -1)), "pos": _num_anchor(int(e.get("target", -1)), p), "total": chip, "hits": 1, "pop_at": 0.0, "size": 8,
-		"color": C_CHIP, "accent": "", "life": 34.0}
-	np["text"] = _dmg_text(np)
-	_add(np)
-	_dmg_run[tgt] = np
-	_n_dmg += 1
 
 
 ## A guard break: the shield flashes, cracks across, then bursts into shards. "drained"
