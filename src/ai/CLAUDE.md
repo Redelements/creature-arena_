@@ -78,6 +78,12 @@ e.g. Cerebro's `poke`, whose mallet thrown at a tank walking in loses the matchu
 - Neutral (pokes, lobs, gaze, zones, stealth, burrow, surge, grab, kite) → `_neutral`;
   Rage → `_rage_neutral`, `_rage_kit` and the `_plan_*` helpers
 - Kiting / ranged → `_plan_kite`, `_kite_vector`, `_is_ranged`; running a kiter down → `_chase`
+- Below Rage, a mage (STYLES plan "kite") → `_neutral_kite`: the kite band's walk (`_kite_walk`, the stick set
+  every reaction/3 ticks, strafing from Normal, shots led half way on Normal), knives at an `aggression` rate,
+  the kit (`_neutral_kit`, the same rolls as everyone's) and a roll or grab out of a foe in its face on `think`
+  ticks, `defend` of the time. Before Oct 2026 it walked to `ai.range`, stood throwing, then backed off on rolls,
+  and Normal mages won 7-9% of the Normal matrix. Others below Rage run a kiter down (`_follow_plan` "chase" →
+  `_chase` with `kit` false: no free gap closers, the roll forward on `aggression`)
 - Walls and pits → `nav_grid.gd` (16 px nodes, integer-cost A* in a fixed order, one grid
   per terrain shared by every CPU (`NavGrid.shared`), rebuilt row by row on `terrain.version`,
   regions for unreachable goals), `_go_to` (on a crowded field one search a tick, the CPUs taking turns: `_replan_turn`), `_steer`, `_open_dir`, `_clearance`; fast
