@@ -124,6 +124,7 @@ update the map in the same change.
 | updating the server box, its systemd unit and token | `tools/server/update.sh` (main push builds only), `docs/SERVER.md` ("Updating to the latest main build", "Tighter limits") | |
 | hostile or malformed peer data on the client (delay, inputs, digests, names, LAN answers, replay files) | `src/net/netplay.gd:start_delay`, `clean_name`; `src/net/rollback_session.gd:receive`; `src/net/online_match.gd:receive`; `src/net/net_link.gd:int_of`; `src/net/lan_finder.gd:accepts`; `src/game/replay_builder.gd:valid_setup` | client_hardening, replays |
 | spectators, server replays | `src/net/referee.gd`, `src/net/relay_server.gd` | spectate |
+| voice chat, proximity chat, microphone, push to talk | `src/net/voice_chat.gd` (`push_mic`, `receive`, `pull`, `gain_for`), `src/net/voice_codec.gd`, relay `src/net/relay_server.gd` "vc", `src/view/voice_view.gd`; tuning `data/voice.json`; settings `main.gd:_setting` "voice" | voice, server |
 | LAN discovery | `src/net/lan_finder.gd`, `src/net/server_beacon.gd` | server |
 | cross-platform determinism check | `src/net/sim_check.gd` (`--sim-check`) | determinism |
 | running tests, a new test | `tests/run_tests.gd`, `tests/test_case.gd` (see `tests/CLAUDE.md`) | |

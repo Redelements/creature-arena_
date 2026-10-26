@@ -421,3 +421,52 @@ func test_a_direct_rematch_shows_both_picks_for_the_last_seconds() -> void:
 		"the rematch starts after the last seconds")
 	assert_eq(h.game.teams, [["sno"], ["barkley"]], "with the frozen picks:")
 	assert_eq(g.game.teams, h.game.teams, "on both:")
+
+
+func test_a_direct_link_drops_a_packet_over_its_cap_and_stays_connected() -> void:
+	var port := 20000 + ((Time.get_ticks_usec() + 7919) % 20000)
+	var host := EnetLink.new()
+	var guest := EnetLink.new()
+	host.max_packet = NetLink.SMALL_PACKET
+	assert_eq(host.host(port), OK, "host on UDP %d: %s" % [port, host.error])
+	assert_eq(guest.join("127.0.0.1", port), OK, "join: " + guest.error)
+	for i in 500:
+		host.poll()
+		guest.poll()
+		if host.status == NetLink.Status.CONNECTED and guest.status == NetLink.Status.CONNECTED:
+			break
+		OS.delay_usec(2000)
+	assert_eq(host.status, NetLink.Status.CONNECTED, "connected over UDP:")
+	var big := PackedByteArray()
+	big.resize(NetLink.SMALL_PACKET + 1000)
+	guest.send({"t": "junk", "d": big}, true)
+	guest.send({"t": "ping", "n": 7}, true)
+	guest.flush()
+	var got: Array = []
+	for i in 500:
+		got.append_array(host.poll())
+		guest.poll()
+		if got.any(func(m): return String(m.get("t", "")) == "ping"):
+			break
+		OS.delay_usec(2000)
+	assert_true(got.any(func(m): return String(m.get("t", "")) == "ping"), "the small message arrives")
+	assert_false(got.any(func(m): return String(m.get("t", "")) == "junk"), "the oversized one is dropped undecoded")
+	assert_eq(host.status, NetLink.Status.CONNECTED, "and the link stays up:")
+	guest.close()
+	host.close()
+
+
+func test_direct_play_caps_its_links_but_a_spectator_takes_a_long_log() -> void:
+	var port := 20000 + ((Time.get_ticks_usec() + 4111) % 20000)
+	var host := Netplay.new()
+	assert_true(host.host(port, TEAM_A), "host: " + host.error)
+	assert_eq(host.link.max_packet, NetLink.SMALL_PACKET, "the host's link is capped:")
+	var guest := Netplay.new()
+	assert_true(guest.join("127.0.0.1", port, TEAM_B), "join: " + guest.error)
+	assert_eq(guest.link.max_packet, NetLink.SMALL_PACKET, "so is the joiner's:")
+	var w := Netplay.new()
+	assert_true(w.spectate("127.0.0.1", port, ""), "spectate: " + w.error)
+	assert_eq(w.link.max_packet, 0, "a spectator's isn't (its first start carries the whole log):")
+	w.leave()
+	guest.leave()
+	host.leave()
