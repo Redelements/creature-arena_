@@ -3,25 +3,27 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b2ovi1v3imvov"
-path="res://.godot/imported/culvert_down_n.png-12eccaa83a92dec79ec0919a1a92347d.ctex"
+path.s3tc="res://.godot/imported/culvert_down_n.png-12eccaa83a92dec79ec0919a1a92347d.s3tc.ctex"
+path.etc2="res://.godot/imported/culvert_down_n.png-12eccaa83a92dec79ec0919a1a92347d.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/sprites/culvert_down_n.png"
-dest_files=["res://.godot/imported/culvert_down_n.png-12eccaa83a92dec79ec0919a1a92347d.ctex"]
+dest_files=["res://.godot/imported/culvert_down_n.png-12eccaa83a92dec79ec0919a1a92347d.s3tc.ctex", "res://.godot/imported/culvert_down_n.png-12eccaa83a92dec79ec0919a1a92347d.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
-compress/normal_map=0
+compress/normal_map=1
 compress/channel_pack=0
 mipmaps/generate=false
 mipmaps/limit=-1

@@ -14,7 +14,8 @@ extends Node2D
 ##   --arena=ID            the arena map for offline matches (stadium, quarry, floodgate,
 ##                         greenhouse; data/arenas/)
 ##   --time=ID             time of day for offline matches this session: random, day, sunset,
-##                         night (data/weather.json; a choice the arena doesn't allow falls back)
+##                         night (data/weather.json; a choice the arena doesn't allow falls back:
+##                         night is the Floodgate's only)
 ##   --weather=ID          weather for offline matches this session: random, clear, rain, fog,
 ##                         wind, snow
 ##   --autoplay            training demo: the player side follows a scripted routine
@@ -733,6 +734,7 @@ func _ready() -> void:
 	light2d = Light2DView.new()  # real 2D lights (Lighting): only fighter sprites and the night shade take them
 	light2d.fx = fx
 	light2d.floor_glow = light_floor
+	light2d.views = views  # each seen fighter's own sun
 	add_child(light2d)
 	bloom = BloomView.new()  # half-size bloom of the bright things, added onto the screen layer
 	bloom.glow = glow_floor
@@ -1181,7 +1183,7 @@ func _add_look_rows(s: UiScreen) -> void:
 			names.append("Random" if id == WeatherView.RANDOM else WeatherView.name_of(kind, String(id)))
 		var cur := time_choice if kind == "times" else weather_choice
 		var label := "Time" if kind == "times" else "Weather"
-		var desc := ("Day, sunset or night: how the match looks, never how it plays. Random: one the map allows"
+		var desc := ("Day, sunset or night: how the match looks, never how it plays. Night is on the Floodgate only; other maps play day. Random: one the map allows"
 			if kind == "times" else
 			"Clear, rain, fog, wind or snow: looks only. Random: one the map allows; one the map doesn't allow plays clear. Online is always day and clear")
 		s.add_option(label, names, maxi(0, ids.find(cur)), func(i: int): _set_look_choice(kind, String(ids[i])), desc)
@@ -2705,6 +2707,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	_light_look()
 	weather.apply(sim, look, shadows, ambient, water)
 	light2d.apply(sim, look, shadows.light.get("cast", Vector2.DOWN))
+	furniture.set_lit(light2d.lamp_heads())  # the lamp heads of lit lamps glow (after set_arena)
 	grade.apply(sim.arena, weather.grade_scale())
 	replay.setup["look"] = look.duplicate()  # cosmetic: the replay looks the same
 	paper.set_sim(sim)
@@ -4530,7 +4533,7 @@ func _setting(key: String) -> Dictionary:
 				"desc": "Glowing things (auras, sparks, flashes, shots) light the floor around them. Off for weaker devices"}
 		"lighting":
 			return {"label": "Lighting", "values": ["Off", "Low", "High"], "index": lighting,
-				"desc": "Real light on the fighters (sun, auras, flashes); High adds the night's lamps and bloom. Lower for weaker devices"}
+				"desc": "Real light on the fighters (sun, auras, flashes); High adds the Floodgate's night lamps and bloom. Lower for weaker devices"}
 		"font":
 			return {"label": "Text font", "values": ["Pixel", "Smooth"], "index": 1 if UiTheme.smooth else 0,
 				"desc": "The menus and the HUD: the pixel font, or the smooth font from before"}
@@ -5096,8 +5099,8 @@ func _light_look() -> void:
 	_apply_glow()  # High: the bloom stands in for Glow's halos
 	var time := String(_lit_look.get("time", "day"))
 	weather.lamp_lights = sim != null and t == Light2DView.Tier.HIGH and Light2DView.lamps_on(sim.arena, time)
-	var sd: Dictionary = Light2DView.SUN.get(time, {})
-	weather.fighter_scale = float(sd.get("shade", 1.0)) if t != Light2DView.Tier.OFF else 1.0
+	var sd := Light2DView.sun_at(sim.arena if sim != null else {}, time, String(_lit_look.get("weather", "clear")), t)
+	weather.fighter_scale = float(sd.get("shade", 1.0))
 
 
 ## Lighting changed (Settings > Video): re-apply this match's look with the new tier.
@@ -5109,6 +5112,7 @@ func _apply_lighting() -> void:
 		weather.apply(sim, _lit_look, shadows, ambient, water)
 		grade.apply(sim.arena, weather.grade_scale())
 		light2d.apply(sim, _lit_look, shadows.light.get("cast", Vector2.DOWN))
+		furniture.set_lit(light2d.lamp_heads())
 
 
 ## Glow on or off: off hides both layers and stops gathering lights (no cost at all). With

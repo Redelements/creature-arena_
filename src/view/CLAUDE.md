@@ -217,12 +217,24 @@ dig/slosh/poof/chop_chop/shout sounds.
   flat square, which is why `project.godot` turns it off
   (`rendering/shader_compiler/shader_cache/enabled=false`). The bloom's SubViewports get a World2D
   of their own, so they draw only the bloom's sources. `tests/test_light2d.gd`.
+- Arena lamps and the sun → `light2d_view.gd`. Night is offered on the Floodgate only (Kevin, Oct
+  2026: weather.json `defaults.times` is day and sunset); a map with a night lists `lights` (at most
+  `MAX_LAMPS` 15: a whole big map can be on screen and every lamp lights the one night-shade item);
+  a floor pool uses the `pool` texture (a flat core, `POOL_CORE`), a lamp with `fighter_energy` 0
+  (a `lamp` head) gives no fighter light. FurnitureView lights a floodlight / worklight / torch
+  whose head has a `lamp` light (`set_lit`; main passes `Light2DView.lamp_heads()`). The sun per
+  arena and look: `sun_of` / `sun_at` (arena `light.sun` x weather.json `sun` blocks; at night
+  the moon, High only, so Low's night is unchanged); each fighter's sun is on its own mask bit
+  (`SUN_BIT << i`, `CreatureView.sun_bit`), so a crowd never stacks suns on one sprite (before,
+  two fighters close together bleached each other). Godot draws at most 15 lights on one canvas
+  item (lights whose mask doesn't match don't count): keep a spot's lamps + `MAX_DYNAMIC` + its
+  sun under that (`tests/test_light2d.gd` checks every map and a 4v4 heap on Twin Keeps).
   Fight lights (phase 1): Light2DView gathers everything Glow does (`LightView.gather`: Surge,
   `fx.light`, `fx.projectile_light`, sparks) plus flashes on big hits and Surges (`on_event` from
   main's `_react`, stepped every `FLASH_STEP` ticks), and `take` makes `cap()` of them real (High 8,
   Low 2) by priority: Surge, then nearest the camera's centre in `FOCUS_BAND` rings, then newest;
   candidates within `REAL_MERGE` share one light. Each real one is a fighter light and a floor light
-  on `GLOW_MASK` (8), which only `Light2DView.FloorGlow` takes: a black world-size rect at Glow's
+  on `GLOW_MASK` (2048, clear of the suns' bits), which only `Light2DView.FloorGlow` takes: a black world-size rect at Glow's
   floor-pool depth, `blend_add`, whose `light()` returns the light's colour alone (a light on the MUL
   night shade can't lift a lamp-lit floor, and does nothing by day). `gathered` feeds the bloom and
   Glow's halos, `pools` (the rest) Glow's dithered floor pools: when Lighting isn't Off main calls

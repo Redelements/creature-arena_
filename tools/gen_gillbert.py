@@ -812,7 +812,7 @@ def ko():
 # still what assets/sprites/gillbert*.png and data/creatures/gillbert.json hold.
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import splat3d as S  # noqa: E402  (the shared animation tools only; the renderer is this file's)
+import splat3d as S  # noqa: E402  (the shared animation tools and the normal sheet writer; the renderer is this file's)
 
 tween = S.tweener(snap=("face",))
 
@@ -1132,18 +1132,18 @@ VIEW_ROWS = ROWS[:-1]
 
 
 def render(pose, view):
-    return Painter(pose, view).render()
+    img = Painter(pose, view).render()
+    # the normal sheets (docs/SPRITES.md): the shading's normals, kept by shade2d's layers
+    S.finish_frame(None, np.array(img), normals=shade2d.normal_map(img))
+    return img
 
 
-def sheet(view, rows, fw, fh, origin):
+def sheet(view, rows, fw, fh, origin, extras=False):
+    """One view's sheet; with `extras`, (sheet, normal sheet, emissive sheet or None)."""
     global W, H, OX, OY
     W, H = fw, fh
     OX, OY = origin
-    out = Image.new("RGBA", (fw * COLS, fh * len(rows)), (0, 0, 0, 0))
-    for r, (_name, poses) in enumerate(rows):
-        for c, pose in enumerate(poses):
-            out.alpha_composite(render(pose, view), (c * fw, r * fh))
-    return out
+    return S.collect(rows, fw, fh, lambda pose: render(pose, view), extras, cols=COLS)
 
 
 def preview(sh, rows, fw, fh, origin, scale, path):
@@ -1294,16 +1294,18 @@ def render_frame(pose, view):
 
 def main():
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    side = sheet("side", ROWS, SIDE["w"], SIDE["h"], SIDE["origin"])
+    side, side_n, side_e = sheet("side", ROWS, SIDE["w"], SIDE["h"], SIDE["origin"], extras=True)
     side.save(OUT)
     print("wrote", os.path.relpath(OUT, ROOT), side.size)
+    S.save_extras(OUT, side_n, side_e)   # the normal sheets (docs/SPRITES.md); nothing glows
     preview(side, ROWS, SIDE["w"], SIDE["h"], SIDE["origin"], 3, PREVIEW)
     views = {}
     for view, spec in VIEWS.items():
-        sh = sheet(view, VIEW_ROWS, spec["w"], spec["h"], spec["origin"])
+        sh, sh_n, sh_e = sheet(view, VIEW_ROWS, spec["w"], spec["h"], spec["origin"], extras=True)
         path = OUT.replace(".png", "_%s.png" % view)
         sh.save(path)
         print("wrote", os.path.relpath(path, ROOT), sh.size)
+        S.save_extras(path, sh_n, sh_e)
         views[view] = sh
     # 2x preview: each animation's frames in every view but the side: down, down-side, up, up-side.
     s = 2

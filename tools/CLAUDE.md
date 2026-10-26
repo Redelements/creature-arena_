@@ -19,8 +19,10 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   field from each shape's distance to its edge, the key light, rim light, lone-pixel
   cleanup), `groove(img, det, k)` (detail lines k ramp steps along), `outline` (each
   material's ink), `darken` (one step, the far limb), `stack(layers)` (back to front, an
-  outline over a piece behind becomes its deep-step seam). Layers carry their material ids
-  and outline ring in `img.info`; `keep(new, old)` copies them onto a new Image.
+  outline over a piece behind becomes its deep-step seam). Layers carry their material ids,
+  outline ring and shading normals in `img.info`; `keep(new, old)` copies them onto a new
+  Image (a layer rebuilt without it lights flat in the normal sheets). `normal_map(img)` packs
+  a stacked frame's normals for `splat3d.finish_frame`.
 - `splat3d.py`: the shared renderer (pose a 3D rig, sample parts as points, splat per view,
   ramp-shade from the master palette with a rim light, outline in each material's ink).
   Prefer this shape for new fighters, like `gen_digby.py`: `build(pose, view)`, a `MAT`
@@ -28,9 +30,17 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   `python3 tools/gen_<id>.py inspect idle:0 run:2` previews frames.
   `write_sheets(..., normals=True)` also writes a normal sheet `<sheet>_n.png` beside each
   colour sheet (`normal_frame`: the shading's screen normal, smoothed per piece; packing in
-  `docs/SPRITES.md`, "Normal sheets"); the colour sheets come out byte for byte the same.
-  Pete and Culvert pass it (the light proof); a generator with its own `render` (Crease's
-  `render_paper`) can't yet.
+  `docs/SPRITES.md`, "Normal sheets") and, when anything on it glows, an emissive sheet
+  `<sheet>_e.png` ("Emissive sheets": `configure(emissive=...)` per material, `EMISSIVE_FN`
+  for painted glow, `emissive_colours`); the colour sheets come out byte for byte the same.
+  Every fighter generator writes both. The rule for any renderer: call
+  `S.finish_frame(r, img)` on the finished frame (or with `normals=` ready-made) and build
+  sheets with `S.collect` / save with `S.save_extras`; `collect` refuses a frame whose
+  renderer never called it or whose normal frame covers other pixels. Crease passes one
+  piece per flat face (folds stay sharp); Craglash draws each frame twice (`_with_normals`:
+  a normal pass where `shade` paints the pillow normal and the colour-only steps are off).
+  Check a change keeps the colour sheets identical: hash `assets/sprites/*.png` before and
+  after regenerating.
 - `gen_culvert.py`, `gen_digby.py`, `gen_pete.py`, `gen_sno.py`, `gen_crease.py`, `gen_cairn.py`,
   `gen_dummy.py`: splat3d rigs (Crease: faceted paper, 128x160 frames, `decorate` draws creases).
   Cairn's stones are rigid (no squash): `pack` and per-stone `off` / `tilt` carry the weight

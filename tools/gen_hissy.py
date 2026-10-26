@@ -895,6 +895,7 @@ def face(r, img):
     out[shadow] = tex_dark[ty, tx][shadow, :3]
     img[m, :3] = out[m]
     img[m, 3] = 255
+    r["face_px"] = m   # where the face texture shows (the emissive eyes look only here)
     return img
 
 
@@ -903,7 +904,23 @@ def render(pose, view):
     img = S.shade(r)
     img = face(r, img)
     img = S.outline(r, img)
+    S.finish_frame(r, img)
     return Image.fromarray(img)
+
+
+def _eye_emit():
+    """The face colours that glow in the emissive sheets (docs/SPRITES.md "Emissive
+    sheets"), lit side and shadow side: her yellow eyes a little (a snake's eyes in the
+    dark), Petrify Gaze's lit-up eyes and pupils fully."""
+    out = {}
+    for key, a in (("eye", 110), ("eye_glow", 255), ("pupil_glow", 255)):
+        rgb = FACE[key][:3]
+        out[rgb] = a
+        out.setdefault(tuple(_step_down(rgb)), a)
+    return out
+
+
+S.EMISSIVE_FN[0] = lambda r, img: S.emissive_colours(img, _eye_emit(), where=r.get("face_px"))
 
 
 # ------------------------------------------------------------------ animations
@@ -1388,15 +1405,13 @@ VIEW_ROWS = ROWS[:-1]
 
 # ------------------------------------------------------------------ sheets
 
-def sheet(view, rows, fw, fh, origin):
+def sheet(view, rows, fw, fh, origin, extras=False):
+    """One view's sheet; with `extras`, (sheet, normal sheet, emissive sheet or None)
+    (splat3d.collect: render() hands each frame's maps to splat3d.finish_frame)."""
     global W, H, OX, OY
     W, H = fw, fh
     OX, OY = origin
-    out = Image.new("RGBA", (fw * COLS, fh * len(rows)), (0, 0, 0, 0))
-    for r, (_name, poses) in enumerate(rows):
-        for c, pose in enumerate(poses):
-            out.alpha_composite(render(pose, view), (c * fw, r * fh))
-    return out
+    return S.collect(rows, fw, fh, lambda pose: render(pose, view), extras, cols=COLS)
 
 
 def preview(sh, rows, fw, fh, origin, scale, path):
@@ -1538,17 +1553,19 @@ def inspect(picks, path=None, scale=3):
 
 def main():
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    side = sheet("side", ROWS, SIDE["w"], SIDE["h"], SIDE["origin"])
+    side, side_n, side_e = sheet("side", ROWS, SIDE["w"], SIDE["h"], SIDE["origin"], extras=True)
     side.save(OUT)
     print("wrote", os.path.relpath(OUT, ROOT), side.size)
+    S.save_extras(OUT, side_n, side_e)   # the normal and emissive sheets (docs/SPRITES.md)
     preview(side, ROWS, SIDE["w"], SIDE["h"], SIDE["origin"], 3, PREVIEW)
     views = {}
     for view in S.view_names(VIEWS)[1:]:
         spec = VIEWS[view]
-        sh = sheet(view, VIEW_ROWS, spec["w"], spec["h"], spec["origin"])
+        sh, sh_n, sh_e = sheet(view, VIEW_ROWS, spec["w"], spec["h"], spec["origin"], extras=True)
         path = OUT.replace(".png", "_%s.png" % view)
         sh.save(path)
         print("wrote", os.path.relpath(path, ROOT), sh.size)
+        S.save_extras(path, sh_n, sh_e)
         views[view] = sh
     # the views preview: down, down-side, up, up-side (every entry in VIEWS), as splat3d's
     s = 2

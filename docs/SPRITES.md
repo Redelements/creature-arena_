@@ -805,8 +805,55 @@ and the live light agree), box-blurred over `NORMAL_BLUR` (2) px among pixels of
 and renormalised: the splats' normals wobble, and unsmoothed they light as noise. Pixels the
 rig didn't fill (the outline ring, a decoration painted outside the body) face the camera
 (0, 0, 1), so the ink stays ink under any light. The colour sheets are unchanged byte for byte
-(`write_sheets(..., normals=True)` only adds files). Only the splat3d rigs can export normals
-today; Pete and Culvert have them (the phase 0 light proof).
+(`write_sheets(..., normals=True)` only adds files). Pete and Culvert had them first (the phase
+0 light proof); since phase 1 every fighter and the training dummy has all five.
+
+Where each generator's normal comes from (always the normal its own shading used):
+
+| Generator | Normal |
+| --- | --- |
+| splat3d rigs (Pete, Culvert, Sno, Digby, Cairn, the dummy) | `Cam.screen_dir` of the splats, smoothed per piece |
+| Cerebro, Hissy (their own rasteriser, splat3d's shading) | the same, through `S.finish_frame` |
+| Mister Crease (paper) | the same, smoothed per flat **face** (piece and face index), so folds stay sharp |
+| Barkley, Gillbert (`shade2d.py` painters) | each layer's height-field normal, carried in the layers' `info` and stacked with them |
+| Craglash (2D puppet, `DRig` on the diagonals) | each part's pillow normal, from a second normal pass of the same drawing (`_with_normals`) |
+
+Painted-on details (faces, cracks, grain) take the normal of the part under them. In Godot the
+`_n` sheets import **VRAM compressed as normal maps** (`compress/mode=2`, `normal_map=1`:
+RGTC on desktop, EAC RG11 on mobile, 1 byte a pixel): Godot's 2D light reads only R and G,
+and lossless sheets doubled the fighters' VRAM (a 4v4 with eight fighters: 645 MB of
+textures on main, 1226 MB with lossless normal sheets, 790 MB compressed). Screenshots lit by
+compressed and lossless sheets differ by under 1/255 on average. Keep new `_n.png.import`
+files on those settings.
+
+## Emissive sheets: what glows (Oct 2026)
+
+A fighter can also have an **emissive sheet**, `<sheet>_e.png`, beside any colour sheet:
+same size and frame layout, **RGB the colour the pixel emits, A how strongly** (0 = not
+emissive, 255 = full). Transparent everywhere else. It is optional per sheet: a sheet
+without one has nothing that glows (a fighter's back view may have none when the glowing
+part faces the camera). A view block may name it with `"emissive": "res://…"`; otherwise
+`_e.png` beside the `path` is used when it exists (the same rule as `"normal"`). The bloom
+and lights read it (`move-lights-bloom`); it never changes the colour sheet.
+
+Keep it sparse: a few pixels a frame (eyes, a lamp, sparks), never a whole body. Made by the
+generators (`tools/splat3d.py`): `configure(emissive={material: strength, or {"a": strength,
+"rgb": colour, "min_level": lowest ramp step that glows}})` for rig materials (a pixel glows
+only while it still shows its material's own ramp, not an outline or a decoration over it),
+and `EMISSIVE_FN` with `emissive_colours` for painted glow picked by colour. The sheets import
+VRAM compressed (BC3 on desktop, ETC2 on mobile; no glowing pixel is lost, colours within a
+few steps). What glows now:
+
+| Fighter | Glows | Strength |
+| --- | --- | --- |
+| Culvert | the lit half of his amber eyes | 150 |
+| Digby | the headlamp: the lens (warm white), and the brass housing's lit side | 240, 150 |
+| Sno Mercy | the white ice flecks on his dome (a faint sparkle) | 90 |
+| Hissy Fitz | her yellow eyes a little; Petrify Gaze's lit eyes and green pupils fully | 110, 255 |
+| Chef Cerebro | the bright halo round the tools he is working with, a thrown tool's streak, the teleport's flash | 200, 170 to 230, 255 |
+| Barkley | the Surge's glowing points on his bark, moss and leaves | 230 |
+| Craglash | the veins and sparks lit up in Bedrock and the charge | 220 |
+| Pete, Gillbert, Mister Crease, Cairn, the dummy | nothing | |
 
 ## Animation pass: what worked (Mister Crease, Oct 2026)
 

@@ -24,7 +24,7 @@ extends Node2D
 ## with `lights`) the night shade is the flat dark tint and the arena's lamps light it
 ## (`shade.light_mask` is Light2DView.FLOOR_MASK, so the lamps' PointLight2Ds brighten the
 ## multiply layer where they shine): the pools come from real lights instead of the baked
-## light map, which still answers `light_at`. Fighters with normal sheets (`CreatureView.lit`)
+## light map (`light_at` then answers from the lamps' pools, the `lights` without `lamp`). Fighters with normal sheets (`CreatureView.lit`)
 ## then keep the night tint, never under the time's `lit_fighter_min` (else `fighter_min`),
 ## and the lamps light them per pixel; the others take the baked pool's light as before.
 ## `fighter_scale` dims the fighters with normal sheets a little by day so the sun's lit side
@@ -241,6 +241,12 @@ func apply(s: MatchSim, p_look: Dictionary, shadows: ShadowLayer = null, ambient
 		_build_lightmap(floor_tint, _time["floodlights"])
 		if lamp_lights:
 			shade.tex = null  # the flat dark: the lamps' lights make the pools
+			# and `light_at` (a fighter without normals) reads the lamps' pools, not the grid's
+			_lights.clear()
+			for e in s.arena.get("lights", []):
+				if e is Dictionary and not bool(e.get("lamp", false)):
+					var lp := Light2DView.lamp_of(e)
+					_lights.append([lp["pos"], lp["radius"]])
 	if ambient != null:
 		ambient.set_moths(_moth_points())
 	shade.visible = shade.tex != null or not floor_tint.is_equal_approx(Color.WHITE)
