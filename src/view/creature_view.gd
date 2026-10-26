@@ -30,6 +30,7 @@ extends Node2D
 ## `light_mask` is Light2DView.FIGHTER_MASK. A sheet without normals keeps the default mask,
 ## which no light uses, so a fighter without normal sheets draws exactly as before.
 
+var sun_bit := 0  ## Light2DView's sun for this fighter (set_sun_bit)
 const FLASH_SHADER := preload("res://src/view/flash.gdshader")
 ## Windup tell colors: red means it can't be blocked, so get out of the way or hit first.
 const TENDER_PINK := Color(1.0, 0.55, 0.66)
@@ -227,7 +228,7 @@ func refresh() -> void:
 	if v != _cur:
 		_cur = v
 		sprite.texture = v["lit"]
-		sprite.light_mask = Light2DView.FIGHTER_MASK if lit() else 1
+		sprite.light_mask = (Light2DView.FIGHTER_MASK | sun_bit) if lit() else 1
 		sprite.hframes = int(v["cols"])
 		sprite.vframes = maxi(1, int(v["tex"].get_height() / v["size"].y))
 	var count := int(anim[2])
@@ -451,6 +452,14 @@ func intro_pose() -> void:
 ## A squash or stretch started from outside (FxView, on an event: Culvert's gulp).
 func kick(to: Vector2) -> void:
 	_kick(to)
+
+
+## Light2DView: this fighter's own sun's light-mask bit (0: none), kept on the sprite while a
+## sheet with normals shows.
+func set_sun_bit(b: int) -> void:
+	sun_bit = b
+	if sprite != null:
+		sprite.light_mask = (Light2DView.FIGHTER_MASK | sun_bit) if lit() else 1
 
 
 ## Whether the sheet showing now has normals (the lights shade it; WeatherView dims it by day).

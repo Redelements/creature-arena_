@@ -14,7 +14,8 @@ extends Node2D
 ##     baked light map.
 ##   - HIGH: LOW, plus the arena's `lights` (data/arenas/<id>.json) at night: each lamp lights
 ##     the floor (through WeatherView's flat night shade, which takes the light: `FLOOR_MASK`)
-##     and the fighters standing near it (from above, `height`), instead of the baked pools.
+##     and the fighters standing near it (from above, `height`), instead of the baked pools;
+##     the furniture lamp heads under a `lamp` glow (FurnitureView.set_lit), and the moon.
 ##     Bloom (BloomView) is on in this tier only.
 ##
 ## Light masks: a light lights only canvas items whose `light_mask` shares a bit with its
@@ -25,7 +26,9 @@ extends Node2D
 ## The sun: a DirectionalLight2D would be the natural fit, but on the Compatibility renderer
 ## (Godot 4.7.2) it ignores `range_item_cull_mask` and lights every canvas item, the HUD
 ## included, so the sun is one wide PointLight2D per fighter instead (`_suns`), set back
-## along the shadows' light from the fighter, wide enough to be even across the sprite.
+## along the shadows' light from the fighter, wide enough to be even across the sprite. Each
+## lights its own fighter only (`SUN_BIT`). Its colour and strength are the arena's and the
+## look's (`sun_of`); at night it is the moon, on HIGH only (`sun_at`).
 ##
 ## Hidden foes never light anything: the moving lights are gathered by a LightView's own
 ## `_creature_lights` (fighters `fx.shown` passes and not in stealth only), capped at
@@ -48,16 +51,29 @@ const LAMP_LIFT := 0.4
 ## turned to the camera most and the sides a little.
 const DYNAMIC_ENERGY := 1.4
 const DYNAMIC_HEIGHT := 28.0
-## The sun by day (and its low warm version at sunset): energy on the fighters' lit side,
-## its elevation (`height`: 0 grazing .. 1 straight down the camera), and how
-## much the rest of the fighter is dimmed (`WeatherView.fighter_scale`), so the side away from
-## it reads as shade, matching the cast shadow.
-const SUN := {"day": {"color": "#fff6e8", "energy": 0.34, "height": 0.45, "shade": 0.88},
-	"sunset": {"color": "#ffc890", "energy": 0.4, "height": 0.25, "shade": 0.84}}
-const SUN_WEATHER := {"rain": 0.45, "fog": 0.55, "snow": 0.6}  ## overcast: a softer sun
+## The sun (by day; low, warm and stronger at sunset; the moon at night), per arena and look
+## (`sun_of`): the arena's `light.sun` {color, energy} (else `SUN_DEFAULT`), times the time
+## of day's `sun` block in data/weather.json ({color: replaces the arena's, energy: a
+## multiplier, height: its elevation, 0 grazing .. 1 straight down the camera, shade: how
+## much the rest of a fighter is dimmed, `WeatherView.fighter_scale`, so the side away from
+## it reads as shade, matching the cast shadow}) and the weather's `sun.energy` (overcast: a
+## softer sun, and a softer shade with it). A time without a `sun` block has none.
+const SUN_DEFAULT := {"color": "#fff6e8", "energy": 0.34}
 const SUN_BACK := 80.0  ## a fighter's sun sits this far back along the light (screen px)
 const SUN_RADIUS := 360.0  ## and reaches this far, so it is near even across a sprite
 const MAX_SUNS := 8  ## one per fighter on screen (4v4)
+## Each fighter's sun lights that fighter only: sun i lights light-mask bit `SUN_BIT << i`
+## and the fighter it follows carries that bit (`CreatureView.sun_bit`), so in a crowd the
+## suns never stack on one sprite (nor push it past the 15 lights Godot draws on one canvas item).
+const SUN_BIT := 8
+## The most floor lights an arena's `lights` may list (the rest are dropped with a warning):
+## a big map can be all on screen at once, and every lamp lights the night shade, one canvas
+## item (Godot draws at most 15 lights on an item; measured). A lamp with `fighter_energy` 0 (a lamp
+## head on a tower or a torch) gives no fighter light.
+const MAX_LAMPS := 15
+## A furniture lamp head (FurnitureView floodlight, worklight, torch) glows when a lit
+## `"lamp": true` light sits within this of it (`lamp_heads`).
+const HEAD_NEAR := 16.0
 
 var tier := Tier.HIGH
 var fx: FxView
@@ -69,11 +85,17 @@ var dynamic: Array = []
 ## height, fighter_color, fighter_energy, lamp}.
 var lamps: Array = []
 var _suns: Array[PointLight2D] = []
-var _sun := {}  ## this match's sun: {dir, color, energy, height}; empty at night or Off
+var _sun := {}  ## this match's sun: {dir, color, energy, height}; empty without one or Off
+## Main's CreatureViews (shared): each seen fighter's sun bit goes on its sprite. Without
+## them (tests) every sun lights `FIGHTER_MASK`.
+var views: Array = []
 var _gather := LightView.new()
 var _pool: Array[PointLight2D] = []
 var _lamp_lights: Array[PointLight2D] = []
 static var _tex: Texture2D = null
+static var _pool_tex: Texture2D = null
+## A lamp's floor pool keeps full strength out to this share of its radius (`pool`).
+const POOL_CORE := 0.6
 
 
 func _ready() -> void:
@@ -108,8 +130,20 @@ func _point(mask: int) -> PointLight2D:
 ## so a pool must fade right out at its edge), and a 4x4 ordered dither of one 8-bit step so the gradient
 ## doesn't band on the SDR screen.
 static func radial() -> Texture2D:
-	if _tex != null:
-		return _tex
+	if _tex == null:
+		_tex = _falloff(0.0)
+	return _tex
+
+
+## A lamp's pool on the floor: `radial`'s falloff with a flat bright core (`POOL_CORE` of the
+## radius), so a floodlight reads as a pool with an edge, like the baked ones, not a haze.
+static func pool() -> Texture2D:
+	if _pool_tex == null:
+		_pool_tex = _falloff(POOL_CORE)
+	return _pool_tex
+
+
+static func _falloff(core: float) -> Texture2D:
 	var n := TEX_SIZE
 	var r := n * 0.5
 	var data := PackedByteArray()
@@ -118,15 +152,14 @@ static func radial() -> Texture2D:
 	for y in n:
 		for x in n:
 			var d := Vector2(x + 0.5 - r, y + 0.5 - r).length() / r
-			var f := clampf(1.0 - d, 0.0, 1.0)
+			var f := clampf((1.0 - d) / (1.0 - core), 0.0, 1.0)
 			f = f * f * (3.0 - 2.0 * f)  # smoothstep: lights add up, so the edge must fade right out
 			var v: float = f * 255.0 + (LightView.BAYER[(y % 4) * 4 + x % 4] + 0.5) / 16.0 - 0.5
 			data[i] = clampi(int(floorf(v + 0.5)), 0, 255) if f > 0.0 else 0
 			i += 1
 	var img := Image.create_from_data(n, n, false, Image.FORMAT_L8, data)
 	img.convert(Image.FORMAT_RGBA8)
-	_tex = ImageTexture.create_from_image(img)
-	return _tex
+	return ImageTexture.create_from_image(img)
 
 
 ## For a new match (main, after WeatherView.apply): the sun from the shadows' light and the
@@ -141,14 +174,12 @@ func apply(s: MatchSim, look: Dictionary, cast: Vector2) -> void:
 	_lamp_lights.clear()
 	var t := String(look.get("time", "day"))
 	var w := String(look.get("weather", "clear"))
-	var on := tier != Tier.OFF
-	# the sun
-	var sd: Dictionary = SUN.get(t, {})
+	# the sun (or the moon)
+	var sd := sun_at(s.arena, t, w, tier)
 	_sun = {}
-	if on and not sd.is_empty():
+	if not sd.is_empty():
 		var dir := cast.normalized() if cast.length() > 0.001 else Vector2.DOWN
-		_sun = {"dir": dir, "color": Color(String(sd["color"])),
-			"energy": float(sd["energy"]) * float(SUN_WEATHER.get(w, 1.0)),
+		_sun = {"dir": dir, "color": sd["color"], "energy": sd["energy"],
 			"height": SUN_BACK * float(sd["height"]) / maxf(0.05, 1.0 - float(sd["height"]))}
 		for l in _suns:
 			l.color = _sun["color"]
@@ -159,11 +190,51 @@ func apply(s: MatchSim, look: Dictionary, cast: Vector2) -> void:
 		for e in s.arena.get("lights", []):
 			if not e is Dictionary:
 				continue
+			if lamps.size() >= MAX_LAMPS:
+				push_warning("%s: more than %d lights, the rest dropped" % [s.arena.get("id", "?"), MAX_LAMPS])
+				break
 			var lamp := lamp_of(e)
 			lamps.append(lamp)
 			_lamp_lights.append(_lamp_light(lamp, FLOOR_MASK))
-			_lamp_lights.append(_lamp_light(lamp, FIGHTER_MASK))
+			if float(lamp["fighter_energy"]) > 0.0:
+				_lamp_lights.append(_lamp_light(lamp, FIGHTER_MASK))
 	_sync()
+
+
+## The sun this tier shows: none when Off, and a time's sun marked `high_only` (the moon:
+## Low keeps the night exactly as it was) only on High.
+static func sun_at(arena: Dictionary, time: String, weather: String, t: int) -> Dictionary:
+	var sd := sun_of(arena, time, weather)
+	if t == Tier.OFF or (bool(sd.get("high_only", false)) and t != Tier.HIGH):
+		return {}
+	return sd
+
+
+## The sun on `arena` at `time` in `weather` (see SUN_DEFAULT): {color, energy, height, shade,
+## high_only}, or empty when the time has none.
+static func sun_of(arena: Dictionary, time: String, weather: String) -> Dictionary:
+	var d := WeatherView.data()
+	var tm: Dictionary = ((d.get("times", {}) as Dictionary).get(time, {}) as Dictionary).get("sun", {})
+	if tm.is_empty():
+		return {}
+	var base: Dictionary = SUN_DEFAULT.duplicate()
+	base.merge((arena.get("light", {}) as Dictionary).get("sun", {}), true)
+	var wm := float((((d.get("weathers", {}) as Dictionary).get(weather, {}) as Dictionary).get("sun", {}) as Dictionary).get("energy", 1.0))
+	var shade := float(tm.get("shade", 1.0))
+	return {"color": Color(String(tm.get("color", base["color"]))),
+		"energy": float(base["energy"]) * float(tm.get("energy", 1.0)) * wm,
+		"height": float(tm.get("height", 0.45)),
+		"shade": 1.0 - (1.0 - shade) * minf(1.0, wm), "high_only": bool(tm.get("high_only", false))}
+
+
+## Where the lit lamp heads are this match (the `"lamp": true` lamps): FurnitureView lights
+## the floodlight, worklight and torch heads within HEAD_NEAR of one.
+func lamp_heads() -> Array:
+	var out: Array = []
+	for lp in lamps:
+		if bool(lp["lamp"]):
+			out.append(lp["pos"])
+	return out
 
 
 ## One `lights` entry of an arena JSON, with its defaults (docs/MECHANICS.md, "Arena lights").
@@ -192,6 +263,8 @@ static func lamps_on(arena: Dictionary, time: String) -> bool:
 func _lamp_light(lamp: Dictionary, mask: int) -> PointLight2D:
 	var l := _point(mask)
 	l.texture_scale = float(lamp["radius"]) * 2.0 / TEX_SIZE
+	if mask == FLOOR_MASK:
+		l.texture = pool()
 	if mask == FIGHTER_MASK:
 		l.position = Vector2(lamp["pos"]) - Vector2(0, float(lamp["height"]) * LAMP_LIFT)
 		l.height = float(lamp["height"])
@@ -257,6 +330,11 @@ func _sync() -> void:
 ## shows, its light included).
 func _place_suns() -> void:
 	var i := 0
+	var by_c := {}
+	for o in views:
+		if is_instance_valid(o) and (o as CreatureView).c != null:
+			by_c[(o as CreatureView).c] = o
+			(o as CreatureView).set_sun_bit(0)
 	if not _sun.is_empty() and fx != null and fx.sim != null:
 		for c in fx.sim.creatures:
 			if i >= _suns.size():
@@ -266,6 +344,11 @@ func _place_suns() -> void:
 			var top := maxf(24.0, float(c.def.get("fx_top", 32)))
 			_suns[i].position = (c.pos - Vector2(0, top * 0.5) - Vector2(_sun["dir"]) * SUN_BACK).round()
 			_suns[i].enabled = true
+			if by_c.has(c):  # this sun lights its own fighter only
+				_suns[i].range_item_cull_mask = SUN_BIT << i
+				(by_c[c] as CreatureView).set_sun_bit(SUN_BIT << i)
+			else:
+				_suns[i].range_item_cull_mask = FIGHTER_MASK
 			i += 1
 	for k in range(i, _suns.size()):
 		_suns[k].enabled = false
