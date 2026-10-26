@@ -65,6 +65,8 @@ Read on demand, not up front:
   (the server's `update.sh` downloads them), the `creature-arena` service and its paths.
 - **Legally distinct.** No names, art, sounds or mechanics from Pokémon (no capture, no
   trainer, no type chart). See "Staying legally distinct" in the Game Plan.
+  Bought art and other third-party files, their terms and credits: `LICENSES.md` (and
+  Settings > Credits in game).
 
 ## Commands
 

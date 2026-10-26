@@ -104,6 +104,7 @@ update the map in the same change.
 | arena intro, match intro, fly-over, fighter entrances, name card | `src/game/main.gd:_maybe_intro`, `_intro_wanted`, `_intro_groups`, `_intro_step`, `_end_intro`; drawing and timeline `src/view/arena_intro.gd`; `CreatureView.intro_clock` / `intro_pose` | test_ui |
 | game modes, mode numbers, menus' rows | `src/game/main.gd` `MODES`, `MENU_ROWS`, `_start_match` | test_ui, test_journey, menu_contract |
 | settings | `src/game/main.gd` `SETTING_PAGES`, `_setting`, `_set_setting` | test_ui |
+| credits, licences, third-party notices, Godot copyright, asset credits (Settings > Credits, `--menu=credits[:row]`) | `src/ui/credits_screen.gd` (`ENTRIES`, `short_text`, `full_text`, `godot_copyright`, `third_party_notices`), the scrolling page `src/ui/text_page.gd`; opened by `src/game/main.gd:_open_credits`; what comes from which pack `LICENSES.md` (update both together) | credits, ui_fit |
 | CLI flags | `src/game/main.gd:_parse_args` (list in `src/game/CLAUDE.md`) | test_ui |
 | roster, adding a fighter | `src/game/match_factory.gd` `FIGHTERS`; `src/game/main.gd` `MODES` | views, ko_fx, showcase |
 | showcases (scripted demos) | `src/game/showcase.gd` `SCRIPTS` | showcase |
