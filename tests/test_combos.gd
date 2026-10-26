@@ -253,7 +253,7 @@ func _pete() -> MatchSim:
 
 func test_pete_sack_smack_pickpocket() -> void:
 	var dmg := route(_pete(), 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S2, "skill_2"]])
-	assert_near(dmg, 20 + 9 * 1.15 + 5 * 1.3, 0.05, "3 lights > Sack Smack > Pickpocket:")  # 6 + 6 + 8
+	assert_near(dmg, 17 + 9 * 1.15 + 5 * 1.3, 0.05, "3 lights > Sack Smack > Pickpocket:")  # 5 + 5 + 7 since the Oct 2026 assassin pass
 
 
 func test_pete_big_heist() -> void:
@@ -261,8 +261,8 @@ func test_pete_big_heist() -> void:
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [S2, "skill_2"],
 		[SU, "surge"]])
-	# After Pickpocket his hits land 20% harder (stolen power): the whole Heist does.
-	assert_near(dmg, 20 + 9 * 1.15 + 5 * 1.3 + (5 * 6 + 20) * 1.5 * 1.2, 0.05, "... > The Big Heist:")
+	# After Pickpocket his hits land 10% harder (stolen power): the whole Heist does.
+	assert_near(dmg, 17 + 9 * 1.15 + 5 * 1.3 + (5 * 6 + 20) * 1.5 * 1.1, 0.05, "... > The Big Heist:")
 
 
 ## Sno Mercy (left) facing Cairn at close range.

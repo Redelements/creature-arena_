@@ -190,26 +190,29 @@ The goal: balanced **within each class** (mirrors close to even) and along a cla
 triangle: **assassins beat the mage; the mage beats fighters and tanks; fighters beat
 assassins.** Measured Normal against Normal and pinned by `tests/test_balance.gd`.
 
-**Where it stands (Oct 25 2026): not there yet.** Normal against Normal on main
-(`--matrix --a=1 --seeds=5`, each fighter's wins against the whole field):
+**Where it stands (Oct 25 2026).** Normal against Normal (`--matrix --seeds=5`, each
+fighter's wins against the whole field), after the Normal CPU learned to kite with a mage
+and the assassin pass (Pete and Digby trimmed, Chef Cerebro's blink nerfed; no mage buffs):
 
 | Fighter | Class | Wins vs the field |
 | --- | --- | --- |
-| Sneaky Pete | assassin | 79% |
-| Digby | assassin | 78% |
-| Sno Mercy | bruiser | 72% |
-| Hissy Fitz | fighter | 70% |
+| Sno Mercy | bruiser | 69% |
+| Digby | assassin | 66% |
 | Barkley | bruiser | 63% |
-| Culvert | tank | 52% |
-| Cairn | fighter | 48% |
-| Craglash | tank | 34% |
-| Gillbert | skirmisher | 31% |
-| Mister Crease | mage | 9% |
-| Chef Cerebro | mage | 7% |
+| Hissy Fitz | fighter | 62% |
+| Sneaky Pete | assassin | 60% (85% before the pass) |
+| Chef Cerebro | mage | 55% |
+| Culvert | tank | 44% |
+| Cairn | fighter | 43% |
+| Mister Crease | mage | 39% |
+| Craglash | tank | 23% |
+| Gillbert | skirmisher | 16% |
 
-The assassins beat everyone and the mages beat no one, so the old Rage pins are gone
-from `test_balance.gd` until a rebalance measured at Normal (first the Normal CPU's mage
-spacing, then the kits) brings the triangle back.
+What holds of the triangle, pinned by `test_balance.gd`: assassins beat Mister Crease, and
+Chef Cerebro beats the fighters and tanks (Hissy, Culvert, Craglash). What doesn't yet:
+assassins against Chef Cerebro (Pete about 40%, Digby about 10%: Normal Digby's Burrow
+engage doesn't reach a kiting mage), Mister Crease against the fighters, and the fighters
+against the assassins. Craglash and Gillbert are at the bottom.
 
 ## Controls
 
@@ -718,8 +721,8 @@ A mage (210 HP, Lumen affinity). He floats a hand's height off the floor with hi
 kitchen hovering around him (big knife, spatula, meat mallet, a fan of paring knives) and
 throws it all with his mind: whatever he's moving glows violet, and so does he.
 **Dodge: Mind Blink.** Instead of rolling he teleports: a short delay (5 frames, already
-untouchable from the 3rd) and he's simply 116 px away the way you pushed, stopped by the
-walls but not by pits (blinking onto a hole drops him in). It **recharges for 0.75 s** after
+untouchable from the 3rd) and he's simply 90 px away the way you pushed, stopped by the
+walls but not by pits (blinking onto a hole drops him in). It **recharges for 1 s** after
 each blink (a violet bar beside his stamina drains away; a dodge pressed just before it's
 ready comes out when it is). **Most of his attacks are thrown, and
 his skills reach 120–130 px (about half Gillbert's Cast Line), his lights half again as far (about 170 px)**, so he wants foes at knife
@@ -772,7 +775,7 @@ Voice line: a placeholder "I DIG IT!" (see the PR).
 | Light | Claw Swipe, Claw Swipe, Pickaxe Swing | A quick double slash with his claws, then the pickaxe |
 | Heavy | Pickaxe Pop-Up | He digs in and bursts up **under a foe about 40 px ahead** with the pickaxe, in a burst wide enough to catch anyone standing close: launches (10 damage, 14 charged). A ring on the floor marks the spot. Hold to charge |
 | Skill 1 | Headlamp Flash | Flicks on his helmet light: a foe it catches is **blinded**, and **their next attack misses** (or the blind wears off after 4 s). Guarding stops it |
-| Skill 2 | Burrow | Dives underground and tunnels about 115 px, steering harder than it used to, **steered with the stick**: out of reach, under bodies and across pits, under a moving mound of dirt. Pops up at the end and knocks up whoever is on top; an uppercut from below, it **breaks guards**. Underground he is **out of sight** (the CPU loses him and goes where it last saw him; you still see the mound), so the pop-up is an **ambush: 35% harder, and so is everything he lands in the next 1.5 s** |
+| Skill 2 | Burrow | Dives underground and tunnels about 115 px, steering harder than it used to, **steered with the stick**: out of reach, under bodies and across pits, under a moving mound of dirt. Pops up at the end and knocks up whoever is on top; an uppercut from below, it **breaks guards**. Underground he is **out of sight** (the CPU loses him and goes where it last saw him; you still see the mound), so the pop-up is an **ambush: 25% harder, and so is everything he lands in the next 1.5 s** |
 | Surge | Cave-In | Rears up and slams the floor: the ground caves in all around the spot ahead, (65 px wide, cracking the floor) damaging and **rooting** everyone caught for 2.5 s (they can still attack and guard, but can't walk or dodge) |
 
 No passive on the sheet. His victory emote (jumping out of the ground with a flip) waits
@@ -782,7 +785,7 @@ for a victory-pose system.
 
 ### Sneaky Pete — robbed every bank in town, twice
 
-An assassin (190 HP, Lumen affinity: the sheet says Dark). A cartoon burglar always on
+An assassin (170 HP, Lumen affinity: the sheet says Dark). A cartoon burglar always on
 tiptoe: black eye mask, orange striped beanie, and a big green money bag over his
 shoulder. He wins by not being where you're looking. Voice line: "Finders keepers!"
 
@@ -790,8 +793,8 @@ shoulder. He wins by not being where you're looking. Voice line: "Finders keeper
 | --- | --- | --- |
 | Light | Sucker Punch, Cheap Shot, Bag Swing | Two quick jabs, then the bag comes round |
 | Heavy | Sack Smack | A big wound-up swing of the money bag that knocks the foe well back. Hold to charge: tapped it's an ordinary heavy that can be blocked; **held to a full charge it breaks guards**, and he flashes red with "GUARD BREAK" over his head the moment the charge is full |
-| Skill 1 | Tiptoe | He sneaks forward and goes **invisible** for 3 s (a faint shimmer is all you see) and **55% quicker**. A staggering hit gives him away (a knife flick doesn't); so does his own attack, but only as it lands, and that **ambush hits 35% harder, and so does everything he lands in the next 1.5 s**. The CPU loses track of him and goes where it last saw him |
-| Skill 2 | Pickpocket | A low dash that **steers onto** the nearest foe, runs right **through**, hits on the way past and **steals 20% of their attack power** for 5 s: his hits land 20% harder, theirs 20% softer. A gold windup tell gives it away |
+| Skill 1 | Tiptoe | He sneaks forward and goes **invisible** for 3 s (a faint shimmer is all you see) and **35% quicker** (every 7 s). A staggering hit gives him away (a knife flick doesn't); so does his own attack, but only as it lands, and that **ambush hits 20% harder, and so does everything he lands in the next 1.5 s**. The CPU loses track of him and goes where it last saw him |
+| Skill 2 | Pickpocket | A low dash that **steers onto** the nearest foe, runs right **through**, hits on the way past and **steals 10% of their attack power** for 5 s (every 4 s): his hits land 10% harder, theirs 10% softer. A gold windup tell gives it away |
 | Surge | The Big Heist | A puff of smoke and he's gone, then he **reappears behind the foe** (on their far side if the spot behind is a pit or a wall) for a flurry of bag hits and a big finishing smack that knocks down, its smoke **blinding** everyone within 45 px |
 | Passive | Five-Finger Discount | **Lifesteal:** he heals 8% of the health every hit of his takes (clean hits and hits on armor; a blocked hit takes none, so it heals none), up to his max HP |
 
@@ -843,7 +846,7 @@ start from neutral, never as a combo cancel; a folded craft cancels like any mov
 | Skill 1 | Paper Crane (fold 1 sheet) | A crane that **homes in** on the nearest foe for about half a second, then flies straight, and **pops them up** for a juggle. 4 s cooldown |
 | Skill 2 | Paper Frog (fold 1 sheet) | Sends **three frogs hopping forward side by side** (18 px apart, about 150 px). Each deals 4 and **slows**: the middle frog **shoves the foe straight back**, the outer frogs **shove them out to their side**. A foe is hit by one frog at most; blockable. 5 s cooldown |
 | Surge | Thousand Cranes (full meter; no sheets needed) | A lob that **locks on**: point it at a foe (within about 23°, up to about 270 px) and even a tap lands it on them (the landing ring turns gold); point it at empty floor and hold for distance (about 95 to 220 px). It bursts into a **storm of cranes** about 160 px across for 2.5 s: hit after hit inside it, and it **slows** whoever stays in, then everyone is pushed out and the floor cracks in a wide ring. Leave the circle (a roll covers it even slowed) |
-| Dodge | Paper Plane | Folds into a paper airplane and glides as far as Chef Cerebro's blink (about 116 px), **over fences** |
+| Dodge | Paper Plane | Folds into a paper airplane and glides about 116 px (farther than Chef Cerebro's 90 px blink), **over fences** |
 
 **Victory pose:** he folds himself into a giant crane, flies a loop and unfolds with a
 bow (the first fighter with a victory pose; the system plays a `victory` animation for
@@ -880,8 +883,8 @@ storm.
 | Hissy Fitz | Snake Jab, Snake Jab, Hair Lash → Coil Uppercut → Venom Spit → Petrify Punch, then shatter the statue | 81.1 + |
 | Digby | Claw Swipe, Claw Swipe, Pickaxe Swing → Headlamp Flash | 22.3 |
 | Digby | Claw Swipe, Claw Swipe, Pickaxe Swing → Pickaxe Pop-Up → Cave-In | 57.0 |
-| Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket | 36.9 |
-| Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket → The Big Heist (with stolen power: +20%) | 126.9 |
+| Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket | 33.9 |
+| Sneaky Pete | Sucker Punch, Cheap Shot, Bag Swing → Sack Smack → Pickpocket → The Big Heist (with stolen power: +10%) | 116.4 |
 | Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Slush Slide | 47.8 |
 | Sno Mercy | Cold Cross, Cold Cross, Brain Freeze → Shaved Ice Spray → Flavor Blast, then shatter the ice | 63.9 + |
 | Mister Crease | (shuriken and crane folded) Paper Cut ×3 → Paper Shuriken → Paper Crane | about 21 + bleed |

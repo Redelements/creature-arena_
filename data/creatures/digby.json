@@ -9,7 +9,7 @@
   "accel": 0.55,
   "radius": 9,
   "weight": 0.9,
-  "ambush": 1.35,
+  "ambush": 1.25,
   "ambush_ticks": 90,
   "stamina": 100,
   "stamina_regen": 0.6,
