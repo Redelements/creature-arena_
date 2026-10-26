@@ -689,12 +689,49 @@ def outline(r, img):
     return a
 
 
-def render(pose, view, build, decorate=None):
+# Normal sheets (`write_sheets(..., normals=True)`, docs/SPRITES.md "Normal sheets"): the
+# game lights a fighter per pixel from them. NORMAL_BLUR is the half-width of the box that
+# smooths the splats' wobbly normals, within one piece, so light shows the form and not noise.
+NORMAL_BLUR = 2
+_last_normal = [None]  # the normal frame of the last render(), when asked for
+
+
+def normal_frame(r, img):
+    """The frame's normal map as RGBA bytes: R, G = the screen normal's x (right) and y (up,
+    OpenGL style, as Godot reads it) mapped -1..1 to 0..255, B = its z (toward the camera),
+    A = the colour frame's alpha. The normal is the one the ramp shading used
+    (`Cam.screen_dir`), box-blurred over NORMAL_BLUR px among pixels of the same piece and
+    renormalised. Pixels the rig didn't fill (the outline ring, decorations outside the
+    body) face the camera, so they keep their ink under any light."""
+    part = r["part"]
+    filled = r["mat"] > 0
+    h, w = part.shape
+    sd = r["cam"].screen_dir(r["nrm"].reshape(-1, 3)).reshape(h, w, 3)
+    sd[~filled] = 0.0
+    acc = np.zeros_like(sd)
+    k = NORMAL_BLUR
+    for dy in range(-k, k + 1):
+        for dx in range(-k, k + 1):
+            same = filled & (_shifted(part, dx, dy, -1) == part)
+            acc += np.where(same[..., None], _shifted(sd, dx, dy, 0.0), 0.0)
+    n = acc / (np.linalg.norm(acc, axis=2, keepdims=True) + 1e-9)
+    n[~filled] = (0.0, 0.0, 1.0)
+    out = np.zeros((h, w, 4), np.uint8)
+    out[..., 0] = np.clip(np.round((n[..., 0] * 0.5 + 0.5) * 255), 0, 255)
+    out[..., 1] = np.clip(np.round((-n[..., 1] * 0.5 + 0.5) * 255), 0, 255)
+    out[..., 2] = np.clip(np.round((n[..., 2] * 0.5 + 0.5) * 255), 0, 255)
+    out[..., 3] = img[..., 3]
+    out[img[..., 3] == 0] = 0
+    return out
+
+
+def render(pose, view, build, decorate=None, normals=False):
     r = rasterise(pose, view, build)
     img = shade(r)
     if decorate is not None:
         img = decorate(r, img)
     img = outline(r, img)
+    _last_normal[0] = Image.fromarray(normal_frame(r, img)) if normals else None
     return Image.fromarray(img)
 
 
@@ -710,13 +747,19 @@ def view_names(views):
     return ["side"] + [v for v in VIEW_ORDER[1:] if v in views] + [v for v in views if v not in VIEW_ORDER]
 
 
-def sheet(view, rows, fw, fh, origin, build, decorate=None):
+def sheet(view, rows, fw, fh, origin, build, decorate=None, normals=False):
+    """One view's sheet; with `normals`, (sheet, normal sheet) in the same layout."""
     set_frame(fw, fh, origin)
     out = Image.new("RGBA", (fw * COLS, fh * len(rows)), (0, 0, 0, 0))
+    nout = Image.new("RGBA", out.size, (0, 0, 0, 0)) if normals else None
     for r, (_name, poses) in enumerate(rows):
         for c, pose in enumerate(poses):
-            out.alpha_composite(render(pose, view, build, decorate), (c * fw, r * fh))
-    return out
+            if normals:
+                out.alpha_composite(render(pose, view, build, decorate, normals=True), (c * fw, r * fh))
+                nout.paste(_last_normal[0], (c * fw, r * fh))
+            else:  # (a generator's own render, like Crease's render_paper, needn't know normals)
+                out.alpha_composite(render(pose, view, build, decorate), (c * fw, r * fh))
+    return (out, nout) if normals else out
 
 
 def _preview(sh, rows, fw, fh, origin, scale, path):
@@ -736,21 +779,32 @@ def _preview(sh, rows, fw, fh, origin, scale, path):
     print("wrote", os.path.relpath(path, ROOT))
 
 
-def write_sheets(rows, view_rows, out, preview, side, views, build, decorate=None):
+def _save_sheet(made, path, normals):
+    """Saves a sheet (and, with `normals`, its normal sheet beside it as <name>_n.png)."""
+    sh = made[0] if normals else made
+    sh.save(path)
+    print("wrote", os.path.relpath(path, ROOT), sh.size)
+    if normals:
+        npath = path.replace(".png", "_n.png")
+        made[1].save(npath)
+        print("wrote", os.path.relpath(npath, ROOT), made[1].size)
+    return sh
+
+
+def write_sheets(rows, view_rows, out, preview, side, views, build, decorate=None, normals=False):
     """The side sheet, a sheet for every entry in `views` (down and up, and the diagonals
-    down_side and up_side where a generator draws them), and labelled previews."""
+    down_side and up_side where a generator draws them), and labelled previews. With
+    `normals`, each sheet also gets a normal sheet `<sheet>_n.png` (`normal_frame`), which
+    the game uses for per-pixel light; the colour sheets come out the same either way."""
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    sd = sheet("side", rows, side["w"], side["h"], side["origin"], build, decorate)
-    sd.save(out)
-    print("wrote", os.path.relpath(out, ROOT), sd.size)
+    sd = _save_sheet(sheet("side", rows, side["w"], side["h"], side["origin"], build, decorate, normals),
+                     out, normals)
     _preview(sd, rows, side["w"], side["h"], side["origin"], 3, preview)
     made = {}
     for view, spec in views.items():
-        sh = sheet(view, view_rows, spec["w"], spec["h"], spec["origin"], build, decorate)
         path = out.replace(".png", "_%s.png" % view)
-        sh.save(path)
-        print("wrote", os.path.relpath(path, ROOT), sh.size)
-        made[view] = sh
+        made[view] = _save_sheet(sheet(view, view_rows, spec["w"], spec["h"], spec["origin"], build, decorate,
+                                       normals), path, normals)
     s = 2
     label_w = 70
     shown = view_names(views)[1:]

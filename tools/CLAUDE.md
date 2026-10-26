@@ -26,6 +26,11 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   Prefer this shape for new fighters, like `gen_digby.py`: `build(pose, view)`, a `MAT`
   table of palette ramp names, `ROWS` / `VIEW_ROWS`, pose functions;
   `python3 tools/gen_<id>.py inspect idle:0 run:2` previews frames.
+  `write_sheets(..., normals=True)` also writes a normal sheet `<sheet>_n.png` beside each
+  colour sheet (`normal_frame`: the shading's screen normal, smoothed per piece; packing in
+  `docs/SPRITES.md`, "Normal sheets"); the colour sheets come out byte for byte the same.
+  Pete and Culvert pass it (the light proof); a generator with its own `render` (Crease's
+  `render_paper`) can't yet.
 - `gen_culvert.py`, `gen_digby.py`, `gen_pete.py`, `gen_sno.py`, `gen_crease.py`, `gen_cairn.py`,
   `gen_dummy.py`: splat3d rigs (Crease: faceted paper, 128x160 frames, `decorate` draws creases).
   Cairn's stones are rigid (no squash): `pack` and per-stone `off` / `tilt` carry the weight

@@ -23,6 +23,12 @@ extends Node2D
 ## side / down_side / down / up_side / up. A fighter without the sheet a sector wants keeps
 ## the older rule (more up/down than sideways by 0.05: up/down, else side), so fighters
 ## without diagonal sheets draw the diagonals side-on, as they always have.
+##
+## Normal sheets: a view whose sheet has a `<sheet>_n.png` beside it (or a "normal" path in
+## its block) shows through a CanvasTexture with that normal map, so Light2DView's lights
+## shade it per pixel (Settings > Video > Lighting): while such a sheet shows, the sprite's
+## `light_mask` is Light2DView.FIGHTER_MASK. A sheet without normals keeps the default mask,
+## which no light uses, so a fighter without normal sheets draws exactly as before.
 
 const FLASH_SHADER := preload("res://src/view/flash.gdshader")
 ## Windup tell colors: red means it can't be blocked, so get out of the way or hit first.
@@ -143,13 +149,21 @@ func rebind(creature: CreatureSim) -> void:
 
 static func _load_view(v: Dictionary, side: Dictionary, side_only: Array) -> Dictionary:
 	var tex: Texture2D = load(String(v["path"]))
+	var lit: Texture2D = tex
+	var npath := String(v.get("normal", String(v["path"]).get_basename() + "_n.png"))
+	if ResourceLoader.exists(npath):
+		var ct := CanvasTexture.new()
+		ct.diffuse_texture = tex
+		ct.normal_texture = load(npath)
+		ct.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		lit = ct
 	var fr = v.get("frame", side.get("frame", 48))
 	var size := Vector2(float(fr[0]), float(fr[1])) if fr is Array else Vector2(float(fr), float(fr))
 	var o: Array = v.get("origin", side.get("origin", [24, 43]))
 	var anims: Dictionary = v.get("anims", side.get("anims", {})).duplicate()
 	for n in side_only:
 		anims.erase(n)
-	return {"tex": tex, "size": size, "cols": int(v.get("cols", side.get("cols", 1))),
+	return {"tex": tex, "lit": lit, "size": size, "cols": int(v.get("cols", side.get("cols", 1))),
 		"origin": Vector2(float(o[0]), float(o[1])), "anims": anims}
 
 
@@ -212,7 +226,8 @@ func refresh() -> void:
 	var anim: Array = res[1]
 	if v != _cur:
 		_cur = v
-		sprite.texture = v["tex"]
+		sprite.texture = v["lit"]
+		sprite.light_mask = Light2DView.FIGHTER_MASK if lit() else 1
 		sprite.hframes = int(v["cols"])
 		sprite.vframes = maxi(1, int(v["tex"].get_height() / v["size"].y))
 	var count := int(anim[2])
@@ -438,6 +453,16 @@ func kick(to: Vector2) -> void:
 	_kick(to)
 
 
+## Whether the sheet showing now has normals (the lights shade it; WeatherView dims it by day).
+func lit() -> bool:
+	return not _cur.is_empty() and _cur["lit"] != _cur["tex"]
+
+
+## The colour sheet showing now (the sprite's texture may be a CanvasTexture with its normals).
+func sheet() -> Texture2D:
+	return _cur.get("tex", sprite.texture)
+
+
 ## What the sprite looks like right now, for afterimages and death animations.
 ## "side_*" always describe the side sheet (Cairn's scatter cuts its idle frame).
 func snapshot() -> Dictionary:
@@ -447,7 +472,7 @@ func snapshot() -> Dictionary:
 	var col := sprite.frame % vc
 	var row := sprite.frame / vc
 	return {
-		"tex": sprite.texture,
+		"tex": v["tex"],
 		"region": Rect2(col * size.x, row * size.y, size.x, size.y),
 		"feet": position + pivot.position,
 		"flip": flip,
@@ -463,7 +488,7 @@ func snapshot() -> Dictionary:
 ## What the shadow looks like (ShadowLayer redraws it only when this changes; moving
 ## doesn't): the frame, facing, squash, size and strength.
 func shadow_key() -> Array:
-	return [sprite.texture, sprite.frame, flip, (_sq * shadow_size).snapped(Vector2(0.02, 0.02)),
+	return [sheet(), sprite.frame, flip, (_sq * shadow_size).snapped(Vector2(0.02, 0.02)),
 		snappedf(shadow_fade, 0.02), pivot.position.x]
 
 
@@ -481,7 +506,7 @@ func draw_shadow(ci: CanvasItem, cast: Vector2, alpha: float) -> void:
 	var a := alpha * shadow_fade
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.38))
 	ci.draw_circle(Vector2.ZERO, c.radius * 0.8 * shadow_size, Color(0, 0, 0, a * 0.45))
-	ShadowLayer.draw_silhouette(ci, sprite.texture, region, _cur["origin"], flip,
+	ShadowLayer.draw_silhouette(ci, sheet(), region, _cur["origin"], flip,
 		Vector2(pivot.position.x, 0.0), cast, a, _sq * shadow_size)
 
 

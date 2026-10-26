@@ -60,8 +60,9 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
 - Layer order (main.gd, back to front): BackdropView (sky, far tiers), ArenaView (the floor
   picture), FurnitureView, CrowdView, FloorWear, the weather's shade, FxGround, WaterView,
   AmbientView, ShadowLayer, the weather's ground layer, Glow's floor pools, RangeRings, the
-  entities (y-sorted fighters), ForeView, WeatherView, FxView, PaperFx, Glow's halos; then the
-  screen layer (GradeView, Letterbox, flash, fade, Hud).
+  entities (y-sorted fighters), ForeView, WeatherView, FxView, PaperFx, Glow's halos,
+  Light2DView (lights only: where it sits in the tree doesn't matter, its masks do), BloomView;
+  then the screen layer (GradeView, BloomView's `out`, Letterbox, flash, fade, Hud).
 - Foreground: `fore_view.gd` (ForeView, right after the entities: over the fighters, under the
   weather and FxView, so telegraphs and bars stay on top) draws `arena_<id>_fore.png` (the
   nearest fans and a rail, its top `FORE_GAP` px below the front wall's foot: the heads rise
@@ -194,6 +195,28 @@ dig/slosh/poof/chop_chop/shout sounds.
   projectiles where FxView draws them, and particles (spawned only for what was seen; `tests/test_glow.gd`).
   A pool is a true circle on the floor. Keep halos faint over a fighter (an aura's `halo` share is 0.12),
   or the sprite washes out.
+- Lighting (Settings > Video, `main.gd:lighting`, Off / Low / High, default High on desktop and
+  Low on mobile; `--lighting=`) → `light2d_view.gd` (Light2DView) and `bloom_view.gd` (BloomView,
+  `bloom.gdshader`). Real Godot PointLight2Ds, per pixel on fighters with normal sheets
+  (`<sheet>_n.png`, `docs/SPRITES.md` "Normal sheets"; `CreatureView._load_view` wraps them in a
+  CanvasTexture, `lit()`). Light masks keep everything else exact: no light uses mask 1 (the
+  default), fighter sprites with normals carry `Light2DView.FIGHTER_MASK` (2), WeatherView's night
+  shade `FLOOR_MASK` (4). Low: the sun by day (one wide PointLight2D behind each seen fighter
+  along the shadows' light, `_place_suns`; WeatherView's `fighter_scale` dims the lit fighters'
+  shade side), a ready Surge's and a move's `fx.light` (gathered by LightView's own
+  `_creature_lights`: `fx.shown`, no stealth; at most `MAX_DYNAMIC` 8, `take`). High adds an arena's
+  `lights` at night (Floodgate): each lamp a floor light on the flat night shade (a MUL layer that
+  takes light, so the lamps brighten the multiply: the pools are live, `WeatherView.lamp_lights`
+  drops the baked texture) and a fighter light hung `LAMP_LIFT` of its `height` up the screen; and
+  bloom: the bright things drawn again, soft, into a half-size SubViewport with its own World2D,
+  blurred along x into a second one and along y onto the screen layer with `blend_add` (three
+  cheap passes). Gotchas found building it (Godot 4.7.2, Compatibility): a DirectionalLight2D
+  ignores `range_item_cull_mask` and lights every canvas item, the HUD too (so no
+  DirectionalLight2D); the GLES3 shader cache (`user://shader_cache`) reloads the canvas shader
+  broken on the second launch (13 `shader_gles3.cpp:802` errors) and every light then lights a
+  flat square, which is why `project.godot` turns it off
+  (`rendering/shader_compiler/shader_cache/enabled=false`). The bloom's SubViewports get a World2D
+  of their own, so they draw only the bloom's sources. `tests/test_light2d.gd`.
 - Time of day and weather → `weather_view.gd` (WeatherView; presets in `data/weather.json`, an arena's
   allowed `times` / `weathers`). Four depths: `shade` (a MUL layer after the floor wear, before `FxGround`,
   so floor telegraphs keep their colours: a flat tint, or at night a light map with floodlight pools
@@ -269,6 +292,8 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `arena_view.gd` (ArenaView) — Draws the stadium: stands, walls, and the breakable floor from the terrain grid.
 - `audio_view.gd` (AudioView) — Sound effects and music. Like the other views it only reads the simulation: sounds come from simulation events (hits, s…
 - `backdrop_view.gd` (BackdropView) — The world beyond the floor, in depth. A map's picture (ArenaView) holds the crowd's rows and everything below them; abo…
+- `bloom.gdshader` — (no header comment)
+- `bloom_view.gd` (BloomView) — Bloom (Settings > Video > Lighting: High only), hand-rolled: the Compatibility renderer has no 2D HDR glow.
 - `creature_view.gd` (CreatureView) — Shows one CreatureSim: picks the sprite frame from its state, flips it to face, and adds the hit flash, charge glow, in…
 - `crowd_view.gd` (CrowdView) — The crowd all round the stadium: the stands across the top, banked side stands left and right of the floor (the two sid…
 - `debug_view.gd` (DebugView) — F1 overlay: hurtboxes (green), active hitboxes (red), facing, and state/frame counters.
@@ -283,6 +308,7 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `grade_view.gd` (GradeView) — A map's grade: a subtle colour tint and a vignette over the whole picture, under the HUD (the first child of main's scr…
 - `hud.gd` (Hud) — Fighter panels (health, energy, stamina, skill cooldowns, Cairn's stones), the combo counter with its damage multiplier…
 - `letterbox.gd` (Letterbox) — Black bars across the top and bottom of the screen for the big moments (a knockout's push-in, a Surge's freeze), on the…
+- `light2d_view.gd` (Light2DView) — Real 2D lights (Settings > Video > Lighting): Godot PointLight2Ds that light the fighters per pixel through their norma…
 - `light_view.gd` (LightView) — Glow (Settings > Video): glowing things light the floor around them and get a soft halo, so the arena feels lit.
 - `paper_fx.gd` (PaperFx) — Mister Crease's paper, drawn over the fighters: the sheets of his Paper Stock floating above the hat, the crafts he has…
 - `perf_overlay.gd` (PerfOverlay) — The performance overlay (Settings > Video, or F9): the frame rate in a corner, and in its second mode a chart of the la…
