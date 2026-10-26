@@ -125,6 +125,8 @@ var _dance_t := 0
 var _blocked_serial := -1  ## the attack of ours that was last blocked
 var _blocked_streak := 0  ## attacks of ours blocked in a row (a hit resets it)
 var _quiet_t := 0  ## ticks since one of our attacks last landed or was blocked
+var _kite_walk_t := 0  ## ticks until a mage below Rage sets its walk again (_kite_walk)
+var _kite_walk_v := Vector2.ZERO
 
 
 func _init(p_me: int, p_level := 1, p_seed := 1) -> void:
@@ -1041,7 +1043,9 @@ func _neutral_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vect
 			_press(SimDefs.IN_HEAVY)
 			_hold(SimDefs.bits_from_dir(to_foe.normalized()))
 			return
-		if dist > want + 14.0:
+		if String(_style(me)["plan"]) == "kite":
+			_kite_walk(sim, me, foe)  # a mage backs off to its range while the foe gets up
+		elif dist > want + 14.0:
 			_go_to(sim, me, me.pos + to_foe)
 		return
 
@@ -1049,6 +1053,11 @@ func _neutral_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vect
 	if foe.is_stunned() and dist < want + 10.0:
 		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
 		_press(SimDefs.IN_LIGHT)
+		return
+
+	# A mage keeps its distance and throws (_neutral_kite).
+	if String(_style(me)["plan"]) == "kite":
+		_neutral_kite(sim, me, foe, to_foe, dist, want)
 		return
 
 	_think_t -= 1
@@ -1061,97 +1070,7 @@ func _neutral_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vect
 		_plan = "wait"
 		return
 
-	# Long-range pokes: a shockwave or a dash punch.
-	var poke := String(ai.get("poke", ""))
-	var pr: Array = ai.get("poke_range", [0, 0])
-	var poke_lined: bool = poke == "" or not me.moves().get(poke, {}).has("projectile") or absf(to_foe.y) < 18.0
-	if poke != "" and _usable(me, poke) and dist >= float(pr[0]) and dist <= float(pr[1]) \
-			and poke_lined and _roll(0.25 * float(p["aggression"]) + 0.05):
-		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
-		_press(int(ACTION_BIT[poke]))
-		return
-
-	# A lob (Pinecone Bomb) lands a fixed distance ahead: throw it when the foe is about there.
-	var lob := String(ai.get("lob", ""))
-	var lr: Array = ai.get("lob_range", [0, 0])
-	if lob != "" and _usable(me, lob) and dist >= float(lr[0]) and dist <= float(lr[1]) \
-			and _roll(0.25 * float(p["aggression"]) + 0.05):
-		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
-		_press(int(ACTION_BIT[lob]))
-		# A lob that charges for distance (Pinecone Bomb): hold it just long enough to land
-		# on the foe.
-		var lmv: Dictionary = me.moves().get(lob, {})
-		var lp: Dictionary = lmv.get("projectile", {})
-		if lmv.has("charge_max") and lp.has("range_charged"):
-			var k := clampf((dist - float(lp["range"])) / maxf(1.0, float(lp["range_charged"]) - float(lp["range"])),
-				0.0, 1.0)
-			_hold_heavy = int(round(k * float(lmv["charge_max"])))
-			_hold_bit = int(ACTION_BIT[lob])
-		return
-
-	# A gaze (Stone Gaze) slows a foe who is looking this way: use it at mid range.
-	var gaze := String(ai.get("gaze", ""))
-	var gzr: Array = ai.get("gaze_range", [0, 0])
-	if gaze != "" and _usable(me, gaze) and dist >= float(gzr[0]) and dist <= float(gzr[1]) \
-			and foe.facing.dot(-to_foe.normalized()) > 0.3 and _roll(0.15 + 0.1 * level):
-		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
-		_press(int(ACTION_BIT[gaze]))
-		return
-
-	# A slowing puddle round his feet (Syrup Slick) when the foe is close.
-	var zone := String(ai.get("zone", ""))
-	var zr: Array = ai.get("zone_range", [0, 0])
-	if zone != "" and _usable(me, zone) and dist >= float(zr[0]) and dist <= float(zr[1]) \
-			and _roll(0.1 + 0.06 * level):
-		_press(int(ACTION_BIT[zone]))
-		return
-
-	# Going invisible (Tiptoe) to sneak in from mid range.
-	var sneak := String(ai.get("stealth", ""))
-	var sr: Array = ai.get("stealth_range", [0, 0])
-	if sneak != "" and _usable(me, sneak) and me.stealth <= 0 and dist >= float(sr[0]) and dist <= float(sr[1]) \
-			and _roll(0.12 + 0.06 * level):
-		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
-		_press(int(ACTION_BIT[sneak]))
-		return
-
-	# A tunnel (Burrow) closes a long gap safely, out of reach while underground.
-	var burrow := String(ai.get("burrow", ""))
-	var br: Array = ai.get("burrow_range", [0, 0])
-	if burrow != "" and _usable(me, burrow) and dist >= float(br[0]) and dist <= float(br[1]) \
-			and _roll(0.08 + 0.06 * level):
-		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
-		_press(int(ACTION_BIT[burrow]))
-		return
-
-	# A line Surge (Knife Flurry) works from neutral when the foe is lined up in range.
-	var surge_line := float(ai.get("surge_line", 0))
-	if surge_line > 0.0 and dist < surge_line and _usable(me, "surge") and _lined_up(to_foe, foe) \
-			and _roll(0.2 + 0.15 * level):
-		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
-		_press(SimDefs.IN_SURGE)
-		return
-
-	# An area Surge (Storm Drain) works straight from neutral when the foe is close.
-	var surge_range := _surge_range(me, ai)
-	if surge_range > 0.0 and dist < surge_range and _usable(me, "surge") \
-			and not (me.moves()["surge"].has("armor") and _foe_grab_ready(foe)) and _roll(0.3 + 0.2 * level):
-		_press(SimDefs.IN_SURGE)
-		return
-
-	# A guarding foe invites a grab.
-	var grab := String(ai.get("grab", ""))
-	var grab_reach := float(ai.get("grab_range", want - me.radius - foe.radius + 10.0)) + me.radius + foe.radius
-	if grab != "" and foe.state == CreatureSim.State.GUARD and dist < grab_reach + 8.0 and _usable(me, grab):
-		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
-		_press(int(ACTION_BIT[grab]))
-		return
-
-	# A kiting fighter peels off a foe that walked in close with its grab.
-	if bool(ai.get("kite", false)) and grab != "" and dist < grab_reach and _usable(me, grab) \
-			and _roll(0.3 + 0.15 * level):
-		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
-		_press(int(ACTION_BIT[grab]))
+	if _neutral_kit(me, foe, to_foe, dist, want):
 		return
 
 	# A ranged opener only lands lined up: otherwise step sideways to line up first.
@@ -1169,7 +1088,13 @@ func _neutral_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vect
 			_press(SimDefs.IN_LIGHT)
 		return
 
-	if dist > want + 6.0:
+	# A foe that fights from range (a mage) is run down, as a player does: at where it's
+	# going, weaving, and never backed off from (backing off is walking into its knives).
+	var chase: bool = _is_ranged(foe) and not bool(ai.get("kite", false)) \
+		and not me.moves().get("light_1", {}).has("projectile")
+	if chase and (dist > want + 6.0 or _roll(0.6)):
+		_plan = "chase"
+	elif dist > want + 6.0:
 		_plan = "approach"
 	elif bool(ai.get("kite", false)) and dist < want - 24.0:
 		_plan = "retreat"  # keep the foe at knife range
@@ -1181,6 +1106,170 @@ func _neutral_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vect
 	else:
 		_plan = "wait"
 	_follow_plan(sim, me, foe, to_foe, dist, want)
+
+
+## The kit pieces a CPU below Rage throws from neutral, each on its own roll when the foe
+## is where that piece works (a poke, a lob, a gaze, a puddle, going invisible, a tunnel,
+## a Surge, a grab). True when it pressed one.
+func _neutral_kit(me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float, want: float) -> bool:
+	var ai := _ai(me)
+	# Long-range pokes: a shockwave or a dash punch.
+	var poke := String(ai.get("poke", ""))
+	var pr: Array = ai.get("poke_range", [0, 0])
+	var poke_lined: bool = poke == "" or not me.moves().get(poke, {}).has("projectile") or absf(to_foe.y) < 18.0
+	if poke != "" and _usable(me, poke) and dist >= float(pr[0]) and dist <= float(pr[1]) \
+			and poke_lined and _roll(0.25 * float(p["aggression"]) + 0.05):
+		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
+		_press(int(ACTION_BIT[poke]))
+		return true
+
+	# A lob (Pinecone Bomb) lands a fixed distance ahead: throw it when the foe is about there.
+	var lob := String(ai.get("lob", ""))
+	var lr: Array = ai.get("lob_range", [0, 0])
+	if lob != "" and _usable(me, lob) and dist >= float(lr[0]) and dist <= float(lr[1]) \
+			and _roll(0.25 * float(p["aggression"]) + 0.05):
+		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
+		_press(int(ACTION_BIT[lob]))
+		# A lob that charges for distance (Pinecone Bomb): hold it just long enough to land
+		# on the foe.
+		var lmv: Dictionary = me.moves().get(lob, {})
+		var lp: Dictionary = lmv.get("projectile", {})
+		if lmv.has("charge_max") and lp.has("range_charged"):
+			var k := clampf((dist - float(lp["range"])) / maxf(1.0, float(lp["range_charged"]) - float(lp["range"])),
+				0.0, 1.0)
+			_hold_heavy = int(round(k * float(lmv["charge_max"])))
+			_hold_bit = int(ACTION_BIT[lob])
+		return true
+
+	# A gaze (Stone Gaze) slows a foe who is looking this way: use it at mid range.
+	var gaze := String(ai.get("gaze", ""))
+	var gzr: Array = ai.get("gaze_range", [0, 0])
+	if gaze != "" and _usable(me, gaze) and dist >= float(gzr[0]) and dist <= float(gzr[1]) \
+			and foe.facing.dot(-to_foe.normalized()) > 0.3 and _roll(0.15 + 0.1 * level):
+		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
+		_press(int(ACTION_BIT[gaze]))
+		return true
+
+	# A slowing puddle round his feet (Syrup Slick) when the foe is close.
+	var zone := String(ai.get("zone", ""))
+	var zr: Array = ai.get("zone_range", [0, 0])
+	if zone != "" and _usable(me, zone) and dist >= float(zr[0]) and dist <= float(zr[1]) \
+			and _roll(0.1 + 0.06 * level):
+		_press(int(ACTION_BIT[zone]))
+		return true
+
+	# Going invisible (Tiptoe) to sneak in from mid range.
+	var sneak := String(ai.get("stealth", ""))
+	var sr: Array = ai.get("stealth_range", [0, 0])
+	if sneak != "" and _usable(me, sneak) and me.stealth <= 0 and dist >= float(sr[0]) and dist <= float(sr[1]) \
+			and _roll(0.12 + 0.06 * level):
+		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
+		_press(int(ACTION_BIT[sneak]))
+		return true
+
+	# A tunnel (Burrow) closes a long gap safely, out of reach while underground.
+	var burrow := String(ai.get("burrow", ""))
+	var br: Array = ai.get("burrow_range", [0, 0])
+	if burrow != "" and _usable(me, burrow) and dist >= float(br[0]) and dist <= float(br[1]) \
+			and _roll(0.08 + 0.06 * level):
+		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
+		_press(int(ACTION_BIT[burrow]))
+		return true
+
+	# A line Surge (Knife Flurry) works from neutral when the foe is lined up in range.
+	var surge_line := float(ai.get("surge_line", 0))
+	if surge_line > 0.0 and dist < surge_line and _usable(me, "surge") and _lined_up(to_foe, foe) \
+			and _roll(0.2 + 0.15 * level):
+		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
+		_press(SimDefs.IN_SURGE)
+		return true
+
+	# An area Surge (Storm Drain) works straight from neutral when the foe is close.
+	var surge_range := _surge_range(me, ai)
+	if surge_range > 0.0 and dist < surge_range and _usable(me, "surge") \
+			and not (me.moves()["surge"].has("armor") and _foe_grab_ready(foe)) and _roll(0.3 + 0.2 * level):
+		_press(SimDefs.IN_SURGE)
+		return true
+
+	# A guarding foe invites a grab.
+	var grab := String(ai.get("grab", ""))
+	var grab_reach := float(ai.get("grab_range", want - me.radius - foe.radius + 10.0)) + me.radius + foe.radius
+	if grab != "" and foe.state == CreatureSim.State.GUARD and dist < grab_reach + 8.0 and _usable(me, grab):
+		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
+		_press(int(ACTION_BIT[grab]))
+		return true
+
+	# A kiting fighter peels off a foe that walked in close with its grab.
+	if bool(ai.get("kite", false)) and grab != "" and dist < grab_reach and _usable(me, grab) \
+			and _roll(0.3 + 0.15 * level):
+		_hold(SimDefs.bits_from_dir(to_foe.normalized()))
+		_press(int(ACTION_BIT[grab]))
+		return true
+	return false
+
+
+## A mage below Rage, played the way a decent player plays one: keep the foe at knife
+## range (the kite band, as Rage holds it), walking back and round it while facing it, and
+## throw knives whenever it's in range. The level still shows: it rethinks only every
+## `think` ticks (the kit, a roll out of a foe in its face), fumbles `mistake` of them
+## (standing still), reads a foe in its face only `defend` of the time, throws knives at a
+## rate set by `aggression`, and leads its shots less (Easy not at all, and 8 ways).
+func _neutral_kite(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float, want: float) -> void:
+	var max_r := me.move_range("light_1")
+	_think_t -= 1
+	if _think_t <= 0:
+		_think_t = int(p["think"]) + rng.randi_range(0, 6)
+		if _roll(float(p["mistake"])):
+			_plan = "wait"
+			return
+		if _neutral_kit(me, foe, to_foe, dist, want):
+			return
+		_plan = "kite"
+		# A foe in its face: flip it away (the grab) or roll out to open floor, when it
+		# reads it in time.
+		if dist < _reach_of(foe, me) + 8.0 and not _foe_hidden and _roll(float(p["defend"])):
+			var ai := _ai(me)
+			var grab := String(ai.get("grab", ""))
+			if grab != "" and _usable(me, grab) and foe.state != CreatureSim.State.ATTACK \
+					and dist < float(ai.get("grab_range", 30)) + me.radius + foe.radius:
+				_hold(SimDefs.bits_from_dir(to_foe.normalized()))
+				_press(int(ACTION_BIT[grab]))
+				return
+			if me.can_dodge() and me.stamina > me.max_stamina * 0.3:
+				_dodge_dir(me, _open_dir(sim, me, -to_foe, _roll_distance(me)))
+				return
+	if _plan == "wait":
+		return
+	# No straight way to the foe (a wall, a fence, a pit): walk the way round first.
+	if dist > max_r and not NavGrid.clear_line(sim.terrain, me.pos, _seen(foe), me.radius, false):
+		_go_to(sim, me, _seen(foe))
+		return
+	_kite_walk(sim, me, foe)
+	if dist <= max_r * 0.95 and _roll(0.1 + 0.3 * float(p["aggression"])):
+		if level == 0:
+			_hold(SimDefs.bits_from_dir(to_foe.normalized()))  # Easy turns to face, 8 ways
+		_press(SimDefs.IN_LIGHT)
+
+
+## A mage's walk below Rage: the kite band's way (_kite_vector), round holes; Normal and
+## up strafe, facing the foe and leading the shot part of the way (Hard all of it).
+func _kite_walk(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
+	# The stick is set again every few ticks (a third of the reaction time), as a hand
+	# catches up with what the eye saw, not every tick.
+	_kite_walk_t -= 1
+	if _kite_walk_t <= 0:
+		_kite_walk_t = maxi(2, int(p["reaction"]) / 3)
+		_kite_walk_v = _kite_vector(sim, me, foe)
+	var d := _steer(sim, me, _kite_walk_v)
+	if level == 0:
+		if d != Vector2.ZERO:
+			_hold(SimDefs.bits_from_dir(d.normalized()))
+		return
+	if d != Vector2.ZERO:
+		_hold(SimDefs.move_bits(d))
+	var lead := 0.5 if level == 1 else 1.0
+	var aim := _seen(foe) + (_aim_point(me, foe) - _seen(foe)) * lead
+	_out |= SimDefs.IN_STRAFE | SimDefs.aim_bits(aim - me.pos)
 
 
 ## Whether a straight throw in the nearest of 8 directions would meet the foe.
@@ -1195,6 +1284,9 @@ func _follow_plan(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vect
 		"approach":
 			if dist > want:
 				_go_to(sim, me, me.pos + to_foe)
+		"chase":
+			if dist > want:
+				_chase(sim, me, foe, to_foe, dist, want, false)
 		"retreat":
 			if dist < want + 30.0:
 				_move_toward(-to_foe)
@@ -2275,9 +2367,11 @@ func _is_ranged(o: CreatureSim) -> bool:
 ## Running down a kiter: head for where it's going (and a little toward the middle, so
 ## it backs into a wall), weave so its shots miss, throw every gap closer as soon as it
 ## reaches, and roll forward through the shots when there's stamina to spare.
-func _chase(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float, reach: float) -> void:
+## Below Rage (`kit` false) the gap closers stay with _neutral_kit's rolls, and the roll
+## forward is rarer the less aggressive the level.
+func _chase(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float, reach: float, kit := true) -> void:
 	var ai := _ai(me)
-	for key in ["burrow", "stealth", "poke"]:
+	for key in ([] if not kit else ["burrow", "stealth", "poke"]):
 		var mid := String(ai.get(key, ""))
 		var rg: Array = ai.get(key + "_range", [0, 0])
 		if mid != "" and _usable(me, mid) and dist >= float(rg[0]) * 0.7 and dist <= float(rg[1]) \
@@ -2287,7 +2381,8 @@ func _chase(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, d
 	var dg: Dictionary = me.def["dodge"]
 	var roll := float(dg.get("speed", 0.0)) * float(dg.get("frames", 0))
 	if me.can_dodge() and me.stamina > me.max_stamina * 0.55 and roll > 20.0 \
-			and dist > reach + roll * 0.5 and dist < reach + roll * 1.6 and _roll(0.2):
+			and dist > reach + roll * 0.5 and dist < reach + roll * 1.6 \
+			and _roll(0.2 if kit else 0.1 * float(p["aggression"])):
 		_dodge_dir(me, to_foe)
 		return
 	var lead := foe.walk_vel * clampf(dist / maxf(me.walk_speed(), 0.5), 0.0, 40.0) * 0.6
