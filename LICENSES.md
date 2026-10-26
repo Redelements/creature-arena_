@@ -60,6 +60,20 @@ snapped to the game's palette):
 - `assets/tiles/set1_*.tres`: the Godot TileSets `tools/build_tiles.gd` makes from them.
 - `assets/arenas/<id>.tscn`: each tiled arena's ground, painted with those tiles.
 
+Files from **RPG Worlds GrassLand v2** (`RPGW_GrassLand_v2.01`) and **RPG Worlds Decorative
+Props** (`RPGW_DecorativeProps_v1.0`), both in the same bundle, with Set 1 (cut by
+`tools/cut_tiles.py` from `tools/tile_recipes/grassland.json`, colours snapped to the palette):
+
+- `assets/tiles/grassland_ground.png`: the Greenhouse's turf (Set 1), GrassLand's moss kerb,
+  flower meadow and its own turf, Set 1's grass and water blobs.
+- `assets/tiles/grassland_pieces.png`: Set 1 boulders and tall grass, Decorative Props fences.
+- `assets/tiles/grassland_overlay.png`: GrassLand cliff strips and a cave dark for the pit
+  walls and floor, with generated cracks and edges.
+- `assets/tiles/grassland_decor_*.png`: Decorative Props pots, barrels and crates, Set 1's
+  birch and bush.
+- `assets/tiles/grassland_manifest.json`, `assets/tiles/grassland_*.tres` and
+  `assets/arenas/greenhouse.tscn`: derived from the above.
+
 Fantasy Lands Warrior: nothing from it is in the repository yet. Add its files here when
 they are.
 
