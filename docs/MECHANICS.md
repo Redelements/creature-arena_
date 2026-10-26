@@ -1,4 +1,4 @@
-# Creature Arena: mechanics reference
+# Ready 4 Rambles: mechanics reference
 
 Every data key the simulation reads from `data/creatures/*.json`, and the rules built on them.
 The code in `src/sim/` is the source of truth; this page was checked against it (2026-10-14).

@@ -1,6 +1,6 @@
 class_name ServerBeacon
 extends RefCounted
-## A dedicated server's answer to "is there a Creature Arena server on this network?".
+## A dedicated server's answer to "is there a Ready 4 Rambles server on this network?".
 ##
 ## Players at the server's own house can't always reach it by its public name: many
 ## routers won't loop their public address back inside. So before joining, the game
@@ -12,6 +12,8 @@ extends RefCounted
 ##   sudo ufw allow from 192.168.0.0/24 to any port 7778 proto udp
 
 ## The question and answer (JSON), so nothing else on the network is mistaken for one.
+## They keep the game's old name, so servers and games from before the rename still
+## find each other.
 const ASK := "creature-arena?"
 const ANSWER := "creature-arena"
 ## Anything longer than this isn't a question; it's dropped unread.

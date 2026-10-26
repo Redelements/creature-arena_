@@ -1,4 +1,4 @@
-# Creature Arena: codebase map
+# Ready 4 Rambles: codebase map
 
 A routing table: find the words of the task below, open that file and function, and run
 only the tests named beside it (`TEST_ONLY=stamina,combat TEST_QUIET=1`). Code is in `src/`,

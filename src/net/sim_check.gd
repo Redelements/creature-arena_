@@ -4,7 +4,7 @@ extends RefCounted
 ## (fighters start in reach, so it's full of hits, combos, Surges, pits and KOs) plus a
 ## Duel full of tags, and returns one exact fingerprint for both. CI runs it on the Linux and Windows builds:
 ## online play only works if every platform gets the same answer.
-##   CreatureArena --headless -- --sim-check=SEED [--sim-check-out=PATH]
+##   Ready4Rambles --headless -- --sim-check=SEED [--sim-check-out=PATH]
 
 
 static func run(seed_: int, ticks := 6000) -> String:
