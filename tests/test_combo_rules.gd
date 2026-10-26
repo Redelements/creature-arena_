@@ -459,7 +459,7 @@ func test_a_surge_still_charges_nothing() -> void:
 	assert_near(MatchSim.energy_dealt(_duel().creatures[1], "surge", 50.0), 0.0, 0.0001, "nor would any Surge damage:")
 
 
-func test_blocked_chip_charges_by_type_too() -> void:
+func test_a_blocked_hit_deals_and_charges_nothing() -> void:
 	var sim := _duel()
 	var a := sim.creatures[0]
 	var d := sim.creatures[1]
@@ -468,10 +468,9 @@ func test_blocked_chip_charges_by_type_too() -> void:
 	a.energy = 0.0
 	var hp0 := d.hp
 	assert_eq(sim._apply_hit(a, d, _hit("light", "light_1", 1), Vector2.RIGHT, d.pos), "block", "blocked:")
-	var chip := hp0 - d.hp
-	assert_gt(chip, 0.0, "it chipped")
-	assert_near(a.energy, chip * MatchSim.energy_rate_dealt() * _rule("light") * _var_energy(1), 0.001,
-		"chip energy uses the light mult:")
+	assert_near(d.hp, hp0, 0.001, "no chip:")
+	assert_lt(d.stamina, d.max_stamina, "the guard paid in stamina")
+	assert_near(a.energy, 0.0, 0.001, "and no meter from it:")
 
 
 func test_without_the_new_keys_every_hit_charges_alike() -> void:
