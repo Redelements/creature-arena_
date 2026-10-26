@@ -20,6 +20,15 @@ extends Node2D
 ##   - the fighters: each sprite's `self_modulate`, the look's `fighter` tint; at night
 ##     lit by the pool it stands in, never below `fighter_min` (the flash shader's hit
 ##     flash and windup tells replace the colour, so they stay exact).
+## Lighting (Light2DView, Settings > Video > Lighting): with `lamp_lights` (High, on an arena
+## with `lights`) the night shade is the flat dark tint and the arena's lamps light it
+## (`shade.light_mask` is Light2DView.FLOOR_MASK, so the lamps' PointLight2Ds brighten the
+## multiply layer where they shine): the pools come from real lights instead of the baked
+## light map, which still answers `light_at`. Fighters with normal sheets (`CreatureView.lit`)
+## then keep the night tint, never under the time's `lit_fighter_min` (else `fighter_min`),
+## and the lamps light them per pixel; the others take the baked pool's light as before.
+## `fighter_scale` dims the fighters with normal sheets a little by day so the sun's lit side
+## reads; the others draw exactly as before.
 ## It also tints the water and the ambient life (`life`), softens or stretches the shadows
 ## (`shadow`: length, alpha, `low_sun`) and tells AmbientView about wind, motes and
 ## critters (`ambient`). Everything moves on the 60 Hz tick (no interpolation); a phone
@@ -50,11 +59,16 @@ var _weather := {}
 var _tick := 0
 var _fighter := Color.WHITE
 var _fighter_min := 1.0
+var _lit_min := 1.0  ## `lit_fighter_min`: a normal-mapped fighter's least brightness under the lamps
 var _lightmap: Image = null
 var _lm_origin := Vector2.ZERO
 var _lights: Array = []  ## night: [pos, radius] of each floodlight pool
 var _lamps: Array = []
 var _debris := ""
+## Set by main before `apply` (Light2DView): the arena's lamps light the night (no baked pools).
+var lamp_lights := false
+## Set by main (Light2DView): every fighter's tint times this (the sun's shade side by day).
+var fighter_scale := 1.0
 
 
 ## The multiply layer over the floor art.
@@ -67,13 +81,18 @@ class Shade extends Node2D:
 		var m := CanvasItemMaterial.new()
 		m.blend_mode = CanvasItemMaterial.BLEND_MODE_MUL
 		material = m
+		light_mask = Light2DView.FLOOR_MASK  # the lamps (High) light the night through it
 
 	func _draw() -> void:
 		const BIG := 100000.0
-		if tex == null:
+		if tex == null and not rect.has_area():
 			draw_rect(Rect2(-BIG, -BIG, BIG * 2.0, BIG * 2.0), tint)
 			return
-		draw_texture_rect(tex, rect, false)
+		if tex != null:
+			draw_texture_rect(tex, rect, false)
+		else:
+			# lit by the lamps (High): the map's own rect, the flat dark the lights brighten
+			draw_rect(rect, tint)
 		# the dark all round the light map (the camera can look past the picture)
 		draw_rect(Rect2(-BIG, -BIG, BIG * 2.0, rect.position.y + BIG), tint)
 		draw_rect(Rect2(-BIG, rect.end.y, BIG * 2.0, BIG), tint)
@@ -186,6 +205,7 @@ func apply(s: MatchSim, p_look: Dictionary, shadows: ShadowLayer = null, ambient
 	var floor_tint := _tint("floor")
 	_fighter = _tint("fighter")
 	_fighter_min = float(_time.get("fighter_min", 1.0))
+	_lit_min = float(_time.get("lit_fighter_min", _fighter_min))
 	var life := _tint("life")
 	# shadows: the arena's own light, stretched or softened
 	if shadows != null:
@@ -213,11 +233,14 @@ func apply(s: MatchSim, p_look: Dictionary, shadows: ShadowLayer = null, ambient
 	# the multiply layer
 	shade.tint = floor_tint
 	shade.tex = null
+	shade.rect = Rect2()
 	_lightmap = null
 	_lights.clear()
 	_lamps.clear()
 	if _time.has("floodlights"):
 		_build_lightmap(floor_tint, _time["floodlights"])
+		if lamp_lights:
+			shade.tex = null  # the flat dark: the lamps' lights make the pools
 	if ambient != null:
 		ambient.set_moths(_moth_points())
 	shade.visible = shade.tex != null or not floor_tint.is_equal_approx(Color.WHITE)
@@ -359,13 +382,18 @@ func _apply_fighters() -> void:
 		if v.sprite == null:
 			continue
 		var col := _fighter
+		var lit := v.lit()
 		if _lightmap != null and v.c != null:
-			var k := light_at(v.c.pos)
+			var by_lamps := lamp_lights and lit
+			var k := 0.0 if by_lamps else light_at(v.c.pos)
+			var least := _lit_min if by_lamps else _fighter_min
 			col = _fighter.lerp(Color.WHITE, k)
 			var lum := col.r * 0.3 + col.g * 0.55 + col.b * 0.15
-			if lum < _fighter_min:
-				col = col.lerp(Color.WHITE, (_fighter_min - lum) / maxf(0.01, 1.0 - lum))
+			if lum < least:
+				col = col.lerp(Color.WHITE, (least - lum) / maxf(0.01, 1.0 - lum))
 			col = Color(snappedf(col.r, 0.05), snappedf(col.g, 0.05), snappedf(col.b, 0.05))  # palette steps
+		if fighter_scale < 1.0 and lit:
+			col = Color(col.r * fighter_scale, col.g * fighter_scale, col.b * fighter_scale)
 		v.sprite.self_modulate = col
 
 

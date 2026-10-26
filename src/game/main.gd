@@ -34,6 +34,8 @@ extends Node2D
 ##   --cam-lead=0|1 --cam-clash=0|1 --cam-settle=0|1  camera behaviour off / on (Normal) for
 ##                         this session, not saved (also low|normal|high; Settings > Video > Camera)
 ##   --quit-after=N        exit after N frames
+##   --lighting=off|low|high  real 2D lights this session, not saved (Settings > Video >
+##                         Lighting otherwise; Light2DView, BloomView)
 ##   --perf                log frame and tick times during fights; on quit, prints the
 ##                         percentiles, the 1% and 0.1% lows, missed frames and the worst
 ##                         second, and saves them to user://perf.txt
@@ -146,7 +148,7 @@ const REPLAY_MODE := 47
 ## The Settings pages and their rows, in order (see _setting()); "#Name" is a heading.
 const SETTING_PAGES := {
 	"game": ["level", "intros", "rumble", "shake", "discord", "server", "delay"],
-	"video": ["fullscreen", "wide", "vsync", "fps", "glow", "font", "perf_overlay", "#Camera", "cam_lead", "cam_clash", "cam_settle"],
+	"video": ["fullscreen", "wide", "vsync", "fps", "glow", "lighting", "font", "perf_overlay", "#Camera", "cam_lead", "cam_clash", "cam_settle"],
 	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu", "#Voice chat", "voice", "voice_hear", "mic", "mic_test", "vol_Voice"],
 	"touch": ["touch_opacity", "touch_size", "touch_hand", "touch_aim", "#Targeting", "touch_priority", "touch_chase"],
 }
@@ -251,6 +253,11 @@ static func default_fps(mobile := OS.has_feature("mobile")) -> int:
 ## Glow starts on, except on a phone or handheld (weaker GPUs; it can be turned on).
 static func default_glow(mobile := OS.has_feature("mobile")) -> bool:
 	return not mobile
+
+
+## Lighting (Light2DView.Tier) starts High on a desktop, Low on a phone or handheld.
+static func default_lighting(mobile := OS.has_feature("mobile")) -> int:
+	return Light2DView.Tier.LOW if mobile else Light2DView.Tier.HIGH
 # Knockouts: the simulation itself freezes and then runs at half speed (MatchSim's
 # ko_freeze / slowmo, so online peers agree); the camera pushes in on the loser.
 const KO_ZOOM := 1.45
@@ -387,6 +394,13 @@ var _menu_bg := false  ## the menu's background fight is being set up
 var glow_floor: LightView
 var glow_halo: LightView
 var glow := default_glow()
+## Lighting (Settings > Video): real 2D lights on the fighters and, High, the night's lamps and
+## bloom (Light2DView, BloomView). `--lighting=` overrides it for the session.
+var light2d: Light2DView
+var bloom: BloomView
+var lighting := default_lighting()
+var _lighting_cli := -1
+var _lit_look: Dictionary = {}  ## this match's time and weather (Lighting re-applies it)
 var audio: AudioView
 ## Proximity voice chat's microphone and speakers (online only; Settings > Audio).
 var voice_view: VoiceView
@@ -695,6 +709,13 @@ func _ready() -> void:
 	glow_halo.source = glow_floor
 	add_child(glow_halo)
 	_apply_glow()
+	light2d = Light2DView.new()  # real 2D lights (Lighting): only fighter sprites and the night shade take them
+	light2d.fx = fx
+	add_child(light2d)
+	bloom = BloomView.new()  # half-size bloom of the bright things, added onto the screen layer
+	bloom.glow = glow_floor
+	bloom.light2d = light2d
+	add_child(bloom)
 	audio = AudioView.new()
 	add_child(audio)
 	fx.cue.connect(audio.play)
@@ -712,6 +733,7 @@ func _ready() -> void:
 	grade = GradeView.new()  # the map's tint and vignette (arena JSON "grade"): under everything on the screen layer
 	layer.add_child(grade)
 	layer.move_child(grade, 0)
+	layer.add_child(bloom.out)  # over the grade, under the letterbox and the HUD
 	layer.add_child(letterbox)
 	flash_rect = ColorRect.new()
 	flash_rect.color = Color(1, 0.95, 0.75, 0.0)
@@ -2655,7 +2677,10 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	ambient.set_sim(sim, arena.art())
 	ambient.fx = fx
 	var look := _match_look(s)
+	_lit_look = look.duplicate()
+	_light_look()
 	weather.apply(sim, look, shadows, ambient, water)
+	light2d.apply(sim, look, shadows.light.get("cast", Vector2.DOWN))
 	grade.apply(sim.arena, weather.grade_scale())
 	replay.setup["look"] = look.duplicate()  # cosmetic: the replay looks the same
 	paper.set_sim(sim)
@@ -2757,6 +2782,8 @@ func _process(_delta: float) -> void:
 	if _perf != null:
 		PerfLog.mark()
 		_perf.frame(flow == Flow.FIGHT and not paused)
+	if bloom != null:
+		bloom.frame(get_viewport())
 	if netplay != null and netplay.link != null and netplay.link.realtime:
 		netplay.pump()
 	_voice_step(_delta)
@@ -2884,6 +2911,8 @@ func _physics_process(_delta: float) -> void:
 	if glow:
 		glow_floor.advance()  # after the effects: it reads their particles
 		glow_halo.queue_redraw()
+	light2d.advance()
+	bloom.advance()
 	var t_views := PerfLog.now()
 	paper.advance(events)
 	hud.advance()
@@ -4407,6 +4436,9 @@ func _setting(key: String) -> Dictionary:
 		"glow":
 			return {"label": "Glow", "values": ["Off", "On"], "index": 1 if glow else 0,
 				"desc": "Glowing things (auras, sparks, flashes, shots) light the floor around them. Off for weaker devices"}
+		"lighting":
+			return {"label": "Lighting", "values": ["Off", "Low", "High"], "index": lighting,
+				"desc": "Real light on the fighters (sun, auras, flashes); High adds the night's lamps and bloom. Lower for weaker devices"}
 		"font":
 			return {"label": "Text font", "values": ["Pixel", "Smooth"], "index": 1 if UiTheme.smooth else 0,
 				"desc": "The menus and the HUD: the pixel font, or the smooth font from before"}
@@ -4525,6 +4557,10 @@ func _set_setting(key: String, i: int) -> void:
 			"glow":
 				glow = i == 1
 				_apply_glow()
+			"lighting":
+				lighting = clampi(i, 0, 2)
+				_lighting_cli = -1
+				_apply_lighting()
 			"font":
 				if UiTheme.smooth != (i == 1):
 					UiTheme.smooth = i == 1
@@ -4953,6 +4989,34 @@ func _rumble(e: Dictionary) -> void:
 			Input.start_joy_vibration(player_input.pad_id, 0.8, 0.8, 0.5)
 
 
+## The Lighting tier in force: `--lighting=` this session, else the setting.
+func lighting_tier() -> int:
+	return _lighting_cli if _lighting_cli >= 0 else lighting
+
+
+## Tells the lights, the bloom and the weather the tier (before WeatherView.apply: the night's
+## lamps replace its baked pools in High; the sun dims the fighters' shade side).
+func _light_look() -> void:
+	var t := lighting_tier()
+	light2d.tier = t
+	bloom.set_on(t == Light2DView.Tier.HIGH)
+	var time := String(_lit_look.get("time", "day"))
+	weather.lamp_lights = sim != null and t == Light2DView.Tier.HIGH and Light2DView.lamps_on(sim.arena, time)
+	var sd: Dictionary = Light2DView.SUN.get(time, {})
+	weather.fighter_scale = float(sd.get("shade", 1.0)) if t != Light2DView.Tier.OFF else 1.0
+
+
+## Lighting changed (Settings > Video): re-apply this match's look with the new tier.
+func _apply_lighting() -> void:
+	if light2d == null:
+		return
+	_light_look()
+	if sim != null and not _lit_look.is_empty():
+		weather.apply(sim, _lit_look, shadows, ambient, water)
+		grade.apply(sim.arena, weather.grade_scale())
+		light2d.apply(sim, _lit_look, shadows.light.get("cast", Vector2.DOWN))
+
+
 ## Glow on or off: off hides both layers and stops gathering lights (no cost at all).
 func _apply_glow() -> void:
 	for g in [glow_floor, glow_halo]:
@@ -5031,6 +5095,7 @@ func _load_settings() -> void:
 		UiTheme.smooth = String(cfg.get_value("video", "font", "pixel")) == "smooth"
 		glow = bool(cfg.get_value("video", "glow", default_glow()))
 		_apply_glow()
+		lighting = clampi(int(cfg.get_value("video", "lighting", default_lighting())), 0, 2)
 		for k in ["cam_lead", "cam_clash", "cam_settle"]:
 			set(k, clampi(int(cfg.get_value("video", k, CAM_DEFAULT)), 0, CAM_LEVELS.size() - 1))
 		perf_overlay.mode = clampi(int(cfg.get_value("video", "perf_overlay", 0)), 0,
@@ -5086,6 +5151,7 @@ func _save_settings() -> void:
 	for k in ["cam_lead", "cam_clash", "cam_settle"]:
 		cfg.set_value("video", k, int(get(k)))
 	cfg.set_value("video", "glow", glow)
+	cfg.set_value("video", "lighting", lighting)
 	cfg.set_value("video", "font", "smooth" if UiTheme.smooth else "pixel")
 	cfg.set_value("game", "rumble", rumble)
 	cfg.set_value("game", "intros", match_intros)
@@ -5164,6 +5230,8 @@ func _parse_args() -> int:
 			_intro_arg = -1
 		elif a == "--range-rings":
 			range_rings = true
+		elif a.begins_with("--lighting="):
+			_lighting_cli = ["off", "low", "high"].find(a.get_slice("=", 1))
 		elif a.begins_with("--mode="):
 			start = clampi(int(a.get_slice("=", 1)), 0, MODES.size() - 1)
 			_skip_select = true  # straight into the match with the default teams

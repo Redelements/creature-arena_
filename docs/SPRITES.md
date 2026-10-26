@@ -782,6 +782,32 @@ side: [`anim_preview/crease_diagonals_3x.png`](anim_preview/crease_diagonals_3x.
 | 14 | ko | 8 | snapped back with the hat knocked up, folding up as the hat flies, crumpled down (a knockdown shows 1 then holds 2), the hat landing and bouncing, rolling to a stop; in a match his knockout scatters the sprite at once (`ko_fx` "scatter"), so only a knockdown shows this row |
 | 15 | victory | 8 | folds into a giant crane, the flight loop (frames 1-5), unfolds, the bow |
 
+## Normal sheets: per-pixel light (Pete and Culvert, Oct 2026)
+
+A fighter can have a **normal sheet** beside each colour sheet, `<sheet>_n.png` (`pete_n.png`,
+`pete_down_n.png`, … `pete_up_side_n.png`), same size and frame layout. The game lights the
+sprite per pixel from it (Settings > Video > Lighting; `CreatureView` draws the pair through a
+`CanvasTexture`, `Light2DView` owns the lights). A sheet without one draws exactly as before.
+A view block may name its normal sheet with `"normal": "res://…"`; otherwise `_n.png` beside
+the `path` is used when it exists.
+
+Packing (`tools/splat3d.py:normal_frame`):
+
+| Channel | Holds |
+| --- | --- |
+| R | the screen normal's x (right is +), -1..1 mapped to 0..255 |
+| G | its y, **up is +** (OpenGL style, as Godot reads 2D normal maps) |
+| B | its z, toward the camera (Godot rebuilds z from R and G; B is there for tools) |
+| A | the colour frame's alpha: 0 outside the silhouette |
+
+The normal is the one the ramp shading already used (`Cam.screen_dir`, so the baked shading
+and the live light agree), box-blurred over `NORMAL_BLUR` (2) px among pixels of the same piece
+and renormalised: the splats' normals wobble, and unsmoothed they light as noise. Pixels the
+rig didn't fill (the outline ring, a decoration painted outside the body) face the camera
+(0, 0, 1), so the ink stays ink under any light. The colour sheets are unchanged byte for byte
+(`write_sheets(..., normals=True)` only adds files). Only the splat3d rigs can export normals
+today; Pete and Culvert have them (the phase 0 light proof).
+
 ## Animation pass: what worked (Mister Crease, Oct 2026)
 
 A test of whether animation alone moves the generated sprites closer to 32-bit-era

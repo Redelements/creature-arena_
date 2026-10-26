@@ -10,7 +10,7 @@
 			"grade": {"tint": 0.5, "vignette": 0.8}},
 		"night": {"name": "Night",
 			"_doc": "dark ambient over the floor and the stands, cut by floodlight pools; fighters keep at least fighter_min of their brightness, full inside a pool",
-			"floor": "#3a4268", "fighter": "#aab4d8", "fighter_min": 0.8, "life": "#7a84a8",
+			"floor": "#3a4268", "fighter": "#aab4d8", "fighter_min": 0.8, "lit_fighter_min": 0.7, "life": "#7a84a8",
 			"shadow": {"length": 0.8, "alpha": 0.6},
 			"grade": {"tint": 0.35, "vignette": 0.55},
 			"floodlights": {"color": "#fff2d8", "radius": 120, "spacing": 220, "strength": 0.9, "levels": 4,

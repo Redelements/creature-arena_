@@ -880,4 +880,4 @@ if __name__ == "__main__":
         import anim_preview
         anim_preview.main(sys.modules[__name__], sys.argv[2:])
     else:
-        S.write_sheets(ROWS, VIEW_ROWS, OUT, PREVIEW, SIDE, VIEWS, build)
+        S.write_sheets(ROWS, VIEW_ROWS, OUT, PREVIEW, SIDE, VIEWS, build, normals=True)
