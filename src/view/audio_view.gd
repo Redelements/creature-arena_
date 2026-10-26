@@ -298,19 +298,49 @@ func on_event(e: Dictionary) -> void:
 			play("flash")
 		# Arena hazards (placeholders: docs/AUDIO.md lists the sounds they want).
 		"hazard_warn":
-			if String(e.get("shape", "")) == "wave":
-				play("roar", 0.0, 0.6)  # the swell's roar
-				play("wave", -2.0, 0.5)
-			else:
-				play("windup_red", -2.0, 0.7)  # a whistle overhead
+			match String(e.get("shape", "")):
+				"wave":
+					play("roar", 0.0, 0.6)  # the swell's roar
+					play("wave", -2.0, 0.5)
+				"boulder":
+					play("cave_in", -4.0, 0.6)  # a rumble at the lane's end
+				"fault":
+					play("crack", 0.0, 0.5)  # the ground groaning
+					play("cave_in", -8.0, 0.5)
+				_:
+					play("windup_red", -2.0, 0.7)  # a whistle overhead
 		"hazard_strike":
-			if String(e.get("shape", "")) == "wave":
-				play("splash", 2.0, 0.6)
-				play("crowd_cheer", -6.0)
-			else:
-				play("cave_in" if bool(e.get("big", false)) else "slam", -2.0, 1.1)
+			match String(e.get("shape", "")):
+				"wave":
+					play("splash", 2.0, 0.6)
+					play("crowd_cheer", -6.0)
+				"boulder":
+					play("slam", -2.0, 0.6)  # it drops in and starts rolling
+				"fault":
+					play("cave_in", 2.0, 0.7)  # the floor splits
+				_:
+					play("cave_in" if bool(e.get("big", false)) else "slam", -2.0, 1.1)
 		"hazard_hit":
-			play("splash" if String(e.get("shape", "")) == "wave" else "hit_heavy", -4.0, 0.9)
+			match String(e.get("shape", "")):
+				"wave":
+					play("splash", -4.0, 0.9)
+				"boulder":
+					play("hit_heavy", -1.0, 0.7)
+				_:
+					play("hit_heavy", -4.0, 0.9)
+		"hazard_ricochet":
+			play("slam", -2.0, 1.5)  # stone on stone (or on a wall)
+			play("stones_scatter", -6.0, 1.2)
+		"hazard_reverse":
+			play("hit_heavy", 0.0, 0.8)  # a heavy meets the rock
+			play("crowd_cheer", -4.0)
+		"hazard_end":
+			match String(e.get("shape", "")):
+				"boulder":
+					if String(e.get("how", "")) != "edge":
+						play("cave_in", -2.0, 0.9)  # into a pit, or smashed on rubble
+				"fault":
+					play("crack", -4.0, 0.7)  # it grinds shut
 		"hazard_pickup":
 			play("stoneskin", 0.0, 1.4)
 		"steal":

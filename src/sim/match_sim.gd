@@ -215,7 +215,8 @@ func add_creature(def: Dictionary, p: Vector2, is_dummy := false) -> CreatureSim
 
 
 ## Who gets the credit for knocking a fighter out, from this tick's events: `by[slot]` is the
-## last fighter whose hit (a clean hit, chip through a block, a poison tick) landed on that
+## last fighter whose hit (a clean hit, chip through a block, a poison tick, a boulder it
+## sent back with a heavy: Hazards) landed on that
 ## slot and `at[slot]` the tick it landed. Modes that score KOs per fighter (Team Deathmatch's
 ## spree, the Brawl crown) call it after each step and keep both arrays as their own state.
 func note_credit(by: Array, at: Array) -> void:
@@ -226,7 +227,7 @@ func note_credit(by: Array, at: Array) -> void:
 		if kind == "hit" or kind == "block":
 			who = int(e.get("target", -1))
 			from = int(e.get("attacker", -1))
-		elif kind == "poison":
+		elif kind == "poison" or kind == "hazard_hit":  # (a hazard's: only a boulder a heavy sent back has a `by`)
 			who = int(e.get("who", -1))
 			from = int(e.get("by", -1))
 		if who >= 0 and who < by.size() and from >= 0 and from != who:

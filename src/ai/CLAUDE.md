@@ -91,8 +91,14 @@ e.g. Cerebro's `poke`, whose mallet thrown at a tank walking in loses the matchu
 - Arena hazards → `_mind_hazards` (first in `_decide` after Sinkhole: steps out of a meteor shadow once it
   notices it, `HAZARD_NOTICE` by level; heads for the spot behind rubble a wave can't reach, `_find_shelter`,
   `SHELTER_LOOK`, and holds there unless a foe is in reach; Hard and Rage dodge through a wave's front when there's
-  no shelter; walks to a core within 110 px when no foe is on it). Reads `sim.hazards` through
-  `Hazards.wave_now` / `meteors_now` and `sim.hazard_pickups`, like a player reading the screen
+  no shelter; walks to a core within 110 px when no foe is on it). The rolling boulders `_mind_boulder`: once it
+  notices one coming its way (its current way, so after a ricochet its new one), steps out to the nearer side (the far
+  side when the near one is in another boulder's way, `_in_boulder_way`); Hard and Rage with a heavy ready (and sending back
+  still allowed) stay in its way, face it and throw a raw heavy timed so the strike meets it (`_boulder_swing` keeps
+  that heavy a tap aimed at the boulder: `_continue_attack` would charge it at the foe); a boulder its own team sent
+  back is ignored. The fault line `_mind_fault`: off the crack to the nearer side while it warns; open, the nav grid
+  paths round it. Reads `sim.hazards` through `Hazards.wave_now` / `meteors_now` / `boulders_now` / `faults_now`
+  and `sim.hazard_pickups`, like a player reading the screen
 - Kite spacing → `kite_band` (80% of the light's range; the kite plan never reads `ai.range`)
 - Wanted foes (a Team Deathmatch spree, the Brawl crown: `MatchSim.marks`, px of pull from the rules) →
   `mark_of`; `_pick_target` counts a marked foe that much nearer and keeps it over the team focus unless

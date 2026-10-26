@@ -1,5 +1,5 @@
 {
-	"_doc": "Arena hazards a mutator switches on (\"hazards\": [ids] in data/rules/mutators.json; read by Hazards in src/sim/hazards.gd, keys in docs/MECHANICS.md \"Arena hazards\"). Each has a shape (wave: a front that sweeps the floor from one seeded edge; meteors: a shower of falling rocks, each a growing shadow first), a schedule (first_seconds: when the first warning starts, every_seconds: from one warning to the next, warn_seconds or warn_ticks: how long the warning shows) and effects: damage_pct (true damage, a share of max HP, ignores guard and shields), role_mult (per sheet role), min_hp (it never takes anyone below this: 1 means it can't KO), push (px a tick, divided by weight), stun (ticks of hitstun with the push), crack / pit / pit_core (floor damage where it strikes), shallows (cells turn to shallows for a while, then back to the map), pickup (left on the floor: the first fighter to touch it takes the buff). name and desc are for the menu (Single player > Arena > Arena options: one On/Off row per hazard).",
+	"_doc": "Arena hazards a mutator switches on (\"hazards\": [ids] in data/rules/mutators.json; read by Hazards in src/sim/hazards.gd, keys in docs/MECHANICS.md \"Arena hazards\"). Each has a shape (wave: a front that sweeps the floor from one seeded edge; meteors: a shower of falling rocks, each a growing shadow first; boulder: count lanes across the floor warn at once (from different edges in the order of sides, so they cross), then a boulder rolls down each; boulders that touch ricochet off each other (an equal-weight bounce, ricochet_speed_mult slower, never under min_speed, the pair not again for ricochet_cooldown_ticks), a wall or fence bounces one wall_bounces times before it shatters, a pit swallows it, the floor's edge ends it; a strike of a reverse_types move (a heavy) sends one back at the others, reverse_max times a roll, reverse_speed_mult faster; preview_ticks is how long the views show a turned boulder's new way; fault: a seeded line cracks, then opens into a chasm strip width cells wide for open_seconds and closes back to the map), a schedule (first_seconds: when the first warning starts, every_seconds: from one warning to the next, warn_seconds or warn_ticks: how long the warning shows) and effects: damage_pct (true damage, a share of max HP, ignores guard and shields), role_mult (per sheet role), min_hp (it never takes anyone below this: 1 means it can't KO), push (px a tick, divided by weight), stun (ticks of hitstun with the push), knockdown (ticks of a knockdown with the push instead), crack / pit / pit_core (floor damage where it strikes), shallows (cells turn to shallows for a while, then back to the map), pickup (left on the floor: the first fighter to touch it takes the buff). name and desc are for the menu (Single player > Arena > Arena options: one On/Off row per hazard).",
 	"tidal_wave": {
 		"name": "Tidal wave",
 		"desc": "A wave sweeps the floor from a random edge: it hurts and shoves you downstream unless you hide behind rubble",
@@ -38,5 +38,46 @@
 		"crack": 28,
 		"big": {"radius": 34, "damage_pct": 0.1, "crack": 36, "pit": 36, "pit_core": 14},
 		"pickup": {"kind": "might", "seconds": 8, "radius": 10, "buff_seconds": 10, "mult": 1.2}
+	},
+	"rolling_boulder": {
+		"name": "Rolling boulder",
+		"desc": "Boulders roll down marked lanes and bounce off each other and the walls: step out of their way, or hit one with a heavy to send it back",
+		"shape": "boulder",
+		"first_seconds": 25,
+		"every_seconds": 30,
+		"warn_seconds": 1.5,
+		"count": 3,
+		"sides": [0, 2, 1, 3],
+		"inset": 36,
+		"radius": 18,
+		"speed": 3.2,
+		"reverse_types": ["heavy", "surge"],
+		"reverse_max": 2,
+		"reverse_speed_mult": 1.25,
+		"ricochet_speed_mult": 0.85,
+		"ricochet_cooldown_ticks": 10,
+		"min_speed": 1.6,
+		"wall_bounces": 2,
+		"preview_ticks": 30,
+		"damage_pct": 0.12,
+		"role_mult": {"tank": 0.67},
+		"min_hp": 0,
+		"push": 6.0,
+		"knockdown": 40
+	},
+	"fault_line": {
+		"name": "Fault line",
+		"desc": "The ground cracks along a line, then splits into a chasm for a while: get off the crack before it opens",
+		"shape": "fault",
+		"first_seconds": 30,
+		"every_seconds": 35,
+		"warn_seconds": 2,
+		"open_seconds": 10,
+		"axes": ["v"],
+		"width": 3,
+		"wander": 2,
+		"wander_every": 3,
+		"inset": 0.25,
+		"spawn_clear": 40
 	}
 }

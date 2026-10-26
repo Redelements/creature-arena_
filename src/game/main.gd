@@ -185,7 +185,7 @@ const MENU_ROWS := [
 	{"label": "Brawl", "group": "brawl", "modes": [45, 42, 43, 44], "choices": ["you vs 3 CPUs", "2 players", "3 players", "4 players"],
 		"desc": "Free-for-all, four fighters, one life each; CPUs fill the empty seats. Left/Right: how many play"},
 	{"label": "Chaos Cup", "group": "brawl", "modes": [46],
-		"desc": "A Brawl with three random mutators stacked on: low gravity, Surge rush, a floor of pits, haste, glass cannon, a tidal wave, a meteor shower"},
+		"desc": "A Brawl with three random mutators stacked on: low gravity, Surge rush, a floor of pits, haste, glass cannon, a tidal wave, a meteor shower, a rolling boulder, a fault line"},
 	{"label": "Replay theater", "group": "practice", "screen": "replays", "desc": "Watch the fights you saved with F6"},
 	{"label": "Versus: 2 players", "group": "local", "modes": [8], "desc": "One fighter each, two players on one screen"},
 	{"label": "Versus CPU", "group": "cpu", "modes": [0, 1, 12, 14, 16, 18, 21, 23, 25, 27, 48],
@@ -2218,14 +2218,19 @@ func _team_flow() -> void:
 
 
 ## An arena hazard is coming (a mutator's, Hazards): the wave's banner names the edge it
-## comes from and what to do; a meteor shower gets a toast.
+## comes from and what to do; a meteor shower, a boulder and a fault line get a toast.
 func _hazard_warn(e: Dictionary) -> void:
-	if String(e.get("shape", "")) == "wave":
-		var side := int(e.get("side", 0))
-		hud.moment("TIDAL WAVE!", "FROM THE %s  -  GET BEHIND THE RUBBLE" % String(Hazards.SIDE_NAMES[clampi(side, 0, 3)]).to_upper(),
-			Color("6fb8f0"))
-	else:
-		hud.show_toast("METEOR SHOWER!  STAY OUT OF THE SHADOWS")
+	match String(e.get("shape", "")):
+		"wave":
+			var side := int(e.get("side", 0))
+			hud.moment("TIDAL WAVE!", "FROM THE %s  -  GET BEHIND THE RUBBLE" % String(Hazards.SIDE_NAMES[clampi(side, 0, 3)]).to_upper(),
+				Color("6fb8f0"))
+		"boulder":
+			hud.show_toast("BOULDERS!  STEP ASIDE OR HEAVY ONE BACK")
+		"fault":
+			hud.show_toast("FAULT LINE!  GET OFF THE CRACK BEFORE IT SPLITS")
+		_:
+			hud.show_toast("METEOR SHOWER!  STAY OUT OF THE SHADOWS")
 
 
 ## Capture the Flag: what each play says at the bottom of the screen; the local team's
@@ -2464,6 +2469,8 @@ func _draw_reason() -> String:
 				return "Double K.O.  -  a meteor took the last ones down"
 			if _ko_by_hazard == "wave":
 				return "Double K.O.  -  the wave took the last ones down"
+			if _ko_by_hazard == "boulder":
+				return "Double K.O.  -  the boulder took the last ones down"
 			return "Double K.O.  -  nobody left standing"
 		"time":
 			var r := _over_reason()
@@ -3231,6 +3238,9 @@ func _react(e: Dictionary) -> void:
 			else:
 				shake = maxf(shake, 3.0 if bool(e.get("big", false)) else 1.5)
 				crowd.cheer(0.15)
+		"hazard_reverse":
+			shake = maxf(shake, 3.0)
+			crowd.roar(40)  # someone hit a boulder back
 		"rockslide":
 			audio.play("cave_in")
 			shake = maxf(shake, 5.0)
