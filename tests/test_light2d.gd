@@ -200,7 +200,7 @@ func test_every_arena_with_a_night_has_lamps_on_its_floor() -> void:
 		sim.set_arena(id)
 		assert_true(Light2DView.lamps_on(a, "night"), "%s: lamps at night" % id)
 		var list: Array = a.get("lights", [])
-		assert_true(list.size() <= Light2DView.MAX_LAMPS, "%s: at most %d lamps (one canvas item takes 16 lights)" % [id, Light2DView.MAX_LAMPS])
+		assert_true(list.size() <= Light2DView.MAX_LAMPS, "%s: at most %d lamps (Godot draws 15 lights on one canvas item)" % [id, Light2DView.MAX_LAMPS])
 		var size := sim.arena_size()
 		var pic := Rect2(-WeatherView.MARGIN, size + WeatherView.MARGIN * 2.0)
 		var fr := sim.floor_rect()
@@ -244,7 +244,7 @@ func test_every_arena_with_a_night_has_lamps_on_its_floor() -> void:
 			most = maxi(most, n)
 		assert_gt(least, 0.5, "%s: the middle of the floor is lit end to end (least %.2f)" % [id, least])
 		assert_gt(float(lit) / pts.size(), 0.5, "%s: most of the floor is in a pool" % id)
-		assert_true(most + Light2DView.MAX_DYNAMIC + 1 <= 16, "%s: lamps + moving lights + its moon fit a sprite's 16 lights (%d lamps)" % [id, most])
+		assert_true(most + Light2DView.MAX_DYNAMIC + 1 <= 15, "%s: lamps + moving lights + its moon fit a sprite's 15 lights (%d lamps)" % [id, most])
 
 
 func test_the_sun_is_per_arena_and_per_time() -> void:
@@ -268,7 +268,7 @@ func test_the_sun_is_per_arena_and_per_time() -> void:
 		assert_lt(float(day["energy"]), 1.0, "%s: never strong enough to bleach a face" % id)
 
 
-func test_in_a_4v4_on_the_biggest_map_no_sprite_takes_more_than_16_lights() -> void:
+func test_in_a_4v4_on_the_biggest_map_no_sprite_takes_more_than_15_lights() -> void:
 	var r := TeamSim.load_rules(TeamSim.CTF_PATH)
 	var t := TeamSim.new([["pete", "culvert", "pete", "culvert"], ["culvert", "pete", "culvert", "pete"]], 4, r)
 	var sim := t.sim
@@ -308,7 +308,7 @@ func test_in_a_4v4_on_the_biggest_map_no_sprite_takes_more_than_16_lights() -> v
 			var reach := pl.texture_scale * Light2DView.TEX_SIZE * 0.5 + 40.0
 			if pl.range_item_cull_mask & cv.sprite.light_mask and pl.position.distance_to(cv.c.pos) < reach:
 				n += 1
-		assert_true(n <= 16, "%s takes %d lights" % [cv.c.def.get("id", "?"), n])
+		assert_true(n <= 15, "%s takes %d lights" % [cv.c.def.get("id", "?"), n])
 		assert_gt(n, 0, "and some")
 	var bits := {}
 	for v in views:

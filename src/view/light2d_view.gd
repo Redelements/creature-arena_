@@ -64,13 +64,13 @@ const SUN_RADIUS := 360.0  ## and reaches this far, so it is near even across a 
 const MAX_SUNS := 8  ## one per fighter on screen (4v4)
 ## Each fighter's sun lights that fighter only: sun i lights light-mask bit `SUN_BIT << i`
 ## and the fighter it follows carries that bit (`CreatureView.sun_bit`), so in a crowd the
-## suns never stack on one sprite (nor push it past Godot's 16 lights on one canvas item).
+## suns never stack on one sprite (nor push it past the 15 lights Godot draws on one canvas item).
 const SUN_BIT := 8
 ## The most floor lights an arena's `lights` may list (the rest are dropped with a warning):
 ## a big map can be all on screen at once, and every lamp lights the night shade, one canvas
-## item (Godot draws at most 16 lights on an item). A lamp with `fighter_energy` 0 (a lamp
+## item (Godot draws at most 15 lights on an item; measured). A lamp with `fighter_energy` 0 (a lamp
 ## head on a tower or a torch) gives no fighter light.
-const MAX_LAMPS := 16
+const MAX_LAMPS := 15
 ## A furniture lamp head (FurnitureView floodlight, worklight, torch) glows when a lit
 ## `"lamp": true` light sits within this of it (`lamp_heads`).
 const HEAD_NEAR := 16.0
