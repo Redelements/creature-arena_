@@ -1160,6 +1160,7 @@
    "water": {
     "source": "keeps_surface_water.png",
     "frames": 16,
+    "variants": 1,
     "fps": 8.0,
     "over": "water"
    }

@@ -47,11 +47,12 @@ extends SceneTree
 ##              "walls"), with the rubble a smashed tile shows
 ##   decor      [{kind, at: [tx, ty]} | {kind, pos: [x, y] units from the floor's top-left
 ##              corner, so the margins are negative or past the floor}]: a decor sprite
-##              (manifest "decor") standing with its feet at the tile's bottom middle;
-##              `"wall": true` hangs it on a wall sprite (a banner): y-sorted with the walls
-##              at its feet, hidden with the wall cell under its feet while that is smashed;
-##              `lift` (units) raises the picture off its spot onto the wall's top
-##   anim       [{kind, at | pos, wall}]: an animated piece (manifest "anim", a waterfall)
+##              (manifest "decor") standing with its feet at the tile's bottom middle.
+##              A piece whose feet stand on one of the map's wall cells, or with `"wall": true`
+##              (a banner hung on a wall), joins the y-sorted Walls run and hides while the
+##              wall cell under its feet is smashed; `lift` (units) raises the picture off its
+##              spot onto the wall's top
+##   anim       [{kind, at | pos, wall, lift}]: an animated piece (manifest "anim", a waterfall)
 ##   markings   true: ArenaView draws the court lines over the tiles (the Stadium)
 ## Rerun after a cut or a map's "tiles" block changes; the game and CI use the saved files.
 
@@ -576,6 +577,14 @@ static func _wall_run(walls: Node2D, rubble: Node2D, root: Node, man: Dictionary
 			s.owner = root
 
 
+## Places a decor or anim sprite (`s`, not centred) with its feet at `spot` (scene px) and
+## returns the group it belongs in: `group` (Decor, Anim) as before, or, when its feet stand
+## on one of the map's wall rects (`walls_r`, cells of `cell_px`), the y-sorted Walls run,
+## positioned by its foot like the pillars (so a brazier at a run's near end stands in front
+## of it) with meta "cells" the wall cells its box covers: ArenaView hides it while any of
+## them is smashed, as it hides the pillars (a sign never floats over rubble).
+
+
 ## Where a decor or anim entry stands, in scene pixels (2 a unit): a tile's bottom middle
 ## (`at`) or a point in units from the floor's top-left corner (`pos`).
 static func _spot(e: Dictionary, tile: int) -> Vector2:
@@ -585,22 +594,34 @@ static func _spot(e: Dictionary, tile: int) -> Vector2:
 	return Vector2((at.x + 0.5) * tile, (at.y + 1) * tile)
 
 
-## Puts a decor or anim sprite at its spot, feet first. One with `"wall": true` hangs on a
-## wall (a banner, a brazier on a gate post): it joins the y-sorted "Walls" at the wall's
-## foot line (its `pos` y), drawn over the wall sprite it stands on, and records the cell
-## under its feet (meta "cells"), so ArenaView hides it with the wall when that cell is smashed.
+## Puts a decor or anim sprite at its spot, feet first. One whose feet stand on a wall cell,
+## or with `"wall": true` (a banner hung on a wall), joins the y-sorted "Walls" at the wall's
+## foot line (its `pos` y), drawn over the wall sprite it stands on, and records the wall cells
+## under it (meta "cells"), so ArenaView hides it with the wall when they are smashed.
 ## `lift` (units) draws it that much higher than its spot, on the wall's top (a brazier on a
 ## post), still sorted and hidden by the spot.
-static func _place(s: Node2D, e: Dictionary, d: Dictionary, tile: int, per: int, group: Node2D, walls: Node2D, root: Node) -> void:
+static func _place(s: Node2D, e: Dictionary, d: Dictionary, size: Vector2, tile: int, per: int, group: Node2D, walls: Node2D, walls_r: Array[Rect2i], root: Node) -> void:
 	var feet := Vector2(float(d["feet"][0]), float(d["feet"][1]))
 	var spot := _spot(e, tile)
-	var parent := walls if bool(e.get("wall", false)) else group
+	var cell_px := float(tile) / per
+	var foot := Vector2i(floori(spot.x / cell_px), floori((spot.y - 1.0) / cell_px))
+	var on: Rect2i = Rect2i(foot, Vector2i.ONE) if bool(e.get("wall", false)) else Rect2i()
+	for r in walls_r:
+		if r.has_point(foot):
+			var top_left := spot - feet
+			var box := Rect2i(floori(top_left.x / cell_px), floori(top_left.y / cell_px),
+				ceili((top_left.x + size.x) / cell_px) - floori(top_left.x / cell_px),
+				foot.y + 1 - floori(top_left.y / cell_px))
+			on = box.intersection(r)
+			if on.size == Vector2i.ZERO:
+				on = Rect2i(foot, Vector2i.ONE)
+			break
+	var parent := walls if on.size != Vector2i.ZERO else group
 	s.name = "%s_%d" % [String(e["kind"]), parent.get_child_count()]
 	if parent == walls:
 		s.position = spot
 		s.set("offset", -feet - Vector2(0.0, float(e.get("lift", 0.0)) * ArtScale.PX_PER_UNIT))
-		var cell_px := float(tile) / per
-		s.set_meta("cells", Rect2i(Vector2i(floori(spot.x / cell_px), floori((spot.y - 1.0) / cell_px)), Vector2i.ONE))
+		s.set_meta("cells", on)
 	else:
 		s.position = spot - feet
 	parent.add_child(s)
@@ -771,6 +792,13 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 	for name in fence_cells:
 		_fence_lines(pieces, man, String(name), fence_cells[name], per)
 
+	# the map's wall rects (cells): a decor or anim piece standing on one joins the wall run
+	# (`_place`), y-sorted among its sprites and gone while the wall under it is smashed
+	var wall_rects: Array[Rect2i] = []
+	for piece in placed:
+		var r: Array = piece.get("rect", [])
+		if String(piece.get("kind", "")) == "wall" and r.size() == 4:
+			wall_rects.append(Rect2i(int(r[0]), int(r[1]), int(r[2]), int(r[3])))
 	var decor := Node2D.new()
 	decor.name = "Decor"
 	root.add_child(decor)
@@ -783,7 +811,7 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 		var s := Sprite2D.new()
 		s.texture = load(TILES_DIR + String(d["source"]))
 		s.centered = false
-		_place(s, e, d, tile, per, decor, walls, root)
+		_place(s, e, d, Vector2(d["size"][0], d["size"][1]), tile, per, decor, walls, wall_rects, root)
 
 	var anim := Node2D.new()
 	anim.name = "Anim"
@@ -808,7 +836,7 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 		s.sprite_frames = frames
 		s.centered = false
 		s.autoplay = "default"
-		_place(s, e, a, tile, per, anim, walls, root)
+		_place(s, e, a, Vector2(fw, fh), tile, per, anim, walls, wall_rects, root)
 
 	var packed := PackedScene.new()
 	packed.pack(root)
