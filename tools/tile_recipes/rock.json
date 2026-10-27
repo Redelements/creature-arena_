@@ -1,9 +1,8 @@
 {
-	"_doc": "The Quarry Bowl's set: Szadi art's RPG Worlds Mountains (Mainlev_build.png: the sandstone scree floor, a darker rock for the kerb, the cliff faces the pit walls come from, the cave mouth for the pit floor) and Set 1 (dirt for the worn cart lanes, cobbles for the loading corners, the boulders on the rubble walls). Enchanted Cave's grounds were tried and dropped: their grey cobbles sit on green moss. No blob terrain: the Mountains sheet carries 5 x 5 plateau sets, not the 16-tile blob, so variety comes from fill patches (a map's tiles.patches). Keys: tools/cut_tiles.py. Paths are relative to the packs dir.",
+	"_doc": "The Quarry Bowl's set: Szadi art's RPG Worlds Mountains (Mainlev_build.png: the sandstone scree floor, the cliff faces the pit walls come from, the cave mouth for the pit floor) and Set 1 (dirt for the worn cart lanes, cobbles for the loading corners, the boulders on the rubble walls). Enchanted Cave's grounds were tried and dropped: their grey cobbles sit on green moss. No blob terrain: the Mountains sheet carries 5 x 5 plateau sets, not the 16-tile blob, so variety comes from fill patches (a map's tiles.patches). Keys: tools/cut_tiles.py. Paths are relative to the packs dir.",
 	"ground": {
 		"fills": {
 			"stone": {"src": "RPGW_Mountains_v1.2/_PNG/Mainlev_build.png", "block": [22, 52]},
-			"rock_dark": {"src": "RPGW_Mountains_v1.2/_PNG/Mainlev_build.png", "block": [32, 52]},
 			"dirt": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain3.png", "block": [12, 0]},
 			"cobble": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "block": [37, 0], "size": 2}
 		},

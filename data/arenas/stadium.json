@@ -1,5 +1,5 @@
 {
-	"_doc": "The stadium: the plain floor. No fixed pieces; the default arena. Its floor is tiles (Szadi art's Set 1 dirt with a cobble kerb, the court lines drawn over it): assets/arenas/stadium.tscn, built by tools/build_tiles.gd from the \"tiles\" block.",
+	"_doc": "The stadium: the plain floor. No fixed pieces; the default arena. Its floor is tiles (Szadi art's Set 1 dirt, the court lines drawn over it): assets/arenas/stadium.tscn, built by tools/build_tiles.gd from the \"tiles\" block.",
 	"id": "stadium",
 	"name": "Stadium",
 	"ground": "dirt",

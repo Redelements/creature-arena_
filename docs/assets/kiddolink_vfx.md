@@ -67,9 +67,9 @@ are mine, used in section 6.
 | sl_claws_red | SL r5 | 0, 5 | 3 red claw marks then white | strike | 2 | yes | only red strike: venom / rage |
 | sl_scratch | SL r1, r7, r10 | 0, 6 | jagged scribble lines, yellow/white, no arc | strike | 2 | yes | electric/chaotic cut; subtle |
 | hit_spark_green | HI r0 | 0, 6 | white blob, yellow-white star with green/cyan streak | hit | 2 | no | loud-ish, 90 px |
-| hit_burst_yellow | HI r1 | 0, 6 | yellow-white spiky burst then orange ring (USED as impact_burst) | hit | 3 | no | LOUD on lights |
+| hit_burst_yellow | HI r1 | 0, 6 | yellow-white spiky burst then orange ring (cut as impact_burst) | hit | 3 | no | LOUD on lights |
 | hit_dark_pop | HI r2 | 0, 7 | dark dot, white flash, red-orange spark cloud | hit | 2 | no | medium |
-| hit_star_cyan | HI r3 | 0, 4 | cyan orb, blue-white star, yellow crosshair rays | hit | 2 | no | smallest and snappiest: best light hit |
+| hit_star_cyan | HI r3 | 0, 4 | cyan orb, blue-white star, yellow crosshair rays | hit | 2 | no | smallest and snappiest: best light hit (USED, Digby light_1) |
 | hit_burst_pink | HI r4 | 0, 6 | big pink ball, red-magenta shards | hit | 3 | no | LOUD, 88 px; heavies |
 
 ### Fire (FI) and explosions (EX, MI)
@@ -117,7 +117,7 @@ are mine, used in section 6.
 
 | Effect | Sheet row | First, usable | Shows | Hook | tpf | Flip | Notes |
 |---|---|---|---|---|---|---|---|
-| aura_orb | EN r0 | 0, 13 loop | glowing orb with sparks; colour cycles blue, violet, pink, cyan, yellow, green | start (follow, loop) | 3 | no | USED as aura_buff, not wired yet |
+| aura_orb | EN r0 | 0, 13 loop | glowing orb with sparks; colour cycles blue, violet, pink, cyan, yellow, green | start (follow, loop) | 3 | no | was cut as aura_buff, dropped (no self buff to carry it) |
 | energy_geyser | EN r1 | 0, 8 | cyan/white jets rising from the ground | tick / burst | 3 | no | medium, icy look |
 | energy_fountains | EN r2 | 0, 8 | small fountain in 4 colours (red, blue, pink, yellow) | tick / start | 3 | no | subtle, ground |
 | energy_nova | EN r3 | 0, 9 | pink and red starburst, ring, fades cyan | burst / strike | 3 | no | loud |
@@ -171,12 +171,12 @@ Minor rows left out of the tables above (all subtle, same hooks as their neighbo
 | Effect cut (`assets/vfx/`) | Source | Wired in |
 |---|---|---|
 | slash_claws | SL r3 frames 1-7, `strike`, follow, flips | Digby `light_1` (Claw Swipe) |
-| impact_burst | HI r1 frames 0-5, `hit`, world space | Digby `light_1` (with slash_claws) |
+| hit_star_cyan | HI r3 frames 0-3, `hit`, world space, 2 tpf, scale 0.6 | Digby `light_1` (with slash_claws) |
+| impact_burst | HI r1 frames 0-5, `hit`, world space | nothing yet: kept for heavies |
 | fire_burst | FI r3 frames 0-9, `burst`, world space | Barkley `skill_2` (Pinecone Bomb) |
-| aura_buff | EN r0 frames 0-12, `start`, follow, loop 90 ticks | not wired |
 
-Known issue: `impact_burst` is loud on light hits (90x82 px, spiky yellow rays, 6 frames x 3 ticks). For lights use `hit_star_cyan`
-(HI r3) or `scale` 0.5-0.6, or keep only the strike effect.
+`impact_burst` is loud (90x82 px, spiky yellow rays, 6 frames x 3 ticks): heavies only. `aura_buff` (EN r0) was cut and
+dropped: the only self buff, Pete's Tiptoe, is a stealth move that a glowing aura would give away.
 
 ## 6. Suggested wiring
 
@@ -248,7 +248,7 @@ a burst on the same spot. Move kind = key (`light_N`, `heavy`, `skill_N`, `surge
 ### Digby (stone assassin)
 | Move | Kind | Effect | Hook |
 |---|---|---|---|
-| Claw Swipe | light_1 | sl_claws_gold + hit_star_cyan (replace impact_burst) | strike + hit |
+| Claw Swipe | light_1 | sl_claws_gold + hit_star_cyan (done) | strike + hit |
 | Claw Swipe (back claw) | light_2 | sl_claws_gold | strike |
 | Pickaxe Swing | light_3 | sl_gold_arc_a | strike |
 | Pickaxe Pop-Up | heavy | dust_column (brown) | strike |

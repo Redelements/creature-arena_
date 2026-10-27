@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cg4ifiiaxcv7o"
-path="res://.godot/imported/aura_buff.png-420db97cf68b0ab6c54f0a4b2d95f37e.ctex"
+uid="uid://bwr627h43a8yx"
+path="res://.godot/imported/hit_star_cyan.png-8ff5f70680b00a9c1cfbe6ceedee0c98.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/vfx/aura_buff.png"
-dest_files=["res://.godot/imported/aura_buff.png-420db97cf68b0ab6c54f0a4b2d95f37e.ctex"]
+source_file="res://assets/vfx/hit_star_cyan.png"
+dest_files=["res://.godot/imported/hit_star_cyan.png-8ff5f70680b00a9c1cfbe6ceedee0c98.ctex"]
 
 [params]
 

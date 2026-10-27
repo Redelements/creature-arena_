@@ -1,10 +1,9 @@
 {
-	"_doc": "The Floodgate's set: Szadi art's RPG Worlds Wetland (RPGW_Wetland_v1.1) for the paved concrete yard, the stone face the pit walls come from, reeds and posts for the margins; Set 1 (RPGFW_Set1_v1.0) for the water blob and fill under the shallows and the cobble kerb. Keys: tools/cut_tiles.py. Paths are relative to the packs dir.",
+	"_doc": "The Floodgate's set: Szadi art's RPG Worlds Wetland (RPGW_Wetland_v1.1) for the paved concrete yard, the stone face the pit walls come from, reeds and posts for the margins; Set 1 (RPGFW_Set1_v1.0) for the water blob and fill under the shallows. Keys: tools/cut_tiles.py. Paths are relative to the packs dir.",
 	"ground": {
 		"fills": {
 			"paving": {"src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "block": [2, 37], "size": 2},
-			"kerb": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "block": [37, 0], "size": 2},
-			"water": {"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "block": [12, 0], "tint": {"mul": [2.0, 2.2, 2.6], "add": [2, 2, 17]}}
+			"water": {"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "block": [8, 2], "size": 2, "tint": {"mul": [2.0, 2.2, 2.6], "add": [2, 2, 17]}}
 		},
 		"terrains": {
 			"water": {"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "blob": [0, 0], "centres": [[5, 1], [6, 1], [5, 2], [6, 2], [8, 2], [9, 2], [8, 3], [9, 3]], "tint": {"mul": [2.0, 2.2, 2.6], "add": [2, 2, 17]}}

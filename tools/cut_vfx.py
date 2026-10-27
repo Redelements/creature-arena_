@@ -40,7 +40,7 @@ EFFECTS = {
     "slash_claws": (KL + "vfx_slash/vfx_slash/sprite_sheets_96x96/vfx_slash-Sheet.png", 3, 1, 7,
                     {"on": "strike", "follow": True, "flip_with_facing": True, "ticks_per_frame": 2,
                      "offset": [14, -14]}),
-    # a hit burst: where a hit lands, in world space
+    # a loud hit burst: where a heavy hit lands, in world space
     "impact_burst": (KL + "vfx_hit_impact/vfx_hit_impact/sprite_sheets_96x96/vfx_hit_effects-Sheet.png", 1, 0, 6,
                      {"on": "hit", "follow": False, "flip_with_facing": False, "ticks_per_frame": 3,
                       "offset": [0, -12]}),
@@ -48,10 +48,10 @@ EFFECTS = {
     "fire_burst": (KL + "vfx_fire/vfx_fire/sprite_sheets_96x96/vfx_fire-Sheet.png", 3, 0, 10,
                    {"on": "burst", "follow": False, "flip_with_facing": False, "ticks_per_frame": 3,
                     "offset": [0, -16]}),
-    # a glowing orb with sparks: a buff, carried by its fighter and looped
-    "aura_buff": (KL + "vfx_energy/vfx_energy/sprite_sheets_96x96/vfx_energy-Sheet.png", 0, 0, 13,
-                  {"on": "start", "follow": True, "flip_with_facing": False, "ticks_per_frame": 3,
-                   "offset": [0, -20], "loop": True, "loop_ticks": 90}),
+    # a small cyan star: a light hit (subtle, drawn at 0.6), where it lands, in world space
+    "hit_star_cyan": (KL + "vfx_hit_impact/vfx_hit_impact/sprite_sheets_96x96/vfx_hit_effects-Sheet.png", 3, 0, 4,
+                      {"on": "hit", "follow": False, "flip_with_facing": False, "ticks_per_frame": 2,
+                       "offset": [0, -12], "scale": 0.6}),
 }
 
 

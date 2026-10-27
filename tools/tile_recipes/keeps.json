@@ -34,8 +34,8 @@
 			"water": {
 				"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png",
 				"block": [
-					12,
-					0
+					8,
+					2
 				],
 				"tint": {
 					"mul": [
@@ -48,7 +48,8 @@
 						2,
 						17
 					]
-				}
+				},
+				"size": 2
 			}
 		},
 		"terrains": {
@@ -445,20 +446,20 @@
 			],
 			"feet": [
 				48,
-				206
+				176
 			]
 		},
 		"pine": {
 			"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
 			"box": [
 				576,
-				32,
+				16,
 				672,
-				224
+				208
 			],
 			"feet": [
-				48,
-				208
+				44,
+				167
 			]
 		},
 		"bush": {
@@ -471,7 +472,7 @@
 			],
 			"feet": [
 				48,
-				236
+				88
 			]
 		}
 	},
@@ -506,14 +507,16 @@
 			"src": "RPG_Buildings_CASTLE_v1.0/Anim/torch.png",
 			"frame": [
 				32,
-				64
+				32
 			],
 			"frames": 4,
 			"fps": 6,
 			"feet": [
 				16,
-				60
-			]
+				31
+			],
+			"row": 0,
+			"_doc": "Castle Anim/torch.png: 6 frames of 32 x 32 (4 on row 0, 2 on row 1); row 0's four loop"
 		}
 	},
 	"bushes": {

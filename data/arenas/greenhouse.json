@@ -4,9 +4,9 @@
 	"name": "Greenhouse Dome",
 	"ground": "grass",
 	"tiles": {
-		"_doc": "The floor is tiles (assets/arenas/greenhouse.tscn, built by tools/build_tiles.gd): GrassLand turf with a moss kerb, Set 1's bright grass blob round each brush bed (rects in 32 px tiles, 2 x 2 cells), Decorative Props fences drawn as joined lines (posts and rails, ends and corners), a hedge of Wetland canopy clumps on each brush bed, pots, barrels and crates in the margins (the top row short ones, standing on the kerb under the stand wall)",
+		"_doc": "The floor is tiles (assets/arenas/greenhouse.tscn, built by tools/build_tiles.gd): GrassLand's bright flower meadow, Set 1's bright grass blob round each brush bed (rects in 32 px tiles, 2 x 2 cells), Decorative Props fences drawn as joined lines (posts and rails, ends and corners), a hedge of Wetland canopy clumps on each brush bed, pots, barrels and crates in the margins (the top row short ones, standing on the top margin under the stand wall)",
 		"set": "grassland",
-		"ground": "turf",
+		"ground": "meadow_bright",
 		"grass": [
 			[
 				3,

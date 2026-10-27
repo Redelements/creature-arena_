@@ -1,8 +1,8 @@
 extends TestCase
 ## Tiled arenas (bought ground tiles instead of a baked picture): the Set 1 cut's manifest
 ## covers every side combination of each blob terrain, the TileSet built from it matches by
-## sides with the same bits and autotiles a patch, the Stadium's scene has its ground and
-## kerb, and ArenaView draws the breaking ground over it as overlay tiles: a crack per
+## sides with the same bits and autotiles a patch, the Stadium's scene has its ground (no
+## ring), every set's decor and animations stand on feet inside their own box, and ArenaView draws the breaking ground over it as overlay tiles: a crack per
 ## cracked cell (running on into its cracked or open neighbours across some sides), a pit's
 ## far wall and floor by depth (two phases by column) with the floor's edge down its sides,
 ## along its near rim and round its corners, a piece gone while its cells are broken, all
@@ -48,8 +48,9 @@ func test_the_cut_covers_every_side_combination_once() -> void:
 				assert_true(key != str([0, 0, 0, 0]), "a variant is never the lone island")
 		assert_eq(block.size(), 16, "%s: all 16 combinations of connected sides:" % name)
 		assert_gt(variants, 20, "%s: and the sheet's variants came along" % name)
-	for fill in ["dirt", "grass", "water"]:
+	for fill in ["dirt", "grass"]:
 		assert_eq(man["ground"]["fills"][fill].size(), 16, "a 4 x 4 %s fill" % fill)
+	assert_eq(man["ground"]["fills"]["water"].size(), 4, "a flat 2 x 2 water fill from the bed's interior")
 	assert_eq(man["ground"]["fills"]["cobble"].size(), 4, "a 2 x 2 cobble fill")
 	var ids: Dictionary = man["overlay"]["ids"]
 	assert_eq(Array(ids["crack"]).map(func(x): return int(x)), ArenaView.OV_CRACK, "crack ids as ArenaView draws them")
@@ -284,6 +285,29 @@ func test_every_sets_overlay_atlas_keeps_the_rules() -> void:
 					assert_true(hit, "%s crack %d reaches side %d" % [set_name, joins, bit])
 		for id in ArenaView.OV_CRACK:
 			assert_false(tile.call(id).is_invisible(), "%s crack %d is drawn" % [set_name, id])
+
+
+## Feet are box-relative (build_tiles.gd: position = spot - feet): a y past the box floats the
+## sprite, one far above its bottom sinks it.
+func test_every_sets_decor_and_anims_stand_on_feet_inside_their_box() -> void:
+	for set_name in ["set1", "rock", "wetland", "grassland", "desert", "keeps"]:
+		var man: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://assets/tiles/%s_manifest.json" % set_name))
+		for kind in ["decor", "anim"]:
+			for name in man.get(kind, {}):
+				var e: Dictionary = man[kind][name]
+				var size: Array = e["size"] if kind == "decor" else e["frame"]
+				var tex: Texture2D = load("res://assets/tiles/" + String(e["source"]))
+				var img := tex.get_image()
+				var bottom := -1  # the last row with a solid pixel in the first frame
+				for y in int(size[1]):
+					for x in int(size[0]):
+						if img.get_pixel(x, y).a > 0.5:
+							bottom = y
+							break
+				var feet := Vector2(float(e["feet"][0]), float(e["feet"][1]))
+				assert_true(feet.x >= 0 and feet.x < float(size[0]), "%s %s: feet x inside the box" % [set_name, name])
+				assert_true(feet.y <= float(size[1]), "%s %s: feet inside the box (%s in %s)" % [set_name, name, feet, size])
+				assert_true(feet.y >= bottom - 24, "%s %s: feet near the sprite's bottom (feet %d, bottom %d)" % [set_name, name, feet.y, bottom])
 
 
 func test_a_piece_is_cleared_while_its_cells_are_broken() -> void:

@@ -1,6 +1,6 @@
 extends TestCase
 ## The Floodgate on tiles (the "wetland" set: Wetland paving, Set 1 water under its three
-## shallows channels with the translucent animated surface over it, a cobble kerb, reeds in
+## shallows channels with the translucent animated surface over it, a stone bank, reeds in
 ## the margins): the cut's water terrain covers every side combination, the scene's Water
 ## and WaterSurface layers cover every shallows cell's tile and nothing else, the map plays
 ## as it did (pieces untouched), ArenaView draws from the tiles, and WaterView still finds
@@ -50,7 +50,7 @@ func test_the_wetland_cut_has_the_water_terrain_and_its_surface() -> void:
 			block[str(t["sides"])] = true
 	assert_eq(block.size(), 16, "the water blob covers all 16 side combinations")
 	assert_eq(man["ground"]["fills"]["paving"].size(), 4, "a 2 x 2 paving fill")
-	assert_eq(man["ground"]["fills"]["kerb"].size(), 4, "a 2 x 2 kerb fill")
+	assert_eq(man["ground"]["fills"]["water"].size(), 4, "a flat 2 x 2 water fill from the bed's interior")
 	var surf: Dictionary = man["ground"]["surfaces"]["water"]
 	assert_eq(int(surf["frames"]), 16, "Set 1's 16-frame water surface")
 	assert_eq(String(surf["over"]), "water", "laid over the water terrain")

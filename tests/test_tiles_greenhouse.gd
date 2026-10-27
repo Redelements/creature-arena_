@@ -1,6 +1,6 @@
 extends TestCase
-## The Greenhouse Dome on tiles (the grassland set: Set 1 turf and grass blobs, GrassLand's
-## kerb and cliff face, Decorative Props fences): the set's terrains cover the 16 side
+## The Greenhouse Dome on tiles (the grassland set: GrassLand's bright meadow and cliff face,
+## Set 1 grass blobs, Decorative Props fences): the set's terrains cover the 16 side
 ## combinations, the scene draws every fence line as one joined line (each tile a post in
 ## the half of the tile the one-cell fence lies in, rails to the line's next tiles, none
 ## past its ends) and a hedge of swaying clumps on every brush bed, the margin decor stays
@@ -38,7 +38,7 @@ func test_the_grassland_cut_covers_every_side_combination() -> void:
 			if float(t["prob"]) >= 1.0:
 				block[str(t["sides"])] = true
 		assert_eq(block.size(), 16, "%s: all 16 combinations of connected sides" % name)
-	for fill in ["turf", "moss", "meadow", "turf_grassland"]:
+	for fill in ["turf", "meadow", "meadow_bright"]:
 		assert_eq(man["ground"]["fills"][fill].size(), 16, "a 4 x 4 %s fill" % fill)
 	for kind in ["tuft", "sprig"]:
 		assert_gt(man["pieces"][kind].size(), 0, "%s tiles were cut" % kind)
@@ -105,7 +105,7 @@ func test_the_scene_fences_every_fence_line_and_plants_every_bed() -> void:
 	for s in brush.get_children():
 		assert_true(s is AnimatedSprite2D and (s as AnimatedSprite2D).sprite_frames.get_frame_count(s.animation) == 5, "%s sways over 5 frames" % s.name)
 	var ground := root.get_node("Ground") as TileMapLayer
-	assert_true(ground.get_cell_atlas_coords(Vector2i(20, 9)) in _coords(man["ground"]["fills"]["turf"]), "turf under the floor")
+	assert_true(ground.get_cell_atlas_coords(Vector2i(20, 9)) in _coords(man["ground"]["fills"]["meadow_bright"]), "the bright meadow under the floor")
 	assert_eq(ground.get_cell_source_id(Vector2i(-1, 9)), -1, "no ring: the stands' hoardings sit past the floor")
 	assert_gt((root.get_node("Grass") as TileMapLayer).get_used_cells().size(), 100, "grass blobs round the beds")
 	assert_gt(root.get_node("Decor").get_child_count(), 10, "pots, barrels and crates in the margins")
@@ -117,9 +117,9 @@ func test_the_scene_fences_every_fence_line_and_plants_every_bed() -> void:
 		var on_floor := fx > 0.0 and fx < SimDefs.GRID_COLS * SimDefs.CELL and fy > 0.0 and fy < SimDefs.GRID_ROWS * SimDefs.CELL
 		assert_false(on_floor, "%s stands in the margins, never on the floor" % s.name)
 		if fy < 0.0 and fy > -SimDefs.CELL * ArtScale.TILE_CELLS:
-			# on the top kerb (one tile): its top stays under the stand wall
+			# in the top margin (one tile): its top stays under the stand wall
 			var top := s.position.y / ArtScale.PX_PER_UNIT
-			assert_true(top >= -SimDefs.CELL * ArtScale.TILE_CELLS, "%s stands on the kerb, not up the wall (top %.1f)" % [s.name, top])
+			assert_true(top >= -SimDefs.CELL * ArtScale.TILE_CELLS, "%s stands in the margin, not up the wall (top %.1f)" % [s.name, top])
 	root.free()
 
 

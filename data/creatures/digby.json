@@ -87,7 +87,7 @@
       "anim_at": [[0, 0], [2, 1], [4, 2], [5, 3], [8, 4], [10, 5], [12, 6], [13, 7]],
       "damage": 6, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
       "reach": 25, "hit_radius": 10, "lunge": 1.1, "next": "light_2", "juggle": true,
-      "fx": { "smear": "arc", "move_fx": ["res://assets/vfx/slash_claws.tres", "res://assets/vfx/impact_burst.tres"] }
+      "fx": { "smear": "arc", "move_fx": ["res://assets/vfx/slash_claws.tres", "res://assets/vfx/hit_star_cyan.tres"] }
     },
     "light_2": {
       "no_flinch": true,

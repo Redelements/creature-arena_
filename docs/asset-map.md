@@ -103,27 +103,30 @@ Recolour sets: most sheets repeat one layout in several colours, so one measured
 | Stadium (`set1`) | **now** Set 1 dirt fill + court markings; *prop* cobble corners, worn patches from `g_terrain3` other bands [RPGFW_Set1] | **now** hills2 face | none | none on the map | none | none | *prop* DecorativeProps `flag` / `lantern02` poles; FC_G fire ring as braziers [RPGW_DecorativeProps, RPGW_FC_G] | DS white dust (landings), HI hits |
 | Quarry (`rock`) | **now** Mountains scree + Set 1 dirt lanes + cobble corners; *prop* blob-edged lanes (Set 1 `g_terrain3` tan blob), ragged middle patch [RPGW_Mountains, RPGFW_Set1] | **now** Mountains olive face; *prop* tan face, Desert v2 1.4-tile ledge round the middle [RPGW_Desert_v2.01] | none | **now** Set 1 boulders; *prop* Desert v2 rock-stack `walls.rock` [RPGW_Desert_v2.01] | none | *prop* Mountains small piles, propsB boulder piles [RPGW_Mountains, RPGW_DecorativeProps] | *prop* FC_G miners' tent + cold fire pit, Windmill millstones, FL_Houses wheelbarrow | DS brown, EX r3 `boom_star` (rockslide) |
 | Floodgate (`wetland`) | **now** Wetland cobble paving; *prop* Wetland cobble-path border as kerb [RPGW_Wetland_v1.1] | **now** Wetland stone face | **now** Set 1 bed (tinted), Set 1 surface, composed stone kerb; *prop* Wetland `water_effB` glints | none on the map | none | **now** Wetland reeds, post; *prop* DecorativeProps `vegB3` reeds, Marshland bubbles, spots [RPGW_Marshland_v2.0] | *prop* Windmill gears, DecorativeProps stone wall; pipes: gap | LQ water, E1 blue |
-| Greenhouse (`grassland`) | **now** Set 1 bright grass + Set 1 dry-grass blob under beds; *prop* GrassLand bright meadow [RPGW_GrassLand_v2.01] | **now** GrassLand face | none | **now** DecorativeProps `fencelines.wood` | **now** Wetland canopy blobs (`bush:green`) | **now** pots, barrels, crates; *prop* animated `vegA` / `vegC` flowers, GrassLand tiny bushes | **now** pots etc. on the hoardings; *prop* Houses smallobj potted herbs [RPG_Buildings_HOUSES] | DS brown, EN r2 fountains (sprinklers) |
+| Greenhouse (`grassland`) | **now** GrassLand bright meadow + Set 1 dry-grass blob under beds [RPGW_GrassLand_v2.01] | **now** GrassLand face | none | **now** DecorativeProps `fencelines.wood` | **now** Wetland canopy blobs (`bush:green`) | **now** pots, barrels, crates; *prop* animated `vegA` / `vegC` flowers, GrassLand tiny bushes | **now** pots etc. on the hoardings; *prop* Houses smallobj potted herbs [RPG_Buildings_HOUSES] | DS brown, EN r2 fountains (sprinklers) |
 | Caravan Pass (`desert`) | **now** Desert v2 sand, gravel, earth road (blob9), scrub (blob9) | **now** Desert v2 plateau face | none | **now** Desert v2 rock `walls.rock`, Desert fence pieces; *prop* adobe blocks [RPG_Buildings_Desert] | **now** Wetland canopy dried (`bush:sage`); *prop* Desert v2 scrub clumps [RPGW_Desert_v2.01] | **now** rocks, agave, palms (anim); *prop* booths, banner racks, wells, braziers (`fire1`, `fire3`) | *prop* thatch stalls, small_obj1 goods, FL_Houses carts, Windmill sacks [FL_Houses_v1.0, RPG_Buildings_WINDMILL] | S2 beige smoke, DS brown |
-| Twin Keeps (`keeps`) | **now** Set 1 grass, cobble causeway | **now** hills2 face (chasms too dark at play zoom) | **now** Set 1 river + composed hills2 banks + 3x5 waterfall | **now** Castle `castle_h` / `castle_v` tiles, DecorativeProps fence tiles; *prop* Castle free-standing wall kit, `fencelines.wood` [RPG_Buildings_CASTLE_v1.0] | **now** Wetland nine-slice; *prop* blob beds | **now** Set 1 trees, Castle torch (miscut); *prop* gates, towers, braziers, banner drops, flag poles | *prop* FC_G team tents + campfire, DecorativeProps lanterns | FI flames (braziers), LQ |
+| Twin Keeps (`keeps`) | **now** Set 1 grass, cobble causeway | **now** hills2 face (chasms too dark at play zoom) | **now** Set 1 river + composed hills2 banks + 3x5 waterfall | **now** Castle `castle_h` / `castle_v` tiles, DecorativeProps fence tiles; *prop* Castle free-standing wall kit, `fencelines.wood` [RPG_Buildings_CASTLE_v1.0] | **now** Wetland nine-slice; *prop* blob beds | **now** Set 1 trees, Castle torch; *prop* gates, towers, braziers, banner drops, flag poles | *prop* FC_G team tents + campfire, DecorativeProps lanterns | FI flames (braziers), LQ |
 
 ## 4. Known wrong cuts to fix
 
-| # | Where | What is wrong | Fix | Source |
-|---|---|---|---|---|
-| 1 | `keeps.json` `anim.torch` | Castle `Anim/torch.png` is 6 frames of 32 x 32 (4 on row 0, 2 on row 1); cut as 4 of 32 x 64, so frames 0-1 show two torches stacked | `frame [32,32]`, `frames 4`, `row 0`, `feet [16,31]`, fps 6 (the 32 x 64 layout is FL_Houses' torch, 8 frames 4 x 2, feet [16,63]) | RPG_Buildings_CASTLE |
-| 2 | `keeps.json` `decor` birch, pine, bush | feet given in sheet y, not box y: birch `[48,206]` and pine `[48,208]` in 96 x 192 boxes, bush `[48,236]` in a 96 x 96 box: they float (the bush ~140 px) | birch `[48,176]` and bush `[48,88]` as in `grassland.json`; pine ~`[48,156]` (spruce bottom y 188); `set1.json` has the same three | RPGFW_Set1 boxes, `build_tiles.gd` |
-| 3 | `keeps.json` `pieces.castle_v` | tiles (25,2),(25,3) are a brick front face with an arrow slit and pilaster, not a top-down vertical run: vertical walls read as a column of facades | the free-standing wall kit's vertical run (x 641-653, y 750-940) with its T / corner pieces | RPG_Buildings_CASTLE |
-| 4 | `grassland.json` `turf_grassland` | block (48,17) is mauve-brown earth (67,54,52), not GrassLand turf (the recipe `_doc` calls it "too dark turf"); `meadow` (48,22) is the DARK meadow | the bright meadow is `[1728,704,2048,1024]` (tiles 54-63 x 22-31, 68,93,29), unused: add `meadow_bright` `block [56,24]` | RPGW_GrassLand_v2.01 |
-| 5 | `set1`, `keeps`, `wetland` `fills.water` | Set 1 `water_ground` `[12,0]` size 4 is not flat: a notched blob's lower right plus a deep hole at (12,1) | a 2 x 2 block from the interior `centres` (5,1)-(6,2), seams checked in game | RPGFW_Set1 |
-| 6 | `rock` `rock_dark`, `grassland` `moss`, `wetland` `kerb` | cut as the one-tile edge ring; since the ring went (fcca95e) nothing paints them, yet the arena `_doc`s still describe a kerb | paint them as `patches` where a kerb belongs, or drop the fills and fix the `_doc`s | `build_tiles.gd`, `docs/STATUS.md` |
-| 7 | `desert.json` `anim.palm_b` / `palm` | `tree2a` content ends at y 86, `tree1a` at 96; both cut with feet `[32,92]`: `palm_b` floats 6 px, `palm` sinks 4 | `palm_b` feet `[31,86]`, `palm` `[32,95]` | RPGW_Desert_v2.01 |
-| 8 | `desert.json` `bushes.sage` | still reads green (Wetland canopy desaturated) | Desert v2 scrub clumps (Caravan item 1) | `docs/STATUS.md`, RPGW_Desert_v2.01 |
-| 9 | `rock` / Quarry middle patch | a rectangular tan dirt patch on tan scree | Quarry item 1 | `docs/STATUS.md` |
-| 10 | `assets/vfx/impact_burst` on Digby `light_1` | HI r1 is loud (90 x 82 px rays) on a light hit | `hit_star_cyan` (HI r3) at scale 0.6, or drop the hit fx | kiddolink_vfx |
-| 11 | `assets/vfx/aura_buff` | cut, never wired | wire to a buff `start` (follow, loop) or remove the cut | kiddolink_vfx |
-| 12 | Keeps chasms, causeway, waterfall | chasm overlay dark at play zoom; causeway sides straight against grass; pool spills over the banks | Keeps items 9-11 | `docs/STATUS.md` |
-| 13 | DecorativeProps animated sheets (when cut) | rows sit at y 0 / 128 / 256 (pitch 128), not 96 | `frame [32,128]` (bottom 32 px empty), `feet [16,93]` | RPGW_DecorativeProps |
+Fixed on branch `fix-cuts`: 1, 2, 4, 5, 6, 7, 10, 11 (the Status column says how); 13 is a note for when
+those sheets are cut. Still open: 3, 8, 9, 12.
+
+| # | Where | What is wrong | Fix | Source | Status |
+|---|---|---|---|---|---|
+| 1 | `keeps.json` `anim.torch` | Castle `Anim/torch.png` is 6 frames of 32 x 32 (4 on row 0, 2 on row 1); cut as 4 of 32 x 64, so frames 0-1 show two torches stacked | `frame [32,32]`, `frames 4`, `row 0`, `feet [16,31]`, fps 6 (the 32 x 64 layout is FL_Houses' torch, 8 frames 4 x 2, feet [16,63]) | RPG_Buildings_CASTLE | fixed: `[32,32]` x 4, row 0, feet `[16,31]` |
+| 2 | `keeps.json` `decor` birch, pine, bush | feet given in sheet y, not box y: birch `[48,206]` and pine `[48,208]` in 96 x 192 boxes, bush `[48,236]` in a 96 x 96 box: they float (the bush ~140 px) | birch `[48,176]` and bush `[48,88]` as in `grassland.json`; pine ~`[48,156]` (spruce bottom y 188); `set1.json` has the same three | RPGFW_Set1 boxes, `build_tiles.gd` | fixed in `keeps` and `set1`: birch `[48,176]`, bush `[48,88]`; pine box moved to `[576,16,672,208]` (the old one cut the tip and caught the next spruce's tip), feet `[44,167]` at the trunk base; `test_tiles.gd` checks every set's feet |
+| 3 | `keeps.json` `pieces.castle_v` | tiles (25,2),(25,3) are a brick front face with an arrow slit and pilaster, not a top-down vertical run: vertical walls read as a column of facades | the free-standing wall kit's vertical run (x 641-653, y 750-940) with its T / corner pieces | RPG_Buildings_CASTLE | open |
+| 4 | `grassland.json` `turf_grassland` | block (48,17) is mauve-brown earth (67,54,52), not GrassLand turf (the recipe `_doc` calls it "too dark turf"); `meadow` (48,22) is the DARK meadow | the bright meadow is `[1728,704,2048,1024]` (tiles 54-63 x 22-31, 68,93,29), unused: add `meadow_bright` `block [56,24]` | RPGW_GrassLand_v2.01 | fixed: `meadow_bright` is the Greenhouse floor and the cracks' lip; `turf_grassland` dropped |
+| 5 | `set1`, `keeps`, `wetland` `fills.water` | Set 1 `water_ground` `[12,0]` size 4 is not flat: a notched blob's lower right plus a deep hole at (12,1) | a 2 x 2 block from the interior `centres` (5,1)-(6,2), seams checked in game | RPGFW_Set1 | fixed: `[8,2]` size 2 (seam-tested flatter than (5,1)); no map paints `fills.water` today (the shallows use the terrain) |
+| 6 | `rock` `rock_dark`, `grassland` `moss`, `wetland` `kerb` | cut as the one-tile edge ring; since the ring went (fcca95e) nothing paints them, yet the arena `_doc`s still describe a kerb | paint them as `patches` where a kerb belongs, or drop the fills and fix the `_doc`s | `build_tiles.gd`, `docs/STATUS.md` | fixed: all three dropped, `_doc`s fixed (moss not painted: the planters stand in the margins, off the floor) |
+| 7 | `desert.json` `anim.palm_b` / `palm` | `tree2a` content ends at y 86, `tree1a` at 96; both cut with feet `[32,92]`: `palm_b` floats 6 px, `palm` sinks 4 | `palm_b` feet `[31,86]`, `palm` `[32,95]` | RPGW_Desert_v2.01 | fixed: `palm` `[31,95]`, `palm_b` `[30,85]` (trunk centre on the last row) |
+| 8 | `desert.json` `bushes.sage` | still reads green (Wetland canopy desaturated) | Desert v2 scrub clumps (Caravan item 1) | `docs/STATUS.md`, RPGW_Desert_v2.01 | open |
+| 9 | `rock` / Quarry middle patch | a rectangular tan dirt patch on tan scree | Quarry item 1 | `docs/STATUS.md` | open |
+| 10 | `assets/vfx/impact_burst` on Digby `light_1` | HI r1 is loud (90 x 82 px rays) on a light hit | `hit_star_cyan` (HI r3) at scale 0.6, or drop the hit fx | kiddolink_vfx | fixed: `hit_star_cyan` (HI r3 frames 0-3, tpf 2, scale 0.6); `impact_burst` kept for heavies |
+| 11 | `assets/vfx/aura_buff` | cut, never wired | wire to a buff `start` (follow, loop) or remove the cut | kiddolink_vfx | removed: the only self buff is Pete's Tiptoe, a stealth move a glowing aura would give away |
+| 12 | Keeps chasms, causeway, waterfall | chasm overlay dark at play zoom; causeway sides straight against grass; pool spills over the banks | Keeps items 9-11 | `docs/STATUS.md` | open |
+| 13 | DecorativeProps animated sheets (when cut) | rows sit at y 0 / 128 / 256 (pitch 128), not 96 | `frame [32,128]` (bottom 32 px empty), `feet [16,93]` | RPGW_DecorativeProps | note (rule in 1c) |
 
 ## 5. Per-map improvement plan
 
@@ -168,7 +171,7 @@ Ranked within each map, value first. Size: S = recipe lines only, M = recipe + m
 | 2 | Tan pit face | Mountains tan frame `[640,168,672,216]` | `overlay.face` | pits match the scree they cut into | S |
 | 3 | Rock-stack walls with rubble | Desert v2 `walls.rock` (copy from `desert.json`, same tans) | `walls.rock`; style `wall: "wall:rock"` | walls read as quarried stacks; smashed tiles leave rock heaps (STATUS: rubble drawn as circles) | S |
 | 4 | Ragged cart lanes | Set 1 `g_terrain3` tan band: blob `[0,4]`, variants `[[4,4,8,4]]` | `terrains.lane` (blob) | lanes lose their straight sides | M |
-| 5 | Paint or drop `rock_dark` | wrong cut 6 | `patches` | a darker band along the rubble walls | S |
+| 5 | ~~Paint or drop `rock_dark`~~ dropped (fix-cuts) | wrong cut 6 | `patches` | a darker band along the rubble walls | S |
 | 6 | Quarry clutter | Mountains small piles `[0,203,125,247]`; propsB boulder piles `[6,768,215,832]`; FC_G tent `[6,256,123,326]`, fire pit `[608,327,640,352]`; Windmill millstones `[64,155,96,182]` | `decor` | stand-side miners' camp | S |
 
 ### Floodgate (`wetland.json`, `data/arenas/floodgate.json`)
@@ -180,16 +183,16 @@ Ranked within each map, value first. Size: S = recipe lines only, M = recipe + m
 | 3 | Reeds in the channel mouths | DecorativeProps `vegB3` (dense tuft) / `vegB1`: frame `[32,32]`, frames 4, row 0, feet `[16,30]`; Marshland tiny reed spots `[0,1504,960,1632]` | `anim.reeds_*`, `decor` | swaying reeds beside the static Wetland ones | S |
 | 4 | Mud bubbles in the shallows | Marshland `bubble1..6` (six files = six frames, L-shaped alpha), `bubble_1,2` overlay | `anim` (needs `cut_anim` to read a file list) | a hazard cue in the water | L |
 | 5 | Sluice machinery | Windmill gears `[266,128,308,221]`, `[332,128,374,191]`; DecorativeProps stone wall straight `[160,256,224,288]` | `decor` | stand-side industry next to the procedural pipes | S |
-| 6 | Paint or drop `kerb` | wrong cut 6 | `patches` | | S |
+| 6 | ~~Paint or drop `kerb`~~ dropped (fix-cuts) | wrong cut 6 | `patches` | | S |
 
 ### Greenhouse (`grassland.json`, `data/arenas/greenhouse.json`)
 
 | # | What | Pack, boxes | Recipe key | Effect | Size |
 |---|---|---|---|---|---|
-| 1 | Bright meadow turf | GrassLand `[1728,704,2048,1024]` | `fills.meadow_bright` (`block [56,24]`); map `ground` | GrassLand's own bright turf with flower specks; retire the mauve `turf_grassland` | S |
+| 1 | Bright meadow turf (done, fix-cuts) | GrassLand `[1728,704,2048,1024]` | `fills.meadow_bright` (`block [56,24]`); map `ground` | GrassLand's own bright turf with flower specks; retire the mauve `turf_grassland` | S |
 | 2 | Animated flowers in and round the beds | DecorativeProps `vegA1..A4`, `vegC1..C4` (frame `[32,32]`, frames 4, row = colour x 4, feet `[16,30]`) | `anim.flower_*` | the dome looks planted, not mown | S |
 | 3 | GrassLand props | `decorative.png` tiny bushes `[141,800,180,832]`, `[192,808,223,832]`; swaying `anim/tree2A_ss` (frame `[128,160]`, 4 frames row 0, feet = bottom edge) | `decor`, `anim` | stand-side greenery from the matching pack | S |
-| 4 | Moss under the planters | `moss` fill (wrong cut 6) | `patches` | dark beds under pots | S |
+| 4 | Moss under the planters | `moss` fill dropped (fix-cuts); recut it if the planters move onto the floor | `patches` | dark beds under pots | S |
 | 5 | Potted herbs | Houses `smallobj` row y 96 (potted flowers, herbs) | `decor` | more pot variety | S |
 
 ### Stadium (`set1.json`, `data/arenas/stadium.json`): keep it clean
@@ -224,8 +227,8 @@ loud effect in their family; never stack a slash and a burst on one spot. Full p
 | Gale (Crease) | `sp_fan` | `sp_pinwheel`, white `dust_wisp` | `smoke_bloom` + white `dust_swirl_ring` | white `dust_wisp` |
 | Tide (Gillbert, Sno Mercy) | `water_spout`, `hit_star_cyan` | `water_fountain`, `water_wave`, `energy_geyser` | `water_fountain` x3 + `energy_geyser` / `energy_nova` | `water_fountain`, `sp_pinwheel` |
 
-First three changes: Digby `light_1` `impact_burst` -> `hit_star_cyan`; Barkley Pinecone Bomb `fire_burst` -> `boom_star` 0.7
-(or brown `dust_poof`); wire `aura_buff` or drop it.
+First three changes: Digby `light_1` `impact_burst` -> `hit_star_cyan` (done); Barkley Pinecone Bomb `fire_burst` -> `boom_star` 0.7
+(or brown `dust_poof`); `aura_buff` dropped (done).
 
 ## 6. Unused packs and what they are good for (ideas only, no new maps)
 

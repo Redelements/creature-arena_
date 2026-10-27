@@ -1,5 +1,5 @@
 {
-	"_doc": "The Greenhouse Dome: Set 1's bright grass for the turf (GrassLand v2's own turf, kept here as turf_grassland, reads too dark under the dome), GrassLand v2's moss kerb, flower meadow and cliff face (RPGW_GrassLand_v2.01: the solid blocks on the right of MainLev2.0.png are seamless fills), Set 1's darker grass blob and tall grass for the beds (RPGFW_Set1_v1.0), Decorative Props' wooden fence (fencelines: posts and rails composed into joined lines), pots, barrels and crates (RPGW_DecorativeProps_v1.0). Keys: tools/cut_tiles.py. Paths are relative to the packs dir.",
+	"_doc": "The Greenhouse Dome: GrassLand v2's bright flower meadow for the floor, its darker meadow and cliff face (RPGW_GrassLand_v2.01: the solid blocks on the right of MainLev2.0.png are seamless fills), Set 1's bright grass (turf, the old floor), darker grass blob and tall grass for the beds (RPGFW_Set1_v1.0), Decorative Props' wooden fence (fencelines: posts and rails composed into joined lines), pots, barrels and crates (RPGW_DecorativeProps_v1.0). Keys: tools/cut_tiles.py. Paths are relative to the packs dir.",
 	"ground": {
 		"fills": {
 			"turf": {
@@ -9,25 +9,19 @@
 					0
 				]
 			},
-			"turf_grassland": {
+			"meadow_bright": {
 				"src": "RPGW_GrassLand_v2.01/MainLev2.0.png",
 				"block": [
-					48,
-					17
-				]
+					56,
+					24
+				],
+				"_doc": "GrassLand's bright flower meadow (the block at x 1728-2047, y 704-1023), the Greenhouse floor"
 			},
 			"meadow": {
 				"src": "RPGW_GrassLand_v2.01/MainLev2.0.png",
 				"block": [
 					48,
 					22
-				]
-			},
-			"moss": {
-				"src": "RPGW_GrassLand_v2.01/MainLev2.0.png",
-				"block": [
-					58,
-					11
 				]
 			},
 			"dirt": {
@@ -148,7 +142,7 @@
 		]
 	},
 	"overlay": {"_doc": "the pits' far wall: a seamless cliff face from the matching pack; the lip and the cracks: the floor's own fill (tools/cut_tiles.py cut_overlay)",
-		"face": {"src": "RPGW_GrassLand_v2.01/MainLev2.0.png", "box": [160, 186, 192, 214]}, "lip": "turf"},
+		"face": {"src": "RPGW_GrassLand_v2.01/MainLev2.0.png", "box": [160, 186, 192, 214]}, "lip": "meadow_bright"},
 	"decor": {
 		"pot_tall": {
 			"src": "RPGW_DecorativeProps_v1.0/propsA.png",

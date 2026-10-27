@@ -16,7 +16,7 @@ func _manifest() -> Dictionary:
 func test_every_cut_effect_has_its_resources() -> void:
 	var man := _manifest()
 	assert_true(man["effects"].has("slash_claws") and man["effects"].has("impact_burst")
-		and man["effects"].has("fire_burst") and man["effects"].has("aura_buff"), "a slash, a hit, a fire, an aura")
+		and man["effects"].has("fire_burst") and man["effects"].has("hit_star_cyan"), "a slash, two hits, a fire")
 	for name in man["effects"]:
 		var e: Dictionary = man["effects"][name]
 		var fx = load(DIR + String(name) + ".tres")
@@ -29,6 +29,9 @@ func test_every_cut_effect_has_its_resources() -> void:
 		assert_eq(tex.get_width(), int(e["frames"]) * int(e["size"]), "%s: the strip is frames x 96" % name)
 		assert_eq(fx.on, String(e["on"]), "%s: spawns on %s" % [name, e["on"]])
 		assert_eq(fx.life(), int(e["frames"]) * fx.ticks_per_frame if not fx.loop else fx.loop_ticks, "%s: life" % name)
+		assert_eq(fx.scale, float(e.get("scale", 1.0)), "%s: scale as cut" % name)
+	var star: MoveFx = load(DIR + "hit_star_cyan.tres")
+	assert_lt(star.scale, 0.75, "the light-hit star is drawn small")
 
 
 func test_frame_at_follows_the_ticks_and_loops_only_when_told() -> void:
@@ -37,8 +40,9 @@ func test_frame_at_follows_the_ticks_and_loops_only_when_told() -> void:
 	assert_eq(fx.frame_at(fx.ticks_per_frame - 0.5), 0, "the first frame holds for its ticks")
 	assert_eq(fx.frame_at(fx.ticks_per_frame), 1)
 	assert_eq(fx.frame_at(1000.0), fx.frame_count() - 1, "a one-shot holds its last frame")
-	var aura: MoveFx = load(DIR + "aura_buff.tres")
-	assert_true(aura.loop and aura.follow, "the aura loops and rides with its fighter")
+	var aura: MoveFx = fx.duplicate()  # no looping cut is wired today; a looped copy of the slash
+	aura.loop = true
+	aura.loop_ticks = 90
 	assert_eq(aura.frame_at(aura.ticks_per_frame * aura.frame_count()), 0, "a loop wraps")
 
 
@@ -90,7 +94,8 @@ func test_the_slash_spawns_on_the_strike_tick_from_the_moves_own_data() -> void:
 			if (s[0] as MoveFx).on == "hit":
 				impact = true
 	assert_eq(spawned_at, int(mv["startup"]) + 1, "spawned on startup + 1, the sim's first active tick")
-	assert_true(impact, "the hit it landed played the impact burst (the second entry of the list)")
+	assert_true(impact, "the hit it landed played the light-hit star (the second entry of the list)")
+	assert_true(str(mv["fx"].get("move_fx", "")).contains("hit_star_cyan.tres"), "a light hit plays the small star, not the loud burst")
 	assert_false(bool(slot[2]), "facing right: not mirrored")
 	var f: MoveFx = slot[0]
 	assert_true(f.follow, "the slash rides with Digby")
@@ -136,7 +141,7 @@ func test_a_freeze_holds_the_frame_and_the_effect_runs_out_on_the_clock() -> voi
 	for i in f.ticks_per_frame:
 		fx.move_fx.advance(1.0)
 	assert_eq(int(_slot(fx, "strike")[3]), 1, "one frame per ticks_per_frame ticks")
-	for i in maxi(f.life(), (load(DIR + "impact_burst.tres") as MoveFx).life()):
+	for i in maxi(f.life(), (load(DIR + "hit_star_cyan.tres") as MoveFx).life()):
 		fx.move_fx.advance(1.0)
 	assert_eq(fx.move_fx.playing(), 0, "and they run out")
 	fx.free()

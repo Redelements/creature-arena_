@@ -1,7 +1,7 @@
 extends TestCase
 ## The Quarry Bowl on bought tiles (the "rock" set: Mountains sandstone and cliff faces, Set 1
 ## dirt, cobbles and boulders): the cut has its fills and no blob terrain, the scene has the
-## floor, the kerb, the dirt lanes and cobbled corners as patches, boulders on both rubble
+## floor, the dirt lanes and cobbled corners as patches, boulders on both rubble
 ## walls, and the map plays as it did: ArenaView is tiled there, the walls still stand, a
 ## crack sets an overlay cell.
 
@@ -22,7 +22,7 @@ func _at(a: Array) -> Vector2i:
 func test_the_rock_cut_has_its_fills_and_overlay() -> void:
 	var man := _manifest()
 	assert_eq(man["set"], "rock")
-	for fill in ["stone", "rock_dark", "dirt"]:
+	for fill in ["stone", "dirt"]:
 		assert_eq(man["ground"]["fills"][fill].size(), 16, "a 4 x 4 %s fill" % fill)
 	assert_eq(man["ground"]["fills"]["cobble"].size(), 4, "a 2 x 2 cobble fill")
 	assert_true(man["ground"]["terrains"].is_empty(), "no blob terrain in the Mountains sheet: variety is patches")
@@ -40,7 +40,7 @@ func test_the_rock_cut_has_its_fills_and_overlay() -> void:
 	assert_true(ResourceLoader.exists("res://assets/tiles/rock_overlay.tres"), "the overlay set exists")
 
 
-func test_the_quarry_scene_has_floor_kerb_patches_and_boulders() -> void:
+func test_the_quarry_scene_has_floor_patches_and_boulders() -> void:
 	var scene: PackedScene = load(SCENE)
 	var root := scene.instantiate()
 	var ground := root.get_node("Ground") as TileMapLayer

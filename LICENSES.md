@@ -63,8 +63,8 @@ snapped to the game's palette):
 Files from the **RPG Worlds Mountains** pack (`RPGW_Mountains_v1.2`, part of the bundle) and
 Set 1, cut by `tools/cut_tiles.py` from `tools/tile_recipes/rock.json` for the Quarry Bowl:
 
-- `assets/tiles/rock_ground.png`: the sandstone scree and darker rock fills (Mountains), the
-  dirt and cobble fills (Set 1).
+- `assets/tiles/rock_ground.png`: the sandstone scree fill (Mountains), the dirt and cobble
+  fills (Set 1).
 - `assets/tiles/rock_pieces.png`: boulders and tall grass (Set 1).
 - `assets/tiles/rock_overlay.png`: pit walls cut from a Mountains cliff face, with generated
   cracks and edges.
@@ -91,8 +91,8 @@ Files from **RPG Worlds GrassLand v2** (`RPGW_GrassLand_v2.01`) and **RPG Worlds
 Props** (`RPGW_DecorativeProps_v1.0`), both in the same bundle, with Set 1 (cut by
 `tools/cut_tiles.py` from `tools/tile_recipes/grassland.json`, colours snapped to the palette):
 
-- `assets/tiles/grassland_ground.png`: the Greenhouse's turf (Set 1), GrassLand's moss kerb,
-  flower meadow and its own turf, Set 1's grass and water blobs.
+- `assets/tiles/grassland_ground.png`: GrassLand's bright flower meadow (the Greenhouse's
+  floor) and darker meadow, Set 1's turf, dirt, grass and water blobs.
 - `assets/tiles/grassland_pieces.png`: Set 1 boulders and tall grass.
 - `assets/tiles/grassland_fence_wood.png`: Decorative Props' wooden fence (a post and two rail
   strips) composed into fence line tiles.
@@ -109,7 +109,7 @@ Files from **RPG Worlds Wetland** (`RPGW_Wetland_v1.1`, in the same bundle) and 
 by `tools/cut_tiles.py` from `tools/tile_recipes/wetland.json` for the Floodgate:
 
 - `assets/tiles/wetland_ground.png`: the paving fill (Wetland's cobbled yard) with Set 1's
-  cobble kerb, water blob and water fill (lifted lighter for a shallows channel).
+  water blob and water fill (lifted lighter for a shallows channel).
 - `assets/tiles/wetland_surface_water.png`: Set 1's translucent animated water surface, as a
   strip of 16 frames.
 - `assets/tiles/wetland_pieces.png` (Set 1 boulders), `assets/tiles/wetland_overlay.png`
@@ -157,8 +157,8 @@ editing allowed. Not allowed: reselling or redistributing the pack.
 Files from it (cut by `tools/cut_vfx.py`: single rows of frames at their 96 px, colours
 snapped to the game's palette; `tools/build_vfx.gd` makes the resources from them):
 
-- `assets/vfx/slash_claws.png` (vfx_slash), `assets/vfx/impact_burst.png` (vfx_hit_impact),
-  `assets/vfx/fire_burst.png` (vfx_fire), `assets/vfx/aura_buff.png` (vfx_energy);
+- `assets/vfx/slash_claws.png` (vfx_slash), `assets/vfx/impact_burst.png` and
+  `assets/vfx/hit_star_cyan.png` (vfx_hit_impact), `assets/vfx/fire_burst.png` (vfx_fire);
 - `assets/vfx/manifest.json` and the derived `assets/vfx/<name>_frames.tres` /
   `assets/vfx/<name>.tres` resources, which reference those strips.
 

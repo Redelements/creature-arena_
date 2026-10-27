@@ -41,20 +41,19 @@
     -16
    ]
   },
-  "aura_buff": {
-   "frames": 13,
+  "hit_star_cyan": {
+   "frames": 4,
    "size": 96,
-   "source": "vfx_energy-Sheet.png row 0 frames 0-12",
-   "on": "start",
-   "follow": true,
+   "source": "vfx_hit_effects-Sheet.png row 3 frames 0-3",
+   "on": "hit",
+   "follow": false,
    "flip_with_facing": false,
-   "ticks_per_frame": 3,
+   "ticks_per_frame": 2,
    "offset": [
     0,
-    -20
+    -12
    ],
-   "loop": true,
-   "loop_ticks": 90
+   "scale": 0.6
   }
  }
 }

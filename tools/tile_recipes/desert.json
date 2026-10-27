@@ -198,9 +198,10 @@
 			"frames": 10,
 			"fps": 6,
 			"feet": [
-				32,
-				92
-			]
+				31,
+				95
+			],
+			"_doc": "tree1a's trunk ends on the frame's last row (y 95), x 25-37"
 		},
 		"palm_b": {
 			"src": "RPGW_Desert_v2.01/animated/tree2a.png",
@@ -211,9 +212,10 @@
 			"frames": 10,
 			"fps": 6,
 			"feet": [
-				32,
-				92
-			]
+				30,
+				85
+			],
+			"_doc": "tree2a is shorter: its trunk ends at y 85, x 24-36"
 		}
 	},
 	"walls": {

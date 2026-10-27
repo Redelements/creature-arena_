@@ -6,7 +6,7 @@
 			"grass": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "block": [12, 0]},
 			"grass_dark": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "block": [12, 4]},
 			"cobble": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "block": [37, 0], "size": 2},
-			"water": {"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "block": [12, 0]}
+			"water": {"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "block": [8, 2], "size": 2, "_doc": "a flat 2 x 2 from the bed's interior centres (the solid-looking [12, 0] block is a notched blob with a hole)"}
 		},
 		"terrains": {
 			"grass": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "blob": [0, 0], "variants": [[4, 0, 8, 4]]},
@@ -35,9 +35,9 @@
 		"face": {"src": "RPGFW_Set1_v1.0/_PNG/hills2.png", "box": [576, 36, 608, 84]}, "lip": "dirt"},
 	"decor": {
 		"oak": {"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [0, 0, 128, 256], "feet": [64, 236]},
-		"birch": {"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [384, 32, 480, 224], "feet": [48, 206]},
-		"pine": {"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [576, 32, 672, 224], "feet": [48, 208]},
-		"bush": {"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [288, 160, 384, 256], "feet": [48, 236]}
+		"birch": {"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [384, 32, 480, 224], "feet": [48, 176]},
+		"pine": {"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [576, 16, 672, 208], "feet": [44, 167]},
+		"bush": {"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [288, 160, 384, 256], "feet": [48, 88]}
 	},
 	"anim": {
 		"waterfall": {"src": "RPGFW_Set1_v1.0/_PNG/anim/waterfall/1x2_waterfall.png", "frame": [128, 96], "frames": 8, "fps": 8, "feet": [64, 84]}
