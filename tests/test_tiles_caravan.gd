@@ -2,10 +2,12 @@ extends TestCase
 ## Dustwind Pass on the Desert set (tools/tile_recipes/desert.json): the cut's opaque 5 x 5
 ## blobs give nine side combinations a terrain, the scene is the 110 x 20 floor and its
 ## ring, the walls stand as runs of stacked rock (one tall sprite a tile, a wide-footed end,
-## rubble hidden under each), the brush as beds of sage bushes, the fences as oriented
-## fence tiles, the road and scrub are painted, the margins carry low rocks and palms, and
-## the map draws as tiles: a smashed wall shows its rubble, and runtime rockslide rubble is
-## still handled (a WALL the sim adds is not a piece).
+## rubble hidden under each), the brush as beds of the Desert's own scrub shrubs, the fences
+## as oriented fence tiles, the road and scrub are painted with worn verges and gravel, the
+## margins carry low rocks and palms, the caravan stops braziers and goods on the walls'
+## near ends and the side walkways banner racks and braziers, and the map draws as tiles: a
+## smashed wall shows its rubble and drops what stood on it, and runtime rockslide rubble
+## is still handled (a WALL the sim adds is not a piece).
 
 const MANIFEST := "res://assets/tiles/desert_manifest.json"
 const GROUND := "res://assets/tiles/desert_ground.tres"
@@ -26,7 +28,7 @@ func test_the_desert_cut_has_its_terrains_pieces_and_props() -> void:
 		assert_eq(seen.size(), 9, "%s: a 5 x 5 opaque blob gives nine side combinations" % name)
 		assert_true(seen.has(str([1, 1, 1, 1])), "%s: with a middle" % name)
 		assert_true(seen.has(str([0, 1, 0, 1])), "%s: and a top-left corner" % name)
-	for fill in ["sand", "gravel", "scrub_fill"]:
+	for fill in ["sand", "gravel", "scrub_fill", "sand_dirt"]:
 		assert_eq(man["ground"]["fills"][fill].size(), 16, "a 4 x 4 %s fill" % fill)
 	assert_eq(man["ground"]["fills"]["earth_fill"].size(), 9, "a 3 x 3 packed-earth fill")
 	for kind in ["fence_h", "fence_v"]:
@@ -37,11 +39,27 @@ func test_the_desert_cut_has_its_terrains_pieces_and_props() -> void:
 		assert_gt(roles.get(role, []).size(), 0, "a wall %s sprite" % role)
 	for sp in roles["mid"]:
 		assert_gt(int(sp["size"][1]), 32, "a pillar stands taller than its tile, so a run overlaps into one wall")
-	assert_eq(man["bushes"]["sage"]["clumps"].size(), 9, "the sage bush is a nine-slice")
-	for d in ["rocks", "rocks_b", "agave"]:
+	var scrub: Dictionary = man["bushes"]["scrub"]
+	assert_true(scrub.get("blobs", false), "the scrub bush is a set of whole shrubs a bed scatters")
+	assert_eq(scrub["clumps"].size(), 5, "five shrubs")
+	assert_false(man["bushes"].has("sage"), "the borrowed Wetland canopy is gone")
+	for d in ["rocks", "rocks_b", "agave", "rack_red", "rack_grey", "rack_green", "goods_a", "goods_b"]:
 		assert_true(man["decor"].has(d), "decor " + d)
+	for d in ["rack_red", "rack_grey", "rack_green"]:
+		assert_eq(Array(man["decor"][d]["size"]).map(func(x): return int(x)), [32, 59], "%s: a narrow rack, one tile wide" % d)
 	assert_eq(int(man["anim"]["palm"]["frames"]), 10, "the palm strip's ten frames")
 	assert_eq(int(man["anim"]["palm"]["frame"][0]), 64, "64 px wide each")
+	for a in ["brazier", "tripod"]:
+		assert_eq(int(man["anim"][a]["frames"]), 6, "%s: six flame frames" % a)
+
+
+## The scene px a decor or anim sprite draws its opaque pixels over (positioned by its top
+## left, or, on a wall, by its foot with an offset).
+func _drawn_box(s: Node) -> Rect2:
+	var tex: Texture2D = (s as Sprite2D).texture if s is Sprite2D else (s as AnimatedSprite2D).sprite_frames.get_frame_texture("default", 0)
+	var used := tex.get_image().get_used_rect()
+	var at: Vector2 = (s as Node2D).position + Vector2(s.get("offset"))
+	return Rect2(at + Vector2(used.position), Vector2(used.size))
 
 
 func test_the_desert_tileset_names_its_terrains() -> void:
@@ -76,10 +94,11 @@ func test_the_pass_scene_has_road_walls_fences_and_margins() -> void:
 	var walls := root.get_node("Walls")
 	var rubble := root.get_node("Rubble")
 	assert_true(walls.y_sort_enabled, "a run's near pillars overlap the far ones")
-	assert_eq(walls.get_child_count(), 24, "a sprite on every wall tile (3 + 4 + 5, twice)")
+	var pillars := walls.get_children().filter(func(s): return String(s.name).begins_with("rock_"))
+	assert_eq(pillars.size(), 24, "a sprite on every wall tile (3 + 4 + 5, twice)")
 	assert_eq(rubble.get_child_count(), 24, "and its rubble under it")
 	var run: Array = []
-	for s in walls.get_children():
+	for s in pillars:
 		if Rect2i(30, 2, 2, 6).encloses(s.get_meta("cells")):
 			run.append(s)
 	assert_eq(run.size(), 3, "the wall at [30, 2, 2, 6] stands as three pillars")
@@ -104,15 +123,30 @@ func test_the_pass_scene_has_road_walls_fences_and_margins() -> void:
 	assert_true(pieces.get_cell_source_id(Vector2i(50, 8)) == -1, "nothing on the open road")
 	var decor := root.get_node("Decor")
 	var anim := root.get_node("Anim")
-	assert_eq(decor.get_child_count(), 12, "the margins' rocks and agave")
-	assert_eq(anim.get_child_count(), 5, "five palms")
-	for s in decor.get_children():
-		var sp := s as Sprite2D
-		# the sprite's bottom (its feet plus a shadow of a few px) is above the floor or below it
-		var bottom := sp.position.y + sp.texture.get_height()
-		assert_true(bottom <= 12.0 or bottom >= 20 * 32, "decor stands off the floor: %s, bottom at %s" % [sp.name, bottom])
+	assert_eq(decor.get_child_count(), 16, "the margins' rocks and agave, the walkways' racks and goods")
+	assert_eq(anim.get_child_count(), 9, "five palms and the walkways' four braziers")
+	for s in decor.get_children() + anim.get_children():
+		# the drawn box (its feet plus a shadow of a few px) is above the floor or below it, or
+		# past its left or right end (the side walkways)
+		var box := _drawn_box(s)
+		assert_true(box.end.y <= 12.0 or box.end.y >= 20 * 32 or box.end.x <= 0.0 or box.position.x >= 110 * 32,
+			"decor stands off the floor: %s, %s" % [s.name, box])
 	for s in anim.get_children():
-		assert_true((s as AnimatedSprite2D).autoplay == "default", "palms sway on their own")
+		assert_true((s as AnimatedSprite2D).autoplay == "default", "palms and braziers move on their own")
+	# the stops' pieces stand on the walls' near ends, inside the run's tiles, y-sorted with it
+	var on_walls := walls.get_children().filter(func(s): return not String(s.name).begins_with("rock_"))
+	assert_eq(on_walls.size(), 6, "a brazier, goods or a tripod on each run's near end")
+	var runs := [Rect2i(30, 2, 2, 6), Rect2i(52, 22, 2, 8), Rect2i(90, 2, 2, 10), Rect2i(188, 2, 2, 6), Rect2i(166, 22, 2, 8), Rect2i(128, 2, 2, 10)]
+	# (its feet row lands on the tile's bottom edge, as every decor's does: 2 px of slack)
+	for s in on_walls:
+		var cells: Rect2i = s.get_meta("cells")
+		var inside: Array = runs.filter(func(r): return r.encloses(cells))
+		assert_eq(inside.size(), 1, "%s covers wall cells only: %s" % [s.name, cells])
+		var r: Rect2i = inside[0]
+		var box := _drawn_box(s)
+		assert_true(box.position.x >= r.position.x * 16 and box.end.x <= r.end.x * 16 and box.position.y >= r.position.y * 16 and box.end.y <= r.end.y * 16 + 2,
+			"%s draws over its wall only, never the floor: %s in %s" % [s.name, box, r])
+		assert_eq(cells.end.y, r.end.y, "%s stands at its run's near end, in front of the pillars" % s.name)
 	root.free()
 
 
@@ -134,7 +168,7 @@ func test_the_pass_is_tiled_and_a_rockslide_still_draws() -> void:
 	var pillar: Sprite2D = null
 	var heap: Sprite2D = null
 	for s in v._tiles.get_node("Walls").get_children():
-		if (s.get_meta("cells") as Rect2i).has_point(Vector2i(30, 6)):
+		if String(s.name).begins_with("rock_") and (s.get_meta("cells") as Rect2i).has_point(Vector2i(30, 6)):
 			pillar = s
 	for s in v._tiles.get_node("Rubble").get_children():
 		if (s.get_meta("cells") as Rect2i).has_point(Vector2i(30, 6)):
@@ -147,6 +181,19 @@ func test_the_pass_is_tiled_and_a_rockslide_still_draws() -> void:
 	sim.terrain.set_cell(Vector2i(30, 6), TerrainGrid.WALL)
 	v.refresh()
 	assert_true(pillar.visible and not heap.visible, "and stands again when it rebuilds")
+	# the brazier on the tall run's near end goes with the wall under it, and comes back
+	var brazier: AnimatedSprite2D = null
+	for s in v._tiles.get_node("Walls").get_children():
+		if String(s.name).begins_with("brazier") and (s.get_meta("cells") as Rect2i).has_point(Vector2i(90, 11)):
+			brazier = s
+	assert_true(brazier != null, "a brazier stands on the wall at cell (90, 11)")
+	assert_true(brazier.visible, "lit while the wall stands")
+	assert_true(sim.terrain.smash(Vector2i(90, 11)), "a charge smashes the wall under it")
+	v.refresh()
+	assert_false(brazier.visible, "a smashed wall drops its brazier: nothing floats over the rubble")
+	sim.terrain.set_cell(Vector2i(90, 11), TerrainGrid.WALL)
+	v.refresh()
+	assert_true(brazier.visible, "and it stands again with the wall")
 	# a rockslide's rubble: WALL cells the map didn't lay; the sim's own kind of change
 	for cx in range(60, 64):
 		sim.terrain.set_cell(Vector2i(cx, 12), TerrainGrid.WALL)

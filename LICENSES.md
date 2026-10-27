@@ -131,17 +131,23 @@ Part of the same bundle and licence (its `_license.txt` is the text quoted above
 it (cut by `tools/cut_tiles.py` from `tools/tile_recipes/desert.json`, colours snapped to
 the game's palette):
 
-- `assets/tiles/desert_ground.png` (sand, gravel, dry-scrub and packed-earth fills, the
+- `assets/tiles/desert_ground.png` (sand, gravel, sand with dirt clods, dry-scrub and packed-earth fills, the
   earth and scrub blobs, all lifted toward tan), `assets/tiles/desert_pieces.png` (a wooden
   fence), `assets/tiles/desert_overlay.png` (the plateau's cliff face as pit walls, with
   generated cracks).
 - `assets/tiles/desert_wall_rock.png` (stacked rock pillars for the walls, wide-footed
   stacks for their ends, small rock heaps for a smashed wall).
-- `assets/tiles/desert_decor_*.png` (low rock heaps, agave) and
+- `assets/tiles/desert_decor_rocks.png`, `desert_decor_rocks_b.png`, `desert_decor_agave.png`,
+  `desert_decor_agave_pale.png` (low rock heaps, agave) and
   `assets/tiles/desert_anim_palm.png`, `desert_anim_palm_b.png` (the swaying palms).
-- `assets/tiles/desert_bush_sage.png`: from **RPG Worlds Wetland** (`RPGW_Wetland_v1.1`,
-  the same bundle), its green tree's canopy clumps and sway frames, dried to a sage tint for
-  the brush beds.
+- `assets/tiles/desert_bush_scrub.png` (five dry scrub shrubs from `decorative2.png` for the
+  brush beds).
+- From **RPG Buildings Desert** (`RPG_Buildings_Desert_v1.0`, the same bundle):
+  `assets/tiles/desert_decor_rack_red.png`, `desert_decor_rack_grey.png`,
+  `desert_decor_rack_green.png` (`mainbuildings3.png`'s banner racks, made one banner wide),
+  `desert_decor_goods_a.png`, `desert_decor_goods_b.png` (piles of `small_obj1.png`'s jars,
+  baskets, a sack and a bucket), `assets/tiles/desert_anim_brazier.png` (`Anim/fire1.png`,
+  the pillar brazier) and `desert_anim_tripod.png` (`Anim/fire3.png`, the tripod brazier).
 - `assets/tiles/desert_manifest.json`, `assets/tiles/desert_*.tres` and
   `assets/arenas/caravan_pass.tscn` (Dustwind Pass's ground, painted with those tiles).
 

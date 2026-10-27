@@ -78,7 +78,9 @@ packs dir; "tile" positions are [column, row] of 32 px tiles in the source sheet
                            rows wrap): the pits' far wall, fading into the dark
   overlay.lip              a ground fill name: the cracks are drawn in its colours (the pits'
                            edges are translucent, so they match any floor)
-  decor.<name>             {"src", "box": [x0, y0, x1, y1], "feet": [x, y]}  feet in the box
+  decor.<name>             {"src", "box": [x0, y0, x1, y1], "feet": [x, y]}  feet in the box;
+                           or {"src", "size", "parts": [{"box", "at"}, ...], "feet"}: composed
+                           (cut_decor); an optional "tint"
   anim.<name>              {"src", "frame": [w, h], "frames": n, "fps": f, "feet": [x, y],
                            "row": 0, "tint"}
   bushes.<name>            {"src", "frame": [w, h], "frames": n, "fps", "clumps" | "blobs"}
@@ -742,9 +744,22 @@ def cut_overlay(cut, set_name, o, ground):
 
 
 def cut_decor(cut, set_name, d):
+    """recipe decor.<name>: {"src", "box", "feet"}, or {"src", "size": [w, h], "parts": [{"box",
+    "at": [x, y], "src", "mirror"}, ...], "feet"}: a sprite composed of pieces of the sheet
+    (a narrow banner rack from a wide one's posts and one banner, a pile of market goods),
+    each pasted at `at` in that order (later over earlier); "tint" as the fills."""
     man = {}
     for name, it in d.items():
-        img = cut.box(it["src"], it["box"])
+        if "parts" in it:
+            img = Image.new("RGBA", tuple(it["size"]), (0, 0, 0, 0))
+            for part in it["parts"]:
+                piece = cut.box(part.get("src", it["src"]), part["box"])
+                if part.get("mirror"):
+                    piece = piece.transpose(Image.FLIP_LEFT_RIGHT)
+                img.alpha_composite(piece, tuple(part["at"]))
+        else:
+            img = cut.box(it["src"], it["box"])
+        img = tinted(img, it)
         file = "%s_decor_%s.png" % (set_name, name)
         save(img, file)
         man[name] = {"source": file, "size": [img.width, img.height], "feet": list(it["feet"])}
@@ -821,7 +836,8 @@ def cut_bushes(cut, set_name, b):
       "clumps": {tl, t, tr, l, c, r, bl, b, br: [x0, y0, x1, y1] in the first frame}: a
         nine-slice, or
       "blobs": {key: [x0, y0, x1, y1], ...}, "shapes": k: leaf boxes each cut k times as a
-        round leafy clump with its own outline (keys "<key><i>")}.
+        round leafy clump with its own outline (keys "<key><i>"); with "outline": "own" each
+        box is a whole bush sprite kept as drawn (the Desert's scrub shrubs), not masked}.
     Writes a sheet with one row per clump and one column per frame, every cell the size of
     the biggest clump (each clump sits at its cell's top left), and records each clump's
     size; a blob set also records "blobs": true (build_tiles.gd scatters those)."""
@@ -849,7 +865,8 @@ def cut_bushes(cut, set_name, b):
             sizes[key] = [x1 - x0, y1 - y0]
             for k in range(n):
                 piece = src.crop((k * fw + x0, y0, k * fw + x1, y1))
-                sheet.paste(_blob(piece, phase) if blobs else piece, (k * cw, row * ch))
+                own = blobs and it.get("outline") == "own"
+                sheet.paste(_blob(piece, phase) if blobs and not own else piece, (k * cw, row * ch))
         file = "%s_bush_%s.png" % (set_name, name)
         save(tinted(sheet, it), file)
         man[name] = {"source": file, "cell": [cw, ch], "frames": n, "fps": float(it.get("fps", 4)),

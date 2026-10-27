@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b662iglbjre5"
-path="res://.godot/imported/desert_bush_sage.png-d02608ae43fe83e8c62d55d8de6c82d3.ctex"
+uid="uid://bayj25tjtwydh"
+path="res://.godot/imported/desert_decor_goods_b.png-63c171f7cd922f821fc0fd6723b460de.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/tiles/desert_bush_sage.png"
-dest_files=["res://.godot/imported/desert_bush_sage.png-d02608ae43fe83e8c62d55d8de6c82d3.ctex"]
+source_file="res://assets/tiles/desert_decor_goods_b.png"
+dest_files=["res://.godot/imported/desert_decor_goods_b.png-63c171f7cd922f821fc0fd6723b460de.ctex"]
 
 [params]
 
