@@ -1,7 +1,7 @@
 # Status: handoff snapshot
 
-Stamped: 2026-10-27 00:15 UTC
-Branch: proof/32px-szadi @ 1e4780a
+Stamped: 2026-10-27 00:29 UTC
+Branch: proof/32px-szadi @ 6c55d03
 Trigger: phase
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
@@ -14,7 +14,7 @@ off `origin/main` 2caeee0). **Local only: never merge, never push** (the branch 
 bought asset packs; see `LICENSES.md`). Raw packs live in `C:\Users\Kevin\dev\asset-packs\`
 and are never committed.
 
-Done, all committed (HEAD 1e4780a before this file):
+Done, all committed (HEAD 6c55d03):
 
 1. Audit `docs/plans/32px-migration.md`: keep sim units, draw 2x art at scale 0.5.
 2. `src/view/art_scale.gd` (`ArtScale.PX_PER_UNIT = 2`), per-view `ppu` in CreatureView, FxView,
@@ -52,18 +52,15 @@ Build for Kevin: `C:\Users\Kevin\Downloads\Ready4Rambles-windows-32px-szadi\Read
 
 ## Next step
 
-Investigate the one failing test on the branch:
-`tests/test_perf_main_thread.gd :: test_sunk_floor_is_drawn_over_the_arena_art`
-(message "the map's own chasm is in its art:"). The Stadium and Twin Keeps are tiled now, so
-`ArenaView.art()` returns null and `_in_art` is false on tiled maps; the test asserts
-`av._in_art(k) or av._art == null`, and `_art` is still loaded for the stands. Decide whether the
-test should accept `tiled()` or whether `_art` should be null on tiled maps. Then rerun
-`TEST_ONLY=perf_main_thread`, then the full suite (last full run: 1206 passed, 1 failed).
+Branch is green: full suite 1207 passed, 0 failed (6c55d03; log `scratchpad/full_tests_ff60a67.log`).
+The sunk-floor test now checks the overlay on tiled maps and the picture on painted ones.
 
-After that, polish list (not started): Caravan Pass brush still agave; Quarry middle patch
-rectangular and tan; Greenhouse vertical fences read as posts; brush sway via AmbientView lost
-on tiled maps; waterfall/torch/surface animations run on process time; impact burst loud on
-light hits; aura_buff unwired; baked `arena_<id>.png` kept only for the stands.
+Polish list, in order (none started): Caravan Pass brush still agave (give it the bush clumps);
+Quarry middle patch rectangular and tan (soften with the blob terrain); Greenhouse vertical
+fences read as posts; waterfall/torch/surface animations run on process time, not the sim tick
+(they move through hitstop and pause); kiddolink impact burst loud on light hits; aura_buff
+unwired; brush sway via AmbientView lost on tiled maps; baked `arena_<id>.png` kept only for
+the stands.
 
 ## Files touched this session
 
