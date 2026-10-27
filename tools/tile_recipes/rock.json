@@ -24,10 +24,8 @@
 			{"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [6, 643, 26, 665]}
 		]
 	},
-	"overlay": {
-		"cliff": {"src": "RPGW_Mountains_v1.2/_PNG/Mainlev_build.png", "x": 40, "rows": {"wall_top": [128, 144], "wall_mid": [168, 184], "wall_bottom": [208, 224]}},
-		"floor": {"src": "RPGW_Mountains_v1.2/_PNG/Mainlev_build.png", "box": [16, 1164, 32, 1180]}
-	},
+	"overlay": {"_doc": "the pits' far wall: a seamless cliff face from the matching pack; the lip and the cracks: the floor's own fill (tools/cut_tiles.py cut_overlay)",
+		"face": {"src": "RPGW_Mountains_v1.2/_PNG/Mainlev_build.png", "box": [64, 168, 96, 216]}, "lip": "stone"},
 	"decor": {},
 	"anim": {}
 }

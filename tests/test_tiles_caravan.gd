@@ -108,5 +108,5 @@ func test_the_pass_is_tiled_and_a_rockslide_still_draws() -> void:
 	sim.terrain.smash(Vector2i(61, 12))
 	v.refresh()
 	var at := v._overlay.get_cell_atlas_coords(Vector2i(61, 12))
-	assert_true((at.x + at.y * ArenaView.OV_COLS) in ArenaView.OV_CRACK, "smashed rubble is cracked floor")
+	assert_true(ArenaView.is_crack(at.x + at.y * ArenaView.OV_COLS), "smashed rubble is cracked floor")
 	v.free()

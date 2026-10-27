@@ -305,35 +305,8 @@
 			}
 		]
 	},
-	"overlay": {
-		"cliff": {
-			"src": "RPGFW_Set1_v1.0/_PNG/hills2.png",
-			"x": 292,
-			"rows": {
-				"wall_top": [
-					44,
-					60
-				],
-				"wall_mid": [
-					72,
-					88
-				],
-				"wall_bottom": [
-					124,
-					140
-				]
-			}
-		},
-		"floor": {
-			"src": "RPGFW_Set1_v1.0/_PNG/hills2.png",
-			"box": [
-				648,
-				52,
-				664,
-				68
-			]
-		}
-	},
+	"overlay": {"_doc": "the pits' far wall: a seamless cliff face from the matching pack; the lip and the cracks: the floor's own fill (tools/cut_tiles.py cut_overlay)",
+		"face": {"src": "RPGFW_Set1_v1.0/_PNG/hills2.png", "box": [576, 36, 608, 84]}, "lip": "grass"},
 	"decor": {
 		"oak": {
 			"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
