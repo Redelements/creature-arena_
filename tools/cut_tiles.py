@@ -43,7 +43,10 @@ packs dir; "tile" positions are [column, row] of 32 px tiles in the source sheet
                            an animated, translucent sheet laid over every tile of the `over`
                            terrain (Set 1's water_surface_transparent.png over its river bed);
                            frames read row-major from a sheet `cols` wide; alpha kept
-                           ("alpha_mul" scales it). Fills, terrains, surfaces and anims take an
+                           ("alpha_mul" scales it); "variants": v cuts v rows, the loop
+                           phase-shifted and mirrored, one picked per tile (sparse glints
+                           out of step). Several surfaces may lie over one terrain, each on
+                           its own layer in recipe order. Fills, terrains, surfaces and anims take an
                            optional "tint" {"mul": [r, g, b], "add": [r, g, b], "desat": 0..1}
                            before the snap ("desat" first pulls each colour toward its grey)
   ground.terrains.<name>.centres  [[tx, ty], ...]: extra full tiles (all four sides connected)
@@ -282,9 +285,20 @@ def cut_ground(cut, set_name, g):
         n = int(s["frames"])
         cols = int(s.get("cols", n))
         src = cut.load(s["src"])
-        strip = Image.new("RGBA", (fs * n, fs), (0, 0, 0, 0))
-        for k in range(n):
-            strip.paste(src.crop(((k % cols) * fs, (k // cols) * fs, (k % cols + 1) * fs, (k // cols + 1) * fs)), (k * fs, 0))
+        frames = [src.crop(((k % cols) * fs, (k // cols) * fs, (k % cols + 1) * fs, (k // cols + 1) * fs)) for k in range(n)]
+        # "variants": v rows, each the loop started v-th of the way on and mirrored (row 1
+        # left-right, row 2 top-bottom, row 3 both): sparse glints that would blink in step
+        # on every tile in a grid are scattered (build_tiles picks a row per tile)
+        v = int(s.get("variants", 1))
+        strip = Image.new("RGBA", (fs * n, fs * v), (0, 0, 0, 0))
+        for r in range(v):
+            for k in range(n):
+                f = frames[(k + r * n // v) % n]
+                if r & 1:
+                    f = f.transpose(Image.FLIP_LEFT_RIGHT)
+                if r & 2:
+                    f = f.transpose(Image.FLIP_TOP_BOTTOM)
+                strip.paste(f, (k * fs, r * fs))
         if "alpha_mul" in s:  # Set 1's surface is drawn at 7 %: too faint over a lifted bed
             arr = np.array(strip)
             arr[:, :, 3] = np.clip(arr[:, :, 3].astype(float) * float(s["alpha_mul"]), 0, 255).astype(np.uint8)
@@ -292,7 +306,7 @@ def cut_ground(cut, set_name, g):
         strip = tinted(strip, s)
         file = "%s_surface_%s.png" % (set_name, name)
         save(strip, file, translucent=True)
-        man["surfaces"][name] = {"source": file, "frames": n, "fps": float(s.get("fps", 6)), "over": str(s.get("over", name))}
+        man["surfaces"][name] = {"source": file, "frames": n, "variants": v, "fps": float(s.get("fps", 6)), "over": str(s.get("over", name))}
     man["shores"] = cut_shores(cut, set_name, g.get("shores", {}))
     return man
 

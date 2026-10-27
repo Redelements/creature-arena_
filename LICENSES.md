@@ -52,9 +52,9 @@ Files from it (cut by `tools/cut_tiles.py` from `tools/tile_recipes/set1.json`, 
 snapped to the game's palette):
 
 - `assets/tiles/set1_ground.png`, `assets/tiles/set1_pieces.png`,
-  `assets/tiles/set1_overlay.png`: ground (dirt, grass, cobbles, water), piece (boulders,
-  tall grass) and crack / pit tiles cut from Set 1 (the overlay: a Set 1 `hills2.png` cliff
-  face as the pit walls, with generated edges and cracks).
+  `assets/tiles/set1_overlay.png`: ground (dirt, trodden and shaded dirt, grass, cobbles,
+  water), piece (boulders, tall grass) and crack / pit tiles cut from Set 1 (the overlay: a
+  Set 1 `hills2.png` cliff face as the pit walls, with generated edges and cracks).
 - `assets/tiles/set1_decor_*.png` (trees, a bush) and `assets/tiles/set1_anim_waterfall.png`.
 - `assets/tiles/set1_manifest.json`: where the cuts landed.
 - `assets/tiles/set1_*.tres`: the Godot TileSets `tools/build_tiles.gd` makes from them.
@@ -87,8 +87,9 @@ Twin Keeps (the Capture the Flag map; cut by `tools/cut_tiles.py` from
   ledge stones and rock face of `hills2.png`.
 - `assets/tiles/keeps_manifest.json`, `assets/tiles/keeps_*.tres`, `assets/arenas/twin_keeps.tscn`.
 
-Files from **RPG Worlds GrassLand v2** (`RPGW_GrassLand_v2.01`) and **RPG Worlds Decorative
-Props** (`RPGW_DecorativeProps_v1.0`), both in the same bundle, with Set 1 (cut by
+Files from **RPG Worlds GrassLand v2** (`RPGW_GrassLand_v2.01`), **RPG Worlds Decorative
+Props** (`RPGW_DecorativeProps_v1.0`) and **RPG Buildings Houses** (`RPG_Buildings_HOUSES_v1.1`,
+the same licence), with Set 1 (cut by
 `tools/cut_tiles.py` from `tools/tile_recipes/grassland.json`, colours snapped to the palette):
 
 - `assets/tiles/grassland_ground.png`: GrassLand's bright flower meadow (the Greenhouse's
@@ -101,7 +102,10 @@ Props** (`RPGW_DecorativeProps_v1.0`), both in the same bundle, with Set 1 (cut 
 - `assets/tiles/grassland_overlay.png`: a GrassLand cliff face for the pit walls, with
   generated cracks and edges.
 - `assets/tiles/grassland_decor_*.png`: Decorative Props pots, barrels and crates, Set 1's
-  birch and bush.
+  birch and bush, GrassLand's tiny bushes (`decorative.png`: `shrub_*`), Houses' potted
+  flowers and herbs (`smallobj.png`: `herb_*`).
+- `assets/tiles/grassland_anim_flower_*.png`, `grassland_anim_spike_*.png`: Decorative Props'
+  swaying flowers (`Animated/vegA1.png`, `vegC1.png`), four frames each.
 - `assets/tiles/grassland_manifest.json`, `assets/tiles/grassland_*.tres` and
   `assets/arenas/greenhouse.tscn`: derived from the above.
 
@@ -112,12 +116,16 @@ by `tools/cut_tiles.py` from `tools/tile_recipes/wetland.json` for the Floodgate
   water blob and water fill (lifted lighter for a shallows channel).
 - `assets/tiles/wetland_surface_water.png`: Set 1's translucent animated water surface, as a
   strip of 16 frames.
+- `assets/tiles/wetland_surface_glint.png`: Wetland's water glints (`anim/water_effB.png`),
+  10 frames in four phase-shifted, mirrored rows.
+- `assets/tiles/wetland_anim_reeds_sway.png`, `wetland_anim_reed_sway.png`: Decorative Props'
+  swaying reeds (`Animated/vegB3.png`, `vegB1.png`, in the same bundle), four frames each.
 - `assets/tiles/wetland_pieces.png` (Set 1 boulders), `assets/tiles/wetland_overlay.png`
   (Wetland's stone face as the pit walls, generated cracks and edges).
 - `assets/tiles/wetland_decor_reeds.png`, `wetland_decor_reeds_small.png`,
   `wetland_decor_post.png` (Wetland's reeds and a post).
 - `assets/tiles/wetland_shore.png`: the channels' stone kerb, composed from Wetland's paving
-  and Set 1's cobbles.
+  and the mossy cobbles of its path border.
 - `assets/tiles/wetland_manifest.json`, `assets/tiles/wetland_ground.tres`,
   `assets/tiles/wetland_overlay.tres`, `assets/tiles/wetland_shore.tres`,
   `assets/arenas/floodgate.tscn`.

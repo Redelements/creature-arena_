@@ -1,11 +1,12 @@
 [gd_resource type="TileSet" format=3]
 
-[ext_resource type="Texture2D" path="res://assets/tiles/wetland_ground.png" id="1_rcih1"]
-[ext_resource type="Texture2D" path="res://assets/tiles/wetland_pieces.png" id="2_mdlce"]
-[ext_resource type="Texture2D" path="res://assets/tiles/wetland_surface_water.png" id="3_y7iln"]
+[ext_resource type="Texture2D" path="res://assets/tiles/wetland_ground.png" id="1_mdlce"]
+[ext_resource type="Texture2D" path="res://assets/tiles/wetland_pieces.png" id="2_y7iln"]
+[ext_resource type="Texture2D" path="res://assets/tiles/wetland_surface_water.png" id="3_o6h0r"]
+[ext_resource type="Texture2D" path="res://assets/tiles/wetland_surface_glint.png" id="4_gm5nx"]
 
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_o6h0r"]
-texture = ExtResource("1_rcih1")
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_tpx0c"]
+texture = ExtResource("1_mdlce")
 texture_region_size = Vector2i(32, 32)
 0:0/0 = 0
 1:0/0 = 0
@@ -160,14 +161,14 @@ texture_region_size = Vector2i(32, 32)
 11:1/0/terrains_peering_bit/left_side = 0
 11:1/0/terrains_peering_bit/top_side = 0
 
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_gm5nx"]
-texture = ExtResource("2_mdlce")
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_ggcm4"]
+texture = ExtResource("2_y7iln")
 texture_region_size = Vector2i(32, 32)
 0:0/0 = 0
 1:0/0 = 0
 
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_tpx0c"]
-texture = ExtResource("3_y7iln")
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_am0gj"]
+texture = ExtResource("3_o6h0r")
 texture_region_size = Vector2i(32, 32)
 0:0/animation_columns = 16
 0:0/animation_frame_0/duration = 0.125
@@ -188,11 +189,64 @@ texture_region_size = Vector2i(32, 32)
 0:0/animation_frame_15/duration = 0.125
 0:0/0 = 0
 
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_qipaj"]
+texture = ExtResource("4_gm5nx")
+texture_region_size = Vector2i(32, 32)
+0:0/animation_columns = 10
+0:0/animation_frame_0/duration = 0.14285715
+0:0/animation_frame_1/duration = 0.14285715
+0:0/animation_frame_2/duration = 0.14285715
+0:0/animation_frame_3/duration = 0.14285715
+0:0/animation_frame_4/duration = 0.14285715
+0:0/animation_frame_5/duration = 0.14285715
+0:0/animation_frame_6/duration = 0.14285715
+0:0/animation_frame_7/duration = 0.14285715
+0:0/animation_frame_8/duration = 0.14285715
+0:0/animation_frame_9/duration = 0.14285715
+0:0/0 = 0
+0:1/animation_columns = 10
+0:1/animation_frame_0/duration = 0.14285715
+0:1/animation_frame_1/duration = 0.14285715
+0:1/animation_frame_2/duration = 0.14285715
+0:1/animation_frame_3/duration = 0.14285715
+0:1/animation_frame_4/duration = 0.14285715
+0:1/animation_frame_5/duration = 0.14285715
+0:1/animation_frame_6/duration = 0.14285715
+0:1/animation_frame_7/duration = 0.14285715
+0:1/animation_frame_8/duration = 0.14285715
+0:1/animation_frame_9/duration = 0.14285715
+0:1/0 = 0
+0:2/animation_columns = 10
+0:2/animation_frame_0/duration = 0.14285715
+0:2/animation_frame_1/duration = 0.14285715
+0:2/animation_frame_2/duration = 0.14285715
+0:2/animation_frame_3/duration = 0.14285715
+0:2/animation_frame_4/duration = 0.14285715
+0:2/animation_frame_5/duration = 0.14285715
+0:2/animation_frame_6/duration = 0.14285715
+0:2/animation_frame_7/duration = 0.14285715
+0:2/animation_frame_8/duration = 0.14285715
+0:2/animation_frame_9/duration = 0.14285715
+0:2/0 = 0
+0:3/animation_columns = 10
+0:3/animation_frame_0/duration = 0.14285715
+0:3/animation_frame_1/duration = 0.14285715
+0:3/animation_frame_2/duration = 0.14285715
+0:3/animation_frame_3/duration = 0.14285715
+0:3/animation_frame_4/duration = 0.14285715
+0:3/animation_frame_5/duration = 0.14285715
+0:3/animation_frame_6/duration = 0.14285715
+0:3/animation_frame_7/duration = 0.14285715
+0:3/animation_frame_8/duration = 0.14285715
+0:3/animation_frame_9/duration = 0.14285715
+0:3/0 = 0
+
 [resource]
 tile_size = Vector2i(32, 32)
 terrain_set_0/mode = 2
 terrain_set_0/terrain_0/name = "water"
 terrain_set_0/terrain_0/color = Color(0.2, 0.4, 0.8, 1)
-sources/0 = SubResource("TileSetAtlasSource_o6h0r")
-sources/1 = SubResource("TileSetAtlasSource_gm5nx")
-sources/2 = SubResource("TileSetAtlasSource_tpx0c")
+sources/0 = SubResource("TileSetAtlasSource_tpx0c")
+sources/1 = SubResource("TileSetAtlasSource_ggcm4")
+sources/2 = SubResource("TileSetAtlasSource_am0gj")
+sources/3 = SubResource("TileSetAtlasSource_qipaj")

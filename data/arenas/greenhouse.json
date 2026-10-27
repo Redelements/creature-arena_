@@ -4,7 +4,7 @@
 	"name": "Greenhouse Dome",
 	"ground": "grass",
 	"tiles": {
-		"_doc": "The floor is tiles (assets/arenas/greenhouse.tscn, built by tools/build_tiles.gd): GrassLand's bright flower meadow, Set 1's bright grass blob round each brush bed (rects in 32 px tiles, 2 x 2 cells), Decorative Props fences drawn as joined lines (posts and rails, ends and corners), a hedge of Wetland canopy clumps on each brush bed, pots, barrels and crates in the margins (the top row short ones, standing on the top margin under the stand wall)",
+		"_doc": "The floor is tiles (assets/arenas/greenhouse.tscn, built by tools/build_tiles.gd): GrassLand's bright flower meadow, Set 1's bright grass blob round each brush bed (rects in 32 px tiles, 2 x 2 cells), Decorative Props fences drawn as joined lines (posts and rails, ends and corners), a hedge of Wetland canopy clumps on each brush bed, pots, barrels and crates in the margins (the top row short ones, standing on the top margin under the stand wall), potted herbs (Houses smallobj) and GrassLand's tiny bushes between the side pots, swaying DecorativeProps flowers on the beds' edge cells",
 		"set": "grassland",
 		"ground": "meadow_bright",
 		"grass": [
@@ -110,6 +110,10 @@
 					260
 				]
 			},
+			{"kind": "herb_green", "pos": [-8, 70]}, {"kind": "shrub_gold", "pos": [-8, 140]},
+			{"kind": "herb_pink", "pos": [-8, 215]}, {"kind": "shrub_gold_small", "pos": [-8, 282]},
+			{"kind": "herb_tall", "pos": [680, 75]}, {"kind": "shrub_red", "pos": [680, 150]},
+			{"kind": "herb_orange", "pos": [680, 225]}, {"kind": "shrub_gold_small", "pos": [680, 283]},
 			{
 				"kind": "pot_fern",
 				"pos": [
@@ -156,7 +160,14 @@
 		"styles": {
 			"brush": "bush:green",
 			"fence": "fenceline:wood"
-		}
+		},
+		"anim": [
+			{"kind": "flower_pink", "pos": [68, 78]}, {"kind": "spike_pink", "pos": [140, 78]},
+			{"kind": "flower_yellow", "pos": [291, 174]}, {"kind": "spike_orange", "pos": [336, 175]}, {"kind": "flower_pink", "pos": [381, 174]},
+			{"kind": "spike_pink", "pos": [531, 254]}, {"kind": "flower_yellow", "pos": [605, 254]},
+			{"kind": "flower_yellow", "pos": [83, 262]}, {"kind": "spike_orange", "pos": [141, 262]},
+			{"kind": "spike_pink", "pos": [589, 62]}
+		]
 	},
 	"times": [
 		"day",

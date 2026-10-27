@@ -1620,6 +1620,83 @@
   }
  },
  "decor": {
+  "shrub_gold": {
+   "source": "grassland_decor_shrub_gold.png",
+   "size": [
+    39,
+    32
+   ],
+   "feet": [
+    19,
+    31
+   ]
+  },
+  "shrub_gold_small": {
+   "source": "grassland_decor_shrub_gold_small.png",
+   "size": [
+    31,
+    24
+   ],
+   "feet": [
+    15,
+    23
+   ]
+  },
+  "shrub_red": {
+   "source": "grassland_decor_shrub_red.png",
+   "size": [
+    39,
+    32
+   ],
+   "feet": [
+    19,
+    31
+   ]
+  },
+  "herb_pink": {
+   "source": "grassland_decor_herb_pink.png",
+   "size": [
+    32,
+    32
+   ],
+   "feet": [
+    16,
+    30
+   ]
+  },
+  "herb_orange": {
+   "source": "grassland_decor_herb_orange.png",
+   "size": [
+    32,
+    32
+   ],
+   "feet": [
+    16,
+    28
+   ]
+  },
+  "herb_green": {
+   "source": "grassland_decor_herb_green.png",
+   "size": [
+    32,
+    32
+   ],
+   "feet": [
+    16,
+    28
+   ]
+  },
+  "herb_tall": {
+   "source": "grassland_decor_herb_tall.png",
+   "size": [
+    32,
+    32
+   ],
+   "feet": [
+    16,
+    30
+   ]
+  },
   "pot_tall": {
    "source": "grassland_decor_pot_tall.png",
    "size": [
@@ -1709,7 +1786,60 @@
    ]
   }
  },
- "anim": {},
+ "anim": {
+  "flower_pink": {
+   "source": "grassland_anim_flower_pink.png",
+   "frame": [
+    32,
+    32
+   ],
+   "frames": 4,
+   "fps": 4.0,
+   "feet": [
+    16,
+    31
+   ]
+  },
+  "flower_yellow": {
+   "source": "grassland_anim_flower_yellow.png",
+   "frame": [
+    32,
+    32
+   ],
+   "frames": 4,
+   "fps": 4.0,
+   "feet": [
+    16,
+    31
+   ]
+  },
+  "spike_pink": {
+   "source": "grassland_anim_spike_pink.png",
+   "frame": [
+    32,
+    32
+   ],
+   "frames": 4,
+   "fps": 4.0,
+   "feet": [
+    16,
+    26
+   ]
+  },
+  "spike_orange": {
+   "source": "grassland_anim_spike_orange.png",
+   "frame": [
+    32,
+    32
+   ],
+   "frames": 4,
+   "fps": 4.0,
+   "feet": [
+    16,
+    27
+   ]
+  }
+ },
  "bushes": {
   "green": {
    "source": "grassland_bush_green.png",

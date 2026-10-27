@@ -362,7 +362,15 @@
    "water": {
     "source": "wetland_surface_water.png",
     "frames": 16,
+    "variants": 1,
     "fps": 8.0,
+    "over": "water"
+   },
+   "glint": {
+    "source": "wetland_surface_glint.png",
+    "frames": 10,
+    "variants": 4,
+    "fps": 7.0,
     "over": "water"
    }
   },
@@ -693,7 +701,34 @@
    ]
   }
  },
- "anim": {},
+ "anim": {
+  "reeds_sway": {
+   "source": "wetland_anim_reeds_sway.png",
+   "frame": [
+    32,
+    32
+   ],
+   "frames": 4,
+   "fps": 4.0,
+   "feet": [
+    16,
+    30
+   ]
+  },
+  "reed_sway": {
+   "source": "wetland_anim_reed_sway.png",
+   "frame": [
+    32,
+    32
+   ],
+   "frames": 4,
+   "fps": 4.0,
+   "feet": [
+    15,
+    23
+   ]
+  }
+ },
  "bushes": {},
  "fencelines": {},
  "walls": {}
