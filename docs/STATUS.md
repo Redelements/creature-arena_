@@ -1,7 +1,7 @@
 # Status: handoff snapshot
 
-Stamped: 2026-10-27 00:43 UTC
-Branch: proof/32px-szadi @ 2aed8a5
+Stamped: 2026-10-27 01:16 UTC
+Branch: proof/32px-szadi @ 92fb471
 Trigger: phase
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
@@ -14,7 +14,7 @@ off `origin/main` 2caeee0). **Local only: never merge, never push** (the branch 
 bought asset packs; see `LICENSES.md`). Raw packs live in `C:\Users\Kevin\dev\asset-packs\`
 and are never committed.
 
-Done, all committed (HEAD 6c55d03):
+Done, all committed (HEAD 92fb471):
 
 1. Audit `docs/plans/32px-migration.md`: keep sim units, draw 2x art at scale 0.5.
 2. `src/view/art_scale.gd` (`ArtScale.PX_PER_UNIT = 2`), per-view `ppu` in CreatureView, FxView,
@@ -32,35 +32,43 @@ Build for Kevin: `C:\Users\Kevin\Downloads\Ready4Rambles-windows-32px-szadi\Read
 
 ## Decisions this session
 
-- Sim stays in its units; art is 2 texture px per unit drawn at scale 1/ppu (one day of work
-  against three to five for doubling every constant; no serialized meaning changes).
-- No new maps; retile the six old ones with the approved pack mapping (Stadium = Set1 dirt +
-  cobble; Quarry = Mountains/ECave rock + Set1 boulders; Floodgate = Set1 water + Wetland
-  concrete; Greenhouse = GrassLand v2 turf + Set1 veg + Decorative Props fences; Caravan Pass
-  = Desert; Twin Keeps = Set1 grass/water + Buildings Castle, trees, a waterfall).
-- Bushes are nine-slice clumps cut from the Wetland tree canopy, not tufts (Kevin disliked "weeds").
-- Szadi's "No generative AI was used" is a content tag, not a licence term (LICENSES.md d27d395).
-- Public repo stays; cuts stay unpublished until both artists give written OK. Fallback: a
-  private asset store fetched at build time (costs: no CI builds, no branch protection).
-- Subagents per phase and per map, each in its own worktree and branch, merged into this branch.
+- Sim stays in its units; art is 2 texture px per unit drawn at scale 1/ppu. No serialized change.
+- No new maps; the six old ones are retiled with the approved pack mapping. Bushes are canopy
+  clumps, not tufts (Kevin disliked "weeds").
+- No edge ring past a tiled floor (fcca95e): the baked picture's hoarding rail sits right past
+  the floor, so the ring covered the emblem boards and side-stand gates (Kevin: "banners in
+  the wrong layer"). `tiles.edge` stays as an opt-in for a picture without stands.
+- Visual audit Oct 26 (six agents, one per map) then four fix agents, all merged: water banks
+  + tinted 5-wide waterfall + reeds (fix-water), crack/pit overlay recut for all sets with
+  translucent rims and cell-joined cracks (fix-pits; tiled maps lose the running-crack and
+  pit-closing animations, pits pop back), Caravan rock-pillar walls with rubble + sage bush
+  beds + tinted sand (fix-caravan), Greenhouse joined fence lines + blob hedges + decor feet
+  (fix-greenhouse). Scene rebuilds are not deterministic (random tile variants): on a .tscn
+  merge conflict take either side and rebuild the set.
+- Szadi's "No generative AI was used" is a content tag, not a licence term.
+- Public repo stays; cuts stay unpublished until both artists give written OK.
 
 ## Open questions
 
-- Artists' written OK for public cuts (Szadi: no resale of modified; kiddolink: no redistribute). Waiting on Kevin to ask.
-- PixelLab fighter frames: Kevin runs the spec; must check canvas limit, palette forcing, credit cost, down/up views.
+- **Top-margin decor now stands on the hoarding rail** (trees, waterfall, rock heaps, reeds)
+  since the ring went. Kevin to rule: remove it, keep it, or regenerate the stand pictures
+  with a one-tile verge (my pick: verge for Keeps + Caravan, remove elsewhere).
+- Artists' written OK for public cuts. PixelLab fighter frames (Kevin runs the spec).
 - Whether Steam's AI disclosure applies (only if PixelLab fighters ship).
 
 ## Next step
 
-Branch is green: full suite 1207 passed, 0 failed (6c55d03; log `scratchpad/full_tests_ff60a67.log`).
-The sunk-floor test now checks the overlay on tiled maps and the picture on painted ones.
+Full suite on the merged branch (92fb471) was running at handoff; the last complete run on
+40b1d4e (before the water merge) is in `C:/Users/Kevin/AppData/Local/Temp/claude/full_tests_40b1d4e.log`,
+the new one in `full_tests_92fb471.log`. Tile/perf/water/ambient subset: 57 passed. Export for
+Kevin: `C:/Users/Kevin/Downloads/Ready4Rambles-windows-32px-szadi/Ready4Rambles.exe`.
 
-Polish list, in order (none started): Caravan Pass brush still agave (give it the bush clumps);
-Quarry middle patch rectangular and tan (soften with the blob terrain); Greenhouse vertical
-fences read as posts; waterfall/torch/surface animations run on process time, not the sim tick
-(they move through hitstop and pause); kiddolink impact burst loud on light hits; aura_buff
-unwired; brush sway via AmbientView lost on tiled maps; baked `arena_<id>.png` kept only for
-the stands.
+Then, after Kevin's ruling on the margin decor: the remaining polish (Quarry middle patch
+rectangular and tan; animations on process time not the sim tick; impact burst loud on light
+hits; aura_buff unwired; Keeps chasms dark at play zoom; causeway sides straight against
+grass; waterfall pool spills a little over the banks; Caravan bushes still green, sand grain
+faint; runtime rockslide rubble drawn as circles; Keeps could take the new fence lines and
+blob beds via its recipe).
 
 ## Files touched this session
 
