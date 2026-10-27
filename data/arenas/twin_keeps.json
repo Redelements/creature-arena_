@@ -7,7 +7,6 @@
 		"_doc": "The floor as tiles (assets/arenas/twin_keeps.tscn, built by tools/build_tiles.gd; tools/tile_recipes/keeps.json): Set 1 grass with the river and pools as the water terrain (painted under the shallows and the bridge, so a fallen bridge shows water), the keeps' walls as castle battlements and towers, fences from Decorative Props, a cobble causeway for the bridge, trees along the top margin (decor draws under the fighters, so never over walkable floor), the waterfall where the river enters at the top, torches on the gate towers.",
 		"set": "keeps",
 		"ground": "grass",
-		"edge": "grass_dark",
 		"styles": {
 			"wall": "castle",
 			"brush": "bush:green"

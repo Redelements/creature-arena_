@@ -7,7 +7,6 @@
 		"_doc": "Szadi art's Desert (tools/tile_recipes/desert.json): sand with a gravel verge, a packed-earth road under the caravan's track, scrub round the brush beds; rock spires, agave and palms stand in the margins only (decor draws under the fighters). Rects are [tx, ty, w, h] in 32 px tiles (2 x 2 cells) on the 110 x 20 floor. Built into assets/arenas/caravan_pass.tscn by tools/build_tiles.gd.",
 		"set": "desert",
 		"ground": "sand",
-		"edge": "gravel",
 		"grass": [],
 		"water": [],
 		"earth": [

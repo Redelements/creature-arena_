@@ -82,7 +82,7 @@ func test_the_scene_fences_every_fence_line_and_plants_every_bed() -> void:
 		assert_true(s is AnimatedSprite2D and (s as AnimatedSprite2D).sprite_frames.get_frame_count(s.animation) == 5, "%s sways over 5 frames" % s.name)
 	var ground := root.get_node("Ground") as TileMapLayer
 	assert_true(ground.get_cell_atlas_coords(Vector2i(20, 9)) in _coords(man["ground"]["fills"]["turf"]), "turf under the floor")
-	assert_true(ground.get_cell_atlas_coords(Vector2i(-1, 9)) in _coords(man["ground"]["fills"]["moss"]), "a moss kerb round it")
+	assert_eq(ground.get_cell_source_id(Vector2i(-1, 9)), -1, "no ring: the stands' hoardings sit past the floor")
 	assert_gt((root.get_node("Grass") as TileMapLayer).get_used_cells().size(), 100, "grass blobs round the beds")
 	assert_gt(root.get_node("Decor").get_child_count(), 10, "pots, barrels and crates in the margins")
 	for d in root.get_node("Decor").get_children():

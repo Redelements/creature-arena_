@@ -7,7 +7,6 @@
 		"_doc": "The floor is tiles (assets/arenas/greenhouse.tscn, built by tools/build_tiles.gd): GrassLand turf with a moss kerb, Set 1's bright grass blob round each brush bed (rects in 32 px tiles, 2 x 2 cells), Decorative Props fences on the fence lines, tufts on the brush, pots, barrels and crates in the margins",
 		"set": "grassland",
 		"ground": "turf",
-		"edge": "moss",
 		"grass": [
 			[
 				3,

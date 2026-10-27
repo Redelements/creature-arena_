@@ -86,7 +86,7 @@ func test_the_scene_puts_water_under_every_channel_tile() -> void:
 		assert_true(want.has(c), "water only where the shallows are: %s" % c)
 		assert_eq(water.get_cell_tile_data(c).terrain, 0, "autotiled water at %s" % c)
 	var ground := root.get_node("Ground") as TileMapLayer
-	assert_eq(ground.get_used_cells().size(), 44 * 20, "the paving and its kerb")
+	assert_eq(ground.get_used_cells().size(), 42 * 18, "the paving, no ring")
 	assert_eq((root.get_node("Pieces") as TileMapLayer).get_used_cells().size(), 0, "no pieces: the Floodgate has none")
 	assert_eq(root.get_node("Decor").get_child_count(), 4, "reeds at the channel's mouths")
 	for d in root.get_node("Decor").get_children():

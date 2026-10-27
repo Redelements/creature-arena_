@@ -49,12 +49,11 @@ func test_the_desert_tileset_names_its_terrains() -> void:
 func test_the_pass_scene_has_road_walls_fences_and_margins() -> void:
 	var root: Node = (load(SCENE) as PackedScene).instantiate()
 	var ground := root.get_node("Ground") as TileMapLayer
-	assert_eq(ground.get_used_cells().size(), 112 * 22, "the 110 x 20 floor and a tile round it")
+	assert_eq(ground.get_used_cells().size(), 110 * 20, "the 110 x 20 floor, no ring")
 	var man := _manifest()
 	var sand: Array = man["ground"]["fills"]["sand"].map(func(a): return Vector2i(int(a[0]), int(a[1])))
-	var gravel: Array = man["ground"]["fills"]["gravel"].map(func(a): return Vector2i(int(a[0]), int(a[1])))
 	assert_true(ground.get_cell_atlas_coords(Vector2i(50, 3)) in sand, "the floor is sand")
-	assert_true(ground.get_cell_atlas_coords(Vector2i(50, -1)) in gravel, "the ring is the gravel verge")
+	assert_eq(ground.get_cell_source_id(Vector2i(50, -1)), -1, "no ring: the stands' hoardings sit past the floor")
 	var earth := root.get_node("Earth") as TileMapLayer
 	var scrub := root.get_node("Scrub") as TileMapLayer
 	assert_gt(earth.get_used_cells().size(), 100, "the packed-earth road under the track")

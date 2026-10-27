@@ -20,7 +20,8 @@ extends SceneTree
 ## A map's "tiles" block:
 ##   set        the cut set (default "set1")
 ##   ground     the fill under everything (a manifest fill name)
-##   edge       a fill for the one-tile ring past the floor (default the ground)
+##   edge       a fill for a one-tile ring past the floor; only for a map whose picture
+##              has no stands against the floor (the ring would cover their hoardings)
 ##   patches    [{fill, rect: [tx, ty, w, h]}]: rects of another fill over the ground
 ##   grass      rects [tx, ty, w, h] in tiles painted with the "grass" terrain (autotiled)
 ##   water      rects in tiles painted with the "water" terrain; the map's shallows pieces
@@ -356,9 +357,11 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 
 	var ground := _layer(root, "Ground", ts)
 	var fill: Array = g["fills"][String(tiles.get("ground", "dirt"))]
+	var ringed := tiles.has("edge")  # the stands' hoardings sit right past the floor: no ring by default
 	var edge: Array = g["fills"][String(tiles.get("edge", tiles.get("ground", "dirt")))]
-	for ty in range(-1, rows + 1):
-		for tx in range(-1, cols + 1):
+	var pad := 1 if ringed else 0
+	for ty in range(-pad, rows + pad):
+		for tx in range(-pad, cols + pad):
 			var ring := tx < 0 or ty < 0 or tx >= cols or ty >= rows
 			var f := edge if ring else fill
 			var block := int(sqrt(float(f.size())))  # a fill is a square block of seamless tiles

@@ -118,17 +118,16 @@ func test_a_patch_autotiles_by_its_neighbours() -> void:
 	layer.free()
 
 
-func test_the_stadium_scene_has_its_ground_and_kerb() -> void:
+func test_the_stadium_scene_has_its_ground_and_no_ring() -> void:
 	var scene: PackedScene = load(SCENE)
 	var root := scene.instantiate()
 	var ground := root.get_node("Ground") as TileMapLayer
-	assert_eq(ground.get_used_cells().size(), 44 * 20, "the fill: the 42 x 18 tiles of floor and a tile round it")
+	assert_eq(ground.get_used_cells().size(), 42 * 18, "the fill: the 42 x 18 tiles of floor, no ring")
 	var man := _manifest()
 	var dirt: Array = man["ground"]["fills"]["dirt"].map(func(a): return Vector2i(int(a[0]), int(a[1])))
-	var cobble: Array = man["ground"]["fills"]["cobble"].map(func(a): return Vector2i(int(a[0]), int(a[1])))
 	assert_true(ground.get_cell_atlas_coords(Vector2i(10, 7)) in dirt, "the floor is dirt")
-	assert_true(ground.get_cell_atlas_coords(Vector2i(-1, 7)) in cobble, "the ring round it is the cobble kerb")
-	assert_true(ground.get_cell_atlas_coords(Vector2i(20, 18)) in cobble, "below the floor too")
+	assert_eq(ground.get_cell_source_id(Vector2i(-1, 7)), -1, "no ring past the floor: the picture's hoardings sit there")
+	assert_eq(ground.get_cell_source_id(Vector2i(20, 18)), -1, "nor below it")
 	assert_eq((root.get_node("Grass") as TileMapLayer).get_used_cells().size(), 0, "no grass on the stadium")
 	assert_eq((root.get_node("Pieces") as TileMapLayer).get_used_cells().size(), 0, "no pieces on the stadium")
 	assert_true(root.has_node("Decor") and root.has_node("Anim"), "the decor and anim groups exist")

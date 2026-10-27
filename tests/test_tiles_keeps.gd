@@ -33,7 +33,7 @@ func test_the_scene_covers_the_map_with_its_pieces_in_place() -> void:
 	var ground := root.get_node("Ground") as TileMapLayer
 	var water := root.get_node("Water") as TileMapLayer
 	var pieces := root.get_node("Pieces") as TileMapLayer
-	assert_eq(ground.get_used_cells().size(), 77 * 34, "75 x 32 tiles of floor and a tile round it")
+	assert_eq(ground.get_used_cells().size(), 75 * 32, "75 x 32 tiles of floor, no ring")
 	var castle: Array = _coords(man["pieces"]["castle_h"]) + _coords(man["pieces"]["castle_v"])
 	var fence: Array = _coords(man["pieces"]["fence_h"]) + _coords(man["pieces"]["fence_v"])
 	var bridge: Array = _coords(man["pieces"]["bridge"])

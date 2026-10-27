@@ -44,15 +44,14 @@ func test_the_quarry_scene_has_floor_kerb_patches_and_boulders() -> void:
 	var scene: PackedScene = load(SCENE)
 	var root := scene.instantiate()
 	var ground := root.get_node("Ground") as TileMapLayer
-	assert_eq(ground.get_used_cells().size(), 44 * 20, "the fill: 42 x 18 tiles of floor and the ring")
+	assert_eq(ground.get_used_cells().size(), 42 * 18, "the fill: 42 x 18 tiles of floor, no ring")
 	var man := _manifest()
 	var fills: Dictionary = man["ground"]["fills"]
 	var stone: Array = fills["stone"].map(_at)
-	var kerb: Array = fills["rock_dark"].map(_at)
 	var dirt: Array = fills["dirt"].map(_at)
 	var cobble: Array = fills["cobble"].map(_at)
 	assert_true(ground.get_cell_atlas_coords(Vector2i(20, 3)) in stone, "the open floor is sandstone")
-	assert_true(ground.get_cell_atlas_coords(Vector2i(-1, 9)) in kerb, "the ring is the darker rock")
+	assert_eq(ground.get_cell_source_id(Vector2i(-1, 9)), -1, "no ring: the stands' hoardings sit past the floor")
 	assert_true(ground.get_cell_atlas_coords(Vector2i(11, 9)) in dirt, "a worn lane inside the left wall")
 	assert_true(ground.get_cell_atlas_coords(Vector2i(30, 2)) in dirt, "and inside the right wall")
 	assert_true(ground.get_cell_atlas_coords(Vector2i(20, 8)) in dirt, "the trampled middle")

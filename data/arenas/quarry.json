@@ -7,7 +7,6 @@
 		"_doc": "The floor is tiles (assets/arenas/quarry.tscn, built by tools/build_tiles.gd from this block; the recipe tools/tile_recipes/rock.json): Mountains sandstone scree with a darker rock kerb, worn dirt cart lanes along the inside of each rubble wall and a trampled middle, cobbled loading corners; Set 1 boulders on the walls. Patches are [tx, ty, w, h] in 32 px tiles (2 x 2 cells).",
 		"set": "rock",
 		"ground": "stone",
-		"edge": "rock_dark",
 		"patches": [
 			{"fill": "dirt", "rect": [11, 0, 2, 18]},
 			{"fill": "dirt", "rect": [29, 0, 2, 18]},
