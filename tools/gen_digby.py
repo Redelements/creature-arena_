@@ -28,15 +28,30 @@ import splat3d as S  # noqa: E402
 from splat3d import ellipsoid_oriented, tube, plate, cylinder, orient, rot_lat, rot_up, bezier  # noqa: E402
 
 ROOT = S.ROOT
-OUT = os.path.join(ROOT, "assets", "sprites", "digby.png")
-PREVIEW = os.path.join(ROOT, "docs", "digby_preview.png")
-SIDE = {"w": 128, "h": 128, "origin": (64, 100)}
+# Density (splat3d.configure(density=...)): 2 draws the sheets the game uses, digby_2x*.png
+# (256x256 frames, views 224x256, "ppu": 2); DIGBY_DENSITY=1 the older 1x ones, digby*.png.
+DENSITY = int(os.environ.get("DIGBY_DENSITY", "2"))
+# The look (DIGBY_STYLE): "a" splat3d's five-step ramp with a highlight and a rim light, each
+# material outlined in its own ink, as at 1x; "bold" three flat tones (light, base, dark: no
+# highlight, no rim light) and one dark ink round the whole silhouette. The 2x sheets are
+# bold (see STYLE below).
+STYLE = os.environ.get("DIGBY_STYLE", "bold" if DENSITY > 1 else "a")
+_TAG = "" if DENSITY == 1 else "_%dx" % DENSITY
+OUT = os.path.join(ROOT, "assets", "sprites", "digby%s.png" % _TAG)
+PREVIEW = os.path.join(ROOT, "docs", "digby%s_preview.png" % _TAG)
+
+
+def _frame(w, h, origin):
+    return {"w": w * DENSITY, "h": h * DENSITY, "origin": (origin[0] * DENSITY, origin[1] * DENSITY)}
+
+
+SIDE = _frame(128, 128, (64, 100))
 VIEWS = {
-    "down": {"w": 112, "h": 128, "origin": (56, 100)},
-    "up": {"w": 112, "h": 128, "origin": (56, 90)},
+    "down": _frame(112, 128, (56, 100)),
+    "up": _frame(112, 128, (56, 90)),
     # the diagonals (docs/SPRITES.md, "Directions"): facing down-right and up-right
-    "down_side": {"w": 128, "h": 128, "origin": (64, 100)},
-    "up_side": {"w": 128, "h": 128, "origin": (64, 90)},
+    "down_side": _frame(128, 128, (64, 100)),
+    "up_side": _frame(128, 128, (64, 90)),
 }
 
 # Master-palette ramps (tools/palette.py), picked to the character sheet's colours.
@@ -58,7 +73,13 @@ MAT = {
 # The headlamp glows in the emissive sheets (docs/SPRITES.md "Emissive sheets"): the lens
 # warm white, the brass housing's lit side a little.
 S.configure(MAT, scale=0.8, near=14.0, near_views={"down_side": 10.0, "up_side": 10.0},
-            emissive={"lens": {"a": 240, "rgb": (255, 236, 176)}, "lamp": {"a": 150, "min_level": 3}})
+            emissive={"lens": {"a": 240, "rgb": (255, 236, 176)}, "lamp": {"a": 150, "min_level": 3}}, density=DENSITY)
+if STYLE == "bold":
+    # three tones a face: no highlight step (light covers the lit side), no rim light; the
+    # silhouette in one dark ink (seams between pieces keep their material's seam colour)
+    S.LUM_HIGH = 2.0
+    S.RIM = False
+    S.INK = {name: S.OUTLINE[:3] for name in S.INK}
 # In Cave-In his beady eyes glow full in the Surge aura's light colour (its middle one, #c08040,
 # reads too dim on his dark fur).
 S.surge_eyes("digby", rgb=(0xff, 0xe9, 0xa8))

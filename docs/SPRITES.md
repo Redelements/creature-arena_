@@ -276,6 +276,21 @@ it out to the side for the front view). The head has three-quarter faces: `_face
 parted fur with the near eye's corner and the snout's edge at the cheek; it sits on the
 neck's top stones in `up_side` so the mane reads.
 
+**2x (route A, Oct 2026, branch `craglash-2x`, stacked on `sprites-vram`).** The game draws
+`craglash_2x*.png`: the same puppet drawn by `gen_craglash.py` at density 2
+(`CRAGLASH_DENSITY`, default 2; `CRAGLASH_DENSITY=1` rebuilds the 1x `craglash*.png` byte for
+byte), **192×192** side frames and **256×320** views, feet at (68, 180) side, (128, 224) down
+and down_side, (128, 248) up and up_side, `"ppu": 2` in every view, portrait
+`[68, 34, 48, 64]`; same rows, frame counts and timing. Poses and the three rigs stay in 1x
+pixels: `Draw()` scales each Pillow call and stamps it over a 2×2 block, so every part keeps
+its 1x coverage with edges on the 2x grid, and painted strokes (cracks, fur, the face) stay
+one 1x pixel thick; the shader's pixel counts (distance cap, smoothing, band, highlight room,
+rim and bevel width, despeckle) go through `px()`; poses snap to half pixels. Outline 1 px.
+Shaded "bold" (`CRAGLASH_STYLE`): three flat tones a part (no highlight, no rim light) and one
+dark ink round the silhouette (the umber ink let the clay hide sink into brown ground at 2x).
+The normal pass and the Bedrock glow follow the same drawing. `ko_fx` "crumble" keys are
+world units (unchanged). Gallery: `pixellab/craglash/craglash_route_a.png`.
+
 ![Craglash sheet, 3x](craglash_preview.png)
 
 Animated with the roster pass (motion plan, previews and before/after GIFs:
@@ -346,6 +361,18 @@ outlined in its ink (umber for the wood, moss for the leaves); where an arm, the
 the nose crosses the trunk its outline is the bark's deep step. The bark grain is sparse
 (five lines round the trunk, two down each leg) and one ramp step darker where it falls;
 the brows, the chevrons at the fork and the crease between the legs are the deep step.
+
+**2x (route A, Oct 2026, branch `barkley-2x`, stacked on `sprites-vram`).** The game draws
+`barkley_2x*.png`: the same painter at density 2 (`BARKLEY_DENSITY`, default 2;
+`BARKLEY_DENSITY=1` rebuilds the 1x `barkley*.png` byte for byte), **192×192** side frames
+(feet at (80, 180)) and **256×320** views (feet at (128, 224) down and down_side, (128, 248)
+up and up_side), `"ppu": 2` in every view, portrait `[60, 36, 48, 64]`; same rows, frame
+counts and timing. The painter keeps its 1x pixel coordinates: `shade2d.Draw` scales every
+shape, line, dot and leaf onto the 2x layer, so the leaves, eyes and grain double in size,
+not in number, and only the edges and the shading get finer. Shaded "bold" (`BARKLEY_STYLE`):
+no highlight step, no rim light, one dark ink round every shape (the leaves' and the
+pinecone's too); seams keep the deep step. The `ko_fx` "timber" `length` is world units
+(unchanged). Gallery: `pixellab/barkley/barkley_route_a.png`.
 
 ![Barkley sheet, 3x](barkley_preview.png)
 
@@ -645,6 +672,17 @@ Every ability had the roster animation pass (Oct 2026): the motion plan with eve
 at `idle_ticks` 8 (64 ticks), the gallop 12 at `run_ticks` 2 (24 ticks, unchanged), with
 dust on `step_frames` `[0, 2]` (the front paws landing, the back paws landing).
 
+**2x (route A, Oct 2026, branch `digby-2x`, stacked on `sprites-vram`).** The game draws
+`digby_2x*.png` (through their packed copies in `packed/`): the same rig rendered by
+`gen_digby.py` at density 2 (`DIGBY_DENSITY`, default 2; `DIGBY_DENSITY=1` rebuilds the 1x
+`digby*.png` byte for byte), **256×256** frames (down and up **224×256**), feet at (128, 200)
+(up views (112/128, 180)), `"ppu": 2` in every view, portrait `[128, 156, 48, 56]`; same rows,
+frame counts and timing. Shaded "bold" (`DIGBY_STYLE`): three flat tones (no highlight step,
+no rim light) and one dark ink round the whole silhouette. The claws, whiskers and pickaxe
+are rig pieces in world units, so they need no pixel fix; the headlamp glow and the Surge
+eyes stay on the emissive sheets. `cut_in_frame` stays `[8, 3]`; `fx_top` and the `move_fx`
+offsets are world units (unchanged). Gallery: `pixellab/digby/digby_route_a.png`.
+
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
 | 0 | idle | 8 | sniffing: two quick sniffs, a held look toward the camera, eased breath; the helmet and tail lag |
@@ -673,6 +711,18 @@ money bag is a big green ball with a tied neck and a dollar sign, slung over his
 shoulder unless a pose holds it out to swing. Poses place the feet, hands and bag. Drawn
 at 0.8 scale, feet at **x 64, y 104**; up and down sheets are **112×128**, feet at
 x 56, y 104 (down) and y 92 (up).
+
+**2x (route A, Oct 2026, branch `pete-2x`, stacked on `sprites-vram`).** The game draws
+`pete_2x*.png` (packed copies in `assets/sprites/packed/`): the same rig rendered by
+`gen_pete.py` at density 2 (`PETE_DENSITY`, default 2; `PETE_DENSITY=1` rebuilds the 1x
+`pete*.png` byte for byte), **256×256** frames (down and up **224×256**), feet at (128, 208)
+(up views (112/128, 184)), `"ppu": 2` in every view, portrait `[112, 122, 48, 64]`; same
+rows, frame counts and timing. Shaded "bold" (`PETE_STYLE`): three flat tones (no highlight
+step, no rim light) and one dark ink round the whole silhouette. The bag is a rig piece, so
+it needed nothing of its own; `cut_in_frame` stays `[8, 9]` (a [row, col] index). Tiptoe's
+ghost is the view's modulate alpha and its afterimages carry the sheet's `ppu`, so both work
+at 2x unchanged (`test_pete_at_2x_still_vanishes_into_a_ghost`). Gallery:
+`pixellab/pete/pete_route_a.png`.
 
 Animated with the roster pass (motion plan, previews and before/after GIFs:
 [`anim_preview/pete_motion_plan.md`](anim_preview/pete_motion_plan.md)): the poses are
@@ -1124,7 +1174,11 @@ One master palette for the whole game: `tools/palette.py`, drawn as a labelled s
   and `Materials.stack` turns an outline that lands on a piece behind into that piece's
   deep step (the seam). Detail lines (bark grain, scales, fin rays) are `groove`s: one
   ramp step darker (Gillbert's belly: lighter) wherever they fall, so they read in the
-  light and in the shadow alike.
+  light and in the shadow alike. Density (`shade2d.configure(density=2)`): the painter
+  draws in 1x pixel coordinates through `shade2d.Draw`, which paints every fill, stroke and
+  dot twice the size on a 2x layer, and the shading's pixel lengths go through `shade2d.px`
+  (as `splat3d.px`); outlines and seams stay 1 px. At density 1 it is byte for byte the old
+  drawing.
 - **Craglash** (a 2D puppet, `tools/gen_craglash.py`) ports the same rules to his own
   layer shader: `MAT` holds ramps, `shade` the five steps and the rim, `finish` the inks
   and seams.
