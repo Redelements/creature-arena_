@@ -89,6 +89,32 @@ func test_a_2x_sheet_draws_at_half_scale_on_half_units() -> void:
 	v.free()
 
 
+func test_a_256_px_frame_draws_like_its_128_px_one() -> void:
+	# Sno Mercy at 2x: 256 px frames (views 224 x 256), the largest frame so far. Nothing in
+	# the views may assume a frame of 192 or less: the same world size as his 128 px sheets.
+	var v := _view("sno")
+	assert_eq(v.ppu, 2, "sno's sheet is 2x")
+	var sizes := {"down": Vector2(224, 256), "up": Vector2(224, 256),
+		"down_side": Vector2(256, 256), "up_side": Vector2(256, 256)}
+	for vname in v._views:
+		assert_eq(int(v._views[vname]["ppu"]), 2, "sno's %s view is 2x" % vname)
+		if sizes.has(vname):
+			assert_eq(v._views[vname]["size"], sizes[vname], "sno's %s frame" % vname)
+	v.c.pos = Vector2(120.2, 90.7)
+	v.c.facing = Vector2.RIGHT
+	v.refresh()
+	assert_eq(v.sprite.scale, Vector2(0.5, 0.5), "half scale")
+	assert_eq(v.origin, Vector2(128, 208), "the origin in sheet pixels")
+	assert_eq(v.sprite.position, -v.origin / 2.0, "the feet where the 1x origin (64, 104) put them")
+	assert_eq(Vector2(v.sprite.texture.get_width() / v.sprite.hframes, v.sprite.texture.get_height() / v.sprite.vframes),
+		Vector2(256, 256), "the sheet cut into whole 256 px frames")
+	v.free()
+	var sp: Dictionary = MatchFactory.training("sno").creatures[0].def["sprite"]
+	var pr: Array = sp["portrait"]
+	assert_true(int(pr[2]) <= Hud.PORT_W * 2 and int(pr[3]) <= Hud.PORT_H * 2, "the portrait crop fits the box at 2x")
+	assert_near(Hud.portrait_scale(Vector2i(int(pr[2]), int(pr[3])), 2), 0.5, 0.001, "sno's portrait: one grid pixel an art pixel")
+
+
 func test_the_hud_portrait_keeps_whole_art_pixels() -> void:
 	assert_near(Hud.portrait_scale(Vector2i(24, 32), 1), 1.0, 0.001, "a 1x crop that fills the box: 1")
 	assert_near(Hud.portrait_scale(Vector2i(12, 16), 1), 2.0, 0.001, "a small 1x crop: doubled")
