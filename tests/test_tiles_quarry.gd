@@ -80,14 +80,21 @@ func test_the_quarry_scene_has_lanes_a_raised_middle_and_rock_walls() -> void:
 		var sp := s as Sprite2D
 		assert_true(sp.position.y > 10 * 32 and sp.position.y < 11 * 32, "%s overlaps the patch's bottom row" % sp.name)
 	assert_eq((root.get_node("Pieces") as TileMapLayer).get_used_cells().size(), 0, "no boulder tiles: the walls are sprites")
-	# the walls at cells [20, 5, 2, 26] and [62, 5, 2, 26]: raised rock shelves, a 16 px tile
-	# on every wall cell (RaisedTiles), the rubble per 32 px tile (rows 2..15 of columns 10, 31)
+	# the walls at cells [20, 5, 2, 26] and [62, 5, 2, 26] and four 4 x 2 outcrops: raised rock
+	# shelves, a 16 px tile on every wall cell (RaisedTiles), the rubble per 32 px tile
 	var raised := root.get_node("Raised") as TileMapLayer
-	assert_eq(raised.get_used_cells().size(), 2 * 2 * 26, "a raised tile on every wall cell")
+	var wall_cells := {}
+	for piece in ArenaMap.get_map("quarry")["pieces"]:
+		if String(piece["kind"]) == "wall":
+			var r: Array = piece["rect"]
+			for cy in range(int(r[1]), int(r[1]) + int(r[3])):
+				for cx in range(int(r[0]), int(r[0]) + int(r[2])):
+					wall_cells[Vector2i(cx, cy)] = true
+	assert_eq(raised.get_used_cells().size(), 2 * 2 * 26 + 4 * 4 * 2, "a raised tile on every wall cell")
 	for c in raised.get_used_cells():
-		assert_true((c.x == 20 or c.x == 21 or c.x == 62 or c.x == 63) and c.y >= 5 and c.y < 31, "only on the walls' own cells: %s" % c)
+		assert_true(wall_cells.has(c), "only on the walls' own cells: %s" % c)
 	assert_eq(root.get_node("Walls").get_child_count(), 0, "no stack sprites: the walls are tiles")
-	assert_eq(root.get_node("Rubble").get_child_count(), 28, "rubble for every wall tile, hidden")
+	assert_eq(root.get_node("Rubble").get_child_count(), 28 + 4 * 2, "rubble for every wall tile, hidden")
 	root.free()
 
 

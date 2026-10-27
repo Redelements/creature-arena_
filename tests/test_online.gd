@@ -392,7 +392,7 @@ func test_the_host_picks_the_arena_and_both_build_it() -> void:
 	assert_eq(host.game.duel.sim.arena_id, "quarry", "the host's arena:")
 	assert_eq(guest.game.duel.sim.arena_id, "quarry", "on the guest too:")
 	assert_eq(guest.arena_id, "quarry", "and the guest knows it:")
-	assert_eq(host.game.duel.sim.terrain.count(TerrainGrid.WALL), 2 * 2 * 26, "with Quarry's walls:")
+	assert_eq(host.game.duel.sim.terrain.count(TerrainGrid.WALL), 2 * 2 * 26 + 4 * 8, "with Quarry's walls:")
 	_run(nets, 600, Callable(), _mash(3))
 	assert_eq(host.game.desync_frame, -1, "no desync on a map with walls")
 	assert_eq(MatchFactory.arena, ArenaMap.DEFAULT, "the menu's arena is left alone")
