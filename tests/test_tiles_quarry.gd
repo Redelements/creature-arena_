@@ -2,8 +2,8 @@ extends TestCase
 ## The Quarry Bowl on bought tiles (the "rock" set: Mountains scree and its tan cliff face, Set 1
 ## tan dirt and cobbles, Desert v2 packed earth, ledge and rock stacks): the cut has its fills,
 ## the lane blob and the earth blob9, the scene has ragged lanes and a rounded middle as
-## terrains with a ledge along its south side, cobbled corners as patches, rock-stack walls
-## with rubble, and the map plays as it did: ArenaView is tiled there, a smashed wall tile
+## terrains with a ledge along its south side, cobbled corners as patches, walls as raised rock
+## shelves (RaisedTiles) with rubble, and the map plays as it did: ArenaView is tiled there, a smashed wall tile
 ## shows its rocks, a crack sets an overlay cell.
 
 const MANIFEST := "res://assets/tiles/rock_manifest.json"
@@ -80,11 +80,14 @@ func test_the_quarry_scene_has_lanes_a_raised_middle_and_rock_walls() -> void:
 		var sp := s as Sprite2D
 		assert_true(sp.position.y > 10 * 32 and sp.position.y < 11 * 32, "%s overlaps the patch's bottom row" % sp.name)
 	assert_eq((root.get_node("Pieces") as TileMapLayer).get_used_cells().size(), 0, "no boulder tiles: the walls are sprites")
-	# the walls at cells [20, 5, 2, 26] and [62, 5, 2, 26]: tile columns 10 and 31, rows 2..15
-	var walls := root.get_node("Walls")
-	assert_true(walls.y_sort_enabled, "a run's near stacks overlap the far ones")
-	assert_eq(walls.get_child_count(), 28, "a rock stack on every wall tile")
-	assert_eq(root.get_node("Rubble").get_child_count(), 28, "and its rubble under it")
+	# the walls at cells [20, 5, 2, 26] and [62, 5, 2, 26]: raised rock shelves, a 16 px tile
+	# on every wall cell (RaisedTiles), the rubble per 32 px tile (rows 2..15 of columns 10, 31)
+	var raised := root.get_node("Raised") as TileMapLayer
+	assert_eq(raised.get_used_cells().size(), 2 * 2 * 26, "a raised tile on every wall cell")
+	for c in raised.get_used_cells():
+		assert_true((c.x == 20 or c.x == 21 or c.x == 62 or c.x == 63) and c.y >= 5 and c.y < 31, "only on the walls' own cells: %s" % c)
+	assert_eq(root.get_node("Walls").get_child_count(), 0, "no stack sprites: the walls are tiles")
+	assert_eq(root.get_node("Rubble").get_child_count(), 28, "rubble for every wall tile, hidden")
 	root.free()
 
 
@@ -102,19 +105,16 @@ func test_the_quarry_plays_as_before_and_breaks_over_the_tiles() -> void:
 	assert_true(v.tiled(), "the Quarry draws from tiles")
 	assert_eq(v.ground, "stone", "its ground stays stone (pit palette, dust)")
 	assert_false(v._markings, "no court lines in a quarry")
-	var stack: Sprite2D = null
+	var raised := v._tiles.get_node("Raised") as TileMapLayer
 	var heap: Sprite2D = null
-	for s in v._tiles.get_node("Walls").get_children():
-		if (s.get_meta("cells") as Rect2i).has_point(Vector2i(20, 10)):
-			stack = s
 	for s in v._tiles.get_node("Rubble").get_children():
 		if (s.get_meta("cells") as Rect2i).has_point(Vector2i(20, 10)):
 			heap = s
-	assert_true(stack != null and heap != null, "a stack and a heap over cell (20, 10)")
-	assert_true(stack.visible and not heap.visible, "the wall stands")
+	assert_true(heap != null, "a heap over cell (20, 10)")
+	assert_true(raised.get_cell_source_id(Vector2i(20, 10)) >= 0 and not heap.visible, "the wall stands")
 	assert_true(sim.terrain.smash(Vector2i(20, 10)), "the wall's cell smashed")
 	v.refresh()
-	assert_true(heap.visible and not stack.visible, "the smashed tile shows its rocks, not its stack")
+	assert_true(heap.visible and raised.get_cell_source_id(Vector2i(20, 10)) == -1, "the smashed cell shows its rocks, not the shelf")
 	sim.terrain.crack_cell(Vector2i(40, 18))
 	v.refresh()
 	var at := v._overlay.get_cell_atlas_coords(Vector2i(40, 18))

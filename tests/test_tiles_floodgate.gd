@@ -6,7 +6,8 @@ extends TestCase
 ## as it did (pieces untouched), ArenaView draws from the tiles, and WaterView still finds
 ## the shallows. Every channel has a bank (the WaterBank layer, keyed by its eight
 ## neighbours), and the reeds stand with their feet on the floor's edges, never on the wall.
-## The art pass: the kerb (bank edge and face) is Wetland's own cobble, Wetland's glints lie
+## The art pass: the channels sit below a shoulder of Wetland dirt (the bank's face a drop
+## of Wetland stone), Wetland's glints lie
 ## over the water on a second surface layer in out-of-step variant rows, and swaying
 ## DecorativeProps reeds stand off the floor (the lower mouth, the side rails), none on top.
 
@@ -107,13 +108,15 @@ func test_the_glints_lie_over_the_water_out_of_step() -> void:
 	root.free()
 
 
-func test_the_kerb_is_wetland_cobble() -> void:
+func test_the_bank_drops_from_a_dirt_shoulder() -> void:
 	var f := FileAccess.open("res://tools/tile_recipes/wetland.json", FileAccess.READ)
 	var recipe: Dictionary = JSON.parse_string(f.get_as_text())
 	var bank: Dictionary = recipe["ground"]["shores"]["water"]
-	for part in ["edge", "face"]:
-		assert_eq(String(bank[part]["src"]), "RPGW_Wetland_v1.1/_PNG/MainLev.png", "the kerb's %s from the Wetland sheet" % part)
-		assert_eq(Vector2i(int(bank[part]["block"][0]), int(bank[part]["block"][1])), Vector2i(36, 23), "the cobble block inside the path border (%s)" % part)
+	assert_eq(String(bank["face"]["src"]), "RPGW_Wetland_v1.1/_PNG/MainLev.png", "the far bank's face from the Wetland plateau")
+	assert_true(int(bank["face_px"]) >= 12, "a face deep enough to read as a drop")
+	assert_eq(Vector2i(int(bank["land"]["block"][0]), int(bank["land"]["block"][1])), Vector2i(21, 30), "the bank's top is the mud blob's middle")
+	var mud: Array = recipe["ground"]["terrains"]["mud"]["blob9"]
+	assert_eq(Vector2i(int(mud[0]), int(mud[1])), Vector2i(20, 29), "the shoulder: Wetland's brown dirt blob9")
 
 
 func test_swaying_reeds_stand_off_the_floor() -> void:

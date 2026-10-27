@@ -77,10 +77,14 @@ and **RPG Worlds Desert** (`RPGW_Desert_v2.01`), cut by `tools/cut_tiles.py` fro
   generated cracks and edges.
 - `assets/tiles/rock_decor_ledge_l.png`, `assets/tiles/rock_decor_ledge_r.png`: the Desert
   sandstone ledge run along the middle's south side.
-- `assets/tiles/rock_wall_rock.png`: Desert stacked rock pillars for the walls and rock heaps
-  for a smashed wall (warmed).
+- `assets/tiles/rock_wall_rock.png`: Desert stacked rock pillars and the rock heaps a smashed
+  wall shows (warmed).
+- `assets/tiles/rock_raised_rock.png`: the walls as raised rock shelves, 16 px tiles cut from
+  the Mountains tan plateau (its rims, floor and face), with generated contact shadows.
+- `assets/tiles/rock_scatter.png`: loose pebbles and dry grass sprigs (Set 1) and flat stones
+  (Mountains) sprinkled by the walls.
 - `assets/tiles/rock_manifest.json`, `assets/tiles/rock_ground.tres`,
-  `assets/tiles/rock_overlay.tres`, `assets/arenas/quarry.tscn`.
+  `assets/tiles/rock_overlay.tres`, `assets/tiles/rock_cells.tres`, `assets/arenas/quarry.tscn`.
 
 Twin Keeps (the Capture the Flag map; cut by `tools/cut_tiles.py` from
 `tools/tile_recipes/keeps.json`, colours snapped to the game's palette):
@@ -141,10 +145,15 @@ by `tools/cut_tiles.py` from `tools/tile_recipes/wetland.json` for the Floodgate
   (Wetland's stone face as the pit walls, generated cracks and edges).
 - `assets/tiles/wetland_decor_reeds.png`, `wetland_decor_reeds_small.png`,
   `wetland_decor_post.png` (Wetland's reeds and a post).
-- `assets/tiles/wetland_shore.png`: the channels' stone kerb, composed from Wetland's paving
-  and the mossy cobbles of its path border.
+- `assets/tiles/wetland_shore.png`: the channels' banks, composed from Wetland's brown dirt
+  and the stone face of its plateau (the far bank's drop).
+- `assets/tiles/wetland_ground.png` also holds Wetland's brown dirt blob (the shoulder round
+  the channels).
+- `assets/tiles/wetland_scatter.png`: Set 1's loose pebbles, small water plants and grass
+  sprigs.
 - `assets/tiles/wetland_manifest.json`, `assets/tiles/wetland_ground.tres`,
   `assets/tiles/wetland_overlay.tres`, `assets/tiles/wetland_shore.tres`,
+  `assets/tiles/wetland_cells.tres`,
   `assets/arenas/floodgate.tscn`.
 
 Fantasy Lands Warrior: nothing from it is in the repository yet. Add its files here when

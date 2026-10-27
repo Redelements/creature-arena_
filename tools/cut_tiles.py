@@ -19,6 +19,8 @@ Writes, under assets/tiles/:
                          per post spot (FENCE_SPOTS)
   <set>_bush_<name>.png  a bush's clumps, one row each, its sway frames along the row
   <set>_wall_<name>.png  a wall's sprites side by side (top, mid, bottom, ends, rubble)
+  <set>_raised_<name>.png 16 px tiles of a raised wall: top, face, contact shadows
+  <set>_scatter.png      32 px slots of small floor sprites (pebbles, tufts)
   <set>_shore.png        32 px bank tiles round a terrain (recipe ground.shores), one per
                          land-neighbour mask
   <set>_manifest.json    where everything landed, for tools/build_tiles.gd
@@ -107,6 +109,14 @@ packs dir; "tile" positions are [column, row] of 32 px tiles in the source sheet
                            "bottom", "left", "right", "rubble": [{"src", "box", "feet",
                            "mirror"}, ...]}; a role left out falls back to "mid" ("vmid": a
                            column's middle tiles, for a kit whose rows and columns differ)
+  raised.<name>            {"src", "frame", "face_y", "mid", "cells", "lip", "shadow", "rubble",
+                           "tint"}: a wall drawn as a raised plateau (map style "raised:<name>"),
+                           16 px tiles cut from one plateau piece of the pack: its top (rims
+                           where a neighbour is not raised), its cliff face shortened to at most
+                           "cells" cells, and contact shadows for the floor beside it (cut_raised)
+  scatter.<kind>           {"src", "boxes"} or {"src", "box", "auto": {"min", "max", "limit"}}:
+                           small flat sprites (pebbles, tufts) a map sprinkles over its floor
+                           (map key tiles.scatter), one 32 px slot each (cut_scatter)
 
 About the sources this was built on: Szadi art's blob terrains are 16-tile side-matched
 sets (the corner notches are art, not inner-corner tiles: Godot terrain mode MATCH_SIDES).
@@ -1062,6 +1072,219 @@ def cut_walls(cut, set_name, w):
     return man
 
 
+## A raised wall (recipe raised.<name>, map style "raised:<name>"): a wall rect drawn as a
+## plateau of 16 px tiles, one a terrain cell, picked per cell from its raised neighbours
+## (src/view/raised_tiles.gd). Everything comes out of one plateau piece of the pack (its top
+## rim, side rims, floor and cliff face), so the outlines and the light are the artist's.
+RAISED_PX = 16  # a raised tile: one terrain cell
+
+
+def _raised_rows(face, n, lip):
+    """The face's rows fitted to n px: all of it when it is short enough, else its first
+    `lip` rows (the ledge's lit caps) then its last n - lip (the base meeting the floor)."""
+    if face.shape[0] <= n:
+        return face
+    lip = min(lip, n // 3)
+    return np.concatenate([face[:lip], face[face.shape[0] - (n - lip):]], axis=0)
+
+
+def _raised_cols(img, left, right, x, rim):
+    """A 16 px wide band of `img` (rows x cols x 4): 16 px of the seamless middle from `x`,
+    with the piece's own left rim (its first `rim` px) where the cell has no raised neighbour
+    on its left and its right rim on the right (a column one cell wide: half of each)."""
+    w = img.shape[1]
+    mid = img[:, x:x + RAISED_PX]
+    if left and right:
+        h = RAISED_PX // 2
+        return np.concatenate([img[:, :h], img[:, w - h:]], axis=1)
+    if left:
+        return np.concatenate([img[:, :rim], mid[:, rim:]], axis=1)
+    if right:
+        return np.concatenate([mid[:, :RAISED_PX - rim], img[:, w - rim:]], axis=1)
+    return mid
+
+
+def _face_cols(img, left, right, x, outline):
+    """A 16 px band of the face's seamless middle from `x`, closed with the outline (and a
+    shaded column inside it) on a side with no raised face beside it."""
+    t = img[:, x:x + RAISED_PX].astype(float)
+    op = t[:, :, 3] > 0
+    for on, c0, c1 in ((left, 0, 1), (right, RAISED_PX - 1, RAISED_PX - 2)):
+        if on:
+            t[op[:, c0], c0, :3] = outline
+            t[op[:, c1], c1, :3] *= 0.7
+    return t.astype(np.uint8)
+
+
+def _hard(arr):
+    arr = arr.copy()
+    arr[arr[:, :, 3] < 128] = 0
+    arr[arr[:, :, 3] >= 128, 3] = 255
+    return arr
+
+
+def _shadow_tile(side, up, diag, sw, sh, alpha, mirror):
+    """A contact shadow on a floor cell beside a raised wall, the light falling to +x and
+    down: a band down the cell's left side (`side`: the wall is on its left; 2: the wall is two
+    cells left, the rest of a band wider than a cell), one along its top (`up`: the wall's
+    face is above it), a corner where only the diagonal is raised. Two flat steps of alpha,
+    darker against the wall. Mirrored for light falling to -x."""
+    ys, xs = np.mgrid[0:RAISED_PX, 0:RAISED_PX]
+
+    def band(d, width):
+        return np.where(d < width * 0.5, alpha, np.where(d < width, alpha * 0.55, 0.0))
+    a = np.zeros((RAISED_PX, RAISED_PX), float)
+    if side == 2:  # the second cell out of a side shadow wider than a cell
+        a = band(xs + RAISED_PX, sw)
+    elif side:
+        a = np.maximum(a, band(xs, sw))
+    if up:
+        a = np.maximum(a, band(ys, sh))
+    if diag and not side and not up:
+        a = np.where((xs < sw) & (ys < sh), np.minimum(band(xs, sw), band(ys, sh)), 0.0)
+    out = np.zeros((RAISED_PX, RAISED_PX, 4), np.uint8)
+    out[:, :, 3] = (a * 255).astype(np.uint8)
+    return out[:, ::-1].copy() if mirror else out
+
+
+def cut_raised(cut, set_name, r):
+    """recipe raised.<name>: {"src", "frame": [x0, y0, x1, y1] a whole plateau piece (its top
+    rim on y0, side rims at x0 and x1, face down to y1), "face_y": the y its cliff face (lip
+    included) starts on, "mid": [x, y] a seamless block of its top, 32 px wide (x also the
+    face's seamless column) and "rows" cells tall (default 2; more, so a long wall's side rims
+    repeat less), "cells": the most cells a face hangs (16 px each; a taller face keeps
+    its lip and its base), "lip": px of the face's top kept when it is shortened, "rim": px of the
+    piece's side rims kept on an open side (the rest the top's middle), "outline": the colour
+    closing a face's open end, "shadow":
+    [side px (up to 32: two cells), top px, alpha] of the contact shadow, "rubble": the walls.<name> whose rubble a
+    smashed tile shows, "tint"}. Writes <set>_raised_<name>.png (16 px tiles) and returns
+    {name: {"source", "tile", "cells", "rubble", "tiles": {key: [col, row]}}}, keys
+    (src/view/raised_tiles.gd): "t<l><r><u><px><py>" a top tile (l, r, u 1 where that
+    neighbour is not raised; px, py the cell's column and row parity), "f<l><r><k><row><px>"
+    a face tile (row 0 the top of a face k cells tall), "s<side><up><diag><m>" a contact
+    shadow (m 1: the light falls to -x, so the wall is on the cell's right), "w<m>" the second
+    cell of a side shadow wider than a cell (a tall wall in a low sun)."""
+    man = {}
+    for name, it in r.items():
+        x0, y0, x1, y1 = it["frame"]
+        src = np.array(tinted(cut.box(it["src"], it["frame"]), it))
+        fy = int(it["face_y"]) - y0
+        mx, my = int(it["mid"][0]) - x0, int(it["mid"][1]) - y0
+        k_max = int(it.get("cells", 3))
+        lip = int(it.get("lip", 16))
+        rim = int(it.get("rim", 12))
+        n_rows = int(it.get("rows", 2))
+        outline = np.array(it.get("outline", [40, 28, 26]), float)
+        sheet = Sheet(RAISED_PX, 16)
+        tiles = {}
+        for l in (0, 1):
+            for rr in (0, 1):
+                for u in (0, 1):
+                    for py in range(n_rows):
+                        rows = src[0:RAISED_PX] if u else src[my + py * RAISED_PX:my + (py + 1) * RAISED_PX]
+                        for px in (0, 1):
+                            t = _raised_cols(rows, l, rr, mx + px * RAISED_PX, rim)
+                            tiles["t%d%d%d%d%d" % (l, rr, u, px, py)] = sheet.add(Image.fromarray(_hard(t), "RGBA"))
+        face = src[fy:]
+        for k in range(1, k_max + 1):
+            n = k * RAISED_PX
+            rows = _raised_rows(face, n, lip)
+            if rows.shape[0] < n:  # a short face: the plateau's own floor above it
+                rows = np.concatenate([src[fy - (n - rows.shape[0]):fy], rows], axis=0)
+            for row in range(k):
+                band = rows[row * RAISED_PX:(row + 1) * RAISED_PX]
+                for l in (0, 1):
+                    for rr in (0, 1):
+                        for px in (0, 1):
+                            t = _face_cols(band, l, rr, mx + px * RAISED_PX, outline)
+                            tiles["f%d%d%d%d%d" % (l, rr, k, row, px)] = sheet.add(Image.fromarray(_hard(t), "RGBA"))
+        sw, sh, al = it.get("shadow", [7, 5, 0.4])
+        for m in (0, 1):
+            for side in (0, 1):
+                for up in (0, 1):
+                    for diag in (0, 1):
+                        if side or up or diag:
+                            t = _shadow_tile(side, up, diag, float(sw), float(sh), float(al), m)
+                            tiles["s%d%d%d%d" % (side, up, diag, m)] = sheet.add(Image.fromarray(t, "RGBA"))
+            if float(sw) > RAISED_PX:
+                t = _shadow_tile(2, 0, 0, float(sw), float(sh), float(al), m)
+                tiles["w%d" % m] = sheet.add(Image.fromarray(t, "RGBA"))
+        file = "%s_raised_%s.png" % (set_name, name)
+        save(sheet.image(), file, translucent=True)
+        man[name] = {"source": file, "tile": RAISED_PX, "cells": k_max, "rows": n_rows, "rubble": it.get("rubble", ""), "tiles": tiles}
+        print("  raised %s: %d tiles" % (name, len(tiles)))
+    return man
+
+
+## Scatter (recipe scatter.<kind>, map key tiles.scatter): small flat sprites sprinkled over
+## the floor (pebbles, tufts, tiny plants), each in a 32 x 32 slot with its feet (its bottom
+## middle) at (16, 24), so drawn centred on a 16 px cell it stands on the cell's bottom middle.
+SCATTER_SLOT = 32
+SCATTER_FEET = (16, 24)
+
+
+def _components(alpha, min_px):
+    """The boxes [x0, y0, x1, y1] of the 8-connected opaque blobs of `alpha` with at least
+    `min_px` pixels, in reading order."""
+    seen = np.zeros(alpha.shape, bool)
+    h, w = alpha.shape
+    out = []
+    for y in range(h):
+        for x in range(w):
+            if not alpha[y, x] or seen[y, x]:
+                continue
+            stack = [(y, x)]
+            seen[y, x] = True
+            pts = []
+            while stack:
+                cy, cx = stack.pop()
+                pts.append((cy, cx))
+                for dy in (-1, 0, 1):
+                    for dx in (-1, 0, 1):
+                        ny, nx = cy + dy, cx + dx
+                        if 0 <= ny < h and 0 <= nx < w and alpha[ny, nx] and not seen[ny, nx]:
+                            seen[ny, nx] = True
+                            stack.append((ny, nx))
+            if len(pts) >= min_px:
+                ys = [p[0] for p in pts]
+                xs = [p[1] for p in pts]
+                out.append([min(xs), min(ys), max(xs) + 1, max(ys) + 1])
+    return out
+
+
+def cut_scatter(cut, set_name, s):
+    """recipe scatter.<kind>: {"src", "boxes": [[x0, y0, x1, y1], ...]} and / or {"src",
+    "box", "auto": {"min": px, "max": [w, h], "limit": n}}: the opaque blobs inside the box
+    found on their own (a sheet of loose pebbles) that fit `max`, the first `limit`; "tint"
+    as the fills. A sprite keeps at most 32 x 24 px (its bottom). Writes <set>_scatter.png
+    (32 px slots) and returns {"source", "slot", "feet", "kinds": {kind: [[col, row], ...]}}."""
+    if not s:
+        return {}
+    sheet = Sheet(SCATTER_SLOT, 8)
+    kinds = {}
+    for kind, it in s.items():
+        boxes = [list(b) for b in it.get("boxes", [])]
+        if "auto" in it:
+            au = it["auto"]
+            bx0, by0 = it["box"][0], it["box"][1]
+            a = np.array(cut.box(it["src"], it["box"]))[:, :, 3] >= 128
+            mw, mh = au.get("max", [24, 20])
+            found = [c for c in _components(a, int(au.get("min", 6))) if c[2] - c[0] <= mw and c[3] - c[1] <= mh]
+            boxes += [[bx0 + c[0], by0 + c[1], bx0 + c[2], by0 + c[3]] for c in found[:int(au.get("limit", 12))]]
+        slots = []
+        for b in boxes:
+            img = tinted(cut.box(it["src"], b), it)
+            img = img.crop((0, max(0, img.height - SCATTER_FEET[1]), min(img.width, SCATTER_SLOT), img.height))
+            slot = Image.new("RGBA", (SCATTER_SLOT, SCATTER_SLOT), (0, 0, 0, 0))
+            slot.alpha_composite(img, (SCATTER_FEET[0] - img.width // 2, SCATTER_FEET[1] - img.height))
+            slots.append(sheet.add(slot))
+        kinds[kind] = slots
+        print("  scatter %s: %d sprites" % (kind, len(slots)))
+    file = "%s_scatter.png" % set_name
+    save(sheet.image(), file)
+    return {"source": file, "slot": SCATTER_SLOT, "feet": list(SCATTER_FEET), "kinds": kinds}
+
+
 def main(packs, set_name):
     with open(os.path.join(RECIPES, set_name + ".json")) as f:
         recipe = json.load(f)
@@ -1080,6 +1303,8 @@ def main(packs, set_name):
         "bushes": cut_bushes(cut, set_name, recipe.get("bushes", {})),
         "fencelines": cut_fencelines(cut, set_name, recipe.get("fencelines", {})),
         "walls": cut_walls(cut, set_name, recipe.get("walls", {})),
+        "raised": cut_raised(cut, set_name, recipe.get("raised", {})),
+        "scatter": cut_scatter(cut, set_name, recipe.get("scatter", {})),
     }
     with open(os.path.join(OUT, set_name + "_manifest.json"), "w", newline="\n") as f:
         json.dump(man, f, indent=1)

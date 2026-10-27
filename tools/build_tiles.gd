@@ -14,6 +14,8 @@ extends SceneTree
 ##   assets/tiles/<set>_shore.tres     tile size 32: the bank tiles round a terrain (manifest
 ##                                     "shores"), one per land-neighbour mask (a set without
 ##                                     shores writes none)
+##   assets/tiles/<set>_cells.tres     tile size 16 (one terrain cell): source 0 the scatter
+##                                     sprites, 1.. the raised walls (a set with neither writes none)
 ##   assets/arenas/<id>.tscn           for every data/arenas/<id>.json with a "tiles" block
 ##                                     naming this set: a Node2D of TileMapLayers and sprites
 ##                                     that ArenaView instances at half scale under the floor
@@ -44,7 +46,21 @@ extends SceneTree
 ##              line (ends, runs, corners, junctions), in the half of the tile the line holds.
 ##              "bush:<name>" (manifest "bushes") draws each rect as a bed of swaying clumps;
 ##              "wall:<name>" draws a wall as a run of tall sprites, one per tile (manifest
-##              "walls"), with the rubble a smashed tile shows
+##              "walls"), with the rubble a smashed tile shows;
+##              "raised:<name>" (manifest "raised") draws every wall cell as a raised plateau:
+##              16 px "Raised" tiles (the top, and the cliff face on a column's last cells,
+##              all on the wall's own cells) over a "RaisedShadow" layer (the contact shadow
+##              on the floor away from the map's light), picked by src/view/raised_tiles.gd and
+##              repainted by ArenaView as cells are smashed; the rubble is the recipe's
+##              "rubble" walls entry's heaps
+##   shoulder   {terrain, width: 1}: a ring of that terrain (a dirt or sand blob) `width` tiles
+##              round the water, on floor tiles only, on a "Shoulder" layer under the water
+##              (the bank's `land` texture should be the same ground)
+##   scatter    [{kind, where: "floor" | "near_walls" | "near_water" | [[tx, ty, w, h], ...],
+##              near: 3, density: 0.05, seed}]: small sprites (manifest "scatter" kinds) on a
+##              16 px "Scatter" layer, one a cell at most, by a fixed hash (a rebuild lays the
+##              same ones); never on water, walls, fences, chasms, brush (or next to it) or the
+##              court markings
 ##   decor      [{kind, at: [tx, ty]} | {kind, pos: [x, y] units from the floor's top-left
 ##              corner, so the margins are negative or past the floor}]: a decor sprite
 ##              (manifest "decor") standing with its feet at the tile's bottom middle.
@@ -65,6 +81,11 @@ const BLOB_OVER := 3  ## px a bed of blob clumps may spill past its cells
 const SRC_FENCE := 16  ## the first fence line (manifest "fencelines"); one source each from here
 const SIDES := [TileSet.CELL_NEIGHBOR_LEFT_SIDE, TileSet.CELL_NEIGHBOR_RIGHT_SIDE,
 	TileSet.CELL_NEIGHBOR_TOP_SIDE, TileSet.CELL_NEIGHBOR_BOTTOM_SIDE]
+const CELL_PX := 16  ## a terrain cell in scene px: the raised and scatter tiles' size
+const SRC_SCATTER := 0  ## in <set>_cells.tres: the scatter sprites
+const SRC_RAISED := 1  ## in <set>_cells.tres: the first raised wall (manifest "raised"); one source each
+const SCATTER_ALTS := 8  ## a scatter sprite's looks: plain, then mirrored and nudged
+const SCATTER_NUDGE: Array[Vector2i] = [Vector2i.ZERO, Vector2i(3, 2), Vector2i(-4, 1), Vector2i(2, -3)]
 const DEFAULT_STYLES := {"wall": "boulder", "brush": "tuft", "fence": "fence", "bridge": "bridge"}
 
 
@@ -81,6 +102,7 @@ func _init() -> void:
 	var ground := _ground_set(set_name, man)
 	var overlay := _overlay_set(set_name, man)
 	var shore := _shore_set(set_name, man)
+	var small := _cells_set(set_name, man)
 	var built := 0
 	for f in DirAccess.get_files_at("res://data/arenas/"):
 		if not f.ends_with(".json"):
@@ -89,7 +111,7 @@ func _init() -> void:
 		var tiles: Dictionary = map.get("tiles", {})
 		if tiles.is_empty() or String(tiles.get("set", "set1")) != set_name:
 			continue
-		_build_scene(map, tiles, man, ground, shore)
+		_build_scene(map, tiles, man, ground, shore, small)
 		built += 1
 	print("built ", ground.resource_path, ", ", overlay.resource_path, " and ", built, " arena scene(s)")
 	quit(0)
@@ -306,6 +328,50 @@ static func _shore_set(set_name: String, man: Dictionary) -> TileSet:
 			src.create_tile(_v(shores[name]["tiles"][key]))
 		sid += 1
 	_save(ts, TILES_DIR + set_name + "_shore.tres")
+	return ts
+
+
+## The 16 px TileSet (one tile a terrain cell) of a set's raised walls and scatter, or null
+## when it has neither: source SRC_SCATTER the scatter sprites (manifest "scatter": each a
+## 32 px slot, a 2 x 2 tile centred on its cell, so its feet at the slot's (16, 24) stand on
+## the cell's bottom middle; SCATTER_ALTS alternatives each, mirrored and nudged), then one
+## source per raised wall (manifest "raised", in order: SRC_RAISED + its index).
+static func _cells_set(set_name: String, man: Dictionary) -> TileSet:
+	var sc: Dictionary = man.get("scatter", {})
+	var rz: Dictionary = man.get("raised", {})
+	if sc.is_empty() and rz.is_empty():
+		return null
+	var ts := TileSet.new()
+	ts.tile_size = Vector2i(CELL_PX, CELL_PX)
+	if not sc.is_empty():
+		var src := TileSetAtlasSource.new()
+		src.texture = load(TILES_DIR + String(sc["source"]))
+		src.texture_region_size = ts.tile_size
+		ts.add_source(src, SRC_SCATTER)
+		var per := int(sc["slot"]) / CELL_PX
+		for kind in sc["kinds"]:
+			for at in sc["kinds"][kind]:
+				var coords := _v(at) * per
+				src.create_tile(coords, Vector2i(per, per))
+				for k in range(1, SCATTER_ALTS):
+					var alt := src.create_alternative_tile(coords)
+					var td := src.get_tile_data(coords, alt)
+					td.flip_h = k % 2 == 1
+					td.texture_origin = SCATTER_NUDGE[k / 2]
+	var sid := SRC_RAISED
+	for name in rz:
+		var src := TileSetAtlasSource.new()
+		src.texture = load(TILES_DIR + String(rz[name]["source"]))
+		src.texture_region_size = ts.tile_size
+		ts.add_source(src, sid)
+		var made := {}
+		for key in rz[name]["tiles"]:
+			var at := _v(rz[name]["tiles"][key])
+			if not made.has(at):
+				src.create_tile(at)
+				made[at] = true
+		sid += 1
+	_save(ts, TILES_DIR + set_name + "_cells.tres")
 	return ts
 
 
@@ -526,10 +592,11 @@ static func _nine_slice_spots(spots: Array, sz: Callable, x0: int, y0: int, w: i
 ## "bottom" roles at its ends and "vmid" between them, a row "left" and "right" (a missing
 ## role falls back to "mid"). A tile the rect only half covers (a run ending on an odd cell)
 ## stands on the rect's own last row, so the wall's face ends where its cells do.
+## `rubble_only`: just the rubble (a raised wall draws the wall itself as tiles, RaisedTiles).
 ## Each tile also gets its rubble sprite, hidden; both record the cells under them (`meta
 ## "cells"`), and the rubble is marked `meta "broken"`, so ArenaView shows the wall while
 ## those cells are the map's wall and the rubble while any is smashed.
-static func _wall_run(walls: Node2D, rubble: Node2D, root: Node, man: Dictionary, name: String, r: Array, per: int, tile: int, cache: Dictionary) -> void:
+static func _wall_run(walls: Node2D, rubble: Node2D, root: Node, man: Dictionary, name: String, r: Array, per: int, tile: int, cache: Dictionary, rubble_only := false) -> void:
 	var w: Dictionary = man.get("walls", {}).get(name, {})
 	if w.is_empty():
 		push_warning("no wall " + name)
@@ -552,7 +619,7 @@ static func _wall_run(walls: Node2D, rubble: Node2D, root: Node, man: Dictionary
 		var pool: Array = roles.get(role, roles["mid"])
 		var cells := Rect2i(c * per, Vector2i(per, per)).intersection(Rect2i(int(r[0]), int(r[1]), int(r[2]), int(r[3])))
 		var foot := Vector2((c.x + 0.5) * tile, cells.end.y * (tile / per) - 2)
-		var picks := [[walls, pool[_h(c.x, c.y, 2) % pool.size()], false]]
+		var picks := [] if rubble_only else [[walls, pool[_h(c.x, c.y, 2) % pool.size()], false]]
 		var rub: Array = roles.get("rubble", [])
 		if not rub.is_empty():
 			picks.append([rubble, rub[_h(c.x, c.y, 3) % rub.size()], true])
@@ -583,6 +650,172 @@ static func _wall_run(walls: Node2D, rubble: Node2D, root: Node, man: Dictionary
 ## positioned by its foot like the pillars (so a brazier at a run's near end stands in front
 ## of it) with meta "cells" the wall cells its box covers: ArenaView hides it while any of
 ## them is smashed, as it hides the pillars (a sign never floats over rubble).
+
+
+## A ring of `shoulder.terrain` (a blob of sand or dirt) `width` tiles wide round the water
+## tiles `wet`, on a "Shoulder" layer under the water: painted over the water tiles too, so the
+## ring joins under them and only its ragged outer edge shows. Only on floor: a ring tile over
+## any cell the map makes something else (wall, brush, fence, chasm) is left out. Ring tiles
+## past the map's edge are painted (so the blob runs on off the floor) then cleared.
+static func _shoulder(root: Node2D, ts: TileSet, sh: Dictionary, wet: Array[Vector2i], grid: TerrainGrid, per: int) -> void:
+	if wet.is_empty():
+		return
+	var width := int(sh.get("width", 1))
+	var wet_set := {}
+	for c in wet:
+		wet_set[c] = true
+	var cells: Array[Vector2i] = wet.duplicate()
+	var outside: Array[Vector2i] = []
+	var seen := {}
+	for c in wet:
+		for dy in range(-width, width + 1):
+			for dx in range(-width, width + 1):
+				var n := c + Vector2i(dx, dy)
+				if wet_set.has(n) or seen.has(n):
+					continue
+				seen[n] = true
+				if n.x < 0 or n.y < 0 or n.x * per >= grid.cols or n.y * per >= grid.rows:
+					outside.append(n)
+					cells.append(n)
+				elif _floor_tile(grid, n, per):
+					cells.append(n)
+	var layer := _layer(root, "Shoulder", ts)
+	_terrain(layer, ts, String(sh.get("terrain", "")), cells)
+	for n in outside:
+		layer.erase_cell(n)
+
+
+## Whether every cell of tile `t` is plain floor in the map (or its water).
+static func _floor_tile(grid: TerrainGrid, t: Vector2i, per: int) -> bool:
+	for dy in per:
+		for dx in per:
+			var c := t * per + Vector2i(dx, dy)
+			if not grid.in_bounds(c):
+				continue
+			var v := grid.get_base(c)
+			if v != TerrainGrid.INTACT and v != TerrainGrid.SHALLOWS:
+				return false
+	return true
+
+
+## The map's walls as raised plateaus (manifest raised.<name>): a "RaisedShadow" and a
+## "Raised" 16 px layer painted by RaisedTiles with every wall cell whole, each carrying meta
+## "raised" (the source, the tile keys, the face's cells, the light's side) for ArenaView,
+## which repaints them as walls are smashed and rebuilt.
+static func _raised(root: Node2D, small: TileSet, man: Dictionary, map: Dictionary, name: String, grid: TerrainGrid) -> void:
+	var all: Dictionary = man.get("raised", {})
+	if small == null or not all.has(name):
+		push_warning("no raised wall " + name)
+		return
+	var rz: Dictionary = all[name]
+	var info := {"source": SRC_RAISED + all.keys().find(name), "tiles": rz["tiles"], "cells": int(rz["cells"]),
+		"rows": int(rz.get("rows", 2)), "mirror": (ShadowLayer.light_of(map)["cast"] as Vector2).x < 0.0}
+	var shadow := _layer(root, "RaisedShadow", small)
+	var raised := _layer(root, "Raised", small)
+	shadow.set_meta("raised", info)
+	raised.set_meta("raised", info)
+	var walls := wall_cells(grid)
+	RaisedTiles.paint(raised, shadow, info, walls, func(c: Vector2i) -> bool: return walls.has(c), -1, grid.rows + 1)
+
+
+## The map's own wall cells (Vector2i -> true).
+static func wall_cells(grid: TerrainGrid) -> Dictionary:
+	var walls := {}
+	for cy in grid.rows:
+		for cx in grid.cols:
+			if grid.map_base[cy * grid.cols + cx] == TerrainGrid.WALL:
+				walls[Vector2i(cx, cy)] = true
+	return walls
+
+
+## The map's `scatter`: [{kind, density, where, near, seed}] small sprites (manifest
+## "scatter" kinds) on the "Scatter" layer, one a cell at most, picked by a fixed hash so a
+## rebuild lays the same ones. `where`: "floor" (anywhere), "near_walls" / "near_water"
+## (within `near` cells of a wall / the water, default 3), or [[tx, ty, w, h], ...] tile rects.
+## Only on plain floor (`scatter_ok`).
+static func _scatter(layer: TileMapLayer, tiles: Dictionary, man: Dictionary, grid: TerrainGrid, wet_tiles: Dictionary, per: int) -> void:
+	var kinds: Dictionary = man.get("scatter", {}).get("kinds", {})
+	var slot := int(man.get("scatter", {}).get("slot", 32)) / CELL_PX
+	var used := {}
+	for e in tiles.get("scatter", []):
+		var pool: Array = kinds.get(String(e.get("kind", "")), [])
+		if pool.is_empty():
+			push_warning("no scatter " + String(e.get("kind", "")))
+			continue
+		var seed := int(e.get("seed", 1))
+		var density := int(float(e.get("density", 0.05)) * 1000.0)
+		var where = e.get("where", "floor")
+		var near := int(e.get("near", 3))
+		for cy in grid.rows:
+			for cx in grid.cols:
+				var c := Vector2i(cx, cy)
+				if used.has(c) or _h(cx, cy, 200 + seed) % 1000 >= density:
+					continue
+				if not scatter_ok(c, grid, wet_tiles, per, bool(tiles.get("markings", false))):
+					continue
+				if where is Array:
+					var inside := false
+					for r in where:
+						if Rect2i(int(r[0]) * per, int(r[1]) * per, int(r[2]) * per, int(r[3]) * per).has_point(c):
+							inside = true
+					if not inside:
+						continue
+				elif String(where) == "near_walls" and not _near(c, grid, wet_tiles, per, near, true):
+					continue
+				elif String(where) == "near_water" and not _near(c, grid, wet_tiles, per, near, false):
+					continue
+				used[c] = true
+				var at: Array = pool[_h(cx, cy, 201 + seed) % pool.size()]
+				layer.set_cell(c, SRC_SCATTER, _v(at) * slot, _h(cx, cy, 202 + seed) % SCATTER_ALTS)
+
+
+## Whether a scatter sprite may lie on cell `c`: plain floor, off the water tiles, clear of
+## brush by a cell, and (on a map with court markings) clear of the lines by about a cell.
+static func scatter_ok(c: Vector2i, grid: TerrainGrid, wet_tiles: Dictionary, per: int, markings: bool) -> bool:
+	if not grid.in_bounds(c) or grid.get_base(c) != TerrainGrid.INTACT:
+		return false
+	if wet_tiles.has(Vector2i(floori(float(c.x) / per), floori(float(c.y) / per))):
+		return false
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			var n := c + Vector2i(dx, dy)
+			if grid.in_bounds(n) and grid.get_base(n) == TerrainGrid.BRUSH:
+				return false
+	return not (markings and near_marks(c, grid))
+
+
+## Within `near` cells of a wall (`walls`) or of the water (the shallows, the water tiles).
+static func _near(c: Vector2i, grid: TerrainGrid, wet_tiles: Dictionary, per: int, near: int, walls: bool) -> bool:
+	for dy in range(-near, near + 1):
+		for dx in range(-near, near + 1):
+			var n := c + Vector2i(dx, dy)
+			if not grid.in_bounds(n):
+				continue
+			var v := grid.get_base(n)
+			if walls and v == TerrainGrid.WALL:
+				return true
+			if not walls and (v == TerrainGrid.SHALLOWS or wet_tiles.has(Vector2i(floori(float(n.x) / per), floori(float(n.y) / per)))):
+				return true
+	return false
+
+
+## Whether cell `c` lies within about a cell of the Stadium's court markings (ArenaView
+## `_paint_marks`: the boundary 6 units inside the floor, the centre line, the double centre
+## circle of radius 34, the starting brackets 100 units either side of the centre).
+static func near_marks(c: Vector2i, grid: TerrainGrid) -> bool:
+	var p := grid.cell_center(c)
+	var fr := grid.floor_rect()
+	var box := fr.grow(-6)
+	var m := float(SimDefs.CELL) * 1.5
+	var mid := fr.get_center()
+	if absf(p.x - box.position.x) < m or absf(p.x - box.end.x) < m or absf(p.y - box.position.y) < m or absf(p.y - box.end.y) < m:
+		return true
+	if absf(p.x - mid.x) < m or p.distance_to(mid) < 34.0 + m:
+		return true
+	for side in [-1.0, 1.0]:
+		if p.distance_to(mid + Vector2(side * 100.0, 4.0)) < 12.0 + m:
+			return true
+	return false
 
 
 ## Where a decor or anim entry stands, in scene pixels (2 a unit): a tile's bottom middle
@@ -630,7 +863,7 @@ static func _place(s: Node2D, e: Dictionary, d: Dictionary, size: Vector2, tile:
 
 ## One map's ground scene: the fill under everything (a tile past the floor all round, an
 ## `edge` fill for that ring), the terrains, the pieces, the decor and the animated pieces.
-static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts: TileSet, shore_ts: TileSet) -> void:
+static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts: TileSet, shore_ts: TileSet, small: TileSet) -> void:
 	var g: Dictionary = man["ground"]
 	var p: Dictionary = man["pieces"]
 	var tile := int(ts.tile_size.x)
@@ -640,6 +873,8 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 	var rows := ceili(float(size.y) / per)
 	var root := Node2D.new()
 	root.name = "Ground"
+	var grid := TerrainGrid.new(size.x, size.y)  # the map's cells as the sim lays them
+	grid.load_map(map)
 
 	var ground := _layer(root, "Ground", ts)
 	var fill: Array = g["fills"][String(tiles.get("ground", "dirt"))]
@@ -672,7 +907,6 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 		if not ts.get_terrain_name(0, i) in names:
 			names.append(ts.get_terrain_name(0, i))
 	for name in names:
-		var layer := _layer(root, name.capitalize(), ts)
 		var cells: Array[Vector2i] = []
 		for r in tiles.get(name, []):
 			for ty in range(int(r[1]), int(r[1]) + int(r[3])):
@@ -692,6 +926,9 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 				for c in _tiles_of(r, per):
 					if not c in cells:
 						cells.append(c)
+		if name == "water" and tiles.has("shoulder"):
+			_shoulder(root, ts, tiles["shoulder"], cells, grid, per)
+		var layer := _layer(root, name.capitalize(), ts)
 		counts[name] = _terrain(layer, ts, name, cells)
 		if name == "water":
 			for c in cells:
@@ -725,6 +962,13 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 	var pieces := _layer(root, "Pieces", ts)
 	var styles: Dictionary = DEFAULT_STYLES.duplicate()
 	styles.merge(tiles.get("styles", {}), true)
+	# small sprites over the floor (`scatter`), then a raised wall's contact shadow and the
+	# wall itself (`styles.wall: "raised:<name>"`): 16 px layers, one tile a cell
+	if small != null and tiles.has("scatter"):
+		_scatter(_layer(root, "Scatter", small), tiles, man, grid, wet_tiles, per)
+	var wall_style := String(styles.get("wall", ""))
+	if wall_style.begins_with("raised:"):
+		_raised(root, small, man, map, wall_style.trim_prefix("raised:"), grid)
 	# the map's bridges are pieces too (style "bridge"): ArenaView clears a tile whose cells
 	# left the map's state, so a fallen bridge shows the water painted under it
 	var placed: Array = map.get("pieces", []).duplicate()
@@ -768,6 +1012,12 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 					line[Vector2i(cx, cy)] = true
 		if style.begins_with("wall:"):
 			_wall_run(walls, rubble, root, man, style.trim_prefix("wall:"), r, per, tile, wall_tex)
+			continue
+		if style.begins_with("raised:"):
+			# the wall is RaisedTiles' layers; its rubble the named walls.<name>'s heaps
+			var rub := String(man.get("raised", {}).get(style.trim_prefix("raised:"), {}).get("rubble", ""))
+			if rub != "":
+				_wall_run(walls, rubble, root, man, rub, r, per, tile, wall_tex, true)
 			continue
 		# a kind with oriented tiles (fence_h / fence_v) picks by the rect's longer side, and
 		# one with half tiles (fence_v_l / fence_v_r, fence_h_t / fence_h_b) by which half of

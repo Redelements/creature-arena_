@@ -6,14 +6,15 @@
 			"water": {"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "block": [8, 2], "size": 2, "tint": {"mul": [2.0, 2.2, 2.6], "add": [2, 2, 17]}}
 		},
 		"terrains": {
-			"water": {"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "blob": [0, 0], "centres": [[5, 1], [6, 1], [5, 2], [6, 2], [8, 2], [9, 2], [8, 3], [9, 3]], "tint": {"mul": [2.0, 2.2, 2.6], "add": [2, 2, 17]}}
+			"water": {"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "blob": [0, 0], "centres": [[5, 1], [6, 1], [5, 2], [6, 2], [8, 2], [9, 2], [8, 3], [9, 3]], "tint": {"mul": [2.0, 2.2, 2.6], "add": [2, 2, 17]}},
+			"mud": {"_doc": "Wetland brown dirt, the ragged alpha overlay of its swatch (MainLev rows 29-33, a 5 x 5 blob9 round a seamless 3 x 3): the shoulder of trodden dirt round the channels (map tiles.shoulder)", "src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "blob9": [20, 29], "tint": {"mul": [1.04, 0.96, 0.84]}}
 		},
 		"surfaces": {
 			"water": {"src": "RPGFW_Set1_v1.0/_PNG/anim/water_surface_transparent.png", "frame": 32, "frames": 16, "cols": 4, "fps": 8, "over": "water", "alpha_mul": 5},
 			"glint": {"_doc": "Wetland's glint loop (10 frames of 32 px; its pixels are already opaque, about 1 % of each tile, so no alpha_mul), lifted from teal to pale blue to sit on the tinted bed, cut in four phase-shifted, mirrored rows so the tiles do not blink in step", "src": "RPGW_Wetland_v1.1/_PNG/anim/water_effB.png", "frame": 32, "frames": 10, "cols": 10, "fps": 7, "over": "water", "variants": 4, "tint": {"mul": [1.15, 1.05, 1.25], "add": [20, 20, 30]}}
 		},
 		"shores": {
-			"water": {"_doc": "the channels' stone kerb: the bank's top is the Wetland paving it stands in, its edge and the far bank's face the pack's own mossy cobble path (MainLev tiles 36-38 x 23-25, the cobble block inside the path border; opaque, seamless as a 3 x 3), the edge lifted to coping, the face in shade down to the water", "land": {"src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "block": [2, 37], "size": 2}, "edge": {"src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "block": [36, 23], "size": 3, "tint": {"mul": [1.18, 1.18, 1.18], "add": [8, 8, 10]}}, "face": {"src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "block": [36, 23], "size": 3, "tint": {"mul": [0.6, 0.62, 0.7]}}, "top": 12, "bottom": 7, "side": 9, "face_px": 6, "edge_px": 4, "shade": 3, "radius": 6, "rag": 0.6, "outline": [18, 22, 30], "shadow": [26, 50, 88], "lip": 1.25}
+			"water": {"_doc": "the channels sit below the floor: the bank's top is the dirt shoulder (the mud blob's middle, warmed with it), the far bank drops to the water down a 15 px face of the Wetland plateau's stone (its lit caps first), the near bank a lit lip; a dark wet line and a shade along the water, deepest under the face", "land": {"src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "block": [21, 30], "size": 2, "tint": {"mul": [1.04, 0.96, 0.84]}}, "face": {"src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "box": [64, 139, 96, 156], "tint": {"mul": [0.82, 0.82, 0.88]}}, "top": 19, "bottom": 6, "side": 8, "face_px": 15, "edge_px": 2, "shade": 4, "radius": 6, "rag": 0.6, "outline": [18, 22, 30], "shadow": [26, 50, 88], "lip": 1.35}
 		}
 	},
 	"pieces": {
@@ -24,6 +25,11 @@
 	},
 	"overlay": {"_doc": "the pits' far wall: a seamless cliff face from the matching pack; the lip and the cracks: the floor's own fill (tools/cut_tiles.py cut_overlay)",
 		"face": {"src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "box": [64, 150, 96, 198]}, "lip": "paving"},
+	"scatter": {
+		"pebbles": {"_doc": "Set 1 loose pebbles, found on their own", "src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [230, 605, 425, 645], "auto": {"min": 10, "max": [16, 14], "limit": 10}},
+		"reeds": {"_doc": "Set 1 small water plants and low reed clumps", "src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "boxes": [[325, 774, 348, 797], [357, 775, 379, 795], [135, 779, 150, 796], [264, 780, 279, 796]]},
+		"sprigs": {"_doc": "Set 1 tiny grass sprigs", "src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "boxes": [[74, 719, 89, 727], [40, 751, 58, 762], [11, 745, 20, 753], [170, 719, 185, 727]]}
+	},
 	"decor": {
 		"reeds": {"src": "RPGW_Wetland_v1.1/_PNG/Dec_props2.png", "box": [128, 896, 164, 960], "feet": [18, 55], "_doc": "the two tall clumps only: the sheet's lone stalk beside them ends higher and floated"},
 		"reeds_small": {"src": "RPGW_Wetland_v1.1/_PNG/Dec_props2.png", "box": [228, 896, 248, 960], "feet": [10, 41], "_doc": "one clump, feet at its roots (the box's bottom is clear)"},

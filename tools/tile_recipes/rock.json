@@ -369,5 +369,109 @@
 				]
 			}
 		}
+	},
+	"raised": {
+		"rock": {
+			"_doc": "the walls as raised rock shelves: the Mountains tan plateau (the scree's own family): its rock-cap rims over the whole top (rim 16: a two-cell wall is all caps), its stone-column face shortened to its lit lip and its base, four cells (64 px) at most; a contact shadow 24 px out along the low sun (the second cell too) and under the face; a smashed tile shows walls.rock's rubble",
+			"src": "RPGW_Mountains_v1.2/_PNG/Mainlev_build.png",
+			"frame": [
+				576,
+				9,
+				736,
+				256
+			],
+			"face_y": 128,
+			"mid": [
+				640,
+				25
+			],
+			"cells": 4,
+			"lip": 16,
+			"shadow": [
+				24,
+				8,
+				0.45
+			],
+			"rubble": "rock",
+			"rows": 6,
+			"rim": 16
+		}
+	},
+	"scatter": {
+		"pebbles": {
+			"_doc": "Set 1 loose pebbles (outlined, olive-grey), warmed toward the scree",
+			"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+			"box": [
+				230,
+				605,
+				425,
+				645
+			],
+			"auto": {
+				"min": 10,
+				"max": [
+					16,
+					14
+				],
+				"limit": 10
+			},
+			"tint": {
+				"mul": [
+					1.08,
+					1.0,
+					0.9
+				]
+			}
+		},
+		"stones": {
+			"_doc": "the Mountains litter sheet's mauve flat stones, found on their own",
+			"src": "RPGW_Mountains_v1.2/_PNG/Mainlev_build.png",
+			"box": [
+				1150,
+				1895,
+				1280,
+				1955
+			],
+			"auto": {
+				"min": 12,
+				"max": [
+					20,
+					12
+				],
+				"limit": 10
+			}
+		},
+		"dry_tufts": {
+			"_doc": "Set 1 small grass sprigs, dried to straw (desaturated, warmed) for the scree",
+			"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+			"boxes": [
+				[
+					6,
+					643,
+					26,
+					665
+				],
+				[
+					38,
+					643,
+					58,
+					665
+				],
+				[
+					70,
+					643,
+					90,
+					665
+				]
+			],
+			"tint": {
+				"desat": 0.55,
+				"mul": [
+					1.25,
+					1.05,
+					0.72
+				]
+			}
+		}
 	}
 }

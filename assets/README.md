@@ -7,6 +7,8 @@
   Besides tiles a set can have sprite pieces: bush clumps (`<set>_bush_<name>.png`, a
   nine-slice of canopy for brush beds) and wall runs (`<set>_wall_<name>.png`: one tall
   sprite a wall tile, y-sorted into one barrier, with the rubble a smashed tile shows).
+  Raised walls, sunken water and floor scatter: `<set>_raised_<name>.png`, `<set>_scatter.png`
+  and their 16 px TileSet `<set>_cells.tres` ("Height" below).
   Licences in `LICENSES.md` at the repo root; the raw packs never enter the repo.
 - `arenas/`: the tiled arenas' ground scenes (`<id>.tscn`, built by `tools/build_tiles.gd`
   from the arena's JSON). `ArenaView` instances one under the floor and draws the breaking
@@ -107,3 +109,49 @@ Rules the renderer relies on (`tests/test_tiles.gd` checks every set's atlas):
   at the sheet's columns 0-3 holds one tile per combination of connected sides, columns
   4-11 hold variants. `tools/cut_tiles.py` reads a variant's sides off its alpha. A ground
   sheet with the same layout (Set 1's `g_terrain1..4.png`) drops in with one line there.
+
+## Height: raised walls, sunken water, scatter
+
+Three tile features that make a map less flat; each is recipe keys (`tools/cut_tiles.py`)
+plus a few lines in the map's `tiles` block (`tools/build_tiles.gd`). The sim and the
+map's cells never change: all of it is drawn on cells the map already has.
+
+**Raised walls** (`styles.wall: "raised:<name>"`, recipe `raised.<name>`). Every wall cell
+of the map is drawn as a plateau of 16 px tiles, one a terrain cell, on a "Raised" layer
+(`src/view/raised_tiles.gd` picks each tile from its neighbours). Everything stays on the
+cells the sim blocks: a column of wall cells shows the plateau's top (the pack's rim where a
+neighbour is open) and, on its last `k` cells, the pack's cliff face down to the floor (`k`
+= the recipe's `cells`, one less on a shorter column), so nobody north of a wall stands
+under its picture and anyone south of it stands in front of the face. A "RaisedShadow" layer
+under it lays a contact shadow on the floor beside the wall, on the side away from the
+map's `light` (mirrored for a light from the right) and under the face; `shadow` wider than
+16 px runs onto a second cell (a low sun). A smashed cell drops its tile (the floor, its
+crack and the recipe's `rubble` heaps show); ArenaView repaints the rows round it, so the
+wall above grows a face over the gap and the floor beside it loses its shadow, and a
+rebuilt cell comes back. Recipe: `frame` a whole plateau piece of the pack (top rim at its
+top, side rims at its sides, face to its bottom; Mountains `[576, 9, 736, 256]`), `face_y`
+the y its lip starts (measured in px, catalogue 1b), `mid` a seamless block of its top
+(`rows` cells tall: more rows, less repetition on a long wall), `cells` the tallest face
+(a taller face keeps its first `lip` px and its base), `rim` px of the side rims kept
+(16: a two-cell wall is all rim), `shadow` [side px, top px, alpha], `rubble` a `walls`
+entry. Any wall rect works, of any size; another map needs only the recipe entry and the
+style.
+
+**Sunken water** (`ground.shores`, map `tiles.shoulder`). The bank tiles show the water
+below the floor: the far (north) bank drops down `face_px` px of a pack's cliff face (its lit
+caps on top), the near bank has a lit lip, the water a wet line and a shade, deepest under
+the face. `tiles.shoulder: {"terrain": "<blob>", "width": 1}` rings every water patch with a
+blob terrain (a dirt or sand blob9 / blob from the matching pack) one tile wide, on floor
+tiles only (never over a wall, brush, fence or chasm cell), on a "Shoulder" layer under the
+water so only its ragged outer edge shows; give the bank's `land` the same ground (the
+blob's middle, with its tint) so the bank's top matches.
+
+**Scatter** (recipe `scatter.<kind>`, map `tiles.scatter`). Small flat sprites (pebbles,
+tufts, small water plants) on a 16 px "Scatter" layer, one a cell at most, each sprite in a
+32 px slot standing on its cell's bottom middle, in 8 looks (mirrored, nudged a few px).
+Recipe: `boxes` cut as they are, or `box` + `auto` {`min`, `max`, `limit`} to find the
+loose blobs of a litter sheet. Map: `[{"kind", "where": "floor" | "near_walls" |
+"near_water" | [[tx, ty, w, h], ...], "near": 3, "density": 0.05, "seed"}]`; placed by a
+fixed hash, so a rebuild lays the same ones; never on water, walls, fences, chasms, brush
+(or the cell round it) or within a cell of the court markings. Keep it subtle: densities of
+a few percent near walls or water and about 1 % on open floor.
