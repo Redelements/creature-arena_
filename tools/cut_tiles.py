@@ -1219,7 +1219,8 @@ def cut_raised(cut, set_name, r):
     instead), "lift": how much lighter the top is
     than the pack draws it (a raised top catches the light), "cells": the most cells a face hangs (16 px each; a taller face keeps
     its lip and its base), "lip": px of the face's top kept when it is shortened, "outline": the colour of
-    the rims (a top's open sides, a face's open ends), "shadow":
+    the rims (a top's open sides, a face's open ends), "top_tint": a tint for the top blocks only (as "tint", which
+    tints the whole piece), "shadow":
     [side px (up to 32: two cells), top px, alpha] of the contact shadow, "rubble": the walls.<name> whose rubble a
     smashed tile shows, "tint"}. Writes <set>_raised_<name>.png (16 px tiles) and returns
     {name: {"source", "tile", "cells", "rubble", "tiles": {key: [col, row]}}}, keys
@@ -1232,6 +1233,9 @@ def cut_raised(cut, set_name, r):
     for name, it in r.items():
         x0, y0, x1, y1 = it["frame"]
         src = np.array(tinted(cut.box(it["src"], it["frame"]), it))
+        # "top_tint": a tint for the top blocks only (the Desert sand's lift toward tan, which
+        # turns the rocky face and rim rocks purple); the face and rims keep the pack's colours
+        top_src = np.array(tinted(cut.box(it["src"], it["frame"]), {"tint": it["top_tint"]})) if "top_tint" in it else src
         fy = int(it["face_y"]) - y0
         mx, my = int(it["mid"][0]) - x0, int(it["mid"][1]) - y0
         k_max = int(it.get("cells", 3))
@@ -1243,7 +1247,7 @@ def cut_raised(cut, set_name, r):
         w = src.shape[1]
         blocks = []  # the top's 32 px blocks, each also mirrored: the variants a cell picks from
         for bx, by in tops:
-            b = src[by:by + 2 * RAISED_PX, bx:bx + 2 * RAISED_PX].astype(float)
+            b = top_src[by:by + 2 * RAISED_PX, bx:bx + 2 * RAISED_PX].astype(float)
             b[:, :, :3] = np.clip(b[:, :, :3] * lift, 0, 255)
             # the piece's own rims beside this block's rows (left, right) and over its columns
             # (back), for a cell whose side is open
