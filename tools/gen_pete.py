@@ -4,10 +4,10 @@
 Run from anywhere:  python3 tools/gen_pete.py   (Pillow and numpy)
 Look at a few frames while working on a pose:  python3 tools/gen_pete.py inspect idle:0 run:2
 
-Writes assets/sprites/pete.png (128x128 frames, 12 columns, the side view), pete_down.png,
-pete_up.png (112x128: facing the camera, and facing away), pete_down_side.png and
-pete_up_side.png (128x128: the diagonals, facing down-right and up-right), plus labelled previews in
-docs/. Rendered with the shared splat renderer (tools/splat3d.py).
+Writes assets/sprites/pete_2x.png (256x256 frames, 12 columns, the side view), pete_2x_down.png,
+pete_2x_up.png (224x256: facing the camera, and facing away), pete_2x_down_side.png and
+pete_2x_up_side.png (256x256: the diagonals, facing down-right and up-right), plus labelled previews in
+docs/. PETE_DENSITY=1 writes the older 1x sheets (pete*.png, 128x128 / 112x128) byte for byte. Rendered with the shared splat renderer (tools/splat3d.py).
 
 Pete is a cartoon burglar, always on tiptoe: pink skin, a big round nose, a black
 moustache and a toothy grin, a black eye mask, an orange striped knit beanie, a dark grey
@@ -26,15 +26,30 @@ import splat3d as S  # noqa: E402
 from splat3d import ellipsoid_oriented, tube, rot_lat, rot_up, bezier  # noqa: E402
 
 ROOT = S.ROOT
-OUT = os.path.join(ROOT, "assets", "sprites", "pete.png")
-PREVIEW = os.path.join(ROOT, "docs", "pete_preview.png")
-SIDE = {"w": 128, "h": 128, "origin": (64, 104)}
+# Density (splat3d.configure(density=...)): 2 draws the sheets the game uses, pete_2x*.png
+# (256x256 frames, views 224x256, "ppu": 2); PETE_DENSITY=1 the older 1x ones, pete*.png.
+DENSITY = int(os.environ.get("PETE_DENSITY", "2"))
+# The look (PETE_STYLE): "a" splat3d's five-step ramp with a highlight and a rim light, each
+# material outlined in its own ink, as at 1x; "bold" three flat tones (light, base, dark: no
+# highlight, no rim light) and one dark ink round the whole silhouette. The 2x sheets are
+# bold (see STYLE below).
+STYLE = os.environ.get("PETE_STYLE", "bold" if DENSITY > 1 else "a")
+_TAG = "" if DENSITY == 1 else "_%dx" % DENSITY
+OUT = os.path.join(ROOT, "assets", "sprites", "pete%s.png" % _TAG)
+PREVIEW = os.path.join(ROOT, "docs", "pete%s_preview.png" % _TAG)
+
+
+def _frame(w, h, origin):
+    return {"w": w * DENSITY, "h": h * DENSITY, "origin": (origin[0] * DENSITY, origin[1] * DENSITY)}
+
+
+SIDE = _frame(128, 128, (64, 104))
 VIEWS = {
-    "down": {"w": 112, "h": 128, "origin": (56, 104)},
-    "up": {"w": 112, "h": 128, "origin": (56, 92)},
+    "down": _frame(112, 128, (56, 104)),
+    "up": _frame(112, 128, (56, 92)),
     # the diagonals (docs/SPRITES.md, "Directions"): facing down-right and up-right
-    "down_side": {"w": 128, "h": 128, "origin": (64, 104)},
-    "up_side": {"w": 128, "h": 128, "origin": (64, 92)},
+    "down_side": _frame(128, 128, (64, 104)),
+    "up_side": _frame(128, 128, (64, 92)),
 }
 
 # Master-palette ramps (tools/palette.py), picked to the character sheet's colours: the
@@ -53,7 +68,13 @@ MAT = {
     "cord": ("green", -2),
     "gold": "gold",
 }
-S.configure(MAT, scale=0.8, near=12.0, near_views={"down_side": 8.0, "up_side": 8.0})
+S.configure(MAT, scale=0.8, near=12.0, near_views={"down_side": 8.0, "up_side": 8.0}, density=DENSITY)
+if STYLE == "bold":
+    # three tones a face: no highlight step (light covers the lit side), no rim light; the
+    # silhouette in one dark ink (seams between pieces keep their material's seam colour)
+    S.LUM_HIGH = 2.0
+    S.RIM = False
+    S.INK = {name: S.OUTLINE[:3] for name in S.INK}
 # In The Big Heist the whites of his eyes glow in the Surge's violet (the emissive sheets,
 # docs/SPRITES.md "Emissive sheets"); the pupils stay dark, so they still read as eyes.
 S.surge_eyes("pete")

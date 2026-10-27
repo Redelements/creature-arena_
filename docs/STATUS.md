@@ -1,7 +1,7 @@
 # Status: handoff snapshot
 
-Stamped: 2026-10-27 20:39 UTC
-Branch: sprites-vram @ 5ab3ca9
+Stamped: 2026-10-27 21:04 UTC
+Branch: pete-2x @ ae00821
 Trigger: phase
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
@@ -50,6 +50,13 @@ Full roster at 2x projected about 0.4 GB in a 4v4 (`tests/test_vram.gd` pins it;
 Local commit only; never pushed. Not done: the grid sheets still ship in exports (build size,
 not VRAM; an `exclude_filter` could drop them); Android/Vulkan not measured.
 
+## Sneaky Pete (branch `pete-2x`, off `sprites-vram`, "run all")
+
+`PETE_DENSITY` (1 = the 1x sheets byte for byte) and `PETE_STYLE=a|bold` in `gen_pete.py`;
+bold shipped. `pete_2x*.png`: 256 px frames (down/up 224x256), packed by `pack_sheets.py pete`.
+`test_art_scale`'s 1x pin moved to Craglash; new `test_pete_at_2x_still_vanishes_into_a_ghost`.
+NET_VERSION 49 (renumber when stacking). Gallery and GIFs in `docs/pixellab/pete/`.
+
 ## Decisions
 
 - Route A is the fighter route. PixelLab animation (branch `crease-2x-spike`) was rejected:
@@ -73,7 +80,7 @@ its checks (anim_preview --check, tests, sim-check, VRAM budget: `TEST_ONLY=vram
 
 ## Next step
 
-Wait for Kevin's verdict and a "run <fighter>" / "run all"; then the skill, plan order.
+"Run all" is on: next fighter in plan order (Hissy: needs its own density switch first, so stop and say so) off `pete-2x`; the main session stacks the PRs.
 
 ## Files touched this session
 

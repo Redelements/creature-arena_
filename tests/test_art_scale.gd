@@ -58,10 +58,10 @@ func _view(id: String) -> CreatureView:
 
 
 func test_a_1x_sheet_draws_exactly_as_before() -> void:
-	var v := _view("pete")
+	var v := _view("craglash")
 	v.c.pos = Vector2(200.3, 150.6)
 	v.refresh()
-	assert_eq(v.ppu, 1, "pete's sheet is 1x")
+	assert_eq(v.ppu, 1, "craglash's sheet is 1x (the last in the 2x order)")
 	assert_eq(v.sprite.scale, Vector2.ONE, "no scaling")
 	assert_eq(v.position, Vector2(200, 151), "whole-unit positions")
 	assert_eq(v.sprite.position, -v.origin, "the origin in sheet pixels is the origin in units")
@@ -113,6 +113,26 @@ func test_a_256_px_frame_draws_like_its_128_px_one() -> void:
 	var pr: Array = sp["portrait"]
 	assert_true(int(pr[2]) <= Hud.PORT_W * 2 and int(pr[3]) <= Hud.PORT_H * 2, "the portrait crop fits the box at 2x")
 	assert_near(Hud.portrait_scale(Vector2i(int(pr[2]), int(pr[3])), 2), 0.5, 0.001, "sno's portrait: one grid pixel an art pixel")
+
+
+func test_pete_at_2x_still_vanishes_into_a_ghost() -> void:
+	# Sneaky Pete at 2x: Tiptoe draws him (for his own side) as a faint ghost, the same
+	# alpha at any density, on the half-scale sprite; his afterimages know the density.
+	var v := _view("pete")
+	assert_eq(v.ppu, 2, "pete's sheet is 2x")
+	assert_eq(v.origin, Vector2(128, 208), "the origin in sheet pixels")
+	v.c.facing = Vector2.RIGHT
+	v.c.stealth = 30
+	v.refresh()
+	assert_eq(v.sprite.scale, Vector2(0.5, 0.5), "half scale while invisible")
+	assert_true(v.modulate.a >= 0.4 and v.modulate.a <= 0.48, "a ghost, not solid: %s" % v.modulate.a)
+	assert_eq(v.snapshot()["ppu"], 2, "the Tiptoe afterimages are cut from the 2x sheet")
+	v.c.stealth = 0
+	v.refresh()
+	assert_eq(v.modulate.a, 1.0, "solid again")
+	var cut: Array = MatchFactory.training("pete").creatures[0].def["cut_in_frame"]
+	assert_eq([int(cut[0]), int(cut[1])], [8, 9], "the Surge cut-in stays a [row, col] index")
+	v.free()
 
 
 func test_the_hud_portrait_keeps_whole_art_pixels() -> void:
