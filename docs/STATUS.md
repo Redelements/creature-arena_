@@ -1,7 +1,7 @@
 # Status: handoff snapshot
 
-Stamped: 2026-10-27 01:20 UTC
-Branch: proof/32px-szadi @ 95f0820
+Stamped: 2026-10-27 02:03 UTC
+Branch: proof/32px-szadi @ 770c00d
 Trigger: phase
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
@@ -14,7 +14,7 @@ off `origin/main` 2caeee0). **Local only: never merge, never push** (the branch 
 bought asset packs; see `LICENSES.md`). Raw packs live in `C:\Users\Kevin\dev\asset-packs\`
 and are never committed.
 
-Done, all committed (HEAD 92fb471):
+Done, all committed (HEAD 770c00d+):
 
 1. Audit `docs/plans/32px-migration.md`: keep sim units, draw 2x art at scale 0.5.
 2. `src/view/art_scale.gd` (`ArtScale.PX_PER_UNIT = 2`), per-view `ppu` in CreatureView, FxView,
@@ -58,16 +58,17 @@ Build for Kevin: `C:\Users\Kevin\Downloads\Ready4Rambles-windows-32px-szadi\Read
 
 ## Next step
 
-Full suite on the merged branch (92fb471): **1209 passed, 0 failed**
-(`C:/Users/Kevin/AppData/Local/Temp/claude/full_tests_92fb471.log`). Export for
-Kevin: `C:/Users/Kevin/Downloads/Ready4Rambles-windows-32px-szadi/Ready4Rambles.exe`.
+Asset map done: `docs/asset-map.md` (rules every cut follows, pack-to-map matrix, 13 wrong cuts,
+ranked per-map plan, VFX wiring per fighter family, gaps) over 26 catalogues in `docs/assets/`.
+An agent is fixing the wrong cuts of section 4 (torch frames, tree feet, meadow fill, Set 1
+water block, palm feet, unused kerb fills, light-hit burst, aura_buff) on branch fix-cuts.
+Then the per-map plan in the map's order: Twin Keeps (castle wall kit, braziers, banner drops,
+fence lines, blob beds), Caravan Pass (scrub bushes, banner racks, market, braziers), Quarry
+(soft ledge round the middle), Floodgate (Wetland kerb, glints, reeds), Greenhouse (bright
+meadow, flowers), Stadium (patches), stand-side props, effects wiring. Each as an agent in a
+worktree with screenshots, merged here; Kevin reviews from a build.
 
-Then, after Kevin's ruling on the margin decor: the remaining polish (Quarry middle patch
-rectangular and tan; animations on process time not the sim tick; impact burst loud on light
-hits; aura_buff unwired; Keeps chasms dark at play zoom; causeway sides straight against
-grass; waterfall pool spills a little over the banks; Caravan bushes still green, sand grain
-faint; runtime rockslide rubble drawn as circles; Keeps could take the new fence lines and
-blob beds via its recipe).
+Waiting on kiddolink's answer (asked in the shop comments) before anything goes public.
 
 ## Files touched this session
 
