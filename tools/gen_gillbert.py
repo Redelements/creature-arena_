@@ -24,6 +24,11 @@ Like Barkley's, the rig is posed once in 3D and projected into each view. A poin
 
 This is a recreation for the soft launch; when the artist delivers final sprites in
 the same layout they drop in with no code changes.
+
+Density (shade2d.configure(density=...)): 2 draws the sheets the game uses, gillbert_2x*.png
+(256x256 side frames, 192x288 and 256x288 views, "ppu": 2); GILLBERT_DENSITY=1 the older 1x
+ones, gillbert*.png, byte for byte. The painter keeps its 1x pixel coordinates: shade2d.Draw
+scales every shape, line and dot, so the eyes, scales and fin rays double in size.
 """
 import math
 import os
@@ -33,17 +38,29 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-OUT = os.path.join(ROOT, "assets", "sprites", "gillbert.png")
-PREVIEW = os.path.join(ROOT, "docs", "gillbert_preview.png")
+DENSITY = int(os.environ.get("GILLBERT_DENSITY", "2"))
+# The look (GILLBERT_STYLE): "a" shade2d's shading as at 1x (highlight, light, base, dark, a
+# rim light, each material outlined in its own ink); "bold" three tones a shape (no
+# highlight step, no rim light) and one dark ink round the silhouette (seams keep their
+# material's deep step). The 2x sheets are bold (see docs/SPRITES.md, Gillbert's 2x note).
+STYLE = os.environ.get("GILLBERT_STYLE", "bold" if DENSITY > 1 else "a")
+_TAG = "" if DENSITY == 1 else "_%dx" % DENSITY
+OUT = os.path.join(ROOT, "assets", "sprites", "gillbert%s.png" % _TAG)
+PREVIEW = os.path.join(ROOT, "docs", "gillbert%s_preview.png" % _TAG)
+
+
+def _frame(w, h, origin):
+    return {"w": w * DENSITY, "h": h * DENSITY, "origin": (origin[0] * DENSITY, origin[1] * DENSITY)}
+
 
 COLS = 16  # the run has 16 frames; every row sits in the first n columns
-SIDE = {"w": 128, "h": 128, "origin": (70, 112)}
+SIDE = _frame(128, 128, (70, 112))
 VIEWS = {
-    "down": {"w": 96, "h": 144, "origin": (48, 92)},
-    "up": {"w": 96, "h": 144, "origin": (48, 76)},
+    "down": _frame(96, 144, (48, 92)),
+    "up": _frame(96, 144, (48, 76)),
     # the diagonals (docs/SPRITES.md, "Directions"): facing down-right and up-right
-    "down_side": {"w": 128, "h": 144, "origin": (72, 100)},  # the rod trails up-left
-    "up_side": {"w": 128, "h": 144, "origin": (64, 84)},  # the rod trails down-left
+    "down_side": _frame(128, 144, (72, 100)),  # the rod trails up-left
+    "up_side": _frame(128, 144, (64, 84)),  # the rod trails down-left
 }
 
 # Palette: master-palette ramps per material (tools/palette.py; the shading rules are in
@@ -66,6 +83,7 @@ MAT = {
     "pupil": "ink",
 }
 M = shade2d.Materials(MAT)
+shade2d.configure(density=DENSITY)
 
 C = {name: M.col(name) for name in MAT}   # shape fills (shade() recolours them)
 C.update({
@@ -80,15 +98,27 @@ C.update({
     "guide": M.col("white", 3),         # the rod's line guides
     "groove": (255, 0, 255, 255),       # detail lines: one ramp step darker where they fall
 })
+if STYLE == "bold":
+    shade2d.LUM_HIGH = 9.0   # no highlight step: light, base, dark
+    shade2d.RIM = False
+    M.ink_lut[:] = tuple(shade2d.P.INKS["ink"][:3])   # one dark ink round every shape
 
 # ------------------------------------------------------------------ image helpers
 
+# The frame being drawn, in 1x pixels (the painter's coordinates; the layers are DENSITY
+# times the size, shade2d.Draw scales onto them).
 W = H = 128
-OX, OY = SIDE["origin"]
+OX, OY = 70, 112
+
+
+def _set_frame(fw, fh, origin):
+    global W, H, OX, OY
+    W, H = fw // DENSITY, fh // DENSITY
+    OX, OY = origin[0] // DENSITY, origin[1] // DENSITY
 
 
 def layer():
-    return Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    return Image.new("RGBA", (W * DENSITY, H * DENSITY), (0, 0, 0, 0))
 
 
 def _mask(img):
@@ -409,26 +439,27 @@ class Painter:
     # -- body
     def body(self):
         img = layer()
-        d = ImageDraw.Draw(img)
+        d = shade2d.Draw(img)
         n = 44
-        for k in range(n + 1):
-            u = -1.0 + 2.0 * k / n
+        ns = n * DENSITY  # cross-sections: twice as many at 2x, or thin slivers part with gaps
+        for k in range(ns + 1):
+            u = -1.0 + 2.0 * k / ns
             pts = [self.P(self.f.surface(u, a)) for a in range(0, 360, 20)]
             d.polygon(pts, fill=C["body"])
         img = shade(img, "body")
         belly = layer()  # a step lighter wherever it falls
-        bd = ImageDraw.Draw(belly)
+        bd = shade2d.Draw(belly)
         scales = layer()  # a step darker wherever they fall
-        sd = ImageDraw.Draw(scales)
+        sd = shade2d.Draw(scales)
         det = layer()
-        dd = ImageDraw.Draw(det)
+        dd = shade2d.Draw(det)
         # pale belly
         for k in range(n + 1):
             u = -0.9 + 1.75 * k / n
             for a in (150, 180, 210):
                 if self.facing(self.f.normal(u, a)) > -0.2:
                     q = self.P(self.f.surface(u, a, out=-0.6))
-                    bd.point((round(q[0]), round(q[1])), fill=C["groove"])
+                    bd.point((shade2d.snap(q[0]), shade2d.snap(q[1])), fill=C["groove"])
         # scale chevrons along the flank facing us
         for side in (90, -90):
             if self.facing(self.f.normal(0.0, side)) < 0.15:
@@ -467,7 +498,7 @@ class Painter:
         return img
 
     def _face(self, img):
-        dd = ImageDraw.Draw(img)
+        dd = shade2d.Draw(img)
         o = C["ink"]
         f = self.p.face
         for side in (78, -78):
@@ -475,7 +506,7 @@ class Painter:
             if self.facing(self.f.normal(0.7, side)) < (0.1 if self.view == "side" else -0.35):
                 continue
             e = self.P(self.f.surface(0.72, side - (14 if side > 0 else -14)))
-            x, y = round(e[0]), round(e[1])
+            x, y = shade2d.snap(e[0]), shade2d.snap(e[1])
             if f == "ko":
                 dd.line([(x - 1, y - 1), (x + 1, y + 1)], fill=o)
                 dd.line([(x - 1, y + 1), (x + 1, y - 1)], fill=o)
@@ -504,7 +535,7 @@ class Painter:
     def barbels(self):
         """Two long whiskers off the end of the snout, as on the sheet."""
         img = layer()
-        d = ImageDraw.Draw(img)
+        d = shade2d.Draw(img)
         c, t, upv, side = self.f.frame(0.98)
         for s in (1.0, -1.0):
             base = v_add(c, v_mul(side, s * 1.2))
@@ -516,10 +547,10 @@ class Painter:
     # -- fins
     def _fin_poly(self, pts3, base="fin"):
         img = layer()
-        ImageDraw.Draw(img).polygon([self.P(q) for q in pts3], fill=C[base])
+        shade2d.Draw(img).polygon([self.P(q) for q in pts3], fill=C[base])
         img = shade(img, base)
         det = layer()
-        dd = ImageDraw.Draw(det)
+        dd = shade2d.Draw(det)
         # rays: lines from the base toward the edge, a step darker
         n = len(pts3)
         for k in range(1, n - 1):
@@ -584,7 +615,7 @@ class Painter:
         c, t, upv, side = self.f.frame(RING_U)
         cd = self.D(c)
         halves = [layer(), layer()]
-        draws = [ImageDraw.Draw(h) for h in halves]
+        draws = [shade2d.Draw(h) for h in halves]
         pts = []
         for a in range(0, 360, 5):
             r = math.radians(a)
@@ -618,22 +649,22 @@ class Painter:
     def rod(self):
         butt, tip, dvec = self.f.rod_points()
         img = layer()
-        d = ImageDraw.Draw(img)
+        d = shade2d.Draw(img)
         pb, pt = self.P(butt), self.P(tip)
         capsule(d, pb, pt, 1.6, 0.8, "rod")
         h1 = v_add(butt, v_mul(dvec, 8.0))
         capsule(d, pb, self.P(h1), 2.1, 1.8, "handle")
         img = shade(img, "rod", by_colour=("handle",))  # the handle end from its own ramp
-        dd = ImageDraw.Draw(img)
+        dd = shade2d.Draw(img)
         # line guides: small white loops along the rod
         for k in (0.45, 0.6, 0.75, 0.9):
             q = self.P(v_add(butt, v_mul(dvec, 36.0 * k)))
-            dd.point((round(q[0]), round(q[1]) - 1), fill=C["guide"])
+            dd.point((shade2d.snap(q[0]), shade2d.snap(q[1]) - 1), fill=C["guide"])
         img = outline(img)
         # the reel: a grey disc beside the handle
         r = self.P(v_add(v_add(butt, v_mul(dvec, 9.5)), (0.0, 2.2, 0.0)))
         reel = layer()
-        disc(ImageDraw.Draw(reel), r, 2.6, "reel")
+        disc(shade2d.Draw(reel), r, 2.6, "reel")
         reel = outline(shade(reel, "reel"))
         return M.stack([img, reel]), self.D(v_lerp(butt, tip, 0.5))
 
@@ -655,15 +686,15 @@ class Painter:
                      q[1] + self.p.kink * 2.5 * env * math.sin(3 * math.pi * t), q[2])
             q = (q[0], max(0.3, q[1]), q[2])
             pts.append(self.P(q))
-        ImageDraw.Draw(img).line(pts, fill=C["line"], width=1)
+        shade2d.Draw(img).line(pts, fill=C["line"], width=1)
         return img
 
     # -- assemble
     def _part_mask(self, u0, u1):
         """Where the body samples between u0 and u1 land, grown by its outline."""
         img = layer()
-        d = ImageDraw.Draw(img)
-        n = 44
+        d = shade2d.Draw(img)
+        n = 44 * DENSITY  # as many cross-sections as body() draws
         for k in range(n + 1):
             u = -1.0 + 2.0 * k / n
             if u0 - 1e-6 <= u <= u1 + 1e-6:
@@ -1145,9 +1176,7 @@ def render(pose, view):
 
 def sheet(view, rows, fw, fh, origin, extras=False):
     """One view's sheet; with `extras`, (sheet, normal sheet, emissive sheet or None)."""
-    global W, H, OX, OY
-    W, H = fw, fh
-    OX, OY = origin
+    _set_frame(fw, fh, origin)
     return S.collect(rows, fw, fh, lambda pose: render(pose, view), extras, cols=COLS)
 
 
@@ -1290,10 +1319,8 @@ def frame_spec(view):
 
 def render_frame(pose, view):
     """One frame on its own, with the frame size and origin set as sheet() sets them."""
-    global W, H, OX, OY
     sp = frame_spec(view)
-    W, H = sp["w"], sp["h"]
-    OX, OY = sp["origin"]
+    _set_frame(sp["w"], sp["h"], sp["origin"])
     return render(pose, view)
 
 

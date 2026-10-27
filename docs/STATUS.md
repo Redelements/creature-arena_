@@ -1,7 +1,7 @@
 # Status: handoff snapshot
 
-Stamped: 2026-10-27 21:00 UTC
-Branch: barkley-2x @ 49bbf25
+Stamped: 2026-10-27 21:17 UTC
+Branch: gillbert-2x @ 7962330
 Trigger: phase
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
@@ -61,6 +61,14 @@ JSON switched (`sprite_2x.py`), packed, NET_VERSION 49, sim-check unchanged, sui
 Gallery and GIFs: `docs/pixellab/barkley/`. Gillbert next: route his draws through
 `shade2d.Draw` like `gen_barkley.py`.
 
+## Gillbert 2x (branch `gillbert-2x`, off `barkley-2x`, worktree `creature-arena-gillbert-2x`)
+
+`gen_gillbert.py` draws through `shade2d.Draw`; `GILLBERT_DENSITY` (default 2; 1 rebuilds all
+17 1x sheets/previews byte for byte) and `GILLBERT_STYLE` (bold at 2x); body cross-sections
+x2 at 2x (gaps on a bent tail otherwise). `gillbert_2x*.png` (side 256, down/up 192x288,
+diagonals 256x288, `_n` + `_e`), JSON switched, packed, NET_VERSION 50, sim-check unchanged.
+Gallery and GIFs: `docs/pixellab/gillbert/`. Next in plan order: Craglash (custom renderer).
+
 ## Decisions
 
 - Route A is the fighter route. PixelLab animation (branch `crease-2x-spike`) was rejected:
@@ -80,7 +88,7 @@ its checks (anim_preview --check, tests, sim-check, VRAM budget: `TEST_ONLY=vram
 
 - Kevin's verdict on the 2x Crease from the build (bold vs the 1x look; slimmer outline).
 - Custom renderers (Craglash, Cerebro, Hissy) need their own density switch before they can
-  run (see the plan); the shade2d painters have one (Barkley done, Gillbert next).
+  run (see the plan); the shade2d painters have one (Barkley and Gillbert done).
 
 ## Next step
 

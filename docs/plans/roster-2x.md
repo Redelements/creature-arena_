@@ -29,7 +29,7 @@ at 2x (five sheets with normals), so roughly 5x a generator's 1x time.
 | 6 | Hissy Fitz | `gen_hissy.py`, own rasteriser + `S.shade`/`S.outline` | **needs work**: its own `SCALE`/`STEP`/near | 15 / 126 | 128 (112x128) -> 256 | 71 -> 284 MB | ~12 min |
 | 7 | Chef Cerebro | `gen_cerebro.py`, own rasteriser + gyri, decals, glow, smears, flash | **needs work**: own `SCALE`/`STEP`, painted strokes in px | 15 / 130 | 128 (112x128) -> 256 | 76 -> 304 MB | ~12 min |
 | 8 | Barkley | `gen_barkley.py`, shade2d painter | **done** (branch `barkley-2x`): `shade2d.configure(density=)` and `shade2d.Draw` | 15 / 132 | 96, views 128x160 -> 192, 256x320 | 88 -> 353 MB | ~10 min |
-| 9 | Gillbert | `gen_gillbert.py`, shade2d painter | **covered** once his draws go through `shade2d.Draw` (as `gen_barkley.py`) | 15 / 136 | 128, views 96x144 / 128x144 -> 256, 192x288 / 256x288 | 105 -> 421 MB | ~10 min |
+| 9 | Gillbert | `gen_gillbert.py`, shade2d painter | **done** (branch `gillbert-2x`): draws through `shade2d.Draw` | 15 / 136 | 128, views 96x144 / 128x144 -> 256, 192x288 / 256x288 | 105 -> 421 MB | ~10 min |
 | 10 | Craglash | `gen_craglash.py`, custom 2D shader (`VRig`, `DRig`, `_with_normals`) | **needs work**: the largest; every draw in pixel units | 16 / 136 | 96, views 128x160 -> 192, 256x320 | 95 -> 378 MB | ~15 min |
 | note | Training dummy | `gen_dummy.py`, splat3d | covered | 6 / 32 | 96 -> 192 | 11 -> 42 MB | ~3 min |
 
