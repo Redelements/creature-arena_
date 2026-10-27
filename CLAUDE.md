@@ -112,6 +112,25 @@ Command-line flags and mode numbers: `src/game/CLAUDE.md`; online and server fla
 - When you add a sim data key, a sim event or a CLI flag, update MECHANICS.md in the same
   PR. A rule or gotcha for one area goes in that area's `CLAUDE.md`, not here.
 
+## Context hygiene
+
+The handoff between sessions is `docs/STATUS.md` (a snapshot: overwrite it, under 150
+lines, committed with every phase); the full workflow is the `context-hygiene` skill.
+These rules hold even when the skill isn't triggered:
+
+- Above ~60% context, and before any `/compact` or `/clear`: rewrite `docs/STATUS.md`
+  first, then compact at a phase boundary with focus instructions, never mid-edit.
+- After a compaction or clear: read `docs/STATUS.md` and this file, state the next step in
+  one line, continue. Don't re-explore the repo.
+- Delegate heavy reads (inventories, audits, searching an extracted pack, constants
+  sweeps, many files or large outputs) to a subagent; only its one-paragraph conclusion
+  enters the main context.
+- Never Read image, PSD, audio or zip files; inspect them with a script that prints
+  dimensions, frame counts, palette size.
+- Read large text files with offset/limit: grep first, read the hit. Don't re-read a file
+  already read this session unless it changed.
+- Summarise long tool output in one line in the reply rather than quoting it.
+
 ## Open items
 
 Placeholders (art, audio), what's built online, what isn't built yet, planned work and

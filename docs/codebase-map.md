@@ -157,6 +157,7 @@ What else moves when you change something. Check these before running the full s
 | a new `CreatureSim` or `MatchSim` variable | `STATE_FIELDS` / `STATIC_FIELDS`, or `snapshot`, `restore` and `state_digest` (`tests/test_rollback.gd`) |
 | a new sim data key, sim event or CLI flag | `docs/MECHANICS.md`; a new event's look and sound in `src/view/fx_view.gd:spawn`, `src/view/audio_view.gd:on_event`, `data/audio.json` |
 | a new file, or a moved or renamed one | `python3 tools/codebase_map.py`, and any row here that names it |
+| the end of a phase, a decision, a `/compact` or `/clear`, a session handoff | rewrite `docs/STATUS.md` (a snapshot, under 150 lines), `python3 tools/write_status.py --trigger phase`, commit it; the rules in `.claude/skills/context-hygiene/SKILL.md` |
 | a new fighter | `src/game/match_factory.gd` `FIGHTERS`, `MODES` and `MENU_ROWS` in `src/game/main.gd`, a showcase, a `tests/test_<id>.gd`, three sprite sheets (and `FIGHTERS` in `tools/anim_preview.py`, plus the generator's `render_frame` / `frame_spec` adapter) |
 | a sheet's rows or frame counts, `anim_at`, `anim_charge`, `cut_in_frame`, `idle_ticks` / `run_ticks` | the JSON's row table and the generator's `ROWS` together, `ANIM_CYCLES` in the generator; run `python3 tools/anim_preview.py --check <id>` |
 | stamina or projectile rules | `tests/test_stamina.gd`, `tests/test_projectiles.gd`; blink and dodge chains in fighter tests assume a dodge's cost |
