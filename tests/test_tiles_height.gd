@@ -149,7 +149,7 @@ func test_the_floodgate_shoulder_lies_on_floor_under_the_water() -> void:
 
 
 func test_scatter_is_stable_and_stays_off_water_walls_and_beds() -> void:
-	for id in ["quarry", "floodgate", "greenhouse", "stadium"]:
+	for id in ["quarry", "floodgate", "greenhouse", "stadium", "caravan_pass"]:
 		var map := ArenaMap.get_map(id)
 		var tiles: Dictionary = map.get("tiles", {}).duplicate(true)
 		var man: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://assets/tiles/%s_manifest.json" % String(tiles.get("set", "set1"))))
@@ -200,7 +200,7 @@ func test_scatter_is_stable_and_stays_off_water_walls_and_beds() -> void:
 
 
 func test_the_built_scenes_carry_their_scatter() -> void:
-	for id in ["quarry", "floodgate"]:
+	for id in ["quarry", "floodgate", "caravan_pass"]:
 		var root: Node = (load("res://assets/arenas/%s.tscn" % id) as PackedScene).instantiate()
 		var layer := root.get_node_or_null("Scatter") as TileMapLayer
 		assert_true(layer != null, "%s: a Scatter layer" % id)
@@ -208,3 +208,56 @@ func test_the_built_scenes_carry_their_scatter() -> void:
 			assert_true(layer.get_used_cells().size() >= 20, "%s: pebbles and plants (%d)" % [id, layer.get_used_cells().size()])
 			assert_true(layer.tile_set.tile_size == Vector2i(16, 16), "%s: one tile a cell" % id)
 		root.free()
+
+
+## Dustwind Pass scatters along its road's edges ("verge" of the tiles block's earth rects):
+## never on the road itself, so never on the caravan's track it carries, nor on the beds.
+func test_verge_scatter_lines_the_road_but_never_its_middle_or_the_track() -> void:
+	var map := ArenaMap.get_map("caravan_pass")
+	var tiles: Dictionary = map["tiles"]
+	var man: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://assets/tiles/desert_manifest.json"))
+	var size := ArenaMap.size_of(map)
+	var grid := TerrainGrid.new(size.x, size.y)
+	grid.load_map(map)
+	var road := {}
+	for r in tiles["earth"]:
+		for cy in range(int(r[1]) * 2, (int(r[1]) + int(r[3])) * 2):
+			for cx in range(int(r[0]) * 2, (int(r[0]) + int(r[2])) * 2):
+				road[Vector2i(cx, cy)] = true
+	var verge := tiles.duplicate(true)
+	verge["scatter"] = tiles["scatter"].filter(func(e): return String(e.get("where", "")) == "verge")
+	assert_gt(verge["scatter"].size(), 0, "the pass scatters along its road")
+	var a := TileMapLayer.new()
+	BT._scatter(a, verge, man, grid, {}, 2, map["track"])
+	var cells := a.get_used_cells()
+	assert_gt(cells.size(), 20, "tufts and clods line the road (%d)" % cells.size())
+	var track: Array = map["track"]
+	for c in cells:
+		assert_false(road.has(c), "never on the road: %s" % c)
+		assert_true(BT._near_band(c, road, 2), "within two cells of it: %s" % c)
+		var p := grid.cell_center(c)
+		for i in track.size() - 1:
+			var q := Geometry2D.get_closest_point_to_segment(p, Vector2(track[i][0], track[i][1]), Vector2(track[i + 1][0], track[i + 1][1]))
+			assert_gt(p.distance_to(q), BT.TRACK_CLEAR, "clear of the caravan's track: %s" % c)
+	assert_true(cells.size() < road.size() / 4, "subtle: a few percent (%d)" % cells.size())
+	a.free()
+
+
+## A piece a map stands on a raised wall's face (a run's near end, where a wall-sprite run
+## put it) is moved onto the top just behind the face; one already on the top, or off the
+## wall, stays where it is.
+func test_a_piece_on_a_raised_face_stands_on_the_top() -> void:
+	var walls := {}
+	for y in range(2, 8):
+		walls[Vector2i(0, y)] = true
+		walls[Vector2i(1, y)] = true
+	var ctx := {"walls": walls, "k": 3}
+	var on_face := Vector2(16.0, 8.0 * 16.0)  # feet on row 7's bottom edge: the face
+	var moved := BT.raised_spot(on_face, 16.0, ctx)
+	assert_eq(moved.x, on_face.x, "same column")
+	assert_eq(moved.y, 5.0 * 16.0 - BT.RAISED_INSET, "just behind the face (rows 5-7): on row 4")
+	var on_top := Vector2(16.0, 4.0 * 16.0)
+	assert_eq(BT.raised_spot(on_top, 16.0, ctx), on_top, "a piece on the top stays")
+	var off := Vector2(80.0, 8.0 * 16.0)
+	assert_eq(BT.raised_spot(off, 16.0, ctx), off, "a piece off the wall stays")
+	assert_eq(BT.raised_spot(on_face, 16.0, {}), on_face, "a map without raised walls: as placed")

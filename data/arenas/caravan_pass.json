@@ -4,17 +4,22 @@
 	"name": "Dustwind Pass",
 	"ground": "dirt",
 	"tiles": {
-		"_doc": "Szadi art's Desert (tools/tile_recipes/desert.json): tan sand with a gravel verge, a packed-earth road under the caravan's track, dry scrub round the brush beds; the walls stand as runs of stacked rock (styles.wall, loose rocks where one is smashed) and the beds as the Desert's own scrub shrubs (styles.brush); low rock heaps, agave and palms stand in the margins only (decor draws under the fighters, and under the crowd: the top margin's verge is about a tile tall, so its rocks stay that low and only the palms' canopies reach behind the stands). The caravan stops are dressed from RPG_Buildings_Desert on the wall runs beside them (a decor or anim piece whose feet stand on a wall cell joins the run and goes while that wall is smashed): only a run's near end shows a piece whole (the pillars in front hide the rest), so each run gets one: a pillar brazier on the tall runs by the stops, a pile of goods on the low runs south of the road, a tripod brazier on the short end runs; the side walkways at both ends carry a narrow banner rack (red's side red, blue's slate), a pillar brazier either side of the road and a pile of goods. Booths and thatch stalls (64 and 128 px wide) fit on neither a one-tile wall run nor the walkway, so they wait for the margin ruling. The road's verges are worn (sand_dirt patches on the 4-tile grid, so the clods show whole) and the open sand carries gravel patches. Rects are [tx, ty, w, h] in 32 px tiles (2 x 2 cells) on the 110 x 20 floor. Built into assets/arenas/caravan_pass.tscn by tools/build_tiles.gd.",
+		"_doc": "Szadi art's Desert (tools/tile_recipes/desert.json): tan sand with a gravel verge, a packed-earth road under the caravan's track, dry scrub round the brush beds; the walls stand as raised sandstone plateaus on their own cells (styles.wall raised:sandstone: the Desert plateau's sand top rimmed with its own rocks, its rocky ledge as a face on a run's south end, a contact shadow in the top-left sun, loose rocks where one is smashed) and the beds as the Desert's own scrub shrubs (styles.brush); low rock heaps, agave and palms stand in the margins only (decor draws under the fighters, and under the crowd: the top margin's verge is about a tile tall, so its rocks stay that low and only the palms' canopies reach behind the stands). The caravan stops are dressed from RPG_Buildings_Desert on the wall runs beside them (a decor or anim piece whose feet stand on a wall cell joins the y-sorted Walls and goes while that wall is smashed; one placed on a run's near end, the face, stands on the top just behind it, and goes when that face is smashed too): each run gets one: a pillar brazier on the tall runs by the stops, a pile of goods on the low runs south of the road, a tripod brazier on the short end runs; the side walkways at both ends carry a narrow banner rack (red's side red, blue's slate), a pillar brazier either side of the road and a pile of goods. Booths and thatch stalls (64 and 128 px wide) fit on neither a one-tile wall run nor the walkway, so they wait for the margin ruling. The road's verges are worn (a few sand_dirt patches on the 4-tile grid, so the clods show whole: ten read as a heavy dark band) and the open sand carries gravel patches; pebbles and dry tufts lie by the walls and dirt bits, tufts and pebbles along the road's edges (scatter, verge of the earth rects: never on the road or the caravan's track). Rects are [tx, ty, w, h] in 32 px tiles (2 x 2 cells) on the 110 x 20 floor. Built into assets/arenas/caravan_pass.tscn by tools/build_tiles.gd.",
 		"set": "desert",
-		"styles": {"wall": "wall:rock", "brush": "bush:scrub"},
+		"styles": {"wall": "raised:sandstone", "brush": "bush:scrub"},
+		"scatter": [
+			{"kind": "pebbles", "where": "near_walls", "near": 2, "density": 0.04, "seed": 1},
+			{"kind": "dry_tufts", "where": "near_walls", "near": 2, "density": 0.03, "seed": 2},
+			{"kind": "clods", "where": "verge", "of": "earth", "near": 2, "density": 0.03, "seed": 3},
+			{"kind": "dry_tufts", "where": "verge", "of": "earth", "near": 2, "density": 0.02, "seed": 4},
+			{"kind": "pebbles", "where": "verge", "of": "earth", "near": 2, "density": 0.012, "seed": 5}
+		],
 		"ground": "sand",
 		"grass": [],
 		"water": [],
 		"patches": [
-			{"fill": "sand_dirt", "rect": [8, 12, 4, 4]}, {"fill": "sand_dirt", "rect": [24, 0, 4, 4]}, {"fill": "sand_dirt", "rect": [32, 8, 4, 4]},
-			{"fill": "sand_dirt", "rect": [48, 8, 4, 4]}, {"fill": "sand_dirt", "rect": [56, 14, 4, 4]}, {"fill": "sand_dirt", "rect": [48, 14, 4, 4]},
-			{"fill": "sand_dirt", "rect": [60, 8, 4, 4]}, {"fill": "sand_dirt", "rect": [72, 8, 4, 4]}, {"fill": "sand_dirt", "rect": [80, 0, 4, 4]},
-			{"fill": "sand_dirt", "rect": [96, 12, 4, 4]},
+			{"fill": "sand_dirt", "rect": [8, 12, 4, 4]}, {"fill": "sand_dirt", "rect": [32, 8, 4, 4]}, {"fill": "sand_dirt", "rect": [56, 14, 4, 4]},
+			{"fill": "sand_dirt", "rect": [72, 8, 4, 4]}, {"fill": "sand_dirt", "rect": [96, 12, 4, 4]},
 			{"fill": "gravel", "rect": [0, 4, 4, 4]}, {"fill": "gravel", "rect": [12, 4, 4, 4]}, {"fill": "gravel", "rect": [36, 12, 4, 4]},
 			{"fill": "gravel", "rect": [52, 0, 4, 4]}, {"fill": "gravel", "rect": [68, 12, 4, 4]}, {"fill": "gravel", "rect": [92, 4, 4, 4]},
 			{"fill": "gravel", "rect": [104, 4, 4, 4]}

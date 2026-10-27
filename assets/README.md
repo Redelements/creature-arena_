@@ -137,11 +137,16 @@ top, side rims at its sides, face to its bottom; Mountains `[576, 9, 736, 256]`)
 the y its lip starts (measured in px, catalogue 1b), `mid` [x, y] the face's seamless
 32 px column, `tops` [[x, y], ...] 32 x 32 blocks of the plateau's floor (interior only,
 clear of its rims), `lift` how much lighter the top is drawn (1.1: it catches the light),
-`cells` the tallest face (a taller face keeps its first `lip` px and its base), `outline`
-the rim colour, `rim` px of the pack's own rim rocks instead of a drawn rim (0, the
+`cells` the tallest face (a taller face keeps its first `lip` px and its base), `top_tint` a
+tint for the top blocks only (the Desert sand's lift toward tan would turn the rocky face and
+rim rocks purple), `outline` the rim colour, `rim` px of the pack's own rim rocks instead of a drawn rim (0, the
 default, reads best on a narrow run), `shadow` [side px, top px, alpha], `rubble` a `walls`
 entry. Any wall rect works, of any size; another map needs only the recipe entry and the
-style.
+style. A decor or anim piece the map stands on a wall's face (a run's south end, where the
+wall-sprite runs put their braziers and goods) is moved onto the top just behind the face
+(`build_tiles.gd raised_spot`), y-sorted in "Walls", and hidden while any cell of its column
+from there to the run's end is smashed (the wall grows a face over the gap, which it would
+otherwise hang on).
 
 **Sunken water** (`ground.shores`, map `tiles.shoulder: true`). The bank tiles show the
 water below the floor: a thin kerb (`edge`, `edge_px` 3) at the water's edge, running along
@@ -159,7 +164,9 @@ tufts, small water plants) on a 16 px "Scatter" layer, one a cell at most, each 
 32 px slot standing on its cell's bottom middle, in 8 looks (mirrored, nudged a few px).
 Recipe: `boxes` cut as they are, or `box` + `auto` {`min`, `max`, `limit`} to find the
 loose blobs of a litter sheet. Map: `[{"kind", "where": "floor" | "near_walls" |
-"near_water" | [[tx, ty, w, h], ...], "near": 3, "density": 0.05, "seed"}]`; placed by a
-fixed hash, so a rebuild lays the same ones; never on water, walls, fences, chasms, brush
-(or the cell round it) or within a cell of the court markings. Keep it subtle: densities of
+"near_water" | "verge" | [[tx, ty, w, h], ...], "near": 3, "density": 0.05, "seed"}]`
+(`"verge"` with `"of": "earth"`: within `near` cells of that terrain's rects but never on
+them, a road's edges); placed by a fixed hash, so a rebuild lays the same ones; never on
+water, walls, fences, chasms, brush (or the cell round it), within a cell of the court
+markings or within 20 units of the map's `track` (Caravan Pass). Keep it subtle: densities of
 a few percent near walls or water and about 1 % on open floor.

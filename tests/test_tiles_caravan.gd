@@ -1,11 +1,13 @@
 extends TestCase
 ## Dustwind Pass on the Desert set (tools/tile_recipes/desert.json): the cut's opaque 5 x 5
 ## blobs give nine side combinations a terrain, the scene is the 110 x 20 floor and its
-## ring, the walls stand as runs of stacked rock (one tall sprite a tile, a wide-footed end,
-## rubble hidden under each), the brush as beds of the Desert's own scrub shrubs, the fences
+## ring, the walls stand as raised sandstone plateaus on their own cells (styles.wall
+## "raised:sandstone": a top, the plateau's ledge as a face on a run's south end, rubble
+## hidden under each tile), the brush as beds of the Desert's own scrub shrubs, the fences
 ## as oriented fence tiles, the road and scrub are painted with worn verges and gravel, the
 ## margins carry low rocks and palms, the caravan stops braziers and goods on the walls'
-## near ends and the side walkways banner racks and braziers, and the map draws as tiles: a
+## tops just behind their faces and the side walkways banner racks and braziers, pebbles and
+## dry tufts lie by the walls and along the road's edges, and the map draws as tiles: a
 ## smashed wall shows its rubble and drops what stood on it, and runtime rockslide rubble
 ## is still handled (a WALL the sim adds is not a piece).
 
@@ -31,6 +33,12 @@ func test_the_desert_cut_has_its_terrains_pieces_and_props() -> void:
 	for fill in ["sand", "gravel", "scrub_fill", "sand_dirt"]:
 		assert_eq(man["ground"]["fills"][fill].size(), 16, "a 4 x 4 %s fill" % fill)
 	assert_eq(man["ground"]["fills"]["earth_fill"].size(), 9, "a 3 x 3 packed-earth fill")
+	var rz: Dictionary = man["raised"]["sandstone"]
+	assert_eq(int(rz["cells"]), 3, "the plateau's 1.4-tile ledge: a face three cells tall at most")
+	assert_eq(int(rz["variants"]), 10, "five sand blocks for the top, each also mirrored")
+	assert_eq(String(rz["rubble"]), "rock", "a smashed tile shows the rock wall's loose rocks")
+	for kind in ["pebbles", "clods", "dry_tufts"]:
+		assert_gt(man["scatter"]["kinds"].get(kind, []).size(), 2, "scatter %s in several looks" % kind)
 	for kind in ["fence_h", "fence_v"]:
 		assert_true(man["pieces"].get(kind, []).size() >= 2, "%s pieces" % kind)
 	var roles: Dictionary = man["walls"]["rock"]["roles"]
@@ -90,22 +98,33 @@ func test_the_pass_scene_has_road_walls_fences_and_margins() -> void:
 	var pieces := root.get_node("Pieces") as TileMapLayer
 	var p: Dictionary = man["pieces"]
 	var fh: Array = p["fence_h"].map(func(a): return Vector2i(int(a[0]), int(a[1])))
-	# the wall at cells [30, 2, 2, 6] is tiles (15, 1..3): a pillar on each, the wide foot last
+	# the walls are raised plateaus: a 16 px tile on each wall cell, a face on a run's last
+	# three cells, no pillar sprites; each 2 x 2-cell tile keeps its rubble, hidden
 	var walls := root.get_node("Walls")
 	var rubble := root.get_node("Rubble")
-	assert_true(walls.y_sort_enabled, "a run's near pillars overlap the far ones")
-	var pillars := walls.get_children().filter(func(s): return String(s.name).begins_with("rock_"))
-	assert_eq(pillars.size(), 24, "a sprite on every wall tile (3 + 4 + 5, twice)")
-	assert_eq(rubble.get_child_count(), 24, "and its rubble under it")
-	var run: Array = []
-	for s in pillars:
-		if Rect2i(30, 2, 2, 6).encloses(s.get_meta("cells")):
-			run.append(s)
-	assert_eq(run.size(), 3, "the wall at [30, 2, 2, 6] stands as three pillars")
-	run.sort_custom(func(a, b): return a.position.y < b.position.y)
-	var foot: Vector2 = -(run[2] as Sprite2D).offset
-	var bottoms: Array = man["walls"]["rock"]["roles"]["bottom"].map(func(sp): return Vector2(float(sp["feet"][0]), float(sp["feet"][1])))
-	assert_true(foot in bottoms, "the run's near end is a wide-footed stack")
+	assert_true(walls.y_sort_enabled, "what stands on the walls is y-sorted")
+	assert_eq(walls.get_children().filter(func(s): return String(s.name).begins_with("rock_")).size(), 0, "no rock pillars")
+	var raised := root.get_node("Raised") as TileMapLayer
+	var info: Dictionary = raised.get_meta("raised")
+	var map := ArenaMap.get_map("caravan_pass")
+	var grid := TerrainGrid.new(220, 40)
+	grid.load_map(map)
+	var wall_n := 0
+	for i in grid.map_base.size():
+		if grid.map_base[i] == TerrainGrid.WALL:
+			wall_n += 1
+	assert_eq(wall_n, 96, "the map's walls (6 + 8 + 10 cells tall, two wide, twice)")
+	assert_eq(raised.get_used_cells().size(), wall_n, "a raised tile on every wall cell")
+	var face := {}
+	for key in info["tiles"]:
+		if String(key).begins_with("f"):
+			face[Vector2i(int(info["tiles"][key][0]), int(info["tiles"][key][1]))] = true
+	for cy in range(2, 8):
+		assert_eq(face.has(raised.get_cell_atlas_coords(Vector2i(30, cy))), cy >= 5, "the run [30, 2, 2, 6]: a top, then its face on rows 5-7 (row %d)" % cy)
+	assert_true(root.get_node("RaisedShadow").get_used_cells().size() > 0, "a contact shadow beside the walls")
+	assert_eq(rubble.get_child_count(), 24, "a rubble heap on every wall tile (3 + 4 + 5, twice)")
+	var scatter := root.get_node("Scatter") as TileMapLayer
+	assert_true(scatter.get_used_cells().size() >= 30, "pebbles and tufts by the walls and the road (%d)" % scatter.get_used_cells().size())
 	for s in rubble.get_children():
 		assert_false(s.visible, "rubble hides while its wall stands: %s" % s.name)
 		assert_true(s.get_meta("broken", false), "and is marked as the broken look")
@@ -133,9 +152,11 @@ func test_the_pass_scene_has_road_walls_fences_and_margins() -> void:
 			"decor stands off the floor: %s, %s" % [s.name, box])
 	for s in anim.get_children():
 		assert_true((s as AnimatedSprite2D).autoplay == "default", "palms and braziers move on their own")
-	# the stops' pieces stand on the walls' near ends, inside the run's tiles, y-sorted with it
-	var on_walls := walls.get_children().filter(func(s): return not String(s.name).begins_with("rock_"))
-	assert_eq(on_walls.size(), 6, "a brazier, goods or a tripod on each run's near end")
+	# the stops' pieces stand on the walls' tops just behind the face (the map puts them on a
+	# run's near end; build_tiles moves a piece off the face), y-sorted, inside the run's cells
+	var on_walls := walls.get_children()
+	assert_eq(on_walls.size(), 6, "a brazier, goods or a tripod on each run")
+	var up := func(c: Vector2i) -> bool: return grid.get_base(c) == TerrainGrid.WALL
 	var runs := [Rect2i(30, 2, 2, 6), Rect2i(52, 22, 2, 8), Rect2i(90, 2, 2, 10), Rect2i(188, 2, 2, 6), Rect2i(166, 22, 2, 8), Rect2i(128, 2, 2, 10)]
 	# (its feet row lands on the tile's bottom edge, as every decor's does: 2 px of slack)
 	for s in on_walls:
@@ -144,9 +165,13 @@ func test_the_pass_scene_has_road_walls_fences_and_margins() -> void:
 		assert_eq(inside.size(), 1, "%s covers wall cells only: %s" % [s.name, cells])
 		var r: Rect2i = inside[0]
 		var box := _drawn_box(s)
-		assert_true(box.position.x >= r.position.x * 16 and box.end.x <= r.end.x * 16 and box.position.y >= r.position.y * 16 and box.end.y <= r.end.y * 16 + 2,
-			"%s draws over its wall only, never the floor: %s in %s" % [s.name, box, r])
-		assert_eq(cells.end.y, r.end.y, "%s stands at its run's near end, in front of the pillars" % s.name)
+		assert_true(box.position.x >= r.position.x * 16 and box.end.x <= r.end.x * 16,
+			"%s stands within its wall's width: %s in %s" % [s.name, box, r])
+		var foot := Vector2i(floori((s as Node2D).position.x / 16.0), floori(((s as Node2D).position.y - 1.0) / 16.0))
+		assert_true(r.has_point(foot), "%s stands on its wall: %s" % [s.name, foot])
+		assert_eq(RaisedTiles._face_row(foot, up, 3), Vector2i.ZERO, "%s stands on the top, not the face: %s" % [s.name, foot])
+		assert_eq(RaisedTiles._face_row(foot + Vector2i.DOWN, up, 3).y, 0, "%s: just behind the face's first row" % s.name)
+		assert_eq(cells.end.y, r.end.y, "%s goes when the face in front of it is smashed" % s.name)
 	root.free()
 
 
@@ -163,30 +188,28 @@ func test_the_pass_is_tiled_and_a_rockslide_still_draws() -> void:
 	assert_false(v._markings, "no court lines in a canyon")
 	var pieces := v._tiles.get_node("Pieces") as TileMapLayer
 	var before := pieces.get_used_cells().size()
-	assert_eq(before, 10, "the map's fences as pieces (walls and brush are sprites)")
-	# a smashed wall tile shows its rubble, and its pillar again once the floor heals
-	var pillar: Sprite2D = null
+	assert_eq(before, 10, "the map's fences as pieces (walls are raised tiles, brush sprites)")
+	# a smashed wall cell drops its raised tile and shows its rubble; both come back
+	var raised := v._tiles.get_node("Raised") as TileMapLayer
 	var heap: Sprite2D = null
-	for s in v._tiles.get_node("Walls").get_children():
-		if String(s.name).begins_with("rock_") and (s.get_meta("cells") as Rect2i).has_point(Vector2i(30, 6)):
-			pillar = s
 	for s in v._tiles.get_node("Rubble").get_children():
 		if (s.get_meta("cells") as Rect2i).has_point(Vector2i(30, 6)):
 			heap = s
-	assert_true(pillar != null and heap != null, "a pillar and a heap over cell (30, 6)")
-	assert_true(pillar.visible and not heap.visible, "the wall stands")
+	assert_true(heap != null, "a heap over cell (30, 6)")
+	assert_true(raised.get_cell_source_id(Vector2i(30, 6)) >= 0 and not heap.visible, "the wall stands")
 	assert_true(sim.terrain.smash(Vector2i(30, 6)), "a charge smashes a wall cell")
 	v.refresh()
-	assert_true(heap.visible and not pillar.visible, "the smashed tile shows loose rocks, not its pillar")
+	assert_true(heap.visible and raised.get_cell_source_id(Vector2i(30, 6)) == -1, "the smashed cell shows loose rocks, not the plateau")
 	sim.terrain.set_cell(Vector2i(30, 6), TerrainGrid.WALL)
 	v.refresh()
-	assert_true(pillar.visible and not heap.visible, "and stands again when it rebuilds")
-	# the brazier on the tall run's near end goes with the wall under it, and comes back
+	assert_true(raised.get_cell_source_id(Vector2i(30, 6)) >= 0 and not heap.visible, "and stands again when it rebuilds")
+	# the brazier on the tall run's top goes with the wall under it (or the face in front of
+	# it), and comes back
 	var brazier: AnimatedSprite2D = null
 	for s in v._tiles.get_node("Walls").get_children():
 		if String(s.name).begins_with("brazier") and (s.get_meta("cells") as Rect2i).has_point(Vector2i(90, 11)):
 			brazier = s
-	assert_true(brazier != null, "a brazier stands on the wall at cell (90, 11)")
+	assert_true(brazier != null, "a brazier stands on the wall [90, 2, 2, 10]")
 	assert_true(brazier.visible, "lit while the wall stands")
 	assert_true(sim.terrain.smash(Vector2i(90, 11)), "a charge smashes the wall under it")
 	v.refresh()
@@ -194,6 +217,14 @@ func test_the_pass_is_tiled_and_a_rockslide_still_draws() -> void:
 	sim.terrain.set_cell(Vector2i(90, 11), TerrainGrid.WALL)
 	v.refresh()
 	assert_true(brazier.visible, "and it stands again with the wall")
+	var bc: Rect2i = brazier.get_meta("cells")
+	assert_true(bc.position.y < 9, "it stands on the top, behind the face (rows 9-11): %s" % bc)
+	assert_true(sim.terrain.smash(Vector2i(91, 11)), "a charge smashes the face's foot in front of it")
+	v.refresh()
+	assert_false(brazier.visible, "it goes: it would hang on the face the wall grows over the gap")
+	sim.terrain.set_cell(Vector2i(91, 11), TerrainGrid.WALL)
+	v.refresh()
+	assert_true(brazier.visible, "and comes back with the face")
 	# a rockslide's rubble: WALL cells the map didn't lay; the sim's own kind of change
 	for cx in range(60, 64):
 		sim.terrain.set_cell(Vector2i(cx, 12), TerrainGrid.WALL)

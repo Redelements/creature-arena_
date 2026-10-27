@@ -168,8 +168,14 @@ the game's palette):
   earth and scrub blobs, all lifted toward tan), `assets/tiles/desert_pieces.png` (a wooden
   fence), `assets/tiles/desert_overlay.png` (the plateau's cliff face as pit walls, with
   generated cracks).
-- `assets/tiles/desert_wall_rock.png` (stacked rock pillars for the walls, wide-footed
-  stacks for their ends, small rock heaps for a smashed wall).
+- `assets/tiles/desert_wall_rock.png` (stacked rock pillars, wide-footed stacks, and the
+  small rock heaps a smashed wall shows).
+- `assets/tiles/desert_raised_sandstone.png` (the walls as raised sandstone plateaus, 16 px
+  tiles cut from `MainLev2.0.png`'s plateau B: its sand floor, rim rocks and rocky ledge,
+  with generated outlines and contact shadows).
+- `assets/tiles/desert_scatter.png` (loose dirt bits from `MainLev2.0.png`, with pebbles and
+  dry grass sprigs from **RPG Fantasy World Set 1** `veg_decoratives.png`, sprinkled by the
+  walls and the road).
 - `assets/tiles/desert_decor_rocks.png`, `desert_decor_rocks_b.png`, `desert_decor_agave.png`,
   `desert_decor_agave_pale.png` (low rock heaps, agave) and
   `assets/tiles/desert_anim_palm.png`, `desert_anim_palm_b.png` (the swaying palms).
