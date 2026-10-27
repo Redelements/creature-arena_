@@ -1,7 +1,7 @@
 # Status: handoff snapshot
 
-Stamped: 2026-10-27 01:16 UTC
-Branch: proof/32px-szadi @ 92fb471
+Stamped: 2026-10-27 01:20 UTC
+Branch: proof/32px-szadi @ 95f0820
 Trigger: phase
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
@@ -58,9 +58,8 @@ Build for Kevin: `C:\Users\Kevin\Downloads\Ready4Rambles-windows-32px-szadi\Read
 
 ## Next step
 
-Full suite on the merged branch (92fb471) was running at handoff; the last complete run on
-40b1d4e (before the water merge) is in `C:/Users/Kevin/AppData/Local/Temp/claude/full_tests_40b1d4e.log`,
-the new one in `full_tests_92fb471.log`. Tile/perf/water/ambient subset: 57 passed. Export for
+Full suite on the merged branch (92fb471): **1209 passed, 0 failed**
+(`C:/Users/Kevin/AppData/Local/Temp/claude/full_tests_92fb471.log`). Export for
 Kevin: `C:/Users/Kevin/Downloads/Ready4Rambles-windows-32px-szadi/Ready4Rambles.exe`.
 
 Then, after Kevin's ruling on the margin decor: the remaining polish (Quarry middle patch
