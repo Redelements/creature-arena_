@@ -15,6 +15,10 @@ A full step-by-step home setup (Ubuntu Server install, static IP, router, firewa
 free domain name, updates) is in the **home server guide** doc (titled "Creature Arena
 home server guide", from before the rename). This page is the short reference.
 
+The live server is Kevin's home box: Minisforum BD790i SE (Ryzen 9 7945HX, 32 GB DDR5,
+RX 9700), Ubuntu Server, 2.5G fiber over a MoCA link to a TP-Link router (port forwarding
+there), reached as `kevarena.duckdns.org` (DuckDNS). Testers join it directly.
+
 ## Command line
 
 The Linux binary keeps its old name, `CreatureArena.x86_64` (and so do the service, its
