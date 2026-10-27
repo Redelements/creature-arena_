@@ -3,7 +3,7 @@ extends TestCase
 ## and every piece, drawn from the "keeps" set: each wall a y-sorted run of Castle wall-kit
 ## sprites (rubble hidden under each tile), the fences as joined lines, the brush as round
 ## hedge clumps, water under every shallows cell and under the bridge (so a fallen bridge
-## shows it), a cobble causeway on the bridge, trees along the top margin, the waterfall
+## shows it), a cobble causeway on the bridge, no trees in the top margin (they clipped into the stands), the waterfall
 ## where the river enters at the top with its pool inside the banks, team braziers on the
 ## gate posts and team banners hung on the keeps' walls (they fall with the wall). Every
 ## water tile at the river's edge (the island, the head, the bridge's ends) carries its
@@ -85,22 +85,17 @@ func test_the_scene_covers_the_map_with_its_pieces_in_place() -> void:
 	root.free()
 
 
-func test_the_trees_the_waterfall_the_braziers_and_the_banners_stand_where_the_map_says() -> void:
+func test_the_waterfall_the_braziers_and_the_banners_stand_where_the_map_says() -> void:
 	var root: Node = (load(SCENE) as PackedScene).instantiate()
 	var decor := root.get_node("Decor")
 	var anim := root.get_node("Anim")
 	var walls := root.get_node("Walls")
-	var kinds := {}
 	for s in decor.get_children():
-		kinds[String(s.name).split("_")[0]] = true
 		var sp := s as Sprite2D
 		assert_true(sp != null and sp.texture != null, "%s is a sprite with its picture" % s.name)
-		# every tree stands in the top margin, its feet on the floor's top edge (y = 0 in scene
-		# pixels), so no canopy covers walkable floor
-		assert_true(sp.position.y + sp.texture.get_height() <= 32.0, "%s stands above the floor" % s.name)
-	for k in ["oak", "birch", "pine", "bush"]:
-		assert_true(kinds.has(k), "a %s among the trees" % k)
-	assert_true(decor.get_child_count() >= 12, "a line of trees along the top")
+		# no trees along the top: they stood on the stands' hoardings and clipped into them
+		for k in ["oak", "birch", "pine", "bush"]:
+			assert_false(String(s.name).begins_with(k + "_"), "no %s in the top margin: %s" % [k, s.name])
 	var falls := anim.get_children().filter(func(n): return String(n.name).begins_with("waterfall"))
 	assert_eq(falls.size(), 1, "one waterfall")
 	var w := falls[0] as AnimatedSprite2D
