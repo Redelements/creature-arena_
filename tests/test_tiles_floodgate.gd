@@ -4,7 +4,8 @@ extends TestCase
 ## the margins): the cut's water terrain covers every side combination, the scene's Water
 ## and WaterSurface layers cover every shallows cell's tile and nothing else, the map plays
 ## as it did (pieces untouched), ArenaView draws from the tiles, and WaterView still finds
-## the shallows.
+## the shallows. Every channel has a bank (the WaterBank layer, keyed by its eight
+## neighbours), and the reeds stand with their feet on the floor's edges, never on the wall.
 
 const MANIFEST := "res://assets/tiles/wetland_manifest.json"
 const GROUND := "res://assets/tiles/wetland_ground.tres"
@@ -89,12 +90,66 @@ func test_the_scene_puts_water_under_every_channel_tile() -> void:
 	assert_eq(ground.get_used_cells().size(), 42 * 18, "the paving, no ring")
 	assert_eq((root.get_node("Pieces") as TileMapLayer).get_used_cells().size(), 0, "no pieces: the Floodgate has none")
 	assert_eq(root.get_node("Decor").get_child_count(), 4, "reeds at the channel's mouths")
+	var man := _manifest()
 	for d in root.get_node("Decor").get_children():
 		var s := d as Sprite2D
-		var feet := s.position + Vector2(s.texture.get_width() * 0.5, s.texture.get_height())
+		var kind := String(s.name).rsplit("_", true, 1)[0]
+		var feet := s.position + Vector2(man["decor"][kind]["feet"][0], man["decor"][kind]["feet"][1])
 		var floor_px := Rect2(Vector2.ZERO, Vector2(84 * 16, 36 * 16))
 		assert_false(floor_px.grow(-12).has_point(feet), "decor stands in the margins, not on the floor: %s" % feet)
+		if feet.y < floor_px.size.y * 0.5:
+			assert_eq(feet.y, 0.0, "%s at the top stands on the floor's top edge, not up the wall" % s.name)
+	var problems := bank_problems(root, man)
+	assert_true(problems.is_empty(), "every channel has its bank: %s" % [problems])
 	root.free()
+
+
+## The WaterBank layer over `water`: a bank tile on every water tile with land on a side or
+## (both its sides water) a corner, keyed by those neighbours, and none on open water.
+static func bank_problems(root: Node, man: Dictionary) -> Array:
+	var water := root.get_node("Water") as TileMapLayer
+	var bank := root.get_node_or_null("WaterBank") as TileMapLayer
+	if bank == null:
+		return ["no WaterBank layer"]
+	var keys: Dictionary = man["ground"]["shores"]["water"]["tiles"]
+	var wet := {}
+	for c in water.get_used_cells():
+		wet[c] = true
+	var out := []
+	var banked := 0
+	for c in wet:
+		var key := _key(c, wet)
+		if key == "00000000":
+			if bank.get_cell_source_id(c) != -1:
+				out.append("a bank on open water at %s" % c)
+			continue
+		banked += 1
+		var want: Array = keys.get(key, [])
+		if want.is_empty() or bank.get_cell_atlas_coords(c) != Vector2i(int(want[0]), int(want[1])):
+			out.append("tile %s: bank %s, want the %s tile %s" % [c, bank.get_cell_atlas_coords(c), key, want])
+	for c in bank.get_used_cells():
+		if not wet.has(c):
+			out.append("a bank off the water at %s" % c)
+	if banked == 0:
+		out.append("no water tile has a bank")
+	return out
+
+
+static func _key(c: Vector2i, wet: Dictionary) -> String:
+	var land := func(dx: int, dy: int) -> int:
+		return 0 if wet.has(c + Vector2i(dx, dy)) else 1
+	var l: int = land.call(-1, 0)
+	var r: int = land.call(1, 0)
+	var t: int = land.call(0, -1)
+	var b: int = land.call(0, 1)
+	var m := l | r << 1 | t << 2 | b << 3
+	for k in 4:
+		var d: Vector2i = [Vector2i(-1, -1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(1, 1)][k]
+		var s1: int = t if d.y < 0 else b
+		var s2: int = l if d.x < 0 else r
+		if land.call(d.x, d.y) == 1 and s1 == 0 and s2 == 0:
+			m |= 1 << (4 + k)
+	return String.num_int64(m, 2).lpad(8, "0")
 
 
 func test_the_floodgate_plays_as_before_and_draws_from_tiles() -> void:

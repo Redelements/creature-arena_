@@ -482,7 +482,8 @@
     }
    ]
   },
-  "surfaces": {}
+  "surfaces": {},
+  "shores": {}
  },
  "pieces": {
   "source": "desert_pieces.png",

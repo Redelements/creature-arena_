@@ -223,7 +223,8 @@
    ]
   },
   "terrains": {},
-  "surfaces": {}
+  "surfaces": {},
+  "shores": {}
  },
  "pieces": {
   "source": "rock_pieces.png",

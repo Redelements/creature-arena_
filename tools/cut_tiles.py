@@ -19,6 +19,8 @@ Writes, under assets/tiles/:
                          per post spot (FENCE_SPOTS)
   <set>_bush_<name>.png  a bush's clumps, one row each, its sway frames along the row
   <set>_wall_<name>.png  a wall's sprites side by side (top, mid, bottom, ends, rubble)
+  <set>_shore.png        32 px bank tiles round a terrain (recipe ground.shores), one per
+                         land-neighbour mask
   <set>_manifest.json    where everything landed, for tools/build_tiles.gd
 
 Every colour is snapped to the master palette (tools/palette.py, nearest, no dither) and
@@ -41,14 +43,36 @@ packs dir; "tile" positions are [column, row] of 32 px tiles in the source sheet
                            an animated, translucent sheet laid over every tile of the `over`
                            terrain (Set 1's water_surface_transparent.png over its river bed);
                            frames read row-major from a sheet `cols` wide; alpha kept
-                           ("alpha_mul" scales it). Fills, terrains and surfaces take an
+                           ("alpha_mul" scales it). Fills, terrains, surfaces and anims take an
                            optional "tint" {"mul": [r, g, b], "add": [r, g, b], "desat": 0..1}
                            before the snap ("desat" first pulls each colour toward its grey)
+  ground.terrains.<name>.centres  [[tx, ty], ...]: extra full tiles (all four sides connected)
+                           for a sheet with no alpha to read sides off (Set 1's water bed is
+                           opaque RGB: "variants" would take every rim tile for a centre)
+  ground.shores.<terrain>  {"land": {"src", "block", "size"}, "face": {"src", "box"}, "top",
+                           "bottom", "side", "face_px", "edge": {"src", "box" | "block"},
+                           "edge_px", "shade", "radius", "rag", "outline", "shadow", "lip"}: a bank round every patch of the terrain, drawn over it (and
+                           its surface) on the terrain's edge tiles. One 32 px tile per
+                           land-neighbour mask (the 47 of a corner-matched blob: sides, and a
+                           corner only when both its sides are water), cut to <set>_shore.png;
+                           the bank's top is the "land" texture, its last "edge_px" before the
+                           water the "edge" texture (a strip read by distance, or a fill's
+                           block laid flat), its down-facing side (the water's far bank, seen
+                           in 3/4) the "face" texture, then a dark wet line and "shade" px of
+                           darker water along it, more below a face. Widths in px: "top"
+                           the far bank (land above the water), "bottom" the near bank, "side"
+                           the sides; "radius" rounds the corners, "rag" roughens the edge.
+                           Szadi art's packs draw a shore on the land tiles round the water
+                           (Wetland's root banks), never on the water: the maps' floors are
+                           fills, so the bank is made here from the land and face textures
   pieces.<kind>            [{"src", "tile": [tx, ty]} | {"src", "box": [x0, y0, x1, y1],
                            "at": "bottom"|"centre", "fit": true}, ...]  32 px tiles of one
                            kind; "fit" shrinks a bigger prop by a whole factor to one tile.
                            Kinds the scene builder knows: boulder (walls), tuft + sprig
                            (brush), fence_h / fence_v (fences, by the rect's longer side)
+  piece_ends.<kind>        {"face": {"src", "box" | "block"}, "face_px", "outline", "lip"}: the
+                           kind's tiles again as <kind>_t (a lit lip) and <kind>_b (a face
+                           down to the water) for a rect's end rows over water (a causeway)
   overlay.face             {"src", "box": [x0, y0, x0 + 32, y1]}  a seamless cliff face from
                            the matching pack (no outline: from inside a long run; any height,
                            rows wrap): the pits' far wall, fading into the dark
@@ -56,7 +80,7 @@ packs dir; "tile" positions are [column, row] of 32 px tiles in the source sheet
                            edges are translucent, so they match any floor)
   decor.<name>             {"src", "box": [x0, y0, x1, y1], "feet": [x, y]}  feet in the box
   anim.<name>              {"src", "frame": [w, h], "frames": n, "fps": f, "feet": [x, y],
-                           "row": 0}
+                           "row": 0, "tint"}
   bushes.<name>            {"src", "frame": [w, h], "frames": n, "fps", "clumps" | "blobs"}
                            a bush for the brush beds (cut_bushes)
   fencelines.<name>        {"src", "post": box, "rail_h": box, "rail_v": box}  a fence drawn
@@ -244,6 +268,9 @@ def cut_ground(cut, set_name, g):
                     if sides == (0, 0, 0, 0):
                         continue  # a lone island reads as none or all: only the block's counts
                     out.append({"at": sheet.add(img), "sides": list(sides), "prob": float(t.get("variant_prob", 0.5))})
+        for (vx, vy) in t.get("centres", []):
+            img = tinted(cut.tile(t["src"], vx, vy), t)
+            out.append({"at": sheet.add(img), "sides": [1, 1, 1, 1], "prob": float(t.get("variant_prob", 0.5))})
         man["terrains"][name] = out
         print("  terrain %s: %d tiles" % (name, len(out)))
     save(sheet.image(), man["source"])
@@ -266,10 +293,199 @@ def cut_ground(cut, set_name, g):
         file = "%s_surface_%s.png" % (set_name, name)
         save(strip, file, translucent=True)
         man["surfaces"][name] = {"source": file, "frames": n, "fps": float(s.get("fps", 6)), "over": str(s.get("over", name))}
+    man["shores"] = cut_shores(cut, set_name, g.get("shores", {}))
     return man
 
 
-def cut_pieces(cut, set_name, p):
+## Bank tiles. A water tile's land neighbours, as bits: the four sides, then the four corners
+## (a corner counts only when both of its sides are water: otherwise a side bank covers it).
+## Keep in step with tools/build_tiles.gd `_shore_mask`.
+SHORE_BITS = ("l", "r", "t", "b", "tl", "tr", "bl", "br")
+
+
+def shore_mask(bits):
+    """The reduced mask of a raw 8-bit land-neighbour mask: a corner dropped where a side covers it."""
+    l, r, t, b = bits & 1, bits >> 1 & 1, bits >> 2 & 1, bits >> 3 & 1
+    out = bits & 15
+    for k, (s1, s2) in enumerate(((t, l), (t, r), (b, l), (b, r))):
+        if bits >> (4 + k) & 1 and not s1 and not s2:
+            out |= 1 << (4 + k)
+    return out
+
+
+def _rag(u, amp, k):
+    """A ragged edge's offset along a tile edge: 0 at both ends (so tiles join), period 32."""
+    w = 2.0 * np.pi * u / T
+    sets = ((0.55, 0.35, 0.25), (0.45, -0.4, 0.3), (-0.5, 0.3, 0.35), (0.4, 0.45, -0.3))
+    a, b, c = sets[k % 4]
+    return amp * (a * np.sin(2 * w) + b * np.sin(3 * w) + c * np.sin(5 * w))
+
+
+def _shore_land(m, sp):
+    """Where the bank (land) is on a water tile with reduced land-neighbour mask m: a 96 x 96
+    bool, the tile at [32:64, 32:64] and a tile's width round it (so a face can look past
+    the tile's edge)."""
+    wt, wb, ws = float(sp.get("top", 10)), float(sp.get("bottom", 6)), float(sp.get("side", 8))
+    rad = float(sp.get("radius", 6))
+    amp = float(sp.get("rag", 1.5))
+    ys, xs = np.mgrid[-T:2 * T, -T:2 * T].astype(float) + 0.5
+    L, R, Tt, B = m & 1, m >> 1 & 1, m >> 2 & 1, m >> 3 & 1
+    land = np.zeros(xs.shape, bool)
+    xin = np.clip(xs, 0, T)
+    yin = np.clip(ys, 0, T)
+    if Tt:
+        land |= ys < wt + _rag(xin, amp, 0)
+    if B:
+        land |= ys >= T - (wb + _rag(xin, amp * 0.6, 1))
+    if L:
+        land |= xs < ws + _rag(yin, amp, 2)
+    if R:
+        land |= xs >= T - (ws + _rag(yin, amp, 3))
+    # the water's corners where two banks meet: rounded (the land fills the fillet)
+    for (s1, s2, cx, cy, dx, dy) in ((Tt, L, ws + rad, wt + rad, -1, -1), (Tt, R, T - ws - rad, wt + rad, 1, -1),
+                                     (B, L, ws + rad, T - wb - rad, -1, 1), (B, R, T - ws - rad, T - wb - rad, 1, 1)):
+        if s1 and s2:
+            inside = ((xs - cx) * dx > 0) & ((ys - cy) * dy > 0)
+            land |= inside & (np.hypot(xs - cx, ys - cy) > rad)
+    # a land corner poking in from a diagonal tile: the side banks of the two water tiles
+    # beside it end here, so the nub is side-wide and top- (or bottom-) deep, rounded
+    for k, (cx, cy, dx, dy, wy) in enumerate(((0, 0, 1, 1, wt), (T, 0, -1, 1, wt), (0, T, 1, -1, wb), (T, T, -1, -1, wb))):
+        if m >> (4 + k) & 1:
+            nub = min(rad, ws, wy) * 0.9
+            ux = (xs - cx) * dx  # how far into the tile from the corner's two sides
+            uy = (ys - cy) * dy
+            box = (ux < ws) & (uy < wy) & (ux > -T) & (uy > -T)
+            ox, oy = ws - nub, wy - nub
+            cut = (ux > ox) & (uy > oy) & (np.hypot(ux - ox, uy - oy) > nub)
+            land |= box & ~cut
+    return land
+
+
+def _texture(cut, spec, under=None):
+    """A recipe texture: {"src", "block": [tx, ty], "size": n} (n x n tiles) or {"src", "box"},
+    tinted; pixels the sheet leaves clear take `under`'s (a float array of the same size)."""
+    if "block" in spec:
+        size = int(spec.get("size", 1))
+        img = Image.new("RGBA", (T * size, T * size))
+        for i in range(size * size):
+            img.paste(cut.tile(spec["src"], spec["block"][0] + i % size, spec["block"][1] + i // size), ((i % size) * T, (i // size) * T))
+    else:
+        img = cut.box(spec["src"], spec["box"])
+    px = np.array(tinted(img, spec)).astype(float)
+    if under is not None:
+        h, w = px.shape[:2]
+        u = np.array([[under[y % under.shape[0], x % under.shape[1]] for x in range(w)] for y in range(h)])
+        clear = px[:, :, 3] < 128
+        px[clear] = u[clear]
+    return px
+
+
+def _dist(mask, n):
+    """For each pixel, 1..n: how many 4-neighbour steps to the nearest `mask` pixel (0 on it,
+    n + 1 when farther than n)."""
+    d = np.where(mask, 0, n + 1)
+    cur = mask.copy()
+    for k in range(1, n + 1):
+        grown = cur.copy()
+        grown[1:] |= cur[:-1]
+        grown[:-1] |= cur[1:]
+        grown[:, 1:] |= cur[:, :-1]
+        grown[:, :-1] |= cur[:, 1:]
+        d = np.where(grown & ~cur, k, d)
+        cur = grown
+    return d
+
+
+def cut_shores(cut, set_name, shores):
+    """ground.shores.<terrain>: the bank tiles (see the module doc). Writes <set>_shore.png;
+    returns {terrain: {"source", "tiles": {"<mask as 8 bits, br first>": [col, row]}, "bits"}}."""
+    man = {}
+    for name, sp in shores.items():
+        under = _texture(cut, sp["under"]) if "under" in sp else None
+        land_px = _texture(cut, sp["land"], under)
+        face_px = _texture(cut, sp["face"])
+        edge_px = _texture(cut, sp["edge"]) if "edge" in sp else None
+        edge_2d = "block" in sp.get("edge", {})
+        fh, fw = face_px.shape[:2]
+        nf = int(sp.get("face_px", 4))
+        ne = int(sp.get("edge_px", 2))
+        outline = np.array(sp.get("outline", [20, 26, 34]), float)
+        shadow = np.array(sp.get("shadow", [26, 48, 80]), float)
+        shade = float(sp.get("shade", 3))  # px of darker water along every bank
+        lip = float(sp.get("lip", 1.3))
+        masks = sorted({shore_mask(b) for b in range(256)} - {0})
+        sheet = Sheet(T, 8)
+        tiles = {}
+        for m in masks:
+            big = _shore_land(m, sp)
+            to_land = _dist(big, 6)  # a water pixel's distance to the bank
+            to_water = _dist(~big, max(ne, 2))  # a land pixel's distance to the water
+            o = T
+            out = np.zeros((T, T, 4), float)
+            for y in range(T):
+                for x in range(T):
+                    gy, gx = y + o, x + o
+                    if big[gy, gx]:
+                        c = land_px[y % land_px.shape[0], x % land_px.shape[1], :3].copy()
+                        below = [k for k in range(1, nf + 1) if not big[gy + k, gx]]
+                        if below:  # the side facing down to the water: the far bank's face
+                            c = face_px[max(0, fh - below[0]), x % fw, :3].copy()
+                        elif not big[gy - 1, gx]:  # the near bank's lit lip
+                            c = np.clip(c * lip + 8, 0, 255)
+                        elif to_water[gy, gx] <= ne:  # the bank's edge (soil, coping stones)
+                            d = int(to_water[gy, gx])
+                            if edge_px is not None and edge_2d:  # a stone band cut from a fill (the kerb)
+                                c = edge_px[y % edge_px.shape[0], x % edge_px.shape[1], :3].copy()
+                            elif edge_px is not None:  # a strip: its row by the distance to the water
+                                c = edge_px[min(d - 1, edge_px.shape[0] - 1), (x + y) % edge_px.shape[1], :3].copy()
+                            else:
+                                c = c * (0.55 + 0.15 * (d - 1))
+                        out[y, x, :3] = c
+                        out[y, x, 3] = 255
+                        continue
+                    d = int(to_land[gy, gx])
+                    under_face = any(big[gy - k, gx] for k in range(1, 5))
+                    if d == 1:
+                        out[y, x, :3] = outline  # the wet line
+                    elif d <= 1 + shade + (2 if under_face else 0) and (d <= shade or (x + y) % 2 == 0):
+                        out[y, x, :3] = shadow  # the water darker along the bank, most under the far bank
+                    else:
+                        continue
+                    out[y, x, 3] = 255
+            tiles[format(m, "08b")] = sheet.add(Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGBA"))
+        file = "%s_shore.png" % set_name
+        save(sheet.image(), file)
+        man[name] = {"source": file, "tiles": tiles, "bits": list(SHORE_BITS)}
+        print("  shore %s: %d tiles" % (name, len(tiles)))
+    return man
+
+
+def _piece_end(img, side, spec, face_px):
+    """A piece tile at the end of its rect over water (a causeway's last row): the top end
+    gets a dark wet line and a lit lip, the bottom end the "face" texture's last rows (the
+    causeway's side seen in 3/4) down to a wet line."""
+    a = np.array(img.convert("RGBA")).astype(float)
+    outline = np.array(spec.get("outline", [20, 26, 34]), float)
+    n = int(spec.get("face_px", 6))
+    if side == "t":
+        a[0, :, :3] = outline
+        a[1, :, :3] = np.clip(a[1, :, :3] * float(spec.get("lip", 1.3)) + 8, 0, 255)
+    else:
+        fh, fw = face_px.shape[:2]
+        for k in range(1, n + 1):
+            y = T - 1 - k
+            a[y, :, :3] = face_px[max(0, fh - k), np.arange(T) % fw, :3]
+        a[T - 1, :, :3] = outline
+    a[:, :, 3] = np.where(a[:, :, 3] > 0, 255, 0)
+    return Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), "RGBA")
+
+
+def cut_pieces(cut, set_name, p, ends=None):
+    """`ends` (recipe "piece_ends"): {kind: {"face": texture, "face_px", "outline", "lip"}}
+    adds kinds <kind>_t and <kind>_b, each of the kind's tiles with a lit lip on top / a
+    face at the bottom, for the first and last rows of its rect where water lies beyond
+    (tools/build_tiles.gd picks them; a causeway's ends)."""
+    ends = ends or {}
     sheet = Sheet(T, 10)
     man = {"source": set_name + "_pieces.png", "tile": T}
     for kind, items in p.items():
@@ -288,6 +504,10 @@ def cut_pieces(cut, set_name, p):
                 y = T - src.height - 1 if it.get("at", "bottom") == "bottom" else (T - src.height) // 2
                 img.paste(src, (x, max(0, y)))
             man[kind].append(sheet.add(img))
+            if kind in ends:
+                face = _texture(cut, ends[kind]["face"])
+                for side in ("t", "b"):
+                    man.setdefault(kind + "_" + side, []).append(sheet.add(_piece_end(img, side, ends[kind], face)))
     save(sheet.image(), man["source"])
     return man
 
@@ -541,6 +761,7 @@ def cut_anim(cut, set_name, a):
         strip = Image.new("RGBA", (w * n, h), (0, 0, 0, 0))
         for k in range(n):
             strip.paste(src.crop((k * w, row * h, (k + 1) * w, (row + 1) * h)), (k * w, 0))
+        strip = tinted(strip, it)
         file = "%s_anim_%s.png" % (set_name, name)
         save(strip, file)
         man[name] = {"source": file, "frame": [w, h], "frames": n, "fps": float(it.get("fps", 8)), "feet": list(it["feet"])}
@@ -762,7 +983,7 @@ def main(packs, set_name):
                 "[column, row] in each atlas." % set_name,
         "set": set_name,
         "ground": cut_ground(cut, set_name, recipe.get("ground", {})),
-        "pieces": cut_pieces(cut, set_name, recipe.get("pieces", {})),
+        "pieces": cut_pieces(cut, set_name, recipe.get("pieces", {}), recipe.get("piece_ends", {})),
         "overlay": cut_overlay(cut, set_name, recipe["overlay"], recipe.get("ground", {})),
         "decor": cut_decor(cut, set_name, recipe.get("decor", {})),
         "anim": cut_anim(cut, set_name, recipe.get("anim", {})),

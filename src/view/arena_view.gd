@@ -136,6 +136,18 @@ func tiled() -> bool:
 	return _scene != null
 
 
+## How far (world px) the tiles' bank reaches into the painted water (the scene's
+## "WaterBank" layer, tools/tile_recipes `shores`: a side bank of 9 px at 2 a unit, its wet
+## line and shade), 0 when the map draws no bank. WaterView keeps its foam clear of it.
+const WATER_BANK := 7.0
+
+
+func water_bank() -> float:
+	if _tiles == null or _tiles.get_node_or_null("WaterBank") == null:
+		return 0.0
+	return WATER_BANK
+
+
 ## The overlay tile for a cell: a crack (running out of the sides in `joins`, 1 left, 2
 ## right, 4 top, 8 bottom, where its neighbours are cracked or open; alone, one of four by
 ## its hash), a pit's far wall or floor by how many open cells are above it (OV_WALL_TOP ..

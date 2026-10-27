@@ -92,6 +92,17 @@ Rules the renderer relies on (`tests/test_tiles.gd` checks every set's atlas):
   rims) over the tiles.
 - Every colour is snapped to the master palette (`tools/palette.py`) when cut; paint in
   its colours and nothing moves.
+- Water has a bank. Szadi art's packs draw a shore on the land tiles round the water
+  (Wetland's root banks), never on the water tiles: Set 1's water bed is an opaque sheet
+  whose blob edges only ring the stony bed with deep water. Our floors are fills, so
+  `tools/cut_tiles.py` composes the bank (recipe `ground.shores`): `<set>_shore.png` holds
+  one 32 px tile per land-neighbour mask of a water tile (the four sides, and a corner only
+  when both its sides are water: 46 tiles), clear except the bank: the land texture on
+  top, an edge band (soil stones, coping), the far bank's face down to the water, a dark
+  wet line and a shade on the water. `tools/build_tiles.gd` lays them on a "WaterBank"
+  layer over the water and its animated surface. A painter can replace the sheet tile by
+  tile; the manifest's `shores.water.tiles` maps each mask (8 binary digits, br first: br,
+  bl, tr, tl, b, t, r, l, a 1 where that neighbour is land) to its tile.
 - Ground tiles (Set 1 grass over dirt) are a 16-tile set matched by sides: the 4 x 4 block
   at the sheet's columns 0-3 holds one tile per combination of connected sides, columns
   4-11 hold variants. `tools/cut_tiles.py` reads a variant's sides off its alpha. A ground

@@ -1516,7 +1516,8 @@
     }
    ]
   },
-  "surfaces": {}
+  "surfaces": {},
+  "shores": {}
  },
  "pieces": {
   "source": "set1_pieces.png",

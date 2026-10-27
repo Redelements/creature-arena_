@@ -1564,7 +1564,8 @@
     }
    ]
   },
-  "surfaces": {}
+  "surfaces": {},
+  "shores": {}
  },
  "pieces": {
   "source": "grassland_pieces.png",
