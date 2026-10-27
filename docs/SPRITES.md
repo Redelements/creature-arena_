@@ -539,6 +539,21 @@ pitched after the tool; the blink has a `flash`. `idle_ticks` 8 (64 ticks), `run
 (24 ticks), no footstep dust (`step_frames` `[]`: he floats). Mind Blink plays on the
 dodge block's `anim_at`, drawn at full strength on its flash ticks (`blink.solid`).
 
+**2x (route A, Oct 2026, branch `cerebro-2x`, stacked on `digby-2x`).** The game draws
+`cerebro_2x*.png` (through their packed copies in `packed/`): the same rig rendered by
+`gen_cerebro.py` at density 2 (`CEREBRO_DENSITY`, default 2; `CEREBRO_DENSITY=1` rebuilds the
+1x `cerebro*.png` byte for byte), **256×256** frames (down and up **224×256**), feet at
+(124, 200) (views (112/128, 176), up views (112/128, 152)), `"ppu": 2` in every view, portrait
+`[104, 118, 48, 64]`; same rows, frame counts and timing. His rasteriser is his own, so the
+density goes through its `SCALE`, `STEP` and camera near zone, and every stroke painted in
+pixels through `px()`: the gyri (2 px wrinkles), the glow halos round the tools and the
+flushed brain, the speed smears and the teleport's `flash_burst` (same world size, so the
+Surge sigil still hides under the white flash); the outline and seams stay 1 px. Shaded
+"bold" (`CEREBRO_STYLE`): three flat tones (no highlight step, no rim light) and one dark ink
+round the whole silhouette (the plum line read weakly against the floor); the tools keep
+their black. `cut_in_frame` stays `[8, 2]`; `fx_top`, projectile offsets and the `move_fx`
+offset are world units (unchanged). Gallery: `pixellab/cerebro/cerebro_route_a.png`.
+
 ![Chef Cerebro sheet, 3x](cerebro_preview.png)
 
 Facing down, down-side, up and up-side: [`cerebro_views_preview.png`](cerebro_views_preview.png).

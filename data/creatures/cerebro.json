@@ -23,11 +23,11 @@
   "twinstick": { "autofire": "light" },
   "ko_fx": { "style": "deflate" },
   "sprite": {
-    "path": "res://assets/sprites/cerebro.png",
-    "frame": 128,
-    "portrait": [52, 59, 24, 32],
+    "path": "res://assets/sprites/cerebro_2x.png", "ppu": 2,
+    "frame": 256,
+    "portrait": [104, 118, 48, 64],
     "cols": 12,
-    "origin": [62, 100],
+    "origin": [124, 200],
     "idle_ticks": 8,
     "run_ticks": 2,
     "step_frames": [],
@@ -51,10 +51,10 @@
     "side_only": ["ko"],
     "select_scale": 0.5,
     "views": {
-      "down": { "path": "res://assets/sprites/cerebro_down.png", "frame": [112, 128], "origin": [56, 88] },
-      "up": { "path": "res://assets/sprites/cerebro_up.png", "frame": [112, 128], "origin": [56, 76] },
-      "down_side": { "path": "res://assets/sprites/cerebro_down_side.png", "frame": [128, 128], "origin": [64, 88] },
-      "up_side": { "path": "res://assets/sprites/cerebro_up_side.png", "frame": [128, 128], "origin": [64, 76] }
+      "down": { "path": "res://assets/sprites/cerebro_2x_down.png", "ppu": 2, "frame": [224, 256], "origin": [112, 176] },
+      "up": { "path": "res://assets/sprites/cerebro_2x_up.png", "ppu": 2, "frame": [224, 256], "origin": [112, 152] },
+      "down_side": { "path": "res://assets/sprites/cerebro_2x_down_side.png", "ppu": 2, "frame": [256, 256], "origin": [128, 176] },
+      "up_side": { "path": "res://assets/sprites/cerebro_2x_up_side.png", "ppu": 2, "frame": [256, 256], "origin": [128, 152] }
     }
   },
   "ai": {

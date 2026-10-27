@@ -7,7 +7,8 @@ Requires Pillow and numpy.
 Writes assets/sprites/cerebro.png (128x128 frames, 12 columns, the side view),
 cerebro_down.png and cerebro_up.png (112x128 frames: facing the camera, and facing
 away), cerebro_down_side.png and cerebro_up_side.png (128x128: the diagonals, facing down-right
-and up-right), plus labelled previews in docs/.
+and up-right), plus labelled previews in docs/. At density 2 (CEREBRO_DENSITY, the default)
+the same sheets as cerebro_2x*.png, every frame size and origin doubled.
 
 He hovers a hand's height off the floor, a short brainstem dangling under him, and his
 weapons float in a loose ring around him, each bobbing on its own: the big chef's knife
@@ -46,17 +47,33 @@ import palette as PAL  # noqa: E402  (P is the pose constructor below)
 import splat3d as S  # noqa: E402  (the shading and outline pass, and the animation tools)
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-OUT = os.path.join(ROOT, "assets", "sprites", "cerebro.png")
-PREVIEW = os.path.join(ROOT, "docs", "cerebro_preview.png")
+# Density: 2 draws the sheets the game uses, cerebro_2x*.png (256x256 frames, views 224x256,
+# "ppu": 2); CEREBRO_DENSITY=1 the older 1x ones, cerebro*.png, byte for byte. His rasteriser
+# is his own (SCALE, STEP and the camera's near zone below take the density), and every
+# stroke painted in pixels (the wrinkles, the glow halos, the speed smears, the teleport's
+# flash) goes through px(); the outline and seams stay one pixel (splat3d's pass).
+DENSITY = int(os.environ.get("CEREBRO_DENSITY", "2"))
+# The look (CEREBRO_STYLE): "a" splat3d's ramp with a rim light, the brain outlined in plum
+# and the tools in black, as at 1x; "bold" three flat tones (no highlight, no rim light) and
+# one dark ink round the whole silhouette. The 2x sheets are bold (see STYLE below).
+STYLE = os.environ.get("CEREBRO_STYLE", "bold" if DENSITY > 1 else "a")
+_TAG = "" if DENSITY == 1 else "_%dx" % DENSITY
+OUT = os.path.join(ROOT, "assets", "sprites", "cerebro%s.png" % _TAG)
+PREVIEW = os.path.join(ROOT, "docs", "cerebro%s_preview.png" % _TAG)
+
+
+def _frame(w, h, origin):
+    return {"w": w * DENSITY, "h": h * DENSITY, "origin": (origin[0] * DENSITY, origin[1] * DENSITY)}
+
 
 COLS = 12  # the run, Tenderize, Flip Out and Knife Flurry have 12 frames
-SIDE = {"w": 128, "h": 128, "origin": (62, 100)}
+SIDE = _frame(128, 128, (62, 100))
 VIEWS = {
-    "down": {"w": 112, "h": 128, "origin": (56, 88)},
-    "up": {"w": 112, "h": 128, "origin": (56, 76)},
+    "down": _frame(112, 128, (56, 88)),
+    "up": _frame(112, 128, (56, 76)),
     # the diagonals (docs/SPRITES.md, "Directions"): facing down-right and up-right
-    "down_side": {"w": 128, "h": 128, "origin": (64, 88)},
-    "up_side": {"w": 128, "h": 128, "origin": (64, 76)},
+    "down_side": _frame(128, 128, (64, 88)),
+    "up_side": _frame(128, 128, (64, 76)),
 }
 
 # Palette: master-palette ramps (tools/palette.py) picked for the character sheet's
@@ -79,7 +96,14 @@ OUTLINE_TOOL = PAL.INKS["ink"] + (255,)  # tools are outlined in black on the sh
 TOOL_MATS = {"blade", "handle", "spatula", "mallet", "mallet_h", "glass"}
 # Shading, seams and outlines are splat3d's pass on this rig's buffers: the brain's line
 # in its ramp's ink (plum, the palette's take on the sheet's maroon), every tool's black.
-S.configure(MAT, outline_mats={m: OUTLINE_TOOL for m in TOOL_MATS})
+S.configure(MAT, outline_mats={m: OUTLINE_TOOL for m in TOOL_MATS}, density=DENSITY)
+if STYLE == "bold":
+    # three tones a face: no highlight step (light covers the lit side), no rim light; the
+    # silhouette in one dark ink (the tools keep their black, the lobe seams their deep step)
+    S.LUM_HIGH = 2.0
+    S.RIM = False
+    S.INK = {name: S.OUTLINE[:3] for name in S.INK}
+px = S.px  # a length in 1x pixels at this density
 # The lines between the lobes are the brain's drawing: every seam in the deep step, not
 # the softer dark step splat3d gives touching pieces of one material.
 S.SOFT_SEAM = 0.0
@@ -87,12 +111,13 @@ PSY = (213, 140, 255)  # his telekinesis, the game's psychic colour (fx_color)
 MAT_ID = {name: i + 1 for i, name in enumerate(MAT)}
 ID_MAT = {i: name for name, i in MAT_ID.items()}
 
-W = H = 128
+W, H = SIDE["w"], SIDE["h"]
 OX, OY = SIDE["origin"]
-STEP = 0.33  # sample spacing, in rig units
+STEP = 0.33 / DENSITY  # sample spacing, in rig units (halved at 2x: no holes between splats)
 # The rig is modelled at a comfortable working size and drawn this much smaller, so he
-# sits in the arena at about the size of the others (his hitbox radius is 11).
-SCALE = 0.72
+# sits in the arena at about the size of the others (his hitbox radius is 11); pixels per
+# rig unit, with the density in it.
+SCALE = 0.72 * DENSITY
 
 
 # ------------------------------------------------------------------ 3D helpers
@@ -180,8 +205,8 @@ class Cam:
     # a smaller near zone (the reactions batch): with 18 there, a tool floated or thrown a
     # short way toward or away from the camera was flattened into a sideways move; at 12 it
     # reads along the facing diagonal and the sunglasses stay on the face.
-    NEAR = {"down_side": 12.0, "up_side": 12.0}
-    NEAR_DEFAULT = 18.0
+    NEAR = {"down_side": px(12.0), "up_side": px(12.0)}
+    NEAR_DEFAULT = px(18.0)
 
     def depth_y(self, f):
         k, near = 0.35, self.NEAR.get(self.view, self.NEAR_DEFAULT)
@@ -744,7 +769,7 @@ def gyri(r, img):
     d = ImageDraw.Draw(pil)
     for name, s, cc, rad, pid in r["lobes"]:
         for th0, th1, ph0, ph1, wave in GYRI.get(name, []):
-            n = 24
+            n = 24 * DENSITY
             pts = []
             for k in range(n + 1):
                 t = k / n
@@ -760,9 +785,9 @@ def gyri(r, img):
             prev = None
             for (x, y), dz in zip(xy, dep):
                 ix, iy = int(math.floor(x)), int(math.floor(y))
-                vis = 0 <= ix < W and 0 <= iy < H and part[iy, ix] == pid and dz >= z[iy, ix] - 0.9
+                vis = 0 <= ix < W and 0 <= iy < H and part[iy, ix] == pid and dz >= z[iy, ix] - px(0.9)
                 if vis and prev is not None:
-                    d.line([prev, (ix, iy)], fill=GYRI_COL)
+                    d.line([prev, (ix, iy)], fill=GYRI_COL, width=px(1))
                 prev = (ix, iy) if vis else None
     return np.array(pil)
 
@@ -778,7 +803,7 @@ def outline(r, img):
         pm = S._shifted(mat, dx, dy, 0)
         pz = S._shifted(z, dx, dy, -np.inf)
         with np.errstate(invalid="ignore"):
-            join |= (mat == MAT_ID["brain"]) & (pm == MAT_ID["stem"]) & (np.abs(pz - z) < 2.5)
+            join |= (mat == MAT_ID["brain"]) & (pm == MAT_ID["stem"]) & (np.abs(pz - z) < px(2.5))
     a[join] = img[join]
     return a
 
@@ -826,9 +851,10 @@ def glow(r, img):
     empty = img[:, :, 3] == 0
     out = img.copy()
 
+    # the piece and its outline (one pixel at any density), then rings a 1x pixel wide
     def halo(mask, alpha, width):
-        body = _grow(mask, 1)  # the piece and its outline
-        ring = _grow(body, width) & ~body & empty
+        body = _grow(mask, 1)
+        ring = _grow(body, px(width)) & ~body & empty
         out[ring] = (PSY[0], PSY[1], PSY[2], alpha)
         return ring
 
@@ -837,17 +863,17 @@ def glow(r, img):
         if name in p.active:
             m = np.isin(part, list(ids))
             ring = halo(m, 235, 1)
-            outer = _grow(ring, 1) & ~ring & empty & ~_grow(m, 1)
+            outer = _grow(ring, px(1)) & ~ring & empty & ~_grow(m, 1)
             out[outer] = (PSY[0], PSY[1], PSY[2], 110)
             taken |= ring | outer
     for name, ids in r["tool_ids"].items():
         if name not in p.active:
             m = np.isin(part, list(ids))
-            ring = _grow(_grow(m, 1), 1) & ~_grow(m, 1) & empty & ~taken
+            ring = _grow(_grow(m, 1), px(1)) & ~_grow(m, 1) & empty & ~taken
             out[ring] = (PSY[0], PSY[1], PSY[2], 165)
     if p.psy >= 0.5:
         m = (r["mat"] == MAT_ID["brain"]) | (r["mat"] == MAT_ID["stem"])
-        ring = _grow(_grow(m, 1), 1) & ~_grow(m, 1) & empty & ~taken
+        ring = _grow(_grow(m, 1), px(1)) & ~_grow(m, 1) & empty & ~taken
         out[ring] = (PSY[0], PSY[1], PSY[2], int(90 + 120 * p.psy))
     return out
 
@@ -864,9 +890,9 @@ def smears(r, img):
     for a, b in segs:
         (x0, y0), (x1, y1) = cam.P(np.array([a, b], float) * SCALE)
         mx, my = x0 + (x1 - x0) * 0.4, y0 + (y1 - y0) * 0.4
-        d.line([(x0, y0), (x1, y1)], fill=(PSY[0], PSY[1], PSY[2], 110), width=1)
-        d.line([(mx, my), (x1, y1)], fill=(PSY[0], PSY[1], PSY[2], 150), width=3)
-        d.line([(mx, my), (x1, y1)], fill=(246, 226, 255, 230), width=1)
+        d.line([(x0, y0), (x1, y1)], fill=(PSY[0], PSY[1], PSY[2], 110), width=px(1))
+        d.line([(mx, my), (x1, y1)], fill=(PSY[0], PSY[1], PSY[2], 150), width=px(3))
+        d.line([(mx, my), (x1, y1)], fill=(246, 226, 255, 230), width=px(1))
     over = np.array(pil)
     m = (img[:, :, 3] == 0) & (over[:, :, 3] > 0)
     img[m] = over[m]
@@ -885,14 +911,17 @@ def flash_burst(r, img):
     cx, cy = int(math.floor(cx)), int(math.floor(cy))
     pil = Image.fromarray(img)
     d = ImageDraw.Draw(pil)
+    # the same size in the world at any density: lengths and stroke widths in 1x pixels
     ray, diag, core = round(2 + 9 * k), round(1 + 4 * k), max(1, round(2.6 * k))
+    half = px(ray // 2)
+    ray, diag, core, lw = px(ray), px(diag), px(core), px(1)
     col, hot = (PSY[0], PSY[1], PSY[2], 255), (252, 240, 255, 255)
-    d.line([(cx - ray, cy), (cx + ray, cy)], fill=col)
-    d.line([(cx, cy - ray), (cx, cy + ray)], fill=col)
-    d.line([(cx - diag, cy - diag), (cx + diag, cy + diag)], fill=col)
-    d.line([(cx - diag, cy + diag), (cx + diag, cy - diag)], fill=col)
-    d.line([(cx - ray // 2, cy), (cx + ray // 2, cy)], fill=hot)
-    d.line([(cx, cy - ray // 2), (cx, cy + ray // 2)], fill=hot)
+    d.line([(cx - ray, cy), (cx + ray, cy)], fill=col, width=lw)
+    d.line([(cx, cy - ray), (cx, cy + ray)], fill=col, width=lw)
+    d.line([(cx - diag, cy - diag), (cx + diag, cy + diag)], fill=col, width=lw)
+    d.line([(cx - diag, cy + diag), (cx + diag, cy - diag)], fill=col, width=lw)
+    d.line([(cx - half, cy), (cx + half, cy)], fill=hot, width=lw)
+    d.line([(cx, cy - half), (cx, cy + half)], fill=hot, width=lw)
     d.ellipse([cx - core, cy - core, cx + core, cy + core], fill=hot)
     return np.array(pil)
 
@@ -1634,9 +1663,10 @@ def inspect(rows, picks, path):
             bg.alpha_composite(img)
             ImageDraw.Draw(bg).text((2, 2), "%s %s" % (pick, view), fill=(255, 220, 140, 255))
             tiles.append(bg.resize((img.width * 3, img.height * 3), Image.NEAREST))
-    out = Image.new("RGBA", (sum(t.width for t in tiles[:nv]), 3 * 128 * ((len(tiles) + nv - 1) // nv)), (40, 32, 26, 255))
+    th = 3 * SIDE["h"]
+    out = Image.new("RGBA", (sum(t.width for t in tiles[:nv]), th * ((len(tiles) + nv - 1) // nv)), (40, 32, 26, 255))
     for k, t in enumerate(tiles):
-        out.alpha_composite(t, (sum(x.width for x in tiles[:nv][:k % nv]), (k // nv) * 384))
+        out.alpha_composite(t, (sum(x.width for x in tiles[:nv][:k % nv]), (k // nv) * th))
     out.save(path)
     print("wrote", path)
 
