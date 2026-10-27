@@ -109,7 +109,7 @@ func test_props_stand_on_walls_and_fences_and_the_floor_gets_flat_things_only() 
 	var grid := _grid(map)
 	var d: Node = (load(DRESSING) as PackedScene).instantiate()
 	var props := d.get_node("Props")
-	assert_true(props.get_child_count() >= 50, "dressed along the walls and gates (%d props)" % props.get_child_count())
+	assert_true(props.get_child_count() >= 60, "dressed along the walls and gates (%d props)" % props.get_child_count())
 	var kinds := {}
 	for p: Node2D in props.get_children():
 		kinds[_kind(p)] = true
@@ -119,7 +119,7 @@ func test_props_stand_on_walls_and_fences_and_the_floor_gets_flat_things_only() 
 		var sh := p.get_node_or_null("Shadow") as Sprite2D
 		if sh != null:
 			assert_true(sh.show_behind_parent, "%s: its contact shadow under it" % p.name)
-	for k in ["barrel", "crate", "sack", "rack", "torch", "lantern", "ivy", "swag_red", "swag_blue"]:
+	for k in ["barrels3", "crates_big", "sack_heap", "hay", "plinth", "rack", "torch", "lantern", "ivy", "swag_red", "swag_blue", "banner_red"]:
 		assert_true(kinds.has(k), "a %s among the props" % k)
 	# the flat parts: paths, decals and detail never on a wall, fence, chasm or brush; paths and
 	# decals off the water too (lily pads float on it)
@@ -148,7 +148,11 @@ func test_props_stand_on_walls_and_fences_and_the_floor_gets_flat_things_only() 
 func test_every_flame_has_a_lamp_that_burns_by_day() -> void:
 	var map := ArenaMap.get_map(MAP)
 	var lights: Array = map.get("lights", [])
-	assert_true(lights.size() <= Light2DView.MAX_LAMPS, "at most %d lamps" % Light2DView.MAX_LAMPS)
+	assert_true(lights.size() <= Light2DView.MAX_DAY_LAMPS, "at most %d day lamps" % Light2DView.MAX_DAY_LAMPS)
+	var a := 0
+	for i in lights.size():
+		a += 1 if i % 2 == 0 else 0
+	assert_true(a <= Light2DView.MAX_LAMPS and lights.size() - a <= Light2DView.MAX_LAMPS, "15 a glow item at most (Godot's lights on one canvas item)")
 	assert_true(Light2DView.lamps_by_day(map, "day") and Light2DView.lamps_by_day(map, "sunset"), "the lamps burn by day and at sunset")
 	assert_gt(Light2DView.day_glow("sunset"), Light2DView.day_glow("day"), "brighter as the light goes")
 	var root: Node = (load(GROUND) as PackedScene).instantiate()
@@ -182,13 +186,13 @@ func test_the_lamps_glow_on_the_floor_by_day_on_high_only() -> void:
 	assert_true(glow.visible, "glowing on the floor")
 	var day := 0.0
 	for l in lv.get_children():
-		if l is PointLight2D and (l as PointLight2D).range_item_cull_mask == Light2DView.LAMP_GLOW_MASK:
+		if l is PointLight2D and (l as PointLight2D).range_item_cull_mask in [Light2DView.LAMP_GLOW_MASK, Light2DView.LAMP_GLOW_MASK_B]:
 			day += (l as PointLight2D).energy
 	assert_true(day > 0.0, "with some strength")
 	lv.apply(sim, {"time": "sunset", "weather": "clear"}, Vector2(0.25, 1))
 	var dusk := 0.0
 	for l in lv.get_children():
-		if l is PointLight2D and not (l as PointLight2D).is_queued_for_deletion() 				and (l as PointLight2D).range_item_cull_mask == Light2DView.LAMP_GLOW_MASK:
+		if l is PointLight2D and not (l as PointLight2D).is_queued_for_deletion() 				and (l as PointLight2D).range_item_cull_mask in [Light2DView.LAMP_GLOW_MASK, Light2DView.LAMP_GLOW_MASK_B]:
 			dusk += (l as PointLight2D).energy
 	assert_gt(dusk, day, "brighter at sunset")
 	lv.tier = Light2DView.Tier.LOW

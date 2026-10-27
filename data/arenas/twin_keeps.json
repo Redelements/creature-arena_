@@ -304,7 +304,7 @@
 	"lights": [
 		{
 			"pos": [
-				40,
+				102,
 				213.5
 			],
 			"color": "#ffb45a",
@@ -314,11 +314,11 @@
 			"fighter_energy": 0,
 			"lamp": true,
 			"day": 0.35,
-			"_doc": "the castle's flames (the dressing's torches, lantern and candelabra, the team braziers on the gates; assets/arenas/twin_keeps_dressing.tscn) as lamps that burn by day too: `day` is the share of `energy` that glows on the floor by day (x data/weather.json times.<t>.lamps: more at sunset), Lighting High only, Light2DView.lamps_by_day; pos is the flame, world px; tests/test_tiles_dressing.gd keeps one by every flame"
+			"_doc": "the castle's flames (the dressing's torches, lantern and candelabra, the team braziers on the gates; assets/arenas/twin_keeps_dressing.tscn) as lamps that burn by day too: `day` is the share of `energy` that glows on the floor by day (x data/weather.json times.<t>.lamps: more at sunset), Lighting High only, Light2DView.lamps_by_day; pos is the flame, world px; tests/test_tiles_dressing.gd keeps one by every flame; by day they alternate over two glow items, 15 an item"
 		},
 		{
 			"pos": [
-				1192,
+				1130,
 				213.5
 			],
 			"color": "#ffb45a",
@@ -331,7 +331,7 @@
 		},
 		{
 			"pos": [
-				113,
+				43,
 				213.5
 			],
 			"color": "#ffb45a",
@@ -344,7 +344,7 @@
 		},
 		{
 			"pos": [
-				1119,
+				1189,
 				213.5
 			],
 			"color": "#ffb45a",
@@ -383,7 +383,7 @@
 		},
 		{
 			"pos": [
-				168,
+				170,
 				398.5
 			],
 			"color": "#ffb45a",
@@ -396,7 +396,7 @@
 		},
 		{
 			"pos": [
-				1064,
+				1062,
 				398.5
 			],
 			"color": "#ffb45a",
@@ -424,6 +424,58 @@
 			"pos": [
 				886,
 				315.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				462,
+				147.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				770,
+				147.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				462,
+				427.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				770,
+				427.5
 			],
 			"color": "#ffb45a",
 			"radius": 44,

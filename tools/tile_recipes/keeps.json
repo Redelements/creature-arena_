@@ -142,14 +142,80 @@
 				"blob_prob": 0.05,
 				"variant_prob": 1.0,
 				"tint": {
-					"desat": 0.3,
+					"desat": 0.35,
 					"mul": [
-						1.0,
-						0.98,
-						0.86
+						1.02,
+						0.92,
+						0.76
 					]
 				},
-				"_doc": "worn dirt paths (the dressing scene's Paths layer, painted by hand or tools/seed_dressing.gd): Set 1's tan dirt band like the Quarry's lanes, toned like the river's shoulder so a path runs into it"
+				"_doc": "worn dirt paths and bare earth (the dressing scene's Paths / Bare layers): Set 1's tan dirt band like the Quarry's lanes, desaturated toward the river's shoulder so a path runs into it"
+			},
+			"grass_deep": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+				"blob": [
+					16,
+					0
+				],
+				"variants": [
+					[
+						20,
+						0,
+						8,
+						4
+					]
+				],
+				"variant_prob": 1.0,
+				"_doc": "dressing: Set 1's dark green grass as ragged patches over the floor"
+			},
+			"grass_dry": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+				"blob": [
+					0,
+					4
+				],
+				"variants": [
+					[
+						4,
+						4,
+						8,
+						4
+					]
+				],
+				"variant_prob": 1.0,
+				"tint": {
+					"mul": [
+						1.05,
+						1.03,
+						1.0
+					]
+				},
+				"_doc": "dressing: Set 1's grey-olive dry grass as ragged patches (by the walls, the shoulder)"
+			},
+			"meadow": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+				"blob": [
+					0,
+					0
+				],
+				"variants": [
+					[
+						4,
+						0,
+						8,
+						4
+					]
+				],
+				"variant_prob": 1.0,
+				"texture": {
+					"src": "RPGW_GrassLand_v2.01/MainLev2.0.png",
+					"block": [
+						56,
+						24
+					],
+					"size": 4
+				},
+				"_doc": "dressing: GrassLand's flowered meadow laid in Set 1's ragged grass blob: clover and flower patches"
 			}
 		},
 		"surfaces": {
@@ -934,6 +1000,260 @@
 				36,
 				74
 			]
+		},
+		"barrels3": {
+			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
+			"size": [
+				50,
+				40
+			],
+			"feet": [
+				25,
+				39
+			],
+			"_doc": "a group of three barrels (propsA)",
+			"parts": [
+				{
+					"box": [
+						64,
+						416,
+						96,
+						448
+					],
+					"at": [
+						9,
+						0
+					]
+				},
+				{
+					"box": [
+						0,
+						416,
+						32,
+						448
+					],
+					"at": [
+						0,
+						8
+					]
+				},
+				{
+					"box": [
+						160,
+						416,
+						192,
+						448
+					],
+					"at": [
+						18,
+						8
+					]
+				}
+			]
+		},
+		"crates_big": {
+			"src": "RPG_Buildings_WINDMILL_v1.1/Mill_decoratives.png",
+			"box": [
+				67,
+				282,
+				125,
+				351
+			],
+			"feet": [
+				29,
+				68
+			],
+			"_doc": "Windmill's stacked crates"
+		},
+		"crates_mid": {
+			"src": "RPG_Buildings_WINDMILL_v1.1/Mill_decoratives.png",
+			"box": [
+				137,
+				274,
+				182,
+				331
+			],
+			"feet": [
+				22,
+				56
+			]
+		},
+		"sack_heap": {
+			"src": "RPG_Buildings_WINDMILL_v1.1/Mill_decoratives.png",
+			"size": [
+				48,
+				38
+			],
+			"feet": [
+				24,
+				37
+			],
+			"parts": [
+				{
+					"box": [
+						131,
+						18,
+						156,
+						52
+					],
+					"at": [
+						12,
+						3
+					]
+				},
+				{
+					"box": [
+						226,
+						5,
+						245,
+						31
+					],
+					"at": [
+						0,
+						11
+					]
+				},
+				{
+					"box": [
+						258,
+						13,
+						277,
+						31
+					],
+					"at": [
+						28,
+						19
+					]
+				}
+			]
+		},
+		"hay": {
+			"src": "RPG_Buildings_WINDMILL_v1.1/Mill_decoratives.png",
+			"size": [
+				44,
+				40
+			],
+			"feet": [
+				22,
+				39
+			],
+			"parts": [
+				{
+					"box": [
+						450,
+						50,
+						479,
+						88
+					],
+					"at": [
+						0,
+						2
+					]
+				},
+				{
+					"box": [
+						482,
+						50,
+						511,
+						88
+					],
+					"at": [
+						14,
+						0
+					]
+				},
+				{
+					"box": [
+						394,
+						57,
+						409,
+						88
+					],
+					"at": [
+						29,
+						8
+					]
+				}
+			],
+			"_doc": "Windmill hay bundles, piled"
+		},
+		"plinth": {
+			"src": "RPG_Buildings_CASTLE_v1.0/castle_decoratives.png",
+			"box": [
+				80,
+				0,
+				112,
+				46
+			],
+			"feet": [
+				16,
+				45
+			],
+			"_doc": "Castle's orb ornament on a stone plinth, at the gates"
+		},
+		"slab_a": {
+			"src": "RPGFW_Set1_v1.0/_PNG/g_terrain4.png",
+			"box": [
+				482,
+				640,
+				522,
+				682
+			],
+			"feet": [
+				20,
+				41
+			],
+			"tint": {
+				"desat": 0.6,
+				"mul": [
+					1.15,
+					1.15,
+					1.13
+				]
+			},
+			"_doc": "flat: g_terrain4 rubble greyed as flagstones"
+		},
+		"slab_b": {
+			"src": "RPGFW_Set1_v1.0/_PNG/g_terrain4.png",
+			"box": [
+				263,
+				589,
+				313,
+				625
+			],
+			"feet": [
+				25,
+				35
+			],
+			"tint": {
+				"desat": 0.6,
+				"mul": [
+					1.15,
+					1.15,
+					1.13
+				]
+			}
+		},
+		"slab_c": {
+			"src": "RPGFW_Set1_v1.0/_PNG/g_terrain4.png",
+			"box": [
+				452,
+				611,
+				478,
+				637
+			],
+			"feet": [
+				13,
+				25
+			],
+			"tint": {
+				"desat": 0.6,
+				"mul": [
+					1.15,
+					1.15,
+					1.13
+				]
+			}
 		}
 	},
 	"anim": {

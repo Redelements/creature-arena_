@@ -95,6 +95,9 @@ packs dir; "tile" positions are [column, row] of 32 px tiles in the source sheet
   ground.terrains.<name>.fill_notches  [tx, ty]: a solid tile of the same ground; the blob's
                            corner notches between two connected sides are filled from it (a
                            strip two tiles wide, where the diagonal is never open)
+  ground.terrains.<name>.texture  {"src", "block": [tx, ty], "size": 4}: the blob's tiles keep their
+                           ragged alpha but take this ground's colours, a tile of the block each
+                           (Set 1's grass blob as a patch of GrassLand's flowered meadow)
   ground.terrains.<name>.blob_prob  the blob block's tiles' weight (default 1; "variant_prob"
                            the variants', default 0.5)
   overlay.strength         how much of the face shows through the pit's dark (default 1: a
@@ -325,10 +328,24 @@ def cut_ground(cut, set_name, g):
         out = []
         solid = cut.tile(t["src"], *t["fill_notches"]) if "fill_notches" in t else None
 
-        def finish(img, sides, t=t, solid=solid):
+        tex = t.get("texture")
+        count = [0]
+
+        def finish(img, sides, t=t, solid=solid, tex=tex, count=count):
             img = cleared(cut, img, t)
             if solid is not None:
                 img = notches_filled(img, sides, solid)
+            if tex:
+                # the blob's ragged alpha over another ground's colours (a flowered meadow
+                # laid as a ragged patch): a tile of the texture's block per blob tile, in turn
+                n = int(tex.get("size", 4))
+                k = count[0]
+                count[0] += 1
+                bx, by = tex["block"]
+                src = np.array(cut.tile(tex["src"], bx + k % n, by + (k // n) % n).convert("RGBA"))
+                arr = np.array(img.convert("RGBA"))
+                arr[:, :, :3] = src[:, :, :3]
+                img = Image.fromarray(arr, "RGBA")
             return tinted(img, t)
         blob_prob = float(t.get("blob_prob", 1.0))
         if "blob9" in t:

@@ -60,6 +60,10 @@ const GLOW_MASK := 2048  ## FloorGlow: the fight lights on the floor (bit 11: ab
 ## The arena's lamps by day and at sunset (`lamps_by_day`): main's second FloorGlow, its own
 ## canvas item, so lamps and the fight's floor lights never share one item's 15 lights.
 const LAMP_GLOW_MASK := 4096
+## The day lamps alternate between two such items (`lamp_glow`, `lamp_glow_b`), so up to
+## MAX_DAY_LAMPS burn by day, 15 an item.
+const LAMP_GLOW_MASK_B := 8192
+const MAX_DAY_LAMPS := 30
 const MAX_DYNAMIC := 8  ## Surge and move lights at once (the strongest)
 const TEX_SIZE := 256  ## the radial light texture, built once
 ## A lamp without `fighter_energy` lights the fighters near it with this share of its floor
@@ -148,6 +152,7 @@ var floor_glow: FloorGlow = null
 ## Main's second FloorGlow (LAMP_GLOW_MASK): the arena's lamps by day and at sunset, shown
 ## only while one burns.
 var lamp_glow: FloorGlow = null
+var lamp_glow_b: FloorGlow = null  ## the second (LAMP_GLOW_MASK_B): every other day lamp
 
 
 ## Takes the fight's floor lights and adds just them to the picture: a black rect over the
@@ -275,8 +280,8 @@ func apply(s: MatchSim, look: Dictionary, cast: Vector2) -> void:
 	# the lamps
 	if tier == Tier.HIGH and lamps_on(s.arena, t):
 		for e in s.arena.get("lights", []):
-			if not e is Dictionary:
-				continue
+			if not e is Dictionary or float(e.get("day", 0.0)) > 0.0:
+				continue  # a day lamp (a castle's torches) is a day and sunset glow, not a night light
 			if lamps.size() >= MAX_LAMPS:
 				push_warning("%s: more than %d lights, the rest dropped" % [s.arena.get("id", "?"), MAX_LAMPS])
 				break
@@ -292,16 +297,17 @@ func apply(s: MatchSim, look: Dictionary, cast: Vector2) -> void:
 		for e in s.arena.get("lights", []):
 			if not e is Dictionary or float(e.get("day", 0.0)) <= 0.0:
 				continue
-			if lamps.size() >= MAX_LAMPS:
-				push_warning("%s: more than %d lights, the rest dropped" % [s.arena.get("id", "?"), MAX_LAMPS])
+			if lamps.size() >= MAX_DAY_LAMPS:
+				push_warning("%s: more than %d day lamps, the rest dropped" % [s.arena.get("id", "?"), MAX_DAY_LAMPS])
 				break
 			var lamp := lamp_of(e)
 			lamp["energy"] = float(lamp["energy"]) * float(e["day"]) * k
 			lamp["fighter_energy"] = 0.0
+			_lamp_lights.append(_lamp_light(lamp, LAMP_GLOW_MASK if lamps.size() % 2 == 0 else LAMP_GLOW_MASK_B))
 			lamps.append(lamp)
-			_lamp_lights.append(_lamp_light(lamp, LAMP_GLOW_MASK))
-	if lamp_glow != null:
-		lamp_glow.visible = not night and not _lamp_lights.is_empty()
+	for g in [lamp_glow, lamp_glow_b]:
+		if g != null:
+			g.visible = not night and not _lamp_lights.is_empty()
 	_sync()
 
 
@@ -373,9 +379,10 @@ static func day_glow(time: String) -> float:
 
 
 ## Whether this arena's `lights` replace the baked light map: HIGH, a time with floodlights
-## (night), and an arena that lists them.
+## (night), and an arena that lists night lamps (those without a `day` share).
 static func lamps_on(arena: Dictionary, time: String) -> bool:
-	if (arena.get("lights", []) as Array).is_empty():
+	var night_lamps := (arena.get("lights", []) as Array).filter(func(e): return e is Dictionary and float(e.get("day", 0.0)) <= 0.0)
+	if night_lamps.is_empty():
 		return false
 	var tm: Dictionary = (WeatherView.data().get("times", {}) as Dictionary).get(time, {})
 	return tm.has("floodlights")

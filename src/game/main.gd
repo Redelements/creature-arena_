@@ -404,6 +404,7 @@ var glow := default_glow()
 var light2d: Light2DView
 var light_floor: Light2DView.FloorGlow
 var light_lamps: Light2DView.FloorGlow  ## the arena's lamps by day and at sunset (Light2DView.lamp_glow)
+var light_lamps_b: Light2DView.FloorGlow  ## the other half of them (Light2DView.lamp_glow_b)
 var bloom: BloomView
 var lighting := default_lighting()
 var _lighting_cli := -1
@@ -711,6 +712,8 @@ func _ready() -> void:
 	add_child(light_floor)
 	light_lamps = Light2DView.FloorGlow.new(Light2DView.LAMP_GLOW_MASK)  # an arena's lamps by day (Twin Keeps' torches)
 	add_child(light_lamps)
+	light_lamps_b = Light2DView.FloorGlow.new(Light2DView.LAMP_GLOW_MASK_B)  # every other one (15 lights an item)
+	add_child(light_lamps_b)
 	rings = RangeRings.new()
 	rings.visible = false
 	rings.fx = fx  # what the local team can see (Vision): no rings for a hidden foe
@@ -739,6 +742,7 @@ func _ready() -> void:
 	light2d.fx = fx
 	light2d.floor_glow = light_floor
 	light2d.lamp_glow = light_lamps
+	light2d.lamp_glow_b = light_lamps_b
 	light2d.views = views  # each seen fighter's own sun
 	add_child(light2d)
 	bloom = BloomView.new()  # half-size bloom of the bright things, added onto the screen layer

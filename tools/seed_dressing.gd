@@ -12,7 +12,8 @@ extends SceneTree
 ## The scene it writes (scene px: 2 a unit, the ground scene's own space; assets/README.md
 ## "Dressing"):
 ##   Dressing   Node2D, y-sorted (it sits in the ground scene's y-sorted Walls)
-##     Paths    TileMapLayer, <set>_ground.tres: the "path" terrain (worn dirt), 32 px tiles
+##     GrassDeep, GrassDry, Meadow, Paths   TileMapLayers on <set>_ground.tres (32 px): grass
+##              variants in ragged patches, then worn paths and bare earth (the "path" terrain)
 ##     Flat     Node2D: flat decals (cobble patches, ragged dirt and grass patches), feet at pos
 ##     Detail   TileMapLayer, <set>_cells.tres: small flat sprites a cell each (moss, leaves,
 ##              stepping stones, flowers, lily pads), the scatter atlas's slots
@@ -27,7 +28,9 @@ extends SceneTree
 ##   mirror  {"width": units, "swap": {"from": "to", ...}}: every entry is also placed mirrored
 ##           left to right (x -> width - x, flipped), its kind's name with each swap applied
 ##           (the left keep's red cloth becomes the right keep's blue); "solo": true opts out
-##   paths   [[tx, ty, w, h], ...]: tile rects painted with the path terrain, joined
+##   grounds [{layer, terrain, on: "floor" | "land", rects, blobs, curves, solo}]: one
+##           TileMapLayer each, in order (under the decals): a terrain of the set laid in
+##           ragged patches and smooth worn paths (`_ground_tiles`); "Paths" must be one
 ##   flat    [{kind, pos, flip}]: decor (manifest "decor") laid flat, feet at pos
 ##   detail  [{kind, cells: [[cx, cy], ...]} | {kind, clump: [cx, cy], n, r, seed}]: scatter
 ##           sprites (manifest "scatter" kinds) on single cells, or n of them in a clump of
@@ -71,7 +74,11 @@ func _init() -> void:
 		push_error("could not save %s: %d" % [path, err])
 		quit(1)
 		return
-	print("wrote %s: %d path tiles, %d flat, %d detail, %d props" % [path,
+	var ground := 0
+	for n in root.get_children():
+		if n is TileMapLayer and n.name != "Detail":
+			ground += (n as TileMapLayer).get_used_cells().size()
+	print("wrote %s: %d ground tiles (%d path), %d flat, %d detail, %d props" % [path, ground,
 		(root.get_node("Paths") as TileMapLayer).get_used_cells().size(), root.get_node("Flat").get_child_count(),
 		(root.get_node("Detail") as TileMapLayer).get_used_cells().size(), root.get_node("Props").get_child_count()])
 	root.free()
@@ -139,24 +146,29 @@ static func seed_scene(spec: Dictionary) -> Node2D:
 	root.y_sort_enabled = true
 	root.set_meta("doc", "Hand dressing (tools/seed_dressing.gd seeded it; edit it here). Props: position = feet on a wall or fence cell, offset draws the picture higher; flat parts sort at y 0. assets/README.md \"Dressing\".")
 
-	# paths: the path terrain over the tile rects, joined
-	var paths := TileMapLayer.new()
-	paths.name = "Paths"
-	paths.tile_set = load(TILES_DIR + set_name + "_ground.tres")
-	root.add_child(paths)
-	paths.owner = root
-	var cells: Array[Vector2i] = []
+	# ground layers: terrains of the set laid in ragged patches, worn paths and bare earth
+	# (`grounds`, in order, each its own TileMapLayer: one terrain a layer)
+	var bridges: Array[Rect2i] = []
+	if spec.has("map"):
+		for b in ArenaMap.get_map(String(spec["map"])).get("bridges", []):
+			var r: Array = b["rect"]
+			bridges.append(Rect2i(int(r[0]), int(r[1]), int(r[2]), int(r[3])))
 	var mw := int(float(spec.get("mirror", {}).get("width", 0)) / (CELL * 2.0))
-	for r in spec.get("paths", []):
-		for ty in range(int(r[1]), int(r[1]) + int(r[3])):
-			for tx in range(int(r[0]), int(r[0]) + int(r[2])):
-				for c in ([Vector2i(tx, ty), Vector2i(mw - 1 - tx, ty)] if mw > 0 else [Vector2i(tx, ty)]):
-					if not c in cells:
-						cells.append(c)
-	var ts: TileSet = paths.tile_set
-	for i in ts.get_terrains_count(0):
-		if ts.get_terrain_name(0, i) == "path" and not cells.is_empty():
-			paths.set_cells_terrain_connect(cells, 0, i, false)
+	for gspec: Dictionary in spec.get("grounds", []):
+		var layer := TileMapLayer.new()
+		layer.name = String(gspec["layer"])
+		layer.tile_set = load(TILES_DIR + set_name + "_ground.tres")
+		root.add_child(layer)
+		layer.owner = root
+		var tiles := _ground_tiles(gspec, mw)
+		var cells: Array[Vector2i] = []
+		for t: Vector2i in tiles:
+			if grid == null or _ground_ok(t, String(gspec.get("on", "floor")), grid, bridges):
+				cells.append(t)
+		var ts: TileSet = layer.tile_set
+		for i in ts.get_terrains_count(0):
+			if ts.get_terrain_name(0, i) == String(gspec["terrain"]) and not cells.is_empty():
+				layer.set_cells_terrain_connect(cells, 0, i, false)
 
 	# flat decals
 	var flat := Node2D.new()
@@ -297,6 +309,79 @@ static func _shadow(n: Node2D, man: Dictionary, w: float, lift: float, root: Nod
 	s.show_behind_parent = true
 	n.add_child(s)
 	s.owner = root
+
+
+## The tiles of one `grounds` entry, mirrored unless `solo`: its `rects` [tx, ty, w, h], its
+## `blobs` [{at: [tx, ty] (tile units, a tile tx spans tx..tx+1), r, stretch: [sx, sy], seed}]
+## (a disc whose rim wobbles) and its `curves` [{points: [[x, y], ...], width: [w0, w1]}] (a
+## smooth line through the points, its width easing from w0 to w1, its edges wobbling).
+static func _ground_tiles(g: Dictionary, mw: int) -> Dictionary:
+	var out := {}
+	for r in g.get("rects", []):
+		for ty in range(int(r[1]), int(r[1]) + int(r[3])):
+			for tx in range(int(r[0]), int(r[0]) + int(r[2])):
+				out[Vector2i(tx, ty)] = true
+	for b: Dictionary in g.get("blobs", []):
+		var at := Vector2(float(b["at"][0]), float(b["at"][1]))
+		var r := float(b.get("r", 2.0))
+		var st: Array = b.get("stretch", [1.0, 1.0])
+		var k := float(int(b.get("seed", 0)) % 97)
+		for ty in range(floori(at.y - r * 2.0), ceili(at.y + r * 2.0)):
+			for tx in range(floori(at.x - r * 2.0), ceili(at.x + r * 2.0)):
+				var d := (Vector2(tx + 0.5, ty + 0.5) - at) / Vector2(float(st[0]), float(st[1]))
+				var th := d.angle()
+				var rim := r * (1.0 + 0.22 * sin(3.0 * th + k) + 0.12 * sin(5.0 * th + 2.0 * k))
+				if d.length() <= rim:
+					out[Vector2i(tx, ty)] = true
+	for c: Dictionary in g.get("curves", []):
+		var pts: Array = c["points"]
+		var w: Array = c.get("width", [2.0, 2.0])
+		var samples: Array = []
+		for i in pts.size() - 1:
+			var p0 := _v2(pts[maxi(i - 1, 0)])
+			var p1 := _v2(pts[i])
+			var p2 := _v2(pts[i + 1])
+			var p3 := _v2(pts[mini(i + 2, pts.size() - 1)])
+			for k in 12:
+				var t := k / 12.0
+				samples.append(0.5 * ((2.0 * p1) + (-p0 + p2) * t + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t * t
+					+ (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t * t * t))
+		samples.append(_v2(pts[pts.size() - 1]))
+		for i in samples.size():
+			var f := float(i) / maxf(1.0, samples.size() - 1.0)
+			var half := lerpf(float(w[0]), float(w[1]), f) * 0.5 * (1.0 + 0.18 * sin(float(i) * 0.9))
+			var p: Vector2 = samples[i]
+			for ty in range(floori(p.y - half - 1.0), ceili(p.y + half + 1.0)):
+				for tx in range(floori(p.x - half - 1.0), ceili(p.x + half + 1.0)):
+					if Vector2(tx + 0.5, ty + 0.5).distance_to(p) <= half:
+						out[Vector2i(tx, ty)] = true
+	if mw > 0 and not bool(g.get("solo", false)):
+		for t: Vector2i in out.keys():
+			out[Vector2i(mw - 1 - t.x, t.y)] = true
+	return out
+
+
+static func _v2(a: Array) -> Vector2:
+	return Vector2(float(a[0]), float(a[1]))
+
+
+## Whether a ground tile (2 x 2 cells) may be laid: "floor" (a path) on plain floor only,
+## "land" (a grass patch) anywhere but the water and the chasms; never on a bridge.
+static func _ground_ok(t: Vector2i, on: String, grid: TerrainGrid, bridges: Array[Rect2i]) -> bool:
+	for dy in 2:
+		for dx in 2:
+			var c := t * 2 + Vector2i(dx, dy)
+			if not grid.in_bounds(c):
+				return false
+			for b in bridges:
+				if b.grow(1).has_point(c):
+					return false
+			var v := grid.get_base(c)
+			if on == "floor" and v != TerrainGrid.INTACT:
+				return false
+			if v == TerrainGrid.SHALLOWS or v == TerrainGrid.CHASM:
+				return false
+	return true
 
 
 ## Whether a detail sprite of `kind` may lie on cell `c`: lily pads on the water, everything

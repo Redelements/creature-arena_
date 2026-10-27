@@ -185,7 +185,7 @@ see the walls round it).
 
 | Node | What | Editing |
 | --- | --- | --- |
-| `Paths` | TileMapLayer on `<set>_ground.tres`: the `path` terrain (worn dirt, ragged edges) | paint with the terrain brush (terrain set 0, "path") |
+| `GrassDeep`, `GrassDry`, `Meadow`, `Paths`, `Bare` | TileMapLayers on `<set>_ground.tres`, one terrain each: darker, drier and flowered grass in ragged patches, then worn paths and bare earth (the `path` terrain) | paint with the terrain brush (terrain set 0); grass anywhere off the water, paths and bare earth on plain floor |
 | `Flat` | Sprite2Ds laid flat: cobble patches, ragged dirt and grass patches | move freely; anything here must look flat |
 | `Detail` | TileMapLayer on `<set>_cells.tres` (16 px): moss, leaves, stepping stones, flowers, lily pads (the scatter atlas's slots, 8 looks each as alternatives) | paint single cells; lily pads on water, the rest on plain floor |
 | `Props` | Sprite2D / AnimatedSprite2D props, each with a `Shadow` child (a flat ellipse from `<set>_shadows.png`, behind it) | the node's **position is its feet** (it sorts among the wall sprites and hides with the wall by that point); its **offset** draws the picture (`-feet`, minus `lift` to stand it on a wall's top or hang it on the face) |
@@ -199,8 +199,8 @@ Rules (checked by `tests/test_tiles_dressing.gd`):
   out the cells under each prop at load, so a moved prop still falls with its wall.
 - The flat parts sort at y 0, under every wall sprite: keep them at the scene's origin.
 - Every flame (torch, brazier, candelabra, lantern) has a lamp in the arena's `lights` on its
-  flame with a `day` share, at most 15 lamps (Godot's lights on one canvas item): move a lamp
-  with its prop.
+  flame with a `day` share; by day they alternate over two glow items of 15 lights each
+  (Godot's lights on one canvas item), so at most 30: move a lamp with its prop.
 - `tools/seed_dressing.gd -- --map=<id>` wrote the first draft from
   `tools/dressing/<id>.json` (placed once on the left keep and mirrored, red cloth turning
   blue). The scene is the source now; reseeding needs `--force` and drops every hand edit.
