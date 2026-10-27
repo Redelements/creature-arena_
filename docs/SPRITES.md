@@ -707,6 +707,18 @@ the hip sinks), `yaw`, `pivot`, `carry` (limbs ride the cone in the tumble), `dr
 `blob`, `shard_a`, and `stick` (the dome's flecks picked in the dome's own coordinates, so
 they don't sparkle in motion).
 
+**2x (route A, Oct 2026, branch `sno-2x`, stacked on `crease-2x`).** The game draws
+`sno_2x*.png`: the same rig rendered by `gen_sno.py` at density 2 (`SNO_DENSITY`, default 2;
+`SNO_DENSITY=1` rebuilds the 1x `sno*.png` byte for byte), **256×256** frames (down and up
+**224×256**), feet at (128, 208) (up views (112/128, 184)), `"ppu": 2` in every view,
+portrait `[104, 120, 48, 64]`; same rows, frame counts and timing. Shaded "bold"
+(`SNO_STYLE`): three flat tones (no highlight step, no rim light) and one dark ink round the
+whole silhouette; seams keep their material's seam colour. The dome's flecks are picked on
+coarser cells with a scrambling hash at 2x (`FLECK_K` 1.3): the 1x cells resolve into
+single-pixel salt and the 1x linear hash into diagonal streaks. The fleck glint and the
+Surge eyes stay on the emissive sheets; the knockout melt is FxView's (unchanged).
+Gallery: `pixellab/sno/sno_route_a.png`.
+
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
 | 0 | idle | 8 | a boxer's bounce, eased: up on his toes (stretched), down with the knees folded and the cone squashed; gloves a frame behind, the drip runs long after each landing |

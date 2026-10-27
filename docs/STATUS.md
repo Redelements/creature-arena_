@@ -1,7 +1,7 @@
 # Status: handoff snapshot
 
-Stamped: 2026-10-27 20:06 UTC
-Branch: crease-2x @ a6911e6
+Stamped: 2026-10-27 20:33 UTC
+Branch: sno-2x @ 5ab3ca9
 Trigger: phase
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
@@ -34,6 +34,14 @@ Done (commit a6911e6 and after):
    and density-aware compare GIFs. Local `main` is stale: pass `--old cb968ed`.
 6. Lighting High, Floodgate night, `--mode=48`: the 2x normal sheet lights correctly.
 
+7. **Sno Mercy (fighter 2, branch `sno-2x` off `crease-2x`, "run all"):** `SNO_DENSITY`
+   (1 = the 1x sheets byte for byte) and `SNO_STYLE=a|bold` in `gen_sno.py`; bold here is
+   splat3d's ramp without the highlight step or rim light and one dark ink round the
+   silhouette. Dome flecks on coarser cells with a scrambling hash at 2x (`FLECK_K` 1.3).
+   `sno_2x*.png`: 256 px frames (down/up 224x256). New `test_a_256_px_frame_draws_like_its_128_px_one`
+   (no view needed a fix). NET_VERSION 47 (renumber when stacking). Gallery and GIFs in
+   `docs/pixellab/sno/`.
+
 Gallery: `docs/pixellab/crease_route_a.png` (1x vs 2x for idle, run, flick, Surge at 1x/3x;
 the two shading variants; Twin Keeps still beside the big tree at play zoom). GIFs:
 `docs/pixellab/crease_route_a_{idle,run,flick}.gif`. Build for Kevin:
@@ -61,7 +69,7 @@ its checks (anim_preview --check, tests, sim-check, VRAM budget).
 
 ## Next step
 
-Wait for Kevin's verdict and a "run <fighter>" / "run all"; then the skill, plan order.
+"Run all" is on: next fighter in plan order (Cairn) off `sno-2x`; the main session stacks the PRs.
 
 ## Files touched this session
 
