@@ -8,6 +8,8 @@ Writes assets/sprites/hissy.png (128x128 frames, 12 columns, the side view),
 hissy_down.png and hissy_up.png (112x128 frames: facing the camera, and facing
 away), hissy_down_side.png and hissy_up_side.png (128x128: the diagonals, facing down-right
 and up-right), plus labelled previews in docs/.
+HISSY_DENSITY=2 (the default; 1 = the 1x sheets) draws them at twice the density, hissy_2x*.png (256x256 frames,
+views 224x256).
 
 She is a big round head with a crown of spotted green hair snakes, a pair of red
 boxing gloves on the floor below, and two more snakes from under her chin down to the
@@ -37,17 +39,32 @@ import palette as PAL  # noqa: E402  (P is the pose constructor below)
 import splat3d as S  # noqa: E402  (the shading and outline pass, and the animation tools)
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-OUT = os.path.join(ROOT, "assets", "sprites", "hissy.png")
-PREVIEW = os.path.join(ROOT, "docs", "hissy_preview.png")
+# Density (art pixels per 1x pixel, as splat3d.configure(density=...)): this rasteriser is
+# its own copy, so DENSITY scales it here too (SCALE and the Cam's near zone times DENSITY,
+# the sample STEP divided, frames and origins doubled; the face texture is in degrees on the
+# head, so it resolves finer on its own). 1 rebuilds the 1x sheets, hissy*.png, byte for byte.
+DENSITY = int(os.environ.get("HISSY_DENSITY", "2"))
+# The look (HISSY_STYLE): "a" splat3d's ramp with the highlight step and a rim light, as at
+# 1x; "bold" no highlight step and no rim light (flat tones a face), the silhouette in the one
+# black ink she always has. The 2x sheets are bold.
+STYLE = os.environ.get("HISSY_STYLE", "bold" if DENSITY > 1 else "a")
+_TAG = "" if DENSITY == 1 else "_%dx" % DENSITY
+OUT = os.path.join(ROOT, "assets", "sprites", "hissy%s.png" % _TAG)
+PREVIEW = os.path.join(ROOT, "docs", "hissy%s_preview.png" % _TAG)
+
+
+def _frame(w, h, origin):
+    return {"w": w * DENSITY, "h": h * DENSITY, "origin": (origin[0] * DENSITY, origin[1] * DENSITY)}
+
 
 COLS = 12  # the run, Coil Uppercut and Petrify Punch have 12 frames
-SIDE = {"w": 128, "h": 128, "origin": (64, 104)}
+SIDE = _frame(128, 128, (64, 104))
 VIEWS = {
-    "down": {"w": 112, "h": 128, "origin": (56, 104)},
-    "up": {"w": 112, "h": 128, "origin": (56, 92)},
+    "down": _frame(112, 128, (56, 104)),
+    "up": _frame(112, 128, (56, 92)),
     # the diagonals (docs/SPRITES.md, "Directions"): facing down-right and up-right
-    "down_side": {"w": 128, "h": 128, "origin": (64, 104)},
-    "up_side": {"w": 128, "h": 128, "origin": (64, 92)},
+    "down_side": _frame(128, 128, (64, 104)),
+    "up_side": _frame(128, 128, (64, 92)),
 }
 
 # Palette: master-palette ramps (tools/palette.py) picked for the character sheet's
@@ -81,17 +98,20 @@ OUTLINE = PAL.INKS["ink"] + (255,)  # the sheet's black line
 # Shading, seams and outlines are splat3d's pass on this rig's buffers. The silhouette
 # stays black all round, as on the sheet (every material's ink is the black line); seams
 # inside it are each material's deep step, like the other fighters.
-S.configure(MAT)
+S.configure(MAT, density=DENSITY)   # splat3d's shade/outline read the density (px(), passes)
 S.INK = {name: OUTLINE[:3] for name in MAT}
+if STYLE == "bold":
+    S.LUM_HIGH = 2.0   # no highlight step: the light tone covers the lit side
+    S.RIM = False
 MAT_ID = {name: i + 1 for i, name in enumerate(MAT)}
 ID_MAT = {i: name for name, i in MAT_ID.items()}
 
-W = H = 128
+W, H = SIDE["w"], SIDE["h"]
 OX, OY = SIDE["origin"]
-STEP = 0.33  # sample spacing, in rig units
+STEP = 0.33 / DENSITY  # sample spacing, in rig units (halved at 2x: no holes between splats)
 # The rig is modelled at a comfortable working size and drawn this much smaller, so she
 # sits in the arena at about the size of the others (her hitbox radius is 10).
-SCALE = 0.72
+SCALE = 0.72 * DENSITY
 
 # ------------------------------------------------------------------ 3D helpers
 
@@ -178,8 +198,9 @@ class Cam:
     # smaller near zone (the reactions batch): with 18 there, a glove's short reach toward
     # or away from the camera was flattened into a sideways move; at 12 the reach reads
     # along the facing diagonal and the head still keeps its face on the front.
-    NEAR = {"down_side": 12.0, "up_side": 8.0}
-    NEAR_DEFAULT = 18.0
+    # (screen pixels, so times the density)
+    NEAR = {"down_side": 12.0 * DENSITY, "up_side": 8.0 * DENSITY}
+    NEAR_DEFAULT = 18.0 * DENSITY
 
     def depth_y(self, f):
         k, near = 0.35, self.NEAR.get(self.view, self.NEAR_DEFAULT)
@@ -1559,7 +1580,7 @@ def main():
     side.save(OUT)
     print("wrote", os.path.relpath(OUT, ROOT), side.size)
     S.save_extras(OUT, side_n, side_e)   # the normal and emissive sheets (docs/SPRITES.md)
-    preview(side, ROWS, SIDE["w"], SIDE["h"], SIDE["origin"], 3, PREVIEW)
+    preview(side, ROWS, SIDE["w"], SIDE["h"], SIDE["origin"], 3 if DENSITY == 1 else 1, PREVIEW)
     views = {}
     for view in S.view_names(VIEWS)[1:]:
         spec = VIEWS[view]
@@ -1570,7 +1591,7 @@ def main():
         S.save_extras(path, sh_n, sh_e)
         views[view] = sh
     # the views preview: down, down-side, up, up-side (every entry in VIEWS), as splat3d's
-    s = 2
+    s = 2 if DENSITY == 1 else 1
     label_w = 70
     shown = S.view_names(VIEWS)[1:]
     xs = [label_w]

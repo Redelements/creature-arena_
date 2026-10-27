@@ -6,7 +6,8 @@
 In data/creatures/<id>.json, inside "sprite" (the side block and every "views" block): each
 path assets/sprites/<id>[_view].png becomes <id>_2x[_view].png with "ppu": 2 beside it, and
 "frame", "origin" and "portrait" double; outside it, "ko_fx" "pieces" (sheet-pixel bands)
-double. The emissive sheet needs no key: CreatureView finds <sheet>_e.png beside each path.
+and "x_eyes" (sheet-pixel eye spots, drawn under the ppu scale) double. The emissive sheet
+needs no key: CreatureView finds <sheet>_e.png beside each path.
 Edits the text in place (the file keeps its layout) and is idempotent: a sprite block that
 already says "ppu": 2 is left alone. --check only says whether the file is switched (exit 1
 if not). Fails if a 2x sheet the JSON would name is missing.
@@ -33,7 +34,8 @@ def _block_end(text, start):
 
 
 def _dbl(m):
-    return m.group(1) + ", ".join(str(int(v) * 2) for v in re.findall(r"-?\d+", m.group(2))) + m.group(3)
+    """Each number in the array doubled in place (a one-line or a multi-line array keeps its layout)."""
+    return m.group(1) + re.sub(r"-?\d+", lambda q: str(int(q.group(0)) * 2), m.group(2)) + m.group(3)
 
 
 def switch(text, gid):
@@ -49,20 +51,27 @@ def switch(text, gid):
     if n == 0:
         raise ValueError("no sprite path named assets/sprites/%s*.png" % gid)
     sp = re.sub(r'("frame": )(\d+)()', lambda m: m.group(1) + str(int(m.group(2)) * 2), sp)
-    sp = re.sub(r'("frame": \[)([-\d, ]+)(\])', _dbl, sp)
-    sp = re.sub(r'("origin": \[)([-\d, ]+)(\])', _dbl, sp)
-    sp = re.sub(r'("portrait": \[)([-\d, ]+)(\])', _dbl, sp)
+    sp = re.sub(r'("frame": \[)([-\d,\s]+)(\])', _dbl, sp)
+    sp = re.sub(r'("origin": \[)([-\d,\s]+)(\])', _dbl, sp)
+    sp = re.sub(r'("portrait": \[)([-\d,\s]+)(\])', _dbl, sp)
     text = text[:s0] + sp + text[s1:]
     m = re.search(r'"ko_fx": \{', text)
     if m:
         k0 = text.index("{", m.start())
         k1 = _block_end(text, k0)
-        ko = re.sub(r'("pieces": \[)((?:\s*\[[-\d, ]+\]\s*,?)*)(\s*\])',
+        ko = re.sub(r'("(?:pieces|x_eyes)": \[)((?:\s*\[[-\d, ]+\]\s*,?)*)(\s*\])',
                     lambda q: q.group(1) + re.sub(r"\[([-\d, ]+)\]", lambda r: "[" + ", ".join(
                         str(int(v) * 2) for v in re.findall(r"-?\d+", r.group(1))) + "]", q.group(2)) + q.group(3),
                     text[k0:k1])
         text = text[:k0] + ko + text[k1:]
     new = json.loads(text)["sprite"]
+    old = d["sprite"]
+    for name, b, a in [("sprite", new, old)] + [(v, new["views"][v], old["views"][v]) for v in old.get("views", {})]:
+        for key in ("frame", "origin", "portrait"):
+            if key in a:
+                want = [v * 2 for v in a[key]] if isinstance(a[key], list) else a[key] * 2
+                if b[key] != want:
+                    raise ValueError("%s %s: %r, not doubled from %r" % (name, key, b[key], a[key]))
     for b in [new] + list(new.get("views", {}).values()):
         p = os.path.join(ROOT, b["path"].replace("res://", ""))
         if not os.path.exists(p):

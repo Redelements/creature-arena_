@@ -34,14 +34,110 @@ in `img.info["nrm"]`, and `stack` composites them with the layers into `info["nr
 outside the shape face the camera) and `info["piece"]` (which layer, for the smoothing);
 `normal_map(img)` packs a finished frame's for splat3d.finish_frame. A layer whose tags got
 lost (an Image rebuilt without `keep`) lights flat, as if it faced the camera.
+
+Density (`configure(density=2)`, the 2x sheets of docs/pixellab-spec.md, `"ppu": 2`): a
+painter keeps drawing in 1x pixel coordinates through `Draw`, which paints on a layer
+`density` times the size: every fill, stroke, dot and painted leaf doubles in size (a dot is
+a 2x2 block, a line 2 px wide), and the shading counts its pixel lengths through `px()`
+(the distance cap, the thickness window, the smoothing, the cleanup, the rim light's
+width) as splat3d does, so the bands fall on the same parts of a shape, twice as wide. The
+outline and the seams stay one pixel. `configure` also sets splat3d's density, which the
+normal sheets' blur reads (`normal_map`). At density 1 everything draws as before, byte for
+byte. `RIM` (False) and `LUM_HIGH` (high) are the "bold" look's switches, as in splat3d.
 """
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 import palette as P
 from splat3d import LIGHT, LUM_HIGH, LUM_LIGHT, LUM_SHADOW, RIM_SIDE, material_ramp
 
-MAX_DIST = 14       # distance-to-edge cap (pixels); nothing here is thicker than 28 px
+MAX_DIST = 14       # distance-to-edge cap (1x pixels); nothing here is thicker than 28 px
+DENSITY = 1         # art pixels per 1x pixel (configure(density=...)); 2 for 2x sheets
+RIM = True          # the rim light on the shadowed far edge (the bold look turns it off)
+
+
+def configure(density=1):
+    """Draw at `density` (1 or 2) art pixels per 1x pixel: `Draw` scales the painter's
+    1x coordinates, the shading's pixel lengths go through `px`, and splat3d (the sheet
+    writer, the normal sheets' blur) gets the same density."""
+    global DENSITY
+    if int(density) not in (1, 2):
+        raise ValueError("density: 1 or 2 art pixels per 1x pixel, not %r" % (density,))
+    DENSITY = int(density)
+    import splat3d
+    splat3d.DENSITY = DENSITY
+
+
+def px(v):
+    """A length counted in 1x pixels at the configured density (splat3d.px)."""
+    return v * DENSITY
+
+
+def to_px(v):
+    """A 1x coordinate as an art-pixel coordinate: the centre of the block its 1x pixel
+    covers (at density 1, the coordinate itself)."""
+    if DENSITY == 1:
+        return v
+    return v * DENSITY + (DENSITY - 1) / 2.0
+
+
+def snap(v):
+    """round() on the art-pixel grid, in 1x units: a dot placed at a rounded spot moves in
+    half-pixel steps at density 2 (at density 1, round(v))."""
+    if DENSITY == 1:
+        return round(v)
+    return round(v * DENSITY) / DENSITY
+
+
+class Draw:
+    """ImageDraw in 1x pixel coordinates on a layer DENSITY times the size. A point is the
+    block its 1x pixel covers, a box ([x0, y0, x1, y1], ellipse or rectangle) covers the
+    blocks of its corner pixels, polygon and line vertices land on their blocks' centres,
+    and a line is `width` 1x pixels wide. At density 1 it is ImageDraw, call for call."""
+
+    def __init__(self, img):
+        self.d = ImageDraw.Draw(img)
+        self.k = DENSITY
+
+    def _xy(self, pts):
+        if len(pts) and not isinstance(pts[0], (tuple, list)):
+            pts = list(zip(pts[0::2], pts[1::2]))
+        return [(to_px(x), to_px(y)) for x, y in pts]
+
+    def _box(self, box):
+        if len(box) == 2:
+            (x0, y0), (x1, y1) = box
+        else:
+            x0, y0, x1, y1 = box
+        k = self.k
+        return [x0 * k, y0 * k, x1 * k + k - 1, y1 * k + k - 1]
+
+    def ellipse(self, box, fill=None, outline=None, width=1):
+        if self.k == 1:
+            return self.d.ellipse(box, fill=fill, outline=outline, width=width)
+        return self.d.ellipse(self._box(box), fill=fill, outline=outline, width=width * self.k)
+
+    def rectangle(self, box, fill=None, outline=None, width=1):
+        if self.k == 1:
+            return self.d.rectangle(box, fill=fill, outline=outline, width=width)
+        return self.d.rectangle(self._box(box), fill=fill, outline=outline, width=width * self.k)
+
+    def polygon(self, pts, fill=None, outline=None):
+        if self.k == 1:
+            return self.d.polygon(pts, fill=fill, outline=outline)
+        return self.d.polygon(self._xy(pts), fill=fill, outline=outline)
+
+    def line(self, pts, fill=None, width=1):
+        if self.k == 1:
+            return self.d.line(pts, fill=fill, width=width)
+        return self.d.line(self._xy(pts), fill=fill, width=width * self.k)
+
+    def point(self, xy, fill=None):
+        if self.k == 1:
+            return self.d.point(xy, fill=fill)
+        x, y = xy
+        k = self.k
+        return self.d.rectangle([x * k, y * k, x * k + k - 1, y * k + k - 1], fill=fill)
 
 
 def _luma(c):
@@ -86,7 +182,7 @@ def height(m):
     tube as thick as the shape is there (z = sqrt(d * (2R - d)))."""
     d = np.zeros(m.shape, np.float32)
     cur = m.copy()
-    for _ in range(MAX_DIST):
+    for _ in range(px(MAX_DIST)):
         if not cur.any():
             break
         d += cur
@@ -94,9 +190,9 @@ def height(m):
         for dx, dy in N4:
             nxt &= _shifted(cur, dx, dy, False)
         cur = nxt
-    # local half-thickness: the deepest distance nearby
+    # local half-thickness: the deepest distance nearby (within 3 1x pixels)
     r = d.copy()
-    for _ in range(3):
+    for _ in range(px(3)):
         g = r.copy()
         for dx, dy in N4 + ((1, 1), (-1, -1), (1, -1), (-1, 1)):
             g = np.maximum(g, _shifted(r, dx, dy, 0.0))
@@ -105,18 +201,19 @@ def height(m):
     rr = np.maximum(r, 1.0)
     z = np.sqrt(np.maximum(0.0, dd * (2.0 * rr - dd)))
     z[~m] = 0.0
-    # soften the stair steps of the distance field a little
-    s = z.copy()
-    for dx, dy in N4:
-        s += _shifted(z, dx, dy, 0.0)
-    z = np.where(m, s / 5.0, 0.0)
+    # soften the stair steps of the distance field a little (a pass per 1x pixel)
+    for _ in range(px(1)):
+        s = z.copy()
+        for dx, dy in N4:
+            s += _shifted(z, dx, dy, 0.0)
+        z = np.where(m, s / 5.0, 0.0)
     return z
 
 
-def despeckle(level, mat, filled, passes=2):
+def despeckle(level, mat, filled, passes=None):
     """A lone pixel whose tone none of its same-material neighbours share takes the
-    tone most of them have (splat3d's cleanup)."""
-    for _ in range(passes):
+    tone most of them have (splat3d's cleanup: two passes per 1x pixel)."""
+    for _ in range(px(2) if passes is None else passes):
         same = np.zeros(level.shape, np.int8)
         votes = np.zeros(level.shape + (5,), np.int8)
         for dx, dy in N4:
@@ -196,14 +293,16 @@ class Materials:
         level[lum > LUM_HIGH] = 4
         level[lum < LUM_SHADOW] = 1
         level = despeckle(level, mat, m)
-        if rim:
+        if rim and RIM:
             edge = np.zeros_like(m)
-            for dx, dy in ((1, 0), (1, 1), (0, 1)):
-                edge |= m & ~_shifted(m, dx, dy, False)
+            for k in range(1, DENSITY + 1):   # as wide as one 1x pixel
+                for dx, dy in ((k, 0), (k, k), (0, k)):
+                    edge |= m & ~_shifted(m, dx, dy, False)
             away = (n[:, :, 0] * -light[0] + n[:, :, 1] * -light[1]) > RIM_SIDE
-            # only where the core shadow runs at least two pixels in from the edge
+            # only where the core shadow runs at least two (1x) pixels in from the edge
             inner = np.zeros_like(m)
-            for dx, dy in ((-1, 0), (-1, -1), (0, -1)):
+            k = DENSITY
+            for dx, dy in ((-k, 0), (-k, -k), (0, -k)):
                 inner |= _shifted(m, dx, dy, False) & (_shifted(level, dx, dy, 9) <= 1)
             lift = edge & away & (level <= 1) & inner
             level[lift] += 1

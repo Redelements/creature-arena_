@@ -19,13 +19,13 @@
   "fx_color": "#e04848",
   "surge_aura": {"colors": ["#ff7a10", "#ffd23f", "#fff6d0"], "motes": "pebbles", "spikes": 7, "sharp": 0.85, "speed": 1.2, "height": 1.0},
   "cut_in_frame": [12, 8],
-  "ko_fx": { "style": "scatter", "frame": [0, 0], "pieces": [[40, 55], [55, 65], [65, 72], [72, 87]], "x_eyes": [[47, 49], [52, 49]] },
+  "ko_fx": { "style": "scatter", "frame": [0, 0], "pieces": [[80, 110], [110, 130], [130, 144], [144, 174]], "x_eyes": [[94, 98], [104, 98]] },
   "sprite": {
-    "path": "res://assets/sprites/cairn.png",
-    "frame": 96,
-    "portrait": [34, 39, 24, 28],
+    "path": "res://assets/sprites/cairn_2x.png", "ppu": 2,
+    "frame": 192,
+    "portrait": [68, 78, 48, 56],
     "cols": 12,
-    "origin": [46, 84],
+    "origin": [92, 168],
     "idle_ticks": 8,
     "run_ticks": 2,
     "step_frames": [0, 6],
@@ -49,10 +49,10 @@
     "side_only": ["ko"],
     "select_scale": 0.5,
     "views": {
-      "down": { "path": "res://assets/sprites/cairn_down.png", "origin": [48, 78] },
-      "up": { "path": "res://assets/sprites/cairn_up.png", "origin": [48, 84] },
-      "down_side": { "path": "res://assets/sprites/cairn_down_side.png", "origin": [44, 80] },
-      "up_side": { "path": "res://assets/sprites/cairn_up_side.png", "origin": [44, 84] }
+      "down": { "path": "res://assets/sprites/cairn_2x_down.png", "ppu": 2, "origin": [96, 156] },
+      "up": { "path": "res://assets/sprites/cairn_2x_up.png", "ppu": 2, "origin": [96, 168] },
+      "down_side": { "path": "res://assets/sprites/cairn_2x_down_side.png", "ppu": 2, "origin": [88, 160] },
+      "up_side": { "path": "res://assets/sprites/cairn_2x_up_side.png", "ppu": 2, "origin": [88, 168] }
     }
   },
   "ai": {

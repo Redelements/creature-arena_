@@ -196,6 +196,18 @@ ticks, unchanged), footsteps on `step_frames` `[0, 6]`. `select_scale` 0.5, port
 Five views: [`cairn_views_preview.png`](cairn_views_preview.png) and
 [`anim_preview/cairn_diagonals_3x.png`](anim_preview/cairn_diagonals_3x.png).
 
+**2x (route A, Oct 2026, branch `cairn-2x`, stacked on `sprites-vram`).** The game draws
+`cairn_2x*.png`: the same rig at density 2 (`CAIRN_DENSITY`, default 2; `CAIRN_DENSITY=1`
+rebuilds the 1x `cairn*.png` byte for byte), 192×192 frames, feet at (92, 168) side,
+(96, 156) down, (96, 168) up, (88, 160) down_side, (88, 168) up_side, `"ppu": 2` in every
+view, portrait `[68, 78, 48, 56]`; same rows, frame counts and timing. Shaded "bold"
+(`CAIRN_STYLE`): three flat tones a face (no highlight step, no rim light) and one dark ink
+round the silhouette, so the stack's stones stay apart from each other and from dark floors.
+The face, grain and lit lips are painted in stone-local rig units, so they scale with the
+density on their own. The knockout's `ko_fx` `pieces` and `x_eyes` are sheet pixels and
+double (`tools/sprite_2x.py`; FxView draws the X's at `ppu` times the size, so they look the
+same). Gallery: `pixellab/cairn/cairn_route_a.png`.
+
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
 | 0 | idle | 8 | the boxer's bounce on eased spacing, the stones packing on the down; each stone sways a frame after the one under it, the fists a frame behind, a one-frame blink |
@@ -263,6 +275,21 @@ it out to the side for the front view). The head has three-quarter faces: `_face
 (both eyes, the far one narrower, the snout and mouth slid down-right) and, from behind,
 parted fur with the near eye's corner and the snout's edge at the cheek; it sits on the
 neck's top stones in `up_side` so the mane reads.
+
+**2x (route A, Oct 2026, branch `craglash-2x`, stacked on `sprites-vram`).** The game draws
+`craglash_2x*.png`: the same puppet drawn by `gen_craglash.py` at density 2
+(`CRAGLASH_DENSITY`, default 2; `CRAGLASH_DENSITY=1` rebuilds the 1x `craglash*.png` byte for
+byte), **192×192** side frames and **256×320** views, feet at (68, 180) side, (128, 224) down
+and down_side, (128, 248) up and up_side, `"ppu": 2` in every view, portrait
+`[68, 34, 48, 64]`; same rows, frame counts and timing. Poses and the three rigs stay in 1x
+pixels: `Draw()` scales each Pillow call and stamps it over a 2×2 block, so every part keeps
+its 1x coverage with edges on the 2x grid, and painted strokes (cracks, fur, the face) stay
+one 1x pixel thick; the shader's pixel counts (distance cap, smoothing, band, highlight room,
+rim and bevel width, despeckle) go through `px()`; poses snap to half pixels. Outline 1 px.
+Shaded "bold" (`CRAGLASH_STYLE`): three flat tones a part (no highlight, no rim light) and one
+dark ink round the silhouette (the umber ink let the clay hide sink into brown ground at 2x).
+The normal pass and the Bedrock glow follow the same drawing. `ko_fx` "crumble" keys are
+world units (unchanged). Gallery: `pixellab/craglash/craglash_route_a.png`.
 
 ![Craglash sheet, 3x](craglash_preview.png)
 
@@ -335,6 +362,18 @@ the nose crosses the trunk its outline is the bark's deep step. The bark grain i
 (five lines round the trunk, two down each leg) and one ramp step darker where it falls;
 the brows, the chevrons at the fork and the crease between the legs are the deep step.
 
+**2x (route A, Oct 2026, branch `barkley-2x`, stacked on `sprites-vram`).** The game draws
+`barkley_2x*.png`: the same painter at density 2 (`BARKLEY_DENSITY`, default 2;
+`BARKLEY_DENSITY=1` rebuilds the 1x `barkley*.png` byte for byte), **192×192** side frames
+(feet at (80, 180)) and **256×320** views (feet at (128, 224) down and down_side, (128, 248)
+up and up_side), `"ppu": 2` in every view, portrait `[60, 36, 48, 64]`; same rows, frame
+counts and timing. The painter keeps its 1x pixel coordinates: `shade2d.Draw` scales every
+shape, line, dot and leaf onto the 2x layer, so the leaves, eyes and grain double in size,
+not in number, and only the edges and the shading get finer. Shaded "bold" (`BARKLEY_STYLE`):
+no highlight step, no rim light, one dark ink round every shape (the leaves' and the
+pinecone's too); seams keep the deep step. The `ko_fx` "timber" `length` is world units
+(unchanged). Gallery: `pixellab/barkley/barkley_route_a.png`.
+
 ![Barkley sheet, 3x](barkley_preview.png)
 
 Facing down and up, and the diagonals: [`barkley_views_preview.png`](barkley_views_preview.png).
@@ -394,6 +433,18 @@ with a `("red", -1)` handle, the reel `"stone"`, eyes `"orange"`. Each ring half
 one round band with each colour band from its own ramp and outline ink (plum on the red,
 soft pewter on the white). Scale chevrons and fin rays are one ramp step darker where they
 fall, the belly dots one step lighter; the gill line is the body's deep step.
+
+**2x (route A, Oct 2026, branch `gillbert-2x`, stacked on `barkley-2x`).** The game draws
+`gillbert_2x*.png`: the same painter at density 2 (`GILLBERT_DENSITY`, default 2;
+`GILLBERT_DENSITY=1` rebuilds the 1x `gillbert*.png` byte for byte), **256×256** side frames
+(feet at (140, 224)), **192×288** down and up (feet at (96, 184) and (96, 152)) and
+**256×288** diagonals (feet at (144, 200) and (128, 168)), `"ppu": 2` in every view, portrait
+`[112, 176, 48, 48]`; same rows, frame counts and timing. The painter draws through
+`shade2d.Draw` in its 1x coordinates (eyes, scales, fin rays, the line and the barbels double
+in size); the body's cross-sections double in number at 2x (`ns`), or on a thin, bent tail
+the slivers part and the outline shows through as a checker. Shaded "bold"
+(`GILLBERT_STYLE`): no highlight step, no rim light, one dark ink round every shape; seams
+keep the deep step. Gallery: `pixellab/gillbert/gillbert_route_a.png`.
 
 ![Gillbert sheet, 3x](gillbert_preview.png)
 
@@ -577,6 +628,20 @@ glide still 24 ticks).
 
 Facing down, down-side, up and up-side: [`hissy_views_preview.png`](hissy_views_preview.png).
 
+**2x (route A, Oct 2026, branch `hissy-2x`, stacked on `cairn-2x`).** The game draws
+`hissy_2x*.png`: the same rig at density 2 (`HISSY_DENSITY`, default 2; `HISSY_DENSITY=1`
+rebuilds the 1x `hissy*.png` byte for byte). Her rasteriser is her own copy, so the density
+is threaded there too: `SCALE` x2, sample `STEP` /2, the Cam's near zones x2 (screen
+pixels), frames and origins x2, and `S.configure(MAT, density=...)` for splat3d's shading,
+outline and normal passes. 256×256 frames, views 224×256, feet at (128, 208) side, down
+and down_side, (112, 184) up, (128, 184) up_side, `"ppu": 2` in every view, portrait
+`[100, 100, 48, 64]`; same rows, frame counts and timing. The face texture is in degrees on
+the head and the hair snakes' eyes are rig pieces, so both resolve finer on their own.
+Shaded "bold" (`HISSY_STYLE`): no highlight step and no rim light (at 2x the highlight grew
+into a pale glare disc on her forehead that fought the face), the black silhouette line as
+before. The up view has no emissive sheet (her eyes face away), the up-side one does.
+Gallery: `pixellab/hissy/hissy_route_a.png`.
+
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
 | 0 | idle | 8 | the hover bob (eased), the gloves 1 frame behind, the glove snakes after them, the hair swaying as a wave down each snake (tips 2 frames behind) |
@@ -673,6 +738,18 @@ money bag is a big green ball with a tied neck and a dollar sign, slung over his
 shoulder unless a pose holds it out to swing. Poses place the feet, hands and bag. Drawn
 at 0.8 scale, feet at **x 64, y 104**; up and down sheets are **112×128**, feet at
 x 56, y 104 (down) and y 92 (up).
+
+**2x (route A, Oct 2026, branch `pete-2x`, stacked on `sprites-vram`).** The game draws
+`pete_2x*.png` (packed copies in `assets/sprites/packed/`): the same rig rendered by
+`gen_pete.py` at density 2 (`PETE_DENSITY`, default 2; `PETE_DENSITY=1` rebuilds the 1x
+`pete*.png` byte for byte), **256×256** frames (down and up **224×256**), feet at (128, 208)
+(up views (112/128, 184)), `"ppu": 2` in every view, portrait `[112, 122, 48, 64]`; same
+rows, frame counts and timing. Shaded "bold" (`PETE_STYLE`): three flat tones (no highlight
+step, no rim light) and one dark ink round the whole silhouette. The bag is a rig piece, so
+it needed nothing of its own; `cut_in_frame` stays `[8, 9]` (a [row, col] index). Tiptoe's
+ghost is the view's modulate alpha and its afterimages carry the sheet's `ppu`, so both work
+at 2x unchanged (`test_pete_at_2x_still_vanishes_into_a_ghost`). Gallery:
+`pixellab/pete/pete_route_a.png`.
 
 Animated with the roster pass (motion plan, previews and before/after GIFs:
 [`anim_preview/pete_motion_plan.md`](anim_preview/pete_motion_plan.md)): the poses are
@@ -1124,7 +1201,11 @@ One master palette for the whole game: `tools/palette.py`, drawn as a labelled s
   and `Materials.stack` turns an outline that lands on a piece behind into that piece's
   deep step (the seam). Detail lines (bark grain, scales, fin rays) are `groove`s: one
   ramp step darker (Gillbert's belly: lighter) wherever they fall, so they read in the
-  light and in the shadow alike.
+  light and in the shadow alike. Density (`shade2d.configure(density=2)`): the painter
+  draws in 1x pixel coordinates through `shade2d.Draw`, which paints every fill, stroke and
+  dot twice the size on a 2x layer, and the shading's pixel lengths go through `shade2d.px`
+  (as `splat3d.px`); outlines and seams stay 1 px. At density 1 it is byte for byte the old
+  drawing.
 - **Craglash** (a 2D puppet, `tools/gen_craglash.py`) ports the same rules to his own
   layer shader: `MAT` holds ramps, `shade` the five steps and the rim, `finish` the inks
   and seams.
