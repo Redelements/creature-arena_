@@ -15,6 +15,40 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   the fighters) draws each fighter's frame as a silhouette along the map's `light`, one sprite row
   per shadow row shifted whole pixels (crisp, no overlap). Never draw a fighter's shadow on its
   own node: y-sort would put it over the fighter behind.
+- Art density (`art_scale.gd`, `ArtScale`): the world stays in sim units and the screen grid
+  is `PX_PER_UNIT` (2) pixels a unit (project.godot: 960 x 540 at stretch scale 2). Every
+  older sheet and picture is 1 texture pixel a unit and draws as it always did; art made for
+  this scale is 2 a unit and draws at half scale on half-unit positions (`ArtScale.snap`), so
+  each of its pixels is one grid pixel. A sheet says so with `sprite.ppu` (per view too), an
+  arena picture by being twice the size (`ArtScale.picture_ppu`, `ArenaView._ppu`), a
+  flipbook effect by its own `ppu`. Frame sizes, origins, portraits and regions stay in sheet
+  pixels: `CreatureView.snapshot()` carries `ppu` for the afterimages and death pieces, the
+  HUD's portrait and cut-in, the select screen and `FighterPreview` divide their scale by it.
+  Never scale the sim or its data for art: `tests/test_art_scale.gd`, `docs/plans/32px-migration.md`.
+- Tiled arenas (`ArenaView` "tiled maps", `tiled()`): a map with `assets/arenas/<id>.tscn`
+  (built by `tools/build_tiles.gd` from its JSON `tiles` block and pieces) draws no baked
+  picture: the scene (TileMapLayers Ground, Grass, Pieces, 32 px tiles) sits under the floor
+  at half scale, and the breaking ground is three TileMapLayers of 16 px tiles, `_overlay`
+  (a crack joined to some broken neighbours by `_crack_link`, or a pit's far wall / floor by
+  depth in two column phases: `overlay_tile`), `_edges` (shade down a pit's sides and its
+  near rim: `edge_tile`) and `_corners` (`corner_tile`), set per changed row in
+  `_retile` from `_find_changes`; a smashed wall's boulder and flattened brush's tuft are
+  cleared from the scene's Pieces layer until they heal (`_sync_pieces`). The floor, marks
+  and pit bands paint nothing on such a map, and it drops the baked picture's cracked art
+  and crack mask (no running cracks, no closing rims: `_paint_over` is off), or the old
+  map's cracks showed through as a second style; dust still draws over it. Ids and the artist's layers: `assets/README.md`; `tests/test_tiles.gd`.
+- Move effects as hand-drawn frames (`MoveFx` resources, `assets/vfx/<name>.tres`, built by
+  `tools/build_vfx.gd` from `tools/cut_vfx.py`'s cuts of kiddolink's pack at ppu 2): a move
+  names them in one line, `fx.move_fx` (a path, a `{"path", overrides}` entry setting that
+  move's hook / scale / offset over the resource's (`MoveFx.from_entry`), or a list). `MoveFxView` (a child of `FxView`,
+  a pool of `CAP` AnimatedSprite2Ds) spawns them from the same hooks FxView draws its own
+  effects: `on_strike` from `_strike` (the sim's `active_seg`: the hitbox's first live tick,
+  so the timing is the move's own `startup`, never a second number), `on_start`, `on_tick`,
+  `on_shot` / `on_event` from `spawn` (hit, projectile, projectile_end, burst, and storm as a burst; a shot's end
+  looks up the move it was thrown from, `_shot_move`). Frames are set from FxView's clock
+  (`advance(time_scale)`), never autoplayed, so a freeze holds them and a rollback can't
+  drift them; a `follow` effect rides its fighter, others stay put; culled by `_view_rect`.
+  `tests/test_move_fx.gd`.
 - Art layout is data-driven: frame size (`[w, h]` frames allowed, Crease's are 128x160),
   origin, `anims`, `side_only`, `idle_ticks`, `run_ticks`, `step_frames`, `anim`, `anim_at` (also the dodge's), `anim_reel`,
   `anim_charge`, `view_lift` from the creature JSON (`FighterPreview` reads `idle_ticks` too). Up/down sheets are optional, and so are the diagonal sheets `down_side` / `up_side` (mirrored for the left; `pick_view`: 8 sectors of 45 degrees, falling back to the older up/down/side rule when a fighter lacks the sector's sheet, so fighters without them still draw diagonals side-on).
@@ -217,6 +251,33 @@ dig/slosh/poof/chop_chop/shout sounds.
   flat square, which is why `project.godot` turns it off
   (`rendering/shader_compiler/shader_cache/enabled=false`). The bloom's SubViewports get a World2D
   of their own, so they draw only the bloom's sources. `tests/test_light2d.gd`.
+- Arena lamps and the sun → `light2d_view.gd`. Night is offered on the Floodgate only (Kevin, Oct
+  2026: weather.json `defaults.times` is day and sunset); a map with a night lists `lights` (at most
+  `MAX_LAMPS` 15: a whole big map can be on screen and every lamp lights the one night-shade item);
+  a floor pool uses the `pool` texture (a flat core, `POOL_CORE`), a lamp with `fighter_energy` 0
+  (a `lamp` head) gives no fighter light. FurnitureView lights a floodlight / worklight / torch
+  whose head has a `lamp` light (`set_lit`; main passes `Light2DView.lamp_heads()`). The sun per
+  arena and look: `sun_of` / `sun_at` (arena `light.sun` x weather.json `sun` blocks; at night
+  the moon, High only, so Low's night is unchanged); each fighter's sun is on its own mask bit
+  (`SUN_BIT << i`, `CreatureView.sun_bit`), so a crowd never stacks suns on one sprite (before,
+  two fighters close together bleached each other). Godot draws at most 15 lights on one canvas
+  item (lights whose mask doesn't match don't count): keep a spot's lamps + `MAX_DYNAMIC` + its
+  sun under that (`tests/test_light2d.gd` checks every map and a 4v4 heap on Twin Keeps).
+  Fight lights (phase 1): Light2DView gathers everything Glow does (`LightView.gather`: Surge,
+  `fx.light`, `fx.projectile_light`, sparks) plus flashes on big hits and Surges (`on_event` from
+  main's `_react`, stepped every `FLASH_STEP` ticks), and `take` makes `cap()` of them real (High 8,
+  Low 2) by priority: Surge, then nearest the camera's centre in `FOCUS_BAND` rings, then newest;
+  candidates within `REAL_MERGE` share one light. Each real one is a fighter light and a floor light
+  on `GLOW_MASK` (2048, clear of the suns' bits), which only `Light2DView.FloorGlow` takes: a black world-size rect at Glow's
+  floor-pool depth, `blend_add`, whose `light()` returns the light's colour alone (a light on the MUL
+  night shade can't lift a lamp-lit floor, and does nothing by day). `gathered` feeds the bloom and
+  Glow's halos, `pools` (the rest) Glow's dithered floor pools: when Lighting isn't Off main calls
+  `glow_floor.show_lights` instead of `glow_floor.advance`, and in High hides Glow's halos (the
+  bloom draws them), so nothing is lit twice. Emissive sheets (`<sheet>_e.png` or a view's
+  "emissive"; `CreatureView.load_emissive`, `_sync_emit`): a second Sprite2D (`emit`) over the
+  sprite on the same frame, light mask 1, the sprite's flash/stone/palette, unaffected by the
+  sprite's `self_modulate` night tint; off when `CreatureView.emissive_on` (Lighting Off).
+  BloomView also blooms `emit_frame()` of seen fighters and `WaterView.glints` (lamp-lit at night).
 - Time of day and weather → `weather_view.gd` (WeatherView; presets in `data/weather.json`, an arena's
   allowed `times` / `weathers`). Four depths: `shade` (a MUL layer after the floor wear, before `FxGround`,
   so floor telegraphs keep their colours: a flat tint, or at night a light map with floodlight pools
@@ -290,6 +351,7 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `ambient_view.gd` (AmbientView) — A map's ambient life, from the optional "ambient" block of data/arenas/<id>.json (a map without the key draws nothing).
 - `arena_intro.gd` (ArenaIntro) — The arena intro before an offline match: the camera flies in from the stands to the whole floor, the arena's name card…
 - `arena_view.gd` (ArenaView) — Draws the stadium: stands, walls, and the breakable floor from the terrain grid.
+- `art_scale.gd` (ArtScale) — Where the art density lives: how many art pixels one world unit is.
 - `audio_view.gd` (AudioView) — Sound effects and music. Like the other views it only reads the simulation: sounds come from simulation events (hits, s…
 - `backdrop_view.gd` (BackdropView) — The world beyond the floor, in depth. A map's picture (ArenaView) holds the crowd's rows and everything below them; abo…
 - `bloom.gdshader` — (no header comment)
@@ -310,6 +372,8 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `letterbox.gd` (Letterbox) — Black bars across the top and bottom of the screen for the big moments (a knockout's push-in, a Surge's freeze), on the…
 - `light2d_view.gd` (Light2DView) — Real 2D lights (Settings > Video > Lighting): Godot PointLight2Ds that light the fighters per pixel through their norma…
 - `light_view.gd` (LightView) — Glow (Settings > Video): glowing things light the floor around them and get a soft halo, so the arena feels lit.
+- `move_fx.gd` (MoveFx) — One hand-drawn effect attached to a move: which frames play, where they appear and when.
+- `move_fx_view.gd` (MoveFxView) — Plays the MoveFx of moves (hand-drawn frames, assets/vfx/*.tres): a fixed pool of AnimatedSprite2D children, each told…
 - `paper_fx.gd` (PaperFx) — Mister Crease's paper, drawn over the fighters: the sheets of his Paper Stock floating above the hat, the crafts he has…
 - `perf_overlay.gd` (PerfOverlay) — The performance overlay (Settings > Video, or F9): the frame rate in a corner, and in its second mode a chart of the la…
 - `range_rings.gd` (RangeRings) — "Range rings" (Settings > Controls, or F7 in a fight): thin floor rings that show where an attack really reaches, so a…

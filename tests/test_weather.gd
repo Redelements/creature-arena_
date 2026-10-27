@@ -62,7 +62,8 @@ func test_arenas_choose_from_their_own_list() -> void:
 		seen[l["weather"]] = true
 	assert_eq(seen.size(), WeatherView.weathers_of(gh).size(), "and reaches every allowed one")
 	assert_eq(WeatherView.resolve(gh, "night", "snow")["weather"], "clear", "a choice the map doesn't allow plays clear")
-	assert_eq(WeatherView.resolve(gh, "night", "snow")["time"], "night", "")
+	assert_eq(WeatherView.resolve(gh, "night", "snow")["time"], "day", "a time the map doesn't allow (night: the Floodgate only) plays its first")
+	assert_eq(WeatherView.resolve(ArenaMap.get_map("floodgate"), "night", "clear")["time"], "night", "the Floodgate has night")
 	var none := WeatherView.times_of({"times": ["noon"]})
 	assert_eq(none, ["day"], "unknown ids fall back to day")
 
@@ -138,7 +139,9 @@ func test_the_menu_choice_saves_and_online_stays_day_and_clear() -> void:
 	cfg.load(TEST_SETTINGS)
 	assert_eq(cfg.get_value("game", "time", ""), "night", "the Time choice is saved")
 	assert_eq(cfg.get_value("game", "weather", ""), "rain", "the Weather choice is saved")
+	MatchFactory.arena = "floodgate"  # the one map with a night
 	g._start_match(2)
+	MatchFactory.arena = ArenaMap.DEFAULT
 	assert_eq(g.weather.look, {"time": "night", "weather": "rain"}, "an offline match plays it")
 	assert_eq(g.replay.setup.get("look", {}), {"time": "night", "weather": "rain"}, "and the replay records it")
 	# a replay plays its own look, an old one (none saved) day and clear

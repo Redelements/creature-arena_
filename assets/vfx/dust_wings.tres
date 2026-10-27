@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="MoveFx" format=3]
+
+[ext_resource type="SpriteFrames" path="res://assets/vfx/dust_wings_frames.tres" id="1_v2wtp"]
+[ext_resource type="Script" path="res://src/view/move_fx.gd" id="2_hysxv"]
+
+[resource]
+script = ExtResource("2_hysxv")
+frames = ExtResource("1_v2wtp")
+on = "start"
+offset = Vector2(0, -15)

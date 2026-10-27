@@ -3,7 +3,48 @@
 	"id": "caravan_pass",
 	"name": "Dustwind Pass",
 	"ground": "dirt",
-	"light": {"_doc": "hard desert sun from the top left: dark shadows", "dir": [0.7, 0.71], "length": 0.65, "alpha": 0.4},
+	"tiles": {
+		"_doc": "Szadi art's Desert (tools/tile_recipes/desert.json): tan sand with a gravel verge, a packed-earth road under the caravan's track, dry scrub round the brush beds; the walls stand as runs of stacked rock (styles.wall, loose rocks where one is smashed) and the beds as the Desert's own scrub shrubs (styles.brush); low rock heaps, agave and palms stand in the margins only (decor draws under the fighters, and under the crowd: the top margin's verge is about a tile tall, so its rocks stay that low and only the palms' canopies reach behind the stands). The caravan stops are dressed from RPG_Buildings_Desert on the wall runs beside them (a decor or anim piece whose feet stand on a wall cell joins the run and goes while that wall is smashed): only a run's near end shows a piece whole (the pillars in front hide the rest), so each run gets one: a pillar brazier on the tall runs by the stops, a pile of goods on the low runs south of the road, a tripod brazier on the short end runs; the side walkways at both ends carry a narrow banner rack (red's side red, blue's slate), a pillar brazier either side of the road and a pile of goods. Booths and thatch stalls (64 and 128 px wide) fit on neither a one-tile wall run nor the walkway, so they wait for the margin ruling. The road's verges are worn (sand_dirt patches on the 4-tile grid, so the clods show whole) and the open sand carries gravel patches. Rects are [tx, ty, w, h] in 32 px tiles (2 x 2 cells) on the 110 x 20 floor. Built into assets/arenas/caravan_pass.tscn by tools/build_tiles.gd.",
+		"set": "desert",
+		"styles": {"wall": "wall:rock", "brush": "bush:scrub"},
+		"ground": "sand",
+		"grass": [],
+		"water": [],
+		"patches": [
+			{"fill": "sand_dirt", "rect": [8, 12, 4, 4]}, {"fill": "sand_dirt", "rect": [24, 0, 4, 4]}, {"fill": "sand_dirt", "rect": [32, 8, 4, 4]},
+			{"fill": "sand_dirt", "rect": [48, 8, 4, 4]}, {"fill": "sand_dirt", "rect": [56, 14, 4, 4]}, {"fill": "sand_dirt", "rect": [48, 14, 4, 4]},
+			{"fill": "sand_dirt", "rect": [60, 8, 4, 4]}, {"fill": "sand_dirt", "rect": [72, 8, 4, 4]}, {"fill": "sand_dirt", "rect": [80, 0, 4, 4]},
+			{"fill": "sand_dirt", "rect": [96, 12, 4, 4]},
+			{"fill": "gravel", "rect": [0, 4, 4, 4]}, {"fill": "gravel", "rect": [12, 4, 4, 4]}, {"fill": "gravel", "rect": [36, 12, 4, 4]},
+			{"fill": "gravel", "rect": [52, 0, 4, 4]}, {"fill": "gravel", "rect": [68, 12, 4, 4]}, {"fill": "gravel", "rect": [92, 4, 4, 4]},
+			{"fill": "gravel", "rect": [104, 4, 4, 4]}
+		],
+		"earth": [
+			[3, 9, 15, 3], [17, 7, 3, 3], [19, 5, 4, 3], [22, 4, 18, 3], [39, 6, 3, 3], [41, 8, 3, 3], [43, 10, 3, 3],
+			[45, 11, 20, 3], [64, 9, 3, 3], [66, 7, 3, 3], [68, 5, 3, 3], [70, 4, 16, 3], [85, 6, 3, 3], [87, 8, 3, 3],
+			[89, 9, 18, 3]
+		],
+		"scrub": [
+			[13, 0, 4, 3], [26, 0, 3, 3], [62, 0, 4, 3], [92, 0, 4, 3], [0, 16, 6, 4], [104, 16, 6, 4]
+		],
+		"decor": [
+			{"kind": "rocks", "at": [6, -1]}, {"kind": "rocks_b", "at": [20, -1]}, {"kind": "rocks", "at": [33, -1]},
+			{"kind": "rocks_b", "at": [58, -1]}, {"kind": "rocks", "at": [79, -1]}, {"kind": "rocks_b", "at": [98, -1]},
+			{"kind": "agave", "at": [12, -1]}, {"kind": "agave_pale", "at": [45, -1]}, {"kind": "agave", "at": [70, -1]},
+			{"kind": "agave_pale", "at": [91, -1]}, {"kind": "agave", "at": [27, 20]}, {"kind": "agave_pale", "at": [84, 20]},
+			{"kind": "goods_a", "at": [26, 14]}, {"kind": "goods_b", "at": [83, 14]},
+			{"kind": "rack_red", "pos": [-9, 108]}, {"kind": "goods_b", "pos": [-9, 236]},
+			{"kind": "rack_grey", "pos": [1769, 108]}, {"kind": "goods_a", "pos": [1769, 236]}
+		],
+		"anim": [
+			{"kind": "palm", "at": [2, -1]}, {"kind": "palm_b", "at": [40, -1]}, {"kind": "palm", "at": [52, -1]},
+			{"kind": "palm_b", "at": [66, -1]}, {"kind": "palm", "at": [107, -1]},
+			{"kind": "brazier", "at": [45, 5]}, {"kind": "brazier", "at": [64, 5]}, {"kind": "tripod", "at": [15, 3]},
+			{"kind": "tripod", "at": [94, 3]}, {"kind": "brazier", "pos": [-9, 138]}, {"kind": "brazier", "pos": [-9, 206]},
+			{"kind": "brazier", "pos": [1769, 138]}, {"kind": "brazier", "pos": [1769, 206]}
+		]
+	},
+	"light": {"_doc": "hard desert sun from the top left: dark shadows", "dir": [0.7, 0.71], "length": 0.65, "alpha": 0.4, "sun": {"color": "#fff0d0", "energy": 0.72}},
 	"grade": {"_doc": "bleached desert warmth; a view-only tint and vignette (GradeView), eased at night/sunset/rain by weather.json", "tint": "#fff2d0", "vignette": 0.2},
 	"ambient": {"_doc": "blown sand, scrub that sways, grit off the boulders, a dust devil and the odd vulture; see AmbientView",
 		"motes": {"kind": "sand", "count": 46},

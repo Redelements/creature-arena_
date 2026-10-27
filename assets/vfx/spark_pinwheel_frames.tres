@@ -1,0 +1,60 @@
+[gd_resource type="SpriteFrames" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/vfx/spark_pinwheel.png" id="1_6n7eu"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_k6y2d"]
+atlas = ExtResource("1_6n7eu")
+region = Rect2(0, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_vm7pe"]
+atlas = ExtResource("1_6n7eu")
+region = Rect2(96, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_uh4y8"]
+atlas = ExtResource("1_6n7eu")
+region = Rect2(192, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_rb78m"]
+atlas = ExtResource("1_6n7eu")
+region = Rect2(288, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_gehnh"]
+atlas = ExtResource("1_6n7eu")
+region = Rect2(384, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_7t00a"]
+atlas = ExtResource("1_6n7eu")
+region = Rect2(480, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_me6l1"]
+atlas = ExtResource("1_6n7eu")
+region = Rect2(576, 0, 96, 96)
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_k6y2d")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_vm7pe")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_uh4y8")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_rb78m")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_gehnh")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_7t00a")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_me6l1")
+}],
+"loop": 0,
+"name": &"default",
+"speed": 30.0
+}]

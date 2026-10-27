@@ -26,6 +26,9 @@ extends Node2D
 ## Hidden foes never glow: a fighter `fx.shown` hides, or one in stealth (Tiptoe, Burrow),
 ## gives no light, a projectile only
 ## where FxView would draw it, and particles only exist for what the local team saw.
+## With Lighting Low or High, Light2DView gathers through `gather` instead and hands this layer
+## its lights (`show_lights`): the halos draw them all, the floor only `pools`, the ones it didn't
+## make real floor lights (so nothing is lit twice).
 
 const MAX_LIGHTS := 40  ## after merging; the rest are dropped (dimmest go first)
 const MERGE_CELL := 20.0  ## lights this close merge into one (a burst of sparks is one pool)
@@ -44,8 +47,12 @@ const POOL_MAX_ALPHA := 0.4  ## and a pool never bleaches the floor
 var fx: FxView
 var halo := false
 var source: LightView = null  ## the halo layer draws its floor twin's lights
-## Gathered each tick: [floor pos, height, colour, radius, strength, halo share].
+## Gathered each tick: [floor pos, height, colour, radius, strength, halo share, surge (a
+## Surge's light: Light2DView makes these real first), age (ticks it has shone: newest first)].
 var lights: Array = []
+## The floor pools to draw, when Lighting (Light2DView) chose them: the lights it didn't make
+## real floor lights (`show_lights`); null draws every light (Lighting Off, own gather).
+var pools = null
 var _tick := 0
 
 ## The pool sizes (radius in px): one picture each, made once when the game starts.
@@ -114,25 +121,40 @@ func advance() -> void:
 	if fx.time_scale > 0.0:
 		_tick += 1
 	var raw: Array = []
+	gather(raw)
+	lights = _merge(raw)
+	pools = null
+	queue_redraw()
+	PerfLog.since("glow gather", t0)
+
+
+## Everything that glows this tick, unmerged (Light2DView gathers through this too).
+func gather(raw: Array) -> void:
 	_creature_lights(raw)
 	_projectile_lights(raw)
 	_particle_lights(raw)
-	lights = _merge(raw)
+
+
+## Lighting on (Light2DView gathered them): `all` for the halos, `floor_pools` the pools still drawn
+## (the rest light the floor as real lights, so nothing is lit twice).
+func show_lights(all: Array, floor_pools: Array) -> void:
+	lights = all
+	pools = floor_pools
 	queue_redraw()
-	PerfLog.since("glow gather", t0)
 
 
 ## `halo`: how much of it shows as a halo too (1 for a small bright thing; a fighter's
 ## aura lights the floor, and only washes faintly over the fighter, or the sprite would
 ## go pale).
-func _add(raw: Array, pos: Vector2, z: float, col: Color, r: float, s: float, halo_share := 1.0) -> void:
+func _add(raw: Array, pos: Vector2, z: float, col: Color, r: float, s: float, halo_share := 1.0,
+		surge := false, age := 0) -> void:
 	if s > 0.01 and r >= 2.0:
-		raw.append([pos, z, col, r, s, halo_share])
+		raw.append([pos, z, col, r, s, halo_share, surge, age])
 
 
 ## A light seen at `drawn` (where the effect draws), `h` px over the floor under it.
-func _add_drawn(raw: Array, drawn: Vector2, h: float, col: Color, r: float, s: float) -> void:
-	_add(raw, drawn + Vector2(0, h), h, col, r, s)
+func _add_drawn(raw: Array, drawn: Vector2, h: float, col: Color, r: float, s: float, age := 0) -> void:
+	_add(raw, drawn + Vector2(0, h), h, col, r, s, 1.0, false, age)
 
 
 func _creature_lights(raw: Array) -> void:
@@ -148,11 +170,11 @@ func _creature_lights(raw: Array) -> void:
 		if SurgeAura.is_ready(c):
 			var col := _aura_color(c)
 			var pulse := 0.04 if (_tick / 8) % 2 == 0 else 0.0  # stepped, on the tick
-			_add(raw, c.pos, top * 0.5, col, 52.0, 0.34 + pulse, 0.12)
+			_add(raw, c.pos, top * 0.5, col, 52.0, 0.34 + pulse, 0.12, true)
 			var aura := _aura(c)
 			if aura != null and aura.burst_t >= 0:
 				var k := float(aura.burst_t) / float(SurgeAura.BURST_TICKS)
-				_add(raw, c.pos, top * 0.5, col, 88.0, 0.6 * (1.0 - k), 0.2)
+				_add(raw, c.pos, top * 0.5, col, 88.0, 0.6 * (1.0 - k), 0.2, true)
 		if c.state != CreatureSim.State.ATTACK:
 			continue
 		var mv := c.move_def()
@@ -174,7 +196,7 @@ func _creature_lights(raw: Array) -> void:
 				s *= 1.0 - (k - 0.6) / 0.4 * 0.8  # dims out over the last part
 		var at := c.pos + c.facing * float(li.get("ahead", 0.0))
 		_add(raw, at, float(li.get("height", top * 0.5)), Color(String(li.get("color", _fx_color(c)))),
-			float(li.get("radius", 40.0)), s, float(li.get("halo", 0.5)))
+			float(li.get("radius", 40.0)), s, float(li.get("halo", 0.5)), c.move_type() == "surge", c.state_t)
 
 
 func _projectile_lights(raw: Array) -> void:
@@ -191,8 +213,9 @@ func _projectile_lights(raw: Array) -> void:
 			continue
 		var z := FxView.THROW_Z if String(mv.get("fx", {}).get("projectile", "")) in ["knife", "mallet", "cleaver"] \
 			else 10.0
+		var age := int(pr.get("life_total", 0)) - int(pr.get("life", 0)) if pr.has("life_total") else 0
 		_add(raw, pp, z, Color(String(li.get("color", _fx_color(owner)))), float(li.get("radius", 24.0)),
-			float(li.get("strength", 0.45)))
+			float(li.get("strength", 0.45)), 1.0, false, maxi(0, age))
 
 
 func _particle_lights(raw: Array) -> void:
@@ -209,32 +232,33 @@ func _part_light(raw: Array, p: Dictionary) -> void:
 	var life := float(p.get("life", 1.0))
 	var k := clampf(float(p.get("t", 0.0)) / maxf(1.0, life), 0.0, 1.0)
 	var fade := 1.0 - k
+	var age := int(p.get("t", 0.0))
 	match String(p["kind"]):
 		"spark":  # the white flash of a heavy hit
-			_add_drawn(raw, p["pos"], 8.0, FxView.C_SPARK[1], 26.0 * float(p.get("scale", 1.0)), 0.5 * fade)
+			_add_drawn(raw, p["pos"], 8.0, FxView.C_SPARK[1], 26.0 * float(p.get("scale", 1.0)), 0.5 * fade, age)
 		"burst":
 			var col: Color = p["color"]
-			_add_drawn(raw, p["pos"], 8.0, col, float(p["r1"]) * 1.6, 0.4 * fade)
+			_add_drawn(raw, p["pos"], 8.0, col, float(p["r1"]) * 1.6, 0.4 * fade, age)
 		"glint":
-			_add_drawn(raw, p["pos"], 6.0, p["color"], 14.0, 0.45 * fade)
+			_add_drawn(raw, p["pos"], 6.0, p["color"], 14.0, 0.45 * fade, age)
 		"ring":
 			var col: Color = p.get("color", Color.BLACK)  # (an uncoloured ring is dust, not light)
 			if _bright(col) and col.s >= 0.25:
-				_add_drawn(raw, p["pos"], 0.0, col, float(p["radius"]) + 8.0, 0.3 * col.a * fade)
+				_add_drawn(raw, p["pos"], 0.0, col, float(p["radius"]) + 8.0, 0.3 * col.a * fade, age)
 		"streak":
 			var col: Color = p["color"]
 			if _bright(col):
 				var a: Vector2 = p["a"]
 				var b: Vector2 = p["b"]
-				_add_drawn(raw, a.lerp(b, 0.6), 6.0, col, maxf(12.0, a.distance_to(b) * 0.6), 0.3 * col.a * fade)
+				_add_drawn(raw, a.lerp(b, 0.6), 6.0, col, maxf(12.0, a.distance_to(b) * 0.6), 0.3 * col.a * fade, age)
 		"lines":
 			var col: Color = p["color"]
 			if _bright(col):
-				_add_drawn(raw, p["pos"], 6.0, col, 18.0 * float(p.get("size", 1.0)), 0.3 * fade)
+				_add_drawn(raw, p["pos"], 6.0, col, 18.0 * float(p.get("size", 1.0)), 0.3 * fade, age)
 		"suck":  # Tenderize's violet sparks drawn in
 			var col: Color = p.get("color", Color.WHITE)
 			if col.s > 0.3 and col.v > 0.8:
-				_add_drawn(raw, p["to"], 10.0, col, 16.0, 0.12 * fade)
+				_add_drawn(raw, p["to"], 10.0, col, 16.0, 0.12 * fade, age)
 
 
 ## Coloured or white-hot, not grey dust or stone.
@@ -261,6 +285,9 @@ func _merge(raw: Array) -> Array:
 		m[3] = maxf(float(m[3]), float(l[3]))
 		m[4] = minf(1.0, s0 + s1)
 		m[5] = lerpf(float(m[5]), float(l[5]), w)
+		if m.size() > 7 and l.size() > 7:
+			m[6] = bool(m[6]) or bool(l[6])
+			m[7] = mini(int(m[7]), int(l[7]))
 	var out: Array = cells.values()
 	if out.size() > MAX_LIGHTS:
 		out.sort_custom(func(a, b): return float(a[4]) > float(b[4]))
@@ -289,7 +316,7 @@ static func _fx_color(c: CreatureSim) -> String:
 
 func _draw() -> void:
 	var t0 := PerfLog.now()
-	var list: Array = source.lights if halo and source != null else lights
+	var list: Array = source.lights if halo and source != null else (pools if pools != null else lights)
 	for l in list:
 		var pos: Vector2 = l[0]
 		var z := float(l[1])

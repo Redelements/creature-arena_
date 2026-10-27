@@ -29,7 +29,14 @@ extends Node2D
 ## shade it per pixel (Settings > Video > Lighting): while such a sheet shows, the sprite's
 ## `light_mask` is Light2DView.FIGHTER_MASK. A sheet without normals keeps the default mask,
 ## which no light uses, so a fighter without normal sheets draws exactly as before.
+##
+## Emissive sheets: a view whose sheet has a `<sheet>_e.png` beside it (or an "emissive" path
+## in its block; RGB the colour a pixel gives off, A how strongly, docs/SPRITES.md) draws it
+## as a layer over the sprite (`emit`, `_sync_emit`), untouched by the lights and the night's
+## tint, so the glowing parts stay bright in the dark; BloomView blooms it (`emit_frame`).
+## Lighting Off (`emissive_on`) and fighters without the sheet draw exactly as before.
 
+var sun_bit := 0  ## Light2DView's sun for this fighter (set_sun_bit)
 const FLASH_SHADER := preload("res://src/view/flash.gdshader")
 ## Windup tell colors: red means it can't be blocked, so get out of the way or hit first.
 const TENDER_PINK := Color(1.0, 0.55, 0.66)
@@ -44,9 +51,13 @@ const FALLBACK := {
 var c: CreatureSim
 var sprite := Sprite2D.new()
 var layout: Dictionary
-var frame_px := 48
+var frame_px := 48  ## the side frame's width, in sheet pixels
 var cols := 1
 var origin := Vector2(24, 43)
+## The side sheet's density (ArtScale: texture pixels per world unit; the sprite block's
+## "ppu", 1 unless given). A 2x sheet draws at half scale, on half-unit positions, so each
+## of its pixels is one grid pixel. Frame sizes, origins and portraits stay in sheet pixels.
+var ppu := 1
 var flip := false
 var view := "side"  ## "side", "up", "down", "down_side" or "up_side": which sheet is showing
 var mat := ShaderMaterial.new()
@@ -107,16 +118,28 @@ var aura_front := SurgeAura.new()
 
 const RIM_STONE := Color(0.85, 0.85, 0.88)
 
+## Emissive sheets: the glowing parts of the frame showing now, drawn over the sprite at their
+## own colour (`_sync_emit`); none while no `_e.png` shows or Lighting is Off (`emissive_on`).
+var emit := Sprite2D.new()
+var emit_mat := ShaderMaterial.new()
+## Main sets it from Settings > Video > Lighting: Off draws no emissive layer (the game before it).
+static var emissive_on := true
+
 
 func setup(creature: CreatureSim) -> void:
 	mat.shader = FLASH_SHADER
 	sprite.material = mat
 	sprite.centered = false
+	emit_mat.shader = FLASH_SHADER  # the same hit flash, stone and palette as the sprite
+	emit.material = emit_mat
+	emit.centered = false
+	emit.visible = false
 	add_child(pivot)
 	aura_front.front = true
 	aura.twin = aura_front
 	pivot.add_child(aura)
 	pivot.add_child(sprite)
+	pivot.add_child(emit)
 	pivot.add_child(aura_front)
 	rebind(creature)
 
@@ -135,6 +158,7 @@ func rebind(creature: CreatureSim) -> void:
 	frame_px = int(side["size"].x)
 	cols = int(side["cols"])
 	origin = side["origin"]
+	ppu = int(side["ppu"])
 	_views = {"side": side}
 	var extra: Dictionary = layout.get("views", {})
 	for vname in extra:
@@ -158,13 +182,27 @@ static func _load_view(v: Dictionary, side: Dictionary, side_only: Array) -> Dic
 		ct.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		lit = ct
 	var fr = v.get("frame", side.get("frame", 48))
+	var emit_tex := load_emissive(String(v.get("emissive", String(v["path"]).get_basename() + "_e.png")))
 	var size := Vector2(float(fr[0]), float(fr[1])) if fr is Array else Vector2(float(fr), float(fr))
 	var o: Array = v.get("origin", side.get("origin", [24, 43]))
 	var anims: Dictionary = v.get("anims", side.get("anims", {})).duplicate()
 	for n in side_only:
 		anims.erase(n)
 	return {"tex": tex, "lit": lit, "size": size, "cols": int(v.get("cols", side.get("cols", 1))),
-		"origin": Vector2(float(o[0]), float(o[1])), "anims": anims}
+		"origin": Vector2(float(o[0]), float(o[1])), "anims": anims, "emit": emit_tex,
+		"ppu": ArtScale.ppu_of(v, ArtScale.ppu_of(side))}
+
+
+## A view's emissive sheet (`<sheet>_e.png`, or its block's "emissive"), or null: an imported
+## resource, else a PNG outside res:// read straight from disk (a test's fixture in user://).
+static func load_emissive(path: String) -> Texture2D:
+	if ResourceLoader.exists(path):
+		return load(path)
+	if not path.begins_with("res://") and FileAccess.file_exists(path):
+		var img := Image.load_from_file(path)
+		if img != null and not img.is_empty():
+			return ImageTexture.create_from_image(img)
+	return null
 
 
 ## Whether this fighter has up/down art (otherwise vertical swings are drawn side-on).
@@ -208,7 +246,6 @@ func refresh() -> void:
 	if intro_clock >= 0:
 		intro_clock += 1
 	_update_idle_alt()
-	position = c.pos.round()
 	if c.facing.x < -0.1:
 		flip = true
 	elif c.facing.x > 0.1:
@@ -227,9 +264,12 @@ func refresh() -> void:
 	if v != _cur:
 		_cur = v
 		sprite.texture = v["lit"]
-		sprite.light_mask = Light2DView.FIGHTER_MASK if lit() else 1
+		sprite.light_mask = (Light2DView.FIGHTER_MASK | sun_bit) if lit() else 1
 		sprite.hframes = int(v["cols"])
 		sprite.vframes = maxi(1, int(v["tex"].get_height() / v["size"].y))
+		sprite.scale = ArtScale.scale_of(int(v["ppu"]))
+	var vppu := int(v["ppu"])
+	position = ArtScale.snap(c.pos, vppu)
 	var count := int(anim[2])
 	var idx: int = pick[1] % count if pick[2] else clampi(pick[1], 0, count - 1)
 	sprite.frame = int(anim[0]) * int(v["cols"]) + int(anim[1]) + idx
@@ -241,8 +281,8 @@ func refresh() -> void:
 	if leap > 0.0:
 		lift += leap
 		z_index = 2  # high in the air: over everyone
-	sprite.position = Vector2(-ox, -o.y)
-	pivot.position = Vector2(0, -round(lift))
+	sprite.position = Vector2(-ox, -o.y) / float(vppu)
+	pivot.position = Vector2(0, -ArtScale.snapf(lift, vppu))
 	if c.state == CreatureSim.State.CRUMPLE and c.stone <= 0:
 		pivot.position.x += 1 if (c.anim_t / 4) % 2 == 0 else -1
 		pivot.position.y += 1
@@ -340,6 +380,7 @@ func refresh() -> void:
 		alpha = minf(alpha, 0.45)  # in the brush: a shape in the leaves
 	alpha *= blink_alpha(c)
 	modulate = Color(shade, shade, shade, alpha)
+	_sync_emit()
 
 	# The shadow shrinks and fades as the fighter goes up; a fighter hidden in the brush or
 	# invisible leaves only as faint a shadow as its sprite (it mustn't give them away).
@@ -453,6 +494,55 @@ func kick(to: Vector2) -> void:
 	_kick(to)
 
 
+## The emissive layer follows the sprite exactly (frame, flip, place) with its own sheet, over
+## it and outside every light and tint (the sprite's `self_modulate` is the night's dark, not
+## the layer's): a glowing part stays its own colour at night. It takes the sprite's flash,
+## stone and palette, so a hit flash or Petrify covers it too.
+func _sync_emit() -> void:
+	var tex: Texture2D = _cur.get("emit") if emissive_on else null
+	if tex == null:
+		emit.visible = false
+		return
+	emit.visible = true
+	if emit.texture != tex:
+		emit.texture = tex
+		emit.hframes = sprite.hframes
+		emit.vframes = sprite.vframes
+	emit.frame = sprite.frame
+	emit.flip_h = sprite.flip_h
+	emit.position = sprite.position
+	emit.scale = sprite.scale
+	for k in ["flash", "flash_color", "stone", "ice", "hue"]:
+		emit_mat.set_shader_parameter(k, mat.get_shader_parameter(k))
+
+
+## Whether an emissive sheet is showing now (BloomView blooms it).
+func emitting() -> bool:
+	return emit.visible and emit.texture != null and pivot.visible
+
+
+## The emissive frame showing now, for BloomView: {tex, region, xform (the sprite's world
+## transform, mirrored when flipped)}; empty when none shows.
+func emit_frame() -> Dictionary:
+	if not emitting():
+		return {}
+	var size: Vector2 = _cur["size"]
+	var vc := int(_cur["cols"])
+	var region := Rect2((emit.frame % vc) * size.x, (emit.frame / vc) * size.y, size.x, size.y)
+	var xf := emit.get_global_transform() if emit.is_inside_tree() else emit.transform
+	if emit.flip_h:
+		xf = xf * Transform2D(Vector2(-1, 0), Vector2(0, 1), Vector2(size.x, 0))
+	return {"tex": emit.texture, "region": region, "xform": xf, "size": size}
+
+
+## Light2DView: this fighter's own sun's light-mask bit (0: none), kept on the sprite while a
+## sheet with normals shows.
+func set_sun_bit(b: int) -> void:
+	sun_bit = b
+	if sprite != null:
+		sprite.light_mask = (Light2DView.FIGHTER_MASK | sun_bit) if lit() else 1
+
+
 ## Whether the sheet showing now has normals (the lights shade it; WeatherView dims it by day).
 func lit() -> bool:
 	return not _cur.is_empty() and _cur["lit"] != _cur["tex"]
@@ -482,6 +572,8 @@ func snapshot() -> Dictionary:
 		"side_origin": origin,
 		"side_size": _views["side"]["size"],
 		"frame_px": frame_px,
+		"ppu": int(v["ppu"]),
+		"side_ppu": ppu,
 	}
 
 
@@ -506,8 +598,9 @@ func draw_shadow(ci: CanvasItem, cast: Vector2, alpha: float) -> void:
 	var a := alpha * shadow_fade
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.38))
 	ci.draw_circle(Vector2.ZERO, c.radius * 0.8 * shadow_size, Color(0, 0, 0, a * 0.45))
+	# A 2x sheet's rows are half a unit tall: the silhouette shrinks with the sprite.
 	ShadowLayer.draw_silhouette(ci, sheet(), region, _cur["origin"], flip,
-		Vector2(pivot.position.x, 0.0), cast, a, _sq * shadow_size)
+		Vector2(pivot.position.x, 0.0), cast, a, _sq * shadow_size / float(int(_cur["ppu"])))
 
 
 ## Counts the stand-still for the idle variety, one step a tick (see `_alt_t`).

@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "C:/Users/Kevin/dev/python/python.exe tools/write_status.py --hook 2>/dev/null || python3 tools/write_status.py --hook",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"Context was compacted. First: read docs/STATUS.md and CLAUDE.md, state the next step in one line, continue. No re-exploration.\""
+          }
+        ]
+      }
+    ]
+  }
+}

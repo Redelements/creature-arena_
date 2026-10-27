@@ -19,6 +19,7 @@ const LATTICE := Vector2i(13, 11)  ## highlight spacing; one dash per lattice sl
 const DRAWN_PAD := 120.0  ## the surface draws this far past the view, redrawing when it leaves
 const CULL_PAD := 24.0
 const EDGE_DEPTH := 3  ## foam flickers this many px in from a bank (the picture has its own line)
+const FOAM_TICKS := 40  ## a foam speck holds this long; each starts at its own phase, so a few change at a time
 const RIPPLE_LIFE := 24
 const SPLASH_LIFE := 18
 
@@ -33,6 +34,12 @@ var _water := PackedByteArray()  ## 1 where a cell is shallows
 var _cols := 0
 var _rows := 0
 var _edges: Array = []  ## [x, y, dx, dy, nx, ny]: an 8 px bank segment, its direction and water-side normal
+## A tiled map's drawn bank (ArenaView.water_bank): the water is painted a whole tile at a
+## time with a bank this many px wide inside it, so the foam runs along the painted edge
+## (the cells rounded out to tiles of `_bank_cells`), this far in. 0: the cells' own edges.
+var _bank := 0.0
+var _bank_cells := 1
+var _drawn_wet := PackedByteArray()  ## 1 where the painted water is (the cells, or whole tiles)
 var _surface: Layer
 var _wakes: Layer
 var _drawn := Rect2()
@@ -45,6 +52,10 @@ var _rng := RandomNumberGenerator.new()
 var _any_water := false
 var _bounds := Rect2()  ## the box round all the water
 var _wakes_drawn := false
+## The brightest highlights the surface drew last (their middles, world px) and a count that
+## changes each redraw: BloomView blooms them where the lamps shine.
+var glints := PackedVector2Array()
+var glint_ver := 0
 
 
 ## A drawing layer: `paint` runs in its _draw.
@@ -70,8 +81,11 @@ func _init() -> void:
 	_rng.seed = 4711
 
 
-func set_sim(s: MatchSim) -> void:
+## `bank`, `bank_cells`: a tiled map's drawn bank (ArenaView.water_bank), 0 for none.
+func set_sim(s: MatchSim, bank := 0.0, bank_cells := 1) -> void:
 	sim = s
+	_bank = bank
+	_bank_cells = maxi(1, bank_cells) if bank > 0.0 else 1
 	_terrain = s.terrain
 	_version = -1
 	_last_tick = -1
@@ -137,20 +151,38 @@ func _scan() -> void:
 			first = false
 	_edges.clear()
 	if _any_water:
+		# the edge the foam runs along: the cells', or on a tiled map the painted water's (a
+		# tile is water when any of its cells is), whose bank the foam stays clear of
+		var drawn := _water
+		if _bank_cells > 1:
+			drawn = PackedByteArray()
+			drawn.resize(_cols * _rows)
+			for i in _cols * _rows:
+				if _water[i] == 1:
+					var tx := (i % _cols) / _bank_cells * _bank_cells
+					var ty := (i / _cols) / _bank_cells * _bank_cells
+					for dy in _bank_cells:
+						for dx in _bank_cells:
+							if tx + dx < _cols and ty + dy < _rows:
+								drawn[(ty + dy) * _cols + tx + dx] = 1
+		_drawn_wet = drawn
+		var wet := func(cx: int, cy: int) -> bool:
+			return cx >= 0 and cy >= 0 and cx < _cols and cy < _rows and drawn[cy * _cols + cx] == 1
 		var c := SimDefs.CELL
 		for cy in _rows:
 			for cx in _cols:
-				if _water[cy * _cols + cx] == 0:
+				if drawn[cy * _cols + cx] == 0:
 					continue
 				var x := SimDefs.GRID_X + cx * c
 				var y := SimDefs.GRID_Y + cy * c
-				if cy > 0 and not _is_water(cx, cy - 1):
+				# a tiled map's bank runs along the floor's edge too
+				if (cy > 0 or _bank > 0.0) and not wet.call(cx, cy - 1):
 					_edges.append([x, y, 1, 0, 0, 1])
-				if cy + 1 < _rows and not _is_water(cx, cy + 1):
+				if (cy + 1 < _rows or _bank > 0.0) and not wet.call(cx, cy + 1):
 					_edges.append([x, y + c - 1, 1, 0, 0, -1])
-				if cx > 0 and not _is_water(cx - 1, cy):
+				if (cx > 0 or _bank > 0.0) and not wet.call(cx - 1, cy):
 					_edges.append([x, y, 0, 1, 1, 0])
-				if cx + 1 < _cols and not _is_water(cx + 1, cy):
+				if (cx + 1 < _cols or _bank > 0.0) and not wet.call(cx + 1, cy):
 					_edges.append([x + c - 1, y, 0, 1, -1, 0])
 	_drawn = Rect2()
 	_surface.queue_redraw()
@@ -175,6 +207,8 @@ static func _hash(a: int, b: int) -> int:
 # ------------------------------------------------------------------ the surface
 
 func _paint_surface(ci: CanvasItem) -> void:
+	glints.clear()
+	glint_ver += 1
 	if sim == null:
 		return
 	var view := _drawn.intersection(_bounds)
@@ -207,10 +241,14 @@ func _paint_surface(ci: CanvasItem) -> void:
 			if tone == 3:
 				continue  # dark moment: the dash is out
 			ci.draw_rect(Rect2(x, y, ln, 1), WATER[6] if tone == 0 else WATER[5])
+			if tone == 0:
+				glints.append(Vector2(x + ln * 0.5, y + 0.5))
 			if ln > 2:
 				ci.draw_rect(Rect2(x + 1, y + 1, ln - 2, 1), WATER[1])  # its trough
-	# Foam flickers along the banks (and where the water ends under a bridge deck).
-	var t14 := sim.tick / 14
+	# Foam flickers along the banks (and where the water ends under a bridge deck): each
+	# speck holds FOAM_TICKS from its own phase, so only a few change at each redraw.
+	var inset := roundi(_bank)
+	var far := inset + (2 if inset > 0 else 0)  # the far bank (land above) is deeper, its face shades the water
 	for e in _edges:
 		var ex := int(e[0])
 		var ey := int(e[1])
@@ -219,7 +257,9 @@ func _paint_surface(ci: CanvasItem) -> void:
 		for u in 8:
 			var px := ex + int(e[2]) * u
 			var py := ey + int(e[3]) * u
-			var h2 := _hash(px * 3 + int(e[4]) * 7, py * 3 + int(e[5]) * 7 + t14 * 1009)
+			var h0 := _hash(px * 5 + int(e[4]) * 11, py * 5 + int(e[5]) * 11)
+			var t := (sim.tick + h0 % FOAM_TICKS) / FOAM_TICKS
+			var h2 := _hash(px * 3 + int(e[4]) * 7, py * 3 + int(e[5]) * 7 + t * 1009)
 			var depth := -1
 			if h2 % 7 < 2:
 				depth = 1 + (h2 >> 5) % EDGE_DEPTH
@@ -227,9 +267,23 @@ func _paint_surface(ci: CanvasItem) -> void:
 				depth = 0
 			if depth < 0:
 				continue
-			var qx := px + int(e[4]) * depth
-			var qy := py + int(e[5]) * depth
+			var qx := px + int(e[4]) * (depth + (far if int(e[5]) == 1 else inset))
+			var qy := py + int(e[5]) * (depth + (far if int(e[5]) == 1 else inset))
+			if inset > 0 and not _clear_of_bank(qx, qy, inset, far):
+				continue  # a corner: the next bank along covers it
 			ci.draw_rect(Rect2(qx, qy, 1, 1), WATER[6] if depth <= 1 else WATER[5])
+
+
+## On a tiled map, whether a foam speck at (x, y) is clear of every drawn bank: the painted
+## water reaches `side` px left, right and below it and `top` px above.
+func _clear_of_bank(x: int, y: int, side: int, top: int) -> bool:
+	var c := float(SimDefs.CELL)
+	for o in [Vector2i(-side, 0), Vector2i(side, 0), Vector2i(0, -top), Vector2i(0, side)]:
+		var cx := floori((x + o.x - SimDefs.GRID_X) / c)
+		var cy := floori((y + o.y - SimDefs.GRID_Y) / c)
+		if cx < 0 or cy < 0 or cx >= _cols or cy >= _rows or _drawn_wet[cy * _cols + cx] == 0:
+			return false
+	return true
 
 
 ## Water at the pixel and a little way round it (so a highlight stays off the foam).

@@ -14,7 +14,8 @@ extends Node2D
 ##   --arena=ID            the arena map for offline matches (stadium, quarry, floodgate,
 ##                         greenhouse; data/arenas/)
 ##   --time=ID             time of day for offline matches this session: random, day, sunset,
-##                         night (data/weather.json; a choice the arena doesn't allow falls back)
+##                         night (data/weather.json; a choice the arena doesn't allow falls back:
+##                         night is the Floodgate's only)
 ##   --weather=ID          weather for offline matches this session: random, clear, rain, fog,
 ##                         wind, snow
 ##   --autoplay            training demo: the player side follows a scripted routine
@@ -63,7 +64,8 @@ extends Node2D
 ##   --view-team=N         show the match as team N sees it (brush, fences, walls hide
 ##                         foes), even with nobody playing here (captures of --cpu-vs-cpu)
 ##   --menu=PAGE           open a menu page: main, single, single:<group>, look (Time and weather), settings, game, video, audio, controls,
-##                         remap:classic|league|gamepad (captures)
+##                         remap:classic|league|gamepad, credits, credits:<row> (game, szadi,
+##                         kiddolink, font, godot, notices) (captures)
 ##   --online-host[=PORT]  host an online 1v1 straight away (UDP, default port 7777)
 ##   --online-join=ADDR[:PORT][/ROOM]  join one, or a dedicated server (ROOM: meet a friend there)
 ##   --online-watch=ADDR[:PORT][/ROOM] watch a server's match (a room's, from match to match)
@@ -400,6 +402,7 @@ var glow := default_glow()
 ## Lighting (Settings > Video): real 2D lights on the fighters and, High, the night's lamps and
 ## bloom (Light2DView, BloomView). `--lighting=` overrides it for the session.
 var light2d: Light2DView
+var light_floor: Light2DView.FloorGlow
 var bloom: BloomView
 var lighting := default_lighting()
 var _lighting_cli := -1
@@ -439,7 +442,7 @@ var wins := [0, 0]
 var _carried_energy := [-1.0, -1.0]
 var timer := ROUND_TICKS
 var seed_base := 1
-## --menu=PAGE: open a menu page on start (captures): single, single:<group>, settings, game, video, audio, controls.
+## --menu=PAGE: open a menu page on start (captures): single, single:<group>, settings, game, video, audio, controls, credits[:row].
 var _menu_arg := ""
 var _setting_rows := {}  ## Settings key -> its OptionRow, while the page is open
 var _match_over_status: Label = null
@@ -703,6 +706,8 @@ func _ready() -> void:
 	add_child(weather.ground)  # fog bands, rain splashes: over the shadows, under the fighters
 	glow_floor = LightView.new()  # light pools on the floor, over the shadows, under the fighters
 	add_child(glow_floor)
+	light_floor = Light2DView.FloorGlow.new()  # the fight's real lights on the floor (Lighting), at the pools' depth
+	add_child(light_floor)
 	rings = RangeRings.new()
 	rings.visible = false
 	rings.fx = fx  # what the local team can see (Vision): no rings for a hidden foe
@@ -729,10 +734,14 @@ func _ready() -> void:
 	_apply_glow()
 	light2d = Light2DView.new()  # real 2D lights (Lighting): only fighter sprites and the night shade take them
 	light2d.fx = fx
+	light2d.floor_glow = light_floor
+	light2d.views = views  # each seen fighter's own sun
 	add_child(light2d)
 	bloom = BloomView.new()  # half-size bloom of the bright things, added onto the screen layer
 	bloom.glow = glow_floor
 	bloom.light2d = light2d
+	bloom.fx = fx
+	bloom.water = water
 	add_child(bloom)
 	audio = AudioView.new()
 	add_child(audio)
@@ -867,7 +876,8 @@ func _open_menu(page := "", focus := "") -> void:
 	hud.menu_visible = true
 	audio.play_music("menu")
 	_menu_background()
-	var land := focus if focus != "" else ("settings" if page in SETTING_PAGES or page == "controls" or page.begins_with("remap:") else page)
+	var land := focus if focus != "" else ("settings" if page in SETTING_PAGES or page == "controls" or page.begins_with("remap:") \
+		or page.begins_with("credits") else page)
 	var t := TitleScreen.new(land)
 	t.single_pressed.connect(_open_single)
 	t.online_pressed.connect(func(): _start_match(ONLINE_MODE))
@@ -896,6 +906,13 @@ func _open_menu(page := "", focus := "") -> void:
 			_open_settings()
 			_open_controls()
 			_open_settings_page("touch")
+		"credits":
+			_open_settings()
+			_open_credits()
+		"credits:game", "credits:szadi", "credits:kiddolink", "credits:font", "credits:godot", "credits:notices":
+			_open_settings()
+			_open_credits()
+			(ui.top() as CreditsScreen).open_page(page.get_slice(":", 1))
 		"remap:classic", "remap:league", "remap:gamepad":  # captures of a Remap page
 			_open_settings()
 			_open_controls()
@@ -1175,7 +1192,7 @@ func _add_look_rows(s: UiScreen) -> void:
 			names.append("Random" if id == WeatherView.RANDOM else WeatherView.name_of(kind, String(id)))
 		var cur := time_choice if kind == "times" else weather_choice
 		var label := "Time" if kind == "times" else "Weather"
-		var desc := ("Day, sunset or night: how the match looks, never how it plays. Random: one the map allows"
+		var desc := ("Day, sunset or night: how the match looks, never how it plays. Night is on the Floodgate only; other maps play day. Random: one the map allows"
 			if kind == "times" else
 			"Clear, rain, fog, wind or snow: looks only. Random: one the map allows; one the map doesn't allow plays clear. Online is always day and clear")
 		s.add_option(label, names, maxi(0, ids.find(cur)), func(i: int): _set_look_choice(kind, String(ids[i])), desc)
@@ -1350,7 +1367,7 @@ func _start_row(row: int) -> void:
 	_start_match(int(r["modes"][_row_choice[row] if row < _row_choice.size() else 0]))
 
 
-## Settings: four pages, like most games: Game, Video, Audio, Controls.
+## Settings: four pages, like most games: Game, Video, Audio, Controls; and the Credits.
 func _open_settings() -> void:
 	var scr := UiScreen.new()
 	scr.logo = true
@@ -1367,9 +1384,16 @@ func _open_settings() -> void:
 			func(): _open_settings_page("audio"), "Volumes")
 		s.add_card("Controls", "Keyboard and controller layouts; remap keys and buttons",
 			_open_controls, "Who presses what")
+		s.add_card("Credits", "Who made the game; art, font and engine licences",
+			_open_credits, "Credits and licences, and the engine's third-party notices")
 		s.add_space(3)
 		s.add_button("Back", s.back)
 	ui.push(scr)
+
+
+## Settings > Credits (src/ui/credits_screen.gd; LICENSES.md says it at length).
+func _open_credits() -> void:
+	ui.push(CreditsScreen.new())
 
 
 ## One Settings page: each row's values and description come from _setting(); a change
@@ -2689,7 +2713,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 		views.append(v)
 	debug.sim = sim
 	rings.set_sim(sim)
-	water.set_sim(sim)
+	water.set_sim(sim, arena.water_bank(), ArtScale.TILE_CELLS)  # after arena.set_terrain: the bank is the tiles'
 	wear.set_sim(sim)
 	water.fx = fx
 	ambient.set_sim(sim, arena.art())
@@ -2699,6 +2723,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	_light_look()
 	weather.apply(sim, look, shadows, ambient, water)
 	light2d.apply(sim, look, shadows.light.get("cast", Vector2.DOWN))
+	furniture.set_lit(light2d.lamp_heads())  # the lamp heads of lit lamps glow (after set_arena)
 	grade.apply(sim.arena, weather.grade_scale())
 	replay.setup["look"] = look.duplicate()  # cosmetic: the replay looks the same
 	paper.set_sim(sim)
@@ -2706,6 +2731,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	fx.sim = sim
 	fx.clear()
 	fx.views = views
+	bloom.views = views
 	vision.clear()
 	_hidden = []
 	fx.vision = vision
@@ -2941,10 +2967,13 @@ func _physics_process(_delta: float) -> void:
 	fx.advance()
 	PerfLog.since("adv fx", t_v)
 	PerfLog.since("fx advance", t_fx)
+	light2d.advance()  # after the effects: it reads their particles
 	if glow:
-		glow_floor.advance()  # after the effects: it reads their particles
+		if light2d.tier == Light2DView.Tier.OFF:
+			glow_floor.advance()  # Lighting Off: Glow gathers its own, as before
+		else:
+			glow_floor.show_lights(light2d.gathered, light2d.pools)  # the pools the real lights left
 		glow_halo.queue_redraw()
-	light2d.advance()
 	bloom.advance()
 	var t_views := PerfLog.now()
 	paper.advance(events)
@@ -3334,6 +3363,7 @@ func _react(e: Dictionary) -> void:
 		elif String(e["type"]) in ["spree", "shutdown", "crown"]:
 			_wanted_toast(e)
 	fx.spawn(e)
+	light2d.on_event(e)  # a big hit's or a Surge's flash of light (Lighting Low / High)
 	audio.on_event(e)
 	var power: float = e["power"]
 	_rumble(e)
@@ -4519,7 +4549,7 @@ func _setting(key: String) -> Dictionary:
 				"desc": "Glowing things (auras, sparks, flashes, shots) light the floor around them. Off for weaker devices"}
 		"lighting":
 			return {"label": "Lighting", "values": ["Off", "Low", "High"], "index": lighting,
-				"desc": "Real light on the fighters (sun, auras, flashes); High adds the night's lamps and bloom. Lower for weaker devices"}
+				"desc": "Real light on the fighters (sun, auras, flashes); High adds the Floodgate's night lamps and bloom. Lower for weaker devices"}
 		"font":
 			return {"label": "Text font", "values": ["Pixel", "Smooth"], "index": 1 if UiTheme.smooth else 0,
 				"desc": "The menus and the HUD: the pixel font, or the smooth font from before"}
@@ -4712,12 +4742,18 @@ func _apply_pixel_scale() -> void:
 
 
 ## The content scale factor for a window `size` over the `base` grid: whole screen pixels
-## per canvas unit (base.x / VIEW_W grid pixels: 2), at least 1. 0 for a size or base of nothing.
+## per grid pixel (a 2x sheet's art pixel; base.x / VIEW_W = ArtScale.PX_PER_UNIT of them a
+## canvas unit) once the window has two or more of them, so 2x art never draws uneven; below
+## that (1440 x 810: 1.5 a grid pixel) whole screen pixels per canvas unit, as the older 1x
+## sheets want, so a window that can't fit two keeps its size. At least 1. 0 for a size or
+## base of nothing.
 static func pixel_scale_factor(size: Vector2, base: Vector2) -> float:
 	if base.x <= 0.0 or base.y <= 0.0 or size.x <= 0.0 or size.y <= 0.0:
 		return 0.0
 	var grid := minf(size.x / base.x, size.y / base.y)  # screen px per grid px, unsnapped
-	var unit_px := maxf(1.0, floorf(grid * base.x / SimDefs.VIEW_W + 0.001))  # per canvas unit
+	var per_unit := base.x / SimDefs.VIEW_W  # grid px per canvas unit (2)
+	var grid_px := floorf(grid + 0.001)
+	var unit_px := grid_px * per_unit if grid_px >= 2.0 else maxf(1.0, floorf(grid * per_unit + 0.001))
 	return unit_px / grid
 
 
@@ -5081,10 +5117,12 @@ func _light_look() -> void:
 	var t := lighting_tier()
 	light2d.tier = t
 	bloom.set_on(t == Light2DView.Tier.HIGH)
+	CreatureView.emissive_on = t != Light2DView.Tier.OFF
+	_apply_glow()  # High: the bloom stands in for Glow's halos
 	var time := String(_lit_look.get("time", "day"))
 	weather.lamp_lights = sim != null and t == Light2DView.Tier.HIGH and Light2DView.lamps_on(sim.arena, time)
-	var sd: Dictionary = Light2DView.SUN.get(time, {})
-	weather.fighter_scale = float(sd.get("shade", 1.0)) if t != Light2DView.Tier.OFF else 1.0
+	var sd := Light2DView.sun_at(sim.arena if sim != null else {}, time, String(_lit_look.get("weather", "clear")), t)
+	weather.fighter_scale = float(sd.get("shade", 1.0))
 
 
 ## Lighting changed (Settings > Video): re-apply this match's look with the new tier.
@@ -5096,15 +5134,19 @@ func _apply_lighting() -> void:
 		weather.apply(sim, _lit_look, shadows, ambient, water)
 		grade.apply(sim.arena, weather.grade_scale())
 		light2d.apply(sim, _lit_look, shadows.light.get("cast", Vector2.DOWN))
+		furniture.set_lit(light2d.lamp_heads())
 
 
-## Glow on or off: off hides both layers and stops gathering lights (no cost at all).
+## Glow on or off: off hides both layers and stops gathering lights (no cost at all). With
+## Lighting High the halos stay hidden: the bloom draws the same lights' glow.
 func _apply_glow() -> void:
 	for g in [glow_floor, glow_halo]:
 		if g != null:
 			g.visible = glow
 			if not glow:
 				g.clear()
+	if glow_halo != null and light2d != null and lighting_tier() == Light2DView.Tier.HIGH:
+		glow_halo.visible = false
 
 
 func _load_settings() -> void:
@@ -5404,6 +5446,7 @@ func _parse_args() -> int:
 		elif a.begins_with("--menu="):
 			var page := a.get_slice("=", 1)
 			if page in ["main", "single", "look", "settings", "game", "video", "audio", "controls", "touch"] or page.begins_with("single:") \
+					or page.begins_with("credits") \
 					or page in ["remap:classic", "remap:league", "remap:gamepad"]:
 				_menu_arg = "" if page == "main" else page
 		elif a.begins_with("--fighter="):

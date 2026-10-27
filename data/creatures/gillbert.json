@@ -74,7 +74,7 @@
       "startup": 8, "active": 4, "recovery": 16,
       "damage": 6, "knockback": 2.4, "hitstun": 24, "hitstop": 7, "launch": 22,
       "reach": 4, "hit_radius": 18, "juggle": true,
-      "fx": { "impact": "splash" }
+      "fx": { "impact": "splash", "move_fx": "res://assets/vfx/water_fountain.tres" }
     },
     "light_1": {
       "no_flinch": true,
@@ -83,7 +83,7 @@
       "damage": 4, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
       "reach": 26, "hit_radius": 10, "lunge": 1.2, "next": "light_2", "juggle": true,
       "anim_at": [[0, 0], [1, 1], [3, 2], [4, 3], [5, 4], [8, 5], [10, 6], [12, 7]],
-      "fx": { "smear": "thrust" }
+      "fx": { "smear": "thrust", "move_fx": {"path": "res://assets/vfx/water_spout.tres", "scale": 0.6} }
     },
     "light_2": {
       "no_flinch": true,
@@ -92,7 +92,7 @@
       "damage": 5, "knockback": 1.0, "hitstun": 18, "hitstop": 4,
       "reach": 27, "hit_radius": 12, "lunge": 0.6, "next": "light_3", "juggle": true,
       "anim_at": [[0, 0], [2, 1], [4, 2], [5, 3], [6, 4], [9, 5], [12, 6], [15, 7]],
-      "fx": { "smear": "arc", "impact": "droplets" }
+      "fx": { "smear": "arc", "impact": "droplets", "move_fx": {"path": "res://assets/vfx/water_wings.tres", "scale": 0.7, "ticks_per_frame": 2, "offset": [4, -12]} }
     },
     "light_3": {
       "name": "Rod Flail", "anim": "flail",
@@ -100,7 +100,7 @@
       "damage": 6, "knockback": 1.6, "hitstun": 24, "hitstop": 6,
       "reach": 34, "hit_radius": 11, "lunge": 0.4, "next": "",
       "anim_at": [[0, 0], [3, 1], [6, 2], [8, 3], [9, 4], [13, 5], [17, 6], [21, 7]],
-      "fx": { "smear": "rise", "size": 1.2 }
+      "fx": { "smear": "rise", "size": 1.2, "move_fx": {"path": "res://assets/vfx/water_spout.tres", "scale": 0.7} }
     },
     "heavy": {
       "name": "Splash Zone", "anim": "splash", "windup": 8, "tell": "strong",
@@ -113,7 +113,7 @@
       "slow_ticks": 120, "slow_mult": 0.6,
       "anim_charge": [0, 4, 3],
       "anim_at": [[0, 4], [2, 5], [4, 6], [6, 7], [8, 8], [12, 9], [16, 10], [22, 11]],
-      "fx": { "charge": "drips", "impact": "splash" }
+      "fx": { "charge": "drips", "impact": "splash", "move_fx": {"path": "res://assets/vfx/water_fountain.tres", "scale": 1.3, "offset": [0, -20]} }
     },
     "skill_1": {
       "name": "Flop Dash", "anim": "flopdash", "windup": 12, "tell": "strong", "cooldown": 150,
@@ -122,7 +122,7 @@
       "reach": 8, "hit_radius": 11, "juggle": true, "juggle_float": 36,
       "dash": { "speed": 6.8, "from": 1, "to": 16, "shallows_mult": 1.5 },
       "anim_at": [[0, 0], [1, 1], [2, 2], [4, 3], [7, 4], [10, 5], [13, 6], [16, 7], [18, 8], [21, 9], [24, 10], [27, 11]],
-      "fx": { "afterimage": [1, 16], "ghost_color": "#b4e626aa", "trail": "splash", "impact": "droplets" }
+      "fx": { "afterimage": [1, 16], "ghost_color": "#b4e626aa", "trail": "splash", "impact": "droplets", "move_fx": {"path": "res://assets/vfx/water_wings.tres", "on": "start", "follow": true} }
     },
     "skill_2": {
       "name": "Cast Line", "anim": "cast", "windup": 6, "tell": "strong", "cooldown": 180,
@@ -132,7 +132,7 @@
       "projectile": { "speed": 11.0, "life": 18, "radius": 8, "offset": 12, "crack_trail": false },
       "anim_at": [[0, 0], [2, 1], [5, 2], [8, 3], [11, 4], [14, 5], [18, 6], [23, 7], [32, 9], [36, 10], [40, 11]],
       "anim_reel": 8,
-      "fx": { "cast": true, "projectile": "rod" }
+      "fx": { "cast": true, "projectile": "rod", "move_fx": {"path": "res://assets/vfx/water_spout.tres", "on": "projectile_end", "ticks_per_frame": 3} }
     },
     "surge": {
       "name": "The One That Got Away", "anim": "leap", "energy_cost": 100,
@@ -144,7 +144,7 @@
       "dash": {"speed": 1.8, "from": 3, "to": 22, "home": {"until": 16, "max": 3.6}},
       "anim_at": [[0, 0], [2, 1], [3, 2], [5, 3], [8, 4], [12, 5], [16, 6], [19, 7], [22, 8], [25, 9], [30, 10], [36, 11]],
       "view_lift": [[0, 0], [3, 4], [9, 90], [15, 120], [20, 70], [24, 0]],
-      "fx": { "telegraph": true, "impact": "bellyflop" }
+      "fx": { "telegraph": true, "impact": "bellyflop", "move_fx": [{"path": "res://assets/vfx/water_fountain.tres", "scale": 1.2, "offset": [-28, -18]}, {"path": "res://assets/vfx/water_fountain.tres", "scale": 1.2, "offset": [28, -18]}, {"path": "res://assets/vfx/ice_geyser.tres", "scale": 1.3, "offset": [0, -20]}] }
     }
   }
 }

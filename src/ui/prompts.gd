@@ -12,6 +12,7 @@ const PAD := {
 	"rematch": "A rematch",
 	"leave": "B leave",
 	"undo": "B undo",
+	"scroll": "Stick / D-pad scroll",
 }
 const KEYS := {
 	"move": "Arrows move",
@@ -22,6 +23,7 @@ const KEYS := {
 	"rematch": "Enter rematch",
 	"leave": "Esc leave",
 	"undo": "Esc undo",
+	"scroll": "Arrows / wheel scroll",
 }
 
 

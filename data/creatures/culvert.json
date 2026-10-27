@@ -75,7 +75,7 @@
       "damage": 7, "knockback": 2.4, "hitstun": 26, "hitstop": 8, "launch": 22,
       "reach": 6, "hit_radius": 20, "juggle": true,
       "terrain_radius": 10,
-      "fx": { "smear": "arc", "size": 1.4 }
+      "fx": { "smear": "arc", "size": 1.4, "move_fx": {"path": "res://assets/vfx/water_wings.tres", "scale": 1.2, "offset": [0, -18]} }
     },
     "light_1": {
       "no_flinch": true,
@@ -98,7 +98,7 @@
       "startup": 8, "active": 4, "recovery": 20,
       "damage": 9, "knockback": 3.4, "hitstun": 30, "hitstop": 7,
       "reach": 28, "hit_radius": 12, "lunge": 1.4, "next": "",
-      "fx": { "smear": "arc", "size": 1.3 }
+      "fx": { "smear": "arc", "size": 1.3, "move_fx": {"path": "res://assets/vfx/water_spout.tres", "scale": 0.7} }
     },
     "heavy": {
       "name": "Slam", "anim": "heavy", "windup": 8,
@@ -111,7 +111,7 @@
       "reach": 30, "hit_radius": 20, "guard_break": true, "juggle": true,
       "terrain_rect": [5, 5], "terrain_at": 38, "terrain_heal": 1.5,
       "lunge": 0,
-      "fx": { "charge": "drips" }
+      "fx": { "charge": "drips", "move_fx": {"path": "res://assets/vfx/water_fountain.tres", "scale": 1.2, "offset": [0, -18]} }
     },
     "skill_1": {
       "name": "Gulp", "anim": "gulp", "anim_at": [[0, 3], [5, 4], [13, 5], [16, 6], [21, 7]], "anim_charge": [0, 3, 5],
@@ -122,7 +122,7 @@
       "hold": { "damage": 12, "pull": 0, "swallow": 16, "flip": 6, "launch": 16, "hitstop": 10 },
       "projectile": { "speed": 8.35, "life": 13, "radius": 12, "radius_end": 20, "offset": 14, "crack_trail": false,
         "sound": "gulp", "end_sound": "grab" },
-      "fx": { "projectile": "tongue", "suction": true }
+      "fx": { "projectile": "tongue", "suction": true, "move_fx": {"path": "res://assets/vfx/water_spout.tres", "on": "projectile_end", "scale": 0.9, "ticks_per_frame": 3} }
     },
     "skill_2": {
       "name": "Runoff", "anim": "runoff", "anim_at": [[0, 2], [4, 3], [8, 4], [9, 5], [15, 6], [22, 7]], "anim_charge": [0, 2, 6], "windup": 6, "tell": "strong", "cooldown": 240,
@@ -131,7 +131,7 @@
       "reach": 12, "hit_radius": 22, "cone": 0.45,
       "hold": { "reach": 22, "hit_radius": 42, "damage": 9, "knockback": 4.5, "hitstun": 28,
         "slow_ticks": 120, "slow_mult": 0.6 },
-      "fx": { "wave_cone": true }
+      "fx": { "wave_cone": true, "move_fx": {"path": "res://assets/vfx/water_wave.tres", "on": "strike", "follow": false, "scale": 1.2, "offset": [6, -18]} }
     },
     "surge": {
       "name": "Storm Drain", "anim": "storm",
@@ -142,7 +142,7 @@
       "reach": 0, "hit_radius": 80, "juggle": true,
       "dash": { "speed": 1.4, "from": 1, "to": 11 },
       "terrain_heal": 1.5, "terrain_ring": { "inner": 18, "outer": 80, "side_lanes": 36 },
-      "fx": { "rain": true, "telegraph": true, "impact": "geysers" }
+      "fx": { "rain": true, "telegraph": true, "impact": "geysers", "move_fx": [{"path": "res://assets/vfx/water_fountain.tres", "scale": 1.2, "offset": [-26, -18]}, {"path": "res://assets/vfx/water_fountain.tres", "scale": 1.4, "offset": [0, -21]}, {"path": "res://assets/vfx/water_fountain.tres", "scale": 1.2, "offset": [26, -18]}] }
     }
   }
 }

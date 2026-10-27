@@ -1,0 +1,60 @@
+[gd_resource type="SpriteFrames" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/vfx/spark_comet.png" id="1_ikxg4"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_4x46m"]
+atlas = ExtResource("1_ikxg4")
+region = Rect2(0, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_xu4h5"]
+atlas = ExtResource("1_ikxg4")
+region = Rect2(96, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_bxojw"]
+atlas = ExtResource("1_ikxg4")
+region = Rect2(192, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_bff20"]
+atlas = ExtResource("1_ikxg4")
+region = Rect2(288, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_nj0pe"]
+atlas = ExtResource("1_ikxg4")
+region = Rect2(384, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_kvp4h"]
+atlas = ExtResource("1_ikxg4")
+region = Rect2(480, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_b60x8"]
+atlas = ExtResource("1_ikxg4")
+region = Rect2(576, 0, 96, 96)
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_4x46m")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_xu4h5")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_bxojw")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_bff20")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_nj0pe")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_kvp4h")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_b60x8")
+}],
+"loop": 0,
+"name": &"default",
+"speed": 30.0
+}]

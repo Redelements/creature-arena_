@@ -1,0 +1,328 @@
+{
+	"_doc": "The Greenhouse Dome: GrassLand v2's bright flower meadow for the floor, its darker meadow and cliff face (RPGW_GrassLand_v2.01: the solid blocks on the right of MainLev2.0.png are seamless fills), Set 1's bright grass (turf, the old floor), darker grass blob and tall grass for the beds (RPGFW_Set1_v1.0), Decorative Props' wooden fence (fencelines: posts and rails composed into joined lines), pots, barrels and crates (RPGW_DecorativeProps_v1.0). Keys: tools/cut_tiles.py. Paths are relative to the packs dir.",
+	"ground": {
+		"fills": {
+			"turf": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+				"block": [
+					12,
+					0
+				]
+			},
+			"meadow_bright": {
+				"src": "RPGW_GrassLand_v2.01/MainLev2.0.png",
+				"block": [
+					56,
+					24
+				],
+				"_doc": "GrassLand's bright flower meadow (the block at x 1728-2047, y 704-1023), the Greenhouse floor"
+			},
+			"meadow": {
+				"src": "RPGW_GrassLand_v2.01/MainLev2.0.png",
+				"block": [
+					48,
+					22
+				]
+			},
+			"dirt": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain3.png",
+				"block": [
+					12,
+					0
+				]
+			}
+		},
+		"terrains": {
+			"grass": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+				"blob": [
+					0,
+					4
+				],
+				"variants": [
+					[
+						4,
+						4,
+						8,
+						4
+					]
+				]
+			},
+			"water": {
+				"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png",
+				"blob": [
+					0,
+					0
+				],
+				"variants": [
+					[
+						4,
+						0,
+						8,
+						4
+					]
+				]
+			}
+		}
+	},
+	"pieces": {
+		"boulder": [
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png",
+				"tile": [
+					24,
+					1
+				]
+			},
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png",
+				"tile": [
+					24,
+					2
+				]
+			}
+		],
+		"tuft": [
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+				"box": [
+					2,
+					673,
+					29,
+					702
+				]
+			},
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+				"box": [
+					34,
+					673,
+					61,
+					702
+				]
+			},
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+				"box": [
+					66,
+					673,
+					93,
+					702
+				]
+			}
+		],
+		"sprig": [
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+				"box": [
+					6,
+					643,
+					26,
+					665
+				]
+			},
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+				"box": [
+					38,
+					643,
+					58,
+					665
+				]
+			},
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+				"box": [
+					70,
+					643,
+					90,
+					665
+				]
+			}
+		]
+	},
+	"overlay": {"_doc": "the pits' far wall: a seamless cliff face from the matching pack; the lip and the cracks: the floor's own fill (tools/cut_tiles.py cut_overlay)",
+		"face": {"src": "RPGW_GrassLand_v2.01/MainLev2.0.png", "box": [160, 186, 192, 214]}, "lip": "meadow_bright"},
+	"decor": {
+		"shrub_gold": {"_doc": "GrassLand decorative.png tiny bush, yellow-green (the band's bushes stand on the box's bottom row)", "src": "RPGW_GrassLand_v2.01/decorative.png", "box": [557, 800, 596, 832], "feet": [19, 31]},
+		"shrub_gold_small": {"src": "RPGW_GrassLand_v2.01/decorative.png", "box": [608, 808, 639, 832], "feet": [15, 23]},
+		"shrub_red": {"_doc": "the same tiny bush in autumn red", "src": "RPGW_GrassLand_v2.01/decorative.png", "box": [141, 800, 180, 832], "feet": [19, 31]},
+		"herb_pink": {"_doc": "Houses smallobj row y 96: potted flowers and herbs, one per 32 px cell, hard alpha, no baked shadow; feet on each pot's last row", "src": "RPG_Buildings_HOUSES_v1.1/smallobj.png", "box": [128, 96, 160, 128], "feet": [16, 30]},
+		"herb_orange": {"src": "RPG_Buildings_HOUSES_v1.1/smallobj.png", "box": [192, 96, 224, 128], "feet": [16, 28]},
+		"herb_green": {"src": "RPG_Buildings_HOUSES_v1.1/smallobj.png", "box": [224, 96, 256, 128], "feet": [16, 28]},
+		"herb_tall": {"src": "RPG_Buildings_HOUSES_v1.1/smallobj.png", "box": [288, 96, 320, 128], "feet": [16, 30]},
+		"pot_tall": {
+			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
+			"box": [
+				32,
+				36,
+				64,
+				64
+			],
+			"feet": [
+				16,
+				27
+			]
+		},
+		"pot_fat": {
+			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
+			"box": [
+				160,
+				36,
+				192,
+				64
+			],
+			"feet": [
+				16,
+				27
+			]
+		},
+		"pot_fern": {
+			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
+			"box": [
+				0,
+				32,
+				32,
+				64
+			],
+			"feet": [
+				16,
+				28
+			]
+		},
+		"barrel": {
+			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
+			"box": [
+				0,
+				416,
+				32,
+				448
+			],
+			"feet": [
+				16,
+				30
+			]
+		},
+		"crate": {
+			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
+			"box": [
+				64,
+				512,
+				96,
+				544
+			],
+			"feet": [
+				16,
+				30
+			]
+		},
+		"crate_tall": {
+			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
+			"box": [
+				128,
+				496,
+				160,
+				544
+			],
+			"feet": [
+				16,
+				46
+			]
+		},
+		"birch": {
+			"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+			"box": [
+				384,
+				32,
+				480,
+				224
+			],
+			"feet": [
+				48,
+				176
+			]
+		},
+		"bush": {
+			"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+			"box": [
+				288,
+				160,
+				384,
+				256
+			],
+			"feet": [
+				48,
+				88
+			]
+		}
+	},
+	"anim": {
+		"flower_pink": {"_doc": "DecorativeProps vegA1 (clumps of three) pink, colour row 0; 32 px frames, the first four of its 10-frame loop (row 0); roots on the frame's last row", "src": "RPGW_DecorativeProps_v1.0/Animated/vegA1.png", "frame": [32, 32], "frames": 4, "row": 0, "fps": 4, "feet": [16, 31]},
+		"flower_yellow": {"_doc": "vegA1 yellow, colour row 2 (32 px row 8)", "src": "RPGW_DecorativeProps_v1.0/Animated/vegA1.png", "frame": [32, 32], "frames": 4, "row": 8, "fps": 4, "feet": [16, 31]},
+		"spike_pink": {"_doc": "DecorativeProps vegC1 (flower spikes) pink, colour row 1 (32 px row 4); roots at y 26", "src": "RPGW_DecorativeProps_v1.0/Animated/vegC1.png", "frame": [32, 32], "frames": 4, "row": 4, "fps": 4, "feet": [16, 26]},
+		"spike_orange": {"_doc": "vegC1 orange, colour row 0; roots at y 27", "src": "RPGW_DecorativeProps_v1.0/Animated/vegC1.png", "frame": [32, 32], "frames": 4, "row": 0, "fps": 4, "feet": [16, 27]}
+	},
+	"bushes": {
+		"green": {
+			"src": "RPGW_Wetland_v1.1/_PNG/anim/tree2A.png",
+			"frame": [
+				160,
+				224
+			],
+			"frames": 5,
+			"fps": 4,
+			"_doc": "a hedge from the green Wetland tree's canopy: four leaf boxes (the sunny lower-right clump, the shaded lower-left one, the crown and the right lobe; the first frame's boxes, the sheet's 5 sway frames give the bed its sway), each cut twice as a round clump with its own leafy outline; a bed scatters them overlapping (tools/build_tiles.gd _blob_bed), so it reads as one hedge with no column seams or square edge",
+			"blobs": {
+				"a": [
+					84,
+					130,
+					140,
+					174
+				],
+				"b": [
+					16,
+					124,
+					52,
+					158
+				],
+				"c": [
+					56,
+					18,
+					112,
+					62
+				],
+				"d": [
+					98,
+					34,
+					138,
+					70
+				]
+			},
+			"shapes": 2
+		}
+	},
+	"fencelines": {
+		"wood": {
+			"src": "RPGW_DecorativeProps_v1.0/fence.png",
+			"_doc": "Decorative Props' wooden fence as continuous lines: a lone post (row 5), a stretch of the long top rail (row 1) and the edge-on rail of the left-hand vertical run (column 0); cut_tiles.py composes every end, run, corner and junction from them",
+			"post": [
+				138,
+				160,
+				152,
+				192
+			],
+			"rail_h": [
+				264,
+				42,
+				280,
+				52
+			],
+			"rail_v": [
+				29,
+				108,
+				33,
+				124
+			]
+		}
+	}
+}
