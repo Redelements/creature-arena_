@@ -21,11 +21,11 @@
   "cut_in_frame": [10, 2],
   "ko_fx": { "style": "crack", "body_z": 11, "body_rx": 13, "body_ry": 9, "cracks": 6, "puddle": 30 },
   "sprite": {
-    "path": "res://assets/sprites/culvert.png",
-    "frame": 96,
-    "portrait": [44, 52, 24, 32],
+    "path": "res://assets/sprites/culvert_2x.png", "ppu": 2,
+    "frame": 192,
+    "portrait": [88, 104, 48, 64],
     "cols": 12,
-    "origin": [46, 80],
+    "origin": [92, 160],
     "idle_ticks": 8,
     "run_ticks": 2,
     "step_frames": [2, 7],
@@ -47,10 +47,10 @@
     },
     "side_only": ["ko"],
     "views": {
-      "down": { "path": "res://assets/sprites/culvert_down.png", "origin": [48, 80] },
-      "up": { "path": "res://assets/sprites/culvert_up.png", "origin": [48, 74] },
-      "down_side": { "path": "res://assets/sprites/culvert_down_side.png", "origin": [48, 80] },
-      "up_side": { "path": "res://assets/sprites/culvert_up_side.png", "origin": [48, 74] }
+      "down": { "path": "res://assets/sprites/culvert_2x_down.png", "ppu": 2, "origin": [96, 160] },
+      "up": { "path": "res://assets/sprites/culvert_2x_up.png", "ppu": 2, "origin": [96, 148] },
+      "down_side": { "path": "res://assets/sprites/culvert_2x_down_side.png", "ppu": 2, "origin": [96, 160] },
+      "up_side": { "path": "res://assets/sprites/culvert_2x_up_side.png", "ppu": 2, "origin": [96, 148] }
     }
   },
   "ai": {

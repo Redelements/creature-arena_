@@ -127,6 +127,17 @@ unflattened by the camera's `depth_y` (`_reach_cheat` in `build`), so a short pu
 or away from the camera reads along the diagonal instead of sideways. Five views side by side:
 [`anim_preview/culvert_diagonals_3x.png`](anim_preview/culvert_diagonals_3x.png).
 
+**2x (route A, Oct 2026, branch `culvert-2x`, stacked on `crease-2x`).** The game draws
+`culvert_2x*.png`: the same rig at density 2 (`CULVERT_DENSITY`, default 2), 192×192
+frames, feet at (92, 160) side, (96, 160) down and down_side, (96, 148) up and up_side,
+`"ppu": 2` in every view, portrait `[88, 104, 48, 64]`; same rows, frame counts and timing.
+Shaded "bold" (`CULVERT_STYLE`): no highlight step (light, base, dark) and one dark ink
+(`INKS["ink"]`) round the silhouette instead of each material's own grey ink. The concrete
+grain rides on body-local cells in rig units, so its flecks double with the scale; the
+screen-space fallback hashes 1x pixels (`S.px(1)` blocks). The `ko_fx` "crack" keys are world
+units (unchanged). `CULVERT_DENSITY=1` rebuilds the 1x sheets byte for byte. Gallery:
+`pixellab/culvert/culvert_route_a.png`.
+
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
 | 0 | idle | 8 | the breath, eased: the front of him rises, the throat fills 2 frames behind, a one-frame blink |
