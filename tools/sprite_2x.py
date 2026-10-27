@@ -6,7 +6,8 @@
 In data/creatures/<id>.json, inside "sprite" (the side block and every "views" block): each
 path assets/sprites/<id>[_view].png becomes <id>_2x[_view].png with "ppu": 2 beside it, and
 "frame", "origin" and "portrait" double; outside it, "ko_fx" "pieces" (sheet-pixel bands)
-double. The emissive sheet needs no key: CreatureView finds <sheet>_e.png beside each path.
+and "x_eyes" (sheet-pixel eye spots, drawn under the ppu scale) double. The emissive sheet
+needs no key: CreatureView finds <sheet>_e.png beside each path.
 Edits the text in place (the file keeps its layout) and is idempotent: a sprite block that
 already says "ppu": 2 is left alone. --check only says whether the file is switched (exit 1
 if not). Fails if a 2x sheet the JSON would name is missing.
@@ -58,7 +59,7 @@ def switch(text, gid):
     if m:
         k0 = text.index("{", m.start())
         k1 = _block_end(text, k0)
-        ko = re.sub(r'("pieces": \[)((?:\s*\[[-\d, ]+\]\s*,?)*)(\s*\])',
+        ko = re.sub(r'("(?:pieces|x_eyes)": \[)((?:\s*\[[-\d, ]+\]\s*,?)*)(\s*\])',
                     lambda q: q.group(1) + re.sub(r"\[([-\d, ]+)\]", lambda r: "[" + ", ".join(
                         str(int(v) * 2) for v in re.findall(r"-?\d+", r.group(1))) + "]", q.group(2)) + q.group(3),
                     text[k0:k1])

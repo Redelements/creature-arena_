@@ -196,6 +196,18 @@ ticks, unchanged), footsteps on `step_frames` `[0, 6]`. `select_scale` 0.5, port
 Five views: [`cairn_views_preview.png`](cairn_views_preview.png) and
 [`anim_preview/cairn_diagonals_3x.png`](anim_preview/cairn_diagonals_3x.png).
 
+**2x (route A, Oct 2026, branch `cairn-2x`, stacked on `sprites-vram`).** The game draws
+`cairn_2x*.png`: the same rig at density 2 (`CAIRN_DENSITY`, default 2; `CAIRN_DENSITY=1`
+rebuilds the 1x `cairn*.png` byte for byte), 192×192 frames, feet at (92, 168) side,
+(96, 156) down, (96, 168) up, (88, 160) down_side, (88, 168) up_side, `"ppu": 2` in every
+view, portrait `[68, 78, 48, 56]`; same rows, frame counts and timing. Shaded "bold"
+(`CAIRN_STYLE`): three flat tones a face (no highlight step, no rim light) and one dark ink
+round the silhouette, so the stack's stones stay apart from each other and from dark floors.
+The face, grain and lit lips are painted in stone-local rig units, so they scale with the
+density on their own. The knockout's `ko_fx` `pieces` and `x_eyes` are sheet pixels and
+double (`tools/sprite_2x.py`; FxView draws the X's at `ppu` times the size, so they look the
+same). Gallery: `pixellab/cairn/cairn_route_a.png`.
+
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
 | 0 | idle | 8 | the boxer's bounce on eased spacing, the stones packing on the down; each stone sways a frame after the one under it, the fists a frame behind, a one-frame blink |
@@ -349,6 +361,18 @@ outlined in its ink (umber for the wood, moss for the leaves); where an arm, the
 the nose crosses the trunk its outline is the bark's deep step. The bark grain is sparse
 (five lines round the trunk, two down each leg) and one ramp step darker where it falls;
 the brows, the chevrons at the fork and the crease between the legs are the deep step.
+
+**2x (route A, Oct 2026, branch `barkley-2x`, stacked on `sprites-vram`).** The game draws
+`barkley_2x*.png`: the same painter at density 2 (`BARKLEY_DENSITY`, default 2;
+`BARKLEY_DENSITY=1` rebuilds the 1x `barkley*.png` byte for byte), **192×192** side frames
+(feet at (80, 180)) and **256×320** views (feet at (128, 224) down and down_side, (128, 248)
+up and up_side), `"ppu": 2` in every view, portrait `[60, 36, 48, 64]`; same rows, frame
+counts and timing. The painter keeps its 1x pixel coordinates: `shade2d.Draw` scales every
+shape, line, dot and leaf onto the 2x layer, so the leaves, eyes and grain double in size,
+not in number, and only the edges and the shading get finer. Shaded "bold" (`BARKLEY_STYLE`):
+no highlight step, no rim light, one dark ink round every shape (the leaves' and the
+pinecone's too); seams keep the deep step. The `ko_fx` "timber" `length` is world units
+(unchanged). Gallery: `pixellab/barkley/barkley_route_a.png`.
 
 ![Barkley sheet, 3x](barkley_preview.png)
 
@@ -633,6 +657,17 @@ Every ability had the roster animation pass (Oct 2026): the motion plan with eve
 `python3 tools/gen_digby.py anim` renders the before/after previews. The idle is 8 frames
 at `idle_ticks` 8 (64 ticks), the gallop 12 at `run_ticks` 2 (24 ticks, unchanged), with
 dust on `step_frames` `[0, 2]` (the front paws landing, the back paws landing).
+
+**2x (route A, Oct 2026, branch `digby-2x`, stacked on `sprites-vram`).** The game draws
+`digby_2x*.png` (through their packed copies in `packed/`): the same rig rendered by
+`gen_digby.py` at density 2 (`DIGBY_DENSITY`, default 2; `DIGBY_DENSITY=1` rebuilds the 1x
+`digby*.png` byte for byte), **256×256** frames (down and up **224×256**), feet at (128, 200)
+(up views (112/128, 180)), `"ppu": 2` in every view, portrait `[128, 156, 48, 56]`; same rows,
+frame counts and timing. Shaded "bold" (`DIGBY_STYLE`): three flat tones (no highlight step,
+no rim light) and one dark ink round the whole silhouette. The claws, whiskers and pickaxe
+are rig pieces in world units, so they need no pixel fix; the headlamp glow and the Surge
+eyes stay on the emissive sheets. `cut_in_frame` stays `[8, 3]`; `fx_top` and the `move_fx`
+offsets are world units (unchanged). Gallery: `pixellab/digby/digby_route_a.png`.
 
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
@@ -1113,7 +1148,11 @@ One master palette for the whole game: `tools/palette.py`, drawn as a labelled s
   and `Materials.stack` turns an outline that lands on a piece behind into that piece's
   deep step (the seam). Detail lines (bark grain, scales, fin rays) are `groove`s: one
   ramp step darker (Gillbert's belly: lighter) wherever they fall, so they read in the
-  light and in the shadow alike.
+  light and in the shadow alike. Density (`shade2d.configure(density=2)`): the painter
+  draws in 1x pixel coordinates through `shade2d.Draw`, which paints every fill, stroke and
+  dot twice the size on a 2x layer, and the shading's pixel lengths go through `shade2d.px`
+  (as `splat3d.px`); outlines and seams stay 1 px. At density 1 it is byte for byte the old
+  drawing.
 - **Craglash** (a 2D puppet, `tools/gen_craglash.py`) ports the same rules to his own
   layer shader: `MAT` holds ramps, `shade` the five steps and the rim, `finish` the inks
   and seams.

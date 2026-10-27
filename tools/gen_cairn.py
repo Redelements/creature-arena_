@@ -34,15 +34,31 @@ import splat3d as S  # noqa: E402
 from splat3d import ellipsoid_oriented, tube  # noqa: E402
 
 ROOT = S.ROOT
-OUT = os.path.join(ROOT, "assets", "sprites", "cairn.png")
-PREVIEW = os.path.join(ROOT, "docs", "cairn_preview.png")
-SIDE = {"w": 96, "h": 96, "origin": (46, 84)}
+# Density (splat3d.configure(density=...)): 2 draws the sheets the game uses, cairn_2x*.png
+# (192x192 frames, "ppu": 2); CAIRN_DENSITY=1 the older 1x ones, cairn*.png (96x96). The
+# face, the grain and the lit lips come from stone-local coordinates (rig units), so they
+# scale with the density on their own.
+DENSITY = int(os.environ.get("CAIRN_DENSITY", "2"))
+# The look (CAIRN_STYLE): "a" splat3d's five-step ramp with a highlight and a rim light, each
+# material outlined in its own ink, as at 1x; "bold" three flat tones a face (no highlight
+# step, no rim light) and one dark ink round the whole silhouette. The 2x sheets are bold.
+STYLE = os.environ.get("CAIRN_STYLE", "bold" if DENSITY > 1 else "a")
+_TAG = "" if DENSITY == 1 else "_%dx" % DENSITY
+OUT = os.path.join(ROOT, "assets", "sprites", "cairn%s.png" % _TAG)
+PREVIEW = os.path.join(ROOT, "docs", "cairn%s_preview.png" % _TAG)
+
+
+def _frame(w, h, origin):
+    return {"w": w * DENSITY, "h": h * DENSITY, "origin": (origin[0] * DENSITY, origin[1] * DENSITY)}
+
+
+SIDE = _frame(96, 96, (46, 84))
 VIEWS = {
-    "down": {"w": 96, "h": 96, "origin": (48, 78)},
-    "up": {"w": 96, "h": 96, "origin": (48, 84)},
+    "down": _frame(96, 96, (48, 78)),
+    "up": _frame(96, 96, (48, 84)),
     # the diagonals (docs/SPRITES.md, "Directions"): facing down-right and up-right
-    "down_side": {"w": 96, "h": 96, "origin": (44, 80)},
-    "up_side": {"w": 96, "h": 96, "origin": (44, 84)},
+    "down_side": _frame(96, 96, (44, 80)),
+    "up_side": _frame(96, 96, (44, 84)),
 }
 
 # Master-palette ramps (tools/palette.py). The four stones keep the placeholder's idea of
@@ -57,7 +73,13 @@ MAT = {
     "band": "red",         # the sparring headband
     "tape": "white",       # taped fists
 }
-S.configure(MAT, scale=1.0, near=14.0)
+S.configure(MAT, scale=1.0, near=14.0, density=DENSITY)
+if STYLE == "bold":
+    # three tones a face: no highlight step (light covers the lit side), no rim light; the
+    # silhouette in one dark ink (seams between stones keep their material's seam colour)
+    S.LUM_HIGH = 2.0
+    S.RIM = False
+    S.INK = {name: S.OUTLINE[:3] for name in S.INK}
 S.surge_eyes("cairn")   # in Avalanche the dark eyes in his head stone glow in the Surge's gold
 S.COLS = 12
 
@@ -891,7 +913,8 @@ def ko_fx_numbers():
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "inspect":
-        S.inspect(ROWS, sys.argv[2:], SIDE, VIEWS, build, decorate, path=os.environ.get("INSPECT_OUT"))
+        S.inspect(ROWS, sys.argv[2:], SIDE, VIEWS, build, decorate, scale=int(os.environ.get("INSPECT_SCALE", "3")),
+                  path=os.environ.get("INSPECT_OUT"))
     elif len(sys.argv) > 1 and sys.argv[1] == "anim":
         import anim_preview
         anim_preview.main(sys.modules[__name__], sys.argv[2:])
