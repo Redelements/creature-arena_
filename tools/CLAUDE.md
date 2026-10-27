@@ -174,6 +174,11 @@ tools, so a fighter's pass is posing work only.
 - **`python3 tools/anim_preview.py --compare <id> NEW.sprite.json|- [OUT_DIR] [--old REF]`**:
   `<id>_2x_<anim>.gif`, another sheet (or `-`, the JSON's own) beside the JSON's side sheet
   (at `REF` with `--old`, e.g. main's 1x sheet beside a 2x switch), at world size.
+- **`python3 tools/sprite_2x.py <id> [--check]`**: switches a fighter's JSON to its 2x sheets
+  (`<id>_2x*.png`, `"ppu": 2`, frame / origin / portrait / `ko_fx` pieces doubled; text edit,
+  idempotent). **`python3 tools/fighter_2x_gallery.py <id> --old REF --shot PNG`**: the 1x
+  beside 2x gallery and the Twin Keeps still (`docs/pixellab/<id>/`). Both are steps of the
+  fighter-2x skill (`.claude/skills/fighter-2x/SKILL.md`).
 - **`python3 tools/anim_preview.py --check <id>`** (or `all`): the JSON's row table against
   `ROWS` / `VIEW_ROWS` (names, frame counts, columns), the sheet PNG sizes, idle and run
   cycles against `ANIM_CYCLES`, `step_frames`, every move's `anim_at` / `anim_charge` /
@@ -191,6 +196,7 @@ tools, so a fighter's pass is posing work only.
 - `cut_crowd.py` — Cuts the stadium crowd out of Szadi art's Fantasy Lands Warrior: an army of fans.
 - `cut_tiles.py` — Cuts a tile set for the tiled arenas out of the bought art packs, from a recipe.
 - `cut_vfx.py` — Cuts the effects the game plays out of kiddolink's VFX Complete Set Season 1 (bought; the pack never enters this public…
+- `fighter_2x_gallery.py` — A fighter's 1x-beside-2x gallery (the fighter-2x skill, .claude/skills/fighter-2x/SKILL.md):
 - `gen_arenas.py` — Arena art: each map's whole backdrop as one picture, drawn by ArenaView under the floor's cracks, holes and pieces.
 - `gen_audio.py` — Generate PLACEHOLDER sound effects and music for Ready 4 Rambles.
 - `gen_barkley.py` — Barkley sprite sheets, a pixel-art recreation of the artist's character sheet.
@@ -213,5 +219,6 @@ tools, so a fighter's pass is posing work only.
 - `seed_dressing.gd` — Seeds a map's hand-dressing scene (assets/arenas/<id>_dressing.tscn) from a first-draft spec, tools/dressing/<id>.json.
 - `shade2d.py` — Master-palette shading for the 2D painters (Barkley's and Gillbert's rigs).
 - `splat3d.py` — Shared renderer for the sheet-recreation sprite generators (tools/gen_digby.py and later).
+- `sprite_2x.py` — Switches a fighter's JSON to its 2x sheets (the fighter-2x skill):
 - `write_status.py` — Stamps docs/STATUS.md with the time, branch and commit so a compaction never starts without a fresh marker.
 <!-- END GENERATED -->
