@@ -1,7 +1,7 @@
 # Status: handoff snapshot
 
-Stamped: 2026-10-27 20:39 UTC
-Branch: sprites-vram @ 5ab3ca9
+Stamped: 2026-10-27 20:57 UTC
+Branch: digby-2x @ ae00821
 Trigger: phase
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
@@ -49,6 +49,12 @@ Full roster at 2x projected about 0.4 GB in a 4v4 (`tests/test_vram.gd` pins it;
 `docs/plans/roster-2x.md` "VRAM"). The fighter-2x skill now runs `pack_sheets.py <id>` in step 3.
 Local commit only; never pushed. Not done: the grid sheets still ship in exports (build size,
 not VRAM; an `exclude_filter` could drop them); Android/Vulkan not measured.
+
+## Roster at 2x ("run all", Oct 27)
+
+Done by the skill, one branch each, stacked: Crease (pilot), Culvert, Sno, **Digby**
+(`digby-2x` off `sprites-vram`; bold shading, 256 px frames, NET_VERSION 49, packed sheets;
+gallery `docs/pixellab/digby/`). Next in the plan order: Sneaky Pete.
 
 ## Decisions
 

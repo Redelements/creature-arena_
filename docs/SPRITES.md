@@ -619,6 +619,17 @@ Every ability had the roster animation pass (Oct 2026): the motion plan with eve
 at `idle_ticks` 8 (64 ticks), the gallop 12 at `run_ticks` 2 (24 ticks, unchanged), with
 dust on `step_frames` `[0, 2]` (the front paws landing, the back paws landing).
 
+**2x (route A, Oct 2026, branch `digby-2x`, stacked on `sprites-vram`).** The game draws
+`digby_2x*.png` (through their packed copies in `packed/`): the same rig rendered by
+`gen_digby.py` at density 2 (`DIGBY_DENSITY`, default 2; `DIGBY_DENSITY=1` rebuilds the 1x
+`digby*.png` byte for byte), **256×256** frames (down and up **224×256**), feet at (128, 200)
+(up views (112/128, 180)), `"ppu": 2` in every view, portrait `[128, 156, 48, 56]`; same rows,
+frame counts and timing. Shaded "bold" (`DIGBY_STYLE`): three flat tones (no highlight step,
+no rim light) and one dark ink round the whole silhouette. The claws, whiskers and pickaxe
+are rig pieces in world units, so they need no pixel fix; the headlamp glow and the Surge
+eyes stay on the emissive sheets. `cut_in_frame` stays `[8, 3]`; `fx_top` and the `move_fx`
+offsets are world units (unchanged). Gallery: `pixellab/digby/digby_route_a.png`.
+
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
 | 0 | idle | 8 | sniffing: two quick sniffs, a held look toward the camera, eased breath; the helmet and tail lag |
