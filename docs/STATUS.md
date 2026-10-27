@@ -1,7 +1,7 @@
 # Status: handoff snapshot
 
-Stamped: 2026-10-27 20:55 UTC
-Branch: cairn-2x @ ae00821
+Stamped: 2026-10-27 21:14 UTC
+Branch: hissy-2x @ 7334555
 Trigger: phase
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
@@ -56,7 +56,10 @@ Stacked on `sprites-vram` (Crease, Culvert, Sno at 2x + packed sheets, NET_VERSI
 Cairn: branch `cairn-2x` (worktree `C:/Users/Kevin/dev/creature-arena-cairn-2x`), bold
 shading, 192 px frames, packed; `sprite_2x.py` now doubles `ko_fx` `x_eyes` too and FxView
 draws the X's at ppu size. NET_VERSION 49 (renumbered when stacking). Gallery and GIFs in
-`docs/pixellab/cairn/`. Next in the plan: Digby.
+`docs/pixellab/cairn/`.
+Hissy: branch `hissy-2x` (off `cairn-2x`), `gen_hissy.py` density option first (own
+rasteriser: SCALE/STEP/near, 1x byte for byte), then bold shading, 256 px frames, packed.
+NET_VERSION 50 (renumbered when stacking). Gallery and GIFs in `docs/pixellab/hissy/`.
 
 ## Decisions
 

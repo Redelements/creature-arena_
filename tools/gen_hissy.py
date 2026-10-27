@@ -8,7 +8,7 @@ Writes assets/sprites/hissy.png (128x128 frames, 12 columns, the side view),
 hissy_down.png and hissy_up.png (112x128 frames: facing the camera, and facing
 away), hissy_down_side.png and hissy_up_side.png (128x128: the diagonals, facing down-right
 and up-right), plus labelled previews in docs/.
-HISSY_DENSITY=2 draws the same sheets at twice the density, hissy_2x*.png (256x256 frames,
+HISSY_DENSITY=2 (the default; 1 = the 1x sheets) draws them at twice the density, hissy_2x*.png (256x256 frames,
 views 224x256).
 
 She is a big round head with a crown of spotted green hair snakes, a pair of red
@@ -43,7 +43,11 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 # its own copy, so DENSITY scales it here too (SCALE and the Cam's near zone times DENSITY,
 # the sample STEP divided, frames and origins doubled; the face texture is in degrees on the
 # head, so it resolves finer on its own). 1 rebuilds the 1x sheets, hissy*.png, byte for byte.
-DENSITY = int(os.environ.get("HISSY_DENSITY", "1"))
+DENSITY = int(os.environ.get("HISSY_DENSITY", "2"))
+# The look (HISSY_STYLE): "a" splat3d's ramp with the highlight step and a rim light, as at
+# 1x; "bold" no highlight step and no rim light (flat tones a face), the silhouette in the one
+# black ink she always has. The 2x sheets are bold.
+STYLE = os.environ.get("HISSY_STYLE", "bold" if DENSITY > 1 else "a")
 _TAG = "" if DENSITY == 1 else "_%dx" % DENSITY
 OUT = os.path.join(ROOT, "assets", "sprites", "hissy%s.png" % _TAG)
 PREVIEW = os.path.join(ROOT, "docs", "hissy%s_preview.png" % _TAG)
@@ -96,6 +100,9 @@ OUTLINE = PAL.INKS["ink"] + (255,)  # the sheet's black line
 # inside it are each material's deep step, like the other fighters.
 S.configure(MAT, density=DENSITY)   # splat3d's shade/outline read the density (px(), passes)
 S.INK = {name: OUTLINE[:3] for name in MAT}
+if STYLE == "bold":
+    S.LUM_HIGH = 2.0   # no highlight step: the light tone covers the lit side
+    S.RIM = False
 MAT_ID = {name: i + 1 for i, name in enumerate(MAT)}
 ID_MAT = {i: name for name, i in MAT_ID.items()}
 
