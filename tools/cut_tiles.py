@@ -14,6 +14,9 @@ Writes, under assets/tiles/:
   <set>_overlay.png      16 px tiles: the breaking ground (ids in OVERLAY; assets/README.md)
   <set>_decor_<name>.png one sprite each (a tree, a keep's tower): any size, feet given
   <set>_anim_<name>.png  one strip each (a waterfall): frames side by side
+  <set>_bush_<name>.png  a bush's clumps: a row per clump, a column per sway frame
+  <set>_fence_<name>.png a fence line's tiles: 32 x 64 cells, a column per arm mask, a row
+                         per post spot (FENCE_SPOTS)
   <set>_manifest.json    where everything landed, for tools/build_tiles.gd
 
 Every colour is snapped to the master palette (tools/palette.py, nearest, no dither) and
@@ -49,6 +52,10 @@ packs dir; "tile" positions are [column, row] of 32 px tiles in the source sheet
   decor.<name>             {"src", "box": [x0, y0, x1, y1], "feet": [x, y]}  feet in the box
   anim.<name>              {"src", "frame": [w, h], "frames": n, "fps": f, "feet": [x, y],
                            "row": 0}
+  bushes.<name>            {"src", "frame": [w, h], "frames": n, "fps", "clumps" | "blobs"}
+                           a bush for the brush beds (cut_bushes)
+  fencelines.<name>        {"src", "post": box, "rail_h": box, "rail_v": box}  a fence drawn
+                           as one continuous line, oriented by its neighbours (cut_fencelines)
 
 About the sources this was built on: Szadi art's blob terrains are 16-tile side-matched
 sets (the corner notches are art, not inner-corner tiles: Godot terrain mode MATCH_SIDES).
@@ -361,36 +368,168 @@ def cut_anim(cut, set_name, a):
     return man
 
 
-## A bush is a nine-slice of leaf clumps cut from a tree's canopy: corners whose outward
-## sides carry the canopy's real outline, edge clumps, and an inner fill, each taken from the
-## same box on every sway frame of the tree sheet, so a bed built from them sways.
+## A bush is a set of leaf clumps cut from a tree's canopy, each taken from the same box on
+## every sway frame of the tree sheet, so a bed built from them sways: either a nine-slice
+## (corners whose outward sides carry the canopy's real outline, edge clumps, an inner fill;
+## Twin Keeps) or round "blobs" that a bed scatters overlapping (the Greenhouse).
 BUSH_CLUMPS = ("tl", "t", "tr", "l", "c", "r", "bl", "b", "br")
+RIM = (22, 30, 18)  # the canopy's darkest outline green
+
+
+def _leafy_mask(w, h, phase):
+    """A bush's outline in a w x h box: an ellipse whose rim bulges in leafy lobes (three
+    waves round it, `phase` turning them), and each pixel's dy (-1 top .. 1 bottom)."""
+    ys, xs = np.mgrid[0:h, 0:w]
+    dx = (xs - (w - 1) / 2) / (w / 2)
+    dy = (ys - (h - 1) / 2) / (h / 2)
+    r = np.sqrt(dx * dx + dy * dy)
+    th = np.arctan2(dy, dx)
+    rim = (1 - 0.09 * (0.5 + 0.5 * np.sin(5 * th + phase))
+           - 0.07 * (0.5 + 0.5 * np.sin(9 * th + 2 * phase + 1))
+           - 0.04 * (0.5 + 0.5 * np.sin(17 * th + 3 * phase)))
+    return r < rim, dy
+
+
+def _ring(mask, k):
+    """The pixels of `mask` within k steps (4-neighbour) of its outside."""
+    inner = mask.copy()
+    for _ in range(k):
+        p = np.pad(inner, 1)
+        inner = inner & p[:-2, 1:-1] & p[2:, 1:-1] & p[1:-1, :-2] & p[1:-1, 2:]
+    return mask & ~inner
+
+
+def _blob(frame, phase):
+    """One sway frame of a blob clump: the leaf box masked to a round leafy outline, a dark
+    rim on its lower sides (where it sits on the clumps behind it) and its lower edge shaded,
+    so overlapping blobs read as one hedge of bushes instead of squares of canopy."""
+    a = np.array(frame).astype(np.int32)
+    h, w = a.shape[:2]
+    shape, dy = _leafy_mask(w, h, phase)
+    inside = shape & (a[..., 3] > 0)
+    out = a.copy()
+    out[..., 3] = np.where(inside, 255, 0)
+    rim = _ring(inside, 1)
+    out[rim & (dy > -0.35), :3] = RIM
+    low = _ring(inside, 3) & ~rim & (dy > 0.1)
+    out[low, :3] = out[low, :3] * 6 // 10
+    return Image.fromarray(out.astype(np.uint8))
 
 
 def cut_bushes(cut, set_name, b):
-    """recipe bushes.<name>: {"src", "frame": [w, h], "frames": n, "fps", "clumps": {tl, t,
-    tr, l, c, r, bl, b, br: [x0, y0, x1, y1] in the first frame}}. Writes a sheet with one row
-    per clump and one column per frame, every cell the size of the biggest clump (each clump
-    sits at its cell's top left), and records each clump's size."""
+    """recipe bushes.<name>: {"src", "frame": [w, h], "frames": n, "fps", and either
+      "clumps": {tl, t, tr, l, c, r, bl, b, br: [x0, y0, x1, y1] in the first frame}: a
+        nine-slice, or
+      "blobs": {key: [x0, y0, x1, y1], ...}, "shapes": k: leaf boxes each cut k times as a
+        round leafy clump with its own outline (keys "<key><i>")}.
+    Writes a sheet with one row per clump and one column per frame, every cell the size of
+    the biggest clump (each clump sits at its cell's top left), and records each clump's
+    size; a blob set also records "blobs": true (build_tiles.gd scatters those)."""
     man = {}
     for name, it in b.items():
         fw, fh = it["frame"]
         n = int(it["frames"])
         src = cut.load(it["src"])
-        clumps = it["clumps"]
-        cw = max(c[2] - c[0] for c in clumps.values())
-        ch = max(c[3] - c[1] for c in clumps.values())
-        sheet = Image.new("RGBA", (cw * n, ch * len(BUSH_CLUMPS)), (0, 0, 0, 0))
+        blobs = "blobs" in it
+        if blobs:
+            clumps = {}
+            for key, box in it["blobs"].items():
+                for i in range(int(it.get("shapes", 1))):
+                    clumps["%s%d" % (key, i)] = (box, 1.7 * len(clumps))
+            keys = list(clumps)
+        else:
+            clumps = {k: (v, 0.0) for k, v in it["clumps"].items()}
+            keys = list(BUSH_CLUMPS)
+        cw = max(c[0][2] - c[0][0] for c in clumps.values())
+        ch = max(c[0][3] - c[0][1] for c in clumps.values())
+        sheet = Image.new("RGBA", (cw * n, ch * len(keys)), (0, 0, 0, 0))
         sizes = {}
-        for row, key in enumerate(BUSH_CLUMPS):
-            x0, y0, x1, y1 = clumps[key]
+        for row, key in enumerate(keys):
+            (x0, y0, x1, y1), phase = clumps[key]
             sizes[key] = [x1 - x0, y1 - y0]
             for k in range(n):
-                sheet.paste(src.crop((k * fw + x0, y0, k * fw + x1, y1)), (k * cw, row * ch))
+                piece = src.crop((k * fw + x0, y0, k * fw + x1, y1))
+                sheet.paste(_blob(piece, phase) if blobs else piece, (k * cw, row * ch))
         file = "%s_bush_%s.png" % (set_name, name)
         save(sheet, file)
         man[name] = {"source": file, "cell": [cw, ch], "frames": n, "fps": float(it.get("fps", 4)),
-            "clumps": list(BUSH_CLUMPS), "sizes": sizes}
+            "clumps": keys, "sizes": sizes}
+        if blobs:
+            man[name]["blobs"] = True
+    return man
+
+
+## A fence line's tiles. Each 32 px tile of a line has one post spot (FENCE_SPOTS, in tile
+## px: the middle of the half the one-cell line lies in across it, and of the cells it holds
+## along it) and arms to the tiles it joins (bits L 1, R 2, T 4, B 8): rails drawn out to the
+## tile's edges, so neighbouring tiles join into one rail. A line's end is a post the rail
+## stops at, a corner or a junction a post with two or three arms. Cells are 32 x 64: the
+## tile is the lower 32 px, the post and rails rise into the 32 px over it (build_tiles.gd
+## lifts the tile by 16 so it draws there).
+FENCE_SPOTS = [(8, 8), (16, 8), (24, 8), (8, 16), (16, 16), (24, 16), (8, 24), (16, 24), (24, 24)]
+FENCE_L, FENCE_R, FENCE_T, FENCE_B = 1, 2, 4, 8
+FENCE_DARK = (22, 16, 12, 255)  # a rail's cut end
+
+
+def _fence_tile(post, rail_h, rail_v, spot, mask):
+    img = Image.new("RGBA", (T, 2 * T), (0, 0, 0, 0))
+    nx, ny = spot
+    feet = T + ny + 7  # the post's bottom row
+    pw = post.width
+
+    def strip(y0, y1):
+        y = y0
+        while y < y1:
+            piece = rail_v.crop((0, 0, rail_v.width, min(rail_v.height, y1 - y)))
+            img.alpha_composite(piece, (nx + 2, y))
+            y += piece.height
+
+    # the vertical rail, seen edge on: a strip down the post's right side, from 20 px up a
+    # post to the foot of the post below it; each tile draws it up to its edges (13 px over
+    # them, the height it runs at), so the rail of the next tile carries straight on. The
+    # stretch above a post goes behind it, the one below in front.
+    if mask & FENCE_T:
+        strip(T - 13, feet)
+    img.alpha_composite(post, (nx - pw // 2, feet - post.height + 1))
+    if mask & FENCE_B:
+        strip(T + ny - 13, 2 * T - 13)
+        if not mask & FENCE_T:
+            img.paste(FENCE_DARK, (nx + 2, T + ny - 13, nx + 2 + rail_v.width, T + ny - 12))
+    # the horizontal rail, in front of the posts, 21 px up
+    if mask & (FENCE_L | FENCE_R):
+        top = feet - 21
+        x0 = 0 if mask & FENCE_L else nx - pw // 2
+        x1 = T if mask & FENCE_R else nx + (pw + 1) // 2
+        x = x0
+        while x < x1:
+            piece = rail_h.crop((0, 0, min(rail_h.width, x1 - x), rail_h.height))
+            img.alpha_composite(piece, (x, top))
+            x += piece.width
+        if not mask & FENCE_L:
+            img.paste(FENCE_DARK, (x0, top + 1, x0 + 1, top + rail_h.height - 1))
+        if not mask & FENCE_R:
+            img.paste(FENCE_DARK, (x1 - 1, top + 1, x1, top + rail_h.height - 1))
+    return img
+
+
+def cut_fencelines(cut, set_name, f):
+    """recipe fencelines.<name>: {"src", "post": box of a lone post (its foot on the box's
+    bottom row), "rail_h": box of a stretch of horizontal rail that repeats across, "rail_v":
+    box of a vertical line's edge-on rail that repeats down}. Writes every arm mask (columns)
+    for every post spot (rows)."""
+    man = {}
+    for name, it in f.items():
+        post = cut.box(it["src"], it["post"])
+        rail_h = cut.box(it["src"], it["rail_h"])
+        rail_v = cut.box(it["src"], it["rail_v"])
+        sheet = Image.new("RGBA", (T * 16, 2 * T * len(FENCE_SPOTS)), (0, 0, 0, 0))
+        for row, spot in enumerate(FENCE_SPOTS):
+            for mask in range(16):
+                sheet.alpha_composite(_fence_tile(post, rail_h, rail_v, spot, mask), (mask * T, row * 2 * T))
+        file = "%s_fence_%s.png" % (set_name, name)
+        save(sheet, file)
+        man[name] = {"source": file, "cell": [T, 2 * T], "spots": [list(p) for p in FENCE_SPOTS],
+            "arms": {"L": FENCE_L, "R": FENCE_R, "T": FENCE_T, "B": FENCE_B}}
     return man
 
 
@@ -410,6 +549,7 @@ def main(packs, set_name):
         "decor": cut_decor(cut, set_name, recipe.get("decor", {})),
         "anim": cut_anim(cut, set_name, recipe.get("anim", {})),
         "bushes": cut_bushes(cut, set_name, recipe.get("bushes", {})),
+        "fencelines": cut_fencelines(cut, set_name, recipe.get("fencelines", {})),
     }
     with open(os.path.join(OUT, set_name + "_manifest.json"), "w", newline="\n") as f:
         json.dump(man, f, indent=1)

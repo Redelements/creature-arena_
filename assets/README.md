@@ -20,6 +20,16 @@ unit (`ArtScale.PX_PER_UNIT`). Everything in `tiles/` is drawn at two pixels a u
 | a ground tile (Set 1) | 32 x 32 | 16 x 16 | 2 x 2 |
 | an overlay tile (crack, pit) | 16 x 16 | 8 x 8 | 1 (one terrain cell) |
 | a piece tile (boulder, tuft) | 32 x 32 | 16 x 16 | 2 x 2 |
+| a fence line tile (`<set>_fence_<name>.png`) | 32 x 64 | 16 x 16 on the floor | 2 x 2, the post rising one tile over it |
+| a bush clump (`<set>_bush_<name>.png`) | up to 56 x 44 | about 28 x 22 | scattered over a brush bed |
+
+A fence line is cut as every arm mask (left 1, right 2, up 4, down 8: a column each) for
+every post spot (the middle of a tile's half or of the tile, across and down: a row each),
+from a lone post and two repeating rail strips; `tools/build_tiles.gd` picks each tile's
+cell from its neighbours, so a line has ends, runs, corners and junctions and its posts
+stand in the half of the tile the one-cell fence holds. Bush clumps for the Greenhouse are
+round leafy cuts of a tree's canopy, each on all its sway frames, that a bed scatters
+overlapping and mirrored.
 
 ## Crack and pit tiles: what the artist paints
 

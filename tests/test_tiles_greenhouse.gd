@@ -1,10 +1,11 @@
 extends TestCase
 ## The Greenhouse Dome on tiles (the grassland set: Set 1 turf and grass blobs, GrassLand's
 ## kerb and cliff face, Decorative Props fences): the set's terrains cover the 16 side
-## combinations, the scene draws a fence tile on every tile of every fence line (a post
-## line down or across, in the half of the tile the one-cell fence lies in) and tall grass
-## on every brush bed, the map draws from tiles, and a flattened brush cell loses its tuft
-## until it grows back. The map's pieces and play are unchanged (no sim change).
+## combinations, the scene draws every fence line as one joined line (each tile a post in
+## the half of the tile the one-cell fence lies in, rails to the line's next tiles, none
+## past its ends) and a hedge of swaying clumps on every brush bed, the margin decor stays
+## off the floor and under the stand wall, the map draws from tiles, and a flattened brush
+## cell loses its clumps until it grows back. The map's pieces and play are unchanged (no sim change).
 
 const MANIFEST := "res://assets/tiles/grassland_manifest.json"
 const GROUND := "res://assets/tiles/grassland_ground.tres"
@@ -39,8 +40,14 @@ func test_the_grassland_cut_covers_every_side_combination() -> void:
 		assert_eq(block.size(), 16, "%s: all 16 combinations of connected sides" % name)
 	for fill in ["turf", "moss", "meadow", "turf_grassland"]:
 		assert_eq(man["ground"]["fills"][fill].size(), 16, "a 4 x 4 %s fill" % fill)
-	for kind in ["fence_h", "fence_v_l", "fence_v_r", "tuft", "sprig"]:
+	for kind in ["tuft", "sprig"]:
 		assert_gt(man["pieces"][kind].size(), 0, "%s tiles were cut" % kind)
+	var fl: Dictionary = man["fencelines"]["wood"]
+	assert_eq(Vector2i(int(fl["cell"][0]), int(fl["cell"][1])), Vector2i(32, 64), "a fence line's tiles rise a tile over their cell")
+	assert_eq(fl["spots"].size(), 9, "a post spot per half and middle, across and down")
+	var bush: Dictionary = man["bushes"]["green"]
+	assert_true(bush.get("blobs", false), "the beds are round clumps scattered, not a nine-slice")
+	assert_gt(bush["clumps"].size(), 5, "enough clump shapes that neighbours differ")
 	var ts: TileSet = load(GROUND)
 	assert_eq(ts.get_terrain_name(0, 0), "grass")
 	assert_eq(ts.get_terrain_set_mode(0), TileSet.TERRAIN_MODE_MATCH_SIDES)
@@ -48,9 +55,13 @@ func test_the_grassland_cut_covers_every_side_combination() -> void:
 
 func test_the_scene_fences_every_fence_line_and_plants_every_bed() -> void:
 	var man := _manifest()
-	var p: Dictionary = man["pieces"]
+	var spots: Array = man["fencelines"]["wood"]["spots"]
 	var root := (load(SCENE) as PackedScene).instantiate()
 	var pieces := root.get_node("Pieces") as TileMapLayer
+	var fence_src := 16  # build_tiles.gd SRC_FENCE: the first fence line
+	var src := pieces.tile_set.get_source(fence_src) as TileSetAtlasSource
+	assert_eq(src.texture_region_size, Vector2i(32, 64), "fence tiles carry the post rising over the tile")
+	assert_eq(src.get_tile_data(Vector2i(0, 0), 0).texture_origin, Vector2i(0, 16), "lifted so the lower 32 px sit on the cell")
 	var map := ArenaMap.get_map("greenhouse")
 	var expected := 0
 	var brush := root.get_node("Brush")
@@ -69,13 +80,26 @@ func test_the_scene_fences_every_fence_line_and_plants_every_bed() -> void:
 					inside += 1
 			assert_gt(inside, 5, "bed %s: corners, edges and a middle (%d clumps)" % [bed, inside])
 			continue
-		for c in _tiles_of(r):
+		var vertical: bool = int(r[3]) > int(r[2])
+		var tiles := _tiles_of(r)
+		for i in tiles.size():
+			var c: Vector2i = tiles[i]
 			expected += 1
-			assert_eq(pieces.get_cell_source_id(c), 1, "%s at %s has a piece tile" % [kind, c])
+			assert_eq(pieces.get_cell_source_id(c), fence_src, "%s at %s is a fence line tile" % [kind, c])
 			var at := pieces.get_cell_atlas_coords(c)
-			var vertical: bool = int(r[3]) > int(r[2])
-			var pool: Array = _coords(p["fence_h"]) if not vertical else _coords(p["fence_v_l" if int(r[0]) % 2 == 0 else "fence_v_r"])
-			assert_true(at in pool, "%s: a fence tile the right way round, in the right half (%s)" % [c, at])
+			# arms to the line's next tiles: none past its ends (a post the rail stops at)
+			var arms := 0
+			if i > 0:
+				arms |= 4 if vertical else 1
+			if i < tiles.size() - 1:
+				arms |= 8 if vertical else 2
+			assert_eq(at.x, arms, "%s: rails to its neighbours only (arm mask %d)" % [c, at.x])
+			# the post in the half of the tile the one-cell line lies in
+			var spot := Vector2i(int(spots[at.y][0]), int(spots[at.y][1]))
+			if vertical:
+				assert_eq(spot.x, 8 if int(r[0]) % 2 == 0 else 24, "%s: the post in the line's half across" % c)
+			else:
+				assert_eq(spot.y, 8 if int(r[1]) % 2 == 0 else 24, "%s: the post in the line's half down" % c)
 	assert_eq(pieces.get_used_cells().size(), expected, "a piece tile on every fence tile and nowhere else")
 	assert_eq(beds, 5, "five beds")
 	for s in brush.get_children():
@@ -92,6 +116,10 @@ func test_the_scene_fences_every_fence_line_and_plants_every_bed() -> void:
 		var fy := feet.y / ArtScale.PX_PER_UNIT
 		var on_floor := fx > 0.0 and fx < SimDefs.GRID_COLS * SimDefs.CELL and fy > 0.0 and fy < SimDefs.GRID_ROWS * SimDefs.CELL
 		assert_false(on_floor, "%s stands in the margins, never on the floor" % s.name)
+		if fy < 0.0 and fy > -SimDefs.CELL * ArtScale.TILE_CELLS:
+			# on the top kerb (one tile): its top stays under the stand wall
+			var top := s.position.y / ArtScale.PX_PER_UNIT
+			assert_true(top >= -SimDefs.CELL * ArtScale.TILE_CELLS, "%s stands on the kerb, not up the wall (top %.1f)" % [s.name, top])
 	root.free()
 
 
