@@ -22,11 +22,11 @@
   "cut_in_frame": [8, 3],
   "ko_fx": { "style": "dirt" },
   "sprite": {
-    "path": "res://assets/sprites/digby.png",
-    "frame": 128,
-    "portrait": [64, 78, 24, 28],
+    "path": "res://assets/sprites/digby_2x.png", "ppu": 2,
+    "frame": 256,
+    "portrait": [128, 156, 48, 56],
     "cols": 12,
-    "origin": [64, 100],
+    "origin": [128, 200],
     "idle_ticks": 8,
     "run_ticks": 2,
     "step_frames": [0, 2],
@@ -50,10 +50,10 @@
     "side_only": ["ko"],
     "select_scale": 0.55,
     "views": {
-      "down": { "path": "res://assets/sprites/digby_down.png", "frame": [112, 128], "origin": [56, 100] },
-      "up": { "path": "res://assets/sprites/digby_up.png", "frame": [112, 128], "origin": [56, 90] },
-      "down_side": { "path": "res://assets/sprites/digby_down_side.png", "frame": [128, 128], "origin": [64, 100] },
-      "up_side": { "path": "res://assets/sprites/digby_up_side.png", "frame": [128, 128], "origin": [64, 90] }
+      "down": { "path": "res://assets/sprites/digby_2x_down.png", "ppu": 2, "frame": [224, 256], "origin": [112, 200] },
+      "up": { "path": "res://assets/sprites/digby_2x_up.png", "ppu": 2, "frame": [224, 256], "origin": [112, 180] },
+      "down_side": { "path": "res://assets/sprites/digby_2x_down_side.png", "ppu": 2, "frame": [256, 256], "origin": [128, 200] },
+      "up_side": { "path": "res://assets/sprites/digby_2x_up_side.png", "ppu": 2, "frame": [256, 256], "origin": [128, 180] }
     }
   },
   "ai": {

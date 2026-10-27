@@ -53,7 +53,10 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   outline over a piece behind becomes its deep-step seam). Layers carry their material ids,
   outline ring and shading normals in `img.info`; `keep(new, old)` copies them onto a new
   Image (a layer rebuilt without it lights flat in the normal sheets). `normal_map(img)` packs
-  a stacked frame's normals for `splat3d.finish_frame`.
+  a stacked frame's normals for `splat3d.finish_frame`. `configure(density=2)`: draw through
+  `shade2d.Draw(img)` in 1x pixel coordinates (it scales every fill, line and dot onto the 2x
+  layer; `snap` for rounded dot spots, `to_px` for a 1x coordinate as a pixel index) and the
+  shading counts pixel lengths through `px`; `RIM` / `LUM_HIGH` are the bold look's switches.
 - `splat3d.py`: the shared renderer (pose a 3D rig, sample parts as points, splat per view,
   ramp-shade from the master palette with a rim light, outline in each material's ink).
   Prefer this shape for new fighters, like `gen_digby.py`: `build(pose, view)`, a `MAT`

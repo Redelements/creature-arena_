@@ -58,10 +58,10 @@ func _view(id: String) -> CreatureView:
 
 
 func test_a_1x_sheet_draws_exactly_as_before() -> void:
-	var v := _view("craglash")
+	var v := _view("dummy")
 	v.c.pos = Vector2(200.3, 150.6)
 	v.refresh()
-	assert_eq(v.ppu, 1, "craglash's sheet is 1x (the last in the 2x order)")
+	assert_eq(v.ppu, 1, "the training dummy's sheet is 1x (every fighter is 2x)")
 	assert_eq(v.sprite.scale, Vector2.ONE, "no scaling")
 	assert_eq(v.position, Vector2(200, 151), "whole-unit positions")
 	assert_eq(v.sprite.position, -v.origin, "the origin in sheet pixels is the origin in units")

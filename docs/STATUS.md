@@ -1,7 +1,7 @@
 # Status: handoff snapshot
 
-Stamped: 2026-10-27 21:04 UTC
-Branch: pete-2x @ ae00821
+Stamped: 2026-10-27 20:31 UTC
+Branch: culvert-2x @ 5ab3ca9
 Trigger: phase
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
@@ -39,23 +39,12 @@ the two shading variants; Twin Keeps still beside the big tree at play zoom). GI
 `docs/pixellab/crease_route_a_{idle,run,flick}.gif`. Build for Kevin:
 `C:/Users/Kevin/Downloads/Ready4Rambles-windows-crease-2x/` (exe + the gallery and GIFs).
 
-## VRAM (branch `sprites-vram`, off `crease-2x`, worktree `creature-arena-vram-2x`)
-
-The blocker before fighter 3 is solved: fighter sheets are drawn from **packed copies**
-(`tools/pack_sheets.py` -> `assets/sprites/packed/`, `src/view/packed_sheet.gd`; lossless,
-`--verify` rebuilds every grid sheet exactly). 4v4 CTF with Crease 2x on both sides: 1018 ->
-159 MB textures on High, 1014 -> 155 Low, 123 Off (Off now loads no `_n`/`_e`); 1v1 496 -> 72.
-Full roster at 2x projected about 0.4 GB in a 4v4 (`tests/test_vram.gd` pins it; numbers in
-`docs/plans/roster-2x.md` "VRAM"). The fighter-2x skill now runs `pack_sheets.py <id>` in step 3.
-Local commit only; never pushed. Not done: the grid sheets still ship in exports (build size,
-not VRAM; an `exclude_filter` could drop them); Android/Vulkan not measured.
-
-## Sneaky Pete (branch `pete-2x`, off `sprites-vram`, "run all")
-
-`PETE_DENSITY` (1 = the 1x sheets byte for byte) and `PETE_STYLE=a|bold` in `gen_pete.py`;
-bold shipped. `pete_2x*.png`: 256 px frames (down/up 224x256), packed by `pack_sheets.py pete`.
-`test_art_scale`'s 1x pin moved to Craglash; new `test_pete_at_2x_still_vanishes_into_a_ghost`.
-NET_VERSION 49 (renumber when stacking). Gallery and GIFs in `docs/pixellab/pete/`.
+Roster run ("run all", plan order). **Culvert** on branch `culvert-2x` (worktree
+`C:/Users/Kevin/dev/creature-arena-culvert-2x`, off `crease-2x` 5ab3ca9): `CULVERT_DENSITY`
+(default 2; 1 byte for byte) and `CULVERT_STYLE=a|bold` (bold at 2x: no highlight step, one
+dark ink) in `gen_culvert.py`; `culvert_2x*.png` (15 sheets, 192 px frames); culvert.json
+switched by `sprite_2x.py`; **NET_VERSION 47**; sim-check unchanged. Gallery and GIFs:
+`docs/pixellab/culvert/`. Next: Sno Mercy (`sno-2x`, off `culvert-2x`).
 
 ## Decisions
 
@@ -69,8 +58,7 @@ NET_VERSION 49 (renumber when stacking). Gallery and GIFs in `docs/pixellab/pete
 **No fighter is rendered until Kevin says "run <fighter>" or "run all".** Then follow
 `.claude/skills/fighter-2x/SKILL.md`, one fighter per branch `<fighter>-2x`, stacked off
 `crease-2x`, in the order of `docs/plans/roster-2x.md`; stop at the first fighter that fails
-its checks (anim_preview --check, tests, sim-check, VRAM budget: `TEST_ONLY=vram`, after
-`pack_sheets.py <id>`).
+its checks (anim_preview --check, tests, sim-check, VRAM budget).
 
 ## Open questions
 
@@ -80,7 +68,7 @@ its checks (anim_preview --check, tests, sim-check, VRAM budget: `TEST_ONLY=vram
 
 ## Next step
 
-"Run all" is on: next fighter in plan order (Hissy: needs its own density switch first, so stop and say so) off `pete-2x`; the main session stacks the PRs.
+Wait for Kevin's verdict and a "run <fighter>" / "run all"; then the skill, plan order.
 
 ## Files touched this session
 
@@ -88,6 +76,8 @@ tools/splat3d.py, tools/gen_crease.py, tools/anim_preview.py, tools/CLAUDE.md, d
 data/creatures/crease.json, src/net/netplay.gd, tests/test_art_scale.gd,
 assets/sprites/crease_2x*.png(+.import), docs/crease_2x_preview.png,
 docs/crease_2x_views_preview.png, docs/pixellab/crease_route_a*, docs/STATUS.md,
+tools/gen_culvert.py, data/creatures/culvert.json, assets/sprites/culvert_2x*.png(+.import),
+docs/culvert_2x_preview.png, docs/culvert_2x_views_preview.png, docs/pixellab/culvert/*,
 .claude/skills/fighter-2x/SKILL.md, tools/twin_keeps_still.py, docs/plans/roster-2x.md.
 
 Tooling: Godot `C:/Users/Kevin/dev/godot/Godot_v4.7.2-stable_win64_console.exe`; Python
