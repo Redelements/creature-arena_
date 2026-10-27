@@ -77,10 +77,14 @@ and **RPG Worlds Desert** (`RPGW_Desert_v2.01`), cut by `tools/cut_tiles.py` fro
   generated cracks and edges.
 - `assets/tiles/rock_decor_ledge_l.png`, `assets/tiles/rock_decor_ledge_r.png`: the Desert
   sandstone ledge run along the middle's south side.
-- `assets/tiles/rock_wall_rock.png`: Desert stacked rock pillars for the walls and rock heaps
-  for a smashed wall (warmed).
+- `assets/tiles/rock_wall_rock.png`: Desert stacked rock pillars and the rock heaps a smashed
+  wall shows (warmed).
+- `assets/tiles/rock_raised_rock.png`: the walls as raised rock shelves, 16 px tiles cut from
+  the Mountains tan plateau (its rims, floor and face), with generated contact shadows.
+- `assets/tiles/rock_scatter.png`: loose pebbles and dry grass sprigs (Set 1) and flat stones
+  (Mountains) sprinkled by the walls.
 - `assets/tiles/rock_manifest.json`, `assets/tiles/rock_ground.tres`,
-  `assets/tiles/rock_overlay.tres`, `assets/arenas/quarry.tscn`.
+  `assets/tiles/rock_overlay.tres`, `assets/tiles/rock_cells.tres`, `assets/arenas/quarry.tscn`.
 
 Twin Keeps (the Capture the Flag map; cut by `tools/cut_tiles.py` from
 `tools/tile_recipes/keeps.json`, colours snapped to the game's palette):
@@ -100,8 +104,10 @@ Twin Keeps (the Capture the Flag map; cut by `tools/cut_tiles.py` from
   (`RPGW_Wetland_v1.1`, the same licence) `tree2A` canopy.
 - `assets/tiles/keeps_decor_*.png` (Set 1 trees and a bush) and `assets/tiles/keeps_anim_waterfall.png`
   (Set 1's three-wide fall, tinted like the river).
-- `assets/tiles/keeps_shore.png`: the river's banks, composed from Set 1's grass, the round
-  ledge stones and rock face of `hills2.png`.
+- `assets/tiles/keeps_shore.png`: the river's sunken banks and their shoulder, composed from
+  Set 1's dirt (`g_terrain3.png`), the round ledge stones and rock face of `hills2.png`.
+- `assets/tiles/keeps_scatter.png`: loose pebbles, small flowers and grass sprigs (Set 1
+  `veg_decoratives.png`).
 - `assets/tiles/keeps_manifest.json`, `assets/tiles/keeps_*.tres`, `assets/arenas/twin_keeps.tscn`.
 
 Files from **RPG Worlds GrassLand v2** (`RPGW_GrassLand_v2.01`), **RPG Worlds Decorative
@@ -123,6 +129,9 @@ the same licence), with Set 1 (cut by
   flowers and herbs (`smallobj.png`: `herb_*`).
 - `assets/tiles/grassland_anim_flower_*.png`, `grassland_anim_spike_*.png`: Decorative Props'
   swaying flowers (`Animated/vegA1.png`, `vegC1.png`), four frames each.
+- `assets/tiles/grassland_scatter.png`: Decorative Props' tiny flowers (one still frame of
+  `Animated/vegA2.png`, `vegA4.png`), Set 1's low grass sprigs and loose pebbles
+  (`veg_decoratives.png`), scattered on the Greenhouse meadow.
 - `assets/tiles/grassland_manifest.json`, `assets/tiles/grassland_*.tres` and
   `assets/arenas/greenhouse.tscn`: derived from the above.
 
@@ -141,10 +150,14 @@ by `tools/cut_tiles.py` from `tools/tile_recipes/wetland.json` for the Floodgate
   (Wetland's stone face as the pit walls, generated cracks and edges).
 - `assets/tiles/wetland_decor_reeds.png`, `wetland_decor_reeds_small.png`,
   `wetland_decor_post.png` (Wetland's reeds and a post).
-- `assets/tiles/wetland_shore.png`: the channels' stone kerb, composed from Wetland's paving
-  and the mossy cobbles of its path border.
+- `assets/tiles/wetland_shore.png`: the channels' banks and the ragged dirt shoulder round
+  them, composed from Wetland's brown dirt, the mossy cobbles of its path border (the kerb)
+  and the stone face of its plateau (the far bank's drop).
+- `assets/tiles/wetland_scatter.png`: Set 1's loose pebbles, small water plants and grass
+  sprigs.
 - `assets/tiles/wetland_manifest.json`, `assets/tiles/wetland_ground.tres`,
   `assets/tiles/wetland_overlay.tres`, `assets/tiles/wetland_shore.tres`,
+  `assets/tiles/wetland_cells.tres`,
   `assets/arenas/floodgate.tscn`.
 
 Fantasy Lands Warrior: nothing from it is in the repository yet. Add its files here when
@@ -160,8 +173,14 @@ the game's palette):
   earth and scrub blobs, all lifted toward tan), `assets/tiles/desert_pieces.png` (a wooden
   fence), `assets/tiles/desert_overlay.png` (the plateau's cliff face as pit walls, with
   generated cracks).
-- `assets/tiles/desert_wall_rock.png` (stacked rock pillars for the walls, wide-footed
-  stacks for their ends, small rock heaps for a smashed wall).
+- `assets/tiles/desert_wall_rock.png` (stacked rock pillars, wide-footed stacks, and the
+  small rock heaps a smashed wall shows).
+- `assets/tiles/desert_raised_sandstone.png` (the walls as raised sandstone plateaus, 16 px
+  tiles cut from `MainLev2.0.png`'s plateau B: its sand floor, rim rocks and rocky ledge,
+  with generated outlines and contact shadows).
+- `assets/tiles/desert_scatter.png` (loose dirt bits from `MainLev2.0.png`, with pebbles and
+  dry grass sprigs from **RPG Fantasy World Set 1** `veg_decoratives.png`, sprinkled by the
+  walls and the road).
 - `assets/tiles/desert_decor_rocks.png`, `desert_decor_rocks_b.png`, `desert_decor_agave.png`,
   `desert_decor_agave_pale.png` (low rock heaps, agave) and
   `assets/tiles/desert_anim_palm.png`, `desert_anim_palm_b.png` (the swaying palms).

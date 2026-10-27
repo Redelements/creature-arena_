@@ -115,6 +115,12 @@ var _overlay: TileMapLayer = null
 var _edges: TileMapLayer = null
 var _corners: TileMapLayer = null
 var _piece_cells := {}  ## the scene's pieces as built: tile -> [source, atlas coords]
+## A raised-wall map (styles.wall "raised:<name>", RaisedTiles): the scene's "Raised" and
+## "RaisedShadow" layers, their meta, and the map's wall cells; repainted round a smashed cell.
+var _raised: TileMapLayer = null
+var _raised_shadow: TileMapLayer = null
+var _raised_info := {}
+var _raised_walls := {}
 const OV_COLS := 8
 const OV_CRACK := [0, 1, 2, 3]
 const OV_WALL_TOP := 8
@@ -197,6 +203,16 @@ func _build_tiles() -> void:
 	if pieces != null:
 		for c in pieces.get_used_cells():
 			_piece_cells[c] = [pieces.get_cell_source_id(c), pieces.get_cell_atlas_coords(c)]
+	_raised = _tiles.get_node_or_null("Raised") as TileMapLayer
+	_raised_shadow = _tiles.get_node_or_null("RaisedShadow") as TileMapLayer
+	_raised_walls.clear()
+	if _raised != null and _raised_shadow != null:
+		_raised_info = _raised.get_meta("raised", {})
+		for i in terrain.map_base.size():
+			if terrain.map_base[i] == TerrainGrid.WALL:
+				_raised_walls[Vector2i(i % terrain.cols, i / terrain.cols)] = true
+	else:
+		_raised = null
 	for which in 3:
 		var layer := TileMapLayer.new()
 		layer.name = ["Overlay", "Edges", "Corners"][which]
@@ -256,6 +272,18 @@ func _retile(row0: int, row1: int) -> void:
 		if pieces != null and cy % per == 0:
 			_sync_pieces(pieces, cy / per)
 	_sync_sprites(row0, row1)
+	if _raised != null and not _raised_info.is_empty():
+		# a face hangs up to "cells" cells over the wall's end, so a change reaches that far up
+		var reach := int(_raised_info["cells"]) + 1
+		RaisedTiles.paint(_raised, _raised_shadow, _raised_info, _raised_walls, _raised_up, row0 - reach, row1 + reach)
+
+
+## Whether a map wall cell stands whole (drawn raised): not smashed, or rebuilt.
+func _raised_up(c: Vector2i) -> bool:
+	if not _raised_walls.has(c):
+		return false
+	var i := c.y * terrain.cols + c.x
+	return terrain.cells[i] == terrain.map_base[i]
 
 
 ## The scene's sprite pieces, each with the cells it covers in its meta "cells": bush clumps
@@ -444,6 +472,8 @@ func _rebuild() -> void:
 	_over = null
 	_dust = null
 	_tiles = null
+	_raised = null
+	_raised_shadow = null
 	_overlay = null
 	_edges = null
 	_corners = null

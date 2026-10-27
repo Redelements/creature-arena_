@@ -3,8 +3,14 @@
 	"id": "floodgate",
 	"name": "Floodgate Stadium",
 	"ground": "concrete",
-	"tiles": {"_doc": "the floor as tiles (assets/arenas/floodgate.tscn, built by tools/build_tiles.gd): Wetland paving, Set 1 water autotiled under the shallows with Wetland's glints over it and a kerb of the pack's mossy cobbles, reeds at the channel's mouths in the margins, swaying DecorativeProps reeds beside the lower mouth and along the side rails",
+	"tiles": {"_doc": "the floor as tiles (assets/arenas/floodgate.tscn, built by tools/build_tiles.gd): Wetland paving, Set 1 water autotiled under the shallows with Wetland's glints over it, sunk below the floor behind a kerb of Wetland cobbles (the far bank a drop of Wetland stone), rounded, in a ragged rim of Wetland dirt (shoulder), pebbles, small water plants and sprigs scattered by it (scatter), reeds at the channel's mouths in the margins, swaying DecorativeProps reeds beside the lower mouth and along the side rails",
 		"set": "wetland", "ground": "paving",
+		"shoulder": true,
+		"scatter": [
+			{"kind": "pebbles", "where": "near_water", "near": 4, "density": 0.07, "seed": 1},
+			{"kind": "reeds", "where": "near_water", "near": 2, "density": 0.05, "seed": 2},
+			{"kind": "sprigs", "where": "floor", "density": 0.012, "seed": 3}
+		],
 		"decor": [
 			{"kind": "reeds", "pos": [318, 0]}, {"kind": "reeds_small", "pos": [356, 0]},
 			{"kind": "reeds_small", "pos": [322, 299]}, {"kind": "reeds", "pos": [360, 301]}

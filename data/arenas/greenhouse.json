@@ -4,8 +4,18 @@
 	"name": "Greenhouse Dome",
 	"ground": "grass",
 	"tiles": {
-		"_doc": "The floor is tiles (assets/arenas/greenhouse.tscn, built by tools/build_tiles.gd): GrassLand's bright flower meadow, Set 1's bright grass blob round each brush bed (rects in 32 px tiles, 2 x 2 cells), Decorative Props fences drawn as joined lines (posts and rails, ends and corners), a hedge of Wetland canopy clumps on each brush bed, pots, barrels and crates in the margins (the top row short ones, standing on the top margin under the stand wall), potted herbs (Houses smallobj) and GrassLand's tiny bushes between the side pots, swaying DecorativeProps flowers on the beds' edge cells",
+		"_doc": "The floor is tiles (assets/arenas/greenhouse.tscn, built by tools/build_tiles.gd): GrassLand's bright flower meadow, Set 1's bright grass blob round each brush bed (rects in 32 px tiles, 2 x 2 cells), Decorative Props fences drawn as joined lines (posts and rails, ends and corners), a hedge of Wetland canopy clumps on each brush bed, pots, barrels and crates in the margins (the top row short ones, standing on the top margin under the stand wall), potted herbs (Houses smallobj) and GrassLand's tiny bushes between the side pots, swaying DecorativeProps flowers on the beds' edge cells, tiny flowers, grass sprigs and pebbles over the meadow, more round the beds and fences (scatter)",
 		"set": "grassland",
+		"scatter": [
+			{"kind": "tufts", "where": "near_brush", "near": 2, "density": 0.04, "seed": 1},
+			{"kind": "flowers", "where": "near_brush", "near": 2, "density": 0.02, "seed": 2},
+			{"kind": "flowers_tall", "where": "near_brush", "near": 2, "density": 0.03, "seed": 3},
+			{"kind": "pebbles", "where": "near_fences", "near": 2, "density": 0.07, "seed": 4},
+			{"kind": "tufts", "where": "near_fences", "near": 2, "density": 0.03, "seed": 5},
+			{"kind": "tufts", "where": "floor", "density": 0.006, "seed": 6},
+			{"kind": "flowers", "where": "floor", "density": 0.005, "seed": 7},
+			{"kind": "pebbles", "where": "floor", "density": 0.004, "seed": 8}
+		],
 		"ground": "meadow_bright",
 		"grass": [
 			[

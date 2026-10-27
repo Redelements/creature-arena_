@@ -7,8 +7,13 @@ extends TestCase
 ## where the river enters at the top with its pool inside the banks, team braziers on the
 ## gate posts and team banners hung on the keeps' walls (they fall with the wall). Every
 ## water tile at the river's edge (the island, the head, the bridge's ends) carries its
-## bank. ArenaView treats it as tiled.
+## bank. The river sits below the floor (a kerb of ledge stones along the water and along
+## the top of the far bank's rock drop, rounded corners) in a ragged dirt shoulder on the land
+## round it and the islands; pebbles lie by it and tufts and small flowers on the open grass,
+## never on the bridge, the flag bases' capture zones, the shrines, the brush beds or the
+## keeps' gates. ArenaView treats it as tiled.
 
+const BT := preload("res://tools/build_tiles.gd")
 const SCENE := "res://assets/arenas/twin_keeps.tscn"
 const MANIFEST := "res://assets/tiles/keeps_manifest.json"
 
@@ -147,6 +152,61 @@ func test_the_river_has_its_banks() -> void:
 	var bank := root.get_node("WaterBank") as TileMapLayer
 	assert_true(bank.get_index() > root.get_node("WaterSurface").get_index(), "drawn over the water's surface")
 	assert_true(bank.get_index() < root.get_node("Pieces").get_index(), "and under the bridge")
+	root.free()
+
+
+func test_the_river_is_sunk_in_a_shoulder_with_scatter_off_the_marked_spots() -> void:
+	var man := _manifest()
+	var sh: Dictionary = man["ground"]["shores"]["water"]
+	assert_true(sh.has("shoulder") and not (sh["shoulder"] as Dictionary).is_empty(), "the bank cuts a shoulder")
+	var recipe: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://tools/tile_recipes/keeps.json"))
+	var spec: Dictionary = recipe["ground"]["shores"]["water"]
+	assert_true(bool(spec.get("edge_over_face", false)) and spec.has("edge"), "a kerb along the water and over the far bank's drop")
+	assert_true(int(spec.get("face_px", 0)) >= 10, "a drop you can see on the far bank")
+	assert_true(float(spec.get("radius", 0)) >= 10.0, "rounded corners")
+	var root: Node = (load(SCENE) as PackedScene).instantiate()
+	var map := ArenaMap.get_map("twin_keeps")
+	var size := ArenaMap.size_of(map)
+	var grid := TerrainGrid.new(size.x, size.y)
+	grid.load_map(map)
+	var water := root.get_node("Water") as TileMapLayer
+	var shoulder := root.get_node("Shoulder") as TileMapLayer
+	assert_true(shoulder.get_index() < water.get_index(), "the shoulder under the water")
+	var wet := {}
+	for c in water.get_used_cells():
+		wet[c] = true
+	var ring := 0
+	for t in shoulder.get_used_cells():
+		if wet.has(t):
+			continue
+		ring += 1
+		for dy in 2:
+			for dx in 2:
+				assert_eq(grid.get_base(t * 2 + Vector2i(dx, dy)), TerrainGrid.INTACT, "a shoulder tile on floor cells only: %s" % t)
+	assert_true(ring >= 40, "dirt round the river and both islands: %d tiles" % ring)
+	for island in [Vector2i(36, 5), Vector2i(36, 25)]:  # each island's west edge, beside the channel
+		assert_true(shoulder.get_cell_source_id(island) >= 0, "the island at %s has its shoulder" % island)
+	# the scatter: some, subtle, and never on a marked spot
+	var scatter := root.get_node("Scatter") as TileMapLayer
+	var cells := scatter.get_used_cells()
+	assert_true(cells.size() >= 30, "pebbles, tufts and flowers (%d)" % cells.size())
+	assert_true(cells.size() <= size.x * size.y / 20, "at most a few percent of the floor (%d)" % cells.size())
+	var clear: Dictionary = BT.scatter_clear(map["tiles"], map, grid)
+	var gates: Array = map["tiles"]["scatter_clear"]
+	assert_eq(gates.size(), 6, "three gates a keep kept clear")
+	var bridge: Array = map["bridges"][0]["rect"]
+	for c in cells:
+		assert_false(clear.has(c), "off the gates, bases and shrines: %s" % c)
+		assert_false(Rect2i(int(bridge[0]), int(bridge[1]), int(bridge[2]), int(bridge[3])).grow(1).has_point(c), "off the bridge: %s" % c)
+		for side in map["bases"]:
+			var b: Array = map["bases"][side]
+			assert_true(grid.cell_center(c).distance_to(Vector2(b[0], b[1])) >= 40.0, "off the %s flag's capture zone: %s" % [side, c])
+		for dy in range(-1, 2):
+			for dx in range(-1, 2):
+				var n: Vector2i = c + Vector2i(dx, dy)
+				if grid.in_bounds(n):
+					assert_true(grid.get_base(n) != TerrainGrid.BRUSH, "clear of the brush beds: %s" % c)
+		assert_eq(grid.get_base(c), TerrainGrid.INTACT, "on plain floor: %s" % c)
 	root.free()
 
 

@@ -7,6 +7,8 @@
   Besides tiles a set can have sprite pieces: bush clumps (`<set>_bush_<name>.png`, a
   nine-slice of canopy for brush beds) and wall runs (`<set>_wall_<name>.png`: one tall
   sprite a wall tile, y-sorted into one barrier, with the rubble a smashed tile shows).
+  Raised walls, sunken water and floor scatter: `<set>_raised_<name>.png`, `<set>_scatter.png`
+  and their 16 px TileSet `<set>_cells.tres` ("Height" below).
   Licences in `LICENSES.md` at the repo root; the raw packs never enter the repo.
 - `arenas/`: the tiled arenas' ground scenes (`<id>.tscn`, built by `tools/build_tiles.gd`
   from the arena's JSON). `ArenaView` instances one under the floor and draws the breaking
@@ -107,3 +109,66 @@ Rules the renderer relies on (`tests/test_tiles.gd` checks every set's atlas):
   at the sheet's columns 0-3 holds one tile per combination of connected sides, columns
   4-11 hold variants. `tools/cut_tiles.py` reads a variant's sides off its alpha. A ground
   sheet with the same layout (Set 1's `g_terrain1..4.png`) drops in with one line there.
+
+## Height: raised walls, sunken water, scatter
+
+Three tile features that make a map less flat; each is recipe keys (`tools/cut_tiles.py`)
+plus a few lines in the map's `tiles` block (`tools/build_tiles.gd`). The sim and the
+map's cells never change: all of it is drawn on cells the map already has.
+
+**Raised walls** (`styles.wall: "raised:<name>"`, recipe `raised.<name>`). Every wall cell
+of the map is drawn as a plateau of 16 px tiles, one a terrain cell, on a "Raised" layer
+(`src/view/raised_tiles.gd` picks each tile from its neighbours). Everything stays on the
+cells the sim blocks: every cell of a run shows the plateau's top (the pack's own floor, a
+32 px block per 2 x 2 cells picked by hash among the recipe's `tops` and their mirrors, so a
+long run reads as one varied ridge), with an outline and a lit or shaded rim along each
+open side, and only the run's south end (the last `k` cells of a column, `k` = the recipe's
+`cells`, one less on a shorter column; the south edge of a horizontal run) shows the
+pack's cliff face down to the floor: in 3/4 view only an edge facing the camera has a face.
+Nobody north of a wall stands under its picture; anyone south of it stands in front of the
+face. A "RaisedShadow" layer
+under it lays a contact shadow on the floor beside the wall, on the side away from the
+map's `light` (mirrored for a light from the right) and under the face; `shadow` wider than
+16 px runs onto a second cell (a low sun). A smashed cell drops its tile (the floor, its
+crack and the recipe's `rubble` heaps show); ArenaView repaints the rows round it, so the
+wall above grows a face over the gap and the floor beside it loses its shadow, and a
+rebuilt cell comes back. Recipe: `frame` a whole plateau piece of the pack (top rim at its
+top, side rims at its sides, face to its bottom; Mountains `[576, 9, 736, 256]`), `face_y`
+the y its lip starts (measured in px, catalogue 1b), `mid` [x, y] the face's seamless
+32 px column, `tops` [[x, y], ...] 32 x 32 blocks of the plateau's floor (interior only,
+clear of its rims), `lift` how much lighter the top is drawn (1.1: it catches the light),
+`cells` the tallest face (a taller face keeps its first `lip` px and its base), `top_tint` a
+tint for the top blocks only (the Desert sand's lift toward tan would turn the rocky face and
+rim rocks purple), `outline` the rim colour, `rim` px of the pack's own rim rocks instead of a drawn rim (0, the
+default, reads best on a narrow run), `shadow` [side px, top px, alpha], `rubble` a `walls`
+entry. Any wall rect works, of any size; another map needs only the recipe entry and the
+style. A decor or anim piece the map stands on a wall's face (a run's south end, where the
+wall-sprite runs put their braziers and goods) is moved onto the top just behind the face
+(`build_tiles.gd raised_spot`), y-sorted in "Walls", and hidden while any cell of its column
+from there to the run's end is smashed (the wall grows a face over the gap, which it would
+otherwise hang on).
+
+**Sunken water** (`ground.shores`, map `tiles.shoulder: true`). The bank tiles show the
+water below the floor: a thin kerb (`edge`, `edge_px` 3) at the water's edge, running along
+the top of the far (north) bank's drop too (`edge_over_face`), the drop itself `face_px` px
+of a pack's cliff face (its lit caps on top), a lit lip on the near bank, rounded corners
+(`radius` 12), a wet line and a shade, deepest under the face. The bank's `land` is the
+shoulder's ground. `shores.<terrain>.shoulder: {"land": texture, "width": 6, "rag": 4}` cuts
+a ragged band of that ground (sand or dirt from the matching pack, toned toward the floor so
+it doesn't glow at night) for the LAND tiles round the water, one tile per mask of water
+neighbours, dithered into the floor at its edge and never past half a tile; the map's
+`"shoulder": true` lays them (floor tiles only) on a "Shoulder" layer.
+
+**Scatter** (recipe `scatter.<kind>`, map `tiles.scatter`). Small flat sprites (pebbles,
+tufts, small water plants) on a 16 px "Scatter" layer, one a cell at most, each sprite in a
+32 px slot standing on its cell's bottom middle, in 8 looks (mirrored, nudged a few px).
+Recipe: `boxes` cut as they are, or `box` + `auto` {`min`, `max`, `limit`} to find the
+loose blobs of a litter sheet. Map: `[{"kind", "where": "floor" | "near_walls" |
+"near_water" | "near_fences" | "near_brush" | "verge" | [[tx, ty, w, h], ...], "near": 3,
+"density": 0.05, "seed"}]` (`"verge"` with `"of": "earth"`: within `near` cells of that
+terrain's rects but never on them, a road's edges); placed by a fixed hash, so a rebuild lays
+the same ones; never on water, walls, fences, chasms, brush (or the cell round it), within a
+cell of the court markings, a flag base's capture zone, a shrine, the map's
+`tiles.scatter_clear` cell rects (Twin Keeps: its gates) or within 20 units of the map's
+`track` (Caravan Pass). Keep it subtle: densities of
+a few percent near walls or water and about 1 % on open floor.

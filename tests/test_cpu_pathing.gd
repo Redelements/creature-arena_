@@ -81,7 +81,7 @@ func test_every_cpu_level_walks_round_the_wall_to_the_foe() -> void:
 		sim.creatures[1].facing = Vector2.LEFT
 		var t := _cpu_reaches(sim, level, 900)
 		assert_true(t >= 0, "level %d reached the foe round the wall" % level)
-		assert_eq(sim.terrain.count(TerrainGrid.WALL), 2 * 2 * 26, "level %d: without smashing anything" % level)
+		assert_eq(sim.terrain.count(TerrainGrid.WALL), 2 * 2 * 26 + 4 * 8, "level %d: without smashing anything" % level)
 
 
 func test_the_cpu_goes_round_a_chasm_and_through_a_gap_in_a_fence() -> void:

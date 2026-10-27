@@ -1,5 +1,5 @@
 {
-	"_doc": "Szadi art's RPG Worlds Desert (RPGW_Desert_v2.01): Dustwind Pass's sand, packed earth and dry scrub, rock stacks for the walls (a y-sorted run per wall, a wide-footed stack at the near end, loose rocks where one is smashed), bush beds of the Desert's own yellow-olive scrub shrubs, a wooden fence, the plateau's cliff face for the pit walls, low rock heaps, agave and palms for the margins, narrow banner racks, piles of goods and braziers (RPG_Buildings_Desert) on the walls by the caravan stops and on the side walkways at the road's ends. The sand is lifted toward tan (blue x1.4 before the palette snap: the plateau sand's streaks otherwise snap to pale on orange and repeat as diagonal stripes); every ground cut gets the same tint so the blobs' sandy edges match, and the earth and scrub land on browns. The MainLev sheet's blobs are opaque 5 x 5 blocks (corners, edges, a 3 x 3 middle): recipe key blob9. Keys: tools/cut_tiles.py. Paths are relative to the packs dir.",
+	"_doc": "Szadi art's RPG Worlds Desert (RPGW_Desert_v2.01): Dustwind Pass's sand, packed earth and dry scrub, the plateau's sand and rocky ledge as raised walls (raised.sandstone; walls.rock's stacked pillars are the alternative style and its loose rocks the rubble), pebbles, dirt bits and dry tufts for scatter, bush beds of the Desert's own yellow-olive scrub shrubs, a wooden fence, the plateau's cliff face for the pit walls, low rock heaps, agave and palms for the margins, narrow banner racks, piles of goods and braziers (RPG_Buildings_Desert) on the walls by the caravan stops and on the side walkways at the road's ends. The sand is lifted toward tan (blue x1.4 before the palette snap: the plateau sand's streaks otherwise snap to pale on orange and repeat as diagonal stripes); every ground cut gets the same tint so the blobs' sandy edges match, and the earth and scrub land on browns. The MainLev sheet's blobs are opaque 5 x 5 blocks (corners, edges, a 3 x 3 middle): recipe key blob9. Keys: tools/cut_tiles.py. Paths are relative to the packs dir.",
 	"ground": {
 		"fills": {
 			"sand": {
@@ -748,6 +748,146 @@
 					288,
 					804,
 					338
+				]
+			}
+		}
+	},
+	"raised": {
+		"sandstone": {
+			"_doc": "the walls as raised sandstone plateaus: Desert v2's darker plateau B (MainLev2.0 [320,0,512,214]) with its sand floor as the top (five 32 px blocks from inside its rims, each also mirrored, picked by hash per 2 x 2 cells, lifted toward tan like every ground cut (`top_tint`: the face keeps the pack's brown rock, which the lift turns purple) and x1.15: a raised top catches the light) with 7 px of the plateau's own rim rocks along every open side (rim, untinted); its 1.4-tile rocky ledge (the lip from y 162, the body to y 207, a sand foot to 214) as the face on a run's south end only, three cells (48 px) at most; a contact shadow 20 px out away from the top-left sun and under the face; a smashed tile shows walls.rock's loose rocks",
+			"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+			"frame": [
+				320,
+				0,
+				512,
+				214
+			],
+			"face_y": 162,
+			"mid": [
+				400,
+				162
+			],
+			"cells": 3,
+			"lip": 16,
+			"shadow": [
+				20,
+				8,
+				0.45
+			],
+			"rubble": "rock",
+			"tops": [
+				[
+					352,
+					40
+				],
+				[
+					384,
+					40
+				],
+				[
+					416,
+					40
+				],
+				[
+					440,
+					72
+				],
+				[
+					368,
+					104
+				]
+			],
+			"lift": 1.15,
+			"rim": 7,
+			"top_tint": {
+				"mul": [
+					1.0,
+					1.0,
+					1.4
+				]
+			}
+		}
+	},
+	"scatter": {
+		"pebbles": {
+			"_doc": "Set 1 loose pebbles (outlined, olive-grey, as rock.json's), warmed toward the sand",
+			"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+			"box": [
+				230,
+				605,
+				425,
+				645
+			],
+			"auto": {
+				"min": 10,
+				"max": [
+					16,
+					14
+				],
+				"limit": 10
+			},
+			"tint": {
+				"mul": [
+					1.12,
+					1.0,
+					0.85
+				]
+			}
+		},
+		"clods": {
+			"_doc": "MainLev2.0's loose dirt bits round the blotches (x 1280-1472, y 1184-1312): the small ones only, 6-14 px",
+			"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+			"box": [
+				1280,
+				1184,
+				1472,
+				1312
+			],
+			"auto": {
+				"min": 17,
+				"max": [
+					16,
+					8
+				],
+				"limit": 10
+			},
+			"tint": {
+				"mul": [
+					1.0,
+					1.0,
+					1.4
+				]
+			}
+		},
+		"dry_tufts": {
+			"_doc": "Set 1 small grass sprigs dried to straw (as rock.json's), for the verges",
+			"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+			"boxes": [
+				[
+					6,
+					643,
+					26,
+					665
+				],
+				[
+					38,
+					643,
+					58,
+					665
+				],
+				[
+					70,
+					643,
+					90,
+					665
+				]
+			],
+			"tint": {
+				"desat": 0.55,
+				"mul": [
+					1.25,
+					1.05,
+					0.72
 				]
 			}
 		}

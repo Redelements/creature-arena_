@@ -6,7 +6,8 @@ extends TestCase
 ## as it did (pieces untouched), ArenaView draws from the tiles, and WaterView still finds
 ## the shallows. Every channel has a bank (the WaterBank layer, keyed by its eight
 ## neighbours), and the reeds stand with their feet on the floor's edges, never on the wall.
-## The art pass: the kerb (bank edge and face) is Wetland's own cobble, Wetland's glints lie
+## The art pass: the channels sit below the floor behind a kerb of Wetland cobbles (the
+## far bank a drop of Wetland stone), rounded, in a ragged shoulder of Wetland dirt, Wetland's glints lie
 ## over the water on a second surface layer in out-of-step variant rows, and swaying
 ## DecorativeProps reeds stand off the floor (the lower mouth, the side rails), none on top.
 
@@ -107,13 +108,35 @@ func test_the_glints_lie_over_the_water_out_of_step() -> void:
 	root.free()
 
 
-func test_the_kerb_is_wetland_cobble() -> void:
+func test_the_bank_drops_below_a_kerb_and_a_dirt_shoulder() -> void:
 	var f := FileAccess.open("res://tools/tile_recipes/wetland.json", FileAccess.READ)
 	var recipe: Dictionary = JSON.parse_string(f.get_as_text())
 	var bank: Dictionary = recipe["ground"]["shores"]["water"]
-	for part in ["edge", "face"]:
-		assert_eq(String(bank[part]["src"]), "RPGW_Wetland_v1.1/_PNG/MainLev.png", "the kerb's %s from the Wetland sheet" % part)
-		assert_eq(Vector2i(int(bank[part]["block"][0]), int(bank[part]["block"][1])), Vector2i(36, 23), "the cobble block inside the path border (%s)" % part)
+	assert_eq(String(bank["face"]["src"]), "RPGW_Wetland_v1.1/_PNG/MainLev.png", "the far bank's face from the Wetland plateau")
+	assert_true(int(bank["face_px"]) >= 12, "a face deep enough to read as a drop")
+	assert_eq(Vector2i(int(bank["land"]["block"][0]), int(bank["land"]["block"][1])), Vector2i(21, 30), "the bank's top is Wetland's brown dirt")
+	assert_eq(Vector2i(int(bank["edge"]["block"][0]), int(bank["edge"]["block"][1])), Vector2i(36, 23), "a kerb of the path border's cobbles at the water")
+	assert_true(bool(bank.get("edge_over_face", false)), "the kerb runs along the top of the far bank's drop too")
+	assert_true(int(bank["radius"]) >= 10, "the water's corners rounded")
+	# the shoulder: a ragged band of dirt on the land tiles round the water, never more than
+	# about half a tile wide
+	var man := _manifest()
+	var sh: Dictionary = man["ground"]["shores"]["water"].get("shoulder", {})
+	assert_true(sh.size() >= 8, "a shoulder tile per water-neighbour mask (%d)" % sh.size())
+	var img := (load("res://assets/tiles/" + String(man["ground"]["shores"]["water"]["source"])) as Texture2D).get_image()
+	for key in ["00001000", "00000100", "00000001"]:  # water below, above, left
+		var at: Array = sh[key]
+		var widths := {}
+		for i in 32:
+			var n := 0
+			for d in 32:
+				var px := Vector2i(int(at[0]) * 32, int(at[1]) * 32)
+				px += Vector2i(i, 31 - d) if key == "00001000" else (Vector2i(i, d) if key == "00000100" else Vector2i(d, i))
+				if img.get_pixelv(px).a > 0.5:
+					n = d + 1
+			widths[n] = true
+			assert_true(n <= 17, "%s: the band at most about half a tile (%d px)" % [key, n])
+		assert_true(widths.size() >= 4, "%s: a ragged edge, not a straight one (%s)" % [key, widths.keys()])
 
 
 func test_swaying_reeds_stand_off_the_floor() -> void:

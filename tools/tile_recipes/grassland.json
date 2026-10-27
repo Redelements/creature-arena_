@@ -143,6 +143,12 @@
 	},
 	"overlay": {"_doc": "the pits' far wall: a seamless cliff face from the matching pack; the lip and the cracks: the floor's own fill (tools/cut_tiles.py cut_overlay)",
 		"face": {"src": "RPGW_GrassLand_v2.01/MainLev2.0.png", "box": [160, 186, 192, 214]}, "lip": "meadow_bright"},
+	"scatter": {
+		"flowers": {"_doc": "Decorative Props' tiny single flowers (vegA4, frame 0 of the pink and mauve rows), still, for the meadow", "src": "RPGW_DecorativeProps_v1.0/Animated/vegA4.png", "boxes": [[12, 17, 20, 26], [12, 144, 20, 153]]},
+		"flowers_tall": {"_doc": "Decorative Props' small single flowers on a stalk (vegA2, frame 0 of the pink and yellow rows)", "src": "RPGW_DecorativeProps_v1.0/Animated/vegA2.png", "boxes": [[12, 10, 19, 23], [12, 266, 19, 279]]},
+		"tufts": {"_doc": "Set 1 low grass sprigs, the olive and the bright green ones", "src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "boxes": [[39, 710, 55, 719], [74, 719, 89, 727], [40, 751, 58, 762], [201, 722, 215, 728], [231, 710, 247, 719], [265, 749, 278, 755]]},
+		"pebbles": {"_doc": "Set 1 loose single pebbles and chips", "src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "boxes": [[238, 622, 248, 633], [359, 623, 366, 629], [265, 630, 272, 636], [339, 633, 347, 638], [259, 620, 264, 625], [327, 618, 332, 622], [372, 619, 376, 623]]}
+	},
 	"decor": {
 		"shrub_gold": {"_doc": "GrassLand decorative.png tiny bush, yellow-green (the band's bushes stand on the box's bottom row)", "src": "RPGW_GrassLand_v2.01/decorative.png", "box": [557, 800, 596, 832], "feet": [19, 31]},
 		"shrub_gold_small": {"src": "RPGW_GrassLand_v2.01/decorative.png", "box": [608, 808, 639, 832], "feet": [15, 23]},
