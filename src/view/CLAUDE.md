@@ -25,6 +25,17 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   pixels: `CreatureView.snapshot()` carries `ppu` for the afterimages and death pieces, the
   HUD's portrait and cut-in, the select screen and `FighterPreview` divide their scale by it.
   Never scale the sim or its data for art: `tests/test_art_scale.gd`, `docs/plans/32px-migration.md`.
+- Fighter sheets load through `PackedSheet.load_sheet(path)` (`packed_sheet.gd`), never
+  `load(sprite.path)`: the game draws the packed copies in `assets/sprites/packed/`
+  (`tools/pack_sheets.py`; a `load()` of the grid path would hold the whole empty canvas in
+  VRAM). A PackedSheet reports the grid's size and draws grid regions (`_draw_rect_region`), so
+  `Sprite2D.hframes`, `draw_texture_rect_region` with grid rects and `snapshot()` regions work
+  unchanged; code that draws a frame in many slices takes `PackedSheet.piece` first (ShadowLayer
+  via `draw_shadow`). `get_image()` doesn't work on one (`used_rect` for the HUD portrait);
+  `PackedSheet.path_of` names its grid sheet. A normal sheet must be packed with its colour
+  sheet (they share texture coordinates); Lighting Off loads neither normal nor emissive
+  sheets (`CreatureView.set_lit_sheets`, reloads live views). `--print-vram=N` prints texture
+  memory and `CreatureView.sheet_report()`; budgets in `tests/test_vram.gd`.
 - Tiled arenas (`ArenaView` "tiled maps", `tiled()`): a map with `assets/arenas/<id>.tscn`
   (built by `tools/build_tiles.gd` from its JSON `tiles` block and pieces) draws no baked
   picture: the scene (TileMapLayers Ground, Grass, Pieces, 32 px tiles) sits under the floor
@@ -383,6 +394,7 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `light_view.gd` (LightView) — Glow (Settings > Video): glowing things light the floor around them and get a soft halo, so the arena feels lit.
 - `move_fx.gd` (MoveFx) — One hand-drawn effect attached to a move: which frames play, where they appear and when.
 - `move_fx_view.gd` (MoveFxView) — Plays the MoveFx of moves (hand-drawn frames, assets/vfx/*.tres): a fixed pool of AnimatedSprite2D children, each told…
+- `packed_sheet.gd` (PackedSheet) — A fighter sheet stored packed (tools/pack_sheets.py), drawn as if it were the grid sheet.
 - `paper_fx.gd` (PaperFx) — Mister Crease's paper, drawn over the fighters: the sheets of his Paper Stock floating above the hat, the crafts he has…
 - `perf_overlay.gd` (PerfOverlay) — The performance overlay (Settings > Video, or F9): the frame rate in a corner, and in its second mode a chart of the la…
 - `raised_tiles.gd` (RaisedTiles) — A tiled map's walls drawn as raised plateaus (map style `tiles.styles.wall: "raised:<name>"`, recipe `raised.<name>` in…

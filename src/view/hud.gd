@@ -158,7 +158,7 @@ func cut_in(c: CreatureSim, side: int, move_name: String) -> void:
 	_cut = {
 		"chain": chained,
 		"side": side, "move": move_name.to_upper(), "who": String(c.def.get("name", "")).to_upper(),
-		"tex": load(String(sp["path"])), "region": Rect2(int(fr[1]) * fpx, int(fr[0]) * fh, fpx, fh),
+		"tex": PackedSheet.load_sheet(String(sp["path"])), "region": Rect2(int(fr[1]) * fpx, int(fr[0]) * fh, fpx, fh),
 		"origin": Vector2(float(o[0]), float(o[1])), "fpx": fpx, "fh": fh, "ppu": ArtScale.ppu_of(sp),
 		"color": Color(String(c.def.get("fx_color", "#ffcf3f"))), "t": 0,
 	}
@@ -291,7 +291,7 @@ func _portrait_info(c: CreatureSim) -> Dictionary:
 		return _ports[key]
 	var info := {}
 	if sp.has("path"):
-		var tex: Texture2D = load(String(sp["path"]))
+		var tex: Texture2D = PackedSheet.load_sheet(String(sp["path"]))
 		var fr = sp.get("frame", 48)
 		var fw := int(fr[0]) if fr is Array else int(fr)
 		var fh := int(fr[1]) if fr is Array else int(fr)
@@ -305,6 +305,11 @@ func _portrait_info(c: CreatureSim) -> Dictionary:
 			var pr: Array = sp["portrait"]
 			src = Rect2i(frame.position + Vector2i(int(pr[0]), int(pr[1])),
 				Vector2i(clampi(int(pr[2]), 1, pw), clampi(int(pr[3]), 1, ph)))
+		elif tex is PackedSheet:
+			var used := (tex as PackedSheet).used_rect(frame)
+			if used.size.x > 0:
+				src = Rect2i(frame.position + Vector2i(used.position.x + used.size.x / 2 - pw / 2,
+					used.position.y), Vector2i(pw, ph))
 		elif tex != null:
 			var img := tex.get_image()
 			if img != null:

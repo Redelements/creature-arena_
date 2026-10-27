@@ -126,7 +126,13 @@ var emit_mat := ShaderMaterial.new()
 static var emissive_on := true
 
 
+## The fighter sheets the views alive now hold (`sheet_report`, `--print-vram`).
+static var _live: Array[WeakRef] = []
+
+
 func setup(creature: CreatureSim) -> void:
+	_live = _live.filter(func(w: WeakRef) -> bool: return w.get_ref() != null)
+	_live.append(weakref(self))
 	mat.shader = FLASH_SHADER
 	sprite.material = mat
 	sprite.centered = false
@@ -154,6 +160,17 @@ func rebind(creature: CreatureSim) -> void:
 	_sq = Vector2.ONE
 	_sq_vel = Vector2.ZERO
 	layout = c.def.get("sprite", {})
+	_load_views()
+	view = "side"
+	flip = c.facing.x < -0.1
+	aura.bind(c)
+	aura_front.bind(c)
+	refresh()
+
+
+## Loads every sheet of the fighter's sprite block (the side sheet and each of its "views"):
+## all at once, so the first turn to a new facing never waits on a load.
+func _load_views() -> void:
 	var side := _load_view(layout, layout, [])
 	frame_px = int(side["size"].x)
 	cols = int(side["cols"])
@@ -164,25 +181,26 @@ func rebind(creature: CreatureSim) -> void:
 	for vname in extra:
 		_views[vname] = _load_view(extra[vname], layout, layout.get("side_only", []))
 	_cur = {}
-	view = "side"
-	flip = c.facing.x < -0.1
-	aura.bind(c)
-	aura_front.bind(c)
-	refresh()
+	emit.texture = null
 
 
 static func _load_view(v: Dictionary, side: Dictionary, side_only: Array) -> Dictionary:
-	var tex: Texture2D = load(String(v["path"]))
+	var path := String(v["path"])
+	var npath := String(v.get("normal", path.get_basename() + "_n.png"))
+	var epath := String(v.get("emissive", path.get_basename() + "_e.png"))
+	var tex: Texture2D = PackedSheet.load_sheet(path)
 	var lit: Texture2D = tex
-	var npath := String(v.get("normal", String(v["path"]).get_basename() + "_n.png"))
-	if ResourceLoader.exists(npath):
-		var ct := CanvasTexture.new()
-		ct.diffuse_texture = tex
-		ct.normal_texture = load(npath)
-		ct.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		lit = ct
+	var emit_tex: Texture2D = null
+	if lit_sheets:  # Lighting Off loads neither: nothing would use them
+		var ntex := _sheet_beside(tex, npath, false)
+		if ntex != null:
+			var ct := CanvasTexture.new()
+			ct.diffuse_texture = (tex as PackedSheet).held() if tex is PackedSheet else tex
+			ct.normal_texture = (ntex as PackedSheet).held() if ntex is PackedSheet else ntex
+			ct.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			lit = (tex as PackedSheet).with_texture(ct) if tex is PackedSheet else ct
+		emit_tex = _sheet_beside(tex, epath, true)
 	var fr = v.get("frame", side.get("frame", 48))
-	var emit_tex := load_emissive(String(v.get("emissive", String(v["path"]).get_basename() + "_e.png")))
 	var size := Vector2(float(fr[0]), float(fr[1])) if fr is Array else Vector2(float(fr), float(fr))
 	var o: Array = v.get("origin", side.get("origin", [24, 43]))
 	var anims: Dictionary = v.get("anims", side.get("anims", {})).duplicate()
@@ -193,7 +211,83 @@ static func _load_view(v: Dictionary, side: Dictionary, side_only: Array) -> Dic
 		"ppu": ArtScale.ppu_of(v, ArtScale.ppu_of(side))}
 
 
-## A view's emissive sheet (`<sheet>_e.png`, or its block's "emissive"), or null: an imported
+## A normal or emissive sheet for colour sheet `tex` (grid path `path`), or null: its packed copy
+## in the colour sheet's layout when the colour sheet is packed, else the sheet itself
+## (`load_emissive`). The emissive layer is its own sprite, so a grid emissive sheet (a test's
+## fixture) still lines up over a packed colour sheet (`grid_ok`); a normal sheet shares the
+## colour sheet's texture coordinates and must be packed with it.
+static func _sheet_beside(tex: Texture2D, path: String, grid_ok: bool) -> Texture2D:
+	if tex is PackedSheet:
+		var pp := PackedSheet.packed_path(path)
+		if ResourceLoader.exists(pp):
+			return (tex as PackedSheet).with_texture(load(pp))
+		if not grid_ok:
+			if ResourceLoader.exists(path):
+				push_warning("%s: no packed copy (python3 tools/pack_sheets.py): drawn without normals" % path)
+			return null
+	return load_emissive(path)
+
+
+## Lighting Off: no normal or emissive sheets loaded (main sets it with the tier). A change
+## reloads every live view's sheets, so turning Lighting on mid-match brings them back.
+static var lit_sheets := true
+
+
+static func set_lit_sheets(on: bool) -> void:
+	if on == lit_sheets:
+		return
+	lit_sheets = on
+	for w in _live:
+		var cv: CreatureView = w.get_ref()
+		if cv != null and is_instance_valid(cv) and cv.c != null:
+			cv._load_views()
+
+
+## The fighter sheets loaded by the views alive now: how many colour, normal and emissive
+## sheets and their size in MB as Godot holds them (`--print-vram`, tests/test_vram.gd).
+static func sheet_report() -> String:
+	var st := sheet_stats()
+	return "fighter sheets: %d colour %.1f MB, %d normal %.1f MB, %d emissive %.1f MB" % [
+		st["colour"], st["colour_mb"], st["normal"], st["normal_mb"], st["emit"], st["emit_mb"]]
+
+
+## [count and MB] of each kind of sheet the live views hold, each texture counted once.
+static func sheet_stats() -> Dictionary:
+	var seen := {}
+	var st := {"colour": 0, "colour_mb": 0.0, "normal": 0, "normal_mb": 0.0, "emit": 0, "emit_mb": 0.0}
+	var alive: Array[WeakRef] = []
+	for w in _live:
+		var cv: CreatureView = w.get_ref()
+		if cv == null or not is_instance_valid(cv):
+			continue
+		alive.append(w)
+		for v in cv._views.values():
+			var kinds := {"colour": v.get("tex"), "emit": v.get("emit")}
+			var lt = v.get("lit")
+			if lt is PackedSheet:
+				lt = (lt as PackedSheet).draw_tex
+			if lt is CanvasTexture:
+				kinds["normal"] = (lt as CanvasTexture).normal_texture
+			for k in kinds:
+				var t: Texture2D = kinds[k]
+				if t is PackedSheet:
+					t = (t as PackedSheet).held()
+				if t == null or seen.has(t.get_rid()):
+					continue
+				seen[t.get_rid()] = true
+				st[k] += 1
+				st[k + "_mb"] += texture_bytes(t) / 1048576.0
+	_live = alive
+	return st
+
+
+## The bytes a texture takes in video memory (its image's data size, mipmaps included).
+static func texture_bytes(t: Texture2D) -> int:
+	var img := t.get_image()
+	return img.get_data_size() if img != null else t.get_width() * t.get_height() * 4
+
+
+## A view's emissive (or normal) sheet (`<sheet>_e.png`, or its block's "emissive"), or null: an imported
 ## resource, else a PNG outside res:// read straight from disk (a test's fixture in user://).
 static func load_emissive(path: String) -> Texture2D:
 	if ResourceLoader.exists(path):
@@ -273,7 +367,8 @@ func refresh() -> void:
 	var count := int(anim[2])
 	var idx: int = pick[1] % count if pick[2] else clampi(pick[1], 0, count - 1)
 	sprite.frame = int(anim[0]) * int(v["cols"]) + int(anim[1]) + idx
-	sprite.flip_h = flip
+	if sprite.flip_h != flip:
+		sprite.flip_h = flip  # (a Sprite2D redraws on every set)
 	var o: Vector2 = v["origin"]
 	var ox: float = v["size"].x - o.x if flip else o.x
 	var lift := c.air_height()
@@ -509,7 +604,8 @@ func _sync_emit() -> void:
 		emit.hframes = sprite.hframes
 		emit.vframes = sprite.vframes
 	emit.frame = sprite.frame
-	emit.flip_h = sprite.flip_h
+	if emit.flip_h != sprite.flip_h:
+		emit.flip_h = sprite.flip_h
 	emit.position = sprite.position
 	emit.scale = sprite.scale
 	for k in ["flash", "flash_color", "stone", "ice", "hue"]:
@@ -599,7 +695,11 @@ func draw_shadow(ci: CanvasItem, cast: Vector2, alpha: float) -> void:
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.38))
 	ci.draw_circle(Vector2.ZERO, c.radius * 0.8 * shadow_size, Color(0, 0, 0, a * 0.45))
 	# A 2x sheet's rows are half a unit tall: the silhouette shrinks with the sprite.
-	ShadowLayer.draw_silhouette(ci, sheet(), region, _cur["origin"], flip,
+	# A packed sheet: the frame's own packed rect (one lookup, not one a row).
+	var pc := PackedSheet.piece(sheet(), region, _cur["origin"])
+	if pc["region"].size.x <= 0.0:
+		return
+	ShadowLayer.draw_silhouette(ci, pc["tex"], pc["region"], pc["origin"], flip,
 		Vector2(pivot.position.x, 0.0), cast, a, _sq * shadow_size / float(int(_cur["ppu"])))
 
 

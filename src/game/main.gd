@@ -37,6 +37,8 @@ extends Node2D
 ##   --quit-after=N        exit after N frames
 ##   --lighting=off|low|high  real 2D lights this session, not saved (Settings > Video >
 ##                         Lighting otherwise; Light2DView, BloomView)
+##   --print-vram=N        print the texture memory Godot reports (and the fighter sheets
+##                         loaded, CreatureView.sheet_report) at frame N (budget checks)
 ##   --perf                log frame and tick times during fights; on quit, prints the
 ##                         percentiles, the 1% and 0.1% lows, missed frames and the worst
 ##                         second, and saves them to user://perf.txt
@@ -577,6 +579,7 @@ var _shots := {}
 var _shot_dir := "user://shots"
 var _cam_force := Vector3.ZERO  ## --cam=x,y,zoom: the camera held here (screenshots)
 var _quit_after := 0
+var _print_vram_at := 0  ## --print-vram=N: print texture memory at frame N
 ## The CPUs' inputs for this tick are worked out (_think_cpus) and wait in last_bits.
 var _cpus_thought := false
 ## The next tick's CPU thinking, set going at the end of a tick (_think_ahead) so it runs
@@ -5139,6 +5142,7 @@ func _light_look() -> void:
 	light2d.tier = t
 	bloom.set_on(t == Light2DView.Tier.HIGH)
 	CreatureView.emissive_on = t != Light2DView.Tier.OFF
+	CreatureView.set_lit_sheets(t != Light2DView.Tier.OFF)  # Off: no normal or emissive sheets loaded
 	_apply_glow()  # High: the bloom stands in for Glow's halos
 	var time := String(_lit_look.get("time", "day"))
 	weather.lamp_lights = sim != null and t == Light2DView.Tier.HIGH and Light2DView.lamps_on(sim.arena, time)
@@ -5459,6 +5463,8 @@ func _parse_args() -> int:
 				_cam_cli[a.get_slice("=", 0).trim_prefix("--").replace("-", "_")] = lv
 		elif a.begins_with("--shot-dir="):
 			_shot_dir = a.get_slice("=", 1)
+		elif a.begins_with("--print-vram="):
+			_print_vram_at = int(a.get_slice("=", 1))
 		elif a.begins_with("--quit-after="):
 			_quit_after = int(a.get_slice("=", 1))
 		elif a.begins_with("--showcase="):
@@ -6484,6 +6490,12 @@ func _capture() -> void:
 		await RenderingServer.frame_post_draw
 		DirAccess.make_dir_recursive_absolute(_shot_dir)
 		get_viewport().get_texture().get_image().save_png(_shot_dir.path_join("shot_%04d.png" % t))
+	if _print_vram_at > 0 and t == _print_vram_at:
+		print("VRAM frame %d, lighting %s: textures %.1f MB, video %.1f MB; %s" % [t,
+			["off", "low", "high"][lighting_tier()],
+			Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED) / 1048576.0,
+			Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0,
+			CreatureView.sheet_report()])
 	if _quit_after > 0 and t >= _quit_after:
 		_write_net_report()
 		_print_perf()

@@ -8,7 +8,7 @@ var fighter := "":
 		fighter = v
 		_def = MatchFactory.load_def(v) if v != "" else {}
 		var sp: Dictionary = _def.get("sprite", {})
-		_tex = load(String(sp["path"])) if sp.has("path") else null
+		_tex = PackedSheet.load_sheet(String(sp["path"])) if sp.has("path") else null
 		queue_redraw()
 var face_left := false
 ## Scale on top of the sheet's own "select_scale".

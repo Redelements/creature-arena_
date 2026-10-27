@@ -71,23 +71,41 @@ read the frame size from the JSON and divide by `ppu`; nothing assumes 96 or 128
 The largest 2x sheet (Craglash's views, 3072 x 5120) is under the 8192 px texture limit of the
 Odin 3.
 
-## VRAM: flag before more than two or three fighters
+## VRAM: solved by packed sheets (branch `sprites-vram`, Oct 27)
 
-4v4 texture memory was about 790 MB after the normal sheets. Crease at 2x went from about 50 to
-**201 MB**. Eight different fighters at 2x in a 4v4 (the eight largest) is about **2.7 GB**,
-and the whole roster at 2x about 3.2 GB, against about 0.8 GB at 1x. That is too much for
-the Odin 3 and heavy for desktop. Before fighter 3 runs, one of these must land (its own PR):
+Measured with `--print-vram=300` (texture memory as Godot reports it, Compatibility renderer,
+desktop), 4v4 CTF `--mode=53 --teams=crease,cairn,culvert,barkley:crease,craglash,gillbert,sno`
+(Crease at 2x on both sides, the rest 1x) and 1v1 `--mode=48` (Crease vs CPU):
 
-1. **Trim the frames** (largest saving, lossless): most of a 192/256 px frame is empty.
-   Pack each sheet's frames tight with a per-frame offset table (an atlas plus offsets in the
-   sprite block), or at least crop each row to its bounding box. Expected 2-3x saving.
-2. **VRAM-compress the colour sheets** (BPTC on desktop, ASTC on Android: 4x saving): lossy;
-   check that the 1 px outline and the flat tones survive (they may not at 4x4 blocks).
-3. Dropping the 1x sheets saves build size only: once a JSON names the 2x sheets the 1x ones
-   are never loaded.
+| Match | Lighting | Before | After |
+|-------|----------|--------|-------|
+| 4v4 | High | 1018 MB (fighter sheets 720) | **159 MB** (fighter sheets 75) |
+| 4v4 | Low | 1014 MB | **155 MB** |
+| 4v4 | Off | 1014 MB | **123 MB** (colour sheets only, 51) |
+| 1v1 | High | 496 MB (fighter sheets 341) | **72 MB** (23) |
+| 1v1 | Low | 492 MB | **68 MB** |
+| 1v1 | Off | not measured | **59 MB** |
 
-This is a stop condition in the run protocol: a fighter that pushes a 4v4 past the agreed
-budget stops the run.
+What did it: **packed sheets** (`tools/pack_sheets.py`, `src/view/packed_sheet.gd`): each
+frame cut to its used rect (+1 px for the rim flash), shelf-packed on a 4 px grid into
+`assets/sprites/packed/`, drawn by `PackedSheet` as if it were the grid (every reader keeps grid
+coordinates). Lossless: the colour sheets stay RGBA8 and `pack_sheets.py --verify` rebuilds
+every grid sheet pixel for pixel. The packed sheets hold 11% of the grid sheets' pixels (Crease
+2x: 6.7%). The 2x emissive sheets, which the skill had copied as lossless, are VRAM-compressed
+in their packed copies. Lighting Off loads no normal or emissive sheet (Low keeps them: the
+sun and Low's fight lights shade the fighters through them). All five views still load up
+front: a lazy load would hitch the first turn to a new facing, and a match turns every way in
+seconds. Palette-indexed colour sheets were not needed.
+
+**Full roster at 2x:** tests/test_vram.gd projects each 1x fighter at 4x its packed sheets (an
+overestimate: Crease's real 2x sheets hold 13.4 MB): the eight largest in a 4v4 come to about
+330 MB of fighter sheets (Craglash 67, Barkley 61, Gillbert 48 the largest), so a 4v4 with
+the whole roster at 2x is about **0.4 GB on High and Low, 0.3 GB Off**, against about 1.0 GB
+for today's mix before packing and 2.7 GB projected without it. The test pins 450 MB for the
+eight and 90 MB for any one fighter; that is the run protocol's VRAM check.
+
+After rendering a fighter, run `python -I tools/pack_sheets.py <id>` and `--import`
+(the fighter-2x skill's step 3); `tests/test_vram.gd` fails while a packed copy is stale.
 
 ## Run protocol (Kevin)
 
