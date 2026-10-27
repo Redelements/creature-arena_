@@ -264,6 +264,21 @@ it out to the side for the front view). The head has three-quarter faces: `_face
 parted fur with the near eye's corner and the snout's edge at the cheek; it sits on the
 neck's top stones in `up_side` so the mane reads.
 
+**2x (route A, Oct 2026, branch `craglash-2x`, stacked on `sprites-vram`).** The game draws
+`craglash_2x*.png`: the same puppet drawn by `gen_craglash.py` at density 2
+(`CRAGLASH_DENSITY`, default 2; `CRAGLASH_DENSITY=1` rebuilds the 1x `craglash*.png` byte for
+byte), **192×192** side frames and **256×320** views, feet at (68, 180) side, (128, 224) down
+and down_side, (128, 248) up and up_side, `"ppu": 2` in every view, portrait
+`[68, 34, 48, 64]`; same rows, frame counts and timing. Poses and the three rigs stay in 1x
+pixels: `Draw()` scales each Pillow call and stamps it over a 2×2 block, so every part keeps
+its 1x coverage with edges on the 2x grid, and painted strokes (cracks, fur, the face) stay
+one 1x pixel thick; the shader's pixel counts (distance cap, smoothing, band, highlight room,
+rim and bevel width, despeckle) go through `px()`; poses snap to half pixels. Outline 1 px.
+Shaded "bold" (`CRAGLASH_STYLE`): three flat tones a part (no highlight, no rim light) and one
+dark ink round the silhouette (the umber ink let the clay hide sink into brown ground at 2x).
+The normal pass and the Bedrock glow follow the same drawing. `ko_fx` "crumble" keys are
+world units (unchanged). Gallery: `pixellab/craglash/craglash_route_a.png`.
+
 ![Craglash sheet, 3x](craglash_preview.png)
 
 Animated with the roster pass (motion plan, previews and before/after GIFs:

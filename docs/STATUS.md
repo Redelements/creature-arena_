@@ -1,7 +1,7 @@
 # Status: handoff snapshot
 
-Stamped: 2026-10-27 20:39 UTC
-Branch: sprites-vram @ 5ab3ca9
+Stamped: 2026-10-27 21:01 UTC
+Branch: craglash-2x @ 881bea5
 Trigger: phase
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
@@ -39,6 +39,16 @@ the two shading variants; Twin Keeps still beside the big tree at play zoom). GI
 `docs/pixellab/crease_route_a_{idle,run,flick}.gif`. Build for Kevin:
 `C:/Users/Kevin/Downloads/Ready4Rambles-windows-crease-2x/` (exe + the gallery and GIFs).
 
+Roster run ("run all", plan order). **Craglash** on branch `craglash-2x` (worktree
+`C:/Users/Kevin/dev/creature-arena-craglash-2x`, off `sprites-vram` ae00821). Commit 1,
+"gen_craglash: density option": `CRAGLASH_DENSITY` (default 2; 1 rebuilds all 18 1x files
+byte for byte) and `CRAGLASH_STYLE=a|bold`; poses and rigs stay in 1x px, `Draw()` scales
+and 2x2-stamps every Pillow call, the shader's pixel counts go through `px()`, outline 1 px.
+Commit 2: `craglash_2x*.png` (15 sheets: 192 px side, 256x320 views), packed copies,
+craglash.json switched (`sprite_2x.py` now doubles multi-line arrays and checks every
+frame/origin/portrait doubled), **NET_VERSION 49**, sim-check unchanged. Gallery and GIFs:
+`docs/pixellab/craglash/`.
+
 ## VRAM (branch `sprites-vram`, off `crease-2x`, worktree `creature-arena-vram-2x`)
 
 The blocker before fighter 3 is solved: fighter sheets are drawn from **packed copies**
@@ -68,8 +78,8 @@ its checks (anim_preview --check, tests, sim-check, VRAM budget: `TEST_ONLY=vram
 ## Open questions
 
 - Kevin's verdict on the 2x Crease from the build (bold vs the 1x look; slimmer outline).
-- Painter and custom renderers (Barkley, Gillbert, Craglash, Cairn, dummy, Cerebro, Hissy)
-  need their own density switch before they can run (see the plan).
+- Painter and custom renderers (Barkley, Gillbert, Cairn, dummy, Cerebro, Hissy; Craglash
+  has one now) need their own density switch before they can run (see the plan).
 
 ## Next step
 
@@ -81,7 +91,10 @@ tools/splat3d.py, tools/gen_crease.py, tools/anim_preview.py, tools/CLAUDE.md, d
 data/creatures/crease.json, src/net/netplay.gd, tests/test_art_scale.gd,
 assets/sprites/crease_2x*.png(+.import), docs/crease_2x_preview.png,
 docs/crease_2x_views_preview.png, docs/pixellab/crease_route_a*, docs/STATUS.md,
-.claude/skills/fighter-2x/SKILL.md, tools/twin_keeps_still.py, docs/plans/roster-2x.md.
+.claude/skills/fighter-2x/SKILL.md, tools/twin_keeps_still.py, docs/plans/roster-2x.md,
+tools/gen_craglash.py, tools/sprite_2x.py, data/creatures/craglash.json,
+assets/sprites/craglash_2x*.png(+.import), assets/sprites/packed/craglash_2x*,
+docs/craglash_2x_*preview.png, docs/pixellab/craglash/*.
 
 Tooling: Godot `C:/Users/Kevin/dev/godot/Godot_v4.7.2-stable_win64_console.exe`; Python
 `C:/Users/Kevin/dev/python/python.exe -I`; APPDATA for Godot runs

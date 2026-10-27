@@ -55,15 +55,15 @@
     "cracks": 6
   },
   "sprite": {
-    "path": "res://assets/sprites/craglash.png",
-    "frame": 96,
-    "portrait": [34, 17, 24, 32],
+    "path": "res://assets/sprites/craglash_2x.png", "ppu": 2,
+    "frame": 192,
+    "portrait": [68, 34, 48, 64],
     "cols": 12,
     "idle_ticks": 8,
     "run_ticks": 2,
     "origin": [
-      34,
-      90
+      68,
+      180
     ],
     "anims": {
       "idle": [0, 0, 8],
@@ -88,47 +88,47 @@
     ],
     "views": {
       "down": {
-        "path": "res://assets/sprites/craglash_down.png",
+        "path": "res://assets/sprites/craglash_2x_down.png", "ppu": 2,
         "frame": [
-          128,
-          160
+          256,
+          320
         ],
         "origin": [
-          64,
-          112
+          128,
+          224
         ]
       },
       "up": {
-        "path": "res://assets/sprites/craglash_up.png",
+        "path": "res://assets/sprites/craglash_2x_up.png", "ppu": 2,
         "frame": [
-          128,
-          160
+          256,
+          320
         ],
         "origin": [
-          64,
-          124
+          128,
+          248
         ]
       },
       "down_side": {
-        "path": "res://assets/sprites/craglash_down_side.png",
+        "path": "res://assets/sprites/craglash_2x_down_side.png", "ppu": 2,
         "frame": [
-          128,
-          160
+          256,
+          320
         ],
         "origin": [
-          64,
-          112
+          128,
+          224
         ]
       },
       "up_side": {
-        "path": "res://assets/sprites/craglash_up_side.png",
+        "path": "res://assets/sprites/craglash_2x_up_side.png", "ppu": 2,
         "frame": [
-          128,
-          160
+          256,
+          320
         ],
         "origin": [
-          64,
-          124
+          128,
+          248
         ]
       }
     }
