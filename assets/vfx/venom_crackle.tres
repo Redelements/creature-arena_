@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="MoveFx" format=3]
+
+[ext_resource type="SpriteFrames" path="res://assets/vfx/venom_crackle_frames.tres" id="1_fatqk"]
+[ext_resource type="Script" path="res://src/view/move_fx.gd" id="2_nkc2k"]
+
+[resource]
+script = ExtResource("2_nkc2k")
+frames = ExtResource("1_fatqk")
+ticks_per_frame = 2
+on = "projectile_end"
+offset = Vector2(0, -6)
+flip_with_facing = false

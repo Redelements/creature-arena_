@@ -18,13 +18,13 @@ extends RefCounted
 
 const LEVELS := [
 	{"name": "Easy", "reaction": 22, "defend": 0.25, "combo": 0.35, "mistake": 0.25,
-		"breakaway": 0.05, "aggression": 0.35, "think": 18},
+		"breakaway": 0.05, "aggression": 0.35, "think": 18, "gap": 0.03},
 	{"name": "Normal", "reaction": 13, "defend": 0.55, "combo": 0.75, "mistake": 0.1,
-		"breakaway": 0.25, "aggression": 0.55, "think": 12},
+		"breakaway": 0.25, "aggression": 0.55, "think": 12, "gap": 0.12},
 	{"name": "Hard", "reaction": 7, "defend": 0.85, "combo": 0.95, "mistake": 0.02,
-		"breakaway": 0.5, "aggression": 0.7, "think": 7},
+		"breakaway": 0.5, "aggression": 0.7, "think": 7, "gap": 0.35},
 	{"name": "Rage", "reaction": 1, "defend": 1.0, "combo": 1.0, "mistake": 0.0,
-		"breakaway": 1.0, "aggression": 0.9, "think": 2, "rage": true},
+		"breakaway": 1.0, "aggression": 0.9, "think": 2, "rage": true, "gap": 1.0},
 ]
 const RAGE := 3
 ## A guard at or under this share of its stamina is pressed, not waited out: blocked hits
@@ -100,6 +100,10 @@ const REPLAN_TICKS := 20
 const WAYPOINT_REACHED := 7.0
 var _detour_t := 0
 var _detour_dir := Vector2.ZERO
+## Ticks before a gap roll that was turned down (walking round is short enough) is
+## looked at again (`_gap_roll`).
+var _gap_wait := 0
+const LAND_MARGIN := 6.0  ## floor a roll's landing keeps round it (`_lands_safe`)
 var _hold_heavy := 0
 var _hold_bit := SimDefs.IN_HEAVY  ## the button a held charge is held on
 var _hold_serial := -1  ## the attack whose "hold" (full-charge) choice is made
@@ -319,6 +323,8 @@ func _move_toward(v: Vector2) -> void:
 ## the goal moves). `weave` is added to the straight step (the chase's sidestep), never
 ## to the path, so the detour stays on open floor.
 func _go_to(sim: MatchSim, me: CreatureSim, goal: Vector2, weave := Vector2.ZERO) -> void:
+	if _gap_roll(sim, me, goal):
+		return
 	var t0 := PerfLog.now()
 	var straight := NavGrid.clear_line(sim.terrain, me.pos, goal, me.radius, false)
 	PerfLog.since("ai line", t0)
@@ -347,6 +353,150 @@ func _go_to(sim: MatchSim, me: CreatureSim, goal: Vector2, weave := Vector2.ZERO
 	var d := _steer(sim, me, _path[0] - me.pos)
 	if d != Vector2.ZERO:
 		_move_toward(d)
+
+
+## Rolls over a pit on the way to `goal`, as a player would: walking stops at a pit's lip
+## but a roll carries over it (CreatureSim._update_dodge), and only a roll that ends over
+## a pit falls in. Taken at the lip when the far side can't be walked to (another region
+## of the nav grid) or the walk round is longer than the gap by half a roll, and only when
+## the roll lands on floor (`roll_end`) and gets well on toward the goal. A ram (Craglash)
+## stops at the lip, so it never crosses. Easy rarely thinks of it; Rage always does.
+func _gap_roll(sim: MatchSim, me: CreatureSim, goal: Vector2) -> bool:
+	if _gap_wait > 0:
+		_gap_wait -= 1
+		return false
+	if not (me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE]) or not me.can_dodge() \
+			or (me.def["dodge"] as Dictionary).has("ram"):
+		return false
+	var to := goal - me.pos
+	var dist := to.length()
+	var roll := _roll_distance(me)
+	if dist < roll * 0.5 or roll < 20.0:
+		return false
+	var n := to / dist
+	# At the lip: a pit right in front.
+	var t := sim.terrain
+	if NavGrid.clear_line(t, me.pos, me.pos + n * (me.radius + 10.0), 0.0, true):
+		return false
+	# Some stamina left over afterwards, unless there's no walking there at all.
+	var g := NavGrid.shared(t)
+	var cut_off := g.region_of(me.pos) != g.region_of(goal)
+	if not cut_off and me.stamina < me.dodge_cost + me.max_stamina * 0.25:
+		return false
+	if not _roll(float(p.get("gap", 0.0))):
+		return false
+	# The way closest to the goal (up to 17 degrees off) whose roll lands on floor.
+	var dirs := SimDefs.aim_dirs()
+	var at := _dir_index(n)
+	var best := Vector2.ZERO
+	var best_d := dist - roll * 0.5  # it has to get at least this close
+	for k in [0, 1, -1, 2, -2, 3, -3]:
+		var d: Vector2 = dirs[(at + k + dirs.size()) % dirs.size()]
+		var end := roll_end(sim, me, d)
+		if not _lands_safe(t, end):
+			continue
+		var left := end.distance_to(goal)
+		if left < best_d:
+			best_d = left
+			best = d
+	if best == Vector2.ZERO:
+		_gap_wait = 10
+		return false
+	if not cut_off:
+		# Walkable: roll only if the way round is longer than the gap by half a roll.
+		var way := g.path(me.pos, goal)
+		var walk := 0.0
+		var from := me.pos
+		for w in way:
+			walk += from.distance_to(w)
+			from = w
+		if not way.is_empty() and walk < dist + roll * 0.5:
+			_gap_wait = 10
+			return false
+	_hold(SimDefs.move_bits(best))
+	_press(SimDefs.IN_DODGE)
+	return true
+
+
+## The index in SimDefs.aim_dirs() closest to the direction `v`.
+static func _dir_index(v: Vector2) -> int:
+	var dirs := SimDefs.aim_dirs()
+	var at := 0
+	var top := -INF
+	for i in dirs.size():
+		var s := dirs[i].dot(v)
+		if s > top:
+			top = s
+			at = i
+	return at
+
+
+## Where a dodge pressed now toward `dir` ends: CreatureSim._update_dodge step for step
+## (the 360-degree direction the press sends, full speed, then 0.4 for the last five
+## ticks; walls and fences slide it, pits don't stop it, a ram stops at a lip; a blink
+## jumps its distance). A ram is only roughly here: it ends on an impact with a foe or a
+## wall and smashes rubble, but it never leaves the floor, which is what's asked of it.
+static func roll_end(sim: MatchSim, me: CreatureSim, dir: Vector2) -> Vector2:
+	var d := SimDefs.move_from_bits(SimDefs.move_bits(dir))
+	if d == Vector2.ZERO:
+		d = me.facing
+	var dg: Dictionary = me.def["dodge"]
+	var t := sim.terrain
+	if dg.has("blink"):
+		return t.resolve_body(me._clamp_to_floor(me.pos + d * float(dg["blink"]["distance"])), me.radius)
+	var frames := int(dg["frames"])
+	var ram := dg.has("ram")
+	var lo := me.floor_min()
+	var hi := me.floor_max()
+	var q := me.pos
+	for st in range(1, frames + 1):
+		var step := d * float(dg["speed"]) * (0.4 if st > frames - 5 else 1.0)
+		var on_hole := t.is_hole_at(q)
+		var nx := q.x + step.x
+		if ram and not on_hole and t.is_hole_at(Vector2(nx, q.y)):
+			nx = q.x
+		q.x = t.slide_x(q, clampf(nx, lo.x, hi.x), me.radius)
+		var ny := q.y + step.y
+		if ram and not on_hole and t.is_hole_at(Vector2(q.x, ny)):
+			ny = q.y
+		q.y = t.slide_y(q, clampf(ny, lo.y, hi.y), me.radius)
+	return q
+
+
+## Whether a roll ending at `p` stays out of the pits: floor there and LAND_MARGIN px
+## round it, since a body brushing past at the end can nudge it a few pixels.
+static func _lands_safe(t: TerrainGrid, p: Vector2) -> bool:
+	if t.is_hole_at(p):
+		return false
+	for o in [Vector2(LAND_MARGIN, 0), Vector2(-LAND_MARGIN, 0), Vector2(0, LAND_MARGIN), Vector2(0, -LAND_MARGIN)]:
+		if t.is_hole_at(p + o):
+			return false
+	return true
+
+
+## Whether there's a pit within `r` of `p` (TerrainIndex: no cell walk on open floor).
+static func _pits_near(t: TerrainGrid, p: Vector2, r: float) -> bool:
+	var ix := TerrainIndex.of(t)
+	var c0 := t.world_to_cell(p - Vector2(r, r))
+	var c1 := t.world_to_cell(p + Vector2(r, r))
+	return ix.count(ix.pit, c0.x, c0.y, c1.x, c1.y) > 0
+
+
+## A dodge direction as close to `dir` as it can be whose roll doesn't end in a pit:
+## `dir` itself when it lands on floor, else the nearest way turned up to 90 degrees off,
+## else ZERO (every way near it drops into a pit).
+static func _safe_roll_dir(sim: MatchSim, me: CreatureSim, dir: Vector2) -> Vector2:
+	var t := sim.terrain
+	if not _pits_near(t, me.pos, _roll_distance(me) + 8.0) or _lands_safe(t, roll_end(sim, me, dir)):
+		return dir
+	var dirs := SimDefs.aim_dirs()
+	var at := _dir_index(dir)
+	for k in range(2, 17, 2):
+		for s in [1, -1]:
+			var d: Vector2 = dirs[(at + k * s + dirs.size()) % dirs.size()]
+			if _lands_safe(t, roll_end(sim, me, d)):
+				return d
+	return Vector2.ZERO
 
 
 # ------------------------------------------------------------------ arena hazards
@@ -584,14 +734,14 @@ func _foe_grab_ready(foe: CreatureSim) -> bool:
 
 
 ## How far this fighter's roll carries: its speed for the frames, slowed to 0.4 in the last
-## four ticks (CreatureSim._update_dodge). A blink dodge uses its teleport distance.
+## five ticks (CreatureSim._update_dodge). A blink dodge uses its teleport distance.
 static func _roll_distance(me: CreatureSim) -> float:
 	var dg: Dictionary = me.def["dodge"]
 	if dg.has("blink"):
 		return float(dg["blink"].get("distance", 0.0))
 	var frames := int(dg["frames"])
 	var spd := float(dg["speed"])
-	return spd * float(maxi(0, frames - 4)) + spd * 0.4 * float(mini(4, frames))
+	return spd * float(maxi(0, frames - 5)) + spd * 0.4 * float(mini(5, frames))
 
 
 ## About how far a roll carries.
@@ -948,7 +1098,7 @@ func _defend_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float) 
 		_press(int(ACTION_BIT[counter]))  # a Slip under a held slam: a gamble on when it drops
 		return true
 	if grab_threat or foe.charging:
-		_dodge_away(me, foe)
+		_dodge_away(sim, me, foe)
 		return true
 	if counter != "" and _usable(me, counter) and foe.state == CreatureSim.State.ATTACK \
 			and String(foe.move_def().get("type", "")) != "surge" and _roll(0.5):
@@ -959,11 +1109,11 @@ func _defend_now(sim: MatchSim, me: CreatureSim, foe: CreatureSim, dist: float) 
 		_defense_t = 20
 		_hold(SimDefs.IN_GUARD)
 	else:
-		_dodge_away(me, foe)
+		_dodge_away(sim, me, foe)
 	return true
 
 
-func _dodge_away(me: CreatureSim, foe: CreatureSim) -> void:
+func _dodge_away(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 	var away := (me.pos - _seen(foe)).normalized()
 	if not me.can_dodge():
 		# Out of stamina or the dodge is recharging (Chef Cerebro's blink): guard instead,
@@ -976,7 +1126,17 @@ func _dodge_away(me: CreatureSim, foe: CreatureSim) -> void:
 			_hold(SimDefs.bits_from_dir(away))
 		return
 	var side := Vector2(-away.y, away.x) * (1.0 if _roll(0.5) else -1.0)
-	_hold(SimDefs.bits_from_dir((away + side).normalized()))
+	var d := SimDefs.dir_from_bits(SimDefs.bits_from_dir((away + side).normalized()))
+	# A roll that would end over a pit turns to the nearest way that lands on floor
+	# (it may well cross the pit: a foe on foot can't follow), else a guard.
+	var safe := _safe_roll_dir(sim, me, d)
+	if safe == Vector2.ZERO:
+		if me.can_guard():
+			_defense = "guard"
+			_defense_t = 20
+			_hold(SimDefs.IN_GUARD)
+		return
+	_hold(SimDefs.bits_from_dir(d) if safe == d else SimDefs.move_bits(safe))
 	_press(SimDefs.IN_DODGE)
 
 
@@ -1243,7 +1403,7 @@ func _neutral_kite(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vec
 				_press(int(ACTION_BIT[grab]))
 				return
 			if me.can_dodge() and me.stamina > me.max_stamina * 0.3:
-				_dodge_dir(me, _open_dir(sim, me, -to_foe, _roll_distance(me)))
+				_dodge_dir(sim, me, _open_dir(sim, me, -to_foe, _roll_distance(me), true))
 				return
 	if _plan == "wait":
 		return
@@ -1487,17 +1647,27 @@ func _steer_now(sim: MatchSim, me: CreatureSim, v: Vector2) -> Vector2:
 
 
 ## A way to back off from `away` that keeps to open floor: away from the foe, but
-## preferring directions with room to keep going (out of corners, around holes).
-func _open_dir(sim: MatchSim, me: CreatureSim, away: Vector2, look := 34.0) -> Vector2:
+## preferring directions with room to keep going (out of corners, around holes). For a
+## `roll` with pits about, what counts is where it lands (`roll_end`): a pit it carries
+## over is fine (the foe has to walk round), one it ends in is not.
+func _open_dir(sim: MatchSim, me: CreatureSim, away: Vector2, look := 34.0, roll := false) -> Vector2:
 	var a := away.normalized() if away.length_squared() > 0.0001 else Vector2.RIGHT
 	var room := sim.floor_rect().grow(-me.radius - 4.0)
 	var best := a
 	var best_s := -INF
 	var dirs := SimDefs.aim_dirs()
+	var landing := roll and _pits_near(sim.terrain, me.pos, look + 8.0)
 	for i in 16:
 		var d: Vector2 = dirs[i * 4]
 		var clear := _clearance(room, me.pos, d)
 		var s := d.dot(a) * 1.2 + minf(clear, 100.0) / 100.0
+		if landing:
+			if not _lands_safe(sim.terrain, roll_end(sim, me, d)):
+				s -= 3.0
+			if s > best_s:
+				best_s = s
+				best = d
+			continue
 		for k in [8.0, 20.0, look * 0.5, look]:
 			var at: Vector2 = me.pos + d * (me.radius + k)
 			if sim.terrain.is_hole_at(at) or NavGrid.body_blocked(sim.terrain, at, me.radius):
@@ -1780,7 +1950,7 @@ func _rage_defend_now(sim: MatchSim, me: CreatureSim) -> bool:
 				_step(sim, me, path, int(need / maxf(speed, 0.5)) + 2)
 				return true
 			if when <= 5 and me.can_dodge():
-				_dodge_dir(me, path)
+				_dodge_dir(sim, me, path)
 				return true
 			if when <= 4 and me.can_guard():
 				_guard_for(when + 6)
@@ -1791,7 +1961,7 @@ func _rage_defend_now(sim: MatchSim, me: CreatureSim) -> bool:
 				return true
 			var ivs := int(me.def["dodge"].get("iframes_start", 2))
 			if when <= ivs + 2 and me.can_dodge():
-				_dodge_dir(me, _open_dir(sim, me, me.pos - from, _roll_distance(me)))
+				_dodge_dir(sim, me, _open_dir(sim, me, me.pos - from, _roll_distance(me), true))
 			return true
 		_:  # a strike
 			# Blocking it would empty the stamina (the guard drops and it lands clean):
@@ -1818,7 +1988,7 @@ func _rage_defend_now(sim: MatchSim, me: CreatureSim) -> bool:
 					var away := me.pos - from
 					if need > DODGE_DISTANCE and away.length_squared() > 0.0001:
 						away = Vector2(-away.y, away.x)
-					_dodge_dir(me, _open_dir(sim, me, away, _roll_distance(me)))
+					_dodge_dir(sim, me, _open_dir(sim, me, away, _roll_distance(me), true))
 				else:
 					_go(sim, me, _open_dir(sim, me, me.pos - from))
 				return true
@@ -1859,14 +2029,20 @@ func _guard_for(ticks: int) -> void:
 	_hold(SimDefs.IN_GUARD)
 
 
-func _dodge_dir(me: CreatureSim, dir: Vector2) -> void:
+func _dodge_dir(sim: MatchSim, me: CreatureSim, dir: Vector2) -> void:
 	if not me.can_dodge():
 		if me.can_guard():
 			_guard_for(10)
 		else:
 			_hold(SimDefs.move_bits(dir))  # exhausted: no guard either, so just go
 		return
-	_hold(SimDefs.move_bits(dir))
+	# Never a roll that ends over a pit: the nearest way that lands on floor, or a guard.
+	var d := _safe_roll_dir(sim, me, dir)
+	if d == Vector2.ZERO:
+		if me.can_guard():
+			_guard_for(10)
+		return
+	_hold(SimDefs.move_bits(d))
 	_press(SimDefs.IN_DODGE)
 
 
@@ -2390,7 +2566,7 @@ func _chase(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, d
 	if me.can_dodge() and me.stamina > me.max_stamina * 0.55 and roll > 20.0 \
 			and dist > reach + roll * 0.5 and dist < reach + roll * 1.6 \
 			and _roll(0.2 if kit else 0.1 * float(p["aggression"])):
-		_dodge_dir(me, to_foe)
+		_dodge_dir(sim, me, to_foe)
 		return
 	var lead := foe.walk_vel * clampf(dist / maxf(me.walk_speed(), 0.5), 0.0, 40.0) * 0.6
 	var mid_floor := sim.floor_rect().get_center()
@@ -2443,7 +2619,7 @@ func _plan_kite(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector
 			_press(int(ACTION_BIT[grab]))
 			return
 		if me.can_dodge() and _roll(0.5):
-			_dodge_dir(me, _open_dir(sim, me, -to_foe, _roll_distance(me)))
+			_dodge_dir(sim, me, _open_dir(sim, me, -to_foe, _roll_distance(me), true))
 			return
 	_strafe(sim, me, foe, _kite_vector(sim, me, foe))
 	var max_r := me.move_range("light_1")

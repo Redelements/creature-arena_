@@ -1,0 +1,74 @@
+[gd_resource type="SpriteFrames" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/vfx/wisp_purple.png" id="1_2cjsf"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_xnvtt"]
+atlas = ExtResource("1_2cjsf")
+region = Rect2(0, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_emjm2"]
+atlas = ExtResource("1_2cjsf")
+region = Rect2(96, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_2vdnj"]
+atlas = ExtResource("1_2cjsf")
+region = Rect2(192, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_opkmw"]
+atlas = ExtResource("1_2cjsf")
+region = Rect2(288, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_g8s3l"]
+atlas = ExtResource("1_2cjsf")
+region = Rect2(384, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_3y0ss"]
+atlas = ExtResource("1_2cjsf")
+region = Rect2(480, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_82782"]
+atlas = ExtResource("1_2cjsf")
+region = Rect2(576, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_kqs65"]
+atlas = ExtResource("1_2cjsf")
+region = Rect2(672, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_hw8rt"]
+atlas = ExtResource("1_2cjsf")
+region = Rect2(768, 0, 96, 96)
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_xnvtt")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_emjm2")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_2vdnj")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_opkmw")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_g8s3l")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_3y0ss")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_82782")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_kqs65")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_hw8rt")
+}],
+"loop": 0,
+"name": &"default",
+"speed": 20.0
+}]

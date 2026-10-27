@@ -1,0 +1,74 @@
+[gd_resource type="SpriteFrames" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/vfx/venom_crackle.png" id="1_uu3ek"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_h8gme"]
+atlas = ExtResource("1_uu3ek")
+region = Rect2(0, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_itml4"]
+atlas = ExtResource("1_uu3ek")
+region = Rect2(96, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_vyh28"]
+atlas = ExtResource("1_uu3ek")
+region = Rect2(192, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_g7hi0"]
+atlas = ExtResource("1_uu3ek")
+region = Rect2(288, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_l02d4"]
+atlas = ExtResource("1_uu3ek")
+region = Rect2(384, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_0733f"]
+atlas = ExtResource("1_uu3ek")
+region = Rect2(480, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_23prj"]
+atlas = ExtResource("1_uu3ek")
+region = Rect2(576, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_nwt1g"]
+atlas = ExtResource("1_uu3ek")
+region = Rect2(672, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_wkxmn"]
+atlas = ExtResource("1_uu3ek")
+region = Rect2(768, 0, 96, 96)
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_h8gme")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_itml4")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_vyh28")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_g7hi0")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_l02d4")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_0733f")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_23prj")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_nwt1g")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_wkxmn")
+}],
+"loop": 0,
+"name": &"default",
+"speed": 30.0
+}]

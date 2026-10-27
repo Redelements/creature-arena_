@@ -5,6 +5,12 @@ row layout, it drops in with no code changes. If a layout does change, update th
 `"sprite"` block in the creature's JSON file in `data/creatures/`; each move picks its
 animation by name with its `"anim"` field.
 
+Imported sheets (an artist's or PixelLab's frames, Oct 2026): `tools/import_frames.py` builds
+a sheet in these layouts from a folder of frames, snapped to the palette, at twice the
+density (`"ppu": 2`: 192 px frames for a 96 px fighter, the same world size;
+`src/view/art_scale.gd`). The spec for the first one, Mister Crease, is
+`docs/pixellab-spec.md`.
+
 ![The tiles, crowd and effects sheets](sprite_preview.png)
 
 ## Directions per creature: three sheets, five with the diagonals

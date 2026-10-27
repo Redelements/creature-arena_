@@ -78,7 +78,7 @@
       "anim_at": [[0, 6], [5, 7], [8, 8], [14, 9], [19, 10], [24, 11]],
       "damage": 6, "knockback": 1.6, "hitstun": 24, "hitstop": 7, "launch": 24,
       "reach": 12, "hit_radius": 16, "juggle": true,
-      "fx": { "impact": "popup" }
+      "fx": { "impact": "popup", "move_fx": "res://assets/vfx/dust_column.tres" }
     },
     "light_1": {
       "no_flinch": true,
@@ -87,7 +87,7 @@
       "anim_at": [[0, 0], [2, 1], [4, 2], [5, 3], [8, 4], [10, 5], [12, 6], [13, 7]],
       "damage": 6, "knockback": 0.8, "hitstun": 16, "hitstop": 3,
       "reach": 25, "hit_radius": 10, "lunge": 1.1, "next": "light_2", "juggle": true,
-      "fx": { "smear": "arc" }
+      "fx": { "smear": "arc", "move_fx": ["res://assets/vfx/slash_claws.tres", "res://assets/vfx/hit_star_cyan.tres"] }
     },
     "light_2": {
       "no_flinch": true,
@@ -96,7 +96,7 @@
       "anim_at": [[0, 0], [2, 1], [4, 2], [5, 3], [8, 4], [10, 5], [12, 6], [14, 7]],
       "damage": 6, "knockback": 0.9, "hitstun": 17, "hitstop": 4,
       "reach": 25, "hit_radius": 10, "lunge": 0.9, "next": "light_3", "juggle": true,
-      "fx": { "smear": "arc" }
+      "fx": { "smear": "arc", "move_fx": "res://assets/vfx/slash_claws.tres" }
     },
     "light_3": {
       "name": "Pickaxe Swing", "anim": "pick",
@@ -104,7 +104,7 @@
       "damage": 8, "knockback": 1.6, "hitstun": 24, "hitstop": 6,
       "reach": 30, "hit_radius": 12, "lunge": 0.6, "next": "", "juggle": true,
       "anim_at": [[0, 0], [2, 1], [5, 2], [6, 3], [9, 4], [12, 5], [15, 6], [18, 7]],
-      "fx": { "smear": "arc", "size": 1.3 }
+      "fx": { "smear": "arc", "size": 1.3, "move_fx": {"path": "res://assets/vfx/slash_gold_arc.tres", "scale": 0.6} }
     },
     "heavy": {
       "name": "Pickaxe Pop-Up", "anim": "popup", "windup": 8, "tell": "strong",
@@ -116,7 +116,7 @@
       "reach": 40, "hit_radius": 24, "hit_radius_charged": 30, "juggle": true,
       "anim_charge": [0, 4, 4],
       "anim_at": [[0, 4], [4, 5], [8, 6], [11, 7], [13, 8], [19, 9], [23, 10], [28, 11]],
-      "fx": { "charge": "dirt", "telegraph": true, "impact": "popup" }
+      "fx": { "charge": "dirt", "telegraph": true, "impact": "popup", "move_fx": {"path": "res://assets/vfx/dust_column.tres", "scale": 1.1, "offset": [0, -16]} }
     },
     "skill_1": {
       "name": "Headlamp Flash", "anim": "flash", "cooldown": 240,
@@ -137,7 +137,7 @@
       "leap": { "from": 6, "to": 44 },
       "dash": { "speed": 3.5, "from": 6, "to": 44, "steer": 0.32 },
       "anim_at": [[0, 0], [3, 1], [6, 2], [9, 3], [12, 4], [15, 5], [18, 2], [21, 3], [24, 4], [27, 5], [30, 2], [33, 3], [36, 4], [39, 5], [42, 6], [44, 7], [46, 8], [51, 9], [55, 10], [60, 11]],
-      "fx": { "burrow": true, "impact": "popup" }
+      "fx": { "burrow": true, "impact": "popup", "move_fx": [{"path": "res://assets/vfx/dust_burst.tres", "on": "start", "scale": 0.9, "offset": [0, -14]}, "res://assets/vfx/dust_poof.tres"] }
     },
     "surge": {
       "name": "Cave-In", "anim": "cavein", "energy_cost": 100,
@@ -145,7 +145,7 @@
       "damage": 19.6, "knockback": 0.6, "hitstun": 40, "hitstop": 14, "root_ticks": 150, "terrain_crack": 60,
       "reach": 40, "hit_radius": 65, "juggle": true,
       "anim_at": [[0, 0], [4, 1], [8, 2], [14, 3], [18, 4], [19, 5], [24, 6], [27, 7], [31, 8], [36, 9], [41, 10], [46, 11]],
-      "fx": { "shout": { "text": "I DIG IT!", "sound": "dig_it" }, "telegraph": true, "impact": "cavein" }
+      "fx": { "shout": { "text": "I DIG IT!", "sound": "dig_it" }, "telegraph": true, "impact": "cavein", "move_fx": [{"path": "res://assets/vfx/smoke_bloom.tres", "scale": 1.4, "offset": [0, -21]}, {"path": "res://assets/vfx/boom_ground.tres", "scale": 1.3, "offset": [0, -20]}] }
     }
   }
 }

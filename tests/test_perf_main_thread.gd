@@ -143,7 +143,13 @@ func test_sunk_floor_is_drawn_over_the_arena_art() -> void:
 	var found := false
 	for k in keeps.terrain.cells.size():
 		if keeps.terrain.cells[k] == TerrainGrid.CHASM:
-			assert_true(av._in_art(k) or av._art == null, "the map's own chasm is in its art:")
+			if av.tiled():
+				# a tiled map draws its own chasms from the overlay tiles, not from the picture
+				var cell := Vector2i(k % keeps.terrain.cols, k / keeps.terrain.cols)
+				assert_false(av._in_art(k), "tiles, not the picture, draw the map's own chasm:")
+				assert_true(av._overlay.get_cell_source_id(cell) != -1, "a chasm tile over it:")
+			else:
+				assert_true(av._in_art(k) or av._art == null, "the map's own chasm is in its art:")
 			found = true
 			break
 	assert_true(found, "twin_keeps has a chasm")

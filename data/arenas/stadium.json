@@ -1,8 +1,18 @@
 {
-	"_doc": "The stadium: the plain floor. No fixed pieces; the default arena.",
+	"_doc": "The stadium: the plain floor. No fixed pieces; the default arena. Its floor is tiles (Szadi art's Set 1 dirt, the court lines drawn over it): assets/arenas/stadium.tscn, built by tools/build_tiles.gd from the \"tiles\" block.",
 	"id": "stadium",
 	"name": "Stadium",
 	"ground": "dirt",
+	"tiles": {"_doc": "Set 1 dirt; a one-tile border of the same dirt in shade inside the floor's edge (under the hoardings), cobbled 2 x 2 corners, paler trodden dirt on the two starting marks and the centre spot; the court lines drawn over it all",
+		"set": "set1", "ground": "dirt", "markings": true,
+		"patches": [
+			{"fill": "dirt_edge", "rect": [0, 0, 42, 1]}, {"fill": "dirt_edge", "rect": [0, 17, 42, 1]},
+			{"fill": "dirt_edge", "rect": [0, 1, 1, 16]}, {"fill": "dirt_edge", "rect": [41, 1, 1, 16]},
+			{"fill": "cobble", "rect": [0, 0, 2, 2]}, {"fill": "cobble", "rect": [40, 0, 2, 2]},
+			{"fill": "cobble", "rect": [0, 16, 2, 2]}, {"fill": "cobble", "rect": [40, 16, 2, 2]},
+			{"fill": "dirt_worn", "rect": [14, 8, 2, 2]}, {"fill": "dirt_worn", "rect": [20, 8, 2, 2]},
+			{"fill": "dirt_worn", "rect": [26, 8, 2, 2]}
+		]},
 	"times": ["day", "sunset"],
 	"weathers": ["clear", "rain", "fog", "wind", "snow"],
 	"light": {"_doc": "floodlights high over the stands: short shadows, nearly straight down", "dir": [0.25, 1.0], "length": 0.38, "alpha": 0.32, "sun": {"color": "#f4f6ff", "energy": 0.6}},

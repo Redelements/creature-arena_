@@ -1,0 +1,32 @@
+[gd_resource type="SpriteFrames" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/vfx/slash_white.png" id="1_c2fan"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_5rr7c"]
+atlas = ExtResource("1_c2fan")
+region = Rect2(0, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_r0ssj"]
+atlas = ExtResource("1_c2fan")
+region = Rect2(96, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_hhdrx"]
+atlas = ExtResource("1_c2fan")
+region = Rect2(192, 0, 96, 96)
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_5rr7c")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_r0ssj")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_hhdrx")
+}],
+"loop": 0,
+"name": &"default",
+"speed": 30.0
+}]

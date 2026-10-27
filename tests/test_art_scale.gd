@@ -1,0 +1,112 @@
+extends TestCase
+## The art density (ArtScale): the world stays in sim units (8 px cells) and 2x art draws at
+## two texture pixels a unit, so a terrain cell is 16 grid pixels and a Set 1 tile 32. Pins
+## the constant to the project's viewport and stretch settings so it can't drift, and the
+## per-asset "ppu" rule in the views: a 2x sheet draws at half scale on half-unit positions,
+## a 2x arena picture is told from its size, portraits keep whole art pixels.
+
+
+func test_the_world_unit_scale_is_pinned_to_the_project() -> void:
+	assert_eq(ArtScale.PX_PER_UNIT, 2, "two art pixels a world unit:")
+	assert_eq(ArtScale.CELL_PX, 16, "a terrain cell is 16 art pixels:")
+	assert_eq(ArtScale.TILE_PX, 32, "a ground tile is 32 art pixels:")
+	assert_eq(ArtScale.TILE_CELLS, 2, "a ground tile covers 2 x 2 cells:")
+	assert_eq(SimDefs.CELL, 8, "the sim's cell never moved:")
+	# The screen grid is PX_PER_UNIT pixels a canvas unit: the viewport is that many times
+	# the 480 x 270 view, and the stretch scale brings the canvas back to view units.
+	assert_eq(int(ProjectSettings.get_setting("display/window/size/viewport_width")),
+		SimDefs.VIEW_W * ArtScale.PX_PER_UNIT, "viewport width:")
+	assert_eq(int(ProjectSettings.get_setting("display/window/size/viewport_height")),
+		SimDefs.VIEW_H * ArtScale.PX_PER_UNIT, "viewport height:")
+	assert_near(float(ProjectSettings.get_setting("display/window/stretch/scale")),
+		float(ArtScale.PX_PER_UNIT), 0.001, "stretch scale:")
+	assert_eq(String(ProjectSettings.get_setting("display/window/stretch/mode")), "canvas_items", "stretch mode:")
+
+
+func test_an_asset_declares_its_density() -> void:
+	assert_eq(ArtScale.ppu_of({}), 1, "no key: the older 1x art")
+	assert_eq(ArtScale.ppu_of({"ppu": 2}), 2, "a 2x sheet")
+	assert_eq(ArtScale.ppu_of({"ppu": 3}), 1, "an unknown density falls back")
+	assert_eq(ArtScale.ppu_of({"ppu": 0}, 2), 2, "fallback given")
+	assert_eq(ArtScale.scale_of(1), Vector2.ONE)
+	assert_eq(ArtScale.scale_of(2), Vector2(0.5, 0.5))
+	assert_eq(ArtScale.snap(Vector2(10.3, 4.6), 1), Vector2(10, 5), "1x art: whole units")
+	assert_eq(ArtScale.snap(Vector2(10.3, 4.6), 2), Vector2(10.5, 4.5), "2x art: half units")
+	assert_near(ArtScale.snapf(7.74, 2), 7.5, 0.0001)
+
+
+func test_a_picture_is_told_by_its_size() -> void:
+	var units := Vector2(704, 366) + ArenaView.MARGIN * 2.0
+	assert_eq(ArtScale.picture_ppu(units, units), 1, "the baked stadium picture")
+	assert_eq(ArtScale.picture_ppu(units * 2.0, units), 2, "twice the size: 2x art")
+	assert_eq(ArtScale.picture_ppu(units * 2.0 + Vector2(1, 0), units), 2, "a pixel of slack")
+	assert_eq(ArtScale.picture_ppu(units * 1.5, units), 1, "anything else draws 1:1")
+	assert_eq(ArtScale.picture_ppu(Vector2(10, 10), Vector2.ZERO), 1, "no world: 1")
+	for id in ["stadium", "twin_keeps", "caravan_pass"]:
+		var tex: Texture2D = load("res://assets/sprites/arena_%s.png" % id)
+		var cells := ArenaMap.size_of(ArenaMap.get_map(id))
+		var size := SimDefs.arena_size_of(cells.x, cells.y)
+		assert_eq(ArtScale.picture_ppu(tex.get_size(), size + ArenaView.MARGIN * 2.0), 1,
+			"%s's baked picture is 1x today" % id)
+
+
+func _view(id: String) -> CreatureView:
+	var sim := MatchFactory.training(id)
+	var v := CreatureView.new()
+	v.setup(sim.creatures[0])
+	return v
+
+
+func test_a_1x_sheet_draws_exactly_as_before() -> void:
+	var v := _view("crease")
+	v.c.pos = Vector2(200.3, 150.6)
+	v.refresh()
+	assert_eq(v.ppu, 1, "crease's sheet is 1x")
+	assert_eq(v.sprite.scale, Vector2.ONE, "no scaling")
+	assert_eq(v.position, Vector2(200, 151), "whole-unit positions")
+	assert_eq(v.sprite.position, -v.origin, "the origin in sheet pixels is the origin in units")
+	assert_eq(v.snapshot()["ppu"], 1)
+	v.free()
+
+
+func test_a_2x_sheet_draws_at_half_scale_on_half_units() -> void:
+	var v := _view("crease")
+	# The same sheet declared 2x: twice the frame, twice the origin, the same world size.
+	var side: Dictionary = v._views["side"]
+	side["ppu"] = 2
+	side["size"] = side["size"] * 2.0
+	side["origin"] = side["origin"] * 2.0
+	v._cur = {}
+	v.c.pos = Vector2(200.3, 150.6)
+	v.c.facing = Vector2.RIGHT
+	v.refresh()
+	assert_eq(v.sprite.scale, Vector2(0.5, 0.5), "half scale")
+	assert_eq(v.position, Vector2(200.5, 150.5), "half-unit positions")
+	assert_eq(v.sprite.position, -v.origin, "feet land where they did: the doubled origin at half scale")
+	assert_eq(v.snapshot()["ppu"], 2, "afterimages know the density")
+	assert_eq(v.emit.scale, v.sprite.scale if v.emit.visible else v.emit.scale, "the emissive layer follows")
+	v.free()
+
+
+func test_the_hud_portrait_keeps_whole_art_pixels() -> void:
+	assert_near(Hud.portrait_scale(Vector2i(24, 32), 1), 1.0, 0.001, "a 1x crop that fills the box: 1")
+	assert_near(Hud.portrait_scale(Vector2i(12, 16), 1), 2.0, 0.001, "a small 1x crop: doubled")
+	assert_near(Hud.portrait_scale(Vector2i(48, 64), 2), 0.5, 0.001, "a 2x crop that fills the box: half a unit a pixel")
+	assert_near(Hud.portrait_scale(Vector2i(24, 32), 2), 1.0, 0.001, "a small 2x crop: one unit a pixel")
+	assert_near(Hud.portrait_scale(Vector2i(60, 80), 2), 0.5, 0.001, "never under one grid pixel an art pixel")
+
+
+func test_the_window_keeps_whole_screen_pixels_per_art_pixel() -> void:
+	var main_script: GDScript = load("res://src/game/main.gd")
+	var base := Vector2(960, 540)
+	# [window, screen pixels per canvas unit]: an even number once the window has two or
+	# more screen pixels a grid pixel, so a 2x sheet's pixels are all the same size.
+	for case in [[Vector2(1920, 1080), 4.0], [Vector2(2560, 1440), 4.0], [Vector2(3840, 2160), 8.0],
+			[Vector2(3440, 1440), 4.0], [Vector2(2400, 1080), 4.0]]:
+		var size: Vector2 = case[0]
+		var grid := minf(size.x / base.x, size.y / base.y)
+		var unit_px: float = grid * main_script.pixel_scale_factor(size, base)
+		assert_near(unit_px, float(case[1]), 0.001, "%s:" % size)
+		assert_eq(int(roundf(unit_px)) % ArtScale.PX_PER_UNIT, 0, "%s: whole pixels per art pixel" % size)
+	# Under two: whole pixels per canvas unit, as the 1x sheets want (1440 x 810 keeps its 3).
+	assert_near(1.5 * main_script.pixel_scale_factor(Vector2(1440, 810), base), 3.0, 0.001, "1440 x 810:")

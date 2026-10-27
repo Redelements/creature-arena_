@@ -1,0 +1,74 @@
+[gd_resource type="SpriteFrames" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/vfx/dust_column.png" id="1_jnfaf"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_hkjpm"]
+atlas = ExtResource("1_jnfaf")
+region = Rect2(0, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_e0fmu"]
+atlas = ExtResource("1_jnfaf")
+region = Rect2(96, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_nal1g"]
+atlas = ExtResource("1_jnfaf")
+region = Rect2(192, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_aqs3o"]
+atlas = ExtResource("1_jnfaf")
+region = Rect2(288, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_a6pu5"]
+atlas = ExtResource("1_jnfaf")
+region = Rect2(384, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_bff7d"]
+atlas = ExtResource("1_jnfaf")
+region = Rect2(480, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ag5v5"]
+atlas = ExtResource("1_jnfaf")
+region = Rect2(576, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_m2ovq"]
+atlas = ExtResource("1_jnfaf")
+region = Rect2(672, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_q10on"]
+atlas = ExtResource("1_jnfaf")
+region = Rect2(768, 0, 96, 96)
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_hkjpm")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_e0fmu")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_nal1g")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_aqs3o")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_a6pu5")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_bff7d")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ag5v5")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_m2ovq")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_q10on")
+}],
+"loop": 0,
+"name": &"default",
+"speed": 20.0
+}]

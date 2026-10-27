@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="MoveFx" format=3]
+
+[ext_resource type="SpriteFrames" path="res://assets/vfx/hit_star_cyan_frames.tres" id="1_irxmv"]
+[ext_resource type="Script" path="res://src/view/move_fx.gd" id="2_xnejf"]
+
+[resource]
+script = ExtResource("2_xnejf")
+frames = ExtResource("1_irxmv")
+ticks_per_frame = 2
+on = "hit"
+offset = Vector2(0, -12)
+flip_with_facing = false
+scale = 0.6
