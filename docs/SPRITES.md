@@ -601,6 +601,20 @@ glide still 24 ticks).
 
 Facing down, down-side, up and up-side: [`hissy_views_preview.png`](hissy_views_preview.png).
 
+**2x (route A, Oct 2026, branch `hissy-2x`, stacked on `cairn-2x`).** The game draws
+`hissy_2x*.png`: the same rig at density 2 (`HISSY_DENSITY`, default 2; `HISSY_DENSITY=1`
+rebuilds the 1x `hissy*.png` byte for byte). Her rasteriser is her own copy, so the density
+is threaded there too: `SCALE` x2, sample `STEP` /2, the Cam's near zones x2 (screen
+pixels), frames and origins x2, and `S.configure(MAT, density=...)` for splat3d's shading,
+outline and normal passes. 256×256 frames, views 224×256, feet at (128, 208) side, down
+and down_side, (112, 184) up, (128, 184) up_side, `"ppu": 2` in every view, portrait
+`[100, 100, 48, 64]`; same rows, frame counts and timing. The face texture is in degrees on
+the head and the hair snakes' eyes are rig pieces, so both resolve finer on their own.
+Shaded "bold" (`HISSY_STYLE`): no highlight step and no rim light (at 2x the highlight grew
+into a pale glare disc on her forehead that fought the face), the black silhouette line as
+before. The up view has no emissive sheet (her eyes face away), the up-side one does.
+Gallery: `pixellab/hissy/hissy_route_a.png`.
+
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
 | 0 | idle | 8 | the hover bob (eased), the gloves 1 frame behind, the glove snakes after them, the hair swaying as a wave down each snake (tips 2 frames behind) |

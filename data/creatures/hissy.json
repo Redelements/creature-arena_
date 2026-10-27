@@ -24,11 +24,11 @@
   },
   "ko_fx": { "style": "hiss" },
   "sprite": {
-    "path": "res://assets/sprites/hissy.png",
-    "frame": 128,
-    "portrait": [50, 50, 24, 32],
+    "path": "res://assets/sprites/hissy_2x.png", "ppu": 2,
+    "frame": 256,
+    "portrait": [100, 100, 48, 64],
     "cols": 12,
-    "origin": [64, 104],
+    "origin": [128, 208],
     "idle_ticks": 8,
     "run_ticks": 2,
     "anims": {
@@ -51,10 +51,10 @@
     "side_only": ["ko"],
     "select_scale": 0.5,
     "views": {
-      "down": { "path": "res://assets/sprites/hissy_down.png", "frame": [112, 128], "origin": [56, 104] },
-      "up": { "path": "res://assets/sprites/hissy_up.png", "frame": [112, 128], "origin": [56, 92] },
-      "down_side": { "path": "res://assets/sprites/hissy_down_side.png", "frame": [128, 128], "origin": [64, 104] },
-      "up_side": { "path": "res://assets/sprites/hissy_up_side.png", "frame": [128, 128], "origin": [64, 92] }
+      "down": { "path": "res://assets/sprites/hissy_2x_down.png", "ppu": 2, "frame": [224, 256], "origin": [112, 208] },
+      "up": { "path": "res://assets/sprites/hissy_2x_up.png", "ppu": 2, "frame": [224, 256], "origin": [112, 184] },
+      "down_side": { "path": "res://assets/sprites/hissy_2x_down_side.png", "ppu": 2, "frame": [256, 256], "origin": [128, 208] },
+      "up_side": { "path": "res://assets/sprites/hissy_2x_up_side.png", "ppu": 2, "frame": [256, 256], "origin": [128, 184] }
     }
   },
   "ai": {

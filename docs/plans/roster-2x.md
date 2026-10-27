@@ -26,7 +26,7 @@ at 2x (five sheets with normals), so roughly 5x a generator's 1x time.
 | 3 | Cairn | `gen_cairn.py`, splat3d, rigid stones | covered | 15 / 130 | 96 -> 192 | 44 -> 177 MB | ~8 min |
 | 4 | Digby | `gen_digby.py`, splat3d | covered (no decorate) | 15 / 130 | 128 (112x128) -> 256 | 80 -> 321 MB | ~10 min |
 | 5 | Sneaky Pete | `gen_pete.py`, splat3d | covered (no decorate) | 15 / 130 | 128 (112x128) -> 256 | 78 -> 311 MB | ~10 min |
-| 6 | Hissy Fitz | `gen_hissy.py`, own rasteriser + `S.shade`/`S.outline` | **needs work**: its own `SCALE`/`STEP`/near | 15 / 126 | 128 (112x128) -> 256 | 71 -> 284 MB | ~12 min |
+| 6 | Hissy Fitz | `gen_hissy.py`, own rasteriser + `S.shade`/`S.outline` | **done** (`hissy-2x`): `HISSY_DENSITY` threads its own `SCALE`/`STEP`/near | 15 / 126 | 128 (112x128) -> 256 | 71 -> 284 MB | ~12 min |
 | 7 | Chef Cerebro | `gen_cerebro.py`, own rasteriser + gyri, decals, glow, smears, flash | **needs work**: own `SCALE`/`STEP`, painted strokes in px | 15 / 130 | 128 (112x128) -> 256 | 76 -> 304 MB | ~12 min |
 | 8 | Barkley | `gen_barkley.py`, shade2d painter | **done** (branch `barkley-2x`): `shade2d.configure(density=)` and `shade2d.Draw` | 15 / 132 | 96, views 128x160 -> 192, 256x320 | 88 -> 353 MB | ~10 min |
 | 9 | Gillbert | `gen_gillbert.py`, shade2d painter | **covered** once his draws go through `shade2d.Draw` (as `gen_barkley.py`) | 15 / 136 | 128, views 96x144 / 128x144 -> 256, 192x288 / 256x288 | 105 -> 421 MB | ~10 min |
