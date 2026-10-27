@@ -3,11 +3,16 @@
 	"id": "floodgate",
 	"name": "Floodgate Stadium",
 	"ground": "concrete",
-	"tiles": {"_doc": "the floor as tiles (assets/arenas/floodgate.tscn, built by tools/build_tiles.gd): Wetland paving, Set 1 water autotiled under the shallows, reeds at the channel's mouths in the margins",
+	"tiles": {"_doc": "the floor as tiles (assets/arenas/floodgate.tscn, built by tools/build_tiles.gd): Wetland paving, Set 1 water autotiled under the shallows with Wetland's glints over it and a kerb of the pack's mossy cobbles, reeds at the channel's mouths in the margins, swaying DecorativeProps reeds beside the lower mouth and along the side rails",
 		"set": "wetland", "ground": "paving",
 		"decor": [
 			{"kind": "reeds", "pos": [318, 0]}, {"kind": "reeds_small", "pos": [356, 0]},
 			{"kind": "reeds_small", "pos": [322, 299]}, {"kind": "reeds", "pos": [360, 301]}
+		],
+		"anim": [
+			{"kind": "reeds_sway", "pos": [302, 298]}, {"kind": "reed_sway", "pos": [341, 297]}, {"kind": "reeds_sway", "pos": [378, 298]},
+			{"kind": "reeds_sway", "pos": [-8, 92]}, {"kind": "reed_sway", "pos": [-6, 100]}, {"kind": "reeds_sway", "pos": [-8, 204]},
+			{"kind": "reeds_sway", "pos": [680, 84]}, {"kind": "reeds_sway", "pos": [680, 196]}, {"kind": "reed_sway", "pos": [678, 204]}
 		]},
 	"times": ["day", "sunset", "night"],
 	"weathers": ["clear", "rain", "fog", "wind"],

@@ -6,6 +6,9 @@ extends TestCase
 ## as it did (pieces untouched), ArenaView draws from the tiles, and WaterView still finds
 ## the shallows. Every channel has a bank (the WaterBank layer, keyed by its eight
 ## neighbours), and the reeds stand with their feet on the floor's edges, never on the wall.
+## The art pass: the kerb (bank edge and face) is Wetland's own cobble, Wetland's glints lie
+## over the water on a second surface layer in out-of-step variant rows, and swaying
+## DecorativeProps reeds stand off the floor (the lower mouth, the side rails), none on top.
 
 const MANIFEST := "res://assets/tiles/wetland_manifest.json"
 const GROUND := "res://assets/tiles/wetland_ground.tres"
@@ -65,13 +68,78 @@ func test_the_wetland_cut_has_the_water_terrain_and_its_surface() -> void:
 	for a in seen_alpha:
 		assert_true(a == 0 or a < 200, "and is never opaque (alpha %d)" % a)
 	var ts: TileSet = load(GROUND)
-	var sid := -1
-	for i in ts.get_source_count():
-		if ts.get_source_id(i) >= 2:
-			sid = ts.get_source_id(i)
-	assert_true(sid >= 2, "a surface source after the ground and the pieces")
-	var src := ts.get_source(sid) as TileSetAtlasSource
+	assert_true(ts.has_source(2) and ts.has_source(3), "two surface sources after the ground and the pieces")
+	var src := ts.get_source(2) as TileSetAtlasSource
 	assert_eq(src.get_tile_animation_frames_count(Vector2i.ZERO), 16, "the tile animates through the 16 frames")
+
+
+func test_the_glints_lie_over_the_water_out_of_step() -> void:
+	var man := _manifest()
+	var glint: Dictionary = man["ground"]["surfaces"]["glint"]
+	assert_eq(String(glint["over"]), "water", "the glints lie over the water")
+	assert_eq(int(glint["frames"]), 10, "Wetland water_effB's 10 frames")
+	assert_eq(int(glint["variants"]), 4, "in four phase-shifted, mirrored rows")
+	var tex: Texture2D = load("res://assets/tiles/" + String(glint["source"]))
+	assert_eq(tex.get_size(), Vector2(320, 128), "10 frames of 32 px by 4 rows")
+	var img := tex.get_image()
+	var lit := 0
+	for x in 320:
+		for y in 128:
+			lit += int(img.get_pixel(x, y).a > 0.0)
+	assert_true(lit > 0 and lit < 320 * 128 / 20, "sparse glints, the water shows through: %d px" % lit)
+	var ts: TileSet = load(GROUND)
+	var src := ts.get_source(3) as TileSetAtlasSource
+	for row in 4:
+		assert_eq(src.get_tile_animation_frames_count(Vector2i(0, row)), 10, "variant row %d animates" % row)
+	var root: Node = (load(SCENE) as PackedScene).instantiate()
+	var layer := root.get_node_or_null("WaterSurfaceGlint") as TileMapLayer
+	assert_true(layer != null, "a WaterSurfaceGlint layer")
+	if layer != null:
+		var want := _shallows_tiles()
+		assert_eq(layer.get_used_cells().size(), want.size(), "glints on every channel tile")
+		var rows := {}
+		for c in layer.get_used_cells():
+			assert_true(want.has(c), "glints only on the water: %s" % c)
+			rows[layer.get_cell_atlas_coords(c).y] = true
+		assert_true(rows.size() >= 3, "the tiles pick different variant rows: %s" % [rows.keys()])
+		assert_true(layer.get_index() > root.get_node("WaterSurface").get_index(), "over the Set 1 surface")
+		assert_true(layer.get_index() < root.get_node("WaterBank").get_index(), "under the bank")
+	root.free()
+
+
+func test_the_kerb_is_wetland_cobble() -> void:
+	var f := FileAccess.open("res://tools/tile_recipes/wetland.json", FileAccess.READ)
+	var recipe: Dictionary = JSON.parse_string(f.get_as_text())
+	var bank: Dictionary = recipe["ground"]["shores"]["water"]
+	for part in ["edge", "face"]:
+		assert_eq(String(bank[part]["src"]), "RPGW_Wetland_v1.1/_PNG/MainLev.png", "the kerb's %s from the Wetland sheet" % part)
+		assert_eq(Vector2i(int(bank[part]["block"][0]), int(bank[part]["block"][1])), Vector2i(36, 23), "the cobble block inside the path border (%s)" % part)
+
+
+func test_swaying_reeds_stand_off_the_floor() -> void:
+	var man := _manifest()
+	for kind in ["reeds_sway", "reed_sway"]:
+		var a: Dictionary = man["anim"][kind]
+		assert_eq(Vector2i(int(a["frame"][0]), int(a["frame"][1])), Vector2i(32, 32), "%s: 32 px frames" % kind)
+		assert_eq(int(a["frames"]), 4, "%s: four frames" % kind)
+		var tex: Texture2D = load("res://assets/tiles/" + String(a["source"]))
+		assert_eq(tex.get_size(), Vector2(128, 32), "%s: a strip of four" % kind)
+		var img := tex.get_image()
+		var feet := Vector2i(int(a["feet"][0]), int(a["feet"][1]))
+		var rooted := false
+		for dx in range(-3, 4):
+			rooted = rooted or img.get_pixel(feet.x + dx, feet.y).a > 0.5
+		assert_true(rooted, "%s: its feet on its roots, not floating" % kind)
+	var root: Node = (load(SCENE) as PackedScene).instantiate()
+	var anim := root.get_node("Anim")
+	assert_eq(anim.get_child_count(), 9, "reeds beside the lower mouth and along the side rails")
+	var floor_px := Rect2(Vector2.ZERO, Vector2(84 * 16, 36 * 16))
+	for s in anim.get_children():
+		var kind := String(s.name).rsplit("_", true, 1)[0]
+		var feet: Vector2 = s.position + Vector2(man["anim"][kind]["feet"][0], man["anim"][kind]["feet"][1])
+		assert_false(floor_px.has_point(feet), "%s stands off the floor: %s" % [s.name, feet])
+		assert_true(feet.y > 0.0, "%s: nothing new in the top margin" % s.name)
+	root.free()
 
 
 func test_the_scene_puts_water_under_every_channel_tile() -> void:

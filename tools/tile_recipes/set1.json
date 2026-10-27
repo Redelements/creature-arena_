@@ -3,8 +3,10 @@
 	"ground": {
 		"fills": {
 			"dirt": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain3.png", "block": [12, 0]},
+			"dirt_worn": {"_doc": "g_terrain3's second band solid (tiles 12-15 x 4-7): the same dirt trodden paler and drier (lifted a little: untinted it snaps to the floor's own colours), for the Stadium's spawn and centre pads; square pads read cleaner than its ragged blob, whose stony rim looked busy", "src": "RPGFW_Set1_v1.0/_PNG/g_terrain3.png", "block": [12, 4], "tint": {"mul": [1.14, 1.12, 1.1], "add": [6, 5, 4]}},
+			"dirt_edge": {"_doc": "the floor's own dirt in shade: the Stadium's one-tile border under the hoardings", "src": "RPGFW_Set1_v1.0/_PNG/g_terrain3.png", "block": [12, 0], "tint": {"mul": [0.78, 0.78, 0.8]}},
 			"grass": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "block": [12, 0]},
-			"grass_dark": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "block": [12, 4]},
+			"grass_dark": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "block": [12, 4], "tint": {"mul": [1.14, 1.12, 1.1], "add": [6, 5, 4]}},
 			"cobble": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "block": [37, 0], "size": 2},
 			"water": {"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "block": [8, 2], "size": 2, "_doc": "a flat 2 x 2 from the bed's interior centres (the solid-looking [12, 0] block is a notched blob with a hole)"}
 		},

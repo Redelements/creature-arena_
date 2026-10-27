@@ -29,7 +29,9 @@ extends SceneTree
 ##   grass      rects [tx, ty, w, h] in tiles painted with the "grass" terrain (autotiled)
 ##   water      rects in tiles painted with the "water" terrain; the map's shallows pieces
 ##              are painted with it as well (rounded out to whole tiles); a set with an
-##              animated surface over water (manifest "surfaces") gets a WaterSurface layer,
+##              animated surface over water (manifest "surfaces") gets a WaterSurface layer
+##              (a second surface over the same terrain a WaterSurface<Name> layer over it; a
+##              surface cut in "variants" rows picks a row per tile),
 ##              and one with a shore (manifest "shores") a WaterBank layer over that: a bank
 ##              tile on every water tile with land round it, picked by its eight neighbours
 ##   styles     {wall: "boulder", brush: "tuft", fence: "fence"}: the piece kind (manifest
@@ -161,11 +163,13 @@ static func _ground_set(set_name: String, man: Dictionary) -> TileSet:
 		surf.texture = load(TILES_DIR + String(s["source"]))
 		surf.texture_region_size = ts.tile_size
 		ts.add_source(surf, sid)
-		surf.create_tile(Vector2i.ZERO)
-		surf.set_tile_animation_columns(Vector2i.ZERO, int(s["frames"]))
-		surf.set_tile_animation_frames_count(Vector2i.ZERO, int(s["frames"]))
-		for k in int(s["frames"]):
-			surf.set_tile_animation_frame_duration(Vector2i.ZERO, k, 1.0 / maxf(1.0, float(s["fps"])))
+		for row in int(s.get("variants", 1)):  # a tile per variant row, its frames along the row
+			var at := Vector2i(0, row)
+			surf.create_tile(at)
+			surf.set_tile_animation_columns(at, int(s["frames"]))
+			surf.set_tile_animation_frames_count(at, int(s["frames"]))
+			for k in int(s["frames"]):
+				surf.set_tile_animation_frame_duration(at, k, 1.0 / maxf(1.0, float(s["fps"])))
 		sid += 1
 	# Fence lines: 32 x 64 tiles (the tile and the post rising over it), lifted by 16 so the
 	# lower 32 px sit on the cell; a column per arm mask, a row per post spot.
@@ -185,14 +189,15 @@ static func _ground_set(set_name: String, man: Dictionary) -> TileSet:
 	return ts
 
 
-## The source id of the animated surface laid over `terrain` (-1: none).
-static func _surface_source(man: Dictionary, terrain: String) -> int:
+## The animated surfaces laid over `terrain`, in recipe order: [[source id, name], ...].
+static func _surface_sources(man: Dictionary, terrain: String) -> Array:
+	var out := []
 	var sid := SRC_SURFACE
 	for name in man["ground"].get("surfaces", {}):
 		if String(man["ground"]["surfaces"][name].get("over", name)) == terrain:
-			return sid
+			out.append([sid, String(name)])
 		sid += 1
-	return -1
+	return out
 
 
 ## The source id of fence line `name` (-1: the set has none).
@@ -670,12 +675,18 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 		if name == "water":
 			for c in cells:
 				wet_tiles[c] = true
-		# the terrain's animated surface, if the set has one, on its own layer over it
-		var sid := _surface_source(man, name)
-		if sid >= 0 and not cells.is_empty():
-			var surface := _layer(root, name.capitalize() + "Surface", ts)
-			for c in cells:
-				surface.set_cell(c, sid, Vector2i.ZERO)
+		# the terrain's animated surfaces, if the set has any, each on its own layer over it
+		# (the first "<Terrain>Surface", the next "<Terrain>Surface<Name>": Floodgate's glints);
+		# a surface cut in variant rows picks a row per tile
+		if not cells.is_empty():
+			for pair in _surface_sources(man, name):
+				var layer_name: String = String(name).capitalize() + "Surface"
+				if root.has_node(layer_name):
+					layer_name += String(pair[1]).capitalize()
+				var surface := _layer(root, layer_name, ts)
+				var variants := int(g["surfaces"][pair[1]].get("variants", 1))
+				for c in cells:
+					surface.set_cell(c, int(pair[0]), Vector2i(0, _h(c.x, c.y, 5) % variants))
 		# its bank, over the water and its surface, on every tile with land round it
 		var shores: Dictionary = g.get("shores", {})
 		if shore_ts != null and shores.has(name) and not cells.is_empty():

@@ -6,6 +6,8 @@ extends TestCase
 ## past its ends) and a hedge of swaying clumps on every brush bed, the margin decor stays
 ## off the floor and under the stand wall, the map draws from tiles, and a flattened brush
 ## cell loses its clumps until it grows back. The map's pieces and play are unchanged (no sim change).
+## The art pass: swaying DecorativeProps flowers stand on the beds' edge cells, and potted
+## herbs (Houses smallobj) and GrassLand's tiny bushes join the pots in the side margins.
 
 const MANIFEST := "res://assets/tiles/grassland_manifest.json"
 const GROUND := "res://assets/tiles/grassland_ground.tres"
@@ -120,6 +122,50 @@ func test_the_scene_fences_every_fence_line_and_plants_every_bed() -> void:
 			# in the top margin (one tile): its top stays under the stand wall
 			var top := s.position.y / ArtScale.PX_PER_UNIT
 			assert_true(top >= -SimDefs.CELL * ArtScale.TILE_CELLS, "%s stands in the margin, not up the wall (top %.1f)" % [s.name, top])
+	root.free()
+
+
+func test_flowers_on_the_beds_edges_and_herbs_in_the_side_margins() -> void:
+	var man := _manifest()
+	for kind in ["flower_pink", "flower_yellow", "spike_pink", "spike_orange"]:
+		var a: Dictionary = man["anim"][kind]
+		assert_eq(Vector2i(int(a["frame"][0]), int(a["frame"][1])), Vector2i(32, 32), "%s: 32 px frames" % kind)
+		assert_eq(int(a["frames"]), 4, "%s: four frames" % kind)
+		var img := (load("res://assets/tiles/" + String(a["source"])) as Texture2D).get_image()
+		var rooted := false
+		for dx in range(-3, 4):
+			rooted = rooted or img.get_pixel(int(a["feet"][0]) + dx, int(a["feet"][1])).a > 0.5
+		assert_true(rooted, "%s: its feet on its roots, not floating" % kind)
+	var brush := {}
+	for piece in ArenaMap.get_map("greenhouse").get("pieces", []):
+		if String(piece.get("kind", "")) == "brush":
+			var r: Array = piece["rect"]
+			for cy in range(int(r[1]), int(r[1]) + int(r[3])):
+				for cx in range(int(r[0]), int(r[0]) + int(r[2])):
+					brush[Vector2i(cx, cy)] = true
+	var root := (load(SCENE) as PackedScene).instantiate()
+	var anim := root.get_node("Anim")
+	assert_eq(anim.get_child_count(), 10, "flowers round the five beds")
+	for s in anim.get_children():
+		var kind := String(s.name).rsplit("_", true, 1)[0]
+		var feet: Vector2 = (s.position + Vector2(man["anim"][kind]["feet"][0], man["anim"][kind]["feet"][1])) / ArtScale.PX_PER_UNIT
+		var cell := Vector2i(floori(feet.x / SimDefs.CELL), floori(feet.y / SimDefs.CELL))
+		assert_true(brush.has(cell), "%s stands on a brush cell (%s)" % [s.name, cell])
+		var edge := false
+		for d in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+			edge = edge or not brush.has(cell + d)
+		assert_true(edge, "%s on a bed's edge, not inside it (%s)" % [s.name, cell])
+	var kinds := {}
+	for d in root.get_node("Decor").get_children():
+		var s := d as Sprite2D
+		var kind := String(s.name).rsplit("_", true, 1)[0]
+		if kind.begins_with("herb_") or kind.begins_with("shrub_"):
+			kinds[kind] = true
+			var fx := (s.position.x + float(man["decor"][kind]["feet"][0])) / ArtScale.PX_PER_UNIT
+			var fy := (s.position.y + float(man["decor"][kind]["feet"][1])) / ArtScale.PX_PER_UNIT
+			assert_true(fx < 0.0 or fx > SimDefs.GRID_COLS * SimDefs.CELL, "%s in a side margin (x %.1f)" % [s.name, fx])
+			assert_true(fy > 0.0 and fy < SimDefs.GRID_ROWS * SimDefs.CELL, "%s beside the floor, not in the top margin (y %.1f)" % [s.name, fy])
+	assert_gt(kinds.size(), 5, "herbs and tiny bushes of several kinds: %s" % [kinds.keys()])
 	root.free()
 
 

@@ -144,6 +144,13 @@
 	"overlay": {"_doc": "the pits' far wall: a seamless cliff face from the matching pack; the lip and the cracks: the floor's own fill (tools/cut_tiles.py cut_overlay)",
 		"face": {"src": "RPGW_GrassLand_v2.01/MainLev2.0.png", "box": [160, 186, 192, 214]}, "lip": "meadow_bright"},
 	"decor": {
+		"shrub_gold": {"_doc": "GrassLand decorative.png tiny bush, yellow-green (the band's bushes stand on the box's bottom row)", "src": "RPGW_GrassLand_v2.01/decorative.png", "box": [557, 800, 596, 832], "feet": [19, 31]},
+		"shrub_gold_small": {"src": "RPGW_GrassLand_v2.01/decorative.png", "box": [608, 808, 639, 832], "feet": [15, 23]},
+		"shrub_red": {"_doc": "the same tiny bush in autumn red", "src": "RPGW_GrassLand_v2.01/decorative.png", "box": [141, 800, 180, 832], "feet": [19, 31]},
+		"herb_pink": {"_doc": "Houses smallobj row y 96: potted flowers and herbs, one per 32 px cell, hard alpha, no baked shadow; feet on each pot's last row", "src": "RPG_Buildings_HOUSES_v1.1/smallobj.png", "box": [128, 96, 160, 128], "feet": [16, 30]},
+		"herb_orange": {"src": "RPG_Buildings_HOUSES_v1.1/smallobj.png", "box": [192, 96, 224, 128], "feet": [16, 28]},
+		"herb_green": {"src": "RPG_Buildings_HOUSES_v1.1/smallobj.png", "box": [224, 96, 256, 128], "feet": [16, 28]},
+		"herb_tall": {"src": "RPG_Buildings_HOUSES_v1.1/smallobj.png", "box": [288, 96, 320, 128], "feet": [16, 30]},
 		"pot_tall": {
 			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
 			"box": [
@@ -249,7 +256,12 @@
 			]
 		}
 	},
-	"anim": {},
+	"anim": {
+		"flower_pink": {"_doc": "DecorativeProps vegA1 (clumps of three) pink, colour row 0; 32 px frames, the first four of its 10-frame loop (row 0); roots on the frame's last row", "src": "RPGW_DecorativeProps_v1.0/Animated/vegA1.png", "frame": [32, 32], "frames": 4, "row": 0, "fps": 4, "feet": [16, 31]},
+		"flower_yellow": {"_doc": "vegA1 yellow, colour row 2 (32 px row 8)", "src": "RPGW_DecorativeProps_v1.0/Animated/vegA1.png", "frame": [32, 32], "frames": 4, "row": 8, "fps": 4, "feet": [16, 31]},
+		"spike_pink": {"_doc": "DecorativeProps vegC1 (flower spikes) pink, colour row 1 (32 px row 4); roots at y 26", "src": "RPGW_DecorativeProps_v1.0/Animated/vegC1.png", "frame": [32, 32], "frames": 4, "row": 4, "fps": 4, "feet": [16, 26]},
+		"spike_orange": {"_doc": "vegC1 orange, colour row 0; roots at y 27", "src": "RPGW_DecorativeProps_v1.0/Animated/vegC1.png", "frame": [32, 32], "frames": 4, "row": 0, "fps": 4, "feet": [16, 27]}
+	},
 	"bushes": {
 		"green": {
 			"src": "RPGW_Wetland_v1.1/_PNG/anim/tree2A.png",

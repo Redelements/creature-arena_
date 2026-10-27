@@ -8,7 +8,8 @@ extends TestCase
 ## along its near rim and round its corners, a piece gone while its cells are broken, all
 ## erased when the floor heals. Every set's overlay atlas keeps the rules the renderer relies
 ## on (a pit's top rows clear, edges translucent, cracks reaching the sides they join). The
-## court lines stay on the Stadium (`tiles.markings`).
+## court lines stay on the Stadium (`tiles.markings`), over its border of shaded dirt inside
+## the floor's edge, cobbled corners and paler trodden pads on the starting marks and centre.
 
 const MANIFEST := "res://assets/tiles/set1_manifest.json"
 const GROUND := "res://assets/tiles/set1_ground.tres"
@@ -137,6 +138,19 @@ func test_the_stadium_scene_has_its_ground_and_no_ring() -> void:
 	var man := _manifest()
 	var dirt: Array = man["ground"]["fills"]["dirt"].map(func(a): return Vector2i(int(a[0]), int(a[1])))
 	assert_true(ground.get_cell_atlas_coords(Vector2i(10, 7)) in dirt, "the floor is dirt")
+	var fill_of := func(name: String) -> Array:
+		return man["ground"]["fills"][name].map(func(a): return Vector2i(int(a[0]), int(a[1])))
+	var edge: Array = fill_of.call("dirt_edge")
+	var cobble: Array = fill_of.call("cobble")
+	var worn: Array = fill_of.call("dirt_worn")
+	for c in [Vector2i(0, 0), Vector2i(1, 1), Vector2i(41, 0), Vector2i(40, 17), Vector2i(0, 17)]:
+		assert_true(ground.get_cell_atlas_coords(c) in cobble, "a cobbled 2 x 2 corner at %s" % c)
+	for c in [Vector2i(2, 0), Vector2i(20, 0), Vector2i(39, 17), Vector2i(0, 2), Vector2i(0, 9), Vector2i(41, 15)]:
+		assert_true(ground.get_cell_atlas_coords(c) in edge, "the shaded border along the floor's edge at %s" % c)
+	for c in [Vector2i(2, 1), Vector2i(1, 2), Vector2i(40, 9), Vector2i(20, 16)]:
+		assert_true(ground.get_cell_atlas_coords(c) in dirt, "the border is one tile, inside it plain dirt at %s" % c)
+	for c in [Vector2i(14, 8), Vector2i(21, 9), Vector2i(27, 9)]:
+		assert_true(ground.get_cell_atlas_coords(c) in worn, "a trodden pad at %s" % c)
 	assert_eq(ground.get_cell_source_id(Vector2i(-1, 7)), -1, "no ring past the floor: the picture's hoardings sit there")
 	assert_eq(ground.get_cell_source_id(Vector2i(20, 18)), -1, "nor below it")
 	assert_eq((root.get_node("Grass") as TileMapLayer).get_used_cells().size(), 0, "no grass on the stadium")
