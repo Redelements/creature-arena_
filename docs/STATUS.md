@@ -1,7 +1,7 @@
 # Status: handoff snapshot
 
-Stamped: 2026-10-27 02:48 UTC
-Branch: proof/32px-szadi @ fec7a26
+Stamped: 2026-10-27 02:51 UTC
+Branch: proof/32px-szadi @ a5f9705
 Trigger: phase
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
@@ -74,7 +74,8 @@ on the Greenhouse are hard to see at play zoom; Cerebro's surge sigil hides unde
 Open from the plan: Keeps causeway sides (needs an east-west bridge cut), gate portals and
 towers, Caravan market booths and adobe walls, stand-side props (all wait on the margin
 ruling); the Quarry tan pit face unchecked on screen; animations still on process time.
-Szadi: Kevin to post the public-repo question (kiddolink said yes 26 Oct).
+Pushed 26 Oct on Kevin's word: PR #232 (https://github.com/Redelements/creature-arena_/pull/232), CI
+building; Kevin merges after playtest. Szadi's licence text judged sufficient by Kevin.
 
 ## Files touched this session
 
