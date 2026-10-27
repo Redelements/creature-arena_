@@ -19,10 +19,8 @@
 			{"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png", "tile": [24, 2]}
 		]
 	},
-	"overlay": {
-		"cliff": {"src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "x": 552, "rows": {"wall_top": [36, 52], "wall_mid": [72, 88], "wall_bottom": [104, 120]}},
-		"floor": {"src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "box": [200, 584, 216, 600]}
-	},
+	"overlay": {"_doc": "the pits' far wall: a seamless cliff face from the matching pack; the lip and the cracks: the floor's own fill (tools/cut_tiles.py cut_overlay)",
+		"face": {"src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "box": [64, 150, 96, 198]}, "lip": "paving"},
 	"decor": {
 		"reeds": {"src": "RPGW_Wetland_v1.1/_PNG/Dec_props2.png", "box": [128, 896, 192, 960], "feet": [32, 58]},
 		"reeds_small": {"src": "RPGW_Wetland_v1.1/_PNG/Dec_props2.png", "box": [192, 896, 256, 960], "feet": [32, 58]},

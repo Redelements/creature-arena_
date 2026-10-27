@@ -147,35 +147,8 @@
 			}
 		]
 	},
-	"overlay": {
-		"cliff": {
-			"src": "RPGW_GrassLand_v2.01/MainLev_autotiling.png",
-			"x": 40,
-			"rows": {
-				"wall_top": [
-					100,
-					116
-				],
-				"wall_mid": [
-					136,
-					152
-				],
-				"wall_bottom": [
-					164,
-					180
-				]
-			}
-		},
-		"floor": {
-			"src": "RPGW_GrassLand_v2.01/MainLev2.0.png",
-			"box": [
-				8,
-				596,
-				24,
-				612
-			]
-		}
-	},
+	"overlay": {"_doc": "the pits' far wall: a seamless cliff face from the matching pack; the lip and the cracks: the floor's own fill (tools/cut_tiles.py cut_overlay)",
+		"face": {"src": "RPGW_GrassLand_v2.01/MainLev2.0.png", "box": [160, 186, 192, 214]}, "lip": "turf"},
 	"decor": {
 		"pot_tall": {
 			"src": "RPGW_DecorativeProps_v1.0/propsA.png",

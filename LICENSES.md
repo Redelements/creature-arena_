@@ -53,8 +53,8 @@ snapped to the game's palette):
 
 - `assets/tiles/set1_ground.png`, `assets/tiles/set1_pieces.png`,
   `assets/tiles/set1_overlay.png`: ground (dirt, grass, cobbles, water), piece (boulders,
-  tall grass) and crack / pit tiles cut from Set 1 (the overlay mixes Set 1 cliff strips with
-  generated cracks).
+  tall grass) and crack / pit tiles cut from Set 1 (the overlay: a Set 1 `hills2.png` cliff
+  face as the pit walls, with generated edges and cracks).
 - `assets/tiles/set1_decor_*.png` (trees, a bush) and `assets/tiles/set1_anim_waterfall.png`.
 - `assets/tiles/set1_manifest.json`: where the cuts landed.
 - `assets/tiles/set1_*.tres`: the Godot TileSets `tools/build_tiles.gd` makes from them.
@@ -66,8 +66,8 @@ Set 1, cut by `tools/cut_tiles.py` from `tools/tile_recipes/rock.json` for the Q
 - `assets/tiles/rock_ground.png`: the sandstone scree and darker rock fills (Mountains), the
   dirt and cobble fills (Set 1).
 - `assets/tiles/rock_pieces.png`: boulders and tall grass (Set 1).
-- `assets/tiles/rock_overlay.png`: pit walls cut from the Mountains cliff faces and its cave
-  mouth, with generated cracks and edges.
+- `assets/tiles/rock_overlay.png`: pit walls cut from a Mountains cliff face, with generated
+  cracks and edges.
 - `assets/tiles/rock_manifest.json`, `assets/tiles/rock_ground.tres`,
   `assets/tiles/rock_overlay.tres`, `assets/arenas/quarry.tscn`.
 
@@ -76,7 +76,7 @@ Twin Keeps (the Capture the Flag map; cut by `tools/cut_tiles.py` from
 
 - `assets/tiles/keeps_ground.png`, `assets/tiles/keeps_pieces.png`,
   `assets/tiles/keeps_overlay.png`: from Set 1 (grass and water blobs and fills, cobbles,
-  boulders, tall grass, the cliff strips), from **RPG Buildings Castle**
+  boulders, tall grass, the `hills2.png` cliff face), from **RPG Buildings Castle**
   (`RPG_Buildings_CASTLE_v1.0`, the same licence: the keeps' battlement and tower wall
   tiles) and from **RPG Worlds Decorative Props** (`RPGW_DecorativeProps_v1.0`, the same
   licence: the fence tiles).
@@ -95,8 +95,8 @@ Props** (`RPGW_DecorativeProps_v1.0`), both in the same bundle, with Set 1 (cut 
   strips) composed into fence line tiles.
 - `assets/tiles/grassland_bush_green.png`: round leafy clumps cut from the Wetland tree's
   canopy (`RPGW_Wetland_v1.1`, `tree2A.png`, its five sway frames) for the brush beds.
-- `assets/tiles/grassland_overlay.png`: GrassLand cliff strips and a cave dark for the pit
-  walls and floor, with generated cracks and edges.
+- `assets/tiles/grassland_overlay.png`: a GrassLand cliff face for the pit walls, with
+  generated cracks and edges.
 - `assets/tiles/grassland_decor_*.png`: Decorative Props pots, barrels and crates, Set 1's
   birch and bush.
 - `assets/tiles/grassland_manifest.json`, `assets/tiles/grassland_*.tres` and
@@ -110,7 +110,7 @@ by `tools/cut_tiles.py` from `tools/tile_recipes/wetland.json` for the Floodgate
 - `assets/tiles/wetland_surface_water.png`: Set 1's translucent animated water surface, as a
   strip of 16 frames.
 - `assets/tiles/wetland_pieces.png` (Set 1 boulders), `assets/tiles/wetland_overlay.png`
-  (Wetland's stone face as the pit walls, its cave dark as the pit floor, generated cracks).
+  (Wetland's stone face as the pit walls, generated cracks and edges).
 - `assets/tiles/wetland_decor_reeds.png`, `wetland_decor_reeds_small.png`,
   `wetland_decor_post.png` (Wetland's reeds and a post).
 - `assets/tiles/wetland_manifest.json`, `assets/tiles/wetland_ground.tres`,

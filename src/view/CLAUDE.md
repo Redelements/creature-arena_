@@ -28,13 +28,15 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
 - Tiled arenas (`ArenaView` "tiled maps", `tiled()`): a map with `assets/arenas/<id>.tscn`
   (built by `tools/build_tiles.gd` from its JSON `tiles` block and pieces) draws no baked
   picture: the scene (TileMapLayers Ground, Grass, Pieces, 32 px tiles) sits under the floor
-  at half scale, and the breaking ground is two TileMapLayers of 16 px tiles, `_overlay`
-  (a crack, or a pit's far wall / floor by depth: `overlay_tile`) and `_edges` (the floor's
-  edge down a pit's sides and its near rim: `edge_tile`), set per changed row in
+  at half scale, and the breaking ground is three TileMapLayers of 16 px tiles, `_overlay`
+  (a crack joined to some broken neighbours by `_crack_link`, or a pit's far wall / floor by
+  depth in two column phases: `overlay_tile`), `_edges` (shade down a pit's sides and its
+  near rim: `edge_tile`) and `_corners` (`corner_tile`), set per changed row in
   `_retile` from `_find_changes`; a smashed wall's boulder and flattened brush's tuft are
   cleared from the scene's Pieces layer until they heal (`_sync_pieces`). The floor, marks
-  and pit bands paint nothing on such a map; the running cracks, closing pits and dust
-  still draw over it. Ids and the artist's layers: `assets/README.md`; `tests/test_tiles.gd`.
+  and pit bands paint nothing on such a map, and it drops the baked picture's cracked art
+  and crack mask (no running cracks, no closing rims: `_paint_over` is off), or the old
+  map's cracks showed through as a second style; dust still draws over it. Ids and the artist's layers: `assets/README.md`; `tests/test_tiles.gd`.
 - Move effects as hand-drawn frames (`MoveFx` resources, `assets/vfx/<name>.tres`, built by
   `tools/build_vfx.gd` from `tools/cut_vfx.py`'s cuts of kiddolink's pack at ppu 2): a move
   names them in one line, `fx.move_fx` (a path or a list). `MoveFxView` (a child of `FxView`,

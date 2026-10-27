@@ -49,9 +49,11 @@ packs dir; "tile" positions are [column, row] of 32 px tiles in the source sheet
                            kind; "fit" shrinks a bigger prop by a whole factor to one tile.
                            Kinds the scene builder knows: boulder (walls), tuft + sprig
                            (brush), fence_h / fence_v (fences, by the rect's longer side)
-  overlay.cliff            {"src", "x", "rows": {"wall_top": [y0, y1], "wall_mid": ..,
-                           "wall_bottom": ..}}  16 px strips of a cliff face for the pit walls
-  overlay.floor            {"src", "box": [x0, y0, x1, y1]}  a 16 px dark for the pit floor
+  overlay.face             {"src", "box": [x0, y0, x0 + 32, y1]}  a seamless cliff face from
+                           the matching pack (no outline: from inside a long run; any height,
+                           rows wrap): the pits' far wall, fading into the dark
+  overlay.lip              a ground fill name: the cracks are drawn in its colours (the pits'
+                           edges are translucent, so they match any floor)
   decor.<name>             {"src", "box": [x0, y0, x1, y1], "feet": [x, y]}  feet in the box
   anim.<name>              {"src", "frame": [w, h], "frames": n, "fps": f, "feet": [x, y],
                            "row": 0}
@@ -68,8 +70,8 @@ packs dir; "tile" positions are [column, row] of 32 px tiles in the source sheet
 
 About the sources this was built on: Szadi art's blob terrains are 16-tile side-matched
 sets (the corner notches are art, not inner-corner tiles: Godot terrain mode MATCH_SIDES).
-hills2.png draws its cliff ledge 16 px down the tile, which is why the pit walls are cut as
-16 px strips at the rows the rim and the rock face occupy, never as 32 px tiles.
+The pits are composed per 16 px cell (cut_overlay): a cliff face cut from the inside of a long
+run never carries the sheet's outline, and the lip is the map's own floor, so a pit matches it.
 """
 import json
 import os
@@ -105,16 +107,23 @@ BLOB9_SIDES = {
 }
 
 # Overlay tile ids: index = column + 8 * row in the 16 px atlas. Keep in step with
-# ArenaView.OV_* and assets/README.md.
+# ArenaView.OV_* and assets/README.md. Ids never move; new ones go on the end.
 OVERLAY = {
     "crack": [0, 1, 2, 3],
     "wall_top": 8, "wall_mid": 9, "wall_bottom": 10, "floor": 11,
     "chasm_top": 12, "chasm_mid": 13, "chasm_bottom": 14, "chasm_floor": 15,
     "edge_l": 16, "edge_r": 17, "edge_lr": 18,
     "rim": 19, "rim_l": 20, "rim_r": 21, "rim_lr": 22,
+    # the pit tiles' second phase (odd columns): id + 16
+    "wall_b": [24, 25, 26, 27], "chasm_b": [28, 29, 30, 31],
+    # a crack by the sides it runs out of (32 + 1 left, 2 right, 4 top, 8 bottom)
+    "crack_join": list(range(32, 48)),
+    # a pit's corner round a diagonal solid cell (48 + 1 top left, 2 top right, 4 bottom
+    # left, 8 bottom right; 48 itself is empty)
+    "corner": list(range(48, 64)),
 }
 OVERLAY_COLS = 8
-OVERLAY_ROWS = 3
+OVERLAY_ROWS = 8
 
 
 class Cutter:
@@ -283,67 +292,218 @@ def cut_pieces(cut, set_name, p):
     return man
 
 
-def _crack(rng, k):
-    """A placeholder crack for one cell: a dark fork on clear. The artist's tiles replace
-    these (assets/README.md)."""
+def _rgb(img):
+    return np.array(img.convert("RGBA")).astype(float)[:, :, :3]
+
+
+def _lerp(a, b, f):
+    return a + (b - a) * f
+
+
+# The pit, cell by cell, as one picture 16 px a row deep: LIP clear rows on top (the real
+# floor shows through, whatever patch the pit opened in), its broken edge lit (a translucent
+# LIT row), an undercut row under it, then the cliff face fading into the dark until
+# FACE_END, where the hole's floor is all that shows.
+LIP = 3
+FACE_END = 42
+DARK = np.array([12.0, 9.0, 10.0])        # the pit's dark (ECave's hole floor is 10, 9, 9)
+DARK_CHASM = np.array([7.0, 8.0, 20.0])   # a chasm's: colder
+LIT = (255, 246, 226)                     # the light on a broken edge, as a translucent wash
+
+
+def _pit_pixel_rows(face, chasm):
+    """The pit's 64 rows x 32 columns RGBA (four cells deep, two cells wide: the tile
+    phases): rows 0..47 the far wall (wall_top, wall_mid, wall_bottom), 48..63 the floor."""
+    h = face.shape[0]
+    dark = DARK_CHASM if chasm else DARK
+    if chasm:
+        face = face * np.array([0.84, 0.88, 1.0]) + np.array([0.0, 4.0, 16.0])
+    out = np.zeros((64, 32, 4))
+    out[:, :, 3] = 255
+    for y in range(64):
+        if y < LIP - 1:
+            out[y] = 0  # the floor itself
+            continue
+        if y == LIP - 1:
+            out[y] = (*LIT, 96)  # the broken edge catching the light
+            continue
+        if y == LIP:
+            row = _lerp(dark, face[0], 0.18)  # the undercut under the lip
+        elif y < FACE_END:
+            k = (y - LIP - 1) / float(FACE_END - LIP - 1)
+            f = 0.8 - 0.7 * k ** 0.8
+            row = _lerp(dark, face[(y - LIP - 1) % h], f)
+        else:
+            row = _lerp(dark, face[(y + 7) % h], 0.06)  # the hole's floor: near black, a grain
+        out[y, :, :3] = row
+    return np.clip(out, 0, 255).astype(np.uint8)
+
+
+def _rgba(rgb, alpha=255):
+    a = np.zeros(rgb.shape[:-1] + (4,), np.uint8)
+    a[..., :3] = np.clip(rgb, 0, 255).astype(np.uint8)
+    a[..., 3] = alpha
+    return a
+
+
+SIDE_L = (190, 120, 60, 25)   # the shade down a pit's left side, column by column inward
+SIDE_R = (210, 140, 75, 30)  # the right side is further from the light
+RIM = (60, 140, 70)          # the near rim, bottom row up: the floor's lit lip, then shade
+
+
+def _wash(a, ys, xs, rgb, al):
+    """Lays a translucent colour over what is already in a[ys, xs] (over-compositing)."""
+    blk = a[ys, xs].astype(float)
+    src = np.array([*rgb, al], float)
+    sa = src[3] / 255.0
+    da = blk[..., 3:4] / 255.0
+    oa = sa + da * (1 - sa)
+    rgbo = (src[:3] * sa + blk[..., :3] * da * (1 - sa)) / np.maximum(oa, 1e-6)
+    blk[..., :3] = rgbo
+    blk[..., 3:4] = oa * 255
+    a[ys, xs] = np.clip(blk, 0, 255).astype(np.uint8)
+
+
+def _edge_tile(left, right, rim, rows=slice(0, C), cols=None):
+    """The floor's edge round a pit, drawn over any depth of it and any floor round it: a
+    shade cast down the left and right sides, and on the near rim (floor below) the floor's
+    lip catching the light on the bottom row with a shade above. All translucent: the pit
+    tile under it shows through."""
     a = np.zeros((C, C, 4), np.uint8)
-    ink = tuple(int(v) for v in P.INKS["umber"])
-    x, y = rng.integers(3, 13), 0
-    pts = [(x, y)]
-    while y < C - 1:
-        y += 1
-        x = int(np.clip(x + rng.integers(-1, 2), 1, C - 2))
-        pts.append((x, y))
-    if k % 2 == 0:
-        bx, by = pts[C // 2]
-        for i in range(1, 6):
-            pts.append((int(np.clip(bx + (i if k % 4 == 0 else -i), 0, C - 1)), int(np.clip(by + i // 2, 0, C - 1))))
-    for (px, py) in pts:
-        a[py, px] = (*ink, 170)
-        if px + 1 < C:
-            a[py, px + 1] = (*ink, 70)
-    return Image.fromarray(a, "RGBA")
-
-
-def _tint(img, mul, add=(0, 0, 0)):
-    arr = np.array(img).astype(float)
-    arr[:, :, :3] = np.clip(arr[:, :, :3] * mul + np.array(add), 0, 255)
-    return Image.fromarray(arr.astype(np.uint8), "RGBA")
-
-
-def _edge_tile(left, right, rim):
-    a = np.zeros((C, C, 4), np.uint8)
-    dark = (14, 10, 12)
+    dark = tuple(int(v) for v in DARK)
     if left:
-        a[:, 0:2] = (*dark, 200)
-        a[:, 2] = (*dark, 90)
+        for x, al in enumerate(SIDE_L):
+            _wash(a, rows, slice(x, x + 1), dark, al)
     if right:
-        a[:, C - 2:C] = (*dark, 200)
-        a[:, C - 3] = (*dark, 90)
+        for x, al in enumerate(SIDE_R):
+            _wash(a, rows, slice(C - 1 - x, C - x), dark, al)
     if rim:
-        a[C - 3:C - 1, :] = (*dark, 150)
-        a[C - 1, :] = (90, 70, 50, 220)
-    return Image.fromarray(a, "RGBA")
+        cs = cols if cols is not None else slice(0, C)
+        _wash(a, slice(C - 3, C - 2), cs, dark, RIM[2])
+        _wash(a, slice(C - 2, C - 1), cs, dark, RIM[1])
+        _wash(a, slice(C - 1, C), cs, LIT, RIM[0])
+    return a
 
 
-def cut_overlay(cut, set_name, o):
-    out = Image.new("RGBA", (OVERLAY_COLS * C, OVERLAY_ROWS * C), (0, 0, 0, 0))
-    rng = np.random.default_rng(7)
+def _corner_tile(mask):
+    """Where a pit turns round a solid cell diagonal to it (both sides between them open):
+    the side's shade (top corners) or the near rim (bottom corners) carried round the turn,
+    so the edges meet. mask: 1 top left, 2 top right, 4 bottom left, 8 bottom right."""
+    a = np.zeros((C, C, 4), np.uint8)
+    dark = tuple(int(v) for v in DARK)
+    for bit, side in ((1, "l"), (2, "r")):
+        if mask & bit:
+            al = SIDE_L if side == "l" else SIDE_R
+            for x, v in enumerate(al):
+                xs = slice(x, x + 1) if side == "l" else slice(C - 1 - x, C - x)
+                _wash(a, slice(0, 4), xs, dark, v)
+    for bit, xs in ((4, slice(0, 4)), (8, slice(C - 4, C))):
+        if mask & bit:
+            b = _edge_tile(False, False, True, cols=xs)
+            m = b[..., 3] > 0
+            a[m] = b[m]
+    return a
 
-    def put(i, img):
-        out.paste(img, ((i % OVERLAY_COLS) * C, (i // OVERLAY_COLS) * C))
 
-    for k, i in enumerate(OVERLAY["crack"]):
-        put(i, _crack(rng, k))
-    cliff = o["cliff"]
-    for name in ("wall_top", "wall_mid", "wall_bottom"):
-        y0, y1 = cliff["rows"][name]
-        s = cut.load(cliff["src"]).crop((int(cliff["x"]), y0, int(cliff["x"]) + C, y1))
-        put(OVERLAY[name], s)
-        put(OVERLAY["chasm_" + name[5:]], _tint(s, 0.62, (0, 6, 22)))
-    fl = cut.box(o["floor"]["src"], o["floor"]["box"]).resize((C, C))
-    put(OVERLAY["floor"], _tint(fl, 0.55, (6, 2, 0)))
-    put(OVERLAY["chasm_floor"], _tint(fl, 0.55, (0, 4, 14)))
+def _crack_inks(lip):
+    """A crack's dark, a mid shade and its lit lower edge, from the floor's own colours."""
+    px = lip.reshape(-1, 3)
+    lum = px @ np.array([0.3, 0.55, 0.15])
+    order = np.argsort(lum)
+    dark = px[order[: max(1, len(order) // 20)]].mean(0) * 0.42
+    mid = px[order[len(order) // 10]] * 0.68
+    light = np.minimum(px[order[int(len(order) * 0.85)]] * 1.12, 255)
+    return dark, mid, light
+
+
+# Where a crack leaves a cell to join its neighbour's: the middle of each side.
+JOIN_END = {1: (0, 7), 2: (C - 1, 7), 4: (7, 0), 8: (7, C - 1)}
+
+
+def _walk(rng, a, b):
+    """A jagged one-pixel path from a to b (a crack's run), always arriving."""
+    (x, y), (tx, ty) = a, b
+    pts = [(x, y)]
+    while (x, y) != (tx, ty):
+        dx, dy = tx - x, ty - y
+        if abs(dx) >= abs(dy):
+            x += int(np.sign(dx))
+            if dy and (abs(dy) >= abs(dx) or rng.random() < 0.45):
+                y += int(np.sign(dy))
+            elif rng.random() < 0.3 and abs(dx) > 2:
+                y += int(rng.choice([-1, 1]))
+        else:
+            y += int(np.sign(dy))
+            if dx and (abs(dx) >= abs(dy) or rng.random() < 0.45):
+                x += int(np.sign(dx))
+            elif rng.random() < 0.3 and abs(dy) > 2:
+                x += int(rng.choice([-1, 1]))
+        x, y = int(np.clip(x, 0, C - 1)), int(np.clip(y, 0, C - 1))
+        pts.append((x, y))
+    return pts
+
+
+def _crack_tile(lip, seed, joins):
+    """A crack in one cell, in the floor's colours: from near the cell's middle out to the
+    middle of each side in `joins` (1 left, 2 right, 4 top, 8 bottom: where a cracked or
+    open neighbour is, so the cracks run on cell to cell), or, alone, a small star of two or
+    three short arms. Dark, with a lit pixel under each run (the light is from the top)."""
+    rng = np.random.default_rng(seed)
+    dark, mid, light = _crack_inks(lip)
+    cx, cy = 7 + int(rng.integers(-1, 2)), 7 + int(rng.integers(-1, 2))
+    runs = []
+    if joins:
+        for bit, end in JOIN_END.items():
+            if joins & bit:
+                runs.append(_walk(rng, (cx, cy), end))
+        if bin(joins).count("1") == 1:  # a dead end: a short spur the other way
+            ang = rng.uniform(0, 2 * np.pi)
+            runs.append(_walk(rng, (cx, cy), (int(np.clip(cx + round(3 * np.cos(ang)), 2, 13)),
+                                              int(np.clip(cy + round(3 * np.sin(ang)), 2, 13)))))
+    else:
+        arms = 2 + seed % 2
+        base = rng.uniform(0, 2 * np.pi)
+        for k in range(arms):
+            ang = base + k * (2 * np.pi / arms) + rng.uniform(-0.5, 0.5)
+            ln = 3 + int(rng.integers(0, 3))
+            runs.append(_walk(rng, (cx, cy), (int(np.clip(cx + round(ln * np.cos(ang)), 1, 14)),
+                                              int(np.clip(cy + round(ln * np.sin(ang)), 1, 14)))))
+    a = np.zeros((C, C, 4), np.uint8)
+    darkset = set(p for r in runs for p in r)
+    for (x, y) in darkset:
+        a[y, x] = _rgba(dark)
+    for (x, y) in sorted(darkset):
+        if y + 1 < C and (x, y + 1) not in darkset:
+            a[y + 1, x] = _rgba(light)
+        if x + 1 < C and (x + 1, y) not in darkset and a[y, x + 1, 3] == 0:
+            a[y, x + 1] = _rgba(mid)  # the crack's shaded far side: two px wide
+    return a
+
+
+def cut_overlay(cut, set_name, o, ground):
+    """The breaking ground, 16 px a cell (ids in OVERLAY): recipe overlay.face (a seamless
+    cliff face 32 px wide from the matching pack: the pit's far wall), overlay.lip (the
+    ground fill whose colours the cracks take). The pit's edges are clear or translucent
+    over the floor, so a pit that opens in a patch of another fill still matches it.
+    Pit tiles come in two phases (the left and right halves of the 32 px face), picked by
+    the cell's column, so a wall reads as the pack's face and not one strip repeated."""
+    out = np.zeros((OVERLAY_ROWS * C, OVERLAY_COLS * C, 4), np.uint8)
+
+    def put(i, arr):
+        x, y = (i % OVERLAY_COLS) * C, (i // OVERLAY_COLS) * C
+        out[y:y + C, x:x + C] = arr
+
+    fill = ground["fills"][o["lip"]]
+    bx, by = fill["block"]
+    lip = _rgb(tinted(cut.tile(fill["src"], bx, by), fill))
+    face = _rgb(cut.box(o["face"]["src"], o["face"]["box"]))
+    assert face.shape[1] == 2 * C, "overlay.face is 32 px wide (two cells)"
+    names = (("wall_top", "wall_mid", "wall_bottom", "floor"), ("chasm_top", "chasm_mid", "chasm_bottom", "chasm_floor"))
+    for chasm in (False, True):
+        rows = _pit_pixel_rows(face, chasm)
+        for d in range(4):
+            put(OVERLAY[names[chasm][d]], rows[d * C:(d + 1) * C, 0:C])
+            put(OVERLAY["chasm_b" if chasm else "wall_b"][d], rows[d * C:(d + 1) * C, C:2 * C])
     put(OVERLAY["edge_l"], _edge_tile(True, False, False))
     put(OVERLAY["edge_r"], _edge_tile(False, True, False))
     put(OVERLAY["edge_lr"], _edge_tile(True, True, False))
@@ -351,7 +511,13 @@ def cut_overlay(cut, set_name, o):
     put(OVERLAY["rim_l"], _edge_tile(True, False, True))
     put(OVERLAY["rim_r"], _edge_tile(False, True, True))
     put(OVERLAY["rim_lr"], _edge_tile(True, True, True))
-    save(out, set_name + "_overlay.png")
+    for mask, i in enumerate(OVERLAY["corner"]):
+        put(i, _corner_tile(mask))
+    for k, i in enumerate(OVERLAY["crack"]):
+        put(i, _crack_tile(lip, 11 + k, 0))
+    for joins, i in enumerate(OVERLAY["crack_join"]):
+        put(i, _crack_tile(lip, 101 + joins, joins))
+    save(Image.fromarray(out, "RGBA"), set_name + "_overlay.png", translucent=True)
     return {"source": set_name + "_overlay.png", "tile": C, "columns": OVERLAY_COLS, "ids": OVERLAY}
 
 
@@ -597,7 +763,7 @@ def main(packs, set_name):
         "set": set_name,
         "ground": cut_ground(cut, set_name, recipe.get("ground", {})),
         "pieces": cut_pieces(cut, set_name, recipe.get("pieces", {})),
-        "overlay": cut_overlay(cut, set_name, recipe["overlay"]),
+        "overlay": cut_overlay(cut, set_name, recipe["overlay"], recipe.get("ground", {})),
         "decor": cut_decor(cut, set_name, recipe.get("decor", {})),
         "anim": cut_anim(cut, set_name, recipe.get("anim", {})),
         "bushes": cut_bushes(cut, set_name, recipe.get("bushes", {})),

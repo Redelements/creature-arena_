@@ -3,9 +3,12 @@ extends TestCase
 ## covers every side combination of each blob terrain, the TileSet built from it matches by
 ## sides with the same bits and autotiles a patch, the Stadium's scene has its ground and
 ## kerb, and ArenaView draws the breaking ground over it as overlay tiles: a crack per
-## cracked cell, a pit's far wall and floor by depth with the floor's edge down its sides and
-## along its near rim, a piece gone while its cells are broken, all erased when the floor
-## heals. The court lines stay on the Stadium (`tiles.markings`).
+## cracked cell (running on into its cracked or open neighbours across some sides), a pit's
+## far wall and floor by depth (two phases by column) with the floor's edge down its sides,
+## along its near rim and round its corners, a piece gone while its cells are broken, all
+## erased when the floor heals. Every set's overlay atlas keeps the rules the renderer relies
+## on (a pit's top rows clear, edges translucent, cracks reaching the sides they join). The
+## court lines stay on the Stadium (`tiles.markings`).
 
 const MANIFEST := "res://assets/tiles/set1_manifest.json"
 const GROUND := "res://assets/tiles/set1_ground.tres"
@@ -61,6 +64,12 @@ func test_the_cut_covers_every_side_combination_once() -> void:
 	assert_eq(int(ids["edge_lr"]), ArenaView.OV_EDGE_LR)
 	assert_eq(int(ids["rim"]), ArenaView.OV_RIM)
 	assert_eq(int(ids["rim_lr"]), ArenaView.OV_RIM + 3)
+	assert_eq(int(ids["wall_b"][0]), ArenaView.OV_WALL_TOP + ArenaView.OV_PHASE_B, "the second phase sits OV_PHASE_B on")
+	assert_eq(int(ids["chasm_b"][3]), ArenaView.OV_CHASM_TOP + 3 + ArenaView.OV_PHASE_B)
+	assert_eq(int(ids["crack_join"][0]), ArenaView.OV_CRACK_JOIN)
+	assert_eq(ids["crack_join"].size(), 16, "a joined crack for every set of sides")
+	assert_eq(int(ids["corner"][0]), ArenaView.OV_CORNER)
+	assert_eq(ids["corner"].size(), 16)
 	assert_eq(int(man["overlay"]["columns"]), ArenaView.OV_COLS)
 	assert_eq(int(man["ground"]["tile"]), ArtScale.TILE_PX, "a ground tile is the 32 px tile")
 	assert_eq(int(man["overlay"]["tile"]), ArtScale.CELL_PX, "an overlay tile is one cell")
@@ -95,7 +104,8 @@ func test_the_ground_tileset_matches_by_sides_with_the_cut_bits() -> void:
 	assert_true(pieces != null and pieces.get_tiles_count() == 10, "source 1: four boulders, three tufts, three sprigs")
 	var ov: TileSet = load(OVERLAY)
 	assert_eq(ov.tile_size, Vector2i(16, 16), "overlay tiles are one cell")
-	assert_eq((ov.get_source(0) as TileSetAtlasSource).get_tiles_count(), 19, "19 overlay ids: 4 cracks, 8 pit tiles, 7 edges")
+	assert_eq((ov.get_source(0) as TileSetAtlasSource).get_tiles_count(), 59,
+		"59 overlay ids: 4 cracks, 16 joined cracks, 8 + 8 pit tiles, 7 edges, 16 corners")
 
 
 func test_a_patch_autotiles_by_its_neighbours() -> void:
@@ -152,6 +162,14 @@ func test_overlay_and_edge_tiles_follow_depth_and_neighbours() -> void:
 	assert_eq(ArenaView.edge_tile(false, true, false), ArenaView.OV_RIM + 1)
 	assert_eq(ArenaView.edge_tile(true, false, false), ArenaView.OV_RIM + 2)
 	assert_eq(ArenaView.edge_tile(false, false, false), ArenaView.OV_RIM + 3)
+	assert_eq(ArenaView.overlay_tile(TerrainGrid.HOLE, 1, false, 0, true), ArenaView.OV_WALL_MID + ArenaView.OV_PHASE_B, "an odd column: the face's other half")
+	assert_eq(ArenaView.overlay_tile(TerrainGrid.CHASM, 3, true, 0, true), ArenaView.OV_CHASM_TOP + 3 + ArenaView.OV_PHASE_B)
+	assert_eq(ArenaView.overlay_tile(TerrainGrid.CRACKED, 0, false, 5, true), ArenaView.OV_CRACK[1], "a crack has no phase")
+	assert_eq(ArenaView.overlay_tile(TerrainGrid.CRACKED, 0, false, 5, false, 2 | 8), ArenaView.OV_CRACK_JOIN + 10, "a crack running out right and down")
+	assert_true(ArenaView.is_crack(ArenaView.OV_CRACK_JOIN + 15) and ArenaView.is_crack(ArenaView.OV_CRACK[3]))
+	assert_false(ArenaView.is_crack(ArenaView.OV_WALL_TOP) or ArenaView.is_crack(ArenaView.OV_CORNER + 1))
+	assert_eq(ArenaView.corner_tile(false, false, false, false), -1, "no turn: no corner")
+	assert_eq(ArenaView.corner_tile(true, false, false, true), ArenaView.OV_CORNER + 9)
 
 
 func test_the_breaking_ground_sets_overlay_cells() -> void:
@@ -160,14 +178,14 @@ func test_the_breaking_ground_sets_overlay_cells() -> void:
 	var v: ArenaView = pair[1]
 	assert_true(v.tiled(), "the Stadium draws from tiles")
 	assert_true(v._markings, "and keeps its court lines")
-	assert_true(v._overlay != null and v._edges != null, "the overlay layers exist")
+	assert_true(v._overlay != null and v._edges != null and v._corners != null, "the overlay layers exist")
 	assert_eq(v._overlay.get_used_cells().size(), 0, "nothing broken yet")
 	var t := sim.terrain
 	t.crack_cell(Vector2i(30, 20))
 	v.refresh()
 	assert_true(v._overlay.get_cell_source_id(Vector2i(30, 20)) == 0, "a cracked cell got a tile")
 	var crack := v._overlay.get_cell_atlas_coords(Vector2i(30, 20))
-	assert_true((crack.x + crack.y * ArenaView.OV_COLS) in ArenaView.OV_CRACK, "a crack tile: %s" % crack)
+	assert_true((crack.x + crack.y * ArenaView.OV_COLS) in ArenaView.OV_CRACK, "a crack alone: one of the four: %s" % crack)
 	# a pit one cell wide and four tall: far wall by depth, then the floor; the floor's edge on both sides
 	for cy in range(10, 14):
 		t.set_cell(Vector2i(50, cy), TerrainGrid.HOLE)
@@ -186,6 +204,23 @@ func test_the_breaking_ground_sets_overlay_cells() -> void:
 	v.refresh()
 	var mid := v._edges.get_cell_atlas_coords(Vector2i(50, 13))
 	assert_eq(mid.x + mid.y * ArenaView.OV_COLS, ArenaView.OV_RIM, "a floor below, open to both sides: the rim alone")
+	var odd := v._overlay.get_cell_atlas_coords(Vector2i(51, 13))
+	assert_eq(odd.x + odd.y * ArenaView.OV_COLS, ArenaView.OV_WALL_TOP + ArenaView.OV_PHASE_B, "an odd column takes the face's other half")
+	var turn := v._corners.get_cell_atlas_coords(Vector2i(50, 13))
+	assert_eq(turn.x + turn.y * ArenaView.OV_COLS, ArenaView.OV_CORNER + 3, "the pit turns round the floor above left and above right")
+	assert_eq(v._corners.get_cell_source_id(Vector2i(50, 12)), -1, "a straight side: no corner")
+	# a crack next to the pit and another crack: it may run on into them, never elsewhere
+	t.crack_cell(Vector2i(52, 13))
+	t.crack_cell(Vector2i(53, 13))
+	v.refresh()
+	var cj := v._overlay.get_cell_atlas_coords(Vector2i(52, 13))
+	var cid := cj.x + cj.y * ArenaView.OV_COLS
+	assert_true(ArenaView.is_crack(cid), "a crack by the pit: %d" % cid)
+	if cid >= ArenaView.OV_CRACK_JOIN:
+		assert_eq((cid - ArenaView.OV_CRACK_JOIN) & (4 | 8), 0, "it runs only toward broken cells (left or right here)")
+	assert_eq(v._crack_link(52, 13, 53, 13), v._crack_link(52, 13, 53, 13), "a side's link is fixed")
+	t.set_cell(Vector2i(52, 13), TerrainGrid.INTACT)
+	t.set_cell(Vector2i(53, 13), TerrainGrid.INTACT)
 	# healed: erased
 	t.set_cell(Vector2i(30, 20), TerrainGrid.INTACT)
 	for cy in range(10, 14):
@@ -194,7 +229,61 @@ func test_the_breaking_ground_sets_overlay_cells() -> void:
 	assert_eq(v._overlay.get_cell_source_id(Vector2i(30, 20)), -1, "the crack healed: no tile")
 	assert_eq(v._overlay.get_cell_source_id(Vector2i(50, 10)), -1, "the pit healed: no tile")
 	assert_eq(v._edges.get_cell_source_id(Vector2i(50, 12)), -1, "and no edge")
+	for cx in range(49, 52):
+		t.set_cell(Vector2i(cx, 13), TerrainGrid.INTACT)
+	v.refresh()
+	assert_eq(v._overlay.get_used_cells().size() + v._edges.get_used_cells().size() + v._corners.get_used_cells().size(), 0,
+		"all healed: nothing of the pit or the cracks is left")
 	v.free()
+
+
+## Every set's overlay atlas: a pit tile's top rows are clear on the far wall's top (the floor
+## round the pit shows, whatever patch it opened in) and the rest of every pit tile is solid
+## (no see-through holes, no outline from a source sheet's border: its sides are not black);
+## the edges and corners are translucent (they shade the pit, never paint a floor); a joined
+## crack reaches the middle of each side it joins and no other side.
+func test_every_sets_overlay_atlas_keeps_the_rules() -> void:
+	for set_name in ["set1", "rock", "wetland", "grassland", "desert", "keeps"]:
+		var img := Image.load_from_file(ProjectSettings.globalize_path("res://assets/tiles/%s_overlay.png" % set_name))
+		var tile := func(id: int) -> Image:
+			return img.get_region(Rect2i((id % ArenaView.OV_COLS) * 16, (id / ArenaView.OV_COLS) * 16, 16, 16))
+		for base in [ArenaView.OV_WALL_TOP, ArenaView.OV_CHASM_TOP]:
+			for phase in [0, ArenaView.OV_PHASE_B]:
+				for d in 4:
+					var t: Image = tile.call(base + d + phase)
+					var see := 0
+					var black_side := 0
+					for y in 16:
+						for x in 16:
+							var a := t.get_pixel(x, y).a
+							if d == 0 and y < 2:
+								assert_eq(a, 0.0, "%s %d: the lip's top rows are clear" % [set_name, base + d + phase])
+							elif d > 0 or y > 2:
+								see += 1 if a < 1.0 else 0
+						var lc := t.get_pixel(0, y)
+						if lc.a == 1.0 and lc.r + lc.g + lc.b < 0.02:
+							black_side += 1
+					assert_eq(see, 0, "%s %d: solid below the lip" % [set_name, base + d + phase])
+					assert_lt(black_side, 16, "%s %d: no black outline down its side" % [set_name, base + d + phase])
+		for id in range(ArenaView.OV_EDGE_L, ArenaView.OV_RIM + 4) + range(ArenaView.OV_CORNER + 1, ArenaView.OV_CORNER + 16):
+			var t: Image = tile.call(id)
+			var any := false
+			for y in 16:
+				for x in 16:
+					var a := t.get_pixel(x, y).a
+					assert_true(a < 1.0, "%s %d: edges are translucent (%d, %d)" % [set_name, id, x, y])
+					any = any or a > 0.0
+			assert_true(any, "%s %d: and not empty" % [set_name, id])
+		var ends := {1: Vector2i(0, 7), 2: Vector2i(15, 7), 4: Vector2i(7, 0), 8: Vector2i(7, 15)}
+		for joins in range(1, 16):
+			var t: Image = tile.call(ArenaView.OV_CRACK_JOIN + joins)
+			for bit: int in ends:
+				var e: Vector2i = ends[bit]
+				var hit := t.get_pixelv(e).a > 0.0
+				if joins & bit:
+					assert_true(hit, "%s crack %d reaches side %d" % [set_name, joins, bit])
+		for id in ArenaView.OV_CRACK:
+			assert_false(tile.call(id).is_invisible(), "%s crack %d is drawn" % [set_name, id])
 
 
 func test_a_piece_is_cleared_while_its_cells_are_broken() -> void:

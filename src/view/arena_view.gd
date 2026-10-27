@@ -86,6 +86,11 @@ var arena_id := "":
 			var tset := String(ArenaMap.get_map(v).get("tiles", {}).get("set", "set1")) if v != "" else ""
 			var opath := "res://assets/tiles/%s_overlay.tres" % tset
 			_overlay_set = load(opath) if _scene != null and ResourceLoader.exists(opath) else null
+			if _overlay_set != null:
+				# The overlay tiles draw the cracks and pits; pieces of the old baked picture
+				# (its cracks, its crack mask) would show through as a second style.
+				_art_cracked = null
+				_mask = null
 			_markings = bool(ArenaMap.get_map(v).get("tiles", {}).get("markings", false)) if v != "" else false
 			_rebuild()
 var _art: Texture2D = null
@@ -94,9 +99,10 @@ var _art: Texture2D = null
 ## A map built from ground tiles instead of a baked picture (assets/arenas/<id>.tscn, made by
 ## tools/build_tiles.gd from a cut pack): its scene is instanced under the floor at
 ## 1 / ArtScale.PX_PER_UNIT scale (a 32 px tile is 2 x 2 cells), and the breaking ground is
-## two TileMapLayers of 16 px overlay tiles (one a cell) set from the terrain: `_overlay`
-## carries a cracked cell's crack or a pit cell's far wall / floor by depth, `_edges` the
-## floor's edge down a pit's sides and along its near rim. The ids are the overlay atlas's
+## three TileMapLayers of 16 px overlay tiles (one a cell) set from the terrain: `_overlay`
+## carries a cracked cell's crack (joined to its cracked or open neighbours) or a pit cell's
+## far wall / floor by depth, `_edges` the floor's edge down a pit's sides and along its near
+## rim, `_corners` the bit of lip where a pit turns round a solid diagonal cell. The ids are the overlay atlas's
 ## (assets/tiles/<set>_overlay.png, index = column + 8 * row; assets/README.md names them
 ## for the artist). The scene's "Pieces" layer loses a boulder whose wall is smashed and a
 ## tuft whose brush is flattened, and gets them back when the floor heals; its sprite
@@ -107,6 +113,7 @@ var _markings := false  ## the map's `tiles.markings`: court lines over the tile
 var _tiles: Node2D = null
 var _overlay: TileMapLayer = null
 var _edges: TileMapLayer = null
+var _corners: TileMapLayer = null
 var _piece_cells := {}  ## the scene's pieces as built: tile -> [source, atlas coords]
 const OV_COLS := 8
 const OV_CRACK := [0, 1, 2, 3]
@@ -119,6 +126,9 @@ const OV_EDGE_L := 16
 const OV_EDGE_R := 17
 const OV_EDGE_LR := 18
 const OV_RIM := 19  ## the near rim; + 1 with the left side, + 2 the right, + 3 both
+const OV_PHASE_B := 16  ## a pit tile in an odd column: the right half of the 32 px face
+const OV_CRACK_JOIN := 32  ## + 1 left, 2 right, 4 top, 8 bottom: the sides a crack runs out of
+const OV_CORNER := 48  ## + 1 top left, 2 top right, 4 bottom left, 8 bottom right
 
 
 ## Whether this map draws from ground tiles (no baked picture).
@@ -126,14 +136,29 @@ func tiled() -> bool:
 	return _scene != null
 
 
-## The overlay tile for a cell: a crack (by its hash), a pit's far wall or floor by how
-## many open cells are above it (OV_WALL_TOP .. OV_FLOOR, or the chasm's), -1 for none.
-static func overlay_tile(v: int, depth: int, chasm: bool, hash: int = 0) -> int:
+## The overlay tile for a cell: a crack (running out of the sides in `joins`, 1 left, 2
+## right, 4 top, 8 bottom, where its neighbours are cracked or open; alone, one of four by
+## its hash), a pit's far wall or floor by how many open cells are above it (OV_WALL_TOP ..
+## OV_FLOOR, or the chasm's; an odd column takes the face's other half), -1 for none.
+static func overlay_tile(v: int, depth: int, chasm: bool, hash: int = 0, odd := false, joins := 0) -> int:
 	if v == TerrainGrid.CRACKED:
-		return OV_CRACK[posmod(hash, OV_CRACK.size())]
+		return OV_CRACK_JOIN + joins if joins > 0 else OV_CRACK[posmod(hash, OV_CRACK.size())]
 	if TerrainGrid.is_pit(v):
-		return (OV_CHASM_TOP if chasm else OV_WALL_TOP) + mini(depth, PIT_DEPTH_CELLS)
+		return (OV_CHASM_TOP if chasm else OV_WALL_TOP) + mini(depth, PIT_DEPTH_CELLS) + (OV_PHASE_B if odd else 0)
 	return -1
+
+
+## Whether overlay id `id` is a crack (alone or joined).
+static func is_crack(id: int) -> bool:
+	return id in OV_CRACK or (id > OV_CRACK_JOIN and id < OV_CRACK_JOIN + 16)
+
+
+## The corner tile over a pit cell: a bit of lip at each corner whose diagonal neighbour is
+## solid floor while the two cells between are open (the turn of a pit round a floor's
+## corner, where the side and rim edges would leave a notch), -1 for none.
+static func corner_tile(tl: bool, tr: bool, bl: bool, br: bool) -> int:
+	var m := (1 if tl else 0) | (2 if tr else 0) | (4 if bl else 0) | (8 if br else 0)
+	return OV_CORNER + m if m > 0 else -1
 
 
 ## The edge tile over a pit cell: the floor's edge down its left or right side and along
@@ -160,17 +185,19 @@ func _build_tiles() -> void:
 	if pieces != null:
 		for c in pieces.get_used_cells():
 			_piece_cells[c] = [pieces.get_cell_source_id(c), pieces.get_cell_atlas_coords(c)]
-	for which in 2:
+	for which in 3:
 		var layer := TileMapLayer.new()
-		layer.name = "Overlay" if which == 0 else "Edges"
+		layer.name = ["Overlay", "Edges", "Corners"][which]
 		layer.tile_set = _overlay_set
 		layer.position = _tiles.position
 		layer.scale = _tiles.scale
 		add_child(layer)
 		if which == 0:
 			_overlay = layer
-		else:
+		elif which == 1:
 			_edges = layer
+		else:
+			_corners = layer
 
 
 ## Sets the overlay cells of rows row0..row1-1 from the terrain, and the pieces on them.
@@ -188,9 +215,11 @@ func _retile(row0: int, row1: int) -> void:
 			var pit := _pit_at(cx, cy)
 			var id := -1
 			if pit:
-				id = overlay_tile(v, _pit_depth(cx, cy), v == TerrainGrid.CHASM)
+				id = overlay_tile(v, _pit_depth(cx, cy), v == TerrainGrid.CHASM, 0, cx % 2 == 1)
 			elif v == TerrainGrid.CRACKED:
-				id = overlay_tile(v, 0, false, _h(cx, cy, 3))
+				var joins := (1 if _crack_link(cx - 1, cy, cx, cy) else 0) | (2 if _crack_link(cx, cy, cx + 1, cy) else 0) \
+					| (4 if _crack_link(cx, cy - 1, cx, cy) else 0) | (8 if _crack_link(cx, cy, cx, cy + 1) else 0)
+				id = overlay_tile(v, 0, false, _h(cx, cy, 3), false, joins)
 			if id < 0:
 				_overlay.erase_cell(at)
 			else:
@@ -200,6 +229,18 @@ func _retile(row0: int, row1: int) -> void:
 				_edges.erase_cell(at)
 			else:
 				_edges.set_cell(at, 0, _ov_coords(eid))
+			var kid := -1
+			if pit:
+				var l := _pit_at(cx - 1, cy)
+				var r := _pit_at(cx + 1, cy)
+				var u := _pit_at(cx, cy - 1)
+				var d := _pit_at(cx, cy + 1)
+				kid = corner_tile(l and u and not _pit_at(cx - 1, cy - 1), r and u and not _pit_at(cx + 1, cy - 1),
+					l and d and not _pit_at(cx - 1, cy + 1), r and d and not _pit_at(cx + 1, cy + 1))
+			if kid < 0:
+				_corners.erase_cell(at)
+			else:
+				_corners.set_cell(at, 0, _ov_coords(kid))
 		if pieces != null and cy % per == 0:
 			_sync_pieces(pieces, cy / per)
 	_sync_sprites(row0, row1)
@@ -374,7 +415,7 @@ const SPREAD_FRAMES := 4
 ## Starts the drawing over: a new terrain, map art or ground.
 func _rebuild() -> void:
 	queue_redraw()
-	var old: Array = [_marks, _under, _over, _dust, _tiles, _overlay, _edges]
+	var old: Array = [_marks, _under, _over, _dust, _tiles, _overlay, _edges, _corners]
 	old.append_array(_floor_bands)
 	old.append_array(_pit_bands)
 	for b in old:
@@ -393,6 +434,7 @@ func _rebuild() -> void:
 	_tiles = null
 	_overlay = null
 	_edges = null
+	_corners = null
 	_grow.clear()
 	_settle.clear()
 	_motes.clear()
@@ -417,6 +459,7 @@ func _rebuild() -> void:
 		# the breaking ground as tiles, where the pit bands would be
 		move_child(_overlay, get_child_count() - 1)
 		move_child(_edges, get_child_count() - 1)
+		move_child(_corners, get_child_count() - 1)
 	for k in bands:
 		_pit_bands.append(_band(_paint_pit_band, k))
 	_over = _band(_paint_over, 0)
@@ -955,6 +998,23 @@ func _pit_at(cx: int, cy: int) -> bool:
 	return TerrainGrid.is_pit(terrain.cells[cy * terrain.cols + cx]) and not _bridge_gone(cx, cy)
 
 
+## Whether cell (cx, cy) is cracked or open: a crack can run on into it.
+func _broken_at(cx: int, cy: int) -> bool:
+	if cx < 0 or cy < 0 or cx >= terrain.cols or cy >= terrain.rows:
+		return false
+	return terrain.cells[cy * terrain.cols + cx] == TerrainGrid.CRACKED or _pit_at(cx, cy)
+
+
+## Whether a crack runs across the side between cells a and b (b right of or below a): both
+## broken, and the side's own hash says so (CRACK_LINK in 100), the same seen from either
+## cell. Every side of a cracked patch linked would draw a net; a few read as fissures.
+func _crack_link(ax: int, ay: int, bx: int, by: int) -> bool:
+	if not (_broken_at(ax, ay) and _broken_at(bx, by)):
+		return false
+	return _h(ax, ay, 5 if bx > ax else 6) % 100 < CRACK_LINK
+const CRACK_LINK := 34
+
+
 ## How many open cells there are straight above (0: the far wall is this cell's).
 func _pit_depth(cx: int, cy: int) -> int:
 	var d := 0
@@ -1390,6 +1450,8 @@ func _paint_under(ci: CanvasItem, _row0: int, _row1: int) -> void:
 ## Over the pits: pits closing in from their rims and knitting cracks glowing before they
 ## heal (redrawn only when one of them moves on a step).
 func _paint_over(ci: CanvasItem, _row0: int, _row1: int) -> void:
+	if _tiles != null:
+		return  # a tiled map's pits close as overlay tiles: no baked picture to creep in
 	var view := FxView._view_rect(ci, OVER_CULL)
 	# Pits side by side in a row at the same step close in one go: a run of far rims, a run
 	# of near rims (`_run`, `_flush`).

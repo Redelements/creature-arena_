@@ -132,35 +132,8 @@
 			}
 		]
 	},
-	"overlay": {
-		"cliff": {
-			"src": "RPGW_Desert_v2.01/MainLev2.0.png",
-			"x": 72,
-			"rows": {
-				"wall_top": [
-					158,
-					174
-				],
-				"wall_mid": [
-					176,
-					192
-				],
-				"wall_bottom": [
-					188,
-					204
-				]
-			}
-		},
-		"floor": {
-			"src": "RPGW_Desert_v2.01/MainLev2.0.png",
-			"box": [
-				236,
-				390,
-				252,
-				406
-			]
-		}
-	},
+	"overlay": {"_doc": "the pits' far wall: a seamless cliff face from the matching pack; the lip and the cracks: the floor's own fill (tools/cut_tiles.py cut_overlay)",
+		"face": {"src": "RPGW_Desert_v2.01/MainLev2.0.png", "box": [160, 382, 192, 422]}, "lip": "sand"},
 	"decor": {
 		"rocks": {
 			"src": "RPGW_Desert_v2.01/decorative1.png",
