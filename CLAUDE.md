@@ -4,6 +4,8 @@ Real-time 2D creature brawler in **Godot 4.7.2 / GDScript**. Original creatures,
 stadium, ground that breaks into pits. Design source of truth: the **Game Plan** doc
 (https://claude.ai/artifact/4u3EdX5vUQZUceeNQpVuud), which covers the
 concept, legal guardrails, roster, affinities, arenas, game modes and roadmap.
+Commercial release intended. Team teamfights in the spirit of League of Legends' Arena mode;
+online is 1v1 up to 4v4 on a dedicated home Linux server.
 
 **Before searching broadly, check docs/codebase-map.md to locate the relevant module.** It's
 a routing table: task words ("stamina", "hitboxes", "rooms") → file, function and the
@@ -19,6 +21,27 @@ Read on demand, not up front:
 - **README.md** — controls, combat rules, frame data, each fighter's kit.
 - **docs/NETCODE.md**, **docs/SERVER.md** — rollback design, latency, running a server.
 - **docs/SPRITES.md**, **docs/AUDIO.md** — art and sound specs and checklists.
+- **docs/decisions.md** — dated log of conventions and reversals; read it before changing
+  anything that looks like an older convention (the log wins over stale code).
+- **docs/fighters/README.md** — roster index and class triangle; one short file per fighter
+  (`docs/fighters/<slug>.md`) for what the code can't say. Numbers stay in the JSON.
+- **docs/playtest/** — dated team feedback notes; **docs/art-pipeline.md** — how fighter
+  sheets are made, licensed assets.
+
+## Working rules for Claude
+
+- A new fighter or a change to one: its design facts (sheet type, owner, what the class must
+  never feel like) come from `docs/fighters/<slug>.md`; where it says TBD, ask, never invent.
+  Tune numbers only against the same class, with Normal CPUs.
+- Playtest feedback → the `import-playtest` skill on `docs/playtest/<date>.md`.
+- A decision in conversation that changes a convention → append it to `docs/decisions.md`
+  in the same change.
+
+## Repo map
+
+The area table at the top of `docs/codebase-map.md` (one line per folder: `src/sim/` rules,
+`src/ai/` CPU, `src/view/` visuals, `src/net/` online, `src/game/` flow, `src/ui/` menus,
+`data/` tuning, `assets/` art, `tests/`, `tools/`, `docs/`). Procedures: `.claude/skills/` (`context-hygiene`, `import-playtest`).
 
 ## Rules that keep the project working
 
@@ -81,6 +104,8 @@ $G --headless --path . --script res://tests/run_tests.gd         # all tests (TE
 $G --headless --fixed-fps 60 --path . -- --mode=2 --quit-after=3000   # smoke run, check for SCRIPT ERROR
 $G --headless --path . -- --sim-check=20261010                   # determinism fingerprint
 $G --headless --path . --script res://tests/bench_sim.gd         # rollback cost benchmark
+$G --path .                                                      # run the game (menu)
+$G --headless --path . --export-release "Linux" build/linux/CreatureArena.x86_64  # server build (same binary, run with -- --server)
 ```
 
 Seeing what you changed (do this for any visual change; tests can't judge looks):

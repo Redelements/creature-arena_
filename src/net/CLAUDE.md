@@ -4,6 +4,18 @@ Design in `docs/NETCODE.md`; running a server in `docs/SERVER.md`. Online peers 
 same deterministic sim (`src/sim/`) and exchange only inputs, so anything that decides an
 outcome must live in the sim, never here or in `main.gd`.
 
+## Project rules
+
+- Rollback, not server-authoritative: every peer simulates the match and only inputs cross
+  the wire; the dedicated server relays and referees (`referee.gd`). Don't add a
+  server-resolves-hits path without a `docs/decisions.md` entry.
+- Lowest latency first: inputs go unsequenced on channel 1 with redundancy (the last 8 in
+  every packet); reliable channel 0 only for control messages that must arrive.
+- The server build is headless Linux (Ubuntu, `docs/SERVER.md`); keep client-only
+  dependencies out of its code paths. Testers join `kevarena.duckdns.org` (`data/online.json`).
+- Pits and every other piece of outcome state live in the sim and its snapshot; never sync
+  them separately from here.
+
 ## Gotchas
 
 - `NET_VERSION` (`netplay.gd`) must be bumped when the wire format, the sim's rules or

@@ -150,6 +150,8 @@ What else moves when you change something. Check these before running the full s
 | --- | --- |
 | a fighter's damage | combo pins in `tests/test_combos.gd` and the README combo table; showcase health (`"hp"` in `src/game/showcase.gd`), or a stronger combo finishes early and skips a part; `data/trials.json` routes |
 | a fighter's reach, speed, startup or kit | its `tests/test_<id>.gd`; `tests/test_balance.gd` pins (measure with `tests/bench_cpu.gd --matrix`); its README kit table |
+| a fighter's class, status or design intent; a new fighter | its `docs/fighters/<slug>.md` (hand-written: sheet type, owner, class contract) and a row in `docs/fighters/README.md` |
+| a convention, tool or direction (a structural decision) | append a dated entry to `docs/decisions.md` in the same change |
 | a move into a grab, a guard-breaker or unblockable | its `"tell"` (red `unblockable` / `guard_break`), the README tell table; `tests/test_counterplay.gd` wants 15+ frames of warning |
 | an area-of-effect size (burst, blast, zone) | nothing to draw (views read the same number); range rings follow; CPU ranges in the fighter's `ai` block (`surge_range`, `zone_range`, `lob_range`) |
 | any rules file in `data/rules/` or a fighter or arena JSON | the online data hash covers it: bump `NET_VERSION` in `src/net/netplay.gd` if old and new builds mustn't meet, and note that the server needs the new build |
