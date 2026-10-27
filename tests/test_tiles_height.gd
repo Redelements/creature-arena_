@@ -200,7 +200,7 @@ func test_scatter_is_stable_and_stays_off_water_walls_and_beds() -> void:
 
 
 func test_the_built_scenes_carry_their_scatter() -> void:
-	for id in ["quarry", "floodgate"]:
+	for id in ["quarry", "floodgate", "greenhouse"]:
 		var root: Node = (load("res://assets/arenas/%s.tscn" % id) as PackedScene).instantiate()
 		var layer := root.get_node_or_null("Scatter") as TileMapLayer
 		assert_true(layer != null, "%s: a Scatter layer" % id)
@@ -208,3 +208,40 @@ func test_the_built_scenes_carry_their_scatter() -> void:
 			assert_true(layer.get_used_cells().size() >= 20, "%s: pebbles and plants (%d)" % [id, layer.get_used_cells().size()])
 			assert_true(layer.tile_set.tile_size == Vector2i(16, 16), "%s: one tile a cell" % id)
 		root.free()
+
+
+func test_the_greenhouse_scatter_gathers_by_the_beds_and_fences() -> void:
+	# flowers, tufts and pebbles: a few percent of the meadow, denser by the beds and the
+	# fences, never on a fence cell; the Stadium is left clean (no scatter at all)
+	var root: Node = (load("res://assets/arenas/greenhouse.tscn") as PackedScene).instantiate()
+	var map := ArenaMap.get_map("greenhouse")
+	var size := ArenaMap.size_of(map)
+	var grid := TerrainGrid.new(size.x, size.y)
+	grid.load_map(map)
+	var layer := root.get_node("Scatter") as TileMapLayer
+	var near := 0
+	var near_n := 0
+	var far := 0
+	var far_n := 0
+	var placed := {}
+	for c in layer.get_used_cells():
+		placed[c] = true
+		assert_eq(grid.get_base(c), TerrainGrid.INTACT, "on the meadow only: %s" % c)
+	for cy in grid.rows:
+		for cx in grid.cols:
+			var c := Vector2i(cx, cy)
+			if not BT.scatter_ok(c, grid, {}, 2, false):
+				continue
+			if BT._near(c, grid, {}, 2, 2, "near_brush") or BT._near(c, grid, {}, 2, 2, "near_fences"):
+				near_n += 1
+				near += 1 if placed.has(c) else 0
+			else:
+				far_n += 1
+				far += 1 if placed.has(c) else 0
+	var all := float(near + far) / float(near_n + far_n)
+	assert_true(all >= 0.02 and all <= 0.06, "a few percent of the meadow: %.3f" % all)
+	assert_true(float(near) / near_n > 2.0 * float(far) / far_n, "denser by the beds and fences: %d / %d near, %d / %d open" % [near, near_n, far, far_n])
+	root.free()
+	var st: Node = (load("res://assets/arenas/stadium.tscn") as PackedScene).instantiate()
+	assert_true(st.get_node_or_null("Scatter") == null, "the Stadium floor stays clean")
+	st.free()

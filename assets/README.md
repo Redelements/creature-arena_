@@ -159,7 +159,8 @@ tufts, small water plants) on a 16 px "Scatter" layer, one a cell at most, each 
 32 px slot standing on its cell's bottom middle, in 8 looks (mirrored, nudged a few px).
 Recipe: `boxes` cut as they are, or `box` + `auto` {`min`, `max`, `limit`} to find the
 loose blobs of a litter sheet. Map: `[{"kind", "where": "floor" | "near_walls" |
-"near_water" | [[tx, ty, w, h], ...], "near": 3, "density": 0.05, "seed"}]`; placed by a
+"near_water" | "near_fences" | "near_brush" | [[tx, ty, w, h], ...], "near": 3, "density": 0.05,
+"seed"}]`; placed by a
 fixed hash, so a rebuild lays the same ones; never on water, walls, fences, chasms, brush
 (or the cell round it) or within a cell of the court markings. Keep it subtle: densities of
 a few percent near walls or water and about 1 % on open floor.

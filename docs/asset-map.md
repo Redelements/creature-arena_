@@ -194,6 +194,7 @@ Ranked within each map, value first. Size: S = recipe lines only, M = recipe + m
 | 3 | GrassLand props (tiny bushes done, art-small: `shrub_gold` `[557,800,596,832]`, `shrub_gold_small` `[608,808,639,832]`, `shrub_red` `[141,800,180,832]` in the side margins; the swaying tree not cut) | `decorative.png` tiny bushes `[141,800,180,832]`, `[192,808,223,832]`; swaying `anim/tree2A_ss` (frame `[128,160]`, 4 frames row 0, feet = bottom edge) | `decor`, `anim` | stand-side greenery from the matching pack | S |
 | 4 | Moss under the planters | `moss` fill dropped (fix-cuts); recut it if the planters move onto the floor | `patches` | dark beds under pots | S |
 | 5 | Potted herbs (done, art-small: `herb_pink` / `herb_orange` / `herb_green` / `herb_tall`, cells 4, 6, 7, 9 of row y 96, side margins) | Houses `smallobj` row y 96 (potted flowers, herbs) | `decor` | more pot variety | S |
+| 6 | Meadow scatter (done, `height`): tiny still flowers, grass sprigs and pebbles, about 5 % of the meadow, denser within 2 cells of the beds (`near_brush`) and the fences (`near_fences`: pebbles and tufts), never on a fence or bed cell; no fence contact shadow (the raised-wall shadow tiles only serve `raised:` walls, so skipped) | DecorativeProps `Animated/vegA4` frame 0 rows 0, 4 `[12,17,20,26]`, `[12,144,20,153]`; `vegA2` rows 0, 8 `[12,10,19,23]`, `[12,266,19,279]`; Set 1 `veg_decoratives` sprigs `[39,710,55,719]` ... `[265,749,278,755]`, single pebbles `[238,622,248,633]` ... | `scatter.flowers` / `flowers_tall` / `tufts` / `pebbles`; map `tiles.scatter` | the meadow reads lived in, the beds and fences sit in it | S; **done** (`height`) |
 
 ### Stadium (`set1.json`, `data/arenas/stadium.json`): keep it clean
 
@@ -202,6 +203,7 @@ Ranked within each map, value first. Size: S = recipe lines only, M = recipe + m
 | 1 | Cobble corners (done, art-small) | `cobble` fill (already cut) | `patches` 2 x 2 at the four corners | frames the court like the Quarry | S |
 | 2 | Track marks (done, art-small: `dirt_worn` lifted x1.12, since untinted it snaps to the floor's own colours; 2 x 2 pads on the starting marks and centre; the band's ragged blob was tried and left out, its stony rim looked busy) | Set 1 `g_terrain3` tan band solid `[384,128,512,256]` (block [12,4]) | `fills.dirt_worn` + `patches` at spawns and centre | a used floor | S |
 | 3 | Kerb (done, art-small: `dirt_edge`, the floor dirt x0.78; the chalk boundary runs on it) | one-tile `cobble` or a darker dirt band along the floor edge, inside the floor | `patches` | a clean border under the hoardings | S |
+| 4 | ~~Pebble and grit scatter on the border band and corners~~ tried and left out (`height`): the border band lies wholly within a cell of the chalk boundary (6 units in), so only the cobbled corners' inner cells could take any, and Set 1 pebbles vanish on the cobbles; the floor stays clean | Set 1 `veg_decoratives` single pebbles `[238,622,248,633]` ..., chips `[327,618,332,622]` ... | `scatter` | none worth shipping | S |
 
 ### Stand-side props, every map (pending the hoarding ruling)
 

@@ -56,7 +56,8 @@ extends SceneTree
 ##   shoulder   true: the water's bank (manifest shores.water.shoulder) also lays a ragged
 ##              band of trodden ground on the land tiles round the water, a tile per mask of
 ##              water neighbours, on floor tiles only, on a "Shoulder" layer under the water
-##   scatter    [{kind, where: "floor" | "near_walls" | "near_water" | [[tx, ty, w, h], ...],
+##   scatter    [{kind, where: "floor" | "near_walls" | "near_water" | "near_fences" |
+##              "near_brush" | [[tx, ty, w, h], ...],
 ##              near: 3, density: 0.05, seed}]: small sprites (manifest "scatter" kinds) on a
 ##              16 px "Scatter" layer, one a cell at most, by a fixed hash (a rebuild lays the
 ##              same ones); never on water, walls, fences, chasms, brush (or next to it) or the
@@ -741,8 +742,9 @@ static func wall_cells(grid: TerrainGrid) -> Dictionary:
 
 ## The map's `scatter`: [{kind, density, where, near, seed}] small sprites (manifest
 ## "scatter" kinds) on the "Scatter" layer, one a cell at most, picked by a fixed hash so a
-## rebuild lays the same ones. `where`: "floor" (anywhere), "near_walls" / "near_water"
-## (within `near` cells of a wall / the water, default 3), or [[tx, ty, w, h], ...] tile rects.
+## rebuild lays the same ones. `where`: "floor" (anywhere), "near_walls" / "near_water" /
+## "near_fences" / "near_brush" (within `near` cells of a wall / the water / a fence / a brush
+## bed, default 3), or [[tx, ty, w, h], ...] tile rects.
 ## Only on plain floor (`scatter_ok`).
 static func _scatter(layer: TileMapLayer, tiles: Dictionary, man: Dictionary, grid: TerrainGrid, wet_tiles: Dictionary, per: int) -> void:
 	var kinds: Dictionary = man.get("scatter", {}).get("kinds", {})
@@ -771,9 +773,7 @@ static func _scatter(layer: TileMapLayer, tiles: Dictionary, man: Dictionary, gr
 							inside = true
 					if not inside:
 						continue
-				elif String(where) == "near_walls" and not _near(c, grid, wet_tiles, per, near, true):
-					continue
-				elif String(where) == "near_water" and not _near(c, grid, wet_tiles, per, near, false):
+				elif String(where) != "floor" and not _near(c, grid, wet_tiles, per, near, String(where)):
 					continue
 				used[c] = true
 				var at: Array = pool[_h(cx, cy, 201 + seed) % pool.size()]
@@ -795,17 +795,20 @@ static func scatter_ok(c: Vector2i, grid: TerrainGrid, wet_tiles: Dictionary, pe
 	return not (markings and near_marks(c, grid))
 
 
-## Within `near` cells of a wall (`walls`) or of the water (the shallows, the water tiles).
-static func _near(c: Vector2i, grid: TerrainGrid, wet_tiles: Dictionary, per: int, near: int, walls: bool) -> bool:
+## Within `near` cells of a wall ("near_walls"), of the water ("near_water": the shallows,
+## the water tiles), of a fence ("near_fences") or of a brush bed ("near_brush").
+static func _near(c: Vector2i, grid: TerrainGrid, wet_tiles: Dictionary, per: int, near: int, where: String) -> bool:
+	var want := {"near_walls": TerrainGrid.WALL, "near_fences": TerrainGrid.FENCE, "near_brush": TerrainGrid.BRUSH}
 	for dy in range(-near, near + 1):
 		for dx in range(-near, near + 1):
 			var n := c + Vector2i(dx, dy)
 			if not grid.in_bounds(n):
 				continue
 			var v := grid.get_base(n)
-			if walls and v == TerrainGrid.WALL:
-				return true
-			if not walls and (v == TerrainGrid.SHALLOWS or wet_tiles.has(Vector2i(floori(float(n.x) / per), floori(float(n.y) / per)))):
+			if where == "near_water":
+				if v == TerrainGrid.SHALLOWS or wet_tiles.has(Vector2i(floori(float(n.x) / per), floori(float(n.y) / per))):
+					return true
+			elif want.has(where) and v == int(want[where]):
 				return true
 	return false
 

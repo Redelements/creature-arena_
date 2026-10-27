@@ -127,6 +127,9 @@ the same licence), with Set 1 (cut by
   flowers and herbs (`smallobj.png`: `herb_*`).
 - `assets/tiles/grassland_anim_flower_*.png`, `grassland_anim_spike_*.png`: Decorative Props'
   swaying flowers (`Animated/vegA1.png`, `vegC1.png`), four frames each.
+- `assets/tiles/grassland_scatter.png`: Decorative Props' tiny flowers (one still frame of
+  `Animated/vegA2.png`, `vegA4.png`), Set 1's low grass sprigs and loose pebbles
+  (`veg_decoratives.png`), scattered on the Greenhouse meadow.
 - `assets/tiles/grassland_manifest.json`, `assets/tiles/grassland_*.tres` and
   `assets/arenas/greenhouse.tscn`: derived from the above.
 
