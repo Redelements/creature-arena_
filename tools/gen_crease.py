@@ -76,6 +76,38 @@ TONES["void"] = [_v[3], _v[3], _v[2], _v[1], _v[1]]   # the hat's inside stays b
 SEAM_STEP = 2.5   # px of depth before a piece in front casts its thin shadow line on the one behind
 AXES = ((0, 0, 1), (0, 1, 0), (1, 0, 0))
 
+# His Surge eyes (splat3d.SURGE_EYES), set by build: (two points on the head's front, the
+# way the face points).
+_EYES = [None]
+BRIM = ("hat", "paper")   # the brim and its paper back
+EYE_DROP = 6              # px below a brim pixel an eye may peek out
+
+
+def _eye_px(r, img):
+    """Where his eyes show: the brim hides his head, so each eye is the first pixel under
+    the brim straight below where the eye sits (peeking out of the shadow), not when a
+    craft or a hand is in front of it, nor when nothing of him is there."""
+    pts, face = _EYES[0]
+    h, w = r["mat"].shape
+    out = np.zeros((h, w), bool)
+    if np.dot(face, r["cam"].cam) < 0.1:   # turned away: the back of his head
+        return out
+    brim = {S.MAT_ID[m] for m in BRIM}
+    p = np.asarray(pts, float) * S.SCALE
+    for x, y in r["cam"].P(p):
+        ix, iy = int(math.floor(x)), int(math.floor(y))
+        if not (0 <= ix < w and 0 <= iy < h) or r["mat"][iy, ix] not in brim | {S.MAT_ID["void"]}:
+            continue
+        for k in range(EYE_DROP + 1):
+            yy = iy + k
+            if yy >= h or img[yy, ix, 3] == 0:
+                break
+            if r["mat"][yy, ix] not in brim:
+                out[yy, ix] = True
+                break
+    return out
+S.surge_eyes("crease")   # Thousand Cranes: two eyes glow in the dark under his brim
+
 # The camera of the view being built (set by build), so a sheet can tell which of its sides
 # faces the viewer and show its paper back.
 _CAM = [None]
@@ -457,6 +489,7 @@ def _fan(p, k):
 
 def build(p, view):
     _CAM[0] = S.Cam(view).cam
+    _EYES[0] = None
     if p.form == "gone":
         return [S.ellipsoid_oriented((0.0, -400.0, 0.0), (0.6, 0.4, 0.6), *AXES, "void")]
     if p.form == "plane":
@@ -571,6 +604,11 @@ def build(p, view):
     # head: no face, just shadow under the brim
     hc = neck + up * 3.4 + fw * 0.6
     parts.append(S.ellipsoid_oriented(hc, (4.2, 3.6, 4.0), fw, up, lt, "void"))
+    # where his eyes would be in the shadow under the brim: only the Surge lights them
+    # (the emissive sheets; nothing is drawn there in colour)
+    eyes = [hc + fw * 3.9 + lt * s * 2.6 - up * 0.5 for s in (1.0, -1.0)]
+    e = _xf(p, {"pos": np.array(eyes), "nrm": np.array([fw, fw])})
+    _EYES[0] = (e["pos"], e["nrm"][0])
     # the hat
     if p.hat_off is not None:
         parts += _hat(np.asarray(p.hat_off, float), V(0.2, 0.98, 0.0), V(0, 0, 1), (10.0, 20.0), bend=p.brim)
@@ -843,6 +881,8 @@ def render_paper(pose, view, build_fn, decorate_fn=None):
     if decorate_fn is not None:
         img = decorate_fn(r, img)
     img = outline_paper(r, img)
+    if S.surge_row() and _EYES[0] is not None:
+        r["eye_px"] = _eye_px(r, img)
     # normal sheets: smoothed within each flat face (a piece and its face index), not
     # across a fold, so the paper's planes stay planes under the live light too
     face = np.nan_to_num(r["local"][:, :, 0], nan=-1.0).astype(np.int64)

@@ -63,7 +63,9 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   colour sheet (`normal_frame`: the shading's screen normal, smoothed per piece; packing in
   `docs/SPRITES.md`, "Normal sheets") and, when anything on it glows, an emissive sheet
   `<sheet>_e.png` ("Emissive sheets": `configure(emissive=...)` per material, `EMISSIVE_FN`
-  for painted glow, `emissive_colours`); the colour sheets come out byte for byte the same.
+  for painted glow, `emissive_colours`; Surge eyes: `surge_eyes(id)`, `eye_part()`,
+  `r["eye_px"]`, lit only in the Surge's rows, `ROW`); the colour sheets come out byte for
+  byte the same.
   Every fighter generator writes both. The rule for any renderer: call
   `S.finish_frame(r, img)` on the finished frame (or with `normals=` ready-made) and build
   sheets with `S.collect` / save with `S.save_extras`; `collect` refuses a frame whose

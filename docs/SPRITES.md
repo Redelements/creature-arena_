@@ -859,7 +859,30 @@ few steps). What glows now:
 | Chef Cerebro | the bright halo round the tools he is working with, a thrown tool's streak, the teleport's flash | 200, 170 to 230, 255 |
 | Barkley | the Surge's glowing points on his bark, moss and leaves | 230 |
 | Craglash | the veins and sparks lit up in Bedrock and the charge | 220 |
-| Pete, Gillbert, Mister Crease, Cairn, the dummy | nothing | |
+| Pete, Gillbert, Mister Crease, Cairn | only their Surge eyes (below) | |
+| the dummy | nothing | |
+
+**Surge eyes.** In the rows a fighter's Surge plays (its Surge move's `"anim"`), every
+fighter's eyes glow at full strength (255) in the Surge's colour, the middle colour of its
+`"surge_aura"`: a few crisp pixels, no halo (the bloom adds that). Each generator says where
+its eyes are: `splat3d.surge_eyes("<id>")` reads the row and colour from the fighter's JSON,
+a rig marks its eye pieces with `eye_part()`, a painter or a decal hands over `r["eye_px"]`
+(and `r["eye_cols"]`, the colours that count as eye). Change the aura colour and the sheets
+need regenerating. Idle and every other row are untouched (`tests/test_light2d.gd`).
+
+| Fighter | Surge eye pixels | Colour |
+| --- | --- | --- |
+| Pete | the whites in his mask's eye holes (the pupils stay dark) | `#8a5cd6` |
+| Culvert | his amber eyes' lit half, the same glow turned up from 150 to 255 | his own amber |
+| Digby | his beady black eyes | `#ffe9a8` (the aura's light colour; its middle one, `#c08040`, read too dim) |
+| Sno Mercy | the whites of his eyes | `#bdf1ff` |
+| Hissy Fitz | her eyes: the plain yellow turned up from 110 to 255 (the lit-up eye colours were full already) | her own |
+| Chef Cerebro | a spot in the middle of each sunglasses lens (his eyes behind them) | `#d58cff` |
+| Gillbert | his orange eyes (the pupils stay dark) | `#b4e626` |
+| Barkley | his small blue eyes | `#8ed850` |
+| Craglash | his gold eyes (the pupils stay dark) | `#ff6a14` |
+| Mister Crease | he has no face: two pixels just under the brim, where his eyes would peek out (not when he faces away) | `#ff9a2e` |
+| Cairn | the dark eye spots on his head stone | `#ffd23f` |
 
 ## Animation pass: what worked (Mister Crease, Oct 2026)
 

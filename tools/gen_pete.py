@@ -54,6 +54,9 @@ MAT = {
     "gold": "gold",
 }
 S.configure(MAT, scale=0.8, near=12.0, near_views={"down_side": 8.0, "up_side": 8.0})
+# In The Big Heist the whites of his eyes glow in the Surge's violet (the emissive sheets,
+# docs/SPRITES.md "Emissive sheets"); the pupils stay dark, so they still read as eyes.
+S.surge_eyes("pete")
 S.COLS = 12  # the run, Sack Smack, Tiptoe and The Big Heist have 12 frames
 
 AXES = ((0, 0, 1), (0, 1, 0), (1, 0, 0))  # fwd, up, lat: an upright ellipsoid's frame
@@ -176,7 +179,7 @@ def build(p, view):
             parts.append(tube([eye - hl * 1.0 + hu * 0.9, eye + hl * 1.0 - hu * 0.9], [0.4, 0.4], "white"))
             parts.append(tube([eye - hl * 1.0 - hu * 0.9, eye + hl * 1.0 + hu * 0.9], [0.4, 0.4], "white"))
         else:
-            parts.append(ellipsoid_oriented(eye, (0.8, 1.1, 1.4), hf, hu, hl, "white"))
+            parts.append(S.eye_part(ellipsoid_oriented(eye, (0.8, 1.1, 1.4), hf, hu, hl, "white")))
             parts.append(ellipsoid_oriented(eye + hf * 0.5, (0.4, 0.6, 0.7), hf, hu, hl, "black"))
     nose = hc + hf * 8.4 - hu * 1.4
     parts.append(ellipsoid_oriented(nose, (3.6, 2.4, 2.6), hf, hu, hl, "skin"))

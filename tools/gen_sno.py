@@ -58,6 +58,8 @@ MAT = {
 # he tips over, so it would blink on and off).
 S.configure(MAT, scale=0.8, near=14.0, near_views={"down_side": 10.0, "up_side": 10.0},
             emissive={"fleck": {"a": 90, "min_level": 3}})
+# In Flavor Blast the whites of his eyes glow full in the Surge's ice blue (pupils dark).
+S.surge_eyes("sno")
 S.COLS = 12  # the run, the heavy and the Surge have 12 frames
 AXES = ((0, 0, 1), (0, 1, 0), (1, 0, 0))
 
@@ -174,7 +176,7 @@ def build(p, view):
             parts.append(tube([eye - lt * 1.2 + up * 1.2, eye + lt * 1.2 - up * 1.2], [0.45, 0.45], "black"))
             parts.append(tube([eye - lt * 1.2 - up * 1.2, eye + lt * 1.2 + up * 1.2], [0.45, 0.45], "black"))
         else:
-            parts.append(ellipsoid_oriented(eye, (0.7, 1.9, 1.6), fw, up, lt, "white"))
+            parts.append(S.eye_part(ellipsoid_oriented(eye, (0.7, 1.9, 1.6), fw, up, lt, "white")))
             parts.append(ellipsoid_oriented(eye + fw * 0.6 + lt * -s * 0.4, (0.45, 1.0, 0.8), fw, up, lt, "black"))
         brow0 = f((s * 1.2, fy + 3.0 - (0.0 if p.face == "ow" else 0.8), fr * 0.98))
         brow1 = f((s * 5.0, fy + 4.2 + (0.0 if p.face == "ow" else 0.6), fr * 0.86))
