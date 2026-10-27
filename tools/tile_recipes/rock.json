@@ -1,30 +1,373 @@
 {
-	"_doc": "The Quarry Bowl's set: Szadi art's RPG Worlds Mountains (Mainlev_build.png: the sandstone scree floor, the cliff faces the pit walls come from, the cave mouth for the pit floor) and Set 1 (dirt for the worn cart lanes, cobbles for the loading corners, the boulders on the rubble walls). Enchanted Cave's grounds were tried and dropped: their grey cobbles sit on green moss. No blob terrain: the Mountains sheet carries 5 x 5 plateau sets, not the 16-tile blob, so variety comes from fill patches (a map's tiles.patches). Keys: tools/cut_tiles.py. Paths are relative to the packs dir.",
+	"_doc": "The Quarry Bowl's set: Szadi art's RPG Worlds Mountains (Mainlev_build.png: the sandstone scree floor, the tan cliff face the pit walls come from), Set 1 (the tan worn-dirt blob for the cart lanes, cobbles for the loading corners) and Desert v2 (the packed-earth blob9 for the raised middle, its sandstone ledge as the middle's south lip, the stacked-rock wall run with rubble). The Desert earth blob9 is opaque on sand: its sand colours are cleared (terrains.*.clear) so the patch lies ragged on the scree, and it is lifted toward the scree's blue (x1.3) like the ledge. Set 1's blob notches its inner corners (art for an open diagonal); the lanes are two tiles wide, so fill_notches closes them from the band's solid fill. Keys: tools/cut_tiles.py. Paths are relative to the packs dir.",
 	"ground": {
 		"fills": {
-			"stone": {"src": "RPGW_Mountains_v1.2/_PNG/Mainlev_build.png", "block": [22, 52]},
-			"dirt": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain3.png", "block": [12, 0]},
-			"cobble": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "block": [37, 0], "size": 2}
+			"stone": {
+				"src": "RPGW_Mountains_v1.2/_PNG/Mainlev_build.png",
+				"block": [
+					22,
+					52
+				]
+			},
+			"cobble": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+				"block": [
+					37,
+					0
+				],
+				"size": 2
+			}
 		},
-		"terrains": {}
+		"terrains": {
+			"lane": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain3.png",
+				"blob": [
+					0,
+					4
+				],
+				"variants": [
+					[
+						4,
+						4,
+						8,
+						4
+					]
+				],
+				"fill_notches": [
+					12,
+					4
+				],
+				"blob_prob": 0.05,
+				"variant_prob": 1.0,
+				"_doc": "the tan band of g_terrain3: the blob (layout BLOB_SIDES) plus the big and notched blobs as variants, weighted over the blob proper (its 3 x 3 is holed)"
+			},
+			"patch": {
+				"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+				"blob9": [
+					25,
+					26
+				],
+				"clear": [
+					[
+						1,
+						1
+					],
+					[
+						2,
+						1
+					],
+					[
+						1,
+						2
+					],
+					[
+						2,
+						2
+					]
+				],
+				"tint": {
+					"mul": [
+						1.0,
+						1.05,
+						1.3
+					]
+				},
+				"_doc": "Desert v2's packed-earth blob9 with its sand cleared: a rounded, ragged patch for the trampled middle"
+			}
+		}
 	},
 	"pieces": {
-		"boulder": [
-			{"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png", "tile": [24, 1]},
-			{"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png", "tile": [24, 2]},
-			{"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png", "tile": [24, 3]},
-			{"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png", "tile": [24, 4]}
-		],
 		"tuft": [
-			{"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [2, 673, 29, 702]},
-			{"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [34, 673, 61, 702]}
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+				"box": [
+					2,
+					673,
+					29,
+					702
+				]
+			},
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+				"box": [
+					34,
+					673,
+					61,
+					702
+				]
+			}
 		],
 		"sprig": [
-			{"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [6, 643, 26, 665]}
+			{
+				"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+				"box": [
+					6,
+					643,
+					26,
+					665
+				]
+			}
 		]
 	},
-	"overlay": {"_doc": "the pits' far wall: a seamless cliff face from the matching pack; the lip and the cracks: the floor's own fill (tools/cut_tiles.py cut_overlay)",
-		"face": {"src": "RPGW_Mountains_v1.2/_PNG/Mainlev_build.png", "box": [64, 168, 96, 216]}, "lip": "stone"},
-	"decor": {},
-	"anim": {}
+	"overlay": {
+		"_doc": "the pits' far wall: the Mountains tan frame's face (seam-tested, the scree's own family); the lip and the cracks: the floor's own fill (tools/cut_tiles.py cut_overlay)",
+		"face": {
+			"src": "RPGW_Mountains_v1.2/_PNG/Mainlev_build.png",
+			"box": [
+				640,
+				168,
+				672,
+				216
+			]
+		},
+		"lip": "stone"
+	},
+	"decor": {
+		"ledge_l": {
+			"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+			"box": [
+				0,
+				262,
+				96,
+				304
+			],
+			"feet": [
+				16,
+				40
+			],
+			"clear": [
+				[
+					1,
+					1
+				],
+				[
+					2,
+					1
+				],
+				[
+					1,
+					2
+				],
+				[
+					2,
+					2
+				]
+			],
+			"_doc": "Desert v2's 1.4-tile sandstone ledge run, left of its path gap (rocks only: the sand cleared), laid three tiles wide over the middle patch's bottom row; feet on its bottom row, placed by pos so the rock tops overlap the patch's fringe (14 px into its bottom row); untinted: the blue lift turns its rocks mauve"
+		},
+		"ledge_r": {
+			"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+			"box": [
+				160,
+				262,
+				256,
+				304
+			],
+			"feet": [
+				16,
+				40
+			],
+			"clear": [
+				[
+					1,
+					1
+				],
+				[
+					2,
+					1
+				],
+				[
+					1,
+					2
+				],
+				[
+					2,
+					2
+				]
+			],
+			"_doc": "the same run right of the gap, with its right end"
+		}
+	},
+	"anim": {},
+	"walls": {
+		"rock": {
+			"_doc": "Desert v2's stacked rock pillars (decorative1 row 8, the same boxes as desert.json), one per tile and mirrored for variety; a wide-footed stack closes a run's ends; small rock heaps for a smashed tile. Warmed (red x1.15, blue x0.8) before the palette snap, which otherwise lands the olive-grey stone on near-black: here they read as quarried sandstone on the scree",
+			"mid": [
+				{
+					"src": "RPGW_Desert_v2.01/decorative1.png",
+					"box": [
+						364,
+						259,
+						405,
+						320
+					],
+					"feet": [
+						20,
+						57
+					]
+				},
+				{
+					"src": "RPGW_Desert_v2.01/decorative1.png",
+					"box": [
+						424,
+						256,
+						465,
+						317
+					],
+					"feet": [
+						20,
+						57
+					]
+				},
+				{
+					"src": "RPGW_Desert_v2.01/decorative1.png",
+					"box": [
+						364,
+						259,
+						405,
+						320
+					],
+					"feet": [
+						21,
+						57
+					],
+					"mirror": true
+				},
+				{
+					"src": "RPGW_Desert_v2.01/decorative1.png",
+					"box": [
+						424,
+						256,
+						465,
+						317
+					],
+					"feet": [
+						21,
+						57
+					],
+					"mirror": true
+				}
+			],
+			"bottom": [
+				{
+					"src": "RPGW_Desert_v2.01/decorative1.png",
+					"box": [
+						227,
+						256,
+						285,
+						320
+					],
+					"feet": [
+						29,
+						59
+					]
+				},
+				{
+					"src": "RPGW_Desert_v2.01/decorative1.png",
+					"box": [
+						291,
+						256,
+						349,
+						320
+					],
+					"feet": [
+						29,
+						59
+					]
+				}
+			],
+			"left": [
+				{
+					"src": "RPGW_Desert_v2.01/decorative1.png",
+					"box": [
+						227,
+						256,
+						285,
+						320
+					],
+					"feet": [
+						29,
+						59
+					]
+				}
+			],
+			"right": [
+				{
+					"src": "RPGW_Desert_v2.01/decorative1.png",
+					"box": [
+						291,
+						256,
+						349,
+						320
+					],
+					"feet": [
+						29,
+						59
+					],
+					"mirror": true
+				}
+			],
+			"rubble": [
+				{
+					"src": "RPGW_Desert_v2.01/decorative1.png",
+					"box": [
+						625,
+						256,
+						666,
+						287
+					],
+					"feet": [
+						20,
+						26
+					]
+				},
+				{
+					"src": "RPGW_Desert_v2.01/decorative1.png",
+					"box": [
+						556,
+						257,
+						603,
+						288
+					],
+					"feet": [
+						23,
+						26
+					]
+				},
+				{
+					"src": "RPGW_Desert_v2.01/decorative1.png",
+					"box": [
+						546,
+						288,
+						576,
+						312
+					],
+					"feet": [
+						15,
+						21
+					]
+				},
+				{
+					"src": "RPGW_Desert_v2.01/decorative1.png",
+					"box": [
+						651,
+						288,
+						688,
+						317
+					],
+					"feet": [
+						18,
+						25
+					]
+				}
+			],
+			"tint": {
+				"mul": [
+					1.15,
+					1.0,
+					0.8
+				]
+			}
+		}
+	}
 }

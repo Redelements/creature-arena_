@@ -65,14 +65,20 @@ snapped to the game's palette):
 - `assets/tiles/set1_*.tres`: the Godot TileSets `tools/build_tiles.gd` makes from them.
 - `assets/arenas/<id>.tscn`: each tiled arena's ground, painted with those tiles.
 
-Files from the **RPG Worlds Mountains** pack (`RPGW_Mountains_v1.2`, part of the bundle) and
-Set 1, cut by `tools/cut_tiles.py` from `tools/tile_recipes/rock.json` for the Quarry Bowl:
+Files from the **RPG Worlds Mountains** pack (`RPGW_Mountains_v1.2`, part of the bundle), Set 1
+and **RPG Worlds Desert** (`RPGW_Desert_v2.01`), cut by `tools/cut_tiles.py` from
+`tools/tile_recipes/rock.json` for the Quarry Bowl:
 
-- `assets/tiles/rock_ground.png`: the sandstone scree fill (Mountains), the dirt and cobble
-  fills (Set 1).
-- `assets/tiles/rock_pieces.png`: boulders and tall grass (Set 1).
-- `assets/tiles/rock_overlay.png`: pit walls cut from a Mountains cliff face, with generated
-  cracks and edges.
+- `assets/tiles/rock_ground.png`: the sandstone scree fill (Mountains), the cobble fill and
+  the tan worn-dirt blob for the cart lanes (Set 1), the packed-earth blob9 for the middle
+  (Desert, its sand cleared).
+- `assets/tiles/rock_pieces.png`: tall grass (Set 1).
+- `assets/tiles/rock_overlay.png`: pit walls cut from the Mountains tan cliff face, with
+  generated cracks and edges.
+- `assets/tiles/rock_decor_ledge_l.png`, `assets/tiles/rock_decor_ledge_r.png`: the Desert
+  sandstone ledge run along the middle's south side.
+- `assets/tiles/rock_wall_rock.png`: Desert stacked rock pillars for the walls and rock heaps
+  for a smashed wall (warmed).
 - `assets/tiles/rock_manifest.json`, `assets/tiles/rock_ground.tres`,
   `assets/tiles/rock_overlay.tres`, `assets/arenas/quarry.tscn`.
 

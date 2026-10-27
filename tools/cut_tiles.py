@@ -81,6 +81,14 @@ packs dir; "tile" positions are [column, row] of 32 px tiles in the source sheet
                            rows wrap): the pits' far wall, fading into the dark
   overlay.lip              a ground fill name: the cracks are drawn in its colours (the pits'
                            edges are translucent, so they match any floor)
+  ground.terrains.<name>.clear  [[tx, ty], ...]: tiles of the same sheet whose exact colours
+                           turn transparent (a blob9's Desert sand, so the patch lies ragged
+                           on another floor); "decor" takes it too, and a "tint"
+  ground.terrains.<name>.fill_notches  [tx, ty]: a solid tile of the same ground; the blob's
+                           corner notches between two connected sides are filled from it (a
+                           strip two tiles wide, where the diagonal is never open)
+  ground.terrains.<name>.blob_prob  the blob block's tiles' weight (default 1; "variant_prob"
+                           the variants', default 0.5)
   overlay.strength         how much of the face shows through the pit's dark (default 1: a
                            face that fades fast; more for a pit that must read at play zoom)
   decor.<name>             {"src", "box": [x0, y0, x1, y1], "feet": [x, y], "tint"}  feet in the
@@ -245,6 +253,45 @@ def tinted(img, spec):
     return Image.fromarray(arr.astype(np.uint8), "RGBA")
 
 
+def cleared(cut, img, spec):
+    """A recipe's optional "clear": [[tx, ty], ...]: tiles of the cut's own sheet whose colours
+    turn transparent (the Desert sand round an opaque blob9 patch, so the patch lies ragged
+    on another floor). Exact colours, before any tint."""
+    tiles = spec.get("clear")
+    if not tiles:
+        return img
+    key = set()
+    for tx, ty in tiles:
+        for px in np.array(cut.tile(spec["src"], tx, ty))[:, :, :3].reshape(-1, 3):
+            key.add(tuple(int(v) for v in px))
+    arr = np.array(img.convert("RGBA"))
+    rgb = arr[:, :, :3].reshape(-1, 3)
+    hit = np.array([tuple(int(v) for v in px) in key for px in rgb], bool).reshape(arr.shape[:2])
+    arr[hit, 3] = 0
+    return Image.fromarray(arr, "RGBA")
+
+
+NOTCH = 10  # px: the corner square a terrain's "fill_notches" fills
+
+
+def notches_filled(img, sides, solid):
+    """A terrain's optional "fill_notches": [tx, ty] (a solid tile of the same ground): Szadi
+    art's blob tiles notch every corner between two connected sides (the art assumes the
+    diagonal is open); a strip two tiles wide has it filled, so the notches show as holes.
+    Clear pixels in such a corner square take the solid tile's."""
+    arr = np.array(img.convert("RGBA"))
+    sol = np.array(solid.convert("RGBA"))
+    l, r, t, b = sides
+    for on, ys, xs in ((l and t, slice(0, NOTCH), slice(0, NOTCH)), (r and t, slice(0, NOTCH), slice(T - NOTCH, T)),
+                       (l and b, slice(T - NOTCH, T), slice(0, NOTCH)), (r and b, slice(T - NOTCH, T), slice(T - NOTCH, T))):
+        if not on:
+            continue
+        sub = arr[ys, xs]
+        clear = sub[:, :, 3] < 128
+        sub[clear] = sol[ys, xs][clear]
+    return Image.fromarray(arr, "RGBA")
+
+
 def cut_ground(cut, set_name, g):
     sheet = Sheet(T, 20)
     man = {"source": set_name + "_ground.png", "tile": T, "fills": {}, "terrains": {}}
@@ -254,28 +301,36 @@ def cut_ground(cut, set_name, g):
         man["fills"][name] = [sheet.add(tinted(cut.tile(f["src"], bx + i % size, by + i // size), f)) for i in range(size * size)]
     for name, t in g.get("terrains", {}).items():
         out = []
+        solid = cut.tile(t["src"], *t["fill_notches"]) if "fill_notches" in t else None
+
+        def finish(img, sides, t=t, solid=solid):
+            img = cleared(cut, img, t)
+            if solid is not None:
+                img = notches_filled(img, sides, solid)
+            return tinted(img, t)
+        blob_prob = float(t.get("blob_prob", 1.0))
         if "blob9" in t:
             # a 5 x 5 block of opaque tiles: corners and edges round a 3 x 3 middle (the
             # Desert and other RPG Worlds "MainLev" sheets); no caps, strips or island, so the
             # terrain painter falls back to its nearest tile for a one-tile-wide patch
             bx, by = t["blob9"]
             for (sx, sy), sides in BLOB9_SIDES.items():
-                out.append({"at": sheet.add(tinted(cut.tile(t["src"], bx + sx, by + sy), t)), "sides": list(sides), "prob": 1.0})
+                out.append({"at": sheet.add(finish(cut.tile(t["src"], bx + sx, by + sy), sides)), "sides": list(sides), "prob": blob_prob})
         else:
             bx, by = t["blob"]
             for (sx, sy), sides in BLOB_SIDES.items():
-                out.append({"at": sheet.add(tinted(cut.tile(t["src"], bx + sx, by + sy), t)), "sides": list(sides), "prob": 1.0})
+                out.append({"at": sheet.add(finish(cut.tile(t["src"], bx + sx, by + sy), sides)), "sides": list(sides), "prob": blob_prob})
         for (vx, vy, vw, vh) in t.get("variants", []):
             for sy in range(vh):
                 for sx in range(vw):
-                    img = tinted(cut.tile(t["src"], vx + sx, vy + sy), t)
-                    a = np.array(img)[:, :, 3] > 0
+                    raw = cut.tile(t["src"], vx + sx, vy + sy)
+                    a = np.array(raw)[:, :, 3] > 0
                     if a.mean() < 0.01:
                         continue  # the sheet's empty slots
                     sides = sides_of(a)
                     if sides == (0, 0, 0, 0):
                         continue  # a lone island reads as none or all: only the block's counts
-                    out.append({"at": sheet.add(img), "sides": list(sides), "prob": float(t.get("variant_prob", 0.5))})
+                    out.append({"at": sheet.add(finish(raw, sides)), "sides": list(sides), "prob": float(t.get("variant_prob", 0.5))})
         for (vx, vy) in t.get("centres", []):
             img = tinted(cut.tile(t["src"], vx, vy), t)
             out.append({"at": sheet.add(img), "sides": [1, 1, 1, 1], "prob": float(t.get("variant_prob", 0.5))})
@@ -777,7 +832,7 @@ def cut_decor(cut, set_name, d):
                 img.alpha_composite(piece, tuple(part["at"]))
         else:
             img = cut.box(it["src"], it["box"])
-        img = tinted(img, it)
+        img = tinted(cleared(cut, img, it), it)
         file = "%s_decor_%s.png" % (set_name, name)
         save(img, file)
         man[name] = {"source": file, "size": [img.width, img.height], "feet": list(it["feet"])}
