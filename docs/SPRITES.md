@@ -196,6 +196,18 @@ ticks, unchanged), footsteps on `step_frames` `[0, 6]`. `select_scale` 0.5, port
 Five views: [`cairn_views_preview.png`](cairn_views_preview.png) and
 [`anim_preview/cairn_diagonals_3x.png`](anim_preview/cairn_diagonals_3x.png).
 
+**2x (route A, Oct 2026, branch `cairn-2x`, stacked on `sprites-vram`).** The game draws
+`cairn_2x*.png`: the same rig at density 2 (`CAIRN_DENSITY`, default 2; `CAIRN_DENSITY=1`
+rebuilds the 1x `cairn*.png` byte for byte), 192×192 frames, feet at (92, 168) side,
+(96, 156) down, (96, 168) up, (88, 160) down_side, (88, 168) up_side, `"ppu": 2` in every
+view, portrait `[68, 78, 48, 56]`; same rows, frame counts and timing. Shaded "bold"
+(`CAIRN_STYLE`): three flat tones a face (no highlight step, no rim light) and one dark ink
+round the silhouette, so the stack's stones stay apart from each other and from dark floors.
+The face, grain and lit lips are painted in stone-local rig units, so they scale with the
+density on their own. The knockout's `ko_fx` `pieces` and `x_eyes` are sheet pixels and
+double (`tools/sprite_2x.py`; FxView draws the X's at `ppu` times the size, so they look the
+same). Gallery: `pixellab/cairn/cairn_route_a.png`.
+
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
 | 0 | idle | 8 | the boxer's bounce on eased spacing, the stones packing on the down; each stone sways a frame after the one under it, the fists a frame behind, a one-frame blink |
@@ -263,6 +275,21 @@ it out to the side for the front view). The head has three-quarter faces: `_face
 (both eyes, the far one narrower, the snout and mouth slid down-right) and, from behind,
 parted fur with the near eye's corner and the snout's edge at the cheek; it sits on the
 neck's top stones in `up_side` so the mane reads.
+
+**2x (route A, Oct 2026, branch `craglash-2x`, stacked on `sprites-vram`).** The game draws
+`craglash_2x*.png`: the same puppet drawn by `gen_craglash.py` at density 2
+(`CRAGLASH_DENSITY`, default 2; `CRAGLASH_DENSITY=1` rebuilds the 1x `craglash*.png` byte for
+byte), **192×192** side frames and **256×320** views, feet at (68, 180) side, (128, 224) down
+and down_side, (128, 248) up and up_side, `"ppu": 2` in every view, portrait
+`[68, 34, 48, 64]`; same rows, frame counts and timing. Poses and the three rigs stay in 1x
+pixels: `Draw()` scales each Pillow call and stamps it over a 2×2 block, so every part keeps
+its 1x coverage with edges on the 2x grid, and painted strokes (cracks, fur, the face) stay
+one 1x pixel thick; the shader's pixel counts (distance cap, smoothing, band, highlight room,
+rim and bevel width, despeckle) go through `px()`; poses snap to half pixels. Outline 1 px.
+Shaded "bold" (`CRAGLASH_STYLE`): three flat tones a part (no highlight, no rim light) and one
+dark ink round the silhouette (the umber ink let the clay hide sink into brown ground at 2x).
+The normal pass and the Bedrock glow follow the same drawing. `ko_fx` "crumble" keys are
+world units (unchanged). Gallery: `pixellab/craglash/craglash_route_a.png`.
 
 ![Craglash sheet, 3x](craglash_preview.png)
 
@@ -586,6 +613,20 @@ glide still 24 ticks).
 
 Facing down, down-side, up and up-side: [`hissy_views_preview.png`](hissy_views_preview.png).
 
+**2x (route A, Oct 2026, branch `hissy-2x`, stacked on `cairn-2x`).** The game draws
+`hissy_2x*.png`: the same rig at density 2 (`HISSY_DENSITY`, default 2; `HISSY_DENSITY=1`
+rebuilds the 1x `hissy*.png` byte for byte). Her rasteriser is her own copy, so the density
+is threaded there too: `SCALE` x2, sample `STEP` /2, the Cam's near zones x2 (screen
+pixels), frames and origins x2, and `S.configure(MAT, density=...)` for splat3d's shading,
+outline and normal passes. 256×256 frames, views 224×256, feet at (128, 208) side, down
+and down_side, (112, 184) up, (128, 184) up_side, `"ppu": 2` in every view, portrait
+`[100, 100, 48, 64]`; same rows, frame counts and timing. The face texture is in degrees on
+the head and the hair snakes' eyes are rig pieces, so both resolve finer on their own.
+Shaded "bold" (`HISSY_STYLE`): no highlight step and no rim light (at 2x the highlight grew
+into a pale glare disc on her forehead that fought the face), the black silhouette line as
+before. The up view has no emissive sheet (her eyes face away), the up-side one does.
+Gallery: `pixellab/hissy/hissy_route_a.png`.
+
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
 | 0 | idle | 8 | the hover bob (eased), the gloves 1 frame behind, the glove snakes after them, the hair swaying as a wave down each snake (tips 2 frames behind) |
@@ -643,6 +684,17 @@ Every ability had the roster animation pass (Oct 2026): the motion plan with eve
 at `idle_ticks` 8 (64 ticks), the gallop 12 at `run_ticks` 2 (24 ticks, unchanged), with
 dust on `step_frames` `[0, 2]` (the front paws landing, the back paws landing).
 
+**2x (route A, Oct 2026, branch `digby-2x`, stacked on `sprites-vram`).** The game draws
+`digby_2x*.png` (through their packed copies in `packed/`): the same rig rendered by
+`gen_digby.py` at density 2 (`DIGBY_DENSITY`, default 2; `DIGBY_DENSITY=1` rebuilds the 1x
+`digby*.png` byte for byte), **256×256** frames (down and up **224×256**), feet at (128, 200)
+(up views (112/128, 180)), `"ppu": 2` in every view, portrait `[128, 156, 48, 56]`; same rows,
+frame counts and timing. Shaded "bold" (`DIGBY_STYLE`): three flat tones (no highlight step,
+no rim light) and one dark ink round the whole silhouette. The claws, whiskers and pickaxe
+are rig pieces in world units, so they need no pixel fix; the headlamp glow and the Surge
+eyes stay on the emissive sheets. `cut_in_frame` stays `[8, 3]`; `fx_top` and the `move_fx`
+offsets are world units (unchanged). Gallery: `pixellab/digby/digby_route_a.png`.
+
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
 | 0 | idle | 8 | sniffing: two quick sniffs, a held look toward the camera, eased breath; the helmet and tail lag |
@@ -671,6 +723,18 @@ money bag is a big green ball with a tied neck and a dollar sign, slung over his
 shoulder unless a pose holds it out to swing. Poses place the feet, hands and bag. Drawn
 at 0.8 scale, feet at **x 64, y 104**; up and down sheets are **112×128**, feet at
 x 56, y 104 (down) and y 92 (up).
+
+**2x (route A, Oct 2026, branch `pete-2x`, stacked on `sprites-vram`).** The game draws
+`pete_2x*.png` (packed copies in `assets/sprites/packed/`): the same rig rendered by
+`gen_pete.py` at density 2 (`PETE_DENSITY`, default 2; `PETE_DENSITY=1` rebuilds the 1x
+`pete*.png` byte for byte), **256×256** frames (down and up **224×256**), feet at (128, 208)
+(up views (112/128, 184)), `"ppu": 2` in every view, portrait `[112, 122, 48, 64]`; same
+rows, frame counts and timing. Shaded "bold" (`PETE_STYLE`): three flat tones (no highlight
+step, no rim light) and one dark ink round the whole silhouette. The bag is a rig piece, so
+it needed nothing of its own; `cut_in_frame` stays `[8, 9]` (a [row, col] index). Tiptoe's
+ghost is the view's modulate alpha and its afterimages carry the sheet's `ppu`, so both work
+at 2x unchanged (`test_pete_at_2x_still_vanishes_into_a_ghost`). Gallery:
+`pixellab/pete/pete_route_a.png`.
 
 Animated with the roster pass (motion plan, previews and before/after GIFs:
 [`anim_preview/pete_motion_plan.md`](anim_preview/pete_motion_plan.md)): the poses are
