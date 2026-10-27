@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ce6irq45a1hau"
-path="res://.godot/imported/keeps_anim_torch.png-9ac47232ff3564f04f7a30b8add4e636.ctex"
+uid="uid://dl7k5of3gt8k7"
+path="res://.godot/imported/keeps_wall_castle.png-8d10b73e81edc7545df9cfc4d9600257.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/tiles/keeps_anim_torch.png"
-dest_files=["res://.godot/imported/keeps_anim_torch.png-9ac47232ff3564f04f7a30b8add4e636.ctex"]
+source_file="res://assets/tiles/keeps_wall_castle.png"
+dest_files=["res://.godot/imported/keeps_wall_castle.png-8d10b73e81edc7545df9cfc4d9600257.ctex"]
 
 [params]
 

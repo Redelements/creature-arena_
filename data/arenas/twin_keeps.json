@@ -4,11 +4,12 @@
 	"name": "Twin Keeps",
 	"ground": "grass",
 	"tiles": {
-		"_doc": "The floor as tiles (assets/arenas/twin_keeps.tscn, built by tools/build_tiles.gd; tools/tile_recipes/keeps.json): Set 1 grass with the river and pools as the water terrain (painted under the shallows and the bridge, so a fallen bridge shows water), the keeps' walls as castle battlements and towers, fences from Decorative Props, a cobble causeway for the bridge, trees along the top margin (decor draws under the fighters, so never over walkable floor), the waterfall where the river enters at the top, torches on the gate towers.",
+		"_doc": "The floor as tiles (assets/arenas/twin_keeps.tscn, built by tools/build_tiles.gd; tools/tile_recipes/keeps.json): Set 1 grass with the river and pools as the water terrain (painted under the shallows and the bridge, so a fallen bridge shows water), the keeps' walls from Castle's free-standing wall kit (one y-sorted run a wall, rubble where smashed), fences as joined wooden lines, round hedge beds, a cobble causeway for the bridge, trees along the top margin (decor draws under the fighters, so never over walkable floor), the waterfall where the river enters at the top, team braziers on the gate posts and team banners on the keeps' walls (red the left keep, blue the right; `wall: true` hangs them on the wall sprites, so they fall with it).",
 		"set": "keeps",
 		"ground": "grass",
 		"styles": {
-			"wall": "castle",
+			"wall": "wall:castle",
+			"fence": "fenceline:wood",
 			"brush": "bush:green"
 		},
 		"decor": [
@@ -109,6 +110,70 @@
 					70,
 					-1
 				]
+			},
+			{
+				"kind": "banner_red",
+				"pos": [
+					36,
+					175
+				],
+				"wall": true
+			},
+			{
+				"kind": "banner_blue",
+				"pos": [
+					1164,
+					175
+				],
+				"wall": true
+			},
+			{
+				"kind": "banner_red",
+				"pos": [
+					36,
+					367
+				],
+				"wall": true
+			},
+			{
+				"kind": "banner_blue",
+				"pos": [
+					1164,
+					367
+				],
+				"wall": true
+			},
+			{
+				"kind": "banner_red",
+				"pos": [
+					76,
+					175
+				],
+				"wall": true
+			},
+			{
+				"kind": "banner_blue",
+				"pos": [
+					1124,
+					175
+				],
+				"wall": true
+			},
+			{
+				"kind": "banner_red",
+				"pos": [
+					76,
+					367
+				],
+				"wall": true
+			},
+			{
+				"kind": "banner_blue",
+				"pos": [
+					1124,
+					367
+				],
+				"wall": true
 			}
 		],
 		"anim": [
@@ -116,36 +181,44 @@
 				"kind": "waterfall",
 				"at": [
 					37,
-					1
+					0
 				]
 			},
 			{
-				"kind": "torch",
-				"at": [
-					9,
-					14
-				]
+				"kind": "brazier_red",
+				"pos": [
+					152,
+					231
+				],
+				"lift": 25,
+				"wall": true
 			},
 			{
-				"kind": "torch",
-				"at": [
-					9,
-					18
-				]
+				"kind": "brazier_red",
+				"pos": [
+					152,
+					303
+				],
+				"lift": 22,
+				"wall": true
 			},
 			{
-				"kind": "torch",
-				"at": [
-					65,
-					14
-				]
+				"kind": "brazier_cyan",
+				"pos": [
+					1048,
+					231
+				],
+				"lift": 25,
+				"wall": true
 			},
 			{
-				"kind": "torch",
-				"at": [
-					65,
-					18
-				]
+				"kind": "brazier_cyan",
+				"pos": [
+					1048,
+					303
+				],
+				"lift": 22,
+				"wall": true
 			}
 		]
 	},
