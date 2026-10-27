@@ -21,14 +21,14 @@
   "ko_fx": { "style": "flop" },
   "step_sound": { "sound": "flop", "every": 20, "volume_db": -8 },
   "sprite": {
-    "path": "res://assets/sprites/gillbert.png",
-    "frame": 128,
-    "portrait": [56, 88, 24, 24],
+    "path": "res://assets/sprites/gillbert_2x.png", "ppu": 2,
+    "frame": 256,
+    "portrait": [112, 176, 48, 48],
     "cols": 16,
     "idle_ticks": 8,
     "run_ticks": 2,
     "step_frames": [6, 14],
-    "origin": [70, 112],
+    "origin": [140, 224],
     "anims": {
       "idle": [0, 0, 8],
       "run": [1, 0, 16],
@@ -49,10 +49,10 @@
     "side_only": ["ko"],
     "select_scale": 0.5,
     "views": {
-      "down": { "path": "res://assets/sprites/gillbert_down.png", "frame": [96, 144], "origin": [48, 92] },
-      "up": { "path": "res://assets/sprites/gillbert_up.png", "frame": [96, 144], "origin": [48, 76] },
-      "down_side": { "path": "res://assets/sprites/gillbert_down_side.png", "frame": [128, 144], "origin": [72, 100] },
-      "up_side": { "path": "res://assets/sprites/gillbert_up_side.png", "frame": [128, 144], "origin": [64, 84] }
+      "down": { "path": "res://assets/sprites/gillbert_2x_down.png", "ppu": 2, "frame": [192, 288], "origin": [96, 184] },
+      "up": { "path": "res://assets/sprites/gillbert_2x_up.png", "ppu": 2, "frame": [192, 288], "origin": [96, 152] },
+      "down_side": { "path": "res://assets/sprites/gillbert_2x_down_side.png", "ppu": 2, "frame": [256, 288], "origin": [144, 200] },
+      "up_side": { "path": "res://assets/sprites/gillbert_2x_up_side.png", "ppu": 2, "frame": [256, 288], "origin": [128, 168] }
     }
   },
   "ai": {

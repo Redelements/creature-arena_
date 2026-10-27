@@ -434,6 +434,18 @@ one round band with each colour band from its own ramp and outline ink (plum on 
 soft pewter on the white). Scale chevrons and fin rays are one ramp step darker where they
 fall, the belly dots one step lighter; the gill line is the body's deep step.
 
+**2x (route A, Oct 2026, branch `gillbert-2x`, stacked on `barkley-2x`).** The game draws
+`gillbert_2x*.png`: the same painter at density 2 (`GILLBERT_DENSITY`, default 2;
+`GILLBERT_DENSITY=1` rebuilds the 1x `gillbert*.png` byte for byte), **256×256** side frames
+(feet at (140, 224)), **192×288** down and up (feet at (96, 184) and (96, 152)) and
+**256×288** diagonals (feet at (144, 200) and (128, 168)), `"ppu": 2` in every view, portrait
+`[112, 176, 48, 48]`; same rows, frame counts and timing. The painter draws through
+`shade2d.Draw` in its 1x coordinates (eyes, scales, fin rays, the line and the barbels double
+in size); the body's cross-sections double in number at 2x (`ns`), or on a thin, bent tail
+the slivers part and the outline shows through as a checker. Shaded "bold"
+(`GILLBERT_STYLE`): no highlight step, no rim light, one dark ink round every shape; seams
+keep the deep step. Gallery: `pixellab/gillbert/gillbert_route_a.png`.
+
 ![Gillbert sheet, 3x](gillbert_preview.png)
 
 Animated with the roster pass (motion plan, previews and before/after GIFs:
