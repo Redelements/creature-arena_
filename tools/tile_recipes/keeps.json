@@ -1457,7 +1457,14 @@
 				80,
 				105
 			],
-			"_doc": "GrassLand's big olive tree (round crown, red-brown trunk, swaying), split at its trunk: the crown goes over the fighters (ArenaView's overhead layer, fading over the ones we see), the trunk stands on a wall cell"
+			"_doc": "GrassLand's big olive tree (round crown, red-brown trunk, swaying), split at its trunk: the crown goes over the fighters (ArenaView's overhead layer, fading over the ones we see), the trunk stands on a wall cell",
+			"tint": {
+				"mul": [
+					0.9,
+					0.97,
+					1.08
+				]
+			}
 		},
 		"tree_a_trunk": {
 			"src": "RPGW_GrassLand_v2.01/anim/tree1B_ss.png",
@@ -1498,7 +1505,14 @@
 				78,
 				95
 			],
-			"_doc": "GrassLand's slimmer olive tree, two tiers of round crown"
+			"_doc": "GrassLand's slimmer olive tree, two tiers of round crown",
+			"tint": {
+				"mul": [
+					0.9,
+					0.97,
+					1.08
+				]
+			}
 		},
 		"tree_b_trunk": {
 			"src": "RPGW_GrassLand_v2.01/anim/tree2B_ss.png",
@@ -1519,6 +1533,39 @@
 				48,
 				61
 			]
+		},
+		"tree_a_canopy": {
+			"src": "RPGW_GrassLand_v2.01/anim/tree1B_ss.png",
+			"frame": [
+				160,
+				160
+			],
+			"frames": 5,
+			"fps": 4,
+			"row": 0,
+			"crop": [
+				0,
+				0,
+				160,
+				106
+			],
+			"feet": [
+				80,
+				105
+			],
+			"tint": {
+				"mul": [
+					0.9,
+					0.97,
+					1.08
+				]
+			},
+			"leaves_only": [
+				36,
+				52,
+				22
+			],
+			"_doc": "the big crown with no bark showing, for the brush beds (no trunk stands in a bed)"
 		}
 	},
 	"bushes": {

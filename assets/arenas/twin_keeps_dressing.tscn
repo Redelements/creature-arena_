@@ -1,179 +1,174 @@
 [gd_scene format=4]
 
-[ext_resource type="TileSet" path="res://assets/tiles/keeps_ground.tres" id="1_gxa0p"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_cobble_disc.png" id="2_7tsbj"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_cobble_disc_b.png" id="3_pg46x"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_slab_a.png" id="4_rjkmp"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_slab_c.png" id="5_2ggn7"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_slab_b.png" id="6_lxsf2"]
-[ext_resource type="TileSet" path="res://assets/tiles/keeps_cells.tres" id="7_xss5w"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_crates_big.png" id="8_w2fyv"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_shadows.png" id="9_dbphi"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_crate_small.png" id="10_l1yx1"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_ivy.png" id="11_oid80"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_sack_heap.png" id="12_f8725"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_swag_red.png" id="13_ip1im"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_swag_blue.png" id="14_55lkt"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_ivy_b.png" id="15_xbqqo"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_anim_torch.png" id="16_4l20d"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_barrels3.png" id="17_aq8wd"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_shield_round.png" id="18_0q5bd"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_crates_mid.png" id="19_i1mqf"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_hay.png" id="20_42c03"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_swords.png" id="21_aov7s"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_shield_kite.png" id="22_umm04"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_shield_kite_blue.png" id="23_tf7jn"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_rack.png" id="24_m7pok"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_sack.png" id="25_wapy2"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_plinth.png" id="26_rccca"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_anim_candelabra.png" id="27_pd84x"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_anim_tree_b_trunk.png" id="28_6hrvp"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_anim_tree_a_trunk.png" id="29_oavq6"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_anim_lantern.png" id="30_kpdun"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_banner_red.png" id="31_c7gph"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_banner_blue.png" id="32_4fhrk"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_drop_red.png" id="33_3k7mu"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_drop_blue.png" id="34_1gd2o"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_anim_tree_b_crown.png" id="35_srue2"]
-[ext_resource type="Texture2D" path="res://assets/tiles/keeps_anim_tree_a_crown.png" id="36_eh6ia"]
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_5paj0"]
-atlas = ExtResource("16_4l20d")
-region = Rect2(0, 0, 32, 32)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_brnjc"]
-atlas = ExtResource("16_4l20d")
-region = Rect2(32, 0, 32, 32)
+[ext_resource type="TileSet" path="res://assets/tiles/keeps_ground.tres" id="1_7tsbj"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_cobble_disc.png" id="2_pg46x"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_cobble_disc_b.png" id="3_rjkmp"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_slab_a.png" id="4_2ggn7"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_slab_c.png" id="5_lxsf2"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_slab_b.png" id="6_xss5w"]
+[ext_resource type="TileSet" path="res://assets/tiles/keeps_cells.tres" id="7_w2fyv"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_crates_big.png" id="8_dbphi"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_shadows.png" id="9_l1yx1"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_crate_small.png" id="10_oid80"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_ivy.png" id="11_f8725"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_sack_heap.png" id="12_ip1im"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_swag_red.png" id="13_55lkt"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_swag_blue.png" id="14_xbqqo"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_ivy_b.png" id="15_4l20d"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_anim_torch.png" id="16_aq8wd"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_barrels3.png" id="17_0q5bd"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_shield_round.png" id="18_i1mqf"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_crates_mid.png" id="19_42c03"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_hay.png" id="20_aov7s"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_swords.png" id="21_umm04"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_shield_kite.png" id="22_tf7jn"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_shield_kite_blue.png" id="23_m7pok"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_rack.png" id="24_wapy2"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_sack.png" id="25_rccca"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_plinth.png" id="26_pd84x"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_anim_candelabra.png" id="27_6hrvp"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_anim_tree_b_trunk.png" id="28_oavq6"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_anim_tree_a_trunk.png" id="29_kpdun"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_anim_lantern.png" id="30_c7gph"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_banner_red.png" id="31_4fhrk"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_banner_blue.png" id="32_3k7mu"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_drop_red.png" id="33_1gd2o"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_decor_drop_blue.png" id="34_srue2"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_anim_tree_b_crown.png" id="35_eh6ia"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_anim_tree_a_crown.png" id="36_5paj0"]
+[ext_resource type="Texture2D" path="res://assets/tiles/keeps_anim_tree_a_canopy.png" id="37_brnjc"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_xu2i8"]
-atlas = ExtResource("16_4l20d")
-region = Rect2(64, 0, 32, 32)
+atlas = ExtResource("16_aq8wd")
+region = Rect2(0, 0, 32, 32)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_lqnr7"]
-atlas = ExtResource("16_4l20d")
+atlas = ExtResource("16_aq8wd")
+region = Rect2(32, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_5vuw2"]
+atlas = ExtResource("16_aq8wd")
+region = Rect2(64, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_va047"]
+atlas = ExtResource("16_aq8wd")
 region = Rect2(96, 0, 32, 32)
 
-[sub_resource type="SpriteFrames" id="SpriteFrames_5vuw2"]
+[sub_resource type="SpriteFrames" id="SpriteFrames_7ah8e"]
 animations = [{
 "frames": [{
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_5paj0")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_brnjc")
-}, {
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_xu2i8")
 }, {
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_lqnr7")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_5vuw2")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_va047")
 }],
 "loop": 1,
 "name": &"default",
 "speed": 6.0
 }]
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_va047"]
-atlas = ExtResource("27_pd84x")
+[sub_resource type="AtlasTexture" id="AtlasTexture_n34bp"]
+atlas = ExtResource("27_6hrvp")
 region = Rect2(0, 0, 32, 64)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_7ah8e"]
-atlas = ExtResource("27_pd84x")
+[sub_resource type="AtlasTexture" id="AtlasTexture_yyeoy"]
+atlas = ExtResource("27_6hrvp")
 region = Rect2(32, 0, 32, 64)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_n34bp"]
-atlas = ExtResource("27_pd84x")
+[sub_resource type="AtlasTexture" id="AtlasTexture_p1ght"]
+atlas = ExtResource("27_6hrvp")
 region = Rect2(64, 0, 32, 64)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_yyeoy"]
-atlas = ExtResource("27_pd84x")
+[sub_resource type="AtlasTexture" id="AtlasTexture_8rgdf"]
+atlas = ExtResource("27_6hrvp")
 region = Rect2(96, 0, 32, 64)
 
-[sub_resource type="SpriteFrames" id="SpriteFrames_p1ght"]
+[sub_resource type="SpriteFrames" id="SpriteFrames_gf6nv"]
 animations = [{
 "frames": [{
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_va047")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_7ah8e")
-}, {
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_n34bp")
 }, {
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_yyeoy")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_p1ght")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_8rgdf")
 }],
 "loop": 1,
 "name": &"default",
 "speed": 6.0
 }]
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_8rgdf"]
-atlas = ExtResource("28_6hrvp")
+[sub_resource type="AtlasTexture" id="AtlasTexture_ofxc5"]
+atlas = ExtResource("28_oavq6")
 region = Rect2(0, 0, 80, 70)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_gf6nv"]
-atlas = ExtResource("28_6hrvp")
+[sub_resource type="AtlasTexture" id="AtlasTexture_2gy85"]
+atlas = ExtResource("28_oavq6")
 region = Rect2(80, 0, 80, 70)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_ofxc5"]
-atlas = ExtResource("28_6hrvp")
+[sub_resource type="AtlasTexture" id="AtlasTexture_11lrt"]
+atlas = ExtResource("28_oavq6")
 region = Rect2(160, 0, 80, 70)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_2gy85"]
-atlas = ExtResource("28_6hrvp")
+[sub_resource type="AtlasTexture" id="AtlasTexture_o1pvj"]
+atlas = ExtResource("28_oavq6")
 region = Rect2(240, 0, 80, 70)
 
-[sub_resource type="SpriteFrames" id="SpriteFrames_11lrt"]
+[sub_resource type="SpriteFrames" id="SpriteFrames_c52ou"]
 animations = [{
 "frames": [{
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_8rgdf")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_gf6nv")
-}, {
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_ofxc5")
 }, {
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_2gy85")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_11lrt")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_o1pvj")
 }],
 "loop": 1,
 "name": &"default",
 "speed": 4.0
 }]
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_o1pvj"]
-atlas = ExtResource("29_oavq6")
+[sub_resource type="AtlasTexture" id="AtlasTexture_rtcc8"]
+atlas = ExtResource("29_kpdun")
 region = Rect2(0, 0, 94, 62)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_c52ou"]
-atlas = ExtResource("29_oavq6")
+[sub_resource type="AtlasTexture" id="AtlasTexture_ft0cx"]
+atlas = ExtResource("29_kpdun")
 region = Rect2(94, 0, 94, 62)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_rtcc8"]
-atlas = ExtResource("29_oavq6")
+[sub_resource type="AtlasTexture" id="AtlasTexture_f784m"]
+atlas = ExtResource("29_kpdun")
 region = Rect2(188, 0, 94, 62)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_ft0cx"]
-atlas = ExtResource("29_oavq6")
+[sub_resource type="AtlasTexture" id="AtlasTexture_i7jfm"]
+atlas = ExtResource("29_kpdun")
 region = Rect2(282, 0, 94, 62)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_f784m"]
-atlas = ExtResource("29_oavq6")
+[sub_resource type="AtlasTexture" id="AtlasTexture_hx78g"]
+atlas = ExtResource("29_kpdun")
 region = Rect2(376, 0, 94, 62)
 
-[sub_resource type="SpriteFrames" id="SpriteFrames_i7jfm"]
+[sub_resource type="SpriteFrames" id="SpriteFrames_ngsox"]
 animations = [{
 "frames": [{
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_o1pvj")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_c52ou")
-}, {
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_rtcc8")
 }, {
@@ -182,53 +177,53 @@ animations = [{
 }, {
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_f784m")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_i7jfm")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_hx78g")
 }],
 "loop": 1,
 "name": &"default",
 "speed": 4.0
 }]
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_hx78g"]
-atlas = ExtResource("30_kpdun")
+[sub_resource type="AtlasTexture" id="AtlasTexture_aegut"]
+atlas = ExtResource("30_c7gph")
 region = Rect2(0, 0, 32, 128)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_ngsox"]
-atlas = ExtResource("30_kpdun")
+[sub_resource type="AtlasTexture" id="AtlasTexture_7kp44"]
+atlas = ExtResource("30_c7gph")
 region = Rect2(32, 0, 32, 128)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_aegut"]
-atlas = ExtResource("30_kpdun")
+[sub_resource type="AtlasTexture" id="AtlasTexture_clrl0"]
+atlas = ExtResource("30_c7gph")
 region = Rect2(64, 0, 32, 128)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_7kp44"]
-atlas = ExtResource("30_kpdun")
+[sub_resource type="AtlasTexture" id="AtlasTexture_qxlwf"]
+atlas = ExtResource("30_c7gph")
 region = Rect2(96, 0, 32, 128)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_clrl0"]
-atlas = ExtResource("30_kpdun")
+[sub_resource type="AtlasTexture" id="AtlasTexture_iwn4s"]
+atlas = ExtResource("30_c7gph")
 region = Rect2(128, 0, 32, 128)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_qxlwf"]
-atlas = ExtResource("30_kpdun")
+[sub_resource type="AtlasTexture" id="AtlasTexture_6ede5"]
+atlas = ExtResource("30_c7gph")
 region = Rect2(160, 0, 32, 128)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_iwn4s"]
-atlas = ExtResource("30_kpdun")
+[sub_resource type="AtlasTexture" id="AtlasTexture_wdrii"]
+atlas = ExtResource("30_c7gph")
 region = Rect2(192, 0, 32, 128)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_6ede5"]
-atlas = ExtResource("30_kpdun")
+[sub_resource type="AtlasTexture" id="AtlasTexture_07jne"]
+atlas = ExtResource("30_c7gph")
 region = Rect2(224, 0, 32, 128)
 
-[sub_resource type="SpriteFrames" id="SpriteFrames_wdrii"]
+[sub_resource type="SpriteFrames" id="SpriteFrames_rguvq"]
 animations = [{
 "frames": [{
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_hx78g")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_ngsox")
-}, {
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_aegut")
 }, {
@@ -246,77 +241,77 @@ animations = [{
 }, {
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_6ede5")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_wdrii")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_07jne")
 }],
 "loop": 1,
 "name": &"default",
 "speed": 6.0
 }]
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_07jne"]
-atlas = ExtResource("35_srue2")
+[sub_resource type="AtlasTexture" id="AtlasTexture_y73ip"]
+atlas = ExtResource("35_eh6ia")
 region = Rect2(0, 0, 128, 96)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_rguvq"]
-atlas = ExtResource("35_srue2")
+[sub_resource type="AtlasTexture" id="AtlasTexture_harxs"]
+atlas = ExtResource("35_eh6ia")
 region = Rect2(128, 0, 128, 96)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_y73ip"]
-atlas = ExtResource("35_srue2")
+[sub_resource type="AtlasTexture" id="AtlasTexture_rnggw"]
+atlas = ExtResource("35_eh6ia")
 region = Rect2(256, 0, 128, 96)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_harxs"]
-atlas = ExtResource("35_srue2")
+[sub_resource type="AtlasTexture" id="AtlasTexture_rjf8n"]
+atlas = ExtResource("35_eh6ia")
 region = Rect2(384, 0, 128, 96)
 
-[sub_resource type="SpriteFrames" id="SpriteFrames_rnggw"]
+[sub_resource type="SpriteFrames" id="SpriteFrames_7snqc"]
 animations = [{
 "frames": [{
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_07jne")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_rguvq")
-}, {
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_y73ip")
 }, {
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_harxs")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_rnggw")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_rjf8n")
 }],
 "loop": 1,
 "name": &"default",
 "speed": 4.0
 }]
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_rjf8n"]
-atlas = ExtResource("36_eh6ia")
+[sub_resource type="AtlasTexture" id="AtlasTexture_bq3hd"]
+atlas = ExtResource("36_5paj0")
 region = Rect2(0, 0, 160, 106)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_7snqc"]
-atlas = ExtResource("36_eh6ia")
+[sub_resource type="AtlasTexture" id="AtlasTexture_rk4rd"]
+atlas = ExtResource("36_5paj0")
 region = Rect2(160, 0, 160, 106)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_bq3hd"]
-atlas = ExtResource("36_eh6ia")
+[sub_resource type="AtlasTexture" id="AtlasTexture_psdl0"]
+atlas = ExtResource("36_5paj0")
 region = Rect2(320, 0, 160, 106)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_rk4rd"]
-atlas = ExtResource("36_eh6ia")
+[sub_resource type="AtlasTexture" id="AtlasTexture_k16kq"]
+atlas = ExtResource("36_5paj0")
 region = Rect2(480, 0, 160, 106)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_psdl0"]
-atlas = ExtResource("36_eh6ia")
+[sub_resource type="AtlasTexture" id="AtlasTexture_f7isp"]
+atlas = ExtResource("36_5paj0")
 region = Rect2(640, 0, 160, 106)
 
-[sub_resource type="SpriteFrames" id="SpriteFrames_k16kq"]
+[sub_resource type="SpriteFrames" id="SpriteFrames_i2a4g"]
 animations = [{
 "frames": [{
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_rjf8n")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_7snqc")
-}, {
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_bq3hd")
 }, {
@@ -325,327 +320,376 @@ animations = [{
 }, {
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_psdl0")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_k16kq")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_f7isp")
 }],
 "loop": 1,
 "name": &"default",
 "speed": 4.0
 }]
 
-[node name="Dressing" type="Node2D" unique_id=773381873]
+[sub_resource type="AtlasTexture" id="AtlasTexture_o2a83"]
+atlas = ExtResource("37_brnjc")
+region = Rect2(0, 0, 160, 106)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_w8dpb"]
+atlas = ExtResource("37_brnjc")
+region = Rect2(160, 0, 160, 106)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_oq5e8"]
+atlas = ExtResource("37_brnjc")
+region = Rect2(320, 0, 160, 106)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_2abr5"]
+atlas = ExtResource("37_brnjc")
+region = Rect2(480, 0, 160, 106)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_fda4x"]
+atlas = ExtResource("37_brnjc")
+region = Rect2(640, 0, 160, 106)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_ws0xs"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_o2a83")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_w8dpb")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_oq5e8")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_2abr5")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_fda4x")
+}],
+"loop": 1,
+"name": &"default",
+"speed": 4.0
+}]
+
+[node name="Dressing" type="Node2D" unique_id=1574231543]
 y_sort_enabled = true
 metadata/doc = "Hand dressing (tools/seed_dressing.gd seeded it; edit it here). Props: position = feet on a wall or fence cell, offset draws the picture higher; flat parts sort at y 0. assets/README.md \"Dressing\"."
 
-[node name="GrassDeep" type="TileMapLayer" parent="." unique_id=354119045]
-tile_map_data = PackedByteArray("AAA2AAsAAAAOAAgAAAA1AAoAAAAOAAoAAAA2AAoAAAAGAAoAAAA0AAkAAAACAAkAAAA1AAkAAAAQAAoAAAA2AAkAAAABAAkAAAA0AAgAAAAMAAkAAAA1AAgAAAAJAAkAAAA2AAgAAAAIAAoAAAA3AAgAAAAHAAkAAAA2AAcAAAAMAAgAAABJAAsAAAAOAAoAAABKAAsAAAARAAoAAABHAAoAAAAFAAkAAABIAAoAAAALAAoAAABJAAoAAAALAAkAAABKAAoAAAAJAAoAAABIAAkAAAAMAAkAAABJAAkAAAANAAkAAABKAAkAAAAGAAoAAABJAAgAAAAQAAgAAABKAAgAAAASAAgAAAArABgAAAACAAkAAAAsABgAAAAPAAoAAAAtABgAAAAMAAoAAAAuABgAAAAEAAkAAAArABcAAAAQAAgAAAAsABcAAAAAAAkAAAAtABcAAAAEAAoAAAAuABcAAAASAAgAAAAsABYAAAAMAAkAAAAtABYAAAAPAAkAAAAwAB4AAAACAAkAAAAxAB4AAAAMAAoAAAAyAB4AAAAEAAkAAAAwAB0AAAAMAAkAAAAxAB0AAAAKAAoAAAAyAB0AAAANAAkAAAAzAB0AAAAMAAoAAAA0AB0AAAADAAkAAAA1AB0AAAADAAkAAAA2AB0AAAAEAAkAAAAxABwAAAAAAAoAAAAyABwAAAAKAAoAAAAzABwAAAAHAAoAAAA0ABwAAAAQAAoAAAA1ABwAAAARAAkAAAA2ABwAAAAOAAkAAAA3ABwAAAAGAAkAAAA4ABwAAAAHAAkAAAAwABsAAAAFAAkAAAAxABsAAAARAAgAAAAyABsAAAALAAkAAAAzABsAAAACAAoAAAA0ABsAAAAFAAoAAAA1ABsAAAASAAgAAAAyABoAAAAQAAgAAAAzABoAAAAKAAkAAAA0ABoAAAASAAgAAABBAB4AAAACAAkAAABCAB4AAAAPAAoAAABDAB4AAAAEAAkAAABBAB0AAAAQAAkAAABCAB0AAAASAAkAAABDAB0AAAAHAAoAAABEAB0AAAALAAoAAABFAB0AAAAPAAoAAABGAB0AAAARAAoAAABBABwAAAADAAoAAABCABwAAAAKAAoAAABDABwAAAANAAkAAABEABwAAAAEAAoAAABFABwAAAAEAAoAAABGABwAAAABAAoAAABHABwAAAARAAoAAABAABsAAAACAAkAAABBABsAAAAIAAoAAABCABsAAAAIAAoAAABDABsAAAAEAAoAAABEABsAAAALAAkAAABFABsAAAAKAAoAAABGABsAAAACAAoAAABHABsAAAAEAAoAAABIABsAAAARAAoAAABAABoAAAAMAAkAAABBABoAAAALAAkAAABCABoAAAAFAAoAAABDABoAAAARAAgAAABEABoAAAARAAgAAABFABoAAAAKAAkAAABGABoAAAAJAAkAAABHABoAAAAKAAkAAABIABoAAAAPAAkAAABBABkAAAAQAAgAAABCABkAAAAPAAkAAAAvAAMAAAACAAkAAAAwAAMAAAAEAAkAAAAtAAIAAAAOAAoAAAAuAAIAAAAMAAoAAAAvAAIAAAAIAAkAAAAwAAIAAAABAAoAAAAxAAIAAAAPAAoAAAAyAAIAAAARAAoAAAAtAAEAAAAQAAgAAAAuAAEAAAAOAAkAAAAvAAEAAAAOAAkAAAAwAAEAAAAJAAkAAAAxAAEAAAAOAAkAAAAyAAEAAAASAAgAAAA8AAUAAAAOAAoAAAA9AAUAAAAEAAkAAAA6AAQAAAACAAkAAAA7AAQAAAAMAAoAAAA8AAQAAAACAAoAAAA9AAQAAAABAAkAAAA6AAMAAAAAAAoAAAA7AAMAAAAHAAoAAAA8AAMAAAALAAkAAAA9AAMAAAAJAAoAAAA5AAIAAAAFAAkAAAA6AAIAAAARAAkAAAA7AAIAAAAFAAoAAAA8AAIAAAAIAAkAAAA9AAIAAAABAAkAAAA6AAEAAAAQAAgAAAA7AAEAAAARAAgAAAA8AAEAAAAIAAoAAAA9AAEAAAASAAgAAAA8AAAAAAAMAAgAAABKAAUAAAAOAAgAAABFAAQAAAAOAAoAAABGAAQAAAALAAoAAABHAAQAAAAPAAoAAABIAAQAAAAMAAoAAABJAAQAAAALAAoAAABKAAQAAAAGAAoAAABCAAMAAAAFAAkAAABDAAMAAAAPAAoAAABEAAMAAAAMAAoAAABFAAMAAAAEAAoAAABGAAMAAAAQAAoAAABHAAMAAAAKAAoAAABIAAMAAAAIAAkAAABJAAMAAAANAAkAAABKAAMAAAAJAAoAAABDAAIAAAAMAAkAAABEAAIAAAAKAAkAAABFAAIAAAARAAgAAABGAAIAAAAIAAkAAABHAAIAAAALAAkAAABIAAIAAAAFAAoAAABJAAIAAAAQAAoAAABKAAIAAAAJAAoAAABGAAEAAAAMAAkAAABHAAEAAAABAAoAAABIAAEAAAAIAAkAAABJAAEAAAACAAoAAABKAAEAAAAPAAkAAABHAAAAAAAQAAgAAABIAAAAAAARAAgAAABJAAAAAAAPAAkAAAAUAAsAAAAOAAgAAAAVAAoAAAAEAAkAAAAUAAoAAAADAAoAAAAWAAkAAAARAAoAAAAVAAkAAAANAAkAAAAUAAkAAAADAAoAAAAWAAgAAAASAAgAAAAVAAgAAAAOAAkAAAAUAAgAAAANAAoAAAATAAgAAAAFAAkAAAAUAAcAAAAMAAgAAAABAAsAAAARAAoAAAAAAAsAAAACAAkAAAADAAoAAAAHAAkAAAACAAoAAAAPAAoAAAABAAoAAAAIAAoAAAAAAAoAAAADAAoAAAACAAkAAAASAAgAAAABAAkAAAANAAoAAAAAAAkAAAAQAAkAAAABAAgAAAAPAAkAAAAAAAgAAAAMAAkAAAAfABgAAAAEAAkAAAAeABgAAAADAAkAAAAdABgAAAAMAAoAAAAcABgAAAACAAkAAAAfABcAAAAPAAkAAAAeABcAAAANAAoAAAAdABcAAAAQAAoAAAAcABcAAAAQAAgAAAAeABYAAAASAAgAAAAdABYAAAAQAAgAAAAaAB4AAAAEAAkAAAAZAB4AAAALAAoAAAAYAB4AAAAOAAoAAAAaAB0AAAAPAAkAAAAZAB0AAAANAAkAAAAYAB0AAAAIAAkAAAAXAB0AAAAPAAoAAAAWAB0AAAAMAAoAAAAVAB0AAAADAAkAAAAUAB0AAAAOAAoAAAAZABwAAAAJAAoAAAAYABwAAAANAAoAAAAXABwAAAAFAAoAAAAWABwAAAANAAkAAAAVABwAAAAHAAoAAAAUABwAAAAKAAkAAAATABwAAAAGAAkAAAASABwAAAAFAAkAAAAaABsAAAAHAAkAAAAZABsAAAAJAAkAAAAYABsAAAANAAoAAAAXABsAAAAEAAoAAAAWABsAAAASAAkAAAAVABsAAAAMAAkAAAAYABoAAAASAAgAAAAXABoAAAAJAAkAAAAWABoAAAAMAAkAAAAJAB4AAAAEAAkAAAAIAB4AAAAMAAoAAAAHAB4AAAACAAkAAAAJAB0AAAATAAkAAAAIAB0AAAAEAAoAAAAHAB0AAAAEAAoAAAAGAB0AAAALAAoAAAAFAB0AAAAMAAoAAAAEAB0AAAACAAkAAAAJABwAAAAJAAoAAAAIABwAAAANAAkAAAAHABwAAAAKAAoAAAAGABwAAAANAAoAAAAFABwAAAAHAAoAAAAEABwAAAALAAkAAAADABwAAAAOAAoAAAAKABsAAAAEAAkAAAAJABsAAAANAAkAAAAIABsAAAAIAAkAAAAHABsAAAAIAAoAAAAGABsAAAAKAAoAAAAFABsAAAASAAkAAAAEABsAAAAFAAoAAAADABsAAAAHAAoAAAACABsAAAACAAkAAAAKABoAAAAPAAkAAAAJABoAAAAIAAoAAAAIABoAAAARAAkAAAAHABoAAAAKAAkAAAAGABoAAAAKAAkAAAAFABoAAAAOAAkAAAAEABoAAAAJAAkAAAADABoAAAAOAAkAAAACABoAAAAQAAgAAAAJABkAAAAPAAkAAAAIABkAAAAQAAgAAAAbAAMAAAAEAAkAAAAaAAMAAAACAAkAAAAdAAIAAAAEAAkAAAAcAAIAAAALAAoAAAAbAAIAAAASAAkAAAAaAAIAAAAKAAoAAAAZAAIAAAADAAkAAAAYAAIAAAACAAkAAAAdAAEAAAAPAAkAAAAcAAEAAAARAAgAAAAbAAEAAAAOAAkAAAAaAAEAAAAKAAkAAAAZAAEAAAAOAAkAAAAYAAEAAAAQAAgAAAAOAAUAAAAEAAkAAAANAAUAAAAOAAoAAAAQAAQAAAAEAAkAAAAPAAQAAAAPAAoAAAAOAAQAAAAIAAoAAAANAAQAAAADAAoAAAAQAAMAAAAJAAoAAAAPAAMAAAABAAoAAAAOAAMAAAAHAAoAAAANAAMAAAADAAoAAAARAAIAAAAHAAkAAAAQAAIAAAAIAAoAAAAPAAIAAAANAAoAAAAOAAIAAAABAAoAAAANAAIAAAAAAAoAAAAQAAEAAAASAAgAAAAPAAEAAAAJAAkAAAAOAAEAAAAKAAoAAAANAAEAAAAQAAgAAAAOAAAAAAAMAAgAAAAAAAUAAAAOAAgAAAAFAAQAAAAEAAkAAAAEAAQAAAAMAAoAAAADAAQAAAAMAAoAAAACAAQAAAAPAAoAAAABAAQAAAAMAAoAAAAAAAQAAAAQAAkAAAAIAAMAAAAHAAkAAAAHAAMAAAADAAkAAAAGAAMAAAAPAAoAAAAFAAMAAAAIAAoAAAAEAAMAAAABAAoAAAADAAMAAAANAAoAAAACAAMAAAAIAAkAAAABAAMAAAARAAkAAAAAAAMAAAAQAAkAAAAHAAIAAAAPAAkAAAAGAAIAAAAKAAkAAAAFAAIAAAAKAAkAAAAEAAIAAAABAAoAAAADAAIAAAAAAAkAAAACAAIAAAAFAAoAAAABAAIAAAACAAoAAAAAAAIAAAADAAoAAAAEAAEAAAASAAgAAAADAAEAAAAAAAkAAAACAAEAAAAEAAoAAAABAAEAAAALAAkAAAAAAAEAAAAMAAkAAAADAAAAAAASAAgAAAACAAAAAAARAAgAAAABAAAAAAAMAAkAAAA=")
-tile_set = ExtResource("1_gxa0p")
+[node name="GrassDeep" type="TileMapLayer" parent="." unique_id=1792241405]
+tile_map_data = PackedByteArray("AAA2AAsAAAAOAAgAAAA1AAoAAAACAAkAAAA2AAoAAAAJAAoAAAA0AAkAAAAOAAoAAAA1AAkAAAAKAAoAAAA2AAkAAAAJAAoAAAA0AAgAAAAMAAkAAAA1AAgAAAAJAAkAAAA2AAgAAAAFAAoAAAA3AAgAAAAHAAkAAAA2AAcAAAAMAAgAAABJAAsAAAAOAAoAAABKAAsAAAARAAoAAABHAAoAAAAFAAkAAABIAAoAAAAMAAoAAABJAAoAAAAEAAoAAABKAAoAAAABAAkAAABIAAkAAAAQAAgAAABJAAkAAAANAAkAAABKAAkAAAAGAAoAAABJAAgAAAAMAAkAAABKAAgAAAASAAgAAAArABgAAAAOAAoAAAAsABgAAAALAAoAAAAtABgAAAALAAoAAAAuABgAAAAEAAkAAAArABcAAAAQAAgAAAAsABcAAAAEAAoAAAAtABcAAAASAAkAAAAuABcAAAAPAAkAAAAsABYAAAAMAAkAAAAtABYAAAAPAAkAAAAwAB4AAAAOAAoAAAAxAB4AAAADAAkAAAAyAB4AAAAEAAkAAAAwAB0AAAAQAAgAAAAxAB0AAAAIAAoAAAAyAB0AAAAIAAoAAAAzAB0AAAADAAkAAAA0AB0AAAALAAoAAAA1AB0AAAAPAAoAAAA2AB0AAAAEAAkAAAAxABwAAAADAAoAAAAyABwAAAALAAkAAAAzABwAAAARAAkAAAA0ABwAAAAHAAoAAAA1ABwAAAASAAkAAAA2ABwAAAAKAAkAAAA3ABwAAAAGAAkAAAA4ABwAAAAHAAkAAAAwABsAAAAFAAkAAAAxABsAAAARAAgAAAAyABsAAAASAAkAAAAzABsAAAAFAAoAAAA0ABsAAAAIAAoAAAA1ABsAAAASAAgAAAAyABoAAAAQAAgAAAAzABoAAAAOAAkAAAA0ABoAAAASAAgAAABBAB4AAAAOAAoAAABCAB4AAAADAAkAAABDAB4AAAARAAoAAABBAB0AAAATAAgAAABCAB0AAAACAAoAAABDAB0AAAALAAkAAABEAB0AAAAPAAoAAABFAB0AAAALAAoAAABGAB0AAAARAAoAAABBABwAAAAQAAkAAABCABwAAAACAAoAAABDABwAAAAIAAkAAABEABwAAAANAAoAAABFABwAAAASAAkAAABGABwAAAAHAAoAAABHABwAAAAEAAkAAABAABsAAAACAAkAAABBABsAAAAFAAoAAABCABsAAAABAAoAAABDABsAAAARAAkAAABEABsAAAANAAoAAABFABsAAAANAAkAAABGABsAAAAKAAoAAABHABsAAAAKAAoAAABIABsAAAAEAAkAAABAABoAAAAQAAgAAABBABoAAAANAAoAAABCABoAAAAQAAoAAABDABoAAAARAAgAAABEABoAAAARAAgAAABFABoAAAAKAAkAAABGABoAAAAOAAkAAABHABoAAAAOAAkAAABIABoAAAASAAgAAABBABkAAAAQAAgAAABCABkAAAASAAgAAAAvAAMAAAACAAkAAAAwAAMAAAAEAAkAAAAtAAIAAAACAAkAAAAuAAIAAAALAAoAAAAvAAIAAAACAAoAAAAwAAIAAAACAAoAAAAxAAIAAAAMAAoAAAAyAAIAAAAEAAkAAAAtAAEAAAAMAAkAAAAuAAEAAAARAAgAAAAvAAEAAAARAAgAAAAwAAEAAAAJAAkAAAAxAAEAAAAKAAkAAAAyAAEAAAASAAgAAAA8AAUAAAACAAkAAAA9AAUAAAARAAoAAAA6AAQAAAAOAAoAAAA7AAQAAAAPAAoAAAA8AAQAAAAIAAoAAAA9AAQAAAABAAkAAAA6AAMAAAAAAAoAAAA7AAMAAAANAAoAAAA8AAMAAAAFAAoAAAA9AAMAAAAJAAoAAAA5AAIAAAAFAAkAAAA6AAIAAAARAAkAAAA7AAIAAAAFAAoAAAA8AAIAAAAEAAoAAAA9AAIAAAABAAkAAAA6AAEAAAAMAAkAAAA7AAEAAAAOAAkAAAA8AAEAAAAQAAoAAAA9AAEAAAAPAAkAAAA8AAAAAAAMAAgAAABKAAUAAAAOAAgAAABFAAQAAAACAAkAAABGAAQAAAADAAkAAABHAAQAAAADAAkAAABIAAQAAAAMAAoAAABJAAQAAAAMAAoAAABKAAQAAAATAAkAAABCAAMAAAAFAAkAAABDAAMAAAAPAAoAAABEAAMAAAALAAoAAABFAAMAAAAEAAoAAABGAAMAAAARAAkAAABHAAMAAAALAAkAAABIAAMAAAALAAkAAABJAAMAAAALAAkAAABKAAMAAAAJAAoAAABDAAIAAAAMAAkAAABEAAIAAAAJAAkAAABFAAIAAAAOAAkAAABGAAIAAAARAAkAAABHAAIAAAAKAAoAAABIAAIAAAAFAAoAAABJAAIAAAAIAAkAAABKAAIAAAAGAAoAAABGAAEAAAAQAAgAAABHAAEAAAARAAkAAABIAAEAAAAIAAoAAABJAAEAAAAFAAoAAABKAAEAAAASAAgAAABHAAAAAAAQAAgAAABIAAAAAAAKAAkAAABJAAAAAAASAAgAAAAUAAsAAAAOAAgAAAAVAAoAAAAEAAkAAAAUAAoAAAADAAoAAAAWAAkAAAAEAAkAAAAVAAkAAAACAAoAAAAUAAkAAAADAAoAAAAWAAgAAAAPAAkAAAAVAAgAAAAJAAkAAAAUAAgAAAANAAkAAAATAAgAAAAFAAkAAAAUAAcAAAAMAAgAAAABAAsAAAARAAoAAAAAAAsAAAACAAkAAAADAAoAAAAHAAkAAAACAAoAAAAMAAoAAAABAAoAAAAHAAoAAAAAAAoAAAAAAAoAAAACAAkAAAAPAAkAAAABAAkAAAALAAkAAAAAAAkAAAAAAAoAAAABAAgAAAASAAgAAAAAAAgAAAAMAAkAAAAfABgAAAAEAAkAAAAeABgAAAAMAAoAAAAdABgAAAALAAoAAAAcABgAAAACAAkAAAAfABcAAAAPAAkAAAAeABcAAAAKAAoAAAAdABcAAAAKAAoAAAAcABcAAAAMAAkAAAAeABYAAAASAAgAAAAdABYAAAAMAAkAAAAaAB4AAAAEAAkAAAAZAB4AAAAMAAoAAAAYAB4AAAACAAkAAAAaAB0AAAASAAgAAAAZAB0AAAANAAkAAAAYAB0AAAACAAoAAAAXAB0AAAADAAkAAAAWAB0AAAAMAAoAAAAVAB0AAAAMAAoAAAAUAB0AAAAOAAoAAAAZABwAAAAGAAoAAAAYABwAAAASAAkAAAAXABwAAAARAAkAAAAWABwAAAANAAoAAAAVABwAAAANAAoAAAAUABwAAAAOAAkAAAATABwAAAAGAAkAAAASABwAAAAFAAkAAAAaABsAAAAHAAkAAAAZABsAAAAJAAkAAAAYABsAAAAIAAoAAAAXABsAAAACAAoAAAAWABsAAAAKAAoAAAAVABsAAAAMAAkAAAAYABoAAAASAAgAAAAXABoAAAAJAAkAAAAWABoAAAAMAAkAAAAJAB4AAAAEAAkAAAAIAB4AAAAPAAoAAAAHAB4AAAAOAAoAAAAJAB0AAAAGAAoAAAAIAB0AAAARAAkAAAAHAB0AAAASAAkAAAAGAB0AAAAPAAoAAAAFAB0AAAALAAoAAAAEAB0AAAACAAkAAAAJABwAAAAGAAoAAAAIABwAAAAKAAoAAAAHABwAAAAQAAoAAAAGABwAAAABAAoAAAAFABwAAAANAAkAAAAEABwAAAALAAkAAAADABwAAAAOAAoAAAAKABsAAAAEAAkAAAAJABsAAAAIAAkAAAAIABsAAAAQAAoAAAAHABsAAAARAAkAAAAGABsAAAABAAoAAAAFABsAAAALAAkAAAAEABsAAAASAAkAAAADABsAAAASAAkAAAACABsAAAAOAAoAAAAKABoAAAAPAAkAAAAJABoAAAALAAkAAAAIABoAAAAAAAkAAAAHABoAAAAOAAkAAAAGABoAAAAJAAkAAAAFABoAAAAJAAkAAAAEABoAAAAJAAkAAAADABoAAAAJAAkAAAACABoAAAAQAAgAAAAJABkAAAAPAAkAAAAIABkAAAAMAAkAAAAbAAMAAAARAAoAAAAaAAMAAAAOAAoAAAAdAAIAAAARAAoAAAAcAAIAAAAMAAoAAAAbAAIAAAANAAkAAAAaAAIAAAANAAoAAAAZAAIAAAADAAkAAAAYAAIAAAACAAkAAAAdAAEAAAAPAAkAAAAcAAEAAAAJAAkAAAAbAAEAAAARAAgAAAAaAAEAAAARAAgAAAAZAAEAAAAJAAkAAAAYAAEAAAAMAAkAAAAOAAUAAAARAAoAAAANAAUAAAACAAkAAAAQAAQAAAARAAoAAAAPAAQAAAAPAAoAAAAOAAQAAAACAAoAAAANAAQAAAAQAAkAAAAQAAMAAAAJAAoAAAAPAAMAAAASAAkAAAAOAAMAAAAQAAoAAAANAAMAAAATAAgAAAARAAIAAAAHAAkAAAAQAAIAAAAAAAkAAAAPAAIAAAALAAkAAAAOAAIAAAAAAAkAAAANAAIAAAAQAAkAAAAQAAEAAAASAAgAAAAPAAEAAAAOAAkAAAAOAAEAAAAHAAoAAAANAAEAAAAQAAgAAAAOAAAAAAAMAAgAAAAAAAUAAAAOAAgAAAAFAAQAAAAEAAkAAAAEAAQAAAAPAAoAAAADAAQAAAADAAkAAAACAAQAAAALAAoAAAABAAQAAAAPAAoAAAAAAAQAAAAAAAoAAAAIAAMAAAAHAAkAAAAHAAMAAAADAAkAAAAGAAMAAAADAAkAAAAFAAMAAAASAAkAAAAEAAMAAAASAAkAAAADAAMAAAAAAAkAAAACAAMAAAABAAoAAAABAAMAAAALAAkAAAAAAAMAAAAQAAkAAAAHAAIAAAAPAAkAAAAGAAIAAAAKAAkAAAAFAAIAAAARAAgAAAAEAAIAAAAQAAoAAAADAAIAAAAQAAoAAAACAAIAAAAQAAoAAAABAAIAAAAAAAkAAAAAAAIAAAAAAAoAAAAEAAEAAAAPAAkAAAADAAEAAAARAAkAAAACAAEAAAAQAAoAAAABAAEAAAAHAAoAAAAAAAEAAAAQAAgAAAADAAAAAAASAAgAAAACAAAAAAARAAgAAAABAAAAAAAMAAkAAAA=")
+tile_set = ExtResource("1_7tsbj")
 
-[node name="GrassDry" type="TileMapLayer" parent="." unique_id=602306411]
-tile_map_data = PackedByteArray("AAA+ABoAAAAAAAsAAAA+ABkAAAACAAwAAAA/ABkAAAADAA0AAAA9ABgAAAAIAAsAAAA+ABgAAAAKAAwAAAA/ABgAAAAIAAwAAABAABgAAAADAA0AAAA9ABcAAAASAAsAAAA+ABcAAAADAAsAAAA/ABcAAAAAAAwAAABAABcAAAABAAwAAAA6AAoAAAAAAAsAAAA5AAkAAAAIAAsAAAA6AAkAAAAHAAsAAAA4AAgAAAAAAA0AAAA5AAgAAAAHAAwAAAA6AAgAAAATAAwAAAA7AAgAAAANAAsAAAA4AAcAAAACAAsAAAA5AAcAAAAPAAsAAAA6AAcAAAABAAwAAAArAB0AAAAIAAsAAAAsAB0AAAAKAAsAAAApABwAAAAAAA0AAAAqABwAAAASAAwAAAArABwAAAATAAsAAAAsABwAAAAEAAsAAAApABsAAAAJAAwAAAAqABsAAAAGAAsAAAArABsAAAAMAAwAAAApABoAAAACAAsAAAAqABoAAAAQAAsAAAArABoAAAAEAAwAAAAsABoAAAANAAsAAAArABkAAAASAAoAAAAqAAUAAAAAAA0AAAArAAUAAAABAA0AAAAsAAUAAAAKAAsAAAApAAQAAAAAAA0AAAAqAAQAAAAEAAwAAAArAAQAAAANAAwAAAAsAAQAAAAEAAsAAAApAAMAAAASAAsAAAAqAAMAAAATAAwAAAArAAMAAAAPAAwAAAAqAAIAAAASAAsAAAArAAIAAAABAAwAAABGABUAAAALAAsAAABHABUAAAABAA0AAABIABUAAAARAAwAAABJABUAAAASAAwAAABKABUAAAANAAsAAABHABQAAAASAAsAAABIABQAAAADAAwAAABJABQAAAAEAAsAAABIABMAAAASAAoAAABGAA0AAAAIAAsAAABHAA0AAAARAAwAAABIAA0AAAAJAAsAAABJAA0AAAADAA0AAABGAAwAAAAFAAsAAABHAAwAAAAOAAsAAABIAAwAAAAOAAsAAABJAAwAAAADAAsAAABKAAwAAAANAAsAAABGAAsAAAACAAsAAABHAAsAAAADAAsAAABIAAsAAAAEAAsAAAAMABoAAAAAAAsAAAAMABkAAAAPAAwAAAALABkAAAAIAAsAAAANABgAAAAKAAsAAAAMABgAAAAGAAsAAAALABgAAAAOAAsAAAAKABgAAAAAAA0AAAANABcAAAAEAAsAAAAMABcAAAAAAAwAAAALABcAAAAAAAwAAAAKABcAAAACAAsAAAAQAAoAAAAAAAsAAAARAAkAAAADAA0AAAAQAAkAAAAJAAwAAAASAAgAAAAKAAsAAAARAAgAAAAOAAsAAAAQAAgAAAANAAwAAAAPAAgAAAALAAsAAAASAAcAAAABAAwAAAARAAcAAAAPAAsAAAAQAAcAAAASAAsAAAAfAB0AAAAKAAsAAAAeAB0AAAAAAA0AAAAhABwAAAADAA0AAAAgABwAAAASAAwAAAAfABwAAAARAAsAAAAeABwAAAASAAsAAAAhABsAAAAHAAsAAAAgABsAAAATAAwAAAAfABsAAAAJAAwAAAAhABoAAAAEAAsAAAAgABoAAAAPAAsAAAAfABoAAAAQAAwAAAAeABoAAAALAAsAAAAfABkAAAASAAoAAAAgAAUAAAAKAAsAAAAfAAUAAAAJAAsAAAAeAAUAAAAAAA0AAAAhAAQAAAADAA0AAAAgAAQAAAALAAwAAAAfAAQAAAACAA0AAAAeAAQAAAACAAsAAAAhAAMAAAAEAAsAAAAgAAMAAAAOAAsAAAAfAAMAAAAJAAwAAAAgAAIAAAABAAwAAAAfAAIAAAACAAsAAAAEABUAAAANAAsAAAADABUAAAASAAwAAAACABUAAAABAA0AAAABABUAAAASAAwAAAAAABUAAAALAAsAAAADABQAAAAEAAsAAAACABQAAAADAAwAAAABABQAAAACAAsAAAACABMAAAASAAoAAAAEAA0AAAADAA0AAAADAA0AAAABAA0AAAACAA0AAAAJAAsAAAABAA0AAAAIAAsAAAAEAAwAAAAHAAsAAAADAAwAAAAIAAwAAAACAAwAAAADAAwAAAABAAwAAAAQAAsAAAAAAAwAAAALAAsAAAAEAAsAAAAEAAsAAAADAAsAAAAQAAsAAAACAAsAAAASAAsAAAA=")
-tile_set = ExtResource("1_gxa0p")
+[node name="GrassDry" type="TileMapLayer" parent="." unique_id=1260275641]
+tile_map_data = PackedByteArray("AAA+ABoAAAAAAAsAAAA+ABkAAAACAAwAAAA/ABkAAAAKAAsAAAA9ABgAAAAIAAsAAAA+ABgAAAACAA0AAAA/ABgAAAAOAAsAAABAABgAAAADAA0AAAA9ABcAAAASAAsAAAA+ABcAAAAQAAsAAAA/ABcAAAADAAsAAABAABcAAAAEAAsAAAA6AAoAAAAAAAsAAAA5AAkAAAAIAAsAAAA6AAkAAAAFAAwAAAA4AAgAAAAIAAsAAAA5AAgAAAAOAAwAAAA6AAgAAAADAAwAAAA7AAgAAAANAAsAAAA4AAcAAAASAAsAAAA5AAcAAAAQAAsAAAA6AAcAAAABAAwAAAArAB0AAAAIAAsAAAAsAB0AAAAKAAsAAAApABwAAAAAAA0AAAAqABwAAAASAAwAAAArABwAAAAKAAwAAAAsABwAAAABAAwAAAApABsAAAAFAAsAAAAqABsAAAAIAAwAAAArABsAAAAMAAwAAAApABoAAAASAAsAAAAqABoAAAAQAAsAAAArABoAAAATAAsAAAAsABoAAAANAAsAAAArABkAAAASAAoAAAAqAAUAAAAIAAsAAAArAAUAAAARAAwAAAAsAAUAAAAKAAsAAAApAAQAAAAIAAsAAAAqAAQAAAAOAAwAAAArAAQAAAALAAwAAAAsAAQAAAABAAwAAAApAAMAAAASAAsAAAAqAAMAAAADAAwAAAArAAMAAAAMAAwAAAAqAAIAAAACAAsAAAArAAIAAAABAAwAAABGABUAAAALAAsAAABHABUAAAASAAwAAABIABUAAAABAA0AAABJABUAAAABAA0AAABKABUAAAANAAsAAABHABQAAAASAAsAAABIABQAAAANAAwAAABJABQAAAAEAAsAAABIABMAAAASAAoAAABGAA0AAAAAAA0AAABHAA0AAAARAAwAAABIAA0AAAARAAwAAABJAA0AAAAKAAsAAABGAAwAAAAGAAwAAABHAAwAAAAGAAsAAABIAAwAAAAEAAwAAABJAAwAAAADAAsAAABKAAwAAAANAAsAAABGAAsAAAASAAsAAABHAAsAAAAPAAsAAABIAAsAAAABAAwAAAAMABoAAAAAAAsAAAAMABkAAAAHAAsAAAALABkAAAAAAA0AAAANABgAAAAKAAsAAAAMABgAAAAIAAwAAAALABgAAAATAAwAAAAKABgAAAAIAAsAAAANABcAAAAEAAsAAAAMABcAAAAPAAsAAAALABcAAAADAAsAAAAKABcAAAACAAsAAAAQAAoAAAAAAAsAAAARAAkAAAAKAAsAAAAQAAkAAAAJAAwAAAASAAgAAAAKAAsAAAARAAgAAAAGAAsAAAAQAAgAAAAKAAwAAAAPAAgAAAALAAsAAAASAAcAAAAEAAsAAAARAAcAAAADAAsAAAAQAAcAAAASAAsAAAAfAB0AAAADAA0AAAAeAB0AAAAIAAsAAAAhABwAAAADAA0AAAAgABwAAAAJAAsAAAAfABwAAAACAA0AAAAeABwAAAACAAsAAAAhABsAAAAMAAwAAAAgABsAAAAIAAwAAAAfABsAAAAFAAsAAAAhABoAAAAEAAsAAAAgABoAAAAPAAsAAAAfABoAAAAQAAwAAAAeABoAAAALAAsAAAAfABkAAAASAAoAAAAgAAUAAAAKAAsAAAAfAAUAAAARAAwAAAAeAAUAAAAIAAsAAAAhAAQAAAAKAAsAAAAgAAQAAAAHAAwAAAAfAAQAAAACAA0AAAAeAAQAAAASAAsAAAAhAAMAAAAEAAsAAAAgAAMAAAAGAAsAAAAfAAMAAAAJAAwAAAAgAAIAAAAEAAsAAAAfAAIAAAASAAsAAAAEABUAAAANAAsAAAADABUAAAAJAAsAAAACABUAAAABAA0AAAABABUAAAARAAwAAAAAABUAAAALAAsAAAADABQAAAAEAAsAAAACABQAAAAHAAwAAAABABQAAAASAAsAAAACABMAAAASAAoAAAAEAA0AAAADAA0AAAADAA0AAAARAAwAAAACAA0AAAAJAAsAAAABAA0AAAAIAAsAAAAEAAwAAAAHAAsAAAADAAwAAAAGAAsAAAACAAwAAAATAAwAAAABAAwAAAAPAAsAAAAAAAwAAAALAAsAAAAEAAsAAAAEAAsAAAADAAsAAAADAAsAAAACAAsAAAASAAsAAAA=")
+tile_set = ExtResource("1_7tsbj")
 
-[node name="GrassLight" type="TileMapLayer" parent="." unique_id=1914430703]
-tile_map_data = PackedByteArray("AAAxABAAAAADABAAAAAyABAAAAAJABEAAAAzABAAAAACABAAAAAyAA8AAAAKABAAAAAzAA8AAAANABAAAAA1ABgAAAADABAAAAA2ABgAAAABABAAAAA3ABgAAAAJABEAAAA4ABgAAAAKABEAAAA5ABgAAAANABEAAAA6ABgAAAAKABEAAAA7ABgAAAAFABAAAAA2ABcAAAAOAA8AAAA3ABcAAAACABEAAAA4ABcAAAASAA8AAAA5ABcAAAAPABAAAAA6ABcAAAAQAA8AAAA3ABYAAAAKABAAAAA4ABYAAAAPAA8AAAA5ABYAAAAQAA8AAABEABoAAAAMABEAAABFABoAAAAKABEAAABGABoAAAACABAAAABEABkAAAARAA8AAABFABkAAAAGABAAAABGABkAAAAGABEAAABHABkAAAAEABAAAABIABkAAAAFABAAAABEABgAAAAKABAAAABFABgAAAAMABAAAABGABgAAAANABAAAAAtAAkAAAAMAA8AAAAtAAgAAAABABEAAAAuAAgAAAABABAAAAAvAAgAAAACABAAAAAtAAcAAAAOABAAAAAuAAcAAAAGABAAAAAvAAcAAAAOABEAAAAwAAcAAAAPABEAAAAtAAYAAAAOAA8AAAAuAAYAAAAIABAAAAAvAAYAAAAPAA8AAAAwAAYAAAANABAAAAA+AAwAAAAAABAAAAA/AAwAAAAPABEAAAA9AAsAAAAMABEAAAA+AAsAAAALABEAAAA/AAsAAAAGABAAAABAAAsAAAABABAAAABBAAsAAAAPABEAAAA8AAoAAAADABAAAAA9AAoAAAAOABEAAAA+AAoAAAAMABAAAAA/AAoAAAAIABAAAABAAAoAAAAHABAAAABBAAoAAAAQAA8AAAA9AAkAAAAKAA8AAAAZABAAAAAFABAAAAAYABAAAAABABAAAAAXABAAAAAMABEAAAAYAA8AAAAQAA8AAAAXAA8AAAAOAA8AAAAVABgAAAAFABAAAAAUABgAAAANABEAAAATABgAAAANABEAAAASABgAAAAJABEAAAARABgAAAAKABEAAAAQABgAAAAJABEAAAAPABgAAAADABAAAAAUABcAAAAQAA8AAAATABcAAAAGABEAAAASABcAAAASAA8AAAARABcAAAAQABAAAAAQABcAAAAKABAAAAATABYAAAAQAA8AAAASABYAAAAHABAAAAARABYAAAAKABAAAAAGABoAAAACABAAAAAFABoAAAABABAAAAAEABoAAAAMABEAAAAGABkAAAAHABEAAAAFABkAAAACABEAAAAEABkAAAACABEAAAADABkAAAAEABAAAAACABkAAAADABAAAAAGABgAAAAQAA8AAAAFABgAAAAHABAAAAAEABgAAAAOAA8AAAAdAAkAAAAMAA8AAAAdAAgAAAAHABEAAAAcAAgAAAAKABEAAAAbAAgAAAAMABEAAAAdAAcAAAAEABEAAAAcAAcAAAAJABAAAAAbAAcAAAAFABEAAAAaAAcAAAAAABAAAAAdAAYAAAAQAA8AAAAcAAYAAAAIABAAAAAbAAYAAAAPAA8AAAAaAAYAAAAOAA8AAAAMAAwAAAAPABEAAAALAAwAAAAMABEAAAANAAsAAAAPABEAAAAMAAsAAAAOABEAAAALAAsAAAALABEAAAAKAAsAAAANABEAAAAJAAsAAAAMABEAAAAOAAoAAAAFABAAAAANAAoAAAAAABEAAAAMAAoAAAAHABAAAAALAAoAAAAMABAAAAAKAAoAAAAMABAAAAAJAAoAAAAOAA8AAAANAAkAAAAKAA8AAAA=")
-tile_set = ExtResource("1_gxa0p")
+[node name="GrassLight" type="TileMapLayer" parent="." unique_id=723747460]
+tile_map_data = PackedByteArray("AAAxABAAAAADABAAAAAyABAAAAAJABEAAAAzABAAAAACABAAAAAyAA8AAAAKABAAAAAzAA8AAAANABAAAAA1ABgAAAADABAAAAA2ABgAAAANABEAAAA3ABgAAAABABAAAAA4ABgAAAAJABEAAAA5ABgAAAANABEAAAA6ABgAAAANABEAAAA7ABgAAAAFABAAAAA2ABcAAAAOAA8AAAA3ABcAAAASAA8AAAA4ABcAAAAOABEAAAA5ABcAAAATABAAAAA6ABcAAAANABAAAAA3ABYAAAAKABAAAAA4ABYAAAAMABAAAAA5ABYAAAANABAAAABEABoAAAAMABEAAABFABoAAAAJABEAAABGABoAAAACABAAAABEABkAAAARAA8AAABFABkAAAAIABEAAABGABkAAAAOABEAAABHABkAAAAEABAAAABIABkAAAAFABAAAABEABgAAAAOAA8AAABFABgAAAAMABAAAABGABgAAAANABAAAAAtAAkAAAAMAA8AAAAtAAgAAAAOABAAAAAuAAgAAAANABEAAAAvAAgAAAAPABEAAAAtAAcAAAASABAAAAAuAAcAAAAJABAAAAAvAAcAAAAQABAAAAAwAAcAAAAPABEAAAAtAAYAAAAKABAAAAAuAAYAAAAHABAAAAAvAAYAAAAPAA8AAAAwAAYAAAANABAAAAA+AAwAAAAAABAAAAA/AAwAAAACABAAAAA9AAsAAAAMABEAAAA+AAsAAAAJABAAAAA/AAsAAAAGABEAAABAAAsAAAAJABEAAABBAAsAAAACABAAAAA8AAoAAAADABAAAAA9AAoAAAAGABEAAAA+AAoAAAAMABAAAAA/AAoAAAAIABAAAABAAAoAAAAHABAAAABBAAoAAAAQAA8AAAA9AAkAAAAKAA8AAAAZABAAAAAFABAAAAAYABAAAAANABEAAAAXABAAAAAAABAAAAAYAA8AAAAQAA8AAAAXAA8AAAAOAA8AAAAVABgAAAAFABAAAAAUABgAAAANABEAAAATABgAAAAKABEAAAASABgAAAAJABEAAAARABgAAAAKABEAAAAQABgAAAANABEAAAAPABgAAAADABAAAAAUABcAAAANABAAAAATABcAAAAAABEAAAASABcAAAAGABAAAAARABcAAAALABAAAAAQABcAAAAOAA8AAAATABYAAAAQAA8AAAASABYAAAAPAA8AAAARABYAAAAOAA8AAAAGABoAAAACABAAAAAFABoAAAANABEAAAAEABoAAAAMABEAAAAGABkAAAARABAAAAAFABkAAAADABEAAAAEABkAAAAPABAAAAADABkAAAAEABAAAAACABkAAAADABAAAAAGABgAAAAQAA8AAAAFABgAAAAIABAAAAAEABgAAAAKABAAAAAdAAkAAAAMAA8AAAAdAAgAAAAHABEAAAAcAAgAAAAJABEAAAAbAAgAAAAMABEAAAAdAAcAAAATAA8AAAAcAAcAAAADABEAAAAbAAcAAAAIABEAAAAaAAcAAAAMABEAAAAdAAYAAAANABAAAAAcAAYAAAAHABAAAAAbAAYAAAAMABAAAAAaAAYAAAAOAA8AAAAMAAwAAAAPABEAAAALAAwAAAAMABEAAAANAAsAAAACABAAAAAMAAsAAAAIABEAAAALAAsAAAALABEAAAAKAAsAAAAKABEAAAAJAAsAAAAMABEAAAAOAAoAAAAFABAAAAANAAoAAAALABEAAAAMAAoAAAAIABAAAAALAAoAAAAPAA8AAAAKAAoAAAAHABAAAAAJAAoAAAAKABAAAAANAAkAAAAKAA8AAAA=")
+tile_set = ExtResource("1_7tsbj")
 
-[node name="Meadow" type="TileMapLayer" parent="." unique_id=172806097]
-tile_map_data = PackedByteArray("AABFAAgAAAAGAA0AAABDAAcAAAARAA0AAABEAAcAAAAHAA8AAABFAAcAAAAJAA4AAABGAAcAAAATAA0AAABEAAYAAAAPAA4AAABFAAYAAAALAA4AAABEAAUAAAAIAA0AAABFAAUAAAAKAA0AAAAwAAoAAAARAA0AAAAxAAoAAAAHAA8AAAAyAAoAAAAJAA8AAAAxAAkAAAAIAA4AAAAyAAkAAAATAA4AAAAzAAkAAAATAA0AAAAxAAgAAAAEAA4AAAAyAAgAAAAKAA0AAAAwABcAAAAGAA0AAAAwABYAAAAIAA4AAAAxABYAAAAQAA0AAAAvABUAAAARAA0AAAAwABUAAAAIAA8AAAAxABUAAAANAA4AAAAyABUAAAAQAA0AAAAwABQAAAAIAA0AAAAxABQAAAAGAA4AAAAyABQAAAAHAA4AAAA8ABwAAAAGAA8AAAA9ABwAAAAQAA0AAAA7ABsAAAAGAA8AAAA8ABsAAAAJAA4AAAA9ABsAAAACAA8AAAA+ABsAAAAQAA0AAAA6ABoAAAAGAA8AAAA7ABoAAAARAA4AAAA8ABoAAAAJAA4AAAA9ABoAAAAMAA0AAAA+ABoAAAAFAA8AAAA/ABoAAAAQAA0AAAA6ABkAAAAEAA4AAAA7ABkAAAACAA4AAAA8ABkAAAAJAA0AAAA9ABkAAAAJAA0AAAA+ABkAAAAJAA0AAAA/ABkAAAAKAA0AAAA2AAYAAAAGAA8AAAA3AAYAAAAJAA8AAAA0AAUAAAAOAA0AAAA1AAUAAAAPAA0AAAA2AAUAAAACAA8AAAA3AAUAAAALAA4AAAAzAAQAAAAGAA8AAAA0AAQAAAATAA4AAAA1AAQAAAADAA4AAAA2AAQAAAAAAA8AAAA3AAQAAAACAA8AAAA4AAQAAAAQAA0AAAAzAAMAAAAIAA0AAAA0AAMAAAAJAA0AAAA1AAMAAAABAA4AAAA2AAMAAAACAA8AAAA3AAMAAAACAA8AAAA4AAMAAAAKAA0AAAA2AAIAAAAEAA4AAAA3AAIAAAAHAA4AAAAFAAgAAAAGAA0AAAAHAAcAAAATAA0AAAAGAAcAAAAPAA0AAAAFAAcAAAAAAA8AAAAEAAcAAAARAA0AAAAGAAYAAAABAA8AAAAFAAYAAAAPAA4AAAAGAAUAAAAHAA4AAAAFAAUAAAAIAA0AAAAaAAoAAAATAA0AAAAZAAoAAAAPAA0AAAAYAAoAAAAGAA8AAAAZAAkAAAASAA4AAAAYAAkAAAACAA8AAAAXAAkAAAARAA0AAAAZAAgAAAAHAA4AAAAYAAgAAAAEAA4AAAAaABcAAAAGAA0AAAAaABYAAAABAA8AAAAZABYAAAAGAA8AAAAbABUAAAATAA0AAAAaABUAAAAIAA8AAAAZABUAAAATAA4AAAAYABUAAAAOAA0AAAAaABQAAAAHAA4AAAAZABQAAAAJAA0AAAAYABQAAAAIAA0AAAAOABwAAAAQAA0AAAANABwAAAAGAA8AAAAPABsAAAAQAA0AAAAOABsAAAARAA4AAAANABsAAAAFAA8AAAAMABsAAAAOAA0AAAAQABoAAAAQAA0AAAAPABoAAAACAA8AAAAOABoAAAAQAA4AAAANABoAAAAOAA4AAAAMABoAAAAOAA4AAAALABoAAAAGAA8AAAAQABkAAAAKAA0AAAAPABkAAAAGAA4AAAAOABkAAAAGAA4AAAANABkAAAAJAA0AAAAMABkAAAAJAA0AAAALABkAAAAEAA4AAAAUAAYAAAAQAA0AAAATAAYAAAAOAA0AAAAWAAUAAAAJAA8AAAAVAAUAAAAEAA8AAAAUAAUAAAADAA4AAAATAAUAAAAPAA4AAAAXAAQAAAAJAA8AAAAWAAQAAAAAAA4AAAAVAAQAAAAIAA8AAAAUAAQAAAACAA8AAAATAAQAAAAFAA8AAAASAAQAAAAOAA0AAAAXAAMAAAAKAA0AAAAWAAMAAAAJAA0AAAAVAAMAAAAJAA0AAAAUAAMAAAAFAA4AAAATAAMAAAAAAA4AAAASAAMAAAAEAA4AAAAUAAIAAAAKAA0AAAATAAIAAAAEAA4AAAA=")
-tile_set = ExtResource("1_gxa0p")
+[node name="Meadow" type="TileMapLayer" parent="." unique_id=836755191]
+tile_map_data = PackedByteArray("AABFAAgAAAAGAA0AAABDAAcAAAARAA0AAABEAAcAAAADAA8AAABFAAcAAAACAA8AAABGAAcAAAATAA0AAABEAAYAAAAMAA4AAABFAAYAAAASAA4AAABEAAUAAAAEAA4AAABFAAUAAAAHAA4AAAAwAAoAAAARAA0AAAAxAAoAAAAHAA8AAAAyAAoAAAAJAA8AAAAxAAkAAAAIAA4AAAAyAAkAAAAAAA4AAAAzAAkAAAATAA0AAAAxAAgAAAAIAA0AAAAyAAgAAAAKAA0AAAAwABcAAAAGAA0AAAAwABYAAAAIAA4AAAAxABYAAAAQAA0AAAAvABUAAAARAA0AAAAwABUAAAAQAA4AAAAxABUAAAAMAA0AAAAyABUAAAAQAA0AAAAwABQAAAAIAA0AAAAxABQAAAACAA4AAAAyABQAAAAKAA0AAAA8ABwAAAAGAA8AAAA9ABwAAAAJAA8AAAA7ABsAAAAOAA0AAAA8ABsAAAAOAA4AAAA9ABsAAAAAAA8AAAA+ABsAAAAJAA8AAAA6ABoAAAAOAA0AAAA7ABoAAAARAA4AAAA8ABoAAAAMAA0AAAA9ABoAAAANAA4AAAA+ABoAAAAIAA8AAAA/ABoAAAAJAA8AAAA6ABkAAAAIAA0AAAA7ABkAAAACAA4AAAA8ABkAAAAGAA4AAAA9ABkAAAABAA4AAAA+ABkAAAAGAA4AAAA/ABkAAAAKAA0AAAA2AAYAAAAGAA8AAAA3AAYAAAAJAA8AAAA0AAUAAAAOAA0AAAA1AAUAAAADAA8AAAA2AAUAAAAFAA8AAAA3AAUAAAASAA4AAAAzAAQAAAAGAA8AAAA0AAQAAAADAA4AAAA1AAQAAAAAAA4AAAA2AAQAAAANAA4AAAA3AAQAAAAQAA4AAAA4AAQAAAAJAA8AAAAzAAMAAAAEAA4AAAA0AAMAAAABAA4AAAA1AAMAAAAJAA0AAAA2AAMAAAAMAA0AAAA3AAMAAAACAA8AAAA4AAMAAAAHAA4AAAA2AAIAAAAEAA4AAAA3AAIAAAAHAA4AAAAFAAgAAAAGAA0AAAAHAAcAAAATAA0AAAAGAAcAAAADAA8AAAAFAAcAAAAOAA4AAAAEAAcAAAARAA0AAAAGAAYAAAABAA8AAAAFAAYAAAAMAA4AAAAGAAUAAAAHAA4AAAAFAAUAAAAIAA0AAAAaAAoAAAATAA0AAAAZAAoAAAAHAA8AAAAYAAoAAAAGAA8AAAAZAAkAAAASAA4AAAAYAAkAAAAFAA8AAAAXAAkAAAARAA0AAAAZAAgAAAAHAA4AAAAYAAgAAAAIAA0AAAAaABcAAAAGAA0AAAAaABYAAAALAA4AAAAZABYAAAAOAA0AAAAbABUAAAATAA0AAAAaABUAAAAOAA4AAAAZABUAAAADAA4AAAAYABUAAAAGAA8AAAAaABQAAAAHAA4AAAAZABQAAAACAA4AAAAYABQAAAAEAA4AAAAOABwAAAAJAA8AAAANABwAAAAGAA8AAAAPABsAAAAQAA0AAAAOABsAAAANAA4AAAANABsAAAAAAA4AAAAMABsAAAAOAA0AAAAQABoAAAAJAA8AAAAPABoAAAAAAA4AAAAOABoAAAAQAA4AAAANABoAAAAFAA8AAAAMABoAAAAKAA4AAAALABoAAAAGAA8AAAAQABkAAAAKAA0AAAAPABkAAAAJAA0AAAAOABkAAAAJAA0AAAANABkAAAAJAA0AAAAMABkAAAABAA4AAAALABkAAAAEAA4AAAAUAAYAAAAQAA0AAAATAAYAAAAOAA0AAAAWAAUAAAAJAA8AAAAVAAUAAAAPAA0AAAAUAAUAAAAFAA4AAAATAAUAAAAPAA4AAAAXAAQAAAAQAA0AAAAWAAQAAAACAA8AAAAVAAQAAAAQAA4AAAAUAAQAAAANAA4AAAATAAQAAAAAAA8AAAASAAQAAAAOAA0AAAAXAAMAAAAKAA0AAAAWAAMAAAABAA4AAAAVAAMAAAABAA4AAAAUAAMAAAAKAA4AAAATAAMAAAATAA4AAAASAAMAAAAEAA4AAAAUAAIAAAAHAA4AAAATAAIAAAAEAA4AAAA=")
+tile_set = ExtResource("1_7tsbj")
 
-[node name="Paths" type="TileMapLayer" parent="." unique_id=622773387]
-tile_map_data = PackedByteArray("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")
-tile_set = ExtResource("1_gxa0p")
+[node name="Paths" type="TileMapLayer" parent="." unique_id=1898177964]
+tile_map_data = PackedByteArray("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")
+tile_set = ExtResource("1_7tsbj")
 
-[node name="Bare" type="TileMapLayer" parent="." unique_id=2145833501]
-tile_map_data = PackedByteArray("AABAABoAAAALAAgAAAA/ABoAAAAIAAgAAABBABkAAAABAAcAAABAABkAAAAIAAcAAAA/ABkAAAAHAAcAAAA+ABkAAAATAAYAAAA/ABgAAAAGAAYAAAAMAAcAAAALAAgAAAALAAcAAAARAAYAAAAKAAcAAAAIAAgAAAAMAAYAAAAJAAcAAAALAAYAAAACAAcAAAAKAAYAAAAFAAcAAAAJAAYAAAATAAYAAAALAAUAAAAJAAcAAAAKAAUAAAAGAAcAAAA=")
-tile_set = ExtResource("1_gxa0p")
+[node name="Bare" type="TileMapLayer" parent="." unique_id=1565223906]
+tile_map_data = PackedByteArray("AABAABoAAAALAAgAAAA/ABoAAAAIAAgAAABBABkAAAABAAcAAABAABkAAAAIAAcAAAA/ABkAAAACAAcAAAA+ABkAAAATAAYAAAA/ABgAAAAGAAYAAAAMAAcAAAALAAgAAAALAAcAAAAJAAgAAAAKAAcAAAAIAAgAAAAMAAYAAAAJAAcAAAALAAYAAAAHAAgAAAAKAAYAAAAMAAcAAAAJAAYAAAATAAYAAAALAAUAAAAJAAcAAAAKAAUAAAAKAAYAAAA=")
+tile_set = ExtResource("1_7tsbj")
 
-[node name="Flat" type="Node2D" parent="." unique_id=1596873719]
+[node name="Flat" type="Node2D" parent="." unique_id=1149829652]
 
-[node name="cobble_disc_0" type="Sprite2D" parent="Flat" unique_id=1630382348]
+[node name="cobble_disc_0" type="Sprite2D" parent="Flat" unique_id=118378391]
 position = Vector2(176, 552)
-texture = ExtResource("2_7tsbj")
+texture = ExtResource("2_pg46x")
 centered = false
 offset = Vector2(-38, -73)
 metadata/kind = "cobble_disc"
 
-[node name="cobble_disc_1" type="Sprite2D" parent="Flat" unique_id=1990285775]
+[node name="cobble_disc_1" type="Sprite2D" parent="Flat" unique_id=2040936856]
 position = Vector2(2224, 552)
-texture = ExtResource("2_7tsbj")
+texture = ExtResource("2_pg46x")
 centered = false
 offset = Vector2(-39, -73)
 flip_h = true
 metadata/kind = "cobble_disc"
 
-[node name="cobble_disc_b_2" type="Sprite2D" parent="Flat" unique_id=2018033653]
+[node name="cobble_disc_b_2" type="Sprite2D" parent="Flat" unique_id=2006446892]
 position = Vector2(314, 564)
-texture = ExtResource("3_pg46x")
+texture = ExtResource("3_rjkmp")
 centered = false
 offset = Vector2(-38, -73)
 metadata/kind = "cobble_disc_b"
 
-[node name="cobble_disc_b_3" type="Sprite2D" parent="Flat" unique_id=215531909]
+[node name="cobble_disc_b_3" type="Sprite2D" parent="Flat" unique_id=326216056]
 position = Vector2(2086, 564)
-texture = ExtResource("3_pg46x")
+texture = ExtResource("3_rjkmp")
 centered = false
 offset = Vector2(-39, -73)
 flip_h = true
 metadata/kind = "cobble_disc_b"
 
-[node name="slab_a_4" type="Sprite2D" parent="Flat" unique_id=700500]
+[node name="slab_a_4" type="Sprite2D" parent="Flat" unique_id=601564845]
 position = Vector2(252, 540)
-texture = ExtResource("4_rjkmp")
+texture = ExtResource("4_2ggn7")
 centered = false
 offset = Vector2(-30, -46)
 metadata/kind = "slab_a"
 
-[node name="slab_a_5" type="Sprite2D" parent="Flat" unique_id=1883661798]
+[node name="slab_a_5" type="Sprite2D" parent="Flat" unique_id=1014535839]
 position = Vector2(2148, 540)
-texture = ExtResource("4_rjkmp")
+texture = ExtResource("4_2ggn7")
 centered = false
 offset = Vector2(-30, -46)
 flip_h = true
 metadata/kind = "slab_a"
 
-[node name="slab_c_6" type="Sprite2D" parent="Flat" unique_id=74697093]
+[node name="slab_c_6" type="Sprite2D" parent="Flat" unique_id=1673493206]
 position = Vector2(226, 524)
-texture = ExtResource("5_2ggn7")
+texture = ExtResource("5_lxsf2")
 centered = false
 offset = Vector2(-15, -28)
 flip_h = true
 metadata/kind = "slab_c"
 
-[node name="slab_c_7" type="Sprite2D" parent="Flat" unique_id=566801839]
+[node name="slab_c_7" type="Sprite2D" parent="Flat" unique_id=786268269]
 position = Vector2(2174, 524)
-texture = ExtResource("5_2ggn7")
+texture = ExtResource("5_lxsf2")
 centered = false
 offset = Vector2(-15, -28)
 metadata/kind = "slab_c"
 
-[node name="slab_b_8" type="Sprite2D" parent="Flat" unique_id=462976938]
+[node name="slab_b_8" type="Sprite2D" parent="Flat" unique_id=684531094]
 position = Vector2(1096, 472)
-texture = ExtResource("6_lxsf2")
+texture = ExtResource("6_xss5w")
 centered = false
 offset = Vector2(-30, -55)
 metadata/kind = "slab_b"
 
-[node name="slab_b_9" type="Sprite2D" parent="Flat" unique_id=32536998]
+[node name="slab_b_9" type="Sprite2D" parent="Flat" unique_id=2057328741]
 position = Vector2(1304, 472)
-texture = ExtResource("6_lxsf2")
+texture = ExtResource("6_xss5w")
 centered = false
 offset = Vector2(-30, -55)
 flip_h = true
 metadata/kind = "slab_b"
 
-[node name="slab_c_10" type="Sprite2D" parent="Flat" unique_id=770439396]
+[node name="slab_c_10" type="Sprite2D" parent="Flat" unique_id=238080172]
 position = Vector2(1112, 508)
-texture = ExtResource("5_2ggn7")
+texture = ExtResource("5_lxsf2")
 centered = false
 offset = Vector2(-15, -28)
 metadata/kind = "slab_c"
 
-[node name="slab_c_11" type="Sprite2D" parent="Flat" unique_id=1742966371]
+[node name="slab_c_11" type="Sprite2D" parent="Flat" unique_id=435825113]
 position = Vector2(1288, 508)
-texture = ExtResource("5_2ggn7")
+texture = ExtResource("5_lxsf2")
 centered = false
 offset = Vector2(-15, -28)
 flip_h = true
 metadata/kind = "slab_c"
 
-[node name="slab_a_12" type="Sprite2D" parent="Flat" unique_id=2066015201]
+[node name="slab_a_12" type="Sprite2D" parent="Flat" unique_id=2014131794]
 position = Vector2(1100, 576)
-texture = ExtResource("4_rjkmp")
+texture = ExtResource("4_2ggn7")
 centered = false
 offset = Vector2(-30, -46)
 flip_h = true
 metadata/kind = "slab_a"
 
-[node name="slab_a_13" type="Sprite2D" parent="Flat" unique_id=914175470]
+[node name="slab_a_13" type="Sprite2D" parent="Flat" unique_id=1425640015]
 position = Vector2(1300, 576)
-texture = ExtResource("4_rjkmp")
+texture = ExtResource("4_2ggn7")
 centered = false
 offset = Vector2(-30, -46)
 metadata/kind = "slab_a"
 
-[node name="slab_b_14" type="Sprite2D" parent="Flat" unique_id=1408744972]
+[node name="slab_b_14" type="Sprite2D" parent="Flat" unique_id=647704398]
 position = Vector2(256, 412)
-texture = ExtResource("6_lxsf2")
+texture = ExtResource("6_xss5w")
 centered = false
 offset = Vector2(-30, -55)
 flip_h = true
 metadata/kind = "slab_b"
 
-[node name="slab_b_15" type="Sprite2D" parent="Flat" unique_id=1862469820]
+[node name="slab_b_15" type="Sprite2D" parent="Flat" unique_id=897963581]
 position = Vector2(2144, 412)
-texture = ExtResource("6_lxsf2")
+texture = ExtResource("6_xss5w")
 centered = false
 offset = Vector2(-30, -55)
 metadata/kind = "slab_b"
 
-[node name="slab_c_16" type="Sprite2D" parent="Flat" unique_id=137822869]
+[node name="slab_c_16" type="Sprite2D" parent="Flat" unique_id=800302141]
 position = Vector2(260, 660)
-texture = ExtResource("5_2ggn7")
+texture = ExtResource("5_lxsf2")
 centered = false
 offset = Vector2(-15, -28)
 metadata/kind = "slab_c"
 
-[node name="slab_c_17" type="Sprite2D" parent="Flat" unique_id=179951752]
+[node name="slab_c_17" type="Sprite2D" parent="Flat" unique_id=1195808083]
 position = Vector2(2140, 660)
-texture = ExtResource("5_2ggn7")
+texture = ExtResource("5_lxsf2")
 centered = false
 offset = Vector2(-15, -28)
 flip_h = true
 metadata/kind = "slab_c"
 
-[node name="Detail" type="TileMapLayer" parent="." unique_id=164584477]
+[node name="Detail" type="TileMapLayer" parent="." unique_id=756707165]
 tile_map_data = PackedByteArray("AAADABMAAAACAAYABwCQABMAAAAGAAQABwCRABEAAAACAAYAAAAMABIAAAAAAAYAAwALABEAAAAMAAQABAALABIAAAAAAAYAAACKABMAAAACAAYAAQCJABEAAAAMAAQABQCKABIAAAACAAYAAABDAAQAAAAAAAYAAQBEAAUAAAAOAAQABgBCAAQAAAAOAAQABgBCAAgAAAAAAAYABABEAAQAAAACAAYAAwBRAAUAAAAAAAYAAQBQAAUAAAAOAAQAAwBSAAUAAAACAAYABABTAAgAAAAOAAQABgBAAAwAAAAAAAYABQBCAA8AAAAAAAYABgBBAAwAAAAOAAQAAgBEAA4AAAAOAAQAAQBSAA4AAAAAAAYABwBSAAwAAAACAAYABABRAAwAAAAMAAQABwBTAAwAAAAOAAQABgBCADQAAAACAAYABgBCADUAAAAMAAQAAABDADUAAAAAAAYAAQBTADUAAAAMAAQABgBRADMAAAACAAYAAABRADIAAAAMAAQAAwBEADsAAAAMAAQAAwBDADoAAAACAAYABwBBAD0AAAAAAAYAAgBBADwAAAAAAAYABwBVADsAAAAMAAQABABRADwAAAACAAYAAgBTADoAAAACAAYABwBVADoAAAACAAYAAgAUACgAAAAAAAYABAAWACgAAAAOAAQAAwAVACgAAAAOAAQABQCBACkAAAAAAAQABgB/ACoAAAAAAAYABACAACoAAAAAAAYAAwACABMAAAAOAAQAAQAGABMAAAAMAAQAAwAHABIAAAAAAAYABgAMABMAAAACAAYABgAUABgAAAAOAAQAAgAUABsAAAAMAAQABgAUACcAAAAOAAQAAwAUACoAAAAKAAIAAgAEAC8AAAAMAAQABQALAC8AAAAOAAQABAABABYAAAACAAYABwACABYAAAAAAAYABAAIABYAAAAMAAQABwAMABYAAAACAAYAAwADAC4AAAAMAAQABwAJAC4AAAAOAAQABQAKAC4AAAAOAAQAAQCTABMAAAACAAYABQCPABMAAAAMAAQAAgCOABIAAAAOAAQABgCJABMAAAACAAYABgCBABgAAAAOAAIAAQCBABsAAAAOAAQAAQCBACcAAAAOAAQABgCBACoAAAAKAAIABACRAC8AAAAAAAYABgCKAC8AAAAMAAQABwCUABYAAAAAAAYAAgCTABYAAAAGAAIAAwCNABYAAAAOAAQAAwCJABYAAAAMAAQABQCSAC4AAAACAAYABQCMAC4AAAAOAAQABwCLAC4AAAAOAAQAAwBGAAoAAAAEAAYAAwBGAA0AAAAGAAYAAwBKAAYAAAAEAAYABgBHABQAAAAGAAYAAwBIABcAAAAIAAYABwBJACkAAAAGAAYAAABIACwAAAAIAAYAAwBGADIAAAAIAAYABQBGADUAAAAKAAYAAwBLADkAAAAGAAYABgBPAAoAAAAEAAYAAwBPAA0AAAAEAAYABQBLAAYAAAAIAAYABABOABQAAAAKAAYABABNABcAAAAEAAYABwBMACkAAAAKAAYAAwBNACwAAAAKAAYAAQBPADIAAAAIAAYABQBPADUAAAAGAAYAAwBKADkAAAAKAAYAAwBJAAoAAAAGAAgAAwBKAAsAAAAMAAYABQBLAAwAAAAAAAgABABMAA0AAAAEAAgABgBMADIAAAAAAAgAAABLADMAAAAMAAYAAgBKADQAAAAMAAYAAABJADUAAAAGAAgAAABDABEAAAAEAAgABABCABMAAAAOAAYABgBDAC4AAAAMAAYABgBCACwAAAAAAAgABwBSABEAAAAOAAYABgBTABMAAAACAAgAAgBSAC4AAAAOAAYABwBTACwAAAAOAAYAAQAAABgAAAAIAAIABwAEABkAAAAAAAQAAQAEABgAAAAOAAIAAgADABYAAAAGAAIABQACABgAAAAEAAIAAgCTABgAAAAEAAIAAACSABoAAAAMAAIABQCVABcAAAAGAAIAAACSABkAAAAMAAIAAQACACoAAAAKAAIABwADACsAAAAAAAQABAAFACoAAAAAAAQABwADACcAAAAKAAIABAACACgAAAAEAAIABgCSACoAAAACAAQAAACUACgAAAAEAAIAAwCRACcAAAAAAAQAAwCSACsAAAAGAAIAAwCQACoAAAAIAAIABwAvABIAAAAIAAIAAAAsAA8AAAAOAAIAAgAuABIAAAAKAAIABAAvAA8AAAAOAAIAAgAwAA8AAAAKAAIABgAwABAAAAAKAAIABwBoAA8AAAAAAAQABwBoABEAAAAGAAIAAQBmABAAAAAMAAIAAABmABIAAAAOAAIAAwA1ADAAAAAKAAIABQA1AC4AAAAKAAIABQA3ADAAAAAAAAQAAgA3AC0AAAAAAAQAAgA0AC8AAAAOAAIA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")
-tile_set = ExtResource("7_xss5w")
+tile_set = ExtResource("7_w2fyv")
 
-[node name="Props" type="Node2D" parent="." unique_id=1592746782]
+[node name="Props" type="Node2D" parent="." unique_id=2124818476]
 y_sort_enabled = true
 
-[node name="crates_big_0" type="Sprite2D" parent="Props" unique_id=1941750303]
+[node name="crates_big_0" type="Sprite2D" parent="Props" unique_id=1033781168]
 position = Vector2(24, 351)
-texture = ExtResource("8_w2fyv")
+texture = ExtResource("8_dbphi")
 centered = false
 offset = Vector2(-29, -70)
 metadata/kind = "crates_big"
 
-[node name="Shadow" type="Sprite2D" parent="Props/crates_big_0" unique_id=1896637884]
+[node name="Shadow" type="Sprite2D" parent="Props/crates_big_0" unique_id=1910240957]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(117, 0, 46, 12)
 
-[node name="crates_big_1" type="Sprite2D" parent="Props" unique_id=1801367732]
+[node name="crates_big_1" type="Sprite2D" parent="Props" unique_id=674542794]
 position = Vector2(2376, 351)
-texture = ExtResource("8_w2fyv")
+texture = ExtResource("8_dbphi")
 centered = false
 offset = Vector2(-29, -70)
 flip_h = true
 metadata/kind = "crates_big"
 
-[node name="Shadow" type="Sprite2D" parent="Props/crates_big_1" unique_id=297926981]
+[node name="Shadow" type="Sprite2D" parent="Props/crates_big_1" unique_id=1276192325]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(117, 0, 46, 12)
 
-[node name="crate_small_2" type="Sprite2D" parent="Props" unique_id=536805741]
+[node name="crate_small_2" type="Sprite2D" parent="Props" unique_id=162408163]
 position = Vector2(50, 351.01)
-texture = ExtResource("10_l1yx1")
+texture = ExtResource("10_oid80")
 centered = false
 offset = Vector2(-15, -33)
 metadata/kind = "crate_small"
 
-[node name="Shadow" type="Sprite2D" parent="Props/crate_small_2" unique_id=1553054938]
+[node name="Shadow" type="Sprite2D" parent="Props/crate_small_2" unique_id=1835311938]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(51, 0, 28, 8)
 
-[node name="crate_small_3" type="Sprite2D" parent="Props" unique_id=2049630414]
+[node name="crate_small_3" type="Sprite2D" parent="Props" unique_id=1812145872]
 position = Vector2(2350, 351.01)
-texture = ExtResource("10_l1yx1")
+texture = ExtResource("10_oid80")
 centered = false
 offset = Vector2(-17, -33)
 flip_h = true
 metadata/kind = "crate_small"
 
-[node name="Shadow" type="Sprite2D" parent="Props/crate_small_3" unique_id=366157813]
+[node name="Shadow" type="Sprite2D" parent="Props/crate_small_3" unique_id=462621954]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(51, 0, 28, 8)
 
-[node name="ivy_4" type="Sprite2D" parent="Props" unique_id=623253495]
+[node name="ivy_4" type="Sprite2D" parent="Props" unique_id=1351423357]
 position = Vector2(36, 351.02)
-texture = ExtResource("11_oid80")
+texture = ExtResource("11_f8725")
 centered = false
 offset = Vector2(-18, -69)
 metadata/kind = "ivy"
 
-[node name="ivy_5" type="Sprite2D" parent="Props" unique_id=800604719]
+[node name="ivy_5" type="Sprite2D" parent="Props" unique_id=720621420]
 position = Vector2(2364, 351.02)
-texture = ExtResource("11_oid80")
+texture = ExtResource("11_f8725")
 centered = false
 offset = Vector2(-18, -69)
 flip_h = true
 metadata/kind = "ivy"
 
-[node name="sack_heap_6" type="Sprite2D" parent="Props" unique_id=1870852826]
+[node name="sack_heap_6" type="Sprite2D" parent="Props" unique_id=1793263537]
 position = Vector2(102, 351)
-texture = ExtResource("12_f8725")
+texture = ExtResource("12_ip1im")
 centered = false
 offset = Vector2(-24, -39)
 metadata/kind = "sack_heap"
 
-[node name="Shadow" type="Sprite2D" parent="Props/sack_heap_6" unique_id=1149040404]
+[node name="Shadow" type="Sprite2D" parent="Props/sack_heap_6" unique_id=733927294]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(80, 0, 36, 10)
 
-[node name="sack_heap_7" type="Sprite2D" parent="Props" unique_id=1174726986]
+[node name="sack_heap_7" type="Sprite2D" parent="Props" unique_id=2054900889]
 position = Vector2(2298, 351)
-texture = ExtResource("12_f8725")
+texture = ExtResource("12_ip1im")
 centered = false
 offset = Vector2(-24, -39)
 flip_h = true
 metadata/kind = "sack_heap"
 
-[node name="Shadow" type="Sprite2D" parent="Props/sack_heap_7" unique_id=411396604]
+[node name="Shadow" type="Sprite2D" parent="Props/sack_heap_7" unique_id=37449167]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(80, 0, 36, 10)
 
-[node name="swag_red_8" type="Sprite2D" parent="Props" unique_id=1348272187]
+[node name="swag_red_8" type="Sprite2D" parent="Props" unique_id=1522692114]
 position = Vector2(112, 351.02)
-texture = ExtResource("13_ip1im")
+texture = ExtResource("13_55lkt")
 centered = false
 offset = Vector2(-32, -74)
 metadata/kind = "swag_red"
 
-[node name="swag_blue_9" type="Sprite2D" parent="Props" unique_id=129824503]
+[node name="swag_blue_9" type="Sprite2D" parent="Props" unique_id=643994882]
 position = Vector2(2288, 351.02)
-texture = ExtResource("14_55lkt")
+texture = ExtResource("14_xbqqo")
 centered = false
 offset = Vector2(-32, -74)
 flip_h = true
 metadata/kind = "swag_blue"
 
-[node name="ivy_b_10" type="Sprite2D" parent="Props" unique_id=1045766982]
+[node name="ivy_b_10" type="Sprite2D" parent="Props" unique_id=1372372959]
 position = Vector2(136, 351.02)
-texture = ExtResource("15_xbqqo")
+texture = ExtResource("15_4l20d")
 centered = false
 offset = Vector2(-20, -73)
 flip_h = true
 metadata/kind = "ivy_b"
 
-[node name="ivy_b_11" type="Sprite2D" parent="Props" unique_id=914472608]
+[node name="ivy_b_11" type="Sprite2D" parent="Props" unique_id=1586735452]
 position = Vector2(2264, 351.02)
-texture = ExtResource("15_xbqqo")
+texture = ExtResource("15_4l20d")
 centered = false
 offset = Vector2(-20, -73)
 metadata/kind = "ivy_b"
 
-[node name="torch_12" type="AnimatedSprite2D" parent="Props" unique_id=278898757]
+[node name="torch_12" type="AnimatedSprite2D" parent="Props" unique_id=1227787402]
 position = Vector2(172, 351)
-sprite_frames = SubResource("SpriteFrames_5vuw2")
+sprite_frames = SubResource("SpriteFrames_7ah8e")
 autoplay = "default"
 centered = false
 offset = Vector2(-16, -63)
 metadata/kind = "torch"
 
-[node name="torch_13" type="AnimatedSprite2D" parent="Props" unique_id=1805443190]
+[node name="torch_13" type="AnimatedSprite2D" parent="Props" unique_id=9836101]
 position = Vector2(2228, 351)
-sprite_frames = SubResource("SpriteFrames_5vuw2")
+sprite_frames = SubResource("SpriteFrames_7ah8e")
 autoplay = "default"
 frame = 1
 centered = false
@@ -653,62 +697,62 @@ offset = Vector2(-16, -63)
 flip_h = true
 metadata/kind = "torch"
 
-[node name="barrels3_14" type="Sprite2D" parent="Props" unique_id=1680697452]
+[node name="barrels3_14" type="Sprite2D" parent="Props" unique_id=1447098414]
 position = Vector2(198, 351)
-texture = ExtResource("17_aq8wd")
+texture = ExtResource("17_0q5bd")
 centered = false
 offset = Vector2(-25, -41)
 metadata/kind = "barrels3"
 
-[node name="Shadow" type="Sprite2D" parent="Props/barrels3_14" unique_id=1836490561]
+[node name="Shadow" type="Sprite2D" parent="Props/barrels3_14" unique_id=221407923]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(117, 0, 46, 12)
 
-[node name="barrels3_15" type="Sprite2D" parent="Props" unique_id=892510071]
+[node name="barrels3_15" type="Sprite2D" parent="Props" unique_id=928280086]
 position = Vector2(2202, 351)
-texture = ExtResource("17_aq8wd")
+texture = ExtResource("17_0q5bd")
 centered = false
 offset = Vector2(-25, -41)
 flip_h = true
 metadata/kind = "barrels3"
 
-[node name="Shadow" type="Sprite2D" parent="Props/barrels3_15" unique_id=2043698800]
+[node name="Shadow" type="Sprite2D" parent="Props/barrels3_15" unique_id=1038380078]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(117, 0, 46, 12)
 
-[node name="shield_round_16" type="Sprite2D" parent="Props" unique_id=2138584226]
+[node name="shield_round_16" type="Sprite2D" parent="Props" unique_id=646440997]
 position = Vector2(200, 351.02)
-texture = ExtResource("18_0q5bd")
+texture = ExtResource("18_i1mqf")
 centered = false
 offset = Vector2(-16, -75)
 metadata/kind = "shield_round"
 
-[node name="shield_round_17" type="Sprite2D" parent="Props" unique_id=2034566985]
+[node name="shield_round_17" type="Sprite2D" parent="Props" unique_id=750311824]
 position = Vector2(2200, 351.02)
-texture = ExtResource("18_0q5bd")
+texture = ExtResource("18_i1mqf")
 centered = false
 offset = Vector2(-16, -75)
 flip_h = true
 metadata/kind = "shield_round"
 
-[node name="torch_18" type="AnimatedSprite2D" parent="Props" unique_id=39711323]
+[node name="torch_18" type="AnimatedSprite2D" parent="Props" unique_id=369880016]
 position = Vector2(54, 351.03)
-sprite_frames = SubResource("SpriteFrames_5vuw2")
+sprite_frames = SubResource("SpriteFrames_7ah8e")
 autoplay = "default"
 frame = 3
 centered = false
 offset = Vector2(-16, -63)
 metadata/kind = "torch"
 
-[node name="torch_19" type="AnimatedSprite2D" parent="Props" unique_id=1580115663]
+[node name="torch_19" type="AnimatedSprite2D" parent="Props" unique_id=1301332112]
 position = Vector2(2346, 351.03)
-sprite_frames = SubResource("SpriteFrames_5vuw2")
+sprite_frames = SubResource("SpriteFrames_7ah8e")
 autoplay = "default"
 frame = 1
 centered = false
@@ -716,399 +760,398 @@ offset = Vector2(-16, -63)
 flip_h = true
 metadata/kind = "torch"
 
-[node name="crates_mid_20" type="Sprite2D" parent="Props" unique_id=757871061]
+[node name="crates_mid_20" type="Sprite2D" parent="Props" unique_id=487722756]
 position = Vector2(18, 735)
-texture = ExtResource("19_i1mqf")
+texture = ExtResource("19_42c03")
 centered = false
 offset = Vector2(-22, -58)
 metadata/kind = "crates_mid"
 
-[node name="Shadow" type="Sprite2D" parent="Props/crates_mid_20" unique_id=406875069]
+[node name="Shadow" type="Sprite2D" parent="Props/crates_mid_20" unique_id=1115155835]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(80, 0, 36, 10)
 
-[node name="crates_mid_21" type="Sprite2D" parent="Props" unique_id=1636330294]
+[node name="crates_mid_21" type="Sprite2D" parent="Props" unique_id=703037370]
 position = Vector2(2382, 735)
-texture = ExtResource("19_i1mqf")
+texture = ExtResource("19_42c03")
 centered = false
 offset = Vector2(-23, -58)
 flip_h = true
 metadata/kind = "crates_mid"
 
-[node name="Shadow" type="Sprite2D" parent="Props/crates_mid_21" unique_id=89747412]
+[node name="Shadow" type="Sprite2D" parent="Props/crates_mid_21" unique_id=1495445970]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(80, 0, 36, 10)
 
-[node name="hay_22" type="Sprite2D" parent="Props" unique_id=1152553531]
+[node name="hay_22" type="Sprite2D" parent="Props" unique_id=730615813]
 position = Vector2(44, 735.01)
-texture = ExtResource("20_42c03")
+texture = ExtResource("20_aov7s")
 centered = false
 offset = Vector2(-22, -41)
 metadata/kind = "hay"
 
-[node name="Shadow" type="Sprite2D" parent="Props/hay_22" unique_id=1872774743]
+[node name="Shadow" type="Sprite2D" parent="Props/hay_22" unique_id=1426594468]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(80, 0, 36, 10)
 
-[node name="hay_23" type="Sprite2D" parent="Props" unique_id=540906697]
+[node name="hay_23" type="Sprite2D" parent="Props" unique_id=947704446]
 position = Vector2(2356, 735.01)
-texture = ExtResource("20_42c03")
+texture = ExtResource("20_aov7s")
 centered = false
 offset = Vector2(-22, -41)
 flip_h = true
 metadata/kind = "hay"
 
-[node name="Shadow" type="Sprite2D" parent="Props/hay_23" unique_id=501939738]
+[node name="Shadow" type="Sprite2D" parent="Props/hay_23" unique_id=2017408495]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(80, 0, 36, 10)
 
-[node name="swords_24" type="Sprite2D" parent="Props" unique_id=1885106888]
+[node name="swords_24" type="Sprite2D" parent="Props" unique_id=1396797729]
 position = Vector2(60, 735)
-texture = ExtResource("21_aov7s")
+texture = ExtResource("21_umm04")
 centered = false
 offset = Vector2(-13, -48)
 metadata/kind = "swords"
 
-[node name="swords_25" type="Sprite2D" parent="Props" unique_id=787941183]
+[node name="swords_25" type="Sprite2D" parent="Props" unique_id=382601246]
 position = Vector2(2340, 735)
-texture = ExtResource("21_aov7s")
+texture = ExtResource("21_umm04")
 centered = false
 offset = Vector2(-13, -48)
 flip_h = true
 metadata/kind = "swords"
 
-[node name="barrels3_26" type="Sprite2D" parent="Props" unique_id=591688848]
+[node name="barrels3_26" type="Sprite2D" parent="Props" unique_id=1132056771]
 position = Vector2(102, 735)
-texture = ExtResource("17_aq8wd")
+texture = ExtResource("17_0q5bd")
 centered = false
 offset = Vector2(-25, -41)
 metadata/kind = "barrels3"
 
-[node name="Shadow" type="Sprite2D" parent="Props/barrels3_26" unique_id=447906992]
+[node name="Shadow" type="Sprite2D" parent="Props/barrels3_26" unique_id=984077952]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(117, 0, 46, 12)
 
-[node name="barrels3_27" type="Sprite2D" parent="Props" unique_id=271634438]
+[node name="barrels3_27" type="Sprite2D" parent="Props" unique_id=2086121556]
 position = Vector2(2298, 735)
-texture = ExtResource("17_aq8wd")
+texture = ExtResource("17_0q5bd")
 centered = false
 offset = Vector2(-25, -41)
 flip_h = true
 metadata/kind = "barrels3"
 
-[node name="Shadow" type="Sprite2D" parent="Props/barrels3_27" unique_id=1346959559]
+[node name="Shadow" type="Sprite2D" parent="Props/barrels3_27" unique_id=1976797914]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(117, 0, 46, 12)
 
-[node name="swag_red_28" type="Sprite2D" parent="Props" unique_id=1090319638]
+[node name="swag_red_28" type="Sprite2D" parent="Props" unique_id=457264262]
 position = Vector2(112, 735.02)
-texture = ExtResource("13_ip1im")
+texture = ExtResource("13_55lkt")
 centered = false
 offset = Vector2(-32, -74)
 metadata/kind = "swag_red"
 
-[node name="swag_blue_29" type="Sprite2D" parent="Props" unique_id=2123825802]
+[node name="swag_blue_29" type="Sprite2D" parent="Props" unique_id=840640367]
 position = Vector2(2288, 735.02)
-texture = ExtResource("14_55lkt")
+texture = ExtResource("14_xbqqo")
 centered = false
 offset = Vector2(-32, -74)
 flip_h = true
 metadata/kind = "swag_blue"
 
-[node name="shield_kite_30" type="Sprite2D" parent="Props" unique_id=1685634008]
+[node name="shield_kite_30" type="Sprite2D" parent="Props" unique_id=1143861554]
 position = Vector2(128, 735)
-texture = ExtResource("22_umm04")
+texture = ExtResource("22_tf7jn")
 centered = false
 offset = Vector2(-9, -51)
 metadata/kind = "shield_kite"
 
-[node name="shield_kite_blue_31" type="Sprite2D" parent="Props" unique_id=2101654037]
+[node name="shield_kite_blue_31" type="Sprite2D" parent="Props" unique_id=374518059]
 position = Vector2(2272, 735)
-texture = ExtResource("23_tf7jn")
+texture = ExtResource("23_m7pok")
 centered = false
 offset = Vector2(-9, -51)
 flip_h = true
 metadata/kind = "shield_kite_blue"
 
-[node name="ivy_32" type="Sprite2D" parent="Props" unique_id=1047766404]
+[node name="ivy_32" type="Sprite2D" parent="Props" unique_id=585239120]
 position = Vector2(132, 735.02)
-texture = ExtResource("11_oid80")
+texture = ExtResource("11_f8725")
 centered = false
 offset = Vector2(-18, -69)
 flip_h = true
 metadata/kind = "ivy"
 
-[node name="ivy_33" type="Sprite2D" parent="Props" unique_id=1787312414]
+[node name="ivy_33" type="Sprite2D" parent="Props" unique_id=1048796333]
 position = Vector2(2268, 735.02)
-texture = ExtResource("11_oid80")
+texture = ExtResource("11_f8725")
 centered = false
 offset = Vector2(-18, -69)
 metadata/kind = "ivy"
 
-[node name="rack_34" type="Sprite2D" parent="Props" unique_id=1210914420]
+[node name="rack_34" type="Sprite2D" parent="Props" unique_id=1461949080]
 position = Vector2(184, 735)
-texture = ExtResource("24_m7pok")
+texture = ExtResource("24_wapy2")
 centered = false
 offset = Vector2(-20, -35)
 metadata/kind = "rack"
 
-[node name="Shadow" type="Sprite2D" parent="Props/rack_34" unique_id=406611360]
+[node name="Shadow" type="Sprite2D" parent="Props/rack_34" unique_id=1117420769]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(80, 0, 36, 10)
 
-[node name="rack_35" type="Sprite2D" parent="Props" unique_id=2013931766]
+[node name="rack_35" type="Sprite2D" parent="Props" unique_id=1257804374]
 position = Vector2(2216, 735)
-texture = ExtResource("24_m7pok")
+texture = ExtResource("24_wapy2")
 centered = false
 offset = Vector2(-20, -35)
 flip_h = true
 metadata/kind = "rack"
 
-[node name="Shadow" type="Sprite2D" parent="Props/rack_35" unique_id=1107457121]
+[node name="Shadow" type="Sprite2D" parent="Props/rack_35" unique_id=784305326]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(80, 0, 36, 10)
 
-[node name="sack_36" type="Sprite2D" parent="Props" unique_id=1517084242]
+[node name="sack_36" type="Sprite2D" parent="Props" unique_id=1580724579]
 position = Vector2(200, 735.01)
-texture = ExtResource("25_wapy2")
+texture = ExtResource("25_rccca")
 centered = false
 offset = Vector2(-9, -27)
 metadata/kind = "sack"
 
-[node name="Shadow" type="Sprite2D" parent="Props/sack_36" unique_id=1040317988]
+[node name="Shadow" type="Sprite2D" parent="Props/sack_36" unique_id=2037306667]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(11, 0, 16, 5)
 
-[node name="sack_37" type="Sprite2D" parent="Props" unique_id=474545970]
+[node name="sack_37" type="Sprite2D" parent="Props" unique_id=2051517704]
 position = Vector2(2200, 735.01)
-texture = ExtResource("25_wapy2")
+texture = ExtResource("25_rccca")
 centered = false
 offset = Vector2(-10, -27)
 flip_h = true
 metadata/kind = "sack"
 
-[node name="Shadow" type="Sprite2D" parent="Props/sack_37" unique_id=341829382]
+[node name="Shadow" type="Sprite2D" parent="Props/sack_37" unique_id=1186370907]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(11, 0, 16, 5)
 
-[node name="torch_38" type="AnimatedSprite2D" parent="Props" unique_id=1623840537]
+[node name="torch_38" type="AnimatedSprite2D" parent="Props" unique_id=1251920399]
 position = Vector2(210, 735)
-sprite_frames = SubResource("SpriteFrames_5vuw2")
+sprite_frames = SubResource("SpriteFrames_7ah8e")
 autoplay = "default"
 centered = false
 offset = Vector2(-16, -63)
 metadata/kind = "torch"
 
-[node name="torch_39" type="AnimatedSprite2D" parent="Props" unique_id=1690863427]
+[node name="torch_39" type="AnimatedSprite2D" parent="Props" unique_id=1886204206]
 position = Vector2(2190, 735)
-sprite_frames = SubResource("SpriteFrames_5vuw2")
+sprite_frames = SubResource("SpriteFrames_7ah8e")
 autoplay = "default"
 centered = false
 offset = Vector2(-16, -63)
 flip_h = true
 metadata/kind = "torch"
 
-[node name="plinth_40" type="Sprite2D" parent="Props" unique_id=441167321]
+[node name="plinth_40" type="Sprite2D" parent="Props" unique_id=10712667]
 position = Vector2(292, 463.01)
-texture = ExtResource("26_rccca")
+texture = ExtResource("26_pd84x")
 centered = false
 offset = Vector2(-16, -47)
 metadata/kind = "plinth"
 
-[node name="Shadow" type="Sprite2D" parent="Props/plinth_40" unique_id=279517788]
+[node name="Shadow" type="Sprite2D" parent="Props/plinth_40" unique_id=1487569831]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(51, 0, 28, 8)
 
-[node name="plinth_41" type="Sprite2D" parent="Props" unique_id=535035135]
+[node name="plinth_41" type="Sprite2D" parent="Props" unique_id=981913234]
 position = Vector2(2108, 463.01)
-texture = ExtResource("26_rccca")
+texture = ExtResource("26_pd84x")
 centered = false
 offset = Vector2(-16, -47)
 flip_h = true
 metadata/kind = "plinth"
 
-[node name="Shadow" type="Sprite2D" parent="Props/plinth_41" unique_id=1853528785]
+[node name="Shadow" type="Sprite2D" parent="Props/plinth_41" unique_id=1952867114]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(51, 0, 28, 8)
 
-[node name="sack_heap_42" type="Sprite2D" parent="Props" unique_id=41232085]
+[node name="sack_heap_42" type="Sprite2D" parent="Props" unique_id=1563137791]
 position = Vector2(316, 463.01)
-texture = ExtResource("12_f8725")
+texture = ExtResource("12_ip1im")
 centered = false
 offset = Vector2(-24, -39)
 flip_h = true
 metadata/kind = "sack_heap"
 
-[node name="Shadow" type="Sprite2D" parent="Props/sack_heap_42" unique_id=1875522284]
+[node name="Shadow" type="Sprite2D" parent="Props/sack_heap_42" unique_id=260805472]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(80, 0, 36, 10)
 
-[node name="sack_heap_43" type="Sprite2D" parent="Props" unique_id=1498197361]
+[node name="sack_heap_43" type="Sprite2D" parent="Props" unique_id=2070895176]
 position = Vector2(2084, 463.01)
-texture = ExtResource("12_f8725")
+texture = ExtResource("12_ip1im")
 centered = false
 offset = Vector2(-24, -39)
 metadata/kind = "sack_heap"
 
-[node name="Shadow" type="Sprite2D" parent="Props/sack_heap_43" unique_id=2140165133]
+[node name="Shadow" type="Sprite2D" parent="Props/sack_heap_43" unique_id=863799036]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(80, 0, 36, 10)
 
-[node name="candelabra_44" type="AnimatedSprite2D" parent="Props" unique_id=1359373147]
+[node name="candelabra_44" type="AnimatedSprite2D" parent="Props" unique_id=1810785872]
 position = Vector2(308, 703)
-sprite_frames = SubResource("SpriteFrames_p1ght")
+sprite_frames = SubResource("SpriteFrames_gf6nv")
 autoplay = "default"
 frame = 2
 centered = false
 offset = Vector2(-16, -61)
 metadata/kind = "candelabra"
 
-[node name="Shadow" type="Sprite2D" parent="Props/candelabra_44" unique_id=1459739019]
+[node name="Shadow" type="Sprite2D" parent="Props/candelabra_44" unique_id=729942075]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(51, 0, 28, 8)
 
-[node name="candelabra_45" type="AnimatedSprite2D" parent="Props" unique_id=668763590]
+[node name="candelabra_45" type="AnimatedSprite2D" parent="Props" unique_id=507817706]
 position = Vector2(2092, 703)
-sprite_frames = SubResource("SpriteFrames_p1ght")
+sprite_frames = SubResource("SpriteFrames_gf6nv")
 autoplay = "default"
 centered = false
 offset = Vector2(-16, -61)
 flip_h = true
 metadata/kind = "candelabra"
 
-[node name="Shadow" type="Sprite2D" parent="Props/candelabra_45" unique_id=247683089]
+[node name="Shadow" type="Sprite2D" parent="Props/candelabra_45" unique_id=67809735]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(51, 0, 28, 8)
 
-[node name="crates_mid_46" type="Sprite2D" parent="Props" unique_id=1565906881]
+[node name="crates_mid_46" type="Sprite2D" parent="Props" unique_id=1420804335]
 position = Vector2(290, 703.01)
-texture = ExtResource("19_i1mqf")
+texture = ExtResource("19_42c03")
 centered = false
 offset = Vector2(-22, -58)
 metadata/kind = "crates_mid"
 
-[node name="Shadow" type="Sprite2D" parent="Props/crates_mid_46" unique_id=879629691]
+[node name="Shadow" type="Sprite2D" parent="Props/crates_mid_46" unique_id=1217686370]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(80, 0, 36, 10)
 
-[node name="crates_mid_47" type="Sprite2D" parent="Props" unique_id=140734961]
+[node name="crates_mid_47" type="Sprite2D" parent="Props" unique_id=1636100912]
 position = Vector2(2110, 703.01)
-texture = ExtResource("19_i1mqf")
+texture = ExtResource("19_42c03")
 centered = false
 offset = Vector2(-23, -58)
 flip_h = true
 metadata/kind = "crates_mid"
 
-[node name="Shadow" type="Sprite2D" parent="Props/crates_mid_47" unique_id=1944726510]
+[node name="Shadow" type="Sprite2D" parent="Props/crates_mid_47" unique_id=796100171]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(80, 0, 36, 10)
 
-[node name="tree_b_trunk_48" type="AnimatedSprite2D" parent="Props" unique_id=1762371004]
-position = Vector2(660, 527)
-sprite_frames = SubResource("SpriteFrames_11lrt")
+[node name="tree_b_trunk_48" type="AnimatedSprite2D" parent="Props" unique_id=1421464320]
+position = Vector2(662, 467)
+sprite_frames = SubResource("SpriteFrames_c52ou")
+autoplay = "default"
+centered = false
+offset = Vector2(-32, -61)
+flip_h = true
+metadata/kind = "tree_b_trunk"
+
+[node name="Shadow" type="Sprite2D" parent="Props/tree_b_trunk_48" unique_id=220502160]
+show_behind_parent = true
+position = Vector2(2, -1)
+texture = ExtResource("9_l1yx1")
+region_enabled = true
+region_rect = Rect2(117, 0, 46, 12)
+
+[node name="tree_b_trunk_49" type="AnimatedSprite2D" parent="Props" unique_id=1747499129]
+position = Vector2(1738, 467)
+sprite_frames = SubResource("SpriteFrames_c52ou")
 autoplay = "default"
 frame = 1
 centered = false
 offset = Vector2(-48, -61)
 metadata/kind = "tree_b_trunk"
 
-[node name="Shadow" type="Sprite2D" parent="Props/tree_b_trunk_48" unique_id=1334416174]
+[node name="Shadow" type="Sprite2D" parent="Props/tree_b_trunk_49" unique_id=2090321396]
 show_behind_parent = true
 position = Vector2(2, -1)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
-region_rect = Rect2(164, 0, 64, 16)
+region_rect = Rect2(117, 0, 46, 12)
 
-[node name="tree_b_trunk_49" type="AnimatedSprite2D" parent="Props" unique_id=732759340]
-position = Vector2(1740, 527)
-sprite_frames = SubResource("SpriteFrames_11lrt")
-autoplay = "default"
-frame = 2
-centered = false
-offset = Vector2(-32, -61)
-flip_h = true
-metadata/kind = "tree_b_trunk"
-
-[node name="Shadow" type="Sprite2D" parent="Props/tree_b_trunk_49" unique_id=1129690286]
-show_behind_parent = true
-position = Vector2(2, -1)
-texture = ExtResource("9_dbphi")
-region_enabled = true
-region_rect = Rect2(164, 0, 64, 16)
-
-[node name="tree_a_trunk_50" type="AnimatedSprite2D" parent="Props" unique_id=507408152]
+[node name="tree_a_trunk_50" type="AnimatedSprite2D" parent="Props" unique_id=625576922]
 position = Vector2(652, 575)
-sprite_frames = SubResource("SpriteFrames_i7jfm")
+sprite_frames = SubResource("SpriteFrames_ngsox")
 autoplay = "default"
 frame = 3
 centered = false
 offset = Vector2(-46, -53)
 metadata/kind = "tree_a_trunk"
 
-[node name="Shadow" type="Sprite2D" parent="Props/tree_a_trunk_50" unique_id=1733747619]
+[node name="Shadow" type="Sprite2D" parent="Props/tree_a_trunk_50" unique_id=330991362]
 show_behind_parent = true
 position = Vector2(2, -1)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(164, 0, 64, 16)
 
-[node name="tree_a_trunk_51" type="AnimatedSprite2D" parent="Props" unique_id=939340299]
+[node name="tree_a_trunk_51" type="AnimatedSprite2D" parent="Props" unique_id=2003833621]
 position = Vector2(1748, 575)
-sprite_frames = SubResource("SpriteFrames_i7jfm")
+sprite_frames = SubResource("SpriteFrames_ngsox")
 autoplay = "default"
 frame = 2
 centered = false
@@ -1116,32 +1159,32 @@ offset = Vector2(-48, -53)
 flip_h = true
 metadata/kind = "tree_a_trunk"
 
-[node name="Shadow" type="Sprite2D" parent="Props/tree_a_trunk_51" unique_id=2978388]
+[node name="Shadow" type="Sprite2D" parent="Props/tree_a_trunk_51" unique_id=179841618]
 show_behind_parent = true
 position = Vector2(2, -1)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(164, 0, 64, 16)
 
-[node name="lantern_52" type="AnimatedSprite2D" parent="Props" unique_id=2031301037]
+[node name="lantern_52" type="AnimatedSprite2D" parent="Props" unique_id=1621864850]
 position = Vector2(892, 239)
-sprite_frames = SubResource("SpriteFrames_wdrii")
+sprite_frames = SubResource("SpriteFrames_rguvq")
 autoplay = "default"
 frame = 4
 centered = false
 offset = Vector2(-16, -93)
 metadata/kind = "lantern"
 
-[node name="Shadow" type="Sprite2D" parent="Props/lantern_52" unique_id=20339077]
+[node name="Shadow" type="Sprite2D" parent="Props/lantern_52" unique_id=1043338590]
 show_behind_parent = true
 position = Vector2(2, -1)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(11, 0, 16, 5)
 
-[node name="lantern_53" type="AnimatedSprite2D" parent="Props" unique_id=1232046637]
+[node name="lantern_53" type="AnimatedSprite2D" parent="Props" unique_id=1396820120]
 position = Vector2(1508, 239)
-sprite_frames = SubResource("SpriteFrames_wdrii")
+sprite_frames = SubResource("SpriteFrames_rguvq")
 autoplay = "default"
 frame = 2
 centered = false
@@ -1149,135 +1192,135 @@ offset = Vector2(-16, -93)
 flip_h = true
 metadata/kind = "lantern"
 
-[node name="Shadow" type="Sprite2D" parent="Props/lantern_53" unique_id=1925063434]
+[node name="Shadow" type="Sprite2D" parent="Props/lantern_53" unique_id=1272211590]
 show_behind_parent = true
 position = Vector2(2, -1)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(11, 0, 16, 5)
 
-[node name="sack_heap_54" type="Sprite2D" parent="Props" unique_id=953857264]
+[node name="sack_heap_54" type="Sprite2D" parent="Props" unique_id=327245515]
 position = Vector2(724, 239)
-texture = ExtResource("12_f8725")
+texture = ExtResource("12_ip1im")
 centered = false
 offset = Vector2(-24, -39)
 metadata/kind = "sack_heap"
 
-[node name="Shadow" type="Sprite2D" parent="Props/sack_heap_54" unique_id=53208437]
+[node name="Shadow" type="Sprite2D" parent="Props/sack_heap_54" unique_id=365285915]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(80, 0, 36, 10)
 
-[node name="sack_heap_55" type="Sprite2D" parent="Props" unique_id=1897549462]
+[node name="sack_heap_55" type="Sprite2D" parent="Props" unique_id=1485513022]
 position = Vector2(1676, 239)
-texture = ExtResource("12_f8725")
+texture = ExtResource("12_ip1im")
 centered = false
 offset = Vector2(-24, -39)
 flip_h = true
 metadata/kind = "sack_heap"
 
-[node name="Shadow" type="Sprite2D" parent="Props/sack_heap_55" unique_id=2024175358]
+[node name="Shadow" type="Sprite2D" parent="Props/sack_heap_55" unique_id=572892048]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(80, 0, 36, 10)
 
-[node name="barrels3_56" type="Sprite2D" parent="Props" unique_id=669677340]
+[node name="barrels3_56" type="Sprite2D" parent="Props" unique_id=1073420336]
 position = Vector2(860, 239.01)
-texture = ExtResource("17_aq8wd")
+texture = ExtResource("17_0q5bd")
 centered = false
 offset = Vector2(-25, -41)
 metadata/kind = "barrels3"
 
-[node name="Shadow" type="Sprite2D" parent="Props/barrels3_56" unique_id=1603971820]
+[node name="Shadow" type="Sprite2D" parent="Props/barrels3_56" unique_id=1220881562]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(117, 0, 46, 12)
 
-[node name="barrels3_57" type="Sprite2D" parent="Props" unique_id=2120380709]
+[node name="barrels3_57" type="Sprite2D" parent="Props" unique_id=1306755704]
 position = Vector2(1540, 239.01)
-texture = ExtResource("17_aq8wd")
+texture = ExtResource("17_0q5bd")
 centered = false
 offset = Vector2(-25, -41)
 flip_h = true
 metadata/kind = "barrels3"
 
-[node name="Shadow" type="Sprite2D" parent="Props/barrels3_57" unique_id=627218682]
+[node name="Shadow" type="Sprite2D" parent="Props/barrels3_57" unique_id=1964463487]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(117, 0, 46, 12)
 
-[node name="banner_red_58" type="Sprite2D" parent="Props" unique_id=1415317255]
+[node name="banner_red_58" type="Sprite2D" parent="Props" unique_id=1316717866]
 position = Vector2(794, 239)
-texture = ExtResource("31_c7gph")
+texture = ExtResource("31_4fhrk")
 centered = false
 offset = Vector2(-9, -41)
 metadata/kind = "banner_red"
 
-[node name="banner_blue_59" type="Sprite2D" parent="Props" unique_id=357436233]
+[node name="banner_blue_59" type="Sprite2D" parent="Props" unique_id=1935272442]
 position = Vector2(1606, 239)
-texture = ExtResource("32_4fhrk")
+texture = ExtResource("32_3k7mu")
 centered = false
 offset = Vector2(-9, -41)
 flip_h = true
 metadata/kind = "banner_blue"
 
-[node name="drop_red_60" type="Sprite2D" parent="Props" unique_id=477783019]
+[node name="drop_red_60" type="Sprite2D" parent="Props" unique_id=1951592494]
 position = Vector2(764, 239.01)
-texture = ExtResource("33_3k7mu")
+texture = ExtResource("33_1gd2o")
 centered = false
 offset = Vector2(-9, -30)
 metadata/kind = "drop_red"
 
-[node name="drop_blue_61" type="Sprite2D" parent="Props" unique_id=401601501]
+[node name="drop_blue_61" type="Sprite2D" parent="Props" unique_id=1297804295]
 position = Vector2(1636, 239.01)
-texture = ExtResource("34_1gd2o")
+texture = ExtResource("34_srue2")
 centered = false
 offset = Vector2(-9, -30)
 flip_h = true
 metadata/kind = "drop_blue"
 
-[node name="drop_red_62" type="Sprite2D" parent="Props" unique_id=1168241342]
+[node name="drop_red_62" type="Sprite2D" parent="Props" unique_id=274245738]
 position = Vector2(824, 239.01)
-texture = ExtResource("33_3k7mu")
+texture = ExtResource("33_1gd2o")
 centered = false
 offset = Vector2(-9, -30)
 metadata/kind = "drop_red"
 
-[node name="drop_blue_63" type="Sprite2D" parent="Props" unique_id=2079787774]
+[node name="drop_blue_63" type="Sprite2D" parent="Props" unique_id=1010838434]
 position = Vector2(1576, 239.01)
-texture = ExtResource("34_1gd2o")
+texture = ExtResource("34_srue2")
 centered = false
 offset = Vector2(-9, -30)
 flip_h = true
 metadata/kind = "drop_blue"
 
-[node name="lantern_64" type="AnimatedSprite2D" parent="Props" unique_id=1151761519]
+[node name="lantern_64" type="AnimatedSprite2D" parent="Props" unique_id=463881162]
 position = Vector2(892, 799)
-sprite_frames = SubResource("SpriteFrames_wdrii")
+sprite_frames = SubResource("SpriteFrames_rguvq")
 autoplay = "default"
 frame = 2
 centered = false
 offset = Vector2(-16, -93)
 metadata/kind = "lantern"
 
-[node name="Shadow" type="Sprite2D" parent="Props/lantern_64" unique_id=2048512994]
+[node name="Shadow" type="Sprite2D" parent="Props/lantern_64" unique_id=2119562107]
 show_behind_parent = true
 position = Vector2(2, -1)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(11, 0, 16, 5)
 
-[node name="lantern_65" type="AnimatedSprite2D" parent="Props" unique_id=1725588218]
+[node name="lantern_65" type="AnimatedSprite2D" parent="Props" unique_id=2021267996]
 position = Vector2(1508, 799)
-sprite_frames = SubResource("SpriteFrames_wdrii")
+sprite_frames = SubResource("SpriteFrames_rguvq")
 autoplay = "default"
 frame = 7
 centered = false
@@ -1285,140 +1328,139 @@ offset = Vector2(-16, -93)
 flip_h = true
 metadata/kind = "lantern"
 
-[node name="Shadow" type="Sprite2D" parent="Props/lantern_65" unique_id=440076786]
+[node name="Shadow" type="Sprite2D" parent="Props/lantern_65" unique_id=454097958]
 show_behind_parent = true
 position = Vector2(2, -1)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(11, 0, 16, 5)
 
-[node name="sack_heap_66" type="Sprite2D" parent="Props" unique_id=1252111565]
+[node name="sack_heap_66" type="Sprite2D" parent="Props" unique_id=1128596337]
 position = Vector2(724, 799)
-texture = ExtResource("12_f8725")
+texture = ExtResource("12_ip1im")
 centered = false
 offset = Vector2(-24, -39)
 metadata/kind = "sack_heap"
 
-[node name="Shadow" type="Sprite2D" parent="Props/sack_heap_66" unique_id=652698036]
+[node name="Shadow" type="Sprite2D" parent="Props/sack_heap_66" unique_id=1180716371]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(80, 0, 36, 10)
 
-[node name="sack_heap_67" type="Sprite2D" parent="Props" unique_id=588334458]
+[node name="sack_heap_67" type="Sprite2D" parent="Props" unique_id=581347051]
 position = Vector2(1676, 799)
-texture = ExtResource("12_f8725")
+texture = ExtResource("12_ip1im")
 centered = false
 offset = Vector2(-24, -39)
 flip_h = true
 metadata/kind = "sack_heap"
 
-[node name="Shadow" type="Sprite2D" parent="Props/sack_heap_67" unique_id=676528601]
+[node name="Shadow" type="Sprite2D" parent="Props/sack_heap_67" unique_id=1852974710]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(80, 0, 36, 10)
 
-[node name="barrels3_68" type="Sprite2D" parent="Props" unique_id=869387317]
+[node name="barrels3_68" type="Sprite2D" parent="Props" unique_id=1509467816]
 position = Vector2(860, 799.01)
-texture = ExtResource("17_aq8wd")
+texture = ExtResource("17_0q5bd")
 centered = false
 offset = Vector2(-25, -41)
 metadata/kind = "barrels3"
 
-[node name="Shadow" type="Sprite2D" parent="Props/barrels3_68" unique_id=946322576]
+[node name="Shadow" type="Sprite2D" parent="Props/barrels3_68" unique_id=1735751671]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(117, 0, 46, 12)
 
-[node name="barrels3_69" type="Sprite2D" parent="Props" unique_id=2069146717]
+[node name="barrels3_69" type="Sprite2D" parent="Props" unique_id=1398543357]
 position = Vector2(1540, 799.01)
-texture = ExtResource("17_aq8wd")
+texture = ExtResource("17_0q5bd")
 centered = false
 offset = Vector2(-25, -41)
 flip_h = true
 metadata/kind = "barrels3"
 
-[node name="Shadow" type="Sprite2D" parent="Props/barrels3_69" unique_id=1911949792]
+[node name="Shadow" type="Sprite2D" parent="Props/barrels3_69" unique_id=1334368801]
 show_behind_parent = true
 position = Vector2(2, -3)
-texture = ExtResource("9_dbphi")
+texture = ExtResource("9_l1yx1")
 region_enabled = true
 region_rect = Rect2(117, 0, 46, 12)
 
-[node name="banner_red_70" type="Sprite2D" parent="Props" unique_id=783673400]
+[node name="banner_red_70" type="Sprite2D" parent="Props" unique_id=731870805]
 position = Vector2(794, 799)
-texture = ExtResource("31_c7gph")
+texture = ExtResource("31_4fhrk")
 centered = false
 offset = Vector2(-9, -41)
 metadata/kind = "banner_red"
 
-[node name="banner_blue_71" type="Sprite2D" parent="Props" unique_id=2007368320]
+[node name="banner_blue_71" type="Sprite2D" parent="Props" unique_id=200376823]
 position = Vector2(1606, 799)
-texture = ExtResource("32_4fhrk")
+texture = ExtResource("32_3k7mu")
 centered = false
 offset = Vector2(-9, -41)
 flip_h = true
 metadata/kind = "banner_blue"
 
-[node name="drop_red_72" type="Sprite2D" parent="Props" unique_id=2048851084]
+[node name="drop_red_72" type="Sprite2D" parent="Props" unique_id=259218958]
 position = Vector2(764, 799.01)
-texture = ExtResource("33_3k7mu")
+texture = ExtResource("33_1gd2o")
 centered = false
 offset = Vector2(-9, -30)
 metadata/kind = "drop_red"
 
-[node name="drop_blue_73" type="Sprite2D" parent="Props" unique_id=602021020]
+[node name="drop_blue_73" type="Sprite2D" parent="Props" unique_id=832241660]
 position = Vector2(1636, 799.01)
-texture = ExtResource("34_1gd2o")
+texture = ExtResource("34_srue2")
 centered = false
 offset = Vector2(-9, -30)
 flip_h = true
 metadata/kind = "drop_blue"
 
-[node name="drop_red_74" type="Sprite2D" parent="Props" unique_id=1475579731]
+[node name="drop_red_74" type="Sprite2D" parent="Props" unique_id=1862767035]
 position = Vector2(824, 799.01)
-texture = ExtResource("33_3k7mu")
+texture = ExtResource("33_1gd2o")
 centered = false
 offset = Vector2(-9, -30)
 metadata/kind = "drop_red"
 
-[node name="drop_blue_75" type="Sprite2D" parent="Props" unique_id=1046188331]
+[node name="drop_blue_75" type="Sprite2D" parent="Props" unique_id=1482959657]
 position = Vector2(1576, 799.01)
-texture = ExtResource("34_1gd2o")
+texture = ExtResource("34_srue2")
 centered = false
 offset = Vector2(-9, -30)
 flip_h = true
 metadata/kind = "drop_blue"
 
-[node name="Canopies" type="Node2D" parent="." unique_id=2049035407]
+[node name="Canopies" type="Node2D" parent="." unique_id=1992561784]
 
-[node name="tree_b_crown_0" type="AnimatedSprite2D" parent="Canopies" unique_id=1423301408]
-position = Vector2(660, 527)
-sprite_frames = SubResource("SpriteFrames_rnggw")
+[node name="tree_b_crown_0" type="AnimatedSprite2D" parent="Canopies" unique_id=1499072692]
+position = Vector2(662, 467)
+sprite_frames = SubResource("SpriteFrames_7snqc")
+autoplay = "default"
+centered = false
+offset = Vector2(-50, -151)
+flip_h = true
+metadata/kind = "tree_b_crown"
+
+[node name="tree_b_crown_1" type="AnimatedSprite2D" parent="Canopies" unique_id=1385112507]
+position = Vector2(1738, 467)
+sprite_frames = SubResource("SpriteFrames_7snqc")
 autoplay = "default"
 frame = 1
 centered = false
 offset = Vector2(-78, -151)
 metadata/kind = "tree_b_crown"
 
-[node name="tree_b_crown_1" type="AnimatedSprite2D" parent="Canopies" unique_id=623668854]
-position = Vector2(1740, 527)
-sprite_frames = SubResource("SpriteFrames_rnggw")
-autoplay = "default"
-frame = 2
-centered = false
-offset = Vector2(-50, -151)
-flip_h = true
-metadata/kind = "tree_b_crown"
-
-[node name="tree_a_crown_2" type="AnimatedSprite2D" parent="Canopies" unique_id=140525041]
+[node name="tree_a_crown_2" type="AnimatedSprite2D" parent="Canopies" unique_id=1053299744]
 position = Vector2(652, 575)
-sprite_frames = SubResource("SpriteFrames_k16kq")
+sprite_frames = SubResource("SpriteFrames_i2a4g")
 autoplay = "default"
 frame = 3
 centered = false
@@ -1426,105 +1468,105 @@ offset = Vector2(-80, -151)
 flip_h = true
 metadata/kind = "tree_a_crown"
 
-[node name="tree_a_crown_3" type="AnimatedSprite2D" parent="Canopies" unique_id=188463495]
+[node name="tree_a_crown_3" type="AnimatedSprite2D" parent="Canopies" unique_id=1590900189]
 position = Vector2(1748, 575)
-sprite_frames = SubResource("SpriteFrames_k16kq")
+sprite_frames = SubResource("SpriteFrames_i2a4g")
 autoplay = "default"
 frame = 2
 centered = false
 offset = Vector2(-80, -151)
 metadata/kind = "tree_a_crown"
 
-[node name="tree_a_crown_4" type="AnimatedSprite2D" parent="Canopies" unique_id=214565490]
+[node name="tree_a_canopy_4" type="AnimatedSprite2D" parent="Canopies" unique_id=52548854]
 position = Vector2(524, 168)
-sprite_frames = SubResource("SpriteFrames_k16kq")
+sprite_frames = SubResource("SpriteFrames_ws0xs")
 autoplay = "default"
 frame = 4
 centered = false
 offset = Vector2(-80, -105)
 flip_h = true
-metadata/kind = "tree_a_crown"
+metadata/kind = "tree_a_canopy"
 
-[node name="tree_a_crown_5" type="AnimatedSprite2D" parent="Canopies" unique_id=439391396]
+[node name="tree_a_canopy_5" type="AnimatedSprite2D" parent="Canopies" unique_id=331323911]
 position = Vector2(1876, 168)
-sprite_frames = SubResource("SpriteFrames_k16kq")
+sprite_frames = SubResource("SpriteFrames_ws0xs")
 autoplay = "default"
 frame = 4
 centered = false
 offset = Vector2(-80, -105)
-metadata/kind = "tree_a_crown"
+metadata/kind = "tree_a_canopy"
 
-[node name="tree_a_crown_6" type="AnimatedSprite2D" parent="Canopies" unique_id=814021231]
+[node name="tree_a_canopy_6" type="AnimatedSprite2D" parent="Canopies" unique_id=357137149]
 position = Vector2(600, 196)
-sprite_frames = SubResource("SpriteFrames_k16kq")
+sprite_frames = SubResource("SpriteFrames_ws0xs")
 autoplay = "default"
 frame = 3
 centered = false
 offset = Vector2(-80, -105)
-metadata/kind = "tree_a_crown"
+metadata/kind = "tree_a_canopy"
 
-[node name="tree_a_crown_7" type="AnimatedSprite2D" parent="Canopies" unique_id=1408095711]
+[node name="tree_a_canopy_7" type="AnimatedSprite2D" parent="Canopies" unique_id=220960615]
 position = Vector2(1800, 196)
-sprite_frames = SubResource("SpriteFrames_k16kq")
+sprite_frames = SubResource("SpriteFrames_ws0xs")
 autoplay = "default"
 centered = false
 offset = Vector2(-80, -105)
 flip_h = true
-metadata/kind = "tree_a_crown"
+metadata/kind = "tree_a_canopy"
 
-[node name="tree_a_crown_8" type="AnimatedSprite2D" parent="Canopies" unique_id=956479609]
+[node name="tree_a_canopy_8" type="AnimatedSprite2D" parent="Canopies" unique_id=670674534]
 position = Vector2(516, 940)
-sprite_frames = SubResource("SpriteFrames_k16kq")
+sprite_frames = SubResource("SpriteFrames_ws0xs")
 autoplay = "default"
 frame = 3
 centered = false
 offset = Vector2(-80, -105)
-metadata/kind = "tree_a_crown"
+metadata/kind = "tree_a_canopy"
 
-[node name="tree_a_crown_9" type="AnimatedSprite2D" parent="Canopies" unique_id=557272451]
+[node name="tree_a_canopy_9" type="AnimatedSprite2D" parent="Canopies" unique_id=124454596]
 position = Vector2(1884, 940)
-sprite_frames = SubResource("SpriteFrames_k16kq")
+sprite_frames = SubResource("SpriteFrames_ws0xs")
 autoplay = "default"
 frame = 2
 centered = false
 offset = Vector2(-80, -105)
 flip_h = true
-metadata/kind = "tree_a_crown"
+metadata/kind = "tree_a_canopy"
 
-[node name="tree_a_crown_10" type="AnimatedSprite2D" parent="Canopies" unique_id=1558971757]
+[node name="tree_a_canopy_10" type="AnimatedSprite2D" parent="Canopies" unique_id=1587179834]
 position = Vector2(596, 968)
-sprite_frames = SubResource("SpriteFrames_k16kq")
+sprite_frames = SubResource("SpriteFrames_ws0xs")
 autoplay = "default"
 frame = 2
 centered = false
 offset = Vector2(-80, -105)
 flip_h = true
-metadata/kind = "tree_a_crown"
+metadata/kind = "tree_a_canopy"
 
-[node name="tree_a_crown_11" type="AnimatedSprite2D" parent="Canopies" unique_id=487072338]
+[node name="tree_a_canopy_11" type="AnimatedSprite2D" parent="Canopies" unique_id=1003556865]
 position = Vector2(1804, 968)
-sprite_frames = SubResource("SpriteFrames_k16kq")
+sprite_frames = SubResource("SpriteFrames_ws0xs")
 autoplay = "default"
 frame = 4
 centered = false
 offset = Vector2(-80, -105)
-metadata/kind = "tree_a_crown"
+metadata/kind = "tree_a_canopy"
 
-[node name="tree_a_crown_12" type="AnimatedSprite2D" parent="Canopies" unique_id=1006760822]
+[node name="tree_a_canopy_12" type="AnimatedSprite2D" parent="Canopies" unique_id=1504627460]
 position = Vector2(1008, 552)
-sprite_frames = SubResource("SpriteFrames_k16kq")
+sprite_frames = SubResource("SpriteFrames_ws0xs")
 autoplay = "default"
 frame = 4
 centered = false
 offset = Vector2(-80, -105)
-metadata/kind = "tree_a_crown"
+metadata/kind = "tree_a_canopy"
 
-[node name="tree_a_crown_13" type="AnimatedSprite2D" parent="Canopies" unique_id=2005430944]
+[node name="tree_a_canopy_13" type="AnimatedSprite2D" parent="Canopies" unique_id=1654084787]
 position = Vector2(1392, 552)
-sprite_frames = SubResource("SpriteFrames_k16kq")
+sprite_frames = SubResource("SpriteFrames_ws0xs")
 autoplay = "default"
 frame = 1
 centered = false
 offset = Vector2(-80, -105)
 flip_h = true
-metadata/kind = "tree_a_crown"
+metadata/kind = "tree_a_canopy"

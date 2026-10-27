@@ -5318,6 +5318,19 @@
     48,
     61
    ]
+  },
+  "tree_a_canopy": {
+   "source": "keeps_anim_tree_a_canopy.png",
+   "frame": [
+    160,
+    106
+   ],
+   "frames": 5,
+   "fps": 4.0,
+   "feet": [
+    80,
+    105
+   ]
   }
  },
  "bushes": {

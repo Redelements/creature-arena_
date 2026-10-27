@@ -110,7 +110,8 @@ packs dir; "tile" positions are [column, row] of 32 px tiles in the source sheet
   anim.<name>              {"src", "frame": [w, h], "frames": n, "fps": f, "feet": [x, y],
                            "row": 0, "tint", "crop": [x0, y0, x1, y1]}: "crop" keeps that box of
                            every frame (a swaying tree split into its crown and its trunk, cut
-                           as two strips; feet in the cropped frame)
+                           as two strips; feet in the cropped frame); "leaves_only": [r, g, b]
+                           recolours the bark showing through a crown (red over green) to a leaf shade
   bushes.<name>            {"src", "frame": [w, h], "frames": n, "fps", "clumps" | "blobs"}
                            a bush for the brush beds (cut_bushes)
   fencelines.<name>        {"src", "post": box, "rail_h": box, "rail_v": box}  a fence drawn
@@ -935,6 +936,13 @@ def cut_anim(cut, set_name, a):
         strip = Image.new("RGBA", (cw * n, ch), (0, 0, 0, 0))
         for k in range(n):
             strip.paste(src.crop((k * w + cx0, row * h + cy0, k * w + cx1, row * h + cy1)), (k * cw, 0))
+        if "leaves_only" in it:
+            # a crown without its trunk and branches showing through (a crown over a brush
+            # bed, where no trunk stands): the bark's red-brown pixels take a deep leaf shade
+            arr = np.array(strip).astype(int)
+            bark = (arr[:, :, 3] > 0) & (arr[:, :, 0] > arr[:, :, 1] + 2)
+            arr[bark, :3] = it["leaves_only"]
+            strip = Image.fromarray(arr.astype(np.uint8), "RGBA")
         strip = tinted(strip, it)
         file = "%s_anim_%s.png" % (set_name, name)
         save(strip, file)

@@ -1526,10 +1526,11 @@
 		{
 			"kind": "tree_b_trunk",
 			"pos": [
-				330,
-				263.5
+				331,
+				233.5
 			],
-			"shadow_w": 0.75
+			"shadow_w": 0.6,
+			"flip": true
 		},
 		{
 			"kind": "tree_a_trunk",
@@ -1648,10 +1649,11 @@
 		{
 			"kind": "tree_b_crown",
 			"pos": [
-				330,
-				263.5
+				331,
+				233.5
 			],
-			"lift": 28
+			"lift": 28,
+			"flip": true
 		},
 		{
 			"kind": "tree_a_crown",
@@ -1663,7 +1665,7 @@
 			"flip": true
 		},
 		{
-			"kind": "tree_a_crown",
+			"kind": "tree_a_canopy",
 			"pos": [
 				262,
 				84
@@ -1671,21 +1673,21 @@
 			"flip": true
 		},
 		{
-			"kind": "tree_a_crown",
+			"kind": "tree_a_canopy",
 			"pos": [
 				300,
 				98
 			]
 		},
 		{
-			"kind": "tree_a_crown",
+			"kind": "tree_a_canopy",
 			"pos": [
 				258,
 				470
 			]
 		},
 		{
-			"kind": "tree_a_crown",
+			"kind": "tree_a_canopy",
 			"pos": [
 				298,
 				484
@@ -1693,7 +1695,7 @@
 			"flip": true
 		},
 		{
-			"kind": "tree_a_crown",
+			"kind": "tree_a_canopy",
 			"pos": [
 				504,
 				276
