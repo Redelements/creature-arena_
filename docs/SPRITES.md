@@ -347,6 +347,18 @@ the nose crosses the trunk its outline is the bark's deep step. The bark grain i
 (five lines round the trunk, two down each leg) and one ramp step darker where it falls;
 the brows, the chevrons at the fork and the crease between the legs are the deep step.
 
+**2x (route A, Oct 2026, branch `barkley-2x`, stacked on `sprites-vram`).** The game draws
+`barkley_2x*.png`: the same painter at density 2 (`BARKLEY_DENSITY`, default 2;
+`BARKLEY_DENSITY=1` rebuilds the 1x `barkley*.png` byte for byte), **192×192** side frames
+(feet at (80, 180)) and **256×320** views (feet at (128, 224) down and down_side, (128, 248)
+up and up_side), `"ppu": 2` in every view, portrait `[60, 36, 48, 64]`; same rows, frame
+counts and timing. The painter keeps its 1x pixel coordinates: `shade2d.Draw` scales every
+shape, line, dot and leaf onto the 2x layer, so the leaves, eyes and grain double in size,
+not in number, and only the edges and the shading get finer. Shaded "bold" (`BARKLEY_STYLE`):
+no highlight step, no rim light, one dark ink round every shape (the leaves' and the
+pinecone's too); seams keep the deep step. The `ko_fx` "timber" `length` is world units
+(unchanged). Gallery: `pixellab/barkley/barkley_route_a.png`.
+
 ![Barkley sheet, 3x](barkley_preview.png)
 
 Facing down and up, and the diagonals: [`barkley_views_preview.png`](barkley_views_preview.png).
@@ -1121,7 +1133,11 @@ One master palette for the whole game: `tools/palette.py`, drawn as a labelled s
   and `Materials.stack` turns an outline that lands on a piece behind into that piece's
   deep step (the seam). Detail lines (bark grain, scales, fin rays) are `groove`s: one
   ramp step darker (Gillbert's belly: lighter) wherever they fall, so they read in the
-  light and in the shadow alike.
+  light and in the shadow alike. Density (`shade2d.configure(density=2)`): the painter
+  draws in 1x pixel coordinates through `shade2d.Draw`, which paints every fill, stroke and
+  dot twice the size on a 2x layer, and the shading's pixel lengths go through `shade2d.px`
+  (as `splat3d.px`); outlines and seams stay 1 px. At density 1 it is byte for byte the old
+  drawing.
 - **Craglash** (a 2D puppet, `tools/gen_craglash.py`) ports the same rules to his own
   layer shader: `MAT` holds ramps, `shade` the five steps and the rim, `finish` the inks
   and seams.

@@ -24,6 +24,11 @@ Parts (each shaded and outlined on its own layer, then sorted by depth):
 
 This is a recreation for the soft launch; when the artist delivers final sprites in
 the same layout they drop in with no code changes.
+
+Density (shade2d.configure(density=...)): 2 draws the sheets the game uses, barkley_2x*.png
+(192x192 side frames, 256x320 views, "ppu": 2); BARKLEY_DENSITY=1 the older 1x ones,
+barkley*.png, byte for byte. The painter keeps its 1x pixel coordinates: shade2d.Draw
+scales every shape, line, dot and leaf, so the leaves double in size, not in number.
 """
 import math
 import os
@@ -33,17 +38,29 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-OUT = os.path.join(ROOT, "assets", "sprites", "barkley.png")
-PREVIEW = os.path.join(ROOT, "docs", "barkley_preview.png")
+DENSITY = int(os.environ.get("BARKLEY_DENSITY", "2"))
+# The look (BARKLEY_STYLE): "a" shade2d's shading as at 1x (highlight, light, base, dark, a
+# rim light, each material outlined in its own ink); "bold" three tones a shape (no
+# highlight step, no rim light) and one dark ink round the silhouette (seams keep their
+# material's deep step). The 2x sheets are bold (see docs/SPRITES.md, Barkley's 2x note).
+STYLE = os.environ.get("BARKLEY_STYLE", "bold" if DENSITY > 1 else "a")
+_TAG = "" if DENSITY == 1 else "_%dx" % DENSITY
+OUT = os.path.join(ROOT, "assets", "sprites", "barkley%s.png" % _TAG)
+PREVIEW = os.path.join(ROOT, "docs", "barkley%s_preview.png" % _TAG)
+
+
+def _frame(w, h, origin):
+    return {"w": w * DENSITY, "h": h * DENSITY, "origin": (origin[0] * DENSITY, origin[1] * DENSITY)}
+
 
 COLS = 12
-SIDE = {"w": 96, "h": 96, "origin": (40, 90)}
+SIDE = _frame(96, 96, (40, 90))
 VIEWS = {
-    "down": {"w": 128, "h": 160, "origin": (64, 112)},
-    "up": {"w": 128, "h": 160, "origin": (64, 124)},
+    "down": _frame(128, 160, (64, 112)),
+    "up": _frame(128, 160, (64, 124)),
     # the diagonals (docs/SPRITES.md, "Directions"): facing down-right and up-right
-    "down_side": {"w": 128, "h": 160, "origin": (64, 112)},
-    "up_side": {"w": 128, "h": 160, "origin": (64, 124)},
+    "down_side": _frame(128, 160, (64, 112)),
+    "up_side": _frame(128, 160, (64, 124)),
 }
 
 # Palette: master-palette ramps per material (tools/palette.py; the shading rules are in
@@ -63,6 +80,7 @@ MAT = {
     "cone": "earth",        # the pinecone
 }
 M = shade2d.Materials(MAT)
+shade2d.configure(density=DENSITY)
 
 C = {
     "bark": M.col("bark"),
@@ -86,15 +104,29 @@ C = {
     "cone_ink": M.ink["cone"] + (255,),
     "groove": (255, 0, 255, 255),     # detail lines: one ramp step darker where they fall
 }
+if STYLE == "bold":
+    shade2d.LUM_HIGH = 9.0   # no highlight step: light, base, dark
+    shade2d.RIM = False
+    _INK = tuple(shade2d.P.INKS["ink"][:3])
+    M.ink_lut[:] = _INK      # one dark ink round every shape (seams keep the deep step)
+    C["leaf_ink"] = C["cone_ink"] = _INK + (255,)
 
 # ------------------------------------------------------------------ image helpers
 
+# The frame being drawn, in 1x pixels (the painter's coordinates; the layers are DENSITY
+# times the size, shade2d.Draw scales onto them).
 W = H = 96
-OX, OY = SIDE["origin"]
+OX, OY = 40, 90
+
+
+def _set_frame(fw, fh, origin):
+    global W, H, OX, OY
+    W, H = fw // DENSITY, fh // DENSITY
+    OX, OY = origin[0] // DENSITY, origin[1] // DENSITY
 
 
 def layer():
-    return Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    return Image.new("RGBA", (W * DENSITY, H * DENSITY), (0, 0, 0, 0))
 
 
 def _mask(img):
@@ -152,8 +184,8 @@ def polyline(d, pts, radii, col):
 
 def draw_pinecone(img, at):
     """A small pinecone: a brown oval with rows of darker scales."""
-    x, y = round(at[0]), round(at[1])
-    d = ImageDraw.Draw(img)
+    x, y = shade2d.snap(at[0]), shade2d.snap(at[1])
+    d = shade2d.Draw(img)
     d.ellipse([x - 3, y - 4, x + 3, y + 4], fill=C["cone_ink"])
     d.ellipse([x - 2, y - 3, x + 2, y + 3], fill=C["cone"])
     for yy in (-2, 0, 2):
@@ -425,12 +457,12 @@ class Painter:
         self.cam = Cam(view)
         self.view = view
         # where the Surge's glow points were drawn (the emissive sheets: _emissive)
-        self.glow_px = Image.new("L", (W, H), 0)
+        self.glow_px = Image.new("L", (W * DENSITY, H * DENSITY), 0)
 
     def _glow(self, d, xy):
         """A Surge glow point: drawn as before, and remembered for the emissive sheet."""
         d.point(xy, fill=C["glow"])
-        ImageDraw.Draw(self.glow_px).point(xy, fill=255)
+        shade2d.Draw(self.glow_px).point(xy, fill=255)
 
     def P(self, q):
         return self.cam.P(self.b.world(q))
@@ -446,13 +478,13 @@ class Painter:
     def leg(self, i):
         hip, knee, ankle, foot = self.b.leg(i)
         img = layer()
-        d = ImageDraw.Draw(img)
+        d = shade2d.Draw(img)
         polyline(d, [self.P(hip), self.P(knee), self.P(ankle)], [5.0, 3.9, 4.1], "bark")
         # the flare where the trunk meets the ground
         disc(d, self.P(v_add(ankle, (0, -1.4, 0))), 4.6, "bark")
         img = shade(img, "bark")
         det = layer()
-        dd = ImageDraw.Draw(det)
+        dd = shade2d.Draw(det)
         a, b = self.P(hip), self.P(ankle)
         for off in (-2, 1):
             n = (b[1] - a[1], -(b[0] - a[0]))
@@ -470,7 +502,7 @@ class Painter:
         _hip, _knee, ankle, foot = self.b.leg(i)
         out = -1.0 if i == 0 else 1.0
         img = layer()
-        d = ImageDraw.Draw(img)
+        d = shade2d.Draw(img)
         base = (foot[0], 0.5, foot[2])
         if self.p.roots_up:
             base = v_add(ankle, (0, -2, 0))
@@ -497,7 +529,7 @@ class Painter:
     def trunk(self):
         """Trunk and both legs as one silhouette, so the trunk forks smoothly into legs."""
         img = layer()
-        d = ImageDraw.Draw(img)
+        d = shade2d.Draw(img)
         for i in (0, 1):
             self._leg_shape(d, i)
         axis = [self.b.T((0, 2.0, 0))] + self.b.trunk_axis()[1:]
@@ -510,9 +542,9 @@ class Painter:
             capsule(d, self.P(a), self.P(b), 1.4, 0.8, "bark")
         img = shade(img, "bark")
         grain = layer()  # grooves: one ramp step darker wherever they fall
-        gd = ImageDraw.Draw(grain)
+        gd = shade2d.Draw(grain)
         det = layer()  # features in fixed colours (seams, eyes)
-        dd = ImageDraw.Draw(det)
+        dd = shade2d.Draw(det)
         # grain down each leg, and a crease where the nearer leg passes over the other
         near = max((0, 1), key=lambda i: self.D(self.b.leg(i)[2]))
         for i in (0, 1):
@@ -524,15 +556,15 @@ class Painter:
                 o = (n[0] / ln * off, n[1] / ln * off)
                 gd.line([(a[0] + o[0], a[1] + o[1]), (b[0] + o[0], b[1] + o[1] - 1)], fill=C["groove"])
         nl = layer()
-        self._leg_shape(ImageDraw.Draw(nl), near)
+        self._leg_shape(shade2d.Draw(nl), near)
         m = _mask(nl)
         ring = (_shift(m, 1, 0) | _shift(m, -1, 0) | _shift(m, 0, 1)) & ~m
         fork_y = self.P(self.b.hip)[1] - 1
-        ys = np.arange(m.shape[0])[:, None] >= fork_y
+        ys = np.arange(m.shape[0])[:, None] >= shade2d.to_px(fork_y)
         da = np.array(det)
         da[ring & ys] = C["seam"]
         det = Image.fromarray(da)
-        dd = ImageDraw.Draw(det)
+        dd = shade2d.Draw(det)
         # bark grain: wavy lines running up the trunk, following its turn
         for theta in (-60, 5, 65, 150, 230):  # sparse: the ramp carries the form
             n = self.facing(self.b.face_normal(theta))
@@ -572,7 +604,7 @@ class Painter:
             if self.facing(self.b.face_normal(th)) < -0.02:
                 continue
             e = self.P(self.b.face_point(th, 25.0 + FD))
-            e = (round(e[0]), round(e[1]))
+            e = (shade2d.snap(e[0]), shade2d.snap(e[1]))
             if f == "ko":
                 dd.line([(e[0] - 1, e[1] - 1), (e[0] + 1, e[1] + 1)], fill=o)
                 dd.line([(e[0] - 1, e[1] + 1), (e[0] + 1, e[1] - 1)], fill=o)
@@ -607,14 +639,14 @@ class Painter:
         root_r = self.P(self.b.face_point(14, 21.2 + FD, out=-0.2))
         tip = self.P(self.b.face_point(0, 21.0 + FD, out=5.5))
         lay = layer()
-        d = ImageDraw.Draw(lay)
+        d = shade2d.Draw(lay)
         d.polygon([root_hi, root_l, tip, root_r], fill=C["bark"])
         return outline(shade(lay, "bark"))
 
     def beard(self):
         """The moss beard: a scribbly clump hanging under the nose."""
         img = layer()
-        d = ImageDraw.Draw(img)
+        d = shade2d.Draw(img)
         blobs = [(-62, 16.6, 1.7), (-36, 17.6, 1.9), (-12, 17.9, 1.9), (12, 17.9, 1.9), (36, 17.6, 1.9),
                  (62, 16.6, 1.7), (-50, 14.6, 1.8), (-24, 14.8, 2.1), (0, 15.0, 2.1), (24, 14.8, 2.1),
                  (50, 14.6, 1.8), (-34, 12.4, 1.6), (-10, 12.2, 1.9), (14, 12.4, 1.8), (36, 12.6, 1.4),
@@ -630,17 +662,17 @@ class Painter:
             return None
         img = shade(img, "moss")
         det = layer()
-        dd = ImageDraw.Draw(det)
+        dd = shade2d.Draw(det)
         # scribbled curls of lighter moss
         for th, up in ((-30, 15 + FD), (-5, 14 + FD), (20, 16 + FD), (5, 10 + FD), (-18, 12 + FD), (34, 13 + FD)):
             if self.facing(self.b.face_normal(th)) < 0:
                 continue
             c = self.P(self.b.face_point(th, up, out=1.6))
             if self.p.glow > 0.5:
-                self._glow(dd, (round(c[0]), round(c[1])))
+                self._glow(dd, (shade2d.snap(c[0]), shade2d.snap(c[1])))
             else:
-                dd.point((round(c[0]), round(c[1])), fill=C["moss_l"])
-            dd.point((round(c[0]) + 1, round(c[1]) + 1), fill=C["moss_d"])
+                dd.point((shade2d.snap(c[0]), shade2d.snap(c[1])), fill=C["moss_l"])
+            dd.point((shade2d.snap(c[0]) + 1, shade2d.snap(c[1]) + 1), fill=C["moss_d"])
         img.alpha_composite(clip_to(det, img))
         return outline(img)
 
@@ -665,7 +697,7 @@ class Painter:
                 cut = pts[-1]
                 break
         img = layer()
-        d = ImageDraw.Draw(img)
+        d = shade2d.Draw(img)
         radii = [2.7, 2.2, 2.0, 1.7, 1.4][:len(pts)]
         polyline(d, [self.P(q) for q in pts], radii, "wood")
         hd = pts[-1]
@@ -682,14 +714,14 @@ class Painter:
             twigs.append(b)
         img = shade(img, "wood")
         det = layer()
-        dd = ImageDraw.Draw(det)
+        dd = shade2d.Draw(det)
         p2 = [self.P(q) for q in pts]
         for k in range(len(p2) - 1):
             a, b = p2[k], p2[k + 1]
             dd.line([(a[0], a[1] + 1), (b[0], b[1] + 1)], fill=C["groove"])
         M.groove(img, det)
         img = outline(img)
-        lv = ImageDraw.Draw(img)
+        lv = shade2d.Draw(img)
         for b in twigs:
             q = self.P(b)
             self._leaf(lv, q)
@@ -726,7 +758,7 @@ class Painter:
             polyline(d, [self.P(hd), self.P(mid), self.P(tip)], [1.1, 0.8, 0.4], "wood")
 
     def _leaf(self, dd, q):
-        x, y = round(q[0]), round(q[1])
+        x, y = shade2d.snap(q[0]), shade2d.snap(q[1])
         dd.rectangle([x - 1, y - 2, x + 1, y], fill=C["leaf_ink"])
         dd.point((x, y - 3), fill=C["leaf_ink"])
         dd.point((x - 2, y - 1), fill=C["leaf_ink"])
@@ -748,11 +780,11 @@ class Painter:
         R = 4.4
         p0, p1 = self.P(e0), self.P(e1)
         img = layer()
-        d = ImageDraw.Draw(img)
+        d = shade2d.Draw(img)
         capsule(d, p0, p1, R, R, "wood")
         img = shade(img, "wood")
         det = layer()
-        dd = ImageDraw.Draw(det)
+        dd = shade2d.Draw(det)
         dx, dy = p1[0] - p0[0], p1[1] - p0[1]
         ln = math.hypot(dx, dy) or 1.0
         nx, ny = -dy / ln, dx / ln
@@ -767,24 +799,24 @@ class Painter:
         if face_amt > 0.15:
             c = self.P(end)
             rx = max(1.6, R * min(1.0, face_amt * 1.3))
-            cd = ImageDraw.Draw(img)
+            cd = shade2d.Draw(img)
             # an ellipse squashed along the log's screen direction
             ang = math.degrees(math.atan2(dy, dx))
-            cap = Image.new("RGBA", (40, 40), (0, 0, 0, 0))
-            cdd = ImageDraw.Draw(cap)
+            cap = Image.new("RGBA", (40 * DENSITY, 40 * DENSITY), (0, 0, 0, 0))
+            cdd = shade2d.Draw(cap)
             cdd.ellipse([20 - rx, 20 - R, 20 + rx, 20 + R], fill=C["ring"])
             if rx > 2.5:
                 cdd.ellipse([20 - rx * 0.55, 20 - R * 0.55, 20 + rx * 0.55, 20 + R * 0.55], outline=C["ring_d"])
                 cdd.point((20, 20), fill=C["ring_d"])
-            cap = cap.rotate(-ang, resample=Image.NEAREST, center=(20, 20))
-            img.alpha_composite(cap, (round(c[0]) - 20, round(c[1]) - 20))
+            cap = cap.rotate(-ang, resample=Image.NEAREST, center=(shade2d.to_px(20), shade2d.to_px(20)))
+            img.alpha_composite(cap, (round(c[0] * DENSITY) - 20 * DENSITY, round(c[1] * DENSITY) - 20 * DENSITY))
             del cd
         img = outline(img)
         # the leaf sprouting from the top of the log
         mid = self.P(v_add(v_lerp(e0, e1, 0.42), self.b.T((0, 5.6, 0)) if False else (0, 0, 0)))
-        lv = ImageDraw.Draw(img)
-        sx, sy = round(mid[0]), round(mid[1] - R)
-        lx = sx + round(self.p.leaf)  # the leaf's lean (animation pass); 0 draws the original
+        lv = shade2d.Draw(img)
+        sx, sy = shade2d.snap(mid[0]), shade2d.snap(mid[1] - R)
+        lx = sx + shade2d.snap(self.p.leaf)  # the leaf's lean (animation pass); 0 draws the original
         lv.line([(sx, sy), (lx, sy - 2)], fill=C["leaf_ink"])
         lv.ellipse([lx - 2, sy - 7, lx + 2, sy - 2], fill=C["leaf_ink"])
         lv.ellipse([lx - 1, sy - 6, lx + 1, sy - 3], fill=C["leaf"])
@@ -904,9 +936,7 @@ def render(pose, view):
 
 def sheet(view, rows, fw, fh, origin, extras=False):
     """One view's sheet; with `extras`, (sheet, normal sheet, emissive sheet or None)."""
-    global W, H, OX, OY
-    W, H = fw, fh
-    OX, OY = origin
+    _set_frame(fw, fh, origin)
     return S.collect(rows, fw, fh, lambda pose: render(pose, view), extras, cols=COLS)
 
 
@@ -1334,10 +1364,8 @@ def frame_spec(view):
 
 def render_frame(pose, view):
     """One frame on its own, with the frame size and origin set as sheet() sets them."""
-    global W, H, OX, OY
     sp = frame_spec(view)
-    W, H = sp["w"], sp["h"]
-    OX, OY = sp["origin"]
+    _set_frame(sp["w"], sp["h"], sp["origin"])
     return render(pose, view)
 
 OLD_REF = os.environ.get("BARKLEY_OLD_REF", "fce60cc")  # main before the pass: the "current" frames
