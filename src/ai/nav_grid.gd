@@ -1,7 +1,9 @@
 class_name NavGrid
 extends RefCounted
 ## A coarse walkable map of the arena for the CPU: 16 px nodes (2×2 terrain cells),
-## blocked where any cell is a wall, a fence or a pit, costlier through shallows. A
+## blocked where any cell is a wall or a fence or two are pits (a lone pit cell is
+## walked round inside the node: only the centre of a body falls), costlier through
+## shallows. A
 ## path is found with integer costs in a fixed neighbour order, so every machine and
 ## every run gets the same answer (the CPU is deterministic, like the sim). The grid
 ## is rebuilt whenever the terrain changes (walls smashed, holes opened or healed).
@@ -16,6 +18,9 @@ const STRAIGHT := 2  ## cost of a straight step
 const DIAGONAL := 3  ## and a diagonal one (about √2 × 2)
 const SHALLOWS_EXTRA := 2  ## added per step into shallows
 const BRUSH_EXTRA := 1
+## Pit cells that block a node: one alone leaves room to walk past it (scattered pits, the
+## Floor of Pits mutator, would otherwise cut the map into islands that aren't there).
+const PIT_CELLS := 2
 
 ## Neighbours in a fixed order: the four straight steps first, then the diagonals.
 const STEPS := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1),
@@ -87,12 +92,17 @@ func update(t: TerrainGrid) -> void:
 		for nx in cols:
 			var b := 0
 			var e := 0
+			var pits := 0
 			for dy in NODE:
 				var row := c0 + dy * tc + nx * NODE
 				for dx in NODE:
 					var v := cells[row + dx]
-					if v == TerrainGrid.WALL or v == TerrainGrid.FENCE or v == TerrainGrid.HOLE 							or v == TerrainGrid.CHASM:
+					if v == TerrainGrid.WALL or v == TerrainGrid.FENCE:
 						b = 1
+					elif v == TerrainGrid.HOLE or v == TerrainGrid.CHASM:
+						pits += 1
+						if pits >= PIT_CELLS:
+							b = 1
 					elif v == TerrainGrid.SHALLOWS:
 						e = maxi(e, SHALLOWS_EXTRA)
 					elif v == TerrainGrid.BRUSH:
@@ -237,6 +247,26 @@ static func body_blocked(t: TerrainGrid, p: Vector2, r: float) -> bool:
 	return TerrainIndex.of(t).body_near(t, p, r) and t.body_blocked(p, r)
 
 
+## The region of the open node nearest `p` (-1 when there's none): two points with the
+## same region are joined by a walk.
+func region_of(p: Vector2) -> int:
+	var n := nearest_open(p)
+	if n.x < 0:
+		return -1
+	_labelled()
+	return region[_index(n)]
+
+
+## Labels the regions if the grid changed since (the first CPU to ask does it, the rest
+## wait: CpuController.think_all runs them on several threads).
+func _labelled() -> void:
+	if not _regions_ok:
+		_label_lock.lock()
+		if not _regions_ok:
+			_label_regions()
+		_label_lock.unlock()
+
+
 ## The cheapest path from `from` to `to` as node centres, the start's node left out,
 ## the goal's node last. Empty when either end has no open node or none connects them.
 ## A* over integer costs with a bucket queue keyed on cost so far plus the octile
@@ -254,13 +284,7 @@ func path(from: Vector2, to: Vector2) -> PackedVector2Array:
 		return out
 	var si := _index(s)
 	var gi := _index(g)
-	if not _regions_ok:
-		# Labelled on the first search after a change; CPUs thinking on several threads
-		# (CpuController.think_all) may get here together, so one labels, the rest wait.
-		_label_lock.lock()
-		if not _regions_ok:
-			_label_regions()
-		_label_lock.unlock()
+	_labelled()  # on the first search after a change
 	if region[si] != region[gi]:
 		return out  # nothing joins them: no search needed
 	var n := cols * rows
