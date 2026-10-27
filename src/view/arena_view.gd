@@ -371,6 +371,11 @@ func canopy_count() -> int:
 	return _canopies.size()
 
 
+## The crowns' pictures in world px (GladeView lays its leaf shade and sun shafts under them).
+func canopy_rects() -> Array:
+	return _canopies.map(func(e): return e[1])
+
+
 ## Whether the map's own cell `c` blocks (a wall or a fence): where a dressing prop may stand.
 func _blocks(c: Vector2i) -> bool:
 	if c.x < 0 or c.y < 0 or c.x >= terrain.cols or c.y >= terrain.rows:

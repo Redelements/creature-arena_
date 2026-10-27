@@ -771,24 +771,84 @@
 			]
 		},
 		{
-			"kind": "flowers",
+			"kind": "flowers_red",
 			"clump": [
 				2,
 				24
 			],
-			"n": 5,
+			"n": 6,
 			"r": 2,
 			"seed": 1
 		},
 		{
-			"kind": "flowers",
+			"kind": "flowers_red",
 			"clump": [
 				3,
 				41
 			],
-			"n": 5,
+			"n": 6,
 			"r": 2,
 			"seed": 2
+		},
+		{
+			"kind": "flowers_red",
+			"clump": [
+				6,
+				30
+			],
+			"n": 4,
+			"r": 2,
+			"seed": 70
+		},
+		{
+			"kind": "flowers_red",
+			"clump": [
+				16,
+				34
+			],
+			"n": 4,
+			"r": 1,
+			"seed": 71
+		},
+		{
+			"kind": "flowers_red",
+			"clump": [
+				14,
+				23
+			],
+			"n": 4,
+			"r": 2,
+			"seed": 72
+		},
+		{
+			"kind": "flowers_red",
+			"clump": [
+				23,
+				31
+			],
+			"n": 4,
+			"r": 2,
+			"seed": 73
+		},
+		{
+			"kind": "flowers_red",
+			"clump": [
+				8,
+				47
+			],
+			"n": 4,
+			"r": 2,
+			"seed": 74
+		},
+		{
+			"kind": "flowers_red",
+			"clump": [
+				9,
+				17
+			],
+			"n": 4,
+			"r": 2,
+			"seed": 75
 		},
 		{
 			"kind": "flowers",
@@ -932,7 +992,7 @@
 			"seed": 8
 		},
 		{
-			"kind": "flowers",
+			"kind": "flowers_red",
 			"clump": [
 				21,
 				25
@@ -942,7 +1002,7 @@
 			"seed": 11
 		},
 		{
-			"kind": "flowers",
+			"kind": "flowers_red",
 			"clump": [
 				21,
 				41
@@ -1396,6 +1456,26 @@
 			"lift": 16,
 			"shadow": false,
 			"stack": 3
+		},
+		{
+			"kind": "flag_red",
+			"pos": [
+				44,
+				175.5
+			],
+			"lift": 20,
+			"shadow": false,
+			"stack": 4
+		},
+		{
+			"kind": "flag_red",
+			"pos": [
+				84,
+				367.5
+			],
+			"lift": 20,
+			"shadow": false,
+			"stack": 4
 		},
 		{
 			"kind": "crates_mid",

@@ -533,13 +533,67 @@
 		}
 	],
 	"ambient": {
-		"_doc": "leaves on the morning breeze, brush that sways, dragonflies and a jumping fish on the river, the odd bird; see AmbientView",
+		"_doc": "leaves on the morning breeze, brush that sways, butterflies over the flower glades, dragonflies, a jumping fish and ripples on the river, the odd bird; leaf shade, sun shafts, falling leaves, lamp smoke, waterfall spray and sunset fireflies round the trees (glades: GladeView); see AmbientView",
 		"motes": {
 			"kind": "leaf",
 			"count": 22
 		},
 		"sway": true,
 		"critters": [
+			{
+				"kind": "butterfly",
+				"count": 6,
+				"areas": [
+					[
+						34,
+						22,
+						14,
+						6
+					],
+					[
+						34,
+						37,
+						14,
+						6
+					],
+					[
+						102,
+						22,
+						14,
+						6
+					],
+					[
+						102,
+						37,
+						14,
+						6
+					],
+					[
+						2,
+						22,
+						10,
+						4
+					],
+					[
+						138,
+						40,
+						10,
+						4
+					],
+					[
+						44,
+						15,
+						12,
+						4
+					],
+					[
+						94,
+						46,
+						12,
+						4
+					]
+				]
+			},
 			{
 				"kind": "dragonfly",
 				"count": 4,
@@ -552,11 +606,11 @@
 			},
 			{
 				"kind": "fish",
-				"every": 360
+				"every": 1100
 			},
 			{
 				"kind": "bird",
-				"every": 2400,
+				"every": 1500,
 				"flock": 2,
 				"first": 600
 			},
@@ -569,7 +623,21 @@
 				"every": 4200,
 				"first": 1200
 			}
-		]
+		],
+		"glades": {
+			"pools": 7,
+			"shafts": 2,
+			"fireflies": 18,
+			"leaf_every": 70,
+			"smoke": true,
+			"spray": [
+				71,
+				0,
+				8,
+				3
+			],
+			"ripple_every": 40
+		}
 	},
 	"size": [
 		150,

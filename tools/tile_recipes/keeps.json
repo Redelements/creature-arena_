@@ -1566,6 +1566,43 @@
 				22
 			],
 			"_doc": "the big crown with no bark showing, for the brush beds (no trunk stands in a bed)"
+		},
+		"flag_red": {
+			"src": "RPGW_DecorativeProps_v1.0/Animated/flag.png",
+			"frame": [
+				32,
+				128
+			],
+			"frames": 10,
+			"fps": 8,
+			"row": 0,
+			"feet": [
+				16,
+				93
+			],
+			"_doc": "DecorativeProps' flag on a pole, flapping: the red keep's"
+		},
+		"flag_blue": {
+			"src": "RPGW_DecorativeProps_v1.0/Animated/flag.png",
+			"frame": [
+				32,
+				128
+			],
+			"frames": 10,
+			"fps": 8,
+			"row": 1,
+			"feet": [
+				16,
+				93
+			],
+			"tint": {
+				"mul": [
+					0.55,
+					0.78,
+					1.65
+				]
+			},
+			"_doc": "its grey-white row tinted to the blue keep's"
 		}
 	},
 	"bushes": {
@@ -2290,6 +2327,130 @@
 				]
 			},
 			"_doc": "Set 1's small flowers bleached white: the glade's clearing"
+		},
+		"flowers_red": {
+			"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+			"boxes": [
+				[
+					525,
+					649,
+					539,
+					663
+				],
+				[
+					553,
+					651,
+					572,
+					669
+				],
+				[
+					620,
+					683,
+					636,
+					700
+				],
+				[
+					653,
+					685,
+					666,
+					699
+				],
+				[
+					557,
+					714,
+					572,
+					728
+				],
+				[
+					586,
+					716,
+					603,
+					733
+				],
+				[
+					652,
+					748,
+					668,
+					765
+				],
+				[
+					550,
+					744,
+					565,
+					757
+				]
+			],
+			"tint": {
+				"desat": 0.6,
+				"mul": [
+					1.9,
+					0.62,
+					0.55
+				]
+			},
+			"_doc": "Set 1's small flowers tinted red: the red keep's side"
+		},
+		"flowers_blue": {
+			"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+			"boxes": [
+				[
+					525,
+					649,
+					539,
+					663
+				],
+				[
+					553,
+					651,
+					572,
+					669
+				],
+				[
+					620,
+					683,
+					636,
+					700
+				],
+				[
+					653,
+					685,
+					666,
+					699
+				],
+				[
+					557,
+					714,
+					572,
+					728
+				],
+				[
+					586,
+					716,
+					603,
+					733
+				],
+				[
+					652,
+					748,
+					668,
+					765
+				],
+				[
+					550,
+					744,
+					565,
+					757
+				]
+			],
+			"tint": {
+				"desat": 0.6,
+				"mul": [
+					0.6,
+					0.85,
+					1.9
+				]
+			},
+			"_doc": "tinted blue: the blue keep's side"
 		}
 	},
 	"shadows": {

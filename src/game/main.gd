@@ -404,6 +404,7 @@ var glow := default_glow()
 var light2d: Light2DView
 var light_floor: Light2DView.FloorGlow
 var canopies: Node2D  ## tree crowns over the fighters (ArenaView.overhead)
+var glade: GladeView  ## leaf shade, shafts, fireflies, smoke round a map's trees and keeps
 var light_lamps: Light2DView.FloorGlow  ## the arena's lamps by day and at sunset (Light2DView.lamp_glow)
 var light_lamps_b: Light2DView.FloorGlow  ## the other half of them (Light2DView.lamp_glow_b)
 var bloom: BloomView
@@ -703,6 +704,8 @@ func _ready() -> void:
 	add_child(water)
 	ambient = AmbientView.new()  # a map's ambient life (arena JSON "ambient"): panes, sway, motes, butterflies
 	add_child(ambient)
+	glade = GladeView.new()  # leaf shade, sun shafts, fireflies, smoke, spray (arena JSON "ambient.glades"; Twin Keeps)
+	add_child(glade)
 	shadows = ShadowLayer.new()  # the fighters' shadows, on the floor under everyone
 	shadows.views = views
 	add_child(shadows)
@@ -2730,6 +2733,9 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	water.fx = fx
 	ambient.set_sim(sim, arena.art())
 	ambient.fx = fx
+	glade.fx = fx
+	glade.set_sim(sim, arena.canopy_rects())
+	glade.hud_rects = _hud_corners()
 	var look := _match_look(s)
 	_lit_look = look.duplicate()
 	_light_look()
@@ -2965,6 +2971,7 @@ func _physics_process(_delta: float) -> void:
 	PerfLog.since("adv water", t_v)
 	t_v = PerfLog.now()
 	ambient.advance()
+	glade.advance()
 	PerfLog.since("adv ambient", t_v)
 	t_v = PerfLog.now()
 	weather.advance()
@@ -3752,6 +3759,7 @@ func _intro_step() -> void:
 	arena.refresh()
 	water.advance()
 	ambient.advance()
+	glade.advance()
 	weather.advance()
 	wear.advance()
 	crowd.advance()
@@ -5136,6 +5144,17 @@ func _light_look() -> void:
 	weather.lamp_lights = sim != null and t == Light2DView.Tier.HIGH and Light2DView.lamps_on(sim.arena, time)
 	var sd := Light2DView.sun_at(sim.arena if sim != null else {}, time, String(_lit_look.get("weather", "clear")), t)
 	weather.fighter_scale = float(sd.get("shade", 1.0))
+	if glade != null:
+		glade.set_look(time, t)
+
+
+## The HUD's corners and bottom line in screen px (the fighter plates top left and right,
+## the score at the top middle, the key help along the bottom): GladeView spawns nothing
+## under them.
+func _hud_corners() -> Array:
+	var v := get_viewport_rect().size
+	return [Rect2(0, 0, v.x * 0.35, v.y * 0.29), Rect2(v.x * 0.75, 0, v.x * 0.25, v.y * 0.2),
+		Rect2(v.x * 0.38, 0, v.x * 0.24, v.y * 0.13), Rect2(0, v.y * 0.95, v.x, v.y * 0.05)]
 
 
 ## Lighting changed (Settings > Video): re-apply this match's look with the new tier.

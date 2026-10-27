@@ -120,7 +120,7 @@ Twin Keeps (the Capture the Flag map; cut by `tools/cut_tiles.py` from
   the same licence: grain sacks from its `Mill_decoratives.png` props sheet, no building);
   `keeps_decor_ivy*.png` (Wetland `tree2A` canopy, masked round); `keeps_decor_cobble_disc*.png`
   (Set 1 `g_terrain1.png` round cobble patches), `keeps_decor_patch_*.png` (Set 1
-  `g_terrain4.png` ragged patches); `keeps_anim_tree_*.png` (**RPG Worlds GrassLand**, `RPGW_GrassLand_v2.01`, the same licence: its swaying `tree1B` / `tree2B`, split into crown and trunk), `keeps_wall_grove.png` (Set 1 boulders and oak trunk, recoloured), `keeps_decor_slab_*.png` (GrassLand's stone-slab bridge), the `grass_*` and `meadow` terrains in `keeps_ground.png` (Set 1 grass, GrassLand meadow); the `path` terrain in `keeps_ground.png` (Set 1
+  `g_terrain4.png` ragged patches); `keeps_anim_tree_*.png` (**RPG Worlds GrassLand**, `RPGW_GrassLand_v2.01`, the same licence: its swaying `tree1B` / `tree2B`, split into crown and trunk), `keeps_wall_grove.png` (Set 1 boulders and oak trunk, recoloured), `keeps_anim_flag_red.png` / `keeps_anim_flag_blue.png` (Decorative Props' `Animated/flag`, the blue one its grey-white row tinted), `keeps_decor_slab_*.png` (GrassLand's stone-slab bridge), the `grass_*` and `meadow` terrains in `keeps_ground.png` (Set 1 grass, GrassLand meadow); the `path` terrain in `keeps_ground.png` (Set 1
   `g_terrain3.png`, toned like the shoulder). `assets/tiles/keeps_shadows.png` is drawn by the
   cutter, not cut.
 - `assets/tiles/keeps_manifest.json`, `assets/tiles/keeps_*.tres`, `assets/arenas/twin_keeps.tscn`,
