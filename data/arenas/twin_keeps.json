@@ -12,6 +12,26 @@
 			"fence": "fenceline:wood",
 			"brush": "bush:green"
 		},
+		"restyle": [
+			{
+				"rect": [
+					40,
+					28,
+					2,
+					8
+				],
+				"style": "wall:grove"
+			},
+			{
+				"rect": [
+					108,
+					28,
+					2,
+					8
+				],
+				"style": "wall:grove"
+			}
+		],
 		"shoulder": true,
 		"dressing": "res://assets/arenas/twin_keeps_dressing.tscn",
 		"scatter": [
@@ -398,32 +418,6 @@
 			"pos": [
 				1062,
 				398.5
-			],
-			"color": "#ffb45a",
-			"radius": 44,
-			"energy": 0.7,
-			"height": 24,
-			"fighter_energy": 0,
-			"lamp": true,
-			"day": 0.35
-		},
-		{
-			"pos": [
-				346,
-				315.5
-			],
-			"color": "#ffb45a",
-			"radius": 44,
-			"energy": 0.7,
-			"height": 24,
-			"fighter_energy": 0,
-			"lamp": true,
-			"day": 0.35
-		},
-		{
-			"pos": [
-				886,
-				315.5
 			],
 			"color": "#ffb45a",
 			"radius": 44,

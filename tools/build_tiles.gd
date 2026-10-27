@@ -74,6 +74,8 @@ extends SceneTree
 ##              face stands on the top just behind it, and goes when its column is smashed
 ##   anim       [{kind, at | pos, wall, lift}]: an animated piece (manifest "anim", a waterfall)
 ##   markings   true: ArenaView draws the court lines over the tiles (the Stadium)
+##   restyle    [{rect: [col, row, w, h], style}]: the map piece with exactly that rect drawn
+##              with `style` instead of its kind's (Twin Keeps' mid-field pillars as groves)
 ##   dressing   "res://assets/arenas/<id>_dressing.tscn": the map's hand dressing (props on the
 ##              walls, flat detail on the floor; assets/README.md "Dressing"), instanced under
 ##              Walls as "Dressing", never written here: a rebuild keeps every hand edit
@@ -1153,6 +1155,9 @@ static func build_root(map: Dictionary, tiles: Dictionary, man: Dictionary, ts: 
 		if r.size() < 4 or not styles.has(kind):
 			continue
 		var style := String(styles[kind])
+		for rs: Dictionary in tiles.get("restyle", []):
+			if (rs.get("rect", []) as Array).map(func(v): return int(v)) == r.map(func(v): return int(v)):
+				style = String(rs["style"])  # one piece drawn its own way (a pillar as a grove)
 		if style.begins_with("bush:"):
 			_bush_bed(brush, root, man, style.trim_prefix("bush:"), r, tile / per, bush_frames)
 			continue

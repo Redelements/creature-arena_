@@ -188,6 +188,7 @@ see the walls round it).
 | `GrassDeep`, `GrassDry`, `Meadow`, `Paths`, `Bare` | TileMapLayers on `<set>_ground.tres`, one terrain each: darker, drier and flowered grass in ragged patches, then worn paths and bare earth (the `path` terrain) | paint with the terrain brush (terrain set 0); grass anywhere off the water, paths and bare earth on plain floor |
 | `Flat` | Sprite2Ds laid flat: cobble patches, ragged dirt and grass patches | move freely; anything here must look flat |
 | `Detail` | TileMapLayer on `<set>_cells.tres` (16 px): moss, leaves, stepping stones, flowers, lily pads (the scatter atlas's slots, 8 looks each as alternatives) | paint single cells; lily pads on water, the rest on plain floor |
+| `Canopies` | AnimatedSprite2D tree crowns: on a grove's trunk (feet = the trunk's base on a wall cell, `lift` up to the crown) or over a brush bed (no trunk in the bed) | ArenaView moves them above the fighters at load (`overhead`); a crown over a fighter the local team sees eases to 35 % (`canopy_watchers`, never a hidden foe), one over flattened brush thins, one on a smashed wall goes with it |
 | `Props` | Sprite2D / AnimatedSprite2D props, each with a `Shadow` child (a flat ellipse from `<set>_shadows.png`, behind it) | the node's **position is its feet** (it sorts among the wall sprites and hides with the wall by that point); its **offset** draws the picture (`-feet`, minus `lift` to stand it on a wall's top or hang it on the face) |
 
 Rules (checked by `tests/test_tiles_dressing.gd`):
@@ -204,6 +205,10 @@ Rules (checked by `tests/test_tiles_dressing.gd`):
 - `tools/seed_dressing.gd -- --map=<id>` wrote the first draft from
   `tools/dressing/<id>.json` (placed once on the left keep and mirrored, red cloth turning
   blue). The scene is the source now; reseeding needs `--force` and drops every hand edit.
+
+A wall rect can be drawn with another kit (`tiles.restyle`: Twin Keeps' mid-field pillars
+as `wall:grove`, purple-grey boulders with a stump for rubble, the trees standing on them):
+the sim sees the same wall.
 
 Another map: give its `tiles` block `"dressing": "res://assets/arenas/<id>_dressing.tscn"`,
 cut the props into its set (recipe `decor` / `anim`, scatter kinds appended at the end of

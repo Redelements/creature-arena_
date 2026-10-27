@@ -162,6 +162,65 @@
 			]
 		},
 		{
+			"layer": "GrassLight",
+			"terrain": "grass_light",
+			"on": "land",
+			"blobs": [
+				{
+					"at": [
+						12,
+						11
+					],
+					"r": 2.0,
+					"seed": 41,
+					"stretch": [
+						1.4,
+						0.8
+					]
+				},
+				{
+					"at": [
+						28.5,
+						7.5
+					],
+					"r": 1.8,
+					"seed": 42
+				},
+				{
+					"at": [
+						5,
+						25.5
+					],
+					"r": 1.8,
+					"seed": 43,
+					"stretch": [
+						1.3,
+						0.8
+					]
+				},
+				{
+					"at": [
+						18.5,
+						23.5
+					],
+					"r": 2.0,
+					"seed": 44,
+					"stretch": [
+						1.4,
+						0.8
+					]
+				},
+				{
+					"at": [
+						24,
+						16
+					],
+					"r": 1.4,
+					"seed": 45
+				}
+			]
+		},
+		{
 			"layer": "Meadow",
 			"terrain": "meadow",
 			"on": "land",
@@ -261,8 +320,8 @@
 						]
 					],
 					"width": [
-						3.2,
-						1.6
+						2.6,
+						1.3
 					]
 				},
 				{
@@ -297,8 +356,8 @@
 						]
 					],
 					"width": [
-						2.6,
-						1.5
+						2.1,
+						1.2
 					]
 				},
 				{
@@ -317,8 +376,8 @@
 						]
 					],
 					"width": [
-						1.4,
-						1.9
+						1.2,
+						1.5
 					]
 				},
 				{
@@ -337,8 +396,8 @@
 						]
 					],
 					"width": [
-						1.9,
-						1.4
+						1.5,
+						1.2
 					]
 				}
 			],
@@ -455,20 +514,6 @@
 			"pos": [
 				130,
 				330
-			]
-		},
-		{
-			"kind": "slab_a",
-			"pos": [
-				168,
-				124
-			]
-		},
-		{
-			"kind": "slab_c",
-			"pos": [
-				194,
-				100
 			]
 		}
 	],
@@ -905,6 +950,106 @@
 			"n": 3,
 			"r": 1,
 			"seed": 12
+		},
+		{
+			"kind": "flowers_white",
+			"clump": [
+				37,
+				33
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 60
+		},
+		{
+			"kind": "flowers_white",
+			"clump": [
+				44,
+				30
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 61
+		},
+		{
+			"kind": "flowers_white",
+			"clump": [
+				38,
+				25
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 62
+		},
+		{
+			"kind": "flowers_white",
+			"clump": [
+				45,
+				37
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 63
+		},
+		{
+			"kind": "flowers_white",
+			"clump": [
+				28,
+				12
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 64
+		},
+		{
+			"kind": "flowers_white",
+			"clump": [
+				42,
+				9
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 65
+		},
+		{
+			"kind": "flowers_white",
+			"clump": [
+				28,
+				51
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 66
+		},
+		{
+			"kind": "flowers_white",
+			"clump": [
+				42,
+				55
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 67
+		},
+		{
+			"kind": "flowers_white",
+			"clump": [
+				58,
+				28
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 68
+		},
+		{
+			"kind": "flowers_white",
+			"clump": [
+				58,
+				35
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 69
 		},
 		{
 			"kind": "tufts",
@@ -1379,21 +1524,20 @@
 			"stack": 1
 		},
 		{
-			"kind": "lantern",
+			"kind": "tree_b_trunk",
 			"pos": [
 				330,
-				287.5
+				263.5
 			],
-			"shadow_w": 0.5
+			"shadow_w": 0.75
 		},
 		{
-			"kind": "barrel_open",
+			"kind": "tree_a_trunk",
 			"pos": [
-				323,
+				326,
 				287.5
 			],
-			"lift": 1,
-			"stack": 1
+			"shadow_w": 0.75
 		},
 		{
 			"kind": "lantern",
@@ -1423,11 +1567,29 @@
 		{
 			"kind": "banner_red",
 			"pos": [
-				398,
+				397,
 				119.5
 			],
 			"lift": 3,
 			"shadow": false
+		},
+		{
+			"kind": "drop_red",
+			"pos": [
+				382,
+				119.5
+			],
+			"shadow": false,
+			"stack": 1
+		},
+		{
+			"kind": "drop_red",
+			"pos": [
+				412,
+				119.5
+			],
+			"shadow": false,
+			"stack": 1
 		},
 		{
 			"kind": "lantern",
@@ -1457,11 +1619,85 @@
 		{
 			"kind": "banner_red",
 			"pos": [
-				398,
+				397,
 				399.5
 			],
 			"lift": 3,
 			"shadow": false
+		},
+		{
+			"kind": "drop_red",
+			"pos": [
+				382,
+				399.5
+			],
+			"shadow": false,
+			"stack": 1
+		},
+		{
+			"kind": "drop_red",
+			"pos": [
+				412,
+				399.5
+			],
+			"shadow": false,
+			"stack": 1
+		}
+	],
+	"canopies": [
+		{
+			"kind": "tree_b_crown",
+			"pos": [
+				330,
+				263.5
+			],
+			"lift": 28
+		},
+		{
+			"kind": "tree_a_crown",
+			"pos": [
+				326,
+				287.5
+			],
+			"lift": 23,
+			"flip": true
+		},
+		{
+			"kind": "tree_a_crown",
+			"pos": [
+				262,
+				84
+			],
+			"flip": true
+		},
+		{
+			"kind": "tree_a_crown",
+			"pos": [
+				300,
+				98
+			]
+		},
+		{
+			"kind": "tree_a_crown",
+			"pos": [
+				258,
+				470
+			]
+		},
+		{
+			"kind": "tree_a_crown",
+			"pos": [
+				298,
+				484
+			],
+			"flip": true
+		},
+		{
+			"kind": "tree_a_crown",
+			"pos": [
+				504,
+				276
+			]
 		}
 	]
 }

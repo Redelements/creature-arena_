@@ -119,7 +119,7 @@ func test_props_stand_on_walls_and_fences_and_the_floor_gets_flat_things_only() 
 		var sh := p.get_node_or_null("Shadow") as Sprite2D
 		if sh != null:
 			assert_true(sh.show_behind_parent, "%s: its contact shadow under it" % p.name)
-	for k in ["barrels3", "crates_big", "sack_heap", "hay", "plinth", "rack", "torch", "lantern", "ivy", "swag_red", "swag_blue", "banner_red"]:
+	for k in ["barrels3", "crates_big", "sack_heap", "hay", "plinth", "rack", "torch", "lantern", "ivy", "swag_red", "swag_blue", "banner_red", "drop_red", "tree_a_trunk", "tree_b_trunk"]:
 		assert_true(kinds.has(k), "a %s among the props" % k)
 	# the flat parts: paths, decals and detail never on a wall, fence, chasm or brush; paths and
 	# decals off the water too (lily pads float on it)
@@ -224,4 +224,78 @@ func test_a_prop_falls_with_the_wall_under_it() -> void:
 	sim.terrain.set_cell(cell, TerrainGrid.WALL)
 	v.refresh()
 	assert_true(p.visible, "and comes back when it rebuilds")
+	v.free()
+
+
+func _view() -> Array:
+	var was: String = MatchFactory.arena
+	MatchFactory.arena = MAP
+	var sim := MatchFactory.versus("cairn", "culvert")
+	MatchFactory.arena = was
+	var v := ArenaView.new()
+	v.ground = "grass"
+	v.arena_id = MAP
+	v.set_terrain(sim.terrain)
+	return [sim, v]
+
+
+func test_the_mid_field_pillars_are_groves_with_trees_that_fall_with_them() -> void:
+	var map := ArenaMap.get_map(MAP)
+	var grove: Array = map["tiles"]["restyle"]
+	assert_eq(grove.size(), 2, "both mid-field pillars restyled")
+	var pieces: Array = map["pieces"].filter(func(p): return String(p["kind"]) == "wall").map(func(p): return (p["rect"] as Array).map(func(v): return int(v)))
+	for rs in grove:
+		assert_true((rs["rect"] as Array).map(func(v): return int(v)) in pieces, "a grove is one of the map's own walls (the sim sees the same wall)")
+	var r := _view()
+	var sim: MatchSim = r[0]
+	var v: ArenaView = r[1]
+	var trunks: Array = v._tiles.get_node(ArenaView.DRESS_PROPS).get_children().filter(func(n): return _kind(n).begins_with("tree_") and n.has_meta("cells"))
+	assert_eq(trunks.size(), 4, "two trees a pillar, each on a wall cell")
+	var stand: Node2D = trunks[0]
+	var cell := Vector2i(floori(stand.position.x / (8 * PPU)), floori((stand.position.y - 1.0) / (8 * PPU)))
+	var crowns: Array = []
+	for i in v.canopy_count():
+		var c: Node2D = v._canopies[i][0]
+		if c.has_meta("cells") and (c.get_meta("cells") as Rect2i).has_point(cell):
+			crowns.append(c)
+	assert_eq(crowns.size(), 1, "its crown hangs over it")
+	var stumps: Array = v._tiles.get_node("Rubble").get_children().filter(func(n): return String(n.name).begins_with("grove") and (n.get_meta("cells") as Rect2i).has_point(cell))
+	assert_eq(stumps.size(), 1, "a stump under the grove's tile, hidden while it stands")
+	assert_true(sim.terrain.smash(cell), "a charge smashes the grove")
+	v.refresh()
+	assert_false(stand.visible or crowns[0].visible, "the tree falls, crown and all")
+	assert_true(stumps[0].visible, "and leaves its stump")
+	v.free()
+
+
+func test_a_crown_fades_over_a_fighter_we_see_and_never_for_a_hidden_foe() -> void:
+	var r := _view()
+	var sim: MatchSim = r[0]
+	var v: ArenaView = r[1]
+	assert_true(v.canopy_count() >= 9, "crowns over both groves and every brush bed (%d)" % v.canopy_count())
+	var k := 0
+	var rect: Rect2 = v._canopies[k][1]
+	var c: CreatureSim = sim.creatures[1]  # a foe of side 0
+	c.pos = rect.get_center()
+	for i in sim.creatures.size():
+		if i != 1:
+			sim.creatures[i].pos = Vector2(-500, -500)
+	# hidden from side 0 (in the brush): no point, the crown stays whole
+	v.canopy_points = ArenaView.canopy_watchers(sim, [false, true], 0)
+	for f in 20:
+		v._fade_canopies(1.0 / 60.0)
+	assert_eq(v.canopy_alpha(k), 1.0, "a hidden foe under a crown gives nothing away")
+	# our own fighter under it: it fades over a few frames, not at once
+	sim.creatures[0].pos = rect.get_center()
+	v.canopy_points = ArenaView.canopy_watchers(sim, [false, true], 0)
+	v._fade_canopies(1.0 / 60.0)
+	assert_true(v.canopy_alpha(k) < 1.0 and v.canopy_alpha(k) > 0.8, "it starts to fade (%.2f)" % v.canopy_alpha(k))
+	for f in 30:
+		v._fade_canopies(1.0 / 60.0)
+	assert_near(v.canopy_alpha(k), ArenaView.CANOPY_SEE, 0.001, "and lets us see ourselves")
+	sim.creatures[0].pos = Vector2(-500, -500)
+	v.canopy_points = ArenaView.canopy_watchers(sim, [false, true], 0)
+	for f in 30:
+		v._fade_canopies(1.0 / 60.0)
+	assert_near(v.canopy_alpha(k), 1.0, 0.001, "whole again once we leave")
 	v.free()

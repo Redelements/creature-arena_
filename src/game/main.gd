@@ -403,6 +403,7 @@ var glow := default_glow()
 ## bloom (Light2DView, BloomView). `--lighting=` overrides it for the session.
 var light2d: Light2DView
 var light_floor: Light2DView.FloorGlow
+var canopies: Node2D  ## tree crowns over the fighters (ArenaView.overhead)
 var light_lamps: Light2DView.FloorGlow  ## the arena's lamps by day and at sunset (Light2DView.lamp_glow)
 var light_lamps_b: Light2DView.FloorGlow  ## the other half of them (Light2DView.lamp_glow_b)
 var bloom: BloomView
@@ -721,6 +722,9 @@ func _ready() -> void:
 	entities = Node2D.new()
 	entities.y_sort_enabled = true
 	add_child(entities)
+	canopies = Node2D.new()  # tree crowns over the fighters (a map's dressing; ArenaView.overhead fades them over our own)
+	add_child(canopies)
+	arena.overhead = canopies
 	fore = ForeView.new()  # the nearest fans and a rail at the front, hangings at the back: over the fighters, faster than the floor
 	add_child(fore)
 	weather.views = views
@@ -3344,6 +3348,7 @@ func _update_vision(events: Array) -> void:
 		_hidden[i] = team >= 0 and ((c.stealth > 0 and c.team != team) or not vision.team_sees(sim, team, c))
 	fx.unseen = _hidden
 	fx.viewer_team = team
+	arena.canopy_points = ArenaView.canopy_watchers(sim, _hidden, team)
 
 
 func _is_hidden(i: int) -> bool:

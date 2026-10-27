@@ -55,8 +55,13 @@ func test_the_scene_covers_the_map_with_its_pieces_in_place() -> void:
 			match kind:
 				"wall":
 					assert_eq(pieces.get_cell_source_id(c), -1, "%s: no tile under the wall sprites" % c)
-					var standing := walls.get_children().filter(func(n): return n.has_meta("cells") and (n.get_meta("cells") as Rect2i).intersects(Rect2i(c * 2, Vector2i(2, 2))) and String(n.name).begins_with("castle"))
-					assert_eq(standing.size(), 1, "%s: one castle wall sprite" % c)
+					# a restyled rect (tiles.restyle: the mid-field pillars as groves) has its own kit
+					var kit := "castle"
+					for rs in map["tiles"].get("restyle", []):
+						if (rs["rect"] as Array).map(func(v): return int(v)) == (piece["rect"] as Array).map(func(v): return int(v)):
+							kit = String(rs["style"]).trim_prefix("wall:")
+					var standing := walls.get_children().filter(func(n): return n.has_meta("cells") and (n.get_meta("cells") as Rect2i).intersects(Rect2i(c * 2, Vector2i(2, 2))) and String(n.name).begins_with(kit))
+					assert_eq(standing.size(), 1, "%s: one %s wall sprite" % [c, kit])
 					var heaps := rubble.get_children().filter(func(n): return (n.get_meta("cells") as Rect2i).intersects(Rect2i(c * 2, Vector2i(2, 2))))
 					assert_true(heaps.size() == 1 and not heaps[0].visible, "%s: its rubble, hidden while it stands" % c)
 				"fence":

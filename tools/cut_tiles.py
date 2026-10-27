@@ -108,7 +108,9 @@ packs dir; "tile" positions are [column, row] of 32 px tiles in the source sheet
                            "shape": "blob" masks a box cut from inside a canopy to a round leafy
                            outline (a clump of ivy; `_blob`, as the bushes)
   anim.<name>              {"src", "frame": [w, h], "frames": n, "fps": f, "feet": [x, y],
-                           "row": 0, "tint"}
+                           "row": 0, "tint", "crop": [x0, y0, x1, y1]}: "crop" keeps that box of
+                           every frame (a swaying tree split into its crown and its trunk, cut
+                           as two strips; feet in the cropped frame)
   bushes.<name>            {"src", "frame": [w, h], "frames": n, "fps", "clumps" | "blobs"}
                            a bush for the brush beds (cut_bushes)
   fencelines.<name>        {"src", "post": box, "rail_h": box, "rail_v": box}  a fence drawn
@@ -928,13 +930,15 @@ def cut_anim(cut, set_name, a):
         n = int(it["frames"])
         row = int(it.get("row", 0))
         src = cut.load(it["src"])
-        strip = Image.new("RGBA", (w * n, h), (0, 0, 0, 0))
+        cx0, cy0, cx1, cy1 = it.get("crop", [0, 0, w, h])
+        cw, ch = cx1 - cx0, cy1 - cy0
+        strip = Image.new("RGBA", (cw * n, ch), (0, 0, 0, 0))
         for k in range(n):
-            strip.paste(src.crop((k * w, row * h, (k + 1) * w, (row + 1) * h)), (k * w, 0))
+            strip.paste(src.crop((k * w + cx0, row * h + cy0, k * w + cx1, row * h + cy1)), (k * cw, 0))
         strip = tinted(strip, it)
         file = "%s_anim_%s.png" % (set_name, name)
         save(strip, file)
-        man[name] = {"source": file, "frame": [w, h], "frames": n, "fps": float(it.get("fps", 8)), "feet": list(it["feet"])}
+        man[name] = {"source": file, "frame": [cw, ch], "frames": n, "fps": float(it.get("fps", 8)), "feet": list(it["feet"])}
     return man
 
 
@@ -1118,7 +1122,7 @@ WALL_ROLES = ("top", "mid", "vmid", "bottom", "left", "right", "rubble")
 
 def cut_walls(cut, set_name, w):
     """recipe walls.<name>: {role: [{"src", "box": [x0, y0, x1, y1], "feet": [x, y] in the
-    box, "mirror": false}, ...]} for the roles in WALL_ROLES ("mid" required; "rubble" is
+    box, "mirror": false, "tint"}, ...]} for the roles in WALL_ROLES ("mid" required; "rubble" is
     what a smashed tile shows). Writes one strip per wall, the sprites side by side, and
     records each one's region and feet."""
     man = {}
@@ -1127,7 +1131,7 @@ def cut_walls(cut, set_name, w):
         roles = {}
         for role in WALL_ROLES:
             for sp in it.get(role, []):
-                img = cut.box(sp["src"], sp["box"])
+                img = tinted(cut.box(sp["src"], sp["box"]), sp)  # a sprite's own "tint" (a grove's boulders)
                 fx, fy = sp["feet"]
                 if sp.get("mirror"):
                     img = img.transpose(Image.FLIP_LEFT_RIGHT)

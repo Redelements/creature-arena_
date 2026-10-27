@@ -17,6 +17,8 @@ extends SceneTree
 ##     Flat     Node2D: flat decals (cobble patches, ragged dirt and grass patches), feet at pos
 ##     Detail   TileMapLayer, <set>_cells.tres: small flat sprites a cell each (moss, leaves,
 ##              stepping stones, flowers, lily pads), the scatter atlas's slots
+##     Canopies Node2D: tree crowns (manifest anim), feet at the tree's base or over a brush
+##              bed, drawn `lift` higher; ArenaView moves them over the fighters at load
 ##     Props    Node2D, y-sorted: props standing on wall or fence cells, each a Sprite2D or
 ##              AnimatedSprite2D whose position is its feet (it sorts and hides by them; the
 ##              picture is drawn `lift` higher by its offset) with a "Shadow" child
@@ -35,6 +37,7 @@ extends SceneTree
 ##   detail  [{kind, cells: [[cx, cy], ...]} | {kind, clump: [cx, cy], n, r, seed}]: scatter
 ##           sprites (manifest "scatter" kinds) on single cells, or n of them in a clump of
 ##           radius r cells round a cell; a kind's look per cell by a fixed hash
+##   canopies [{kind, pos, lift, flip}]: crowns, as props but in "Canopies"
 ##   props   [{kind, pos, lift, flip, shadow, stack}]: decor or anim (manifest "decor" /
 ##           "anim") with feet at pos (on a wall or fence cell), drawn `lift` units higher;
 ##           `shadow` false for none (a piece up on a wall's top); `stack` k sorts it k
@@ -238,6 +241,20 @@ static func seed_scene(spec: Dictionary) -> Node2D:
 		n.owner = root
 		if bool(e.get("shadow", true)):
 			_shadow(n, man, w * float(e.get("shadow_w", 0.85)), lift, root)
+	# tree crowns: ArenaView hangs them over the fighters and fades them over our own
+	var crowns := Node2D.new()
+	crowns.name = "Canopies"
+	root.add_child(crowns)
+	crowns.owner = root
+	for e in _both(spec.get("canopies", []), spec, mir):
+		var a: Dictionary = man.get("anim", {}).get(String(e["kind"]), {})
+		if a.is_empty():
+			push_warning("no anim " + String(e["kind"]))
+			continue
+		var n := _anim(e, a, frames, float(e.get("lift", 0.0)))
+		n.name = "%s_%d" % [String(e["kind"]), crowns.get_child_count()]
+		crowns.add_child(n)
+		n.owner = root
 	return root
 
 
