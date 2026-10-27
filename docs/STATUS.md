@@ -1,7 +1,7 @@
 # Status: handoff snapshot
 
-Stamped: 2026-10-27 02:43 UTC
-Branch: proof/32px-szadi @ 52e8c44
+Stamped: 2026-10-27 02:48 UTC
+Branch: proof/32px-szadi @ fec7a26
 Trigger: phase
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
@@ -64,7 +64,7 @@ banner racks, braziers on the walls, goods piles, clod-edged road; Quarry rounde
 with a south ledge, tan pit face, rock-pillar walls, ragged lanes; Floodgate Wetland kerb,
 glints, swaying reeds; Greenhouse flowers and props; Stadium border, cobble corners, trodden
 pads; 28 VFX strips wired on 80 moves of all ten fighters (`fx.move_fx` entries may be objects
-with per-move hook/scale; FxView plays `burst` on `storm`). Full suite on 52e8c44: see
+with per-move hook/scale; FxView plays `burst` on `storm`). Full suite on 52e8c44: **1217 passed, 0 failed**,
 `C:/Users/Kevin/AppData/Local/Temp/claude/full_tests_52e8c44.log`. Build for Kevin in
 `C:/Users/Kevin/Downloads/Ready4Rambles-windows-32px-szadi/`.
 
