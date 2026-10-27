@@ -145,10 +145,9 @@ by `tools/cut_tiles.py` from `tools/tile_recipes/wetland.json` for the Floodgate
   (Wetland's stone face as the pit walls, generated cracks and edges).
 - `assets/tiles/wetland_decor_reeds.png`, `wetland_decor_reeds_small.png`,
   `wetland_decor_post.png` (Wetland's reeds and a post).
-- `assets/tiles/wetland_shore.png`: the channels' banks, composed from Wetland's brown dirt
+- `assets/tiles/wetland_shore.png`: the channels' banks and the ragged dirt shoulder round
+  them, composed from Wetland's brown dirt, the mossy cobbles of its path border (the kerb)
   and the stone face of its plateau (the far bank's drop).
-- `assets/tiles/wetland_ground.png` also holds Wetland's brown dirt blob (the shoulder round
-  the channels).
 - `assets/tiles/wetland_scatter.png`: Set 1's loose pebbles, small water plants and grass
   sprigs.
 - `assets/tiles/wetland_manifest.json`, `assets/tiles/wetland_ground.tres`,

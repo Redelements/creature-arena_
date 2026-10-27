@@ -56,7 +56,8 @@ packs dir; "tile" positions are [column, row] of 32 px tiles in the source sheet
                            opaque RGB: "variants" would take every rim tile for a centre)
   ground.shores.<terrain>  {"land": {"src", "block", "size"}, "face": {"src", "box"}, "top",
                            "bottom", "side", "face_px", "edge": {"src", "box" | "block"},
-                           "edge_px", "shade", "radius", "rag", "outline", "shadow", "lip"}: a bank round every patch of the terrain, drawn over it (and
+                           "edge_px", "edge_over_face", "shade", "radius", "rag", "outline", "shadow", "lip",
+                           "shoulder"}: a bank round every patch of the terrain, drawn over it (and
                            its surface) on the terrain's edge tiles. One 32 px tile per
                            land-neighbour mask (the 47 of a corner-matched blob: sides, and a
                            corner only when both its sides are water), cut to <set>_shore.png;
@@ -66,7 +67,11 @@ packs dir; "tile" positions are [column, row] of 32 px tiles in the source sheet
                            in 3/4) the "face" texture, then a dark wet line and "shade" px of
                            darker water along it, more below a face. Widths in px: "top"
                            the far bank (land above the water), "bottom" the near bank, "side"
-                           the sides; "radius" rounds the corners, "rag" roughens the edge.
+                           the sides; "radius" rounds the corners, "rag" roughens the edge;
+                           "edge_over_face" runs the edge (a kerb) along the face's top too;
+                           "shoulder" {"land", "width", "rag"}: a ragged band of that ground
+                           on the land tiles round the water (_cut_shoulder, map
+                           tiles.shoulder), in the same sheet
                            Szadi art's packs draw a shore on the land tiles round the water
                            (Wetland's root banks), never on the water: the maps' floors are
                            fills, so the bank is made here from the land and face textures
@@ -480,6 +485,39 @@ def _dist(mask, n):
     return d
 
 
+def _cut_shoulder(cut, sheet, sh):
+    """A bank's shoulder (shores.<terrain>.shoulder: {"land": texture, "width": px, "rag": px}):
+    a ragged band of trodden ground on the LAND tiles round the water, as wide as `width`
+    give or take `rag` (never past half a tile), dithered into the floor at its edge. One
+    32 px tile per water-neighbour mask of a land tile (bits l, r, t, b, then the corners tl,
+    tr, bl, br, a corner only when neither of its sides is water), clear outside the band;
+    keyed like the banks (8 binary digits, br first). Added to `sheet`; returns the keys."""
+    land = _texture(cut, sh["land"])
+    width = float(sh.get("width", 7))
+    amp = float(sh.get("rag", 3))
+    ys, xs = np.mgrid[0:T, 0:T].astype(float) + 0.5
+    tiles = {}
+    for m in range(256):
+        l, r, t, b = m & 1, m >> 1 & 1, m >> 2 & 1, m >> 3 & 1
+        if m == 0 or shore_mask(m) != m:
+            continue
+        reach = np.full((T, T), -99.0)  # how far inside the band a pixel is (> 0: in it)
+        for on, d, u, k in ((l, xs, ys, 0), (r, T - xs, ys, 1), (t, ys, xs, 2), (b, T - ys, xs, 3)):
+            if on:
+                reach = np.maximum(reach, width + _rag(u, amp, k) - d)
+        for k, (cx, cy) in enumerate(((0, 0), (T, 0), (0, T), (T, T))):
+            if m >> (4 + k) & 1:
+                reach = np.maximum(reach, width * 0.9 - np.hypot(xs - cx, ys - cy))
+        out = np.zeros((T, T, 4), float)
+        solid = reach > 0
+        ditherd = (reach > -2) & ~solid & ((xs.astype(int) + ys.astype(int)) % 2 == 0)
+        on_px = solid | ditherd
+        out[on_px, :3] = land[ys.astype(int)[on_px] % land.shape[0], xs.astype(int)[on_px] % land.shape[1], :3]
+        out[on_px, 3] = 255
+        tiles[format(m, "08b")] = sheet.add(Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGBA"))
+    return tiles
+
+
 def cut_shores(cut, set_name, shores):
     """ground.shores.<terrain>: the bank tiles (see the module doc). Writes <set>_shore.png;
     returns {terrain: {"source", "tiles": {"<mask as 8 bits, br first>": [col, row]}, "bits"}}."""
@@ -497,6 +535,7 @@ def cut_shores(cut, set_name, shores):
         shadow = np.array(sp.get("shadow", [26, 48, 80]), float)
         shade = float(sp.get("shade", 3))  # px of darker water along every bank
         lip = float(sp.get("lip", 1.3))
+        kerb = ne if sp.get("edge_over_face") else 0  # the edge also runs along the face's top
         masks = sorted({shore_mask(b) for b in range(256)} - {0})
         sheet = Sheet(T, 8)
         tiles = {}
@@ -511,9 +550,13 @@ def cut_shores(cut, set_name, shores):
                     gy, gx = y + o, x + o
                     if big[gy, gx]:
                         c = land_px[y % land_px.shape[0], x % land_px.shape[1], :3].copy()
-                        below = [k for k in range(1, nf + 1) if not big[gy + k, gx]]
-                        if below:  # the side facing down to the water: the far bank's face
+                        below = [k for k in range(1, nf + kerb + 1) if not big[gy + k, gx]]
+                        if below and below[0] <= nf:  # the side facing down to the water: the far bank's face
                             c = face_px[max(0, fh - below[0]), x % fw, :3].copy()
+                        elif below and edge_px is not None:  # the kerb along the top of that face
+                            c = edge_px[y % edge_px.shape[0], x % edge_px.shape[1], :3].copy() if edge_2d else edge_px[min(below[0] - nf - 1, edge_px.shape[0] - 1), x % edge_px.shape[1], :3].copy()
+                            if below[0] == nf + kerb:
+                                c = np.clip(c * lip + 8, 0, 255)  # its lit top row
                         elif not big[gy - 1, gx]:  # the near bank's lit lip
                             c = np.clip(c * lip + 8, 0, 255)
                         elif to_water[gy, gx] <= ne:  # the bank's edge (soil, coping stones)
@@ -540,6 +583,9 @@ def cut_shores(cut, set_name, shores):
         file = "%s_shore.png" % set_name
         save(sheet.image(), file)
         man[name] = {"source": file, "tiles": tiles, "bits": list(SHORE_BITS)}
+        if "shoulder" in sp:
+            man[name]["shoulder"] = _cut_shoulder(cut, sheet, sp["shoulder"])
+            save(sheet.image(), file)
         print("  shore %s: %d tiles" % (name, len(tiles)))
     return man
 
@@ -1088,20 +1134,36 @@ def _raised_rows(face, n, lip):
     return np.concatenate([face[:lip], face[face.shape[0] - (n - lip):]], axis=0)
 
 
-def _raised_cols(img, left, right, x, rim):
-    """A 16 px wide band of `img` (rows x cols x 4): 16 px of the seamless middle from `x`,
-    with the piece's own left rim (its first `rim` px) where the cell has no raised neighbour
-    on its left and its right rim on the right (a column one cell wide: half of each)."""
-    w = img.shape[1]
-    mid = img[:, x:x + RAISED_PX]
-    if left and right:
-        h = RAISED_PX // 2
-        return np.concatenate([img[:, :h], img[:, w - h:]], axis=1)
-    if left:
-        return np.concatenate([img[:, :rim], mid[:, rim:]], axis=1)
-    if right:
-        return np.concatenate([mid[:, :RAISED_PX - rim], img[:, w - rim:]], axis=1)
-    return mid
+def _top_edges(t, left, right, up, outline):
+    """A top tile's rims where the plateau ends (the long sides of a run, its back edge): a
+    dark outline, then a lit edge on the left and the back (light from above-left), a shaded
+    one on the right."""
+    t = t.astype(float)
+    for on, cut_at, steps in ((up, lambda i: (slice(i, i + 1), slice(None)), (1.3, 1.12)),
+                              (left, lambda i: (slice(None), slice(i, i + 1)), (1.22, 1.08)),
+                              (right, lambda i: (slice(None), slice(RAISED_PX - 1 - i, RAISED_PX - i)), (0.62, 0.8))):
+        if not on:
+            continue
+        y, x = cut_at(0)
+        t[y, x, :3] = outline
+        for i, m in enumerate(steps, 1):
+            y, x = cut_at(i)
+            t[y, x, :3] = np.clip(t[y, x, :3] * m + (6 if m > 1 else 0), 0, 255)
+    return t.astype(np.uint8)
+
+
+def _top_rims(t, left, right, up, rim_l, rim_r, rim_u, rim):
+    """A top tile with the plateau piece's own rim rocks (`rim` px of them, from beside the
+    same rows or over the same columns) laid over its open sides, over the floor."""
+    t = t.astype(float)
+    for on, piece, ys, xs in ((up, rim_u, slice(0, rim), slice(None)), (left, rim_l, slice(None), slice(0, rim)),
+                              (right, rim_r, slice(None), slice(RAISED_PX - rim, RAISED_PX))):
+        if on:
+            op = piece[:, :, 3] >= 128
+            sub = t[ys, xs]
+            sub[op] = piece[op]
+            sub[~op, 3] = 0  # the rim's own ragged outline is the plateau's edge
+    return t.astype(np.uint8)
 
 
 def _face_cols(img, left, right, x, outline):
@@ -1150,12 +1212,14 @@ def _shadow_tile(side, up, diag, sw, sh, alpha, mirror):
 def cut_raised(cut, set_name, r):
     """recipe raised.<name>: {"src", "frame": [x0, y0, x1, y1] a whole plateau piece (its top
     rim on y0, side rims at x0 and x1, face down to y1), "face_y": the y its cliff face (lip
-    included) starts on, "mid": [x, y] a seamless block of its top, 32 px wide (x also the
-    face's seamless column) and "rows" cells tall (default 2; more, so a long wall's side rims
-    repeat less), "cells": the most cells a face hangs (16 px each; a taller face keeps
-    its lip and its base), "lip": px of the face's top kept when it is shortened, "rim": px of the
-    piece's side rims kept on an open side (the rest the top's middle), "outline": the colour
-    closing a face's open end, "shadow":
+    included) starts on, "mid": [x, y] the face's seamless 32 px column (x), "tops": [[x, y], ...]
+    32 x 32 blocks of the plateau's floor (default [mid]; each also mirrored: the variants a
+    wall picks from by hash, a block per 2 x 2 cells), "rim": px of the piece's own rim rocks
+    laid along a top's open sides from beside the same rows (0: a drawn outline and lit edge
+    instead), "lift": how much lighter the top is
+    than the pack draws it (a raised top catches the light), "cells": the most cells a face hangs (16 px each; a taller face keeps
+    its lip and its base), "lip": px of the face's top kept when it is shortened, "outline": the colour of
+    the rims (a top's open sides, a face's open ends), "shadow":
     [side px (up to 32: two cells), top px, alpha] of the contact shadow, "rubble": the walls.<name> whose rubble a
     smashed tile shows, "tint"}. Writes <set>_raised_<name>.png (16 px tiles) and returns
     {name: {"source", "tile", "cells", "rubble", "tiles": {key: [col, row]}}}, keys
@@ -1172,19 +1236,34 @@ def cut_raised(cut, set_name, r):
         mx, my = int(it["mid"][0]) - x0, int(it["mid"][1]) - y0
         k_max = int(it.get("cells", 3))
         lip = int(it.get("lip", 16))
-        rim = int(it.get("rim", 12))
-        n_rows = int(it.get("rows", 2))
         outline = np.array(it.get("outline", [40, 28, 26]), float)
+        lift = float(it.get("lift", 1.0))
+        tops = [(int(b[0]) - x0, int(b[1]) - y0) for b in it.get("tops", [it["mid"]])]
+        rim = int(it.get("rim", 0))
+        w = src.shape[1]
+        blocks = []  # the top's 32 px blocks, each also mirrored: the variants a cell picks from
+        for bx, by in tops:
+            b = src[by:by + 2 * RAISED_PX, bx:bx + 2 * RAISED_PX].astype(float)
+            b[:, :, :3] = np.clip(b[:, :, :3] * lift, 0, 255)
+            # the piece's own rims beside this block's rows (left, right) and over its columns
+            # (back), for a cell whose side is open
+            rims = (src[by:by + 2 * RAISED_PX, 0:rim], src[by:by + 2 * RAISED_PX, w - rim:w], src[0:rim, bx:bx + 2 * RAISED_PX])
+            blocks += [(b, rims), (b[:, ::-1].copy(), rims)]
         sheet = Sheet(RAISED_PX, 16)
         tiles = {}
         for l in (0, 1):
             for rr in (0, 1):
                 for u in (0, 1):
-                    for py in range(n_rows):
-                        rows = src[0:RAISED_PX] if u else src[my + py * RAISED_PX:my + (py + 1) * RAISED_PX]
-                        for px in (0, 1):
-                            t = _raised_cols(rows, l, rr, mx + px * RAISED_PX, rim)
-                            tiles["t%d%d%d%d%d" % (l, rr, u, px, py)] = sheet.add(Image.fromarray(_hard(t), "RGBA"))
+                    for v, (b, rims) in enumerate(blocks):
+                        for q in range(4):
+                            ys = slice((q // 2) * RAISED_PX, (q // 2 + 1) * RAISED_PX)
+                            xs = slice((q % 2) * RAISED_PX, (q % 2 + 1) * RAISED_PX)
+                            t = b[ys, xs].copy()
+                            if rim:
+                                t = _top_rims(t, l, rr, u, rims[0][ys], rims[1][ys], rims[2][:, xs], rim)
+                            else:
+                                t = _top_edges(t, l, rr, u, outline)
+                            tiles["t%d%d%d%d%d" % (l, rr, u, v, q)] = sheet.add(Image.fromarray(_hard(t), "RGBA"))
         face = src[fy:]
         for k in range(1, k_max + 1):
             n = k * RAISED_PX
@@ -1211,7 +1290,7 @@ def cut_raised(cut, set_name, r):
                 tiles["w%d" % m] = sheet.add(Image.fromarray(t, "RGBA"))
         file = "%s_raised_%s.png" % (set_name, name)
         save(sheet.image(), file, translucent=True)
-        man[name] = {"source": file, "tile": RAISED_PX, "cells": k_max, "rows": n_rows, "rubble": it.get("rubble", ""), "tiles": tiles}
+        man[name] = {"source": file, "tile": RAISED_PX, "cells": k_max, "variants": len(blocks), "rubble": it.get("rubble", ""), "tiles": tiles}
         print("  raised %s: %d tiles" % (name, len(tiles)))
     return man
 

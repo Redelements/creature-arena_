@@ -119,10 +119,14 @@ map's cells never change: all of it is drawn on cells the map already has.
 **Raised walls** (`styles.wall: "raised:<name>"`, recipe `raised.<name>`). Every wall cell
 of the map is drawn as a plateau of 16 px tiles, one a terrain cell, on a "Raised" layer
 (`src/view/raised_tiles.gd` picks each tile from its neighbours). Everything stays on the
-cells the sim blocks: a column of wall cells shows the plateau's top (the pack's rim where a
-neighbour is open) and, on its last `k` cells, the pack's cliff face down to the floor (`k`
-= the recipe's `cells`, one less on a shorter column), so nobody north of a wall stands
-under its picture and anyone south of it stands in front of the face. A "RaisedShadow" layer
+cells the sim blocks: every cell of a run shows the plateau's top (the pack's own floor, a
+32 px block per 2 x 2 cells picked by hash among the recipe's `tops` and their mirrors, so a
+long run reads as one varied ridge), with an outline and a lit or shaded rim along each
+open side, and only the run's south end (the last `k` cells of a column, `k` = the recipe's
+`cells`, one less on a shorter column; the south edge of a horizontal run) shows the
+pack's cliff face down to the floor: in 3/4 view only an edge facing the camera has a face.
+Nobody north of a wall stands under its picture; anyone south of it stands in front of the
+face. A "RaisedShadow" layer
 under it lays a contact shadow on the floor beside the wall, on the side away from the
 map's `light` (mirrored for a light from the right) and under the face; `shadow` wider than
 16 px runs onto a second cell (a low sun). A smashed cell drops its tile (the floor, its
@@ -130,21 +134,25 @@ crack and the recipe's `rubble` heaps show); ArenaView repaints the rows round i
 wall above grows a face over the gap and the floor beside it loses its shadow, and a
 rebuilt cell comes back. Recipe: `frame` a whole plateau piece of the pack (top rim at its
 top, side rims at its sides, face to its bottom; Mountains `[576, 9, 736, 256]`), `face_y`
-the y its lip starts (measured in px, catalogue 1b), `mid` a seamless block of its top
-(`rows` cells tall: more rows, less repetition on a long wall), `cells` the tallest face
-(a taller face keeps its first `lip` px and its base), `rim` px of the side rims kept
-(16: a two-cell wall is all rim), `shadow` [side px, top px, alpha], `rubble` a `walls`
+the y its lip starts (measured in px, catalogue 1b), `mid` [x, y] the face's seamless
+32 px column, `tops` [[x, y], ...] 32 x 32 blocks of the plateau's floor (interior only,
+clear of its rims), `lift` how much lighter the top is drawn (1.1: it catches the light),
+`cells` the tallest face (a taller face keeps its first `lip` px and its base), `outline`
+the rim colour, `rim` px of the pack's own rim rocks instead of a drawn rim (0, the
+default, reads best on a narrow run), `shadow` [side px, top px, alpha], `rubble` a `walls`
 entry. Any wall rect works, of any size; another map needs only the recipe entry and the
 style.
 
-**Sunken water** (`ground.shores`, map `tiles.shoulder`). The bank tiles show the water
-below the floor: the far (north) bank drops down `face_px` px of a pack's cliff face (its lit
-caps on top), the near bank has a lit lip, the water a wet line and a shade, deepest under
-the face. `tiles.shoulder: {"terrain": "<blob>", "width": 1}` rings every water patch with a
-blob terrain (a dirt or sand blob9 / blob from the matching pack) one tile wide, on floor
-tiles only (never over a wall, brush, fence or chasm cell), on a "Shoulder" layer under the
-water so only its ragged outer edge shows; give the bank's `land` the same ground (the
-blob's middle, with its tint) so the bank's top matches.
+**Sunken water** (`ground.shores`, map `tiles.shoulder: true`). The bank tiles show the
+water below the floor: a thin kerb (`edge`, `edge_px` 3) at the water's edge, running along
+the top of the far (north) bank's drop too (`edge_over_face`), the drop itself `face_px` px
+of a pack's cliff face (its lit caps on top), a lit lip on the near bank, rounded corners
+(`radius` 12), a wet line and a shade, deepest under the face. The bank's `land` is the
+shoulder's ground. `shores.<terrain>.shoulder: {"land": texture, "width": 6, "rag": 4}` cuts
+a ragged band of that ground (sand or dirt from the matching pack, toned toward the floor so
+it doesn't glow at night) for the LAND tiles round the water, one tile per mask of water
+neighbours, dithered into the floor at its edge and never past half a tile; the map's
+`"shoulder": true` lays them (floor tiles only) on a "Shoulder" layer.
 
 **Scatter** (recipe `scatter.<kind>`, map `tiles.scatter`). Small flat sprites (pebbles,
 tufts, small water plants) on a 16 px "Scatter" layer, one a cell at most, each sprite in a

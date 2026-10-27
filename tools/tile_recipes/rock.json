@@ -372,7 +372,7 @@
 	},
 	"raised": {
 		"rock": {
-			"_doc": "the walls as raised rock shelves: the Mountains tan plateau (the scree's own family): its rock-cap rims over the whole top (rim 16: a two-cell wall is all caps), its stone-column face shortened to its lit lip and its base, four cells (64 px) at most; a contact shadow 24 px out along the low sun (the second cell too) and under the face; a smashed tile shows walls.rock's rubble",
+			"_doc": "the walls as raised rock shelves: the Mountains tan plateau (the scree's own family): its cracked floor as the top (five 32 px blocks, each also mirrored, picked by hash per 2 x 2 cells, lifted x1.1: a raised top catches the light) with an outline and a lit or shaded rim along every open side, its stone-column face shortened to its lit lip and its base on a run's south end only, four cells (64 px) at most; a contact shadow 24 px out along the low sun and under the face; a smashed tile shows walls.rock's rubble",
 			"src": "RPGW_Mountains_v1.2/_PNG/Mainlev_build.png",
 			"frame": [
 				576,
@@ -393,8 +393,30 @@
 				0.45
 			],
 			"rubble": "rock",
-			"rows": 6,
-			"rim": 16
+			"tops": [
+				[
+					608,
+					40
+				],
+				[
+					640,
+					40
+				],
+				[
+					672,
+					40
+				],
+				[
+					616,
+					72
+				],
+				[
+					656,
+					72
+				]
+			],
+			"lift": 1.1,
+			"rim": 0
 		}
 	},
 	"scatter": {

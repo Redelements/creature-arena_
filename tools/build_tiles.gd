@@ -53,9 +53,9 @@ extends SceneTree
 ##              on the floor away from the map's light), picked by src/view/raised_tiles.gd and
 ##              repainted by ArenaView as cells are smashed; the rubble is the recipe's
 ##              "rubble" walls entry's heaps
-##   shoulder   {terrain, width: 1}: a ring of that terrain (a dirt or sand blob) `width` tiles
-##              round the water, on floor tiles only, on a "Shoulder" layer under the water
-##              (the bank's `land` texture should be the same ground)
+##   shoulder   true: the water's bank (manifest shores.water.shoulder) also lays a ragged
+##              band of trodden ground on the land tiles round the water, a tile per mask of
+##              water neighbours, on floor tiles only, on a "Shoulder" layer under the water
 ##   scatter    [{kind, where: "floor" | "near_walls" | "near_water" | [[tx, ty, w, h], ...],
 ##              near: 3, density: 0.05, seed}]: small sprites (manifest "scatter" kinds) on a
 ##              16 px "Scatter" layer, one a cell at most, by a fixed hash (a rebuild lays the
@@ -326,6 +326,8 @@ static func _shore_set(set_name: String, man: Dictionary) -> TileSet:
 		ts.add_source(src, sid)
 		for key in shores[name]["tiles"]:
 			src.create_tile(_v(shores[name]["tiles"][key]))
+		for key in shores[name].get("shoulder", {}):
+			src.create_tile(_v(shores[name]["shoulder"][key]))
 		sid += 1
 	_save(ts, TILES_DIR + set_name + "_shore.tres")
 	return ts
@@ -652,37 +654,46 @@ static func _wall_run(walls: Node2D, rubble: Node2D, root: Node, man: Dictionary
 ## them is smashed, as it hides the pillars (a sign never floats over rubble).
 
 
-## A ring of `shoulder.terrain` (a blob of sand or dirt) `width` tiles wide round the water
-## tiles `wet`, on a "Shoulder" layer under the water: painted over the water tiles too, so the
-## ring joins under them and only its ragged outer edge shows. Only on floor: a ring tile over
-## any cell the map makes something else (wall, brush, fence, chasm) is left out. Ring tiles
-## past the map's edge are painted (so the blob runs on off the floor) then cleared.
-static func _shoulder(root: Node2D, ts: TileSet, sh: Dictionary, wet: Array[Vector2i], grid: TerrainGrid, per: int) -> void:
-	if wet.is_empty():
+## The water's shoulder (manifest shores.water.shoulder): on every land tile round the water
+## tiles `wet` (its eight neighbours), inside the map and on floor only, the shoulder tile for
+## which of its neighbours are water (keyed like the banks: l, r, t, b, then a corner only
+## when neither of its sides is water), on a "Shoulder" layer under the water.
+static func _shoulder(root: Node2D, shore_ts: TileSet, shores: Dictionary, wet: Array[Vector2i], grid: TerrainGrid, per: int) -> void:
+	var keys: Dictionary = shores.get("water", {}).get("shoulder", {})
+	if shore_ts == null or keys.is_empty() or wet.is_empty():
+		push_warning("tiles.shoulder: the set's water bank has no shoulder")
 		return
-	var width := int(sh.get("width", 1))
+	var src_id := shores.keys().find("water")
 	var wet_set := {}
 	for c in wet:
 		wet_set[c] = true
-	var cells: Array[Vector2i] = wet.duplicate()
-	var outside: Array[Vector2i] = []
-	var seen := {}
+	var layer := _layer(root, "Shoulder", shore_ts)
 	for c in wet:
-		for dy in range(-width, width + 1):
-			for dx in range(-width, width + 1):
+		for dy in range(-1, 2):
+			for dx in range(-1, 2):
 				var n := c + Vector2i(dx, dy)
-				if wet_set.has(n) or seen.has(n):
+				if wet_set.has(n) or layer.get_cell_source_id(n) >= 0:
 					continue
-				seen[n] = true
-				if n.x < 0 or n.y < 0 or n.x * per >= grid.cols or n.y * per >= grid.rows:
-					outside.append(n)
-					cells.append(n)
-				elif _floor_tile(grid, n, per):
-					cells.append(n)
-	var layer := _layer(root, "Shoulder", ts)
-	_terrain(layer, ts, String(sh.get("terrain", "")), cells)
-	for n in outside:
-		layer.erase_cell(n)
+				if n.x < 0 or n.y < 0 or n.x * per >= grid.cols or n.y * per >= grid.rows or not _floor_tile(grid, n, per):
+					continue
+				var w := func(ox: int, oy: int) -> int:
+					return 1 if wet_set.has(n + Vector2i(ox, oy)) else 0
+				var l: int = w.call(-1, 0)
+				var r: int = w.call(1, 0)
+				var t: int = w.call(0, -1)
+				var b: int = w.call(0, 1)
+				var m := l | r << 1 | t << 2 | b << 3
+				if w.call(-1, -1) == 1 and t == 0 and l == 0:
+					m |= 1 << 4
+				if w.call(1, -1) == 1 and t == 0 and r == 0:
+					m |= 1 << 5
+				if w.call(-1, 1) == 1 and b == 0 and l == 0:
+					m |= 1 << 6
+				if w.call(1, 1) == 1 and b == 0 and r == 0:
+					m |= 1 << 7
+				var key := String.num_int64(m, 2).lpad(8, "0")
+				if keys.has(key):
+					layer.set_cell(n, src_id, _v(keys[key]))
 
 
 ## Whether every cell of tile `t` is plain floor in the map (or its water).
@@ -709,7 +720,7 @@ static func _raised(root: Node2D, small: TileSet, man: Dictionary, map: Dictiona
 		return
 	var rz: Dictionary = all[name]
 	var info := {"source": SRC_RAISED + all.keys().find(name), "tiles": rz["tiles"], "cells": int(rz["cells"]),
-		"rows": int(rz.get("rows", 2)), "mirror": (ShadowLayer.light_of(map)["cast"] as Vector2).x < 0.0}
+		"variants": int(rz.get("variants", 1)), "mirror": (ShadowLayer.light_of(map)["cast"] as Vector2).x < 0.0}
 	var shadow := _layer(root, "RaisedShadow", small)
 	var raised := _layer(root, "Raised", small)
 	shadow.set_meta("raised", info)
@@ -926,8 +937,8 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 				for c in _tiles_of(r, per):
 					if not c in cells:
 						cells.append(c)
-		if name == "water" and tiles.has("shoulder"):
-			_shoulder(root, ts, tiles["shoulder"], cells, grid, per)
+		if name == "water" and bool(tiles.get("shoulder", false)):
+			_shoulder(root, shore_ts, g.get("shores", {}), cells, grid, per)
 		var layer := _layer(root, name.capitalize(), ts)
 		counts[name] = _terrain(layer, ts, name, cells)
 		if name == "water":

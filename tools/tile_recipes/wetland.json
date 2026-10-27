@@ -6,15 +6,14 @@
 			"water": {"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "block": [8, 2], "size": 2, "tint": {"mul": [2.0, 2.2, 2.6], "add": [2, 2, 17]}}
 		},
 		"terrains": {
-			"water": {"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "blob": [0, 0], "centres": [[5, 1], [6, 1], [5, 2], [6, 2], [8, 2], [9, 2], [8, 3], [9, 3]], "tint": {"mul": [2.0, 2.2, 2.6], "add": [2, 2, 17]}},
-			"mud": {"_doc": "Wetland brown dirt, the ragged alpha overlay of its swatch (MainLev rows 29-33, a 5 x 5 blob9 round a seamless 3 x 3): the shoulder of trodden dirt round the channels (map tiles.shoulder)", "src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "blob9": [20, 29], "tint": {"mul": [1.04, 0.96, 0.84]}}
+			"water": {"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "blob": [0, 0], "centres": [[5, 1], [6, 1], [5, 2], [6, 2], [8, 2], [9, 2], [8, 3], [9, 3]], "tint": {"mul": [2.0, 2.2, 2.6], "add": [2, 2, 17]}}
 		},
 		"surfaces": {
 			"water": {"src": "RPGFW_Set1_v1.0/_PNG/anim/water_surface_transparent.png", "frame": 32, "frames": 16, "cols": 4, "fps": 8, "over": "water", "alpha_mul": 5},
 			"glint": {"_doc": "Wetland's glint loop (10 frames of 32 px; its pixels are already opaque, about 1 % of each tile, so no alpha_mul), lifted from teal to pale blue to sit on the tinted bed, cut in four phase-shifted, mirrored rows so the tiles do not blink in step", "src": "RPGW_Wetland_v1.1/_PNG/anim/water_effB.png", "frame": 32, "frames": 10, "cols": 10, "fps": 7, "over": "water", "variants": 4, "tint": {"mul": [1.15, 1.05, 1.25], "add": [20, 20, 30]}}
 		},
 		"shores": {
-			"water": {"_doc": "the channels sit below the floor: the bank's top is the dirt shoulder (the mud blob's middle, warmed with it), the far bank drops to the water down a 15 px face of the Wetland plateau's stone (its lit caps first), the near bank a lit lip; a dark wet line and a shade along the water, deepest under the face", "land": {"src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "block": [21, 30], "size": 2, "tint": {"mul": [1.04, 0.96, 0.84]}}, "face": {"src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "box": [64, 139, 96, 156], "tint": {"mul": [0.82, 0.82, 0.88]}}, "top": 19, "bottom": 6, "side": 8, "face_px": 15, "edge_px": 2, "shade": 4, "radius": 6, "rag": 0.6, "outline": [18, 22, 30], "shadow": [26, 50, 88], "lip": 1.35}
+			"water": {"_doc": "the channels sit below the floor: a ragged shoulder of Wetland's brown dirt (greyed toward the paving) on the land round them (shoulder, at most about half a tile), then a thin kerb of the pack's mossy cobbles (MainLev tiles 36-38 x 23-25) at the water's edge, running along the top of the far bank's 15 px drop of the Wetland plateau's stone (edge_over_face); the near bank a lit lip; rounded corners; a dark wet line and a shade along the water, deepest under the face", "land": {"src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "block": [21, 30], "size": 2, "tint": {"desat": 0.15, "mul": [1.05, 0.97, 0.87]}}, "edge": {"src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "block": [36, 23], "size": 3, "tint": {"mul": [1.18, 1.18, 1.18], "add": [8, 8, 10]}}, "face": {"src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "box": [64, 139, 96, 156], "tint": {"mul": [0.82, 0.82, 0.88]}}, "top": 22, "bottom": 7, "side": 9, "face_px": 15, "edge_px": 3, "edge_over_face": true, "shade": 4, "radius": 12, "rag": 0.8, "outline": [18, 22, 30], "shadow": [26, 50, 88], "lip": 1.3, "shoulder": {"land": {"src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "block": [21, 30], "size": 2, "tint": {"desat": 0.15, "mul": [1.05, 0.97, 0.87]}}, "width": 6, "rag": 4}}
 		}
 	},
 	"pieces": {

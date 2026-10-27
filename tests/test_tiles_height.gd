@@ -30,13 +30,29 @@ func test_a_column_shows_its_top_then_its_face() -> void:
 		cells[Vector2i(1, y)] = true
 	var up := func(c: Vector2i) -> bool: return cells.has(c)
 	assert_eq(RaisedTiles.top_or_face_key(Vector2i(0, 0), up, 4, 2), "t10100", "the top-left corner: rims left and above")
-	assert_eq(RaisedTiles.top_or_face_key(Vector2i(1, 1), up, 4, 2), "t01011", "the right side below it")
+	assert_eq(RaisedTiles.top_or_face_key(Vector2i(1, 1), up, 4, 2), "t01003", "the right side below it, its block's lower right quarter")
 	assert_eq(RaisedTiles.top_or_face_key(Vector2i(0, 2), up, 4, 2), "f10400", "the face starts four cells from the end")
 	assert_eq(RaisedTiles.top_or_face_key(Vector2i(1, 5), up, 4, 2), "f01431", "and reaches the floor")
 	var short := {Vector2i(0, 0): true, Vector2i(0, 1): true}
 	var up2 := func(c: Vector2i) -> bool: return short.has(c)
 	assert_eq(RaisedTiles.top_or_face_key(Vector2i(0, 0), up2, 4, 2), "t11100", "a two-cell column keeps a top")
 	assert_eq(RaisedTiles.top_or_face_key(Vector2i(0, 1), up2, 4, 2), "f11100", "and a one-cell face")
+	# a long run: the plateau's top all the way down, blocks varied by hash, a face only at
+	# its south end (in 3/4 view only the edge facing the camera shows a face)
+	var run := {}
+	for y in 26:
+		run[Vector2i(0, y)] = true
+		run[Vector2i(1, y)] = true
+	var up3 := func(c: Vector2i) -> bool: return run.has(c)
+	var seen := {}
+	for y in 26:
+		for x in 2:
+			var key := RaisedTiles.top_or_face_key(Vector2i(x, y), up3, 4, 10)
+			assert_eq(key.substr(0, 1), "f" if y >= 22 else "t", "cell (%d, %d): %s" % [x, y, key])
+			if key.begins_with("t"):
+				assert_eq(key.substr(1, 2), "10" if x == 0 else "01", "rims along both long sides: %s" % key)
+				seen[key.substr(4, 1)] = true
+	assert_true(seen.size() >= 3, "the top varies down the run: %s" % [seen.keys()])
 	assert_eq(RaisedTiles.shadow_key(Vector2i(2, 3), up, false), "s1010", "the shadow on the far side of the light")
 	assert_eq(RaisedTiles.shadow_key(Vector2i(3, 3), up, false), "w0", "a low sun's shadow runs on a second cell")
 	assert_eq(RaisedTiles.shadow_key(Vector2i(-1, 3), up, false), "", "none on the lit side")

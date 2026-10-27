@@ -4,7 +4,7 @@
 	"name": "Quarry Bowl",
 	"ground": "stone",
 	"tiles": {
-		"_doc": "The floor is tiles (assets/arenas/quarry.tscn, built by tools/build_tiles.gd from this block; the recipe tools/tile_recipes/rock.json): Mountains sandstone scree; worn tan-dirt cart lanes along the inside of each rubble wall (Set 1's blob, ragged sides); a raised, rounded middle (Desert v2's packed-earth blob9 with its sandstone ledge along the south side, decor by pos, its rock tops over the patch's bottom row); cobbled loading corners; the walls as raised rock shelves (styles.wall raised:rock: the Mountains plateau's rims and face on the wall's own cells, a long shadow in the low sun) that leave rock heaps where smashed; pebbles, flat stones and dry tufts by the walls (scatter). Rects are [tx, ty, w, h] in 32 px tiles (2 x 2 cells).",
+		"_doc": "The floor is tiles (assets/arenas/quarry.tscn, built by tools/build_tiles.gd from this block; the recipe tools/tile_recipes/rock.json): Mountains sandstone scree; worn tan-dirt cart lanes along the inside of each rubble wall (Set 1's blob, ragged sides); a raised, rounded middle (Desert v2's packed-earth blob9 with its sandstone ledge along the south side, decor by pos, its rock tops over the patch's bottom row); cobbled loading corners; the walls as raised rock shelves (styles.wall raised:rock: the Mountains plateau's floor as one ridge, rimmed along its sides, its face only on a run's south end, all on the wall's own cells, a long shadow in the low sun) that leave rock heaps where smashed; pebbles, flat stones and dry tufts by the walls (scatter). Rects are [tx, ty, w, h] in 32 px tiles (2 x 2 cells).",
 		"set": "rock",
 		"ground": "stone",
 		"styles": {"wall": "raised:rock"},

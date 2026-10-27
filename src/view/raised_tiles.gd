@@ -18,8 +18,8 @@ extends RefCounted
 ## and the scene's "Rubble" sprite.
 ##
 ## The layers' meta "raised" (written by build_tiles): {"source": the TileSet source,
-## "tiles": the manifest's key -> atlas coords, "cells": the tallest face in cells, "rows": the
-## top's row variants, "mirror": true when the light falls to -x}.
+## "tiles": the manifest's key -> atlas coords, "cells": the tallest face in cells, "variants":
+## how many top blocks the cut has, "mirror": true when the light falls to -x}.
 
 
 ## Repaints raised and shadow tiles on rows row0..row1-1. `walls`: the map's wall cells
@@ -28,7 +28,7 @@ static func paint(raised: TileMapLayer, shadow: TileMapLayer, info: Dictionary, 
 	var tiles: Dictionary = info["tiles"]
 	var src := int(info["source"])
 	var k_max := int(info["cells"])
-	var n_rows := maxi(1, int(info.get("rows", 2)))
+	var variants := maxi(1, int(info.get("variants", 1)))
 	var mirror := bool(info.get("mirror", false))
 	var side := Vector2i(1, 0) if not mirror else Vector2i(-1, 0)  # where a wall's shadow falls
 	var floor_cells := {}
@@ -42,7 +42,7 @@ static func paint(raised: TileMapLayer, shadow: TileMapLayer, info: Dictionary, 
 		if not up.call(c):
 			raised.erase_cell(c)
 			continue
-		var key := top_or_face_key(c, up, k_max, n_rows)
+		var key := top_or_face_key(c, up, k_max, variants)
 		if tiles.has(key):
 			raised.set_cell(c, src, _v(tiles[key]))
 		else:
@@ -58,9 +58,10 @@ static func paint(raised: TileMapLayer, shadow: TileMapLayer, info: Dictionary, 
 
 
 ## The manifest key of a raised cell's tile: a face row when the cell is among the last k of
-## its column ("f<l><r><k><row><px>"), else the top ("t<l><r><u><px><py>"); l, r, u 1 where
+## its column ("f<l><r><k><row><px>"), else the top ("t<l><r><u><v><q>": v a
+## variant by hash per 2 x 2 cells, q the cell's quarter of it); l, r, u 1 where
 ## that neighbour is not raised (a face's sides: not a face cell of the same height).
-static func top_or_face_key(c: Vector2i, up: Callable, k_max: int, n_rows: int) -> String:
+static func top_or_face_key(c: Vector2i, up: Callable, k_max: int, variants: int) -> String:
 	var fr := _face_row(c, up, k_max)
 	if fr.x > 0:
 		var l := 0 if _face_row(c + Vector2i.LEFT, up, k_max) == fr else 1
@@ -69,7 +70,12 @@ static func top_or_face_key(c: Vector2i, up: Callable, k_max: int, n_rows: int) 
 	var lt := 0 if up.call(c + Vector2i.LEFT) else 1
 	var rt := 0 if up.call(c + Vector2i.RIGHT) else 1
 	var ut := 0 if up.call(c + Vector2i.UP) else 1
-	return "t%d%d%d%d%d" % [lt, rt, ut, posmod(c.x, 2), posmod(c.y, n_rows)]
+	# one of the plateau's floor blocks (or its mirror) per 2 x 2 cells, by a fixed hash, and
+	# the cell's quarter of it, so a long run is one varied ridge, not a block repeated
+	var bx := floori(c.x / 2.0)
+	var by := floori(c.y / 2.0)
+	var v := posmod((bx * 73856093) ^ (by * 19349663), 1021) % variants
+	return "t%d%d%d%d%d" % [lt, rt, ut, v, posmod(c.x, 2) + 2 * posmod(c.y, 2)]
 
 
 ## (k, row) when cell `c` is raised and in its column's face (k cells tall: the most the
