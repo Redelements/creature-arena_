@@ -1,7 +1,7 @@
 # Status: handoff snapshot
 
-Stamped: 2026-10-27 20:57 UTC
-Branch: digby-2x @ ae00821
+Stamped: 2026-10-27 21:12 UTC
+Branch: cerebro-2x @ 7033434
 Trigger: phase
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
@@ -52,9 +52,12 @@ not VRAM; an `exclude_filter` could drop them); Android/Vulkan not measured.
 
 ## Roster at 2x ("run all", Oct 27)
 
-Done by the skill, one branch each, stacked: Crease (pilot), Culvert, Sno, **Digby**
-(`digby-2x` off `sprites-vram`; bold shading, 256 px frames, NET_VERSION 49, packed sheets;
-gallery `docs/pixellab/digby/`). Next in the plan order: Sneaky Pete.
+Done by the skill, one branch each, stacked: Crease (pilot), Culvert, Sno, Digby
+(`digby-2x` off `sprites-vram`, NET_VERSION 49), **Chef Cerebro** (`cerebro-2x` off `digby-2x`:
+first a density option for his own rasteriser, `CEREBRO_DENSITY`, 1 = the 1x sheets byte for
+byte, every painted stroke through `px()`; then bold shading, 256 px frames, NET_VERSION 50,
+packed sheets; gallery `docs/pixellab/cerebro/`). Still to run: Sneaky Pete (splat3d), Hissy
+(own rasteriser: density option first, as Cerebro's), then Barkley, Gillbert, Craglash.
 
 ## Decisions
 
