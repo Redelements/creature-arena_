@@ -32,15 +32,30 @@ import splat3d as S  # noqa: E402
 from splat3d import ellipsoid_oriented, tube, box, rot_lat, rot_up  # noqa: E402
 
 ROOT = S.ROOT
-OUT = os.path.join(ROOT, "assets", "sprites", "culvert.png")
-PREVIEW = os.path.join(ROOT, "docs", "culvert_preview.png")
-SIDE = {"w": 96, "h": 96, "origin": (46, 80)}
+# Density (splat3d.configure(density=...)): 2 draws the sheets the game uses, culvert_2x*.png
+# (192x192 frames, "ppu": 2); CULVERT_DENSITY=1 the older 1x ones, culvert*.png (96x96).
+DENSITY = int(os.environ.get("CULVERT_DENSITY", "2"))
+# The look (CULVERT_STYLE): "a" the shading as at 1x (highlight, light, base, dark, each
+# material outlined in its own ink); "bold" three tones a face (the highlight folds into
+# the light) and one dark ink round the whole silhouette. The 2x sheets are bold: at 2x
+# the grey concrete's grey ink let him sink into the stone floors.
+STYLE = os.environ.get("CULVERT_STYLE", "bold" if DENSITY > 1 else "a")
+_TAG = "" if DENSITY == 1 else "_%dx" % DENSITY
+OUT = os.path.join(ROOT, "assets", "sprites", "culvert%s.png" % _TAG)
+PREVIEW = os.path.join(ROOT, "docs", "culvert%s_preview.png" % _TAG)
+
+
+def _frame(w, h, origin):
+    return {"w": w * DENSITY, "h": h * DENSITY, "origin": (origin[0] * DENSITY, origin[1] * DENSITY)}
+
+
+SIDE = _frame(96, 96, (46, 80))
 VIEWS = {
-    "down": {"w": 96, "h": 96, "origin": (48, 80)},
-    "up": {"w": 96, "h": 96, "origin": (48, 74)},
+    "down": _frame(96, 96, (48, 80)),
+    "up": _frame(96, 96, (48, 74)),
     # the diagonals (docs/SPRITES.md, "Directions"): facing down-right and up-right
-    "down_side": {"w": 96, "h": 96, "origin": (48, 80)},
-    "up_side": {"w": 96, "h": 96, "origin": (48, 74)},
+    "down_side": _frame(96, 96, (48, 80)),
+    "up_side": _frame(96, 96, (48, 74)),
 }
 
 # Master-palette ramps (tools/palette.py): concrete greys with moss greens, the drain toad.
@@ -60,7 +75,11 @@ MAT = {
 }
 # The amber eyes (their lit half) glow a little in the emissive sheets (docs/SPRITES.md "Emissive sheets"):
 # a toad's eyes catching the light in a storm drain at night.
-S.configure(MAT, scale=1.0, near=16.0, emissive={"eye": {"a": 150, "min_level": 2}})
+S.configure(MAT, scale=1.0, near=16.0, emissive={"eye": {"a": 150, "min_level": 2}}, density=DENSITY)
+if STYLE == "bold":
+    S.LUM_HIGH = 9.0                       # no highlight step: light, base, dark
+    for _m in S.INK:
+        S.INK[_m] = tuple(P.INKS["ink"])   # one dark ink all round: the most contrast
 # In Storm Drain the same glow is turned up to full strength (the lit half, its own amber):
 # no second effect.
 S.surge_eyes("culvert", own=True, min_level=2)
@@ -341,7 +360,9 @@ def decorate(r, img):
     mat = r["mat"]
     H, W = mat.shape
     ys, xs = np.mgrid[0:H, 0:W]
-    h = (xs * 73856093 ^ ys * 19349663) % 97
+    # hashed on 1x pixels (2x2 blocks at density 2), so a fleck is as big as it was
+    bx, by = xs // S.px(1), ys // S.px(1)
+    h = (bx * 73856093 ^ by * 19349663) % 97
     if getattr(r["pose"], "stick", False):
         # the animation pass: flecks picked by where they are on his body, so they ride
         # with him as he moves (hashed on the screen they crawled across him in motion)
