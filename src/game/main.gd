@@ -403,6 +403,10 @@ var glow := default_glow()
 ## bloom (Light2DView, BloomView). `--lighting=` overrides it for the session.
 var light2d: Light2DView
 var light_floor: Light2DView.FloorGlow
+var canopies: Node2D  ## tree crowns over the fighters (ArenaView.overhead)
+var glade: GladeView  ## leaf shade, shafts, fireflies, smoke round a map's trees and keeps
+var light_lamps: Light2DView.FloorGlow  ## the arena's lamps by day and at sunset (Light2DView.lamp_glow)
+var light_lamps_b: Light2DView.FloorGlow  ## the other half of them (Light2DView.lamp_glow_b)
 var bloom: BloomView
 var lighting := default_lighting()
 var _lighting_cli := -1
@@ -700,6 +704,8 @@ func _ready() -> void:
 	add_child(water)
 	ambient = AmbientView.new()  # a map's ambient life (arena JSON "ambient"): panes, sway, motes, butterflies
 	add_child(ambient)
+	glade = GladeView.new()  # leaf shade, sun shafts, fireflies, smoke, spray (arena JSON "ambient.glades"; Twin Keeps)
+	add_child(glade)
 	shadows = ShadowLayer.new()  # the fighters' shadows, on the floor under everyone
 	shadows.views = views
 	add_child(shadows)
@@ -708,6 +714,10 @@ func _ready() -> void:
 	add_child(glow_floor)
 	light_floor = Light2DView.FloorGlow.new()  # the fight's real lights on the floor (Lighting), at the pools' depth
 	add_child(light_floor)
+	light_lamps = Light2DView.FloorGlow.new(Light2DView.LAMP_GLOW_MASK)  # an arena's lamps by day (Twin Keeps' torches)
+	add_child(light_lamps)
+	light_lamps_b = Light2DView.FloorGlow.new(Light2DView.LAMP_GLOW_MASK_B)  # every other one (15 lights an item)
+	add_child(light_lamps_b)
 	rings = RangeRings.new()
 	rings.visible = false
 	rings.fx = fx  # what the local team can see (Vision): no rings for a hidden foe
@@ -715,6 +725,9 @@ func _ready() -> void:
 	entities = Node2D.new()
 	entities.y_sort_enabled = true
 	add_child(entities)
+	canopies = Node2D.new()  # tree crowns over the fighters (a map's dressing; ArenaView.overhead fades them over our own)
+	add_child(canopies)
+	arena.overhead = canopies
 	fore = ForeView.new()  # the nearest fans and a rail at the front, hangings at the back: over the fighters, faster than the floor
 	add_child(fore)
 	weather.views = views
@@ -735,6 +748,8 @@ func _ready() -> void:
 	light2d = Light2DView.new()  # real 2D lights (Lighting): only fighter sprites and the night shade take them
 	light2d.fx = fx
 	light2d.floor_glow = light_floor
+	light2d.lamp_glow = light_lamps
+	light2d.lamp_glow_b = light_lamps_b
 	light2d.views = views  # each seen fighter's own sun
 	add_child(light2d)
 	bloom = BloomView.new()  # half-size bloom of the bright things, added onto the screen layer
@@ -2718,6 +2733,9 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	water.fx = fx
 	ambient.set_sim(sim, arena.art())
 	ambient.fx = fx
+	glade.fx = fx
+	glade.set_sim(sim, arena.canopy_rects())
+	glade.hud_rects = _hud_corners()
 	var look := _match_look(s)
 	_lit_look = look.duplicate()
 	_light_look()
@@ -2953,6 +2971,7 @@ func _physics_process(_delta: float) -> void:
 	PerfLog.since("adv water", t_v)
 	t_v = PerfLog.now()
 	ambient.advance()
+	glade.advance()
 	PerfLog.since("adv ambient", t_v)
 	t_v = PerfLog.now()
 	weather.advance()
@@ -3336,6 +3355,7 @@ func _update_vision(events: Array) -> void:
 		_hidden[i] = team >= 0 and ((c.stealth > 0 and c.team != team) or not vision.team_sees(sim, team, c))
 	fx.unseen = _hidden
 	fx.viewer_team = team
+	arena.canopy_points = ArenaView.canopy_watchers(sim, _hidden, team)
 
 
 func _is_hidden(i: int) -> bool:
@@ -3739,6 +3759,7 @@ func _intro_step() -> void:
 	arena.refresh()
 	water.advance()
 	ambient.advance()
+	glade.advance()
 	weather.advance()
 	wear.advance()
 	crowd.advance()
@@ -5123,6 +5144,17 @@ func _light_look() -> void:
 	weather.lamp_lights = sim != null and t == Light2DView.Tier.HIGH and Light2DView.lamps_on(sim.arena, time)
 	var sd := Light2DView.sun_at(sim.arena if sim != null else {}, time, String(_lit_look.get("weather", "clear")), t)
 	weather.fighter_scale = float(sd.get("shade", 1.0))
+	if glade != null:
+		glade.set_look(time, t)
+
+
+## The HUD's corners and bottom line in screen px (the fighter plates top left and right,
+## the score at the top middle, the key help along the bottom): GladeView spawns nothing
+## under them.
+func _hud_corners() -> Array:
+	var v := get_viewport_rect().size
+	return [Rect2(0, 0, v.x * 0.35, v.y * 0.29), Rect2(v.x * 0.75, 0, v.x * 0.25, v.y * 0.2),
+		Rect2(v.x * 0.38, 0, v.x * 0.24, v.y * 0.13), Rect2(0, v.y * 0.95, v.x, v.y * 0.05)]
 
 
 ## Lighting changed (Settings > Video): re-apply this match's look with the new tier.

@@ -14,7 +14,7 @@ extends Node2D
 ## More kinds (every key optional; `motes` and `critters` may also be a list of blocks):
 ##   motes    kind pollen | dust | sundust (hangs in low sun) | mist (rises, low alpha) |
 ##            sand (fast streaks) | leaf (tumbling), `area` [col,row,w,h] cells to stay in
-##   critters butterfly (brush beds) | dragonfly (`area`) | bird {every, flock, span, alpha,
+##   critters butterfly (brush beds, or `areas` [[col,row,w,h], ...]: flower glades) | dragonfly (`area`) | bird {every, flock, span, alpha,
 ##            first} high over the whole arena | fish {every} jumps in shallows |
 ##            devil {every, life} a wandering dust devil |
 ##            moth {count} circle each floodlight at night (WeatherView hands over the
@@ -529,14 +529,17 @@ func _make_flies() -> void:
 		var spec: Dictionary = FLY_KINDS[kind]
 		var zone := Rect2()
 		if String(spec["zone"]) == "beds":
-			if _beds.is_empty():
+			if _beds.is_empty() and (cc.get("areas", []) as Array).is_empty():
 				continue
 		else:
 			zone = _cells_rect(cc.get("area", []), _floor)
 		var cols: Array[Color] = BUTTERFLY_COLORS if kind == "butterfly" else DRAGON_COLORS
+		var areas: Array = []  # butterflies: `areas` [[col, row, w, h], ...] (flower glades) instead of the beds
+		for a in cc.get("areas", []):
+			areas.append(_cells_rect(a, _floor))
 		for i in int(cc.get("count", 3)):
 			var f := {"k": kind, "zone": zone, "v": Vector2.ZERO, "rest": _rng.randi() % 60, "afraid": 0,
-				"ph": _rng.randf() * TAU, "col": cols[i % cols.size()]}
+				"ph": _rng.randf() * TAU, "col": cols[i % cols.size()], "areas": areas}
 			f["p"] = _spot(f)
 			f["to"] = _spot(f)
 			_flies.append(f)
@@ -544,6 +547,9 @@ func _make_flies() -> void:
 
 ## A random place a critter of this kind goes: a brush bed, or a point in its area.
 func _spot(f: Dictionary) -> Vector2:
+	var areas: Array = f.get("areas", [])
+	if not areas.is_empty():
+		return _in_bed(areas[_rng.randi() % areas.size()])
 	if String(f["k"]) == "butterfly":
 		return _in_bed(_beds[_rng.randi() % _beds.size()])
 	return _in_bed(f["zone"])
@@ -608,7 +614,7 @@ func _move_flies() -> void:
 
 ## Somewhere to flee to: a bed well away from the fighter (or just away).
 func _far_target(from: Vector2, f: Dictionary) -> Vector2:
-	if String(f["k"]) != "butterfly":
+	if String(f["k"]) != "butterfly" or not (f.get("areas", []) as Array).is_empty():
 		var pick := _spot(f)
 		for i in 3:
 			var q := _spot(f)

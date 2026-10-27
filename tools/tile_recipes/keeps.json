@@ -120,6 +120,126 @@
 						3
 					]
 				]
+			},
+			"path": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain3.png",
+				"blob": [
+					0,
+					4
+				],
+				"variants": [
+					[
+						4,
+						4,
+						8,
+						4
+					]
+				],
+				"fill_notches": [
+					12,
+					4
+				],
+				"blob_prob": 0.05,
+				"variant_prob": 1.0,
+				"tint": {
+					"desat": 0.45,
+					"mul": [
+						1.0,
+						0.93,
+						0.8
+					]
+				},
+				"_doc": "worn dirt paths and bare earth (the dressing scene's Paths / Bare layers): Set 1's tan dirt band like the Quarry's lanes, desaturated toward the river's shoulder so a path runs into it"
+			},
+			"grass_deep": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+				"blob": [
+					16,
+					0
+				],
+				"variants": [
+					[
+						20,
+						0,
+						8,
+						4
+					]
+				],
+				"variant_prob": 1.0,
+				"_doc": "dressing: Set 1's dark green grass as ragged patches over the floor"
+			},
+			"grass_dry": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+				"blob": [
+					0,
+					4
+				],
+				"variants": [
+					[
+						4,
+						4,
+						8,
+						4
+					]
+				],
+				"variant_prob": 1.0,
+				"tint": {
+					"mul": [
+						1.05,
+						1.03,
+						1.0
+					]
+				},
+				"_doc": "dressing: Set 1's grey-olive dry grass as ragged patches (by the walls, the shoulder)"
+			},
+			"meadow": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+				"blob": [
+					0,
+					0
+				],
+				"variants": [
+					[
+						4,
+						0,
+						8,
+						4
+					]
+				],
+				"variant_prob": 1.0,
+				"texture": {
+					"src": "RPGW_GrassLand_v2.01/MainLev2.0.png",
+					"block": [
+						56,
+						24
+					],
+					"size": 4
+				},
+				"_doc": "dressing: GrassLand's flowered meadow laid in Set 1's ragged grass blob: clover and flower patches"
+			},
+			"grass_light": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+				"blob": [
+					0,
+					0
+				],
+				"variants": [
+					[
+						4,
+						0,
+						8,
+						4
+					]
+				],
+				"variant_prob": 1.0,
+				"tint": {
+					"mul": [
+						1.16,
+						1.13,
+						0.9
+					]
+				},
+				"_doc": "dressing: Set 1's grass lifted toward sunlit yellow, ragged patches against the dark ones"
 			}
 		},
 		"surfaces": {
@@ -468,6 +588,738 @@
 				]
 			},
 			"_doc": "the grey-blue tab, tinted to the right keep's team blue"
+		},
+		"barrel": {
+			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
+			"box": [
+				0,
+				416,
+				32,
+				448
+			],
+			"feet": [
+				16,
+				31
+			],
+			"_doc": "dressing: propsA wood barrel"
+		},
+		"barrel_open": {
+			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
+			"box": [
+				64,
+				416,
+				96,
+				448
+			],
+			"feet": [
+				16,
+				31
+			]
+		},
+		"barrel_band": {
+			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
+			"box": [
+				160,
+				416,
+				192,
+				448
+			],
+			"feet": [
+				16,
+				31
+			]
+		},
+		"crate": {
+			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
+			"box": [
+				64,
+				512,
+				96,
+				544
+			],
+			"feet": [
+				16,
+				31
+			]
+		},
+		"crate_small": {
+			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
+			"box": [
+				0,
+				512,
+				32,
+				544
+			],
+			"feet": [
+				15,
+				31
+			]
+		},
+		"crate_tall": {
+			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
+			"box": [
+				128,
+				496,
+				160,
+				544
+			],
+			"feet": [
+				16,
+				47
+			]
+		},
+		"sack": {
+			"src": "RPG_Buildings_WINDMILL_v1.1/Mill_decoratives.png",
+			"box": [
+				226,
+				5,
+				245,
+				31
+			],
+			"feet": [
+				9,
+				25
+			],
+			"_doc": "Windmill's Mill_decoratives (a props sheet, no building): grain sacks"
+		},
+		"sack_b": {
+			"src": "RPG_Buildings_WINDMILL_v1.1/Mill_decoratives.png",
+			"box": [
+				258,
+				13,
+				277,
+				31
+			],
+			"feet": [
+				9,
+				17
+			]
+		},
+		"sack_pile": {
+			"src": "RPG_Buildings_WINDMILL_v1.1/Mill_decoratives.png",
+			"box": [
+				131,
+				18,
+				156,
+				52
+			],
+			"feet": [
+				12,
+				33
+			]
+		},
+		"rack": {
+			"src": "RPGW_DecorativeProps_v1.0/fence.png",
+			"size": [
+				40,
+				34
+			],
+			"feet": [
+				20,
+				33
+			],
+			"_doc": "a weapon rack: two fence posts and a rail (DecorativeProps) with three Castle swords stood in front",
+			"parts": [
+				{
+					"box": [
+						138,
+						160,
+						152,
+						192
+					],
+					"at": [
+						0,
+						2
+					]
+				},
+				{
+					"box": [
+						138,
+						160,
+						152,
+						192
+					],
+					"at": [
+						26,
+						2
+					]
+				},
+				{
+					"box": [
+						264,
+						42,
+						280,
+						52
+					],
+					"at": [
+						10,
+						8
+					]
+				},
+				{
+					"box": [
+						264,
+						42,
+						280,
+						52
+					],
+					"at": [
+						16,
+						8
+					]
+				},
+				{
+					"src": "RPG_Buildings_CASTLE_v1.0/castle_decoratives.png",
+					"box": [
+						265,
+						242,
+						277,
+						274
+					],
+					"at": [
+						8,
+						1
+					]
+				},
+				{
+					"src": "RPG_Buildings_CASTLE_v1.0/castle_decoratives.png",
+					"box": [
+						314,
+						242,
+						326,
+						274
+					],
+					"at": [
+						14,
+						0
+					]
+				},
+				{
+					"src": "RPG_Buildings_CASTLE_v1.0/castle_decoratives.png",
+					"box": [
+						352,
+						242,
+						364,
+						274
+					],
+					"at": [
+						20,
+						1
+					]
+				}
+			]
+		},
+		"shield_round": {
+			"src": "RPG_Buildings_CASTLE_v1.0/castle_decoratives.png",
+			"box": [
+				448,
+				76,
+				480,
+				108
+			],
+			"feet": [
+				16,
+				31
+			]
+		},
+		"shield_kite": {
+			"src": "RPG_Buildings_CASTLE_v1.0/castle_decoratives.png",
+			"box": [
+				103,
+				180,
+				121,
+				206
+			],
+			"feet": [
+				9,
+				25
+			],
+			"tint": {
+				"mul": [
+					1.7,
+					0.75,
+					0.7
+				]
+			}
+		},
+		"shield_kite_blue": {
+			"src": "RPG_Buildings_CASTLE_v1.0/castle_decoratives.png",
+			"box": [
+				103,
+				180,
+				121,
+				206
+			],
+			"feet": [
+				9,
+				25
+			],
+			"tint": {
+				"mul": [
+					0.7,
+					1.0,
+					1.8
+				]
+			}
+		},
+		"swords": {
+			"src": "RPG_Buildings_CASTLE_v1.0/castle_decoratives.png",
+			"box": [
+				467,
+				211,
+				493,
+				232
+			],
+			"feet": [
+				13,
+				20
+			]
+		},
+		"swag_red": {
+			"src": "RPG_Buildings_CASTLE_v1.0/castle_decoratives.png",
+			"box": [
+				32,
+				288,
+				96,
+				313
+			],
+			"feet": [
+				32,
+				24
+			],
+			"tint": {
+				"mul": [
+					1.7,
+					0.75,
+					0.7
+				]
+			}
+		},
+		"swag_blue": {
+			"src": "RPG_Buildings_CASTLE_v1.0/castle_decoratives.png",
+			"box": [
+				32,
+				384,
+				96,
+				409
+			],
+			"feet": [
+				32,
+				24
+			],
+			"tint": {
+				"mul": [
+					0.7,
+					1.0,
+					1.8
+				]
+			}
+		},
+		"ivy": {
+			"src": "RPGW_Wetland_v1.1/_PNG/anim/tree2A.png",
+			"box": [
+				16,
+				124,
+				52,
+				158
+			],
+			"feet": [
+				18,
+				33
+			],
+			"shape": "blob",
+			"tint": {
+				"mul": [
+					0.8,
+					1.05,
+					0.8
+				]
+			},
+			"_doc": "a leafy clump of the Wetland canopy, masked round, on a wall's top"
+		},
+		"ivy_b": {
+			"src": "RPGW_Wetland_v1.1/_PNG/anim/tree2A.png",
+			"box": [
+				98,
+				34,
+				138,
+				70
+			],
+			"feet": [
+				20,
+				35
+			],
+			"shape": "blob",
+			"tint": {
+				"mul": [
+					0.72,
+					0.9,
+					0.7
+				]
+			}
+		},
+		"cobble_disc": {
+			"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+			"box": [
+				1033,
+				9,
+				1110,
+				83
+			],
+			"feet": [
+				38,
+				73
+			],
+			"_doc": "flat: Set 1's round cobble patch (ragged rim, grass between the edge stones), under a flag base"
+		},
+		"cobble_disc_b": {
+			"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+			"box": [
+				1033,
+				105,
+				1110,
+				179
+			],
+			"feet": [
+				38,
+				73
+			]
+		},
+		"patch_dirt": {
+			"src": "RPGFW_Set1_v1.0/_PNG/g_terrain4.png",
+			"box": [
+				12,
+				202,
+				84,
+				277
+			],
+			"feet": [
+				36,
+				74
+			],
+			"_doc": "flat: Set 1 g_terrain4 ragged patches (dirt like the shoulder, dirt-and-grass, dark grass) breaking up the grass"
+		},
+		"patch_mix": {
+			"src": "RPGFW_Set1_v1.0/_PNG/g_terrain4.png",
+			"box": [
+				492,
+				202,
+				564,
+				277
+			],
+			"feet": [
+				36,
+				74
+			]
+		},
+		"patch_dark": {
+			"src": "RPGFW_Set1_v1.0/_PNG/g_terrain4.png",
+			"box": [
+				172,
+				202,
+				244,
+				277
+			],
+			"feet": [
+				36,
+				74
+			]
+		},
+		"barrels3": {
+			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
+			"size": [
+				50,
+				40
+			],
+			"feet": [
+				25,
+				39
+			],
+			"_doc": "a group of three barrels (propsA)",
+			"parts": [
+				{
+					"box": [
+						64,
+						416,
+						96,
+						448
+					],
+					"at": [
+						9,
+						0
+					]
+				},
+				{
+					"box": [
+						0,
+						416,
+						32,
+						448
+					],
+					"at": [
+						0,
+						8
+					]
+				},
+				{
+					"box": [
+						160,
+						416,
+						192,
+						448
+					],
+					"at": [
+						18,
+						8
+					]
+				}
+			]
+		},
+		"crates_big": {
+			"src": "RPG_Buildings_WINDMILL_v1.1/Mill_decoratives.png",
+			"box": [
+				67,
+				282,
+				125,
+				351
+			],
+			"feet": [
+				29,
+				68
+			],
+			"_doc": "Windmill's stacked crates"
+		},
+		"crates_mid": {
+			"src": "RPG_Buildings_WINDMILL_v1.1/Mill_decoratives.png",
+			"box": [
+				137,
+				274,
+				182,
+				331
+			],
+			"feet": [
+				22,
+				56
+			]
+		},
+		"sack_heap": {
+			"src": "RPG_Buildings_WINDMILL_v1.1/Mill_decoratives.png",
+			"size": [
+				48,
+				38
+			],
+			"feet": [
+				24,
+				37
+			],
+			"parts": [
+				{
+					"box": [
+						131,
+						18,
+						156,
+						52
+					],
+					"at": [
+						12,
+						3
+					]
+				},
+				{
+					"box": [
+						226,
+						5,
+						245,
+						31
+					],
+					"at": [
+						0,
+						11
+					]
+				},
+				{
+					"box": [
+						258,
+						13,
+						277,
+						31
+					],
+					"at": [
+						28,
+						19
+					]
+				}
+			]
+		},
+		"hay": {
+			"src": "RPG_Buildings_WINDMILL_v1.1/Mill_decoratives.png",
+			"size": [
+				44,
+				40
+			],
+			"feet": [
+				22,
+				39
+			],
+			"parts": [
+				{
+					"box": [
+						450,
+						50,
+						479,
+						88
+					],
+					"at": [
+						0,
+						2
+					]
+				},
+				{
+					"box": [
+						482,
+						50,
+						511,
+						88
+					],
+					"at": [
+						14,
+						0
+					]
+				},
+				{
+					"box": [
+						394,
+						57,
+						409,
+						88
+					],
+					"at": [
+						29,
+						8
+					]
+				}
+			],
+			"_doc": "Windmill hay bundles, piled"
+		},
+		"plinth": {
+			"src": "RPG_Buildings_CASTLE_v1.0/castle_decoratives.png",
+			"box": [
+				80,
+				0,
+				112,
+				46
+			],
+			"feet": [
+				16,
+				45
+			],
+			"_doc": "Castle's orb ornament on a stone plinth, at the gates"
+		},
+		"slab_a": {
+			"src": "RPGW_GrassLand_v2.01/MainLev2.0.png",
+			"box": [
+				1635,
+				1061,
+				1695,
+				1108
+			],
+			"feet": [
+				30,
+				46
+			],
+			"tint": {
+				"desat": 0.55,
+				"mul": [
+					0.95,
+					0.95,
+					0.98
+				]
+			},
+			"_doc": "flat: a flagstone from GrassLand's stone-slab bridge (between its rails), greyed"
+		},
+		"slab_b": {
+			"src": "RPGW_GrassLand_v2.01/MainLev2.0.png",
+			"box": [
+				1635,
+				1112,
+				1695,
+				1168
+			],
+			"feet": [
+				30,
+				55
+			],
+			"tint": {
+				"desat": 0.55,
+				"mul": [
+					0.95,
+					0.95,
+					0.98
+				]
+			}
+		},
+		"slab_c": {
+			"src": "RPGW_GrassLand_v2.01/MainLev2.0.png",
+			"box": [
+				1635,
+				1175,
+				1665,
+				1204
+			],
+			"feet": [
+				15,
+				28
+			],
+			"tint": {
+				"desat": 0.55,
+				"mul": [
+					0.95,
+					0.95,
+					0.98
+				]
+			}
+		},
+		"drop_red": {
+			"src": "RPG_Buildings_CASTLE_v1.0/castle_decoratives.png",
+			"box": [
+				104,
+				288,
+				122,
+				319
+			],
+			"feet": [
+				9,
+				30
+			],
+			"tint": {
+				"mul": [
+					1.7,
+					0.75,
+					0.7
+				]
+			},
+			"_doc": "a drop banner hung over a fence rail"
+		},
+		"drop_blue": {
+			"src": "RPG_Buildings_CASTLE_v1.0/castle_decoratives.png",
+			"box": [
+				104,
+				384,
+				122,
+				415
+			],
+			"feet": [
+				9,
+				30
+			],
+			"tint": {
+				"mul": [
+					0.7,
+					1.0,
+					1.8
+				]
+			},
+			"_doc": ""
 		}
 	},
 	"anim": {
@@ -526,6 +1378,231 @@
 			],
 			"row": 0,
 			"_doc": "Castle Anim/light1b.png: the same brazier, cyan flame (the right keep's side)"
+		},
+		"torch": {
+			"src": "RPG_Buildings_CASTLE_v1.0/Anim/torch.png",
+			"frame": [
+				32,
+				32
+			],
+			"frames": 4,
+			"fps": 6,
+			"feet": [
+				16,
+				31
+			],
+			"row": 0,
+			"_doc": "dressing: Castle wall torch, row 0's four frames"
+		},
+		"brazier": {
+			"src": "RPG_Buildings_CASTLE_v1.0/Anim/light1a.png",
+			"frame": [
+				32,
+				32
+			],
+			"frames": 4,
+			"fps": 6,
+			"feet": [
+				16,
+				27
+			],
+			"row": 0,
+			"_doc": "Castle brazier, orange flame"
+		},
+		"candelabra": {
+			"src": "RPG_Buildings_CASTLE_v1.0/Anim/light2a.png",
+			"frame": [
+				32,
+				64
+			],
+			"frames": 4,
+			"fps": 6,
+			"feet": [
+				16,
+				59
+			],
+			"row": 0
+		},
+		"lantern": {
+			"src": "RPGW_DecorativeProps_v1.0/Animated/lantern01.png",
+			"frame": [
+				32,
+				128
+			],
+			"frames": 8,
+			"fps": 6,
+			"feet": [
+				16,
+				93
+			],
+			"row": 0,
+			"_doc": "DecorativeProps lantern post (row pitch 128, 96 px of art)"
+		},
+		"tree_a_crown": {
+			"src": "RPGW_GrassLand_v2.01/anim/tree1B_ss.png",
+			"frame": [
+				160,
+				160
+			],
+			"frames": 5,
+			"fps": 4,
+			"row": 0,
+			"crop": [
+				0,
+				0,
+				160,
+				106
+			],
+			"feet": [
+				80,
+				105
+			],
+			"_doc": "GrassLand's big olive tree (round crown, red-brown trunk, swaying), split at its trunk: the crown goes over the fighters (ArenaView's overhead layer, fading over the ones we see), the trunk stands on a wall cell",
+			"tint": {
+				"mul": [
+					0.9,
+					0.97,
+					1.08
+				]
+			}
+		},
+		"tree_a_trunk": {
+			"src": "RPGW_GrassLand_v2.01/anim/tree1B_ss.png",
+			"frame": [
+				160,
+				160
+			],
+			"frames": 5,
+			"fps": 4,
+			"row": 0,
+			"crop": [
+				34,
+				98,
+				128,
+				160
+			],
+			"feet": [
+				46,
+				53
+			]
+		},
+		"tree_b_crown": {
+			"src": "RPGW_GrassLand_v2.01/anim/tree2B_ss.png",
+			"frame": [
+				128,
+				160
+			],
+			"frames": 4,
+			"fps": 4,
+			"row": 0,
+			"crop": [
+				0,
+				0,
+				128,
+				96
+			],
+			"feet": [
+				78,
+				95
+			],
+			"_doc": "GrassLand's slimmer olive tree, two tiers of round crown",
+			"tint": {
+				"mul": [
+					0.9,
+					0.97,
+					1.08
+				]
+			}
+		},
+		"tree_b_trunk": {
+			"src": "RPGW_GrassLand_v2.01/anim/tree2B_ss.png",
+			"frame": [
+				128,
+				160
+			],
+			"frames": 4,
+			"fps": 4,
+			"row": 0,
+			"crop": [
+				30,
+				90,
+				110,
+				160
+			],
+			"feet": [
+				48,
+				61
+			]
+		},
+		"tree_a_canopy": {
+			"src": "RPGW_GrassLand_v2.01/anim/tree1B_ss.png",
+			"frame": [
+				160,
+				160
+			],
+			"frames": 5,
+			"fps": 4,
+			"row": 0,
+			"crop": [
+				0,
+				0,
+				160,
+				106
+			],
+			"feet": [
+				80,
+				105
+			],
+			"tint": {
+				"mul": [
+					0.9,
+					0.97,
+					1.08
+				]
+			},
+			"leaves_only": [
+				36,
+				52,
+				22
+			],
+			"_doc": "the big crown with no bark showing, for the brush beds (no trunk stands in a bed)"
+		},
+		"flag_red": {
+			"src": "RPGW_DecorativeProps_v1.0/Animated/flag.png",
+			"frame": [
+				32,
+				128
+			],
+			"frames": 10,
+			"fps": 8,
+			"row": 0,
+			"feet": [
+				16,
+				93
+			],
+			"_doc": "DecorativeProps' flag on a pole, flapping: the red keep's"
+		},
+		"flag_blue": {
+			"src": "RPGW_DecorativeProps_v1.0/Animated/flag.png",
+			"frame": [
+				32,
+				128
+			],
+			"frames": 10,
+			"fps": 8,
+			"row": 1,
+			"feet": [
+				16,
+				93
+			],
+			"tint": {
+				"mul": [
+					0.55,
+					0.78,
+					1.65
+				]
+			},
+			"_doc": "its grey-white row tinted to the blue keep's"
 		}
 	},
 	"bushes": {
@@ -714,6 +1791,167 @@
 					]
 				}
 			]
+		},
+		"grove": {
+			"_doc": "a mid-field pillar drawn as a rocky grove (map tiles.restyle): purple-grey Set 1 boulders a tile, the trees standing on them from the dressing; smashed, a stump of the oak's trunk and a small rock",
+			"mid": [
+				{
+					"src": "RPGFW_Set1_v1.0/_PNG/rocks_no_shadows.png",
+					"box": [
+						589,
+						205,
+						628,
+						240
+					],
+					"feet": [
+						19,
+						33
+					],
+					"tint": {
+						"desat": 0.7,
+						"mul": [
+							0.84,
+							0.8,
+							0.98
+						]
+					}
+				}
+			],
+			"top": [
+				{
+					"src": "RPGFW_Set1_v1.0/_PNG/rocks_no_shadows.png",
+					"box": [
+						589,
+						266,
+						627,
+						306
+					],
+					"feet": [
+						19,
+						38
+					],
+					"tint": {
+						"desat": 0.7,
+						"mul": [
+							0.84,
+							0.8,
+							0.98
+						]
+					}
+				}
+			],
+			"vmid": [
+				{
+					"src": "RPGFW_Set1_v1.0/_PNG/rocks_no_shadows.png",
+					"box": [
+						589,
+						205,
+						628,
+						240
+					],
+					"feet": [
+						19,
+						33
+					],
+					"tint": {
+						"desat": 0.7,
+						"mul": [
+							0.84,
+							0.8,
+							0.98
+						]
+					}
+				},
+				{
+					"src": "RPGFW_Set1_v1.0/_PNG/rocks_no_shadows.png",
+					"box": [
+						589,
+						205,
+						628,
+						240
+					],
+					"feet": [
+						19,
+						33
+					],
+					"tint": {
+						"desat": 0.7,
+						"mul": [
+							0.84,
+							0.8,
+							0.98
+						]
+					},
+					"mirror": true
+				}
+			],
+			"bottom": [
+				{
+					"src": "RPGFW_Set1_v1.0/_PNG/rocks_no_shadows.png",
+					"box": [
+						589,
+						266,
+						627,
+						306
+					],
+					"feet": [
+						19,
+						38
+					],
+					"tint": {
+						"desat": 0.7,
+						"mul": [
+							0.84,
+							0.8,
+							0.98
+						]
+					},
+					"mirror": true
+				}
+			],
+			"rubble": [
+				{
+					"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+					"box": [
+						44,
+						220,
+						94,
+						244
+					],
+					"feet": [
+						25,
+						23
+					],
+					"tint": {
+						"mul": [
+							1.3,
+							0.92,
+							0.8
+						]
+					}
+				},
+				{
+					"src": "RPGFW_Set1_v1.0/_PNG/rocks_no_shadows.png",
+					"box": [
+						774,
+						73,
+						794,
+						91
+					],
+					"feet": [
+						10,
+						17
+					],
+					"tint": {
+						"desat": 0.7,
+						"mul": [
+							0.84,
+							0.8,
+							0.98
+						]
+					}
+				}
+			]
 		}
 	},
 	"fencelines": {
@@ -842,6 +2080,420 @@
 					727
 				]
 			]
+		},
+		"moss": {
+			"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+			"boxes": [
+				[
+					0,
+					771,
+					32,
+					795
+				],
+				[
+					36,
+					772,
+					62,
+					795
+				],
+				[
+					72,
+					778,
+					90,
+					792
+				],
+				[
+					104,
+					782,
+					114,
+					790
+				]
+			],
+			"tint": {
+				"mul": [
+					0.78,
+					0.86,
+					0.74
+				]
+			},
+			"_doc": "dressing: Set 1 pads as moss clumps by the river and at wall feet"
+		},
+		"lily": {
+			"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+			"boxes": [
+				[
+					512,
+					771,
+					544,
+					795
+				],
+				[
+					547,
+					771,
+					573,
+					794
+				],
+				[
+					583,
+					778,
+					601,
+					792
+				],
+				[
+					615,
+					782,
+					625,
+					790
+				]
+			],
+			"_doc": "lily pads on the river's edges"
+		},
+		"stones": {
+			"src": "RPGFW_Set1_v1.0/_PNG/g_terrain4.png",
+			"boxes": [
+				[
+					384,
+					584,
+					401,
+					598
+				],
+				[
+					384,
+					616,
+					400,
+					633
+				],
+				[
+					64,
+					625,
+					84,
+					640
+				],
+				[
+					33,
+					640,
+					53,
+					656
+				],
+				[
+					263,
+					646,
+					283,
+					659
+				],
+				[
+					293,
+					648,
+					312,
+					668
+				]
+			],
+			"tint": {
+				"desat": 0.6,
+				"mul": [
+					1.18,
+					1.18,
+					1.16
+				]
+			},
+			"_doc": "flat stepping stones (g_terrain4 rubble, greyed)"
+		},
+		"leaves": {
+			"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+			"boxes": [
+				[
+					42,
+					12,
+					56,
+					22
+				],
+				[
+					38,
+					24,
+					52,
+					34
+				],
+				[
+					66,
+					32,
+					80,
+					42
+				],
+				[
+					94,
+					40,
+					108,
+					50
+				],
+				[
+					46,
+					48,
+					60,
+					58
+				],
+				[
+					106,
+					52,
+					120,
+					62
+				]
+			],
+			"shape": "blob",
+			"tint": {
+				"mul": [
+					2.4,
+					1.15,
+					0.6
+				]
+			},
+			"_doc": "fallen leaves: round chunks of the oak's canopy turned autumn"
+		},
+		"clover": {
+			"src": "RPGW_DecorativeProps_v1.0/Animated/vegA1.png",
+			"boxes": [
+				[
+					6,
+					0,
+					30,
+					32
+				],
+				[
+					6,
+					256,
+					30,
+					288
+				]
+			],
+			"_doc": "vegA1's first frame (pink, green): flower clumps"
+		},
+		"flowers_white": {
+			"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+			"boxes": [
+				[
+					525,
+					649,
+					539,
+					663
+				],
+				[
+					553,
+					651,
+					572,
+					669
+				],
+				[
+					620,
+					683,
+					636,
+					700
+				],
+				[
+					653,
+					685,
+					666,
+					699
+				],
+				[
+					557,
+					714,
+					572,
+					728
+				],
+				[
+					586,
+					716,
+					603,
+					733
+				],
+				[
+					652,
+					748,
+					668,
+					765
+				],
+				[
+					550,
+					744,
+					565,
+					757
+				]
+			],
+			"tint": {
+				"desat": 1.0,
+				"mul": [
+					1.55,
+					1.55,
+					1.5
+				]
+			},
+			"_doc": "Set 1's small flowers bleached white: the glade's clearing"
+		},
+		"flowers_red": {
+			"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+			"boxes": [
+				[
+					525,
+					649,
+					539,
+					663
+				],
+				[
+					553,
+					651,
+					572,
+					669
+				],
+				[
+					620,
+					683,
+					636,
+					700
+				],
+				[
+					653,
+					685,
+					666,
+					699
+				],
+				[
+					557,
+					714,
+					572,
+					728
+				],
+				[
+					586,
+					716,
+					603,
+					733
+				],
+				[
+					652,
+					748,
+					668,
+					765
+				],
+				[
+					550,
+					744,
+					565,
+					757
+				]
+			],
+			"tint": {
+				"desat": 0.6,
+				"mul": [
+					1.9,
+					0.62,
+					0.55
+				]
+			},
+			"_doc": "Set 1's small flowers tinted red: the red keep's side"
+		},
+		"flowers_blue": {
+			"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+			"boxes": [
+				[
+					525,
+					649,
+					539,
+					663
+				],
+				[
+					553,
+					651,
+					572,
+					669
+				],
+				[
+					620,
+					683,
+					636,
+					700
+				],
+				[
+					653,
+					685,
+					666,
+					699
+				],
+				[
+					557,
+					714,
+					572,
+					728
+				],
+				[
+					586,
+					716,
+					603,
+					733
+				],
+				[
+					652,
+					748,
+					668,
+					765
+				],
+				[
+					550,
+					744,
+					565,
+					757
+				]
+			],
+			"tint": {
+				"desat": 0.6,
+				"mul": [
+					0.6,
+					0.85,
+					1.9
+				]
+			},
+			"_doc": "tinted blue: the blue keep's side"
 		}
+	},
+	"shadows": {
+		"_doc": "contact shadows under the dressing's props (tools/seed_dressing.gd picks the size nearest a prop's width)",
+		"sizes": [
+			[
+				10,
+				4
+			],
+			[
+				16,
+				5
+			],
+			[
+				22,
+				7
+			],
+			[
+				28,
+				8
+			],
+			[
+				36,
+				10
+			],
+			[
+				46,
+				12
+			],
+			[
+				64,
+				16
+			],
+			[
+				88,
+				22
+			]
+		],
+		"rgb": [
+			14,
+			22,
+			12
+		],
+		"alpha": 128
 	}
 }

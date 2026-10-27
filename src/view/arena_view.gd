@@ -121,6 +121,19 @@ var _raised: TileMapLayer = null
 var _raised_shadow: TileMapLayer = null
 var _raised_info := {}
 var _raised_walls := {}
+const DRESS_PROPS := "Walls/Dressing/Props"  ## a map's hand-dressed props (`_dress_cells`)
+const DRESS_CANOPIES := "Walls/Dressing/Canopies"  ## its tree crowns (`_adopt_canopies`)
+## Tree crowns over the fighters (a map's dressing "Canopies": the mid-field groves, the
+## crowns over the brush beds). Main's node above the fighters; they move into it at load
+## (without one, as in tests, they stay in the ground scene). View only.
+var overhead: Node2D = null
+## Where the fighters the local team sees stand this tick (main, `canopy_watchers`): a crown
+## over one of them fades to CANOPY_SEE so they read; never over a hidden foe.
+var canopy_points: Array = []
+var _canopies: Array = []  ## [node, world rect, brush cells under it (Rect2i)]
+const CANOPY_SEE := 0.35  ## a crown's opacity over one of ours
+const CANOPY_THIN := 0.6  ## over a bed whose brush is flattened under it
+const CANOPY_FADE := 4.0  ## opacity a second, eased on the view clock (about 10 frames)
 const OV_COLS := 8
 const OV_CRACK := [0, 1, 2, 3]
 const OV_WALL_TOP := 8
@@ -213,6 +226,8 @@ func _build_tiles() -> void:
 				_raised_walls[Vector2i(i % terrain.cols, i / terrain.cols)] = true
 	else:
 		_raised = null
+	_dress_cells()
+	_adopt_canopies()
 	for which in 3:
 		var layer := TileMapLayer.new()
 		layer.name = ["Overlay", "Edges", "Corners"][which]
@@ -226,6 +241,147 @@ func _build_tiles() -> void:
 			_edges = layer
 		else:
 			_corners = layer
+
+
+## The map's hand dressing (`tiles.dressing`, instanced by tools/build_tiles.gd as
+## "Walls/Dressing"; assets/README.md "Dressing"): every prop under its "Props" whose feet (its
+## position) stand on a blocking cell of the map (a wall, a fence) gets meta "cells", that cell
+## and the blocking cells beside it its picture spans on that row, so `_sync_sprites` hides it
+## while any is smashed, as it hides the wall sprites. Worked out here, not in the scene, so a
+## prop nudged in the editor still falls with the wall it stands on. A prop on the floor keeps
+## none (only flat ones stand there: tests/test_tiles_dressing.gd).
+func _dress_cells() -> void:
+	var props := _tiles.get_node_or_null(DRESS_PROPS)
+	if props == null:
+		return
+	var cell_px := float(SimDefs.CELL * ArtScale.PX_PER_UNIT)
+	for s in props.get_children():
+		var n := s as Node2D
+		if n == null:
+			continue
+		var foot := Vector2i(floori(n.position.x / cell_px), floori((n.position.y - 1.0) / cell_px))
+		if not _blocks(foot):
+			n.remove_meta("cells")
+			continue
+		var w := 0.0
+		var left := n.position.x
+		if n is Sprite2D:
+			var sp := n as Sprite2D
+			w = sp.region_rect.size.x if sp.region_enabled else float(sp.texture.get_width()) if sp.texture != null else 0.0
+			left += sp.offset.x
+		elif n is AnimatedSprite2D:
+			var an := n as AnimatedSprite2D
+			var tex := an.sprite_frames.get_frame_texture(an.animation, 0) if an.sprite_frames != null else null
+			w = float(tex.get_width()) if tex != null else 0.0
+			left += an.offset.x
+		var x0 := foot.x
+		var x1 := foot.x
+		while x0 - 1 >= floori(left / cell_px) and _blocks(Vector2i(x0 - 1, foot.y)):
+			x0 -= 1
+		while x1 + 1 <= floori((left + w - 1.0) / cell_px) and _blocks(Vector2i(x1 + 1, foot.y)):
+			x1 += 1
+		n.set_meta("cells", Rect2i(x0, foot.y, x1 - x0 + 1, 1))
+
+
+## The dressing's tree crowns (DRESS_CANOPIES): each crown standing on a blocking cell (a
+## mid-field tree, its trunk among the props) gets meta "cells" like a prop and hides with
+## that wall; one over a brush bed records the bed's cells under its picture, and thins while
+## any is flattened. Then they move to `overhead`, above the fighters, keeping their place.
+func _adopt_canopies() -> void:
+	_canopies.clear()
+	if overhead != null:
+		for c in overhead.get_children():
+			c.queue_free()
+		overhead.position = _tiles.position
+		overhead.scale = _tiles.scale
+	var group := _tiles.get_node_or_null(DRESS_CANOPIES)
+	if group == null:
+		return
+	var cell_px := float(SimDefs.CELL * ArtScale.PX_PER_UNIT)
+	for n: Node in group.get_children():
+		var a := n as AnimatedSprite2D
+		if a == null or a.sprite_frames == null:
+			continue
+		var size := a.sprite_frames.get_frame_texture(a.animation, 0).get_size()
+		var pic := Rect2(a.position + a.offset, size)  # scene px
+		var world := Rect2(_tiles.position + pic.position / ArtScale.PX_PER_UNIT, size / ArtScale.PX_PER_UNIT)
+		var foot := Vector2i(floori(a.position.x / cell_px), floori((a.position.y - 1.0) / cell_px))
+		if _blocks(foot):
+			a.set_meta("cells", Rect2i(foot, Vector2i.ONE))
+		var under := Rect2i()
+		var c0 := Vector2i(floori(pic.position.x / cell_px), floori((pic.position.y + pic.size.y * 0.3) / cell_px))
+		var c1 := Vector2i(floori(pic.end.x / cell_px), floori(pic.end.y / cell_px))
+		for cy in range(maxi(0, c0.y), mini(terrain.rows, c1.y + 1)):
+			for cx in range(maxi(0, c0.x), mini(terrain.cols, c1.x + 1)):
+				if terrain.map_base[cy * terrain.cols + cx] == TerrainGrid.BRUSH:
+					under = Rect2i(cx, cy, 1, 1) if under.size == Vector2i.ZERO else under.merge(Rect2i(cx, cy, 1, 1))
+		_canopies.append([a, world, under])
+	if overhead != null:
+		for e in _canopies:
+			var a: Node2D = e[0]
+			a.get_parent().remove_child(a)
+			overhead.add_child(a)
+
+
+## The world points a crown fades over: each fighter the local team sees (`unseen` false:
+## its own fighters and teammates always, a foe only while Vision shows it anyway, so a crown
+## over open floor never hides a fighter the brush wouldn't), at its feet and its middle. A
+## hidden foe gives none, so a crown never gives one away. KO'd fighters neither.
+## `viewer_team` is unused but kept so a caller states whose view this is.
+static func canopy_watchers(sim: MatchSim, unseen: Array, _viewer_team: int) -> Array:
+	var out: Array = []
+	for i in sim.creatures.size():
+		var c: CreatureSim = sim.creatures[i]
+		if c.state == CreatureSim.State.KO or (i < unseen.size() and bool(unseen[i])):
+			continue
+		out.append(c.pos)
+		out.append(c.pos - Vector2(0, float(c.def.get("fx_top", 32)) * 0.5))
+	return out
+
+
+## Eases every crown toward its opacity: CANOPY_SEE over one of ours, CANOPY_THIN over a
+## flattened bed, else whole; a crown on a smashed wall is hidden by `_sync_sprites`.
+func _fade_canopies(delta: float) -> void:
+	for e in _canopies:
+		var a: Node2D = e[0]
+		if not is_instance_valid(a):
+			continue
+		var world: Rect2 = e[1]
+		var target := 1.0
+		var under: Rect2i = e[2]
+		if under.size != Vector2i.ZERO and terrain != null:
+			for cy in range(under.position.y, under.end.y):
+				for cx in range(under.position.x, under.end.x):
+					var i := cy * terrain.cols + cx
+					if terrain.map_base[i] == TerrainGrid.BRUSH and terrain.cells[i] != terrain.map_base[i]:
+						target = CANOPY_THIN
+		for p in canopy_points:
+			if world.has_point(p):
+				target = CANOPY_SEE
+				break
+		a.modulate.a = move_toward(a.modulate.a, target, CANOPY_FADE * delta)
+
+
+## How opaque a crown is now (tests, the fade).
+func canopy_alpha(i: int) -> float:
+	return (_canopies[i][0] as Node2D).modulate.a if i < _canopies.size() else 1.0
+
+
+func canopy_count() -> int:
+	return _canopies.size()
+
+
+## The crowns' pictures in world px (GladeView lays its leaf shade and sun shafts under them).
+func canopy_rects() -> Array:
+	return _canopies.map(func(e): return e[1])
+
+
+## Whether the map's own cell `c` blocks (a wall or a fence): where a dressing prop may stand.
+func _blocks(c: Vector2i) -> bool:
+	if c.x < 0 or c.y < 0 or c.x >= terrain.cols or c.y >= terrain.rows:
+		return false
+	var v := terrain.map_base[c.y * terrain.cols + c.x]
+	return v == TerrainGrid.WALL or v == TerrainGrid.FENCE
 
 
 ## Sets the overlay cells of rows row0..row1-1 from the terrain, and the pieces on them.
@@ -292,11 +448,16 @@ func _raised_up(c: Vector2i) -> bool:
 ## smashed), until the floor heals; a wall tile's rubble ("Rubble", meta "broken") shows
 ## exactly then.
 func _sync_sprites(row0: int, row1: int) -> void:
-	for node_name in ["Brush", "Walls", "Rubble"]:
+	var groups: Array = []
+	for node_name in ["Brush", "Walls", "Rubble", DRESS_PROPS]:
 		var group := _tiles.get_node_or_null(node_name)
-		if group == null:
-			continue
-		for s in group.get_children():
+		if group != null:
+			groups.append(group.get_children())
+	groups.append(_canopies.map(func(e): return e[0]))  # the crowns, wherever they now hang
+	for list: Array in groups:
+		for s in list:
+			if not is_instance_valid(s):
+				continue
 			if not s.has_meta("cells"):
 				continue
 			var cells: Rect2i = s.get_meta("cells")
@@ -644,6 +805,8 @@ func _find_changes() -> void:
 ## A few of the pending bands each frame (every band paints the floor as it is now, so a
 ## band that changed again meanwhile is still right).
 func _process(_delta: float) -> void:
+	if not _canopies.is_empty():
+		_fade_canopies(_delta)
 	if _pending.is_empty() and _settle.is_empty():
 		return
 	var n := maxi(1, ceili(_pending.size() / float(SPREAD_FRAMES))) if not _pending.is_empty() else 0

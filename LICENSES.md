@@ -107,8 +107,24 @@ Twin Keeps (the Capture the Flag map; cut by `tools/cut_tiles.py` from
 - `assets/tiles/keeps_shore.png`: the river's sunken banks and their shoulder, composed from
   Set 1's dirt (`g_terrain3.png`), the round ledge stones and rock face of `hills2.png`.
 - `assets/tiles/keeps_scatter.png`: loose pebbles, small flowers and grass sprigs (Set 1
-  `veg_decoratives.png`).
-- `assets/tiles/keeps_manifest.json`, `assets/tiles/keeps_*.tres`, `assets/arenas/twin_keeps.tscn`.
+  `veg_decoratives.png`); for the hand dressing, moss and lily pads (its pads), fallen leaves
+  (round chunks of its oak's canopy, recoloured), stepping stones (`g_terrain4.png` rubble,
+  greyed) and Decorative Props' `vegA1` flower clumps (one still frame).
+- The hand dressing (`assets/arenas/twin_keeps_dressing.tscn`): `assets/tiles/keeps_decor_barrel*.png`,
+  `keeps_decor_crate*.png` (Decorative Props `propsA.png`), `keeps_decor_rack.png` (its fence
+  posts and rail with three Castle swords), `keeps_anim_lantern.png` (its `Animated/lantern01`);
+  `keeps_decor_shield_*.png`, `keeps_decor_swords.png`, `keeps_decor_swag_*.png` (Castle
+  `castle_decoratives.png`, the swags tinted to the team colours), `keeps_anim_torch.png`,
+  `keeps_anim_brazier.png`, `keeps_anim_candelabra.png` (Castle `Anim/torch`, `light1a`,
+  `light2a`); `keeps_decor_sack*.png` (**RPG Buildings Windmill**, `RPG_Buildings_WINDMILL_v1.1`,
+  the same licence: grain sacks from its `Mill_decoratives.png` props sheet, no building);
+  `keeps_decor_ivy*.png` (Wetland `tree2A` canopy, masked round); `keeps_decor_cobble_disc*.png`
+  (Set 1 `g_terrain1.png` round cobble patches), `keeps_decor_patch_*.png` (Set 1
+  `g_terrain4.png` ragged patches); `keeps_anim_tree_*.png` (**RPG Worlds GrassLand**, `RPGW_GrassLand_v2.01`, the same licence: its swaying `tree1B` / `tree2B`, split into crown and trunk), `keeps_wall_grove.png` (Set 1 boulders and oak trunk, recoloured), `keeps_anim_flag_red.png` / `keeps_anim_flag_blue.png` (Decorative Props' `Animated/flag`, the blue one its grey-white row tinted), `keeps_decor_slab_*.png` (GrassLand's stone-slab bridge), the `grass_*` and `meadow` terrains in `keeps_ground.png` (Set 1 grass, GrassLand meadow); the `path` terrain in `keeps_ground.png` (Set 1
+  `g_terrain3.png`, toned like the shoulder). `assets/tiles/keeps_shadows.png` is drawn by the
+  cutter, not cut.
+- `assets/tiles/keeps_manifest.json`, `assets/tiles/keeps_*.tres`, `assets/arenas/twin_keeps.tscn`,
+  `assets/arenas/twin_keeps_dressing.tscn`.
 
 Files from **RPG Worlds GrassLand v2** (`RPGW_GrassLand_v2.01`), **RPG Worlds Decorative
 Props** (`RPGW_DecorativeProps_v1.0`) and **RPG Buildings Houses** (`RPG_Buildings_HOUSES_v1.1`,

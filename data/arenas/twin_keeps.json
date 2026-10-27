@@ -12,7 +12,28 @@
 			"fence": "fenceline:wood",
 			"brush": "bush:green"
 		},
+		"restyle": [
+			{
+				"rect": [
+					40,
+					28,
+					2,
+					8
+				],
+				"style": "wall:grove"
+			},
+			{
+				"rect": [
+					108,
+					28,
+					2,
+					8
+				],
+				"style": "wall:grove"
+			}
+		],
 		"shoulder": true,
+		"dressing": "res://assets/arenas/twin_keeps_dressing.tscn",
 		"scatter": [
 			{
 				"kind": "pebbles",
@@ -296,18 +317,283 @@
 		}
 	},
 	"grade": {
-		"_doc": "fresh morning, a faint warm cast; a view-only tint and vignette (GradeView), eased at night/sunset/rain by weather.json",
-		"tint": "#fff6e4",
-		"vignette": 0.18
+		"_doc": "a cooler, quieter morning than the warm default, so the castle's flames read warm against it; a view-only tint and vignette (GradeView), eased at night/sunset/rain by weather.json",
+		"tint": "#eeedf3",
+		"vignette": 0.22
 	},
+	"lights": [
+		{
+			"pos": [
+				102,
+				213.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35,
+			"_doc": "the castle's flames (the dressing's torches, lantern and candelabra, the team braziers on the gates; assets/arenas/twin_keeps_dressing.tscn) as lamps that burn by day too: `day` is the share of `energy` that glows on the floor by day (x data/weather.json times.<t>.lamps: more at sunset), Lighting High only, Light2DView.lamps_by_day; pos is the flame, world px; tests/test_tiles_dressing.gd keeps one by every flame; by day they alternate over two glow items, 15 an item"
+		},
+		{
+			"pos": [
+				1130,
+				213.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				43,
+				213.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				1189,
+				213.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				121,
+				405.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				1111,
+				405.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				170,
+				398.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				1062,
+				398.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				462,
+				147.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				770,
+				147.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				462,
+				427.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				770,
+				427.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				168,
+				261.5
+			],
+			"color": "#ff8a5a",
+			"radius": 40,
+			"energy": 0.6,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				168,
+				336.5
+			],
+			"color": "#ff8a5a",
+			"radius": 40,
+			"energy": 0.6,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				1064,
+				261.5
+			],
+			"color": "#7fd8ff",
+			"radius": 40,
+			"energy": 0.6,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				1064,
+				336.5
+			],
+			"color": "#7fd8ff",
+			"radius": 40,
+			"energy": 0.6,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		}
+	],
 	"ambient": {
-		"_doc": "leaves on the morning breeze, brush that sways, dragonflies and a jumping fish on the river, the odd bird; see AmbientView",
+		"_doc": "leaves on the morning breeze, brush that sways, butterflies over the flower glades, dragonflies, a jumping fish and ripples on the river, the odd bird; leaf shade, sun shafts, falling leaves, lamp smoke, waterfall spray and sunset fireflies round the trees (glades: GladeView); see AmbientView",
 		"motes": {
 			"kind": "leaf",
 			"count": 22
 		},
 		"sway": true,
 		"critters": [
+			{
+				"kind": "butterfly",
+				"count": 6,
+				"areas": [
+					[
+						34,
+						22,
+						14,
+						6
+					],
+					[
+						34,
+						37,
+						14,
+						6
+					],
+					[
+						102,
+						22,
+						14,
+						6
+					],
+					[
+						102,
+						37,
+						14,
+						6
+					],
+					[
+						2,
+						22,
+						10,
+						4
+					],
+					[
+						138,
+						40,
+						10,
+						4
+					],
+					[
+						44,
+						15,
+						12,
+						4
+					],
+					[
+						94,
+						46,
+						12,
+						4
+					]
+				]
+			},
 			{
 				"kind": "dragonfly",
 				"count": 4,
@@ -320,11 +606,11 @@
 			},
 			{
 				"kind": "fish",
-				"every": 360
+				"every": 1100
 			},
 			{
 				"kind": "bird",
-				"every": 2400,
+				"every": 1500,
 				"flock": 2,
 				"first": 600
 			},
@@ -337,7 +623,21 @@
 				"every": 4200,
 				"first": 1200
 			}
-		]
+		],
+		"glades": {
+			"pools": 7,
+			"shafts": 2,
+			"fireflies": 18,
+			"leaf_every": 70,
+			"smoke": true,
+			"spray": [
+				71,
+				0,
+				8,
+				3
+			],
+			"ripple_every": 40
+		}
 	},
 	"size": [
 		150,

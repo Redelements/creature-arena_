@@ -55,8 +55,13 @@ func test_the_scene_covers_the_map_with_its_pieces_in_place() -> void:
 			match kind:
 				"wall":
 					assert_eq(pieces.get_cell_source_id(c), -1, "%s: no tile under the wall sprites" % c)
-					var standing := walls.get_children().filter(func(n): return n.has_meta("cells") and (n.get_meta("cells") as Rect2i).intersects(Rect2i(c * 2, Vector2i(2, 2))) and String(n.name).begins_with("castle"))
-					assert_eq(standing.size(), 1, "%s: one castle wall sprite" % c)
+					# a restyled rect (tiles.restyle: the mid-field pillars as groves) has its own kit
+					var kit := "castle"
+					for rs in map["tiles"].get("restyle", []):
+						if (rs["rect"] as Array).map(func(v): return int(v)) == (piece["rect"] as Array).map(func(v): return int(v)):
+							kit = String(rs["style"]).trim_prefix("wall:")
+					var standing := walls.get_children().filter(func(n): return n.has_meta("cells") and (n.get_meta("cells") as Rect2i).intersects(Rect2i(c * 2, Vector2i(2, 2))) and String(n.name).begins_with(kit))
+					assert_eq(standing.size(), 1, "%s: one %s wall sprite" % [c, kit])
 					var heaps := rubble.get_children().filter(func(n): return (n.get_meta("cells") as Rect2i).intersects(Rect2i(c * 2, Vector2i(2, 2))))
 					assert_true(heaps.size() == 1 and not heaps[0].visible, "%s: its rubble, hidden while it stands" % c)
 				"fence":
@@ -227,7 +232,7 @@ func test_arena_view_draws_it_from_tiles_and_a_fallen_bridge_shows_water() -> vo
 	assert_eq(pieces.get_cell_source_id(tile), 1, "the causeway stands")
 	# a smashed wall cell shows its rubble, and the banner hung there falls with the wall
 	var at := Vector2i(4, 21)  # the left keep's top wall, under its first banner
-	var on: Array = v._tiles.get_node("Walls").get_children().filter(func(n): return (n.get_meta("cells") as Rect2i).has_point(at))
+	var on: Array = v._tiles.get_node("Walls").get_children().filter(func(n): return n.has_meta("cells") and (n.get_meta("cells") as Rect2i).has_point(at))
 	var heap: Array = v._tiles.get_node("Rubble").get_children().filter(func(n): return (n.get_meta("cells") as Rect2i).has_point(at))
 	assert_eq(on.map(func(n): return String(n.name).rsplit("_", true, 1)[0]), ["castle", "banner_red"], "a wall sprite and a red banner over cell %s" % at)
 	assert_eq(heap.size(), 1, "and one rubble heap")
