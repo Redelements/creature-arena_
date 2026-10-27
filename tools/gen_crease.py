@@ -36,19 +36,35 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import anim_preview as A  # noqa: E402
 import palette as P  # noqa: E402
+import palette as PAL  # noqa: E402  (P is the pose constructor below)
 import splat3d as S  # noqa: E402
 from splat3d import rot_lat, rot_up, rot_fwd  # noqa: E402
 
 ROOT = S.ROOT
-OUT = os.path.join(ROOT, "assets", "sprites", "crease.png")
-PREVIEW = os.path.join(ROOT, "docs", "crease_preview.png")
-SIDE = {"w": 96, "h": 96, "origin": (48, 72)}
+# Density (splat3d.configure(density=...)): 2 draws the sheets the game uses, crease_2x*.png
+# (192x192 frames, "ppu": 2); CREASE_DENSITY=1 the older 1x ones, crease*.png (96x96).
+DENSITY = int(os.environ.get("CREASE_DENSITY", "2"))
+# The look (CREASE_STYLE): "a" the paper shading as at 1x; "bold" fewer, wider tone bands
+# (three tones a face, sheen and deep only on folds and seams; a fold line only between two
+# faces of one tone) and one dark ink round the whole silhouette. The 2x sheets are bold
+# (at 2x the thinner, material-coloured outline of "a" lets him sink into dark ground).
+STYLE = os.environ.get("CREASE_STYLE", "bold" if DENSITY > 1 else "a")
+_TAG = "" if DENSITY == 1 else "_%dx" % DENSITY
+OUT = os.path.join(ROOT, "assets", "sprites", "crease%s.png" % _TAG)
+PREVIEW = os.path.join(ROOT, "docs", "crease%s_preview.png" % _TAG)
+
+
+def _frame(w, h, origin):
+    return {"w": w * DENSITY, "h": h * DENSITY, "origin": (origin[0] * DENSITY, origin[1] * DENSITY)}
+
+
+SIDE = _frame(96, 96, (48, 72))
 VIEWS = {
-    "down": {"w": 96, "h": 96, "origin": (48, 72)},
-    "up": {"w": 96, "h": 96, "origin": (48, 64)},
+    "down": _frame(96, 96, (48, 72)),
+    "up": _frame(96, 96, (48, 64)),
     # the diagonals (docs/SPRITES.md, "Directions"): facing down-right and up-right
-    "down_side": {"w": 96, "h": 96, "origin": (48, 72)},
-    "up_side": {"w": 96, "h": 96, "origin": (48, 64)},
+    "down_side": _frame(96, 96, (48, 72)),
+    "up_side": _frame(96, 96, (48, 64)),
 }
 
 # Master-palette ramps (tools/palette.py); the paper shader uses all five steps, one flat
@@ -65,7 +81,7 @@ MAT = {
     "craft": ("white", -1),
 }
 SCALE = 0.54
-S.configure(MAT, scale=SCALE, near=12.0, near_views={"down_side": 8.0, "up_side": 8.0})
+S.configure(MAT, scale=SCALE, near=12.0, near_views={"down_side": 8.0, "up_side": 8.0}, density=DENSITY)
 S.COLS = 12  # the strut and the Surge have 12 frames
 
 # Five flat tones per material: sheen, light, base, dark, deep (the ramp, light first).
@@ -73,14 +89,14 @@ TONES = {name: list(reversed(S.RAMP[name])) for name in MAT}
 _v = S.RAMP["void"]
 TONES["void"] = [_v[3], _v[3], _v[2], _v[1], _v[1]]   # the hat's inside stays black
 
-SEAM_STEP = 2.5   # px of depth before a piece in front casts its thin shadow line on the one behind
+SEAM_STEP = S.px(2.5)   # px of depth before a piece in front casts its thin shadow line on the one behind
 AXES = ((0, 0, 1), (0, 1, 0), (1, 0, 0))
 
 # His Surge eyes (splat3d.SURGE_EYES), set by build: (two points on the head's front, the
 # way the face points).
 _EYES = [None]
 BRIM = ("hat", "paper")   # the brim and its paper back
-EYE_DROP = 6              # px below a brim pixel an eye may peek out
+EYE_DROP = S.px(6)        # px below a brim pixel an eye may peek out
 
 
 def _eye_px(r, img):
@@ -790,9 +806,14 @@ def shade_paper(r):
     light = nz(S.LIGHT)
     lum = sd @ light
     level = np.full((h, w), 2, np.int32)
-    level[lum > 0.42] = 1
-    level[lum < -0.12] = 3
-    level[lum < -0.5] = 4
+    if STYLE == "bold":
+        # three tones a face: light, base, dark (the deep step only in seams and valleys)
+        level[lum > 0.3] = 1
+        level[lum < -0.2] = 3
+    else:
+        level[lum > 0.42] = 1
+        level[lum < -0.12] = 3
+        level[lum < -0.5] = 4
     r["level"] = level
     r["sd"] = sd
     r["light"] = light
@@ -826,6 +847,8 @@ def decorate(r, img):
         qf, qp, qm = _shift(face, dx, dy), _shift(part, dx, dy), _shift(mat, dx, dy)
         qsd, qlvl = _shift(sd, dx, dy), _shift(level, dx, dy)
         fold = filled & (qm == mat) & (qp == part) & (qf != face) & (face >= 0) & (qf >= 0)
+        if STYLE == "bold":
+            fold &= qlvl == level   # a change of tone already marks the fold: no extra line
         convex = ((qsd[:, :, 0] - sd[:, :, 0]) * dx + (qsd[:, :, 1] - sd[:, :, 1]) * dy) > 0.03
         lit = (((sd + qsd) * 0.5) @ light) > 0.05
         m = fold & convex & lit
@@ -870,6 +893,8 @@ def outline_paper(r, img):
         if m.any():
             a[m, :3] = TONES[name][4]
     ring, ring_col = S.silhouette(r, filled)   # each material's own ink
+    if STYLE == "bold":
+        ring_col[:] = PAL.INKS["ink"]            # one dark ink all round: the most contrast
     a[ring, :3] = ring_col[ring]
     a[ring, 3] = 255
     return a

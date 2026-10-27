@@ -20,6 +20,14 @@ image (`decorate(r, img)`, for faces and other painted details), and its poses.
     S.configure(MAT, scale=0.72)
     S.write_sheets(ROWS, VIEW_ROWS, OUT, PREVIEW, SIDE, VIEWS, build, decorate)
 
+Density: `configure(..., density=2)` draws the same rig at two art pixels per pixel it
+had at 1 (the 2x art of docs/pixellab-spec.md, `"ppu": 2` in the sprite block): the
+drawing scale and the near zone double, the sample step halves, and the depth and blur
+thresholds that are counted in pixels (`px`) double, so the shading falls on the same parts
+of the body in bands twice as wide. The outline, seams and fold lines stay one pixel, and
+the palette is the same: only the frame (a generator's SIDE / VIEWS sizes and origins,
+doubled) and the detail change. `SCALE` is pixels per rig unit with the density in it.
+
 Animation tools for every generator (tween, ease, cycle, lag, lag_at) are at the end of
 this file; the preview GIFs and the timeline check are in tools/anim_preview.py.
 """
@@ -45,6 +53,7 @@ W = H = 128
 OX, OY = 64, 100
 STEP = 0.33
 SCALE = 0.72
+DENSITY = 1   # art pixels per pixel of the 1x drawing (configure(density=...)); 2 for 2x sheets
 LIGHT = (-0.55, -0.7, 0.45)
 
 
@@ -84,7 +93,7 @@ def material_ramp(spec):
 
 
 def configure(mat, outline=None, scale=0.72, step=0.33, outline_mats=None, near=18.0, near_views=None,
-              emissive=None):
+              emissive=None, density=1):
     """Palette (name -> a master-palette ramp, see material_ramp), drawing scale, sample
     step, and how deep the body's roundness is flattened in the up/down views (`near`).
     `near_views` ({view: near}) overrides it per view: a smaller near on the diagonals
@@ -93,8 +102,13 @@ def configure(mat, outline=None, scale=0.72, step=0.33, outline_mats=None, near=
     use `near`, so without it every frame draws as before.
     Each material outlines in its own ramp's ink (palette.ink_for); `outline` forces one
     colour for every silhouette (the old behaviour), `outline_mats` one per material.
-    `emissive` names the materials that glow in the emissive sheets (see EMISSIVE)."""
-    global MAT, MAT_ID, ID_MAT, OUTLINE, SCALE, STEP, OUTLINE_MATS, RAMP, INK, SEAM, EMISSIVE
+    `emissive` names the materials that glow in the emissive sheets (see EMISSIVE).
+    `density` (1 or 2) draws at that many art pixels per 1x pixel: `scale` and `near` are
+    given as for 1x and multiplied here, `step` divided (see the module docstring)."""
+    global MAT, MAT_ID, ID_MAT, OUTLINE, SCALE, STEP, OUTLINE_MATS, RAMP, INK, SEAM, EMISSIVE, DENSITY
+    if int(density) not in (1, 2):
+        raise ValueError("density: 1 or 2 art pixels per 1x pixel, not %r" % (density,))
+    DENSITY = int(density)
     MAT = dict(mat)
     MAT_ID = {name: i + 1 for i, name in enumerate(MAT)}
     ID_MAT = {i: name for name, i in MAT_ID.items()}
@@ -110,12 +124,18 @@ def configure(mat, outline=None, scale=0.72, step=0.33, outline_mats=None, near=
         # seams one step lighter than the outline: the deep step, unless that's darker
         SEAM[name] = next((c for c in r5[:2] if _luma(c) > _luma(ink) + 6), ink)
     OUTLINE = tuple(outline) if outline is not None else (14, 12, 20, 255)
-    SCALE = scale
-    STEP = step
+    SCALE = scale * DENSITY
+    STEP = step / DENSITY
     OUTLINE_MATS = dict(outline_mats or {})
-    Cam.NEAR = near
-    Cam.NEAR_VIEWS = dict(near_views or {})
+    Cam.NEAR = near * DENSITY
+    Cam.NEAR_VIEWS = {v: n * DENSITY for v, n in (near_views or {}).items()}
     EMISSIVE = dict(emissive or {})
+
+
+def px(v):
+    """A length counted in 1x pixels (a depth step, a blur radius, an offset) at the
+    configured density."""
+    return v * DENSITY
 
 
 def set_frame(w, h, origin):
@@ -574,11 +594,12 @@ def shade_levels(r):
         # light (the light comes from the top left, so the right and lower right)
         z = r["z"]
         edge = np.zeros_like(filled)
-        for dx, dy in ((1, 0), (1, 1), (0, 1)):
-            nf = _shifted(filled, dx, dy, False)
-            nz_ = _shifted(z, dx, dy, -np.inf)
-            with np.errstate(invalid="ignore"):
-                edge |= filled & (~nf | (nz_ < z - RIM_DEPTH))
+        for k in range(1, DENSITY + 1):   # as wide as one 1x pixel
+            for dx, dy in ((k, 0), (k, k), (0, k)):
+                nf = _shifted(filled, dx, dy, False)
+                nz_ = _shifted(z, dx, dy, -np.inf)
+                with np.errstate(invalid="ignore"):
+                    edge |= filled & (~nf | (nz_ < z - px(RIM_DEPTH)))
         away = (sd[:, :, 0] * -light[0] + sd[:, :, 1] * -light[1]) > RIM_SIDE
         rim = edge & away & (level <= 1)
         level[rim] += 1
@@ -590,11 +611,12 @@ def shade_levels(r):
     return level
 
 
-def _despeckle(level, mat, filled, passes=2):
+def _despeckle(level, mat, filled, passes=None):
     """Pixel-art cleanup: a lone pixel whose tone none of its neighbours of the same
     material share takes the tone most of them have (the splats' normals wobble, which
-    otherwise salts the light and shadow edges with single pixels)."""
-    for _ in range(passes):
+    otherwise salts the light and shadow edges with single pixels). At 2x it runs twice as
+    many passes, so a two-pixel speck is worn away too."""
+    for _ in range(2 * DENSITY if passes is None else passes):
         same_lvl = np.zeros(level.shape, np.int8)
         votes = np.zeros(level.shape + (5,), np.int8)
         for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
@@ -678,8 +700,8 @@ def outline(r, img):
         pf = _shifted(filled, dx, dy, False)
         pm = _shifted(mat, dx, dy, 0)
         with np.errstate(invalid="ignore"):
-            s = filled & pf & (pp != part) & (pz > z + 0.8)
-            hard |= s & ((pm != mat) | (pz > z + SOFT_SEAM))
+            s = filled & pf & (pp != part) & (pz > z + px(0.8))
+            hard |= s & ((pm != mat) | (pz > z + px(SOFT_SEAM)))
         seam |= s
     a[seam, :3] = seams[mat[seam]]
     # pieces of one material close together (claws, tufts, toes) part with the dark step
@@ -713,7 +735,7 @@ def pack_normals(sd, piece, filled, alpha):
     h, w = piece.shape
     sd = np.where(filled[..., None], sd, 0.0)
     acc = np.zeros_like(sd)
-    k = NORMAL_BLUR
+    k = px(NORMAL_BLUR)
     for dy in range(-k, k + 1):
         for dx in range(-k, k + 1):
             same = filled & (_shifted(piece, dx, dy, -1) == piece)

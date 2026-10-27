@@ -13,6 +13,10 @@ The timeline check, which reads data/creatures/<id>.json against the generator's
     python3 tools/anim_preview.py --selftest        (tween, lag, lag_at and --check on toy data)
     python3 tools/anim_preview.py --reactions <id> [REF]   (hurt, guard and the knockout in every
                                                     view, the sheets at REF beside the new frames)
+    python3 tools/anim_preview.py --compare <id> NEW.sprite.json|- [OUT_DIR] [--old REF]
+                                                   (another sheet, or "-" the JSON's own, beside the
+                                                    side sheet in the JSON (at REF with --old): idle,
+                                                    run and every row both have, at world size)
 
 What a generator gives this module (the adapter; every gen_<id>.py has one):
   - `ROWS`, `VIEW_ROWS`: [(animation, [pose, ...]), ...], one per sheet row.
@@ -316,6 +320,11 @@ def previews(mod, clips=None, old_ref="HEAD", out_dir=ANIM_DIR, only=()):
     if only:
         clips = {k: v for k, v in clips.items() if k in only}
     side = fr.spec("side")
+    # a sheet drawn at another density ("ppu", a 1x sheet beside a 2x one) is enlarged by the
+    # ratio on the compare GIFs, so both stand at the same world size
+    ppu_new = int(creature_json(gid)["sprite"].get("ppu", 1))
+    ppu_old = int(fr.old_sprite().get("ppu", 1))
+    mag = {"new": max(1, ppu_old // ppu_new), "old": max(1, ppu_new // ppu_old)}
     for name, (versions, marks) in clips.items():
         new = versions["new"]
         # 1x and 3x of the new version alone
@@ -332,7 +341,7 @@ def previews(mod, clips=None, old_ref="HEAD", out_dir=ANIM_DIR, only=()):
                 v = versions[version]
                 anim, f = v[t % len(v)]
                 title = "%s  %s %d" % ("current" if version == "old" else "new", anim, f)
-                img = tile(fr.get(version, anim, f), 3, fr.get_spec(version, "side"))
+                img = tile(fr.get(version, anim, f), 3 * mag[version], fr.get_spec(version, "side"))
                 panels.append(label(img, title, note))
             pic = Image.new("RGBA", (sum(p.width for p in panels) + 8, max(p.height for p in panels)), (20, 16, 12, 255))
             pic.alpha_composite(panels[0], (0, 0))
@@ -729,6 +738,88 @@ def selftest():
     print("selftest ok: tween, tweener, cycle, lag, lag_at, ease, check (%d planted problems found)" % len(want))
 
 
+def sheet_compare(gid, new_json, out_dir=ANIM_DIR, scale=3, box=(48, 40, 96, 128), old_ref=None):
+    """GIFs of the creature JSON's side sheet (old) beside another sheet (new, the
+    `.sprite.json` block tools/import_frames.py writes, or "-" for the JSON's own sheet), both
+    at world size: a ppu 1 frame drawn twice as big as a ppu 2 one. With `old_ref` the old
+    side is the JSON and sheet at that git revision (a 2x switch beside main's 1x sheet).
+    Idle and run loop on each block's ticks; a row named by a move with an anim_at plays on
+    that timeline. `box` (x, y, w, h, in 2x pixels round the feet at (96, 144)) is the part of
+    the frame shown. Writes <id>_2x_<anim>.gif."""
+    d = creature_json(gid, old_ref)
+    old_sp = d["sprite"]
+    if new_json == "-":
+        new_sp = creature_json(gid)["sprite"]
+    else:
+        with open(new_json) as f:
+            new_sp = json.load(f)
+    sheets, specs = {}, {}
+    for v, sp in (("old", old_sp), ("new", new_sp)):
+        rel = sp["path"].replace("res://", "")
+        if v == "old" and old_ref:
+            blob = subprocess.check_output(["git", "show", "%s:%s" % (old_ref, rel)], cwd=ROOT)
+            sheets[v] = Image.open(io.BytesIO(blob)).convert("RGBA")
+        else:
+            sheets[v] = Image.open(os.path.join(ROOT, rel)).convert("RGBA")
+        specs[v] = (_frame_size(sp.get("frame", 48)), sp.get("origin", [24, 43]), int(sp.get("ppu", 1)), sp["anims"])
+
+    def frame(v, anim, f):
+        (w, h), (ox, oy), ppu, anims = specs[v]
+        row, first, _n = anims[anim]
+        img = sheets[v].crop(((first + f) * w, row * h, (first + f + 1) * w, (row + 1) * h))
+        k = 2 // ppu
+        img = img.resize((w * k, h * k), Image.NEAREST)
+        canvas = Image.new("RGBA", (192, 192), PREVIEW_BG + (255,))
+        canvas.alpha_composite(img, (96 - ox * k, 144 - oy * k)) if 96 - ox * k >= 0 and 144 - oy * k >= 0 else             canvas.alpha_composite(img.crop((ox * k - 96, oy * k - 144, ox * k - 96 + 192, oy * k - 144 + 192)))
+        dr = ImageDraw.Draw(canvas)
+        dr.line([(86, 145), (106, 145)], fill=(50, 40, 32, 255))
+        x, y, bw, bh = box
+        return canvas.crop((x, y, x + bw, y + bh)).resize((bw * scale, bh * scale), Image.NEAREST)
+
+    def ticks_each(sp, key, dflt):
+        return int(sp.get(key, d.get(key, dflt)))
+
+    clips = {}
+    for anim, key, dflt in (("idle", "idle_ticks", 10), ("run", "run_ticks", 4)):
+        if anim in new_sp["anims"]:
+            cyc = {v: (ticks_each(sp, key, dflt), int(sp["anims"][anim][2])) for v, sp in (("old", old_sp), ("new", new_sp))}
+            total = 2 * max(e * n for e, n in cyc.values())
+            clips[anim] = {v: loop_ticks(anim, *cyc[v], total) for v in cyc}
+    idle_new = (ticks_each(new_sp, "idle_ticks", 10), int(new_sp["anims"]["idle"][2])) if "idle" in new_sp["anims"] else None
+    idle_old = (ticks_each(old_sp, "idle_ticks", 10), int(old_sp["anims"]["idle"][2]))
+    for mid, mv in _move_list(d.get("moves", {})):
+        anim = mv.get("anim")
+        if anim in clips or anim not in new_sp["anims"] or "anim_at" not in mv:
+            continue
+        n = move_length(mv)
+        clips[anim] = {"old": move_ticks(anim, mv["anim_at"], n, idle_old),
+                       "new": move_ticks(anim, mv["anim_at"], n, idle_new or idle_old)}
+    os.makedirs(out_dir, exist_ok=True)
+    paths = []
+    for anim, vs in clips.items():
+        cache = {}
+        pics = []
+        for t in range(len(vs["new"])):
+            sig = (vs["old"][t], vs["new"][t])
+            if sig not in cache:
+                tiles = []
+                for v in ("old", "new"):
+                    a, f = sig[0] if v == "old" else sig[1]
+                    if a not in specs[v][3]:
+                        a = FALLBACK.get(a, "idle")
+                    tiles.append(label(frame(v, a, f), "%s %s" % ("1x sheet" if v == "old" else "2x sheet", anim),
+                                       "frame %d" % f))
+                pic = Image.new("RGBA", (sum(t.width for t in tiles) + 4, tiles[0].height), (20, 16, 12, 255))
+                pic.alpha_composite(tiles[0], (0, 0))
+                pic.alpha_composite(tiles[1], (tiles[0].width + 4, 0))
+                cache[sig] = pic
+            pics.append((sig, cache[sig]))
+        path = os.path.join(out_dir, "%s_2x_%s.gif" % (gid, anim))
+        save_gif(pics, path)
+        paths.append(path)
+    return paths
+
+
 def cli(argv):
     if argv[:1] == ["--selftest"]:
         selftest()
@@ -736,6 +827,15 @@ def cli(argv):
     if argv[:1] == ["--reactions"] and len(argv) >= 2:
         # <id>_reactions_3x.gif: hurt, guard and the knockout, every view, current beside new
         reaction_previews(load_generator(argv[1]), argv[2] if len(argv) > 2 else "HEAD")
+        return 0
+    if argv[:1] == ["--compare"] and len(argv) >= 3:
+        args = list(argv[1:])
+        ref = None
+        if "--old" in args:
+            k = args.index("--old")
+            ref = args[k + 1]
+            del args[k:k + 2]
+        sheet_compare(args[0], args[1], *(args[2:3] or [ANIM_DIR]), old_ref=ref)
         return 0
     if argv[:1] == ["--check"] and len(argv) == 2:
         if argv[1] == "all":

@@ -73,9 +73,15 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   piece per flat face (folds stay sharp); Craglash draws each frame twice (`_with_normals`:
   a normal pass where `shade` paints the pillow normal and the colour-only steps are off).
   Check a change keeps the colour sheets identical: hash `assets/sprites/*.png` before and
-  after regenerating.
+  after regenerating. `configure(density=2)` renders the same rig at 2 art px per 1x px
+  (2x sheets, `"ppu": 2`): it doubles the scale and the near zone, halves the sample step,
+  and doubles the thresholds counted in pixels (`S.px(v)`: seam and rim depths, the normal
+  blur, the rim width; despeckle runs twice as many passes); the outline stays 1 px and the
+  palette is unchanged. A generator doubles its own frame sizes and origins.
 - `gen_culvert.py`, `gen_digby.py`, `gen_pete.py`, `gen_sno.py`, `gen_crease.py`, `gen_cairn.py`,
-  `gen_dummy.py`: splat3d rigs (Crease: faceted paper, 128x160 frames, `decorate` draws creases).
+  `gen_dummy.py`: splat3d rigs (Crease: faceted paper, `decorate` draws creases; his game sheets are the 2x
+  `crease_2x*.png`, 192 px frames, `CREASE_DENSITY=1` rebuilds the 1x `crease*.png`, and
+  `CREASE_STYLE=a|bold` picks the look, bold by default at 2x: three tones a face, one dark ink).
   Cairn's stones are rigid (no squash): `pack` and per-stone `off` / `tilt` carry the weight
   and the overlap; `decorate` paints his face and grain from stone-local coordinates (each
   stone's `local` is offset by 100 per stone, so one buffer tells the stones apart), and
@@ -163,7 +169,11 @@ tools, so a fighter's pass is posing work only.
   `OLD_REF` beside the new frames, the moments labelled), `<id>_idle_views_3x.gif`,
   `<id>_run_views_3x.gif` and `<id>_contact_sheet.png`. Without `CLIPS` it shows the idle,
   the run and every move with an `anim_at`, timed from the JSON. Use `--out` for a look
-  that shouldn't land in `docs/`.
+  that shouldn't land in `docs/`. The compare GIFs enlarge a sheet of lower density (`ppu`)
+  so both stand at world size.
+- **`python3 tools/anim_preview.py --compare <id> NEW.sprite.json|- [OUT_DIR] [--old REF]`**:
+  `<id>_2x_<anim>.gif`, another sheet (or `-`, the JSON's own) beside the JSON's side sheet
+  (at `REF` with `--old`, e.g. main's 1x sheet beside a 2x switch), at world size.
 - **`python3 tools/anim_preview.py --check <id>`** (or `all`): the JSON's row table against
   `ROWS` / `VIEW_ROWS` (names, frame counts, columns), the sheet PNG sizes, idle and run
   cycles against `ANIM_CYCLES`, `step_frames`, every move's `anim_at` / `anim_charge` /
