@@ -90,7 +90,11 @@ Props** (`RPGW_DecorativeProps_v1.0`), both in the same bundle, with Set 1 (cut 
 
 - `assets/tiles/grassland_ground.png`: the Greenhouse's turf (Set 1), GrassLand's moss kerb,
   flower meadow and its own turf, Set 1's grass and water blobs.
-- `assets/tiles/grassland_pieces.png`: Set 1 boulders and tall grass, Decorative Props fences.
+- `assets/tiles/grassland_pieces.png`: Set 1 boulders and tall grass.
+- `assets/tiles/grassland_fence_wood.png`: Decorative Props' wooden fence (a post and two rail
+  strips) composed into fence line tiles.
+- `assets/tiles/grassland_bush_green.png`: round leafy clumps cut from the Wetland tree's
+  canopy (`RPGW_Wetland_v1.1`, `tree2A.png`, its five sway frames) for the brush beds.
 - `assets/tiles/grassland_overlay.png`: GrassLand cliff strips and a cave dark for the pit
   walls and floor, with generated cracks and edges.
 - `assets/tiles/grassland_decor_*.png`: Decorative Props pots, barrels and crates, Set 1's

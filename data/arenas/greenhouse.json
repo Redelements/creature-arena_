@@ -4,7 +4,7 @@
 	"name": "Greenhouse Dome",
 	"ground": "grass",
 	"tiles": {
-		"_doc": "The floor is tiles (assets/arenas/greenhouse.tscn, built by tools/build_tiles.gd): GrassLand turf with a moss kerb, Set 1's bright grass blob round each brush bed (rects in 32 px tiles, 2 x 2 cells), Decorative Props fences on the fence lines, tufts on the brush, pots, barrels and crates in the margins",
+		"_doc": "The floor is tiles (assets/arenas/greenhouse.tscn, built by tools/build_tiles.gd): GrassLand turf with a moss kerb, Set 1's bright grass blob round each brush bed (rects in 32 px tiles, 2 x 2 cells), Decorative Props fences drawn as joined lines (posts and rails, ends and corners), a hedge of Wetland canopy clumps on each brush bed, pots, barrels and crates in the margins (the top row short ones, standing on the kerb under the stand wall)",
 		"set": "grassland",
 		"ground": "turf",
 		"grass": [
@@ -41,14 +41,14 @@
 		],
 		"decor": [
 			{
-				"kind": "bush",
+				"kind": "pot_fern",
 				"pos": [
 					-8,
 					-2
 				]
 			},
 			{
-				"kind": "bush",
+				"kind": "pot_fern",
 				"pos": [
 					680,
 					-2
@@ -111,9 +111,9 @@
 				]
 			},
 			{
-				"kind": "crate_tall",
+				"kind": "pot_fern",
 				"pos": [
-					104,
+					196,
 					-2
 				]
 			},
@@ -121,40 +121,41 @@
 				"kind": "crate",
 				"pos": [
 					130,
-					-2
+					-1
 				]
 			},
 			{
 				"kind": "pot_fat",
 				"pos": [
 					344,
-					-2
+					-1
 				]
 			},
 			{
 				"kind": "pot_tall",
 				"pos": [
 					368,
-					-2
+					-1
 				]
 			},
 			{
 				"kind": "barrel",
 				"pos": [
 					544,
-					-2
+					-1
 				]
 			},
 			{
 				"kind": "crate",
 				"pos": [
 					570,
-					-2
+					-1
 				]
 			}
 		],
 		"styles": {
-			"brush": "bush:green"
+			"brush": "bush:green",
+			"fence": "fenceline:wood"
 		}
 	},
 	"times": [

@@ -31,8 +31,12 @@ extends SceneTree
 ##              "pieces" key) each map piece is drawn with; a kind the set lacks is skipped.
 ##              A kind may come oriented (`fence_h` / `fence_v`, by the rect's longer side) and
 ##              halved (`fence_v_l` / `_r`, `fence_h_t` / `_b`: the half of the tile a one-cell
-##              piece lies in); the most specific pool the set has wins
-##   decor      [{kind, at: [tx, ty]} | {kind, pos: [x, y] units from the floor's top-left
+##              piece lies in); the most specific pool the set has wins.
+##              "fenceline:<name>" (manifest "fencelines") draws the kind's cells as joined
+##              lines instead: each tile a post with rails to the neighbouring tiles of the
+##              line (ends, runs, corners, junctions), in the half of the tile the line holds.
+##              "bush:<name>" (manifest "bushes") draws each rect as a bed of swaying clumps
+##   decor     [{kind, at: [tx, ty]} | {kind, pos: [x, y] units from the floor's top-left
 ##              corner, so the margins are negative or past the floor}]: a decor sprite
 ##              (manifest "decor") standing with its feet at the tile's bottom middle
 ##   anim       [{kind, at | pos}]: an animated piece (manifest "anim", a waterfall)
@@ -44,6 +48,8 @@ const ARENAS_DIR := "res://assets/arenas/"
 const SRC_GROUND := 0
 const SRC_PIECES := 1
 const SRC_SURFACE := 2  ## the first animated surface; one source per surface from here
+const BLOB_OVER := 3  ## px a bed of blob clumps may spill past its cells
+const SRC_FENCE := 16  ## the first fence line (manifest "fencelines"); one source each from here
 const SIDES := [TileSet.CELL_NEIGHBOR_LEFT_SIDE, TileSet.CELL_NEIGHBOR_RIGHT_SIDE,
 	TileSet.CELL_NEIGHBOR_TOP_SIDE, TileSet.CELL_NEIGHBOR_BOTTOM_SIDE]
 const DEFAULT_STYLES := {"wall": "boulder", "brush": "tuft", "fence": "fence", "bridge": "bridge"}
@@ -150,6 +156,20 @@ static func _ground_set(set_name: String, man: Dictionary) -> TileSet:
 		for k in int(s["frames"]):
 			surf.set_tile_animation_frame_duration(Vector2i.ZERO, k, 1.0 / maxf(1.0, float(s["fps"])))
 		sid += 1
+	# Fence lines: 32 x 64 tiles (the tile and the post rising over it), lifted by 16 so the
+	# lower 32 px sit on the cell; a column per arm mask, a row per post spot.
+	var fid := SRC_FENCE
+	for name in man.get("fencelines", {}):
+		var f: Dictionary = man["fencelines"][name]
+		var fs := TileSetAtlasSource.new()
+		fs.texture = load(TILES_DIR + String(f["source"]))
+		fs.texture_region_size = Vector2i(int(f["cell"][0]), int(f["cell"][1]))
+		ts.add_source(fs, fid)
+		for row in f["spots"].size():
+			for mask in 16:
+				fs.create_tile(Vector2i(mask, row))
+				fs.get_tile_data(Vector2i(mask, row), 0).texture_origin = Vector2i(0, (int(f["cell"][1]) - int(f["cell"][0])) / 2)
+		fid += 1
 	_save(ts, TILES_DIR + set_name + "_ground.tres")
 	return ts
 
@@ -162,6 +182,70 @@ static func _surface_source(man: Dictionary, terrain: String) -> int:
 			return sid
 		sid += 1
 	return -1
+
+
+## The source id of fence line `name` (-1: the set has none).
+static func _fence_source(man: Dictionary, name: String) -> int:
+	var fid := SRC_FENCE
+	for n in man.get("fencelines", {}):
+		if String(n) == name:
+			return fid
+		fid += 1
+	return -1
+
+
+## Draws the fence cells `cells` (a set: Vector2i -> true) as joined lines: per tile, the
+## post spot (manifest "spots": across a line, the middle of the half it lies in; along it,
+## the middle of the cells it holds) and the arms to the tiles whose fence cells touch this
+## tile's (L 1, R 2, T 4, B 8). A tile where a vertical arm meets a horizontal one (a corner,
+## a junction) puts its post where the two lines cross.
+static func _fence_lines(pieces: TileMapLayer, man: Dictionary, name: String, cells: Dictionary, per: int) -> void:
+	var fid := _fence_source(man, name)
+	if fid < 0:
+		push_warning("no fence line " + name)
+		return
+	var spots: Array = man["fencelines"][name]["spots"]
+	var half := 32 / per  # a cell in tile px (16)
+	var tiles := {}
+	for c: Vector2i in cells:
+		tiles[Vector2i(floori(float(c.x) / per), floori(float(c.y) / per))] = true
+	for t: Vector2i in tiles:
+		var mine: Array[Vector2i] = []
+		for dy in per:
+			for dx in per:
+				if cells.has(t * per + Vector2i(dx, dy)):
+					mine.append(t * per + Vector2i(dx, dy))
+		var mask := 0
+		var vx := -1  # the column a vertical arm leaves from, the row a horizontal one
+		var hy := -1
+		for c in mine:
+			var lx := c.x - t.x * per
+			var ly := c.y - t.y * per
+			if lx == 0 and cells.has(c + Vector2i.LEFT):
+				mask |= 1
+				hy = ly
+			if lx == per - 1 and cells.has(c + Vector2i.RIGHT):
+				mask |= 2
+				hy = ly
+			if ly == 0 and cells.has(c + Vector2i.UP):
+				mask |= 4
+				vx = lx
+			if ly == per - 1 and cells.has(c + Vector2i.DOWN):
+				mask |= 8
+				vx = lx
+		# across: the arm's half; else the half every cell lies in; else the middle
+		var xs := {}
+		var ys := {}
+		for c in mine:
+			xs[c.x - t.x * per] = true
+			ys[c.y - t.y * per] = true
+		var sx := vx * half + half / 2 if vx >= 0 else (int(xs.keys()[0]) * half + half / 2 if xs.size() == 1 else 16)
+		var sy := hy * half + half / 2 if hy >= 0 else (int(ys.keys()[0]) * half + half / 2 if ys.size() == 1 else 16)
+		var row := 0
+		for i in spots.size():
+			if int(spots[i][0]) == sx and int(spots[i][1]) == sy:
+				row = i
+		pieces.set_cell(t, fid, Vector2i(mask, row))
 
 
 ## The overlay TileSet: 16 px tiles, one per id, in the order ArenaView draws them.
@@ -252,9 +336,10 @@ static func _bush_sprite_frames(man: Dictionary, name: String, cache: Dictionary
 	return frames
 
 
-## One bed of bushes over the brush rect `r` (cells): corner clumps flush with the bed's
-## corners (their outward sides carry the canopy's outline), edge clumps along its sides,
-## inner clumps filling the middle, each an AnimatedSprite2D of the clump's sway frames
+## One bed of bushes over the brush rect `r` (cells): round blob clumps scattered over it
+## (`_blob_spots`), or a nine-slice (corner clumps flush with the bed's corners, edge clumps
+## along its sides, inner clumps filling the middle; `_nine_slice_spots`), each an
+## AnimatedSprite2D of the clump's sway frames
 ## started at its own phase, sorted by its foot. `cell_px` is a cell in scene pixels (16).
 ## Each clump records the cells it covers (`meta "cells"`), so ArenaView can hide it while
 ## a dash has flattened them.
@@ -274,7 +359,73 @@ static func _bush_bed(brush: Node2D, root: Node, man: Dictionary, name: String, 
 
 	var sz := func(key: String) -> Vector2i:
 		return Vector2i(int(sizes[key][0]), int(sizes[key][1]))
-	# the middle first (drawn under), then the edges, then the corners on top
+	if b.get("blobs", false):
+		spots = _blob_spots(b, x0, y0, w, h)
+	else:
+		_nine_slice_spots(spots, sz, x0, y0, w, h)
+	for s in spots:
+		var key := String(s[0])
+		var size: Vector2i = sz.call(key)
+		var px := int(s[1])
+		var py := int(s[2])
+		var sprite := AnimatedSprite2D.new()
+		sprite.name = "%s_%d" % [key, brush.get_child_count()]
+		sprite.sprite_frames = frames
+		sprite.animation = key
+		sprite.centered = false
+		sprite.offset = Vector2(0, -size.y)  # y-sorted by its foot
+		sprite.position = Vector2(px, py + size.y)
+		sprite.flip_h = s.size() > 3 and bool(s[3])
+		sprite.autoplay = key
+		sprite.frame = _h(px, py, 11) % n
+		sprite.speed_scale = 0.85 + 0.3 * float(_h(px, py, 12) % 10) / 10.0
+		# the cells this clump covers, clipped to the bed (what a dash can flatten)
+		var cx0 := clampi(floori(float(px) / cell_px), int(r[0]), int(r[0]) + int(r[2]) - 1)
+		var cy0 := clampi(floori(float(py) / cell_px), int(r[1]), int(r[1]) + int(r[3]) - 1)
+		var cx1 := clampi(ceili(float(px + size.x) / cell_px), cx0 + 1, int(r[0]) + int(r[2]))
+		var cy1 := clampi(ceili(float(py + size.y) / cell_px), cy0 + 1, int(r[1]) + int(r[3]))
+		sprite.set_meta("cells", Rect2i(cx0, cy0, cx1 - cx0, cy1 - cy0))
+		brush.add_child(sprite)
+		sprite.owner = root
+
+
+## A bed of round blob clumps (manifest bushes.<name>.blobs): rows of slots the size of the
+## biggest clump, overlapping by about 40 % across and half down, every other row shifted by
+## half a step, the first and last slot of each row and the first and last row flush with
+## the bed (BLOB_OVER px over it at most), so the leafy outlines make the bed's edge. Each
+## slot takes a clump, a mirror and a nudge of its own (a fixed hash), so neighbours differ
+## and no column or row lines up. Returns [key, x, y, flip] top-left corners in scene px.
+static func _blob_spots(b: Dictionary, x0: int, y0: int, w: int, h: int) -> Array:
+	var keys: Array = b["clumps"]
+	var cw := int(b["cell"][0])
+	var ch := int(b["cell"][1])
+	var step := Vector2i(int(cw * 0.6), int(ch * 0.5))
+	var spots: Array = []
+	var span_y := h + 2 * BLOB_OVER - ch
+	var rows := maxi(1, ceili(float(span_y) / step.y) + 1)
+	for j in rows:
+		var yy := y0 - BLOB_OVER + (0 if rows == 1 else roundi(float(j * span_y) / (rows - 1)))
+		var shift := step.x / 2 if j % 2 == 1 else 0
+		var span_x := w + 2 * BLOB_OVER - cw - shift
+		var cols := maxi(1, ceili(float(span_x) / step.x) + 1)
+		for i in cols:
+			var xx := x0 - BLOB_OVER + shift + (0 if cols == 1 else roundi(float(i * span_x) / (cols - 1)))
+			var key := String(keys[_h(xx, yy, 13) % keys.size()])
+			var size: Array = b["sizes"][key]
+			# centred in its slot, nudged a little inside the bed's edge
+			var px := xx + (cw - int(size[0])) / 2
+			var py := yy + (ch - int(size[1])) / 2
+			if i > 0 and i < cols - 1:
+				px += _h(xx, yy, 14) % 5 - 2
+			if j > 0 and j < rows - 1:
+				py += _h(xx, yy, 15) % 5 - 2
+			spots.append([key, px, py, _h(xx, yy, 16) % 2 == 1])
+	return spots
+
+
+## The nine-slice bed's spots (Twin Keeps): the middle first (drawn under), then the edges,
+## then the corners on top. Appends [key, x, y] top-left corners in scene px to `spots`.
+static func _nine_slice_spots(spots: Array, sz: Callable, x0: int, y0: int, w: int, h: int) -> void:
 	var c: Vector2i = sz.call("c")
 	var yy := y0 + 10
 	var row_k := 0
@@ -307,30 +458,6 @@ static func _bush_bed(brush: Node2D, root: Node, man: Dictionary, name: String, 
 	spots.append(["tr", x0 + w - tr.x, y0])
 	spots.append(["bl", x0, y0 + h - bl.y])
 	spots.append(["br", x0 + w - br.x, y0 + h - br.y])
-
-	for s in spots:
-		var key := String(s[0])
-		var size: Vector2i = sz.call(key)
-		var px := int(s[1])
-		var py := int(s[2])
-		var sprite := AnimatedSprite2D.new()
-		sprite.name = "%s_%d" % [key, brush.get_child_count()]
-		sprite.sprite_frames = frames
-		sprite.animation = key
-		sprite.centered = false
-		sprite.offset = Vector2(0, -size.y)  # y-sorted by its foot
-		sprite.position = Vector2(px, py + size.y)
-		sprite.autoplay = key
-		sprite.frame = _h(px, py, 11) % n
-		sprite.speed_scale = 0.85 + 0.3 * float(_h(px, py, 12) % 10) / 10.0
-		# the cells this clump covers, clipped to the bed (what a dash can flatten)
-		var cx0 := clampi(floori(float(px) / cell_px), int(r[0]), int(r[0]) + int(r[2]) - 1)
-		var cy0 := clampi(floori(float(py) / cell_px), int(r[1]), int(r[1]) + int(r[3]) - 1)
-		var cx1 := clampi(ceili(float(px + size.x) / cell_px), cx0 + 1, int(r[0]) + int(r[2]))
-		var cy1 := clampi(ceili(float(py + size.y) / cell_px), cy0 + 1, int(r[1]) + int(r[3]))
-		sprite.set_meta("cells", Rect2i(cx0, cy0, cx1 - cx0, cy1 - cy0))
-		brush.add_child(sprite)
-		sprite.owner = root
 
 
 ## Where a decor or anim entry stands, in scene pixels (2 a unit): a tile's bottom middle
@@ -430,6 +557,7 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 	root.add_child(brush)
 	brush.owner = root
 	var bush_frames := {}
+	var fence_cells := {}  # fence line name -> {cell: true}
 	for piece in placed:
 		var kind := String(piece.get("kind", ""))
 		var r: Array = piece.get("rect", [0, 0, 0, 0])
@@ -438,6 +566,12 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 		var style := String(styles[kind])
 		if style.begins_with("bush:"):
 			_bush_bed(brush, root, man, style.trim_prefix("bush:"), r, tile / per, bush_frames)
+			continue
+		if style.begins_with("fenceline:"):
+			var line: Dictionary = fence_cells.get_or_add(style.trim_prefix("fenceline:"), {})
+			for cy in range(int(r[1]), int(r[1]) + int(r[3])):
+				for cx in range(int(r[0]), int(r[0]) + int(r[2])):
+					line[Vector2i(cx, cy)] = true
 			continue
 		# a kind with oriented tiles (fence_h / fence_v) picks by the rect's longer side, and
 		# one with half tiles (fence_v_l / fence_v_r, fence_h_t / fence_h_b) by which half of
@@ -452,6 +586,8 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 		for c in _tiles_of(r, per):
 			var pick: Array = alt if not alt.is_empty() and _h(c.x, c.y, 1) % 3 == 0 else pool
 			pieces.set_cell(c, SRC_PIECES, _v(pick[_h(c.x, c.y, 2) % pick.size()]))
+	for name in fence_cells:
+		_fence_lines(pieces, man, String(name), fence_cells[name], per)
 
 	var decor := Node2D.new()
 	decor.name = "Decor"

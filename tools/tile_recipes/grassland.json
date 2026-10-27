@@ -1,5 +1,5 @@
 {
-	"_doc": "The Greenhouse Dome: Set 1's bright grass for the turf (GrassLand v2's own turf, kept here as turf_grassland, reads too dark under the dome), GrassLand v2's moss kerb, flower meadow and cliff face (RPGW_GrassLand_v2.01: the solid blocks on the right of MainLev2.0.png are seamless fills), Set 1's darker grass blob and tall grass for the beds (RPGFW_Set1_v1.0), Decorative Props' wooden fences, pots, barrels and crates (RPGW_DecorativeProps_v1.0). Keys: tools/cut_tiles.py. Paths are relative to the packs dir.",
+	"_doc": "The Greenhouse Dome: Set 1's bright grass for the turf (GrassLand v2's own turf, kept here as turf_grassland, reads too dark under the dome), GrassLand v2's moss kerb, flower meadow and cliff face (RPGW_GrassLand_v2.01: the solid blocks on the right of MainLev2.0.png are seamless fills), Set 1's darker grass blob and tall grass for the beds (RPGFW_Set1_v1.0), Decorative Props' wooden fence (fencelines: posts and rails composed into joined lines), pots, barrels and crates (RPGW_DecorativeProps_v1.0). Keys: tools/cut_tiles.py. Paths are relative to the packs dir.",
 	"ground": {
 		"fills": {
 			"turf": {
@@ -145,61 +145,6 @@
 					665
 				]
 			}
-		],
-		"fence_h": [
-			{
-				"src": "RPGW_DecorativeProps_v1.0/fence.png",
-				"tile": [
-					4,
-					1
-				]
-			},
-			{
-				"src": "RPGW_DecorativeProps_v1.0/fence.png",
-				"tile": [
-					5,
-					1
-				]
-			},
-			{
-				"src": "RPGW_DecorativeProps_v1.0/fence.png",
-				"tile": [
-					6,
-					1
-				]
-			},
-			{
-				"src": "RPGW_DecorativeProps_v1.0/fence.png",
-				"tile": [
-					7,
-					1
-				]
-			}
-		],
-		"fence_v_l": [
-			{
-				"src": "RPGW_DecorativeProps_v1.0/fence.png",
-				"tile": [
-					0,
-					2
-				]
-			},
-			{
-				"src": "RPGW_DecorativeProps_v1.0/fence.png",
-				"tile": [
-					0,
-					3
-				]
-			}
-		],
-		"fence_v_r": [
-			{
-				"src": "RPGW_DecorativeProps_v1.0/fence.png",
-				"tile": [
-					12,
-					3
-				]
-			}
 		]
 	},
 	"overlay": {
@@ -320,7 +265,7 @@
 			],
 			"feet": [
 				48,
-				206
+				176
 			]
 		},
 		"bush": {
@@ -333,7 +278,7 @@
 			],
 			"feet": [
 				48,
-				236
+				88
 			]
 		}
 	},
@@ -347,63 +292,58 @@
 			],
 			"frames": 5,
 			"fps": 4,
-			"_doc": "a hedge-bush nine-slice from the green Wetland tree's canopy clumps (the first frame's boxes; the sheet's 5 sway frames give the bed its sway): corners and edges keep the canopy's outline on their outward sides, the centre is pure leaf",
-			"clumps": {
-				"tl": [
-					14,
-					40,
-					70,
-					96
-				],
-				"t": [
-					56,
-					14,
-					112,
-					60
-				],
-				"tr": [
-					100,
-					36,
-					148,
-					100
-				],
-				"l": [
-					10,
-					70,
-					50,
-					126
-				],
-				"c": [
-					44,
-					62,
-					116,
-					110
-				],
-				"r": [
-					110,
-					66,
-					150,
-					126
-				],
-				"bl": [
-					14,
-					118,
-					52,
-					166
-				],
-				"b": [
-					100,
+			"_doc": "a hedge from the green Wetland tree's canopy: four leaf boxes (the sunny lower-right clump, the shaded lower-left one, the crown and the right lobe; the first frame's boxes, the sheet's 5 sway frames give the bed its sway), each cut twice as a round clump with its own leafy outline; a bed scatters them overlapping (tools/build_tiles.gd _blob_bed), so it reads as one hedge with no column seams or square edge",
+			"blobs": {
+				"a": [
+					84,
 					130,
 					140,
-					178
+					174
 				],
-				"br": [
-					76,
+				"b": [
+					16,
 					124,
-					146,
-					178
+					52,
+					158
+				],
+				"c": [
+					56,
+					18,
+					112,
+					62
+				],
+				"d": [
+					98,
+					34,
+					138,
+					70
 				]
-			}
+			},
+			"shapes": 2
+		}
+	},
+	"fencelines": {
+		"wood": {
+			"src": "RPGW_DecorativeProps_v1.0/fence.png",
+			"_doc": "Decorative Props' wooden fence as continuous lines: a lone post (row 5), a stretch of the long top rail (row 1) and the edge-on rail of the left-hand vertical run (column 0); cut_tiles.py composes every end, run, corner and junction from them",
+			"post": [
+				138,
+				160,
+				152,
+				192
+			],
+			"rail_h": [
+				264,
+				42,
+				280,
+				52
+			],
+			"rail_v": [
+				29,
+				108,
+				33,
+				124
+			]
 		}
 	}
 }
