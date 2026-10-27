@@ -698,6 +698,18 @@ shoulder unless a pose holds it out to swing. Poses place the feet, hands and ba
 at 0.8 scale, feet at **x 64, y 104**; up and down sheets are **112×128**, feet at
 x 56, y 104 (down) and y 92 (up).
 
+**2x (route A, Oct 2026, branch `pete-2x`, stacked on `sprites-vram`).** The game draws
+`pete_2x*.png` (packed copies in `assets/sprites/packed/`): the same rig rendered by
+`gen_pete.py` at density 2 (`PETE_DENSITY`, default 2; `PETE_DENSITY=1` rebuilds the 1x
+`pete*.png` byte for byte), **256×256** frames (down and up **224×256**), feet at (128, 208)
+(up views (112/128, 184)), `"ppu": 2` in every view, portrait `[112, 122, 48, 64]`; same
+rows, frame counts and timing. Shaded "bold" (`PETE_STYLE`): three flat tones (no highlight
+step, no rim light) and one dark ink round the whole silhouette. The bag is a rig piece, so
+it needed nothing of its own; `cut_in_frame` stays `[8, 9]` (a [row, col] index). Tiptoe's
+ghost is the view's modulate alpha and its afterimages carry the sheet's `ppu`, so both work
+at 2x unchanged (`test_pete_at_2x_still_vanishes_into_a_ghost`). Gallery:
+`pixellab/pete/pete_route_a.png`.
+
 Animated with the roster pass (motion plan, previews and before/after GIFs:
 [`anim_preview/pete_motion_plan.md`](anim_preview/pete_motion_plan.md)): the poses are
 keys in the body's own frame, in-betweened with `splat3d.tween` (hands and bag on arcs,
