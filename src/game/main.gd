@@ -2713,7 +2713,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 		views.append(v)
 	debug.sim = sim
 	rings.set_sim(sim)
-	water.set_sim(sim)
+	water.set_sim(sim, arena.water_bank(), ArtScale.TILE_CELLS)  # after arena.set_terrain: the bank is the tiles'
 	wear.set_sim(sim)
 	water.fx = fx
 	ambient.set_sim(sim, arena.art())

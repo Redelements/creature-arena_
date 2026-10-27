@@ -11,6 +11,9 @@ extends SceneTree
 ##                                     sides, variants by probability), source 1 the pieces
 ##   assets/tiles/<set>_overlay.tres   tile size 16: source 0 the overlay atlas, one tile per
 ##                                     id (ArenaView.OV_*; assets/README.md)
+##   assets/tiles/<set>_shore.tres     tile size 32: the bank tiles round a terrain (manifest
+##                                     "shores"), one per land-neighbour mask (a set without
+##                                     shores writes none)
 ##   assets/arenas/<id>.tscn           for every data/arenas/<id>.json with a "tiles" block
 ##                                     naming this set: a Node2D of TileMapLayers and sprites
 ##                                     that ArenaView instances at half scale under the floor
@@ -25,7 +28,9 @@ extends SceneTree
 ##   grass      rects [tx, ty, w, h] in tiles painted with the "grass" terrain (autotiled)
 ##   water      rects in tiles painted with the "water" terrain; the map's shallows pieces
 ##              are painted with it as well (rounded out to whole tiles); a set with an
-##              animated surface over water (manifest "surfaces") gets a WaterSurface layer
+##              animated surface over water (manifest "surfaces") gets a WaterSurface layer,
+##              and one with a shore (manifest "shores") a WaterBank layer over that: a bank
+##              tile on every water tile with land round it, picked by its eight neighbours
 ##   styles     {wall: "boulder", brush: "tuft", fence: "fence"}: the piece kind (manifest
 ##              "pieces" key) each map piece is drawn with; a kind the set lacks is skipped.
 ##              A kind may come oriented (`fence_h` / `fence_v`, by the rect's longer side) and
@@ -60,6 +65,7 @@ func _init() -> void:
 		return
 	var ground := _ground_set(set_name, man)
 	var overlay := _overlay_set(set_name, man)
+	var shore := _shore_set(set_name, man)
 	var built := 0
 	for f in DirAccess.get_files_at("res://data/arenas/"):
 		if not f.ends_with(".json"):
@@ -68,7 +74,7 @@ func _init() -> void:
 		var tiles: Dictionary = map.get("tiles", {})
 		if tiles.is_empty() or String(tiles.get("set", "set1")) != set_name:
 			continue
-		_build_scene(map, tiles, man, ground)
+		_build_scene(map, tiles, man, ground, shore)
 		built += 1
 	print("built ", ground.resource_path, ", ", overlay.resource_path, " and ", built, " arena scene(s)")
 	quit(0)
@@ -184,6 +190,49 @@ static func _overlay_set(set_name: String, man: Dictionary) -> TileSet:
 		src.create_tile(Vector2i(int(id) % cols, int(id) / cols))
 	_save(ts, TILES_DIR + set_name + "_overlay.tres")
 	return ts
+
+
+## The bank TileSet (manifest "shores"): 32 px, one source per shored terrain in the
+## manifest's order, a tile per land-neighbour mask. Null for a set without shores.
+static func _shore_set(set_name: String, man: Dictionary) -> TileSet:
+	var shores: Dictionary = man["ground"].get("shores", {})
+	if shores.is_empty():
+		return null
+	var ts := TileSet.new()
+	ts.tile_size = Vector2i(int(man["ground"]["tile"]), int(man["ground"]["tile"]))
+	var sid := 0
+	for name in shores:
+		var src := TileSetAtlasSource.new()
+		src.texture = load(TILES_DIR + String(shores[name]["source"]))
+		src.texture_region_size = ts.tile_size
+		ts.add_source(src, sid)
+		for key in shores[name]["tiles"]:
+			src.create_tile(_v(shores[name]["tiles"][key]))
+		sid += 1
+	_save(ts, TILES_DIR + set_name + "_shore.tres")
+	return ts
+
+
+## A water tile's land neighbours as the manifest's shore key (tools/cut_tiles.py
+## `shore_mask`): bits l, r, t, b, then the corners tl, tr, bl, br, a corner only when both
+## of its sides are water (otherwise a side's bank covers it); 8 binary digits, br first.
+static func _shore_key(c: Vector2i, wet: Dictionary) -> String:
+	var land := func(dx: int, dy: int) -> int:
+		return 0 if wet.has(c + Vector2i(dx, dy)) else 1
+	var l: int = land.call(-1, 0)
+	var r: int = land.call(1, 0)
+	var t: int = land.call(0, -1)
+	var b: int = land.call(0, 1)
+	var m := l | r << 1 | t << 2 | b << 3
+	if land.call(-1, -1) == 1 and t == 0 and l == 0:
+		m |= 1 << 4
+	if land.call(1, -1) == 1 and t == 0 and r == 0:
+		m |= 1 << 5
+	if land.call(-1, 1) == 1 and b == 0 and l == 0:
+		m |= 1 << 6
+	if land.call(1, 1) == 1 and b == 0 and r == 0:
+		m |= 1 << 7
+	return String.num_int64(m, 2).lpad(8, "0")
 
 
 ## A small fixed hash, so a scene rebuilt from the same map picks the same variants.
@@ -343,7 +392,7 @@ static func _spot(e: Dictionary, tile: int) -> Vector2:
 
 ## One map's ground scene: the fill under everything (a tile past the floor all round, an
 ## `edge` fill for that ring), the terrains, the pieces, the decor and the animated pieces.
-static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts: TileSet) -> void:
+static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts: TileSet, shore_ts: TileSet) -> void:
 	var g: Dictionary = man["ground"]
 	var p: Dictionary = man["pieces"]
 	var tile := int(ts.tile_size.x)
@@ -377,6 +426,7 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 				ground.set_cell(Vector2i(tx, ty), SRC_GROUND, _v(f[posmod(ty, block) * block + posmod(tx, block)]))
 
 	var counts := {}
+	var wet_tiles := {}  ## the tiles painted with water (a causeway's ends look at them)
 	var names := ["grass", "water"]  # always there (tests look for the layers), then the set's own
 	for i in ts.get_terrains_count(0):
 		if not ts.get_terrain_name(0, i) in names:
@@ -403,12 +453,28 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 					if not c in cells:
 						cells.append(c)
 		counts[name] = _terrain(layer, ts, name, cells)
+		if name == "water":
+			for c in cells:
+				wet_tiles[c] = true
 		# the terrain's animated surface, if the set has one, on its own layer over it
 		var sid := _surface_source(man, name)
 		if sid >= 0 and not cells.is_empty():
 			var surface := _layer(root, name.capitalize() + "Surface", ts)
 			for c in cells:
 				surface.set_cell(c, sid, Vector2i.ZERO)
+		# its bank, over the water and its surface, on every tile with land round it
+		var shores: Dictionary = g.get("shores", {})
+		if shore_ts != null and shores.has(name) and not cells.is_empty():
+			var bank := _layer(root, name.capitalize() + "Bank", shore_ts)
+			var wet := {}
+			for c in cells:
+				wet[c] = true
+			var keys: Dictionary = shores[name]["tiles"]
+			var src_id := shores.keys().find(name)
+			for c in cells:
+				var key := _shore_key(c, wet)
+				if keys.has(key):
+					bank.set_cell(c, src_id, _v(keys[key]))
 
 	var pieces := _layer(root, "Pieces", ts)
 	var styles: Dictionary = DEFAULT_STYLES.duplicate()
@@ -446,8 +512,15 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 		var alt: Array = p.get("sprig", []) if style == "tuft" else []
 		if pool.is_empty():
 			continue
-		for c in _tiles_of(r, per):
+		var rect_tiles := _tiles_of(r, per)
+		for c in rect_tiles:
 			var pick: Array = alt if not alt.is_empty() and _h(c.x, c.y, 1) % 3 == 0 else pool
+			# a rect's end rows with water beyond (a causeway's ends): the kind's _t / _b tiles,
+			# a lit lip upstream and the causeway's face down to the water downstream
+			if p.has(style + "_t") and not (c + Vector2i.UP) in rect_tiles and wet_tiles.has(c + Vector2i.UP):
+				pick = p[style + "_t"]
+			elif p.has(style + "_b") and not (c + Vector2i.DOWN) in rect_tiles and wet_tiles.has(c + Vector2i.DOWN):
+				pick = p[style + "_b"]
 			pieces.set_cell(c, SRC_PIECES, _v(pick[_h(c.x, c.y, 2) % pick.size()]))
 
 	var decor := Node2D.new()

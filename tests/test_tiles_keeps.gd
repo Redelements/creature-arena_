@@ -3,7 +3,8 @@ extends TestCase
 ## and every piece, drawn from the "keeps" set: castle tiles on each wall, fences on the
 ## fences, water under every shallows cell and under the bridge (so a fallen bridge shows
 ## it), a cobble causeway on the bridge, trees along the top margin, the waterfall where the
-## river enters at the top and torches on the gate towers. ArenaView treats it as tiled.
+## river enters at the top and torches on the gate towers. Every water tile at the river's
+## edge (the island, the head, the bridge's ends) carries its bank. ArenaView treats it as tiled.
 
 const SCENE := "res://assets/arenas/twin_keeps.tscn"
 const MANIFEST := "res://assets/tiles/keeps_manifest.json"
@@ -36,7 +37,7 @@ func test_the_scene_covers_the_map_with_its_pieces_in_place() -> void:
 	assert_eq(ground.get_used_cells().size(), 77 * 34, "75 x 32 tiles of floor and a tile round it")
 	var castle: Array = _coords(man["pieces"]["castle_h"]) + _coords(man["pieces"]["castle_v"])
 	var fence: Array = _coords(man["pieces"]["fence_h"]) + _coords(man["pieces"]["fence_v"])
-	var bridge: Array = _coords(man["pieces"]["bridge"])
+	var bridge: Array = _coords(man["pieces"]["bridge"]) + _coords(man["pieces"].get("bridge_t", [])) + _coords(man["pieces"].get("bridge_b", []))
 	for piece in map["pieces"]:
 		var kind := String(piece["kind"])
 		for c in _tiles_of(piece["rect"]):
@@ -55,6 +56,12 @@ func test_the_scene_covers_the_map_with_its_pieces_in_place() -> void:
 		for c in _tiles_of(b["rect"]):
 			assert_true(pieces.get_cell_atlas_coords(c) in bridge, "%s: the causeway on the bridge" % c)
 			assert_eq(water.get_cell_source_id(c), 0, "%s: and water under it" % c)
+		# its ends over the river: the lit lip upstream, the causeway's face downstream
+		var r: Array = b["rect"]
+		var top := Vector2i(int(r[0]) / 2 + 1, int(r[1]) / 2)
+		var bottom := Vector2i(int(r[0]) / 2 + 1, (int(r[1]) + int(r[3])) / 2 - 1)
+		assert_true(pieces.get_cell_atlas_coords(top) in _coords(man["pieces"]["bridge_t"]), "the causeway's upstream end has its lip")
+		assert_true(pieces.get_cell_atlas_coords(bottom) in _coords(man["pieces"]["bridge_b"]), "and its downstream end its face")
 	root.free()
 
 
@@ -76,12 +83,35 @@ func test_the_trees_the_waterfall_and_the_torches_stand_where_the_map_says() -> 
 	var falls := anim.get_children().filter(func(n): return String(n.name).begins_with("waterfall"))
 	assert_eq(falls.size(), 1, "one waterfall")
 	var w := falls[0] as AnimatedSprite2D
-	# feet [64, 84] at tile (37, 0)'s bottom middle: x 37.5 * 32 - 64, y 32 - 84, over the river's head
-	assert_eq(w.position, Vector2(1136, -86), "the waterfall (128 x 160, feet at 150) pours onto the river's second tile row, its pool on the floor past the crowd")
+	# feet [112, 150] at tile (37, 1)'s bottom middle: x 37.5 * 32 - 112, y 64 - 150; its
+	# curtain (5 tiles) spans the river's head (tiles 35..39)
+	assert_eq(w.position, Vector2(1088, -86), "the waterfall (224 x 160, feet at 150) pours onto the river's second tile row, its pool on the floor past the crowd")
+	var tex := w.sprite_frames.get_frame_texture("default", 0)
+	assert_eq(tex.get_size(), Vector2(224, 160), "Set 1's five-wide fall")
+	var img := tex.get_image()
+	var lum := 0.0
+	var n := 0
+	for y in range(40, 130, 3):
+		for x in range(40, 184, 3):
+			var c := img.get_pixel(x, y)
+			if c.a > 0.5:
+				lum += c.get_luminance()
+				n += 1
+	assert_true(n > 0 and lum / n > 0.2, "tinted like the river, not a dark slab (luminance %.2f)" % (lum / maxf(1, n)))
 	assert_eq(w.sprite_frames.get_frame_count("default"), 8, "its eight frames")
 	assert_true(w.autoplay == "default", "and it plays")
 	var torches := anim.get_children().filter(func(n): return String(n.name).begins_with("torch"))
 	assert_eq(torches.size(), 4, "a torch on each gate tower")
+	root.free()
+
+
+func test_the_river_has_its_banks() -> void:
+	var root: Node = (load(SCENE) as PackedScene).instantiate()
+	var problems: Array = load("res://tests/test_tiles_floodgate.gd").bank_problems(root, _manifest())
+	assert_true(problems.is_empty(), "every edge of the river has its bank: %s" % [problems])
+	var bank := root.get_node("WaterBank") as TileMapLayer
+	assert_true(bank.get_index() > root.get_node("WaterSurface").get_index(), "drawn over the water's surface")
+	assert_true(bank.get_index() < root.get_node("Pieces").get_index(), "and under the bridge")
 	root.free()
 
 

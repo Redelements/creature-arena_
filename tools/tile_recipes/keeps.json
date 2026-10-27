@@ -73,14 +73,6 @@
 					0,
 					0
 				],
-				"variants": [
-					[
-						4,
-						0,
-						8,
-						4
-					]
-				],
 				"tint": {
 					"mul": [
 						2.0,
@@ -92,7 +84,41 @@
 						2,
 						17
 					]
-				}
+				},
+				"centres": [
+					[
+						5,
+						1
+					],
+					[
+						6,
+						1
+					],
+					[
+						5,
+						2
+					],
+					[
+						6,
+						2
+					],
+					[
+						8,
+						2
+					],
+					[
+						9,
+						2
+					],
+					[
+						8,
+						3
+					],
+					[
+						9,
+						3
+					]
+				]
 			}
 		},
 		"surfaces": {
@@ -104,6 +130,56 @@
 				"fps": 8,
 				"over": "water",
 				"alpha_mul": 5
+			}
+		},
+		"shores": {
+			"water": {
+				"_doc": "the river's banks: Set 1 grass on top, a rim of hills2's round ledge stones along the edge, its rock face down to the water on the far bank",
+				"land": {
+					"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+					"block": [
+						12,
+						0
+					],
+					"size": 1
+				},
+				"face": {
+					"src": "RPGFW_Set1_v1.0/_PNG/hills2.png",
+					"box": [
+						256,
+						64,
+						352,
+						70
+					]
+				},
+				"top": 12,
+				"bottom": 7,
+				"side": 9,
+				"face_px": 6,
+				"radius": 7,
+				"rag": 1.6,
+				"outline": [
+					22,
+					30,
+					26
+				],
+				"shadow": [
+					30,
+					60,
+					96
+				],
+				"lip": 1.3,
+				"edge_px": 3,
+				"shade": 3,
+				"edge": {
+					"src": "RPGFW_Set1_v1.0/_PNG/hills2.png",
+					"box": [
+						256,
+						51,
+						352,
+						55
+					]
+				}
 			}
 		}
 	},
@@ -305,6 +381,33 @@
 			}
 		]
 	},
+	"piece_ends": {
+		"bridge": {
+			"_doc": "the causeway's ends over the river: a lit lip upstream, its cobbled side in shade down to the water downstream",
+			"face": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+				"block": [
+					37,
+					0
+				],
+				"size": 1,
+				"tint": {
+					"mul": [
+						0.55,
+						0.55,
+						0.6
+					]
+				}
+			},
+			"face_px": 6,
+			"outline": [
+				22,
+				30,
+				26
+			],
+			"lip": 1.3
+		}
+	},
 	"overlay": {
 		"cliff": {
 			"src": "RPGFW_Set1_v1.0/_PNG/hills2.png",
@@ -390,17 +493,30 @@
 	},
 	"anim": {
 		"waterfall": {
-			"src": "RPGFW_Set1_v1.0/_PNG/anim/waterfall/3x2_waterfall.png",
+			"src": "RPGFW_Set1_v1.0/_PNG/anim/waterfall/3x5_waterfall.png",
 			"frame": [
-				128,
+				224,
 				160
 			],
 			"frames": 8,
 			"fps": 8,
 			"feet": [
-				64,
+				112,
 				150
-			]
+			],
+			"tint": {
+				"mul": [
+					2.0,
+					2.2,
+					2.6
+				],
+				"add": [
+					2,
+					2,
+					17
+				]
+			},
+			"_doc": "Set 1's 3-tall, 5-wide fall: its curtain is as wide as the river's head (5 tiles), tinted like the river"
 		},
 		"torch": {
 			"src": "RPG_Buildings_CASTLE_v1.0/Anim/torch.png",

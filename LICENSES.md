@@ -81,7 +81,10 @@ Twin Keeps (the Capture the Flag map; cut by `tools/cut_tiles.py` from
   tiles) and from **RPG Worlds Decorative Props** (`RPGW_DecorativeProps_v1.0`, the same
   licence: the fence tiles).
 - `assets/tiles/keeps_decor_*.png` (Set 1 trees and a bush), `assets/tiles/keeps_anim_waterfall.png`
-  (Set 1) and `assets/tiles/keeps_anim_torch.png` (RPG Buildings Castle).
+  (Set 1's five-wide fall, tinted like the river) and `assets/tiles/keeps_anim_torch.png`
+  (RPG Buildings Castle).
+- `assets/tiles/keeps_shore.png`: the river's banks, composed from Set 1's grass, the round
+  ledge stones and rock face of `hills2.png`.
 - `assets/tiles/keeps_manifest.json`, `assets/tiles/keeps_*.tres`, `assets/arenas/twin_keeps.tscn`.
 
 Files from **RPG Worlds GrassLand v2** (`RPGW_GrassLand_v2.01`) and **RPG Worlds Decorative
@@ -109,8 +112,11 @@ by `tools/cut_tiles.py` from `tools/tile_recipes/wetland.json` for the Floodgate
   (Wetland's stone face as the pit walls, its cave dark as the pit floor, generated cracks).
 - `assets/tiles/wetland_decor_reeds.png`, `wetland_decor_reeds_small.png`,
   `wetland_decor_post.png` (Wetland's reeds and a post).
+- `assets/tiles/wetland_shore.png`: the channels' stone kerb, composed from Wetland's paving
+  and Set 1's cobbles.
 - `assets/tiles/wetland_manifest.json`, `assets/tiles/wetland_ground.tres`,
-  `assets/tiles/wetland_overlay.tres`, `assets/arenas/floodgate.tscn`.
+  `assets/tiles/wetland_overlay.tres`, `assets/tiles/wetland_shore.tres`,
+  `assets/arenas/floodgate.tscn`.
 
 Fantasy Lands Warrior: nothing from it is in the repository yet. Add its files here when
 they are.
