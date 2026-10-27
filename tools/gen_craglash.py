@@ -4,8 +4,9 @@
 Run from anywhere:  python3 tools/gen_craglash.py
 Requires Pillow and numpy.
 
-Writes assets/sprites/craglash.png (96x96 frames, 12 columns), the facing-down and
-facing-up sheets (128x160 frames) and labelled previews in docs/. Craglash is drawn as
+Writes assets/sprites/craglash_2x.png (192x192 frames, 12 columns), the facing-down,
+facing-up and diagonal sheets (256x320 frames) and labelled previews in docs/; with
+CRAGLASH_DENSITY=1 the 1x sheets, craglash.png (96x96) and its 128x160 views. Craglash is drawn as
 a small puppet: torso, legs, arms, a segmented stone neck and a maned head, each part
 shaded and outlined on its own layer. Every frame is one pose (a dict of where the feet,
 hands and head go), so new animations are a list of poses. See docs/SPRITES.md for the
@@ -34,8 +35,27 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import palette as PAL  # noqa: E402  (the master palette; P is the pose constructor here)
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-OUT = os.path.join(ROOT, "assets", "sprites", "craglash.png")
-PREVIEW = os.path.join(ROOT, "docs", "craglash_preview.png")
+# Density (docs/plans/roster-2x.md): 2 draws the sheets the game uses, craglash_2x*.png
+# (192x192 frames, views 256x320, "ppu": 2); CRAGLASH_DENSITY=1 the older 1x ones,
+# craglash*.png (96x96, views 128x160), byte for byte. Poses, rigs and parts stay written in
+# 1x pixels (F, OX, the radii, the face): the drawing calls (`Draw`) and the shader's pixel
+# counts (`px`) carry the density, so every part is the same shape drawn with twice the
+# pixels a side, and the outline stays one pixel.
+DENSITY = int(os.environ.get("CRAGLASH_DENSITY", "2"))
+if DENSITY not in (1, 2):
+    sys.exit("CRAGLASH_DENSITY: 1 or 2 art pixels per 1x pixel, not %r" % DENSITY)
+# The look (CRAGLASH_STYLE): "a" the shading as at 1x (highlight, rim light, each
+# material's own ink); "bold" three flat tones a part (light, base, dark: no highlight and
+# no rim light) and one dark ink round the whole silhouette.
+STYLE = os.environ.get("CRAGLASH_STYLE", "bold" if DENSITY > 1 else "a")
+_TAG = "" if DENSITY == 1 else "_%dx" % DENSITY
+OUT = os.path.join(ROOT, "assets", "sprites", "craglash%s.png" % _TAG)
+PREVIEW = os.path.join(ROOT, "docs", "craglash%s_preview.png" % _TAG)
+
+
+def px(v):
+    """A count of 1x pixels (a depth, a band, a window) in pixels at the density."""
+    return v * DENSITY
 
 F = 96  # frame size
 COLS = 12  # the stomp, Mountain Maw, Bedrock and Landslide Charge have 12 frames
@@ -104,7 +124,44 @@ RIM_SIDE = 0.25
 
 
 def layer():
-    return Image.new("RGBA", (F, FH or F), (0, 0, 0, 0))
+    return Image.new("RGBA", (F * DENSITY, (FH or F) * DENSITY), (0, 0, 0, 0))
+
+
+class _Draw:
+    """ImageDraw at the density, for coordinates in 1x pixels: each shape is drawn at
+    DENSITY times the size and stamped over a DENSITY x DENSITY block, so a shape covers the
+    same area a 1x pixel grid gave it (pixel x covers [x, x + 1) at 1x, [2x, 2x + 2) at 2),
+    with its edges at the finer grid. Strokes and dots stay as thick as a 1x pixel."""
+
+    def __init__(self, img):
+        self.d = ImageDraw.Draw(img)
+
+    def _stamp(self, fn, pts, **kw):
+        for ox in range(DENSITY):
+            for oy in range(DENSITY):
+                fn([(x * DENSITY + ox, y * DENSITY + oy) for x, y in pts], **kw)
+
+    def polygon(self, pts, fill):
+        self._stamp(self.d.polygon, pts, fill=fill)
+
+    def line(self, pts, fill):
+        self._stamp(self.d.line, pts, fill=fill)
+
+    def point(self, p, fill):
+        self._stamp(self.d.point, [p], fill=fill)
+
+    def ellipse(self, box, fill):
+        self._stamp(lambda q, **kw: self.d.ellipse([q[0][0], q[0][1], q[1][0], q[1][1]], **kw),
+                    [box[:2], box[2:]], fill=fill)
+
+    def rectangle(self, box, fill):
+        self._stamp(lambda q, **kw: self.d.rectangle([q[0][0], q[0][1], q[1][0], q[1][1]], **kw),
+                    [box[:2], box[2:]], fill=fill)
+
+
+def Draw(img):
+    """ImageDraw.Draw for the parts (in 1x pixels): Pillow's own at density 1."""
+    return ImageDraw.Draw(img) if DENSITY == 1 else _Draw(img)
 
 
 # The normal pass (normal sheets, docs/SPRITES.md): with NORMAL_PASS on, the same drawing
@@ -225,11 +282,14 @@ def shade(img, mat, band=None, flat=False):
     if not m.any():
         return img
     r5 = MAT[mat]
-    dist = dist_field(m, cap=8)
+    dist = dist_field(m, cap=px(8))
     dmax = int(dist.max())
     df = dist.astype(float) + 1.0
     df[~m] = 0.0
-    sm = _blur(_blur(df))
+    sm = df
+    for _ in range(px(2)):   # the smoothing reaches as far in 1x pixels at any density
+        sm = _blur(sm)
+    edge = m & (dist < px(1))   # the part's rim, one 1x pixel wide
     gx = _shift(sm, 1, 0) - _shift(sm, -1, 0)
     gy = _shift(sm, 0, 1) - _shift(sm, 0, -1)
     ln = np.hypot(gx, gy)
@@ -239,45 +299,47 @@ def shade(img, mat, band=None, flat=False):
     level = np.full(m.shape, 2, np.int8)
     if NORMAL_PASS[0]:
         if flat:  # a flat face toward us, its one-pixel bevel tipped out
-            edge = m & (dist == 0)
             k = np.where(edge, 0.55, 0.0)
-            px = _pack(nx * k, ny * k, np.where(edge, 0.83, 1.0))
+            pk = _pack(nx * k, ny * k, np.where(edge, 0.83, 1.0))
         else:
             rad = float(dmax + 1)
             if band is not None:
-                rad = min(rad, float(band) + 1.0)
+                rad = min(rad, float(px(band + 1)))
             s = np.clip((rad - dist - 0.5) / rad, 0.0, 0.96)
-            px = _pack(s * nx, s * ny, np.sqrt(1.0 - s * s))
+            pk = _pack(s * nx, s * ny, np.sqrt(1.0 - s * s))
         out = np.zeros_like(a)
-        out[m, :3] = px[m]
+        out[m, :3] = pk[m]
         out[m, 3] = 255
         return Image.fromarray(out)
     if flat:
-        edge = m & (dist == 0)
         level[edge & (toward > 0.3)] = 3
         level[edge & (toward < -0.3)] = 1
     else:
         rad = float(dmax + 1)
         if band is not None:
-            rad = min(rad, float(band) + 1.0)
+            rad = min(rad, float(px(band + 1)))
         s = np.clip((rad - dist - 0.5) / rad, 0.0, 0.96)  # sine of the tilt away from us
         nz = np.sqrt(1.0 - s * s)
         lum = s * toward + nz * _LV[2]
         level[lum > LUM_LIGHT] = 3
         level[lum > LUM_HIGH] = 4
         level[lum < LUM_SHADOW] = 1
-        if dmax < 3 or band is not None:
+        if dmax < px(3) or band is not None or STYLE == "bold":
             level[level == 4] = 3  # spikes and slivers have no room for a highlight
-    level = _despeckle(level, m)
+    level = _despeckle(level, m, passes=px(2))
     # a highlight is a sheen along the lit side, not a dot: a speck (fewer than four of
-    # its 3x3 block, on the round end of a limb or a corner) goes back to the light step
+    # its 3x3 block, on the round end of a limb or a corner; at 2x the same share of a 5x5
+    # block) goes back to the light step
     hi = level == 4
     if hi.any():
-        near = sum(_shift(hi.astype(np.int8), dx, dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1))
-        level[hi & (near < 4)] = 3
-    # rim light: the edge pixels in shadow that face away from the key light
-    rim = m & (dist == 0) & (-toward > RIM_SIDE) & (level <= 1)
-    level[rim] += 1
+        rr = range(-px(1), px(1) + 1)
+        near = sum(_shift(hi.astype(np.int8), dx, dy) for dx in rr for dy in rr)
+        level[hi & (near < (4 if DENSITY == 1 else 11))] = 3
+    # rim light: the edge pixels in shadow that face away from the key light (none in bold:
+    # three tones a part)
+    if STYLE != "bold":
+        rim = edge & (-toward > RIM_SIDE) & (level <= 1)
+        level[rim] += 1
     ramp = np.array(r5, np.uint8)
     out = np.zeros_like(a)
     out[m, :3] = ramp[level[m]]
@@ -309,7 +371,7 @@ def finish(img):
         mk = m & (a[:, :, 0] == key[0]) & (a[:, :, 1] == key[1]) & (a[:, :, 2] == key[2])
         if not mk.any():
             continue
-        a[mk & outside, :3] = INK[mat]
+        a[mk & outside, :3] = PAL.INKS["ink"] if STYLE == "bold" else INK[mat]
         a[mk & ~outside, :3] = SEAM[mat]
     return Image.fromarray(a)
 
@@ -359,9 +421,9 @@ def darken(img, k=None):
         return img
     cols, inv = np.unique(a[m][:, :3], axis=0, return_inverse=True)
     lut = np.array([_DOWN.get(tuple(int(v) for v in c), tuple(int(v) for v in c)) for c in cols], np.uint8)
-    px = a[m]
-    px[:, :3] = lut[inv.reshape(-1)]
-    a[m] = px
+    pix = a[m]
+    pix[:, :3] = lut[inv.reshape(-1)]
+    a[m] = pix
     return Image.fromarray(a)
 
 
@@ -489,17 +551,19 @@ def whole_pixels(p):
     the neck's two bend points on whole pixels before the head lift (so they ride a bob
     with the hip and head). Done here, not in the pose functions, so in-betweens from
     splat3d.tween stay in floats and only the drawing snaps."""
+    # at density 2 the drawing snaps to half pixels (whole pixels of the 2x sheet)
+    round_ = round if DENSITY == 1 else (lambda v: round(v * DENSITY) / DENSITY)
     q = copy.copy(p)
-    q.hip = (round(p.hip[0]), round(p.hip[1]))
-    q.feet = [(round(x), round(y)) for x, y in p.feet]
-    q.lift = [round(v) for v in p.lift]
-    q.head = (round(p.head[0]), round(p.head[1]))
+    q.hip = (round_(p.hip[0]), round_(p.hip[1]))
+    q.feet = [(round_(x), round_(y)) for x, y in p.feet]
+    q.lift = [round_(v) for v in p.lift]
+    q.head = (round_(p.head[0]), round_(p.head[1]))
     q.tilt = round(p.tilt)
     lift = p.head_lift
     if p.c1:
-        q.c1 = (p.c1[0], round(p.c1[1] + lift * 0.5) - lift * 0.5 if lift else round(p.c1[1]))
+        q.c1 = (p.c1[0], round_(p.c1[1] + lift * 0.5) - lift * 0.5 if lift else round_(p.c1[1]))
     if p.c2:
-        q.c2 = (p.c2[0], round(p.c2[1] + lift) - lift if lift else round(p.c2[1]))
+        q.c2 = (p.c2[0], round_(p.c2[1] + lift) - lift if lift else round_(p.c2[1]))
     return q
 
 
@@ -527,7 +591,7 @@ class Rig:
 
 def draw_spikes(T, spikes, w=5.0):
     img = layer()
-    d = ImageDraw.Draw(img)
+    d = Draw(img)
     for base, tip in spikes:
         spike(d, T(base), T(tip), w, "body")
     return outline(shade(img, "body", band=1))
@@ -540,7 +604,7 @@ def chest(body, T, glow):
     """The front of the torso: the belly patch one step up the hide's ramp (so the shading
     carries across it), then torso_details on top."""
     m = layer()
-    ImageDraw.Draw(m).polygon([T(v) for v in BELLY], fill=C["body"])
+    Draw(m).polygon([T(v) for v in BELLY], fill=C["body"])
     body = lighten(body, _mask(m), "body")
     body.alpha_composite(clip_to(torso_details(T, glow), body))
     return body
@@ -550,7 +614,7 @@ def torso_details(T, glow, front=True):
     """The chest as on the sheet: a lighter belly with fur, pale cracks, two gems and a
     shaggy band at the hips. `T` maps torso-local points to the frame."""
     det = layer()
-    dd = ImageDraw.Draw(det)
+    dd = Draw(det)
     if front:
         # belly patch
         # (the belly patch itself is chest()'s: the hide one step lighter)
@@ -582,7 +646,7 @@ def draw_torso(rig):
     img = layer()
     img.alpha_composite(draw_spikes(T, CROWN, 5.5))
     body = layer()
-    d = ImageDraw.Draw(body)
+    d = Draw(body)
     d.polygon([T(v) for v in TORSO], fill=C["body"])
     body = shade(body, "body")
     body = chest(body, T, rig.p.glow)
@@ -612,7 +676,7 @@ def claw_hand(d, hand, direction, fist, side, tips):
 def finish_claws(img, tips, direction):
     """Lighter claws with dark seams between them, drawn after shading."""
     det = layer()
-    dd = ImageDraw.Draw(det)
+    dd = Draw(det)
     hx, hy = direction
     for tip in tips:
         if tip[0] == "seam":
@@ -634,7 +698,7 @@ def draw_arm(rig, i):
     bend = 1 if i == 1 else -1
     el = ik(sh, hand, ARM[0], ARM[1], bend)
     img = layer()
-    d = ImageDraw.Draw(img)
+    d = Draw(img)
     capsule(d, sh, el, 4.2, 3.5, "body")
     capsule(d, el, hand, 3.5, 3.0, "body")
     # elbow spike, pointing away from the hand
@@ -647,7 +711,7 @@ def draw_arm(rig, i):
     img = finish_claws(img, tips, direction)
     # a pale crack along the forearm and fur at the shoulder, as on the sheet
     det = layer()
-    dd = ImageDraw.Draw(det)
+    dd = Draw(det)
     n = (-direction[1], direction[0])
     q0 = add(el, (direction[0] * 1.5 + n[0] * 1.0, direction[1] * 1.5 + n[1] * 1.0))
     pts = [q0]
@@ -672,7 +736,7 @@ def draw_leg(rig, i):
     ankle = (foot[0], foot[1] - 3)
     knee = ik(hip, ankle, LEG[0], LEG[1], -1)
     img = layer()
-    d = ImageDraw.Draw(img)
+    d = Draw(img)
     capsule(d, hip, knee, 4.6, 3.8, "body")
     capsule(d, knee, ankle, 3.8, 3.2, "body")
     # fur tufts at the back of the knee
@@ -689,12 +753,12 @@ def draw_leg(rig, i):
     img = shade(img, "body")
     img = finish_claws(img, tips, (1, 0))
     det = layer()
-    dd = ImageDraw.Draw(det)
+    dd = Draw(det)
     for cy in (0, 2):
         dd.line([(ankle[0] + 3, ankle[1] + cy - toe * 0.5), (ankle[0] + 7, ankle[1] + cy - toe)], fill=C["body_dd"])
     img.alpha_composite(clip_to(det, img))
     det = layer()
-    dd = ImageDraw.Draw(det)
+    dd = Draw(det)
     uk = unit((knee[0] - hip[0], knee[1] - hip[1]))
     for k in (2, 4):
         a = add(hip, (uk[0] * k + uk[1] * 2, uk[1] * k - uk[0] * 2))
@@ -751,10 +815,10 @@ def stone_disc(center, tangent, f, img_out, along=2.9):
         sa = math.copysign(abs(sa) ** 0.55, sa)
         pts.append((center[0] + tx * a * ca + nx * b * sa, center[1] + ty * a * ca + ny * b * sa))
     img = layer()
-    ImageDraw.Draw(img).polygon(pts, fill=C["stone"])
+    Draw(img).polygon(pts, fill=C["stone"])
     img = shade(img, "stone", flat=True)
     det = layer()
-    dd = ImageDraw.Draw(det)
+    dd = Draw(det)
     # a pale ridge across the slab's face and a chip of shadow
     dd.line([(center[0] - nx * b * 0.5 - tx * 0.5, center[1] - ny * b * 0.5 - ty * 0.5),
              (center[0] - nx * b * 0.05 - tx * 0.5, center[1] - ny * b * 0.05 - ty * 0.5)], fill=C["stone_l"])
@@ -817,10 +881,10 @@ def head_shape(cx, cy, flare, facing="side"):
     base_angle = MANE_ANGLE.get(facing, 90)
     img = layer()
     back = layer()
-    ImageDraw.Draw(back).polygon(mane_polygon(cx, cy, MANE_BACK, base_angle, flare), fill=C["mane"])
+    Draw(back).polygon(mane_polygon(cx, cy, MANE_BACK, base_angle, flare), fill=C["mane"])
     img.alpha_composite(outline(darken(shade(back, "mane", band=1)), "mane"))
     front = layer()
-    d = ImageDraw.Draw(front)
+    d = Draw(front)
     d.polygon(mane_polygon(cx, cy, MANE_FRONT, base_angle, flare), fill=C["mane"])
     disc(d, (cx, cy), 8.5, "mane")
     if facing == "side":
@@ -831,7 +895,7 @@ def head_shape(cx, cy, flare, facing="side"):
         disc(d, (cx + 6, cy - 1), 3.5, "mane")  # the snout's edge, past the cheek
     front = shade(front, "mane")
     det = layer()
-    dd = ImageDraw.Draw(det)
+    dd = Draw(det)
     for seg in MANE_STREAKS:
         if facing != "side":
             seg = [(x, y) if abs(x) > 6 or y < -8 else (x, y - 4) for x, y in seg]
@@ -846,7 +910,7 @@ def draw_head(rig):
     cx, cy = O(p.head)
     img = head_shape(cx, cy, p.mane)
     det = layer()
-    _face(ImageDraw.Draw(det), cx, cy + p.tilt, p.face)
+    _face(Draw(det), cx, cy + p.tilt, p.face)
     img.alpha_composite(clip_to(det, img))
     return img
 
@@ -1015,14 +1079,14 @@ def v_torso(vr):
     img = layer()
     img.alpha_composite(draw_spikes(P, CROWN, 5.5))
     body = layer()
-    d = ImageDraw.Draw(body)
+    d = Draw(body)
     d.polygon([P(v) for v in TORSO], fill=C["body"])
     body = shade(body, "body")
     if vr.view == "down":
         body = chest(body, P, vr.p.glow)
     else:
         det = layer()
-        dd = ImageDraw.Draw(det)
+        dd = Draw(det)
         # the back: a ridge of small stone plates down the spine, fur on the flanks
         for y in range(-18, -2, 3):
             q = P((0, y))
@@ -1061,7 +1125,7 @@ def v_leg(vr, i):
     gap = math.dist(hip, ankle)
     knee = (mid[0] + side * min(2.5, max(0.0, 13.5 - gap) * 0.4), mid[1])
     img = layer()
-    d = ImageDraw.Draw(img)
+    d = Draw(img)
     capsule(d, hip, knee, 4.6, 3.8, "body")
     capsule(d, knee, ankle, 3.8, 3.2, "body")
     spike(d, add(knee, (side * 2, 0)), add(knee, (side * 7.5, 1)), 3.5, "body")
@@ -1090,7 +1154,7 @@ def v_arm(vr, i):
     hand = vr.P(hand3)
     el = _outward_ik(sh, hand, ARM[0], ARM[1], side)
     img = layer()
-    d = ImageDraw.Draw(img)
+    d = Draw(img)
     capsule(d, sh, el, 4.2, 3.5, "body")
     capsule(d, el, hand, 3.5, 3.0, "body")
     spike(d, add(el, (0, 0)), add(el, (side * 6.5, 1)), 4.5, "body")
@@ -1113,7 +1177,7 @@ def v_arm(vr, i):
     img = shade(img, "body")
     img = finish_claws(img, tips, direction)
     det = layer()
-    dd = ImageDraw.Draw(det)
+    dd = Draw(det)
     n = (-direction[1], direction[0])
     pts = []
     for k in range(0, 4):
@@ -1158,7 +1222,7 @@ def v_head(vr):
     cx, cy = vr.P(vr.head3())
     img = head_shape(cx, cy, p.mane, facing="front")
     det = layer()
-    dd = ImageDraw.Draw(det)
+    dd = Draw(det)
     if vr.view == "down":
         _face_front(dd, cx, cy + p.tilt, p.face)
     else:
@@ -1319,7 +1383,7 @@ def d_torso(dr):
     img = layer()
     img.alpha_composite(draw_spikes(P, CROWN, 5.5))
     body = layer()
-    d = ImageDraw.Draw(body)
+    d = Draw(body)
     d.polygon([P(v) for v in TORSO], fill=C["body"])
     body = shade(body, "body")
     if dr.view == "down_side":
@@ -1329,7 +1393,7 @@ def d_torso(dr):
         # the back turns toward the camera, down-left: the spine's stone plates and fur
         B = lambda v: P(v, face=-1.0, squeeze=0.75)  # noqa: E731
         det = layer()
-        dd = ImageDraw.Draw(det)
+        dd = Draw(det)
         for y in range(-18, -2, 3):
             q = B((0, y))
             dd.rectangle([q[0] - 1, q[1] - 1, q[0] + 1, q[1]], fill=C["stone"])
@@ -1365,7 +1429,7 @@ def d_leg(dr, i):
     hip, knee, ankle = dr.P(hip3), dr.P(knee3), dr.P(ankle3)
     fwd = (DIAG, DIAG * dr.fy)  # forward on screen
     img = layer()
-    d = ImageDraw.Draw(img)
+    d = Draw(img)
     capsule(d, hip, knee, 4.6, 3.8, "body")
     capsule(d, knee, ankle, 3.8, 3.2, "body")
     # fur tufts at the back of the knee
@@ -1405,7 +1469,7 @@ def d_arm(dr, i):
     side = (-1 if i == 0 else 1) * dr.lx  # which way is out from the body, on screen
     el = _outward_ik(sh, hand, ARM[0], ARM[1], side)
     img = layer()
-    d = ImageDraw.Draw(img)
+    d = Draw(img)
     capsule(d, sh, el, 4.2, 3.5, "body")
     capsule(d, el, hand, 3.5, 3.0, "body")
     u = unit((el[0] - hand[0], el[1] - hand[1]))
@@ -1419,7 +1483,7 @@ def d_arm(dr, i):
     img = shade(img, "body")
     img = finish_claws(img, tips, direction)
     det = layer()
-    dd = ImageDraw.Draw(det)
+    dd = Draw(det)
     n = (-direction[1], direction[0])
     pts = []
     for k in range(0, 4):
@@ -1437,7 +1501,7 @@ def d_head(dr):
     cx, cy = dr.P(dr.head3())
     img = head_shape(cx, cy, p.mane, facing=dr.view)
     det = layer()
-    dd = ImageDraw.Draw(det)
+    dd = Draw(det)
     if dr.view == "down_side":
         _face_quarter(dd, cx, cy + p.tilt, p.face)
     else:
@@ -1637,7 +1701,7 @@ def view_sheets():
     for view in VIEWS[1:]:
         F, FH = VF, VFH
         OX, OY = VIEW_ORIGIN[view]
-        sh, sh_n, sh_e = S.collect(VIEW_ROWS, VF, VFH, lambda pose: render_any(pose, view), cols=COLS)
+        sh, sh_n, sh_e = S.collect(VIEW_ROWS, px(VF), px(VFH), lambda pose: render_any(pose, view), cols=COLS)
         path = OUT.replace(".png", "_%s.png" % view)
         sh.save(path)
         print("wrote", os.path.relpath(path, ROOT), sh.size)
@@ -1651,8 +1715,9 @@ def view_sheets():
 
 
 def _views_preview(out, views, path):
-    s = 2
+    s = 2 // DENSITY   # the 2x sheets at their own size
     label_w = 70
+    VF, VFH = px(globals()["VF"]), px(globals()["VFH"])  # noqa: N806
     prev = Image.new("RGBA", (label_w + VF * COLS * 2 * s, VFH * len(VIEW_ROWS) * s), (70, 58, 46, 255))
     d = ImageDraw.Draw(prev)
     for k, view in enumerate(views):
@@ -1668,7 +1733,7 @@ def _views_preview(out, views, path):
 
 def side_sheet():
     """The side sheet, its normal sheet and its emissive sheet (or None)."""
-    return S.collect(ROWS, F, F, render, cols=COLS)
+    return S.collect(ROWS, px(F), px(F), render, cols=COLS)
 
 
 # ------------------------------------------------------------------ the animation pass
@@ -2042,8 +2107,8 @@ SIDE_FRAME = (F, None, OX, OY)
 
 def frame_spec(view):
     if view == "side":
-        return {"w": F, "h": F, "origin": (SIDE_FRAME[2], SIDE_FRAME[3])}
-    return {"w": VF, "h": VFH, "origin": VIEW_ORIGIN[view]}
+        return {"w": px(F), "h": px(F), "origin": (px(SIDE_FRAME[2]), px(SIDE_FRAME[3]))}
+    return {"w": px(VF), "h": px(VFH), "origin": tuple(px(v) for v in VIEW_ORIGIN[view])}
 
 
 def render_frame(pose, view):
@@ -2231,10 +2296,10 @@ def inspect_frames(picks):
         name, f = pick.split(":")
         for view in VIEWS:
             img = render_frame(rows[name][int(f)], view)
-            bg = Image.new("RGBA", (VF, VFH), (70, 58, 46, 255))
+            bg = Image.new("RGBA", (px(VF), px(VFH)), (70, 58, 46, 255))
             bg.alpha_composite(img)
             ImageDraw.Draw(bg).text((2, 2), "%s %s" % (pick, view), fill=(255, 220, 140, 255))
-            tiles.append(bg.resize((VF * 2, VFH * 2), Image.NEAREST))
+            tiles.append(bg.resize((VF * 2, VFH * 2), Image.NEAREST))  # 2x at 1x, as drawn at 2
     out = Image.new("RGBA", (VF * 2 * 5, VFH * 2 * ((len(tiles) + 4) // 5)), (40, 32, 26, 255))
     for k, t in enumerate(tiles):
         out.alpha_composite(t, ((k % 5) * VF * 2, (k // 5) * VFH * 2))
@@ -2260,9 +2325,11 @@ def main():
     print("wrote", os.path.relpath(OUT, ROOT), sheet.size)
     S.save_extras(OUT, sheet_n, sheet_e)   # the normal and emissive sheets (docs/SPRITES.md)
 
-    # Labelled 3x preview on a floor-coloured background, for docs and review.
-    s = 3
+    # Labelled 3x preview on a floor-coloured background, for docs and review (the 2x
+    # sheet at its own size).
+    s = 3 if DENSITY == 1 else 1
     label_w = 70
+    F, OX, OY = px(globals()["F"]), px(globals()["OX"]), px(globals()["OY"])  # noqa: N806
     prev = Image.new("RGBA", (label_w + F * COLS * s, F * len(ROWS) * s), (70, 58, 46, 255))
     big = sheet.resize((sheet.width * s, sheet.height * s), Image.NEAREST)
     prev.alpha_composite(big, (label_w, 0))
