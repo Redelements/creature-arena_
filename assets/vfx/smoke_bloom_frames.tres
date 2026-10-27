@@ -1,0 +1,81 @@
+[gd_resource type="SpriteFrames" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/vfx/smoke_bloom.png" id="1_1cujn"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_8u88m"]
+atlas = ExtResource("1_1cujn")
+region = Rect2(0, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_4x3r8"]
+atlas = ExtResource("1_1cujn")
+region = Rect2(96, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_767v3"]
+atlas = ExtResource("1_1cujn")
+region = Rect2(192, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ehya1"]
+atlas = ExtResource("1_1cujn")
+region = Rect2(288, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ja7um"]
+atlas = ExtResource("1_1cujn")
+region = Rect2(384, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_8q315"]
+atlas = ExtResource("1_1cujn")
+region = Rect2(480, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_56s2p"]
+atlas = ExtResource("1_1cujn")
+region = Rect2(576, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ydxxr"]
+atlas = ExtResource("1_1cujn")
+region = Rect2(672, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ihtbq"]
+atlas = ExtResource("1_1cujn")
+region = Rect2(768, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_i4gsq"]
+atlas = ExtResource("1_1cujn")
+region = Rect2(864, 0, 96, 96)
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_8u88m")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_4x3r8")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_767v3")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ehya1")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ja7um")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_8q315")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_56s2p")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ydxxr")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ihtbq")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_i4gsq")
+}],
+"loop": 0,
+"name": &"default",
+"speed": 20.0
+}]

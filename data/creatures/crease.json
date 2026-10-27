@@ -89,7 +89,7 @@
       "projectile": { "speed": 7.5, "life": 18, "radius": 5, "offset": 12, "crack_trail": false,
         "sound": "knife_throw", "end_sound": "knife_hit", "volley": { "count": 3, "every": 3 } },
       "anim_at": [[0, 0], [2, 1], [4, 2], [6, 3], [9, 4], [11, 5], [14, 6], [17, 7]],
-      "fx": { "projectile": "dart" }
+      "fx": { "projectile": "dart", "move_fx": {"path": "res://assets/vfx/dust_ring.tres", "on": "start"} }
     },
     "light_1": {
       "name": "Paper Cut", "anim": "flick", "mobile": 0.5,
@@ -99,7 +99,7 @@
       "projectile": { "speed": 7.0, "life": 14, "radius": 5, "offset": 12, "crack_trail": false,
         "sound": "knife_throw", "end_sound": "knife_hit" },
       "anim_at": [[0, 0], [2, 1], [4, 2], [6, 3], [9, 4], [11, 5], [14, 6], [17, 7]],
-      "fx": { "projectile": "dart" }
+      "fx": { "projectile": "dart", "move_fx": "res://assets/vfx/spark_fan.tres" }
     },
     "light_2": {
       "name": "Paper Cut", "anim": "flick2", "mobile": 0.5,
@@ -109,7 +109,7 @@
       "projectile": { "speed": 7.0, "life": 14, "radius": 5, "offset": 12, "crack_trail": false,
         "sound": "knife_throw", "end_sound": "knife_hit" },
       "anim_at": [[0, 0], [2, 1], [4, 2], [6, 3], [9, 4], [11, 5], [14, 6], [17, 7]],
-      "fx": { "projectile": "dart" }
+      "fx": { "projectile": "dart", "move_fx": "res://assets/vfx/spark_fan.tres" }
     },
     "light_3": {
       "name": "Paper Cut", "anim": "flick", "mobile": 0.5,
@@ -119,7 +119,7 @@
       "projectile": { "speed": 7.0, "life": 16, "radius": 6, "offset": 12, "crack_trail": false,
         "sound": "swing_heavy", "end_sound": "thwack" },
       "anim_at": [[0, 0], [2, 1], [6, 2], [8, 3], [11, 4], [14, 5], [18, 6], [22, 7]],
-      "fx": { "projectile": "dart", "size": 1.3 }
+      "fx": { "projectile": "dart", "size": 1.3, "move_fx": "res://assets/vfx/spark_fan.tres" }
     },
     "heavy": {
       "name": "Paper Shuriken", "anim": "shuriken", "windup": 8, "tell": "strong",
@@ -134,7 +134,7 @@
         "sound": "knife_throw", "end_sound": "knife_hit" },
       "anim_charge": [0, 4, 6],
       "anim_at": [[0, 4], [2, 5], [5, 6], [8, 7], [12, 8], [16, 9], [21, 10]],
-      "fx": { "projectile": "shuriken" }
+      "fx": { "projectile": "shuriken", "move_fx": "res://assets/vfx/spark_pinwheel.tres" }
     },
     "skill_1": {
       "name": "Paper Crane", "anim": "crane", "windup": 6, "tell": "strong", "cooldown": 240,
@@ -145,7 +145,7 @@
       "projectile": { "speed": 4.4, "life": 52, "radius": 7, "offset": 10, "crack_trail": false,
         "home": { "turn": 0.09, "until": 30 }, "sound": "swing_light", "end_sound": "thwack" },
       "anim_at": [[0, 0], [2, 1], [4, 2], [6, 3], [8, 4], [9, 5], [13, 6], [17, 7], [21, 8], [25, 9]],
-      "fx": { "projectile": "crane" }
+      "fx": { "projectile": "crane", "move_fx": {"path": "res://assets/vfx/dust_ring.tres", "on": "start", "scale": 0.8, "offset": [0, -8]} }
     },
     "skill_2": {
       "name": "Paper Frog", "anim": "frog", "windup": 6, "tell": "strong", "cooldown": 300,
@@ -159,7 +159,7 @@
         "row": { "count": 3, "gap": 18, "side_push": 0.35 },
         "sound": "swing_light", "end_sound": "thwack" },
       "anim_at": [[0, 0], [1, 1], [3, 2], [4, 3], [6, 4], [7, 5], [8, 6], [9, 7], [11, 8], [15, 9], [19, 10], [24, 11]],
-      "fx": { "projectile": "frog" }
+      "fx": { "projectile": "frog", "move_fx": {"path": "res://assets/vfx/hit_star_cyan.tres", "on": "projectile_end", "scale": 0.9} }
     },
     "surge": {
       "name": "Thousand Cranes", "anim": "surge", "energy_cost": 100,
@@ -174,7 +174,7 @@
           "crack_inner": 70, "crack_outer": 95 } },
       "anim_charge": [0, 4, 6],
       "anim_at": [[0, 4], [4, 5], [7, 6], [11, 7], [16, 8], [21, 9], [25, 10], [33, 11]],
-      "fx": { "shout": { "text": "FOLD 'EM.", "sound": "" }, "projectile": "crane_bundle", "storm": "cranes" }
+      "fx": { "shout": { "text": "FOLD 'EM.", "sound": "" }, "projectile": "crane_bundle", "storm": "cranes", "move_fx": [{"path": "res://assets/vfx/smoke_bloom.tres", "on": "burst", "scale": 1.4, "offset": [0, -21]}, {"path": "res://assets/vfx/dust_ring.tres", "on": "burst", "scale": 1.6, "offset": [0, -16]}] }
     }
   }
 }

@@ -493,7 +493,8 @@ func _draw_mini(id: String, feet: Vector2, face_left: bool, scale := 1.0) -> voi
 	var fh := float(fsz[1]) if fsz is Array else fpx
 	var o: Array = sp.get("origin", [24, 43])
 	var idle: Array = sp.get("anims", {}).get("idle", [0, 0, 1])
-	var k := float(sp.get("select_scale", minf(1.0, 55.0 / fpx))) * 0.6 * scale
+	var ppu := float(ArtScale.ppu_of(sp))  # a 2x sheet draws at half the scale, the same size
+	var k := float(sp.get("select_scale", minf(1.0, 55.0 * ppu / fpx))) * 0.6 * scale / ppu
 	draw_set_transform(feet + _o, 0.0, Vector2(-k if face_left else k, k))
 	draw_texture_rect_region(tex, Rect2(-float(o[0]), -float(o[1]), fpx, fh),
 		Rect2(int(idle[1]) * fpx, int(idle[0]) * fh, fpx, fh))

@@ -1,0 +1,60 @@
+[gd_resource type="SpriteFrames" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/vfx/slash_claws.png" id="1_104eq"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_eluqs"]
+atlas = ExtResource("1_104eq")
+region = Rect2(0, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ulvk3"]
+atlas = ExtResource("1_104eq")
+region = Rect2(96, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_jm1wu"]
+atlas = ExtResource("1_104eq")
+region = Rect2(192, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_lmnfn"]
+atlas = ExtResource("1_104eq")
+region = Rect2(288, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_1suuq"]
+atlas = ExtResource("1_104eq")
+region = Rect2(384, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_lmp8c"]
+atlas = ExtResource("1_104eq")
+region = Rect2(480, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_6uj0r"]
+atlas = ExtResource("1_104eq")
+region = Rect2(576, 0, 96, 96)
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_eluqs")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ulvk3")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_jm1wu")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_lmnfn")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_1suuq")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_lmp8c")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_6uj0r")
+}],
+"loop": 0,
+"name": &"default",
+"speed": 30.0
+}]

@@ -215,6 +215,13 @@ const WALL_MARK_CAP := 24
 var _pstyles := {}  ## "owner/move" -> {kind, color, z, mark}
 var _proj_prev: Array = []  ## last tick's shots: [owner, pos, vel, style], to tell what a projectile_end was
 var _wall_marks: Array = []
+## Hand-drawn move effects (a move's `fx.move_fx`, MoveFx resources): a child, so they draw
+## over the sparks; fed from the same places the sparks come from and stepped on this clock.
+var move_fx := MoveFxView.new()
+
+
+func _init() -> void:
+	add_child(move_fx)
 
 
 func bind_ground(g: FxGround) -> void:
@@ -239,6 +246,7 @@ func clear() -> void:
 	_pstyles.clear()
 	_proj_prev.clear()
 	_wall_marks.clear()
+	move_fx.clear()
 	_dark = 0.0
 	_rain = 0.0
 	time_scale = 1.0
@@ -259,6 +267,9 @@ func spawn(e: Dictionary) -> void:
 		"hit":
 			var push := _note_push(e)
 			_hit_sparks(e, p, push)
+			var atk := _creature(int(e.get("attacker", -1)))
+			if atk != null and atk.state == CreatureSim.State.ATTACK:
+				move_fx.on_event("hit", atk, p)
 			var col := Color("ffe08a")
 			if float(e.get("variety", 1.0)) >= 1.5:
 				col = Color("ff9a5a")
@@ -351,6 +362,8 @@ func spawn(e: Dictionary) -> void:
 			_text(p + Vector2(0, -10), "BREAKAWAY", Color("c9a7ff"))
 		"projectile":
 			var thrower := _creature(int(e.get("who", -1)))
+			if thrower != null:
+				move_fx.on_shot(thrower, p)
 			if bool(e.get("lob", false)) or (thrower != null and not _owner_has_wave(thrower)):
 				return  # a pinecone or a rod just leaves the hand; it's drawn in flight
 			# Runoff leaves the hand: a slap of water.
@@ -363,6 +376,8 @@ func spawn(e: Dictionary) -> void:
 				_dust(at + Vector2(randf_range(-6, 6), randf_range(-2, 2)), Vector2(randf_range(-0.3, 0.3), -0.4))
 		"projectile_end":
 			var owner_c := _creature(int(e.get("who", -1)))
+			if owner_c != null:
+				move_fx.on_event("projectile_end", owner_c, p)
 			_land_mark(p, power)
 			if owner_c != null and _owner_has_venom(owner_c):
 				_venom_splat(p, 10.0, 8 if power >= 1.0 else 5)
@@ -469,7 +484,15 @@ func spawn(e: Dictionary) -> void:
 				_leaves(from, 6, 1.4)
 				_text(from + Vector2(0, -14), "SNAG!", C_LEAF[2], 8, 34.0)
 		"burst":
+			var bomber := _creature(int(e.get("who", -1)))
+			if bomber != null:
+				move_fx.on_event("burst", bomber, p)
 			_pinecone_burst(p, power)
+		"storm":
+			# a lob that leaves a storm (Thousand Cranes) lands: its "burst" move effects play there
+			var stormer := _creature(int(e.get("who", -1)))
+			if stormer != null:
+				move_fx.on_event("burst", stormer, p)
 		"reel":
 			var a := _creature(int(e.get("attacker", -1)))
 			var tgt := _creature(int(e.get("target", -1)))
@@ -702,6 +725,7 @@ func advance() -> void:
 	if sim != null:
 		_watch_all()
 		_track_lost()
+		move_fx.advance(ts)
 		if ts > 0.0:
 			_projectile_spray()
 			if not sim.hazards.is_empty():
@@ -906,6 +930,7 @@ func _watch_all() -> void:
 
 
 func _move_started(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
+	move_fx.on_start(c)
 	if String(mv.get("type", "")) == "surge":
 		if sim.freeze_all:
 			_dark = maxf(_dark, 0.6)
@@ -999,6 +1024,7 @@ func _charge_released(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 
 
 func _strike(c: CreatureSim, mv: Dictionary, fx: Dictionary, seg: int) -> void:
+	move_fx.on_strike(c, seg)
 	var segs: Array = mv.get("_segs", [])
 	var last := seg == segs.size() - 1
 	var size := float(fx.get("size", 1.0))
@@ -1071,6 +1097,7 @@ func _strike(c: CreatureSim, mv: Dictionary, fx: Dictionary, seg: int) -> void:
 
 
 func _during_move(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
+	move_fx.on_tick(c)
 	var t := c.state_t
 	if fx.has("afterimage"):
 		var win: Array = fx["afterimage"]
@@ -1800,18 +1827,19 @@ func _scatter(c: CreatureSim) -> void:
 	var fsize: Vector2 = snap["side_size"]
 	var origin: Vector2 = snap["side_origin"]
 	var flip := bool(snap["flip"])
+	var sppu := int(snap.get("side_ppu", 1))  # the bands and `pieces` are sheet pixels
 	var dir: Vector2 = _last_push.get(c.id, -c.facing)
 	var pieces: Array = ko.get("pieces", [])
 	if pieces.is_empty():
-		pieces = _scatter_bands(c, origin.y, fsize.y)
+		pieces = _scatter_bands(c, origin.y, fsize.y, sppu)
 	for i in pieces.size():
 		var y0 := int(pieces[i][0])
 		var y1 := int(pieces[i][1])
-		var zc := origin.y - (y0 + y1) * 0.5
+		var zc := (origin.y - (y0 + y1) * 0.5) / float(sppu)
 		var head := i == 0
 		var spread := dir.rotated(randf_range(-0.8, 0.8))
 		var speed := randf_range(0.7, 1.6) + (1.3 if head else 0.0)
-		_add({"kind": "chunk", "piece": true, "tex": snap["side_tex"], "flip": flip,
+		_add({"kind": "chunk", "piece": true, "tex": snap["side_tex"], "flip": flip, "ppu": sppu,
 			"region": Rect2(int(frame[1]) * fsize.x, int(frame[0]) * fsize.y + y0, fsize.x, y1 - y0),
 			"ox": origin.x, "band_c": (y0 + y1) * 0.5,
 			"pos": c.pos + Vector2(randf_range(-2, 2), randf_range(-1, 1)), "z": zc,
@@ -1831,9 +1859,9 @@ func _scatter(c: CreatureSim) -> void:
 
 ## Scatter bands for a fighter whose ko_fx names no "pieces": four even bands from the
 ## top of the figure (`fx_top` above the feet) down to the feet, head first.
-func _scatter_bands(c: CreatureSim, feet_y: float, frame_h: float) -> Array:
-	var top := clampf(feet_y - _top(c) - 4.0, 0.0, feet_y)
-	var bottom := minf(feet_y + 2.0, frame_h)
+func _scatter_bands(c: CreatureSim, feet_y: float, frame_h: float, sppu := 1) -> Array:
+	var top := clampf(feet_y - (_top(c) + 4.0) * sppu, 0.0, feet_y)
+	var bottom := minf(feet_y + 2.0 * sppu, frame_h)
 	var out: Array = []
 	var n := 4
 	for i in n:
@@ -2806,7 +2834,8 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 			var feet: Vector2 = p["feet"]
 			var origin: Vector2 = p["origin"]
 			var size: Vector2 = p["frame_size"]
-			ci.draw_set_transform(feet, 0.0, Vector2(-1.0 if bool(p["flip"]) else 1.0, 1.0))
+			var gs := ArtScale.scale_of(int(p.get("ppu", 1)))  # sheet pixels to world units
+			ci.draw_set_transform(feet, 0.0, Vector2(-gs.x if bool(p["flip"]) else gs.x, gs.y))
 			ci.draw_texture_rect_region(p["tex"], Rect2(-origin.x, -origin.y, size.x, size.y), p["region"], tint)
 			ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		"chunk":
@@ -2902,7 +2931,8 @@ func _draw_chunk(ci: CanvasItem, p: Dictionary) -> void:
 		var region: Rect2 = p["region"]
 		var h := region.size.y
 		var ox := float(p["ox"])
-		ci.draw_set_transform(at, float(p["rot"]), Vector2(-1.0 if bool(p["flip"]) else 1.0, 1.0))
+		var ps := ArtScale.scale_of(int(p.get("ppu", 1)))  # sheet pixels to world units
+		ci.draw_set_transform(at, float(p["rot"]), Vector2(-ps.x if bool(p["flip"]) else ps.x, ps.y))
 		ci.draw_texture_rect_region(p["tex"], Rect2(-ox, -h * 0.5, region.size.x, h), region)
 		var eyes: Array = p.get("x_eyes", [])
 		var vel: Vector2 = p["vel"]

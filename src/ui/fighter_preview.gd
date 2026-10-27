@@ -44,7 +44,8 @@ func _draw() -> void:
 		idle = anims["victory"]
 		frame = int(idle[1]) + victory_frame(tick, int(idle[2]))
 	var region := Rect2(frame * fpx, int(idle[0]) * fh, fpx, fh)
-	var k := float(sp.get("select_scale", minf(1.0, 55.0 / fpx))) * zoom
+	var ppu := float(ArtScale.ppu_of(sp))  # a 2x sheet draws at half the scale, the same size
+	var k := float(sp.get("select_scale", minf(1.0, 55.0 * ppu / fpx))) * zoom / ppu
 	draw_set_transform(Vector2(size.x * 0.5, size.y), 0.0, Vector2(-k if face_left else k, k))
 	draw_texture_rect_region(_tex, Rect2(-float(o[0]), -float(o[1]), fpx, fh), region)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

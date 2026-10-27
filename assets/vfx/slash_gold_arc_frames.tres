@@ -1,0 +1,46 @@
+[gd_resource type="SpriteFrames" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/vfx/slash_gold_arc.png" id="1_gojw2"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_jxj2t"]
+atlas = ExtResource("1_gojw2")
+region = Rect2(0, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_tclt8"]
+atlas = ExtResource("1_gojw2")
+region = Rect2(96, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_k446p"]
+atlas = ExtResource("1_gojw2")
+region = Rect2(192, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_t46pi"]
+atlas = ExtResource("1_gojw2")
+region = Rect2(288, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_iruxh"]
+atlas = ExtResource("1_gojw2")
+region = Rect2(384, 0, 96, 96)
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_jxj2t")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_tclt8")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_k446p")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_t46pi")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_iruxh")
+}],
+"loop": 0,
+"name": &"default",
+"speed": 30.0
+}]

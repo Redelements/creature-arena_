@@ -3,6 +3,21 @@
 	"id": "quarry",
 	"name": "Quarry Bowl",
 	"ground": "stone",
+	"tiles": {
+		"_doc": "The floor is tiles (assets/arenas/quarry.tscn, built by tools/build_tiles.gd from this block; the recipe tools/tile_recipes/rock.json): Mountains sandstone scree; worn tan-dirt cart lanes along the inside of each rubble wall (Set 1's blob, ragged sides); a raised, rounded middle (Desert v2's packed-earth blob9 with its sandstone ledge along the south side, decor by pos, its rock tops over the patch's bottom row); cobbled loading corners; the walls as runs of stacked rock (styles.wall) that leave rock heaps where smashed. Rects are [tx, ty, w, h] in 32 px tiles (2 x 2 cells).",
+		"set": "rock",
+		"ground": "stone",
+		"styles": {"wall": "wall:rock"},
+		"lane": [[11, 0, 2, 18], [29, 0, 2, 18]],
+		"patch": [[18, 7, 6, 4]],
+		"decor": [{"kind": "ledge_l", "pos": [296, 189]}, {"kind": "ledge_r", "pos": [344, 189]}],
+		"patches": [
+			{"fill": "cobble", "rect": [0, 0, 4, 3]},
+			{"fill": "cobble", "rect": [38, 0, 4, 3]},
+			{"fill": "cobble", "rect": [0, 15, 4, 3]},
+			{"fill": "cobble", "rect": [38, 15, 4, 3]}
+		]
+	},
 	"times": ["day", "sunset"],
 	"weathers": ["clear", "rain", "fog", "wind", "snow"],
 	"light": {"_doc": "low afternoon sun from the top left: long shadows raking right", "dir": [0.8, 0.6], "length": 0.75, "alpha": 0.38, "sun": {"color": "#ffe8c4", "energy": 0.68}},

@@ -1,0 +1,47 @@
+{
+	"_doc": "Szadi art's RPG Fantasy Worlds Set 1 (RPGFW_Set1_v1.0): the Stadium's dirt, grass and water blobs, boulders and tall grass, the cliff strips the pit walls come from, a few trees and the waterfall. Keys: tools/cut_tiles.py. Paths are relative to the packs dir.",
+	"ground": {
+		"fills": {
+			"dirt": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain3.png", "block": [12, 0]},
+			"dirt_worn": {"_doc": "g_terrain3's second band solid (tiles 12-15 x 4-7): the same dirt trodden paler and drier (lifted a little: untinted it snaps to the floor's own colours), for the Stadium's spawn and centre pads; square pads read cleaner than its ragged blob, whose stony rim looked busy", "src": "RPGFW_Set1_v1.0/_PNG/g_terrain3.png", "block": [12, 4], "tint": {"mul": [1.14, 1.12, 1.1], "add": [6, 5, 4]}},
+			"dirt_edge": {"_doc": "the floor's own dirt in shade: the Stadium's one-tile border under the hoardings", "src": "RPGFW_Set1_v1.0/_PNG/g_terrain3.png", "block": [12, 0], "tint": {"mul": [0.78, 0.78, 0.8]}},
+			"grass": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "block": [12, 0]},
+			"grass_dark": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "block": [12, 4], "tint": {"mul": [1.14, 1.12, 1.1], "add": [6, 5, 4]}},
+			"cobble": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "block": [37, 0], "size": 2},
+			"water": {"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "block": [8, 2], "size": 2, "_doc": "a flat 2 x 2 from the bed's interior centres (the solid-looking [12, 0] block is a notched blob with a hole)"}
+		},
+		"terrains": {
+			"grass": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "blob": [0, 0], "variants": [[4, 0, 8, 4]]},
+			"water": {"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "blob": [0, 0], "variants": [[4, 0, 8, 4]]}
+		}
+	},
+	"pieces": {
+		"boulder": [
+			{"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png", "tile": [24, 1]},
+			{"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png", "tile": [24, 2]},
+			{"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png", "tile": [24, 3]},
+			{"src": "RPGFW_Set1_v1.0/_PNG/rocks_with_shadows.png", "tile": [24, 4]}
+		],
+		"tuft": [
+			{"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [2, 673, 29, 702]},
+			{"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [34, 673, 61, 702]},
+			{"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [66, 673, 93, 702]}
+		],
+		"sprig": [
+			{"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [6, 643, 26, 665]},
+			{"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [38, 643, 58, 665]},
+			{"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [70, 643, 90, 665]}
+		]
+	},
+	"overlay": {"_doc": "the pits' far wall: a seamless cliff face from the matching pack; the lip and the cracks: the floor's own fill (tools/cut_tiles.py cut_overlay)",
+		"face": {"src": "RPGFW_Set1_v1.0/_PNG/hills2.png", "box": [576, 36, 608, 84]}, "lip": "dirt"},
+	"decor": {
+		"oak": {"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [0, 0, 128, 256], "feet": [64, 236]},
+		"birch": {"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [384, 32, 480, 224], "feet": [48, 176]},
+		"pine": {"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [576, 16, 672, 208], "feet": [44, 167]},
+		"bush": {"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [288, 160, 384, 256], "feet": [48, 88]}
+	},
+	"anim": {
+		"waterfall": {"src": "RPGFW_Set1_v1.0/_PNG/anim/waterfall/1x2_waterfall.png", "frame": [128, 96], "frames": 8, "fps": 8, "feet": [64, 84]}
+	}
+}

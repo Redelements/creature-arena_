@@ -19,10 +19,11 @@ func test_the_window_scale_is_whole_pixels_per_unit() -> void:
 	var main_script: GDScript = load("res://src/game/main.gd")
 	var base := Vector2(960, 540)
 	# [window, screen pixels per canvas unit]: fighters the size they were at 1440 x 810
-	# and 1920 x 1080; 2560 x 1440 gets 5, the spare edge showing more of the stadium.
-	for case in [[Vector2(1440, 810), 3.0], [Vector2(1920, 1080), 4.0], [Vector2(2560, 1440), 5.0],
+	# and 1920 x 1080; 2560 x 1440 gets 4 (an even number, so 2x art's pixels stay whole:
+	# ArtScale, tests/test_art_scale.gd), the spare edge showing more of the stadium.
+	for case in [[Vector2(1440, 810), 3.0], [Vector2(1920, 1080), 4.0], [Vector2(2560, 1440), 4.0],
 			[Vector2(1600, 900), 3.0], [Vector2(1920, 1200), 4.0], [Vector2(2400, 1080), 4.0],
-			[Vector2(3440, 1440), 5.0], [Vector2(800, 450), 1.0]]:
+			[Vector2(3440, 1440), 4.0], [Vector2(800, 450), 1.0]]:
 		var size: Vector2 = case[0]
 		var factor: float = main_script.pixel_scale_factor(size, base)
 		var grid := minf(size.x / base.x, size.y / base.y)

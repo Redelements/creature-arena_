@@ -15,6 +15,40 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   the fighters) draws each fighter's frame as a silhouette along the map's `light`, one sprite row
   per shadow row shifted whole pixels (crisp, no overlap). Never draw a fighter's shadow on its
   own node: y-sort would put it over the fighter behind.
+- Art density (`art_scale.gd`, `ArtScale`): the world stays in sim units and the screen grid
+  is `PX_PER_UNIT` (2) pixels a unit (project.godot: 960 x 540 at stretch scale 2). Every
+  older sheet and picture is 1 texture pixel a unit and draws as it always did; art made for
+  this scale is 2 a unit and draws at half scale on half-unit positions (`ArtScale.snap`), so
+  each of its pixels is one grid pixel. A sheet says so with `sprite.ppu` (per view too), an
+  arena picture by being twice the size (`ArtScale.picture_ppu`, `ArenaView._ppu`), a
+  flipbook effect by its own `ppu`. Frame sizes, origins, portraits and regions stay in sheet
+  pixels: `CreatureView.snapshot()` carries `ppu` for the afterimages and death pieces, the
+  HUD's portrait and cut-in, the select screen and `FighterPreview` divide their scale by it.
+  Never scale the sim or its data for art: `tests/test_art_scale.gd`, `docs/plans/32px-migration.md`.
+- Tiled arenas (`ArenaView` "tiled maps", `tiled()`): a map with `assets/arenas/<id>.tscn`
+  (built by `tools/build_tiles.gd` from its JSON `tiles` block and pieces) draws no baked
+  picture: the scene (TileMapLayers Ground, Grass, Pieces, 32 px tiles) sits under the floor
+  at half scale, and the breaking ground is three TileMapLayers of 16 px tiles, `_overlay`
+  (a crack joined to some broken neighbours by `_crack_link`, or a pit's far wall / floor by
+  depth in two column phases: `overlay_tile`), `_edges` (shade down a pit's sides and its
+  near rim: `edge_tile`) and `_corners` (`corner_tile`), set per changed row in
+  `_retile` from `_find_changes`; a smashed wall's boulder and flattened brush's tuft are
+  cleared from the scene's Pieces layer until they heal (`_sync_pieces`). The floor, marks
+  and pit bands paint nothing on such a map, and it drops the baked picture's cracked art
+  and crack mask (no running cracks, no closing rims: `_paint_over` is off), or the old
+  map's cracks showed through as a second style; dust still draws over it. Ids and the artist's layers: `assets/README.md`; `tests/test_tiles.gd`.
+- Move effects as hand-drawn frames (`MoveFx` resources, `assets/vfx/<name>.tres`, built by
+  `tools/build_vfx.gd` from `tools/cut_vfx.py`'s cuts of kiddolink's pack at ppu 2): a move
+  names them in one line, `fx.move_fx` (a path, a `{"path", overrides}` entry setting that
+  move's hook / scale / offset over the resource's (`MoveFx.from_entry`), or a list). `MoveFxView` (a child of `FxView`,
+  a pool of `CAP` AnimatedSprite2Ds) spawns them from the same hooks FxView draws its own
+  effects: `on_strike` from `_strike` (the sim's `active_seg`: the hitbox's first live tick,
+  so the timing is the move's own `startup`, never a second number), `on_start`, `on_tick`,
+  `on_shot` / `on_event` from `spawn` (hit, projectile, projectile_end, burst, and storm as a burst; a shot's end
+  looks up the move it was thrown from, `_shot_move`). Frames are set from FxView's clock
+  (`advance(time_scale)`), never autoplayed, so a freeze holds them and a rollback can't
+  drift them; a `follow` effect rides its fighter, others stay put; culled by `_view_rect`.
+  `tests/test_move_fx.gd`.
 - Art layout is data-driven: frame size (`[w, h]` frames allowed, Crease's are 128x160),
   origin, `anims`, `side_only`, `idle_ticks`, `run_ticks`, `step_frames`, `anim`, `anim_at` (also the dodge's), `anim_reel`,
   `anim_charge`, `view_lift` from the creature JSON (`FighterPreview` reads `idle_ticks` too). Up/down sheets are optional, and so are the diagonal sheets `down_side` / `up_side` (mirrored for the left; `pick_view`: 8 sectors of 45 degrees, falling back to the older up/down/side rule when a fighter lacks the sector's sheet, so fighters without them still draw diagonals side-on).
@@ -317,6 +351,7 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `ambient_view.gd` (AmbientView) — A map's ambient life, from the optional "ambient" block of data/arenas/<id>.json (a map without the key draws nothing).
 - `arena_intro.gd` (ArenaIntro) — The arena intro before an offline match: the camera flies in from the stands to the whole floor, the arena's name card…
 - `arena_view.gd` (ArenaView) — Draws the stadium: stands, walls, and the breakable floor from the terrain grid.
+- `art_scale.gd` (ArtScale) — Where the art density lives: how many art pixels one world unit is.
 - `audio_view.gd` (AudioView) — Sound effects and music. Like the other views it only reads the simulation: sounds come from simulation events (hits, s…
 - `backdrop_view.gd` (BackdropView) — The world beyond the floor, in depth. A map's picture (ArenaView) holds the crowd's rows and everything below them; abo…
 - `bloom.gdshader` — (no header comment)
@@ -337,6 +372,8 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `letterbox.gd` (Letterbox) — Black bars across the top and bottom of the screen for the big moments (a knockout's push-in, a Surge's freeze), on the…
 - `light2d_view.gd` (Light2DView) — Real 2D lights (Settings > Video > Lighting): Godot PointLight2Ds that light the fighters per pixel through their norma…
 - `light_view.gd` (LightView) — Glow (Settings > Video): glowing things light the floor around them and get a soft halo, so the arena feels lit.
+- `move_fx.gd` (MoveFx) — One hand-drawn effect attached to a move: which frames play, where they appear and when.
+- `move_fx_view.gd` (MoveFxView) — Plays the MoveFx of moves (hand-drawn frames, assets/vfx/*.tres): a fixed pool of AnimatedSprite2D children, each told…
 - `paper_fx.gd` (PaperFx) — Mister Crease's paper, drawn over the fighters: the sheets of his Paper Stock floating above the hat, the crafts he has…
 - `perf_overlay.gd` (PerfOverlay) — The performance overlay (Settings > Video, or F9): the frame rate in a corner, and in its second mode a chart of the la…
 - `range_rings.gd` (RangeRings) — "Range rings" (Settings > Controls, or F7 in a fight): thin floor rings that show where an attack really reaches, so a…

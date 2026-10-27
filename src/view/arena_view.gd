@@ -81,13 +81,263 @@ var arena_id := "":
 			var mpath := "res://assets/sprites/arena_%s_crackmask.png" % v
 			_mask = load(mpath) if _art != null and ResourceLoader.exists(mpath) else null
 			_bridges = ArenaMap.bridge_rects(ArenaMap.get_map(v)) if v != "" else []
+			var spath := "res://assets/arenas/%s.tscn" % v
+			_scene = load(spath) if v != "" and ResourceLoader.exists(spath) else null
+			var tset := String(ArenaMap.get_map(v).get("tiles", {}).get("set", "set1")) if v != "" else ""
+			var opath := "res://assets/tiles/%s_overlay.tres" % tset
+			_overlay_set = load(opath) if _scene != null and ResourceLoader.exists(opath) else null
+			if _overlay_set != null:
+				# The overlay tiles draw the cracks and pits; pieces of the old baked picture
+				# (its cracks, its crack mask) would show through as a second style.
+				_art_cracked = null
+				_mask = null
+			_markings = bool(ArenaMap.get_map(v).get("tiles", {}).get("markings", false)) if v != "" else false
 			_rebuild()
 var _art: Texture2D = null
+
+# ---------------------------------------------------------------- tiled maps
+## A map built from ground tiles instead of a baked picture (assets/arenas/<id>.tscn, made by
+## tools/build_tiles.gd from a cut pack): its scene is instanced under the floor at
+## 1 / ArtScale.PX_PER_UNIT scale (a 32 px tile is 2 x 2 cells), and the breaking ground is
+## three TileMapLayers of 16 px overlay tiles (one a cell) set from the terrain: `_overlay`
+## carries a cracked cell's crack (joined to its cracked or open neighbours) or a pit cell's
+## far wall / floor by depth, `_edges` the floor's edge down a pit's sides and along its near
+## rim, `_corners` the bit of lip where a pit turns round a solid diagonal cell. The ids are the overlay atlas's
+## (assets/tiles/<set>_overlay.png, index = column + 8 * row; assets/README.md names them
+## for the artist). The scene's "Pieces" layer loses a boulder whose wall is smashed and a
+## tuft whose brush is flattened, and gets them back when the floor heals; its sprite
+## pieces ("Brush" clumps, "Walls" runs and their "Rubble") swap the same way (`_sync_sprites`).
+var _scene: PackedScene = null
+var _overlay_set: TileSet = null
+var _markings := false  ## the map's `tiles.markings`: court lines over the tiles (the Stadium)
+var _tiles: Node2D = null
+var _overlay: TileMapLayer = null
+var _edges: TileMapLayer = null
+var _corners: TileMapLayer = null
+var _piece_cells := {}  ## the scene's pieces as built: tile -> [source, atlas coords]
+const OV_COLS := 8
+const OV_CRACK := [0, 1, 2, 3]
+const OV_WALL_TOP := 8
+const OV_WALL_MID := 9
+const OV_WALL_BOTTOM := 10
+const OV_FLOOR := 11
+const OV_CHASM_TOP := 12  ## the same four for a chasm, OV_CHASM_TOP + depth
+const OV_EDGE_L := 16
+const OV_EDGE_R := 17
+const OV_EDGE_LR := 18
+const OV_RIM := 19  ## the near rim; + 1 with the left side, + 2 the right, + 3 both
+const OV_PHASE_B := 16  ## a pit tile in an odd column: the right half of the 32 px face
+const OV_CRACK_JOIN := 32  ## + 1 left, 2 right, 4 top, 8 bottom: the sides a crack runs out of
+const OV_CORNER := 48  ## + 1 top left, 2 top right, 4 bottom left, 8 bottom right
+
+
+## Whether this map draws from ground tiles (no baked picture).
+func tiled() -> bool:
+	return _scene != null
+
+
+## How far (world px) the tiles' bank reaches into the painted water (the scene's
+## "WaterBank" layer, tools/tile_recipes `shores`: a side bank of 9 px at 2 a unit, its wet
+## line and shade), 0 when the map draws no bank. WaterView keeps its foam clear of it.
+const WATER_BANK := 7.0
+
+
+func water_bank() -> float:
+	if _tiles == null or _tiles.get_node_or_null("WaterBank") == null:
+		return 0.0
+	return WATER_BANK
+
+
+## The overlay tile for a cell: a crack (running out of the sides in `joins`, 1 left, 2
+## right, 4 top, 8 bottom, where its neighbours are cracked or open; alone, one of four by
+## its hash), a pit's far wall or floor by how many open cells are above it (OV_WALL_TOP ..
+## OV_FLOOR, or the chasm's; an odd column takes the face's other half), -1 for none.
+static func overlay_tile(v: int, depth: int, chasm: bool, hash: int = 0, odd := false, joins := 0) -> int:
+	if v == TerrainGrid.CRACKED:
+		return OV_CRACK_JOIN + joins if joins > 0 else OV_CRACK[posmod(hash, OV_CRACK.size())]
+	if TerrainGrid.is_pit(v):
+		return (OV_CHASM_TOP if chasm else OV_WALL_TOP) + mini(depth, PIT_DEPTH_CELLS) + (OV_PHASE_B if odd else 0)
+	return -1
+
+
+## Whether overlay id `id` is a crack (alone or joined).
+static func is_crack(id: int) -> bool:
+	return id in OV_CRACK or (id > OV_CRACK_JOIN and id < OV_CRACK_JOIN + 16)
+
+
+## The corner tile over a pit cell: a bit of lip at each corner whose diagonal neighbour is
+## solid floor while the two cells between are open (the turn of a pit round a floor's
+## corner, where the side and rim edges would leave a notch), -1 for none.
+static func corner_tile(tl: bool, tr: bool, bl: bool, br: bool) -> int:
+	var m := (1 if tl else 0) | (2 if tr else 0) | (4 if bl else 0) | (8 if br else 0)
+	return OV_CORNER + m if m > 0 else -1
+
+
+## The edge tile over a pit cell: the floor's edge down its left or right side and along
+## its near rim (floor below it), -1 when every neighbour is open too.
+static func edge_tile(left_open: bool, right_open: bool, below_open: bool) -> int:
+	var sides := (0 if left_open else 1) | (0 if right_open else 2)
+	if below_open:
+		return [-1, OV_EDGE_L, OV_EDGE_R, OV_EDGE_LR][sides]
+	return OV_RIM + sides
+
+
+static func _ov_coords(id: int) -> Vector2i:
+	return Vector2i(id % OV_COLS, id / OV_COLS)
+
+
+func _build_tiles() -> void:
+	_tiles = _scene.instantiate()
+	_tiles.position = Vector2(SimDefs.GRID_X, SimDefs.GRID_Y)
+	_tiles.scale = ArtScale.scale_of(ArtScale.PX_PER_UNIT)
+	add_child(_tiles)
+	move_child(_tiles, 0)
+	_piece_cells.clear()
+	var pieces := _tiles.get_node_or_null("Pieces") as TileMapLayer
+	if pieces != null:
+		for c in pieces.get_used_cells():
+			_piece_cells[c] = [pieces.get_cell_source_id(c), pieces.get_cell_atlas_coords(c)]
+	for which in 3:
+		var layer := TileMapLayer.new()
+		layer.name = ["Overlay", "Edges", "Corners"][which]
+		layer.tile_set = _overlay_set
+		layer.position = _tiles.position
+		layer.scale = _tiles.scale
+		add_child(layer)
+		if which == 0:
+			_overlay = layer
+		elif which == 1:
+			_edges = layer
+		else:
+			_corners = layer
+
+
+## Sets the overlay cells of rows row0..row1-1 from the terrain, and the pieces on them.
+func _retile(row0: int, row1: int) -> void:
+	if _overlay == null:
+		return
+	var cols := terrain.cols
+	var per := ArtScale.TILE_CELLS
+	var pieces := _tiles.get_node_or_null("Pieces") as TileMapLayer
+	for cy in range(maxi(0, row0), mini(terrain.rows, row1)):
+		for cx in cols:
+			var i := cy * cols + cx
+			var v := terrain.cells[i]
+			var at := Vector2i(cx, cy)
+			var pit := _pit_at(cx, cy)
+			var id := -1
+			if pit:
+				id = overlay_tile(v, _pit_depth(cx, cy), v == TerrainGrid.CHASM, 0, cx % 2 == 1)
+			elif v == TerrainGrid.CRACKED:
+				var joins := (1 if _crack_link(cx - 1, cy, cx, cy) else 0) | (2 if _crack_link(cx, cy, cx + 1, cy) else 0) \
+					| (4 if _crack_link(cx, cy - 1, cx, cy) else 0) | (8 if _crack_link(cx, cy, cx, cy + 1) else 0)
+				id = overlay_tile(v, 0, false, _h(cx, cy, 3), false, joins)
+			if id < 0:
+				_overlay.erase_cell(at)
+			else:
+				_overlay.set_cell(at, 0, _ov_coords(id))
+			var eid := edge_tile(_pit_at(cx - 1, cy), _pit_at(cx + 1, cy), _pit_at(cx, cy + 1)) if pit else -1
+			if eid < 0:
+				_edges.erase_cell(at)
+			else:
+				_edges.set_cell(at, 0, _ov_coords(eid))
+			var kid := -1
+			if pit:
+				var l := _pit_at(cx - 1, cy)
+				var r := _pit_at(cx + 1, cy)
+				var u := _pit_at(cx, cy - 1)
+				var d := _pit_at(cx, cy + 1)
+				kid = corner_tile(l and u and not _pit_at(cx - 1, cy - 1), r and u and not _pit_at(cx + 1, cy - 1),
+					l and d and not _pit_at(cx - 1, cy + 1), r and d and not _pit_at(cx + 1, cy + 1))
+			if kid < 0:
+				_corners.erase_cell(at)
+			else:
+				_corners.set_cell(at, 0, _ov_coords(kid))
+		if pieces != null and cy % per == 0:
+			_sync_pieces(pieces, cy / per)
+	_sync_sprites(row0, row1)
+
+
+## The scene's sprite pieces, each with the cells it covers in its meta "cells": bush clumps
+## ("Brush") and wall sprites ("Walls") show while every cell under them is still the map's
+## own (brush standing, wall whole) and hide while any has changed (flattened by a dash,
+## smashed), until the floor heals; a wall tile's rubble ("Rubble", meta "broken") shows
+## exactly then.
+func _sync_sprites(row0: int, row1: int) -> void:
+	for node_name in ["Brush", "Walls", "Rubble"]:
+		var group := _tiles.get_node_or_null(node_name)
+		if group == null:
+			continue
+		for s in group.get_children():
+			if not s.has_meta("cells"):
+				continue
+			var cells: Rect2i = s.get_meta("cells")
+			if cells.end.y <= row0 or cells.position.y >= row1:
+				continue
+			var whole := true
+			for cy in range(cells.position.y, cells.end.y):
+				for cx in range(cells.position.x, cells.end.x):
+					if cx < 0 or cy < 0 or cx >= terrain.cols or cy >= terrain.rows:
+						continue
+					var i := cy * terrain.cols + cx
+					if terrain.cells[i] != terrain.map_base[i]:
+						whole = false
+			s.visible = whole != bool(s.get_meta("broken", false))
+
+
+## The scene's pieces on tile row `ty`: a boulder stays while every cell under it is still
+## the map's wall, a tuft while its brush stands; otherwise the tile is cleared.
+func _sync_pieces(pieces: TileMapLayer, ty: int) -> void:
+	var per := ArtScale.TILE_CELLS
+	for c: Vector2i in _piece_cells:
+		if c.y != ty:
+			continue
+		var whole := true
+		for dy in per:
+			for dx in per:
+				var cx := c.x * per + dx
+				var cy := c.y * per + dy
+				if cx < 0 or cy < 0 or cx >= terrain.cols or cy >= terrain.rows:
+					continue
+				var i := cy * terrain.cols + cx
+				if terrain.cells[i] != terrain.map_base[i]:
+					whole = false
+		if whole:
+			var was: Array = _piece_cells[c]
+			pieces.set_cell(c, int(was[0]), was[1])
+		else:
+			pieces.erase_cell(c)
 var _art_cracked: Texture2D = null
 ## The floor with its pieces changed (a smashed wall's rubble, flattened brush), if any.
 var _art_alt: Texture2D = null
 ## The cracks of the _cracked picture alone, white on clear (lit as they spread and knit).
 var _mask: Texture2D = null
+
+
+## A picture's density (ArtScale.picture_ppu): 1 for the baked pictures as they are, 2 for
+## one twice the size of the world it covers. The main picture covers the stadium and its
+## margins; the cracked, alt and mask pictures cover the floor.
+func _ppu(tex: Texture2D) -> int:
+	if tex == null or terrain == null:
+		return 1
+	var units := terrain.arena_size() + MARGIN * 2.0 if tex == _art else terrain.floor_rect().size
+	return ArtScale.picture_ppu(tex.get_size(), units)
+
+
+## The source rect in `tex` for the world rect `at` whose picture starts at world `origin`.
+func _src(tex: Texture2D, at: Rect2, origin: Vector2) -> Rect2:
+	var k := float(_ppu(tex))
+	return Rect2((at.position - origin) * k, at.size * k)
+
+
+## The source rect for a floor cell in a floor-sized picture (cracked, alt, mask).
+func _src_cell(tex: Texture2D, cx: int, cy: int) -> Rect2:
+	var k := float(_ppu(tex)) * SimDefs.CELL
+	return Rect2(cx * k, cy * k, k, k)
+
+
+## The cells a floor picture's origin starts at (the floor's corner), as world units.
+const FLOOR_ORIGIN := Vector2(SimDefs.GRID_X, SimDefs.GRID_Y)
 ## The map's bridges (cells), whose holes show the water in the _alt picture.
 var _bridges: Array[Rect2i] = []
 ## How tall (px) the pieces that change are, as tools/gen_arenas.py casts their shadows
@@ -177,7 +427,7 @@ const SPREAD_FRAMES := 4
 ## Starts the drawing over: a new terrain, map art or ground.
 func _rebuild() -> void:
 	queue_redraw()
-	var old: Array = [_marks, _under, _over, _dust]
+	var old: Array = [_marks, _under, _over, _dust, _tiles, _overlay, _edges, _corners]
 	old.append_array(_floor_bands)
 	old.append_array(_pit_bands)
 	for b in old:
@@ -193,6 +443,10 @@ func _rebuild() -> void:
 	_under = null
 	_over = null
 	_dust = null
+	_tiles = null
+	_overlay = null
+	_edges = null
+	_corners = null
 	_grow.clear()
 	_settle.clear()
 	_motes.clear()
@@ -205,12 +459,19 @@ func _rebuild() -> void:
 		return
 	_build_bridge_cells()
 	_build_pit_tex()
+	if _scene != null and _overlay_set != null:
+		_build_tiles()
 	var bands := ceili(terrain.rows / float(BAND_ROWS))
 	for k in bands:
 		_floor_bands.append(_band(_paint_floor, k))
 	_marks = _band(_paint_marks, 0)
 	_under = _band(_paint_under, 0)
 	_under.label = "pit fx under"
+	if _overlay != null:
+		# the breaking ground as tiles, where the pit bands would be
+		move_child(_overlay, get_child_count() - 1)
+		move_child(_edges, get_child_count() - 1)
+		move_child(_corners, get_child_count() - 1)
 	for k in bands:
 		_pit_bands.append(_band(_paint_pit_band, k))
 	_over = _band(_paint_over, 0)
@@ -223,6 +484,8 @@ func _rebuild() -> void:
 		if terrain.cells[i] != terrain.base[i]:
 			_schedule(i)
 	_build_shade()
+	if _overlay != null:
+		_retile(0, terrain.rows)
 
 
 ## Which floor cells lie in the shadow of pieces that can change (`_shade`): each such
@@ -344,6 +607,8 @@ func _find_changes() -> void:
 	for k in dirty:
 		if not (k in _pending):
 			_pending.append(k)
+		if _overlay != null:
+			_retile(k * BAND_ROWS, (k + 1) * BAND_ROWS)
 
 
 ## A few of the pending bands each frame (every band paints the floor as it is now, so a
@@ -370,9 +635,10 @@ func _process(_delta: float) -> void:
 			_under.queue_redraw()
 
 
-## The map's picture (null on a tiled map): AmbientView sways pieces of it.
+## The map's picture (null on a tiled map, whose brush is tiles): AmbientView sways pieces
+## of it. A tiled map may still have the picture: it draws the stands round the floor.
 func art() -> Texture2D:
-	return _art
+	return null if _tiles != null else _art
 
 
 ## Under the bands: the map's art, or the stands and walls round a tiled floor.
@@ -380,7 +646,8 @@ func _draw() -> void:
 	if terrain == null:
 		return
 	if _art != null:
-		draw_texture(_art, -MARGIN)
+		# at its own density: a 2x picture covers the same world at half scale
+		draw_texture_rect(_art, Rect2(-MARGIN, _art.get_size() / float(_ppu(_art))), false)
 		return
 	var fr := terrain.floor_rect()
 	var size := terrain.arena_size()
@@ -410,6 +677,16 @@ func _draw() -> void:
 ## A floor band: on a map with art, the cells that differ from it; else the floor tiles
 ## (intact and cracked cells, then the map's pieces that sit on them).
 func _paint_floor(ci: CanvasItem, row0: int, row1: int) -> void:
+	if _tiles != null:
+		# The ground scene and the overlay tiles draw it all, except rubble the sim adds
+		# where the map laid none (a Caravan rockslide): its heap is drawn here as on a map
+		# with art, since the scene's pieces are only the map's own.
+		for cy in range(row0, row1):
+			for cx in terrain.cols:
+				var i := cy * terrain.cols + cx
+				if terrain.cells[i] == TerrainGrid.WALL and terrain.map_base[i] != TerrainGrid.WALL:
+					_draw_rubble(ci, cx, cy)
+		return
 	if _art != null:
 		_paint_changed(ci, row0, row1)
 		return
@@ -444,20 +721,53 @@ func _paint_floor(ci: CanvasItem, row0: int, row1: int) -> void:
 
 ## Court markings over a tiled floor (the art has its own), under the pits.
 func _paint_marks(ci: CanvasItem, _row0: int, _row1: int) -> void:
-	if _art != null:
+	if (_tiles == null and _art != null) or (_tiles != null and not _markings):
 		return
 	var fr := terrain.floor_rect()
 	var c := fr.get_center()
-	ci.draw_rect(fr.grow(-4), C_LINE, false, 1.0)
-	ci.draw_line(Vector2(c.x, fr.position.y + 4), Vector2(c.x, fr.end.y - 4), C_LINE, 1.0)
-	ci.draw_arc(c, 34.0, 0.0, TAU, 48, C_LINE, 1.0)
+	if _tiles == null:
+		ci.draw_rect(fr.grow(-4), C_LINE, false, 1.0)
+		ci.draw_line(Vector2(c.x, fr.position.y + 4), Vector2(c.x, fr.end.y - 4), C_LINE, 1.0)
+		ci.draw_arc(c, 34.0, 0.0, TAU, 48, C_LINE, 1.0)
+		return
+	# Chalk on the tiles, the baked Stadium's layout (tools/gen_arenas.py:_markings): the
+	# boundary, a centre line broken at a double centre circle, corner arcs, the two sides'
+	# starting brackets in their colours, and the eight-point emblem in faded gold.
+	var box := fr.grow(-6)
+	ci.draw_rect(box, C_CHALK, false, 1.0)
+	ci.draw_line(Vector2(c.x, box.position.y), Vector2(c.x, c.y - 34), C_CHALK, 1.0)
+	ci.draw_line(Vector2(c.x, c.y + 34), Vector2(c.x, box.end.y), C_CHALK, 1.0)
+	ci.draw_arc(c, 34.0, 0.0, TAU, 64, C_CHALK, 1.0)
+	ci.draw_arc(c, 31.0, 0.0, TAU, 64, C_CHALK, 1.0)
+	for k in 4:
+		var corner := Vector2(box.position.x if k % 3 == 0 else box.end.x, box.position.y if k < 2 else box.end.y)
+		ci.draw_arc(corner, 10.0, PI * 0.5 * k, PI * 0.5 * (k + 1), 10, C_CHALK, 1.0)
+	for side in 2:
+		var s := Vector2(c.x + (100.0 if side == 1 else -100.0), c.y + 4.0)
+		var col: Color = C_START[side]
+		for dx in [-1.0, 1.0]:
+			for dy in [-1.0, 1.0]:
+				var b := s + Vector2(dx * 9.0, dy * 7.0)
+				ci.draw_line(b, b - Vector2(dx * 4.0, 0.0), col, 1.0)
+				ci.draw_line(b, b - Vector2(0.0, dy * 3.0), col, 1.0)
+	ci.draw_arc(c, 12.0, 0.0, TAU, 32, Color(C_CHALK, 0.5), 1.0)
+	for k in 8:
+		var ang := k * PI / 4.0
+		var ln := 9.0 if k % 2 == 0 else 5.0
+		ci.draw_line(c, c + Vector2(cos(ang), sin(ang)) * ln, C_EMBLEM, 1.0)
+
+
+## Chalk and paint on a tiled floor's markings.
+const C_CHALK := Color(1.0, 0.98, 0.94, 0.62)
+const C_START: Array[Color] = [Color8(236, 104, 92, 200), Color8(104, 150, 240, 200)]
+const C_EMBLEM := Color8(226, 178, 70, 150)
 
 
 ## Whether the art already shows cell `i` as a chasm: only the map's own chasms are in the
 ## picture. A cell sunk during the match (Sinkhole's rings, the Floor of pits mutator) has
 ## `base` CHASM too, so it never heals, but it has to be drawn.
 func _in_art(i: int) -> bool:
-	return _art != null and terrain.map_base[i] == TerrainGrid.CHASM
+	return _tiles == null and _art != null and terrain.map_base[i] == TerrainGrid.CHASM
 
 
 ## A map with art: a crack mark on each cracked cell, the map's changed pieces (rubble,
@@ -467,8 +777,7 @@ func _paint_changed(ci: CanvasItem, row0: int, row1: int) -> void:
 		var a := cy * terrain.cols
 		for p: int in _shade_rows.get(cy, []):  # floor out of the shadow of pieces that changed
 			if _unshaded(p):
-				ci.draw_texture_rect_region(_art_alt, _cell_rect(p - a, cy),
-					Rect2((p - a) * SimDefs.CELL, cy * SimDefs.CELL, SimDefs.CELL, SimDefs.CELL))
+				ci.draw_texture_rect_region(_art_alt, _cell_rect(p - a, cy), _src_cell(_art_alt, p - a, cy))
 		# The art already shows the floor and every piece as the map made it.
 		if terrain.cells.slice(a, a + terrain.cols) == terrain.map_base.slice(a, a + terrain.cols):
 			continue
@@ -478,9 +787,8 @@ func _paint_changed(ci: CanvasItem, row0: int, row1: int) -> void:
 			if v == b:
 				continue
 			var cell := _cell_rect(cx, cy)
-			var src := Rect2(cx * SimDefs.CELL, cy * SimDefs.CELL, SimDefs.CELL, SimDefs.CELL)
 			if (v == TerrainGrid.HOLE or v == TerrainGrid.SHALLOWS) and _bridge_gone(cx, cy):
-				ci.draw_texture_rect_region(_art_alt, cell, src)  # the river under the broken bridge
+				ci.draw_texture_rect_region(_art_alt, cell, _src_cell(_art_alt, cx, cy))  # the river under the broken bridge
 				continue
 			if TerrainGrid.is_pit(v):
 				continue
@@ -490,7 +798,7 @@ func _paint_changed(ci: CanvasItem, row0: int, row1: int) -> void:
 			if (v == TerrainGrid.CRACKED and b == TerrainGrid.WALL) or v == TerrainGrid.BRUSH_FLAT:
 				# a smashed wall's rubble, flattened brush: the map's changed-piece picture
 				if _art_alt != null:
-					ci.draw_texture_rect_region(_art_alt, cell, src)
+					ci.draw_texture_rect_region(_art_alt, cell, _src_cell(_art_alt, cx, cy))
 				else:
 					var t := TILE_RUBBLE_FLOOR if v == TerrainGrid.CRACKED else TILE_BRUSH_FLAT
 					ci.draw_texture_rect_region(TILES, cell, Rect2(t * 8, 0, 8, 8))
@@ -498,7 +806,7 @@ func _paint_changed(ci: CanvasItem, row0: int, row1: int) -> void:
 				if _grow.has(a + cx):
 					continue  # its crack is still running: the under layer draws it
 				if _art_cracked != null:
-					ci.draw_texture_rect_region(_art_cracked, cell, src)
+					ci.draw_texture_rect_region(_art_cracked, cell, _src_cell(_art_cracked, cx, cy))
 					if _glowing.has(a + cx):
 						_glow(ci, cell, Color(C_GLOW, GLOW_BAND))
 				else:
@@ -682,6 +990,8 @@ func _build_pit_tex() -> void:
 ## A pit band: holes and chasms over everything else, so they cut through the markings,
 ## each with its lip and the pebbles round it.
 func _paint_pit_band(ci: CanvasItem, row0: int, row1: int) -> void:
+	if _tiles != null:
+		return  # the overlay tiles are the pits
 	var cols := terrain.cols
 	for cy in range(row0, row1):
 		for cx in cols:
@@ -698,6 +1008,23 @@ func _pit_at(cx: int, cy: int) -> bool:
 	if cx < 0 or cy < 0 or cx >= terrain.cols or cy >= terrain.rows:
 		return false
 	return TerrainGrid.is_pit(terrain.cells[cy * terrain.cols + cx]) and not _bridge_gone(cx, cy)
+
+
+## Whether cell (cx, cy) is cracked or open: a crack can run on into it.
+func _broken_at(cx: int, cy: int) -> bool:
+	if cx < 0 or cy < 0 or cx >= terrain.cols or cy >= terrain.rows:
+		return false
+	return terrain.cells[cy * terrain.cols + cx] == TerrainGrid.CRACKED or _pit_at(cx, cy)
+
+
+## Whether a crack runs across the side between cells a and b (b right of or below a): both
+## broken, and the side's own hash says so (CRACK_LINK in 100), the same seen from either
+## cell. Every side of a cracked patch linked would draw a net; a few read as fissures.
+func _crack_link(ax: int, ay: int, bx: int, by: int) -> bool:
+	if not (_broken_at(ax, ay) and _broken_at(bx, by)):
+		return false
+	return _h(ax, ay, 5 if bx > ax else 6) % 100 < CRACK_LINK
+const CRACK_LINK := 34
 
 
 ## How many open cells there are straight above (0: the far wall is this cell's).
@@ -773,9 +1100,9 @@ func _floor_bit(ci: CanvasItem, ncx: int, ncy: int, at: Rect2) -> void:
 	if ncx >= 0 and ncy >= 0 and ncx < terrain.cols and ncy < terrain.rows and _art_cracked != null:
 		var ni := ncy * terrain.cols + ncx
 		if terrain.cells[ni] == TerrainGrid.CRACKED and terrain.map_base[ni] != TerrainGrid.WALL and not _grow.has(ni):
-			ci.draw_texture_rect_region(_art_cracked, at, Rect2(at.position - Vector2(SimDefs.GRID_X, SimDefs.GRID_Y), at.size))
+			ci.draw_texture_rect_region(_art_cracked, at, _src(_art_cracked, at, FLOOR_ORIGIN))
 			return
-	ci.draw_texture_rect_region(_art, at, Rect2(at.position + MARGIN, at.size))
+	ci.draw_texture_rect_region(_art, at, _src(_art, at, -MARGIN))
 
 
 ## Loose pebbles on a pit's rim (0 to 2, fixed per cell), each lit on the side the light
@@ -1079,9 +1406,9 @@ func _step_fx() -> void:
 ## The cracked picture over `at` (the floor broken), or the plain one on a map without it.
 func _cracked_piece(ci: CanvasItem, at: Rect2) -> void:
 	if _art_cracked != null:
-		ci.draw_texture_rect_region(_art_cracked, at, Rect2(at.position - Vector2(SimDefs.GRID_X, SimDefs.GRID_Y), at.size))
+		ci.draw_texture_rect_region(_art_cracked, at, _src(_art_cracked, at, FLOOR_ORIGIN))
 	elif _art != null:
-		ci.draw_texture_rect_region(_art, at, Rect2(at.position + MARGIN, at.size))
+		ci.draw_texture_rect_region(_art, at, _src(_art, at, -MARGIN))
 	else:
 		ci.draw_rect(at, C_FLOOR_BIT * GROUND_TINT.get(ground, Color.WHITE))
 
@@ -1089,7 +1416,7 @@ func _cracked_piece(ci: CanvasItem, at: Rect2) -> void:
 ## The cracks inside `at` lit up in `col` (nothing on a map without a crack mask).
 func _glow(ci: CanvasItem, at: Rect2, col: Color) -> void:
 	if _mask != null:
-		ci.draw_texture_rect_region(_mask, at, Rect2(at.position - Vector2(SimDefs.GRID_X, SimDefs.GRID_Y), at.size), col)
+		ci.draw_texture_rect_region(_mask, at, _src(_mask, at, FLOOR_ORIGIN), col)
 
 
 ## Under the pits: cracks running across their cells, their tips lit.
@@ -1135,6 +1462,8 @@ func _paint_under(ci: CanvasItem, _row0: int, _row1: int) -> void:
 ## Over the pits: pits closing in from their rims and knitting cracks glowing before they
 ## heal (redrawn only when one of them moves on a step).
 func _paint_over(ci: CanvasItem, _row0: int, _row1: int) -> void:
+	if _tiles != null:
+		return  # a tiled map's pits close as overlay tiles: no baked picture to creep in
 	var view := FxView._view_rect(ci, OVER_CULL)
 	# Pits side by side in a row at the same step close in one go: a run of far rims, a run
 	# of near rims (`_run`, `_flush`).

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="MoveFx" format=3]
+
+[ext_resource type="SpriteFrames" path="res://assets/vfx/boom_star_frames.tres" id="1_3eho6"]
+[ext_resource type="Script" path="res://src/view/move_fx.gd" id="2_virgu"]
+
+[resource]
+script = ExtResource("2_virgu")
+frames = ExtResource("1_3eho6")
+on = "burst"
+offset = Vector2(0, -12)
+flip_with_facing = false

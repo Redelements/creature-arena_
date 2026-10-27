@@ -1,0 +1,755 @@
+{
+	"_doc": "Szadi art's RPG Worlds Desert (RPGW_Desert_v2.01): Dustwind Pass's sand, packed earth and dry scrub, rock stacks for the walls (a y-sorted run per wall, a wide-footed stack at the near end, loose rocks where one is smashed), bush beds of the Desert's own yellow-olive scrub shrubs, a wooden fence, the plateau's cliff face for the pit walls, low rock heaps, agave and palms for the margins, narrow banner racks, piles of goods and braziers (RPG_Buildings_Desert) on the walls by the caravan stops and on the side walkways at the road's ends. The sand is lifted toward tan (blue x1.4 before the palette snap: the plateau sand's streaks otherwise snap to pale on orange and repeat as diagonal stripes); every ground cut gets the same tint so the blobs' sandy edges match, and the earth and scrub land on browns. The MainLev sheet's blobs are opaque 5 x 5 blocks (corners, edges, a 3 x 3 middle): recipe key blob9. Keys: tools/cut_tiles.py. Paths are relative to the packs dir.",
+	"ground": {
+		"fills": {
+			"sand": {
+				"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+				"block": [
+					1,
+					1
+				],
+				"tint": {
+					"mul": [
+						1.0,
+						1.0,
+						1.4
+					]
+				}
+			},
+			"gravel": {
+				"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+				"block": [
+					40,
+					27
+				],
+				"tint": {
+					"mul": [
+						1.0,
+						1.0,
+						1.4
+					]
+				}
+			},
+			"scrub_fill": {
+				"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+				"block": [
+					30,
+					32
+				],
+				"tint": {
+					"mul": [
+						1.0,
+						1.0,
+						1.4
+					]
+				}
+			},
+			"earth_fill": {
+				"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+				"block": [
+					26,
+					27
+				],
+				"size": 3,
+				"tint": {
+					"mul": [
+						1.0,
+						1.0,
+						1.4
+					]
+				}
+			},
+			"sand_dirt": {
+				"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+				"block": [
+					38,
+					41
+				],
+				"tint": {
+					"mul": [
+						1.0,
+						1.0,
+						1.4
+					]
+				},
+				"_doc": "the plateau sand with dry dirt clods (tiles 38-41 x 41-44, opaque, seamless with `sand`): worn verges along the road; its clods sit inside the block, so a patch on the 4-tile grid shows them whole"
+			}
+		},
+		"terrains": {
+			"earth": {
+				"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+				"blob9": [
+					25,
+					26
+				],
+				"tint": {
+					"mul": [
+						1.0,
+						1.0,
+						1.4
+					]
+				}
+			},
+			"scrub": {
+				"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+				"blob9": [
+					5,
+					26
+				],
+				"tint": {
+					"mul": [
+						1.0,
+						1.0,
+						1.4
+					]
+				}
+			}
+		}
+	},
+	"pieces": {
+		"fence_h": [
+			{
+				"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+				"tile": [
+					41,
+					20
+				]
+			},
+			{
+				"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+				"tile": [
+					42,
+					20
+				]
+			},
+			{
+				"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+				"tile": [
+					43,
+					20
+				]
+			}
+		],
+		"fence_v": [
+			{
+				"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+				"tile": [
+					40,
+					22
+				]
+			},
+			{
+				"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+				"tile": [
+					40,
+					23
+				]
+			}
+		]
+	},
+	"overlay": {
+		"_doc": "the pits' far wall: a seamless cliff face from the matching pack; the lip and the cracks: the floor's own fill (tools/cut_tiles.py cut_overlay)",
+		"face": {
+			"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+			"box": [
+				160,
+				382,
+				192,
+				422
+			]
+		},
+		"lip": "sand"
+	},
+	"decor": {
+		"rocks": {
+			"src": "RPGW_Desert_v2.01/decorative1.png",
+			"box": [
+				518,
+				225,
+				565,
+				256
+			],
+			"feet": [
+				23,
+				27
+			]
+		},
+		"rocks_b": {
+			"src": "RPGW_Desert_v2.01/decorative1.png",
+			"box": [
+				610,
+				225,
+				651,
+				256
+			],
+			"feet": [
+				20,
+				27
+			]
+		},
+		"agave": {
+			"src": "RPGW_Desert_v2.01/decorative2.png",
+			"box": [
+				0,
+				352,
+				96,
+				416
+			],
+			"feet": [
+				48,
+				58
+			]
+		},
+		"agave_pale": {
+			"src": "RPGW_Desert_v2.01/decorative2.png",
+			"box": [
+				0,
+				864,
+				96,
+				928
+			],
+			"feet": [
+				48,
+				58
+			]
+		},
+		"rack_grey": {
+			"src": "RPG_Buildings_Desert_v1.0/mainbuildings3.png",
+			"size": [
+				32,
+				59
+			],
+			"feet": [
+				16,
+				58
+			],
+			"parts": [
+				{
+					"box": [
+						736,
+						0,
+						745,
+						59
+					],
+					"at": [
+						0,
+						0
+					]
+				},
+				{
+					"box": [
+						746,
+						0,
+						760,
+						59
+					],
+					"at": [
+						9,
+						0
+					]
+				},
+				{
+					"box": [
+						791,
+						0,
+						800,
+						59
+					],
+					"at": [
+						23,
+						0
+					]
+				}
+			],
+			"_doc": "the 64 x 59 banner racks (two glyph banners on a crossbar between two posts) made narrow: the left post, the first banner and the right post, 32 px, so a rack stands on a one-tile wall run or the side walkway without reaching over the floor"
+		},
+		"rack_red": {
+			"src": "RPG_Buildings_Desert_v1.0/mainbuildings3.png",
+			"size": [
+				32,
+				59
+			],
+			"feet": [
+				16,
+				58
+			],
+			"parts": [
+				{
+					"box": [
+						736,
+						64,
+						745,
+						123
+					],
+					"at": [
+						0,
+						0
+					]
+				},
+				{
+					"box": [
+						746,
+						64,
+						760,
+						123
+					],
+					"at": [
+						9,
+						0
+					]
+				},
+				{
+					"box": [
+						791,
+						64,
+						800,
+						123
+					],
+					"at": [
+						23,
+						0
+					]
+				}
+			]
+		},
+		"rack_green": {
+			"src": "RPG_Buildings_Desert_v1.0/mainbuildings3.png",
+			"size": [
+				32,
+				59
+			],
+			"feet": [
+				16,
+				58
+			],
+			"parts": [
+				{
+					"box": [
+						736,
+						128,
+						745,
+						187
+					],
+					"at": [
+						0,
+						0
+					]
+				},
+				{
+					"box": [
+						746,
+						128,
+						760,
+						187
+					],
+					"at": [
+						9,
+						0
+					]
+				},
+				{
+					"box": [
+						791,
+						128,
+						800,
+						187
+					],
+					"at": [
+						23,
+						0
+					]
+				}
+			]
+		},
+		"goods_a": {
+			"src": "RPG_Buildings_Desert_v1.0/small_obj1.png",
+			"size": [
+				32,
+				20
+			],
+			"feet": [
+				16,
+				19
+			],
+			"_doc": "market goods (small_obj1 row y 192): a clay jar, a fruit basket and an apple basket in a pile",
+			"parts": [
+				{
+					"box": [
+						138,
+						200,
+						148,
+						215
+					],
+					"at": [
+						1,
+						2
+					]
+				},
+				{
+					"box": [
+						8,
+						199,
+						21,
+						215
+					],
+					"at": [
+						9,
+						4
+					]
+				},
+				{
+					"box": [
+						107,
+						201,
+						117,
+						215
+					],
+					"at": [
+						21,
+						6
+					]
+				}
+			]
+		},
+		"goods_b": {
+			"src": "RPG_Buildings_Desert_v1.0/small_obj1.png",
+			"size": [
+				32,
+				20
+			],
+			"feet": [
+				16,
+				19
+			],
+			"_doc": "a white sack, a wooden bucket and a tall jar (small_obj1 rows y 32, 160, 192)",
+			"parts": [
+				{
+					"box": [
+						138,
+						167,
+						148,
+						181
+					],
+					"at": [
+						11,
+						2
+					]
+				},
+				{
+					"box": [
+						10,
+						42,
+						22,
+						56
+					],
+					"at": [
+						0,
+						6
+					]
+				},
+				{
+					"box": [
+						171,
+						200,
+						181,
+						215
+					],
+					"at": [
+						21,
+						5
+					]
+				}
+			]
+		}
+	},
+	"anim": {
+		"palm": {
+			"src": "RPGW_Desert_v2.01/animated/tree1a.png",
+			"frame": [
+				64,
+				96
+			],
+			"frames": 10,
+			"fps": 6,
+			"feet": [
+				31,
+				95
+			],
+			"_doc": "tree1a's trunk ends on the frame's last row (y 95), x 25-37"
+		},
+		"palm_b": {
+			"src": "RPGW_Desert_v2.01/animated/tree2a.png",
+			"frame": [
+				64,
+				96
+			],
+			"frames": 10,
+			"fps": 6,
+			"feet": [
+				30,
+				85
+			],
+			"_doc": "tree2a is shorter: its trunk ends at y 85, x 24-36"
+		},
+		"brazier": {
+			"src": "RPG_Buildings_Desert_v1.0/Anim/fire1.png",
+			"frame": [
+				32,
+				96
+			],
+			"frames": 6,
+			"fps": 8,
+			"feet": [
+				14,
+				80
+			],
+			"_doc": "the stepped sandstone pillar brazier: its base's lowest row is y 80, x 12-15 (the catalogue's [16,94] would float it 14 px); the soft shadow (alpha 64) drops out in the cut"
+		},
+		"tripod": {
+			"src": "RPG_Buildings_Desert_v1.0/Anim/fire3.png",
+			"frame": [
+				32,
+				64
+			],
+			"frames": 6,
+			"fps": 8,
+			"feet": [
+				16,
+				48
+			],
+			"_doc": "the iron tripod brazier with a red coal bowl: its legs end on y 48"
+		}
+	},
+	"walls": {
+		"rock": {
+			"_doc": "stacked rock pillars (decorative1 row 8), one per tile and mirrored for variety; a wide-footed stack closes a run's near end (and a row's ends); small rock heaps for a smashed tile",
+			"mid": [
+				{
+					"src": "RPGW_Desert_v2.01/decorative1.png",
+					"box": [
+						364,
+						259,
+						405,
+						320
+					],
+					"feet": [
+						20,
+						57
+					]
+				},
+				{
+					"src": "RPGW_Desert_v2.01/decorative1.png",
+					"box": [
+						424,
+						256,
+						465,
+						317
+					],
+					"feet": [
+						20,
+						57
+					]
+				},
+				{
+					"src": "RPGW_Desert_v2.01/decorative1.png",
+					"box": [
+						364,
+						259,
+						405,
+						320
+					],
+					"feet": [
+						21,
+						57
+					],
+					"mirror": true
+				},
+				{
+					"src": "RPGW_Desert_v2.01/decorative1.png",
+					"box": [
+						424,
+						256,
+						465,
+						317
+					],
+					"feet": [
+						21,
+						57
+					],
+					"mirror": true
+				}
+			],
+			"bottom": [
+				{
+					"src": "RPGW_Desert_v2.01/decorative1.png",
+					"box": [
+						227,
+						256,
+						285,
+						320
+					],
+					"feet": [
+						29,
+						59
+					]
+				},
+				{
+					"src": "RPGW_Desert_v2.01/decorative1.png",
+					"box": [
+						291,
+						256,
+						349,
+						320
+					],
+					"feet": [
+						29,
+						59
+					]
+				}
+			],
+			"left": [
+				{
+					"src": "RPGW_Desert_v2.01/decorative1.png",
+					"box": [
+						227,
+						256,
+						285,
+						320
+					],
+					"feet": [
+						29,
+						59
+					]
+				}
+			],
+			"right": [
+				{
+					"src": "RPGW_Desert_v2.01/decorative1.png",
+					"box": [
+						291,
+						256,
+						349,
+						320
+					],
+					"feet": [
+						29,
+						59
+					],
+					"mirror": true
+				}
+			],
+			"rubble": [
+				{
+					"src": "RPGW_Desert_v2.01/decorative1.png",
+					"box": [
+						625,
+						256,
+						666,
+						287
+					],
+					"feet": [
+						20,
+						26
+					]
+				},
+				{
+					"src": "RPGW_Desert_v2.01/decorative1.png",
+					"box": [
+						556,
+						257,
+						603,
+						288
+					],
+					"feet": [
+						23,
+						26
+					]
+				},
+				{
+					"src": "RPGW_Desert_v2.01/decorative1.png",
+					"box": [
+						546,
+						288,
+						576,
+						312
+					],
+					"feet": [
+						15,
+						21
+					]
+				},
+				{
+					"src": "RPGW_Desert_v2.01/decorative1.png",
+					"box": [
+						651,
+						288,
+						688,
+						317
+					],
+					"feet": [
+						18,
+						25
+					]
+				}
+			]
+		}
+	},
+	"bushes": {
+		"scrub": {
+			"src": "RPGW_Desert_v2.01/decorative2.png",
+			"frame": [
+				1024,
+				1024
+			],
+			"frames": 1,
+			"fps": 4,
+			"outline": "own",
+			"tint": {
+				"mul": [
+					1.0,
+					0.92,
+					1.25
+				],
+				"desat": 0.35,
+				"add": [
+					8,
+					4,
+					0
+				]
+			},
+			"_doc": "the Desert's own dry scrub (decorative2's yellow-olive half): five low spiky shrubs with no rocks in them (the catalogue's 'scrub clumps' [7,183,146,288] and the rest are rock stacks with shrubs at their feet), each kept whole with its own outline; a bed scatters them overlapping (build_tiles.gd _blob_spots). Tinted toward the ground cuts' blue lift but drier (blue x1.25, a third desaturated, a little warm): the plain blue x1.4 snaps to lime; this lands on olive leaves with scorched orange tips. The sheet draws no sway frames",
+			"blobs": {
+				"a": [
+					16,
+					458,
+					81,
+					509
+				],
+				"b": [
+					110,
+					448,
+					175,
+					499
+				],
+				"c": [
+					304,
+					448,
+					369,
+					493
+				],
+				"d": [
+					608,
+					288,
+					672,
+					346
+				],
+				"e": [
+					747,
+					288,
+					804,
+					338
+				]
+			}
+		}
+	}
+}

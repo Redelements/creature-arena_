@@ -51,9 +51,13 @@ const FALLBACK := {
 var c: CreatureSim
 var sprite := Sprite2D.new()
 var layout: Dictionary
-var frame_px := 48
+var frame_px := 48  ## the side frame's width, in sheet pixels
 var cols := 1
 var origin := Vector2(24, 43)
+## The side sheet's density (ArtScale: texture pixels per world unit; the sprite block's
+## "ppu", 1 unless given). A 2x sheet draws at half scale, on half-unit positions, so each
+## of its pixels is one grid pixel. Frame sizes, origins and portraits stay in sheet pixels.
+var ppu := 1
 var flip := false
 var view := "side"  ## "side", "up", "down", "down_side" or "up_side": which sheet is showing
 var mat := ShaderMaterial.new()
@@ -154,6 +158,7 @@ func rebind(creature: CreatureSim) -> void:
 	frame_px = int(side["size"].x)
 	cols = int(side["cols"])
 	origin = side["origin"]
+	ppu = int(side["ppu"])
 	_views = {"side": side}
 	var extra: Dictionary = layout.get("views", {})
 	for vname in extra:
@@ -184,7 +189,8 @@ static func _load_view(v: Dictionary, side: Dictionary, side_only: Array) -> Dic
 	for n in side_only:
 		anims.erase(n)
 	return {"tex": tex, "lit": lit, "size": size, "cols": int(v.get("cols", side.get("cols", 1))),
-		"origin": Vector2(float(o[0]), float(o[1])), "anims": anims, "emit": emit_tex}
+		"origin": Vector2(float(o[0]), float(o[1])), "anims": anims, "emit": emit_tex,
+		"ppu": ArtScale.ppu_of(v, ArtScale.ppu_of(side))}
 
 
 ## A view's emissive sheet (`<sheet>_e.png`, or its block's "emissive"), or null: an imported
@@ -240,7 +246,6 @@ func refresh() -> void:
 	if intro_clock >= 0:
 		intro_clock += 1
 	_update_idle_alt()
-	position = c.pos.round()
 	if c.facing.x < -0.1:
 		flip = true
 	elif c.facing.x > 0.1:
@@ -262,6 +267,9 @@ func refresh() -> void:
 		sprite.light_mask = (Light2DView.FIGHTER_MASK | sun_bit) if lit() else 1
 		sprite.hframes = int(v["cols"])
 		sprite.vframes = maxi(1, int(v["tex"].get_height() / v["size"].y))
+		sprite.scale = ArtScale.scale_of(int(v["ppu"]))
+	var vppu := int(v["ppu"])
+	position = ArtScale.snap(c.pos, vppu)
 	var count := int(anim[2])
 	var idx: int = pick[1] % count if pick[2] else clampi(pick[1], 0, count - 1)
 	sprite.frame = int(anim[0]) * int(v["cols"]) + int(anim[1]) + idx
@@ -273,8 +281,8 @@ func refresh() -> void:
 	if leap > 0.0:
 		lift += leap
 		z_index = 2  # high in the air: over everyone
-	sprite.position = Vector2(-ox, -o.y)
-	pivot.position = Vector2(0, -round(lift))
+	sprite.position = Vector2(-ox, -o.y) / float(vppu)
+	pivot.position = Vector2(0, -ArtScale.snapf(lift, vppu))
 	if c.state == CreatureSim.State.CRUMPLE and c.stone <= 0:
 		pivot.position.x += 1 if (c.anim_t / 4) % 2 == 0 else -1
 		pivot.position.y += 1
@@ -503,6 +511,7 @@ func _sync_emit() -> void:
 	emit.frame = sprite.frame
 	emit.flip_h = sprite.flip_h
 	emit.position = sprite.position
+	emit.scale = sprite.scale
 	for k in ["flash", "flash_color", "stone", "ice", "hue"]:
 		emit_mat.set_shader_parameter(k, mat.get_shader_parameter(k))
 
@@ -563,6 +572,8 @@ func snapshot() -> Dictionary:
 		"side_origin": origin,
 		"side_size": _views["side"]["size"],
 		"frame_px": frame_px,
+		"ppu": int(v["ppu"]),
+		"side_ppu": ppu,
 	}
 
 
@@ -587,8 +598,9 @@ func draw_shadow(ci: CanvasItem, cast: Vector2, alpha: float) -> void:
 	var a := alpha * shadow_fade
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.38))
 	ci.draw_circle(Vector2.ZERO, c.radius * 0.8 * shadow_size, Color(0, 0, 0, a * 0.45))
+	# A 2x sheet's rows are half a unit tall: the silhouette shrinks with the sprite.
 	ShadowLayer.draw_silhouette(ci, sheet(), region, _cur["origin"], flip,
-		Vector2(pivot.position.x, 0.0), cast, a, _sq * shadow_size)
+		Vector2(pivot.position.x, 0.0), cast, a, _sq * shadow_size / float(int(_cur["ppu"])))
 
 
 ## Counts the stand-still for the idle variety, one step a tick (see `_alt_t`).

@@ -159,7 +159,7 @@ func cut_in(c: CreatureSim, side: int, move_name: String) -> void:
 		"chain": chained,
 		"side": side, "move": move_name.to_upper(), "who": String(c.def.get("name", "")).to_upper(),
 		"tex": load(String(sp["path"])), "region": Rect2(int(fr[1]) * fpx, int(fr[0]) * fh, fpx, fh),
-		"origin": Vector2(float(o[0]), float(o[1])), "fpx": fpx, "fh": fh,
+		"origin": Vector2(float(o[0]), float(o[1])), "fpx": fpx, "fh": fh, "ppu": ArtScale.ppu_of(sp),
 		"color": Color(String(c.def.get("fx_color", "#ffcf3f"))), "t": 0,
 	}
 
@@ -281,8 +281,9 @@ func _hp_bar(r: Rect2, slot: int, right: bool) -> void:
 
 
 ## The head-and-shoulders crop of a fighter's idle frame. `sprite.portrait` [x, y, w, h]
-## (frame pixels, at most PORT_W x PORT_H) overrides the default: the top of the picture's
-## opaque area, centred on it. Scaled by the biggest whole multiple that fits.
+## (frame pixels, at most PORT_W x PORT_H units: twice that on a 2x sheet) overrides the
+## default: the top of the picture's opaque area, centred on it. Scaled by the biggest whole
+## multiple of its art pixels that fits (`scale`: canvas units per sheet pixel).
 func _portrait_info(c: CreatureSim) -> Dictionary:
 	var sp: Dictionary = c.def.get("sprite", {})
 	var key := String(sp.get("path", "")) + str(sp.get("portrait", ""))
@@ -294,13 +295,16 @@ func _portrait_info(c: CreatureSim) -> Dictionary:
 		var fr = sp.get("frame", 48)
 		var fw := int(fr[0]) if fr is Array else int(fr)
 		var fh := int(fr[1]) if fr is Array else int(fr)
+		var ppu := ArtScale.ppu_of(sp)
+		var pw := PORT_W * ppu  # the crop's limits in sheet pixels
+		var ph := PORT_H * ppu
 		var anim: Array = sp.get("anims", {}).get("idle", [0, 0, 1])
 		var frame := Rect2i(int(anim[1]) * fw, int(anim[0]) * fh, fw, fh)
 		var src := Rect2i()
 		if sp.has("portrait"):
 			var pr: Array = sp["portrait"]
 			src = Rect2i(frame.position + Vector2i(int(pr[0]), int(pr[1])),
-				Vector2i(clampi(int(pr[2]), 1, PORT_W), clampi(int(pr[3]), 1, PORT_H)))
+				Vector2i(clampi(int(pr[2]), 1, pw), clampi(int(pr[3]), 1, ph)))
 		elif tex != null:
 			var img := tex.get_image()
 			if img != null:
@@ -308,13 +312,20 @@ func _portrait_info(c: CreatureSim) -> Dictionary:
 					img.decompress()
 				var used := img.get_region(frame).get_used_rect()
 				if used.size.x > 0:
-					src = Rect2i(frame.position + Vector2i(used.position.x + used.size.x / 2 - PORT_W / 2,
-						used.position.y), Vector2i(PORT_W, PORT_H))
+					src = Rect2i(frame.position + Vector2i(used.position.x + used.size.x / 2 - pw / 2,
+						used.position.y), Vector2i(pw, ph))
 		if tex != null and src.size.x > 0:
-			var sc := maxi(1, mini(PORT_W / src.size.x, PORT_H / src.size.y))
+			var sc := portrait_scale(src.size, ppu)
 			info = {"tex": tex, "src": Rect2(src), "scale": sc}
 	_ports[key] = info
 	return info
+
+
+## Canvas units per sheet pixel for a portrait crop of `src` sheet pixels at density `ppu`:
+## the biggest whole number of screen-grid pixels per art pixel that fits PORT_W x PORT_H.
+static func portrait_scale(src: Vector2i, ppu: int) -> float:
+	var art_px := maxi(1, mini(PORT_W * ppu / maxi(1, src.x), PORT_H * ppu / maxi(1, src.y)))
+	return float(art_px) / float(maxi(1, ppu))
 
 
 func _draw_portrait(c: CreatureSim, x: float, col: Color, right: bool) -> void:
@@ -1061,7 +1072,9 @@ func _draw_cut_in() -> void:
 	var fpx := float(_cut["fpx"])
 	var fh := float(_cut.get("fh", fpx))
 	var origin: Vector2 = _cut["origin"]
-	var sc := maxf(1.0, roundf(2.6 * minf(1.0, 64.0 / fpx)))  # whole multiples only; Craglash's 96 px drops to 2x
+	var cppu := float(_cut.get("ppu", 1))
+	# whole multiples of the art's pixels only; Craglash's 96 px drops to 2x (a 2x sheet: half that per sheet pixel)
+	var sc := maxf(1.0, roundf(2.6 * minf(1.0, 64.0 * cppu / fpx))) / cppu
 	var feet := Vector2(roundf(_cx + (96.0 if side == 0 else SimDefs.VIEW_W - 96.0) + off * 1.25), roundf(y1 + 6.0))
 	# Colour-keyed glow: the sprite once more in the accent, offset a step behind.
 	draw_set_transform(feet + Vector2(-6.0 * dir, 0.0), 0.0, Vector2(sc * dir, sc))

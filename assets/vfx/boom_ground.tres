@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="MoveFx" format=3]
+
+[ext_resource type="SpriteFrames" path="res://assets/vfx/boom_ground_frames.tres" id="1_7jl0c"]
+[ext_resource type="Script" path="res://src/view/move_fx.gd" id="2_u8mfp"]
+
+[resource]
+script = ExtResource("2_u8mfp")
+frames = ExtResource("1_7jl0c")
+offset = Vector2(0, -15)
+flip_with_facing = false
