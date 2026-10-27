@@ -1,7 +1,7 @@
 # Status: handoff snapshot
 
-Stamped: 2026-10-27 02:20 UTC
-Branch: proof/32px-szadi @ dcb4566
+Stamped: 2026-10-27 02:36 UTC
+Branch: proof/32px-szadi @ 516e970
 Trigger: phase
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
@@ -46,7 +46,7 @@ Build for Kevin: `C:\Users\Kevin\Downloads\Ready4Rambles-windows-32px-szadi\Read
   (fix-greenhouse). Scene rebuilds are not deterministic (random tile variants): on a .tscn
   merge conflict take either side and rebuild the set.
 - Szadi's "No generative AI was used" is a content tag, not a licence term.
-- Public repo stays; cuts stay unpublished until both artists give written OK.
+- Public repo stays; kiddolink OK'd the cut strips in it (26 Oct); Szadi's OK not asked yet.
 
 ## Open questions
 
@@ -70,7 +70,8 @@ take either side, rebuild the set), rerun the full suite, export a build for Kev
 Rule until Kevin rules on the margin: nothing new above the floor; new decor on wall cells or in
 the side margins.
 
-Waiting on kiddolink's answer (asked in the shop comments) before anything goes public.
+kiddolink said yes (26 Oct, itch.io comment, recorded in LICENSES.md). Szadi: Kevin to decide whether
+the licence text is enough or to ask; until then the branch stays local.
 
 ## Files touched this session
 
