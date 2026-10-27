@@ -80,11 +80,12 @@ func test_the_quarry_scene_has_lanes_a_raised_middle_and_rock_walls() -> void:
 		var sp := s as Sprite2D
 		assert_true(sp.position.y > 10 * 32 and sp.position.y < 11 * 32, "%s overlaps the patch's bottom row" % sp.name)
 	assert_eq((root.get_node("Pieces") as TileMapLayer).get_used_cells().size(), 0, "no boulder tiles: the walls are sprites")
-	# the walls at cells [20, 5, 2, 26] and [62, 5, 2, 26]: tile columns 10 and 31, rows 2..15
+	# the walls at cells [20, 5, 2, 26] and [62, 5, 2, 26]: tile columns 10 and 31, rows 2..15,
+	# and four 4 x 2 outcrops (two tiles each)
 	var walls := root.get_node("Walls")
 	assert_true(walls.y_sort_enabled, "a run's near stacks overlap the far ones")
-	assert_eq(walls.get_child_count(), 28, "a rock stack on every wall tile")
-	assert_eq(root.get_node("Rubble").get_child_count(), 28, "and its rubble under it")
+	assert_eq(walls.get_child_count(), 28 + 4 * 2, "a rock stack on every wall tile")
+	assert_eq(root.get_node("Rubble").get_child_count(), 28 + 4 * 2, "and its rubble under it")
 	root.free()
 
 

@@ -36,7 +36,15 @@ func test_quarry_lays_two_rubble_walls_and_the_stadium_none() -> void:
 	assert_eq(sim.terrain.get_cell(Vector2i(63, 30)), TerrainGrid.WALL, "right wall:")
 	assert_eq(sim.terrain.get_cell(Vector2i(20, 2)), TerrainGrid.INTACT, "gap above the wall:")
 	assert_eq(sim.terrain.get_base(Vector2i(20, 10)), TerrainGrid.WALL, "the wall is the map's own state:")
-	assert_eq(sim.terrain.count(TerrainGrid.WALL), 2 * 2 * 26, "wall cells:")
+	assert_eq(sim.terrain.count(TerrainGrid.WALL), 2 * 2 * 26 + 4 * 8, "wall cells: the two walls and four 4 x 2 outcrops")
+	assert_eq(sim.terrain.get_cell(Vector2i(13, 17)), TerrainGrid.WALL, "the left lane's outcrop:")
+	assert_eq(sim.terrain.get_cell(Vector2i(70, 16)), TerrainGrid.WALL, "and the right lane's, mirrored:")
+	assert_eq(sim.terrain.get_cell(Vector2i(41, 6)), TerrainGrid.WALL, "the outcrop above the middle:")
+	assert_eq(sim.terrain.get_cell(Vector2i(42, 29)), TerrainGrid.WALL, "and the one below it:")
+	for c in 84:
+		for r in 36:
+			assert_eq(sim.terrain.get_cell(Vector2i(c, r)), sim.terrain.get_cell(Vector2i(83 - c, r)),
+				"the map mirrors left to right at (%d, %d):" % [c, r])
 	var plain := _on("stadium")
 	assert_eq(plain.terrain.count(TerrainGrid.WALL), 0, "the stadium has no walls")
 	assert_true(sim.terrain.is_walkable(sim.terrain.get_cell(sim.terrain.world_to_cell(sim.spawn(0)))),
