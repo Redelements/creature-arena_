@@ -1,7 +1,7 @@
 # Status: handoff snapshot
 
-Stamped: 2026-10-27 20:39 UTC
-Branch: sprites-vram @ 5ab3ca9
+Stamped: 2026-10-27 20:55 UTC
+Branch: cairn-2x @ ae00821
 Trigger: phase
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
@@ -49,6 +49,14 @@ Full roster at 2x projected about 0.4 GB in a 4v4 (`tests/test_vram.gd` pins it;
 `docs/plans/roster-2x.md` "VRAM"). The fighter-2x skill now runs `pack_sheets.py <id>` in step 3.
 Local commit only; never pushed. Not done: the grid sheets still ship in exports (build size,
 not VRAM; an `exclude_filter` could drop them); Android/Vulkan not measured.
+
+## Roster run (Kevin: "run all")
+
+Stacked on `sprites-vram` (Crease, Culvert, Sno at 2x + packed sheets, NET_VERSION 48).
+Cairn: branch `cairn-2x` (worktree `C:/Users/Kevin/dev/creature-arena-cairn-2x`), bold
+shading, 192 px frames, packed; `sprite_2x.py` now doubles `ko_fx` `x_eyes` too and FxView
+draws the X's at ppu size. NET_VERSION 49 (renumbered when stacking). Gallery and GIFs in
+`docs/pixellab/cairn/`. Next in the plan: Digby.
 
 ## Decisions
 
