@@ -2710,7 +2710,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	var two_sides := true  # (a Brawl of three or four has no sides for the stands to take)
 	for c in sim.creatures:
 		two_sides = two_sides and c.team >= 0 and c.team <= 1
-	crowd.set_size(sim.arena_size(), two_sides)
+	crowd.set_size(sim.arena_size(), two_sides, CrowdView.toasts_for(sim.arena))
 	backdrop.set_map(arena.arena_id, sim.arena_size())
 	fore.set_map(arena.arena_id, sim.arena_size())
 	furniture.hud = hud

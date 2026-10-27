@@ -1013,7 +1013,7 @@ func test_the_crowd_stands_up_near_a_hit_and_redraws_only_its_block() -> void:
 	for t in CrowdView.REACT_TICKS + 1:
 		crowd.advance()
 	assert_true(crowd._active.is_empty(), "everyone sat down")
-	# The team looks: red shirts left, blue right; a Brawl's are mixed.
+	# The team looks: red armour left, blue right; a Brawl's are mixed.
 	var looks := {}
 	for b in crowd._blocks:
 		looks[b.stand] = b.look[0]
@@ -1025,7 +1025,7 @@ func test_the_crowd_stands_up_near_a_hit_and_redraws_only_its_block() -> void:
 		if b.stand == CrowdView.Stand.LEFT:
 			assert_eq(b.look[0], CrowdView.Look.MIXED, "no sides: mixed")
 			break
-	assert_eq(CrowdView.sheet().get_height(), CrowdView.H * 4, "four looks from one sheet")
+	assert_eq(CrowdView.sheet().get_height(), CrowdView.CELL_H * CrowdView.PPU * CrowdView.SHEET_ROWS, "every variant baked in one sheet (tools/cut_crowd.py)")
 	crowd.free()
 
 

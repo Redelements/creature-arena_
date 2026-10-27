@@ -902,35 +902,35 @@ animations = [{
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_58k5m"]
 atlas = ExtResource("16_5v686")
-region = Rect2(0, 0, 160, 160)
+region = Rect2(0, 0, 160, 60)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_6l7lb"]
 atlas = ExtResource("16_5v686")
-region = Rect2(160, 0, 160, 160)
+region = Rect2(160, 0, 160, 60)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_xlvox"]
 atlas = ExtResource("16_5v686")
-region = Rect2(320, 0, 160, 160)
+region = Rect2(320, 0, 160, 60)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_j48tb"]
 atlas = ExtResource("16_5v686")
-region = Rect2(480, 0, 160, 160)
+region = Rect2(480, 0, 160, 60)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_uw4rf"]
 atlas = ExtResource("16_5v686")
-region = Rect2(640, 0, 160, 160)
+region = Rect2(640, 0, 160, 60)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_3s7a0"]
 atlas = ExtResource("16_5v686")
-region = Rect2(800, 0, 160, 160)
+region = Rect2(800, 0, 160, 60)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_hobta"]
 atlas = ExtResource("16_5v686")
-region = Rect2(960, 0, 160, 160)
+region = Rect2(960, 0, 160, 60)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_p6ba0"]
 atlas = ExtResource("16_5v686")
-region = Rect2(1120, 0, 160, 160)
+region = Rect2(1120, 0, 160, 60)
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_o12ug"]
 animations = [{
@@ -3395,7 +3395,7 @@ centered = false
 [node name="Anim" type="Node2D" parent="." unique_id=1201070147]
 
 [node name="waterfall_0" type="AnimatedSprite2D" parent="Anim" unique_id=510507644]
-position = Vector2(1120, -122)
+position = Vector2(1120, -22)
 sprite_frames = SubResource("SpriteFrames_o12ug")
 autoplay = "default"
 centered = false

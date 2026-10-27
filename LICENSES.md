@@ -176,8 +176,11 @@ by `tools/cut_tiles.py` from `tools/tile_recipes/wetland.json` for the Floodgate
   `assets/tiles/wetland_cells.tres`,
   `assets/arenas/floodgate.tscn`.
 
-Fantasy Lands Warrior: nothing from it is in the repository yet. Add its files here when
-they are.
+Fantasy Lands Warrior (`FL_Warrior_v1.1`), same licence: `assets/sprites/crowd.png`, the
+stadium crowd, cut by `tools/cut_crowd.py` from its idle, sword-attack and special-move
+sheets (fans from the hips up, the baked shadow and the swings' arcs dropped, the armour,
+trim, skin and hair recoloured per fan, colours snapped to the game's palette; the two
+fans' beer mugs are drawn by the tool, not cut).
 
 ### RPG Worlds Desert (`RPGW_Desert_v2.01`)
 

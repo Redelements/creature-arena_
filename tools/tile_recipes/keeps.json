@@ -1331,9 +1331,15 @@
 			],
 			"frames": 8,
 			"fps": 8,
+			"crop": [
+				0,
+				100,
+				160,
+				160
+			],
 			"feet": [
 				80,
-				154
+				54
 			],
 			"tint": {
 				"mul": [
@@ -1347,7 +1353,7 @@
 					17
 				]
 			},
-			"_doc": "Set 1's 3-tall, 3-wide fall, tinted like the river: its foam pool (x 19-140 of the 160 px frame, 122 px) fits inside the river's 128 px head, where the five-wide fall's (187 px) spilled over both banks; it stands one row up, its curtain over the stands and its pool on the river's first row"
+			"_doc": "Set 1's 3-tall, 3-wide fall, tinted like the river: its foam pool (x 19-140 of the 160 px frame, 122 px) fits inside the river's 128 px head, where the five-wide fall's (187 px) spilled over both banks; its pool on the river's first row; cropped above frame row 100 (its crop) so the curtain starts at world y 53, inside the culvert that tools/gen_arenas.py:culvert cuts in the back wall, and never reaches up into the stands"
 		},
 		"brazier_red": {
 			"src": "RPG_Buildings_CASTLE_v1.0/Anim/light1c.png",

@@ -134,10 +134,18 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   panels and banners meanwhile.
 - The crowd's seats (`CrowdView.SIDE_*`, `FRONT_*`) sit on steps and seat backs that
   `tools/gen_arenas.py` (`_side_stands`, `_front_stands`) paints into each map's picture:
-  change one, change the other and regenerate. The side stands wear the sides' colours
-  (`Look.RED` / `BLUE`, a palette swap of `crowd.png` in `CrowdView.sheet()`, from
-  `Hud.SIDE_COLORS`); the front rows are seen from behind (`Look.BACK`) and drawn only
-  under the front wall, so they never cover a fighter. A hit by a fighter the local team
+  change one, change the other and regenerate. The fans are Szadi's Warrior,
+  `assets/sprites/crowd.png` from `tools/cut_crowd.py` (2x art, `CrowdView.PPU`): a row per
+  baked variant (facing, armour colour, skin, hair), its group ranges `CrowdView.ROWS_*` /
+  `MUG_ROW` in step with the tool's `GROUPS`; columns 0-3 sitting poses, 4 cheering. A fan's
+  cell is 12 x 24 units, `RISE` above its 12 x 16 seat (react and the blocks still use the
+  seat). The side stands wear the sides' colours (red armour left, blue right); the front
+  rows are seen from behind (`Look.BACK`, the `FRONT_CROP` window `BACK_SRC_Y` down the
+  cell) and drawn only under the front wall, so they never cover a fighter. The seated fans
+  breathe by moving, never redrawing: each block's fans sit on `BREATHS` `Seated` layers
+  (by phase) that rise half a unit on their own beat. Over a waterfall in the arena's tiles
+  (`toasts_for`, Twin Keeps) the two seats in the top stand's lowest row hold the mug
+  fans, on `MugLayer` (redrawn on a pose change, every `MUG_TICKS`). A hit by a fighter the local team
   can't see doesn't stand anyone up (main checks `fx._event_shown`).
 
 ## Hidden foes

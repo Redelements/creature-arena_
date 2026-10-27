@@ -57,7 +57,9 @@ Pack gives no timing; fps are suggestions. Pixellab spec maps Crease frames onto
 Pairs: `FL_Houses_v1.0`, `FLSET1_*` (same Fantasy Lands line, 3/4 view, 32 px scale), Szadi RPGFW sets for static scenery. Clashes: our fighters are about 78 px tall (hat a third), so Warrior would look tiny beside them; kiddolink 96 px VFX are bigger than this character.
 
 ## 7. Used today
-No recipe cuts it. `docs/pixellab-spec.md` section 4 uses these sheets as a hand-posing reference only (idle frames 0,3,5,8; walk frames 0,1,3,4,5,7; sword frames 0-7 of row 1).
+The stadium crowd: `tools/cut_crowd.py` cuts idle frames 0, 2, 5, 7 (all four facings), sword frame 0 (front) and 7
+(sides), and special frame 15 (front, a fist up; mirrored onto the back idle for the front rows) into
+`assets/sprites/crowd.png`, recoloured per fan. Otherwise no recipe cuts it. `docs/pixellab-spec.md` section 4 uses these sheets as a hand-posing reference only (idle frames 0,3,5,8; walk frames 0,1,3,4,5,7; sword frames 0-7 of row 1).
 
 ## 8. Best uses for our maps
 Not a tile pack. Ideas only: pose reference for Crease; a still "guard" NPC at the Twin Keeps gates (idle row 2) or a Stadium crowd extra (idle, front row 2 `[0,160,80,240]`); the sword and special slash arcs are baked in and not reusable as VFX. Stadium, Quarry, Floodgate, Greenhouse, Caravan Pass: nothing.

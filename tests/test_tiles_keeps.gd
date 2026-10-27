@@ -104,16 +104,21 @@ func test_the_trees_the_waterfall_the_braziers_and_the_banners_stand_where_the_m
 	var falls := anim.get_children().filter(func(n): return String(n.name).begins_with("waterfall"))
 	assert_eq(falls.size(), 1, "one waterfall")
 	var w := falls[0] as AnimatedSprite2D
-	# feet [80, 154] at tile (37, 0)'s bottom middle: x 37.5 * 32 - 80, y 32 - 154; its foam
-	# pool (x 19..140 of the frame) lies inside the river's head (cells 71..79: x 1136..1264)
-	assert_eq(w.position, Vector2(1120, -122), "the waterfall (160 x 160, feet at 154) pours onto the river's first row, its curtain over the stands")
+	# feet [80, 54] (the frame cropped above row 100) at tile (37, 0)'s bottom middle:
+	# x 37.5 * 32 - 80, y 32 - 54; its foam pool (x 19..140 of the frame) lies inside the
+	# river's head (cells 71..79: x 1136..1264)
+	assert_eq(w.position, Vector2(1120, -22), "the waterfall pours onto the river's first row")
 	assert_true(w.position.x + 19 >= 1136 and w.position.x + 140 <= 1264, "its pool stays inside the banks")
+	# ...out of the culvert in the back wall (tools/gen_arenas.py:culvert, world y 52-64):
+	# its top at world y 53 (the floor's top-left is world (16, 64), 2 scene px a unit), so
+	# no water runs up into the stands or the fans sitting over it
+	assert_near(SimDefs.GRID_Y + w.position.y / ArtScale.PX_PER_UNIT, 53.0, 0.01, "the curtain's top, world y:")
 	var tex := w.sprite_frames.get_frame_texture("default", 0)
-	assert_eq(tex.get_size(), Vector2(160, 160), "Set 1's three-wide fall")
+	assert_eq(tex.get_size(), Vector2(160, 60), "Set 1's three-wide fall, below the culvert's lintel")
 	var img := tex.get_image()
 	var lum := 0.0
 	var n := 0
-	for y in range(40, 130, 3):
+	for y in range(0, 30, 3):
 		for x in range(30, 130, 3):
 			var c := img.get_pixel(x, y)
 			if c.a > 0.5:
