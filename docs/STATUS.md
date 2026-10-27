@@ -1,7 +1,7 @@
 # Status: handoff snapshot
 
-Stamped: 2026-10-27 02:36 UTC
-Branch: proof/32px-szadi @ 516e970
+Stamped: 2026-10-27 02:43 UTC
+Branch: proof/32px-szadi @ 52e8c44
 Trigger: phase
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
@@ -14,7 +14,7 @@ off `origin/main` 2caeee0). **Local only: never merge, never push** (the branch 
 bought asset packs; see `LICENSES.md`). Raw packs live in `C:\Users\Kevin\dev\asset-packs\`
 and are never committed.
 
-Done, all committed (HEAD 770c00d+):
+Done, all committed (HEAD 52e8c44+):
 
 1. Audit `docs/plans/32px-migration.md`: keep sim units, draw 2x art at scale 0.5.
 2. `src/view/art_scale.gd` (`ArtScale.PX_PER_UNIT = 2`), per-view `ppu` in CreatureView, FxView,
@@ -58,20 +58,23 @@ Build for Kevin: `C:\Users\Kevin\Downloads\Ready4Rambles-windows-32px-szadi\Read
 
 ## Next step
 
-Asset map done: `docs/asset-map.md` (rules every cut follows, pack-to-map matrix, 13 wrong cuts,
-ranked per-map plan, VFX wiring per fighter family, gaps) over 26 catalogues in `docs/assets/`.
-Wrong cuts fixed and merged (dcb4566). Five art agents run now in worktrees
-`creature-arena-32px-art-{keeps,caravan,quarry,small,vfx}` on branches `art-*` (Keeps castle wall
-kit / braziers / banner drops / fence lines / blob beds / chasm face / waterfall pool; Caravan
-scrub bushes / banner racks / braziers / market / road; Quarry soft middle patch / tan face /
-rock walls / ragged lanes; Floodgate kerb + glints + reeds, Greenhouse flowers + props, Stadium
-patches; VFX wiring for all ten fighters). Merge each into this branch (scene .tscn conflicts:
-take either side, rebuild the set), rerun the full suite, export a build for Kevin.
-Rule until Kevin rules on the margin: nothing new above the floor; new decor on wall cells or in
-the side margins.
+All five art passes merged (HEAD 52e8c44 + status): Twin Keeps castle wall kit with rubble, team
+braziers and banners, joined fences, blob hedges, readable chasms; Caravan Pass scrub beds,
+banner racks, braziers on the walls, goods piles, clod-edged road; Quarry rounded middle patch
+with a south ledge, tan pit face, rock-pillar walls, ragged lanes; Floodgate Wetland kerb,
+glints, swaying reeds; Greenhouse flowers and props; Stadium border, cobble corners, trodden
+pads; 28 VFX strips wired on 80 moves of all ten fighters (`fx.move_fx` entries may be objects
+with per-move hook/scale; FxView plays `burst` on `storm`). Full suite on 52e8c44: see
+`C:/Users/Kevin/AppData/Local/Temp/claude/full_tests_52e8c44.log`. Build for Kevin in
+`C:/Users/Kevin/Downloads/Ready4Rambles-windows-32px-szadi/`.
 
-kiddolink said yes (26 Oct, itch.io comment, recorded in LICENSES.md). Szadi: Kevin to decide whether
-the licence text is enough or to ask; until then the branch stays local.
+Kevin to review from the build. Things I'd flag for his eye: the Caravan road is now a dark
+clod band (heavy?); Keeps trees and the waterfall still stand on the hoardings (ruling); flowers
+on the Greenhouse are hard to see at play zoom; Cerebro's surge sigil hides under his flash.
+Open from the plan: Keeps causeway sides (needs an east-west bridge cut), gate portals and
+towers, Caravan market booths and adobe walls, stand-side props (all wait on the margin
+ruling); the Quarry tan pit face unchecked on screen; animations still on process time.
+Szadi: Kevin to post the public-repo question (kiddolink said yes 26 Oct).
 
 ## Files touched this session
 
