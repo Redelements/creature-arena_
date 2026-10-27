@@ -1,7 +1,7 @@
 # Status: handoff snapshot
 
-Stamped: 2026-10-27 02:03 UTC
-Branch: proof/32px-szadi @ 770c00d
+Stamped: 2026-10-27 02:20 UTC
+Branch: proof/32px-szadi @ dcb4566
 Trigger: phase
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
@@ -60,13 +60,15 @@ Build for Kevin: `C:\Users\Kevin\Downloads\Ready4Rambles-windows-32px-szadi\Read
 
 Asset map done: `docs/asset-map.md` (rules every cut follows, pack-to-map matrix, 13 wrong cuts,
 ranked per-map plan, VFX wiring per fighter family, gaps) over 26 catalogues in `docs/assets/`.
-An agent is fixing the wrong cuts of section 4 (torch frames, tree feet, meadow fill, Set 1
-water block, palm feet, unused kerb fills, light-hit burst, aura_buff) on branch fix-cuts.
-Then the per-map plan in the map's order: Twin Keeps (castle wall kit, braziers, banner drops,
-fence lines, blob beds), Caravan Pass (scrub bushes, banner racks, market, braziers), Quarry
-(soft ledge round the middle), Floodgate (Wetland kerb, glints, reeds), Greenhouse (bright
-meadow, flowers), Stadium (patches), stand-side props, effects wiring. Each as an agent in a
-worktree with screenshots, merged here; Kevin reviews from a build.
+Wrong cuts fixed and merged (dcb4566). Five art agents run now in worktrees
+`creature-arena-32px-art-{keeps,caravan,quarry,small,vfx}` on branches `art-*` (Keeps castle wall
+kit / braziers / banner drops / fence lines / blob beds / chasm face / waterfall pool; Caravan
+scrub bushes / banner racks / braziers / market / road; Quarry soft middle patch / tan face /
+rock walls / ragged lanes; Floodgate kerb + glints + reeds, Greenhouse flowers + props, Stadium
+patches; VFX wiring for all ten fighters). Merge each into this branch (scene .tscn conflicts:
+take either side, rebuild the set), rerun the full suite, export a build for Kevin.
+Rule until Kevin rules on the margin: nothing new above the floor; new decor on wall cells or in
+the side margins.
 
 Waiting on kiddolink's answer (asked in the shop comments) before anything goes public.
 
