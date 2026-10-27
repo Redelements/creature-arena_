@@ -4,6 +4,9 @@
   (layouts in `docs/SPRITES.md`).
 - `tiles/`: ground, piece and overlay tiles cut from bought packs (`tools/cut_tiles.py`), the
   Godot TileSets built from them (`tools/build_tiles.gd`) and the manifest between the two.
+  Besides tiles a set can have sprite pieces: bush clumps (`<set>_bush_<name>.png`, a
+  nine-slice of canopy for brush beds) and wall runs (`<set>_wall_<name>.png`: one tall
+  sprite a wall tile, y-sorted into one barrier, with the rubble a smashed tile shows).
   Licences in `LICENSES.md` at the repo root; the raw packs never enter the repo.
 - `arenas/`: the tiled arenas' ground scenes (`<id>.tscn`, built by `tools/build_tiles.gd`
   from the arena's JSON). `ArenaView` instances one under the floor and draws the breaking
@@ -20,6 +23,7 @@ unit (`ArtScale.PX_PER_UNIT`). Everything in `tiles/` is drawn at two pixels a u
 | a ground tile (Set 1) | 32 x 32 | 16 x 16 | 2 x 2 |
 | an overlay tile (crack, pit) | 16 x 16 | 8 x 8 | 1 (one terrain cell) |
 | a piece tile (boulder, tuft) | 32 x 32 | 16 x 16 | 2 x 2 |
+| a wall sprite (`<set>_wall_<name>.png`, one a tile, standing on its bottom middle) | about 41 x 61 | 20 x 30 | 2 x 2 footprint, drawn taller |
 
 ## Crack and pit tiles: what the artist paints
 

@@ -99,7 +99,8 @@ var _art: Texture2D = null
 ## floor's edge down a pit's sides and along its near rim. The ids are the overlay atlas's
 ## (assets/tiles/<set>_overlay.png, index = column + 8 * row; assets/README.md names them
 ## for the artist). The scene's "Pieces" layer loses a boulder whose wall is smashed and a
-## tuft whose brush is flattened, and gets them back when the floor heals.
+## tuft whose brush is flattened, and gets them back when the floor heals; its sprite
+## pieces ("Brush" clumps, "Walls" runs and their "Rubble") swap the same way (`_sync_sprites`).
 var _scene: PackedScene = null
 var _overlay_set: TileSet = null
 var _markings := false  ## the map's `tiles.markings`: court lines over the tiles (the Stadium)
@@ -201,31 +202,34 @@ func _retile(row0: int, row1: int) -> void:
 				_edges.set_cell(at, 0, _ov_coords(eid))
 		if pieces != null and cy % per == 0:
 			_sync_pieces(pieces, cy / per)
-	_sync_brush(row0, row1)
+	_sync_sprites(row0, row1)
 
 
-## The scene's bush clumps (a "Brush" node of sprites, each with the cells it covers in its
-## meta "cells"): a clump shows while every cell under it is still the map's brush, and
-## hides while a dash has flattened any of them, until the brush grows back.
-func _sync_brush(row0: int, row1: int) -> void:
-	var brush := _tiles.get_node_or_null("Brush")
-	if brush == null:
-		return
-	for s in brush.get_children():
-		if not s.has_meta("cells"):
+## The scene's sprite pieces, each with the cells it covers in its meta "cells": bush clumps
+## ("Brush") and wall sprites ("Walls") show while every cell under them is still the map's
+## own (brush standing, wall whole) and hide while any has changed (flattened by a dash,
+## smashed), until the floor heals; a wall tile's rubble ("Rubble", meta "broken") shows
+## exactly then.
+func _sync_sprites(row0: int, row1: int) -> void:
+	for node_name in ["Brush", "Walls", "Rubble"]:
+		var group := _tiles.get_node_or_null(node_name)
+		if group == null:
 			continue
-		var cells: Rect2i = s.get_meta("cells")
-		if cells.end.y <= row0 or cells.position.y >= row1:
-			continue
-		var whole := true
-		for cy in range(cells.position.y, cells.end.y):
-			for cx in range(cells.position.x, cells.end.x):
-				if cx < 0 or cy < 0 or cx >= terrain.cols or cy >= terrain.rows:
-					continue
-				var i := cy * terrain.cols + cx
-				if terrain.cells[i] != terrain.map_base[i]:
-					whole = false
-		s.visible = whole
+		for s in group.get_children():
+			if not s.has_meta("cells"):
+				continue
+			var cells: Rect2i = s.get_meta("cells")
+			if cells.end.y <= row0 or cells.position.y >= row1:
+				continue
+			var whole := true
+			for cy in range(cells.position.y, cells.end.y):
+				for cx in range(cells.position.x, cells.end.x):
+					if cx < 0 or cy < 0 or cx >= terrain.cols or cy >= terrain.rows:
+						continue
+					var i := cy * terrain.cols + cx
+					if terrain.cells[i] != terrain.map_base[i]:
+						whole = false
+			s.visible = whole != bool(s.get_meta("broken", false))
 
 
 ## The scene's pieces on tile row `ty`: a boulder stays while every cell under it is still

@@ -30,7 +30,10 @@ extends SceneTree
 ##              "pieces" key) each map piece is drawn with; a kind the set lacks is skipped.
 ##              A kind may come oriented (`fence_h` / `fence_v`, by the rect's longer side) and
 ##              halved (`fence_v_l` / `_r`, `fence_h_t` / `_b`: the half of the tile a one-cell
-##              piece lies in); the most specific pool the set has wins
+##              piece lies in); the most specific pool the set has wins. "bush:<name>" draws
+##              brush as a bed of swaying clumps (manifest "bushes"); "wall:<name>" draws a
+##              wall as a run of tall sprites, one per tile (manifest "walls"), with the
+##              rubble a smashed tile shows
 ##   decor      [{kind, at: [tx, ty]} | {kind, pos: [x, y] units from the floor's top-left
 ##              corner, so the margins are negative or past the floor}]: a decor sprite
 ##              (manifest "decor") standing with its feet at the tile's bottom middle
@@ -332,6 +335,61 @@ static func _bush_bed(brush: Node2D, root: Node, man: Dictionary, name: String, 
 		sprite.owner = root
 
 
+## A wall run over the rect `r` (cells), drawn as sprites (manifest "walls"): one per tile,
+## standing on the tile's bottom middle and taller than it, in a y-sorted node so the near
+## ones overlap the far ones and the run reads as one barrier. A column takes the "top" and
+## "bottom" roles at its ends, a row "left" and "right" (a missing role falls back to "mid").
+## Each tile also gets its rubble sprite, hidden; both record the cells under them (`meta
+## "cells"`), and the rubble is marked `meta "broken"`, so ArenaView shows the wall while
+## those cells are the map's wall and the rubble while any is smashed.
+static func _wall_run(walls: Node2D, rubble: Node2D, root: Node, man: Dictionary, name: String, r: Array, per: int, tile: int, cache: Dictionary) -> void:
+	var w: Dictionary = man.get("walls", {}).get(name, {})
+	if w.is_empty():
+		push_warning("no wall " + name)
+		return
+	if not cache.has(name):
+		cache[name] = load(TILES_DIR + String(w["source"]))
+	var tex: Texture2D = cache[name]
+	var roles: Dictionary = w["roles"]
+	var tiles := _tiles_of(r, per)
+	var vertical := int(r[3]) > int(r[2])
+	var first: Vector2i = tiles[0]
+	var last: Vector2i = tiles[tiles.size() - 1]
+	for c in tiles:
+		var role := "mid"
+		if tiles.size() > 1:
+			if c == first:
+				role = "top" if vertical else "left"
+			elif c == last:
+				role = "bottom" if vertical else "right"
+		var pool: Array = roles.get(role, roles["mid"])
+		var cells := Rect2i(c * per, Vector2i(per, per)).intersection(Rect2i(int(r[0]), int(r[1]), int(r[2]), int(r[3])))
+		var foot := Vector2((c.x + 0.5) * tile, (c.y + 1) * tile - 2)
+		var picks := [[walls, pool[_h(c.x, c.y, 2) % pool.size()], false]]
+		var rub: Array = roles.get("rubble", [])
+		if not rub.is_empty():
+			picks.append([rubble, rub[_h(c.x, c.y, 3) % rub.size()], true])
+		for pick in picks:
+			var parent: Node2D = pick[0]
+			var sp: Dictionary = pick[1]
+			var at := AtlasTexture.new()
+			at.atlas = tex
+			var reg: Array = sp["region"]
+			at.region = Rect2(int(reg[0]), int(reg[1]), int(reg[2]), int(reg[3]))
+			var s := Sprite2D.new()
+			s.name = "%s_%d" % [name, parent.get_child_count()]
+			s.texture = at
+			s.centered = false
+			s.position = foot
+			s.offset = -Vector2(float(sp["feet"][0]), float(sp["feet"][1]))  # y-sorted by its foot
+			s.set_meta("cells", cells)
+			if pick[2]:
+				s.set_meta("broken", true)
+				s.visible = false
+			parent.add_child(s)
+			s.owner = root
+
+
 ## Where a decor or anim entry stands, in scene pixels (2 a unit): a tile's bottom middle
 ## (`at`) or a point in units from the floor's top-left corner (`pos`).
 static func _spot(e: Dictionary, tile: int) -> Vector2:
@@ -427,6 +485,18 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 	root.add_child(brush)
 	brush.owner = root
 	var bush_frames := {}
+	# walls drawn as runs of tall sprites (`styles.wall: "wall:<name>"`), y-sorted, with the
+	# rubble each tile shows once smashed under them; ArenaView swaps them (`_sync_sprites`)
+	var rubble := Node2D.new()
+	rubble.name = "Rubble"
+	root.add_child(rubble)
+	rubble.owner = root
+	var walls := Node2D.new()
+	walls.name = "Walls"
+	walls.y_sort_enabled = true
+	root.add_child(walls)
+	walls.owner = root
+	var wall_tex := {}
 	for piece in placed:
 		var kind := String(piece.get("kind", ""))
 		var r: Array = piece.get("rect", [0, 0, 0, 0])
@@ -435,6 +505,9 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 		var style := String(styles[kind])
 		if style.begins_with("bush:"):
 			_bush_bed(brush, root, man, style.trim_prefix("bush:"), r, tile / per, bush_frames)
+			continue
+		if style.begins_with("wall:"):
+			_wall_run(walls, rubble, root, man, style.trim_prefix("wall:"), r, per, tile, wall_tex)
 			continue
 		# a kind with oriented tiles (fence_h / fence_v) picks by the rect's longer side, and
 		# one with half tiles (fence_v_l / fence_v_r, fence_h_t / fence_h_b) by which half of
@@ -500,6 +573,8 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 	var path := ARENAS_DIR + String(map["id"]) + ".tscn"
 	if brush.get_child_count() > 0:
 		print("  bush clumps: ", brush.get_child_count())
+	if walls.get_child_count() > 0:
+		print("  wall sprites: ", walls.get_child_count())
 	DirAccess.make_dir_recursive_absolute(ARENAS_DIR)
 	var err := ResourceSaver.save(packed, path)
 	if err != OK:

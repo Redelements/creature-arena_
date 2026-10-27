@@ -14,6 +14,8 @@ Writes, under assets/tiles/:
   <set>_overlay.png      16 px tiles: the breaking ground (ids in OVERLAY; assets/README.md)
   <set>_decor_<name>.png one sprite each (a tree, a keep's tower): any size, feet given
   <set>_anim_<name>.png  one strip each (a waterfall): frames side by side
+  <set>_bush_<name>.png  a bush's clumps, one row each, its sway frames along the row
+  <set>_wall_<name>.png  a wall's sprites side by side (top, mid, bottom, ends, rubble)
   <set>_manifest.json    where everything landed, for tools/build_tiles.gd
 
 Every colour is snapped to the master palette (tools/palette.py, nearest, no dither) and
@@ -37,7 +39,8 @@ packs dir; "tile" positions are [column, row] of 32 px tiles in the source sheet
                            terrain (Set 1's water_surface_transparent.png over its river bed);
                            frames read row-major from a sheet `cols` wide; alpha kept
                            ("alpha_mul" scales it). Fills, terrains and surfaces take an
-                           optional "tint" {"mul": [r, g, b], "add": [r, g, b]} before the snap
+                           optional "tint" {"mul": [r, g, b], "add": [r, g, b], "desat": 0..1}
+                           before the snap ("desat" first pulls each colour toward its grey)
   pieces.<kind>            [{"src", "tile": [tx, ty]} | {"src", "box": [x0, y0, x1, y1],
                            "at": "bottom"|"centre", "fit": true}, ...]  32 px tiles of one
                            kind; "fit" shrinks a bigger prop by a whole factor to one tile.
@@ -49,6 +52,12 @@ packs dir; "tile" positions are [column, row] of 32 px tiles in the source sheet
   decor.<name>             {"src", "box": [x0, y0, x1, y1], "feet": [x, y]}  feet in the box
   anim.<name>              {"src", "frame": [w, h], "frames": n, "fps": f, "feet": [x, y],
                            "row": 0}
+  bushes.<name>            a nine-slice of canopy clumps for brush beds (cut_bushes), with an
+                           optional "tint" like the fills (a green canopy dried to sage)
+  walls.<name>             sprites for a wall run, drawn taller than their tile and y-sorted
+                           so they stack into one barrier (cut_walls): {"top", "mid",
+                           "bottom", "left", "right", "rubble": [{"src", "box", "feet",
+                           "mirror"}, ...]}; a role left out falls back to "mid"
 
 About the sources this was built on: Szadi art's blob terrains are 16-tile side-matched
 sets (the corner notches are art, not inner-corner tiles: Godot terrain mode MATCH_SIDES).
@@ -178,6 +187,10 @@ def tinted(img, spec):
     if not t:
         return img
     arr = np.array(img.convert("RGBA")).astype(float)
+    d = float(t.get("desat", 0))
+    if d > 0:
+        grey = arr[:, :, :3].mean(axis=2, keepdims=True)
+        arr[:, :, :3] = arr[:, :, :3] * (1 - d) + grey * d
     mul = np.array(t.get("mul", [1, 1, 1]), float)
     add = np.array(t.get("add", [0, 0, 0]), float)
     arr[:, :, :3] = np.clip(arr[:, :, :3] * mul + add, 0, 255)
@@ -388,9 +401,48 @@ def cut_bushes(cut, set_name, b):
             for k in range(n):
                 sheet.paste(src.crop((k * fw + x0, y0, k * fw + x1, y1)), (k * cw, row * ch))
         file = "%s_bush_%s.png" % (set_name, name)
-        save(sheet, file)
+        save(tinted(sheet, it), file)
         man[name] = {"source": file, "cell": [cw, ch], "frames": n, "fps": float(it.get("fps", 4)),
             "clumps": list(BUSH_CLUMPS), "sizes": sizes}
+    return man
+
+
+## A wall run is a column (or row) of sprites, one per 32 px tile, each taller than its tile
+## and standing with its feet on the tile's bottom middle; y-sorted, the lower ones overlap
+## the ones behind them, so the run reads as one solid barrier with a face at its near end.
+WALL_ROLES = ("top", "mid", "bottom", "left", "right", "rubble")
+
+
+def cut_walls(cut, set_name, w):
+    """recipe walls.<name>: {role: [{"src", "box": [x0, y0, x1, y1], "feet": [x, y] in the
+    box, "mirror": false}, ...]} for the roles in WALL_ROLES ("mid" required; "rubble" is
+    what a smashed tile shows). Writes one strip per wall, the sprites side by side, and
+    records each one's region and feet."""
+    man = {}
+    for name, it in w.items():
+        imgs = []
+        roles = {}
+        for role in WALL_ROLES:
+            for sp in it.get(role, []):
+                img = cut.box(sp["src"], sp["box"])
+                fx, fy = sp["feet"]
+                if sp.get("mirror"):
+                    img = img.transpose(Image.FLIP_LEFT_RIGHT)
+                    fx = img.width - fx
+                imgs.append(img)
+                roles.setdefault(role, []).append({"size": [img.width, img.height], "feet": [fx, fy]})
+        strip = Image.new("RGBA", (sum(i.width + 2 for i in imgs), max(i.height for i in imgs)), (0, 0, 0, 0))
+        x = 0
+        k = 0
+        for role in WALL_ROLES:
+            for sp in roles.get(role, []):
+                strip.paste(imgs[k], (x, 0))
+                sp["region"] = [x, 0, imgs[k].width, imgs[k].height]
+                x += imgs[k].width + 2
+                k += 1
+        file = "%s_wall_%s.png" % (set_name, name)
+        save(tinted(strip, it), file)
+        man[name] = {"source": file, "roles": roles}
     return man
 
 
@@ -410,6 +462,7 @@ def main(packs, set_name):
         "decor": cut_decor(cut, set_name, recipe.get("decor", {})),
         "anim": cut_anim(cut, set_name, recipe.get("anim", {})),
         "bushes": cut_bushes(cut, set_name, recipe.get("bushes", {})),
+        "walls": cut_walls(cut, set_name, recipe.get("walls", {})),
     }
     with open(os.path.join(OUT, set_name + "_manifest.json"), "w", newline="\n") as f:
         json.dump(man, f, indent=1)
