@@ -62,6 +62,8 @@ size only: a map's `size` can be bigger, so code with a match asks `sim.floor_re
 - Projectiles → `match_sim.gd:spawn_projectile`, `_step_projectiles`, `_burst`; homing `_steer`;
   storms `_add_storm`, `_step_storms`
 - Ground zones → `match_sim.gd:add_zone`, `_step_zones`
+- Plants a missed lob leaves (sprout, tree, apple: Pinecone Bomb's `seed`) → `plants.gd`
+  (`plant`, `step`, `strike`); hooked from `_burst`, `_resolve_hits`, `_step_projectiles`
 - Pit falls → `match_sim.gd:_check_falls`; `creature_sim.gd:start_fall`, `_land_from_fall`
 - Move start, windup, input buffer → `creature_sim.gd:_start_attack`, `buffer_input`,
   `_try_start_buffered`; frames, charge, dash, blink, slam, projectile spawn → `_update_attack`
