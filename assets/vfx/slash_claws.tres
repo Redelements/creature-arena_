@@ -9,3 +9,4 @@ frames = ExtResource("1_ro7pf")
 ticks_per_frame = 2
 offset = Vector2(14, -14)
 follow = true
+scale = 0.7

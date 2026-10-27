@@ -157,8 +157,16 @@ editing allowed. Not allowed: reselling or redistributing the pack.
 Files from it (cut by `tools/cut_vfx.py`: single rows of frames at their 96 px, colours
 snapped to the game's palette; `tools/build_vfx.gd` makes the resources from them):
 
-- `assets/vfx/slash_claws.png` (vfx_slash), `assets/vfx/impact_burst.png` and
-  `assets/vfx/hit_star_cyan.png` (vfx_hit_impact), `assets/vfx/fire_burst.png` (vfx_fire);
+- `assets/vfx/slash_claws.png`, `slash_white.png`, `slash_gold_arc.png`, `slash_red.png` (vfx_slash);
+- `assets/vfx/impact_burst.png`, `hit_star_cyan.png`, `hit_burst_pink.png` (vfx_hit_impact);
+- `assets/vfx/boom_star.png`, `boom_ground.png` (vfx_explosion); `smoke_bloom.png` (vfx_smoke_vol_2);
+- `assets/vfx/dust_poof.png`, `dust_burst.png`, `dust_column.png`, `dust_wings.png` (vfx_smoke_dust brown,
+  tinted toward earth), `dust_ring.png` and `leaf_swirl.png` (white; the second tinted green),
+  `wisp_purple.png` (purple);
+- `assets/vfx/water_spout.png`, `water_fountain.png`, `water_wings.png`, `water_wave.png` (vfx_liquid);
+- `assets/vfx/ice_geyser.png`, `ice_nova.png` (vfx_energy, tinted toward blue-white);
+- `assets/vfx/spark_comet.png`, `spark_fan.png`, `spark_pinwheel.png`, `sigil_yellow.png` (vfx_spark);
+- `assets/vfx/venom_crackle.png` (vfx_electricity purple, tinted green);
 - `assets/vfx/manifest.json` and the derived `assets/vfx/<name>_frames.tres` /
   `assets/vfx/<name>.tres` resources, which reference those strips.
 

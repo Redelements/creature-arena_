@@ -1,0 +1,67 @@
+[gd_resource type="SpriteFrames" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/vfx/ice_nova.png" id="1_fos7y"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_63bxb"]
+atlas = ExtResource("1_fos7y")
+region = Rect2(0, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_wq8f7"]
+atlas = ExtResource("1_fos7y")
+region = Rect2(96, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_wg21v"]
+atlas = ExtResource("1_fos7y")
+region = Rect2(192, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_xatwg"]
+atlas = ExtResource("1_fos7y")
+region = Rect2(288, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_oawyo"]
+atlas = ExtResource("1_fos7y")
+region = Rect2(384, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_3wrsm"]
+atlas = ExtResource("1_fos7y")
+region = Rect2(480, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_jgg80"]
+atlas = ExtResource("1_fos7y")
+region = Rect2(576, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_nhrd5"]
+atlas = ExtResource("1_fos7y")
+region = Rect2(672, 0, 96, 96)
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_63bxb")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_wq8f7")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_wg21v")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_xatwg")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_oawyo")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_3wrsm")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_jgg80")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_nhrd5")
+}],
+"loop": 0,
+"name": &"default",
+"speed": 20.0
+}]

@@ -15,8 +15,10 @@ func _manifest() -> Dictionary:
 
 func test_every_cut_effect_has_its_resources() -> void:
 	var man := _manifest()
-	assert_true(man["effects"].has("slash_claws") and man["effects"].has("impact_burst")
-		and man["effects"].has("fire_burst") and man["effects"].has("hit_star_cyan"), "a slash, two hits, a fire")
+	for want in ["slash_claws", "slash_white", "hit_star_cyan", "impact_burst", "boom_star", "dust_burst",
+			"water_fountain", "ice_nova", "spark_fan", "venom_crackle"]:
+		assert_true(man["effects"].has(want), "cut: " + want)
+	assert_false(man["effects"].has("fire_burst"), "no fighter breathes fire: the fire burst is gone")
 	for name in man["effects"]:
 		var e: Dictionary = man["effects"][name]
 		var fx = load(DIR + String(name) + ".tres")
@@ -153,10 +155,12 @@ func test_a_world_space_effect_stays_where_it_spawned() -> void:
 	fx.sim = sim
 	fx.unseen = [false, false]
 	var c: CreatureSim = sim.creatures[0]
-	var burst: MoveFx = load(DIR + "fire_burst.tres")
-	assert_false(burst.follow, "a burst stays put")
 	var mv: Dictionary = c.def["moves"]["skill_2"]
-	assert_true(String(mv["fx"].get("move_fx", "")).ends_with("fire_burst.tres"), "Pinecone Bomb names the fire")
+	var burst := MoveFx.from_entry(mv["fx"].get("move_fx"))
+	assert_true(burst != null and burst.frames == (load(DIR + "boom_star.tres") as MoveFx).frames,
+		"Pinecone Bomb names the grey star burst, not fire")
+	assert_false(burst.follow, "a burst stays put")
+	assert_lt(burst.scale, 0.75, "drawn at 0.7")
 	var seen := false
 	for i in 240:
 		sim.step(PackedInt32Array([SimDefs.IN_SKILL2 if i == 0 else 0, 0]))
@@ -164,7 +168,7 @@ func test_a_world_space_effect_stays_where_it_spawned() -> void:
 			fx.spawn(e)
 			if e["type"] == "burst":
 				seen = true
-				assert_eq(fx.move_fx.playing(), 1, "the fire plays on the burst")
+				assert_eq(fx.move_fx.playing(), 1, "the star plays on the burst")
 				var at: Vector2 = fx.move_fx.slots()[0][1]
 				assert_near(at.x, Vector2(e["pos"]).x + burst.offset.x, 0.6, "where the pinecone landed")
 				c.pos += Vector2(30, 0)
@@ -184,4 +188,88 @@ func test_an_unwired_move_plays_nothing() -> void:
 	for i in 30:
 		_step(sim, fx, SimDefs.IN_LIGHT if i == 0 else 0)
 	assert_eq(fx.move_fx.playing(), 0, "Cairn's Jab has no move_fx")
+	fx.free()
+
+
+## Every creature file's `fx.move_fx` entries, as [fighter id, move slot, move, entry].
+func _wired() -> Array:
+	var out: Array = []
+	var d := DirAccess.open("res://data/creatures/")
+	for f in d.get_files():
+		if not f.ends_with(".json"):
+			continue
+		var def: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/creatures/" + f))
+		for slot in def.get("moves", {}):
+			var mv: Dictionary = def["moves"][slot]
+			var v = mv.get("fx", {}).get("move_fx")
+			if v == null:
+				continue
+			for e in (v if v is Array else [v]):
+				out.append([String(def.get("id", f)), String(slot), mv, e])
+	return out
+
+
+func test_every_wired_effect_resolves_and_its_hook_can_fire() -> void:
+	var wired := _wired()
+	var fighters := {}
+	for w in wired:
+		fighters[w[0]] = true
+	assert_gt(fighters.size(), 10, "every fighter (the ten and Cairn) has hand-drawn effects")
+	for w in wired:
+		var who := "%s %s" % [w[0], w[1]]
+		var mv: Dictionary = w[2]
+		var f := MoveFx.from_entry(w[3])
+		assert_true(f != null, who + ": the entry names a built MoveFx")
+		if f == null:
+			continue
+		assert_gt(f.frame_count(), 0, who + ": with frames")
+		var strikes: bool = int(mv.get("active", 0)) > 0 or mv.has("hits")
+		var shot: Dictionary = mv.get("projectile", {})
+		match f.on:
+			"strike", "hit":
+				assert_true(strikes, who + ": a %s effect on a move with a hitbox" % f.on)
+			"projectile", "projectile_end":
+				assert_false(shot.is_empty(), who + ": a %s effect on a move that throws" % f.on)
+			"burst":
+				assert_true(bool(shot.get("lob", false)), who + ": a burst effect on a lob")
+			"tick":
+				var length := int(mv.get("length", int(mv.get("startup", 0)) + int(mv.get("active", 0))
+					+ int(mv.get("recovery", 0))))
+				assert_true(f.at > 0 and f.at < length, who + ": its tick %d inside the move (%d)" % [f.at, length])
+		if w[1].begins_with("light_"):
+			assert_true(f.scale <= 0.7, who + ": a light's effect is small (scale %.2f)" % f.scale)
+			assert_true(f.ticks_per_frame <= 2, who + ": and quick (%d ticks a frame)" % f.ticks_per_frame)
+
+
+func test_an_entry_overrides_the_resource_and_shares_its_frames() -> void:
+	var base: MoveFx = load(DIR + "dust_burst.tres")
+	var f := MoveFx.from_entry({"path": DIR + "dust_burst.tres", "on": "tick", "at": 9, "scale": 1.4,
+		"offset": [3, -21], "follow": true, "flip_with_facing": true, "ticks_per_frame": 2})
+	assert_eq(f.on, "tick")
+	assert_eq(f.at, 9)
+	assert_near(f.scale, 1.4)
+	assert_eq(f.offset, Vector2(3, -21))
+	assert_true(f.follow and f.flip_with_facing)
+	assert_eq(f.ticks_per_frame, 2)
+	assert_true(f.frames == base.frames, "the frames are shared, not copied")
+	assert_eq(base.on, "strike", "the resource itself is untouched")
+	assert_near(base.scale, 1.0)
+	assert_true(MoveFx.from_entry(DIR + "dust_burst.tres") == base, "a plain path is the resource")
+	assert_true(MoveFx.from_entry({"path": DIR + "nope.tres"}) == null, "a missing path is null")
+
+
+func test_a_storm_lob_plays_its_burst_effects_where_it_lands() -> void:
+	var sim := MatchFactory.versus("crease", "dummy")
+	var fx := FxView.new()
+	fx.sim = sim
+	fx.unseen = [false, false]
+	var c: CreatureSim = sim.creatures[0]
+	c.move_id = "surge"
+	var at := c.pos + Vector2(60, 0)
+	fx.move_fx.on_shot(c, c.pos)
+	c.move_id = ""
+	fx.spawn({"type": "storm", "pos": at, "power": 40.0, "who": c.id, "ticks": 120})
+	assert_eq(fx.move_fx.playing(), 2, "Thousand Cranes lands: smoke and a ring")
+	for s in fx.move_fx.slots():
+		assert_near((s[1] as Vector2).x, at.x + (s[0] as MoveFx).offset.x, 0.6, "where the cranes landed")
 	fx.free()

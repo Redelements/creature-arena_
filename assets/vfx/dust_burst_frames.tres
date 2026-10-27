@@ -1,0 +1,74 @@
+[gd_resource type="SpriteFrames" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/vfx/dust_burst.png" id="1_m32fo"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_3oqs2"]
+atlas = ExtResource("1_m32fo")
+region = Rect2(0, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_lkpi0"]
+atlas = ExtResource("1_m32fo")
+region = Rect2(96, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_52buw"]
+atlas = ExtResource("1_m32fo")
+region = Rect2(192, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_xym7c"]
+atlas = ExtResource("1_m32fo")
+region = Rect2(288, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_fvx82"]
+atlas = ExtResource("1_m32fo")
+region = Rect2(384, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_63biy"]
+atlas = ExtResource("1_m32fo")
+region = Rect2(480, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_8rodw"]
+atlas = ExtResource("1_m32fo")
+region = Rect2(576, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_axdvt"]
+atlas = ExtResource("1_m32fo")
+region = Rect2(672, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_jbu74"]
+atlas = ExtResource("1_m32fo")
+region = Rect2(768, 0, 96, 96)
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_3oqs2")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_lkpi0")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_52buw")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_xym7c")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_fvx82")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_63biy")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_8rodw")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_axdvt")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_jbu74")
+}],
+"loop": 0,
+"name": &"default",
+"speed": 20.0
+}]

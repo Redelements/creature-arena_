@@ -1,0 +1,60 @@
+[gd_resource type="SpriteFrames" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/vfx/boom_star.png" id="1_mqadt"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_r8c38"]
+atlas = ExtResource("1_mqadt")
+region = Rect2(0, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_kqq3h"]
+atlas = ExtResource("1_mqadt")
+region = Rect2(96, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_2v6rp"]
+atlas = ExtResource("1_mqadt")
+region = Rect2(192, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ohnwl"]
+atlas = ExtResource("1_mqadt")
+region = Rect2(288, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_if4en"]
+atlas = ExtResource("1_mqadt")
+region = Rect2(384, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_in60d"]
+atlas = ExtResource("1_mqadt")
+region = Rect2(480, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_5525b"]
+atlas = ExtResource("1_mqadt")
+region = Rect2(576, 0, 96, 96)
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_r8c38")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_kqq3h")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_2v6rp")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ohnwl")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_if4en")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_in60d")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_5525b")
+}],
+"loop": 0,
+"name": &"default",
+"speed": 20.0
+}]

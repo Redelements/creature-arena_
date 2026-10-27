@@ -45,7 +45,8 @@ func _init() -> void:
 		_sprites.append(s)
 
 
-## The MoveFx a move's `fx.move_fx` names (one path or a list), loaded once per move.
+## The MoveFx a move's `fx.move_fx` names (one entry or a list; an entry is a path or a
+## {"path", overrides} Dictionary: MoveFx.from_entry), loaded once per move.
 func effects_of(c: CreatureSim, move_id: String) -> Array:
 	if c == null or move_id == "":
 		return []
@@ -57,8 +58,8 @@ func effects_of(c: CreatureSim, move_id: String) -> Array:
 	var v = mv.get("fx", {}).get("move_fx")
 	var paths: Array = v if v is Array else ([v] if v != null else [])
 	for p in paths:
-		var r = load(String(p)) if ResourceLoader.exists(String(p)) else null
-		if r is MoveFx:
+		var r := MoveFx.from_entry(p)
+		if r != null:
 			out.append(r)
 		else:
 			push_warning("%s: move_fx %s is not a MoveFx" % [key, p])
