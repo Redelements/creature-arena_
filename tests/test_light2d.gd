@@ -270,12 +270,20 @@ func test_an_emissive_sheet_draws_over_the_sprite_when_there_is_one() -> void:
 	var sp: Dictionary = (c.def["sprite"] as Dictionary).duplicate(true)
 	var path := "user://test_pete_e.png"
 	_fixture(load(String(sp["path"])), path)
-	# Without one (none on main yet): no layer, and nothing changes.
+	# Without one (every fighter has a `_e.png` since the Surge eyes, so point the view block
+	# at a missing sheet): no layer, and nothing changes.
+	var none: Dictionary = sp.duplicate(true)
+	none["emissive"] = "res://assets/sprites/no_such_e.png"
+	var def0 := c.def.duplicate()
+	def0["sprite"] = none
+	var keep: Dictionary = c.def
+	c.def = def0
 	var v0 := CreatureView.new()
 	v0.setup(c)
 	assert_false(v0.emitting(), "no _e.png: no emissive layer")
 	assert_true(v0.emit_frame().is_empty(), "and nothing to bloom")
 	v0.free()
+	c.def = keep
 	assert_eq(CreatureView.load_emissive("res://assets/sprites/no_such_e.png"), null, "a missing sheet is null")
 	# With one, named by the view block.
 	sp["emissive"] = path
