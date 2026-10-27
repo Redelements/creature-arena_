@@ -196,6 +196,18 @@ ticks, unchanged), footsteps on `step_frames` `[0, 6]`. `select_scale` 0.5, port
 Five views: [`cairn_views_preview.png`](cairn_views_preview.png) and
 [`anim_preview/cairn_diagonals_3x.png`](anim_preview/cairn_diagonals_3x.png).
 
+**2x (route A, Oct 2026, branch `cairn-2x`, stacked on `sprites-vram`).** The game draws
+`cairn_2x*.png`: the same rig at density 2 (`CAIRN_DENSITY`, default 2; `CAIRN_DENSITY=1`
+rebuilds the 1x `cairn*.png` byte for byte), 192×192 frames, feet at (92, 168) side,
+(96, 156) down, (96, 168) up, (88, 160) down_side, (88, 168) up_side, `"ppu": 2` in every
+view, portrait `[68, 78, 48, 56]`; same rows, frame counts and timing. Shaded "bold"
+(`CAIRN_STYLE`): three flat tones a face (no highlight step, no rim light) and one dark ink
+round the silhouette, so the stack's stones stay apart from each other and from dark floors.
+The face, grain and lit lips are painted in stone-local rig units, so they scale with the
+density on their own. The knockout's `ko_fx` `pieces` and `x_eyes` are sheet pixels and
+double (`tools/sprite_2x.py`; FxView draws the X's at `ppu` times the size, so they look the
+same). Gallery: `pixellab/cairn/cairn_route_a.png`.
+
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
 | 0 | idle | 8 | the boxer's bounce on eased spacing, the stones packing on the down; each stone sways a frame after the one under it, the fists a frame behind, a one-frame blink |

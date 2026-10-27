@@ -2939,12 +2939,13 @@ func _draw_chunk(ci: CanvasItem, p: Dictionary) -> void:
 		if not eyes.is_empty() and bool(p.get("grounded", false)) and vel.length() < 0.15 \
 				and absf(float(p.get("vrot", 0.0))) < 0.02:
 			var bc := float(p["band_c"])
+			var k := float(p.get("ppu", 1))  # the X's in sheet pixels: as big in the world at any ppu
 			for e in eyes:
 				var ex := float(e[0]) - ox
 				var ey := float(e[1]) - bc
-				ci.draw_rect(Rect2(ex - 1, ey - 1, 3, 3), C_HEAD)
-				ci.draw_line(Vector2(ex - 1, ey - 1), Vector2(ex + 2, ey + 2), C_OUTLINE, 1.0)
-				ci.draw_line(Vector2(ex - 1, ey + 2), Vector2(ex + 2, ey - 1), C_OUTLINE, 1.0)
+				ci.draw_rect(Rect2(ex - k, ey - k, 3 * k, 3 * k), C_HEAD)
+				ci.draw_line(Vector2(ex - k, ey - k), Vector2(ex + 2 * k, ey + 2 * k), C_OUTLINE, k)
+				ci.draw_line(Vector2(ex - k, ey + 2 * k), Vector2(ex + 2 * k, ey - k), C_OUTLINE, k)
 		ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		return
 	var s := float(p["size"])
