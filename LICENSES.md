@@ -76,13 +76,19 @@ Twin Keeps (the Capture the Flag map; cut by `tools/cut_tiles.py` from
 
 - `assets/tiles/keeps_ground.png`, `assets/tiles/keeps_pieces.png`,
   `assets/tiles/keeps_overlay.png`: from Set 1 (grass and water blobs and fills, cobbles,
-  boulders, tall grass, the `hills2.png` cliff face), from **RPG Buildings Castle**
-  (`RPG_Buildings_CASTLE_v1.0`, the same licence: the keeps' battlement and tower wall
-  tiles) and from **RPG Worlds Decorative Props** (`RPGW_DecorativeProps_v1.0`, the same
-  licence: the fence tiles).
-- `assets/tiles/keeps_decor_*.png` (Set 1 trees and a bush), `assets/tiles/keeps_anim_waterfall.png`
-  (Set 1's five-wide fall, tinted like the river) and `assets/tiles/keeps_anim_torch.png`
-  (RPG Buildings Castle).
+  boulders, tall grass, the `hills1.png` cliff face).
+- `assets/tiles/keeps_wall_castle.png` (the keeps' walls: the free-standing wall kit of
+  **RPG Buildings Castle**, `RPG_Buildings_CASTLE_v1.0`, the same licence, and the stone
+  block piles of its `castle_decoratives.png` for the rubble),
+  `assets/tiles/keeps_anim_brazier_red.png` and `assets/tiles/keeps_anim_brazier_cyan.png`
+  (its `Anim/light1c` / `light1b` braziers), `assets/tiles/keeps_decor_banner_red.png` and
+  `assets/tiles/keeps_decor_banner_blue.png` (its banner tabs, tinted to the team colours).
+- `assets/tiles/keeps_fence_wood.png`: fence lines composed from **RPG Worlds Decorative
+  Props** (`RPGW_DecorativeProps_v1.0`, the same licence) posts and rails.
+- `assets/tiles/keeps_bush_green.png`: round hedge clumps from **RPG Worlds Wetland**
+  (`RPGW_Wetland_v1.1`, the same licence) `tree2A` canopy.
+- `assets/tiles/keeps_decor_*.png` (Set 1 trees and a bush) and `assets/tiles/keeps_anim_waterfall.png`
+  (Set 1's three-wide fall, tinted like the river).
 - `assets/tiles/keeps_shore.png`: the river's banks, composed from Set 1's grass, the round
   ledge stones and rock face of `hills2.png`.
 - `assets/tiles/keeps_manifest.json`, `assets/tiles/keeps_*.tres`, `assets/arenas/twin_keeps.tscn`.

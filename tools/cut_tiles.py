@@ -78,7 +78,10 @@ packs dir; "tile" positions are [column, row] of 32 px tiles in the source sheet
                            rows wrap): the pits' far wall, fading into the dark
   overlay.lip              a ground fill name: the cracks are drawn in its colours (the pits'
                            edges are translucent, so they match any floor)
-  decor.<name>             {"src", "box": [x0, y0, x1, y1], "feet": [x, y]}  feet in the box
+  overlay.strength         how much of the face shows through the pit's dark (default 1: a
+                           face that fades fast; more for a pit that must read at play zoom)
+  decor.<name>             {"src", "box": [x0, y0, x1, y1], "feet": [x, y], "tint"}  feet in the
+                           box; "tint" as the fills (a team's cloth)
   anim.<name>              {"src", "frame": [w, h], "frames": n, "fps": f, "feet": [x, y],
                            "row": 0, "tint"}
   bushes.<name>            {"src", "frame": [w, h], "frames": n, "fps", "clumps" | "blobs"}
@@ -88,9 +91,10 @@ packs dir; "tile" positions are [column, row] of 32 px tiles in the source sheet
   bushes.<name>            a nine-slice of canopy clumps for brush beds (cut_bushes), with an
                            optional "tint" like the fills (a green canopy dried to sage)
   walls.<name>             sprites for a wall run, drawn taller than their tile and y-sorted
-                           so they stack into one barrier (cut_walls): {"top", "mid",
+                           so they stack into one barrier (cut_walls): {"top", "mid", "vmid",
                            "bottom", "left", "right", "rubble": [{"src", "box", "feet",
-                           "mirror"}, ...]}; a role left out falls back to "mid"
+                           "mirror"}, ...]}; a role left out falls back to "mid" ("vmid": a
+                           column's middle tiles, for a kit whose rows and columns differ)
 
 About the sources this was built on: Szadi art's blob terrains are 16-tile side-matched
 sets (the corner notches are art, not inner-corner tiles: Godot terrain mode MATCH_SIDES).
@@ -531,9 +535,10 @@ DARK_CHASM = np.array([7.0, 8.0, 20.0])   # a chasm's: colder
 LIT = (255, 246, 226)                     # the light on a broken edge, as a translucent wash
 
 
-def _pit_pixel_rows(face, chasm):
+def _pit_pixel_rows(face, chasm, strength=1.0):
     """The pit's 64 rows x 32 columns RGBA (four cells deep, two cells wide: the tile
-    phases): rows 0..47 the far wall (wall_top, wall_mid, wall_bottom), 48..63 the floor."""
+    phases): rows 0..47 the far wall (wall_top, wall_mid, wall_bottom), 48..63 the floor.
+    `strength` (recipe overlay.strength) scales how much of the face shows through the dark."""
     h = face.shape[0]
     dark = DARK_CHASM if chasm else DARK
     if chasm:
@@ -551,7 +556,7 @@ def _pit_pixel_rows(face, chasm):
             row = _lerp(dark, face[0], 0.18)  # the undercut under the lip
         elif y < FACE_END:
             k = (y - LIP - 1) / float(FACE_END - LIP - 1)
-            f = 0.8 - 0.7 * k ** 0.8
+            f = min(1.0, (0.8 - 0.7 * k ** 0.8) * strength)
             row = _lerp(dark, face[(y - LIP - 1) % h], f)
         else:
             row = _lerp(dark, face[(y + 7) % h], 0.06)  # the hole's floor: near black, a grain
@@ -720,7 +725,7 @@ def cut_overlay(cut, set_name, o, ground):
     assert face.shape[1] == 2 * C, "overlay.face is 32 px wide (two cells)"
     names = (("wall_top", "wall_mid", "wall_bottom", "floor"), ("chasm_top", "chasm_mid", "chasm_bottom", "chasm_floor"))
     for chasm in (False, True):
-        rows = _pit_pixel_rows(face, chasm)
+        rows = _pit_pixel_rows(face, chasm, float(o.get("strength", 1.0)))
         for d in range(4):
             put(OVERLAY[names[chasm][d]], rows[d * C:(d + 1) * C, 0:C])
             put(OVERLAY["chasm_b" if chasm else "wall_b"][d], rows[d * C:(d + 1) * C, C:2 * C])
@@ -744,7 +749,7 @@ def cut_overlay(cut, set_name, o, ground):
 def cut_decor(cut, set_name, d):
     man = {}
     for name, it in d.items():
-        img = cut.box(it["src"], it["box"])
+        img = tinted(cut.box(it["src"], it["box"]), it)
         file = "%s_decor_%s.png" % (set_name, name)
         save(img, file)
         man[name] = {"source": file, "size": [img.width, img.height], "feet": list(it["feet"])}
@@ -936,7 +941,7 @@ def cut_fencelines(cut, set_name, f):
 ## A wall run is a column (or row) of sprites, one per 32 px tile, each taller than its tile
 ## and standing with its feet on the tile's bottom middle; y-sorted, the lower ones overlap
 ## the ones behind them, so the run reads as one solid barrier with a face at its near end.
-WALL_ROLES = ("top", "mid", "bottom", "left", "right", "rubble")
+WALL_ROLES = ("top", "mid", "vmid", "bottom", "left", "right", "rubble")
 
 
 def cut_walls(cut, set_name, w):

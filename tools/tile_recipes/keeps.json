@@ -1,5 +1,5 @@
 {
-	"_doc": "Twin Keeps (Capture the Flag): Szadi art's RPG Fantasy Worlds Set 1 (grass and water blobs, boulders, tall grass, the cliff strips, trees, the waterfall), RPG Buildings Castle (the keeps' walls, the gate torches) and Decorative Props (the fences). Keys: tools/cut_tiles.py. Paths are relative to the packs dir.",
+	"_doc": "Twin Keeps (Capture the Flag): Szadi art's RPG Fantasy Worlds Set 1 (grass and water blobs, boulders, tall grass, the cliff strips, trees, the waterfall), RPG Buildings Castle (the keeps' walls from the free-standing wall kit, their rubble, the team braziers and banners) and Decorative Props (the fences as joined lines); the brush beds are Wetland canopy blobs. Keys: tools/cut_tiles.py. Paths are relative to the packs dir.",
 	"ground": {
 		"fills": {
 			"grass": {
@@ -273,84 +273,6 @@
 				]
 			}
 		],
-		"castle_h": [
-			{
-				"src": "RPG_Buildings_CASTLE_v1.0/castle_outside.png",
-				"tile": [
-					0,
-					9
-				]
-			},
-			{
-				"src": "RPG_Buildings_CASTLE_v1.0/castle_outside.png",
-				"tile": [
-					1,
-					9
-				]
-			},
-			{
-				"src": "RPG_Buildings_CASTLE_v1.0/castle_outside.png",
-				"tile": [
-					2,
-					9
-				]
-			}
-		],
-		"castle_v": [
-			{
-				"src": "RPG_Buildings_CASTLE_v1.0/castle_outside.png",
-				"tile": [
-					25,
-					2
-				]
-			},
-			{
-				"src": "RPG_Buildings_CASTLE_v1.0/castle_outside.png",
-				"tile": [
-					25,
-					3
-				]
-			}
-		],
-		"fence_h": [
-			{
-				"src": "RPGW_DecorativeProps_v1.0/fence.png",
-				"tile": [
-					4,
-					1
-				]
-			},
-			{
-				"src": "RPGW_DecorativeProps_v1.0/fence.png",
-				"tile": [
-					5,
-					1
-				]
-			},
-			{
-				"src": "RPGW_DecorativeProps_v1.0/fence.png",
-				"tile": [
-					6,
-					1
-				]
-			}
-		],
-		"fence_v": [
-			{
-				"src": "RPGW_DecorativeProps_v1.0/fence.png",
-				"tile": [
-					0,
-					2
-				]
-			},
-			{
-				"src": "RPGW_DecorativeProps_v1.0/fence.png",
-				"tile": [
-					0,
-					3
-				]
-			}
-		],
 		"bridge": [
 			{
 				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
@@ -410,17 +332,18 @@
 		}
 	},
 	"overlay": {
-		"_doc": "the pits' far wall: a seamless cliff face from the matching pack; the lip and the cracks: the floor's own fill (tools/cut_tiles.py cut_overlay)",
+		"_doc": "the pits' far wall: Set 1 hills1's lit rock column (x 608-640, seamless sideways inside the long run) from its grass fringe and lit rim stones down, shown stronger through the dark (strength 1.3), so a chasm's top edge reads at play zoom (the old hills2 column at x 576 was the darkest rock); the lip and the cracks: the floor's own fill (tools/cut_tiles.py cut_overlay)",
 		"face": {
-			"src": "RPGFW_Set1_v1.0/_PNG/hills2.png",
+			"src": "RPGFW_Set1_v1.0/_PNG/hills1.png",
 			"box": [
-				576,
-				36,
 				608,
-				84
+				22,
+				640,
+				70
 			]
 		},
-		"lip": "grass"
+		"lip": "grass",
+		"strength": 1.3
 	},
 	"decor": {
 		"oak": {
@@ -474,20 +397,62 @@
 				48,
 				88
 			]
+		},
+		"banner_red": {
+			"src": "RPG_Buildings_CASTLE_v1.0/castle_decoratives.png",
+			"box": [
+				7,
+				269,
+				25,
+				305
+			],
+			"feet": [
+				9,
+				35
+			],
+			"tint": {
+				"mul": [
+					1.7,
+					0.75,
+					0.7
+				]
+			},
+			"_doc": "castle_decoratives' red banner tab (a drop on a rod), tinted to the left keep's team red"
+		},
+		"banner_blue": {
+			"src": "RPG_Buildings_CASTLE_v1.0/castle_decoratives.png",
+			"box": [
+				7,
+				365,
+				25,
+				401
+			],
+			"feet": [
+				9,
+				35
+			],
+			"tint": {
+				"mul": [
+					0.7,
+					1.0,
+					1.8
+				]
+			},
+			"_doc": "the grey-blue tab, tinted to the right keep's team blue"
 		}
 	},
 	"anim": {
 		"waterfall": {
-			"src": "RPGFW_Set1_v1.0/_PNG/anim/waterfall/3x5_waterfall.png",
+			"src": "RPGFW_Set1_v1.0/_PNG/anim/waterfall/3x3_waterfall.png",
 			"frame": [
-				224,
+				160,
 				160
 			],
 			"frames": 8,
 			"fps": 8,
 			"feet": [
-				112,
-				150
+				80,
+				154
 			],
 			"tint": {
 				"mul": [
@@ -501,10 +466,10 @@
 					17
 				]
 			},
-			"_doc": "Set 1's 3-tall, 5-wide fall: its curtain is as wide as the river's head (5 tiles), tinted like the river"
+			"_doc": "Set 1's 3-tall, 3-wide fall, tinted like the river: its foam pool (x 19-140 of the 160 px frame, 122 px) fits inside the river's 128 px head, where the five-wide fall's (187 px) spilled over both banks; it stands one row up, its curtain over the stands and its pool on the river's first row"
 		},
-		"torch": {
-			"src": "RPG_Buildings_CASTLE_v1.0/Anim/torch.png",
+		"brazier_red": {
+			"src": "RPG_Buildings_CASTLE_v1.0/Anim/light1c.png",
 			"frame": [
 				32,
 				32
@@ -513,10 +478,25 @@
 			"fps": 6,
 			"feet": [
 				16,
-				31
+				27
 			],
 			"row": 0,
-			"_doc": "Castle Anim/torch.png: 6 frames of 32 x 32 (4 on row 0, 2 on row 1); row 0's four loop"
+			"_doc": "Castle Anim/light1c.png: a stone brazier, red flame (the left keep's colour); 6 frames of 32 x 32 (4 + 2), row 0's four loop"
+		},
+		"brazier_cyan": {
+			"src": "RPG_Buildings_CASTLE_v1.0/Anim/light1b.png",
+			"frame": [
+				32,
+				32
+			],
+			"frames": 4,
+			"fps": 6,
+			"feet": [
+				16,
+				27
+			],
+			"row": 0,
+			"_doc": "Castle Anim/light1b.png: the same brazier, cyan flame (the right keep's side)"
 		}
 	},
 	"bushes": {
@@ -528,63 +508,207 @@
 			],
 			"frames": 5,
 			"fps": 4,
-			"_doc": "a hedge-bush nine-slice from the green Wetland tree's canopy clumps (the first frame's boxes; the sheet's 5 sway frames give the bed its sway): corners and edges keep the canopy's outline on their outward sides, the centre is pure leaf",
-			"clumps": {
-				"tl": [
-					14,
-					40,
-					70,
-					96
-				],
-				"t": [
-					56,
-					14,
-					112,
-					60
-				],
-				"tr": [
-					100,
-					36,
-					148,
-					100
-				],
-				"l": [
-					10,
-					70,
-					50,
-					126
-				],
-				"c": [
-					44,
-					62,
-					116,
-					110
-				],
-				"r": [
-					110,
-					66,
-					150,
-					126
-				],
-				"bl": [
-					14,
-					118,
-					52,
-					166
-				],
-				"b": [
-					100,
+			"_doc": "a hedge from the green Wetland tree's canopy (as grassland.json): four leaf boxes cut as round clumps with their own leafy outline, two shapes each, scattered overlapping over a bed (tools/build_tiles.gd _blob_bed), so it reads as one round hedge with no nine-slice seams; the sheet's 5 sway frames give it its sway",
+			"blobs": {
+				"a": [
+					84,
 					130,
 					140,
-					178
+					174
 				],
-				"br": [
-					76,
+				"b": [
+					16,
 					124,
-					146,
-					178
+					52,
+					158
+				],
+				"c": [
+					56,
+					18,
+					112,
+					62
+				],
+				"d": [
+					98,
+					34,
+					138,
+					70
 				]
-			}
+			},
+			"shapes": 2
+		}
+	},
+	"walls": {
+		"castle": {
+			"_doc": "Castle's free-standing wall kit (castle_outside [628,740,736,1000], no baked shadow: the shadows are a separate sheet): a row is the low merlon wall in 32 px slices (its end posts at the ends), a column is the kit's cross piece (the cap run between brick buttresses, full tile width) stacked, closed at its near end by the end post's face; castle_decoratives' stone block piles for a smashed tile (their soft shadow, alpha 64, drops out in the snap)",
+			"left": [
+				{
+					"src": "RPG_Buildings_CASTLE_v1.0/castle_outside.png",
+					"box": [
+						631,
+						932,
+						663,
+						1000
+					],
+					"feet": [
+						16,
+						66
+					]
+				}
+			],
+			"mid": [
+				{
+					"src": "RPG_Buildings_CASTLE_v1.0/castle_outside.png",
+					"box": [
+						663,
+						932,
+						695,
+						1000
+					],
+					"feet": [
+						16,
+						65
+					]
+				}
+			],
+			"right": [
+				{
+					"src": "RPG_Buildings_CASTLE_v1.0/castle_outside.png",
+					"box": [
+						704,
+						932,
+						736,
+						1000
+					],
+					"feet": [
+						16,
+						65
+					]
+				}
+			],
+			"top": [
+				{
+					"src": "RPG_Buildings_CASTLE_v1.0/castle_outside.png",
+					"box": [
+						628,
+						842,
+						666,
+						895
+					],
+					"feet": [
+						19,
+						52
+					]
+				}
+			],
+			"vmid": [
+				{
+					"src": "RPG_Buildings_CASTLE_v1.0/castle_outside.png",
+					"box": [
+						628,
+						842,
+						666,
+						895
+					],
+					"feet": [
+						19,
+						52
+					]
+				}
+			],
+			"bottom": [
+				{
+					"src": "RPG_Buildings_CASTLE_v1.0/castle_outside.png",
+					"box": [
+						768,
+						932,
+						800,
+						1000
+					],
+					"feet": [
+						16,
+						65
+					]
+				}
+			],
+			"rubble": [
+				{
+					"src": "RPG_Buildings_CASTLE_v1.0/castle_decoratives.png",
+					"box": [
+						2,
+						110,
+						30,
+						152
+					],
+					"feet": [
+						14,
+						39
+					]
+				},
+				{
+					"src": "RPG_Buildings_CASTLE_v1.0/castle_decoratives.png",
+					"box": [
+						34,
+						105,
+						61,
+						154
+					],
+					"feet": [
+						13,
+						47
+					]
+				},
+				{
+					"src": "RPG_Buildings_CASTLE_v1.0/castle_decoratives.png",
+					"box": [
+						355,
+						102,
+						382,
+						151
+					],
+					"feet": [
+						13,
+						47
+					]
+				},
+				{
+					"src": "RPG_Buildings_CASTLE_v1.0/castle_decoratives.png",
+					"box": [
+						386,
+						107,
+						415,
+						148
+					],
+					"feet": [
+						14,
+						39
+					]
+				}
+			]
+		}
+	},
+	"fencelines": {
+		"wood": {
+			"src": "RPGW_DecorativeProps_v1.0/fence.png",
+			"_doc": "Decorative Props' wooden fence as continuous lines (as grassland.json): a lone post (row 5), a stretch of the long top rail (row 1) and the edge-on rail of the left-hand vertical run (column 0); cut_tiles.py composes every end, run, corner and junction from them",
+			"post": [
+				138,
+				160,
+				152,
+				192
+			],
+			"rail_h": [
+				264,
+				42,
+				280,
+				52
+			],
+			"rail_v": [
+				29,
+				108,
+				33,
+				124
+			]
 		}
 	}
 }

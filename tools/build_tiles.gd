@@ -45,8 +45,11 @@ extends SceneTree
 ##              "walls"), with the rubble a smashed tile shows
 ##   decor      [{kind, at: [tx, ty]} | {kind, pos: [x, y] units from the floor's top-left
 ##              corner, so the margins are negative or past the floor}]: a decor sprite
-##              (manifest "decor") standing with its feet at the tile's bottom middle
-##   anim       [{kind, at | pos}]: an animated piece (manifest "anim", a waterfall)
+##              (manifest "decor") standing with its feet at the tile's bottom middle;
+##              `"wall": true` hangs it on a wall sprite (a banner): y-sorted with the walls
+##              at its feet, hidden with the wall cell under its feet while that is smashed;
+##              `lift` (units) raises the picture off its spot onto the wall's top
+##   anim       [{kind, at | pos, wall}]: an animated piece (manifest "anim", a waterfall)
 ##   markings   true: ArenaView draws the court lines over the tiles (the Stadium)
 ## Rerun after a cut or a map's "tiles" block changes; the game and CI use the saved files.
 
@@ -514,7 +517,9 @@ static func _nine_slice_spots(spots: Array, sz: Callable, x0: int, y0: int, w: i
 ## A wall run over the rect `r` (cells), drawn as sprites (manifest "walls"): one per tile,
 ## standing on the tile's bottom middle and taller than it, in a y-sorted node so the near
 ## ones overlap the far ones and the run reads as one barrier. A column takes the "top" and
-## "bottom" roles at its ends, a row "left" and "right" (a missing role falls back to "mid").
+## "bottom" roles at its ends and "vmid" between them, a row "left" and "right" (a missing
+## role falls back to "mid"). A tile the rect only half covers (a run ending on an odd cell)
+## stands on the rect's own last row, so the wall's face ends where its cells do.
 ## Each tile also gets its rubble sprite, hidden; both record the cells under them (`meta
 ## "cells"`), and the rubble is marked `meta "broken"`, so ArenaView shows the wall while
 ## those cells are the map's wall and the rubble while any is smashed.
@@ -532,7 +537,7 @@ static func _wall_run(walls: Node2D, rubble: Node2D, root: Node, man: Dictionary
 	var first: Vector2i = tiles[0]
 	var last: Vector2i = tiles[tiles.size() - 1]
 	for c in tiles:
-		var role := "mid"
+		var role := "vmid" if vertical else "mid"
 		if tiles.size() > 1:
 			if c == first:
 				role = "top" if vertical else "left"
@@ -540,7 +545,7 @@ static func _wall_run(walls: Node2D, rubble: Node2D, root: Node, man: Dictionary
 				role = "bottom" if vertical else "right"
 		var pool: Array = roles.get(role, roles["mid"])
 		var cells := Rect2i(c * per, Vector2i(per, per)).intersection(Rect2i(int(r[0]), int(r[1]), int(r[2]), int(r[3])))
-		var foot := Vector2((c.x + 0.5) * tile, (c.y + 1) * tile - 2)
+		var foot := Vector2((c.x + 0.5) * tile, cells.end.y * (tile / per) - 2)
 		var picks := [[walls, pool[_h(c.x, c.y, 2) % pool.size()], false]]
 		var rub: Array = roles.get("rubble", [])
 		if not rub.is_empty():
@@ -573,6 +578,28 @@ static func _spot(e: Dictionary, tile: int) -> Vector2:
 		return Vector2(float(e["pos"][0]), float(e["pos"][1])) * ArtScale.PX_PER_UNIT
 	var at := _v(e["at"])
 	return Vector2((at.x + 0.5) * tile, (at.y + 1) * tile)
+
+
+## Puts a decor or anim sprite at its spot, feet first. One with `"wall": true` hangs on a
+## wall (a banner, a brazier on a gate post): it joins the y-sorted "Walls" at the wall's
+## foot line (its `pos` y), drawn over the wall sprite it stands on, and records the cell
+## under its feet (meta "cells"), so ArenaView hides it with the wall when that cell is smashed.
+## `lift` (units) draws it that much higher than its spot, on the wall's top (a brazier on a
+## post), still sorted and hidden by the spot.
+static func _place(s: Node2D, e: Dictionary, d: Dictionary, tile: int, per: int, group: Node2D, walls: Node2D, root: Node) -> void:
+	var feet := Vector2(float(d["feet"][0]), float(d["feet"][1]))
+	var spot := _spot(e, tile)
+	var parent := walls if bool(e.get("wall", false)) else group
+	s.name = "%s_%d" % [String(e["kind"]), parent.get_child_count()]
+	if parent == walls:
+		s.position = spot
+		s.set("offset", -feet - Vector2(0.0, float(e.get("lift", 0.0)) * ArtScale.PX_PER_UNIT))
+		var cell_px := float(tile) / per
+		s.set_meta("cells", Rect2i(Vector2i(floori(spot.x / cell_px), floori((spot.y - 1.0) / cell_px)), Vector2i.ONE))
+	else:
+		s.position = spot - feet
+	parent.add_child(s)
+	s.owner = root
 
 
 ## One map's ground scene: the fill under everything (a tile past the floor all round, an
@@ -743,12 +770,9 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 			push_warning("no decor " + String(e.get("kind", "")))
 			continue
 		var s := Sprite2D.new()
-		s.name = "%s_%d" % [String(e["kind"]), decor.get_child_count()]
 		s.texture = load(TILES_DIR + String(d["source"]))
 		s.centered = false
-		s.position = _spot(e, tile) - Vector2(float(d["feet"][0]), float(d["feet"][1]))
-		decor.add_child(s)
-		s.owner = root
+		_place(s, e, d, tile, per, decor, walls, root)
 
 	var anim := Node2D.new()
 	anim.name = "Anim"
@@ -770,13 +794,10 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 			at.region = Rect2(k * fw, 0, fw, fh)
 			frames.add_frame("default", at)
 		var s := AnimatedSprite2D.new()
-		s.name = "%s_%d" % [String(e["kind"]), anim.get_child_count()]
 		s.sprite_frames = frames
 		s.centered = false
 		s.autoplay = "default"
-		s.position = _spot(e, tile) - Vector2(float(a["feet"][0]), float(a["feet"][1]))
-		anim.add_child(s)
-		s.owner = root
+		_place(s, e, a, tile, per, anim, walls, root)
 
 	var packed := PackedScene.new()
 	packed.pack(root)

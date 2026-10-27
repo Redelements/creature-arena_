@@ -118,10 +118,10 @@ Pairs with RPG Fantasy Worlds Set 1 (grass, cobble `g_terrain1` block 37, hills)
 ## 7. Used today
 | Recipe | Boxes | For |
 |---|---|---|
-| keeps.json pieces.castle_h | tiles (0,9),(1,9),(2,9) = [0,288,96,320] | horizontal keep wall pieces |
-| keeps.json pieces.castle_v | tiles (25,2),(25,3) = [800,64,832,128] | vertical keep wall pieces |
-| keeps.json anim.torch | Anim/torch.png, frame [32,64], 4 frames, feet [16,60] | gate torches (frame size wrong: see Conventions) |
-Not used: everything else (wall kit, towers, banners, braziers, interiors).
+| keeps.json walls.castle | rows: left `[631,932,663,1000]`, mid `[663,932,695,1000]`, right `[704,932,736,1000]`; columns: cross `[628,842,666,895]` (top, vmid), end post `[768,932,800,1000]` (bottom); rubble: decoratives block piles `[2,110,30,152]`, `[34,105,61,154]`, `[355,102,382,151]`, `[386,107,415,148]` | the keeps' walls, y-sorted runs |
+| keeps.json anim.brazier_red / brazier_cyan | Anim/light1c / light1b, frame [32,32], 4 frames row 0, feet [16,27] | team braziers on the gate posts |
+| keeps.json decor.banner_red / banner_blue | decoratives tabs `[7,269,25,305]`, `[7,365,25,401]`, tinted | team banners on the keeps' walls |
+Not used: towers, gate portals, windows, roofs, interiors, torch (dropped with the braziers).
 
 ## 8. Best uses for our maps
 | Map | Idea | Box |
