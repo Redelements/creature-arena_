@@ -28,15 +28,30 @@ import splat3d as S  # noqa: E402
 from splat3d import ellipsoid_oriented, tube, rot_lat, rot_fwd, bezier  # noqa: E402
 
 ROOT = S.ROOT
-OUT = os.path.join(ROOT, "assets", "sprites", "sno.png")
-PREVIEW = os.path.join(ROOT, "docs", "sno_preview.png")
-SIDE = {"w": 128, "h": 128, "origin": (64, 104)}
+# Density (splat3d.configure(density=...)): 2 draws the sheets the game uses, sno_2x*.png
+# (256x256 frames, views 224x256, "ppu": 2); SNO_DENSITY=1 the older 1x ones, sno*.png.
+DENSITY = int(os.environ.get("SNO_DENSITY", "2"))
+# The look (SNO_STYLE): "a" splat3d's five-step ramp with a highlight and a rim light, each
+# material outlined in its own ink, as at 1x; "bold" three flat tones (light, base, dark: no
+# highlight, no rim light) and one dark ink round the whole silhouette. The 2x sheets are
+# bold (see STYLE below).
+STYLE = os.environ.get("SNO_STYLE", "bold" if DENSITY > 1 else "a")
+_TAG = "" if DENSITY == 1 else "_%dx" % DENSITY
+OUT = os.path.join(ROOT, "assets", "sprites", "sno%s.png" % _TAG)
+PREVIEW = os.path.join(ROOT, "docs", "sno%s_preview.png" % _TAG)
+
+
+def _frame(w, h, origin):
+    return {"w": w * DENSITY, "h": h * DENSITY, "origin": (origin[0] * DENSITY, origin[1] * DENSITY)}
+
+
+SIDE = _frame(128, 128, (64, 104))
 VIEWS = {
-    "down": {"w": 112, "h": 128, "origin": (56, 104)},
-    "up": {"w": 112, "h": 128, "origin": (56, 92)},
+    "down": _frame(112, 128, (56, 104)),
+    "up": _frame(112, 128, (56, 92)),
     # the diagonals (docs/SPRITES.md, "Directions"): facing down-right and up-right
-    "down_side": {"w": 128, "h": 128, "origin": (64, 104)},
-    "up_side": {"w": 128, "h": 128, "origin": (64, 92)},
+    "down_side": _frame(128, 128, (64, 104)),
+    "up_side": _frame(128, 128, (64, 92)),
 }
 
 # Master-palette ramps (tools/palette.py), picked to the character sheet's colours.
@@ -57,12 +72,21 @@ MAT = {
 # sheets"), faintly: a few sparkles, not a glowing cone (the ice's own highlight only shows when
 # he tips over, so it would blink on and off).
 S.configure(MAT, scale=0.8, near=14.0, near_views={"down_side": 10.0, "up_side": 10.0},
-            emissive={"fleck": {"a": 90, "min_level": 3}})
+            emissive={"fleck": {"a": 90, "min_level": 3}}, density=DENSITY)
+if STYLE == "bold":
+    # three tones a face: no highlight step (light covers the lit side), no rim light; the
+    # silhouette in one dark ink (seams between pieces keep their material's seam colour)
+    S.LUM_HIGH = 2.0
+    S.RIM = False
+    S.INK = {name: S.OUTLINE[:3] for name in S.INK}
 # In Flavor Blast the whites of his eyes glow full in the Surge's ice blue (pupils dark).
 S.surge_eyes("sno")
 S.COLS = 12  # the run, the heavy and the Surge have 12 frames
 AXES = ((0, 0, 1), (0, 1, 0), (1, 0, 0))
 
+# The flecks of white ice at 2x: cells of 1/FLECK_K rig units (at 1x the cells are under a
+# pixel, a fixed 1/1.7; at 2x those resolve into single-pixel salt), so grains stay grains.
+FLECK_K = float(os.environ.get("SNO_FLECK_K", "1.3"))
 TIP = 13.0   # height of the cone's point at rest
 RIM = 44.0   # height of the rim at rest
 CONE_R = 13.0
@@ -157,7 +181,13 @@ def build(p, view):
         # the flecks belong to the ice: picked in the dome's own coordinates, so they ride
         # along as he moves instead of re-rolling every frame (they sparkled in motion)
         fp = np.stack([rel @ lt / (lt @ lt), rel @ up / (up @ up) + RIM + 2.0, rel @ fw / (fw @ fw)], axis=1)
-    h = (np.floor(fp[:, 0] * 1.7) * 31 + np.floor(fp[:, 1] * 1.7) * 17 + np.floor(fp[:, 2] * 1.7) * 7) % 11
+    if DENSITY == 1:
+        h = (np.floor(fp[:, 0] * 1.7) * 31 + np.floor(fp[:, 1] * 1.7) * 17 + np.floor(fp[:, 2] * 1.7) * 7) % 11
+    else:
+        # at 2x the cells show, and the linear hash above lines them up in diagonal streaks:
+        # a scrambling hash on coarser cells (FLECK_K) scatters grains a 2x pixel or two across
+        c = np.floor(fp * FLECK_K).astype(np.int64)
+        h = ((c[:, 0] * 73856093) ^ (c[:, 1] * 19349663) ^ (c[:, 2] * 83492791)) % 11
     dome["mat"] = np.where((h < 2) & (above > -2), S.MAT_ID["fleck"], dome["mat"]).astype(np.int32)
     parts.append(dome)
     if p.shards > 0:
