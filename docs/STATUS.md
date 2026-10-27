@@ -1,7 +1,7 @@
 # Status: handoff snapshot
 
-Stamped: 2026-10-27 20:33 UTC
-Branch: sno-2x @ 5ab3ca9
+Stamped: 2026-10-27 20:31 UTC
+Branch: culvert-2x @ 5ab3ca9
 Trigger: phase
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
@@ -34,18 +34,17 @@ Done (commit a6911e6 and after):
    and density-aware compare GIFs. Local `main` is stale: pass `--old cb968ed`.
 6. Lighting High, Floodgate night, `--mode=48`: the 2x normal sheet lights correctly.
 
-7. **Sno Mercy (fighter 2, branch `sno-2x` off `crease-2x`, "run all"):** `SNO_DENSITY`
-   (1 = the 1x sheets byte for byte) and `SNO_STYLE=a|bold` in `gen_sno.py`; bold here is
-   splat3d's ramp without the highlight step or rim light and one dark ink round the
-   silhouette. Dome flecks on coarser cells with a scrambling hash at 2x (`FLECK_K` 1.3).
-   `sno_2x*.png`: 256 px frames (down/up 224x256). New `test_a_256_px_frame_draws_like_its_128_px_one`
-   (no view needed a fix). NET_VERSION 47 (renumber when stacking). Gallery and GIFs in
-   `docs/pixellab/sno/`.
-
 Gallery: `docs/pixellab/crease_route_a.png` (1x vs 2x for idle, run, flick, Surge at 1x/3x;
 the two shading variants; Twin Keeps still beside the big tree at play zoom). GIFs:
 `docs/pixellab/crease_route_a_{idle,run,flick}.gif`. Build for Kevin:
 `C:/Users/Kevin/Downloads/Ready4Rambles-windows-crease-2x/` (exe + the gallery and GIFs).
+
+Roster run ("run all", plan order). **Culvert** on branch `culvert-2x` (worktree
+`C:/Users/Kevin/dev/creature-arena-culvert-2x`, off `crease-2x` 5ab3ca9): `CULVERT_DENSITY`
+(default 2; 1 byte for byte) and `CULVERT_STYLE=a|bold` (bold at 2x: no highlight step, one
+dark ink) in `gen_culvert.py`; `culvert_2x*.png` (15 sheets, 192 px frames); culvert.json
+switched by `sprite_2x.py`; **NET_VERSION 47**; sim-check unchanged. Gallery and GIFs:
+`docs/pixellab/culvert/`. Next: Sno Mercy (`sno-2x`, off `culvert-2x`).
 
 ## Decisions
 
@@ -69,7 +68,7 @@ its checks (anim_preview --check, tests, sim-check, VRAM budget).
 
 ## Next step
 
-"Run all" is on: next fighter in plan order (Cairn) off `sno-2x`; the main session stacks the PRs.
+Wait for Kevin's verdict and a "run <fighter>" / "run all"; then the skill, plan order.
 
 ## Files touched this session
 
@@ -77,6 +76,8 @@ tools/splat3d.py, tools/gen_crease.py, tools/anim_preview.py, tools/CLAUDE.md, d
 data/creatures/crease.json, src/net/netplay.gd, tests/test_art_scale.gd,
 assets/sprites/crease_2x*.png(+.import), docs/crease_2x_preview.png,
 docs/crease_2x_views_preview.png, docs/pixellab/crease_route_a*, docs/STATUS.md,
+tools/gen_culvert.py, data/creatures/culvert.json, assets/sprites/culvert_2x*.png(+.import),
+docs/culvert_2x_preview.png, docs/culvert_2x_views_preview.png, docs/pixellab/culvert/*,
 .claude/skills/fighter-2x/SKILL.md, tools/twin_keeps_still.py, docs/plans/roster-2x.md.
 
 Tooling: Godot `C:/Users/Kevin/dev/godot/Godot_v4.7.2-stable_win64_console.exe`; Python
