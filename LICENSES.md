@@ -16,10 +16,15 @@ The raw packs never enter this repository: only the cut, edited pieces the game 
 complete sheets, no source PSDs). The cutting scripts read a local copy of the packs from a
 path passed on the command line; the game and CI use the committed cuts alone.
 
-**Pending:** Kevin has asked both artists (Szadi art and kiddolink) for a written OK to keep
-these cuts in a public repository. Until both answer yes, treat the cuts as provisional: if
-either says no, the cuts come out of the public repo (kept in a private asset store, pulled
-in at build time).
+**Permissions for the public repository.** kiddolink said yes on 26 October 2026, in the
+comments of the pack's itch.io page, to Kevin's question whether cut, edited effect strips may
+sit in this public repository next to the code with a note that they are kiddolink's licensed
+assets and not free to reuse: "It's acceptable! I appreciate that you wrote a note about the use
+of the assets." That note is the notice at the top of this file. **Szadi art: pending.** Szadi's
+licence text allows publishing works that use the art and forbids only resale of the art; a
+written OK for the cuts in a public repository has still to be asked for or received. Until it
+is, treat the Szadi cuts as provisional: if the answer is no, they come out of the public repo
+(a private asset store, pulled in at build time).
 
 ## Szadi art
 
@@ -153,6 +158,8 @@ the game's palette):
 
 Licence (the itch.io page; the download has no licence file): commercial use allowed;
 editing allowed. Not allowed: reselling or redistributing the pack.
+Public repository: allowed by the artist for these cut, edited strips with the notice above
+(itch.io comment, 26 October 2026; see the top of this file).
 
 Files from it (cut by `tools/cut_vfx.py`: single rows of frames at their 96 px, colours
 snapped to the game's palette; `tools/build_vfx.gd` makes the resources from them):
