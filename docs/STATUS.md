@@ -1,7 +1,7 @@
 # Status: handoff snapshot
 
-Stamped: 2026-10-27 00:29 UTC
-Branch: proof/32px-szadi @ 6c55d03
+Stamped: 2026-10-27 00:43 UTC
+Branch: proof/32px-szadi @ 2aed8a5
 Trigger: phase
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads

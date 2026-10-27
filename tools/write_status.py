@@ -3,11 +3,12 @@
 
     python3 tools/write_status.py                 stamp (the PreCompact hook in .claude/settings.json runs this)
     python3 tools/write_status.py --trigger phase stamp and name why
+    python3 tools/write_status.py --hook          as the PreCompact hook: reads its JSON from stdin
 
 The stamp is the three `Stamped:` / `Branch:` / `Trigger:` lines under the title; everything
 else in the file is the handoff a session writes by hand (see .claude/skills/context-hygiene).
-If the file is missing it is created with the handoff's headings. When run as a hook the JSON
-Claude Code pipes in (its `trigger`, "manual" or "auto") names the trigger. Standard library
+If the file is missing it is created with the handoff's headings. With --hook the JSON Claude
+Code pipes in (its `trigger`, "manual" or "auto") names the trigger; stdin is read only then. Standard library
 only, never interactive, always exits 0: a failed stamp must not block the compaction.
 """
 
@@ -51,7 +52,7 @@ def trigger_name(argv):
         i = argv.index("--trigger")
         if i + 1 < len(argv):
             return argv[i + 1]
-    if not sys.stdin.isatty():
+    if "--hook" in argv:
         try:
             data = json.loads(sys.stdin.read() or "{}")
             if isinstance(data, dict) and data.get("trigger"):

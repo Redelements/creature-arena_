@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python tools/write_status.py || python3 tools/write_status.py",
+            "command": "C:/Users/Kevin/dev/python/python.exe tools/write_status.py --hook 2>/dev/null || python3 tools/write_status.py --hook",
             "timeout": 10
           }
         ]
