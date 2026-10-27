@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Generate the small placeholder sheets for Ready 4 Rambles: floor tiles, the crowd, effects.
+"""Generate the small placeholder sheets for Ready 4 Rambles: floor tiles and effects.
 
 Run from anywhere:  python3 tools/gen_sprites.py   (or --tiles for the floor tiles alone)
 Requires Pillow (pip install pillow).
 
-Writes assets/sprites/tiles.png, crowd.png and fx.png, and a 4x preview of all three into
-docs/sprite_preview.png. These are programmer art on their own small palette (not the
-master palette in tools/palette.py). Every fighter, Cairn and the training dummy included,
+Writes assets/sprites/tiles.png and fx.png, and a 4x preview of both into
+docs/sprite_preview.png (the crowd is Szadi's Warrior now: tools/cut_crowd.py). These are
+programmer art on their own small palette (not the master palette in
+tools/palette.py). Every fighter, Cairn and the training dummy included,
 has its own generator on the shared renderer (tools/gen_<id>.py, tools/splat3d.py), and
 the arenas are tools/gen_arenas.py. See docs/SPRITES.md for the layouts.
 """
@@ -242,30 +243,6 @@ def tiles_sheet():
     return sheet(frames, len(frames), 8, 8)
 
 
-# ---------------------------------------------------------------- Crowd (12x16)
-
-def fan(variant, cheer):
-    img = new(12, 16)
-    skins = [(232, 190, 150, 255), (190, 135, 95, 255), (140, 95, 65, 255), (245, 215, 180, 255)]
-    shirts = [(196, 72, 72, 255), (70, 120, 190, 255), (220, 180, 60, 255), (90, 160, 110, 255)]
-    skin, shirt = skins[variant % 4], shirts[variant % 4]
-    rect(img, 2, 9, 9, 15, shirt)
-    ellipse(img, 5, 5, 3, 3, skin)
-    if variant % 2:
-        rect(img, 2, 2, 8, 3, (60, 40, 30, 255))  # hair or cap
-    if cheer:
-        rect(img, 1, 3, 2, 9, skin)
-        rect(img, 9, 3, 10, 9, skin)
-    return outline(img)
-
-
-def crowd_sheet():
-    frames = []
-    for v in range(4):
-        frames += [fan(v, False), fan(v, True)]
-    return sheet(frames, 8, 12, 16)
-
-
 # ---------------------------------------------------------------- FX (16x16)
 
 def spark(step):
@@ -327,7 +304,6 @@ def main():
         return
     sheets = {
         "tiles.png": tiles_sheet(),
-        "crowd.png": crowd_sheet(),
         "fx.png": fx_sheet(),
     }
     for name, img in sheets.items():

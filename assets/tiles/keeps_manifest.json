@@ -5180,13 +5180,13 @@
    "source": "keeps_anim_waterfall.png",
    "frame": [
     160,
-    160
+    60
    ],
    "frames": 8,
    "fps": 8.0,
    "feet": [
     80,
-    154
+    54
    ]
   },
   "brazier_red": {

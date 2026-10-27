@@ -42,7 +42,7 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   `python3 tools/palette.py` redraws `docs/palette.png`. Every fighter and the arenas use it:
   the splat3d rigs, Cerebro and Hissy (they call `S.shade`/`S.outline` on their own buffers),
   Barkley and Gillbert (through `shade2d.py`) and Craglash's 2D shader; only `gen_sprites.py`
-  (tiles, crowd, effects) isn't ported. A new line or ramp goes at the end of `LINES` / `WINDOWS`;
+  (tiles, effects) isn't ported. A new line or ramp goes at the end of `LINES` / `WINDOWS`;
   a line a fighter names but the arenas must not pick up goes in `NAMED_ONLY` (adding colours
   to the snap tables moves arena floor pixels on a rerun of `gen_arenas.py`).
 - `shade2d.py`: splat3d's shading look for generators that paint flat 2D shapes per part
@@ -96,7 +96,10 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   that `finish()` turns into ink on the silhouette and the deep step on seams, so every
   `render*` must end in `finish()`; its up/down sheets come from `VRig`, its
   diagonals from `DRig`, which turns the VRig's 3D reading 45 degrees: `docs/SPRITES.md`).
-- `gen_sprites.py`: the small placeholder sheets (floor tiles, crowd, effects) and
+- `cut_crowd.py <packs dir>`: the stadium crowd from Szadi's Warrior (`assets/sprites/crowd.png`,
+  a row per recoloured fan variant, its groups in step with `CrowdView.ROWS_*`); rerun after
+  changing a colour set or a frame pick, then `--import`.
+- `gen_sprites.py`: the small placeholder sheets (floor tiles, effects) and
   `docs/sprite_preview.png`. `gen_arenas.py`: each map's
   whole picture (stands on all sides: `_stands`, `_side_stands`, `_front_stands`, in step with
   `CrowdView`'s seats) plus its cracked and changed-piece floors (and `_crackmask`, the cracks
@@ -175,6 +178,7 @@ tools, so a fighter's pass is posing work only.
 - `build_tiles.gd` — Builds the Godot TileSets and the tiled arenas' ground scenes from a cut set's manifest (assets/tiles/<set>_manifest.js…
 - `build_vfx.gd` — Builds the SpriteFrames and MoveFx resources from assets/vfx/manifest.json (written by tools/cut_vfx.py from kiddolink'…
 - `codebase_map.py` — Writes the generated file lists and checks the codebase map for drift.
+- `cut_crowd.py` — Cuts the stadium crowd out of Szadi art's Fantasy Lands Warrior: an army of fans.
 - `cut_tiles.py` — Cuts a tile set for the tiled arenas out of the bought art packs, from a recipe.
 - `cut_vfx.py` — Cuts the effects the game plays out of kiddolink's VFX Complete Set Season 1 (bought; the pack never enters this public…
 - `gen_arenas.py` — Arena art: each map's whole backdrop as one picture, drawn by ArenaView under the floor's cracks, holes and pieces.
@@ -192,7 +196,7 @@ tools, so a fighter's pass is posing work only.
 - `gen_logo.py` — The title wordmark: READY 4 / RAMBLES in the m5x7 pixel font, scaled up by whole pixels, filled with hard-edged gold ba…
 - `gen_pete.py` — Sneaky Pete sprite sheets, a pixel-art recreation of the artist's character sheet.
 - `gen_sno.py` — Sno Mercy sprite sheets, a pixel-art recreation of the artist's character sheet.
-- `gen_sprites.py` — Generate the small placeholder sheets for Ready 4 Rambles: floor tiles, the crowd, effects.
+- `gen_sprites.py` — Generate the small placeholder sheets for Ready 4 Rambles: floor tiles and effects.
 - `import_frames.py` — Imports a folder of PNG frames (PixelLab's output, or any artist's) as one of the game's sprite sheets: quantized to th…
 - `odin_perf.py` — Measure frame pacing on an Android device (the AYN Odin 3) over adb.
 - `palette.py` — The master palette: one published set of colours for every fighter and arena.

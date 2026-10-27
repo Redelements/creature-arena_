@@ -3,7 +3,7 @@ extends TestCase
 ## and every piece, drawn from the "keeps" set: each wall a y-sorted run of Castle wall-kit
 ## sprites (rubble hidden under each tile), the fences as joined lines, the brush as round
 ## hedge clumps, water under every shallows cell and under the bridge (so a fallen bridge
-## shows it), a cobble causeway on the bridge, trees along the top margin, the waterfall
+## shows it), a cobble causeway on the bridge, no trees in the top margin (they clipped into the stands), the waterfall
 ## where the river enters at the top with its pool inside the banks, team braziers on the
 ## gate posts and team banners hung on the keeps' walls (they fall with the wall). Every
 ## water tile at the river's edge (the island, the head, the bridge's ends) carries its
@@ -85,35 +85,35 @@ func test_the_scene_covers_the_map_with_its_pieces_in_place() -> void:
 	root.free()
 
 
-func test_the_trees_the_waterfall_the_braziers_and_the_banners_stand_where_the_map_says() -> void:
+func test_the_waterfall_the_braziers_and_the_banners_stand_where_the_map_says() -> void:
 	var root: Node = (load(SCENE) as PackedScene).instantiate()
 	var decor := root.get_node("Decor")
 	var anim := root.get_node("Anim")
 	var walls := root.get_node("Walls")
-	var kinds := {}
 	for s in decor.get_children():
-		kinds[String(s.name).split("_")[0]] = true
 		var sp := s as Sprite2D
 		assert_true(sp != null and sp.texture != null, "%s is a sprite with its picture" % s.name)
-		# every tree stands in the top margin, its feet on the floor's top edge (y = 0 in scene
-		# pixels), so no canopy covers walkable floor
-		assert_true(sp.position.y + sp.texture.get_height() <= 32.0, "%s stands above the floor" % s.name)
-	for k in ["oak", "birch", "pine", "bush"]:
-		assert_true(kinds.has(k), "a %s among the trees" % k)
-	assert_true(decor.get_child_count() >= 12, "a line of trees along the top")
+		# no trees along the top: they stood on the stands' hoardings and clipped into them
+		for k in ["oak", "birch", "pine", "bush"]:
+			assert_false(String(s.name).begins_with(k + "_"), "no %s in the top margin: %s" % [k, s.name])
 	var falls := anim.get_children().filter(func(n): return String(n.name).begins_with("waterfall"))
 	assert_eq(falls.size(), 1, "one waterfall")
 	var w := falls[0] as AnimatedSprite2D
-	# feet [80, 154] at tile (37, 0)'s bottom middle: x 37.5 * 32 - 80, y 32 - 154; its foam
-	# pool (x 19..140 of the frame) lies inside the river's head (cells 71..79: x 1136..1264)
-	assert_eq(w.position, Vector2(1120, -122), "the waterfall (160 x 160, feet at 154) pours onto the river's first row, its curtain over the stands")
+	# feet [80, 54] (the frame cropped above row 100) at tile (37, 0)'s bottom middle:
+	# x 37.5 * 32 - 80, y 32 - 54; its foam pool (x 19..140 of the frame) lies inside the
+	# river's head (cells 71..79: x 1136..1264)
+	assert_eq(w.position, Vector2(1120, -22), "the waterfall pours onto the river's first row")
 	assert_true(w.position.x + 19 >= 1136 and w.position.x + 140 <= 1264, "its pool stays inside the banks")
+	# ...out of the culvert in the back wall (tools/gen_arenas.py:culvert, world y 52-64):
+	# its top at world y 53 (the floor's top-left is world (16, 64), 2 scene px a unit), so
+	# no water runs up into the stands or the fans sitting over it
+	assert_near(SimDefs.GRID_Y + w.position.y / ArtScale.PX_PER_UNIT, 53.0, 0.01, "the curtain's top, world y:")
 	var tex := w.sprite_frames.get_frame_texture("default", 0)
-	assert_eq(tex.get_size(), Vector2(160, 160), "Set 1's three-wide fall")
+	assert_eq(tex.get_size(), Vector2(160, 60), "Set 1's three-wide fall, below the culvert's lintel")
 	var img := tex.get_image()
 	var lum := 0.0
 	var n := 0
-	for y in range(40, 130, 3):
+	for y in range(0, 30, 3):
 		for x in range(30, 130, 3):
 			var c := img.get_pixel(x, y)
 			if c.a > 0.5:

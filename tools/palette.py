@@ -53,7 +53,7 @@ Porting a generator: replace its MAT table's (base, light, dark) triples with ra
 materials, and shade with the five steps. tools/splat3d.py does this for every splat3d
 rig, tools/shade2d.py for the 2D painters (Barkley, Gillbert) and tools/gen_craglash.py's own
 2D shader; Cerebro and Hissy call splat3d's shade/outline directly. Only the placeholders in
-tools/gen_sprites.py (crowd, tiles, effects) aren't on the palette; Cairn and the dummy are
+tools/gen_sprites.py (tiles, effects) aren't on the palette; Cairn and the dummy are
 splat3d rigs (tools/gen_cairn.py, tools/gen_dummy.py).
 """
 import os

@@ -1561,6 +1561,57 @@ def shrine_plinth(img, prng, sh):
         blend_px(img, x, y, PAVE[1], 0.8)
 
 
+def waterfall_xs(m):
+    """World x of each waterfall in a map's tiles (`anim` kind "waterfall"): a tile's
+    middle (`at`, 32 px tiles at 2 px a unit, 16 units) or a `pos` from the floor's corner."""
+    out = []
+    for e in m.get("tiles", {}).get("anim", []):
+        if e.get("kind") != "waterfall":
+            continue
+        out.append(GRID_X + (e["pos"][0] if "pos" in e else (e["at"][0] + 0.5) * 16))
+    return out
+
+
+def culvert(img, wx, half=27):
+    """Where the river enters under the stands: a stone culvert cut through the back wall
+    (world y 52-64) and the parapet's foot above it, centred on world x `wx`, `half` units
+    to each side of its mouth. The waterfall (tiles anim, cropped at world y 53) pours out
+    of the dark mouth; nothing of the water reaches the seats (CrowdView seats two fans
+    raising mugs right above it)."""
+    oy = MARGIN[1]
+    cx = MARGIN[0] + int(round(wx))
+    x0, x1 = cx - half, cx + half          # the mouth
+    top, bot = oy + 49, oy + 64            # the surround: lintel top to the floor's edge
+    pier = 6
+    # the surround: coursed stone (the keeps' own), mortar every 3 rows, joints staggered
+    for yy in range(top, bot):
+        for xx in range(x0 - pier, x1 + pier):
+            course = (yy - top) // 3
+            k = 2
+            if (yy - top) % 3 == 2 or (xx - x0 + course * 4) % 8 == 0:
+                k = 1
+            elif (yy - top) % 3 == 0:
+                k = 3
+            rect(img, xx, yy, 1, 1, KEEP[k])
+    rect(img, x0 - pier, top, x1 - x0 + pier * 2, 1, KEEP[4])       # the lit top edge
+    rect(img, x0 - pier, top - 1, x1 - x0 + pier * 2, 1, KEEP[0])   # its outline
+    for xx in (x0 - pier - 1, x1 + pier):
+        rect(img, xx, top - 1, 1, bot - top + 1, KEEP[0])
+    # the mouth: dark, its lintel's underside lit a little, a keystone over its middle
+    mouth = (14, 16, 28)
+    rect(img, x0, top + 4, x1 - x0, bot - top - 4, mouth)
+    rect(img, x0, top + 4, x1 - x0, 1, KEEP[0])
+    rect(img, x0, top + 5, x1 - x0, 1, (26, 30, 44))
+    rect(img, x0 - 1, top + 4, 1, bot - top - 4, KEEP[0])
+    rect(img, x1, top + 4, 1, bot - top - 4, KEEP[0])
+    rect(img, cx - 3, top, 6, 5, KEEP[3])
+    rect(img, cx - 3, top, 6, 1, KEEP[4])
+    rect(img, cx - 3, top + 4, 6, 1, KEEP[1])
+    # a weathered iron grate's stubs along the lintel (the bars were torn out long ago)
+    for xx in range(x0 + 3, x1 - 2, 6):
+        rect(img, xx, top + 5, 1, 2, (70, 74, 88))
+
+
 def twin_keeps():
     rng = np.random.default_rng(97)
     prng = random.Random(97)
@@ -1569,6 +1620,8 @@ def twin_keeps():
     _stands(img, rng)
     _back_wall(img)
     _side_and_front(img, rng, pad=[LEAF[0], None, LEAF[2]], cap=KEEP)
+    for wx in waterfall_xs(m):
+        culvert(img, wx)
     v = ground(rng, amp=0.32, base=0.36, worn=0.0)
     yy, xx = np.mgrid[0:FH, 0:FW].astype(float)
     # the meadow mown in wide bands, 40 px, running away from the camera, crossed faintly

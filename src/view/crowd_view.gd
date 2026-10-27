@@ -5,10 +5,42 @@ extends Node2D
 ## under the front wall, their backs to the camera. Big moments raise excitement; more fans
 ## cheer and bounce, and camera flashes pop. A knockout makes the whole stadium jump (roar);
 ## every hit stands up a handful of fans in the stand nearest it (react).
+##
+## The fans are Szadi art's Warrior (tools/cut_crowd.py writes crowd.png from the pack): an
+## army in many armour colours, red in the left side stand and blue in the right (the two
+## sides' sections), the neutral stands a spread of greens, golds, purples, browns, steel and
+## teal. Each sheet row is one fan variant (a facing, a colour set, skin and hair), baked:
+## columns 0-3 sitting (the idle's breath poses), 4 on their feet cheering. Over a waterfall (Twin
+## Keeps) two of them raise beer mugs (`set_size` `toasts`).
 
 const SHEET := preload("res://assets/sprites/crowd.png")
+## The seat a fan sits in, units (react's spot, the side stands' spacing, the blocks).
 const W := 12
 const H := 16
+## The sheet: 2x art (ArtScale.PX_PER_UNIT texture px a unit), a cell a fan, CELL_W x CELL_H
+## units, drawn RISE above its seat so the hips sit on the seat and a cheer has headroom.
+const PPU := ArtScale.PX_PER_UNIT
+const CELL_W := 12
+const CELL_H := 24
+const RISE := 8
+const POSES := 4  ## sitting columns, the idle's breath poses (the toast's four poses)
+const COL_CHEER := 4  ## the column of a fan on their feet
+## The sheet's rows, in tools/cut_crowd.py GROUPS order: [first row, count] per group.
+const ROWS_FRONT := Vector2i(0, 16)  ## facing the floor: the top stands
+const ROWS_RED := Vector2i(16, 8)  ## the left stand's red side, facing right
+const ROWS_BLUE := Vector2i(24, 8)  ## the right stand's blue side, facing left
+const ROWS_MIXED_R := Vector2i(32, 8)  ## the left stand in a Brawl
+const ROWS_MIXED_L := Vector2i(40, 8)  ## the right stand in a Brawl
+const ROWS_BACK := Vector2i(48, 8)  ## the front rows, from behind
+const MUG_ROW := 56  ## the two toasting fans, left then right
+const SHEET_ROWS := 58
+## The seated fans breathe without a redraw: a block's fans sit on BREATHS layers (by
+## phase), each drawn once in its own idle pose, that rise half a unit (one art px) and
+## settle every BREATH_TICKS, each layer and block on its own beat.
+const BREATHS := 3
+const BREATH_TICKS := 40
+const BREATH_POSE := [0, 1, 2]  ## each beat's sheet column (idle frames 0, 2, 5)
+const MUG_TICKS := 8  ## a toast's pose
 ## Where the seats are, in step with tools/gen_arenas.py (_stands, _side_stands,
 ## _front_stands), which draws the steps and seat backs they sit on.
 const TOP_ROWS := 3
@@ -21,7 +53,8 @@ const SIDE_AISLE := 9  ## every ninth place down a column is a stair
 const FRONT_GAP := 2
 const FRONT_STEP := 13
 const FRONT_FANS := 2
-const FRONT_CROP := 12  ## a front-row fan shows its top 12 px over its seat back
+const FRONT_CROP := 14  ## a front-row fan shows its top 14 units over its seat back
+const BACK_SRC_Y := 13  ## ...the cell's rows from here (px): a little air, the head, shoulders
 ## How far past the arena's sides and front the camera may look when the fight nears an
 ## edge (main._cam_axis), so these stands come into shot.
 const SHOW_SIDE := 64.0
@@ -38,8 +71,8 @@ const REACT_FANS := 6
 const REACT_TICKS := 24
 const REACT_R := 40.0
 const REACT_CAP := 12
-## Rows of the sheet built from crowd.png by swapping colours (no new art): the mixed crowd,
-## red shirts, blue shirts (Hud.SIDE_COLORS), and the mixed crowd seen from behind.
+## Which colours a fan wears: the mixed crowd, the two sides' (Hud.SIDE_COLORS: red armour
+## left, blue right), and the mixed crowd seen from behind.
 enum Look { MIXED, RED, BLUE, BACK }
 enum Stand { TOP, LEFT, RIGHT, FRONT }
 
@@ -72,7 +105,19 @@ const PHASES := 13
 ## a busy fight, and redrawing a few pixels is nothing next to redrawing the seats.
 var _flash_layer: FlashLayer
 var _drawn_flashes := false
-static var _sheet: Texture2D
+## The blocks near the screen (the last culling pass): the ones whose fans breathe.
+var _near: Array[Block] = []
+## The toasting fans over a waterfall: [seat position, sheet row] each, on a layer of their own.
+var _mugs: Array = []
+var _mug_layer: MugLayer
+var _mug_col := -1
+
+
+class MugLayer extends Node2D:
+	var crowd: CrowdView
+
+	func _draw() -> void:
+		crowd._draw_mugs(self)
 
 
 class FlashLayer extends Node2D:
@@ -88,7 +133,7 @@ class Block extends Node2D:
 	var stand := 0
 	var area := Rect2()
 	var pos := PackedVector2Array()
-	var frame := PackedInt32Array()  ## the variant's first frame (sitting; +1 standing)
+	var row := PackedInt32Array()  ## the fan's sheet row (their variant)
 	var look := PackedInt32Array()
 	var phase := PackedInt32Array()
 	var tint := PackedColorArray()
@@ -102,9 +147,18 @@ class Block extends Node2D:
 	var drawn := Vector3i(-1, -1, -1)
 	var drawn_version := -1
 	var standing: Array[Standing] = []  ## the even phases' fans, the odd phases'
+	var seated: Array[Seated] = []  ## the fans sitting, a layer per breath beat
+	var offset := 0  ## this block's beat against its neighbours'
+
+
+## A block's fans sitting, those of one breath beat (`part`, their phase % BREATHS), drawn
+## once in that beat's idle pose; its position is their breath.
+class Seated extends Node2D:
+	var block: Block
+	var part := 0
 
 	func _draw() -> void:
-		crowd._draw_sitting(self)
+		block.crowd._draw_sitting(block, self)
 
 
 class Standing extends Node2D:
@@ -116,6 +170,9 @@ class Standing extends Node2D:
 
 
 func _ready() -> void:
+	_mug_layer = MugLayer.new()
+	_mug_layer.crowd = self
+	add_child(_mug_layer)
 	_flash_layer = FlashLayer.new()
 	_flash_layer.crowd = self
 	add_child(_flash_layer)
@@ -125,8 +182,10 @@ func _ready() -> void:
 ## Lays the seats round an arena `size` px big (a bigger map's is bigger): the top stand
 ## runs on past it for wide screens (ArenaView.MARGIN), the side stands down its sides and
 ## the front rows along its front. `teams`: the side stands wear the two sides' colours (a
-## match of two sides; a Brawl of three or four keeps them mixed).
-func set_size(size: Vector2, teams := true) -> void:
+## match of two sides; a Brawl of three or four keeps them mixed). `toasts`: world x of a
+## waterfall under the top stand (`toasts_for`): the two seats over it in the lowest row
+## get the fans raising beer mugs.
+func set_size(size: Vector2, teams := true, toasts := PackedFloat32Array()) -> void:
 	_size = size
 	for b in _blocks:
 		remove_child(b)
@@ -137,20 +196,36 @@ func set_size(size: Vector2, teams := true) -> void:
 	_active.clear()
 	_flashes.clear()
 	_flash_spots.clear()
+	_near.clear()
+	_mugs.clear()
+	_mug_col = -1
 	var by_key := {}
 	var from := -int(ArenaView.MARGIN.x / 12.0)
 	var to := int((size.x + ArenaView.MARGIN.x) / 12.0)
+	# the toasters' seats: the pair in the lowest row whose middles straddle the waterfall
+	var toast_seats := {}
+	var low := TOP_ROWS - 1
+	for x in toasts:
+		var i0 := floori((x - 8.0 - (low % 2) * 6) / 12.0)
+		toast_seats[i0] = MUG_ROW
+		toast_seats[i0 + 1] = MUG_ROW + 1
 	for row in TOP_ROWS:
 		for i in range(from, to):
+			var p := Vector2(2 + i * 12 + (row % 2) * 6, 1 + row * 14)
+			if row == low and toast_seats.has(i):
+				_mugs.append([p, toast_seats[i]])
+				_flash_spots.append(p)
+				continue
 			if posmod(i * 3 + row * 5, 11) == 0:
 				continue  # leave a few empty seats
-			var p := Vector2(2 + i * 12 + (row % 2) * 6, 1 + row * 14)
-			_add_seat(by_key, Stand.TOP, p, posmod(i * 5 + row * 3, 4), Look.MIXED,
+			_add_seat(by_key, Stand.TOP, p, _pick(ROWS_FRONT, i * 5 + row * 3), Look.MIXED,
 				posmod(i * 7 + row * 11, 13), Color.WHITE)
 			_flash_spots.append(p)
 	for side in 2:
 		var stand := Stand.LEFT if side == 0 else Stand.RIGHT
 		var look := (Look.RED if side == 0 else Look.BLUE) if teams else Look.MIXED
+		var rows: Vector2i = (ROWS_RED if side == 0 else ROWS_BLUE) if teams \
+			else (ROWS_MIXED_R if side == 0 else ROWS_MIXED_L)
 		for k in SIDE_FANS:
 			var x: float = -SIDE_RAIL - (k + 1) * SIDE_COL_W + 1 if side == 0 \
 				else size.x + SIDE_RAIL + k * SIDE_COL_W
@@ -163,7 +238,7 @@ func set_size(size: Vector2, teams := true) -> void:
 					break
 				if j % SIDE_AISLE != SIDE_AISLE - 1 and posmod(j * 3 + k * 5 + side, 11) != 0:
 					var p := Vector2(x, y)
-					_add_seat(by_key, stand, p, posmod(j * 5 + k * 3 + side, 4), look,
+					_add_seat(by_key, stand, p, _pick(rows, j * 5 + k * 3 + side * 7), look,
 						posmod(j * 7 + k * 11 + side * 5, 13), Color(f, f, f))
 					_flash_spots.append(p)
 				j += 1
@@ -174,7 +249,7 @@ func set_size(size: Vector2, teams := true) -> void:
 			if posmod(i * 5 + r * 7, 11) == 0:
 				continue
 			var p := Vector2(2 + i * 12 + (r % 2) * 6, y0 + 7 - FRONT_CROP)
-			_add_seat(by_key, Stand.FRONT, p, posmod(i * 3 + r * 5, 4), Look.BACK,
+			_add_seat(by_key, Stand.FRONT, p, _pick(ROWS_BACK, i * 3 + r * 5), Look.BACK,
 				posmod(i * 7 + r * 5, 13), Color(f, f, f))
 	for b in by_key.values():
 		b.by_phase.resize(PHASES)
@@ -182,9 +257,15 @@ func set_size(size: Vector2, teams := true) -> void:
 			b.by_phase[ph] = PackedInt32Array()
 		for i in b.pos.size():
 			b.by_phase[b.phase[i]].append(i)
-			var h := FRONT_CROP if b.look[i] == Look.BACK else H
-			b.dst.append(Rect2(b.pos[i], Vector2(W, h)))
-			b.src_up.append(Rect2((b.frame[i] + 1) * W, b.look[i] * H, W, h))
+			b.dst.append(fan_dst(b.pos[i], b.look[i]))
+			b.src_up.append(fan_src(b.row[i], COL_CHEER, b.look[i]))
+		b.offset = posmod(_blocks.size() * 17, BREATH_TICKS * 2)
+		for part in BREATHS:
+			var se := Seated.new()
+			se.block = b
+			se.part = part
+			b.seated.append(se)
+			b.add_child(se)
 		for bx in range(floori(b.area.position.x / BLOCK), floori(b.area.end.x / BLOCK) + 1):
 			if not _cols.has(bx):
 				_cols[bx] = []
@@ -197,6 +278,9 @@ func set_size(size: Vector2, teams := true) -> void:
 			b.add_child(st)
 		_blocks.append(b)
 		add_child(b)
+	if _mug_layer != null:
+		move_child(_mug_layer, -1)
+		_mug_layer.queue_redraw()
 	if _flash_layer != null:
 		move_child(_flash_layer, -1)
 
@@ -206,7 +290,46 @@ static func side_dy(k: int) -> int:
 	return (k % 2) * 6 - k * 2
 
 
-func _add_seat(by_key: Dictionary, stand: int, p: Vector2, variant: int, look: int, ph: int, tint: Color) -> void:
+## A variant row of a group, `n` (the seat's own number) hashed into it: neighbours differ.
+static func _pick(rows: Vector2i, n: int) -> int:
+	var h := ((n + 1013) * 0x9E3779B1) & 0xFFFFFFFF
+	h = ((h ^ (h >> 15)) * 0x2C1B3C6D) & 0xFFFFFFFF
+	return rows.x + (h ^ (h >> 12)) % rows.y
+
+
+## Where a fan's cell goes over its seat at `p`: its rise above the seat; from behind, only
+## the window over the seat back (FRONT_CROP).
+static func fan_dst(p: Vector2, look: int) -> Rect2:
+	if look == Look.BACK:
+		return Rect2(p, Vector2(CELL_W, FRONT_CROP))
+	return Rect2(p - Vector2(0, RISE), Vector2(CELL_W, CELL_H))
+
+
+## The sheet's rect for a fan: their row, a column (a breath pose or COL_CHEER).
+static func fan_src(row: int, col: int, look: int) -> Rect2:
+	var cell := Vector2(CELL_W, CELL_H) * PPU
+	if look == Look.BACK:
+		return Rect2(col * cell.x, row * cell.y + BACK_SRC_Y, cell.x, FRONT_CROP * PPU)
+	return Rect2(Vector2(col, row) * cell, cell)
+
+
+## The world x of each waterfall in an arena's tiles (`anim` entries of kind "waterfall",
+## Twin Keeps), where two fans in the stand above it raise their mugs. The view reads the
+## arena's data and never writes it.
+static func toasts_for(arena: Dictionary) -> PackedFloat32Array:
+	var out := PackedFloat32Array()
+	var tiles: Dictionary = arena.get("tiles", {})
+	for e in tiles.get("anim", []):
+		if String(e.get("kind", "")) != "waterfall":
+			continue
+		if e.has("pos"):
+			out.append(SimDefs.GRID_X + float(e["pos"][0]))
+		elif e.has("at"):
+			out.append(SimDefs.GRID_X + (float(e["at"][0]) + 0.5) * ArtScale.TILE_PX / PPU)
+	return out
+
+
+func _add_seat(by_key: Dictionary, stand: int, p: Vector2, row: int, look: int, ph: int, tint: Color) -> void:
 	var key := Vector3i(stand, floori(p.x / BLOCK), floori(p.y / BLOCK))
 	var b: Block = by_key.get(key)
 	if b == null:
@@ -216,12 +339,12 @@ func _add_seat(by_key: Dictionary, stand: int, p: Vector2, variant: int, look: i
 		b.area = Rect2(p, Vector2.ZERO)
 		by_key[key] = b
 	b.pos.append(p)
-	b.frame.append(variant * 2)
+	b.row.append(row)
 	b.look.append(look)
 	b.phase.append(ph)
 	b.tint.append(tint)
 	b.up_until.append(0)
-	b.area = b.area.merge(Rect2(p - Vector2(0, 3), Vector2(W, H + 3)))
+	b.area = b.area.merge(Rect2(p - Vector2(0, RISE + 3), Vector2(W, CELL_H + 3)))
 
 
 func cheer(amount: float) -> void:
@@ -327,10 +450,12 @@ func advance() -> void:
 		_checked_lift = lift_even
 		_checked_rect = view.grow(CULL_PAD * 2.0)
 		var seen := _checked_rect
+		_near.clear()
 		for bx in range(floori(seen.position.x / BLOCK), floori(seen.end.x / BLOCK) + 1):
 			for b: Block in _cols.get(bx, []):
-				if not b.area.intersects(seen):
+				if not b.area.intersects(seen) or b in _near:
 					continue
+				_near.append(b)
 				if b.drawn != key or b.drawn_version != b.version:
 					b.drawn = key
 					b.drawn_version = b.version
@@ -339,6 +464,20 @@ func advance() -> void:
 				if b.standing[0].position.y != lift_even:
 					b.standing[0].position.y = lift_even
 					b.standing[1].position.y = lift_odd
+	# The seated fans breathing: each layer near the screen on its own beat (a move, no redraw).
+	for b in _near:
+		for se in b.seated:
+			var y := -0.5 if ((_tick + b.offset + se.part * 27) / BREATH_TICKS) % 2 == 0 else 0.0
+			if se.position.y != y:
+				se.position.y = y
+	# The toasting fans: a pose every MUG_TICKS, clinking on their feet in a roar.
+	if not _mugs.is_empty() and _mug_layer != null:
+		var col := (_tick / MUG_TICKS) % POSES
+		if _roar > 0:
+			col = COL_CHEER if (_tick / 4) % 2 == 0 else 2
+		if col != _mug_col:
+			_mug_col = col
+			_mug_layer.queue_redraw()
 	if _flash_layer != null and (_drawn_flashes or not _flashes.is_empty()):
 		_drawn_flashes = not _flashes.is_empty()
 		_flash_layer.queue_redraw()
@@ -351,15 +490,22 @@ func _view_rect() -> Rect2:
 	return get_global_transform_with_canvas().affine_inverse() * get_viewport_rect()
 
 
-## Everyone in the block sitting (once): a standing fan is drawn over their own seat.
-func _draw_sitting(b: Block) -> void:
+## The block's fans of one breath beat sitting (once): a standing fan is drawn over their
+## own seat.
+func _draw_sitting(b: Block, layer: Seated) -> void:
 	var t0 := PerfLog.now()
 	var tex := sheet()
 	for i in b.pos.size():
-		var lk := b.look[i]
-		var h := FRONT_CROP if lk == Look.BACK else H
-		b.draw_texture_rect_region(tex, Rect2(b.pos[i], Vector2(W, h)), Rect2(b.frame[i] * W, lk * H, W, h), b.tint[i])
+		if b.phase[i] % BREATHS == layer.part:
+			layer.draw_texture_rect_region(tex, b.dst[i], fan_src(b.row[i], BREATH_POSE[layer.part], b.look[i]), b.tint[i])
 	PerfLog.since("crowd draw", t0)
+
+
+## The two fans over a waterfall, their mugs up (_mug_col: the toast's pose).
+func _draw_mugs(ci: CanvasItem) -> void:
+	var tex := sheet()
+	for m in _mugs:
+		ci.draw_texture_rect_region(tex, fan_dst(m[0], Look.MIXED), fan_src(m[1], maxi(0, _mug_col), Look.MIXED))
 
 
 ## A block's fans on their feet, the phases of one parity: those cheering now, then any
@@ -390,38 +536,6 @@ func _draw_flashes(ci: CanvasItem) -> void:
 			ci.draw_rect(Rect2(fp - Vector2(0, 3), Vector2(1, 7)), Color(1, 1, 0.9, 0.5))
 
 
-## crowd.png's eight frames (four fans, sitting and standing) in four looks (Look), built
-## once by swapping colours: the shirts for the two sides' colours, and for the look from
-## behind each head's skin for hair. Colours as tools/gen_sprites.py:fan draws them.
+## crowd.png as a texture (tools/cut_crowd.py bakes every variant: nothing to build here).
 static func sheet() -> Texture2D:
-	if _sheet != null:
-		return _sheet
-	var src := SHEET.get_image()
-	if src.is_compressed():
-		src.decompress()
-	src.convert(Image.FORMAT_RGBA8)
-	var fw := src.get_width()
-	var out := Image.create(fw, H * 4, false, Image.FORMAT_RGBA8)
-	var shirts := [Color8(196, 72, 72), Color8(70, 120, 190), Color8(220, 180, 60), Color8(90, 160, 110)]
-	var skins := [Color8(232, 190, 150), Color8(190, 135, 95), Color8(140, 95, 65), Color8(245, 215, 180)]
-	var hair := [Color8(60, 40, 30), Color8(28, 22, 20), Color8(120, 70, 36), Color8(150, 104, 56)]
-	for lk in 4:
-		for y in H:
-			for x in fw:
-				var c := src.get_pixel(x, y)
-				var v := (x / W) / 2
-				var standing := (x / W) % 2 == 1
-				var lx := x % W
-				if (lk == Look.RED or lk == Look.BLUE) and _same(c, shirts[v]):
-					var team: Color = Hud.SIDE_COLORS[0 if lk == Look.RED else 1]
-					c = [team.darkened(0.25), team.darkened(0.45), team.darkened(0.1), team.darkened(0.6)][v]
-				elif lk == Look.BACK and _same(c, skins[v]) and y <= 8 and lx <= 8 \
-						and (lx >= 3 or (lx == 2 and not standing)):
-					c = hair[v]
-				out.set_pixel(x, y + lk * H, c)
-	_sheet = ImageTexture.create_from_image(out)
-	return _sheet
-
-
-static func _same(a: Color, b: Color) -> bool:
-	return a.a > 0.5 and absf(a.r - b.r) < 0.01 and absf(a.g - b.g) < 0.01 and absf(a.b - b.b) < 0.01
+	return SHEET
