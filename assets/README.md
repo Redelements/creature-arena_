@@ -4,6 +4,9 @@
   (layouts in `docs/SPRITES.md`).
 - `tiles/`: ground, piece and overlay tiles cut from bought packs (`tools/cut_tiles.py`), the
   Godot TileSets built from them (`tools/build_tiles.gd`) and the manifest between the two.
+  Besides tiles a set can have sprite pieces: bush clumps (`<set>_bush_<name>.png`, a
+  nine-slice of canopy for brush beds) and wall runs (`<set>_wall_<name>.png`: one tall
+  sprite a wall tile, y-sorted into one barrier, with the rubble a smashed tile shows).
   Licences in `LICENSES.md` at the repo root; the raw packs never enter the repo.
 - `arenas/`: the tiled arenas' ground scenes (`<id>.tscn`, built by `tools/build_tiles.gd`
   from the arena's JSON). `ArenaView` instances one under the floor and draws the breaking
@@ -30,6 +33,7 @@ cell from its neighbours, so a line has ends, runs, corners and junctions and it
 stand in the half of the tile the one-cell fence holds. Bush clumps for the Greenhouse are
 round leafy cuts of a tree's canopy, each on all its sway frames, that a bed scatters
 overlapping and mirrored.
+| a wall sprite (`<set>_wall_<name>.png`, one a tile, standing on its bottom middle) | about 41 x 61 | 20 x 30 | 2 x 2 footprint, drawn taller |
 
 ## Crack and pit tiles: what the artist paints
 

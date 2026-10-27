@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://crtx5nvw02hps"
-path="res://.godot/imported/desert_decor_spire.png-1ffd1373e33f434e9a15066c76345658.ctex"
+uid="uid://ddnxp5hwgcgwc"
+path="res://.godot/imported/desert_decor_rocks_b.png-c5c9c95e5949e05874e43e9b0fec6ffa.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/tiles/desert_decor_spire.png"
-dest_files=["res://.godot/imported/desert_decor_spire.png-1ffd1373e33f434e9a15066c76345658.ctex"]
+source_file="res://assets/tiles/desert_decor_rocks_b.png"
+dest_files=["res://.godot/imported/desert_decor_rocks_b.png-c5c9c95e5949e05874e43e9b0fec6ffa.ctex"]
 
 [params]
 

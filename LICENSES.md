@@ -126,11 +126,16 @@ it (cut by `tools/cut_tiles.py` from `tools/tile_recipes/desert.json`, colours s
 the game's palette):
 
 - `assets/tiles/desert_ground.png` (sand, gravel, dry-scrub and packed-earth fills, the
-  earth and scrub blobs), `assets/tiles/desert_pieces.png` (desert rocks, agave, a wooden
+  earth and scrub blobs, all lifted toward tan), `assets/tiles/desert_pieces.png` (a wooden
   fence), `assets/tiles/desert_overlay.png` (the plateau's cliff face as pit walls, with
   generated cracks).
-- `assets/tiles/desert_decor_*.png` (rock spires and stacks, agave) and
+- `assets/tiles/desert_wall_rock.png` (stacked rock pillars for the walls, wide-footed
+  stacks for their ends, small rock heaps for a smashed wall).
+- `assets/tiles/desert_decor_*.png` (low rock heaps, agave) and
   `assets/tiles/desert_anim_palm.png`, `desert_anim_palm_b.png` (the swaying palms).
+- `assets/tiles/desert_bush_sage.png`: from **RPG Worlds Wetland** (`RPGW_Wetland_v1.1`,
+  the same bundle), its green tree's canopy clumps and sway frames, dried to a sage tint for
+  the brush beds.
 - `assets/tiles/desert_manifest.json`, `assets/tiles/desert_*.tres` and
   `assets/arenas/caravan_pass.tscn` (Dustwind Pass's ground, painted with those tiles).
 
