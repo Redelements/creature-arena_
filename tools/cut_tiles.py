@@ -21,6 +21,7 @@ Writes, under assets/tiles/:
   <set>_wall_<name>.png  a wall's sprites side by side (top, mid, bottom, ends, rubble)
   <set>_raised_<name>.png 16 px tiles of a raised wall: top, face, contact shadows
   <set>_scatter.png      32 px slots of small floor sprites (pebbles, tufts)
+  <set>_shadows.png      flat contact-shadow ellipses for a dressing's props (recipe shadows)
   <set>_shore.png        32 px bank tiles round a terrain (recipe ground.shores), one per
                          land-neighbour mask
   <set>_manifest.json    where everything landed, for tools/build_tiles.gd
@@ -100,7 +101,9 @@ packs dir; "tile" positions are [column, row] of 32 px tiles in the source sheet
                            face that fades fast; more for a pit that must read at play zoom)
   decor.<name>             {"src", "box": [x0, y0, x1, y1], "feet": [x, y], "tint"}  feet in the
                            box; or {"src", "size", "parts": [{"box", "at", "mirror"}, ...], "feet"}:
-                           composed (cut_decor); "tint" as the fills (a team's cloth)
+                           composed (cut_decor); "tint" as the fills (a team's cloth);
+                           "shape": "blob" masks a box cut from inside a canopy to a round leafy
+                           outline (a clump of ivy; `_blob`, as the bushes)
   anim.<name>              {"src", "frame": [w, h], "frames": n, "fps": f, "feet": [x, y],
                            "row": 0, "tint"}
   bushes.<name>            {"src", "frame": [w, h], "frames": n, "fps", "clumps" | "blobs"}
@@ -119,9 +122,13 @@ packs dir; "tile" positions are [column, row] of 32 px tiles in the source sheet
                            16 px tiles cut from one plateau piece of the pack: its top (rims
                            where a neighbour is not raised), its cliff face shortened to at most
                            "cells" cells, and contact shadows for the floor beside it (cut_raised)
+  shadows                  {"sizes": [[w, h], ...], "rgb", "alpha"}: flat contact-shadow ellipses
+                           for a dressing's props (cut_shadows; drawn, not cut)
   scatter.<kind>           {"src", "boxes"} or {"src", "box", "auto": {"min", "max", "limit"}}:
                            small flat sprites (pebbles, tufts) a map sprinkles over its floor
-                           (map key tiles.scatter), one 32 px slot each (cut_scatter)
+                           (map key tiles.scatter), one 32 px slot each (cut_scatter); "shape":
+                           "blob" as decor (leaf litter from a canopy). New kinds go at the end:
+                           a dressing scene paints the slots by their atlas place
 
 About the sources this was built on: Szadi art's blob terrains are 16-tile side-matched
 sets (the corner notches are art, not inner-corner tiles: Godot terrain mode MATCH_SIDES).
@@ -889,6 +896,8 @@ def cut_decor(cut, set_name, d):
         else:
             img = cut.box(it["src"], it["box"])
         img = tinted(cleared(cut, img, it), it)
+        if it.get("shape") == "blob":
+            img = _blob(img, _phase(it.get("box", [0])))
         file = "%s_decor_%s.png" % (set_name, name)
         save(img, file)
         man[name] = {"source": file, "size": [img.width, img.height], "feet": list(it["feet"])}
@@ -958,6 +967,11 @@ def _blob(frame, phase):
     low = _ring(inside, 3) & ~rim & (dy > 0.1)
     out[low, :3] = out[low, :3] * 6 // 10
     return Image.fromarray(out.astype(np.uint8))
+
+
+def _phase(box):
+    """A fixed phase for `_blob` from a cut's box, so a recut gives the same outline."""
+    return (sum(int(v) * (k + 1) for k, v in enumerate(box)) % 628) / 100.0
 
 
 def cut_bushes(cut, set_name, b):
@@ -1357,6 +1371,8 @@ def cut_scatter(cut, set_name, s):
         slots = []
         for b in boxes:
             img = tinted(cut.box(it["src"], b), it)
+            if it.get("shape") == "blob":
+                img = _blob(img, _phase(b))
             img = img.crop((0, max(0, img.height - SCATTER_FEET[1]), min(img.width, SCATTER_SLOT), img.height))
             slot = Image.new("RGBA", (SCATTER_SLOT, SCATTER_SLOT), (0, 0, 0, 0))
             slot.alpha_composite(img, (SCATTER_FEET[0] - img.width // 2, SCATTER_FEET[1] - img.height))
@@ -1366,6 +1382,29 @@ def cut_scatter(cut, set_name, s):
     file = "%s_scatter.png" % set_name
     save(sheet.image(), file)
     return {"source": file, "slot": SCATTER_SLOT, "feet": list(SCATTER_FEET), "kinds": kinds}
+
+
+def cut_shadows(set_name, sh):
+    """recipe shadows: {"sizes": [[w, h], ...], "rgb": [r, g, b], "alpha": a}: contact shadows
+    for a dressing's props, flat ellipses of one alpha (hardened: no soft rim, as the packs'
+    own shadow layers would come out of the cut), side by side in <set>_shadows.png; returns
+    {"source", "boxes": [[x, y, w, h], ...]} in the order of `sizes`. Drawn, not cut."""
+    if not sh:
+        return {}
+    sizes = [tuple(int(v) for v in s) for s in sh["sizes"]]
+    out = Image.new("RGBA", (sum(w for w, _ in sizes) + len(sizes), max(h for _, h in sizes)), (0, 0, 0, 0))
+    arr = np.array(out)
+    boxes = []
+    x = 0
+    for w, h in sizes:
+        ys, xs = np.mgrid[0:h, 0:w]
+        inside = ((xs + 0.5 - w / 2) / (w / 2)) ** 2 + ((ys + 0.5 - h / 2) / (h / 2)) ** 2 <= 1.0
+        arr[0:h, x:x + w][inside] = list(sh.get("rgb", [16, 22, 14])) + [int(sh.get("alpha", 100))]
+        boxes.append([x, 0, w, h])
+        x += w + 1
+    file = "%s_shadows.png" % set_name
+    save(Image.fromarray(arr, "RGBA"), file, translucent=True)
+    return {"source": file, "boxes": boxes}
 
 
 def main(packs, set_name):
@@ -1389,6 +1428,8 @@ def main(packs, set_name):
         "raised": cut_raised(cut, set_name, recipe.get("raised", {})),
         "scatter": cut_scatter(cut, set_name, recipe.get("scatter", {})),
     }
+    if recipe.get("shadows"):
+        man["shadows"] = cut_shadows(set_name, recipe["shadows"])
     with open(os.path.join(OUT, set_name + "_manifest.json"), "w", newline="\n") as f:
         json.dump(man, f, indent=1)
     print("wrote assets/tiles/%s_manifest.json" % set_name)

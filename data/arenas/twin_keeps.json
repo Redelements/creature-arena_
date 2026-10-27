@@ -13,6 +13,7 @@
 			"brush": "bush:green"
 		},
 		"shoulder": true,
+		"dressing": "res://assets/arenas/twin_keeps_dressing.tscn",
 		"scatter": [
 			{
 				"kind": "pebbles",
@@ -296,10 +297,195 @@
 		}
 	},
 	"grade": {
-		"_doc": "fresh morning, a faint warm cast; a view-only tint and vignette (GradeView), eased at night/sunset/rain by weather.json",
-		"tint": "#fff6e4",
-		"vignette": 0.18
+		"_doc": "a cooler, quieter morning than the warm default, so the castle's flames read warm against it; a view-only tint and vignette (GradeView), eased at night/sunset/rain by weather.json",
+		"tint": "#eeedf3",
+		"vignette": 0.22
 	},
+	"lights": [
+		{
+			"pos": [
+				40,
+				213.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35,
+			"_doc": "the castle's flames (the dressing's torches, lantern and candelabra, the team braziers on the gates; assets/arenas/twin_keeps_dressing.tscn) as lamps that burn by day too: `day` is the share of `energy` that glows on the floor by day (x data/weather.json times.<t>.lamps: more at sunset), Lighting High only, Light2DView.lamps_by_day; pos is the flame, world px; tests/test_tiles_dressing.gd keeps one by every flame"
+		},
+		{
+			"pos": [
+				1192,
+				213.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				113,
+				213.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				1119,
+				213.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				121,
+				405.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				1111,
+				405.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				168,
+				398.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				1064,
+				398.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				346,
+				315.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				886,
+				315.5
+			],
+			"color": "#ffb45a",
+			"radius": 44,
+			"energy": 0.7,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				168,
+				261.5
+			],
+			"color": "#ff8a5a",
+			"radius": 40,
+			"energy": 0.6,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				168,
+				336.5
+			],
+			"color": "#ff8a5a",
+			"radius": 40,
+			"energy": 0.6,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				1064,
+				261.5
+			],
+			"color": "#7fd8ff",
+			"radius": 40,
+			"energy": 0.6,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		},
+		{
+			"pos": [
+				1064,
+				336.5
+			],
+			"color": "#7fd8ff",
+			"radius": 40,
+			"energy": 0.6,
+			"height": 24,
+			"fighter_energy": 0,
+			"lamp": true,
+			"day": 0.35
+		}
+	],
 	"ambient": {
 		"_doc": "leaves on the morning breeze, brush that sways, dragonflies and a jumping fish on the river, the odd bird; see AmbientView",
 		"motes": {

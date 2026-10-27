@@ -74,6 +74,9 @@ extends SceneTree
 ##              face stands on the top just behind it, and goes when its column is smashed
 ##   anim       [{kind, at | pos, wall, lift}]: an animated piece (manifest "anim", a waterfall)
 ##   markings   true: ArenaView draws the court lines over the tiles (the Stadium)
+##   dressing   "res://assets/arenas/<id>_dressing.tscn": the map's hand dressing (props on the
+##              walls, flat detail on the floor; assets/README.md "Dressing"), instanced under
+##              Walls as "Dressing", never written here: a rebuild keeps every hand edit
 ## Rerun after a cut or a map's "tiles" block changes; the game and CI use the saved files.
 
 const TILES_DIR := "res://assets/tiles/"
@@ -970,6 +973,46 @@ static func raised_spot(spot: Vector2, cell_px: float, raised: Dictionary) -> Ve
 ## One map's ground scene: the fill under everything (a tile past the floor all round, an
 ## `edge` fill for that ring), the terrains, the pieces, the decor and the animated pieces.
 static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts: TileSet, shore_ts: TileSet, small: TileSet) -> void:
+	var root := build_root(map, tiles, man, ts, shore_ts, small)
+	var counts: Dictionary = root.get_meta("counts", {})
+	root.remove_meta("counts")
+	var packed := PackedScene.new()
+	packed.pack(root)
+	var path := ARENAS_DIR + String(map["id"]) + ".tscn"
+	DirAccess.make_dir_recursive_absolute(ARENAS_DIR)
+	var err := ResourceSaver.save(packed, path)
+	if err != OK:
+		push_error("could not save %s: %d" % [path, err])
+	var tile := int(ts.tile_size.x)
+	var size := ArenaMap.size_of(map)
+	var per := tile / (int(SimDefs.CELL) * ArtScale.PX_PER_UNIT)
+	var pieces := root.get_node("Pieces") as TileMapLayer
+	print("wrote ", path, ": ", ceili(float(size.x) / per), "x", ceili(float(size.y) / per), " tiles, terrains ",
+		counts, ", pieces ", pieces.get_used_cells().size(), ", decor ",
+		root.get_node("Decor").get_child_count(), ", anim ", root.get_node("Anim").get_child_count(),
+		", dressing ", "yes" if root.has_node("Walls/Dressing") else "none")
+	root.free()
+
+
+## The hand-dressed props and flat detail of a map (`tiles.dressing`: a scene path, made once
+## by tools/seed_dressing.gd and edited in the Godot editor after): instanced, not copied, under
+## the y-sorted "Walls" as "Dressing", so a rebuild of the ground scene keeps every hand edit
+## and the props sort with the wall sprites. Null when the map names none or it is missing.
+static func dressing_of(tiles: Dictionary) -> Node2D:
+	var path := String(tiles.get("dressing", ""))
+	if path == "":
+		return null
+	if not ResourceLoader.exists(path):
+		push_warning("no dressing scene " + path)
+		return null
+	var inst := (load(path) as PackedScene).instantiate(PackedScene.GEN_EDIT_STATE_INSTANCE) as Node2D
+	inst.name = "Dressing"
+	return inst
+
+
+## One map's ground scene, built in memory (`_build_scene` saves it): the fill under
+## everything, the terrains, the pieces, the decor, the animated pieces and the dressing.
+static func build_root(map: Dictionary, tiles: Dictionary, man: Dictionary, ts: TileSet, shore_ts: TileSet, small: TileSet) -> Node2D:
 	var g: Dictionary = man["ground"]
 	var p: Dictionary = man["pieces"]
 	var tile := int(ts.tile_size.x)
@@ -1032,6 +1075,8 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 				for c in _tiles_of(r, per):
 					if not c in cells:
 						cells.append(c)
+		if cells.is_empty() and not name in ["grass", "water"]:
+			continue  # a terrain only the dressing paints (Twin Keeps' paths): no empty layer
 		if name == "water" and bool(tiles.get("shoulder", false)):
 			_shoulder(root, shore_ts, g.get("shores", {}), cells, grid, per)
 		var layer := _layer(root, name.capitalize(), ts)
@@ -1199,17 +1244,15 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 		s.autoplay = "default"
 		_place(s, e, a, Vector2(fw, fh), tile, per, anim, walls, wall_rects, root, raised_ctx)
 
-	var packed := PackedScene.new()
-	packed.pack(root)
-	var path := ARENAS_DIR + String(map["id"]) + ".tscn"
+	# the hand dressing (`tiles.dressing`), last in the wall run: its flat layers sort at
+	# y 0 (under every wall sprite), its props among the walls by their feet
+	var dressing := dressing_of(tiles)
+	if dressing != null:
+		walls.add_child(dressing)
+		dressing.owner = root
 	if brush.get_child_count() > 0:
 		print("  bush clumps: ", brush.get_child_count())
 	if walls.get_child_count() > 0:
 		print("  wall sprites: ", walls.get_child_count())
-	DirAccess.make_dir_recursive_absolute(ARENAS_DIR)
-	var err := ResourceSaver.save(packed, path)
-	if err != OK:
-		push_error("could not save %s: %d" % [path, err])
-	print("wrote ", path, ": ", cols, "x", rows, " tiles, terrains ", counts,
-		", pieces ", pieces.get_used_cells().size(), ", decor ", decor.get_child_count(), ", anim ", anim.get_child_count())
-	root.free()
+	root.set_meta("counts", counts)
+	return root

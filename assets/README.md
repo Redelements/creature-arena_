@@ -172,3 +172,41 @@ cell of the court markings, a flag base's capture zone, a shrine, the map's
 `tiles.scatter_clear` cell rects (Twin Keeps: its gates) or within 20 units of the map's
 `track` (Caravan Pass). Keep it subtle: densities of
 a few percent near walls or water and about 1 % on open floor.
+
+## Dressing: hand-placed props and floor detail (Twin Keeps)
+
+A map's hand dressing is a scene of its own, `assets/arenas/<id>_dressing.tscn`, named by
+the map's `tiles.dressing`. `tools/build_tiles.gd` only **instances** it (as "Dressing", last
+child of the ground scene's y-sorted "Walls"); it never writes it, so a rebuild keeps every
+hand edit (`tests/test_tiles_dressing.gd`). Chosen over a JSON list so Kevin can nudge,
+add and delete pieces in the Godot editor: open `twin_keeps_dressing.tscn` itself (editing
+the instance inside `twin_keeps.tscn` would be lost on the next build; open both in tabs to
+see the walls round it).
+
+| Node | What | Editing |
+| --- | --- | --- |
+| `Paths` | TileMapLayer on `<set>_ground.tres`: the `path` terrain (worn dirt, ragged edges) | paint with the terrain brush (terrain set 0, "path") |
+| `Flat` | Sprite2Ds laid flat: cobble patches, ragged dirt and grass patches | move freely; anything here must look flat |
+| `Detail` | TileMapLayer on `<set>_cells.tres` (16 px): moss, leaves, stepping stones, flowers, lily pads (the scatter atlas's slots, 8 looks each as alternatives) | paint single cells; lily pads on water, the rest on plain floor |
+| `Props` | Sprite2D / AnimatedSprite2D props, each with a `Shadow` child (a flat ellipse from `<set>_shadows.png`, behind it) | the node's **position is its feet** (it sorts among the wall sprites and hides with the wall by that point); its **offset** draws the picture (`-feet`, minus `lift` to stand it on a wall's top or hang it on the face) |
+
+Rules (checked by `tests/test_tiles_dressing.gd`):
+
+- A prop's feet stand on a wall or fence cell, never on walkable floor. At a horizontal
+  wall's foot that is the face's foot line (Twin Keeps: y 175.5 / 367.5 units, a hair past
+  the wall sprite's own foot so it draws in front); on a vertical run only its south end
+  works (the tiles below would cover anything higher). ArenaView (`_dress_cells`) works
+  out the cells under each prop at load, so a moved prop still falls with its wall.
+- The flat parts sort at y 0, under every wall sprite: keep them at the scene's origin.
+- Every flame (torch, brazier, candelabra, lantern) has a lamp in the arena's `lights` on its
+  flame with a `day` share, at most 15 lamps (Godot's lights on one canvas item): move a lamp
+  with its prop.
+- `tools/seed_dressing.gd -- --map=<id>` wrote the first draft from
+  `tools/dressing/<id>.json` (placed once on the left keep and mirrored, red cloth turning
+  blue). The scene is the source now; reseeding needs `--force` and drops every hand edit.
+
+Another map: give its `tiles` block `"dressing": "res://assets/arenas/<id>_dressing.tscn"`,
+cut the props into its set (recipe `decor` / `anim`, scatter kinds appended at the end of
+`scatter`: the scene paints slots by atlas place, `shadows` for the contact shadows), seed
+or build the scene in the editor with the four nodes above, rebuild the set, and add the
+flames' lamps to its `lights` with a `day` share.

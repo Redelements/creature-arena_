@@ -1,0 +1,1008 @@
+{
+	"_doc": "Twin Keeps' first-draft dressing (tools/seed_dressing.gd seeds assets/arenas/twin_keeps_dressing.tscn from it). The SCENE is the source once seeded: edit it in the Godot editor; reseeding needs --force and drops every hand edit. Units from the floor's top-left corner (cells 8, tiles 16). Everything is placed on the left keep's side and mirrored to the right (red cloth turns blue); `solo` entries are placed once.",
+	"scene": "res://assets/arenas/twin_keeps_dressing.tscn",
+	"set": "keeps",
+	"map": "twin_keeps",
+	"mirror": {
+		"width": 1200,
+		"swap": {
+			"_red": "_blue",
+			"shield_kite": "shield_kite_blue"
+		}
+	},
+	"paths": [
+		[
+			21,
+			8,
+			2,
+			1
+		],
+		[
+			22,
+			9,
+			1,
+			1
+		],
+		[
+			20,
+			23,
+			2,
+			1
+		],
+		[
+			20,
+			22,
+			1,
+			1
+		],
+		[
+			7,
+			8,
+			1,
+			4
+		],
+		[
+			7,
+			21,
+			1,
+			4
+		],
+		[
+			10,
+			15,
+			7,
+			2
+		],
+		[
+			16,
+			13,
+			2,
+			2
+		],
+		[
+			16,
+			13,
+			19,
+			1
+		],
+		[
+			16,
+			17,
+			2,
+			2
+		],
+		[
+			16,
+			18,
+			19,
+			1
+		]
+	],
+	"flat": [
+		{
+			"kind": "cobble_disc",
+			"pos": [
+				88,
+				276
+			]
+		},
+		{
+			"kind": "cobble_disc_b",
+			"pos": [
+				157,
+				282
+			]
+		},
+		{
+			"kind": "patch_mix",
+			"pos": [
+				26,
+				216
+			]
+		},
+		{
+			"kind": "patch_mix",
+			"pos": [
+				34,
+				352
+			],
+			"flip": true
+		}
+	],
+	"detail": [
+		{
+			"kind": "moss",
+			"clump": [
+				5,
+				19
+			],
+			"n": 4,
+			"r": 2
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				11,
+				18
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 1
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				67,
+				6
+			],
+			"n": 4,
+			"r": 2,
+			"seed": 2
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				66,
+				13
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 3
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				67,
+				52
+			],
+			"n": 4,
+			"r": 2,
+			"seed": 4
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				66,
+				59
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 5
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				21,
+				41
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 6
+		},
+		{
+			"kind": "lily",
+			"cells": [
+				[
+					70,
+					10
+				],
+				[
+					70,
+					13
+				],
+				[
+					74,
+					6
+				],
+				[
+					71,
+					20
+				],
+				[
+					72,
+					23
+				],
+				[
+					73,
+					41
+				],
+				[
+					72,
+					44
+				],
+				[
+					70,
+					50
+				],
+				[
+					70,
+					53
+				],
+				[
+					75,
+					57
+				]
+			]
+		},
+		{
+			"kind": "stones",
+			"cells": [
+				[
+					73,
+					10
+				],
+				[
+					74,
+					11
+				],
+				[
+					75,
+					12
+				],
+				[
+					76,
+					13
+				]
+			],
+			"solo": true
+		},
+		{
+			"kind": "stones",
+			"cells": [
+				[
+					76,
+					50
+				],
+				[
+					75,
+					51
+				],
+				[
+					74,
+					52
+				],
+				[
+					73,
+					53
+				]
+			],
+			"solo": true
+		},
+		{
+			"kind": "stones",
+			"cells": [
+				[
+					67,
+					17
+				],
+				[
+					66,
+					19
+				],
+				[
+					67,
+					46
+				],
+				[
+					66,
+					44
+				]
+			]
+		},
+		{
+			"kind": "flowers",
+			"clump": [
+				2,
+				24
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 1
+		},
+		{
+			"kind": "flowers",
+			"clump": [
+				3,
+				41
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 2
+		},
+		{
+			"kind": "flowers",
+			"clump": [
+				46,
+				16
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 3
+		},
+		{
+			"kind": "flowers",
+			"clump": [
+				54,
+				47
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 4
+		},
+		{
+			"kind": "flowers",
+			"clump": [
+				37,
+				27
+			],
+			"n": 4,
+			"r": 2,
+			"seed": 5
+		},
+		{
+			"kind": "flowers",
+			"clump": [
+				25,
+				13
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 6
+		},
+		{
+			"kind": "flowers",
+			"clump": [
+				26,
+				52
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 7
+		},
+		{
+			"kind": "clover",
+			"clump": [
+				9,
+				38
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 1
+		},
+		{
+			"kind": "clover",
+			"clump": [
+				15,
+				25
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 2
+		},
+		{
+			"kind": "clover",
+			"clump": [
+				48,
+				23
+			],
+			"n": 4,
+			"r": 2,
+			"seed": 3
+		},
+		{
+			"kind": "clover",
+			"clump": [
+				44,
+				42
+			],
+			"n": 4,
+			"r": 2,
+			"seed": 4
+		},
+		{
+			"kind": "tufts",
+			"cells": [
+				[
+					7,
+					29
+				],
+				[
+					15,
+					29
+				],
+				[
+					7,
+					35
+				],
+				[
+					15,
+					35
+				],
+				[
+					11,
+					27
+				],
+				[
+					10,
+					37
+				],
+				[
+					21,
+					29
+				],
+				[
+					21,
+					36
+				]
+			]
+		},
+		{
+			"kind": "tufts",
+			"clump": [
+				3,
+				18
+			],
+			"n": 4,
+			"r": 2,
+			"seed": 8
+		},
+		{
+			"kind": "flowers",
+			"clump": [
+				63,
+				26
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 9
+		},
+		{
+			"kind": "clover",
+			"clump": [
+				62,
+				38
+			],
+			"n": 4,
+			"r": 2,
+			"seed": 10
+		},
+		{
+			"kind": "moss",
+			"cells": [
+				[
+					2,
+					19
+				],
+				[
+					6,
+					19
+				],
+				[
+					7,
+					18
+				],
+				[
+					12,
+					19
+				],
+				[
+					20,
+					24
+				],
+				[
+					20,
+					27
+				],
+				[
+					20,
+					39
+				],
+				[
+					20,
+					42
+				],
+				[
+					4,
+					47
+				],
+				[
+					11,
+					47
+				]
+			]
+		},
+		{
+			"kind": "flowers",
+			"clump": [
+				21,
+				25
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 11
+		},
+		{
+			"kind": "flowers",
+			"clump": [
+				21,
+				41
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 12
+		},
+		{
+			"kind": "moss",
+			"cells": [
+				[
+					1,
+					22
+				],
+				[
+					2,
+					22
+				],
+				[
+					8,
+					22
+				],
+				[
+					12,
+					22
+				],
+				[
+					3,
+					46
+				],
+				[
+					9,
+					46
+				],
+				[
+					10,
+					46
+				]
+			]
+		},
+		{
+			"kind": "tufts",
+			"cells": [
+				[
+					5,
+					22
+				],
+				[
+					10,
+					22
+				],
+				[
+					6,
+					46
+				],
+				[
+					13,
+					46
+				],
+				[
+					20,
+					23
+				],
+				[
+					17,
+					42
+				]
+			]
+		},
+		{
+			"kind": "leaves",
+			"clump": [
+				9,
+				1
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 20,
+			"solo": true
+		},
+		{
+			"kind": "leaves",
+			"clump": [
+				25,
+				1
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 21,
+			"solo": true
+		},
+		{
+			"kind": "leaves",
+			"clump": [
+				35,
+				1
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 22,
+			"solo": true
+		},
+		{
+			"kind": "leaves",
+			"clump": [
+				45,
+				1
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 23,
+			"solo": true
+		},
+		{
+			"kind": "leaves",
+			"clump": [
+				61,
+				1
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 24,
+			"solo": true
+		},
+		{
+			"kind": "leaves",
+			"clump": [
+				89,
+				1
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 25,
+			"solo": true
+		},
+		{
+			"kind": "leaves",
+			"clump": [
+				105,
+				1
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 26,
+			"solo": true
+		},
+		{
+			"kind": "leaves",
+			"clump": [
+				115,
+				1
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 27,
+			"solo": true
+		},
+		{
+			"kind": "leaves",
+			"clump": [
+				125,
+				1
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 28,
+			"solo": true
+		},
+		{
+			"kind": "leaves",
+			"clump": [
+				141,
+				1
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 29,
+			"solo": true
+		}
+	],
+	"props": [
+		{
+			"kind": "barrel",
+			"pos": [
+				5,
+				175.5
+			],
+			"lift": 1
+		},
+		{
+			"kind": "crate",
+			"pos": [
+				13,
+				175.5
+			],
+			"lift": 1
+		},
+		{
+			"kind": "crate_small",
+			"pos": [
+				13.5,
+				175.5
+			],
+			"lift": 15,
+			"stack": 1,
+			"shadow": false
+		},
+		{
+			"kind": "torch",
+			"pos": [
+				24,
+				175.5
+			],
+			"lift": 16,
+			"shadow": false
+		},
+		{
+			"kind": "ivy",
+			"pos": [
+				18,
+				175.5
+			],
+			"lift": 18,
+			"shadow": false,
+			"stack": 2
+		},
+		{
+			"kind": "sack",
+			"pos": [
+				46,
+				175.5
+			],
+			"lift": 1
+		},
+		{
+			"kind": "sack_b",
+			"pos": [
+				50,
+				175.5
+			],
+			"lift": 1,
+			"stack": 1
+		},
+		{
+			"kind": "rack",
+			"pos": [
+				59,
+				175.5
+			],
+			"lift": 1
+		},
+		{
+			"kind": "swag_red",
+			"pos": [
+				56,
+				175.5
+			],
+			"lift": 25,
+			"shadow": false,
+			"stack": 2
+		},
+		{
+			"kind": "shield_round",
+			"pos": [
+				88,
+				175.5
+			],
+			"lift": 13,
+			"shadow": false
+		},
+		{
+			"kind": "ivy_b",
+			"pos": [
+				68,
+				175.5
+			],
+			"lift": 19,
+			"shadow": false,
+			"stack": 2,
+			"flip": true
+		},
+		{
+			"kind": "torch",
+			"pos": [
+				97,
+				175.5
+			],
+			"lift": 16,
+			"shadow": false
+		},
+		{
+			"kind": "crate_tall",
+			"pos": [
+				105,
+				175.5
+			],
+			"lift": 1
+		},
+		{
+			"kind": "crate_tall",
+			"pos": [
+				6,
+				367.5
+			],
+			"lift": 1
+		},
+		{
+			"kind": "sack_pile",
+			"pos": [
+				15,
+				367.5
+			],
+			"lift": 1
+		},
+		{
+			"kind": "sack",
+			"pos": [
+				20,
+				367.5
+			],
+			"lift": 1,
+			"stack": 1
+		},
+		{
+			"kind": "swords",
+			"pos": [
+				26,
+				367.5
+			],
+			"lift": 14,
+			"shadow": false
+		},
+		{
+			"kind": "swag_red",
+			"pos": [
+				56,
+				367.5
+			],
+			"lift": 25,
+			"shadow": false,
+			"stack": 2
+		},
+		{
+			"kind": "barrel_band",
+			"pos": [
+				47,
+				367.5
+			],
+			"lift": 1
+		},
+		{
+			"kind": "barrel",
+			"pos": [
+				53,
+				367.5
+			],
+			"lift": 1,
+			"stack": 1
+		},
+		{
+			"kind": "shield_kite",
+			"pos": [
+				66,
+				367.5
+			],
+			"lift": 13,
+			"shadow": false
+		},
+		{
+			"kind": "ivy",
+			"pos": [
+				64,
+				367.5
+			],
+			"lift": 18,
+			"shadow": false,
+			"stack": 2,
+			"flip": true
+		},
+		{
+			"kind": "rack",
+			"pos": [
+				92,
+				367.5
+			],
+			"lift": 1
+		},
+		{
+			"kind": "torch",
+			"pos": [
+				105,
+				367.5
+			],
+			"lift": 16,
+			"shadow": false
+		},
+		{
+			"kind": "sack",
+			"pos": [
+				146,
+				231.5
+			],
+			"lift": 1,
+			"stack": 1
+		},
+		{
+			"kind": "barrel",
+			"pos": [
+				158,
+				231.5
+			],
+			"lift": 1,
+			"stack": 1
+		},
+		{
+			"kind": "candelabra",
+			"pos": [
+				152,
+				351.5
+			],
+			"lift": 1
+		},
+		{
+			"kind": "crate_small",
+			"pos": [
+				146,
+				351.5
+			],
+			"lift": 1,
+			"stack": 1
+		},
+		{
+			"kind": "lantern",
+			"pos": [
+				330,
+				287.5
+			],
+			"shadow_w": 0.5
+		},
+		{
+			"kind": "barrel_open",
+			"pos": [
+				323,
+				287.5
+			],
+			"lift": 1,
+			"stack": 1
+		},
+		{
+			"kind": "barrel",
+			"pos": [
+				447,
+				119.5
+			],
+			"lift": 1
+		},
+		{
+			"kind": "crate_small",
+			"pos": [
+				355,
+				119.5
+			],
+			"lift": 1
+		},
+		{
+			"kind": "crate",
+			"pos": [
+				447,
+				399.5
+			],
+			"lift": 1
+		},
+		{
+			"kind": "sack_pile",
+			"pos": [
+				356,
+				399.5
+			],
+			"lift": 1
+		}
+	]
+}

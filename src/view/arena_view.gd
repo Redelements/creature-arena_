@@ -121,6 +121,7 @@ var _raised: TileMapLayer = null
 var _raised_shadow: TileMapLayer = null
 var _raised_info := {}
 var _raised_walls := {}
+const DRESS_PROPS := "Walls/Dressing/Props"  ## a map's hand-dressed props (`_dress_cells`)
 const OV_COLS := 8
 const OV_CRACK := [0, 1, 2, 3]
 const OV_WALL_TOP := 8
@@ -213,6 +214,7 @@ func _build_tiles() -> void:
 				_raised_walls[Vector2i(i % terrain.cols, i / terrain.cols)] = true
 	else:
 		_raised = null
+	_dress_cells()
 	for which in 3:
 		var layer := TileMapLayer.new()
 		layer.name = ["Overlay", "Edges", "Corners"][which]
@@ -226,6 +228,54 @@ func _build_tiles() -> void:
 			_edges = layer
 		else:
 			_corners = layer
+
+
+## The map's hand dressing (`tiles.dressing`, instanced by tools/build_tiles.gd as
+## "Walls/Dressing"; assets/README.md "Dressing"): every prop under its "Props" whose feet (its
+## position) stand on a blocking cell of the map (a wall, a fence) gets meta "cells", that cell
+## and the blocking cells beside it its picture spans on that row, so `_sync_sprites` hides it
+## while any is smashed, as it hides the wall sprites. Worked out here, not in the scene, so a
+## prop nudged in the editor still falls with the wall it stands on. A prop on the floor keeps
+## none (only flat ones stand there: tests/test_tiles_dressing.gd).
+func _dress_cells() -> void:
+	var props := _tiles.get_node_or_null(DRESS_PROPS)
+	if props == null:
+		return
+	var cell_px := float(SimDefs.CELL * ArtScale.PX_PER_UNIT)
+	for s in props.get_children():
+		var n := s as Node2D
+		if n == null:
+			continue
+		var foot := Vector2i(floori(n.position.x / cell_px), floori((n.position.y - 1.0) / cell_px))
+		if not _blocks(foot):
+			n.remove_meta("cells")
+			continue
+		var w := 0.0
+		var left := n.position.x
+		if n is Sprite2D:
+			var sp := n as Sprite2D
+			w = sp.region_rect.size.x if sp.region_enabled else float(sp.texture.get_width()) if sp.texture != null else 0.0
+			left += sp.offset.x
+		elif n is AnimatedSprite2D:
+			var an := n as AnimatedSprite2D
+			var tex := an.sprite_frames.get_frame_texture(an.animation, 0) if an.sprite_frames != null else null
+			w = float(tex.get_width()) if tex != null else 0.0
+			left += an.offset.x
+		var x0 := foot.x
+		var x1 := foot.x
+		while x0 - 1 >= floori(left / cell_px) and _blocks(Vector2i(x0 - 1, foot.y)):
+			x0 -= 1
+		while x1 + 1 <= floori((left + w - 1.0) / cell_px) and _blocks(Vector2i(x1 + 1, foot.y)):
+			x1 += 1
+		n.set_meta("cells", Rect2i(x0, foot.y, x1 - x0 + 1, 1))
+
+
+## Whether the map's own cell `c` blocks (a wall or a fence): where a dressing prop may stand.
+func _blocks(c: Vector2i) -> bool:
+	if c.x < 0 or c.y < 0 or c.x >= terrain.cols or c.y >= terrain.rows:
+		return false
+	var v := terrain.map_base[c.y * terrain.cols + c.x]
+	return v == TerrainGrid.WALL or v == TerrainGrid.FENCE
 
 
 ## Sets the overlay cells of rows row0..row1-1 from the terrain, and the pieces on them.
@@ -292,7 +342,7 @@ func _raised_up(c: Vector2i) -> bool:
 ## smashed), until the floor heals; a wall tile's rubble ("Rubble", meta "broken") shows
 ## exactly then.
 func _sync_sprites(row0: int, row1: int) -> void:
-	for node_name in ["Brush", "Walls", "Rubble"]:
+	for node_name in ["Brush", "Walls", "Rubble", DRESS_PROPS]:
 		var group := _tiles.get_node_or_null(node_name)
 		if group == null:
 			continue

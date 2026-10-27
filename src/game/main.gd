@@ -403,6 +403,7 @@ var glow := default_glow()
 ## bloom (Light2DView, BloomView). `--lighting=` overrides it for the session.
 var light2d: Light2DView
 var light_floor: Light2DView.FloorGlow
+var light_lamps: Light2DView.FloorGlow  ## the arena's lamps by day and at sunset (Light2DView.lamp_glow)
 var bloom: BloomView
 var lighting := default_lighting()
 var _lighting_cli := -1
@@ -708,6 +709,8 @@ func _ready() -> void:
 	add_child(glow_floor)
 	light_floor = Light2DView.FloorGlow.new()  # the fight's real lights on the floor (Lighting), at the pools' depth
 	add_child(light_floor)
+	light_lamps = Light2DView.FloorGlow.new(Light2DView.LAMP_GLOW_MASK)  # an arena's lamps by day (Twin Keeps' torches)
+	add_child(light_lamps)
 	rings = RangeRings.new()
 	rings.visible = false
 	rings.fx = fx  # what the local team can see (Vision): no rings for a hidden foe
@@ -735,6 +738,7 @@ func _ready() -> void:
 	light2d = Light2DView.new()  # real 2D lights (Lighting): only fighter sprites and the night shade take them
 	light2d.fx = fx
 	light2d.floor_glow = light_floor
+	light2d.lamp_glow = light_lamps
 	light2d.views = views  # each seen fighter's own sun
 	add_child(light2d)
 	bloom = BloomView.new()  # half-size bloom of the bright things, added onto the screen layer

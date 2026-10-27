@@ -196,6 +196,7 @@ tools, so a fighter's pass is posing work only.
 - `import_frames.py` — Imports a folder of PNG frames (PixelLab's output, or any artist's) as one of the game's sprite sheets: quantized to th…
 - `odin_perf.py` — Measure frame pacing on an Android device (the AYN Odin 3) over adb.
 - `palette.py` — The master palette: one published set of colours for every fighter and arena.
+- `seed_dressing.gd` — Seeds a map's hand-dressing scene (assets/arenas/<id>_dressing.tscn) from a first-draft spec, tools/dressing/<id>.json.
 - `shade2d.py` — Master-palette shading for the 2D painters (Barkley's and Gillbert's rigs).
 - `splat3d.py` — Shared renderer for the sheet-recreation sprite generators (tools/gen_digby.py and later).
 - `write_status.py` — Stamps docs/STATUS.md with the time, branch and commit so a compaction never starts without a fresh marker.

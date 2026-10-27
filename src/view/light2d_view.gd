@@ -13,7 +13,8 @@ extends Node2D
 ##     real, on the fighters and the floor; Glow's dithered pools light the floor
 ##     for the rest. Night keeps the baked light map. No halos are lost: Glow still draws them.
 ##   - HIGH: LOW with `MAX_DYNAMIC` fight lights, plus the arena's `lights`
-##     (data/arenas/<id>.json) at night: each lamp lights
+##     (data/arenas/<id>.json) at night (by day and at sunset, the ones with a `day` share glow
+##     on the floor only, through `lamp_glow`: a castle's torches; `lamps_by_day`): each lamp lights
 ##     the floor (through WeatherView's flat night shade, which takes the light: `FLOOR_MASK`)
 ##     and the fighters standing near it (from above, `height`), instead of the baked pools;
 ##     the furniture lamp heads under a `lamp` glow (FurnitureView.set_lit), and the moon.
@@ -56,6 +57,9 @@ enum Tier {OFF, LOW, HIGH}
 const FIGHTER_MASK := 2  ## fighter sprites (CreatureView.sprite.light_mask)
 const FLOOR_MASK := 4  ## the night shade over the floor (WeatherView.shade.light_mask)
 const GLOW_MASK := 2048  ## FloorGlow: the fight lights on the floor (bit 11: above the suns' SUN_BIT << 0..7)
+## The arena's lamps by day and at sunset (`lamps_by_day`): main's second FloorGlow, its own
+## canvas item, so lamps and the fight's floor lights never share one item's 15 lights.
+const LAMP_GLOW_MASK := 4096
 const MAX_DYNAMIC := 8  ## Surge and move lights at once (the strongest)
 const TEX_SIZE := 256  ## the radial light texture, built once
 ## A lamp without `fighter_energy` lights the fighters near it with this share of its floor
@@ -141,6 +145,9 @@ var _lamp_lights: Array[PointLight2D] = []
 static var _tex: Texture2D = null
 ## Main's FloorGlow (at Glow's floor-pool depth): shown only while a floor light is on.
 var floor_glow: FloorGlow = null
+## Main's second FloorGlow (LAMP_GLOW_MASK): the arena's lamps by day and at sunset, shown
+## only while one burns.
+var lamp_glow: FloorGlow = null
 
 
 ## Takes the fight's floor lights and adds just them to the picture: a black rect over the
@@ -152,14 +159,14 @@ class FloorGlow extends Node2D:
 		+ "void light() { LIGHT = vec4(LIGHT_COLOR.rgb * LIGHT_ENERGY, 1.0); }\n"
 	static var _shader: Shader = null
 
-	func _init() -> void:
+	func _init(mask := GLOW_MASK) -> void:
 		if _shader == null:
 			_shader = Shader.new()
 			_shader.code = CODE
 		var m := ShaderMaterial.new()
 		m.shader = _shader
 		material = m
-		light_mask = GLOW_MASK
+		light_mask = mask
 		visible = false
 
 	func _draw() -> void:
@@ -278,6 +285,23 @@ func apply(s: MatchSim, look: Dictionary, cast: Vector2) -> void:
 			_lamp_lights.append(_lamp_light(lamp, FLOOR_MASK))
 			if float(lamp["fighter_energy"]) > 0.0:
 				_lamp_lights.append(_lamp_light(lamp, FIGHTER_MASK))
+	elif tier == Tier.HIGH and lamps_by_day(s.arena, t):
+		# by day and at sunset: the lamps with a `day` share glow on the floor (lamp_glow), a
+		# warm pool round the flame that the low sun lets show; no light on the fighters
+		var k := day_glow(t)
+		for e in s.arena.get("lights", []):
+			if not e is Dictionary or float(e.get("day", 0.0)) <= 0.0:
+				continue
+			if lamps.size() >= MAX_LAMPS:
+				push_warning("%s: more than %d lights, the rest dropped" % [s.arena.get("id", "?"), MAX_LAMPS])
+				break
+			var lamp := lamp_of(e)
+			lamp["energy"] = float(lamp["energy"]) * float(e["day"]) * k
+			lamp["fighter_energy"] = 0.0
+			lamps.append(lamp)
+			_lamp_lights.append(_lamp_light(lamp, LAMP_GLOW_MASK))
+	if lamp_glow != null:
+		lamp_glow.visible = not night and not _lamp_lights.is_empty()
 	_sync()
 
 
@@ -327,6 +351,25 @@ static func lamp_of(e: Dictionary) -> Dictionary:
 		"fighter_color": Color(String(e.get("fighter_color", col.to_html(false)))),
 		"fighter_energy": float(e.get("fighter_energy", energy * FIGHTER_SHARE)),
 		"lamp": bool(e.get("lamp", false))}
+
+
+## Whether this arena's lamps burn by day or at sunset (HIGH only, `apply`): a time without
+## floodlights whose `lamps` (data/weather.json, the share they glow at: 1 by day, more as
+## the light goes) is above 0, and an arena with a `lights` entry carrying a `day` share.
+static func lamps_by_day(arena: Dictionary, time: String) -> bool:
+	var tm: Dictionary = (WeatherView.data().get("times", {}) as Dictionary).get(time, {})
+	if tm.has("floodlights") or float(tm.get("lamps", 0.0)) <= 0.0:
+		return false
+	for e in arena.get("lights", []):
+		if e is Dictionary and float(e.get("day", 0.0)) > 0.0:
+			return true
+	return false
+
+
+## How strongly the day lamps glow at `time` (data/weather.json `times.<time>.lamps`).
+static func day_glow(time: String) -> float:
+	var tm: Dictionary = (WeatherView.data().get("times", {}) as Dictionary).get(time, {})
+	return float(tm.get("lamps", 0.0))
 
 
 ## Whether this arena's `lights` replace the baked light map: HIGH, a time with floodlights

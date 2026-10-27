@@ -227,7 +227,7 @@ func test_arena_view_draws_it_from_tiles_and_a_fallen_bridge_shows_water() -> vo
 	assert_eq(pieces.get_cell_source_id(tile), 1, "the causeway stands")
 	# a smashed wall cell shows its rubble, and the banner hung there falls with the wall
 	var at := Vector2i(4, 21)  # the left keep's top wall, under its first banner
-	var on: Array = v._tiles.get_node("Walls").get_children().filter(func(n): return (n.get_meta("cells") as Rect2i).has_point(at))
+	var on: Array = v._tiles.get_node("Walls").get_children().filter(func(n): return n.has_meta("cells") and (n.get_meta("cells") as Rect2i).has_point(at))
 	var heap: Array = v._tiles.get_node("Rubble").get_children().filter(func(n): return (n.get_meta("cells") as Rect2i).has_point(at))
 	assert_eq(on.map(func(n): return String(n.name).rsplit("_", true, 1)[0]), ["castle", "banner_red"], "a wall sprite and a red banner over cell %s" % at)
 	assert_eq(heap.size(), 1, "and one rubble heap")
