@@ -769,6 +769,17 @@ unchanged: `build` takes each view's camera from `S.Cam(view)`, so the paper bac
 lines and seams follow the diagonal cameras. All 16 rows are drawn. Five views side by
 side: [`anim_preview/crease_diagonals_3x.png`](anim_preview/crease_diagonals_3x.png).
 
+**2x pilot (route A, Oct 2026, branch `crease-2x`, not merged until Kevin decides).** The
+game draws `crease_2x*.png`: the same rig rendered by `gen_crease.py` at density 2
+(`splat3d.configure(density=2)`), 192×192 frames, feet at (96, 144) (up views (96, 128)),
+`"ppu": 2` in every view, portrait `[74, 70, 48, 64]`, `ko_fx` pieces doubled; same rows,
+frame counts and timing. It is shaded "bold": three flat tones a face (light, base, dark;
+the sheen and deep steps only on fold lines and seams), a fold line only between two faces
+of one tone, and one dark ink (`INKS["ink"]`) round the whole silhouette, because at 2x the
+material-coloured 1 px outline let the blue suit sink into dark ground. The 1x sheets stay
+(`CREASE_DENSITY=1 python3 tools/gen_crease.py` rebuilds them byte for byte). Gallery:
+`pixellab/crease_route_a.png`.
+
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
 | 0 | idle | 8 | hand on hip, the far palm up: an eased breath between presenting (chest up, palm raised) and settled (weight sunk); the brim a frame behind, the cape and tails two, the cape's fold three. `idle_ticks` 8 |

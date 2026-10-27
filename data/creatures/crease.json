@@ -21,16 +21,18 @@
   "surge_aura": {"colors": ["#1f3f8f", "#ff9a2e", "#f4efe2"], "motes": "glints", "spikes": 6, "sharp": 0.8, "speed": 0.9, "height": 1.2},
   "cut_in_frame": [10, 6],
   "twinstick": { "autofire": "light" },
-  "ko_fx": { "style": "scatter", "frame": [0, 0], "pieces": [[35, 48], [48, 56], [56, 65], [65, 73]] },
+  "ko_fx": { "style": "scatter", "frame": [0, 0], "pieces": [[70, 96], [96, 112], [112, 130], [130, 146]] },
   "sprite": {
-    "path": "res://assets/sprites/crease.png",
-    "frame": 96,
-    "portrait": [37, 35, 24, 32],
+    "path": "res://assets/sprites/crease_2x.png",
+    "emissive": "res://assets/sprites/crease_2x_e.png",
+    "ppu": 2,
+    "frame": 192,
+    "portrait": [74, 70, 48, 64],
     "cols": 12,
     "idle_ticks": 8,
     "run_ticks": 2,
     "step_frames": [0, 6],
-    "origin": [48, 72],
+    "origin": [96, 144],
     "anims": {
       "idle": [0, 0, 8],
       "run": [1, 0, 12],
@@ -53,10 +55,12 @@
     "side_only": ["ko"],
     "select_scale": 0.5,
     "views": {
-      "down": { "path": "res://assets/sprites/crease_down.png", "frame": 96, "origin": [48, 72] },
-      "up": { "path": "res://assets/sprites/crease_up.png", "frame": 96, "origin": [48, 64] },
-      "down_side": { "path": "res://assets/sprites/crease_down_side.png", "frame": 96, "origin": [48, 72] },
-      "up_side": { "path": "res://assets/sprites/crease_up_side.png", "frame": 96, "origin": [48, 64] }
+      "down": { "path": "res://assets/sprites/crease_2x_down.png", "ppu": 2, "frame": 192, "origin": [96, 144],
+        "emissive": "res://assets/sprites/crease_2x_down_e.png" },
+      "up": { "path": "res://assets/sprites/crease_2x_up.png", "ppu": 2, "frame": 192, "origin": [96, 128] },
+      "down_side": { "path": "res://assets/sprites/crease_2x_down_side.png", "ppu": 2, "frame": 192, "origin": [96, 144],
+        "emissive": "res://assets/sprites/crease_2x_down_side_e.png" },
+      "up_side": { "path": "res://assets/sprites/crease_2x_up_side.png", "ppu": 2, "frame": 192, "origin": [96, 128] }
     }
   },
   "ai": {

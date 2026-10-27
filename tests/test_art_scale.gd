@@ -58,10 +58,10 @@ func _view(id: String) -> CreatureView:
 
 
 func test_a_1x_sheet_draws_exactly_as_before() -> void:
-	var v := _view("crease")
+	var v := _view("pete")
 	v.c.pos = Vector2(200.3, 150.6)
 	v.refresh()
-	assert_eq(v.ppu, 1, "crease's sheet is 1x")
+	assert_eq(v.ppu, 1, "pete's sheet is 1x")
 	assert_eq(v.sprite.scale, Vector2.ONE, "no scaling")
 	assert_eq(v.position, Vector2(200, 151), "whole-unit positions")
 	assert_eq(v.sprite.position, -v.origin, "the origin in sheet pixels is the origin in units")
@@ -71,18 +71,19 @@ func test_a_1x_sheet_draws_exactly_as_before() -> void:
 
 func test_a_2x_sheet_draws_at_half_scale_on_half_units() -> void:
 	var v := _view("crease")
-	# The same sheet declared 2x: twice the frame, twice the origin, the same world size.
-	var side: Dictionary = v._views["side"]
-	side["ppu"] = 2
-	side["size"] = side["size"] * 2.0
-	side["origin"] = side["origin"] * 2.0
-	v._cur = {}
+	# Mister Crease's sheets are 2x (the route A pilot): twice the frame, twice the origin,
+	# the same world size, in every view.
+	assert_eq(v.ppu, 2, "crease's sheet is 2x")
+	for vname in v._views:
+		assert_eq(int(v._views[vname]["ppu"]), 2, "crease's %s view is 2x" % vname)
+		assert_eq(v._views[vname]["size"], Vector2(192, 192), "crease's %s frame" % vname)
 	v.c.pos = Vector2(200.3, 150.6)
 	v.c.facing = Vector2.RIGHT
 	v.refresh()
 	assert_eq(v.sprite.scale, Vector2(0.5, 0.5), "half scale")
 	assert_eq(v.position, Vector2(200.5, 150.5), "half-unit positions")
-	assert_eq(v.sprite.position, -v.origin, "feet land where they did: the doubled origin at half scale")
+	assert_eq(v.origin, Vector2(96, 144), "the origin in sheet pixels")
+	assert_eq(v.sprite.position, -v.origin / 2.0, "feet land where they did: the doubled origin at half scale")
 	assert_eq(v.snapshot()["ppu"], 2, "afterimages know the density")
 	assert_eq(v.emit.scale, v.sprite.scale if v.emit.visible else v.emit.scale, "the emissive layer follows")
 	v.free()
