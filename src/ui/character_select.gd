@@ -98,7 +98,7 @@ func _ready() -> void:
 	for id in MatchFactory.FIGHTERS:
 		var sp: Dictionary = MatchFactory.load_def(id).get("sprite", {})
 		if sp.has("path"):
-			_tex[id] = load(String(sp["path"]))
+			_tex[id] = PackedSheet.load_sheet(String(sp["path"]))
 	for side in 2:
 		var x := _panel_x(side)
 		var p := FighterPreview.new()

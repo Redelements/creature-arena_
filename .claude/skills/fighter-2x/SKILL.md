@@ -27,7 +27,9 @@ palette unchanged, **bold** shading: three flat tones a face, one dark ink round
 3. `python -I tools/gen_<id>.py` (density 2): `assets/sprites/<id>_2x[_view].png` + `_n` + `_e`
    for side, down, up, down_side, up_side (the rig renders every view; no rotation tool),
    frames and origins doubled; same rows, counts, timing. Keep the 1x files. Copy each 1x
-   `_n`/`_e` `.import` onto the 2x one (VRAM-compressed, normal_map), keep its own uid, `--import`.
+   `_n`/`_e` `.import` onto the 2x one (VRAM-compressed, normal_map), keep its own uid. Then
+   `python -I tools/pack_sheets.py <id>` (the packed copies the game draws, `assets/sprites/packed/`;
+   `--verify` checks them pixel for pixel) and `--import`.
 4. `python -I tools/sprite_2x.py <id>`: every view `ppu` 2, path `_2x`, frame/origin/portrait
    and `ko_fx` pieces doubled (idempotent; `--check`). Check `fx_top`, `cut_in_frame` and
    effect offsets in the JSON stay in world units.

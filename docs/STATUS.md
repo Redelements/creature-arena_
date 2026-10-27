@@ -1,7 +1,7 @@
 # Status: handoff snapshot
 
-Stamped: 2026-10-27 20:06 UTC
-Branch: crease-2x @ a6911e6
+Stamped: 2026-10-27 20:39 UTC
+Branch: sprites-vram @ 5ab3ca9
 Trigger: phase
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
@@ -39,6 +39,17 @@ the two shading variants; Twin Keeps still beside the big tree at play zoom). GI
 `docs/pixellab/crease_route_a_{idle,run,flick}.gif`. Build for Kevin:
 `C:/Users/Kevin/Downloads/Ready4Rambles-windows-crease-2x/` (exe + the gallery and GIFs).
 
+## VRAM (branch `sprites-vram`, off `crease-2x`, worktree `creature-arena-vram-2x`)
+
+The blocker before fighter 3 is solved: fighter sheets are drawn from **packed copies**
+(`tools/pack_sheets.py` -> `assets/sprites/packed/`, `src/view/packed_sheet.gd`; lossless,
+`--verify` rebuilds every grid sheet exactly). 4v4 CTF with Crease 2x on both sides: 1018 ->
+159 MB textures on High, 1014 -> 155 Low, 123 Off (Off now loads no `_n`/`_e`); 1v1 496 -> 72.
+Full roster at 2x projected about 0.4 GB in a 4v4 (`tests/test_vram.gd` pins it; numbers in
+`docs/plans/roster-2x.md` "VRAM"). The fighter-2x skill now runs `pack_sheets.py <id>` in step 3.
+Local commit only; never pushed. Not done: the grid sheets still ship in exports (build size,
+not VRAM; an `exclude_filter` could drop them); Android/Vulkan not measured.
+
 ## Decisions
 
 - Route A is the fighter route. PixelLab animation (branch `crease-2x-spike`) was rejected:
@@ -51,7 +62,8 @@ the two shading variants; Twin Keeps still beside the big tree at play zoom). GI
 **No fighter is rendered until Kevin says "run <fighter>" or "run all".** Then follow
 `.claude/skills/fighter-2x/SKILL.md`, one fighter per branch `<fighter>-2x`, stacked off
 `crease-2x`, in the order of `docs/plans/roster-2x.md`; stop at the first fighter that fails
-its checks (anim_preview --check, tests, sim-check, VRAM budget).
+its checks (anim_preview --check, tests, sim-check, VRAM budget: `TEST_ONLY=vram`, after
+`pack_sheets.py <id>`).
 
 ## Open questions
 

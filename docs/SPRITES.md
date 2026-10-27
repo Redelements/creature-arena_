@@ -799,6 +799,27 @@ material-coloured 1 px outline let the blue suit sink into dark ground. The 1x s
 | 14 | ko | 8 | snapped back with the hat knocked up, folding up as the hat flies, crumpled down (a knockdown shows 1 then holds 2), the hat landing and bouncing, rolling to a stop; in a match his knockout scatters the sprite at once (`ko_fx` "scatter"), so only a knockdown shows this row |
 | 15 | victory | 8 | folds into a giant crane, the flight loop (frames 1-5), unfolds, the bow |
 
+## Packed sheets: what the game loads (Oct 2026)
+
+The game never loads a grid sheet: it draws each fighter sheet from a **packed copy**,
+`assets/sprites/packed/<sheet>.png` (and `_n.png` / `_e.png`), written by
+`python3 tools/pack_sheets.py [<id> ...]`: every frame cut to its used rect (the opaque pixels
+of the colour, normal and emissive sheets, plus 1 px of clear border for the rim flash) and
+shelf-packed on a 4 px grid (so a VRAM-compressed 4x4 block never mixes two frames), with
+`<sheet>.json` giving each frame's rect and the md5 of the grid PNGs it was cut from.
+`PackedSheet` (`src/view/packed_sheet.gd`) stands in for the grid sheet: it reports the grid's
+size and draws any grid region from the packed pixels at their grid places, so frame sizes,
+origins, `cols`, portraits and `ko_fx` pieces stay as this document gives them. The pixels are
+copied, never resampled: `pack_sheets.py --verify` rebuilds every grid sheet exactly.
+
+Import: the packed colour sheets lossless (they are palette pixel art), the packed normal and
+emissive sheets VRAM-compressed, no mipmaps (`pack_sheets.py` writes the `.import`). The grid
+sheets stay the source: generators, `anim_preview.py` and the galleries read them. **After
+regenerating a fighter, rerun `pack_sheets.py <id>` and `--import`**: `tests/test_vram.gd`
+fails while a packed copy is older than its grid sheet. Lighting Off loads no normal or
+emissive sheet. Why: the packed sheets hold 11% of the grid sheets' pixels; a 4v4 went from
+about 1.0 GB of textures to 0.16 GB (`docs/plans/roster-2x.md`, "VRAM").
+
 ## Normal sheets: per-pixel light (Pete and Culvert, Oct 2026)
 
 A fighter can have a **normal sheet** beside each colour sheet, `<sheet>_n.png` (`pete_n.png`,

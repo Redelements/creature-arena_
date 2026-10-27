@@ -353,10 +353,11 @@ func test_every_fighter_has_normal_sheets_the_sprite_uses() -> void:
 		var sim := MatchFactory.training(id) if id != "dummy" else MatchFactory.training("cairn")
 		var v := CreatureView.new()
 		v.setup(sim.creatures[0 if id != "dummy" else 1])
-		assert_true(v.sprite.texture is CanvasTexture, "%s draws through a CanvasTexture" % id)
+		var drawn: Texture2D = (v.sprite.texture as PackedSheet).draw_tex if v.sprite.texture is PackedSheet else v.sprite.texture
+		assert_true(drawn is CanvasTexture, "%s draws through a CanvasTexture" % id)
 		assert_true(v.lit(), "%s takes the lights" % id)
 		assert_eq(v.sprite.light_mask, Light2DView.FIGHTER_MASK, "%s is on the fighter light mask" % id)
-		assert_eq(v.sheet().resource_path, _sheet_paths(id)[0], "the colour sheet is still the sheet")
+		assert_eq(PackedSheet.path_of(v.sheet()), _sheet_paths(id)[0], "the colour sheet is still the sheet")
 		v.free()
 
 

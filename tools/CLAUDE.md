@@ -179,6 +179,10 @@ tools, so a fighter's pass is posing work only.
   idempotent). **`python3 tools/fighter_2x_gallery.py <id> --old REF --shot PNG`**: the 1x
   beside 2x gallery and the Twin Keeps still (`docs/pixellab/<id>/`). Both are steps of the
   fighter-2x skill (`.claude/skills/fighter-2x/SKILL.md`).
+- **`python3 tools/pack_sheets.py [<id> ...] [--check|--verify]`**: the packed copies of every
+  fighter sheet the game draws (`assets/sprites/packed/<sheet>.png` + `_n` / `_e` + `.json`;
+  `docs/SPRITES.md` "Packed sheets"). Rerun after regenerating a fighter, then `--import`;
+  `--verify` rebuilds each grid sheet from its packed copy and compares every pixel.
 - **`python3 tools/anim_preview.py --check <id>`** (or `all`): the JSON's row table against
   `ROWS` / `VIEW_ROWS` (names, frame counts, columns), the sheet PNG sizes, idle and run
   cycles against `ANIM_CYCLES`, `step_frames`, every move's `anim_at` / `anim_charge` /
@@ -215,6 +219,7 @@ tools, so a fighter's pass is posing work only.
 - `gen_sprites.py` — Generate the small placeholder sheets for Ready 4 Rambles: floor tiles and effects.
 - `import_frames.py` — Imports a folder of PNG frames (PixelLab's output, or any artist's) as one of the game's sprite sheets: quantized to th…
 - `odin_perf.py` — Measure frame pacing on an Android device (the AYN Odin 3) over adb.
+- `pack_sheets.py` — Packs each fighter sheet's frames tight, so the game holds a fraction of the texture memory.
 - `palette.py` — The master palette: one published set of colours for every fighter and arena.
 - `seed_dressing.gd` — Seeds a map's hand-dressing scene (assets/arenas/<id>_dressing.tscn) from a first-draft spec, tools/dressing/<id>.json.
 - `shade2d.py` — Master-palette shading for the 2D painters (Barkley's and Gillbert's rigs).

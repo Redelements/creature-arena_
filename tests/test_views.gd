@@ -57,10 +57,10 @@ func test_side_only_animations_use_the_side_sheet() -> void:
 	c.state = CreatureSim.State.KO
 	v.refresh()
 	assert_eq(v.view, "down")
-	assert_eq(v.sheet().resource_path, String(c.def["sprite"]["path"]), "a knockout falls over side-on:")
+	assert_eq(PackedSheet.path_of(v.sheet()), String(c.def["sprite"]["path"]), "a knockout falls over side-on:")
 	c.state = CreatureSim.State.IDLE
 	v.refresh()
-	assert_true(v.sheet().resource_path.ends_with("_down.png"), "idle facing down uses the front sheet")
+	assert_true(PackedSheet.path_of(v.sheet()).ends_with("_down.png"), "idle facing down uses the front sheet")
 	v.free()
 
 
@@ -196,10 +196,10 @@ func test_diagonals_mirror_for_the_left() -> void:
 		v.refresh()
 		assert_eq(v.view, k[1], "facing %s:" % k[0])
 		assert_eq(v.sprite.flip_h, k[2], "facing %s mirrored:" % k[0])
-		assert_true(v.sheet().resource_path.ends_with("_%s.png" % k[1]), "facing %s shows its sheet" % k[0])
+		assert_true(PackedSheet.path_of(v.sheet()).ends_with("_%s.png" % k[1]), "facing %s shows its sheet" % k[0])
 	# A side-only knockout still falls over side-on from a diagonal.
 	c.facing = Vector2(1, 1).normalized()
 	c.state = CreatureSim.State.KO
 	v.refresh()
-	assert_eq(v.sheet().resource_path, String(c.def["sprite"]["path"]), "a knockout stays on the side sheet:")
+	assert_eq(PackedSheet.path_of(v.sheet()), String(c.def["sprite"]["path"]), "a knockout stays on the side sheet:")
 	v.free()
