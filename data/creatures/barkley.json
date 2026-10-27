@@ -21,13 +21,13 @@
   "cut_in_frame": [8, 3],
   "ko_fx": { "style": "timber", "length": 52 },
   "sprite": {
-    "path": "res://assets/sprites/barkley.png",
-    "frame": 96,
-    "portrait": [30, 18, 24, 32],
+    "path": "res://assets/sprites/barkley_2x.png", "ppu": 2,
+    "frame": 192,
+    "portrait": [60, 36, 48, 64],
     "cols": 12,
     "idle_ticks": 10,
     "run_ticks": 2,
-    "origin": [40, 90],
+    "origin": [80, 180],
     "anims": {
       "idle": [0, 0, 8],
       "run": [1, 0, 12],
@@ -48,10 +48,10 @@
     "side_only": ["ko"],
     "select_scale": 0.5,
     "views": {
-      "down": { "path": "res://assets/sprites/barkley_down.png", "frame": [128, 160], "origin": [64, 112] },
-      "up": { "path": "res://assets/sprites/barkley_up.png", "frame": [128, 160], "origin": [64, 124] },
-      "down_side": { "path": "res://assets/sprites/barkley_down_side.png", "frame": [128, 160], "origin": [64, 112] },
-      "up_side": { "path": "res://assets/sprites/barkley_up_side.png", "frame": [128, 160], "origin": [64, 124] }
+      "down": { "path": "res://assets/sprites/barkley_2x_down.png", "ppu": 2, "frame": [256, 320], "origin": [128, 224] },
+      "up": { "path": "res://assets/sprites/barkley_2x_up.png", "ppu": 2, "frame": [256, 320], "origin": [128, 248] },
+      "down_side": { "path": "res://assets/sprites/barkley_2x_down_side.png", "ppu": 2, "frame": [256, 320], "origin": [128, 224] },
+      "up_side": { "path": "res://assets/sprites/barkley_2x_up_side.png", "ppu": 2, "frame": [256, 320], "origin": [128, 248] }
     }
   },
   "ai": {

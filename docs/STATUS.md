@@ -1,7 +1,7 @@
 # Status: handoff snapshot
 
-Stamped: 2026-10-27 20:39 UTC
-Branch: sprites-vram @ 5ab3ca9
+Stamped: 2026-10-27 21:00 UTC
+Branch: barkley-2x @ 49bbf25
 Trigger: phase
 
 This is a snapshot, not a log: overwrite it, keep it under 150 lines. A fresh session reads
@@ -50,6 +50,17 @@ Full roster at 2x projected about 0.4 GB in a 4v4 (`tests/test_vram.gd` pins it;
 Local commit only; never pushed. Not done: the grid sheets still ship in exports (build size,
 not VRAM; an `exclude_filter` could drop them); Android/Vulkan not measured.
 
+## Barkley 2x (branch `barkley-2x`, off `sprites-vram`, worktree `creature-arena-barkley-2x`)
+
+"Run all" from Kevin. Commit 1 `shade2d: density option`: `shade2d.configure(density=)`,
+`shade2d.Draw` (1x coordinates onto a 2x layer: fills, lines, dots, leaves double), shading
+pixel lengths through `shade2d.px`, `RIM`/`LUM_HIGH` for bold; at density 1 Barkley and
+Gillbert rebuild all 34 sheets/previews byte for byte. Commit 2: `BARKLEY_DENSITY` (default 2)
+and `BARKLEY_STYLE` (bold at 2x), `barkley_2x*.png` (side 192, views 256x320, `_n` + `_e`),
+JSON switched (`sprite_2x.py`), packed, NET_VERSION 49, sim-check unchanged, suite green.
+Gallery and GIFs: `docs/pixellab/barkley/`. Gillbert next: route his draws through
+`shade2d.Draw` like `gen_barkley.py`.
+
 ## Decisions
 
 - Route A is the fighter route. PixelLab animation (branch `crease-2x-spike`) was rejected:
@@ -68,8 +79,8 @@ its checks (anim_preview --check, tests, sim-check, VRAM budget: `TEST_ONLY=vram
 ## Open questions
 
 - Kevin's verdict on the 2x Crease from the build (bold vs the 1x look; slimmer outline).
-- Painter and custom renderers (Barkley, Gillbert, Craglash, Cairn, dummy, Cerebro, Hissy)
-  need their own density switch before they can run (see the plan).
+- Custom renderers (Craglash, Cerebro, Hissy) need their own density switch before they can
+  run (see the plan); the shade2d painters have one (Barkley done, Gillbert next).
 
 ## Next step
 
