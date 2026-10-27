@@ -161,5 +161,6 @@ Recipe: `boxes` cut as they are, or `box` + `auto` {`min`, `max`, `limit`} to fi
 loose blobs of a litter sheet. Map: `[{"kind", "where": "floor" | "near_walls" |
 "near_water" | [[tx, ty, w, h], ...], "near": 3, "density": 0.05, "seed"}]`; placed by a
 fixed hash, so a rebuild lays the same ones; never on water, walls, fences, chasms, brush
-(or the cell round it) or within a cell of the court markings. Keep it subtle: densities of
+(or the cell round it), within a cell of the court markings, a flag base's capture zone, a
+shrine, or the map's `tiles.scatter_clear` cell rects (Twin Keeps: its gates). Keep it subtle: densities of
 a few percent near walls or water and about 1 % on open floor.
