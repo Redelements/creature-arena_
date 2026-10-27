@@ -61,8 +61,9 @@ extends SceneTree
 ##              edges but never on them) | [[tx, ty, w, h], ...],
 ##              near: 3, density: 0.05, seed}]: small sprites (manifest "scatter" kinds) on a
 ##              16 px "Scatter" layer, one a cell at most, by a fixed hash (a rebuild lays the
-##              same ones); never on water, walls, fences, chasms, brush (or next to it) or the
-##              court markings
+##              same ones); never on water, walls, fences, chasms, brush (or next to it), the
+##              court markings, a flag base's capture zone or a shrine (`scatter_clear`)
+##   scatter_clear  [[col, row, w, h], ...] cell rects the scatter keeps off (a keep's gates)
 ##   decor      [{kind, at: [tx, ty]} | {kind, pos: [x, y] units from the floor's top-left
 ##              corner, so the margins are negative or past the floor}]: a decor sprite
 ##              (manifest "decor") standing with its feet at the tile's bottom middle.
@@ -90,6 +91,7 @@ const RAISED_INSET := 3.0  ## px a piece on a raised wall's top stands in from i
 const SRC_SCATTER := 0  ## in <set>_cells.tres: the scatter sprites
 const SRC_RAISED := 1  ## in <set>_cells.tres: the first raised wall (manifest "raised"); one source each
 const SCATTER_ALTS := 8  ## a scatter sprite's looks: plain, then mirrored and nudged
+const SCATTER_BASE_CLEAR := 48.0  ## units round a flag base kept clear of scatter (its capture zone and stand)
 const SCATTER_NUDGE: Array[Vector2i] = [Vector2i.ZERO, Vector2i(3, 2), Vector2i(-4, 1), Vector2i(2, -3)]
 const DEFAULT_STYLES := {"wall": "boulder", "brush": "tuft", "fence": "fence", "bridge": "bridge"}
 
@@ -751,12 +753,14 @@ static func wall_cells(grid: TerrainGrid) -> Dictionary:
 ## bed, default 3), "verge" (within `near` cells of the tiles block's `of` rects, a terrain
 ## such as "earth", but never on them: a road's edges, not its middle), or [[tx, ty, w, h], ...]
 ## tile rects.
-## Only on plain floor (`scatter_ok`), and never within TRACK_CLEAR units of the map's `track`
-## (the caravan's path: its diagonals cut the corners of a stepped road).
-static func _scatter(layer: TileMapLayer, tiles: Dictionary, man: Dictionary, grid: TerrainGrid, wet_tiles: Dictionary, per: int, track: Array = []) -> void:
+## Only on plain floor (`scatter_ok`), off the map's cleared cells (`scatter_clear`, flag bases,
+## shrines) and never within TRACK_CLEAR units of the map's `track` (the caravan's path: its
+## diagonals cut the corners of a stepped road).
+static func _scatter(layer: TileMapLayer, tiles: Dictionary, man: Dictionary, grid: TerrainGrid, wet_tiles: Dictionary, per: int, map: Dictionary = {}) -> void:
+	var track: Array = map.get("track", [])
 	var kinds: Dictionary = man.get("scatter", {}).get("kinds", {})
 	var slot := int(man.get("scatter", {}).get("slot", 32)) / CELL_PX
-	var used := {}
+	var used := scatter_clear(tiles, map, grid)
 	for e in tiles.get("scatter", []):
 		var pool: Array = kinds.get(String(e.get("kind", "")), [])
 		if pool.is_empty():
@@ -796,6 +800,32 @@ static func _scatter(layer: TileMapLayer, tiles: Dictionary, man: Dictionary, gr
 				used[c] = true
 				var at: Array = pool[_h(cx, cy, 201 + seed) % pool.size()]
 				layer.set_cell(c, SRC_SCATTER, _v(at) * slot, _h(cx, cy, 202 + seed) % SCATTER_ALTS)
+
+
+## The cells no scatter lies on besides `scatter_ok`'s (cell -> true): the tiles block's
+## `scatter_clear` cell rects (a keep's gates), every flag base's capture zone (within
+## SCATTER_BASE_CLEAR units of the map's `bases`) and every shrine's circle (its radius and
+## a cell), so nothing small sits on a marked spot or in a doorway.
+static func scatter_clear(tiles: Dictionary, map: Dictionary, grid: TerrainGrid) -> Dictionary:
+	var out := {}
+	for r in tiles.get("scatter_clear", []):
+		for cy in range(int(r[1]), int(r[1]) + int(r[3])):
+			for cx in range(int(r[0]), int(r[0]) + int(r[2])):
+				out[Vector2i(cx, cy)] = true
+	var spots: Array = []  # [centre in world units, radius]
+	for side in map.get("bases", {}):
+		var b: Array = map["bases"][side]
+		spots.append([Vector2(float(b[0]), float(b[1])), SCATTER_BASE_CLEAR])
+	for sh in map.get("shrines", []):
+		var sp: Array = sh.get("pos", [0, 0])
+		spots.append([Vector2(float(sp[0]), float(sp[1])), float(sh.get("radius", 20)) + SimDefs.CELL])
+	for cy in grid.rows:
+		for cx in grid.cols:
+			var p := grid.cell_center(Vector2i(cx, cy))  # world units, as the map's bases and shrines
+			for spot in spots:
+				if p.distance_to(spot[0]) < float(spot[1]):
+					out[Vector2i(cx, cy)] = true
+	return out
 
 
 ## Whether a scatter sprite may lie on cell `c`: plain floor, off the water tiles, clear of
@@ -1041,7 +1071,7 @@ static func _build_scene(map: Dictionary, tiles: Dictionary, man: Dictionary, ts
 	# small sprites over the floor (`scatter`), then a raised wall's contact shadow and the
 	# wall itself (`styles.wall: "raised:<name>"`): 16 px layers, one tile a cell
 	if small != null and tiles.has("scatter"):
-		_scatter(_layer(root, "Scatter", small), tiles, man, grid, wet_tiles, per, map.get("track", []))
+		_scatter(_layer(root, "Scatter", small), tiles, man, grid, wet_tiles, per, map)
 	var wall_style := String(styles.get("wall", ""))
 	if wall_style.begins_with("raised:"):
 		_raised(root, small, man, map, wall_style.trim_prefix("raised:"), grid)

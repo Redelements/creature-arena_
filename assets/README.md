@@ -168,5 +168,7 @@ loose blobs of a litter sheet. Map: `[{"kind", "where": "floor" | "near_walls" |
 "density": 0.05, "seed"}]` (`"verge"` with `"of": "earth"`: within `near` cells of that
 terrain's rects but never on them, a road's edges); placed by a fixed hash, so a rebuild lays
 the same ones; never on water, walls, fences, chasms, brush (or the cell round it), within a
-cell of the court markings or within 20 units of the map's `track` (Caravan Pass). Keep it subtle: densities of
+cell of the court markings, a flag base's capture zone, a shrine, the map's
+`tiles.scatter_clear` cell rects (Twin Keeps: its gates) or within 20 units of the map's
+`track` (Caravan Pass). Keep it subtle: densities of
 a few percent near walls or water and about 1 % on open floor.

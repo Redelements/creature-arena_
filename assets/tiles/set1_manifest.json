@@ -1792,5 +1792,7 @@
  },
  "bushes": {},
  "fencelines": {},
- "walls": {}
+ "walls": {},
+ "raised": {},
+ "scatter": {}
 }

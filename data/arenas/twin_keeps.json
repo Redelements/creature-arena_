@@ -4,7 +4,7 @@
 	"name": "Twin Keeps",
 	"ground": "grass",
 	"tiles": {
-		"_doc": "The floor as tiles (assets/arenas/twin_keeps.tscn, built by tools/build_tiles.gd; tools/tile_recipes/keeps.json): Set 1 grass with the river and pools as the water terrain (painted under the shallows and the bridge, so a fallen bridge shows water), the keeps' walls from Castle's free-standing wall kit (one y-sorted run a wall, rubble where smashed), fences as joined wooden lines, round hedge beds, a cobble causeway for the bridge, trees along the top margin (decor draws under the fighters, so never over walkable floor), the waterfall where the river enters at the top, team braziers on the gate posts and team banners on the keeps' walls (red the left keep, blue the right; `wall: true` hangs them on the wall sprites, so they fall with it).",
+		"_doc": "The floor as tiles (assets/arenas/twin_keeps.tscn, built by tools/build_tiles.gd; tools/tile_recipes/keeps.json): Set 1 grass with the river and pools as the water terrain (painted under the shallows and the bridge, so a fallen bridge shows water), the keeps' walls from Castle's free-standing wall kit (one y-sorted run a wall, rubble where smashed), fences as joined wooden lines, round hedge beds, a cobble causeway for the bridge, trees along the top margin (decor draws under the fighters, so never over walkable floor), the waterfall where the river enters at the top, team braziers on the gate posts and team banners on the keeps' walls (red the left keep, blue the right; `wall: true` hangs them on the wall sprites, so they fall with it); the river sunk below the floor behind a kerb of ledge stones, in a ragged dirt shoulder (`shoulder`), with pebbles by it and tufts and small flowers on the open grass (`scatter`, kept off the gates by `scatter_clear` and off the bases and shrines).",
 		"set": "keeps",
 		"ground": "grass",
 		"styles": {
@@ -12,6 +12,66 @@
 			"fence": "fenceline:wood",
 			"brush": "bush:green"
 		},
+		"shoulder": true,
+		"scatter": [
+			{
+				"kind": "pebbles",
+				"where": "near_water",
+				"near": 3,
+				"density": 0.04,
+				"seed": 1
+			},
+			{
+				"kind": "tufts",
+				"where": "floor",
+				"density": 0.015,
+				"seed": 3
+			},
+			{
+				"kind": "flowers",
+				"where": "floor",
+				"density": 0.01,
+				"seed": 4
+			}
+		],
+		"scatter_clear": [
+			[
+				17,
+				28,
+				4,
+				10
+			],
+			[
+				13,
+				18,
+				8,
+				6
+			],
+			[
+				13,
+				42,
+				8,
+				6
+			],
+			[
+				129,
+				28,
+				4,
+				10
+			],
+			[
+				129,
+				18,
+				8,
+				6
+			],
+			[
+				129,
+				42,
+				8,
+				6
+			]
+		],
 		"decor": [
 			{
 				"kind": "oak",

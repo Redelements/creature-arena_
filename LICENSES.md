@@ -104,8 +104,10 @@ Twin Keeps (the Capture the Flag map; cut by `tools/cut_tiles.py` from
   (`RPGW_Wetland_v1.1`, the same licence) `tree2A` canopy.
 - `assets/tiles/keeps_decor_*.png` (Set 1 trees and a bush) and `assets/tiles/keeps_anim_waterfall.png`
   (Set 1's three-wide fall, tinted like the river).
-- `assets/tiles/keeps_shore.png`: the river's banks, composed from Set 1's grass, the round
-  ledge stones and rock face of `hills2.png`.
+- `assets/tiles/keeps_shore.png`: the river's sunken banks and their shoulder, composed from
+  Set 1's dirt (`g_terrain3.png`), the round ledge stones and rock face of `hills2.png`.
+- `assets/tiles/keeps_scatter.png`: loose pebbles, small flowers and grass sprigs (Set 1
+  `veg_decoratives.png`).
 - `assets/tiles/keeps_manifest.json`, `assets/tiles/keeps_*.tres`, `assets/arenas/twin_keeps.tscn`.
 
 Files from **RPG Worlds GrassLand v2** (`RPGW_GrassLand_v2.01`), **RPG Worlds Decorative

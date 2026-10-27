@@ -149,7 +149,7 @@ func test_the_floodgate_shoulder_lies_on_floor_under_the_water() -> void:
 
 
 func test_scatter_is_stable_and_stays_off_water_walls_and_beds() -> void:
-	for id in ["quarry", "floodgate", "greenhouse", "stadium", "caravan_pass"]:
+	for id in ["quarry", "floodgate", "twin_keeps", "greenhouse", "stadium", "caravan_pass"]:
 		var map := ArenaMap.get_map(id)
 		var tiles: Dictionary = map.get("tiles", {}).duplicate(true)
 		var man: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://assets/tiles/%s_manifest.json" % String(tiles.get("set", "set1"))))
@@ -200,7 +200,7 @@ func test_scatter_is_stable_and_stays_off_water_walls_and_beds() -> void:
 
 
 func test_the_built_scenes_carry_their_scatter() -> void:
-	for id in ["quarry", "floodgate", "greenhouse", "caravan_pass"]:
+	for id in ["quarry", "floodgate", "twin_keeps", "greenhouse", "caravan_pass"]:
 		var root: Node = (load("res://assets/arenas/%s.tscn" % id) as PackedScene).instantiate()
 		var layer := root.get_node_or_null("Scatter") as TileMapLayer
 		assert_true(layer != null, "%s: a Scatter layer" % id)
@@ -265,7 +265,7 @@ func test_verge_scatter_lines_the_road_but_never_its_middle_or_the_track() -> vo
 	verge["scatter"] = tiles["scatter"].filter(func(e): return String(e.get("where", "")) == "verge")
 	assert_gt(verge["scatter"].size(), 0, "the pass scatters along its road")
 	var a := TileMapLayer.new()
-	BT._scatter(a, verge, man, grid, {}, 2, map["track"])
+	BT._scatter(a, verge, man, grid, {}, 2, map)
 	var cells := a.get_used_cells()
 	assert_gt(cells.size(), 20, "tufts and clods line the road (%d)" % cells.size())
 	var track: Array = map["track"]
