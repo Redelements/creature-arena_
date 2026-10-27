@@ -168,15 +168,45 @@ Minor rows left out of the tables above (all subtle, same hooks as their neighbo
 
 ## 5. Used today
 
-| Effect cut (`assets/vfx/`) | Source | Wired in |
-|---|---|---|
-| slash_claws | SL r3 frames 1-7, `strike`, follow, flips | Digby `light_1` (Claw Swipe) |
-| hit_star_cyan | HI r3 frames 0-3, `hit`, world space, 2 tpf, scale 0.6 | Digby `light_1` (with slash_claws) |
-| impact_burst | HI r1 frames 0-5, `hit`, world space | nothing yet: kept for heavies |
-| fire_burst | FI r3 frames 0-9, `burst`, world space | Barkley `skill_2` (Pinecone Bomb) |
+28 strips (art-vfx branch), one per effect; a move's `fx.move_fx` entry sets its own hook, scale and offset over the
+defaults below (`{"path": ..., "on": ..., "scale": ...}`, docs/MECHANICS.md), so one strip serves a family. Tints are
+applied before the palette snap where the pack has no art (leaf, poison, ice) and to pull the pink-brown dust toward earth.
+Section 6 is the suggestion this follows; where it stacked two effects on one move, the wiring keeps the louder one.
+
+| Effect cut (`assets/vfx/`) | Source | Defaults | Wired in |
+|---|---|---|---|
+| slash_claws | vfx_slash row 3 frames 1-7 | `strike`, 2 tpf, scale 0.7 | craglash light_1, digby light_1, digby light_2 |
+| slash_white | vfx_slash row 8 frames 0-2 | `strike`, 2 tpf, scale 0.7 | barkley light_1, barkley light_2, hissy light_3, pete light_3 |
+| slash_gold_arc | vfx_slash row 6 frames 0-4 | `strike`, 2 tpf | cairn heavy, digby light_3 |
+| slash_red | vfx_slash row 5 frames 1-4 | `strike`, 2 tpf | craglash skill_2, hissy heavy |
+| impact_burst | vfx_hit_effects row 1 frames 0-5 | `hit`, 3 tpf | cairn slip_counter, pete heavy |
+| hit_star_cyan | vfx_hit_effects row 3 frames 0-3 | `hit`, 2 tpf, scale 0.6 | barkley light_3, cairn light_3, crease skill_2, digby light_1, pete light_1, pete light_2, pete skill_2, sno light_1, sno light_2, sno light_3 |
+| hit_burst_pink | vfx_hit_effects row 4 frames 0-5 | `hit`, 3 tpf | cerebro heavy, hissy surge |
+| boom_star | vfx_explosion row 3 frames 1-7 | `burst`, 3 tpf | barkley skill_2, pete surge |
+| boom_ground | vfx_explosion row 4 frames 1-8 | `strike`, 3 tpf | barkley surge, cairn surge, craglash surge, digby surge |
+| smoke_bloom | vfx_smoke_vol_2 row 1 frames 1-10 | `strike`, 3 tpf | crease surge, digby surge, pete surge |
+| dust_poof | vfx_dust_smoke_brown row 5 frames 0-8, tinted toward rgb(190,140,96) | `strike`, 3 tpf | cairn skill_2, digby skill_2 |
+| dust_burst | vfx_dust_smoke_brown row 3 frames 0-8, tinted toward rgb(190,140,96) | `strike`, 3 tpf | barkley tag_in, cairn tag_in, craglash tag_in, craglash heavy, digby skill_2, pete tag_in |
+| dust_column | vfx_dust_smoke_brown row 7 frames 0-8, tinted toward rgb(190,140,96) | `strike`, 3 tpf | barkley surge, cairn surge, digby tag_in, digby heavy |
+| dust_wings | vfx_dust_smoke_brown row 2 frames 1-8, tinted toward rgb(190,140,96) | `start`, 3 tpf | barkley skill_1, cairn skill_1, craglash skill_1 |
+| dust_ring | vfx_dust_smoke_white row 1 frames 1-12 | `strike`, 2 tpf | crease tag_in, crease skill_1, crease surge |
+| leaf_swirl | vfx_dust_smoke_white row 1 frames 1-12, tinted toward rgb(96,200,72) | `strike`, 2 tpf | barkley heavy |
+| wisp_purple | vfx_dust_smoke_purple row 6 frames 0-8 | `start`, 3 tpf | cerebro skill_2, hissy tag_in, pete skill_1 |
+| water_spout | vfx_liquid row 3 frames 0-10 | `hit`, 2 tpf | culvert light_3, culvert skill_1, gillbert light_1, gillbert light_3, gillbert skill_2 |
+| water_fountain | vfx_liquid row 1 frames 0-5 | `strike`, 3 tpf | culvert heavy, culvert surge, gillbert tag_in, gillbert heavy, gillbert surge |
+| water_wings | vfx_liquid row 4 frames 0-10 | `strike`, 3 tpf | culvert tag_in, gillbert light_2, gillbert skill_1, sno skill_1 |
+| water_wave | vfx_liquid row 0 frames 0-5 | `start`, 3 tpf, loop | culvert skill_2, sno skill_2 |
+| ice_geyser | vfx_energy row 1 frames 0-7, tinted toward rgb(200,236,255) | `strike`, 3 tpf | gillbert surge, sno heavy, sno surge |
+| ice_nova | vfx_energy row 3 frames 0-7, tinted toward rgb(120,200,255) | `strike`, 3 tpf | sno surge |
+| spark_comet | vfx_spark row 6 frames 0-6 | `projectile`, 2 tpf, scale 0.6 | cerebro light_1, cerebro light_2, cerebro light_3 |
+| spark_fan | vfx_spark row 8 frames 0-5 | `projectile`, 2 tpf, scale 0.6 | crease light_1, crease light_2, crease light_3 |
+| spark_pinwheel | vfx_spark row 1 frames 0-6 | `projectile_end`, 2 tpf | cerebro skill_1, crease heavy, sno tag_in |
+| sigil_yellow | vfx_spark row 2 frames 0-6 | `start`, 3 tpf | cerebro tag_in, cerebro surge, hissy skill_2 |
+| venom_crackle | vfx_electricity_purple row 0 frames 1-9, tinted toward rgb(120,214,70) | `projectile_end`, 2 tpf | hissy skill_1 |
 
 `impact_burst` is loud (90x82 px, spiky yellow rays, 6 frames x 3 ticks): heavies only. `aura_buff` (EN r0) was cut and
-dropped: the only self buff, Pete's Tiptoe, is a stealth move that a glowing aura would give away.
+dropped: the only self buff, Pete's Tiptoe, is a stealth move that a glowing aura would give away. `fire_burst` (FI r3) was
+cut and dropped: no fighter breathes fire; the Pinecone Bomb plays `boom_star` at 0.7.
 
 ## 6. Suggested wiring
 

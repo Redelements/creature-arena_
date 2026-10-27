@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="MoveFx" format=3]
+
+[ext_resource type="SpriteFrames" path="res://assets/vfx/dust_column_frames.tres" id="1_l4ghr"]
+[ext_resource type="Script" path="res://src/view/move_fx.gd" id="2_wfahl"]
+
+[resource]
+script = ExtResource("2_wfahl")
+frames = ExtResource("1_l4ghr")
+offset = Vector2(0, -15)
+flip_with_facing = false

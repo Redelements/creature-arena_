@@ -94,7 +94,7 @@
       "damage": 6, "knockback": 2.4, "hitstun": 24, "hitstop": 7, "launch": 22,
       "reach": 6, "hit_radius": 18, "juggle": true,
       "anim_at": [[0, 5], [4, 6], [8, 7], [13, 8], [16, 9], [20, 10], [24, 11]],
-      "fx": { "impact": "tenderize" }
+      "fx": { "impact": "tenderize", "move_fx": "res://assets/vfx/sigil_yellow.tres" }
     },
     "light_1": {
       "name": "Knife Flick", "anim": "flick", "mobile": 0.7,
@@ -104,7 +104,7 @@
       "projectile": { "speed": 7.0, "life": 14, "radius": 5, "offset": 12, "crack_trail": false,
         "sound": "knife_throw", "end_sound": "knife_hit" },
       "anim_at": [[0, 0], [2, 1], [4, 2], [6, 3], [7, 4], [10, 5], [13, 6], [16, 7]],
-      "fx": { "projectile": "knife", "projectile_light": { "color": "#d58cff", "radius": 22, "strength": 0.4 } }
+      "fx": { "projectile": "knife", "projectile_light": { "color": "#d58cff", "radius": 22, "strength": 0.4 }, "move_fx": "res://assets/vfx/spark_comet.tres" }
     },
     "light_2": {
       "name": "Backhand Flick", "anim": "flick2", "mobile": 0.7,
@@ -114,7 +114,7 @@
       "projectile": { "speed": 7.0, "life": 14, "radius": 5, "offset": 12, "crack_trail": false,
         "sound": "knife_throw", "end_sound": "knife_hit" },
       "anim_at": [[0, 0], [2, 1], [4, 2], [6, 3], [7, 4], [10, 5], [13, 6], [16, 7]],
-      "fx": { "projectile": "knife", "projectile_light": { "color": "#d58cff", "radius": 22, "strength": 0.4 } }
+      "fx": { "projectile": "knife", "projectile_light": { "color": "#d58cff", "radius": 22, "strength": 0.4 }, "move_fx": "res://assets/vfx/spark_comet.tres" }
     },
     "light_3": {
       "name": "Mallet Toss", "anim": "toss", "mobile": 0.7,
@@ -124,7 +124,7 @@
       "projectile": { "speed": 6.0, "life": 18, "radius": 6, "offset": 12, "crack_trail": false,
         "sound": "swing_heavy", "end_sound": "thwack" },
       "anim_at": [[0, 0], [2, 1], [4, 2], [8, 3], [10, 4], [15, 5], [19, 6], [24, 7]],
-      "fx": { "projectile": "mallet", "projectile_light": { "color": "#d58cff", "radius": 22, "strength": 0.4 } }
+      "fx": { "projectile": "mallet", "projectile_light": { "color": "#d58cff", "radius": 22, "strength": 0.4 }, "move_fx": "res://assets/vfx/spark_comet.tres" }
     },
     "heavy": {
       "name": "Tenderize", "anim": "tenderize", "windup": 8, "tell": "strong",
@@ -138,7 +138,7 @@
       "terrain_crack": 14,
       "anim_at": [[0, 4], [3, 5], [5, 6], [8, 7], [13, 8], [16, 9], [20, 10], [26, 11]], "anim_charge": [0, 4, 6],
       "fx": { "charge": "psychic", "impact": "tenderize",
-        "light": { "color": "#d58cff", "radius": 40, "height": 30, "charge": true, "strength": 0.55 } }
+        "light": { "color": "#d58cff", "radius": 40, "height": 30, "charge": true, "strength": 0.55 }, "move_fx": "res://assets/vfx/hit_burst_pink.tres" }
     },
     "skill_1": {
       "name": "Cleaver Toss", "anim": "cleaver", "windup": 6, "tell": "strong", "cooldown": 150,
@@ -148,7 +148,7 @@
         "bounce": { "range": 80, "damage_mult": 0.6 },
         "sound": "knife_throw", "end_sound": "hit_heavy" },
       "anim_at": [[0, 0], [2, 1], [4, 2], [8, 3], [10, 4], [14, 5], [18, 6], [26, 7]],
-      "fx": { "projectile": "cleaver", "projectile_light": { "color": "#d58cff", "radius": 22, "strength": 0.4 } }
+      "fx": { "projectile": "cleaver", "projectile_light": { "color": "#d58cff", "radius": 22, "strength": 0.4 }, "move_fx": "res://assets/vfx/spark_pinwheel.tres" }
     },
     "skill_2": {
       "name": "Flip Out", "anim": "flipout", "windup": 12, "tell": "unblockable", "cooldown": 180,
@@ -157,7 +157,7 @@
       "reach": 30, "hit_radius": 13, "grab": true,
       "anim_at": [[0, 0], [3, 1], [5, 2], [7, 3], [11, 4], [13, 5], [15, 6], [17, 7], [20, 8], [24, 9], [28, 10],
         [31, 11]],
-      "fx": { "smear": "rise", "size": 1.3, "flip": true }
+      "fx": { "smear": "rise", "size": 1.3, "flip": true, "move_fx": "res://assets/vfx/wisp_purple.tres" }
     },
     "surge": {
       "name": "Knife Flurry", "anim": "flurry", "energy_cost": 100, "aim": 0.4,
@@ -173,7 +173,7 @@
       "anim_at": [[0, 0], [3, 1], [6, 2], [10, 3], [13, 4], [16, 5], [19, 6], [22, 3], [25, 4], [28, 5], [31, 7],
         [35, 8], [37, 9], [39, 10], [41, 11]],
       "fx": { "telegraph_line": true, "projectile": "knife", "chop": true,
-        "projectile_light": { "color": "#d58cff", "radius": 22, "strength": 0.4 } }
+        "projectile_light": { "color": "#d58cff", "radius": 22, "strength": 0.4 }, "move_fx": {"path": "res://assets/vfx/sigil_yellow.tres", "scale": 1.5, "offset": [0, -20]} }
     }
   }
 }

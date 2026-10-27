@@ -75,7 +75,7 @@
       "damage": 6, "knockback": 3.0, "hitstun": 24, "hitstop": 6,
       "reach": 14, "hit_radius": 12, "juggle": true,
       "dash": { "speed": 3.6, "from": 1, "to": 12 },
-      "fx": { "smear": "thrust", "size": 1.5, "afterimage": [0, 12], "ghost_color": "#ffcf9eaa" }
+      "fx": { "smear": "thrust", "size": 1.5, "afterimage": [0, 12], "ghost_color": "#ffcf9eaa", "move_fx": "res://assets/vfx/dust_burst.tres" }
     },
     "light_1": {
       "no_flinch": true,
@@ -102,7 +102,7 @@
       "startup": 5, "active": 3, "recovery": 11, "cancel_from": 9,
       "damage": 5, "knockback": 1.0, "hitstun": 20, "hitstop": 5,
       "reach": 25, "hit_radius": 10, "lunge": 1.1, "next": "light_4",
-      "fx": { "smear": "thrust", "size": 1.4 }
+      "fx": { "smear": "thrust", "size": 1.4, "move_fx": "res://assets/vfx/hit_star_cyan.tres" }
     },
     "light_4": {
       "name": "Hook", "anim": "hook",
@@ -122,14 +122,14 @@
       "launch": 32, "launch_charged": 46,
       "reach": 26, "hit_radius": 13, "lunge": 0.8,
       "stack_bonus": 4, "juggle": true,
-      "fx": { "smear": "rise", "charge": "pebbles" }
+      "fx": { "smear": "rise", "charge": "pebbles", "move_fx": "res://assets/vfx/slash_gold_arc.tres" }
     },
     "skill_1": {
       "name": "Slip", "anim": "slip", "cooldown": 240,
       "anim_at": [[0, 0], [2, 1], [7, 2], [12, 1], [17, 3], [26, 4]],
       "startup": 20, "active": 0, "recovery": 14,
       "counter": { "from": 2, "to": 14, "move": "slip_counter", "invuln": 12 },
-      "fx": { "afterimage": [0, 14], "ghost_color": "#9ee6ffaa" }
+      "fx": { "afterimage": [0, 14], "ghost_color": "#9ee6ffaa", "move_fx": {"path": "res://assets/vfx/dust_wings.tres", "scale": 0.8, "offset": [0, -12]} }
     },
     "slip_counter": {
       "name": "Counter Cross", "type": "skill", "anim": "slip", "anim_from": 5,
@@ -137,7 +137,7 @@
       "startup": 3, "active": 3, "recovery": 14,
       "damage": 10, "knockback": 0.4, "hitstun": 20, "crumple": 50, "hitstop": 10,
       "reach": 25, "hit_radius": 12,
-      "fx": { "smear": "thrust", "size": 1.6 }
+      "fx": { "smear": "thrust", "size": 1.6, "move_fx": "res://assets/vfx/impact_burst.tres" }
     },
     "skill_2": {
       "name": "Rockslide Rush", "anim": "rush", "windup": 12, "tell": "strong", "cooldown": 180,
@@ -146,7 +146,7 @@
       "damage": 8, "knockback": 4.5, "hitstun": 26, "hitstop": 7,
       "reach": 14, "hit_radius": 14, "stack_bonus": 4, "juggle": true,
       "dash": { "speed": 4.0, "from": 2, "to": 16, "breaks": ["wall"] },
-      "fx": { "smear": "thrust", "size": 1.6, "afterimage": [2, 16], "ghost_color": "#ffcf9eaa", "trail": "gravel" }
+      "fx": { "smear": "thrust", "size": 1.6, "afterimage": [2, 16], "ghost_color": "#ffcf9eaa", "trail": "gravel", "move_fx": {"path": "res://assets/vfx/dust_poof.tres", "on": "hit", "scale": 0.9, "offset": [0, -2]} }
     },
     "surge": {
       "name": "Avalanche", "anim": "surge", "energy_cost": 100,
@@ -163,7 +163,7 @@
         { "at": 34, "active": 2, "damage": 4, "knockback": 0.2, "hitstun": 22, "hitstop": 2, "hit_radius": 26 },
         { "at": 44, "active": 3, "damage": 28, "knockback": 1.5, "hitstun": 30, "hitstop": 12, "launch": 40, "hit_radius": 45 }
       ],
-      "fx": { "smear": "flurry", "size": 1.1, "speedlines": true, "impact": "spire" }
+      "fx": { "smear": "flurry", "size": 1.1, "speedlines": true, "impact": "spire", "move_fx": [{"path": "res://assets/vfx/boom_ground.tres", "on": "tick", "at": 45, "scale": 1.4, "flip_with_facing": true, "offset": [14, -21]}, {"path": "res://assets/vfx/dust_column.tres", "on": "tick", "at": 45, "flip_with_facing": true, "offset": [14, -15]}] }
     }
   }
 }

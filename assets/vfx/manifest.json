@@ -13,6 +13,47 @@
    "offset": [
     14,
     -14
+   ],
+   "scale": 0.7
+  },
+  "slash_white": {
+   "frames": 3,
+   "size": 96,
+   "source": "vfx_slash-Sheet.png row 8 frames 0-2",
+   "on": "strike",
+   "follow": true,
+   "flip_with_facing": true,
+   "ticks_per_frame": 2,
+   "offset": [
+    14,
+    -14
+   ],
+   "scale": 0.7
+  },
+  "slash_gold_arc": {
+   "frames": 5,
+   "size": 96,
+   "source": "vfx_slash-Sheet.png row 6 frames 0-4",
+   "on": "strike",
+   "follow": true,
+   "flip_with_facing": true,
+   "ticks_per_frame": 2,
+   "offset": [
+    14,
+    -14
+   ]
+  },
+  "slash_red": {
+   "frames": 4,
+   "size": 96,
+   "source": "vfx_slash-Sheet.png row 5 frames 1-4",
+   "on": "strike",
+   "follow": true,
+   "flip_with_facing": true,
+   "ticks_per_frame": 2,
+   "offset": [
+    14,
+    -14
    ]
   },
   "impact_burst": {
@@ -28,19 +69,6 @@
     -12
    ]
   },
-  "fire_burst": {
-   "frames": 10,
-   "size": 96,
-   "source": "vfx_fire-Sheet.png row 3 frames 0-9",
-   "on": "burst",
-   "follow": false,
-   "flip_with_facing": false,
-   "ticks_per_frame": 3,
-   "offset": [
-    0,
-    -16
-   ]
-  },
   "hit_star_cyan": {
    "frames": 4,
    "size": 96,
@@ -54,6 +82,336 @@
     -12
    ],
    "scale": 0.6
+  },
+  "hit_burst_pink": {
+   "frames": 6,
+   "size": 96,
+   "source": "vfx_hit_effects-Sheet.png row 4 frames 0-5",
+   "on": "hit",
+   "follow": false,
+   "flip_with_facing": false,
+   "ticks_per_frame": 3,
+   "offset": [
+    0,
+    -12
+   ]
+  },
+  "boom_star": {
+   "frames": 7,
+   "size": 96,
+   "source": "vfx_explosion-Sheet.png row 3 frames 1-7",
+   "on": "burst",
+   "follow": false,
+   "flip_with_facing": false,
+   "ticks_per_frame": 3,
+   "offset": [
+    0,
+    -12
+   ]
+  },
+  "boom_ground": {
+   "frames": 8,
+   "size": 96,
+   "source": "vfx_explosion-Sheet.png row 4 frames 1-8",
+   "on": "strike",
+   "follow": false,
+   "flip_with_facing": false,
+   "ticks_per_frame": 3,
+   "offset": [
+    0,
+    -15
+   ]
+  },
+  "smoke_bloom": {
+   "frames": 10,
+   "size": 96,
+   "source": "vfx_smoke_vol_2-Sheet.png row 1 frames 1-10",
+   "on": "strike",
+   "follow": false,
+   "flip_with_facing": false,
+   "ticks_per_frame": 3,
+   "offset": [
+    0,
+    -15
+   ]
+  },
+  "dust_poof": {
+   "frames": 9,
+   "size": 96,
+   "source": "vfx_dust_smoke_brown-Sheet.png row 5 frames 0-8",
+   "tint": [
+    190,
+    140,
+    96
+   ],
+   "on": "strike",
+   "follow": false,
+   "flip_with_facing": false,
+   "ticks_per_frame": 3,
+   "offset": [
+    0,
+    -12
+   ]
+  },
+  "dust_burst": {
+   "frames": 9,
+   "size": 96,
+   "source": "vfx_dust_smoke_brown-Sheet.png row 3 frames 0-8",
+   "tint": [
+    190,
+    140,
+    96
+   ],
+   "on": "strike",
+   "follow": false,
+   "flip_with_facing": false,
+   "ticks_per_frame": 3,
+   "offset": [
+    0,
+    -15
+   ]
+  },
+  "dust_column": {
+   "frames": 9,
+   "size": 96,
+   "source": "vfx_dust_smoke_brown-Sheet.png row 7 frames 0-8",
+   "tint": [
+    190,
+    140,
+    96
+   ],
+   "on": "strike",
+   "follow": false,
+   "flip_with_facing": false,
+   "ticks_per_frame": 3,
+   "offset": [
+    0,
+    -15
+   ]
+  },
+  "dust_wings": {
+   "frames": 8,
+   "size": 96,
+   "source": "vfx_dust_smoke_brown-Sheet.png row 2 frames 1-8",
+   "tint": [
+    190,
+    140,
+    96
+   ],
+   "on": "start",
+   "follow": false,
+   "flip_with_facing": true,
+   "ticks_per_frame": 3,
+   "offset": [
+    0,
+    -15
+   ]
+  },
+  "dust_ring": {
+   "frames": 12,
+   "size": 96,
+   "source": "vfx_dust_smoke_white-Sheet.png row 1 frames 1-12",
+   "on": "strike",
+   "follow": false,
+   "flip_with_facing": false,
+   "ticks_per_frame": 2,
+   "offset": [
+    0,
+    -10
+   ]
+  },
+  "leaf_swirl": {
+   "frames": 12,
+   "size": 96,
+   "source": "vfx_dust_smoke_white-Sheet.png row 1 frames 1-12",
+   "tint": [
+    96,
+    200,
+    72
+   ],
+   "on": "strike",
+   "follow": false,
+   "flip_with_facing": false,
+   "ticks_per_frame": 2,
+   "offset": [
+    0,
+    -10
+   ]
+  },
+  "wisp_purple": {
+   "frames": 9,
+   "size": 96,
+   "source": "vfx_dust_smoke_purple-Sheet.png row 6 frames 0-8",
+   "on": "start",
+   "follow": false,
+   "flip_with_facing": false,
+   "ticks_per_frame": 3,
+   "offset": [
+    0,
+    -15
+   ]
+  },
+  "water_spout": {
+   "frames": 11,
+   "size": 96,
+   "source": "vfx_liquid-Sheet.png row 3 frames 0-10",
+   "on": "hit",
+   "follow": false,
+   "flip_with_facing": false,
+   "ticks_per_frame": 2,
+   "offset": [
+    0,
+    -8
+   ]
+  },
+  "water_fountain": {
+   "frames": 6,
+   "size": 96,
+   "source": "vfx_liquid-Sheet.png row 1 frames 0-5",
+   "on": "strike",
+   "follow": false,
+   "flip_with_facing": false,
+   "ticks_per_frame": 3,
+   "offset": [
+    0,
+    -15
+   ]
+  },
+  "water_wings": {
+   "frames": 11,
+   "size": 96,
+   "source": "vfx_liquid-Sheet.png row 4 frames 0-10",
+   "on": "strike",
+   "follow": false,
+   "flip_with_facing": true,
+   "ticks_per_frame": 3,
+   "offset": [
+    0,
+    -15
+   ]
+  },
+  "water_wave": {
+   "frames": 6,
+   "size": 96,
+   "source": "vfx_liquid-Sheet.png row 0 frames 0-5",
+   "on": "start",
+   "follow": true,
+   "flip_with_facing": true,
+   "ticks_per_frame": 3,
+   "offset": [
+    0,
+    -15
+   ],
+   "loop": true,
+   "loop_ticks": 24
+  },
+  "ice_geyser": {
+   "frames": 8,
+   "size": 96,
+   "source": "vfx_energy-Sheet.png row 1 frames 0-7",
+   "tint": [
+    200,
+    236,
+    255
+   ],
+   "on": "strike",
+   "follow": false,
+   "flip_with_facing": false,
+   "ticks_per_frame": 3,
+   "offset": [
+    0,
+    -15
+   ]
+  },
+  "ice_nova": {
+   "frames": 8,
+   "size": 96,
+   "source": "vfx_energy-Sheet.png row 3 frames 0-7",
+   "tint": [
+    120,
+    200,
+    255
+   ],
+   "on": "strike",
+   "follow": false,
+   "flip_with_facing": false,
+   "ticks_per_frame": 3,
+   "offset": [
+    0,
+    -14
+   ]
+  },
+  "spark_comet": {
+   "frames": 7,
+   "size": 96,
+   "source": "vfx_spark-Sheet.png row 6 frames 0-6",
+   "on": "projectile",
+   "follow": false,
+   "flip_with_facing": true,
+   "ticks_per_frame": 2,
+   "offset": [
+    8,
+    -14
+   ],
+   "scale": 0.6
+  },
+  "spark_fan": {
+   "frames": 6,
+   "size": 96,
+   "source": "vfx_spark-Sheet.png row 8 frames 0-5",
+   "on": "projectile",
+   "follow": false,
+   "flip_with_facing": true,
+   "ticks_per_frame": 2,
+   "offset": [
+    8,
+    -14
+   ],
+   "scale": 0.6
+  },
+  "spark_pinwheel": {
+   "frames": 7,
+   "size": 96,
+   "source": "vfx_spark-Sheet.png row 1 frames 0-6",
+   "on": "projectile_end",
+   "follow": false,
+   "flip_with_facing": false,
+   "ticks_per_frame": 2,
+   "offset": [
+    0,
+    -12
+   ]
+  },
+  "sigil_yellow": {
+   "frames": 7,
+   "size": 96,
+   "source": "vfx_spark-Sheet.png row 2 frames 0-6",
+   "on": "start",
+   "follow": true,
+   "flip_with_facing": false,
+   "ticks_per_frame": 3,
+   "offset": [
+    0,
+    -16
+   ]
+  },
+  "venom_crackle": {
+   "frames": 9,
+   "size": 96,
+   "source": "vfx_electricity_purple-Sheet.png row 0 frames 1-9",
+   "tint": [
+    120,
+    214,
+    70
+   ],
+   "on": "projectile_end",
+   "follow": false,
+   "flip_with_facing": false,
+   "ticks_per_frame": 2,
+   "offset": [
+    0,
+    -6
+   ]
   }
  }
 }

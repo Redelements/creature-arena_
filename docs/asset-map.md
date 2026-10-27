@@ -217,16 +217,17 @@ Ranked within each map, value first. Size: S = recipe lines only, M = recipe + m
 Rule: lights subtle (one small cool slash or `hit_star_cyan`, scale <= 0.7, 2 tpf); heavies, skills and surges get one
 loud effect in their family; never stack a slash and a burst on one spot. Full per-move table: kiddolink_vfx.md section 6.
 
-| Family (fighters) | Lights | Heavy / skills | Surge | Tag-in |
-|---|---|---|---|---|
-| Stone (Cairn, Craglash, Culvert, Digby) | `hit_star_cyan` (HI r3), `sl_claws_gold` | `dust_swirl_ring`, `dust_burst_star`, `sl_gold_arc_b` | `boom_ground` + `dust_column` / `dust_poof` | `dust_burst_star` |
-| Wild (Barkley, Hissy) | `sl_white_arc_b`, `sl_scratch` | brown `dust_poof`, `sl_claws_red` | `dust_column` x2 + `boom_ground`; `hit_burst_pink` | `dust_burst_star`, purple `dust_wisp` |
-| Lumen (Cerebro, Pete) | `sp_comet` 0.6, `hit_star_cyan` 0.6 | `sp_sigil_y`, `hit_burst_pink`, `hit_dark_pop` | `smoke_bloom` + `boom_star`; `sp_pinwheel` + `e2_bolt_yellow` | `energy_beam_up`, `dust_side_puff` |
-| Gale (Crease) | `sp_fan` | `sp_pinwheel`, white `dust_wisp` | `smoke_bloom` + white `dust_swirl_ring` | white `dust_wisp` |
-| Tide (Gillbert, Sno Mercy) | `water_spout`, `hit_star_cyan` | `water_fountain`, `water_wave`, `energy_geyser` | `water_fountain` x3 + `energy_geyser` / `energy_nova` | `water_fountain`, `sp_pinwheel` |
+| Family (fighters) | Lights | Heavy / skills | Surge | Tag-in | Status |
+|---|---|---|---|---|---|
+| Stone (Cairn, Craglash, Culvert, Digby) | `hit_star_cyan` (HI r3), `sl_claws_gold` | `dust_swirl_ring`, `dust_burst_star`, `sl_gold_arc_b` | `boom_ground` + `dust_column` / `dust_poof` | `dust_burst_star` | wired (art-vfx): `slash_claws` 0.7, `hit_star_cyan`; `slash_gold_arc`, `dust_burst`, `dust_column`, `impact_burst`, water for Culvert; surges `boom_ground` + `dust_column` / `smoke_bloom` / three `water_fountain` |
+| Wild (Barkley, Hissy) | `sl_white_arc_b`, `sl_scratch` | brown `dust_poof`, `sl_claws_red` | `dust_column` x2 + `boom_ground`; `hit_burst_pink` | `dust_burst_star`, purple `dust_wisp` | wired: `slash_white` 0.6-0.7; green-tinted `leaf_swirl`, `slash_red`, Pinecone `boom_star` 0.7; surges `boom_ground` + 2 `dust_column`, `hit_burst_pink`; `venom_crackle` (green-tinted E1) on the spit |
+| Lumen (Cerebro, Pete) | `sp_comet` 0.6, `hit_star_cyan` 0.6 | `sp_sigil_y`, `hit_burst_pink`, `hit_dark_pop` | `smoke_bloom` + `boom_star`; `sp_pinwheel` + `e2_bolt_yellow` | `energy_beam_up`, `dust_side_puff` | wired: `spark_comet` 0.6, `hit_star_cyan`; `hit_burst_pink`, `impact_burst`, `wisp_purple`; surges `sigil_yellow` 1.5, `smoke_bloom` + `boom_star` |
+| Gale (Crease) | `sp_fan` | `sp_pinwheel`, white `dust_wisp` | `smoke_bloom` + white `dust_swirl_ring` | white `dust_wisp` | wired: `spark_fan` 0.6, `spark_pinwheel`, white `dust_ring`; surge `smoke_bloom` + `dust_ring` where the storm lands |
+| Tide (Gillbert, Sno Mercy) | `water_spout`, `hit_star_cyan` | `water_fountain`, `water_wave`, `energy_geyser` | `water_fountain` x3 + `energy_geyser` / `energy_nova` | `water_fountain`, `sp_pinwheel` | wired: `water_spout` 0.6-0.7, `hit_star_cyan`; `water_fountain`, `water_wave`, blue-white `ice_geyser`; surges `ice_nova` + `ice_geyser`, fountains + geyser |
 
-First three changes: Digby `light_1` `impact_burst` -> `hit_star_cyan` (done); Barkley Pinecone Bomb `fire_burst` -> `boom_star` 0.7
-(or brown `dust_poof`); `aura_buff` dropped (done).
+First three changes (all done): Digby `light_1` `impact_burst` -> `hit_star_cyan`; Barkley Pinecone Bomb `fire_burst` -> `boom_star` 0.7;
+`aura_buff` and `fire_burst` dropped. Strip names and the move-by-move wiring: kiddolink_vfx.md section 5; each move's own
+hook, scale and offset sit in its `fx.move_fx` entry (docs/MECHANICS.md), so one strip serves a family.
 
 ## 6. Unused packs and what they are good for (ideas only, no new maps)
 

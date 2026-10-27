@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="MoveFx" format=3]
+
+[ext_resource type="SpriteFrames" path="res://assets/vfx/water_wave_frames.tres" id="1_2raab"]
+[ext_resource type="Script" path="res://src/view/move_fx.gd" id="2_ffngs"]
+
+[resource]
+script = ExtResource("2_ffngs")
+frames = ExtResource("1_2raab")
+on = "start"
+offset = Vector2(0, -15)
+follow = true
+loop = true
+loop_ticks = 24

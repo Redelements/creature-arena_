@@ -1,0 +1,53 @@
+[gd_resource type="SpriteFrames" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/vfx/water_wave.png" id="1_ne70j"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_mo158"]
+atlas = ExtResource("1_ne70j")
+region = Rect2(0, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_il5ph"]
+atlas = ExtResource("1_ne70j")
+region = Rect2(96, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_m0upo"]
+atlas = ExtResource("1_ne70j")
+region = Rect2(192, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_77ree"]
+atlas = ExtResource("1_ne70j")
+region = Rect2(288, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_onh5t"]
+atlas = ExtResource("1_ne70j")
+region = Rect2(384, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_7ngd5"]
+atlas = ExtResource("1_ne70j")
+region = Rect2(480, 0, 96, 96)
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_mo158")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_il5ph")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_m0upo")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_77ree")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_onh5t")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_7ngd5")
+}],
+"loop": 1,
+"name": &"default",
+"speed": 20.0
+}]

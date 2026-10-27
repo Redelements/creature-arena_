@@ -3,7 +3,9 @@ extends Resource
 ## One hand-drawn effect attached to a move: which frames play, where they appear and
 ## when. A move gets one with one line in its JSON `fx` block:
 ##
-##   "move_fx": "res://assets/vfx/slash_claws.tres"         (or a list of them)
+##   "move_fx": "res://assets/vfx/slash_claws.tres"         (or a list of them; an entry can
+##                                                         also be {"path": ..., "scale": 0.6, ...}:
+##                                                         from_entry)
 ##
 ## View only: the sim never reads it. Made by tools/build_vfx.gd from assets/vfx/manifest.json
 ## (tools/cut_vfx.py cuts the frames from kiddolink's pack at ArtScale ppu 2), editable in the
@@ -25,7 +27,7 @@ extends Resource
 ##   "hit"             each hit the move lands, at the hit point
 ##   "projectile"      the shot leaves the hand (`projectile` event)
 ##   "projectile_end"  the shot ends (`projectile_end` event: it hit something or ran out)
-##   "burst"           a lob's burst on landing (`burst` event)
+##   "burst"           a lob landing (its `burst` event, or `storm` for a lob that leaves one)
 @export_enum("strike", "start", "tick", "hit", "projectile", "projectile_end", "burst") var on := "strike"
 ## For "tick": the move tick to spawn on.
 @export var at := 0
@@ -65,3 +67,38 @@ func frame_at(t: float) -> int:
 		return 0
 	var k := int(t / float(maxi(1, ticks_per_frame)))
 	return posmod(k, n) if loop else mini(k, n - 1)
+
+
+## Keys a move's `fx.move_fx` entry may set over the resource's own (a Dictionary entry:
+## {"path": "res://assets/vfx/<name>.tres", "on": "hit", "scale": 0.6, ...}), so one cut
+## serves many moves with their own hook, size and spot.
+const OVERRIDES := ["on", "at", "offset", "follow", "flip_with_facing", "loop", "loop_ticks", "scale",
+	"ticks_per_frame"]
+
+
+## The MoveFx one `fx.move_fx` entry names: a path, or {"path": ..., <OVERRIDES>...} (a copy of
+## the resource with those keys set; its frames shared). Null when the path isn't a MoveFx.
+static func from_entry(v) -> MoveFx:
+	var path := String(v.get("path", "")) if v is Dictionary else String(v)
+	var r = load(path) if path != "" and ResourceLoader.exists(path) else null
+	if not r is MoveFx:
+		return null
+	if not v is Dictionary:
+		return r
+	var f: MoveFx = (r as MoveFx).duplicate()
+	for k in OVERRIDES:
+		if not (v as Dictionary).has(k):
+			continue
+		var x = v[k]
+		match k:
+			"offset":
+				f.offset = Vector2(float(x[0]), float(x[1]))
+			"on":
+				f.on = String(x)
+			"follow", "flip_with_facing", "loop":
+				f.set(k, bool(x))
+			"scale":
+				f.scale = float(x)
+			_:
+				f.set(k, int(x))
+	return f

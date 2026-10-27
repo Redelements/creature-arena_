@@ -39,11 +39,12 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   map's cracks showed through as a second style; dust still draws over it. Ids and the artist's layers: `assets/README.md`; `tests/test_tiles.gd`.
 - Move effects as hand-drawn frames (`MoveFx` resources, `assets/vfx/<name>.tres`, built by
   `tools/build_vfx.gd` from `tools/cut_vfx.py`'s cuts of kiddolink's pack at ppu 2): a move
-  names them in one line, `fx.move_fx` (a path or a list). `MoveFxView` (a child of `FxView`,
+  names them in one line, `fx.move_fx` (a path, a `{"path", overrides}` entry setting that
+  move's hook / scale / offset over the resource's (`MoveFx.from_entry`), or a list). `MoveFxView` (a child of `FxView`,
   a pool of `CAP` AnimatedSprite2Ds) spawns them from the same hooks FxView draws its own
   effects: `on_strike` from `_strike` (the sim's `active_seg`: the hitbox's first live tick,
   so the timing is the move's own `startup`, never a second number), `on_start`, `on_tick`,
-  `on_shot` / `on_event` from `spawn` (hit, projectile, projectile_end, burst; a shot's end
+  `on_shot` / `on_event` from `spawn` (hit, projectile, projectile_end, burst, and storm as a burst; a shot's end
   looks up the move it was thrown from, `_shot_move`). Frames are set from FxView's clock
   (`advance(time_scale)`), never autoplayed, so a freeze holds them and a rollback can't
   drift them; a `follow` effect rides its fighter, others stay put; culled by `_view_rect`.

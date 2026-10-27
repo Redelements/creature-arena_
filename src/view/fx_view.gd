@@ -488,6 +488,11 @@ func spawn(e: Dictionary) -> void:
 			if bomber != null:
 				move_fx.on_event("burst", bomber, p)
 			_pinecone_burst(p, power)
+		"storm":
+			# a lob that leaves a storm (Thousand Cranes) lands: its "burst" move effects play there
+			var stormer := _creature(int(e.get("who", -1)))
+			if stormer != null:
+				move_fx.on_event("burst", stormer, p)
 		"reel":
 			var a := _creature(int(e.get("attacker", -1)))
 			var tgt := _creature(int(e.get("target", -1)))
