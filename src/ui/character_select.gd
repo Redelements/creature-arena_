@@ -413,7 +413,7 @@ func _draw() -> void:
 		for side in 2:
 			if String(roster[i]) in teams[side]:
 				draw_rect(Rect2(r.position.x + side * r.size.x * 0.5, r.position.y, r.size.x * 0.5, 2),
-					Hud.SIDE_COLORS[side])
+					Accessibility.side_color(side))
 		if String(roster[i]) == RANDOM:
 			_text(Vector2(r.position.x, r.position.y + 27), "?", 20, UiTheme.C_ACCENT, HORIZONTAL_ALIGNMENT_CENTER,
 				r.size.x)
@@ -431,7 +431,7 @@ func _draw_overlay() -> void:
 		if not _cursor_shown(side):
 			continue
 		var r := _tile_rect(cursor[side]).grow(1.0 if side == 0 else -1.0)
-		var col: Color = Hud.SIDE_COLORS[side]
+		var col: Color = Accessibility.side_color(side)
 		o.draw_rect(r, col, false, 2.0)
 		var tag := "1P" if side == 0 else ("2P" if two_players else "CPU")
 		var tx := r.position.x if side == 0 else r.end.x - 18.0
@@ -456,7 +456,7 @@ func _cursor_shown(side: int) -> bool:
 
 func _draw_panel(side: int) -> void:
 	var x := _panel_x(side)
-	var col: Color = Hud.SIDE_COLORS[side]
+	var col: Color = Accessibility.side_color(side)
 	var team: Array = teams[side]
 	draw_rect(Rect2(x, PANEL_Y, PANEL_W, PANEL_H), UiTheme.C_ROW)
 	draw_rect(Rect2(x, PANEL_Y, PANEL_W, 2), col)

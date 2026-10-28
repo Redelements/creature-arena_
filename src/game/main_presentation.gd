@@ -185,7 +185,7 @@ func _intro_groups() -> Array:
 			var you := false
 			for i in slots:
 				you = you or (i < main.sides.size() and main.sides[i] in Main.LOCAL_SIDES)
-			out.append({"slots": slots, "side": side, "color": Hud.SIDE_COLORS[side],
+			out.append({"slots": slots, "side": side, "color": Accessibility.side_color(side),
 				"tag": "YOUR TEAM" if you else "CPU TEAM",
 				"name": ["RED TEAM", "BLUE TEAM"][side], "lines": ["  ·  ".join(names)]})
 		return out
@@ -200,7 +200,7 @@ func _intro_groups() -> Array:
 		if String(d.get("title", "")) != "":
 			lines.append(String(d["title"]))
 		lines.append("  ·  ".join(bits))
-		out.append({"slots": [i], "side": i, "color": Hud.SIDE_COLORS[i], "tag": main._side_name(i),
+		out.append({"slots": [i], "side": i, "color": Accessibility.side_color(i), "tag": main._side_name(i),
 			"name": String(d.get("name", "?")).to_upper(), "lines": lines})
 	return out
 
@@ -319,7 +319,7 @@ func results_data() -> Dictionary:
 				pose = c
 				break
 	var title := main.hud.banner if main.hud.banner != "" else "MATCH OVER"
-	var col: Color = Hud.SIDE_COLORS[win_team] if win_team in [0, 1] else UiTheme.C_ACCENT
+	var col: Color = Accessibility.side_color(win_team) if win_team in [0, 1] else UiTheme.C_ACCENT
 	return {
 		"title": title, "sub": main.hud.banner_sub, "color": col,
 		"fighter": String(pose.def.get("id", "")) if pose != null else "",

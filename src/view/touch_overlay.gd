@@ -153,7 +153,9 @@ func _draw_lock(me: CreatureSim, foe: CreatureSim) -> void:
 	var xf := get_viewport().get_canvas_transform()
 	var at := (xf * foe.pos).round()
 	var r := (foe.radius + 6.0) * xf.get_scale().x
-	var col := C_ZONE.lightened(0.15)
+	# a foe's ring: the foe colour of Settings > Accessibility > Team colours when it isn't the default
+	var foe_col := C_ZONE if Accessibility.teams() == Accessibility.Teams.DEFAULT else Accessibility.rel_color("enemy", C_ZONE)
+	var col := foe_col.lightened(0.15)
 	draw_arc(at, r + 1.0, 0.0, TAU, 48, Color(0, 0, 0, 0.35), 1.0)
 	draw_arc(at, r, 0.0, TAU, 48, Color(col, 0.9), 1.0)
 	for d in [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2.DOWN]:
