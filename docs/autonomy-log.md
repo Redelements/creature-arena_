@@ -96,3 +96,7 @@ regression tests in tests/test_training.gd; MECHANICS.md "Training options" upda
 - Decision (agent): seed counts from the runner's measured speed (~30-35 min job, 90 min backstop);
   rollback-fuzz step guarded by `hashFiles` so it turns itself on once task 3's file lands.
 - Checks: suite 1295/0, sweep 324 runs 0 failed, sim-check unchanged. Non-behavioral: merging once green.
+- Fix branch checks: suite 1297/0 (two new tests), sweep 216/0, sim-check unchanged. **PR #261** opened
+  (https://github.com/Redelements/creature-arena_/pull/261). Behavioral (training plays differently after a
+  KO) -> left open for Kevin, who was told in chat.
+- Task 4: #260 merged; the first manual nightly run dispatched on main (workflow_dispatch); result below.
