@@ -326,3 +326,20 @@ func test_an_unreadable_save_is_moved_aside_and_the_backup_read() -> void:
 	assert_false(FileAccess.file_exists(p), "moved aside before anything is written")
 	_cleanup(p)
 	_done()
+
+
+func test_mastery_xp_is_clamped_like_the_accounts() -> void:
+	var p := _fresh()
+	var f := FileAccess.open(p, FileAccess.WRITE)
+	f.store_string("{\"xp\": 1e30, \"mastery\": {\"cairn\": -500, \"sno\": 1e30}}")
+	f.close()
+	Progress.reset_for_tests(p)
+	assert_eq(Progress.mastery_xp("cairn"), 0, "below 0 reads as 0:")
+	assert_eq(Progress.mastery_progress("cairn")[0], 0, "so the bar never shows -500 / 300:")
+	assert_eq(Progress.mastery_xp("sno"), Progress.XP_MAX, "far past the top reads as the top, never an overflow:")
+	assert_eq(Progress.mastery_level("sno"), int(Progress.table()["mastery_curve"]["cap"]), "")
+	assert_eq(Progress.account_xp(), Progress.XP_MAX, "the account the same:")
+	Progress._data["mastery"]["pete"] = -20  # (a value set in memory, not from the file)
+	assert_eq(Progress.mastery_xp("pete"), 0, "")
+	_cleanup(p)
+	_done()

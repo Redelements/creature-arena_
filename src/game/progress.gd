@@ -334,7 +334,7 @@ static func progress_of(curve: Dictionary, xp: int) -> Array:
 
 static func account_xp() -> int:
 	_ensure()
-	return int(_data["xp"])
+	return clampi(int(_data["xp"]), 0, XP_MAX)
 
 
 static func account_level() -> int:
@@ -347,7 +347,7 @@ static func level_progress() -> Array:
 
 static func mastery_xp(fighter: String) -> int:
 	_ensure()
-	return int((_data["mastery"] as Dictionary).get(fighter, 0))
+	return clampi(int((_data["mastery"] as Dictionary).get(fighter, 0)), 0, XP_MAX)
 
 
 static func mastery_level(fighter: String) -> int:
