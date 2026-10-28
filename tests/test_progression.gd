@@ -403,3 +403,47 @@ func test_the_progression_flag_is_for_the_session_only() -> void:
 	g.free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg_path))
 	_done()
+
+
+## The content: every reward id in every table (the account's, each fighter's mastery, the
+## challenges', the endings') has words; every fighter has its own two victory lines and
+## mastery title, short and none shared; every palette a table gives is one the fight draws.
+func test_every_reward_in_every_table_has_words() -> void:
+	var ids: Array = []
+	for r in Progress.account_rewards():
+		ids.append(String(r["id"]))
+	for f in MatchFactory.FIGHTERS:
+		for r in Progress.mastery_rewards(String(f)):
+			ids.append(String(r["id"]))
+	for g in Challenges.goals():
+		var rid := String(g.get("reward", {}).get("id", ""))
+		if rid != "":
+			ids.append(rid)
+	ids.append_array(Endings.titles())
+	assert_gt(float(ids.size()), 80.0, "the tables were read (%d ids)" % ids.size())
+	for id in ids:
+		var words := Progress.reward_text(String(id))
+		assert_true(words != String(id) and not words.contains("{") and words.strip_edges() != "", "%s has words: '%s'" % [id, words])
+		if String(id).begins_with("title:"):
+			assert_true(Progress.title_text(String(id)) != String(id).trim_prefix("title:"), "%s's title is written" % id)
+		if String(id).begins_with("line:"):
+			assert_true(Progress.line_text(String(id)) != String(id).trim_prefix("line:"), "%s's line is written" % id)
+		if String(id).begins_with("palette:"):
+			assert_true(int(String(id).get_slice(":", 2)) < CreatureView.PALETTE_HUES.size(), "%s is a palette the fight draws" % id)
+	assert_eq(CreatureView.PALETTE_HUES.size(), Progress.PALETTES, "every fighter has the four palettes (the hue turn):")
+	var t: Dictionary = Progress.table()
+	var titles := {}
+	for f in MatchFactory.FIGHTERS:
+		var fs := String(f)
+		for k in [fs + "_1", fs + "_2"]:
+			assert_true((t["lines"] as Dictionary).has(k), "%s has its own line '%s'" % [fs, k])
+			assert_true(String(t["lines"].get(k, "")).length() < 50, "%s: under 50 characters" % k)
+		assert_true((t["titles"] as Dictionary).has(fs + "_master"), "%s has its own mastery title" % fs)
+	for k in t["titles"]:
+		var words := String(t["titles"][k])
+		if not String(k).contains("{"):
+			assert_false(titles.has(words), "'%s' is one title, not two (%s)" % [words, k])
+			titles[words] = true
+			assert_true(words.length() < 50, "")
+	for r in Progress.account_rewards():
+		assert_true(String(r["id"]).begins_with("title:"), "every account level gives a title")
