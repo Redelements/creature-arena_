@@ -33,7 +33,7 @@ func build() -> void:
 	_rows_by_name["single"] = add_button("Single player", single_pressed.emit,
 		"Fight the CPU, train, take on Combo Trials, or play 2 players on one screen")
 	_rows_by_name["online"] = add_button("Online", online_pressed.emit,
-		"Play someone on another computer or a server, 1 v 1")
+		"Play on a server or by address: 1 v 1 up to 4 v 4, ranked, spectate")
 	_rows_by_name["profile"] = add_button("Profile", profile_pressed.emit,
 		"Your level, each fighter's mastery, and the palettes, titles and victory lines you've unlocked")
 	_rows_by_name["settings"] = add_button("Settings", settings_pressed.emit,

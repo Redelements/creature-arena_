@@ -1,39 +1,60 @@
 # Ready 4 Rambles
 
-A real-time 2D creature brawler. Small pixel-art creatures fight live in a stadium,
-chaining attacks into combos while the floor cracks, breaks and opens into pits.
+**3v3 creature teamfights on floors that break.**
 
-Six fighters so far, each with a full moveset and a CPU opponent:
+Eleven original pixel-art creatures fight live, in real time, across six arenas whose floors
+crack and open into pits. Every fighter has a class, and the classes are tuned as a
+triangle: assassins beat mages, mages beat fighters and tanks, and those beat assassins.
+Online play runs on rollback netcode, from 1 v 1 up to 4 v 4. Modes: Versus, 3v3 tag Duels, team
+battles, Team Deathmatch, Caravan, Capture the Flag, King of the Crater, Sinkhole, Brawl,
+Chaos Cup, Arcade and a Daily Challenge, plus training, Combo Trials and Reaction Drills.
 
-- **Cairn**, a stack of river stones that boxes: fast strings, a counter, and a dash punch.
-- **Culvert**, a toad made of storm-drain concrete: grabs, shockwaves, and pits.
-- **Craglash**, a mountain that woke up angry: a tank with a stone neck that strikes from
+## Gallery
+
+Screenshots and loops captured from the game itself: every fighter's showcase and every map
+at each time of day it allows, in [docs/gallery](docs/gallery/index.md). Rebuild them, or
+capture the trailer's beats, with `tools/capture_gallery.py`.
+
+![Twin Keeps, Capture the Flag's map, by day](docs/gallery/maps/twin_keeps_day_wide.png)
+
+![Hissy Fitz's showcase](docs/gallery/fighters/hissy.gif) ![Craglash's showcase](docs/gallery/fighters/craglash.gif)
+
+![The Floodgate by day, at sunset and at night](docs/gallery/maps/floodgate_sheet.png)
+
+## The fighters
+
+Eleven fighters, each with a full moveset and a CPU opponent. The class is in brackets
+(bruisers and skirmishers sit with fighters and tanks in the triangle):
+
+- **Cairn** (fighter), a stack of river stones that boxes: fast strings, a counter, and a dash punch.
+- **Culvert** (tank), a toad made of storm-drain concrete: grabs, shockwaves, and pits.
+- **Craglash** (tank), a mountain that woke up angry: a tank with a stone neck that strikes from
   range, armor, a shield and a taunt. The first roster character from the artist's sheets.
-- **Barkley**, a thousand-year-old tree that got up and walked off: a bruiser who reels foes
+- **Barkley** (bruiser), a thousand-year-old tree that got up and walked off: a bruiser who reels foes
   in with a branch arm, spins, lobs pinecones and bursts roots out of the floor. The second
   character from the artist's sheets.
-- **Gillbert**, a fish who got hooked, yanked out of the river and never stopped flopping:
+- **Gillbert** (skirmisher), a fish who got hooked, yanked out of the river and never stopped flopping:
   a small, quick skirmisher who flops across the floor with his fishing rod tumbling
   behind him, hooks foes and reels himself in, and belly-flops from out of reach.
-- **Chef Cerebro**, a floating brain in sunglasses who only wants to cook (the finest
+- **Chef Cerebro** (mage), a floating brain in sunglasses who only wants to cook (the finest
   dishes, and his opponents): a mage whose kitchen floats around him and flies by
   telekinesis. He flicks knives, tosses a meat mallet and hurls his cleaver from range,
   tenderizes anyone who gets close, flips them over his head with a spatula, finishes with
   a stream of knives, and dodges by teleporting.
-- **Hissy Fitz**, kicked out of the museum for turning the guards to stone: a boxer with a
+- **Hissy Fitz** (fighter), kicked out of the museum for turning the guards to stone: a boxer with a
   head of hair snakes and a pair of red gloves who jabs up close, spits venom that poisons
   over time, slows anyone who looks her in the eye, and turns foes to stone with a
   wound-up haymaker.
-- **Digby**, a mole in a miner's helmet who digs well (VERY well): an assassin who
+- **Digby** (assassin), a mole in a miner's helmet who digs well (VERY well): an assassin who
   tunnels under the arena out of reach, blinds foes with his headlamp so their next attack
   misses, pops up under them with his pickaxe, and caves the floor in to root them.
-- **Sneaky Pete**, who has robbed every bank in town, twice: an assassin in a mask and a
+- **Sneaky Pete** (assassin), who has robbed every bank in town, twice: an assassin in a mask and a
   striped beanie who tiptoes in invisible, dashes past foes to pickpocket their strength,
   and vanishes to reappear behind them swinging his money bag.
-- **Sno Mercy**, a snow cone dropped on the sidewalk who now makes everyone else cry: a
+- **Sno Mercy** (bruiser), a snow cone dropped on the sidewalk who now makes everyone else cry: a
   bruiser in boxing gloves whose punches slow, who sprays shaved ice, leaves sticky syrup
   puddles, slides in feet first, and freezes everyone around him solid.
-- **Mister Crease**, folded from a magician's last playbill: a mage made of paper under a
+- **Mister Crease** (mage), folded from a magician's last playbill: a mage made of paper under a
   huge orange hat who flicks paper darts while he struts, folds his tricks before he uses
   them (a bleeding shuriken, a homing crane, three hopping frogs) and buries foes in a
   storm of a thousand cranes.
@@ -48,29 +69,24 @@ run; kept three days). A branch gets one by hand (Run workflow on that page; it 
 the branch's pull request). Windows may warn about an unknown publisher: choose
 **More info → Run anyway**.
 
-**Android** (arm64; played on an AYN Odin 3 with its built-in controls, or any phone with a
-Bluetooth controller; there are no touch controls yet): copy `Ready4Rambles.apk` to the device
-and open it, or `adb install -r Ready4Rambles.apk`. Android's Back acts as Esc, and switching
-away pauses an offline fight. It plays online against PCs (same match fingerprint).
+**Android** (arm64; played on an AYN Odin 3 with its built-in controls, with a Bluetooth
+controller, or with the touch controls, which have a target lock): copy `Ready4Rambles.apk`
+to the device and open it, or `adb install -r Ready4Rambles.apk`. Android's Back acts as Esc,
+and switching away pauses an offline fight. It plays online against PCs (same match fingerprint).
 
-## Gallery
+## Play online: 1 v 1 up to 4 v 4
 
-Screenshots and loops captured from the game itself: every fighter's showcase and every map
-at each time of day it allows, in [docs/gallery](docs/gallery/index.md). Rebuild them, or
-capture the trailer's beats, with `tools/capture_gallery.py`.
+**Online** on the title menu. Both players need the **same build**. Through the server you
+can play 1 v 1 up to 4 v 4, a 3v3 tag Duel or a ranked 1 v 1, see the Daily top 10, and
+watch any match in progress. Fights have proximity voice chat (Settings > Audio), and F6
+saves a replay of an online match for the Replay theater.
 
-![Twin Keeps, Capture the Flag's map, by day](docs/gallery/maps/twin_keeps_day_wide.png)
-
-![Hissy Fitz's showcase](docs/gallery/fighters/hissy.gif) ![Craglash's showcase](docs/gallery/fighters/craglash.gif)
-
-![The Floodgate by day, at sunset and at night](docs/gallery/maps/floodgate_sheet.png)
-
-## Play online (1v1)
-
-**Online** on the title menu. Both players need the **same build**.
-
-- **Quick match:** pick **1 v 1**, **2 v 2** or **3 v 3**, then your fighter on the
-  character tiles, and the server looks for whoever is waiting for the same size.
+- **Quick match:** pick **1 v 1**, **2 v 2**, **3 v 3**, **4 v 4 Capture the Flag**,
+  **Duel 3v3 tag** or **Ranked 1 v 1**, then your fighter on the character tiles, and
+  the server looks for whoever is waiting for the same thing. 2 v 2 and 3 v 3 play the
+  team rules you pick (the plain battle, deathmatch, Sinkhole, Crater, Caravan or Capture
+  the Flag); 4 v 4 is always Capture the Flag. **Watch a match** spectates whatever is on
+  the server right now.
 - **Rooms:** **Create room** shows a short code (like `KX7P`): press it (or its copy
   icon) to copy it, then paste it to your friend. They pick **Join room** and type it,
   and the server pairs the two of you. A room stays together: after each match pick
@@ -132,7 +148,8 @@ bad connection: `--net-lag=6 --net-loss=0.1`. Details: [docs/NETCODE.md](docs/NE
 1. Install [Godot 4.7](https://godotengine.org/download) (standard build, no .NET needed).
 2. Open Godot, click **Import**, and pick this folder's `project.godot`.
 3. Press **F5** (or the ▶ button). The title menu has **Single player** (every mode against
-   the CPU, training, trials and local 2-player), **Online**, **Settings** (Game: CPU level, rumble, screen shake, Discord status, online server; Video: fullscreen, vsync, text font (pixel or smooth), the
+   the CPU, training, trials and local 2-player), **Online**, **Profile** (with Settings > Game >
+   Progression on), **Settings** (Game: CPU level, rumble, screen shake, Discord status, online server; Video: fullscreen, vsync, text font (pixel or smooth), the
    fight frame rate, 144 fps on a PC and 60 on a phone or handheld unless changed; Audio: master, music, effects and menu volume;
    Controls: keyboard layout, range rings, and remapping for both keyboard layouts and the controller) and **Exit**. Menus always
    run at 60 fps. The game itself runs 60 steps a second whatever the frame rate.
@@ -143,7 +160,7 @@ From a terminal:
 godot --path .                          # menu
 godot --path . -- --mode=0 --level=2    # Cairn vs a Hard CPU Culvert
 godot --path . -- --mode=2              # watch CPU vs CPU
-godot --path . -- --showcase=cerebro    # scripted demo: cairn, culvert, craglash, barkley, gillbert, cerebro, cleaver, hissy, digby, pete, sno or counterplay
+godot --path . -- --showcase=cerebro    # scripted demo: cairn, culvert, craglash, barkley, gillbert, cerebro, cleaver, hissy, digby, pete, sno, crease, angles, twinstick or counterplay
 godot --path . -- --mode=6              # Duel vs CPU with the default teams (add --pick to choose)
 godot --headless --path . -- --server   # a dedicated server on UDP 7777 (docs/SERVER.md)
 ```
@@ -155,7 +172,7 @@ Online from a terminal: `godot --path . -- --online-host` and `godot --path . --
 10 Reaction Drill (read Culvert), 11 Reaction Drill (read Cairn), 12 Craglash vs CPU Cairn,
 13 training as Craglash, 14 Barkley vs CPU Craglash, 15 training as Barkley,
 16 Gillbert vs CPU Barkley, 17 training as Gillbert, 18 Chef Cerebro vs CPU Gillbert,
-19 training as Chef Cerebro, 20 Online 1v1 (the lobby), 21 Hissy Fitz vs CPU Chef Cerebro,
+19 training as Chef Cerebro, 20 Online (the lobby), 21 Hissy Fitz vs CPU Chef Cerebro,
 22 training as Hissy Fitz, 23 Digby vs CPU Hissy Fitz, 24 training as Digby,
 25 Sneaky Pete vs CPU Digby, 26 training as Sneaky Pete, 27 Sno Mercy vs CPU Sneaky Pete,
 28 training as Sno Mercy, 29 Team battle 2v2 vs CPU, 30 Team battle 3v3 vs CPU,
@@ -327,6 +344,9 @@ Each map in `data/arenas/` lays fixed pieces on the breakable floor:
 | Floodgate Stadium | A shallows channel down the middle with two bridges. Shallows slow walking to 60% | Culvert wades at full speed; Gillbert's Flop Dash and Sno's Slush Slide run 1.5x faster through it |
 | Greenhouse Dome | Fence lines and brush beds. Fences stop bodies, not shots, and you can't see through them; brush hides whoever stands in it from the other team (not drawn at all on their screen) until one of them is right next to it, it attacks, or it lands or takes a hit (then for half a second). You see yourself and your teammates in brush, faintly | Sneaky Pete's Pickpocket ghosts through fences, Chef Cerebro blinks over them, Digby burrows under everything; any dash or roll flattens brush (grows back) |
 
+Caravan and Capture the Flag have their own maps, **Dustwind Pass** and **Twin Keeps**
+(described with those modes): six arenas in all.
+
 Chasms (pits that never heal) are a map piece too; leaps and Burrow cross them. The CPU
 finds its way round walls, fences and chasms on every level, and plays by the same sight
 rules: a foe its team can't see is hunted where it was last seen.
@@ -352,7 +372,7 @@ behind the blocker ("OPEN!" pops up over them), time enough to punish with a jab
 
 **Stamina pays for dodges and blocks.** A dodge costs **60% of the stamina bar** (Digby and Pete 40%, Gillbert 45%, Hissy Fitz 50%, Craglash 70%), so you get one, then a wait.
 **You can dodge out of your own attack at any time** (leave a string, feint out of a windup, skip a whiffed heavy's
-recovery): that dodge costs **75% of the bar**, and a blocked third light still has to be served. A blocked
+recovery): that dodge costs **1.25 times** your usual dodge (75% of the bar for most fighters), and a blocked third light still has to be served. A blocked
 hit takes **no health** while you have the stamina for it; it drains stamina instead: lights drain less, heavies more, and every
 blocked hit holds stamina regen off for half a second, so you can't recover under pressure.
 At **0 stamina you're exhausted**: you can't start a guard, a guard you're holding drops and
@@ -419,7 +439,8 @@ at a time.
   Landslide Entry, a charging headbutt; Barkley: Timber Drop, a falling log bonk that launches; Gillbert: Splashdown, a little belly-flop;
   Chef Cerebro: Order Up, a mallet bonk that launches; Hissy Fitz: Hiss Off, an uppercut
   that launches; Digby: Pop Goes the Mole, bursting up out of the floor; Sneaky Pete: Smash and Grab, a
-  bag swing; Sno Mercy: Cold Shoulder, a sliding barge that slows). Tag from
+  bag swing; Sno Mercy: Cold Shoulder, a sliding barge that slows; Mister Crease: Grand
+  Entrance, a volley of three paper darts). Tag from
   neutral or guard, then it's on a 5-second cooldown.
 - **Tag cancel:** tag out of an attack that hit, for 50 energy, and the tag-in strike
   carries the combo on.
@@ -475,7 +496,8 @@ down.
   whenever you go down. Bonus points count toward the target, so a shutdown can win the
   match. CPUs go for a spree fighter when there's nobody in their face.
 
-Offline for now (vs CPU); online Team Deathmatch needs the server to run the mode.
+Offline vs CPU, or online (pick **deathmatch** as the team rules for a 2 v 2 or 3 v 3 Quick
+match or room).
 Tuning: `data/rules/deathmatch.json`.
 
 ### The Brawl crown (Brawl and Chaos Cup)
@@ -627,7 +649,7 @@ back exactly; swapping your fighter starts a fresh replay from the swap.
 
 ### Learning the game: Combo Trials and Reaction Drills
 
-- **Combo Trials** (`data/trials.json`, 19 so far): each trial plays a demo of the route,
+- **Combo Trials** (`data/trials.json`, 31 trials): each trial plays a demo of the route,
   then it's your turn. Every move must come out in order and connect, and the combo can't
   drop. The caption shows the route with your buttons and ticks off each move. F2 shows
   the demo again, F4 skips to the next trial.
@@ -935,9 +957,9 @@ tools/        Sprite generators (Python + Pillow + numpy): every fighter's rig, 
 ```
 
 The simulation runs at a fixed 60 ticks per second and only takes **input bitmasks** and
-**data files**. Online play will use rollback netcode; see [docs/NETCODE.md](docs/NETCODE.md)
+**data files**. Online play uses rollback netcode; see [docs/NETCODE.md](docs/NETCODE.md)
 for the design, the measured costs and the rules the simulation follows. The same inputs always produce the same match, which is what makes replays
-(F6), regression tests and, later, rollback netcode possible. The CPU reads the match and
+(F6), regression tests and rollback netcode possible. The CPU reads the match and
 returns button presses, so it plays by exactly the same rules.
 
 All tuning lives in `data/creatures/*.json`: frame data, damage, knockback, launches,
@@ -965,7 +987,7 @@ godot --headless --path . --import
 godot --headless --path . --script res://tests/run_tests.gd
 ```
 
-221 tests cover every example combo, every Combo Trial, both Reaction Drills, Duel rules, every showcase, windups and counterplay,
+Over 1,300 tests cover every example combo, every Combo Trial, both Reaction Drills, Duel rules, every showcase, windups and counterplay,
 rollback netcode (snapshots, two simulated machines over a laggy, lossy connection, online sessions over memory and real UDP: handshake, time sync, rematch, desync detection), every combo rule (variety bonus, stale moves,
 hitstun decay, juggle cap, cancels on contact, stacks, energy, cooldowns, breakaway), grabs,
 Slip counters, shockwaves, the Storm Drain pit ring, Barkley's pull, lob and root rings, Gillbert's reel and leap, Chef Cerebro's thrown kit (range, tenderizing, the flip, a volley of knives through a line), Hissy Fitz's poison, gaze and statues, Digby's blinding, tunnelling and rooting, Sneaky Pete's stealth, stolen power and blink, Sno Mercy's cone, syrup puddles and ice, terrain, determinism, replays, and the
@@ -1001,7 +1023,7 @@ replacement checklist; which file plays for what, and how loud, lives in
 - [x] **Second fighter and CPU opponent:** Cairn, versus mode, best-of-3 rounds, Easy/Normal/Hard
 - [x] **Effects pass:** per-move effects, knockout animations, Surge cut-ins, squash and stretch, combo tracker, crowd reactions
 - [ ] **Vertical slice:** final art for two fighters, one finished arena, tag-team swap, local 2-player
-- [ ] **Content:** eight creatures, five arenas, affinity surfaces
+- [ ] **Content:** eight creatures and five arenas (now eleven and six), affinity surfaces (not built yet)
 - [ ] **Polish and launch:** final music and SFX (placeholders in now, see docs/AUDIO.md), IP and name review, demo and store page
 
 ## Originality
