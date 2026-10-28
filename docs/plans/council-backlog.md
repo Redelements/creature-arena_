@@ -38,6 +38,7 @@ Each row has the default the plan takes if there is no answer, so nothing blocks
 | R7 | Which four calls? Bastion: focus, peel, group, objective | none | Those four; "objective" only in Caravan, Capture the Flag and the Crater |
 | R8 | Rejoin grace window and who it covers? Bastion: 20 s, team matches and ranked 1v1 | none | 20 s, both; the CPU takes the seat in the meantime |
 | R9 | Is a 1v1 matrix the right yardstick for a tank at all? Bastion's slot bench, withdrawn to a tool | unresolved | Add `--slot=<role>` to `bench_cpu.gd` as part of the Craglash PR and report both numbers; pin nothing new |
+| R10 | Digby's Burrow never combos into his lights (Burrow's 16 recovery ticks plus `no_flinch` light_1 and light_2: the target is knocked down and invulnerable before light_2 lands), and Pete's Pickpocket into lights drops the same way; the CPU route `skill_2, light, light, light, heavy` in digby.json is not a real combo. Found by the ambush-trials PR. Fix in the sim? Options: the first light out of an ambush staggers (Vex's dropped `ambush_flinch`, Bastion: a stacked assassin buff), or Burrow's recovery cancels into light_1 on a connect | found in Wave 1 | Wave 1 ships only the routes that work (Pete four, Digby Burrow > Cave-In). No sim change until Kevin rules; if yes, it is a Wave 2 PR with a bench |
 
 ## Wave 1: quick wins (five or six PRs, all in parallel)
 
