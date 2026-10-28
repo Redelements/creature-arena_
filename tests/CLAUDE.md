@@ -61,11 +61,15 @@ about evenly (the slowest files, `test_server_teams`, `test_server_fuzz`, `test_
 
 - `.github/workflows/tests.yml`, every push and PR: the codebase map check
   (`python3 tools/codebase_map.py --check`), then download Godot 4.7.2, `--import`, run the tests.
-- `.github/workflows/playable-build.yml`, PRs and pushes to main: export Windows + Linux,
-  smoke-test the Linux build (cairn showcase, then `--server=7777`; fails on SCRIPT ERROR /
-  Parse Error / Failed to load), `--sim-check` (seed 20261010) on Linux and Windows (fails if
-  the digests differ), upload the builds; a debug Android APK (job `android`: SDK from the runner's
-  `ANDROID_HOME`, a fresh debug key); the `comment` job links all three on the PR.
+- `.github/workflows/determinism.yml`, every push and PR: the stock editor binary on Linux and on
+  Windows plays `--sim-check` (seed 20261010); the `cross-platform-determinism` job fails if the
+  digests differ. Only the two digest files are uploaded.
+- `.github/workflows/playable-build.yml`, pushes to main and manual runs (never a PR by itself: on a
+  public repository anyone signed in can download an artifact): export Windows + Linux, smoke-test
+  the Linux build (cairn showcase, then `--server=7777`; fails on SCRIPT ERROR / Parse Error /
+  Failed to load), `--sim-check` on the Linux build, upload the builds (kept 3 days); a debug
+  Android APK (job `android`: SDK from the runner's `ANDROID_HOME`, a fresh debug key); on a
+  manual run the `comment` job links all three on the branch's open PR, if it has one.
 - `.github/workflows/nightly.yml`, 06:00 UTC and on demand (`workflow_dispatch`), never on PRs: `balance`
   runs `bench_cpu.gd --matrix` and `--pairs` (the `test_balance.gd` pairs) at Normal and `bench_modes.gd`,
   uploaded as the `balance-matrix` and `mode-pacing` artifacts (fails only on a crash, never on the numbers);
