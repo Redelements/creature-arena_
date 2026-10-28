@@ -33,7 +33,7 @@ DONE / SKIPPED / BLOCKED. This file lives on branch `autonomy-log` (worktree
 | 13 | Mode-idea evidence: bench every "idea" row | DONE | [#265](https://github.com/Redelements/creature-arena_/pull/265) |
 | 14 | Digby vs Cerebro with Normal bots, documented | DONE | [#266](https://github.com/Redelements/creature-arena_/pull/266) |
 | 15 | Perf: view-draw pass, before/after | IN PROGRESS | |
-| 16 | Android: shader warm-up, 60 Hz hint; VRAM + soak scripts (not run) | IN PROGRESS | |
+| 16 | Android: shader warm-up, 60 Hz hint; VRAM + soak scripts (not run) | PR OPEN for Kevin; device runs SKIPPED | [#275](https://github.com/Redelements/creature-arena_/pull/275) |
 | 17 | Trailer and gallery capture per map and fighter | DONE | [#268](https://github.com/Redelements/creature-arena_/pull/268) |
 
 ## Setup (2026-10-27)
@@ -316,3 +316,22 @@ touches the same file; whichever merges second resolves a one-line conflict.
   PR: verify green before Kevin merges); journey 4/0; sweep 216/0; sim-check unchanged. 6 new tests.
 - Decisions (agent): fight keys reused for replay controls (fight input isn't read in a replay); step-back
   added; exports don't stamp a git sha (system.txt says "not stamped"; a CI stamp was left out).
+
+## Task 16: Android warm-up, hint, scripts (device runs SKIPPED)
+
+- **PR #275** (behavioral: the hint and the title warm-up; no sim change, no NET bump). Shader warm-up
+  `src/view/shader_warmup.gd`: on the title's first ~46 frames every fight material (7, from a
+  `warm_materials()` factory in each view, pinned by tests/test_shader_warmup.gd so a new shader can't be
+  missed) is drawn once a frame, lit and unlit, into an unseen SubViewport; `--no-warmup` for A/B; `--perf`
+  reports it. 60 Hz hint on the Fight frame rate row when the screen is <= 60 Hz and the cap is higher;
+  mobile default stays 60. Scripts: `tools/odin_perf.py --vram` and `--soak --minutes=10` (thermal sampling,
+  SurfaceFlinger report), both refuse without a device; 18 device-free Python tests, run in tests.yml shard 1.
+  New flag `--rematch-after=N` so a soak can chain fights (game flow, tested).
+- Honest A/B: this PC's NVIDIA driver caches pipelines outside APPDATA, so the first-install hitch can't be
+  shown here; one cold Vulkan launch without the warm-up held a fight frame 90.9 ms, with it none over 19.2 ms
+  but 686 ms paid in the first frames. The real test is the Odin's first run after an install.
+- **SKIPPED (no device attached), the commands Kevin runs with the Odin plugged in at 120 Hz:**
+  `C:/Users/Kevin/dev/python/python.exe -I tools/odin_perf.py --vram` and
+  `C:/Users/Kevin/dev/python/python.exe -I tools/odin_perf.py --soak --minutes=10` (after merging #275).
+- Decision (agent): Godot's shader cache stays off (reloading from it broke 2D lights on GLES3), pinned by
+  a test. Checks: suite 1318/0, journey, sweep 216/0, sim-check unchanged, python tests 18/18.
