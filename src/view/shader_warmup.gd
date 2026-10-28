@@ -30,7 +30,7 @@ extends Node
 const SOURCES := [preload("res://src/view/creature_view.gd"), preload("res://src/view/bloom_view.gd"),
 	preload("res://src/view/grade_view.gd"), preload("res://src/view/light2d_view.gd"),
 	preload("res://src/view/light_view.gd"), preload("res://src/view/glade_view.gd"),
-	preload("res://src/view/weather_view.gd")]
+	preload("res://src/view/weather_view.gd"), preload("res://src/ui/fighter_preview.gd")]
 const KINDS := ["quad", "polygon", "line"]
 const PER_FRAME := 1  ## draws (cells) a frame: one compile at most
 const WARM_MASK := 1 << 19  ## the warm-up light's mask, in its own World2D: no game light uses it

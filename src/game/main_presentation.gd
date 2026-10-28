@@ -337,6 +337,26 @@ func progress_lines() -> Array:
 	return Progress.result_lines(main._progress_shown)
 
 
+## Progression: the title and victory line the results screen shows for a player here
+## who won (their fighter's own title, else the account's; their fighter's line), or ""
+## for each when Progression is off, nobody here won, or nothing is worn. `pose` (the
+## fighter posing) is the one named when the winner played it (a Duel's team), else their
+## first fighter.
+func winner_flair(pose := "") -> Dictionary:
+	var out := {"title": "", "line": ""}
+	if not Progress.enabled():
+		return out
+	for p in progress_report().get("players", []):
+		if not bool(p.get("won", false)):
+			continue
+		var fs: Array = p.get("fighters", [])
+		if fs.is_empty():
+			continue
+		var f := pose if pose in fs else String(fs[0])
+		return {"title": Progress.shown_title(f), "line": Progress.shown_line(f)}
+	return out
+
+
 ## The results screen's data: who won (and the pose), each fighter's stats from the
 ## events, and in a team mode the MVP. Capture the Flag adds caps, returns and stops.
 func results_data() -> Dictionary:
@@ -385,7 +405,9 @@ func results_data() -> Dictionary:
 				break
 	var title := main.hud.banner if main.hud.banner != "" else "MATCH OVER"
 	var col: Color = Accessibility.side_color(win_team) if win_team in [0, 1] else UiTheme.C_ACCENT
+	var flair := winner_flair(String(pose.def.get("id", "")) if pose != null else "")
 	return {
+		"badge": flair["title"], "line": flair["line"],
 		"title": title, "sub": main.hud.banner_sub, "color": col,
 		"fighter": String(pose.def.get("id", "")) if pose != null else "",
 		"mvp": best if main.team_battle != null and best_score > 0.0 else -1,

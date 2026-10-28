@@ -1,0 +1,359 @@
+class_name ProfileScreen
+extends UiScreen
+## The Profile (title menu > Profile, only with Settings > Game > Progression on): the
+## account's level and XP, and a row per fighter with its mastery bar and its next reward.
+## Enter on a fighter opens its page: the palette, title and victory line it wears (locked
+## ones greyed with the level they need; a locked one can be looked at, never worn) over a
+## live preview in the chosen palette, and its reward list. Enter on Account opens the
+## account titles. Everything comes from Progress (src/game/progress.gd); this screen only
+## calls its setters (`set_palette`, `set_equipped`, `set_account_title`, `mark_seen`).
+##
+## "New!" marks a reward a level-up gave that the Profile has not shown yet (Progress
+## `is_new`, save key "seen"): on the title's Profile row, on the fighter's row, on the
+## Account row and in the page's list. Opening a fighter's (or the account's) page sees them.
+##
+## page: "" the Profile, "account", or a fighter id (`--menu=profile`, `profile:account`,
+## `profile:<fighter>`).
+
+const ARCADE_LEVELS := ["Easy", "Normal", "Hard", "Rage"]
+const FACTS := 3  ## every card here has three facts, so the panel never changes height
+
+var page := ""
+var _rows := {}  ## the Profile: row -> fighter id ("" the account)
+
+
+func _init(p_page := "") -> void:
+	super()
+	page = p_page
+	logo = true
+	detail = true
+	detail_width = 170.0  # a card's facts on one line (tests/test_ui_fit.gd)
+	row_width = 226.0
+	row_gap = 2
+	hints = ["move", "change", "select", "back"]
+	if page == "":
+		title = "PROFILE"  # (no subtitle: the Account row says the level, and every row fits a 16:9 screen)
+		blurb = "Your account level and each fighter's mastery. Enter opens a page"
+		hints = ["move", "select", "back"]
+		row_gap = 1
+	elif page == "account":
+		crumbs = ["PROFILE"]
+		title = "ACCOUNT"
+		subtitle = "Level %d  ·  %d XP" % [Progress.account_level(), Progress.account_xp()]
+		blurb = "Titles come with account levels. One is worn by every fighter without a title of its own"
+	else:
+		crumbs = ["PROFILE"]
+		title = _name(page).to_upper()
+		subtitle = "Mastery %d  ·  %s" % [Progress.mastery_level(page), _xp_text(Progress.mastery_progress(page))]
+		blurb = "What %s has unlocked with mastery, and what it wears" % _name(page)
+	visibility_changed.connect(func(): if visible: _refresh())
+
+
+func build() -> void:
+	match page:
+		"":
+			_build_profile()
+		"account":
+			_build_account()
+		_:
+			_build_fighter(page)
+	add_space(4)
+	add_button("Back", back)
+
+
+# ------------------------------------------------------------------ the Profile
+
+func _build_profile() -> void:
+	var acc := add_option("Account", ["Level %d" % Progress.account_level()], 0, func(_i): pass,
+		"Your account's level, its titles and the one you wear")
+	_hub_row(acc, "")
+	for f in MatchFactory.FIGHTERS:
+		var o := add_option(_name(String(f)), ["Mastery %d" % Progress.mastery_level(String(f))], 0, func(_i): pass,
+			"Enter: this fighter's palettes, titles and victory lines")
+		_hub_row(o, String(f))
+	_refresh()
+
+
+func _hub_row(o: OptionRow, fighter: String) -> void:
+	_rows[o] = fighter
+	o.activates = true
+	o.bar_width = 30.0  # room for "New!" after the longest name
+	o.activated.connect(func():
+		if stack != null:
+			stack.notify_chosen()
+			stack.push(ProfileScreen.new("account" if fighter == "" else fighter)))
+	var k := card(o)
+	if k != null and fighter != "":
+		k.fighter = fighter
+
+
+## The Profile's rows from the save (on opening, and on coming back from a page).
+func _refresh() -> void:
+	for o in _rows:
+		var f := String(_rows[o])
+		var row := o as OptionRow
+		var k := card(row)
+		if f == "":
+			var p := Progress.level_progress()
+			row.bar = _frac(p)
+			row.tag = "New!" if not Progress.new_of("").is_empty() else ""
+			var next := _next(Progress.account_rewards(), Progress.account_level())
+			if k != null:
+				k.facts = [
+					"Level %d  ·  %d XP in all" % [Progress.account_level(), Progress.account_xp()],
+					"Next: %s, level %d" % [Progress.title_text(String(next["id"])), int(next["level"])] if not next.is_empty()
+						else "Every account title is yours",
+					"Title: " + (Progress.title_text(Progress.account_title()) if Progress.account_title() != "" else "none"),
+				]
+		else:
+			row.bar = _frac(Progress.mastery_progress(f))
+			row.tag = "New!" if not Progress.new_of(f).is_empty() else ""
+			var next := _next(Progress.mastery_rewards(f), Progress.mastery_level(f))
+			if k != null:
+				k.palette = Progress.palette(f)
+				k.facts = [
+					"Mastery %d  ·  %s" % [Progress.mastery_level(f), _xp_text(Progress.mastery_progress(f))],
+					"Next: %s, mastery %d" % [_short(String(next["id"]), f), int(next["level"])] if not next.is_empty()
+						else "Every mastery reward is yours",
+					_wearing(f),
+				]
+		row.queue_redraw()
+
+
+# ------------------------------------------------------------------ a fighter's page
+
+func _build_fighter(f: String) -> void:
+	var fresh := Progress.new_of(f)
+	# Palettes: every one listed, the locked ones greyed with what unlocks them.
+	var n := Progress.palettes_unlocked(f)
+	var names: Array = []
+	var locked: Array = []
+	for i in Progress.PALETTES:
+		names.append("Palette %d" % (i + 1) if i < n else "Palette %d  ·  Mastery %d" % [i + 1, _palette_level(f, i)])
+		locked.append(i >= n)
+	var pal := add_option("Palette", names, Progress.palette(f), func(_i): pass,
+		"Left/Right: the palette %s wears in a fight (F5 in a fight still steps through them). Greyed ones are locked" % _name(f))
+	pal.locked = locked
+	var pk := card(pal)
+	var show_palette := func(i: int):
+		for c in [pal, _title_row, _line_row]:
+			if c != null and card(c) != null:
+				card(c).palette = i
+		if pk != null:
+			pk.facts = _palette_facts(f, i)
+	pal.changed.connect(func(i: int):
+		if not bool(locked[i]):
+			Progress.set_palette(f, i)
+		show_palette.call(i))
+	if pk != null:
+		pk.fighter = f
+	# Titles: this fighter's own, then the account's.
+	var ids: Array = [""]
+	for r in Progress.mastery_rewards(f) + Progress.account_rewards():
+		if String(r["id"]).begins_with("title:"):
+			ids.append(String(r["id"]))
+	_title_row = _picker("Title", ids, String(Progress.equipped(f)["title"]), f,
+		"Left/Right: the title under your name on the pick and results screens with %s (None: the account's)" % _name(f),
+		func(id: String) -> bool: return Progress.set_equipped(f, "title", id))
+	# Victory lines.
+	var lines: Array = [""]
+	for r in Progress.mastery_rewards(f):
+		if String(r["id"]).begins_with("line:"):
+			lines.append(String(r["id"]))
+	_line_row = _picker("Victory line", lines, String(Progress.equipped(f)["line"]), f,
+		"Left/Right: what the results screen says when you win with %s" % _name(f),
+		func(id: String) -> bool: return Progress.set_equipped(f, "line", id))
+	show_palette.call(Progress.palette(f))
+	# Every mastery reward, unlocked or not.
+	add_heading("Mastery rewards")
+	for r in Progress.mastery_rewards(f):
+		var id := String(r["id"])
+		var have := Progress.unlocked(id)
+		_reward_line("Mastery %d" % int(r["level"]), "\"%s\"" % Progress.title_text(id) if id.begins_with("title:") else _short(id, f),
+			have, fresh.has(id))
+	Progress.mark_seen(fresh)
+
+
+var _title_row: OptionRow = null
+var _line_row: OptionRow = null
+
+
+## A row of rewards to wear ("" = none): locked ones greyed and never worn; the card says
+## what the one shown is and how it unlocks.
+func _picker(label: String, ids: Array, now: String, f: String, desc: String, wear: Callable) -> OptionRow:
+	var names: Array = []
+	var locked: Array = []
+	for id in ids:
+		names.append(_value_name(String(id), ids))
+		locked.append(String(id) != "" and not Progress.unlocked(String(id)))
+	var o := add_option(label, names, maxi(0, ids.find(now)), func(_i): pass, desc)
+	o.locked = locked
+	var k := card(o)
+	if k != null:
+		k.fighter = f
+		k.palette = Progress.palette(f)
+		k.facts = _reward_facts(String(ids[o.index]), f)
+	o.changed.connect(func(i: int):
+		if not bool(locked[i]):
+			wear.call(String(ids[i]))
+		if k != null:
+			k.facts = _reward_facts(String(ids[i]), f))
+	return o
+
+
+# ------------------------------------------------------------------ the account's page
+
+func _build_account() -> void:
+	var fresh := Progress.new_of("")
+	var ids: Array = [""]
+	for r in Progress.account_rewards():
+		if String(r["id"]).begins_with("title:"):
+			ids.append(String(r["id"]))
+	_picker("Title", ids, Progress.account_title(), "",
+		"Left/Right: the title every fighter without one of its own shows on the pick and results screens",
+		func(id: String) -> bool: return Progress.set_account_title(id))
+	add_heading("Account titles")
+	for r in Progress.account_rewards():
+		var id := String(r["id"])
+		var have := Progress.unlocked(id)
+		_reward_line("Level %d" % int(r["level"]), Progress.title_text(id), have, fresh.has(id))
+	Progress.mark_seen(fresh)
+
+
+## A line of a page's reward list: where it comes, what it is, and New! / locked.
+func _reward_line(at: String, what: String, have: bool, fresh: bool) -> void:
+	var col: Color = UiTheme.C_ACCENT if fresh else (UiTheme.C_TEXT if have else UiTheme.C_DIM)
+	var line := HBoxContainer.new()
+	line.add_theme_constant_override("separation", 4)
+	var a := _label(at, UiTheme.SIZE_HINT + 1, col)
+	a.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	a.custom_minimum_size = Vector2(62, 0)
+	line.add_child(a)
+	var b := _label(what + ("   New!" if fresh else ("" if have else "   (locked)")), UiTheme.SIZE_HINT + 1, col)
+	b.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	b.custom_minimum_size = Vector2(row_width - 66, 0)
+	line.add_child(b)
+	add_panel(line)
+
+
+# ------------------------------------------------------------------ words
+
+static func _name(f: String) -> String:
+	return String(MatchFactory.load_def(f).get("name", f))
+
+
+static func _xp_text(p: Array) -> String:
+	return "%d / %d XP" % [int(p[0]), int(p[1])] if int(p[1]) > 0 else "the top level"
+
+
+static func _frac(p: Array) -> float:
+	return clampf(float(p[0]) / float(p[1]), 0.0, 1.0) if int(p[1]) > 0 else 1.0
+
+
+## The first reward of a table above `level` ({} when none is left).
+static func _next(table: Array, level: int) -> Dictionary:
+	for r in table:
+		if int(r["level"]) > level:
+			return r
+	return {}
+
+
+## The level of the mastery table that gives this fighter palette `i` (0 when none does).
+static func _palette_level(f: String, i: int) -> int:
+	for r in Progress.mastery_rewards(f):
+		if String(r["id"]) == "palette:%s:%d" % [f, i]:
+			return int(r["level"])
+	return 0
+
+
+## A reward in a few words: "Palette 2", "Title: Scrapper", "Victory line 1".
+static func _short(id: String, f: String) -> String:
+	if id.begins_with("palette:"):
+		return "Palette %d" % (int(id.get_slice(":", 2)) + 1)
+	if id.begins_with("title:"):
+		return "Title: " + Progress.title_text(id)
+	if id.begins_with("line:"):
+		return "Victory line %d" % (_line_index(id, f) + 1)
+	return id
+
+
+static func _line_index(id: String, f: String) -> int:
+	var n := 0
+	for r in Progress.mastery_rewards(f):
+		var rid := String(r["id"])
+		if rid == id:
+			return n
+		if rid.begins_with("line:"):
+			n += 1
+	return n
+
+
+func _value_name(id: String, ids: Array) -> String:
+	if id == "":
+		return "None"
+	if id.begins_with("line:"):
+		return "Line %d" % ids.find(id)
+	return Progress.title_text(id)
+
+
+## What a fighter wears, on its Profile row's card.
+static func _wearing(f: String) -> String:
+	var e := Progress.equipped(f)
+	var bits := PackedStringArray(["Palette %d" % (int(e["palette"]) + 1)])
+	var t := Progress.shown_title(f) if Progress.enabled() else ""
+	if t != "":
+		bits.append(t)
+	if String(e["line"]) != "":
+		bits.append("Line %d" % (_line_index(String(e["line"]), f) + 1))
+	return "Wearing: " + ", ".join(bits)
+
+
+func _palette_facts(f: String, i: int) -> Array:
+	if i < Progress.palettes_unlocked(f):
+		return ["Palette %d  ·  yours" % (i + 1), "F5 in a fight cycles them", ""]
+	var how := "Mastery %d" % _palette_level(f, i)
+	if i - 1 < ARCADE_LEVELS.size():
+		how += " or an Arcade clear on " + String(ARCADE_LEVELS[i - 1])
+	return ["Palette %d  ·  locked" % (i + 1)] + _wrap(how, 2)
+
+
+func _reward_facts(id: String, f: String) -> Array:
+	if id == "":
+		return ["None", "", ""]
+	var lvl := 0
+	var acc := true
+	for r in Progress.account_rewards():
+		if String(r["id"]) == id:
+			lvl = int(r["level"])
+	if f != "":
+		for r in Progress.mastery_rewards(f):
+			if String(r["id"]) == id:
+				lvl = int(r["level"])
+				acc = false
+	var have := Progress.unlocked(id)
+	var where := ("Account level %d" if acc else "Mastery %d") % lvl
+	var status := (where + "  ·  yours") if have else ("Locked: " + where)
+	if id.begins_with("line:"):
+		return _wrap("\"%s\"" % Progress.line_text(id), 2) + [status]
+	return ["\"%s\"" % Progress.title_text(id), status, ""]
+
+
+## `s` broken into `n` lines that fit a card's fact (the last one takes what is left).
+func _wrap(s: String, n: int) -> Array:
+	var font := UiTheme.font()
+	var fs := UiTheme.px(DetailCard.FONT_FACT)
+	var room := detail_width - 10.0
+	var out: Array = []
+	var line := ""
+	for w in s.split(" "):
+		var t := w if line == "" else line + " " + w
+		if line != "" and out.size() < n - 1 and font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > room:
+			out.append(line)
+			line = w
+		else:
+			line = t
+	out.append(line)
+	while out.size() < n:
+		out.append("")
+	return out

@@ -55,7 +55,13 @@ Menus are `Control` nodes on a `ScreenStack` of `UiScreen`s, styled by one share
 - Settings > Credits → `credits_screen.gd` (its rows and texts; keep it in step with
   `LICENSES.md` when art from a pack is added); a long text that scrolls (a licence) →
   `text_page.gd` (Up/Down, Left/Right, wheel and drag scroll it; it keeps the focus)
-- Hint text per device → `prompts.gd`; live fighter idle → `fighter_preview.gd`
+- Hint text per device → `prompts.gd`; live fighter idle → `fighter_preview.gd` (`palette`: the fight's hue turn
+  through `flash.gdshader`, for the Profile's palette picker; `DetailCard.palette` passes it on)
+- The Profile (Progression on; `--menu=profile[:account|<fighter>]`) → `profile_screen.gd` (`page`: "" the hub,
+  "account", a fighter id; `_build_profile`, `_build_account`, `_build_fighter`, `_picker`): pickers are OptionRows
+  with `locked` (greyed values, looked at but never worn) and the hub rows' `tag` ("New!") and `bar_width`. Every card
+  there has three facts (blank lines keep the height) so the panel never moves. Reads and writes only through
+  `Progress`; `tests/test_progression_profile.gd`, fit in `tests/test_ui_fit.gd` (`PROFILE_PAGES`)
 
 ## Files
 
@@ -69,6 +75,7 @@ Menus are `Control` nodes on a `ScreenStack` of `UiScreen`s, styled by one share
 - `help_screen.gd` (HelpScreen) — The controls for the device in use (PlayerInput's help text, one control a line), in two columns.
 - `option_row.gd` (OptionRow) — A menu row with a value, shown on the right: "Music < 70% >".
 - `pause_screen.gd` (PauseScreen) — The pause menu (Start / Esc / View in a fight): offline the match is frozen behind it; online it keeps going (main neve…
+- `profile_screen.gd` (ProfileScreen) — The Profile (title menu > Profile, only with Settings > Game > Progression on): the account's level and XP, and a row p…
 - `prompts.gd` (Prompts) — Button hints for whichever device the player used last: "A select B back" on a controller, "Enter select Esc back" on t…
 - `ready_check.gd` (ReadyCheck) — "Match found": the server has players for a match and waits for everyone to accept (Netplay's ready check).
 - `remap_screen.gd` (RemapScreen) — Remaps one binding group (Classic keyboard, League-style keyboard or the controller): pick an action, press the new key…
@@ -76,7 +83,7 @@ Menus are `Control` nodes on a `ScreenStack` of `UiScreen`s, styled by one share
 - `room_code_button.gd` (RoomCodeButton) — A room's code as a row you can press: "Room code KX7P" with a copy icon on the right (two offset rounded squares, drawn…
 - `screen_stack.gd` (ScreenStack) — The menu screens open right now, newest on top: push() opens one over the others, Back (B / Esc / View, or Start for a…
 - `text_page.gd` (TextPage) — A page of long text that scrolls (a licence, the third-party notices): the text box fills what the screen leaves under…
-- `title_screen.gd` (TitleScreen) — The title menu: Single player, Online, Settings, Exit. Back points at Exit (the game only closes on Exit itself).
+- `title_screen.gd` (TitleScreen) — The title menu: Single player, Online, Profile, Settings, Exit.
 - `ui_screen.gd` (UiScreen) — One menu screen: a heading, a column of rows, a description of the focused row (in a panel on the right with `detail`,…
 - `ui_theme.gd` (UiTheme) — The one look every menu screen shares, built in code like the input bindings: the HUD's colours, its font, outlined tex…
 <!-- END GENERATED -->

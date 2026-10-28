@@ -168,7 +168,7 @@ func _parse_args() -> int:
 		elif a.begins_with("--menu="):
 			var page := a.get_slice("=", 1)
 			if page in ["main", "single", "look", "settings", "game", "video", "audio", "accessibility", "controls", "touch"] or page.begins_with("single:") \
-					or page.begins_with("credits") \
+					or page.begins_with("credits") or page == "profile" or page.begins_with("profile:") \
 					or page in ["remap:classic", "remap:league", "remap:gamepad"]:
 				main._menu_arg = "" if page == "main" else page
 		elif a.begins_with("--fighter="):

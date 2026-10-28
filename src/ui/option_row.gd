@@ -17,6 +17,16 @@ var index := 0
 var wrap := true
 var activates := false
 var bar := -1.0
+## The meter's width (a row with a tag after its label can take a shorter one).
+var bar_width := BAR_W
+## Values shown greyed (a locked reward on the Profile): true per index; still steppable,
+## the screen decides what a locked one does.
+var locked: Array = []
+## A short accent tag drawn after the label ("New!"), or "".
+var tag := "":
+	set(v):
+		tag = v
+		queue_redraw()
 
 const BAR_W := 44.0
 const GAP := 8.0
@@ -111,14 +121,22 @@ func _draw() -> void:
 	var col := get_theme_color("font_focus_color" if focus else "font_color")
 	var v := _value_rect()
 	var base := (size.y + font.get_ascent(fs) - font.get_descent(fs)) * 0.5
+	if index < locked.size() and bool(locked[index]):
+		col = UiTheme.C_DIM
+	if tag != "":
+		var sb := get_theme_stylebox("normal")
+		var tfs := UiTheme.px(UiTheme.SIZE_HINT + 1)  # smaller than the label, on its baseline
+		var tx := sb.get_margin(SIDE_LEFT) + font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 4.0
+		draw_string_outline(font, Vector2(tx, base), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, tfs, UiTheme.outline(tfs), Color(0, 0, 0, 0.8))
+		draw_string(font, Vector2(tx, base), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, tfs, UiTheme.C_ACCENT)
 	draw_string_outline(font, Vector2(v.position.x, base), value_text(), HORIZONTAL_ALIGNMENT_LEFT, -1, fs,
 		UiTheme.outline(fs), Color(0, 0, 0, 0.8))
 	draw_string(font, Vector2(v.position.x, base), value_text(), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
 	if bar < 0.0:
 		return
 	# A fixed spot, so the bars line up whatever the value's width ("Off" or "100%").
-	var bx := minf(v.position.x, size.x - 8.0 - BAR_VALUE_ROOM) - GAP - BAR_W
-	var r := Rect2(bx, size.y * 0.5 - 2, BAR_W, 4)
+	var bx := minf(v.position.x, size.x - 8.0 - BAR_VALUE_ROOM) - GAP - bar_width
+	var r := Rect2(bx, size.y * 0.5 - 2, bar_width, 4)
 	draw_rect(r, Hud.C_BAR_BG)
 	draw_rect(Rect2(r.position, Vector2(r.size.x * clampf(bar, 0.0, 1.0), r.size.y)),
 		UiTheme.C_ACCENT if focus else UiTheme.C_DIM)

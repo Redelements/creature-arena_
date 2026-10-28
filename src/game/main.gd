@@ -79,7 +79,8 @@ extends Node2D
 ##                         foes), even with nobody playing here (captures of --cpu-vs-cpu)
 ##   --menu=PAGE           open a menu page: main, single, single:<group>, look (Time and weather), settings, game, video, audio, accessibility, controls,
 ##                         remap:classic|league|gamepad, credits, credits:<row> (game, szadi,
-##                         kiddolink, font, godot, notices) (captures)
+##                         kiddolink, font, godot, notices), profile, profile:account,
+##                         profile:<fighter> (with Settings > Game > Progression on) (captures)
 ##   --online-host[=PORT]  host an online 1v1 straight away (UDP, default port 7777)
 ##   --online-join=ADDR[:PORT][/ROOM]  join one, or a dedicated server (ROOM: meet a friend there)
 ##   --online-watch=ADDR[:PORT][/ROOM] watch a server's match (a room's, from match to match)
@@ -464,7 +465,7 @@ var wins := [0, 0]
 var _carried_energy := [-1.0, -1.0]
 var timer := ROUND_TICKS
 var seed_base := 1
-## --menu=PAGE: open a menu page on start (captures): single, single:<group>, settings, game, video, audio, accessibility, controls, credits[:row].
+## --menu=PAGE: open a menu page on start (captures): single, single:<group>, settings, game, video, audio, accessibility, controls, credits[:row], profile[:account|<fighter>].
 var _menu_arg := ""
 var args_ctl := MainArgs.new(self)  ## the command line (main_args.gd)
 var _setting_rows := {}  ## Settings key -> its OptionRow, while the page is open
@@ -934,13 +935,19 @@ func _open_menu(page := "", focus := "") -> void:
 	audio.play_music("menu")
 	_menu_background()
 	var land := focus if focus != "" else ("settings" if page in SETTING_PAGES or page == "controls" or page.begins_with("remap:") \
-		or page.begins_with("credits") else page)
+		or page.begins_with("credits") else ("profile" if page.begins_with("profile") else page))
 	var t := TitleScreen.new(land)
 	t.single_pressed.connect(_open_single)
 	t.online_pressed.connect(func(): _start_match(ONLINE_MODE))
+	t.profile_pressed.connect(_open_profile)
 	t.settings_pressed.connect(settings_ctl._open_settings)
 	t.exit_pressed.connect(func(): get_tree().quit())
 	ui.push(t)
+	if page.begins_with("profile"):  # the Profile, an account or fighter page: --menu=profile:cairn
+		_open_profile()
+		if page.contains(":"):
+			_open_profile(page.get_slice(":", 1))
+		return
 	if page.begins_with("single:"):  # a Single player page, for captures: --menu=single:team
 		_open_single()
 		_open_single_group(page.get_slice(":", 1))
@@ -974,6 +981,14 @@ func _open_menu(page := "", focus := "") -> void:
 			settings_ctl._open_settings()
 			settings_ctl._open_controls()
 			settings_ctl._open_remap(page.get_slice(":", 1))
+
+
+## The Profile (title menu > Profile; src/ui/profile_screen.gd): "" the Profile itself,
+## "account" or a fighter id for its page. Nothing while Settings > Game > Progression is off.
+func _open_profile(page := "") -> void:
+	if not Progress.enabled() or not (page in ["", "account"] or page in MatchFactory.FIGHTERS):
+		return
+	ui.push(ProfileScreen.new(page))
 
 
 ## A CPU-vs-CPU match behind the menus (restarted now and then; the screens stay).
@@ -1435,6 +1450,9 @@ func _start_match(m: int, keep_teams := false) -> void:
 		pick.p1_keyboard = player_input.keyboard
 		pick.p1_pad = player_input.pad_device
 		pick.p2_pad = player2_input.pad_device
+		if Progress.enabled():  # the players' titles (Progression): player 1's side, and player 2's
+			pick.title_for = func(side: int, id: String) -> String:
+				return Progress.shown_title(id) if side == 0 or two_players else ""
 		pick.chosen.connect(_on_teams_chosen)
 		pick.cancelled.connect(_back_to_row)
 		ui.push(pick)

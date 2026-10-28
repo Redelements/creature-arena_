@@ -7,6 +7,8 @@ extends TestCase
 ## is wider than its box (rows, labels, the panel's cards' facts), and the key hints at
 ## the foot don't sit on the page. Since Oct 2026: Settings > Video ran off a 1080p
 ## screen and Team battles' facts ran past the panel, both hidden on a 1440p monitor.
+## Progression's pages too (`PROFILE_PAGES`, with every reward unlocked so the longest
+## titles and lines show), and the winner's title and victory line on the results.
 
 const MAIN := preload("res://src/game/main.gd")
 const TEST_SETTINGS := "user://test_ui_fit.cfg"
@@ -14,6 +16,11 @@ const SIZES := [Vector2i(1920, 1080), Vector2i(1440, 810), Vector2i(2400, 1080),
 	Vector2i(1280, 800), Vector2i(2048, 1536)]
 const PAGES := ["main", "single", "look", "settings", "game", "video", "audio", "accessibility", "controls",
 	"remap:classic", "remap:league", "remap:gamepad", "credits", "credits:godot", "credits:notices"]
+## The Profile's pages (Settings > Game > Progression on): the Profile, the account's and
+## every fighter's.
+const PROFILE_PAGES := ["main", "profile", "profile:account", "profile:cairn", "profile:culvert", "profile:craglash",
+	"profile:barkley", "profile:gillbert", "profile:cerebro", "profile:hissy", "profile:digby", "profile:pete",
+	"profile:sno", "profile:crease"]
 
 var _was_size := Vector2i.ZERO
 var _was_scale := 2.0
@@ -240,6 +247,83 @@ func test_the_results_and_online_screens_fit_every_screen() -> void:
 		_check(g, size, "ready check")
 		g.free()
 	_restore()
+
+
+## Every reward unlocked (the longest words show), in a save of the test's own.
+func _full_progress() -> String:
+	var p := "user://test_ui_fit_progress_%d.json" % Time.get_ticks_usec()
+	Progress.reset_for_tests(p)
+	Progress.set_enabled(true)
+	Progress._ensure()
+	Progress._data["xp"] = 10000000
+	for f in MatchFactory.FIGHTERS:
+		Progress._data["mastery"][String(f)] = 10000000
+	Progress.award({"kind": "cpu", "cpu_level": 1, "players": [
+		{"slot": 0, "fighters": MatchFactory.FIGHTERS.duplicate(), "won": true, "kos": 0}]})
+	return p
+
+
+func _end_progress(p: String) -> void:
+	Progress.set_enabled(false)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(p))
+	Progress.reset_for_tests(Progress.PATH)
+
+
+func test_the_profile_pages_and_the_winners_title_fit_every_screen() -> void:
+	var p := _full_progress()
+	# The longest title and victory line, worn by Mister Crease (the longest name).
+	var long_title := ""
+	for r in Progress.account_rewards() + Progress.mastery_rewards("crease"):
+		var id := String(r["id"])
+		if id.begins_with("title:") and Progress.title_text(id).length() > Progress.title_text(long_title).length():
+			long_title = id
+	var long_line := ""
+	for f in MatchFactory.FIGHTERS:
+		for r in Progress.mastery_rewards(String(f)):
+			var id := String(r["id"])
+			if id.begins_with("line:") and Progress.line_text(id).length() > Progress.line_text(long_line).length():
+				long_line = id
+	assert_true(Progress.set_equipped("crease", "title", long_title), "")
+	Progress._data["equipped"]["crease"]["line"] = long_line  # the longest of anyone's, on Crease to measure
+	Progress.save()
+	for size in SIZES:
+		_screen(size)
+		var g := _game()
+		Progress.set_enabled(true)  # (the settings load reads it Off)
+		for page in PROFILE_PAGES:
+			g._open_menu(page)
+			_check(g, size, page)
+			# Each picker's every value, for the panel's card and the row.
+			var top: UiScreen = g.ui.top()
+			for r in top.rows():
+				if r is OptionRow and (r as OptionRow).values.size() > 1:
+					var o := r as OptionRow
+					o.grab_focus()
+					for i in o.values.size():
+						o.step(1)
+						_check(g, size, "%s, %s %s" % [page, o.label, o.values[o.index]])
+					var font := o.get_theme_font("font")
+					var fs := o.get_theme_font_size("font_size")
+					for v in o.values:
+						var w := font.get_string_size(o.label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 12.0 \
+							+ font.get_string_size("<  %s  >" % v, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 8.0
+						assert_true(w <= o.size.x, "%s: '%s' and '%s' fit the row (%d > %d)" % [page, o.label, v, w, o.size.x])
+		# The results of a win as Crease, with the title and line.
+		g._open_menu()
+		g._skip_select = true
+		g._start_match(g.mode_index("Mister Crease  vs  CPU Chef Cerebro"))
+		_tick(g, 30)
+		g.wins = [2, 0]
+		g.flow = g.Flow.MATCH_OVER
+		g.flow_t = 0
+		g.hud.banner = "MISTER CREASE WINS!"
+		_tick(g, g.MATCH_OVER_MENU_AT + 1)
+		var panel := _find_results(g.ui.top()) as ResultsPanel
+		assert_true(panel != null and String(panel.data["line"]) == Progress.line_text(long_line), "the line is on the results")
+		_check(g, size, "results with a title and a victory line")
+		g.free()
+	_restore()
+	_end_progress(p)
 
 
 ## Every card's facts, for every row and every choice on it (a page only shows the
