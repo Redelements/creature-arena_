@@ -94,7 +94,7 @@ extends Node2D
 ## puddle of syrup and slush).
 ## Status drawn from creature state (`_draw_status`; every layer skips a fighter `shown` hides):
 ##   shield       Stoneskin plates (and CreatureView's pale rim)   armored  amber ring
-##   rooted       rubble round the feet                            taunted  red "!" and a dotted red tether to the taunter
+##   rooted       roots curling over the feet                          taunted  red "!" and a dotted red tether to the taunter
 ##   poisoned     green bubbles, a row of pips per Frenzy stack    blinded  small yellow stars circling the head
 ##   stunned      (crumpled) little birds circling the head        slowed   pebbles at the feet, icy motes trailing, a cool tint
 ##   tenderized   pink down-arrow, plus CreatureView's slow pink pulse on the sprite
@@ -198,9 +198,7 @@ var _last_push := {}
 ## statue last shattered, so its bonus hit gets an accent.
 var _dmg_run := {}
 var _shatter_seen := {}
-## creature id -> true while its root is a leafy one (Barkley's: his Pinecone, his Surge, a
-## sprout trodden on), set by the `rooted` event; anything else (Cave-In) heaps rubble.
-var _leaf_root := {}
+## (Every root, Barkley's or Cave-In's, draws the same curling roots: Kevin's ruling, Oct 27.)
 ## creature id -> the FxView tick its leafy root took hold (the roots grow in from it).
 var _root_t := {}
 var _n_dmg := 0
@@ -268,7 +266,6 @@ func clear() -> void:
 	_last_push.clear()
 	_dmg_run.clear()
 	_shatter_seen.clear()
-	_leaf_root.clear()
 	_root_t.clear()
 	_pstyles.clear()
 	_proj_prev.clear()
@@ -592,14 +589,10 @@ func spawn(e: Dictionary) -> void:
 		"rooted":
 			var c := _creature(int(e.get("who", -1)))
 			if c != null:
-				var by := _creature(int(e.get("by", -1)))
-				var leafy := e.has("plant") or (by != null and String(by.def.get("affinity", "")) == "wild")
-				_leaf_root[c.id] = leafy
 				_root_t[c.id] = _tick
 				# under the feet, drifting only a little, so it never crosses the roots
-				_text(c.pos + Vector2(0, 19), "ROOTED", C_LEAF[2] if leafy else C_DIRT[2], 7, 44.0, 80.0, 0.15)
-				if leafy:
-					move_fx.play(_plant_fx("root"), c.pos, c)
+				_text(c.pos + Vector2(0, 19), "ROOTED", C_LEAF[2], 7, 44.0, 80.0, 0.15)
+				move_fx.play(_plant_fx("root"), c.pos, c)
 		"seed", "plant_grow", "apple", "plant_hit", "plant_root", "apple_eaten", "apple_spoiled", "plant_gone":
 			_plant_event(e, p)
 		"poisoned":
@@ -4185,7 +4178,7 @@ func _draw_creature_extras(ci: CanvasItem, floor_layer: bool) -> void:
 				_draw_line_telegraph(ci, c)
 			if c.is_armored():
 				_draw_rooted(ci, c)
-			if c.root > 0 and bool(_leaf_root.get(c.id, false)) and c.swallow_t <= 0:
+			if c.root > 0 and c.swallow_t <= 0:
 				_draw_leaf_roots(ci, c, false)
 			if not (c.state in [CreatureSim.State.KO, CreatureSim.State.FALLING]) and not c.is_dummy:
 				_draw_aim_mark(ci, c, attacking)
@@ -4411,15 +4404,8 @@ func _draw_status(ci: CanvasItem, c: CreatureSim) -> void:
 			var at := (c.pos + Vector2(cos(a) * 7.0, -_top(c) - 2.0 - lift + sin(a) * 2.0)).round()
 			ci.draw_rect(Rect2(at - Vector2(1, 0), Vector2(3, 1)), C_LAMP)
 			ci.draw_rect(Rect2(at - Vector2(0, 1), Vector2(1, 3)), C_LAMP)
-	if c.root > 0 and bool(_leaf_root.get(c.id, false)):
+	if c.root > 0:
 		_draw_leaf_roots(ci, c, true)  # the near ones over the feet (the far ones: the floor pass)
-	elif c.root > 0:
-		# rooted: rubble heaped round the feet
-		for i in 6:
-			var a := TAU * i / 6.0 + 0.4
-			var at := (c.pos + Vector2(cos(a) * (c.radius + 1.0), sin(a) * 3.0)).round()
-			ci.draw_rect(Rect2(at - Vector2(2, 1), Vector2(4, 3)), C_OUTLINE)
-			ci.draw_rect(Rect2(at - Vector2(1, 1), Vector2(2, 2)), C_DIRT[1 + i % 2])
 	if c.vuln > 0 and (c.vuln > 40 or (_tick / 4) % 2 == 0):
 		# tenderized: a pink down-arrow bobbing over the head
 		var bob := float((_tick / 8) % 2)

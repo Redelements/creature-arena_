@@ -209,8 +209,8 @@ dig/slosh/poof/chop_chop/shout sounds.
   shadows along `shadows.light`, its `stand` y-sorted among the fighters in main's `entities`, a `Plant` node each;
   the sprout's HP bar only when hurt, the tree rising out of the ground, see-through over a fighter the local team
   sees, tinted like an unlit fighter at night `WeatherView.prop_tint`; hidden from a foe without `sight_to` its
-  spot); the events' effects `fx_view.gd:_plant_event` (`PLANT_FX`, played with `MoveFxView.play`); a leafy root
-  (a `rooted` with `plant`, or by a `wild` fighter) `_leaf_root`, drawn in `_draw_status`; sounds
+  spot); the events' effects `fx_view.gd:_plant_event` (`PLANT_FX`, played with `MoveFxView.play`); every root's curling roots
+  (`_draw_leaf_roots`, drawn in `_draw_status`; one look for Barkley's and Cave-In's); sounds
   `audio_view.gd:on_event`. `tests/test_plant_view.gd`
 - Capture the Flag → flags `fx_view.gd:_draw_flag` (in the air: `lift` from main); the capture banner `hud.gd:moment` /
   `_draw_moment`, the red edge `alert` / `_draw_alert`; toasts, sounds and the end-screen
