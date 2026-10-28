@@ -48,3 +48,18 @@ DONE / SKIPPED / BLOCKED. This file lives on branch `autonomy-log` (worktree
 ## Task 1: QA sweep
 
 Started 2026-10-27.
+
+- Base checks on main (6eba0d0): sim-check `7a961fba71498df0595805cb7026ce905b4c22c85aa3248e0f805c588039a8bf`
+  (same as the last recorded digest); smoke sweep 216 runs (54 modes x stadium/quarry/floodgate/
+  greenhouse, all four hazard mutators on, 600 frames each): 0 failures. Full suite: running.
+- Decision: the sweep script becomes `tools/smoke_sweep.py` (tooling) so every later task and the
+  nightly CI can reuse it; noted in tests/CLAUDE.md.
+- open-items.md rewritten to the actual state (2x roster, dressed maps, touch controls, Odin 120 Hz,
+  no app icon / signing, mode and CPU plans, Pete numbers marked as Rage history). STATUS.md now
+  points at this log. Fact check: the training dummy JSON has no `ppu` (still 1x); Android preset
+  `launcher_icons` empty; `tests/test_team_intent.gd` already exists (a first cut of piece 3's
+  shared focus target is on main: task 6 builds on it rather than from nothing).
+- Merge-conflict review of the last fifteen PRs: delegated to a read-only agent (report in the
+  session scratchpad `merge-review.md`); findings below when it returns.
+- Tasks 2, 3, 4 started in parallel (own worktrees `creature-arena-docs-drift`, `-rollback-fuzz`,
+  `-nightly-ci`; disjoint files: docs+README / tests / .github). Task 5 waits for 1-4 to merge.
