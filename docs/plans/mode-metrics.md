@@ -12,7 +12,14 @@ godot --headless --path . --script res://tests/bench_modes.gd -- --seeds=12
 #   --shrine-set=first_seconds:12,cooldown_seconds:25   try a shrine tuning (numbers)
 #   --set=crown_points_to_win:20   try top-level rules numbers (spree_at:0 / crown:0 turn those off)
 #   --seed0=12   start further on (more matches on top of an earlier run)   --rows: every match
+#   --shrine-spots=0.5/0.25;0.5/0.75   the shrine rules' spots (x/y floor fractions; a map's own shrines win)
+#   --arena=quarry   every mode on that map (Caravan and CTF keep their own)
+#   --mutators=damage_mult:0.67   match mutators in every match (a key:value, or a mutators.json id)
 ```
+
+Since Oct 26 the bench plays **Normal CPUs** (`--level=1`, the default; Kevin: no Rage
+benches); the older tables below were Rage. The Normal baseline and the Oct 27 pass over
+every open idea are the first section.
 
 Each mode in its own process runs in parallel (on Windows give each its own `APPDATA`). A
 seed picks the line-up (the roster in a fixed order, rotated by the seed) and the CPUs'
@@ -34,11 +41,127 @@ All of them count the FIGHT phase only (not the intro, not the end screen).
 | Shrine claims/match | `shrine` events. |
 | Captures/match | Capture the Flag's `capture` events. |
 | Claimer won | Share of claims made by the side that went on to win (matches with a winner). 50% in a two-side mode (25-33% in a Brawl of four or three) is no edge; far above it, the shrine feeds whoever is ahead (or the stronger side is the one free to claim). |
+| Caravan push | Both rounds' farthest push, a share of the track (a finished push counts 100%), averaged, and the finished pushes a match. |
 | More buffs won | The Crater's permanent shrine buffs: of the matches with a winner where one side took more buffs (`shrine_boost` events) than the other, how many that side won. |
 
 Caveat: Rage CPUs always fight, so stalemates are rare in every mode (1-9%). What the bench
 shows best is snowballing (comebacks, claimer won) and pacing (length, KOs, fights). Whether
 humans stand around is a playtest question.
+
+## Open ideas, Normal CPUs (2026-10-27, main at 74abd86)
+
+Every row of [mode-ideas.md](mode-ideas.md) that was an idea or not tried, benched with Normal
+CPUs, 24 seeds a mode (`--seeds=24`), the same seeds before and after. Rules the data can
+already say (a shrines block, `--set`, `--shrine-spots`, `--arena`, `--mutators`) were benched
+as they are; the rest with a throwaway prototype behind a rules key (what each did:
+mode-ideas.md, "How it was measured"), dropped afterwards. With no key the prototype build
+matched these baselines to the digit (checked on Team battle 2v2 and Sinkhole).
+
+**Noise.** The same baseline at 12 and at 24 seeds: fights a minute 2.27 / 2.14 (Team battle
+2v2), 1.10 / 0.98 (Team Deathmatch 2v2), 2.41 / 2.15 (Brawl 4); comebacks and first-KO wins
+move by a few matches. Read a difference of under about 0.2 fights a minute or 3-4 matches as
+no change.
+
+**What the Normal baseline says, before any idea.** Normal fights are half again to twice as long
+as Rage ones (Team battle 40-48 s, Brawl 48-55 s, Sinkhole 33 s). The first KO decides one-life
+team modes: its side won 19 of 24 in Team battle (both sizes) and 21 of 24 in Sinkhole.
+Team Deathmatch mostly goes to the clock (18 of 24 at 2v2, 12 of 24 at 3v3) and hardly ever
+comes back (1 of 18, 2 of 23). The Crater goes to time in 21 of 24. **No Caravan push
+finishes** (the caravan gets 29% of the way on average).
+
+### Baseline, Normal CPUs (24 seeds, the rules as shipped)
+
+| Mode | Rules | Matches | Length (s) | Stalemate | Fights/min | KOs/match | Comebacks | First KO won | Time-outs | Shrine claims/match | Claimer won | Caravan push |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Team battle 2v2 | shipped | 24 | 40 | 3% | 2.14 | 2.3 | 4 of 24 | 19 of 24 | 0 | 0.0 | n/a | n/a |
+| Team battle 3v3 | shipped | 24 | 48 | 2% | 1.96 | 3.5 | 3 of 23 | 19 of 24 | 0 | 0.0 | n/a | n/a |
+| Team Deathmatch 2v2 | shipped | 24 | 183 | 2% | 0.98 | 13.1 | 1 of 18 | 18 of 24 | 18 | 0.0 | n/a | n/a |
+| Team Deathmatch 3v3 | shipped | 24 | 176 | 1% | 0.52 | 20.0 | 2 of 23 | 16 of 24 | 12 | 0.0 | n/a | n/a |
+| King of the Crater 2v2 | shipped | 24 | 239 | 3% | 1.45 | 16.2 | 7 of 24 | 16 of 24 | 21 | 5.0 | 53% | n/a |
+| Sinkhole 2v2 | shipped | 24 | 33 | 3% | 1.89 | 2.3 | 7 of 24 | 21 of 24 | 0 | 0.0 | n/a | n/a |
+| Brawl (3) | shipped | 24 | 48 | 5% | 2.53 | 2.0 | 4 of 23 | 9 of 24 | 0 | 0.8 | 50% | n/a |
+| Brawl (4) | shipped | 24 | 55 | 3% | 2.15 | 3.0 | 13 of 24 | 7 of 24 | 0 | 1.0 | 46% | n/a |
+| Caravan 3v3 | shipped | 24 | 250 | 8% | 1.09 | 20.4 | n/a | 8 of 23 | 0 | 0.0 | n/a | 29%, 0.0 done |
+| Capture the Flag 3v3 | shipped | 24 | 181 | 5% | 1.62 | 11.6 | 3 of 12 | 11 of 24 | 0 | 7.3 | 51% | n/a |
+
+### Team battle
+
+| Mode | Rules | Matches | Length (s) | Stalemate | Fights/min | KOs/match | Comebacks | First KO won | Time-outs | Shrine claims/match | Claimer won |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Team battle 2v2 | shipped (no shrines) | 24 | 40 | 3% | 2.14 | 2.3 | 4 of 24 | 19 of 24 | 0 | 0.0 | n/a |
+| Team battle 2v2 | shrines, first 12 s, every 25 s | 24 | 42 | 3% | 2.04 | 2.2 | 1 of 24 | 20 of 24 | 0 | 1.0 | 75% |
+| Team battle 2v2 | **catch-up shrines** (prototype) | 24 | 44 | 4% | 2.16 | 2.2 | 3 of 24 | 22 of 24 | 0 | 0.6 | 21% |
+| Team battle 2v2 | damage x0.67 (`--mutators=damage_mult:0.67`) | 24 | 58 | 3% | 1.52 | 2.1 | 4 of 24 | 23 of 24 | 0 | 0.0 | n/a |
+| Team battle 2v2 | **revive** (prototype) | 24 | 40 | 3% | 2.07 | 2.3 | 3 of 24 | 20 of 24 | 0 | 0.0 | n/a |
+| Team battle 2v2 | revive, foes don't stop it (prototype) | 24 | 40 | 3% | 2.06 | 2.3 | 3 of 24 | 20 of 24 | 0 | 0.0 | n/a |
+| Team battle 3v3 | shipped (no shrines) | 24 | 48 | 2% | 1.96 | 3.5 | 3 of 23 | 19 of 24 | 0 | 0.0 | n/a |
+| Team battle 3v3 | shrines, first 12 s, every 25 s | 24 | 44 | 2% | 1.49 | 3.4 | 2 of 24 | 19 of 24 | 0 | 1.0 | 67% |
+| Team battle 3v3 | **catch-up shrines** (prototype) | 24 | 43 | 2% | 1.50 | 3.4 | 2 of 24 | 20 of 24 | 0 | 0.8 | 32% |
+| Team battle 3v3 | damage x0.67 (`--mutators=damage_mult:0.67`) | 24 | 62 | 2% | 1.33 | 3.3 | 2 of 24 | 22 of 24 | 0 | 0.0 | n/a |
+| Team battle 3v3 | **revive** (prototype) | 24 | 44 | 2% | 1.49 | 3.5 | 2 of 24 | 20 of 24 | 0 | 0.0 | n/a |
+| Team battle 3v3 | revive, foes don't stop it (prototype) | 24 | 46 | 2% | 1.52 | 4.2 | 2 of 24 | 18 of 24 | 0 | 0.0 | n/a |
+
+### Team Deathmatch
+
+| Mode | Rules | Matches | Length (s) | Stalemate | Fights/min | KOs/match | Comebacks | First KO won | Time-outs | Shrine claims/match | Claimer won |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Team Deathmatch 2v2 | shipped (4 s respawn) | 24 | 183 | 2% | 0.98 | 13.1 | 1 of 18 | 18 of 24 | 18 | 0.0 | n/a |
+| Team Deathmatch 2v2 | `--set=respawn_seconds:2` | 24 | 184 | 1% | 0.80 | 14.3 | 4 of 20 | 16 of 24 | 17 | 0.0 | n/a |
+| Team Deathmatch 2v2 | `--set=respawn_seconds:6` | 24 | 183 | 3% | 1.23 | 12.6 | 2 of 21 | 17 of 24 | 21 | 0.0 | n/a |
+| Team Deathmatch 2v2 | **respawn wave every 4 s** (prototype) | 24 | 184 | 2% | 0.93 | 13.0 | 5 of 21 | 17 of 24 | 18 | 0.0 | n/a |
+| Team Deathmatch 2v2 | **respawn wave every 6 s** (prototype) | 24 | 183 | 3% | 1.16 | 13.0 | 4 of 22 | 17 of 24 | 19 | 0.0 | n/a |
+| Team Deathmatch 2v2 | shrines (`--shrines=on`) | 24 | 185 | 2% | 1.18 | 13.1 | 1 of 18 | 17 of 24 | 20 | 3.0 | 68% |
+| Team Deathmatch 2v2 | **catch-up shrines** (prototype) | 24 | 182 | 2% | 1.03 | 12.8 | 1 of 18 | 17 of 24 | 23 | 2.4 | 7% |
+| Team Deathmatch 3v3 | shipped (4 s respawn) | 24 | 176 | 1% | 0.52 | 20.0 | 2 of 23 | 16 of 24 | 12 | 0.0 | n/a |
+| Team Deathmatch 3v3 | `--set=respawn_seconds:2` | 24 | 174 | 1% | 0.45 | 20.1 | 4 of 21 | 18 of 24 | 15 | 0.0 | n/a |
+| Team Deathmatch 3v3 | `--set=respawn_seconds:6` | 24 | 177 | 1% | 0.67 | 18.9 | 4 of 21 | 18 of 24 | 17 | 0.0 | n/a |
+| Team Deathmatch 3v3 | **respawn wave every 4 s** (prototype) | 24 | 176 | 1% | 0.54 | 20.0 | 1 of 22 | 19 of 24 | 17 | 0.0 | n/a |
+| Team Deathmatch 3v3 | **respawn wave every 6 s** (prototype) | 24 | 176 | 1% | 0.51 | 19.5 | 3 of 20 | 18 of 24 | 15 | 0.0 | n/a |
+| Team Deathmatch 3v3 | shrines (`--shrines=on`) | 24 | 175 | 1% | 0.48 | 19.7 | 2 of 19 | 17 of 24 | 15 | 3.0 | 59% |
+| Team Deathmatch 3v3 | **catch-up shrines** (prototype) | 24 | 175 | 1% | 0.53 | 19.6 | 1 of 21 | 17 of 24 | 15 | 2.5 | 12% |
+
+### King of the Crater, Sinkhole, Caravan
+
+| Mode | Rules | Matches | Length (s) | Stalemate | Fights/min | KOs/match | Comebacks | First KO won | Time-outs | Shrine claims/match | Claimer won | Caravan push |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| King of the Crater 2v2 | shipped (buff shrine opposite the zone) | 24 | 239 | 3% | 1.45 | 16.2 | 7 of 24 | 16 of 24 | 21 | 5.0 | 53% | n/a |
+| King of the Crater 2v2 | **next-zone shrine** (prototype) | 24 | 239 | 3% | 1.14 | 16.3 | 2 of 24 | 16 of 24 | 23 | 5.0 | 70% | n/a |
+| Sinkhole 2v2 | shipped | 24 | 33 | 3% | 1.89 | 2.3 | 7 of 24 | 21 of 24 | 0 | 0.0 | n/a | n/a |
+| Sinkhole 2v2 | **ring pickups** (prototype) | 24 | 33 | 4% | 2.43 | 2.0 | 1 of 24 | 24 of 24 | 0 | 0.0 | n/a | n/a |
+| Caravan 3v3 | shipped (no shrines) | 24 | 250 | 8% | 1.09 | 20.4 | n/a | 8 of 23 | 0 | 0.0 | n/a | 29%, 0.0 done |
+| Caravan 3v3 | shrines (`--shrines=on`) | 24 | 265 | 9% | 1.05 | 21.3 | n/a | 7 of 20 | 0 | 4.5 | 62% | 34%, 0.0 done |
+| Caravan 3v3 | **CPU wagon goal, both sides** (prototype) | 24 | 276 | 8% | 1.04 | 22.6 | n/a | 9 of 22 | 0 | 0.0 | n/a | 33%, 0.0 done |
+| Caravan 3v3 | **CPU wagon goal, attackers only** (prototype) | 24 | 272 | 8% | 1.06 | 22.6 | n/a | 11 of 23 | 0 | 0.0 | n/a | 33%, 0.0 done |
+
+### Brawl: a respawning Brawl
+
+| Mode | Rules | Matches | Length (s) | Stalemate | Fights/min | KOs/match | Comebacks | First KO won | Time-outs | Shrine claims/match | Claimer won | Leader at half |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Brawl (3) | shipped (one life, crown) | 24 | 48 | 5% | 2.53 | 2.0 | 4 of 23 | 9 of 24 | 0 | 0.8 | 50% | 23 |
+| Brawl (3) | **respawn after 4 s, most KOs at 120 s, crown off** (prototype) | 24 | 122 | 3% | 1.67 | 6.3 | 3 of 10 | 10 of 18 | 24 | 2.8 | 40% | 10 |
+| Brawl (4) | shipped (one life, crown) | 24 | 55 | 3% | 2.15 | 3.0 | 13 of 24 | 7 of 24 | 0 | 1.0 | 46% | 24 |
+| Brawl (4) | **respawn after 4 s, most KOs at 120 s, crown off** (prototype) | 24 | 122 | 1% | 0.85 | 8.7 | 1 of 12 | 10 of 21 | 24 | 2.7 | 27% | 12 |
+
+### Brawl: shrine spots per arena
+
+| Mode | Rules | Matches | Length (s) | Stalemate | Fights/min | KOs/match | Comebacks | First KO won | Time-outs | Shrine claims/match | Claimer won |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Brawl (3) | Stadium, one central spot | 24 | 48 | 5% | 2.53 | 2.0 | 4 of 23 | 9 of 24 | 0 | 0.8 | 50% |
+| Brawl (3) | Stadium, two spots (0.5/0.25, 0.5/0.75) | 24 | 49 | 6% | 2.87 | 2.0 | 5 of 24 | 10 of 24 | 0 | 1.9 | 50% |
+| Brawl (4) | Stadium, one central spot | 24 | 55 | 3% | 2.15 | 3.0 | 13 of 24 | 7 of 24 | 0 | 1.0 | 46% |
+| Brawl (4) | Stadium, two spots (0.5/0.25, 0.5/0.75) | 24 | 57 | 5% | 2.23 | 3.0 | 15 of 23 | 9 of 24 | 0 | 2.0 | 26% |
+| Brawl (3) | Quarry, one central spot | 24 | 49 | 5% | 2.53 | 2.0 | 5 of 24 | 15 of 24 | 0 | 1.0 | 71% |
+| Brawl (3) | Quarry, two spots (0.5/0.25, 0.5/0.75) | 24 | 52 | 7% | 3.04 | 2.0 | 9 of 24 | 15 of 24 | 0 | 1.8 | 57% |
+| Brawl (4) | Quarry, one central spot | 24 | 57 | 6% | 2.49 | 3.0 | 8 of 24 | 6 of 24 | 0 | 1.2 | 32% |
+| Brawl (4) | Quarry, two spots (0.5/0.25, 0.5/0.75) | 24 | 61 | 4% | 2.16 | 3.0 | 12 of 23 | 6 of 24 | 0 | 2.2 | 40% |
+| Brawl (3) | Floodgate, one central spot | 24 | 48 | 4% | 2.33 | 2.0 | 10 of 24 | 12 of 24 | 0 | 0.8 | 63% |
+| Brawl (3) | Floodgate, two spots (0.5/0.25, 0.5/0.75) | 24 | 51 | 7% | 3.24 | 2.0 | 10 of 24 | 11 of 24 | 0 | 1.6 | 54% |
+| Brawl (4) | Floodgate, one central spot | 24 | 56 | 2% | 2.10 | 3.0 | 12 of 24 | 9 of 24 | 0 | 1.0 | 42% |
+| Brawl (4) | Floodgate, two spots (0.5/0.25, 0.5/0.75) | 24 | 54 | 4% | 2.09 | 3.0 | 8 of 23 | 10 of 24 | 0 | 1.9 | 41% |
+| Brawl (3) | Greenhouse, one central spot | 24 | 50 | 5% | 2.87 | 2.0 | 3 of 24 | 9 of 24 | 0 | 1.0 | 72% |
+| Brawl (3) | Greenhouse, two spots (0.5/0.25, 0.5/0.75) | 24 | 51 | 6% | 2.54 | 2.0 | 4 of 24 | 13 of 24 | 0 | 1.7 | 70% |
+| Brawl (4) | Greenhouse, one central spot | 24 | 53 | 3% | 1.91 | 3.0 | 8 of 24 | 10 of 24 | 0 | 0.9 | 55% |
+| Brawl (4) | Greenhouse, two spots (0.5/0.25, 0.5/0.75) | 24 | 61 | 5% | 2.54 | 3.0 | 17 of 24 | 8 of 24 | 0 | 2.2 | 40% |
 
 ## Baseline (2026-10-25, main at 6d273a6, before shrines everywhere)
 
@@ -217,3 +340,5 @@ were `"spots": [[0.5, 0.16], [0.5, 0.84]]` in its rules for that run.
   `--set=key:value`; Team Deathmatch spree shutdown and the Brawl crown measured.
 - 2026-10-25: round 2 after Kevin's review: TDM off, the Crater's permanent-buff shrine,
   CTF's three shrines; captures and "more buffs won" columns added to the bench.
+- 2026-10-27: Normal-CPU baseline and every open idea of mode-ideas.md benched (24 seeds; prototypes dropped);
+  `--shrine-spots`, `--arena`, `--mutators` flags and the Caravan push column.
