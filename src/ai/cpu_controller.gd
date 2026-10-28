@@ -103,6 +103,13 @@ var _detour_dir := Vector2.ZERO
 ## Ticks before a gap roll that was turned down (walking round is short enough) is
 ## looked at again (`_gap_roll`).
 var _gap_wait := 0
+## A crossing move under way over a chasm (`_gap_cross`): ticks left holding the stick
+## straight along it, and the way.
+var _cross_t := 0
+var _cross_dir := Vector2.ZERO
+var _cross_wait := 0  ## ticks until `_gap_cross` looks again after finding no landing
+var _cross_look_t := 0  ## ticks until `_cross_through` judges the way again
+var _cross_go := false  ## its last answer: walk straight at the chasm to cross it
 const LAND_MARGIN := 6.0  ## floor a roll's landing keeps round it (`_lands_safe`)
 var _hold_heavy := 0
 var _hold_bit := SimDefs.IN_HEAVY  ## the button a held charge is held on
@@ -200,6 +207,14 @@ static var scored_default := true
 ## targets alone, for A/B with `tests/bench_cpu.gd --teams=3 --intent=off`).
 static var intent_default := true
 var intent: bool = intent_default
+## The Caravan plan (`_caravan_go`, `_cv_tether`, `_caravan_target`) for new controllers
+## (on; false plays the caravan as a plain zone, as before Oct 2026, for A/B with
+## `tests/bench_caravan.gd --plan=off`). A fighter's `ai.caravan` false also turns it off.
+static var caravan_default := true
+var caravan: bool = caravan_default
+## This tick's Caravan job from the rules' goal (TeamSim._cv_goals): "push" (attacker),
+## "hold" (defender), "" (not Caravan, or the plan is off).
+var _job := ""
 ## This tick's intent of my team (TeamIntent.of), set in bits(); the focus slot my current
 ## target was picked under, so a new focus is weighed at once; whether the target was
 ## forced on me by a foe in reach (then it isn't my vote for the team's focus).
@@ -214,6 +229,10 @@ func bits(sim: MatchSim) -> int:
 	_out = 0
 	var me := sim.creatures[me_idx]
 	_quiet_t += 1
+	if _cross_t > 0:
+		_cross_t -= 1
+		if me.state != CreatureSim.State.ATTACK:
+			_cross_t = 0  # (hit out of it)
 	for e in sim.events:
 		if String(e["type"]) == "block" and int(e.get("attacker", -1)) == me_idx:
 			if _blocked_serial != me.attack_serial:
@@ -231,6 +250,9 @@ func bits(sim: MatchSim) -> int:
 	t0 = PerfLog.now()
 	_team = TeamIntent.of(sim, me.team)
 	var foe := _pick_target(sim, me) if _rage() else _nearest_known(sim, me)
+	_job = _caravan_job(sim, me)
+	if _job != "" and foe != null and not _rage():
+		foe = _caravan_target(sim, me, foe)
 	# My choice, for the team's next build: who I'm on and whom I can see.
 	var saw := 0
 	for i in sim.creatures.size():
@@ -242,6 +264,8 @@ func bits(sim: MatchSim) -> int:
 	if foe != null and me.state != CreatureSim.State.KO:
 		t0 = PerfLog.now()
 		_decide(sim, me, foe)
+		if _job == "push":
+			_cv_tether(sim, me)
 		PerfLog.since("ai decide", t0)
 		# Normal and up aim attacks exactly (360 degrees), like a stick or a mouse; Easy
 		# keeps to the 8 directions a keyboard gives. Rage leads a moving target. A foe out
@@ -327,6 +351,8 @@ func _move_toward(v: Vector2) -> void:
 func _go_to(sim: MatchSim, me: CreatureSim, goal: Vector2, weave := Vector2.ZERO) -> void:
 	if _gap_roll(sim, me, goal):
 		return
+	if _gap_cross(sim, me, goal):
+		return
 	var t0 := PerfLog.now()
 	var straight := NavGrid.clear_line(sim.terrain, me.pos, goal, me.radius, false)
 	PerfLog.since("ai line", t0)
@@ -349,6 +375,9 @@ func _go_to(sim: MatchSim, me: CreatureSim, goal: Vector2, weave := Vector2.ZERO
 	while _path.size() > 1 and (me.pos.distance_to(_path[0]) < WAYPOINT_REACHED
 			or NavGrid.clear_line(sim.terrain, me.pos, _path[1], me.radius, false)):
 		_path.remove_at(0)
+	if _cross_through(sim, me, goal):
+		_move_toward(goal - me.pos)  # straight at the chasm: the crossing move goes at its lip
+		return
 	if _path.is_empty():
 		_move_toward(_steer(sim, me, goal - me.pos))  # no way round: press on as before
 		return
@@ -417,6 +446,185 @@ func _gap_roll(sim: MatchSim, me: CreatureSim, goal: Vector2) -> bool:
 			return false
 	_hold(SimDefs.move_bits(best))
 	_press(SimDefs.IN_DODGE)
+	return true
+
+
+# ------------------------------------------------------------------ crossing chasms
+
+## The move this fighter can cross a chasm with, ready now: a button move (skill or heavy,
+## never the Surge) with a `leap` window (the sim passes it over pits) and a straight `dash`
+## inside it (not a homing or ghost one), like Digby's Burrow. "" when it has none, or none
+## is ready. Data, not a fighter: any such move counts.
+static func _cross_move(me: CreatureSim) -> String:
+	for mid in ["skill_1", "skill_2", "heavy"]:
+		if _cross_reach(me.moves().get(mid, {})) > 0.0 and _usable(me, mid):
+			return mid
+	return ""
+
+
+## How far a crossing move carries over pits: its dash speed for the dash ticks, when the
+## whole dash lies in the leap window; 0 for any other move.
+static func _cross_reach(mv: Dictionary) -> float:
+	var lp: Dictionary = mv.get("leap", {})
+	var dash: Dictionary = mv.get("dash", {})
+	if lp.is_empty() or dash.is_empty() or dash.has("home") or bool(dash.get("ghost", false)) \
+			or String(mv.get("type", "")) == "surge":
+		return 0.0
+	if int(dash["from"]) < int(lp["from"]) or int(dash["to"]) > int(lp["to"]):
+		return 0.0
+	return float(dash["speed"]) * float(int(dash["to"]) - int(dash["from"]) + 1)
+
+
+## Where a crossing move thrown now toward `dir` comes down: the dash step for step
+## (CreatureSim's dash: its speed, shallows_mult in shallows, walls and fences slide it,
+## pits don't stop it), held straight (`_cross_t`, so the steer adds nothing).
+static func cross_end(sim: MatchSim, me: CreatureSim, mid: String, dir: Vector2) -> Vector2:
+	var d := SimDefs.move_from_bits(SimDefs.move_bits(dir))
+	var dash: Dictionary = me.moves()[mid]["dash"]
+	var t := sim.terrain
+	var lo := me.floor_min()
+	var hi := me.floor_max()
+	var q := me.pos
+	for st in range(int(dash["from"]), int(dash["to"]) + 1):
+		var spd := float(dash["speed"])
+		if t.get_cell(t.world_to_cell(q)) == TerrainGrid.SHALLOWS:
+			spd *= float(dash.get("shallows_mult", 1.0))
+		q.x = t.slide_x(q, clampf(q.x + d.x * spd, lo.x, hi.x), me.radius)
+		q.y = t.slide_y(q, clampf(q.y + d.y * spd, lo.y, hi.y), me.radius)
+	return q
+
+
+## Floor a crossing must come down on: CROSS_MARGIN px round it clear of pits (it lands
+## where it was aimed, but a body nudged at the end must still stand on floor).
+const CROSS_MARGIN := 10.0
+static func _cross_lands(t: TerrainGrid, p: Vector2) -> bool:
+	if t.is_hole_at(p):
+		return false
+	for o in [Vector2(CROSS_MARGIN, 0), Vector2(-CROSS_MARGIN, 0), Vector2(0, CROSS_MARGIN), Vector2(0, -CROSS_MARGIN),
+			Vector2(7, 7), Vector2(-7, 7), Vector2(7, -7), Vector2(-7, -7)]:
+		if t.is_hole_at(p + o):
+			return false
+	return true
+
+
+## Crosses a chasm on the way to `goal` with a crossing move (`_cross_move`: Burrow), as a
+## player would: at the chasm's lip, when the far side can't be walked to (another region of
+## the nav grid) or the walk round is longer than the gap by half the move's reach, and only
+## when it comes down on floor (`cross_end`, `_cross_lands`) well on toward the goal. A healing
+## hole is left to the walk and the roll (`_gap_roll`). Chance per level `LEVELS` `gap`, like
+## the roll; off for a fighter whose `ai.cross_pits` is false.
+func _gap_cross(sim: MatchSim, me: CreatureSim, goal: Vector2) -> bool:
+	if _cross_wait > 0:
+		_cross_wait -= 1
+		return false
+	if not (me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE]) or not bool(_ai(me).get("cross_pits", true)):
+		return false
+	var mid := _cross_move(me)
+	if mid == "":
+		return false
+	var reach := _cross_reach(me.moves()[mid])
+	var to := goal - me.pos
+	var dist := to.length()
+	if dist < reach * 0.5:
+		return false
+	var n := to / dist
+	var t := sim.terrain
+	# At the lip of a chasm (holes=false: only a chasm stops this line).
+	if NavGrid.clear_line(t, me.pos, me.pos + n * (me.radius + 10.0), 0.0, false):
+		return false
+	var g := NavGrid.shared(t)
+	var cut_off := g.region_of(me.pos) != g.region_of(goal)
+	if not _roll(float(p.get("gap", 0.0))):
+		return false
+	var dirs := SimDefs.aim_dirs()
+	var at := _dir_index(n)
+	var best := Vector2.ZERO
+	var best_d := dist - reach * 0.5
+	for k in [0, 1, -1, 2, -2, 3, -3]:
+		var d: Vector2 = dirs[(at + k + dirs.size()) % dirs.size()]
+		var end := cross_end(sim, me, mid, d)
+		if not _cross_lands(t, end):
+			continue
+		var left := end.distance_to(goal)
+		if left < best_d:
+			best_d = left
+			best = d
+	if best == Vector2.ZERO:
+		_cross_wait = 10
+		return false
+	if not cut_off and _walk_length(sim, me, goal) < dist + reach * 0.5:
+		_cross_wait = 10
+		return false
+	var mv: Dictionary = me.moves()[mid]
+	_hold(SimDefs.move_bits(best))
+	_out |= SimDefs.aim_bits(best)
+	_press(int(ACTION_BIT[mid]))
+	_cross_dir = best
+	_cross_t = int(mv.get("windup", 0)) + int(mv["dash"]["to"]) + 2
+	return true
+
+
+## How far the walk to `goal` is along the nav grid (INF when there's none).
+func _walk_length(sim: MatchSim, me: CreatureSim, goal: Vector2) -> float:
+	var way := NavGrid.shared(sim.terrain).path(me.pos, goal)
+	if way.is_empty():
+		return INF
+	var walk := 0.0
+	var from := me.pos
+	for w in way:
+		walk += from.distance_to(w)
+		from = w
+	return walk + from.distance_to(goal)
+
+
+## Whether to walk straight at a chasm to cross it (`_gap_cross` goes at the lip) rather
+## than the way round: a crossing move ready, the walk round (the path being followed) much
+## longer than straight, or none, and the straight line clear of walls with every chasm on
+## it narrower than the move carries, floor after it. Judged every few ticks.
+func _cross_through(sim: MatchSim, me: CreatureSim, goal: Vector2) -> bool:
+	_cross_look_t -= 1
+	if _cross_look_t > 0:
+		return _cross_go
+	_cross_look_t = 8
+	_cross_go = false
+	if not bool(_ai(me).get("cross_pits", true)) or _cross_wait > 0:
+		return false
+	var mid := _cross_move(me)
+	if mid == "":
+		return false
+	var reach := _cross_reach(me.moves()[mid])
+	var dist := me.pos.distance_to(goal)
+	if dist < reach * 0.5:
+		return false
+	var walk := INF
+	if not _path.is_empty():
+		walk = me.pos.distance_to(_path[0])
+		for i in range(1, _path.size()):
+			walk += _path[i - 1].distance_to(_path[i])
+		walk += _path[_path.size() - 1].distance_to(goal)
+	if walk < dist + reach * 0.5:
+		return false
+	# Along the straight line: no walls, chasms narrower than the reach (less the margins).
+	var t := sim.terrain
+	var steps := int(dist / 4.0) + 1
+	var span := -1.0  # where the chasm being crossed began (-1: on floor)
+	var any := false
+	for i in range(1, steps + 1):
+		var along := dist * float(i) / float(steps)
+		var q := me.pos + (goal - me.pos) * (float(i) / float(steps))
+		if NavGrid.body_blocked(t, q, me.radius):
+			return false
+		if t.get_cell(t.world_to_cell(q)) == TerrainGrid.CHASM:
+			if span < 0.0:
+				span = along
+			any = true
+		elif span >= 0.0:
+			if along - span > reach - CROSS_MARGIN * 2.0 - me.radius:
+				return false
+			span = -1.0
+	if span >= 0.0 or not any:
+		return false  # the goal is in a chasm, or none is in the way
+	_cross_go = true
 	return true
 
 
@@ -788,10 +996,17 @@ func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 			and _mind_hazards(sim, me, foe):
 		return
 	var to_foe := _seen(foe) - me.pos
+	# Caravan: the job the rules give this fighter (attackers to the caravan, defenders to
+	# the road ahead of it; `_caravan_go`).
+	if _job != "" and me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE, CreatureSim.State.GUARD]:
+		if _caravan_go(sim, me, foe, to_foe):
+			return
 	# A goal the mode's rules give this fighter (Capture the Flag: the flag, home, the
 	# carrier, the base): go there when outside it, unless the foe is in reach to fight;
-	# an urgent one (running the flag home) even then.
+	# an urgent one (running the flag home) even then. (A Caravan job is `_caravan_go`'s;
+	# with the plan off the caravan is played as a zone, below.)
 	if me.id < sim.goals.size() and not (sim.goals[me.id] as Array).is_empty() \
+			and not _is_caravan_goal(sim.goals[me.id]) \
 			and me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE, CreatureSim.State.GUARD]:
 		var g: Array = sim.goals[me.id]
 		var gp: Vector2 = g[0]
@@ -805,7 +1020,8 @@ func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 			return
 	# King of the Crater: the zone is the point. Outside it, go to it unless the foe is
 	# right here to fight; inside, fight as usual (and come back if the fight drifts).
-	if sim.zone_r > 0.0 and me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE, CreatureSim.State.GUARD]:
+	# (The Caravan's zone is the caravan: with the plan off, both sides play it this way.)
+	if sim.zone_r > 0.0 and _job == "" and me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE, CreatureSim.State.GUARD]:
 		var out := me.pos.distance_to(sim.zone_pos) > sim.zone_r - 6.0
 		if out and (to_foe.length() > _reach_of(me, foe) + 12.0 or _seen(foe).distance_to(sim.zone_pos) <= sim.zone_r):
 			_go_to(sim, me, sim.zone_pos)
@@ -838,6 +1054,9 @@ func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 				_out |= SimDefs.aim_bits(near - me.pos)
 			return
 		_boulder_swing = false
+	if _cross_t > 0 and me.state == CreatureSim.State.ATTACK:
+		_hold(SimDefs.move_bits(_cross_dir))  # a crossing (_gap_cross): straight on to where it lands
+		return
 	if me.state == CreatureSim.State.ATTACK:
 		_continue_attack(sim, me, foe, dist)
 		if _rage():
@@ -853,6 +1072,8 @@ func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 			return
 		if _rage_punish(sim, me, foe, to_foe, dist):
 			return
+		if _job == "push" and _cv_hold(sim, me, foe, to_foe):
+			return
 		_rage_neutral(sim, me, foe, to_foe, dist)
 		return
 
@@ -860,7 +1081,106 @@ func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 		return
 	if _maybe_tag(me, dist):
 		return
+	if _job == "push" and _cv_hold(sim, me, foe, to_foe):
+		return
 	_neutral(sim, me, foe, to_foe, dist)
+
+
+# ------------------------------------------------------------------ caravan
+
+## Whether a goal is a Caravan job (TeamSim._cv_goals: [where, radius, urgent, pass, job]).
+static func _is_caravan_goal(g: Variant) -> bool:
+	return g is Array and (g as Array).size() >= 5 and String((g as Array)[4]) in ["push", "hold"]
+
+
+## This fighter's Caravan job this tick: "push", "hold", or "" (no Caravan goal, a shrine
+## goal instead, the plan off for this controller, or its fighter's `ai.caravan` false).
+func _caravan_job(sim: MatchSim, me: CreatureSim) -> String:
+	if not caravan or me.id >= sim.goals.size() or not _is_caravan_goal(sim.goals[me.id]):
+		return ""
+	if not bool(_ai(me).get("caravan", true)):
+		return ""
+	return String((sim.goals[me.id] as Array)[4])
+
+
+## Caravan: outside its goal (the push radius for an attacker, the road ahead for a
+## defender), go there unless a foe is in reach to fight; a foe at the caravan (contesting
+## it, or pushing it) is no reason to stay away. True when it walked.
+func _caravan_go(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2) -> bool:
+	var g: Array = sim.goals[me.id]
+	var gp: Vector2 = g[0]
+	if me.pos.distance_to(gp) <= float(g[1]):
+		return false
+	var foe_at := _seen(foe).distance_to(sim.zone_pos) <= sim.zone_r
+	if to_foe.length() > _reach_of(me, foe) + 12.0 or foe_at:
+		_go_to(sim, me, gp)
+		return true
+	return false
+
+
+## Caravan: the foe to fight. One in reach comes first; otherwise one at the caravan (a
+## defender contesting the push, an attacker pushing it) over one further off, the
+## nearest of them.
+func _caravan_target(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> CreatureSim:
+	if _seen(foe).distance_to(me.pos) <= _reach_of(me, foe) + 4.0:
+		return foe
+	var best: CreatureSim = null
+	var best_d := INF
+	for o in sim.creatures:
+		if not me.is_foe(o) or o.state == CreatureSim.State.KO:
+			continue
+		if _seen(o).distance_to(sim.zone_pos) > sim.zone_r + 10.0:
+			continue
+		var d := _seen(o).distance_to(me.pos) * 0.5 + o.hp / o.max_hp * 220.0
+		if d < best_d:
+			best_d = d
+			best = o
+	return best if best != null else foe
+
+
+## Caravan, an attacker at the caravan whose foe stands off it (not contesting) and out of
+## each other's reach: it doesn't go out to it (a step, a lunge or a dash would take it off
+## the caravan) but stays and pushes, back toward the middle when near the rim, until the
+## foe comes. Its defence still runs first (`_defend`). A mage (the kite plan) throws from
+## the rim instead (`_cv_tether`). True when it held.
+func _cv_hold(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2) -> bool:
+	if String(_style(me)["plan"]) == "kite" or me.pos.distance_to(sim.zone_pos) > sim.zone_r:
+		return false
+	if _seen(foe).distance_to(sim.zone_pos) <= sim.zone_r + 10.0:
+		return false  # it contests the push: fight it
+	var d := to_foe.length()
+	if d <= _reach_of(foe, me) + 8.0 or d <= _reach_of(me, foe) + 4.0:
+		return false
+	var g: Array = sim.goals[me.id]
+	if me.pos.distance_to(g[0]) > float(g[1]) * 0.6:
+		_move_toward((g[0] as Vector2) - me.pos)
+	return true
+
+
+## Caravan, an attacker: a walk that would take it out of the push radius slides along the
+## rim instead (backing off, circling, a kite, an approach to a foe further off), so the
+## fight stays where it pushes and heals. Only walking: a tick that presses a button (an
+## attack faced with the stick, a roll, a guard) is left alone, and so is a fighter already
+## outside (its goal brings it back).
+func _cv_tether(sim: MatchSim, me: CreatureSim) -> void:
+	if not (me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE]) or (_out & SimDefs.IN_ALL & ~15) != 0:
+		return
+	var dirs := 15 | SimDefs.IN_MOVE | ((SimDefs.AIM_STEPS - 1) << SimDefs.MOVE_SHIFT)
+	if (_out & dirs) == 0:
+		return
+	var off := me.pos - sim.zone_pos
+	var lim := sim.zone_r - 8.0
+	if off.length() < lim or off.length() > sim.zone_r + 4.0:
+		return
+	var n := off.normalized()
+	var d := SimDefs.move_from_bits(_out)
+	var outward := d.dot(n)
+	if outward <= 0.0:
+		return
+	var along := d - n * outward
+	_out &= ~dirs
+	if along.length() > 0.25:
+		_out |= SimDefs.move_bits(along) if level >= 1 else SimDefs.bits_from_dir(along.normalized())
 
 
 ## Duel: tag out a badly hurt creature for a healthier teammate, from a safe distance.

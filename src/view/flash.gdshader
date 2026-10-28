@@ -1,7 +1,10 @@
 shader_type canvas_item;
 // Tints a sprite toward flash_color (the white hit flash, the charge glow), and can
 // draw a 1 px rim around its silhouette (Craglash's Stoneskin shield), and can turn it to
-// grey stone (Hissy Fitz's Petrify Punch).
+// grey stone (Hissy Fitz's Petrify Punch). Settings > Accessibility > Fighter outlines: a
+// 1 texel ring round the silhouette in outline_outer, and with outline_inner set, the
+// silhouette's own edge texels in that colour (High contrast: white round a black edge).
+// The rim (Stoneskin, a ready Surge) wins over the outline where both would draw.
 
 uniform float flash : hint_range(0.0, 1.0) = 0.0;
 uniform vec4 flash_color : source_color = vec4(1.0, 1.0, 1.0, 1.0);
@@ -10,6 +13,9 @@ uniform vec4 rim_color : source_color = vec4(0.85, 0.85, 0.88, 1.0);
 uniform float stone : hint_range(0.0, 1.0) = 0.0;
 uniform bool ice = false;  // frozen in ice (Flavor Blast) rather than stone
 uniform float hue = 0.0;  // palette: the sprite's hues turned round the wheel (0..1)
+uniform float outline = 0.0;  // 0 off, else the outline's alpha
+uniform vec4 outline_outer : source_color = vec4(1.0, 1.0, 1.0, 1.0);
+uniform vec4 outline_inner : source_color = vec4(0.0, 0.0, 0.0, 0.0);  // a = 0: no inner ring
 
 vec3 hue_shift(vec3 c, float h) {
 	// Rotate RGB about the grey axis: cheap and keeps brightness.
@@ -33,6 +39,18 @@ void fragment() {
 		COLOR.rgb = mix(COLOR.rgb, rock, stone);
 	}
 	COLOR.rgb = mix(COLOR.rgb, flash_color.rgb, flash);
+	if (outline > 0.0) {
+		vec2 opx = TEXTURE_PIXEL_SIZE;
+		float on = texture(TEXTURE, UV + vec2(opx.x, 0.0)).a + texture(TEXTURE, UV - vec2(opx.x, 0.0)).a
+			+ texture(TEXTURE, UV + vec2(0.0, opx.y)).a + texture(TEXTURE, UV - vec2(0.0, opx.y)).a;
+		if (COLOR.a < 0.5) {
+			if (on > 0.0 && rim <= 0.0) {
+				COLOR = vec4(outline_outer.rgb, outline);
+			}
+		} else if (outline_inner.a > 0.0 && on < 3.5) {
+			COLOR.rgb = outline_inner.rgb;  // an edge texel: a neighbour is clear
+		}
+	}
 	if (rim > 0.0 && COLOR.a < 0.5) {
 		vec2 px = TEXTURE_PIXEL_SIZE;
 		float n = texture(TEXTURE, UV + vec2(px.x, 0.0)).a + texture(TEXTURE, UV - vec2(px.x, 0.0)).a

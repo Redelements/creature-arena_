@@ -169,18 +169,30 @@ class FloorGlow extends Node2D:
 	static var _shader: Shader = null
 
 	func _init(mask := GLOW_MASK) -> void:
+		material = make_material()
+		light_mask = mask
+		visible = false
+
+	## The shader is built once and shared, so ShaderWarmup's copy compiles the one the game draws.
+	static func make_material() -> ShaderMaterial:
 		if _shader == null:
 			_shader = Shader.new()
 			_shader.code = CODE
 		var m := ShaderMaterial.new()
 		m.shader = _shader
-		material = m
-		light_mask = mask
-		visible = false
+		return m
 
 	func _draw() -> void:
 		const BIG := 100000.0
 		draw_rect(Rect2(-BIG, -BIG, BIG * 2.0, BIG * 2.0), Color.BLACK)
+
+
+## ShaderWarmup's list: FloorGlow's lit additive shader (the PointLight2Ds themselves draw
+## through the lit variant of each material), compiled before the first fight.
+static func warm_materials() -> Array:
+	return [FloorGlow.make_material()]
+
+
 static var _pool_tex: Texture2D = null
 ## A lamp's floor pool keeps full strength out to this share of its radius (`pool`).
 const POOL_CORE := 0.6

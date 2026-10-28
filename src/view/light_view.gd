@@ -61,9 +61,18 @@ static var _cache := {}
 
 
 func _init() -> void:
+	material = _add_material()
+
+
+static func _add_material() -> CanvasItemMaterial:
 	var m := CanvasItemMaterial.new()
 	m.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-	material = m
+	return m
+
+
+## ShaderWarmup's list: Glow's additive pools and halos, compiled before the first fight.
+static func warm_materials() -> Array:
+	return [_add_material()]
 
 
 func _ready() -> void:

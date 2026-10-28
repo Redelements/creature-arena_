@@ -52,6 +52,8 @@ default 22), `routes` (lists of action names), `far_routes`/`far_from`, `poke`/`
 included, and in neutral at a foe within `range` px body to body, not swinging, dodging or guarding, `chance`
 of the ticks; never at a foe already marked: `_plan_setup`), `setup_routes` (the near routes while the foe
 lacks the `setup` mark; once marked, `routes`).
+`cross_pits` (bool, default true: false never crosses a chasm with a crossing move; see Pits below).
+`caravan` (bool, default true: false plays the Caravan as a plain zone, no job; see Caravan below).
 `weights` (Rage's scored kit: per-candidate multipliers `surge`, `lob`, `gaze`, `zone`, `poke`,
 `give_ground` over `CpuController.WEIGHTS` and a `STYLES` entry's `weights`; 0 turns one off,
 e.g. Cerebro's `poke`, whose mallet thrown at a tank walking in loses the matchup; `peel`
@@ -100,12 +102,32 @@ e.g. Cerebro's `poke`, whose mallet thrown at a tank walking in loses the matchu
   (`NavGrid.region_of`) or the walk round is longer by half a roll, chance per level `LEVELS`
   `gap`; every CPU dodge goes through `_safe_roll_dir` / `_open_dir`'s roll mode, so none ends
   within `LAND_MARGIN` of a pit. A ram (Craglash) stops at a lip and never crosses
+- Chasms and crossing moves → a move with a `leap` window round a straight `dash` (no `home`, no `ghost`, not the
+  Surge: Digby's Burrow) carries over pits (`_cross_move`, `_cross_reach`: dash speed x its ticks). `_gap_cross` (from
+  `_go_to`, after `_gap_roll`) throws it at a chasm's lip (only a chasm: healing holes are walked round or rolled)
+  when the far side is another region or the walk round is longer by half its reach, aimed (IN_AIM) the way among
+  seven nearest the goal whose replayed landing (`cross_end`, keep it in step with the dash in
+  `CreatureSim._update_attack`) has floor `CROSS_MARGIN` round it, chance `gap` per level; the stick is then held
+  straight (`_cross_t`, before `_continue_attack`'s Burrow steering). `_cross_through` (every 8 ticks) walks straight
+  at the chasm instead of the path when the path is much longer (or there's none) and the line has no walls and only
+  chasms the move clears. Off per fighter: `ai.cross_pits` false. Measured with `bench_fighter.gd --fighter=digby
+  --arena=twin_keeps` / `--mutators=pit_floor` and `bench_modes.gd --pits`
 - Threads → `think_all`, `think_start` / `think_wait`, `threaded`, `last_bits`
 - Scored kit (piece 2 of docs/plans/ai-utility-and-teamplay.md) → `_rage_kit_scored`,
   `_score_candidates`, the `f_*` considerations and `compensate`, a kiter's `_give_ground`; on
   for Rage (`scored`, `scored_default`); `false` plays the old ladder. A/B with
   `tests/bench_cpu.gd --scored --a=3 --b=3` (scored vs ladder), `--ladder` for the baseline.
   Win rates at `--seeds=3` swing about ±9 of 66 from the rng stream alone: decide at `--seeds=6`+
+- Caravan → the rules give each fighter a job in `sim.goals` (`TeamSim._cv_goals`, `[pos, radius, urgent, -1, job]`,
+  `_is_caravan_goal`, `_caravan_job` into `_job` once a tick): "push" (attackers: the caravan) or "hold" (defenders:
+  the road half a radius ahead, inside the push radius). `_caravan_go` walks there unless a foe is in reach (a foe at the
+  caravan is no reason to stay away); below Rage `_caravan_target` fights a foe at the caravan (the weakest-nearest)
+  over one further off unless one is in its face. An attacker holds on the caravan while its foe stands off it out of
+  reach (`_cv_hold`, after `_defend`, so it doesn't step, lunge or dash off it), and a walk that would take it out of
+  the radius slides along the rim (`_cv_tether`, after `_decide`, walking ticks only: a mage kites from the rim).
+  Off for a controller (`caravan`, `caravan_default`; `tests/bench_caravan.gd --plan=off`) or a fighter (`ai.caravan`
+  false): the caravan is then played as the Crater's zone, as before Oct 2026. Measured with `bench_caravan.gd`
+  (its summary: push, checkpoints, finishes, time at the caravan, the caravan's state) and `bench_modes.gd --modes=caravan2,caravan3`
 - Arena hazards → `_mind_hazards` (first in `_decide` after Sinkhole: steps out of a meteor shadow once it
   notices it, `HAZARD_NOTICE` by level; heads for the spot behind rubble a wave can't reach, `_find_shelter`,
   `SHELTER_LOOK`, and holds there unless a foe is in reach; Hard and Rage dodge through a wave's front when there's

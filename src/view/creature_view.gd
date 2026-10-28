@@ -117,6 +117,9 @@ var aura := SurgeAura.new()
 var aura_front := SurgeAura.new()
 
 const RIM_STONE := Color(0.85, 0.85, 0.88)
+## Settings > Accessibility > Fighter outlines: the colour of this fighter's marker (main sets it
+## each tick from `FxView.mark_color`), drawn round the silhouette by Team.
+var outline_color := Color.WHITE
 
 ## Emissive sheets: the glowing parts of the frame showing now, drawn over the sprite at their
 ## own colour (`_sync_emit`); none while no `_e.png` shows or Lighting is Off (`emissive_on`).
@@ -124,6 +127,14 @@ var emit := Sprite2D.new()
 var emit_mat := ShaderMaterial.new()
 ## Main sets it from Settings > Video > Lighting: Off draws no emissive layer (the game before it).
 static var emissive_on := true
+
+
+## ShaderWarmup's list: the material every fighter draws with (the sprite and its emissive
+## layer share the shader), compiled before the first fight.
+static func warm_materials() -> Array:
+	var m := ShaderMaterial.new()
+	m.shader = FLASH_SHADER
+	return [m]
 
 
 ## The fighter sheets the views alive now hold (`sheet_report`, `--print-vram`).
@@ -447,6 +458,7 @@ func refresh() -> void:
 		rim_col = aura.rim_color()
 	mat.set_shader_parameter("rim", rim)
 	mat.set_shader_parameter("rim_color", rim_col)
+	_apply_outline()
 	# Petrified: grey stone until the statue shatters or wears off (flickering at the end).
 	var stone := 0.0
 	if c.stone > 0 and c.state != CreatureSim.State.KO:
@@ -485,6 +497,28 @@ func refresh() -> void:
 		shadow_fade = maxf(0.4, 1.0 - lift * 0.009) * blink_alpha(c)
 		if c.stealth > 0 or c.covered:
 			shadow_fade *= minf(1.0, alpha * 1.5)
+
+
+## Settings > Accessibility > Fighter outlines, on the flash shader. Only round a fighter that
+## is fully shown: one the local team can't see isn't drawn at all (`out_of_sight`), and one
+## in the brush or invisible (a faint shape, or a ghost only its own team sees) gets none, so
+## an outline never gives anyone away. None once knocked out either.
+func _apply_outline() -> void:
+	var st := Accessibility.outline_style()
+	var on := not st.is_empty() and outline_allowed()
+	mat.set_shader_parameter("outline", float(st.get("alpha", 1.0)) if on else 0.0)
+	if not on:
+		return
+	var outer = st["outer"]
+	mat.set_shader_parameter("outline_outer", outline_color if outer == null else outer)
+	var inner = st["inner"]
+	mat.set_shader_parameter("outline_inner", Color(0, 0, 0, 0) if inner == null else inner)
+
+
+## Whether this fighter may wear an outline now (see `_apply_outline`).
+func outline_allowed() -> bool:
+	return visible and not out_of_sight and not ko_hidden and c.state != CreatureSim.State.KO \
+		and c.stealth <= 0 and not c.covered and c.swallow_t <= 0
 
 
 ## The creature's move breaks guard only at a full charge ("hold": {"guard_break": true},

@@ -40,6 +40,9 @@ var _edges: Array = []  ## [x, y, dx, dy, nx, ny]: an 8 px bank segment, its dir
 var _bank := 0.0
 var _bank_cells := 1
 var _drawn_wet := PackedByteArray()  ## 1 where the painted water is (the cells, or whole tiles)
+var _foam_edges := PackedInt32Array()  ## _scan_foam: each bank segment's corner (x, y)
+var _foam := PackedInt32Array()  ## _scan_foam: 7 ints a speck, 8 specks a segment
+var _foam_ok := PackedByteArray()  ## _scan_foam: the depths a speck may show at, a bit each
 var _surface: Layer
 var _wakes: Layer
 var _drawn := Rect2()
@@ -184,6 +187,7 @@ func _scan() -> void:
 					_edges.append([x, y, 0, 1, 1, 0])
 				if (cx + 1 < _cols or _bank > 0.0) and not wet.call(cx + 1, cy):
 					_edges.append([x + c - 1, y, 0, 1, -1, 0])
+	_scan_foam()
 	_drawn = Rect2()
 	_surface.queue_redraw()
 
@@ -214,64 +218,168 @@ func _paint_surface(ci: CanvasItem) -> void:
 	var view := _drawn.intersection(_bounds)
 	if view.size == Vector2.ZERO:
 		return
-	var step := _drawn_step
-	var phase := sim.tick / 28
+	var sp := surface_specks(view, _drawn_step, sim.tick)
+	for i in range(0, sp.size(), 4):
+		var tone := sp[i + 3]
+		ci.draw_rect(Rect2(sp[i], sp[i + 1], sp[i + 2], 1), WATER[tone])
+		if tone == 6 and sp[i + 2] > 1:
+			glints.append(Vector2(sp[i] + sp[i + 2] * 0.5, sp[i + 1] + 0.5))
+
+
+## What the surface paints over `view` at flow step `step` and tick `tick`: 1 px tall runs,
+## four ints each (x, y, width, WATER tone), in drawing order. The highlights first: one dash
+## per lattice slot that rides down the channel (it keeps its index k while its y grows), with
+## a trough under a long one; then the foam flickering along the banks (and where the water
+## ends under a bridge deck), each speck holding FOAM_TICKS from its own phase. Everything
+## that doesn't change with the clock is worked out once per floor (`_scan_foam`), and the
+## water lookups are inlined, so a redraw is a short loop (it once cost 3-6 ms on Twin
+## Keeps). `tests/test_perf_main_thread.gd` checks it against the plain per-pixel version.
+## (A dash's highlight is the only width-2+ run in tone 6; a foam speck is 1 px.)
+func surface_specks(view: Rect2, step: int, tick: int) -> PackedInt32Array:
+	var out := PackedInt32Array()
+	var phase := tick / 28
 	var x0 := floori(view.position.x)
 	var x1 := ceili(view.end.x)
 	var y0 := floori(view.position.y)
 	var y1 := ceili(view.end.y)
-	# Highlights ride down the channel: a dash keeps its index k while its y grows.
 	var k0 := floori((y0 - step) / float(LATTICE.y)) - 1
 	var k1 := floori((y1 - step) / float(LATTICE.y)) + 1
 	var g0 := floori(x0 / float(LATTICE.x)) - 1
 	var g1 := floori(x1 / float(LATTICE.x)) + 1
 	for k in range(k0, k1 + 1):
+		var ky := k * LATTICE.y + step
+		var kx := (k & 1) * 3
 		for g in range(g0, g1 + 1):
-			var h := _hash(g, k)
+			var h := (g * 73856093) ^ (k * 19349663) ^ 0x5bd1e995  # _hash(g, k), inlined
+			h = (h ^ (h >> 13)) * 1274126177
+			h = (h ^ (h >> 16)) & 0x7fffffff
 			if h % 100 >= 46:
 				continue
-			var ln := 2 + (h >> 7) % 3
-			var x := g * LATTICE.x + (h >> 11) % (LATTICE.x - 3) + (k & 1) * 3
-			var y := k * LATTICE.y + step + (h >> 17) % 3
-			if y < y0 or y > y1 or x < x0 or x > x1:
+			var y := ky + (h >> 17) % 3
+			if y < y0 or y > y1:
 				continue
-			if not _deep(x, y) or not _deep(x + ln, y):
+			var x := g * LATTICE.x + (h >> 11) % (LATTICE.x - 3) + kx
+			if x < x0 or x > x1:
 				continue
 			var tone := ((h >> 3) + phase) % 4
 			if tone == 3:
 				continue  # dark moment: the dash is out
-			ci.draw_rect(Rect2(x, y, ln, 1), WATER[6] if tone == 0 else WATER[5])
-			if tone == 0:
-				glints.append(Vector2(x + ln * 0.5, y + 0.5))
+			var ln := 2 + (h >> 7) % 3
+			if not _deep_i(x, y) or not _deep_i(x + ln, y):
+				continue
+			out.append(x)
+			out.append(y)
+			out.append(ln)
+			out.append(6 if tone == 0 else 5)
 			if ln > 2:
-				ci.draw_rect(Rect2(x + 1, y + 1, ln - 2, 1), WATER[1])  # its trough
-	# Foam flickers along the banks (and where the water ends under a bridge deck): each
-	# speck holds FOAM_TICKS from its own phase, so only a few change at each redraw.
+				out.append(x + 1)
+				out.append(y + 1)
+				out.append(ln - 2)
+				out.append(1)
+	var f := _foam
 	var inset := roundi(_bank)
-	var far := inset + (2 if inset > 0 else 0)  # the far bank (land above) is deeper, its face shades the water
-	for e in _edges:
-		var ex := int(e[0])
-		var ey := int(e[1])
+	var far := inset + (2 if inset > 0 else 0)
+	for e in range(0, _foam_edges.size(), 2):
+		var ex := _foam_edges[e]
+		var ey := _foam_edges[e + 1]
 		if ex + 8 < x0 or ex > x1 or ey + 8 < y0 or ey > y1:
 			continue
-		for u in 8:
-			var px := ex + int(e[2]) * u
-			var py := ey + int(e[3]) * u
-			var h0 := _hash(px * 5 + int(e[4]) * 11, py * 5 + int(e[5]) * 11)
-			var t := (sim.tick + h0 % FOAM_TICKS) / FOAM_TICKS
-			var h2 := _hash(px * 3 + int(e[4]) * 7, py * 3 + int(e[5]) * 7 + t * 1009)
-			var depth := -1
-			if h2 % 7 < 2:
+		var j0 := (e / 2) * 8
+		for j in range(j0, j0 + 8):
+			var o := j * 7
+			var t := (tick + f[o + 4]) / FOAM_TICKS
+			var h2 := (f[o + 5] * 73856093) ^ ((f[o + 6] + t * 1009) * 19349663) ^ 0x5bd1e995
+			h2 = (h2 ^ (h2 >> 13)) * 1274126177
+			h2 = (h2 ^ (h2 >> 16)) & 0x7fffffff
+			var m := h2 % 7
+			var depth := 0
+			if m < 2:
 				depth = 1 + (h2 >> 5) % EDGE_DEPTH
-			elif h2 % 7 == 2:
-				depth = 0
-			if depth < 0:
+			elif m != 2:
 				continue
-			var qx := px + int(e[4]) * (depth + (far if int(e[5]) == 1 else inset))
-			var qy := py + int(e[5]) * (depth + (far if int(e[5]) == 1 else inset))
-			if inset > 0 and not _clear_of_bank(qx, qy, inset, far):
+			var okb := _foam_ok[j]
+			if (okb >> (depth + 4)) & 1 == 0:  # not worked out yet at this depth
+				okb |= 1 << (depth + 4)
+				if _clear_i(f[o] + f[o + 2] * depth, f[o + 1] + f[o + 3] * depth, inset, far):
+					okb |= 1 << depth
+				_foam_ok[j] = okb
+			if (okb >> depth) & 1 == 0:
 				continue  # a corner: the next bank along covers it
-			ci.draw_rect(Rect2(qx, qy, 1, 1), WATER[6] if depth <= 1 else WATER[5])
+			out.append(f[o] + f[o + 2] * depth)
+			out.append(f[o + 1] + f[o + 3] * depth)
+			out.append(1)
+			out.append(6 if depth <= 1 else 5)
+	return out
+
+
+## _deep with the water lookups inlined (the same cells: floor division by CELL).
+func _deep_i(x: int, y: int) -> bool:
+	var cx := (x - SimDefs.GRID_X) >> 3
+	var cy := (y - SimDefs.GRID_Y) >> 3
+	var l := (x - 3 - SimDefs.GRID_X) >> 3
+	var r := (x + 3 - SimDefs.GRID_X) >> 3
+	var t := (y - 3 - SimDefs.GRID_Y) >> 3
+	var b := (y + 3 - SimDefs.GRID_Y) >> 3
+	if l < 0 or r >= _cols or t < 0 or b >= _rows or cx < 0 or cx >= _cols or cy < 0 or cy >= _rows:
+		return false
+	return _water[cy * _cols + l] == 1 and _water[cy * _cols + r] == 1 \
+		and _water[t * _cols + cx] == 1 and _water[b * _cols + cx] == 1
+
+
+## The foam's fixed part, per bank segment (`_edges`): each of its 8 specks' spot pushed in
+## by the bank's inset, its normal, its phase and its hash inputs (7 ints). Whether a speck
+## at a depth stays clear of a drawn bank is worked out the first time it shows there
+## (`_foam_ok`: bit d known at d + 4, clear at d), so a floor change costs no spike.
+func _scan_foam() -> void:
+	var n := _edges.size()
+	_foam_edges = PackedInt32Array()
+	_foam_edges.resize(n * 2)
+	_foam = PackedInt32Array()
+	_foam.resize(n * 8 * 7)
+	_foam_ok = PackedByteArray()
+	_foam_ok.resize(n * 8)
+	_foam_ok.fill(0xff if roundi(_bank) <= 0 else 0)  # no bank: every depth is clear
+	var inset := roundi(_bank)
+	var far := inset + (2 if inset > 0 else 0)  # the far bank (land above) is deeper, its face shades the water
+	for i in n:
+		var e: Array = _edges[i]
+		var ex := int(e[0])
+		var ey := int(e[1])
+		var dx := int(e[2])
+		var dy := int(e[3])
+		var nx := int(e[4])
+		var ny := int(e[5])
+		_foam_edges[i * 2] = ex
+		_foam_edges[i * 2 + 1] = ey
+		var off := far if ny == 1 else inset
+		for u in 8:
+			var px := ex + dx * u
+			var py := ey + dy * u
+			var h0 := ((px * 5 + nx * 11) * 73856093) ^ ((py * 5 + ny * 11) * 19349663) ^ 0x5bd1e995  # _hash, inlined
+			h0 = (h0 ^ (h0 >> 13)) * 1274126177
+			h0 = (h0 ^ (h0 >> 16)) & 0x7fffffff
+			var o := (i * 8 + u) * 7
+			_foam[o] = px + nx * off
+			_foam[o + 1] = py + ny * off
+			_foam[o + 2] = nx
+			_foam[o + 3] = ny
+			_foam[o + 4] = h0 % FOAM_TICKS
+			_foam[o + 5] = px * 3 + nx * 7
+			_foam[o + 6] = py * 3 + ny * 7
+
+
+## _clear_of_bank without the list of offsets (the same four cells).
+func _clear_i(x: int, y: int, side: int, top: int) -> bool:
+	var l := (x - side - SimDefs.GRID_X) >> 3
+	var r := (x + side - SimDefs.GRID_X) >> 3
+	var cx := (x - SimDefs.GRID_X) >> 3
+	var cy := (y - SimDefs.GRID_Y) >> 3
+	var t := (y - top - SimDefs.GRID_Y) >> 3
+	var b := (y + side - SimDefs.GRID_Y) >> 3
+	if l < 0 or r >= _cols or cx < 0 or cx >= _cols or cy < 0 or cy >= _rows or t < 0 or b >= _rows:
+		return false
+	return _drawn_wet[cy * _cols + l] == 1 and _drawn_wet[cy * _cols + r] == 1 \
+		and _drawn_wet[t * _cols + cx] == 1 and _drawn_wet[b * _cols + cx] == 1
 
 
 ## On a tiled map, whether a foam speck at (x, y) is clear of every drawn bank: the painted

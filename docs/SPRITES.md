@@ -1106,6 +1106,17 @@ Previews: [`dummy_preview.png`](dummy_preview.png),
 [`anim_preview/dummy_diagonals_3x.png`](anim_preview/dummy_diagonals_3x.png),
 `python3 tools/gen_dummy.py anim`.
 
+**2x (route A, Oct 2026, branch `dummy-2x`).** The game draws `dummy_2x*.png`: the same rig
+at density 2 (`DUMMY_DENSITY`, default 2; `DUMMY_DENSITY=1` rebuilds the 1x `dummy*.png` byte
+for byte), 192×192 frames, feet at (104, 168) side, (96, 160) down, (96, 168) up, (96, 164)
+down_side, (96, 168) up_side, `"ppu": 2` in every view; same rows, frame counts and timing,
+normal sheets as before (no emissive). Shaded "bold" (`DUMMY_STYLE`), like the roster: three
+flat tones a face and one dark ink round the silhouette. The painted target and the X
+stitches are drawn in part-local rig units, so they scale with the density on their own. It
+has no `portrait` or `ko_fx` keys, so nothing else doubles. Packed copies in
+`assets/sprites/packed/dummy_2x*` (8.7% of the grid pixels). With it every sheet in the game
+is 2x. Gallery: `pixellab/dummy/dummy_route_a.png`.
+
 | Row | Animation | Frames | Notes |
 | --- | --- | --- | --- |
 | 0 | idle | 4 | a small, slow settle on the spring |

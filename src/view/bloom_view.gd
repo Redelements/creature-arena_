@@ -55,9 +55,12 @@ class Emitters extends Node2D:
 	var bloom: BloomView
 
 	func _init() -> void:
+		material = make_material()
+
+	static func make_material() -> CanvasItemMaterial:
 		var m := CanvasItemMaterial.new()
 		m.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-		material = m
+		return m
 
 	func _draw() -> void:
 		bloom._draw_emitters(self)
@@ -84,6 +87,12 @@ func _ready() -> void:
 	out.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	out.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	set_on(on)
+
+
+## ShaderWarmup's list: the emitters' additive layer and the blur, compiled before the first
+## fight (Lighting High only shows them, but a player can turn it on mid-session).
+static func warm_materials() -> Array:
+	return [Emitters.make_material(), _blur(Vector2(1, 0), 1.0)]
 
 
 static func _blur(d: Vector2, gain: float) -> ShaderMaterial:

@@ -37,8 +37,14 @@ Priorities are in the Game Plan doc, "Game modes". Refreshed 2026-10-27 (unatten
   target lock (#201, `src/input/touch_pad.gd`, `touch_target.gd`), menus that fit phones and
   handhelds (#200, `tests/test_ui_fit.gd`), Vulkan on Android with CPU thinking between ticks
   and vsync pacing so the Odin holds 120 Hz (#226; the default fight cap stays 60), a device
-  perf runner (`tools/odin_perf.py`). Not yet: an app icon (the preset's `launcher_icons` are
-  empty), release signing, a Play Store listing, a shader warm-up for the first-run hitch.
+  perf runner (`tools/odin_perf.py`), a shader warm-up on the title for the first-run
+  Vulkan compile hitch (`src/view/shader_warmup.gd`), a Settings > Video hint when the screen
+  runs at 60 Hz and the fight cap is higher, and two device runs prepared but **not run yet**
+  (no device was attached): `tools/odin_perf.py --vram` (texture memory after the 2x roster,
+  Lighting High and Low) and `--soak --minutes=10` (a true 10-minute heat soak with the
+  device's temperatures); the commands are in `docs/plans/android-touch-menus-perf.md` "How
+  to measure". Not yet: an app icon (the preset's `launcher_icons` are empty), release
+  signing, a Play Store listing.
   Open for Kevin: the touch targeting spec (cancel zone, default priority, objective button).
   iPhone: not started (needs a Mac build in CI and a paid Apple Developer account).
 - **Not built yet:** affinity surfaces (part B of `docs/plans/arenas-surfaces-modes-online.md`,
@@ -52,9 +58,11 @@ Priorities are in the Game Plan doc, "Game modes". Refreshed 2026-10-27 (unatten
   column; Cerebro's kit pass shipped (#214), Crease is "no change", the other rows wait on Kevin.
 - **CPU, planned:** shared team intent (focus target, peel, front line) for 2v2 and up
   (`docs/plans/ai-utility-and-teamplay.md` piece 3; a first cut of the shared focus target is
-  in `src/ai/` with `tests/test_team_intent.gd`), bots playing the Caravan objective, and
+  in `src/ai/` with `tests/test_team_intent.gd`) and
   Burrow across pits (CPUs roll over pits since #230). Rage picks its kit by utility score
-  already (#159, #161).
+  already (#159, #161). Caravan CPUs play the wagon (attackers push and stay on it, defenders hold the road
+  ahead; `_caravan_go`): the push still never finishes with Normal bots (about a third of the track),
+  because both sides crowd the caravan and a contested caravan doesn't move.
 - **Known issues:** Sneaky Pete loses to Mister Crease almost every game *Rage vs Rage* (0 of 12
   on the Stadium, Oct 23): Tiptoe is up every 5 s and the knives chip him down in between.
   `bench_fighter.gd --fighter=pete --foes=crease --seeds=6`: Pete wins 1 of 6 and takes 2x what
@@ -62,4 +70,12 @@ Priorities are in the Game Plan doc, "Game modes". Refreshed 2026-10-27 (unatten
   skill_1 and 3 of 21 skill_2. Kevin's call (Oct 23): the only Pete change is a truly invisible
   Tiptoe (#160). Balance is now measured with Normal CPUs only (decisions log, Oct 25), so these
   Rage numbers are history, not a pin; a Pete or Crease kit question for Kevin. Other Normal-bot
-  matchups to watch: Digby vs Cerebro, Craglash and Gillbert at the bottom of the matrix.
+  matchups to watch: Craglash and Gillbert at the bottom of the matrix. **Digby vs Cerebro**
+  (Normal bots, Oct 27): Digby wins 13 of 48 (`bench_cpu.gd --pairs=digby:cerebro --seeds=24`)
+  and 0 of 12 in the `--matrix` row, though he is second best overall (67%); the assassin >
+  mage pin is upside down here. Cerebro throws about four attacks to Digby's one at point blank
+  (fights average 50 px apart, not knife range), Digby blocks the stream (guarding 21% of the
+  time), runs out of stamina and has his guard broken 19 times in 12 games, and Cerebro's Flip
+  Out grab beats the guard. Digby lands almost everything he throws but Burrows only 1.4 times a
+  match (its CPU window is 80-160 px). Numbers and the questions for Kevin:
+  `docs/plans/combat-metrics.md` ("Digby vs Cerebro").

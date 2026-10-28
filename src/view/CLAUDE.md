@@ -68,6 +68,12 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   hit `radius`: shots look the same however wide they hit.
 - Idle variety: a sheet `anims` row `idle_alt` plays once after `sprite.idle_alt_after` ticks (default 300) of standing in IDLE (`CreatureView._update_idle_alt`, one step a refresh; anything but a plain idle resets it, the arena intro too). A fold step reads its frames from the move's `fold.anim_at` when it has one. `tests/test_views.gd` pins both.
 - Every sound name needs a `data/audio.json` entry. All audio is placeholder.
+- A new material (a `ShaderMaterial`, a `CanvasItemMaterial`, a `Shader.new()`, a `.gdshader`)
+  goes through a static factory in its view and that view's `static func warm_materials()`,
+  and the script into `ShaderWarmup.SOURCES` (`shader_warmup.gd`), so the title compiles it
+  before the first fight; `tests/test_shader_warmup.gd` fails otherwise. A shader built from
+  code (`Light2DView.FloorGlow`) is built once and shared, or the warm-up compiles a copy the
+  game never draws.
 - Voice chat (`VoiceView`): the microphone plays into a muted "Mic" bus (made by VoiceView,
   an `AudioEffectCapture` of `CAPTURE_SECONDS` on it; `audio/driver/enable_input` in
   project.godot) and runs only while voice is on, an online match or a watched one is on
@@ -98,7 +104,14 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   map most of the field is off screen: `FxView` draws only particles and fighters near the
   view (`_view_rect`, `_in_view`, `CULL_PAD`, a wider `CULL_PAD_FIGHTER` so a telegraph can
   reach in), and a `SurgeAura` skips a fighter off screen. A floor change repaints its
-  bands a few per frame (`ArenaView._pending`, `SPREAD_FRAMES`), not all in one tick. A
+  bands a few per frame (`ArenaView._pending`, `SPREAD_FRAMES`), not all in one tick; on a
+  tiled map `_retile` sets only the tiles that changed (`_tile_ids`), reads the rows' pits
+  from one lookup and retiles each run of dirty bands at once. The water surface works its
+  fixed parts out once per floor (`WaterView._scan_foam`, `surface_specks`). The bloom's
+  viewports stay `UPDATE_ALWAYS`: rendering them once a tick (`UPDATE_ONCE`) measured worse
+  1% lows on the Compatibility renderer (Oct 2026). No view redraws between ticks: a frame between two ticks shows the same state, so
+  only what moves the camera (BackdropView, ForeView) runs per frame. A `_draw` may step state
+  (FxView's plate trail): never redraw a view more often than it does. A
   `_draw` reports its time with `PerfLog.now()` / `PerfLog.since(...)` for `--perf`
   (main thread only: `PerfLog` ignores a worker thread).
 - Parallax and furniture: `backdrop_view.gd` (BackdropView, first child of main, under the arena) draws the sky (`arena_<id>_sky.png`, 0.6 of the camera) and the far tiers under the roof edge (`arena_<id>_far.png`, 0.85) and slides them by `(1 - factor)` of the camera's move, whole pixels, set every frame (no easing); the main picture (the crowd's rows down, the floor) stays at 1.0, so the crowd stays on its stands. The camera may look `CrowdView.SHOW_TOP` above the arena so these show. `furniture_view.gd` (FurnitureView, after the crowd, under the fighters) builds the arena JSON `furniture` list (`data/CLAUDE.md`); pieces on layer `sky` / `far` are children of the backdrop's layers so they slide with them; animated ones step on the physics tick (`ANIM`) and redraw only on a frame change; the scoreboard reads `hud.timer_ticks` / `wins` / `team` and redraws only when its text changes. A piece never sits on the floor (`tests/test_furniture.gd`). The picture is split by `tools/gen_arenas.py:split_backdrop` (`FAR_ROWS`, `ROOF_H`, `SKY_UP`, `FAR_DOWN`: keep in step with `BackdropView`).
@@ -132,7 +145,7 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
 - Text: `UiTheme.font()` and `UiTheme.px(size)` (see `src/ui/CLAUDE.md`). The canvas is still
   480 x 270 units (project.godot: a 960 x 540 base at content scale 2), so coordinates and
   the camera's zoom are unchanged; text in world space (damage numbers) scales with the zoom.
-- The camera is not here: `src/game/main.gd:_update_camera`, `_frame_fight`, `CAM_PAD`, `KO_ZOOM`.
+- The camera is not here: `src/game/main_camera.gd:_update_camera`, `_frame_fight`; the constants (`CAM_PAD`, `KO_ZOOM`) and state are `src/game/main.gd`'s.
   Near an edge it may look `CrowdView.SHOW_SIDE` / `SHOW_FRONT` past the arena (`_cam_axis`
   `lo` / `hi`), into the side stands and front rows. The letterbox bars are here
   (`letterbox.gd`, first child of main's screen layer: under the flash, the fade and the HUD);
@@ -321,6 +334,17 @@ dig/slosh/poof/chop_chop/shout sounds.
   stick, buttons, cooldowns and the Surge meter in `CD_STEPS` steps, the aimed move's reach as a
   true circle (`_draw_reach`, `CreatureSim.move_range`), the red cancel zone while a drag aims (`_draw_cancel_zone`), the touch lock's floor ring (`_draw_lock`, a true circle) and the enemy portraits / objective button (`_draw_picks`; only foes `TouchTarget.can_lock` allows with `unseen`, never a hidden one); it redraws only when `_key()` changes.
   `Hud.touch` drops the controls strip and moves the online line to the bottom middle
+- Accessibility (Settings > Accessibility; `--a11y=`) → `accessibility.gd` (Accessibility, statics; data
+  `data/accessibility.json`). Every team colour goes through it: `side_color(team)`, `brawl_color(slot)`,
+  `rel_color(rel, fallback)` (self / ally / enemy), `neutral_color()`; never a `Color(...)` constant for a side
+  (the crowd's armour and the stadium's painted starting boxes are baked art and stay red / blue). A slot's marker
+  colour now is `FxView.mark_color(i)` (bar, label, Team outline; read live). Outlines: `CreatureView._apply_outline`
+  sets `flash.gdshader`'s `outline` / `outline_outer` / `outline_inner` (a 1 texel ring in the packed sheet's 1 px
+  pad, the inner colour on the silhouette's own edge texels; the Stoneskin / Surge rim wins), only while
+  `outline_allowed()` (drawn, not `out_of_sight`, not in the brush, not invisible, not KO): an outline must never
+  point at a fighter the local team can't see (`tests/test_accessibility.gd`). Hit markers: `Accessibility.marker(key)`
+  in `_hit_sparks` (ray scale, width, dark outline `edge`), `_dmg_size`, `_draw_damage_number` (outline, drop
+  shadow) and the light hit's `soft_flash` (`full_flash`)
 - Range rings → `range_rings.gd:rings`; F1 hitbox overlay → `debug_view.gd`; F9 performance
   overlay → `perf_overlay.gd` (main feeds `tick(us)`; the setting is `perf_overlay`)
 - A chasm the match made (Sinkhole's rings, the Floor of pits mutator: `TerrainGrid.sink`) has
@@ -378,6 +402,7 @@ dig/slosh/poof/chop_chop/shout sounds.
 ## Files
 
 <!-- GENERATED by tools/codebase_map.py: don't edit by hand -->
+- `accessibility.gd` (Accessibility) — Accessibility options (Settings > Accessibility; `--a11y=teams,outlines,markers` for a session), all off by default and…
 - `ambient_view.gd` (AmbientView) — A map's ambient life, from the optional "ambient" block of data/arenas/<id>.json (a map without the key draws nothing).
 - `arena_intro.gd` (ArenaIntro) — The arena intro before an offline match: the camera flies in from the stands to the whole floor, the arena's name card…
 - `arena_view.gd` (ArenaView) — Draws the stadium: stands, walls, and the breakable floor from the terrain grid.
@@ -411,6 +436,7 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `plant_view.gd` (PlantView) — Barkley's plants on the floor, drawn from `MatchSim.plants` (src/sim/plants.gd): a sprout pushing up out of the floor a…
 - `raised_tiles.gd` (RaisedTiles) — A tiled map's walls drawn as raised plateaus (map style `tiles.styles.wall: "raised:<name>"`, recipe `raised.<name>` in…
 - `range_rings.gd` (RangeRings) — "Range rings" (Settings > Controls, or F7 in a fight): thin floor rings that show where an attack really reaches, so a…
+- `shader_warmup.gd` (ShaderWarmup) — Shader warm-up: in the first frames after launch (the title, over its background match), every material a fight draws w…
 - `shadow_layer.gd` (ShadowLayer) — The fighters' shadows, cast along the arena's light: each fighter's current sprite frame as a black silhouette laid on…
 - `surge_aura.gd` (SurgeAura) — The power-up aura a fighter wears while their Surge is ready: a flickering shell of energy rising off them, motes that…
 - `touch_overlay.gd` (TouchOverlay) — The touch controls on screen: the floating move stick, the button arc (Light biggest), each move's cooldown and the Sur…

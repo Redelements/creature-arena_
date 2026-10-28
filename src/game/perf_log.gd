@@ -122,6 +122,10 @@ func frame(fighting: bool) -> void:
 		if _viewport.is_valid():
 			_add_part("render cpu", RenderingServer.viewport_get_measured_render_time_cpu(_viewport))
 			_add_part("render gpu", RenderingServer.viewport_get_measured_render_time_gpu(_viewport))
+		# What the renderer was handed (counts, not ms): draw calls, canvas items, primitives.
+		_add_part("draw calls (count)", Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
+		_add_part("objects (count)", Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME))
+		_add_part("primitives (count)", Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME))
 	_part_us.clear()
 	_last_us = now
 
@@ -156,14 +160,34 @@ func report(cap := 60) -> String:
 		Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED) / 1048576.0,
 		Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0])
 	lines.append(_line("frame", frames))
+	lines.append(first_frames(frames))
 	lines.append(lows(frames, cap))
 	lines.append("PERF ticks held 3+ frames: %d (%.2f a second)" % [uneven, uneven * 1000.0 / maxf(1.0, _sum(frames))])
 	lines.append(_line("tick", ticks))
 	for part in parts:
-		lines.append(_line("  " + part, parts[part], 0))
+		var line := _line("  " + part, parts[part], 0)
+		if String(part).ends_with("(count)"):  # a count a frame, not a time
+			line = line.replace(" ms: ", ": ").get_slice(" | ", 0)
+		lines.append(line)
 	for line in slow:
 		lines.append("PERF slow frame at " + line)
 	return "\n".join(lines)
+
+
+## The first SKIP frames of the fight, which the lines above leave out: where a shader
+## compile shows (ShaderWarmup moves it to the title; `--no-warmup` for the A/B).
+static func first_frames(values: PackedFloat32Array) -> String:
+	var n := mini(SKIP, values.size())
+	if n == 0:
+		return "PERF first fight frames: no samples"
+	var worst := 0
+	var sum := 0.0
+	for i in n:
+		sum += values[i]
+		if values[i] > values[worst]:
+			worst = i
+	return "PERF first %d fight frames (left out above) ms: first %.1f, avg %.2f, slowest %.1f at frame %d" % [
+		n, values[0], sum / n, values[worst], worst + 1]
 
 
 ## The frame times as a player reads them, at a cap of `cap` fps (see the header).
