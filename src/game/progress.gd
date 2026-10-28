@@ -714,12 +714,19 @@ static func is_new(reward_id: String) -> bool:
 	return _unlocked_list().has(reward_id) and not (_data["seen"] as Array).has(reward_id)
 
 
-## This fighter's new rewards; "" for the account's.
+## This fighter's new rewards; "" for the account's (its level titles, and the titles
+## challenges and Arcade endings give: the Account page's title picker offers them all).
 static func new_of(fighter: String) -> Array:
-	var out: Array = []
+	var ids: Array = []
 	for r in (account_rewards() if fighter == "" else mastery_rewards(fighter)):
-		if is_new(String(r["id"])):
-			out.append(String(r["id"]))
+		ids.append(String(r["id"]))
+	if fighter == "":
+		ids.append_array(Challenges.titles())
+		ids.append_array(Endings.titles())
+	var out: Array = []
+	for id in ids:
+		if is_new(String(id)) and not out.has(id):
+			out.append(String(id))
 	return out
 
 

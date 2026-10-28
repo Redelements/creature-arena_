@@ -14,6 +14,8 @@ var fighter := ""
 var gallery := false
 var on_continue := Callable()  ## after a clear: on to the results (null: just close)
 var continue_button: Button
+## The title this showing granted ("" none): the card says so above Continue.
+var unlocked_title := ""
 
 
 func _init(p_fighter := "", p_gallery := false, p_on_continue := Callable()) -> void:
@@ -48,6 +50,9 @@ func build() -> void:
 		add_space(3)
 	for line in Endings.of(fighter).get("lines", []):
 		add_text(String(line), UiTheme.SIZE_HINT + 1, UiTheme.C_TEXT)
+	if unlocked_title != "":
+		add_space(2)
+		add_text("Title unlocked: \"%s\"" % Progress.title_text(unlocked_title), UiTheme.SIZE_HINT + 1, UiTheme.C_ACCENT)
 	add_space(4)
 	continue_button = add_button("Continue", _continue)
 	continue_button.alignment = HORIZONTAL_ALIGNMENT_CENTER

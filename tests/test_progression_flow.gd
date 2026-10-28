@@ -131,3 +131,30 @@ func test_a_ladder_win_shows_the_winners_title_and_line() -> void:
 		var f := FileAccess.open(daily, FileAccess.WRITE)
 		f.store_string(String(kept))
 		f.close()
+
+
+func test_ending_and_challenge_titles_say_so_and_are_new_until_the_account_page() -> void:
+	_fresh()
+	var g := _game()
+	_clear(g, "sno", 1)
+	g.flow_t = 0
+	_tick(g, g.MATCH_OVER_MENU_AT + 1)
+	var card: UiScreen = g.ui.top()
+	assert_true(card is EndingScreen, "the ending card")
+	var said: Array = card.find_children("*", "Label", true, false).map(func(l): return (l as Label).text)
+	var words := "Title unlocked: \"%s\"" % Progress.title_text("title:sno_ending")
+	assert_true(said.has(words), "the card says the title it gave: %s" % [said])
+	assert_true(Progress.is_new("title:sno_ending") and Progress.new_anywhere(), "and it is New! on the Profile")
+	assert_true(Progress.new_of("").has("title:sno_ending"), "on the Account row")
+	(card as EndingScreen).continue_button.pressed.emit()
+	assert_true((g._progress_shown["unlocked"] as Array).has("title:sno_ending"), "the results' Unlocked: row counts it")
+	Progress.grant_unlock("title:centurion")
+	assert_true(Progress.new_of("").has("title:centurion"), "a challenge's title is New! too")
+	g._open_menu("profile:account")
+	var picker: OptionRow = null
+	for r in g.ui.top().rows():
+		if r is OptionRow and (r as OptionRow).label == "Title":
+			picker = r
+	assert_true(picker != null and picker.values.has(Progress.title_text("title:sno_ending")), "the Account picker offers ending titles")
+	assert_false(Progress.new_anywhere(), "opening the Account page sees them")
+	_done(g)

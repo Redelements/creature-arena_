@@ -351,6 +351,7 @@ func _build_account() -> void:
 		if String(r["id"]).begins_with("title:"):
 			ids.append(String(r["id"]))
 	ids.append_array(Challenges.titles())
+	ids.append_array(Endings.titles())
 	_picker("Title", ids, Progress.account_title(), "",
 		"Left/Right: the title every fighter without one of its own shows on the pick and results screens",
 		func(id: String) -> bool: return Progress.set_account_title(id))
@@ -359,6 +360,13 @@ func _build_account() -> void:
 		var id := String(r["id"])
 		var have := Progress.unlocked(id)
 		_reward_line("Level %d" % int(r["level"]), Progress.title_text(id), have, fresh.has(id))
+	# The titles challenges and endings gave since the page was last open.
+	var extra: Array = fresh.filter(func(id): return not Progress.account_rewards().any(func(r): return String(r["id"]) == String(id)))
+	if not extra.is_empty():
+		add_heading("New titles")
+		for id in extra:
+			var ch := Challenges.goal_of_reward(String(id))
+			_reward_line("Ending" if ch.is_empty() else "Challenge", Progress.title_text(String(id)), true, true)
 	Progress.mark_seen(fresh)
 
 

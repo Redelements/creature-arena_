@@ -1737,12 +1737,19 @@ func _open_ending() -> bool:
 	if not (_arcade_cleared and arcade is Arcade and Progress.enabled() and online == null and watch == null) \
 			or _replaying() or Endings.of(arcade.fighter).is_empty():
 		return false
-	Endings.show(arcade.fighter)
+	var first := Endings.show(arcade.fighter)
+	var t := String(Endings.of(arcade.fighter).get("unlock_title", ""))
 	hud.banner_hidden = true  # the card says it
-	ui.push(EndingScreen.new(arcade.fighter, false, func():
+	var card := EndingScreen.new(arcade.fighter, false, func():
 		ui.clear()
 		hud.banner_hidden = false
-		show_ctl._show_match_over()))
+		show_ctl._show_match_over())
+	if first and t != "" and Progress.unlocked(t):
+		card.unlocked_title = t  # the card says it, and so does the results' "Unlocked:" row
+		var lvl := Progress.account_level()
+		_progress_shown = Progress.merge_results(_progress_shown,
+			{"xp": 0, "level_from": lvl, "level_to": lvl, "mastery": {}, "unlocked": [t]})
+	ui.push(card)
 	return true
 
 
