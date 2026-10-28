@@ -482,6 +482,8 @@ func results_data() -> Dictionary:
 		"badge": flair["title"], "line": flair["line"],
 		"title": title, "sub": main.hud.banner_sub, "color": col,
 		"fighter": String(pose.def.get("id", "")) if pose != null else "",
+		# The pose in the palette it fought in (the local player's worn one, as its CreatureView).
+		"palette": main.views[pose.id].palette if pose != null and pose.id < main.views.size() else 0,
 		"mvp": best if main.team_battle != null and best_score > 0.0 else -1,
 		"extra": ["CAP", "RET", "STOP"] if ctf else [],
 		"rows": rows,

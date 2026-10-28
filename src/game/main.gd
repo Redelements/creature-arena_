@@ -2654,12 +2654,14 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	for v in views:
 		v.queue_free()
 	views.clear()
+	hud.palettes = {}
 	for c in sim.creatures:
 		var v := CreatureView.new()
 		entities.add_child(v)
 		v.setup(c)
 		if c.id < sides.size() and sides[c.id] == Side.PLAYER:
 			v.palette = Progress.palette(String(c.def.get("id", "")))
+			hud.palettes[c.id] = v.palette  # the HUD portrait wears it too
 		views.append(v)
 	debug.sim = sim
 	rings.set_sim(sim)

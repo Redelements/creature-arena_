@@ -238,3 +238,26 @@ func test_the_hud_names_the_level_a_ladder_stages_cpu_plays_at() -> void:
 	_tick(g, 2)
 	assert_eq(String(g.hud.tags[1]), "CPU " + String(g.LEVEL_NAMES[1]), "a plain fight: the setting's level:")
 	_done(g)
+
+
+func test_the_worn_palette_reaches_the_hud_portrait_and_the_results_pose() -> void:
+	_fresh()
+	var g := _game()
+	Progress.record_clear("cairn", 0)  # palette 2 is Cairn's
+	Progress.set_palette("cairn", 1)
+	g._skip_select = true
+	g._start_match(0)  # Cairn vs CPU Culvert
+	_tick(g, 5)
+	assert_eq(int(g.views[0].palette), 1, "the fighter wears it:")
+	assert_eq(int(g.hud.palettes.get(0, 0)), 1, "so does its HUD portrait:")
+	assert_eq(int(g.hud.palettes.get(1, 0)), 0, "the CPU's keeps its own:")
+	g.wins = [2, 0]
+	g.sim.creatures[1].state = CreatureSim.State.KO  # Cairn stands over the CPU: the pose
+	g.flow = g.Flow.MATCH_OVER
+	g.flow_t = 0
+	g.hud.banner = "CAIRN WINS!"
+	_tick(g, g.MATCH_OVER_MENU_AT + 1)
+	assert_eq(int(g.show_ctl.results_data()["palette"]), 1, "and the results' pose:")
+	var panels: Array = g.ui.top().find_children("*", "ResultsPanel", true, false)
+	assert_true(not panels.is_empty() and (panels[0] as ResultsPanel).preview.palette == 1, "drawn in it")
+	_done(g)
