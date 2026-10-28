@@ -847,7 +847,9 @@ func step(buttons: int, sim: MatchSim) -> void:
 				if state_t >= FALL_TICKS:
 					_land_from_fall(sim)
 			State.KO:
-				if is_dummy and state_t >= DUMMY_RESET_TICKS:
+				# The dummy gets back up; so does anyone in a training match (a meteor or the
+				# dummy's own attacks can knock the player out: a training session never ends).
+				if (is_dummy or sim.training) and state_t >= DUMMY_RESET_TICKS:
 					hp = max_hp
 					stamina = max_stamina
 					regen_wait = 0
