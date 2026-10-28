@@ -26,7 +26,7 @@ Base: `origin/main` at 5c26ca7 (PR #278 merged), NET_VERSION 61.
 | D | Weekly challenge (seeded by ISO week, a mutator set, local best) and a play streak counter, next to the Daily; a "today" card on the title | `progression-weekly` | DONE, merged | [#284](https://github.com/Redelements/creature-arena_/pull/284) |
 | E | Arcade ending cards: one per fighter after the ladder, text in data, placeholder art slots, a gallery in the profile | `progression-endings` | DONE, merged | [#286](https://github.com/Redelements/creature-arena_/pull/286) |
 | QC | Quality check of A-E before the switch-on (Kevin's ask, 2026-10-28): a fresh-eyes code review of every progression file by an agent not given the builders' conclusions; a scripted playthrough from an empty profile through the first level-up, a mastery unlock, a challenge, the weekly and an Arcade ending, with screenshots at 1600x900 and phone size; a save-file compatibility check (old progress.json, a corrupted one, a tampered one); the four checks; every finding fixed in its own PR or in F | `progression-qc` | DONE (24 fix items, 5 wontfix/Kevin) | no PR: findings below |
-| F | Content and switch-on: the reward tables filled for all eleven fighters, QC findings fixed, the setting default On, README / open-items / STATUS, this log merged | `progression-on` | IN PROGRESS | |
+| F | Content and switch-on: the reward tables filled for all eleven fighters, QC findings fixed, the setting default On, README / open-items / STATUS, this log merged | `progression-on` | DONE, merging when green | [#290](https://github.com/Redelements/creature-arena_/pull/290) |
 
 ## Design (what every task builds to)
 
@@ -223,3 +223,39 @@ Verdicts: **FIX HERE** = fix in the switch-on PR (task F). **WONTFIX** = leave, 
 ### Checked and sound (by the reviewer, confirmed by the playthrough)
 
 No sim or netcode change; nothing in src/sim, src/net or the CPU controller touches progression; the only save value that reaches a match is the local player's view-only palette. Off state fully gated (no rows, screens, awards, toasts; Arcade palettes still unlock). No double pay across rematches, ladder stages, best-of-three or the two match-over paths; a ladder quit keeps paid stages; disconnects pay nothing. Online slots right in Duels and team modes. ISO weeks and the streak across New Year right. All data files complete and resolving. Every XP number on a results screen matched the save. "New!" shows and clears as designed. Training moves no counter. The Weekly's bonus pays once a week, retries pay the score only.
+
+## Task F: QC fixes, content and switch-on
+
+- **PR #290** (branch `progression-on`, from main f7f78e1, 31 commits, one per finding). All 24 FIX HERE items
+  fixed, each with a regression test (new `tests/test_progression_flow.gd` covers F1-F3; `Progress.clean(d)`
+  is tested against the QC's 20 crafted saves). Chief fixes: an Arcade clear counts at the run's chosen level
+  (report key `arcade_level`); in a ladder only the run's fighter earns XP and `wins_as`; Daily/Weekly/single-stage
+  wins show the title and line; every save key is read as its right type with whole-number ints; the save is
+  written to `.tmp` and renamed with a `.bak` kept, an unreadable file moved to `.corrupt-<time>` (a missing file
+  is a fresh profile, never restored); a clock set back up to `CLOCK_SLACK_DAYS` (2) counts as the same day and
+  the streak's last day never moves back; XP clamped 0..`XP_MAX`; rewards at or below the level held are
+  granted on read; an earned mastery palette stays wearable with Progression Off; `xp.ladder_mult` 0.5 on ladder
+  stages and the Arcade clear bonus (not the score or `weekly_clear`), score XP only for the gain over the best;
+  local players with CPUs in the match paid at the CPU level; HUD CPU tag uses the stage level; worn palette on
+  the HUD portrait (`Hud.palettes`) and results pose; online match end shows a `+N XP` toast
+  (`MainPresentation.progress_toast()`, text tested only); `--progression=on|off` for the session; report and
+  context keys as constants (`Progress.R_*`, `P_*`, `Challenges.C_*`); hover-title theme fix; card text rewritten.
+- Pacing after F13: best-of-three play reaches the account cap in 39.9 h, an Arcade run at Normal in 33.9 h
+  (pinned 30-50 h); grinding Daily retries about 27 h.
+- Content: two victory lines (`<f>_1`, `<f>_2`) and a mastery title (`<f>_master`) per fighter, account titles
+  at 15/25/35/45, a test walks every table; all eleven fighters already had four palettes, so none was capped.
+  The text is the agent's first draft for Kevin to edit.
+- Switch-on: default On; a saved Off is honoured (`MainSettings.progression_saved`). Caveat: every install that
+  saved settings since #279 holds `game/progression=false` as the old default, Kevin's included, so those stay
+  Off until switched On once (noted in open-items and the PR). First run: the title's Profile row says "New!"
+  until the Profile is opened once (save key `profile_seen`, `Progress.profile_seen()/see_profile()`). Title
+  layout: with the Profile row always present, Exit overlapped the description line on 270-unit-high screens
+  (1080p, 2340x1080 phones); the title column now ends above it (row gap 2), pinned in `test_ui_fit`.
+- Docs: README Progression section, open-items (WONTFIX list, placeholder ending art, the saved-Off caveat),
+  `src/game/CLAUDE.md`, MECHANICS for the flag. No STATUS.md exists in the repo.
+- Checks (worktree, own APPDATA): suite 1410/0, journey 5/0 alone and in the suite (the walk keeps
+  `_cpu_vs_cpu`, which pays nothing, plus one fight with a CPU in the player's seat that pays and shows XP),
+  sweep 216/0, sim-check `7a961fba…39b8bf` unchanged (nothing in `src/sim/` or `src/net/`, no NET bump), map
+  clean. Screenshots in the session scratchpad `shots-progression-on/` (title, first results, Profile hub at
+  1600x900, 1920x1080, 1170x540; ending card, palette on the HUD portrait, hover fix, F20 pages).
+- Not done: no end-to-end online test of the F23 toast (no online harness drives it).
