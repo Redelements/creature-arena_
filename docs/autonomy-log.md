@@ -21,7 +21,7 @@ DONE / SKIPPED / BLOCKED. This file lives on branch `autonomy-log` (worktree
 | 1 | QA sweep after the merge storm; refresh STATUS.md and open-items.md | DONE | [#259](https://github.com/Redelements/creature-arena_/pull/259) merged |
 | 2 | Docs drift check (MECHANICS.md, README kits) | DONE | [#263](https://github.com/Redelements/creature-arena_/pull/263) |
 | 3 | Rollback coverage: random-input fuzz across modes with hazards, shrines, crown | DONE | [#262](https://github.com/Redelements/creature-arena_/pull/262) |
-| 4 | Nightly CI: Normal-bot balance matrix + cross-platform determinism soak | DONE (manual run verifying) | [#260](https://github.com/Redelements/creature-arena_/pull/260) merged |
+| 4 | Nightly CI: Normal-bot balance matrix + cross-platform determinism soak | DONE | [#260](https://github.com/Redelements/creature-arena_/pull/260) merged |
 | 5 | main.gd split (after 1-4 merged) | IN PROGRESS | |
 | 6 | CPU team play piece 3 (focus, peel, front line) | IN PROGRESS | |
 | 7 | Caravan CPU wagon goal | | |
@@ -157,3 +157,5 @@ regression tests in tests/test_training.gd; MECHANICS.md "Training options" upda
   `hiss`, `dig_it`, `finders`, `chill`) and `music_battler.ogg` stay; `crowd_cheer` / `crowd_roar` stay
   placeholders since Kenney has no crowd recordings; the count is 81 placeholders, not 76; Kenney goes into
   LICENSES.md, the credits screen and tests/test_credits.gd).
+- **Task 4 DONE**: manual nightly run 40643286819 on main green on every job (balance, determinism x2, compare,
+  summary): https://github.com/Redelements/creature-arena_/actions/runs/40643286819
