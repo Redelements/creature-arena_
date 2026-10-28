@@ -158,3 +158,16 @@ func test_ending_and_challenge_titles_say_so_and_are_new_until_the_account_page(
 	assert_true(picker != null and picker.values.has(Progress.title_text("title:sno_ending")), "the Account picker offers ending titles")
 	assert_false(Progress.new_anywhere(), "opening the Account page sees them")
 	_done(g)
+
+
+func test_a_cpu_vs_cpu_demo_pays_nothing_offline_or_online() -> void:
+	_fresh()
+	var g := _game()
+	g._skip_select = true
+	g._start_match(0)
+	_tick(g, 5)
+	assert_eq(String(g.show_ctl.progress_report(true)["kind"]), "cpu", "a fight against the CPU pays:")
+	g._cpu_vs_cpu = true  # --cpu-vs-cpu: online the local slot stays a human side, so the flag itself is checked
+	assert_eq(String(g.show_ctl.progress_report(true)["kind"]), "none", "the demo flag pays nothing:")
+	g._cpu_vs_cpu = false
+	_done(g)

@@ -282,7 +282,7 @@ static func _skips_intro(event: InputEvent) -> bool:
 func progress_report(won: Variant = null, extra := {}) -> Dictionary:
 	var none := {"kind": "none", "players": []}
 	if main.sim == null or main.watch != null or main._replaying() or main.mode == Main.REPLAY_MODE \
-			or main.showcase != null or main.coach != null or Main.MODES[main.mode].get("training", false):
+			or main.showcase != null or main.coach != null or Main.MODES[main.mode].get("training", false) 			or main._cpu_vs_cpu:  # --cpu-vs-cpu (demos, captures, soak runs): online too, where the sides stay human
 		return none
 	var humans: Array = []
 	if main.online != null:
