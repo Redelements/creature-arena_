@@ -52,6 +52,18 @@ Bluetooth controller; there are no touch controls yet): copy `Ready4Rambles.apk`
 and open it, or `adb install -r Ready4Rambles.apk`. Android's Back acts as Esc, and switching
 away pauses an offline fight. It plays online against PCs (same match fingerprint).
 
+## Gallery
+
+Screenshots and loops captured from the game itself: every fighter's showcase and every map
+at each time of day it allows, in [docs/gallery](docs/gallery/index.md). Rebuild them, or
+capture the trailer's beats, with `tools/capture_gallery.py`.
+
+![Twin Keeps, Capture the Flag's map, by day](docs/gallery/maps/twin_keeps_day_wide.png)
+
+![Hissy Fitz's showcase](docs/gallery/fighters/hissy.gif) ![Craglash's showcase](docs/gallery/fighters/craglash.gif)
+
+![The Floodgate by day, at sunset and at night](docs/gallery/maps/floodgate_sheet.png)
+
 ## Play online (1v1)
 
 **Online** on the title menu. Both players need the **same build**.

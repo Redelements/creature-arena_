@@ -111,6 +111,7 @@ update the map in the same change.
 | CLI flags | `src/game/main.gd:_parse_args` (list in `src/game/CLAUDE.md`) | test_ui |
 | roster, adding a fighter | `src/game/match_factory.gd` `FIGHTERS`; `src/game/main.gd` `MODES` | views, ko_fx, showcase |
 | showcases (scripted demos) | `src/game/showcase.gd` `SCRIPTS` | showcase |
+| gallery, trailer capture, README screenshots, contact sheets, showcase GIFs | `tools/capture_gallery.py` (`FIGHTERS`, `MAPS`, `capture_trailer`), beats `tools/trailer_shots.json`, lengths `tools/showcase_lengths.gd`; output `docs/gallery/index.md` | showcase (a capture run: `capture_gallery.py fighters --only cairn`) |
 | combo trials, reaction drills | `src/game/trials.gd`, `data/trials.json`, `src/game/drills.gd` | trials |
 | Arcade, Gauntlet, Daily Challenge | `src/game/ladder.gd`, `src/game/arcade.gd`, `src/game/gauntlet.gd`, `src/game/daily.gd` | arcade, ladders |
 | replays, Replay theater | `src/sim/replay.gd`, `src/game/replay_builder.gd` | replays, determinism |
