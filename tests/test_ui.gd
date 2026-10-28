@@ -1798,7 +1798,9 @@ func test_pausing_a_watched_replay_or_a_spectated_room_has_no_restart() -> void:
 	var labels: Array = []
 	for r in g.ui.top().rows():
 		labels.append((r as Button).text)
-	assert_eq(labels, ["Resume", "Replay theater", "Main menu"], "")
+	# No Restart; the replay viewer's jumps, speed and keys (replay_viewer.gd), a bug report.
+	assert_eq(labels, ["Resume", "Back 5 seconds", "Watch from the start", "Speed: 1x", "Save a bug report",
+		"Replay theater", "Controls", "Main menu"], "")
 	_press("ui_cancel")
 	assert_false(g.paused, "Resume")
 	g.watch = Referee.new([["cairn"], ["culvert"]], 0)

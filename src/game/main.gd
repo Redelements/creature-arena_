@@ -42,6 +42,10 @@ extends Node2D
 ##                         Team), high-contrast hit markers; any of them, or `all`
 ##   --print-vram=N        print the texture memory Godot reports (and the fighter sheets
 ##                         loaded, CreatureView.sheet_report) at frame N (budget checks)
+##   --bug-report[=DIR]    save a bug-report zip (the logs, settings without the online id and
+##                         secret, progress, the newest replay, perf.txt, system.txt; bug_report.gd)
+##                         into DIR (default user://bug-reports), print "BUGREPORT <path>" and quit;
+##                         with --quit-after=N it is written at the end of the run instead
 ##   --perf                log frame and tick times during fights; on quit, prints the
 ##                         percentiles, the 1% and 0.1% lows, missed frames and the worst
 ##                         second, and saves them to user://perf.txt
@@ -560,6 +564,7 @@ var _attract := false
 var _attract_focus: Control
 var _attract_ui: Control
 var _attract_hint: Label
+var replay_ctl := ReplayViewer.new(self)  ## the Replay theater's pause, step, speed and jumps (replay_viewer.gd)
 var show_ctl := MainPresentation.new(self)  ## title attract, wipes, the arena intro, results (main_presentation.gd)
 var _wipe_cat := -1  ## the kind of screen last tick (0 menus, 1 fight, 2 match over)
 var _ticks_run := 0
@@ -590,6 +595,8 @@ var _shots := {}
 var _shot_dir := "user://shots"
 var _cam_force := Vector3.ZERO  ## --cam=x,y,zoom: the camera held here (screenshots)
 var _quit_after := 0
+## --bug-report[=DIR]: where the bug-report zip goes ("" when the flag isn't given).
+var _bug_report_dir := ""
 var _print_vram_at := 0  ## --print-vram=N: print texture memory at frame N
 ## The CPUs' inputs for this tick are worked out (_think_cpus) and wait in last_bits.
 var _cpus_thought := false
@@ -890,6 +897,9 @@ func _ready() -> void:
 			var parsed := OnlineLobby.parse_address(String(_net_args["join"]))
 			var size := int(_net_args.get("size", 0 if String(parsed[2]) != "" else 1))
 			online_ctl._net_join(_online_fighter, String(parsed[0]), int(parsed[1]), String(parsed[2]), true, size)
+	if _bug_report_dir != "" and _quit_after <= 0:
+		_cli_bug_report()  # nothing to wait for: write it now and quit
+		get_tree().quit()
 
 
 # ------------------------------------------------------------------ flow
@@ -1821,6 +1831,7 @@ func _play_replay(path: String) -> void:
 		s.append(Side.REPLAY)
 	_replay_frames = rep.frames
 	_replay_watched = rep.setup
+	replay_ctl.path = path
 	if game is DuelSim:
 		duel = game
 		_new_sim(duel.sim, s)
@@ -1848,6 +1859,7 @@ func _play_replay(path: String) -> void:
 		flow_t = 0
 		hud.wins = wins
 		audio.play_music("fight")
+		_begin_replay_viewer()
 		return
 	hud.wins = [0, 0]
 	hud.wins_needed = 0
@@ -1855,6 +1867,14 @@ func _play_replay(path: String) -> void:
 	flow = Flow.FIGHT
 	flow_t = 0
 	audio.play_music("fight")
+	_begin_replay_viewer()
+
+
+## The replay viewer's keyframe at the start, and its key line in the HUD.
+func _begin_replay_viewer() -> void:
+	replay_ctl.begin()
+	hud.show_help = true
+	replay_ctl.update_hud()
 
 
 func _replaying() -> bool:
@@ -2272,6 +2292,7 @@ func _end_duel() -> void:
 	team_battle = null
 	brawl = null
 	_replay_frames = []
+	replay_ctl.end()
 	if hud != null:
 		hud.duel = null
 		hud.team = null
@@ -2660,6 +2681,27 @@ func _physics_process(_delta: float) -> void:
 		perf_overlay.tick(Time.get_ticks_usec() - tick_start)
 		_capture()
 		return  # the arena intro: the sim waits at its first tick, the views play it
+	# Watching a replay: paused, slowed down or sped up (replay_viewer.gd), so this frame
+	# may run no tick, or two.
+	var n := replay_ctl.ticks_now() if _replaying() else 1
+	if n == 0:
+		replay_ctl.hold()
+		perf_overlay.tick(Time.get_ticks_usec() - tick_start)
+		_capture()
+		return
+	for k in n:
+		_step_tick()
+	if _replaying():
+		replay_ctl.update_hud()
+	if _perf != null:
+		_perf.tick(flow == Flow.FIGHT, Time.get_ticks_usec() - tick_start)
+	perf_overlay.tick(Time.get_ticks_usec() - tick_start)
+	_capture()
+
+
+## One 60 Hz tick of the match and everything that watches it (inputs, sim, events,
+## views, camera): once per physics frame, or as the replay viewer asks.
+func _step_tick() -> void:
 	flow_t += 1
 	if _finder != null:
 		online_ctl._finder_step()
@@ -2720,6 +2762,8 @@ func _physics_process(_delta: float) -> void:
 		else:
 			sim.step(inputs)
 		PerfLog.since("sim", t_sim)
+		if _replaying():
+			replay_ctl.note_tick()  # a keyframe for jumps
 		events = sim.events
 	var t_ev := PerfLog.now()
 	_update_vision(events)
@@ -2821,10 +2865,6 @@ func _physics_process(_delta: float) -> void:
 	flash_rect.color.a = maxf(0.0, flash_rect.color.a - 0.04)
 	if offline and (flow == Flow.FIGHT or flow == Flow.MENU):
 		_think_ahead()
-	if _perf != null:
-		_perf.tick(flow == Flow.FIGHT, Time.get_ticks_usec() - tick_start)
-	perf_overlay.tick(Time.get_ticks_usec() - tick_start)
-	_capture()
 
 
 func _update_flow() -> void:
@@ -3499,6 +3539,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if ui.is_open():
 		return  # the screen on top has the input
+	if _replaying() and not paused and replay_ctl.handle(event):
+		return  # watching a replay: pause, step, speed, jumps (also once it has ended)
 	if flow == Flow.MENU or flow == Flow.SELECT or flow == Flow.LOBBY or flow == Flow.MATCH_OVER:
 		return  # their screens take the input
 	if event.is_action_pressed("pause") and showcase != null:
@@ -3574,13 +3616,24 @@ func _open_pause() -> void:
 		voice_ctl._open_online_pause()
 		return
 	paused = true
-	if _replaying():  # a saved fight: nothing to restart, so Resume / Replay theater / Main menu
-		var rp := PauseScreen.new(false, "")
+	if _replaying():  # a saved fight: nothing to restart, so Resume / the viewer's jumps / Replay theater / Main menu
+		var rp := PauseScreen.new(false, ReplayViewer.help_text())
 		rp.quit_text = "Main menu"
-		rp.extras = [["Replay theater", func():
-			_close_ui()
-			_open_menu("single")
-			_open_replays(), "Pick another saved fight"]]
+		rp.extras = [
+			["Back 5 seconds", func():
+				_close_ui()
+				replay_ctl.jump(-ReplayViewer.JUMP_TICKS), "Jump back and keep watching"],
+			["Watch from the start", func():
+				_close_ui()
+				replay_ctl.seek(0), "The whole fight again"],
+			["Speed: %s" % ReplayViewer.SPEED_NAMES[replay_ctl.speed_i], func():
+				_close_ui()
+				replay_ctl.cycle_speed(), "Slow motion or fast forward: 1/4, 1/2, 1x, 2x"],
+			["Save a bug report", func(): _save_bug_report(true), BugReport.BLURB],
+			["Replay theater", func():
+				_close_ui()
+				_open_menu("single")
+				_open_replays(), "Pick another saved fight"]]
 		rp.resumed.connect(func(): paused = false)
 		rp.quit_requested.connect(func():
 			_close_ui()
@@ -3591,6 +3644,7 @@ func _open_pause() -> void:
 	if in_training():
 		p.extras = [["Change fighter", _open_fighter_swap, "Swap your fighter here: the dummy, arena and options stay"],
 			["Training options", _open_training_options, "No cooldowns, Surge always full, what the dummy does"]]
+	p.extras.append(["Save a bug report", func(): _save_bug_report(true), BugReport.BLURB])
 	if arcade is Gauntlet:  # Restart is a whole new run, from wave 1
 		var waves := (arcade as Gauntlet).waves()
 		p.restart_question = "Start a new run from wave 1?"
@@ -3719,6 +3773,33 @@ func _setting(key: String) -> Dictionary:
 ## In main_settings.gd (tests and other scripts call it here).
 func _set_setting(key: String, i: int) -> void:
 	settings_ctl._set_setting(key, i)
+
+
+## Settings > Save a bug report and the pause menus' row (bug_report.gd): the zip in
+## user://bug-reports, named in a toast; on a desktop the folder opens, when the player
+## pressed the button (`show_folder`).
+func _save_bug_report(show_folder := false) -> String:
+	var path := BugReport.write(self)
+	if path == "":
+		_toast("Could not save a bug report")
+		return ""
+	var where := ProjectSettings.globalize_path(path)
+	print("Bug report saved to ", where)
+	_toast("Bug report saved: " + where)
+	if show_folder and OS.has_feature("pc") and DisplayServer.get_name() != "headless":
+		OS.shell_show_in_file_manager(where)
+	return path
+
+
+## --bug-report[=DIR]: the zip in DIR (default user://bug-reports), its path printed.
+## Never opens a folder.
+func _cli_bug_report() -> void:
+	var dir := _bug_report_dir
+	var path := BugReport.write(self, dir)
+	if path == "":
+		printerr("BUGREPORT could not write into ", dir)
+	else:
+		print("BUGREPORT ", ProjectSettings.globalize_path(path))
 
 
 ## A short message: over the screens when one is open, else in the HUD.
@@ -4167,4 +4248,6 @@ func _capture() -> void:
 	if _quit_after > 0 and t >= _quit_after:
 		online_ctl._write_net_report()
 		_print_perf()
+		if _bug_report_dir != "":
+			_cli_bug_report()  # with --quit-after: the run's own log, perf report and match
 		get_tree().quit()

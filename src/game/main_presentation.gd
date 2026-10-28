@@ -382,6 +382,10 @@ func _show_match_over() -> void:
 			main._match_over_status = s.add_text("", UiTheme.SIZE_HINT + 1, UiTheme.C_ACCENT)
 			s.on_back = main._leave_online
 		elif main._replaying() or main.mode == Main.REPLAY_MODE:
+			if main._replaying():
+				s.add_button("Watch again", func(): main.replay_ctl.seek(0), "The whole fight again, from the start")
+				s.add_button("Back 5 seconds", func(): main.replay_ctl.jump(-ReplayViewer.JUMP_TICKS),
+					"The end again: pause, step and slow it down (%s)" % ("A, X, LB / RB" if main.hud.gamepad else "Space, period, - / +"))
 			s.add_button("Replay theater", func():
 				main._open_menu("single")
 				main._open_replays(), "Pick another")

@@ -116,6 +116,8 @@ update the map in the same change.
 | combo trials, reaction drills | `src/game/trials.gd`, `data/trials.json`, `src/game/drills.gd` | trials |
 | Arcade, Gauntlet, Daily Challenge | `src/game/ladder.gd`, `src/game/arcade.gd`, `src/game/gauntlet.gd`, `src/game/daily.gd` | arcade, ladders |
 | replays, Replay theater | `src/sim/replay.gd`, `src/game/replay_builder.gd` | replays, determinism |
+| replay viewer: pause, frame step, slow motion, rewind / jumps | `src/game/replay_viewer.gd` (`ticks_now`, `seek`), main `_step_tick`, `_play_replay` | replay_tools, replays |
+| bug report zip, `--bug-report`, what it leaves out | `src/game/bug_report.gd` (`write`, `REDACT`), main `_save_bug_report` | replay_tools |
 | unlocks, progress | `src/game/progress.gd` | arcade |
 | Discord status | `src/game/presence.gd`, `src/game/discord_rpc.gd`, `data/discord.json` | presence |
 | title logo, attract demo, screen wipes, results screen, match stats, MVP | wordmark `tools/gen_logo.py` -> `assets/ui/logo.png` (drawn by `src/ui/ui_screen.gd:build`); attract `src/game/main_presentation.gd:_attract_step`, `_start_attract`, `_end_attract`; wipes `src/view/wipe.gd`, `main_presentation.gd:_wipe_step`; results `main_presentation.gd:_show_match_over`, `results_data`, `src/ui/results_panel.gd`; counting `src/game/match_stats.gd` (fed from `_react`); the pose `src/ui/fighter_preview.gd` (`anim`) | title_results, test_ui, journey |

@@ -25,6 +25,10 @@ config/features=PackedStringArray("4.7", "GL Compatibility")
 
 driver/enable_input=true
 
+[debug]
+
+file_logging/enable_file_logging=true
+
 [display]
 
 window/size/viewport_width=960
