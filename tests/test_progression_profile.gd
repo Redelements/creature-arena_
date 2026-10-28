@@ -52,6 +52,8 @@ func _fill() -> void:
 		Progress._data["mastery"][String(f)] = 10000000
 	Progress.award({"kind": "cpu", "cpu_level": 1, "players": [
 		{"slot": 0, "fighters": MatchFactory.FIGHTERS.duplicate(), "won": true, "kos": 0}]})
+	for id in Challenges.titles():  # and the challenges' titles
+		Progress.grant_unlock(String(id))
 
 
 func _row(scr: UiScreen, label: String) -> OptionRow:
@@ -73,8 +75,12 @@ func _pages(g: Node) -> void:
 	var top: UiScreen = g.ui.top()
 	assert_true(top is ProfileScreen, "the Profile opens")
 	var labels := _labels(top)
-	assert_eq(labels.size(), 1 + MatchFactory.FIGHTERS.size() + 1, "Account, a row per fighter, Back: %s" % [labels])
+	assert_eq(labels.size(), 2 + MatchFactory.FIGHTERS.size() + 1, "Account, Challenges, a row per fighter, Back: %s" % [labels])
 	assert_eq(labels[0], "Account", "")
+	assert_eq(labels[1], "Challenges", "")
+	g._open_menu("profile:challenges")
+	assert_true(g.ui.top() is ProfileScreen and (g.ui.top() as ProfileScreen).page == "challenges", "the Challenges page opens")
+	g.ui.top().back()
 	assert_eq(labels.back(), "Back", "")
 	for page in ["account"] + MatchFactory.FIGHTERS:
 		g._open_menu("profile:" + String(page))

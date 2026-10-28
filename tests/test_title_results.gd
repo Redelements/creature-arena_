@@ -215,9 +215,11 @@ func test_the_results_show_the_xp_a_match_paid_once_with_progression_on() -> voi
 		assert_true(panel != null, "the results come up")
 		var x: Dictionary = Progress.table()["xp"]
 		var paid := roundi((float(x["fight"]) + float(x["win"])) * float(x["level_mult"][g.level]))
+		for id in Challenges.completed_this_match():  # (a first win completes challenges: their XP too)
+			paid += int(Challenges.goal(String(id))["reward"].get("xp", 0))
 		if on:
 			assert_eq(Progress.account_xp() - before, paid, "a win against the CPU paid:")
-			assert_eq(panel.data["progress"][0], "+%d XP" % paid, "and the results say it:")
+			assert_eq(String(panel.data["progress"][0]).get_slice("   ", 0), "+%d XP" % paid, "and the results say it:")
 			assert_true(panel.get_node_or_null("Progress0") != null, "as a row under the table")
 			g.show_ctl.award_match()  # however the end is reached again, the match paid once
 			assert_eq(Progress.account_xp() - before, paid, "once:")

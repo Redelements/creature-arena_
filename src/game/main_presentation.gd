@@ -326,15 +326,66 @@ func award_match(won: Variant = null, extra := {}) -> void:
 	if main.sim == null or main._progress_for == main.sim.get_instance_id():
 		return
 	main._progress_for = main.sim.get_instance_id()
-	var got := Progress.award(progress_report(won, extra))
+	var report := progress_report(won, extra)
+	var got := Progress.award(report)
+	# Challenges count the same match (their rewards add to the rows: XP, a title).
+	got = Progress.merge_results(got, Challenges.note_match(report, main.stats.rows, challenge_context(report)))
 	main._progress_shown = Progress.merge_results(main._progress_shown, got) if main.arcade != null else got
+	main._challenges_shown = (main._challenges_shown if main.arcade != null else []) + Challenges.completed_this_match()
+
+
+## What Challenges.note_match needs beyond the report, for the report's first player:
+## the mode, the arena, their health share at the end, their team (and everyone's), and
+## in King of the Crater their team's zone time.
+func challenge_context(report: Dictionary) -> Dictionary:
+	var players: Array = report.get("players", [])
+	if main.sim == null or players.is_empty():
+		return {}
+	var slot := int(players[0].get("slot", 0))
+	var ctx := {"mode": _challenge_mode(), "arena": String(main.sim.arena_id), "hp": -1.0, "team": -1,
+		"teams": {}}
+	for c in main.sim.creatures:
+		ctx["teams"][c.id] = c.team
+	if slot < main.sim.creatures.size():
+		var me: CreatureSim = main.sim.creatures[slot]
+		ctx["team"] = me.team
+		ctx["hp"] = clampf(me.hp / me.max_hp, 0.0, 1.0) if me.max_hp > 0.0 else -1.0
+	if main.team_battle != null and main.team_battle.crater and int(ctx["team"]) in [0, 1]:
+		ctx["crater_ticks"] = int(main.team_battle.score[int(ctx["team"])])
+	return ctx
+
+
+## The kind of match for the challenges (Challenges.note_match's "mode").
+func _challenge_mode() -> String:
+	if main.arcade != null:
+		return "daily" if main.arcade is Daily else ("gauntlet" if main.arcade is Gauntlet else "arcade")
+	if main.brawl != null:
+		return "chaos" if bool(Main.MODES[main.mode].get("chaos", false)) else "brawl"
+	if main.duel != null:
+		return "duel"
+	var tb = main.team_battle
+	if tb != null:
+		if tb.caravan:
+			return "caravan"
+		if tb.ctf:
+			return "ctf"
+		if tb.crater:
+			return "crater"
+		if tb.sinkhole:
+			return "sinkhole"
+		return "tdm" if tb.deathmatch else "team"
+	return "versus"
 
 
 ## The results screen's progression rows for this match ([] when off or nothing was paid).
 func progress_lines() -> Array:
 	if not Progress.enabled() or main.sim == null or main._progress_for != main.sim.get_instance_id():
 		return []
-	return Progress.result_lines(main._progress_shown)
+	var lines := Progress.result_lines(main._progress_shown)
+	var done := Challenges.result_line(main._challenges_shown)
+	if done != "":
+		lines.append(done)
+	return lines
 
 
 ## Progression: the title and victory line the results screen shows for a player here

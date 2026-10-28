@@ -23,13 +23,17 @@ extends RefCounted
 ##   account_title() / set_account_title(id)   the title worn by the account (any fighter without its own)
 ##   shown_title(f) / shown_line(f)    the words the versus and results screens show ("" when off or none)
 ##   is_new(id), new_of(f), new_anywhere(), mark_seen(ids)   the Profile's "New!" marks (save key "seen")
+##   grant_xp(amount, reason) -> Dictionary   account XP from outside a match's award (a challenge's
+##                                     reward; account-level rewards it reaches unlock), shaped like `award`'s
+##   grant_unlock(reward_id) -> bool   a reward given outright (a challenge's title); false when off or had
+##   section(key) -> Dictionary        a save key another tracker keeps (Challenges: "challenges")
 
 const PATH := "user://progress.json"
 const DATA_PATH := "res://data/progression.json"
 const PALETTES := 4
 ## Every key of the save and its default (an old file without some of them still loads).
 const SAVE_KEYS := {"arcade": {}, "palette": {}, "gauntlet": {}, "daily": {}, "xp": 0, "mastery": {},
-	"unlocked": [], "equipped": {}, "account_title": "", "seen": []}
+	"unlocked": [], "equipped": {}, "account_title": "", "seen": [], "challenges": {}}
 
 static var _data := {}
 static var _loaded := false
@@ -547,3 +551,45 @@ static func mark_seen(ids: Array) -> void:
 			grew = true
 	if grew:
 		save()
+
+
+# --- Challenges (src/game/challenges.gd) ----------------------------------------------------
+
+
+## A save key another tracker owns (a Dictionary; Challenges keeps "challenges" here),
+## written by `save()`.
+static func section(key: String) -> Dictionary:
+	_ensure()
+	if not (_data.get(key) is Dictionary):
+		_data[key] = {}
+	return _data[key]
+
+
+## Account XP from outside a match's award (a challenge's reward): the account-level
+## rewards it reaches unlock. {} when Progression is off or `amount` <= 0, else shaped
+## like `award`'s result (no mastery), so `merge_results` adds it to the match's rows.
+## `reason` (the challenge id) rides along in the result as "reason".
+static func grant_xp(amount: int, reason := "") -> Dictionary:
+	if not enabled() or amount <= 0:
+		return {}
+	_ensure()
+	var before := account_level()
+	_data["xp"] = account_xp() + amount
+	var out := {"xp": amount, "level_from": before, "level_to": account_level(), "mastery": {}, "unlocked": [],
+		"reason": reason}
+	for r in account_rewards():
+		var id := String(r["id"])
+		if int(r["level"]) <= account_level() and not _unlocked_list().has(id):
+			_unlocked_list().append(id)
+			out["unlocked"].append(id)
+	save()
+	return out
+
+
+## A reward given outright (a challenge's title): true when it is new. Off: nothing.
+static func grant_unlock(reward_id: String) -> bool:
+	if not enabled() or reward_id == "" or _unlocked_list().has(reward_id):
+		return false
+	_unlocked_list().append(reward_id)
+	save()
+	return true

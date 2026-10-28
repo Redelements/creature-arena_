@@ -18,7 +18,7 @@ const PAGES := ["main", "single", "look", "settings", "game", "video", "audio", 
 	"remap:classic", "remap:league", "remap:gamepad", "credits", "credits:godot", "credits:notices"]
 ## The Profile's pages (Settings > Game > Progression on): the Profile, the account's and
 ## every fighter's.
-const PROFILE_PAGES := ["main", "profile", "profile:account", "profile:cairn", "profile:culvert", "profile:craglash",
+const PROFILE_PAGES := ["main", "profile", "profile:account", "profile:challenges", "profile:cairn", "profile:culvert", "profile:craglash",
 	"profile:barkley", "profile:gillbert", "profile:cerebro", "profile:hissy", "profile:digby", "profile:pete",
 	"profile:sno", "profile:crease"]
 
@@ -233,9 +233,10 @@ func test_the_results_and_online_screens_fit_every_screen() -> void:
 		g._progress_shown = {"xp": 1234, "level_from": 29, "level_to": 30, "unlocked":
 			["title:crowd_favourite", "line:crease_2", "palette:crease:3"], "mastery": {
 			"crease": {"xp": 600, "from": 9, "to": 10}, "cerebro": {"xp": 600, "from": 5, "to": 6}}}
+		g._challenges_shown = ["ko_500"]  # and a challenge's row
 		_tick(g, g.MATCH_OVER_MENU_AT + 1)
 		Progress.set_enabled(false)
-		assert_eq((_find_results(g.ui.top()) as ResultsPanel).data["progress"].size(), 3, "the rows are there:")
+		assert_eq((_find_results(g.ui.top()) as ResultsPanel).data["progress"].size(), 4, "the rows are there:")
 		_check(g, size, "results")
 		g._open_menu()
 		var lobby := OnlineLobby.new("digby", "", ["game.example.net/kev"], "game.example.net")
@@ -249,7 +250,8 @@ func test_the_results_and_online_screens_fit_every_screen() -> void:
 	_restore()
 
 
-## Every reward unlocked (the longest words show), in a save of the test's own.
+## Every reward unlocked (the longest words show), in a save of the test's own; the
+## Challenges page part done (goals done in most groups: their ticks and "Done").
 func _full_progress() -> String:
 	var p := "user://test_ui_fit_progress_%d.json" % Time.get_ticks_usec()
 	Progress.reset_for_tests(p)
@@ -260,6 +262,12 @@ func _full_progress() -> String:
 		Progress._data["mastery"][String(f)] = 10000000
 	Progress.award({"kind": "cpu", "cpu_level": 1, "players": [
 		{"slot": 0, "fighters": MatchFactory.FIGHTERS.duplicate(), "won": true, "kos": 0}]})
+	for id in Challenges.titles():
+		Progress.grant_unlock(String(id))
+	# The Challenges page with goals done in every group (ticks, "Done"), the rest under way.
+	Challenges.note_match({"kind": "cpu", "cpu_level": 3, "clear_arcade": true, "waves": 3, "players": [
+		{"slot": 0, "fighters": ["crease"], "won": true, "kos": 2}]}, {0: {"kos": 2, "combo": 7, "blocks": 40}},
+		{"mode": "chaos", "arena": "quarry", "hp": 1.0})
 	return p
 
 

@@ -79,7 +79,7 @@ extends Node2D
 ##                         foes), even with nobody playing here (captures of --cpu-vs-cpu)
 ##   --menu=PAGE           open a menu page: main, single, single:<group>, look (Time and weather), settings, game, video, audio, accessibility, controls,
 ##                         remap:classic|league|gamepad, credits, credits:<row> (game, szadi,
-##                         kiddolink, font, godot, notices), profile, profile:account,
+##                         kiddolink, font, godot, notices), profile, profile:account, profile:challenges,
 ##                         profile:<fighter> (with Settings > Game > Progression on) (captures)
 ##   --online-host[=PORT]  host an online 1v1 straight away (UDP, default port 7777)
 ##   --online-join=ADDR[:PORT][/ROOM]  join one, or a dedicated server (ROOM: meet a friend there)
@@ -465,7 +465,7 @@ var wins := [0, 0]
 var _carried_energy := [-1.0, -1.0]
 var timer := ROUND_TICKS
 var seed_base := 1
-## --menu=PAGE: open a menu page on start (captures): single, single:<group>, settings, game, video, audio, accessibility, controls, credits[:row], profile[:account|<fighter>].
+## --menu=PAGE: open a menu page on start (captures): single, single:<group>, settings, game, video, audio, accessibility, controls, credits[:row], profile[:account|challenges|<fighter>].
 var _menu_arg := ""
 var args_ctl := MainArgs.new(self)  ## the command line (main_args.gd)
 var _setting_rows := {}  ## Settings key -> its OptionRow, while the page is open
@@ -984,9 +984,9 @@ func _open_menu(page := "", focus := "") -> void:
 
 
 ## The Profile (title menu > Profile; src/ui/profile_screen.gd): "" the Profile itself,
-## "account" or a fighter id for its page. Nothing while Settings > Game > Progression is off.
+## "account", "challenges" or a fighter id for its page. Nothing while Settings > Game > Progression is off.
 func _open_profile(page := "") -> void:
-	if not Progress.enabled() or not (page in ["", "account"] or page in MatchFactory.FIGHTERS):
+	if not Progress.enabled() or not (page in ["", "account", "challenges"] or page in MatchFactory.FIGHTERS):
 		return
 	ui.push(ProfileScreen.new(page))
 
@@ -1403,6 +1403,7 @@ func _start_match(m: int, keep_teams := false) -> void:
 	_hazard_hit_now.clear()
 	_arcade_cleared = false
 	_progress_shown = {}  # a new match or run (an Arcade run's stages add up until then)
+	_challenges_shown = []
 	if not (keep_teams and m == mode):
 		_training_fighter = ""  # a swapped fighter lasts until you leave training
 	mode = m
@@ -2402,6 +2403,8 @@ var _arcade_cleared := false
 ## Gauntlet run's stages added up), for the results screen.
 var _progress_for := 0
 var _progress_shown := {}
+## The challenges this match (or ladder run) completed (src/game/challenges.gd), for the results.
+var _challenges_shown: Array = []
 
 
 func _over_reason() -> String:
@@ -2507,6 +2510,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	hud.banner_hidden = false
 	if not _menu_bg and round_num <= 1:
 		stats.reset()
+		Challenges.begin_match()
 	_cam_zoom = 0.0  # frame the new fight straight away
 	_cam_lead = Vector2.ZERO
 	_cam_prev = []
@@ -3247,6 +3251,7 @@ func _react(e: Dictionary) -> void:
 	_count_ctf(e)
 	if flow != Flow.MENU:
 		stats.note(e)
+		Challenges.note_event(e)  # Progression's challenges (nothing while Off)
 		if String(e["type"]) in ["shrine_soon", "shrine_ready", "shrine", "shrine_boost"]:
 			_shrine_toast(e)
 		elif String(e["type"]) in ["spree", "shutdown", "crown"]:
