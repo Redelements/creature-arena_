@@ -304,7 +304,9 @@ static func note_match(report: Dictionary, rows: Dictionary, ctx := {}) -> Dicti
 		_inc(add, "dailies")
 	_inc(add, "gauntlet_waves", int(report.get("waves", 0)))
 	if bool(report.get("clear_arcade", false)):
-		for k in range(0, clampi(int(report.get("cpu_level", 0)), 0, LEVELS.size() - 1) + 1):
+		# The run's chosen level (the boss stage plays one up: that is not a harder clear).
+		var lvl := int(report.get("arcade_level", report.get("cpu_level", 0)))
+		for k in range(0, clampi(lvl, 0, LEVELS.size() - 1) + 1):
 			_inc(add, "arcade_clears_" + LEVELS[k])
 	if String(report.get("kind", "")) == "online":
 		_inc(add, "online_matches")
