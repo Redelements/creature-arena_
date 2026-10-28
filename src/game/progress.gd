@@ -40,6 +40,23 @@ const PALETTES := 4
 ## The most XP (or any count) a save holds: a hand-edited 1e30 reads as this, never as an overflow.
 const XP_MAX := 1000000000
 ## Every key of the save and its default (an old file without some of them still loads).
+## A match report's keys (`award`, `xp_for`; built by main_presentation.gd `progress_report`,
+## read by Challenges.note_match too): named once here, so a typo is an error, not a 0.
+const R_KIND := "kind"
+const R_CPU_LEVEL := "cpu_level"
+const R_ARCADE_LEVEL := "arcade_level"
+const R_PLAYERS := "players"
+const R_CLEAR_ARCADE := "clear_arcade"
+const R_WAVES := "waves"
+const R_DAILY_SCORE := "daily_score"
+const R_WEEKLY_CLEAR := "weekly_clear"
+const R_LADDER := "ladder"
+const R_CPUS := "cpus"
+## A report's player's keys.
+const P_SLOT := "slot"
+const P_FIGHTERS := "fighters"
+const P_WON := "won"
+const P_KOS := "kos"
 const SAVE_KEYS := {"arcade": {}, "palette": {}, "gauntlet": {}, "daily": {}, "xp": 0, "mastery": {},
 	"unlocked": [], "equipped": {}, "account_title": "", "seen": [], "challenges": {},
 	"weekly": {}, "streak": {}, "endings": []}
@@ -306,6 +323,7 @@ static func reset_for_tests(p: String) -> void:
 	path = p
 	_loaded = false
 	_data = {}
+	day_override = 0
 
 
 # --- Progression ----------------------------------------------------------------------
@@ -498,25 +516,25 @@ static func set_equipped(fighter: String, key: String, value) -> bool:
 
 ## The XP one player earns from a report (see `award`); nothing is added.
 static func xp_for(report: Dictionary, player: Dictionary) -> int:
-	var kind := String(report.get("kind", "none"))
+	var kind := String(report.get(R_KIND, "none"))
 	if not kind in ["cpu", "local", "online"]:
 		return 0
 	var x: Dictionary = table().get("xp", {})
-	var kos := mini(int(player.get("kos", 0)), int(x.get("ko_cap", 99)))
+	var kos := mini(int(player.get(P_KOS, 0)), int(x.get("ko_cap", 99)))
 	var total := float(x.get("fight", 0)) + kos * float(x.get("ko", 0))
-	if bool(player.get("won", false)):
+	if bool(player.get(P_WON, false)):
 		total += float(x.get("win", 0))
-	if bool(report.get("clear_arcade", false)):
+	if bool(report.get(R_CLEAR_ARCADE, false)):
 		total += float(x.get("clear_arcade", 0))
-	total += int(report.get("waves", 0)) * float(x.get("gauntlet_wave", 0))
-	if bool(report.get("ladder", false)):  # a single-round stage: about half a best-of-three's time
+	total += int(report.get(R_WAVES, 0)) * float(x.get("gauntlet_wave", 0))
+	if bool(report.get(R_LADDER, false)):  # a single-round stage: about half a best-of-three's time
 		total *= float(x.get("ladder_mult", 1.0))
-	total += int(report.get("daily_score", 0)) / 100.0 * float(x.get("daily_score_mult", 0))
-	if bool(report.get("weekly_clear", false)):
+	total += int(report.get(R_DAILY_SCORE, 0)) / 100.0 * float(x.get("daily_score_mult", 0))
+	if bool(report.get(R_WEEKLY_CLEAR, false)):
 		total += float(x.get("weekly_clear", 0))
-	if kind == "cpu" or (kind == "local" and bool(report.get("cpus", false))):
+	if kind == "cpu" or (kind == "local" and bool(report.get(R_CPUS, false))):
 		var mults: Array = x.get("level_mult", [1.0])
-		total *= float(mults[clampi(int(report.get("cpu_level", 1)), 0, mults.size() - 1)])
+		total *= float(mults[clampi(int(report.get(R_CPU_LEVEL, 1)), 0, mults.size() - 1)])
 	return roundi(total)
 
 
@@ -550,14 +568,14 @@ static func award(report: Dictionary) -> Dictionary:
 	var best := 0
 	var per_fighter := {}
 	var paid := false
-	for p in report.get("players", []):
+	for p in report.get(R_PLAYERS, []):
 		paid = paid or xp_for(report, p) > 0
 	var streak_up := _note_streak() if paid else false
 	var bonus := streak_bonus()
-	for p in report.get("players", []):
+	for p in report.get(R_PLAYERS, []):
 		var gain := roundi(xp_for(report, p) * bonus)
 		best = maxi(best, gain)
-		var fs: Array = p.get("fighters", [])
+		var fs: Array = p.get(P_FIGHTERS, [])
 		if fs.is_empty() or gain <= 0:
 			continue
 		var share := ceili(float(gain) / fs.size())
@@ -809,9 +827,8 @@ static func grant_xp(amount: int, reason := "") -> Dictionary:
 	_data["xp"] = account_xp() + amount
 	var out := {"xp": amount, "level_from": before, "level_to": account_level(), "mastery": {}, "unlocked": [],
 		"reason": reason}
-	for r in account_rewards():
-		var id := String(r["id"])
-		if int(r["level"]) <= account_level() and not _unlocked_list().has(id):
+	for id in _due([]):  # the account's rewards it reaches (as `award`)
+		if not _unlocked_list().has(id):
 			_unlocked_list().append(id)
 			out["unlocked"].append(id)
 	save()

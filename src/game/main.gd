@@ -1666,6 +1666,8 @@ func _arcade_result(won: bool) -> bool:
 	var share := clampf(me.hp / me.max_hp, 0.0, 1.0)
 	if arcade is Weekly:
 		# One fight, scored like the Daily, as often as you like this week; the best is kept.
+		# (A near copy of the Daily's branch below, kept apart: it has no replay file and no
+		# server submission, and merging the two would hide that.)
 		var w := arcade as Weekly
 		var w_tick := int(_round_end[0]) if _round_end.size() == 2 else sim.tick
 		var w_share := float(_round_end[1]) if _round_end.size() == 2 else share
@@ -1674,7 +1676,7 @@ func _arcade_result(won: bool) -> bool:
 		var first_clear := won and w_score > 0 and w_old <= 0
 		var w_best := Progress.record_weekly(w.week, w_score)
 		# The score pays only what it adds to the week's best (a retry that doesn't beat it: 0).
-		show_ctl.award_match(won, {"daily_score": maxi(0, w_score - w_old) if w_best else 0, "weekly_clear": first_clear})
+		show_ctl.award_match(won, {Progress.R_DAILY_SCORE: maxi(0, w_score - w_old) if w_best else 0, Progress.R_WEEKLY_CLEAR: first_clear})
 		flow = Flow.MATCH_OVER
 		flow_t = 0
 		hud.banner = "SCORE  %d" % w_score if won else "NO SCORE"
@@ -1689,7 +1691,7 @@ func _arcade_result(won: bool) -> bool:
 		var score := d.score_fight(won, end_share, end_tick)
 		var old_best := Progress.daily_best(d.date)
 		var best := Progress.record_daily(d.date, score)
-		show_ctl.award_match(won, {"daily_score": maxi(0, score - old_best) if best else 0})  # (as the Weekly's)
+		show_ctl.award_match(won, {Progress.R_DAILY_SCORE: maxi(0, score - old_best) if best else 0})  # (as the Weekly's)
 		var path := "user://daily/daily_%d.json" % d.date
 		DirAccess.make_dir_recursive_absolute("user://daily")
 		var f := FileAccess.open(path, FileAccess.WRITE)
@@ -1706,7 +1708,7 @@ func _arcade_result(won: bool) -> bool:
 		return true
 	# Progression pays each stage as a fight (a Gauntlet wave won, an Arcade clear on top).
 	var cleared := won and arcade is Arcade and arcade.is_boss()
-	show_ctl.award_match(won, {"waves": 1 if won and arcade is Gauntlet else 0, "clear_arcade": cleared})
+	show_ctl.award_match(won, {Progress.R_WAVES: 1 if won and arcade is Gauntlet else 0, Progress.R_CLEAR_ARCADE: cleared})
 	if not won:
 		flow = Flow.MATCH_OVER
 		flow_t = 0

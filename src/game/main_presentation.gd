@@ -280,7 +280,7 @@ static func _skips_intro(event: InputEvent) -> bool:
 ## (trials, drills), replays, spectating and CPU vs CPU. `won` (the Arcade's stage result)
 ## overrides who won; `extra` adds the ladder's keys (clear_arcade, waves, daily_score, weekly_clear).
 func progress_report(won: Variant = null, extra := {}) -> Dictionary:
-	var none := {"kind": "none", "players": []}
+	var none := {Progress.R_KIND: "none", Progress.R_PLAYERS: []}
 	if main.sim == null or main.watch != null or main._replaying() or main.mode == Main.REPLAY_MODE \
 			or main.showcase != null or main.coach != null or Main.MODES[main.mode].get("training", false) 			or main._cpu_vs_cpu:  # --cpu-vs-cpu (demos, captures, soak runs): online too, where the sides stay human
 		return none
@@ -307,19 +307,19 @@ func progress_report(won: Variant = null, extra := {}) -> Dictionary:
 				fighters.append(String(c.def.get("id", "")))
 		else:
 			fighters.append(String(main.sim.creatures[slot].def.get("id", "")))
-		players.append({"slot": slot, "fighters": fighters, "kos": int(main.stats.row(slot)["kos"]),
-			"won": bool(won) if won != null else _slot_won(slot)})
-	var r := {"kind": "online" if main.online != null else ("local" if humans.size() > 1 else "cpu"),
-		"cpu_level": main._cpu_level_override if main._cpu_level_override >= 0 else main.level, "players": players}
+		players.append({Progress.P_SLOT: slot, Progress.P_FIGHTERS: fighters, Progress.P_KOS: int(main.stats.row(slot)["kos"]),
+			Progress.P_WON: bool(won) if won != null else _slot_won(slot)})
+	var r := {Progress.R_KIND: "online" if main.online != null else ("local" if humans.size() > 1 else "cpu"),
+		Progress.R_CPU_LEVEL: main._cpu_level_override if main._cpu_level_override >= 0 else main.level, Progress.R_PLAYERS: players}
 	if main.online == null and main.sides.has(Main.Side.CPU):
-		r["cpus"] = true  # local players with CPUs in the match: paid at the CPU level, like one human
+		r[Progress.R_CPUS] = true  # local players with CPUs in the match: paid at the CPU level, like one human
 	if main.arcade != null:
-		r["ladder"] = true  # a single-round stage (Arcade, Gauntlet, Daily, Weekly): ladder_mult
+		r[Progress.R_LADDER] = true  # a single-round stage (Arcade, Gauntlet, Daily, Weekly): ladder_mult
 	if main.arcade is Arcade:
 		# The run's chosen level, not the stage's: the boss plays one level up, but an Easy
 		# run's clear is an Easy clear (its challenge, and the XP multiplier of every stage).
-		r["arcade_level"] = int(main.arcade.level)
-		r["cpu_level"] = int(main.arcade.level)
+		r[Progress.R_ARCADE_LEVEL] = int(main.arcade.level)
+		r[Progress.R_CPU_LEVEL] = int(main.arcade.level)
 	r.merge(extra, true)
 	return r
 
@@ -356,20 +356,20 @@ func award_match(won: Variant = null, extra := {}) -> void:
 ## the mode, the arena, their health share at the end, their team (and everyone's), and
 ## in King of the Crater their team's zone time.
 func challenge_context(report: Dictionary) -> Dictionary:
-	var players: Array = report.get("players", [])
+	var players: Array = report.get(Progress.R_PLAYERS, [])
 	if main.sim == null or players.is_empty():
 		return {}
-	var slot := int(players[0].get("slot", 0))
-	var ctx := {"mode": _challenge_mode(), "arena": String(main.sim.arena_id), "hp": -1.0, "team": -1,
-		"teams": {}}
+	var slot := int(players[0].get(Progress.P_SLOT, 0))
+	var ctx := {Challenges.C_MODE: _challenge_mode(), Challenges.C_ARENA: String(main.sim.arena_id), Challenges.C_HP: -1.0,
+		Challenges.C_TEAM: -1, Challenges.C_TEAMS: {}}
 	for c in main.sim.creatures:
-		ctx["teams"][c.id] = c.team
+		ctx[Challenges.C_TEAMS][c.id] = c.team
 	if slot < main.sim.creatures.size():
 		var me: CreatureSim = main.sim.creatures[slot]
-		ctx["team"] = me.team
-		ctx["hp"] = clampf(me.hp / me.max_hp, 0.0, 1.0) if me.max_hp > 0.0 else -1.0
-	if main.team_battle != null and main.team_battle.crater and int(ctx["team"]) in [0, 1]:
-		ctx["crater_ticks"] = int(main.team_battle.score[int(ctx["team"])])
+		ctx[Challenges.C_TEAM] = me.team
+		ctx[Challenges.C_HP] = clampf(me.hp / me.max_hp, 0.0, 1.0) if me.max_hp > 0.0 else -1.0
+	if main.team_battle != null and main.team_battle.crater and int(ctx[Challenges.C_TEAM]) in [0, 1]:
+		ctx[Challenges.C_CRATER_TICKS] = int(main.team_battle.score[int(ctx[Challenges.C_TEAM])])
 	return ctx
 
 
@@ -432,10 +432,10 @@ func winner_flair(pose := "") -> Dictionary:
 	if not Progress.enabled():
 		return out
 	var paid := main.sim != null and main._progress_for == main.sim.get_instance_id()
-	for p in progress_report(_paid_won if paid else null).get("players", []):
-		if not bool(p.get("won", false)):
+	for p in progress_report(_paid_won if paid else null).get(Progress.R_PLAYERS, []):
+		if not bool(p.get(Progress.P_WON, false)):
 			continue
-		var fs: Array = p.get("fighters", [])
+		var fs: Array = p.get(Progress.P_FIGHTERS, [])
 		if fs.is_empty():
 			continue
 		var f := pose if pose in fs else String(fs[0])
