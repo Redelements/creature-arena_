@@ -280,7 +280,7 @@ the spot. The mouse aims attacks exactly at the cursor. Controllers have two lay
 
 WASD still gives 8 directions, so the keyboard gets a small **aim assist**: an attack
 aimed within 25° of an opponent within reach goes straight at them (12° from the left
-stick, which needs less help). A chevron on the floor shows exactly where each fighter
+stick, which needs less help). It never bends toward a foe in stealth, like a Tiptoeing Pete. A chevron on the floor shows exactly where each fighter
 faces. The CPU walks and aims 360 degrees on Normal and up (Rage also leads its shots), and in 8 directions on Easy. `--showcase=twinstick` shows strafing and an
 off-angle Landslide Charge; `--pad-layout=twinstick` picks the layout from the command line.
 
