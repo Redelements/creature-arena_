@@ -35,6 +35,8 @@ func _open_settings() -> void:
 			_open_controls, "Who presses what")
 		s.add_card("Credits", "Who made the game; art, font and engine licences",
 			_open_credits, "Credits and licences, and the engine's third-party notices")
+		s.add_card("Save a bug report", "The log, settings, progress and your last replay, in one zip",
+			func(): main._save_bug_report(true), BugReport.BLURB + " (no online id or secret)")
 		s.add_space(3)
 		s.add_button("Back", s.back)
 	main.ui.push(scr)

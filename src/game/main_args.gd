@@ -144,6 +144,9 @@ func _parse_args() -> int:
 			main._print_vram_at = int(a.get_slice("=", 1))
 		elif a.begins_with("--quit-after="):
 			main._quit_after = int(a.get_slice("=", 1))
+		elif a == "--bug-report" or a.begins_with("--bug-report="):
+			var d := a.get_slice("=", 1) if a.contains("=") else ""
+			main._bug_report_dir = d if d != "" else BugReport.DIR
 		elif a.begins_with("--showcase="):
 			var sc := a.get_slice("=", 1)
 			if sc in Showcase.names():
