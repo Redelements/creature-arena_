@@ -34,7 +34,7 @@ DONE / SKIPPED / BLOCKED. This file lives on branch `autonomy-log` (worktree
 | 14 | Digby vs Cerebro with Normal bots, documented | DONE | [#266](https://github.com/Redelements/creature-arena_/pull/266) |
 | 15 | Perf: view-draw pass, before/after | | |
 | 16 | Android: shader warm-up, 60 Hz hint; VRAM + soak scripts (not run) | | |
-| 17 | Trailer and gallery capture per map and fighter | PR OPEN, merging | [#268](https://github.com/Redelements/creature-arena_/pull/268) |
+| 17 | Trailer and gallery capture per map and fighter | DONE | [#268](https://github.com/Redelements/creature-arena_/pull/268) |
 
 ## Setup (2026-10-27)
 
@@ -221,3 +221,4 @@ touches the same file; whichever merges second resolves a one-line conflict.
   README gallery, Kevin can prune.
 - Noted: `tests/test_rollback_fuzz.gd.uid` was never committed with #262 (every import regenerates it);
   it goes into the final log PR.
+- **Task 17 DONE**: #268 merged.
