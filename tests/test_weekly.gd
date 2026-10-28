@@ -213,7 +213,8 @@ func test_off_there_is_no_row_and_no_streak() -> void:
 		if c is CardButton and (c as Button).text == "Challenges":
 			assert_true((c as CardButton).subtitle.contains("Weekly"), "the card names it: " + (c as CardButton).subtitle)
 			facts = hub.card(c).facts
-	assert_eq(facts.size(), 2 + Weekly.WEEK_PICKS, "On: the today card, the Daily, the Weekly and its mutators: %s" % [facts])
+	assert_eq(facts.size(), 3 + Weekly.WEEK_PICKS, "On: the today card, the Daily, the Weekly, its map and its mutators: %s" % [facts])
+	assert_true(String(facts[2]).begins_with("on "), "the map named: %s" % [facts])
 	assert_true(String(facts[0]).begins_with("Daily:") and String(facts[1]).begins_with("Weekly:"), str(facts))
 	g.free()
 	_done()

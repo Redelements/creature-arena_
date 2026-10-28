@@ -1236,17 +1236,17 @@ func _match_look(s: MatchSim) -> Dictionary:
 
 
 ## The Weekly Challenge row's card (three lines under the fighter): who and where this
-## week, then its three mutators over two lines with the week's best.
+## week, then its three mutators over two lines (no dangling comma) with the week's best.
 func _weekly_facts(w: Weekly) -> Array:
 	var best := Progress.weekly_best(w.week)
 	var names := w.mutator_names_list()
 	return ["vs %s, %s" % [String(MatchFactory.load_def(w.opponent()).get("name", w.opponent())), w.arena_id.capitalize()],
-		", ".join(PackedStringArray(names.slice(0, names.size() - 1))) + ",",
+		", ".join(PackedStringArray(names.slice(0, names.size() - 1))),
 		"%s  ·  %s" % [names.back(), ("best %d" % best) if best > 0 else "no score yet"]]
 
 
 ## The "today" card on the Single player hub's Challenges card (Progression on): today's
-## Daily (played, best), this week's Weekly (best) and its mutators, one a line (the hub's
+## Daily (played, best), this week's Weekly (its map, best) and its mutators, one a line (the hub's
 ## arena picture is taller, so the card never grows the panel).
 func _today_facts() -> Array:
 	var day := Daily.today()
@@ -1255,7 +1255,8 @@ func _today_facts() -> Array:
 		"Daily: played, no score yet" if FileAccess.file_exists("user://daily/daily_%d.json" % day) else "Daily: not played today")
 	var w := Weekly.new("cairn")
 	var wb := Progress.weekly_best(w.week)
-	return [daily, ("Weekly: best %d, with" % wb) if wb > 0 else "Weekly: no score yet, with"] + w.mutator_names_list()
+	var weekly := "Weekly: best %d" % wb if wb > 0 else "Weekly: no score yet"
+	return [daily, weekly, "on " + ArenaMap.name_of(w.arena_id)] + w.mutator_names_list()
 
 
 ## A row's card in the panel: the fighter the row's choice names, and the mode's facts

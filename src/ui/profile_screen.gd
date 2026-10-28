@@ -235,8 +235,7 @@ func _build_fighter(f: String) -> void:
 	for r in Progress.mastery_rewards(f):
 		var id := String(r["id"])
 		var have := Progress.unlocked(id)
-		_reward_line("Mastery %d" % int(r["level"]), "\"%s\"" % Progress.title_text(id) if id.begins_with("title:") else _short(id, f),
-			have, fresh.has(id))
+		_reward_line("Mastery %d" % int(r["level"]), _short(id, f), have, fresh.has(id))
 	Progress.mark_seen(fresh)
 
 
@@ -330,8 +329,8 @@ func _build_endings() -> void:
 			k.fighter = fid
 			k.palette = Progress.palette(fid)
 			k.facts = ["\"%s\"" % String(e.get("title", "")) if seen else "Not seen yet",
-				"Seen after an Arcade clear" if seen else "Clear the Arcade as",
-				"" if seen else _name(fid)]
+				"Seen after an Arcade clear" if seen else "Shown after an Arcade clear",
+				"Enter: watch it again" if seen else "Clear it as %s" % _name(fid)]
 
 
 static func _endings_seen() -> int:
@@ -370,7 +369,9 @@ func _build_account() -> void:
 	Progress.mark_seen(fresh)
 
 
-## A line of a page's reward list: where it comes, what it is, and New! / locked.
+## A line of a page's reward list: where it comes, what it is, and New! / locked in a
+## column of their own at the right (so they line up whatever the reward's length).
+const STATUS_W := 40.0
 func _reward_line(at: String, what: String, have: bool, fresh: bool) -> void:
 	var col: Color = UiTheme.C_ACCENT if fresh else (UiTheme.C_TEXT if have else UiTheme.C_DIM)
 	var line := HBoxContainer.new()
@@ -379,11 +380,16 @@ func _reward_line(at: String, what: String, have: bool, fresh: bool) -> void:
 	a.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	a.custom_minimum_size = Vector2(62, 0)
 	line.add_child(a)
-	var b := _label(what + ("   New!" if fresh else ("" if have else "   (locked)")), UiTheme.SIZE_HINT + 1, col)
+	var b := _label(what, UiTheme.SIZE_HINT + 1, col)
 	b.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	b.custom_minimum_size = Vector2(row_width - 66, 0)
+	b.custom_minimum_size = Vector2(row_width - 66 - STATUS_W - 4, 0)
 	line.add_child(b)
+	var c := _label("New!" if fresh else ("" if have else "locked"), UiTheme.SIZE_HINT + 1, col)
+	c.name = "Status"
+	c.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	c.custom_minimum_size = Vector2(STATUS_W, 0)
+	line.add_child(c)
 	add_panel(line)
 
 

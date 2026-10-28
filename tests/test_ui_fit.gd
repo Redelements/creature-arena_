@@ -377,8 +377,9 @@ func test_every_rows_facts_fit_on_a_line_of_the_panel() -> void:
 		var lines: Array = g._weekly_facts(w).map(func(t): return [t, room])
 		for n in w.mutator_names_list():
 			lines.append([String(n), hub_room])
-		lines.append(["Weekly: best 9999, with", hub_room])
-		lines.append(["Weekly: no score yet, with", hub_room])
+		lines.append(["Weekly: best 9999", hub_room])  # main.gd:_today_facts
+		lines.append(["Weekly: no score yet", hub_room])
+		lines.append(["on " + ArenaMap.name_of(w.arena_id), hub_room])
 		lines.append(["Daily: played, no score yet", hub_room])
 		for pair in lines:
 			var s := String(pair[0])
