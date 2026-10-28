@@ -4,8 +4,8 @@ extends RefCounted
 ## the best CPU level each fighter has cleared the Arcade ladder on, the palette each
 ## fighter wears, Gauntlet and Daily bests, and (Settings > Game > Progression) the
 ## account's XP, each fighter's mastery XP, the rewards unlocked and what is equipped.
-## Palettes unlock with Arcade clears (one per level cleared, up to four) and, with
-## Progression on, with mastery: a palette counts as unlocked if either rule grants it.
+## Palettes unlock with Arcade clears (one per level cleared, up to four) and with mastery
+## (earned with Progression on, kept when it's off): a palette is unlocked if either rule grants it.
 ## The numbers and tables are data: data/progression.json.
 ##
 ## Progression API (every award, line and toast checks `enabled()` first):
@@ -218,7 +218,8 @@ static func record_clear(fighter: String, level: int) -> bool:
 
 
 ## Palette `index` (0 always) is this fighter's under either rule: Arcade clears (one per
-## level cleared) or, with Progression on, its mastery reward "palette:<fighter>:<index>".
+## level cleared) or its mastery reward "palette:<fighter>:<index>" once earned. An earned
+## palette stays wearable with Progression off (Off stops new earning, never takes one away).
 static func palette_unlocked(fighter: String, index: int) -> bool:
 	if index <= 0:
 		return true
@@ -226,7 +227,7 @@ static func palette_unlocked(fighter: String, index: int) -> bool:
 		return false
 	if index <= 1 + arcade_best(fighter):
 		return true
-	return enabled() and _unlocked_list().has("palette:%s:%d" % [fighter, index])
+	return _unlocked_list().has("palette:%s:%d" % [fighter, index])
 
 
 ## How many palettes this fighter can wear: the unbroken run 0, 1, .. that is unlocked.
@@ -310,8 +311,9 @@ static func reset_for_tests(p: String) -> void:
 # --- Progression ----------------------------------------------------------------------
 
 
-## Settings > Game > Progression. Off: `award` gives nothing and changes nothing, and
-## palettes unlock by Arcade clears only (as before the setting existed).
+## Settings > Game > Progression. Off: `award` gives nothing and changes nothing, new
+## palettes unlock by Arcade clears only (as before the setting existed), and the ones
+## mastery already gave stay wearable (F5 and a saved choice keep them).
 static func enabled() -> bool:
 	return _enabled
 
