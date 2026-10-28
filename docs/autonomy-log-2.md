@@ -118,3 +118,25 @@ Base: `origin/main` at 5c26ca7 (PR #278 merged), NET_VERSION 61.
   Bell and First Win); **the full suite was not rerun after that fix** (TEST_ONLY title_results, journey,
   challenges 22/0); CI is the full run. Journey alone and in suite, sweep 216/0, sim-check unchanged, map
   clean. Screenshots in the session scratchpad `shots-progression-challenges/`. Merging when CI is green.
+
+## Task D: weekly challenge and streaks
+
+- **PR #284** (branch `progression-weekly`, from main dc70291). Mode 54 "Weekly Challenge" (cfg `weekly`),
+  MENU_ROWS entry under the Daily with `fighter_choice` and the new row key `progression: true` (hidden while
+  Off; `MENU_GROUPS` challenge entry gains `sub_progression`). `src/game/weekly.gd` (`Weekly extends Daily`):
+  `WEEK_PICKS 3`, `week` (YYYYWW, UTC ISO week; the match seed), `arena_id/time_id/weather_id`, statics
+  `this_week()`, `week_of(YYYYMMDD)`, `look()`, `stage_label()`, `mutator_names_list()`, `build()`. daily.gd:
+  the draw moved into `_roll` unchanged, statics `day_number`, `date_of_day`. Progress: `weekly_best`,
+  `record_weekly`, `streak_days`, `streak_bonus`, `streak_text`, `today_local`, static `day_override` (tests);
+  save keys `weekly` {YYYYWW: best}, `streak` {days, last_day}; `award` takes `weekly_clear`, returns `streak`,
+  `streak_up`, `streak_bonus`; `result_lines` adds "Streak: N days · +10% XP". progression.json xp:
+  `weekly_clear` 100, `streak_mult` 1.1, `streak_min_days` 3. main.gd `_weekly_facts`, `_today_facts`,
+  `_arcade_result` weekly branch, `_match_look`; presence shows "Weekly Challenge"; profile hub "Streak" row.
+- Decisions (agent): the today card sits on the Single player hub's Challenges card (the title has no side
+  panel); week is UTC like the Daily, the streak is the local calendar day; the weekly card names the map and
+  three mutators, not the time/weather (three lines fit a phone); the streak row shows only from 2 days; the
+  bonus doesn't apply to challenge XP; any paid fight counts, online included; `--mode=54` plays while Off
+  (the sweep needs it) and records a best but pays nothing; no server submission, no replay file.
+- Checks: suite 1380/0 after the last change (journey walks the Weekly row On and the rest Off), sweep 216/0
+  (mode 54 on four maps), sim-check unchanged, map clean. Screenshots in the session scratchpad
+  `shots-progression-weekly/`. Merging when CI is green.
