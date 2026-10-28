@@ -408,6 +408,20 @@ func progress_lines() -> Array:
 	return lines
 
 
+## Online (no results screen): one line for the toast, "+N XP" with a level-up, and a
+## pointer to the Profile when anything unlocked or a challenge was done ("" when off or
+## nothing was paid).
+func progress_toast() -> String:
+	var lines := progress_lines()
+	if lines.is_empty():
+		return ""
+	var t := String(lines[0])
+	var got: Array = main._progress_shown.get("unlocked", [])
+	if not got.is_empty() or not main._challenges_shown.is_empty():
+		t += "   ·   new on your Profile"
+	return t
+
+
 ## Progression: the title and victory line the results screen shows for a player here
 ## who won (their fighter's own title, else the account's; their fighter's line), or ""
 ## for each when Progression is off, nobody here won, or nothing is worn. `pose` (the
@@ -503,6 +517,10 @@ func _show_match_over() -> void:
 	var cfg: Dictionary = Main.MODES[main.mode]
 	award_match()  # (a ladder's stage already paid in _arcade_result: once per sim)
 	var results := main.online == null and main.watch == null and not (main._replaying() or main.mode == Main.REPLAY_MODE)
+	if main.online != null:  # no results screen online: what the match paid, in a toast
+		var said := progress_toast()
+		if said != "":
+			main.hud.show_toast(said)
 	if results:  # the results screen: the stats panel, then the same buttons
 		scr.dim = 0.62
 		scr.column_shift = 0.0

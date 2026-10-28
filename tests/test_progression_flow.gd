@@ -281,3 +281,19 @@ func test_the_palette_toast_and_the_clear_banner_say_what_changed() -> void:
 	_clear(g, "cairn", 0)
 	assert_eq(String(g.hud.banner_sub), "New palette unlocked: F5 in a fight to wear it", "a first clear gives one")
 	_done(g)
+
+
+func test_an_online_match_end_says_what_it_paid_in_a_toast() -> void:
+	_fresh()
+	var g := _game()
+	g._skip_select = true
+	g._start_match(0)
+	_tick(g, 5)
+	assert_eq(g.show_ctl.progress_toast(), "", "nothing paid yet: no toast")
+	g.show_ctl.award_match(true)
+	var t: String = g.show_ctl.progress_toast()
+	assert_true(t.begins_with("+%d XP" % int(g._progress_shown["xp"])), "the XP: %s" % t)
+	assert_true(t.ends_with("new on your Profile"), "a first win completes challenges: the Profile is named: %s" % t)
+	Progress.set_enabled(false)
+	assert_eq(g.show_ctl.progress_toast(), "", "Off: nothing")
+	_done(g)
