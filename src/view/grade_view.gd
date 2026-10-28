@@ -17,6 +17,13 @@ const LIGHT_LEAN := 0.08
 var _mat := ShaderMaterial.new()
 
 
+## ShaderWarmup's list: the grade's material, compiled before the first fight.
+static func warm_materials() -> Array:
+	var m := ShaderMaterial.new()
+	m.shader = SHADER
+	return [m]
+
+
 func _init() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE

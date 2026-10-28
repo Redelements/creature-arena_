@@ -71,6 +71,12 @@ var lamp_lights := false
 var fighter_scale := 1.0
 
 
+## ShaderWarmup's list: the multiply layer over the floor (the lamps light it at night),
+## compiled before the first fight.
+static func warm_materials() -> Array:
+	return [Shade.make_material()]
+
+
 ## The multiply layer over the floor art.
 class Shade extends Node2D:
 	var tint := Color.WHITE
@@ -78,10 +84,13 @@ class Shade extends Node2D:
 	var rect := Rect2()
 
 	func _init() -> void:
+		material = make_material()
+		light_mask = Light2DView.FLOOR_MASK  # the lamps (High) light the night through it
+
+	static func make_material() -> CanvasItemMaterial:
 		var m := CanvasItemMaterial.new()
 		m.blend_mode = CanvasItemMaterial.BLEND_MODE_MUL
-		material = m
-		light_mask = Light2DView.FLOOR_MASK  # the lamps (High) light the night through it
+		return m
 
 	func _draw() -> void:
 		const BIG := 100000.0

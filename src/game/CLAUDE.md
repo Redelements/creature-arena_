@@ -159,6 +159,7 @@ After `--`; the full list is in the `main.gd` header, modes in `MODES`.
 `--a11y=teams,outlines,markers` (Settings > Accessibility for this session, not saved: colour-safe team colours, fighter outlines at High contrast, or `outlines=team` for Team, high-contrast hit markers; `all` for every one; `Accessibility.cli`, cleared per option when its row is changed),
 `--lighting=off|low|high` (Settings > Video > Lighting for this session, not saved: `lighting_tier`, `_light_look`; real 2D lights, the night's lamps and bloom, `Light2DView` / `BloomView`; Off loads no normal or emissive fighter sheet),
 `--print-vram=N` (at frame N print `VRAM ...`: the texture and video memory Godot reports and the fighter sheets loaded, `CreatureView.sheet_report`; needs a renderer, headless reports 0),
+`--no-warmup` (skip the shader warm-up on the first frames, `ShaderWarmup`; for an A/B with `--perf`), `--rematch-after=N` (an offline match's results screen presses Rematch by itself after N frames: back-to-back `--cpu-vs-cpu` fights for `tools/odin_perf.py --soak`; `_rematch_at`, checked in `_capture`),
 `--bug-report[=DIR]` (a bug-report zip, `bug_report.gd`, then quit; with `--quit-after` at the end of the run), `--perf` (frame and tick percentiles on quit, with each part's share: the tick's
 steps, each view's `_draw` via `PerfLog.since`, the renderer's CPU and GPU time, its draw
 calls, objects and primitives a frame (as "(count)" lines), and when

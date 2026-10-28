@@ -38,6 +38,10 @@ jobs:
         if: matrix.shard == 1
         run: python3 tools/codebase_map.py --check
 
+      - name: Python tool tests (no device; tools/test_*.py)
+        if: matrix.shard == 1
+        run: python3 -I -m unittest discover -s tools -p "test_*.py"
+
       - name: Download Godot (checked against the release's SHA512-SUMS)
         run: |
           base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"

@@ -252,3 +252,20 @@ func test_every_rows_facts_fit_on_a_line_of_the_panel() -> void:
 				checked += 1
 	assert_gt(float(checked), 20.0, "every row's facts were read:")
 	g.free()
+
+
+func test_the_60_hz_hint_fits_every_screen() -> void:
+	for size in SIZES:
+		_screen(size)
+		var g := _game()
+		g._refresh = 60.0  # a 60 Hz screen with a 120 cap chosen: the Fight frame rate row's hint
+		g.fight_fps = 120
+		g._open_menu("video")
+		var row: Control = g._setting_rows.get("fps")
+		assert_true(row != null, "the Fight frame rate row")
+		if row != null:
+			row.grab_focus()
+			assert_true("refreshes 60 times" in String(g.ui.top().get("_desc").text), "the hint shows")
+		_check(g, size, "video with the 60 Hz hint")
+		g.free()
+	_restore()

@@ -408,6 +408,8 @@ func _show_match_over() -> void:
 				s.add_button("Rematch", func():
 					main.seed_base += 1
 					main._start_match(main.mode, true), "The same fighters again")
+				if main._rematch_after > 0:
+					main._rematch_at = main.frame_count + main._rematch_after  # --rematch-after (soak runs)
 			if main._has_pick(cfg) and not main._skip_select:
 				s.add_button("Change fighters", func(): main._start_match(main.mode), "Back to the pick screen")
 			s.add_button("Main menu", main._back_to_row, "Back to where you picked this mode")

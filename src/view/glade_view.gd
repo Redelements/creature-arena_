@@ -118,9 +118,18 @@ func _init() -> void:
 	air.z_index = 1
 	shafts = _paint_layer(_paint_shafts)
 	shafts.z_index = 1
+	shafts.material = _shaft_material()
+
+
+static func _shaft_material() -> CanvasItemMaterial:
 	var add := CanvasItemMaterial.new()
 	add.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-	shafts.material = add
+	return add
+
+
+## ShaderWarmup's list: the glade's additive light shafts, compiled before the first fight.
+static func warm_materials() -> Array:
+	return [_shaft_material()]
 
 
 func _paint_layer(f: Callable) -> Paint:
