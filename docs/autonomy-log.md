@@ -19,11 +19,11 @@ DONE / SKIPPED / BLOCKED. This file lives on branch `autonomy-log` (worktree
 | # | Task | Status | PR |
 | --- | --- | --- | --- |
 | 1 | QA sweep after the merge storm; refresh STATUS.md and open-items.md | DONE | [#259](https://github.com/Redelements/creature-arena_/pull/259) merged |
-| 2 | Docs drift check (MECHANICS.md, README kits) | PR OPEN, merging | [#263](https://github.com/Redelements/creature-arena_/pull/263) |
+| 2 | Docs drift check (MECHANICS.md, README kits) | DONE | [#263](https://github.com/Redelements/creature-arena_/pull/263) |
 | 3 | Rollback coverage: random-input fuzz across modes with hazards, shrines, crown | DONE | [#262](https://github.com/Redelements/creature-arena_/pull/262) |
 | 4 | Nightly CI: Normal-bot balance matrix + cross-platform determinism soak | DONE (manual run verifying) | [#260](https://github.com/Redelements/creature-arena_/pull/260) merged |
-| 5 | main.gd split (after 1-4 merged) | | |
-| 6 | CPU team play piece 3 (focus, peel, front line) | | |
+| 5 | main.gd split (after 1-4 merged) | IN PROGRESS | |
+| 6 | CPU team play piece 3 (focus, peel, front line) | IN PROGRESS | |
 | 7 | Caravan CPU wagon goal | | |
 | 8 | CPU Burrow pit crossing | | |
 | 9 | Accessibility: colour-safe teams / outlines, high-contrast hit markers | | |
@@ -132,3 +132,8 @@ regression tests in tests/test_training.gd; MECHANICS.md "Training options" upda
 - Checks: suite 1295/0, journey 4/0, sweep 324/0, sim-check unchanged (doc-only diff). Merging once green.
 - Watch: #261 (training fix) also edits MECHANICS.md "Training options"; resolve if #263 conflicts.
 - **Task 3 DONE**: #262 merged.
+- **Task 2 DONE**: #263 merged (main b5fafca). Tasks 1-4 are all on main: task 5 may start.
+- Tasks 10 (audio), 11 (dummy 2x), 13+14 (mode evidence, Digby vs Cerebro) running as agents since they
+  touch neither main.gd nor src/ai. Starting now: task 5 (main.gd split, worktree creature-arena-main-split)
+  and task 6 (team intent, worktree creature-arena-team-intent-3; src/ai only). Tasks 7 and 8 queue behind 6
+  (same file, cpu_controller.gd); tasks 9, 12, 15, 16 queue behind 5 (they edit main.gd).
