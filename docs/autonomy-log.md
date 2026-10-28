@@ -19,10 +19,10 @@ DONE / SKIPPED / BLOCKED. This file lives on branch `autonomy-log` (worktree
 | # | Task | Status | PR |
 | --- | --- | --- | --- |
 | 1 | QA sweep after the merge storm; refresh STATUS.md and open-items.md | DONE | [#259](https://github.com/Redelements/creature-arena_/pull/259) merged |
-| 2 | Docs drift check (MECHANICS.md, README kits) | DONE | [#263](https://github.com/Redelements/creature-arena_/pull/263) |
-| 3 | Rollback coverage: random-input fuzz across modes with hazards, shrines, crown | DONE | [#262](https://github.com/Redelements/creature-arena_/pull/262) |
+| 2 | Docs drift check (MECHANICS.md, README kits) | DONE | [#263](https://github.com/Redelements/creature-arena_/pull/263) merged |
+| 3 | Rollback coverage: random-input fuzz across modes with hazards, shrines, crown | DONE | [#262](https://github.com/Redelements/creature-arena_/pull/262) merged |
 | 4 | Nightly CI: Normal-bot balance matrix + cross-platform determinism soak | DONE | [#260](https://github.com/Redelements/creature-arena_/pull/260) merged |
-| 5 | main.gd split (after 1-4 merged) | DONE | [#270](https://github.com/Redelements/creature-arena_/pull/270) |
+| 5 | main.gd split (after 1-4 merged) | DONE | [#270](https://github.com/Redelements/creature-arena_/pull/270) merged |
 | 6 | CPU team play piece 3 (focus, peel, front line) | PR OPEN for Kevin (no measurable gain) | [#269](https://github.com/Redelements/creature-arena_/pull/269) |
 | 7 | Caravan CPU wagon goal | PR OPEN for Kevin | [#271](https://github.com/Redelements/creature-arena_/pull/271) |
 | 8 | CPU Burrow pit crossing | PR OPEN for Kevin (stacked on #271) | [#272](https://github.com/Redelements/creature-arena_/pull/272) |
@@ -30,11 +30,11 @@ DONE / SKIPPED / BLOCKED. This file lives on branch `autonomy-log` (worktree
 | 10 | Audio CC0 pass (Kenney only) + CREDITS | BLOCKED (ruling needed) | |
 | 11 | Training dummy at 2x | PR OPEN for Kevin | [#264](https://github.com/Redelements/creature-arena_/pull/264) |
 | 12 | Replay tools: frame step, slow motion, rewind; bug-report bundle | PR OPEN for Kevin | [#274](https://github.com/Redelements/creature-arena_/pull/274) |
-| 13 | Mode-idea evidence: bench every "idea" row | DONE | [#265](https://github.com/Redelements/creature-arena_/pull/265) |
-| 14 | Digby vs Cerebro with Normal bots, documented | DONE | [#266](https://github.com/Redelements/creature-arena_/pull/266) |
-| 15 | Perf: view-draw pass, before/after | IN PROGRESS | |
+| 13 | Mode-idea evidence: bench every "idea" row | DONE | [#265](https://github.com/Redelements/creature-arena_/pull/265) merged |
+| 14 | Digby vs Cerebro with Normal bots, documented | DONE | [#266](https://github.com/Redelements/creature-arena_/pull/266) merged |
+| 15 | Perf: view-draw pass, before/after | PR OPEN for Kevin | [#276](https://github.com/Redelements/creature-arena_/pull/276) |
 | 16 | Android: shader warm-up, 60 Hz hint; VRAM + soak scripts (not run) | PR OPEN for Kevin; device runs SKIPPED | [#275](https://github.com/Redelements/creature-arena_/pull/275) |
-| 17 | Trailer and gallery capture per map and fighter | DONE | [#268](https://github.com/Redelements/creature-arena_/pull/268) |
+| 17 | Trailer and gallery capture per map and fighter | DONE | [#268](https://github.com/Redelements/creature-arena_/pull/268) merged |
 
 ## Setup (2026-10-27)
 
@@ -335,3 +335,130 @@ touches the same file; whichever merges second resolves a one-line conflict.
   `C:/Users/Kevin/dev/python/python.exe -I tools/odin_perf.py --soak --minutes=10` (after merging #275).
 - Decision (agent): Godot's shader cache stays off (reloading from it broke 2D lights on GLES3), pinned by
   a test. Checks: suite 1318/0, journey, sweep 216/0, sim-check unchanged, python tests 18/18.
+
+## Task 15: view-draw perf pass
+
+- **PR #276** (behavioral by the run's rule: frame rate changes; every captured frame is pixel-identical to
+  main, `src/sim` untouched, no NET bump). Worktree `creature-arena-view-draw-perf`.
+- Measuring first: main already never redraws a view between ticks (every `queue_redraw` is tied to the
+  tick or to a key change; a frame between ticks costs 0.04-0.14 ms). This PC tops out at 3.33 ms a frame
+  (300 fps) with vsync off on both GL and Vulkan, so that ceiling is outside the game. The spikes in the tick
+  frame came from two views: the Twin Keeps water surface (3.4 ms average, 7 ms peaks) and the tiled-floor
+  update when a pit opens (up to 7 ms). FxView 0.6 ms a tick, HUD 0.28 ms; ~378 draw calls a frame in 4v4 CTF.
+- Changes: `water_view.gd` works the foam's fixed parts out once per floor and caches the bank checks (redraw
+  3.4 -> 1.1 ms); `arena_view.gd` `_retile` touches only changed tiles and retiles each dirty band run in one
+  call (worst floor update 7.0 -> 3.5 ms); `--perf` now reports draw calls, objects and primitives; two pins in
+  tests/test_perf_main_thread.gd compare the fast paths with the plain versions kept in the test.
+- Before/after (main and branch interleaved, twice each, averaged, `--weather=clear --time=day`): in 4v4 CTF
+  the 1% low rose 14-16% and the 0.1% low 11-21%, frame p99 down ~1.2 ms, on GL and Vulkan, Lighting High and
+  Off (GL High: 1% low 92.7 -> 107.1, 0.1% low 68.5 -> 81.0, p99 9.75 -> 8.48 ms). Chaos Cup and 1v1 sit at
+  the 300 fps ceiling, only the floor update improves there. Full table in the PR body. Noise about +-5%
+  because other agents' benches ran at the same time.
+- Pixel check: 84/84 frames identical (seven tick frames plus a between-tick frame per scene, six scenes,
+  `--fixed-fps 240`); main against itself was also identical, so the method holds.
+- Decisions (agent): the bloom's two viewports were made to render once a tick, frames stayed identical but
+  the GL Lighting High 1% low got worse (Chaos Cup 144 -> 136, 1v1 164 -> 155), so bloom_view.gd is back to
+  main's code with a note in src/view/CLAUDE.md. FxView must never redraw more often than a tick (its plate
+  trail steps state inside `_draw`), also noted there. The brief said mode 55 for 4v4 CTF; that is mode 53 in
+  `MODES`, so 53 was measured.
+- Checks: suite 1309/0 (journey included), sweep 216/0, sim-check unchanged, codebase map check clean.
+
+## Final section (2026-10-28 03:50)
+
+Run finished. Started 2026-10-27 evening, ended 2026-10-28 03:50. Main moved from 6eba0d0 (NET 58) to the
+merge of this log PR; NET_VERSION on main is still 58 (every NET bump sits in an open PR).
+
+### Every task
+
+| # | Status | Where |
+| --- | --- | --- |
+| 1 | DONE, merged | #259 (STATUS.md, open-items.md, `tools/smoke_sweep.py`) |
+| 2 | DONE, merged | #263 |
+| 3 | DONE, merged | #262 (`tests/test_rollback_fuzz.gd`; its `.uid` file lands with this log PR) |
+| 4 | DONE, merged | #260; first manual run green |
+| 5 | DONE, merged | #270 (main.gd 6513 -> 4162 lines, seven helpers) |
+| 6 | PR OPEN | #269, no measurable gain, closing it is fair |
+| 7 | PR OPEN | #271 |
+| 8 | PR OPEN | #272, stacked on #271 |
+| 9 | PR OPEN | #273 |
+| 10 | BLOCKED | ruling needed (below); nothing extracted, no PR |
+| 11 | PR OPEN | #264 |
+| 12 | PR OPEN | #274 (CI green on the final push) |
+| 13 | DONE, merged | #265 |
+| 14 | DONE, merged | #266 |
+| 15 | PR OPEN | #276 |
+| 16 | PR OPEN; device runs SKIPPED | #275 |
+| 17 | DONE, merged | #268 |
+
+Plus two bug-fix PRs from Kevin's live reports, both open: **#261** (training: a meteor KO left the player
+down forever) and **#267** (title screen rebuilt the background match every tick after two minutes, ~5 fps).
+
+### PRs left open, and why
+
+All are behavioral under the run's merge rule (a player would notice), so they wait for Kevin's playtest.
+Each is green and mergeable against main on its own as of 03:45; after each merge re-check the next one,
+since several touch the same files (`main_settings.gd`, the settings menu, `src/view/`).
+
+| PR | What | NET_VERSION in the PR | Note |
+| --- | --- | --- | --- |
+| #261 | training KO revive fix | 58 | one-liner plus tests; merge first |
+| #267 | title restart `flow_t` fix | 58 | one-liner plus test; merge first |
+| #264 | training dummy at 2x | 59 | |
+| #269 | team intent piece 3 | 59 | 3v3 24/48 -> 22/48, no gain: close or merge, your call |
+| #271 | Caravan CPU wagon goal | 59 | pushes 30 -> 33%, checkpoints 0.15 -> 0.44 per game, finishes still 0 |
+| #272 | Burrow pit crossing | 60 | base is #271's branch; merge #271 first |
+| #273 | accessibility page | 58 | off by default |
+| #274 | replay viewer + bug-report bundle | 58 | file logging now on for all platforms |
+| #275 | Android warm-up, 60 Hz hint, device scripts | 58 | then run the two `odin_perf.py` commands with the Odin attached |
+| #276 | view-draw perf | 58 | frames pixel-identical; judge by feel at 240 Hz |
+
+**NET_VERSION collisions:** #264, #269 and #271 all say 59 and #272 says 60. Whichever merges first keeps
+its number; every later one must be renumbered to main's value plus one before merging (one line in
+`src/net/netplay.gd`, and its comment). After any of them merges the server needs the usual update
+(`/opt/creature-arena/update.sh`, without sudo); this run never touched the server.
+
+### Blocked: task 10 (audio)
+
+Every Kenney archive holds `Kenney.url` / `Patreon.url` (two also `desktop.ini`) besides the `.ogg` files and
+`License.txt`. The rule said abort on anything but audio and license files, so nothing was extracted.
+One-line ruling unblocks it: "extract only the `.ogg` and `License.txt` members." Archives and listings are in
+`C:/Users/Kevin/dev/kenney-audio/` (outside the repo), the plan is in the task 10 section above, and the clean
+worktree `creature-arena-audio-cc0` is waiting.
+
+### Decisions Kevin might disagree with
+
+- The log lives on its own branch and PR instead of inside each task's PR (so open PRs never hold it hostage).
+- `tools/smoke_sweep.py` was committed as a repo tool rather than kept as a scratch script.
+- Audio was aborted on the `.url` files, the strict reading of the rule, rather than extracting only the audio.
+- 36.3 MB of gallery PNGs were committed to `docs/gallery/` (#268). If that is too much for the repo, the
+  images can move to the `pr-media` branch and the README can link there.
+- The main.gd split (#270, 2351 lines moved into seven helpers with forwarders) was merged by Claude as a
+  non-behavioral refactor on the strength of an identical suite, identical screenshots and an unchanged
+  sim-check. It is the biggest change merged without you.
+- Task 6 (#269) is recommended for closing: the measured effect is nil and it adds CPU code to maintain.
+- "Finished Caravan pushes" was declared out of scope for task 7: CPUs still never finish a push in 48 games,
+  and getting there looks like a rules change (push timing or wagon speed), which the run forbade.
+- #276 reverted a bloom change that kept frames identical but lowered the GL Lighting High 1% low; the
+  water and tile changes stayed. Bloom still renders every frame.
+- #274 turns file logging on for every platform so the bug-report bundle always has a log to include.
+- #273 ships the accessibility options off by default; nothing changes until a player turns them on.
+- The `tests/test_rollback_fuzz.gd.uid` file that `--import` generates was left out of #262; it is added in
+  this log PR (same uid as the copy in #269, so no conflict).
+- Agents' commits carry a "Claude Opus 5.5" co-author line instead of the session's; left as is.
+
+### Next unattended run
+
+1. Audio (task 10) once the ruling above is given: the plan and the archives are ready, about one task's work.
+2. Merge-order housekeeping after Kevin's playtest: renumber NET_VERSION in the surviving CPU PRs, merge
+   main into each open PR that conflicts, then the server update.
+3. Odin device runs for #275 (`--vram`, `--soak --minutes=10`) with the device attached, and the 120 Hz
+   first-install warm-up check on a fresh APK.
+4. View perf, round two, only if 240 Hz still stutters: FxView (0.6 ms a tick) and the crowd are the next
+   biggest view costs; neither had a low-risk cut this round.
+5. Caravan finishes need a rules decision (push timing or wagon speed) before more CPU work is worth doing.
+6. Watch the nightly workflow for a week: the Normal-bot matrix and the cross-platform determinism soak now
+   run every day at 06:00 UTC; a red run is the first thing to read.
+7. Worktrees under `C:/Users/Kevin/dev/`: `creature-arena-run`, `-koshy`, `-menufix`, `-audio-cc0`,
+   `-dummy-2x`, `-team-intent-3`, `-cpu-goals`, `-burrow-pits`, `-accessibility`, `-replay-tools`,
+   `-view-draw-perf`, `-android-warmup` stay until their PRs merge or close (an agent can only be resumed on
+   its own worktree); `git worktree remove` them afterwards. The main checkout is still on `odin-perf-cpu-gap`.
