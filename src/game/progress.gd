@@ -71,6 +71,34 @@ static func read() -> void:
 			printerr("progress: restored from %s.bak (the save before)" % path)
 	if d is Dictionary:
 		_data = clean(d)
+	_catch_up()
+
+
+## The rewards of every level the account and these fighters hold (reward ids).
+static func _due(fighters: Array) -> Array:
+	var due: Array = []
+	for r in account_rewards():
+		if int(r["level"]) <= account_level():
+			due.append(String(r["id"]))
+	for f in fighters:
+		for r in mastery_rewards(String(f)):
+			if int(r["level"]) <= mastery_level(String(f)):
+				due.append(String(r["id"]))
+	return due
+
+
+## On reading the save: a reward added to the tables after the player passed its level is
+## theirs now (marked New! on the Profile), not at the next paid fight. A palette an Arcade
+## clear already gave is recorded as seen. Written with the next save.
+static func _catch_up() -> void:
+	var fighters: Array = (_data["mastery"] as Dictionary).keys().filter(func(f): return f in MatchFactory.FIGHTERS)
+	for id in _due(fighters):
+		if _unlocked_list().has(id):
+			continue
+		_unlocked_list().append(id)
+		var p := String(id).split(":")
+		if p[0] == "palette" and p.size() == 3 and int(p[2]) <= 1 + arcade_best(p[1]) and not (_data["seen"] as Array).has(id):
+			(_data["seen"] as Array).append(id)
 
 
 ## The save in `file`, or null when it's missing or not a save.
@@ -540,15 +568,7 @@ static func award(report: Dictionary) -> Dictionary:
 		_data["mastery"][f] = mastery_xp(f) + int(per_fighter[f])
 		out["mastery"][f] = {"xp": int(per_fighter[f]), "from": m0, "to": mastery_level(f)}
 	# Everything at or under the levels now held (so a table that grows later catches up).
-	var due: Array = []
-	for r in account_rewards():
-		if int(r["level"]) <= account_level():
-			due.append(String(r["id"]))
-	for f in per_fighter:
-		for r in mastery_rewards(f):
-			if int(r["level"]) <= mastery_level(f):
-				due.append(String(r["id"]))
-	for id in due:
+	for id in _due(per_fighter.keys()):
 		if not _unlocked_list().has(id):
 			_unlocked_list().append(id)
 			if not had.has(id):

@@ -345,3 +345,22 @@ func test_mastery_xp_is_clamped_like_the_accounts() -> void:
 	assert_eq(Progress.mastery_xp("pete"), 0, "")
 	_cleanup(p)
 	_done()
+
+
+func test_rewards_already_earned_are_granted_on_reading_the_save() -> void:
+	var p := _fresh()
+	var acc: Dictionary = Progress.table()["account_curve"]
+	var f := FileAccess.open(p, FileAccess.WRITE)
+	# Past level 10 and Cairn's mastery 3, but nothing recorded: rows added to the data later.
+	f.store_string(JSON.stringify({"xp": Progress.xp_for_level(acc, 11), "unlocked": [], "arcade": {"cairn": 0},
+		"mastery": {"cairn": Progress.xp_for_level(Progress.table()["mastery_curve"], 3)}}))
+	f.close()
+	Progress.reset_for_tests(p)
+	for r in Progress.account_rewards():
+		assert_eq(Progress.unlocked(String(r["id"])), int(r["level"]) <= 11, "%s (level %d) at level 11:" % [r["id"], r["level"]])
+	assert_true(Progress.unlocked("title:pit_dodger") and Progress.is_new("title:pit_dodger"), "level 10's title is there and New!")
+	assert_true(Progress.unlocked("line:cairn_1"), "Cairn's mastery 3 line too")
+	assert_false(Progress.is_new("palette:cairn:1"), "the palette the Easy clear gave is no news")
+	assert_true(Progress.set_account_title("title:pit_dodger"), "and it can be worn straight away")
+	_cleanup(p)
+	_done()
