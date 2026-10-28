@@ -365,6 +365,7 @@ var _clash_pos := Vector2.ZERO
 var _cam_idle := 0  ## ticks with nothing happening (Settle)
 var _settle_mid := Vector2.ZERO  ## Settle's held target (moved only past SETTLE_DEAD)
 var _settle_fit := 0.0  ## and its held zoom (moved only past SETTLE_ZOOM_DEAD)
+var cam_ctl := MainCamera.new(self)  ## the camera's per-tick work (main_camera.gd); its state stays here
 var replay: Replay
 ## Where F6 saves and the Replay theater looks (a test points it at a folder not made yet,
 ## as on a fresh install). It may not exist: `Replay.save` makes it.
@@ -3033,8 +3034,8 @@ func _physics_process(_delta: float) -> void:
 	if sim.ko_freeze <= 0:
 		shake *= 0.82
 	var t_cam := PerfLog.now()
-	_update_camera()
-	_update_letterbox()
+	cam_ctl._update_camera()
+	cam_ctl._update_letterbox()
 	PerfLog.since("camera", t_cam)
 	var sh := shake * shake_scale
 	if sh <= 0.3:
@@ -3406,13 +3407,13 @@ func _react(e: Dictionary) -> void:
 			crowd.cheer(0.1 + power * 0.015)
 			if fx._event_shown(e):  # (fans near a hidden fighter's hit would give it away)
 				crowd.react(Vector2(e["pos"]), 4 + mini(4, int(power * 0.25)))
-				_note_exchange()
-				var kind := _hit_kind(e)
+				cam_ctl._note_exchange()
+				var kind := cam_ctl._hit_kind(e)
 				if kind == "heavy" or kind == "surge":
-					_note_clash(Vector2(e["pos"]), 1.0 if kind == "surge" else CLASH_HEAVY)
+					cam_ctl._note_clash(Vector2(e["pos"]), 1.0 if kind == "surge" else CLASH_HEAVY)
 		"block":
 			shake = maxf(shake, 1.0)
-			_note_exchange()
+			cam_ctl._note_exchange()
 		"slam":
 			shake = maxf(shake, 4.0 if power >= 1.0 else 2.0)
 			crowd.cheer(0.3 if power >= 1.0 else 0.05)
@@ -3424,7 +3425,7 @@ func _react(e: Dictionary) -> void:
 		"guard_break", "breakaway", "slip":
 			crowd.cheer(0.3)
 			if String(e["type"]) == "guard_break" and fx._event_shown(e):
-				_note_clash(Vector2(e["pos"]), 1.0)
+				cam_ctl._note_clash(Vector2(e["pos"]), 1.0)
 		"surge":
 			crowd.cheer(0.6)
 			if not bool(e.get("freeze", true)):
@@ -3563,89 +3564,24 @@ func _hides_someone(c: CreatureSim) -> bool:
 	return false
 
 
+## In main_camera.gd (tests and other scripts call it here).
 func _update_camera() -> void:
-	var size := sim.arena_size() if sim != null else SimDefs.arena_size()  # the whole stadium
-	var view := get_viewport().get_visible_rect().size  # the screen (wider on ultrawide)
-	var base_z := 1.0
-	var base_focus := size * 0.5
-	var ko_focus := _ko_focus
-	if intro != null:
-		base_z = intro.zoom
-		base_focus = intro.focus
-	elif sim != null and showcase == null and coach == null:
-		_frame_fight(view, size)
-		base_z = _cam_zoom * _cam_zclash
-		base_focus = _cam_follow + _cam_off
-	elif (showcase != null or coach != null) and sim != null and sim.creatures.size() >= 2:
-		var a := sim.creatures[0].pos
-		var b := sim.creatures[1].pos
-		# A showcase's extra fighters (the cleaver's second foe) are framed too.
-		var lo := Vector2(minf(a.x, b.x), minf(a.y, b.y))
-		var hi := Vector2(maxf(a.x, b.x), maxf(a.y, b.y))
-		for i in range(2, sim.creatures.size()):
-			lo = lo.min(sim.creatures[i].pos)
-			hi = hi.max(sim.creatures[i].pos)
-		# Fighters stacked up and down the screen: aim a little higher and zoom out to
-		# keep both (and their heads) in shot.
-		var dy := hi.y - lo.y
-		var mid := (lo + hi) * 0.5 + Vector2(0, -8 - minf(dy, 40.0) * 0.3)
-		_cam_follow = mid if _cam_follow == Vector2.ZERO else _cam_follow.lerp(mid, 0.12)
-		var fit := lerpf(SHOWCASE_ZOOM, 1.3, clampf(dy / 40.0, 0.0, 1.0))
-		_cam_zoom = fit if _cam_zoom <= 0.0 else lerpf(_cam_zoom, fit, 0.08)
-		base_z = _cam_zoom
-		base_focus = _cam_follow
-		ko_focus = _ko_pos + Vector2(0, -16)  # no K.O. banner in a showcase
-	if _cam_force != Vector3.ZERO:
-		base_focus = Vector2(_cam_force.x, _cam_force.y)
-		if _cam_force.z > 0.0:
-			base_z = _cam_force.z
-	var z := base_z
-	var focus := base_focus
-	if _ko_cam_t >= 0:
-		_ko_cam_t += 1
-		var amt := ko_push(_ko_cam_t)
-		var k_out := clampf(float(_ko_cam_t - KO_HOLD_UNTIL) / KO_PUSH_OUT, 0.0, 1.0)
-		z = lerpf(base_z, maxf(base_z, KO_ZOOM), amt)
-		focus = base_focus.lerp(ko_focus, amt)
-		if k_out >= 1.0:
-			_ko_cam_t = -1
-	var half := view * 0.5 / z
-	camera.zoom = Vector2(z, z)
-	# Near an edge the shot may run a little past it, into the side stands and front rows.
-	var pos := Vector2(_cam_axis(focus.x, half.x, size.x, CrowdView.SHOW_SIDE, CrowdView.SHOW_SIDE),
-		_cam_axis(focus.y, half.y, size.y, CrowdView.SHOW_TOP, CrowdView.SHOW_FRONT))
-	# Whole screen pixels: a still thing on the floor moves a whole pixel at a time as the
-	# camera pans, never resampled at a new phase (no shimmer).
-	camera.position = snap_cam(pos, z * maxf(1.0, float(get_window().size.x) / maxf(view.x, 1.0)))
-	_update_pointers(view)
+	cam_ctl._update_camera()
 
 
-## A camera position on the screen's pixel grid: `px` screen pixels per world unit (the
-## zoom x the window's pixels per canvas unit).
+## In main_camera.gd (tests and other scripts call it here).
 static func snap_cam(pos: Vector2, px: float) -> Vector2:
-	if px <= 0.0:
-		return pos
-	return (pos * px).round() / px
+	return MainCamera.snap_cam(pos, px)
 
 
-## How far into the KO push-in the camera is, 0..1, `t` ticks after the knockout: held
-## still for the freeze's first beat, then eased in and out (smoothstep) so the push
-## reads as a deliberate move rather than a snap; held, then eased back out.
+## In main_camera.gd (tests and other scripts call it here).
 static func ko_push(t: int) -> float:
-	var k_in := clampf(float(t - KO_PUSH_DELAY) / KO_PUSH_IN, 0.0, 1.0)
-	var k_out := clampf(float(t - KO_HOLD_UNTIL) / KO_PUSH_OUT, 0.0, 1.0)
-	return smoothstep(0.0, 1.0, k_in) * (1.0 - smoothstep(0.0, 1.0, k_out))
+	return MainCamera.ko_push(t)
 
 
-## The letterbox: in for a knockout's push-in (until it starts easing back), a Surge's
-## freeze and its cut-in (held until the cut-in is gone, which outlasts the freeze), and the
-## arena intro; out otherwise. Not over the title's background match.
+## In main_camera.gd (tests and other scripts call it here).
 func _update_letterbox() -> void:
-	if _surge_bars > 0:
-		_surge_bars -= 1
-	var ko := _ko_cam_t >= 0 and _ko_cam_t < KO_HOLD_UNTIL
-	letterbox.shown = (flow != Flow.MENU or _attract) and (ko or _surge_bars > 0 or hud.cutting_in() or intro != null)
-	letterbox.advance()
+	cam_ctl._update_letterbox()
 
 
 # ------------------------------------------------------------------ arena intro
@@ -3782,8 +3718,8 @@ func _intro_step() -> void:
 	for v in views:
 		v.refresh()
 	shake *= 0.82
-	_update_camera()
-	_update_letterbox()
+	cam_ctl._update_camera()
+	cam_ctl._update_letterbox()
 	var sh := shake * shake_scale
 	camera.offset = Vector2.ZERO if sh <= 0.3 else Vector2(randf_range(-sh, sh), randf_range(-sh, sh)).round()
 	flash_rect.color.a = maxf(0.0, flash_rect.color.a - 0.04)
@@ -3865,280 +3801,49 @@ func _wanted_pointers() -> Array:
 	return out
 
 
-## A fight: keeps every fighter in shot, heads included, with room around them. Close
-## together the camera sits at the normal 1x; as they spread out it pulls back, as far as
-## showing the whole stadium. A foe hidden from the local team (brush, a wall) is left
-## out, or the zoom would give it away. On top of that fit: the look-ahead (`_cam_lead`,
-## toward where the action is going) and the exchange push-in (`_cam_push`).
+## In main_camera.gd (tests and other scripts call it here).
 func _frame_fight(view: Vector2, size: Vector2) -> void:
-	var box := Rect2()
-	var any := false
-	var big := size.x > SimDefs.ARENA_W * 1.15 or size.y > SimDefs.ARENA_H * 1.15
-	var anchor := _cam_anchor() if big else -1
-	var n := sim.creatures.size()
-	if _cam_prev.size() != n:
-		_cam_prev.resize(n)
-		for i in n:
-			_cam_prev[i] = sim.creatures[i].pos
-	var lead := Vector2.ZERO
-	var busy := _cam_push > 0.0 or _clash > 0.0 or _clash_hold > 0 or _ko_cam_t >= 0 or _exchange_t > 0
-	for i in n:
-		var c := sim.creatures[i]
-		var moved := c.pos - _cam_prev[i]
-		_cam_prev[i] = c.pos
-		if c.state != CreatureSim.State.KO:  # (Settle: is anything happening?)
-			busy = busy or moved.length_squared() > 0.04 or c.state != CreatureSim.State.IDLE \
-				or (c.prev_buttons & CAM_ACT_BITS) != 0
-		if i != anchor and c.state == CreatureSim.State.KO and _ko_cam_t < 0:
-			continue
-		if _is_hidden(i):
-			continue
-		if anchor >= 0 and i != anchor and c.pos.distance_to(sim.creatures[anchor].pos) > FOLLOW_R:
-			continue
-		var body := Rect2(c.pos - Vector2(0, float(c.def.get("fx_top", 32)) + c.air_height()), Vector2.ZERO)
-		body = body.expand(c.pos)
-		box = body if not any else box.merge(body)
-		any = true
-		if anchor < 0 or i == anchor:  # a big map leads with the player it follows
-			lead += _lead_of(c, moved)
-	if not any:
-		return
-	var tight := box  # the fighters alone, heads to feet
-	box = box.grow_individual(CAM_PAD.x, CAM_PAD.y + 24.0, CAM_PAD.x, CAM_PAD.y)  # the HUD sits up top
-	var whole := minf(view.x / size.x, view.y / size.y)  # zoom that shows the whole stadium
-	var least := minf(whole, 1.0)
-	if anchor >= 0:
-		least = FOLLOW_ZOOM
-	elif big:
-		least = maxf(least, BIG_MAP_MIN_ZOOM)
-	var fit := clampf(minf(view.x / box.size.x, view.y / box.size.y), least, 1.0)
-	# An exchange up close: push in a little, never past the tighter EXCHANGE_PAD room.
-	if _exchange_t > 0:
-		_exchange_t -= 1
-		if _exchange_t == 0:
-			_exchange_hits = 0
-	var close := tight.size.x <= EXCHANGE_SPAN.x and tight.size.y <= EXCHANGE_SPAN.y
-	var want := 1.0 if close and _exchange_hits >= EXCHANGE_HITS else 0.0
-	_cam_push = lerpf(_cam_push, want, EXCHANGE_IN if want > _cam_push else EXCHANGE_OUT)
-	if _cam_push < 0.002:
-		_cam_push = 0.0
-	if _cam_push > 0.0:
-		var room := tight.grow_individual(EXCHANGE_PAD.x, EXCHANGE_PAD.y + 24.0, EXCHANGE_PAD.x, EXCHANGE_PAD.y)
-		var cap := minf(view.x / room.size.x, view.y / room.size.y)
-		fit = clampf(fit * (1.0 + EXCHANGE_PUSH * _cam_push), fit, maxf(fit, cap))
-	var room_cap := minf(view.x / (tight.size.x + EXCHANGE_PAD.x * 2.0), view.y / (tight.size.y + EXCHANGE_PAD.y * 2.0 + 24.0))
-	var mid := box.get_center()
-	# Aim lead: where the viewed fighter aims, held through the dead zone.
-	var aim := _aim_now(anchor) if cam_level("cam_lead") > 0 else Vector2.ZERO
-	if aim == Vector2.ZERO:
-		_cam_aim_dir = Vector2.ZERO
-	elif _cam_aim_dir == Vector2.ZERO or aim.dot(_cam_aim_dir) < AIM_DEAD_DOT * aim.length() * _cam_aim_dir.length():
-		_cam_aim_dir = aim
-		busy = true
-	_cam_idle = 0 if busy else _cam_idle + 1
-	var settle := cam_level("cam_settle")
-	var settled := settle > 0 and _cam_idle >= SETTLE_AFTER
-	if _cam_zoom <= 0.0:
-		_cam_zoom = fit
-		_cam_follow = mid
-		_cam_lead = Vector2.ZERO
-		_cam_aim = Vector2.ZERO
-	elif settled:
-		# Nothing happening: the target is held where it was when things went quiet, and
-		# moves only when the live one gets past the dead zone; the camera drifts to it.
-		if _cam_idle == SETTLE_AFTER or _settle_fit <= 0.0:
-			_settle_mid = mid
-			_settle_fit = fit
-		if mid.distance_to(_settle_mid) > float(SETTLE_DEAD[settle]):
-			_settle_mid = mid
-		if absf(fit / _settle_fit - 1.0) > SETTLE_ZOOM_DEAD:
-			_settle_fit = fit
-		_cam_follow = _cam_follow.lerp(_settle_mid, float(SETTLE_DRIFT[settle]))
-		if fit < _cam_zoom:
-			_cam_zoom = lerpf(_cam_zoom, fit, 0.12)  # (never holds anyone out of shot)
-		else:
-			_cam_zoom = lerpf(_cam_zoom, minf(_settle_fit, fit), SETTLE_ZOOM_EASE)
-		_cam_lead = _cam_lead.lerp(lead.limit_length(LEAD_MAX), LEAD_EASE)
-	else:
-		# Pull back quickly (nobody leaves the shot), push in gently.
-		_cam_zoom = lerpf(_cam_zoom, fit, 0.12 if fit < _cam_zoom else 0.03)
-		_cam_follow = _cam_follow.lerp(mid, 0.1)
-		_cam_lead = _cam_lead.lerp(lead.limit_length(LEAD_MAX), LEAD_EASE)
-	var aim_want := _cam_aim_dir * Vector2(1.0, AIM_LEAD_Y) * float(AIM_LEAD[cam_level("cam_lead")])
-	_cam_aim = _cam_aim.lerp(aim_want, AIM_EASE_IN if aim_want.length() >= _cam_aim.length() else AIM_EASE_OUT)
-	if _cam_aim.length_squared() < 0.0025:
-		_cam_aim = Vector2.ZERO
-	# Clash reaction: eased toward the strength asked for while it's held.
-	if _clash_hold > 0:
-		_clash_hold -= 1
-	else:
-		_clash_want = 0.0
-	if _ko_cam_t >= 0:  # the KO push-in owns the moment
-		_clash_want = 0.0
-		_clash_hold = 0
-	_clash = lerpf(_clash, _clash_want, CLASH_IN if _clash_want > _clash else CLASH_OUT)
-	if _clash < 0.01:
-		_clash = 0.0
-	_cam_zclash = clash_zoom(_clash, CLASH_PUSH[cam_level("cam_clash")], EXCHANGE_PUSH * _cam_push,
-		room_cap / maxf(_cam_zoom, 0.01))
-	var clash_off: Vector2 = (_clash_pos - _cam_follow).limit_length(CLASH_SHIFT[cam_level("cam_clash")]) * _clash
-	_cam_lead = _lead_room(_cam_lead, _cam_follow, tight, view * 0.5 / _cam_zoom)
-	_cam_off = _lead_room(_cam_lead + _cam_aim + clash_off, _cam_follow, tight, view * 0.5 / (_cam_zoom * _cam_zclash))
+	cam_ctl._frame_fight(view, size)
 
 
-## The clash push-in's zoom factor: `amt` (0..1) of `push`, not on top of the exchange
-## push-in already in the fit (`exchange`, its share: the larger counts, not the sum), and
-## never past `cap` (the factor that still leaves EXCHANGE_PAD round the fighters).
+## In main_camera.gd (tests and other scripts call it here).
 static func clash_zoom(amt: float, push: float, exchange: float, cap: float) -> float:
-	if amt <= 0.0 or push <= 0.0:
-		return 1.0
-	var f := (1.0 + maxf(exchange, push * amt)) / (1.0 + exchange)
-	return clampf(f, 1.0, maxf(1.0, cap))
+	return MainCamera.clash_zoom(amt, push, exchange, cap)
 
 
-## A heavy hit, a guard break or a Surge's hit at `pos` in shot: the clash reaction,
-## `amt` of the full push-in (see CLASH_*).
+## In main_camera.gd (tests and other scripts call it here).
 func _note_clash(pos: Vector2, amt: float) -> void:
-	if cam_level("cam_clash") <= 0 or _ko_cam_t >= 0:
-		return
-	_clash_want = maxf(_clash_want if _clash_hold > 0 else 0.0, amt)
-	_clash_hold = CLASH_HOLD
-	_clash_pos = pos
-	_cam_idle = 0
+	cam_ctl._note_clash(pos, amt)
 
 
-## What kind of move a `hit` event came from ("light", "heavy", "skill", "surge"; "" when
-## the attacker has already moved on, as after a shot): the event says only `heavy`, so the
-## attacker's move is read (never written).
-func _hit_kind(e: Dictionary) -> String:
-	if not bool(e.get("heavy", false)):
-		return "light"
-	var a := int(e.get("attacker", -1))
-	if a < 0 or a >= sim.creatures.size():
-		return ""
-	return sim.creatures[a].move_type()
-
-
-## A --cam-lead= / --cam-clash= / --cam-settle= value as a CAM_LEVELS index: 0 / off,
-## 1 / on / normal, low, high; -1 for anything else.
+## In main_camera.gd (tests and other scripts call it here).
 static func cam_level_arg(v: String) -> int:
-	match v.to_lower():
-		"0", "off":
-			return 0
-		"1", "on", "normal":
-			return CAM_DEFAULT
-		"low":
-			return 1
-		"high":
-			return 3
-	return -1
+	return MainCamera.cam_level_arg(v)
 
 
-## A camera behaviour's level (CAM_LEVELS index): the command line's for this session,
-## else the setting.
+## In main_camera.gd (tests and other scripts call it here).
 func cam_level(key: String) -> int:
-	return clampi(int(_cam_cli.get(key, get(key))), 0, CAM_LEVELS.size() - 1)
+	return cam_ctl.cam_level(key)
 
 
-## Whose aim the camera leads with: the players here (online, the local slot); with
-## nobody here playing (watching, a replay, CPU vs CPU) the fighter the HUD follows. On
-## a big map, only the followed player (`anchor`).
+## In main_camera.gd (tests and other scripts call it here).
 func _aim_fighters(anchor: int) -> Array:
-	var n := sim.creatures.size()
-	if anchor >= 0:
-		return [anchor]
-	if online != null:
-		return [online.local_slot] if online.local_slot < n else []
-	var out := []
-	for k in mini(sides.size(), n):
-		if sides[k] in LOCAL_SIDES:
-			out.append(k)
-	if out.is_empty() and hud.focus < n:
-		out.append(hud.focus)
-	return out
+	return cam_ctl._aim_fighters(anchor)
 
 
-## The aim the camera leads toward this tick: the average of the aim fighters' aims (two
-## players here aiming apart cancel out), nothing while knocked out or falling.
-func _aim_now(anchor: int) -> Vector2:
-	var sum := Vector2.ZERO
-	var count := 0
-	for k in _aim_fighters(anchor):
-		if _is_hidden(k):
-			continue
-		var d := aim_dir_of(sim.creatures[k])
-		if d != Vector2.ZERO:
-			sum += d
-			count += 1
-	if count == 0:
-		return Vector2.ZERO
-	sum /= count
-	return sum if sum.length() > 0.3 else Vector2.ZERO
-
-
-## One fighter's aim, read from the sim (never written): its exact aim angle when its last
-## input carried one (twin-stick, mouse), else the way it faces.
-static func aim_dir_of(c: CreatureSim) -> Vector2:
-	if c.state == CreatureSim.State.KO or c.state == CreatureSim.State.FALLING:
-		return Vector2.ZERO
-	if c.prev_buttons & SimDefs.IN_AIM:
-		return SimDefs.aim_from_bits(c.prev_buttons)
-	return c.facing.normalized() if c.facing != Vector2.ZERO else Vector2.ZERO
-
-
-## A hit or block landed in shot: the exchange goes on (see EXCHANGE_HITS).
+## In main_camera.gd (tests and other scripts call it here).
 func _note_exchange() -> void:
-	_exchange_t = EXCHANGE_HOLD
-	_exchange_hits += 1
+	cam_ctl._note_exchange()
 
 
-## What one fighter adds to the look-ahead: along its facing while it attacks, along its
-## motion while it moves fast (a dash, a launch, knockback; `moved` is its step this tick).
-func _lead_of(c: CreatureSim, moved: Vector2) -> Vector2:
-	if c.state == CreatureSim.State.KO or c.state == CreatureSim.State.FALLING:
-		return Vector2.ZERO
-	var l := Vector2.ZERO
-	if c.state == CreatureSim.State.ATTACK and c.facing != Vector2.ZERO:
-		l += c.facing.normalized() * LEAD_ATTACK
-	var sp := moved.length()
-	if sp >= LEAD_MIN_SPEED and sp < 40.0:  # (a jump of more is a warp or a respawn)
-		l += moved / sp * minf(sp * LEAD_PER_SPEED, LEAD_MAX)
-	return l
-
-
-## The look-ahead cut back so the shot (`half` its size, centred on `follow` + the lead)
-## still holds `tight`, the fighters, with LEAD_KEEP to spare. It only ever shrinks the
-## lead toward nothing, never adds any.
+## In main_camera.gd (tests and other scripts call it here).
 static func _lead_room(lead: Vector2, follow: Vector2, tight: Rect2, half: Vector2) -> Vector2:
-	var c0 := tight.get_center()
-	var spare := (half - tight.size * 0.5 - LEAD_KEEP).max(Vector2.ZERO)
-	var lo := c0 - spare - follow
-	var hi := c0 + spare - follow - Vector2(0, 24)  # heads stay clear of the HUD up top
-	return Vector2(clampf(lead.x, minf(lo.x, 0.0), maxf(hi.x, 0.0)),
-		clampf(lead.y, minf(lo.y, 0.0), maxf(hi.y, 0.0)))
+	return MainCamera._lead_room(lead, follow, tight, half)
 
 
-## Whose fighter a big map's camera follows: the one player here (online, the local
-## slot). -1 with nobody here playing, or players here on both sides.
-func _cam_anchor() -> int:
-	if online != null:
-		return online.local_slot
-	var found := -1
-	for k in mini(sides.size(), sim.creatures.size()):
-		if sides[k] in LOCAL_SIDES:
-			if found >= 0:
-				return -1
-			found = k
-	return found
-
-
-## Keeps the arena filling the screen along one axis, the view allowed `lo` / `hi` past its
-## start and end (into the stands); when the screen shows more than that (an ultrawide's
-## width), the view stays centred on it and the stadium fills the rest.
+## In main_camera.gd (tests and other scripts call it here).
 static func _cam_axis(v: float, half: float, arena: float, lo := 0.0, hi := 0.0) -> float:
-	if half * 2.0 >= arena + lo + hi:
-		return (arena + hi - lo) * 0.5
-	return clampf(v, half - lo, arena + hi - half)
+	return MainCamera._cam_axis(v, half, arena, lo, hi)
 
 
 # ------------------------------------------------------------------ input
@@ -5469,7 +5174,7 @@ func _parse_args() -> int:
 			var cp := a.get_slice("=", 1).split(",")
 			_cam_force = Vector3(float(cp[0]), float(cp[1]), float(cp[2]) if cp.size() > 2 else 0.0)
 		elif a.begins_with("--cam-lead=") or a.begins_with("--cam-clash=") or a.begins_with("--cam-settle="):
-			var lv := cam_level_arg(a.get_slice("=", 1))
+			var lv := MainCamera.cam_level_arg(a.get_slice("=", 1))
 			if lv >= 0:
 				_cam_cli[a.get_slice("=", 0).trim_prefix("--").replace("-", "_")] = lv
 		elif a.begins_with("--shot-dir="):
