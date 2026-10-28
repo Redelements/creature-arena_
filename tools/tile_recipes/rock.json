@@ -186,9 +186,272 @@
 				]
 			],
 			"_doc": "the same run right of the gap, with its right end"
+		},
+		"crate": {
+			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
+			"box": [
+				64,
+				512,
+				96,
+				544
+			],
+			"feet": [
+				16,
+				31
+			],
+			"_doc": "dressing (assets/arenas/quarry_dressing.tscn): Decorative Props propsA crate, as keeps.json"
+		},
+		"crate_small": {
+			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
+			"box": [
+				0,
+				512,
+				32,
+				544
+			],
+			"feet": [
+				15,
+				31
+			]
+		},
+		"barrel": {
+			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
+			"box": [
+				0,
+				416,
+				32,
+				448
+			],
+			"feet": [
+				16,
+				31
+			]
+		},
+		"sack": {
+			"src": "RPG_Buildings_WINDMILL_v1.1/Mill_decoratives.png",
+			"box": [
+				226,
+				5,
+				245,
+				31
+			],
+			"feet": [
+				9,
+				25
+			],
+			"_doc": "Windmill Mill_decoratives sacks (a props sheet, as keeps.json): ore sacks"
+		},
+		"sack_pile": {
+			"src": "RPG_Buildings_WINDMILL_v1.1/Mill_decoratives.png",
+			"box": [
+				131,
+				18,
+				156,
+				52
+			],
+			"feet": [
+				12,
+				33
+			]
+		},
+		"millstones": {
+			"src": "RPG_Buildings_WINDMILL_v1.1/Mill_decoratives.png",
+			"box": [
+				0,
+				203,
+				32,
+				241
+			],
+			"feet": [
+				16,
+				36
+			],
+			"_doc": "two millstones stacked (Windmill)"
+		},
+		"chop_block": {
+			"src": "FL_Houses_v1.0/_PNG/FL_Houses_decoratives.png",
+			"box": [
+				579,
+				164,
+				599,
+				185
+			],
+			"feet": [
+				10,
+				18
+			],
+			"_doc": "Fantasy Lands Houses decoratives: an axe in a chopping block"
+		},
+		"shovel": {
+			"src": "FL_Houses_v1.0/_PNG/FL_Houses_decoratives.png",
+			"box": [
+				617,
+				256,
+				625,
+				289
+			],
+			"feet": [
+				4,
+				31
+			],
+			"_doc": "a shovel stood on its blade"
+		},
+		"spade": {
+			"src": "FL_Houses_v1.0/_PNG/FL_Houses_decoratives.png",
+			"box": [
+				652,
+				241,
+				660,
+				276
+			],
+			"feet": [
+				4,
+				34
+			],
+			"_doc": "a long spade stood on its handle's end, blade up"
+		},
+		"logs": {
+			"src": "FL_Houses_v1.0/_PNG/FL_Houses_decoratives.png",
+			"box": [
+				100,
+				146,
+				124,
+				173
+			],
+			"feet": [
+				12,
+				25
+			],
+			"_doc": "a small log pile (fuel by the braziers)"
+		},
+		"fire_pit": {
+			"src": "RPGW_FC_G_v1.0/Camp_Graves.png",
+			"box": [
+				608,
+				327,
+				640,
+				352
+			],
+			"feet": [
+				16,
+				22
+			],
+			"_doc": "FC_G's cold fire pit (a stone ring, ash), on an outcrop's top"
+		},
+		"planks": {
+			"src": "FL_Houses_v1.0/_PNG/Exterriors/FL_Houses_ext_terrain_floors.png",
+			"box": [
+				361,
+				193,
+				404,
+				223
+			],
+			"feet": [
+				21,
+				29
+			],
+			"_doc": "flat: Fantasy Lands Houses' strewn planks, boards dropped across the cart lanes"
+		},
+		"plank": {
+			"src": "FL_Houses_v1.0/_PNG/Exterriors/FL_Houses_ext_terrain_floors.png",
+			"box": [
+				320,
+				210,
+				352,
+				221
+			],
+			"feet": [
+				16,
+				10
+			],
+			"_doc": "flat: one board"
+		},
+		"rubble_a": {
+			"src": "FL_Houses_v1.0/_PNG/Exterriors/FL_Houses_ext_terrain_floors.png",
+			"box": [
+				576,
+				416,
+				640,
+				452
+			],
+			"feet": [
+				32,
+				35
+			],
+			"_doc": "flat: a spill of broken stone and red ore chunks (FL_Houses terrain_floors debris)"
+		},
+		"rubble_b": {
+			"src": "FL_Houses_v1.0/_PNG/Exterriors/FL_Houses_ext_terrain_floors.png",
+			"box": [
+				583,
+				353,
+				627,
+				383
+			],
+			"feet": [
+				22,
+				29
+			]
+		},
+		"rubble_c": {
+			"src": "FL_Houses_v1.0/_PNG/Exterriors/FL_Houses_ext_terrain_floors.png",
+			"box": [
+				589,
+				293,
+				625,
+				315
+			],
+			"feet": [
+				18,
+				21
+			]
 		}
 	},
-	"anim": {},
+	"anim": {
+		"brazier": {
+			"src": "RPG_Buildings_Desert_v1.0/Anim/fire1.png",
+			"frame": [
+				32,
+				96
+			],
+			"frames": 6,
+			"fps": 8,
+			"feet": [
+				14,
+				80
+			],
+			"_doc": "dressing: the Desert buildings' stepped sandstone pillar brazier (as desert.json): base's lowest row y 80"
+		},
+		"tripod": {
+			"src": "RPG_Buildings_Desert_v1.0/Anim/fire3.png",
+			"frame": [
+				32,
+				64
+			],
+			"frames": 6,
+			"fps": 8,
+			"feet": [
+				16,
+				48
+			],
+			"_doc": "the iron tripod brazier with a red coal bowl (as desert.json)"
+		},
+		"lantern": {
+			"src": "RPGW_DecorativeProps_v1.0/Animated/lantern01.png",
+			"frame": [
+				32,
+				128
+			],
+			"frames": 8,
+			"fps": 6,
+			"feet": [
+				16,
+				93
+			],
+			"row": 0,
+			"_doc": "Decorative Props lantern post (row pitch 128, 96 px of art), as keeps.json"
+		}
+	},
 	"walls": {
 		"rock": {
 			"_doc": "Desert v2's stacked rock pillars (decorative1 row 8, the same boxes as desert.json), one per tile and mirrored for variety; a wide-footed stack closes a run's ends; small rock heaps for a smashed tile. Warmed (red x1.15, blue x0.8) before the palette snap, which otherwise lands the olive-grey stone on near-black: here they read as quarried sandstone on the scree",
@@ -494,6 +757,149 @@
 					0.72
 				]
 			}
+		},
+		"chips": {
+			"src": "FL_Houses_v1.0/_PNG/Exterriors/FL_Houses_ext_terrain_floors.png",
+			"boxes": [
+				[
+					459,
+					298,
+					468,
+					312
+				],
+				[
+					487,
+					300,
+					503,
+					311
+				],
+				[
+					517,
+					298,
+					535,
+					310
+				],
+				[
+					552,
+					302,
+					568,
+					310
+				],
+				[
+					458,
+					333,
+					474,
+					341
+				],
+				[
+					491,
+					329,
+					509,
+					341
+				],
+				[
+					523,
+					331,
+					539,
+					342
+				],
+				[
+					558,
+					329,
+					567,
+					343
+				]
+			],
+			"_doc": "dressing: grey stone chips (FL_Houses terrain_floors' small stones), on the scree by the shelves' feet"
+		},
+		"ore": {
+			"src": "FL_Houses_v1.0/_PNG/Exterriors/FL_Houses_ext_terrain_floors.png",
+			"boxes": [
+				[
+					462,
+					361,
+					469,
+					371
+				],
+				[
+					490,
+					362,
+					501,
+					372
+				],
+				[
+					521,
+					362,
+					532,
+					371
+				],
+				[
+					552,
+					365,
+					561,
+					371
+				],
+				[
+					463,
+					398,
+					472,
+					404
+				],
+				[
+					492,
+					395,
+					503,
+					404
+				],
+				[
+					523,
+					395,
+					534,
+					405
+				],
+				[
+					555,
+					394,
+					562,
+					404
+				]
+			],
+			"_doc": "dressing: bits of red ore (the same sheet's red chunks)"
 		}
+	},
+	"shadows": {
+		"_doc": "contact shadows under the dressing's props (tools/seed_dressing.gd picks the size nearest a prop's width), a warm dark brown on the scree",
+		"sizes": [
+			[
+				10,
+				4
+			],
+			[
+				16,
+				5
+			],
+			[
+				22,
+				7
+			],
+			[
+				28,
+				8
+			],
+			[
+				36,
+				10
+			],
+			[
+				46,
+				12
+			]
+		],
+		"rgb": [
+			44,
+			24,
+			12
+		],
+		"alpha": 120
 	}
 }

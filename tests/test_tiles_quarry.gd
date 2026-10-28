@@ -4,7 +4,9 @@ extends TestCase
 ## the lane blob and the earth blob9, the scene has ragged lanes and a rounded middle as
 ## terrains with a ledge along its south side, cobbled corners as patches, walls as raised rock
 ## shelves (RaisedTiles) with rubble, and the map plays as it did: ArenaView is tiled there, a smashed wall tile
-## shows its rocks, a crack sets an overlay cell.
+## shows its rocks, a crack sets an overlay cell. The hand dressing (assets/arenas/quarry_dressing.tscn):
+## props on the shelves' tops and at their faces' feet that fall with the shelf, flat things on
+## the floor, a lamp on every flame.
 
 const MANIFEST := "res://assets/tiles/rock_manifest.json"
 const GROUND := "res://assets/tiles/rock_ground.tres"
@@ -93,7 +95,7 @@ func test_the_quarry_scene_has_lanes_a_raised_middle_and_rock_walls() -> void:
 	assert_eq(raised.get_used_cells().size(), 2 * 2 * 26 + 4 * 4 * 2, "a raised tile on every wall cell")
 	for c in raised.get_used_cells():
 		assert_true(wall_cells.has(c), "only on the walls' own cells: %s" % c)
-	assert_eq(root.get_node("Walls").get_child_count(), 0, "no stack sprites: the walls are tiles")
+	assert_eq(root.get_node("Walls").get_children().map(func(n): return String(n.name)), ["Dressing"], "no stack sprites: the walls are tiles (the hand dressing only)")
 	assert_eq(root.get_node("Rubble").get_child_count(), 28 + 4 * 2, "rubble for every wall tile, hidden")
 	root.free()
 
@@ -126,4 +128,128 @@ func test_the_quarry_plays_as_before_and_breaks_over_the_tiles() -> void:
 	v.refresh()
 	var at := v._overlay.get_cell_atlas_coords(Vector2i(40, 18))
 	assert_true((at.x + at.y * ArenaView.OV_COLS) in ArenaView.OV_CRACK, "a crack over the sandstone")
+	v.free()
+
+
+const DRESSING := "res://assets/arenas/quarry_dressing.tscn"
+const FLAMES := ["brazier", "tripod", "lantern"]
+const PPU := 2.0  ## scene px a unit (ArtScale.PX_PER_UNIT)
+
+
+static func _kind(n: Node) -> String:
+	return String(n.get_meta("kind", String(n.name).rsplit("_", true, 1)[0]))
+
+
+## A prop's picture in units from the floor's corner: its feet at position, drawn at offset.
+static func _picture(n: Node2D) -> Rect2:
+	var size := Vector2.ZERO
+	var off := Vector2.ZERO
+	if n is Sprite2D:
+		size = (n as Sprite2D).texture.get_size()
+		off = (n as Sprite2D).offset
+	elif n is AnimatedSprite2D:
+		var an := n as AnimatedSprite2D
+		size = an.sprite_frames.get_frame_texture(an.animation, 0).get_size()
+		off = an.offset
+	return Rect2((n.position + off) / PPU, size / PPU)
+
+
+func _view() -> Array:
+	var was: String = MatchFactory.arena
+	MatchFactory.arena = "quarry"
+	var sim := MatchFactory.versus("cairn", "culvert")
+	MatchFactory.arena = was
+	var v := ArenaView.new()
+	v.ground = "stone"
+	v.arena_id = "quarry"
+	v.set_terrain(sim.terrain)
+	return [sim, v]
+
+
+func test_the_quarry_is_dressed_on_its_shelves_and_flat_on_its_floor() -> void:
+	var map := ArenaMap.get_map("quarry")
+	assert_eq(String(map["tiles"].get("dressing", "")), DRESSING, "the map names its dressing scene")
+	var root: Node = (load(SCENE) as PackedScene).instantiate()
+	var d := root.get_node_or_null("Walls/Dressing") as Node2D
+	assert_true(d != null and d.scene_file_path == DRESSING, "the built scene instances the hand-edited dressing")
+	for flat in ["Paths", "Flat", "Detail"]:
+		assert_eq((d.get_node(flat) as Node2D).position, Vector2.ZERO, "%s sorts at y 0, under the shelves" % flat)
+	root.free()
+	var size := ArenaMap.size_of(map)
+	var grid := TerrainGrid.new(size.x, size.y)
+	grid.load_map(map)
+	var dr: Node = (load(DRESSING) as PackedScene).instantiate()
+	var props := dr.get_node("Props")
+	assert_true(props.get_child_count() >= 40, "dressed along every shelf (%d props)" % props.get_child_count())
+	var kinds := {}
+	for p: Node2D in props.get_children():
+		kinds[_kind(p)] = true
+		var foot := Vector2i(floori(p.position.x / (8 * PPU)), floori((p.position.y - 1.0) / (8 * PPU)))
+		assert_eq(grid.get_base(foot), TerrainGrid.WALL, "%s stands on a shelf, not the floor (%s)" % [p.name, foot])
+		var sh := p.get_node_or_null("Shadow") as Sprite2D
+		assert_true(sh != null and sh.show_behind_parent, "%s has its contact shadow under it" % p.name)
+	for k in ["crate", "sack", "millstones", "shovel", "chop_block", "logs", "fire_pit", "brazier", "tripod", "lantern"]:
+		assert_true(kinds.has(k), "a %s among the props" % k)
+	var paths := dr.get_node("Paths") as TileMapLayer
+	assert_true(paths.get_used_cells().size() >= 20, "packed-earth patches (%d tiles)" % paths.get_used_cells().size())
+	for t in paths.get_used_cells():
+		for dy in 2:
+			for dx in 2:
+				assert_eq(grid.get_base(t * 2 + Vector2i(dx, dy)), TerrainGrid.INTACT, "an earth tile on plain floor: %s" % t)
+	var detail := dr.get_node("Detail") as TileMapLayer
+	assert_true(detail.get_used_cells().size() >= 120, "chips, ore, tufts, stones (%d)" % detail.get_used_cells().size())
+	for c in detail.get_used_cells():
+		assert_eq(grid.get_base(c), TerrainGrid.INTACT, "flat detail on plain floor: %s" % c)
+	assert_true(dr.get_node("Flat").get_child_count() >= 8, "rubble spills and dropped planks")
+	for f: Node2D in dr.get_node("Flat").get_children():
+		var mid := Vector2i((_picture(f).get_center() / 8.0).floor())
+		assert_eq(grid.get_base(mid), TerrainGrid.INTACT, "%s lies flat on the floor" % f.name)
+	dr.free()
+
+
+func test_every_flame_has_a_lamp_that_burns_by_day_and_smokes() -> void:
+	var map := ArenaMap.get_map("quarry")
+	var lights: Array = map.get("lights", [])
+	assert_true(lights.size() <= Light2DView.MAX_DAY_LAMPS, "at most %d day lamps" % Light2DView.MAX_DAY_LAMPS)
+	assert_true(Light2DView.lamps_by_day(map, "day") and Light2DView.lamps_by_day(map, "sunset"), "the lamps burn by day and at sunset")
+	assert_true(bool(map["ambient"]["glades"]["smoke"]), "thin smoke off the flames (GladeView)")
+	var root: Node = (load(SCENE) as PackedScene).instantiate()
+	var flames: Array = root.get_node("Walls/Dressing/Props").get_children().filter(func(n): return _kind(n) in FLAMES)
+	assert_true(flames.size() >= 8, "braziers, tripods and lantern posts (%d)" % flames.size())
+	var origin := Vector2(SimDefs.GRID_X, SimDefs.GRID_Y)
+	var used := {}
+	for n: Node2D in flames:
+		var pic := _picture(n).grow(4.0)
+		pic.position += origin
+		var lit := false
+		for i in lights.size():
+			var e: Dictionary = lights[i]
+			if bool(e.get("lamp", false)) and float(e.get("day", 0.0)) > 0.0 and pic.has_point(Vector2(e["pos"][0], e["pos"][1])):
+				lit = true
+				used[i] = true
+		assert_true(lit, "%s at %s has its lamp on its flame" % [n.name, n.position / PPU])
+	assert_eq(used.size(), lights.size(), "and no lamp burns without a flame")
+	root.free()
+
+
+func test_a_prop_on_a_shelf_falls_when_the_face_would_grow_under_it() -> void:
+	var r := _view()
+	var sim: MatchSim = r[0]
+	var v: ArenaView = r[1]
+	var props := v._tiles.get_node(ArenaView.DRESS_PROPS)
+	assert_eq(props.get_children().filter(func(n): return n.has_meta("cells")).size(), props.get_child_count(), "every prop knows the shelf it stands on")
+	# the crate on the left shelf's top, cell (21, 10): a smash 3 cells below it would lift the
+	# face to its feet, one 6 below leaves the top under it whole
+	var crate: Node2D = props.get_children().filter(func(n): return _kind(n) == "crate" and Vector2i((n.position / 16.0).floor()) == Vector2i(21, 10))[0]
+	assert_true(crate.visible, "the crate stands")
+	assert_true(sim.terrain.smash(Vector2i(21, 16)), "a charge smashes the shelf six cells below")
+	v.refresh()
+	assert_true(crate.visible, "the top under the crate is still a top")
+	sim.terrain.set_cell(Vector2i(21, 16), TerrainGrid.WALL)
+	assert_true(sim.terrain.smash(Vector2i(21, 13)), "one three cells below")
+	v.refresh()
+	assert_false(crate.visible, "the face would rise under it: it goes")
+	sim.terrain.set_cell(Vector2i(21, 13), TerrainGrid.WALL)
+	v.refresh()
+	assert_true(crate.visible, "and comes back when the shelf rebuilds")
 	v.free()

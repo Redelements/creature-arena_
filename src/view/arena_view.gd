@@ -247,7 +247,8 @@ func _build_tiles() -> void:
 ## "Walls/Dressing"; assets/README.md "Dressing"): every prop under its "Props" whose feet (its
 ## position) stand on a blocking cell of the map (a wall, a fence) gets meta "cells", that cell
 ## and the blocking cells beside it its picture spans on that row, so `_sync_sprites` hides it
-## while any is smashed, as it hides the wall sprites. Worked out here, not in the scene, so a
+## while any is smashed, as it hides the wall sprites (on a raised wall, also the cells below it
+## down to the face's height). Worked out here, not in the scene, so a
 ## prop nudged in the editor still falls with the wall it stands on. A prop on the floor keeps
 ## none (only flat ones stand there: tests/test_tiles_dressing.gd).
 func _dress_cells() -> void:
@@ -280,7 +281,13 @@ func _dress_cells() -> void:
 			x0 -= 1
 		while x1 + 1 <= floori((left + w - 1.0) / cell_px) and _blocks(Vector2i(x1 + 1, foot.y)):
 			x1 += 1
-		n.set_meta("cells", Rect2i(x0, foot.y, x1 - x0 + 1, 1))
+		# on a raised wall (RaisedTiles) a prop on the top also goes while a cell within the
+		# face's height below it is smashed: the face would grow up under its feet
+		var h := 1
+		if _raised != null and not _raised_info.is_empty():
+			while h <= int(_raised_info["cells"]) and _raised_walls.has(Vector2i(foot.x, foot.y + h)):
+				h += 1
+		n.set_meta("cells", Rect2i(x0, foot.y, x1 - x0 + 1, h))
 
 
 ## The dressing's tree crowns (DRESS_CANOPIES): each crown standing on a blocking cell (a
