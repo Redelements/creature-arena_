@@ -261,3 +261,23 @@ func test_the_worn_palette_reaches_the_hud_portrait_and_the_results_pose() -> vo
 	var panels: Array = g.ui.top().find_children("*", "ResultsPanel", true, false)
 	assert_true(not panels.is_empty() and (panels[0] as ResultsPanel).preview.palette == 1, "drawn in it")
 	_done(g)
+
+
+func test_the_palette_toast_and_the_clear_banner_say_what_changed() -> void:
+	_fresh()
+	var g := _game()
+	assert_eq(g.palette_toast(0, 1), "Palette 1 of 1   ·   more from mastery or Arcade clears", "")
+	assert_eq(g.palette_toast(3, 4), "Palette 4 of 4", "all four: nothing to add")
+	Progress.set_enabled(false)
+	assert_eq(g.palette_toast(0, 2), "Palette 1 of 2   ·   clear the Arcade to unlock more", "Off: as before")
+	Progress.set_enabled(true)
+	# Mastery gave palette 2 already: an Easy clear's banner doesn't call it new.
+	Progress.grant_unlock("palette:cairn:1")
+	_clear(g, "cairn", 0)
+	assert_eq(String(g.hud.banner_sub), "Cleared on Easy: a new best", "")
+	_done(g)
+	_fresh()
+	g = _game()
+	_clear(g, "cairn", 0)
+	assert_eq(String(g.hud.banner_sub), "New palette unlocked: F5 in a fight to wear it", "a first clear gives one")
+	_done(g)

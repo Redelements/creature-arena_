@@ -1722,12 +1722,15 @@ func _arcade_result(won: bool) -> bool:
 		return true
 	# The boss is down: the Arcade is cleared on this level.
 	_arcade_cleared = true
+	var had := Progress.palettes_unlocked(arcade.fighter)
 	var new_best := Progress.record_clear(arcade.fighter, arcade.level)
 	flow = Flow.MATCH_OVER
 	flow_t = 0
 	hud.banner = "ARCADE CLEAR!"
-	hud.banner_sub = ("New palette unlocked: F5 in a fight to wear it" if new_best
-		else "Cleared on %s" % CpuController.LEVELS[arcade.level]["name"])
+	# A new palette only when the clear gave one (mastery may have given it already).
+	var level_name := String(CpuController.LEVELS[arcade.level]["name"])
+	hud.banner_sub = ("New palette unlocked: F5 in a fight to wear it" if Progress.palettes_unlocked(arcade.fighter) > had
+		else ("Cleared on %s: a new best" % level_name if new_best else "Cleared on %s" % level_name))
 	audio.play("round_end")
 	return true
 
@@ -1754,6 +1757,14 @@ func _open_ending() -> bool:
 			{"xp": 0, "level_from": lvl, "level_to": lvl, "mastery": {}, "unlocked": [t]})
 	ui.push(card)
 	return true
+
+
+## F5's toast: the palette worn of those unlocked, and how more unlock while some are locked.
+static func palette_toast(i: int, n: int) -> String:
+	var t := "Palette %d of %d" % [i + 1, n]
+	if n < Progress.PALETTES:
+		t += "   ·   more from mastery or Arcade clears" if Progress.enabled() else "   ·   clear the Arcade to unlock more"
+	return t
 
 
 ## Duel: the rules (intro, tags, swaps, timer, winner) all run inside DuelSim; this
@@ -3713,7 +3724,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			var n := Progress.palettes_unlocked(id)
 			var i := Progress.next_palette(id)
 			(views[me] as CreatureView).palette = i
-			hud.show_toast("Palette %d of %d" % [i + 1, n] + ("" if n > 1 else "   ·   clear the Arcade to unlock more"))
+			hud.palettes[me] = i
+			hud.show_toast(palette_toast(i, n))
 	elif event.is_action_pressed("save_replay"):
 		_save_replay()
 	elif event.is_action_pressed("reset") and MODES[mode].get("training", false):
