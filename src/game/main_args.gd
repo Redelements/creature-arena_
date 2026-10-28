@@ -68,6 +68,10 @@ func _parse_args() -> int:
 			main.range_rings = true
 		elif a.begins_with("--a11y="):
 			Accessibility.cli = Accessibility.parse_flag(a.substr("--a11y=".length()))
+		elif a.begins_with("--progression="):  # Settings > Game > Progression for this session only (not saved)
+			var v := a.get_slice("=", 1)
+			if v in ["on", "off"]:
+				Progress.set_enabled(v == "on")
 		elif a.begins_with("--lighting="):
 			main._lighting_cli = ["off", "low", "high"].find(a.get_slice("=", 1))
 		elif a.begins_with("--mode="):

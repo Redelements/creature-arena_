@@ -35,7 +35,7 @@ func _game(on: bool) -> Node:
 	var g: Node = load("res://scenes/main.tscn").instantiate()
 	g.settings_path = TEST_SETTINGS
 	_root().add_child(g)
-	Progress.set_enabled(on)  # (after the settings load, which reads it Off)
+	Progress.set_enabled(on)  # (set after the settings load, never left to its default)
 	return g
 
 

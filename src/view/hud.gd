@@ -117,6 +117,25 @@ var _cd_was := {}  ## slot * 3 + box -> was recharging last tick
 var _cd_flash := {}  ## slot * 3 + box -> ticks of "ready" flash left
 var _bars_sim: MatchSim = null
 var _ports := {}  ## sprite path + portrait key -> {tex, src, scale}
+## The palette each fighter wears (creature id -> index; main sets the local player's worn
+## one, 0 or missing: the sheet's own): a turned portrait is drawn by a child layer with the
+## fight's hue-turn material (FighterPreview's), since the HUD's own draws take no material.
+var palettes := {}
+var _port_layers := {}  ## creature id -> PortraitLayer
+var _draw_count := 0
+
+
+## A portrait in a palette: drawn on the HUD's draw it was asked for, nothing otherwise.
+class PortraitLayer extends Node2D:
+	var hud: Hud
+	var c: CreatureSim
+	var x := 0.0
+	var right := false
+	var drawn_at := -1
+
+	func _draw() -> void:
+		if hud != null and c != null and drawn_at == hud._draw_count:
+			hud._paint_portrait(self, c, x, right)
 
 
 ## The per-slot labels (tags, key prompts) have one entry per creature slot: 2, or up
@@ -334,9 +353,30 @@ static func portrait_scale(src: Vector2i, ppu: int) -> float:
 
 
 func _draw_portrait(c: CreatureSim, x: float, col: Color, right: bool) -> void:
-	var down := c.state == CreatureSim.State.KO or c.hp <= 0.0
 	draw_rect(Rect2(x, 3, PW - 2.0, 34), col)
 	draw_rect(Rect2(x + 1, 4, PORT_W, PORT_H + 1), Color(0.1, 0.11, 0.14))
+	var pal := int(palettes.get(c.id, 0))
+	if pal <= 0:
+		_paint_portrait(self, c, x, right)
+		return
+	var layer: PortraitLayer = _port_layers.get(c.id)
+	if layer == null:
+		layer = PortraitLayer.new()
+		layer.hud = self
+		layer.material = FighterPreview._palette_material()
+		add_child(layer)
+		_port_layers[c.id] = layer
+	(layer.material as ShaderMaterial).set_shader_parameter("hue",
+		CreatureView.PALETTE_HUES[clampi(pal, 0, CreatureView.PALETTE_HUES.size() - 1)])
+	layer.c = c
+	layer.x = x
+	layer.right = right
+	layer.drawn_at = _draw_count
+
+
+## The portrait's picture (and the KO shade over it) on `ci`: the HUD, or a palette's layer.
+func _paint_portrait(ci: CanvasItem, c: CreatureSim, x: float, right: bool) -> void:
+	var down := c.state == CreatureSim.State.KO or c.hp <= 0.0
 	var info := _portrait_info(c)
 	if not info.is_empty():
 		var src: Rect2 = info["src"]
@@ -346,13 +386,13 @@ func _draw_portrait(c: CreatureSim, x: float, col: Color, right: bool) -> void:
 		var dx := x + 1.0 + floorf((PORT_W - dw) / 2.0)
 		var dy := 4.0 + floorf((PORT_H - dh) / 2.0)
 		if right:  # face the middle
-			draw_set_transform(Vector2(dx + dw, dy), 0.0, Vector2(-1, 1))
-			draw_texture_rect_region(info["tex"], Rect2(0, 0, dw, dh), src)
-			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			ci.draw_set_transform(Vector2(dx + dw, dy), 0.0, Vector2(-1, 1))
+			ci.draw_texture_rect_region(info["tex"], Rect2(0, 0, dw, dh), src)
+			ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		else:
-			draw_texture_rect_region(info["tex"], Rect2(dx, dy, dw, dh), src)
+			ci.draw_texture_rect_region(info["tex"], Rect2(dx, dy, dw, dh), src)
 	if down:
-		draw_rect(Rect2(x + 1, 4, PORT_W, PORT_H + 1), Color(0, 0, 0, 0.6))
+		ci.draw_rect(Rect2(x + 1, 4, PORT_W, PORT_H + 1), Color(0, 0, 0, 0.6))
 
 
 ## Training: feeds the dummy's health to the DPS meter (a new match starts it over).
@@ -404,6 +444,9 @@ func _layout() -> void:
 
 func _draw() -> void:
 	var t0 := PerfLog.now()
+	_draw_count += 1
+	for l in _port_layers.values():
+		(l as CanvasItem).queue_redraw()  # (each draws only if this draw placed it)
 	_draw_now()
 	PerfLog.since("hud draw", t0)
 

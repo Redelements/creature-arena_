@@ -6,8 +6,10 @@ extends TestCase
 ## choice is played to the end (the clock is run down once the fight is under way, so a
 ## stalemate can't hang the test); the other choices start, then leave from the pause
 ## menu. Modes with no end (training, the showcases, trials, drills) leave from the pause
-## menu too, and Replay theater opens its screen and comes back. A row only Settings > Game >
-## Progression shows (the Weekly Challenge) is walked with Progression on, the rest with it off.
+## menu too, and Replay theater opens its screen and comes back. Every row is walked with
+## Settings > Game > Progression on (the default since task F; an Arcade clear's ending card is
+## continued past), and a fight with a CPU in the player's own seat reaches results that show
+## what it paid.
 
 const TEST_SETTINGS := "user://test_journey.cfg"
 ## Ticks a fight plays before the clock is run down, and what it is run down to.
@@ -165,7 +167,9 @@ func _play_to_over(g: Node, label: String) -> int:
 			_overtime_ticks = _overtime_ticks + 1 if g.team_battle != null and g.team_battle.overtime else 0
 			if fought >= HURRY_AT and fought % 60 == 0:
 				_hurry(g)
-		if g.flow == g.Flow.MATCH_OVER and g.ui.is_open():
+		if g.flow == g.Flow.MATCH_OVER and g.ui.top() is EndingScreen:
+			(g.ui.top() as EndingScreen).continue_button.pressed.emit()  # an Arcade clear's card: on to the results
+		elif g.flow == g.Flow.MATCH_OVER and g.ui.is_open():
 			return t
 	fail("%s never reached its final banner in %d ticks (flow %d)" % [label, BUDGET, g.flow])
 	return -1
@@ -230,7 +234,7 @@ func test_every_row_plays_to_the_final_banner_and_back_lands_on_the_row() -> voi
 		var label := String(row["label"])
 		if not row.has("modes") or not _ends(g, r, 0):
 			continue
-		Progress.set_enabled(bool(row.get("progression", false)))  # the Weekly's row is there only with it on
+		Progress.set_enabled(true)  # (the default; set, not left to the settings load)
 		var page := _go_to_row(g, r, 0)
 		var page_title: String = page.title
 		var m := int(row["modes"][0])
@@ -274,7 +278,7 @@ func test_every_other_choice_starts_its_mode_and_leaves_to_the_row() -> void:
 		var label := String(row["label"])
 		if not row.has("modes"):
 			continue
-		Progress.set_enabled(bool(row.get("progression", false)))
+		Progress.set_enabled(true)
 		for choice in _choices(g, r):
 			if choice == 0 and _ends(g, r, 0):
 				continue  # played to the end by the other test
@@ -343,4 +347,47 @@ func test_rematch_keeps_the_fighters_and_skips_the_pick() -> void:
 			again.append(String(c.def["id"]))
 		assert_eq(again, ids, label + ": the same fighters")
 		g._open_menu()
+	g.free()
+
+
+## The player's seat played by a Normal CPU through main's own input hook (the side stays a
+## human PLAYER, so the match pays like a real one), Progression on: the results show the XP.
+class SeatBot extends AutoPlay:
+	var main: Node
+	var cpu: CpuController
+	var sim_id := -1
+
+	func bits(_t: int) -> int:
+		if main.sim == null:
+			return 0
+		if main.sim.get_instance_id() != sim_id:
+			sim_id = main.sim.get_instance_id()
+			cpu = CpuController.new(0, 1, 11)
+		return cpu.bits(main.sim)
+
+
+func test_a_fight_in_the_players_seat_pays_and_the_results_say_so() -> void:
+	var g := _game()
+	g._cpu_vs_cpu = false
+	g.level = 0  # an Easy CPU across
+	var bot := SeatBot.new()
+	bot.main = g
+	g.autoplay = bot
+	Progress.set_enabled(true)
+	var r := -1
+	for i in g.MENU_ROWS.size():
+		if String(g.MENU_ROWS[i]["label"]) == "Versus CPU":
+			r = i
+	assert_true(r >= 0, "the Versus CPU row")
+	_go_to_row(g, r, 0)
+	_through_pick(g, "Versus CPU")
+	assert_true(_play_to_over(g, "Versus CPU, the seat played") >= 0, "the fight ends")
+	var panels: Array = g.ui.top().find_children("*", "ResultsPanel", true, false)
+	assert_false(panels.is_empty(), "the results screen")
+	if not panels.is_empty():
+		var rows: Array = (panels[0] as ResultsPanel).data.get("progress", [])
+		assert_true(not rows.is_empty() and String(rows[0]).begins_with("+"), "with what it paid: %s" % [rows])
+	assert_gt(float(Progress.account_xp()), 0.0, "and the account has it")
+	g.autoplay = null
+	Progress.set_enabled(false)
 	g.free()

@@ -25,7 +25,7 @@ func _init(p_focus := "") -> void:
 	row_align = HORIZONTAL_ALIGNMENT_CENTER
 	row_width = 180.0
 	row_height = 19.0
-	row_gap = 3
+	row_gap = 2  # (five rows and the wordmark fit a 270-unit-high screen above the description)
 	hints = ["move", "select"]
 
 

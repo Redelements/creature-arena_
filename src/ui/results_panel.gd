@@ -9,7 +9,8 @@ extends VBoxContainer
 ##        "color": Color, "mvp": int (fighter id, -1 none), "extra": [column names],
 ##        "rows": [{"id", "name", "team", "stats": {...}, "extra": [values]}],
 ##        "progress": [lines] (Progression: "+N XP", level and mastery ups, unlocks; may be absent),
-##        "badge": the winning player's title, "line": their victory line (Progression; "" or absent: none)}
+##        "badge": the winning player's title, "line": their victory line (Progression; "" or absent: none),
+##        "palette": the pose's palette (the local player's worn one; 0 or absent: its own)}
 
 const COLUMNS := [["DMG", "damage"], ["HITS", "hits"], ["KOS", "kos"], ["COMBO", "combo"], ["BLOCK", "blocks"], ["SURGE", "surges"]]
 const NAME_W := 76.0
@@ -39,6 +40,7 @@ func _build() -> void:
 		preview = FighterPreview.new()
 		preview.custom_minimum_size = Vector2(44, 34 if compact else 52)
 		preview.fighter = String(data["fighter"])
+		preview.palette = int(data.get("palette", 0))
 		preview.anim = "victory"
 		preview.face_left = false
 		preview.mouse_filter = Control.MOUSE_FILTER_IGNORE

@@ -146,7 +146,8 @@ static func make() -> Theme:
 	t.set_stylebox("focus", "BigButton", big_focus)
 	for c in ["font_focus_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color"]:
 		t.set_color(c, "BigButton", C_DARK)
-	t.set_color("font_hover_color", "BigButton", C_ACCENT)
+	# (Hover dark too: hovering a row focuses it (UiScreen.add_row), and the hover colour wins
+	# over the focus one, so the accent text sat on the accent fill, unreadable: QC Oct 2026.)
 	t.set_font_size("font_size", "BigButton", px(SIZE_BIG))
 	t.set_constant("outline_size", "BigButton", 0)
 

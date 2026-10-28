@@ -40,10 +40,18 @@ const LEVELS := ["easy", "normal", "hard", "rage"]
 const CLUTCH_SHARE := 0.1
 ## King of the Crater: zone time (ticks) for crater_holds.
 const CRATER_HOLD_TICKS := 60 * 60
+## note_match's context keys (main_presentation.gd `challenge_context` fills them).
+const C_MODE := "mode"
+const C_ARENA := "arena"
+const C_HP := "hp"
+const C_TEAM := "team"
+const C_TEAMS := "teams"
+const C_CRATER_TICKS := "crater_ticks"
 
 static var _goals: Array = []
 static var _by_id := {}
 static var _groups: Array = []
+static var _read := false  ## data/challenges.json read (or found missing: not read again on every call)
 
 # This match (from begin_match): counts by creature id and by team, and what the events need.
 static var _m := {}
@@ -61,8 +69,9 @@ static var _completed: Array = []
 
 
 static func _load() -> void:
-	if not _goals.is_empty():
+	if _read:
 		return
+	_read = true
 	var f := FileAccess.open(DATA_PATH, FileAccess.READ)
 	var d = JSON.parse_string(f.get_as_text()) if f != null else null
 	if not (d is Dictionary):
@@ -258,23 +267,23 @@ static func note_event(e: Dictionary) -> void:
 ## like Progress.award's result ({} when nothing was paid); `completed_this_match()` the ids.
 static func note_match(report: Dictionary, rows: Dictionary, ctx := {}) -> Dictionary:
 	_completed = []
-	var players: Array = report.get("players", [])
-	if not Progress.enabled() or String(report.get("kind", "none")) == "none" or players.is_empty():
+	var players: Array = report.get(Progress.R_PLAYERS, [])
+	if not Progress.enabled() or String(report.get(Progress.R_KIND, "none")) == "none" or players.is_empty():
 		return {}
 	var p: Dictionary = players[0]  # the account's player: player 1 here, the local slot online
-	var slot := int(p.get("slot", 0))
-	var won := bool(p.get("won", false))
+	var slot := int(p.get(Progress.P_SLOT, 0))
+	var won := bool(p.get(Progress.P_WON, false))
 	var row: Dictionary = rows.get(slot, {})
-	var mode := String(ctx.get("mode", ""))
-	var hp := float(ctx.get("hp", -1.0))
+	var mode := String(ctx.get(C_MODE, ""))
+	var hp := float(ctx.get(C_HP, -1.0))
 	var add := {}
 	_inc(add, "fights")
 	if won:
 		_inc(add, "wins")
-		for f in p.get("fighters", []):
+		for f in p.get(Progress.P_FIGHTERS, []):
 			_inc(add, "wins_as:" + String(f))
-		if String(ctx.get("arena", "")) != "":
-			_inc(add, "wins_on:" + String(ctx["arena"]))
+		if String(ctx.get(C_ARENA, "")) != "":
+			_inc(add, "wins_on:" + String(ctx[C_ARENA]))
 		if mode in ["brawl", "chaos", "sinkhole"]:
 			_inc(add, {"brawl": "brawl_wins", "chaos": "chaos_wins", "sinkhole": "sinkhole_wins"}[mode])
 		if mode == "chaos":
@@ -291,22 +300,24 @@ static func note_match(report: Dictionary, rows: Dictionary, ctx := {}) -> Dicti
 		_inc(add, "combo_10")
 	for stat in _m.get(slot, {}):
 		_inc(add, String(stat), int(_m[slot][stat]))
-	_inc(add, "caravan_finishes", int(_team.get(int(ctx.get("team", -1)), 0)))
-	var teams: Dictionary = ctx.get("teams", {})
+	_inc(add, "caravan_finishes", int(_team.get(int(ctx.get(C_TEAM, -1)), 0)))
+	var teams: Dictionary = ctx.get(C_TEAMS, {})
 	for bh in _boulder_hits:
 		if int(bh[0]) == slot and teams.get(int(bh[1]), -1) != teams.get(slot, -2):
 			_inc(add, "boulder_hits")
 	if _meteors and not _meteor_hit.has(slot):
 		_inc(add, "meteor_untouched")
-	if mode == "crater" and int(ctx.get("crater_ticks", 0)) >= CRATER_HOLD_TICKS:
+	if mode == "crater" and int(ctx.get(C_CRATER_TICKS, 0)) >= CRATER_HOLD_TICKS:
 		_inc(add, "crater_holds")
 	if mode == "daily":
 		_inc(add, "dailies")
-	_inc(add, "gauntlet_waves", int(report.get("waves", 0)))
-	if bool(report.get("clear_arcade", false)):
-		for k in range(0, clampi(int(report.get("cpu_level", 0)), 0, LEVELS.size() - 1) + 1):
+	_inc(add, "gauntlet_waves", int(report.get(Progress.R_WAVES, 0)))
+	if bool(report.get(Progress.R_CLEAR_ARCADE, false)):
+		# The run's chosen level (the boss stage plays one up: that is not a harder clear).
+		var lvl := int(report.get(Progress.R_ARCADE_LEVEL, report.get(Progress.R_CPU_LEVEL, 0)))
+		for k in range(0, clampi(lvl, 0, LEVELS.size() - 1) + 1):
 			_inc(add, "arcade_clears_" + LEVELS[k])
-	if String(report.get("kind", "")) == "online":
+	if String(report.get(Progress.R_KIND, "")) == "online":
 		_inc(add, "online_matches")
 	var s := _save()
 	for c in add:
