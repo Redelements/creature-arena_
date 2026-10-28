@@ -220,3 +220,8 @@ cut the props into its set (recipe `decor` / `anim`, scatter kinds appended at t
 `scatter`: the scene paints slots by atlas place, `shadows` for the contact shadows), seed
 or build the scene in the editor with the four nodes above, rebuild the set, and add the
 flames' lamps to its `lights` with a `day` share.
+
+The Stadium (`stadium_dressing.tscn`, from `tools/dressing/stadium.json`) is floor only: it
+has no wall or fence cells, so its `Props` and `Canopies` stay empty. Its ground layers are
+`DirtDark`, `DirtDry`, `Damp` and `Paths` (set1 terrains `dirt_dark`, `dirt_dry`, `damp`, `path`);
+`Detail` holds pebbles and dried sprigs, kept a cell clear of the court lines.
