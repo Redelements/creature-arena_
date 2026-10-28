@@ -21,7 +21,7 @@ DONE / SKIPPED / BLOCKED. This file lives on branch `autonomy-log` (worktree
 | 1 | QA sweep after the merge storm; refresh STATUS.md and open-items.md | DONE | [#259](https://github.com/Redelements/creature-arena_/pull/259) merged |
 | 2 | Docs drift check (MECHANICS.md, README kits) | | |
 | 3 | Rollback coverage: random-input fuzz across modes with hazards, shrines, crown | | |
-| 4 | Nightly CI: Normal-bot balance matrix + cross-platform determinism soak | PR OPEN, merging | [#260](https://github.com/Redelements/creature-arena_/pull/260) |
+| 4 | Nightly CI: Normal-bot balance matrix + cross-platform determinism soak | DONE (manual run verifying) | [#260](https://github.com/Redelements/creature-arena_/pull/260) merged |
 | 5 | main.gd split (after 1-4 merged) | | |
 | 6 | CPU team play piece 3 (focus, peel, front line) | | |
 | 7 | Caravan CPU wagon goal | | |
@@ -100,3 +100,4 @@ regression tests in tests/test_training.gd; MECHANICS.md "Training options" upda
   (https://github.com/Redelements/creature-arena_/pull/261). Behavioral (training plays differently after a
   KO) -> left open for Kevin, who was told in chat.
 - Task 4: #260 merged; the first manual nightly run dispatched on main (workflow_dispatch); result below.
+- #260 merged (main 74abd86). Manual run 40643286819 in progress; verdict recorded when it ends.
