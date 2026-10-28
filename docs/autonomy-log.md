@@ -18,7 +18,7 @@ DONE / SKIPPED / BLOCKED. This file lives on branch `autonomy-log` (worktree
 
 | # | Task | Status | PR |
 | --- | --- | --- | --- |
-| 1 | QA sweep after the merge storm; refresh STATUS.md and open-items.md | IN PROGRESS | |
+| 1 | QA sweep after the merge storm; refresh STATUS.md and open-items.md | DONE | [#259](https://github.com/Redelements/creature-arena_/pull/259) merged |
 | 2 | Docs drift check (MECHANICS.md, README kits) | | |
 | 3 | Rollback coverage: random-input fuzz across modes with hazards, shrines, crown | | |
 | 4 | Nightly CI: Normal-bot balance matrix + cross-platform determinism soak | | |
@@ -80,3 +80,4 @@ had no path back. Fix on branch `training-ko-revive` (worktree creature-arena-ko
 match anyone knocked out gets back up like the dummy (90 ticks, full HP), and a training KO skips
 the KO freeze / slow motion. Training-only, so every other match's fingerprint is unchanged; two
 regression tests in tests/test_training.gd; MECHANICS.md "Training options" updated.
+- **Task 1 DONE**: PR #259 merged (main f2b9046). Nothing a player sees changed.
