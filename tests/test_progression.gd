@@ -382,3 +382,24 @@ func test_rewards_already_earned_are_granted_on_reading_the_save() -> void:
 	assert_true(Progress.set_account_title("title:pit_dodger"), "and it can be worn straight away")
 	_cleanup(p)
 	_done()
+
+
+func test_the_progression_flag_is_for_the_session_only() -> void:
+	var cfg_path := "user://test_progression_flag.cfg"
+	if FileAccess.file_exists(cfg_path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg_path))
+	_fresh()
+	var g: Node = load("res://scenes/main.tscn").instantiate()
+	g.settings_path = cfg_path
+	(Engine.get_main_loop() as SceneTree).root.add_child(g)
+	g.settings_ctl._set_setting("progression", 0)  # saved Off
+	var saved: bool = g.settings_ctl.progression_saved
+	Progress.set_enabled(true)  # what --progression=on does (main_args.gd: the switch alone, not the saved value)
+	g.settings_ctl._save_settings()
+	var cfg := ConfigFile.new()
+	cfg.load(cfg_path)
+	assert_false(bool(cfg.get_value("game", "progression", true)), "a session's --progression=on is never written")
+	assert_eq(saved, false, "")
+	g.free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg_path))
+	_done()
