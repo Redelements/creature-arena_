@@ -426,6 +426,7 @@ const VOICE_HEAR := ["Everyone", "Rooms and friends"]
 var voice_hear := 0
 var _voice_cli := -1  ## --voice=: this session's mode, never saved (-1: the setting)
 var _voice_test := false  ## --voice-test=tone
+var voice_ctl := MainVoice.new(self)  ## voice chat's glue (main_voice.gd)
 var debug: DebugView
 var hud: Hud
 var camera: Camera2D
@@ -579,6 +580,7 @@ var touch_overlay: TouchOverlay
 var touch_opacity := TOUCH_OPACITY_DEFAULT
 var touch_left := false  ## Settings > Controls > Touch > Hand (saved)
 var _touch_demo_left := false  ## --touch-demo=left: mirrored this session only
+var touch_ctl := MainTouch.new(self)  ## the touch controls' glue (main_touch.gd)
 var frame_count := 0
 var _shots := {}
 var _shot_dir := "user://shots"
@@ -860,7 +862,7 @@ func _ready() -> void:
 	_apply_device()
 	_apply_discord()
 	_apply_range_rings()
-	_apply_touch()
+	touch_ctl._apply_touch()
 	_open_menu(_menu_arg)  # also starts the background match the pick screen sits on
 	if start_mode >= 0:
 		_start_match(start_mode)
@@ -2624,7 +2626,7 @@ func _process(_delta: float) -> void:
 		bloom.frame(get_viewport())
 	if netplay != null and netplay.link != null and netplay.link.realtime:
 		netplay.pump()
-	_voice_step(_delta)
+	voice_ctl._voice_step(_delta)
 	_think_in_gap()
 	if discord != null:
 		if Engine.get_process_frames() % 30 == 0:
@@ -2642,7 +2644,7 @@ func _physics_process(_delta: float) -> void:
 	_apply_frame_rate()
 	_ticks_run += 1
 	show_ctl._wipe_step()
-	_touch_step()
+	touch_ctl._touch_step()
 	if paused:
 		_capture()
 		return  # frozen behind the pause menu: nothing steps, the picture holds
@@ -3461,90 +3463,17 @@ func _input(event: InputEvent) -> void:
 	var touch := event is InputEventScreenTouch or event is InputEventScreenDrag
 	if not (event is InputEventMouseMotion) and not touch:
 		_join_cpus()  # a press may change the match (a reset, a swap) while the CPUs read it
-	_note_input(event)
+	touch_ctl._note_input(event)
 
 
-## One event for player 1's devices: which device is in use (the prompts and the touch
-## controls follow it), and the screen's touches for the touch pad.
+## In main_touch.gd (tests and other scripts call it here).
 func _note_input(event: InputEvent) -> void:
-	var before := player_input.label_set()
-	player_input.note_event(event)
-	if event is InputEventScreenTouch or event is InputEventScreenDrag:
-		player_input.touch.feed(event)
-	if player_input.label_set() != before:
-		_apply_device()
+	touch_ctl._note_input(event)
 
 
-## Once a tick (also while paused): the touch pad's state and the overlay. Touches start
-## fingers only in a fight with a player here; anything else, or another device, lets go
-## of every finger. A tap on the overlay's Pause is the Pause button.
-func _touch_step() -> void:
-	var pad := player_input.touch
-	var here := online != null or sides.has(Side.PLAYER)
-	var fighting := flow == Flow.FIGHT and here and not paused and not ui.is_open() and intro == null \
-			and showcase == null and autoplay == null and not _replaying() and watch == null
-	pad.active = fighting
-	if touch_demo != null and fighting:
-		for ev in touch_demo.step(pad):
-			_note_input(ev)
-	var vs := get_viewport_rect().size
-	var tag := duel != null
-	if pad.show_tag != tag or pad.screen() != vs:
-		pad.show_tag = tag
-		pad.layout(vs)
-	var on := player_input.device == PlayerInput.Device.TOUCH
-	if (not fighting or not on) and pad.fingers_down() > 0:
-		pad.release_all()
-	touch_overlay.visible = fighting and on
-	touch_overlay.sim = sim
-	touch_overlay.slot = hud.focus
-	hud.touch = touch_overlay.visible
-	_touch_targets()
-	if pad.pause_requested:
-		pad.pause_requested = false
-		if fighting:
-			var ev := InputEventAction.new()  # the same as Esc or Start
-			ev.action = "pause"
-			ev.pressed = true
-			Input.parse_input_event(ev)
-
-
-## The target lock's view of the match: who the local team can't see (never locked or
-## shown), the enemy portraits (foes it could lock, seen and on screen; none with one foe)
-## and Capture the Flag's objective button (the foe carrying our flag).
-func _touch_targets() -> void:
-	var pad := player_input.touch
-	player_input.touch_hidden = _hidden
-	touch_overlay.unseen = _hidden
-	var picks: Array = []
-	var objective := false
-	var me_idx: int = hud.focus
-	if touch_overlay.visible and me_idx >= 0 and me_idx < sim.creatures.size():
-		var me: CreatureSim = sim.creatures[me_idx]
-		var view := get_viewport().get_canvas_transform().affine_inverse() * get_viewport_rect()
-		var foes := 0
-		for i in sim.creatures.size():
-			if not me.is_foe(sim.creatures[i]):
-				continue
-			foes += 1
-			if view.has_point(sim.creatures[i].pos) and TouchTarget.can_lock(sim, me_idx, i, _hidden):
-				picks.append(i)
-		if foes < 2:
-			picks = []  # one foe: a tap already finds it
-		objective = team_battle != null and team_battle.ctf
-		if pad.objective_requested:
-			var o := TouchTarget.ctf_objective(team_battle, me)
-			if o >= 0:
-				pad.lock_request = o
-	pad.objective_requested = false
-	pad.set_picks(picks, objective)
-
-
-## Settings > Controls > Touch into the touch pad and the overlay.
+## In main_touch.gd (tests and other scripts call it here).
 func _apply_touch() -> void:
-	touch_overlay.opacity = float(TOUCH_OPACITY[clampi(touch_opacity, 0, TOUCH_OPACITY.size() - 1)])
-	player_input.touch.left_handed = touch_left or _touch_demo_left
-	player_input.touch.layout(player_input.touch.screen())
+	touch_ctl._apply_touch()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -3633,7 +3562,7 @@ static func _back_pressed(event: InputEvent) -> bool:
 ## it can't (`_open_online_pause`).
 func _open_pause() -> void:
 	if online != null or watch != null:  # a spectated room keeps going too
-		_open_online_pause()
+		voice_ctl._open_online_pause()
 		return
 	paused = true
 	if _replaying():  # a saved fight: nothing to restart, so Resume / Replay theater / Main menu
@@ -3924,186 +3853,44 @@ func _apply_range_rings() -> void:
 
 # ------------------------------------------------------------------ voice chat
 
-## The voice chat mode this session: --voice-test (open mic), else --voice, else the setting.
+## In main_voice.gd (tests and other scripts call it here).
 func voice_mode_now() -> int:
-	if _voice_test:
-		return VoiceChat.Mode.OPEN_MIC
-	return _voice_cli if _voice_cli >= 0 else voice_mode
+	return voice_ctl.voice_mode_now()
 
 
-## --voice=off|ptt|open (this session's mode, never saved) and --voice-test=tone.
+## In main_voice.gd (tests and other scripts call it here).
 func _voice_arg(a: String) -> void:
-	if a.begins_with("--voice="):
-		var vm := ["off", "ptt", "open"].find(a.get_slice("=", 1))
-		if vm >= 0:
-			_voice_cli = vm
-	elif a == "--voice-test=tone":
-		_voice_test = true
-		voice_view.tone = true
-	_apply_voice()
+	voice_ctl._voice_arg(a)
 
 
-## The session's voice chat follows the setting (a new Netplay, a change mid-match).
+## In main_voice.gd (tests and other scripts call it here).
 func _apply_voice() -> void:
-	var m := voice_mode_now()
-	if netplay != null and netplay.voice != null:
-		netplay.voice.mode = m
-	if m != VoiceChat.Mode.OFF:
-		VoiceView.ask_permission()
+	voice_ctl._apply_voice()
 
 
-## Settings > Audio > Hear voices from, at a Netplay's first match: "Rooms and friends"
-## starts a server Quick match or ranked match (no room code: strangers) with everyone
-## muted; a room or a direct host / join starts unmuted. Once per Netplay, so a rematch
-## keeps what the player chose in the pause menu since.
+## In main_voice.gd (tests and other scripts call it here).
 func _apply_voice_hear() -> void:
-	if netplay == null or netplay.voice == null or netplay.has_meta("voice_hear_applied"):
-		return
-	netplay.set_meta("voice_hear_applied", true)
-	netplay.voice.mute_all = voice_hear == 1 and netplay.via_server and netplay.room == ""
+	voice_ctl._apply_voice_hear()
 
 
-## Online (playing or watching): the pause menu over a match that keeps going (never
-## `paused`; your fighter stands still while it's open): Resume, Voice chat, and Leave
-## match (or Stop watching), which asks first.
-func _open_online_pause() -> void:
-	var playing := online != null
-	var p := PauseScreen.new(false, "")
-	p.subtitle = "The match keeps going while this is open"
-	p.quit_text = "Leave match" if playing else "Stop watching"
-	p.quit_question = "Leave the match?" if playing else "Stop watching?"
-	p.quit_note = "The match keeps going while this is open."
-	p.quit_yes = "Leave"
-	p.quit_no = "Stay"
-	if netplay != null and netplay.voice != null:
-		p.extras = [["Voice chat", _open_voice_screen, "Mute players, everyone, or your own mic"]]
-	p.quit_requested.connect(func(): _leave_online())
-	ui.push(p)
-
-
-## The voice screen's player rows: every other human in the match on now (not a CPU, not
-## this player), each {"label": "<name> · <fighter>", "slot": slot}. The name is the
-## server's (VoiceChat.names), else "Player N".
+## In main_voice.gd (tests and other scripts call it here).
 func voice_rows() -> Array:
-	var out: Array = []
-	if netplay == null or netplay.voice == null:
-		return out
-	var game = null
-	var players := 0
-	var cpu: Dictionary = {}
-	var me := -1
-	if online != null:
-		game = online.game_sim()
-		players = online.players
-		cpu = online.cpu_slots
-		me = online.local_slot
-	elif watch != null:
-		game = watch.duel
-		players = watch.players
-		cpu = watch.cpus
-	else:
-		return out
-	for slot in players:
-		if slot == me or cpu.has(slot):
-			continue
-		var who := Netplay.clean_name(netplay.voice.name_of(slot)).strip_edges()
-		if who == "":
-			who = "Player %d" % (slot + 1)
-		var c := VoiceView.fighter(game, slot)
-		var fighter := String(c.def.get("name", "")) if c != null else ""
-		out.append({"label": "%s · %s" % [who, fighter] if fighter != "" else who, "slot": slot})
-	return out
+	return voice_ctl.voice_rows()
 
 
-## Pause > Voice chat: Mute everyone, Mute my mic (players only, voice on), a Hearing /
-## Muted row per other player (VoiceChat.set_muted: by name for the session too), and the
-## Voice chat mode setting. Straight onto `netplay.voice`; the match keeps going.
-func _open_voice_screen() -> void:
-	if netplay == null or netplay.voice == null:
-		return
-	var scr := UiScreen.new()
-	scr.title = "VOICE CHAT"
-	scr.subtitle = "The match keeps going while this is open"
-	scr.row_width = 236.0
-	scr.hints = ["move", "change", "back"]
-	scr.builder = func(s: UiScreen):
-		var chat: VoiceChat = netplay.voice
-		s.add_option("Mute everyone", ["Off", "On"], 1 if chat.mute_all else 0,
-			func(i: int): chat.mute_all = i == 1,
-			"Hear nobody in this match. Your own mic still works")
-		if online != null and voice_mode_now() != VoiceChat.Mode.OFF:
-			s.add_option("Mute my mic", ["Off", "On"], 1 if chat.mic_muted else 0,
-				func(i: int): chat.mic_muted = i == 1,
-				"Send nothing, whatever you press. Push to talk already only sends while the key is held")
-		for r in voice_rows():
-			var slot := int(r["slot"])
-			s.add_option(String(r["label"]), ["Hearing", "Muted"], 1 if chat.is_muted(slot) else 0,
-				func(i: int): chat.set_muted(slot, i == 1),
-				"Muted: you hear nothing from this player, for the rest of this session")
-		settings_ctl._add_setting_row(s, "voice").changed.connect(func(_i): _reopen_voice_screen.call_deferred())
-		s.add_space(4)
-		s.add_button("Back", s.back)
-	scr.backed.connect(func(): _setting_rows.erase("voice"))
-	ui.push(scr)
-
-
-## The voice screen again after the mode changed (Mute my mic shows only with voice on),
-## focused on the mode row.
-func _reopen_voice_screen() -> void:
-	var top := ui.top()
-	if top == null or top.title != "VOICE CHAT":
-		return
-	ui.pop()
-	_open_voice_screen()
-	var row: Control = _setting_rows.get("voice")
-	if row != null:
-		row.grab_focus()
-
-
-## Settings > Audio > Microphone's choices: the system's input devices.
+## In main_voice.gd (tests and other scripts call it here).
 func mic_choices() -> Array:
-	var out: Array = Array(AudioServer.get_input_device_list())
-	if out.is_empty():
-		out = ["Default"]
-	return out
+	return voice_ctl.mic_choices()
 
 
+## In main_voice.gd (tests and other scripts call it here).
 func _apply_mic() -> void:
-	if mic_device != "" and mic_device in AudioServer.get_input_device_list():
-		AudioServer.input_device = mic_device
+	voice_ctl._apply_mic()
 
 
-## Push to talk: the talk key of the keyboard layout in use, or the controller's.
-func _talk_held() -> bool:
-	if _voice_test:
-		return true
-	var kb := "lol_talk" if player_input.layout == "league" else "kb_talk"
-	return Input.is_action_pressed(kb) or Input.is_action_pressed("pad_talk")
-
-
-## Every rendered frame: the microphone in and the voices out during an online match or
-## a watched one (VoiceView), and the HUD's MIC light and speaker icons.
+## In main_voice.gd (tests and other scripts call it here).
 func _voice_step(delta: float) -> void:
-	if voice_view == null or hud == null:
-		return
-	var game = null
-	var slot := -1
-	if netplay != null and online != null:
-		game = online.game_sim()
-		slot = online.local_slot
-	elif netplay != null and watch != null:
-		game = watch.duel
-	settings_ctl._refresh_mic_test()
-	voice_view.frame(netplay if game != null else null, game, slot,
-		camera.get_screen_center_position() if camera != null else Vector2.ZERO, _talk_held(), delta)
-	hud.mic_on = voice_view.sending
-	hud.mic_missing = voice_view.mic_missing and slot >= 0 and voice_mode_now() != VoiceChat.Mode.OFF
-	var chat: VoiceChat = netplay.voice if netplay != null and game != null and slot >= 0 else null
-	hud.mic_muted = chat != null and chat.mic_muted and voice_mode_now() != VoiceChat.Mode.OFF
-	hud.voice_muted = chat != null and chat.mute_all
-	hud.speaking = voice_view.heard
-	if fx != null:
-		fx.speaking = voice_view.heard
+	voice_ctl._voice_step(delta)
 
 
 ## The range rings key of the player's own controls: the keyboard layout in use, or the
@@ -4327,7 +4114,7 @@ func _net_host(fighter: String) -> void:
 	_online_fighter = fighter
 	settings_ctl._save_settings()
 	netplay = Netplay.new()
-	_apply_voice()
+	voice_ctl._apply_voice()
 	netplay.forced_delay = int(_net_args.get("delay", input_delay))
 	netplay.arena_id = MatchFactory.arena
 	var port := int(_net_args.get("host", Netplay.DEFAULT_PORT))
@@ -4458,7 +4245,7 @@ func _net_join(fighter: String, address: String, port: int, room := "", remember
 		_remember_server(_online_address)
 	settings_ctl._save_settings()
 	netplay = Netplay.new()
-	_apply_voice()
+	voice_ctl._apply_voice()
 	netplay.forced_delay = int(_net_args.get("delay", input_delay))
 	netplay.arena_id = MatchFactory.arena
 	var link := _make_link(0, address, port)
@@ -4589,8 +4376,8 @@ func _start_online_match() -> void:
 		_start_watching()
 		return
 	online = netplay.game
-	_apply_voice()  # (on Android: asks for the microphone at the first match with voice on)
-	_apply_voice_hear()  # (strangers start muted with Hear voices from: Rooms and friends)
+	voice_ctl._apply_voice()  # (on Android: asks for the microphone at the first match with voice on)
+	voice_ctl._apply_voice_hear()  # (strangers start muted with Hear voices from: Rooms and friends)
 	if lobby != null:
 		_room_made = lobby.room_created
 	_close_ui()  # the lobby (and Match found), a match-over screen on a rematch, or a room's select
