@@ -322,7 +322,7 @@ cancel into a move of a higher rank, so combos climb the ranks. The exception: a
 third light** (or later) can't be cancelled, and leaves the attacker at least 16 frames
 behind the blocker ("OPEN!" pops up over them), time enough to punish with a jab.
 
-**Stamina pays for dodges and blocks.** A dodge costs **60% of the stamina bar**, so you get one, then a wait.
+**Stamina pays for dodges and blocks.** A dodge costs **60% of the stamina bar** (Digby and Pete 40%, Gillbert 45%, Hissy Fitz 50%, Craglash 70%), so you get one, then a wait.
 **You can dodge out of your own attack at any time** (leave a string, feint out of a windup, skip a whiffed heavy's
 recovery): that dodge costs **75% of the bar**, and a blocked third light still has to be served. A blocked
 hit takes **no health** while you have the stamina for it; it drains stamina instead: lights drain less, heavies more, and every
@@ -517,9 +517,9 @@ fight starts). Tuning: `class_perks` in `data/rules/caravan.json` and `ctf.json`
 
 | Class (fighters) | Caravan | Capture the Flag |
 |---|---|---|
-| Tank (Craglash) | pushes the caravan 30% faster | only launches and knockdowns knock the flag loose |
+| Tank (Culvert, Craglash) | pushes the caravan 30% faster | only launches and knockdowns knock the flag loose |
 | Bruiser (Barkley, Sno Mercy) | digs through rockslides twice as fast | any heavy hit knocks the flag out of a carrier |
-| Fighter (Cairn, Culvert, Hissy Fitz) | a contested caravan creeps your way | grabs and returns flags from farther |
+| Fighter (Cairn, Hissy Fitz) | a contested caravan creeps your way | grabs and returns flags from farther |
 | Mage (Chef Cerebro, Mister Crease) | doubles the escort's healing | claims shrines 50% faster |
 | Assassin (Digby, Sneaky Pete) | rolls the caravan back 50% faster | carries the flag almost at full speed |
 | Skirmisher (Gillbert) | back in 1.5 s sooner | passes farther and faster |
@@ -619,7 +619,7 @@ full speed, so every combo below still works.
 | Glow | Means | Moves (windup) | Answer |
 | --- | --- | --- | --- |
 | **Red** + "!" | Can't be blocked | Gulp (12f), Branch Grab (8f), Slam (8f, breaks guard), Flip Out (12f), Mountain Maw (12f, the hook), Coil Uppercut (8f, breaks guard), Slush Slide (8f, breaks guard), Burrow's pop-up (breaks guard) | Roll away or through it, or hit them first |
-| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f; held to a full charge it breaks guard, like Sack Smack), Runoff (6f), Rockslide Stomp (18f), Landslide Charge (14f), Timber Twister (8f), Splash Zone (8f), Flop Dash (12f), Cast Line (6f), Tenderize (8f), Cleaver Toss (6f), Sack Smack (8f; held to a full charge it flashes red with "GUARD BREAK" and breaks guard) | Guard, then punish |
+| **Gold** | Strong but blockable | Rockslide Rush (12f), Haymaker (8f; held to a full charge it breaks guard, like Sack Smack), Runoff (6f), Rockslide Stomp (18f), Landslide Charge (14f), Timber Twister (8f), Splash Zone (8f), Flop Dash (12f), Cast Line (6f), Tenderize (8f), Cleaver Toss (6f), Venom Spit (6f), Pickaxe Pop-Up (8f), Shaved Ice Spray (8f), Pickpocket (9f), the three Paper crafts (8f, 6f, 6f), Bedrock (8f), Sack Smack (8f; held to a full charge it flashes red with "GUARD BREAK" and breaks guard) | Guard, then punish |
 
 That puts at least 15 frames (a quarter second) between the glow and the hit, and a jab
 landed during a windup cancels the move. Surges freeze the screen for their cut-in: a
@@ -690,7 +690,7 @@ in, spins, and fills the space around him with pinecones and roots.
 | --- | --- | --- |
 | Light | Twig Swipe, Bough Swing, Log Drop | Both branch arms swing across, then he tips forward and bonks with the log on his head |
 | Heavy | Timber Twister | Arms out, he spins on his roots: three hits all around him, the last one knocks up and away. Hold to charge (more damage, throws farther). Can't be cancelled until the last hit. **Armored** while it spins: hits only chip him (half damage) and don't stop it, though the windup can still be interrupted. A 2.5 s cooldown |
-| Skill 1 | Branch Grab | A branch arm shoots out to long range, snags, and **reels the target in** to point-blank, still stunned, so a light string links after it. A **grab**: it can't be blocked (red warning), so dodge it; it misses a target in the air |
+| Skill 1 | Branch Grab | A branch arm shoots out to long range, snags, and **reels the target in** to point-blank, still stunned, so a light string links after it. A **grab**: it can't be blocked (red warning), so dodge it; it can also snag a juggled target in the air |
 | Skill 2 | Pinecone Bomb | Lobs a pinecone; it bursts where it lands in a **wide** burst (32 px around the spot) and **roots** every foe it hits for 1.5 s (they can't walk or dodge). **Tap** for the shortest throw (about 58 px), **hold** to throw it further (up to about 132 px): a ring on the floor slides out to show where it will land. On release it **turns toward a foe** within about 45° of where you aimed. A 12 s cooldown. A throw that hits nobody **plants a seed** there: a sprout (10 HP) that roots the first foe to tread on it for 0.75 s and is gone; foes can break it with any hit. Left alone for 35 s it grows into a small **tree** (10 HP again; foes can still cut it down), and 2 s later the tree bears an **apple**: the first hurt ally to touch it heals 15% of their max HP, a foe who touches it spoils it |
 | Surge | Root Eruption | Plunges his arms into the floor: roots burst out in three growing rings (40, 65 and 90 px), all around him; every ring **roots** for 1 s, **even through a guard** (a block still takes no damage, only stamina). Roll through at the right moment, or be 90+ px away. Cracks the floor but opens no pits |
 
@@ -725,7 +725,7 @@ untouchable from the 3rd) and he's simply 90 px away the way you pushed, stopped
 walls but not by pits (blinking onto a hole drops him in). It **recharges for 1 s** after
 each blink (a violet bar beside his stamina drains away; a dodge pressed just before it's
 ready comes out when it is). **Most of his attacks are thrown, and
-his skills reach 120–130 px (about half Gillbert's Cast Line), his lights half again as far (about 170 px)**, so he wants foes at knife
+his skills reach 120–130 px (about half Gillbert's Cast Line), his lights a little shorter (about 115 px)**, so he wants foes at knife
 range; up close he softens them up or flips them away. Voice line: "CHOP CHOP!"
 
 | Button | Move | What it does |
@@ -775,7 +775,7 @@ Voice line: a placeholder "I DIG IT!" (see the PR).
 | Light | Claw Swipe, Claw Swipe, Pickaxe Swing | A quick double slash with his claws, then the pickaxe |
 | Heavy | Pickaxe Pop-Up | He digs in and bursts up **under a foe about 40 px ahead** with the pickaxe, in a burst wide enough to catch anyone standing close: launches (10 damage, 14 charged). A ring on the floor marks the spot. Hold to charge |
 | Skill 1 | Headlamp Flash | Flicks on his helmet light: a foe it catches is **blinded**, and **their next attack misses** (or the blind wears off after 4 s). Guarding stops it |
-| Skill 2 | Burrow | Dives underground and tunnels about 115 px, steering harder than it used to, **steered with the stick**: out of reach, under bodies and across pits, under a moving mound of dirt. Pops up at the end and knocks up whoever is on top; an uppercut from below, it **breaks guards**. Underground he is **out of sight** (the CPU loses him and goes where it last saw him; you still see the mound), so the pop-up is an **ambush: 25% harder, and so is everything he lands in the next 1.5 s** |
+| Skill 2 | Burrow | Dives underground and tunnels about 130 px, steering harder than it used to, **steered with the stick**: out of reach, under bodies and across pits, under a moving mound of dirt. Pops up at the end and knocks up whoever is on top; an uppercut from below, it **breaks guards**. Underground he is **out of sight** (the CPU loses him and goes where it last saw him; you still see the mound), so the pop-up is an **ambush: 25% harder, and so is everything he lands in the next 1.5 s** |
 | Surge | Cave-In | Rears up and slams the floor: the ground caves in all around the spot ahead, (65 px wide, cracking the floor) damaging and **rooting** everyone caught for 2.5 s (they can still attack and guard, but can't walk or dodge) |
 
 No passive on the sheet. His victory emote (jumping out of the ground with a flip) waits
@@ -812,7 +812,7 @@ dripping off his point. He makes the floor and the foe slow, then hits hard. Voi
 
 | Button | Move | What it does |
 | --- | --- | --- |
-| Light | Cold Cross (jab, cross), Brain Freeze | A frosty one-two that **slows** (walk ×0.75 for 1 s), then a headbutt with the icy top |
+| Light | Cold Cross (jab, cross), Brain Freeze | A frosty one-two that **slows** (walk ×0.8, then ×0.75, for 1 s), then a headbutt with the icy top |
 | Heavy | Shaved Ice Spray | He shakes his head and sprays ice shards in a **cone in front of him** (about 46 px, wider charged): damage and a strong slow (×0.6 for 1.5 s). Nothing behind him is hit. Hold to charge |
 | Skill 1 | Syrup Slick | Leaks a **sticky puddle** 160 px across around him that lasts 7.5 s: foes standing in it walk at 42% speed. He isn't slowed by his own syrup |
 | Skill 2 | Slush Slide | Slides forward feet first on his own slush, about 75 px, **through a guard**, and **knocks down** the first foe he hits. A red windup tell gives it away |
