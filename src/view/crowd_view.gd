@@ -71,8 +71,8 @@ const REACT_FANS := 6
 const REACT_TICKS := 24
 const REACT_R := 40.0
 const REACT_CAP := 12
-## Which colours a fan wears: the mixed crowd, the two sides' (Hud.SIDE_COLORS: red armour
-## left, blue right), and the mixed crowd seen from behind.
+## Which colours a fan wears: the mixed crowd, the two sides' (red armour
+## left, blue right, baked into the sheet: the colour-safe team set leaves them), and the mixed crowd seen from behind.
 enum Look { MIXED, RED, BLUE, BACK }
 enum Stand { TOP, LEFT, RIGHT, FRONT }
 

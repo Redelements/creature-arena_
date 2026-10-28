@@ -1,7 +1,15 @@
 # src/game: flow, settings, coaches
 
 `main.gd` is the root node: the `Flow` states, the `MODES` table, the 60 Hz tick (inputs →
-sim → events → views → camera), camera, settings, CLI parsing and online glue. Game rules
+sim → events → views → camera), camera, settings, CLI parsing and online glue. Seven flows
+live in helper scripts main owns (`RefCounted`, built in main's var initializers), each
+reading and writing main's state through `main.` and its constants through `Main.` (the
+state, the constants and the signals all stay on main): `main_camera.gd` (`cam_ctl`),
+`main_args.gd` (`args_ctl`), `main_settings.gd` (`settings_ctl`), `main_presentation.gd`
+(`show_ctl`: attract, wipes, arena intro, results), `main_touch.gd` (`touch_ctl`),
+`main_voice.gd` (`voice_ctl`), `main_online.gd` (`online_ctl`). A moved function that tests
+or other scripts call keeps a one-line forwarder on main under its old name (`g._setting`,
+`g._update_camera`, `main._cam_axis`). New code in a flow goes in its helper. Game rules
 that decide outcomes (timers, KO freeze, tag rules) live in the sim, never here, so online
 peers agree on every tick. Coaches (trials, drills) and showcases press buttons like a
 player and live here, outside the sim.
@@ -36,7 +44,7 @@ player and live here, outside the sim.
   `_duel_flow`, `_team_flow`
 - Back from a match → `_back_to_row` (the Single player page and row `_start_row` remembered in `_row_from`);
   why a match ended → `_over_by` (the sim's `duel_over` `by`) and `_over_reason`, a draw's `_draw_reason` (every "DRAW" says why: level at time, or a double K.O., named when an arena hazard did it, `_ko_by_hazard`); `_row_choice` is saved by label
-- Camera → `_update_camera`, `_frame_fight`, `_cam_axis`; `CAM_PAD`, `KO_ZOOM`, `SHOWCASE_ZOOM`;
+- Camera (`main_camera.gd`) → `_update_camera`, `_frame_fight`, `_cam_axis`; `CAM_PAD`, `KO_ZOOM`, `SHOWCASE_ZOOM`;
   on a map bigger than the stadium it follows the local player (`_cam_anchor`, `FOLLOW_R`,
   `FOLLOW_ZOOM`, `BIG_MAP_MIN_ZOOM`); look-ahead `_lead_of` / `_lead_room` (`LEAD_*`, never
   pushes a fighter out of shot; a big map leads with the followed player only); the exchange
@@ -45,7 +53,7 @@ player and live here, outside the sim.
   `src/view/letterbox.gd` (KO push-in, a freezing Surge's `_surge_bars` and then the
   rest of its cut-in, `Hud.cutting_in()`, and the arena intro). All per tick, no
   interpolation between ticks
-- Camera behaviour (Settings > Video > Camera, each Off / Low / Normal / High, `CAM_LEVELS`;
+- Camera behaviour (`main_camera.gd`; Settings > Video > Camera, each Off / Low / Normal / High, `CAM_LEVELS`;
   `cam_level(key)` = the `--cam-*` flag's value this session, else the setting): aim lead
   `_aim_now` / `_aim_fighters` / `aim_dir_of` (`AIM_*`: the players here, online the local
   slot, else the HUD's `focus`; IN_AIM angle from `prev_buttons`, else facing; a dead zone,
@@ -57,7 +65,7 @@ player and live here, outside the sim.
   `_cam_zclash`. The camera's position is snapped to whole screen pixels (`snap_cam`); the
   zoom stays continuous (the resolution policy already eases it fractionally). Fight framing
   only: showcases and coaches keep their own framing
-- Arena intro (fly-over, arena card, each side's entrance; Settings > Game > Match intros) →
+- Arena intro (`main_presentation.gd`; fly-over, arena card, each side's entrance; Settings > Game > Match intros) →
   `_intro_wanted` (where it plays: offline only, never online, replays, training, trials,
   drills or showcases), `_maybe_intro` (from `_start_match`, `_on_teams_chosen`, a new
   Arcade stage), `_intro_groups` (a beat per 1v1 fighter, per team, one for a Brawl),
@@ -76,18 +84,18 @@ player and live here, outside the sim.
   (`_chaos_table`: the whole mutator table, Kevin's ruling Oct 2026); the opening banners name them (`_hazard_line`) and `hud.mutator_text` shows them by the clock; the match's look `_match_look`
   (offline: the choice within the arena's list, kept across rounds until `_start_match`; online, spectating,
   the menu background: day + clear; a replay: its `setup.look`); drawing `src/view/weather_view.gd`
-- Add a setting → `SETTING_PAGES` + `_setting(key)` + `_set_setting(key, i)` +
+- Add a setting → `SETTING_PAGES` (main.gd; pages game, video, audio, accessibility, touch) + in `main_settings.gd` `_setting(key)` + `_set_setting(key, i)` +
   `_add_setting_row`; persistence `_load_settings` / `_save_settings`; a Controls-page
   setting (like `range_rings`) is added in `_open_controls`
 - A rebindable fight key → one action per remap group in `controls.gd:BINDINGS` (`kb_`,
   `lol_`, `pad_`) and a row in each `Controls.REMAP` group
-- Voice chat → `_voice_step` (every rendered frame, after `netplay.pump()`: hands
+- Voice chat (`main_voice.gd`) → `_voice_step` (every rendered frame, after `netplay.pump()`: hands
   `VoiceView.frame` the match, the local slot, the camera centre and `_talk_held`), the
   mode `voice_mode_now()` (`--voice-test` > `--voice` > the setting) applied by `_apply_voice`
   at each `Netplay.new()`, match start and setting change; Settings > Audio rows `voice`, `voice_hear`,
   `mic`, `vol_Voice`, saved as `audio/voice_mode` (int) and `audio/mic_device`; push to
   talk is `kb_talk` / `lol_talk` (V) and `pad_talk` (left stick click), held
-- Voice safety → Esc online opens `_open_online_pause` (a `PauseScreen` with no Restart;
+- Voice safety (`main_voice.gd`) → Esc online opens `_open_online_pause` (a `PauseScreen` with no Restart;
   `paused` is never set online, the match keeps stepping; Leave match / Stop watching asks
   first via `quit_question`) whose Voice chat row opens `_open_voice_screen` ("VOICE CHAT"):
   Mute everyone (`netplay.voice.mute_all`), Mute my mic (`mic_muted`; players only, voice not
@@ -102,14 +110,14 @@ player and live here, outside the sim.
 - Training → `in_training`, `_training_fighter`, `_open_fighter_swap`,
   `change_training_fighter`, `_open_training_options`, `_apply_training_opts`
 - Display → `_apply_frame_rate`, `_apply_vsync`, `_apply_aspect`, `_apply_fullscreen`
-- CLI flags → `_parse_args` (list in the file header); `--server` → `_run_server`;
+- CLI flags → `main_args.gd:_parse_args` (list in main.gd's header); `--server` → `_run_server`;
   `--sim-check` → `_run_sim_check`
-- Online flow → `_net_host`, `_net_join_server`, `_net_join`, `_finder_step`,
+- Online flow (`main_online.gd`) → `_net_host`, `_net_join_server`, `_net_join`, `_finder_step`,
   `_connecting_step`, `_ready_check_step`, `_start_online_match`, `_leave_online`,
   `_write_net_report`; rooms and rematches → `_room_next`, `_open_rematch_pick`
-- Title, attract, wipes, results (Visual Upgrade item 26) → the title idles `ATTRACT_AT` ticks (1200, only on the bare TitleScreen; any event in `_input` resets `_idle_t`), then `_start_attract` hides the menu and plays a CPU-vs-CPU demo (`_menu_background(true)`, other fighters each restart) under the logo and a blinking prompt; any press (`_attract_pressed`) returns. Wipes: `_wipe_step` starts a `Wipe` (16 ticks, uncovers an already-changed screen, never delays state, a press skips it) when the screen kind changes between menus and fights, and `_show_match_over` starts one for the results. Results: `results_data` builds the table (stats from `MatchStats`, fed in `_react`, reset in `_new_sim` at round 1; MVP only in team battles; CTF adds caps, returns, stops). Online and replay match-overs keep the old menu.
+- Title, attract, wipes, results (Visual Upgrade item 26; `main_presentation.gd`) → the title idles `ATTRACT_AT` ticks (1200, only on the bare TitleScreen; any event in `_input` resets `_idle_t`), then `_start_attract` hides the menu and plays a CPU-vs-CPU demo (`_menu_background(true)`, other fighters each restart) under the logo and a blinking prompt; any press (`_attract_pressed`) returns. Wipes: `_wipe_step` starts a `Wipe` (16 ticks, uncovers an already-changed screen, never delays state, a press skips it) when the screen kind changes between menus and fights, and `_show_match_over` starts one for the results. Results: `results_data` builds the table (stats from `MatchStats`, fed in `_react`, reset in `_new_sim` at round 1; MVP only in team battles; CTF adds caps, returns, stops). Online and replay match-overs keep the old menu.
 - Sim events → flash / rumble → `_react`, `_flash`, `_rumble`
-- Touch controls → `_note_input` (every event: the device, and touches into `player_input.touch`),
+- Touch controls (`main_touch.gd`) → `_note_input` (every event: the device, and touches into `player_input.touch`),
   `_touch_step` (each tick, also paused: who may touch, the layout for the screen and Duel's
   Tag, the overlay's `visible`, `hud.touch`, the Pause button, letting go when the fight or the
   device changes), `_apply_touch`; lost focus or an app pause → `_notification` →
@@ -125,7 +133,18 @@ player and live here, outside the sim.
   main plays them stage by stage (`_start_arcade_stage`, `_arcade_result`)
 - Spawns → `MatchSim.spawn(side)` (the map's, else `match_factory.gd:SPAWN_LEFT/RIGHT`)
 - Add a fighter → `match_factory.gd:FIGHTERS` + `MODES` entries + `MENU_ROWS` lists
-- Replays → `replay_builder.gd` (`build`, `play`, `unsupported`)
+- Replays → `replay_builder.gd` (`build`, `play`, `unsupported`); watching one → `_play_replay` (mode 47, `_replaying()`,
+  `_replay_frames`), its viewer `replay_viewer.gd` (`replay_ctl`: `ticks_now` gates `_physics_process`, which runs
+  `_step_tick` 0, 1 or 2 times a frame; `seek` restores a keyframe and steps headless; `_fix_main_state` puts the
+  Versus intro / clock back). Keys (`ReplayViewer.KEYS`, `replay_*` actions in `controls.gd`, read in
+  `_unhandled_input` only while watching with no screen open, so they never touch a fight): Space / P (A) pause,
+  `.` (X) a tick on, `,` (B) a tick back, `-` / `+` (LB / RB) speed 1/4x-2x, Left / Right (d-pad) 5 s, Home (Y)
+  the start. The HUD's bottom strip is `status_line()`; the pause menu adds Back 5 seconds, Watch from the start,
+  Speed and its Controls page (`ReplayViewer.help_text`); the end screen adds Watch again and Back 5 seconds
+- Bug reports → `bug_report.gd` (`write`, `entries_for`, `REDACT`): Settings > Save a bug report and every offline /
+  replay pause menu (`_save_bug_report(true)`: a toast with the path, the folder opens on a desktop),
+  `--bug-report[=DIR]` (`_cli_bug_report`, never opens a folder). Never add the `[online]` id / secret / name /
+  addresses, `ratings.json` or anything outside user://
 - Discord → `presence.gd` (what the status says), `discord_rpc.gd` (the IPC)
 
 ## Command-line flags and modes
@@ -133,13 +152,14 @@ player and live here, outside the sim.
 After `--`; the full list is in the `main.gd` header, modes in `MODES`.
 `--mode=N`, `--level=0..3` (3 = Rage), `--seed=N`, `--showcase=<fighter>|cleaver|angles|twinstick|counterplay`,
 `--pad-layout=standard|twinstick`, `--touch-demo[=left]` (a recorded touch script into the touch controls, training as Cairn unless `--mode`; `src/game/touch_demo.gd`), `--autoplay`, `--hitboxes`, `--intro` / `--no-intro` (force the arena intro on or off; by default it plays only for offline matches started from the menu with a screen, never headless or for a `--mode` / `--showcase` / `--autoplay` start, so captures keep their frame numbers), `--cpu-vs-cpu`, `--pick`,
-`--teams=a,b,c:d,e,f`, `--arena=stadium|quarry|floodgate|greenhouse`, `--time=random|day|sunset|night` (night: the Floodgate only; elsewhere it plays day), `--weather=random|clear|rain|fog|wind|snow` (the look of offline matches this session; one the arena doesn't allow falls back), `--menu=main|single|single:<group>|look|settings|game|video|audio|controls|touch|remap:<classic|league|gamepad>|credits|credits:<game|szadi|kiddolink|font|godot|notices>`,
+`--teams=a,b,c:d,e,f`, `--arena=stadium|quarry|floodgate|greenhouse`, `--time=random|day|sunset|night` (night: the Floodgate only; elsewhere it plays day), `--weather=random|clear|rain|fog|wind|snow` (the look of offline matches this session; one the arena doesn't allow falls back), `--menu=main|single|single:<group>|look|settings|game|video|audio|accessibility|controls|touch|remap:<classic|league|gamepad>|credits|credits:<game|szadi|kiddolink|font|godot|notices>`,
 `--cam=X,Y[,ZOOM]` (hold the camera on a world spot, still clamped to the arena and stands: screenshots of the edges), `--cam-lead=0|1`, `--cam-clash=0|1`, `--cam-settle=0|1` (camera behaviour off / Normal for this session, not saved; also `low|normal|high`), `--training-screen=pause|options|fighters` (with a training `--mode`), `--training-flags=no_cooldowns,full_energy`,
 `--voice=off|ptt|open` (voice chat this session, not saved), `--voice-test=tone` (online: a 220 Hz tone instead of the mic, open mic and always held, logging `voice: sent N` and `voice: heard slot P gain G pan P received N` once a second, for a two-process test) (real time only: under `--fixed-fps` game time outruns the clock, so the tone arrives faster than it plays and the listener drops the surplus),
 `--mutators=tidal_wave,meteor_shower,rolling_boulder,fault_line` (data/rules/mutators.json ids, merged: on every offline match this session, applied in `_new_sim` with `seed_base`; Chaos Cup plays them instead of its draw; never online, showcases, coaches or the menu background),
+`--a11y=teams,outlines,markers` (Settings > Accessibility for this session, not saved: colour-safe team colours, fighter outlines at High contrast, or `outlines=team` for Team, high-contrast hit markers; `all` for every one; `Accessibility.cli`, cleared per option when its row is changed),
 `--lighting=off|low|high` (Settings > Video > Lighting for this session, not saved: `lighting_tier`, `_light_look`; real 2D lights, the night's lamps and bloom, `Light2DView` / `BloomView`; Off loads no normal or emissive fighter sheet),
 `--print-vram=N` (at frame N print `VRAM ...`: the texture and video memory Godot reports and the fighter sheets loaded, `CreatureView.sheet_report`; needs a renderer, headless reports 0),
-`--perf` (frame and tick percentiles on quit, with each part's share: the tick's
+`--bug-report[=DIR]` (a bug-report zip, `bug_report.gd`, then quit; with `--quit-after` at the end of the run), `--perf` (frame and tick percentiles on quit, with each part's share: the tick's
 steps, each view's `_draw` via `PerfLog.since`, the renderer's CPU and GPU time, and when
 the slowest frames came; the 1% and 0.1% lows, missed frames, the slowest second, game time
 split into tick and no-tick frames, ticks held 3+ frames; `perf_log.gd`), `--fight-fps=N`
@@ -157,6 +177,7 @@ and "training" pair (Craglash, Barkley, Gillbert, Cerebro, Hissy, Digby, Pete, S
 <!-- GENERATED by tools/codebase_map.py: don't edit by hand -->
 - `arcade.gd` (Arcade) — The Arcade ladder: six fights as one fighter up the roster, the sixth a 3v3 Duel against a Rage-level team (the boss).
 - `autoplay.gd` (AutoPlay) — A scripted input sequence for the player, used for demo captures and smoke tests: godot --path . -- --autoplay Each ste…
+- `bug_report.gd` (BugReport) — A bug report in one zip (`write`): Settings > Save a bug report, the pause menu's row, or `--bug-report[=DIR]`.
 - `controls.gd` (Controls) — Input actions are registered in code so every binding lives in one readable place.
 - `daily.gd` (Daily) — The Daily Challenge: one seeded fight a day, the same for everyone.
 - `discord_rpc.gd` (DiscordRpc) — Discord Rich Presence over the Discord app's local IPC: no plugin, no SDK.
@@ -164,6 +185,13 @@ and "training" pair (Craglash, Barkley, Gillbert, Cerebro, Hissy, Digby, Pete, S
 - `gauntlet.gd` (Gauntlet) — Endless waves of CPU opponents as one fighter, health carrying over (plus a small breather between waves).
 - `ladder.gd` (Ladder) — A run of single-round fights main plays one stage at a time: the Arcade ladder, the Gauntlet's endless waves and the Da…
 - `main.gd` — Scene flow: menu, versus rounds against the CPU (or CPU vs CPU), and training.
+- `main_args.gd` (MainArgs) — The command line for main (the flags after `--`, listed in main.gd's header): `_parse_args` sets main's session options…
+- `main_camera.gd` (MainCamera) — The fight camera, for main: framing each tick (`_update_camera` → `_frame_fight`), the KO push-in, look-ahead, the exch…
+- `main_online.gd` (MainOnline) — The online flow for main: the lobby (`_open_lobby`, `_push_lobby`), hosting and joining (`_net_host`, `_net_join_server…
+- `main_presentation.gd` (MainPresentation) — Presentation for main around the fights (Visual Upgrade item 26 and the arena intro): the title's attract demo (`_attra…
+- `main_settings.gd` (MainSettings) — Settings for main: the Settings pages and their rows (`_open_settings`, `_open_settings_page`, `_add_setting_row`, the…
+- `main_touch.gd` (MainTouch) — The touch controls' glue for main: every input event's device and touches (`_note_input`), each tick's who-may-touch, l…
+- `main_voice.gd` (MainVoice) — Voice chat's glue for main: the mode this session (`voice_mode_now`), applying it (`_apply_voice`, `_apply_voice_hear`,…
 - `match_factory.gd` (MatchFactory) — Builds matches from the creature definitions in data/creatures/.
 - `match_stats.gd` (MatchStats) — What each fighter did in a match, counted from the sim's events (never by the sim): damage dealt, hits landed, knockout…
 - `online_lobby.gd` (OnlineLobby) — The online screen, in pages: Online Quick match / Rooms / More / Back Quick match 1 v 1 / 2 v 2 / 3 v 3 / 4 v 4 (whoeve…
@@ -171,6 +199,7 @@ and "training" pair (Craglash, Barkley, Gillbert, Cerebro, Hissy, Digby, Pete, S
 - `presence.gd` (Presence) — What Discord shows on the player's profile ("Rich Presence"): built from main's state once a second and handed to Disco…
 - `progress.gd` (Progress) — What the player has earned, kept in user://progress.json (outside the simulation): the best CPU level each fighter has…
 - `replay_builder.gd` (ReplayBuilder) — Rebuilds the match a replay was recorded on from the setup saved with it (main writes `Replay.setup` when a match start…
+- `replay_viewer.gd` (ReplayViewer) — The Replay theater's playback controls, for main (`replay_ctl`), only while a replay is watched (`main._replaying()`):…
 - `showcase.gd` (Showcase) — Scripted demos that show each fighter's whole kit, and how to answer the big moves.
 - `touch_demo.gd` (TouchDemo) — `--touch-demo`: a recorded touch script played into the touch controls, for screenshots of the overlay (and a smoke tes…
 - `trials.gd` (ComboTrials) — Combo Trials: "perform this route" challenges, from data/trials.json.

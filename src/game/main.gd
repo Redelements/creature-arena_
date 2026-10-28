@@ -37,8 +37,15 @@ extends Node2D
 ##   --quit-after=N        exit after N frames
 ##   --lighting=off|low|high  real 2D lights this session, not saved (Settings > Video >
 ##                         Lighting otherwise; Light2DView, BloomView)
+##   --a11y=teams,outlines,markers  Settings > Accessibility this session, not saved: colour-safe
+##                         team colours, fighter outlines (High contrast; `outlines=team` for
+##                         Team), high-contrast hit markers; any of them, or `all`
 ##   --print-vram=N        print the texture memory Godot reports (and the fighter sheets
 ##                         loaded, CreatureView.sheet_report) at frame N (budget checks)
+##   --bug-report[=DIR]    save a bug-report zip (the logs, settings without the online id and
+##                         secret, progress, the newest replay, perf.txt, system.txt; bug_report.gd)
+##                         into DIR (default user://bug-reports), print "BUGREPORT <path>" and quit;
+##                         with --quit-after=N it is written at the end of the run instead
 ##   --perf                log frame and tick times during fights; on quit, prints the
 ##                         percentiles, the 1% and 0.1% lows, missed frames and the worst
 ##                         second, and saves them to user://perf.txt
@@ -65,7 +72,7 @@ extends Node2D
 ##                         (over Arena options > Hazards); Chaos Cup plays them instead of its draw
 ##   --view-team=N         show the match as team N sees it (brush, fences, walls hide
 ##                         foes), even with nobody playing here (captures of --cpu-vs-cpu)
-##   --menu=PAGE           open a menu page: main, single, single:<group>, look (Time and weather), settings, game, video, audio, controls,
+##   --menu=PAGE           open a menu page: main, single, single:<group>, look (Time and weather), settings, game, video, audio, accessibility, controls,
 ##                         remap:classic|league|gamepad, credits, credits:<row> (game, szadi,
 ##                         kiddolink, font, godot, notices) (captures)
 ##   --online-host[=PORT]  host an online 1v1 straight away (UDP, default port 7777)
@@ -156,6 +163,7 @@ const REPLAY_MODE := 47
 const SETTING_PAGES := {
 	"game": ["level", "intros", "rumble", "shake", "discord", "server", "delay"],
 	"video": ["fullscreen", "wide", "vsync", "fps", "glow", "lighting", "font", "perf_overlay", "#Camera", "cam_lead", "cam_clash", "cam_settle"],
+	"accessibility": ["a11y_teams", "a11y_outlines", "a11y_markers"],
 	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu", "#Voice chat", "voice", "voice_hear", "mic", "mic_test", "vol_Voice"],
 	"touch": ["touch_opacity", "touch_size", "touch_hand", "touch_aim", "#Targeting", "touch_priority", "touch_chase"],
 }
@@ -365,6 +373,7 @@ var _clash_pos := Vector2.ZERO
 var _cam_idle := 0  ## ticks with nothing happening (Settle)
 var _settle_mid := Vector2.ZERO  ## Settle's held target (moved only past SETTLE_DEAD)
 var _settle_fit := 0.0  ## and its held zoom (moved only past SETTLE_ZOOM_DEAD)
+var cam_ctl := MainCamera.new(self)  ## the camera's per-tick work (main_camera.gd); its state stays here
 var replay: Replay
 ## Where F6 saves and the Replay theater looks (a test points it at a folder not made yet,
 ## as on a fresh install). It may not exist: `Replay.save` makes it.
@@ -425,6 +434,7 @@ const VOICE_HEAR := ["Everyone", "Rooms and friends"]
 var voice_hear := 0
 var _voice_cli := -1  ## --voice=: this session's mode, never saved (-1: the setting)
 var _voice_test := false  ## --voice-test=tone
+var voice_ctl := MainVoice.new(self)  ## voice chat's glue (main_voice.gd)
 var debug: DebugView
 var hud: Hud
 var camera: Camera2D
@@ -449,8 +459,9 @@ var wins := [0, 0]
 var _carried_energy := [-1.0, -1.0]
 var timer := ROUND_TICKS
 var seed_base := 1
-## --menu=PAGE: open a menu page on start (captures): single, single:<group>, settings, game, video, audio, controls, credits[:row].
+## --menu=PAGE: open a menu page on start (captures): single, single:<group>, settings, game, video, audio, accessibility, controls, credits[:row].
 var _menu_arg := ""
+var args_ctl := MainArgs.new(self)  ## the command line (main_args.gd)
 var _setting_rows := {}  ## Settings key -> its OptionRow, while the page is open
 var _match_over_status: Label = null
 var _recent_servers: Array = []
@@ -458,6 +469,7 @@ var fullscreen := false
 var fight_fps := default_fps()
 ## Where settings are kept (tests point it elsewhere, so they never touch the player's).
 var settings_path := SETTINGS_PATH
+var settings_ctl := MainSettings.new(self)  ## Settings: the pages, each row's value and change, the file (main_settings.gd)
 var vsync := true
 ## Wider-than-16:9 screens (ultrawide, 16:10): fill them with more stadium, or keep 16:9
 ## with bars.
@@ -552,6 +564,8 @@ var _attract := false
 var _attract_focus: Control
 var _attract_ui: Control
 var _attract_hint: Label
+var replay_ctl := ReplayViewer.new(self)  ## the Replay theater's pause, step, speed and jumps (replay_viewer.gd)
+var show_ctl := MainPresentation.new(self)  ## title attract, wipes, the arena intro, results (main_presentation.gd)
 var _wipe_cat := -1  ## the kind of screen last tick (0 menus, 1 fight, 2 match over)
 var _ticks_run := 0
 ## ~20 s idle on the title before the attract demo starts.
@@ -575,11 +589,14 @@ var touch_overlay: TouchOverlay
 var touch_opacity := TOUCH_OPACITY_DEFAULT
 var touch_left := false  ## Settings > Controls > Touch > Hand (saved)
 var _touch_demo_left := false  ## --touch-demo=left: mirrored this session only
+var touch_ctl := MainTouch.new(self)  ## the touch controls' glue (main_touch.gd)
 var frame_count := 0
 var _shots := {}
 var _shot_dir := "user://shots"
 var _cam_force := Vector3.ZERO  ## --cam=x,y,zoom: the camera held here (screenshots)
 var _quit_after := 0
+## --bug-report[=DIR]: where the bug-report zip goes ("" when the flag isn't given).
+var _bug_report_dir := ""
 var _print_vram_at := 0  ## --print-vram=N: print texture memory at frame N
 ## The CPUs' inputs for this tick are worked out (_think_cpus) and wait in last_bits.
 var _cpus_thought := false
@@ -624,6 +641,7 @@ var _online_server := ""
 ## Looking for the server on this network before joining it (see LanFinder), and the
 ## join to make when it's done: [fighter, host, port, room].
 var _finder: LanFinder = null
+var online_ctl := MainOnline.new(self)  ## the online flow (main_online.gd)
 var _finder_join: Array = []
 ## The team (one fighter, or three for a tag Duel) and team rules the next server join
 ## takes, from the lobby.
@@ -668,7 +686,7 @@ var _cpu_shown := 0
 
 
 func _ready() -> void:
-	if _run_sim_check() or _run_server():
+	if args_ctl._run_sim_check() or args_ctl._run_server():
 		return
 	_fit_window()
 	_apply_pixel_scale()
@@ -848,15 +866,15 @@ func _ready() -> void:
 		(pin as PlayerInput).keyboard = false
 		(pin as PlayerInput).pad_device = PlayerInput.NO_PAD
 
-	_load_settings()
+	settings_ctl._load_settings()
 	if UiTheme.smooth:
 		ui.restyle()  # the menu theme was built before the saved Text font was read
-	var start_mode := _parse_args()
+	var start_mode := args_ctl._parse_args()
 	_cli_start = start_mode >= 0
 	_apply_device()
 	_apply_discord()
 	_apply_range_rings()
-	_apply_touch()
+	touch_ctl._apply_touch()
 	_open_menu(_menu_arg)  # also starts the background match the pick screen sits on
 	if start_mode >= 0:
 		_start_match(start_mode)
@@ -871,14 +889,17 @@ func _ready() -> void:
 					_open_fighter_swap()
 	if _net_args.has("host") or _net_args.has("join"):
 		_auto_accept = true  # started from the command line: no one to ask
-		_open_lobby()
+		online_ctl._open_lobby()
 		if _net_args.has("host"):
-			_net_host(_online_fighter)
+			online_ctl._net_host(_online_fighter)
 		else:
 			_pending_watch = bool(_net_args.get("watch", false))
 			var parsed := OnlineLobby.parse_address(String(_net_args["join"]))
 			var size := int(_net_args.get("size", 0 if String(parsed[2]) != "" else 1))
-			_net_join(_online_fighter, String(parsed[0]), int(parsed[1]), String(parsed[2]), true, size)
+			online_ctl._net_join(_online_fighter, String(parsed[0]), int(parsed[1]), String(parsed[2]), true, size)
+	if _bug_report_dir != "" and _quit_after <= 0:
+		_cli_bug_report()  # nothing to wait for: write it now and quit
+		get_tree().quit()
 
 
 # ------------------------------------------------------------------ flow
@@ -887,10 +908,10 @@ func _ready() -> void:
 ## "settings" on top of it; `focus` is the title row to land on ("online" after leaving
 ## an online match).
 func _open_menu(page := "", focus := "") -> void:
-	_stop_attract()
+	show_ctl._stop_attract()
 	hud.banner_hidden = false
 	_close_ui()
-	_end_online()
+	online_ctl._end_online()
 	flow = Flow.MENU
 	flow_t = 0
 	_end_showcase()
@@ -905,7 +926,7 @@ func _open_menu(page := "", focus := "") -> void:
 	var t := TitleScreen.new(land)
 	t.single_pressed.connect(_open_single)
 	t.online_pressed.connect(func(): _start_match(ONLINE_MODE))
-	t.settings_pressed.connect(_open_settings)
+	t.settings_pressed.connect(settings_ctl._open_settings)
 	t.exit_pressed.connect(func(): get_tree().quit())
 	ui.push(t)
 	if page.begins_with("single:"):  # a Single player page, for captures: --menu=single:team
@@ -919,28 +940,28 @@ func _open_menu(page := "", focus := "") -> void:
 			_open_single()
 			_open_look_page()
 		"settings":
-			_open_settings()
-		"game", "video", "audio":
-			_open_settings()
-			_open_settings_page(page)
+			settings_ctl._open_settings()
+		"game", "video", "audio", "accessibility":
+			settings_ctl._open_settings()
+			settings_ctl._open_settings_page(page)
 		"controls":
-			_open_settings()
-			_open_controls()
+			settings_ctl._open_settings()
+			settings_ctl._open_controls()
 		"touch":
-			_open_settings()
-			_open_controls()
-			_open_settings_page("touch")
+			settings_ctl._open_settings()
+			settings_ctl._open_controls()
+			settings_ctl._open_settings_page("touch")
 		"credits":
-			_open_settings()
-			_open_credits()
+			settings_ctl._open_settings()
+			settings_ctl._open_credits()
 		"credits:game", "credits:szadi", "credits:kiddolink", "credits:font", "credits:godot", "credits:notices":
-			_open_settings()
-			_open_credits()
+			settings_ctl._open_settings()
+			settings_ctl._open_credits()
 			(ui.top() as CreditsScreen).open_page(page.get_slice(":", 1))
 		"remap:classic", "remap:league", "remap:gamepad":  # captures of a Remap page
-			_open_settings()
-			_open_controls()
-			_open_remap(page.get_slice(":", 1))
+			settings_ctl._open_settings()
+			settings_ctl._open_controls()
+			settings_ctl._open_remap(page.get_slice(":", 1))
 
 
 ## A CPU-vs-CPU match behind the menus (restarted now and then; the screens stay).
@@ -962,89 +983,6 @@ func _menu_background(demo := false) -> void:
 
 
 # ------------------------------------------------------------------ wipes and attract
-
-## What kind of screen `f` is, for the wipes: 0 menus, 1 a fight, 2 the match over.
-static func _screen_kind(f: Flow) -> int:
-	if f == Flow.MENU or f == Flow.SELECT or f == Flow.LOBBY:
-		return 0
-	return 2 if f == Flow.MATCH_OVER else 1
-
-
-## Each tick: a wipe steps (and ends under a pause), and a change between menus, a fight
-## and back starts one. Into the match-over screen there is none: the results screen has
-## its own when it comes up. Never in the first half second, so captures keep their frames.
-func _wipe_step() -> void:
-	if wipe == null:
-		return
-	if paused:
-		wipe.finish()
-	else:
-		wipe.advance()
-	var kind := _screen_kind(flow)
-	if _wipe_cat >= 0 and kind != _wipe_cat and kind != 2 and _ticks_run > 30:
-		wipe.start()
-	_wipe_cat = kind
-
-
-func _attract_pressed(event: InputEvent) -> bool:
-	if not _attract:
-		return false
-	if event is InputEventJoypadMotion:
-		return absf((event as InputEventJoypadMotion).axis_value) > 0.6
-	return _skips_intro(event)
-
-
-## On the bare title: count idle ticks, then start the demo.
-func _attract_step() -> void:
-	if _attract:
-		_attract_hint.visible = (flow_t / 30) % 3 != 2  # blinks: two thirds on, a third off
-		return
-	var on_title := ui.screens.size() == 1 and ui.top() is TitleScreen and not paused and intro == null
-	if not on_title:
-		_idle_t = 0
-		return
-	_idle_t += 1
-	if _idle_t >= ATTRACT_AT:
-		_start_attract()
-
-
-func _start_attract() -> void:
-	_attract = true
-	_idle_t = 0
-	_attract_focus = get_viewport().gui_get_focus_owner()
-	ui.visible = false
-	_attract_ui.visible = true
-	seed_base += 1
-	_menu_ko_t = 0
-	_menu_background(true)
-	flow_t = 0
-	wipe.start()
-
-
-## Back to the title: the screen and its focus where they were.
-func _end_attract() -> void:
-	if not _attract:
-		return
-	_stop_attract()
-	hud.menu_visible = true
-	_menu_background()
-	flow_t = 0
-	_idle_t = 0
-	wipe.start()
-	if _attract_focus != null and is_instance_valid(_attract_focus):
-		_attract_focus.grab_focus()
-	_attract_focus = null
-
-
-## The demo's own screens off (the title, or a match, takes over).
-func _stop_attract() -> void:
-	_attract = false
-	_idle_t = 0
-	if ui != null:
-		ui.visible = true
-	if _attract_ui != null:
-		_attract_ui.visible = false
-
 
 ## Single player: every mode against the CPU, training, trials and local 2-player. Rows
 ## with choices pick the fighter (or drill) with Left/Right; Enter starts.
@@ -1107,7 +1045,7 @@ func _open_single_group(gid: String, focus_row := -1) -> void:
 				var o := s.add_option(String(row["label"]), row["choices"], int(_row_choice[r]),
 					func(i: int):
 						_row_choice[r] = i
-						_save_settings(), desc)
+						settings_ctl._save_settings(), desc)
 				if r == focus_row:
 					s.default_focus = o
 				o.activates = true
@@ -1174,7 +1112,7 @@ func _set_hazard(id: String, on: bool) -> void:
 	elif not on:
 		hazards_on.erase(id)
 	hazards_on.sort()
-	_save_settings()
+	settings_ctl._save_settings()
 
 
 ## The Arena row's description: what it does, and the hazards that are on.
@@ -1228,7 +1166,7 @@ func _set_look_choice(kind: String, id: String) -> void:
 	else:
 		weather_choice = id
 	_look_cli.erase("time" if kind == "times" else "weather")
-	_save_settings()
+	settings_ctl._save_settings()
 
 
 ## The look of the match `s` is starting: day + clear online, while watching a room and
@@ -1360,7 +1298,7 @@ func _set_arena(id: String) -> void:
 	if id in ArenaMap.IDS:
 		MatchFactory.arena = id
 		_arena_saved = id
-		_save_settings()
+		settings_ctl._save_settings()
 
 
 ## Where the last Single player row was started from, so leaving a match lands back on
@@ -1391,191 +1329,34 @@ func _start_row(row: int) -> void:
 	_start_match(int(r["modes"][_row_choice[row] if row < _row_choice.size() else 0]))
 
 
-## Settings: four pages, like most games: Game, Video, Audio, Controls; and the Credits.
-func _open_settings() -> void:
-	var scr := UiScreen.new()
-	scr.logo = true
-	scr.title = "SETTINGS"
-	scr.row_width = 230.0
-	scr.detail = true
-	scr.blurb = "CPU level, keyboard layout, volume, fullscreen, frame rate"
-	scr.builder = func(s: UiScreen):
-		s.add_card("Game", "CPU level, rumble, screen shake, online server, input delay",
-			func(): _open_settings_page("game"), "How the game plays and where it plays online")
-		s.add_card("Video", "Fullscreen, wide screens, vsync, frame rate",
-			func(): _open_settings_page("video"), "The screen and the frame rate")
-		s.add_card("Audio", "Master, music, sound effects, menu sounds, voice chat",
-			func(): _open_settings_page("audio"), "Volumes")
-		s.add_card("Controls", "Keyboard and controller layouts; remap keys and buttons",
-			_open_controls, "Who presses what")
-		s.add_card("Credits", "Who made the game; art, font and engine licences",
-			_open_credits, "Credits and licences, and the engine's third-party notices")
-		s.add_space(3)
-		s.add_button("Back", s.back)
-	ui.push(scr)
-
-
-## Settings > Credits (src/ui/credits_screen.gd; LICENSES.md says it at length).
+## In main_settings.gd (tests and other scripts call it here).
 func _open_credits() -> void:
-	ui.push(CreditsScreen.new())
+	settings_ctl._open_credits()
 
 
-## One Settings page: each row's values and description come from _setting(); a change
-## goes through _set_setting() and is saved at once.
+## In main_settings.gd (tests and other scripts call it here).
 func _open_settings_page(page: String) -> void:
-	var scr := UiScreen.new()
-	scr.logo = true
-	scr.crumbs = ["SETTINGS"]
-	scr.title = page.to_upper()
-	scr.row_width = 236.0
-	scr.detail = true
-	scr.blurb = {"game": "How the game plays and where it plays online", "video": "The screen and the frame rate",
-		"audio": "Volumes and voice chat", "touch": "The on-screen stick and buttons (they show when you touch the screen in a fight)"}.get(page, "")
-	scr.hints = ["move", "change", "back"]
-	scr.builder = func(s: UiScreen):
-		for key in SETTING_PAGES[page]:
-			if key == "server":
-				_add_server_row(s)
-			elif key.begins_with("#"):
-				s.add_heading(key.substr(1))
-			elif key == "mic_test":
-				_add_mic_test_row(s)
-			else:
-				_add_setting_row(s, key)
-		s.add_space(4)
-		s.add_button("Back", s.back)
-	scr.backed.connect(func():
-		_setting_rows.clear()
-		if voice_view != null:
-			voice_view.test_stop())
-	ui.push(scr)
+	settings_ctl._open_settings_page(page)
 
 
-## Rebuild an open Settings page in place (its rows carry their own font sizes), with
-## the row that changed focused again: Text font swaps every size on the page.
-func _reopen_settings_page(page: String, key: String) -> void:
-	var top := ui.top()
-	if top == null or top.title != page.to_upper():
-		return
-	ui.pop()
-	_open_settings_page(page)
-	var row: Control = _setting_rows.get(key)
-	if row != null:
-		row.grab_focus()
-
-
-func _add_setting_row(s: UiScreen, key: String) -> OptionRow:
-	var info := _setting(key)
-	var o := s.add_option(String(info["label"]), info["values"], int(info["index"]), func(_i): pass,
-		String(info["desc"]))
-	o.wrap = bool(info.get("wrap", true))
-	o.bar = float(info.get("bar", -1.0))
-	o.changed.connect(func(i: int):
-		_set_setting(key, i)
-		var now := _setting(key)
-		o.set_values(now["values"], int(now["index"]))
-		o.bar = float(now.get("bar", -1.0)))
-	_setting_rows[key] = o
-	return o
-
-
-## Settings > Audio > Test microphone: Enter records a few seconds with a live level bar,
-## then plays them back (VoiceView.test_start); `_voice_step` keeps the row current.
-func _add_mic_test_row(s: UiScreen) -> OptionRow:
-	var o := s.add_option("Test microphone", [voice_view.test_text()], 0, func(_i): pass,
-		"Press, say a few words, and hear them played back. The bar shows how loud the microphone hears you. Nothing heard: pick another Microphone, or allow the game to use it in your system settings")
-	o.activates = true
-	o.bar = voice_view.test_level
-	o.activated.connect(func():
-		_apply_mic()
-		voice_view.test_start()
-		_refresh_mic_test())
-	_setting_rows["mic_test"] = o
-	return o
-
-
+## In main_settings.gd (tests and other scripts call it here).
 func _refresh_mic_test() -> void:
-	var o: OptionRow = _setting_rows.get("mic_test")
-	if o == null or voice_view == null:
-		return
-	var t := voice_view.test_text()
-	if o.values.size() != 1 or String(o.values[0]) != t:
-		o.set_values([t], 0)
-	if not is_equal_approx(o.bar, voice_view.test_level):
-		o.bar = voice_view.test_level
-		o.queue_redraw()
+	settings_ctl._refresh_mic_test()
 
 
-## Settings > Game > Online server: a text box, saved as it's typed. Empty means the
-## game's own server.
-func _add_server_row(s: UiScreen) -> LineEdit:
-	var f := LineEdit.new()
-	f.text = _online_server
-	f.placeholder_text = "Online server: " + default_server()
-	f.max_length = 80
-	f.text_changed.connect(func(t: String):
-		_online_server = t.strip_edges()
-		_save_settings())
-	s.add_row(f, "Where Quick match and rooms play. Leave it empty for %s" % default_server())
-	s.entitle(f, "Online server")
-	return f
-
-
-## The game's own server, from data/online.json.
+## In main_settings.gd (tests and other scripts call it here).
 static func default_server() -> String:
-	var f := FileAccess.open("res://data/online.json", FileAccess.READ)
-	if f == null:
-		return ""
-	var d = JSON.parse_string(f.get_as_text())
-	return String(d.get("server", "")).strip_edges() if d is Dictionary else ""
+	return MainSettings.default_server()
 
 
-## The server Quick match and rooms use: the player's, or the game's own.
+## In main_settings.gd (tests and other scripts call it here).
 func online_server() -> String:
-	return _online_server if _online_server != "" else default_server()
+	return settings_ctl.online_server()
 
 
-## Controls: the keyboard layout, and remapping for each keyboard layout and the controller.
+## In main_settings.gd (tests and other scripts call it here).
 func _open_controls() -> void:
-	var scr := UiScreen.new()
-	scr.logo = true
-	scr.crumbs = ["SETTINGS"]
-	scr.title = "CONTROLS"
-	scr.row_width = 236.0
-	scr.detail = true
-	scr.blurb = "Who presses what"
-	scr.hints = ["move", "change", "select", "back"]
-	scr.builder = func(s: UiScreen):
-		_add_setting_row(s, "layout")
-		_add_setting_row(s, "pad_layout")
-		_add_setting_row(s, "range_rings")
-		s.add_button("Touch controls", func(): _open_settings_page("touch"),
-			"The on-screen stick and buttons: how see-through, how big, which hand, how to aim")
-		s.add_button("Remap controller", func(): _open_remap("gamepad"), "Change which button does what")
-		s.add_button("Remap Classic keyboard", func(): _open_remap("classic"), "WASD + J K U I O, or your own keys")
-		s.add_button("Remap League-style keyboard", func(): _open_remap("league"),
-			"Mouse to move and aim; Q W E R, or your own keys")
-		s.add_button("Reset all controls", func():
-			var c := ConfirmScreen.new("Reset every key and button?", "Back to the game's defaults.", "Reset", "Cancel")
-			c.answered.connect(func(yes: bool):
-				if yes:
-					Controls.reset()
-					_save_settings()
-					_apply_device()
-					_toast("Controls reset"))
-			ui.push(c), "Put every key and button back")
-		s.add_space(4)
-		s.add_button("Back", s.back)
-	scr.backed.connect(func(): _setting_rows.clear())
-	ui.push(scr)
-
-
-func _open_remap(group: String) -> void:
-	var r := RemapScreen.new(group)
-	r.changed.connect(func():
-		_save_settings()
-		_apply_device())  # the prompts and help show the new keys
-	ui.push(r)
+	settings_ctl._open_controls()
 
 
 ## The MODES index of the mode with this label (-1: none). Tests and code that start a
@@ -1602,7 +1383,7 @@ func _start_match(m: int, keep_teams := false) -> void:
 	_carried_energy = [-1.0, -1.0]
 	round_num = 1
 	hud.menu_visible = false
-	_save_settings()
+	settings_ctl._save_settings()
 	var cfg: Dictionary = MODES[m]
 	_cpu_level_override = -1
 	if cfg.get("arcade", false):
@@ -1615,7 +1396,7 @@ func _start_match(m: int, keep_teams := false) -> void:
 	else:
 		arcade = null
 	if cfg.get("online", false):
-		_open_lobby()
+		online_ctl._open_lobby()
 		return
 	var two_players: bool = Side.PLAYER2 in cfg.get("sides", [])
 	_assign_devices(_humans(cfg))
@@ -1647,7 +1428,7 @@ func _start_match(m: int, keep_teams := false) -> void:
 		return
 	_start_round()
 	if not keep_teams:
-		_maybe_intro()
+		show_ctl._maybe_intro()
 
 
 ## Modes that open the pick screen first.
@@ -1661,7 +1442,7 @@ func _on_teams_chosen(teams: Array) -> void:
 	_teams = teams
 	audio.play("ui_select", 0.0, 1.0, true)
 	_start_round()
-	_maybe_intro()
+	show_ctl._maybe_intro()
 
 
 ## How many people play at this machine in a mode.
@@ -1821,7 +1602,7 @@ func _arcade_result(won: bool) -> bool:
 		hud.banner_sub = ("A new best for today!" if best and won else
 			("Today's best: %d" % Progress.daily_best(d.date)) if won else "Win the fight to score")
 		if won and score > 0:
-			_net_daily_submit(d)
+			online_ctl._net_daily_submit(d)
 		return true
 	if not won:
 		flow = Flow.MATCH_OVER
@@ -1835,7 +1616,7 @@ func _arcade_result(won: bool) -> bool:
 		round_num = 1
 		_start_arcade_stage()
 		if arcade is Arcade:
-			_maybe_intro()  # a new opponent up the ladder (not each Gauntlet wave)
+			show_ctl._maybe_intro()  # a new opponent up the ladder (not each Gauntlet wave)
 		return true
 	# The boss is down: the Arcade is cleared on this level.
 	_arcade_cleared = true
@@ -2050,6 +1831,7 @@ func _play_replay(path: String) -> void:
 		s.append(Side.REPLAY)
 	_replay_frames = rep.frames
 	_replay_watched = rep.setup
+	replay_ctl.path = path
 	if game is DuelSim:
 		duel = game
 		_new_sim(duel.sim, s)
@@ -2077,6 +1859,7 @@ func _play_replay(path: String) -> void:
 		flow_t = 0
 		hud.wins = wins
 		audio.play_music("fight")
+		_begin_replay_viewer()
 		return
 	hud.wins = [0, 0]
 	hud.wins_needed = 0
@@ -2084,6 +1867,14 @@ func _play_replay(path: String) -> void:
 	flow = Flow.FIGHT
 	flow_t = 0
 	audio.play_music("fight")
+	_begin_replay_viewer()
+
+
+## The replay viewer's keyframe at the start, and its key line in the HUD.
+func _begin_replay_viewer() -> void:
+	replay_ctl.begin()
+	hud.show_help = true
+	replay_ctl.update_hud()
 
 
 func _replaying() -> bool:
@@ -2099,7 +1890,7 @@ func _show_pads() -> void:
 		return  # the Caravan's attackers respawn where the push has got to; CTF's at their keep
 	for side in 2:
 		for k in team_battle.size:
-			fx.pads.append({"pos": team_battle.pad_point(side, k), "color": Hud.SIDE_COLORS[side], "count": 0})
+			fx.pads.append({"pos": team_battle.pad_point(side, k), "color": Accessibility.side_color(side), "side": side, "count": 0})
 
 
 ## King of the Crater: the zone on the floor, in the holder's colour. Also every mode's
@@ -2139,7 +1930,7 @@ func _update_zone() -> void:
 		return
 	var holder := team_battle.zone_holder()
 	fx.zone = {"pos": sim.zone_pos, "radius": sim.zone_r,
-		"color": Hud.SIDE_COLORS[holder] if holder >= 0 else Color("e8d8a0")}
+		"color": Accessibility.side_color(holder) if holder >= 0 else Accessibility.neutral_color()}
 
 
 ## Who is wanted, for FxView's marks over their heads: per slot {} or {"kind": "spree",
@@ -2213,8 +2004,8 @@ func _team_color(team: int) -> Color:
 	if team < 0:
 		return Color.WHITE
 	if brawl != null and brawl.sim == sim:
-		return Hud.BRAWL_COLORS[team % Hud.BRAWL_COLORS.size()]
-	return Hud.SIDE_COLORS[clampi(team, 0, 1)]
+		return Accessibility.brawl_color(team)
+	return Accessibility.side_color(clampi(team, 0, 1))
 
 
 ## A team's name for a toast: RED / BLUE, or a Brawl fighter's name.
@@ -2387,7 +2178,7 @@ func _ctf_toast(e: Dictionary) -> void:
 			else:
 				hud.show_toast("%s FLAG TAKEN" % whose)
 			if is_local_team(side) and (me < 0 or sim.creatures[me].team == side):
-				hud.alert(Hud.SIDE_COLORS[side])
+				hud.alert(Accessibility.side_color(side))
 				hud.show_toast("YOUR FLAG IS TAKEN!  GET IT BACK")
 			elif me >= 0 and int(e.get("who", -1)) == me:
 				var key := String(hud.tag_labels[me]) if me < hud.tag_labels.size() else ""
@@ -2401,7 +2192,7 @@ func _ctf_toast(e: Dictionary) -> void:
 		"capture":
 			hud.show_toast("%s CAPTURES!" % whose)
 			var sc: Array = e.get("score", [0, 0])
-			hud.moment("%s CAPTURES!" % whose, "%d  -  %d" % [int(sc[0]), int(sc[1])], Hud.SIDE_COLORS[side])
+			hud.moment("%s CAPTURES!" % whose, "%d  -  %d" % [int(sc[0]), int(sc[1])], Accessibility.side_color(side))
 		"bridge_strain": hud.show_toast("THE BRIDGE IS CRACKING")
 		"bridge_fall": hud.show_toast("THE BRIDGE IS DOWN!")
 		"bridge_up": hud.show_toast("THE BRIDGE IS BACK")
@@ -2444,7 +2235,7 @@ func _ctf_summary() -> Array:
 			best_v = v
 			best = c.id
 		lines.append(["%s   %d cap  %d ret  %d stop" % [String(c.def.get("name", "?")), int(row["caps"]), int(row["rets"]),
-			int(row["stops"])], Hud.SIDE_COLORS[c.team]])
+			int(row["stops"])], Accessibility.side_color(c.team)])
 	if best >= 0:
 		var c := sim.creatures[best]
 		lines.push_front(["MVP  %s  (%s)" % [String(c.def.get("name", "?")).to_upper(), ["RED", "BLUE"][c.team]], UiTheme.C_ACCENT])
@@ -2501,6 +2292,7 @@ func _end_duel() -> void:
 	team_battle = null
 	brawl = null
 	_replay_frames = []
+	replay_ctl.end()
 	if hud != null:
 		hud.duel = null
 		hud.team = null
@@ -2691,7 +2483,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	_cam_idle = 0
 	_settle_fit = 0.0
 	_surge_bars = 0
-	_drop_intro()
+	show_ctl._drop_intro()
 	if letterbox != null:
 		letterbox.clear()
 	sides = p_sides.duplicate()
@@ -2792,9 +2584,11 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 				label = ""
 		if sim.creatures[i].is_dummy:
 			label = ""
-		var mark_col: Color = Hud.BRAWL_COLORS[i % Hud.BRAWL_COLORS.size()] if brawl != null and brawl.sim == s \
-			else Hud.SIDE_COLORS[clampi(sim.creatures[i].team, 0, 1)]
-		fx.side_marks.append({"color": mark_col, "label": label, "rel": _relation(i)})
+		var mark_col: Color = Accessibility.brawl_color(i) if brawl != null and brawl.sim == s \
+			else Accessibility.side_color(clampi(sim.creatures[i].team, 0, 1))
+		fx.side_marks.append({"color": mark_col, "label": label, "rel": _relation(i),
+			"brawl": i if brawl != null and brawl.sim == s else -1, "team": sim.creatures[i].team})
+
 	rings.rel = fx.side_marks.map(func(m): return m["rel"])
 	for i in sides.size():
 		match sides[i]:
@@ -2860,7 +2654,7 @@ func _process(_delta: float) -> void:
 		bloom.frame(get_viewport())
 	if netplay != null and netplay.link != null and netplay.link.realtime:
 		netplay.pump()
-	_voice_step(_delta)
+	voice_ctl._voice_step(_delta)
 	_think_in_gap()
 	if discord != null:
 		if Engine.get_process_frames() % 30 == 0:
@@ -2877,21 +2671,42 @@ func _physics_process(_delta: float) -> void:
 	frame_count += 1
 	_apply_frame_rate()
 	_ticks_run += 1
-	_wipe_step()
-	_touch_step()
+	show_ctl._wipe_step()
+	touch_ctl._touch_step()
 	if paused:
 		_capture()
 		return  # frozen behind the pause menu: nothing steps, the picture holds
 	if intro != null:
-		_intro_step()
+		show_ctl._intro_step()
 		perf_overlay.tick(Time.get_ticks_usec() - tick_start)
 		_capture()
 		return  # the arena intro: the sim waits at its first tick, the views play it
+	# Watching a replay: paused, slowed down or sped up (replay_viewer.gd), so this frame
+	# may run no tick, or two.
+	var n := replay_ctl.ticks_now() if _replaying() else 1
+	if n == 0:
+		replay_ctl.hold()
+		perf_overlay.tick(Time.get_ticks_usec() - tick_start)
+		_capture()
+		return
+	for k in n:
+		_step_tick()
+	if _replaying():
+		replay_ctl.update_hud()
+	if _perf != null:
+		_perf.tick(flow == Flow.FIGHT, Time.get_ticks_usec() - tick_start)
+	perf_overlay.tick(Time.get_ticks_usec() - tick_start)
+	_capture()
+
+
+## One 60 Hz tick of the match and everything that watches it (inputs, sim, events,
+## views, camera): once per physics frame, or as the replay viewer asks.
+func _step_tick() -> void:
 	flow_t += 1
 	if _finder != null:
-		_finder_step()
+		online_ctl._finder_step()
 	if _daily_client != null:
-		_daily_step()
+		online_ctl._daily_step()
 	var live := flow == Flow.FIGHT or flow == Flow.MENU
 	var offline := false
 	var events: Array = sim.events
@@ -2901,22 +2716,22 @@ func _physics_process(_delta: float) -> void:
 		live = flow == Flow.FIGHT or flow == Flow.MATCH_OVER
 		netplay.tick(_side_bits(online.local_slot, live and not ui.is_open()))
 		events = online.events
-		_online_status()
+		online_ctl._online_status()
 	elif watch != null:
 		# Watching: the referee's copy steps on confirmed inputs only (maybe several
 		# frames a tick, maybe none); its events are the ones to show.
 		live = flow == Flow.FIGHT or flow == Flow.MATCH_OVER
 		netplay.tick(0)
 		if netplay.watch != null and netplay.watch != watch and netplay.phase == Netplay.Phase.PLAYING:
-			_start_watching()  # the next match (a rematch, or the room's next): follow it
+			online_ctl._start_watching()  # the next match (a rematch, or the room's next): follow it
 		events = watch.events
 		if netplay.phase == Netplay.Phase.ENDED and flow == Flow.FIGHT:
 			flow = Flow.MATCH_OVER
 			flow_t = 0
 			hud.banner = "THE MATCH ENDED"
 			hud.banner_sub = netplay.status
-		_watch_room_status()
-	elif netplay != null and _connecting_step():
+		online_ctl._watch_room_status()
+	elif netplay != null and online_ctl._connecting_step():
 		events = online.events  # the online match began this frame: its session steps it
 	else:
 		offline = true
@@ -2947,6 +2762,8 @@ func _physics_process(_delta: float) -> void:
 		else:
 			sim.step(inputs)
 		PerfLog.since("sim", t_sim)
+		if _replaying():
+			replay_ctl.note_tick()  # a keyframe for jumps
 		events = sim.events
 	var t_ev := PerfLog.now()
 	_update_vision(events)
@@ -3017,6 +2834,7 @@ func _physics_process(_delta: float) -> void:
 		views[i].victory = deciding and _won_standing(sim.creatures[i])
 		views[i].out_of_sight = _is_hidden(i)
 		views[i].see_through = _hides_someone(views[i].c)
+		views[i].outline_color = fx.mark_color(i)
 		views[i].refresh()
 	if debug.visible:
 		debug.queue_redraw()
@@ -3033,8 +2851,8 @@ func _physics_process(_delta: float) -> void:
 	if sim.ko_freeze <= 0:
 		shake *= 0.82
 	var t_cam := PerfLog.now()
-	_update_camera()
-	_update_letterbox()
+	cam_ctl._update_camera()
+	cam_ctl._update_letterbox()
 	PerfLog.since("camera", t_cam)
 	var sh := shake * shake_scale
 	if sh <= 0.3:
@@ -3047,10 +2865,6 @@ func _physics_process(_delta: float) -> void:
 	flash_rect.color.a = maxf(0.0, flash_rect.color.a - 0.04)
 	if offline and (flow == Flow.FIGHT or flow == Flow.MENU):
 		_think_ahead()
-	if _perf != null:
-		_perf.tick(flow == Flow.FIGHT, Time.get_ticks_usec() - tick_start)
-	perf_overlay.tick(Time.get_ticks_usec() - tick_start)
-	_capture()
 
 
 func _update_flow() -> void:
@@ -3061,9 +2875,10 @@ func _update_flow() -> void:
 				_menu_ko_t += 1
 			if _menu_ko_t > 150 or flow_t > ROUND_TICKS:
 				_menu_ko_t = 0
+				flow_t = 0  # (or, once two minutes are up, the match would restart every tick)
 				seed_base += 1
 				_menu_background(_attract)
-			_attract_step()
+			show_ctl._attract_step()
 		Flow.INTRO:
 			if arcade != null:
 				hud.banner = arcade.stage_label() if flow_t < 60 else "FIGHT!"
@@ -3135,7 +2950,7 @@ func _update_flow() -> void:
 			elif team_battle != null:
 				hud.timer_ticks = maxi(team_battle.timer, 0)
 			if flow_t == MATCH_OVER_MENU_AT and not ui.is_open():
-				_show_match_over()
+				show_ctl._show_match_over()
 			if sides[0] == Side.CPU and sides[1] == Side.CPU and flow_t > 240:
 				seed_base += 1
 				_start_match(mode)
@@ -3406,13 +3221,13 @@ func _react(e: Dictionary) -> void:
 			crowd.cheer(0.1 + power * 0.015)
 			if fx._event_shown(e):  # (fans near a hidden fighter's hit would give it away)
 				crowd.react(Vector2(e["pos"]), 4 + mini(4, int(power * 0.25)))
-				_note_exchange()
-				var kind := _hit_kind(e)
+				cam_ctl._note_exchange()
+				var kind := cam_ctl._hit_kind(e)
 				if kind == "heavy" or kind == "surge":
-					_note_clash(Vector2(e["pos"]), 1.0 if kind == "surge" else CLASH_HEAVY)
+					cam_ctl._note_clash(Vector2(e["pos"]), 1.0 if kind == "surge" else CLASH_HEAVY)
 		"block":
 			shake = maxf(shake, 1.0)
-			_note_exchange()
+			cam_ctl._note_exchange()
 		"slam":
 			shake = maxf(shake, 4.0 if power >= 1.0 else 2.0)
 			crowd.cheer(0.3 if power >= 1.0 else 0.05)
@@ -3424,7 +3239,7 @@ func _react(e: Dictionary) -> void:
 		"guard_break", "breakaway", "slip":
 			crowd.cheer(0.3)
 			if String(e["type"]) == "guard_break" and fx._event_shown(e):
-				_note_clash(Vector2(e["pos"]), 1.0)
+				cam_ctl._note_clash(Vector2(e["pos"]), 1.0)
 		"surge":
 			crowd.cheer(0.6)
 			if not bool(e.get("freeze", true)):
@@ -3563,258 +3378,27 @@ func _hides_someone(c: CreatureSim) -> bool:
 	return false
 
 
+## In main_camera.gd (tests and other scripts call it here).
 func _update_camera() -> void:
-	var size := sim.arena_size() if sim != null else SimDefs.arena_size()  # the whole stadium
-	var view := get_viewport().get_visible_rect().size  # the screen (wider on ultrawide)
-	var base_z := 1.0
-	var base_focus := size * 0.5
-	var ko_focus := _ko_focus
-	if intro != null:
-		base_z = intro.zoom
-		base_focus = intro.focus
-	elif sim != null and showcase == null and coach == null:
-		_frame_fight(view, size)
-		base_z = _cam_zoom * _cam_zclash
-		base_focus = _cam_follow + _cam_off
-	elif (showcase != null or coach != null) and sim != null and sim.creatures.size() >= 2:
-		var a := sim.creatures[0].pos
-		var b := sim.creatures[1].pos
-		# A showcase's extra fighters (the cleaver's second foe) are framed too.
-		var lo := Vector2(minf(a.x, b.x), minf(a.y, b.y))
-		var hi := Vector2(maxf(a.x, b.x), maxf(a.y, b.y))
-		for i in range(2, sim.creatures.size()):
-			lo = lo.min(sim.creatures[i].pos)
-			hi = hi.max(sim.creatures[i].pos)
-		# Fighters stacked up and down the screen: aim a little higher and zoom out to
-		# keep both (and their heads) in shot.
-		var dy := hi.y - lo.y
-		var mid := (lo + hi) * 0.5 + Vector2(0, -8 - minf(dy, 40.0) * 0.3)
-		_cam_follow = mid if _cam_follow == Vector2.ZERO else _cam_follow.lerp(mid, 0.12)
-		var fit := lerpf(SHOWCASE_ZOOM, 1.3, clampf(dy / 40.0, 0.0, 1.0))
-		_cam_zoom = fit if _cam_zoom <= 0.0 else lerpf(_cam_zoom, fit, 0.08)
-		base_z = _cam_zoom
-		base_focus = _cam_follow
-		ko_focus = _ko_pos + Vector2(0, -16)  # no K.O. banner in a showcase
-	if _cam_force != Vector3.ZERO:
-		base_focus = Vector2(_cam_force.x, _cam_force.y)
-		if _cam_force.z > 0.0:
-			base_z = _cam_force.z
-	var z := base_z
-	var focus := base_focus
-	if _ko_cam_t >= 0:
-		_ko_cam_t += 1
-		var amt := ko_push(_ko_cam_t)
-		var k_out := clampf(float(_ko_cam_t - KO_HOLD_UNTIL) / KO_PUSH_OUT, 0.0, 1.0)
-		z = lerpf(base_z, maxf(base_z, KO_ZOOM), amt)
-		focus = base_focus.lerp(ko_focus, amt)
-		if k_out >= 1.0:
-			_ko_cam_t = -1
-	var half := view * 0.5 / z
-	camera.zoom = Vector2(z, z)
-	# Near an edge the shot may run a little past it, into the side stands and front rows.
-	var pos := Vector2(_cam_axis(focus.x, half.x, size.x, CrowdView.SHOW_SIDE, CrowdView.SHOW_SIDE),
-		_cam_axis(focus.y, half.y, size.y, CrowdView.SHOW_TOP, CrowdView.SHOW_FRONT))
-	# Whole screen pixels: a still thing on the floor moves a whole pixel at a time as the
-	# camera pans, never resampled at a new phase (no shimmer).
-	camera.position = snap_cam(pos, z * maxf(1.0, float(get_window().size.x) / maxf(view.x, 1.0)))
-	_update_pointers(view)
+	cam_ctl._update_camera()
 
 
-## A camera position on the screen's pixel grid: `px` screen pixels per world unit (the
-## zoom x the window's pixels per canvas unit).
+## In main_camera.gd (tests and other scripts call it here).
 static func snap_cam(pos: Vector2, px: float) -> Vector2:
-	if px <= 0.0:
-		return pos
-	return (pos * px).round() / px
+	return MainCamera.snap_cam(pos, px)
 
 
-## How far into the KO push-in the camera is, 0..1, `t` ticks after the knockout: held
-## still for the freeze's first beat, then eased in and out (smoothstep) so the push
-## reads as a deliberate move rather than a snap; held, then eased back out.
+## In main_camera.gd (tests and other scripts call it here).
 static func ko_push(t: int) -> float:
-	var k_in := clampf(float(t - KO_PUSH_DELAY) / KO_PUSH_IN, 0.0, 1.0)
-	var k_out := clampf(float(t - KO_HOLD_UNTIL) / KO_PUSH_OUT, 0.0, 1.0)
-	return smoothstep(0.0, 1.0, k_in) * (1.0 - smoothstep(0.0, 1.0, k_out))
+	return MainCamera.ko_push(t)
 
 
-## The letterbox: in for a knockout's push-in (until it starts easing back), a Surge's
-## freeze and its cut-in (held until the cut-in is gone, which outlasts the freeze), and the
-## arena intro; out otherwise. Not over the title's background match.
+## In main_camera.gd (tests and other scripts call it here).
 func _update_letterbox() -> void:
-	if _surge_bars > 0:
-		_surge_bars -= 1
-	var ko := _ko_cam_t >= 0 and _ko_cam_t < KO_HOLD_UNTIL
-	letterbox.shown = (flow != Flow.MENU or _attract) and (ko or _surge_bars > 0 or hud.cutting_in() or intro != null)
-	letterbox.advance()
+	cam_ctl._update_letterbox()
 
 
 # ------------------------------------------------------------------ arena intro
-
-## Whether a match starting now gets the arena intro: offline matches against the CPU or
-## local players, with Settings > Game > Match intros on. Never online (both peers must
-## start the sim on the same tick, and a watcher follows the server's), in a replay,
-## training, trials, drills or showcases, or behind the menu. Headless runs and command-line
-## starts skip it unless --intro (tests and captures keep their frame numbers).
-func _intro_wanted() -> bool:
-	if _intro_arg < 0 or not match_intros:
-		return false
-	if _intro_arg == 0 and (DisplayServer.get_name() == "headless" or _cli_start or autoplay != null):
-		return false
-	if sim == null or online != null or watch != null or netplay != null or _replaying():
-		return false
-	if showcase != null or coach != null or sim.training or MODES[mode].get("training", false):
-		return false
-	return flow == Flow.INTRO or flow == Flow.FIGHT
-
-
-## Starts the arena intro for the match just set up, if it gets one. The sim stays at its
-## first tick until the intro ends (or a press skips it); then the round goes on exactly as
-## it would have without it.
-func _maybe_intro() -> void:
-	if not _intro_wanted():
-		return
-	_drop_intro()
-	intro = ArenaIntro.new()
-	intro.sim = sim
-	intro.arena_name = String(sim.arena.get("name", ArenaMap.name_of(sim.arena_id)))
-	intro.subtitle = _intro_subtitle()
-	intro.groups = _intro_groups()
-	_screen_layer.add_child(intro)
-	_screen_layer.move_child(intro, hud.get_index())  # over the letterbox and the flash, under the HUD
-	hud.cinema = true
-	hud.banner = ""
-	hud.banner_sub = ""
-	for v in views:
-		v.intro_clock = 0
-	crowd.roar(90)
-	audio.play("crowd_roar")
-
-
-## What the arena's card says under its name: the mode.
-func _intro_subtitle() -> String:
-	var cfg: Dictionary = MODES[mode]
-	if arcade != null:
-		return arcade.stage_label()
-	if team_battle != null:
-		var what := "KING OF THE CRATER" if team_battle.crater else ("SINKHOLE" if team_battle.sinkhole else
-			("TEAM DEATHMATCH" if team_battle.deathmatch else ("CARAVAN" if team_battle.caravan else
-			("CAPTURE THE FLAG" if team_battle.ctf else "TEAM BATTLE"))))
-		return "%s   %d v %d" % [what, team_battle.size, team_battle.size]
-	if duel != null:
-		return "DUEL   %d v %d" % [(duel.teams[0] as Array).size(), (duel.teams[1] as Array).size()]
-	if brawl != null:
-		return "CHAOS CUP" if _chaos_names != "" else "BRAWL"
-	return "VERSUS" if cfg.get("versus2p", false) else "1 v 1"
-
-
-## The intro's beats: one per fighter in a 1v1, one per team in a team battle or a Duel
-## (introduced together), and one for everyone in a Brawl.
-func _intro_groups() -> Array:
-	var out: Array = []
-	var n := sim.creatures.size()
-	if brawl != null:
-		var names: Array = []
-		var all: Array = []
-		for i in n:
-			names.append(String(sim.creatures[i].def.get("name", "?")).to_upper())
-			all.append(i)
-		return [{"slots": all, "side": 0, "color": Hud.C_ACCENT, "tag": "FREE-FOR-ALL",
-			"name": "%d FIGHTERS" % n, "lines": ["  ·  ".join(names)]}]
-	if team_battle != null or duel != null:
-		for side in 2:
-			var slots: Array = []
-			var names: Array = []
-			for i in n:
-				if sim.creatures[i].team == side:
-					slots.append(i)
-			if duel != null:
-				for id in duel.teams[side]:
-					names.append(String(MatchFactory.load_def(String(id)).get("name", id)).to_upper())
-			else:
-				for i in slots:
-					names.append(String(sim.creatures[i].def.get("name", "?")).to_upper())
-			var you := false
-			for i in slots:
-				you = you or (i < sides.size() and sides[i] in LOCAL_SIDES)
-			out.append({"slots": slots, "side": side, "color": Hud.SIDE_COLORS[side],
-				"tag": "YOUR TEAM" if you else "CPU TEAM",
-				"name": ["RED TEAM", "BLUE TEAM"][side], "lines": ["  ·  ".join(names)]})
-		return out
-	for i in mini(n, 2):
-		var d: Dictionary = sim.creatures[i].def
-		var bits := PackedStringArray()
-		for k in ["role", "affinity"]:
-			var v = d.get(k)
-			if v != null and String(v) != "" and String(v) != "none":
-				bits.append(String(v).capitalize())
-		var lines: Array = []
-		if String(d.get("title", "")) != "":
-			lines.append(String(d["title"]))
-		lines.append("  ·  ".join(bits))
-		out.append({"slots": [i], "side": i, "color": Hud.SIDE_COLORS[i], "tag": _side_name(i),
-			"name": String(d.get("name", "?")).to_upper(), "lines": lines})
-	return out
-
-
-## One tick of the intro: only views move (the sim is not stepped, no events, no CPUs).
-func _intro_step() -> void:
-	var view := get_viewport().get_visible_rect().size
-	var g := intro.advance(view, sim.arena_size())
-	if g >= 0:
-		for i in intro.groups[g]["slots"]:
-			if int(i) < views.size():
-				views[int(i)].intro_pose()
-		crowd.cheer(0.5)
-		audio.play("round_start", -6.0, 1.25)
-	if intro.t == ArenaIntro.CARD_IN + 3:
-		audio.play("slam", -6.0, 0.8)
-		shake = maxf(shake, 2.0)
-	arena.refresh()
-	water.advance()
-	ambient.advance()
-	glade.advance()
-	weather.advance()
-	wear.advance()
-	crowd.advance()
-	fx.advance()
-	plants.advance()
-	hud.advance()
-	for v in views:
-		v.refresh()
-	shake *= 0.82
-	_update_camera()
-	_update_letterbox()
-	var sh := shake * shake_scale
-	camera.offset = Vector2.ZERO if sh <= 0.3 else Vector2(randf_range(-sh, sh), randf_range(-sh, sh)).round()
-	flash_rect.color.a = maxf(0.0, flash_rect.color.a - 0.04)
-	if intro.finished():
-		_end_intro()
-
-
-## The intro is over (or skipped): the fight camera eases on from where the intro left
-## it, the HUD comes back, and the round's banners start on the next tick.
-func _end_intro() -> void:
-	if intro == null:
-		return
-	_cam_zoom = intro.zoom
-	_cam_follow = intro.focus
-	_cam_lead = Vector2.ZERO
-	_cam_aim = Vector2.ZERO
-	_cam_off = Vector2.ZERO
-	_drop_intro()
-
-
-## Takes the intro off without touching the camera (a new match, the menu).
-func _drop_intro() -> void:
-	if intro == null:
-		return
-	intro.queue_free()
-	intro = null
-	hud.cinema = false
-	for v in views:
-		v.intro_clock = -1
-		v.victory = false
-
 
 ## Big maps: arrows at the screen's edge toward objectives out of shot (the caravan, the
 ## flags). Screen = (world - camera) x zoom + half the screen.
@@ -3824,11 +3408,11 @@ func _update_pointers(view: Vector2) -> void:
 	if playing and ((team_battle != null and team_battle.sim == sim) or (brawl != null and brawl.sim == sim)):
 		var targets := _wanted_pointers()
 		if team_battle != null and team_battle.caravan:
-			targets.append([team_battle.caravan_pos(), Hud.SIDE_COLORS[team_battle.cv_attacker()], "CARAVAN"])
+			targets.append([team_battle.caravan_pos(), Accessibility.side_color(team_battle.cv_attacker()), "CARAVAN"])
 		if team_battle != null and team_battle.ctf:
 			for side in 2:
 				var word: String = ["FLAG", "TAKEN", "DROPPED", "LOOSE"][clampi(int(team_battle.flag_state[side]), 0, 3)]
-				targets.append([team_battle.flag_pos[side], Hud.SIDE_COLORS[side], word])
+				targets.append([team_battle.flag_pos[side], Accessibility.side_color(side), word])
 		var z := camera.zoom.x
 		var inner := Rect2(Vector2(24, 52), view - Vector2(48, 76))
 		for t in targets:
@@ -3865,400 +3449,89 @@ func _wanted_pointers() -> Array:
 	return out
 
 
-## A fight: keeps every fighter in shot, heads included, with room around them. Close
-## together the camera sits at the normal 1x; as they spread out it pulls back, as far as
-## showing the whole stadium. A foe hidden from the local team (brush, a wall) is left
-## out, or the zoom would give it away. On top of that fit: the look-ahead (`_cam_lead`,
-## toward where the action is going) and the exchange push-in (`_cam_push`).
+## In main_camera.gd (tests and other scripts call it here).
 func _frame_fight(view: Vector2, size: Vector2) -> void:
-	var box := Rect2()
-	var any := false
-	var big := size.x > SimDefs.ARENA_W * 1.15 or size.y > SimDefs.ARENA_H * 1.15
-	var anchor := _cam_anchor() if big else -1
-	var n := sim.creatures.size()
-	if _cam_prev.size() != n:
-		_cam_prev.resize(n)
-		for i in n:
-			_cam_prev[i] = sim.creatures[i].pos
-	var lead := Vector2.ZERO
-	var busy := _cam_push > 0.0 or _clash > 0.0 or _clash_hold > 0 or _ko_cam_t >= 0 or _exchange_t > 0
-	for i in n:
-		var c := sim.creatures[i]
-		var moved := c.pos - _cam_prev[i]
-		_cam_prev[i] = c.pos
-		if c.state != CreatureSim.State.KO:  # (Settle: is anything happening?)
-			busy = busy or moved.length_squared() > 0.04 or c.state != CreatureSim.State.IDLE \
-				or (c.prev_buttons & CAM_ACT_BITS) != 0
-		if i != anchor and c.state == CreatureSim.State.KO and _ko_cam_t < 0:
-			continue
-		if _is_hidden(i):
-			continue
-		if anchor >= 0 and i != anchor and c.pos.distance_to(sim.creatures[anchor].pos) > FOLLOW_R:
-			continue
-		var body := Rect2(c.pos - Vector2(0, float(c.def.get("fx_top", 32)) + c.air_height()), Vector2.ZERO)
-		body = body.expand(c.pos)
-		box = body if not any else box.merge(body)
-		any = true
-		if anchor < 0 or i == anchor:  # a big map leads with the player it follows
-			lead += _lead_of(c, moved)
-	if not any:
-		return
-	var tight := box  # the fighters alone, heads to feet
-	box = box.grow_individual(CAM_PAD.x, CAM_PAD.y + 24.0, CAM_PAD.x, CAM_PAD.y)  # the HUD sits up top
-	var whole := minf(view.x / size.x, view.y / size.y)  # zoom that shows the whole stadium
-	var least := minf(whole, 1.0)
-	if anchor >= 0:
-		least = FOLLOW_ZOOM
-	elif big:
-		least = maxf(least, BIG_MAP_MIN_ZOOM)
-	var fit := clampf(minf(view.x / box.size.x, view.y / box.size.y), least, 1.0)
-	# An exchange up close: push in a little, never past the tighter EXCHANGE_PAD room.
-	if _exchange_t > 0:
-		_exchange_t -= 1
-		if _exchange_t == 0:
-			_exchange_hits = 0
-	var close := tight.size.x <= EXCHANGE_SPAN.x and tight.size.y <= EXCHANGE_SPAN.y
-	var want := 1.0 if close and _exchange_hits >= EXCHANGE_HITS else 0.0
-	_cam_push = lerpf(_cam_push, want, EXCHANGE_IN if want > _cam_push else EXCHANGE_OUT)
-	if _cam_push < 0.002:
-		_cam_push = 0.0
-	if _cam_push > 0.0:
-		var room := tight.grow_individual(EXCHANGE_PAD.x, EXCHANGE_PAD.y + 24.0, EXCHANGE_PAD.x, EXCHANGE_PAD.y)
-		var cap := minf(view.x / room.size.x, view.y / room.size.y)
-		fit = clampf(fit * (1.0 + EXCHANGE_PUSH * _cam_push), fit, maxf(fit, cap))
-	var room_cap := minf(view.x / (tight.size.x + EXCHANGE_PAD.x * 2.0), view.y / (tight.size.y + EXCHANGE_PAD.y * 2.0 + 24.0))
-	var mid := box.get_center()
-	# Aim lead: where the viewed fighter aims, held through the dead zone.
-	var aim := _aim_now(anchor) if cam_level("cam_lead") > 0 else Vector2.ZERO
-	if aim == Vector2.ZERO:
-		_cam_aim_dir = Vector2.ZERO
-	elif _cam_aim_dir == Vector2.ZERO or aim.dot(_cam_aim_dir) < AIM_DEAD_DOT * aim.length() * _cam_aim_dir.length():
-		_cam_aim_dir = aim
-		busy = true
-	_cam_idle = 0 if busy else _cam_idle + 1
-	var settle := cam_level("cam_settle")
-	var settled := settle > 0 and _cam_idle >= SETTLE_AFTER
-	if _cam_zoom <= 0.0:
-		_cam_zoom = fit
-		_cam_follow = mid
-		_cam_lead = Vector2.ZERO
-		_cam_aim = Vector2.ZERO
-	elif settled:
-		# Nothing happening: the target is held where it was when things went quiet, and
-		# moves only when the live one gets past the dead zone; the camera drifts to it.
-		if _cam_idle == SETTLE_AFTER or _settle_fit <= 0.0:
-			_settle_mid = mid
-			_settle_fit = fit
-		if mid.distance_to(_settle_mid) > float(SETTLE_DEAD[settle]):
-			_settle_mid = mid
-		if absf(fit / _settle_fit - 1.0) > SETTLE_ZOOM_DEAD:
-			_settle_fit = fit
-		_cam_follow = _cam_follow.lerp(_settle_mid, float(SETTLE_DRIFT[settle]))
-		if fit < _cam_zoom:
-			_cam_zoom = lerpf(_cam_zoom, fit, 0.12)  # (never holds anyone out of shot)
-		else:
-			_cam_zoom = lerpf(_cam_zoom, minf(_settle_fit, fit), SETTLE_ZOOM_EASE)
-		_cam_lead = _cam_lead.lerp(lead.limit_length(LEAD_MAX), LEAD_EASE)
-	else:
-		# Pull back quickly (nobody leaves the shot), push in gently.
-		_cam_zoom = lerpf(_cam_zoom, fit, 0.12 if fit < _cam_zoom else 0.03)
-		_cam_follow = _cam_follow.lerp(mid, 0.1)
-		_cam_lead = _cam_lead.lerp(lead.limit_length(LEAD_MAX), LEAD_EASE)
-	var aim_want := _cam_aim_dir * Vector2(1.0, AIM_LEAD_Y) * float(AIM_LEAD[cam_level("cam_lead")])
-	_cam_aim = _cam_aim.lerp(aim_want, AIM_EASE_IN if aim_want.length() >= _cam_aim.length() else AIM_EASE_OUT)
-	if _cam_aim.length_squared() < 0.0025:
-		_cam_aim = Vector2.ZERO
-	# Clash reaction: eased toward the strength asked for while it's held.
-	if _clash_hold > 0:
-		_clash_hold -= 1
-	else:
-		_clash_want = 0.0
-	if _ko_cam_t >= 0:  # the KO push-in owns the moment
-		_clash_want = 0.0
-		_clash_hold = 0
-	_clash = lerpf(_clash, _clash_want, CLASH_IN if _clash_want > _clash else CLASH_OUT)
-	if _clash < 0.01:
-		_clash = 0.0
-	_cam_zclash = clash_zoom(_clash, CLASH_PUSH[cam_level("cam_clash")], EXCHANGE_PUSH * _cam_push,
-		room_cap / maxf(_cam_zoom, 0.01))
-	var clash_off: Vector2 = (_clash_pos - _cam_follow).limit_length(CLASH_SHIFT[cam_level("cam_clash")]) * _clash
-	_cam_lead = _lead_room(_cam_lead, _cam_follow, tight, view * 0.5 / _cam_zoom)
-	_cam_off = _lead_room(_cam_lead + _cam_aim + clash_off, _cam_follow, tight, view * 0.5 / (_cam_zoom * _cam_zclash))
+	cam_ctl._frame_fight(view, size)
 
 
-## The clash push-in's zoom factor: `amt` (0..1) of `push`, not on top of the exchange
-## push-in already in the fit (`exchange`, its share: the larger counts, not the sum), and
-## never past `cap` (the factor that still leaves EXCHANGE_PAD round the fighters).
+## In main_camera.gd (tests and other scripts call it here).
 static func clash_zoom(amt: float, push: float, exchange: float, cap: float) -> float:
-	if amt <= 0.0 or push <= 0.0:
-		return 1.0
-	var f := (1.0 + maxf(exchange, push * amt)) / (1.0 + exchange)
-	return clampf(f, 1.0, maxf(1.0, cap))
+	return MainCamera.clash_zoom(amt, push, exchange, cap)
 
 
-## A heavy hit, a guard break or a Surge's hit at `pos` in shot: the clash reaction,
-## `amt` of the full push-in (see CLASH_*).
+## In main_camera.gd (tests and other scripts call it here).
 func _note_clash(pos: Vector2, amt: float) -> void:
-	if cam_level("cam_clash") <= 0 or _ko_cam_t >= 0:
-		return
-	_clash_want = maxf(_clash_want if _clash_hold > 0 else 0.0, amt)
-	_clash_hold = CLASH_HOLD
-	_clash_pos = pos
-	_cam_idle = 0
+	cam_ctl._note_clash(pos, amt)
 
 
-## What kind of move a `hit` event came from ("light", "heavy", "skill", "surge"; "" when
-## the attacker has already moved on, as after a shot): the event says only `heavy`, so the
-## attacker's move is read (never written).
-func _hit_kind(e: Dictionary) -> String:
-	if not bool(e.get("heavy", false)):
-		return "light"
-	var a := int(e.get("attacker", -1))
-	if a < 0 or a >= sim.creatures.size():
-		return ""
-	return sim.creatures[a].move_type()
-
-
-## A --cam-lead= / --cam-clash= / --cam-settle= value as a CAM_LEVELS index: 0 / off,
-## 1 / on / normal, low, high; -1 for anything else.
+## In main_camera.gd (tests and other scripts call it here).
 static func cam_level_arg(v: String) -> int:
-	match v.to_lower():
-		"0", "off":
-			return 0
-		"1", "on", "normal":
-			return CAM_DEFAULT
-		"low":
-			return 1
-		"high":
-			return 3
-	return -1
+	return MainCamera.cam_level_arg(v)
 
 
-## A camera behaviour's level (CAM_LEVELS index): the command line's for this session,
-## else the setting.
+## In main_camera.gd (tests and other scripts call it here).
 func cam_level(key: String) -> int:
-	return clampi(int(_cam_cli.get(key, get(key))), 0, CAM_LEVELS.size() - 1)
+	return cam_ctl.cam_level(key)
 
 
-## Whose aim the camera leads with: the players here (online, the local slot); with
-## nobody here playing (watching, a replay, CPU vs CPU) the fighter the HUD follows. On
-## a big map, only the followed player (`anchor`).
+## In main_camera.gd (tests and other scripts call it here).
 func _aim_fighters(anchor: int) -> Array:
-	var n := sim.creatures.size()
-	if anchor >= 0:
-		return [anchor]
-	if online != null:
-		return [online.local_slot] if online.local_slot < n else []
-	var out := []
-	for k in mini(sides.size(), n):
-		if sides[k] in LOCAL_SIDES:
-			out.append(k)
-	if out.is_empty() and hud.focus < n:
-		out.append(hud.focus)
-	return out
+	return cam_ctl._aim_fighters(anchor)
 
 
-## The aim the camera leads toward this tick: the average of the aim fighters' aims (two
-## players here aiming apart cancel out), nothing while knocked out or falling.
-func _aim_now(anchor: int) -> Vector2:
-	var sum := Vector2.ZERO
-	var count := 0
-	for k in _aim_fighters(anchor):
-		if _is_hidden(k):
-			continue
-		var d := aim_dir_of(sim.creatures[k])
-		if d != Vector2.ZERO:
-			sum += d
-			count += 1
-	if count == 0:
-		return Vector2.ZERO
-	sum /= count
-	return sum if sum.length() > 0.3 else Vector2.ZERO
-
-
-## One fighter's aim, read from the sim (never written): its exact aim angle when its last
-## input carried one (twin-stick, mouse), else the way it faces.
-static func aim_dir_of(c: CreatureSim) -> Vector2:
-	if c.state == CreatureSim.State.KO or c.state == CreatureSim.State.FALLING:
-		return Vector2.ZERO
-	if c.prev_buttons & SimDefs.IN_AIM:
-		return SimDefs.aim_from_bits(c.prev_buttons)
-	return c.facing.normalized() if c.facing != Vector2.ZERO else Vector2.ZERO
-
-
-## A hit or block landed in shot: the exchange goes on (see EXCHANGE_HITS).
+## In main_camera.gd (tests and other scripts call it here).
 func _note_exchange() -> void:
-	_exchange_t = EXCHANGE_HOLD
-	_exchange_hits += 1
+	cam_ctl._note_exchange()
 
 
-## What one fighter adds to the look-ahead: along its facing while it attacks, along its
-## motion while it moves fast (a dash, a launch, knockback; `moved` is its step this tick).
-func _lead_of(c: CreatureSim, moved: Vector2) -> Vector2:
-	if c.state == CreatureSim.State.KO or c.state == CreatureSim.State.FALLING:
-		return Vector2.ZERO
-	var l := Vector2.ZERO
-	if c.state == CreatureSim.State.ATTACK and c.facing != Vector2.ZERO:
-		l += c.facing.normalized() * LEAD_ATTACK
-	var sp := moved.length()
-	if sp >= LEAD_MIN_SPEED and sp < 40.0:  # (a jump of more is a warp or a respawn)
-		l += moved / sp * minf(sp * LEAD_PER_SPEED, LEAD_MAX)
-	return l
-
-
-## The look-ahead cut back so the shot (`half` its size, centred on `follow` + the lead)
-## still holds `tight`, the fighters, with LEAD_KEEP to spare. It only ever shrinks the
-## lead toward nothing, never adds any.
+## In main_camera.gd (tests and other scripts call it here).
 static func _lead_room(lead: Vector2, follow: Vector2, tight: Rect2, half: Vector2) -> Vector2:
-	var c0 := tight.get_center()
-	var spare := (half - tight.size * 0.5 - LEAD_KEEP).max(Vector2.ZERO)
-	var lo := c0 - spare - follow
-	var hi := c0 + spare - follow - Vector2(0, 24)  # heads stay clear of the HUD up top
-	return Vector2(clampf(lead.x, minf(lo.x, 0.0), maxf(hi.x, 0.0)),
-		clampf(lead.y, minf(lo.y, 0.0), maxf(hi.y, 0.0)))
+	return MainCamera._lead_room(lead, follow, tight, half)
 
 
-## Whose fighter a big map's camera follows: the one player here (online, the local
-## slot). -1 with nobody here playing, or players here on both sides.
-func _cam_anchor() -> int:
-	if online != null:
-		return online.local_slot
-	var found := -1
-	for k in mini(sides.size(), sim.creatures.size()):
-		if sides[k] in LOCAL_SIDES:
-			if found >= 0:
-				return -1
-			found = k
-	return found
-
-
-## Keeps the arena filling the screen along one axis, the view allowed `lo` / `hi` past its
-## start and end (into the stands); when the screen shows more than that (an ultrawide's
-## width), the view stays centred on it and the stadium fills the rest.
+## In main_camera.gd (tests and other scripts call it here).
 static func _cam_axis(v: float, half: float, arena: float, lo := 0.0, hi := 0.0) -> float:
-	if half * 2.0 >= arena + lo + hi:
-		return (arena + hi - lo) * 0.5
-	return clampf(v, half - lo, arena + hi - half)
+	return MainCamera._cam_axis(v, half, arena, lo, hi)
 
 
 # ------------------------------------------------------------------ input
 
 func _input(event: InputEvent) -> void:
-	if _attract_pressed(event):
-		_end_attract()
+	if show_ctl._attract_pressed(event):
+		show_ctl._end_attract()
 		get_viewport().set_input_as_handled()  # the press only wakes the title
 		return
 	if not (event is InputEventMouseMotion and (event as InputEventMouseMotion).relative == Vector2.ZERO):
 		_idle_t = 0
-	if wipe != null and wipe.active() and _skips_intro(event):
+	if wipe != null and wipe.active() and MainPresentation._skips_intro(event):
 		wipe.finish()  # (the press still does what it does)
-	if intro != null and _skips_intro(event):
-		_end_intro()
+	if intro != null and MainPresentation._skips_intro(event):
+		show_ctl._end_intro()
 		get_viewport().set_input_as_handled()  # the press only skips (Esc doesn't also pause)
 		return
 	var touch := event is InputEventScreenTouch or event is InputEventScreenDrag
 	if not (event is InputEventMouseMotion) and not touch:
 		_join_cpus()  # a press may change the match (a reset, a swap) while the CPUs read it
-	_note_input(event)
+	touch_ctl._note_input(event)
 
 
-## One event for player 1's devices: which device is in use (the prompts and the touch
-## controls follow it), and the screen's touches for the touch pad.
+## In main_touch.gd (tests and other scripts call it here).
 func _note_input(event: InputEvent) -> void:
-	var before := player_input.label_set()
-	player_input.note_event(event)
-	if event is InputEventScreenTouch or event is InputEventScreenDrag:
-		player_input.touch.feed(event)
-	if player_input.label_set() != before:
-		_apply_device()
+	touch_ctl._note_input(event)
 
 
-## Once a tick (also while paused): the touch pad's state and the overlay. Touches start
-## fingers only in a fight with a player here; anything else, or another device, lets go
-## of every finger. A tap on the overlay's Pause is the Pause button.
-func _touch_step() -> void:
-	var pad := player_input.touch
-	var here := online != null or sides.has(Side.PLAYER)
-	var fighting := flow == Flow.FIGHT and here and not paused and not ui.is_open() and intro == null \
-			and showcase == null and autoplay == null and not _replaying() and watch == null
-	pad.active = fighting
-	if touch_demo != null and fighting:
-		for ev in touch_demo.step(pad):
-			_note_input(ev)
-	var vs := get_viewport_rect().size
-	var tag := duel != null
-	if pad.show_tag != tag or pad.screen() != vs:
-		pad.show_tag = tag
-		pad.layout(vs)
-	var on := player_input.device == PlayerInput.Device.TOUCH
-	if (not fighting or not on) and pad.fingers_down() > 0:
-		pad.release_all()
-	touch_overlay.visible = fighting and on
-	touch_overlay.sim = sim
-	touch_overlay.slot = hud.focus
-	hud.touch = touch_overlay.visible
-	_touch_targets()
-	if pad.pause_requested:
-		pad.pause_requested = false
-		if fighting:
-			var ev := InputEventAction.new()  # the same as Esc or Start
-			ev.action = "pause"
-			ev.pressed = true
-			Input.parse_input_event(ev)
-
-
-## The target lock's view of the match: who the local team can't see (never locked or
-## shown), the enemy portraits (foes it could lock, seen and on screen; none with one foe)
-## and Capture the Flag's objective button (the foe carrying our flag).
-func _touch_targets() -> void:
-	var pad := player_input.touch
-	player_input.touch_hidden = _hidden
-	touch_overlay.unseen = _hidden
-	var picks: Array = []
-	var objective := false
-	var me_idx: int = hud.focus
-	if touch_overlay.visible and me_idx >= 0 and me_idx < sim.creatures.size():
-		var me: CreatureSim = sim.creatures[me_idx]
-		var view := get_viewport().get_canvas_transform().affine_inverse() * get_viewport_rect()
-		var foes := 0
-		for i in sim.creatures.size():
-			if not me.is_foe(sim.creatures[i]):
-				continue
-			foes += 1
-			if view.has_point(sim.creatures[i].pos) and TouchTarget.can_lock(sim, me_idx, i, _hidden):
-				picks.append(i)
-		if foes < 2:
-			picks = []  # one foe: a tap already finds it
-		objective = team_battle != null and team_battle.ctf
-		if pad.objective_requested:
-			var o := TouchTarget.ctf_objective(team_battle, me)
-			if o >= 0:
-				pad.lock_request = o
-	pad.objective_requested = false
-	pad.set_picks(picks, objective)
-
-
-## Settings > Controls > Touch into the touch pad and the overlay.
+## In main_touch.gd (tests and other scripts call it here).
 func _apply_touch() -> void:
-	touch_overlay.opacity = float(TOUCH_OPACITY[clampi(touch_opacity, 0, TOUCH_OPACITY.size() - 1)])
-	player_input.touch.left_handed = touch_left or _touch_demo_left
-	player_input.touch.layout(player_input.touch.screen())
-
-
-## Any button skips the arena intro: a key, a controller button, a mouse click.
-static func _skips_intro(event: InputEvent) -> bool:
-	if event is InputEventKey:
-		return event.pressed and not event.echo
-	return (event is InputEventJoypadButton or event is InputEventMouseButton or event is InputEventAction) and event.pressed
+	touch_ctl._apply_touch()
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("mute_music"):  # (typing in a text box never gets here)
 		var muted := audio.toggle_music()
 		_toast("Music off (M to turn on)" if muted else "Music on")
-		_save_settings()
+		settings_ctl._save_settings()
 		if _setting_rows.has("vol_Music"):
-			var now := _setting("vol_Music")
+			var now := settings_ctl._setting("vol_Music")
 			(_setting_rows["vol_Music"] as OptionRow).set_values(now["values"], int(now["index"]))
 		return
 	if flow == Flow.MATCH_OVER and event.is_action_pressed("save_replay") and not _replaying() and sim != null:
@@ -4266,6 +3539,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if ui.is_open():
 		return  # the screen on top has the input
+	if _replaying() and not paused and replay_ctl.handle(event):
+		return  # watching a replay: pause, step, speed, jumps (also once it has ended)
 	if flow == Flow.MENU or flow == Flow.SELECT or flow == Flow.LOBBY or flow == Flow.MATCH_OVER:
 		return  # their screens take the input
 	if event.is_action_pressed("pause") and showcase != null:
@@ -4276,10 +3551,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		debug.visible = not debug.visible
 		debug.queue_redraw()
 	elif event.is_action_pressed("debug_perf"):
-		_set_setting("perf_overlay", (perf_overlay.mode + 1) % PerfOverlay.MODE_NAMES.size())
+		settings_ctl._set_setting("perf_overlay", (perf_overlay.mode + 1) % PerfOverlay.MODE_NAMES.size())
 		_toast("Performance overlay: " + PerfOverlay.MODE_NAMES[perf_overlay.mode])
 	elif _range_rings_pressed(event):
-		_set_setting("range_rings", 0 if range_rings else 1)
+		settings_ctl._set_setting("range_rings", 0 if range_rings else 1)
 		_toast("Range rings " + ("on" if range_rings else "off"))
 	elif event.is_action_pressed("debug_dummy_mode") and coach is ComboTrials:
 		coach.replay_demo()
@@ -4288,7 +3563,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif _change_fighter_pressed(event) and in_training():
 		_open_fighter_swap()
 	elif event.is_action_pressed("debug_dummy_mode"):
-		_set_setting("dummy_mode", (dummy_mode + 1) % DUMMY_MODES.size())
+		settings_ctl._set_setting("dummy_mode", (dummy_mode + 1) % DUMMY_MODES.size())
 		hud.show_toast("Dummy: " + DUMMY_MODES[dummy_mode])
 	elif event.is_action_pressed("debug_help"):
 		hud.show_help = not hud.show_help
@@ -4338,16 +3613,27 @@ static func _back_pressed(event: InputEvent) -> bool:
 ## it can't (`_open_online_pause`).
 func _open_pause() -> void:
 	if online != null or watch != null:  # a spectated room keeps going too
-		_open_online_pause()
+		voice_ctl._open_online_pause()
 		return
 	paused = true
-	if _replaying():  # a saved fight: nothing to restart, so Resume / Replay theater / Main menu
-		var rp := PauseScreen.new(false, "")
+	if _replaying():  # a saved fight: nothing to restart, so Resume / the viewer's jumps / Replay theater / Main menu
+		var rp := PauseScreen.new(false, ReplayViewer.help_text())
 		rp.quit_text = "Main menu"
-		rp.extras = [["Replay theater", func():
-			_close_ui()
-			_open_menu("single")
-			_open_replays(), "Pick another saved fight"]]
+		rp.extras = [
+			["Back 5 seconds", func():
+				_close_ui()
+				replay_ctl.jump(-ReplayViewer.JUMP_TICKS), "Jump back and keep watching"],
+			["Watch from the start", func():
+				_close_ui()
+				replay_ctl.seek(0), "The whole fight again"],
+			["Speed: %s" % ReplayViewer.SPEED_NAMES[replay_ctl.speed_i], func():
+				_close_ui()
+				replay_ctl.cycle_speed(), "Slow motion or fast forward: 1/4, 1/2, 1x, 2x"],
+			["Save a bug report", func(): _save_bug_report(true), BugReport.BLURB],
+			["Replay theater", func():
+				_close_ui()
+				_open_menu("single")
+				_open_replays(), "Pick another saved fight"]]
 		rp.resumed.connect(func(): paused = false)
 		rp.quit_requested.connect(func():
 			_close_ui()
@@ -4358,6 +3644,7 @@ func _open_pause() -> void:
 	if in_training():
 		p.extras = [["Change fighter", _open_fighter_swap, "Swap your fighter here: the dummy, arena and options stay"],
 			["Training options", _open_training_options, "No cooldowns, Surge always full, what the dummy does"]]
+	p.extras.append(["Save a bug report", func(): _save_bug_report(true), BugReport.BLURB])
 	if arcade is Gauntlet:  # Restart is a whole new run, from wave 1
 		var waves := (arcade as Gauntlet).waves()
 		p.restart_question = "Start a new run from wave 1?"
@@ -4449,9 +3736,9 @@ func _open_training_options() -> void:
 	scr.blurb = "No cooldowns, Surge always full, what the dummy does"
 	scr.hints = ["move", "change", "back"]
 	scr.builder = func(s: UiScreen):
-		_add_setting_row(s, "no_cooldowns")
-		_add_setting_row(s, "full_energy")
-		_add_setting_row(s, "dummy_mode")
+		settings_ctl._add_setting_row(s, "no_cooldowns")
+		settings_ctl._add_setting_row(s, "full_energy")
+		settings_ctl._add_setting_row(s, "dummy_mode")
 		s.add_space(4)
 		s.add_button("Back", s.back)
 	scr.backed.connect(func(): _setting_rows.clear())
@@ -4478,241 +3765,41 @@ func _change_fighter_pressed(event: InputEvent) -> bool:
 	return event.is_action_pressed(kb) or event.is_action_pressed("pad_change_fighter")
 
 
-## A Settings row: its label, values (shown), current index, a description, and for a
-## volume its bar.
+## In main_settings.gd (tests and other scripts call it here).
 func _setting(key: String) -> Dictionary:
-	if key.begins_with("vol_"):
-		var bus := key.trim_prefix("vol_")
-		var v := audio.volume(bus)
-		var vals: Array = ["Off"]
-		for i in range(1, 11):
-			vals.append("%d%%" % (i * 10))
-		var idx := clampi(roundi(v / VOLUME_STEP), 0, 10)
-		if bus == "Music" and audio.music_muted and idx > 0:
-			vals[idx] = "muted (M)"
-		return {"label": VOLUME_NAMES[bus], "values": vals, "index": idx, "bar": v, "wrap": false,
-			"desc": "Left/Right sets it.  M mutes the music any time"}
-	match key:
-		"level":
-			return {"label": "CPU level", "values": LEVEL_NAMES, "index": level, "desc": "How hard the CPU fights. Rage: absurdly good, and plays each fighter by its class"}
-		"delay":
-			return {"label": "Online input delay", "values": ["Auto", "1 frame", "2 frames", "3 frames"],
-				"index": clampi(input_delay + 1, 0, 3),
-				"desc": "Frames between a press and the move online. Auto picks from the ping; more means fewer rollbacks. For matches you host or join directly (the server sets its own)"}
-		"layout":
-			var names: Array = []
-			for l in PlayerInput.LAYOUTS:
-				names.append(PlayerInput.LAYOUT_NAMES[l])
-			return {"label": "Keyboard", "values": names, "index": PlayerInput.LAYOUTS.find(player_input.layout),
-				"desc": "League-style: mouse to move, QWER.  Classic: WASD and J K U I O"}
-		"pad_layout":
-			var pads: Array = []
-			for l in PlayerInput.PAD_LAYOUTS:
-				pads.append(PlayerInput.PAD_LAYOUT_NAMES[l])
-			return {"label": "Controller", "values": pads,
-				"index": maxi(0, PlayerInput.PAD_LAYOUTS.find(player_input.pad_layout)),
-				"desc": "Twin-stick: the right stick aims 360 degrees and holds your facing while you walk"}
-		"fullscreen":
-			return {"label": "Fullscreen", "values": ["Off", "On"], "index": 1 if fullscreen else 0,
-				"desc": "Fill the screen"}
-		"wide":
-			return {"label": "Wide screens", "values": ["16:9 with bars", "Fill"], "index": 1 if wide_fill else 0,
-				"desc": "Ultrawide and 16:10: show more of the stadium, or keep a 16:9 picture"}
-		"vsync":
-			return {"label": "Vsync", "values": ["Off", "On"], "index": 1 if vsync else 0,
-				"desc": "On: no tearing, and the screen's refresh rate caps the frame rate"}
-		"touch_opacity":
-			var ops: Array = []
-			for o in TOUCH_OPACITY:
-				ops.append("%d%%" % roundi(float(o) * 100.0))
-			return {"label": "Opacity", "values": ops, "index": touch_opacity,
-				"desc": "How see-through the touch stick and buttons are"}
-		"touch_size":
-			return {"label": "Button size", "values": TouchPad.SIZE_NAMES, "index": player_input.touch.size_step,
-				"desc": "Bigger buttons are easier to hit and cover more of the fight"}
-		"touch_hand":
-			return {"label": "Hand", "values": ["Right-handed", "Left-handed"],
-				"index": 1 if touch_left else 0,
-				"desc": "Left-handed: the buttons on the left and the stick on the right"}
-		"touch_priority":
-			return {"label": "Lock on", "values": TouchTarget.PRIORITY_NAMES, "index": int(player_input.target.priority),
-				"desc": "Which foe a tap locks onto: the one nearest where you point, the nearest, or the one with the least health. Tap a portrait to pick one yourself"}
-		"touch_chase":
-			return {"label": "Chase target", "values": ["Off", "On"], "index": 1 if player_input.target.chase_on else 0,
-				"desc": "Tap Light with your target out of reach and you walk to it (round pits and walls), then hit. The stick always wins"}
-		"touch_aim":
-			return {"label": "Aiming", "values": TouchPad.AIM_STYLES, "index": 1 if player_input.touch.tap_only else 0,
-				"desc": "Tap + drag: tap fires (aimed for you), drag Heavy, Skills or Surge off the button to aim and let go to throw. Tap only: every button fires on the touch"}
-		"range_rings":
-			return {"label": "Range rings", "values": ["Off", "On"], "index": 1 if range_rings else 0,
-				"desc": "Show each attack's real hit area on the floor"}
-		"no_cooldowns":
-			return {"label": "No cooldowns", "values": ["Off", "On"], "index": 1 if training_opts["no_cooldowns"] else 0,
-				"desc": "Every move and the dodge are always ready, and your stamina stays full"}
-		"full_energy":
-			return {"label": "Surge always full", "values": ["Off", "On"], "index": 1 if training_opts["full_energy"] else 0,
-				"desc": "Your Surge meter stays full: throw the Surge as often as you like"}
-		"dummy_mode":
-			return {"label": "Dummy", "values": DUMMY_MODES, "index": dummy_mode,
-				"desc": "What the dummy does (F2 cycles it in a fight)"}
-		"intros":
-			return {"label": "Match intros", "values": ["Off", "On"], "index": 1 if match_intros else 0,
-				"desc": "Before an offline match: a fly-over of the arena and each side's entrance (any button skips it)"}
-		"rumble":
-			return {"label": "Controller rumble", "values": ["Off", "On"], "index": 1 if rumble else 0,
-				"desc": "A buzz when you land a hit or get hit"}
-		"discord":
-			return {"label": "Discord status", "values": ["Off", "On"], "index": 1 if discord_status else 0,
-				"desc": "Show what you're playing on your Discord profile (with the Discord app open)"}
-		"shake":
-			var names: Array = []
-			var idx := 0
-			for i in SHAKE_CHOICES.size():
-				names.append(SHAKE_CHOICES[i][0])
-				if is_equal_approx(float(SHAKE_CHOICES[i][1]), shake_scale):
-					idx = i
-			return {"label": "Screen shake", "values": names, "index": idx,
-				"desc": "How much the camera shakes on big hits"}
-		"fps":
-			var vals: Array = []
-			for f in FPS_CHOICES:
-				vals.append("Unlimited" if int(f) == 0 else "%d fps" % int(f))
-			return {"label": "Fight frame rate", "values": vals, "index": maxi(0, FPS_CHOICES.find(fight_fps)),
-				"desc": "Menus always run at 60 fps; this sets fights (up to your screen's refresh rate)"}
-		"glow":
-			return {"label": "Glow", "values": ["Off", "On"], "index": 1 if glow else 0,
-				"desc": "Glowing things (auras, sparks, flashes, shots) light the floor around them. Off for weaker devices"}
-		"lighting":
-			return {"label": "Lighting", "values": ["Off", "Low", "High"], "index": lighting,
-				"desc": "Real light on the fighters (sun, auras, flashes); High adds the Floodgate's night lamps and bloom. Lower for weaker devices"}
-		"font":
-			return {"label": "Text font", "values": ["Pixel", "Smooth"], "index": 1 if UiTheme.smooth else 0,
-				"desc": "The menus and the HUD: the pixel font, or the smooth font from before"}
-		"cam_lead":
-			return {"label": "Aim lead", "values": CAM_LEVELS, "index": cam_lead,
-				"desc": "The camera leans a little toward where you aim, so you see more of the floor in front of you"}
-		"cam_clash":
-			return {"label": "Clash reaction", "values": CAM_LEVELS, "index": cam_clash,
-				"desc": "A heavy hit, a guard break or a Surge's hit: the camera punches in for a moment"}
-		"cam_settle":
-			return {"label": "Settle", "values": CAM_LEVELS, "index": cam_settle,
-				"desc": "When nothing is happening, the camera holds still instead of hunting. Higher: stiller"}
-		"voice":
-			var talk := Controls.binding_text("lol_talk" if player_input.layout == "league" else "kb_talk",
-				"league" if player_input.layout == "league" else "classic")
-			return {"label": "Voice chat", "values": VoiceChat.MODE_NAMES, "index": voice_mode_now(),
-				"desc": "Online: talk to players near your fighter (teammates always faintly). Push to talk holds %s. Voice isn't encrypted: treat it like a phone call on open Wi-Fi. Open mic sends any sound above a whisper, TV included; push to talk is the safer default" % talk}
-		"voice_hear":
-			return {"label": "Hear voices from", "values": VOICE_HEAR, "index": voice_hear,
-				"desc": "Everyone: anyone in your match. Rooms and friends: Quick match and ranked strangers start muted; unmute them from the pause menu"}
-		"mic":
-			var mics := mic_choices()
-			return {"label": "Microphone", "values": mics, "index": maxi(0, mics.find(mic_device)),
-				"desc": "Which microphone voice chat listens to"}
-		"perf_overlay":
-			return {"label": "Performance overlay", "values": PerfOverlay.MODE_NAMES, "index": perf_overlay.mode,
-				"desc": "The frame rate in a corner; with the graph, the last few seconds of frame times (F9 in a fight)"}
-	return {"label": key, "values": [""], "index": 0, "desc": ""}
+	return settings_ctl._setting(key)
 
 
+## In main_settings.gd (tests and other scripts call it here).
 func _set_setting(key: String, i: int) -> void:
-	if key.begins_with("vol_"):
-		var bus := key.trim_prefix("vol_")
-		var v := clampf(i * VOLUME_STEP, 0.0, 1.0)
-		audio.set_volume(bus, v)
-		if bus == "Music" and v > 0.0 and audio.music_muted:
-			audio.set_music_muted(false)  # turning the music up unmutes it
-		# Let the player hear the new level (the music is already playing).
-		if bus == "Effects":
-			audio.preview("hit_light", "Effects")
-		elif bus != "Music":
-			audio.preview("ui_select", "Menu")
+	settings_ctl._set_setting(key, i)
+
+
+## Settings > Save a bug report and the pause menus' row (bug_report.gd): the zip in
+## user://bug-reports, named in a toast; on a desktop the folder opens, when the player
+## pressed the button (`show_folder`).
+func _save_bug_report(show_folder := false) -> String:
+	var path := BugReport.write(self)
+	if path == "":
+		_toast("Could not save a bug report")
+		return ""
+	var where := ProjectSettings.globalize_path(path)
+	print("Bug report saved to ", where)
+	_toast("Bug report saved: " + where)
+	if show_folder and OS.has_feature("pc") and DisplayServer.get_name() != "headless":
+		OS.shell_show_in_file_manager(where)
+	return path
+
+
+## --bug-report[=DIR]: the zip in DIR (default user://bug-reports), its path printed.
+## Never opens a folder.
+func _cli_bug_report() -> void:
+	var dir := _bug_report_dir
+	var path := BugReport.write(self, dir)
+	if path == "":
+		printerr("BUGREPORT could not write into ", dir)
 	else:
-		match key:
-			"level":
-				level = clampi(i, 0, LEVEL_NAMES.size() - 1)
-			"delay":
-				input_delay = clampi(i, 0, 3) - 1
-			"layout":
-				player_input.layout = PlayerInput.LAYOUTS[clampi(i, 0, PlayerInput.LAYOUTS.size() - 1)]
-				_apply_device()
-			"pad_layout":
-				_set_pad_layout(PlayerInput.PAD_LAYOUTS[clampi(i, 0, PlayerInput.PAD_LAYOUTS.size() - 1)])
-				_apply_device()
-			"fullscreen":
-				fullscreen = i == 1
-				_apply_fullscreen()
-			"wide":
-				wide_fill = i == 1
-				_apply_aspect()
-			"vsync":
-				vsync = i == 1
-				_apply_vsync()
-			"intros":
-				match_intros = i == 1
-			"rumble":
-				rumble = i == 1
-				if rumble and player_input.device == PlayerInput.Device.GAMEPAD:
-					Input.start_joy_vibration(player_input.pad_id, 0.4, 0.4, 0.2)  # feel it
-			"shake":
-				shake_scale = float(SHAKE_CHOICES[clampi(i, 0, SHAKE_CHOICES.size() - 1)][1])
-			"range_rings":
-				range_rings = i == 1
-				_apply_range_rings()
-			"touch_opacity":
-				touch_opacity = clampi(i, 0, TOUCH_OPACITY.size() - 1)
-				_apply_touch()
-			"touch_size":
-				player_input.touch.size_step = clampi(i, 0, TouchPad.SIZES.size() - 1)
-				_apply_touch()
-			"touch_hand":
-				touch_left = i == 1
-				_apply_touch()
-			"touch_aim":
-				player_input.touch.tap_only = i == 1
-			"touch_priority":
-				player_input.target.priority = clampi(i, 0, TouchTarget.PRIORITY_NAMES.size() - 1) as TouchTarget.Priority
-			"touch_chase":
-				player_input.target.chase_on = i == 1
-			"no_cooldowns", "full_energy":
-				training_opts[key] = i == 1
-				_apply_training_opts()
-			"dummy_mode":
-				dummy_mode = clampi(i, 0, DUMMY_MODES.size() - 1)
-				hud.dummy_mode_name = DUMMY_MODES[dummy_mode]
-			"discord":
-				discord_status = i == 1
-				_apply_discord()
-			"fps":
-				fight_fps = int(FPS_CHOICES[clampi(i, 0, FPS_CHOICES.size() - 1)])
-			"cam_lead", "cam_clash", "cam_settle":
-				set(key, clampi(i, 0, CAM_LEVELS.size() - 1))
-				_cam_cli.erase(key)  # (the menu outranks a command-line value from here on)
-			"perf_overlay":
-				perf_overlay.mode = clampi(i, 0, PerfOverlay.MODE_NAMES.size() - 1) as PerfOverlay.Mode
-			"voice":
-				voice_mode = clampi(i, 0, VoiceChat.MODE_NAMES.size() - 1)
-				_voice_cli = -1  # (the menu outranks --voice from here on)
-				_apply_voice()
-			"voice_hear":
-				voice_hear = clampi(i, 0, VOICE_HEAR.size() - 1)
-			"mic":
-				var mics := mic_choices()
-				mic_device = String(mics[clampi(i, 0, mics.size() - 1)])
-				_apply_mic()
-			"glow":
-				glow = i == 1
-				_apply_glow()
-			"lighting":
-				lighting = clampi(i, 0, 2)
-				_lighting_cli = -1
-				_apply_lighting()
-			"font":
-				if UiTheme.smooth != (i == 1):
-					UiTheme.smooth = i == 1
-					ui.restyle()
-					_reopen_settings_page.call_deferred("video", "font")
-	_save_settings()
+		print("BUGREPORT ", ProjectSettings.globalize_path(path))
 
 
 ## A short message: over the screens when one is open, else in the HUD.
@@ -4856,186 +3943,44 @@ func _apply_range_rings() -> void:
 
 # ------------------------------------------------------------------ voice chat
 
-## The voice chat mode this session: --voice-test (open mic), else --voice, else the setting.
+## In main_voice.gd (tests and other scripts call it here).
 func voice_mode_now() -> int:
-	if _voice_test:
-		return VoiceChat.Mode.OPEN_MIC
-	return _voice_cli if _voice_cli >= 0 else voice_mode
+	return voice_ctl.voice_mode_now()
 
 
-## --voice=off|ptt|open (this session's mode, never saved) and --voice-test=tone.
+## In main_voice.gd (tests and other scripts call it here).
 func _voice_arg(a: String) -> void:
-	if a.begins_with("--voice="):
-		var vm := ["off", "ptt", "open"].find(a.get_slice("=", 1))
-		if vm >= 0:
-			_voice_cli = vm
-	elif a == "--voice-test=tone":
-		_voice_test = true
-		voice_view.tone = true
-	_apply_voice()
+	voice_ctl._voice_arg(a)
 
 
-## The session's voice chat follows the setting (a new Netplay, a change mid-match).
+## In main_voice.gd (tests and other scripts call it here).
 func _apply_voice() -> void:
-	var m := voice_mode_now()
-	if netplay != null and netplay.voice != null:
-		netplay.voice.mode = m
-	if m != VoiceChat.Mode.OFF:
-		VoiceView.ask_permission()
+	voice_ctl._apply_voice()
 
 
-## Settings > Audio > Hear voices from, at a Netplay's first match: "Rooms and friends"
-## starts a server Quick match or ranked match (no room code: strangers) with everyone
-## muted; a room or a direct host / join starts unmuted. Once per Netplay, so a rematch
-## keeps what the player chose in the pause menu since.
+## In main_voice.gd (tests and other scripts call it here).
 func _apply_voice_hear() -> void:
-	if netplay == null or netplay.voice == null or netplay.has_meta("voice_hear_applied"):
-		return
-	netplay.set_meta("voice_hear_applied", true)
-	netplay.voice.mute_all = voice_hear == 1 and netplay.via_server and netplay.room == ""
+	voice_ctl._apply_voice_hear()
 
 
-## Online (playing or watching): the pause menu over a match that keeps going (never
-## `paused`; your fighter stands still while it's open): Resume, Voice chat, and Leave
-## match (or Stop watching), which asks first.
-func _open_online_pause() -> void:
-	var playing := online != null
-	var p := PauseScreen.new(false, "")
-	p.subtitle = "The match keeps going while this is open"
-	p.quit_text = "Leave match" if playing else "Stop watching"
-	p.quit_question = "Leave the match?" if playing else "Stop watching?"
-	p.quit_note = "The match keeps going while this is open."
-	p.quit_yes = "Leave"
-	p.quit_no = "Stay"
-	if netplay != null and netplay.voice != null:
-		p.extras = [["Voice chat", _open_voice_screen, "Mute players, everyone, or your own mic"]]
-	p.quit_requested.connect(func(): _leave_online())
-	ui.push(p)
-
-
-## The voice screen's player rows: every other human in the match on now (not a CPU, not
-## this player), each {"label": "<name> · <fighter>", "slot": slot}. The name is the
-## server's (VoiceChat.names), else "Player N".
+## In main_voice.gd (tests and other scripts call it here).
 func voice_rows() -> Array:
-	var out: Array = []
-	if netplay == null or netplay.voice == null:
-		return out
-	var game = null
-	var players := 0
-	var cpu: Dictionary = {}
-	var me := -1
-	if online != null:
-		game = online.game_sim()
-		players = online.players
-		cpu = online.cpu_slots
-		me = online.local_slot
-	elif watch != null:
-		game = watch.duel
-		players = watch.players
-		cpu = watch.cpus
-	else:
-		return out
-	for slot in players:
-		if slot == me or cpu.has(slot):
-			continue
-		var who := Netplay.clean_name(netplay.voice.name_of(slot)).strip_edges()
-		if who == "":
-			who = "Player %d" % (slot + 1)
-		var c := VoiceView.fighter(game, slot)
-		var fighter := String(c.def.get("name", "")) if c != null else ""
-		out.append({"label": "%s · %s" % [who, fighter] if fighter != "" else who, "slot": slot})
-	return out
+	return voice_ctl.voice_rows()
 
 
-## Pause > Voice chat: Mute everyone, Mute my mic (players only, voice on), a Hearing /
-## Muted row per other player (VoiceChat.set_muted: by name for the session too), and the
-## Voice chat mode setting. Straight onto `netplay.voice`; the match keeps going.
-func _open_voice_screen() -> void:
-	if netplay == null or netplay.voice == null:
-		return
-	var scr := UiScreen.new()
-	scr.title = "VOICE CHAT"
-	scr.subtitle = "The match keeps going while this is open"
-	scr.row_width = 236.0
-	scr.hints = ["move", "change", "back"]
-	scr.builder = func(s: UiScreen):
-		var chat: VoiceChat = netplay.voice
-		s.add_option("Mute everyone", ["Off", "On"], 1 if chat.mute_all else 0,
-			func(i: int): chat.mute_all = i == 1,
-			"Hear nobody in this match. Your own mic still works")
-		if online != null and voice_mode_now() != VoiceChat.Mode.OFF:
-			s.add_option("Mute my mic", ["Off", "On"], 1 if chat.mic_muted else 0,
-				func(i: int): chat.mic_muted = i == 1,
-				"Send nothing, whatever you press. Push to talk already only sends while the key is held")
-		for r in voice_rows():
-			var slot := int(r["slot"])
-			s.add_option(String(r["label"]), ["Hearing", "Muted"], 1 if chat.is_muted(slot) else 0,
-				func(i: int): chat.set_muted(slot, i == 1),
-				"Muted: you hear nothing from this player, for the rest of this session")
-		_add_setting_row(s, "voice").changed.connect(func(_i): _reopen_voice_screen.call_deferred())
-		s.add_space(4)
-		s.add_button("Back", s.back)
-	scr.backed.connect(func(): _setting_rows.erase("voice"))
-	ui.push(scr)
-
-
-## The voice screen again after the mode changed (Mute my mic shows only with voice on),
-## focused on the mode row.
-func _reopen_voice_screen() -> void:
-	var top := ui.top()
-	if top == null or top.title != "VOICE CHAT":
-		return
-	ui.pop()
-	_open_voice_screen()
-	var row: Control = _setting_rows.get("voice")
-	if row != null:
-		row.grab_focus()
-
-
-## Settings > Audio > Microphone's choices: the system's input devices.
+## In main_voice.gd (tests and other scripts call it here).
 func mic_choices() -> Array:
-	var out: Array = Array(AudioServer.get_input_device_list())
-	if out.is_empty():
-		out = ["Default"]
-	return out
+	return voice_ctl.mic_choices()
 
 
+## In main_voice.gd (tests and other scripts call it here).
 func _apply_mic() -> void:
-	if mic_device != "" and mic_device in AudioServer.get_input_device_list():
-		AudioServer.input_device = mic_device
+	voice_ctl._apply_mic()
 
 
-## Push to talk: the talk key of the keyboard layout in use, or the controller's.
-func _talk_held() -> bool:
-	if _voice_test:
-		return true
-	var kb := "lol_talk" if player_input.layout == "league" else "kb_talk"
-	return Input.is_action_pressed(kb) or Input.is_action_pressed("pad_talk")
-
-
-## Every rendered frame: the microphone in and the voices out during an online match or
-## a watched one (VoiceView), and the HUD's MIC light and speaker icons.
+## In main_voice.gd (tests and other scripts call it here).
 func _voice_step(delta: float) -> void:
-	if voice_view == null or hud == null:
-		return
-	var game = null
-	var slot := -1
-	if netplay != null and online != null:
-		game = online.game_sim()
-		slot = online.local_slot
-	elif netplay != null and watch != null:
-		game = watch.duel
-	_refresh_mic_test()
-	voice_view.frame(netplay if game != null else null, game, slot,
-		camera.get_screen_center_position() if camera != null else Vector2.ZERO, _talk_held(), delta)
-	hud.mic_on = voice_view.sending
-	hud.mic_missing = voice_view.mic_missing and slot >= 0 and voice_mode_now() != VoiceChat.Mode.OFF
-	var chat: VoiceChat = netplay.voice if netplay != null and game != null and slot >= 0 else null
-	hud.mic_muted = chat != null and chat.mic_muted and voice_mode_now() != VoiceChat.Mode.OFF
-	hud.voice_muted = chat != null and chat.mute_all
-	hud.speaking = voice_view.heard
-	if fx != null:
-		fx.speaking = voice_view.heard
+	voice_ctl._voice_step(delta)
 
 
 ## The range rings key of the player's own controls: the keyboard layout in use, or the
@@ -5196,449 +4141,12 @@ func _apply_glow() -> void:
 		glow_halo.visible = false
 
 
-func _load_settings() -> void:
-	var cfg := ConfigFile.new()
-	if cfg.load(settings_path) == OK:
-		var lay := String(cfg.get_value("input", "layout", "league"))
-		if lay in PlayerInput.LAYOUTS:
-			player_input.layout = lay
-		var pad := String(cfg.get_value("input", "pad_layout", "standard"))
-		if pad in PlayerInput.PAD_LAYOUTS:
-			_set_pad_layout(pad)
-		level = clampi(int(cfg.get_value("game", "level", level)), 0, LEVEL_NAMES.size() - 1)
-		input_delay = clampi(int(cfg.get_value("online", "delay", -1)), -1, 3)
-		Netplay.player_id = String(cfg.get_value("online", "id", ""))
-		Netplay.player_secret = String(cfg.get_value("online", "secret", ""))
-		Netplay.player_name = Netplay.clean_name(String(cfg.get_value("online", "name", "Player")))
-		if Netplay.player_name == "":
-			Netplay.player_name = "Player"
-		var tc := String(cfg.get_value("game", "time", WeatherView.RANDOM))
-		time_choice = tc if tc == WeatherView.RANDOM or tc in WeatherView.time_ids() else WeatherView.RANDOM
-		var wc := String(cfg.get_value("game", "weather", WeatherView.RANDOM))
-		weather_choice = wc if wc == WeatherView.RANDOM or wc in WeatherView.weather_ids() else WeatherView.RANDOM
-		hazards_on = []
-		var known := Hazards.ids()
-		for h in cfg.get_value("game", "hazards", []):
-			if String(h) in known and not (String(h) in hazards_on):
-				hazards_on.append(String(h))
-		hazards_on.sort()
-		var ar := String(cfg.get_value("game", "arena", MatchFactory.arena))
-		if ar in ArenaMap.IDS:
-			_arena_saved = ar
-			if MatchFactory.arena == ArenaMap.DEFAULT:  # no --arena flag
-				MatchFactory.arena = ar
-		audio.set_music_muted(bool(cfg.get_value("audio", "music_muted", false)))
-		_online_fighter = String(cfg.get_value("online", "fighter", _online_fighter))
-		if not (_online_fighter in MatchFactory.FIGHTERS):
-			_online_fighter = "cairn"
-		_online_address = String(cfg.get_value("online", "address", ""))
-		_online_server = String(cfg.get_value("online", "server", "")).strip_edges()
-		_recent_servers = Array(cfg.get_value("online", "recent", []))
-		for bus in AudioView.DEFAULT_VOLUMES:
-			audio.set_volume(bus, float(cfg.get_value("audio", "volume_" + String(bus).to_lower(),
-				AudioView.DEFAULT_VOLUMES[bus])))
-		fullscreen = bool(cfg.get_value("video", "fullscreen", false))
-		if fullscreen:
-			_apply_fullscreen()
-		vsync = bool(cfg.get_value("video", "vsync", true))
-		_apply_vsync()
-		wide_fill = bool(cfg.get_value("video", "wide_fill", true))
-		_apply_aspect()
-		rumble = bool(cfg.get_value("game", "rumble", true))
-		match_intros = bool(cfg.get_value("game", "intros", true))
-		discord_status = bool(cfg.get_value("game", "discord", true))
-		shake_scale = float(cfg.get_value("game", "shake", 1.0))
-		range_rings = bool(cfg.get_value("game", "range_rings", false))
-		touch_opacity = clampi(int(cfg.get_value("touch", "opacity", TOUCH_OPACITY_DEFAULT)), 0, TOUCH_OPACITY.size() - 1)
-		player_input.touch.size_step = clampi(int(cfg.get_value("touch", "size", 1)), 0, TouchPad.SIZES.size() - 1)
-		touch_left = bool(cfg.get_value("touch", "left_handed", false))
-		player_input.touch.tap_only = bool(cfg.get_value("touch", "tap_only", false))
-		player_input.target.priority = clampi(int(cfg.get_value("touch", "priority", 0)), 0,
-			TouchTarget.PRIORITY_NAMES.size() - 1) as TouchTarget.Priority
-		player_input.target.chase_on = bool(cfg.get_value("touch", "chase", true))
-		for k in MatchSim.TRAINING_FLAGS:
-			training_opts[k] = bool(cfg.get_value("training", k, false))
-		dummy_mode = clampi(int(cfg.get_value("training", "dummy_mode", 0)), 0, DUMMY_MODES.size() - 1)
-		Controls.apply_overrides(cfg.get_value("controls", "bindings", {}))
-		var fps := int(cfg.get_value("video", "fight_fps", default_fps()))
-		fight_fps = fps if fps in FPS_CHOICES else default_fps()
-		UiTheme.smooth = String(cfg.get_value("video", "font", "pixel")) == "smooth"
-		glow = bool(cfg.get_value("video", "glow", default_glow()))
-		_apply_glow()
-		lighting = clampi(int(cfg.get_value("video", "lighting", default_lighting())), 0, 2)
-		for k in ["cam_lead", "cam_clash", "cam_settle"]:
-			set(k, clampi(int(cfg.get_value("video", k, CAM_DEFAULT)), 0, CAM_LEVELS.size() - 1))
-		perf_overlay.mode = clampi(int(cfg.get_value("video", "perf_overlay", 0)), 0,
-			PerfOverlay.MODE_NAMES.size() - 1) as PerfOverlay.Mode
-		voice_mode = clampi(int(cfg.get_value("audio", "voice_mode", VoiceChat.Mode.PUSH_TO_TALK)), 0,
-			VoiceChat.MODE_NAMES.size() - 1)
-		mic_device = String(cfg.get_value("audio", "mic_device", ""))
-		voice_hear = clampi(int(cfg.get_value("audio", "voice_hear", 0)), 0, VOICE_HEAR.size() - 1)
-		_apply_mic()
-		var saved_rows = cfg.get_value("game", "row_choice", {})
-		if saved_rows is Dictionary:
-			for r in MENU_ROWS.size():
-				var lbl := String(MENU_ROWS[r]["label"])
-				if saved_rows.has(lbl) and MENU_ROWS[r].has("choices"):
-					_row_choice[r] = clampi(int(saved_rows[lbl]), 0, (MENU_ROWS[r]["choices"] as Array).size() - 1)
-	# After everything is loaded: saving here first would write defaults over it.
-	# The secret proves the id is this install's to a server (never shown or sent to
-	# another player); made with the id, or once for an id from before secrets.
-	if Netplay.player_id.length() < 8 or not Netplay.valid_secret(Netplay.player_secret):
-		if Netplay.player_id.length() < 8:
-			Netplay.player_id = Netplay.make_player_id()
-		if not Netplay.valid_secret(Netplay.player_secret):
-			Netplay.player_secret = Netplay.make_secret()
-		_save_settings()
-
-
+## In main_settings.gd (tests and other scripts call it here).
 func _save_settings() -> void:
-	var cfg := ConfigFile.new()
-	cfg.set_value("input", "layout", player_input.layout)
-	cfg.set_value("input", "pad_layout", player_input.pad_layout)
-	cfg.set_value("game", "level", level)
-	cfg.set_value("game", "arena", _arena_saved)
-	cfg.set_value("game", "time", time_choice)
-	cfg.set_value("game", "weather", weather_choice)
-	cfg.set_value("game", "hazards", hazards_on)
-	cfg.set_value("online", "delay", input_delay)
-	cfg.set_value("online", "id", Netplay.player_id)
-	cfg.set_value("online", "secret", Netplay.player_secret)
-	cfg.set_value("online", "name", Netplay.player_name)
-	cfg.set_value("audio", "music_muted", audio.music_muted)
-	cfg.set_value("audio", "voice_mode", voice_mode)
-	cfg.set_value("audio", "voice_hear", voice_hear)
-	cfg.set_value("audio", "mic_device", mic_device)
-	cfg.set_value("online", "fighter", _online_fighter)
-	cfg.set_value("online", "address", _online_address)
-	cfg.set_value("online", "server", _online_server)
-	cfg.set_value("online", "recent", _recent_servers)
-	cfg.set_value("video", "fullscreen", fullscreen)
-	cfg.set_value("video", "fight_fps", fight_fps)
-	cfg.set_value("video", "vsync", vsync)
-	cfg.set_value("video", "wide_fill", wide_fill)
-	cfg.set_value("video", "perf_overlay", perf_overlay.mode)
-	for k in ["cam_lead", "cam_clash", "cam_settle"]:
-		cfg.set_value("video", k, int(get(k)))
-	cfg.set_value("video", "glow", glow)
-	cfg.set_value("video", "lighting", lighting)
-	cfg.set_value("video", "font", "smooth" if UiTheme.smooth else "pixel")
-	cfg.set_value("game", "rumble", rumble)
-	cfg.set_value("game", "intros", match_intros)
-	cfg.set_value("game", "shake", shake_scale)
-	cfg.set_value("game", "range_rings", range_rings)
-	cfg.set_value("touch", "opacity", touch_opacity)
-	cfg.set_value("touch", "size", player_input.touch.size_step)
-	cfg.set_value("touch", "left_handed", touch_left)
-	cfg.set_value("touch", "tap_only", player_input.touch.tap_only)
-	cfg.set_value("touch", "priority", int(player_input.target.priority))
-	cfg.set_value("touch", "chase", player_input.target.chase_on)
-	for k in MatchSim.TRAINING_FLAGS:
-		cfg.set_value("training", k, bool(training_opts.get(k, false)))
-	cfg.set_value("training", "dummy_mode", dummy_mode)
-	cfg.set_value("game", "discord", discord_status)
-	var rows := {}
-	for r in MENU_ROWS.size():
-		if MENU_ROWS[r].has("choices") and r < _row_choice.size():
-			rows[String(MENU_ROWS[r]["label"])] = int(_row_choice[r])
-	cfg.set_value("game", "row_choice", rows)
-	cfg.set_value("controls", "bindings", Controls.overrides())
-	for bus in AudioView.DEFAULT_VOLUMES:
-		cfg.set_value("audio", "volume_" + String(bus).to_lower(), audio.volume(bus))
-	cfg.save(settings_path)
-
-
-## --sim-check=SEED: print (and optionally write) the determinism fingerprint, then quit.
-## --server[=PORT]: run as a dedicated server (see DedicatedServer) instead of the game.
-func _run_server() -> bool:
-	var server := DedicatedServer.new()
-	if not server.configure(OS.get_cmdline_user_args()):
-		return false
-	set_physics_process(false)
-	set_process_input(false)
-	set_process_unhandled_input(false)
-	add_child(server)
-	return true
-
-
-func _run_sim_check() -> bool:
-	var seed_ := -1
-	var out := ""
-	for a in OS.get_cmdline_user_args():
-		if a.begins_with("--sim-check="):
-			seed_ = int(a.get_slice("=", 1))
-		elif a.begins_with("--sim-check-out="):
-			out = a.get_slice("=", 1)
-	if seed_ < 0:
-		return false
-	var digest := SimCheck.run(seed_)
-	print("SIMCHECK ", digest)
-	if out != "":
-		# Use an absolute path: an exported game resolves relative ones inside its package.
-		var f := FileAccess.open(out, FileAccess.WRITE)
-		if f != null:
-			f.store_string(digest)
-			f.close()
-		else:
-			printerr("Could not write ", out, " (use an absolute path)")
-	get_tree().quit()
-	return true
-
-
-func _parse_args() -> int:
-	var start := -1
-	var pick := false
-	for a in OS.get_cmdline_user_args():
-		if a == "--autoplay":
-			autoplay = AutoPlay.new()
-			start = 4
-		elif a == "--hitboxes":
-			debug.visible = true
-		elif a == "--intro":
-			_intro_arg = 1
-		elif a == "--no-intro":
-			_intro_arg = -1
-		elif a == "--range-rings":
-			range_rings = true
-		elif a.begins_with("--lighting="):
-			_lighting_cli = ["off", "low", "high"].find(a.get_slice("=", 1))
-		elif a.begins_with("--mode="):
-			start = clampi(int(a.get_slice("=", 1)), 0, MODES.size() - 1)
-			_skip_select = true  # straight into the match with the default teams
-		elif a == "--pick":
-			pick = true
-		elif a == "--cpu-vs-cpu":
-			_cpu_vs_cpu = true
-		elif a.begins_with("--mutators="):
-			var table := Daily.mutator_table()
-			_forced_mutators = {}
-			_forced_names = []
-			for id in a.get_slice("=", 1).split(",", false):
-				if table.has(id):
-					MatchSim.merge_mutator(_forced_mutators, table[id])
-					_forced_names.append(String(table[id].get("name", id)))
-				else:
-					push_warning("--mutators: no mutator '%s' (data/rules/mutators.json)" % id)
-		elif a.begins_with("--view-team="):
-			_view_team_arg = int(a.get_slice("=", 1))
-		elif a.begins_with("--teams="):
-			# --teams=cairn,culvert,cairn:culvert,cairn,culvert
-			var halves := a.get_slice("=", 1).split(":")
-			if halves.size() == 2:
-				_teams = [Array(halves[0].split(",")), Array(halves[1].split(","))]
-		elif a.begins_with("--level="):
-			level = clampi(int(a.get_slice("=", 1)), 0, LEVEL_NAMES.size() - 1)
-		elif a.begins_with("--seed="):
-			seed_base = int(a.get_slice("=", 1))
-		elif a == "--perf":
-			_perf = PerfLog.new()
-			PerfLog.current = _perf
-			_perf.measure(get_viewport().get_viewport_rid())
-		elif a.begins_with("--fight-fps="):
-			_fight_fps_cli = maxi(0, int(a.get_slice("=", 1)))
-		elif a.begins_with("--fps-pacing="):
-			_fps_pacing = a.get_slice("=", 1)
-		elif a.begins_with("--cpu-threads="):
-			CpuController.threaded = a.get_slice("=", 1) != "off"
-		elif a.begins_with("--cpu-think="):
-			cpu_think = a.get_slice("=", 1)
-		elif a.begins_with("--arena="):
-			var ar := a.get_slice("=", 1)
-			if ar in ArenaMap.IDS:
-				MatchFactory.arena = ar
-		elif a.begins_with("--time="):
-			var tid := a.get_slice("=", 1)
-			if tid == WeatherView.RANDOM or tid in WeatherView.time_ids():
-				_look_cli["time"] = tid
-		elif a.begins_with("--weather="):
-			var wid := a.get_slice("=", 1)
-			if wid == WeatherView.RANDOM or wid in WeatherView.weather_ids():
-				_look_cli["weather"] = wid
-		elif a.begins_with("--dummy-mode="):
-			dummy_mode = clampi(int(a.get_slice("=", 1)), 0, DUMMY_MODES.size() - 1)
-		elif a.begins_with("--training-flags="):
-			var on := a.get_slice("=", 1).split(",")
-			for k in MatchSim.TRAINING_FLAGS:
-				training_opts[k] = k in on
-		elif a.begins_with("--training-screen="):
-			_training_screen_arg = a.get_slice("=", 1)
-		elif a.begins_with("--shots="):
-			for s in a.get_slice("=", 1).split(","):
-				_shots[int(s)] = true
-		elif a.begins_with("--cam="):
-			var cp := a.get_slice("=", 1).split(",")
-			_cam_force = Vector3(float(cp[0]), float(cp[1]), float(cp[2]) if cp.size() > 2 else 0.0)
-		elif a.begins_with("--cam-lead=") or a.begins_with("--cam-clash=") or a.begins_with("--cam-settle="):
-			var lv := cam_level_arg(a.get_slice("=", 1))
-			if lv >= 0:
-				_cam_cli[a.get_slice("=", 0).trim_prefix("--").replace("-", "_")] = lv
-		elif a.begins_with("--shot-dir="):
-			_shot_dir = a.get_slice("=", 1)
-		elif a.begins_with("--print-vram="):
-			_print_vram_at = int(a.get_slice("=", 1))
-		elif a.begins_with("--quit-after="):
-			_quit_after = int(a.get_slice("=", 1))
-		elif a.begins_with("--showcase="):
-			var sc := a.get_slice("=", 1)
-			if sc in Showcase.names():
-				_showcase_arg = sc
-			for i in MODES.size():
-				if MODES[i].get("showcase", false):
-					start = i
-		elif a == "--online-host" or a.begins_with("--online-host="):
-			_net_args["host"] = int(a.get_slice("=", 1)) if a.contains("=") else Netplay.DEFAULT_PORT
-		elif a.begins_with("--online-join="):
-			_net_args["join"] = a.get_slice("=", 1)
-		elif a.begins_with("--online-watch="):
-			_net_args["join"] = a.get_slice("=", 1)
-			_net_args["watch"] = true
-		elif a.begins_with("--menu="):
-			var page := a.get_slice("=", 1)
-			if page in ["main", "single", "look", "settings", "game", "video", "audio", "controls", "touch"] or page.begins_with("single:") \
-					or page.begins_with("credits") \
-					or page in ["remap:classic", "remap:league", "remap:gamepad"]:
-				_menu_arg = "" if page == "main" else page
-		elif a.begins_with("--fighter="):
-			var f := a.get_slice("=", 1)
-			if f in MatchFactory.FIGHTERS:
-				_online_fighter = f
-				_arcade_fighter = f
-		elif a.begins_with("--net-lag="):
-			_net_args["lag"] = int(a.get_slice("=", 1))
-		elif a.begins_with("--net-loss="):
-			_net_args["loss"] = float(a.get_slice("=", 1))
-		elif a.begins_with("--online-size="):
-			_net_args["size"] = clampi(int(a.get_slice("=", 1)), 1, TeamSim.MOST_PER_SIDE)
-		elif a.begins_with("--net-delay="):
-			_net_args["delay"] = int(a.get_slice("=", 1))
-		elif a.begins_with("--net-report="):
-			_net_args["report"] = a.get_slice("=", 1)
-		elif a.begins_with("--voice"):
-			_voice_arg(a)
-		elif a == "--net-no-pick" or a.begins_with("--net-no-pick="):
-			_net_no_pick = int(a.get_slice("=", 1)) if a.contains("=") else 1 << 30
-		elif a.begins_with("--layout="):
-			var lay := a.get_slice("=", 1)
-			if lay in PlayerInput.LAYOUTS:
-				player_input.layout = lay
-		elif a.begins_with("--pad-layout="):
-			var pl := a.get_slice("=", 1)
-			if pl in PlayerInput.PAD_LAYOUTS:
-				_set_pad_layout(pl)
-		elif a == "--touch-demo" or a.begins_with("--touch-demo="):
-			touch_demo = TouchDemo.new()
-			if a.get_slice("=", 1) == "left":
-				touch_demo.mirror = true
-				_touch_demo_left = true  # this session only (not saved)
-	if touch_demo != null and start < 0:
-		start = 3  # training as Cairn: a dummy to aim at
-		_skip_select = true
-	if pick:
-		_skip_select = false
-	return start
+	settings_ctl._save_settings()
 
 
 # ------------------------------------------------------------------ online
-
-func _open_lobby() -> void:
-	_end_online()
-	_push_lobby()
-
-
-## The online screen, over whatever plays behind it (the session, if any, is kept).
-func _push_lobby() -> void:
-	flow = Flow.LOBBY
-	flow_t = 0
-	hud.menu_visible = false
-	hud.visible = false
-	_close_ui()
-	lobby = OnlineLobby.new(_online_fighter, _online_address, _recent_servers, online_server())
-	lobby.server_join_pressed.connect(_net_join_server)
-	lobby.board_pressed.connect(_net_daily_board)
-	lobby.name_changed.connect(func(t: String):
-		Netplay.player_name = Netplay.clean_name(t)
-		_save_settings())
-	lobby.host_pressed.connect(_net_host)
-	lobby.join_pressed.connect(_net_join_typed)
-	lobby.cancelled.connect(_leave_online)
-	lobby.search_cancelled.connect(_cancel_search)
-	ui.push(lobby)
-
-
-## Cancel while searching or hosting: stop, and stay on the online screen.
-func _cancel_search() -> void:
-	_close_ready_check()
-	if _finder != null:
-		_finder.cancel()
-		_finder = null
-	if netplay != null:
-		netplay.leave()
-		netplay = null
-	if lobby != null:
-		lobby.busy = false
-		lobby.hosting_port = 0
-		lobby.status_bad = false
-		lobby.status = "Stopped searching"
-
-
-## Builds the network link, with the --net-lag / --net-loss wrapper if asked for.
-func _make_link(host_port: int, address := "", port := 0) -> NetLink:
-	var e := EnetLink.new()
-	var err := e.host(host_port) if address == "" else e.join(address, port)
-	if err != OK:
-		return e  # Netplay reports e.error
-	if int(_net_args.get("lag", 0)) > 0 or float(_net_args.get("loss", 0.0)) > 0.0:
-		return LagLink.new(e, int(_net_args.get("lag", 0)), float(_net_args.get("loss", 0.0)))
-	return e
-
-
-func _net_host(fighter: String) -> void:
-	_online_fighter = fighter
-	_save_settings()
-	netplay = Netplay.new()
-	_apply_voice()
-	netplay.forced_delay = int(_net_args.get("delay", input_delay))
-	netplay.arena_id = MatchFactory.arena
-	var port := int(_net_args.get("host", Netplay.DEFAULT_PORT))
-	var link := _make_link(port)
-	if link.status == NetLink.Status.CLOSED:
-		lobby.status = link.error
-		lobby.status_bad = true
-		netplay = null
-		return
-	netplay.host(port, [fighter], link)
-	lobby.busy = true
-	lobby.hosting_port = port
-	_lobby_status()
-
-
-## Quick match (room "") or a room, on the online server; `size` players per side (0:
-## the room's own). At the server's own house its public name may not work (many
-## routers don't loop it back inside), so this first looks for it on the local network
-## for a moment, then joins whichever it found.
-func _net_join_server(fighter: String, room: String, size := 1, server := "") -> void:
-	var parsed := OnlineLobby.parse_address(server if server != "" else online_server())
-	if String(parsed[0]) == "":
-		lobby.status = OnlineLobby.NO_SERVER
-		lobby.status_bad = true
-		return
-	_online_fighter = fighter
-	_pending_team = lobby.team.duplicate() if lobby != null and lobby.team.size() > 1 else [fighter]
-	_pending_rules = lobby.rules_id if lobby != null else ""
-	_pending_watch = lobby != null and lobby.watch_next
-	_pending_ranked = lobby != null and lobby.ranked_next
-	if lobby != null:
-		lobby.watch_next = false
-		lobby.ranked_next = false
-	_save_settings()
-	_finder = LanFinder.new()
-	_finder.start(int(parsed[1]), finder_target)
-	_finder_join = [fighter, String(parsed[0]), int(parsed[1]), room, size]
-	lobby.busy = true
-	lobby.hosting_port = 0
-	lobby.status_bad = false
-	lobby.status = "Looking for the server..."
-
 
 ## Each frame while looking: once it's done, join the server it found nearby, or the
 ## public address.
@@ -5648,366 +4156,14 @@ func _net_join_server(fighter: String, room: String, size := 1, server := "") ->
 const HOME_HINT := "No answer. At the server's house: update it and allow UDP 7778. Away: is UDP 7777 forwarded?"
 
 
-func _finder_step() -> void:
-	if not _finder.poll():
-		return
-	var f := _finder.found
-	var j := _finder_join
-	_finder = null
-	_home_missed = f.is_empty()
-	if lobby == null:
-		return
-	if f.is_empty():
-		_net_join(String(j[0]), String(j[1]), int(j[2]), String(j[3]), false, int(j[4]))
-	else:
-		_net_join(String(j[0]), String(f["address"]), int(f["port"]), String(j[3]), false, int(j[4]))
-
-
-## The day's top ten from the server, shown in the lobby's status.
-func _net_daily_board() -> void:
-	if lobby == null:
-		return
-	var parsed := OnlineLobby.parse_address(online_server())
-	if String(parsed[0]) == "":
-		lobby.status = OnlineLobby.NO_SERVER
-		lobby.status_bad = true
-		return
-	_daily_client = DailyClient.fetch_board(String(parsed[0]), int(parsed[1]), Daily.today())
-	lobby.status = "Asking the server for today's scores..."
-	lobby.status_bad = false
-
-
-## After a Daily fight: the replay goes to the configured server to be scored there.
-func _net_daily_submit(d: Daily) -> void:
-	var parsed := OnlineLobby.parse_address(online_server())
-	if String(parsed[0]) == "":
-		return
-	_daily_client = DailyClient.submit(String(parsed[0]), int(parsed[1]), d.date, d.fighter, replay.to_dict())
-	_daily_sent_toast = "Daily score sent to the server..."
-	hud.show_toast(_daily_sent_toast)
-
-
-func _daily_step() -> void:
-	_daily_client.tick()
-	if not _daily_client.done:
-		return
-	var c := _daily_client
-	_daily_client = null
-	if c.rank > 0 or (c.ok and c.score > 0):
-		_toast("Daily score %d: #%d today" % [c.score, c.rank] if c.ok else c.error)
-	elif c.ok and lobby != null:
-		var lines: Array = []
-		for i in c.board.size():
-			var row: Dictionary = c.board[i] if c.board[i] is Dictionary else {}
-			lines.append("%d. %s%s  %d" % [i + 1, Netplay.clean_name(String(row.get("name", ""))),
-				" (you)" if row.get("you", false) == true else "", int(row.get("score", 0))])
-		lobby.status = "Today's Daily top 10:  " + ("   ".join(lines) if not lines.is_empty() else "nobody yet")
-		lobby.status_bad = false
-	elif not c.ok:
-		_toast(c.error)
-
-
-## Join by a typed (or recent) address. The online server's own name goes through the
-## local look-up too, so it works at home.
-func _net_join_typed(fighter: String, address: String, port: int, room := "") -> void:
-	var srv := OnlineLobby.parse_address(online_server())
-	if address.to_lower() == String(srv[0]).to_lower() and address != "":
-		_online_address = lobby.address if lobby.address != "" else address
-		_remember_server(_online_address)
-		_net_join_server(fighter, room, 0 if room != "" else 1, "%s:%d" % [address, port])
-		return
-	_net_join(fighter, address, port, room, true, 0 if room != "" else 1)
-
-
-func _net_join(fighter: String, address: String, port: int, room := "", remember := true, size := 1) -> void:
-	_online_fighter = fighter
-	if remember:
-		_home_missed = false
-		_online_address = lobby.address if lobby.address != "" else address
-		_remember_server(_online_address)
-	_save_settings()
-	netplay = Netplay.new()
-	_apply_voice()
-	netplay.forced_delay = int(_net_args.get("delay", input_delay))
-	netplay.arena_id = MatchFactory.arena
-	var link := _make_link(0, address, port)
-	if link.status == NetLink.Status.CLOSED:
-		lobby.busy = false
-		lobby.status = link.error
-		lobby.status_bad = true
-		netplay = null
-		return
-	netplay.room = room
-	netplay.team_size = size
-	netplay.rules_id = TeamSim.rules_for_size(_pending_rules, size) if size > 1 else ""
-	netplay.ranked = _pending_ranked and size == 1
-	_pending_ranked = false
-	netplay.auto_ready = _auto_accept or _cpu_vs_cpu
-	var team: Array = _pending_team if not _pending_team.is_empty() and String(_pending_team[0]) == fighter else [fighter]
-	_pending_team = []
-	if _pending_watch:
-		_pending_watch = false
-		netplay.spectate(address, port, room, link)
-	else:
-		netplay.join(address, port, team, link)
-	lobby.busy = true
-	lobby.hosting_port = 0
-	_lobby_status()
-
-
-## Connecting: keeps the network moving behind the lobby. Returns true if the online
-## match started just now; only its rollback session may step it, never the menu's loop
-## (a step outside it would put this machine one frame off the other and the server).
-func _connecting_step() -> bool:
-	netplay.tick(0)
-	_lobby_status()
-	return online != null
-
-
-## While connecting: show what's happening, and start the match once it's agreed.
-func _lobby_status() -> void:
-	if netplay == null:
-		return
-	lobby.status = netplay.status
-	lobby.status_bad = netplay.phase == Netplay.Phase.ENDED and not netplay.declined
-	if netplay.phase == Netplay.Phase.ENDED:
-		_close_ready_check()
-		if _home_missed and netplay.error.begins_with("No answer"):
-			lobby.status = HOME_HINT
-		lobby.busy = false
-		netplay = null
-		return
-	if netplay.is_playing() or netplay.is_watching():
-		_start_online_match()
-		return
-	_ready_check_step()
-
-
-## The server's ready check: Match found opens over the online screen (with a sound and
-## a nudge from the taskbar, in case the player looked away), shows the countdown, and
-## closes again if the match falls through.
-func _ready_check_step() -> void:
-	if netplay.match_found and _ready_screen == null:
-		var what := lobby.searching_for if lobby.searching_for != "" else "Online"
-		_ready_screen = ReadyCheck.new(what, lobby.fighter)
-		_ready_screen.set_total(netplay.found_secs)
-		_ready_screen.accepted.connect(func():
-			if netplay != null:
-				netplay.accept_match())
-		_ready_screen.declined.connect(func():
-			if netplay != null:
-				netplay.decline_match()
-				_lobby_status())
-		ui.push(_ready_screen)
-		audio.play("round_start", 0.0, 1.0, true)
-		if not DisplayServer.window_is_focused():
-			DisplayServer.window_request_attention()
-	elif not netplay.match_found and _ready_screen != null:
-		_close_ready_check()
-	if _ready_screen != null:
-		_ready_screen.update(netplay.seconds_left(), netplay.accepted, netplay.accepted_have,
-			netplay.found_players, netplay.found_need)
-
-
-func _close_ready_check() -> void:
-	if _ready_screen != null and is_instance_valid(_ready_screen) and ui.top() == _ready_screen:
-		ui.pop()
-	_ready_screen = null
-
-
-## Watching a match on the server: the referee's copy is the match; every side is
-## remote and nobody here presses anything.
-func _start_watching() -> void:
-	watch = netplay.watch
-	online = null
-	_close_ui()
-	_ready_screen = null
-	lobby = null
-	hud.visible = true
-	hud.menu_visible = false
-	audio.play_music("fight")
-	_end_duel()
-	var s: Array = []
-	s.resize(watch.players)
-	s.fill(Side.REMOTE)
-	if watch.duel is TeamSim:
-		team_battle = watch.duel
-		_rules_id = watch.rules
-		_new_sim(team_battle.sim, s)
-		hud.team = team_battle
-		hud.focus = 0
-		hud.timer_ticks = team_battle.timer
-		_show_pads()
-	else:
-		duel = watch.duel
-		_new_sim(duel.sim, s)
-		hud.duel = duel
-		hud.timer_ticks = duel.timer
-	for i in sides.size():
-		hud.tags[i] = "WATCHING"
-	hud.wins = [0, 0]
-	hud.wins_needed = 0
-	hud.banner = ""
-	flow = Flow.FIGHT
-	flow_t = 0
-	_net_end_t = 0
-
-
-func _start_online_match() -> void:
-	if netplay.watch != null:
-		_start_watching()
-		return
-	online = netplay.game
-	_apply_voice()  # (on Android: asks for the microphone at the first match with voice on)
-	_apply_voice_hear()  # (strangers start muted with Hear voices from: Rooms and friends)
-	if lobby != null:
-		_room_made = lobby.room_created
-	_close_ui()  # the lobby (and Match found), a match-over screen on a rematch, or a room's select
-	_ready_screen = null
-	_room_screen = null
-	_room_picker = null
-	_rematch_page = false
-	lobby = null
-	hud.visible = true
-	hud.menu_visible = false
-	audio.play_music("fight")
-	_end_duel()
-	var s: Array = []
-	s.resize(online.players)
-	s.fill(Side.REMOTE)
-	s[online.local_slot] = Side.PLAYER
-	if online.team != null:
-		# A team battle: every slot is a player somewhere; this one is ours.
-		team_battle = online.team
-		_rules_id = netplay.rules_id
-		_new_sim(team_battle.sim, s)
-		hud.team = team_battle
-		hud.focus = online.local_slot
-		hud.timer_ticks = team_battle.timer
-		_show_pads()
-		_cpu_shown = 0
-		_show_cpu_slots()
-	else:
-		duel = online.duel
-		_new_sim(duel.sim, s)
-		for i in 2:
-			if cpus[i] != null:
-				(cpus[i] as CpuController).duel = duel
-		hud.duel = duel
-		hud.timer_ticks = duel.timer
-	hud.wins = [0, 0]
-	hud.wins_needed = 0
-	hud.banner = ""
-	flow = Flow.FIGHT
-	flow_t = 0
-	_net_end_t = 0
-
-
-## During an online match: rematches, the connection's health, and how it ended.
-func _online_status() -> void:
-	if netplay.phase == Netplay.Phase.HANDSHAKE:
-		_back_to_room_wait()  # the other player left the room: wait there for someone new
-		return
-	if netplay.game != online and netplay.is_playing():
-		_write_net_report(true)
-		_start_online_match()  # a rematch began, or the room's next match
-		return
-	# Ranked: after the result the other player going back to the online screen isn't a
-	# disconnection; the result stays up until this player goes back too.
-	var after_ranked := netplay.ranked and flow == Flow.MATCH_OVER and not _rematch_page
-	if netplay.phase == Netplay.Phase.ENDED:
-		_net_end_t += 1
-		if _net_end_t == 1:
-			_write_net_report()
-			hud.net_info = ""
-			if _rematch_page:
-				_rematch_ended(netplay.error)
-			elif not after_ranked:
-				hud.banner = "DISCONNECTED"
-				hud.banner_sub = netplay.error
-		if after_ranked and _match_over_status != null and is_instance_valid(_match_over_status):
-			_match_over_status.text = netplay.error
-		elif _net_end_t > 240:
-			if _rematch_page:
-				_leave_to_lobby()
-			else:
-				_leave_online()
-		return
-	if netplay.rematch_pick() and not _rematch_page:
-		_open_rematch_pick()  # both asked for a rematch: pick for it
-	if netplay.in_room() or _rematch_page:
-		_room_step()
-	elif _cpu_vs_cpu and online.players == 2 and flow == Flow.MATCH_OVER and flow_t == MATCH_OVER_MENU_AT + 120 \
-			and not netplay.rematch_local:
-		netplay.request_rematch()  # demos and captures: on to the rematch (and its pick) by itself
-	var g := online
-	if g.cpu_slots.size() != _cpu_shown:
-		_show_cpu_slots()
-		hud.show_toast("A player left: a CPU plays for them")
-	_rb_t += 1
-	if _rb_t >= 60:
-		_rb_rate = g.session.rollbacks - _rb_seen
-		_rb_seen = g.session.rollbacks
-		_rb_t = 0
-	hud.net_info = "PING %d ms   DELAY %d   ROLLBACKS %d/s (MAX %d)   %s" % [roundi(netplay.ping_ms), g.input_delay,
-		_rb_rate, g.session.max_rollback_seen, ArenaMap.name_of(g.arena_id).to_upper()]
-	if netplay.in_room() and netplay.room_watchers > 0:  # watchers hear voice only in rooms (the server's rule)
-		hud.net_info += "   %d WATCHING (THEY HEAR VOICE)" % netplay.room_watchers
-	if g.desync_frame >= 0:
-		hud.net_info = "DESYNC at frame %d: report saved   " % g.desync_frame + hud.net_info
-	var waiting := "WAITING FOR PLAYERS" if g.players > 2 else "WAITING FOR OPPONENT"
-	if g.waiting_ticks > 30 and flow == Flow.FIGHT:
-		hud.banner = waiting
-		hud.banner_sub = "Connection hiccup..."
-	elif hud.banner == waiting:
-		hud.banner = ""
-		hud.banner_sub = ""
-	if flow == Flow.MATCH_OVER and _match_over_status != null and is_instance_valid(_match_over_status):
-		var others := g.players - 1 - g.cpu_slots.size()
-		var asked := netplay.rematch_asked.size()
-		if netplay.in_room():
-			_match_over_status.text = _room_summary()
-		elif g.players > 2 and (netplay.rematch_local or asked > 0):
-			_match_over_status.text = "Rematch: %d of %d asked" % [asked + (1 if netplay.rematch_local else 0),
-				others + 1]
-		else:
-			var lines := PackedStringArray()
-			if not netplay.last_rating.is_empty():
-				var lr := netplay.last_rating
-				lines.append("Rating %d -> %d (%+d)   ·   %d games, %d won" % [roundi(float(lr["old"])),
-					roundi(float(lr["new"])), roundi(float(lr["new"]) - float(lr["old"])), int(lr["games"]), int(lr["wins"])])
-			if netplay.rematch_local:
-				lines.append("Waiting for the other player...")
-			elif netplay.rematch_remote:
-				lines.append("The other player wants a rematch!")
-			_match_over_status.text = "\n".join(lines)
-
-
-## Online team battle: slots the server's CPU plays say so on their card and marker.
-func _show_cpu_slots() -> void:
-	_cpu_shown = online.cpu_slots.size()
-	for slot in online.cpu_slots:
-		if int(slot) < hud.tags.size():
-			hud.tags[int(slot)] = "CPU"
-		if int(slot) < fx.side_marks.size():
-			fx.side_marks[int(slot)]["label"] = "CPU"
-
-
+## In main_online.gd (tests and other scripts call it here).
 func _leave_online() -> void:
-	_write_net_report()
-	if netplay != null:
-		netplay.leave()
-	_end_online()
-	_open_menu("", "online")
+	online_ctl._leave_online()
 
 
-## Leave the match (or room) for the online screen, to search again from there.
+## In main_online.gd (tests and other scripts call it here).
 func _leave_to_lobby() -> void:
-	_write_net_report()
-	if netplay != null:
-		netplay.leave()
-	_open_menu("", "online")
-	_open_lobby()
+	online_ctl._leave_to_lobby()
 
 
 # ------------------------------------------------------------------ online rooms
@@ -6015,442 +4171,24 @@ func _leave_to_lobby() -> void:
 # page with the fighter select over it; everyone locks in, and the server starts the
 # next match (the session stays up throughout). See RelayServer's Room.
 
-## The room's code as players read it.
+## In main_online.gd (tests and other scripts call it here).
 func _room_code() -> String:
-	return netplay.room.to_upper() if netplay != null else ""
+	return online_ctl._room_code()
 
 
-## The other player left a 1v1 room: back to the online screen, still in the room and
-## waiting there (the session is kept), with the code to hand out again.
-func _back_to_room_wait() -> void:
-	var n := netplay
-	var fighters := n.my_team.duplicate()
-	_write_net_report()
-	netplay = null  # kept through the menu's reset below
-	_open_menu("", "online")
-	_push_lobby()
-	netplay = n
-	lobby.use_fighter(String(fighters[0]))
-	lobby.team = fighters
-	lobby.room_code = _room_code()
-	lobby.room_created = _room_made
-	lobby.room_tag = fighters.size()
-	lobby.searching_for = "Room " + _room_code()
-	lobby.busy = true
-	_lobby_status()
-
-
-## Next match: this player goes to the room's fighter select (the server hears they're
-## picking); the finished match keeps stepping behind it until the next one starts.
+## In main_online.gd (tests and other scripts call it here).
 func _room_next() -> void:
-	if netplay == null or not netplay.in_room() or netplay.phase != Netplay.Phase.PLAYING:
-		return
-	netplay.request_next()
-	_close_ui()  # the match-over screen
-	_open_room_screen()
-	_open_room_picker()
+	online_ctl._room_next()
 
 
-## Both players asked for a 1v1 rematch outside a room (Quick match, ranked, direct):
-## the same page and fighter select a room uses between matches, with the last pick
-## ready to lock in again (or Same again on the page). The finished match keeps
-## stepping behind it until the rematch starts.
-func _open_rematch_pick() -> void:
-	_rematch_page = true
-	_close_ui()  # the match-over screen
-	_open_room_screen()
-	_open_room_picker()
-
-
-## Same again: the last pick, locked in at once.
-func _rematch_same_again() -> void:
-	if netplay != null and not netplay.pick_all_locked:
-		netplay.send_pick(netplay.my_team.duplicate())
-
-
-## The other player left during the rematch's pick: say so, then back to the online
-## screen (by itself after a few seconds, as when someone leaves a Quick match).
-func _rematch_ended(why: String) -> void:
-	_close_ui()
-	_room_screen = null
-	_room_picker = null
-	var scr := UiScreen.new()
-	scr.title = "REMATCH"
-	scr.subtitle = why if why != "" else "The rematch is off"
-	scr.dim = 0.75
-	scr.row_width = 200.0
-	scr.builder = func(s: UiScreen):
-		s.add_button("Back to online", _leave_to_lobby, "Search again from the online screen")
-	scr.on_back = _leave_to_lobby
-	ui.push(scr)
-
-
-## The room's page between matches: its code (press to copy), who has locked in, and
-## Pick your fighter / Leave room. The fighter select opens over it. A 1v1 rematch's
-## pick uses it too (no code; Same again locks the last pick in at once).
-func _open_room_screen() -> void:
-	var scr := UiScreen.new()
-	scr.title = "REMATCH" if _rematch_page else "ROOM " + _room_code()
-	scr.subtitle = "Pick your fighter" + ("s" if netplay.my_team.size() > 1 else "") if _rematch_page else "Next match"
-	scr.dim = 0.75
-	scr.row_width = 200.0
-	scr.builder = func(s: UiScreen):
-		if _rematch_page:
-			var same := s.add_button("Same again", _rematch_same_again, "Lock in the same fighter" + (
-				"s" if netplay.my_team.size() > 1 else "") + " for the rematch")
-			s.add_button("Pick your fighter", _open_room_picker, "Lock in a fighter (or the same one) for the rematch")
-			s.add_button("Leave", _leave_to_lobby, "Back to the online screen; the rematch is off for both")
-			_room_status_label = s.add_text(_room_summary(true), UiTheme.SIZE_HINT + 1, UiTheme.C_ACCENT)
-			s.default_focus = same
-			return
-		s.add_row(RoomCodeButton.new(_room_code()), "Copy the code to send to a friend")
-		var pick := s.add_button("Pick your fighter", _open_room_picker, "Lock in a fighter (or the same one) for the next match")
-		s.add_button("Leave room", _leave_to_lobby, "Back to the online screen; the room carries on without you")
-		_room_status_label = s.add_text(_room_summary(true), UiTheme.SIZE_HINT + 1, UiTheme.C_ACCENT)
-		s.default_focus = pick
-	scr.on_back = _leave_to_lobby
-	_room_screen = scr
-	ui.push(scr)
-
-
-## The room's fighter select (just yours: `solo`), with who has locked in beside it.
-func _open_room_picker() -> void:
-	if netplay == null or (_room_picker != null and is_instance_valid(_room_picker)) or \
-			(_rematch_page and netplay.pick_all_locked):
-		return
-	var p := CharacterSelect.new()
-	p.solo = true
-	p.solo_heading = "REMATCH" if _rematch_page else "ROOM " + _room_code()
-	p.solo_info = _room_summary(true)
-	p.done_text = "LOCKED IN"
-	var team := netplay.my_team.duplicate()
-	p.setup("REMATCH" if _rematch_page else "NEXT MATCH", team.size(), ["YOU", "OPPONENT" if _rematch_page else "ROOM"],
-		false, [team, []])
-	p.chosen.connect(func(teams: Array):
-		_room_picker = null
-		if ui.top() == p:
-			ui.pop()
-		var picked: Array = (teams[0] as Array).duplicate()
-		_online_fighter = String(picked[0])
-		_save_settings()
-		if netplay != null:
-			netplay.send_pick(picked))
-	p.cancelled.connect(func():
-		_room_picker = null
-		if ui.top() == p:
-			ui.pop())
-	_room_picker = p
-	ui.push(p)
-	if _cpu_vs_cpu and _rematch_page and _net_no_pick > 0:
-		_net_no_pick -= 1  # --net-no-pick: leave it to the countdown
-	elif _cpu_vs_cpu:
-		# Demos and captures: the CPU "picks" the next fighter along.
-		var next: Array = []
-		for f in team:
-			next.append(MatchFactory.FIGHTERS[(MatchFactory.FIGHTERS.find(String(f)) + 1) % MatchFactory.FIGHTERS.size()])
-		p.chosen.emit([next, []])
-
-
-## Who's in the room and who has locked in (`lines`: one per player, for the select's
-## panel and the room page); otherwise one line for the match-over screen.
-func _room_summary(lines := false) -> String:
-	if netplay == null:
-		return ""
-	if _rematch_page:
-		return _rematch_summary(lines)
-	var who: Array = netplay.room_players
-	var locked := who.filter(func(p): return bool(p["locked"])).size()
-	if lines:
-		var out := PackedStringArray()
-		for p in who:
-			out.append("%s: %s" % [p["name"], "locked in" if p["locked"] else "picking..."])
-		if netplay.room_watchers > 0:
-			out.append("%d watching" % netplay.room_watchers)
-		return "\n".join(out)
-	match netplay.room_state:
-		"select":
-			return "Picking fighters for the next match: %d of %d locked in" % [locked, who.size()]
-		"waiting":
-			return "Waiting for a player: room code " + _room_code()
-	return ""
-
-
-## A 1v1 rematch's pick: this player's state and the opponent's ("Opponent is
-## choosing..." or "Opponent locked in": their fighter stays hidden until the match
-## starts), and the seconds left before the last picks are locked in.
-func _rematch_summary(lines := false) -> String:
-	var who: Array = netplay.room_players
-	var me := netplay.local_slot
-	if who.size() != 2 or me < 0 or me > 1:
-		return "Waiting for your opponent..."
-	var them := "Opponent locked in" if bool((who[1 - me] as Dictionary)["locked"]) else "Opponent is choosing..."
-	var mine := "You: locked in" if bool((who[me] as Dictionary)["locked"]) else "You: picking..."
-	if netplay.pick_all_locked:  # both in: the fighters show for the last seconds
-		them = "Opponent: " + _fighter_name(String((who[1 - me] as Dictionary)["fighter"]))
-		mine = "You: " + _fighter_name(String((who[me] as Dictionary)["fighter"]))
-	if not lines:
-		return them
-	var out := PackedStringArray([mine, them])
-	var left := _pick_countdown()
-	if left != "":
-		out.append(left)
-	if netplay.room_watchers > 0:
-		out.append("%d watching" % netplay.room_watchers)
-	return "\n".join(out)
-
-
-static func _fighter_name(id: String) -> String:
-	return String(MatchFactory.load_def(id).get("name", id)) if id in MatchFactory.FIGHTERS else id
-
-
-## The rematch pick's countdown as a line ("" when there's none, as in a room).
-func _pick_countdown() -> String:
-	if netplay == null or netplay.pick_secs <= 0.0:
-		return ""
-	return "Starts in %d s" % ceili(netplay.pick_seconds_left())
-
-
-## Each tick in a room: keep the room page and the select's panel up to date (and, with
-## --cpu-vs-cpu, go on to the next match by itself).
-func _room_step() -> void:
-	if _room_status_label != null and is_instance_valid(_room_status_label):
-		var t := _room_summary(true)
-		if netplay.picked:
-			t = ("Locked in. Waiting for your opponent...\n" if _rematch_page else "Locked in. Waiting for the others...\n") + t
-		_room_status_label.text = t
-	if _room_picker != null and is_instance_valid(_room_picker):
-		_room_picker.set_solo_info(_room_summary(true))
-	if _cpu_vs_cpu and netplay.in_room() and flow == Flow.MATCH_OVER and flow_t == MATCH_OVER_MENU_AT + 120 \
-			and not netplay.picking:
-		_room_next()
-
-
-## A spectator in a room: the match-over screen says what the room is doing (picking,
-## or waiting for a player); a player leaving mid-match ends the view of that match.
-func _watch_room_status() -> void:
-	if (netplay.room == "" and netplay.room_state != "select") or netplay.phase == Netplay.Phase.ENDED:
-		if flow == Flow.MATCH_OVER and _match_over_status != null and is_instance_valid(_match_over_status) \
-				and netplay.phase == Netplay.Phase.ENDED:
-			_match_over_status.text = netplay.status
-		return
-	if netplay.room != "" and netplay.room_state == "waiting" and flow == Flow.FIGHT:
-		flow = Flow.MATCH_OVER
-		flow_t = 0
-		hud.banner = "A PLAYER LEFT"
-		hud.banner_sub = ""
-	if flow == Flow.MATCH_OVER and _match_over_status != null and is_instance_valid(_match_over_status):
-		match netplay.room_state:
-			"select":
-				_match_over_status.text = "Players are picking fighters for the %s (%d of %d locked in)" % [
-					"next match" if netplay.room != "" else "rematch",
-					netplay.room_players.filter(func(p): return bool(p["locked"])).size(), netplay.room_players.size()]
-				if netplay.pick_all_locked and netplay.room_players.size() == 2:
-					_match_over_status.text = "Rematch: %s vs %s" % [
-						_fighter_name(String(netplay.room_players[0]["fighter"])),
-						_fighter_name(String(netplay.room_players[1]["fighter"]))]
-				var left := _pick_countdown()
-				if left != "":
-					_match_over_status.text += "\n" + left
-			"waiting":
-				_match_over_status.text = "Waiting for a player to join room " + _room_code()
-			_:
-				_match_over_status.text = ""
-
-
-## The address just joined goes to the top of the recent list (kept short).
-func _remember_server(addr: String) -> void:
-	addr = addr.strip_edges()
-	if addr == "":
-		return
-	_recent_servers.erase(addr)
-	_recent_servers.push_front(addr)
-	_recent_servers = _recent_servers.slice(0, OnlineLobby.MAX_RECENT)
-
-
-## The results screen's data: who won (and the pose), each fighter's stats from the
-## events, and in a team mode the MVP. Capture the Flag adds caps, returns and stops.
+## In main_presentation.gd (tests and other scripts call it here).
 func results_data() -> Dictionary:
-	var rows: Array = []
-	var winner: CreatureSim = null
-	for c in sim.creatures:
-		if _won_standing(c):
-			winner = c
-			break
-	var ctf := team_battle != null and team_battle.ctf
-	var best := -1
-	var best_score := -1.0
-	var win_team := winner.team if winner != null else -1
-	if win_team < 0 and team_battle != null and team_battle.winner in [0, 1]:
-		win_team = team_battle.winner  # a flag or time win: nobody "stands over" every foe
-	elif win_team < 0 and duel != null and duel.winner in [0, 1]:
-		win_team = duel.winner
-	for c in sim.creatures:
-		if c.is_dummy:
-			continue
-		var st: Dictionary = stats.row(c.id)
-		var row := {"id": c.id, "name": String(c.def.get("name", "?")), "team": c.team, "stats": st, "extra": []}
-		var sc := MatchStats.score(st)
-		if ctf:
-			var cs: Dictionary = _ctf_stats.get(c.id, {}) if _ctf_stats_for == team_battle else {}
-			row["extra"] = [int(cs.get("caps", 0)), int(cs.get("rets", 0)), int(cs.get("stops", 0))]
-			sc += 120.0 * int(cs.get("caps", 0)) + 40.0 * (int(cs.get("rets", 0)) + int(cs.get("stops", 0)))
-		rows.append(row)
-		if (win_team < 0 or c.team == win_team) and sc > best_score:
-			best_score = sc
-			best = c.id
-	# The pose: in a team battle the winning side's MVP; else whoever stands; else the first
-	# of the winning side. (No pose when nobody won.)
-	var pose: CreatureSim = winner
-	if team_battle != null and win_team >= 0:
-		pose = null
-		for c in sim.creatures:
-			if c.id == best:
-				pose = c
-		if pose == null:
-			winner = null
-	if pose == null and win_team >= 0:
-		for c in sim.creatures:
-			if c.team == win_team and not c.is_dummy:
-				pose = c
-				break
-	var title := hud.banner if hud.banner != "" else "MATCH OVER"
-	var col: Color = Hud.SIDE_COLORS[win_team] if win_team in [0, 1] else UiTheme.C_ACCENT
-	return {
-		"title": title, "sub": hud.banner_sub, "color": col,
-		"fighter": String(pose.def.get("id", "")) if pose != null else "",
-		"mvp": best if team_battle != null and best_score > 0.0 else -1,
-		"extra": ["CAP", "RET", "STOP"] if ctf else [],
-		"rows": rows,
-	}
+	return show_ctl.results_data()
 
 
-## After a match: Rematch, Change fighters (modes with a pick screen) or Main menu;
-## online, Rematch or Leave, with what the other player is doing. It sits low so the
-## winner's banner stays in view. Back = Main menu / Leave.
-func _show_match_over() -> void:
-	var scr := UiScreen.new()
-	scr.dim = 0.35
-	scr.column_shift = 52.0
-	scr.row_width = 170.0
-	scr.hints = ["move", "select", "back"]
-	var cfg: Dictionary = MODES[mode]
-	var results := online == null and watch == null and not (_replaying() or mode == REPLAY_MODE)
-	if results:  # the results screen: the stats panel, then the same buttons
-		scr.dim = 0.62
-		scr.column_shift = 0.0
-		scr.row_width = 200.0
-		wipe.start()
-	scr.builder = func(s: UiScreen):
-		if sim != null and not _replaying() and mode != REPLAY_MODE and showcase == null and coach == null:
-			s.add_text("F6  save this fight's replay", UiTheme.SIZE_HINT, UiTheme.C_DIM)
-		for line in ([] if results else _ctf_summary()):
-			s.add_text(String(line[0]), UiTheme.SIZE_HINT + (2 if line[1] == UiTheme.C_ACCENT else 0), line[1])
-		if online != null and netplay.in_room():
-			s.add_button("Next match", _room_next, "Pick a fighter (or keep yours) for the next match in this room")
-			s.add_button("Leave room", _leave_to_lobby, "Back to the online screen; the room carries on without you")
-			s.add_row(RoomCodeButton.new(_room_code()), "Copy the code to send to a friend")
-			_match_over_status = s.add_text("", UiTheme.SIZE_HINT + 1, UiTheme.C_ACCENT)
-			s.on_back = _leave_to_lobby
-		elif online != null:
-			# A 1v1 rematch picks fighters first (both players, once both ask); a team
-			# battle starts again with the same ones. Ranked rates every game.
-			var again := s.add_button("Rematch", func(): pass, "Play again; once both ask, you both pick fighters"
-				if online.players == 2 else "Play again; it starts when everyone asks")
-			var asked := func():
-				again.disabled = true
-				again.text = "Rematch asked"
-			again.pressed.connect(func():
-				netplay.request_rematch()
-				asked.call())
-			if netplay.rematch_local:
-				asked.call()
-			if netplay.ranked:
-				s.add_button("Back to online", _leave_to_lobby, "Search again from the online screen")
-			s.add_button("Leave", _leave_online, "Back to the title menu")
-			_match_over_status = s.add_text("", UiTheme.SIZE_HINT + 1, UiTheme.C_ACCENT)
-			s.on_back = _leave_to_lobby if netplay.ranked else _leave_online
-		elif watch != null:
-			s.add_button("Leave", _leave_online, "Back to the title menu")
-			if netplay != null and netplay.room != "":
-				s.add_row(RoomCodeButton.new(_room_code()), "Copy the code to send to a friend")
-			# What's next: the players picking, a rematch, or the match ending.
-			_match_over_status = s.add_text("", UiTheme.SIZE_HINT + 1, UiTheme.C_ACCENT)
-			s.on_back = _leave_online
-		elif _replaying() or mode == REPLAY_MODE:
-			s.add_button("Replay theater", func():
-				_open_menu("single")
-				_open_replays(), "Pick another")
-			s.add_button("Main menu", func(): _open_menu(), "Back to the title menu")
-			s.on_back = func(): _open_menu()
-		else:
-			s.add_panel(ResultsPanel.new(results_data()))
-			s.add_space(8.0)
-			if arcade != null and arcade.can_retry() and not _arcade_cleared:
-				s.add_button("Retry the stage", func():
-					_close_ui()
-					wins = [0, 0]
-					round_num = 1
-					_start_arcade_stage(), "The same stage again")
-			elif arcade != null:
-				s.add_button("Play again" if arcade is Daily else "New run", func():
-					seed_base += 1
-					_start_match(mode), "Today's fight again" if arcade is Daily else "A fresh run from the start")
-			else:
-				s.add_button("Rematch", func():
-					seed_base += 1
-					_start_match(mode, true), "The same fighters again")
-			if _has_pick(cfg) and not _skip_select:
-				s.add_button("Change fighters", func(): _start_match(mode), "Back to the pick screen")
-			s.add_button("Main menu", _back_to_row, "Back to where you picked this mode")
-			s.on_back = _back_to_row
-	ui.push(scr)
-	if results:
-		hud.banner_hidden = true  # the panel says it
-
-
-func _end_online() -> void:
-	if _finder != null:
-		_finder.cancel()
-	_finder = null
-	_ready_screen = null
-	_room_screen = null
-	_room_picker = null
-	_rematch_page = false
-	netplay = null
-	online = null
-	watch = null
-	if voice_view != null:
-		voice_view.stop()
-	if hud != null:
-		hud.net_info = ""
-		hud.mic_on = false
-		hud.mic_missing = false
-
-
-## --net-report=PATH: the match's inputs and state fingerprints as JSON, so two
-## machines' reports can be compared (or a desync replayed). Also written on a desync.
-## PATH always holds the latest match (its number and teams are in it); `keep` (a
-## rematch or a room's next match is starting) also keeps the finished one beside it as
-## PATH_m<n>.json, so a run of several matches leaves every match's fighters and inputs.
+## In main_online.gd (tests and other scripts call it here).
 func _write_net_report(keep := false) -> void:
-	if online == null:
-		return
-	var path := String(_net_args.get("report", ""))
-	if path == "" and online.desync_frame < 0:
-		return
-	if path == "":
-		DirAccess.make_dir_recursive_absolute("user://desyncs")
-		path = "user://desyncs/desync_%s.json" % Time.get_datetime_string_from_system().replace(":", "-")
-		keep = false
-	var text := JSON.stringify(online.report())
-	var paths := [path]
-	if keep:
-		paths.append("%s_m%d.%s" % [path.get_basename(), online.id, path.get_extension() if path.get_extension() != "" else "json"])
-	for p in paths:
-		var f := FileAccess.open(String(p), FileAccess.WRITE)
-		if f != null:
-			f.store_string(text)
-			f.close()
+	online_ctl._write_net_report(keep)
 
 
 func _notification(what: int) -> void:
@@ -6508,6 +4246,8 @@ func _capture() -> void:
 			Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0,
 			CreatureView.sheet_report()])
 	if _quit_after > 0 and t >= _quit_after:
-		_write_net_report()
+		online_ctl._write_net_report()
 		_print_perf()
+		if _bug_report_dir != "":
+			_cli_bug_report()  # with --quit-after: the run's own log, perf report and match
 		get_tree().quit()
