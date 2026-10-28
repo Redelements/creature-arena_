@@ -62,4 +62,12 @@ Priorities are in the Game Plan doc, "Game modes". Refreshed 2026-10-27 (unatten
   skill_1 and 3 of 21 skill_2. Kevin's call (Oct 23): the only Pete change is a truly invisible
   Tiptoe (#160). Balance is now measured with Normal CPUs only (decisions log, Oct 25), so these
   Rage numbers are history, not a pin; a Pete or Crease kit question for Kevin. Other Normal-bot
-  matchups to watch: Digby vs Cerebro, Craglash and Gillbert at the bottom of the matrix.
+  matchups to watch: Craglash and Gillbert at the bottom of the matrix. **Digby vs Cerebro**
+  (Normal bots, Oct 27): Digby wins 13 of 48 (`bench_cpu.gd --pairs=digby:cerebro --seeds=24`)
+  and 0 of 12 in the `--matrix` row, though he is second best overall (67%); the assassin >
+  mage pin is upside down here. Cerebro throws about four attacks to Digby's one at point blank
+  (fights average 50 px apart, not knife range), Digby blocks the stream (guarding 21% of the
+  time), runs out of stamina and has his guard broken 19 times in 12 games, and Cerebro's Flip
+  Out grab beats the guard. Digby lands almost everything he throws but Burrows only 1.4 times a
+  match (its CPU window is 80-160 px). Numbers and the questions for Kevin:
+  `docs/plans/combat-metrics.md` ("Digby vs Cerebro").
