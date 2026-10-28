@@ -8,13 +8,18 @@ extends SceneTree
 ##   godot --headless --path . --script res://tests/bench_modes.gd -- [--seeds=6] [--seed0=0] [--level=1]
 ##     [--modes=team2,team3,tdm2,tdm3,crater2,sinkhole2,brawl3,brawl4,caravan3,ctf3]
 ##     [--shrines=data|on|off] [--shrine-set=first_seconds:15,...] [--set=crown_points_to_win:20,...] [--rows]
+##     [--shrine-spots=0.5/0.25;0.5/0.75] [--arena=quarry] [--mutators=damage_mult:0.67,haste,...]
 ## --shrines=on turns shrines on in a mode whose rules leave them out (with the shared
 ## defaults, data/rules/shrines.json, and the haste/might cycle); off takes them out of
 ## any mode (Capture the Flag too); --shrine-set tries a shrine tuning (numbers) in every
 ## mode that has them. --set tries top-level rules numbers in every mode (spree_at:0 or crown:0
 ## turns off Team Deathmatch's sprees or the Brawl crown). Also counted: time-outs, how often the
 ## side (a Brawl: the fighter) that landed the last hit on the first one down won, and the
-## spree, shutdown and crown events. --rows prints every match.
+## spree, shutdown and crown events. --rows prints every match. --shrine-spots sets the shrine
+## rules' "spots" (fractions of the floor, x/y, ';' between spots; a map with its own "shrines"
+## keeps them); --arena plays every mode (but one whose rules name a map) on that map;
+## --mutators applies match mutators to every match (a data/rules/mutators.json id, or a
+## key:value such as damage_mult:0.67, which makes every fight about half as long again).
 
 ## A hit after this many ticks of quiet starts a new fight; this many ticks without a hit
 ## landed is a stalemate tick.
@@ -24,6 +29,8 @@ const SAMPLE := 30
 var _shrine_set := {}
 var _rule_set := {}  ## --set=key:value,... top-level rules numbers tried in every mode (spree_at:0 turns sprees off, crown:0 the crown)
 var _seed0 := 0  ## the first seed (--seed0: more matches on top of an earlier run)
+var _spots: Array = []  ## --shrine-spots: the shrine rules' "spots"
+var _mutators := {}  ## --mutators: applied to every match (MatchSim.apply_mutators)
 const ROSTER := ["cairn", "sno", "pete", "craglash", "culvert", "digby", "hissy", "barkley", "gillbert", "cerebro"]
 ## id: [kind, rules id, fighters a side (team) or players (brawl), name]
 const MODES := {
@@ -65,8 +72,21 @@ func _init() -> void:
 				_rule_set[kv.get_slice(":", 0)] = float(kv.get_slice(":", 1))
 		elif arg == "--rows":
 			rows = true
-	print("Mode bench: %d seeds a mode, CPU level %s, shrines %s %s %s" % [seeds, CpuController.LEVELS[level]["name"], shrines,
-		_shrine_set if not _shrine_set.is_empty() else "", _rule_set if not _rule_set.is_empty() else ""])
+		elif arg.begins_with("--shrine-spots="):
+			for sp in arg.get_slice("=", 1).split(";", false):
+				_spots.append([float(sp.get_slice("/", 0)), float(sp.get_slice("/", 1))])
+		elif arg.begins_with("--arena="):
+			MatchFactory.arena = arg.get_slice("=", 1)
+		elif arg.begins_with("--mutators="):
+			var all := BrawlSim.load_rules("res://data/rules/mutators.json")
+			for m in arg.get_slice("=", 1).split(",", false):
+				if m.contains(":"):
+					_mutators[m.get_slice(":", 0)] = float(m.get_slice(":", 1))
+				elif all.has(m):
+					MatchSim.merge_mutator(_mutators, all[m])
+	print("Mode bench: %d seeds a mode, CPU level %s, shrines %s %s %s %s, arena %s %s" % [seeds, CpuController.LEVELS[level]["name"], shrines,
+		_shrine_set if not _shrine_set.is_empty() else "", _spots if not _spots.is_empty() else "",
+		_rule_set if not _rule_set.is_empty() else "", MatchFactory.arena, _mutators if not _mutators.is_empty() else ""])
 	print("| Mode | Matches | Length (s) | Stalemate | Fights/min | KOs/match | Captures/match | Leader at half | Comebacks | Shrine claims/match | Claimer won | More buffs won | Time-outs | First KO won | Sprees/match | Shutdowns/match | Crown changes/match |")
 	print("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
 	for m in modes:
@@ -84,6 +104,8 @@ func _rules(cfg: Array, shrines: String) -> Dictionary:
 		r["shrines"] = {"kinds": ["haste", "might"]}
 	if r.has("shrines"):
 		(r["shrines"] as Dictionary).merge(_shrine_set, true)
+		if not _spots.is_empty():
+			r["shrines"]["spots"] = _spots.duplicate(true)
 	r.merge(_rule_set, true)
 	return r
 
@@ -128,6 +150,8 @@ func _match(cfg: Array, s: int, level: int, rules: Dictionary) -> Dictionary:
 			teams[k % 2].append(ROSTER[(s * 3 + k) % ROSTER.size()])
 		game = TeamSim.new(teams, n, rules.duplicate(true))
 	var sim: MatchSim = game.sim
+	if not _mutators.is_empty():
+		sim.apply_mutators(_mutators, s)
 	var cpus: Array = []
 	for i in game.slot_count():
 		cpus.append(CpuController.new(i, level, 1000 * s + i))
