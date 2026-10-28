@@ -46,6 +46,9 @@ about evenly (the slowest files, `test_server_teams`, `test_server_fuzz`, `test_
   and sim step percentiles; a stutter is the tail (p99.9, max). In a real window, `--perf` does the
   same for frames and ticks.
 - Parallel Godot runs need separate `APPDATA` (Windows) / user dirs, or `user://` collides.
+- `tools/smoke_sweep.py` (not a bench): every mode on the four map choices headless with all
+  hazards on, failing on SCRIPT ERROR / Parse Error / Failed to load; about four minutes. Run it
+  with the suite and `--sim-check` before a PR that touches many modes.
 
 ## CI
 

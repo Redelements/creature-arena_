@@ -228,6 +228,7 @@ tools, so a fighter's pass is posing work only.
 - `palette.py` — The master palette: one published set of colours for every fighter and arena.
 - `seed_dressing.gd` — Seeds a map's hand-dressing scene (assets/arenas/<id>_dressing.tscn) from a first-draft spec, tools/dressing/<id>.json.
 - `shade2d.py` — Master-palette shading for the 2D painters (Barkley's and Gillbert's rigs).
+- `smoke_sweep.py` — Headless smoke sweep: every mode on every arena, grepping the output for script errors.
 - `splat3d.py` — Shared renderer for the sheet-recreation sprite generators (tools/gen_digby.py and later).
 - `sprite_2x.py` — Switches a fighter's JSON to its 2x sheets (the fighter-2x skill):
 - `write_status.py` — Stamps docs/STATUS.md with the time, branch and commit so a compaction never starts without a fresh marker.
