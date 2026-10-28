@@ -52,6 +52,7 @@ default 22), `routes` (lists of action names), `far_routes`/`far_from`, `poke`/`
 included, and in neutral at a foe within `range` px body to body, not swinging, dodging or guarding, `chance`
 of the ticks; never at a foe already marked: `_plan_setup`), `setup_routes` (the near routes while the foe
 lacks the `setup` mark; once marked, `routes`).
+`cross_pits` (bool, default true: false never crosses a chasm with a crossing move; see Pits below).
 `caravan` (bool, default true: false plays the Caravan as a plain zone, no job; see Caravan below).
 `weights` (Rage's scored kit: per-candidate multipliers `surge`, `lob`, `gaze`, `zone`, `poke`,
 `give_ground` over `CpuController.WEIGHTS` and a `STYLES` entry's `weights`; 0 turns one off,
@@ -100,6 +101,16 @@ e.g. Cerebro's `poke`, whose mallet thrown at a tank walking in loses the matchu
   (`NavGrid.region_of`) or the walk round is longer by half a roll, chance per level `LEVELS`
   `gap`; every CPU dodge goes through `_safe_roll_dir` / `_open_dir`'s roll mode, so none ends
   within `LAND_MARGIN` of a pit. A ram (Craglash) stops at a lip and never crosses
+- Chasms and crossing moves → a move with a `leap` window round a straight `dash` (no `home`, no `ghost`, not the
+  Surge: Digby's Burrow) carries over pits (`_cross_move`, `_cross_reach`: dash speed x its ticks). `_gap_cross` (from
+  `_go_to`, after `_gap_roll`) throws it at a chasm's lip (only a chasm: healing holes are walked round or rolled)
+  when the far side is another region or the walk round is longer by half its reach, aimed (IN_AIM) the way among
+  seven nearest the goal whose replayed landing (`cross_end`, keep it in step with the dash in
+  `CreatureSim._update_attack`) has floor `CROSS_MARGIN` round it, chance `gap` per level; the stick is then held
+  straight (`_cross_t`, before `_continue_attack`'s Burrow steering). `_cross_through` (every 8 ticks) walks straight
+  at the chasm instead of the path when the path is much longer (or there's none) and the line has no walls and only
+  chasms the move clears. Off per fighter: `ai.cross_pits` false. Measured with `bench_fighter.gd --fighter=digby
+  --arena=twin_keeps` / `--mutators=pit_floor` and `bench_modes.gd --pits`
 - Threads → `think_all`, `think_start` / `think_wait`, `threaded`, `last_bits`
 - Scored kit (piece 2 of docs/plans/ai-utility-and-teamplay.md) → `_rage_kit_scored`,
   `_score_candidates`, the `f_*` considerations and `compensate`, a kiter's `_give_ground`; on

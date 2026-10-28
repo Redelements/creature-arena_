@@ -33,8 +33,8 @@ about evenly (the slowest files, `test_server_teams`, `test_server_fuzz`, `test_
 ## Benches (not tests)
 
 - `bench_fighter.gd`: why one fighter wins or loses (`--fighter=sno`, `--foes=`,
-  `--seeds=`, `--a=`, `--b=`): moves thrown, landed and blocked, damage dealt and taken,
-  hits taken mid-move, pit falls, time guarding, the moves that hit it most.
+  `--seeds=`, `--a=`, `--b=`, `--arena=`, `--mutators=pit_floor`): moves thrown, landed and blocked, damage dealt and taken,
+  hits taken mid-move, pit falls, time guarding, the moves that hit it most, time with no walk to the foe, pits crossed in the air.
 - `bench_cpu.gd`: CPU tier win rates: `--matrix` (every pair at `--a`, default 1 = Normal; balance never uses Rage), `--pairs`,
   `--seeds`, `--only=<id>`, `--detail` (per foe: share of ticks at `ai.range` spacing, stamina-empty ticks, guard breaks taken), `--arena=ID`, `--teams=3` (3v3 tank/mage/assassin a side: win rate, target and focus switches a minute, spacing; `--intent=a` gives only the first-picks side the team focus, `--intent=off` nobody), `--combat` (Rage vs Rage over the roster: each fighter's damage share by move type, combo length and variety, Surges a minute; baseline in `docs/plans/combat-metrics.md`). Six games a pair at `--seeds=3` is
   noisy; `--only=<id> --seeds=6` plays 132 games.
@@ -45,7 +45,7 @@ about evenly (the slowest files, `test_server_teams`, `test_server_fuzz`, `test_
   `bench_modes.gd`: every mode's pacing on one yardstick, Normal CPUs (`--modes=team2,tdm3,brawl4,...`,
   `--seeds`, `--shrines=data|on|off`, `--shrine-set=key:value`, `--set=key:value` (a top-level rules number, e.g.
   `spree_at:0`, `crown:0`, `crown_points_to_win:20`), `--shrine-spots=0.5/0.25;0.5/0.75`, `--arena=ID`,
-  `--mutators=damage_mult:0.67` (or a mutators.json id), `--rows`): match length, stalemate share,
+  `--mutators=damage_mult:0.67` (or a mutators.json id), `--rows`, `--pits`: pit falls, pits crossed in the air, time with no walk to a foe): match length, stalemate share,
   fights a minute, KOs, comebacks from behind at half time, shrine claims, time-outs, how often the first KO's
   side won, sprees, shutdowns, crown changes, the Caravan's push (definitions and results in
   `docs/plans/mode-metrics.md`). `bench_spacing.gd`: how far apart fighters fight. `bench_ai_cost.gd`: what a tick costs in a big
@@ -108,6 +108,7 @@ about evenly (the slowest files, `test_server_teams`, `test_server_fuzz`, `test_
 - `test_combos.gd` — Every example combo from the design plan (Combat system tab) must connect and deal the planned damage.
 - `test_counterplay.gd` — Counterplay: big moves thrown raw must be readable and answerable, and reacting to a Surge's freeze must work.
 - `test_cpu_caravan.gd` — The CPU's Caravan plan: the rules give each fighter a job (TeamSim._cv_goals: attackers "push" at the caravan, defender…
+- `test_cpu_crossing.gd` — The CPU crosses a chasm with a crossing move (a `leap` over a straight `dash`: Digby's Burrow; `CpuController._gap_cros…
 - `test_cpu_pathing.gd` — The CPU finds its way round walls, fences and chasms: a coarse nav grid with integer costs (deterministic), consulted o…
 - `test_craglash.gd` — Craglash's kit: Stoneskin's shield, Bedrock (his Surge: armor, taunt, drag and release), Mountain Maw (his hook: unbloc…
 - `test_crater.gd` — King of the Crater: a zone to hold that moves, the floor breaking round it, a hold that scores a tick a tick, KOs that…
