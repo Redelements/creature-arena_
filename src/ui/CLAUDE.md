@@ -57,9 +57,13 @@ Menus are `Control` nodes on a `ScreenStack` of `UiScreen`s, styled by one share
   `text_page.gd` (Up/Down, Left/Right, wheel and drag scroll it; it keeps the focus)
 - Hint text per device → `prompts.gd`; live fighter idle → `fighter_preview.gd` (`palette`: the fight's hue turn
   through `flash.gdshader`, for the Profile's palette picker; `DetailCard.palette` passes it on)
-- The Profile (Progression on; `--menu=profile[:account|<fighter>]`) → `profile_screen.gd` (`page`: "" the hub,
-  "account", a fighter id; `_build_profile`, `_build_account`, `_build_fighter`, `_picker`): pickers are OptionRows
-  with `locked` (greyed values, looked at but never worn) and the hub rows' `tag` ("New!") and `bar_width`. Every card
+- The Profile (Progression on; `--menu=profile[:account|challenges|<fighter>]`) → `profile_screen.gd` (`page`: "" the hub,
+  "account", "challenges", a fighter id; `_build_profile`, `_build_account`, `_build_challenges` / `_challenge_row`,
+  `_build_fighter`, `_picker`): pickers are OptionRows
+  with `locked` (greyed values, looked at but never worn) and the hub rows' `tag` ("New!") and `bar_width`; a
+  challenge's row is an OptionRow with `bar`, `ticked` (a drawn tick: the pixel font has no ✓) and a narrow
+  `bar_value_room` so long names clear the bar (`tests/test_challenges.gd` pins it). The title pickers also offer
+  the challenges' titles (`Challenges.titles()`). Every card
   there has three facts (blank lines keep the height) so the panel never moves. Reads and writes only through
   `Progress`; `tests/test_progression_profile.gd`, fit in `tests/test_ui_fit.gd` (`PROFILE_PAGES`)
 

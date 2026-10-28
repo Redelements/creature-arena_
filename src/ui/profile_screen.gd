@@ -12,8 +12,11 @@ extends UiScreen
 ## `is_new`, save key "seen"): on the title's Profile row, on the fighter's row, on the
 ## Account row and in the page's list. Opening a fighter's (or the account's) page sees them.
 ##
-## page: "" the Profile, "account", or a fighter id (`--menu=profile`, `profile:account`,
-## `profile:<fighter>`).
+## Enter on Challenges opens the goals (src/game/challenges.gd, data/challenges.json) by
+## group, each with its progress bar and count, the done ones last in their group.
+##
+## page: "" the Profile, "account", "challenges", or a fighter id (`--menu=profile`,
+## `profile:account`, `profile:challenges`, `profile:<fighter>`).
 
 const ARCADE_LEVELS := ["Easy", "Normal", "Hard", "Rage"]
 const FACTS := 3  ## every card here has three facts, so the panel never changes height
@@ -41,6 +44,12 @@ func _init(p_page := "") -> void:
 		title = "ACCOUNT"
 		subtitle = "Level %d  ·  %d XP" % [Progress.account_level(), Progress.account_xp()]
 		blurb = "Titles come with account levels. One is worn by every fighter without a title of its own"
+	elif page == "challenges":
+		crumbs = ["PROFILE"]
+		title = "CHALLENGES"
+		subtitle = "%d of %d done" % [Challenges.done_count(), Challenges.goals().size()]
+		blurb = "Goals counted from your matches. Each pays account XP once, some a title too"
+		hints = ["move", "back"]
 	else:
 		crumbs = ["PROFILE"]
 		title = _name(page).to_upper()
@@ -55,6 +64,8 @@ func build() -> void:
 			_build_profile()
 		"account":
 			_build_account()
+		"challenges":
+			_build_challenges()
 		_:
 			_build_fighter(page)
 	add_space(4)
@@ -67,6 +78,19 @@ func _build_profile() -> void:
 	var acc := add_option("Account", ["Level %d" % Progress.account_level()], 0, func(_i): pass,
 		"Your account's level, its titles and the one you wear")
 	_hub_row(acc, "")
+	var ch := add_option("Challenges", ["%d / %d" % [Challenges.done_count(), Challenges.goals().size()]], 0,
+		func(_i): pass, "Enter: the goals, how far along each one is, and what they pay")
+	ch.activates = true
+	ch.bar = float(Challenges.done_count()) / maxf(1.0, Challenges.goals().size())
+	ch.bar_width = 30.0
+	ch.activated.connect(func():
+		if stack != null:
+			stack.notify_chosen()
+			stack.push(ProfileScreen.new("challenges")))
+	var chk := card(ch)
+	if chk != null:
+		chk.facts = ["%d of %d done" % [Challenges.done_count(), Challenges.goals().size()], "XP and titles for goals",
+			"in every mode"]
 	for f in MatchFactory.FIGHTERS:
 		var o := add_option(_name(String(f)), ["Mastery %d" % Progress.mastery_level(String(f))], 0, func(_i): pass,
 			"Enter: this fighter's palettes, titles and victory lines")
@@ -147,11 +171,12 @@ func _build_fighter(f: String) -> void:
 		show_palette.call(i))
 	if pk != null:
 		pk.fighter = f
-	# Titles: this fighter's own, then the account's.
+	# Titles: this fighter's own, then the account's, then the challenges'.
 	var ids: Array = [""]
 	for r in Progress.mastery_rewards(f) + Progress.account_rewards():
 		if String(r["id"]).begins_with("title:"):
 			ids.append(String(r["id"]))
+	ids.append_array(Challenges.titles())
 	_title_row = _picker("Title", ids, String(Progress.equipped(f)["title"]), f,
 		"Left/Right: the title under your name on the pick and results screens with %s (None: the account's)" % _name(f),
 		func(id: String) -> bool: return Progress.set_equipped(f, "title", id))
@@ -201,6 +226,43 @@ func _picker(label: String, ids: Array, now: String, f: String, desc: String, we
 	return o
 
 
+# ------------------------------------------------------------------ the challenges
+
+func _build_challenges() -> void:
+	for group in Challenges.groups():
+		var open: Array = []
+		var shut: Array = []
+		for g in Challenges.goals():
+			if String(g.get("group", "")) == String(group):
+				(shut if Challenges.done(String(g["id"])) else open).append(g)
+		if open.is_empty() and shut.is_empty():
+			continue
+		add_heading("%s  ·  %d / %d" % [group, shut.size(), open.size() + shut.size()])
+		for g in open + shut:
+			_challenge_row(g)
+
+
+## A goal's row: its name, a bar and "count / target" ("Done" when done); the card says
+## how far along it is and what it pays.
+func _challenge_row(g: Dictionary) -> void:
+	var id := String(g["id"])
+	var p := Challenges.progress(id)
+	var is_done := Challenges.done(id)
+	var o := add_option(String(g.get("name", id)), ["Done" if is_done else "%d / %d" % [int(p[0]), int(p[1])]], 0,
+		func(_i): pass, String(g.get("desc", "")))
+	o.bar = 1.0 if is_done else _frac(p)
+	o.bar_width = 30.0
+	o.bar_value_room = 48.0  # "500 / 500" at most: the rest goes to the name and its tick
+	o.ticked = is_done
+	var k := card(o)
+	if k != null:
+		if g.has("fighter"):
+			k.fighter = String(g["fighter"])
+			k.palette = Progress.palette(String(g["fighter"]))
+		k.facts = ["Done" if is_done else "%d of %d" % [int(p[0]), int(p[1])],
+			"Pays " + Challenges.reward_text(g), String(g.get("group", ""))]
+
+
 # ------------------------------------------------------------------ the account's page
 
 func _build_account() -> void:
@@ -209,6 +271,7 @@ func _build_account() -> void:
 	for r in Progress.account_rewards():
 		if String(r["id"]).begins_with("title:"):
 			ids.append(String(r["id"]))
+	ids.append_array(Challenges.titles())
 	_picker("Title", ids, Progress.account_title(), "",
 		"Left/Right: the title every fighter without one of its own shows on the pick and results screens",
 		func(id: String) -> bool: return Progress.set_account_title(id))
@@ -333,6 +396,10 @@ func _reward_facts(id: String, f: String) -> Array:
 				acc = false
 	var have := Progress.unlocked(id)
 	var where := ("Account level %d" if acc else "Mastery %d") % lvl
+	var ch := Challenges.goal_of_reward(id)
+	if lvl == 0 and not ch.is_empty():  # a challenge's title: which one, on a line of its own
+		return ["\"%s\"" % Progress.title_text(id), "Challenge title  ·  yours" if have else "Locked: a challenge title",
+			"From " + String(ch.get("name", ""))]
 	var status := (where + "  ·  yours") if have else ("Locked: " + where)
 	if id.begins_with("line:"):
 		return _wrap("\"%s\"" % Progress.line_text(id), 2) + [status]

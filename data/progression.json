@@ -37,7 +37,15 @@
 		"crowd_favourite": "Crowd Favourite",
 		"veteran": "Veteran Rambler",
 		"legend": "Rambles Legend",
-		"{fighter}_master": "{name} Master"
+		"{fighter}_master": "{name} Master",
+		"centurion": "Centurion",
+		"champion": "Champion",
+		"knockout_artist": "Knockout Artist",
+		"unstoppable": "Unstoppable",
+		"chaos_tamer": "Chaos Tamer",
+		"combo_artist": "Combo Artist",
+		"untouchable": "Untouchable",
+		"globetrotter": "Globetrotter"
 	},
 	"lines": {
 		"{fighter}_1": "{name} takes a bow.",
