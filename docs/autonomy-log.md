@@ -27,7 +27,7 @@ DONE / SKIPPED / BLOCKED. This file lives on branch `autonomy-log` (worktree
 | 7 | Caravan CPU wagon goal | | |
 | 8 | CPU Burrow pit crossing | | |
 | 9 | Accessibility: colour-safe teams / outlines, high-contrast hit markers | | |
-| 10 | Audio CC0 pass (Kenney only) + CREDITS | | |
+| 10 | Audio CC0 pass (Kenney only) + CREDITS | BLOCKED (ruling needed) | |
 | 11 | Training dummy at 2x | | |
 | 12 | Replay tools: frame step, slow motion, rewind; bug-report bundle | | |
 | 13 | Mode-idea evidence: bench every "idea" row | | |
@@ -138,3 +138,22 @@ regression tests in tests/test_training.gd; MECHANICS.md "Training options" upda
   touch neither main.gd nor src/ai. Starting now: task 5 (main.gd split, worktree creature-arena-main-split)
   and task 6 (team intent, worktree creature-arena-team-intent-3; src/ai only). Tasks 7 and 8 queue behind 6
   (same file, cpu_controller.gd); tasks 9, 12, 15, 16 queue behind 5 (they edit main.gd).
+
+## Task 10: audio CC0 pass -> BLOCKED
+
+- Agent downloaded seven Kenney packs from kenney.nl only (Impact Sounds, Interface Sounds, RPG Audio,
+  Sci-Fi Sounds, Digital Audio, UI Audio, Casino Audio; SHA-256s and full listings in
+  `C:/Users/Kevin/dev/kenney-audio/NOTES-listings.txt`, archives in `C:/Users/Kevin/dev/kenney-audio/<pack>/`,
+  outside the repo) and inspected every listing WITHOUT extracting.
+- Every archive holds, besides `.ogg` files and `License.txt`, two Windows Internet Shortcut files
+  (`Kenney.url` / `Patreon.url`, 45-55 bytes); Sci-Fi Sounds and Digital Audio also hold `Audio/desktop.ini`
+  (46 bytes). No executables, scripts, nested archives or images.
+- Kevin's rule: "abort and log if it contains anything other than audio and license files." A `.url` file
+  is neither, and a shortcut can open a link, so the rule's letter applies. **Decision: abort; nothing was
+  extracted; no commit, no PR.** The worktree `creature-arena-audio-cc0` is clean and kept.
+- To unblock, Kevin's one-line ruling: "extract only the .ogg and License.txt members, never the .url /
+  desktop.ini files." With that the agent continues (the plan is ready: Godot decodes the OGGs to WAV in a
+  `tools/cut_audio.py` step since this PC has no OGG decoder; voice (`chop_chop`, `cooking_with_fire`,
+  `hiss`, `dig_it`, `finders`, `chill`) and `music_battler.ogg` stay; `crowd_cheer` / `crowd_roar` stay
+  placeholders since Kenney has no crowd recordings; the count is 81 placeholders, not 76; Kenney goes into
+  LICENSES.md, the credits screen and tests/test_credits.gd).
