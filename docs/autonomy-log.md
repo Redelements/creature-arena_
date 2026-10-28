@@ -28,7 +28,7 @@ DONE / SKIPPED / BLOCKED. This file lives on branch `autonomy-log` (worktree
 | 8 | CPU Burrow pit crossing | | |
 | 9 | Accessibility: colour-safe teams / outlines, high-contrast hit markers | | |
 | 10 | Audio CC0 pass (Kenney only) + CREDITS | BLOCKED (ruling needed) | |
-| 11 | Training dummy at 2x | | |
+| 11 | Training dummy at 2x | PR OPEN for Kevin | [#264](https://github.com/Redelements/creature-arena_/pull/264) |
 | 12 | Replay tools: frame step, slow motion, rewind; bug-report bundle | | |
 | 13 | Mode-idea evidence: bench every "idea" row | | |
 | 14 | Digby vs Cerebro with Normal bots, documented | | |
@@ -159,3 +159,15 @@ regression tests in tests/test_training.gd; MECHANICS.md "Training options" upda
   LICENSES.md, the credits screen and tests/test_credits.gd).
 - **Task 4 DONE**: manual nightly run 40643286819 on main green on every job (balance, determinism x2, compare,
   summary): https://github.com/Redelements/creature-arena_/actions/runs/40643286819
+
+## Task 11: training dummy at 2x
+
+- Agent opened **PR #264** (behavioral: players see it; left for Kevin). `gen_dummy.py` gains `DUMMY_DENSITY`
+  (default 2; 1 rebuilds the 1x sheets byte for byte) and `DUMMY_STYLE` (bold, like the roster); ten
+  `dummy_2x*` sheets (five views + normals, 192 px frames), packed copies, dummy.json switched by
+  `sprite_2x.py`; **NET_VERSION 58 -> 59** (data_hash). Gallery docs/pixellab/dummy/.
+- Decisions (agent): bold shading; `test_art_scale.gd`'s "a 1x sheet draws exactly as before" now runs on a
+  copy of the dummy's block with `ppu` removed (no 1x sheet is left to pin on). Known gap left alone:
+  `gen_dummy.py anim` at 2x fails for every 2x rig (anim_preview reads the id from the file name).
+- Checks: suite 1295/0, journey 4/0, sweep 216/0, sim-check unchanged.
+- Watch: any later PR bumping NET_VERSION must renumber if #264 merges first (or vice versa).
