@@ -104,7 +104,14 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   map most of the field is off screen: `FxView` draws only particles and fighters near the
   view (`_view_rect`, `_in_view`, `CULL_PAD`, a wider `CULL_PAD_FIGHTER` so a telegraph can
   reach in), and a `SurgeAura` skips a fighter off screen. A floor change repaints its
-  bands a few per frame (`ArenaView._pending`, `SPREAD_FRAMES`), not all in one tick. A
+  bands a few per frame (`ArenaView._pending`, `SPREAD_FRAMES`), not all in one tick; on a
+  tiled map `_retile` sets only the tiles that changed (`_tile_ids`), reads the rows' pits
+  from one lookup and retiles each run of dirty bands at once. The water surface works its
+  fixed parts out once per floor (`WaterView._scan_foam`, `surface_specks`). The bloom's
+  viewports stay `UPDATE_ALWAYS`: rendering them once a tick (`UPDATE_ONCE`) measured worse
+  1% lows on the Compatibility renderer (Oct 2026). No view redraws between ticks: a frame between two ticks shows the same state, so
+  only what moves the camera (BackdropView, ForeView) runs per frame. A `_draw` may step state
+  (FxView's plate trail): never redraw a view more often than it does. A
   `_draw` reports its time with `PerfLog.now()` / `PerfLog.since(...)` for `--perf`
   (main thread only: `PerfLog` ignores a worker thread).
 - Parallax and furniture: `backdrop_view.gd` (BackdropView, first child of main, under the arena) draws the sky (`arena_<id>_sky.png`, 0.6 of the camera) and the far tiers under the roof edge (`arena_<id>_far.png`, 0.85) and slides them by `(1 - factor)` of the camera's move, whole pixels, set every frame (no easing); the main picture (the crowd's rows down, the floor) stays at 1.0, so the crowd stays on its stands. The camera may look `CrowdView.SHOW_TOP` above the arena so these show. `furniture_view.gd` (FurnitureView, after the crowd, under the fighters) builds the arena JSON `furniture` list (`data/CLAUDE.md`); pieces on layer `sky` / `far` are children of the backdrop's layers so they slide with them; animated ones step on the physics tick (`ANIM`) and redraw only on a frame change; the scoreboard reads `hud.timer_ticks` / `wins` / `team` and redraws only when its text changes. A piece never sits on the floor (`tests/test_furniture.gd`). The picture is split by `tools/gen_arenas.py:split_backdrop` (`FAR_ROWS`, `ROOF_H`, `SKY_UP`, `FAR_DOWN`: keep in step with `BackdropView`).

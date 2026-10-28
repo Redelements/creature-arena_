@@ -161,7 +161,8 @@ After `--`; the full list is in the `main.gd` header, modes in `MODES`.
 `--print-vram=N` (at frame N print `VRAM ...`: the texture and video memory Godot reports and the fighter sheets loaded, `CreatureView.sheet_report`; needs a renderer, headless reports 0),
 `--no-warmup` (skip the shader warm-up on the first frames, `ShaderWarmup`; for an A/B with `--perf`), `--rematch-after=N` (an offline match's results screen presses Rematch by itself after N frames: back-to-back `--cpu-vs-cpu` fights for `tools/odin_perf.py --soak`; `_rematch_at`, checked in `_capture`),
 `--bug-report[=DIR]` (a bug-report zip, `bug_report.gd`, then quit; with `--quit-after` at the end of the run), `--perf` (frame and tick percentiles on quit, with each part's share: the tick's
-steps, each view's `_draw` via `PerfLog.since`, the renderer's CPU and GPU time, and when
+steps, each view's `_draw` via `PerfLog.since`, the renderer's CPU and GPU time, its draw
+calls, objects and primitives a frame (as "(count)" lines), and when
 the slowest frames came; the 1% and 0.1% lows, missed frames, the slowest second, game time
 split into tick and no-tick frames, ticks held 3+ frames; `perf_log.gd`), `--fight-fps=N`
 (this session's fight cap), `--fps-pacing=cap|vsync` (vsync, the mobile default: vsync paces a cap
