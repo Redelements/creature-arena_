@@ -20,13 +20,16 @@ extends RefCounted
 ##   equipped(f) -> {palette, title, line}; set_equipped(f, key, value)   ("" = none)
 ##   award(report) -> Dictionary       once per finished match (see `award`)
 ##   merge_results(a, b), result_lines(result)   an Arcade run's stages as one; the results rows
+##   account_title() / set_account_title(id)   the title worn by the account (any fighter without its own)
+##   shown_title(f) / shown_line(f)    the words the versus and results screens show ("" when off or none)
+##   is_new(id), new_of(f), new_anywhere(), mark_seen(ids)   the Profile's "New!" marks (save key "seen")
 
 const PATH := "user://progress.json"
 const DATA_PATH := "res://data/progression.json"
 const PALETTES := 4
 ## Every key of the save and its default (an old file without some of them still loads).
 const SAVE_KEYS := {"arcade": {}, "palette": {}, "gauntlet": {}, "daily": {}, "xp": 0, "mastery": {},
-	"unlocked": [], "equipped": {}}
+	"unlocked": [], "equipped": {}, "account_title": "", "seen": []}
 
 static var _data := {}
 static var _loaded := false
@@ -465,3 +468,82 @@ static func result_lines(r: Dictionary) -> Array:
 			names.append(reward_text(String(id)))
 		lines.append("Unlocked: " + ", ".join(PackedStringArray(names)) + (" and %d more" % (got.size() - 2) if got.size() > 2 else ""))
 	return lines
+
+
+# --- The Profile (src/ui/profile_screen.gd) -----------------------------------------------
+
+
+## The account's title: a "title:<id>" reward id, or "" (none). Worn by every fighter
+## that has no title of its own equipped.
+static func account_title() -> String:
+	_ensure()
+	return String(_data["account_title"])
+
+
+## Wear an account title ("" takes it off; a locked or non-title id is refused, false).
+static func set_account_title(id: String) -> bool:
+	_ensure()
+	if id != "" and (not id.begins_with("title:") or not unlocked(id)):
+		return false
+	_data["account_title"] = id
+	save()
+	return true
+
+
+## The title the versus and results screens show for the player on this fighter: the
+## fighter's own, else the account's; "" when Progression is off or none is worn.
+static func shown_title(fighter: String) -> String:
+	if not enabled():
+		return ""
+	var id := String(equipped(fighter)["title"])
+	if id == "" or not unlocked(id):
+		id = account_title()
+	return title_text(id) if id != "" and unlocked(id) else ""
+
+
+## The victory line the results screen shows when the player wins on this fighter ("" none / off).
+static func shown_line(fighter: String) -> String:
+	if not enabled():
+		return ""
+	var id := String(equipped(fighter)["line"])
+	return line_text(id) if id != "" and unlocked(id) else ""
+
+
+## True for a reward a level-up gave that the Profile has not shown yet (save key "seen").
+static func is_new(reward_id: String) -> bool:
+	_ensure()
+	return _unlocked_list().has(reward_id) and not (_data["seen"] as Array).has(reward_id)
+
+
+## This fighter's new rewards; "" for the account's.
+static func new_of(fighter: String) -> Array:
+	var out: Array = []
+	for r in (account_rewards() if fighter == "" else mastery_rewards(fighter)):
+		if is_new(String(r["id"])):
+			out.append(String(r["id"]))
+	return out
+
+
+## Anything new anywhere (the title menu's "Profile  New!"; nothing while Progression is off).
+static func new_anywhere() -> bool:
+	if not enabled():
+		return false
+	if not new_of("").is_empty():
+		return true
+	for f in MatchFactory.FIGHTERS:
+		if not new_of(String(f)).is_empty():
+			return true
+	return false
+
+
+## The Profile showed these: they stop being new.
+static func mark_seen(ids: Array) -> void:
+	_ensure()
+	var seen: Array = _data["seen"]
+	var grew := false
+	for id in ids:
+		if not seen.has(String(id)):
+			seen.append(String(id))
+			grew = true
+	if grew:
+		save()

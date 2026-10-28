@@ -8,7 +8,8 @@ extends VBoxContainer
 ## data: {"title": String, "sub": String, "fighter": String (id of the pose, "" for none),
 ##        "color": Color, "mvp": int (fighter id, -1 none), "extra": [column names],
 ##        "rows": [{"id", "name", "team", "stats": {...}, "extra": [values]}],
-##        "progress": [lines] (Progression: "+N XP", level and mastery ups, unlocks; may be absent)}
+##        "progress": [lines] (Progression: "+N XP", level and mastery ups, unlocks; may be absent),
+##        "badge": the winning player's title, "line": their victory line (Progression; "" or absent: none)}
 
 const COLUMNS := [["DMG", "damage"], ["HITS", "hits"], ["KOS", "kos"], ["COMBO", "combo"], ["BLOCK", "blocks"], ["SURGE", "surges"]]
 const NAME_W := 76.0
@@ -52,6 +53,16 @@ func _build() -> void:
 	var sub := String(data.get("sub", ""))
 	if sub != "":
 		words.add_child(_label(sub, UiTheme.SIZE_HINT + 1, UiTheme.C_DIM, HORIZONTAL_ALIGNMENT_LEFT))
+	var badge := String(data.get("badge", ""))
+	if badge != "":  # the winner's title, small, under their name
+		var b := _label(badge, UiTheme.SIZE_HINT, UiTheme.C_ACCENT, HORIZONTAL_ALIGNMENT_LEFT)
+		b.name = "Badge"
+		words.add_child(b)
+	var said := String(data.get("line", ""))
+	if said != "":  # their victory line
+		var l := _label("\"%s\"" % said, UiTheme.SIZE_HINT + 1, UiTheme.C_TEXT, HORIZONTAL_ALIGNMENT_LEFT)
+		l.name = "VictoryLine"
+		words.add_child(l)
 	var grid := GridContainer.new()
 	var extra: Array = data.get("extra", [])
 	grid.columns = 1 + COLUMNS.size() + extra.size()

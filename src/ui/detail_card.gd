@@ -23,6 +23,11 @@ var fighter := "":
 		_preview.visible = v != ""
 		_def = MatchFactory.load_def(v) if v != "" else {}
 		_relayout()
+## The fighter's palette on its preview (the Profile's palette picker).
+var palette := 0:
+	set(v):
+		palette = v
+		_preview.palette = v
 var picture: Texture2D = null:
 	set(v):
 		picture = v
@@ -97,6 +102,9 @@ func _draw() -> void:
 		y += PREVIEW_H + 2
 	if not facts.is_empty():
 		for f in facts:
+			if String(f) == "":  # a blank line keeps the card's height
+				y += LINE_H
+				continue
 			draw_circle(Vector2(2.5, y + 5.5), 1.2, UiTheme.C_ACCENT)
 			_text(font, Vector2(8, y + 8), String(f), FONT_FACT, UiTheme.C_DIM, w - 8)
 			y += LINE_H
