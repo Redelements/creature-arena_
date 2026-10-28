@@ -745,7 +745,7 @@ floor like a landed fish, his rod tumbling behind him on the line.
 ### Chef Cerebro — a floating brain that cooks with its mind
 
 A mage (210 HP, Lumen affinity). He floats a hand's height off the floor with his
-kitchen hovering around him (big knife, spatula, meat mallet, a fan of paring knives) and
+kitchen hovering around him (big knife, spatula, meat mallet, paring knives, his chef's hat) and
 throws it all with his mind: whatever he's moving glows violet, and so does he.
 **Dodge: Mind Blink.** Instead of rolling he teleports: a short delay (5 frames, already
 untouchable from the 3rd) and he's simply 90 px away the way you pushed, stopped by the
