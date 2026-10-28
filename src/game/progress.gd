@@ -553,6 +553,8 @@ static func award(report: Dictionary) -> Dictionary:
 			_unlocked_list().append(id)
 			if not had.has(id):
 				out["unlocked"].append(id)
+			elif not (_data["seen"] as Array).has(id):
+				(_data["seen"] as Array).append(id)  # had already: no "New!" either
 	save()
 	return out
 

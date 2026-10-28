@@ -165,6 +165,8 @@ func test_palettes_unlock_by_an_arcade_clear_or_by_mastery() -> void:
 		n += 1
 	assert_eq(Progress.palettes_unlocked("sno"), 3, "mastery 5 adds the third:")
 	assert_false("palette:sno:1" in r["unlocked"], "the palette the clear gave is no news")
+	assert_false(Progress.is_new("palette:sno:1"), "nor New! on the Profile")
+	assert_true(Progress.is_new("palette:sno:2"), "the new one is")
 	assert_true("palette:sno:2" in r["unlocked"], "the one mastery gave is:")
 	Progress.set_palette("sno", 2)
 	assert_eq(Progress.palette("sno"), 2, "and it can be worn:")
