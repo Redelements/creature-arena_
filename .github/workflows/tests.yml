@@ -49,6 +49,17 @@ jobs:
           mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot
           chmod +x godot
 
+      # Godot reimports only what changed (it compares source md5s, not timestamps), so a
+      # restored .godot/imported turns a 2.5 minute import into seconds. The key names
+      # every source and import setting; an older cache still restores and is topped up.
+      - name: Cache the project import
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .godot/imported
+          key: import-linux-${{ env.GODOT_VERSION }}-${{ hashFiles('**/*.import', 'assets/**', 'project.godot') }}
+          restore-keys: |
+            import-linux-${{ env.GODOT_VERSION }}-
+
       - name: Import project
         run: ./godot --headless --path . --import
 

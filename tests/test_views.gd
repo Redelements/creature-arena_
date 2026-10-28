@@ -19,7 +19,10 @@ func test_every_fighter_has_up_and_down_sheets_with_the_side_rows() -> void:
 				continue  # the diagonals are optional (side-on until the fighter's round)
 			assert_true(views.has(name), "%s needs a %s view" % [id, name])
 			var v: Dictionary = views.get(name, {})
-			var tex: Texture2D = load(String(v["path"]))
+			var tex: Texture2D = PackedSheet.load_sheet(String(v["path"]))
+			assert_true(tex != null, "%s %s sheet loads" % [id, name])
+			if tex == null:
+				continue
 			var fr = v.get("frame", sp["frame"])
 			var h := float(fr[1]) if fr is Array else float(fr)
 			var rows := 0

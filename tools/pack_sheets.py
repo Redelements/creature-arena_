@@ -20,7 +20,9 @@ its `views`), this writes beside it in `assets/sprites/packed/`:
 The pixels are copied, never resampled or re-quantised: the colour stays exact. The game's
 `PackedSheet` (src/view/packed_sheet.gd) draws a packed sheet as if it were the grid.
 Import settings: the colour sheet lossless, the normal and emissive sheets VRAM-compressed,
-no mipmaps (each `.import` is written here; `--import` fills in the rest).
+no mipmaps (each `.import` is written here; `--import` fills in the rest). The grid sheets
+get a "skip" `.import` (not imported, not exported): Godot would otherwise spend half of
+every import on sheets the game never draws.
 
     python3 tools/pack_sheets.py              # every fighter
     python3 tools/pack_sheets.py crease cairn # some
@@ -222,6 +224,40 @@ def write_import(src_res, dest_res, kind):
         fh.write(IMPORT % (dest_res, mode, nm))
 
 
+SKIP_IMPORT = '[remap]\n\nimporter="skip"\n'
+
+
+def skip_import(src_res):
+    """The grid sheet's `.import`: Godot's "skip" importer, so the editor neither imports nor
+    exports it (the game draws the packed copy). The grid sheets were half of a CI import and
+    2.5 GB of the 2.9 GB import cache; skipped, a cold import takes half the time."""
+    path = disk(src_res) + ".import"
+    if os.path.exists(path) and open(path, encoding="utf-8").read() == SKIP_IMPORT:
+        return
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(SKIP_IMPORT)
+
+
+def grid_sheets_with_packed_copies():
+    """Every `assets/sprites/<f>.png` that has `assets/sprites/packed/<f>.png`: the sheets the
+    game draws packed, plus older sheets no fighter lists any more (their generators still
+    write them), which nothing draws at all."""
+    d = os.path.join(ROOT, "assets", "sprites")
+    return ["res://assets/sprites/" + os.path.basename(p) for p in sorted(glob.glob(os.path.join(d, "*.png")))
+            if os.path.exists(os.path.join(d, "packed", os.path.basename(p)))]
+
+
+def unskipped_grid_sheets():
+    """The grid sheets whose `.import` isn't the skip one (Godot writes a texture import for
+    any PNG it finds, so a regenerated sheet needs pack_sheets.py again)."""
+    out = []
+    for res in grid_sheets_with_packed_copies():
+        path = disk(res) + ".import"
+        if not os.path.exists(path) or open(path, encoding="utf-8").read() != SKIP_IMPORT:
+            out.append(res)
+    return out
+
+
 def stale(s):
     j = disk(packed_res(s["colour"])[: -len(".png")] + ".json")
     if not os.path.exists(j):
@@ -301,10 +337,16 @@ def main(argv):
             print("%-48s %5dx%-5d -> %4dx%-4d %5.1f%%" % (s["colour"].replace("res://assets/sprites/", ""),
                   lay["width"], lay["height"], lay["size"][0], lay["size"][1], 100.0 * p / g))
     if check:
+        for res in unskipped_grid_sheets():
+            print("%s: its .import isn't the skip one (python3 tools/pack_sheets.py)" % res)
+            bad += 1
         if bad:
             sys.exit(1)
         print("packed sheets up to date")
-    elif tot_grid:
+        return
+    for res in grid_sheets_with_packed_copies():
+        skip_import(res)
+    if tot_grid:
         print("all: %.1f%% of the grid sheets' pixels" % (100.0 * tot_packed / tot_grid))
 
 

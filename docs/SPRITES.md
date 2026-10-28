@@ -940,9 +940,13 @@ copied, never resampled: `pack_sheets.py --verify` rebuilds every grid sheet exa
 
 Import: the packed colour sheets lossless (they are palette pixel art), the packed normal and
 emissive sheets VRAM-compressed, no mipmaps (`pack_sheets.py` writes the `.import`). The grid
-sheets stay the source: generators, `anim_preview.py` and the galleries read them. **After
-regenerating a fighter, rerun `pack_sheets.py <id>` and `--import`**: `tests/test_vram.gd`
-fails while a packed copy is older than its grid sheet. Lighting Off loads no normal or
+sheets stay the source: generators, `anim_preview.py` and the galleries read them from disk,
+and their `.import` says `importer="skip"` (also written by `pack_sheets.py`), so Godot
+neither imports nor exports them: they were half of every CI import, for textures nothing
+draws. In Godot (and tests) open a grid path with `PackedSheet.load_sheet`, never `load`.
+**After regenerating a fighter, rerun `pack_sheets.py <id>` and `--import`**:
+`tests/test_vram.gd` fails while a packed copy is older than its grid sheet, and
+`pack_sheets.py --check` while a grid sheet's `.import` isn't the skip one. Lighting Off loads no normal or
 emissive sheet. Why: the packed sheets hold 11% of the grid sheets' pixels; a 4v4 went from
 about 1.0 GB of textures to 0.16 GB (`docs/plans/roster-2x.md`, "VRAM").
 
