@@ -22,7 +22,7 @@ DONE / SKIPPED / BLOCKED. This file lives on branch `autonomy-log` (worktree
 | 2 | Docs drift check (MECHANICS.md, README kits) | DONE | [#263](https://github.com/Redelements/creature-arena_/pull/263) |
 | 3 | Rollback coverage: random-input fuzz across modes with hazards, shrines, crown | DONE | [#262](https://github.com/Redelements/creature-arena_/pull/262) |
 | 4 | Nightly CI: Normal-bot balance matrix + cross-platform determinism soak | DONE | [#260](https://github.com/Redelements/creature-arena_/pull/260) merged |
-| 5 | main.gd split (after 1-4 merged) | IN PROGRESS | |
+| 5 | main.gd split (after 1-4 merged) | PR OPEN, merging | [#270](https://github.com/Redelements/creature-arena_/pull/270) |
 | 6 | CPU team play piece 3 (focus, peel, front line) | PR OPEN for Kevin (no measurable gain) | [#269](https://github.com/Redelements/creature-arena_/pull/269) |
 | 7 | Caravan CPU wagon goal | IN PROGRESS | |
 | 8 | CPU Burrow pit crossing | IN PROGRESS (stacked on 7) | |
@@ -241,3 +241,19 @@ touches the same file; whichever merges second resolves a one-line conflict.
 - Checks: suite 1318/0, sweep 216/0, sim-check unchanged (its scripted match has no CPU).
 - Tasks 7 and 8 start now as one agent, stacked branches off main (both edit cpu_controller.gd); if #269
   merges first they'll need a merge of main.
+
+## Task 5: main.gd split
+
+- Agent opened **PR #270**: main.gd 6513 -> 4162 lines; seven RefCounted helpers under src/game/ (main_camera,
+  main_args, main_settings, main_presentation, main_touch, main_voice, main_online), functions moved whole by a
+  tokenizing script with only `main.` / `Main.` prefixes added; 38 one-line forwarders keep every old name;
+  no test edited; MODES, settings keys, CLI flags untouched. Left in main.gd: the tick, match starts, input
+  handlers, `_notification`, `_react`, `_capture` (await), the display `_apply_*`.
+- Proof of zero behavior change: suite 1307/0 before and after (diff identical apart from the wall-clock
+  `test_server_fuzz` counts, a random replay path and the exit leak count 26056 -> 26127: helpers held by
+  game instances tests never free); showcase frames 60/120 pixel-identical; sim-check unchanged; sweep
+  216/0; `--perf` 4v4 CTF shows no per-tick cost added. Docs: src/game/CLAUDE.md explains the split,
+  codebase map rows fixed.
+- Decision: a refactor with identical behavior is non-behavioral under Kevin's rule -> merging once green.
+  After it lands, the open one-line PRs #261 and #267 (main.gd / MECHANICS.md) get main merged in and
+  re-checked for conflicts; tasks 9, 12, 15, 16 can then start.
