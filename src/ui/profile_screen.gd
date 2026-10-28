@@ -89,6 +89,7 @@ func build() -> void:
 # ------------------------------------------------------------------ the Profile
 
 func _build_profile() -> void:
+	Progress.see_profile()  # (the first-run New! on the title's Profile row is done)
 	var acc := add_option("Account", ["Level %d" % Progress.account_level()], 0, func(_i): pass,
 		"Your account's level, its titles and the one you wear")
 	_hub_row(acc, "")

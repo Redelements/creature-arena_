@@ -23,6 +23,8 @@ extends RefCounted
 ##   account_title() / set_account_title(id)   the title worn by the account (any fighter without its own)
 ##   shown_title(f) / shown_line(f)    the words the versus and results screens show ("" when off or none)
 ##   is_new(id), new_of(f), new_anywhere(), mark_seen(ids)   the Profile's "New!" marks (save key "seen")
+##   profile_seen() / see_profile()    the Profile opened once (save key "profile_seen"): until then the
+##                                     title's Profile row says New! (a new player's first-run pointer)
 ##   grant_xp(amount, reason) -> Dictionary   account XP from outside a match's award (a challenge's
 ##                                     reward; account-level rewards it reaches unlock), shaped like `award`'s
 ##   grant_unlock(reward_id) -> bool   a reward given outright (a challenge's title); false when off or had
@@ -59,7 +61,7 @@ const P_WON := "won"
 const P_KOS := "kos"
 const SAVE_KEYS := {"arcade": {}, "palette": {}, "gauntlet": {}, "daily": {}, "xp": 0, "mastery": {},
 	"unlocked": [], "equipped": {}, "account_title": "", "seen": [], "challenges": {},
-	"weekly": {}, "streak": {}, "endings": []}
+	"weekly": {}, "streak": {}, "endings": [], "profile_seen": false}
 
 static var _data := {}
 static var _loaded := false
@@ -153,6 +155,7 @@ static func clean(d: Dictionary) -> Dictionary:
 					"title": String(e["title"]) if e.get("title") is String else "",
 					"line": String(e["line"]) if e.get("line") is String else ""}
 	out["account_title"] = String(d["account_title"]) if d.get("account_title") is String else ""
+	out["profile_seen"] = d.get("profile_seen") is bool and bool(d["profile_seen"])
 	var ch = d.get("challenges")
 	if ch is Dictionary:
 		out["challenges"] = {"counts": _num_map(ch.get("counts"), 0, XP_MAX), "done": _str_list(ch.get("done"))}
@@ -782,12 +785,27 @@ static func new_of(fighter: String) -> Array:
 static func new_anywhere() -> bool:
 	if not enabled():
 		return false
+	if not profile_seen():
+		return true  # the first launch: the title's Profile row says New! until it is opened once
 	if not new_of("").is_empty():
 		return true
 	for f in MatchFactory.FIGHTERS:
 		if not new_of(String(f)).is_empty():
 			return true
 	return false
+
+
+## The Profile has been opened at least once (save key "profile_seen"; a new player's title
+## menu shows "Profile  New!" until then, so they find it).
+static func profile_seen() -> bool:
+	_ensure()
+	return bool(_data["profile_seen"])
+
+
+static func see_profile() -> void:
+	if not profile_seen():
+		_data["profile_seen"] = true
+		save()
 
 
 ## The Profile showed these: they stop being new.
