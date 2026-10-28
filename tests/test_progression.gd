@@ -301,3 +301,28 @@ func _cleanup(p: String) -> void:
 	for n in DirAccess.get_files_at(dir):
 		if String(n).begins_with(base):
 			DirAccess.remove_absolute(dir.path_join(n))
+
+
+func test_an_unreadable_save_is_moved_aside_and_the_backup_read() -> void:
+	var p := _fresh()
+	Progress.award(_cpu(true, 2))
+	Progress.award(_cpu(true, 2))  # a second save: the first is the .bak
+	var xp := Progress.account_xp()
+	assert_true(FileAccess.file_exists(p + ".bak"), "the save before is kept as .bak")
+	assert_false(FileAccess.file_exists(p + ".tmp"), "the temporary file was renamed over the save")
+	var f := FileAccess.open(p, FileAccess.WRITE)
+	f.store_string("{\"xp\": 5, \"unlock")  # a crash mid-write, by hand
+	f.close()
+	Progress.reset_for_tests(p)
+	assert_true(Progress.account_xp() > 0 and Progress.account_xp() < xp, "the backup is read: %d" % Progress.account_xp())
+	var aside := DirAccess.get_files_at(ProjectSettings.globalize_path(p).get_base_dir())
+	assert_true(Array(aside).any(func(n): return String(n).begins_with(p.get_file() + ".corrupt-")), "the bad file is moved aside, not lost")
+	# No backup: an empty file starts a new profile, and the empty file is kept aside too.
+	_cleanup(p)
+	f = FileAccess.open(p, FileAccess.WRITE)
+	f.close()
+	Progress.reset_for_tests(p)
+	assert_eq(Progress.account_xp(), 0, "an empty file: a new profile:")
+	assert_false(FileAccess.file_exists(p), "moved aside before anything is written")
+	_cleanup(p)
+	_done()

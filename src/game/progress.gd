@@ -56,12 +56,31 @@ static var day_override := 0
 static func read() -> void:
 	_loaded = true
 	_data = SAVE_KEYS.duplicate(true)
-	var f := FileAccess.open(path, FileAccess.READ)
+	var d = _read_file(path)
+	if d == null and FileAccess.file_exists(path):
+		# There but unreadable (empty, cut off, not a save): never write over it. Move it
+		# aside, say so, and fall back on the last good save before it.
+		var aside := "%s.corrupt-%d" % [path, int(Time.get_unix_time_from_system())]
+		DirAccess.rename_absolute(path, aside)
+		printerr("progress: %s was unreadable, moved to %s" % [path, aside])
+		d = _read_file(path + ".bak")
+		if d != null:
+			printerr("progress: restored from %s.bak (the save before)" % path)
+	if d is Dictionary:
+		_data = clean(d)
+
+
+## The save in `file`, or null when it's missing or not a save.
+static func _read_file(file: String) -> Variant:
+	if not FileAccess.file_exists(file):
+		return null
+	var f := FileAccess.open(file, FileAccess.READ)
 	if f == null:
-		return
+		return null
 	var json := JSON.new()  # (not parse_string: a bad file is handled here, not an engine error)
-	if json.parse(f.get_as_text()) == OK and json.data is Dictionary:
-		_data = clean(json.data)
+	if json.parse(f.get_as_text()) != OK:
+		return null
+	return json.data if json.data is Dictionary else null
 
 
 ## The save as the game reads it: every known key with its type, whatever the file held
@@ -124,10 +143,26 @@ static func _str_list(v: Variant) -> Array:
 	return out
 
 
+## Written whole to <path>.tmp, the old file copied to <path>.bak, then the temporary file
+## renamed over it (as the server's ratings.json): a crash mid-write never loses the profile.
 static func save() -> void:
-	var f := FileAccess.open(path, FileAccess.WRITE)
-	if f != null:
-		f.store_string(JSON.stringify(_data, "\t"))
+	var tmp := path + ".tmp"
+	var f := FileAccess.open(tmp, FileAccess.WRITE)
+	if f == null:
+		printerr("progress not saved: can't write %s (%s)" % [tmp, error_string(FileAccess.get_open_error())])
+		return
+	f.store_string(JSON.stringify(_data, "\t"))
+	var err := f.get_error()
+	f.close()
+	if err != OK:
+		printerr("progress not saved: writing %s failed (%s)" % [tmp, error_string(err)])
+		DirAccess.remove_absolute(tmp)
+		return
+	if FileAccess.file_exists(path):
+		DirAccess.copy_absolute(path, path + ".bak")
+	err = DirAccess.rename_absolute(tmp, path)
+	if err != OK:
+		printerr("progress not saved: renaming %s failed (%s)" % [tmp, error_string(err)])
 
 
 static func _ensure() -> void:
