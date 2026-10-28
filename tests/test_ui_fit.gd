@@ -301,6 +301,8 @@ func test_the_profile_pages_and_the_winners_title_fit_every_screen() -> void:
 		for page in PROFILE_PAGES:
 			g._open_menu(page)
 			_check(g, size, page)
+			if String(page).begins_with("ending:"):
+				_check_continue(g.ui.top() as EndingScreen, size, page)
 			# Each picker's every value, for the panel's card and the row.
 			var top: UiScreen = g.ui.top()
 			for r in top.rows():
@@ -316,6 +318,12 @@ func test_the_profile_pages_and_the_winners_title_fit_every_screen() -> void:
 						var w := font.get_string_size(o.label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 12.0 \
 							+ font.get_string_size("<  %s  >" % v, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 8.0
 						assert_true(w <= o.size.x, "%s: '%s' and '%s' fit the row (%d > %d)" % [page, o.label, v, w, o.size.x])
+		# An ending card that says the title it gave (the longest name and ending title).
+		var card := EndingScreen.new("crease", true)
+		card.unlocked_title = "title:crease_ending"
+		g.ui.push(card)
+		_check(g, size, "ending:crease with its title unlocked")
+		_check_continue(card, size, "ending:crease with its title unlocked")
 		# The results of a win as Crease, with the title and line.
 		g._open_menu()
 		g._skip_select = true
@@ -332,6 +340,16 @@ func test_the_profile_pages_and_the_winners_title_fit_every_screen() -> void:
 		g.free()
 	_restore()
 	_end_progress(p)
+
+
+## The ending card's Continue, focused, shows whole: its glow (UiTheme's focus shadow, 3)
+## inside the column, which clips at its edge (QC, Oct 2026: it was cut off at the bottom).
+func _check_continue(card: EndingScreen, size: Vector2i, what: String) -> void:
+	_layout(card)
+	card.continue_button.grab_focus()
+	var b := card.continue_button.get_global_rect()
+	var col := card._scroll.get_global_rect()
+	assert_true(b.end.y + 3.0 <= col.end.y + 0.01, "%s at %s: Continue and its glow inside the card (%.1f > %.1f)" % [what, size, b.end.y + 3.0, col.end.y])
 
 
 ## Every card's facts, for every row and every choice on it (a page only shows the

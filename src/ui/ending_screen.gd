@@ -9,6 +9,8 @@ extends UiScreen
 ## The picture's size on the page in canvas units (the PNG is twice that, 256 x 144: one art
 ## pixel a pixel of the 960 x 540 grid). Small enough that the card fits a phone unscrolled.
 const ART_SIZE := Vector2(128, 72)
+## Space under Continue: the focused row's glow (UiTheme's focus shadow, 3) and a little more.
+const FOCUS_ROOM := 5.0
 
 var fighter := ""
 var gallery := false
@@ -58,6 +60,8 @@ func build() -> void:
 	continue_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	continue_button.custom_minimum_size.x = 140.0
 	continue_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	# Room under the last row for its focus glow (the column clips at its last row's edge).
+	add_space(FOCUS_ROOM)
 
 
 func _continue() -> void:
