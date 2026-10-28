@@ -203,3 +203,37 @@ func test_a_fighter_without_a_victory_row_shows_its_idle() -> void:
 	assert_eq(FighterPreview.victory_frame(0, 10), 0, "getting ready:")
 	assert_eq(FighterPreview.victory_frame(12, 10), 1, "")
 	assert_eq(FighterPreview.victory_frame(9999, 10), 9, "the last frame held:")
+
+
+## The background match restarts a moment after it ends, or when its two minutes are up, and
+## then plays on. Before Oct 27 2026 the clock behind "two minutes are up" was never reset, so
+## from then on a new match (a new sim, new views, new sheets) was built every single tick: the
+## title cycled through fighters at a few frames a second (Kevin's report).
+func test_the_background_match_restarts_once_not_every_tick() -> void:
+	var g := _game()
+	_tick(g, 5)
+	assert_true(g.ui.top() is TitleScreen, "on the title")
+	g.flow_t = g.ROUND_TICKS - 1
+	var restarts := _count_restarts(g, 240)
+	assert_eq(restarts, 1, "time up: one new background match in the next four seconds:")
+	# The same in the attract demo (its fighters change each time round).
+	g._idle_t = g.ATTRACT_AT
+	_tick(g, 2)
+	assert_true(g._attract, "the demo plays")
+	g.flow_t = g.ROUND_TICKS - 1
+	restarts = _count_restarts(g, 240)
+	assert_eq(restarts, 1, "time up in the demo: one new match, not one a tick:")
+	assert_true(g._attract, "and the demo is still on")
+	g.free()
+
+
+## How many times `g.sim` is replaced over `n` ticks.
+func _count_restarts(g: Node, n: int) -> int:
+	var restarts := 0
+	var last = g.sim
+	for i in n:
+		_tick(g, 1)
+		if g.sim != last:
+			restarts += 1
+			last = g.sim
+	return restarts
