@@ -77,3 +77,28 @@ a decision). The repository is public on purpose until the step that says otherw
 - Claude: items 2, 3 (done), the runner instructions (above), item 7 when asked.
 - Kevin: the moment to flip private (4), the Steam account, installing a runner if we go that
   way (5), the macOS decision (6), the encryption key and the Steam upload (7).
+
+## Legal and ownership checklist (added 2026-10-28)
+
+Kevin asked for a plan covering every loophole that could bite when selling. Owner and status
+per item; "Claude" items are done in the repository, "Kevin" items need a person, money or a
+signature. None of this is legal advice: the lawyer hour (item 12) reviews the lot.
+
+| # | Item | Owner | When | Status |
+| --- | --- | --- | --- | --- |
+| 1 | `CONTRIBUTING.md`: outside contributions are not accepted (no unowned code or art enters the game) | Claude | now | DONE (this PR) |
+| 2 | Privacy policy draft, written from what the game and server actually store (`docs/legal/privacy-policy.md`) | Claude, then the lawyer | draft now, publish with the Steam page | DRAFT (this PR) |
+| 3 | EULA draft (`docs/legal/eula.md`) | Claude, then the lawyer | draft now, publish with the Steam page | DRAFT (this PR) |
+| 4 | Szadi licence: Kevin read the licence text on 2026-10-28 and relies on clauses (a) edit and cut, (b) sell works, (c) publish on games sites, for the cut pieces in this public repository; clause (d) means no bought art in the logo, icon or store marks, now pinned by `tests/test_licenses.gd`. The licence is silent on giving files away, so a written yes from Szadi is still asked for; going private before the Steam page closes the question either way | Kevin (the message), Claude (the test, done) | before the Steam page | OPEN: send the message |
+| 5 | Receipts and licence texts for every bought pack (Szadi bundle, Warrior, kiddolink) kept in a folder outside the repository, with the purchase date | Kevin | now | OPEN |
+| 6 | Generated art and copyright: AI-only output gets no copyright in the US. Keep human authorship on the fighters (edits, palette work, rigs, arrangement) and a dated note of what was changed by hand per fighter in `docs/decisions` or the sprite docs; prefer the own-rig route where it looks as good | Kevin (art direction), Claude (the notes template) | with the fighter regeneration | OPEN |
+| 7 | Music: any pack must allow commercial use and streaming without Content ID claims, in writing, before purchase; keep the licence text with the receipts | Kevin | before buying music | OPEN |
+| 8 | Trademark: search USPTO, EUIPO, Steam and the app stores for "Ready 4 Rambles" before the Steam page; register in the game-software class if clear (a few hundred dollars) | Kevin (filing); Claude can run the pre-search and write it up | before the Steam page | OPEN |
+| 9 | Fighter names checked by the lawyer (Cerebro is a Marvel device, Sneaky Pete a TV series): fine inside a game, a question only for titles and merchandise | the lawyer | lawyer hour | OPEN |
+| 10 | Pokémon distinctness: keep the Game Plan's guardrails and the decisions log as the record of designing away from it | Kevin, Claude | ongoing | IN PLACE |
+| 11 | Godot's MIT notice and the third-party notices stay in every shipped build (Settings > Credits), pinned by `tests/test_credits.gd` | Claude | ongoing | IN PLACE |
+| 12 | One lawyer hour: the two drafts, items 4, 8 and 9, and the business form (sole trader vs LLC); one accountant hour for Steam tax forms | Kevin | before the Steam page | OPEN |
+| 13 | US copyright registration of the code and art once the roster is final (about 65 dollars; unlocks statutory damages, which make takedowns credible) | Kevin | when the roster is final | OPEN |
+| 14 | Ownership story: all work is Kevin's plus Claude output (assigned to the user by Anthropic's terms); no outside code or art without a written assignment; never rewrite history on main | Kevin, Claude | ongoing | IN PLACE |
+| 15 | Keys to press and streamers through Steam's own tools only, never bulk key sites; DMCA notices for pirated copies after release, no DRM beyond the PCK encryption in step 7 above | Kevin | at release | NOTED |
+| 16 | Secrets never in the repository: `.gitignore` covers `.env`, `secrets/`, keystores (PR #285); a history scan on 2026-10-28 found none | Claude | done | DONE |
