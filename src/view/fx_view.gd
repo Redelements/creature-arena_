@@ -45,7 +45,12 @@ extends Node2D
 ##   flip         true         a spatula arc and "FLIP!" when the move's grab lands
 ##   chop         true         "CHOP CHOP!" when the move starts (Chef Cerebro's voice line)
 ##   telegraph_line true       a dotted line on the floor ahead, as far as the throw reaches
-##   shout        {"text", "sound"}  a voice line over the head when the move starts
+##   shout        {"text", "sound"}  a voice line when the move starts: the sound at once, the words
+##                once a Surge's freeze is over, over his head to his back, or under his feet when
+##                the HUD or the crowded-field Surge name is up there (`_shout_now`)
+##   projectile   also "fire": a looping comet fireball (assets/vfx/fireball.png) turned along its flight
+##   prop         "pan"        a cast-iron pan held where the shots leave, a flame licking out of it
+##                             while they fly (Chef Cerebro's Surge)
 ##   charge       also "venom": green venom drips and bubbles while the heavy is held
 ##   projectile   also "venom": a glob of green venom with a dripping trail
 ##   gaze         true         a glow in her eyes, and a faint beam to each foe it slows
@@ -139,6 +144,20 @@ const C_TONGUE := Color("c45c6e")
 const C_TONGUE_L := Color("e2828f")
 ## How high Chef Cerebro's thrown kitchen flies: from over his floating brain.
 const THROW_Z := 18.0
+## Chef Cerebro's Surge fire (kiddolink FI cuts, tools/cut_vfx.py, ppu 2): the fireball each shot
+## is drawn as (`_draw_fireball`), the flame licking out of his pan, and the pan itself (Szadi
+## FL Houses, tools/cut_pan.py) he holds while the move plays (`_draw_held_pan`, fx.prop "pan").
+const FIREBALL := preload("res://assets/vfx/fireball.png")
+const PAN_FLAME := preload("res://assets/vfx/flame_column.png")
+const PAN := preload("res://assets/sprites/pan.png")
+const VFX_FRAME := 96.0  ## a kiddolink frame, px
+const FIRE_HEAD := Vector2(70, 47)  ## the fireball's head in its frame: on the shot's spot
+const FIRE_FRAMES := 12
+const FIRE_SCALE := 0.75  ## on top of the ppu: 27 units nose to tail
+const FLAME_FRAMES := 12
+const FLAME_BASE := Vector2(48, 79)  ## the flame's foot in its frame: in the pan
+const FLAME_SCALE := 0.4
+const PAN_DISH := Vector2(15, 5)  ## the dish's centre in pan.png (the handle is to its left)
 const C_TENDER := Color("ff8fa3")
 const C_MALLET: Array[Color] = [Color("8c4c48"), Color("b07a70")]
 const C_BRAIN: Array[Color] = [Color("d6606a"), Color("f88686"), Color("ffb2aa")]
@@ -179,6 +198,11 @@ var _last_push := {}
 ## statue last shattered, so its bonus hit gets an accent.
 var _dmg_run := {}
 var _shatter_seen := {}
+## creature id -> true while its root is a leafy one (Barkley's: his Pinecone, his Surge, a
+## sprout trodden on), set by the `rooted` event; anything else (Cave-In) heaps rubble.
+var _leaf_root := {}
+## creature id -> the FxView tick its leafy root took hold (the roots grow in from it).
+var _root_t := {}
 var _n_dmg := 0
 var _dark := 0.0
 var _rain := 0.0
@@ -208,6 +232,7 @@ const PROJ_STYLE := {
 	"frog": [Color("f6f4ec"), -1.0, "none"], "head": [Color("b5665f"), -1.0, "none"],
 	"tongue": [Color("c45c6e"), -1.0, "none"], "wave": [Color("a8d6f0"), -1.0, "none"],
 	"pinecone": [Color("c48c54"), -1.0, "none"], "crane_bundle": [Color("f6f4ec"), -1.0, "none"],
+	"fire": [Color("ff9a3a"), -1.0, "none"],
 }
 const TRAIL_STEPS := 3
 const TRAIL_ALPHA: Array[float] = [0.62, 0.42, 0.26]
@@ -243,9 +268,12 @@ func clear() -> void:
 	_last_push.clear()
 	_dmg_run.clear()
 	_shatter_seen.clear()
+	_leaf_root.clear()
+	_root_t.clear()
 	_pstyles.clear()
 	_proj_prev.clear()
 	_wall_marks.clear()
+	_shouts.clear()
 	move_fx.clear()
 	_dark = 0.0
 	_rain = 0.0
@@ -269,7 +297,9 @@ func spawn(e: Dictionary) -> void:
 			_hit_sparks(e, p, push)
 			var atk := _creature(int(e.get("attacker", -1)))
 			if atk != null and atk.state == CreatureSim.State.ATTACK:
-				move_fx.on_event("hit", atk, p)
+				# on the target's body: lifted with it when it's juggled or thrown
+				var tgt := _creature(int(e.get("target", -1)))
+				move_fx.on_event("hit", atk, p - Vector2(0, tgt.air_height() if tgt != null else 0.0))
 			var col := Color("ffe08a")
 			if float(e.get("variety", 1.0)) >= 1.5:
 				col = Color("ff9a5a")
@@ -562,7 +592,16 @@ func spawn(e: Dictionary) -> void:
 		"rooted":
 			var c := _creature(int(e.get("who", -1)))
 			if c != null:
-				_text(c.pos + Vector2(0, 14), "ROOTED", C_DIRT[2], 7, 44.0)
+				var by := _creature(int(e.get("by", -1)))
+				var leafy := e.has("plant") or (by != null and String(by.def.get("affinity", "")) == "wild")
+				_leaf_root[c.id] = leafy
+				_root_t[c.id] = _tick
+				# under the feet, drifting only a little, so it never crosses the roots
+				_text(c.pos + Vector2(0, 19), "ROOTED", C_LEAF[2] if leafy else C_DIRT[2], 7, 44.0, 80.0, 0.15)
+				if leafy:
+					move_fx.play(_plant_fx("root"), c.pos, c)
+		"seed", "plant_grow", "apple", "plant_hit", "plant_root", "apple_eaten", "apple_spoiled", "plant_gone":
+			_plant_event(e, p)
 		"poisoned":
 			var c := _creature(int(e.get("who", -1)))
 			if c != null and String(e.get("look", "")) == "bleed":
@@ -670,7 +709,8 @@ func _event_shown(e: Dictionary) -> bool:
 	if viewer_team < 0 or sim == null:
 		return true
 	var kind := String(e["type"])
-	if kind in ["projectile_end", "projectile_pierce", "projectile_bounce", "burst", "zone"]:
+	if kind in ["projectile_end", "projectile_pierce", "projectile_bounce", "burst", "zone", "seed", "plant_grow",
+			"apple", "plant_hit", "plant_gone"]:
 		return sight_to(Vector2(e["pos"]))
 	var any := false
 	for k in _EVENT_IDS:
@@ -726,6 +766,7 @@ func advance() -> void:
 		_watch_all()
 		_track_lost()
 		move_fx.advance(ts)
+		_shout_now()
 		if ts > 0.0:
 			_projectile_spray()
 			if not sim.hazards.is_empty():
@@ -948,7 +989,11 @@ func _move_started(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 		cue.emit("poof")
 	var shout: Dictionary = fx.get("shout", {})
 	if not shout.is_empty():
-		_text(c.pos + Vector2(0, -_top(c) - 12), String(shout.get("text", "")), Color("ffd166"), 10, 60.0)
+		# The voice starts with the move; the words wait out a Surge's freeze (the cut-in
+		# banner covers the field until then) and then hang over his head (`_shout_now`).
+		# (on a crowded field the Surge's name is over his head already: the words go under him)
+		var named := String(mv.get("type", "")) == "surge" and not sim.freeze_all
+		_shouts.append([c.id, String(shout.get("text", "")), named])
 		if shout.has("sound"):
 			cue.emit(String(shout["sound"]))
 	if bool(fx.get("chop", false)):
@@ -956,6 +1001,26 @@ func _move_started(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 		cue.emit("chop_chop")
 	if bool(fx.get("rain", false)):
 		_rain = 130.0
+
+
+## The voice lines waiting for the Surge freeze to end: [creature id, text, under him]. Drawn over
+## everything else in the layer (the foe's health bar, hit sparks), kept on screen.
+var _shouts: Array = []
+const SHOUT_BACK := 36.0
+
+
+func _shout_now() -> void:
+	if _shouts.is_empty() or sim.hitstop > 0:
+		return
+	for s in _shouts:
+		var c := _creature(int(s[0]))
+		if c != null:
+			# over his head, a little to his back: off the shots and the foe he's facing
+			var back := -signf(c.facing.x) * SHOUT_BACK if absf(c.facing.x) > 0.01 else 0.0
+			_add({"kind": "text", "pos": c.pos + Vector2(back, -_top(c) - 12), "text": String(s[1]),
+				"color": Color("ffd166"), "size": 10, "life": 70.0, "width": 180.0, "on_screen": true,
+				"low": c.pos + Vector2(back, 6), "went_low": bool(s[2])})
+	_shouts.clear()
 
 
 func _charging(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
@@ -1454,6 +1519,93 @@ func _leaves(at: Vector2, n: int, speed: float) -> void:
 		_add({"kind": "leaf", "pos": at + Vector2(0, 14), "z": 14.0, "vel": Vector2(v.x, v.y * 0.5), "vz": randf_range(0.6, 1.6),
 			"g": 0.05, "life": randf_range(40, 70), "color": C_LEAF[randi() % 3], "rot": randf() * TAU,
 			"vrot": randf_range(-0.3, 0.3), "bounce": 0.0})
+
+
+## The hand-drawn effects round Barkley's plants (assets/vfx cuts, each sized and set on
+## the floor here: a GROUND cut's art stands about 15.5 units under its centre at scale 1).
+const PLANT_FX := {
+	"seed": {"path": "res://assets/vfx/dust_poof.tres", "scale": 0.45, "offset": [0, -5]},
+	"seed_leaf": {"path": "res://assets/vfx/leaf_swirl.tres", "scale": 0.55, "offset": [0, -5]},
+	"grow": {"path": "res://assets/vfx/leaf_swirl.tres", "scale": 1.4, "offset": [0, -14]},
+	"grow_dust": {"path": "res://assets/vfx/dust_burst.tres", "scale": 0.8, "offset": [0, -12]},
+	"apple": {"path": "res://assets/vfx/hit_star_cyan.tres", "scale": 0.4, "offset": [0, 0]},
+	"eaten": {"path": "res://assets/vfx/heal_beam.tres", "scale": 0.8, "offset": [0, -12], "follow": true},
+	"spoiled": {"path": "res://assets/vfx/wisp_purple.tres", "scale": 0.6, "offset": [0, -9]},
+	"killed": {"path": "res://assets/vfx/leaf_swirl.tres", "scale": 0.8, "offset": [0, -8]},
+	"killed_dust": {"path": "res://assets/vfx/dust_poof.tres", "scale": 0.5, "offset": [0, -6]},
+	"root": {"path": "res://assets/vfx/leaf_swirl.tres", "scale": 0.8, "offset": [0, -8], "follow": true},
+}
+const C_APPLE := Color("d6262a")
+var _plant_fx_cache := {}
+
+
+func _plant_fx(name: String) -> MoveFx:
+	if not _plant_fx_cache.has(name):
+		_plant_fx_cache[name] = MoveFx.from_entry(PLANT_FX[name])
+	return _plant_fx_cache[name]
+
+
+## A seed planted, a sprout struck, grown or sprung, an apple borne, eaten or spoiled
+## (src/sim/plants.gd's events; the plants themselves are PlantView's).
+func _plant_event(e: Dictionary, p: Vector2) -> void:
+	var c := _creature(int(e.get("who", -1)))
+	match String(e["type"]):
+		"seed":
+			move_fx.play(_plant_fx("seed"), p)
+			move_fx.play(_plant_fx("seed_leaf"), p)
+			_leaves(p + Vector2(0, -14), 4, 0.6)
+		"plant_grow":
+			move_fx.play(_plant_fx("grow_dust"), p)
+			move_fx.play(_plant_fx("grow"), p)
+			_leaves(p + Vector2(0, -24), 12, 1.3)
+			for i in 6:
+				_dust(p + Vector2(randf_range(-12, 12), randf_range(-3, 3)), Vector2(randf_range(-0.5, 0.5), -0.3))
+		"apple":
+			var at := p + PlantView.APPLE_AT + Vector2(0, -3)
+			move_fx.play(_plant_fx("apple"), at)
+			_text(p + Vector2(0, -64), "APPLE!", C_APPLE.lightened(0.25), 7, 40.0)
+		"plant_hit":
+			_leaves(p + Vector2(0, -14), 3, 0.7)
+			_px(p + Vector2(0, -6), Vector2(randf_range(-0.6, 0.6), -0.8), C_LEAF[2], 10)
+		"plant_root":
+			if c != null:
+				_leaves(c.pos + Vector2(0, -14), 6, 1.0)
+				# the sprout snaps shut: short roots whip up round the feet
+				for i in 5:
+					var a := TAU * i / 5.0 + randf_range(-0.3, 0.3)
+					_add({"kind": "root", "pos": c.pos + Vector2(cos(a) * (c.radius + 3.0), sin(a) * (c.radius + 3.0) * 0.5),
+						"life": 16, "h": randf_range(5.0, 8.0), "w": randf_range(1.4, 2.0), "lean": -cos(a) * 0.4,
+						"delay": randf_range(0.0, 2.0), "front": sin(a) > 0.0})
+		"apple_eaten":
+			if c != null:
+				move_fx.play(_plant_fx("eaten"), c.pos, c)
+				_text(c.pos + Vector2(0, -_top(c) - 14), "+%d" % roundi(float(e["power"])), C_LEAF[2], 8, 44.0)
+				for i in 4:
+					_add({"kind": "heal", "pos": c.pos + Vector2(randf_range(-8, 8), -_top(c) * randf_range(0.3, 0.8)),
+						"vel": Vector2(0, -0.5), "life": 30})
+		"apple_spoiled":
+			if c != null:
+				move_fx.play(_plant_fx("spoiled"), c.pos)
+				_text(c.pos + Vector2(0, -_top(c) - 14), "SPOILED", Color("b48ad0"), 7, 40.0)
+				for i in 5:
+					_px(c.pos + Vector2(randf_range(-6, 6), -randf_range(2, 10)), Vector2(randf_range(-0.4, 0.4), -0.5),
+						Color("6a3a5a"), 18)
+		"plant_gone":
+			var how := String(e.get("how", ""))
+			if how == "sprung":
+				_leaves(p + Vector2(0, -8), 5, 0.8)  # the sprout snaps down (PlantView)
+			elif how == "eaten" or how == "spoiled":
+				# the spent tree sinks back into the floor (PlantView): its crown sheds leaves
+				_leaves(p + Vector2(0, -40), 14, 0.9)
+				for i in 5:
+					_dust(p + Vector2(randf_range(-14, 14), randf_range(-3, 3)), Vector2(randf_range(-0.4, 0.4), -0.3))
+			if how == "killed":
+				move_fx.play(_plant_fx("killed_dust"), p)
+				move_fx.play(_plant_fx("killed"), p)
+				_leaves(p + Vector2(0, -14), 10, 1.4)
+				for i in 4:
+					_chunk(p, randf_range(2, 8), Vector2.from_angle(randf() * TAU) * randf_range(0.5, 1.2),
+						randf_range(0.8, 1.6), randf_range(1.5, 2.5), C_WOOD[randi() % 3], 40.0)
 
 
 ## Timber Twister's last hit: a ring of wind and a gust of leaves thrown outward.
@@ -2171,10 +2323,11 @@ func _hit_sparks(e: Dictionary, p: Vector2, push: Vector2) -> void:
 			if d != null and d.id < views.size():
 				views[d.id].soft_flash = true
 		"heavy", "surge":
-			_add({"kind": "spark", "pos": p, "life": 8, "scale": 1.6 if kind == "heavy" else 2.2})
+			var big := kind == "surge" and not surge_small_hit(a, power)
+			_add({"kind": "spark", "pos": p, "life": 8, "scale": 2.2 if big else 1.6})
 			for i in 5:
 				_px(p, push.rotated(randf_range(-0.7, 0.7)) * randf_range(1.2, 2.8), C_SPARK[randi() % 3], 12)
-			if kind == "surge":
+			if big:
 				flash_out = 0.3
 		"skill":
 			_add({"kind": "spark", "pos": p, "life": 7, "scale": 1.2})
@@ -2182,6 +2335,18 @@ func _hit_sparks(e: Dictionary, p: Vector2, push: Vector2) -> void:
 				_px(p, push.rotated(randf_range(-0.9, 0.9)) * randf_range(1.0, 2.4), col, 10)
 	if push.length_squared() > 0.001:
 		shake_dir = push  # main leans the camera shake along it
+
+
+## A small hit of a multi-hit Surge (a volley of shots, or several strike segments) below
+## Light2DView.FLASH_HIT_MIN: one of Cooking with Fire's eight fireballs, not its finisher.
+## These spark like a heavy and skip the screen flash (and Light2DView's big Surge flash):
+## eight of them stacked bleach the whole screen and hide the fight.
+static func surge_small_hit(a: CreatureSim, power: float) -> bool:
+	if a == null or a.state != CreatureSim.State.ATTACK or power >= Light2DView.FLASH_HIT_MIN:
+		return false
+	var mv := a.move_def()
+	var vol: Dictionary = mv.get("projectile", {}).get("volley", {})
+	return int(vol.get("count", 1)) > 1 or (mv.get("_segs", []) as Array).size() > 1
 
 
 const STEP_CAP := 48  ## puffs alive at once; past it footsteps are skipped
@@ -2392,8 +2557,10 @@ func _drop(pos: Vector2, z: float, vel: Vector2, vz: float, pool: bool, col := C
 
 
 ## `width`: the box the text is centred in (longer text is clipped).
-func _text(pos: Vector2, text: String, color: Color, size := 8, life := 40.0, width := 80.0) -> void:
-	_add({"kind": "text", "pos": pos, "text": text, "color": color, "size": size, "life": life, "width": width})
+## A word that rises `rise` units a tick as it fades.
+func _text(pos: Vector2, text: String, color: Color, size := 8, life := 40.0, width := 80.0, rise := 0.5) -> void:
+	_add({"kind": "text", "pos": pos, "text": text, "color": color, "size": size, "life": life, "width": width,
+		"rise": rise})
 
 
 # --- damage numbers, block sparks and the guard break ------------------------------------
@@ -2616,6 +2783,22 @@ const CULL_PAD_FIGHTER := 320.0
 
 
 ## The part of `ci`'s space on screen, grown by `pad`; everything when there's no screen.
+## Where a text box `w` wide at `at` (its baseline's left end) stays whole on screen: clear of
+## the side edges, and when it would rise under the HUD's top bars (the top 15% of the view;
+## a close camera puts heads up there) it goes to the part's `low` spot instead, under his
+## feet, where it doesn't sit on the health bars either, and stays there (no jumping back).
+static func _keep_on_screen(ci: CanvasItem, p: Dictionary, at: Vector2, w: float, fs: int) -> Vector2:
+	if not ci.is_inside_tree():
+		return at
+	var v := _view_rect(ci, 0.0)
+	if p.has("low") and (bool(p.get("went_low", false)) or at.y - float(fs) < v.position.y + v.size.y * 0.15):
+		p["went_low"] = true
+		at = Vector2(p["low"]) + Vector2(-w * 0.5, float(fs))
+	var x := clampf(at.x, v.position.x + 2.0, maxf(v.position.x + 2.0, v.end.x - w - 2.0))
+	var y := minf(at.y, v.end.y - v.size.y * 0.12)  # over the caption bar at the bottom
+	return Vector2(x, y).round()
+
+
 static func _view_rect(ci: CanvasItem, pad: float) -> Rect2:
 	if not ci.is_inside_tree():
 		return Rect2(-1e9, -1e9, 2e9, 2e9)
@@ -2677,10 +2860,15 @@ func _paint(ci: CanvasItem, floor_layer: bool) -> void:
 			continue
 		if kind == "chunk" and bool(p.get("grounded", false)):
 			continue
+		if bool(p.get("on_screen", false)):
+			continue  # a voice line: drawn last, below
 		_draw_part(ci, p)
 	if sim != null:
 		_draw_creature_extras(ci, false)
 		_draw_side_marks(ci)
+	for p in _parts:
+		if bool(p.get("on_screen", false)):
+			_draw_part(ci, p)
 	if _rain > 0.0:
 		_draw_rain(ci)
 
@@ -2747,8 +2935,10 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 			var col: Color = p["color"]
 			col.a = 1.0 - maxf(0.0, k - 0.6) / 0.4
 			var w := float(p.get("width", 80.0))
-			var at := pos + Vector2(-w * 0.5, -t * 0.5)
+			var at := pos + Vector2(-w * 0.5, -roundf(t * float(p.get("rise", 0.5)) * 2.0) * 0.5)
 			var fs := UiTheme.px(int(p["size"]))
+			if bool(p.get("on_screen", false)):
+				at = _keep_on_screen(ci, p, at, w, fs)
 			ci.draw_string_outline(_font, at, String(p["text"]), HORIZONTAL_ALIGNMENT_CENTER, w, fs, UiTheme.outline(fs) + 1, Color(0.1, 0.08, 0.1, col.a))
 			ci.draw_string(_font, at, String(p["text"]), HORIZONTAL_ALIGNMENT_CENTER, w, fs, col)
 		"dmg":
@@ -3077,6 +3267,8 @@ func _draw_projectiles(ci: CanvasItem) -> void:
 			match _proj_kind(pr):
 				"knife":
 					_draw_thrown_knife(ci, pr)
+				"fire":
+					_draw_fireball(ci, pr)
 				"mallet", "cleaver":
 					_draw_spinner(ci, pr, _proj_kind(pr))
 				"venom":
@@ -3795,6 +3987,54 @@ func _draw_thrown_knife(ci: CanvasItem, pr: Dictionary) -> void:
 		ci.draw_rect(Rect2((at + d * 2.0).round(), Vector2.ONE), Color.WHITE)
 
 
+## Chef Cerebro's Surge shots: a looping comet fireball (kiddolink FI r2) turned along its
+## flight, mirrored rather than upside down when it flies left, with a small shadow below.
+func _draw_fireball(ci: CanvasItem, pr: Dictionary) -> void:
+	var pp: Vector2 = Vector2(pr["pos"]).round()
+	var vel: Vector2 = pr["vel"]
+	ci.draw_set_transform(pp, 0.0, Vector2(1.0, 0.4))
+	ci.draw_circle(Vector2.ZERO, 3.0, Color(0, 0, 0, 0.25))
+	var at := ArtScale.snap(pp + Vector2(0, -THROW_Z), 2)
+	var s := ArtScale.scale_of(2).x * FIRE_SCALE
+	# each shot starts its own loop (life counts down; 240 keeps it positive)
+	var frame := posmod((240 - int(pr.get("life", 0))) / 2, FIRE_FRAMES)
+	ci.draw_set_transform(at, vel.angle(), Vector2(s, -s if vel.x < 0.0 else s))
+	ci.draw_texture_rect_region(FIREBALL, Rect2(-FIRE_HEAD, Vector2(VFX_FRAME, VFX_FRAME)),
+		Rect2(frame * VFX_FRAME, 0, VFX_FRAME, VFX_FRAME))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## Chef Cerebro's cast-iron pan while a move with fx.prop "pan" plays (his Surge): held where
+## its shots leave (the projectile's `offset` ahead, THROW_Z up), turned along his aim with the
+## handle back toward him, a flame licking out of it while the shots fly, fading in and out.
+func _draw_held_pan(ci: CanvasItem, c: CreatureSim, mv: Dictionary) -> void:
+	var p: Dictionary = mv.get("projectile", {})
+	var vol: Dictionary = p.get("volley", {})
+	var every := maxi(1, int(vol.get("every", 1)))
+	var start := int(mv.get("startup", 0))
+	var firing := start + int(vol.get("count", 1)) * every
+	var length := int(mv.get("length", firing + 20))
+	var t := c.state_t
+	var a := clampf(minf(float(t + 1) / 3.0, float(length - t) / 8.0), 0.0, 1.0)
+	if a <= 0.0:
+		return
+	var d := c.facing.normalized() if c.facing.length() > 0.01 else Vector2.RIGHT
+	var dish := ArtScale.snap(c.pos + d * float(p.get("offset", 16)) + Vector2(0, -THROW_Z), 2)
+	if t >= start and t < firing and (t - start) % every == 0:
+		dish -= d.round()  # a little kick back on each shot
+	var flip := d.x < 0.0
+	ci.draw_set_transform(dish, d.angle(), Vector2(1.0, -1.0 if flip else 1.0))
+	ci.draw_texture(PAN, -PAN_DISH, Color(1, 1, 1, a))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	if t >= start - 3 and t < firing + 6:
+		var fs := ArtScale.scale_of(2).x * FLAME_SCALE
+		var frame := posmod(t / 2, FLAME_FRAMES)
+		ci.draw_set_transform(dish + Vector2(0, 1), 0.0, Vector2(-fs if flip else fs, fs))
+		ci.draw_texture_rect_region(PAN_FLAME, Rect2(-FLAME_BASE, Vector2(VFX_FRAME, VFX_FRAME)),
+			Rect2(frame * VFX_FRAME, 0, VFX_FRAME, VFX_FRAME), Color(1, 1, 1, a))
+		ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
 ## The mallet and the cleaver in flight, spinning end over end in a violet glow (he
 ## throws with his mind).
 func _draw_spinner(ci: CanvasItem, pr: Dictionary, kind: String) -> void:
@@ -3945,6 +4185,8 @@ func _draw_creature_extras(ci: CanvasItem, floor_layer: bool) -> void:
 				_draw_line_telegraph(ci, c)
 			if c.is_armored():
 				_draw_rooted(ci, c)
+			if c.root > 0 and bool(_leaf_root.get(c.id, false)) and c.swallow_t <= 0:
+				_draw_leaf_roots(ci, c, false)
 			if not (c.state in [CreatureSim.State.KO, CreatureSim.State.FALLING]) and not c.is_dummy:
 				_draw_aim_mark(ci, c, attacking)
 			continue
@@ -3968,6 +4210,9 @@ func _draw_creature_extras(ci: CanvasItem, floor_layer: bool) -> void:
 
 		if attacking and bool(fx.get("cast", false)):
 			_draw_cast(ci, c, mv)
+
+		if attacking and String(fx.get("prop", "")) == "pan":
+			_draw_held_pan(ci, c, mv)
 
 		if attacking and bool(fx.get("speedlines", false)):
 			var segs: Array = mv.get("_segs", [])
@@ -4070,6 +4315,49 @@ func _draw_line_telegraph(ci: CanvasItem, c: CreatureSim) -> void:
 	ci.draw_arc(end, 5.0, 0.0, TAU, 16, Color(C_WARN, 0.3 + 0.4 * pulse * k), 1.0)
 
 
+## Rooted by Barkley: roots curled over the feet, drawn in the 32 px grid (half a unit a
+## pixel), a leaf on every other one that flickers. They push up over ROOT_GROW ticks from
+## the `rooted` event and sink back over the root's last ROOT_SINK. `front`: the near half
+## of the ring (over the fighter), else the far half (the floor pass, behind the legs).
+const ROOT_MARKS := 6
+const ROOT_GROW := 6.0
+const ROOT_SINK := 8.0
+## One root in grid pixels, curling right (mirrored for the ones on the right of the
+## feet, so each curls in over them): [x, y, w, h, colour], 0 = wood, 1 = light wood.
+const ROOT_SHAPE := [[0, -7, 2, 7, 0], [1, -9, 3, 2, 0], [3, -7, 1, 2, 0], [0, -7, 1, 5, 1]]
+const ROOT_TALL := 9.0
+
+
+func _draw_leaf_roots(ci: CanvasItem, c: CreatureSim, front: bool) -> void:
+	var grow := clampf((_tick - int(_root_t.get(c.id, _tick - 99))) / ROOT_GROW, 0.0, 1.0)
+	var k := minf(grow, clampf(c.root / ROOT_SINK, 0.0, 1.0))
+	var sink := roundf(ROOT_TALL * (1.0 - k))  # grid pixels still under the floor
+	if sink >= ROOT_TALL:
+		return
+	for i in ROOT_MARKS:
+		var a := TAU * i / ROOT_MARKS + 0.4
+		if (sin(a) > 0.0) != front:
+			continue
+		var base := ArtScale.snap(c.pos + Vector2(cos(a) * (c.radius + 1.0), sin(a) * 3.0), 2)
+		var flip := cos(a) > 0.0  # right of the feet: curl left, in over them
+		ci.draw_set_transform(base, 0.0, Vector2(-0.5 if flip else 0.5, 0.5))
+		for pass_i in 2:
+			for r in ROOT_SHAPE:
+				var y0 := float(r[1]) + sink
+				var y1 := minf(y0 + float(r[3]), 0.0)
+				if y1 <= y0:
+					continue
+				var rect := Rect2(float(r[0]), y0, float(r[2]), y1 - y0)
+				if pass_i == 0:
+					ci.draw_rect(rect.grow(1.0), C_OUTLINE)
+				else:
+					ci.draw_rect(rect, C_WOOD[2] if int(r[4]) == 1 else C_WOOD[1])
+		if i % 2 == 0 and sink <= 0.0:
+			ci.draw_rect(Rect2(-2, -11, 2, 2).grow(1.0), C_OUTLINE)
+			ci.draw_rect(Rect2(-2, -11, 2, 2), C_LEAF[1 + (i + _tick / 12) % 2])
+		ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
 ## Bedrock: a glowing ring where the feet are planted, cracks pulsing outward.
 func _draw_rooted(ci: CanvasItem, c: CreatureSim) -> void:
 	var pulse := 0.5 + 0.5 * sin(_tick * 0.4)
@@ -4123,7 +4411,9 @@ func _draw_status(ci: CanvasItem, c: CreatureSim) -> void:
 			var at := (c.pos + Vector2(cos(a) * 7.0, -_top(c) - 2.0 - lift + sin(a) * 2.0)).round()
 			ci.draw_rect(Rect2(at - Vector2(1, 0), Vector2(3, 1)), C_LAMP)
 			ci.draw_rect(Rect2(at - Vector2(0, 1), Vector2(1, 3)), C_LAMP)
-	if c.root > 0:
+	if c.root > 0 and bool(_leaf_root.get(c.id, false)):
+		_draw_leaf_roots(ci, c, true)  # the near ones over the feet (the far ones: the floor pass)
+	elif c.root > 0:
 		# rooted: rubble heaped round the feet
 		for i in 6:
 			var a := TAU * i / 6.0 + 0.4

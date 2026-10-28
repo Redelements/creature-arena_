@@ -12,6 +12,9 @@ Loaded automatically when Claude works in this directory. What each folder holds
 - Terrain comes from the bought Szadi packs, one family per map (`docs/asset-map.md`, recipes in
   `tools/tile_recipes/`); Stadium is RPG Fantasy Worlds Set 1. VFX from kiddolink VFX Complete Set Season 1
   (`assets/vfx/`). Raw packs never enter the repo, only the cut files.
+- World props fighters leave on the floor (Barkley's sprout and tree, a placeholder apple) are
+  `assets/props/`, cut by `tools/cut_props.py` at 2 px a unit (boxes in `docs/asset-map.md`, "World props");
+  drawn by `src/view/plant_view.gd`.
 - "Fantasy Lands Warrior" ships only as the stadium crowd (`assets/sprites/crowd.png`); for fighters it is pose
   reference only, never a fighter's art.
 - Nothing may resemble Pokémon creatures, names, or trade dress.

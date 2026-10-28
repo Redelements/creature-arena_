@@ -407,6 +407,7 @@ var light2d: Light2DView
 var light_floor: Light2DView.FloorGlow
 var canopies: Node2D  ## tree crowns over the fighters (ArenaView.overhead)
 var glade: GladeView  ## leaf shade, shafts, fireflies, smoke round a map's trees and keeps
+var plants: PlantView  ## Barkley's sprouts, trees and apples (the trees' shadows here, the plants among the fighters)
 var light_lamps: Light2DView.FloorGlow  ## the arena's lamps by day and at sunset (Light2DView.lamp_glow)
 var light_lamps_b: Light2DView.FloorGlow  ## the other half of them (Light2DView.lamp_glow_b)
 var bloom: BloomView
@@ -712,6 +713,10 @@ func _ready() -> void:
 	shadows = ShadowLayer.new()  # the fighters' shadows, on the floor under everyone
 	shadows.views = views
 	add_child(shadows)
+	plants = PlantView.new()  # Barkley's plants: their shadows on the floor; `stand` goes among the fighters
+	plants.weather = weather
+	plants.shadows = shadows
+	add_child(plants)
 	add_child(weather.ground)  # fog bands, rain splashes: over the shadows, under the fighters
 	glow_floor = LightView.new()  # light pools on the floor, over the shadows, under the fighters
 	add_child(glow_floor)
@@ -728,6 +733,7 @@ func _ready() -> void:
 	entities = Node2D.new()
 	entities.y_sort_enabled = true
 	add_child(entities)
+	entities.add_child(plants.stand)  # y-sorted with the fighters: behind a tree is behind it
 	canopies = Node2D.new()  # tree crowns over the fighters (a map's dressing; ArenaView.overhead fades them over our own)
 	add_child(canopies)
 	arena.overhead = canopies
@@ -2751,6 +2757,9 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	hud.sim = sim
 	fx.sim = sim
 	fx.clear()
+	plants.sim = sim
+	plants.fx = fx
+	plants.clear()
 	fx.views = views
 	bloom.views = views
 	vision.clear()
@@ -2987,6 +2996,7 @@ func _physics_process(_delta: float) -> void:
 	PerfLog.since("adv crowd", t_v)
 	t_v = PerfLog.now()
 	fx.advance()
+	plants.advance()
 	PerfLog.since("adv fx", t_v)
 	PerfLog.since("fx advance", t_fx)
 	light2d.advance()  # after the effects: it reads their particles
@@ -3767,6 +3777,7 @@ func _intro_step() -> void:
 	wear.advance()
 	crowd.advance()
 	fx.advance()
+	plants.advance()
 	hud.advance()
 	for v in views:
 		v.refresh()

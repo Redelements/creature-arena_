@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="MoveFx" format=3]
+
+[ext_resource type="SpriteFrames" path="res://assets/vfx/heal_beam_frames.tres" id="1_kc6tm"]
+[ext_resource type="Script" path="res://src/view/move_fx.gd" id="2_nh1jy"]
+
+[resource]
+script = ExtResource("2_nh1jy")
+frames = ExtResource("1_kc6tm")
+ticks_per_frame = 2
+on = "hit"
+offset = Vector2(0, -15)
+follow = true
+flip_with_facing = false

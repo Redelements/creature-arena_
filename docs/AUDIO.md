@@ -72,6 +72,12 @@ buses at start-up; `play(name, ..., ui = true)` sends a sound to Menu sounds.
 | [ ] | `twister` | Timber Twister's last hit | Gust of wind, rustling leaves |
 | [ ] | `roots` | Root Eruption's roots burst out | Deep rumble, wood splitting |
 | [ ] | `timber` | Barkley's knockout | Long creak of a tree leaning over |
+| [ ] | `sprout` | A missed Pinecone Bomb plants a seed | Soft earthy tuck, a little leafy flutter |
+| [ ] | `plant_hit` | A foe strikes Barkley's sprout | Short leafy thwip and a green snap |
+| [ ] | `plant_sprung` | A foe treads on a sprout and is rooted | Roots whipping up: creaky lash and a thud |
+| [ ] | `tree_grow` | A sprout grows into a tree | Rising woody groan, a burst of leaves |
+| [ ] | `apple_munch` | An ally eats the tree's apple (a heal) | Two crisp crunches, a bright rising chime |
+| [ ] | `apple_spoiled` | A foe takes (spoils) the apple | Squelch and a sour two-note droop |
 | [ ] | `flop` | Gillbert's footsteps (every flop of his run) and his knockout | Wet fish slap |
 | [ ] | `reel` | Cast Line hooks someone and reels him in | Zipping reel ratchet |
 | [ ] | `bellyflop` | The One That Got Away lands | Huge slap and a wall of water |
@@ -79,7 +85,10 @@ buses at start-up; `play(name, ..., ui = true)` sends a sound to Menu sounds.
 | [ ] | `knife_hit` | A thrown knife lands | Short dull chunk |
 | [ ] | `thwack` | Mallet Toss lands; Tenderize pounds the floor | Wooden meat mallet on meat |
 | [ ] | `flip` | Flip Out scoops someone over his head | Spatula scrape, rising whoosh |
-| [ ] | `chop_chop` | Knife Flurry starts (his voice line, "CHOP CHOP") | Placeholder is two knife chops on a board; the real one is his voice |
+| [ ] | `chop_chop` | A move with `fx.chop` starts ("CHOP CHOP"); no move uses it since Cooking with Fire took `cooking_with_fire` | Placeholder is two knife chops on a board; the real one is his voice |
+| [ ] | `cooking_with_fire` | Cooking with Fire (his Surge) starts (his voice line, "Now we cooking with fire", `fx.shout`) | Placeholder is a pan clang into a gas-flame whoomph and a sizzle; the real one is his voice |
+| [ ] | `fire_shot` | Each fireball of Cooking with Fire leaves his pan | Short soft fwoosh |
+| [ ] | `fire_hit` | A Cooking with Fire fireball ends (hits or burns out) | Crackling pop |
 | [ ] | `fizzle` | Chef Cerebro's knockout | Sizzle dying away, a deflating squeak |
 | [ ] | `hiss` | Petrify Punch starts (her voice line, "Hiss off!") and Hissy Fitz's knockout | Placeholder is a long snake hiss; the real one is her voice |
 | [ ] | `spit` | Venom Spit leaves her hair snakes | Short hiss, a wet "ptoo" |

@@ -186,7 +186,9 @@ dig/slosh/poof/chop_chop/shout sounds.
 - Per-move `fx` keys (smear, charge, impact, trail, shout, telegraph…) → the `fx_view.gd`
   header, then `_move_started`, `_charging`, `_strike`, `_during_move`
 - New projectile look → `_draw_projectiles`, `_proj_kind` (the move's `fx.projectile`:
-  rod, knife, mallet, cleaver, venom, head, tongue, wave, pinecone; else a sprite strip);
+  rod, knife, mallet, cleaver, fire (a kiddolink strip turned along the flight, `_draw_fireball`),
+  venom, head, tongue, wave, pinecone; else a sprite strip); a prop held while a move plays
+  (`fx.prop` "pan": Cerebro's Surge pan and its flame) → `_draw_held_pan` from `_draw_creature_extras`;
   Crease's darts, shuriken, cranes, hopping frogs → `paper_fx.gd` static `draw_*`
   (`draw_frog_shot` / `frog_hop` time the hop from `life_total - life`); what the frogs
   leave behind (landing flicks, the torn or unfolding burst), the sheets over his hat, the
@@ -203,6 +205,13 @@ dig/slosh/poof/chop_chop/shout sounds.
   `announce_seconds`, ready, a claim in the claimer's colour: main's `_shrine_marks`; the Crater's permanent-buff
   shrine is gold with a plus), buffs `_draw_buffs`, the Crater's permanent buffs as pips under the health bar
   `_draw_boost_pips` (`BOOST_COLORS`); the toasts `main.gd:_shrine_toast` (a buff's words, "... SHRINE DENIED" at the cap)
+- Barkley's plants (`MatchSim.plants`: sprout, tree, apple) → `plant_view.gd` (PlantView: on the floor for the trees'
+  shadows along `shadows.light`, its `stand` y-sorted among the fighters in main's `entities`, a `Plant` node each;
+  the sprout's HP bar only when hurt, the tree rising out of the ground, see-through over a fighter the local team
+  sees, tinted like an unlit fighter at night `WeatherView.prop_tint`; hidden from a foe without `sight_to` its
+  spot); the events' effects `fx_view.gd:_plant_event` (`PLANT_FX`, played with `MoveFxView.play`); a leafy root
+  (a `rooted` with `plant`, or by a `wild` fighter) `_leaf_root`, drawn in `_draw_status`; sounds
+  `audio_view.gd:on_event`. `tests/test_plant_view.gd`
 - Capture the Flag → flags `fx_view.gd:_draw_flag` (in the air: `lift` from main); the capture banner `hud.gd:moment` /
   `_draw_moment`, the red edge `alert` / `_draw_alert`; toasts, sounds and the end-screen
   MVP in `main.gd:_ctf_toast`, `_react`, `_count_ctf`, `_ctf_summary`
@@ -333,7 +342,9 @@ dig/slosh/poof/chop_chop/shout sounds.
 - Hit sparks, shake direction, footstep and landing dust → `fx_view.gd:_hit_sparks` (light: a few
   pixels along the push; heavy: a radial burst on top of the hit flash's white silhouette; skill:
   a burst in `fx.spark_color` / `ghost_color`; surge: heavy plus `flash_out`, which main turns
-  into `flash_rect`). The hit event's own `type` is "hit": the move's type is read off the
+  into `flash_rect`, except the small hits of a multi-hit Surge, `FxView.surge_small_hit`: a
+  volley's or a flurry's hits under 10 damage spark like a heavy with no screen flash and only
+  Light2DView's small `FLASH_VOLLEY`, or eight stacked flashes bleach the screen). The hit event's own `type` is "hit": the move's type is read off the
   attacker (`move_type()`), or `fx.spark` overrides it. `shake_dir` is the push; main leans the
   camera offset along it (`main.gd` shake block). Light hits keep a half-tint flash
   (`CreatureView.soft_flash`). Footsteps: `_footstep` (per-frame watch) puffs on the frames in
@@ -397,6 +408,7 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `packed_sheet.gd` (PackedSheet) — A fighter sheet stored packed (tools/pack_sheets.py), drawn as if it were the grid sheet.
 - `paper_fx.gd` (PaperFx) — Mister Crease's paper, drawn over the fighters: the sheets of his Paper Stock floating above the hat, the crafts he has…
 - `perf_overlay.gd` (PerfOverlay) — The performance overlay (Settings > Video, or F9): the frame rate in a corner, and in its second mode a chart of the la…
+- `plant_view.gd` (PlantView) — Barkley's plants on the floor, drawn from `MatchSim.plants` (src/sim/plants.gd): a sprout pushing up out of the floor a…
 - `raised_tiles.gd` (RaisedTiles) — A tiled map's walls drawn as raised plateaus (map style `tiles.styles.wall: "raised:<name>"`, recipe `raised.<name>` in…
 - `range_rings.gd` (RangeRings) — "Range rings" (Settings > Controls, or F7 in a fight): thin floor rings that show where an attack really reaches, so a…
 - `shadow_layer.gd` (ShadowLayer) — The fighters' shadows, cast along the arena's light: each fighter's current sprite frame as a black silhouette laid on…

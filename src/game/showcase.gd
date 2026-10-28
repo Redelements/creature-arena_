@@ -225,7 +225,7 @@ const SCRIPTS := {
 			["From range:", "Knife Flick", "Backhand Flick", "Mallet Toss", "Cleaver Toss"],
 			["Dodge: he teleports", "away", "and back"],
 			["Up close:", "Tenderize (sets them up)", "then:", "Flick", "Flick", "Mallet staggers them", "Cleaver Toss"],
-			["Flick", "Flick", "Mallet", "Flip Out", "Knife Flurry"],
+			["Flick", "Flick", "Mallet", "Flip Out", "Cooking with Fire"],
 		],
 		"steps": [
 			{"do": "wait", "t": 45, "part": 0, "show": 0},

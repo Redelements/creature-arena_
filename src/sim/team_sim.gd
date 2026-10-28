@@ -965,6 +965,7 @@ func _cv_start_round(r: int) -> void:
 		sim.projectiles.clear()
 		sim.zones.clear()
 		sim.storms.clear()
+		sim.plants.clear()
 		sim.terrain.load_map(sim.arena)  # the map as it was: no rockslides, no holes
 		_set_phase(Phase.INTRO)
 	sim.emit_event("caravan_round", caravan_pos(), float(r), {"team": cv_attacker()})

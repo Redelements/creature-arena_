@@ -391,16 +391,25 @@ func _apply_fighters() -> void:
 		var lit := v.lit()
 		if _lightmap != null and v.c != null:
 			var by_lamps := lamp_lights and lit
-			var k := 0.0 if by_lamps else light_at(v.c.pos)
-			var least := _lit_min if by_lamps else _fighter_min
-			col = _fighter.lerp(Color.WHITE, k)
-			var lum := col.r * 0.3 + col.g * 0.55 + col.b * 0.15
-			if lum < least:
-				col = col.lerp(Color.WHITE, (least - lum) / maxf(0.01, 1.0 - lum))
-			col = Color(snappedf(col.r, 0.05), snappedf(col.g, 0.05), snappedf(col.b, 0.05))  # palette steps
+			col = _night_tint(0.0 if by_lamps else light_at(v.c.pos), _lit_min if by_lamps else _fighter_min)
 		if fighter_scale < 1.0 and lit:
 			col = Color(col.r * fighter_scale, col.g * fighter_scale, col.b * fighter_scale)
 		v.sprite.self_modulate = col
+
+
+## The look's fighter tint lifted by `k` of a lamp's light, never darker than `least`.
+func _night_tint(k: float, least: float) -> Color:
+	var col := _fighter.lerp(Color.WHITE, k)
+	var lum := col.r * 0.3 + col.g * 0.55 + col.b * 0.15
+	if lum < least:
+		col = col.lerp(Color.WHITE, (least - lum) / maxf(0.01, 1.0 - lum))
+	return Color(snappedf(col.r, 0.05), snappedf(col.g, 0.05), snappedf(col.b, 0.05))  # palette steps
+
+
+## The tint of a prop standing among the fighters at `p` (Barkley's trees: PlantView), as a
+## fighter without normal sheets would take it there, so it doesn't glow at night.
+func prop_tint(p: Vector2) -> Color:
+	return _night_tint(light_at(p), _fighter_min) if _lightmap != null else _fighter
 
 
 # ------------------------------------------------------------------ the tick

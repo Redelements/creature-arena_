@@ -226,8 +226,12 @@ func test_every_wired_effect_resolves_and_its_hook_can_fire() -> void:
 		var strikes: bool = int(mv.get("active", 0)) > 0 or mv.has("hits")
 		var shot: Dictionary = mv.get("projectile", {})
 		match f.on:
-			"strike", "hit":
-				assert_true(strikes, who + ": a %s effect on a move with a hitbox" % f.on)
+			"strike":
+				assert_true(strikes, who + ": a strike effect on a move with a hitbox")
+			"hit":
+				# a shot's hits are its move's hits too (FxView passes them on while the
+				# thrower is still in the move: Knife Flurry's fire pops)
+				assert_true(strikes or not shot.is_empty(), who + ": a hit effect on a move that can hit")
 			"projectile", "projectile_end":
 				assert_false(shot.is_empty(), who + ": a %s effect on a move that throws" % f.on)
 			"burst":

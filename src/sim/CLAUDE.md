@@ -62,6 +62,8 @@ size only: a map's `size` can be bigger, so code with a match asks `sim.floor_re
 - Projectiles → `match_sim.gd:spawn_projectile`, `_step_projectiles`, `_burst`; homing `_steer`;
   storms `_add_storm`, `_step_storms`
 - Ground zones → `match_sim.gd:add_zone`, `_step_zones`
+- Plants a missed lob leaves (sprout, tree, apple: Pinecone Bomb's `seed`) → `plants.gd`
+  (`plant`, `step`, `strike`); hooked from `_burst`, `_resolve_hits`, `_step_projectiles`
 - Pit falls → `match_sim.gd:_check_falls`; `creature_sim.gd:start_fall`, `_land_from_fall`
 - Move start, windup, input buffer → `creature_sim.gd:_start_attack`, `buffer_input`,
   `_try_start_buffered`; frames, charge, dash, blink, slam, projectile spawn → `_update_attack`
@@ -117,6 +119,7 @@ size only: a map's `size` can be bigger, so code with a match asks `sim.floor_re
 - `duel_sim.gd` (DuelSim) — Duel: 3v3 tag. Each side brings a team; one creature per side fights at a time.
 - `hazards.gd` (Hazards) — Arena hazards: things the arena does to everyone on a schedule (data/rules/hazards.json), switched on by a mutator's "h…
 - `match_sim.gd` (MatchSim) — The whole match state. Call step() once per tick with one input bitmask per creature.
+- `plants.gd` (Plants) — Plants a missed lob leaves on the floor (Barkley's Pinecone Bomb): a lob with a projectile "seed" block that bursts on…
 - `replay.gd` (Replay) — A match recorded as one input bitmask per creature per tick.
 - `shrines.gd` (Shrines) — Shrines: rings on the floor that a team claims for a buff, in any mode whose rules turn them on (a "shrines" block; dat…
 - `sim_defs.gd` (SimDefs) — Shared constants for the deterministic simulation. Nothing in src/sim/ reads the clock, the screen, or a random number…

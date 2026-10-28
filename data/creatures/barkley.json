@@ -61,7 +61,7 @@
     "grab": "skill_1",
     "grab_range": 42,
     "lob": "skill_2",
-    "lob_range": [48, 114],
+    "lob_range": [58, 136],
     "wakeup_charge": true,
     "routes": [
       ["light", "light", "light", "heavy", "skill_1", "surge"],
@@ -132,22 +132,23 @@
       "fx": { "branch": true, "impact": "snag", "move_fx": {"path": "res://assets/vfx/dust_wings.tres", "scale": 0.8, "offset": [0, -12]} }
     },
     "skill_2": {
-      "name": "Pinecone Bomb", "anim": "pinecone", "cooldown": 180, "charge_max": 36, "aim": 0.7, "anim_charge": [0, 4, 6],
+      "name": "Pinecone Bomb", "anim": "pinecone", "cooldown": 720, "charge_max": 36, "aim": 0.7, "anim_charge": [0, 4, 6],
       "startup": 9, "active": 0, "recovery": 26,
-      "damage": 10, "knockback": 1.4, "hitstun": 24, "hitstop": 7, "launch": 30, "juggle": true,
-      "projectile": { "lob": true, "range": 48, "range_charged": 110, "time": 22, "burst": 32, "offset": 6, "crack": 10 },
+      "damage": 10, "knockback": 1.4, "hitstun": 24, "hitstop": 7, "juggle": true, "root_ticks": 90,
+      "projectile": { "lob": true, "range": 57.6, "range_charged": 132, "time": 22, "burst": 32, "offset": 6, "crack": 10,
+        "seed": { "hp": 10, "radius": 10, "root_share": 0.5, "grow_seconds": 35, "apple_seconds": 2, "heal_share": 0.15, "pick_radius": 12 } },
       "anim_at": [[0, 4], [3, 5], [7, 6], [10, 7], [13, 8], [17, 9], [22, 10], [28, 11]],
       "fx": { "projectile": "pinecone", "move_fx": {"path": "res://assets/vfx/boom_star.tres", "scale": 0.7, "offset": [0, -8]} }
     },
     "surge": {
-      "name": "Root Eruption", "anim": "eruption", "energy_cost": 100,
+      "name": "Root Eruption", "anim": "eruption", "energy_cost": 100, "root_through_guard": true,
       "startup": 16, "recovery": 30, "length": 62,
       "damage": 12.6, "knockback": 0.6, "hitstun": 24, "hitstop": 6,
       "reach": 0, "hit_radius": 90, "juggle": true,
       "hits": [
         { "at": 17, "active": 3, "hit_radius": 40 },
         { "at": 23, "active": 3, "hit_radius": 65 },
-        { "at": 29, "active": 4, "hit_radius": 90, "root_ticks": 90, "damage": 16.8, "crumple": 64, "hitstop": 14, "knockback": 0.4 }
+        { "at": 29, "active": 4, "hit_radius": 90, "root_ticks": 60, "damage": 16.8, "hitstop": 14, "knockback": 0.4 }
       ],
       "terrain_crack": 90,
       "anim_at": [[0, 0], [3, 1], [6, 2], [9, 3], [12, 4], [15, 5], [16, 6], [23, 7], [29, 8], [36, 9], [44, 10], [52, 11]],

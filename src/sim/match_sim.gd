@@ -88,6 +88,11 @@ var zones: Array[Dictionary] = []
 ## ticks, every, hit, end}. A pulse hits every foe inside each `every` ticks; at `ticks`
 ## the last one pushes them out (`end`: hit values) and cracks a ring of floor.
 var storms: Array[Dictionary] = []
+## Plants a missed lob left (a projectile "seed" block: Pinecone Bomb), stepped by
+## Plants (plants.gd): {id, owner, team, pos, hp, hp_max, age, stage, apple, root, grow,
+## apple_at, heal_share, radius, pick_radius}; `plant_seq` numbers them. Saved.
+var plants: Array = []
+var plant_seq := 0
 var events: Array[Dictionary] = []
 ## The map's bridges ("bridges" in its JSON: {rect, strain, reform_seconds, crack}): per
 ## bridge [ticks until it stands again (0: standing), warned]. A heavy hit on someone
@@ -310,6 +315,8 @@ func step(inputs: PackedInt32Array) -> void:
 	_step_projectiles()
 	_step_zones()
 	_step_storms()
+	if not plants.is_empty():
+		Plants.step(self)
 	_resolve_hits()
 	if not hazards.is_empty():
 		Hazards.step(self)
@@ -389,6 +396,7 @@ func snapshot() -> Dictionary:
 		"bridges": bridges.duplicate(true),
 		"hazards": hazards.duplicate(true), "hazard_pickups": hazard_pickups.duplicate(true),
 		"shrines": shrines.duplicate(true), "shrine_rng": shrine_rng, "marks": marks.duplicate(),
+		"plants": plants.duplicate(true), "plant_seq": plant_seq,
 	}
 
 
@@ -420,6 +428,8 @@ func restore(s: Dictionary) -> void:
 	shrines = (s.get("shrines", []) as Array).duplicate(true)
 	shrine_rng = int(s.get("shrine_rng", 0))
 	marks = (s.get("marks", []) as Array).duplicate()
+	plants = (s.get("plants", []) as Array).duplicate(true)
+	plant_seq = int(s.get("plant_seq", 0))
 	events.clear()
 
 
@@ -452,6 +462,10 @@ func state_digest() -> String:
 				parts.append(c.get(f))
 	if not marks.is_empty():  # (only modes that mark someone)
 		parts.append(marks)
+	if not plants.is_empty() or plant_seq > 0:  # (only once a seed has been planted)
+		parts.append(plant_seq)
+		for pl in plants:
+			parts.append_array([pl["id"], pl["owner"], pl["pos"], pl["hp"], pl["age"], pl["stage"], pl["apple"]])
 	if training:  # (only training matches: every other match's fingerprint is unchanged)
 		for k in TRAINING_FLAGS:
 			parts.append(bool(training_flags.get(k, false)))
@@ -496,6 +510,13 @@ func _resolve_hits() -> void:
 		var center := a.hit_center(seg)
 		var reach := a.hit_radius(seg)
 		var skip_struck := a.seg_flag(seg, "skip_struck")
+		if not plants.is_empty():
+			# A swing also strikes the other side's sprouts it covers, once per segment.
+			var pkey := "p:%d" % seg
+			if not a.seg_hit.has(pkey):
+				var struck: Array = []
+				if Plants.strike(self, a, center, reach, a.seg_value(seg, "damage"), struck) > 0:
+					a.seg_hit[pkey] = true
 		for d in creatures:
 			if not a.is_foe(d):
 				continue
@@ -649,6 +670,10 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 			if same_attack:
 				a.connected = true
 				_punish_blocked_ender(a, d)
+			if bool(hit.get("root_through_guard", false)) and float(hit.get("root_ticks", 0.0)) > 0.0:
+				# The roots take hold through a guard (Root Eruption): only the damage is blocked.
+				d.root = maxi(d.root, int(hit["root_ticks"]))
+				emit_event("rooted", d.pos, float(hit["root_ticks"]), {"who": d.id, "by": a.id, "blocked": true})
 			impact_stop(a, d, int(float(hit["hitstop"]) * 0.5), ranged)
 			emit_event("block", fx_pos, damage, {"attacker": a.id, "target": d.id, "move_type": String(hit["type"]),
 				"dealt": 0.0})
@@ -1105,6 +1130,8 @@ func _new_projectile(owner: CreatureSim, p: Dictionary, hit: Dictionary, vel: Ve
 		pr["crack"] = float(p.get("crack", 0.0))
 		if p.has("storm"):
 			pr["storm"] = (p["storm"] as Dictionary).duplicate(true)
+		if p.has("seed"):
+			pr["seed"] = (p["seed"] as Dictionary).duplicate(true)  # a miss plants one (Pinecone Bomb)
 	if p.has("home"):
 		# Homing (Paper Crane): turns toward the nearest foe for its first `until` ticks,
 		# by `turn` of a full step each tick, at its own speed. Vectors only, no angles,
@@ -1153,6 +1180,11 @@ func _step_projectiles() -> void:
 		var hit: Dictionary = p["hit"]
 		var spent := false
 		var pierce := p.has("struck")
+		if not plants.is_empty():
+			# A shot hurts the other side's sprouts it passes over (once each) and flies on.
+			if not p.has("plants_struck"):
+				p["plants_struck"] = []
+			Plants.strike(self, owner, pos, float(p["radius"]), float(hit["damage"]), p["plants_struck"])
 		for d in creatures:
 			if not owner.is_foe(d) or not _hittable(d, hit):
 				continue
@@ -1273,7 +1305,12 @@ func _burst(p: Dictionary) -> void:
 		push = push.normalized() if push.length_squared() > 0.0001 else Vector2(p["vel"]).normalized()
 		_apply_hit(owner, d, hit, push, d.pos + Vector2(0, -10), true)
 		landed += 1
+	if not plants.is_empty():
+		Plants.strike(self, owner, at, float(p["burst"]), float(hit["damage"]), [])
 	emit_event("burst", at, float(p["burst"]), {"who": owner.id, "landed": landed})
+	# A lob with a "seed" that hit nobody plants one where it fell: never after a hit.
+	if landed == 0 and p.has("seed"):
+		Plants.plant(self, owner, at, p["seed"], float(hit.get("root_ticks", 0.0)))
 
 
 # ------------------------------------------------------------------ storms

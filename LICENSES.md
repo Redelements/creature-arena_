@@ -182,6 +182,11 @@ sheets (fans from the hips up, the baked shadow and the swings' arcs dropped, th
 trim, skin and hair recoloured per fan, colours snapped to the game's palette; the two
 fans' beer mugs are drawn by the tool, not cut).
 
+Fantasy Lands Houses (`FL_Houses_v1.0`), same licence (its `license.txt` is the text quoted
+above): `assets/sprites/pan.png`, Chef Cerebro's cast-iron pan, cut by `tools/cut_pan.py` from
+`_PNG/Interriors/Furnitures/FL_Houses_int_small_objects.png` box (228, 299, 250, 310) (one
+skillet; the baked shadow dropped, colours snapped to the game's palette).
+
 ### RPG Worlds Desert (`RPGW_Desert_v2.01`)
 
 Part of the same bundle and licence (its `_license.txt` is the text quoted above). Files from
@@ -238,6 +243,7 @@ snapped to the game's palette; `tools/build_vfx.gd` makes the resources from the
 - `assets/vfx/ice_geyser.png`, `ice_nova.png` (vfx_energy, tinted toward blue-white);
 - `assets/vfx/spark_comet.png`, `spark_fan.png`, `spark_pinwheel.png`, `sigil_yellow.png` (vfx_spark);
 - `assets/vfx/venom_crackle.png` (vfx_electricity purple, tinted green);
+- `assets/vfx/fireball.png`, `fire_pop.png`, `flame_column.png` (vfx_fire);
 - `assets/vfx/manifest.json` and the derived `assets/vfx/<name>_frames.tres` /
   `assets/vfx/<name>.tres` resources, which reference those strips.
 

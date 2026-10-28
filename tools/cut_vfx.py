@@ -45,6 +45,7 @@ DS_BROWN = KL + "vfx_smoke_dust/vfx_smoke_dust/vfx_brown_res_96x96/spritesheet/v
 DS_PURPLE = KL + "vfx_smoke_dust/vfx_smoke_dust/vfx_purple_res_96x96/spritesheet/vfx_dust_smoke_purple-Sheet.png"
 DS_WHITE = KL + "vfx_smoke_dust/vfx_smoke_dust/vfx_white_res_96x96/spritesheet/vfx_dust_smoke_white-Sheet.png"
 E1_PURPLE = KL + "vfx_electricity/vfx_electricity/sprite_sheets_96x96/vfx_electricity_purple-Sheet.png"
+FI = KL + "vfx_fire/vfx_fire/sprite_sheets_96x96/vfx_fire-Sheet.png"
 
 # MoveFx defaults by kind. A ground effect's art stands on row 79 of its 96 px frame, 31 px
 # (15.5 units) under the centre: offset y -15 puts it on the spawn point's floor.
@@ -117,6 +118,8 @@ EFFECTS = {
     "ice_geyser": (EN, 1, 0, 8, GROUND),
     # a starburst and ring (EN r3)
     "ice_nova": (EN, 3, 0, 8, _d(GROUND, offset=[0, -14])),
+    # a pillar of light rising (EN r4), tinted leaf green: a heal (Barkley's apple eaten)
+    "heal_beam": (EN, 4, 0, 14, _d(GROUND, on="hit", follow=True, ticks_per_frame=2)),
     # --- sparks (SP) and lightning (E1) ---
     # muzzle flash into a small comet (SP r6): lumen shots, drawn small
     "spark_comet": (SP, 6, 0, 7, _d(SHOT, scale=0.6)),
@@ -128,6 +131,14 @@ EFFECTS = {
     "sigil_yellow": (SP, 2, 0, 7, _d(HIT, on="start", follow=True, offset=[0, -16])),
     # a purple crackle tinted venom green (E1 r0; no poison art in the pack): a spit landing
     "venom_crackle": (E1_PURPLE, 0, 1, 9, _d(HIT, on="projectile_end", ticks_per_frame=2, offset=[0, -6])),
+    # --- fire (FI): Chef Cerebro's Surge, fire from a cast-iron pan ---
+    # a comet fireball flying right (FI r2), looped: FxView draws it as the shot itself (the
+    # "fire" projectile kind, turned along the flight), not as a MoveFx
+    "fireball": (FI, 2, 0, 12, _d(SHOT, loop=True, loop_ticks=24, ticks_per_frame=2)),
+    # a small flame bursting into a ground fire cap (FI r0): a fireball landing
+    "fire_pop": (FI, 0, 0, 9, _d(HIT, ticks_per_frame=2, scale=0.6)),
+    # a tall licking flame (FI r5), looped while the move lasts: the fire in the pan
+    "flame_column": (FI, 5, 0, 12, _d(HIT, on="start", follow=True, loop=True, loop_ticks=24, ticks_per_frame=2, scale=0.4)),
 }
 
 # Tints applied before the palette snap (name -> (rgb, strength)): each pixel's brightness
@@ -138,6 +149,7 @@ TINTS = {
     "venom_crackle": ((120, 214, 70), 0.9),
     "ice_geyser": ((200, 236, 255), 0.6),
     "ice_nova": ((120, 200, 255), 0.9),
+    "heal_beam": ((110, 230, 120), 0.85),
     # the pack's brown dust is a pinkish tan: pulled toward earth
     "dust_poof": ((190, 140, 96), 0.55),
     "dust_burst": ((190, 140, 96), 0.55),

@@ -466,7 +466,7 @@ const HIT_SEG_KEYS := ["damage", "knockback", "hitstun", "hitstop", "launch", "c
 	"flip", "swallow", "poison_ticks", "poison_damage", "poison_every", "petrify",
 	"blind_ticks", "root_ticks", "steal_ticks", "freeze_ticks"]
 ## Hit flags read from the move itself.
-const HIT_FLAG_KEYS := ["guard_break", "grab", "grab_air", "juggle", "no_flinch"]
+const HIT_FLAG_KEYS := ["guard_break", "grab", "grab_air", "juggle", "no_flinch", "root_through_guard"]
 
 
 func hit_params(seg: int) -> Dictionary:

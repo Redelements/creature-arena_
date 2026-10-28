@@ -211,7 +211,7 @@ func _projectile_lights(raw: Array) -> void:
 		var li: Dictionary = mv.get("fx", {}).get("projectile_light", {})
 		if li.is_empty():
 			continue
-		var z := FxView.THROW_Z if String(mv.get("fx", {}).get("projectile", "")) in ["knife", "mallet", "cleaver"] \
+		var z := FxView.THROW_Z if String(mv.get("fx", {}).get("projectile", "")) in ["knife", "mallet", "cleaver", "fire"] \
 			else 10.0
 		var age := int(pr.get("life_total", 0)) - int(pr.get("life", 0)) if pr.has("life_total") else 0
 		_add(raw, pp, z, Color(String(li.get("color", _fx_color(owner)))), float(li.get("radius", 24.0)),

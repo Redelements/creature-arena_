@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="MoveFx" format=3]
+
+[ext_resource type="SpriteFrames" path="res://assets/vfx/fireball_frames.tres" id="1_pr51a"]
+[ext_resource type="Script" path="res://src/view/move_fx.gd" id="2_rb36d"]
+
+[resource]
+script = ExtResource("2_rb36d")
+frames = ExtResource("1_pr51a")
+ticks_per_frame = 2
+on = "projectile"
+offset = Vector2(8, -14)
+loop = true
+loop_ticks = 24
