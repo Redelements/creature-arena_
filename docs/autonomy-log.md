@@ -24,8 +24,8 @@ DONE / SKIPPED / BLOCKED. This file lives on branch `autonomy-log` (worktree
 | 4 | Nightly CI: Normal-bot balance matrix + cross-platform determinism soak | DONE | [#260](https://github.com/Redelements/creature-arena_/pull/260) merged |
 | 5 | main.gd split (after 1-4 merged) | DONE | [#270](https://github.com/Redelements/creature-arena_/pull/270) |
 | 6 | CPU team play piece 3 (focus, peel, front line) | PR OPEN for Kevin (no measurable gain) | [#269](https://github.com/Redelements/creature-arena_/pull/269) |
-| 7 | Caravan CPU wagon goal | IN PROGRESS | |
-| 8 | CPU Burrow pit crossing | IN PROGRESS (stacked on 7) | |
+| 7 | Caravan CPU wagon goal | PR OPEN for Kevin | [#271](https://github.com/Redelements/creature-arena_/pull/271) |
+| 8 | CPU Burrow pit crossing | PR OPEN for Kevin (stacked on #271) | [#272](https://github.com/Redelements/creature-arena_/pull/272) |
 | 9 | Accessibility: colour-safe teams / outlines, high-contrast hit markers | IN PROGRESS | |
 | 10 | Audio CC0 pass (Kenney only) + CREDITS | BLOCKED (ruling needed) | |
 | 11 | Training dummy at 2x | PR OPEN for Kevin | [#264](https://github.com/Redelements/creature-arena_/pull/264) |
@@ -262,3 +262,25 @@ touches the same file; whichever merges second resolves a one-line conflict.
   view-draw-perf,android-warmup}, each off main 30a59cc). All four are behavioral and will stay open, so
   they may conflict with each other in main_settings.gd / the views; whichever Kevin merges second gets a
   merge of main. Logged as a known cost of running them in parallel rather than serially for days.
+
+## Tasks 7 and 8: Caravan wagon goal, Burrow pit crossing
+
+- **PR #271** (behavioral, NET 59, renumber at merge): `TeamSim._cv_goals` writes each fighter's job into
+  `sim.goals` (attackers "push" the caravan, defenders "hold" the road ahead, CTF's goal format); Normal CPUs
+  walk to the goal unless a foe is in reach, fight the foe at the caravan first, hold the wagon while their
+  foe stands off, slide along the push-radius rim. Gate `ai.caravan` (default on; off = main byte for byte).
+  24 seeds: push 30/29% -> 33/34% of the track, checkpoints a round 0.15/0.21 -> 0.44/0.46, fights a minute
+  1.5/1.1 -> 1.8/1.7, **finished pushes still 0/48** (a contested caravan doesn't move and it is contested
+  ~80% of the fight: finishing needs a rules change, out of scope). Think cost max 7.6 -> 5.7 ms. TDM, CTF,
+  Crater and the 1v1 matrix byte-identical. New tests/test_cpu_caravan.gd. Suite 1314/0, sweep 216/0.
+- **PR #272** (behavioral, NET 60, stacked on #271): any skill/heavy with a `leap` window round a straight
+  dash (today only Digby's Burrow, 136 px vs a roll's ~50) is thrown at a chasm lip when the far side is
+  another nav region or the walk round is longer by half the reach; the landing is replayed step by step
+  and needs 10 px of floor; gate `ai.cross_pits`. Honest result: it rarely matters on the shipped maps
+  (the Floodgate's channels are shallows, a fallen Keeps bridge is wadeable; Stadium/Floodgate byte-
+  identical, Twin Keeps 84 -> 86 wins / 18 -> 16 crossings); it shows on the floor-of-pits mutator
+  (crossings 324 -> 362, no-walk time 2.2% -> 1.0%). New tests/test_cpu_crossing.gd. Suite 1320/0.
+- Decisions (agent): jobs come from the sim so a CPU takeover mid-match keeps its job; gates are `ai` keys
+  with code defaults (no JSON change); only chasms trigger a crossing. Worktrees creature-arena-cpu-goals and
+  creature-arena-burrow-pits kept until the PRs merge.
+- NET_VERSION claims among open PRs: #264 59, #269 59, #271 59, #272 60. Renumber in merge order.
