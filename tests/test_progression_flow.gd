@@ -201,3 +201,23 @@ func test_a_daily_retry_pays_its_score_only_on_a_new_best() -> void:
 		var f := FileAccess.open(daily, FileAccess.WRITE)
 		f.store_string(String(kept))
 		f.close()
+
+
+func test_two_local_players_against_cpus_are_paid_at_the_cpu_level() -> void:
+	_fresh()
+	var g := _game()
+	g.level = 0  # Easy CPUs
+	g._skip_select = true
+	g._start_match(g.mode_index("Brawl: 2 players"))
+	_tick(g, 5)
+	var r: Dictionary = g.show_ctl.progress_report(false)
+	assert_eq(String(r["kind"]), "local", "two humans:")
+	assert_true(bool(r.get("cpus", false)), "and CPUs in the match")
+	var x: Dictionary = Progress.table()["xp"]
+	assert_eq(Progress.xp_for(r, r["players"][0]), roundi((float(x["fight"]) + float(r["players"][0]["kos"]) * float(x["ko"])) * float(x["level_mult"][0])),
+		"paid at the Easy rate, not full:")
+	g._start_match(g.mode_index("Versus: 2 players"))
+	_tick(g, 5)
+	r = g.show_ctl.progress_report(false)
+	assert_false(bool(r.get("cpus", false)), "two players alone: no CPU, paid fully")
+	_done(g)

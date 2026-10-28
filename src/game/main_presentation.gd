@@ -311,6 +311,8 @@ func progress_report(won: Variant = null, extra := {}) -> Dictionary:
 			"won": bool(won) if won != null else _slot_won(slot)})
 	var r := {"kind": "online" if main.online != null else ("local" if humans.size() > 1 else "cpu"),
 		"cpu_level": main._cpu_level_override if main._cpu_level_override >= 0 else main.level, "players": players}
+	if main.online == null and main.sides.has(Main.Side.CPU):
+		r["cpus"] = true  # local players with CPUs in the match: paid at the CPU level, like one human
 	if main.arcade != null:
 		r["ladder"] = true  # a single-round stage (Arcade, Gauntlet, Daily, Weekly): ladder_mult
 	if main.arcade is Arcade:

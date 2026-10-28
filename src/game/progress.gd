@@ -514,7 +514,7 @@ static func xp_for(report: Dictionary, player: Dictionary) -> int:
 	total += int(report.get("daily_score", 0)) / 100.0 * float(x.get("daily_score_mult", 0))
 	if bool(report.get("weekly_clear", false)):
 		total += float(x.get("weekly_clear", 0))
-	if kind == "cpu":
+	if kind == "cpu" or (kind == "local" and bool(report.get("cpus", false))):
 		var mults: Array = x.get("level_mult", [1.0])
 		total *= float(mults[clampi(int(report.get("cpu_level", 1)), 0, mults.size() - 1)])
 	return roundi(total)
@@ -524,7 +524,9 @@ static func xp_for(report: Dictionary, player: Dictionary) -> int:
 ##   "kind": "cpu" (one human against CPUs: times the CPU level's `level_mult`), "local"
 ##           (two or more humans on this machine: each paid fully), "online" (the local
 ##           human, fully) or "none" (training, showcases, replays, CPU vs CPU, coaches)
-##   "cpu_level": 0 Easy .. 3 Rage (kind "cpu")
+##   "cpu_level": 0 Easy .. 3 Rage (kind "cpu", or "local" with "cpus")
+##   "cpus": bool, kind "local" with CPU sides too (a 2-player Brawl against CPUs): the
+##           CPU level's `level_mult` applies to every player, as for one human
 ##   "players": [{"slot": int, "fighters": [ids], "won": bool, "kos": int}], the humans
 ##   "clear_arcade": bool, "waves": int (Gauntlet waves this fight cleared), "daily_score": int
 ##   (what the Daily's or the Weekly's score adds to the best so far: a retry that doesn't beat
