@@ -17,10 +17,10 @@ const SIZES := [Vector2i(1920, 1080), Vector2i(1440, 810), Vector2i(2400, 1080),
 const PAGES := ["main", "single", "look", "settings", "game", "video", "audio", "accessibility", "controls",
 	"remap:classic", "remap:league", "remap:gamepad", "credits", "credits:godot", "credits:notices"]
 ## The Profile's pages (Settings > Game > Progression on): the Profile, the account's and
-## every fighter's.
+## every fighter's; and the Single player hub (its today card) and Challenges (the Weekly's row).
 const PROFILE_PAGES := ["main", "profile", "profile:account", "profile:challenges", "profile:cairn", "profile:culvert", "profile:craglash",
 	"profile:barkley", "profile:gillbert", "profile:cerebro", "profile:hissy", "profile:digby", "profile:pete",
-	"profile:sno", "profile:crease"]
+	"profile:sno", "profile:crease", "single", "single:challenge"]
 
 var _was_size := Vector2i.ZERO
 var _was_scale := 2.0
@@ -351,6 +351,22 @@ func test_every_rows_facts_fit_on_a_line_of_the_panel() -> void:
 				assert_true(w <= room + 1.0, "'%s' (%s) is %d wide, the panel %d" % [s, row["label"], w, room])
 				checked += 1
 	assert_gt(float(checked), 20.0, "every row's facts were read:")
+	# The Weekly's card and the hub's today card change every week: a year of weeks.
+	var hub_room := 150.0 - 8  # the Single player hub keeps UiScreen's default panel (main.gd:_open_single)
+	var day := Daily.day_number(20261026)
+	for k in 53:
+		var w := Weekly.new("crease", Daily.date_of_day(day + 7 * k))
+		var lines: Array = g._weekly_facts(w).map(func(t): return [t, room])
+		for n in w.mutator_names_list():
+			lines.append([String(n), hub_room])
+		lines.append(["Weekly: best 9999, with", hub_room])
+		lines.append(["Weekly: no score yet, with", hub_room])
+		lines.append(["Daily: played, no score yet", hub_room])
+		for pair in lines:
+			var s := String(pair[0])
+			var font := DetailCard.fit_font(UiTheme.font(), s, DetailCard.FONT_FACT, float(pair[1]))
+			var wd := font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, UiTheme.px(DetailCard.FONT_FACT)).x
+			assert_true(wd <= float(pair[1]) + 1.0, "week %d: '%s' is %d wide, the panel %d" % [w.week, s, wd, pair[1]])
 	g.free()
 
 

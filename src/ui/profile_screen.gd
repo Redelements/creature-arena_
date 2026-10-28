@@ -13,7 +13,8 @@ extends UiScreen
 ## Account row and in the page's list. Opening a fighter's (or the account's) page sees them.
 ##
 ## Enter on Challenges opens the goals (src/game/challenges.gd, data/challenges.json) by
-## group, each with its progress bar and count, the done ones last in their group.
+## group, each with its progress bar and count, the done ones last in their group. The Streak
+## row under it shows the play streak (Progress.streak_days) and what it pays.
 ##
 ## page: "" the Profile, "account", "challenges", or a fighter id (`--menu=profile`,
 ## `profile:account`, `profile:challenges`, `profile:<fighter>`).
@@ -91,6 +92,17 @@ func _build_profile() -> void:
 	if chk != null:
 		chk.facts = ["%d of %d done" % [Challenges.done_count(), Challenges.goals().size()], "XP and titles for goals",
 			"in every mode"]
+	var days := Progress.streak_days()
+	var x: Dictionary = Progress.table().get("xp", {})
+	var st := add_option("Streak", ["%d day%s" % [days, "" if days == 1 else "s"]], 0, func(_i): pass,
+		"Days in a row with at least one fight that pays XP")
+	var stk := card(st)
+	if stk != null:
+		var pct := roundi((float(x.get("streak_mult", 1.0)) - 1.0) * 100.0)
+		stk.facts = [Progress.streak_text(days),
+			("+%d%% XP on every fight now" % pct) if Progress.streak_bonus() > 1.0
+				else "+%d%% XP from %d days in a row" % [pct, int(x.get("streak_min_days", 3))],
+			"Miss a day and it starts again"]
 	for f in MatchFactory.FIGHTERS:
 		var o := add_option(_name(String(f)), ["Mastery %d" % Progress.mastery_level(String(f))], 0, func(_i): pass,
 			"Enter: this fighter's palettes, titles and victory lines")

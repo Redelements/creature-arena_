@@ -59,7 +59,7 @@ Menus are `Control` nodes on a `ScreenStack` of `UiScreen`s, styled by one share
   through `flash.gdshader`, for the Profile's palette picker; `DetailCard.palette` passes it on)
 - The Profile (Progression on; `--menu=profile[:account|challenges|<fighter>]`) → `profile_screen.gd` (`page`: "" the hub,
   "account", "challenges", a fighter id; `_build_profile`, `_build_account`, `_build_challenges` / `_challenge_row`,
-  `_build_fighter`, `_picker`): pickers are OptionRows
+  `_build_fighter`, `_picker`; the hub's Streak row under Challenges shows `Progress.streak_days`): pickers are OptionRows
   with `locked` (greyed values, looked at but never worn) and the hub rows' `tag` ("New!") and `bar_width`; a
   challenge's row is an OptionRow with `bar`, `ticked` (a drawn tick: the pixel font has no ✓) and a narrow
   `bar_value_room` so long names clear the bar (`tests/test_challenges.gd` pins it). The title pickers also offer

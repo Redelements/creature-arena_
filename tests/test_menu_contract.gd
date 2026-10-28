@@ -1,7 +1,7 @@
 extends TestCase
 ## The menus' words against the rules they describe: every number a row's description
 ## quotes (KOs to win, the Crater's hold, captures, team sizes, best of three, the
-## Arcade's stages, the Gauntlet's climb, the Daily's and Chaos Cup's mutators) is read
+## Arcade's stages, the Gauntlet's climb, the Daily's, the Weekly's and Chaos Cup's mutators) is read
 ## back from the rules files and the code that plays them, so a tuning change that
 ## leaves the menu lying fails here. Also each row's Left/Right choices against the
 ## modes they start, and each hub card's line against the rows behind it.
@@ -88,6 +88,8 @@ func test_the_gauntlet_climbs_every_so_many_waves() -> void:
 func test_the_daily_and_the_chaos_cup_count_their_mutators_and_name_them_all() -> void:
 	var d := _desc("Daily Challenge")
 	assert_true(d.contains("%s mutators" % WORDS[Daily.PICKS]), "the Daily draws %d: %s" % [Daily.PICKS, d])
+	var w := _desc("Weekly Challenge")
+	assert_true(w.contains("%s mutators" % WORDS[Weekly.WEEK_PICKS]), "the Weekly draws %d: %s" % [Weekly.WEEK_PICKS, w])
 	var chaos := _desc("Chaos Cup")
 	var table := Daily.mutator_table()
 	for id in table:
@@ -173,9 +175,16 @@ func test_each_hub_card_counts_and_names_what_is_behind_it() -> void:
 	assert_true(team.contains("%dv%d to %dv%d" % [sizes.min(), sizes.min(), sizes.max(), sizes.max()]),
 		"team sizes %d to %d: %s" % [sizes.min(), sizes.max(), team])
 	var challenge := String(_group("challenge")["sub"])
-	for label in by_group["challenge"]:
-		var word := String(label).split(" ")[0]
-		assert_true(challenge.contains(word), "Challenges names %s: %s" % [word, challenge])
+	var with_progression := String(_group("challenge").get("sub_progression", challenge))
+	for row in MAIN.MENU_ROWS:
+		if String(row.get("group", "")) != "challenge":
+			continue
+		var word := String(row["label"]).split(" ")[0]
+		assert_true(with_progression.contains(word), "Challenges with Progression on names %s: %s" % [word, with_progression])
+		if not row.get("progression", false):  # a row only Progression shows is named only then
+			assert_true(challenge.contains(word), "Challenges names %s: %s" % [word, challenge])
+		else:
+			assert_false(challenge.contains(word), "Off, Challenges doesn't name %s: %s" % [word, challenge])
 	var practice := String(_group("practice")["sub"])
 	assert_true(practice.to_lower().contains("replay"), practice)
 	assert_true(practice.to_lower().contains("training"), practice)

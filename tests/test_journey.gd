@@ -6,7 +6,8 @@ extends TestCase
 ## choice is played to the end (the clock is run down once the fight is under way, so a
 ## stalemate can't hang the test); the other choices start, then leave from the pause
 ## menu. Modes with no end (training, the showcases, trials, drills) leave from the pause
-## menu too, and Replay theater opens its screen and comes back.
+## menu too, and Replay theater opens its screen and comes back. A row only Settings > Game >
+## Progression shows (the Weekly Challenge) is walked with Progression on, the rest with it off.
 
 const TEST_SETTINGS := "user://test_journey.cfg"
 ## Ticks a fight plays before the clock is run down, and what it is run down to.
@@ -229,6 +230,7 @@ func test_every_row_plays_to_the_final_banner_and_back_lands_on_the_row() -> voi
 		var label := String(row["label"])
 		if not row.has("modes") or not _ends(g, r, 0):
 			continue
+		Progress.set_enabled(bool(row.get("progression", false)))  # the Weekly's row is there only with it on
 		var page := _go_to_row(g, r, 0)
 		var page_title: String = page.title
 		var m := int(row["modes"][0])
@@ -259,6 +261,7 @@ func test_every_row_plays_to_the_final_banner_and_back_lands_on_the_row() -> voi
 		_quit_from_pause(g, label)
 		_assert_on_row(g, page_title, r, 0, label + " / pause Quit")
 	assert_gt(float(played), 12.0, "rows played to the end: %d" % played)
+	Progress.set_enabled(false)
 	g.free()
 	_restore_daily(kept)
 
@@ -271,6 +274,7 @@ func test_every_other_choice_starts_its_mode_and_leaves_to_the_row() -> void:
 		var label := String(row["label"])
 		if not row.has("modes"):
 			continue
+		Progress.set_enabled(bool(row.get("progression", false)))
 		for choice in _choices(g, r):
 			if choice == 0 and _ends(g, r, 0):
 				continue  # played to the end by the other test
@@ -296,6 +300,7 @@ func test_every_other_choice_starts_its_mode_and_leaves_to_the_row() -> void:
 				_quit_from_pause(g, what)
 			_assert_on_row(g, page_title, r, choice, what + " / leave")
 	assert_gt(float(started), 40.0, "choices started: %d" % started)
+	Progress.set_enabled(false)
 	g.free()
 
 

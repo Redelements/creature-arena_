@@ -357,6 +357,7 @@ func _open_card(g: Node, title: String) -> void:
 
 func test_single_player_is_a_hub_of_pages_that_cover_every_row() -> void:
 	var g := _game()
+	Progress.set_enabled(true)  # every row, the Weekly's too (tests/test_weekly.gd: Off hides it)
 	g._open_menu()
 	_press("ui_accept")  # Single player
 	var hub: UiScreen = g.ui.top()
@@ -384,6 +385,7 @@ func test_single_player_is_a_hub_of_pages_that_cover_every_row() -> void:
 		assert_eq(g.ui.top(), hub, "back to the hub")
 		assert_eq((_focus() as Button).text, String(group["title"]), "on the same card:")
 	assert_eq(seen.size(), g.MENU_ROWS.size(), "every mode is reachable from some page:")
+	Progress.set_enabled(false)
 	g.free()
 
 
