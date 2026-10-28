@@ -30,8 +30,8 @@ DONE / SKIPPED / BLOCKED. This file lives on branch `autonomy-log` (worktree
 | 10 | Audio CC0 pass (Kenney only) + CREDITS | BLOCKED (ruling needed) | |
 | 11 | Training dummy at 2x | PR OPEN for Kevin | [#264](https://github.com/Redelements/creature-arena_/pull/264) |
 | 12 | Replay tools: frame step, slow motion, rewind; bug-report bundle | | |
-| 13 | Mode-idea evidence: bench every "idea" row | PR OPEN, merging | [#265](https://github.com/Redelements/creature-arena_/pull/265) |
-| 14 | Digby vs Cerebro with Normal bots, documented | PR OPEN, merging | [#266](https://github.com/Redelements/creature-arena_/pull/266) |
+| 13 | Mode-idea evidence: bench every "idea" row | DONE | [#265](https://github.com/Redelements/creature-arena_/pull/265) |
+| 14 | Digby vs Cerebro with Normal bots, documented | DONE | [#266](https://github.com/Redelements/creature-arena_/pull/266) |
 | 15 | Perf: view-draw pass, before/after | | |
 | 16 | Android: shader warm-up, 60 Hz hint; VRAM + soak scripts (not run) | | |
 | 17 | Trailer and gallery capture per map and fighter | | |
@@ -205,3 +205,4 @@ touches the same file; whichever merges second resolves a one-line conflict.
   in turn (265 then 266) with a retry on "base branch was modified".
 - Title fix checks: suite 1308/0, sweep 216/0, sim-check unchanged. **PR #267** opened, left for Kevin
   (https://github.com/Redelements/creature-arena_/pull/267).
+- **Tasks 13 and 14 DONE**: #265 and #266 merged.
