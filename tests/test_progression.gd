@@ -206,7 +206,7 @@ func test_off_pays_nothing_and_changes_nothing() -> void:
 	_done()
 
 
-func test_the_setting_is_off_by_default_and_saved() -> void:
+func test_the_setting_is_on_by_default_and_a_saved_off_is_kept() -> void:
 	var cfg_path := "user://test_progression_settings.cfg"
 	if FileAccess.file_exists(cfg_path):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg_path))
@@ -214,15 +214,27 @@ func test_the_setting_is_off_by_default_and_saved() -> void:
 	var g: Node = load("res://scenes/main.tscn").instantiate()
 	g.settings_path = cfg_path
 	(Engine.get_main_loop() as SceneTree).root.add_child(g)
-	assert_false(Progress.enabled(), "Progression starts Off")
+	assert_true(Progress.enabled(), "a fresh install starts with Progression On")
 	assert_true("progression" in g.SETTING_PAGES["game"], "a row on Settings > Game")
-	assert_eq(g.settings_ctl._setting("progression")["index"], 0, "")
-	g.settings_ctl._set_setting("progression", 1)
-	assert_true(Progress.enabled(), "On")
+	assert_eq(g.settings_ctl._setting("progression")["index"], 1, "")
+	g.settings_ctl._set_setting("progression", 0)
+	assert_false(Progress.enabled(), "Off")
 	g.settings_ctl._save_settings()
+	Progress.set_enabled(true)
+	g.settings_ctl._load_settings()
+	assert_false(Progress.enabled(), "a saved Off is kept")
+	g.settings_ctl._set_setting("progression", 1)
 	Progress.set_enabled(false)
 	g.settings_ctl._load_settings()
-	assert_true(Progress.enabled(), "and saved")
+	assert_true(Progress.enabled(), "and a saved On")
+	# A settings file from before the setting existed (no game/progression): On.
+	var cfg := ConfigFile.new()
+	cfg.load(cfg_path)
+	cfg.erase_section_key("game", "progression")
+	cfg.save(cfg_path)
+	Progress.set_enabled(false)
+	g.settings_ctl._load_settings()
+	assert_true(Progress.enabled(), "an older settings file without it: On")
 	g.free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg_path))
 	_done()

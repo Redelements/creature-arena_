@@ -12,7 +12,7 @@ const Main := preload("res://src/game/main.gd")
 var main: Main
 ## Settings > Game > Progression as saved (and as the row last set it): what the file keeps.
 ## `--progression=on|off` turns it on or off for the session only, so it's never written.
-var progression_saved := false
+var progression_saved := true
 
 
 func _init(p_main: Main) -> void:
@@ -492,8 +492,9 @@ func _load_settings() -> void:
 	Accessibility.outlines_saved = 0
 	Accessibility.markers_saved = 0
 	var loaded := cfg.load(main.settings_path) == OK
-	# Settings > Game > Progression: Off unless saved On (Progress's switch is static, like the above)
-	progression_saved = bool(cfg.get_value("game", "progression", false)) if loaded else false
+	# Settings > Game > Progression: On unless saved Off (a fresh install starts On; Progress's
+	# switch is static, like the above, so a second game in one run starts from the file too)
+	progression_saved = bool(cfg.get_value("game", "progression", true)) if loaded else true
 	Progress.set_enabled(progression_saved)
 	if loaded:
 		Accessibility.teams_saved = clampi(int(cfg.get_value("accessibility", "teams", 0)), 0, Accessibility.TEAM_NAMES.size() - 1)

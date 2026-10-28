@@ -297,7 +297,7 @@ func test_the_profile_pages_and_the_winners_title_fit_every_screen() -> void:
 	for size in SIZES:
 		_screen(size)
 		var g := _game()
-		Progress.set_enabled(true)  # (the settings load reads it Off)
+		Progress.set_enabled(true)  # (set after the settings load, never left to its default)
 		for page in PROFILE_PAGES:
 			g._open_menu(page)
 			_check(g, size, page)
