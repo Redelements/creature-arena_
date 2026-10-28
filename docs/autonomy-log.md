@@ -22,18 +22,18 @@ DONE / SKIPPED / BLOCKED. This file lives on branch `autonomy-log` (worktree
 | 2 | Docs drift check (MECHANICS.md, README kits) | DONE | [#263](https://github.com/Redelements/creature-arena_/pull/263) |
 | 3 | Rollback coverage: random-input fuzz across modes with hazards, shrines, crown | DONE | [#262](https://github.com/Redelements/creature-arena_/pull/262) |
 | 4 | Nightly CI: Normal-bot balance matrix + cross-platform determinism soak | DONE | [#260](https://github.com/Redelements/creature-arena_/pull/260) merged |
-| 5 | main.gd split (after 1-4 merged) | PR OPEN, merging | [#270](https://github.com/Redelements/creature-arena_/pull/270) |
+| 5 | main.gd split (after 1-4 merged) | DONE | [#270](https://github.com/Redelements/creature-arena_/pull/270) |
 | 6 | CPU team play piece 3 (focus, peel, front line) | PR OPEN for Kevin (no measurable gain) | [#269](https://github.com/Redelements/creature-arena_/pull/269) |
 | 7 | Caravan CPU wagon goal | IN PROGRESS | |
 | 8 | CPU Burrow pit crossing | IN PROGRESS (stacked on 7) | |
-| 9 | Accessibility: colour-safe teams / outlines, high-contrast hit markers | | |
+| 9 | Accessibility: colour-safe teams / outlines, high-contrast hit markers | IN PROGRESS | |
 | 10 | Audio CC0 pass (Kenney only) + CREDITS | BLOCKED (ruling needed) | |
 | 11 | Training dummy at 2x | PR OPEN for Kevin | [#264](https://github.com/Redelements/creature-arena_/pull/264) |
-| 12 | Replay tools: frame step, slow motion, rewind; bug-report bundle | | |
+| 12 | Replay tools: frame step, slow motion, rewind; bug-report bundle | IN PROGRESS | |
 | 13 | Mode-idea evidence: bench every "idea" row | DONE | [#265](https://github.com/Redelements/creature-arena_/pull/265) |
 | 14 | Digby vs Cerebro with Normal bots, documented | DONE | [#266](https://github.com/Redelements/creature-arena_/pull/266) |
-| 15 | Perf: view-draw pass, before/after | | |
-| 16 | Android: shader warm-up, 60 Hz hint; VRAM + soak scripts (not run) | | |
+| 15 | Perf: view-draw pass, before/after | IN PROGRESS | |
+| 16 | Android: shader warm-up, 60 Hz hint; VRAM + soak scripts (not run) | IN PROGRESS | |
 | 17 | Trailer and gallery capture per map and fighter | DONE | [#268](https://github.com/Redelements/creature-arena_/pull/268) |
 
 ## Setup (2026-10-27)
@@ -257,3 +257,8 @@ touches the same file; whichever merges second resolves a one-line conflict.
 - Decision: a refactor with identical behavior is non-behavioral under Kevin's rule -> merging once green.
   After it lands, the open one-line PRs #261 and #267 (main.gd / MECHANICS.md) get main merged in and
   re-checked for conflicts; tasks 9, 12, 15, 16 can then start.
+- **Task 5 DONE**: #270 merged (main 30a59cc). #261, #264, #267, #269 all still merge cleanly against it.
+- Tasks 9, 12, 15, 16 start now as four agents (worktrees creature-arena-{accessibility,replay-tools,
+  view-draw-perf,android-warmup}, each off main 30a59cc). All four are behavioral and will stay open, so
+  they may conflict with each other in main_settings.gd / the views; whichever Kevin merges second gets a
+  merge of main. Logged as a known cost of running them in parallel rather than serially for days.
