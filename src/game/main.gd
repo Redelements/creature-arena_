@@ -460,6 +460,7 @@ var fullscreen := false
 var fight_fps := default_fps()
 ## Where settings are kept (tests point it elsewhere, so they never touch the player's).
 var settings_path := SETTINGS_PATH
+var settings_ctl := MainSettings.new(self)  ## Settings: the pages, each row's value and change, the file (main_settings.gd)
 var vsync := true
 ## Wider-than-16:9 screens (ultrawide, 16:10): fill them with more stadium, or keep 16:9
 ## with bars.
@@ -850,7 +851,7 @@ func _ready() -> void:
 		(pin as PlayerInput).keyboard = false
 		(pin as PlayerInput).pad_device = PlayerInput.NO_PAD
 
-	_load_settings()
+	settings_ctl._load_settings()
 	if UiTheme.smooth:
 		ui.restyle()  # the menu theme was built before the saved Text font was read
 	var start_mode := args_ctl._parse_args()
@@ -907,7 +908,7 @@ func _open_menu(page := "", focus := "") -> void:
 	var t := TitleScreen.new(land)
 	t.single_pressed.connect(_open_single)
 	t.online_pressed.connect(func(): _start_match(ONLINE_MODE))
-	t.settings_pressed.connect(_open_settings)
+	t.settings_pressed.connect(settings_ctl._open_settings)
 	t.exit_pressed.connect(func(): get_tree().quit())
 	ui.push(t)
 	if page.begins_with("single:"):  # a Single player page, for captures: --menu=single:team
@@ -921,28 +922,28 @@ func _open_menu(page := "", focus := "") -> void:
 			_open_single()
 			_open_look_page()
 		"settings":
-			_open_settings()
+			settings_ctl._open_settings()
 		"game", "video", "audio":
-			_open_settings()
-			_open_settings_page(page)
+			settings_ctl._open_settings()
+			settings_ctl._open_settings_page(page)
 		"controls":
-			_open_settings()
-			_open_controls()
+			settings_ctl._open_settings()
+			settings_ctl._open_controls()
 		"touch":
-			_open_settings()
-			_open_controls()
-			_open_settings_page("touch")
+			settings_ctl._open_settings()
+			settings_ctl._open_controls()
+			settings_ctl._open_settings_page("touch")
 		"credits":
-			_open_settings()
-			_open_credits()
+			settings_ctl._open_settings()
+			settings_ctl._open_credits()
 		"credits:game", "credits:szadi", "credits:kiddolink", "credits:font", "credits:godot", "credits:notices":
-			_open_settings()
-			_open_credits()
+			settings_ctl._open_settings()
+			settings_ctl._open_credits()
 			(ui.top() as CreditsScreen).open_page(page.get_slice(":", 1))
 		"remap:classic", "remap:league", "remap:gamepad":  # captures of a Remap page
-			_open_settings()
-			_open_controls()
-			_open_remap(page.get_slice(":", 1))
+			settings_ctl._open_settings()
+			settings_ctl._open_controls()
+			settings_ctl._open_remap(page.get_slice(":", 1))
 
 
 ## A CPU-vs-CPU match behind the menus (restarted now and then; the screens stay).
@@ -1109,7 +1110,7 @@ func _open_single_group(gid: String, focus_row := -1) -> void:
 				var o := s.add_option(String(row["label"]), row["choices"], int(_row_choice[r]),
 					func(i: int):
 						_row_choice[r] = i
-						_save_settings(), desc)
+						settings_ctl._save_settings(), desc)
 				if r == focus_row:
 					s.default_focus = o
 				o.activates = true
@@ -1176,7 +1177,7 @@ func _set_hazard(id: String, on: bool) -> void:
 	elif not on:
 		hazards_on.erase(id)
 	hazards_on.sort()
-	_save_settings()
+	settings_ctl._save_settings()
 
 
 ## The Arena row's description: what it does, and the hazards that are on.
@@ -1230,7 +1231,7 @@ func _set_look_choice(kind: String, id: String) -> void:
 	else:
 		weather_choice = id
 	_look_cli.erase("time" if kind == "times" else "weather")
-	_save_settings()
+	settings_ctl._save_settings()
 
 
 ## The look of the match `s` is starting: day + clear online, while watching a room and
@@ -1362,7 +1363,7 @@ func _set_arena(id: String) -> void:
 	if id in ArenaMap.IDS:
 		MatchFactory.arena = id
 		_arena_saved = id
-		_save_settings()
+		settings_ctl._save_settings()
 
 
 ## Where the last Single player row was started from, so leaving a match lands back on
@@ -1393,191 +1394,34 @@ func _start_row(row: int) -> void:
 	_start_match(int(r["modes"][_row_choice[row] if row < _row_choice.size() else 0]))
 
 
-## Settings: four pages, like most games: Game, Video, Audio, Controls; and the Credits.
-func _open_settings() -> void:
-	var scr := UiScreen.new()
-	scr.logo = true
-	scr.title = "SETTINGS"
-	scr.row_width = 230.0
-	scr.detail = true
-	scr.blurb = "CPU level, keyboard layout, volume, fullscreen, frame rate"
-	scr.builder = func(s: UiScreen):
-		s.add_card("Game", "CPU level, rumble, screen shake, online server, input delay",
-			func(): _open_settings_page("game"), "How the game plays and where it plays online")
-		s.add_card("Video", "Fullscreen, wide screens, vsync, frame rate",
-			func(): _open_settings_page("video"), "The screen and the frame rate")
-		s.add_card("Audio", "Master, music, sound effects, menu sounds, voice chat",
-			func(): _open_settings_page("audio"), "Volumes")
-		s.add_card("Controls", "Keyboard and controller layouts; remap keys and buttons",
-			_open_controls, "Who presses what")
-		s.add_card("Credits", "Who made the game; art, font and engine licences",
-			_open_credits, "Credits and licences, and the engine's third-party notices")
-		s.add_space(3)
-		s.add_button("Back", s.back)
-	ui.push(scr)
-
-
-## Settings > Credits (src/ui/credits_screen.gd; LICENSES.md says it at length).
+## In main_settings.gd (tests and other scripts call it here).
 func _open_credits() -> void:
-	ui.push(CreditsScreen.new())
+	settings_ctl._open_credits()
 
 
-## One Settings page: each row's values and description come from _setting(); a change
-## goes through _set_setting() and is saved at once.
+## In main_settings.gd (tests and other scripts call it here).
 func _open_settings_page(page: String) -> void:
-	var scr := UiScreen.new()
-	scr.logo = true
-	scr.crumbs = ["SETTINGS"]
-	scr.title = page.to_upper()
-	scr.row_width = 236.0
-	scr.detail = true
-	scr.blurb = {"game": "How the game plays and where it plays online", "video": "The screen and the frame rate",
-		"audio": "Volumes and voice chat", "touch": "The on-screen stick and buttons (they show when you touch the screen in a fight)"}.get(page, "")
-	scr.hints = ["move", "change", "back"]
-	scr.builder = func(s: UiScreen):
-		for key in SETTING_PAGES[page]:
-			if key == "server":
-				_add_server_row(s)
-			elif key.begins_with("#"):
-				s.add_heading(key.substr(1))
-			elif key == "mic_test":
-				_add_mic_test_row(s)
-			else:
-				_add_setting_row(s, key)
-		s.add_space(4)
-		s.add_button("Back", s.back)
-	scr.backed.connect(func():
-		_setting_rows.clear()
-		if voice_view != null:
-			voice_view.test_stop())
-	ui.push(scr)
+	settings_ctl._open_settings_page(page)
 
 
-## Rebuild an open Settings page in place (its rows carry their own font sizes), with
-## the row that changed focused again: Text font swaps every size on the page.
-func _reopen_settings_page(page: String, key: String) -> void:
-	var top := ui.top()
-	if top == null or top.title != page.to_upper():
-		return
-	ui.pop()
-	_open_settings_page(page)
-	var row: Control = _setting_rows.get(key)
-	if row != null:
-		row.grab_focus()
-
-
-func _add_setting_row(s: UiScreen, key: String) -> OptionRow:
-	var info := _setting(key)
-	var o := s.add_option(String(info["label"]), info["values"], int(info["index"]), func(_i): pass,
-		String(info["desc"]))
-	o.wrap = bool(info.get("wrap", true))
-	o.bar = float(info.get("bar", -1.0))
-	o.changed.connect(func(i: int):
-		_set_setting(key, i)
-		var now := _setting(key)
-		o.set_values(now["values"], int(now["index"]))
-		o.bar = float(now.get("bar", -1.0)))
-	_setting_rows[key] = o
-	return o
-
-
-## Settings > Audio > Test microphone: Enter records a few seconds with a live level bar,
-## then plays them back (VoiceView.test_start); `_voice_step` keeps the row current.
-func _add_mic_test_row(s: UiScreen) -> OptionRow:
-	var o := s.add_option("Test microphone", [voice_view.test_text()], 0, func(_i): pass,
-		"Press, say a few words, and hear them played back. The bar shows how loud the microphone hears you. Nothing heard: pick another Microphone, or allow the game to use it in your system settings")
-	o.activates = true
-	o.bar = voice_view.test_level
-	o.activated.connect(func():
-		_apply_mic()
-		voice_view.test_start()
-		_refresh_mic_test())
-	_setting_rows["mic_test"] = o
-	return o
-
-
+## In main_settings.gd (tests and other scripts call it here).
 func _refresh_mic_test() -> void:
-	var o: OptionRow = _setting_rows.get("mic_test")
-	if o == null or voice_view == null:
-		return
-	var t := voice_view.test_text()
-	if o.values.size() != 1 or String(o.values[0]) != t:
-		o.set_values([t], 0)
-	if not is_equal_approx(o.bar, voice_view.test_level):
-		o.bar = voice_view.test_level
-		o.queue_redraw()
+	settings_ctl._refresh_mic_test()
 
 
-## Settings > Game > Online server: a text box, saved as it's typed. Empty means the
-## game's own server.
-func _add_server_row(s: UiScreen) -> LineEdit:
-	var f := LineEdit.new()
-	f.text = _online_server
-	f.placeholder_text = "Online server: " + default_server()
-	f.max_length = 80
-	f.text_changed.connect(func(t: String):
-		_online_server = t.strip_edges()
-		_save_settings())
-	s.add_row(f, "Where Quick match and rooms play. Leave it empty for %s" % default_server())
-	s.entitle(f, "Online server")
-	return f
-
-
-## The game's own server, from data/online.json.
+## In main_settings.gd (tests and other scripts call it here).
 static func default_server() -> String:
-	var f := FileAccess.open("res://data/online.json", FileAccess.READ)
-	if f == null:
-		return ""
-	var d = JSON.parse_string(f.get_as_text())
-	return String(d.get("server", "")).strip_edges() if d is Dictionary else ""
+	return MainSettings.default_server()
 
 
-## The server Quick match and rooms use: the player's, or the game's own.
+## In main_settings.gd (tests and other scripts call it here).
 func online_server() -> String:
-	return _online_server if _online_server != "" else default_server()
+	return settings_ctl.online_server()
 
 
-## Controls: the keyboard layout, and remapping for each keyboard layout and the controller.
+## In main_settings.gd (tests and other scripts call it here).
 func _open_controls() -> void:
-	var scr := UiScreen.new()
-	scr.logo = true
-	scr.crumbs = ["SETTINGS"]
-	scr.title = "CONTROLS"
-	scr.row_width = 236.0
-	scr.detail = true
-	scr.blurb = "Who presses what"
-	scr.hints = ["move", "change", "select", "back"]
-	scr.builder = func(s: UiScreen):
-		_add_setting_row(s, "layout")
-		_add_setting_row(s, "pad_layout")
-		_add_setting_row(s, "range_rings")
-		s.add_button("Touch controls", func(): _open_settings_page("touch"),
-			"The on-screen stick and buttons: how see-through, how big, which hand, how to aim")
-		s.add_button("Remap controller", func(): _open_remap("gamepad"), "Change which button does what")
-		s.add_button("Remap Classic keyboard", func(): _open_remap("classic"), "WASD + J K U I O, or your own keys")
-		s.add_button("Remap League-style keyboard", func(): _open_remap("league"),
-			"Mouse to move and aim; Q W E R, or your own keys")
-		s.add_button("Reset all controls", func():
-			var c := ConfirmScreen.new("Reset every key and button?", "Back to the game's defaults.", "Reset", "Cancel")
-			c.answered.connect(func(yes: bool):
-				if yes:
-					Controls.reset()
-					_save_settings()
-					_apply_device()
-					_toast("Controls reset"))
-			ui.push(c), "Put every key and button back")
-		s.add_space(4)
-		s.add_button("Back", s.back)
-	scr.backed.connect(func(): _setting_rows.clear())
-	ui.push(scr)
-
-
-func _open_remap(group: String) -> void:
-	var r := RemapScreen.new(group)
-	r.changed.connect(func():
-		_save_settings()
-		_apply_device())  # the prompts and help show the new keys
-	ui.push(r)
+	settings_ctl._open_controls()
 
 
 ## The MODES index of the mode with this label (-1: none). Tests and code that start a
@@ -1604,7 +1448,7 @@ func _start_match(m: int, keep_teams := false) -> void:
 	_carried_energy = [-1.0, -1.0]
 	round_num = 1
 	hud.menu_visible = false
-	_save_settings()
+	settings_ctl._save_settings()
 	var cfg: Dictionary = MODES[m]
 	_cpu_level_override = -1
 	if cfg.get("arcade", false):
@@ -3962,9 +3806,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("mute_music"):  # (typing in a text box never gets here)
 		var muted := audio.toggle_music()
 		_toast("Music off (M to turn on)" if muted else "Music on")
-		_save_settings()
+		settings_ctl._save_settings()
 		if _setting_rows.has("vol_Music"):
-			var now := _setting("vol_Music")
+			var now := settings_ctl._setting("vol_Music")
 			(_setting_rows["vol_Music"] as OptionRow).set_values(now["values"], int(now["index"]))
 		return
 	if flow == Flow.MATCH_OVER and event.is_action_pressed("save_replay") and not _replaying() and sim != null:
@@ -3982,10 +3826,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		debug.visible = not debug.visible
 		debug.queue_redraw()
 	elif event.is_action_pressed("debug_perf"):
-		_set_setting("perf_overlay", (perf_overlay.mode + 1) % PerfOverlay.MODE_NAMES.size())
+		settings_ctl._set_setting("perf_overlay", (perf_overlay.mode + 1) % PerfOverlay.MODE_NAMES.size())
 		_toast("Performance overlay: " + PerfOverlay.MODE_NAMES[perf_overlay.mode])
 	elif _range_rings_pressed(event):
-		_set_setting("range_rings", 0 if range_rings else 1)
+		settings_ctl._set_setting("range_rings", 0 if range_rings else 1)
 		_toast("Range rings " + ("on" if range_rings else "off"))
 	elif event.is_action_pressed("debug_dummy_mode") and coach is ComboTrials:
 		coach.replay_demo()
@@ -3994,7 +3838,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif _change_fighter_pressed(event) and in_training():
 		_open_fighter_swap()
 	elif event.is_action_pressed("debug_dummy_mode"):
-		_set_setting("dummy_mode", (dummy_mode + 1) % DUMMY_MODES.size())
+		settings_ctl._set_setting("dummy_mode", (dummy_mode + 1) % DUMMY_MODES.size())
 		hud.show_toast("Dummy: " + DUMMY_MODES[dummy_mode])
 	elif event.is_action_pressed("debug_help"):
 		hud.show_help = not hud.show_help
@@ -4155,9 +3999,9 @@ func _open_training_options() -> void:
 	scr.blurb = "No cooldowns, Surge always full, what the dummy does"
 	scr.hints = ["move", "change", "back"]
 	scr.builder = func(s: UiScreen):
-		_add_setting_row(s, "no_cooldowns")
-		_add_setting_row(s, "full_energy")
-		_add_setting_row(s, "dummy_mode")
+		settings_ctl._add_setting_row(s, "no_cooldowns")
+		settings_ctl._add_setting_row(s, "full_energy")
+		settings_ctl._add_setting_row(s, "dummy_mode")
 		s.add_space(4)
 		s.add_button("Back", s.back)
 	scr.backed.connect(func(): _setting_rows.clear())
@@ -4184,241 +4028,14 @@ func _change_fighter_pressed(event: InputEvent) -> bool:
 	return event.is_action_pressed(kb) or event.is_action_pressed("pad_change_fighter")
 
 
-## A Settings row: its label, values (shown), current index, a description, and for a
-## volume its bar.
+## In main_settings.gd (tests and other scripts call it here).
 func _setting(key: String) -> Dictionary:
-	if key.begins_with("vol_"):
-		var bus := key.trim_prefix("vol_")
-		var v := audio.volume(bus)
-		var vals: Array = ["Off"]
-		for i in range(1, 11):
-			vals.append("%d%%" % (i * 10))
-		var idx := clampi(roundi(v / VOLUME_STEP), 0, 10)
-		if bus == "Music" and audio.music_muted and idx > 0:
-			vals[idx] = "muted (M)"
-		return {"label": VOLUME_NAMES[bus], "values": vals, "index": idx, "bar": v, "wrap": false,
-			"desc": "Left/Right sets it.  M mutes the music any time"}
-	match key:
-		"level":
-			return {"label": "CPU level", "values": LEVEL_NAMES, "index": level, "desc": "How hard the CPU fights. Rage: absurdly good, and plays each fighter by its class"}
-		"delay":
-			return {"label": "Online input delay", "values": ["Auto", "1 frame", "2 frames", "3 frames"],
-				"index": clampi(input_delay + 1, 0, 3),
-				"desc": "Frames between a press and the move online. Auto picks from the ping; more means fewer rollbacks. For matches you host or join directly (the server sets its own)"}
-		"layout":
-			var names: Array = []
-			for l in PlayerInput.LAYOUTS:
-				names.append(PlayerInput.LAYOUT_NAMES[l])
-			return {"label": "Keyboard", "values": names, "index": PlayerInput.LAYOUTS.find(player_input.layout),
-				"desc": "League-style: mouse to move, QWER.  Classic: WASD and J K U I O"}
-		"pad_layout":
-			var pads: Array = []
-			for l in PlayerInput.PAD_LAYOUTS:
-				pads.append(PlayerInput.PAD_LAYOUT_NAMES[l])
-			return {"label": "Controller", "values": pads,
-				"index": maxi(0, PlayerInput.PAD_LAYOUTS.find(player_input.pad_layout)),
-				"desc": "Twin-stick: the right stick aims 360 degrees and holds your facing while you walk"}
-		"fullscreen":
-			return {"label": "Fullscreen", "values": ["Off", "On"], "index": 1 if fullscreen else 0,
-				"desc": "Fill the screen"}
-		"wide":
-			return {"label": "Wide screens", "values": ["16:9 with bars", "Fill"], "index": 1 if wide_fill else 0,
-				"desc": "Ultrawide and 16:10: show more of the stadium, or keep a 16:9 picture"}
-		"vsync":
-			return {"label": "Vsync", "values": ["Off", "On"], "index": 1 if vsync else 0,
-				"desc": "On: no tearing, and the screen's refresh rate caps the frame rate"}
-		"touch_opacity":
-			var ops: Array = []
-			for o in TOUCH_OPACITY:
-				ops.append("%d%%" % roundi(float(o) * 100.0))
-			return {"label": "Opacity", "values": ops, "index": touch_opacity,
-				"desc": "How see-through the touch stick and buttons are"}
-		"touch_size":
-			return {"label": "Button size", "values": TouchPad.SIZE_NAMES, "index": player_input.touch.size_step,
-				"desc": "Bigger buttons are easier to hit and cover more of the fight"}
-		"touch_hand":
-			return {"label": "Hand", "values": ["Right-handed", "Left-handed"],
-				"index": 1 if touch_left else 0,
-				"desc": "Left-handed: the buttons on the left and the stick on the right"}
-		"touch_priority":
-			return {"label": "Lock on", "values": TouchTarget.PRIORITY_NAMES, "index": int(player_input.target.priority),
-				"desc": "Which foe a tap locks onto: the one nearest where you point, the nearest, or the one with the least health. Tap a portrait to pick one yourself"}
-		"touch_chase":
-			return {"label": "Chase target", "values": ["Off", "On"], "index": 1 if player_input.target.chase_on else 0,
-				"desc": "Tap Light with your target out of reach and you walk to it (round pits and walls), then hit. The stick always wins"}
-		"touch_aim":
-			return {"label": "Aiming", "values": TouchPad.AIM_STYLES, "index": 1 if player_input.touch.tap_only else 0,
-				"desc": "Tap + drag: tap fires (aimed for you), drag Heavy, Skills or Surge off the button to aim and let go to throw. Tap only: every button fires on the touch"}
-		"range_rings":
-			return {"label": "Range rings", "values": ["Off", "On"], "index": 1 if range_rings else 0,
-				"desc": "Show each attack's real hit area on the floor"}
-		"no_cooldowns":
-			return {"label": "No cooldowns", "values": ["Off", "On"], "index": 1 if training_opts["no_cooldowns"] else 0,
-				"desc": "Every move and the dodge are always ready, and your stamina stays full"}
-		"full_energy":
-			return {"label": "Surge always full", "values": ["Off", "On"], "index": 1 if training_opts["full_energy"] else 0,
-				"desc": "Your Surge meter stays full: throw the Surge as often as you like"}
-		"dummy_mode":
-			return {"label": "Dummy", "values": DUMMY_MODES, "index": dummy_mode,
-				"desc": "What the dummy does (F2 cycles it in a fight)"}
-		"intros":
-			return {"label": "Match intros", "values": ["Off", "On"], "index": 1 if match_intros else 0,
-				"desc": "Before an offline match: a fly-over of the arena and each side's entrance (any button skips it)"}
-		"rumble":
-			return {"label": "Controller rumble", "values": ["Off", "On"], "index": 1 if rumble else 0,
-				"desc": "A buzz when you land a hit or get hit"}
-		"discord":
-			return {"label": "Discord status", "values": ["Off", "On"], "index": 1 if discord_status else 0,
-				"desc": "Show what you're playing on your Discord profile (with the Discord app open)"}
-		"shake":
-			var names: Array = []
-			var idx := 0
-			for i in SHAKE_CHOICES.size():
-				names.append(SHAKE_CHOICES[i][0])
-				if is_equal_approx(float(SHAKE_CHOICES[i][1]), shake_scale):
-					idx = i
-			return {"label": "Screen shake", "values": names, "index": idx,
-				"desc": "How much the camera shakes on big hits"}
-		"fps":
-			var vals: Array = []
-			for f in FPS_CHOICES:
-				vals.append("Unlimited" if int(f) == 0 else "%d fps" % int(f))
-			return {"label": "Fight frame rate", "values": vals, "index": maxi(0, FPS_CHOICES.find(fight_fps)),
-				"desc": "Menus always run at 60 fps; this sets fights (up to your screen's refresh rate)"}
-		"glow":
-			return {"label": "Glow", "values": ["Off", "On"], "index": 1 if glow else 0,
-				"desc": "Glowing things (auras, sparks, flashes, shots) light the floor around them. Off for weaker devices"}
-		"lighting":
-			return {"label": "Lighting", "values": ["Off", "Low", "High"], "index": lighting,
-				"desc": "Real light on the fighters (sun, auras, flashes); High adds the Floodgate's night lamps and bloom. Lower for weaker devices"}
-		"font":
-			return {"label": "Text font", "values": ["Pixel", "Smooth"], "index": 1 if UiTheme.smooth else 0,
-				"desc": "The menus and the HUD: the pixel font, or the smooth font from before"}
-		"cam_lead":
-			return {"label": "Aim lead", "values": CAM_LEVELS, "index": cam_lead,
-				"desc": "The camera leans a little toward where you aim, so you see more of the floor in front of you"}
-		"cam_clash":
-			return {"label": "Clash reaction", "values": CAM_LEVELS, "index": cam_clash,
-				"desc": "A heavy hit, a guard break or a Surge's hit: the camera punches in for a moment"}
-		"cam_settle":
-			return {"label": "Settle", "values": CAM_LEVELS, "index": cam_settle,
-				"desc": "When nothing is happening, the camera holds still instead of hunting. Higher: stiller"}
-		"voice":
-			var talk := Controls.binding_text("lol_talk" if player_input.layout == "league" else "kb_talk",
-				"league" if player_input.layout == "league" else "classic")
-			return {"label": "Voice chat", "values": VoiceChat.MODE_NAMES, "index": voice_mode_now(),
-				"desc": "Online: talk to players near your fighter (teammates always faintly). Push to talk holds %s. Voice isn't encrypted: treat it like a phone call on open Wi-Fi. Open mic sends any sound above a whisper, TV included; push to talk is the safer default" % talk}
-		"voice_hear":
-			return {"label": "Hear voices from", "values": VOICE_HEAR, "index": voice_hear,
-				"desc": "Everyone: anyone in your match. Rooms and friends: Quick match and ranked strangers start muted; unmute them from the pause menu"}
-		"mic":
-			var mics := mic_choices()
-			return {"label": "Microphone", "values": mics, "index": maxi(0, mics.find(mic_device)),
-				"desc": "Which microphone voice chat listens to"}
-		"perf_overlay":
-			return {"label": "Performance overlay", "values": PerfOverlay.MODE_NAMES, "index": perf_overlay.mode,
-				"desc": "The frame rate in a corner; with the graph, the last few seconds of frame times (F9 in a fight)"}
-	return {"label": key, "values": [""], "index": 0, "desc": ""}
+	return settings_ctl._setting(key)
 
 
+## In main_settings.gd (tests and other scripts call it here).
 func _set_setting(key: String, i: int) -> void:
-	if key.begins_with("vol_"):
-		var bus := key.trim_prefix("vol_")
-		var v := clampf(i * VOLUME_STEP, 0.0, 1.0)
-		audio.set_volume(bus, v)
-		if bus == "Music" and v > 0.0 and audio.music_muted:
-			audio.set_music_muted(false)  # turning the music up unmutes it
-		# Let the player hear the new level (the music is already playing).
-		if bus == "Effects":
-			audio.preview("hit_light", "Effects")
-		elif bus != "Music":
-			audio.preview("ui_select", "Menu")
-	else:
-		match key:
-			"level":
-				level = clampi(i, 0, LEVEL_NAMES.size() - 1)
-			"delay":
-				input_delay = clampi(i, 0, 3) - 1
-			"layout":
-				player_input.layout = PlayerInput.LAYOUTS[clampi(i, 0, PlayerInput.LAYOUTS.size() - 1)]
-				_apply_device()
-			"pad_layout":
-				_set_pad_layout(PlayerInput.PAD_LAYOUTS[clampi(i, 0, PlayerInput.PAD_LAYOUTS.size() - 1)])
-				_apply_device()
-			"fullscreen":
-				fullscreen = i == 1
-				_apply_fullscreen()
-			"wide":
-				wide_fill = i == 1
-				_apply_aspect()
-			"vsync":
-				vsync = i == 1
-				_apply_vsync()
-			"intros":
-				match_intros = i == 1
-			"rumble":
-				rumble = i == 1
-				if rumble and player_input.device == PlayerInput.Device.GAMEPAD:
-					Input.start_joy_vibration(player_input.pad_id, 0.4, 0.4, 0.2)  # feel it
-			"shake":
-				shake_scale = float(SHAKE_CHOICES[clampi(i, 0, SHAKE_CHOICES.size() - 1)][1])
-			"range_rings":
-				range_rings = i == 1
-				_apply_range_rings()
-			"touch_opacity":
-				touch_opacity = clampi(i, 0, TOUCH_OPACITY.size() - 1)
-				_apply_touch()
-			"touch_size":
-				player_input.touch.size_step = clampi(i, 0, TouchPad.SIZES.size() - 1)
-				_apply_touch()
-			"touch_hand":
-				touch_left = i == 1
-				_apply_touch()
-			"touch_aim":
-				player_input.touch.tap_only = i == 1
-			"touch_priority":
-				player_input.target.priority = clampi(i, 0, TouchTarget.PRIORITY_NAMES.size() - 1) as TouchTarget.Priority
-			"touch_chase":
-				player_input.target.chase_on = i == 1
-			"no_cooldowns", "full_energy":
-				training_opts[key] = i == 1
-				_apply_training_opts()
-			"dummy_mode":
-				dummy_mode = clampi(i, 0, DUMMY_MODES.size() - 1)
-				hud.dummy_mode_name = DUMMY_MODES[dummy_mode]
-			"discord":
-				discord_status = i == 1
-				_apply_discord()
-			"fps":
-				fight_fps = int(FPS_CHOICES[clampi(i, 0, FPS_CHOICES.size() - 1)])
-			"cam_lead", "cam_clash", "cam_settle":
-				set(key, clampi(i, 0, CAM_LEVELS.size() - 1))
-				_cam_cli.erase(key)  # (the menu outranks a command-line value from here on)
-			"perf_overlay":
-				perf_overlay.mode = clampi(i, 0, PerfOverlay.MODE_NAMES.size() - 1) as PerfOverlay.Mode
-			"voice":
-				voice_mode = clampi(i, 0, VoiceChat.MODE_NAMES.size() - 1)
-				_voice_cli = -1  # (the menu outranks --voice from here on)
-				_apply_voice()
-			"voice_hear":
-				voice_hear = clampi(i, 0, VOICE_HEAR.size() - 1)
-			"mic":
-				var mics := mic_choices()
-				mic_device = String(mics[clampi(i, 0, mics.size() - 1)])
-				_apply_mic()
-			"glow":
-				glow = i == 1
-				_apply_glow()
-			"lighting":
-				lighting = clampi(i, 0, 2)
-				_lighting_cli = -1
-				_apply_lighting()
-			"font":
-				if UiTheme.smooth != (i == 1):
-					UiTheme.smooth = i == 1
-					ui.restyle()
-					_reopen_settings_page.call_deferred("video", "font")
-	_save_settings()
+	settings_ctl._set_setting(key, i)
 
 
 ## A short message: over the screens when one is open, else in the HUD.
@@ -4678,7 +4295,7 @@ func _open_voice_screen() -> void:
 			s.add_option(String(r["label"]), ["Hearing", "Muted"], 1 if chat.is_muted(slot) else 0,
 				func(i: int): chat.set_muted(slot, i == 1),
 				"Muted: you hear nothing from this player, for the rest of this session")
-		_add_setting_row(s, "voice").changed.connect(func(_i): _reopen_voice_screen.call_deferred())
+		settings_ctl._add_setting_row(s, "voice").changed.connect(func(_i): _reopen_voice_screen.call_deferred())
 		s.add_space(4)
 		s.add_button("Back", s.back)
 	scr.backed.connect(func(): _setting_rows.erase("voice"))
@@ -4731,7 +4348,7 @@ func _voice_step(delta: float) -> void:
 		slot = online.local_slot
 	elif netplay != null and watch != null:
 		game = watch.duel
-	_refresh_mic_test()
+	settings_ctl._refresh_mic_test()
 	voice_view.frame(netplay if game != null else null, game, slot,
 		camera.get_screen_center_position() if camera != null else Vector2.ZERO, _talk_held(), delta)
 	hud.mic_on = voice_view.sending
@@ -4902,156 +4519,9 @@ func _apply_glow() -> void:
 		glow_halo.visible = false
 
 
-func _load_settings() -> void:
-	var cfg := ConfigFile.new()
-	if cfg.load(settings_path) == OK:
-		var lay := String(cfg.get_value("input", "layout", "league"))
-		if lay in PlayerInput.LAYOUTS:
-			player_input.layout = lay
-		var pad := String(cfg.get_value("input", "pad_layout", "standard"))
-		if pad in PlayerInput.PAD_LAYOUTS:
-			_set_pad_layout(pad)
-		level = clampi(int(cfg.get_value("game", "level", level)), 0, LEVEL_NAMES.size() - 1)
-		input_delay = clampi(int(cfg.get_value("online", "delay", -1)), -1, 3)
-		Netplay.player_id = String(cfg.get_value("online", "id", ""))
-		Netplay.player_secret = String(cfg.get_value("online", "secret", ""))
-		Netplay.player_name = Netplay.clean_name(String(cfg.get_value("online", "name", "Player")))
-		if Netplay.player_name == "":
-			Netplay.player_name = "Player"
-		var tc := String(cfg.get_value("game", "time", WeatherView.RANDOM))
-		time_choice = tc if tc == WeatherView.RANDOM or tc in WeatherView.time_ids() else WeatherView.RANDOM
-		var wc := String(cfg.get_value("game", "weather", WeatherView.RANDOM))
-		weather_choice = wc if wc == WeatherView.RANDOM or wc in WeatherView.weather_ids() else WeatherView.RANDOM
-		hazards_on = []
-		var known := Hazards.ids()
-		for h in cfg.get_value("game", "hazards", []):
-			if String(h) in known and not (String(h) in hazards_on):
-				hazards_on.append(String(h))
-		hazards_on.sort()
-		var ar := String(cfg.get_value("game", "arena", MatchFactory.arena))
-		if ar in ArenaMap.IDS:
-			_arena_saved = ar
-			if MatchFactory.arena == ArenaMap.DEFAULT:  # no --arena flag
-				MatchFactory.arena = ar
-		audio.set_music_muted(bool(cfg.get_value("audio", "music_muted", false)))
-		_online_fighter = String(cfg.get_value("online", "fighter", _online_fighter))
-		if not (_online_fighter in MatchFactory.FIGHTERS):
-			_online_fighter = "cairn"
-		_online_address = String(cfg.get_value("online", "address", ""))
-		_online_server = String(cfg.get_value("online", "server", "")).strip_edges()
-		_recent_servers = Array(cfg.get_value("online", "recent", []))
-		for bus in AudioView.DEFAULT_VOLUMES:
-			audio.set_volume(bus, float(cfg.get_value("audio", "volume_" + String(bus).to_lower(),
-				AudioView.DEFAULT_VOLUMES[bus])))
-		fullscreen = bool(cfg.get_value("video", "fullscreen", false))
-		if fullscreen:
-			_apply_fullscreen()
-		vsync = bool(cfg.get_value("video", "vsync", true))
-		_apply_vsync()
-		wide_fill = bool(cfg.get_value("video", "wide_fill", true))
-		_apply_aspect()
-		rumble = bool(cfg.get_value("game", "rumble", true))
-		match_intros = bool(cfg.get_value("game", "intros", true))
-		discord_status = bool(cfg.get_value("game", "discord", true))
-		shake_scale = float(cfg.get_value("game", "shake", 1.0))
-		range_rings = bool(cfg.get_value("game", "range_rings", false))
-		touch_opacity = clampi(int(cfg.get_value("touch", "opacity", TOUCH_OPACITY_DEFAULT)), 0, TOUCH_OPACITY.size() - 1)
-		player_input.touch.size_step = clampi(int(cfg.get_value("touch", "size", 1)), 0, TouchPad.SIZES.size() - 1)
-		touch_left = bool(cfg.get_value("touch", "left_handed", false))
-		player_input.touch.tap_only = bool(cfg.get_value("touch", "tap_only", false))
-		player_input.target.priority = clampi(int(cfg.get_value("touch", "priority", 0)), 0,
-			TouchTarget.PRIORITY_NAMES.size() - 1) as TouchTarget.Priority
-		player_input.target.chase_on = bool(cfg.get_value("touch", "chase", true))
-		for k in MatchSim.TRAINING_FLAGS:
-			training_opts[k] = bool(cfg.get_value("training", k, false))
-		dummy_mode = clampi(int(cfg.get_value("training", "dummy_mode", 0)), 0, DUMMY_MODES.size() - 1)
-		Controls.apply_overrides(cfg.get_value("controls", "bindings", {}))
-		var fps := int(cfg.get_value("video", "fight_fps", default_fps()))
-		fight_fps = fps if fps in FPS_CHOICES else default_fps()
-		UiTheme.smooth = String(cfg.get_value("video", "font", "pixel")) == "smooth"
-		glow = bool(cfg.get_value("video", "glow", default_glow()))
-		_apply_glow()
-		lighting = clampi(int(cfg.get_value("video", "lighting", default_lighting())), 0, 2)
-		for k in ["cam_lead", "cam_clash", "cam_settle"]:
-			set(k, clampi(int(cfg.get_value("video", k, CAM_DEFAULT)), 0, CAM_LEVELS.size() - 1))
-		perf_overlay.mode = clampi(int(cfg.get_value("video", "perf_overlay", 0)), 0,
-			PerfOverlay.MODE_NAMES.size() - 1) as PerfOverlay.Mode
-		voice_mode = clampi(int(cfg.get_value("audio", "voice_mode", VoiceChat.Mode.PUSH_TO_TALK)), 0,
-			VoiceChat.MODE_NAMES.size() - 1)
-		mic_device = String(cfg.get_value("audio", "mic_device", ""))
-		voice_hear = clampi(int(cfg.get_value("audio", "voice_hear", 0)), 0, VOICE_HEAR.size() - 1)
-		_apply_mic()
-		var saved_rows = cfg.get_value("game", "row_choice", {})
-		if saved_rows is Dictionary:
-			for r in MENU_ROWS.size():
-				var lbl := String(MENU_ROWS[r]["label"])
-				if saved_rows.has(lbl) and MENU_ROWS[r].has("choices"):
-					_row_choice[r] = clampi(int(saved_rows[lbl]), 0, (MENU_ROWS[r]["choices"] as Array).size() - 1)
-	# After everything is loaded: saving here first would write defaults over it.
-	# The secret proves the id is this install's to a server (never shown or sent to
-	# another player); made with the id, or once for an id from before secrets.
-	if Netplay.player_id.length() < 8 or not Netplay.valid_secret(Netplay.player_secret):
-		if Netplay.player_id.length() < 8:
-			Netplay.player_id = Netplay.make_player_id()
-		if not Netplay.valid_secret(Netplay.player_secret):
-			Netplay.player_secret = Netplay.make_secret()
-		_save_settings()
-
-
+## In main_settings.gd (tests and other scripts call it here).
 func _save_settings() -> void:
-	var cfg := ConfigFile.new()
-	cfg.set_value("input", "layout", player_input.layout)
-	cfg.set_value("input", "pad_layout", player_input.pad_layout)
-	cfg.set_value("game", "level", level)
-	cfg.set_value("game", "arena", _arena_saved)
-	cfg.set_value("game", "time", time_choice)
-	cfg.set_value("game", "weather", weather_choice)
-	cfg.set_value("game", "hazards", hazards_on)
-	cfg.set_value("online", "delay", input_delay)
-	cfg.set_value("online", "id", Netplay.player_id)
-	cfg.set_value("online", "secret", Netplay.player_secret)
-	cfg.set_value("online", "name", Netplay.player_name)
-	cfg.set_value("audio", "music_muted", audio.music_muted)
-	cfg.set_value("audio", "voice_mode", voice_mode)
-	cfg.set_value("audio", "voice_hear", voice_hear)
-	cfg.set_value("audio", "mic_device", mic_device)
-	cfg.set_value("online", "fighter", _online_fighter)
-	cfg.set_value("online", "address", _online_address)
-	cfg.set_value("online", "server", _online_server)
-	cfg.set_value("online", "recent", _recent_servers)
-	cfg.set_value("video", "fullscreen", fullscreen)
-	cfg.set_value("video", "fight_fps", fight_fps)
-	cfg.set_value("video", "vsync", vsync)
-	cfg.set_value("video", "wide_fill", wide_fill)
-	cfg.set_value("video", "perf_overlay", perf_overlay.mode)
-	for k in ["cam_lead", "cam_clash", "cam_settle"]:
-		cfg.set_value("video", k, int(get(k)))
-	cfg.set_value("video", "glow", glow)
-	cfg.set_value("video", "lighting", lighting)
-	cfg.set_value("video", "font", "smooth" if UiTheme.smooth else "pixel")
-	cfg.set_value("game", "rumble", rumble)
-	cfg.set_value("game", "intros", match_intros)
-	cfg.set_value("game", "shake", shake_scale)
-	cfg.set_value("game", "range_rings", range_rings)
-	cfg.set_value("touch", "opacity", touch_opacity)
-	cfg.set_value("touch", "size", player_input.touch.size_step)
-	cfg.set_value("touch", "left_handed", touch_left)
-	cfg.set_value("touch", "tap_only", player_input.touch.tap_only)
-	cfg.set_value("touch", "priority", int(player_input.target.priority))
-	cfg.set_value("touch", "chase", player_input.target.chase_on)
-	for k in MatchSim.TRAINING_FLAGS:
-		cfg.set_value("training", k, bool(training_opts.get(k, false)))
-	cfg.set_value("training", "dummy_mode", dummy_mode)
-	cfg.set_value("game", "discord", discord_status)
-	var rows := {}
-	for r in MENU_ROWS.size():
-		if MENU_ROWS[r].has("choices") and r < _row_choice.size():
-			rows[String(MENU_ROWS[r]["label"])] = int(_row_choice[r])
-	cfg.set_value("game", "row_choice", rows)
-	cfg.set_value("controls", "bindings", Controls.overrides())
-	for bus in AudioView.DEFAULT_VOLUMES:
-		cfg.set_value("audio", "volume_" + String(bus).to_lower(), audio.volume(bus))
-	cfg.save(settings_path)
+	settings_ctl._save_settings()
 
 
 # ------------------------------------------------------------------ online
@@ -5068,12 +4538,12 @@ func _push_lobby() -> void:
 	hud.menu_visible = false
 	hud.visible = false
 	_close_ui()
-	lobby = OnlineLobby.new(_online_fighter, _online_address, _recent_servers, online_server())
+	lobby = OnlineLobby.new(_online_fighter, _online_address, _recent_servers, settings_ctl.online_server())
 	lobby.server_join_pressed.connect(_net_join_server)
 	lobby.board_pressed.connect(_net_daily_board)
 	lobby.name_changed.connect(func(t: String):
 		Netplay.player_name = Netplay.clean_name(t)
-		_save_settings())
+		settings_ctl._save_settings())
 	lobby.host_pressed.connect(_net_host)
 	lobby.join_pressed.connect(_net_join_typed)
 	lobby.cancelled.connect(_leave_online)
@@ -5110,7 +4580,7 @@ func _make_link(host_port: int, address := "", port := 0) -> NetLink:
 
 func _net_host(fighter: String) -> void:
 	_online_fighter = fighter
-	_save_settings()
+	settings_ctl._save_settings()
 	netplay = Netplay.new()
 	_apply_voice()
 	netplay.forced_delay = int(_net_args.get("delay", input_delay))
@@ -5133,7 +4603,7 @@ func _net_host(fighter: String) -> void:
 ## routers don't loop it back inside), so this first looks for it on the local network
 ## for a moment, then joins whichever it found.
 func _net_join_server(fighter: String, room: String, size := 1, server := "") -> void:
-	var parsed := OnlineLobby.parse_address(server if server != "" else online_server())
+	var parsed := OnlineLobby.parse_address(server if server != "" else settings_ctl.online_server())
 	if String(parsed[0]) == "":
 		lobby.status = OnlineLobby.NO_SERVER
 		lobby.status_bad = true
@@ -5146,7 +4616,7 @@ func _net_join_server(fighter: String, room: String, size := 1, server := "") ->
 	if lobby != null:
 		lobby.watch_next = false
 		lobby.ranked_next = false
-	_save_settings()
+	settings_ctl._save_settings()
 	_finder = LanFinder.new()
 	_finder.start(int(parsed[1]), finder_target)
 	_finder_join = [fighter, String(parsed[0]), int(parsed[1]), room, size]
@@ -5183,7 +4653,7 @@ func _finder_step() -> void:
 func _net_daily_board() -> void:
 	if lobby == null:
 		return
-	var parsed := OnlineLobby.parse_address(online_server())
+	var parsed := OnlineLobby.parse_address(settings_ctl.online_server())
 	if String(parsed[0]) == "":
 		lobby.status = OnlineLobby.NO_SERVER
 		lobby.status_bad = true
@@ -5195,7 +4665,7 @@ func _net_daily_board() -> void:
 
 ## After a Daily fight: the replay goes to the configured server to be scored there.
 func _net_daily_submit(d: Daily) -> void:
-	var parsed := OnlineLobby.parse_address(online_server())
+	var parsed := OnlineLobby.parse_address(settings_ctl.online_server())
 	if String(parsed[0]) == "":
 		return
 	_daily_client = DailyClient.submit(String(parsed[0]), int(parsed[1]), d.date, d.fighter, replay.to_dict())
@@ -5226,7 +4696,7 @@ func _daily_step() -> void:
 ## Join by a typed (or recent) address. The online server's own name goes through the
 ## local look-up too, so it works at home.
 func _net_join_typed(fighter: String, address: String, port: int, room := "") -> void:
-	var srv := OnlineLobby.parse_address(online_server())
+	var srv := OnlineLobby.parse_address(settings_ctl.online_server())
 	if address.to_lower() == String(srv[0]).to_lower() and address != "":
 		_online_address = lobby.address if lobby.address != "" else address
 		_remember_server(_online_address)
@@ -5241,7 +4711,7 @@ func _net_join(fighter: String, address: String, port: int, room := "", remember
 		_home_missed = false
 		_online_address = lobby.address if lobby.address != "" else address
 		_remember_server(_online_address)
-	_save_settings()
+	settings_ctl._save_settings()
 	netplay = Netplay.new()
 	_apply_voice()
 	netplay.forced_delay = int(_net_args.get("delay", input_delay))
@@ -5648,7 +5118,7 @@ func _open_room_picker() -> void:
 			ui.pop()
 		var picked: Array = (teams[0] as Array).duplicate()
 		_online_fighter = String(picked[0])
-		_save_settings()
+		settings_ctl._save_settings()
 		if netplay != null:
 			netplay.send_pick(picked))
 	p.cancelled.connect(func():
