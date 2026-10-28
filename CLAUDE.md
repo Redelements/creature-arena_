@@ -125,9 +125,12 @@ Command-line flags and mode numbers: `src/game/CLAUDE.md`; online and server fla
 
 - Work on a branch and open a PR; never push to `main`. PRs can be stacked (base = the
   previous PR's branch) while earlier ones await review.
-- CI on every push and PR: `tests.yml` (the codebase map check, then all tests) and `playable-build.yml` (Windows +
-  Linux export, an Android debug APK; a bot comment on the PR links the downloads). Kevin playtests from those
-  builds, so say what to try in the PR description.
+- CI on every push and PR: `tests.yml` (the codebase map check, then all tests) and `determinism.yml` (the
+  seeded match's fingerprint on Linux and Windows must match). Playable builds (`playable-build.yml`: Windows +
+  Linux export, an Android debug APK) are made on every push to main and by hand for a branch (Actions >
+  playable build > Run workflow; a bot comment then links them on the branch's PR), never for a PR by itself:
+  the repository is public and anyone signed in can download an artifact. Kevin playtests from those builds,
+  so say what to try in the PR description. The IP plan: `docs/ip-protection-plan.md`.
 - Use the GitHub REST API (`gh api ...`); `gh pr create` (GraphQL) isn't available in
   cloud sessions.
 - If you add, move or rename a file or module, update the codebase map in the same change:

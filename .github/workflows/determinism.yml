@@ -1,0 +1,151 @@
+name: determinism
+
+# The per-change cross-platform check rollback netcode depends on: the stock Godot editor
+# binary on Linux and on Windows plays the same seeded match and must produce the exact
+# same state fingerprint. It replaces the check that playable-build.yml used to make from
+# the exported builds, so no playable build (an artifact anyone signed in to GitHub can
+# download from a public repository) is made for pull requests any more; builds come from
+# pushes to main and manual runs of playable-build.yml. macOS plays the same seeds nightly
+# (nightly.yml, mac-determinism). Only the two one-line digest files are uploaded.
+# No secrets, read-only token.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: determinism-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 4.7.2
+  SIM_CHECK_SEED: 20261010
+
+jobs:
+  fingerprint:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Download Godot for Linux (checked against the release's SHA512-SUMS)
+        if: runner.os == 'Linux'
+        run: |
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          zip="Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          curl -fsSL -o "$zip" "$base/$zip"
+          curl -fsSL -o SHA512-SUMS.txt "$base/SHA512-SUMS.txt"
+          grep " ${zip}\$" SHA512-SUMS.txt | sha512sum -c -
+          unzip -q "$zip"
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot
+          chmod +x godot
+
+      # The stock editor binary (the console build, so its output reaches the log), checked
+      # the same way.
+      - name: Download Godot for Windows (checked against the release's SHA512-SUMS)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $base = "https://github.com/godotengine/godot/releases/download/$env:GODOT_VERSION-stable"
+          $zip = "Godot_v$env:GODOT_VERSION-stable_win64.exe.zip"
+          curl.exe -fsSL -o $zip "$base/$zip"
+          curl.exe -fsSL -o SHA512-SUMS.txt "$base/SHA512-SUMS.txt"
+          $line = Get-Content SHA512-SUMS.txt | Where-Object { $_ -match " $([regex]::Escape($zip))$" }
+          $want = ($line -split ' ')[0].ToLower()
+          $have = (Get-FileHash $zip -Algorithm SHA512).Hash.ToLower()
+          Write-Host "want $want"
+          Write-Host "have $have"
+          if (-not $want -or $want -ne $have) { Write-Error "SHA512 mismatch for $zip"; exit 1 }
+          # The console exe starts its sibling, so both stay together under their own names.
+          Expand-Archive $zip -DestinationPath godot-win
+          "GODOT_EXE=$PWD\godot-win\Godot_v$env:GODOT_VERSION-stable_win64_console.exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      # The same import cache as tests.yml and nightly.yml.
+      - name: Cache the project import
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .godot/imported
+          key: import-${{ runner.os }}-${{ env.GODOT_VERSION }}-${{ hashFiles('**/*.import', 'assets/**', 'project.godot') }}
+          restore-keys: |
+            import-${{ runner.os }}-${{ env.GODOT_VERSION }}-
+
+      - name: Import project (Linux)
+        if: runner.os == 'Linux'
+        run: ./godot --headless --path . --import
+
+      - name: Import project (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath $env:GODOT_EXE -Wait -NoNewWindow -PassThru `
+            -ArgumentList "--headless", "--path", ".", "--import"
+          exit $p.ExitCode
+
+      - name: Fingerprint the seeded match (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p digest
+          # Absolute path: Godot reads relative paths from inside the project.
+          timeout 300 ./godot --headless --path . -- --sim-check=$SIM_CHECK_SEED --sim-check-out="$PWD/digest/linux.txt" 2>&1 | tee digest/linux.log
+          if grep -E "SCRIPT ERROR|Parse Error" digest/linux.log; then exit 1; fi
+          test -s digest/linux.txt
+          echo "Linux: $(cat digest/linux.txt)"
+
+      - name: Fingerprint the seeded match (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force digest | Out-Null
+          $out = Join-Path $PWD "digest\windows.txt"
+          $log = Join-Path $PWD "digest\windows.log"
+          $p = Start-Process -FilePath $env:GODOT_EXE -Wait -NoNewWindow -PassThru `
+            -RedirectStandardOutput $log -RedirectStandardError "$log.err" `
+            -ArgumentList "--headless", "--path", ".", "--", "--sim-check=$env:SIM_CHECK_SEED", "--sim-check-out=$out"
+          Get-Content $log, "$log.err" | Write-Host
+          if (Select-String -Path $log, "$log.err" -Pattern "SCRIPT ERROR|Parse Error" -Quiet) { exit 1 }
+          if (-not (Test-Path $out)) { Write-Error "no digest written"; exit 1 }
+          Write-Host "Windows: $((Get-Content $out -Raw).Trim())"
+
+      - name: Upload the digest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: digest-${{ runner.os }}
+          path: digest/*.txt
+          retention-days: 1
+
+  cross-platform-determinism:
+    needs: fingerprint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: digest-Linux
+          path: linux
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: digest-Windows
+          path: windows
+
+      - name: Same match on Windows and Linux must give the same fingerprint
+        run: |
+          l=$(tr -d '\r\n' < linux/linux.txt)
+          w=$(tr -d '\r\n' < windows/windows.txt)
+          echo "Linux:   $l"
+          echo "Windows: $w"
+          if [ -z "$l" ] || [ "$l" != "$w" ]; then
+            echo "::error::Desync: Windows and Linux simulate the same match differently. Online play would break."
+            exit 1
+          fi
+          echo "Match: both platforms simulate identically."

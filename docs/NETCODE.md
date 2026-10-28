@@ -491,7 +491,8 @@ that runs the headless game: one connection per player, the server as referee.
 ## Platform note
 
 The CI check covers Windows, Linux (which includes Steam Deck) and, since the arenas
-work, macOS (`mac-determinism` in `playable-build.yml`: the stock editor binary on a
-macOS runner plays the seeded match and must match Linux). Apple Silicon compiles
+work, macOS (`mac-determinism` in `nightly.yml`: the stock editor binary on a macOS
+runner plays every nightly seed and must match Linux and Windows; it left the per-PR
+check because a macOS minute is billed as ten Linux minutes). Apple Silicon compiles
 floating-point math differently (fused multiply-add) and is the most likely to diverge;
 if that job ever fails, the fix is fixed-point math in `src/sim/`.

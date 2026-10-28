@@ -1,21 +1,18 @@
 name: playable build
 
-# Exports a Windows, a Linux and an Android (debug APK) build of every pull request
-# (and of main), so each change can be downloaded and played. On a PR, a single bot comment links the latest
-# builds and is updated on every push.
-#
-# It also checks cross-platform determinism, which rollback netcode depends on: the
-# Linux and Windows builds each play the same seeded match and must produce the exact
-# same state fingerprint.
+# Exports a Windows, a Linux and an Android (debug APK) build of main on every push to it,
+# and of any branch by hand (Actions > playable build > Run workflow, pick the branch): a
+# manual run on a branch with an open pull request posts one bot comment there linking the
+# builds. Pull requests no longer get a build by themselves: on a public repository every
+# artifact can be downloaded by anyone signed in to GitHub, so builds are made on purpose
+# and kept three days. The cross-platform determinism check that used to run here on the
+# exported builds is determinism.yml (every PR, from the editor binaries); macOS is nightly.
 
 on:
-  pull_request:
   push:
     branches: [main]
   workflow_dispatch:
 
-# Least privilege: every job reads the repository; only the comment job writes (the PR
-# comment), and it asks for that itself.
 permissions:
   contents: read
 
@@ -169,7 +166,7 @@ jobs:
         with:
           name: Ready4Rambles-windows-${{ env.SHORT_SHA }}
           path: build/windows
-          retention-days: 30
+          retention-days: 3
 
       - name: Upload Linux build
         id: linux
@@ -177,7 +174,7 @@ jobs:
         with:
           name: CreatureArena-linux-${{ env.SHORT_SHA }}
           path: build/linux
-          retention-days: 30
+          retention-days: 3
 
   # A debug APK for Android handhelds and phones (arm64; tested on an AYN Odin 3). Godot
   # finds the SDK and Java through ANDROID_HOME and JAVA_HOME; the debug key is made
@@ -272,17 +269,16 @@ jobs:
         with:
           name: Ready4Rambles-android-${{ env.SHORT_SHA }}
           path: build/android
-          retention-days: 30
+          retention-days: 3
 
   comment:
-    if: github.event_name == 'pull_request' && !cancelled()
+    if: github.event_name == 'workflow_dispatch' && !cancelled()
     needs: [build, android]
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
     steps:
-      - name: Comment download links on the PR
-        if: github.event_name == 'pull_request'
+      - name: Comment download links on the branch's pull request, if it has one
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         env:
           SHORT_SHA: ${{ needs.build.outputs.short_sha }}
@@ -292,6 +288,14 @@ jobs:
         with:
           script: |
             const marker = '<!-- playable-build -->';
+            const { owner, repo } = context.repo;
+            const branch = context.ref.replace('refs/heads/', '');
+            const prs = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${branch}` });
+            if (prs.data.length === 0) {
+              core.info(`No open pull request for ${branch}: the builds are on this run's page.`);
+              return;
+            }
+            const issue_number = prs.data[0].number;
             const body = [
               marker,
               `### 🎮 Playable build: \`${process.env.SHORT_SHA}\``,
@@ -303,10 +307,8 @@ jobs:
               'Unzip, keep `Ready4Rambles.exe` and `Ready4Rambles.pck` together, and run the exe. If Windows warns about an unknown publisher, choose **More info → Run anyway**.',
               'Android: unzip, copy `Ready4Rambles.apk` to the device and open it (allow installs from that app when asked), or `adb install -r Ready4Rambles.apk`.',
               'If Chrome blocks the download as dangerous: open `chrome://downloads`, find it, and choose **Keep** (or ⋮ → **Download dangerous file**). The exe is the official Godot runtime, unchanged.',
-              'You need to be signed in to GitHub to download. Builds are kept for 30 days and this comment updates on every push.',
+              'You need to be signed in to GitHub to download. Builds are kept for 3 days; this comment updates on every manual run of the playable build for this branch.',
             ].join('\n');
-            const { owner, repo } = context.repo;
-            const issue_number = context.issue.number;
             const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
             const mine = comments.find(c => c.user.type === 'Bot' && c.body.includes(marker));
             if (mine) {
@@ -314,80 +316,3 @@ jobs:
             } else {
               await github.rest.issues.createComment({ owner, repo, issue_number, body });
             }
-
-  # Apple Silicon compiles floating-point math differently (fused multiply-add), so the
-  # same check runs on macOS with the stock editor binary (there is no Mac export yet).
-  mac-determinism:
-    needs: build
-    runs-on: macos-latest
-    env:
-      GODOT_VERSION: 4.7.2
-      SIM_CHECK_SEED: 20261010
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with:
-          persist-credentials: false
-
-      - name: Download Godot for macOS
-        run: |
-          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
-          zip="Godot_v${GODOT_VERSION}-stable_macos.universal.zip"
-          curl -fsSL -o "$zip" "$base/$zip"
-          curl -fsSL -o SHA512-SUMS.txt "$base/SHA512-SUMS.txt"
-          want=$(grep " ${zip}\$" SHA512-SUMS.txt | cut -d' ' -f1)
-          have=$(shasum -a 512 "$zip" | cut -d' ' -f1)
-          echo "want $want"; echo "have $have"
-          test -n "$want" && test "$want" = "$have"
-          unzip -q "$zip"
-          chmod +x Godot.app/Contents/MacOS/Godot
-
-      - name: Cache the project import
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: .godot/imported
-          key: import-macos-${{ env.GODOT_VERSION }}-${{ hashFiles('**/*.import', 'assets/**', 'project.godot') }}
-          restore-keys: |
-            import-macos-${{ env.GODOT_VERSION }}-
-
-      - name: Import project
-        run: Godot.app/Contents/MacOS/Godot --headless --path . --import
-
-      - name: Same match on macOS must give the same fingerprint
-        run: |
-          Godot.app/Contents/MacOS/Godot --headless --path . -- --sim-check=$SIM_CHECK_SEED --sim-check-out="$PWD/mac_digest.txt"
-          mac=$(cat mac_digest.txt)
-          linux="${{ needs.build.outputs.linux_digest }}"
-          echo "Linux: $linux"
-          echo "macOS: $mac"
-          if [ "$mac" != "$linux" ]; then
-            echo "Desync: macOS and Linux simulate the same match differently. Fixed-point math in src/sim/ would be the fix."
-            exit 1
-          fi
-          echo "Match: both platforms simulate identically."
-
-  cross-platform-determinism:
-    needs: build
-    runs-on: windows-latest
-    env:
-      SIM_CHECK_SEED: 20261010
-    steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        with:
-          name: Ready4Rambles-windows-${{ needs.build.outputs.short_sha }}
-          path: win
-
-      - name: Same match on Windows must give the same fingerprint
-        shell: pwsh
-        run: |
-          $out = Join-Path $PWD "win_digest.txt"
-          Start-Process -FilePath "win\Ready4Rambles.exe" -Wait -NoNewWindow `
-            -ArgumentList "--headless", "--", "--sim-check=$env:SIM_CHECK_SEED", "--sim-check-out=$out"
-          $win = (Get-Content $out -Raw).Trim()
-          $linux = "${{ needs.build.outputs.linux_digest }}"
-          Write-Host "Linux:   $linux"
-          Write-Host "Windows: $win"
-          if ($win -ne $linux) {
-            Write-Error "Desync: Windows and Linux simulate the same match differently. Online play would break."
-            exit 1
-          }
-          Write-Host "Match: both platforms simulate identically."

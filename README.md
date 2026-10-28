@@ -42,10 +42,11 @@ Six fighters so far, each with a full moveset and a CPU opponent:
 
 ## Play a build
 
-Every pull request gets a **playable build**: a bot comment on the PR links a Windows,
-a Linux and an Android download (sign in to GitHub, unzip, run). Builds of `main` are on the
-[Actions page](../../actions/workflows/playable-build.yml). Windows may warn about an
-unknown publisher: choose **More info → Run anyway**.
+Every push to `main` makes a **playable build**: a Windows, a Linux and an Android download
+on the [Actions page](../../actions/workflows/playable-build.yml) (sign in to GitHub, unzip,
+run; kept three days). A branch gets one by hand (Run workflow on that page; it is linked on
+the branch's pull request). Windows may warn about an unknown publisher: choose
+**More info → Run anyway**.
 
 **Android** (arm64; played on an AYN Odin 3 with its built-in controls, or any phone with a
 Bluetooth controller; there are no touch controls yet): copy `Ready4Rambles.apk` to the device

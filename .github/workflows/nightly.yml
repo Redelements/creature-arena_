@@ -6,8 +6,11 @@ name: nightly
 #                (tests/bench_modes.gd). It fails only when a bench crashes, never on the
 #                numbers: reading them is a person's job.
 #   determinism  --sim-check over many fixed seeds on Linux and on Windows (the per-PR check
-#                in playable-build.yml plays one), digests uploaded per OS;
-#   compare      fails if any seed's digest differs between the two;
+#                in determinism.yml plays one), digests uploaded per OS;
+#   mac-determinism  the same seeds on macOS with the stock editor binary (Apple Silicon
+#                compiles floating-point math with fused multiply-add, the likeliest to
+#                diverge; a macOS minute is billed as ten Linux minutes, so it runs here, not per PR);
+#   compare      fails if any seed's digest differs between the three;
 #   summary      the artifact names and the digest table on the run's page.
 # Only a schedule and a manual run: no secrets, read-only token.
 on:
@@ -233,10 +236,65 @@ jobs:
           path: digests/*.txt
           retention-days: 30
 
+  mac-determinism:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Download Godot for macOS (checked against the release's SHA512-SUMS)
+        run: |
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          zip="Godot_v${GODOT_VERSION}-stable_macos.universal.zip"
+          curl -fsSL -o "$zip" "$base/$zip"
+          curl -fsSL -o SHA512-SUMS.txt "$base/SHA512-SUMS.txt"
+          want=$(grep " ${zip}\$" SHA512-SUMS.txt | cut -d' ' -f1)
+          have=$(shasum -a 512 "$zip" | cut -d' ' -f1)
+          echo "want $want"; echo "have $have"
+          test -n "$want" && test "$want" = "$have"
+          unzip -q "$zip"
+          chmod +x Godot.app/Contents/MacOS/Godot
+
+      - name: Cache the project import
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .godot/imported
+          key: import-macos-${{ env.GODOT_VERSION }}-${{ hashFiles('**/*.import', 'assets/**', 'project.godot') }}
+          restore-keys: |
+            import-macos-${{ env.GODOT_VERSION }}-
+
+      - name: Import project
+        run: Godot.app/Contents/MacOS/Godot --headless --path . --import
+
+      - name: Fingerprint every seed (macOS)
+        run: |
+          mkdir -p digests
+          for s in $SIM_SEEDS; do
+            Godot.app/Contents/MacOS/Godot --headless --path . -- --sim-check=$s --sim-check-out="$PWD/digests/$s.txt" 2>&1 | tee digests/$s.log
+            if grep -E "SCRIPT ERROR|Parse Error" digests/$s.log; then exit 1; fi
+            test -s digests/$s.txt
+            echo "$s $(cat digests/$s.txt)"
+          done
+
+      - name: Upload the digests
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: determinism-macOS
+          path: digests/*.txt
+          retention-days: 30
+
   compare:
-    needs: determinism
+    needs: [determinism, mac-determinism]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: determinism-macOS
+          path: macos
+
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: determinism-Linux
@@ -253,17 +311,18 @@ jobs:
           for s in $SIM_SEEDS; do
             l=$(tr -d '\r\n' < "linux/$s.txt" 2>/dev/null || true)
             w=$(tr -d '\r\n' < "windows/$s.txt" 2>/dev/null || true)
-            if [ -n "$l" ] && [ "$l" = "$w" ]; then
+            m=$(tr -d '\r\n' < "macos/$s.txt" 2>/dev/null || true)
+            if [ -n "$l" ] && [ "$l" = "$w" ] && [ "$l" = "$m" ]; then
               echo "seed $s: match $l"
             else
-              echo "::error::seed $s: Linux '$l' vs Windows '$w' (a desync: online play would break)"
+              echo "::error::seed $s: Linux '$l' vs Windows '$w' vs macOS '$m' (a desync: online play would break; macOS alone differing means fused multiply-add: fixed-point math in src/sim/ would be the fix)"
               bad=1
             fi
           done
           exit $bad
 
   summary:
-    needs: [balance, determinism, compare]
+    needs: [balance, determinism, mac-determinism, compare]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -279,6 +338,12 @@ jobs:
           name: determinism-Windows
           path: windows
 
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        continue-on-error: true
+        with:
+          name: determinism-macOS
+          path: macos
+
       - name: Write the summary
         run: |
           {
@@ -288,17 +353,19 @@ jobs:
             echo "| --- | --- |"
             echo "| balance | ${{ needs.balance.result }} |"
             echo "| determinism | ${{ needs.determinism.result }} |"
+            echo "| mac-determinism | ${{ needs.mac-determinism.result }} |"
             echo "| compare | ${{ needs.compare.result }} |"
             echo ""
-            echo "Artifacts: \`balance-matrix\` (balance-matrix.txt, balance-pairs.txt), \`mode-pacing\` (mode-pacing.txt), \`determinism-Linux\`, \`determinism-Windows\` (one digest file a seed)."
+            echo "Artifacts: \`balance-matrix\` (balance-matrix.txt, balance-pairs.txt), \`mode-pacing\` (mode-pacing.txt), \`determinism-Linux\`, \`determinism-Windows\`, \`determinism-macOS\` (one digest file a seed)."
             echo ""
-            echo "| seed | Linux | Windows | same |"
-            echo "| --- | --- | --- | --- |"
+            echo "| seed | Linux | Windows | macOS | same |"
+            echo "| --- | --- | --- | --- | --- |"
             for s in $SIM_SEEDS; do
               l=$(tr -d '\r\n' < "linux/$s.txt" 2>/dev/null || true)
               w=$(tr -d '\r\n' < "windows/$s.txt" 2>/dev/null || true)
+              m=$(tr -d '\r\n' < "macos/$s.txt" 2>/dev/null || true)
               same="no"
-              if [ -n "$l" ] && [ "$l" = "$w" ]; then same="yes"; fi
-              echo "| $s | \`${l:0:16}\` | \`${w:0:16}\` | $same |"
+              if [ -n "$l" ] && [ "$l" = "$w" ] && [ "$l" = "$m" ]; then same="yes"; fi
+              echo "| $s | \`${l:0:16}\` | \`${w:0:16}\` | \`${m:0:16}\` | $same |"
             done
           } >> "$GITHUB_STEP_SUMMARY"
