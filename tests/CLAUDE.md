@@ -59,6 +59,12 @@ about evenly (the slowest files, `test_server_teams`, `test_server_fuzz`, `test_
   Parse Error / Failed to load), `--sim-check` (seed 20261010) on Linux and Windows (fails if
   the digests differ), upload the builds; a debug Android APK (job `android`: SDK from the runner's
   `ANDROID_HOME`, a fresh debug key); the `comment` job links all three on the PR.
+- `.github/workflows/nightly.yml`, 06:00 UTC and on demand (`workflow_dispatch`), never on PRs: `balance`
+  runs `bench_cpu.gd --matrix` and `--pairs` (the `test_balance.gd` pairs) at Normal and `bench_modes.gd`,
+  uploaded as the `balance-matrix` and `mode-pacing` artifacts (fails only on a crash, never on the numbers);
+  `determinism` runs `--sim-check` for twelve fixed seeds on Linux and Windows (the stock editor
+  binaries) and `compare` fails if any digest differs; `summary` puts the digest table on the run page.
+  A long `TEST_ONLY=rollback_fuzz TEST_FUZZ_LONG=1` step turns on by itself once the rollback fuzz test (another PR) lands.
 
 ## Files
 
