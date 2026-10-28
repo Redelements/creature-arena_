@@ -40,8 +40,7 @@ func _game() -> Node:
 func _open_credits(g: Node) -> CreditsScreen:
 	g._open_menu()
 	assert_true(g.ui.top() is TitleScreen, "the title")
-	_press("ui_down")
-	_press("ui_down")  # Settings
+	((g.ui.top() as TitleScreen)._rows_by_name["settings"] as Control).grab_focus()  # (by name: the Profile row comes and goes)
 	_press("ui_accept")
 	assert_eq(g.ui.top().title, "SETTINGS", "Settings opened")
 	for i in 8:
