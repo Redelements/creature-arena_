@@ -261,7 +261,7 @@ func emit_event(kind: String, p: Vector2, power: float, extra := {}) -> void:
 	var e := {"type": kind, "pos": p, "power": power, "tick": tick}
 	e.merge(extra)
 	events.append(e)
-	if kind == "ko" and freeze_all:
+	if kind == "ko" and freeze_all and not training:  # (training: nobody stays down, so no freeze)
 		var who := int(extra.get("who", -1))
 		if who < 0 or who >= creatures.size() or not creatures[who].is_dummy:
 			ko_freeze = maxi(ko_freeze, ko_freeze_ticks)

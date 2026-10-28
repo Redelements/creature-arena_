@@ -69,7 +69,7 @@ func _build() -> void:
 	var mvp := int(data.get("mvp", -1))
 	for r in rows:
 		var team := clampi(int(r.get("team", 0)), 0, 1)
-		var col: Color = Hud.SIDE_COLORS[team] if int(r.get("team", 0)) in [0, 1] else UiTheme.C_TEXT
+		var col: Color = Accessibility.side_color(team) if int(r.get("team", 0)) in [0, 1] else UiTheme.C_TEXT
 		var label := String(r["name"]).to_upper()
 		if int(r["id"]) == mvp:
 			label += " MVP"

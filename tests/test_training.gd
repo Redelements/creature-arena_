@@ -459,3 +459,47 @@ func test_dps_skips_the_dummy_refill_and_other_modes() -> void:
 	assert_true(vs.creatures[1].hp < vs.creatures[1].max_hp, "hit")
 	assert_near(hud.dps.total, 3.0, 0.001, "a versus match doesn't feed it:")
 	hud.free()
+
+
+# ------------------------------------------------------------------ a knocked-out player
+
+## Anything that knocks the player out in training (a meteor, the dummy's own attacks) must
+## not end the session: the player gets back up like the dummy does. Before Oct 27 2026 a
+## meteor KO left the player down for good with the shower frozen mid-air (a soft lock).
+func test_a_knocked_out_player_gets_back_up_like_the_dummy() -> void:
+	var sim := _training("cairn")
+	var me := sim.creatures[0]
+	Hazards.hurt(sim, me, {"damage_pct": 1.0, "min_hp": 0}, Vector2.ZERO, "meteor_shower", "meteors")
+	assert_eq(me.state, CreatureSim.State.KO, "the hazard knocked the player out:")
+	assert_eq(sim.ko_freeze, 0, "a training knockout freezes nothing:")
+	for i in CreatureSim.DUMMY_RESET_TICKS + 1:
+		sim.step(PackedInt32Array([0, 0]))
+	assert_eq(me.state, CreatureSim.State.IDLE, "back on their feet after the dummy's reset time:")
+	assert_near(me.hp, me.max_hp, 0.01, "at full health:")
+	# A versus match is untouched: its knockout still freezes the match and the loser stays down.
+	var vs := MatchFactory.versus("cairn", "culvert")
+	Hazards.hurt(vs, vs.creatures[0], {"damage_pct": 1.0, "min_hp": 0}, Vector2.ZERO, "meteor_shower", "meteors")
+	assert_gt(vs.ko_freeze, 0, "a real match's knockout freezes:")
+	for i in CreatureSim.DUMMY_RESET_TICKS + 1:
+		vs.step(PackedInt32Array([0, 0]))
+	assert_eq(vs.creatures[0].state, CreatureSim.State.KO, "and the loser stays down:")
+
+
+## The shower goes on once the player is back up: hazards pause while fewer than two sides
+## stand, so a knockout that lasted would have left every meteor hanging in the air.
+func test_the_meteor_shower_resumes_after_a_training_knockout() -> void:
+	var sim := _training("cairn")
+	sim.apply_mutators({"hazards": ["meteor_shower"]}, 7)
+	var me := sim.creatures[0]
+	for i in 1230:  # the first shower (first_seconds 20) is under way: its meteors are in the air
+		sim.step(PackedInt32Array([0, 0]))
+	assert_gt(Hazards.meteors_now(sim).size(), 0, "meteors are falling:")
+	Hazards.hurt(sim, me, {"damage_pct": 1.0, "min_hp": 0}, Vector2.ZERO, "meteor_shower", "meteors")
+	var landed := 0
+	for i in 400:
+		sim.step(PackedInt32Array([0, 0]))
+		for e in sim.events:
+			if String(e["type"]) == "hazard_strike":
+				landed += 1
+	assert_eq(me.state, CreatureSim.State.IDLE, "the player is back up:")
+	assert_gt(landed, 0, "and the meteors that were in the air came down:")

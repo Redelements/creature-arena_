@@ -312,8 +312,8 @@ func _scoreboard(p: Piece) -> void:
 	var amber := Color8(255, 96, 70) if t["low"] else Color8(255, 190, 70)
 	_text(p, String(t["time"]), -w / 2 + 18, -h + 17, 36, 8, amber)
 	# the two sides' scores, each over a bar in the side's colour
-	_r(p, -w / 2 + 3, -h + 4, 14, 2, Hud.SIDE_COLORS[0])
-	_r(p, w / 2 - 17, -h + 4, 14, 2, Hud.SIDE_COLORS[1])
+	_r(p, -w / 2 + 3, -h + 4, 14, 2, Accessibility.side_color(0))
+	_r(p, w / 2 - 17, -h + 4, 14, 2, Accessibility.side_color(1))
 	_text(p, String(t["left"]), -w / 2 + 3, -h + 17, 14, 6, Color8(255, 236, 230))
 	_text(p, String(t["right"]), w / 2 - 17, -h + 17, 14, 6, Color8(226, 236, 255))
 

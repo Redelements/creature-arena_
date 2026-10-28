@@ -66,6 +66,8 @@ func _parse_args() -> int:
 			main._intro_arg = -1
 		elif a == "--range-rings":
 			main.range_rings = true
+		elif a.begins_with("--a11y="):
+			Accessibility.cli = Accessibility.parse_flag(a.substr("--a11y=".length()))
 		elif a.begins_with("--lighting="):
 			main._lighting_cli = ["off", "low", "high"].find(a.get_slice("=", 1))
 		elif a.begins_with("--mode="):
@@ -146,6 +148,9 @@ func _parse_args() -> int:
 			main._print_vram_at = int(a.get_slice("=", 1))
 		elif a.begins_with("--quit-after="):
 			main._quit_after = int(a.get_slice("=", 1))
+		elif a == "--bug-report" or a.begins_with("--bug-report="):
+			var d := a.get_slice("=", 1) if a.contains("=") else ""
+			main._bug_report_dir = d if d != "" else BugReport.DIR
 		elif a.begins_with("--showcase="):
 			var sc := a.get_slice("=", 1)
 			if sc in Showcase.names():
@@ -162,7 +167,7 @@ func _parse_args() -> int:
 			main._net_args["watch"] = true
 		elif a.begins_with("--menu="):
 			var page := a.get_slice("=", 1)
-			if page in ["main", "single", "look", "settings", "game", "video", "audio", "controls", "touch"] or page.begins_with("single:") \
+			if page in ["main", "single", "look", "settings", "game", "video", "audio", "accessibility", "controls", "touch"] or page.begins_with("single:") \
 					or page.begins_with("credits") \
 					or page in ["remap:classic", "remap:league", "remap:gamepad"]:
 				main._menu_arg = "" if page == "main" else page

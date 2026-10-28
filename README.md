@@ -287,6 +287,21 @@ Tools: F1 hitbox overlay, F2 cycle the training dummy, F3 hide the controls stri
 F4 reset training, F5 next palette (Arcade clears unlock them), F6 save a replay (watch it from
 Single player > Replay theater), F7 range rings, F8 change fighter (training), F9 performance overlay, M mute music.
 
+**Watching a replay** (Replay theater): Space or P pause / play, `.` one tick on, `,` one tick
+back, `-` / `+` slower / faster (1/4x, 1/2x, 1x, 2x), Left / Right jump 5 s back / on, Home
+from the start. On a controller: A pause, X / B a tick on / back, LB / RB speed, d-pad
+left / right 5 s, Y from the start. The strip at the bottom shows the speed and the time;
+the pause menu has Back 5 seconds, Watch from the start and Speed, and the end screen
+Watch again and Back 5 seconds.
+
+**Bug reports**: Settings > Save a bug report (or the pause menu's row) writes
+`bug-reports/bugreport_<time>.zip` in the game's user folder and opens the folder: the two
+newest logs, the settings (without your online id, secret, name or servers), progress, the
+replay being watched or the newest saved one (a match in progress is saved first),
+`perf.txt` from a `--perf` run, and `system.txt` (OS, CPU, GPU, renderer, screen,
+controllers, game and protocol version). `--bug-report[=DIR]` writes one from the command
+line and quits (with `--quit-after=N`, at the end of that run).
+
 **Performance overlay** (Settings > Video, or F9 in a fight; off by default): FPS shows the
 frame rate and the 1% low in the bottom-right corner; FPS + graph adds the last 240 frame
 times against lines at the 240, 120 and 60 Hz budgets (a spike over a line missed it), the

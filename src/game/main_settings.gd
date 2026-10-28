@@ -16,7 +16,7 @@ func _init(p_main: Main) -> void:
 	main = p_main
 
 
-## Settings: four pages, like most games: Game, Video, Audio, Controls; and the Credits.
+## Settings: five pages: Game, Video, Audio, Accessibility, Controls; and the Credits.
 func _open_settings() -> void:
 	var scr := UiScreen.new()
 	scr.logo = true
@@ -31,10 +31,14 @@ func _open_settings() -> void:
 			func(): _open_settings_page("video"), "The screen and the frame rate")
 		s.add_card("Audio", "Master, music, sound effects, menu sounds, voice chat",
 			func(): _open_settings_page("audio"), "Volumes")
+		s.add_card("Accessibility", "Colour-safe team colours, fighter outlines, hit markers",
+			func(): _open_settings_page("accessibility"), "Easier to tell who's who and when a hit lands")
 		s.add_card("Controls", "Keyboard and controller layouts; remap keys and buttons",
 			_open_controls, "Who presses what")
 		s.add_card("Credits", "Who made the game; art, font and engine licences",
 			_open_credits, "Credits and licences, and the engine's third-party notices")
+		s.add_card("Save a bug report", "The log, settings, progress and your last replay, in one zip",
+			func(): main._save_bug_report(true), BugReport.BLURB + " (no online id or secret)")
 		s.add_space(3)
 		s.add_button("Back", s.back)
 	main.ui.push(scr)
@@ -55,7 +59,7 @@ func _open_settings_page(page: String) -> void:
 	scr.row_width = 236.0
 	scr.detail = true
 	scr.blurb = {"game": "How the game plays and where it plays online", "video": "The screen and the frame rate",
-		"audio": "Volumes and voice chat", "touch": "The on-screen stick and buttons (they show when you touch the screen in a fight)"}.get(page, "")
+		"audio": "Volumes and voice chat", "accessibility": "Easier to tell who's who and when a hit lands (all off by default)", "touch": "The on-screen stick and buttons (they show when you touch the screen in a fight)"}.get(page, "")
 	scr.hints = ["move", "change", "back"]
 	scr.builder = func(s: UiScreen):
 		for key in Main.SETTING_PAGES[page]:
@@ -350,6 +354,15 @@ func _setting(key: String) -> Dictionary:
 		"perf_overlay":
 			return {"label": "Performance overlay", "values": PerfOverlay.MODE_NAMES, "index": main.perf_overlay.mode,
 				"desc": "The frame rate in a corner; with the graph, the last few seconds of frame times (F9 in a fight)"}
+		"a11y_teams":
+			return {"label": "Team colours", "values": Accessibility.TEAM_NAMES, "index": Accessibility.teams(),
+				"desc": "Colour-safe: orange against sky blue (and yellow for you), told apart with any colour blindness, by brightness too"}
+		"a11y_outlines":
+			return {"label": "Fighter outlines", "values": Accessibility.OUTLINE_NAMES, "index": Accessibility.outlines(),
+				"desc": "A thin line round every fighter you can see: in its team's colour, or white round black. Never shows a hidden fighter"}
+		"a11y_markers":
+			return {"label": "Hit markers", "values": Accessibility.MARKER_NAMES, "index": Accessibility.markers(),
+				"desc": "High contrast: bigger hit sparks and damage numbers with a dark outline, and a white flash on every hit"}
 	return {"label": key, "values": [""], "index": 0, "desc": ""}
 
 
@@ -428,6 +441,15 @@ func _set_setting(key: String, i: int) -> void:
 				main._cam_cli.erase(key)  # (the menu outranks a command-line value from here on)
 			"perf_overlay":
 				main.perf_overlay.mode = clampi(i, 0, PerfOverlay.MODE_NAMES.size() - 1) as PerfOverlay.Mode
+			"a11y_teams":
+				Accessibility.teams_saved = clampi(i, 0, Accessibility.TEAM_NAMES.size() - 1)
+				Accessibility.cli.erase("teams")  # (the menu outranks --a11y from here on)
+			"a11y_outlines":
+				Accessibility.outlines_saved = clampi(i, 0, Accessibility.OUTLINE_NAMES.size() - 1)
+				Accessibility.cli.erase("outlines")
+			"a11y_markers":
+				Accessibility.markers_saved = clampi(i, 0, Accessibility.MARKER_NAMES.size() - 1)
+				Accessibility.cli.erase("markers")
 			"voice":
 				main.voice_mode = clampi(i, 0, VoiceChat.MODE_NAMES.size() - 1)
 				main._voice_cli = -1  # (the menu outranks --voice from here on)
@@ -455,7 +477,15 @@ func _set_setting(key: String, i: int) -> void:
 
 func _load_settings() -> void:
 	var cfg := ConfigFile.new()
+	# Settings > Accessibility: off unless saved (static, so a second game in one run starts clean too)
+	Accessibility.cli = {}
+	Accessibility.teams_saved = 0
+	Accessibility.outlines_saved = 0
+	Accessibility.markers_saved = 0
 	if cfg.load(main.settings_path) == OK:
+		Accessibility.teams_saved = clampi(int(cfg.get_value("accessibility", "teams", 0)), 0, Accessibility.TEAM_NAMES.size() - 1)
+		Accessibility.outlines_saved = clampi(int(cfg.get_value("accessibility", "outlines", 0)), 0, Accessibility.OUTLINE_NAMES.size() - 1)
+		Accessibility.markers_saved = clampi(int(cfg.get_value("accessibility", "markers", 0)), 0, Accessibility.MARKER_NAMES.size() - 1)
 		var lay := String(cfg.get_value("input", "layout", "league"))
 		if lay in PlayerInput.LAYOUTS:
 			main.player_input.layout = lay
@@ -580,6 +610,9 @@ func _save_settings() -> void:
 	cfg.set_value("video", "glow", main.glow)
 	cfg.set_value("video", "lighting", main.lighting)
 	cfg.set_value("video", "font", "smooth" if UiTheme.smooth else "pixel")
+	cfg.set_value("accessibility", "teams", Accessibility.teams_saved)
+	cfg.set_value("accessibility", "outlines", Accessibility.outlines_saved)
+	cfg.set_value("accessibility", "markers", Accessibility.markers_saved)
 	cfg.set_value("game", "rumble", main.rumble)
 	cfg.set_value("game", "intros", main.match_intros)
 	cfg.set_value("game", "shake", main.shake_scale)

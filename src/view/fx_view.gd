@@ -2307,23 +2307,31 @@ func _hit_sparks(e: Dictionary, p: Vector2, push: Vector2) -> void:
 		var t := (float(i) + 0.5) / n * 2.0 - 1.0
 		angs.append(dir_a + t * spread + randf_range(-0.12, 0.12))
 		lens.append(ln * randf_range(0.7, 1.3))
+	# Settings > Accessibility > Hit markers: bigger rays with a dark outline (data/accessibility.json)
+	var sk := float(Accessibility.marker("spark_scale", 1.0))
+	if sk != 1.0:
+		r1 *= sk
+		for i in lens.size():
+			lens[i] = float(lens[i]) * sk
+	width += float(Accessibility.marker("spark_width_add", 0))
 	_add({"kind": "burst", "pos": p, "life": life, "angs": angs, "lens": lens, "r0": 2.0, "r1": r1,
-		"width": width, "color": col})
+		"width": width, "color": col, "edge": float(Accessibility.marker("spark_outline_width", 0)),
+		"edge_color": Color(String(Accessibility.marker("spark_outline", "#000000")))})
 	match kind:
 		"light":
 			for i in 2:
 				_px(p, push.rotated(randf_range(-0.6, 0.6)) * randf_range(1.0, 2.0), C_SPARK[randi() % 3], 6)
 			if d != null and d.id < views.size():
-				views[d.id].soft_flash = true
+				views[d.id].soft_flash = not bool(Accessibility.marker("full_flash", false))
 		"heavy", "surge":
 			var big := kind == "surge" and not surge_small_hit(a, power)
-			_add({"kind": "spark", "pos": p, "life": 8, "scale": 2.2 if big else 1.6})
+			_add({"kind": "spark", "pos": p, "life": 8, "scale": (2.2 if big else 1.6) * sk})
 			for i in 5:
 				_px(p, push.rotated(randf_range(-0.7, 0.7)) * randf_range(1.2, 2.8), C_SPARK[randi() % 3], 12)
 			if big:
 				flash_out = 0.3
 		"skill":
-			_add({"kind": "spark", "pos": p, "life": 7, "scale": 1.2})
+			_add({"kind": "spark", "pos": p, "life": 7, "scale": 1.2 * sk})
 			for i in 4:
 				_px(p, push.rotated(randf_range(-0.9, 0.9)) * randf_range(1.0, 2.4), col, 10)
 	if push.length_squared() > 0.001:
@@ -2567,14 +2575,15 @@ const C_SHIELD_FILL := Color("4f7fd6")
 const C_SHIELD_DARK := Color("27407a")
 
 
-## The size ladder is design sizes that UiTheme.px maps to distinct font steps.
+## The size ladder is design sizes that UiTheme.px maps to distinct font steps; Settings >
+## Accessibility > Hit markers adds `number_size_add` to every step.
 func _dmg_size(total: float, kind: String) -> int:
 	var sz := 8
 	if kind == "surge":
 		sz = 16
 	elif kind == "heavy" or kind == "skill" or total >= 12.0:
 		sz = 12
-	return sz
+	return sz + int(Accessibility.marker("number_size_add", 0))
 
 
 func _dmg_open(run) -> bool:
@@ -2657,7 +2666,14 @@ func _draw_damage_number(ci: CanvasItem, p: Dictionary) -> void:
 	var fs := UiTheme.px(size)
 	var at := (_num_anchor(int(p["tgt"]), Vector2(p["pos"]) + Vector2(0, 6)) + Vector2(-40.0, -rise)).round()
 	var txt := String(p["text"])
-	ci.draw_string_outline(_font, at, txt, HORIZONTAL_ALIGNMENT_CENTER, 80.0, fs, UiTheme.outline(fs) + 1, Color(0.1, 0.08, 0.1, col.a))
+	var ow := UiTheme.outline(fs) + 1 + int(Accessibility.marker("number_outline_add", 0))
+	var sh: Array = Accessibility.marker("number_shadow", [0, 0])
+	if int(sh[0]) != 0 or int(sh[1]) != 0:  # a drop shadow (Hit markers: High contrast)
+		var sc := Color(Color(String(Accessibility.marker("number_shadow_color", "#000000"))), col.a)
+		var sat := at + Vector2(float(sh[0]), float(sh[1]))
+		ci.draw_string_outline(_font, sat, txt, HORIZONTAL_ALIGNMENT_CENTER, 80.0, fs, ow, sc)
+		ci.draw_string(_font, sat, txt, HORIZONTAL_ALIGNMENT_CENTER, 80.0, fs, sc)
+	ci.draw_string_outline(_font, at, txt, HORIZONTAL_ALIGNMENT_CENTER, 80.0, fs, ow, Color(0.1, 0.08, 0.1, col.a))
 	ci.draw_string(_font, at, txt, HORIZONTAL_ALIGNMENT_CENTER, 80.0, fs, col)
 
 
@@ -2968,13 +2984,23 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 			var r1 := float(p["r1"])
 			var bw := float(p["width"])
 			bc.a *= 1.0 - k * k
-			var bi := 0
-			for a in p["angs"]:
-				var d := Vector2.from_angle(a)
-				var base := lerpf(r0, r1, sqrt(k))
-				var ln := float(p["lens"][bi]) * (1.0 - k)
-				ci.draw_line((bpos + d * base).round(), (bpos + d * (base + maxf(1.0, ln))).round(), bc, bw)
-				bi += 1
+			var edge := float(p.get("edge", 0.0))
+			for pass_i in (2 if edge > 0.0 else 1):  # a dark outline under the rays first (Hit markers: High contrast)
+				var outline_pass := pass_i == 0 and edge > 0.0
+				var lc: Color = Color(p["edge_color"], bc.a) if outline_pass else bc
+				var lw := bw + edge if outline_pass else bw
+				var bi := 0
+				for a in p["angs"]:
+					var d := Vector2.from_angle(a)
+					var base := lerpf(r0, r1, sqrt(k))
+					var ln := float(p["lens"][bi]) * (1.0 - k)
+					var s0 := (bpos + d * base).round()
+					var s1 := (bpos + d * (base + maxf(1.0, ln))).round()
+					if outline_pass:  # the outline reaches past both ends too
+						s0 = (s0 - d * edge * 0.5).round()
+						s1 = (s1 + d * edge * 0.5).round()
+					ci.draw_line(s0, s1, lc, lw)
+					bi += 1
 		"px":
 			var col: Color = p["color"]
 			col.a = 1.0 - k
@@ -3561,17 +3587,29 @@ func _draw_long_bite(ci: CanvasItem, pr: Dictionary) -> void:
 ## Who's who, and how they're doing: a health bar over each fighter, League-style.
 ## Its colour says whose it is (`rel` in side_marks: "self" green, "ally" blue, "enemy"
 ## red; "side" uses the side colours, red left and blue right, when nobody here plays or
-## two local players face each other). Ticks every 25 health, a pale trail that drains
+## two local players face each other; all from `Accessibility`, so Settings > Accessibility
+## > Team colours swaps them, `mark_color`). Ticks every 25 health, a pale trail that drains
 ## after a hit, a stone segment for a shield (Stoneskin), a thin Surge strip under it,
 ## and the player label (P1, CPU...) above. Hidden once knocked out; an invisible fighter
 ## (Tiptoe) shows his bar only to his own side, faintly.
 const PLATE_W := 30.0
 const PLATE_H := 3.0
 const HP_TICK := 25.0
-const REL_COLORS := {"self": Color("6fcf5a"), "ally": Color("4aa8ff"), "enemy": Color("e5534b")}
 const C_TRAIL := Color("f4e6c8")
 const C_SHIELD := Color("d8d4cc")
 var _trail := {}  ## creature -> [trail hp, ticks to hold before draining, last hp]
+
+
+## Slot `i`'s marker colour now (its bar, its label, its Team outline): by `rel`, else its
+## Brawl colour, else its side's; read live, so a Team colours change shows at once.
+func mark_color(i: int) -> Color:
+	if i < 0 or i >= side_marks.size():
+		return Color.WHITE
+	var mk: Dictionary = side_marks[i]
+	var b := int(mk.get("brawl", -1))
+	var fallback: Color = Accessibility.brawl_color(b) if b >= 0 \
+		else (Accessibility.side_color(int(mk["team"])) if mk.has("team") else Color(mk.get("color", Color.WHITE)))
+	return Accessibility.rel_color(String(mk.get("rel", "side")), fallback)
 
 
 ## Team Deathmatch spawn pads (set by main): a ring on the floor in the team's colour, and
@@ -3635,7 +3673,7 @@ func _draw_pads(ci: CanvasItem) -> void:
 		ci.draw_arc(at, r * 0.7, float(_tick) * 0.02, float(_tick) * 0.02 + TAU * 0.75, 36, Color(col, 0.35), 1.0)
 	for pd in pads:
 		var at: Vector2 = pd["pos"]
-		var col: Color = pd["color"]
+		var col: Color = Accessibility.side_color(int(pd["side"])) if pd.has("side") else pd["color"]
 		var r := 16.0 + 1.0 * sin(float(_tick) * 0.08)
 		ci.draw_circle(at, r, Color(col, 0.16))
 		ci.draw_arc(at, r, 0.0, TAU, 32, Color(col, 0.75), 2.0)
@@ -3654,7 +3692,7 @@ func _draw_caravan(ci: CanvasItem) -> void:
 	var at: Vector2 = caravan["pos"]
 	var team := int(caravan.get("team", 0))
 	var st := int(caravan.get("state", 0))
-	var team_col: Color = Hud.SIDE_COLORS[clampi(team, 0, 1)]
+	var team_col: Color = Accessibility.side_color(clampi(team, 0, 1))
 	var col := team_col
 	if st == 2:
 		col = Color("e8c060")
@@ -3703,7 +3741,7 @@ func _draw_caravan(ci: CanvasItem) -> void:
 ## stand, over its carrier's head, or on the ground with a ring counting down its return.
 func _draw_flag(ci: CanvasItem, f: Dictionary) -> void:
 	var at: Vector2 = f["pos"]
-	var col: Color = Hud.SIDE_COLORS[clampi(int(f["team"]), 0, 1)]
+	var col: Color = Accessibility.side_color(clampi(int(f["team"]), 0, 1))
 	var st := int(f["state"])
 	var foot := at - Vector2(0, float(f.get("lift", 0.0)))
 	if st != TeamSim.FLAG_CARRIED:  # the pole's and the cloth's shadow along the map's light
@@ -3771,7 +3809,7 @@ func _draw_shrine(ci: CanvasItem, s: Dictionary) -> void:
 	var side := int(s["side"])
 	var claim := clampf(float(s["claim"]), 0.0, 1.0)
 	if side >= 0 and claim > 0.0:
-		var sidec: Color = s.get("claim_color", Hud.SIDE_COLORS[clampi(side, 0, 1)])
+		var sidec: Color = s.get("claim_color", Accessibility.side_color(clampi(side, 0, 1)))
 		ci.draw_circle(at, r * claim, Color(sidec, 0.16))  # the claim floods the floor from the middle
 		ci.draw_arc(at, r + 3.0, 0.0, TAU, 48, Color(0.1, 0.1, 0.12, 0.5), 4.0)
 		ci.draw_arc(at, r + 3.0, -PI * 0.5, -PI * 0.5 + TAU * claim, 48, Color(sidec, 0.95), 3.0)
@@ -3821,7 +3859,7 @@ func _draw_side_marks(ci: CanvasItem) -> void:
 			if rel != "self" and rel != "ally":
 				continue
 			alpha = 0.45
-		var col: Color = REL_COLORS.get(rel, mk["color"])
+		var col := mark_color(i)
 		var at := (c.pos + Vector2(0, -_top(c) - 8.0 - c.air_height() - CreatureView.view_lift(c))).round()
 		_draw_plate(ci, c, at, col, alpha)
 		if not c.boost_ids.is_empty():
