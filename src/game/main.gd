@@ -555,6 +555,7 @@ var _attract := false
 var _attract_focus: Control
 var _attract_ui: Control
 var _attract_hint: Label
+var show_ctl := MainPresentation.new(self)  ## title attract, wipes, the arena intro, results (main_presentation.gd)
 var _wipe_cat := -1  ## the kind of screen last tick (0 menus, 1 fight, 2 match over)
 var _ticks_run := 0
 ## ~20 s idle on the title before the attract demo starts.
@@ -890,7 +891,7 @@ func _ready() -> void:
 ## "settings" on top of it; `focus` is the title row to land on ("online" after leaving
 ## an online match).
 func _open_menu(page := "", focus := "") -> void:
-	_stop_attract()
+	show_ctl._stop_attract()
 	hud.banner_hidden = false
 	_close_ui()
 	_end_online()
@@ -965,89 +966,6 @@ func _menu_background(demo := false) -> void:
 
 
 # ------------------------------------------------------------------ wipes and attract
-
-## What kind of screen `f` is, for the wipes: 0 menus, 1 a fight, 2 the match over.
-static func _screen_kind(f: Flow) -> int:
-	if f == Flow.MENU or f == Flow.SELECT or f == Flow.LOBBY:
-		return 0
-	return 2 if f == Flow.MATCH_OVER else 1
-
-
-## Each tick: a wipe steps (and ends under a pause), and a change between menus, a fight
-## and back starts one. Into the match-over screen there is none: the results screen has
-## its own when it comes up. Never in the first half second, so captures keep their frames.
-func _wipe_step() -> void:
-	if wipe == null:
-		return
-	if paused:
-		wipe.finish()
-	else:
-		wipe.advance()
-	var kind := _screen_kind(flow)
-	if _wipe_cat >= 0 and kind != _wipe_cat and kind != 2 and _ticks_run > 30:
-		wipe.start()
-	_wipe_cat = kind
-
-
-func _attract_pressed(event: InputEvent) -> bool:
-	if not _attract:
-		return false
-	if event is InputEventJoypadMotion:
-		return absf((event as InputEventJoypadMotion).axis_value) > 0.6
-	return _skips_intro(event)
-
-
-## On the bare title: count idle ticks, then start the demo.
-func _attract_step() -> void:
-	if _attract:
-		_attract_hint.visible = (flow_t / 30) % 3 != 2  # blinks: two thirds on, a third off
-		return
-	var on_title := ui.screens.size() == 1 and ui.top() is TitleScreen and not paused and intro == null
-	if not on_title:
-		_idle_t = 0
-		return
-	_idle_t += 1
-	if _idle_t >= ATTRACT_AT:
-		_start_attract()
-
-
-func _start_attract() -> void:
-	_attract = true
-	_idle_t = 0
-	_attract_focus = get_viewport().gui_get_focus_owner()
-	ui.visible = false
-	_attract_ui.visible = true
-	seed_base += 1
-	_menu_ko_t = 0
-	_menu_background(true)
-	flow_t = 0
-	wipe.start()
-
-
-## Back to the title: the screen and its focus where they were.
-func _end_attract() -> void:
-	if not _attract:
-		return
-	_stop_attract()
-	hud.menu_visible = true
-	_menu_background()
-	flow_t = 0
-	_idle_t = 0
-	wipe.start()
-	if _attract_focus != null and is_instance_valid(_attract_focus):
-		_attract_focus.grab_focus()
-	_attract_focus = null
-
-
-## The demo's own screens off (the title, or a match, takes over).
-func _stop_attract() -> void:
-	_attract = false
-	_idle_t = 0
-	if ui != null:
-		ui.visible = true
-	if _attract_ui != null:
-		_attract_ui.visible = false
-
 
 ## Single player: every mode against the CPU, training, trials and local 2-player. Rows
 ## with choices pick the fighter (or drill) with Left/Right; Enter starts.
@@ -1493,7 +1411,7 @@ func _start_match(m: int, keep_teams := false) -> void:
 		return
 	_start_round()
 	if not keep_teams:
-		_maybe_intro()
+		show_ctl._maybe_intro()
 
 
 ## Modes that open the pick screen first.
@@ -1507,7 +1425,7 @@ func _on_teams_chosen(teams: Array) -> void:
 	_teams = teams
 	audio.play("ui_select", 0.0, 1.0, true)
 	_start_round()
-	_maybe_intro()
+	show_ctl._maybe_intro()
 
 
 ## How many people play at this machine in a mode.
@@ -1681,7 +1599,7 @@ func _arcade_result(won: bool) -> bool:
 		round_num = 1
 		_start_arcade_stage()
 		if arcade is Arcade:
-			_maybe_intro()  # a new opponent up the ladder (not each Gauntlet wave)
+			show_ctl._maybe_intro()  # a new opponent up the ladder (not each Gauntlet wave)
 		return true
 	# The boss is down: the Arcade is cleared on this level.
 	_arcade_cleared = true
@@ -2537,7 +2455,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	_cam_idle = 0
 	_settle_fit = 0.0
 	_surge_bars = 0
-	_drop_intro()
+	show_ctl._drop_intro()
 	if letterbox != null:
 		letterbox.clear()
 	sides = p_sides.duplicate()
@@ -2723,13 +2641,13 @@ func _physics_process(_delta: float) -> void:
 	frame_count += 1
 	_apply_frame_rate()
 	_ticks_run += 1
-	_wipe_step()
+	show_ctl._wipe_step()
 	_touch_step()
 	if paused:
 		_capture()
 		return  # frozen behind the pause menu: nothing steps, the picture holds
 	if intro != null:
-		_intro_step()
+		show_ctl._intro_step()
 		perf_overlay.tick(Time.get_ticks_usec() - tick_start)
 		_capture()
 		return  # the arena intro: the sim waits at its first tick, the views play it
@@ -2909,7 +2827,7 @@ func _update_flow() -> void:
 				_menu_ko_t = 0
 				seed_base += 1
 				_menu_background(_attract)
-			_attract_step()
+			show_ctl._attract_step()
 		Flow.INTRO:
 			if arcade != null:
 				hud.banner = arcade.stage_label() if flow_t < 60 else "FIGHT!"
@@ -2981,7 +2899,7 @@ func _update_flow() -> void:
 			elif team_battle != null:
 				hud.timer_ticks = maxi(team_battle.timer, 0)
 			if flow_t == MATCH_OVER_MENU_AT and not ui.is_open():
-				_show_match_over()
+				show_ctl._show_match_over()
 			if sides[0] == Side.CPU and sides[1] == Side.CPU and flow_t > 240:
 				seed_base += 1
 				_start_match(mode)
@@ -3431,172 +3349,6 @@ func _update_letterbox() -> void:
 
 # ------------------------------------------------------------------ arena intro
 
-## Whether a match starting now gets the arena intro: offline matches against the CPU or
-## local players, with Settings > Game > Match intros on. Never online (both peers must
-## start the sim on the same tick, and a watcher follows the server's), in a replay,
-## training, trials, drills or showcases, or behind the menu. Headless runs and command-line
-## starts skip it unless --intro (tests and captures keep their frame numbers).
-func _intro_wanted() -> bool:
-	if _intro_arg < 0 or not match_intros:
-		return false
-	if _intro_arg == 0 and (DisplayServer.get_name() == "headless" or _cli_start or autoplay != null):
-		return false
-	if sim == null or online != null or watch != null or netplay != null or _replaying():
-		return false
-	if showcase != null or coach != null or sim.training or MODES[mode].get("training", false):
-		return false
-	return flow == Flow.INTRO or flow == Flow.FIGHT
-
-
-## Starts the arena intro for the match just set up, if it gets one. The sim stays at its
-## first tick until the intro ends (or a press skips it); then the round goes on exactly as
-## it would have without it.
-func _maybe_intro() -> void:
-	if not _intro_wanted():
-		return
-	_drop_intro()
-	intro = ArenaIntro.new()
-	intro.sim = sim
-	intro.arena_name = String(sim.arena.get("name", ArenaMap.name_of(sim.arena_id)))
-	intro.subtitle = _intro_subtitle()
-	intro.groups = _intro_groups()
-	_screen_layer.add_child(intro)
-	_screen_layer.move_child(intro, hud.get_index())  # over the letterbox and the flash, under the HUD
-	hud.cinema = true
-	hud.banner = ""
-	hud.banner_sub = ""
-	for v in views:
-		v.intro_clock = 0
-	crowd.roar(90)
-	audio.play("crowd_roar")
-
-
-## What the arena's card says under its name: the mode.
-func _intro_subtitle() -> String:
-	var cfg: Dictionary = MODES[mode]
-	if arcade != null:
-		return arcade.stage_label()
-	if team_battle != null:
-		var what := "KING OF THE CRATER" if team_battle.crater else ("SINKHOLE" if team_battle.sinkhole else
-			("TEAM DEATHMATCH" if team_battle.deathmatch else ("CARAVAN" if team_battle.caravan else
-			("CAPTURE THE FLAG" if team_battle.ctf else "TEAM BATTLE"))))
-		return "%s   %d v %d" % [what, team_battle.size, team_battle.size]
-	if duel != null:
-		return "DUEL   %d v %d" % [(duel.teams[0] as Array).size(), (duel.teams[1] as Array).size()]
-	if brawl != null:
-		return "CHAOS CUP" if _chaos_names != "" else "BRAWL"
-	return "VERSUS" if cfg.get("versus2p", false) else "1 v 1"
-
-
-## The intro's beats: one per fighter in a 1v1, one per team in a team battle or a Duel
-## (introduced together), and one for everyone in a Brawl.
-func _intro_groups() -> Array:
-	var out: Array = []
-	var n := sim.creatures.size()
-	if brawl != null:
-		var names: Array = []
-		var all: Array = []
-		for i in n:
-			names.append(String(sim.creatures[i].def.get("name", "?")).to_upper())
-			all.append(i)
-		return [{"slots": all, "side": 0, "color": Hud.C_ACCENT, "tag": "FREE-FOR-ALL",
-			"name": "%d FIGHTERS" % n, "lines": ["  ·  ".join(names)]}]
-	if team_battle != null or duel != null:
-		for side in 2:
-			var slots: Array = []
-			var names: Array = []
-			for i in n:
-				if sim.creatures[i].team == side:
-					slots.append(i)
-			if duel != null:
-				for id in duel.teams[side]:
-					names.append(String(MatchFactory.load_def(String(id)).get("name", id)).to_upper())
-			else:
-				for i in slots:
-					names.append(String(sim.creatures[i].def.get("name", "?")).to_upper())
-			var you := false
-			for i in slots:
-				you = you or (i < sides.size() and sides[i] in LOCAL_SIDES)
-			out.append({"slots": slots, "side": side, "color": Hud.SIDE_COLORS[side],
-				"tag": "YOUR TEAM" if you else "CPU TEAM",
-				"name": ["RED TEAM", "BLUE TEAM"][side], "lines": ["  ·  ".join(names)]})
-		return out
-	for i in mini(n, 2):
-		var d: Dictionary = sim.creatures[i].def
-		var bits := PackedStringArray()
-		for k in ["role", "affinity"]:
-			var v = d.get(k)
-			if v != null and String(v) != "" and String(v) != "none":
-				bits.append(String(v).capitalize())
-		var lines: Array = []
-		if String(d.get("title", "")) != "":
-			lines.append(String(d["title"]))
-		lines.append("  ·  ".join(bits))
-		out.append({"slots": [i], "side": i, "color": Hud.SIDE_COLORS[i], "tag": _side_name(i),
-			"name": String(d.get("name", "?")).to_upper(), "lines": lines})
-	return out
-
-
-## One tick of the intro: only views move (the sim is not stepped, no events, no CPUs).
-func _intro_step() -> void:
-	var view := get_viewport().get_visible_rect().size
-	var g := intro.advance(view, sim.arena_size())
-	if g >= 0:
-		for i in intro.groups[g]["slots"]:
-			if int(i) < views.size():
-				views[int(i)].intro_pose()
-		crowd.cheer(0.5)
-		audio.play("round_start", -6.0, 1.25)
-	if intro.t == ArenaIntro.CARD_IN + 3:
-		audio.play("slam", -6.0, 0.8)
-		shake = maxf(shake, 2.0)
-	arena.refresh()
-	water.advance()
-	ambient.advance()
-	glade.advance()
-	weather.advance()
-	wear.advance()
-	crowd.advance()
-	fx.advance()
-	plants.advance()
-	hud.advance()
-	for v in views:
-		v.refresh()
-	shake *= 0.82
-	cam_ctl._update_camera()
-	cam_ctl._update_letterbox()
-	var sh := shake * shake_scale
-	camera.offset = Vector2.ZERO if sh <= 0.3 else Vector2(randf_range(-sh, sh), randf_range(-sh, sh)).round()
-	flash_rect.color.a = maxf(0.0, flash_rect.color.a - 0.04)
-	if intro.finished():
-		_end_intro()
-
-
-## The intro is over (or skipped): the fight camera eases on from where the intro left
-## it, the HUD comes back, and the round's banners start on the next tick.
-func _end_intro() -> void:
-	if intro == null:
-		return
-	_cam_zoom = intro.zoom
-	_cam_follow = intro.focus
-	_cam_lead = Vector2.ZERO
-	_cam_aim = Vector2.ZERO
-	_cam_off = Vector2.ZERO
-	_drop_intro()
-
-
-## Takes the intro off without touching the camera (a new match, the menu).
-func _drop_intro() -> void:
-	if intro == null:
-		return
-	intro.queue_free()
-	intro = null
-	hud.cinema = false
-	for v in views:
-		v.intro_clock = -1
-		v.victory = false
-
-
 ## Big maps: arrows at the screen's edge toward objectives out of shot (the caravan, the
 ## flags). Screen = (world - camera) x zoom + half the screen.
 func _update_pointers(view: Vector2) -> void:
@@ -3694,16 +3446,16 @@ static func _cam_axis(v: float, half: float, arena: float, lo := 0.0, hi := 0.0)
 # ------------------------------------------------------------------ input
 
 func _input(event: InputEvent) -> void:
-	if _attract_pressed(event):
-		_end_attract()
+	if show_ctl._attract_pressed(event):
+		show_ctl._end_attract()
 		get_viewport().set_input_as_handled()  # the press only wakes the title
 		return
 	if not (event is InputEventMouseMotion and (event as InputEventMouseMotion).relative == Vector2.ZERO):
 		_idle_t = 0
-	if wipe != null and wipe.active() and _skips_intro(event):
+	if wipe != null and wipe.active() and MainPresentation._skips_intro(event):
 		wipe.finish()  # (the press still does what it does)
-	if intro != null and _skips_intro(event):
-		_end_intro()
+	if intro != null and MainPresentation._skips_intro(event):
+		show_ctl._end_intro()
 		get_viewport().set_input_as_handled()  # the press only skips (Esc doesn't also pause)
 		return
 	var touch := event is InputEventScreenTouch or event is InputEventScreenDrag
@@ -3793,13 +3545,6 @@ func _apply_touch() -> void:
 	touch_overlay.opacity = float(TOUCH_OPACITY[clampi(touch_opacity, 0, TOUCH_OPACITY.size() - 1)])
 	player_input.touch.left_handed = touch_left or _touch_demo_left
 	player_input.touch.layout(player_input.touch.screen())
-
-
-## Any button skips the arena intro: a key, a controller button, a mouse click.
-static func _skips_intro(event: InputEvent) -> bool:
-	if event is InputEventKey:
-		return event.pressed and not event.echo
-	return (event is InputEventJoypadButton or event is InputEventMouseButton or event is InputEventAction) and event.pressed
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -5253,145 +4998,9 @@ func _remember_server(addr: String) -> void:
 	_recent_servers = _recent_servers.slice(0, OnlineLobby.MAX_RECENT)
 
 
-## The results screen's data: who won (and the pose), each fighter's stats from the
-## events, and in a team mode the MVP. Capture the Flag adds caps, returns and stops.
+## In main_presentation.gd (tests and other scripts call it here).
 func results_data() -> Dictionary:
-	var rows: Array = []
-	var winner: CreatureSim = null
-	for c in sim.creatures:
-		if _won_standing(c):
-			winner = c
-			break
-	var ctf := team_battle != null and team_battle.ctf
-	var best := -1
-	var best_score := -1.0
-	var win_team := winner.team if winner != null else -1
-	if win_team < 0 and team_battle != null and team_battle.winner in [0, 1]:
-		win_team = team_battle.winner  # a flag or time win: nobody "stands over" every foe
-	elif win_team < 0 and duel != null and duel.winner in [0, 1]:
-		win_team = duel.winner
-	for c in sim.creatures:
-		if c.is_dummy:
-			continue
-		var st: Dictionary = stats.row(c.id)
-		var row := {"id": c.id, "name": String(c.def.get("name", "?")), "team": c.team, "stats": st, "extra": []}
-		var sc := MatchStats.score(st)
-		if ctf:
-			var cs: Dictionary = _ctf_stats.get(c.id, {}) if _ctf_stats_for == team_battle else {}
-			row["extra"] = [int(cs.get("caps", 0)), int(cs.get("rets", 0)), int(cs.get("stops", 0))]
-			sc += 120.0 * int(cs.get("caps", 0)) + 40.0 * (int(cs.get("rets", 0)) + int(cs.get("stops", 0)))
-		rows.append(row)
-		if (win_team < 0 or c.team == win_team) and sc > best_score:
-			best_score = sc
-			best = c.id
-	# The pose: in a team battle the winning side's MVP; else whoever stands; else the first
-	# of the winning side. (No pose when nobody won.)
-	var pose: CreatureSim = winner
-	if team_battle != null and win_team >= 0:
-		pose = null
-		for c in sim.creatures:
-			if c.id == best:
-				pose = c
-		if pose == null:
-			winner = null
-	if pose == null and win_team >= 0:
-		for c in sim.creatures:
-			if c.team == win_team and not c.is_dummy:
-				pose = c
-				break
-	var title := hud.banner if hud.banner != "" else "MATCH OVER"
-	var col: Color = Hud.SIDE_COLORS[win_team] if win_team in [0, 1] else UiTheme.C_ACCENT
-	return {
-		"title": title, "sub": hud.banner_sub, "color": col,
-		"fighter": String(pose.def.get("id", "")) if pose != null else "",
-		"mvp": best if team_battle != null and best_score > 0.0 else -1,
-		"extra": ["CAP", "RET", "STOP"] if ctf else [],
-		"rows": rows,
-	}
-
-
-## After a match: Rematch, Change fighters (modes with a pick screen) or Main menu;
-## online, Rematch or Leave, with what the other player is doing. It sits low so the
-## winner's banner stays in view. Back = Main menu / Leave.
-func _show_match_over() -> void:
-	var scr := UiScreen.new()
-	scr.dim = 0.35
-	scr.column_shift = 52.0
-	scr.row_width = 170.0
-	scr.hints = ["move", "select", "back"]
-	var cfg: Dictionary = MODES[mode]
-	var results := online == null and watch == null and not (_replaying() or mode == REPLAY_MODE)
-	if results:  # the results screen: the stats panel, then the same buttons
-		scr.dim = 0.62
-		scr.column_shift = 0.0
-		scr.row_width = 200.0
-		wipe.start()
-	scr.builder = func(s: UiScreen):
-		if sim != null and not _replaying() and mode != REPLAY_MODE and showcase == null and coach == null:
-			s.add_text("F6  save this fight's replay", UiTheme.SIZE_HINT, UiTheme.C_DIM)
-		for line in ([] if results else _ctf_summary()):
-			s.add_text(String(line[0]), UiTheme.SIZE_HINT + (2 if line[1] == UiTheme.C_ACCENT else 0), line[1])
-		if online != null and netplay.in_room():
-			s.add_button("Next match", _room_next, "Pick a fighter (or keep yours) for the next match in this room")
-			s.add_button("Leave room", _leave_to_lobby, "Back to the online screen; the room carries on without you")
-			s.add_row(RoomCodeButton.new(_room_code()), "Copy the code to send to a friend")
-			_match_over_status = s.add_text("", UiTheme.SIZE_HINT + 1, UiTheme.C_ACCENT)
-			s.on_back = _leave_to_lobby
-		elif online != null:
-			# A 1v1 rematch picks fighters first (both players, once both ask); a team
-			# battle starts again with the same ones. Ranked rates every game.
-			var again := s.add_button("Rematch", func(): pass, "Play again; once both ask, you both pick fighters"
-				if online.players == 2 else "Play again; it starts when everyone asks")
-			var asked := func():
-				again.disabled = true
-				again.text = "Rematch asked"
-			again.pressed.connect(func():
-				netplay.request_rematch()
-				asked.call())
-			if netplay.rematch_local:
-				asked.call()
-			if netplay.ranked:
-				s.add_button("Back to online", _leave_to_lobby, "Search again from the online screen")
-			s.add_button("Leave", _leave_online, "Back to the title menu")
-			_match_over_status = s.add_text("", UiTheme.SIZE_HINT + 1, UiTheme.C_ACCENT)
-			s.on_back = _leave_to_lobby if netplay.ranked else _leave_online
-		elif watch != null:
-			s.add_button("Leave", _leave_online, "Back to the title menu")
-			if netplay != null and netplay.room != "":
-				s.add_row(RoomCodeButton.new(_room_code()), "Copy the code to send to a friend")
-			# What's next: the players picking, a rematch, or the match ending.
-			_match_over_status = s.add_text("", UiTheme.SIZE_HINT + 1, UiTheme.C_ACCENT)
-			s.on_back = _leave_online
-		elif _replaying() or mode == REPLAY_MODE:
-			s.add_button("Replay theater", func():
-				_open_menu("single")
-				_open_replays(), "Pick another")
-			s.add_button("Main menu", func(): _open_menu(), "Back to the title menu")
-			s.on_back = func(): _open_menu()
-		else:
-			s.add_panel(ResultsPanel.new(results_data()))
-			s.add_space(8.0)
-			if arcade != null and arcade.can_retry() and not _arcade_cleared:
-				s.add_button("Retry the stage", func():
-					_close_ui()
-					wins = [0, 0]
-					round_num = 1
-					_start_arcade_stage(), "The same stage again")
-			elif arcade != null:
-				s.add_button("Play again" if arcade is Daily else "New run", func():
-					seed_base += 1
-					_start_match(mode), "Today's fight again" if arcade is Daily else "A fresh run from the start")
-			else:
-				s.add_button("Rematch", func():
-					seed_base += 1
-					_start_match(mode, true), "The same fighters again")
-			if _has_pick(cfg) and not _skip_select:
-				s.add_button("Change fighters", func(): _start_match(mode), "Back to the pick screen")
-			s.add_button("Main menu", _back_to_row, "Back to where you picked this mode")
-			s.on_back = _back_to_row
-	ui.push(scr)
-	if results:
-		hud.banner_hidden = true  # the panel says it
+	return show_ctl.results_data()
 
 
 func _end_online() -> void:
