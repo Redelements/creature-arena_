@@ -385,6 +385,7 @@ Pitfalls found while checking:
 - Move-level-only keys (`cone`, `slow_mult`, `vuln_mult`, `steal`) have no `_charged` blend.
 - No current move reaches the plain-grab branch (ms:`_apply_hit`); the grabs are a hook, a flip or a swallow.
 - Input: the League/mouse layout and the gamepad pass Heavy, Skill 1 and Skill 2 on while held (`MouseOrders.HOLD_BITS`), so any move that charges can be held on any layout. Until 2026-10-14 only Heavy was, so a held Gulp could only be done on the classic keys.
+- Accessibility: `data/accessibility.json` is read by `src/view/accessibility.gd` only (views; not in `data_hash`): `teams` (`default` / `colour_safe`: `sides`, `brawl`, `self`, `ally`, `enemy`, `neutral`), `outlines` (`team` / `high_contrast`: `outer`, `inner`, `alpha`), `hit_markers` (`default` / `high_contrast`: `spark_scale`, `spark_width_add`, `spark_outline`, `spark_outline_width`, `number_size_add`, `number_outline_add`, `number_shadow`, `number_shadow_color`, `full_flash`). Settings > Accessibility picks them (saved under `[accessibility]`: `teams`, `outlines`, `markers`, all 0 by default); `--a11y=teams,outlines,markers` (or `outlines=team`, `all`) sets them for the session, not saved (`src/game/CLAUDE.md`).
 
 ## Where the bullet in CLAUDE.md was wrong or stale
 

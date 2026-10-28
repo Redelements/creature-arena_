@@ -37,6 +37,9 @@ extends Node2D
 ##   --quit-after=N        exit after N frames
 ##   --lighting=off|low|high  real 2D lights this session, not saved (Settings > Video >
 ##                         Lighting otherwise; Light2DView, BloomView)
+##   --a11y=teams,outlines,markers  Settings > Accessibility this session, not saved: colour-safe
+##                         team colours, fighter outlines (High contrast; `outlines=team` for
+##                         Team), high-contrast hit markers; any of them, or `all`
 ##   --print-vram=N        print the texture memory Godot reports (and the fighter sheets
 ##                         loaded, CreatureView.sheet_report) at frame N (budget checks)
 ##   --perf                log frame and tick times during fights; on quit, prints the
@@ -65,7 +68,7 @@ extends Node2D
 ##                         (over Arena options > Hazards); Chaos Cup plays them instead of its draw
 ##   --view-team=N         show the match as team N sees it (brush, fences, walls hide
 ##                         foes), even with nobody playing here (captures of --cpu-vs-cpu)
-##   --menu=PAGE           open a menu page: main, single, single:<group>, look (Time and weather), settings, game, video, audio, controls,
+##   --menu=PAGE           open a menu page: main, single, single:<group>, look (Time and weather), settings, game, video, audio, accessibility, controls,
 ##                         remap:classic|league|gamepad, credits, credits:<row> (game, szadi,
 ##                         kiddolink, font, godot, notices) (captures)
 ##   --online-host[=PORT]  host an online 1v1 straight away (UDP, default port 7777)
@@ -156,6 +159,7 @@ const REPLAY_MODE := 47
 const SETTING_PAGES := {
 	"game": ["level", "intros", "rumble", "shake", "discord", "server", "delay"],
 	"video": ["fullscreen", "wide", "vsync", "fps", "glow", "lighting", "font", "perf_overlay", "#Camera", "cam_lead", "cam_clash", "cam_settle"],
+	"accessibility": ["a11y_teams", "a11y_outlines", "a11y_markers"],
 	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu", "#Voice chat", "voice", "voice_hear", "mic", "mic_test", "vol_Voice"],
 	"touch": ["touch_opacity", "touch_size", "touch_hand", "touch_aim", "#Targeting", "touch_priority", "touch_chase"],
 }
@@ -451,7 +455,7 @@ var wins := [0, 0]
 var _carried_energy := [-1.0, -1.0]
 var timer := ROUND_TICKS
 var seed_base := 1
-## --menu=PAGE: open a menu page on start (captures): single, single:<group>, settings, game, video, audio, controls, credits[:row].
+## --menu=PAGE: open a menu page on start (captures): single, single:<group>, settings, game, video, audio, accessibility, controls, credits[:row].
 var _menu_arg := ""
 var args_ctl := MainArgs.new(self)  ## the command line (main_args.gd)
 var _setting_rows := {}  ## Settings key -> its OptionRow, while the page is open
@@ -927,7 +931,7 @@ func _open_menu(page := "", focus := "") -> void:
 			_open_look_page()
 		"settings":
 			settings_ctl._open_settings()
-		"game", "video", "audio":
+		"game", "video", "audio", "accessibility":
 			settings_ctl._open_settings()
 			settings_ctl._open_settings_page(page)
 		"controls":
@@ -1866,7 +1870,7 @@ func _show_pads() -> void:
 		return  # the Caravan's attackers respawn where the push has got to; CTF's at their keep
 	for side in 2:
 		for k in team_battle.size:
-			fx.pads.append({"pos": team_battle.pad_point(side, k), "color": Hud.SIDE_COLORS[side], "count": 0})
+			fx.pads.append({"pos": team_battle.pad_point(side, k), "color": Accessibility.side_color(side), "side": side, "count": 0})
 
 
 ## King of the Crater: the zone on the floor, in the holder's colour. Also every mode's
@@ -1906,7 +1910,7 @@ func _update_zone() -> void:
 		return
 	var holder := team_battle.zone_holder()
 	fx.zone = {"pos": sim.zone_pos, "radius": sim.zone_r,
-		"color": Hud.SIDE_COLORS[holder] if holder >= 0 else Color("e8d8a0")}
+		"color": Accessibility.side_color(holder) if holder >= 0 else Accessibility.neutral_color()}
 
 
 ## Who is wanted, for FxView's marks over their heads: per slot {} or {"kind": "spree",
@@ -1980,8 +1984,8 @@ func _team_color(team: int) -> Color:
 	if team < 0:
 		return Color.WHITE
 	if brawl != null and brawl.sim == sim:
-		return Hud.BRAWL_COLORS[team % Hud.BRAWL_COLORS.size()]
-	return Hud.SIDE_COLORS[clampi(team, 0, 1)]
+		return Accessibility.brawl_color(team)
+	return Accessibility.side_color(clampi(team, 0, 1))
 
 
 ## A team's name for a toast: RED / BLUE, or a Brawl fighter's name.
@@ -2154,7 +2158,7 @@ func _ctf_toast(e: Dictionary) -> void:
 			else:
 				hud.show_toast("%s FLAG TAKEN" % whose)
 			if is_local_team(side) and (me < 0 or sim.creatures[me].team == side):
-				hud.alert(Hud.SIDE_COLORS[side])
+				hud.alert(Accessibility.side_color(side))
 				hud.show_toast("YOUR FLAG IS TAKEN!  GET IT BACK")
 			elif me >= 0 and int(e.get("who", -1)) == me:
 				var key := String(hud.tag_labels[me]) if me < hud.tag_labels.size() else ""
@@ -2168,7 +2172,7 @@ func _ctf_toast(e: Dictionary) -> void:
 		"capture":
 			hud.show_toast("%s CAPTURES!" % whose)
 			var sc: Array = e.get("score", [0, 0])
-			hud.moment("%s CAPTURES!" % whose, "%d  -  %d" % [int(sc[0]), int(sc[1])], Hud.SIDE_COLORS[side])
+			hud.moment("%s CAPTURES!" % whose, "%d  -  %d" % [int(sc[0]), int(sc[1])], Accessibility.side_color(side))
 		"bridge_strain": hud.show_toast("THE BRIDGE IS CRACKING")
 		"bridge_fall": hud.show_toast("THE BRIDGE IS DOWN!")
 		"bridge_up": hud.show_toast("THE BRIDGE IS BACK")
@@ -2211,7 +2215,7 @@ func _ctf_summary() -> Array:
 			best_v = v
 			best = c.id
 		lines.append(["%s   %d cap  %d ret  %d stop" % [String(c.def.get("name", "?")), int(row["caps"]), int(row["rets"]),
-			int(row["stops"])], Hud.SIDE_COLORS[c.team]])
+			int(row["stops"])], Accessibility.side_color(c.team)])
 	if best >= 0:
 		var c := sim.creatures[best]
 		lines.push_front(["MVP  %s  (%s)" % [String(c.def.get("name", "?")).to_upper(), ["RED", "BLUE"][c.team]], UiTheme.C_ACCENT])
@@ -2559,9 +2563,11 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 				label = ""
 		if sim.creatures[i].is_dummy:
 			label = ""
-		var mark_col: Color = Hud.BRAWL_COLORS[i % Hud.BRAWL_COLORS.size()] if brawl != null and brawl.sim == s \
-			else Hud.SIDE_COLORS[clampi(sim.creatures[i].team, 0, 1)]
-		fx.side_marks.append({"color": mark_col, "label": label, "rel": _relation(i)})
+		var mark_col: Color = Accessibility.brawl_color(i) if brawl != null and brawl.sim == s \
+			else Accessibility.side_color(clampi(sim.creatures[i].team, 0, 1))
+		fx.side_marks.append({"color": mark_col, "label": label, "rel": _relation(i),
+			"brawl": i if brawl != null and brawl.sim == s else -1, "team": sim.creatures[i].team})
+
 	rings.rel = fx.side_marks.map(func(m): return m["rel"])
 	for i in sides.size():
 		match sides[i]:
@@ -2784,6 +2790,7 @@ func _physics_process(_delta: float) -> void:
 		views[i].victory = deciding and _won_standing(sim.creatures[i])
 		views[i].out_of_sight = _is_hidden(i)
 		views[i].see_through = _hides_someone(views[i].c)
+		views[i].outline_color = fx.mark_color(i)
 		views[i].refresh()
 	if debug.visible:
 		debug.queue_redraw()
@@ -3360,11 +3367,11 @@ func _update_pointers(view: Vector2) -> void:
 	if playing and ((team_battle != null and team_battle.sim == sim) or (brawl != null and brawl.sim == sim)):
 		var targets := _wanted_pointers()
 		if team_battle != null and team_battle.caravan:
-			targets.append([team_battle.caravan_pos(), Hud.SIDE_COLORS[team_battle.cv_attacker()], "CARAVAN"])
+			targets.append([team_battle.caravan_pos(), Accessibility.side_color(team_battle.cv_attacker()), "CARAVAN"])
 		if team_battle != null and team_battle.ctf:
 			for side in 2:
 				var word: String = ["FLAG", "TAKEN", "DROPPED", "LOOSE"][clampi(int(team_battle.flag_state[side]), 0, 3)]
-				targets.append([team_battle.flag_pos[side], Hud.SIDE_COLORS[side], word])
+				targets.append([team_battle.flag_pos[side], Accessibility.side_color(side), word])
 		var z := camera.zoom.x
 		var inner := Rect2(Vector2(24, 52), view - Vector2(48, 76))
 		for t in targets:

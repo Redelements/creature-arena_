@@ -28,15 +28,15 @@ var duel: DuelSim = null  ## set during a Duel: draws the team strip under each 
 ## Set during a team battle (2v2, 3v3): a column of small panels per team instead of
 ## one big panel per side; `focus` (the local player's slot) keeps the big one.
 var team: TeamSim = null
-## Set during a Brawl: a card per fighter, two down each edge, in BRAWL_COLORS.
+## Set during a Brawl: a card per fighter, two down each edge, each in its own colour
+## (`Accessibility.brawl_color`).
 var brawl: BrawlSim = null
 var focus := 0
 var tag_labels := ["", ""]
 var tags := ["P1", "CPU"]
 var key_labels := [["", "", ""], ["", "", ""]]
-const SIDE_COLORS: Array[Color] = [Color("ff5a5a"), Color("5aa0ff")]
-## A Brawl's four fighters, each their own colour.
-const BRAWL_COLORS: Array[Color] = [Color("ff5a5a"), Color("5aa0ff"), Color("6fd66f"), Color("ffd166")]
+# The sides' colours (red left, blue right) and a Brawl's four are data: read them through
+# `Accessibility.side_color` / `brawl_color` (Settings > Accessibility > Team colours).
 var surge_labels := ["", ""]
 var help_text := ""
 var show_help := true
@@ -635,7 +635,7 @@ func _card(slot: int, x: float, y: float, right: bool) -> void:
 	var w := CARD_W
 	var cx := x if not right else x + 160.0 - w
 	draw_rect(Rect2(cx, y, w, 12), C_PANEL)
-	var stripe := BRAWL_COLORS[slot % BRAWL_COLORS.size()] if brawl != null else SIDE_COLORS[clampi(c.team, 0, 1)]
+	var stripe := Accessibility.brawl_color(slot) if brawl != null else Accessibility.side_color(clampi(c.team, 0, 1))
 	draw_rect(Rect2(cx if not right else cx + w - 2.0, y, 2, 12), stripe)
 	var name := String(c.def.get("name", "?")).to_upper()
 	_text(Vector2(cx + 5, y + 6), name, 5, C_DIM if down else C_TEXT, HORIZONTAL_ALIGNMENT_LEFT, w - 30.0)
@@ -688,7 +688,7 @@ func _panel(side: int, x: float, right: bool, color_side := -1) -> void:
 	var c := sim.creatures[side]
 	draw_rect(Rect2(x, 3, 160, 34), C_PANEL)
 	# red left, blue right, like the markers
-	var team_col: Color = SIDE_COLORS[side if color_side < 0 else color_side]
+	var team_col: Color = Accessibility.side_color(side if color_side < 0 else color_side)
 	draw_rect(Rect2(x, 3, 160, 2), team_col)
 	if _pw() > 0.0:
 		_draw_portrait(c, x + 162.0 if right else x - PW, team_col, right)
@@ -861,7 +861,7 @@ func _crown_points() -> void:
 	for k in shown.size():
 		var i := int(shown[k])
 		var x := x0 + w * k
-		var col := BRAWL_COLORS[i % BRAWL_COLORS.size()]
+		var col := Accessibility.brawl_color(i)
 		draw_rect(Rect2(x, 29, w - 2, 13), C_PANEL)
 		draw_rect(Rect2(x, 29, w - 2, 1), col)
 		if brawl.crown == i:
@@ -897,8 +897,8 @@ func _deathmatch_score() -> void:
 	for side in 2:
 		var x := 218.0 + _cx + (-34.0 if side == 0 else 46.0)
 		draw_rect(Rect2(x, 3, 32, 24), C_PANEL)
-		draw_rect(Rect2(x, 3, 32, 2), SIDE_COLORS[side])
-		_text(Vector2(x, 21), team.score_text(side), 13, SIDE_COLORS[side], HORIZONTAL_ALIGNMENT_CENTER, 32)
+		draw_rect(Rect2(x, 3, 32, 2), Accessibility.side_color(side))
+		_text(Vector2(x, 21), team.score_text(side), 13, Accessibility.side_color(side), HORIZONTAL_ALIGNMENT_CENTER, 32)
 	_text(Vector2(184 + _cx, 34), team.goal_text(), 5, C_ACCENT if team.overtime else C_DIM, HORIZONTAL_ALIGNMENT_CENTER, 112)
 	if team.caravan:
 		_caravan_bar()
@@ -916,8 +916,8 @@ func _caravan_bar() -> void:
 	var att := team.cv_attacker()
 	draw_rect(Rect2(x0 - 2, y - 3, w + 4, 7), C_PANEL)
 	draw_rect(Rect2(x0, y, w, 1), Color(0.55, 0.5, 0.42))
-	draw_rect(Rect2(x0 - 1, y - 2, 2, 5), SIDE_COLORS[0])
-	draw_rect(Rect2(x0 + w - 1, y - 2, 2, 5), SIDE_COLORS[1])
+	draw_rect(Rect2(x0 - 1, y - 2, 2, 5), Accessibility.side_color(0))
+	draw_rect(Rect2(x0 + w - 1, y - 2, 2, 5), Accessibility.side_color(1))
 	var cps: Array = team.rules.get("checkpoints", [])
 	for i in cps.size():
 		var f := float(cps[i]) if att == 0 else 1.0 - float(cps[i])
@@ -927,7 +927,7 @@ func _caravan_bar() -> void:
 		draw_rect(Rect2(x0 + w * f0, y - 3, 1, 7), Color("e8c060"))
 	var f := team.cv_p / L if att == 0 else 1.0 - team.cv_p / L
 	var mx := x0 + w * f
-	draw_colored_polygon(PackedVector2Array([Vector2(mx - 3, y - 3), Vector2(mx + 3, y - 3), Vector2(mx, y + 1)]), SIDE_COLORS[att])
+	draw_colored_polygon(PackedVector2Array([Vector2(mx - 3, y - 3), Vector2(mx + 3, y - 3), Vector2(mx, y + 1)]), Accessibility.side_color(att))
 
 
 ## Objectives off the screen on a big map (set by main each frame): an arrow at the screen's
