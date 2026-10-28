@@ -2828,6 +2828,7 @@ func _update_flow() -> void:
 				_menu_ko_t += 1
 			if _menu_ko_t > 150 or flow_t > ROUND_TICKS:
 				_menu_ko_t = 0
+				flow_t = 0  # (or, once two minutes are up, the match would restart every tick)
 				seed_base += 1
 				_menu_background(_attract)
 			show_ctl._attract_step()
