@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="MoveFx" format=3]
+
+[ext_resource type="SpriteFrames" path="res://assets/vfx/fire_pop_frames.tres" id="1_ydgj6"]
+[ext_resource type="Script" path="res://src/view/move_fx.gd" id="2_fpkag"]
+
+[resource]
+script = ExtResource("2_fpkag")
+frames = ExtResource("1_ydgj6")
+ticks_per_frame = 2
+on = "hit"
+offset = Vector2(0, -12)
+flip_with_facing = false
+scale = 0.6

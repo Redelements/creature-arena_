@@ -46,6 +46,9 @@ extends Node2D
 ##   chop         true         "CHOP CHOP!" when the move starts (Chef Cerebro's voice line)
 ##   telegraph_line true       a dotted line on the floor ahead, as far as the throw reaches
 ##   shout        {"text", "sound"}  a voice line over the head when the move starts
+##   projectile   also "fire": a looping comet fireball (assets/vfx/fireball.png) turned along its flight
+##   prop         "pan"        a cast-iron pan held where the shots leave, a flame licking out of it
+##                             while they fly (Chef Cerebro's Surge)
 ##   charge       also "venom": green venom drips and bubbles while the heavy is held
 ##   projectile   also "venom": a glob of green venom with a dripping trail
 ##   gaze         true         a glow in her eyes, and a faint beam to each foe it slows
@@ -139,6 +142,20 @@ const C_TONGUE := Color("c45c6e")
 const C_TONGUE_L := Color("e2828f")
 ## How high Chef Cerebro's thrown kitchen flies: from over his floating brain.
 const THROW_Z := 18.0
+## Chef Cerebro's Surge fire (kiddolink FI cuts, tools/cut_vfx.py, ppu 2): the fireball each shot
+## is drawn as (`_draw_fireball`), the flame licking out of his pan, and the pan itself (Szadi
+## FL Houses, tools/cut_pan.py) he holds while the move plays (`_draw_held_pan`, fx.prop "pan").
+const FIREBALL := preload("res://assets/vfx/fireball.png")
+const PAN_FLAME := preload("res://assets/vfx/flame_column.png")
+const PAN := preload("res://assets/sprites/pan.png")
+const VFX_FRAME := 96.0  ## a kiddolink frame, px
+const FIRE_HEAD := Vector2(70, 47)  ## the fireball's head in its frame: on the shot's spot
+const FIRE_FRAMES := 12
+const FIRE_SCALE := 0.75  ## on top of the ppu: 27 units nose to tail
+const FLAME_FRAMES := 12
+const FLAME_BASE := Vector2(48, 79)  ## the flame's foot in its frame: in the pan
+const FLAME_SCALE := 0.4
+const PAN_DISH := Vector2(15, 5)  ## the dish's centre in pan.png (the handle is to its left)
 const C_TENDER := Color("ff8fa3")
 const C_MALLET: Array[Color] = [Color("8c4c48"), Color("b07a70")]
 const C_BRAIN: Array[Color] = [Color("d6606a"), Color("f88686"), Color("ffb2aa")]
@@ -208,6 +225,7 @@ const PROJ_STYLE := {
 	"frog": [Color("f6f4ec"), -1.0, "none"], "head": [Color("b5665f"), -1.0, "none"],
 	"tongue": [Color("c45c6e"), -1.0, "none"], "wave": [Color("a8d6f0"), -1.0, "none"],
 	"pinecone": [Color("c48c54"), -1.0, "none"], "crane_bundle": [Color("f6f4ec"), -1.0, "none"],
+	"fire": [Color("ff9a3a"), -1.0, "none"],
 }
 const TRAIL_STEPS := 3
 const TRAIL_ALPHA: Array[float] = [0.62, 0.42, 0.26]
@@ -948,7 +966,7 @@ func _move_started(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 		cue.emit("poof")
 	var shout: Dictionary = fx.get("shout", {})
 	if not shout.is_empty():
-		_text(c.pos + Vector2(0, -_top(c) - 12), String(shout.get("text", "")), Color("ffd166"), 10, 60.0)
+		_text(c.pos + Vector2(0, -_top(c) - 12), String(shout.get("text", "")), Color("ffd166"), 10, 60.0, 180.0)
 		if shout.has("sound"):
 			cue.emit(String(shout["sound"]))
 	if bool(fx.get("chop", false)):
@@ -3077,6 +3095,8 @@ func _draw_projectiles(ci: CanvasItem) -> void:
 			match _proj_kind(pr):
 				"knife":
 					_draw_thrown_knife(ci, pr)
+				"fire":
+					_draw_fireball(ci, pr)
 				"mallet", "cleaver":
 					_draw_spinner(ci, pr, _proj_kind(pr))
 				"venom":
@@ -3795,6 +3815,54 @@ func _draw_thrown_knife(ci: CanvasItem, pr: Dictionary) -> void:
 		ci.draw_rect(Rect2((at + d * 2.0).round(), Vector2.ONE), Color.WHITE)
 
 
+## Chef Cerebro's Surge shots: a looping comet fireball (kiddolink FI r2) turned along its
+## flight, mirrored rather than upside down when it flies left, with a small shadow below.
+func _draw_fireball(ci: CanvasItem, pr: Dictionary) -> void:
+	var pp: Vector2 = Vector2(pr["pos"]).round()
+	var vel: Vector2 = pr["vel"]
+	ci.draw_set_transform(pp, 0.0, Vector2(1.0, 0.4))
+	ci.draw_circle(Vector2.ZERO, 3.0, Color(0, 0, 0, 0.25))
+	var at := ArtScale.snap(pp + Vector2(0, -THROW_Z), 2)
+	var s := ArtScale.scale_of(2).x * FIRE_SCALE
+	# each shot starts its own loop (life counts down; 240 keeps it positive)
+	var frame := posmod((240 - int(pr.get("life", 0))) / 2, FIRE_FRAMES)
+	ci.draw_set_transform(at, vel.angle(), Vector2(s, -s if vel.x < 0.0 else s))
+	ci.draw_texture_rect_region(FIREBALL, Rect2(-FIRE_HEAD, Vector2(VFX_FRAME, VFX_FRAME)),
+		Rect2(frame * VFX_FRAME, 0, VFX_FRAME, VFX_FRAME))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## Chef Cerebro's cast-iron pan while a move with fx.prop "pan" plays (his Surge): held where
+## its shots leave (the projectile's `offset` ahead, THROW_Z up), turned along his aim with the
+## handle back toward him, a flame licking out of it while the shots fly, fading in and out.
+func _draw_held_pan(ci: CanvasItem, c: CreatureSim, mv: Dictionary) -> void:
+	var p: Dictionary = mv.get("projectile", {})
+	var vol: Dictionary = p.get("volley", {})
+	var every := maxi(1, int(vol.get("every", 1)))
+	var start := int(mv.get("startup", 0))
+	var firing := start + int(vol.get("count", 1)) * every
+	var length := int(mv.get("length", firing + 20))
+	var t := c.state_t
+	var a := clampf(minf(float(t + 1) / 3.0, float(length - t) / 8.0), 0.0, 1.0)
+	if a <= 0.0:
+		return
+	var d := c.facing.normalized() if c.facing.length() > 0.01 else Vector2.RIGHT
+	var dish := ArtScale.snap(c.pos + d * float(p.get("offset", 16)) + Vector2(0, -THROW_Z), 2)
+	if t >= start and t < firing and (t - start) % every == 0:
+		dish -= d.round()  # a little kick back on each shot
+	var flip := d.x < 0.0
+	ci.draw_set_transform(dish, d.angle(), Vector2(1.0, -1.0 if flip else 1.0))
+	ci.draw_texture(PAN, -PAN_DISH, Color(1, 1, 1, a))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	if t >= start - 3 and t < firing + 6:
+		var fs := ArtScale.scale_of(2).x * FLAME_SCALE
+		var frame := posmod(t / 2, FLAME_FRAMES)
+		ci.draw_set_transform(dish + Vector2(0, 1), 0.0, Vector2(-fs if flip else fs, fs))
+		ci.draw_texture_rect_region(PAN_FLAME, Rect2(-FLAME_BASE, Vector2(VFX_FRAME, VFX_FRAME)),
+			Rect2(frame * VFX_FRAME, 0, VFX_FRAME, VFX_FRAME), Color(1, 1, 1, a))
+		ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
 ## The mallet and the cleaver in flight, spinning end over end in a violet glow (he
 ## throws with his mind).
 func _draw_spinner(ci: CanvasItem, pr: Dictionary, kind: String) -> void:
@@ -3968,6 +4036,9 @@ func _draw_creature_extras(ci: CanvasItem, floor_layer: bool) -> void:
 
 		if attacking and bool(fx.get("cast", false)):
 			_draw_cast(ci, c, mv)
+
+		if attacking and String(fx.get("prop", "")) == "pan":
+			_draw_held_pan(ci, c, mv)
 
 		if attacking and bool(fx.get("speedlines", false)):
 			var segs: Array = mv.get("_segs", [])

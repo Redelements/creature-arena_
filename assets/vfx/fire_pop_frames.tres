@@ -1,0 +1,74 @@
+[gd_resource type="SpriteFrames" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/vfx/fire_pop.png" id="1_qqrxx"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_1keku"]
+atlas = ExtResource("1_qqrxx")
+region = Rect2(0, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_mvnao"]
+atlas = ExtResource("1_qqrxx")
+region = Rect2(96, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ht1vt"]
+atlas = ExtResource("1_qqrxx")
+region = Rect2(192, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ysdp3"]
+atlas = ExtResource("1_qqrxx")
+region = Rect2(288, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_lrkcs"]
+atlas = ExtResource("1_qqrxx")
+region = Rect2(384, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_dyghw"]
+atlas = ExtResource("1_qqrxx")
+region = Rect2(480, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_j74r4"]
+atlas = ExtResource("1_qqrxx")
+region = Rect2(576, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_cfyiy"]
+atlas = ExtResource("1_qqrxx")
+region = Rect2(672, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_tt0ya"]
+atlas = ExtResource("1_qqrxx")
+region = Rect2(768, 0, 96, 96)
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_1keku")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_mvnao")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ht1vt")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ysdp3")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_lrkcs")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_dyghw")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_j74r4")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_cfyiy")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_tt0ya")
+}],
+"loop": 0,
+"name": &"default",
+"speed": 30.0
+}]

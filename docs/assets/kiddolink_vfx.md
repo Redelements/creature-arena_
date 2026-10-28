@@ -168,7 +168,7 @@ Minor rows left out of the tables above (all subtle, same hooks as their neighbo
 
 ## 5. Used today
 
-28 strips (art-vfx branch), one per effect; a move's `fx.move_fx` entry sets its own hook, scale and offset over the
+31 strips (28 from art-vfx, the three fire cuts for Chef Cerebro's Surge), one per effect; a move's `fx.move_fx` entry sets its own hook, scale and offset over the
 defaults below (`{"path": ..., "on": ..., "scale": ...}`, docs/MECHANICS.md), so one strip serves a family. Tints are
 applied before the palette snap where the pack has no art (leaf, poison, ice) and to pull the pink-brown dust toward earth.
 Section 6 is the suggestion this follows; where it stacked two effects on one move, the wiring keeps the louder one.
@@ -203,10 +203,13 @@ Section 6 is the suggestion this follows; where it stacked two effects on one mo
 | spark_pinwheel | vfx_spark row 1 frames 0-6 | `projectile_end`, 2 tpf | cerebro skill_1, crease heavy, sno tag_in |
 | sigil_yellow | vfx_spark row 2 frames 0-6 | `start`, 3 tpf | cerebro tag_in, cerebro surge, hissy skill_2 |
 | venom_crackle | vfx_electricity_purple row 0 frames 1-9, tinted toward rgb(120,214,70) | `projectile_end`, 2 tpf | hissy skill_1 |
+| fireball | vfx_fire row 2 frames 0-11 | drawn by FxView as the `"fire"` projectile (looped, turned along the flight, 2 tpf, scale 0.75), not as a MoveFx | cerebro surge (each of the 8 shots) |
+| fire_pop | vfx_fire row 0 frames 0-8 | `hit`, 2 tpf, scale 0.6 | cerebro surge (`hit` 0.6 and `projectile_end` 0.5) |
+| flame_column | vfx_fire row 5 frames 0-11 | drawn by FxView in his held pan (`fx.prop` "pan", looped, scale 0.4) | cerebro surge |
 
 `impact_burst` is loud (90x82 px, spiky yellow rays, 6 frames x 3 ticks): heavies only. `aura_buff` (EN r0) was cut and
 dropped: the only self buff, Pete's Tiptoe, is a stealth move that a glowing aura would give away. `fire_burst` (FI r3) was
-cut and dropped: no fighter breathes fire; the Pinecone Bomb plays `boom_star` at 0.7.
+cut and dropped (Chef Cerebro's Surge fire uses the FI r2, r0 and r5 cuts instead); the Pinecone Bomb plays `boom_star` at 0.7.
 
 ## 6. Suggested wiring
 
