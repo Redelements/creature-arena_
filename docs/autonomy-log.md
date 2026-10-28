@@ -203,3 +203,5 @@ touches the same file; whichever merges second resolves a one-line conflict.
   window 80-160 px). Seven options listed as questions for Kevin, none implemented.
 - Checks (both): suite green (1295 / 1307), sweep 216/0, sim-check unchanged. Non-behavioral: merging
   in turn (265 then 266) with a retry on "base branch was modified".
+- Title fix checks: suite 1308/0, sweep 216/0, sim-check unchanged. **PR #267** opened, left for Kevin
+  (https://github.com/Redelements/creature-arena_/pull/267).
