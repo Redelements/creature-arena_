@@ -199,6 +199,8 @@ var _shatter_seen := {}
 ## creature id -> true while its root is a leafy one (Barkley's: his Pinecone, his Surge, a
 ## sprout trodden on), set by the `rooted` event; anything else (Cave-In) heaps rubble.
 var _leaf_root := {}
+## creature id -> the FxView tick its leafy root took hold (the roots grow in from it).
+var _root_t := {}
 var _n_dmg := 0
 var _dark := 0.0
 var _rain := 0.0
@@ -265,6 +267,7 @@ func clear() -> void:
 	_dmg_run.clear()
 	_shatter_seen.clear()
 	_leaf_root.clear()
+	_root_t.clear()
 	_pstyles.clear()
 	_proj_prev.clear()
 	_wall_marks.clear()
@@ -587,7 +590,9 @@ func spawn(e: Dictionary) -> void:
 				var by := _creature(int(e.get("by", -1)))
 				var leafy := e.has("plant") or (by != null and String(by.def.get("affinity", "")) == "wild")
 				_leaf_root[c.id] = leafy
-				_text(c.pos + Vector2(0, 14), "ROOTED", C_LEAF[2] if leafy else C_DIRT[2], 7, 44.0)
+				_root_t[c.id] = _tick
+				# under the feet, drifting only a little, so it never crosses the roots
+				_text(c.pos + Vector2(0, 19), "ROOTED", C_LEAF[2] if leafy else C_DIRT[2], 7, 44.0, 80.0, 0.15)
 				if leafy:
 					move_fx.play(_plant_fx("root"), c.pos, c)
 		"seed", "plant_grow", "apple", "plant_hit", "plant_root", "apple_eaten", "apple_spoiled", "plant_gone":
@@ -1535,6 +1540,12 @@ func _plant_event(e: Dictionary, p: Vector2) -> void:
 		"plant_root":
 			if c != null:
 				_leaves(c.pos + Vector2(0, -14), 6, 1.0)
+				# the sprout snaps shut: short roots whip up round the feet
+				for i in 5:
+					var a := TAU * i / 5.0 + randf_range(-0.3, 0.3)
+					_add({"kind": "root", "pos": c.pos + Vector2(cos(a) * (c.radius + 3.0), sin(a) * (c.radius + 3.0) * 0.5),
+						"life": 16, "h": randf_range(5.0, 8.0), "w": randf_range(1.4, 2.0), "lean": -cos(a) * 0.4,
+						"delay": randf_range(0.0, 2.0), "front": sin(a) > 0.0})
 		"apple_eaten":
 			if c != null:
 				move_fx.play(_plant_fx("eaten"), c.pos, c)
@@ -1550,7 +1561,15 @@ func _plant_event(e: Dictionary, p: Vector2) -> void:
 					_px(c.pos + Vector2(randf_range(-6, 6), -randf_range(2, 10)), Vector2(randf_range(-0.4, 0.4), -0.5),
 						Color("6a3a5a"), 18)
 		"plant_gone":
-			if String(e.get("how", "")) == "killed":
+			var how := String(e.get("how", ""))
+			if how == "sprung":
+				_leaves(p + Vector2(0, -8), 5, 0.8)  # the sprout snaps down (PlantView)
+			elif how == "eaten" or how == "spoiled":
+				# the spent tree sinks back into the floor (PlantView): its crown sheds leaves
+				_leaves(p + Vector2(0, -40), 14, 0.9)
+				for i in 5:
+					_dust(p + Vector2(randf_range(-14, 14), randf_range(-3, 3)), Vector2(randf_range(-0.4, 0.4), -0.3))
+			if how == "killed":
 				move_fx.play(_plant_fx("killed_dust"), p)
 				move_fx.play(_plant_fx("killed"), p)
 				_leaves(p + Vector2(0, -14), 10, 1.4)
@@ -2495,8 +2514,10 @@ func _drop(pos: Vector2, z: float, vel: Vector2, vz: float, pool: bool, col := C
 
 
 ## `width`: the box the text is centred in (longer text is clipped).
-func _text(pos: Vector2, text: String, color: Color, size := 8, life := 40.0, width := 80.0) -> void:
-	_add({"kind": "text", "pos": pos, "text": text, "color": color, "size": size, "life": life, "width": width})
+## A word that rises `rise` units a tick as it fades.
+func _text(pos: Vector2, text: String, color: Color, size := 8, life := 40.0, width := 80.0, rise := 0.5) -> void:
+	_add({"kind": "text", "pos": pos, "text": text, "color": color, "size": size, "life": life, "width": width,
+		"rise": rise})
 
 
 # --- damage numbers, block sparks and the guard break ------------------------------------
@@ -2850,7 +2871,7 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 			var col: Color = p["color"]
 			col.a = 1.0 - maxf(0.0, k - 0.6) / 0.4
 			var w := float(p.get("width", 80.0))
-			var at := pos + Vector2(-w * 0.5, -t * 0.5)
+			var at := pos + Vector2(-w * 0.5, -roundf(t * float(p.get("rise", 0.5)) * 2.0) * 0.5)
 			var fs := UiTheme.px(int(p["size"]))
 			ci.draw_string_outline(_font, at, String(p["text"]), HORIZONTAL_ALIGNMENT_CENTER, w, fs, UiTheme.outline(fs) + 1, Color(0.1, 0.08, 0.1, col.a))
 			ci.draw_string(_font, at, String(p["text"]), HORIZONTAL_ALIGNMENT_CENTER, w, fs, col)
@@ -4098,6 +4119,8 @@ func _draw_creature_extras(ci: CanvasItem, floor_layer: bool) -> void:
 				_draw_line_telegraph(ci, c)
 			if c.is_armored():
 				_draw_rooted(ci, c)
+			if c.root > 0 and bool(_leaf_root.get(c.id, false)) and c.swallow_t <= 0:
+				_draw_leaf_roots(ci, c, false)
 			if not (c.state in [CreatureSim.State.KO, CreatureSim.State.FALLING]) and not c.is_dummy:
 				_draw_aim_mark(ci, c, attacking)
 			continue
@@ -4226,6 +4249,49 @@ func _draw_line_telegraph(ci: CanvasItem, c: CreatureSim) -> void:
 	ci.draw_arc(end, 5.0, 0.0, TAU, 16, Color(C_WARN, 0.3 + 0.4 * pulse * k), 1.0)
 
 
+## Rooted by Barkley: roots curled over the feet, drawn in the 32 px grid (half a unit a
+## pixel), a leaf on every other one that flickers. They push up over ROOT_GROW ticks from
+## the `rooted` event and sink back over the root's last ROOT_SINK. `front`: the near half
+## of the ring (over the fighter), else the far half (the floor pass, behind the legs).
+const ROOT_MARKS := 6
+const ROOT_GROW := 6.0
+const ROOT_SINK := 8.0
+## One root in grid pixels, curling right (mirrored for the ones on the right of the
+## feet, so each curls in over them): [x, y, w, h, colour], 0 = wood, 1 = light wood.
+const ROOT_SHAPE := [[0, -7, 2, 7, 0], [1, -9, 3, 2, 0], [3, -7, 1, 2, 0], [0, -7, 1, 5, 1]]
+const ROOT_TALL := 9.0
+
+
+func _draw_leaf_roots(ci: CanvasItem, c: CreatureSim, front: bool) -> void:
+	var grow := clampf((_tick - int(_root_t.get(c.id, _tick - 99))) / ROOT_GROW, 0.0, 1.0)
+	var k := minf(grow, clampf(c.root / ROOT_SINK, 0.0, 1.0))
+	var sink := roundf(ROOT_TALL * (1.0 - k))  # grid pixels still under the floor
+	if sink >= ROOT_TALL:
+		return
+	for i in ROOT_MARKS:
+		var a := TAU * i / ROOT_MARKS + 0.4
+		if (sin(a) > 0.0) != front:
+			continue
+		var base := ArtScale.snap(c.pos + Vector2(cos(a) * (c.radius + 1.0), sin(a) * 3.0), 2)
+		var flip := cos(a) > 0.0  # right of the feet: curl left, in over them
+		ci.draw_set_transform(base, 0.0, Vector2(-0.5 if flip else 0.5, 0.5))
+		for pass_i in 2:
+			for r in ROOT_SHAPE:
+				var y0 := float(r[1]) + sink
+				var y1 := minf(y0 + float(r[3]), 0.0)
+				if y1 <= y0:
+					continue
+				var rect := Rect2(float(r[0]), y0, float(r[2]), y1 - y0)
+				if pass_i == 0:
+					ci.draw_rect(rect.grow(1.0), C_OUTLINE)
+				else:
+					ci.draw_rect(rect, C_WOOD[2] if int(r[4]) == 1 else C_WOOD[1])
+		if i % 2 == 0 and sink <= 0.0:
+			ci.draw_rect(Rect2(-2, -11, 2, 2).grow(1.0), C_OUTLINE)
+			ci.draw_rect(Rect2(-2, -11, 2, 2), C_LEAF[1 + (i + _tick / 12) % 2])
+		ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
 ## Bedrock: a glowing ring where the feet are planted, cracks pulsing outward.
 func _draw_rooted(ci: CanvasItem, c: CreatureSim) -> void:
 	var pulse := 0.5 + 0.5 * sin(_tick * 0.4)
@@ -4280,14 +4346,7 @@ func _draw_status(ci: CanvasItem, c: CreatureSim) -> void:
 			ci.draw_rect(Rect2(at - Vector2(1, 0), Vector2(3, 1)), C_LAMP)
 			ci.draw_rect(Rect2(at - Vector2(0, 1), Vector2(1, 3)), C_LAMP)
 	if c.root > 0 and bool(_leaf_root.get(c.id, false)):
-		# rooted by Barkley: roots coiled over the feet, a leaf on each that flickers
-		for i in 6:
-			var a := TAU * i / 6.0 + 0.4
-			var at := (c.pos + Vector2(cos(a) * (c.radius + 1.0), sin(a) * 3.0)).round()
-			ci.draw_rect(Rect2(at - Vector2(1, 3), Vector2(3, 4)), C_OUTLINE)
-			ci.draw_rect(Rect2(at - Vector2(0, 2), Vector2(1, 2)), C_WOOD[1])
-			var lx := 1.0 if i % 2 == 0 else -2.0
-			ci.draw_rect(Rect2(at + Vector2(lx, -5), Vector2(2, 2)), C_LEAF[1 + (i + _tick / 12) % 2])
+		_draw_leaf_roots(ci, c, true)  # the near ones over the feet (the far ones: the floor pass)
 	elif c.root > 0:
 		# rooted: rubble heaped round the feet
 		for i in 6:
