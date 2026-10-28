@@ -1,0 +1,304 @@
+name: nightly
+
+# Once a night, the slow measurements that are too long for every PR, kept as artifacts:
+#   balance      the class-balance matrix with Normal CPUs (level 1; balance never uses
+#                Rage), the pairs test_balance.gd pins, and every mode's pacing
+#                (tests/bench_modes.gd). It fails only when a bench crashes, never on the
+#                numbers: reading them is a person's job.
+#   determinism  --sim-check over many fixed seeds on Linux and on Windows (the per-PR check
+#                in playable-build.yml plays one), digests uploaded per OS;
+#   compare      fails if any seed's digest differs between the two;
+#   summary      the artifact names and the digest table on the run's page.
+# Only a schedule and a manual run: no secrets, read-only token.
+on:
+  schedule:
+    - cron: "0 6 * * *"  # 06:00 UTC, a quiet hour
+  workflow_dispatch:
+  push:  # TEMPORARY: proves the workflow on this branch; removed before the PR
+    branches: [nightly-ci]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+env:
+  GODOT_VERSION: 4.7.2
+  # The PR check's seed first, then fixed others. SimCheck has no length flag (a seed is
+  # 6000 ticks of mashing, a Duel and a Quarry brawl), so the soak is more seeds.
+  SIM_SEEDS: "20261010 1 7 42 1337 65535 424242 777777 2026 31337 8675309 123456789"
+
+jobs:
+  balance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      # bench_cpu.gd --matrix plays 11 x 10 pairs x 2 sides x MATRIX_SEEDS games.
+      MATRIX_SEEDS: 3
+      PAIRS_SEEDS: 6
+      # The pairs tests/test_balance.gd pins (assassin > mage, mage > fighter/tank).
+      PAIRS: pete:cairn,pete:crease,cerebro:hissy,cerebro:culvert,cerebro:craglash
+      MODES_SEEDS: 2
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Download Godot (checked against the release's SHA512-SUMS)
+        run: |
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          zip="Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          curl -fsSL -o "$zip" "$base/$zip"
+          curl -fsSL -o SHA512-SUMS.txt "$base/SHA512-SUMS.txt"
+          grep " ${zip}\$" SHA512-SUMS.txt | sha512sum -c -
+          unzip -q "$zip"
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot
+          chmod +x godot
+
+      # The same import cache as tests.yml.
+      - name: Cache the project import
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .godot/imported
+          key: import-linux-${{ env.GODOT_VERSION }}-${{ hashFiles('**/*.import', 'assets/**', 'project.godot') }}
+          restore-keys: |
+            import-linux-${{ env.GODOT_VERSION }}-
+
+      - name: Import project
+        run: ./godot --headless --path . --import
+
+      # Each bench writes its console output to a file; a non-zero exit or a script error
+      # fails the step, the numbers never do.
+      - name: Class-balance matrix (Normal CPUs)
+        run: |
+          mkdir -p out
+          set -o pipefail
+          ./godot --headless --path . --script res://tests/bench_cpu.gd -- --matrix --a=1 --seeds=$MATRIX_SEEDS 2>&1 | tee out/balance-matrix.txt
+          ! grep -E "SCRIPT ERROR|Parse Error" out/balance-matrix.txt
+
+      - name: Pinned class pairs (Normal CPUs)
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p out
+          set -o pipefail
+          ./godot --headless --path . --script res://tests/bench_cpu.gd -- --pairs=$PAIRS --a=1 --seeds=$PAIRS_SEEDS 2>&1 | tee out/balance-pairs.txt
+          ! grep -E "SCRIPT ERROR|Parse Error" out/balance-pairs.txt
+
+      - name: Every mode's pacing (Normal CPUs)
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p out
+          set -o pipefail
+          ./godot --headless --path . --script res://tests/bench_modes.gd -- --level=1 --seeds=$MODES_SEEDS 2>&1 | tee out/mode-pacing.txt
+          ! grep -E "SCRIPT ERROR|Parse Error" out/mode-pacing.txt
+
+      - name: Upload the balance numbers
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: balance-matrix
+          path: |
+            out/balance-matrix.txt
+            out/balance-pairs.txt
+          retention-days: 30
+
+      - name: Upload the mode pacing
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: mode-pacing
+          path: out/mode-pacing.txt
+          retention-days: 30
+
+  determinism:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Download Godot for Linux (checked against the release's SHA512-SUMS)
+        if: runner.os == 'Linux'
+        run: |
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          zip="Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          curl -fsSL -o "$zip" "$base/$zip"
+          curl -fsSL -o SHA512-SUMS.txt "$base/SHA512-SUMS.txt"
+          grep " ${zip}\$" SHA512-SUMS.txt | sha512sum -c -
+          unzip -q "$zip"
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot
+          chmod +x godot
+
+      # The stock editor binary (the console build, so its output reaches the log), checked
+      # the same way.
+      - name: Download Godot for Windows (checked against the release's SHA512-SUMS)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $base = "https://github.com/godotengine/godot/releases/download/$env:GODOT_VERSION-stable"
+          $zip = "Godot_v$env:GODOT_VERSION-stable_win64.exe.zip"
+          curl.exe -fsSL -o $zip "$base/$zip"
+          curl.exe -fsSL -o SHA512-SUMS.txt "$base/SHA512-SUMS.txt"
+          $line = Get-Content SHA512-SUMS.txt | Where-Object { $_ -match " $([regex]::Escape($zip))$" }
+          $want = ($line -split ' ')[0].ToLower()
+          $have = (Get-FileHash $zip -Algorithm SHA512).Hash.ToLower()
+          Write-Host "want $want"
+          Write-Host "have $have"
+          if (-not $want -or $want -ne $have) { Write-Error "SHA512 mismatch for $zip"; exit 1 }
+          # The console exe starts its sibling, so both stay together under their own names.
+          Expand-Archive $zip -DestinationPath godot-win
+          "GODOT_EXE=$PWD\godot-win\Godot_v$env:GODOT_VERSION-stable_win64_console.exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Cache the project import
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .godot/imported
+          key: import-${{ runner.os }}-${{ env.GODOT_VERSION }}-${{ hashFiles('**/*.import', 'assets/**', 'project.godot') }}
+          restore-keys: |
+            import-${{ runner.os }}-${{ env.GODOT_VERSION }}-
+
+      - name: Import project (Linux)
+        if: runner.os == 'Linux'
+        run: ./godot --headless --path . --import
+
+      - name: Import project (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath $env:GODOT_EXE -Wait -NoNewWindow -PassThru `
+            -ArgumentList "--headless", "--path", ".", "--import"
+          exit $p.ExitCode
+
+      - name: Fingerprint every seed (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p digests
+          for s in $SIM_SEEDS; do
+            # Absolute path, as in playable-build.yml.
+            timeout 300 ./godot --headless --path . -- --sim-check=$s --sim-check-out="$PWD/digests/$s.txt" 2>&1 | tee digests/$s.log
+            if grep -E "SCRIPT ERROR|Parse Error" digests/$s.log; then exit 1; fi
+            test -s digests/$s.txt
+            echo "$s $(cat digests/$s.txt)"
+          done
+
+      - name: Fingerprint every seed (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force digests | Out-Null
+          foreach ($s in ($env:SIM_SEEDS -split ' ')) {
+            $out = Join-Path $PWD "digests\$s.txt"
+            $log = Join-Path $PWD "digests\$s.log"
+            $p = Start-Process -FilePath $env:GODOT_EXE -Wait -NoNewWindow -PassThru `
+              -RedirectStandardOutput $log -RedirectStandardError "$log.err" `
+              -ArgumentList "--headless", "--path", ".", "--", "--sim-check=$s", "--sim-check-out=$out"
+            Get-Content $log, "$log.err" | Write-Host
+            if (Select-String -Path $log, "$log.err" -Pattern "SCRIPT ERROR|Parse Error" -Quiet) { exit 1 }
+            if (-not (Test-Path $out)) { Write-Error "no digest for seed $s"; exit 1 }
+            Write-Host "$s $((Get-Content $out -Raw).Trim())"
+          }
+
+      # tests/test_rollback_fuzz.gd comes in another PR: this step turns on by itself once
+      # the file is on main, and is skipped (not failed) until then.
+      - name: Rollback fuzz, long (Linux)
+        if: runner.os == 'Linux' && hashFiles('tests/test_rollback_fuzz.gd') != ''
+        env:
+          TEST_ONLY: rollback_fuzz
+          TEST_FUZZ_LONG: 1
+        run: ./godot --headless --path . --script res://tests/run_tests.gd
+
+      - name: Rollback fuzz, long (Windows)
+        if: runner.os == 'Windows' && hashFiles('tests/test_rollback_fuzz.gd') != ''
+        shell: pwsh
+        env:
+          TEST_ONLY: rollback_fuzz
+          TEST_FUZZ_LONG: 1
+        run: |
+          $p = Start-Process -FilePath $env:GODOT_EXE -Wait -NoNewWindow -PassThru `
+            -ArgumentList "--headless", "--path", ".", "--script", "res://tests/run_tests.gd"
+          exit $p.ExitCode
+
+      - name: Upload the digests
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: determinism-${{ runner.os }}
+          path: digests/*.txt
+          retention-days: 30
+
+  compare:
+    needs: determinism
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: determinism-Linux
+          path: linux
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: determinism-Windows
+          path: windows
+
+      - name: Every seed's digest is the same on both
+        run: |
+          bad=0
+          for s in $SIM_SEEDS; do
+            l=$(tr -d '\r\n' < "linux/$s.txt" 2>/dev/null || true)
+            w=$(tr -d '\r\n' < "windows/$s.txt" 2>/dev/null || true)
+            if [ -n "$l" ] && [ "$l" = "$w" ]; then
+              echo "seed $s: match $l"
+            else
+              echo "::error::seed $s: Linux '$l' vs Windows '$w' (a desync: online play would break)"
+              bad=1
+            fi
+          done
+          exit $bad
+
+  summary:
+    needs: [balance, determinism, compare]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        continue-on-error: true
+        with:
+          name: determinism-Linux
+          path: linux
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        continue-on-error: true
+        with:
+          name: determinism-Windows
+          path: windows
+
+      - name: Write the summary
+        run: |
+          {
+            echo "## Nightly"
+            echo ""
+            echo "| job | result |"
+            echo "| --- | --- |"
+            echo "| balance | ${{ needs.balance.result }} |"
+            echo "| determinism | ${{ needs.determinism.result }} |"
+            echo "| compare | ${{ needs.compare.result }} |"
+            echo ""
+            echo "Artifacts: \`balance-matrix\` (balance-matrix.txt, balance-pairs.txt), \`mode-pacing\` (mode-pacing.txt), \`determinism-Linux\`, \`determinism-Windows\` (one digest file a seed)."
+            echo ""
+            echo "| seed | Linux | Windows | same |"
+            echo "| --- | --- | --- | --- |"
+            for s in $SIM_SEEDS; do
+              l=$(tr -d '\r\n' < "linux/$s.txt" 2>/dev/null || true)
+              w=$(tr -d '\r\n' < "windows/$s.txt" 2>/dev/null || true)
+              same="no"
+              if [ -n "$l" ] && [ "$l" = "$w" ]; then same="yes"; fi
+              echo "| $s | \`${l:0:16}\` | \`${w:0:16}\` | $same |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
