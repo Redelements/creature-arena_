@@ -1,0 +1,17 @@
+{
+	"_doc": "The trailer's beats, in order, for `python3 tools/capture_gallery.py trailer [--movie] [--only id,id]`. Each beat is one windowed Godot run (1280x720, --fixed-fps 60): a showcase (`showcase`: a src/game/showcase.gd SCRIPTS id) or a CPU-vs-CPU match (`mode`: a main.gd MODES index, `arena` for the four map choices; Caravan 50 and Capture the Flag 52 play their own maps), with an optional `time`, `weather`, `cam` [x, y, zoom] (held camera) and extra `args` (main.gd flags). PNGs every `every` game frames (2 = 30 fps) from `from` to `to` (game frames, 60 a second; frames before 30 are never used) go to docs/gallery/trailer/<nn>_<id>/; --movie also writes <nn>_<id>.avi (MJPEG + WAV, from frame 0 to `to`). The trailer folder is git-ignored. Showcase lengths: tools/showcase_lengths.gd.",
+	"beats": [
+		{"id": "stadium_open", "note": "the stadium at sunset, whole floor, the first clash", "mode": 30, "arena": "stadium", "time": "sunset", "weather": "clear", "cam": [352, 208, 0.85], "from": 30, "to": 270, "every": 2},
+		{"id": "cairn_combo", "note": "Cairn's jab string into Rockslide Rush and Avalanche", "showcase": "cairn", "from": 300, "to": 531, "every": 2},
+		{"id": "quarry_brawl", "note": "3v3 on the Quarry by day, the camera following the fight", "mode": 30, "arena": "quarry", "time": "day", "weather": "clear", "from": 400, "to": 760, "every": 2},
+		{"id": "hissy_kit", "note": "Hissy Fitz's kit and finisher", "showcase": "hissy", "from": 300, "to": 609, "every": 2},
+		{"id": "floodgate_night", "note": "the Floodgate at night under the floodlights", "mode": 30, "arena": "floodgate", "time": "night", "weather": "clear", "from": 480, "to": 840, "every": 2},
+		{"id": "counterplay", "note": "how to answer the big moves (warnings, dodges, guard)", "showcase": "counterplay", "from": 200, "to": 636, "every": 2},
+		{"id": "greenhouse_rain", "note": "the Greenhouse in the rain", "mode": 30, "arena": "greenhouse", "time": "day", "weather": "rain", "from": 400, "to": 760, "every": 2},
+		{"id": "craglash_finisher", "note": "Craglash's charge and finisher", "showcase": "craglash", "from": 800, "to": 1102, "every": 2},
+		{"id": "caravan_push", "note": "Caravan on Dustwind Pass at sunset: pushing the wagon", "mode": 50, "time": "sunset", "weather": "clear", "from": 300, "to": 700, "every": 2},
+		{"id": "twinstick_aim", "note": "aiming all the way round (twin-stick)", "showcase": "twinstick", "from": 60, "to": 505, "every": 2},
+		{"id": "ctf_keeps", "note": "Capture the Flag at Twin Keeps", "mode": 52, "time": "day", "weather": "clear", "from": 600, "to": 1000, "every": 2},
+		{"id": "sno_close", "note": "Sno Mercy's finisher to close", "showcase": "sno", "from": 330, "to": 630, "every": 2}
+	]
+}

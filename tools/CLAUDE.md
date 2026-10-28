@@ -129,6 +129,15 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   lag), and writes `build/perf/<label>.txt`. Put back `export_presets.cfg` and
   `project.godot` itself. Judge by the SCREEN lines: the CPU-side frame times look far worse
   than what's shown.
+- `capture_gallery.py [fighters|maps|trailer|all]`: the gallery in `docs/gallery/` (index.md,
+  per-fighter showcase GIFs and contact sheets, per-map sheets at each time of day) and the
+  trailer's raw beats (`trailer_shots.json`, into the git-ignored trailer folder under docs/gallery,
+  `--movie` adds each beat's AVI). Runs the game one window at a time at 1280x720 with its
+  own APPDATA per run, using only existing flags (`--showcase`, `--mode`, `--cpu-vs-cpu`,
+  `--arena`, `--time`, `--weather`, `--cam`, `--shots`); showcase lengths from
+  `showcase_lengths.gd` (headless). Pillow only, no ffmpeg; GIFs shrink to `--gif-budget`
+  (keep the committed gallery under about 40 MB). Needs `GODOT` or `--godot`, and a display
+  (xvfb-run on Linux).
 - `codebase_map.py`: writes the generated file list at the end of each area's `CLAUDE.md`;
   `--check` is the CI drift check. Standard library only.
 
@@ -199,6 +208,7 @@ tools, so a fighter's pass is posing work only.
 - `anim_preview.py` — Animation previews and the timeline check, shared by every sprite generator.
 - `build_tiles.gd` — Builds the Godot TileSets and the tiled arenas' ground scenes from a cut set's manifest (assets/tiles/<set>_manifest.js…
 - `build_vfx.gd` — Builds the SpriteFrames and MoveFx resources from assets/vfx/manifest.json (written by tools/cut_vfx.py from kiddolink'…
+- `capture_gallery.py` — Gallery and trailer capture: runs the real game in a window and turns its screenshots into the gallery under docs/galle…
 - `codebase_map.py` — Writes the generated file lists and checks the codebase map for drift.
 - `cut_crowd.py` — Cuts the stadium crowd out of Szadi art's Fantasy Lands Warrior: an army of fans.
 - `cut_pan.py` — Cuts Chef Cerebro's cast-iron pan out of Szadi art's Fantasy Lands Houses pack (part of the RPG Worlds bundle; the pack…
@@ -228,6 +238,8 @@ tools, so a fighter's pass is posing work only.
 - `palette.py` — The master palette: one published set of colours for every fighter and arena.
 - `seed_dressing.gd` — Seeds a map's hand-dressing scene (assets/arenas/<id>_dressing.tscn) from a first-draft spec, tools/dressing/<id>.json.
 - `shade2d.py` — Master-palette shading for the 2D painters (Barkley's and Gillbert's rigs).
+- `showcase_lengths.gd` — How long each showcase plays, for tools/capture_gallery.py (which picks the frames to capture from it, so a retune that…
+- `smoke_sweep.py` — Headless smoke sweep: every mode on every arena, grepping the output for script errors.
 - `splat3d.py` — Shared renderer for the sheet-recreation sprite generators (tools/gen_digby.py and later).
 - `sprite_2x.py` — Switches a fighter's JSON to its 2x sheets (the fighter-2x skill):
 - `write_status.py` — Stamps docs/STATUS.md with the time, branch and commit so a compaction never starts without a fresh marker.

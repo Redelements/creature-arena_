@@ -108,7 +108,7 @@ plain-UDP JSON: `creature-arena?` / `creature-arena`.
   (`_room_next`, `_open_room_screen`, `_open_room_picker`, `_room_step`)
 - A 1v1 rematch's pick → `relay_server.gd:_open_pick`, `_pick_status`, `_rematch_pick`,
   `_pick_timeout`, `_draw_arena`; client `netplay.gd:rematch_pick`, `send_pick`; direct host
-  `_host_open_pick`, `_host_try_start`; game `main.gd:_open_rematch_pick`
+  `_host_open_pick`, `_host_try_start`; game `main_online.gd:_open_rematch_pick`
 - Leaver → CPU takeover → `relay_server.gd:_cpu_takes_over`, `referee.gd:inputs_since`
 - Ranked → `ratings.gd` (Glicko), `relay_server.gd` "rating"; Daily scores →
   `daily_client.gd`, `ratings.gd:submit_daily`

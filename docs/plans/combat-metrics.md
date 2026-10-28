@@ -112,3 +112,82 @@ Tenderize is read and guarded (a gold tell), so it rarely tenderizes, and a thro
 free foe is a one-hit combo by definition. The setup-then-payoff combo is there for players
 (Tenderize, then Flick, Flick, Mallet staggers, Cleaver: 2 hits, 2 types); the CPU lands it a
 few times a match at most.
+
+## Digby vs Cerebro, Normal bots (Oct 27 2026, main at 74abd86)
+
+A matchup to watch from the Normal-bot matrix (open-items "Known issues"), measured only: no
+kit or AI change. Both sides are Normal CPUs (level 1), on the Stadium.
+
+```sh
+$G --headless --path . --script res://tests/bench_fighter.gd -- --fighter=digby --foes=cerebro --seeds=12
+$G --headless --path . --script res://tests/bench_fighter.gd -- --fighter=cerebro --foes=digby --seeds=12
+$G --headless --path . --script res://tests/bench_cpu.gd -- --pairs=digby:cerebro --seeds=24 --detail
+$G --headless --path . --script res://tests/bench_cpu.gd -- --only=digby --detail --seeds=6   # and --only=cerebro
+$G --headless --path . --script res://tests/bench_cpu.gd -- --matrix --a=1 --seeds=6
+$G --headless --path . --script res://tests/bench_cpu.gd -- --combat --only=digby --a=1 --seeds=6   # and cerebro
+```
+
+### The result
+
+| Bench | Digby won | Note |
+| --- | --- | --- |
+| `--pairs=digby:cerebro --seeds=24` (both sides) | **13 of 48 (27%)** | the winner ends on 6% health on average: close fights |
+| `--matrix --a=1 --seeds=6` | 0 of 12 (Digby's row); Cerebro's row 10 of 12 | Digby is 67% overall (second of 11), Cerebro 54% |
+| `--only=digby --detail --seeds=6` | 2 of 12 | his worst foe; next worst are Culvert, Sno and the mirror at 5 of 12 |
+| `bench_fighter --fighter=digby --seeds=12` (Digby on the left) | 3 of 12 | dealt 2056, taken 2469 (1.2x) |
+| `bench_fighter --fighter=cerebro --seeds=12` (Cerebro on the left) | 4 of 12 | Cerebro dealt 2809, took 1600 |
+
+The class pin is assassin > mage; here the mage wins about three games in four.
+
+### Why, in numbers (12 games from each side, `bench_fighter`)
+
+**Cerebro throws far more.** In the 12 games with Cerebro on the left he threw 447 Knife Flicks
+(light_1), 95 Backhand Flicks, 49 Mallet Tosses, 96 Tenderizes, 45 Cleaver Tosses, 97 Flip Outs
+and 11 Surges. In the 12 with Digby on the left, Digby threw 113 Claw Swipes, 84 second
+swipes, 53 Pickaxe Swings, 32 Pop-Ups, 27 Headlamp Flashes, 17 Burrows and 12 Cave-Ins. About
+four Cerebro attacks to each of Digby's: the knives come out while he glides at 70% speed, so
+he never stops throwing.
+
+**Digby lands what he throws, but throws too little.** Cerebro guards 1% of the time, so
+nothing of Digby's is blocked: 108 of 113 first swipes, 29 of 32 Pop-Ups and 25 of 27 Headlamp
+Flashes land. Digby is hit mid-move 88 times out of 536 (16%), while Cerebro is hit mid-move 97
+times out of 236 (41%): Digby's hits are mostly punishes of a throw, and he wins those trades.
+He still deals about 0.8x what he takes.
+
+**The guard is Digby's leak.** Digby guards 21% of the time and blocks a lot of the stream:
+124 of 447 Knife Flicks, 27 of 96 Tenderizes, 28 of 95 Backhand Flicks. Against Cerebro he has
+**332 ticks with empty stamina and 19 guard breaks in 12 games** (`--only=digby --detail`).
+Against most of the field that is 0-37 ticks and 0-3 breaks; the only foe close to it is Crease,
+the other thrower, at 301 ticks and 17 breaks. With the guard broken or the stamina gone,
+the knives land clean. Cerebro's **Flip Out**, a grab that beats guard, is his third most
+damaging move on Digby (75 hits in 12 games, after Knife Flick 275 and Backhand Flick 76).
+Tenderize adds 38.
+
+**It isn't decided at knife range.** The two fight on average 50 px apart (Cerebro's knives
+reach about 115 px, his lights about 170). Cerebro is at his preferred spacing only 15% of the
+time against Digby (69% in the mirror, 58% against Crease), and Digby is at his 29%, his usual
+share. So Digby gets in, and Cerebro beats him in close anyway: point-blank throws, the grab,
+and Tenderize around him.
+
+**Burrow hardly happens.** 17 Burrows in 12 games (1.4 a match), 7 landed. The CPU burrows
+when the foe is 80-160 px away (`ai.burrow_range`), and Digby spends the fight at about 50 px,
+so the ambush that is meant to win an assassin's matchups (the Oct 23 ruling: assassins win by
+the sneak engage) rarely comes up. Headlamp Flash lands (25 of 27), but a blind makes only the
+next attack miss, and against a foe who throws a knife every few frames that costs one knife.
+
+**Not a factor:** pit falls (0 both ways), the Surge (Digby 7 Cave-Ins landed of 12, Cerebro
+11 Surges thrown in 12 games).
+
+Across the roster (`--combat --only=...`, Normal) Digby deals 385 damage a minute, 73% of it
+from lights and 18% from heavies, combos 1.24 hits long. Cerebro deals 276 a minute, 55% from
+lights and 28% from skills.
+
+### Options a kit or AI pass could take (questions for Kevin, nothing done)
+
+- Should blocking a Knife Flick cost Digby less stamina (a lower block drain on Cerebro's knives), so guarding the stream doesn't end in a guard break?
+- Should the Digby CPU guard less against a thrower and dodge or Burrow through the stream instead (an AI change, not a kit one)?
+- Should Digby's CPU Burrow window (`ai.burrow_range` 80-160 px) also cover close range, so the ambush happens in this matchup?
+- Should Headlamp Flash blind for a time (every attack misses for about 1 s) rather than for one attack, so it counts against fast throwers?
+- Should Cerebro's lights be weaker at point blank (under about 40 px), so his strength stays at knife range?
+- Should Flip Out stay a guard-beating grab at Cerebro's speed, or get a longer startup?
+- Or is it fine as it is: a mage that wins the plain brawl on an open floor, with the assassin meant to win by the sneak engage (brush, Burrow)? Then this needs a playtest on the Greenhouse (brush) rather than a kit change.

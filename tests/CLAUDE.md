@@ -21,6 +21,12 @@ about evenly (the slowest files, `test_server_teams`, `test_server_fuzz`, `test_
 - Balance pins (`test_balance.gd`) are seeded Normal-vs-Normal CPU matches (never Rage;
   `test_rage.gd` only checks how Rage plays): a rules or tuning change can move them. Measure with the benches before relaxing one, and say why
   in the test's comment.
+- Rollback coverage: `test_rollback.gd` checks every declared variable is saved;
+  `test_rollback_fuzz.gd` plays every mode (hazards, shrines, the crown) with Normal CPUs and
+  input mashing, restoring snapshots at random ticks and comparing digests with a fresh replay.
+  About 30-40 s by default; `TEST_FUZZ_LONG=1` (ten times the seeds and ticks) is the deep soak
+  to run after touching `snapshot()`/`restore()` or adding mode state. A digest failure there is
+  a real rollback bug; a "never reached" failure is coverage only (retune that mode's entry).
 - Scratch probes (a `SceneTree` script run with `--script`) are fine for investigating;
   delete them before committing.
 
@@ -38,14 +44,18 @@ about evenly (the slowest files, `test_server_teams`, `test_server_fuzz`, `test_
   `--set=key:value` to try a tuning): match length, score, and every play's count.
   `bench_modes.gd`: every mode's pacing on one yardstick, Normal CPUs (`--modes=team2,tdm3,brawl4,...`,
   `--seeds`, `--shrines=data|on|off`, `--shrine-set=key:value`, `--set=key:value` (a top-level rules number, e.g.
-  `spree_at:0`, `crown:0`, `crown_points_to_win:20`), `--rows`): match length, stalemate share,
+  `spree_at:0`, `crown:0`, `crown_points_to_win:20`), `--shrine-spots=0.5/0.25;0.5/0.75`, `--arena=ID`,
+  `--mutators=damage_mult:0.67` (or a mutators.json id), `--rows`): match length, stalemate share,
   fights a minute, KOs, comebacks from behind at half time, shrine claims, time-outs, how often the first KO's
-  side won, sprees, shutdowns, crown changes (definitions and results in
+  side won, sprees, shutdowns, crown changes, the Caravan's push (definitions and results in
   `docs/plans/mode-metrics.md`). `bench_spacing.gd`: how far apart fighters fight. `bench_ai_cost.gd`: what a tick costs in a big
   team match (`--mode=ctf|caravan|sinkhole`, `--size=4`, `--level=3`, `--threads=off`): CPU thinking
   and sim step percentiles; a stutter is the tail (p99.9, max). In a real window, `--perf` does the
   same for frames and ticks.
 - Parallel Godot runs need separate `APPDATA` (Windows) / user dirs, or `user://` collides.
+- `tools/smoke_sweep.py` (not a bench): every mode on the four map choices headless with all
+  hazards on, failing on SCRIPT ERROR / Parse Error / Failed to load; about four minutes. Run it
+  with the suite and `--sim-check` before a PR that touches many modes.
 
 ## CI
 
@@ -56,6 +66,12 @@ about evenly (the slowest files, `test_server_teams`, `test_server_fuzz`, `test_
   Parse Error / Failed to load), `--sim-check` (seed 20261010) on Linux and Windows (fails if
   the digests differ), upload the builds; a debug Android APK (job `android`: SDK from the runner's
   `ANDROID_HOME`, a fresh debug key); the `comment` job links all three on the PR.
+- `.github/workflows/nightly.yml`, 06:00 UTC and on demand (`workflow_dispatch`), never on PRs: `balance`
+  runs `bench_cpu.gd --matrix` and `--pairs` (the `test_balance.gd` pairs) at Normal and `bench_modes.gd`,
+  uploaded as the `balance-matrix` and `mode-pacing` artifacts (fails only on a crash, never on the numbers);
+  `determinism` runs `--sim-check` for twelve fixed seeds on Linux and Windows (the stock editor
+  binaries) and `compare` fails if any digest differs; `summary` puts the digest table on the run page.
+  A long `TEST_ONLY=rollback_fuzz TEST_FUZZ_LONG=1` step turns on by itself once the rollback fuzz test (another PR) lands.
 
 ## Files
 
@@ -141,6 +157,7 @@ about evenly (the slowest files, `test_server_teams`, `test_server_fuzz`, `test_
 - `test_replan_cap.gd` — The CPU's path searches on a crowded field take turns: one search a tick at most, each CPU's turn coming round every cr…
 - `test_replays.gd` — Replay theater: a saved fight carries its setup, and watching it rebuilds the same match and plays the same inputs, slo…
 - `test_rollback.gd` — Rollback netcode groundwork: the match state can be saved and restored exactly, and two machines exchanging inputs over…
+- `test_rollback_fuzz.gd` — Rollback fuzz: snapshot()/restore()/state_digest() across every mode, with every arena hazard on (tidal wave, meteor sh…
 - `test_rooms.gd` — Rooms on the server last between matches: after one, everyone picks again and the next match starts with the new fighte…
 - `test_scripts_load.gd` — Every game script parses and compiles. The views and the game flow aren't loaded by the simulation tests, so a typo the…
 - `test_server.gd` — The dedicated server: players join it like a host, it pairs them (by room), relays their matches, referees them with it…
