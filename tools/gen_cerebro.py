@@ -13,8 +13,9 @@ the same sheets as cerebro_2x*.png, every frame size and origin doubled.
 He hovers a hand's height off the floor, a short brainstem dangling under him, and his
 weapons float in a loose ring around him, each bobbing on its own: the big chef's knife
 (Cleaver Toss) at his front, the navy spatula (Flip Out) behind, the meat mallet (Mallet
-Toss, Tenderize) above his back, and a fan of paring knives (Knife Flick, Knife Flurry)
-above his brow. He has no hands: everything moves by telekinesis. A faint violet glow
+Toss, Tenderize) above his back, and two paring knives (Knife Flick, Knife Flurry) either
+side of his chef's hat above his brow (a toque, floating like the rest of the kit; the
+Flurry's fan brings out more knives). He has no hands: everything moves by telekinesis. A faint violet glow
 outlines every floating tool; the one he's working with burns bright, and his brain
 flushes violet as he pushes.
 
@@ -91,9 +92,14 @@ MAT = {
     "mallet": "rust",
     "mallet_h": ("rust", 1),      # the handle a step lighter than the head
     "glass": PAL.flat("ink"),
+    # the chef's hat: two tones only, the palette's white and one light grey (the "white"
+    # ramp's dark step), so its pleats and shadow are grey and the rest reads white
+    "toque": [PAL.ramp("white")[0]] * 2 + [PAL.ramp("white")[3]] * 3,
 }
 OUTLINE_TOOL = PAL.INKS["ink"] + (255,)  # tools are outlined in black on the sheet
 TOOL_MATS = {"blade", "handle", "spatula", "mallet", "mallet_h", "glass"}
+# Not the toque: its seams (the pleats, the band) stay its grey, and its line is the light
+# ramps' soft ink at 1x (pewter) and the one dark ink of the bold style at 2x, like the brain.
 # Shading, seams and outlines are splat3d's pass on this rig's buffers: the brain's line
 # in its ramp's ink (plum, the palette's take on the sheet's maroon), every tool's black.
 S.configure(MAT, outline_mats={m: OUTLINE_TOOL for m in TOOL_MATS}, density=DENSITY)
@@ -611,6 +617,28 @@ def mallet_parts(grip, o, k=1.0):
     return [handle, head]
 
 
+def _lobe(centre, frame, radii, mat):
+    """An ellipsoid with its axes along `frame` (three unit vectors), not the body's."""
+    pos, nrm = ellipsoid((0.0, 0.0, 0.0), radii)
+    f = np.asarray(frame, float)
+    return _pack(np.asarray(centre, float)[None, :] + pos @ f, nrm @ f, mat)
+
+
+def toque_parts(grip, o, k=1.0):
+    """The chef's hat (a toque), floating in the middle knife's slot: along `a` like a knife
+    (its up), the short flat band round the grip and the puffed top above it, three lobes
+    side by side whose seams draw its pleats. No taller than a paring knife."""
+    a, b, n = o
+    a = np.asarray(a, float)
+    b = np.asarray(b, float)
+    n = np.asarray(n, float)
+    grip = np.asarray(grip, float)
+    band = cylinder(grip - a * 2.4 * k, a, 3.4 * k, 3.2 * k, "toque")
+    puff = [_lobe(grip + a * 5.0 * k + b * s * k, (b, a, n), (2.9 * k, 4.6 * k, 4.2 * k), "toque")
+            for s in (-3.2, 0.0, 3.2)]
+    return band + puff
+
+
 # ------------------------------------------------------------------ the floating kit
 
 STEM_ROOT = (0.0, 3.0, -7.0)  # under the brain, toward the back: the brainstem
@@ -637,6 +665,7 @@ TOOL_BUILDERS = {
     "cleaver": lambda g, o: knife_parts(g, o, TOOL_K),
     "spatula": lambda g, o: spatula_parts(g, o, TOOL_K),
     "mallet": lambda g, o: mallet_parts(g, o, TOOL_K),
+    "hat": lambda g, o: toque_parts(g, o, 1.0),
 }
 
 
@@ -644,7 +673,7 @@ def tool_parts(name, grip, ori):
     o = orient(*ori)
     if name in TOOL_BUILDERS:
         return TOOL_BUILDERS[name](grip, o)
-    return small_knife_parts(grip, o, KNIFE_K)  # k1..k5: the paring knives
+    return small_knife_parts(grip, o, KNIFE_K)  # k1..k5: the paring knives (k2, k4, k5 only in the Flurry)
 
 
 def build(pose, view):
@@ -808,6 +837,26 @@ def outline(r, img):
     return a
 
 
+TOQUE_GREY = MAT["toque"][0]
+
+
+def pleats(r, img):
+    """The chef's hat's drawing: a 1 px line of its grey wherever two of its pieces meet
+    (the pleats between the lobes of its top, the band under them), whatever their depth."""
+    mat = r["mat"]
+    part = r["part"]
+    hat = mat == MAT_ID["toque"]
+    if not hat.any():
+        return img
+    line = np.zeros(hat.shape, bool)
+    for dx, dy in ((1, 0), (0, 1)):
+        pm = S._shifted(mat, dx, dy, 0)
+        pp = S._shifted(part, dx, dy, 0)
+        line |= hat & (pm == MAT_ID["toque"]) & (pp != part)
+    img[line, :3] = TOQUE_GREY
+    return img
+
+
 def _grow(m, n=1):
     out = m.copy()
     for _ in range(n):
@@ -933,6 +982,7 @@ def render(pose, view):
     img = gyri(r, img)
     img = decals(r, img)
     img = outline(r, img)
+    img = pleats(r, img)
     img = flush(r, img)
     img = glow(r, img)
     img = smears(r, img)
@@ -967,10 +1017,12 @@ REST = {
     "spatula": ((17.0, 13.0, -22.0), (112.0, 45.0, 0.0)),   # behind him, leaning back
     "mallet": ((11.0, 40.0, -12.0), (72.0, -35.0, 0.0)),    # above his back, head up
     "k1": ((-12.0, 44.0, 6.0), (70.0, 50.0, 0.0)),          # paring knives fanned over
-    "k2": ((0.0, 49.0, 3.0), (86.0, 45.0, 0.0)),            # his brow, points up
+    "hat": ((0.0, 49.0, 3.0), (86.0, 45.0, 0.0)),           # his toque between them, over his brow
     "k3": ((12.0, 44.0, 0.0), (70.0, -50.0, 0.0)),
 }
-PHASE = {"cleaver": 0.0, "spatula": 0.5, "mallet": 0.25, "k1": 0.1, "k2": 0.4, "k3": 0.7, "k4": 0.2, "k5": 0.55}
+# The hat took the middle knife's slot (k2), its phase and its lags, so it floats as that
+# knife did; k2 is now only a Flurry knife, like k4 and k5 (the fan has five).
+PHASE = {"cleaver": 0.0, "spatula": 0.5, "mallet": 0.25, "k1": 0.1, "hat": 0.4, "k3": 0.7, "k2": 0.4, "k4": 0.2, "k5": 0.55}
 KNIVES = ("k1", "k2", "k3", "k4", "k5")
 CENTRE = (0.0, 27.0, 0.0)  # roughly the middle of the brain, for gathering and scattering
 
@@ -1073,7 +1125,7 @@ KO_FLOOR = {
     "spatula": ((16.0, 1.2, -20.0), (0.0, 160.0, 90.0)),
     "mallet": ((12.0, 2.0, 8.0), (0.0, 40.0, 0.0)),
     "k1": ((-8.0, 0.8, 32.0), (0.0, 10.0, 90.0)),
-    "k2": ((5.0, 0.8, 30.0), (0.0, -30.0, 90.0)),
+    "hat": ((5.0, 4.2, 30.0), (0.0, -30.0, 90.0)),   # on its side where the middle knife lay
     "k3": ((19.0, 0.8, 16.0), (0.0, 60.0, 90.0)),
 }
 
@@ -1145,7 +1197,7 @@ def preview(sh, rows, fw, fh, origin, scale, path):
 
 GLINT_OFF = -1.0  # a glint position off the lenses: no shine on that frame
 # How many frames late each tool follows the brain (the mallet is the heaviest).
-TOOL_LAG = {"cleaver": 1, "k1": 1, "spatula": 2, "k2": 2, "mallet": 3, "k3": 3}
+TOOL_LAG = {"cleaver": 1, "k1": 1, "spatula": 2, "hat": 2, "mallet": 3, "k3": 3}
 # A tool knocked by the throw of another one: each frame's share of the jolt, read late per tool.
 JOLT = (0.0, 0.0, 0.0, 0.35, 1.0, 0.55, 0.15, 0.0)
 
@@ -1213,7 +1265,7 @@ def run():
     n = 12
     u = [0.5 - 0.5 * math.cos(2.0 * math.pi * i / n) for i in range(n)]  # 0 low .. 1 high
     w = [math.sin(2.0 * math.pi * i / n) for i in range(n)]
-    lagr = {"cleaver": 1, "k1": 1, "k2": 2, "k3": 2, "spatula": 2, "mallet": 3}
+    lagr = {"cleaver": 1, "k1": 1, "hat": 2, "k3": 2, "spatula": 2, "mallet": 3}
     reach = {"mallet": 1.7, "spatula": 1.2}
     out = []
     for i in range(n):
@@ -1559,6 +1611,7 @@ VIEW_ROWS = ROWS[:-1]
 # In-betweens and overlap come from splat3d (tween, cycle, lag, lag_at), which only touch
 # pose attributes; this generator's rasteriser is its own (its shading is splat3d's).
 ANIM_CYCLES = {"idle": 64, "run": 24}  # ticks per cycle (frames x idle_ticks / run_ticks)
+ANIM_ID = "cerebro"  # the JSON the previews time from, whatever density OUT names
 OLD_REF = os.environ.get("CEREBRO_OLD_REF", "25d385d")  # main before the pass: the "current" frames
 
 

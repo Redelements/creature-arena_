@@ -513,7 +513,10 @@ brain. Before and after: [`palette/cerebro_before_after_3x.png`](palette/cerebro
 He hovers about 11 px off the floor (`HOVER`), a short brainstem dangling under him, with
 no limbs: his kit floats in a loose ring, each piece bobbing on its own (`REST` and
 `PHASE` in the generator): the big chef's knife out front, the navy spatula behind, the
-meat mallet above his back and three paring knives fanned over his brow. Floating tools
+meat mallet above his back, and over his brow two paring knives either side of his chef's hat
+(a white toque in the middle knife's old slot, `toque_parts`: a flat band and a three-lobed
+top whose pleats `pleats()` draws in its one grey; it floats on that knife's phase and lags,
+stays put through the Flurry and lands on its side in the knockout). Floating tools
 get a faint violet halo; the one he's working with (`active` in a pose) a bright,
 two-pixel one, and his brain flushes violet as he pushes (`psy`: from 0.5 its shadows
 turn violet, from 0.85 the whole brain but its light, `FLUSH_HALF` / `FLUSH_FULL`, palette
