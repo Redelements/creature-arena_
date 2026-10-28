@@ -51,7 +51,7 @@ Started 2026-10-27.
 
 - Base checks on main (6eba0d0): sim-check `7a961fba71498df0595805cb7026ce905b4c22c85aa3248e0f805c588039a8bf`
   (same as the last recorded digest); smoke sweep 216 runs (54 modes x stadium/quarry/floodgate/
-  greenhouse, all four hazard mutators on, 600 frames each): 0 failures. Full suite: running.
+  greenhouse, all four hazard mutators on, 600 frames each): 0 failures. Full suite on main: 1295 passed, 0 failed (the usual ObjectDB-leak warning at exit).
 - Decision: the sweep script becomes `tools/smoke_sweep.py` (tooling) so every later task and the
   nightly CI can reuse it; noted in tests/CLAUDE.md.
 - open-items.md rewritten to the actual state (2x roster, dressed maps, touch controls, Odin 120 Hz,
