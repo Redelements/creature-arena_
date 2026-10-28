@@ -20,7 +20,7 @@ DONE / SKIPPED / BLOCKED. This file lives on branch `autonomy-log` (worktree
 | --- | --- | --- | --- |
 | 1 | QA sweep after the merge storm; refresh STATUS.md and open-items.md | DONE | [#259](https://github.com/Redelements/creature-arena_/pull/259) merged |
 | 2 | Docs drift check (MECHANICS.md, README kits) | | |
-| 3 | Rollback coverage: random-input fuzz across modes with hazards, shrines, crown | | |
+| 3 | Rollback coverage: random-input fuzz across modes with hazards, shrines, crown | PR OPEN, merging | [#262](https://github.com/Redelements/creature-arena_/pull/262) |
 | 4 | Nightly CI: Normal-bot balance matrix + cross-platform determinism soak | DONE (manual run verifying) | [#260](https://github.com/Redelements/creature-arena_/pull/260) merged |
 | 5 | main.gd split (after 1-4 merged) | | |
 | 6 | CPU team play piece 3 (focus, peel, front line) | | |
@@ -101,3 +101,19 @@ regression tests in tests/test_training.gd; MECHANICS.md "Training options" upda
   KO) -> left open for Kevin, who was told in chat.
 - Task 4: #260 merged; the first manual nightly run dispatched on main (workflow_dispatch); result below.
 - #260 merged (main 74abd86). Manual run 40643286819 in progress; verdict recorded when it ends.
+
+## Task 3: rollback fuzz
+
+- Agent opened **PR #262**: `tests/test_rollback_fuzz.gd` (334 lines), one test per mode (1v1 rounds, Duel,
+  Team 2v2/3v3, TDM 3v3, Sinkhole 3v3, Crater 2v2, Brawl 4 + crown, Chaos Cup, Caravan 2v2, CTF 3v3/4v4),
+  all four hazards via `apply_mutators`, shrines where the rules allow, Normal CPUs on some slots and a
+  test-side seeded masher on the rest; snapshot -> step -> restore -> digest, re-step twice, and a fresh
+  replay from tick 0 compared at every snapshot tick. Each mode asserts its own events so it isn't vacuous.
+- **Found no missed rollback state.** Proof the net works: deleting `cv_dig`, `marks`, `hazard_pickups`
+  from restore made it fail (not committed). `shrine_rng` only shows up in the TEST_FUZZ_LONG soak.
+- Default 29 s; `TEST_FUZZ_LONG=1` 16 min, 3231 rollbacks, all green. tests/CLAUDE.md + codebase map updated.
+- Decisions (test side only, copies of the rule tables): hazards warn earlier, shrines sooner, glass-cannon
+  damage x1.5, Caravan push 0.8, CTF carry_slow 1.0 / defenders 0 in 3v3, 1v1 re-takes `DuelSim._fresh`
+  so rounds keep hazards, Duel checks ko+enter (Normal CPUs never tag), up to 2 extra seeds per mode.
+- Checks: suite 1307/0, sweep 324/0, sim-check unchanged. Tests only -> merging once green; the nightly
+  workflow's guarded step turns the long soak on by itself once this lands.
