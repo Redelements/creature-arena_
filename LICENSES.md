@@ -216,6 +216,20 @@ the game's palette):
   `desert_decor_goods_a.png`, `desert_decor_goods_b.png` (piles of `small_obj1.png`'s jars,
   baskets, a sack and a bucket), `assets/tiles/desert_anim_brazier.png` (`Anim/fire1.png`,
   the pillar brazier) and `desert_anim_tripod.png` (`Anim/fire3.png`, the tripod brazier).
+- The hand dressing (`assets/arenas/caravan_pass_dressing.tscn`): the `trodden`, `sand_pale`,
+  `gravel_patch` and `dry_grass` tiles in `assets/tiles/desert_ground.png` (this pack's sand, gravel
+  and dry-grass fills laid in **RPG Worlds Fantasy Set 1**'s ragged blob shapes),
+  `desert_decor_blotch_*.png` (`MainLev2.0.png`'s cracked mud), `desert_anim_palm_crown*.png`
+  (`tree1a` / `tree2a` cropped above the trunk); from **RPG Buildings Desert**
+  `desert_decor_cloths.png`, `desert_decor_baskets.png`, `desert_decor_rope.png` (`small_obj1.png`),
+  `desert_decor_awning_*.png` (`mainbuildings1.png`'s cloth shades), `desert_anim_torch.png`
+  (`Anim/torch.png`); `desert_decor_jars.png` (**RPG Worlds Decorative Props**, `propsA.png`'s clay
+  pots); `desert_decor_sacks.png`, `desert_decor_grain.png`, `desert_decor_hay.png`,
+  `desert_decor_crate.png` (**RPG Buildings Windmill**, `Mill_decoratives.png`);
+  `desert_decor_slab_*.png` (**RPG Worlds GrassLand**, its slab-bridge flagstones, recoloured);
+  in `desert_scatter.png`, Set 1's `g_terrain4.png` stones and small yellow flowers (recoloured);
+  `assets/tiles/desert_shadows.png` (contact shadows, drawn by the tool). All the same bundle and
+  licence.
 - `assets/tiles/desert_manifest.json`, `assets/tiles/desert_*.tres` and
   `assets/arenas/caravan_pass.tscn` (Dustwind Pass's ground, painted with those tiles).
 
