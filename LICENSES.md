@@ -187,11 +187,18 @@ by `tools/cut_tiles.py` from `tools/tile_recipes/wetland.json` for the Floodgate
   them, composed from Wetland's brown dirt, the mossy cobbles of its path border (the kerb)
   and the stone face of its plateau (the far bank's drop).
 - `assets/tiles/wetland_scatter.png`: Set 1's loose pebbles, small water plants and grass
-  sprigs.
+  sprigs; for the hand dressing, Wetland's one-tile spot overlays (moss, silt and loose
+  cobbles), its puddles (keyed off their grass), Set 1's lily pads and fallen leaves (round
+  chunks of its oak's canopy, recoloured).
+- The hand dressing (`assets/arenas/floodgate_dressing.tscn`): the `moss`, `silt` and `path`
+  terrains in `assets/tiles/wetland_ground.png` (Set 1's grass blob shapes laid in Wetland's
+  olive grass, brown dirt and mauve mud); `assets/tiles/wetland_decor_grate.png` (a drain
+  grate composed from one leaf of **RPG Buildings Castle**'s portcullis, `RPG_Buildings_CASTLE_v1.0`,
+  the same licence, over a dark hole from Set 1's water bed).
 - `assets/tiles/wetland_manifest.json`, `assets/tiles/wetland_ground.tres`,
   `assets/tiles/wetland_overlay.tres`, `assets/tiles/wetland_shore.tres`,
   `assets/tiles/wetland_cells.tres`,
-  `assets/arenas/floodgate.tscn`.
+  `assets/arenas/floodgate.tscn`, `assets/arenas/floodgate_dressing.tscn`.
 
 Fantasy Lands Warrior (`FL_Warrior_v1.1`), same licence: `assets/sprites/crowd.png`, the
 stadium crowd, cut by `tools/cut_crowd.py` from its idle, sword-attack and special-move
