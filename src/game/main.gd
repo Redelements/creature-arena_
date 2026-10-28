@@ -452,6 +452,7 @@ var timer := ROUND_TICKS
 var seed_base := 1
 ## --menu=PAGE: open a menu page on start (captures): single, single:<group>, settings, game, video, audio, controls, credits[:row].
 var _menu_arg := ""
+var args_ctl := MainArgs.new(self)  ## the command line (main_args.gd)
 var _setting_rows := {}  ## Settings key -> its OptionRow, while the page is open
 var _match_over_status: Label = null
 var _recent_servers: Array = []
@@ -669,7 +670,7 @@ var _cpu_shown := 0
 
 
 func _ready() -> void:
-	if _run_sim_check() or _run_server():
+	if args_ctl._run_sim_check() or args_ctl._run_server():
 		return
 	_fit_window()
 	_apply_pixel_scale()
@@ -852,7 +853,7 @@ func _ready() -> void:
 	_load_settings()
 	if UiTheme.smooth:
 		ui.restyle()  # the menu theme was built before the saved Text font was read
-	var start_mode := _parse_args()
+	var start_mode := args_ctl._parse_args()
 	_cli_start = start_mode >= 0
 	_apply_device()
 	_apply_discord()
@@ -5051,196 +5052,6 @@ func _save_settings() -> void:
 	for bus in AudioView.DEFAULT_VOLUMES:
 		cfg.set_value("audio", "volume_" + String(bus).to_lower(), audio.volume(bus))
 	cfg.save(settings_path)
-
-
-## --sim-check=SEED: print (and optionally write) the determinism fingerprint, then quit.
-## --server[=PORT]: run as a dedicated server (see DedicatedServer) instead of the game.
-func _run_server() -> bool:
-	var server := DedicatedServer.new()
-	if not server.configure(OS.get_cmdline_user_args()):
-		return false
-	set_physics_process(false)
-	set_process_input(false)
-	set_process_unhandled_input(false)
-	add_child(server)
-	return true
-
-
-func _run_sim_check() -> bool:
-	var seed_ := -1
-	var out := ""
-	for a in OS.get_cmdline_user_args():
-		if a.begins_with("--sim-check="):
-			seed_ = int(a.get_slice("=", 1))
-		elif a.begins_with("--sim-check-out="):
-			out = a.get_slice("=", 1)
-	if seed_ < 0:
-		return false
-	var digest := SimCheck.run(seed_)
-	print("SIMCHECK ", digest)
-	if out != "":
-		# Use an absolute path: an exported game resolves relative ones inside its package.
-		var f := FileAccess.open(out, FileAccess.WRITE)
-		if f != null:
-			f.store_string(digest)
-			f.close()
-		else:
-			printerr("Could not write ", out, " (use an absolute path)")
-	get_tree().quit()
-	return true
-
-
-func _parse_args() -> int:
-	var start := -1
-	var pick := false
-	for a in OS.get_cmdline_user_args():
-		if a == "--autoplay":
-			autoplay = AutoPlay.new()
-			start = 4
-		elif a == "--hitboxes":
-			debug.visible = true
-		elif a == "--intro":
-			_intro_arg = 1
-		elif a == "--no-intro":
-			_intro_arg = -1
-		elif a == "--range-rings":
-			range_rings = true
-		elif a.begins_with("--lighting="):
-			_lighting_cli = ["off", "low", "high"].find(a.get_slice("=", 1))
-		elif a.begins_with("--mode="):
-			start = clampi(int(a.get_slice("=", 1)), 0, MODES.size() - 1)
-			_skip_select = true  # straight into the match with the default teams
-		elif a == "--pick":
-			pick = true
-		elif a == "--cpu-vs-cpu":
-			_cpu_vs_cpu = true
-		elif a.begins_with("--mutators="):
-			var table := Daily.mutator_table()
-			_forced_mutators = {}
-			_forced_names = []
-			for id in a.get_slice("=", 1).split(",", false):
-				if table.has(id):
-					MatchSim.merge_mutator(_forced_mutators, table[id])
-					_forced_names.append(String(table[id].get("name", id)))
-				else:
-					push_warning("--mutators: no mutator '%s' (data/rules/mutators.json)" % id)
-		elif a.begins_with("--view-team="):
-			_view_team_arg = int(a.get_slice("=", 1))
-		elif a.begins_with("--teams="):
-			# --teams=cairn,culvert,cairn:culvert,cairn,culvert
-			var halves := a.get_slice("=", 1).split(":")
-			if halves.size() == 2:
-				_teams = [Array(halves[0].split(",")), Array(halves[1].split(","))]
-		elif a.begins_with("--level="):
-			level = clampi(int(a.get_slice("=", 1)), 0, LEVEL_NAMES.size() - 1)
-		elif a.begins_with("--seed="):
-			seed_base = int(a.get_slice("=", 1))
-		elif a == "--perf":
-			_perf = PerfLog.new()
-			PerfLog.current = _perf
-			_perf.measure(get_viewport().get_viewport_rid())
-		elif a.begins_with("--fight-fps="):
-			_fight_fps_cli = maxi(0, int(a.get_slice("=", 1)))
-		elif a.begins_with("--fps-pacing="):
-			_fps_pacing = a.get_slice("=", 1)
-		elif a.begins_with("--cpu-threads="):
-			CpuController.threaded = a.get_slice("=", 1) != "off"
-		elif a.begins_with("--cpu-think="):
-			cpu_think = a.get_slice("=", 1)
-		elif a.begins_with("--arena="):
-			var ar := a.get_slice("=", 1)
-			if ar in ArenaMap.IDS:
-				MatchFactory.arena = ar
-		elif a.begins_with("--time="):
-			var tid := a.get_slice("=", 1)
-			if tid == WeatherView.RANDOM or tid in WeatherView.time_ids():
-				_look_cli["time"] = tid
-		elif a.begins_with("--weather="):
-			var wid := a.get_slice("=", 1)
-			if wid == WeatherView.RANDOM or wid in WeatherView.weather_ids():
-				_look_cli["weather"] = wid
-		elif a.begins_with("--dummy-mode="):
-			dummy_mode = clampi(int(a.get_slice("=", 1)), 0, DUMMY_MODES.size() - 1)
-		elif a.begins_with("--training-flags="):
-			var on := a.get_slice("=", 1).split(",")
-			for k in MatchSim.TRAINING_FLAGS:
-				training_opts[k] = k in on
-		elif a.begins_with("--training-screen="):
-			_training_screen_arg = a.get_slice("=", 1)
-		elif a.begins_with("--shots="):
-			for s in a.get_slice("=", 1).split(","):
-				_shots[int(s)] = true
-		elif a.begins_with("--cam="):
-			var cp := a.get_slice("=", 1).split(",")
-			_cam_force = Vector3(float(cp[0]), float(cp[1]), float(cp[2]) if cp.size() > 2 else 0.0)
-		elif a.begins_with("--cam-lead=") or a.begins_with("--cam-clash=") or a.begins_with("--cam-settle="):
-			var lv := MainCamera.cam_level_arg(a.get_slice("=", 1))
-			if lv >= 0:
-				_cam_cli[a.get_slice("=", 0).trim_prefix("--").replace("-", "_")] = lv
-		elif a.begins_with("--shot-dir="):
-			_shot_dir = a.get_slice("=", 1)
-		elif a.begins_with("--print-vram="):
-			_print_vram_at = int(a.get_slice("=", 1))
-		elif a.begins_with("--quit-after="):
-			_quit_after = int(a.get_slice("=", 1))
-		elif a.begins_with("--showcase="):
-			var sc := a.get_slice("=", 1)
-			if sc in Showcase.names():
-				_showcase_arg = sc
-			for i in MODES.size():
-				if MODES[i].get("showcase", false):
-					start = i
-		elif a == "--online-host" or a.begins_with("--online-host="):
-			_net_args["host"] = int(a.get_slice("=", 1)) if a.contains("=") else Netplay.DEFAULT_PORT
-		elif a.begins_with("--online-join="):
-			_net_args["join"] = a.get_slice("=", 1)
-		elif a.begins_with("--online-watch="):
-			_net_args["join"] = a.get_slice("=", 1)
-			_net_args["watch"] = true
-		elif a.begins_with("--menu="):
-			var page := a.get_slice("=", 1)
-			if page in ["main", "single", "look", "settings", "game", "video", "audio", "controls", "touch"] or page.begins_with("single:") \
-					or page.begins_with("credits") \
-					or page in ["remap:classic", "remap:league", "remap:gamepad"]:
-				_menu_arg = "" if page == "main" else page
-		elif a.begins_with("--fighter="):
-			var f := a.get_slice("=", 1)
-			if f in MatchFactory.FIGHTERS:
-				_online_fighter = f
-				_arcade_fighter = f
-		elif a.begins_with("--net-lag="):
-			_net_args["lag"] = int(a.get_slice("=", 1))
-		elif a.begins_with("--net-loss="):
-			_net_args["loss"] = float(a.get_slice("=", 1))
-		elif a.begins_with("--online-size="):
-			_net_args["size"] = clampi(int(a.get_slice("=", 1)), 1, TeamSim.MOST_PER_SIDE)
-		elif a.begins_with("--net-delay="):
-			_net_args["delay"] = int(a.get_slice("=", 1))
-		elif a.begins_with("--net-report="):
-			_net_args["report"] = a.get_slice("=", 1)
-		elif a.begins_with("--voice"):
-			_voice_arg(a)
-		elif a == "--net-no-pick" or a.begins_with("--net-no-pick="):
-			_net_no_pick = int(a.get_slice("=", 1)) if a.contains("=") else 1 << 30
-		elif a.begins_with("--layout="):
-			var lay := a.get_slice("=", 1)
-			if lay in PlayerInput.LAYOUTS:
-				player_input.layout = lay
-		elif a.begins_with("--pad-layout="):
-			var pl := a.get_slice("=", 1)
-			if pl in PlayerInput.PAD_LAYOUTS:
-				_set_pad_layout(pl)
-		elif a == "--touch-demo" or a.begins_with("--touch-demo="):
-			touch_demo = TouchDemo.new()
-			if a.get_slice("=", 1) == "left":
-				touch_demo.mirror = true
-				_touch_demo_left = true  # this session only (not saved)
-	if touch_demo != null and start < 0:
-		start = 3  # training as Cairn: a dummy to aim at
-		_skip_select = true
-	if pick:
-		_skip_select = false
-	return start
 
 
 # ------------------------------------------------------------------ online
