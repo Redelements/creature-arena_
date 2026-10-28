@@ -6,7 +6,10 @@
 			"water": {"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "block": [8, 2], "size": 2, "tint": {"mul": [2.0, 2.2, 2.6], "add": [2, 2, 17]}}
 		},
 		"terrains": {
-			"water": {"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "blob": [0, 0], "centres": [[5, 1], [6, 1], [5, 2], [6, 2], [8, 2], [9, 2], [8, 3], [9, 3]], "tint": {"mul": [2.0, 2.2, 2.6], "add": [2, 2, 17]}}
+			"water": {"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "blob": [0, 0], "centres": [[5, 1], [6, 1], [5, 2], [6, 2], [8, 2], [9, 2], [8, 3], [9, 3]], "tint": {"mul": [2.0, 2.2, 2.6], "add": [2, 2, 17]}},
+			"silt": {"_doc": "dressing (the Floodgate's Silt layer): Set 1's grass blob (g_terrain1, its ragged sides matched) laid in Wetland's brown dirt, toned as the shoulder (texture), so a fan runs out of it: silt where the channels spilled", "src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "blob": [0, 0], "variants": [[4, 0, 8, 4]], "variant_prob": 1.0, "texture": {"src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "block": [21, 30], "size": 2}, "tint": {"desat": 0.15, "mul": [1.05, 0.97, 0.87]}},
+			"moss": {"_doc": "dressing (Moss): Set 1's grass blob laid in Wetland's olive grass (the cobble swatch's grass, tiles 6-9 x 37-38), darkened toward damp moss: the paving overgrown along the stands and in the corners", "src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "blob": [0, 0], "variants": [[4, 0, 8, 4]], "variant_prob": 1.0, "texture": {"src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "block": [6, 37], "size": 2}, "tint": {"desat": 0.3, "mul": [0.72, 0.8, 0.7]}},
+			"path": {"_doc": "dressing (Paths): Set 1's grass blob laid in Wetland's mauve mud (tiles 1-2 x 22-23), greyed: trodden grime from the tunnels to the crossings", "src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "blob": [0, 0], "variants": [[4, 0, 8, 4]], "variant_prob": 1.0, "texture": {"src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "block": [1, 22], "size": 2}, "tint": {"desat": 0.45, "mul": [0.98, 0.97, 0.98]}}
 		},
 		"surfaces": {
 			"water": {"src": "RPGFW_Set1_v1.0/_PNG/anim/water_surface_transparent.png", "frame": 32, "frames": 16, "cols": 4, "fps": 8, "over": "water", "alpha_mul": 5},
@@ -27,12 +30,19 @@
 	"scatter": {
 		"pebbles": {"_doc": "Set 1 loose pebbles, found on their own", "src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [230, 605, 425, 645], "auto": {"min": 10, "max": [16, 14], "limit": 10}},
 		"reeds": {"_doc": "Set 1 small water plants and low reed clumps", "src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "boxes": [[325, 774, 348, 797], [357, 775, 379, 795], [135, 779, 150, 796], [264, 780, 279, 796]]},
-		"sprigs": {"_doc": "Set 1 tiny grass sprigs", "src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "boxes": [[74, 719, 89, 727], [40, 751, 58, 762], [11, 745, 20, 753], [170, 719, 185, 727]]}
+		"sprigs": {"_doc": "Set 1 tiny grass sprigs", "src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "boxes": [[74, 719, 89, 727], [40, 751, 58, 762], [11, 745, 20, 753], [170, 719, 185, 727]]},
+		"moss": {"_doc": "dressing (the Detail layer; kinds from here on are painted by atlas place, new ones go at the end): Wetland's one-tile olive-brown spot overlays turned green, moss in the paving's cracks and along the channel kerbs", "src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "boxes": [[837, 872, 862, 892], [867, 867, 894, 890], [833, 900, 859, 924], [931, 898, 954, 920]], "tint": {"mul": [0.74, 0.98, 0.66]}},
+		"silt": {"_doc": "dressing: Wetland's mauve-brown mud spots, splashes round the silt fans", "src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "boxes": [[517, 1320, 542, 1340], [547, 1315, 574, 1338], [513, 1348, 539, 1372], [611, 1346, 634, 1368]], "tint": {"desat": 0.3, "mul": [1.1, 0.98, 0.84]}},
+		"grit": {"_doc": "dressing: Wetland's loose-cobble spots, broken paving", "src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "boxes": [[1157, 872, 1182, 892], [1187, 867, 1214, 890], [1153, 900, 1179, 924], [1251, 898, 1274, 920]]},
+		"puddle": {"_doc": "dressing: Wetland's blue puddles (MainLev row 46-47 on the green grass) with the grass keyed out (clear: the same grass's flowered tiles), a little bluer: wet patches that catch the night's lamps", "src": "RPGW_Wetland_v1.1/_PNG/MainLev.png", "clear": [[20, 44], [21, 44], [22, 44], [23, 44], [24, 44], [25, 44], [20, 45], [21, 45], [22, 45], [23, 45], [24, 45], [25, 45]], "boxes": [[709, 1512, 733, 1526], [649, 1517, 671, 1533], [678, 1481, 700, 1494], [715, 1491, 734, 1502], [773, 1513, 796, 1523], [744, 1476, 766, 1485], [739, 1493, 753, 1501], [657, 1489, 671, 1496]], "tint": {"mul": [0.9, 0.98, 1.12]}},
+		"lily": {"_doc": "dressing: Set 1 lily pads in the shallows (as keeps.json)", "src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "boxes": [[512, 771, 544, 795], [547, 771, 573, 794], [583, 778, 601, 792], [615, 782, 625, 790]]},
+		"leaves": {"_doc": "dressing: round chunks of Set 1's oak canopy turned a dull reed-litter brown, blown into the corners and along the kerbs", "src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "boxes": [[42, 12, 56, 22], [38, 24, 52, 34], [66, 32, 80, 42], [94, 40, 108, 50], [46, 48, 60, 58], [106, 52, 120, 62]], "shape": "blob", "tint": {"mul": [2.3, 1.1, 0.58]}}
 	},
 	"decor": {
 		"reeds": {"src": "RPGW_Wetland_v1.1/_PNG/Dec_props2.png", "box": [128, 896, 164, 960], "feet": [18, 55], "_doc": "the two tall clumps only: the sheet's lone stalk beside them ends higher and floated"},
 		"reeds_small": {"src": "RPGW_Wetland_v1.1/_PNG/Dec_props2.png", "box": [228, 896, 248, 960], "feet": [10, 41], "_doc": "one clump, feet at its roots (the box's bottom is clear)"},
-		"post": {"src": "RPGW_Wetland_v1.1/_PNG/Dec_props2.png", "box": [32, 928, 64, 992], "feet": [16, 60]}
+		"post": {"src": "RPGW_Wetland_v1.1/_PNG/Dec_props2.png", "box": [32, 928, 64, 992], "feet": [16, 60]},
+		"grate": {"_doc": "flat (the dressing's Flat layer): a drain grate let into the floor, composed: the middle of one leaf of Castle's iron portcullis (castle_outside) over a dark hole cut from Set 1's water bed, greyed a little", "src": "RPG_Buildings_CASTLE_v1.0/castle_outside.png", "size": [24, 20], "parts": [{"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "box": [384, 34, 406, 52], "at": [1, 1]}, {"box": [967, 858, 991, 878], "at": [0, 0]}], "feet": [12, 20], "tint": {"desat": 0.3}}
 	},
 	"anim": {
 		"reeds_sway": {"_doc": "DecorativeProps vegB3, the dense tuft, green (colour row 1 = 32 px row 4); the first four frames of its 10-frame loop; feet on the middle stalk's roots", "src": "RPGW_DecorativeProps_v1.0/Animated/vegB3.png", "frame": [32, 32], "frames": 4, "row": 4, "fps": 4, "feet": [16, 30]},

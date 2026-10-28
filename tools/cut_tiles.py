@@ -133,7 +133,8 @@ packs dir; "tile" positions are [column, row] of 32 px tiles in the source sheet
   scatter.<kind>           {"src", "boxes"} or {"src", "box", "auto": {"min", "max", "limit"}}:
                            small flat sprites (pebbles, tufts) a map sprinkles over its floor
                            (map key tiles.scatter), one 32 px slot each (cut_scatter); "shape":
-                           "blob" as decor (leaf litter from a canopy). New kinds go at the end:
+                           "blob" as decor (leaf litter from a canopy); "clear" as the terrains
+                           (puddles keyed off their grass). New kinds go at the end:
                            a dressing scene paints the slots by their atlas place
 
 About the sources this was built on: Szadi art's blob terrains are 16-tile side-matched
@@ -1399,7 +1400,7 @@ def cut_scatter(cut, set_name, s):
             boxes += [[bx0 + c[0], by0 + c[1], bx0 + c[2], by0 + c[3]] for c in found[:int(au.get("limit", 12))]]
         slots = []
         for b in boxes:
-            img = tinted(cut.box(it["src"], b), it)
+            img = tinted(cleared(cut, cut.box(it["src"], b), it), it)
             if it.get("shape") == "blob":
                 img = _blob(img, _phase(b))
             img = img.crop((0, max(0, img.height - SCATTER_FEET[1]), min(img.width, SCATTER_SLOT), img.height))

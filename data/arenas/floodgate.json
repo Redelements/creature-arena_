@@ -3,8 +3,9 @@
 	"id": "floodgate",
 	"name": "Floodgate Stadium",
 	"ground": "concrete",
-	"tiles": {"_doc": "the floor as tiles (assets/arenas/floodgate.tscn, built by tools/build_tiles.gd): Wetland paving, Set 1 water autotiled under the shallows with Wetland's glints over it, sunk below the floor behind a kerb of Wetland cobbles (the far bank a drop of Wetland stone), rounded, in a ragged rim of Wetland dirt (shoulder), pebbles, small water plants and sprigs scattered by it (scatter), reeds at the channel's mouths in the margins, swaying DecorativeProps reeds beside the lower mouth and along the side rails",
+	"tiles": {"_doc": "the floor as tiles (assets/arenas/floodgate.tscn, built by tools/build_tiles.gd): Wetland paving, Set 1 water autotiled under the shallows with Wetland's glints over it, sunk below the floor behind a kerb of Wetland cobbles (the far bank a drop of Wetland stone), rounded, in a ragged rim of Wetland dirt (shoulder), pebbles, small water plants and sprigs scattered by it (scatter), reeds at the channel's mouths in the margins, swaying DecorativeProps reeds beside the lower mouth and along the side rails; the hand dressing (`dressing`, assets/arenas/floodgate_dressing.tscn, floor only: the map has no wall or fence cells for props) lays moss over the paving along the stands, silt fans where the channels spilled, trodden grime from the tunnels to the crossings, drain grates, puddles under the lamps, moss in the cracks and at the kerbs, broken paving, leaf litter and lily pads",
 		"set": "wetland", "ground": "paving",
+		"dressing": "res://assets/arenas/floodgate_dressing.tscn",
 		"shoulder": true,
 		"scatter": [
 			{"kind": "pebbles", "where": "near_water", "near": 4, "density": 0.07, "seed": 1},
@@ -24,13 +25,14 @@
 	"weathers": ["clear", "rain", "fog", "wind"],
 	"light": {"_doc": "evening floodlights from the top right, over the wet concrete", "dir": [-0.5, 0.87], "length": 0.45, "alpha": 0.3, "sun": {"color": "#fff2dc", "energy": 0.58}},
 	"grade": {"_doc": "damp, cool concrete; a view-only tint and vignette (GradeView), eased at night/sunset/rain by weather.json", "tint": "#e6f0fb", "vignette": 0.24},
-	"ambient": {"_doc": "spray over the channel, dragonflies and a jumping fish in the shallows; see AmbientView",
+	"ambient": {"_doc": "spray over the channel, dragonflies and a jumping fish in the shallows; see AmbientView; glades (GladeView): ripples and bubbles rising in the shallows, a low mist lying over the channel at sunset and night",
 		"motes": {"kind": "mist", "count": 34, "area": [35, 0, 14, 36]},
 		"critters": [
 			{"kind": "dragonfly", "count": 3, "area": [34, 2, 16, 32]},
 			{"kind": "fish", "every": 240},
 			{"kind": "moth", "count": 2},
-			{"kind": "cat", "every": 3600, "first": 900}]},
+			{"kind": "cat", "every": 3600, "first": 900}],
+		"glades": {"ripple_every": 70, "bubble_every": 40, "mist": {"areas": [[38, 0, 8, 8], [38, 12, 8, 12], [38, 28, 8, 8]], "count": 16, "times": ["sunset", "night"]}}},
 	"lights": [
 		{"_doc": "the night's floodlights as real 2D lights (Settings > Video > Lighting: High; view only, Light2DView): the three pools where the baked light map puts them, then the corner tower lamps (lamp: a bright head that blooms); color/energy light the floor through the cold night tint, so they run warm and strong, fighter_color/fighter_energy model the fighters", "pos": [128, 208], "color": "#ffb436", "radius": 95, "energy": 2.7, "height": 90, "fighter_color": "#fff0d8", "fighter_energy": 0.7},
 		{"pos": [352, 208], "color": "#ffb436", "radius": 95, "energy": 2.7, "height": 90, "fighter_color": "#fff0d8", "fighter_energy": 0.7},

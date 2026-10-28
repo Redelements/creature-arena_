@@ -1,0 +1,70 @@
+{
+	"_doc": "The Floodgate's first-draft dressing (tools/seed_dressing.gd seeds assets/arenas/floodgate_dressing.tscn from it). The SCENE is the source once seeded: edit it in the Godot editor; reseeding needs --force and drops every hand edit. The map has no wall or fence cells, so it is floor only: moss creeping over the paving along the stands and in the corners, silt fans where the channels spilled, trodden grime from the tunnels to the crossings, drain grates, puddles under the lamps, moss in the cracks and at the kerbs, broken paving, leaf litter, lily pads in the shallows. Flat decals in units from the floor's top-left corner, detail in cells (8 units), grounds in tiles (16 units, a tile tx spanning tx..tx+1). Placed on the left half and mirrored to the right; `solo` entries are placed once.",
+	"scene": "res://assets/arenas/floodgate_dressing.tscn",
+	"set": "wetland",
+	"map": "floodgate",
+	"mirror": {"width": 672},
+	"grounds": [
+		{"layer": "Moss", "terrain": "moss", "on": "floor", "blobs": [
+			{"at": [1.6, 1.0], "r": 2.0, "seed": 1, "stretch": [1.6, 0.7]},
+			{"at": [8.5, 0.5], "r": 1.4, "seed": 2, "stretch": [1.8, 0.6]},
+			{"at": [14.5, 0.8], "r": 1.0, "seed": 3, "stretch": [1.6, 0.7]},
+			{"at": [1.3, 16.8], "r": 2.0, "seed": 4, "stretch": [1.5, 0.75]},
+			{"at": [11.5, 17.4], "r": 1.4, "seed": 5, "stretch": [1.8, 0.6]},
+			{"at": [0.4, 6.0], "r": 1.2, "seed": 6, "stretch": [0.6, 1.5]},
+			{"at": [0.4, 12.6], "r": 1.0, "seed": 7, "stretch": [0.6, 1.6]},
+			{"at": [17.4, 8.6], "r": 0.9, "seed": 8, "stretch": [0.7, 1.3]}
+		]},
+		{"layer": "Silt", "terrain": "silt", "on": "floor", "blobs": [
+			{"at": [17.6, 2.6], "r": 1.0, "seed": 11, "stretch": [0.8, 1.2]},
+			{"at": [17.3, 10.0], "r": 1.2, "seed": 12, "stretch": [0.9, 1.3]},
+			{"at": [17.6, 15.6], "r": 1.0, "seed": 13, "stretch": [0.8, 1.2]},
+			{"at": [21.0, 4.8], "r": 0.9, "seed": 14, "stretch": [1.7, 0.6], "solo": true},
+			{"at": [21.0, 13.2], "r": 0.9, "seed": 15, "stretch": [1.7, 0.6], "solo": true}
+		]},
+		{"layer": "Paths", "terrain": "path", "on": "floor", "curves": [
+			{"points": [[0.4, 9.0], [4.5, 9.0], [9.0, 8.2], [12.8, 6.6], [16.0, 5.3], [19.0, 5.0], [21.0, 5.0]], "width": [1.5, 1.0]},
+			{"points": [[9.0, 9.0], [12.6, 11.0], [16.0, 12.7], [19.0, 13.0], [21.0, 13.0]], "width": [1.2, 0.9]}
+		], "blobs": [
+			{"at": [1.4, 9.0], "r": 1.3, "seed": 21, "stretch": [0.8, 1.4]}
+		]}
+	],
+	"flat": [
+		{"kind": "grate", "pos": [290, 82]},
+		{"kind": "grate", "pos": [290, 214]},
+		{"kind": "grate", "pos": [72, 40]},
+		{"kind": "grate", "pos": [168, 268]}
+	],
+	"detail": [
+		{"kind": "moss", "clump": [36, 2], "r": 2, "n": 4, "seed": 1},
+		{"kind": "moss", "clump": [36, 15], "r": 2, "n": 5, "seed": 2},
+		{"kind": "moss", "clump": [36, 21], "r": 2, "n": 5, "seed": 3},
+		{"kind": "moss", "clump": [36, 32], "r": 2, "n": 4, "seed": 4},
+		{"kind": "moss", "cells": [[39, 8], [40, 11], [39, 24], [40, 27]]},
+		{"kind": "moss", "clump": [6, 6], "r": 3, "n": 3, "seed": 5},
+		{"kind": "moss", "clump": [20, 3], "r": 3, "n": 3, "seed": 6},
+		{"kind": "moss", "clump": [12, 29], "r": 3, "n": 3, "seed": 7},
+		{"kind": "moss", "clump": [26, 14], "r": 2, "n": 2, "seed": 8},
+		{"kind": "moss", "clump": [4, 22], "r": 3, "n": 3, "seed": 9},
+		{"kind": "moss", "clump": [28, 31], "r": 3, "n": 3, "seed": 10},
+		{"kind": "puddle", "clump": [14, 18], "r": 3, "n": 5, "seed": 11},
+		{"kind": "puddle", "clump": [8, 26], "r": 2, "n": 3, "seed": 12},
+		{"kind": "puddle", "clump": [24, 8], "r": 2, "n": 3, "seed": 13},
+		{"kind": "puddle", "clump": [30, 25], "r": 2, "n": 3, "seed": 14},
+		{"kind": "puddle", "clump": [3, 33], "r": 2, "n": 2, "seed": 15},
+		{"kind": "puddle", "clump": [33, 13], "r": 2, "n": 2, "seed": 16},
+		{"kind": "silt", "clump": [34, 9], "r": 2, "n": 4, "seed": 17},
+		{"kind": "silt", "clump": [34, 26], "r": 2, "n": 3, "seed": 18},
+		{"kind": "silt", "cells": [[38, 9], [38, 26]]},
+		{"kind": "grit", "clump": [10, 3], "r": 2, "n": 3, "seed": 19},
+		{"kind": "grit", "clump": [22, 22], "r": 2, "n": 3, "seed": 20},
+		{"kind": "grit", "clump": [5, 30], "r": 2, "n": 3, "seed": 21},
+		{"kind": "grit", "clump": [30, 4], "r": 1, "n": 2, "seed": 22},
+		{"kind": "lily", "cells": [[38, 3], [39, 5], [38, 15], [39, 20], [38, 30], [40, 33], [43, 17]]},
+		{"kind": "leaves", "clump": [2, 2], "r": 2, "n": 4, "seed": 23},
+		{"kind": "leaves", "clump": [2, 33], "r": 2, "n": 3, "seed": 24},
+		{"kind": "leaves", "clump": [35, 5], "r": 2, "n": 2, "seed": 25},
+		{"kind": "leaves", "clump": [36, 24], "r": 2, "n": 2, "seed": 26},
+		{"kind": "leaves", "clump": [16, 1], "r": 2, "n": 2, "seed": 27}
+	]
+}
