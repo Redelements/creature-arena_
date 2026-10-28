@@ -6,6 +6,8 @@ extends SceneTree
 ## test (a crash, a bad call) also counts as a failure. TEST_ONLY=digby,combos (an
 ## environment variable) runs only the files whose names contain one of those words.
 ## TEST_QUIET=1 prints only the failures (with their file) and the summary.
+## TEST_SHARD=k/N (k from 1) runs every Nth file of the sorted list starting at the kth,
+## so CI can split the suite over N runners; the shards together run every file once.
 
 const TEST_DIR := "res://tests/"
 
@@ -53,6 +55,20 @@ func _run_all() -> void:
 					keep.append(f)
 					break
 		files = keep
+	var shard := OS.get_environment("TEST_SHARD")
+	if shard != "":
+		var k := int(shard.get_slice("/", 0))
+		var n := int(shard.get_slice("/", 1))
+		if k < 1 or n < 1 or k > n:
+			print("TEST_SHARD must be k/N with 1 <= k <= N, not '%s'" % shard)
+			quit(1)
+			return
+		var mine: Array[String] = []
+		for i in files.size():
+			if i % n == k - 1:
+				mine.append(files[i])
+		files = mine
+		print("shard %d of %d: %d files" % [k, n, files.size()])
 
 	var quiet := OS.get_environment("TEST_QUIET") not in ["", "0"]
 	var passed := 0

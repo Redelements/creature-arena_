@@ -1,16 +1,32 @@
 name: tests
 
+# Runs the whole suite on every pull request and on main. A push to a PR branch used to
+# run it twice (once as a push, once as the pull request): now only main's pushes run as
+# pushes. The suite is split over three runners (TEST_SHARD in tests/run_tests.gd), which
+# cuts the wait for a green check from about nine minutes of tests to about three.
 on:
   push:
+    branches: [main]
   pull_request:
+  workflow_dispatch:
 
 # Least privilege: the tests only read the repository.
 permissions:
   contents: read
 
+# A new push to the same branch cancels the run still going for the old one.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    name: test (shard ${{ matrix.shard }} of 3)
     env:
       GODOT_VERSION: 4.7.2
     steps:
@@ -19,6 +35,7 @@ jobs:
           persist-credentials: false
 
       - name: Codebase map is up to date
+        if: matrix.shard == 1
         run: python3 tools/codebase_map.py --check
 
       - name: Download Godot (checked against the release's SHA512-SUMS)
@@ -36,4 +53,6 @@ jobs:
         run: ./godot --headless --path . --import
 
       - name: Run tests
+        env:
+          TEST_SHARD: ${{ matrix.shard }}/3
         run: ./godot --headless --path . --script res://tests/run_tests.gd
