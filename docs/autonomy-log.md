@@ -171,3 +171,15 @@ regression tests in tests/test_training.gd; MECHANICS.md "Training options" upda
   `gen_dummy.py anim` at 2x fails for every 2x rig (anim_preview reads the id from the file name).
 - Checks: suite 1295/0, journey 4/0, sweep 216/0, sim-check unchanged.
 - Watch: any later PR bumping NET_VERSION must renumber if #264 merges first (or vice versa).
+
+## Interrupt 2: bug report from Kevin (title screen, mid-run)
+
+Kevin: on the start menu, leaving the background fight to play out, "after the first main menu fight, it
+starts cycling through characters, and drops to 5fps, and looks like its about to crash." Cause found in
+`_update_flow` Flow.MENU: the background match restarts when `_menu_ko_t > 150 or flow_t > ROUND_TICKS`,
+but `flow_t` was never reset there, so after two minutes on the title the condition held every tick and a
+whole new match (sim, views, 2x sheets) was built 60 times a second; the attract demo picks new fighters
+each restart, hence the cycling. Fix: `flow_t = 0` on the restart (branch `menu-restart-fix`, worktree
+creature-arena-menufix) + a regression test counting sim replacements (1 in 240 ticks; fails on main).
+Behavioral (players see the title behave), its own PR for Kevin. Conflict watch: task 5 (main.gd split)
+touches the same file; whichever merges second resolves a one-line conflict.
