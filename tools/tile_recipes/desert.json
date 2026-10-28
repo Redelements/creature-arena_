@@ -103,6 +103,149 @@
 						1.4
 					]
 				}
+			},
+			"trodden": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain3.png",
+				"blob": [
+					0,
+					4
+				],
+				"variants": [
+					[
+						4,
+						4,
+						8,
+						4
+					]
+				],
+				"fill_notches": [
+					12,
+					4
+				],
+				"blob_prob": 0.05,
+				"variant_prob": 1.0,
+				"texture": {
+					"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+					"block": [
+						1,
+						1
+					],
+					"size": 4
+				},
+				"tint": {
+					"mul": [
+						0.9,
+						0.85,
+						1.16
+					]
+				},
+				"_doc": "dressing: trodden sand (the plateau sand, darker and less blue-lifted) laid in Set 1's ragged dirt-path blob: worn footpaths from the road's mouths and to the stops, wheel ruts along the verges"
+			},
+			"sand_pale": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain3.png",
+				"blob": [
+					0,
+					4
+				],
+				"variants": [
+					[
+						4,
+						4,
+						8,
+						4
+					]
+				],
+				"fill_notches": [
+					12,
+					4
+				],
+				"blob_prob": 0.05,
+				"variant_prob": 1.0,
+				"texture": {
+					"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+					"block": [
+						1,
+						1
+					],
+					"size": 4
+				},
+				"tint": {
+					"mul": [
+						1.08,
+						1.07,
+						1.62
+					]
+				},
+				"_doc": "dressing: wind-blown pale sand, the same sand lifted lighter, laid as long thin streaks across the open sand"
+			},
+			"gravel_patch": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain3.png",
+				"blob": [
+					0,
+					4
+				],
+				"variants": [
+					[
+						4,
+						4,
+						8,
+						4
+					]
+				],
+				"fill_notches": [
+					12,
+					4
+				],
+				"blob_prob": 0.05,
+				"variant_prob": 1.0,
+				"texture": {
+					"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+					"block": [
+						40,
+						27
+					],
+					"size": 4
+				},
+				"tint": {
+					"mul": [
+						1.0,
+						1.0,
+						1.4
+					]
+				},
+				"_doc": "dressing: the pebbled sand (fills.gravel) as ragged patches instead of square blocks"
+			},
+			"dry_grass": {
+				"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png",
+				"blob": [
+					0,
+					0
+				],
+				"variants": [
+					[
+						4,
+						0,
+						8,
+						4
+					]
+				],
+				"variant_prob": 1.0,
+				"texture": {
+					"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+					"block": [
+						30,
+						32
+					],
+					"size": 4
+				},
+				"tint": {
+					"mul": [
+						1.0,
+						1.0,
+						1.4
+					]
+				},
+				"_doc": "dressing: the Desert's olive dry-grass ground laid in Set 1's fringed grass blob: dry grass at the verges, round the scrub and the brush beds"
 			}
 		}
 	},
@@ -460,6 +603,498 @@
 					]
 				}
 			]
+		},
+		"jars": {
+			"src": "RPGW_DecorativeProps_v1.0/propsA.png",
+			"size": [
+				31,
+				22
+			],
+			"feet": [
+				15,
+				21
+			],
+			"parts": [
+				{
+					"box": [
+						39,
+						139,
+						55,
+						160
+					],
+					"at": [
+						0,
+						1
+					]
+				},
+				{
+					"box": [
+						232,
+						144,
+						247,
+						160
+					],
+					"at": [
+						16,
+						6
+					]
+				},
+				{
+					"box": [
+						140,
+						144,
+						150,
+						160
+					],
+					"at": [
+						10,
+						6
+					]
+				}
+			],
+			"_doc": "dressing: Decorative Props' orange clay pots (propsA row y 128): water jars"
+		},
+		"sacks": {
+			"src": "RPG_Buildings_WINDMILL_v1.1/Mill_decoratives.png",
+			"size": [
+				32,
+				27
+			],
+			"feet": [
+				16,
+				26
+			],
+			"parts": [
+				{
+					"box": [
+						225,
+						5,
+						245,
+						32
+					],
+					"at": [
+						0,
+						0
+					]
+				},
+				{
+					"box": [
+						257,
+						13,
+						277,
+						32
+					],
+					"at": [
+						12,
+						8
+					]
+				}
+			],
+			"_doc": "dressing: Windmill Mill_decoratives grain sacks, one tall, one low (a props sheet, as Twin Keeps')"
+		},
+		"grain": {
+			"src": "RPG_Buildings_WINDMILL_v1.1/Mill_decoratives.png",
+			"size": [
+				31,
+				21
+			],
+			"feet": [
+				15,
+				20
+			],
+			"parts": [
+				{
+					"box": [
+						7,
+						64,
+						23,
+						84
+					],
+					"at": [
+						0,
+						0
+					]
+				},
+				{
+					"box": [
+						137,
+						65,
+						152,
+						84
+					],
+					"at": [
+						16,
+						2
+					]
+				}
+			],
+			"_doc": "dressing: two open sacks of grain"
+		},
+		"hay": {
+			"src": "RPG_Buildings_WINDMILL_v1.1/Mill_decoratives.png",
+			"size": [
+				30,
+				32
+			],
+			"feet": [
+				15,
+				31
+			],
+			"parts": [
+				{
+					"box": [
+						394,
+						57,
+						409,
+						89
+					],
+					"at": [
+						0,
+						0
+					]
+				},
+				{
+					"box": [
+						425,
+						57,
+						440,
+						89
+					],
+					"at": [
+						15,
+						0
+					]
+				}
+			],
+			"_doc": "dressing: two bound hay bundles (fodder for the caravan's beasts)"
+		},
+		"crate": {
+			"src": "RPG_Buildings_WINDMILL_v1.1/Mill_decoratives.png",
+			"box": [
+				388,
+				268,
+				412,
+				299
+			],
+			"feet": [
+				12,
+				30
+			]
+		},
+		"cloths": {
+			"src": "RPG_Buildings_Desert_v1.0/small_obj1.png",
+			"size": [
+				27,
+				18
+			],
+			"feet": [
+				13,
+				17
+			],
+			"parts": [
+				{
+					"box": [
+						137,
+						42,
+						150,
+						53
+					],
+					"at": [
+						0,
+						7
+					]
+				},
+				{
+					"box": [
+						171,
+						42,
+						184,
+						53
+					],
+					"at": [
+						0,
+						2
+					]
+				},
+				{
+					"box": [
+						233,
+						44,
+						246,
+						53
+					],
+					"at": [
+						14,
+						9
+					]
+				},
+				{
+					"box": [
+						202,
+						42,
+						215,
+						53
+					],
+					"at": [
+						14,
+						4
+					]
+				}
+			],
+			"_doc": "dressing: small_obj1's folded cloths in two stacks: bolts of cloth for sale"
+		},
+		"baskets": {
+			"src": "RPG_Buildings_Desert_v1.0/small_obj1.png",
+			"size": [
+				32,
+				18
+			],
+			"feet": [
+				16,
+				17
+			],
+			"parts": [
+				{
+					"box": [
+						42,
+						199,
+						55,
+						215
+					],
+					"at": [
+						9,
+						0
+					]
+				},
+				{
+					"box": [
+						8,
+						199,
+						21,
+						215
+					],
+					"at": [
+						0,
+						2
+					]
+				},
+				{
+					"box": [
+						74,
+						199,
+						87,
+						215
+					],
+					"at": [
+						19,
+						2
+					]
+				}
+			],
+			"_doc": "dressing: three produce baskets"
+		},
+		"rope": {
+			"src": "RPG_Buildings_Desert_v1.0/small_obj1.png",
+			"size": [
+				22,
+				13
+			],
+			"feet": [
+				11,
+				12
+			],
+			"parts": [
+				{
+					"box": [
+						204,
+						169,
+						214,
+						182
+					],
+					"at": [
+						0,
+						0
+					]
+				},
+				{
+					"box": [
+						41,
+						170,
+						52,
+						182
+					],
+					"at": [
+						11,
+						1
+					]
+				}
+			],
+			"_doc": "dressing: a rope coil and a bucket"
+		},
+		"awning_red": {
+			"src": "RPG_Buildings_Desert_v1.0/mainbuildings1.png",
+			"box": [
+				1504,
+				928,
+				1536,
+				954
+			],
+			"feet": [
+				16,
+				25
+			],
+			"_doc": "dressing: mainbuildings1's cloth shades (a cloth between two posts, 32 px): a stall's screen on a plateau's top; red on red's half, grey on blue's"
+		},
+		"awning_grey": {
+			"src": "RPG_Buildings_Desert_v1.0/mainbuildings1.png",
+			"box": [
+				1504,
+				832,
+				1536,
+				858
+			],
+			"feet": [
+				16,
+				25
+			]
+		},
+		"awning_green": {
+			"src": "RPG_Buildings_Desert_v1.0/mainbuildings1.png",
+			"box": [
+				1504,
+				1024,
+				1536,
+				1050
+			],
+			"feet": [
+				16,
+				25
+			]
+		},
+		"slab_a": {
+			"src": "RPGW_GrassLand_v2.01/MainLev2.0.png",
+			"box": [
+				1635,
+				1061,
+				1695,
+				1108
+			],
+			"feet": [
+				30,
+				46
+			],
+			"tint": {
+				"desat": 0.7,
+				"mul": [
+					1.45,
+					1.3,
+					1.05
+				]
+			},
+			"_doc": "flat: GrassLand's slab-bridge flagstones (as Twin Keeps'), turned sandstone: the paved aprons at the caravan stops"
+		},
+		"slab_b": {
+			"src": "RPGW_GrassLand_v2.01/MainLev2.0.png",
+			"box": [
+				1635,
+				1112,
+				1695,
+				1168
+			],
+			"feet": [
+				30,
+				55
+			],
+			"tint": {
+				"desat": 0.7,
+				"mul": [
+					1.45,
+					1.3,
+					1.05
+				]
+			}
+		},
+		"slab_c": {
+			"src": "RPGW_GrassLand_v2.01/MainLev2.0.png",
+			"box": [
+				1635,
+				1175,
+				1665,
+				1204
+			],
+			"feet": [
+				15,
+				28
+			],
+			"tint": {
+				"desat": 0.7,
+				"mul": [
+					1.45,
+					1.3,
+					1.05
+				]
+			}
+		},
+		"blotch_a": {
+			"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+			"box": [
+				1350,
+				1250,
+				1402,
+				1302
+			],
+			"feet": [
+				26,
+				51
+			],
+			"tint": {
+				"mul": [
+					1.0,
+					1.0,
+					1.4
+				]
+			},
+			"_doc": "flat: MainLev2.0's cracked dry-mud blotches (the sand_dirt fill's, whole): dark earth by the stops"
+		},
+		"blotch_b": {
+			"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+			"box": [
+				1408,
+				1248,
+				1459,
+				1297
+			],
+			"feet": [
+				25,
+				48
+			],
+			"tint": {
+				"mul": [
+					1.0,
+					1.0,
+					1.4
+				]
+			}
+		},
+		"blotch_c": {
+			"src": "RPGW_Desert_v2.01/MainLev2.0.png",
+			"box": [
+				1280,
+				1218,
+				1312,
+				1248
+			],
+			"feet": [
+				16,
+				29
+			],
+			"tint": {
+				"mul": [
+					1.0,
+					1.0,
+					1.4
+				]
+			}
 		}
 	},
 	"anim": {
@@ -518,6 +1153,60 @@
 				48
 			],
 			"_doc": "the iron tripod brazier with a red coal bowl: its legs end on y 48"
+		},
+		"torch": {
+			"src": "RPG_Buildings_Desert_v1.0/Anim/torch.png",
+			"frame": [
+				32,
+				32
+			],
+			"frames": 4,
+			"fps": 6,
+			"row": 0,
+			"feet": [
+				16,
+				31
+			],
+			"_doc": "dressing: RPG Buildings Desert's wall torch in its green holder (row 0's four frames), on a fence post"
+		},
+		"palm_crown": {
+			"src": "RPGW_Desert_v2.01/animated/tree1a.png",
+			"frame": [
+				64,
+				96
+			],
+			"frames": 10,
+			"fps": 6,
+			"crop": [
+				0,
+				0,
+				64,
+				50
+			],
+			"feet": [
+				32,
+				49
+			],
+			"_doc": "dressing: tree1a's swaying fronds without the trunk (cropped above it): palm crowns hung over the brush beds, fading over our own fighters"
+		},
+		"palm_crown_b": {
+			"src": "RPGW_Desert_v2.01/animated/tree2a.png",
+			"frame": [
+				64,
+				96
+			],
+			"frames": 10,
+			"fps": 6,
+			"crop": [
+				0,
+				8,
+				64,
+				52
+			],
+			"feet": [
+				32,
+				43
+			]
 		}
 	},
 	"walls": {
@@ -890,6 +1579,129 @@
 					0.72
 				]
 			}
+		},
+		"stones": {
+			"src": "RPGFW_Set1_v1.0/_PNG/g_terrain4.png",
+			"boxes": [
+				[
+					384,
+					584,
+					401,
+					598
+				],
+				[
+					384,
+					616,
+					400,
+					633
+				],
+				[
+					64,
+					625,
+					84,
+					640
+				],
+				[
+					33,
+					640,
+					53,
+					656
+				],
+				[
+					263,
+					646,
+					283,
+					659
+				],
+				[
+					293,
+					648,
+					312,
+					668
+				]
+			],
+			"tint": {
+				"desat": 0.55,
+				"mul": [
+					1.2,
+					1.08,
+					0.86
+				]
+			},
+			"_doc": "dressing: flat stones (Set 1 g_terrain4 rubble, as Twin Keeps' stepping stones) warmed to sandstone"
+		},
+		"flowers_dry": {
+			"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png",
+			"boxes": [
+				[
+					525,
+					649,
+					539,
+					663
+				],
+				[
+					553,
+					651,
+					572,
+					669
+				],
+				[
+					620,
+					683,
+					636,
+					700
+				],
+				[
+					653,
+					685,
+					666,
+					699
+				]
+			],
+			"tint": {
+				"desat": 0.25,
+				"mul": [
+					1.1,
+					1.0,
+					0.8
+				]
+			},
+			"_doc": "dressing: Set 1's small yellow flowers, sun-dried: desert blooms by the scrub and the beds"
 		}
+	},
+	"shadows": {
+		"_doc": "contact shadows under the dressing's props (tools/seed_dressing.gd picks the size nearest a prop's width): warm, for the hard sun",
+		"sizes": [
+			[
+				10,
+				4
+			],
+			[
+				16,
+				5
+			],
+			[
+				22,
+				7
+			],
+			[
+				28,
+				8
+			],
+			[
+				36,
+				10
+			],
+			[
+				46,
+				12
+			]
+		],
+		"rgb": [
+			40,
+			24,
+			10
+		],
+		"alpha": 120
 	}
 }

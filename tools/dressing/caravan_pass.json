@@ -1,0 +1,110 @@
+{
+	"_doc": "Dustwind Pass's first-draft dressing (tools/seed_dressing.gd seeds assets/arenas/caravan_pass_dressing.tscn from it). The SCENE is the source once seeded: edit it in the Godot editor; reseeding needs --force and drops every hand edit. Placed on red's (left) half and mirrored to blue's (red cloth turns grey). The walls are one-tile raised plateaus (a top, then a 3-cell rocky face on the south end), so props stand on the tops behind the face and along the fences; the floor carries the rest: trodden footpaths from the road's mouths and to the stops, wheel ruts along the verges, wind streaks of pale sand, gravel patches, dry grass, flat stones and sandstone slabs at the stops, dry blooms; palm crowns over the brush beds. `keep_off` keeps every ground tile and detail sprite off the road, the caravan's track and a cell round each wall (its contact shadow). Props and flat decals in units from the floor's top-left corner, detail in cells (8 units), grounds in tiles (16 units).",
+	"scene": "res://assets/arenas/caravan_pass_dressing.tscn",
+	"set": "desert",
+	"map": "caravan_pass",
+	"mirror": {"width": 1760, "swap": {"_red": "_grey"}},
+	"keep_off": {"walls": 1, "terrains": ["earth"], "track": true},
+	"grounds": [
+		{"layer": "Paths", "terrain": "trodden", "on": "floor",
+			"curves": [
+				{"points": [[0.2, 8.0], [3, 7.6], [7, 7.0], [11, 5.6], [14.5, 4.8]], "width": [1.8, 1.1]},
+				{"points": [[0.2, 13.4], [4, 13.9], [9, 14.6], [14, 15.4], [18.5, 16.4]], "width": [1.8, 1.1]},
+				{"points": [[40.5, 3.6], [42.5, 4.4], [44.0, 6.6], [46.8, 7.2]], "width": [1.4, 1.8]},
+				{"points": [[24, 7.6], [24.5, 10], [25.0, 14], [26.5, 16.0]], "width": [1.1, 1.5]},
+				{"points": [[23, 7.4], [28, 7.5], [33, 7.3], [38, 7.5]], "width": [0.8, 0.8]},
+				{"points": [[46, 14.4], [50.5, 14.5], [55, 14.4]], "width": [0.8, 0.8]},
+				{"points": [[4, 12.4], [9, 12.5], [14, 12.3]], "width": [0.8, 0.8]},
+				{"points": [[20.5, 3.6], [25, 3.4], [30, 3.6], [35, 3.4]], "width": [0.7, 0.7]}
+			],
+			"blobs": [
+				{"at": [43.5, 2.8], "r": 1.5, "seed": 31},
+				{"at": [47.8, 7.6], "r": 1.7, "seed": 32, "stretch": [1.3, 0.8]},
+				{"at": [26.5, 16.4], "r": 1.4, "seed": 33, "stretch": [1.4, 0.8]},
+				{"at": [1.5, 6.5], "r": 1.4, "seed": 34},
+				{"at": [1.5, 14.8], "r": 1.4, "seed": 35}
+			]
+		},
+		{"layer": "SandPale", "terrain": "sand_pale", "on": "floor",
+			"curves": [
+				{"points": [[2, 2.5], [6, 2.1], [10, 2.6]], "width": [1.1, 0.7]},
+				{"points": [[28, 9.6], [32, 9.1], [36, 9.7]], "width": [1.1, 0.7]},
+				{"points": [[8, 17.5], [12, 17.1], [16, 17.7]], "width": [1.1, 0.7]},
+				{"points": [[47, 1.8], [51, 1.5], [54, 1.9]], "width": [1.0, 0.7]},
+				{"points": [[30, 18.3], [34, 17.9], [38, 18.4]], "width": [1.0, 0.7]},
+				{"points": [[47, 10.0], [50, 9.6], [53, 9.9]], "width": [0.9, 0.6]}
+			]
+		},
+		{"layer": "Gravel", "terrain": "gravel_patch", "on": "floor",
+			"blobs": [
+				{"at": [8, 3.6], "r": 1.5, "seed": 41, "stretch": [1.4, 0.8]},
+				{"at": [33, 11], "r": 1.3, "seed": 42},
+				{"at": [20.5, 17.6], "r": 1.6, "seed": 43, "stretch": [1.4, 0.8]},
+				{"at": [50.5, 4.2], "r": 1.4, "seed": 44},
+				{"at": [41, 16.6], "r": 1.3, "seed": 45, "stretch": [1.3, 0.8]}
+			]
+		},
+		{"layer": "DryGrass", "terrain": "dry_grass", "on": "floor",
+			"blobs": [
+				{"at": [12.2, 2.0], "r": 1.3, "seed": 51},
+				{"at": [18.2, 1.4], "r": 1.2, "seed": 52},
+				{"at": [25, 2.6], "r": 1.1, "seed": 53},
+				{"at": [8, 18.2], "r": 1.5, "seed": 54, "stretch": [1.5, 0.7]},
+				{"at": [31.6, 16.8], "r": 1.2, "seed": 55},
+				{"at": [39, 13.6], "r": 1.0, "seed": 56},
+				{"at": [48, 18.4], "r": 1.2, "seed": 57, "stretch": [1.4, 0.8]},
+				{"at": [54.5, 17.8], "r": 1.1, "seed": 58}
+			]
+		}
+	],
+	"flat": [
+		{"kind": "slab_a", "pos": [712, 116]},
+		{"kind": "slab_c", "pos": [742, 112]},
+		{"kind": "slab_b", "pos": [752, 134], "flip": true},
+		{"kind": "slab_c", "pos": [420, 260], "flip": true},
+		{"kind": "blotch_c", "pos": [150, 40]},
+		{"kind": "blotch_a", "pos": [470, 152]},
+		{"kind": "blotch_b", "pos": [622, 300]}
+	],
+	"detail": [
+		{"kind": "stones", "clump": [86, 14], "n": 4, "r": 2},
+		{"kind": "stones", "cells": [[83, 7], [85, 6], [87, 4]]},
+		{"kind": "stones", "clump": [52, 32], "n": 3, "r": 2, "seed": 1},
+		{"kind": "flowers_dry", "clump": [64, 25], "n": 4, "r": 2, "seed": 2},
+		{"kind": "flowers_dry", "clump": [77, 25], "n": 3, "r": 2, "seed": 3},
+		{"kind": "flowers_dry", "clump": [30, 6], "n": 3, "r": 2, "seed": 4},
+		{"kind": "flowers_dry", "clump": [10, 34], "n": 4, "r": 2, "seed": 5},
+		{"kind": "flowers_dry", "clump": [96, 29], "n": 4, "r": 2, "seed": 6},
+		{"kind": "flowers_dry", "clump": [24, 3], "n": 3, "r": 1, "seed": 7},
+		{"kind": "flowers_dry", "clump": [56, 6], "n": 3, "r": 2, "seed": 8},
+		{"kind": "pebbles", "clump": [20, 25], "n": 4, "r": 2, "seed": 9},
+		{"kind": "pebbles", "clump": [70, 4], "n": 4, "r": 2, "seed": 10},
+		{"kind": "pebbles", "clump": [100, 4], "n": 3, "r": 2, "seed": 11},
+		{"kind": "pebbles", "clump": [40, 36], "n": 4, "r": 2, "seed": 12},
+		{"kind": "dry_tufts", "clump": [15, 30], "n": 4, "r": 2, "seed": 13},
+		{"kind": "dry_tufts", "clump": [60, 18], "n": 3, "r": 2, "seed": 14},
+		{"kind": "dry_tufts", "clump": [84, 22], "n": 4, "r": 2, "seed": 15},
+		{"kind": "dry_tufts", "clump": [104, 36], "n": 3, "r": 2, "seed": 16},
+		{"kind": "dry_tufts", "clump": [46, 22], "n": 3, "r": 2, "seed": 17},
+		{"kind": "clods", "clump": [94, 15], "n": 3, "r": 1, "seed": 18}
+	],
+	"canopies": [
+		{"kind": "palm_crown", "pos": [550, 238]},
+		{"kind": "palm_crown_b", "pos": [590, 254], "flip": true},
+		{"kind": "palm_crown", "pos": [806, 272], "flip": true},
+		{"kind": "palm_crown_b", "pos": [846, 286]}
+	],
+	"props": [
+		{"kind": "tripod", "pos": [424, 186], "shadow": false},
+		{"kind": "awning_red", "pos": [424, 199], "shadow": false},
+		{"kind": "baskets", "pos": [424, 207.5]},
+		{"kind": "jars", "pos": [728, 29]},
+		{"kind": "sacks", "pos": [309, 247.5]},
+		{"kind": "hay", "pos": [323, 247.5]},
+		{"kind": "torch", "pos": [335, 247.5], "lift": 3, "shadow": false, "stack": 1},
+		{"kind": "cloths", "pos": [348, 247.5]},
+		{"kind": "crate", "pos": [360, 247.5]},
+		{"kind": "jars", "pos": [371, 247.5]},
+		{"kind": "grain", "pos": [382, 247.5]}
+	]
+}
