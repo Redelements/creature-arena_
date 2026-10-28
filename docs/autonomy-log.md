@@ -21,7 +21,7 @@ DONE / SKIPPED / BLOCKED. This file lives on branch `autonomy-log` (worktree
 | 1 | QA sweep after the merge storm; refresh STATUS.md and open-items.md | DONE | [#259](https://github.com/Redelements/creature-arena_/pull/259) merged |
 | 2 | Docs drift check (MECHANICS.md, README kits) | | |
 | 3 | Rollback coverage: random-input fuzz across modes with hazards, shrines, crown | | |
-| 4 | Nightly CI: Normal-bot balance matrix + cross-platform determinism soak | | |
+| 4 | Nightly CI: Normal-bot balance matrix + cross-platform determinism soak | PR OPEN, merging | [#260](https://github.com/Redelements/creature-arena_/pull/260) |
 | 5 | main.gd split (after 1-4 merged) | | |
 | 6 | CPU team play piece 3 (focus, peel, front line) | | |
 | 7 | Caravan CPU wagon goal | | |
@@ -81,3 +81,18 @@ match anyone knocked out gets back up like the dummy (90 ticks, full HP), and a 
 the KO freeze / slow motion. Training-only, so every other match's fingerprint is unchanged; two
 regression tests in tests/test_training.gd; MECHANICS.md "Training options" updated.
 - **Task 1 DONE**: PR #259 merged (main f2b9046). Nothing a player sees changed.
+
+## Task 4: nightly CI
+
+- Agent opened **PR #260**: `.github/workflows/nightly.yml`, schedule 06:00 UTC + workflow_dispatch only,
+  `permissions: contents: read`, no secrets, every action pinned to a SHA already used in the repo
+  (checkout v4.4.0, cache v4.3.0, upload-artifact v4.6.2, download-artifact v4.3.0). Jobs: balance
+  (Normal-bot matrix 12 seeds, the five pinned pairs 8 seeds, bench_modes 4 seeds -> artifacts
+  `balance-matrix`, `mode-pacing`; fails only on a crash), determinism (12 fixed seeds of --sim-check on
+  ubuntu and windows -> artifacts), compare (fails on any digest difference), summary.
+- Proof: run 40640881348 green on every job via a temporary push trigger on the branch (fewer seeds),
+  removed in the final commit. Decision: a workflow_dispatch needs the file on main, so the "trigger it
+  manually" verification happens right after the merge (below).
+- Decision (agent): seed counts from the runner's measured speed (~30-35 min job, 90 min backstop);
+  rollback-fuzz step guarded by `hashFiles` so it turns itself on once task 3's file lands.
+- Checks: suite 1295/0, sweep 324 runs 0 failed, sim-check unchanged. Non-behavioral: merging once green.
