@@ -91,3 +91,30 @@ Base: `origin/main` at 5c26ca7 (PR #278 merged), NET_VERSION 61.
 - Checks: suite 1365/0 (after the warm-up fix), journey alone and in suite, sweep 216/0 (ran before the
   one-line warm-up fix), sim-check unchanged, map clean. Screenshots at 1600x900 and 1170x540 in the
   session scratchpad `shots-progression-profile/`. Merging when CI is green.
+
+## Task C: challenges
+
+- **PR #283** (branch `progression-challenges`, from main 4dc7d55). `data/challenges.json`: groups General /
+  Fighters / Modes / Skills / Hazards; 50 goals (10 general, 11 per fighter expanded from `{fighter}`, 14 modes,
+  10 skills, 5 hazards), each `id, group, name, desc, stat, target, reward {xp, id}`; eight new title texts in
+  progression.json. `src/game/challenges.gd` (`Challenges`, static): `goals, groups, goal, counter_of, count,
+  progress(id) -> [count, target], done, done_count, begin_match, note_event, note_match(report, rows, ctx),
+  completed_this_match, result_line, reward_text, titles, goal_of_reward`; save key `challenges` =
+  {counts: {stat: n}, done: [ids]}. progress.gd: `section(key)`, `grant_xp(amount, reason)`, `grant_unlock(id)`.
+  Wiring: `_new_sim` -> `begin_match`, `_react` -> `note_event`, `award_match` -> `note_match` (merged into
+  `_progress_shown`), `progress_lines` appends "Challenge: <name>" / "+N challenges". Profile page "challenges"
+  (`--menu=profile:challenges`), title pickers offer challenge titles; `OptionRow.ticked`, `bar_value_room`,
+  `bar_rect`. Stats the tracker knows: fights, wins, kos, blocks, combo_5, combo_10, wins_as:<f>, surge_kos,
+  guard_breaks, dodge_cancels, breakaways, flawless_wins, clutch_wins, ring_outs, sprees, flag_captures,
+  caravan_finishes, crater_holds, gauntlet_waves, arcade_clears_<level>, dailies, brawl_wins, chaos_wins,
+  sinkhole_wins, online_matches, meteor_untouched, wave_shelters, boulders_sent_back, boulder_hits, maps_won
+  (from wins_on:<arena>).
+- Decisions (agent): counters keyed by stat, not goal id (shared counts, late goals start from what was
+  counted); only the report's first human counts (player 1 locally, the local slot online); a Duel win counts
+  for all three fighters; guard break credit goes to the next hit on that victim (the event names no attacker);
+  a harder Arcade clear counts for the easier levels; a Chaos Cup win is also a Brawl win; the Gauntlet goal is
+  10 waves in all; "perfect round" became a flawless fight; no "New!" marks for challenge titles (QC item).
+- Checks: suite 1371/1 then the failing XP pin in test_title_results fixed (a first win now also pays First
+  Bell and First Win); **the full suite was not rerun after that fix** (TEST_ONLY title_results, journey,
+  challenges 22/0); CI is the full run. Journey alone and in suite, sweep 216/0, sim-check unchanged, map
+  clean. Screenshots in the session scratchpad `shots-progression-challenges/`. Merging when CI is green.
