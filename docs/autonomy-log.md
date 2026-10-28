@@ -19,7 +19,7 @@ DONE / SKIPPED / BLOCKED. This file lives on branch `autonomy-log` (worktree
 | # | Task | Status | PR |
 | --- | --- | --- | --- |
 | 1 | QA sweep after the merge storm; refresh STATUS.md and open-items.md | DONE | [#259](https://github.com/Redelements/creature-arena_/pull/259) merged |
-| 2 | Docs drift check (MECHANICS.md, README kits) | | |
+| 2 | Docs drift check (MECHANICS.md, README kits) | PR OPEN, merging | [#263](https://github.com/Redelements/creature-arena_/pull/263) |
 | 3 | Rollback coverage: random-input fuzz across modes with hazards, shrines, crown | PR OPEN, merging | [#262](https://github.com/Redelements/creature-arena_/pull/262) |
 | 4 | Nightly CI: Normal-bot balance matrix + cross-platform determinism soak | DONE (manual run verifying) | [#260](https://github.com/Redelements/creature-arena_/pull/260) merged |
 | 5 | main.gd split (after 1-4 merged) | | |
@@ -117,3 +117,17 @@ regression tests in tests/test_training.gd; MECHANICS.md "Training options" upda
   so rounds keep hazards, Duel checks ko+enter (Normal CPUs never tag), up to 2 extra seeds per mode.
 - Checks: suite 1307/0, sweep 324/0, sim-check unchanged. Tests only -> merging once green; the nightly
   workflow's guarded step turns the long soak on by itself once this lands.
+
+## Task 2: docs drift
+
+- Agent opened **PR #263** (docs/MECHANICS.md + README.md only). Events table was already complete (106
+  events). Fixed: tick order (surge_every, _step_storms, _unstick, wall held under a body, sheet regrow,
+  exhaust/regen countdowns), creature keys (`role` IS read: class perks, shrines, hazard role_mult; `id`;
+  ambush Pete 1.2 / Digby 1.25; Stoneskin reset wording), used-by columns, rules (no meter on a block,
+  stamina.json numbers, Duel keys, team spawn keys, Crater zone_radius, Caravan round_seconds; over_ticks /
+  team_size are main.gd's), stale-bullets facts. README: dodge cost exceptions, 8 gold-windup moves,
+  Culvert is a Tank in the perks table, grab_air, Cerebro light ~115 px, Burrow ~130 px, Cold Cross slows.
+- Decision (agent): README figures the JSON alone can't give (Bedrock 60% walk, lock-on ranges, Paper
+  Plane 116 px) left as they were; old line-number references in MECHANICS' history section kept.
+- Checks: suite 1295/0, journey 4/0, sweep 324/0, sim-check unchanged (doc-only diff). Merging once green.
+- Watch: #261 (training fix) also edits MECHANICS.md "Training options"; resolve if #263 conflicts.
