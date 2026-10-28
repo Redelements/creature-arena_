@@ -85,10 +85,10 @@ buses at start-up; `play(name, ..., ui = true)` sends a sound to Menu sounds.
 | [ ] | `knife_hit` | A thrown knife lands | Short dull chunk |
 | [ ] | `thwack` | Mallet Toss lands; Tenderize pounds the floor | Wooden meat mallet on meat |
 | [ ] | `flip` | Flip Out scoops someone over his head | Spatula scrape, rising whoosh |
-| [ ] | `chop_chop` | A move with `fx.chop` starts ("CHOP CHOP"); no move uses it since Knife Flurry took `cooking_with_fire` | Placeholder is two knife chops on a board; the real one is his voice |
-| [ ] | `cooking_with_fire` | Knife Flurry starts (his voice line, "Now we cooking with fire", `fx.shout`) | Placeholder is a pan clang into a gas-flame whoomph and a sizzle; the real one is his voice |
-| [ ] | `fire_shot` | Each fireball of Knife Flurry leaves his pan | Short soft fwoosh |
-| [ ] | `fire_hit` | A Knife Flurry fireball ends (hits or burns out) | Crackling pop |
+| [ ] | `chop_chop` | A move with `fx.chop` starts ("CHOP CHOP"); no move uses it since Cooking with Fire took `cooking_with_fire` | Placeholder is two knife chops on a board; the real one is his voice |
+| [ ] | `cooking_with_fire` | Cooking with Fire (his Surge) starts (his voice line, "Now we cooking with fire", `fx.shout`) | Placeholder is a pan clang into a gas-flame whoomph and a sizzle; the real one is his voice |
+| [ ] | `fire_shot` | Each fireball of Cooking with Fire leaves his pan | Short soft fwoosh |
+| [ ] | `fire_hit` | A Cooking with Fire fireball ends (hits or burns out) | Crackling pop |
 | [ ] | `fizzle` | Chef Cerebro's knockout | Sizzle dying away, a deflating squeak |
 | [ ] | `hiss` | Petrify Punch starts (her voice line, "Hiss off!") and Hissy Fitz's knockout | Placeholder is a long snake hiss; the real one is her voice |
 | [ ] | `spit` | Venom Spit leaves her hair snakes | Short hiss, a wet "ptoo" |
