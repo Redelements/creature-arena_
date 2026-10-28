@@ -49,6 +49,9 @@ static var _loaded := false
 static var path := PATH
 static var _enabled := false
 static var _table := {}
+## The streak's last day may be this many days after today and still count as today (a
+## clock set back, a trip west across midnight); a later one (a clock far off) starts again.
+const CLOCK_SLACK_DAYS := 2
 ## The local calendar day (YYYYMMDD) the streak counts with; 0 = the system clock. Tests set it.
 static var day_override := 0
 
@@ -626,7 +629,7 @@ static func streak_days() -> int:
 	if last <= 0:
 		return 0
 	var gap := Daily.day_number(today_local()) - Daily.day_number(last)
-	return maxi(0, int(st.get("days", 0))) if gap >= 0 and gap <= 1 else 0
+	return maxi(0, int(st.get("days", 0))) if gap >= -CLOCK_SLACK_DAYS and gap <= 1 else 0
 
 
 ## The XP multiplier a paid fight gets now: `streak_mult` once the streak reaches
@@ -653,10 +656,11 @@ static func _note_streak() -> bool:
 	var st: Dictionary = _data["streak"]
 	var today := today_local()
 	var last := int(st.get("last_day", 0))
-	if last == today:
-		return false
+	var gap := Daily.day_number(today) - Daily.day_number(last) if last > 0 else 99
+	if gap <= 0 and gap >= -CLOCK_SLACK_DAYS:
+		return false  # today, or a clock a day or two behind the last fight: the same day (never moves back)
 	var days := 1
-	if last > 0 and Daily.day_number(today) - Daily.day_number(last) == 1:
+	if gap == 1:
 		days = maxi(0, int(st.get("days", 0))) + 1
 	st["days"] = days
 	st["last_day"] = today
