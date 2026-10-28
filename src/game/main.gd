@@ -1669,9 +1669,11 @@ func _arcade_result(won: bool) -> bool:
 		var w_tick := int(_round_end[0]) if _round_end.size() == 2 else sim.tick
 		var w_share := float(_round_end[1]) if _round_end.size() == 2 else share
 		var w_score := w.score_fight(won, w_share, w_tick)
-		var first_clear := won and w_score > 0 and Progress.weekly_best(w.week) <= 0
-		show_ctl.award_match(won, {"daily_score": w_score, "weekly_clear": first_clear})
+		var w_old := Progress.weekly_best(w.week)
+		var first_clear := won and w_score > 0 and w_old <= 0
 		var w_best := Progress.record_weekly(w.week, w_score)
+		# The score pays only what it adds to the week's best (a retry that doesn't beat it: 0).
+		show_ctl.award_match(won, {"daily_score": maxi(0, w_score - w_old) if w_best else 0, "weekly_clear": first_clear})
 		flow = Flow.MATCH_OVER
 		flow_t = 0
 		hud.banner = "SCORE  %d" % w_score if won else "NO SCORE"
@@ -1684,8 +1686,9 @@ func _arcade_result(won: bool) -> bool:
 		var end_tick := int(_round_end[0]) if _round_end.size() == 2 else sim.tick
 		var end_share := float(_round_end[1]) if _round_end.size() == 2 else share
 		var score := d.score_fight(won, end_share, end_tick)
-		show_ctl.award_match(won, {"daily_score": score})
+		var old_best := Progress.daily_best(d.date)
 		var best := Progress.record_daily(d.date, score)
+		show_ctl.award_match(won, {"daily_score": maxi(0, score - old_best) if best else 0})  # (as the Weekly's)
 		var path := "user://daily/daily_%d.json" % d.date
 		DirAccess.make_dir_recursive_absolute("user://daily")
 		var f := FileAccess.open(path, FileAccess.WRITE)

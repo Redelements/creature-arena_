@@ -45,6 +45,19 @@ func test_the_data_loads_and_its_curves_climb_to_their_caps() -> void:
 	var mas_hours := Progress.xp_for_level(t["mastery_curve"], 10) / per_hour
 	assert_true(acc_hours > 35.0 and acc_hours < 45.0, "the account cap takes about 40 hours (%.1f)" % acc_hours)
 	assert_true(mas_hours > 3.0 and mas_hours < 5.0, "a fighter's mastery about 4 (%.1f)" % mas_hours)
+	# Ladder modes (Arcade, Gauntlet, Daily, Weekly) are single-round stages of about a
+	# minute with the banners: each pays the fight, the win and the KOs times ladder_mult.
+	# An Arcade run on Normal with half the stages lost and retried (twelve tries a run)
+	# and the clear bonus (times ladder_mult too) stays near the same pace.
+	var lm := float(x["ladder_mult"])
+	var stage_try := per_fight * lm
+	var arcade_hour := 60.0 * stage_try + 60.0 / (2.0 * Arcade.STAGES) * float(x["clear_arcade"]) * lm
+	var arcade_hours := Progress.xp_for_level(t["account_curve"], 50) / arcade_hour
+	assert_true(arcade_hours > 30.0 and arcade_hours < 50.0, "the Arcade reaches the cap in 30 to 50 hours too (%.1f)" % arcade_hours)
+	var stage_report := {"kind": "cpu", "cpu_level": 1, "ladder": true, "clear_arcade": true,
+		"players": [{"slot": 0, "fighters": ["cairn"], "won": true, "kos": 0}]}
+	assert_eq(Progress.xp_for(stage_report, stage_report["players"][0]),
+		roundi((float(x["fight"]) + float(x["win"]) + float(x["clear_arcade"])) * lm), "a ladder stage pays times ladder_mult:")
 	var first := Progress.level_cost(t["account_curve"], 1)
 	var win := Progress.xp_for(_cpu(true, 1), _cpu(true, 1)["players"][0])
 	var loss := Progress.xp_for(_cpu(false, 0), _cpu(false, 0)["players"][0])

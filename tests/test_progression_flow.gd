@@ -171,3 +171,33 @@ func test_a_cpu_vs_cpu_demo_pays_nothing_offline_or_online() -> void:
 	assert_eq(String(g.show_ctl.progress_report(true)["kind"]), "none", "the demo flag pays nothing:")
 	g._cpu_vs_cpu = false
 	_done(g)
+
+
+func test_a_daily_retry_pays_its_score_only_on_a_new_best() -> void:
+	_fresh()
+	var daily := "user://daily/daily_%d.json" % Daily.today()
+	var kept: Variant = FileAccess.get_file_as_string(daily) if FileAccess.file_exists(daily) else null
+	var g := _game()
+	var old_best := Progress.daily_best(Daily.today())
+	var paid: Array = []
+	for i in 2:
+		g._arcade_fighter = "cairn"
+		g._skip_select = true
+		g._start_match(g.mode_index("Daily Challenge"))
+		_tick(g, 10)
+		g.wins = [1, 0]
+		g._arcade_result(true)
+		paid.append(int(g._progress_shown.get("xp", 0)))
+	var r: Dictionary = g.show_ctl.progress_report(true, {"daily_score": 0})
+	assert_true(bool(r["ladder"]), "a Daily fight is a ladder stage")
+	assert_eq(paid[1], Progress.xp_for(r, r["players"][0]), "the same score again pays the fight alone:")
+	if Progress.daily_best(Daily.today()) > old_best:
+		assert_gt(float(paid[0]), float(paid[1]), "the first, a new best, paid its score too")
+	_done(g)
+	Progress.set_enabled(false)
+	if kept == null:
+		DirAccess.remove_absolute(daily)
+	else:
+		var f := FileAccess.open(daily, FileAccess.WRITE)
+		f.store_string(String(kept))
+		f.close()

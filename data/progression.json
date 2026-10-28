@@ -11,7 +11,8 @@
 		"weekly_clear": 100,
 		"streak_mult": 1.1,
 		"streak_min_days": 3,
-		"level_mult": [0.5, 1.0, 1.1, 1.2]
+		"level_mult": [0.5, 1.0, 1.1, 1.2],
+		"ladder_mult": 0.5
 	},
 	"account_curve": {"base": 150, "step": 65, "cap": 50},
 	"mastery_curve": {"base": 300, "step": 160, "cap": 10},

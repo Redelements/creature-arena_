@@ -509,6 +509,8 @@ static func xp_for(report: Dictionary, player: Dictionary) -> int:
 	if bool(report.get("clear_arcade", false)):
 		total += float(x.get("clear_arcade", 0))
 	total += int(report.get("waves", 0)) * float(x.get("gauntlet_wave", 0))
+	if bool(report.get("ladder", false)):  # a single-round stage: about half a best-of-three's time
+		total *= float(x.get("ladder_mult", 1.0))
 	total += int(report.get("daily_score", 0)) / 100.0 * float(x.get("daily_score_mult", 0))
 	if bool(report.get("weekly_clear", false)):
 		total += float(x.get("weekly_clear", 0))
@@ -525,7 +527,11 @@ static func xp_for(report: Dictionary, player: Dictionary) -> int:
 ##   "cpu_level": 0 Easy .. 3 Rage (kind "cpu")
 ##   "players": [{"slot": int, "fighters": [ids], "won": bool, "kos": int}], the humans
 ##   "clear_arcade": bool, "waves": int (Gauntlet waves this fight cleared), "daily_score": int
-##   (the Daily's or the Weekly's score), "weekly_clear": bool (the week's first scoring win)
+##   (what the Daily's or the Weekly's score adds to the best so far: a retry that doesn't beat
+##   it adds 0), "weekly_clear": bool (the week's first scoring win)
+##   "ladder": bool, a stage of the Arcade, Gauntlet, Daily or Weekly: the fight, its win, KOs,
+##   waves and the clear bonus are times `ladder_mult` (the score and weekly_clear are not)
+##   "arcade_level": the Arcade run's chosen level (the boss stage plays one up)
 ## A paid fight keeps the play streak (`streak_days`); from `streak_min_days` days in a row
 ## every player's XP is times `streak_mult`.
 ## The account gains the best player's XP (one account per machine, so four local players
