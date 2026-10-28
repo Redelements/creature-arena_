@@ -186,7 +186,9 @@ dig/slosh/poof/chop_chop/shout sounds.
 - Per-move `fx` keys (smear, charge, impact, trail, shout, telegraph…) → the `fx_view.gd`
   header, then `_move_started`, `_charging`, `_strike`, `_during_move`
 - New projectile look → `_draw_projectiles`, `_proj_kind` (the move's `fx.projectile`:
-  rod, knife, mallet, cleaver, venom, head, tongue, wave, pinecone; else a sprite strip);
+  rod, knife, mallet, cleaver, fire (a kiddolink strip turned along the flight, `_draw_fireball`),
+  venom, head, tongue, wave, pinecone; else a sprite strip); a prop held while a move plays
+  (`fx.prop` "pan": Cerebro's Surge pan and its flame) → `_draw_held_pan` from `_draw_creature_extras`;
   Crease's darts, shuriken, cranes, hopping frogs → `paper_fx.gd` static `draw_*`
   (`draw_frog_shot` / `frog_hop` time the hop from `life_total - life`); what the frogs
   leave behind (landing flicks, the torn or unfolding burst), the sheets over his hat, the

@@ -262,6 +262,21 @@
       "volume_db": -5,
       "pitch_jitter": 0.0
     },
+    "cooking_with_fire": {
+      "file": "res://assets/audio/cooking_with_fire.wav",
+      "volume_db": -2,
+      "pitch_jitter": 0.0
+    },
+    "fire_shot": {
+      "file": "res://assets/audio/fire_shot.wav",
+      "volume_db": -10,
+      "pitch_jitter": 0.1
+    },
+    "fire_hit": {
+      "file": "res://assets/audio/fire_hit.wav",
+      "volume_db": -7,
+      "pitch_jitter": 0.12
+    },
     "hiss": {
       "file": "res://assets/audio/hiss.wav",
       "volume_db": -4,

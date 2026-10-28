@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="MoveFx" format=3]
+
+[ext_resource type="SpriteFrames" path="res://assets/vfx/flame_column_frames.tres" id="1_pgb4f"]
+[ext_resource type="Script" path="res://src/view/move_fx.gd" id="2_hjbpr"]
+
+[resource]
+script = ExtResource("2_hjbpr")
+frames = ExtResource("1_pgb4f")
+ticks_per_frame = 2
+on = "start"
+offset = Vector2(0, -12)
+follow = true
+flip_with_facing = false
+loop = true
+loop_ticks = 24
+scale = 0.4

@@ -609,6 +609,30 @@ def fizzle():
     return mix(sizzle, lowpass(squeak, 2000))
 
 
+def cooking_with_fire():
+    """His Surge voice line placeholder ("Now we cooking with fire"): a pan clang, then a
+    gas-flame whoomph swelling into a sizzle. A stand-in until a voice is recorded."""
+    total = 1.1
+    clang = (osc(310, 0.5) + osc(310 * 2.76, 0.5) * 0.5 + osc(310 * 5.4, 0.5) * 0.2) * env(0.5, curve=3.0) * 0.35
+    whoomph = lowpass(noise(0.7), sweep(200, 1800, 0.7, 0.6)) * env(0.7, attack=0.12, curve=1.6) * 1.1
+    sizzle = highpass(noise(0.8), 3500) * env(0.8, attack=0.2, curve=1.4) * 0.35
+    return mix(at(clang, 0.0, total), at(whoomph, 0.06, total), at(sizzle, 0.3, total))
+
+
+def fire_shot():
+    """A fireball leaving the pan: a short, soft fwoosh."""
+    d = 0.18
+    return lowpass(noise(d), sweep(600, 2600, d, 0.5)) * env(d, attack=0.02, curve=2.0)
+
+
+def fire_hit():
+    """A fireball bursting: a crackling pop."""
+    d = 0.14
+    pop = thump(240, 90, 0.08, 3.0) * 0.7
+    crackle = bandpass(noise(d), 1200, 6000) * env(d, curve=2.5) * 0.7
+    return mix(pop, crackle)
+
+
 # ---------------------------------------------------------------- Hissy Fitz
 
 def hiss():
@@ -880,6 +904,7 @@ NEW_SOUNDS = {
     "warp": warp,
     "surge_ready_ally": surge_ready_ally, "surge_ready_foe": surge_ready_foe,
     "swallow": swallow, "plop": plop,
+    "cooking_with_fire": cooking_with_fire, "fire_shot": fire_shot, "fire_hit": fire_hit,
 }
 
 
