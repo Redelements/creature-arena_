@@ -45,7 +45,9 @@ extends Node2D
 ##   flip         true         a spatula arc and "FLIP!" when the move's grab lands
 ##   chop         true         "CHOP CHOP!" when the move starts (Chef Cerebro's voice line)
 ##   telegraph_line true       a dotted line on the floor ahead, as far as the throw reaches
-##   shout        {"text", "sound"}  a voice line over the head when the move starts
+##   shout        {"text", "sound"}  a voice line when the move starts: the sound at once, the words
+##                once a Surge's freeze is over, over his head to his back, or under his feet when
+##                the HUD or the crowded-field Surge name is up there (`_shout_now`)
 ##   projectile   also "fire": a looping comet fireball (assets/vfx/fireball.png) turned along its flight
 ##   prop         "pan"        a cast-iron pan held where the shots leave, a flame licking out of it
 ##                             while they fly (Chef Cerebro's Surge)
@@ -268,6 +270,7 @@ func clear() -> void:
 	_pstyles.clear()
 	_proj_prev.clear()
 	_wall_marks.clear()
+	_shouts.clear()
 	move_fx.clear()
 	_dark = 0.0
 	_rain = 0.0
@@ -291,7 +294,9 @@ func spawn(e: Dictionary) -> void:
 			_hit_sparks(e, p, push)
 			var atk := _creature(int(e.get("attacker", -1)))
 			if atk != null and atk.state == CreatureSim.State.ATTACK:
-				move_fx.on_event("hit", atk, p)
+				# on the target's body: lifted with it when it's juggled or thrown
+				var tgt := _creature(int(e.get("target", -1)))
+				move_fx.on_event("hit", atk, p - Vector2(0, tgt.air_height() if tgt != null else 0.0))
 			var col := Color("ffe08a")
 			if float(e.get("variety", 1.0)) >= 1.5:
 				col = Color("ff9a5a")
@@ -756,6 +761,7 @@ func advance() -> void:
 		_watch_all()
 		_track_lost()
 		move_fx.advance(ts)
+		_shout_now()
 		if ts > 0.0:
 			_projectile_spray()
 			if not sim.hazards.is_empty():
@@ -978,7 +984,11 @@ func _move_started(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 		cue.emit("poof")
 	var shout: Dictionary = fx.get("shout", {})
 	if not shout.is_empty():
-		_text(c.pos + Vector2(0, -_top(c) - 12), String(shout.get("text", "")), Color("ffd166"), 10, 60.0, 180.0)
+		# The voice starts with the move; the words wait out a Surge's freeze (the cut-in
+		# banner covers the field until then) and then hang over his head (`_shout_now`).
+		# (on a crowded field the Surge's name is over his head already: the words go under him)
+		var named := String(mv.get("type", "")) == "surge" and not sim.freeze_all
+		_shouts.append([c.id, String(shout.get("text", "")), named])
 		if shout.has("sound"):
 			cue.emit(String(shout["sound"]))
 	if bool(fx.get("chop", false)):
@@ -986,6 +996,26 @@ func _move_started(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
 		cue.emit("chop_chop")
 	if bool(fx.get("rain", false)):
 		_rain = 130.0
+
+
+## The voice lines waiting for the Surge freeze to end: [creature id, text, under him]. Drawn over
+## everything else in the layer (the foe's health bar, hit sparks), kept on screen.
+var _shouts: Array = []
+const SHOUT_BACK := 36.0
+
+
+func _shout_now() -> void:
+	if _shouts.is_empty() or sim.hitstop > 0:
+		return
+	for s in _shouts:
+		var c := _creature(int(s[0]))
+		if c != null:
+			# over his head, a little to his back: off the shots and the foe he's facing
+			var back := -signf(c.facing.x) * SHOUT_BACK if absf(c.facing.x) > 0.01 else 0.0
+			_add({"kind": "text", "pos": c.pos + Vector2(back, -_top(c) - 12), "text": String(s[1]),
+				"color": Color("ffd166"), "size": 10, "life": 70.0, "width": 180.0, "on_screen": true,
+				"low": c.pos + Vector2(back, 6), "went_low": bool(s[2])})
+	_shouts.clear()
 
 
 func _charging(c: CreatureSim, mv: Dictionary, fx: Dictionary) -> void:
@@ -2274,10 +2304,11 @@ func _hit_sparks(e: Dictionary, p: Vector2, push: Vector2) -> void:
 			if d != null and d.id < views.size():
 				views[d.id].soft_flash = true
 		"heavy", "surge":
-			_add({"kind": "spark", "pos": p, "life": 8, "scale": 1.6 if kind == "heavy" else 2.2})
+			var big := kind == "surge" and not surge_small_hit(a, power)
+			_add({"kind": "spark", "pos": p, "life": 8, "scale": 2.2 if big else 1.6})
 			for i in 5:
 				_px(p, push.rotated(randf_range(-0.7, 0.7)) * randf_range(1.2, 2.8), C_SPARK[randi() % 3], 12)
-			if kind == "surge":
+			if big:
 				flash_out = 0.3
 		"skill":
 			_add({"kind": "spark", "pos": p, "life": 7, "scale": 1.2})
@@ -2285,6 +2316,18 @@ func _hit_sparks(e: Dictionary, p: Vector2, push: Vector2) -> void:
 				_px(p, push.rotated(randf_range(-0.9, 0.9)) * randf_range(1.0, 2.4), col, 10)
 	if push.length_squared() > 0.001:
 		shake_dir = push  # main leans the camera shake along it
+
+
+## A small hit of a multi-hit Surge (a volley of shots, or several strike segments) below
+## Light2DView.FLASH_HIT_MIN: one of Cooking with Fire's eight fireballs, not its finisher.
+## These spark like a heavy and skip the screen flash (and Light2DView's big Surge flash):
+## eight of them stacked bleach the whole screen and hide the fight.
+static func surge_small_hit(a: CreatureSim, power: float) -> bool:
+	if a == null or a.state != CreatureSim.State.ATTACK or power >= Light2DView.FLASH_HIT_MIN:
+		return false
+	var mv := a.move_def()
+	var vol: Dictionary = mv.get("projectile", {}).get("volley", {})
+	return int(vol.get("count", 1)) > 1 or (mv.get("_segs", []) as Array).size() > 1
 
 
 const STEP_CAP := 48  ## puffs alive at once; past it footsteps are skipped
@@ -2719,6 +2762,22 @@ const CULL_PAD_FIGHTER := 320.0
 
 
 ## The part of `ci`'s space on screen, grown by `pad`; everything when there's no screen.
+## Where a text box `w` wide at `at` (its baseline's left end) stays whole on screen: clear of
+## the side edges, and when it would rise under the HUD's top bars (the top 15% of the view;
+## a close camera puts heads up there) it goes to the part's `low` spot instead, under his
+## feet, where it doesn't sit on the health bars either, and stays there (no jumping back).
+static func _keep_on_screen(ci: CanvasItem, p: Dictionary, at: Vector2, w: float, fs: int) -> Vector2:
+	if not ci.is_inside_tree():
+		return at
+	var v := _view_rect(ci, 0.0)
+	if p.has("low") and (bool(p.get("went_low", false)) or at.y - float(fs) < v.position.y + v.size.y * 0.15):
+		p["went_low"] = true
+		at = Vector2(p["low"]) + Vector2(-w * 0.5, float(fs))
+	var x := clampf(at.x, v.position.x + 2.0, maxf(v.position.x + 2.0, v.end.x - w - 2.0))
+	var y := minf(at.y, v.end.y - v.size.y * 0.12)  # over the caption bar at the bottom
+	return Vector2(x, y).round()
+
+
 static func _view_rect(ci: CanvasItem, pad: float) -> Rect2:
 	if not ci.is_inside_tree():
 		return Rect2(-1e9, -1e9, 2e9, 2e9)
@@ -2780,10 +2839,15 @@ func _paint(ci: CanvasItem, floor_layer: bool) -> void:
 			continue
 		if kind == "chunk" and bool(p.get("grounded", false)):
 			continue
+		if bool(p.get("on_screen", false)):
+			continue  # a voice line: drawn last, below
 		_draw_part(ci, p)
 	if sim != null:
 		_draw_creature_extras(ci, false)
 		_draw_side_marks(ci)
+	for p in _parts:
+		if bool(p.get("on_screen", false)):
+			_draw_part(ci, p)
 	if _rain > 0.0:
 		_draw_rain(ci)
 
@@ -2852,6 +2916,8 @@ func _draw_part(ci: CanvasItem, p: Dictionary) -> void:
 			var w := float(p.get("width", 80.0))
 			var at := pos + Vector2(-w * 0.5, -t * 0.5)
 			var fs := UiTheme.px(int(p["size"]))
+			if bool(p.get("on_screen", false)):
+				at = _keep_on_screen(ci, p, at, w, fs)
 			ci.draw_string_outline(_font, at, String(p["text"]), HORIZONTAL_ALIGNMENT_CENTER, w, fs, UiTheme.outline(fs) + 1, Color(0.1, 0.08, 0.1, col.a))
 			ci.draw_string(_font, at, String(p["text"]), HORIZONTAL_ALIGNMENT_CENTER, w, fs, col)
 		"dmg":

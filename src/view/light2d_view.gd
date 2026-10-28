@@ -89,9 +89,13 @@ const FLOOR_ENERGY := 1.2
 const FLOOR_MAX := 0.5
 const FLOOR_REACH := 1.3
 ## Flashes (`on_event`): a heavy hit dealing at least FLASH_HIT_MIN, and a Surge starting.
-## [radius, strength, ticks]; the strength steps down every FLASH_STEP ticks.
+## [radius, strength, ticks]; the strength steps down every FLASH_STEP ticks. A Surge's hit
+## flashes FLASH_SURGE, except the small hits of a multi-hit Surge (`FxView.surge_small_hit`:
+## Cooking with Fire's eight fireballs before the finisher), which get the small FLASH_VOLLEY,
+## or eight stacked Surge flashes bleach the whole screen.
 const FLASH_HIT := [64.0, 0.75, 8]
 const FLASH_SURGE := [96.0, 0.9, 12]
+const FLASH_VOLLEY := [40.0, 0.35, 6]
 const FLASH_HIT_MIN := 10.0
 const FLASH_STEP := 2
 const MAX_FLASHES := 6
@@ -533,7 +537,11 @@ func on_event(e: Dictionary) -> void:
 		var surge := String(e.get("move_type", "")) == "surge"
 		if not surge and not (bool(e.get("heavy", false)) and float(e.get("power", 0.0)) >= FLASH_HIT_MIN):
 			return
-		spec = FLASH_SURGE if surge else FLASH_HIT
+		if surge:
+			var small := FxView.surge_small_hit(fx._creature(int(e.get("attacker", -1))), float(e.get("power", 0.0)))
+			spec = FLASH_VOLLEY if small else FLASH_SURGE
+		else:
+			spec = FLASH_HIT
 	elif kind == "surge":
 		spec = FLASH_SURGE
 		who = fx._creature(int(e.get("who", -1)))

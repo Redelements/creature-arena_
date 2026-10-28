@@ -342,7 +342,9 @@ dig/slosh/poof/chop_chop/shout sounds.
 - Hit sparks, shake direction, footstep and landing dust → `fx_view.gd:_hit_sparks` (light: a few
   pixels along the push; heavy: a radial burst on top of the hit flash's white silhouette; skill:
   a burst in `fx.spark_color` / `ghost_color`; surge: heavy plus `flash_out`, which main turns
-  into `flash_rect`). The hit event's own `type` is "hit": the move's type is read off the
+  into `flash_rect`, except the small hits of a multi-hit Surge, `FxView.surge_small_hit`: a
+  volley's or a flurry's hits under 10 damage spark like a heavy with no screen flash and only
+  Light2DView's small `FLASH_VOLLEY`, or eight stacked flashes bleach the screen). The hit event's own `type` is "hit": the move's type is read off the
   attacker (`move_type()`), or `fx.spark` overrides it. `shake_dir` is the push; main leans the
   camera offset along it (`main.gd` shake block). Light hits keep a half-tint flash
   (`CreatureView.soft_flash`). Footsteps: `_footstep` (per-frame watch) puffs on the frames in
