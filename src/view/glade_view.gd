@@ -4,16 +4,19 @@ extends Node2D
 ## dappled leaf shade under every crown, faint sun shafts through them by day, fireflies and a
 ## warm glow round the glades at sunset only, leaves dropping from the crowns, thin smoke off
 ## the lamps (`lights` with `"lamp": true`), spray and mist where the waterfall meets the
-## river, and ripples on the river. View only: it reads the sim (fighters' positions, the
+## river, ripples on the river, and (the Floodgate) bubbles rising in the shallows and a
+## low mist lying over them at night. View only: it reads the sim (fighters' positions, the
 ## terrain) and never writes it; everything moves on its own clock (`_vt`, a count of
 ## `advance` calls), not the sim's tick.
 ##
 ##   "glades": {"pools": 7, "shafts": 2, "fireflies": 16, "leaf_every": 80, "smoke": true,
-##              "spray": [col, row, w, h], "ripple_every": 40}
+##              "spray": [col, row, w, h], "ripple_every": 40, "bubble_every": 50,
+##              "mist": {"areas": [[col, row, w, h], ...], "count": 12, "times": ["night"]}}
 ##
-## Lighting (`set_look`): Off draws no shade, shafts or glow (the leaves, smoke, spray and
-## fireflies stay: they are critters, not light); Low draws the shade still (no drift) and no
-## shafts; High lets the shade drift with the crowns' sway and adds the shafts by day.
+## Lighting (`set_look`): Off draws no shade, shafts, glow, low mist or bubbles (the leaves,
+## smoke, spray and fireflies stay: they are critters, not light); Low draws the shade and the
+## mist still (no drift) and no shafts; High lets the shade and mist drift and adds the shafts
+## by day.
 ## Hidden foes: a firefly only scatters from a fighter the local team sees (`fx.shown`), and
 ## nothing spawns over the HUD's corners (`hud_rects`, screen px) or on a wall or fence cell.
 ##
@@ -30,6 +33,9 @@ const LEAF_CAP := 14
 const SMOKE_CAP := 72
 const SPRAY_CAP := 40
 const RIPPLE_CAP := 6
+const BUBBLE_CAP := 6
+const BUBBLE_LIFE := 44  ## view ticks: a bead swelling at the surface, then a ring as it pops
+const MIST_ALPHA := 0.075
 const FLY_SCARE := 26.0
 const SHADE_COL := Color(0.05, 0.11, 0.09)
 const FLECK_COL := Color(1.0, 0.95, 0.72)
@@ -59,6 +65,9 @@ var _smoke: Array = []  ## {p, life, max}
 var _spray: Array = []  ## {p, z, vz, life}
 var _mist: Array = []  ## {p, ph}
 var _ripples: Array = []  ## {p, t}
+var _bubbles: Array = []  ## {p, t}
+var _low_mist: Array = []  ## {p, ph, w}: puffs lying over the water (`mist`), at its times only
+var _mist_times: Array = []
 var _lamps: Array = []  ## world points of the lamps that smoke
 var _spray_rect := Rect2()
 var _shallows := PackedInt32Array()
@@ -66,6 +75,7 @@ var _vt := 0
 var _ripples_drawn := false
 var _leaf_next := 60
 var _ripple_next := 30
+var _bubble_next := 20
 var _rng := RandomNumberGenerator.new()
 
 
@@ -133,6 +143,8 @@ func set_sim(s: MatchSim, crowns: Array) -> void:
 	_smoke.clear()
 	_spray.clear()
 	_ripples.clear()
+	_bubbles.clear()
+	_low_mist.clear()
 	_pools.clear()
 	_flies.clear()
 	_mist.clear()
@@ -161,6 +173,16 @@ func set_sim(s: MatchSim, crowns: Array) -> void:
 			int(sp[2]) * SimDefs.CELL, int(sp[3]) * SimDefs.CELL)
 		for i in 6:
 			_mist.append({"p": _spray_rect.position + Vector2(_rng.randf(), _rng.randf()) * _spray_rect.size, "ph": _rng.randf() * TAU})
+	var lm: Dictionary = _cfg.get("mist", {})
+	_mist_times = lm.get("times", ["night"])
+	var areas: Array = lm.get("areas", [])
+	var n_mist := int(lm.get("count", 0)) if not areas.is_empty() else 0
+	for i in n_mist:
+		var a: Array = areas[i % areas.size()]
+		var r := Rect2(SimDefs.GRID_X + int(a[0]) * SimDefs.CELL, SimDefs.GRID_Y + int(a[1]) * SimDefs.CELL,
+			int(a[2]) * SimDefs.CELL, int(a[3]) * SimDefs.CELL)
+		_low_mist.append({"p": r.position + Vector2(_rng.randf(), _rng.randf()) * r.size, "ph": _rng.randf() * TAU,
+			"w": 9.0 + _rng.randf() * 7.0})
 	_shallows = PackedInt32Array()
 	for i in s.terrain.map_base.size():
 		if s.terrain.map_base[i] == TerrainGrid.SHALLOWS:
@@ -243,6 +265,15 @@ func pool_count() -> int:
 	return 0 if tier == 0 else _pools.size()
 
 
+func bubble_count() -> int:
+	return _bubbles.size()
+
+
+## Low mist puffs drawn now: the map's `mist` at its times, none with Lighting Off.
+func mist_count() -> int:
+	return 0 if tier == 0 or not time in _mist_times else _low_mist.size()
+
+
 func fireflies() -> Array:
 	return _flies.map(func(f): return f["p"])
 
@@ -266,9 +297,9 @@ func advance() -> void:
 	if tier == 2 and _vt % SHADE_STEP == 0:
 		shade.queue_redraw()
 		shafts.queue_redraw()
-	if not _ripples.is_empty() or _ripples_drawn:
+	if not _ripples.is_empty() or not _bubbles.is_empty() or _ripples_drawn:
 		water.queue_redraw()
-		_ripples_drawn = not _ripples.is_empty()
+		_ripples_drawn = not _ripples.is_empty() or not _bubbles.is_empty()
 
 
 func _redraw() -> void:
@@ -369,6 +400,22 @@ func _move_water(view: Rect2) -> void:
 			_ripples.remove_at(i)
 		else:
 			i += 1
+	# bubbles rising in the shallows (not with Lighting Off), never beside a fighter we see
+	var b_every := int(_cfg.get("bubble_every", 0))
+	if b_every > 0 and tier > 0 and _vt >= _bubble_next and not _shallows.is_empty() and _bubbles.size() < BUBBLE_CAP:
+		_bubble_next = _vt + int(b_every * (0.5 + _rng.randf()))
+		var j := _shallows[_rng.randi() % _shallows.size()]
+		var c := sim.terrain.cell_center(Vector2i(j % sim.terrain.cols, j / sim.terrain.cols))
+		if view.has_point(c) and sim.terrain.cells[j] == TerrainGrid.SHALLOWS and _seen_near(c, 24.0) == null:
+			_bubbles.append({"p": c + Vector2(_rng.randf_range(-3, 3), _rng.randf_range(-3, 3)), "t": 0})
+	i = 0
+	while i < _bubbles.size():
+		var b: Dictionary = _bubbles[i]
+		b["t"] = int(b["t"]) + 1
+		if int(b["t"]) > BUBBLE_LIFE or tier == 0:
+			_bubbles.remove_at(i)
+		else:
+			i += 1
 
 
 # ------------------------------------------------------------------ drawing
@@ -398,11 +445,40 @@ func _paint_shade(ci: CanvasItem) -> void:
 				var mid := shade_mid(r)
 				if view.has_point(mid):
 					_ellipse(ci, mid, r.size.x * 0.55, r.size.x * 0.27, Color(GLOW_COL, GLOW_ALPHA))
+		if time in _mist_times:
+			# low mist over the water: long flat puffs, drifting slowly on High, still on Low
+			var col := Color(0.86, 0.94, 1.0, MIST_ALPHA)
+			for m: Dictionary in _low_mist:
+				var p: Vector2 = m["p"]
+				if drift:
+					var ph := float(m["ph"])
+					p += Vector2(roundf(6.0 * sin(_vt * 0.006 + ph)), roundf(1.5 * sin(_vt * 0.009 + ph * 1.3)))
+				if view.has_point(p):
+					var w := float(m["w"])
+					_ellipse(ci, p, w, w * 0.32, col)
 
 
 
-## Under the fighters: ripples spreading on the river.
+## Under the fighters: ripples spreading on the river, bubbles surfacing and popping.
 func _paint_water(ci: CanvasItem) -> void:
+	for bb in _bubbles:
+		var p: Vector2 = bb["p"]
+		var t := int(bb["t"])
+		var x := roundi(p.x)
+		var y := roundi(p.y)
+		if t < BUBBLE_LIFE - 8:
+			# a bead swelling at the surface: a pale pixel, then two with a glint
+			var a := 0.35 + 0.4 * float(t) / float(BUBBLE_LIFE)
+			ci.draw_rect(Rect2(x, y, 2 if t > 16 else 1, 1), Color(0.9, 0.97, 1.0, a))
+			if t > 16:
+				ci.draw_rect(Rect2(x, y - 1, 1, 1), Color(1.0, 1.0, 1.0, a))
+		else:
+			# the pop: a tiny ring of four pixels, fading
+			var col := Color(0.88, 0.96, 1.0, 0.5 * float(BUBBLE_LIFE - t) / 8.0)
+			ci.draw_rect(Rect2(x - 1, y, 1, 1), col)
+			ci.draw_rect(Rect2(x + 2, y, 1, 1), col)
+			ci.draw_rect(Rect2(x, y - 1, 2, 1), col)
+			ci.draw_rect(Rect2(x, y + 1, 2, 1), col)
 	for rp in _ripples:
 		var p: Vector2 = rp["p"]
 		var t := int(rp["t"])

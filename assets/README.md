@@ -210,6 +210,11 @@ A wall rect can be drawn with another kit (`tiles.restyle`: Twin Keeps' mid-fiel
 as `wall:grove`, purple-grey boulders with a stump for rubble, the trees standing on them):
 the sim sees the same wall.
 
+The Greenhouse Dome is dressed the same way (`greenhouse_dressing.tscn`, seeded from
+`tools/dressing/greenhouse.json`: lanterns, sacks, baskets and vines on its four fence lines,
+crowns over the corner beds; its props stand on fence cells, which the flat Pieces layer
+draws, so a prop anywhere along a vertical fence draws over it).
+
 Another map: give its `tiles` block `"dressing": "res://assets/arenas/<id>_dressing.tscn"`,
 cut the props into its set (recipe `decor` / `anim`, scatter kinds appended at the end of
 `scatter`: the scene paints slots by atlas place, `shadows` for the contact shadows), seed

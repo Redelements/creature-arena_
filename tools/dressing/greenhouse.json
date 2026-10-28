@@ -1,0 +1,1645 @@
+{
+	"_doc": "The Greenhouse Dome's first-draft dressing (tools/seed_dressing.gd seeds assets/arenas/greenhouse_dressing.tscn from it; the SCENE is the source after that). Units from the floor's top-left corner, detail in cells (8 units), grounds in tiles (16 units). The map turns about its middle (a half turn), so entries were written once and turned (no `mirror`).",
+	"scene": "res://assets/arenas/greenhouse_dressing.tscn",
+	"set": "grassland",
+	"map": "greenhouse",
+	"grounds": [
+		{
+			"layer": "MeadowDeep",
+			"terrain": "meadow_deep",
+			"on": "floor",
+			"blobs": [
+				{
+					"at": [
+						2.2,
+						12.0
+					],
+					"r": 2.0,
+					"seed": 1,
+					"stretch": [
+						1.3,
+						0.8
+					]
+				},
+				{
+					"at": [
+						39.8,
+						6.0
+					],
+					"r": 2.0,
+					"seed": 51,
+					"stretch": [
+						1.3,
+						0.8
+					]
+				},
+				{
+					"at": [
+						17.0,
+						2.6
+					],
+					"r": 1.8,
+					"seed": 2,
+					"stretch": [
+						1.5,
+						0.7
+					]
+				},
+				{
+					"at": [
+						25.0,
+						15.4
+					],
+					"r": 1.8,
+					"seed": 52,
+					"stretch": [
+						1.5,
+						0.7
+					]
+				},
+				{
+					"at": [
+						11.5,
+						16.4
+					],
+					"r": 1.6,
+					"seed": 3,
+					"stretch": [
+						1.4,
+						0.7
+					]
+				},
+				{
+					"at": [
+						30.5,
+						1.6
+					],
+					"r": 1.6,
+					"seed": 53,
+					"stretch": [
+						1.4,
+						0.7
+					]
+				},
+				{
+					"at": [
+						24.5,
+						3.0
+					],
+					"r": 1.5,
+					"seed": 4
+				},
+				{
+					"at": [
+						17.5,
+						15.0
+					],
+					"r": 1.5,
+					"seed": 54
+				},
+				{
+					"at": [
+						1.5,
+						3.0
+					],
+					"r": 1.5,
+					"seed": 5
+				},
+				{
+					"at": [
+						40.5,
+						15.0
+					],
+					"r": 1.5,
+					"seed": 55
+				}
+			]
+		},
+		{
+			"layer": "GrassSun",
+			"terrain": "grass_sun",
+			"on": "floor",
+			"blobs": [
+				{
+					"at": [
+						9.5,
+						11.6
+					],
+					"r": 1.8,
+					"seed": 11,
+					"stretch": [
+						1.4,
+						0.8
+					]
+				},
+				{
+					"at": [
+						32.5,
+						6.4
+					],
+					"r": 1.8,
+					"seed": 61,
+					"stretch": [
+						1.4,
+						0.8
+					]
+				},
+				{
+					"at": [
+						16.5,
+						15.6
+					],
+					"r": 1.6,
+					"seed": 12,
+					"stretch": [
+						1.5,
+						0.7
+					]
+				},
+				{
+					"at": [
+						25.5,
+						2.4
+					],
+					"r": 1.6,
+					"seed": 62,
+					"stretch": [
+						1.5,
+						0.7
+					]
+				},
+				{
+					"at": [
+						20.5,
+						2.8
+					],
+					"r": 1.4,
+					"seed": 13
+				},
+				{
+					"at": [
+						21.5,
+						15.2
+					],
+					"r": 1.4,
+					"seed": 63
+				},
+				{
+					"at": [
+						3.2,
+						6.6
+					],
+					"r": 1.4,
+					"seed": 14
+				},
+				{
+					"at": [
+						38.8,
+						11.4
+					],
+					"r": 1.4,
+					"seed": 64
+				}
+			]
+		},
+		{
+			"layer": "Paths",
+			"terrain": "path",
+			"on": "floor",
+			"curves": [
+				{
+					"points": [
+						[
+							0.0,
+							9.0
+						],
+						[
+							3.0,
+							9.2
+						],
+						[
+							6.0,
+							8.7
+						],
+						[
+							9.0,
+							8.4
+						],
+						[
+							12.0,
+							8.9
+						],
+						[
+							15.0,
+							9.4
+						]
+					],
+					"width": [
+						2.2,
+						1.5
+					]
+				},
+				{
+					"points": [
+						[
+							42.0,
+							9.0
+						],
+						[
+							39.0,
+							8.8
+						],
+						[
+							36.0,
+							9.3
+						],
+						[
+							33.0,
+							9.6
+						],
+						[
+							30.0,
+							9.1
+						],
+						[
+							27.0,
+							8.6
+						]
+					],
+					"width": [
+						2.2,
+						1.5
+					]
+				},
+				{
+					"points": [
+						[
+							15.0,
+							9.4
+						],
+						[
+							15.9,
+							7.0
+						],
+						[
+							17.5,
+							5.6
+						],
+						[
+							21.0,
+							5.3
+						],
+						[
+							24.6,
+							5.6
+						],
+						[
+							26.4,
+							7.0
+						],
+						[
+							27.0,
+							8.6
+						]
+					],
+					"width": [
+						1.4,
+						1.3
+					]
+				},
+				{
+					"points": [
+						[
+							27.0,
+							8.6
+						],
+						[
+							26.1,
+							11.0
+						],
+						[
+							24.5,
+							12.4
+						],
+						[
+							21.0,
+							12.7
+						],
+						[
+							17.4,
+							12.4
+						],
+						[
+							15.6,
+							11.0
+						],
+						[
+							15.0,
+							9.4
+						]
+					],
+					"width": [
+						1.4,
+						1.3
+					]
+				},
+				{
+					"points": [
+						[
+							11.0,
+							8.7
+						],
+						[
+							12.2,
+							11.0
+						],
+						[
+							12.0,
+							13.2
+						],
+						[
+							11.6,
+							14.3
+						]
+					],
+					"width": [
+						1.3,
+						1.0
+					]
+				},
+				{
+					"points": [
+						[
+							31.0,
+							9.3
+						],
+						[
+							29.8,
+							7.0
+						],
+						[
+							30.0,
+							4.8
+						],
+						[
+							30.4,
+							3.7
+						]
+					],
+					"width": [
+						1.3,
+						1.0
+					]
+				}
+			],
+			"blobs": [
+				{
+					"at": [
+						1.0,
+						9.0
+					],
+					"r": 1.9,
+					"seed": 31,
+					"stretch": [
+						0.8,
+						1.4
+					]
+				},
+				{
+					"at": [
+						41.0,
+						9.0
+					],
+					"r": 1.9,
+					"seed": 81,
+					"stretch": [
+						0.8,
+						1.4
+					]
+				},
+				{
+					"at": [
+						15.4,
+						9.5
+					],
+					"r": 1.4,
+					"seed": 32
+				},
+				{
+					"at": [
+						26.6,
+						8.5
+					],
+					"r": 1.4,
+					"seed": 82
+				}
+			]
+		},
+		{
+			"layer": "Earth",
+			"terrain": "earth",
+			"on": "floor",
+			"blobs": [
+				{
+					"at": [
+						16.0,
+						16.6
+					],
+					"r": 1.3,
+					"seed": 21,
+					"stretch": [
+						2.2,
+						0.6
+					]
+				},
+				{
+					"at": [
+						26.0,
+						1.4
+					],
+					"r": 1.3,
+					"seed": 71,
+					"stretch": [
+						2.2,
+						0.6
+					]
+				},
+				{
+					"at": [
+						13.5,
+						5.8
+					],
+					"r": 1.0,
+					"seed": 22
+				},
+				{
+					"at": [
+						28.5,
+						12.2
+					],
+					"r": 1.0,
+					"seed": 72
+				},
+				{
+					"at": [
+						9.6,
+						2.4
+					],
+					"r": 0.9,
+					"seed": 23
+				},
+				{
+					"at": [
+						32.4,
+						15.6
+					],
+					"r": 0.9,
+					"seed": 73
+				},
+				{
+					"at": [
+						3.4,
+						5.6
+					],
+					"r": 0.9,
+					"seed": 24
+				},
+				{
+					"at": [
+						38.6,
+						12.4
+					],
+					"r": 0.9,
+					"seed": 74
+				},
+				{
+					"at": [
+						17.4,
+						11.6
+					],
+					"r": 0.9,
+					"seed": 25
+				},
+				{
+					"at": [
+						24.6,
+						6.4
+					],
+					"r": 0.9,
+					"seed": 75
+				},
+				{
+					"at": [
+						9.6,
+						13.6
+					],
+					"r": 0.9,
+					"seed": 26
+				},
+				{
+					"at": [
+						32.4,
+						4.4
+					],
+					"r": 0.9,
+					"seed": 76
+				}
+			]
+		}
+	],
+	"flat": [
+		{
+			"kind": "slab_c",
+			"pos": [
+				10,
+				136
+			]
+		},
+		{
+			"kind": "slab_c",
+			"pos": [
+				25,
+				150
+			],
+			"flip": true
+		},
+		{
+			"kind": "slab_c",
+			"pos": [
+				9,
+				165
+			]
+		},
+		{
+			"kind": "slab_c",
+			"pos": [
+				662,
+				168
+			],
+			"flip": true
+		},
+		{
+			"kind": "slab_c",
+			"pos": [
+				647,
+				154
+			]
+		},
+		{
+			"kind": "slab_c",
+			"pos": [
+				663,
+				139
+			],
+			"flip": true
+		},
+		{
+			"kind": "cobble_disc",
+			"pos": [
+				247,
+				172
+			]
+		},
+		{
+			"kind": "cobble_disc_b",
+			"pos": [
+				425,
+				136
+			],
+			"flip": true
+		}
+	],
+	"detail": [
+		{
+			"kind": "moss",
+			"clump": [
+				24,
+				31
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 1
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				59,
+				4
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 501
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				29,
+				32
+			],
+			"n": 4,
+			"r": 1,
+			"seed": 2
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				54,
+				3
+			],
+			"n": 4,
+			"r": 1,
+			"seed": 502
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				26,
+				11
+			],
+			"n": 4,
+			"r": 1,
+			"seed": 3
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				57,
+				24
+			],
+			"n": 4,
+			"r": 1,
+			"seed": 503
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				18,
+				10
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 4
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				65,
+				25
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 504
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				7,
+				10
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 5
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				76,
+				25
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 505
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				35,
+				22
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 6
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				48,
+				13
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 506
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				48,
+				13
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 7
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				35,
+				22
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 507
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				19,
+				27
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 8
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				64,
+				8
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 508
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				9,
+				27
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 9
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				74,
+				8
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 509
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				21,
+				33
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 10
+		},
+		{
+			"kind": "moss",
+			"clump": [
+				62,
+				2
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 510
+		},
+		{
+			"kind": "flowers_white",
+			"clump": [
+				4,
+				26
+			],
+			"n": 6,
+			"r": 2,
+			"seed": 20
+		},
+		{
+			"kind": "flowers_white",
+			"clump": [
+				79,
+				9
+			],
+			"n": 6,
+			"r": 2,
+			"seed": 520
+		},
+		{
+			"kind": "flowers_white",
+			"clump": [
+				20,
+				4
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 21
+		},
+		{
+			"kind": "flowers_white",
+			"clump": [
+				63,
+				31
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 521
+		},
+		{
+			"kind": "flowers_white",
+			"clump": [
+				30,
+				3
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 22
+		},
+		{
+			"kind": "flowers_white",
+			"clump": [
+				53,
+				32
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 522
+		},
+		{
+			"kind": "flowers_white",
+			"clump": [
+				3,
+				13
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 23
+		},
+		{
+			"kind": "flowers_white",
+			"clump": [
+				80,
+				22
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 523
+		},
+		{
+			"kind": "flowers_white",
+			"clump": [
+				14,
+				21
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 24
+		},
+		{
+			"kind": "flowers_white",
+			"clump": [
+				69,
+				14
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 524
+		},
+		{
+			"kind": "flowers_white",
+			"clump": [
+				33,
+				28
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 25
+		},
+		{
+			"kind": "flowers_white",
+			"clump": [
+				50,
+				7
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 525
+		},
+		{
+			"kind": "flowers_white",
+			"clump": [
+				50,
+				9
+			],
+			"n": 4,
+			"r": 2,
+			"seed": 26
+		},
+		{
+			"kind": "flowers_white",
+			"clump": [
+				33,
+				26
+			],
+			"n": 4,
+			"r": 2,
+			"seed": 526
+		},
+		{
+			"kind": "flowers_gold",
+			"clump": [
+				12,
+				13
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 30
+		},
+		{
+			"kind": "flowers_gold",
+			"clump": [
+				71,
+				22
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 530
+		},
+		{
+			"kind": "flowers_gold",
+			"clump": [
+				28,
+				22
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 31
+		},
+		{
+			"kind": "flowers_gold",
+			"clump": [
+				55,
+				13
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 531
+		},
+		{
+			"kind": "flowers_gold",
+			"clump": [
+				6,
+				32
+			],
+			"n": 4,
+			"r": 2,
+			"seed": 32
+		},
+		{
+			"kind": "flowers_gold",
+			"clump": [
+				77,
+				3
+			],
+			"n": 4,
+			"r": 2,
+			"seed": 532
+		},
+		{
+			"kind": "flowers_gold",
+			"clump": [
+				22,
+				15
+			],
+			"n": 4,
+			"r": 2,
+			"seed": 33
+		},
+		{
+			"kind": "flowers_gold",
+			"clump": [
+				61,
+				20
+			],
+			"n": 4,
+			"r": 2,
+			"seed": 533
+		},
+		{
+			"kind": "flowers_gold",
+			"clump": [
+				39,
+				4
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 34
+		},
+		{
+			"kind": "flowers_gold",
+			"clump": [
+				44,
+				31
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 534
+		},
+		{
+			"kind": "clover",
+			"clump": [
+				16,
+				25
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 40
+		},
+		{
+			"kind": "clover",
+			"clump": [
+				67,
+				10
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 540
+		},
+		{
+			"kind": "clover",
+			"clump": [
+				2,
+				7
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 41
+		},
+		{
+			"kind": "clover",
+			"clump": [
+				81,
+				28
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 541
+		},
+		{
+			"kind": "clover",
+			"clump": [
+				33,
+				11
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 42
+		},
+		{
+			"kind": "clover",
+			"clump": [
+				50,
+				24
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 542
+		},
+		{
+			"kind": "clover",
+			"clump": [
+				26,
+				26
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 43
+		},
+		{
+			"kind": "clover",
+			"clump": [
+				57,
+				9
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 543
+		},
+		{
+			"kind": "leaves",
+			"clump": [
+				6,
+				11
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 50
+		},
+		{
+			"kind": "leaves",
+			"clump": [
+				77,
+				24
+			],
+			"n": 5,
+			"r": 2,
+			"seed": 550
+		},
+		{
+			"kind": "leaves",
+			"clump": [
+				12,
+				2
+			],
+			"n": 4,
+			"r": 2,
+			"seed": 51
+		},
+		{
+			"kind": "leaves",
+			"clump": [
+				71,
+				33
+			],
+			"n": 4,
+			"r": 2,
+			"seed": 551
+		},
+		{
+			"kind": "leaves",
+			"clump": [
+				19,
+				6
+			],
+			"n": 4,
+			"r": 2,
+			"seed": 52
+		},
+		{
+			"kind": "leaves",
+			"clump": [
+				64,
+				29
+			],
+			"n": 4,
+			"r": 2,
+			"seed": 552
+		},
+		{
+			"kind": "leaves",
+			"clump": [
+				5,
+				2
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 53
+		},
+		{
+			"kind": "leaves",
+			"clump": [
+				78,
+				33
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 553
+		},
+		{
+			"kind": "tufts",
+			"clump": [
+				31,
+				24
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 60
+		},
+		{
+			"kind": "tufts",
+			"clump": [
+				52,
+				11
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 560
+		},
+		{
+			"kind": "tufts",
+			"clump": [
+				20,
+				20
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 61
+		},
+		{
+			"kind": "tufts",
+			"clump": [
+				63,
+				15
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 561
+		},
+		{
+			"kind": "tufts",
+			"clump": [
+				2,
+				22
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 62
+		},
+		{
+			"kind": "tufts",
+			"clump": [
+				81,
+				13
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 562
+		},
+		{
+			"kind": "stones",
+			"cells": [
+				[
+					2,
+					16
+				],
+				[
+					4,
+					15
+				],
+				[
+					6,
+					16
+				],
+				[
+					24,
+					19
+				],
+				[
+					26,
+					20
+				],
+				[
+					32,
+					12
+				],
+				[
+					34,
+					11
+				],
+				[
+					81,
+					19
+				],
+				[
+					79,
+					20
+				],
+				[
+					77,
+					19
+				],
+				[
+					59,
+					16
+				],
+				[
+					57,
+					15
+				],
+				[
+					51,
+					23
+				],
+				[
+					49,
+					24
+				]
+			]
+		}
+	],
+	"props": [
+		{
+			"kind": "lantern",
+			"pos": [
+				179,
+				247.5
+			],
+			"shadow_w": 0.5
+		},
+		{
+			"kind": "lantern",
+			"pos": [
+				493.0,
+				71.5
+			],
+			"shadow_w": 0.5,
+			"flip": true
+		},
+		{
+			"kind": "barrel_open",
+			"pos": [
+				190,
+				247.5
+			],
+			"lift": 1
+		},
+		{
+			"kind": "barrel_open",
+			"pos": [
+				482.0,
+				71.5
+			],
+			"lift": 1,
+			"flip": true
+		},
+		{
+			"kind": "bucket",
+			"pos": [
+				200,
+				247.5
+			],
+			"lift": 1,
+			"stack": 1
+		},
+		{
+			"kind": "bucket",
+			"pos": [
+				472.0,
+				71.5
+			],
+			"lift": 1,
+			"stack": 1,
+			"flip": true
+		},
+		{
+			"kind": "ivy",
+			"pos": [
+				208,
+				247.5
+			],
+			"lift": 7,
+			"shadow": false,
+			"stack": 2
+		},
+		{
+			"kind": "ivy",
+			"pos": [
+				464.0,
+				71.5
+			],
+			"lift": 7,
+			"shadow": false,
+			"stack": 2,
+			"flip": true
+		},
+		{
+			"kind": "sack_seed_a",
+			"pos": [
+				217,
+				247.5
+			],
+			"lift": 1
+		},
+		{
+			"kind": "sack_seed_c",
+			"pos": [
+				455.0,
+				71.5
+			],
+			"lift": 1,
+			"flip": true
+		},
+		{
+			"kind": "sack_seed_b",
+			"pos": [
+				223,
+				247.5
+			],
+			"lift": 1,
+			"stack": 1
+		},
+		{
+			"kind": "sack_seed_b",
+			"pos": [
+				449.0,
+				71.5
+			],
+			"lift": 1,
+			"stack": 1,
+			"flip": true
+		},
+		{
+			"kind": "ivy_b",
+			"pos": [
+				232,
+				247.5
+			],
+			"lift": 8,
+			"shadow": false,
+			"stack": 2,
+			"flip": true
+		},
+		{
+			"kind": "ivy_b",
+			"pos": [
+				440.0,
+				71.5
+			],
+			"lift": 8,
+			"shadow": false,
+			"stack": 2,
+			"flip": false
+		},
+		{
+			"kind": "basket_carrot",
+			"pos": [
+				236,
+				247.5
+			],
+			"lift": 1,
+			"stack": 3
+		},
+		{
+			"kind": "basket_tomato",
+			"pos": [
+				436.0,
+				71.5
+			],
+			"lift": 1,
+			"stack": 3,
+			"flip": true
+		},
+		{
+			"kind": "sheaf",
+			"pos": [
+				244,
+				247.5
+			],
+			"lift": 1
+		},
+		{
+			"kind": "sheaf",
+			"pos": [
+				428.0,
+				71.5
+			],
+			"lift": 1,
+			"flip": true
+		},
+		{
+			"kind": "lantern",
+			"pos": [
+				253,
+				247.5
+			],
+			"shadow_w": 0.5,
+			"flip": true,
+			"stack": 1
+		},
+		{
+			"kind": "lantern",
+			"pos": [
+				419.0,
+				71.5
+			],
+			"shadow_w": 0.5,
+			"flip": false,
+			"stack": 1
+		},
+		{
+			"kind": "crate_small",
+			"pos": [
+				212,
+				8
+			]
+		},
+		{
+			"kind": "crate_small",
+			"pos": [
+				460.0,
+				280.0
+			],
+			"flip": true
+		},
+		{
+			"kind": "basket_herb",
+			"pos": [
+				212,
+				8
+			],
+			"lift": 13,
+			"shadow": false,
+			"stack": 1
+		},
+		{
+			"kind": "basket_herb",
+			"pos": [
+				460.0,
+				280.0
+			],
+			"lift": 13,
+			"shadow": false,
+			"stack": 1,
+			"flip": true
+		},
+		{
+			"kind": "ivy",
+			"pos": [
+				212,
+				30
+			],
+			"shadow": false
+		},
+		{
+			"kind": "ivy",
+			"pos": [
+				460.0,
+				258.0
+			],
+			"shadow": false,
+			"flip": true
+		},
+		{
+			"kind": "ivy_b",
+			"pos": [
+				212,
+				52
+			],
+			"shadow": false,
+			"flip": true
+		},
+		{
+			"kind": "ivy_b",
+			"pos": [
+				460.0,
+				236.0
+			],
+			"shadow": false,
+			"flip": false
+		},
+		{
+			"kind": "pot_clay",
+			"pos": [
+				212,
+				66
+			]
+		},
+		{
+			"kind": "pot_olive",
+			"pos": [
+				460.0,
+				222.0
+			],
+			"flip": true
+		},
+		{
+			"kind": "lantern",
+			"pos": [
+				212,
+				79.5
+			],
+			"shadow_w": 0.5
+		},
+		{
+			"kind": "lantern",
+			"pos": [
+				460.0,
+				208.5
+			],
+			"shadow_w": 0.5,
+			"flip": true
+		}
+	],
+	"canopies": [
+		{
+			"kind": "tree_canopy",
+			"pos": [
+				104,
+				77
+			],
+			"flip": true
+		},
+		{
+			"kind": "tree_canopy",
+			"pos": [
+				568,
+				259
+			]
+		}
+	]
+}
