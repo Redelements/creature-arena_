@@ -242,5 +242,6 @@ tools, so a fighter's pass is posing work only.
 - `smoke_sweep.py` — Headless smoke sweep: every mode on every arena, grepping the output for script errors.
 - `splat3d.py` — Shared renderer for the sheet-recreation sprite generators (tools/gen_digby.py and later).
 - `sprite_2x.py` — Switches a fighter's JSON to its 2x sheets (the fighter-2x skill):
+- `test_odin_perf.py` — Tests for tools/odin_perf.py that need no device: the arguments, the no-device message, and the reports from canned log…
 - `write_status.py` — Stamps docs/STATUS.md with the time, branch and commit so a compaction never starts without a fresh marker.
 <!-- END GENERATED -->

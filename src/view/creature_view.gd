@@ -126,6 +126,14 @@ var emit_mat := ShaderMaterial.new()
 static var emissive_on := true
 
 
+## ShaderWarmup's list: the material every fighter draws with (the sprite and its emissive
+## layer share the shader), compiled before the first fight.
+static func warm_materials() -> Array:
+	var m := ShaderMaterial.new()
+	m.shader = FLASH_SHADER
+	return [m]
+
+
 ## The fighter sheets the views alive now hold (`sheet_report`, `--print-vram`).
 static var _live: Array[WeakRef] = []
 

@@ -140,6 +140,8 @@ func _parse_args() -> int:
 				main._cam_cli[a.get_slice("=", 0).trim_prefix("--").replace("-", "_")] = lv
 		elif a.begins_with("--shot-dir="):
 			main._shot_dir = a.get_slice("=", 1)
+		elif a.begins_with("--rematch-after="):
+			main._rematch_after = maxi(0, int(a.get_slice("=", 1)))
 		elif a.begins_with("--print-vram="):
 			main._print_vram_at = int(a.get_slice("=", 1))
 		elif a.begins_with("--quit-after="):

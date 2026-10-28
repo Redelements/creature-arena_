@@ -285,3 +285,42 @@ only the fights.
 
 Still open: a true heat soak (a mode whose fight runs 10 minutes), the Settings hint when
 Android pins the screen to 60, and the first-install shader hitch (a warm-up pass would hide it).
+
+## Progress (2026-10-28): warm-up, the 60 Hz hint, the two device runs prepared
+
+- **Shader warm-up** (`src/view/shader_warmup.gd`): the title's first ~45 frames draw every
+  material a fight uses (the list comes from each view's `warm_materials()`; a test fails on a
+  material or `.gdshader` it misses) into a SubViewport nobody sees, one draw a frame, unlit
+  and lit, in the three kinds of draw the renderer keeps pipelines for. `--perf`'s setup line
+  says what it cost; `--no-warmup` turns it off for the A/B. Godot's own shader cache stays
+  off (the GLES3 light bug, project.godot); Vulkan's pipeline cache stays on (a test pins both).
+- **Settings > Video > Fight frame rate** says "Your screen refreshes 60 times a second: a
+  higher cap won't show" (the measured rate, and on a phone a pointer to the device's own
+  display setting) when the screen reports 60 Hz or less and the cap chosen is higher. The
+  mobile default stays 60.
+- **Not run: no device was attached.** The two commands below are ready.
+
+## How to measure (with the Odin plugged in)
+
+Both export a release APK themselves (several minutes each), install it, run it and stop with
+"no device: plug the Odin in and allow USB debugging" when `adb get-state` finds none. Set the
+Odin's display to 120 Hz first (Settings > Display, or `adb shell settings put system
+peak_refresh_rate 120` and `min_refresh_rate 120`) and leave it on the charger as you'd play.
+
+```sh
+# 1. VRAM after the 2x roster: a CPU-vs-CPU 4v4 CTF at Lighting High, then Low, each printing
+#    `VRAM ...` at frame 600; prints a table (also build/perf/vram.txt). About 10 minutes.
+C:/Users/Kevin/dev/python/python.exe -I tools/odin_perf.py --vram
+
+# 2. A true 10-minute heat soak: CPU-vs-CPU 4v4 CTF at 120 fps that rematches by itself, the
+#    screen read from SurfaceFlinger (fights only: 1% / 0.1% lows, long gaps) and the device's
+#    temperatures every 30 s (dumpsys thermalservice, else /sys/class/thermal); prints both
+#    (also build/perf/soak.txt). About 15 minutes with the export.
+C:/Users/Kevin/dev/python/python.exe -I tools/odin_perf.py --soak --minutes=10
+```
+
+What to look for: (1) textures under the budget `tests/test_vram.gd` pins on PC, and how much
+Low saves over High; (2) no 1-second window under 100 fps in the SCREEN lines across the ten
+minutes, and whether the thermal status rises above 0 (throttling) late in the run. A first run
+after the install also shows whether the warm-up removed the ~41 ms first-fight hitch (compare
+`--extra=--no-warmup` on a fresh install). Write the numbers into this file.

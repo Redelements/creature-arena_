@@ -39,6 +39,11 @@ extends Node2D
 ##                         Lighting otherwise; Light2DView, BloomView)
 ##   --print-vram=N        print the texture memory Godot reports (and the fighter sheets
 ##                         loaded, CreatureView.sheet_report) at frame N (budget checks)
+##   --rematch-after=N     an offline match's results screen presses Rematch by itself after
+##                         N frames (with --cpu-vs-cpu: back-to-back fights for a soak run,
+##                         tools/odin_perf.py --soak)
+##   --no-warmup           skip the shader warm-up on the first frames (ShaderWarmup): for
+##                         an A/B of the first fight's frames with --perf
 ##   --perf                log frame and tick times during fights; on quit, prints the
 ##                         percentiles, the 1% and 0.1% lows, missed frames and the worst
 ##                         second, and saves them to user://perf.txt
@@ -587,6 +592,10 @@ var _shot_dir := "user://shots"
 var _cam_force := Vector3.ZERO  ## --cam=x,y,zoom: the camera held here (screenshots)
 var _quit_after := 0
 var _print_vram_at := 0  ## --print-vram=N: print texture memory at frame N
+## The shader warm-up on the first frames (ShaderWarmup; null headless or with --no-warmup).
+var shader_warmup: ShaderWarmup = null
+var _rematch_after := 0  ## --rematch-after=N: the results screen's Rematch, pressed after N frames
+var _rematch_at := 0  ## the frame it is pressed at (0: none pending)
 ## The CPUs' inputs for this tick are worked out (_think_cpus) and wait in last_bits.
 var _cpus_thought := false
 ## The next tick's CPU thinking, set going at the end of a tick (_think_ahead) so it runs
@@ -860,6 +869,9 @@ func _ready() -> void:
 		ui.restyle()  # the menu theme was built before the saved Text font was read
 	var start_mode := args_ctl._parse_args()
 	_cli_start = start_mode >= 0
+	if ShaderWarmup.wanted(OS.get_cmdline_user_args()):
+		shader_warmup = ShaderWarmup.new()  # the title's first frames compile what fights draw
+		add_child(shader_warmup)
 	_apply_device()
 	_apply_discord()
 	_apply_range_rings()
@@ -4130,9 +4142,7 @@ func _notification(what: int) -> void:
 ## phone ends there, not with a quit): report what was logged so far and carry on logging.
 func _print_perf(keep := false) -> void:
 	if _perf != null:
-		var text := "PERF setup: vsync %s, fight cap %d (setting %d, --fight-fps %d), engine cap %d, pacing %s, cpu think %s, screen %.2f Hz, %s\n" % [
-			"on" if vsync else "off", _fight_fps_cli if _fight_fps_cli > 0 else fight_fps, fight_fps, _fight_fps_cli,
-			Engine.max_fps, _fps_pacing, cpu_think, _refresh_rate(), RenderingServer.get_current_rendering_method()]
+		var text := _perf_setup() + "\n"
 		text += _perf.report(Engine.max_fps if Engine.max_fps > 0 else maxi(60, roundi(_refresh_rate())))
 		for line in text.split("\n"):
 			print(line)  # a line at a time: Android's log cuts one long message short
@@ -4144,12 +4154,25 @@ func _print_perf(keep := false) -> void:
 			_perf = null
 
 
+## The --perf report's first line: how the frames were capped and paced, and the warm-up.
+func _perf_setup() -> String:
+	return "PERF setup: vsync %s, fight cap %d (setting %d, --fight-fps %d), engine cap %d, pacing %s, cpu think %s, screen %.2f Hz, %s, warmup %s" % [
+		"on" if vsync else "off", _fight_fps_cli if _fight_fps_cli > 0 else fight_fps, fight_fps, _fight_fps_cli,
+		Engine.max_fps, _fps_pacing, cpu_think, _refresh_rate(), RenderingServer.get_current_rendering_method(),
+		shader_warmup.summary() if shader_warmup != null else "off"]
+
+
 func _capture() -> void:
 	var t := frame_count
 	if _shots.has(t):
 		await RenderingServer.frame_post_draw
 		DirAccess.make_dir_recursive_absolute(_shot_dir)
 		get_viewport().get_texture().get_image().save_png(_shot_dir.path_join("shot_%04d.png" % t))
+	if _rematch_at > 0 and t >= _rematch_at:
+		_rematch_at = 0
+		if flow == Flow.MATCH_OVER and online == null:
+			seed_base += 1  # as the Rematch button does
+			_start_match(mode, true)
 	if _print_vram_at > 0 and t == _print_vram_at:
 		print("VRAM frame %d, lighting %s: textures %.1f MB, video %.1f MB; %s" % [t,
 			["off", "low", "high"][lighting_tier()],
