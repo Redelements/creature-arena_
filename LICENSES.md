@@ -61,6 +61,10 @@ snapped to the game's palette):
   water), piece (boulders, tall grass) and crack / pit tiles cut from Set 1 (the overlay: a
   Set 1 `hills2.png` cliff face as the pit walls, with generated edges and cracks).
 - `assets/tiles/set1_decor_*.png` (trees, a bush) and `assets/tiles/set1_anim_waterfall.png`.
+- `assets/tiles/set1_scatter.png`: loose pebbles and dried grass sprigs (Set 1
+  `veg_decoratives.png`), and the Stadium's dressing ground (darker, paler and damp dirt
+  patches, worn lanes: Set 1 `g_terrain3.png` blobs, in `set1_ground.png`), laid by hand in
+  `assets/arenas/stadium_dressing.tscn`.
 - `assets/tiles/set1_manifest.json`: where the cuts landed.
 - `assets/tiles/set1_*.tres`: the Godot TileSets `tools/build_tiles.gd` makes from them.
 - `assets/arenas/<id>.tscn`: each tiled arena's ground, painted with those tiles.
