@@ -7,7 +7,10 @@ helpers `run`, `tap`, `run_until`). A new file extending `TestCase` needs no reg
 Engine and script errors count as failures; exit code 1 on any failure. Run `--import`
 after adding a `class_name`. Each file's header comment says what it pins (listed under Files below).
 `TEST_QUIET=1` prints only failures and the summary: use it, then rerun a failing file
-without it for detail.
+without it for detail. `TEST_SHARD=k/N` runs every Nth file of the sorted list from the
+kth (k from 1): CI runs three shards side by side (`tests.yml`), which splits the suite
+about evenly (the slowest files, `test_server_teams`, `test_server_fuzz`, `test_rage`,
+`test_journey`, `test_ai`, `test_balance`, land on different shards by name).
 
 ## Conventions and gotchas
 
