@@ -417,3 +417,23 @@ func _find_results(n: Node) -> Node:
 		if f != null:
 			return f
 	return null
+
+
+## The title's last row clears the description line under it at every size, with the
+## Profile row there (Progression on, the default): a 16:9 1080p screen and a phone are
+## 270 canvas units high, where Exit sat on the line (Oct 2026, task F's screenshots).
+func test_the_title_rows_clear_the_description_line() -> void:
+	for size in SIZES:
+		_screen(size)
+		var g := _game()
+		Progress.set_enabled(true)
+		g._open_menu()
+		var t: TitleScreen = g.ui.top()
+		_layout(g.ui)
+		var exit_r := (t._rows_by_name["exit"] as Control).get_global_rect()
+		var desc_r := t._desc.get_global_rect()
+		assert_true(exit_r.end.y <= desc_r.position.y + 0.01, "%s: Exit (to %.1f) above the description (from %.1f)" % [size, exit_r.end.y, desc_r.position.y])
+		assert_true(t._scroll.size.y >= t._list.get_combined_minimum_size().y - 0.5, "%s: the five rows fit unscrolled" % size)
+		g.free()
+	_restore()
+	Progress.set_enabled(false)
