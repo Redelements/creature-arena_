@@ -23,9 +23,9 @@ DONE / SKIPPED / BLOCKED. This file lives on branch `autonomy-log` (worktree
 | 3 | Rollback coverage: random-input fuzz across modes with hazards, shrines, crown | DONE | [#262](https://github.com/Redelements/creature-arena_/pull/262) |
 | 4 | Nightly CI: Normal-bot balance matrix + cross-platform determinism soak | DONE | [#260](https://github.com/Redelements/creature-arena_/pull/260) merged |
 | 5 | main.gd split (after 1-4 merged) | IN PROGRESS | |
-| 6 | CPU team play piece 3 (focus, peel, front line) | IN PROGRESS | |
-| 7 | Caravan CPU wagon goal | | |
-| 8 | CPU Burrow pit crossing | | |
+| 6 | CPU team play piece 3 (focus, peel, front line) | PR OPEN for Kevin (no measurable gain) | [#269](https://github.com/Redelements/creature-arena_/pull/269) |
+| 7 | Caravan CPU wagon goal | IN PROGRESS | |
+| 8 | CPU Burrow pit crossing | IN PROGRESS (stacked on 7) | |
 | 9 | Accessibility: colour-safe teams / outlines, high-contrast hit markers | | |
 | 10 | Audio CC0 pass (Kenney only) + CREDITS | BLOCKED (ruling needed) | |
 | 11 | Training dummy at 2x | PR OPEN for Kevin | [#264](https://github.com/Redelements/creature-arena_/pull/264) |
@@ -222,3 +222,22 @@ touches the same file; whichever merges second resolves a one-line conflict.
 - Noted: `tests/test_rollback_fuzz.gd.uid` was never committed with #262 (every import regenerates it);
   it goes into the final log PR.
 - **Task 17 DONE**: #268 merged.
+
+## Task 6: team intent piece 3
+
+- Agent opened **PR #269** (behavioral: CPU logic; NET_VERSION 58 -> 59, which **collides with #264's 59**:
+  whichever merges second renumbers to 60). Built the plan's three remaining steps: engage state
+  (poke / commit / retreat from the members' previous-tick notes), front line (tank, else bruiser/fighter;
+  kite and skirmish fall back 80 px behind it while retreating, the press holder stops walking in, the
+  skirmisher dives on commit), peel and isolated as target-pick factors; bench prints commit/retreat shares.
+- **Honest result: no measurable gain.** Only Rage reads the team intent (Normal CPUs don't use `_pick_target`
+  / `_plan_*`), so the A/B had to run at Rage: 3v3 coordinated 24/48 -> 22/48 (noise floor 27/48), 2v2
+  31/48 -> 28/48; focus switches 8.6 -> 9.3 /min; the plan's "mages hold behind the line while poking" lost
+  2v2s (15-21/48) and was dropped; the plan's 65% pin became "≥ 4 of 12" (class picks decide these fights).
+  1v1 matrix byte-identical; think cost unchanged (1.82 ms at Normal). Normal 2v2/3v3 identical before/after.
+- Recommendation for Kevin: this is the plan's work done faithfully, but it buys nothing players can feel
+  (Normal bots never see it; Rage gains nothing). Merging is optional; closing it is a fair call. The
+  `test_rollback_fuzz.gd.uid` file rides in this PR too.
+- Checks: suite 1318/0, sweep 216/0, sim-check unchanged (its scripted match has no CPU).
+- Tasks 7 and 8 start now as one agent, stacked branches off main (both edit cpu_controller.gd); if #269
+  merges first they'll need a merge of main.
