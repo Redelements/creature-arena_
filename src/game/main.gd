@@ -630,6 +630,7 @@ var _online_server := ""
 ## Looking for the server on this network before joining it (see LanFinder), and the
 ## join to make when it's done: [fighter, host, port, room].
 var _finder: LanFinder = null
+var online_ctl := MainOnline.new(self)  ## the online flow (main_online.gd)
 var _finder_join: Array = []
 ## The team (one fighter, or three for a tag Duel) and team rules the next server join
 ## takes, from the lobby.
@@ -877,14 +878,14 @@ func _ready() -> void:
 					_open_fighter_swap()
 	if _net_args.has("host") or _net_args.has("join"):
 		_auto_accept = true  # started from the command line: no one to ask
-		_open_lobby()
+		online_ctl._open_lobby()
 		if _net_args.has("host"):
-			_net_host(_online_fighter)
+			online_ctl._net_host(_online_fighter)
 		else:
 			_pending_watch = bool(_net_args.get("watch", false))
 			var parsed := OnlineLobby.parse_address(String(_net_args["join"]))
 			var size := int(_net_args.get("size", 0 if String(parsed[2]) != "" else 1))
-			_net_join(_online_fighter, String(parsed[0]), int(parsed[1]), String(parsed[2]), true, size)
+			online_ctl._net_join(_online_fighter, String(parsed[0]), int(parsed[1]), String(parsed[2]), true, size)
 
 
 # ------------------------------------------------------------------ flow
@@ -896,7 +897,7 @@ func _open_menu(page := "", focus := "") -> void:
 	show_ctl._stop_attract()
 	hud.banner_hidden = false
 	_close_ui()
-	_end_online()
+	online_ctl._end_online()
 	flow = Flow.MENU
 	flow_t = 0
 	_end_showcase()
@@ -1381,7 +1382,7 @@ func _start_match(m: int, keep_teams := false) -> void:
 	else:
 		arcade = null
 	if cfg.get("online", false):
-		_open_lobby()
+		online_ctl._open_lobby()
 		return
 	var two_players: bool = Side.PLAYER2 in cfg.get("sides", [])
 	_assign_devices(_humans(cfg))
@@ -1587,7 +1588,7 @@ func _arcade_result(won: bool) -> bool:
 		hud.banner_sub = ("A new best for today!" if best and won else
 			("Today's best: %d" % Progress.daily_best(d.date)) if won else "Win the fight to score")
 		if won and score > 0:
-			_net_daily_submit(d)
+			online_ctl._net_daily_submit(d)
 		return true
 	if not won:
 		flow = Flow.MATCH_OVER
@@ -2655,9 +2656,9 @@ func _physics_process(_delta: float) -> void:
 		return  # the arena intro: the sim waits at its first tick, the views play it
 	flow_t += 1
 	if _finder != null:
-		_finder_step()
+		online_ctl._finder_step()
 	if _daily_client != null:
-		_daily_step()
+		online_ctl._daily_step()
 	var live := flow == Flow.FIGHT or flow == Flow.MENU
 	var offline := false
 	var events: Array = sim.events
@@ -2667,22 +2668,22 @@ func _physics_process(_delta: float) -> void:
 		live = flow == Flow.FIGHT or flow == Flow.MATCH_OVER
 		netplay.tick(_side_bits(online.local_slot, live and not ui.is_open()))
 		events = online.events
-		_online_status()
+		online_ctl._online_status()
 	elif watch != null:
 		# Watching: the referee's copy steps on confirmed inputs only (maybe several
 		# frames a tick, maybe none); its events are the ones to show.
 		live = flow == Flow.FIGHT or flow == Flow.MATCH_OVER
 		netplay.tick(0)
 		if netplay.watch != null and netplay.watch != watch and netplay.phase == Netplay.Phase.PLAYING:
-			_start_watching()  # the next match (a rematch, or the room's next): follow it
+			online_ctl._start_watching()  # the next match (a rematch, or the room's next): follow it
 		events = watch.events
 		if netplay.phase == Netplay.Phase.ENDED and flow == Flow.FIGHT:
 			flow = Flow.MATCH_OVER
 			flow_t = 0
 			hud.banner = "THE MATCH ENDED"
 			hud.banner_sub = netplay.status
-		_watch_room_status()
-	elif netplay != null and _connecting_step():
+		online_ctl._watch_room_status()
+	elif netplay != null and online_ctl._connecting_step():
 		events = online.events  # the online match began this frame: its session steps it
 	else:
 		offline = true
@@ -4058,106 +4059,6 @@ func _save_settings() -> void:
 
 # ------------------------------------------------------------------ online
 
-func _open_lobby() -> void:
-	_end_online()
-	_push_lobby()
-
-
-## The online screen, over whatever plays behind it (the session, if any, is kept).
-func _push_lobby() -> void:
-	flow = Flow.LOBBY
-	flow_t = 0
-	hud.menu_visible = false
-	hud.visible = false
-	_close_ui()
-	lobby = OnlineLobby.new(_online_fighter, _online_address, _recent_servers, settings_ctl.online_server())
-	lobby.server_join_pressed.connect(_net_join_server)
-	lobby.board_pressed.connect(_net_daily_board)
-	lobby.name_changed.connect(func(t: String):
-		Netplay.player_name = Netplay.clean_name(t)
-		settings_ctl._save_settings())
-	lobby.host_pressed.connect(_net_host)
-	lobby.join_pressed.connect(_net_join_typed)
-	lobby.cancelled.connect(_leave_online)
-	lobby.search_cancelled.connect(_cancel_search)
-	ui.push(lobby)
-
-
-## Cancel while searching or hosting: stop, and stay on the online screen.
-func _cancel_search() -> void:
-	_close_ready_check()
-	if _finder != null:
-		_finder.cancel()
-		_finder = null
-	if netplay != null:
-		netplay.leave()
-		netplay = null
-	if lobby != null:
-		lobby.busy = false
-		lobby.hosting_port = 0
-		lobby.status_bad = false
-		lobby.status = "Stopped searching"
-
-
-## Builds the network link, with the --net-lag / --net-loss wrapper if asked for.
-func _make_link(host_port: int, address := "", port := 0) -> NetLink:
-	var e := EnetLink.new()
-	var err := e.host(host_port) if address == "" else e.join(address, port)
-	if err != OK:
-		return e  # Netplay reports e.error
-	if int(_net_args.get("lag", 0)) > 0 or float(_net_args.get("loss", 0.0)) > 0.0:
-		return LagLink.new(e, int(_net_args.get("lag", 0)), float(_net_args.get("loss", 0.0)))
-	return e
-
-
-func _net_host(fighter: String) -> void:
-	_online_fighter = fighter
-	settings_ctl._save_settings()
-	netplay = Netplay.new()
-	voice_ctl._apply_voice()
-	netplay.forced_delay = int(_net_args.get("delay", input_delay))
-	netplay.arena_id = MatchFactory.arena
-	var port := int(_net_args.get("host", Netplay.DEFAULT_PORT))
-	var link := _make_link(port)
-	if link.status == NetLink.Status.CLOSED:
-		lobby.status = link.error
-		lobby.status_bad = true
-		netplay = null
-		return
-	netplay.host(port, [fighter], link)
-	lobby.busy = true
-	lobby.hosting_port = port
-	_lobby_status()
-
-
-## Quick match (room "") or a room, on the online server; `size` players per side (0:
-## the room's own). At the server's own house its public name may not work (many
-## routers don't loop it back inside), so this first looks for it on the local network
-## for a moment, then joins whichever it found.
-func _net_join_server(fighter: String, room: String, size := 1, server := "") -> void:
-	var parsed := OnlineLobby.parse_address(server if server != "" else settings_ctl.online_server())
-	if String(parsed[0]) == "":
-		lobby.status = OnlineLobby.NO_SERVER
-		lobby.status_bad = true
-		return
-	_online_fighter = fighter
-	_pending_team = lobby.team.duplicate() if lobby != null and lobby.team.size() > 1 else [fighter]
-	_pending_rules = lobby.rules_id if lobby != null else ""
-	_pending_watch = lobby != null and lobby.watch_next
-	_pending_ranked = lobby != null and lobby.ranked_next
-	if lobby != null:
-		lobby.watch_next = false
-		lobby.ranked_next = false
-	settings_ctl._save_settings()
-	_finder = LanFinder.new()
-	_finder.start(int(parsed[1]), finder_target)
-	_finder_join = [fighter, String(parsed[0]), int(parsed[1]), room, size]
-	lobby.busy = true
-	lobby.hosting_port = 0
-	lobby.status_bad = false
-	lobby.status = "Looking for the server..."
-
-
 ## Each frame while looking: once it's done, join the server it found nearby, or the
 ## public address.
 ## The server's public name gets no answer, and it didn't answer on this network either.
@@ -4166,366 +4067,14 @@ func _net_join_server(fighter: String, room: String, size := 1, server := "") ->
 const HOME_HINT := "No answer. At the server's house: update it and allow UDP 7778. Away: is UDP 7777 forwarded?"
 
 
-func _finder_step() -> void:
-	if not _finder.poll():
-		return
-	var f := _finder.found
-	var j := _finder_join
-	_finder = null
-	_home_missed = f.is_empty()
-	if lobby == null:
-		return
-	if f.is_empty():
-		_net_join(String(j[0]), String(j[1]), int(j[2]), String(j[3]), false, int(j[4]))
-	else:
-		_net_join(String(j[0]), String(f["address"]), int(f["port"]), String(j[3]), false, int(j[4]))
-
-
-## The day's top ten from the server, shown in the lobby's status.
-func _net_daily_board() -> void:
-	if lobby == null:
-		return
-	var parsed := OnlineLobby.parse_address(settings_ctl.online_server())
-	if String(parsed[0]) == "":
-		lobby.status = OnlineLobby.NO_SERVER
-		lobby.status_bad = true
-		return
-	_daily_client = DailyClient.fetch_board(String(parsed[0]), int(parsed[1]), Daily.today())
-	lobby.status = "Asking the server for today's scores..."
-	lobby.status_bad = false
-
-
-## After a Daily fight: the replay goes to the configured server to be scored there.
-func _net_daily_submit(d: Daily) -> void:
-	var parsed := OnlineLobby.parse_address(settings_ctl.online_server())
-	if String(parsed[0]) == "":
-		return
-	_daily_client = DailyClient.submit(String(parsed[0]), int(parsed[1]), d.date, d.fighter, replay.to_dict())
-	_daily_sent_toast = "Daily score sent to the server..."
-	hud.show_toast(_daily_sent_toast)
-
-
-func _daily_step() -> void:
-	_daily_client.tick()
-	if not _daily_client.done:
-		return
-	var c := _daily_client
-	_daily_client = null
-	if c.rank > 0 or (c.ok and c.score > 0):
-		_toast("Daily score %d: #%d today" % [c.score, c.rank] if c.ok else c.error)
-	elif c.ok and lobby != null:
-		var lines: Array = []
-		for i in c.board.size():
-			var row: Dictionary = c.board[i] if c.board[i] is Dictionary else {}
-			lines.append("%d. %s%s  %d" % [i + 1, Netplay.clean_name(String(row.get("name", ""))),
-				" (you)" if row.get("you", false) == true else "", int(row.get("score", 0))])
-		lobby.status = "Today's Daily top 10:  " + ("   ".join(lines) if not lines.is_empty() else "nobody yet")
-		lobby.status_bad = false
-	elif not c.ok:
-		_toast(c.error)
-
-
-## Join by a typed (or recent) address. The online server's own name goes through the
-## local look-up too, so it works at home.
-func _net_join_typed(fighter: String, address: String, port: int, room := "") -> void:
-	var srv := OnlineLobby.parse_address(settings_ctl.online_server())
-	if address.to_lower() == String(srv[0]).to_lower() and address != "":
-		_online_address = lobby.address if lobby.address != "" else address
-		_remember_server(_online_address)
-		_net_join_server(fighter, room, 0 if room != "" else 1, "%s:%d" % [address, port])
-		return
-	_net_join(fighter, address, port, room, true, 0 if room != "" else 1)
-
-
-func _net_join(fighter: String, address: String, port: int, room := "", remember := true, size := 1) -> void:
-	_online_fighter = fighter
-	if remember:
-		_home_missed = false
-		_online_address = lobby.address if lobby.address != "" else address
-		_remember_server(_online_address)
-	settings_ctl._save_settings()
-	netplay = Netplay.new()
-	voice_ctl._apply_voice()
-	netplay.forced_delay = int(_net_args.get("delay", input_delay))
-	netplay.arena_id = MatchFactory.arena
-	var link := _make_link(0, address, port)
-	if link.status == NetLink.Status.CLOSED:
-		lobby.busy = false
-		lobby.status = link.error
-		lobby.status_bad = true
-		netplay = null
-		return
-	netplay.room = room
-	netplay.team_size = size
-	netplay.rules_id = TeamSim.rules_for_size(_pending_rules, size) if size > 1 else ""
-	netplay.ranked = _pending_ranked and size == 1
-	_pending_ranked = false
-	netplay.auto_ready = _auto_accept or _cpu_vs_cpu
-	var team: Array = _pending_team if not _pending_team.is_empty() and String(_pending_team[0]) == fighter else [fighter]
-	_pending_team = []
-	if _pending_watch:
-		_pending_watch = false
-		netplay.spectate(address, port, room, link)
-	else:
-		netplay.join(address, port, team, link)
-	lobby.busy = true
-	lobby.hosting_port = 0
-	_lobby_status()
-
-
-## Connecting: keeps the network moving behind the lobby. Returns true if the online
-## match started just now; only its rollback session may step it, never the menu's loop
-## (a step outside it would put this machine one frame off the other and the server).
-func _connecting_step() -> bool:
-	netplay.tick(0)
-	_lobby_status()
-	return online != null
-
-
-## While connecting: show what's happening, and start the match once it's agreed.
-func _lobby_status() -> void:
-	if netplay == null:
-		return
-	lobby.status = netplay.status
-	lobby.status_bad = netplay.phase == Netplay.Phase.ENDED and not netplay.declined
-	if netplay.phase == Netplay.Phase.ENDED:
-		_close_ready_check()
-		if _home_missed and netplay.error.begins_with("No answer"):
-			lobby.status = HOME_HINT
-		lobby.busy = false
-		netplay = null
-		return
-	if netplay.is_playing() or netplay.is_watching():
-		_start_online_match()
-		return
-	_ready_check_step()
-
-
-## The server's ready check: Match found opens over the online screen (with a sound and
-## a nudge from the taskbar, in case the player looked away), shows the countdown, and
-## closes again if the match falls through.
-func _ready_check_step() -> void:
-	if netplay.match_found and _ready_screen == null:
-		var what := lobby.searching_for if lobby.searching_for != "" else "Online"
-		_ready_screen = ReadyCheck.new(what, lobby.fighter)
-		_ready_screen.set_total(netplay.found_secs)
-		_ready_screen.accepted.connect(func():
-			if netplay != null:
-				netplay.accept_match())
-		_ready_screen.declined.connect(func():
-			if netplay != null:
-				netplay.decline_match()
-				_lobby_status())
-		ui.push(_ready_screen)
-		audio.play("round_start", 0.0, 1.0, true)
-		if not DisplayServer.window_is_focused():
-			DisplayServer.window_request_attention()
-	elif not netplay.match_found and _ready_screen != null:
-		_close_ready_check()
-	if _ready_screen != null:
-		_ready_screen.update(netplay.seconds_left(), netplay.accepted, netplay.accepted_have,
-			netplay.found_players, netplay.found_need)
-
-
-func _close_ready_check() -> void:
-	if _ready_screen != null and is_instance_valid(_ready_screen) and ui.top() == _ready_screen:
-		ui.pop()
-	_ready_screen = null
-
-
-## Watching a match on the server: the referee's copy is the match; every side is
-## remote and nobody here presses anything.
-func _start_watching() -> void:
-	watch = netplay.watch
-	online = null
-	_close_ui()
-	_ready_screen = null
-	lobby = null
-	hud.visible = true
-	hud.menu_visible = false
-	audio.play_music("fight")
-	_end_duel()
-	var s: Array = []
-	s.resize(watch.players)
-	s.fill(Side.REMOTE)
-	if watch.duel is TeamSim:
-		team_battle = watch.duel
-		_rules_id = watch.rules
-		_new_sim(team_battle.sim, s)
-		hud.team = team_battle
-		hud.focus = 0
-		hud.timer_ticks = team_battle.timer
-		_show_pads()
-	else:
-		duel = watch.duel
-		_new_sim(duel.sim, s)
-		hud.duel = duel
-		hud.timer_ticks = duel.timer
-	for i in sides.size():
-		hud.tags[i] = "WATCHING"
-	hud.wins = [0, 0]
-	hud.wins_needed = 0
-	hud.banner = ""
-	flow = Flow.FIGHT
-	flow_t = 0
-	_net_end_t = 0
-
-
-func _start_online_match() -> void:
-	if netplay.watch != null:
-		_start_watching()
-		return
-	online = netplay.game
-	voice_ctl._apply_voice()  # (on Android: asks for the microphone at the first match with voice on)
-	voice_ctl._apply_voice_hear()  # (strangers start muted with Hear voices from: Rooms and friends)
-	if lobby != null:
-		_room_made = lobby.room_created
-	_close_ui()  # the lobby (and Match found), a match-over screen on a rematch, or a room's select
-	_ready_screen = null
-	_room_screen = null
-	_room_picker = null
-	_rematch_page = false
-	lobby = null
-	hud.visible = true
-	hud.menu_visible = false
-	audio.play_music("fight")
-	_end_duel()
-	var s: Array = []
-	s.resize(online.players)
-	s.fill(Side.REMOTE)
-	s[online.local_slot] = Side.PLAYER
-	if online.team != null:
-		# A team battle: every slot is a player somewhere; this one is ours.
-		team_battle = online.team
-		_rules_id = netplay.rules_id
-		_new_sim(team_battle.sim, s)
-		hud.team = team_battle
-		hud.focus = online.local_slot
-		hud.timer_ticks = team_battle.timer
-		_show_pads()
-		_cpu_shown = 0
-		_show_cpu_slots()
-	else:
-		duel = online.duel
-		_new_sim(duel.sim, s)
-		for i in 2:
-			if cpus[i] != null:
-				(cpus[i] as CpuController).duel = duel
-		hud.duel = duel
-		hud.timer_ticks = duel.timer
-	hud.wins = [0, 0]
-	hud.wins_needed = 0
-	hud.banner = ""
-	flow = Flow.FIGHT
-	flow_t = 0
-	_net_end_t = 0
-
-
-## During an online match: rematches, the connection's health, and how it ended.
-func _online_status() -> void:
-	if netplay.phase == Netplay.Phase.HANDSHAKE:
-		_back_to_room_wait()  # the other player left the room: wait there for someone new
-		return
-	if netplay.game != online and netplay.is_playing():
-		_write_net_report(true)
-		_start_online_match()  # a rematch began, or the room's next match
-		return
-	# Ranked: after the result the other player going back to the online screen isn't a
-	# disconnection; the result stays up until this player goes back too.
-	var after_ranked := netplay.ranked and flow == Flow.MATCH_OVER and not _rematch_page
-	if netplay.phase == Netplay.Phase.ENDED:
-		_net_end_t += 1
-		if _net_end_t == 1:
-			_write_net_report()
-			hud.net_info = ""
-			if _rematch_page:
-				_rematch_ended(netplay.error)
-			elif not after_ranked:
-				hud.banner = "DISCONNECTED"
-				hud.banner_sub = netplay.error
-		if after_ranked and _match_over_status != null and is_instance_valid(_match_over_status):
-			_match_over_status.text = netplay.error
-		elif _net_end_t > 240:
-			if _rematch_page:
-				_leave_to_lobby()
-			else:
-				_leave_online()
-		return
-	if netplay.rematch_pick() and not _rematch_page:
-		_open_rematch_pick()  # both asked for a rematch: pick for it
-	if netplay.in_room() or _rematch_page:
-		_room_step()
-	elif _cpu_vs_cpu and online.players == 2 and flow == Flow.MATCH_OVER and flow_t == MATCH_OVER_MENU_AT + 120 \
-			and not netplay.rematch_local:
-		netplay.request_rematch()  # demos and captures: on to the rematch (and its pick) by itself
-	var g := online
-	if g.cpu_slots.size() != _cpu_shown:
-		_show_cpu_slots()
-		hud.show_toast("A player left: a CPU plays for them")
-	_rb_t += 1
-	if _rb_t >= 60:
-		_rb_rate = g.session.rollbacks - _rb_seen
-		_rb_seen = g.session.rollbacks
-		_rb_t = 0
-	hud.net_info = "PING %d ms   DELAY %d   ROLLBACKS %d/s (MAX %d)   %s" % [roundi(netplay.ping_ms), g.input_delay,
-		_rb_rate, g.session.max_rollback_seen, ArenaMap.name_of(g.arena_id).to_upper()]
-	if netplay.in_room() and netplay.room_watchers > 0:  # watchers hear voice only in rooms (the server's rule)
-		hud.net_info += "   %d WATCHING (THEY HEAR VOICE)" % netplay.room_watchers
-	if g.desync_frame >= 0:
-		hud.net_info = "DESYNC at frame %d: report saved   " % g.desync_frame + hud.net_info
-	var waiting := "WAITING FOR PLAYERS" if g.players > 2 else "WAITING FOR OPPONENT"
-	if g.waiting_ticks > 30 and flow == Flow.FIGHT:
-		hud.banner = waiting
-		hud.banner_sub = "Connection hiccup..."
-	elif hud.banner == waiting:
-		hud.banner = ""
-		hud.banner_sub = ""
-	if flow == Flow.MATCH_OVER and _match_over_status != null and is_instance_valid(_match_over_status):
-		var others := g.players - 1 - g.cpu_slots.size()
-		var asked := netplay.rematch_asked.size()
-		if netplay.in_room():
-			_match_over_status.text = _room_summary()
-		elif g.players > 2 and (netplay.rematch_local or asked > 0):
-			_match_over_status.text = "Rematch: %d of %d asked" % [asked + (1 if netplay.rematch_local else 0),
-				others + 1]
-		else:
-			var lines := PackedStringArray()
-			if not netplay.last_rating.is_empty():
-				var lr := netplay.last_rating
-				lines.append("Rating %d -> %d (%+d)   ·   %d games, %d won" % [roundi(float(lr["old"])),
-					roundi(float(lr["new"])), roundi(float(lr["new"]) - float(lr["old"])), int(lr["games"]), int(lr["wins"])])
-			if netplay.rematch_local:
-				lines.append("Waiting for the other player...")
-			elif netplay.rematch_remote:
-				lines.append("The other player wants a rematch!")
-			_match_over_status.text = "\n".join(lines)
-
-
-## Online team battle: slots the server's CPU plays say so on their card and marker.
-func _show_cpu_slots() -> void:
-	_cpu_shown = online.cpu_slots.size()
-	for slot in online.cpu_slots:
-		if int(slot) < hud.tags.size():
-			hud.tags[int(slot)] = "CPU"
-		if int(slot) < fx.side_marks.size():
-			fx.side_marks[int(slot)]["label"] = "CPU"
-
-
+## In main_online.gd (tests and other scripts call it here).
 func _leave_online() -> void:
-	_write_net_report()
-	if netplay != null:
-		netplay.leave()
-	_end_online()
-	_open_menu("", "online")
+	online_ctl._leave_online()
 
 
-## Leave the match (or room) for the online screen, to search again from there.
+## In main_online.gd (tests and other scripts call it here).
 func _leave_to_lobby() -> void:
-	_write_net_report()
-	if netplay != null:
-		netplay.leave()
-	_open_menu("", "online")
-	_open_lobby()
+	online_ctl._leave_to_lobby()
 
 
 # ------------------------------------------------------------------ online rooms
@@ -4533,256 +4082,14 @@ func _leave_to_lobby() -> void:
 # page with the fighter select over it; everyone locks in, and the server starts the
 # next match (the session stays up throughout). See RelayServer's Room.
 
-## The room's code as players read it.
+## In main_online.gd (tests and other scripts call it here).
 func _room_code() -> String:
-	return netplay.room.to_upper() if netplay != null else ""
+	return online_ctl._room_code()
 
 
-## The other player left a 1v1 room: back to the online screen, still in the room and
-## waiting there (the session is kept), with the code to hand out again.
-func _back_to_room_wait() -> void:
-	var n := netplay
-	var fighters := n.my_team.duplicate()
-	_write_net_report()
-	netplay = null  # kept through the menu's reset below
-	_open_menu("", "online")
-	_push_lobby()
-	netplay = n
-	lobby.use_fighter(String(fighters[0]))
-	lobby.team = fighters
-	lobby.room_code = _room_code()
-	lobby.room_created = _room_made
-	lobby.room_tag = fighters.size()
-	lobby.searching_for = "Room " + _room_code()
-	lobby.busy = true
-	_lobby_status()
-
-
-## Next match: this player goes to the room's fighter select (the server hears they're
-## picking); the finished match keeps stepping behind it until the next one starts.
+## In main_online.gd (tests and other scripts call it here).
 func _room_next() -> void:
-	if netplay == null or not netplay.in_room() or netplay.phase != Netplay.Phase.PLAYING:
-		return
-	netplay.request_next()
-	_close_ui()  # the match-over screen
-	_open_room_screen()
-	_open_room_picker()
-
-
-## Both players asked for a 1v1 rematch outside a room (Quick match, ranked, direct):
-## the same page and fighter select a room uses between matches, with the last pick
-## ready to lock in again (or Same again on the page). The finished match keeps
-## stepping behind it until the rematch starts.
-func _open_rematch_pick() -> void:
-	_rematch_page = true
-	_close_ui()  # the match-over screen
-	_open_room_screen()
-	_open_room_picker()
-
-
-## Same again: the last pick, locked in at once.
-func _rematch_same_again() -> void:
-	if netplay != null and not netplay.pick_all_locked:
-		netplay.send_pick(netplay.my_team.duplicate())
-
-
-## The other player left during the rematch's pick: say so, then back to the online
-## screen (by itself after a few seconds, as when someone leaves a Quick match).
-func _rematch_ended(why: String) -> void:
-	_close_ui()
-	_room_screen = null
-	_room_picker = null
-	var scr := UiScreen.new()
-	scr.title = "REMATCH"
-	scr.subtitle = why if why != "" else "The rematch is off"
-	scr.dim = 0.75
-	scr.row_width = 200.0
-	scr.builder = func(s: UiScreen):
-		s.add_button("Back to online", _leave_to_lobby, "Search again from the online screen")
-	scr.on_back = _leave_to_lobby
-	ui.push(scr)
-
-
-## The room's page between matches: its code (press to copy), who has locked in, and
-## Pick your fighter / Leave room. The fighter select opens over it. A 1v1 rematch's
-## pick uses it too (no code; Same again locks the last pick in at once).
-func _open_room_screen() -> void:
-	var scr := UiScreen.new()
-	scr.title = "REMATCH" if _rematch_page else "ROOM " + _room_code()
-	scr.subtitle = "Pick your fighter" + ("s" if netplay.my_team.size() > 1 else "") if _rematch_page else "Next match"
-	scr.dim = 0.75
-	scr.row_width = 200.0
-	scr.builder = func(s: UiScreen):
-		if _rematch_page:
-			var same := s.add_button("Same again", _rematch_same_again, "Lock in the same fighter" + (
-				"s" if netplay.my_team.size() > 1 else "") + " for the rematch")
-			s.add_button("Pick your fighter", _open_room_picker, "Lock in a fighter (or the same one) for the rematch")
-			s.add_button("Leave", _leave_to_lobby, "Back to the online screen; the rematch is off for both")
-			_room_status_label = s.add_text(_room_summary(true), UiTheme.SIZE_HINT + 1, UiTheme.C_ACCENT)
-			s.default_focus = same
-			return
-		s.add_row(RoomCodeButton.new(_room_code()), "Copy the code to send to a friend")
-		var pick := s.add_button("Pick your fighter", _open_room_picker, "Lock in a fighter (or the same one) for the next match")
-		s.add_button("Leave room", _leave_to_lobby, "Back to the online screen; the room carries on without you")
-		_room_status_label = s.add_text(_room_summary(true), UiTheme.SIZE_HINT + 1, UiTheme.C_ACCENT)
-		s.default_focus = pick
-	scr.on_back = _leave_to_lobby
-	_room_screen = scr
-	ui.push(scr)
-
-
-## The room's fighter select (just yours: `solo`), with who has locked in beside it.
-func _open_room_picker() -> void:
-	if netplay == null or (_room_picker != null and is_instance_valid(_room_picker)) or \
-			(_rematch_page and netplay.pick_all_locked):
-		return
-	var p := CharacterSelect.new()
-	p.solo = true
-	p.solo_heading = "REMATCH" if _rematch_page else "ROOM " + _room_code()
-	p.solo_info = _room_summary(true)
-	p.done_text = "LOCKED IN"
-	var team := netplay.my_team.duplicate()
-	p.setup("REMATCH" if _rematch_page else "NEXT MATCH", team.size(), ["YOU", "OPPONENT" if _rematch_page else "ROOM"],
-		false, [team, []])
-	p.chosen.connect(func(teams: Array):
-		_room_picker = null
-		if ui.top() == p:
-			ui.pop()
-		var picked: Array = (teams[0] as Array).duplicate()
-		_online_fighter = String(picked[0])
-		settings_ctl._save_settings()
-		if netplay != null:
-			netplay.send_pick(picked))
-	p.cancelled.connect(func():
-		_room_picker = null
-		if ui.top() == p:
-			ui.pop())
-	_room_picker = p
-	ui.push(p)
-	if _cpu_vs_cpu and _rematch_page and _net_no_pick > 0:
-		_net_no_pick -= 1  # --net-no-pick: leave it to the countdown
-	elif _cpu_vs_cpu:
-		# Demos and captures: the CPU "picks" the next fighter along.
-		var next: Array = []
-		for f in team:
-			next.append(MatchFactory.FIGHTERS[(MatchFactory.FIGHTERS.find(String(f)) + 1) % MatchFactory.FIGHTERS.size()])
-		p.chosen.emit([next, []])
-
-
-## Who's in the room and who has locked in (`lines`: one per player, for the select's
-## panel and the room page); otherwise one line for the match-over screen.
-func _room_summary(lines := false) -> String:
-	if netplay == null:
-		return ""
-	if _rematch_page:
-		return _rematch_summary(lines)
-	var who: Array = netplay.room_players
-	var locked := who.filter(func(p): return bool(p["locked"])).size()
-	if lines:
-		var out := PackedStringArray()
-		for p in who:
-			out.append("%s: %s" % [p["name"], "locked in" if p["locked"] else "picking..."])
-		if netplay.room_watchers > 0:
-			out.append("%d watching" % netplay.room_watchers)
-		return "\n".join(out)
-	match netplay.room_state:
-		"select":
-			return "Picking fighters for the next match: %d of %d locked in" % [locked, who.size()]
-		"waiting":
-			return "Waiting for a player: room code " + _room_code()
-	return ""
-
-
-## A 1v1 rematch's pick: this player's state and the opponent's ("Opponent is
-## choosing..." or "Opponent locked in": their fighter stays hidden until the match
-## starts), and the seconds left before the last picks are locked in.
-func _rematch_summary(lines := false) -> String:
-	var who: Array = netplay.room_players
-	var me := netplay.local_slot
-	if who.size() != 2 or me < 0 or me > 1:
-		return "Waiting for your opponent..."
-	var them := "Opponent locked in" if bool((who[1 - me] as Dictionary)["locked"]) else "Opponent is choosing..."
-	var mine := "You: locked in" if bool((who[me] as Dictionary)["locked"]) else "You: picking..."
-	if netplay.pick_all_locked:  # both in: the fighters show for the last seconds
-		them = "Opponent: " + _fighter_name(String((who[1 - me] as Dictionary)["fighter"]))
-		mine = "You: " + _fighter_name(String((who[me] as Dictionary)["fighter"]))
-	if not lines:
-		return them
-	var out := PackedStringArray([mine, them])
-	var left := _pick_countdown()
-	if left != "":
-		out.append(left)
-	if netplay.room_watchers > 0:
-		out.append("%d watching" % netplay.room_watchers)
-	return "\n".join(out)
-
-
-static func _fighter_name(id: String) -> String:
-	return String(MatchFactory.load_def(id).get("name", id)) if id in MatchFactory.FIGHTERS else id
-
-
-## The rematch pick's countdown as a line ("" when there's none, as in a room).
-func _pick_countdown() -> String:
-	if netplay == null or netplay.pick_secs <= 0.0:
-		return ""
-	return "Starts in %d s" % ceili(netplay.pick_seconds_left())
-
-
-## Each tick in a room: keep the room page and the select's panel up to date (and, with
-## --cpu-vs-cpu, go on to the next match by itself).
-func _room_step() -> void:
-	if _room_status_label != null and is_instance_valid(_room_status_label):
-		var t := _room_summary(true)
-		if netplay.picked:
-			t = ("Locked in. Waiting for your opponent...\n" if _rematch_page else "Locked in. Waiting for the others...\n") + t
-		_room_status_label.text = t
-	if _room_picker != null and is_instance_valid(_room_picker):
-		_room_picker.set_solo_info(_room_summary(true))
-	if _cpu_vs_cpu and netplay.in_room() and flow == Flow.MATCH_OVER and flow_t == MATCH_OVER_MENU_AT + 120 \
-			and not netplay.picking:
-		_room_next()
-
-
-## A spectator in a room: the match-over screen says what the room is doing (picking,
-## or waiting for a player); a player leaving mid-match ends the view of that match.
-func _watch_room_status() -> void:
-	if (netplay.room == "" and netplay.room_state != "select") or netplay.phase == Netplay.Phase.ENDED:
-		if flow == Flow.MATCH_OVER and _match_over_status != null and is_instance_valid(_match_over_status) \
-				and netplay.phase == Netplay.Phase.ENDED:
-			_match_over_status.text = netplay.status
-		return
-	if netplay.room != "" and netplay.room_state == "waiting" and flow == Flow.FIGHT:
-		flow = Flow.MATCH_OVER
-		flow_t = 0
-		hud.banner = "A PLAYER LEFT"
-		hud.banner_sub = ""
-	if flow == Flow.MATCH_OVER and _match_over_status != null and is_instance_valid(_match_over_status):
-		match netplay.room_state:
-			"select":
-				_match_over_status.text = "Players are picking fighters for the %s (%d of %d locked in)" % [
-					"next match" if netplay.room != "" else "rematch",
-					netplay.room_players.filter(func(p): return bool(p["locked"])).size(), netplay.room_players.size()]
-				if netplay.pick_all_locked and netplay.room_players.size() == 2:
-					_match_over_status.text = "Rematch: %s vs %s" % [
-						_fighter_name(String(netplay.room_players[0]["fighter"])),
-						_fighter_name(String(netplay.room_players[1]["fighter"]))]
-				var left := _pick_countdown()
-				if left != "":
-					_match_over_status.text += "\n" + left
-			"waiting":
-				_match_over_status.text = "Waiting for a player to join room " + _room_code()
-			_:
-				_match_over_status.text = ""
-
-
-## The address just joined goes to the top of the recent list (kept short).
-func _remember_server(addr: String) -> void:
-	addr = addr.strip_edges()
-	if addr == "":
-		return
-	_recent_servers.erase(addr)
-	_recent_servers.push_front(addr)
-	_recent_servers = _recent_servers.slice(0, OnlineLobby.MAX_RECENT)
+	online_ctl._room_next()
 
 
 ## In main_presentation.gd (tests and other scripts call it here).
@@ -4790,49 +4097,9 @@ func results_data() -> Dictionary:
 	return show_ctl.results_data()
 
 
-func _end_online() -> void:
-	if _finder != null:
-		_finder.cancel()
-	_finder = null
-	_ready_screen = null
-	_room_screen = null
-	_room_picker = null
-	_rematch_page = false
-	netplay = null
-	online = null
-	watch = null
-	if voice_view != null:
-		voice_view.stop()
-	if hud != null:
-		hud.net_info = ""
-		hud.mic_on = false
-		hud.mic_missing = false
-
-
-## --net-report=PATH: the match's inputs and state fingerprints as JSON, so two
-## machines' reports can be compared (or a desync replayed). Also written on a desync.
-## PATH always holds the latest match (its number and teams are in it); `keep` (a
-## rematch or a room's next match is starting) also keeps the finished one beside it as
-## PATH_m<n>.json, so a run of several matches leaves every match's fighters and inputs.
+## In main_online.gd (tests and other scripts call it here).
 func _write_net_report(keep := false) -> void:
-	if online == null:
-		return
-	var path := String(_net_args.get("report", ""))
-	if path == "" and online.desync_frame < 0:
-		return
-	if path == "":
-		DirAccess.make_dir_recursive_absolute("user://desyncs")
-		path = "user://desyncs/desync_%s.json" % Time.get_datetime_string_from_system().replace(":", "-")
-		keep = false
-	var text := JSON.stringify(online.report())
-	var paths := [path]
-	if keep:
-		paths.append("%s_m%d.%s" % [path.get_basename(), online.id, path.get_extension() if path.get_extension() != "" else "json"])
-	for p in paths:
-		var f := FileAccess.open(String(p), FileAccess.WRITE)
-		if f != null:
-			f.store_string(text)
-			f.close()
+	online_ctl._write_net_report(keep)
 
 
 func _notification(what: int) -> void:
@@ -4890,6 +4157,6 @@ func _capture() -> void:
 			Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0,
 			CreatureView.sheet_report()])
 	if _quit_after > 0 and t >= _quit_after:
-		_write_net_report()
+		online_ctl._write_net_report()
 		_print_perf()
 		get_tree().quit()
