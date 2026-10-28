@@ -114,7 +114,12 @@ var _tiles: Node2D = null
 var _overlay: TileMapLayer = null
 var _edges: TileMapLayer = null
 var _corners: TileMapLayer = null
+## The tile each cell has on _overlay, _edges and _corners (3 a cell, -1 none): _retile sets
+## only the ones that change. Emptied with the layers.
+var _tile_ids := PackedInt32Array()
 var _piece_cells := {}  ## the scene's pieces as built: tile -> [source, atlas coords]
+var _piece_rows := {}  ## _piece_cells' tiles by tile row (_sync_pieces)
+var _piece_rows_n := -1  ## how many tiles _piece_rows holds (-1: build it again)
 ## A raised-wall map (styles.wall "raised:<name>", RaisedTiles): the scene's "Raised" and
 ## "RaisedShadow" layers, their meta, and the map's wall cells; repainted round a smashed cell.
 var _raised: TileMapLayer = null
@@ -212,6 +217,7 @@ func _build_tiles() -> void:
 	add_child(_tiles)
 	move_child(_tiles, 0)
 	_piece_cells.clear()
+	_piece_rows_n = -1
 	var pieces := _tiles.get_node_or_null("Pieces") as TileMapLayer
 	if pieces != null:
 		for c in pieces.get_used_cells():
@@ -235,6 +241,7 @@ func _build_tiles() -> void:
 		layer.position = _tiles.position
 		layer.scale = _tiles.scale
 		add_child(layer)
+		_tile_ids = PackedInt32Array()
 		if which == 0:
 			_overlay = layer
 		elif which == 1:
@@ -399,40 +406,81 @@ func _retile(row0: int, row1: int) -> void:
 	var cols := terrain.cols
 	var per := ArtScale.TILE_CELLS
 	var pieces := _tiles.get_node_or_null("Pieces") as TileMapLayer
+	var cells := terrain.cells
+	if _tile_ids.size() != cols * terrain.rows * 3:
+		# the layers are new (empty): every cell's tile is none so far
+		_tile_ids.resize(cols * terrain.rows * 3)
+		_tile_ids.fill(-1)
+		for layer in [_overlay, _edges, _corners]:
+			layer.clear()
+	# _pit_at for these rows and the PIT_DEPTH_CELLS + 1 above and 1 below, a column spare
+	# each side (off the grid: no pit), so a pit cell's dozen neighbour looks are reads.
+	var lo := maxi(0, row0) - PIT_DEPTH_CELLS - 1
+	var hi := mini(terrain.rows, row1) + 1
+	var pw := cols + 2
+	var pm := PackedByteArray()
+	pm.resize((hi - lo + 1) * pw)
+	for y in range(maxi(0, lo), mini(terrain.rows, hi + 1)):
+		for x in cols:
+			var pv := cells[y * cols + x]
+			if (pv == TerrainGrid.HOLE or pv == TerrainGrid.CHASM) and not _bridge_gone(x, y):
+				pm[(y - lo) * pw + x + 1] = 1
 	for cy in range(maxi(0, row0), mini(terrain.rows, row1)):
 		for cx in cols:
 			var i := cy * cols + cx
-			var v := terrain.cells[i]
+			var v := cells[i]
+			if v != TerrainGrid.CRACKED and v != TerrainGrid.HOLE and v != TerrainGrid.CHASM:
+				# Whole floor (most of a band): no tile on any layer.
+				if _tile_ids[i * 3] != -1 or _tile_ids[i * 3 + 1] != -1 or _tile_ids[i * 3 + 2] != -1:
+					var at0 := Vector2i(cx, cy)
+					for w in 3:
+						if _tile_ids[i * 3 + w] != -1:
+							_tile_ids[i * 3 + w] = -1
+							[_overlay, _edges, _corners][w].erase_cell(at0)
+				continue
 			var at := Vector2i(cx, cy)
-			var pit := _pit_at(cx, cy)
+			var m := (cy - lo) * pw + cx + 1  # this cell in pm
+			var pit := pm[m] == 1
 			var id := -1
 			if pit:
-				id = overlay_tile(v, _pit_depth(cx, cy), v == TerrainGrid.CHASM, 0, cx % 2 == 1)
+				var depth := 0  # _pit_depth, from pm
+				while depth < PIT_DEPTH_CELLS and pm[m - (depth + 1) * pw] == 1:
+					depth += 1
+				id = overlay_tile(v, depth, v == TerrainGrid.CHASM, 0, cx % 2 == 1)
 			elif v == TerrainGrid.CRACKED:
 				var joins := (1 if _crack_link(cx - 1, cy, cx, cy) else 0) | (2 if _crack_link(cx, cy, cx + 1, cy) else 0) \
 					| (4 if _crack_link(cx, cy - 1, cx, cy) else 0) | (8 if _crack_link(cx, cy, cx, cy + 1) else 0)
 				id = overlay_tile(v, 0, false, _h(cx, cy, 3), false, joins)
-			if id < 0:
-				_overlay.erase_cell(at)
-			else:
-				_overlay.set_cell(at, 0, _ov_coords(id))
-			var eid := edge_tile(_pit_at(cx - 1, cy), _pit_at(cx + 1, cy), _pit_at(cx, cy + 1)) if pit else -1
-			if eid < 0:
-				_edges.erase_cell(at)
-			else:
-				_edges.set_cell(at, 0, _ov_coords(eid))
+			# Only a tile that changed goes to the layer (a band is most of a row of plain
+			# floor: setting each cell again cost ms when a pit opened).
+			if _tile_ids[i * 3] != id:
+				_tile_ids[i * 3] = id
+				if id < 0:
+					_overlay.erase_cell(at)
+				else:
+					_overlay.set_cell(at, 0, _ov_coords(id))
+			var eid := -1
 			var kid := -1
 			if pit:
-				var l := _pit_at(cx - 1, cy)
-				var r := _pit_at(cx + 1, cy)
-				var u := _pit_at(cx, cy - 1)
-				var d := _pit_at(cx, cy + 1)
-				kid = corner_tile(l and u and not _pit_at(cx - 1, cy - 1), r and u and not _pit_at(cx + 1, cy - 1),
-					l and d and not _pit_at(cx - 1, cy + 1), r and d and not _pit_at(cx + 1, cy + 1))
-			if kid < 0:
-				_corners.erase_cell(at)
-			else:
-				_corners.set_cell(at, 0, _ov_coords(kid))
+				var l := pm[m - 1] == 1
+				var r := pm[m + 1] == 1
+				var u := pm[m - pw] == 1
+				var d := pm[m + pw] == 1
+				eid = edge_tile(l, r, d)
+				kid = corner_tile(l and u and pm[m - pw - 1] == 0, r and u and pm[m - pw + 1] == 0,
+					l and d and pm[m + pw - 1] == 0, r and d and pm[m + pw + 1] == 0)
+			if _tile_ids[i * 3 + 1] != eid:
+				_tile_ids[i * 3 + 1] = eid
+				if eid < 0:
+					_edges.erase_cell(at)
+				else:
+					_edges.set_cell(at, 0, _ov_coords(eid))
+			if _tile_ids[i * 3 + 2] != kid:
+				_tile_ids[i * 3 + 2] = kid
+				if kid < 0:
+					_corners.erase_cell(at)
+				else:
+					_corners.set_cell(at, 0, _ov_coords(kid))
 		if pieces != null and cy % per == 0:
 			_sync_pieces(pieces, cy / per)
 	_sync_sprites(row0, row1)
@@ -486,9 +534,15 @@ func _sync_sprites(row0: int, row1: int) -> void:
 ## the map's wall, a tuft while its brush stands; otherwise the tile is cleared.
 func _sync_pieces(pieces: TileMapLayer, ty: int) -> void:
 	var per := ArtScale.TILE_CELLS
-	for c: Vector2i in _piece_cells:
-		if c.y != ty:
-			continue
+	if _piece_rows_n != _piece_cells.size():
+		# by tile row, in the scene's order (a band looked over every piece once a row)
+		_piece_rows_n = _piece_cells.size()
+		_piece_rows.clear()
+		for c: Vector2i in _piece_cells:
+			if not _piece_rows.has(c.y):
+				_piece_rows[c.y] = []
+			_piece_rows[c.y].append(c)
+	for c: Vector2i in _piece_rows.get(ty, []):
 		var whole := true
 		for dy in per:
 			for dx in per:
@@ -646,6 +700,7 @@ func _rebuild() -> void:
 	_overlay = null
 	_edges = null
 	_corners = null
+	_tile_ids = PackedInt32Array()
 	_grow.clear()
 	_settle.clear()
 	_motes.clear()
@@ -806,8 +861,17 @@ func _find_changes() -> void:
 	for k in dirty:
 		if not (k in _pending):
 			_pending.append(k)
-		if _overlay != null:
-			_retile(k * BAND_ROWS, (k + 1) * BAND_ROWS)
+	if _overlay != null and not dirty.is_empty():
+		# The tiles of each run of dirty bands at once (the same tiles as band by band, but
+		# the sprites and raised walls are looked over once a run, not once a band).
+		var ks: Array = dirty.keys()
+		ks.sort()
+		var start: int = ks[0]
+		for j in range(1, ks.size() + 1):
+			if j == ks.size() or int(ks[j]) != int(ks[j - 1]) + 1:
+				_retile(start * BAND_ROWS, (int(ks[j - 1]) + 1) * BAND_ROWS)
+				if j < ks.size():
+					start = ks[j]
 
 
 ## A few of the pending bands each frame (every band paints the floor as it is now, so a

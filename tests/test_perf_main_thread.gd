@@ -236,3 +236,188 @@ func test_cpus_thinking_in_the_frame_between_ticks_choose_what_they_would_in_the
 	assert_gt(float(split), 300.0, "with no budget, the gap thought for one CPU and the tick the rest:")
 	assert_true(frames[0] == frames[1], "thinking in the gap gives the same inputs, tick for tick")
 	assert_true(frames[2] == frames[1], "and so does a gap that runs out of time")
+
+
+## The water surface as it was painted before the fast path (WaterView._paint_surface up to
+## Oct 2026, per pixel, every hash and lookup on the spot), as the same 4-int runs.
+func _water_specks_plain(w: WaterView, view: Rect2, step: int, tick: int) -> PackedInt32Array:
+	var out := PackedInt32Array()
+	var phase := tick / 28
+	var x0 := floori(view.position.x)
+	var x1 := ceili(view.end.x)
+	var y0 := floori(view.position.y)
+	var y1 := ceili(view.end.y)
+	var lat := WaterView.LATTICE
+	for k in range(floori((y0 - step) / float(lat.y)) - 1, floori((y1 - step) / float(lat.y)) + 2):
+		for g in range(floori(x0 / float(lat.x)) - 1, floori(x1 / float(lat.x)) + 2):
+			var h := WaterView._hash(g, k)
+			if h % 100 >= 46:
+				continue
+			var ln := 2 + (h >> 7) % 3
+			var x := g * lat.x + (h >> 11) % (lat.x - 3) + (k & 1) * 3
+			var y := k * lat.y + step + (h >> 17) % 3
+			if y < y0 or y > y1 or x < x0 or x > x1:
+				continue
+			if not w._deep(x, y) or not w._deep(x + ln, y):
+				continue
+			var tone := ((h >> 3) + phase) % 4
+			if tone == 3:
+				continue
+			out.append_array([x, y, ln, 6 if tone == 0 else 5])
+			if ln > 2:
+				out.append_array([x + 1, y + 1, ln - 2, 1])
+	var inset := roundi(w._bank)
+	var far := inset + (2 if inset > 0 else 0)
+	for e in w._edges:
+		var ex := int(e[0])
+		var ey := int(e[1])
+		if ex + 8 < x0 or ex > x1 or ey + 8 < y0 or ey > y1:
+			continue
+		for u in 8:
+			var px := ex + int(e[2]) * u
+			var py := ey + int(e[3]) * u
+			var h0 := WaterView._hash(px * 5 + int(e[4]) * 11, py * 5 + int(e[5]) * 11)
+			var t := (tick + h0 % WaterView.FOAM_TICKS) / WaterView.FOAM_TICKS
+			var h2 := WaterView._hash(px * 3 + int(e[4]) * 7, py * 3 + int(e[5]) * 7 + t * 1009)
+			var depth := -1
+			if h2 % 7 < 2:
+				depth = 1 + (h2 >> 5) % WaterView.EDGE_DEPTH
+			elif h2 % 7 == 2:
+				depth = 0
+			if depth < 0:
+				continue
+			var qx := px + int(e[4]) * (depth + (far if int(e[5]) == 1 else inset))
+			var qy := py + int(e[5]) * (depth + (far if int(e[5]) == 1 else inset))
+			if inset > 0 and not w._clear_of_bank(qx, qy, inset, far):
+				continue
+			out.append_array([qx, qy, 1, 6 if depth <= 1 else 5])
+	return out
+
+
+## The water surface redraws with its fixed parts worked out once per floor and its lookups
+## inlined (it cost 3-6 ms a redraw on Twin Keeps): every run it paints is the one the plain
+## per-pixel version painted, on both water maps, with and without a drawn bank, at many
+## flow steps and ticks, over the whole water and over a corner of it.
+func test_the_water_surface_paints_what_the_plain_version_did() -> void:
+	for arena in ["floodgate", "twin_keeps"]:
+		var was: String = MatchFactory.arena
+		MatchFactory.arena = arena
+		var sim := MatchFactory.versus("cairn", "culvert")
+		MatchFactory.arena = was
+		for bank in [0.0, ArenaView.WATER_BANK]:
+			var w := WaterView.new()
+			w.set_sim(sim, bank, ArtScale.TILE_CELLS)
+			assert_true(w._any_water, "%s has water" % arena)
+			var corner := Rect2(w._bounds.position, w._bounds.size * 0.4)
+			for tick: int in [0, 9, 10, 57, 333, 1234, 4000]:
+				var step := tick / WaterView.STEP_TICKS
+				for view: Rect2 in [w._bounds, corner]:
+					var fast := w.surface_specks(view, step, tick)
+					var plain := _water_specks_plain(w, view, step, tick)
+					assert_gt(plain.size(), 40, "%s paints something" % arena)
+					assert_eq(fast, plain, "%s bank %s tick %d %s:" % [arena, bank, tick, view])
+			w.free()
+
+
+## A tiled map's overlay, edge and corner tiles, worked out cell by cell the plain way
+## (ArenaView._retile up to Oct 2026), against what the layers hold.
+func _tiles_mismatch(v: ArenaView) -> String:
+	var t := v.terrain
+	for cy in t.rows:
+		for cx in t.cols:
+			var c := t.cells[cy * t.cols + cx]
+			var pit := v._pit_at(cx, cy)
+			var id := -1
+			if pit:
+				id = ArenaView.overlay_tile(c, v._pit_depth(cx, cy), c == TerrainGrid.CHASM, 0, cx % 2 == 1)
+			elif c == TerrainGrid.CRACKED:
+				var joins := (1 if v._crack_link(cx - 1, cy, cx, cy) else 0) | (2 if v._crack_link(cx, cy, cx + 1, cy) else 0) \
+					| (4 if v._crack_link(cx, cy - 1, cx, cy) else 0) | (8 if v._crack_link(cx, cy, cx, cy + 1) else 0)
+				id = ArenaView.overlay_tile(c, 0, false, ArenaView._h(cx, cy, 3), false, joins)
+			var eid := ArenaView.edge_tile(v._pit_at(cx - 1, cy), v._pit_at(cx + 1, cy), v._pit_at(cx, cy + 1)) if pit else -1
+			var kid := -1
+			if pit:
+				var l := v._pit_at(cx - 1, cy)
+				var r := v._pit_at(cx + 1, cy)
+				var u := v._pit_at(cx, cy - 1)
+				var d := v._pit_at(cx, cy + 1)
+				kid = ArenaView.corner_tile(l and u and not v._pit_at(cx - 1, cy - 1), r and u and not v._pit_at(cx + 1, cy - 1),
+					l and d and not v._pit_at(cx - 1, cy + 1), r and d and not v._pit_at(cx + 1, cy + 1))
+			var at := Vector2i(cx, cy)
+			var want := [id, eid, kid]
+			var layers := [v._overlay, v._edges, v._corners]
+			for w in 3:
+				var layer: TileMapLayer = layers[w]
+				var got := -1 if layer.get_cell_source_id(at) == -1 else layer.get_cell_atlas_coords(at).x + ArenaView.OV_COLS * layer.get_cell_atlas_coords(at).y
+				if got != int(want[w]):
+					return "cell %s layer %d: %d, the plain way %d" % [at, w, got, want[w]]
+	return ""
+
+
+## A tiled map sets only the tiles that changed, with the pits of the rows looked up once and
+## each run of dirty bands retiled at once (a pit opening cost 2-7 ms in 4v4 CTF): after
+## cracks, pits, a chasm and healing, every cell's tiles are the ones the plain way gives.
+func test_a_tiled_floor_change_sets_the_tiles_the_plain_way_did() -> void:
+	for arena in ["stadium", "twin_keeps", "floodgate"]:
+		var was: String = MatchFactory.arena
+		MatchFactory.arena = arena
+		var sim := MatchFactory.versus("cairn", "culvert")
+		MatchFactory.arena = was
+		var v := ArenaView.new()
+		v.ground = String(sim.arena.get("ground", "dirt"))
+		v.arena_id = arena
+		v.set_terrain(sim.terrain)
+		assert_true(v.tiled(), "%s is tiled" % arena)
+		assert_eq(_tiles_mismatch(v), "", "%s at the start:" % arena)
+		var t := sim.terrain
+		var mid := sim.floor_rect().get_center()
+		t.crack_circle(mid + Vector2(-60, 0), 30.0)
+		t.damage_circle(mid + Vector2(40, 10), 26.0, 14.0)
+		for x in range(-3, 4):
+			t.sink(t.world_to_cell(mid + Vector2(x * 8, -50)))
+		v.refresh()
+		assert_gt(v._overlay.get_used_cells().size(), 20, "%s: cracks and pits have tiles" % arena)
+		assert_gt(v._edges.get_used_cells().size(), 2, "%s: and the pits edges" % arena)
+		assert_eq(_tiles_mismatch(v), "", "%s broken:" % arena)
+		for k in 400:
+			t.tick()
+		v.refresh()
+		assert_eq(_tiles_mismatch(v), "", "%s partly healed:" % arena)
+		for k in 4000:
+			t.tick()
+		v.refresh()
+		assert_eq(_tiles_mismatch(v), "", "%s healed:" % arena)
+		v.free()
+
+
+## The bloom's two half-size viewports render once a tick (the emitters redraw then), when
+## the camera moves or the window resizes, never again for the frames between ticks, which
+## show the same state (no interpolation): the picture they hold is the same one.
+func test_the_bloom_renders_on_a_tick_not_every_frame() -> void:
+	var b := BloomView.new()
+	_root().add_child(b)
+	b.set_on(true)
+	var vp := _root().get_viewport()
+	var was := vp.canvas_transform
+	b.frame(vp)
+	var n := b.renders
+	for i in 10:
+		b.frame(vp)
+	assert_eq(b.renders, n, "frames between ticks render nothing:")
+	assert_eq(b._vp_a.render_target_update_mode, SubViewport.UPDATE_ONCE, "the last render is still to come")
+	b.advance()
+	assert_eq(b.renders, n + 1, "a tick renders once:")
+	for i in 3:
+		b.frame(vp)
+	assert_eq(b.renders, n + 1, "and the frames after it don't:")
+	vp.canvas_transform = was.translated(Vector2(3, 0))
+	b.frame(vp)
+	assert_eq(b.renders, n + 2, "the camera moving renders:")
+	vp.canvas_transform = was
+	b.set_on(false)
+	assert_eq(b._vp_a.render_target_update_mode, SubViewport.UPDATE_DISABLED, "off: nothing renders")
+	b.advance()
+	b.frame(vp)
+	assert_eq(b.renders, n + 2, "nor on a tick:")
+	b.out.free()  # main puts it on the screen layer; here it was never in the tree
+	b.free()

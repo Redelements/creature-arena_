@@ -148,7 +148,8 @@ After `--`; the full list is in the `main.gd` header, modes in `MODES`.
 `--lighting=off|low|high` (Settings > Video > Lighting for this session, not saved: `lighting_tier`, `_light_look`; real 2D lights, the night's lamps and bloom, `Light2DView` / `BloomView`; Off loads no normal or emissive fighter sheet),
 `--print-vram=N` (at frame N print `VRAM ...`: the texture and video memory Godot reports and the fighter sheets loaded, `CreatureView.sheet_report`; needs a renderer, headless reports 0),
 `--perf` (frame and tick percentiles on quit, with each part's share: the tick's
-steps, each view's `_draw` via `PerfLog.since`, the renderer's CPU and GPU time, and when
+steps, each view's `_draw` via `PerfLog.since`, the renderer's CPU and GPU time, its draw
+calls, objects and primitives a frame (as "(count)" lines), and when
 the slowest frames came; the 1% and 0.1% lows, missed frames, the slowest second, game time
 split into tick and no-tick frames, ticks held 3+ frames; `perf_log.gd`), `--fight-fps=N`
 (this session's fight cap), `--fps-pacing=cap|vsync` (vsync, the mobile default: vsync paces a cap

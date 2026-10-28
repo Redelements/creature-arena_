@@ -5,7 +5,8 @@ extends Node
 ## at half the window's size (`_emit`, through the world camera's transform), blurred along x
 ## into a second half-size viewport, then along y straight onto the screen layer with
 ## `blend_add` (`out`, which main puts on the screen layer under the letterbox and the HUD).
-## Three cheap passes, whatever is on screen; nothing is read back.
+## Three cheap passes, whatever is on screen; nothing is read back. The two viewports render
+## only when their picture can change (`_render`: a tick, the camera, the window), not every frame.
 ##
 ## What blooms (all already gated for hidden foes): every light Light2DView gathered
 ## (`gathered`: a ready Surge's aura, `fx.light`, `fx.projectile_light`, sparks and bursts, the
@@ -48,6 +49,8 @@ var _emit := Emitters.new()
 var _blur_h := TextureRect.new()
 var _size := Vector2i.ZERO
 var on := false
+var _xform := Transform2D()  ## the first pass's canvas transform as last rendered
+var renders := 0  ## how many times the passes were asked to render (tests/test_perf_main_thread.gd)
 
 
 ## The bright things, in world coordinates, drawn additively into the first viewport.
@@ -98,9 +101,21 @@ static func _blur(d: Vector2, gain: float) -> ShaderMaterial:
 func set_on(v: bool) -> void:
 	on = v
 	out.visible = v
-	var mode := SubViewport.UPDATE_ALWAYS if v else SubViewport.UPDATE_DISABLED
-	_vp_a.render_target_update_mode = mode
-	_vp_b.render_target_update_mode = mode
+	_xform = Transform2D()
+	if v:
+		_render()
+	else:
+		_vp_a.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		_vp_b.render_target_update_mode = SubViewport.UPDATE_DISABLED
+
+
+## Renders both passes once, on the next frame drawn (then they hold the picture). What they
+## show changes only when the emitters redraw (a tick), the camera moves or the window
+## resizes, so the frames between ticks reuse it instead of blurring the same thing again.
+func _render() -> void:
+	_vp_a.render_target_update_mode = SubViewport.UPDATE_ONCE
+	_vp_b.render_target_update_mode = SubViewport.UPDATE_ONCE
+	renders += 1
 
 
 ## Every drawn frame (main's _process): follow the camera and the window size.
@@ -117,14 +132,20 @@ func frame(world: Viewport) -> void:
 		_vp_a.size = want
 		_vp_b.size = want
 		_blur_h.size = Vector2(want)
+		_render()
 	var k := float(_size.x) / maxf(1.0, win.x)
-	_vp_a.canvas_transform = Transform2D(0.0, Vector2(k, k), 0.0, Vector2.ZERO) * world.canvas_transform
+	var xf := Transform2D(0.0, Vector2(k, k), 0.0, Vector2.ZERO) * world.canvas_transform
+	if xf != _xform:
+		_xform = xf
+		_vp_a.canvas_transform = xf
+		_render()
 
 
 ## Once a tick, after the lights are gathered.
 func advance() -> void:
 	if on:
 		_emit.queue_redraw()
+		_render()
 
 
 func _draw_emitters(ci: CanvasItem) -> void:
