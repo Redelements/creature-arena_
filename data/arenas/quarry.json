@@ -4,10 +4,11 @@
 	"name": "Quarry Bowl",
 	"ground": "stone",
 	"tiles": {
-		"_doc": "The floor is tiles (assets/arenas/quarry.tscn, built by tools/build_tiles.gd from this block; the recipe tools/tile_recipes/rock.json): Mountains sandstone scree; worn tan-dirt cart lanes along the inside of each rubble wall (Set 1's blob, ragged sides); a raised, rounded middle (Desert v2's packed-earth blob9 with its sandstone ledge along the south side, decor by pos, its rock tops over the patch's bottom row); cobbled loading corners; the walls as raised rock shelves (styles.wall raised:rock: the Mountains plateau's floor as one ridge, rimmed along its sides, its face only on a run's south end, all on the wall's own cells, a long shadow in the low sun) that leave rock heaps where smashed; pebbles, flat stones and dry tufts by the walls (scatter). Rects are [tx, ty, w, h] in 32 px tiles (2 x 2 cells).",
+		"_doc": "The floor is tiles (assets/arenas/quarry.tscn, built by tools/build_tiles.gd from this block; the recipe tools/tile_recipes/rock.json): Mountains sandstone scree; worn tan-dirt cart lanes along the inside of each rubble wall (Set 1's blob, ragged sides); a raised, rounded middle (Desert v2's packed-earth blob9 with its sandstone ledge along the south side, decor by pos, its rock tops over the patch's bottom row); cobbled loading corners; the walls as raised rock shelves (styles.wall raised:rock: the Mountains plateau's floor as one ridge, rimmed along its sides, its face only on a run's south end, all on the wall's own cells, a long shadow in the low sun) that leave rock heaps where smashed; pebbles, flat stones and dry tufts by the walls (scatter). Rects are [tx, ty, w, h] in 32 px tiles (2 x 2 cells). The hand dressing (`dressing`, assets/README.md \"Dressing\"): crates, sacks, ore sacks, millstones, tools, log piles, braziers, tripods and lantern posts on the shelves' tops and at their faces' feet, a cold fire pit on the middle's south outcrop; worn ruts down the lanes, packed-earth patches, rubble spills, dropped planks, stone chips, ore bits and dry tufts on the floor.",
 		"set": "rock",
 		"ground": "stone",
 		"styles": {"wall": "raised:rock"},
+		"dressing": "res://assets/arenas/quarry_dressing.tscn",
 		"scatter": [
 			{"kind": "pebbles", "where": "near_walls", "near": 3, "density": 0.06, "seed": 1},
 			{"kind": "stones", "where": "near_walls", "near": 2, "density": 0.05, "seed": 4},
@@ -27,13 +28,25 @@
 	"times": ["day", "sunset"],
 	"weathers": ["clear", "rain", "fog", "wind", "snow"],
 	"light": {"_doc": "low afternoon sun from the top left: long shadows raking right", "dir": [0.8, 0.6], "length": 0.75, "alpha": 0.38, "sun": {"color": "#ffe8c4", "energy": 0.68}},
-	"grade": {"_doc": "dusty low sun, a sandy cast; a view-only tint and vignette (GradeView), eased at night/sunset/rain by weather.json", "tint": "#fff0d6", "vignette": 0.26},
-	"ambient": {"_doc": "dust hanging in the low sun, grit trickling off the rubble walls, a dust devil now and then; see AmbientView",
+	"grade": {"_doc": "dusty low sun, a touch cooler than the warm default so the braziers read warm against it; a view-only tint and vignette (GradeView), eased at night/sunset/rain by weather.json", "tint": "#f8efe2", "vignette": 0.26},
+	"ambient": {"_doc": "dust hanging in the low sun, grit trickling off the rubble walls, a dust devil now and then, thin smoke off the braziers and lanterns (glades: GladeView, smoke only); see AmbientView",
 		"motes": {"kind": "sundust", "count": 38},
 		"grit": {"every": 110},
 		"critters": [
 			{"kind": "devil", "every": 1800, "life": 420},
-			{"kind": "moth", "count": 2}]},
+			{"kind": "moth", "count": 2}],
+		"glades": {"pools": 0, "shafts": 0, "fireflies": 0, "smoke": true}},
+	"lights": [
+		{"pos": [184, 93], "color": "#ffb45a", "radius": 44, "energy": 0.7, "height": 24, "fighter_energy": 0, "lamp": true, "day": 0.35, "_doc": "the quarry's flames (the dressing's braziers, tripods and lantern posts on the rock shelves; assets/arenas/quarry_dressing.tscn) as lamps that burn by day and more at sunset (`day`, Lighting High only, Light2DView.lamps_by_day): warm pools against the dusty grade; pos is the flame, world px; tests/test_tiles_quarry.gd keeps one on every flame"},
+		{"pos": [520, 93], "color": "#ffb45a", "radius": 44, "energy": 0.7, "height": 24, "fighter_energy": 0, "lamp": true, "day": 0.35},
+		{"pos": [184, 172], "color": "#ff8a4a", "radius": 36, "energy": 0.6, "height": 24, "fighter_energy": 0, "lamp": true, "day": 0.35},
+		{"pos": [520, 172], "color": "#ff8a4a", "radius": 36, "energy": 0.6, "height": 24, "fighter_energy": 0, "lamp": true, "day": 0.35},
+		{"pos": [186, 224.5], "color": "#ffc070", "radius": 36, "energy": 0.55, "height": 24, "fighter_energy": 0, "lamp": true, "day": 0.35},
+		{"pos": [518, 224.5], "color": "#ffc070", "radius": 36, "energy": 0.55, "height": 24, "fighter_energy": 0, "lamp": true, "day": 0.35},
+		{"pos": [117, 188], "color": "#ff8a4a", "radius": 36, "energy": 0.6, "height": 24, "fighter_energy": 0, "lamp": true, "day": 0.35},
+		{"pos": [587, 188], "color": "#ff8a4a", "radius": 36, "energy": 0.6, "height": 24, "fighter_energy": 0, "lamp": true, "day": 0.35},
+		{"pos": [352, 97], "color": "#ffb45a", "radius": 44, "energy": 0.7, "height": 24, "fighter_energy": 0, "lamp": true, "day": 0.35}
+	],
 	"furniture": [
 		{"kind": "worklight", "pos": [-30, 56], "h": 50},
 		{"kind": "worklight", "pos": [30, 56], "anchor": "tr", "h": 50, "mirror": true},

@@ -1,0 +1,592 @@
+{
+	"_doc": "Quarry Bowl's first-draft dressing (tools/seed_dressing.gd seeds assets/arenas/quarry_dressing.tscn from it). The SCENE is the source once seeded: edit it in the Godot editor; reseeding needs --force and drops every hand edit. Props and flat decals in units from the floor's top-left corner, detail in cells (8 units), grounds (Paths: packed-earth patches, the set's `patch` terrain) in tiles (16 units, a tile tx spanning tx..tx+1). Placed on the left half and mirrored to the right; `solo` entries (the middle outcrops' centres) are placed once. Props stand on the raised rock shelves' tops (the long walls' rows 5-26, the outcrops' first row) or at a face's foot (a wall's last row, drawn in front of the face).",
+	"scene": "res://assets/arenas/quarry_dressing.tscn",
+	"set": "rock",
+	"map": "quarry",
+	"mirror": {
+		"width": 672,
+		"swap": {}
+	},
+	"grounds": [
+		{
+			"layer": "Paths",
+			"terrain": "patch",
+			"on": "floor",
+			"blobs": [
+				{
+					"at": [
+						2.5,
+						9
+					],
+					"r": 1.4,
+					"seed": 1
+				},
+				{
+					"at": [
+						7.5,
+						13
+					],
+					"r": 1.2,
+					"seed": 3
+				},
+				{
+					"at": [
+						16,
+						15.5
+					],
+					"r": 1.1,
+					"seed": 5
+				}
+			]
+		}
+	],
+	"flat": [
+		{
+			"kind": "planks",
+			"pos": [
+				190,
+				96
+			]
+		},
+		{
+			"kind": "plank",
+			"pos": [
+				194,
+				182
+			],
+			"flip": true
+		},
+		{
+			"kind": "rubble_a",
+			"pos": [
+				168,
+				262
+			]
+		},
+		{
+			"kind": "rubble_c",
+			"pos": [
+				112,
+				154
+			]
+		},
+		{
+			"kind": "rubble_c",
+			"pos": [
+				148,
+				30
+			]
+		},
+		{
+			"kind": "rubble_c",
+			"pos": [
+				336,
+				76
+			],
+			"solo": true
+		},
+		{
+			"kind": "rubble_b",
+			"pos": [
+				336,
+				252
+			],
+			"solo": true,
+			"flip": true
+		},
+		{
+			"kind": "plank",
+			"pos": [
+				60,
+				210
+			]
+		}
+	],
+	"detail": [
+		{
+			"kind": "chips",
+			"clump": [
+				21,
+				33
+			],
+			"n": 3,
+			"r": 2,
+			"seed": 1
+		},
+		{
+			"kind": "chips",
+			"clump": [
+				14,
+				19
+			],
+			"n": 3,
+			"r": 2,
+			"seed": 2
+		},
+		{
+			"kind": "chips",
+			"clump": [
+				42,
+				9
+			],
+			"n": 3,
+			"r": 2,
+			"seed": 3,
+			"solo": true
+		},
+		{
+			"kind": "chips",
+			"clump": [
+				41,
+				31
+			],
+			"n": 3,
+			"r": 2,
+			"seed": 4,
+			"solo": true
+		},
+		{
+			"kind": "chips",
+			"clump": [
+				19,
+				3
+			],
+			"n": 3,
+			"r": 2,
+			"seed": 5
+		},
+		{
+			"kind": "ore",
+			"clump": [
+				22,
+				32
+			],
+			"n": 4,
+			"r": 2,
+			"seed": 6
+		},
+		{
+			"kind": "ore",
+			"clump": [
+				12,
+				19
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 7
+		},
+		{
+			"kind": "ore",
+			"clump": [
+				42,
+				32
+			],
+			"n": 3,
+			"r": 1,
+			"seed": 8,
+			"solo": true
+		},
+		{
+			"kind": "ore",
+			"clump": [
+				5,
+				8
+			],
+			"n": 3,
+			"r": 2,
+			"seed": 9
+		},
+		{
+			"kind": "dry_tufts",
+			"clump": [
+				19,
+				14
+			],
+			"n": 3,
+			"r": 2,
+			"seed": 10
+		},
+		{
+			"kind": "dry_tufts",
+			"clump": [
+				3,
+				30
+			],
+			"n": 4,
+			"r": 3,
+			"seed": 11
+		},
+		{
+			"kind": "dry_tufts",
+			"clump": [
+				30,
+				4
+			],
+			"n": 3,
+			"r": 2,
+			"seed": 12
+		},
+		{
+			"kind": "dry_tufts",
+			"clump": [
+				10,
+				2
+			],
+			"n": 3,
+			"r": 2,
+			"seed": 13
+		},
+		{
+			"kind": "stones",
+			"clump": [
+				9,
+				25
+			],
+			"n": 3,
+			"r": 2,
+			"seed": 14
+		},
+		{
+			"kind": "pebbles",
+			"clump": [
+				30,
+				24
+			],
+			"n": 4,
+			"r": 3,
+			"seed": 15
+		},
+		{
+			"kind": "pebbles",
+			"clump": [
+				33,
+				12
+			],
+			"n": 3,
+			"r": 2,
+			"seed": 16
+		},
+		{
+			"kind": "dry_tufts",
+			"clump": [
+				19,
+				8
+			],
+			"n": 3,
+			"r": 2,
+			"seed": 20
+		},
+		{
+			"kind": "dry_tufts",
+			"clump": [
+				19,
+				24
+			],
+			"n": 3,
+			"r": 2,
+			"seed": 21
+		},
+		{
+			"kind": "dry_tufts",
+			"clump": [
+				23,
+				20
+			],
+			"n": 2,
+			"r": 2,
+			"seed": 22
+		},
+		{
+			"kind": "dry_tufts",
+			"clump": [
+				1,
+				18
+			],
+			"n": 3,
+			"r": 2,
+			"seed": 23
+		},
+		{
+			"kind": "dry_tufts",
+			"clump": [
+				27,
+				33
+			],
+			"n": 3,
+			"r": 2,
+			"seed": 24
+		},
+		{
+			"kind": "dry_tufts",
+			"clump": [
+				33,
+				2
+			],
+			"n": 3,
+			"r": 2,
+			"seed": 25
+		},
+		{
+			"kind": "pebbles",
+			"clump": [
+				6,
+				20
+			],
+			"n": 4,
+			"r": 2,
+			"seed": 26
+		},
+		{
+			"kind": "pebbles",
+			"clump": [
+				26,
+				15
+			],
+			"n": 3,
+			"r": 2,
+			"seed": 27
+		},
+		{
+			"kind": "stones",
+			"clump": [
+				16,
+				30
+			],
+			"n": 3,
+			"r": 2,
+			"seed": 28
+		},
+		{
+			"kind": "stones",
+			"clump": [
+				2,
+				4
+			],
+			"n": 3,
+			"r": 2,
+			"seed": 29
+		},
+		{
+			"kind": "ore",
+			"clump": [
+				24,
+				9
+			],
+			"n": 3,
+			"r": 2,
+			"seed": 30
+		},
+		{
+			"kind": "chips",
+			"clump": [
+				8,
+				33
+			],
+			"n": 3,
+			"r": 2,
+			"seed": 31
+		}
+	],
+	"props": [
+		{
+			"kind": "brazier",
+			"pos": [
+				168,
+				50
+			]
+		},
+		{
+			"kind": "logs",
+			"pos": [
+				164,
+				63
+			]
+		},
+		{
+			"kind": "sack",
+			"pos": [
+				173,
+				66
+			]
+		},
+		{
+			"kind": "crate_small",
+			"pos": [
+				168,
+				76
+			]
+		},
+		{
+			"kind": "crate",
+			"pos": [
+				168,
+				86
+			]
+		},
+		{
+			"kind": "millstones",
+			"pos": [
+				166,
+				102
+			]
+		},
+		{
+			"kind": "shovel",
+			"pos": [
+				174,
+				100
+			],
+			"stack": 1
+		},
+		{
+			"kind": "tripod",
+			"pos": [
+				168,
+				118
+			]
+		},
+		{
+			"kind": "sack_pile",
+			"pos": [
+				164,
+				134
+			]
+		},
+		{
+			"kind": "sack",
+			"pos": [
+				173,
+				138
+			]
+		},
+		{
+			"kind": "chop_block",
+			"pos": [
+				167,
+				152
+			]
+		},
+		{
+			"kind": "barrel",
+			"pos": [
+				168,
+				168
+			]
+		},
+		{
+			"kind": "crate_small",
+			"pos": [
+				168,
+				178
+			],
+			"flip": true
+		},
+		{
+			"kind": "lantern",
+			"pos": [
+				166,
+				194
+			]
+		},
+		{
+			"kind": "sack",
+			"pos": [
+				163,
+				206
+			]
+		},
+		{
+			"kind": "spade",
+			"pos": [
+				173,
+				204
+			]
+		},
+		{
+			"kind": "crate",
+			"pos": [
+				168,
+				214
+			]
+		},
+		{
+			"kind": "barrel",
+			"pos": [
+				163,
+				247.5
+			]
+		},
+		{
+			"kind": "sack",
+			"pos": [
+				173,
+				247.5
+			]
+		},
+		{
+			"kind": "tripod",
+			"pos": [
+				101,
+				134
+			]
+		},
+		{
+			"kind": "sack",
+			"pos": [
+				112,
+				135
+			]
+		},
+		{
+			"kind": "crate_small",
+			"pos": [
+				121,
+				135
+			]
+		},
+		{
+			"kind": "shovel",
+			"pos": [
+				125,
+				143.5
+			]
+		},
+		{
+			"kind": "brazier",
+			"pos": [
+				336,
+				54
+			],
+			"solo": true
+		},
+		{
+			"kind": "crate_small",
+			"pos": [
+				326,
+				55
+			]
+		},
+		{
+			"kind": "fire_pit",
+			"pos": [
+				336,
+				231
+			],
+			"solo": true
+		},
+		{
+			"kind": "sack_pile",
+			"pos": [
+				326,
+				231
+			]
+		},
+		{
+			"kind": "logs",
+			"pos": [
+				326,
+				239.5
+			]
+		}
+	]
+}

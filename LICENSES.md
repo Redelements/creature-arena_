@@ -87,8 +87,21 @@ and **RPG Worlds Desert** (`RPGW_Desert_v2.01`), cut by `tools/cut_tiles.py` fro
   the Mountains tan plateau (its rims, floor and face), with generated contact shadows.
 - `assets/tiles/rock_scatter.png`: loose pebbles and dry grass sprigs (Set 1) and flat stones
   (Mountains) sprinkled by the walls.
+- The hand dressing (`assets/arenas/quarry_dressing.tscn`): `assets/tiles/rock_decor_crate*.png`,
+  `rock_decor_barrel.png` (Decorative Props `propsA.png`), `rock_anim_lantern.png` (its
+  `Animated/lantern01`); `rock_decor_sack*.png`, `rock_decor_millstones.png` (**RPG Buildings
+  Windmill**, `RPG_Buildings_WINDMILL_v1.1`, the same licence: its `Mill_decoratives.png` props
+  sheet); `rock_anim_brazier.png`, `rock_anim_tripod.png` (**RPG Buildings Desert**,
+  `RPG_Buildings_Desert_v1.0`, the same licence: `Anim/fire1`, `Anim/fire3`);
+  `rock_decor_chop_block.png`, `rock_decor_shovel.png`, `rock_decor_spade.png`,
+  `rock_decor_logs.png` (**Fantasy Lands Houses**, `FL_Houses_v1.0`, its
+  `FL_Houses_decoratives.png`), `rock_decor_plank*.png`, `rock_decor_rubble_*.png` and the
+  `chips` / `ore` scatter in `rock_scatter.png` (its `Exterriors/FL_Houses_ext_terrain_floors.png`
+  planks and debris); `rock_decor_fire_pit.png` (**RPG Worlds FC_G**, `RPGW_FC_G_v1.0`, the same
+  licence: `Camp_Graves.png`'s cold fire pit). `assets/tiles/rock_shadows.png` is drawn by the cutter, not cut.
 - `assets/tiles/rock_manifest.json`, `assets/tiles/rock_ground.tres`,
-  `assets/tiles/rock_overlay.tres`, `assets/tiles/rock_cells.tres`, `assets/arenas/quarry.tscn`.
+  `assets/tiles/rock_overlay.tres`, `assets/tiles/rock_cells.tres`, `assets/arenas/quarry.tscn`,
+  `assets/arenas/quarry_dressing.tscn`.
 
 Twin Keeps (the Capture the Flag map; cut by `tools/cut_tiles.py` from
 `tools/tile_recipes/keeps.json`, colours snapped to the game's palette):

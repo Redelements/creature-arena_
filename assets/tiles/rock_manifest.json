@@ -932,9 +932,225 @@
     16,
     40
    ]
+  },
+  "crate": {
+   "source": "rock_decor_crate.png",
+   "size": [
+    32,
+    32
+   ],
+   "feet": [
+    16,
+    31
+   ]
+  },
+  "crate_small": {
+   "source": "rock_decor_crate_small.png",
+   "size": [
+    32,
+    32
+   ],
+   "feet": [
+    15,
+    31
+   ]
+  },
+  "barrel": {
+   "source": "rock_decor_barrel.png",
+   "size": [
+    32,
+    32
+   ],
+   "feet": [
+    16,
+    31
+   ]
+  },
+  "sack": {
+   "source": "rock_decor_sack.png",
+   "size": [
+    19,
+    26
+   ],
+   "feet": [
+    9,
+    25
+   ]
+  },
+  "sack_pile": {
+   "source": "rock_decor_sack_pile.png",
+   "size": [
+    25,
+    34
+   ],
+   "feet": [
+    12,
+    33
+   ]
+  },
+  "millstones": {
+   "source": "rock_decor_millstones.png",
+   "size": [
+    32,
+    38
+   ],
+   "feet": [
+    16,
+    36
+   ]
+  },
+  "chop_block": {
+   "source": "rock_decor_chop_block.png",
+   "size": [
+    20,
+    21
+   ],
+   "feet": [
+    10,
+    18
+   ]
+  },
+  "shovel": {
+   "source": "rock_decor_shovel.png",
+   "size": [
+    8,
+    33
+   ],
+   "feet": [
+    4,
+    31
+   ]
+  },
+  "spade": {
+   "source": "rock_decor_spade.png",
+   "size": [
+    8,
+    35
+   ],
+   "feet": [
+    4,
+    34
+   ]
+  },
+  "logs": {
+   "source": "rock_decor_logs.png",
+   "size": [
+    24,
+    27
+   ],
+   "feet": [
+    12,
+    25
+   ]
+  },
+  "fire_pit": {
+   "source": "rock_decor_fire_pit.png",
+   "size": [
+    32,
+    25
+   ],
+   "feet": [
+    16,
+    22
+   ]
+  },
+  "planks": {
+   "source": "rock_decor_planks.png",
+   "size": [
+    43,
+    30
+   ],
+   "feet": [
+    21,
+    29
+   ]
+  },
+  "plank": {
+   "source": "rock_decor_plank.png",
+   "size": [
+    32,
+    11
+   ],
+   "feet": [
+    16,
+    10
+   ]
+  },
+  "rubble_a": {
+   "source": "rock_decor_rubble_a.png",
+   "size": [
+    64,
+    36
+   ],
+   "feet": [
+    32,
+    35
+   ]
+  },
+  "rubble_b": {
+   "source": "rock_decor_rubble_b.png",
+   "size": [
+    44,
+    30
+   ],
+   "feet": [
+    22,
+    29
+   ]
+  },
+  "rubble_c": {
+   "source": "rock_decor_rubble_c.png",
+   "size": [
+    36,
+    22
+   ],
+   "feet": [
+    18,
+    21
+   ]
   }
  },
- "anim": {},
+ "anim": {
+  "brazier": {
+   "source": "rock_anim_brazier.png",
+   "frame": [
+    32,
+    96
+   ],
+   "frames": 6,
+   "fps": 8.0,
+   "feet": [
+    14,
+    80
+   ]
+  },
+  "tripod": {
+   "source": "rock_anim_tripod.png",
+   "frame": [
+    32,
+    64
+   ],
+   "frames": 6,
+   "fps": 8.0,
+   "feet": [
+    16,
+    48
+   ]
+  },
+  "lantern": {
+   "source": "rock_anim_lantern.png",
+   "frame": [
+    32,
+    128
+   ],
+   "frames": 8,
+   "fps": 6.0,
+   "feet": [
+    16,
+    93
+   ]
+  }
+ },
  "bushes": {},
  "fencelines": {},
  "walls": {
@@ -2926,7 +3142,116 @@
      6,
      2
     ]
+   ],
+   "chips": [
+    [
+     7,
+     2
+    ],
+    [
+     0,
+     3
+    ],
+    [
+     1,
+     3
+    ],
+    [
+     2,
+     3
+    ],
+    [
+     3,
+     3
+    ],
+    [
+     4,
+     3
+    ],
+    [
+     5,
+     3
+    ],
+    [
+     6,
+     3
+    ]
+   ],
+   "ore": [
+    [
+     7,
+     3
+    ],
+    [
+     0,
+     4
+    ],
+    [
+     1,
+     4
+    ],
+    [
+     2,
+     4
+    ],
+    [
+     3,
+     4
+    ],
+    [
+     4,
+     4
+    ],
+    [
+     5,
+     4
+    ],
+    [
+     6,
+     4
+    ]
    ]
   }
+ },
+ "shadows": {
+  "source": "rock_shadows.png",
+  "boxes": [
+   [
+    0,
+    0,
+    10,
+    4
+   ],
+   [
+    11,
+    0,
+    16,
+    5
+   ],
+   [
+    28,
+    0,
+    22,
+    7
+   ],
+   [
+    51,
+    0,
+    28,
+    8
+   ],
+   [
+    80,
+    0,
+    36,
+    10
+   ],
+   [
+    117,
+    0,
+    46,
+    12
+   ]
+  ]
  }
 }

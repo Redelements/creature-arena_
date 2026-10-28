@@ -198,6 +198,10 @@ Rules (checked by `tests/test_tiles_dressing.gd`):
   the wall sprite's own foot so it draws in front); on a vertical run only its south end
   works (the tiles below would cover anything higher). ArenaView (`_dress_cells`) works
   out the cells under each prop at load, so a moved prop still falls with its wall.
+  On raised walls (RaisedTiles: the Quarry's rock shelves) a prop stands anywhere on the
+  top, or at a face's foot (a run's last row, drawn in front of the face); one on the top
+  also goes while a cell within the face's height below it is smashed, as the face would
+  grow up under its feet (`assets/arenas/quarry_dressing.tscn`).
 - The flat parts sort at y 0, under every wall sprite: keep them at the scene's origin.
 - Every flame (torch, brazier, candelabra, lantern) has a lamp in the arena's `lights` on its
   flame with a `day` share; by day they alternate over two glow items of 15 lights each
