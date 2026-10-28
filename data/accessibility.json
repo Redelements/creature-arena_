@@ -1,0 +1,49 @@
+{
+	"_comment": "Settings > Accessibility (views only, never read by the sim, not in the online data hash). teams: the colour sets every team marker reads through Accessibility.side_color / rel_color / brawl_color; colour_safe follows Okabe & Ito (2008), 'Color Universal Design', the palette Wong (2011, Nature Methods 8:441) recommends: vermillion against sky blue, which differ in hue under protanopia, deuteranopia and tritanopia and in lightness as well. outlines: the ring round each fighter's silhouette. hit_markers: hit sparks, damage numbers and the struck fighter's flash; 'default' is the game as it always looked.",
+	"teams": {
+		"default": {
+			"sides": ["#ff5a5a", "#5aa0ff"],
+			"brawl": ["#ff5a5a", "#5aa0ff", "#6fd66f", "#ffd166"],
+			"self": "#6fcf5a",
+			"ally": "#4aa8ff",
+			"enemy": "#e5534b",
+			"neutral": "#e8d8a0"
+		},
+		"colour_safe": {
+			"sides": ["#d55e00", "#56b4e9"],
+			"brawl": ["#d55e00", "#56b4e9", "#f0e442", "#cc79a7"],
+			"self": "#f0e442",
+			"ally": "#56b4e9",
+			"enemy": "#d55e00",
+			"neutral": "#ffffff"
+		}
+	},
+	"outlines": {
+		"team": {"outer": "team", "inner": "", "alpha": 1.0},
+		"high_contrast": {"outer": "#ffffff", "inner": "#000000", "alpha": 1.0}
+	},
+	"hit_markers": {
+		"default": {
+			"spark_scale": 1.0,
+			"spark_width_add": 0,
+			"spark_outline": "#000000",
+			"spark_outline_width": 0,
+			"number_size_add": 0,
+			"number_outline_add": 0,
+			"number_shadow": [0, 0],
+			"number_shadow_color": "#000000",
+			"full_flash": false
+		},
+		"high_contrast": {
+			"spark_scale": 1.5,
+			"spark_width_add": 1,
+			"spark_outline": "#000000",
+			"spark_outline_width": 2,
+			"number_size_add": 4,
+			"number_outline_add": 1,
+			"number_shadow": [1, 1],
+			"number_shadow_color": "#000000",
+			"full_flash": true
+		}
+	}
+}

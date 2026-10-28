@@ -5,8 +5,9 @@ Run from anywhere:  python3 tools/gen_dummy.py   (Pillow and numpy)
 Look at a few frames:  python3 tools/gen_dummy.py inspect idle:0 hurt:1
 Animation previews:  python3 tools/gen_dummy.py anim      (docs/anim_preview/dummy_*)
 
-Writes assets/sprites/dummy.png (96x96 frames, 8 columns, the side view), dummy_down.png,
-dummy_up.png, dummy_down_side.png and dummy_up_side.png, plus labelled previews in docs/.
+Writes assets/sprites/dummy_2x.png (192x192 frames, 8 columns, the side view), dummy_2x_down.png,
+dummy_2x_up.png, dummy_2x_down_side.png and dummy_2x_up_side.png (each with a _n normal sheet),
+plus labelled previews in docs/. DUMMY_DENSITY=1 writes the older 1x dummy*.png (96x96).
 Rendered with the shared splat renderer (tools/splat3d.py).
 
 It is training equipment, not a creature: a weighted rubber base, a steel spring, a short
@@ -26,14 +27,30 @@ import splat3d as S  # noqa: E402
 from splat3d import ellipsoid_oriented, tube  # noqa: E402
 
 ROOT = S.ROOT
-OUT = os.path.join(ROOT, "assets", "sprites", "dummy.png")
-PREVIEW = os.path.join(ROOT, "docs", "dummy_preview.png")
-SIDE = {"w": 96, "h": 96, "origin": (52, 84)}
+# Density (splat3d.configure(density=...)): 2 draws the sheets the game uses, dummy_2x*.png
+# (192x192 frames, "ppu": 2); DUMMY_DENSITY=1 the older 1x ones, dummy*.png (96x96). The
+# painted target and the X stitches come from part-local coordinates (rig units), so they
+# scale with the density on their own.
+DENSITY = int(os.environ.get("DUMMY_DENSITY", "2"))
+# The look (DUMMY_STYLE): "a" splat3d's five-step ramp with a highlight and a rim light, each
+# material outlined in its own ink, as at 1x; "bold" three flat tones a face (no highlight
+# step, no rim light) and one dark ink round the whole silhouette. The 2x sheets are bold.
+STYLE = os.environ.get("DUMMY_STYLE", "bold" if DENSITY > 1 else "a")
+_TAG = "" if DENSITY == 1 else "_%dx" % DENSITY
+OUT = os.path.join(ROOT, "assets", "sprites", "dummy%s.png" % _TAG)
+PREVIEW = os.path.join(ROOT, "docs", "dummy%s_preview.png" % _TAG)
+
+
+def _frame(w, h, origin):
+    return {"w": w * DENSITY, "h": h * DENSITY, "origin": (origin[0] * DENSITY, origin[1] * DENSITY)}
+
+
+SIDE = _frame(96, 96, (52, 84))
 VIEWS = {
-    "down": {"w": 96, "h": 96, "origin": (48, 80)},
-    "up": {"w": 96, "h": 96, "origin": (48, 84)},
-    "down_side": {"w": 96, "h": 96, "origin": (48, 82)},
-    "up_side": {"w": 96, "h": 96, "origin": (48, 84)},
+    "down": _frame(96, 96, (48, 80)),
+    "up": _frame(96, 96, (48, 84)),
+    "down_side": _frame(96, 96, (48, 82)),
+    "up_side": _frame(96, 96, (48, 84)),
 }
 MAT = {
     "base": "slate",        # the weighted rubber base
@@ -44,7 +61,13 @@ MAT = {
     "rope": ("sand", 1),
     "straw": ("sand", 2),
 }
-S.configure(MAT, scale=1.0, near=12.0)
+S.configure(MAT, scale=1.0, near=12.0, density=DENSITY)
+if STYLE == "bold":
+    # three tones a face: no highlight step (light covers the lit side), no rim light; the
+    # silhouette in one dark ink (seams between parts keep their material's seam colour)
+    S.LUM_HIGH = 2.0
+    S.RIM = False
+    S.INK = {name: S.OUTLINE[:3] for name in S.INK}
 S.COLS = 8
 
 SPRING_BASE = np.array([0.0, 4.6, 0.0])
@@ -299,7 +322,8 @@ CLIPS = _clips
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "inspect":
-        S.inspect(ROWS, sys.argv[2:], SIDE, VIEWS, build, decorate, path=os.environ.get("INSPECT_OUT"))
+        S.inspect(ROWS, sys.argv[2:], SIDE, VIEWS, build, decorate, scale=int(os.environ.get("INSPECT_SCALE", "3")),
+                  path=os.environ.get("INSPECT_OUT"))
     elif len(sys.argv) > 1 and sys.argv[1] == "anim":
         import anim_preview
         anim_preview.main(sys.modules[__name__], sys.argv[2:])

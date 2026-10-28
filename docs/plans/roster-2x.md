@@ -31,7 +31,7 @@ at 2x (five sheets with normals), so roughly 5x a generator's 1x time.
 | 8 | Barkley | `gen_barkley.py`, shade2d painter | **done** (branch `barkley-2x`): `shade2d.configure(density=)` and `shade2d.Draw` | 15 / 132 | 96, views 128x160 -> 192, 256x320 | 88 -> 353 MB | ~10 min |
 | 9 | Gillbert | `gen_gillbert.py`, shade2d painter | **done** (branch `gillbert-2x`): draws through `shade2d.Draw` | 15 / 136 | 128, views 96x144 / 128x144 -> 256, 192x288 / 256x288 | 105 -> 421 MB | ~10 min |
 | 10 | Craglash | `gen_craglash.py`, custom 2D shader (`VRig`, `DRig`, `_with_normals`) | **done** (`craglash-2x`): `gen_craglash.py` density option, puppet render | 16 / 136 | 96, views 128x160 -> 192, 256x320 | 95 -> 378 MB | ~15 min |
-| note | Training dummy | `gen_dummy.py`, splat3d | covered | 6 / 32 | 96 -> 192 | 11 -> 42 MB | ~3 min |
+| note | Training dummy | `gen_dummy.py`, splat3d | **done** (branch `dummy-2x`): `DUMMY_DENSITY` | 6 / 32 | 96 -> 192 | 11 -> 42 MB | ~3 min |
 
 "Covered" means the generator calls `S.configure` and `S.write_sheets`, so the density option
 in `tools/splat3d.py` applies once the generator adds its env var and doubles `SIDE`/`VIEWS`
