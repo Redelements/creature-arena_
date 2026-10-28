@@ -295,6 +295,17 @@ left / right 5 s, Y from the start. The strip at the bottom shows the speed and 
 the pause menu has Back 5 seconds, Watch from the start and Speed, and the end screen
 Watch again and Back 5 seconds.
 
+**Clips**: F6 also drops a clip marker at that moment, and a KO you land at the end of a
+combo of 3 or more hits drops one by itself. While watching, C (pad: right stick click) or
+the pause menu's Export clip lists the markers and "this moment"; pick one to save the 10 s
+before it (and the second after) as a video next to the replay. The game starts a copy of
+itself to render it with sound, so the clip matches the replay frame for frame. That copy
+writes an AVI (Godot's movie maker); with ffmpeg on your PATH it also becomes an MP4 and a
+480 px GIF. "Open folder" shows the files when it's done. It needs the desktop game, not
+the editor's Play button or a phone. From a terminal: `tools/clip.py <replay.json>
+--marker 1` (a size-capped GIF), or the game itself with
+`--write-movie clip.avi -- --replay=<file> --from=A --to=B`.
+
 **Bug reports**: Settings > Save a bug report (or the pause menu's row) writes
 `bug-reports/bugreport_<time>.zip` in the game's user folder and opens the folder: the two
 newest logs, the settings (without your online id, secret, name or servers), progress, the
