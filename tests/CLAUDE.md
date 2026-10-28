@@ -44,9 +44,10 @@ about evenly (the slowest files, `test_server_teams`, `test_server_fuzz`, `test_
   `--set=key:value` to try a tuning): match length, score, and every play's count.
   `bench_modes.gd`: every mode's pacing on one yardstick, Normal CPUs (`--modes=team2,tdm3,brawl4,...`,
   `--seeds`, `--shrines=data|on|off`, `--shrine-set=key:value`, `--set=key:value` (a top-level rules number, e.g.
-  `spree_at:0`, `crown:0`, `crown_points_to_win:20`), `--rows`): match length, stalemate share,
+  `spree_at:0`, `crown:0`, `crown_points_to_win:20`), `--shrine-spots=0.5/0.25;0.5/0.75`, `--arena=ID`,
+  `--mutators=damage_mult:0.67` (or a mutators.json id), `--rows`): match length, stalemate share,
   fights a minute, KOs, comebacks from behind at half time, shrine claims, time-outs, how often the first KO's
-  side won, sprees, shutdowns, crown changes (definitions and results in
+  side won, sprees, shutdowns, crown changes, the Caravan's push (definitions and results in
   `docs/plans/mode-metrics.md`). `bench_spacing.gd`: how far apart fighters fight. `bench_ai_cost.gd`: what a tick costs in a big
   team match (`--mode=ctf|caravan|sinkhole`, `--size=4`, `--level=3`, `--threads=off`): CPU thinking
   and sim step percentiles; a stutter is the tail (p99.9, max). In a real window, `--perf` does the
