@@ -161,7 +161,8 @@ func _key(pl: Dictionary, n: Plant) -> Array:
 	var glint := bool(pl["apple"]) and int(_t + id * 7) % 90 < 6
 	var tint := weather.prop_tint(Vector2(pl["pos"])) if weather != null else Color.WHITE
 	var cover := roundf(n.cover * COVER_EASE) / COVER_EASE
-	return [1, _frame(id, TREE_FRAMES, TREE_TPF), bob if n.dying < 0 else -1, rise, glint, cover, tint]
+	return [1, _frame(id, TREE_FRAMES, TREE_TPF), bob if n.dying < 0 else -1, rise, glint, cover, tint, n.flash > 0,
+		int(ceilf(float(pl["hp"])))]
 
 
 func _frame(id: int, frames: int, tpf: int) -> int:
@@ -286,6 +287,8 @@ class Plant extends Node2D:
 		var frame := int(key[1])
 		var rise := float(key[3])
 		var col: Color = key[6]
+		if bool(key[7]):
+			col = Color(1.7, 1.7, 1.5)  # struck: a flash, like the sprout's
 		col.a = lerpf(1.0, COVER_ALPHA, float(key[5]))
 		var src := Rect2(frame * TREE_SIZE.x, 0, TREE_SIZE.x, TREE_SIZE.y)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE / PPU)
@@ -298,6 +301,16 @@ class Plant extends Node2D:
 		else:
 			draw_texture_rect_region(TREE, Rect2(-TREE_FEET, TREE_SIZE), src, col)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		if rise >= 1.0 and dying < 0:
+			var hp := float(pl.get("hp", 0.0))
+			var hp_max := maxf(1.0, float(pl.get("hp_max", 1.0)))
+			if hp < hp_max:
+				# a short bar across the trunk's foot, like the sprout's
+				var w := 16.0
+				var y := -10.0
+				draw_rect(Rect2(-w * 0.5 - 0.5, y - 0.5, w + 1.0, 2.0), C_BAR_BACK)
+				var k := clampf(hp / hp_max, 0.0, 1.0)
+				draw_rect(Rect2(-w * 0.5, y, roundf(w * k * PPU) / PPU, 1.0), C_BAR if k > 0.4 else C_BAR_LOW)
 		var bob := int(key[2])
 		if bob >= 0:
 			var at := APPLE_AT + Vector2(0, -float(bob) * 0.5)

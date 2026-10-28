@@ -74,8 +74,8 @@ func test_events_play_effects() -> void:
 	]:
 		fx.spawn(e)
 	assert_true(fx.move_fx.playing() >= 5, "the hand-drawn effects play")
-	fx.spawn({"type": "rooted", "pos": d.pos, "power": 45.0, "who": d.id, "by": 0, "plant": 1})
-	assert_true(bool(fx._leaf_root.get(d.id, false)), "a root from Barkley is a leafy one")
+	var before := fx.move_fx.playing()
 	fx.spawn({"type": "rooted", "pos": d.pos, "power": 45.0, "who": d.id, "by": -1})
-	assert_false(bool(fx._leaf_root.get(d.id, true)), "anyone else's heaps rubble")
+	assert_true(fx.move_fx.playing() > before, "every root, whoever set it, plays the leaf swirl (one look for all)")
+	assert_true(fx._root_t.has(d.id), "and the roots grow in from this tick")
 	_free(parts)

@@ -13,8 +13,9 @@ extends RefCounted
 ##   gone. A foe whose body touches it is rooted for `root` ticks (the throw's root
 ##   times `root_share`), and that springs the plant: it's gone. The owner's side walks
 ##   over it freely. After `grow` ticks on the floor it grows into a tree.
-## - stage TREE: can't be hurt. `apple_at` ticks after growing it bears an apple
-##   (`apple`). The first fighter to touch the tree takes it: one of the owner's side,
+## - stage TREE: its health is back to full (`hp_max`), and the other side can cut it down
+##   the same way (`plant_gone` `killed`, apple and all). It roots nobody. `apple_at` ticks
+##   after growing it bears an apple (`apple`). The first fighter to touch the tree takes it: one of the owner's side,
 ##   hurt, heals `heal_share` of their own max HP and the tree is spent; a foe spoils it
 ##   and the tree is spent. An ally at full health walks past it.
 ##
@@ -66,6 +67,7 @@ static func step(sim: MatchSim) -> void:
 				gone = true
 			elif int(pl["age"]) >= int(pl["grow"]):
 				pl["stage"] = TREE
+				pl["hp"] = float(pl["hp_max"])  # a fresh trunk: full health again
 				sim.emit_event("plant_grow", pl["pos"], 1.0, {"who": int(pl["owner"]), "plant": int(pl["id"])})
 		else:
 			if not bool(pl["apple"]) and int(pl["age"]) >= int(pl["grow"]) + int(pl["apple_at"]):
@@ -107,15 +109,15 @@ static func _touching(sim: MatchSim, pl: Dictionary, r: float, foes_only: bool) 
 	return null
 
 
-## A hit from `attacker` covering the circle (`center`, `radius`) strikes every sprout of
-## the other side it overlaps for `damage` (raw: no combo scaling), skipping the ids in
+## A hit from `attacker` covering the circle (`center`, `radius`) strikes every sprout or
+## tree of the other side it overlaps for `damage` (raw: no combo scaling), skipping the ids in
 ## `struck` (filled in, so one swing or shot hurts a plant once). Returns how many it hit.
 static func strike(sim: MatchSim, attacker: CreatureSim, center: Vector2, radius: float, damage: float, struck: Array) -> int:
 	var hit := 0
 	var keep: Array = []
 	for pl in sim.plants:
 		var id := int(pl["id"])
-		if int(pl["stage"]) != PLANT or int(pl["team"]) == attacker.team or struck.has(id) \
+		if int(pl["team"]) == attacker.team or struck.has(id) \
 				or center.distance_to(pl["pos"]) > radius + float(pl["radius"]):
 			keep.append(pl)
 			continue

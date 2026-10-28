@@ -292,15 +292,27 @@ func test_a_foe_who_takes_the_apple_spoils_it() -> void:
 	assert_eq(sim.plants.size(), 0, "and the tree is gone")
 
 
-func test_a_tree_cannot_be_hit_and_does_not_root() -> void:
+func test_a_tree_roots_nobody_but_can_be_cut_down() -> void:
 	var sim := _duel("cairn", 2.0)
 	var foe := sim.creatures[1]
 	var at := _grown(sim)
-	foe.pos = at + Vector2(4, 0)
-	for i in 40:
+	assert_eq(float(sim.plants[0]["hp"]), 10.0, "a fresh trunk: 10 HP again (Kevin's ruling):")
+	run(sim, 0, 2 * SimDefs.TICK_RATE + 2)
+	assert_true(bool(sim.plants[0]["apple"]), "with its apple")
+	var edge := float(sim.plants[0]["pick_radius"]) + foe.radius  # outside the apple's reach too
+	foe.pos = at + Vector2(edge + 14.0, 0)
+	foe.facing = Vector2.LEFT
+	var hits := 0
+	for i in 200:
 		sim.step(PackedInt32Array([0, L if i % 2 == 0 else 0]))
+		hits += _events(sim, "plant_hit").size()
+		if sim.plants.is_empty():
+			break
+		foe.pos.x = maxf(foe.pos.x, at.x + edge + 2.0)
 	assert_eq(foe.root, 0, "a tree roots nobody")
-	assert_eq(sim.plants.size(), 1, "and can't be cut down")
+	assert_gt(hits, 0, "the jabs land on the tree:")
+	assert_eq(sim.plants.size(), 0, "and cut it down, apple and all")
+	assert_eq(String(_events(sim, "plant_gone")[0]["how"]), "killed", "how it went:")
 
 
 func test_rollback_through_a_growing_plant() -> void:
@@ -413,7 +425,8 @@ func test_root_eruption_last_ring_roots_a_foe_85_px_away() -> void:
 
 
 ## Root Eruption's block rule (Oct 27 rework): the root is unblockable, the damage isn't.
-## Cairn 85 px above him (only the last ring reaches), facing him.
+## Cairn 85 px above him (only the last ring reaches), facing him. (Every ring roots: a
+## closer foe is rooted from the first, and the later rings refresh it.)
 func _eruption_on_a_guard(stamina: float, guard: bool) -> Array:
 	var sim := _duel("cairn", 34.0)
 	sim.creatures[0].energy = 100.0
@@ -483,3 +496,21 @@ func test_three_blocked_rings_do_not_exhaust_a_full_guard() -> void:
 	# spent (about 16 of 100) but holds.
 	assert_gt(foe.stamina, 0.0, "a full guard holds through the three rings:")
 	assert_true(foe.state != CreatureSim.State.CRUMPLE, "and isn't broken")
+
+
+func test_every_ring_of_root_eruption_roots() -> void:
+	var sim := _duel("cairn", 34.0)
+	sim.creatures[0].energy = 100.0
+	var foe := sim.creatures[1]
+	foe.pos = sim.creatures[0].pos + Vector2(0, -30)  # inside the first ring
+	var hit := run_until(sim, func(): return not _events(sim, "hit").is_empty(), 80, SU)
+	assert_true(hit, "the first ring lands")
+	assert_eq(foe.root, 60, "and roots at once (Kevin's ruling: every ring, not just the last):")
+	var hits := 1
+	var peak := 0
+	for i in 40:
+		sim.step(PackedInt32Array([0, 0]))
+		hits += _events(sim, "hit").size()
+		peak = maxi(peak, foe.root)
+	assert_eq(hits, 3, "all three rings land on a close foe:")
+	assert_eq(peak, 60, "the later rings refresh the root to a full second, never stack past it:")
