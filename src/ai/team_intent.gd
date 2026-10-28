@@ -1,11 +1,13 @@
 class_name TeamIntent
 extends RefCounted
-## What a CPU team agrees on for one tick: the foe it focuses. Built once per tick for every
-## team, on the main thread, before the CPUs think (CpuController.think_start, or the first
-## bits() call of the tick when they think one by one), from the match state and from what
-## each member chose the tick before (its target, the foes it saw). The CPUs then read it on
-## the worker threads without a lock, and each writes its own choice back for the next build
-## (`note`, under the lock, one slot a member), so threaded and sequential thinking agree.
+## What a CPU team agrees on for one tick: the foe it focuses, whether it commits to the
+## fight, pokes or backs off (the engage state), and where its front line stands. Built once
+## per tick for every team, on the main thread, before the CPUs think (CpuController.think_start,
+## or the first bits() call of the tick when they think one by one), from the match state and
+## from what each member chose the tick before (its target, the foes it saw, its engage state).
+## The CPUs then read it on the worker threads without a lock, and each writes its own choice
+## back for the next build (`note`, `note_engage`, under the lock, one slot a member), so
+## threaded and sequential thinking agree.
 ##
 ## A team of one keeps its own counsel: CpuController reads the focus only with a living ally.
 ## Players on a mixed team are members too (their positions count toward the focus); they
@@ -25,6 +27,13 @@ const VOTE := 0.5
 const SMOOTH := 0.1
 ## A marked foe's pull (MatchSim.marks) over this many pixels is added to its score's weight.
 const MARK_PX := 240.0
+## Engage states: what each member says it is doing (`note_engage`) and what the team does,
+## `commit` when at least ENGAGE_VOTES members commit (and no fewer than retreat), `retreat`
+## when at least ENGAGE_VOTES members retreat, else `poke`.
+const POKE := 0
+const COMMIT := 1
+const RETREAT := 2
+const ENGAGE_VOTES := 2
 
 var team := 0
 var tick := 0
@@ -44,6 +53,16 @@ var saw := 0
 var member_target := PackedInt32Array()
 var member_vote := PackedInt32Array()
 var member_saw := PackedInt32Array()
+## What each member said it was doing this tick (POKE, COMMIT, RETREAT; -1 nothing).
+var member_engage := PackedInt32Array()
+## The team's engage state this tick, from the members' engage notes of the tick before.
+var engage := POKE
+## The front line: the point it stands at (the tank's position, or the nearest melee's, with
+## the focus in front of it; INF when there is none), the way it faces (toward the focus) and
+## the member that makes it (-1 none). Kiters and skirmishers keep behind it.
+var front := Vector2.INF
+var front_dir := Vector2.ZERO
+var front_slot := -1
 var _lock := Mutex.new()
 
 # The intents of the match being played: one per team for this tick, and the tick before.
@@ -110,6 +129,13 @@ func note(slot: int, target: int, saw_mask: int, vote := -2) -> void:
 	_lock.unlock()
 
 
+## A member's engage state this tick (POKE, COMMIT or RETREAT), for the next build.
+func note_engage(slot: int, state: int) -> void:
+	_lock.lock()
+	member_engage[slot] = state
+	_lock.unlock()
+
+
 static func _build(sim: MatchSim, team: int, prev: TeamIntent) -> TeamIntent:
 	var ti := TeamIntent.new()
 	ti.team = team
@@ -120,6 +146,8 @@ static func _build(sim: MatchSim, team: int, prev: TeamIntent) -> TeamIntent:
 	ti.member_vote.resize(n)
 	ti.member_vote.fill(-1)
 	ti.member_saw.resize(n)
+	ti.member_engage.resize(n)
+	ti.member_engage.fill(-1)
 	# What the team saw last tick, from the members' notes; before the first note, everyone.
 	var saw := 0
 	var noted := false
@@ -165,10 +193,70 @@ static func _build(sim: MatchSim, team: int, prev: TeamIntent) -> TeamIntent:
 			ti.focus_t = prev.focus_t + 1
 			ti.focus_unseen = unseen_t
 			ti.focus_score = held
+			_finish(sim, ti, prev)
 			return ti
 	ti.focus = best
 	ti.focus_score = best_score
+	_finish(sim, ti, prev)
 	return ti
+
+
+## The engage state (from last tick's notes of the living members) and the front line (from
+## the focus and where the members stand now).
+static func _finish(sim: MatchSim, ti: TeamIntent, prev: TeamIntent) -> void:
+	var commits := 0
+	var retreats := 0
+	if prev != null:
+		for m in sim.creatures.size():
+			var c: CreatureSim = sim.creatures[m]
+			if c.team != ti.team or c.state == CreatureSim.State.KO:
+				continue
+			if m >= prev.member_engage.size():
+				continue
+			commits += 1 if prev.member_engage[m] == COMMIT else 0
+			retreats += 1 if prev.member_engage[m] == RETREAT else 0
+	ti.engage = engage_of(commits, retreats)
+	if ti.focus < 0:
+		return
+	var slot := front_of(sim, ti.team, sim.creatures[ti.focus])
+	if slot < 0:
+		return
+	var anchor: CreatureSim = sim.creatures[slot]
+	ti.front_slot = slot
+	ti.front = anchor.pos
+	ti.front_dir = (sim.creatures[ti.focus].pos - anchor.pos).normalized()
+
+
+## The team state from how many living members commit and how many retreat.
+static func engage_of(commits: int, retreats: int) -> int:
+	if commits >= ENGAGE_VOTES and commits >= retreats:
+		return COMMIT
+	if retreats >= ENGAGE_VOTES:
+		return RETREAT
+	return POKE
+
+
+## The member that makes `team`'s front line against `focus`: the living tank (a "press"
+## plan with "peel" targeting) nearest the focus, else the nearest living melee that holds
+## ground (a "press" or "footsie" plan); -1 when the team has neither.
+static func front_of(sim: MatchSim, team: int, focus: CreatureSim) -> int:
+	var best := -1
+	var best_rank := 99
+	var best_d := INF
+	for m in sim.creatures.size():
+		var c: CreatureSim = sim.creatures[m]
+		if c.team != team or c.state == CreatureSim.State.KO or CpuController.ranged(c):
+			continue
+		var st := CpuController.style_of(c)
+		var rank := 0 if String(st["target"]) == "peel" else (1 if String(st["plan"]) in ["press", "footsie"] else 99)
+		if rank == 99:
+			continue
+		var d := c.pos.distance_squared_to(focus.pos)
+		if rank < best_rank or (rank == best_rank and d < best_d):
+			best = m
+			best_rank = rank
+			best_d = d
+	return best
 
 
 ## 1 for a foe in your face, 1/2 at NEAR_PX, falling with distance.

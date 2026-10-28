@@ -274,6 +274,8 @@ func bits(sim: MatchSim) -> int:
 				and not (_out & SimDefs.IN_AIM):
 			var at := _aim_point(me, foe) if _rage() else _seen(foe)
 			_out |= SimDefs.aim_bits(at - me.pos)
+		if _rage():
+			_team.note_engage(me_idx, _engage_now(me, foe))
 	_prev = _out
 	last_bits = _out
 	return _out
@@ -1801,7 +1803,12 @@ func _rage_breaks_away(sim: MatchSim, me: CreatureSim) -> bool:
 
 
 func _style(me: CreatureSim) -> Dictionary:
-	var name := String(_ai(me).get("style", me.def.get("role", "fighter")))
+	return style_of(me)
+
+
+## How Rage plays `c` (STYLES: its ai "style", else its role).
+static func style_of(c: CreatureSim) -> Dictionary:
+	var name := String(c.def.get("ai", {}).get("style", c.def.get("role", "fighter")))
 	return STYLES.get(name, STYLES["fighter"])
 
 
@@ -1819,6 +1826,10 @@ func _pick_target(sim: MatchSim, me: CreatureSim) -> CreatureSim:
 		return _target
 	var how := String(_style(me)["target"])
 	var ally := _hurt_ally(sim, me) if how == "peel" else null
+	# With a teammate on the team focus: a hurt ranged ally to peel for when the team has no
+	# tank standing (`_peel_target`), and for an assassin a foe nobody stands next to.
+	var peel_foe := _peel_target(sim, me, how) if focus != null else null
+	var iso_reach := 2.0 * _reach_of(me, me) if focus != null and how == "weakest" else 0.0
 	var best: CreatureSim = null
 	var best_score := INF
 	var nearest: CreatureSim = null
@@ -1831,6 +1842,8 @@ func _pick_target(sim: MatchSim, me: CreatureSim) -> CreatureSim:
 		var score := d
 		if how == "weakest":
 			score = d * 0.5 + o.hp / o.max_hp * 220.0
+			if iso_reach > 0.0:
+				score -= ISOLATED_PX * _isolation(sim, o, iso_reach)
 		elif ally != null:
 			score = at.distance_to(ally.pos) + d * 0.3
 		score -= mark_of(sim, o)  # a wanted foe (a spree, the crown) counts as that much nearer
@@ -1841,11 +1854,18 @@ func _pick_target(sim: MatchSim, me: CreatureSim) -> CreatureSim:
 			nearest_d = d
 			nearest = o
 	_target_forced = false
-	if focus != null and best != null and focus != best:
+	if focus != null and best != null and peel_foe != null:
+		# Peeling for a hurt ranged ally, unless a foe is already in my face.
+		var close := kite_band(me, nearest).x if String(_style(me)["plan"]) == "kite" else _reach_of(nearest, me) + 16.0
+		var in_my_face := nearest != null and nearest_d <= close
+		best = nearest if in_my_face else peel_foe
+		_target_forced = in_my_face
+	elif focus != null and best != null and focus != best:
 		# A foe in reach is fought first; for a kiter, one inside the band it kites at.
 		var close := kite_band(me, nearest).x if String(_style(me)["plan"]) == "kite" else _reach_of(nearest, me) + 16.0
 		var in_my_face := nearest != null and nearest_d <= close
-		var much_weaker := how == "weakest" and best.hp / best.max_hp < focus.hp / focus.max_hp - 0.25
+		var much_weaker := how == "weakest" and (best.hp / best.max_hp < focus.hp / focus.max_hp - 0.25
+			or (iso_reach > 0.0 and _isolation(sim, best, iso_reach) >= 1.0 and _isolation(sim, focus, iso_reach) <= 0.0))
 		var peeling := how == "peel" and ally != null
 		var wanted := mark_of(sim, best) > mark_of(sim, focus)  # (a spree or the crown the focus isn't)
 		if not (much_weaker or peeling or wanted):
@@ -1891,6 +1911,67 @@ func _hurt_ally(sim: MatchSim, me: CreatureSim) -> CreatureSim:
 		if o.hp / o.max_hp < 0.7 and (best == null or o.hp / o.max_hp < best.hp / best.max_hp):
 			best = o
 	return best
+
+
+## Peel and isolated targets (piece 3 of docs/plans/ai-utility-and-teamplay.md): considerations
+## on the target, 0-1 like the kit's, read only with a living teammate (so no 1v1 moves).
+
+## A peel worth more than this (f_peel times the "peel" weight) takes the target.
+const PEEL_MIN := 0.5
+## A foe with no teammate near it (f_isolated 1) counts this many px nearer to an assassin.
+const ISOLATED_PX := 60.0
+
+
+## The foe to peel off a hurt ranged teammate, when the team has no tank standing to do it
+## (the tank's own `peel` targeting does it then): the best f_peel over every ranged ally and
+## foe, if over PEEL_MIN; null otherwise, or for the tank itself.
+func _peel_target(sim: MatchSim, me: CreatureSim, how: String) -> CreatureSim:
+	if how == "peel":
+		return null
+	for o in sim.creatures:
+		if o != me and o.team == me.team and o.state != CreatureSim.State.KO and String(style_of(o)["target"]) == "peel":
+			return null  # the tank peels
+	var w := float(_weights(me)["peel"])
+	var best: CreatureSim = null
+	var top := PEEL_MIN
+	for a in sim.creatures:
+		if a == me or a.team != me.team or a.state == CreatureSim.State.KO or not ranged(a):
+			continue
+		for o in sim.creatures:
+			if not me.is_foe(o) or o.state == CreatureSim.State.KO or not _sees(o):
+				continue
+			var s := f_peel(a, o) * w
+			if s > top:
+				top = s
+				best = o
+	return best
+
+
+## How much `ally` needs `foe` peeled off it: under attack (1 with the ally in the foe's reach,
+## 0 from 64 px past it) × ranged (a ranged ally, 1, can't fight back up close; 0 otherwise) ×
+## hurt (0 at 90% health or more, 1 at 30% or less).
+static func f_peel(ally: CreatureSim, foe: CreatureSim) -> float:
+	var under := 1.0 - clampf((ally.pos.distance_to(foe.pos) - _reach_of(foe, ally)) / 64.0, 0.0, 1.0)
+	var hurt := clampf((0.9 - ally.hp / maxf(1.0, ally.max_hp)) / 0.6, 0.0, 1.0)
+	return under * (1.0 if ranged(ally) else 0.0) * hurt
+
+
+## How alone a foe stands whose nearest living teammate is `near` px away (INF: none): 1 with
+## none within `reach` px (two melee reaches of the assassin), 0 with one within half that,
+## linear between.
+static func f_isolated(near: float, reach: float) -> float:
+	if near == INF:
+		return 1.0
+	return clampf((near - reach * 0.5) / maxf(1.0, reach * 0.5), 0.0, 1.0)
+
+
+## f_isolated for `foe`, its teammates where this team knows them to be (`_seen`).
+func _isolation(sim: MatchSim, foe: CreatureSim, reach: float) -> float:
+	var near := INF
+	for o in sim.creatures:
+		if o != foe and o.team == foe.team and o.state != CreatureSim.State.KO:
+			near = minf(near, _seen(o).distance_to(_seen(foe)))
+	return f_isolated(near, reach)
 
 
 ## Where the foe is, as far as this fighter's team knows: where it was last seen while
@@ -2643,7 +2724,7 @@ func _fire_lob(me: CreatureSim, foe: CreatureSim, lob: String) -> void:
 # style's "weights", then the creature's ai.weights.
 
 const SCORE_MIN := 0.3
-const WEIGHTS := {"surge": 1.0, "lob": 0.8, "gaze": 0.8, "zone": 0.9, "poke": 0.7, "give_ground": 1.0}
+const WEIGHTS := {"surge": 1.0, "lob": 0.8, "gaze": 0.8, "zone": 0.9, "poke": 0.7, "give_ground": 1.0, "peel": 1.0}
 ## How far a kiter giving ground keeps the near edge of its band out.
 const GIVE_PX := 24.0
 ## The class triangle: assassin > mage > fighter/tank (and bruiser, skirmisher) > assassin.
@@ -2864,6 +2945,11 @@ static func _breaks_guard_held_only(mv: Dictionary) -> bool:
 
 
 func _is_ranged(o: CreatureSim) -> bool:
+	return ranged(o)
+
+
+## A fighter that fights from range: a thrown light, or ai "kite".
+static func ranged(o: CreatureSim) -> bool:
 	return o.moves().get("light_1", {}).has("projectile") or bool(o.def.get("ai", {}).get("kite", false))
 
 
@@ -2928,8 +3014,60 @@ static func kite_band(me: CreatureSim, foe: CreatureSim) -> Vector2:
 	return Vector2(clampf(_reach_of(foe, me) + 48.0, 56.0, hi - 20.0), hi)
 
 
+# --- Engage state and front line (piece 3 of docs/plans/ai-utility-and-teamplay.md) -----
+# Each Rage CPU tells its team what it is doing (`_engage_now`, noted after it decides); the
+# team's state and front line (TeamIntent) are built from those notes the tick after. Read
+# only on the team's focus with a living teammate (`_on_team_focus`), so no 1v1 moves.
+
+## Under this share of its health a CPU says it is backing off (RETREAT).
+const RETREAT_HP := 0.35
+## A press or footsie CPU commits with its foe this many px past its reach or nearer.
+const COMMIT_PX := 24.0
+## Px behind the front line a kiter or skirmisher falls back to while its team retreats.
+## (Holding behind the line while the team pokes was tried, 40 px behind down to 40 px
+## ahead of the line, and lost Rage 2v2s: 15-21 of 48 against 30 without it. Out in the
+## open, a kiting mage's angle on the fight is worth more than the tank's cover.)
+const HOLD_PX := 80.0
+
+
+## What I am doing this tick, for the team: RETREAT when hurt, COMMIT when in the fight (an
+## assassin or skirmisher on an engage run, a mage with its foe stuck or nearly down, anyone
+## else with its foe in reach), else POKE.
+func _engage_now(me: CreatureSim, foe: CreatureSim) -> int:
+	if me.hp / me.max_hp < RETREAT_HP:
+		return TeamIntent.RETREAT
+	match String(_style(me)["plan"]):
+		"lurk", "skirmish":
+			return TeamIntent.COMMIT if _engage_t > 0 else TeamIntent.POKE
+		"kite":
+			return TeamIntent.COMMIT if foe.is_stunned() or foe.hp / foe.max_hp < 0.35 else TeamIntent.POKE
+	return TeamIntent.COMMIT if me.pos.distance_to(_seen(foe)) <= _reach_of(me, foe) + COMMIT_PX else TeamIntent.POKE
+
+
+## Whether `foe` is my team's focus and I play to it with a living teammate.
+func _on_team_focus(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> bool:
+	var f := _focus(sim, me)
+	return f != null and f == foe
+
+
+## The walk that keeps me behind my team's front line while it retreats and I fight its
+## focus: HOLD_PX behind the line, but never so far back that the focus leaves my range
+## (`keep` px). None while the team pokes or commits, when it has no line, when I make it,
+## or when I'm behind it already; else back across it, the harder the further ahead.
+func _line_pull(sim: MatchSim, me: CreatureSim, foe: CreatureSim, keep: float) -> Vector2:
+	if _team == null or _team.engage != TeamIntent.RETREAT or _team.front_slot < 0 \
+			or _team.front_slot == me_idx or not _on_team_focus(sim, me, foe):
+		return Vector2.ZERO
+	var hold := minf(HOLD_PX, keep - (_seen(foe) - _team.front).dot(_team.front_dir))
+	var ahead := (me.pos - _team.front).dot(_team.front_dir) + hold
+	if ahead <= 0.0:
+		return Vector2.ZERO
+	return -_team.front_dir * clampf(ahead / 24.0, 0.0, 1.0) * 1.5
+
+
 ## Mage: keep the foe at the edge of its range, strafing (facing it) and throwing all
 ## the while; a foe in its face gets flipped away (the grab) or left behind (a dodge).
+## On a team that retreats, behind its front line.
 func _plan_kite(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float, danger: float) -> void:
 	var ai := _ai(me)
 	if dist < danger + 8.0:
@@ -2941,7 +3079,7 @@ func _plan_kite(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector
 		if me.can_dodge() and _roll(0.5):
 			_dodge_dir(sim, me, _open_dir(sim, me, -to_foe, _roll_distance(me), true))
 			return
-	_strafe(sim, me, foe, _kite_vector(sim, me, foe))
+	_strafe(sim, me, foe, _kite_vector(sim, me, foe) + _line_pull(sim, me, foe, kite_band(me, foe).y))
 	var max_r := me.move_range("light_1")
 	if dist > max_r * 0.97:
 		return
@@ -3000,9 +3138,14 @@ func _plan_lurk(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector
 
 
 ## Tank and bruiser: walk the foe down, cutting off the way to open floor so it ends up
-## against a wall, and swing whenever it's in reach.
+## against a wall, and swing whenever it's in reach. On a team that is backing off, the one
+## making the front line holds it (at the edge of the foe's reach) rather than walking in.
 func _plan_press(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float, reach: float) -> void:
 	var ai := _ai(me)
+	if dist > reach and _team != null and _team.engage == TeamIntent.RETREAT and _team.front_slot == me_idx \
+			and _on_team_focus(sim, me, foe):
+		_go(sim, me, _orbit_dir(sim, me, foe, _reach_of(foe, me) + 8.0))
+		return
 	# Up close, an armored taunt (Bedrock) drags the foe in and soaks its answer.
 	var counter := String(ai.get("counter", ""))
 	if counter != "" and _usable(me, counter) and me.moves()[counter].has("armor") and dist < reach + 30.0 \
@@ -3028,7 +3171,8 @@ func _plan_press(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vecto
 
 
 ## Skirmisher: poke from range, dive in for a combo when the poke lands or the foe is
-## stuck, then run back out to poke range.
+## stuck (or its team commits on the focus), then run back out to poke range, behind the
+## team's front line.
 func _plan_skirmish(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2, dist: float, reach: float, danger: float) -> void:
 	var ai := _ai(me)
 	if _engage_t > 0:
@@ -3040,11 +3184,12 @@ func _plan_skirmish(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Ve
 		else:
 			_go_to(sim, me, me.pos + to_foe)
 		return
-	if me.energy >= CreatureSim.MAX_ENERGY or foe.hp / foe.max_hp < 0.3 or not foe.can_dodge():
+	if me.energy >= CreatureSim.MAX_ENERGY or foe.hp / foe.max_hp < 0.3 or not foe.can_dodge() \
+			or (_team != null and _team.engage == TeamIntent.COMMIT and _on_team_focus(sim, me, foe)):
 		_engage_t = 60
 	var pr: Array = ai.get("poke_range", [danger + 30.0, danger + 80.0])
 	var keep := (float(pr[0]) + float(pr[1])) * 0.5
-	_go(sim, me, _orbit_dir(sim, me, foe, maxf(keep, danger + 24.0)))
+	_go(sim, me, _orbit_dir(sim, me, foe, maxf(keep, danger + 24.0)) + _line_pull(sim, me, foe, float(pr[1])))
 
 
 ## Fighter: hover at the edge of the foe's reach, step in and out to bait a swing (and
