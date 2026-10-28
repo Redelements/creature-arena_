@@ -49,3 +49,23 @@ Base: `origin/main` at 5c26ca7 (PR #278 merged), NET_VERSION 61.
 - Agents: Opus, one per PR, the shared brief in the session scratchpad (`BRIEF2.md`). Never two
   agents on overlapping files: tasks are sequential because they all touch `main.gd`, `progress.gd`
   and the menus.
+
+## Task A: progression core
+
+- **PR #279** (branch `progression-core`, from main 5c26ca7). Setting id `progression` on the Game page, saved as
+  `game/progression`, default Off; gate `Progress.enabled()` / `set_enabled`. `data/progression.json`: xp
+  fight 40, win 30, ko 10 (cap 5 a fight), clear_arcade 150, gauntlet_wave 10, daily 2 per 100 points,
+  level_mult Easy 0.5 / Normal 1.0 / Hard 1.1 / Rage 1.2; account curve base 150 step 65 cap 50 (83,790 XP,
+  ~40 h at 2,100 XP/h); mastery base 300 step 160 cap 10 (8,460 XP, ~4 h a fighter); first level inside 2-3
+  Normal fights. Reward ids `palette:<fighter>:N`, `title:<id>`, `line:<id>`; mastery table palettes at 2/5/8,
+  lines at 3/6, title at 10; account titles at 2/5/10/20/30/40/50. Save keys added: xp, mastery, unlocked,
+  equipped (old files load). API: account_xp/level/level_progress, mastery_xp/level/progress, unlocked,
+  unlocks_of, mastery_rewards, account_rewards, reward_text, equipped/set_equipped, award(report),
+  result_lines. Awarding in main_presentation.gd `award_match` from the first MATCH_OVER tick, `_show_match_over`
+  and `_arcade_result` (per ladder stage); a sim pays once. Results panel rows `Progress0..2`.
+- Decisions (agent): Off is today's game (palettes by Arcade clears only while Off); trials and drills pay
+  nothing; local = two or more humans, no CPU multiplier, the account takes the best player's XP; Duel teams
+  split mastery; online pays the local slot only; KOs capped at 5; nothing auto-equips; late-added table
+  rows are granted on the next award.
+- Checks: suite 1359/0, journey in suite, sweep 216/0, sim-check unchanged, map check clean. Screenshots at
+  1600x900 and 1170x540 fit. Merging when CI is green.
