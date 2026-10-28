@@ -34,7 +34,7 @@ DONE / SKIPPED / BLOCKED. This file lives on branch `autonomy-log` (worktree
 | 14 | Digby vs Cerebro with Normal bots, documented | DONE | [#266](https://github.com/Redelements/creature-arena_/pull/266) |
 | 15 | Perf: view-draw pass, before/after | | |
 | 16 | Android: shader warm-up, 60 Hz hint; VRAM + soak scripts (not run) | | |
-| 17 | Trailer and gallery capture per map and fighter | | |
+| 17 | Trailer and gallery capture per map and fighter | PR OPEN, merging | [#268](https://github.com/Redelements/creature-arena_/pull/268) |
 
 ## Setup (2026-10-27)
 
@@ -206,3 +206,18 @@ touches the same file; whichever merges second resolves a one-line conflict.
 - Title fix checks: suite 1308/0, sweep 216/0, sim-check unchanged. **PR #267** opened, left for Kevin
   (https://github.com/Redelements/creature-arena_/pull/267).
 - **Tasks 13 and 14 DONE**: #265 and #266 merged.
+
+## Task 17: gallery and trailer capture
+
+- Agent opened **PR #268** (tooling + docs, 36.3 MB of PNG/GIF committed under docs/gallery/): `tools/capture_gallery.py`
+  (fighters: 11 showcase GIFs 480 px / 15 fps / 32 colours under 2.4 MB each + 3x2 contact sheets; maps: six
+  maps at every allowed time of day, wide shot via --cam + two action shots, 3v3 for the four map choices,
+  Caravan/CTF their own modes; trailer: 12 beats from tools/trailer_shots.json as PNG sequences, `--movie`
+  adds AVI+WAV, output git-ignored), `tools/showcase_lengths.gd`, docs/gallery/index.md, a README Gallery
+  section. 37 Godot runs, 0 script errors. Checks: suite 1307/0, journey 4/0, sweep 216/0, sim-check unchanged.
+- Decisions (agent): 480 px not 640 (size budget; the showcase camera pans every frame), clear weather and
+  day for showcases, day wide shots only, Dustwind Pass wide shot at zoom 0.5 (the camera clamp shows black
+  further out). Decision (mine): 36 MB in git history is within the ~40 MB budget I set; acceptable for a
+  README gallery, Kevin can prune.
+- Noted: `tests/test_rollback_fuzz.gd.uid` was never committed with #262 (every import regenerates it);
+  it goes into the final log PR.
