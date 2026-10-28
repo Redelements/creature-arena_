@@ -5,6 +5,7 @@
 	"ground": "dirt",
 	"tiles": {"_doc": "Set 1 dirt; a one-tile border of the same dirt in shade inside the floor's edge (under the hoardings), cobbled 2 x 2 corners, paler trodden dirt on the two starting marks and the centre spot; the court lines drawn over it all",
 		"set": "set1", "ground": "dirt", "markings": true,
+		"dressing": "res://assets/arenas/stadium_dressing.tscn",
 		"patches": [
 			{"fill": "dirt_edge", "rect": [0, 0, 42, 1]}, {"fill": "dirt_edge", "rect": [0, 17, 42, 1]},
 			{"fill": "dirt_edge", "rect": [0, 1, 1, 16]}, {"fill": "dirt_edge", "rect": [41, 1, 1, 16]},

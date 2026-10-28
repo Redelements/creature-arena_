@@ -53,6 +53,7 @@ const SCATTER_ALTS := 8
 const PPU := 2.0  ## ArtScale.PX_PER_UNIT
 const CELL := 8.0  ## SimDefs.CELL
 const SHADOW_SHIFT := 2.0  ## px a contact shadow leans right, away from the maps' top-left light
+const BT := preload("res://tools/build_tiles.gd")  ## near_marks: the court lines detail keeps off
 
 
 func _init() -> void:
@@ -143,11 +144,13 @@ static func seed_scene(spec: Dictionary) -> Node2D:
 	var set_name := String(spec.get("set", "keeps"))
 	var man := _json(TILES_DIR + set_name + "_manifest.json")
 	var grid: TerrainGrid = null  # the map's cells: detail only where it lies flat
+	var marks := false  # a map with court markings (the Stadium): detail keeps off the lines
 	if spec.has("map"):
 		var map := ArenaMap.get_map(String(spec["map"]))
 		var size := ArenaMap.size_of(map)
 		grid = TerrainGrid.new(size.x, size.y)
 		grid.load_map(map)
+		marks = bool(map.get("tiles", {}).get("markings", false))
 	var root := Node2D.new()
 	root.name = "Dressing"
 	root.y_sort_enabled = true
@@ -213,7 +216,7 @@ static func seed_scene(spec: Dictionary) -> Node2D:
 			at = _clump(e)
 		for c in at:
 			var v := Vector2i(int(c[0]), int(c[1]))
-			if grid != null and (not _flat_ok(String(e["kind"]), v, grid) or off.has(v)):
+			if grid != null and (not _flat_ok(String(e["kind"]), v, grid, marks) or off.has(v)):
 				continue
 			var slot: Array = slots[_h(v.x, v.y, 7) % slots.size()]
 			detail.set_cell(v, SRC_SCATTER, Vector2i(int(slot[0]), int(slot[1])) * per, _h(v.x, v.y, 9) % SCATTER_ALTS)
@@ -434,9 +437,12 @@ static func _ground_ok(t: Vector2i, on: String, grid: TerrainGrid, bridges: Arra
 
 
 ## Whether a detail sprite of `kind` may lie on cell `c`: lily pads on the water, everything
-## else on plain floor (never on a wall, fence, chasm, brush bed or the water).
-static func _flat_ok(kind: String, c: Vector2i, grid: TerrainGrid) -> bool:
+## else on plain floor (never on a wall, fence, chasm, brush bed or the water), and on a map
+## with court markings never within about a cell of the lines (build_tiles.gd `near_marks`).
+static func _flat_ok(kind: String, c: Vector2i, grid: TerrainGrid, marks := false) -> bool:
 	if not grid.in_bounds(c):
+		return false
+	if marks and BT.near_marks(c, grid):
 		return false
 	return grid.get_base(c) == (TerrainGrid.SHALLOWS if kind == "lily" else TerrainGrid.INTACT)
 

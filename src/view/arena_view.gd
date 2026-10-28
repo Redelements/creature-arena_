@@ -934,9 +934,11 @@ func _paint_marks(ci: CanvasItem, _row0: int, _row1: int) -> void:
 	# boundary, a centre line broken at a double centre circle, corner arcs, the two sides'
 	# starting brackets in their colours, and the eight-point emblem in faded gold.
 	var box := fr.grow(-6)
-	ci.draw_rect(box, C_CHALK, false, 1.0)
-	ci.draw_line(Vector2(c.x, box.position.y), Vector2(c.x, c.y - 34), C_CHALK, 1.0)
-	ci.draw_line(Vector2(c.x, c.y + 34), Vector2(c.x, box.end.y), C_CHALK, 1.0)
+	var corners := [box.position, Vector2(box.end.x, box.position.y), box.end, Vector2(box.position.x, box.end.y)]
+	for k in 4:
+		_chalk(ci, corners[k], corners[(k + 1) % 4])
+	_chalk(ci, Vector2(c.x, box.position.y), Vector2(c.x, c.y - 34))
+	_chalk(ci, Vector2(c.x, c.y + 34), Vector2(c.x, box.end.y))
 	ci.draw_arc(c, 34.0, 0.0, TAU, 64, C_CHALK, 1.0)
 	ci.draw_arc(c, 31.0, 0.0, TAU, 64, C_CHALK, 1.0)
 	for k in 4:
@@ -957,7 +959,23 @@ func _paint_marks(ci: CanvasItem, _row0: int, _row1: int) -> void:
 		ci.draw_line(c, c + Vector2(cos(ang), sin(ang)) * ln, C_EMBLEM, 1.0)
 
 
+## A straight chalk line worn by play and re-chalked: short dashes whose strength varies by a
+## fixed hash (a scuffed gap now and then), some with a faint older line a hair beside them.
+func _chalk(ci: CanvasItem, a: Vector2, b: Vector2) -> void:
+	var n := maxi(1, ceili(a.distance_to(b) / CHALK_DASH))
+	var side := (b - a).normalized().orthogonal() * 1.5
+	for i in n:
+		var k := posmod((i * 73856093) ^ (int(a.x) * 19349663) ^ (int(a.y + b.x) * 83492791), 97)
+		var p0 := a.lerp(b, float(i) / n)
+		var p1 := a.lerp(b, float(i + 1) / n)
+		var s := 0.25 if k < 7 else 0.6 + 0.4 * float(k) / 96.0
+		ci.draw_line(p0, p1, Color(C_CHALK, C_CHALK.a * s), 1.0)
+		if k % 6 == 0:
+			ci.draw_line(p0 + side, p1 + side, Color(C_CHALK, C_CHALK.a * 0.22), 1.0)
+
+
 ## Chalk and paint on a tiled floor's markings.
+const CHALK_DASH := 6.0  ## units: a worn chalk line's dashes (`_chalk`)
 const C_CHALK := Color(1.0, 0.98, 0.94, 0.62)
 const C_START: Array[Color] = [Color8(236, 104, 92, 200), Color8(104, 150, 240, 200)]
 const C_EMBLEM := Color8(226, 178, 70, 150)

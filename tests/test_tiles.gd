@@ -86,10 +86,11 @@ func test_the_ground_tileset_matches_by_sides_with_the_cut_bits() -> void:
 	var names := []
 	for i in ts.get_terrains_count(0):
 		names.append(ts.get_terrain_name(0, i))
-	assert_eq(names, ["grass", "water"])
+	var man := _manifest()
+	assert_eq(names.slice(0, 2), ["grass", "water"])
+	assert_eq(names, man["ground"]["terrains"].keys(), "every cut terrain (the Stadium dressing's dirt patches and lanes too)")
 	var src := ts.get_source(0) as TileSetAtlasSource
 	assert_true(src != null, "source 0 is the ground atlas")
-	var man := _manifest()
 	var bits := [TileSet.CELL_NEIGHBOR_LEFT_SIDE, TileSet.CELL_NEIGHBOR_RIGHT_SIDE,
 		TileSet.CELL_NEIGHBOR_TOP_SIDE, TileSet.CELL_NEIGHBOR_BOTTOM_SIDE]
 	for name in ["grass", "water"]:

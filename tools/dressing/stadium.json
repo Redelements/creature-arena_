@@ -1,0 +1,42 @@
+{
+	"_doc": "The Stadium's first-draft dressing (tools/seed_dressing.gd seeds assets/arenas/stadium_dressing.tscn from it). Floor only: the map has no wall or fence cells, so no props. The SCENE is the source once seeded: edit it in the Godot editor; reseeding needs --force and drops every hand edit. Detail in cells (8 units), grounds in tiles (16 units, a tile tx spanning tx..tx+1). Placed on the left half and mirrored; `solo` entries are placed once.",
+	"scene": "res://assets/arenas/stadium_dressing.tscn",
+	"set": "set1",
+	"map": "stadium",
+	"mirror": {"width": 672, "swap": {}},
+	"grounds": [
+		{"layer": "DirtDark", "terrain": "dirt_dark", "on": "floor", "blobs": [
+			{"at": [6.5, 5], "r": 2.4, "seed": 10, "stretch": [1.6, 0.8]},
+			{"at": [9, 13.5], "r": 2.2, "seed": 41, "stretch": [1.5, 0.8]},
+			{"at": [16.5, 4], "r": 1.8, "seed": 73, "stretch": [1.6, 0.8]},
+			{"at": [17.5, 14.5], "r": 1.7, "seed": 25, "stretch": [1.5, 0.8]},
+			{"at": [3.5, 9.5], "r": 1.6, "seed": 58}
+		]},
+		{"layer": "DirtDry", "terrain": "dirt_dry", "on": "floor", "blobs": [
+			{"at": [10.5, 1.8], "r": 1.8, "seed": 17, "stretch": [1.6, 0.8]},
+			{"at": [1.8, 7], "r": 1.6, "seed": 49, "stretch": [0.8, 1.4]},
+			{"at": [13.5, 16.2], "r": 1.8, "seed": 81, "stretch": [1.6, 0.8]}
+		]},
+		{"layer": "Damp", "terrain": "damp", "on": "floor", "blobs": [
+			{"at": [3.6, 3.6], "r": 2.0, "seed": 5, "stretch": [1.1, 0.85]},
+			{"at": [3.6, 14.4], "r": 2.0, "seed": 90, "stretch": [1.1, 0.85]}
+		]},
+		{"layer": "Paths", "terrain": "path", "on": "floor",
+			"blobs": [
+				{"at": [15, 9], "r": 1.9, "seed": 31, "stretch": [1.2, 1.0]},
+				{"at": [21, 9], "r": 2.0, "seed": 32, "stretch": [1.2, 1.0], "solo": true}
+			],
+			"curves": [
+				{"points": [[15.5, 9.1], [18, 8.8], [20.5, 9.0]], "width": [2.0, 1.6]}
+			]}
+	],
+	"detail": [
+		{"kind": "pebbles", "clump": [24, 13], "n": 4, "r": 3, "seed": 1},
+		{"kind": "pebbles", "clump": [33, 23], "n": 4, "r": 2, "seed": 2},
+		{"kind": "pebbles", "clump": [12, 26], "n": 4, "r": 3, "seed": 3},
+		{"kind": "pebbles", "clump": [20, 8], "n": 3, "r": 2, "seed": 4},
+		{"kind": "pebbles", "clump": [6, 18], "n": 3, "r": 2, "seed": 5},
+		{"kind": "pebbles", "clump": [37, 12], "n": 3, "r": 2, "seed": 6},
+		{"kind": "sprigs", "cells": [[9, 2], [14, 2], [22, 33], [27, 33], [2, 12], [2, 25]]}
+	]
+}
