@@ -128,7 +128,7 @@ update the map in the same change.
 | menu screens, theme | `src/ui/ui_screen.gd`, `src/ui/screen_stack.gd`, `src/ui/ui_theme.gd`; the panel's cards `src/ui/detail_card.gd`, `src/game/main.gd:_mode_facts` | test_ui, menu_stick, journey, menu_contract, ui_fit |
 | menus cut off, screen sizes, phones, scrolling pages, text too wide | `src/ui/ui_screen.gd:_fit_rows`, `src/ui/detail_card.gd:fit_font`, `src/game/main.gd:pixel_scale_factor` | ui_fit, pixel_text |
 | resolution, window scale, pixel font, text size | `project.godot` `[display]` (960 x 540 base, scale 2: `ArtScale.PX_PER_UNIT` grid pixels a unit), `src/game/main.gd:_apply_pixel_scale`, `pixel_scale_factor` (whole screen pixels per grid pixel from two up, per unit below), `_fit_window`; `src/ui/ui_theme.gd:font`, `px`, `outline` | test_ui, pixel_text, art_scale |
-| character select, picking fighters | `src/ui/character_select.gd` | test_ui, rooms |
+| character select, picking fighters | `src/ui/character_select.gd` | test_ui, rooms, select_matchups |
 | online lobby, room codes, Quick match | `src/game/online_lobby.gd`, `src/net/netplay.gd` | rooms, online |
 | rollback, prediction | `src/net/rollback_session.gd`, `src/net/online_match.gd` | online |
 | desyncs, version or data mismatch | `src/net/online_match.gd:_check_digest`, `src/net/netplay.gd:data_hash` (`NET_VERSION`) | online, server |
