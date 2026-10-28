@@ -136,7 +136,7 @@ A move's type comes from `type`, or its id prefix (`light*`, `heavy*`, `surge*`,
 | `petrify` | seg | Statue for N ticks | hissy surge |
 | `freeze_ticks` | seg | Ice statue for N ticks | sno surge |
 | `blind_ticks` | seg | Next attack misses | digby skill_1, pete surge |
-| `root_ticks` | seg | No walking, no dodging (attacks still come out) | digby surge, barkley skill_2 (Pinecone Bomb, on a hit; its plant roots for `seed.root_share` of it), barkley surge (last ring) |
+| `root_ticks` | seg | No walking, no dodging (attacks still come out) | digby surge, barkley skill_2 (Pinecone Bomb, on a hit; its plant roots for `seed.root_share` of it), barkley surge (every ring, 60; a later ring refreshes it) |
 | `root_through_guard` | move (bool) | With `root_ticks`: a blocked hit still roots (the guard pays its stamina and takes no damage as usual; the `rooted` event says `blocked`). A drained guard (stamina short of the drain) drops as always and the hit lands in full | barkley surge |
 | `steal_ticks`, `steal` | seg / move | Attacker deals ×(1+steal), target ×(1−steal) | pete skill_2 |
 
