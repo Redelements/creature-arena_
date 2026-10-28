@@ -69,3 +69,25 @@ Base: `origin/main` at 5c26ca7 (PR #278 merged), NET_VERSION 61.
   rows are granted on the next award.
 - Checks: suite 1359/0, journey in suite, sweep 216/0, sim-check unchanged, map check clean. Screenshots at
   1600x900 and 1170x540 fit. Merging when CI is green.
+
+## Task B: profile screen
+
+- **PR #280** (branch `progression-profile`, from main 46cc45b). `src/ui/profile_screen.gd` (`ProfileScreen`,
+  pages "" hub / "account" / fighter id), opened by `main.gd:_open_profile(page)` (no-op while Off); title row
+  id `profile` (`TitleScreen.profile_pressed`), hidden while Off, "Profile   New!" when something is new;
+  `--menu=profile`, `profile:account`, `profile:<fighter>` (need On). progress.gd: save keys `account_title`,
+  `seen`; `account_title()/set_account_title`, `shown_title(f)`, `shown_line(f)`, `is_new`, `new_of`,
+  `new_anywhere`, `mark_seen`. Results: `winner_flair` fills `results_data()["badge"]` / `["line"]`, drawn as
+  `Badge` / `VictoryLine` under the winner banner, only when a human on this machine won. Pick screen:
+  `CharacterSelect.title_for` / `side_title`, set only when On, never online. UI: `OptionRow.locked/.tag/
+  .bar_width`, `FighterPreview.palette`, `DetailCard.palette` (hue turn in flash.gdshader). FighterPreview
+  gained `warm_materials()` (ShaderWarmup pin caught it).
+- Decisions (agent): "New!" marks (save key `seen`) instead of toasts; locked picker values can be previewed,
+  never worn; a fighter's title picker offers its mastery title plus the account titles; the profile hub's
+  13 rows scroll by one row at 16:9 rather than shrinking rows.
+- **Bug found, not fixed (for the QC task):** `main_presentation.gd:_intro_groups` (~line 181) throws
+  "Nonexistent 'String' constructor" when a Duel starts through `_start_match` with `_skip_select` set and
+  match intros on; normal play doesn't take that path (`--mode` turns intros off, Rematch keeps teams).
+- Checks: suite 1365/0 (after the warm-up fix), journey alone and in suite, sweep 216/0 (ran before the
+  one-line warm-up fix), sim-check unchanged, map clean. Screenshots at 1600x900 and 1170x540 in the
+  session scratchpad `shots-progression-profile/`. Merging when CI is green.
