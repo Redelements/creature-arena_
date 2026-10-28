@@ -58,9 +58,11 @@ Priorities are in the Game Plan doc, "Game modes". Refreshed 2026-10-27 (unatten
   column; Cerebro's kit pass shipped (#214), Crease is "no change", the other rows wait on Kevin.
 - **CPU, planned:** shared team intent (focus target, peel, front line) for 2v2 and up
   (`docs/plans/ai-utility-and-teamplay.md` piece 3; a first cut of the shared focus target is
-  in `src/ai/` with `tests/test_team_intent.gd`), bots playing the Caravan objective, and
+  in `src/ai/` with `tests/test_team_intent.gd`) and
   Burrow across pits (CPUs roll over pits since #230). Rage picks its kit by utility score
-  already (#159, #161).
+  already (#159, #161). Caravan CPUs play the wagon (attackers push and stay on it, defenders hold the road
+  ahead; `_caravan_go`): the push still never finishes with Normal bots (about a third of the track),
+  because both sides crowd the caravan and a contested caravan doesn't move.
 - **Known issues:** Sneaky Pete loses to Mister Crease almost every game *Rage vs Rage* (0 of 12
   on the Stadium, Oct 23): Tiptoe is up every 5 s and the knives chip him down in between.
   `bench_fighter.gd --fighter=pete --foes=crease --seeds=6`: Pete wins 1 of 6 and takes 2x what

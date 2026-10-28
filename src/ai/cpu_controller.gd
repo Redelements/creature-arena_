@@ -200,6 +200,14 @@ static var scored_default := true
 ## targets alone, for A/B with `tests/bench_cpu.gd --teams=3 --intent=off`).
 static var intent_default := true
 var intent: bool = intent_default
+## The Caravan plan (`_caravan_go`, `_cv_tether`, `_caravan_target`) for new controllers
+## (on; false plays the caravan as a plain zone, as before Oct 2026, for A/B with
+## `tests/bench_caravan.gd --plan=off`). A fighter's `ai.caravan` false also turns it off.
+static var caravan_default := true
+var caravan: bool = caravan_default
+## This tick's Caravan job from the rules' goal (TeamSim._cv_goals): "push" (attacker),
+## "hold" (defender), "" (not Caravan, or the plan is off).
+var _job := ""
 ## This tick's intent of my team (TeamIntent.of), set in bits(); the focus slot my current
 ## target was picked under, so a new focus is weighed at once; whether the target was
 ## forced on me by a foe in reach (then it isn't my vote for the team's focus).
@@ -231,6 +239,9 @@ func bits(sim: MatchSim) -> int:
 	t0 = PerfLog.now()
 	_team = TeamIntent.of(sim, me.team)
 	var foe := _pick_target(sim, me) if _rage() else _nearest_known(sim, me)
+	_job = _caravan_job(sim, me)
+	if _job != "" and foe != null and not _rage():
+		foe = _caravan_target(sim, me, foe)
 	# My choice, for the team's next build: who I'm on and whom I can see.
 	var saw := 0
 	for i in sim.creatures.size():
@@ -242,6 +253,8 @@ func bits(sim: MatchSim) -> int:
 	if foe != null and me.state != CreatureSim.State.KO:
 		t0 = PerfLog.now()
 		_decide(sim, me, foe)
+		if _job == "push":
+			_cv_tether(sim, me)
 		PerfLog.since("ai decide", t0)
 		# Normal and up aim attacks exactly (360 degrees), like a stick or a mouse; Easy
 		# keeps to the 8 directions a keyboard gives. Rage leads a moving target. A foe out
@@ -786,10 +799,17 @@ func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 			and _mind_hazards(sim, me, foe):
 		return
 	var to_foe := _seen(foe) - me.pos
+	# Caravan: the job the rules give this fighter (attackers to the caravan, defenders to
+	# the road ahead of it; `_caravan_go`).
+	if _job != "" and me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE, CreatureSim.State.GUARD]:
+		if _caravan_go(sim, me, foe, to_foe):
+			return
 	# A goal the mode's rules give this fighter (Capture the Flag: the flag, home, the
 	# carrier, the base): go there when outside it, unless the foe is in reach to fight;
-	# an urgent one (running the flag home) even then.
+	# an urgent one (running the flag home) even then. (A Caravan job is `_caravan_go`'s;
+	# with the plan off the caravan is played as a zone, below.)
 	if me.id < sim.goals.size() and not (sim.goals[me.id] as Array).is_empty() \
+			and not _is_caravan_goal(sim.goals[me.id]) \
 			and me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE, CreatureSim.State.GUARD]:
 		var g: Array = sim.goals[me.id]
 		var gp: Vector2 = g[0]
@@ -803,7 +823,8 @@ func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 			return
 	# King of the Crater: the zone is the point. Outside it, go to it unless the foe is
 	# right here to fight; inside, fight as usual (and come back if the fight drifts).
-	if sim.zone_r > 0.0 and me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE, CreatureSim.State.GUARD]:
+	# (The Caravan's zone is the caravan: with the plan off, both sides play it this way.)
+	if sim.zone_r > 0.0 and _job == "" and me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE, CreatureSim.State.GUARD]:
 		var out := me.pos.distance_to(sim.zone_pos) > sim.zone_r - 6.0
 		if out and (to_foe.length() > _reach_of(me, foe) + 12.0 or _seen(foe).distance_to(sim.zone_pos) <= sim.zone_r):
 			_go_to(sim, me, sim.zone_pos)
@@ -851,6 +872,8 @@ func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 			return
 		if _rage_punish(sim, me, foe, to_foe, dist):
 			return
+		if _job == "push" and _cv_hold(sim, me, foe, to_foe):
+			return
 		_rage_neutral(sim, me, foe, to_foe, dist)
 		return
 
@@ -858,7 +881,106 @@ func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 		return
 	if _maybe_tag(me, dist):
 		return
+	if _job == "push" and _cv_hold(sim, me, foe, to_foe):
+		return
 	_neutral(sim, me, foe, to_foe, dist)
+
+
+# ------------------------------------------------------------------ caravan
+
+## Whether a goal is a Caravan job (TeamSim._cv_goals: [where, radius, urgent, pass, job]).
+static func _is_caravan_goal(g: Variant) -> bool:
+	return g is Array and (g as Array).size() >= 5 and String((g as Array)[4]) in ["push", "hold"]
+
+
+## This fighter's Caravan job this tick: "push", "hold", or "" (no Caravan goal, a shrine
+## goal instead, the plan off for this controller, or its fighter's `ai.caravan` false).
+func _caravan_job(sim: MatchSim, me: CreatureSim) -> String:
+	if not caravan or me.id >= sim.goals.size() or not _is_caravan_goal(sim.goals[me.id]):
+		return ""
+	if not bool(_ai(me).get("caravan", true)):
+		return ""
+	return String((sim.goals[me.id] as Array)[4])
+
+
+## Caravan: outside its goal (the push radius for an attacker, the road ahead for a
+## defender), go there unless a foe is in reach to fight; a foe at the caravan (contesting
+## it, or pushing it) is no reason to stay away. True when it walked.
+func _caravan_go(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2) -> bool:
+	var g: Array = sim.goals[me.id]
+	var gp: Vector2 = g[0]
+	if me.pos.distance_to(gp) <= float(g[1]):
+		return false
+	var foe_at := _seen(foe).distance_to(sim.zone_pos) <= sim.zone_r
+	if to_foe.length() > _reach_of(me, foe) + 12.0 or foe_at:
+		_go_to(sim, me, gp)
+		return true
+	return false
+
+
+## Caravan: the foe to fight. One in reach comes first; otherwise one at the caravan (a
+## defender contesting the push, an attacker pushing it) over one further off, the
+## nearest of them.
+func _caravan_target(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> CreatureSim:
+	if _seen(foe).distance_to(me.pos) <= _reach_of(me, foe) + 4.0:
+		return foe
+	var best: CreatureSim = null
+	var best_d := INF
+	for o in sim.creatures:
+		if not me.is_foe(o) or o.state == CreatureSim.State.KO:
+			continue
+		if _seen(o).distance_to(sim.zone_pos) > sim.zone_r + 10.0:
+			continue
+		var d := _seen(o).distance_to(me.pos) * 0.5 + o.hp / o.max_hp * 220.0
+		if d < best_d:
+			best_d = d
+			best = o
+	return best if best != null else foe
+
+
+## Caravan, an attacker at the caravan whose foe stands off it (not contesting) and out of
+## each other's reach: it doesn't go out to it (a step, a lunge or a dash would take it off
+## the caravan) but stays and pushes, back toward the middle when near the rim, until the
+## foe comes. Its defence still runs first (`_defend`). A mage (the kite plan) throws from
+## the rim instead (`_cv_tether`). True when it held.
+func _cv_hold(sim: MatchSim, me: CreatureSim, foe: CreatureSim, to_foe: Vector2) -> bool:
+	if String(_style(me)["plan"]) == "kite" or me.pos.distance_to(sim.zone_pos) > sim.zone_r:
+		return false
+	if _seen(foe).distance_to(sim.zone_pos) <= sim.zone_r + 10.0:
+		return false  # it contests the push: fight it
+	var d := to_foe.length()
+	if d <= _reach_of(foe, me) + 8.0 or d <= _reach_of(me, foe) + 4.0:
+		return false
+	var g: Array = sim.goals[me.id]
+	if me.pos.distance_to(g[0]) > float(g[1]) * 0.6:
+		_move_toward((g[0] as Vector2) - me.pos)
+	return true
+
+
+## Caravan, an attacker: a walk that would take it out of the push radius slides along the
+## rim instead (backing off, circling, a kite, an approach to a foe further off), so the
+## fight stays where it pushes and heals. Only walking: a tick that presses a button (an
+## attack faced with the stick, a roll, a guard) is left alone, and so is a fighter already
+## outside (its goal brings it back).
+func _cv_tether(sim: MatchSim, me: CreatureSim) -> void:
+	if not (me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE]) or (_out & SimDefs.IN_ALL & ~15) != 0:
+		return
+	var dirs := 15 | SimDefs.IN_MOVE | ((SimDefs.AIM_STEPS - 1) << SimDefs.MOVE_SHIFT)
+	if (_out & dirs) == 0:
+		return
+	var off := me.pos - sim.zone_pos
+	var lim := sim.zone_r - 8.0
+	if off.length() < lim or off.length() > sim.zone_r + 4.0:
+		return
+	var n := off.normalized()
+	var d := SimDefs.move_from_bits(_out)
+	var outward := d.dot(n)
+	if outward <= 0.0:
+		return
+	var along := d - n * outward
+	_out &= ~dirs
+	if along.length() > 0.25:
+		_out |= SimDefs.move_bits(along) if level >= 1 else SimDefs.bits_from_dir(along.normalized())
 
 
 ## Duel: tag out a badly hurt creature for a healthier teammate, from a safe distance.

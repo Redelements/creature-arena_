@@ -39,7 +39,7 @@ about evenly (the slowest files, `test_server_teams`, `test_server_fuzz`, `test_
   `--seeds`, `--only=<id>`, `--detail` (per foe: share of ticks at `ai.range` spacing, stamina-empty ticks, guard breaks taken), `--arena=ID`, `--teams=3` (3v3 tank/mage/assassin a side: win rate, target and focus switches a minute, spacing; `--intent=a` gives only the first-picks side the team focus, `--intent=off` nobody), `--combat` (Rage vs Rage over the roster: each fighter's damage share by move type, combo length and variety, Surges a minute; baseline in `docs/plans/combat-metrics.md`). Six games a pair at `--seeds=3` is
   noisy; `--only=<id> --seeds=6` plays 132 games.
 - `bench_sim.gd`: rollback cost. `bench_sinkhole.gd`: Sinkhole pacing. `bench_caravan.gd`:
-  Caravan pacing with Normal CPUs (each round's push, rockslides, digging, healing). `bench_ctf.gd`:
+  Caravan pacing with Normal CPUs (each round's push, checkpoints, rockslides, digging, healing; a summary per size: push, finishes, time an attacker / a defender is at the caravan, the caravan's state; `--plan=off` plays it without the CPU's Caravan plan). `bench_ctf.gd`:
   Capture the Flag pacing with Normal CPUs (`--seeds`, `--sizes=3,4`, `--level`,
   `--set=key:value` to try a tuning): match length, score, and every play's count.
   `bench_modes.gd`: every mode's pacing on one yardstick, Normal CPUs (`--modes=team2,tdm3,brawl4,...`,
@@ -108,6 +108,7 @@ about evenly (the slowest files, `test_server_teams`, `test_server_fuzz`, `test_
 - `test_combo_rules.gd` — The combo rules one at a time: variety bonus, stale moves, hitstun decay, juggle cap, cancels only on contact, stacks,…
 - `test_combos.gd` — Every example combo from the design plan (Combat system tab) must connect and deal the planned damage.
 - `test_counterplay.gd` — Counterplay: big moves thrown raw must be readable and answerable, and reacting to a Surge's freeze must work.
+- `test_cpu_caravan.gd` — The CPU's Caravan plan: the rules give each fighter a job (TeamSim._cv_goals: attackers "push" at the caravan, defender…
 - `test_cpu_pathing.gd` — The CPU finds its way round walls, fences and chasms: a coarse nav grid with integer costs (deterministic), consulted o…
 - `test_craglash.gd` — Craglash's kit: Stoneskin's shield, Bedrock (his Surge: armor, taunt, drag and release), Mountain Maw (his hook: unbloc…
 - `test_crater.gd` — King of the Crater: a zone to hold that moves, the floor breaking round it, a hold that scores a tick a tick, KOs that…

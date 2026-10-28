@@ -6,7 +6,7 @@ extends SceneTree
 ## won), and with the Crater's permanent shrine buffs how often the side with more won.
 ## Definitions in docs/plans/mode-metrics.md.
 ##   godot --headless --path . --script res://tests/bench_modes.gd -- [--seeds=6] [--seed0=0] [--level=1]
-##     [--modes=team2,team3,tdm2,tdm3,crater2,sinkhole2,brawl3,brawl4,caravan3,ctf3]
+##     [--modes=team2,team3,tdm2,tdm3,crater2,sinkhole2,brawl3,brawl4,caravan2,caravan3,ctf3]
 ##     [--shrines=data|on|off] [--shrine-set=first_seconds:15,...] [--set=crown_points_to_win:20,...] [--rows]
 ##     [--shrine-spots=0.5/0.25;0.5/0.75] [--arena=quarry] [--mutators=damage_mult:0.67,haste,...]
 ## --shrines=on turns shrines on in a mode whose rules leave them out (with the shared
@@ -43,6 +43,7 @@ const MODES := {
 	"sinkhole2": ["team", "sinkhole", 2, "Sinkhole 2v2"],
 	"brawl3": ["brawl", "", 3, "Brawl (3)"],
 	"brawl4": ["brawl", "", 4, "Brawl (4)"],
+	"caravan2": ["team", "caravan", 2, "Caravan 2v2"],
 	"caravan3": ["team", "caravan", 3, "Caravan 3v3"],
 	"ctf3": ["team", "ctf", 3, "Capture the Flag 3v3"],
 }
