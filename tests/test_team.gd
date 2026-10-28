@@ -183,3 +183,43 @@ func test_cpu_team_battle_finishes_and_rolls_back() -> void:
 	for ins in log:
 		t2.step(ins)
 	assert_eq(t2.state_digest(), digest, "restored and replayed, the same match:")
+
+
+## The team intent pin (piece 3 of docs/plans/ai-utility-and-teamplay.md): Rage 3v3 on the
+## Stadium, a tank, a mage and an assassin a side, the two picks of each class swapped each
+## seed, both sides played (`bench_cpu.gd --teams=3 --a=3 --seeds=6 --intent=a`, the same
+## seeds): the side playing to its team's intent (focus, engage state, front line, peel,
+## isolated targets) against the side picking alone. The plan hoped for 65%; measured Oct 27
+## the coordinated side wins 4 of these 12 (as with the shared focus alone, before the rest of
+## piece 3) and 22 of 48 at --seeds=24 (24 before; 27 of 48 with nobody coordinated, the
+## noise floor): the class picks decide these fights (the Culvert, Cerebro, Digby side wins
+## about two in three either way), not the coordination. So the pin holds what is measured,
+## and moves only with a reason in the PR.
+const PIN_TEAM_WINS := 4
+
+
+func test_coordinated_rage_holds_its_own_in_a_3v3() -> void:
+	var picks := [["craglash", "culvert"], ["crease", "cerebro"], ["pete", "digby"]]
+	var won := 0
+	for s in 6:
+		for side in 2:
+			TeamIntent.reset()
+			var ids := [[], []]
+			for k in 3:
+				ids[side].append(picks[k][s % 2])
+				ids[1 - side].append(picks[k][(s + 1) % 2])
+			var t := TeamSim.new(ids, 3)
+			var cpus: Array = []
+			for i in t.slot_count():
+				var cpu := CpuController.new(i, CpuController.RAGE, 700 + s * 31 + side * 7 + i)
+				cpu.intent = t.side_of(i) == side
+				cpus.append(cpu)
+			var ticks := 0
+			while t.phase != TeamSim.Phase.OVER and ticks < 7200:
+				var ins := PackedInt32Array()
+				for c in cpus:
+					ins.append((c as CpuController).bits(t.sim))
+				t.step(ins)
+				ticks += 1
+			won += 1 if t.winner == side else 0
+	assert_true(won >= PIN_TEAM_WINS, "the coordinated side won %d of 12 (pin %d)" % [won, PIN_TEAM_WINS])

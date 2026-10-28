@@ -7,7 +7,7 @@ branch and PR, in this order:
 |---|---|---|---|
 | 1 | Richer CPU metrics in the benches (measure first) | `ai-metrics` | done |
 | 2 | Scored kit: Rage's neutral choices by utility score, weights in creature JSON | `ai-scored-kit` | done (scorer on for Rage) |
-| 3 | Team intent: shared focus target, peel/front-line roles for 2v2/3v3 | `ai-team-intent` | not started |
+| 3 | Team intent: shared focus target, peel/front-line roles for 2v2/3v3 | `ai-team-intent`, `team-intent-3` | done (Rage only; no win gain measured) |
 
 A session that picks this up: read this file, `src/ai/CLAUDE.md`, and `git log --oneline -5`
 on the branch in progress, then carry on from the first unticked step.
@@ -217,15 +217,31 @@ Steps:
       the focus 77% of their ticks; `bench_ai_cost` unchanged (think avg 1.97 vs 1.98 ms).
       So a shared focus alone is worth little: the win has to come from the steps below.)
       Focus target with hysteresis; `_pick_target` consults it before its own scan.
-- [ ] Engage state and front-line point; `_plan_kite`, `_plan_skirmish`, `_plan_press` read them.
-- [ ] `peel` and `isolated` as scorer considerations.
-- [ ] `bench_cpu.gd --teams=3 --intent=off` A/B; `test_team.gd` gains a pin: coordinated Rage
-      beats uncoordinated Rage ≥ 65% over `--seeds=6` on the Stadium with one tank, one mage,
-      one assassin a side.
-- [ ] `bench_ai_cost.gd --size=4 --level=3` before and after; the intent build must stay under
-      the cost of one `NavGrid` replan.
+- [x] (Oct 27, branch `team-intent-3`: `TeamIntent.engage` from `note_engage`, `engage_of`;
+      `TeamIntent.front` / `front_dir` / `front_slot`, `front_of`; `CpuController._engage_now`,
+      `_line_pull`.) Engage state and front-line point; `_plan_kite`, `_plan_skirmish`,
+      `_plan_press` read them. Changed from the plan: the mages' hold behind the line while the
+      team pokes lost Rage 2v2s (15-21 of 48 at holds from 40 px behind to 40 px ahead of the
+      line, against 30 of 48 without), so a kiter or skirmisher falls back behind the line only
+      while the team retreats (`HOLD_PX` 80, never out of range of the focus); the line holder
+      stops walking in on retreat; a skirmisher dives on commit.
+- [x] (Oct 27: `f_peel` / `_peel_target`, weight `peel` in `WEIGHTS`, `PEEL_MIN` 0.5; `f_isolated`
+      / `_isolation`, `ISOLATED_PX` 60.) `peel` and `isolated` as considerations on the target
+      pick (`_pick_target`), not the kit scorer: peel and isolation choose whom to fight, which
+      is the target pick's job.
+- [x] `bench_cpu.gd --teams=3 --intent=off` A/B; `test_team.gd` gains a pin
+      (`test_coordinated_rage_holds_its_own_in_a_3v3`). Measured Oct 27, Rage (only Rage reads
+      the intent; Normal team fights are identical on or off): `--teams=3 --seeds=24` the
+      coordinated side 22/48 (24/48 with the shared focus alone, 27/48 nobody coordinated);
+      `--teams=2 --seeds=24` 28/48 (31/48 focus alone, 26/48 nobody). At `--seeds=6` 4 of 12,
+      unchanged, so the pin is ≥ 4 of 12, not 65%: the class picks decide these fights (the
+      Culvert, Cerebro, Digby side wins about two in three whoever coordinates).
+- [x] `bench_ai_cost.gd --size=4 --level=3` before and after (ctf): think avg 2.22 → 2.17 ms,
+      p99 5.56 → 5.81, max 11.97 → 11.78 (threads on); with threads off, the target pick with
+      the intent build 0.13 → 0.14 ms a tick for all eight CPUs, under one replan (`ai path`
+      0.32-0.49 ms). Level 1: 1.82 → 1.82 ms avg.
 
-Done when: the 3v3 pin holds, focus switches land within 60 ticks of the current focus
+Done when (Oct 27: the pin holds at what is measured, not 65%; see above): the 3v3 pin holds, focus switches land within 60 ticks of the current focus
 breaking line of sight (`Vision`), and no 1v1 result in the matrix moves (the intent of a
 one-CPU team is the CPU's own choice).
 

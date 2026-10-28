@@ -13,7 +13,8 @@ extends SceneTree
 ##     rate, length, target switches a minute per CPU, spacing share, focus switches a minute
 ##     per team (a baseline for team AI)
 ##     --intent=a: only the first-picks side plays to a team focus (TeamIntent), the other side
-##     picks targets alone; --intent=off: nobody does (the old baseline)
+##     picks targets alone; --intent=off: nobody does (the old baseline). Commit / retreat: the
+##     share of a coordinated team's ticks in each engage state (TeamIntent.engage; Rage notes it)
 ##   --combat: how each fighter deals its damage, Normal (or --a) against Normal, every pair of the
 ##     roster from both sides (--seeds games a side, --only=<id> for its pairs): the share of
 ##     damage from light / heavy / skill / surge hits (clean, chip and on armor; from the
@@ -183,6 +184,7 @@ func _teams(size: int, lv: int, seeds: int) -> void:
 	var focus_switches := 0
 	var on_focus := 0  ## CPU-ticks spent on the team's focus, of those playing to one
 	var on_focus_n := 0
+	var engage := [0, 0, 0]  ## team-ticks in poke, commit, retreat (teams playing to a focus)
 	var space := 0.0
 	for s in seeds:
 		for side in 2:
@@ -213,6 +215,8 @@ func _teams(size: int, lv: int, seeds: int) -> void:
 								and t.sim.creatures[last_focus[team]].state != CreatureSim.State.KO:
 							focus_switches += 1
 						last_focus[team] = ti.focus
+						if _intent == "on" or (_intent == "a" and team == side):
+							engage[ti.engage] += 1
 						for i in t.slot_count():
 							var cpu: CpuController = cpus[i]
 							if cpu.intent and t.side_of(i) == team and t.sim.creatures[i].state != CreatureSim.State.KO:
@@ -237,10 +241,12 @@ func _teams(size: int, lv: int, seeds: int) -> void:
 			print("  seed %d side %d: %s vs %s  winner %d  %4.1f s" % [s, side, t_ids[side], t_ids[1 - side],
 				t.winner, ticks / 60.0])
 	var minutes := ticks_sum / 3600.0
-	print("TEAMS %dv%d %s (intent %s): first picks won %d/%d  avg %4.1f s  target switches %4.1f /min/CPU  focus switches %4.1f /min/team  on focus %3d%%  at spacing %3d%%" % [
+	var team_ticks := maxf(1.0, engage[0] + engage[1] + engage[2])
+	print("TEAMS %dv%d %s (intent %s): first picks won %d/%d  avg %4.1f s  target switches %4.1f /min/CPU  focus switches %4.1f /min/team  on focus %3d%%  at spacing %3d%%  commit %3d%%  retreat %3d%%" % [
 		size, size, CpuController.LEVELS[lv]["name"], _intent, w, n, ticks_sum / float(n) / 60.0,
 		switches / maxf(0.01, minutes) / (size * 2), focus_switches / maxf(0.01, minutes) / 2.0,
-		roundi(100.0 * on_focus / maxf(1.0, on_focus_n)), roundi(100.0 * space / n)])
+		roundi(100.0 * on_focus / maxf(1.0, on_focus_n)), roundi(100.0 * space / n),
+		roundi(100.0 * engage[1] / team_ticks), roundi(100.0 * engage[2] / team_ticks)])
 
 
 ## Every pair at one level, both sides: a grid of win rates (row beats column) and the
