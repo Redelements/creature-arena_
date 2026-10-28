@@ -79,12 +79,14 @@ extends Node2D
 ##                         foes), even with nobody playing here (captures of --cpu-vs-cpu)
 ##   --menu=PAGE           open a menu page: main, single, single:<group>, look (Time and weather), settings, game, video, audio, accessibility, controls,
 ##                         remap:classic|league|gamepad, credits, credits:<row> (game, szadi,
-##                         kiddolink, font, godot, notices) (captures)
+##                         kiddolink, font, godot, notices), profile, profile:account, profile:challenges,
+##                         profile:endings, profile:<fighter>, ending:<fighter> (one Arcade ending card)
+##                         (with Settings > Game > Progression on) (captures)
 ##   --online-host[=PORT]  host an online 1v1 straight away (UDP, default port 7777)
 ##   --online-join=ADDR[:PORT][/ROOM]  join one, or a dedicated server (ROOM: meet a friend there)
 ##   --online-watch=ADDR[:PORT][/ROOM] watch a server's match (a room's, from match to match)
 ##   --server[=PORT]       run as a dedicated server (with --headless); --max-players=N
-##   --fighter=ID          your fighter online
+##   --fighter=ID          your fighter online and in the ladders (Arcade, Gauntlet, Daily, Weekly)
 ##   --online-size=N       with --online-join to a server: 2, 3 or 4 asks for a 2v2 / 3v3 / 4v4 (4: Capture the Flag)
 ##   --net-lag=N --net-loss=F   hold back / drop the input stream (feel rollback on a LAN)
 ##   --net-delay=N         force the input delay (frames) instead of picking it from the ping
@@ -159,6 +161,7 @@ const MODES := [
 	{"label": "Caravan: 3v3 vs CPU", "team": 3, "rules": "caravan", "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Capture the Flag: 3v3 vs CPU", "team": 3, "rules": "ctf", "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Capture the Flag: 4v4 vs CPU", "team": 4, "rules": "ctf", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Weekly Challenge", "weekly": true, "sides": [Side.PLAYER, Side.CPU]},
 ]
 const REPLAY_MODE := 47
 ## The menus (src/ui screens): the title menu opens Single player (MENU_ROWS), the online
@@ -166,7 +169,7 @@ const REPLAY_MODE := 47
 ## one of several modes with Left/Right.
 ## The Settings pages and their rows, in order (see _setting()); "#Name" is a heading.
 const SETTING_PAGES := {
-	"game": ["level", "intros", "rumble", "shake", "discord", "server", "delay"],
+	"game": ["level", "intros", "rumble", "shake", "progression", "discord", "server", "delay"],
 	"video": ["fullscreen", "wide", "vsync", "fps", "glow", "lighting", "font", "perf_overlay", "#Camera", "cam_lead", "cam_clash", "cam_settle"],
 	"accessibility": ["a11y_teams", "a11y_outlines", "a11y_markers"],
 	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu", "#Voice chat", "voice", "voice_hear", "mic", "mic_test", "vol_Voice"],
@@ -188,6 +191,7 @@ const MENU_GROUPS := [
 	{"id": "team", "title": "Team battles", "sub": "Six modes from 1v1 to 4v4, CPU teammates beside you",
 		"desc": "Everyone on the field at once; pick the rules and the team size"},
 	{"id": "challenge", "title": "Challenges", "sub": "Arcade, Gauntlet, the Daily, Combo Trials, Reaction Drills",
+		"sub_progression": "Arcade, Gauntlet, Daily, Weekly, Combo Trials, Reaction Drills",
 		"desc": "Runs and lessons with something to clear or beat"},
 	{"id": "brawl", "title": "Brawl", "sub": "Free-for-all for up to four, and the Chaos Cup",
 		"desc": "Four fighters, one life each, CPUs in the empty seats"},
@@ -231,6 +235,10 @@ const MENU_ROWS := [
 			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy", "as Mister Crease"]},
 	{"label": "Daily Challenge", "group": "challenge", "modes": [41], "fighter_choice": true,
 		"desc": "Today's fight, the same for everyone: a seeded opponent and two mutators. Score by health left and time to spare. Left/Right: your fighter",
+		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert", "as Chef Cerebro",
+			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy", "as Mister Crease"]},
+	{"label": "Weekly Challenge", "group": "challenge", "modes": [54], "fighter_choice": true, "progression": true,
+		"desc": "This week's fight, the same for everyone: a seeded opponent, map and three mutators. Play it all week; your best counts. Left/Right: your fighter",
 		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert", "as Chef Cerebro",
 			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy", "as Mister Crease"]},
 	{"label": "Combo Trials", "group": "challenge", "modes": [9], "desc": "Learn the combos, one at a time"},
@@ -464,7 +472,7 @@ var wins := [0, 0]
 var _carried_energy := [-1.0, -1.0]
 var timer := ROUND_TICKS
 var seed_base := 1
-## --menu=PAGE: open a menu page on start (captures): single, single:<group>, settings, game, video, audio, accessibility, controls, credits[:row].
+## --menu=PAGE: open a menu page on start (captures): single, single:<group>, settings, game, video, audio, accessibility, controls, credits[:row], profile[:account|challenges|endings|<fighter>], ending:<fighter>.
 var _menu_arg := ""
 var args_ctl := MainArgs.new(self)  ## the command line (main_args.gd)
 var _setting_rows := {}  ## Settings key -> its OptionRow, while the page is open
@@ -934,13 +942,26 @@ func _open_menu(page := "", focus := "") -> void:
 	audio.play_music("menu")
 	_menu_background()
 	var land := focus if focus != "" else ("settings" if page in SETTING_PAGES or page == "controls" or page.begins_with("remap:") \
-		or page.begins_with("credits") else page)
+		or page.begins_with("credits") else ("profile" if page.begins_with("profile") or page.begins_with("ending:") else page))
 	var t := TitleScreen.new(land)
 	t.single_pressed.connect(_open_single)
 	t.online_pressed.connect(func(): _start_match(ONLINE_MODE))
+	t.profile_pressed.connect(_open_profile)
 	t.settings_pressed.connect(settings_ctl._open_settings)
 	t.exit_pressed.connect(func(): get_tree().quit())
 	ui.push(t)
+	if page.begins_with("profile"):  # the Profile, an account or fighter page: --menu=profile:cairn
+		_open_profile()
+		if page.contains(":"):
+			_open_profile(page.get_slice(":", 1))
+		return
+	if page.begins_with("ending:"):  # one Arcade ending card, as the Endings gallery opens it: --menu=ending:cairn
+		_open_profile()
+		_open_profile("endings")
+		var ef := page.get_slice(":", 1)
+		if Progress.enabled() and ef in MatchFactory.FIGHTERS:
+			ui.push(EndingScreen.new(ef, true))
+		return
 	if page.begins_with("single:"):  # a Single player page, for captures: --menu=single:team
 		_open_single()
 		_open_single_group(page.get_slice(":", 1))
@@ -974,6 +995,14 @@ func _open_menu(page := "", focus := "") -> void:
 			settings_ctl._open_settings()
 			settings_ctl._open_controls()
 			settings_ctl._open_remap(page.get_slice(":", 1))
+
+
+## The Profile (title menu > Profile; src/ui/profile_screen.gd): "" the Profile itself,
+## "account", "challenges", "endings" or a fighter id for its page. Nothing while Settings > Game > Progression is off.
+func _open_profile(page := "") -> void:
+	if not Progress.enabled() or not (page in ["", "account", "challenges", "endings"] or page in MatchFactory.FIGHTERS):
+		return
+	ui.push(ProfileScreen.new(page))
 
 
 ## A CPU-vs-CPU match behind the menus (restarted now and then; the screens stay).
@@ -1024,7 +1053,12 @@ func _open_single() -> void:
 		s.add_space(2)
 		for g in MENU_GROUPS:
 			var gid := String(g["id"])
-			s.add_card(String(g["title"]), String(g["sub"]), func(): _open_single_group(gid), String(g["desc"]))
+			var sub := String(g.get("sub_progression", g["sub"])) if Progress.enabled() else String(g["sub"])
+			var hub_card := s.add_card(String(g["title"]), sub, func(): _open_single_group(gid), String(g["desc"]))
+			if gid == "challenge" and Progress.enabled():
+				var today := s.card(hub_card)
+				if today != null:
+					today.facts = _today_facts()
 		s.add_space(3)
 		s.add_button("Back", s.back)
 	ui.push(scr)
@@ -1050,7 +1084,7 @@ func _open_single_group(gid: String, focus_row := -1) -> void:
 	scr.builder = func(s: UiScreen):
 		for r in MENU_ROWS.size():
 			var row: Dictionary = MENU_ROWS[r]
-			if String(row.get("group", "")) != gid:
+			if String(row.get("group", "")) != gid or (row.get("progression", false) and not Progress.enabled()):
 				continue
 			var desc := String(row.get("desc", ""))
 			if row.has("choices"):
@@ -1190,6 +1224,8 @@ func _match_look(s: MatchSim) -> Dictionary:
 	if mode == REPLAY_MODE:
 		var rl = _replay_watched.get("look", {})
 		return rl if rl is Dictionary and not (rl as Dictionary).is_empty() else WeatherView.default_look()
+	if arcade is Weekly:
+		return (arcade as Weekly).look()  # the week's look, the same for everyone
 	var aid := String(s.arena.get("id", ""))
 	if _look_fresh or _look.is_empty() or String(_look.get("arena", "")) != aid:
 		_look = WeatherView.resolve(s.arena, String(_look_cli.get("time", time_choice)),
@@ -1197,6 +1233,30 @@ func _match_look(s: MatchSim) -> Dictionary:
 		_look["arena"] = aid
 		_look_fresh = false
 	return {"time": _look["time"], "weather": _look["weather"]}
+
+
+## The Weekly Challenge row's card (three lines under the fighter): who and where this
+## week, then its three mutators over two lines (no dangling comma) with the week's best.
+func _weekly_facts(w: Weekly) -> Array:
+	var best := Progress.weekly_best(w.week)
+	var names := w.mutator_names_list()
+	return ["vs %s, %s" % [String(MatchFactory.load_def(w.opponent()).get("name", w.opponent())), w.arena_id.capitalize()],
+		", ".join(PackedStringArray(names.slice(0, names.size() - 1))),
+		"%s  ·  %s" % [names.back(), ("best %d" % best) if best > 0 else "no score yet"]]
+
+
+## The "today" card on the Single player hub's Challenges card (Progression on): today's
+## Daily (played, best), this week's Weekly (its map, best) and its mutators, one a line (the hub's
+## arena picture is taller, so the card never grows the panel).
+func _today_facts() -> Array:
+	var day := Daily.today()
+	var daily_best := Progress.daily_best(day)
+	var daily := "Daily: best %d today" % daily_best if daily_best > 0 else (
+		"Daily: played, no score yet" if FileAccess.file_exists("user://daily/daily_%d.json" % day) else "Daily: not played today")
+	var w := Weekly.new("cairn")
+	var wb := Progress.weekly_best(w.week)
+	var weekly := "Weekly: best %d" % wb if wb > 0 else "Weekly: no score yet"
+	return [daily, weekly, "on " + ArenaMap.name_of(w.arena_id)] + w.mutator_names_list()
 
 
 ## A row's card in the panel: the fighter the row's choice names, and the mode's facts
@@ -1277,6 +1337,8 @@ func _mode_facts(row: Dictionary, cfg: Dictionary) -> Array:
 	if cfg.get("gauntlet", false):
 		return ["Endless waves; health carries", "Up a level every %d waves" % Gauntlet.WAVES_PER_LEVEL,
 			"Your best is kept"]
+	if cfg.get("weekly", false):
+		return _weekly_facts(Weekly.new("cairn"))
 	if cfg.get("daily", false):
 		return ["One seed a day, for everyone", "%d mutators on the fight" % Daily.PICKS,
 			"Clock %s, health + time score" % _mmss(Daily.FIGHT_TICKS)]
@@ -1387,6 +1449,8 @@ func _start_match(m: int, keep_teams := false) -> void:
 	_ko_by_hazard = ""
 	_hazard_hit_now.clear()
 	_arcade_cleared = false
+	_progress_shown = {}  # a new match or run (an Arcade run's stages add up until then)
+	_challenges_shown = []
 	if not (keep_teams and m == mode):
 		_training_fighter = ""  # a swapped fighter lasts until you leave training
 	mode = m
@@ -1403,6 +1467,8 @@ func _start_match(m: int, keep_teams := false) -> void:
 			arcade = Arcade.new(_arcade_fighter, level, seed_base)
 	elif cfg.get("gauntlet", false):
 		arcade = Gauntlet.new(_arcade_fighter, seed_base)
+	elif cfg.get("weekly", false):
+		arcade = Weekly.new(_arcade_fighter)
 	elif cfg.get("daily", false):
 		arcade = Daily.new(_arcade_fighter)
 	else:
@@ -1434,6 +1500,9 @@ func _start_match(m: int, keep_teams := false) -> void:
 		pick.p1_keyboard = player_input.keyboard
 		pick.p1_pad = player_input.pad_device
 		pick.p2_pad = player2_input.pad_device
+		if Progress.enabled():  # the players' titles (Progression): player 1's side, and player 2's
+			pick.title_for = func(side: int, id: String) -> String:
+				return Progress.shown_title(id) if side == 0 or two_players else ""
 		pick.chosen.connect(_on_teams_chosen)
 		pick.cancelled.connect(_back_to_row)
 		ui.push(pick)
@@ -1595,13 +1664,34 @@ func _arcade_result(won: bool) -> bool:
 		return false
 	var me := sim.creatures[0]
 	var share := clampf(me.hp / me.max_hp, 0.0, 1.0)
+	if arcade is Weekly:
+		# One fight, scored like the Daily, as often as you like this week; the best is kept.
+		# (A near copy of the Daily's branch below, kept apart: it has no replay file and no
+		# server submission, and merging the two would hide that.)
+		var w := arcade as Weekly
+		var w_tick := int(_round_end[0]) if _round_end.size() == 2 else sim.tick
+		var w_share := float(_round_end[1]) if _round_end.size() == 2 else share
+		var w_score := w.score_fight(won, w_share, w_tick)
+		var w_old := Progress.weekly_best(w.week)
+		var first_clear := won and w_score > 0 and w_old <= 0
+		var w_best := Progress.record_weekly(w.week, w_score)
+		# The score pays only what it adds to the week's best (a retry that doesn't beat it: 0).
+		show_ctl.award_match(won, {Progress.R_DAILY_SCORE: maxi(0, w_score - w_old) if w_best else 0, Progress.R_WEEKLY_CLEAR: first_clear})
+		flow = Flow.MATCH_OVER
+		flow_t = 0
+		hud.banner = "SCORE  %d" % w_score if won else "NO SCORE"
+		hud.banner_sub = ("A new best this week!" if w_best and won else
+			("This week's best: %d" % Progress.weekly_best(w.week)) if won else "Win the fight to score")
+		return true
 	if arcade is Daily:
 		# One fight, scored, saved with its replay so the score can be checked.
 		var d := arcade as Daily
 		var end_tick := int(_round_end[0]) if _round_end.size() == 2 else sim.tick
 		var end_share := float(_round_end[1]) if _round_end.size() == 2 else share
 		var score := d.score_fight(won, end_share, end_tick)
+		var old_best := Progress.daily_best(d.date)
 		var best := Progress.record_daily(d.date, score)
+		show_ctl.award_match(won, {Progress.R_DAILY_SCORE: maxi(0, score - old_best) if best else 0})  # (as the Weekly's)
 		var path := "user://daily/daily_%d.json" % d.date
 		DirAccess.make_dir_recursive_absolute("user://daily")
 		var f := FileAccess.open(path, FileAccess.WRITE)
@@ -1616,6 +1706,9 @@ func _arcade_result(won: bool) -> bool:
 		if won and score > 0:
 			online_ctl._net_daily_submit(d)
 		return true
+	# Progression pays each stage as a fight (a Gauntlet wave won, an Arcade clear on top).
+	var cleared := won and arcade is Arcade and arcade.is_boss()
+	show_ctl.award_match(won, {Progress.R_WAVES: 1 if won and arcade is Gauntlet else 0, Progress.R_CLEAR_ARCADE: cleared})
 	if not won:
 		flow = Flow.MATCH_OVER
 		flow_t = 0
@@ -1632,14 +1725,49 @@ func _arcade_result(won: bool) -> bool:
 		return true
 	# The boss is down: the Arcade is cleared on this level.
 	_arcade_cleared = true
+	var had := Progress.palettes_unlocked(arcade.fighter)
 	var new_best := Progress.record_clear(arcade.fighter, arcade.level)
 	flow = Flow.MATCH_OVER
 	flow_t = 0
 	hud.banner = "ARCADE CLEAR!"
-	hud.banner_sub = ("New palette unlocked: F5 in a fight to wear it" if new_best
-		else "Cleared on %s" % CpuController.LEVELS[arcade.level]["name"])
+	# A new palette only when the clear gave one (mastery may have given it already).
+	var level_name := String(CpuController.LEVELS[arcade.level]["name"])
+	hud.banner_sub = ("New palette unlocked: F5 in a fight to wear it" if Progress.palettes_unlocked(arcade.fighter) > had
+		else ("Cleared on %s: a new best" % level_name if new_best else "Cleared on %s" % level_name))
 	audio.play("round_end")
 	return true
+
+
+## Progression on, the Arcade just cleared: the fighter's ending card (src/ui/ending_screen.gd)
+## comes up where the results would, and Continue (or Back) goes on to them. Marks the ending
+## seen (and grants its title) as it shows. False, and nothing shown, otherwise (Off: the
+## results come straight after the clear, as before).
+func _open_ending() -> bool:
+	if not (_arcade_cleared and arcade is Arcade and Progress.enabled() and online == null and watch == null) \
+			or _replaying() or Endings.of(arcade.fighter).is_empty():
+		return false
+	var first := Endings.show(arcade.fighter)
+	var t := String(Endings.of(arcade.fighter).get("unlock_title", ""))
+	hud.banner_hidden = true  # the card says it
+	var card := EndingScreen.new(arcade.fighter, false, func():
+		ui.clear()
+		hud.banner_hidden = false
+		show_ctl._show_match_over())
+	if first and t != "" and Progress.unlocked(t):
+		card.unlocked_title = t  # the card says it, and so does the results' "Unlocked:" row
+		var lvl := Progress.account_level()
+		_progress_shown = Progress.merge_results(_progress_shown,
+			{"xp": 0, "level_from": lvl, "level_to": lvl, "mastery": {}, "unlocked": [t]})
+	ui.push(card)
+	return true
+
+
+## F5's toast: the palette worn of those unlocked, and how more unlock while some are locked.
+static func palette_toast(i: int, n: int) -> String:
+	var t := "Palette %d of %d" % [i + 1, n]
+	if n < Progress.PALETTES:
+		t += "   ·   more from mastery or Arcade clears" if Progress.enabled() else "   ·   clear the Arcade to unlock more"
+	return t
 
 
 ## Duel: the rules (intro, tags, swaps, timer, winner) all run inside DuelSim; this
@@ -2374,6 +2502,13 @@ var _ko_by_hazard := ""
 var _hazard_hit_now := {}  ## who an arena hazard last struck (slot -> [tick, its shape])
 ## The Arcade run just ended in a clear (the match-over menu offers a new run, not a retry).
 var _arcade_cleared := false
+## Progression (Settings > Game > Progression; main_presentation.gd `award_match`): the sim
+## whose match was paid (its instance id; a match pays once) and what it paid (an Arcade or
+## Gauntlet run's stages added up), for the results screen.
+var _progress_for := 0
+var _progress_shown := {}
+## The challenges this match (or ladder run) completed (src/game/challenges.gd), for the results.
+var _challenges_shown: Array = []
 
 
 func _over_reason() -> String:
@@ -2479,6 +2614,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	hud.banner_hidden = false
 	if not _menu_bg and round_num <= 1:
 		stats.reset()
+		Challenges.begin_match()
 	_cam_zoom = 0.0  # frame the new fight straight away
 	_cam_lead = Vector2.ZERO
 	_cam_prev = []
@@ -2532,12 +2668,14 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	for v in views:
 		v.queue_free()
 	views.clear()
+	hud.palettes = {}
 	for c in sim.creatures:
 		var v := CreatureView.new()
 		entities.add_child(v)
 		v.setup(c)
 		if c.id < sides.size() and sides[c.id] == Side.PLAYER:
 			v.palette = Progress.palette(String(c.def.get("id", "")))
+			hud.palettes[c.id] = v.palette  # the HUD portrait wears it too
 		views.append(v)
 	debug.sim = sim
 	rings.set_sim(sim)
@@ -2607,7 +2745,8 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 			Side.PLAYER:
 				hud.tags[i] = "P1"
 			Side.CPU:
-				hud.tags[i] = "CPU " + LEVEL_NAMES[level]
+				# The level it plays at: a ladder stage's own (the Arcade boss one up), else the setting's.
+				hud.tags[i] = "CPU " + LEVEL_NAMES[_cpu_level_override if _cpu_level_override >= 0 else level]
 				hud.key_labels[i] = ["", "", ""]
 			Side.SCRIPT:
 				hud.tags[i] = "DEMO"
@@ -2957,11 +3096,12 @@ func _update_flow() -> void:
 					round_num += 1
 					_start_round()
 		Flow.MATCH_OVER:
+			show_ctl.award_match()  # Progression: once per match (a no-op after the first tick)
 			if duel != null:
 				hud.timer_ticks = maxi(duel.timer, 0)
 			elif team_battle != null:
 				hud.timer_ticks = maxi(team_battle.timer, 0)
-			if flow_t == MATCH_OVER_MENU_AT and not ui.is_open():
+			if flow_t == MATCH_OVER_MENU_AT and not ui.is_open() and not _open_ending():
 				show_ctl._show_match_over()
 			if sides[0] == Side.CPU and sides[1] == Side.CPU and flow_t > 240:
 				seed_base += 1
@@ -3218,6 +3358,7 @@ func _react(e: Dictionary) -> void:
 	_count_ctf(e)
 	if flow != Flow.MENU:
 		stats.note(e)
+		Challenges.note_event(e)  # Progression's challenges (nothing while Off)
 		if String(e["type"]) in ["shrine_soon", "shrine_ready", "shrine", "shrine_boost"]:
 			_shrine_toast(e)
 		elif String(e["type"]) in ["spree", "shutdown", "crown"]:
@@ -3586,7 +3727,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			var n := Progress.palettes_unlocked(id)
 			var i := Progress.next_palette(id)
 			(views[me] as CreatureView).palette = i
-			hud.show_toast("Palette %d of %d" % [i + 1, n] + ("" if n > 1 else "   ·   clear the Arcade to unlock more"))
+			hud.palettes[me] = i
+			hud.show_toast(palette_toast(i, n))
 	elif event.is_action_pressed("save_replay"):
 		_save_replay()
 	elif event.is_action_pressed("reset") and MODES[mode].get("training", false):

@@ -7,9 +7,10 @@ the game uses, plus a free font and the engine. This file lists them. In the gam
 credits are under **Settings > Credits** (`src/ui/credits_screen.gd`), with Godot's licence
 and its third-party notices.
 
-**This repository is public. The files listed under "Szadi art" and "kiddolink" below are
-not covered by any licence or permission this repository grants and may not be reused,
-copied out or redistributed.** They are here only so the game builds. If you fork or copy
+**This repository is public but not open source: `LICENSE` at the root reserves all rights
+to the game's own code, art, audio, data and documents. The files listed under "Szadi art"
+and "kiddolink" below are not covered by any licence or permission this repository grants
+and may not be reused, copied out or redistributed.** They are here only so the game builds. If you fork or copy
 this repository, leave them out or buy your own licence from the artist.
 
 The raw packs never enter this repository: only the cut, edited pieces the game uses do (no
@@ -20,11 +21,14 @@ path passed on the command line; the game and CI use the committed cuts alone.
 comments of the pack's itch.io page, to Kevin's question whether cut, edited effect strips may
 sit in this public repository next to the code with a note that they are kiddolink's licensed
 assets and not free to reuse: "It's acceptable! I appreciate that you wrote a note about the use
-of the assets." That note is the notice at the top of this file. **Szadi art: pending.** Szadi's
-licence text allows publishing works that use the art and forbids only resale of the art; a
-written OK for the cuts in a public repository has still to be asked for or received. Until it
-is, treat the Szadi cuts as provisional: if the answer is no, they come out of the public repo
-(a private asset store, pulled in at build time).
+of the assets." That note is the notice at the top of this file. **Szadi art:** Kevin read the
+licence text on 28 October 2026 and relies on its clauses (a) edit and cut, (b) sell works made
+with the assets, and (c) publish on games-related websites, for the cut pieces in this public
+repository; clause (d) is why no bought art reaches the logo, icon or store marks
+(`tests/test_licenses.gd` pins it). The licence says nothing about giving files away as such,
+so a written OK from Szadi is still being asked for; if the answer is no, the cuts come out of
+the public repo (a private asset store, pulled in at build time). The plan for the whole
+question: `docs/ip-protection-plan.md`.
 
 ## Szadi art
 

@@ -42,10 +42,11 @@ Six fighters so far, each with a full moveset and a CPU opponent:
 
 ## Play a build
 
-Every pull request gets a **playable build**: a bot comment on the PR links a Windows,
-a Linux and an Android download (sign in to GitHub, unzip, run). Builds of `main` are on the
-[Actions page](../../actions/workflows/playable-build.yml). Windows may warn about an
-unknown publisher: choose **More info → Run anyway**.
+Every push to `main` makes a **playable build**: a Windows, a Linux and an Android download
+on the [Actions page](../../actions/workflows/playable-build.yml) (sign in to GitHub, unzip,
+run; kept three days). A branch gets one by hand (Run workflow on that page; it is linked on
+the branch's pull request). Windows may warn about an unknown publisher: choose
+**More info → Run anyway**.
 
 **Android** (arm64; played on an AYN Odin 3 with its built-in controls, or any phone with a
 Bluetooth controller; there are no touch controls yet): copy `Ready4Rambles.apk` to the device
@@ -918,6 +919,31 @@ storm.
 
 Every one of these is checked by an automated test (`tests/test_combos.gd`).
 
+## Progression
+
+Every fight that counts pays XP: a fight played, a win, KOs (five at most), an Arcade clear, a
+Gauntlet wave, a Daily or Weekly score that beats your best. Against the CPU the level scales it
+(Easy half, Hard and Rage a little more); single-round ladder stages (Arcade, Gauntlet, Daily,
+Weekly) pay half a stage; three days in a row with a paid fight add 10%. Training, showcases,
+replays, the coaches and CPU-vs-CPU pay nothing; online pays the local player.
+
+- **Account level** (1 to 50, about forty hours): a title every few levels, worn under your name
+  on the pick and results screens.
+- **Fighter mastery** (1 to 10 per fighter, about four hours each): that fighter's palettes 2 to 4
+  (an Arcade clear on Easy, Normal and Hard still unlocks them too), two victory lines for the
+  results screen, and its own title.
+- **Challenges**: about fifty goals across every mode (Profile > Challenges), each paying XP once,
+  some a title. The **Weekly Challenge** sits beside the Daily: one seeded fight a week under three
+  mutators, your best kept. Clearing the **Arcade** shows that fighter's **ending card** (and its
+  title); Profile > Endings shows them again.
+
+Everything it gives is cosmetic: no fighter, move, mode or stat is ever behind a level, and online
+matchmaking ignores it. **Profile** on the title menu shows the levels, the bars and what each
+fighter wears. It is on by default; **Settings > Game > Progression** turns it off (nothing is
+earned and the Profile goes away; palettes already earned stay wearable). The numbers and tables
+are data: `data/progression.json`, `data/challenges.json`, `data/endings/`. The save is
+`progress.json` in the user folder, written whole and renamed, with a `.bak` of the one before.
+
 ## How it's built
 
 ```
@@ -978,6 +1004,9 @@ artist's sheets, plus Culvert, Cairn and the training dummy) from posed 3D rigs 
 master palette (`tools/gen_*.py`), and the tiles, crowd and effects from
 `tools/gen_sprites.py`. Sheet layouts are documented in [docs/SPRITES.md](docs/SPRITES.md);
 replacement art with the same layout drops in without code changes.
+
+**Licence.** The repository is public to be looked at, not open source: [LICENSE](LICENSE)
+reserves all rights; third-party files and their terms are in [LICENSES.md](LICENSES.md).
 
 Text uses the pixel font **m5x7** by Daniel Linssen (CC0, `assets/fonts/`, license beside
 it; credit appreciated, not required), drawn on a 960 x 540 grid at whole multiples of its

@@ -128,6 +128,8 @@ static func _mode_title(g: Node, cfg: Dictionary) -> String:
 			return "Online ranked 1v1"
 		return "Online 1v1"
 	if g.arcade != null:
+		if g.arcade is Weekly:
+			return "Weekly Challenge"
 		if g.arcade is Daily:
 			return "Daily Challenge"
 		var run := "Gauntlet" if g.arcade is Gauntlet else "Arcade"

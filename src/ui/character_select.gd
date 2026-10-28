@@ -42,6 +42,10 @@ var solo_heading := ""
 var solo_info := ""
 ## The banner once the picks are in.
 var done_text := "READY!"
+## Progression: the title shown small after a side's label, for the fighter its cursor is
+## on: title_for.call(side, fighter_id) -> String ("" none). Unset (or Progression off,
+## main's choice): nothing is drawn.
+var title_for := Callable()
 
 var roster: Array = []
 var teams: Array = [[], []]
@@ -463,6 +467,24 @@ func _draw_panel(side: int) -> void:
 	_text(Vector2(x + 6, PANEL_Y + 11), String(labels[side]), 7, col)
 	if solo and side == 1:
 		return  # the labels hold what happens next
+	var status := _status(side)
+	var status_w := _font.get_string_size(status, HORIZONTAL_ALIGNMENT_LEFT, -1, UiTheme.px(6)).x
+	var shown := side_title(side)
+	if shown != "":  # the player's title after their label, cut short of the status
+		var tx := x + 6 + _font.get_string_size(String(labels[side]), HORIZONTAL_ALIGNMENT_LEFT, -1, UiTheme.px(7)).x + 6
+		var room := PANEL_W - 12 - status_w - 6 - (tx - x - 6)
+		while shown.length() > 3 and _font.get_string_size(shown, HORIZONTAL_ALIGNMENT_LEFT, -1, UiTheme.px(5)).x > room:
+			shown = shown.left(-3) + ".."
+		if room > 12.0:
+			_text(Vector2(tx, PANEL_Y + 11), shown, 5, Color(UiTheme.C_ACCENT, 0.85), HORIZONTAL_ALIGNMENT_LEFT, room)
+	_text(Vector2(x + 6, PANEL_Y + 11), status, 6, UiTheme.C_ACCENT if team.size() >= team_size else UiTheme.C_DIM,
+		HORIZONTAL_ALIGNMENT_RIGHT, PANEL_W - 12)
+	_draw_team(side, x, col, team)
+
+
+## What a panel's title line shows on the right: READY, or how many picks are left.
+func _status(side: int) -> String:
+	var team: Array = teams[side]
 	var status := ""
 	if team.size() >= team_size:
 		status = "READY"
@@ -470,8 +492,20 @@ func _draw_panel(side: int) -> void:
 		status = "Player 1 picks after their own team"
 	else:
 		status = "Pick %d more" % (team_size - team.size()) if team_size > 1 else "Pick a fighter"
-	_text(Vector2(x + 6, PANEL_Y + 11), status, 6, UiTheme.C_ACCENT if team.size() >= team_size else UiTheme.C_DIM,
-		HORIZONTAL_ALIGNMENT_RIGHT, PANEL_W - 12)
+	return status
+
+
+## The title after a side's label: for the fighter its cursor is on, else its first pick.
+func side_title(side: int) -> String:
+	if not title_for.is_valid():
+		return ""
+	var id := String(roster[cursor[side]])
+	if id == RANDOM:
+		id = String(teams[side][0]) if not (teams[side] as Array).is_empty() else ""
+	return String(title_for.call(side, id)) if id != "" else ""
+
+
+func _draw_team(side: int, x: float, col: Color, team: Array) -> void:
 	# The team so far: slots narrow so four still fit inside the panel.
 	var slot_w := minf(34.0, (PANEL_W - 108.0 - 4.0 * (team_size - 1)) / maxf(1.0, team_size))
 	for k in team_size:

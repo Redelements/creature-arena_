@@ -1,0 +1,11 @@
+{
+	"title": "The Big Score",
+	"lines": [
+		"Pete takes the trophy home. Nobody saw him go.",
+		"Back at the hideout, he empties his bag:",
+		"cash, a watch, the referee's whistle...",
+		"...and the boss team's belts. Finders keepers!"
+	],
+	"art": "res://assets/ui/endings/pete.png",
+	"unlock_title": "title:pete_ending"
+}

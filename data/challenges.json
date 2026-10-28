@@ -1,0 +1,50 @@
+{
+	"_note": "Challenges (src/game/challenges.gd): goals counted from MatchStats and the sim's events after a finished match, shown on Profile > Challenges. Cosmetic only, read only when Settings > Game > Progression is On. id: stable lowercase snake_case (ready for Steam achievements later; never rename one). stat: a counter Challenges.STATS lists; target: the count that completes it. A goal with \"fighter\": \"{fighter}\" is written once and expanded for every fighter at load ({fighter} the id, {name} the fighter's name). reward: account XP and/or a reward id (\"title:<id>\", its words in data/progression.json's titles map). group: the Profile page's heading.",
+	"groups": ["General", "Fighters", "Modes", "Skills", "Hazards"],
+	"goals": [
+		{"id": "first_fight", "group": "General", "name": "First Bell", "desc": "Finish a fight", "stat": "fights", "target": 1, "reward": {"xp": 50}},
+		{"id": "fights_25", "group": "General", "name": "25 Fights", "desc": "Finish 25 fights", "stat": "fights", "target": 25, "reward": {"xp": 150}},
+		{"id": "fights_100", "group": "General", "name": "100 Fights", "desc": "Finish 100 fights", "stat": "fights", "target": 100, "reward": {"xp": 400, "id": "title:centurion"}},
+		{"id": "first_win", "group": "General", "name": "First Win", "desc": "Win a fight", "stat": "wins", "target": 1, "reward": {"xp": 50}},
+		{"id": "wins_10", "group": "General", "name": "10 Wins", "desc": "Win 10 fights", "stat": "wins", "target": 10, "reward": {"xp": 150}},
+		{"id": "wins_50", "group": "General", "name": "50 Wins", "desc": "Win 50 fights", "stat": "wins", "target": 50, "reward": {"xp": 300}},
+		{"id": "wins_200", "group": "General", "name": "200 Wins", "desc": "Win 200 fights", "stat": "wins", "target": 200, "reward": {"xp": 600, "id": "title:champion"}},
+		{"id": "first_ko", "group": "General", "name": "First K.O.", "desc": "Knock out a foe", "stat": "kos", "target": 1, "reward": {"xp": 50}},
+		{"id": "ko_100", "group": "General", "name": "100 K.O.s", "desc": "Knock out 100 foes", "stat": "kos", "target": 100, "reward": {"xp": 300}},
+		{"id": "ko_500", "group": "General", "name": "500 K.O.s", "desc": "Knock out 500 foes", "stat": "kos", "target": 500, "reward": {"xp": 600, "id": "title:knockout_artist"}},
+
+		{"id": "{fighter}_wins_5", "fighter": "{fighter}", "group": "Fighters", "name": "{name} Fan", "desc": "Win 5 fights as {name}", "stat": "wins_as", "target": 5, "reward": {"xp": 100}},
+
+		{"id": "caravan_finish", "group": "Modes", "name": "Last Stop", "desc": "Push the caravan to the end of the road in Caravan", "stat": "caravan_finishes", "target": 1, "reward": {"xp": 100}},
+		{"id": "flag_capture", "group": "Modes", "name": "Flag Runner", "desc": "Capture a flag in Capture the Flag", "stat": "flag_captures", "target": 1, "reward": {"xp": 100}},
+		{"id": "crater_60s", "group": "Modes", "name": "Crater King", "desc": "Hold King of the Crater for 60 seconds in one match", "stat": "crater_holds", "target": 1, "reward": {"xp": 100}},
+		{"id": "gauntlet_waves_10", "group": "Modes", "name": "Gauntlet Runner", "desc": "Clear 10 Gauntlet waves in all", "stat": "gauntlet_waves", "target": 10, "reward": {"xp": 150}},
+		{"id": "arcade_easy", "group": "Modes", "name": "Arcade: Easy", "desc": "Clear the Arcade on Easy or harder", "stat": "arcade_clears_easy", "target": 1, "reward": {"xp": 150}},
+		{"id": "arcade_normal", "group": "Modes", "name": "Arcade: Normal", "desc": "Clear the Arcade on Normal or harder", "stat": "arcade_clears_normal", "target": 1, "reward": {"xp": 200}},
+		{"id": "arcade_hard", "group": "Modes", "name": "Arcade: Hard", "desc": "Clear the Arcade on Hard or Rage", "stat": "arcade_clears_hard", "target": 1, "reward": {"xp": 300}},
+		{"id": "arcade_rage", "group": "Modes", "name": "Arcade: Rage", "desc": "Clear the Arcade on Rage", "stat": "arcade_clears_rage", "target": 1, "reward": {"xp": 400, "id": "title:unstoppable"}},
+		{"id": "daily_played", "group": "Modes", "name": "Daily Visitor", "desc": "Play a Daily Challenge", "stat": "dailies", "target": 1, "reward": {"xp": 50}},
+		{"id": "brawl_win", "group": "Modes", "name": "Brawler", "desc": "Win a Brawl", "stat": "brawl_wins", "target": 1, "reward": {"xp": 100}},
+		{"id": "chaos_cup_win", "group": "Modes", "name": "Chaos Tamer", "desc": "Win the Chaos Cup", "stat": "chaos_wins", "target": 1, "reward": {"xp": 150, "id": "title:chaos_tamer"}},
+		{"id": "sinkhole_last", "group": "Modes", "name": "Solid Ground", "desc": "Be the last side standing in Sinkhole", "stat": "sinkhole_wins", "target": 1, "reward": {"xp": 100}},
+		{"id": "tdm_spree", "group": "Modes", "name": "On a Roll", "desc": "Go on a spree in Team Deathmatch", "stat": "sprees", "target": 1, "reward": {"xp": 100}},
+		{"id": "online_match", "group": "Modes", "name": "Out in the World", "desc": "Finish an online match", "stat": "online_matches", "target": 1, "reward": {"xp": 100}},
+
+		{"id": "combo_5", "group": "Skills", "name": "Five-Hit Combo", "desc": "Land a combo of 5 hits", "stat": "combo_5", "target": 1, "reward": {"xp": 75}},
+		{"id": "combo_10", "group": "Skills", "name": "Ten-Hit Combo", "desc": "Land a combo of 10 hits", "stat": "combo_10", "target": 1, "reward": {"xp": 200, "id": "title:combo_artist"}},
+		{"id": "surge_ko", "group": "Skills", "name": "Surge Finish", "desc": "Knock out a foe with a Surge", "stat": "surge_kos", "target": 1, "reward": {"xp": 100}},
+		{"id": "guard_break", "group": "Skills", "name": "Guard Crusher", "desc": "Break a foe's guard", "stat": "guard_breaks", "target": 1, "reward": {"xp": 75}},
+		{"id": "dodge_cancel", "group": "Skills", "name": "Slippery", "desc": "Cancel one of your attacks into a dodge", "stat": "dodge_cancels", "target": 1, "reward": {"xp": 75}},
+		{"id": "breakaway", "group": "Skills", "name": "Breakaway", "desc": "Spend energy to break out while stunned", "stat": "breakaways", "target": 1, "reward": {"xp": 75}},
+		{"id": "flawless_win", "group": "Skills", "name": "Untouchable", "desc": "Win a fight without losing any health", "stat": "flawless_wins", "target": 1, "reward": {"xp": 200, "id": "title:untouchable"}},
+		{"id": "clutch_win", "group": "Skills", "name": "By a Whisker", "desc": "Win a fight with under 10% health left", "stat": "clutch_wins", "target": 1, "reward": {"xp": 150}},
+		{"id": "ring_out", "group": "Skills", "name": "Ring Out", "desc": "Knock a foe into a pit", "stat": "ring_outs", "target": 1, "reward": {"xp": 75}},
+		{"id": "blocks_100", "group": "Skills", "name": "Iron Wall", "desc": "Block 100 hits", "stat": "blocks", "target": 100, "reward": {"xp": 150}},
+
+		{"id": "meteor_untouched", "group": "Hazards", "name": "Not a Scratch", "desc": "Finish a fight with a meteor shower without a meteor hitting you", "stat": "meteor_untouched", "target": 1, "reward": {"xp": 100}},
+		{"id": "wave_sheltered", "group": "Hazards", "name": "High and Dry", "desc": "Let a tidal wave pass you behind rubble", "stat": "wave_shelters", "target": 1, "reward": {"xp": 100}},
+		{"id": "boulder_back", "group": "Hazards", "name": "Return to Sender", "desc": "Send a rolling boulder back with a heavy", "stat": "boulders_sent_back", "target": 1, "reward": {"xp": 100}},
+		{"id": "boulder_hit", "group": "Hazards", "name": "Bowled Over", "desc": "Hit a foe with a boulder you sent back", "stat": "boulder_hits", "target": 1, "reward": {"xp": 150}},
+		{"id": "win_every_map", "group": "Hazards", "name": "World Tour", "desc": "Win on all six maps", "stat": "maps_won", "target": 6, "reward": {"xp": 300, "id": "title:globetrotter"}}
+	]
+}

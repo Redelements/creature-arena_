@@ -357,6 +357,7 @@ func _open_card(g: Node, title: String) -> void:
 
 func test_single_player_is_a_hub_of_pages_that_cover_every_row() -> void:
 	var g := _game()
+	Progress.set_enabled(true)  # every row, the Weekly's too (tests/test_weekly.gd: Off hides it)
 	g._open_menu()
 	_press("ui_accept")  # Single player
 	var hub: UiScreen = g.ui.top()
@@ -384,6 +385,7 @@ func test_single_player_is_a_hub_of_pages_that_cover_every_row() -> void:
 		assert_eq(g.ui.top(), hub, "back to the hub")
 		assert_eq((_focus() as Button).text, String(group["title"]), "on the same card:")
 	assert_eq(seen.size(), g.MENU_ROWS.size(), "every mode is reachable from some page:")
+	Progress.set_enabled(false)
 	g.free()
 
 
@@ -446,8 +448,7 @@ func test_team_battle_row_opens_the_pick_then_fights_with_cpu_teammates() -> voi
 func test_back_from_a_page_returns_to_the_title_on_the_same_row() -> void:
 	var g := _game()
 	g._open_menu()
-	_press("ui_down")
-	_press("ui_down")  # Settings
+	((g.ui.top() as TitleScreen)._rows_by_name["settings"] as Control).grab_focus()  # (by name: the Profile row comes and goes)
 	_press("ui_accept")
 	assert_true(g.ui.top().title == "SETTINGS", "Settings opened")
 	_press("ui_cancel")
@@ -1743,6 +1744,8 @@ func test_the_arcade_boss_has_its_own_intro_and_a_clear_offers_a_new_run() -> vo
 	assert_true(g._arcade_result(true), "the boss falls")
 	g.flow_t = 0
 	_tick(g, g.MATCH_OVER_MENU_AT + 1)
+	if g.ui.top() is EndingScreen:  # Progression on: the fighter's ending card first (tests/test_endings.gd)
+		(g.ui.top() as EndingScreen).continue_button.pressed.emit()
 	var labels: Array = []
 	for r in g.ui.top().rows():
 		labels.append((r as Button).text)

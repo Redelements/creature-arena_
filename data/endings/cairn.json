@@ -1,0 +1,11 @@
+{
+	"title": "Still Standing",
+	"lines": [
+		"The last stone settles. The crowd roars.",
+		"Cairn tips his top stone to the stands.",
+		"A river kid stacks pebbles by the ring ropes.",
+		"Cairn adds one more on top. It holds."
+	],
+	"art": "res://assets/ui/endings/cairn.png",
+	"unlock_title": "title:cairn_ending"
+}

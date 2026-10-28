@@ -1,0 +1,11 @@
+{
+	"title": "Struck Gold",
+	"lines": [
+		"Digby tunnels under the stadium to celebrate.",
+		"He keeps digging. And digging. And digging.",
+		"He pops up in a field full of daisies.",
+		"He digs a ring right there. Training starts."
+	],
+	"art": "res://assets/ui/endings/digby.png",
+	"unlock_title": "title:digby_ending"
+}

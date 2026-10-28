@@ -13,7 +13,7 @@
 - `arenas/`: the tiled arenas' ground scenes (`<id>.tscn`, built by `tools/build_tiles.gd`
   from the arena's JSON). `ArenaView` instances one under the floor and draws the breaking
   ground over it.
-- `fonts/`, `audio/`, `ui/`: the pixel font, placeholder sound, the logo.
+- `fonts/`, `audio/`, `ui/`: the pixel font, placeholder sound, the logo; `ui/endings/` the Arcade ending cards (placeholders from `tools/gen_ending_cards.py`, 256 x 144).
 
 ## Art density
 

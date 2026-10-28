@@ -16,10 +16,35 @@ var zoom := 1.0
 ## "victory" plays the fighter's victory pose (the sheet's "victory" row, restarting when
 ## the preview is shown); a sheet without one, or any other value, shows the idle.
 var anim := "idle"
+## The palette shown (Progress; 0 the fighter's own): the fight's hue turn
+## (CreatureView.PALETTE_HUES) through the same shader.
+var palette := 0:
+	set(v):
+		palette = v
+		if v <= 0:
+			material = null
+			return
+		var m := material as ShaderMaterial
+		if m == null:
+			m = _palette_material()
+			material = m
+		m.set_shader_parameter("hue", CreatureView.PALETTE_HUES[clampi(v, 0, CreatureView.PALETTE_HUES.size() - 1)])
 
 var _def := {}
+const FLASH_SHADER := preload("res://src/view/flash.gdshader")
 var _tex: Texture2D = null
 var _time := 0.0
+
+
+static func _palette_material() -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = FLASH_SHADER
+	return m
+
+
+## ShaderWarmup's list: the palette preview's material (the fight's flash shader).
+static func warm_materials() -> Array:
+	return [_palette_material()]
 
 
 func _process(delta: float) -> void:

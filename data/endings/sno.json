@@ -1,0 +1,11 @@
+{
+	"title": "No Melting",
+	"lines": [
+		"The sun comes out over the stadium.",
+		"Sno Mercy doesn't care. He's the champ.",
+		"A kid offers him a cone of fresh syrup.",
+		"He takes it. He almost smiles. Chill out."
+	],
+	"art": "res://assets/ui/endings/sno.png",
+	"unlock_title": "title:sno_ending"
+}

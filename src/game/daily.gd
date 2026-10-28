@@ -22,6 +22,18 @@ static func today() -> int:
 	return int(d["year"]) * 10000 + int(d["month"]) * 100 + int(d["day"])
 
 
+## Days since 1970-01-01 for a YYYYMMDD date (whole days, no clock).
+static func day_number(p_date: int) -> int:
+	return int(Time.get_unix_time_from_datetime_dict({"year": p_date / 10000, "month": (p_date / 100) % 100,
+		"day": p_date % 100, "hour": 0, "minute": 0, "second": 0})) / 86400
+
+
+## The YYYYMMDD date `days` after 1970-01-01 (the inverse of day_number).
+static func date_of_day(days: int) -> int:
+	var d := Time.get_datetime_dict_from_unix_time(days * 86400)
+	return int(d["year"]) * 10000 + int(d["month"]) * 100 + int(d["day"])
+
+
 static func mutator_table() -> Dictionary:
 	var f := FileAccess.open(MUTATORS_PATH, FileAccess.READ)
 	var d = JSON.parse_string(f.get_as_text()) if f != null else null
@@ -61,13 +73,19 @@ func _init(p_fighter: String, p_date := 0) -> void:
 	date = p_date if p_date > 0 else today()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = date * 7919 + 17
+	_roll(rng, PICKS)
+
+
+## Draws the opponent, the CPU level (Normal or Hard) and `n` distinct mutators from `rng`
+## (the Weekly draws three from its own seed).
+func _roll(rng: RandomNumberGenerator, n: int) -> void:
 	var pool: Array = MatchFactory.FIGHTERS.duplicate()
 	_opponent = String(pool[rng.randi_range(0, pool.size() - 1)])
 	level = 1 + rng.randi_range(0, 1)  # Normal or Hard
 	var ids: Array = mutator_table().keys()
 	ids.sort()
 	picks = []
-	while picks.size() < mini(PICKS, ids.size()):
+	while picks.size() < mini(n, ids.size()):
 		var id: String = ids[rng.randi_range(0, ids.size() - 1)]
 		if not (id in picks):
 			picks.append(id)

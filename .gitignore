@@ -20,3 +20,9 @@ __pycache__/
 
 # Gallery capture: the trailer beats (PNG sequences, movie-maker AVI + WAV) are raw material
 docs/gallery/trailer/
+
+# Secrets: never committed (the PixelLab key lives in .env; server keys in secrets/)
+.env
+.env.*
+secrets/
+*.keystore
