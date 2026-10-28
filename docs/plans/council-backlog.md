@@ -47,15 +47,16 @@ the main build.
 
 | PR | Branch | Files | Done when | Status |
 | --- | --- | --- | --- | --- |
-| Honest store copy | `store-copy` | `README.md`, `src/ui/title_screen.gd` | README leads with "3v3 creature teamfights on floors that break"; lines 6, 52, 68 and 630 corrected (ten fighters, touch shipped, online up to 4v4, 31 trials); the title's Online row no longer says "1 v 1"; `tests/test_ui_fit.gd` green | |
-| Beats / loses to on fighter select | `select-triangle` | `src/ui/character_select.gd`, `tests/test_ui_fit.gd`, a new test | one line under "Role · Affinity" derived from `CpuController.BEATS`; fits phone width; a test checks every role's text against `BEATS` | |
-| Ambush trials | `ambush-trials` | `data/trials.json`, `src/game/trials.gd` (only if the judge needs a key), `README.md` count | three stealth-opener trials each for Digby and Pete; every route clears in `tests/test_trials.gd` and fails on a wrong button | |
-| Trailer beats | `trailer-mage-flank` | `tools/trailer_shots.json`, `src/game/showcase.gd` if a flank sequence is missing | Crease's crane storm and Pete's Tiptoe flank render through `capture_gallery.py`; GIFs on `pr-media` in the PR | |
-| Replay clip export | `replay-clips` | `src/game/main_args.gd`, `replay_viewer.gd`, `replay_builder.gd`, `controls.gd`, `tools/clip.py`, `tools/capture_gallery.py` | `--replay --from --to` play a range and quit; F6 and a 3+ hit KO write clip markers in the sidecar; "Export clip" in the theater renders an AVI via the game's own executable with `--write-movie`, MP4 and GIF when ffmpeg is on PATH; headless tests for the marker and the flags | |
-| Stealth hidden from aim assist | `assist-ignores-stealth` | `src/input/player_input.gd`, a test | `PlayerInput.bits` passes a `stealth == 0` foe to `assist` (or none); a test that a Tiptoed Pete is not snapped to; no sim file touched (the input layer runs before sending) | |
+| Honest store copy | `store-copy` | `README.md`, `src/ui/title_screen.gd` | README leads with "3v3 creature teamfights on floors that break"; lines 6, 52, 68 and 630 corrected (ten fighters, touch shipped, online up to 4v4, 31 trials); the title's Online row no longer says "1 v 1"; `tests/test_ui_fit.gd` green | PR #295 open |
+| Beats / loses to on fighter select | `select-triangle` | `src/ui/character_select.gd`, `tests/test_ui_fit.gd`, a new test | one line under "Role · Affinity" derived from `CpuController.BEATS`; fits phone width; a test checks every role's text against `BEATS` | PR #293 open |
+| Ambush trials | `ambush-trials` | `data/trials.json`, `src/game/trials.gd` (only if the judge needs a key), `README.md` count | three stealth-opener trials each for Digby and Pete; every route clears in `tests/test_trials.gd` and fails on a wrong button | PR #296 open (five routes: Digby's Burrow never combos into lights, see R10) |
+| Trailer beats | `trailer-mage-flank` | `tools/trailer_shots.json`, `src/game/showcase.gd` if a flank sequence is missing | Crease's crane storm and Pete's Tiptoe flank render through `capture_gallery.py`; GIFs on `pr-media` in the PR | PR #294 open |
+| Replay clip export | `replay-clips` | `src/game/main_args.gd`, `replay_viewer.gd`, `replay_builder.gd`, `controls.gd`, `tools/clip.py`, `tools/capture_gallery.py` | `--replay --from --to` play a range and quit; F6 and a 3+ hit KO write clip markers in the sidecar; "Export clip" in the theater renders an AVI via the game's own executable with `--write-movie`, MP4 and GIF when ffmpeg is on PATH; headless tests for the marker and the flags | PR #297 open |
+| Stealth hidden from aim assist | `assist-ignores-stealth` | `src/input/player_input.gd`, a test | `PlayerInput.bits` passes a `stealth == 0` foe to `assist` (or none); a test that a Tiptoed Pete is not snapped to; no sim file touched (the input layer runs before sending) | PR #292 open |
 
 Order of merge: store copy and ambush trials both touch README's trial count; merge store
-copy first and let the trials PR rebase the one line. Everything else is disjoint.
+copy first and let the trials PR rebase the one line (the right count is 36). All six opened
+Oct 28, each with a green full suite on Windows. Everything else is disjoint.
 
 How to run the wave: one Opus agent per PR in its own worktree (`creature-arena-<branch>`),
 each with the council page's prompt for its item (the last two have their spec above). Keep
