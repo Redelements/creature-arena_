@@ -166,7 +166,7 @@ const REPLAY_MODE := 47
 ## one of several modes with Left/Right.
 ## The Settings pages and their rows, in order (see _setting()); "#Name" is a heading.
 const SETTING_PAGES := {
-	"game": ["level", "intros", "rumble", "shake", "discord", "server", "delay"],
+	"game": ["level", "intros", "rumble", "shake", "progression", "discord", "server", "delay"],
 	"video": ["fullscreen", "wide", "vsync", "fps", "glow", "lighting", "font", "perf_overlay", "#Camera", "cam_lead", "cam_clash", "cam_settle"],
 	"accessibility": ["a11y_teams", "a11y_outlines", "a11y_markers"],
 	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu", "#Voice chat", "voice", "voice_hear", "mic", "mic_test", "vol_Voice"],
@@ -1387,6 +1387,7 @@ func _start_match(m: int, keep_teams := false) -> void:
 	_ko_by_hazard = ""
 	_hazard_hit_now.clear()
 	_arcade_cleared = false
+	_progress_shown = {}  # a new match or run (an Arcade run's stages add up until then)
 	if not (keep_teams and m == mode):
 		_training_fighter = ""  # a swapped fighter lasts until you leave training
 	mode = m
@@ -1601,6 +1602,7 @@ func _arcade_result(won: bool) -> bool:
 		var end_tick := int(_round_end[0]) if _round_end.size() == 2 else sim.tick
 		var end_share := float(_round_end[1]) if _round_end.size() == 2 else share
 		var score := d.score_fight(won, end_share, end_tick)
+		show_ctl.award_match(won, {"daily_score": score})
 		var best := Progress.record_daily(d.date, score)
 		var path := "user://daily/daily_%d.json" % d.date
 		DirAccess.make_dir_recursive_absolute("user://daily")
@@ -1616,6 +1618,9 @@ func _arcade_result(won: bool) -> bool:
 		if won and score > 0:
 			online_ctl._net_daily_submit(d)
 		return true
+	# Progression pays each stage as a fight (a Gauntlet wave won, an Arcade clear on top).
+	var cleared := won and arcade is Arcade and arcade.is_boss()
+	show_ctl.award_match(won, {"waves": 1 if won and arcade is Gauntlet else 0, "clear_arcade": cleared})
 	if not won:
 		flow = Flow.MATCH_OVER
 		flow_t = 0
@@ -2374,6 +2379,11 @@ var _ko_by_hazard := ""
 var _hazard_hit_now := {}  ## who an arena hazard last struck (slot -> [tick, its shape])
 ## The Arcade run just ended in a clear (the match-over menu offers a new run, not a retry).
 var _arcade_cleared := false
+## Progression (Settings > Game > Progression; main_presentation.gd `award_match`): the sim
+## whose match was paid (its instance id; a match pays once) and what it paid (an Arcade or
+## Gauntlet run's stages added up), for the results screen.
+var _progress_for := 0
+var _progress_shown := {}
 
 
 func _over_reason() -> String:
@@ -2957,6 +2967,7 @@ func _update_flow() -> void:
 					round_num += 1
 					_start_round()
 		Flow.MATCH_OVER:
+			show_ctl.award_match()  # Progression: once per match (a no-op after the first tick)
 			if duel != null:
 				hud.timer_ticks = maxi(duel.timer, 0)
 			elif team_battle != null:

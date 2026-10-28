@@ -1,27 +1,55 @@
 class_name Progress
 extends RefCounted
 ## What the player has earned, kept in user://progress.json (outside the simulation):
-## the best CPU level each fighter has cleared the Arcade ladder on, and the palette
-## each fighter wears. Palettes unlock with clears: one per level cleared, up to four.
+## the best CPU level each fighter has cleared the Arcade ladder on, the palette each
+## fighter wears, Gauntlet and Daily bests, and (Settings > Game > Progression) the
+## account's XP, each fighter's mastery XP, the rewards unlocked and what is equipped.
+## Palettes unlock with Arcade clears (one per level cleared, up to four) and, with
+## Progression on, with mastery: a palette counts as unlocked if either rule grants it.
+## The numbers and tables are data: data/progression.json.
+##
+## Progression API (every award, line and toast checks `enabled()` first):
+##   enabled() -> bool                 Settings > Game > Progression (set_enabled, from main_settings)
+##   account_xp() / account_level()    the account's XP and level (1 .. cap)
+##   level_progress() -> [into, need]  XP into the current level and the XP it needs ([0, 0] at the cap)
+##   mastery_xp(f) / mastery_level(f) / mastery_progress(f)   the same per fighter id
+##   unlocked(reward_id) -> bool       reward ids: "palette:<fighter>:N", "title:<id>", "line:<id>"
+##   unlocks_of(f) -> Array            the reward ids this fighter has (palettes by either rule)
+##   mastery_rewards(f) / account_rewards() -> [{"level", "id"}]   the tables, "{fighter}" filled in
+##   reward_text(id), title_text(id), line_text(id)   the words for a reward
+##   equipped(f) -> {palette, title, line}; set_equipped(f, key, value)   ("" = none)
+##   award(report) -> Dictionary       once per finished match (see `award`)
+##   merge_results(a, b), result_lines(result)   an Arcade run's stages as one; the results rows
 
 const PATH := "user://progress.json"
+const DATA_PATH := "res://data/progression.json"
 const PALETTES := 4
+## Every key of the save and its default (an old file without some of them still loads).
+const SAVE_KEYS := {"arcade": {}, "palette": {}, "gauntlet": {}, "daily": {}, "xp": 0, "mastery": {},
+	"unlocked": [], "equipped": {}}
 
 static var _data := {}
 static var _loaded := false
 static var path := PATH
+static var _enabled := false
+static var _table := {}
 
 
 static func read() -> void:
 	_loaded = true
-	_data = {"arcade": {}, "palette": {}, "gauntlet": {}, "daily": {}}
+	_data = SAVE_KEYS.duplicate(true)
 	var f := FileAccess.open(path, FileAccess.READ)
 	if f == null:
 		return
 	var d = JSON.parse_string(f.get_as_text())
 	if d is Dictionary:
 		for k in _data:
-			_data[k] = d.get(k, {})
+			var v = d.get(k, null)
+			if k == "xp":
+				if v is float or v is int:
+					_data[k] = maxi(0, int(v))
+			elif typeof(v) == typeof(SAVE_KEYS[k]):
+				_data[k] = v
 
 
 static func save() -> void:
@@ -51,9 +79,24 @@ static func record_clear(fighter: String, level: int) -> bool:
 	return true
 
 
-## How many palettes this fighter can wear: the first always, one more per level cleared.
+## Palette `index` (0 always) is this fighter's under either rule: Arcade clears (one per
+## level cleared) or, with Progression on, its mastery reward "palette:<fighter>:<index>".
+static func palette_unlocked(fighter: String, index: int) -> bool:
+	if index <= 0:
+		return true
+	if index >= PALETTES:
+		return false
+	if index <= 1 + arcade_best(fighter):
+		return true
+	return enabled() and _unlocked_list().has("palette:%s:%d" % [fighter, index])
+
+
+## How many palettes this fighter can wear: the unbroken run 0, 1, .. that is unlocked.
 static func palettes_unlocked(fighter: String) -> int:
-	return clampi(2 + arcade_best(fighter), 1, PALETTES)
+	var n := 1
+	while n < PALETTES and palette_unlocked(fighter, n):
+		n += 1
+	return n
 
 
 static func palette(fighter: String) -> int:
@@ -109,3 +152,316 @@ static func reset_for_tests(p: String) -> void:
 	path = p
 	_loaded = false
 	_data = {}
+
+
+# --- Progression ----------------------------------------------------------------------
+
+
+## Settings > Game > Progression. Off: `award` gives nothing and changes nothing, and
+## palettes unlock by Arcade clears only (as before the setting existed).
+static func enabled() -> bool:
+	return _enabled
+
+
+static func set_enabled(on: bool) -> void:
+	_enabled = on
+
+
+## data/progression.json (read once).
+static func table() -> Dictionary:
+	if _table.is_empty():
+		var f := FileAccess.open(DATA_PATH, FileAccess.READ)
+		var d = JSON.parse_string(f.get_as_text()) if f != null else null
+		_table = d if d is Dictionary else {"xp": {}, "account_curve": {}, "mastery_curve": {}}
+	return _table
+
+
+## The XP level `lvl` takes to reach the next one on this curve ({base, step, cap}).
+static func level_cost(curve: Dictionary, lvl: int) -> int:
+	return int(curve.get("base", 100)) + int(curve.get("step", 0)) * (lvl - 1)
+
+
+## The total XP that reaches level `lvl` (level 1 is 0 XP; past the cap, the cap's).
+static func xp_for_level(curve: Dictionary, lvl: int) -> int:
+	var total := 0
+	for k in range(1, mini(lvl, int(curve.get("cap", 1)))):
+		total += level_cost(curve, k)
+	return total
+
+
+static func level_of(curve: Dictionary, xp: int) -> int:
+	var lvl := 1
+	var cap := int(curve.get("cap", 1))
+	var spent := 0
+	while lvl < cap and xp >= spent + level_cost(curve, lvl):
+		spent += level_cost(curve, lvl)
+		lvl += 1
+	return lvl
+
+
+## [XP into this level, XP this level needs]; [0, 0] at the cap.
+static func progress_of(curve: Dictionary, xp: int) -> Array:
+	var lvl := level_of(curve, xp)
+	if lvl >= int(curve.get("cap", 1)):
+		return [0, 0]
+	return [xp - xp_for_level(curve, lvl), level_cost(curve, lvl)]
+
+
+static func account_xp() -> int:
+	_ensure()
+	return int(_data["xp"])
+
+
+static func account_level() -> int:
+	return level_of(table()["account_curve"], account_xp())
+
+
+static func level_progress() -> Array:
+	return progress_of(table()["account_curve"], account_xp())
+
+
+static func mastery_xp(fighter: String) -> int:
+	_ensure()
+	return int((_data["mastery"] as Dictionary).get(fighter, 0))
+
+
+static func mastery_level(fighter: String) -> int:
+	return level_of(table()["mastery_curve"], mastery_xp(fighter))
+
+
+static func mastery_progress(fighter: String) -> Array:
+	return progress_of(table()["mastery_curve"], mastery_xp(fighter))
+
+
+static func _unlocked_list() -> Array:
+	_ensure()
+	return _data["unlocked"]
+
+
+## True when the reward is the player's: recorded by a level-up, or (a palette) by either rule.
+static func unlocked(reward_id: String) -> bool:
+	if reward_id.begins_with("palette:"):
+		var p := reward_id.split(":")
+		return p.size() == 3 and palette_unlocked(p[1], int(p[2]))
+	return _unlocked_list().has(reward_id)
+
+
+## Every reward this fighter has: its palettes (either rule), then its mastery titles and lines.
+static func unlocks_of(fighter: String) -> Array:
+	var out: Array = []
+	for i in range(1, PALETTES):
+		if palette_unlocked(fighter, i):
+			out.append("palette:%s:%d" % [fighter, i])
+	for r in mastery_rewards(fighter):
+		var id := String(r["id"])
+		if not id.begins_with("palette:") and _unlocked_list().has(id) and not out.has(id):
+			out.append(id)
+	return out
+
+
+## The mastery table for this fighter: [{"level", "id"}] by level, "{fighter}" filled in.
+static func mastery_rewards(fighter: String) -> Array:
+	return _rewards(table().get("mastery", {}), fighter)
+
+
+static func account_rewards() -> Array:
+	return _rewards(table().get("account", {}), "")
+
+
+static func _rewards(t: Dictionary, fighter: String) -> Array:
+	var out: Array = []
+	var levels: Array = []
+	for k in t:
+		levels.append(int(k))
+	levels.sort()
+	for lvl in levels:
+		for id in t[str(lvl)]:
+			out.append({"level": lvl, "id": String(id).replace("{fighter}", fighter)})
+	return out
+
+
+## A title's or a victory line's words: its own entry, else the "{fighter}_..." template
+## with the fighter's name for "{name}".
+static func _text(map_key: String, id: String) -> String:
+	var m: Dictionary = table().get(map_key, {})
+	if m.has(id):
+		return String(m[id])
+	for f in MatchFactory.FIGHTERS:
+		var fs := String(f)
+		var rest := id.substr(fs.length())
+		if id.begins_with(fs + "_") and m.has("{fighter}" + rest):
+			return String(m["{fighter}" + rest]).replace("{name}", _name(fs))
+	return id
+
+
+static func _name(fighter: String) -> String:
+	return String(MatchFactory.load_def(fighter).get("name", fighter))
+
+
+static func title_text(id: String) -> String:
+	return _text("titles", id.trim_prefix("title:"))
+
+
+static func line_text(id: String) -> String:
+	return _text("lines", id.trim_prefix("line:"))
+
+
+## What the results screen calls a reward.
+static func reward_text(reward_id: String) -> String:
+	var p := reward_id.split(":")
+	match p[0]:
+		"palette":
+			return "%s palette %d" % [_name(p[1]), int(p[2]) + 1] if p.size() == 3 else reward_id
+		"title":
+			return "title \"%s\"" % title_text(reward_id)
+		"line":
+			return "victory line \"%s\"" % line_text(reward_id)
+	return reward_id
+
+
+## What this fighter wears: {"palette": int, "title": reward id or "", "line": reward id or ""}.
+static func equipped(fighter: String) -> Dictionary:
+	_ensure()
+	var e: Dictionary = (_data["equipped"] as Dictionary).get(fighter, {})
+	return {"palette": palette(fighter), "title": String(e.get("title", "")), "line": String(e.get("line", ""))}
+
+
+## Wear a title or a line ("" takes it off; a locked one is refused, false), or a palette (an index).
+static func set_equipped(fighter: String, key: String, value) -> bool:
+	_ensure()
+	if key == "palette":
+		set_palette(fighter, int(value))
+		return true
+	if not key in ["title", "line"] or (String(value) != "" and not unlocked(String(value))):
+		return false
+	if not (_data["equipped"] as Dictionary).has(fighter):
+		_data["equipped"][fighter] = {}
+	_data["equipped"][fighter][key] = String(value)
+	save()
+	return true
+
+
+## The XP one player earns from a report (see `award`); nothing is added.
+static func xp_for(report: Dictionary, player: Dictionary) -> int:
+	var kind := String(report.get("kind", "none"))
+	if not kind in ["cpu", "local", "online"]:
+		return 0
+	var x: Dictionary = table().get("xp", {})
+	var kos := mini(int(player.get("kos", 0)), int(x.get("ko_cap", 99)))
+	var total := float(x.get("fight", 0)) + kos * float(x.get("ko", 0))
+	if bool(player.get("won", false)):
+		total += float(x.get("win", 0))
+	if bool(report.get("clear_arcade", false)):
+		total += float(x.get("clear_arcade", 0))
+	total += int(report.get("waves", 0)) * float(x.get("gauntlet_wave", 0))
+	total += int(report.get("daily_score", 0)) / 100.0 * float(x.get("daily_score_mult", 0))
+	if kind == "cpu":
+		var mults: Array = x.get("level_mult", [1.0])
+		total *= float(mults[clampi(int(report.get("cpu_level", 1)), 0, mults.size() - 1)])
+	return roundi(total)
+
+
+## Pays a finished match. `report`:
+##   "kind": "cpu" (one human against CPUs: times the CPU level's `level_mult`), "local"
+##           (two or more humans on this machine: each paid fully), "online" (the local
+##           human, fully) or "none" (training, showcases, replays, CPU vs CPU, coaches)
+##   "cpu_level": 0 Easy .. 3 Rage (kind "cpu")
+##   "players": [{"slot": int, "fighters": [ids], "won": bool, "kos": int}], the humans
+##   "clear_arcade": bool, "waves": int (Gauntlet waves this fight cleared), "daily_score": int
+## The account gains the best player's XP (one account per machine, so four local players
+## don't pay it four times); a player's fighters share that player's XP for mastery (a
+## Duel's three split it), and a fighter two players used takes the larger share.
+## Returns {} when Progression is off or nothing was earned (and changes nothing), else
+##   {"xp": gained, "level_from", "level_to", "mastery": {fighter: {"xp", "from", "to"}},
+##    "unlocked": [reward ids newly unlocked]}
+static func award(report: Dictionary) -> Dictionary:
+	if not enabled():
+		return {}
+	_ensure()
+	var best := 0
+	var per_fighter := {}
+	for p in report.get("players", []):
+		var gain := xp_for(report, p)
+		best = maxi(best, gain)
+		var fs: Array = p.get("fighters", [])
+		if fs.is_empty() or gain <= 0:
+			continue
+		var share := ceili(float(gain) / fs.size())
+		for f in fs:
+			per_fighter[String(f)] = maxi(int(per_fighter.get(String(f), 0)), share)
+	if best <= 0:
+		return {}
+	var before := account_level()
+	_data["xp"] = account_xp() + best
+	var out := {"xp": best, "level_from": before, "level_to": account_level(), "mastery": {}, "unlocked": []}
+	var had: Array = []  # a palette an Arcade clear already gave is no news
+	for f in per_fighter:
+		for i in range(1, PALETTES):
+			if i <= 1 + arcade_best(f):
+				had.append("palette:%s:%d" % [f, i])
+		var m0 := mastery_level(f)
+		_data["mastery"][f] = mastery_xp(f) + int(per_fighter[f])
+		out["mastery"][f] = {"xp": int(per_fighter[f]), "from": m0, "to": mastery_level(f)}
+	# Everything at or under the levels now held (so a table that grows later catches up).
+	var due: Array = []
+	for r in account_rewards():
+		if int(r["level"]) <= account_level():
+			due.append(String(r["id"]))
+	for f in per_fighter:
+		for r in mastery_rewards(f):
+			if int(r["level"]) <= mastery_level(f):
+				due.append(String(r["id"]))
+	for id in due:
+		if not _unlocked_list().has(id):
+			_unlocked_list().append(id)
+			if not had.has(id):
+				out["unlocked"].append(id)
+	save()
+	return out
+
+
+## Two award results as one (the stages of an Arcade or Gauntlet run add up).
+static func merge_results(a: Dictionary, b: Dictionary) -> Dictionary:
+	if a.is_empty():
+		return b.duplicate(true)
+	if b.is_empty():
+		return a.duplicate(true)
+	var out := a.duplicate(true)
+	out["xp"] = int(a["xp"]) + int(b["xp"])
+	out["level_to"] = b["level_to"]
+	for f in b["mastery"]:
+		var m: Dictionary = b["mastery"][f]
+		if out["mastery"].has(f):
+			out["mastery"][f]["xp"] = int(out["mastery"][f]["xp"]) + int(m["xp"])
+			out["mastery"][f]["to"] = m["to"]
+		else:
+			out["mastery"][f] = m.duplicate()
+	for id in b["unlocked"]:
+		if not out["unlocked"].has(id):
+			out["unlocked"].append(id)
+	return out
+
+
+## The results screen's rows for an award result: "+N XP" (and a level-up), the
+## mastery-ups, then what unlocked (two named at most, then "and N more").
+static func result_lines(r: Dictionary) -> Array:
+	if r.is_empty():
+		return []
+	var first := "+%d XP" % int(r["xp"])
+	if int(r["level_to"]) > int(r["level_from"]):
+		first += "   ·   Level up! Level %d" % int(r["level_to"])
+	var ups: Array = []
+	for f in r["mastery"]:
+		var m: Dictionary = r["mastery"][f]
+		if int(m["to"]) > int(m["from"]):
+			ups.append("Mastery up! %s %d" % [_name(String(f)), int(m["to"])])
+	var lines: Array = [first]
+	if not ups.is_empty():
+		lines.append("   ·   ".join(PackedStringArray(ups.slice(0, 2))) + ("   ·   %d more" % (ups.size() - 2) if ups.size() > 2 else ""))
+	var got: Array = r["unlocked"]
+	if not got.is_empty():
+		var names: Array = []
+		for id in got.slice(0, 2):
+			names.append(reward_text(String(id)))
+		lines.append("Unlocked: " + ", ".join(PackedStringArray(names)) + (" and %d more" % (got.size() - 2) if got.size() > 2 else ""))
+	return lines
