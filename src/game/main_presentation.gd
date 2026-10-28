@@ -298,7 +298,11 @@ func progress_report(won: Variant = null, extra := {}) -> Dictionary:
 		if slot >= main.sim.creatures.size():
 			continue
 		var fighters: Array = []
-		if main.duel != null:  # a Duel's whole team (every member of side s has id s)
+		if main.arcade != null and slot == 0:
+			# A ladder's own fighter earns everything (mastery, its wins, the clear bonus):
+			# never the two allies the Arcade's boss Duel draws.
+			fighters.append(String(main.arcade.fighter))
+		elif main.duel != null:  # a Duel's whole team (every member of side s has id s)
 			for c in main.duel.teams[slot]:
 				fighters.append(String(c.def.get("id", "")))
 		else:
@@ -324,7 +328,8 @@ func _slot_won(slot: int) -> bool:
 		return main.team_battle.winner >= 0 and main.sim.creatures[slot].team == main.team_battle.winner
 	if main.brawl != null:
 		return main.brawl.winner == slot
-	return slot < 2 and int(main.wins[slot]) >= Main.WINS_NEEDED and int(main.wins[1 - slot]) < Main.WINS_NEEDED
+	var needed := 1 if main.arcade != null else Main.WINS_NEEDED  # (a ladder fight is one round, as main's flow)
+	return slot < 2 and int(main.wins[slot]) >= needed and int(main.wins[1 - slot]) < needed
 
 
 ## Pays this match once (Settings > Game > Progression on): a second call for the same
@@ -334,6 +339,7 @@ func award_match(won: Variant = null, extra := {}) -> void:
 	if main.sim == null or main._progress_for == main.sim.get_instance_id():
 		return
 	main._progress_for = main.sim.get_instance_id()
+	_paid_won = won
 	var report := progress_report(won, extra)
 	var got := Progress.award(report)
 	# Challenges count the same match (their rewards add to the rows: XP, a title).
@@ -407,7 +413,8 @@ func winner_flair(pose := "") -> Dictionary:
 	var out := {"title": "", "line": ""}
 	if not Progress.enabled():
 		return out
-	for p in progress_report().get("players", []):
+	var paid := main.sim != null and main._progress_for == main.sim.get_instance_id()
+	for p in progress_report(_paid_won if paid else null).get("players", []):
 		if not bool(p.get("won", false)):
 			continue
 		var fs: Array = p.get("fighters", [])
