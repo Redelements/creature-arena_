@@ -30,8 +30,8 @@ DONE / SKIPPED / BLOCKED. This file lives on branch `autonomy-log` (worktree
 | 10 | Audio CC0 pass (Kenney only) + CREDITS | BLOCKED (ruling needed) | |
 | 11 | Training dummy at 2x | PR OPEN for Kevin | [#264](https://github.com/Redelements/creature-arena_/pull/264) |
 | 12 | Replay tools: frame step, slow motion, rewind; bug-report bundle | | |
-| 13 | Mode-idea evidence: bench every "idea" row | | |
-| 14 | Digby vs Cerebro with Normal bots, documented | | |
+| 13 | Mode-idea evidence: bench every "idea" row | PR OPEN, merging | [#265](https://github.com/Redelements/creature-arena_/pull/265) |
+| 14 | Digby vs Cerebro with Normal bots, documented | PR OPEN, merging | [#266](https://github.com/Redelements/creature-arena_/pull/266) |
 | 15 | Perf: view-draw pass, before/after | | |
 | 16 | Android: shader warm-up, 60 Hz hint; VRAM + soak scripts (not run) | | |
 | 17 | Trailer and gallery capture per map and fighter | | |
@@ -183,3 +183,23 @@ each restart, hence the cycling. Fix: `flow_t = 0` on the restart (branch `menu-
 creature-arena-menufix) + a regression test counting sim replacements (1 in 240 ticks; fails on main).
 Behavioral (players see the title behave), its own PR for Kevin. Conflict watch: task 5 (main.gd split)
 touches the same file; whichever merges second resolves a one-line conflict.
+
+## Tasks 13 and 14: mode-idea evidence, Digby vs Cerebro
+
+- **PR #265** (docs + bench tooling: `bench_modes.gd` gains `--shrine-spots`, `--arena`, `--mutators`, a Caravan
+  push column): ten open rows of mode-ideas.md now "measured", 24 Normal seeds a mode; a Normal baseline
+  for all ten modes in mode-metrics.md. Headlines: first-KO side wins one-life team modes (19/24, Sinkhole
+  21/24); **no Caravan push ever finishes** (29% of the track; shrines or a CPU wagon goal only lift it to
+  33-34%, which bounds what task 7 can show); catch-up shrine cuts the claimer's wins (75% -> 21%) without
+  more comebacks; two Brawl shrine spots double claims and raise comebacks; damage x0.67 lengthens fights
+  but the first KO decides more; revive and respawn waves do nothing; next-zone Crater shrine snowballs;
+  Sinkhole pickups raise fights but cut comebacks; respawning Brawl needs a tie-break (6/24 draws).
+- Decisions (agent): one throwaway prototype branch with off-by-default keys, deleted after measuring
+  (nothing shipped); "longer fights" measured with the damage mutator; respawning Brawl + crown not
+  measured (credit clash); hazards row already shipped.
+- **PR #266** (docs only): Digby wins 13 of 48 vs Cerebro (0 of 12 in the matrix row) while 67% overall:
+  the leak is his guard against the knife stream (21% of ticks guarding, 332 empty-stamina ticks and 19
+  guard breaks in 12 games; Flip Out beats the guard), fights at ~50 px, Burrow only 1.4 a match (CPU
+  window 80-160 px). Seven options listed as questions for Kevin, none implemented.
+- Checks (both): suite green (1295 / 1307), sweep 216/0, sim-check unchanged. Non-behavioral: merging
+  in turn (265 then 266) with a retry on "base branch was modified".
