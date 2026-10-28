@@ -203,6 +203,13 @@ dig/slosh/poof/chop_chop/shout sounds.
   `announce_seconds`, ready, a claim in the claimer's colour: main's `_shrine_marks`; the Crater's permanent-buff
   shrine is gold with a plus), buffs `_draw_buffs`, the Crater's permanent buffs as pips under the health bar
   `_draw_boost_pips` (`BOOST_COLORS`); the toasts `main.gd:_shrine_toast` (a buff's words, "... SHRINE DENIED" at the cap)
+- Barkley's plants (`MatchSim.plants`: sprout, tree, apple) → `plant_view.gd` (PlantView: on the floor for the trees'
+  shadows along `shadows.light`, its `stand` y-sorted among the fighters in main's `entities`, a `Plant` node each;
+  the sprout's HP bar only when hurt, the tree rising out of the ground, see-through over a fighter the local team
+  sees, tinted like an unlit fighter at night `WeatherView.prop_tint`; hidden from a foe without `sight_to` its
+  spot); the events' effects `fx_view.gd:_plant_event` (`PLANT_FX`, played with `MoveFxView.play`); a leafy root
+  (a `rooted` with `plant`, or by a `wild` fighter) `_leaf_root`, drawn in `_draw_status`; sounds
+  `audio_view.gd:on_event`. `tests/test_plant_view.gd`
 - Capture the Flag → flags `fx_view.gd:_draw_flag` (in the air: `lift` from main); the capture banner `hud.gd:moment` /
   `_draw_moment`, the red edge `alert` / `_draw_alert`; toasts, sounds and the end-screen
   MVP in `main.gd:_ctf_toast`, `_react`, `_count_ctf`, `_ctf_summary`
@@ -397,6 +404,7 @@ dig/slosh/poof/chop_chop/shout sounds.
 - `packed_sheet.gd` (PackedSheet) — A fighter sheet stored packed (tools/pack_sheets.py), drawn as if it were the grid sheet.
 - `paper_fx.gd` (PaperFx) — Mister Crease's paper, drawn over the fighters: the sheets of his Paper Stock floating above the hat, the crafts he has…
 - `perf_overlay.gd` (PerfOverlay) — The performance overlay (Settings > Video, or F9): the frame rate in a corner, and in its second mode a chart of the la…
+- `plant_view.gd` (PlantView) — Barkley's plants on the floor, drawn from `MatchSim.plants` (src/sim/plants.gd): a sprout swaying on its dirt patch (a…
 - `raised_tiles.gd` (RaisedTiles) — A tiled map's walls drawn as raised plateaus (map style `tiles.styles.wall: "raised:<name>"`, recipe `raised.<name>` in…
 - `range_rings.gd` (RangeRings) — "Range rings" (Settings > Controls, or F7 in a fight): thin floor rings that show where an attack really reaches, so a…
 - `shadow_layer.gd` (ShadowLayer) — The fighters' shadows, cast along the arena's light: each fighter's current sprite frame as a black silhouette laid on…

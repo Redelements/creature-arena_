@@ -232,6 +232,18 @@ loud effect in their family; never stack a slash and a burst on one spot. Full p
 | Gale (Crease) | `sp_fan` | `sp_pinwheel`, white `dust_wisp` | `smoke_bloom` + white `dust_swirl_ring` | white `dust_wisp` | wired: `spark_fan` 0.6, `spark_pinwheel`, white `dust_ring`; surge `smoke_bloom` + `dust_ring` where the storm lands |
 | Tide (Gillbert, Sno Mercy) | `water_spout`, `hit_star_cyan` | `water_fountain`, `water_wave`, `energy_geyser` | `water_fountain` x3 + `energy_geyser` / `energy_nova` | `water_fountain`, `sp_pinwheel` | wired: `water_spout` 0.6-0.7, `hit_star_cyan`; `water_fountain`, `water_wave`, blue-white `ice_geyser`; surges `ice_nova` + `ice_geyser`, fountains + geyser |
 
+Barkley's plants (events, not moves: `fx_view.gd:PLANT_FX`): seed `dust_poof` 0.45 + `leaf_swirl` 0.55; grown
+`leaf_swirl` 1.4 + `dust_burst` 0.8; apple `hit_star_cyan` 0.4; eaten `heal_beam` (EN r4 tinted green, cut for this) 0.8;
+spoiled `wisp_purple` 0.6; a sprout killed `leaf_swirl` 0.8 + `dust_poof` 0.5; a leafy root `leaf_swirl` 0.8 at the feet.
+
+### World props (`tools/cut_props.py`, `assets/props/`, drawn by `src/view/plant_view.gd`)
+
+| Prop | Source (pack, file, box) | Repo file | Notes |
+|---|---|---|---|
+| Barkley's sprout | RPGW_AncientForest_v1.0 `_PNG/Decorative.png` `[449,448,479,478]` (the connected sprite only), a small leafy seedling on a dirt patch | `assets/props/barkley_sprout.png` | 4 frames of 32 px: the pack's sprite is still, the cut shifts the leaf rows a pixel left / right; feet `[16,28]` |
+| Barkley's tree | FLSET1_v1.1 `_PNG/Anim/Trees/Tree_A_v1.png`, rows 0-2 (green), 12 frames of 128 px, each cropped `[12,8,116,128]` | `assets/props/barkley_tree.png` | 104 x 120 px (60 units: about 1.3 fighters), baked shadow (alpha 102) dropped, the game casts one along the light; feet `[52,114]` |
+| Apple | none: no pack has fruit | `assets/props/apple.png` | PLACEHOLDER 9 x 10 px drawn by the cutter in palette reds and greens |
+
 First three changes (all done): Digby `light_1` `impact_burst` -> `hit_star_cyan`; Barkley Pinecone Bomb `fire_burst` -> `boom_star` 0.7;
 `aura_buff` and `fire_burst` dropped. Strip names and the move-by-move wiring: kiddolink_vfx.md section 5; each move's own
 hook, scale and offset sit in its `fx.move_fx` entry (docs/MECHANICS.md), so one strip serves a family.
@@ -262,7 +274,8 @@ hook, scale and offset sit in its `fx.move_fx` entry (docs/MECHANICS.md), so one
 | Greenhouse glass, sprinklers | none | procedural `planter` / `sprinkler` furniture |
 | Ice / frost VFX | E1 blue, EN r1 `energy_geyser`, SP r1 | tint E1 / EN before the palette snap in `cut_vfx.py` |
 | Leaf, vine, poison VFX | DS brown dust; E1 purple | tint DS green, E1 purple toward green; or generated fx |
-| Heal ring | EN r4 `energy_beam_up`, E2 `e2_dome`, SP sigils | a sigil + beam pair |
+| Heal ring | EN r4 `energy_beam_up`, E2 `e2_dome`, SP sigils | a sigil + beam pair (EN r4 cut green as `heal_beam`) |
+| Fruit (an apple) | FL_Houses sacks and loads, DecorativeProps pots: no fruit | a 9 x 10 px placeholder drawn by `tools/cut_props.py` |
 | Bubbles as one strip | Marshland six single images | extend `cut_anim` to a file list (Floodgate 4) |
 | Team-coloured architecture | Castle gems blue / green, banner red / grey-blue / green, FC_G bands | pick the two closest colours per team; tint otherwise |
 | Soft shadows | separate `_shadows.png` layers (alpha hardened by the cut) | our own light / shadow pass (GradeView, Light2DView) |

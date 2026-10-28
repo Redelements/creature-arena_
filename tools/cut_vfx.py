@@ -117,6 +117,8 @@ EFFECTS = {
     "ice_geyser": (EN, 1, 0, 8, GROUND),
     # a starburst and ring (EN r3)
     "ice_nova": (EN, 3, 0, 8, _d(GROUND, offset=[0, -14])),
+    # a pillar of light rising (EN r4), tinted leaf green: a heal (Barkley's apple eaten)
+    "heal_beam": (EN, 4, 0, 14, _d(GROUND, on="hit", follow=True, ticks_per_frame=2)),
     # --- sparks (SP) and lightning (E1) ---
     # muzzle flash into a small comet (SP r6): lumen shots, drawn small
     "spark_comet": (SP, 6, 0, 7, _d(SHOT, scale=0.6)),
@@ -138,6 +140,7 @@ TINTS = {
     "venom_crackle": ((120, 214, 70), 0.9),
     "ice_geyser": ((200, 236, 255), 0.6),
     "ice_nova": ((120, 200, 255), 0.9),
+    "heal_beam": ((110, 230, 120), 0.85),
     # the pack's brown dust is a pinkish tan: pulled toward earth
     "dust_poof": ((190, 140, 96), 0.55),
     "dust_burst": ((190, 140, 96), 0.55),

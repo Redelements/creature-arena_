@@ -865,6 +865,69 @@ def plop():
 
 # Added after the first batch, so they're generated last and the older placeholders
 # (which share one random stream) come out the same as before.
+def rustle(d, lo=2500, hi=7000, rate=23):
+    """Leaves rustling: high noise chopped into flutters."""
+    return bandpass(noise(d), lo, hi) * (0.5 + 0.5 * np.sign(np.sin(2 * np.pi * rate * t(d))))
+
+
+def sprout():
+    """Barkley's seed takes root: a soft earthy tuck and a little rising leafy flutter."""
+    total = 0.4
+    tuck = at(np.tanh(thump(180, 90, 0.1, 2.5) * 1.5) * 0.7, 0.0, total)
+    leaf = at(rustle(0.22, 3000, 7500, 31) * env(0.22, attack=0.06, curve=2.0) * 0.4, 0.06, total)
+    chirp = at(osc(sweep(700, 1300, 0.12), 0.12, "tri") * env(0.12, attack=0.02, curve=2.5) * 0.25, 0.1, total)
+    return mix(tuck, leaf, chirp)
+
+
+def plant_hit():
+    """A sprout struck: a short leafy thwip and a green snap."""
+    total = 0.2
+    thwip = at(rustle(0.08, 2000, 6000, 40) * env(0.08, curve=2.0) * 0.8, 0.0, total)
+    snap = at(highpass(noise(0.015), 1500) * env(0.015, curve=2) * 0.7, 0.01, total)
+    return mix(thwip, snap, at(thump(260, 150, 0.06) * 0.4, 0.0, total))
+
+
+def plant_sprung():
+    """A foe treads on a sprout: roots whip up round their feet: a creaky lash and a thud."""
+    total = 0.5
+    out = at(swing(400, 1800, 0.12), 0.0, total)
+    out += at(creak(0.28, 300, 200) * 0.7, 0.06, total)
+    out += at(np.tanh(thump(120, 60, 0.15) * 2.0) * 0.6, 0.04, total)
+    out += at(rustle(0.25) * env(0.25, curve=2.2) * 0.35, 0.05, total)
+    return out
+
+
+def tree_grow():
+    """The sprout shoots up into a tree: a rising woody groan and a burst of leaves."""
+    total = 0.9
+    groan = at(creak(0.55, 110, 220), 0.0, total)
+    whoosh = at(swing(200, 1500, 0.4) * 0.6, 0.15, total)
+    leaves = at(rustle(0.45) * env(0.45, attack=0.04, curve=1.8) * 0.5, 0.35, total)
+    return mix(groan, whoosh, leaves)
+
+
+def apple_munch():
+    """An apple eaten: two crisp crunches and a bright little rising chime."""
+    total = 0.5
+    out = np.zeros(int(SR * total))
+    for k, s0 in enumerate((0.0, 0.14)):
+        c = bandpass(noise(0.07), 900, 6000) * env(0.07, curve=2.5)
+        for j in range(4):
+            c[int(j * SR * 0.012):] *= 0.85
+        out += at(c * (1.0 - 0.25 * k), s0, total)
+    for k, f in enumerate((660, 880, 1320)):
+        out += at(osc(f, 0.12, "tri") * env(0.12, curve=2.0) * 0.18, 0.24 + k * 0.05, total)
+    return out
+
+
+def apple_spoiled():
+    """A foe takes the apple: a squelch and a low sour two-note droop."""
+    total = 0.5
+    squish = at(lowpass(noise(0.12), 1200) * env(0.12, attack=0.01, curve=2.0) * 0.8, 0.0, total)
+    droop = at(osc(sweep(330, 220, 0.3), 0.3, "square", 0.3) * env(0.3, curve=1.5) * 0.18, 0.08, total)
+    return mix(squish, lowpass(droop, 1500))
+
+
 NEW_SOUNDS = {
     "roar": roar, "stoneskin": stoneskin, "shield_break": shield_break, "lash": lash,
     "avalanche": avalanche,
@@ -880,6 +943,9 @@ NEW_SOUNDS = {
     "warp": warp,
     "surge_ready_ally": surge_ready_ally, "surge_ready_foe": surge_ready_foe,
     "swallow": swallow, "plop": plop,
+    # Barkley's plants (added last so every sound above keeps its random draws)
+    "sprout": sprout, "plant_hit": plant_hit, "plant_sprung": plant_sprung, "tree_grow": tree_grow,
+    "apple_munch": apple_munch, "apple_spoiled": apple_spoiled,
 }
 
 
