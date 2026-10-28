@@ -292,15 +292,27 @@ func test_a_foe_who_takes_the_apple_spoils_it() -> void:
 	assert_eq(sim.plants.size(), 0, "and the tree is gone")
 
 
-func test_a_tree_cannot_be_hit_and_does_not_root() -> void:
+func test_a_tree_roots_nobody_but_can_be_cut_down() -> void:
 	var sim := _duel("cairn", 2.0)
 	var foe := sim.creatures[1]
 	var at := _grown(sim)
-	foe.pos = at + Vector2(4, 0)
-	for i in 40:
+	assert_eq(float(sim.plants[0]["hp"]), 10.0, "a fresh trunk: 10 HP again (Kevin's ruling):")
+	run(sim, 0, 2 * SimDefs.TICK_RATE + 2)
+	assert_true(bool(sim.plants[0]["apple"]), "with its apple")
+	var edge := float(sim.plants[0]["pick_radius"]) + foe.radius  # outside the apple's reach too
+	foe.pos = at + Vector2(edge + 14.0, 0)
+	foe.facing = Vector2.LEFT
+	var hits := 0
+	for i in 200:
 		sim.step(PackedInt32Array([0, L if i % 2 == 0 else 0]))
+		hits += _events(sim, "plant_hit").size()
+		if sim.plants.is_empty():
+			break
+		foe.pos.x = maxf(foe.pos.x, at.x + edge + 2.0)
 	assert_eq(foe.root, 0, "a tree roots nobody")
-	assert_eq(sim.plants.size(), 1, "and can't be cut down")
+	assert_gt(hits, 0, "the jabs land on the tree:")
+	assert_eq(sim.plants.size(), 0, "and cut it down, apple and all")
+	assert_eq(String(_events(sim, "plant_gone")[0]["how"]), "killed", "how it went:")
 
 
 func test_rollback_through_a_growing_plant() -> void:
