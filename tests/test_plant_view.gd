@@ -48,6 +48,10 @@ func test_a_plant_gets_a_node_that_follows_its_stage() -> void:
 	assert_true(int(n.key[2]) >= 0, "with its apple")
 	sim.plants.clear()
 	pv.advance()
+	assert_false(n.is_queued_for_deletion(), "a spent tree sinks back into the floor first")
+	assert_true(float(n.key[3]) < 1.0, "lower than it stood")
+	for i in PlantView.TREE_SINK:
+		pv.advance()
 	assert_true(n.is_queued_for_deletion(), "gone with the plant")
 	_free(parts)
 

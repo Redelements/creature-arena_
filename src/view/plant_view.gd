@@ -1,15 +1,16 @@
 class_name PlantView
 extends Node2D
 ## Barkley's plants on the floor, drawn from `MatchSim.plants` (src/sim/plants.gd): a sprout
-## swaying on its dirt patch (a small HP bar over it only once it's hurt, a flash and a
+## pushing up out of the floor as the seed's burst clears and swaying on its dirt patch (a small HP bar over it only once it's hurt, a flash and a
 ## shiver when it's struck), the tree it grows into rising out of the ground and swaying,
-## and the apple bobbing at the tree's foot. Views only read the sim.
+## and the apple bobbing at the tree's foot. A plant gone from the match (a spent tree, a
+## sprung sprout) sinks back into the floor over a few ticks. Views only read the sim.
 ##
 ## Two depths: this node lies on the floor, under the fighters (main adds it after the
 ## shadows), and draws the trees' shadows along the map's light; `stand` (main puts it among
 ## the y-sorted entities) holds one `Plant` node per plant standing on its feet, so a
 ## fighter behind a tree is drawn behind it, and a tree over a fighter the local team sees
-## turns see-through (`COVER_ALPHA`). A plant hides from a viewer who can't see its spot
+## fades see-through (`COVER_ALPHA`, over `COVER_EASE` ticks). A plant hides from a viewer who can't see its spot
 ## (`FxView.sight_to`) unless it's their side's. The art is assets/props/ (tools/cut_props.py,
 ## ppu 2: 2 texture pixels a unit); the effects round it (seed, grow, apple, eaten) are
 ## `fx_view.gd:_plant_event`.
@@ -32,6 +33,17 @@ const APPLE_FEET := Vector2(4, 9)
 const APPLE_AT := Vector2(7, 2)
 ## Ticks a new tree takes to rise out of the ground.
 const RISE_TICKS := 16.0
+## A new sprout pushes up out of the floor as the seed's burst clears: it waits
+## SPROUT_DELAY ticks, then rises over SPROUT_RISE.
+const SPROUT_DELAY := 10.0
+const SPROUT_RISE := 10.0
+## Ticks a plant that's gone takes to sink back into the floor: a spent tree (its apple
+## eaten or spoiled) and a sprung sprout (it snaps shut on the foe). A killed sprout
+## goes at once, under its burst of leaves.
+const TREE_SINK := 14
+const SPROUT_SINK := 6
+## Ticks the see-through takes to fade in or out as a fighter steps behind a tree.
+const COVER_EASE := 6.0
 ## Ticks a struck sprout flashes and shivers.
 const FLASH_TICKS := 8
 ## How see-through a tree is while it stands over a fighter the local team sees.
@@ -39,6 +51,8 @@ const COVER_ALPHA := 0.5
 const C_BAR_BACK := Color(0.05, 0.06, 0.05, 0.75)
 const C_BAR := Color("28b450")
 const C_BAR_LOW := Color("e8c060")
+## The apple's light rim (one texture pixel round it), so it reads on any floor.
+const C_APPLE_RIM := Color(1.0, 0.96, 0.82, 0.7)
 
 var sim: MatchSim
 var fx: FxView
@@ -84,6 +98,7 @@ func advance() -> void:
 			stand.add_child(n)
 			_nodes[id] = n
 		n.pl = pl
+		n.dying = -1
 		n.position = ArtScale.snap(Vector2(pl["pos"]), PPU)
 		n.visible = _seen(pl)
 		if float(pl["hp"]) < n.hp_seen:
@@ -91,6 +106,8 @@ func advance() -> void:
 		n.hp_seen = float(pl["hp"])
 		if n.flash > 0:
 			n.flash -= 1
+		var want := 1.0 if int(pl["stage"]) == Plants.TREE and _covers(pl) else 0.0
+		n.cover = move_toward(n.cover, want, 1.0 / COVER_EASE)
 		var key := _key(pl, n)
 		if key != n.key:
 			n.key = key
@@ -100,9 +117,26 @@ func advance() -> void:
 	if shadows != null:
 		shadow_key.append(shadows.light)
 	for id in _nodes.keys():
-		if not live.has(id):
-			(_nodes[id] as Node).queue_free()
+		if live.has(id):
+			continue
+		# Gone from the match: sink back into the floor for a few ticks, then go.
+		var n: Plant = _nodes[id]
+		if n.dying < 0:
+			n.sink = _sink_ticks(n)
+			n.dying = n.sink
+		n.dying -= 1
+		var behind := 1.0 if int(n.pl["stage"]) == Plants.TREE and _covers(n.pl) else 0.0
+		n.cover = move_toward(n.cover, behind, 1.0 / COVER_EASE)
+		if n.dying <= 0:
+			n.queue_free()
 			_nodes.erase(id)
+			continue
+		var key := _key(n.pl, n)
+		if key != n.key:
+			n.key = key
+			n.queue_redraw()
+		if int(n.pl["stage"]) == Plants.TREE and n.visible:
+			shadow_key.append([id, key[1], key[3]])
 	if shadow_key != _shadow_key:
 		_shadow_key = shadow_key
 		queue_redraw()
@@ -120,22 +154,52 @@ func _key(pl: Dictionary, n: Plant) -> Array:
 	var id := int(pl["id"])
 	if int(pl["stage"]) == Plants.PLANT:
 		var shake := 0 if n.flash <= 0 else (1 if n.flash % 4 < 2 else -1)
-		return [0, _frame(id, SPROUT_FRAMES, SPROUT_TPF), int(ceilf(float(pl["hp"]))), shake, n.flash > 0]
-	var rise := _rise(pl)
+		var up := _rise(pl, n, SPROUT_FEET.y, SPROUT_DELAY, SPROUT_RISE, 0)
+		return [0, _frame(id, SPROUT_FRAMES, SPROUT_TPF), int(ceilf(float(pl["hp"]))), shake, n.flash > 0, up]
+	var rise := _rise(pl, n, TREE_FEET.y, 0.0, RISE_TICKS, int(pl["grow"]))
 	var bob := int(_t / 20.0 + id) % 2 if bool(pl["apple"]) else -1
 	var glint := bool(pl["apple"]) and int(_t + id * 7) % 90 < 6
 	var tint := weather.prop_tint(Vector2(pl["pos"])) if weather != null else Color.WHITE
-	return [1, _frame(id, TREE_FRAMES, TREE_TPF), bob, rise, glint, _covers(pl), tint]
+	var cover := roundf(n.cover * COVER_EASE) / COVER_EASE
+	return [1, _frame(id, TREE_FRAMES, TREE_TPF), bob if n.dying < 0 else -1, rise, glint, cover, tint]
 
 
 func _frame(id: int, frames: int, tpf: int) -> int:
 	return int(_t / float(tpf) + id * 3) % frames
 
 
-## 0..1: how far a new tree has risen out of the ground (whole pixels of its height).
-func _rise(pl: Dictionary) -> float:
-	var since := float(int(pl["age"]) - int(pl["grow"]))
-	return clampf(roundf(since / RISE_TICKS * TREE_SIZE.y) / TREE_SIZE.y, 0.0, 1.0)
+## 0..1: how far a plant stands out of the ground, in whole pixels of its `rows`: rising
+## `ticks` long from `delay` ticks after `from` (its age when it took this stage), or
+## sinking back while it's gone.
+func _rise(pl: Dictionary, n: Plant, rows: float, delay: float, ticks: float, from: int) -> float:
+	var k := float(int(pl["age"]) - from) - delay
+	k = k / ticks if n.dying < 0 else float(n.dying) / float(maxi(1, n.sink))
+	return clampf(roundf(k * rows) / rows, 0.0, 1.0)
+
+
+static var _rim: Texture2D
+
+
+## The apple's shape in white (its rim is drawn from it), made once.
+static func apple_rim() -> Texture2D:
+	if _rim == null:
+		var img := APPLE.get_image()
+		img.decompress()
+		img.convert(Image.FORMAT_RGBA8)
+		for y in img.get_height():
+			for x in img.get_width():
+				img.set_pixel(x, y, Color(1, 1, 1, 1.0 if img.get_pixel(x, y).a > 0.5 else 0.0))
+		_rim = ImageTexture.create_from_image(img)
+	return _rim
+
+
+## Ticks a plant just gone from the match takes to sink away (0: at once).
+func _sink_ticks(n: Plant) -> int:
+	if n.key.is_empty():
+		return 0
+	if int(n.key[0]) == 1:
+		return TREE_SINK
+	return SPROUT_SINK if float(n.pl.get("hp", 0.0)) > 0.0 else 0
 
 
 ## Whether the tree stands in front of a fighter the local team sees (their feet just north
@@ -160,10 +224,14 @@ func _draw() -> void:
 	var light: Dictionary = shadows.light if shadows != null else ShadowLayer.light_of(sim.arena)
 	for id in _nodes:
 		var n: Plant = _nodes[id]
-		if not n.visible or n.key.is_empty() or int(n.key[0]) != 1 or float(n.key[3]) < 1.0:
+		if not n.visible or n.key.is_empty() or int(n.key[0]) != 1 or float(n.key[3]) <= 0.0:
 			continue
-		var region := Rect2(int(n.key[1]) * TREE_SIZE.x, 0, TREE_SIZE.x, TREE_SIZE.y)
-		ShadowLayer.draw_silhouette(self, TREE, region, TREE_FEET, false, n.position, light["cast"],
+		# a rising (or sinking) tree casts only the part of it out of the ground
+		var rise := float(n.key[3])
+		var rows := TREE_SIZE.y if rise >= 1.0 else roundf(TREE_FEET.y * rise)
+		var feet := TREE_FEET if rise >= 1.0 else Vector2(TREE_FEET.x, rows)
+		var region := Rect2(int(n.key[1]) * TREE_SIZE.x, 0, TREE_SIZE.x, rows)
+		ShadowLayer.draw_silhouette(self, TREE, region, feet, false, n.position, light["cast"],
 			float(light["alpha"]), Vector2.ONE / PPU)
 
 
@@ -174,6 +242,9 @@ class Plant extends Node2D:
 	var key: Array = []
 	var hp_seen := 0.0
 	var flash := 0
+	var cover := 0.0  ## 0..1, eased: how see-through the tree is
+	var dying := -1  ## ticks left sinking away once gone from the match (-1: still in it)
+	var sink := 0  ## the ticks that sinking takes
 
 	func _draw() -> void:
 		if key.is_empty():
@@ -187,10 +258,20 @@ class Plant extends Node2D:
 		var frame := int(key[1])
 		var shake := float(int(key[3])) * 0.5
 		var col := Color(1.7, 1.7, 1.5) if bool(key[4]) else Color.WHITE
+		var up := float(key[5])
 		draw_set_transform(Vector2(shake, 0), 0.0, Vector2.ONE / PPU)
-		draw_texture_rect_region(SPROUT, Rect2(-SPROUT_FEET, SPROUT_SIZE),
-			Rect2(frame * SPROUT_SIZE.x, 0, SPROUT_SIZE.x, SPROUT_SIZE.y), col)
+		var src := Rect2(frame * SPROUT_SIZE.x, 0, SPROUT_SIZE.x, SPROUT_SIZE.y)
+		if up >= 1.0:
+			draw_texture_rect_region(SPROUT, Rect2(-SPROUT_FEET, SPROUT_SIZE), src, col)
+		else:
+			# pushing up out of the floor (or snapping back down): its top `up` shows
+			var rows := roundf(SPROUT_FEET.y * up)
+			if rows > 0.0:
+				draw_texture_rect_region(SPROUT, Rect2(-SPROUT_FEET.x, -rows, SPROUT_SIZE.x, rows),
+					Rect2(src.position, Vector2(SPROUT_SIZE.x, rows)), col)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		if up < 1.0:
+			return
 		var hp := float(pl.get("hp", 0.0))
 		var hp_max := maxf(1.0, float(pl.get("hp_max", 1.0)))
 		if hp < hp_max:
@@ -205,8 +286,7 @@ class Plant extends Node2D:
 		var frame := int(key[1])
 		var rise := float(key[3])
 		var col: Color = key[6]
-		if bool(key[5]):
-			col.a = COVER_ALPHA
+		col.a = lerpf(1.0, COVER_ALPHA, float(key[5]))
 		var src := Rect2(frame * TREE_SIZE.x, 0, TREE_SIZE.x, TREE_SIZE.y)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE / PPU)
 		if rise < 1.0:
@@ -222,6 +302,9 @@ class Plant extends Node2D:
 		if bob >= 0:
 			var at := APPLE_AT + Vector2(0, -float(bob) * 0.5)
 			draw_set_transform(at, 0.0, Vector2.ONE / PPU)
+			var rim := PlantView.apple_rim()
+			for d in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:
+				draw_texture(rim, -APPLE_FEET + d, C_APPLE_RIM)
 			draw_texture(APPLE, -APPLE_FEET)
 			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 			if bool(key[4]):  # a glint on its shoulder now and then
