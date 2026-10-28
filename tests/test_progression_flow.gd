@@ -221,3 +221,20 @@ func test_two_local_players_against_cpus_are_paid_at_the_cpu_level() -> void:
 	r = g.show_ctl.progress_report(false)
 	assert_false(bool(r.get("cpus", false)), "two players alone: no CPU, paid fully")
 	_done(g)
+
+
+func test_the_hud_names_the_level_a_ladder_stages_cpu_plays_at() -> void:
+	_fresh()
+	var g := _game()
+	g.level = 1
+	g._arcade_fighter = "cairn"
+	g._skip_select = true
+	g._start_match(g.mode_index("Arcade"))
+	g.arcade.stage = Arcade.STAGES - 1
+	g._start_arcade_stage()
+	_tick(g, 2)
+	assert_eq(String(g.hud.tags[1]), "CPU " + String(g.LEVEL_NAMES[2]), "the boss plays Hard on a Normal run, and says so:")
+	g._start_match(0)
+	_tick(g, 2)
+	assert_eq(String(g.hud.tags[1]), "CPU " + String(g.LEVEL_NAMES[1]), "a plain fight: the setting's level:")
+	_done(g)

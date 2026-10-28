@@ -2729,7 +2729,8 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 			Side.PLAYER:
 				hud.tags[i] = "P1"
 			Side.CPU:
-				hud.tags[i] = "CPU " + LEVEL_NAMES[level]
+				# The level it plays at: a ladder stage's own (the Arcade boss one up), else the setting's.
+				hud.tags[i] = "CPU " + LEVEL_NAMES[_cpu_level_override if _cpu_level_override >= 0 else level]
 				hud.key_labels[i] = ["", "", ""]
 			Side.SCRIPT:
 				hud.tags[i] = "DEMO"
