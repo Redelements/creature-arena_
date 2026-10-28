@@ -275,7 +275,7 @@ static func _skips_intro(event: InputEvent) -> bool:
 ## Progression: what this finished match pays (`Progress.award`'s report), from the mode,
 ## the sides and MatchStats. Kind "none" (nothing paid) for training, showcases, coaches
 ## (trials, drills), replays, spectating and CPU vs CPU. `won` (the Arcade's stage result)
-## overrides who won; `extra` adds the ladder's keys (clear_arcade, waves, daily_score).
+## overrides who won; `extra` adds the ladder's keys (clear_arcade, waves, daily_score, weekly_clear).
 func progress_report(won: Variant = null, extra := {}) -> Dictionary:
 	var none := {"kind": "none", "players": []}
 	if main.sim == null or main.watch != null or main._replaying() or main.mode == Main.REPLAY_MODE \
@@ -358,6 +358,8 @@ func challenge_context(report: Dictionary) -> Dictionary:
 ## The kind of match for the challenges (Challenges.note_match's "mode").
 func _challenge_mode() -> String:
 	if main.arcade != null:
+		if main.arcade is Weekly:
+			return "weekly"
 		return "daily" if main.arcade is Daily else ("gauntlet" if main.arcade is Gauntlet else "arcade")
 	if main.brawl != null:
 		return "chaos" if bool(Main.MODES[main.mode].get("chaos", false)) else "brawl"
@@ -543,7 +545,8 @@ func _show_match_over() -> void:
 			elif main.arcade != null:
 				s.add_button("Play again" if main.arcade is Daily else "New run", func():
 					main.seed_base += 1
-					main._start_match(main.mode), "Today's fight again" if main.arcade is Daily else "A fresh run from the start")
+					main._start_match(main.mode), "This week's fight again" if main.arcade is Weekly
+						else ("Today's fight again" if main.arcade is Daily else "A fresh run from the start"))
 			else:
 				s.add_button("Rematch", func():
 					main.seed_base += 1

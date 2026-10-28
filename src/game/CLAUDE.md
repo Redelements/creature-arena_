@@ -127,6 +127,11 @@ player and live here, outside the sim.
   report's first player counts (player 1 locally, the local slot online); kind "none" and Off count nothing. Rewards
   pay through `Progress.grant_xp(amount, reason)` and `Progress.grant_unlock(id)`. A new counter: add it to
   `Challenges.STATS` and count it in `note_event` / `note_match` from MatchStats or events (never a new sim event)
+  Weekly and streak (PR D): the Weekly Challenge (mode 54, `weekly.gd`) pays like the Daily (`daily_score`) plus
+  `weekly_clear` on the week's first scoring win (`_arcade_result`); the play streak lives in `Progress.award` (a
+  paid fight on a new local calendar day: `_note_streak`; `streak_mult` from `streak_min_days`; the results row
+  "Streak: N days" when a fight grew it to two or more; `Progress.day_override` for tests). The Single player hub's
+  Challenges card carries the today card (`main.gd:_today_facts`: today's Daily, this week's best and mutators)
 - Sim events → flash / rumble → `_react`, `_flash`, `_rumble`
 - Touch controls (`main_touch.gd`) → `_note_input` (every event: the device, and touches into `player_input.touch`),
   `_touch_step` (each tick, also paused: who may touch, the layout for the screen and Duel's
@@ -140,7 +145,7 @@ player and live here, outside the sim.
 - Showcases → a `SCRIPTS` entry in `showcase.gd` (steps: wait, press, walk, together,
   dodge, guard, approach, until, place); trials → `trials.gd:after_step`,
   `data/trials.json`; drills → `drills.gd:_judge`, `SETS`, `REPS`
-- Ladders → `ladder.gd` (the shared questions), `arcade.gd`, `gauntlet.gd`, `daily.gd`;
+- Ladders → `ladder.gd` (the shared questions), `arcade.gd`, `gauntlet.gd`, `daily.gd`, `weekly.gd` (a `Daily` seeded by the ISO week, UTC: three mutators, the week's map and look via `_match_look`; scored like the Daily, retried all week, best in progress.json `weekly`; no server board, no saved replay);
   main plays them stage by stage (`_start_arcade_stage`, `_arcade_result`)
 - Spawns → `MatchSim.spawn(side)` (the map's, else `match_factory.gd:SPAWN_LEFT/RIGHT`)
 - Add a fighter → `match_factory.gd:FIGHTERS` + `MODES` entries + `MENU_ROWS` lists
@@ -183,7 +188,7 @@ next tick's CPU inputs are thought on the main thread in the frame between ticks
 8 Versus 2P, 9 Combo Trials, 10/11 Reaction Drills, 12–19 and 21–28 each fighter's "vs CPU"
 and "training" pair (Craglash, Barkley, Gillbert, Cerebro, Hissy, Digby, Pete, Sno), 20 Online,
 29/30 Team 2v2/3v3 vs CPU,
-31/32 Team Deathmatch 2v2/3v3 vs CPU (offline only so far), 33–35 Sinkhole 1v1/2v2/3v3 vs CPU, 36–38 King of the Crater 1v1/2v2/3v3 vs CPU, 39 Arcade, 40 Gauntlet, 41 Daily Challenge (`--fighter=ID` picks yours), 42–45 Brawl (2/3/4 players, you vs 3 CPUs), 46 Chaos Cup, 47 a replay being watched (Replay theater), 48 Mister Crease vs CPU, 49 training as Mister Crease, 50/51 Caravan 2v2/3v3 vs CPU, 52/53 Capture the Flag 3v3/4v4 vs CPU. Showtime was removed (Oct 2026), which shifted the modes after it down by three; tests start modes by name with `main.mode_index("Chaos Cup")`. Matches are deterministic, so a seed reproduces a CPU match exactly.
+31/32 Team Deathmatch 2v2/3v3 vs CPU (offline only so far), 33–35 Sinkhole 1v1/2v2/3v3 vs CPU, 36–38 King of the Crater 1v1/2v2/3v3 vs CPU, 39 Arcade, 40 Gauntlet, 41 Daily Challenge (`--fighter=ID` picks yours), 42–45 Brawl (2/3/4 players, you vs 3 CPUs), 46 Chaos Cup, 47 a replay being watched (Replay theater), 48 Mister Crease vs CPU, 49 training as Mister Crease, 50/51 Caravan 2v2/3v3 vs CPU, 52/53 Capture the Flag 3v3/4v4 vs CPU, 54 Weekly Challenge (`--fighter=ID` picks yours; its menu row only with Settings > Game > Progression on, a MENU_ROWS entry with `"progression": true`). Showtime was removed (Oct 2026), which shifted the modes after it down by three; tests start modes by name with `main.mode_index("Chaos Cup")`. Matches are deterministic, so a seed reproduces a CPU match exactly.
 
 ## Files
 
@@ -217,4 +222,5 @@ and "training" pair (Craglash, Barkley, Gillbert, Cerebro, Hissy, Digby, Pete, S
 - `showcase.gd` (Showcase) — Scripted demos that show each fighter's whole kit, and how to answer the big moves.
 - `touch_demo.gd` (TouchDemo) — `--touch-demo`: a recorded touch script played into the touch controls, for screenshots of the overlay (and a smoke tes…
 - `trials.gd` (ComboTrials) — Combo Trials: "perform this route" challenges, from data/trials.json.
+- `weekly.gd` (Weekly) — The Weekly Challenge (Settings > Game > Progression on): the Daily's sibling, one seeded fight a week, the same for eve…
 <!-- END GENERATED -->

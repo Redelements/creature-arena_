@@ -8,6 +8,9 @@
 		"clear_arcade": 150,
 		"gauntlet_wave": 10,
 		"daily_score_mult": 2,
+		"weekly_clear": 100,
+		"streak_mult": 1.1,
+		"streak_min_days": 3,
 		"level_mult": [0.5, 1.0, 1.1, 1.2]
 	},
 	"account_curve": {"base": 150, "step": 65, "cap": 50},

@@ -27,19 +27,26 @@ extends RefCounted
 ##                                     reward; account-level rewards it reaches unlock), shaped like `award`'s
 ##   grant_unlock(reward_id) -> bool   a reward given outright (a challenge's title); false when off or had
 ##   section(key) -> Dictionary        a save key another tracker keeps (Challenges: "challenges")
+##   weekly_best(week) / record_weekly(week, score)   the Weekly Challenge's local best per ISO week (YYYYWW)
+##   streak_days() -> int              the play streak: calendar days in a row (local time) with a paid
+##                                     fight, 0 once a day is missed; `award` keeps it (save key "streak")
+##   streak_bonus() -> float           the XP multiplier a fight gets now (streak_mult from streak_min_days)
 
 const PATH := "user://progress.json"
 const DATA_PATH := "res://data/progression.json"
 const PALETTES := 4
 ## Every key of the save and its default (an old file without some of them still loads).
 const SAVE_KEYS := {"arcade": {}, "palette": {}, "gauntlet": {}, "daily": {}, "xp": 0, "mastery": {},
-	"unlocked": [], "equipped": {}, "account_title": "", "seen": [], "challenges": {}}
+	"unlocked": [], "equipped": {}, "account_title": "", "seen": [], "challenges": {},
+	"weekly": {}, "streak": {}}
 
 static var _data := {}
 static var _loaded := false
 static var path := PATH
 static var _enabled := false
 static var _table := {}
+## The local calendar day (YYYYMMDD) the streak counts with; 0 = the system clock. Tests set it.
+static var day_override := 0
 
 
 static func read() -> void:
@@ -151,6 +158,21 @@ static func record_daily(date: int, score: int) -> bool:
 	if score <= daily_best(date):
 		return false
 	_data["daily"][str(date)] = score
+	save()
+	return true
+
+
+## The Weekly Challenge: the best score per ISO week (YYYYWW, Weekly.week_of).
+static func weekly_best(week: int) -> int:
+	_ensure()
+	return int((_data["weekly"] as Dictionary).get(str(week), 0))
+
+
+static func record_weekly(week: int, score: int) -> bool:
+	_ensure()
+	if score <= weekly_best(week):
+		return false
+	_data["weekly"][str(week)] = score
 	save()
 	return true
 
@@ -362,6 +384,8 @@ static func xp_for(report: Dictionary, player: Dictionary) -> int:
 		total += float(x.get("clear_arcade", 0))
 	total += int(report.get("waves", 0)) * float(x.get("gauntlet_wave", 0))
 	total += int(report.get("daily_score", 0)) / 100.0 * float(x.get("daily_score_mult", 0))
+	if bool(report.get("weekly_clear", false)):
+		total += float(x.get("weekly_clear", 0))
 	if kind == "cpu":
 		var mults: Array = x.get("level_mult", [1.0])
 		total *= float(mults[clampi(int(report.get("cpu_level", 1)), 0, mults.size() - 1)])
@@ -375,20 +399,29 @@ static func xp_for(report: Dictionary, player: Dictionary) -> int:
 ##   "cpu_level": 0 Easy .. 3 Rage (kind "cpu")
 ##   "players": [{"slot": int, "fighters": [ids], "won": bool, "kos": int}], the humans
 ##   "clear_arcade": bool, "waves": int (Gauntlet waves this fight cleared), "daily_score": int
+##   (the Daily's or the Weekly's score), "weekly_clear": bool (the week's first scoring win)
+## A paid fight keeps the play streak (`streak_days`); from `streak_min_days` days in a row
+## every player's XP is times `streak_mult`.
 ## The account gains the best player's XP (one account per machine, so four local players
 ## don't pay it four times); a player's fighters share that player's XP for mastery (a
 ## Duel's three split it), and a fighter two players used takes the larger share.
 ## Returns {} when Progression is off or nothing was earned (and changes nothing), else
 ##   {"xp": gained, "level_from", "level_to", "mastery": {fighter: {"xp", "from", "to"}},
-##    "unlocked": [reward ids newly unlocked]}
+##    "unlocked": [reward ids newly unlocked], "streak": days, "streak_up": true when this
+##    fight added a day to a streak of two or more}
 static func award(report: Dictionary) -> Dictionary:
 	if not enabled():
 		return {}
 	_ensure()
 	var best := 0
 	var per_fighter := {}
+	var paid := false
 	for p in report.get("players", []):
-		var gain := xp_for(report, p)
+		paid = paid or xp_for(report, p) > 0
+	var streak_up := _note_streak() if paid else false
+	var bonus := streak_bonus()
+	for p in report.get("players", []):
+		var gain := roundi(xp_for(report, p) * bonus)
 		best = maxi(best, gain)
 		var fs: Array = p.get("fighters", [])
 		if fs.is_empty() or gain <= 0:
@@ -400,7 +433,8 @@ static func award(report: Dictionary) -> Dictionary:
 		return {}
 	var before := account_level()
 	_data["xp"] = account_xp() + best
-	var out := {"xp": best, "level_from": before, "level_to": account_level(), "mastery": {}, "unlocked": []}
+	var out := {"xp": best, "level_from": before, "level_to": account_level(), "mastery": {}, "unlocked": [],
+		"streak": streak_days(), "streak_up": streak_up, "streak_bonus": bonus}
 	var had: Array = []  # a palette an Arcade clear already gave is no news
 	for f in per_fighter:
 		for i in range(1, PALETTES):
@@ -446,6 +480,9 @@ static func merge_results(a: Dictionary, b: Dictionary) -> Dictionary:
 	for id in b["unlocked"]:
 		if not out["unlocked"].has(id):
 			out["unlocked"].append(id)
+	out["streak"] = maxi(int(a.get("streak", 0)), int(b.get("streak", 0)))
+	out["streak_up"] = bool(a.get("streak_up", false)) or bool(b.get("streak_up", false))
+	out["streak_bonus"] = maxf(float(a.get("streak_bonus", 1.0)), float(b.get("streak_bonus", 1.0)))
 	return out
 
 
@@ -471,7 +508,66 @@ static func result_lines(r: Dictionary) -> Array:
 		for id in got.slice(0, 2):
 			names.append(reward_text(String(id)))
 		lines.append("Unlocked: " + ", ".join(PackedStringArray(names)) + (" and %d more" % (got.size() - 2) if got.size() > 2 else ""))
+	if bool(r.get("streak_up", false)):
+		lines.append(streak_text(int(r.get("streak", 0)), float(r.get("streak_bonus", 1.0))))
 	return lines
+
+
+# --- The play streak -------------------------------------------------------------------------
+
+
+## Today, the local calendar day (YYYYMMDD), or `day_override`.
+static func today_local() -> int:
+	if day_override > 0:
+		return day_override
+	var d := Time.get_date_dict_from_system(false)
+	return int(d["year"]) * 10000 + int(d["month"]) * 100 + int(d["day"])
+
+
+## The play streak: calendar days in a row with at least one paid fight, counting today
+## or yesterday as its last day; 0 once a whole day was missed.
+static func streak_days() -> int:
+	_ensure()
+	var st: Dictionary = _data["streak"]
+	var last := int(st.get("last_day", 0))
+	if last <= 0:
+		return 0
+	var gap := Daily.day_number(today_local()) - Daily.day_number(last)
+	return maxi(0, int(st.get("days", 0))) if gap >= 0 and gap <= 1 else 0
+
+
+## The XP multiplier a paid fight gets now: `streak_mult` once the streak reaches
+## `streak_min_days` (data/progression.json), else 1.
+static func streak_bonus() -> float:
+	var x: Dictionary = table().get("xp", {})
+	if streak_days() >= int(x.get("streak_min_days", 3)):
+		return float(x.get("streak_mult", 1.0))
+	return 1.0
+
+
+## "Streak: 5 days" (and the bonus while it pays one).
+static func streak_text(days: int, bonus := 1.0) -> String:
+	var t := "Streak: %d day%s" % [days, "" if days == 1 else "s"]
+	if bonus > 1.0:
+		t += "   ·   +%d%% XP" % roundi((bonus - 1.0) * 100.0)
+	return t
+
+
+## A paid fight today: the streak goes on (yesterday was its last day), starts again at
+## one (a gap), or stays (already counted today). True when it grew to two days or more.
+static func _note_streak() -> bool:
+	_ensure()
+	var st: Dictionary = _data["streak"]
+	var today := today_local()
+	var last := int(st.get("last_day", 0))
+	if last == today:
+		return false
+	var days := 1
+	if last > 0 and Daily.day_number(today) - Daily.day_number(last) == 1:
+		days = maxi(0, int(st.get("days", 0))) + 1
+	st["days"] = days
+	st["last_day"] = today
+	return days >= 2
 
 
 # --- The Profile (src/ui/profile_screen.gd) -----------------------------------------------

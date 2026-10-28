@@ -251,7 +251,7 @@ static func note_event(e: Dictionary) -> void:
 ## The finished match (main_presentation.gd `award_match`, after `Progress.award`):
 ## `report` is Progress.award's report, `rows` MatchStats.rows, `ctx` what the report
 ## lacks: {"mode": "versus" | "duel" | "team" | "tdm" | "sinkhole" | "crater" | "caravan" |
-## "ctf" | "brawl" | "chaos" | "arcade" | "gauntlet" | "daily", "arena": arena id,
+## "ctf" | "brawl" | "chaos" | "arcade" | "gauntlet" | "daily" | "weekly", "arena": arena id,
 ## "hp": the player's health share at the end (-1 unknown), "team": their team,
 ## "teams": {creature id: team}, "crater_ticks": their team's zone time}.
 ## Adds to the counters, completes goals and pays them. Returns the rewards paid, shaped

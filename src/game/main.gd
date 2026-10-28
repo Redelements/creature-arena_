@@ -85,7 +85,7 @@ extends Node2D
 ##   --online-join=ADDR[:PORT][/ROOM]  join one, or a dedicated server (ROOM: meet a friend there)
 ##   --online-watch=ADDR[:PORT][/ROOM] watch a server's match (a room's, from match to match)
 ##   --server[=PORT]       run as a dedicated server (with --headless); --max-players=N
-##   --fighter=ID          your fighter online
+##   --fighter=ID          your fighter online and in the ladders (Arcade, Gauntlet, Daily, Weekly)
 ##   --online-size=N       with --online-join to a server: 2, 3 or 4 asks for a 2v2 / 3v3 / 4v4 (4: Capture the Flag)
 ##   --net-lag=N --net-loss=F   hold back / drop the input stream (feel rollback on a LAN)
 ##   --net-delay=N         force the input delay (frames) instead of picking it from the ping
@@ -160,6 +160,7 @@ const MODES := [
 	{"label": "Caravan: 3v3 vs CPU", "team": 3, "rules": "caravan", "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Capture the Flag: 3v3 vs CPU", "team": 3, "rules": "ctf", "sides": [Side.PLAYER, Side.CPU]},
 	{"label": "Capture the Flag: 4v4 vs CPU", "team": 4, "rules": "ctf", "sides": [Side.PLAYER, Side.CPU]},
+	{"label": "Weekly Challenge", "weekly": true, "sides": [Side.PLAYER, Side.CPU]},
 ]
 const REPLAY_MODE := 47
 ## The menus (src/ui screens): the title menu opens Single player (MENU_ROWS), the online
@@ -189,6 +190,7 @@ const MENU_GROUPS := [
 	{"id": "team", "title": "Team battles", "sub": "Six modes from 1v1 to 4v4, CPU teammates beside you",
 		"desc": "Everyone on the field at once; pick the rules and the team size"},
 	{"id": "challenge", "title": "Challenges", "sub": "Arcade, Gauntlet, the Daily, Combo Trials, Reaction Drills",
+		"sub_progression": "Arcade, Gauntlet, Daily, Weekly, Combo Trials, Reaction Drills",
 		"desc": "Runs and lessons with something to clear or beat"},
 	{"id": "brawl", "title": "Brawl", "sub": "Free-for-all for up to four, and the Chaos Cup",
 		"desc": "Four fighters, one life each, CPUs in the empty seats"},
@@ -232,6 +234,10 @@ const MENU_ROWS := [
 			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy", "as Mister Crease"]},
 	{"label": "Daily Challenge", "group": "challenge", "modes": [41], "fighter_choice": true,
 		"desc": "Today's fight, the same for everyone: a seeded opponent and two mutators. Score by health left and time to spare. Left/Right: your fighter",
+		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert", "as Chef Cerebro",
+			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy", "as Mister Crease"]},
+	{"label": "Weekly Challenge", "group": "challenge", "modes": [54], "fighter_choice": true, "progression": true,
+		"desc": "This week's fight, the same for everyone: a seeded opponent, map and three mutators. Play it all week; your best counts. Left/Right: your fighter",
 		"choices": ["as Cairn", "as Culvert", "as Craglash", "as Barkley", "as Gillbert", "as Chef Cerebro",
 			"as Hissy Fitz", "as Digby", "as Sneaky Pete", "as Sno Mercy", "as Mister Crease"]},
 	{"label": "Combo Trials", "group": "challenge", "modes": [9], "desc": "Learn the combos, one at a time"},
@@ -1039,7 +1045,12 @@ func _open_single() -> void:
 		s.add_space(2)
 		for g in MENU_GROUPS:
 			var gid := String(g["id"])
-			s.add_card(String(g["title"]), String(g["sub"]), func(): _open_single_group(gid), String(g["desc"]))
+			var sub := String(g.get("sub_progression", g["sub"])) if Progress.enabled() else String(g["sub"])
+			var hub_card := s.add_card(String(g["title"]), sub, func(): _open_single_group(gid), String(g["desc"]))
+			if gid == "challenge" and Progress.enabled():
+				var today := s.card(hub_card)
+				if today != null:
+					today.facts = _today_facts()
 		s.add_space(3)
 		s.add_button("Back", s.back)
 	ui.push(scr)
@@ -1065,7 +1076,7 @@ func _open_single_group(gid: String, focus_row := -1) -> void:
 	scr.builder = func(s: UiScreen):
 		for r in MENU_ROWS.size():
 			var row: Dictionary = MENU_ROWS[r]
-			if String(row.get("group", "")) != gid:
+			if String(row.get("group", "")) != gid or (row.get("progression", false) and not Progress.enabled()):
 				continue
 			var desc := String(row.get("desc", ""))
 			if row.has("choices"):
@@ -1205,6 +1216,8 @@ func _match_look(s: MatchSim) -> Dictionary:
 	if mode == REPLAY_MODE:
 		var rl = _replay_watched.get("look", {})
 		return rl if rl is Dictionary and not (rl as Dictionary).is_empty() else WeatherView.default_look()
+	if arcade is Weekly:
+		return (arcade as Weekly).look()  # the week's look, the same for everyone
 	var aid := String(s.arena.get("id", ""))
 	if _look_fresh or _look.is_empty() or String(_look.get("arena", "")) != aid:
 		_look = WeatherView.resolve(s.arena, String(_look_cli.get("time", time_choice)),
@@ -1212,6 +1225,29 @@ func _match_look(s: MatchSim) -> Dictionary:
 		_look["arena"] = aid
 		_look_fresh = false
 	return {"time": _look["time"], "weather": _look["weather"]}
+
+
+## The Weekly Challenge row's card (three lines under the fighter): who and where this
+## week, then its three mutators over two lines with the week's best.
+func _weekly_facts(w: Weekly) -> Array:
+	var best := Progress.weekly_best(w.week)
+	var names := w.mutator_names_list()
+	return ["vs %s, %s" % [String(MatchFactory.load_def(w.opponent()).get("name", w.opponent())), w.arena_id.capitalize()],
+		", ".join(PackedStringArray(names.slice(0, names.size() - 1))) + ",",
+		"%s  ·  %s" % [names.back(), ("best %d" % best) if best > 0 else "no score yet"]]
+
+
+## The "today" card on the Single player hub's Challenges card (Progression on): today's
+## Daily (played, best), this week's Weekly (best) and its mutators, one a line (the hub's
+## arena picture is taller, so the card never grows the panel).
+func _today_facts() -> Array:
+	var day := Daily.today()
+	var daily_best := Progress.daily_best(day)
+	var daily := "Daily: best %d today" % daily_best if daily_best > 0 else (
+		"Daily: played, no score yet" if FileAccess.file_exists("user://daily/daily_%d.json" % day) else "Daily: not played today")
+	var w := Weekly.new("cairn")
+	var wb := Progress.weekly_best(w.week)
+	return [daily, ("Weekly: best %d, with" % wb) if wb > 0 else "Weekly: no score yet, with"] + w.mutator_names_list()
 
 
 ## A row's card in the panel: the fighter the row's choice names, and the mode's facts
@@ -1292,6 +1328,8 @@ func _mode_facts(row: Dictionary, cfg: Dictionary) -> Array:
 	if cfg.get("gauntlet", false):
 		return ["Endless waves; health carries", "Up a level every %d waves" % Gauntlet.WAVES_PER_LEVEL,
 			"Your best is kept"]
+	if cfg.get("weekly", false):
+		return _weekly_facts(Weekly.new("cairn"))
 	if cfg.get("daily", false):
 		return ["One seed a day, for everyone", "%d mutators on the fight" % Daily.PICKS,
 			"Clock %s, health + time score" % _mmss(Daily.FIGHT_TICKS)]
@@ -1420,6 +1458,8 @@ func _start_match(m: int, keep_teams := false) -> void:
 			arcade = Arcade.new(_arcade_fighter, level, seed_base)
 	elif cfg.get("gauntlet", false):
 		arcade = Gauntlet.new(_arcade_fighter, seed_base)
+	elif cfg.get("weekly", false):
+		arcade = Weekly.new(_arcade_fighter)
 	elif cfg.get("daily", false):
 		arcade = Daily.new(_arcade_fighter)
 	else:
@@ -1615,6 +1655,21 @@ func _arcade_result(won: bool) -> bool:
 		return false
 	var me := sim.creatures[0]
 	var share := clampf(me.hp / me.max_hp, 0.0, 1.0)
+	if arcade is Weekly:
+		# One fight, scored like the Daily, as often as you like this week; the best is kept.
+		var w := arcade as Weekly
+		var w_tick := int(_round_end[0]) if _round_end.size() == 2 else sim.tick
+		var w_share := float(_round_end[1]) if _round_end.size() == 2 else share
+		var w_score := w.score_fight(won, w_share, w_tick)
+		var first_clear := won and w_score > 0 and Progress.weekly_best(w.week) <= 0
+		show_ctl.award_match(won, {"daily_score": w_score, "weekly_clear": first_clear})
+		var w_best := Progress.record_weekly(w.week, w_score)
+		flow = Flow.MATCH_OVER
+		flow_t = 0
+		hud.banner = "SCORE  %d" % w_score if won else "NO SCORE"
+		hud.banner_sub = ("A new best this week!" if w_best and won else
+			("This week's best: %d" % Progress.weekly_best(w.week)) if won else "Win the fight to score")
+		return true
 	if arcade is Daily:
 		# One fight, scored, saved with its replay so the score can be checked.
 		var d := arcade as Daily
