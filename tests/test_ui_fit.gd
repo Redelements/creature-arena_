@@ -324,7 +324,10 @@ func test_the_profile_pages_and_the_winners_title_fit_every_screen() -> void:
 		g.ui.push(card)
 		_check(g, size, "ending:crease with its title unlocked")
 		_check_continue(card, size, "ending:crease with its title unlocked")
-		# The results of a win as Crease, with the title and line.
+		# The results of a win as Crease, with the title and line (the pickers above stepped
+		# through Crease's own lines and wore them: the longest, another fighter's, again).
+		Progress.set_equipped("crease", "title", long_title)
+		Progress._data["equipped"]["crease"]["line"] = long_line
 		g._open_menu()
 		g._skip_select = true
 		g._start_match(g.mode_index("Mister Crease  vs  CPU Chef Cerebro"))
