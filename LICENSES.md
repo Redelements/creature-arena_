@@ -148,8 +148,25 @@ the same licence), with Set 1 (cut by
 - `assets/tiles/grassland_scatter.png`: Decorative Props' tiny flowers (one still frame of
   `Animated/vegA2.png`, `vegA4.png`), Set 1's low grass sprigs and loose pebbles
   (`veg_decoratives.png`), scattered on the Greenhouse meadow.
-- `assets/tiles/grassland_manifest.json`, `assets/tiles/grassland_*.tres` and
-  `assets/arenas/greenhouse.tscn`: derived from the above.
+- The hand dressing (`assets/arenas/greenhouse_dressing.tscn`): `grassland_anim_lantern.png`
+  (Decorative Props' `Animated/lantern01.png` post), `grassland_decor_barrel_open.png`,
+  `grassland_decor_crate_small.png`, `grassland_decor_pot_clay.png`,
+  `grassland_decor_pot_olive.png` (Decorative Props `propsA.png`),
+  `grassland_decor_sack_seed_*.png`, `grassland_decor_sheaf.png` (**RPG Buildings Windmill**,
+  `RPG_Buildings_WINDMILL_v1.1`, the same licence: open grain sacks and a wheat sheaf from its
+  `Mill_decoratives.png` props sheet, no building), `grassland_decor_basket_*.png`,
+  `grassland_decor_bucket.png` (Houses `smallobj.png` produce baskets and bucket),
+  `grassland_decor_ivy*.png` (Wetland `tree2A` canopy, masked round),
+  `grassland_decor_cobble_disc*.png` (Set 1 `g_terrain1.png` round cobble patches),
+  `grassland_decor_slab_c.png` (GrassLand's stone-slab bridge), `grassland_anim_tree_canopy.png`
+  (GrassLand's swaying `anim/tree1B_ss.png`, its crown); the `path`, `earth`, `meadow_deep` and
+  `grass_sun` terrains in `grassland_ground.png` (Set 1 `g_terrain1` / `g_terrain3` blobs,
+  GrassLand meadow); moss, clover, stepping stones, flowers and leaves appended to
+  `grassland_scatter.png` (Set 1 `veg_decoratives.png` / `g_terrain4.png`, Decorative Props
+  `vegA1`); `grassland_shadows.png` is drawn (contact shadows), not cut.
+- `assets/tiles/grassland_manifest.json`, `assets/tiles/grassland_*.tres`,
+  `assets/arenas/greenhouse.tscn` and `assets/arenas/greenhouse_dressing.tscn`: derived from
+  the above.
 
 Files from **RPG Worlds Wetland** (`RPGW_Wetland_v1.1`, in the same bundle) and Set 1, cut
 by `tools/cut_tiles.py` from `tools/tile_recipes/wetland.json` for the Floodgate:
