@@ -131,7 +131,8 @@ regression tests in tests/test_training.gd; MECHANICS.md "Training options" upda
   Plane 116 px) left as they were; old line-number references in MECHANICS' history section kept.
 - Checks: suite 1295/0, journey 4/0, sweep 324/0, sim-check unchanged (doc-only diff). Merging once green.
 - Watch: #261 (training fix) also edits MECHANICS.md "Training options"; resolve if #263 conflicts.
-- **Task 3 DONE**: #262 merged.
+- Task 3: the first merge attempt of #262 was refused ("Base branch was modified", #263 landed in between; the
+  wait_merge helper exits 0 on that error, so the log briefly said DONE: corrected). Merged on the retry.
 - **Task 2 DONE**: #263 merged (main b5fafca). Tasks 1-4 are all on main: task 5 may start.
 - Tasks 10 (audio), 11 (dummy 2x), 13+14 (mode evidence, Digby vs Cerebro) running as agents since they
   touch neither main.gd nor src/ai. Starting now: task 5 (main.gd split, worktree creature-arena-main-split)
