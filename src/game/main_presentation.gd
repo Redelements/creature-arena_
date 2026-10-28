@@ -272,6 +272,71 @@ static func _skips_intro(event: InputEvent) -> bool:
 	return (event is InputEventJoypadButton or event is InputEventMouseButton or event is InputEventAction) and event.pressed
 
 
+## Progression: what this finished match pays (`Progress.award`'s report), from the mode,
+## the sides and MatchStats. Kind "none" (nothing paid) for training, showcases, coaches
+## (trials, drills), replays, spectating and CPU vs CPU. `won` (the Arcade's stage result)
+## overrides who won; `extra` adds the ladder's keys (clear_arcade, waves, daily_score).
+func progress_report(won: Variant = null, extra := {}) -> Dictionary:
+	var none := {"kind": "none", "players": []}
+	if main.sim == null or main.watch != null or main._replaying() or main.mode == Main.REPLAY_MODE \
+			or main.showcase != null or main.coach != null or Main.MODES[main.mode].get("training", false):
+		return none
+	var humans: Array = []
+	if main.online != null:
+		humans = [main.online.local_slot]
+	else:
+		for i in main.sides.size():
+			if main.sides[i] in Main.LOCAL_SIDES:
+				humans.append(i)
+	if humans.is_empty():
+		return none
+	var players: Array = []
+	for slot in humans:
+		if slot >= main.sim.creatures.size():
+			continue
+		var fighters: Array = []
+		if main.duel != null:  # a Duel's whole team (every member of side s has id s)
+			for c in main.duel.teams[slot]:
+				fighters.append(String(c.def.get("id", "")))
+		else:
+			fighters.append(String(main.sim.creatures[slot].def.get("id", "")))
+		players.append({"slot": slot, "fighters": fighters, "kos": int(main.stats.row(slot)["kos"]),
+			"won": bool(won) if won != null else _slot_won(slot)})
+	var r := {"kind": "online" if main.online != null else ("local" if humans.size() > 1 else "cpu"),
+		"cpu_level": main._cpu_level_override if main._cpu_level_override >= 0 else main.level, "players": players}
+	r.merge(extra, true)
+	return r
+
+
+## Did this slot's side win the match (a draw is no win)?
+func _slot_won(slot: int) -> bool:
+	if main.duel != null:
+		return main.duel.winner == slot
+	if main.team_battle != null:
+		return main.team_battle.winner >= 0 and main.sim.creatures[slot].team == main.team_battle.winner
+	if main.brawl != null:
+		return main.brawl.winner == slot
+	return slot < 2 and int(main.wins[slot]) >= Main.WINS_NEEDED and int(main.wins[1 - slot]) < Main.WINS_NEEDED
+
+
+## Pays this match once (Settings > Game > Progression on): a second call for the same
+## sim does nothing, so a match pays once however its end is reached; a rematch or the
+## next stage is a new sim. Inside a ladder run the stages' results add up for the screen.
+func award_match(won: Variant = null, extra := {}) -> void:
+	if main.sim == null or main._progress_for == main.sim.get_instance_id():
+		return
+	main._progress_for = main.sim.get_instance_id()
+	var got := Progress.award(progress_report(won, extra))
+	main._progress_shown = Progress.merge_results(main._progress_shown, got) if main.arcade != null else got
+
+
+## The results screen's progression rows for this match ([] when off or nothing was paid).
+func progress_lines() -> Array:
+	if not Progress.enabled() or main.sim == null or main._progress_for != main.sim.get_instance_id():
+		return []
+	return Progress.result_lines(main._progress_shown)
+
+
 ## The results screen's data: who won (and the pose), each fighter's stats from the
 ## events, and in a team mode the MVP. Capture the Flag adds caps, returns and stops.
 func results_data() -> Dictionary:
@@ -326,6 +391,7 @@ func results_data() -> Dictionary:
 		"mvp": best if main.team_battle != null and best_score > 0.0 else -1,
 		"extra": ["CAP", "RET", "STOP"] if ctf else [],
 		"rows": rows,
+		"progress": progress_lines(),
 	}
 
 
@@ -339,6 +405,7 @@ func _show_match_over() -> void:
 	scr.row_width = 170.0
 	scr.hints = ["move", "select", "back"]
 	var cfg: Dictionary = Main.MODES[main.mode]
+	award_match()  # (a ladder's stage already paid in _arcade_result: once per sim)
 	var results := main.online == null and main.watch == null and not (main._replaying() or main.mode == Main.REPLAY_MODE)
 	if results:  # the results screen: the stats panel, then the same buttons
 		scr.dim = 0.62

@@ -300,6 +300,9 @@ func _setting(key: String) -> Dictionary:
 		"intros":
 			return {"label": "Match intros", "values": ["Off", "On"], "index": 1 if main.match_intros else 0,
 				"desc": "Before an offline match: a fly-over of the arena and each side's entrance (any button skips it)"}
+		"progression":
+			return {"label": "Progression", "values": ["Off", "On"], "index": 1 if Progress.enabled() else 0,
+				"desc": "Earn XP from fights: an account level and each fighter's mastery unlock palettes, titles and victory lines (looks only)"}
 		"rumble":
 			return {"label": "Controller rumble", "values": ["Off", "On"], "index": 1 if main.rumble else 0,
 				"desc": "A buzz when you land a hit or get hit"}
@@ -401,6 +404,8 @@ func _set_setting(key: String, i: int) -> void:
 				main._apply_vsync()
 			"intros":
 				main.match_intros = i == 1
+			"progression":
+				Progress.set_enabled(i == 1)
 			"rumble":
 				main.rumble = i == 1
 				if main.rumble and main.player_input.device == PlayerInput.Device.GAMEPAD:
@@ -482,7 +487,9 @@ func _load_settings() -> void:
 	Accessibility.teams_saved = 0
 	Accessibility.outlines_saved = 0
 	Accessibility.markers_saved = 0
+	Progress.set_enabled(false)  # Settings > Game > Progression: Off unless saved On (static, like the above)
 	if cfg.load(main.settings_path) == OK:
+		Progress.set_enabled(bool(cfg.get_value("game", "progression", false)))
 		Accessibility.teams_saved = clampi(int(cfg.get_value("accessibility", "teams", 0)), 0, Accessibility.TEAM_NAMES.size() - 1)
 		Accessibility.outlines_saved = clampi(int(cfg.get_value("accessibility", "outlines", 0)), 0, Accessibility.OUTLINE_NAMES.size() - 1)
 		Accessibility.markers_saved = clampi(int(cfg.get_value("accessibility", "markers", 0)), 0, Accessibility.MARKER_NAMES.size() - 1)
@@ -615,6 +622,7 @@ func _save_settings() -> void:
 	cfg.set_value("accessibility", "markers", Accessibility.markers_saved)
 	cfg.set_value("game", "rumble", main.rumble)
 	cfg.set_value("game", "intros", main.match_intros)
+	cfg.set_value("game", "progression", Progress.enabled())
 	cfg.set_value("game", "shake", main.shake_scale)
 	cfg.set_value("game", "range_rings", main.range_rings)
 	cfg.set_value("touch", "opacity", main.touch_opacity)

@@ -220,7 +220,15 @@ func test_the_results_and_online_screens_fit_every_screen() -> void:
 		g.flow = g.Flow.MATCH_OVER
 		g.flow_t = 0
 		g.hud.banner = "CAIRN WINS!"
+		# Progression's rows at their longest: XP and a level-up, two mastery-ups, unlocks
+		Progress.set_enabled(true)
+		g._progress_for = g.sim.get_instance_id()
+		g._progress_shown = {"xp": 1234, "level_from": 29, "level_to": 30, "unlocked":
+			["title:crowd_favourite", "line:crease_2", "palette:crease:3"], "mastery": {
+			"crease": {"xp": 600, "from": 9, "to": 10}, "cerebro": {"xp": 600, "from": 5, "to": 6}}}
 		_tick(g, g.MATCH_OVER_MENU_AT + 1)
+		Progress.set_enabled(false)
+		assert_eq((_find_results(g.ui.top()) as ResultsPanel).data["progress"].size(), 3, "the rows are there:")
 		_check(g, size, "results")
 		g._open_menu()
 		var lobby := OnlineLobby.new("digby", "", ["game.example.net/kev"], "game.example.net")
@@ -269,3 +277,13 @@ func test_the_60_hz_hint_fits_every_screen() -> void:
 		_check(g, size, "video with the 60 Hz hint")
 		g.free()
 	_restore()
+
+
+func _find_results(n: Node) -> Node:
+	if n is ResultsPanel:
+		return n
+	for c in n.get_children():
+		var f := _find_results(c)
+		if f != null:
+			return f
+	return null

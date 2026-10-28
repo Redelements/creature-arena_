@@ -194,6 +194,52 @@ func test_results_name_an_mvp_in_a_team_mode() -> void:
 	g.free()
 
 
+## Progression on: a Versus win against the CPU pays once, and the results say so
+## ("+N XP"); Off, or watching CPU vs CPU, the panel has no such rows and nothing is paid.
+func test_the_results_show_the_xp_a_match_paid_once_with_progression_on() -> void:
+	var p := "user://test_progress_results_%d.json" % Time.get_ticks_usec()
+	Progress.reset_for_tests(p)
+	for on in [true, false]:
+		var g := _game()  # (its settings load turns Progression Off)
+		Progress.set_enabled(on)
+		g._skip_select = true
+		g._start_match(0)  # Cairn vs CPU Culvert
+		_tick(g, 30)
+		var before := Progress.account_xp()
+		g.wins = [2, 0]
+		g.flow = g.Flow.MATCH_OVER
+		g.flow_t = 0
+		g.hud.banner = "CAIRN WINS!"
+		_tick(g, g.MATCH_OVER_MENU_AT + 1)
+		var panel := _find(g.ui.top(), ResultsPanel) as ResultsPanel
+		assert_true(panel != null, "the results come up")
+		var x: Dictionary = Progress.table()["xp"]
+		var paid := roundi((float(x["fight"]) + float(x["win"])) * float(x["level_mult"][g.level]))
+		if on:
+			assert_eq(Progress.account_xp() - before, paid, "a win against the CPU paid:")
+			assert_eq(panel.data["progress"][0], "+%d XP" % paid, "and the results say it:")
+			assert_true(panel.get_node_or_null("Progress0") != null, "as a row under the table")
+			g.show_ctl.award_match()  # however the end is reached again, the match paid once
+			assert_eq(Progress.account_xp() - before, paid, "once:")
+		else:
+			assert_eq(Progress.account_xp(), before, "Off: nothing paid:")
+			assert_eq(panel.data["progress"], [], "and no rows:")
+		g.free()
+	var g2 := _game()
+	Progress.set_enabled(true)
+	g2._start_match(2)  # CPU vs CPU
+	_tick(g2, 30)
+	var was := Progress.account_xp()
+	g2.flow = g2.Flow.MATCH_OVER
+	g2.flow_t = 0
+	_tick(g2, g2.MATCH_OVER_MENU_AT + 1)
+	assert_eq(Progress.account_xp(), was, "CPU vs CPU pays nothing:")
+	g2.free()
+	Progress.set_enabled(false)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(p))
+	Progress.reset_for_tests(Progress.PATH)
+
+
 func test_a_fighter_without_a_victory_row_shows_its_idle() -> void:
 	var p := FighterPreview.new()
 	p.fighter = "cairn"
