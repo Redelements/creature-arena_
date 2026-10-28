@@ -102,8 +102,8 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
   tiled map `_retile` sets only the tiles that changed (`_tile_ids`), reads the rows' pits
   from one lookup and retiles each run of dirty bands at once. The water surface works its
   fixed parts out once per floor (`WaterView._scan_foam`, `surface_specks`). The bloom's
-  viewports render once a tick or when the camera moves (`BloomView._render`), not every
-  frame. No view redraws between ticks: a frame between two ticks shows the same state, so
+  viewports stay `UPDATE_ALWAYS`: rendering them once a tick (`UPDATE_ONCE`) measured worse
+  1% lows on the Compatibility renderer (Oct 2026). No view redraws between ticks: a frame between two ticks shows the same state, so
   only what moves the camera (BackdropView, ForeView) runs per frame. A `_draw` may step state
   (FxView's plate trail): never redraw a view more often than it does. A
   `_draw` reports its time with `PerfLog.now()` / `PerfLog.since(...)` for `--perf`

@@ -389,35 +389,3 @@ func test_a_tiled_floor_change_sets_the_tiles_the_plain_way_did() -> void:
 		assert_eq(_tiles_mismatch(v), "", "%s healed:" % arena)
 		v.free()
 
-
-## The bloom's two half-size viewports render once a tick (the emitters redraw then), when
-## the camera moves or the window resizes, never again for the frames between ticks, which
-## show the same state (no interpolation): the picture they hold is the same one.
-func test_the_bloom_renders_on_a_tick_not_every_frame() -> void:
-	var b := BloomView.new()
-	_root().add_child(b)
-	b.set_on(true)
-	var vp := _root().get_viewport()
-	var was := vp.canvas_transform
-	b.frame(vp)
-	var n := b.renders
-	for i in 10:
-		b.frame(vp)
-	assert_eq(b.renders, n, "frames between ticks render nothing:")
-	assert_eq(b._vp_a.render_target_update_mode, SubViewport.UPDATE_ONCE, "the last render is still to come")
-	b.advance()
-	assert_eq(b.renders, n + 1, "a tick renders once:")
-	for i in 3:
-		b.frame(vp)
-	assert_eq(b.renders, n + 1, "and the frames after it don't:")
-	vp.canvas_transform = was.translated(Vector2(3, 0))
-	b.frame(vp)
-	assert_eq(b.renders, n + 2, "the camera moving renders:")
-	vp.canvas_transform = was
-	b.set_on(false)
-	assert_eq(b._vp_a.render_target_update_mode, SubViewport.UPDATE_DISABLED, "off: nothing renders")
-	b.advance()
-	b.frame(vp)
-	assert_eq(b.renders, n + 2, "nor on a tick:")
-	b.out.free()  # main puts it on the screen layer; here it was never in the tree
-	b.free()
