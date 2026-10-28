@@ -26,7 +26,7 @@ DONE / SKIPPED / BLOCKED. This file lives on branch `autonomy-log` (worktree
 | 6 | CPU team play piece 3 (focus, peel, front line) | PR OPEN for Kevin (no measurable gain) | [#269](https://github.com/Redelements/creature-arena_/pull/269) |
 | 7 | Caravan CPU wagon goal | PR OPEN for Kevin | [#271](https://github.com/Redelements/creature-arena_/pull/271) |
 | 8 | CPU Burrow pit crossing | PR OPEN for Kevin (stacked on #271) | [#272](https://github.com/Redelements/creature-arena_/pull/272) |
-| 9 | Accessibility: colour-safe teams / outlines, high-contrast hit markers | IN PROGRESS | |
+| 9 | Accessibility: colour-safe teams / outlines, high-contrast hit markers | PR OPEN for Kevin | [#273](https://github.com/Redelements/creature-arena_/pull/273) |
 | 10 | Audio CC0 pass (Kenney only) + CREDITS | BLOCKED (ruling needed) | |
 | 11 | Training dummy at 2x | PR OPEN for Kevin | [#264](https://github.com/Redelements/creature-arena_/pull/264) |
 | 12 | Replay tools: frame step, slow motion, rewind; bug-report bundle | IN PROGRESS | |
@@ -284,3 +284,18 @@ touches the same file; whichever merges second resolves a one-line conflict.
   with code defaults (no JSON change); only chasms trigger a crossing. Worktrees creature-arena-cpu-goals and
   creature-arena-burrow-pits kept until the PRs merge.
 - NET_VERSION claims among open PRs: #264 59, #269 59, #271 59, #272 60. Renumber in merge order.
+
+## Task 9: accessibility
+
+- **PR #273** (behavioral, views only, no NET bump): new Settings > Accessibility page (Video was full) with
+  Team colours Default / Colour-safe, Fighter outlines Off / Team / High contrast, Hit markers Default / High
+  contrast; all off by default, saved under `[accessibility]`; `--a11y=teams,outlines,markers|all` and
+  `--menu=accessibility` for screenshots. One accessor `src/view/accessibility.gd` over `data/accessibility.json`
+  replaces `Hud.SIDE_COLORS` / `BRAWL_COLORS` / `FxView.REL_COLORS` at ~31 call sites (defaults are the old
+  values exactly). Outlines are a 1-texel ring in flash.gdshader using the packed sheets' 1 px pad; never on
+  a fighter the local team can't see. Colour-safe set = Okabe & Ito 2008; the real problem found: default
+  self-green vs enemy-red is CIE76 14.6 under deuteranopia (colour-safe: 33.6); tests assert > 30 / > 60.
+- Decisions (agent): "you" is yellow in colour-safe (no green separates from vermillion); toasts still say
+  RED / BLUE; hard-coded colours left alone are listed in the PR (crowd armour, stadium corner brackets baked
+  into the arena picture, health bar colours, the red windup tell by rule, range rings use fx_color).
+- Checks: suite 1316/0, sweep 216/0, sim-check unchanged. Screenshots in docs/accessibility/ (~4 MB).
