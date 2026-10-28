@@ -52,7 +52,7 @@ func _fill() -> void:
 		Progress._data["mastery"][String(f)] = 10000000
 	Progress.award({"kind": "cpu", "cpu_level": 1, "players": [
 		{"slot": 0, "fighters": MatchFactory.FIGHTERS.duplicate(), "won": true, "kos": 0}]})
-	for id in Challenges.titles():  # and the challenges' titles
+	for id in Challenges.titles() + Endings.titles():  # and the challenges' and the endings' titles
 		Progress.grant_unlock(String(id))
 
 
@@ -75,7 +75,8 @@ func _pages(g: Node) -> void:
 	var top: UiScreen = g.ui.top()
 	assert_true(top is ProfileScreen, "the Profile opens")
 	var labels := _labels(top)
-	assert_eq(labels.size(), 3 + MatchFactory.FIGHTERS.size() + 1, "Account, Challenges, Streak, a row per fighter, Back: %s" % [labels])
+	assert_eq(labels.size(), 4 + MatchFactory.FIGHTERS.size() + 1, "Account, Challenges, Streak, Endings, a row per fighter, Back: %s" % [labels])
+	assert_eq(labels[3], "Endings", "the endings gallery after the streak")
 	assert_eq(labels[2], "Streak", "the streak on the first page")
 	assert_eq(labels[0], "Account", "")
 	assert_eq(labels[1], "Challenges", "")

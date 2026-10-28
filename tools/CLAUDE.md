@@ -138,6 +138,10 @@ keeps the old import cache. Sheet layouts: `docs/SPRITES.md`.
   `showcase_lengths.gd` (headless). Pillow only, no ffmpeg; GIFs shrink to `--gif-budget`
   (keep the committed gallery under about 40 MB). Needs `GODOT` or `--godot`, and a display
   (xvfb-run on Linux).
+- `gen_ending_cards.py [<id> ...]`: PLACEHOLDER Arcade ending art, `assets/ui/endings/<id>.png` (256 x 144), until
+  Kevin's art lands: the fighter's `victory` row frame (`FROM_END` picks it; a fighter taller than the card is halved,
+  never scaled by a fraction) on a stepped backdrop from one palette ramp (`BACKDROP`), with the ending's title from
+  `data/endings/<id>.json` and a "placeholder art" tag. Rerun after a title or a fighter sheet changes, then `--import`.
 - `codebase_map.py`: writes the generated file list at the end of each area's `CLAUDE.md`;
   `--check` is the CI drift check. Standard library only.
 
@@ -226,6 +230,7 @@ tools, so a fighter's pass is posing work only.
 - `gen_culvert.py` — Culvert sprite sheets: the storm-drain toad, drawn as a posed 3D rig.
 - `gen_digby.py` — Digby sprite sheets, a pixel-art recreation of the artist's character sheet.
 - `gen_dummy.py` — Training dummy sprite sheets: a stuffed sack on a spring stand, drawn as a posed 3D rig.
+- `gen_ending_cards.py` — PLACEHOLDER Arcade ending art: one stand-in card per fighter until Kevin's real art lands.
 - `gen_gillbert.py` — Gillbert sprite sheets, a pixel-art recreation of the artist's character sheet.
 - `gen_hissy.py` — Hissy Fitz sprite sheets, a pixel-art recreation of the artist's character sheet.
 - `gen_logo.py` — The title wordmark: READY 4 / RAMBLES in the m5x7 pixel font, scaled up by whole pixels, filled with hard-edged gold ba…

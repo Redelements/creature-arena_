@@ -1,0 +1,11 @@
+{
+	"title": "The Mountain Sits",
+	"lines": [
+		"The ladder is done. Nobody left to be angry at.",
+		"Craglash sits down. The ground shakes a little.",
+		"Birds land on his shoulders. He lets them.",
+		"Tomorrow he may wake up angry again."
+	],
+	"art": "res://assets/ui/endings/craglash.png",
+	"unlock_title": "title:craglash_ending"
+}

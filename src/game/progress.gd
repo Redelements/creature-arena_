@@ -28,6 +28,8 @@ extends RefCounted
 ##   grant_unlock(reward_id) -> bool   a reward given outright (a challenge's title); false when off or had
 ##   section(key) -> Dictionary        a save key another tracker keeps (Challenges: "challenges")
 ##   weekly_best(week) / record_weekly(week, score)   the Weekly Challenge's local best per ISO week (YYYYWW)
+##   ending_seen(f) / see_ending(f) -> bool   the Arcade ending cards shown (save key "endings", fighter ids;
+##                                     src/game/endings.gd); see_ending is false when off or already seen
 ##   streak_days() -> int              the play streak: calendar days in a row (local time) with a paid
 ##                                     fight, 0 once a day is missed; `award` keeps it (save key "streak")
 ##   streak_bonus() -> float           the XP multiplier a fight gets now (streak_mult from streak_min_days)
@@ -38,7 +40,7 @@ const PALETTES := 4
 ## Every key of the save and its default (an old file without some of them still loads).
 const SAVE_KEYS := {"arcade": {}, "palette": {}, "gauntlet": {}, "daily": {}, "xp": 0, "mastery": {},
 	"unlocked": [], "equipped": {}, "account_title": "", "seen": [], "challenges": {},
-	"weekly": {}, "streak": {}}
+	"weekly": {}, "streak": {}, "endings": []}
 
 static var _data := {}
 static var _loaded := false
@@ -687,5 +689,23 @@ static func grant_unlock(reward_id: String) -> bool:
 	if not enabled() or reward_id == "" or _unlocked_list().has(reward_id):
 		return false
 	_unlocked_list().append(reward_id)
+	save()
+	return true
+
+
+# --- Arcade endings (src/game/endings.gd) ---------------------------------------------------
+
+
+## This fighter's Arcade ending card has been shown (the Profile's Endings gallery opens it again).
+static func ending_seen(fighter: String) -> bool:
+	_ensure()
+	return (_data["endings"] as Array).has(fighter)
+
+
+## The ending card was shown: remember it. False while Progression is off or when it was already seen.
+static func see_ending(fighter: String) -> bool:
+	if not enabled() or fighter == "" or ending_seen(fighter):
+		return false
+	(_data["endings"] as Array).append(fighter)
 	save()
 	return true

@@ -1,0 +1,11 @@
+{
+	"title": "Back on Display",
+	"lines": [
+		"The museum calls. They want her back.",
+		"Hissy says no. Then she says maybe.",
+		"Her new exhibit opens on Monday:",
+		"a hall of very surprised statues."
+	],
+	"art": "res://assets/ui/endings/hissy.png",
+	"unlock_title": "title:hissy_ending"
+}

@@ -1,0 +1,11 @@
+{
+	"title": "The One That Got Away",
+	"lines": [
+		"Every angler in the stands swears it was him.",
+		"Gillbert flops past them all with the trophy.",
+		"He makes it back to the river with a splash.",
+		"The trophy sinks. He dives in after it."
+	],
+	"art": "res://assets/ui/endings/gillbert.png",
+	"unlock_title": "title:gillbert_ending"
+}

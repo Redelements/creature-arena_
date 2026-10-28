@@ -132,6 +132,13 @@ player and live here, outside the sim.
   paid fight on a new local calendar day: `_note_streak`; `streak_mult` from `streak_min_days`; the results row
   "Streak: N days" when a fight grew it to two or more; `Progress.day_override` for tests). The Single player hub's
   Challenges card carries the today card (`main.gd:_today_facts`: today's Daily, this week's best and mutators)
+  Arcade endings (PR E): `endings.gd` (`Endings`, static: `of`, `art`, `show`, `titles`, `fighter_of_reward`) reads
+  `data/endings/<fighter>.json`. After a clear, the Flow.MATCH_OVER tick that would open the results calls
+  `main.gd:_open_ending()` first: with Progression on, an offline Arcade clear (`_arcade_cleared`, `arcade is Arcade`)
+  pushes `EndingScreen` (src/ui) and returns true; its Continue (and Back) clears the stack and opens
+  `_show_match_over`, so the results come next on the same inputs. Showing it calls `Endings.show` (progress.json
+  `endings` list, `Progress.see_ending`; the first time also `grant_unlock`s its `unlock_title`). Off: false, the
+  results open as before. The gallery is Profile > Endings (`profile_screen.gd:_build_endings`)
 - Sim events → flash / rumble → `_react`, `_flash`, `_rumble`
 - Touch controls (`main_touch.gd`) → `_note_input` (every event: the device, and touches into `player_input.touch`),
   `_touch_step` (each tick, also paused: who may touch, the layout for the screen and Duel's
@@ -168,7 +175,7 @@ player and live here, outside the sim.
 After `--`; the full list is in the `main.gd` header, modes in `MODES`.
 `--mode=N`, `--level=0..3` (3 = Rage), `--seed=N`, `--showcase=<fighter>|cleaver|angles|twinstick|counterplay`,
 `--pad-layout=standard|twinstick`, `--touch-demo[=left]` (a recorded touch script into the touch controls, training as Cairn unless `--mode`; `src/game/touch_demo.gd`), `--autoplay`, `--hitboxes`, `--intro` / `--no-intro` (force the arena intro on or off; by default it plays only for offline matches started from the menu with a screen, never headless or for a `--mode` / `--showcase` / `--autoplay` start, so captures keep their frame numbers), `--cpu-vs-cpu`, `--pick`,
-`--teams=a,b,c:d,e,f`, `--arena=stadium|quarry|floodgate|greenhouse`, `--time=random|day|sunset|night` (night: the Floodgate only; elsewhere it plays day), `--weather=random|clear|rain|fog|wind|snow` (the look of offline matches this session; one the arena doesn't allow falls back), `--menu=main|single|single:<group>|look|settings|game|video|audio|accessibility|controls|touch|remap:<classic|league|gamepad>|credits|credits:<game|szadi|kiddolink|font|godot|notices>|profile|profile:account|profile:challenges|profile:<fighter>` (the Profile pages need Settings > Game > Progression on; Off, they open the title),
+`--teams=a,b,c:d,e,f`, `--arena=stadium|quarry|floodgate|greenhouse`, `--time=random|day|sunset|night` (night: the Floodgate only; elsewhere it plays day), `--weather=random|clear|rain|fog|wind|snow` (the look of offline matches this session; one the arena doesn't allow falls back), `--menu=main|single|single:<group>|look|settings|game|video|audio|accessibility|controls|touch|remap:<classic|league|gamepad>|credits|credits:<game|szadi|kiddolink|font|godot|notices>|profile|profile:account|profile:challenges|profile:endings|profile:<fighter>|ending:<fighter>` (the Profile pages need Settings > Game > Progression on; Off, they open the title; `ending:<fighter>` opens one Arcade ending card over Profile > Endings, seen or not, for captures),
 `--cam=X,Y[,ZOOM]` (hold the camera on a world spot, still clamped to the arena and stands: screenshots of the edges), `--cam-lead=0|1`, `--cam-clash=0|1`, `--cam-settle=0|1` (camera behaviour off / Normal for this session, not saved; also `low|normal|high`), `--training-screen=pause|options|fighters` (with a training `--mode`), `--training-flags=no_cooldowns,full_energy`,
 `--voice=off|ptt|open` (voice chat this session, not saved), `--voice-test=tone` (online: a 220 Hz tone instead of the mic, open mic and always held, logging `voice: sent N` and `voice: heard slot P gain G pan P received N` once a second, for a two-process test) (real time only: under `--fixed-fps` game time outruns the clock, so the tone arrives faster than it plays and the listener drops the surplus),
 `--mutators=tidal_wave,meteor_shower,rolling_boulder,fault_line` (data/rules/mutators.json ids, merged: on every offline match this session, applied in `_new_sim` with `seed_base`; Chaos Cup plays them instead of its draw; never online, showcases, coaches or the menu background),
@@ -201,6 +208,7 @@ and "training" pair (Craglash, Barkley, Gillbert, Cerebro, Hissy, Digby, Pete, S
 - `daily.gd` (Daily) — The Daily Challenge: one seeded fight a day, the same for everyone.
 - `discord_rpc.gd` (DiscordRpc) — Discord Rich Presence over the Discord app's local IPC: no plugin, no SDK.
 - `drills.gd` (ReactionDrill) — Reaction Drills: the partner throws random RAW big moves, which wind up with a tell, and the player answers.
+- `endings.gd` (Endings) — Arcade ending cards (Settings > Game > Progression on): one per fighter, shown after the Arcade boss falls (main.gd `_o…
 - `gauntlet.gd` (Gauntlet) — Endless waves of CPU opponents as one fighter, health carrying over (plus a small breather between waves).
 - `ladder.gd` (Ladder) — A run of single-round fights main plays one stage at a time: the Arcade ladder, the Gauntlet's endless waves and the Da…
 - `main.gd` — Scene flow: menu, versus rounds against the CPU (or CPU vs CPU), and training.

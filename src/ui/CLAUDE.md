@@ -57,7 +57,7 @@ Menus are `Control` nodes on a `ScreenStack` of `UiScreen`s, styled by one share
   `text_page.gd` (Up/Down, Left/Right, wheel and drag scroll it; it keeps the focus)
 - Hint text per device → `prompts.gd`; live fighter idle → `fighter_preview.gd` (`palette`: the fight's hue turn
   through `flash.gdshader`, for the Profile's palette picker; `DetailCard.palette` passes it on)
-- The Profile (Progression on; `--menu=profile[:account|challenges|<fighter>]`) → `profile_screen.gd` (`page`: "" the hub,
+- The Profile (Progression on; `--menu=profile[:account|challenges|endings|<fighter>]`) → `profile_screen.gd` (`page`: "" the hub,
   "account", "challenges", a fighter id; `_build_profile`, `_build_account`, `_build_challenges` / `_challenge_row`,
   `_build_fighter`, `_picker`; the hub's Streak row under Challenges shows `Progress.streak_days`): pickers are OptionRows
   with `locked` (greyed values, looked at but never worn) and the hub rows' `tag` ("New!") and `bar_width`; a
@@ -65,7 +65,13 @@ Menus are `Control` nodes on a `ScreenStack` of `UiScreen`s, styled by one share
   `bar_value_room` so long names clear the bar (`tests/test_challenges.gd` pins it). The title pickers also offer
   the challenges' titles (`Challenges.titles()`). Every card
   there has three facts (blank lines keep the height) so the panel never moves. Reads and writes only through
-  `Progress`; `tests/test_progression_profile.gd`, fit in `tests/test_ui_fit.gd` (`PROFILE_PAGES`)
+  `Progress`; `tests/test_progression_profile.gd`, fit in `tests/test_ui_fit.gd` (`PROFILE_PAGES`). Page "endings"
+  (`_build_endings`, `ending_rows`: fighter -> row): a seen ending's row activates an `EndingScreen`; an unseen one is
+  greyed (`locked` and the font colours) and says "Clear the Arcade as <name>"
+- An Arcade ending card (`--menu=ending:<fighter>`) → `ending_screen.gd` (`EndingScreen.new(fighter, gallery,
+  on_continue)`): the art (`ART_SIZE` 128 x 72 units, the PNG twice that), the title, the lines, one Continue row
+  (`continue_button`); Back does what Continue does (after a clear: on to the results, `main.gd:_open_ending`).
+  Reads `Endings` only; the save is written by `Endings.show` in main. `tests/test_endings.gd`, fit in `PROFILE_PAGES`
 
 ## Files
 
@@ -75,6 +81,7 @@ Menus are `Control` nodes on a `ScreenStack` of `UiScreen`s, styled by one share
 - `confirm_screen.gd` (ConfirmScreen) — "Are you sure?": Yes / No, with No focused, so a stray press can't do it.
 - `credits_screen.gd` (CreditsScreen) — Settings > Credits: who made the game, the bought art and the free font it uses, and Godot Engine's copyright.
 - `detail_card.gd` (DetailCard) — What a menu row shows under its text in the panel on the right (UiScreen `detail`): a fighter's idle preview with its n…
+- `ending_screen.gd` (EndingScreen) — A fighter's Arcade ending card (Progression on; src/game/endings.gd, data/endings/): its picture, its title and its few…
 - `fighter_preview.gd` (FighterPreview) — A fighter's idle animation, standing on the bottom-centre of this control, at 60 frames a second of real time whatever…
 - `help_screen.gd` (HelpScreen) — The controls for the device in use (PlayerInput's help text, one control a line), in two columns.
 - `option_row.gd` (OptionRow) — A menu row with a value, shown on the right: "Music < 70% >".

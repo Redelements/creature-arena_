@@ -16,14 +16,19 @@ extends UiScreen
 ## group, each with its progress bar and count, the done ones last in their group. The Streak
 ## row under it shows the play streak (Progress.streak_days) and what it pays.
 ##
-## page: "" the Profile, "account", "challenges", or a fighter id (`--menu=profile`,
-## `profile:account`, `profile:challenges`, `profile:<fighter>`).
+## Enter on Endings opens the Arcade ending cards (src/game/endings.gd, data/endings/): a row
+## per fighter, the seen ones open their card again (EndingScreen), the rest are greyed with
+## how to see them.
+##
+## page: "" the Profile, "account", "challenges", "endings", or a fighter id (`--menu=profile`,
+## `profile:account`, `profile:challenges`, `profile:endings`, `profile:<fighter>`).
 
 const ARCADE_LEVELS := ["Easy", "Normal", "Hard", "Rage"]
 const FACTS := 3  ## every card here has three facts, so the panel never changes height
 
 var page := ""
 var _rows := {}  ## the Profile: row -> fighter id ("" the account)
+var ending_rows := {}  ## the Endings page: fighter id -> its row
 
 
 func _init(p_page := "") -> void:
@@ -51,6 +56,12 @@ func _init(p_page := "") -> void:
 		subtitle = "%d of %d done" % [Challenges.done_count(), Challenges.goals().size()]
 		blurb = "Goals counted from your matches. Each pays account XP once, some a title too"
 		hints = ["move", "back"]
+	elif page == "endings":
+		crumbs = ["PROFILE"]
+		title = "ENDINGS"
+		subtitle = "%d of %d seen" % [_endings_seen(), Endings.fighters().size()]
+		blurb = "Each fighter's ending, shown when you clear the Arcade with them"
+		hints = ["move", "select", "back"]
 	else:
 		crumbs = ["PROFILE"]
 		title = _name(page).to_upper()
@@ -67,6 +78,8 @@ func build() -> void:
 			_build_account()
 		"challenges":
 			_build_challenges()
+		"endings":
+			_build_endings()
 		_:
 			_build_fighter(page)
 	add_space(4)
@@ -103,6 +116,19 @@ func _build_profile() -> void:
 			("+%d%% XP on every fight now" % pct) if Progress.streak_bonus() > 1.0
 				else "+%d%% XP from %d days in a row" % [pct, int(x.get("streak_min_days", 3))],
 			"Miss a day and it starts again"]
+	var en := add_option("Endings", ["%d / %d" % [_endings_seen(), Endings.fighters().size()]], 0, func(_i): pass,
+		"Enter: the Arcade ending cards you have seen, to watch again")
+	en.activates = true
+	en.bar = float(_endings_seen()) / maxf(1.0, Endings.fighters().size())
+	en.bar_width = 30.0
+	en.activated.connect(func():
+		if stack != null:
+			stack.notify_chosen()
+			stack.push(ProfileScreen.new("endings")))
+	var enk := card(en)
+	if enk != null:
+		enk.facts = ["%d of %d seen" % [_endings_seen(), Endings.fighters().size()], "One a fighter, after",
+			"an Arcade clear"]
 	for f in MatchFactory.FIGHTERS:
 		var o := add_option(_name(String(f)), ["Mastery %d" % Progress.mastery_level(String(f))], 0, func(_i): pass,
 			"Enter: this fighter's palettes, titles and victory lines")
@@ -189,6 +215,9 @@ func _build_fighter(f: String) -> void:
 		if String(r["id"]).begins_with("title:"):
 			ids.append(String(r["id"]))
 	ids.append_array(Challenges.titles())
+	var ending_title := String(Endings.of(f).get("unlock_title", ""))
+	if ending_title != "" and not ids.has(ending_title):
+		ids.append(ending_title)
 	_title_row = _picker("Title", ids, String(Progress.equipped(f)["title"]), f,
 		"Left/Right: the title under your name on the pick and results screens with %s (None: the account's)" % _name(f),
 		func(id: String) -> bool: return Progress.set_equipped(f, "title", id))
@@ -273,6 +302,44 @@ func _challenge_row(g: Dictionary) -> void:
 			k.palette = Progress.palette(String(g["fighter"]))
 		k.facts = ["Done" if is_done else "%d of %d" % [int(p[0]), int(p[1])],
 			"Pays " + Challenges.reward_text(g), String(g.get("group", ""))]
+
+
+# ------------------------------------------------------------------ the endings
+
+## A row per fighter: a seen ending opens its card again; an unseen one is greyed and says how.
+func _build_endings() -> void:
+	for f in Endings.fighters():
+		var fid := String(f)
+		var seen := Progress.ending_seen(fid)
+		var e := Endings.of(fid)
+		var o := add_option(_name(fid), ["Seen" if seen else "Not seen"], 0, func(_i): pass,
+			("Enter: \"%s\" again" % String(e.get("title", ""))) if seen else "Clear the Arcade as %s" % _name(fid))
+		ending_rows[fid] = o
+		o.locked = [not seen]
+		if seen:
+			o.activates = true
+			o.activated.connect(func():
+				if stack != null:
+					stack.notify_chosen()
+					stack.push(EndingScreen.new(fid, true)))
+		else:
+			o.add_theme_color_override("font_color", UiTheme.C_DIM)
+			o.add_theme_color_override("font_focus_color", UiTheme.C_DIM)
+		var k := card(o)
+		if k != null:
+			k.fighter = fid
+			k.palette = Progress.palette(fid)
+			k.facts = ["\"%s\"" % String(e.get("title", "")) if seen else "Not seen yet",
+				"Seen after an Arcade clear" if seen else "Clear the Arcade as",
+				"" if seen else _name(fid)]
+
+
+static func _endings_seen() -> int:
+	var n := 0
+	for f in Endings.fighters():
+		if Progress.ending_seen(String(f)):
+			n += 1
+	return n
 
 
 # ------------------------------------------------------------------ the account's page
@@ -409,6 +476,10 @@ func _reward_facts(id: String, f: String) -> Array:
 	var have := Progress.unlocked(id)
 	var where := ("Account level %d" if acc else "Mastery %d") % lvl
 	var ch := Challenges.goal_of_reward(id)
+	var ef := Endings.fighter_of_reward(id)
+	if lvl == 0 and ch.is_empty() and ef != "":  # an Arcade ending's title
+		return ["\"%s\"" % Progress.title_text(id), "Ending title  ·  yours" if have else "Locked: an ending title",
+			"Granted by an Arcade clear"]
 	if lvl == 0 and not ch.is_empty():  # a challenge's title: which one, on a line of its own
 		return ["\"%s\"" % Progress.title_text(id), "Challenge title  ·  yours" if have else "Locked: a challenge title",
 			"From " + String(ch.get("name", ""))]

@@ -18,7 +18,7 @@ const PAGES := ["main", "single", "look", "settings", "game", "video", "audio", 
 	"remap:classic", "remap:league", "remap:gamepad", "credits", "credits:godot", "credits:notices"]
 ## The Profile's pages (Settings > Game > Progression on): the Profile, the account's and
 ## every fighter's; and the Single player hub (its today card) and Challenges (the Weekly's row).
-const PROFILE_PAGES := ["main", "profile", "profile:account", "profile:challenges", "profile:cairn", "profile:culvert", "profile:craglash",
+const PROFILE_PAGES := ["main", "profile", "profile:account", "profile:challenges", "profile:endings", "ending:cairn", "ending:gillbert", "ending:crease", "profile:cairn", "profile:culvert", "profile:craglash",
 	"profile:barkley", "profile:gillbert", "profile:cerebro", "profile:hissy", "profile:digby", "profile:pete",
 	"profile:sno", "profile:crease", "single", "single:challenge"]
 
@@ -262,7 +262,7 @@ func _full_progress() -> String:
 		Progress._data["mastery"][String(f)] = 10000000
 	Progress.award({"kind": "cpu", "cpu_level": 1, "players": [
 		{"slot": 0, "fighters": MatchFactory.FIGHTERS.duplicate(), "won": true, "kos": 0}]})
-	for id in Challenges.titles():
+	for id in Challenges.titles() + Endings.titles():
 		Progress.grant_unlock(String(id))
 	# The Challenges page with goals done in every group (ticks, "Done"), the rest under way.
 	Challenges.note_match({"kind": "cpu", "cpu_level": 3, "clear_arcade": true, "waves": 3, "players": [

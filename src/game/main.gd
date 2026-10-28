@@ -80,7 +80,8 @@ extends Node2D
 ##   --menu=PAGE           open a menu page: main, single, single:<group>, look (Time and weather), settings, game, video, audio, accessibility, controls,
 ##                         remap:classic|league|gamepad, credits, credits:<row> (game, szadi,
 ##                         kiddolink, font, godot, notices), profile, profile:account, profile:challenges,
-##                         profile:<fighter> (with Settings > Game > Progression on) (captures)
+##                         profile:endings, profile:<fighter>, ending:<fighter> (one Arcade ending card)
+##                         (with Settings > Game > Progression on) (captures)
 ##   --online-host[=PORT]  host an online 1v1 straight away (UDP, default port 7777)
 ##   --online-join=ADDR[:PORT][/ROOM]  join one, or a dedicated server (ROOM: meet a friend there)
 ##   --online-watch=ADDR[:PORT][/ROOM] watch a server's match (a room's, from match to match)
@@ -471,7 +472,7 @@ var wins := [0, 0]
 var _carried_energy := [-1.0, -1.0]
 var timer := ROUND_TICKS
 var seed_base := 1
-## --menu=PAGE: open a menu page on start (captures): single, single:<group>, settings, game, video, audio, accessibility, controls, credits[:row], profile[:account|challenges|<fighter>].
+## --menu=PAGE: open a menu page on start (captures): single, single:<group>, settings, game, video, audio, accessibility, controls, credits[:row], profile[:account|challenges|endings|<fighter>], ending:<fighter>.
 var _menu_arg := ""
 var args_ctl := MainArgs.new(self)  ## the command line (main_args.gd)
 var _setting_rows := {}  ## Settings key -> its OptionRow, while the page is open
@@ -941,7 +942,7 @@ func _open_menu(page := "", focus := "") -> void:
 	audio.play_music("menu")
 	_menu_background()
 	var land := focus if focus != "" else ("settings" if page in SETTING_PAGES or page == "controls" or page.begins_with("remap:") \
-		or page.begins_with("credits") else ("profile" if page.begins_with("profile") else page))
+		or page.begins_with("credits") else ("profile" if page.begins_with("profile") or page.begins_with("ending:") else page))
 	var t := TitleScreen.new(land)
 	t.single_pressed.connect(_open_single)
 	t.online_pressed.connect(func(): _start_match(ONLINE_MODE))
@@ -953,6 +954,13 @@ func _open_menu(page := "", focus := "") -> void:
 		_open_profile()
 		if page.contains(":"):
 			_open_profile(page.get_slice(":", 1))
+		return
+	if page.begins_with("ending:"):  # one Arcade ending card, as the Endings gallery opens it: --menu=ending:cairn
+		_open_profile()
+		_open_profile("endings")
+		var ef := page.get_slice(":", 1)
+		if Progress.enabled() and ef in MatchFactory.FIGHTERS:
+			ui.push(EndingScreen.new(ef, true))
 		return
 	if page.begins_with("single:"):  # a Single player page, for captures: --menu=single:team
 		_open_single()
@@ -990,9 +998,9 @@ func _open_menu(page := "", focus := "") -> void:
 
 
 ## The Profile (title menu > Profile; src/ui/profile_screen.gd): "" the Profile itself,
-## "account", "challenges" or a fighter id for its page. Nothing while Settings > Game > Progression is off.
+## "account", "challenges", "endings" or a fighter id for its page. Nothing while Settings > Game > Progression is off.
 func _open_profile(page := "") -> void:
-	if not Progress.enabled() or not (page in ["", "account", "challenges"] or page in MatchFactory.FIGHTERS):
+	if not Progress.enabled() or not (page in ["", "account", "challenges", "endings"] or page in MatchFactory.FIGHTERS):
 		return
 	ui.push(ProfileScreen.new(page))
 
@@ -1718,6 +1726,23 @@ func _arcade_result(won: bool) -> bool:
 	hud.banner_sub = ("New palette unlocked: F5 in a fight to wear it" if new_best
 		else "Cleared on %s" % CpuController.LEVELS[arcade.level]["name"])
 	audio.play("round_end")
+	return true
+
+
+## Progression on, the Arcade just cleared: the fighter's ending card (src/ui/ending_screen.gd)
+## comes up where the results would, and Continue (or Back) goes on to them. Marks the ending
+## seen (and grants its title) as it shows. False, and nothing shown, otherwise (Off: the
+## results come straight after the clear, as before).
+func _open_ending() -> bool:
+	if not (_arcade_cleared and arcade is Arcade and Progress.enabled() and online == null and watch == null) \
+			or _replaying() or Endings.of(arcade.fighter).is_empty():
+		return false
+	Endings.show(arcade.fighter)
+	hud.banner_hidden = true  # the card says it
+	ui.push(EndingScreen.new(arcade.fighter, false, func():
+		ui.clear()
+		hud.banner_hidden = false
+		show_ctl._show_match_over()))
 	return true
 
 
@@ -3049,7 +3074,7 @@ func _update_flow() -> void:
 				hud.timer_ticks = maxi(duel.timer, 0)
 			elif team_battle != null:
 				hud.timer_ticks = maxi(team_battle.timer, 0)
-			if flow_t == MATCH_OVER_MENU_AT and not ui.is_open():
+			if flow_t == MATCH_OVER_MENU_AT and not ui.is_open() and not _open_ending():
 				show_ctl._show_match_over()
 			if sides[0] == Side.CPU and sides[1] == Side.CPU and flow_t > 240:
 				seed_base += 1
