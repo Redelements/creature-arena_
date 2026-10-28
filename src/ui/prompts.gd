@@ -13,6 +13,7 @@ const PAD := {
 	"leave": "B leave",
 	"undo": "B undo",
 	"scroll": "Stick / D-pad scroll",
+	"continue": "A continue",
 }
 const KEYS := {
 	"move": "Arrows move",
@@ -24,6 +25,7 @@ const KEYS := {
 	"leave": "Esc leave",
 	"undo": "Esc undo",
 	"scroll": "Arrows / wheel scroll",
+	"continue": "Enter / click continue",
 }
 
 

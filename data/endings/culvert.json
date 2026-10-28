@@ -1,0 +1,11 @@
+{
+	"title": "High Water",
+	"lines": [
+		"The boss team sinks into Culvert's last pit.",
+		"He hops home to his storm drain, slow and proud.",
+		"Every gutter in town gurgles his name.",
+		"Tonight it rains. Culvert sleeps like a rock."
+	],
+	"art": "res://assets/ui/endings/culvert.png",
+	"unlock_title": "title:culvert_ending"
+}

@@ -48,7 +48,18 @@
 		"chaos_tamer": "Chaos Tamer",
 		"combo_artist": "Combo Artist",
 		"untouchable": "Untouchable",
-		"globetrotter": "Globetrotter"
+		"globetrotter": "Globetrotter",
+		"cairn_ending": "Still Standing",
+		"culvert_ending": "Storm Drain King",
+		"craglash_ending": "Sleeping Mountain",
+		"barkley_ending": "Old Growth",
+		"gillbert_ending": "Got Away",
+		"cerebro_ending": "Head Chef",
+		"hissy_ending": "Living Legend",
+		"digby_ending": "Deep Digger",
+		"pete_ending": "Master Thief",
+		"sno_ending": "Cold Champion",
+		"crease_ending": "Headliner"
 	},
 	"lines": {
 		"{fighter}_1": "{name} takes a bow.",

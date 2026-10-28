@@ -1,0 +1,11 @@
+{
+	"title": "New Growth",
+	"lines": [
+		"A thousand years old, and still the champion.",
+		"Barkley walks back to his hill and plants himself.",
+		"By spring, a ring of saplings rises round him.",
+		"Every one of them stands in a boxing stance."
+	],
+	"art": "res://assets/ui/endings/barkley.png",
+	"unlock_title": "title:barkley_ending"
+}

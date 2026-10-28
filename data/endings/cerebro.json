@@ -1,0 +1,11 @@
+{
+	"title": "Chef's Special",
+	"lines": [
+		"The boss team is down. The kitchen is open.",
+		"Cerebro serves the whole stadium dinner.",
+		"Knives, pans and plates fly over every seat.",
+		"Not one plate breaks. CHOP CHOP!"
+	],
+	"art": "res://assets/ui/endings/cerebro.png",
+	"unlock_title": "title:cerebro_ending"
+}

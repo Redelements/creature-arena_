@@ -1,0 +1,11 @@
+{
+	"title": "The Final Act",
+	"lines": [
+		"The house lights dim. One sheet of paper bows.",
+		"Mister Crease folds into a crane and circles.",
+		"He lands, unfolds, and the playbill reads:",
+		"SOLD OUT. Every night. Fold 'em."
+	],
+	"art": "res://assets/ui/endings/crease.png",
+	"unlock_title": "title:crease_ending"
+}
