@@ -81,6 +81,15 @@ jobs:
           mkdir -p "$dest"
           cp ~/godot-cache/templates/* "$dest/"
 
+      # The same import cache as tests.yml (Godot reimports only sources whose md5 changed).
+      - name: Cache the project import
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .godot/imported
+          key: import-linux-${{ env.GODOT_VERSION }}-${{ hashFiles('**/*.import', 'assets/**', 'project.godot') }}
+          restore-keys: |
+            import-linux-${{ env.GODOT_VERSION }}-
+
       - name: Import project
         run: ~/godot-cache/godot --headless --path . --import
 
@@ -233,6 +242,16 @@ jobs:
           cp ~/godot-cache/templates/* "$dest/"
           keytool -genkeypair -keystore "$HOME/debug.keystore" -storepass android -alias androiddebugkey             -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
 
+      # Every import writes both the desktop and the mobile texture variants, so one cache
+      # serves this job and the Linux ones.
+      - name: Cache the project import
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .godot/imported
+          key: import-linux-${{ env.GODOT_VERSION }}-${{ hashFiles('**/*.import', 'assets/**', 'project.godot') }}
+          restore-keys: |
+            import-linux-${{ env.GODOT_VERSION }}-
+
       - name: Import project
         run: ~/godot-cache/godot --headless --path . --import
 
@@ -321,6 +340,14 @@ jobs:
           test -n "$want" && test "$want" = "$have"
           unzip -q "$zip"
           chmod +x Godot.app/Contents/MacOS/Godot
+
+      - name: Cache the project import
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .godot/imported
+          key: import-macos-${{ env.GODOT_VERSION }}-${{ hashFiles('**/*.import', 'assets/**', 'project.godot') }}
+          restore-keys: |
+            import-macos-${{ env.GODOT_VERSION }}-
 
       - name: Import project
         run: Godot.app/Contents/MacOS/Godot --headless --path . --import

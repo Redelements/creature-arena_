@@ -269,7 +269,7 @@ func test_an_emissive_sheet_draws_over_the_sprite_when_there_is_one() -> void:
 	var c: CreatureSim = sim.creatures[0]
 	var sp: Dictionary = (c.def["sprite"] as Dictionary).duplicate(true)
 	var path := "user://test_pete_e.png"
-	_fixture(load(String(sp["path"])), path)
+	_fixture(PackedSheet.load_sheet(String(sp["path"])), path)
 	# Without one (every fighter has a `_e.png` since the Surge eyes, so point the view block
 	# at a missing sheet): no layer, and nothing changes.
 	var none: Dictionary = sp.duplicate(true)
@@ -347,9 +347,7 @@ func test_every_fighter_has_normal_sheets_the_sprite_uses() -> void:
 			var n := String(p).get_basename() + "_n.png"
 			assert_true(ResourceLoader.exists(n), "%s has %s" % [id, n])
 			if ResourceLoader.exists(n):
-				var a: Texture2D = load(p)
-				var b: Texture2D = load(n)
-				assert_eq(b.get_size(), a.get_size(), "%s: same layout as its colour sheet" % n)
+				assert_eq(_drawn(n).get_size(), _drawn(p).get_size(), "%s: same layout as its colour sheet" % n)
 		var sim := MatchFactory.training(id) if id != "dummy" else MatchFactory.training("cairn")
 		var v := CreatureView.new()
 		v.setup(sim.creatures[0 if id != "dummy" else 1])
@@ -371,10 +369,15 @@ func test_emissive_sheets_match_their_colour_sheets() -> void:
 			if not ResourceLoader.exists(e):
 				continue
 			found += 1
-			var a: Texture2D = load(p)
-			var b: Texture2D = load(e)
-			assert_eq(b.get_size(), a.get_size(), "%s: same layout as its colour sheet" % e)
+			assert_eq(_drawn(e).get_size(), _drawn(p).get_size(), "%s: same layout as its colour sheet" % e)
 	assert_gt(found, 0, "some fighters glow")
+
+
+## The texture the game draws for a grid sheet path: its packed copy (the grid PNGs of
+## packed sheets aren't imported), else the grid PNG itself.
+static func _drawn(path: String) -> Texture2D:
+	var pp := PackedSheet.packed_path(path)
+	return load(pp) if ResourceLoader.exists(pp) else load(path)
 
 
 ## Full-strength emissive pixels per row of a sheet's _e.png (read as is, not the
