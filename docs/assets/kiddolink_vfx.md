@@ -198,6 +198,7 @@ Section 6 is the suggestion this follows; where it stacked two effects on one mo
 | water_wave | vfx_liquid row 0 frames 0-5 | `start`, 3 tpf, loop | culvert skill_2, sno skill_2 |
 | ice_geyser | vfx_energy row 1 frames 0-7, tinted toward rgb(200,236,255) | `strike`, 3 tpf | gillbert surge, sno heavy, sno surge |
 | ice_nova | vfx_energy row 3 frames 0-7, tinted toward rgb(120,200,255) | `strike`, 3 tpf | sno surge |
+| heal_beam | vfx_energy row 4 frames 0-13, tinted toward rgb(110,230,120) | `hit`, 2 tpf, follow | an apple eaten (Barkley's tree: `fx_view.gd:PLANT_FX`, played from the event, no move) |
 | spark_comet | vfx_spark row 6 frames 0-6 | `projectile`, 2 tpf, scale 0.6 | cerebro light_1, cerebro light_2, cerebro light_3 |
 | spark_fan | vfx_spark row 8 frames 0-5 | `projectile`, 2 tpf, scale 0.6 | crease light_1, crease light_2, crease light_3 |
 | spark_pinwheel | vfx_spark row 1 frames 0-6 | `projectile_end`, 2 tpf | cerebro skill_1, crease heavy, sno tag_in |

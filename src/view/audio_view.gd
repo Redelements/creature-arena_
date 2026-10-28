@@ -238,6 +238,24 @@ func on_event(e: Dictionary) -> void:
 				play("wave")
 		"burst":
 			play("pinecone")
+		# Barkley's plants (placeholders: docs/AUDIO.md)
+		"seed":
+			play("sprout")
+		"plant_hit":
+			play("plant_hit")
+		"plant_root":
+			play("plant_sprung")
+		"plant_grow":
+			play("tree_grow")
+		"apple":
+			play("pop", -12.0, 1.8)  # the apple appears
+		"apple_eaten":
+			play("apple_munch")
+		"apple_spoiled":
+			play("apple_spoiled")
+		"plant_gone":
+			if String(e.get("how", "")) == "killed":
+				play("crack", -6.0, 1.4)  # the sprout snaps
 		# Mister Crease (placeholders until the audio pass: docs/AUDIO.md lists them).
 		"fold":
 			play("flip", -4.0, 1.5)  # a crisp crease

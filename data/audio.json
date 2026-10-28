@@ -396,6 +396,36 @@
       "file": "res://assets/audio/surge_ready_foe.wav",
       "volume_db": -4,
       "pitch_jitter": 0.0
+    },
+    "sprout": {
+      "file": "res://assets/audio/sprout.wav",
+      "volume_db": -8,
+      "pitch_jitter": 0.1
+    },
+    "plant_hit": {
+      "file": "res://assets/audio/plant_hit.wav",
+      "volume_db": -9,
+      "pitch_jitter": 0.12
+    },
+    "plant_sprung": {
+      "file": "res://assets/audio/plant_sprung.wav",
+      "volume_db": -5,
+      "pitch_jitter": 0.06
+    },
+    "tree_grow": {
+      "file": "res://assets/audio/tree_grow.wav",
+      "volume_db": -5,
+      "pitch_jitter": 0.04
+    },
+    "apple_munch": {
+      "file": "res://assets/audio/apple_munch.wav",
+      "volume_db": -6,
+      "pitch_jitter": 0.08
+    },
+    "apple_spoiled": {
+      "file": "res://assets/audio/apple_spoiled.wav",
+      "volume_db": -7,
+      "pitch_jitter": 0.06
     }
   }
 }

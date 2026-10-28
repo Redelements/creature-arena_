@@ -72,6 +72,12 @@ buses at start-up; `play(name, ..., ui = true)` sends a sound to Menu sounds.
 | [ ] | `twister` | Timber Twister's last hit | Gust of wind, rustling leaves |
 | [ ] | `roots` | Root Eruption's roots burst out | Deep rumble, wood splitting |
 | [ ] | `timber` | Barkley's knockout | Long creak of a tree leaning over |
+| [ ] | `sprout` | A missed Pinecone Bomb plants a seed | Soft earthy tuck, a little leafy flutter |
+| [ ] | `plant_hit` | A foe strikes Barkley's sprout | Short leafy thwip and a green snap |
+| [ ] | `plant_sprung` | A foe treads on a sprout and is rooted | Roots whipping up: creaky lash and a thud |
+| [ ] | `tree_grow` | A sprout grows into a tree | Rising woody groan, a burst of leaves |
+| [ ] | `apple_munch` | An ally eats the tree's apple (a heal) | Two crisp crunches, a bright rising chime |
+| [ ] | `apple_spoiled` | A foe takes (spoils) the apple | Squelch and a sour two-note droop |
 | [ ] | `flop` | Gillbert's footsteps (every flop of his run) and his knockout | Wet fish slap |
 | [ ] | `reel` | Cast Line hooks someone and reels him in | Zipping reel ratchet |
 | [ ] | `bellyflop` | The One That Got Away lands | Huge slap and a wall of water |

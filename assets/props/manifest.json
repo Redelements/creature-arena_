@@ -1,0 +1,44 @@
+{
+ "_doc": "Written by tools/cut_props.py (Szadi packs, LICENSES.md); frames side by side, 2 texture px a world unit; read by src/view/plant_view.gd.",
+ "ppu": 2,
+ "props": {
+  "barkley_sprout": {
+   "frames": 4,
+   "size": [
+    32,
+    32
+   ],
+   "feet": [
+    16,
+    28
+   ],
+   "ticks_per_frame": 10,
+   "source": "RPGW_AncientForest_v1.0/_PNG/Decorative.png [449,448,479,478]"
+  },
+  "barkley_tree": {
+   "frames": 12,
+   "size": [
+    104,
+    120
+   ],
+   "feet": [
+    52,
+    114
+   ],
+   "ticks_per_frame": 7,
+   "source": "FLSET1_v1.1/_PNG/Anim/Trees/Tree_A_v1.png rows 0-2 (green), each frame [12,8,116,128], shadow dropped"
+  },
+  "apple": {
+   "frames": 1,
+   "size": [
+    9,
+    10
+   ],
+   "feet": [
+    4,
+    9
+   ],
+   "source": "PLACEHOLDER drawn by tools/cut_props.py"
+  }
+ }
+}

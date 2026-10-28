@@ -196,6 +196,9 @@ var _last_push := {}
 ## statue last shattered, so its bonus hit gets an accent.
 var _dmg_run := {}
 var _shatter_seen := {}
+## creature id -> true while its root is a leafy one (Barkley's: his Pinecone, his Surge, a
+## sprout trodden on), set by the `rooted` event; anything else (Cave-In) heaps rubble.
+var _leaf_root := {}
 var _n_dmg := 0
 var _dark := 0.0
 var _rain := 0.0
@@ -261,6 +264,7 @@ func clear() -> void:
 	_last_push.clear()
 	_dmg_run.clear()
 	_shatter_seen.clear()
+	_leaf_root.clear()
 	_pstyles.clear()
 	_proj_prev.clear()
 	_wall_marks.clear()
@@ -580,7 +584,14 @@ func spawn(e: Dictionary) -> void:
 		"rooted":
 			var c := _creature(int(e.get("who", -1)))
 			if c != null:
-				_text(c.pos + Vector2(0, 14), "ROOTED", C_DIRT[2], 7, 44.0)
+				var by := _creature(int(e.get("by", -1)))
+				var leafy := e.has("plant") or (by != null and String(by.def.get("affinity", "")) == "wild")
+				_leaf_root[c.id] = leafy
+				_text(c.pos + Vector2(0, 14), "ROOTED", C_LEAF[2] if leafy else C_DIRT[2], 7, 44.0)
+				if leafy:
+					move_fx.play(_plant_fx("root"), c.pos, c)
+		"seed", "plant_grow", "apple", "plant_hit", "plant_root", "apple_eaten", "apple_spoiled", "plant_gone":
+			_plant_event(e, p)
 		"poisoned":
 			var c := _creature(int(e.get("who", -1)))
 			if c != null and String(e.get("look", "")) == "bleed":
@@ -688,7 +699,8 @@ func _event_shown(e: Dictionary) -> bool:
 	if viewer_team < 0 or sim == null:
 		return true
 	var kind := String(e["type"])
-	if kind in ["projectile_end", "projectile_pierce", "projectile_bounce", "burst", "zone"]:
+	if kind in ["projectile_end", "projectile_pierce", "projectile_bounce", "burst", "zone", "seed", "plant_grow",
+			"apple", "plant_hit", "plant_gone"]:
 		return sight_to(Vector2(e["pos"]))
 	var any := false
 	for k in _EVENT_IDS:
@@ -1472,6 +1484,79 @@ func _leaves(at: Vector2, n: int, speed: float) -> void:
 		_add({"kind": "leaf", "pos": at + Vector2(0, 14), "z": 14.0, "vel": Vector2(v.x, v.y * 0.5), "vz": randf_range(0.6, 1.6),
 			"g": 0.05, "life": randf_range(40, 70), "color": C_LEAF[randi() % 3], "rot": randf() * TAU,
 			"vrot": randf_range(-0.3, 0.3), "bounce": 0.0})
+
+
+## The hand-drawn effects round Barkley's plants (assets/vfx cuts, each sized and set on
+## the floor here: a GROUND cut's art stands about 15.5 units under its centre at scale 1).
+const PLANT_FX := {
+	"seed": {"path": "res://assets/vfx/dust_poof.tres", "scale": 0.45, "offset": [0, -5]},
+	"seed_leaf": {"path": "res://assets/vfx/leaf_swirl.tres", "scale": 0.55, "offset": [0, -5]},
+	"grow": {"path": "res://assets/vfx/leaf_swirl.tres", "scale": 1.4, "offset": [0, -14]},
+	"grow_dust": {"path": "res://assets/vfx/dust_burst.tres", "scale": 0.8, "offset": [0, -12]},
+	"apple": {"path": "res://assets/vfx/hit_star_cyan.tres", "scale": 0.4, "offset": [0, 0]},
+	"eaten": {"path": "res://assets/vfx/heal_beam.tres", "scale": 0.8, "offset": [0, -12], "follow": true},
+	"spoiled": {"path": "res://assets/vfx/wisp_purple.tres", "scale": 0.6, "offset": [0, -9]},
+	"killed": {"path": "res://assets/vfx/leaf_swirl.tres", "scale": 0.8, "offset": [0, -8]},
+	"killed_dust": {"path": "res://assets/vfx/dust_poof.tres", "scale": 0.5, "offset": [0, -6]},
+	"root": {"path": "res://assets/vfx/leaf_swirl.tres", "scale": 0.8, "offset": [0, -8], "follow": true},
+}
+const C_APPLE := Color("d6262a")
+var _plant_fx_cache := {}
+
+
+func _plant_fx(name: String) -> MoveFx:
+	if not _plant_fx_cache.has(name):
+		_plant_fx_cache[name] = MoveFx.from_entry(PLANT_FX[name])
+	return _plant_fx_cache[name]
+
+
+## A seed planted, a sprout struck, grown or sprung, an apple borne, eaten or spoiled
+## (src/sim/plants.gd's events; the plants themselves are PlantView's).
+func _plant_event(e: Dictionary, p: Vector2) -> void:
+	var c := _creature(int(e.get("who", -1)))
+	match String(e["type"]):
+		"seed":
+			move_fx.play(_plant_fx("seed"), p)
+			move_fx.play(_plant_fx("seed_leaf"), p)
+			_leaves(p + Vector2(0, -14), 4, 0.6)
+		"plant_grow":
+			move_fx.play(_plant_fx("grow_dust"), p)
+			move_fx.play(_plant_fx("grow"), p)
+			_leaves(p + Vector2(0, -24), 12, 1.3)
+			for i in 6:
+				_dust(p + Vector2(randf_range(-12, 12), randf_range(-3, 3)), Vector2(randf_range(-0.5, 0.5), -0.3))
+		"apple":
+			var at := p + PlantView.APPLE_AT + Vector2(0, -3)
+			move_fx.play(_plant_fx("apple"), at)
+			_text(p + Vector2(0, -64), "APPLE!", C_APPLE.lightened(0.25), 7, 40.0)
+		"plant_hit":
+			_leaves(p + Vector2(0, -14), 3, 0.7)
+			_px(p + Vector2(0, -6), Vector2(randf_range(-0.6, 0.6), -0.8), C_LEAF[2], 10)
+		"plant_root":
+			if c != null:
+				_leaves(c.pos + Vector2(0, -14), 6, 1.0)
+		"apple_eaten":
+			if c != null:
+				move_fx.play(_plant_fx("eaten"), c.pos, c)
+				_text(c.pos + Vector2(0, -_top(c) - 14), "+%d" % roundi(float(e["power"])), C_LEAF[2], 8, 44.0)
+				for i in 4:
+					_add({"kind": "heal", "pos": c.pos + Vector2(randf_range(-8, 8), -_top(c) * randf_range(0.3, 0.8)),
+						"vel": Vector2(0, -0.5), "life": 30})
+		"apple_spoiled":
+			if c != null:
+				move_fx.play(_plant_fx("spoiled"), c.pos)
+				_text(c.pos + Vector2(0, -_top(c) - 14), "SPOILED", Color("b48ad0"), 7, 40.0)
+				for i in 5:
+					_px(c.pos + Vector2(randf_range(-6, 6), -randf_range(2, 10)), Vector2(randf_range(-0.4, 0.4), -0.5),
+						Color("6a3a5a"), 18)
+		"plant_gone":
+			if String(e.get("how", "")) == "killed":
+				move_fx.play(_plant_fx("killed_dust"), p)
+				move_fx.play(_plant_fx("killed"), p)
+				_leaves(p + Vector2(0, -14), 10, 1.4)
+				for i in 4:
+					_chunk(p, randf_range(2, 8), Vector2.from_angle(randf() * TAU) * randf_range(0.5, 1.2),
+						randf_range(0.8, 1.6), randf_range(1.5, 2.5), C_WOOD[randi() % 3], 40.0)
 
 
 ## Timber Twister's last hit: a ring of wind and a gust of leaves thrown outward.
@@ -4194,7 +4279,16 @@ func _draw_status(ci: CanvasItem, c: CreatureSim) -> void:
 			var at := (c.pos + Vector2(cos(a) * 7.0, -_top(c) - 2.0 - lift + sin(a) * 2.0)).round()
 			ci.draw_rect(Rect2(at - Vector2(1, 0), Vector2(3, 1)), C_LAMP)
 			ci.draw_rect(Rect2(at - Vector2(0, 1), Vector2(1, 3)), C_LAMP)
-	if c.root > 0:
+	if c.root > 0 and bool(_leaf_root.get(c.id, false)):
+		# rooted by Barkley: roots coiled over the feet, a leaf on each that flickers
+		for i in 6:
+			var a := TAU * i / 6.0 + 0.4
+			var at := (c.pos + Vector2(cos(a) * (c.radius + 1.0), sin(a) * 3.0)).round()
+			ci.draw_rect(Rect2(at - Vector2(1, 3), Vector2(3, 4)), C_OUTLINE)
+			ci.draw_rect(Rect2(at - Vector2(0, 2), Vector2(1, 2)), C_WOOD[1])
+			var lx := 1.0 if i % 2 == 0 else -2.0
+			ci.draw_rect(Rect2(at + Vector2(lx, -5), Vector2(2, 2)), C_LEAF[1 + (i + _tick / 12) % 2])
+	elif c.root > 0:
 		# rooted: rubble heaped round the feet
 		for i in 6:
 			var a := TAU * i / 6.0 + 0.4

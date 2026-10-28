@@ -108,6 +108,13 @@ func on_event(kind: String, c: CreatureSim, p: Vector2) -> void:
 			_spawn(f, c, p, _length(c, move_id))
 
 
+## An effect that isn't a move's (an event's: a seed planted, an apple eaten), at `at`;
+## with `who` it can follow them and mirror with their facing, as the resource says.
+func play(f: MoveFx, at: Vector2, who: CreatureSim = null) -> void:
+	if f != null:
+		_spawn(f, who, at, 0)
+
+
 func _spawn(f: MoveFx, c: CreatureSim, at: Vector2, move_length: int) -> void:
 	if f.frame_count() <= 0:
 		return
@@ -115,14 +122,15 @@ func _spawn(f: MoveFx, c: CreatureSim, at: Vector2, move_length: int) -> void:
 	_next = (_next + 1) % CAP
 	if _fx[i] == null:
 		_live += 1
-	var flip := f.flip_with_facing and c.facing.x < 0.0
+	var flip := c != null and f.flip_with_facing and c.facing.x < 0.0
 	var off := Vector2(-f.offset.x if flip else f.offset.x, f.offset.y)
+	var follow := c != null and f.follow
 	_fx[i] = f
 	_t[i] = 0.0
 	_life[i] = float(f.life(move_length))
 	_flip[i] = 1 if flip else 0
-	_who[i] = c if f.follow else null
-	_base[i] = (at - c.pos + off) if f.follow else (at + off)
+	_who[i] = c if follow else null
+	_base[i] = (at - c.pos + off) if follow else (at + off)
 	var s := _sprites[i]
 	s.sprite_frames = f.frames
 	s.animation = f.animation
