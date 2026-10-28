@@ -140,3 +140,24 @@ Base: `origin/main` at 5c26ca7 (PR #278 merged), NET_VERSION 61.
 - Checks: suite 1380/0 after the last change (journey walks the Weekly row On and the rest Off), sweep 216/0
   (mode 54 on four maps), sim-check unchanged, map clean. Screenshots in the session scratchpad
   `shots-progression-weekly/`. Merging when CI is green.
+
+## Task E: Arcade ending cards
+
+- **PR #286** (branch `progression-endings`, from main d07b49f). `data/endings/<fighter>.json` for all eleven
+  (`title`, `lines` x4 under 60 chars, `art` res://assets/ui/endings/<f>.png, `unlock_title` title:<f>_ending);
+  eleven ending titles in progression.json (Still Standing, Storm Drain King, Sleeping Mountain, Old Growth,
+  Got Away, Head Chef, Living Legend, Deep Digger, Master Thief, Cold Champion, Headliner). Save key `endings`
+  (list of fighter ids); `Progress.ending_seen(f)`, `see_ending(f)`. `src/game/endings.gd` (`Endings`):
+  `fighters, of, art, show(f) -> bool, titles, fighter_of_reward`. `src/ui/ending_screen.gd`
+  (`EndingScreen.new(fighter, gallery, on_continue)`, ART_SIZE 128x72, Back = Continue); hint key `continue`.
+  `main.gd:_open_ending()` on the match-over tick before `_show_match_over` (offline Arcade clear, On only).
+  Profile page "endings" + hub row "Endings"; a fighter's title picker offers its ending title. Flags
+  `--menu=profile:endings`, `--menu=ending:<fighter>`. Placeholder art `tools/gen_ending_cards.py` ->
+  `assets/ui/endings/<f>.png` 256x144, 2-5 KB each, tagged "placeholder art"; listed in open-items.
+- Decisions (agent): the card appears where the results would (40 ticks after the ARCADE CLEAR banner) and
+  never auto-advances (Continue/Back/Enter/click/A); shows on every clear, only the first marks seen and grants
+  the title; all lines on one card; the gallery hides an unseen card's title; no card for Daily/Weekly/Gauntlet,
+  online or replays. Ending text written by the agent; Kevin edits later (full text in the PR body).
+- Checks: suite 1386/0, journey alone 4/0, sweep 216/0, sim-check unchanged, map clean. Screenshots at four
+  sizes in the session scratchpad `shots-progression-endings/` (+ `cards.png` contact sheet). The in-match
+  clear flow was not screenshotted (headless test only): a QC playthrough item. Merging when CI is green.
