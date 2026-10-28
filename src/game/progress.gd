@@ -37,6 +37,8 @@ extends RefCounted
 const PATH := "user://progress.json"
 const DATA_PATH := "res://data/progression.json"
 const PALETTES := 4
+## The most XP (or any count) a save holds: a hand-edited 1e30 reads as this, never as an overflow.
+const XP_MAX := 1000000000
 ## Every key of the save and its default (an old file without some of them still loads).
 const SAVE_KEYS := {"arcade": {}, "palette": {}, "gauntlet": {}, "daily": {}, "xp": 0, "mastery": {},
 	"unlocked": [], "equipped": {}, "account_title": "", "seen": [], "challenges": {},
@@ -57,15 +59,69 @@ static func read() -> void:
 	var f := FileAccess.open(path, FileAccess.READ)
 	if f == null:
 		return
-	var d = JSON.parse_string(f.get_as_text())
-	if d is Dictionary:
-		for k in _data:
-			var v = d.get(k, null)
-			if k == "xp":
-				if v is float or v is int:
-					_data[k] = maxi(0, int(v))
-			elif typeof(v) == typeof(SAVE_KEYS[k]):
-				_data[k] = v
+	var json := JSON.new()  # (not parse_string: a bad file is handled here, not an engine error)
+	if json.parse(f.get_as_text()) == OK and json.data is Dictionary:
+		_data = clean(json.data)
+
+
+## The save as the game reads it: every known key with its type, whatever the file held
+## (a hand-edited or damaged file never reaches the getters as a wrong type). Numbers are
+## whole and in range (JSON reads them as floats: they are stored back as ints), lists
+## hold strings, an odd entry is dropped and a missing key gets its default.
+static func clean(d: Dictionary) -> Dictionary:
+	var out := SAVE_KEYS.duplicate(true)
+	out["xp"] = _num(d.get("xp"), 0, XP_MAX, 0)
+	out["arcade"] = _num_map(d.get("arcade"), -1, CpuController.LEVELS.size() - 1)
+	out["palette"] = _num_map(d.get("palette"), 0, PALETTES - 1)
+	for k in ["gauntlet", "daily", "weekly", "mastery"]:
+		out[k] = _num_map(d.get(k), 0, XP_MAX)
+	for k in ["unlocked", "seen", "endings"]:
+		out[k] = _str_list(d.get(k))
+	var eq = d.get("equipped")
+	if eq is Dictionary:
+		for fid in eq:
+			var e = eq[fid]
+			if e is Dictionary:
+				out["equipped"][String(fid)] = {
+					"title": String(e["title"]) if e.get("title") is String else "",
+					"line": String(e["line"]) if e.get("line") is String else ""}
+	out["account_title"] = String(d["account_title"]) if d.get("account_title") is String else ""
+	var ch = d.get("challenges")
+	if ch is Dictionary:
+		out["challenges"] = {"counts": _num_map(ch.get("counts"), 0, XP_MAX), "done": _str_list(ch.get("done"))}
+	var st = d.get("streak")
+	if st is Dictionary:
+		out["streak"] = {"days": _num(st.get("days"), 0, 100000, 0), "last_day": _num(st.get("last_day"), 0, 99991231, 0)}
+	return out
+
+
+## A whole number from a save value in [lo, hi], or `fallback` when it isn't a number.
+static func _num(v: Variant, lo: int, hi: int, fallback: int) -> int:
+	if v is int:
+		return clampi(v, lo, hi)
+	if v is float and is_finite(v):
+		return int(clampf(v, lo, hi))
+	return fallback
+
+
+## {key: whole number}: the entries that are numbers, kept in [lo, hi].
+static func _num_map(v: Variant, lo: int, hi: int) -> Dictionary:
+	var out := {}
+	if v is Dictionary:
+		for k in v:
+			if v[k] is int or v[k] is float:
+				out[String(k)] = _num(v[k], lo, hi, lo)
+	return out
+
+
+## The strings of a list, each once.
+static func _str_list(v: Variant) -> Array:
+	var out: Array = []
+	if v is Array:
+		for s in v:
+			if s is String and not out.has(s):
+				out.append(s)
+	return out
 
 
 static func save() -> void:

@@ -206,3 +206,98 @@ func test_the_setting_is_off_by_default_and_saved() -> void:
 	g.free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg_path))
 	_done()
+
+
+## Hand-edited and damaged saves (the QC's crafted files): every getter reads them as the
+## right type (no script error: the runner fails a test on any), an award still pays and
+## saves, and the numbers go back as whole numbers.
+const ODD_SAVES := {
+	"old": "{\"arcade\": {\"cairn\": 1}, \"palette\": {\"cairn\": 2}, \"gauntlet\": {\"cairn\": 3}, \"daily\": {\"20261027\": 500}}",
+	"xp_text": "{\"xp\": \"abc\"}",
+	"xp_negative": "{\"xp\": -50}",
+	"xp_huge": "{\"xp\": 1000000000000.0}",
+	"unlocked_mixed": "{\"xp\": 500, \"unlocked\": [\"title:bogus\", 5, null, {\"a\": 1}, \"palette:cairn:9\", \"palette:nobody:1\", \"line:zzz\", \"title:rookie\"]}",
+	"equipped_odd": "{\"xp\": 500, \"unlocked\": [\"title:rookie\"], \"equipped\": {\"cairn\": {\"palette\": 99, \"title\": \"title:legend\", \"line\": \"line:cairn_2\"}}, \"palette\": {\"cairn\": 99}, \"account_title\": \"title:legend\"}",
+	"equipped_not_dicts": "{\"equipped\": {\"cairn\": \"title:rookie\", \"culvert\": 5, \"sno\": {\"title\": 5, \"line\": null}}, \"palette\": {\"cairn\": \"abc\", \"culvert\": {\"x\": 1}}}",
+	"challenges_list": "{\"challenges\": [1, 2, 3]}",
+	"counts_list": "{\"challenges\": {\"counts\": [1, 2], \"done\": \"first_fight\"}}",
+	"counts_odd": "{\"challenges\": {\"counts\": {\"bogus_stat\": 5, \"fights\": 2.5, \"wins\": \"x\", \"kos\": null, \"wins_on:storm_drain\": {\"a\": 1}}, \"done\": [\"nope\", 3, \"first_fight\"]}}",
+	"streak_text": "{\"streak\": {\"days\": \"x\", \"last_day\": \"y\"}}",
+	"streak_future": "{\"streak\": {\"days\": 5, \"last_day\": 20991231}}",
+	"weekly_odd": "{\"weekly\": {\"garbage\": \"x\", \"202644\": \"abc\", \"999999\": -5}}",
+	"endings_odd": "{\"endings\": [\"nobody\", 7, null, \"cairn\"]}",
+	"mastery_odd": "{\"mastery\": {\"cairn\": \"lots\", \"culvert\": -100, \"nobody\": 500, \"digby\": 1000000000000000.0, \"sno\": 1e30}}",
+	"seen_text": "{\"seen\": \"x\", \"arcade\": {\"cairn\": \"hard\"}, \"gauntlet\": {\"cairn\": [1]}}",
+	"arcade_dicts": "{\"arcade\": {\"cairn\": {\"x\": 1}}, \"daily\": {\"20261028\": {\"y\": 2}}}",
+	"top_level_array": "[1, 2, 3]",
+	"empty": "",
+	"cut_off": "{\"xp\": 5, \"unlocked\": [",
+}
+
+
+func _read_everything() -> void:
+	Progress.account_xp()
+	Progress.account_level()
+	Progress.level_progress()
+	Progress.account_title()
+	Progress.new_anywhere()
+	Progress.streak_days()
+	Progress.streak_bonus()
+	Progress.weekly_best(202644)
+	Progress.daily_best(20261028)
+	for f in MatchFactory.FIGHTERS:
+		var fs := String(f)
+		assert_true(Progress.mastery_xp(fs) >= 0, "%s's mastery XP is never below 0" % fs)
+		Progress.mastery_progress(fs)
+		Progress.arcade_best(fs)
+		Progress.gauntlet_best(fs)
+		assert_true(Progress.palette(fs) >= 0 and Progress.palette(fs) < Progress.PALETTES, "")
+		Progress.equipped(fs)
+		Progress.shown_title(fs)
+		Progress.shown_line(fs)
+		Progress.unlocks_of(fs)
+		Progress.ending_seen(fs)
+	for g in Challenges.goals():
+		Challenges.progress(String(g["id"]))
+	Challenges.done_count()
+	Challenges.count("maps_won")
+
+
+func test_odd_and_damaged_saves_read_as_the_right_types() -> void:
+	for name in ODD_SAVES:
+		var p := _fresh()
+		var f := FileAccess.open(p, FileAccess.WRITE)
+		f.store_string(String(ODD_SAVES[name]))
+		f.close()
+		Progress.reset_for_tests(p)
+		_read_everything()
+		assert_true(Progress.account_xp() >= 0 and Progress.account_xp() <= Progress.XP_MAX, "%s: the XP is in range (%d)" % [name, Progress.account_xp()])
+		assert_false(Progress.award(_cpu(true, 1)).is_empty(), "%s: a fight still pays" % name)
+		Progress.reset_for_tests(p)
+		_read_everything()
+		var text := FileAccess.get_file_as_string(p)
+		assert_false(RegEx.create_from_string(r"\d\.0\b").search(text) != null, "%s: whole numbers are saved whole:\n%s" % [name, text])
+		_cleanup(p)
+	_done()
+
+
+func test_the_saves_numbers_stay_whole_after_a_load_and_a_save() -> void:
+	var p := _fresh()
+	Progress.award(_cpu(true, 2))
+	Progress.record_daily(20261028, 900)
+	Progress.reset_for_tests(p)
+	Progress.award(_cpu(true, 2))
+	var d: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(p))
+	assert_false(FileAccess.get_file_as_string(p).contains(".0"), "no 4.0 for 4 in the file")
+	assert_true(Progress.clean(d)["xp"] is int, "")
+	_cleanup(p)
+	_done()
+
+
+## The save and its side files (.bak, .tmp, a moved-aside .corrupt-<time>).
+func _cleanup(p: String) -> void:
+	var dir := ProjectSettings.globalize_path(p).get_base_dir()
+	var base := p.get_file()
+	for n in DirAccess.get_files_at(dir):
+		if String(n).begins_with(base):
+			DirAccess.remove_absolute(dir.path_join(n))
