@@ -214,8 +214,26 @@ A wall rect can be drawn with another kit (`tiles.restyle`: Twin Keeps' mid-fiel
 as `wall:grove`, purple-grey boulders with a stump for rubble, the trees standing on them):
 the sim sees the same wall.
 
+The Greenhouse Dome is dressed the same way (`greenhouse_dressing.tscn`, seeded from
+`tools/dressing/greenhouse.json`: lanterns, sacks, baskets and vines on its four fence lines,
+crowns over the corner beds; its props stand on fence cells, which the flat Pieces layer
+draws, so a prop anywhere along a vertical fence draws over it).
+
 Another map: give its `tiles` block `"dressing": "res://assets/arenas/<id>_dressing.tscn"`,
 cut the props into its set (recipe `decor` / `anim`, scatter kinds appended at the end of
 `scatter`: the scene paints slots by atlas place, `shadows` for the contact shadows), seed
 or build the scene in the editor with the four nodes above, rebuild the set, and add the
 flames' lamps to its `lights` with a `day` share.
+
+Dustwind Pass (`caravan_pass_dressing.tscn`, spec `tools/dressing/caravan_pass.json`) is the second:
+its walls are one-tile raised plateaus, so props stand on their tops behind the face (`_dress_cells`
+runs a top prop's cells on down its column: a smashed face regrows under it) and along the two
+fences, and the floor carries the rest. The spec's `keep_off` keeps every ground tile and detail
+sprite off the road (the `earth` rects), within `TRACK_CLEAR` of the caravan's track and a cell
+round each wall (the dressing's layers draw over a raised wall's contact shadow). Its ground layers
+are the Desert's own fills laid in Set 1's ragged blobs (recipe terrain `texture`).
+
+The Stadium (`stadium_dressing.tscn`, from `tools/dressing/stadium.json`) is floor only: it
+has no wall or fence cells, so its `Props` and `Canopies` stay empty. Its ground layers are
+`DirtDark`, `DirtDry`, `Damp` and `Paths` (set1 terrains `dirt_dark`, `dirt_dry`, `damp`, `path`);
+`Detail` holds pebbles and dried sprigs, kept a cell clear of the court lines.

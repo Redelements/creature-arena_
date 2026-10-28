@@ -38,6 +38,10 @@ extends SceneTree
 ##           sprites (manifest "scatter" kinds) on single cells, or n of them in a clump of
 ##           radius r cells round a cell; a kind's look per cell by a fixed hash
 ##   canopies [{kind, pos, lift, flip}]: crowns, as props but in "Canopies"
+##   keep_off {"walls": n, "terrains": ["earth"], "track": true}: cells no ground tile or detail
+##           sprite lies on: within n cells of a wall (a raised wall's contact shadow, which the
+##           dressing's layers would cover), on the tiles block's rects of those terrains (the
+##           Caravan road) and within build_tiles.gd's TRACK_CLEAR of the map's `track`
 ##   props   [{kind, pos, lift, flip, shadow, stack}]: decor or anim (manifest "decor" /
 ##           "anim") with feet at pos (on a wall or fence cell), drawn `lift` units higher;
 ##           `shadow` false for none (a piece up on a wall's top); `stack` k sorts it k
@@ -49,6 +53,7 @@ const SCATTER_ALTS := 8
 const PPU := 2.0  ## ArtScale.PX_PER_UNIT
 const CELL := 8.0  ## SimDefs.CELL
 const SHADOW_SHIFT := 2.0  ## px a contact shadow leans right, away from the maps' top-left light
+const BT := preload("res://tools/build_tiles.gd")  ## near_marks: the court lines detail keeps off
 
 
 func _init() -> void:
@@ -139,11 +144,13 @@ static func seed_scene(spec: Dictionary) -> Node2D:
 	var set_name := String(spec.get("set", "keeps"))
 	var man := _json(TILES_DIR + set_name + "_manifest.json")
 	var grid: TerrainGrid = null  # the map's cells: detail only where it lies flat
+	var marks := false  # a map with court markings (the Stadium): detail keeps off the lines
 	if spec.has("map"):
 		var map := ArenaMap.get_map(String(spec["map"]))
 		var size := ArenaMap.size_of(map)
 		grid = TerrainGrid.new(size.x, size.y)
 		grid.load_map(map)
+		marks = bool(map.get("tiles", {}).get("markings", false))
 	var root := Node2D.new()
 	root.name = "Dressing"
 	root.y_sort_enabled = true
@@ -157,6 +164,7 @@ static func seed_scene(spec: Dictionary) -> Node2D:
 			var r: Array = b["rect"]
 			bridges.append(Rect2i(int(r[0]), int(r[1]), int(r[2]), int(r[3])))
 	var mw := int(float(spec.get("mirror", {}).get("width", 0)) / (CELL * 2.0))
+	var off := _kept_off(spec, grid)
 	for gspec: Dictionary in spec.get("grounds", []):
 		var layer := TileMapLayer.new()
 		layer.name = String(gspec["layer"])
@@ -166,7 +174,8 @@ static func seed_scene(spec: Dictionary) -> Node2D:
 		var tiles := _ground_tiles(gspec, mw)
 		var cells: Array[Vector2i] = []
 		for t: Vector2i in tiles:
-			if grid == null or _ground_ok(t, String(gspec.get("on", "floor")), grid, bridges):
+			if grid == null or (_ground_ok(t, String(gspec.get("on", "floor")), grid, bridges)
+					and not (off.has(t * 2) or off.has(t * 2 + Vector2i(1, 0)) or off.has(t * 2 + Vector2i(0, 1)) or off.has(t * 2 + Vector2i.ONE))):
 				cells.append(t)
 		var ts: TileSet = layer.tile_set
 		for i in ts.get_terrains_count(0):
@@ -207,7 +216,7 @@ static func seed_scene(spec: Dictionary) -> Node2D:
 			at = _clump(e)
 		for c in at:
 			var v := Vector2i(int(c[0]), int(c[1]))
-			if grid != null and not _flat_ok(String(e["kind"]), v, grid):
+			if grid != null and (not _flat_ok(String(e["kind"]), v, grid, marks) or off.has(v)):
 				continue
 			var slot: Array = slots[_h(v.x, v.y, 7) % slots.size()]
 			detail.set_cell(v, SRC_SCATTER, Vector2i(int(slot[0]), int(slot[1])) * per, _h(v.x, v.y, 9) % SCATTER_ALTS)
@@ -382,6 +391,32 @@ static func _v2(a: Array) -> Vector2:
 	return Vector2(float(a[0]), float(a[1]))
 
 
+## The cells a spec's `keep_off` keeps the ground layers and the detail off (cell -> true).
+static func _kept_off(spec: Dictionary, grid: TerrainGrid) -> Dictionary:
+	var out := {}
+	var ko: Dictionary = spec.get("keep_off", {})
+	if ko.is_empty() or grid == null:
+		return out
+	var map := ArenaMap.get_map(String(spec["map"]))
+	var n := int(ko.get("walls", 0))
+	var track: Array = map.get("track", []) if bool(ko.get("track", false)) else []
+	for cy in grid.rows:
+		for cx in grid.cols:
+			var c := Vector2i(cx, cy)
+			if not track.is_empty() and preload("res://tools/build_tiles.gd").near_track(grid.cell_center(c), track):
+				out[c] = true
+			if n > 0 and grid.get_base(c) == TerrainGrid.WALL:
+				for dy in range(-n, n + 1):
+					for dx in range(-n, n + 1):
+						out[c + Vector2i(dx, dy)] = true
+	for name in ko.get("terrains", []):
+		for r in map.get("tiles", {}).get(String(name), []):
+			for cy in range(int(r[1]) * 2, (int(r[1]) + int(r[3])) * 2):
+				for cx in range(int(r[0]) * 2, (int(r[0]) + int(r[2])) * 2):
+					out[Vector2i(cx, cy)] = true
+	return out
+
+
 ## Whether a ground tile (2 x 2 cells) may be laid: "floor" (a path) on plain floor only,
 ## "land" (a grass patch) anywhere but the water and the chasms; never on a bridge.
 static func _ground_ok(t: Vector2i, on: String, grid: TerrainGrid, bridges: Array[Rect2i]) -> bool:
@@ -402,9 +437,12 @@ static func _ground_ok(t: Vector2i, on: String, grid: TerrainGrid, bridges: Arra
 
 
 ## Whether a detail sprite of `kind` may lie on cell `c`: lily pads on the water, everything
-## else on plain floor (never on a wall, fence, chasm, brush bed or the water).
-static func _flat_ok(kind: String, c: Vector2i, grid: TerrainGrid) -> bool:
+## else on plain floor (never on a wall, fence, chasm, brush bed or the water), and on a map
+## with court markings never within about a cell of the lines (build_tiles.gd `near_marks`).
+static func _flat_ok(kind: String, c: Vector2i, grid: TerrainGrid, marks := false) -> bool:
 	if not grid.in_bounds(c):
+		return false
+	if marks and BT.near_marks(c, grid):
 		return false
 	return grid.get_base(c) == (TerrainGrid.SHALLOWS if kind == "lily" else TerrainGrid.INTACT)
 

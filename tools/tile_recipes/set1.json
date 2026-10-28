@@ -12,7 +12,11 @@
 		},
 		"terrains": {
 			"grass": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "blob": [0, 0], "variants": [[4, 0, 8, 4]]},
-			"water": {"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "blob": [0, 0], "variants": [[4, 0, 8, 4]]}
+			"water": {"src": "RPGFW_Set1_v1.0/_PNG/water_ground.png", "blob": [0, 0], "variants": [[4, 0, 8, 4]]},
+			"dirt_dark": {"_doc": "dressing (the Stadium's DirtDark layer): the floor's own brown dirt blob in shade, ragged patches of packed, darker ground out on the pitch", "src": "RPGFW_Set1_v1.0/_PNG/g_terrain3.png", "blob": [0, 0], "variants": [[4, 0, 8, 4]], "variant_prob": 1.0, "tint": {"mul": [0.9, 0.88, 0.88]}},
+			"dirt_dry": {"_doc": "dressing (DirtDry): the floor's own brown dirt blob lifted paler, the sun-baked dry ground by the kerb (the tan band's rim snapped to grey gravel here)", "src": "RPGFW_Set1_v1.0/_PNG/g_terrain3.png", "blob": [0, 0], "variants": [[4, 0, 8, 4]], "variant_prob": 1.0, "tint": {"mul": [1.12, 1.1, 1.04], "add": [6, 5, 3]}},
+			"damp": {"_doc": "dressing (Damp): g_terrain3's red-brown band darkened, the sprinklers' wet patches by the cobbled corners", "src": "RPGFW_Set1_v1.0/_PNG/g_terrain3.png", "blob": [0, 12], "variants": [[4, 12, 8, 4]], "variant_prob": 1.0, "tint": {"mul": [0.8, 0.78, 0.8]}},
+			"path": {"_doc": "dressing (Paths): the trodden tan band, lifted like the dirt_worn pads, as worn lanes between the starting marks and the centre and the dust round the pads", "src": "RPGFW_Set1_v1.0/_PNG/g_terrain3.png", "blob": [0, 4], "variants": [[4, 4, 8, 4]], "fill_notches": [12, 4], "blob_prob": 0.05, "variant_prob": 1.0, "tint": {"mul": [1.14, 1.12, 1.1], "add": [6, 5, 4]}}
 		}
 	},
 	"pieces": {
@@ -40,6 +44,10 @@
 		"birch": {"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [384, 32, 480, 224], "feet": [48, 176]},
 		"pine": {"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [576, 16, 672, 208], "feet": [44, 167]},
 		"bush": {"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [288, 160, 384, 256], "feet": [48, 88]}
+	},
+	"scatter": {
+		"pebbles": {"_doc": "dressing: Set 1 loose pebbles, found on their own (as keeps.json)", "src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "box": [230, 605, 425, 645], "auto": {"min": 10, "max": [16, 14], "limit": 10}},
+		"sprigs": {"_doc": "dressing: Set 1 tiny grass sprigs, dried: the odd weed along the kerb", "src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "boxes": [[74, 719, 89, 727], [40, 751, 58, 762], [11, 745, 20, 753], [170, 719, 185, 727]], "tint": {"desat": 0.8, "mul": [1.1, 1.0, 0.8]}}
 	},
 	"anim": {
 		"waterfall": {"src": "RPGFW_Set1_v1.0/_PNG/anim/waterfall/1x2_waterfall.png", "frame": [128, 96], "frames": 8, "fps": 8, "feet": [64, 84]}

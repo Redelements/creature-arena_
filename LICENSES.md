@@ -61,6 +61,10 @@ snapped to the game's palette):
   water), piece (boulders, tall grass) and crack / pit tiles cut from Set 1 (the overlay: a
   Set 1 `hills2.png` cliff face as the pit walls, with generated edges and cracks).
 - `assets/tiles/set1_decor_*.png` (trees, a bush) and `assets/tiles/set1_anim_waterfall.png`.
+- `assets/tiles/set1_scatter.png`: loose pebbles and dried grass sprigs (Set 1
+  `veg_decoratives.png`), and the Stadium's dressing ground (darker, paler and damp dirt
+  patches, worn lanes: Set 1 `g_terrain3.png` blobs, in `set1_ground.png`), laid by hand in
+  `assets/arenas/stadium_dressing.tscn`.
 - `assets/tiles/set1_manifest.json`: where the cuts landed.
 - `assets/tiles/set1_*.tres`: the Godot TileSets `tools/build_tiles.gd` makes from them.
 - `assets/arenas/<id>.tscn`: each tiled arena's ground, painted with those tiles.
@@ -161,8 +165,25 @@ the same licence), with Set 1 (cut by
 - `assets/tiles/grassland_scatter.png`: Decorative Props' tiny flowers (one still frame of
   `Animated/vegA2.png`, `vegA4.png`), Set 1's low grass sprigs and loose pebbles
   (`veg_decoratives.png`), scattered on the Greenhouse meadow.
-- `assets/tiles/grassland_manifest.json`, `assets/tiles/grassland_*.tres` and
-  `assets/arenas/greenhouse.tscn`: derived from the above.
+- The hand dressing (`assets/arenas/greenhouse_dressing.tscn`): `grassland_anim_lantern.png`
+  (Decorative Props' `Animated/lantern01.png` post), `grassland_decor_barrel_open.png`,
+  `grassland_decor_crate_small.png`, `grassland_decor_pot_clay.png`,
+  `grassland_decor_pot_olive.png` (Decorative Props `propsA.png`),
+  `grassland_decor_sack_seed_*.png`, `grassland_decor_sheaf.png` (**RPG Buildings Windmill**,
+  `RPG_Buildings_WINDMILL_v1.1`, the same licence: open grain sacks and a wheat sheaf from its
+  `Mill_decoratives.png` props sheet, no building), `grassland_decor_basket_*.png`,
+  `grassland_decor_bucket.png` (Houses `smallobj.png` produce baskets and bucket),
+  `grassland_decor_ivy*.png` (Wetland `tree2A` canopy, masked round),
+  `grassland_decor_cobble_disc*.png` (Set 1 `g_terrain1.png` round cobble patches),
+  `grassland_decor_slab_c.png` (GrassLand's stone-slab bridge), `grassland_anim_tree_canopy.png`
+  (GrassLand's swaying `anim/tree1B_ss.png`, its crown); the `path`, `earth`, `meadow_deep` and
+  `grass_sun` terrains in `grassland_ground.png` (Set 1 `g_terrain1` / `g_terrain3` blobs,
+  GrassLand meadow); moss, clover, stepping stones, flowers and leaves appended to
+  `grassland_scatter.png` (Set 1 `veg_decoratives.png` / `g_terrain4.png`, Decorative Props
+  `vegA1`); `grassland_shadows.png` is drawn (contact shadows), not cut.
+- `assets/tiles/grassland_manifest.json`, `assets/tiles/grassland_*.tres`,
+  `assets/arenas/greenhouse.tscn` and `assets/arenas/greenhouse_dressing.tscn`: derived from
+  the above.
 
 Files from **RPG Worlds Wetland** (`RPGW_Wetland_v1.1`, in the same bundle) and Set 1, cut
 by `tools/cut_tiles.py` from `tools/tile_recipes/wetland.json` for the Floodgate:
@@ -183,11 +204,18 @@ by `tools/cut_tiles.py` from `tools/tile_recipes/wetland.json` for the Floodgate
   them, composed from Wetland's brown dirt, the mossy cobbles of its path border (the kerb)
   and the stone face of its plateau (the far bank's drop).
 - `assets/tiles/wetland_scatter.png`: Set 1's loose pebbles, small water plants and grass
-  sprigs.
+  sprigs; for the hand dressing, Wetland's one-tile spot overlays (moss, silt and loose
+  cobbles), its puddles (keyed off their grass), Set 1's lily pads and fallen leaves (round
+  chunks of its oak's canopy, recoloured).
+- The hand dressing (`assets/arenas/floodgate_dressing.tscn`): the `moss`, `silt` and `path`
+  terrains in `assets/tiles/wetland_ground.png` (Set 1's grass blob shapes laid in Wetland's
+  olive grass, brown dirt and mauve mud); `assets/tiles/wetland_decor_grate.png` (a drain
+  grate composed from one leaf of **RPG Buildings Castle**'s portcullis, `RPG_Buildings_CASTLE_v1.0`,
+  the same licence, over a dark hole from Set 1's water bed).
 - `assets/tiles/wetland_manifest.json`, `assets/tiles/wetland_ground.tres`,
   `assets/tiles/wetland_overlay.tres`, `assets/tiles/wetland_shore.tres`,
   `assets/tiles/wetland_cells.tres`,
-  `assets/arenas/floodgate.tscn`.
+  `assets/arenas/floodgate.tscn`, `assets/arenas/floodgate_dressing.tscn`.
 
 Fantasy Lands Warrior (`FL_Warrior_v1.1`), same licence: `assets/sprites/crowd.png`, the
 stadium crowd, cut by `tools/cut_crowd.py` from its idle, sword-attack and special-move
@@ -229,6 +257,20 @@ the game's palette):
   `desert_decor_goods_a.png`, `desert_decor_goods_b.png` (piles of `small_obj1.png`'s jars,
   baskets, a sack and a bucket), `assets/tiles/desert_anim_brazier.png` (`Anim/fire1.png`,
   the pillar brazier) and `desert_anim_tripod.png` (`Anim/fire3.png`, the tripod brazier).
+- The hand dressing (`assets/arenas/caravan_pass_dressing.tscn`): the `trodden`, `sand_pale`,
+  `gravel_patch` and `dry_grass` tiles in `assets/tiles/desert_ground.png` (this pack's sand, gravel
+  and dry-grass fills laid in **RPG Worlds Fantasy Set 1**'s ragged blob shapes),
+  `desert_decor_blotch_*.png` (`MainLev2.0.png`'s cracked mud), `desert_anim_palm_crown*.png`
+  (`tree1a` / `tree2a` cropped above the trunk); from **RPG Buildings Desert**
+  `desert_decor_cloths.png`, `desert_decor_baskets.png`, `desert_decor_rope.png` (`small_obj1.png`),
+  `desert_decor_awning_*.png` (`mainbuildings1.png`'s cloth shades), `desert_anim_torch.png`
+  (`Anim/torch.png`); `desert_decor_jars.png` (**RPG Worlds Decorative Props**, `propsA.png`'s clay
+  pots); `desert_decor_sacks.png`, `desert_decor_grain.png`, `desert_decor_hay.png`,
+  `desert_decor_crate.png` (**RPG Buildings Windmill**, `Mill_decoratives.png`);
+  `desert_decor_slab_*.png` (**RPG Worlds GrassLand**, its slab-bridge flagstones, recoloured);
+  in `desert_scatter.png`, Set 1's `g_terrain4.png` stones and small yellow flowers (recoloured);
+  `assets/tiles/desert_shadows.png` (contact shadows, drawn by the tool). All the same bundle and
+  licence.
 - `assets/tiles/desert_manifest.json`, `assets/tiles/desert_*.tres` and
   `assets/arenas/caravan_pass.tscn` (Dustwind Pass's ground, painted with those tiles).
 

@@ -198,3 +198,112 @@ func test_the_greenhouse_is_tiled_and_flattened_brush_loses_its_tuft() -> void:
 		assert_true(s.visible, "and shows again when it grows")
 	assert_eq(sim.terrain.get_cell(Vector2i(26, 3)), TerrainGrid.FENCE, "the fence lines still stand in the sim")
 	v.free()
+
+
+## The hand dressing (assets/arenas/greenhouse_dressing.tscn, as Twin Keeps': assets/README.md
+## "Dressing"): the ground scene instances it; props stand only on the four fence lines (their
+## feet on a fence cell), each with a contact shadow unless it hangs on the rail; worn paths,
+## damp earth, shady and sunlit meadow, flagstones and flower detail lie on plain floor only;
+## every lantern has its lamp in the arena's `lights`, burning by day; two crowns hang over the
+## corner beds and fade over a fighter we see.
+const DRESSING := "res://assets/arenas/greenhouse_dressing.tscn"
+const PPU := 2.0  ## ArtScale.PX_PER_UNIT
+
+
+func _grid() -> TerrainGrid:
+	var map := ArenaMap.get_map("greenhouse")
+	var size := ArenaMap.size_of(map)
+	var grid := TerrainGrid.new(size.x, size.y)
+	grid.load_map(map)
+	return grid
+
+
+static func _kind(n: Node) -> String:
+	return String(n.get_meta("kind", String(n.name).rsplit("_", true, 1)[0]))
+
+
+func test_the_dressing_is_instanced_and_props_stand_on_the_fences() -> void:
+	var map := ArenaMap.get_map("greenhouse")
+	assert_eq(String(map["tiles"].get("dressing", "")), DRESSING, "the map names its dressing scene")
+	var root := (load(SCENE) as PackedScene).instantiate()
+	var d := root.get_node_or_null("Walls/Dressing") as Node2D
+	assert_true(d != null and d.scene_file_path == DRESSING, "instanced in the wall run, not copied")
+	var grid := _grid()
+	var props := d.get_node("Props")
+	assert_true(props.get_child_count() >= 30, "every fence dressed (%d props)" % props.get_child_count())
+	var kinds := {}
+	var runs := {}
+	for p: Node2D in props.get_children():
+		kinds[_kind(p)] = true
+		var foot := Vector2i(floori(p.position.x / (8 * PPU)), floori((p.position.y - 1.0) / (8 * PPU)))
+		assert_eq(grid.get_base(foot), TerrainGrid.FENCE, "%s stands on a fence cell (%s)" % [p.name, foot])
+		runs[Vector2i(foot.x / 20, foot.y / 12)] = true
+		var sh := p.get_node_or_null("Shadow") as Sprite2D
+		if sh != null:
+			assert_true(sh.show_behind_parent, "%s: its contact shadow under it" % p.name)
+	assert_true(runs.size() >= 4, "on all four fence lines")
+	for k in ["lantern", "barrel_open", "bucket", "sack_seed_a", "basket_carrot", "sheaf", "ivy", "pot_clay", "crate_small"]:
+		assert_true(kinds.has(k), "a %s among the props" % k)
+	var paths := d.get_node("Paths") as TileMapLayer
+	assert_true(paths.get_used_cells().size() >= 80, "worn paths between the beds (%d tiles)" % paths.get_used_cells().size())
+	for layer in d.get_children():
+		if layer is TileMapLayer and layer.name != "Detail":
+			for t in (layer as TileMapLayer).get_used_cells():
+				for dy in 2:
+					for dx in 2:
+						assert_eq(grid.get_base(t * 2 + Vector2i(dx, dy)), TerrainGrid.INTACT, "%s tile on plain floor: %s" % [layer.name, t])
+	var detail := d.get_node("Detail") as TileMapLayer
+	assert_true(detail.get_used_cells().size() >= 150, "moss, flowers, clover, leaves, stones (%d)" % detail.get_used_cells().size())
+	for c in detail.get_used_cells():
+		assert_eq(grid.get_base(c), TerrainGrid.INTACT, "flat detail on plain floor: %s" % c)
+	for f: Node2D in d.get_node("Flat").get_children():
+		var s := f as Sprite2D
+		var mid := ((s.position + s.offset + s.texture.get_size() * 0.5) / PPU / 8.0).floor()
+		assert_eq(grid.get_base(Vector2i(mid)), TerrainGrid.INTACT, "%s lies flat on the floor" % f.name)
+	root.free()
+
+
+func test_every_lantern_has_a_lamp_that_burns_by_day() -> void:
+	var map := ArenaMap.get_map("greenhouse")
+	var lights: Array = map.get("lights", [])
+	assert_true(lights.size() <= Light2DView.MAX_DAY_LAMPS, "at most %d day lamps" % Light2DView.MAX_DAY_LAMPS)
+	assert_true(Light2DView.lamps_by_day(map, "day") and Light2DView.lamps_by_day(map, "sunset"), "they burn by day and at sunset")
+	var d: Node = (load(DRESSING) as PackedScene).instantiate()
+	var origin := Vector2(SimDefs.GRID_X, SimDefs.GRID_Y)
+	var n := 0
+	for p: Node2D in d.get_node("Props").get_children():
+		if _kind(p) != "lantern":
+			continue
+		n += 1
+		var an := p as AnimatedSprite2D
+		var pic := Rect2((p.position + an.offset) / PPU, an.sprite_frames.get_frame_texture(an.animation, 0).get_size() / PPU).grow(4.0)
+		pic.position += origin
+		var lit := false
+		for e in lights:
+			if bool(e.get("lamp", false)) and float(e.get("day", 0.0)) > 0.0 and pic.has_point(Vector2(e["pos"][0], e["pos"][1])):
+				lit = true
+		assert_true(lit, "%s has its lamp on its flame" % p.name)
+	assert_eq(n, lights.size(), "a lamp a lantern, no more")
+	d.free()
+
+
+func test_crowns_over_the_corner_beds_fade_over_a_fighter_we_see() -> void:
+	var was: String = MatchFactory.arena
+	MatchFactory.arena = "greenhouse"
+	var sim := MatchFactory.versus("cairn", "culvert")
+	MatchFactory.arena = was
+	var v := ArenaView.new()
+	v.ground = "grass"
+	v.arena_id = "greenhouse"
+	v.set_terrain(sim.terrain)
+	assert_eq(v.canopy_count(), 2, "a crown over each corner bed")
+	for i in v.canopy_count():
+		assert_true((v._canopies[i][2] as Rect2i).size != Vector2i.ZERO, "crown %d hangs over brush (it thins when the bed is flattened)" % i)
+	var rect: Rect2 = v._canopies[0][1]
+	sim.creatures[0].pos = rect.get_center()
+	sim.creatures[1].pos = Vector2(-500, -500)
+	v.canopy_points = ArenaView.canopy_watchers(sim, [false, true], 0)
+	for f in 40:
+		v._fade_canopies(1.0 / 60.0)
+	assert_near(v.canopy_alpha(0), ArenaView.CANOPY_SEE, 0.001, "it lets us see our own fighter")
+	v.free()

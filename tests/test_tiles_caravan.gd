@@ -75,7 +75,7 @@ func test_the_desert_tileset_names_its_terrains() -> void:
 	var names := []
 	for i in ts.get_terrains_count(0):
 		names.append(ts.get_terrain_name(0, i))
-	assert_eq(names, ["earth", "scrub"])
+	assert_eq(names, ["earth", "scrub", "trodden", "sand_pale", "gravel_patch", "dry_grass"], "the map's two, then the dressing's four (tests/test_dressing_caravan.gd)")
 	assert_eq(ts.get_terrain_set_mode(0), TileSet.TERRAIN_MODE_MATCH_SIDES)
 	var pieces := ts.get_source(1) as TileSetAtlasSource
 	assert_true(pieces != null and pieces.get_tiles_count() == 5, "3 + 2 fence tiles (walls and brush are sprites)")
@@ -154,7 +154,7 @@ func test_the_pass_scene_has_road_walls_fences_and_margins() -> void:
 		assert_true((s as AnimatedSprite2D).autoplay == "default", "palms and braziers move on their own")
 	# the stops' pieces stand on the walls' tops just behind the face (the map puts them on a
 	# run's near end; build_tiles moves a piece off the face), y-sorted, inside the run's cells
-	var on_walls := walls.get_children()
+	var on_walls := walls.get_children().filter(func(n): return n.name != "Dressing")  # the hand dressing: tests/test_dressing_caravan.gd
 	assert_eq(on_walls.size(), 6, "a brazier, goods or a tripod on each run")
 	var up := func(c: Vector2i) -> bool: return grid.get_base(c) == TerrainGrid.WALL
 	var runs := [Rect2i(30, 2, 2, 6), Rect2i(52, 22, 2, 8), Rect2i(90, 2, 2, 10), Rect2i(188, 2, 2, 6), Rect2i(166, 22, 2, 8), Rect2i(128, 2, 2, 10)]

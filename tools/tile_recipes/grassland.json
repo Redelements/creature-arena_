@@ -1,5 +1,5 @@
 {
-	"_doc": "The Greenhouse Dome: GrassLand v2's bright flower meadow for the floor, its darker meadow and cliff face (RPGW_GrassLand_v2.01: the solid blocks on the right of MainLev2.0.png are seamless fills), Set 1's bright grass (turf, the old floor), darker grass blob and tall grass for the beds (RPGFW_Set1_v1.0), Decorative Props' wooden fence (fencelines: posts and rails composed into joined lines), pots, barrels and crates (RPGW_DecorativeProps_v1.0). Keys: tools/cut_tiles.py. Paths are relative to the packs dir.",
+	"_doc": "The Greenhouse Dome: GrassLand v2's bright flower meadow for the floor, its darker meadow and cliff face (RPGW_GrassLand_v2.01: the solid blocks on the right of MainLev2.0.png are seamless fills), Set 1's bright grass (turf, the old floor), darker grass blob and tall grass for the beds (RPGFW_Set1_v1.0), Decorative Props' wooden fence (fencelines: posts and rails composed into joined lines), pots, barrels and crates (RPGW_DecorativeProps_v1.0); the hand dressing's cuts (assets/arenas/greenhouse_dressing.tscn): lantern posts, sacks, baskets, ivy, flagstones, a tree crown, the path / earth / meadow_deep / grass_sun terrains and the appended scatter kinds. Keys: tools/cut_tiles.py. Paths are relative to the packs dir.",
 	"ground": {
 		"fills": {
 			"turf": {
@@ -62,7 +62,15 @@
 						4
 					]
 				]
-			}
+			},
+			"path": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain3.png", "blob": [0, 4], "variants": [[4, 4, 8, 4]], "fill_notches": [12, 4], "blob_prob": 0.05, "variant_prob": 1.0, "tint": {"desat": 0.4, "mul": [1.04, 0.97, 0.82]},
+				"_doc": "dressing: trodden earth paths between the beds and from the doors (the dressing scene's Paths layer): Set 1's tan dirt band as keeps.json's path, a touch warmer for the dome"},
+			"earth": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain3.png", "blob": [0, 4], "variants": [[4, 4, 8, 4]], "fill_notches": [12, 4], "blob_prob": 0.05, "variant_prob": 1.0, "tint": {"desat": 0.3, "mul": [0.8, 0.75, 0.66]},
+				"_doc": "dressing: the same band darkened as damp, watered earth (the Earth layer: at the fence feet and round the beds' corners)"},
+			"meadow_deep": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "blob": [0, 0], "variants": [[4, 0, 8, 4]], "variant_prob": 1.0, "texture": {"src": "RPGW_GrassLand_v2.01/MainLev2.0.png", "block": [48, 22], "size": 4}, "tint": {"mul": [1.22, 1.24, 1.1]},
+				"_doc": "dressing: GrassLand's darker yellow-flowered meadow laid in Set 1's ragged grass blob (as keeps.json's meadow), lifted a step so it reads as shade, not a hole: shady patches"},
+			"grass_sun": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "blob": [0, 0], "variants": [[4, 0, 8, 4]], "variant_prob": 1.0, "texture": {"src": "RPGW_GrassLand_v2.01/MainLev2.0.png", "block": [56, 24], "size": 4}, "tint": {"mul": [1.13, 1.1, 0.84]},
+				"_doc": "dressing: the floor's own bright meadow lifted toward gold in ragged patches: sun through the glass"}
 		}
 	},
 	"pieces": {
@@ -147,9 +155,33 @@
 		"flowers": {"_doc": "Decorative Props' tiny single flowers (vegA4, frame 0 of the pink and mauve rows), still, for the meadow", "src": "RPGW_DecorativeProps_v1.0/Animated/vegA4.png", "boxes": [[12, 17, 20, 26], [12, 144, 20, 153]]},
 		"flowers_tall": {"_doc": "Decorative Props' small single flowers on a stalk (vegA2, frame 0 of the pink and yellow rows)", "src": "RPGW_DecorativeProps_v1.0/Animated/vegA2.png", "boxes": [[12, 10, 19, 23], [12, 266, 19, 279]]},
 		"tufts": {"_doc": "Set 1 low grass sprigs, the olive and the bright green ones", "src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "boxes": [[39, 710, 55, 719], [74, 719, 89, 727], [40, 751, 58, 762], [201, 722, 215, 728], [231, 710, 247, 719], [265, 749, 278, 755]]},
-		"pebbles": {"_doc": "Set 1 loose single pebbles and chips", "src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "boxes": [[238, 622, 248, 633], [359, 623, 366, 629], [265, 630, 272, 636], [339, 633, 347, 638], [259, 620, 264, 625], [327, 618, 332, 622], [372, 619, 376, 623]]}
+		"pebbles": {"_doc": "Set 1 loose single pebbles and chips", "src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "boxes": [[238, 622, 248, 633], [359, 623, 366, 629], [265, 630, 272, 636], [339, 633, 347, 638], [259, 620, 264, 625], [327, 618, 332, 622], [372, 619, 376, 623]]},
+		"moss": {"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "boxes": [[0, 771, 32, 795], [36, 772, 62, 795], [72, 778, 90, 792], [104, 782, 114, 790]], "tint": {"mul": [0.78, 0.86, 0.74]}, "_doc": "dressing (new kinds go at the end: the dressing scene paints slots by place): Set 1 pads as moss at the fence feet and the beds' corners"},
+		"clover": {"src": "RPGW_DecorativeProps_v1.0/Animated/vegA1.png", "boxes": [[6, 0, 30, 32], [6, 256, 30, 288]], "_doc": "vegA1's first frame (pink, green): flower clumps"},
+		"stones": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain4.png", "boxes": [[384, 584, 401, 598], [384, 616, 400, 633], [64, 625, 84, 640], [33, 640, 53, 656], [263, 646, 283, 659], [293, 648, 312, 668]], "tint": {"desat": 0.6, "mul": [1.18, 1.18, 1.16]}, "_doc": "flat stepping stones (g_terrain4 rubble, greyed), across the paths"},
+		"flowers_white": {"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "boxes": [[525, 649, 539, 663], [553, 651, 572, 669], [620, 683, 636, 700], [653, 685, 666, 699], [557, 714, 572, 728], [586, 716, 603, 733], [652, 748, 668, 765], [550, 744, 565, 757]], "tint": {"desat": 1.0, "mul": [1.55, 1.55, 1.5]}, "_doc": "Set 1's small flowers bleached white"},
+		"flowers_gold": {"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "boxes": [[525, 649, 539, 663], [553, 651, 572, 669], [620, 683, 636, 700], [653, 685, 666, 699], [557, 714, 572, 728], [586, 716, 603, 733], [652, 748, 668, 765], [550, 744, 565, 757]], "_doc": "Set 1's small flowers as they come: four yellow, four blue clumps"},
+		"leaves": {"src": "RPGFW_Set1_v1.0/_PNG/veg_decoratives.png", "boxes": [[42, 12, 56, 22], [38, 24, 52, 34], [66, 32, 80, 42], [94, 40, 108, 50], [46, 48, 60, 58], [106, 52, 120, 62]], "shape": "blob", "tint": {"mul": [1.25, 1.12, 0.62]}, "_doc": "a few fallen leaves under the crowns: round chunks of the oak's canopy, turned yellow-green"}
 	},
+	"shadows": {"_doc": "contact shadows under the dressing's props (tools/seed_dressing.gd picks the size nearest a prop's width)", "sizes": [[10, 4], [16, 5], [22, 7], [28, 8], [36, 10], [46, 12], [64, 16], [88, 22]], "rgb": [14, 22, 12], "alpha": 128},
 	"decor": {
+		"sack_seed_a": {"src": "RPG_Buildings_WINDMILL_v1.1/Mill_decoratives.png", "box": [106, 64, 120, 83], "feet": [7, 18], "_doc": "dressing (the Greenhouse fences): Windmill's open grain sacks as seed sacks (Mill_decoratives is a props sheet: the one exception to one buildings pack a map, as on Twin Keeps)"},
+		"sack_seed_b": {"src": "RPG_Buildings_WINDMILL_v1.1/Mill_decoratives.png", "box": [201, 64, 215, 83], "feet": [7, 18]},
+		"sack_seed_c": {"src": "RPG_Buildings_WINDMILL_v1.1/Mill_decoratives.png", "box": [8, 64, 22, 83], "feet": [7, 18]},
+		"sheaf": {"src": "RPG_Buildings_WINDMILL_v1.1/Mill_decoratives.png", "box": [394, 57, 409, 88], "feet": [7, 30], "_doc": "a wheat sheaf leant on a fence"},
+		"basket_carrot": {"src": "RPG_Buildings_HOUSES_v1.1/smallobj.png", "box": [7, 101, 27, 122], "feet": [10, 20], "_doc": "Houses smallobj produce baskets (row y96) and empty baskets and a bucket (row y64): the harvest"},
+		"basket_herb": {"src": "RPG_Buildings_HOUSES_v1.1/smallobj.png", "box": [38, 97, 60, 122], "feet": [11, 24]},
+		"basket_tomato": {"src": "RPG_Buildings_HOUSES_v1.1/smallobj.png", "box": [102, 103, 122, 123], "feet": [10, 19]},
+		"bucket": {"src": "RPG_Buildings_HOUSES_v1.1/smallobj.png", "box": [199, 73, 214, 92], "feet": [7, 18], "_doc": "a wooden bucket for the watering"},
+		"pot_clay": {"src": "RPGW_DecorativeProps_v1.0/propsA.png", "box": [160, 132, 192, 160], "feet": [16, 27], "_doc": "propsA fat pot, the orange-clay band"},
+		"pot_olive": {"src": "RPGW_DecorativeProps_v1.0/propsA.png", "box": [32, 228, 64, 256], "feet": [16, 27], "_doc": "propsA ring pot, the olive band"},
+		"barrel_open": {"src": "RPGW_DecorativeProps_v1.0/propsA.png", "box": [32, 416, 64, 448], "feet": [16, 30], "_doc": "an open barrel: the rain butt"},
+		"crate_small": {"src": "RPGW_DecorativeProps_v1.0/propsA.png", "box": [0, 512, 32, 544], "feet": [15, 31]},
+		"ivy": {"src": "RPGW_Wetland_v1.1/_PNG/anim/tree2A.png", "box": [16, 124, 52, 158], "feet": [18, 33], "shape": "blob", "tint": {"mul": [0.8, 1.05, 0.8]}, "_doc": "a leafy clump of the Wetland canopy (the beds' own hedge), masked round: vines over the fence rails"},
+		"ivy_b": {"src": "RPGW_Wetland_v1.1/_PNG/anim/tree2A.png", "box": [98, 34, 138, 70], "feet": [20, 35], "shape": "blob", "tint": {"mul": [0.72, 0.9, 0.7]}},
+		"slab_c": {"src": "RPGW_GrassLand_v2.01/MainLev2.0.png", "box": [1635, 1175, 1665, 1204], "feet": [15, 28], "tint": {"desat": 0.55, "mul": [0.95, 0.95, 0.98]}, "_doc": "flat: a small flagstone from GrassLand's stone-slab bridge, greyed: the pads at the doors"},
+		"cobble_disc": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "box": [1033, 9, 1110, 83], "feet": [38, 73], "_doc": "flat: Set 1's round cobble patch (ragged rim)"},
+		"cobble_disc_b": {"src": "RPGFW_Set1_v1.0/_PNG/g_terrain1.png", "box": [1033, 105, 1110, 179], "feet": [38, 73]},
 		"shrub_gold": {"_doc": "GrassLand decorative.png tiny bush, yellow-green (the band's bushes stand on the box's bottom row)", "src": "RPGW_GrassLand_v2.01/decorative.png", "box": [557, 800, 596, 832], "feet": [19, 31]},
 		"shrub_gold_small": {"src": "RPGW_GrassLand_v2.01/decorative.png", "box": [608, 808, 639, 832], "feet": [15, 23]},
 		"shrub_red": {"_doc": "the same tiny bush in autumn red", "src": "RPGW_GrassLand_v2.01/decorative.png", "box": [141, 800, 180, 832], "feet": [19, 31]},
@@ -263,6 +295,8 @@
 		}
 	},
 	"anim": {
+		"lantern": {"src": "RPGW_DecorativeProps_v1.0/Animated/lantern01.png", "frame": [32, 128], "frames": 8, "fps": 6, "feet": [16, 93], "row": 0, "_doc": "dressing: DecorativeProps lantern post (row pitch 128, 96 px of art) at the fence ends; a lamp on its flame in the arena's lights"},
+		"tree_canopy": {"src": "RPGW_GrassLand_v2.01/anim/tree1B_ss.png", "frame": [160, 160], "frames": 5, "fps": 4, "row": 0, "crop": [0, 0, 160, 106], "feet": [80, 105], "tint": {"mul": [0.94, 1.0, 1.0]}, "leaves_only": [36, 52, 22], "_doc": "dressing: GrassLand's big olive tree's crown with no bark showing (as keeps.json's tree_a_canopy), over the corner beds; ArenaView fades it over our own fighters"},
 		"flower_pink": {"_doc": "DecorativeProps vegA1 (clumps of three) pink, colour row 0; 32 px frames, the first four of its 10-frame loop (row 0); roots on the frame's last row", "src": "RPGW_DecorativeProps_v1.0/Animated/vegA1.png", "frame": [32, 32], "frames": 4, "row": 0, "fps": 4, "feet": [16, 31]},
 		"flower_yellow": {"_doc": "vegA1 yellow, colour row 2 (32 px row 8)", "src": "RPGW_DecorativeProps_v1.0/Animated/vegA1.png", "frame": [32, 32], "frames": 4, "row": 8, "fps": 4, "feet": [16, 31]},
 		"spike_pink": {"_doc": "DecorativeProps vegC1 (flower spikes) pink, colour row 1 (32 px row 4); roots at y 26", "src": "RPGW_DecorativeProps_v1.0/Animated/vegC1.png", "frame": [32, 32], "frames": 4, "row": 4, "fps": 4, "feet": [16, 26]},
