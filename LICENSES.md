@@ -7,9 +7,10 @@ the game uses, plus a free font and the engine. This file lists them. In the gam
 credits are under **Settings > Credits** (`src/ui/credits_screen.gd`), with Godot's licence
 and its third-party notices.
 
-**This repository is public. The files listed under "Szadi art" and "kiddolink" below are
-not covered by any licence or permission this repository grants and may not be reused,
-copied out or redistributed.** They are here only so the game builds. If you fork or copy
+**This repository is public but not open source: `LICENSE` at the root reserves all rights
+to the game's own code, art, audio, data and documents. The files listed under "Szadi art"
+and "kiddolink" below are not covered by any licence or permission this repository grants
+and may not be reused, copied out or redistributed.** They are here only so the game builds. If you fork or copy
 this repository, leave them out or buy your own licence from the artist.
 
 The raw packs never enter this repository: only the cut, edited pieces the game uses do (no

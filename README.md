@@ -979,6 +979,9 @@ master palette (`tools/gen_*.py`), and the tiles, crowd and effects from
 `tools/gen_sprites.py`. Sheet layouts are documented in [docs/SPRITES.md](docs/SPRITES.md);
 replacement art with the same layout drops in without code changes.
 
+**Licence.** The repository is public to be looked at, not open source: [LICENSE](LICENSE)
+reserves all rights; third-party files and their terms are in [LICENSES.md](LICENSES.md).
+
 Text uses the pixel font **m5x7** by Daniel Linssen (CC0, `assets/fonts/`, license beside
 it; credit appreciated, not required), drawn on a 960 x 540 grid at whole multiples of its
 size (`src/ui/ui_theme.gd`).

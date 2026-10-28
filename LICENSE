@@ -1,0 +1,18 @@
+Ready 4 Rambles
+Copyright (c) 2026 Kevin Winstead (Redelements). All rights reserved.
+
+This repository is public so that the game can be looked at, built for review and
+discussed. It is not open source. No licence is granted to anyone, for any purpose, to
+copy, modify, distribute, sell, host, or make derivative works from the code, the art,
+the audio, the data files, the designs or the documentation in this repository, except:
+
+  1. Third-party material listed in LICENSES.md, which stays under its own terms
+     (the m5x7 font is CC0; the Godot Engine is MIT; the bought art from Szadi art and
+     kiddolink is licensed to the author only and may not be reused or redistributed).
+  2. What GitHub's Terms of Service allow for any public repository (viewing and forking
+     on GitHub). A fork made under those terms carries this notice and grants nothing more.
+
+Playing a build of the game that the author publishes is governed by the terms it is
+published under, not by this file.
+
+To ask for any other permission, open an issue on the repository.
