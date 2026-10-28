@@ -132,7 +132,7 @@ here. Anything cosmetic belongs here, not in `src/sim/`.
 - Text: `UiTheme.font()` and `UiTheme.px(size)` (see `src/ui/CLAUDE.md`). The canvas is still
   480 x 270 units (project.godot: a 960 x 540 base at content scale 2), so coordinates and
   the camera's zoom are unchanged; text in world space (damage numbers) scales with the zoom.
-- The camera is not here: `src/game/main.gd:_update_camera`, `_frame_fight`, `CAM_PAD`, `KO_ZOOM`.
+- The camera is not here: `src/game/main_camera.gd:_update_camera`, `_frame_fight`; the constants (`CAM_PAD`, `KO_ZOOM`) and state are `src/game/main.gd`'s.
   Near an edge it may look `CrowdView.SHOW_SIDE` / `SHOW_FRONT` past the arena (`_cam_axis`
   `lo` / `hi`), into the side stands and front rows. The letterbox bars are here
   (`letterbox.gd`, first child of main's screen layer: under the flash, the fade and the HUD);
