@@ -63,3 +63,20 @@ Started 2026-10-27.
   session scratchpad `merge-review.md`); findings below when it returns.
 - Tasks 2, 3, 4 started in parallel (own worktrees `creature-arena-docs-drift`, `-rollback-fuzz`,
   `-nightly-ci`; disjoint files: docs+README / tests / .github). Task 5 waits for 1-4 to merge.
+- Merge review returned: no lost or duplicated code or text in ~55 hand-resolved merges; no conflict
+  markers, no duplicate functions or JSON keys, NET_VERSION chain 58 -> 4 unbroken. Nothing to fix.
+- Suite on the qa-sweep branch: 1295 passed, 0 failed. **PR #259** opened (docs + tooling, non-behavioral);
+  merging once CI is green.
+
+## Interrupt: bug report from Kevin (2026-10-27, mid-run)
+
+Kevin, playing the practice tool: "if the player is killed by a meteor shower it causes a weird soft
+lock and craters take up whole screen." Treated as a crash-class bug (its own PR, as the rules say).
+Reproduced headless (probe: training as Cairn, meteor_shower on, player idle): the player is knocked
+out at tick 13270, stays in State.KO with 0 HP for good, seven meteors hang in the air (hazards pause
+while fewer than two sides stand), the pits heal under him, and the training flow never ends a round.
+Cause: only the dummy revives after a KO (`CreatureSim` State.KO branch, `is_dummy`); the player
+had no path back. Fix on branch `training-ko-revive` (worktree creature-arena-koshy): in a training
+match anyone knocked out gets back up like the dummy (90 ticks, full HP), and a training KO skips
+the KO freeze / slow motion. Training-only, so every other match's fingerprint is unchanged; two
+regression tests in tests/test_training.gd; MECHANICS.md "Training options" updated.
