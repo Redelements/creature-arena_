@@ -919,6 +919,31 @@ storm.
 
 Every one of these is checked by an automated test (`tests/test_combos.gd`).
 
+## Progression
+
+Every fight that counts pays XP: a fight played, a win, KOs (five at most), an Arcade clear, a
+Gauntlet wave, a Daily or Weekly score that beats your best. Against the CPU the level scales it
+(Easy half, Hard and Rage a little more); single-round ladder stages (Arcade, Gauntlet, Daily,
+Weekly) pay half a stage; three days in a row with a paid fight add 10%. Training, showcases,
+replays, the coaches and CPU-vs-CPU pay nothing; online pays the local player.
+
+- **Account level** (1 to 50, about forty hours): a title every few levels, worn under your name
+  on the pick and results screens.
+- **Fighter mastery** (1 to 10 per fighter, about four hours each): that fighter's palettes 2 to 4
+  (an Arcade clear on Easy, Normal and Hard still unlocks them too), two victory lines for the
+  results screen, and its own title.
+- **Challenges**: about fifty goals across every mode (Profile > Challenges), each paying XP once,
+  some a title. The **Weekly Challenge** sits beside the Daily: one seeded fight a week under three
+  mutators, your best kept. Clearing the **Arcade** shows that fighter's **ending card** (and its
+  title); Profile > Endings shows them again.
+
+Everything it gives is cosmetic: no fighter, move, mode or stat is ever behind a level, and online
+matchmaking ignores it. **Profile** on the title menu shows the levels, the bars and what each
+fighter wears. It is on by default; **Settings > Game > Progression** turns it off (nothing is
+earned and the Profile goes away; palettes already earned stay wearable). The numbers and tables
+are data: `data/progression.json`, `data/challenges.json`, `data/endings/`. The save is
+`progress.json` in the user folder, written whole and renamed, with a `.bak` of the one before.
+
 ## How it's built
 
 ```
