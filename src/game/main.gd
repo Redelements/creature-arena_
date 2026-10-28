@@ -37,8 +37,15 @@ extends Node2D
 ##   --quit-after=N        exit after N frames
 ##   --lighting=off|low|high  real 2D lights this session, not saved (Settings > Video >
 ##                         Lighting otherwise; Light2DView, BloomView)
+##   --a11y=teams,outlines,markers  Settings > Accessibility this session, not saved: colour-safe
+##                         team colours, fighter outlines (High contrast; `outlines=team` for
+##                         Team), high-contrast hit markers; any of them, or `all`
 ##   --print-vram=N        print the texture memory Godot reports (and the fighter sheets
 ##                         loaded, CreatureView.sheet_report) at frame N (budget checks)
+##   --bug-report[=DIR]    save a bug-report zip (the logs, settings without the online id and
+##                         secret, progress, the newest replay, perf.txt, system.txt; bug_report.gd)
+##                         into DIR (default user://bug-reports), print "BUGREPORT <path>" and quit;
+##                         with --quit-after=N it is written at the end of the run instead
 ##   --perf                log frame and tick times during fights; on quit, prints the
 ##                         percentiles, the 1% and 0.1% lows, missed frames and the worst
 ##                         second, and saves them to user://perf.txt
@@ -65,7 +72,7 @@ extends Node2D
 ##                         (over Arena options > Hazards); Chaos Cup plays them instead of its draw
 ##   --view-team=N         show the match as team N sees it (brush, fences, walls hide
 ##                         foes), even with nobody playing here (captures of --cpu-vs-cpu)
-##   --menu=PAGE           open a menu page: main, single, single:<group>, look (Time and weather), settings, game, video, audio, controls,
+##   --menu=PAGE           open a menu page: main, single, single:<group>, look (Time and weather), settings, game, video, audio, accessibility, controls,
 ##                         remap:classic|league|gamepad, credits, credits:<row> (game, szadi,
 ##                         kiddolink, font, godot, notices) (captures)
 ##   --online-host[=PORT]  host an online 1v1 straight away (UDP, default port 7777)
@@ -156,6 +163,7 @@ const REPLAY_MODE := 47
 const SETTING_PAGES := {
 	"game": ["level", "intros", "rumble", "shake", "discord", "server", "delay"],
 	"video": ["fullscreen", "wide", "vsync", "fps", "glow", "lighting", "font", "perf_overlay", "#Camera", "cam_lead", "cam_clash", "cam_settle"],
+	"accessibility": ["a11y_teams", "a11y_outlines", "a11y_markers"],
 	"audio": ["vol_Master", "vol_Music", "vol_Effects", "vol_Menu", "#Voice chat", "voice", "voice_hear", "mic", "mic_test", "vol_Voice"],
 	"touch": ["touch_opacity", "touch_size", "touch_hand", "touch_aim", "#Targeting", "touch_priority", "touch_chase"],
 }
@@ -451,7 +459,7 @@ var wins := [0, 0]
 var _carried_energy := [-1.0, -1.0]
 var timer := ROUND_TICKS
 var seed_base := 1
-## --menu=PAGE: open a menu page on start (captures): single, single:<group>, settings, game, video, audio, controls, credits[:row].
+## --menu=PAGE: open a menu page on start (captures): single, single:<group>, settings, game, video, audio, accessibility, controls, credits[:row].
 var _menu_arg := ""
 var args_ctl := MainArgs.new(self)  ## the command line (main_args.gd)
 var _setting_rows := {}  ## Settings key -> its OptionRow, while the page is open
@@ -556,6 +564,7 @@ var _attract := false
 var _attract_focus: Control
 var _attract_ui: Control
 var _attract_hint: Label
+var replay_ctl := ReplayViewer.new(self)  ## the Replay theater's pause, step, speed and jumps (replay_viewer.gd)
 var show_ctl := MainPresentation.new(self)  ## title attract, wipes, the arena intro, results (main_presentation.gd)
 var _wipe_cat := -1  ## the kind of screen last tick (0 menus, 1 fight, 2 match over)
 var _ticks_run := 0
@@ -586,6 +595,8 @@ var _shots := {}
 var _shot_dir := "user://shots"
 var _cam_force := Vector3.ZERO  ## --cam=x,y,zoom: the camera held here (screenshots)
 var _quit_after := 0
+## --bug-report[=DIR]: where the bug-report zip goes ("" when the flag isn't given).
+var _bug_report_dir := ""
 var _print_vram_at := 0  ## --print-vram=N: print texture memory at frame N
 ## The CPUs' inputs for this tick are worked out (_think_cpus) and wait in last_bits.
 var _cpus_thought := false
@@ -886,6 +897,9 @@ func _ready() -> void:
 			var parsed := OnlineLobby.parse_address(String(_net_args["join"]))
 			var size := int(_net_args.get("size", 0 if String(parsed[2]) != "" else 1))
 			online_ctl._net_join(_online_fighter, String(parsed[0]), int(parsed[1]), String(parsed[2]), true, size)
+	if _bug_report_dir != "" and _quit_after <= 0:
+		_cli_bug_report()  # nothing to wait for: write it now and quit
+		get_tree().quit()
 
 
 # ------------------------------------------------------------------ flow
@@ -927,7 +941,7 @@ func _open_menu(page := "", focus := "") -> void:
 			_open_look_page()
 		"settings":
 			settings_ctl._open_settings()
-		"game", "video", "audio":
+		"game", "video", "audio", "accessibility":
 			settings_ctl._open_settings()
 			settings_ctl._open_settings_page(page)
 		"controls":
@@ -1817,6 +1831,7 @@ func _play_replay(path: String) -> void:
 		s.append(Side.REPLAY)
 	_replay_frames = rep.frames
 	_replay_watched = rep.setup
+	replay_ctl.path = path
 	if game is DuelSim:
 		duel = game
 		_new_sim(duel.sim, s)
@@ -1844,6 +1859,7 @@ func _play_replay(path: String) -> void:
 		flow_t = 0
 		hud.wins = wins
 		audio.play_music("fight")
+		_begin_replay_viewer()
 		return
 	hud.wins = [0, 0]
 	hud.wins_needed = 0
@@ -1851,6 +1867,14 @@ func _play_replay(path: String) -> void:
 	flow = Flow.FIGHT
 	flow_t = 0
 	audio.play_music("fight")
+	_begin_replay_viewer()
+
+
+## The replay viewer's keyframe at the start, and its key line in the HUD.
+func _begin_replay_viewer() -> void:
+	replay_ctl.begin()
+	hud.show_help = true
+	replay_ctl.update_hud()
 
 
 func _replaying() -> bool:
@@ -1866,7 +1890,7 @@ func _show_pads() -> void:
 		return  # the Caravan's attackers respawn where the push has got to; CTF's at their keep
 	for side in 2:
 		for k in team_battle.size:
-			fx.pads.append({"pos": team_battle.pad_point(side, k), "color": Hud.SIDE_COLORS[side], "count": 0})
+			fx.pads.append({"pos": team_battle.pad_point(side, k), "color": Accessibility.side_color(side), "side": side, "count": 0})
 
 
 ## King of the Crater: the zone on the floor, in the holder's colour. Also every mode's
@@ -1906,7 +1930,7 @@ func _update_zone() -> void:
 		return
 	var holder := team_battle.zone_holder()
 	fx.zone = {"pos": sim.zone_pos, "radius": sim.zone_r,
-		"color": Hud.SIDE_COLORS[holder] if holder >= 0 else Color("e8d8a0")}
+		"color": Accessibility.side_color(holder) if holder >= 0 else Accessibility.neutral_color()}
 
 
 ## Who is wanted, for FxView's marks over their heads: per slot {} or {"kind": "spree",
@@ -1980,8 +2004,8 @@ func _team_color(team: int) -> Color:
 	if team < 0:
 		return Color.WHITE
 	if brawl != null and brawl.sim == sim:
-		return Hud.BRAWL_COLORS[team % Hud.BRAWL_COLORS.size()]
-	return Hud.SIDE_COLORS[clampi(team, 0, 1)]
+		return Accessibility.brawl_color(team)
+	return Accessibility.side_color(clampi(team, 0, 1))
 
 
 ## A team's name for a toast: RED / BLUE, or a Brawl fighter's name.
@@ -2154,7 +2178,7 @@ func _ctf_toast(e: Dictionary) -> void:
 			else:
 				hud.show_toast("%s FLAG TAKEN" % whose)
 			if is_local_team(side) and (me < 0 or sim.creatures[me].team == side):
-				hud.alert(Hud.SIDE_COLORS[side])
+				hud.alert(Accessibility.side_color(side))
 				hud.show_toast("YOUR FLAG IS TAKEN!  GET IT BACK")
 			elif me >= 0 and int(e.get("who", -1)) == me:
 				var key := String(hud.tag_labels[me]) if me < hud.tag_labels.size() else ""
@@ -2168,7 +2192,7 @@ func _ctf_toast(e: Dictionary) -> void:
 		"capture":
 			hud.show_toast("%s CAPTURES!" % whose)
 			var sc: Array = e.get("score", [0, 0])
-			hud.moment("%s CAPTURES!" % whose, "%d  -  %d" % [int(sc[0]), int(sc[1])], Hud.SIDE_COLORS[side])
+			hud.moment("%s CAPTURES!" % whose, "%d  -  %d" % [int(sc[0]), int(sc[1])], Accessibility.side_color(side))
 		"bridge_strain": hud.show_toast("THE BRIDGE IS CRACKING")
 		"bridge_fall": hud.show_toast("THE BRIDGE IS DOWN!")
 		"bridge_up": hud.show_toast("THE BRIDGE IS BACK")
@@ -2211,7 +2235,7 @@ func _ctf_summary() -> Array:
 			best_v = v
 			best = c.id
 		lines.append(["%s   %d cap  %d ret  %d stop" % [String(c.def.get("name", "?")), int(row["caps"]), int(row["rets"]),
-			int(row["stops"])], Hud.SIDE_COLORS[c.team]])
+			int(row["stops"])], Accessibility.side_color(c.team)])
 	if best >= 0:
 		var c := sim.creatures[best]
 		lines.push_front(["MVP  %s  (%s)" % [String(c.def.get("name", "?")).to_upper(), ["RED", "BLUE"][c.team]], UiTheme.C_ACCENT])
@@ -2268,6 +2292,7 @@ func _end_duel() -> void:
 	team_battle = null
 	brawl = null
 	_replay_frames = []
+	replay_ctl.end()
 	if hud != null:
 		hud.duel = null
 		hud.team = null
@@ -2559,9 +2584,11 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 				label = ""
 		if sim.creatures[i].is_dummy:
 			label = ""
-		var mark_col: Color = Hud.BRAWL_COLORS[i % Hud.BRAWL_COLORS.size()] if brawl != null and brawl.sim == s \
-			else Hud.SIDE_COLORS[clampi(sim.creatures[i].team, 0, 1)]
-		fx.side_marks.append({"color": mark_col, "label": label, "rel": _relation(i)})
+		var mark_col: Color = Accessibility.brawl_color(i) if brawl != null and brawl.sim == s \
+			else Accessibility.side_color(clampi(sim.creatures[i].team, 0, 1))
+		fx.side_marks.append({"color": mark_col, "label": label, "rel": _relation(i),
+			"brawl": i if brawl != null and brawl.sim == s else -1, "team": sim.creatures[i].team})
+
 	rings.rel = fx.side_marks.map(func(m): return m["rel"])
 	for i in sides.size():
 		match sides[i]:
@@ -2654,6 +2681,27 @@ func _physics_process(_delta: float) -> void:
 		perf_overlay.tick(Time.get_ticks_usec() - tick_start)
 		_capture()
 		return  # the arena intro: the sim waits at its first tick, the views play it
+	# Watching a replay: paused, slowed down or sped up (replay_viewer.gd), so this frame
+	# may run no tick, or two.
+	var n := replay_ctl.ticks_now() if _replaying() else 1
+	if n == 0:
+		replay_ctl.hold()
+		perf_overlay.tick(Time.get_ticks_usec() - tick_start)
+		_capture()
+		return
+	for k in n:
+		_step_tick()
+	if _replaying():
+		replay_ctl.update_hud()
+	if _perf != null:
+		_perf.tick(flow == Flow.FIGHT, Time.get_ticks_usec() - tick_start)
+	perf_overlay.tick(Time.get_ticks_usec() - tick_start)
+	_capture()
+
+
+## One 60 Hz tick of the match and everything that watches it (inputs, sim, events,
+## views, camera): once per physics frame, or as the replay viewer asks.
+func _step_tick() -> void:
 	flow_t += 1
 	if _finder != null:
 		online_ctl._finder_step()
@@ -2714,6 +2762,8 @@ func _physics_process(_delta: float) -> void:
 		else:
 			sim.step(inputs)
 		PerfLog.since("sim", t_sim)
+		if _replaying():
+			replay_ctl.note_tick()  # a keyframe for jumps
 		events = sim.events
 	var t_ev := PerfLog.now()
 	_update_vision(events)
@@ -2784,6 +2834,7 @@ func _physics_process(_delta: float) -> void:
 		views[i].victory = deciding and _won_standing(sim.creatures[i])
 		views[i].out_of_sight = _is_hidden(i)
 		views[i].see_through = _hides_someone(views[i].c)
+		views[i].outline_color = fx.mark_color(i)
 		views[i].refresh()
 	if debug.visible:
 		debug.queue_redraw()
@@ -2814,10 +2865,6 @@ func _physics_process(_delta: float) -> void:
 	flash_rect.color.a = maxf(0.0, flash_rect.color.a - 0.04)
 	if offline and (flow == Flow.FIGHT or flow == Flow.MENU):
 		_think_ahead()
-	if _perf != null:
-		_perf.tick(flow == Flow.FIGHT, Time.get_ticks_usec() - tick_start)
-	perf_overlay.tick(Time.get_ticks_usec() - tick_start)
-	_capture()
 
 
 func _update_flow() -> void:
@@ -2828,6 +2875,7 @@ func _update_flow() -> void:
 				_menu_ko_t += 1
 			if _menu_ko_t > 150 or flow_t > ROUND_TICKS:
 				_menu_ko_t = 0
+				flow_t = 0  # (or, once two minutes are up, the match would restart every tick)
 				seed_base += 1
 				_menu_background(_attract)
 			show_ctl._attract_step()
@@ -3360,11 +3408,11 @@ func _update_pointers(view: Vector2) -> void:
 	if playing and ((team_battle != null and team_battle.sim == sim) or (brawl != null and brawl.sim == sim)):
 		var targets := _wanted_pointers()
 		if team_battle != null and team_battle.caravan:
-			targets.append([team_battle.caravan_pos(), Hud.SIDE_COLORS[team_battle.cv_attacker()], "CARAVAN"])
+			targets.append([team_battle.caravan_pos(), Accessibility.side_color(team_battle.cv_attacker()), "CARAVAN"])
 		if team_battle != null and team_battle.ctf:
 			for side in 2:
 				var word: String = ["FLAG", "TAKEN", "DROPPED", "LOOSE"][clampi(int(team_battle.flag_state[side]), 0, 3)]
-				targets.append([team_battle.flag_pos[side], Hud.SIDE_COLORS[side], word])
+				targets.append([team_battle.flag_pos[side], Accessibility.side_color(side), word])
 		var z := camera.zoom.x
 		var inner := Rect2(Vector2(24, 52), view - Vector2(48, 76))
 		for t in targets:
@@ -3491,6 +3539,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if ui.is_open():
 		return  # the screen on top has the input
+	if _replaying() and not paused and replay_ctl.handle(event):
+		return  # watching a replay: pause, step, speed, jumps (also once it has ended)
 	if flow == Flow.MENU or flow == Flow.SELECT or flow == Flow.LOBBY or flow == Flow.MATCH_OVER:
 		return  # their screens take the input
 	if event.is_action_pressed("pause") and showcase != null:
@@ -3566,13 +3616,24 @@ func _open_pause() -> void:
 		voice_ctl._open_online_pause()
 		return
 	paused = true
-	if _replaying():  # a saved fight: nothing to restart, so Resume / Replay theater / Main menu
-		var rp := PauseScreen.new(false, "")
+	if _replaying():  # a saved fight: nothing to restart, so Resume / the viewer's jumps / Replay theater / Main menu
+		var rp := PauseScreen.new(false, ReplayViewer.help_text())
 		rp.quit_text = "Main menu"
-		rp.extras = [["Replay theater", func():
-			_close_ui()
-			_open_menu("single")
-			_open_replays(), "Pick another saved fight"]]
+		rp.extras = [
+			["Back 5 seconds", func():
+				_close_ui()
+				replay_ctl.jump(-ReplayViewer.JUMP_TICKS), "Jump back and keep watching"],
+			["Watch from the start", func():
+				_close_ui()
+				replay_ctl.seek(0), "The whole fight again"],
+			["Speed: %s" % ReplayViewer.SPEED_NAMES[replay_ctl.speed_i], func():
+				_close_ui()
+				replay_ctl.cycle_speed(), "Slow motion or fast forward: 1/4, 1/2, 1x, 2x"],
+			["Save a bug report", func(): _save_bug_report(true), BugReport.BLURB],
+			["Replay theater", func():
+				_close_ui()
+				_open_menu("single")
+				_open_replays(), "Pick another saved fight"]]
 		rp.resumed.connect(func(): paused = false)
 		rp.quit_requested.connect(func():
 			_close_ui()
@@ -3583,6 +3644,7 @@ func _open_pause() -> void:
 	if in_training():
 		p.extras = [["Change fighter", _open_fighter_swap, "Swap your fighter here: the dummy, arena and options stay"],
 			["Training options", _open_training_options, "No cooldowns, Surge always full, what the dummy does"]]
+	p.extras.append(["Save a bug report", func(): _save_bug_report(true), BugReport.BLURB])
 	if arcade is Gauntlet:  # Restart is a whole new run, from wave 1
 		var waves := (arcade as Gauntlet).waves()
 		p.restart_question = "Start a new run from wave 1?"
@@ -3711,6 +3773,33 @@ func _setting(key: String) -> Dictionary:
 ## In main_settings.gd (tests and other scripts call it here).
 func _set_setting(key: String, i: int) -> void:
 	settings_ctl._set_setting(key, i)
+
+
+## Settings > Save a bug report and the pause menus' row (bug_report.gd): the zip in
+## user://bug-reports, named in a toast; on a desktop the folder opens, when the player
+## pressed the button (`show_folder`).
+func _save_bug_report(show_folder := false) -> String:
+	var path := BugReport.write(self)
+	if path == "":
+		_toast("Could not save a bug report")
+		return ""
+	var where := ProjectSettings.globalize_path(path)
+	print("Bug report saved to ", where)
+	_toast("Bug report saved: " + where)
+	if show_folder and OS.has_feature("pc") and DisplayServer.get_name() != "headless":
+		OS.shell_show_in_file_manager(where)
+	return path
+
+
+## --bug-report[=DIR]: the zip in DIR (default user://bug-reports), its path printed.
+## Never opens a folder.
+func _cli_bug_report() -> void:
+	var dir := _bug_report_dir
+	var path := BugReport.write(self, dir)
+	if path == "":
+		printerr("BUGREPORT could not write into ", dir)
+	else:
+		print("BUGREPORT ", ProjectSettings.globalize_path(path))
 
 
 ## A short message: over the screens when one is open, else in the HUD.
@@ -4159,4 +4248,6 @@ func _capture() -> void:
 	if _quit_after > 0 and t >= _quit_after:
 		online_ctl._write_net_report()
 		_print_perf()
+		if _bug_report_dir != "":
+			_cli_bug_report()  # with --quit-after: the run's own log, perf report and match
 		get_tree().quit()

@@ -78,6 +78,16 @@ const BINDINGS := {
 	"palette": {"keys": [KEY_F5]},
 	"save_replay": {"keys": [KEY_F6]},
 	"mute_music": {"keys": [KEY_M]},
+	# Watching a replay (ReplayViewer.KEYS): nobody's fight keys are read then, so these
+	# only act in the Replay theater, and none is a reserved key.
+	"replay_pause": {"keys": [KEY_SPACE, KEY_P], "buttons": [JOY_BUTTON_A]},
+	"replay_step": {"keys": [KEY_PERIOD], "buttons": [JOY_BUTTON_X]},
+	"replay_step_back": {"keys": [KEY_COMMA], "buttons": [JOY_BUTTON_B]},
+	"replay_slower": {"keys": [KEY_MINUS, KEY_KP_SUBTRACT], "buttons": [JOY_BUTTON_LEFT_SHOULDER]},
+	"replay_faster": {"keys": [KEY_EQUAL, KEY_KP_ADD], "buttons": [JOY_BUTTON_RIGHT_SHOULDER]},
+	"replay_back": {"keys": [KEY_LEFT], "buttons": [JOY_BUTTON_DPAD_LEFT]},
+	"replay_forward": {"keys": [KEY_RIGHT], "buttons": [JOY_BUTTON_DPAD_RIGHT]},
+	"replay_start": {"keys": [KEY_HOME], "buttons": [JOY_BUTTON_Y]},
 }
 
 const CLASSIC_BITS := {
