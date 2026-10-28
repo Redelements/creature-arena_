@@ -161,7 +161,7 @@ func _fuzz(cfg: Dictionary) -> void:
 			shown.append("%s %d" % [k, int(counts.get(k, 0))])
 		for h in HAZARDS:
 			shown.append("%s %d" % [h, int(counts.get("hz:" + h, 0))])
-		print("    fuzz %s: %d seeds, %d ticks, %d rollbacks, %d ms; %s" % [cfg["name"], s - 1, ticks, rollbacks, ms,
+		print("    fuzz %s: %d seeds, %d ticks at most, %d rollbacks, %d ms; %s" % [cfg["name"], s - 1, ticks, rollbacks, ms,
 			", ".join(shown)])
 	for k in _missing(cfg, counts):
 		fail("%s: the fuzz never reached a \"%s\" event in %d seeds (coverage: retune the mode's ticks or rules here)" % [
