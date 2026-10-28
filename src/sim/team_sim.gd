@@ -58,6 +58,11 @@ extends RefCounted
 ## attackers at it alone dig it through (`dig_ticks`), or a heavy charge smashes it; the
 ## rest stays as cover. Attackers at the caravan heal (`escort_heal` hp a second) while
 ## they're on their feet. A new round puts the map back as it was.
+## Every tick the rules give each fighter a goal for the CPU (`sim.goals`, `_cv_goals`,
+## tagged "push" or "hold" so the CPU knows the job): an attacker's is the caravan (inside
+## the push radius), a defender's the road just ahead of it (still inside the radius, so it
+## contests the push and stands between the caravan and the end). A shrine goal (shrines
+## turned on) comes first.
 ##
 ## Class perks (any mode's "class_perks": {role: {key: value, "text": what it says}}, a
 ## fighter's role from its sheet, "fighter" when none): Caravan's `push` (multiplies the
@@ -285,6 +290,8 @@ func _init(team_ids: Array, per_side := 0, p_rules: Dictionary = {}, seed_ := 0)
 		_ctf_goals()
 	elif not sim.shrines.is_empty():
 		Shrines.write_goals(sim, _shrine_allow())
+	if caravan:
+		_cv_goals(not sim.shrines.is_empty())
 
 
 ## Which sides' CPUs may send someone to a shrine now: either side (one fighter a side, by
@@ -411,6 +418,8 @@ func step(inputs: PackedInt32Array) -> void:
 	elif not sim.shrines.is_empty() and sim.ko_freeze == 0:
 		Shrines.step(sim)
 		Shrines.write_goals(sim, _shrine_allow())
+	if caravan and sim.ko_freeze == 0:
+		_cv_goals(not sim.shrines.is_empty())
 	if deathmatch:
 		_deathmatch_step()
 		return
@@ -850,6 +859,25 @@ func _caravan_step() -> void:
 			_cv_end_round()
 
 
+## The CPU's goal for every fighter (see the header): [where, radius, urgent, pass (-1),
+## job]. An attacker goes within the push radius of the caravan (a margin inside it); a
+## defender to the road half a radius ahead of it, which is inside the radius too. A
+## fighter down has none. `keep`: leave a goal already there (a shrine's) as it is.
+func _cv_goals(keep := false) -> void:
+	sim.goals.resize(sim.creatures.size())
+	var r := float(rules.get("radius", 56))
+	var at := caravan_pos()
+	for c in sim.creatures:
+		if keep and sim.goals[c.id] is Array and not (sim.goals[c.id] as Array).is_empty():
+			continue
+		if _down(c):
+			sim.goals[c.id] = []
+		elif c.team == cv_attacker():
+			sim.goals[c.id] = [at, r - 14.0, false, -1, "push"]
+		else:
+			sim.goals[c.id] = [at + caravan_heading() * r * 0.5, r * 0.5 - 8.0, false, -1, "hold"]
+
+
 ## Whether an attacker at the caravan is healing: escort healing on, hurt, on its feet.
 func escort_healing(c: CreatureSim) -> bool:
 	return float(rules.get("escort_heal", 0.0)) > 0.0 and c.team == cv_attacker() and _near_caravan(c) \
@@ -968,6 +996,7 @@ func _cv_start_round(r: int) -> void:
 		sim.plants.clear()
 		sim.terrain.load_map(sim.arena)  # the map as it was: no rockslides, no holes
 		_set_phase(Phase.INTRO)
+	_cv_goals()  # (a shrine goal comes back next tick)
 	sim.emit_event("caravan_round", caravan_pos(), float(r), {"team": cv_attacker()})
 
 

@@ -52,6 +52,7 @@ default 22), `routes` (lists of action names), `far_routes`/`far_from`, `poke`/`
 included, and in neutral at a foe within `range` px body to body, not swinging, dodging or guarding, `chance`
 of the ticks; never at a foe already marked: `_plan_setup`), `setup_routes` (the near routes while the foe
 lacks the `setup` mark; once marked, `routes`).
+`caravan` (bool, default true: false plays the Caravan as a plain zone, no job; see Caravan below).
 `weights` (Rage's scored kit: per-candidate multipliers `surge`, `lob`, `gaze`, `zone`, `poke`,
 `give_ground` over `CpuController.WEIGHTS` and a `STYLES` entry's `weights`; 0 turns one off,
 e.g. Cerebro's `poke`, whose mallet thrown at a tank walking in loses the matchup).
@@ -105,6 +106,16 @@ e.g. Cerebro's `poke`, whose mallet thrown at a tank walking in loses the matchu
   for Rage (`scored`, `scored_default`); `false` plays the old ladder. A/B with
   `tests/bench_cpu.gd --scored --a=3 --b=3` (scored vs ladder), `--ladder` for the baseline.
   Win rates at `--seeds=3` swing about ±9 of 66 from the rng stream alone: decide at `--seeds=6`+
+- Caravan → the rules give each fighter a job in `sim.goals` (`TeamSim._cv_goals`, `[pos, radius, urgent, -1, job]`,
+  `_is_caravan_goal`, `_caravan_job` into `_job` once a tick): "push" (attackers: the caravan) or "hold" (defenders:
+  the road half a radius ahead, inside the push radius). `_caravan_go` walks there unless a foe is in reach (a foe at the
+  caravan is no reason to stay away); below Rage `_caravan_target` fights a foe at the caravan (the weakest-nearest)
+  over one further off unless one is in its face. An attacker holds on the caravan while its foe stands off it out of
+  reach (`_cv_hold`, after `_defend`, so it doesn't step, lunge or dash off it), and a walk that would take it out of
+  the radius slides along the rim (`_cv_tether`, after `_decide`, walking ticks only: a mage kites from the rim).
+  Off for a controller (`caravan`, `caravan_default`; `tests/bench_caravan.gd --plan=off`) or a fighter (`ai.caravan`
+  false): the caravan is then played as the Crater's zone, as before Oct 2026. Measured with `bench_caravan.gd`
+  (its summary: push, checkpoints, finishes, time at the caravan, the caravan's state) and `bench_modes.gd --modes=caravan2,caravan3`
 - Arena hazards → `_mind_hazards` (first in `_decide` after Sinkhole: steps out of a meteor shadow once it
   notices it, `HAZARD_NOTICE` by level; heads for the spot behind rubble a wave can't reach, `_find_shelter`,
   `SHELTER_LOOK`, and holds there unless a foe is in reach; Hard and Rage dodge through a wave's front when there's
