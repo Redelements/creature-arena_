@@ -10,6 +10,9 @@ class_name MainPresentation
 const Main := preload("res://src/game/main.gd")
 
 var main: Main
+## The `won` the paid match's award was given (the Arcade's stage result), for the results'
+## title and line: a ladder fight ends on one won round, not the best of three's two.
+var _paid_won: Variant = null
 
 
 func _init(p_main: Main) -> void:
