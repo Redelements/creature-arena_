@@ -14,8 +14,6 @@ on:
   schedule:
     - cron: "0 6 * * *"  # 06:00 UTC, a quiet hour
   workflow_dispatch:
-  push:  # TEMPORARY: proves the workflow on this branch; removed before the PR
-    branches: [nightly-ci]
 
 permissions:
   contents: read
@@ -35,12 +33,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
-      # bench_cpu.gd --matrix plays 11 x 10 pairs x 2 sides x MATRIX_SEEDS games.
-      MATRIX_SEEDS: 3
-      PAIRS_SEEDS: 6
+      # bench_cpu.gd --matrix plays 11 x 10 pairs x 2 sides x MATRIX_SEEDS games. Measured on
+      # ubuntu-latest (Oct 2026): about 2 minutes a seed for the matrix, 50 s for the pairs
+      # at 6 seeds, 65 s a seed for bench_modes, so the job takes about half an hour.
+      MATRIX_SEEDS: 12
+      PAIRS_SEEDS: 8
       # The pairs tests/test_balance.gd pins (assassin > mage, mage > fighter/tank).
       PAIRS: pete:cairn,pete:crease,cerebro:hissy,cerebro:culvert,cerebro:craglash
-      MODES_SEEDS: 2
+      MODES_SEEDS: 4
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
