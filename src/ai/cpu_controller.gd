@@ -103,6 +103,13 @@ var _detour_dir := Vector2.ZERO
 ## Ticks before a gap roll that was turned down (walking round is short enough) is
 ## looked at again (`_gap_roll`).
 var _gap_wait := 0
+## A crossing move under way over a chasm (`_gap_cross`): ticks left holding the stick
+## straight along it, and the way.
+var _cross_t := 0
+var _cross_dir := Vector2.ZERO
+var _cross_wait := 0  ## ticks until `_gap_cross` looks again after finding no landing
+var _cross_look_t := 0  ## ticks until `_cross_through` judges the way again
+var _cross_go := false  ## its last answer: walk straight at the chasm to cross it
 const LAND_MARGIN := 6.0  ## floor a roll's landing keeps round it (`_lands_safe`)
 var _hold_heavy := 0
 var _hold_bit := SimDefs.IN_HEAVY  ## the button a held charge is held on
@@ -222,6 +229,10 @@ func bits(sim: MatchSim) -> int:
 	_out = 0
 	var me := sim.creatures[me_idx]
 	_quiet_t += 1
+	if _cross_t > 0:
+		_cross_t -= 1
+		if me.state != CreatureSim.State.ATTACK:
+			_cross_t = 0  # (hit out of it)
 	for e in sim.events:
 		if String(e["type"]) == "block" and int(e.get("attacker", -1)) == me_idx:
 			if _blocked_serial != me.attack_serial:
@@ -338,6 +349,8 @@ func _move_toward(v: Vector2) -> void:
 func _go_to(sim: MatchSim, me: CreatureSim, goal: Vector2, weave := Vector2.ZERO) -> void:
 	if _gap_roll(sim, me, goal):
 		return
+	if _gap_cross(sim, me, goal):
+		return
 	var t0 := PerfLog.now()
 	var straight := NavGrid.clear_line(sim.terrain, me.pos, goal, me.radius, false)
 	PerfLog.since("ai line", t0)
@@ -360,6 +373,9 @@ func _go_to(sim: MatchSim, me: CreatureSim, goal: Vector2, weave := Vector2.ZERO
 	while _path.size() > 1 and (me.pos.distance_to(_path[0]) < WAYPOINT_REACHED
 			or NavGrid.clear_line(sim.terrain, me.pos, _path[1], me.radius, false)):
 		_path.remove_at(0)
+	if _cross_through(sim, me, goal):
+		_move_toward(goal - me.pos)  # straight at the chasm: the crossing move goes at its lip
+		return
 	if _path.is_empty():
 		_move_toward(_steer(sim, me, goal - me.pos))  # no way round: press on as before
 		return
@@ -428,6 +444,185 @@ func _gap_roll(sim: MatchSim, me: CreatureSim, goal: Vector2) -> bool:
 			return false
 	_hold(SimDefs.move_bits(best))
 	_press(SimDefs.IN_DODGE)
+	return true
+
+
+# ------------------------------------------------------------------ crossing chasms
+
+## The move this fighter can cross a chasm with, ready now: a button move (skill or heavy,
+## never the Surge) with a `leap` window (the sim passes it over pits) and a straight `dash`
+## inside it (not a homing or ghost one), like Digby's Burrow. "" when it has none, or none
+## is ready. Data, not a fighter: any such move counts.
+static func _cross_move(me: CreatureSim) -> String:
+	for mid in ["skill_1", "skill_2", "heavy"]:
+		if _cross_reach(me.moves().get(mid, {})) > 0.0 and _usable(me, mid):
+			return mid
+	return ""
+
+
+## How far a crossing move carries over pits: its dash speed for the dash ticks, when the
+## whole dash lies in the leap window; 0 for any other move.
+static func _cross_reach(mv: Dictionary) -> float:
+	var lp: Dictionary = mv.get("leap", {})
+	var dash: Dictionary = mv.get("dash", {})
+	if lp.is_empty() or dash.is_empty() or dash.has("home") or bool(dash.get("ghost", false)) \
+			or String(mv.get("type", "")) == "surge":
+		return 0.0
+	if int(dash["from"]) < int(lp["from"]) or int(dash["to"]) > int(lp["to"]):
+		return 0.0
+	return float(dash["speed"]) * float(int(dash["to"]) - int(dash["from"]) + 1)
+
+
+## Where a crossing move thrown now toward `dir` comes down: the dash step for step
+## (CreatureSim's dash: its speed, shallows_mult in shallows, walls and fences slide it,
+## pits don't stop it), held straight (`_cross_t`, so the steer adds nothing).
+static func cross_end(sim: MatchSim, me: CreatureSim, mid: String, dir: Vector2) -> Vector2:
+	var d := SimDefs.move_from_bits(SimDefs.move_bits(dir))
+	var dash: Dictionary = me.moves()[mid]["dash"]
+	var t := sim.terrain
+	var lo := me.floor_min()
+	var hi := me.floor_max()
+	var q := me.pos
+	for st in range(int(dash["from"]), int(dash["to"]) + 1):
+		var spd := float(dash["speed"])
+		if t.get_cell(t.world_to_cell(q)) == TerrainGrid.SHALLOWS:
+			spd *= float(dash.get("shallows_mult", 1.0))
+		q.x = t.slide_x(q, clampf(q.x + d.x * spd, lo.x, hi.x), me.radius)
+		q.y = t.slide_y(q, clampf(q.y + d.y * spd, lo.y, hi.y), me.radius)
+	return q
+
+
+## Floor a crossing must come down on: CROSS_MARGIN px round it clear of pits (it lands
+## where it was aimed, but a body nudged at the end must still stand on floor).
+const CROSS_MARGIN := 10.0
+static func _cross_lands(t: TerrainGrid, p: Vector2) -> bool:
+	if t.is_hole_at(p):
+		return false
+	for o in [Vector2(CROSS_MARGIN, 0), Vector2(-CROSS_MARGIN, 0), Vector2(0, CROSS_MARGIN), Vector2(0, -CROSS_MARGIN),
+			Vector2(7, 7), Vector2(-7, 7), Vector2(7, -7), Vector2(-7, -7)]:
+		if t.is_hole_at(p + o):
+			return false
+	return true
+
+
+## Crosses a chasm on the way to `goal` with a crossing move (`_cross_move`: Burrow), as a
+## player would: at the chasm's lip, when the far side can't be walked to (another region of
+## the nav grid) or the walk round is longer than the gap by half the move's reach, and only
+## when it comes down on floor (`cross_end`, `_cross_lands`) well on toward the goal. A healing
+## hole is left to the walk and the roll (`_gap_roll`). Chance per level `LEVELS` `gap`, like
+## the roll; off for a fighter whose `ai.cross_pits` is false.
+func _gap_cross(sim: MatchSim, me: CreatureSim, goal: Vector2) -> bool:
+	if _cross_wait > 0:
+		_cross_wait -= 1
+		return false
+	if not (me.state in [CreatureSim.State.IDLE, CreatureSim.State.MOVE]) or not bool(_ai(me).get("cross_pits", true)):
+		return false
+	var mid := _cross_move(me)
+	if mid == "":
+		return false
+	var reach := _cross_reach(me.moves()[mid])
+	var to := goal - me.pos
+	var dist := to.length()
+	if dist < reach * 0.5:
+		return false
+	var n := to / dist
+	var t := sim.terrain
+	# At the lip of a chasm (holes=false: only a chasm stops this line).
+	if NavGrid.clear_line(t, me.pos, me.pos + n * (me.radius + 10.0), 0.0, false):
+		return false
+	var g := NavGrid.shared(t)
+	var cut_off := g.region_of(me.pos) != g.region_of(goal)
+	if not _roll(float(p.get("gap", 0.0))):
+		return false
+	var dirs := SimDefs.aim_dirs()
+	var at := _dir_index(n)
+	var best := Vector2.ZERO
+	var best_d := dist - reach * 0.5
+	for k in [0, 1, -1, 2, -2, 3, -3]:
+		var d: Vector2 = dirs[(at + k + dirs.size()) % dirs.size()]
+		var end := cross_end(sim, me, mid, d)
+		if not _cross_lands(t, end):
+			continue
+		var left := end.distance_to(goal)
+		if left < best_d:
+			best_d = left
+			best = d
+	if best == Vector2.ZERO:
+		_cross_wait = 10
+		return false
+	if not cut_off and _walk_length(sim, me, goal) < dist + reach * 0.5:
+		_cross_wait = 10
+		return false
+	var mv: Dictionary = me.moves()[mid]
+	_hold(SimDefs.move_bits(best))
+	_out |= SimDefs.aim_bits(best)
+	_press(int(ACTION_BIT[mid]))
+	_cross_dir = best
+	_cross_t = int(mv.get("windup", 0)) + int(mv["dash"]["to"]) + 2
+	return true
+
+
+## How far the walk to `goal` is along the nav grid (INF when there's none).
+func _walk_length(sim: MatchSim, me: CreatureSim, goal: Vector2) -> float:
+	var way := NavGrid.shared(sim.terrain).path(me.pos, goal)
+	if way.is_empty():
+		return INF
+	var walk := 0.0
+	var from := me.pos
+	for w in way:
+		walk += from.distance_to(w)
+		from = w
+	return walk + from.distance_to(goal)
+
+
+## Whether to walk straight at a chasm to cross it (`_gap_cross` goes at the lip) rather
+## than the way round: a crossing move ready, the walk round (the path being followed) much
+## longer than straight, or none, and the straight line clear of walls with every chasm on
+## it narrower than the move carries, floor after it. Judged every few ticks.
+func _cross_through(sim: MatchSim, me: CreatureSim, goal: Vector2) -> bool:
+	_cross_look_t -= 1
+	if _cross_look_t > 0:
+		return _cross_go
+	_cross_look_t = 8
+	_cross_go = false
+	if not bool(_ai(me).get("cross_pits", true)) or _cross_wait > 0:
+		return false
+	var mid := _cross_move(me)
+	if mid == "":
+		return false
+	var reach := _cross_reach(me.moves()[mid])
+	var dist := me.pos.distance_to(goal)
+	if dist < reach * 0.5:
+		return false
+	var walk := INF
+	if not _path.is_empty():
+		walk = me.pos.distance_to(_path[0])
+		for i in range(1, _path.size()):
+			walk += _path[i - 1].distance_to(_path[i])
+		walk += _path[_path.size() - 1].distance_to(goal)
+	if walk < dist + reach * 0.5:
+		return false
+	# Along the straight line: no walls, chasms narrower than the reach (less the margins).
+	var t := sim.terrain
+	var steps := int(dist / 4.0) + 1
+	var span := -1.0  # where the chasm being crossed began (-1: on floor)
+	var any := false
+	for i in range(1, steps + 1):
+		var along := dist * float(i) / float(steps)
+		var q := me.pos + (goal - me.pos) * (float(i) / float(steps))
+		if NavGrid.body_blocked(t, q, me.radius):
+			return false
+		if t.get_cell(t.world_to_cell(q)) == TerrainGrid.CHASM:
+			if span < 0.0:
+				span = along
+			any = true
+		elif span >= 0.0:
+			if along - span > reach - CROSS_MARGIN * 2.0 - me.radius:
+				return false
+			span = -1.0
+	if span >= 0.0 or not any:
+		return false  # the goal is in a chasm, or none is in the way
+	_cross_go = true
 	return true
 
 
@@ -857,6 +1052,9 @@ func _decide(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 				_out |= SimDefs.aim_bits(near - me.pos)
 			return
 		_boulder_swing = false
+	if _cross_t > 0 and me.state == CreatureSim.State.ATTACK:
+		_hold(SimDefs.move_bits(_cross_dir))  # a crossing (_gap_cross): straight on to where it lands
+		return
 	if me.state == CreatureSim.State.ATTACK:
 		_continue_attack(sim, me, foe, dist)
 		if _rage():
