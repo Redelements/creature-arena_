@@ -29,7 +29,7 @@ DONE / SKIPPED / BLOCKED. This file lives on branch `autonomy-log` (worktree
 | 9 | Accessibility: colour-safe teams / outlines, high-contrast hit markers | PR OPEN for Kevin | [#273](https://github.com/Redelements/creature-arena_/pull/273) |
 | 10 | Audio CC0 pass (Kenney only) + CREDITS | BLOCKED (ruling needed) | |
 | 11 | Training dummy at 2x | PR OPEN for Kevin | [#264](https://github.com/Redelements/creature-arena_/pull/264) |
-| 12 | Replay tools: frame step, slow motion, rewind; bug-report bundle | IN PROGRESS | |
+| 12 | Replay tools: frame step, slow motion, rewind; bug-report bundle | PR OPEN for Kevin | [#274](https://github.com/Redelements/creature-arena_/pull/274) |
 | 13 | Mode-idea evidence: bench every "idea" row | DONE | [#265](https://github.com/Redelements/creature-arena_/pull/265) |
 | 14 | Digby vs Cerebro with Normal bots, documented | DONE | [#266](https://github.com/Redelements/creature-arena_/pull/266) |
 | 15 | Perf: view-draw pass, before/after | IN PROGRESS | |
@@ -299,3 +299,20 @@ touches the same file; whichever merges second resolves a one-line conflict.
   RED / BLUE; hard-coded colours left alone are listed in the PR (crowd armour, stadium corner brackets baked
   into the arena picture, health bar colours, the red windup tell by rule, range rings use fx_color).
 - Checks: suite 1316/0, sweep 216/0, sim-check unchanged. Screenshots in docs/accessibility/ (~4 MB).
+
+## Task 12: replay tools and bug report
+
+- **PR #274** (behavioral, no sim change, no NET bump). None of the tools existed (the theater only played at 1x).
+  New `src/game/replay_viewer.gd`: pause (Space/P, A), tick step on/back (. , / X B), speeds 1/4 1/2 1 2 (- + /
+  LB RB; exact quarter-tick scheduling in `_physics_process`), jump 5 s (arrows / d-pad), from the start
+  (Home / Y); a HUD strip; pause-menu and end-screen entries. Rewind restores from `snapshot()` keyframes
+  every 60 ticks and re-steps the recorded inputs (jump over 5 s of 4v4 CTF ~130 ms; keyframes ~40 MB max).
+  New `src/game/bug_report.gd`: Settings card, pause menus, `--bug-report[=DIR]` -> user://bug-reports/
+  bugreport_<time>.zip with system.txt, two newest Godot logs (player id and secret redacted), settings.cfg
+  (redacted `[online]`), progress.json, the replay, perf.txt; excludes ratings.json, anything outside user://.
+  File logging turned on for all platforms in project.godot (Android had none).
+- Checks: suite 1312/1 then the one pin (test_ui's replay pause-menu rows, changed on purpose) updated and
+  test_ui 93/0; **the agent did not rerun the whole suite after that fix** (CI's three shards run it on the
+  PR: verify green before Kevin merges); journey 4/0; sweep 216/0; sim-check unchanged. 6 new tests.
+- Decisions (agent): fight keys reused for replay controls (fight input isn't read in a replay); step-back
+  added; exports don't stamp a git sha (system.txt says "not stamped"; a CI stamp was left out).
