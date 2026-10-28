@@ -4,8 +4,9 @@
 	"name": "Greenhouse Dome",
 	"ground": "grass",
 	"tiles": {
-		"_doc": "The floor is tiles (assets/arenas/greenhouse.tscn, built by tools/build_tiles.gd): GrassLand's bright flower meadow, Set 1's bright grass blob round each brush bed (rects in 32 px tiles, 2 x 2 cells), Decorative Props fences drawn as joined lines (posts and rails, ends and corners), a hedge of Wetland canopy clumps on each brush bed, pots, barrels and crates in the margins (the top row short ones, standing on the top margin under the stand wall), potted herbs (Houses smallobj) and GrassLand's tiny bushes between the side pots, swaying DecorativeProps flowers on the beds' edge cells, tiny flowers, grass sprigs and pebbles over the meadow, more round the beds and fences (scatter)",
+		"_doc": "The floor is tiles (assets/arenas/greenhouse.tscn, built by tools/build_tiles.gd): GrassLand's bright flower meadow, Set 1's bright grass blob round each brush bed (rects in 32 px tiles, 2 x 2 cells), Decorative Props fences drawn as joined lines (posts and rails, ends and corners), a hedge of Wetland canopy clumps on each brush bed, pots, barrels and crates in the margins (the top row short ones, standing on the top margin under the stand wall), potted herbs (Houses smallobj) and GrassLand's tiny bushes between the side pots, swaying DecorativeProps flowers on the beds' edge cells, tiny flowers, grass sprigs and pebbles over the meadow, more round the beds and fences (scatter); the hand dressing (`dressing`, assets/README.md \"Dressing\"): lantern posts, a rain butt, seed sacks, baskets and vines on the fences, worn paths between the beds and from the doors, damp earth, shady and sunlit meadow patches, flagstones, moss and flowers on the floor, two crowns over the corner beds",
 		"set": "grassland",
+		"dressing": "res://assets/arenas/greenhouse_dressing.tscn",
 		"scatter": [
 			{"kind": "tufts", "where": "near_brush", "near": 2, "density": 0.04, "seed": 1},
 			{"kind": "flowers", "where": "near_brush", "near": 2, "density": 0.02, "seed": 2},
@@ -179,6 +180,14 @@
 			{"kind": "spike_pink", "pos": [589, 62]}
 		]
 	},
+	"lights": [
+		{"pos": [198, 277.5], "color": "#ffbe6a", "radius": 40, "energy": 0.6, "height": 24, "fighter_energy": 0, "lamp": true, "day": 0.3, "_doc": "the dressing's lantern posts at the fence ends (assets/arenas/greenhouse_dressing.tscn) as lamps that glow on the floor by day too, more at sunset (Lighting High only; `day` is the share of energy, Light2DView.lamps_by_day); pos is the flame, world px; tests/test_dressing_greenhouse.gd keeps one by every lantern"},
+		{"pos": [266, 277.5], "color": "#ffbe6a", "radius": 40, "energy": 0.6, "height": 24, "fighter_energy": 0, "lamp": true, "day": 0.3},
+		{"pos": [438, 101.5], "color": "#ffbe6a", "radius": 40, "energy": 0.6, "height": 24, "fighter_energy": 0, "lamp": true, "day": 0.3},
+		{"pos": [506, 101.5], "color": "#ffbe6a", "radius": 40, "energy": 0.6, "height": 24, "fighter_energy": 0, "lamp": true, "day": 0.3},
+		{"pos": [231, 109.5], "color": "#ffbe6a", "radius": 40, "energy": 0.6, "height": 24, "fighter_energy": 0, "lamp": true, "day": 0.3},
+		{"pos": [473, 238.5], "color": "#ffbe6a", "radius": 40, "energy": 0.6, "height": 24, "fighter_energy": 0, "lamp": true, "day": 0.3}
+	],
 	"times": [
 		"day",
 		"sunset"
@@ -207,7 +216,7 @@
 		"vignette": 0.16
 	},
 	"ambient": {
-		"_doc": "glass-dome pane shadows sliding along the light, pollen and seeds on a slow breeze, brush that sways and rustles, butterflies over the beds; see AmbientView",
+		"_doc": "glass-dome pane shadows sliding along the light, pollen and seeds on a slow breeze, brush that sways and rustles, butterflies over the beds; leaf shade and sun shafts under the two crowns over the corner beds, a leaf now and then, fireflies at sunset (glades: GladeView); see AmbientView",
 		"panes": {
 			"w": 72,
 			"h": 56,
@@ -220,6 +229,7 @@
 			"count": 44
 		},
 		"sway": true,
+		"glades": {"pools": 6, "shafts": 2, "fireflies": 14, "leaf_every": 110},
 		"critters": [
 			{
 				"kind": "butterfly",
