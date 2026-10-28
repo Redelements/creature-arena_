@@ -156,6 +156,7 @@ func report(cap := 60) -> String:
 		Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED) / 1048576.0,
 		Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0])
 	lines.append(_line("frame", frames))
+	lines.append(first_frames(frames))
 	lines.append(lows(frames, cap))
 	lines.append("PERF ticks held 3+ frames: %d (%.2f a second)" % [uneven, uneven * 1000.0 / maxf(1.0, _sum(frames))])
 	lines.append(_line("tick", ticks))
@@ -164,6 +165,22 @@ func report(cap := 60) -> String:
 	for line in slow:
 		lines.append("PERF slow frame at " + line)
 	return "\n".join(lines)
+
+
+## The first SKIP frames of the fight, which the lines above leave out: where a shader
+## compile shows (ShaderWarmup moves it to the title; `--no-warmup` for the A/B).
+static func first_frames(values: PackedFloat32Array) -> String:
+	var n := mini(SKIP, values.size())
+	if n == 0:
+		return "PERF first fight frames: no samples"
+	var worst := 0
+	var sum := 0.0
+	for i in n:
+		sum += values[i]
+		if values[i] > values[worst]:
+			worst = i
+	return "PERF first %d fight frames (left out above) ms: first %.1f, avg %.2f, slowest %.1f at frame %d" % [
+		n, values[0], sum / n, values[worst], worst + 1]
 
 
 ## The frame times as a player reads them, at a cap of `cap` fps (see the header).

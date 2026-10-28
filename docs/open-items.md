@@ -37,8 +37,14 @@ Priorities are in the Game Plan doc, "Game modes". Refreshed 2026-10-27 (unatten
   target lock (#201, `src/input/touch_pad.gd`, `touch_target.gd`), menus that fit phones and
   handhelds (#200, `tests/test_ui_fit.gd`), Vulkan on Android with CPU thinking between ticks
   and vsync pacing so the Odin holds 120 Hz (#226; the default fight cap stays 60), a device
-  perf runner (`tools/odin_perf.py`). Not yet: an app icon (the preset's `launcher_icons` are
-  empty), release signing, a Play Store listing, a shader warm-up for the first-run hitch.
+  perf runner (`tools/odin_perf.py`), a shader warm-up on the title for the first-run
+  Vulkan compile hitch (`src/view/shader_warmup.gd`), a Settings > Video hint when the screen
+  runs at 60 Hz and the fight cap is higher, and two device runs prepared but **not run yet**
+  (no device was attached): `tools/odin_perf.py --vram` (texture memory after the 2x roster,
+  Lighting High and Low) and `--soak --minutes=10` (a true 10-minute heat soak with the
+  device's temperatures); the commands are in `docs/plans/android-touch-menus-perf.md` "How
+  to measure". Not yet: an app icon (the preset's `launcher_icons` are empty), release
+  signing, a Play Store listing.
   Open for Kevin: the touch targeting spec (cancel zone, default priority, objective button).
   iPhone: not started (needs a Mac build in CI and a paid Apple Developer account).
 - **Not built yet:** affinity surfaces (part B of `docs/plans/arenas-surfaces-modes-online.md`,

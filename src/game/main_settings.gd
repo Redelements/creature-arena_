@@ -103,6 +103,7 @@ func _add_setting_row(s: UiScreen, key: String) -> OptionRow:
 		_set_setting(key, i)
 		var now := _setting(key)
 		o.set_values(now["values"], int(now["index"]))
+		s.describe(o, String(now["desc"]))  # a description that depends on the choice (the 60 Hz hint)
 		o.bar = float(now.get("bar", -1.0)))
 	main._setting_rows[key] = o
 	return o
@@ -207,6 +208,18 @@ func _open_remap(group: String) -> void:
 	main.ui.push(r)
 
 
+## The Fight frame rate row's description. A screen at 60 Hz or under (`refresh`, 0 when
+## unknown) can't show a higher cap (`cap`, 0 = Unlimited): say so, with the measured rate.
+## Android holds apps to 60 unless the device's own display setting allows more, which the
+## game can't change (docs/plans/android-touch-menus-perf.md), so a phone gets that pointer.
+static func fps_desc(cap: int, refresh: float, mobile := OS.has_feature("mobile")) -> String:
+	var hz := roundi(refresh)
+	if refresh > 0.0 and hz <= 60 and (cap == 0 or cap > hz):
+		return "Your screen refreshes %d times a second: a higher cap won't show%s" % [hz,
+			" (your device's display settings may allow more)" if mobile else ""]
+	return "Menus always run at 60 fps; this sets fights (up to your screen's refresh rate)"
+
+
 ## A Settings row: its label, values (shown), current index, a description, and for a
 ## volume its bar.
 func _setting(key: String) -> Dictionary:
@@ -307,7 +320,7 @@ func _setting(key: String) -> Dictionary:
 			for f in Main.FPS_CHOICES:
 				vals.append("Unlimited" if int(f) == 0 else "%d fps" % int(f))
 			return {"label": "Fight frame rate", "values": vals, "index": maxi(0, Main.FPS_CHOICES.find(main.fight_fps)),
-				"desc": "Menus always run at 60 fps; this sets fights (up to your screen's refresh rate)"}
+				"desc": fps_desc(main.fight_fps, main._refresh_rate())}
 		"glow":
 			return {"label": "Glow", "values": ["Off", "On"], "index": 1 if main.glow else 0,
 				"desc": "Glowing things (auras, sparks, flashes, shots) light the floor around them. Off for weaker devices"}
