@@ -586,7 +586,7 @@ fight starts). Tuning: `class_perks` in `data/rules/caravan.json` and `ctf.json`
 | Bruiser (Barkley, Sno Mercy) | digs through rockslides twice as fast | any heavy hit knocks the flag out of a carrier |
 | Fighter (Cairn, Hissy Fitz) | a contested caravan creeps your way | grabs and returns flags from farther |
 | Mage (Chef Cerebro, Mister Crease) | doubles the escort's healing | claims shrines 50% faster |
-| Assassin (Digby, Sneaky Pete) | rolls the caravan back 50% faster | carries the flag almost at full speed |
+| Assassin (Digby, Sneaky Pete) | rolls the caravan back 50% faster | (none: every class carries the flag at the same speed) |
 | Skirmisher (Gillbert) | back in 1.5 s sooner | passes farther and faster |
 
 ### Capture the Flag: 3v3 and 4v4
@@ -598,7 +598,9 @@ stadium's floor: a walled keep at each end (in by the front gate or a gap at eit
 a river down the middle with one bridge and an island up and down it, three shrines, brush, fences and pits on the flanks. The camera
 follows you, and arrows at the screen's edge point at both flags when they're out of shot.
 
-- **Take their flag:** touch it on its stand in their keep. Carrying it slows you a little.
+- **Take their flag:** touch it on its stand in their keep. Carrying it slows your walk to 80%
+  (every fighter alike; dashes and leaps keep their pace), so run it with an escort or pass it
+  (TAG) rather than solo. Pebbles at the carrier's feet show the slow.
 - **Capture:** bring it to your own stand **while your own flag is home**. First to **3**
   wins; at the 6-minute limit, more captures wins, and a tie is sudden death (next capture).
 - **Knocked out while carrying:** the flag drops where you went down. One of its own side

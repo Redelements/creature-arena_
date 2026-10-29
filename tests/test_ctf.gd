@@ -48,7 +48,7 @@ func test_taking_carrying_and_capturing() -> void:
 	_idle(t, 2)
 	assert_eq(int(t.flag_state[1]), TeamSim.FLAG_CARRIED, "red took blue's flag")
 	assert_eq(int(t.flag_carrier[1]), red.id, "red carries it")
-	assert_gt(red.slow, 0, "the carrier is slowed")
+	assert_near(red.carry_mult, float(t.rules["carry_slow"]), 0.001, "the carrier is slowed")
 	red.pos = t.base_of(0)
 	_idle(t, 2)
 	assert_eq(int(t.score[0]), 1, "a capture at home:")

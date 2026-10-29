@@ -60,7 +60,7 @@ const STATE_FIELDS := [
 	"swallow_t", "swallow_by", "swallow_gap", "swallow_air",
 	"poison", "poison_every", "poison_dmg", "poison_by", "poison_stacks", "poison_stack_dmg", "frenzy_t", "hit_streak", "streak_t", "stone",
 	"blind", "whiff_serial", "ambush_serial", "ambush_t", "root", "hitstop",
-	"stealth", "haste", "haste_mult", "atk_buff", "atk_mult", "stone_ice", "covered",
+	"stealth", "haste", "haste_mult", "carry_mult", "atk_buff", "atk_mult", "stone_ice", "covered",
 	"block_lag", "punish_serial", "home_speed", "fall_chasm",
 	"sheets", "sheet_t", "folded", "poison_look", "regen_wait", "exhaust_slow",
 ]
@@ -222,6 +222,9 @@ var covered := false
 var floor_end := SimDefs.floor_rect().end
 var haste := 0  ## ticks left of walking faster
 var haste_mult := 1.0
+## Walking x this while carrying a flag (Capture the Flag's `carry_slow`), 1.0 otherwise. The
+## mode sets it every tick the flag is held and clears it the tick the flag leaves.
+var carry_mult := 1.0
 var atk_buff := 0  ## ticks left of dealing atk_mult x damage (Pickpocket: up for him, down for them)
 var atk_mult := 1.0
 ## Permanent buffs (BOOST_FIELDS): the ids taken, in order, and the multipliers they add up
@@ -554,6 +557,8 @@ func walk_speed() -> float:
 		s *= float(stamina_rules().get("exhaust_speed_mult", 1.0))
 	if haste > 0:
 		s *= haste_mult
+	if carry_mult != 1.0:  # a flag carrier: stacks with the slows and hastes above
+		s *= carry_mult
 	return s
 
 
