@@ -61,7 +61,10 @@ e.g. Cerebro's `poke`, whose mallet thrown at a tank walking in loses the matchu
 ## Where to look
 
 - Difficulty table → `cpu_controller.gd:LEVELS` (reaction, defend, combo, mistake,
-  breakaway, aggression, think); Rage = `RAGE := 3`
+  breakaway, aggression, think, gap, lead); Rage = `RAGE := 3`. What each knob does, the
+  tier gaps and why CPU-vs-CPU win rates aren't a "beatable by a player" yardstick:
+  `docs/plans/cpu-tiers.md`. Normal was nerfed Oct 29 2026: balance numbers from before
+  aren't comparable with after
 - Per-class Rage behaviour → `STYLES` via `_style()`
 - Decision tree → `_decide` (stunned → breakaway; attacking → `_continue_attack`; Rage →
   `_rage_defend` / `_maybe_tag` / `_rage_punish` / `_rage_neutral`; else `_defend` / `_neutral`)

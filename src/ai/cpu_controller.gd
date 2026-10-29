@@ -18,13 +18,13 @@ extends RefCounted
 
 const LEVELS := [
 	{"name": "Easy", "reaction": 22, "defend": 0.25, "combo": 0.35, "mistake": 0.25,
-		"breakaway": 0.05, "aggression": 0.35, "think": 18, "gap": 0.03},
-	{"name": "Normal", "reaction": 13, "defend": 0.55, "combo": 0.75, "mistake": 0.1,
-		"breakaway": 0.25, "aggression": 0.55, "think": 12, "gap": 0.12},
+		"breakaway": 0.05, "aggression": 0.35, "think": 18, "gap": 0.03, "lead": 0.0},
+	{"name": "Normal", "reaction": 18, "defend": 0.4, "combo": 0.5, "mistake": 0.19,
+		"breakaway": 0.16, "aggression": 0.44, "think": 15, "gap": 0.11, "lead": 0.25},
 	{"name": "Hard", "reaction": 7, "defend": 0.85, "combo": 0.95, "mistake": 0.02,
-		"breakaway": 0.5, "aggression": 0.7, "think": 7, "gap": 0.35},
+		"breakaway": 0.5, "aggression": 0.7, "think": 7, "gap": 0.35, "lead": 1.0},
 	{"name": "Rage", "reaction": 1, "defend": 1.0, "combo": 1.0, "mistake": 0.0,
-		"breakaway": 1.0, "aggression": 0.9, "think": 2, "rage": true, "gap": 1.0},
+		"breakaway": 1.0, "aggression": 0.9, "think": 2, "rage": true, "gap": 1.0, "lead": 1.0},
 ]
 const RAGE := 3
 ## A guard at or under this share of its stamina is pressed, not waited out: blocked hits
@@ -1754,7 +1754,7 @@ func _kite_walk(sim: MatchSim, me: CreatureSim, foe: CreatureSim) -> void:
 		return
 	if d != Vector2.ZERO:
 		_hold(SimDefs.move_bits(d))
-	var lead := 0.5 if level == 1 else 1.0
+	var lead := float(p.get("lead", 1.0))  # how far a kiter leads its shots (LEVELS)
 	var aim := _seen(foe) + (_aim_point(me, foe) - _seen(foe)) * lead
 	_out |= SimDefs.IN_STRAFE | SimDefs.aim_bits(aim - me.pos)
 
