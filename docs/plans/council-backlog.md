@@ -29,16 +29,16 @@ Each row has the default the plan takes if there is no answer, so nothing blocks
 
 | # | Question | Who split | Default if unanswered |
 | --- | --- | --- | --- |
-| R1 | Guard auto-facing stops tracking stealthed foes (the sim half of "stealth stays hidden")? Vex 5, Bastion 3 (wants a Normal-bot bench first), Marlow 2 | council 1-1-1 | Build the aim-assist half in Wave 1. Bench the guard half in Wave 2; ship it only if no fighter or tank loses more than 5 points against the field in `bench_cpu.gd --matrix --seeds=5` |
-| R2 | Aimed dives (`lock_on` on Pete's Pickpocket dash and The Big Heist blink)? Bastion 1: deletes peel. Vex 4, Marlow 3 | 2-1 | Build it behind the data key with the 0.92 cone; bench Pete against Culvert and Craglash; Kevin feels it in a 3v3 before merge |
-| R3 | Light-cancel refund for Hissy, Craglash and the 0.6-share fighters? Bastion's pit dodge-spam concern | Sonnet run 4/3/2 | Build it with the cracked-floor exclusion; bench Cairn, Hissy, Craglash before and after |
-| R4 | Craglash target: how far up from the bottom of the matrix, with no mage buff and no new pin? | Sonnet run 4/5/3 | At or above 35% against the field, above 45% in the mirror-class pair (Culvert), Cerebro still beats him |
+| R1 | Guard auto-facing stops tracking stealthed foes (the sim half of "stealth stays hidden")? Vex 5, Bastion 3 (wants a Normal-bot bench first), Marlow 2 | council 1-1-1 | **Kevin, Oct 28: yes, don't guard toward what you cannot see.** No bench gate; bench and report. PR `guard-ignores-stealth` |
+| R2 | Aimed dives (`lock_on` on Pete's Pickpocket dash and The Big Heist blink)? Bastion 1: deletes peel. Vex 4, Marlow 3 | 2-1 | **Kevin, Oct 28: ok.** Build behind the data key; Kevin plays a 3v3 as Pete before merge. PR `pete-lock-on` |
+| R3 | Light-cancel refund for Hissy, Craglash and the 0.6-share fighters? Bastion's pit dodge-spam concern | Sonnet run 4/3/2 | **Kevin, Oct 28: yes.** Fighters, tanks and bruisers only (no mages: the share rule would have included them), lights only, no cracked-floor exclusion. PR `light-cancel-refund` |
+| R4 | Craglash target: how far up from the bottom of the matrix, with no mage buff and no new pin? | Sonnet run 4/5/3 | **Kevin, Oct 28: sure.** At or above 35% against the field, above 45% vs Culvert, Cerebro still beats him. PR `craglash-tune`, last in the wave |
 | R5 | Progression On by default with the First Fight? Marlow yes, Vex and Bastion no (it is your default) | 2-1 against | Leave the default Off. The First Fight shows its "First Bell" line only when Progression is On; the flip is one line in `main_settings.gd` when wanted |
 | R6 | Team pings at all? Vex 1 (awareness belongs in the player), Bastion 5, Marlow 4 | 2-1 for | Build them team-only and Vision-gated as specified, with a Settings > Game toggle to hide incoming pings for the player who hates them |
 | R7 | Which four calls? Bastion: focus, peel, group, objective | none | Those four; "objective" only in Caravan, Capture the Flag and the Crater |
 | R8 | Rejoin grace window and who it covers? Bastion: 20 s, team matches and ranked 1v1 | none | 20 s, both; the CPU takes the seat in the meantime |
 | R9 | Is a 1v1 matrix the right yardstick for a tank at all? Bastion's slot bench, withdrawn to a tool | unresolved | Add `--slot=<role>` to `bench_cpu.gd` as part of the Craglash PR and report both numbers; pin nothing new |
-| R10 | Digby's Burrow never combos into his lights (Burrow's 16 recovery ticks plus `no_flinch` light_1 and light_2: the target is knocked down and invulnerable before light_2 lands), and Pete's Pickpocket into lights drops the same way; the CPU route `skill_2, light, light, light, heavy` in digby.json is not a real combo. Found by the ambush-trials PR. Fix in the sim? Options: the first light out of an ambush staggers (Vex's dropped `ambush_flinch`, Bastion: a stacked assassin buff), or Burrow's recovery cancels into light_1 on a connect | found in Wave 1 | Wave 1 ships only the routes that work (Pete four, Digby Burrow > Cave-In). No sim change until Kevin rules; if yes, it is a Wave 2 PR with a bench |
+| R10 | Digby's Burrow never combos into his lights (Burrow's 16 recovery ticks plus `no_flinch` light_1 and light_2: the target is knocked down and invulnerable before light_2 lands), and Pete's Pickpocket into lights drops the same way; the CPU route `skill_2, light, light, light, heavy` in digby.json is not a real combo. Found by the ambush-trials PR. Fix in the sim? Options: the first light out of an ambush staggers (Vex's dropped `ambush_flinch`, Bastion: a stacked assassin buff), or Burrow's recovery cancels into light_1 on a connect | found in Wave 1 | **Kevin, Oct 28: yes.** A creature key `ambush_flinch` (Digby, Pete): while the ambush window is open the no_flinch lights stagger, so Burrow and Pickpocket start real combos. PR `ambush-flinch` |
 
 ## Wave 1: quick wins (five or six PRs, all in parallel)
 
@@ -62,48 +62,31 @@ How to run the wave: one Opus agent per PR in its own worktree (`creature-arena-
 each with the council page's prompt for its item (the last two have their spec above). Keep
 each worktree until its PR merges.
 
-## Wave 2: combat (four PRs, in series, one server rebuild after)
+## Wave 2: combat (five PRs, one server rebuild after)
 
-Every PR here changes the sim or its data, so every one bumps `NET_VERSION` in
-`src/net/netplay.gd` with a log line, runs `tests/test_rollback.gd`, `test_determinism.gd`
-and the `--sim-check` fingerprint, and reports a Normal-vs-Normal bench before and after
-(`bench_cpu.gd --matrix --seeds=5`; Normal CPUs only, never Rage). Merge in this order so each
-bench starts from the previous result. The second PR to merge renumbers its bump.
+Kevin ruled on all five on Oct 28 (R1-R4, R10). Every PR here changes the sim or its data, so
+every one bumps `NET_VERSION` in `src/net/netplay.gd` with a log line, runs `tests/test_rollback.gd`,
+`test_determinism.gd`, `test_balance.gd`, `test_counterplay.gd` and the `--sim-check` fingerprint,
+and reports a Normal-vs-Normal bench before and after (`bench_cpu.gd --matrix --seeds=5`, plus the
+pairs named in each brief at 12 seeds; Normal CPUs only, never Rage).
 
-1. **Craglash data tune + slot bench** (`craglash-tune`, R4, R9). First add `--slot=<role>` to
-   `tests/bench_cpu.gd` (five Normal CPUs fixed, one slot rotating through its class, team win
-   rate per fighter in a 3v3) and run it beside the 1v1 matrix for the current main. Then
-   change only `data/creatures/craglash.json` (stamina_regen, Rake cooldown, dash speed,
-   Bedrock's armor window; HP last, it was doubled in #223). Target per R4 on the 1v1 matrix;
-   report the slot bench too. `test_counterplay.gd` still demands 15 frames of warning on the
-   Stomp. Update the matrix comment in `tests/test_balance.gd` and `docs/open-items.md`.
-2. **Light-cancel refund for non-assassins** (`light-cancel-refund`, R3). Two keys in
-   `data/rules/stamina.json`: `dodge_cancel_connected_mult` 1.0 and
-   `dodge_cancel_refund_min_share` 0.5, read in `dodge_cancel_cost` (creature_sim.gd ~1003):
-   a cancel out of a connected light pays the plain dodge price when the fighter's effective
-   dodge share is at least 0.5 (Hissy, Craglash, the 0.6 default; Digby, Pete and Gillbert
-   keep 1.25x). No refund on a whiff, and none while the fighter stands on cracked floor or a
-   pit edge (Bastion's dodge-spam escape). Tests in `tests/test_dodge_cancel.gd`. MECHANICS.md
-   gains the two keys. Bench Cairn, Hissy, Craglash; `bench_cpu.gd --combat` before and after
-   for combo length.
-3. **Guard stops tracking stealth** (`guard-ignores-stealth`, R1). A `nearest_seen` in
-   `src/sim/match_sim.gd` beside `nearest_opponent` that skips `stealth > 0` (brush
-   `covered` stays visible to guard, per Vex's concession), used by `_update_guard`
-   (creature_sim.gd:1576) only. Homing and blinks keep `nearest_opponent` until PR 4. A test:
-   a Tiptoed Pete walking behind a guarding Cairn hits clean. MECHANICS.md:301 updated (the
-   leak shrinks to homing and blinks). Ship only if the R1 bench rule holds; otherwise close the
-   PR and record the numbers in `docs/plans/combat-metrics.md`.
-4. **Aimed dives for Pete** (`pete-lock-on`, R2). A `lock_on` block (`{"dot": 0.92}`) on
-   `dash.home` and `blink` in MECHANICS.md and `data/creatures/pete.json`; `_home` and `_blink`
-   (creature_sim.gd ~1409 / 1429) pick the foe nearest the held aim inside the cone, skipping
-   stealthed foes like `lob_lock`, nearest foe as the fallback. Tells, costs and cooldowns
-   unchanged. `tests/test_kit_keys.gd` covers the key; a test that a Pickpocket aimed past the
-   tank reaches the mage and an unaimed one still takes the nearest. Bench Pete against
-   Culvert, Craglash and Cerebro. Kevin plays a 3v3 as Pete before merge.
+Order changed from the first draft: the four independent changes run in parallel (disjoint
+functions; the shared `NET_VERSION` line is renumbered by whichever merges second, the repo's
+usual way), and the Craglash tune runs LAST, benched against main with the other four merged, so
+the tank's number is measured on the game he will actually play in.
 
-After the fourth merge: rebuild the server (`tools/server/update.sh`, check the protocol in
-`journalctl`), then a playtest from the main build: Craglash in a 3v3, Hissy's hit-dodge loop,
-a Pete flank against a guarding Cairn, an aimed Pickpocket past Culvert.
+| PR | Branch | Change | Status |
+| --- | --- | --- | --- |
+| Guard faces only the foes it can see | `guard-ignores-stealth` | `nearest_seen` beside `nearest_opponent` (skips `stealth > 0`, brush stays visible), used by `_update_guard` only; MECHANICS.md:301 leak list shrinks to homing and blinks | agent started Oct 28 |
+| Ambush openers combo | `ambush-flinch` | creature key `ambush_flinch` (digby, pete): while `ambush_t > 0` the no_flinch lights stagger; if Burrow's 16 recovery ticks still drop the string, the PR reports the numbers and proposes the smallest second data change | agent started Oct 28 |
+| Dodge out of a landed light at the plain price | `light-cancel-refund` | stamina.json `dodge_cancel_connected_mult` 1.0 and `dodge_cancel_refund_roles` [fighter, tank, bruiser]; lights only; whiffs, heavies, skills, Surges keep 1.25x | agent started Oct 28 |
+| Sneaky Pete aims his dives | `pete-lock-on` | optional `lock_on {dot}` on `dash.home` and `blink`, lob_lock's cone test shared, nearest foe as the fallback; pete.json only | agent started Oct 28 |
+| Craglash data tune + slot bench | `craglash-tune` | `bench_cpu.gd --slot=<role>` first (team win rate per fighter, five Normal CPUs fixed), then data only in craglash.json (stamina_regen, Rake cooldown, dash, Bedrock armor; HP last); target R4; no new pin | after the four above merge |
+
+After the fifth merge: rebuild the server (`tools/server/update.sh`, check the protocol in
+`journalctl`), then a playtest from the main build: Cairn guarding against a CPU Pete who
+Tiptoes behind him; Digby's Burrow into lights on the dummy; Hissy's jab, dodge out, come back;
+a 3v3 as Pete aiming Pickpocket past Culvert onto Cerebro; Craglash in a 3v3.
 
 ## Wave 3: systems (three PRs; First Fight beside pings, rejoin after pings)
 
