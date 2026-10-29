@@ -48,7 +48,7 @@ Menus are `Control` nodes on a `ScreenStack` of `UiScreen`s, styled by one share
 - The stack, Back, focus restore, toasts → `screen_stack.gd` (`push`, `pop`, signals
   `moved`, `chosen`, `emptied`)
 - "label < value >" rows → `option_row.gd`; hub cards → `card_button.gd`
-- Character select (one cursor per player, teams, `solo` for online) → `character_select.gd`
+- Character select (one cursor per player, teams, `solo` for online) → `character_select.gd`; the "Beats mages  ·  Loses to the rest" line under a fighter's class is `matchup_text`, read from `CpuController.BEATS` (`tests/test_select_matchups.gd`)
 - Online "match found" → `ready_check.gd`; room code row → `room_code_button.gd`
 - Remapping (classic, league, gamepad) → `remap_screen.gd` (`RESERVED_KEYS`, `RESERVED_BUTTONS`)
 - Pause / confirm / help → `pause_screen.gd` (`extras` rows), `confirm_screen.gd`, `help_screen.gd`

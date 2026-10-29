@@ -7,6 +7,10 @@ func _play(name: String) -> Dictionary:
 	var sc := Showcase.new(name)
 	var sim := sc.build()
 	var log := {"grabbed": [false, false], "hit": [0, 0], "ko": [false, false], "parts": [], "staggered": 0}
+	for i in range(2, sim.creatures.size()):  # a script's "extra" fighters
+		log["grabbed"].append(false)
+		log["hit"].append(0)
+		log["ko"].append(false)
 	for i in 5000:
 		if sc.finished:
 			break
@@ -190,3 +194,27 @@ func test_crease_showcase_plays_through_and_the_frogs_connect() -> void:
 	for k in ["fold", "projectile", "storm"]:
 		assert_true(kinds.has(k), "the showcase should show %s" % k)
 	assert_false(r["ko"][0], "Mister Crease stays up")
+
+
+func test_crease_storm_trailer_beat_hits_all_three_foes() -> void:
+	var r := _play("crease_storm")
+	var kinds := {}
+	for ev in r["parts"]:
+		kinds[String(ev[1])] = true
+	assert_true(kinds.has("storm"), "Thousand Cranes should make a storm")
+	for i in [1, 2, 3]:
+		assert_gt(float(r["hit"][i]), 0.0, "the storm should hit bunched foe %d" % i)
+	assert_eq(int(r["hit"][0]), 0, "Mister Crease is not hit")
+
+
+func test_pete_flank_trailer_beat_robs_cerebro_past_the_tank() -> void:
+	var r := _play("pete_flank")
+	var kinds := {}
+	for ev in r["parts"]:
+		kinds[String(ev[1])] = true
+	for k in ["stealth", "steal", "blink"]:
+		assert_true(kinds.has(k), "the flank should show %s" % k)
+	assert_true(r["ko"][1], "The Big Heist should finish Chef Cerebro")
+	assert_eq(int(r["hit"][2]), 0, "Pete goes round the tank, never through him")
+	var sim: MatchSim = r["sim"]
+	assert_gt(sim.creatures[0].pos.x, sim.creatures[1].pos.x, "Pete ends up behind Cerebro")

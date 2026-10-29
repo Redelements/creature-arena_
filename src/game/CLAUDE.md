@@ -129,7 +129,8 @@ player and live here, outside the sim.
   objective → `TouchTarget.ctf_objective`)
 - Showcases → a `SCRIPTS` entry in `showcase.gd` (steps: wait, press, walk, together,
   dodge, guard, approach, until, place); trials → `trials.gd:after_step`,
-  `data/trials.json`; drills → `drills.gd:_judge`, `SETS`, `REPS`
+  `data/trials.json` (keys in its `_doc`: `gap`, `energy`, `partner_jab`, `ambush`, `approach`;
+  a step's third item is a `via` move, `"hold"` or `"sneak"`); drills → `drills.gd:_judge`, `SETS`, `REPS`
 - Ladders → `ladder.gd` (the shared questions), `arcade.gd`, `gauntlet.gd`, `daily.gd`, `weekly.gd` (a `Daily` seeded by the ISO week, UTC: three mutators, the week's map and look via `_match_look`; scored like the Daily, retried all week, best in progress.json `weekly`; no server board, no saved replay);
   main plays them stage by stage (`_start_arcade_stage`, `_arcade_result`)
 - Spawns → `MatchSim.spawn(side)` (the map's, else `match_factory.gd:SPAWN_LEFT/RIGHT`)
@@ -140,8 +141,14 @@ player and live here, outside the sim.
   Versus intro / clock back). Keys (`ReplayViewer.KEYS`, `replay_*` actions in `controls.gd`, read in
   `_unhandled_input` only while watching with no screen open, so they never touch a fight): Space / P (A) pause,
   `.` (X) a tick on, `,` (B) a tick back, `-` / `+` (LB / RB) speed 1/4x-2x, Left / Right (d-pad) 5 s, Home (Y)
-  the start. The HUD's bottom strip is `status_line()`; the pause menu adds Back 5 seconds, Watch from the start,
-  Speed and its Controls page (`ReplayViewer.help_text`); the end screen adds Watch again and Back 5 seconds
+  the start, C (R3) Export clip. The HUD's bottom strip is `status_line()`; the pause menu adds Back 5 seconds, Watch from the start,
+  Speed, Export clip and its Controls page (`ReplayViewer.help_text`); the end screen adds Watch again and Back 5 seconds
+- Clips → markers `clip_marks.gd` (`main.clips`: reset in `_new_sim` with the replay, fed in `_react` from `hit` / `ko`
+  events for `_is_local_fighter`, saved by `_save_replay` as `<replay>.clips.json`; the theater's list skips sidecars
+  and counts them in `_replay_label`, bug_report.gd skips them); Export clip `clip_export.gd` (`clip_ctl`, a child
+  node: `open_screen`, `start` → `OS.create_process` of the game's own executable with `command()`, then ffmpeg if
+  it's on PATH; `spawn_problem` refuses the editor's Play button, phones and the web); the range playback
+  `main_args.gd:start_replay_cli` / `clip_over` (checked in `_capture`); the terminal version `tools/clip.py`
 - Bug reports → `bug_report.gd` (`write`, `entries_for`, `REDACT`): Settings > Save a bug report and every offline /
   replay pause menu (`_save_bug_report(true)`: a toast with the path, the folder opens on a desktop),
   `--bug-report[=DIR]` (`_cli_bug_report`, never opens a folder). Never add the `[online]` id / secret / name /
@@ -151,7 +158,7 @@ player and live here, outside the sim.
 ## Command-line flags and modes
 
 After `--`; the full list is in the `main.gd` header, modes in `MODES`.
-`--mode=N`, `--level=0..3` (3 = Rage), `--seed=N`, `--showcase=<fighter>|cleaver|angles|twinstick|counterplay`,
+`--mode=N`, `--level=0..3` (3 = Rage), `--seed=N`, `--showcase=<fighter>|cleaver|angles|twinstick|counterplay|crease_storm|pete_flank`,
 `--pad-layout=standard|twinstick`, `--touch-demo[=left]` (a recorded touch script into the touch controls, training as Cairn unless `--mode`; `src/game/touch_demo.gd`), `--autoplay`, `--hitboxes`, `--intro` / `--no-intro` (force the arena intro on or off; by default it plays only for offline matches started from the menu with a screen, never headless or for a `--mode` / `--showcase` / `--autoplay` start, so captures keep their frame numbers), `--cpu-vs-cpu`, `--pick`,
 `--teams=a,b,c:d,e,f`, `--arena=stadium|quarry|floodgate|greenhouse`, `--time=random|day|sunset|night` (night: the Floodgate only; elsewhere it plays day), `--weather=random|clear|rain|fog|wind|snow` (the look of offline matches this session; one the arena doesn't allow falls back), `--menu=main|single|single:<group>|look|settings|game|video|audio|accessibility|controls|touch|remap:<classic|league|gamepad>|credits|credits:<game|szadi|kiddolink|font|godot|notices>|profile|profile:account|profile:challenges|profile:endings|profile:<fighter>|ending:<fighter>` (the Profile pages need Settings > Game > Progression on; Off, they open the title; `ending:<fighter>` opens one Arcade ending card over Profile > Endings, seen or not, for captures),
 `--cam=X,Y[,ZOOM]` (hold the camera on a world spot, still clamped to the arena and stands: screenshots of the edges), `--cam-lead=0|1`, `--cam-clash=0|1`, `--cam-settle=0|1` (camera behaviour off / Normal for this session, not saved; also `low|normal|high`), `--training-screen=pause|options|fighters` (with a training `--mode`), `--training-flags=no_cooldowns,full_energy`,
@@ -161,7 +168,8 @@ After `--`; the full list is in the `main.gd` header, modes in `MODES`.
 `--progression=on|off` (Settings > Game > Progression for this session only, never saved: `MainSettings.progression_saved` keeps the file's value; screenshots and tests of the Profile, the results' XP rows and the ending cards), `--lighting=off|low|high` (Settings > Video > Lighting for this session, not saved: `lighting_tier`, `_light_look`; real 2D lights, the night's lamps and bloom, `Light2DView` / `BloomView`; Off loads no normal or emissive fighter sheet),
 `--print-vram=N` (at frame N print `VRAM ...`: the texture and video memory Godot reports and the fighter sheets loaded, `CreatureView.sheet_report`; needs a renderer, headless reports 0),
 `--no-warmup` (skip the shader warm-up on the first frames, `ShaderWarmup`; for an A/B with `--perf`), `--rematch-after=N` (an offline match's results screen presses Rematch by itself after N frames: back-to-back `--cpu-vs-cpu` fights for `tools/odin_perf.py --soak`; `_rematch_at`, checked in `_capture`),
-`--bug-report[=DIR]` (a bug-report zip, `bug_report.gd`, then quit; with `--quit-after` at the end of the run), `--perf` (frame and tick percentiles on quit, with each part's share: the tick's
+`--bug-report[=DIR]` (a bug-report zip, `bug_report.gd`, then quit; with `--quit-after` at the end of the run),
+`--replay=FILE --from=A --to=B` (watch one saved replay, absolute path or user://, from tick A to tick B at 1x and quit; frame k shows tick A + k, so `--shots` and Godot's `--write-movie` record exactly that range with sound; the HUD's key strip is hidden; a bad file exits 1; Export clip and `tools/clip.py` use it), `--perf` (frame and tick percentiles on quit, with each part's share: the tick's
 steps, each view's `_draw` via `PerfLog.since`, the renderer's CPU and GPU time, its draw
 calls, objects and primitives a frame (as "(count)" lines), and when
 the slowest frames came; the 1% and 0.1% lows, missed frames, the slowest second, game time
@@ -182,6 +190,8 @@ and "training" pair (Craglash, Barkley, Gillbert, Cerebro, Hissy, Digby, Pete, S
 - `autoplay.gd` (AutoPlay) — A scripted input sequence for the player, used for demo captures and smoke tests: godot --path . -- --autoplay Each ste…
 - `bug_report.gd` (BugReport) — A bug report in one zip (`write`): Settings > Save a bug report, the pause menu's row, or `--bug-report[=DIR]`.
 - `challenges.gd` (Challenges) — Challenges (Settings > Game > Progression on): about fifty goals in data/challenges.json, each watching one counter ("s…
+- `clip_export.gd` (ClipExport) — The Replay theater's Export clip, for main (`clip_ctl`, a child node so it can watch the export between frames): C (pad…
+- `clip_marks.gd` (ClipMarks) — Clip markers for the Replay theater's Export clip (`main.clips`): the moments of a match worth a clip, saved by F6 next…
 - `controls.gd` (Controls) — Input actions are registered in code so every binding lives in one readable place.
 - `daily.gd` (Daily) — The Daily Challenge: one seeded fight a day, the same for everyone.
 - `discord_rpc.gd` (DiscordRpc) — Discord Rich Presence over the Discord app's local IPC: no plugin, no SDK.
