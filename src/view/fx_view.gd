@@ -102,6 +102,7 @@ extends Node2D
 ##   petrified    CreatureView's grey shader, cracks over it as it ends (dust ring on the shatter)
 ##   pickpocket   gold glints on the thief while the stolen might lasts; coins drift from
 ##                the victim to the thief while the victim is weakened
+## Mountain Maw (fx "projectile": "head"): Craglash's own head and stone neck from his sheet, `_draw_long_bite`.
 ## Projectile polish (every thrown thing, from `PROJ_STYLE` by its "projectile" kind; a move's fx overrides):
 ##   trail_color  colour of the 3 whole-pixel afterimages behind a shot (default by kind)
 ##   trail_z      height of the trail above the floor in px; negative: no trail (default by kind)
@@ -269,6 +270,7 @@ func clear() -> void:
 	_root_t.clear()
 	_pstyles.clear()
 	_proj_prev.clear()
+	_maw.clear()
 	_wall_marks.clear()
 	_shouts.clear()
 	move_fx.clear()
@@ -405,6 +407,7 @@ func spawn(e: Dictionary) -> void:
 			var owner_c := _creature(int(e.get("who", -1)))
 			if owner_c != null:
 				move_fx.on_event("projectile_end", owner_c, p)
+				_maw_end(owner_c, p)
 			_land_mark(p, power)
 			if owner_c != null and _owner_has_venom(owner_c):
 				_venom_splat(p, 10.0, 8 if power >= 1.0 else 5)
@@ -820,6 +823,7 @@ func advance() -> void:
 	queue_redraw()
 	if ground != null:
 		ground.queue_redraw()
+	_update_maws()
 
 
 ## Debris and water: a position on the floor plus a height `z` above it.
@@ -3293,7 +3297,7 @@ func _draw_projectiles(ci: CanvasItem) -> void:
 				"venom":
 					_draw_venom(ci, pr)
 				"head":
-					_draw_long_bite(ci, pr)
+					pass  # Mountain Maw: drawn with Craglash's sprite (_draw_long_bite)
 				"tongue":
 					_draw_tongue(ci, pr)
 				"dart":
@@ -3544,44 +3548,185 @@ func _draw_tongue(ci: CanvasItem, pr: Dictionary) -> void:
 	ci.draw_circle(tip + Vector2(-1, -1), 1.3, C_TONGUE_L)
 
 
-## Mountain Maw in flight: Craglash's stone neck stretched out from his shoulders to the
-## flying head, jaws open, slab by slab.
-func _draw_long_bite(ci: CanvasItem, pr: Dictionary) -> void:
-	var owner := _creature(int(pr["owner"]))
-	var pp: Vector2 = Vector2(pr["pos"]).round()
-	var d: Vector2 = Vector2(pr["vel"]).normalized()
-	var head := pp + Vector2(0, -18)
-	ci.draw_set_transform(pp, 0.0, Vector2(1.0, 0.4))
-	ci.draw_circle(Vector2.ZERO, 6.0, Color(0, 0, 0, 0.28))
-	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	if owner != null:
-		var root := owner.pos + Vector2(owner.facing.x * 6.0, -_top(owner) + 12.0)
-		var n := maxi(2, int(root.distance_to(head) / 6.0))
-		for i in n:
+## Mountain Maw (a sprite block with "neck_end": Craglash): his own head flies on his own
+## stone neck. While the sprite shows a headless frame (its "headless" list: lash 5-7, the
+## neck stretched to "neck_end" with an end stone and no head), this draws the rest:
+## the neck's stones (the sheet's maw_slab row, one every MAW_SLAB px at full thickness, on
+## a slight arc that leaves the sprite's neck along "neck_dir") out to the head (maw_head:
+## jaws open, then shut, every 4 ticks of the flight, by the projectile's own life so a
+## rollback replays it), which rides the projectile from the neck's end and drops a little
+## toward the bite. When the projectile ends the head holds through his hitstop (a bite's
+## freeze), then snaps home along the chain in MAW_SNAP ticks, jaws shut, the stones
+## vanishing behind it; whenever a headless
+## frame shows and no head of his flies, his head sits on the neck's end, so he is never
+## headless on screen. The sprite's frames 8-11 (head attached) take over from tick 48.
+##
+## Drawn on two children of his CreatureView (`_update_maws`), with his material, light
+## mask, modulate and the sprite's weather tint, so the chain flashes, turns to stone,
+## changes palette, darkens at night and hides with him, and y-sorts with him. Facing down, down-right or sideways the chain is in front of
+## his body (it comes toward the camera); facing up or up-right it is behind it.
+const MAW_SNAP := 5  ## ticks for the head to snap home
+const MAW_SLAB := 5.0  ## px between the chain's stones (the rig's SLAB_SPACING)
+const MAW_DROP := 14.0  ## how far the head drops toward the bite...
+const MAW_DROP_RUN := 60.0  ## ...over this much of its flight
+var _maw := {}  ## creature id -> {"serial", "rel" (the head from the neck's end), "vel", "tick"}: the last flight seen
+
+
+## Gives each view whose sprite block has "neck_end" its two maw layers and redraws them.
+func _update_maws() -> void:
+	if sim == null:
+		return
+	for v in views:
+		if v == null or not (v as CreatureView).layout.has("neck_end"):
+			continue
+		var cv: CreatureView = v
+		var back := cv.get_node_or_null("MawBack") as Node2D
+		if back == null:
+			back = _maw_layer(cv, "MawBack", false)
+			cv.add_child(back)
+			cv.move_child(back, 0)  # before the pivot: behind the sprite
+			cv.add_child(_maw_layer(cv, "MawFront", true))
+		var fr := cv.get_node("MawFront") as Node2D
+		for n: Node2D in [back, fr]:
+			n.light_mask = cv.sprite.light_mask  # lit like the sprite (its normals come with the sheet)
+			n.self_modulate = cv.sprite.self_modulate  # and tinted like it (WeatherView: the night, the weather)
+			n.queue_redraw()
+
+
+func _maw_layer(cv: CreatureView, node_name: String, front: bool) -> Node2D:
+	var n := Node2D.new()
+	n.name = node_name
+	n.material = cv.mat
+	n.draw.connect(func() -> void: _draw_long_bite(n, cv, front))
+	return n
+
+
+## Where the head is from the neck's end, `s` px along the flight `fwd`.
+static func _maw_rel(fwd: Vector2, s: float) -> Vector2:
+	return fwd * s + Vector2(0, minf(s, MAW_DROP_RUN) / MAW_DROP_RUN * MAW_DROP)
+
+
+## His head projectile in flight, or {}.
+func _maw_projectile(c: CreatureSim) -> Dictionary:
+	for pr in sim.projectiles:
+		if int(pr["owner"]) == c.id and _proj_kind(pr) == "head":
+			return pr
+	return {}
+
+
+## What to draw for `c` now, in his view's local space: {} for nothing, else "home" (the
+## neck's end), "dir" (the neck's direction there), "head", "open", "vel", "front", "flying".
+func _maw_state(c: CreatureSim, cv: CreatureView) -> Dictionary:
+	var ends: Dictionary = cv.layout.get("neck_end", {})
+	if not ends.has(cv.view):
+		return {}
+	var sx := -1.0 if cv.flip else 1.0
+	var e: Array = ends[cv.view]
+	var nd: Array = cv.layout.get("neck_dir", {}).get(cv.view, [1, 0])
+	var home := cv.pivot.position + Vector2(float(e[0]) * sx, float(e[1]))
+	var out := {"home": home, "dir": Vector2(float(nd[0]) * sx, float(nd[1])), "head": home, "open": false,
+		"vel": Vector2(sx, 0), "front": not cv.view in ["up", "up_side"], "flying": false}
+	var pr := _maw_projectile(c)
+	if not pr.is_empty():
+		var vel: Vector2 = pr["vel"]
+		var fwd := vel.normalized()
+		var off := float(c.moves().get(String(pr.get("move", "")), {}).get("projectile", {}).get("offset", 16))
+		var rel := _maw_rel(fwd, maxf(0.0, (Vector2(pr["pos"]) - c.pos).dot(fwd) - off))
+		_maw[c.id] = {"serial": int(pr["serial"]), "rel": rel, "vel": vel, "tick": sim.tick}
+		var flown := int(pr.get("life_total", pr["life"])) - int(pr["life"])
+		out["head"] = home + rel
+		out["open"] = (flown / 4) % 2 == 0
+		out["vel"] = vel
+		out["flying"] = true
+		out["floor"] = Vector2(pr["pos"]) - cv.position
+		return out
+	if not cv.headless():
+		return {}
+	var m: Dictionary = _maw.get(c.id, {})
+	if not m.is_empty() and int(m["serial"]) == c.attack_serial:
+		# the snap back: slow to start, fast home, keyed on the sim's tick
+		var u := clampf(float(sim.tick - int(m["tick"])) / MAW_SNAP, 0.0, 1.0)
+		out["head"] = home + Vector2(m["rel"]) * (1.0 - u * u)
+		out["vel"] = m["vel"]
+	return out
+
+
+## The projectile ended (hit or not): where his head was, so the snap back starts there even
+## when it bit on its first tick and was never drawn in flight.
+func _maw_end(c: CreatureSim, p: Vector2) -> void:
+	if sim == null or not c.def.get("sprite", {}).has("neck_end") or c.state != CreatureSim.State.ATTACK:
+		return
+	var mv := c.move_def()
+	if String(mv.get("fx", {}).get("projectile", "")) != "head":
+		return
+	var fwd := c.facing.normalized()
+	var off := float(mv.get("projectile", {}).get("offset", 16))
+	# a bite holds through his hitstop (the impact's freeze), then the head snaps home
+	_maw[c.id] = {"serial": c.attack_serial, "rel": _maw_rel(fwd, maxf(0.0, (p - c.pos).dot(fwd) - off)),
+		"vel": c.facing, "tick": sim.tick + maxi(sim.hitstop, c.hitstop)}
+
+
+## One maw layer of `cv` (front or back): the shadow, the chain's stones, then the head.
+func _draw_long_bite(ci: Node2D, cv: CreatureView, front: bool) -> void:
+	var c := cv.c
+	if sim == null or c == null or not cv.pivot.visible:
+		return
+	var st := _maw_state(c, cv)
+	if st.is_empty() or bool(st["front"]) != front:
+		return
+	var home: Vector2 = st["home"]
+	var tip: Vector2 = st["head"]
+	if bool(st["flying"]):
+		var fl: Vector2 = st["floor"]
+		ci.draw_set_transform(fl.round(), 0.0, Vector2(1.0, 0.4))
+		ci.draw_circle(Vector2.ZERO, 7.0, Color(0, 0, 0, 0.28))
+		ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var span := home.distance_to(tip)
+	if span > MAW_SLAB + 2.0:
+		# a quadratic arc leaving the sprite's neck along neck_dir, a stone every MAW_SLAB px
+		# from the neck's end stone up to the head
+		var ctrl := home + Vector2(st["dir"]) * minf(span * 0.3, 14.0)
+		var n := 24
+		var pts := PackedVector2Array()
+		for i in n + 1:
 			var k := float(i) / n
-			var at := root.lerp(head, k) + Vector2(0, sin(k * PI) * -6.0)
-			var w := 3.5 - k
-			ci.draw_rect(Rect2((at - Vector2(w + 1, w + 1)).round(), Vector2(w * 2 + 2, w * 2 + 2)), C_OUTLINE)
-			ci.draw_rect(Rect2((at - Vector2(w, w)).round(), Vector2(w * 2, w * 2)), C_CRAG[(i % 2) + 1])
-	# the head: a heavy stone block with its jaws wide, teeth showing
-	var side := Vector2(-d.y, d.x) * 1.7
-	d = d * 1.7  # the head is drawn bigger than the neck slabs
-	var jaw := 4.0 + 1.5 * float((_tick / 3) % 2)
-	var top := PackedVector2Array([head - d * 6.0 - side * 5.0, head + d * 7.0 - side * 1.0 - side * jaw * 0.5,
-		head + d * 7.0 - side * 0.5, head - d * 6.0 + side * 1.0])
-	var bot := PackedVector2Array([head - d * 6.0 + side * 1.5, head + d * 6.0 + side * jaw * 0.5,
-		head + d * 6.0 + side * (jaw * 0.5 + 2.5), head - d * 6.0 + side * 5.0])
-	for poly: PackedVector2Array in [top, bot]:
-		var grown := PackedVector2Array()
-		var c: Vector2 = (poly[0] + poly[1] + poly[2] + poly[3]) / 4.0
-		for q in poly:
-			grown.append(c + (q - c) * 1.25)
-		ci.draw_colored_polygon(grown, C_OUTLINE)
-		ci.draw_colored_polygon(poly, C_CRAG[1])
-	for k in 3:
-		var tooth := head + d * (1.0 + k * 2.2) - side * 0.3
-		ci.draw_rect(Rect2(tooth.round(), Vector2.ONE), Color.WHITE)
-	ci.draw_rect(Rect2((head - d * 2.5 - side * 3.0).round(), Vector2(2, 1)), C_AMBER)  # the eye
+			pts.append(home.lerp(ctrl, k).lerp(ctrl.lerp(tip, k), k))
+		var stones: Array = []
+		var acc := 0.0
+		var next := MAW_SLAB
+		var stop := span - 4.0
+		for i in n:
+			var seg := pts[i].distance_to(pts[i + 1])
+			while seg > 0.0 and next <= acc + seg and next <= stop:
+				stones.append([pts[i].lerp(pts[i + 1], (next - acc) / seg), pts[i + 1] - pts[i]])
+				next += MAW_SLAB
+			acc += seg
+		if not front:
+			stones.reverse()  # going away from the camera: the nearer stones over the further
+		for sd in stones:
+			var t: Vector2 = sd[1]
+			var k := int(roundf(fposmod(rad_to_deg(t.angle()), 180.0) / 18.0)) % 10
+			_maw_piece(ci, cv, "maw_slab", k, sd[0], false, 0.0)
+	var rot := 0.0
+	if cv.view == "side":
+		var vel: Vector2 = st["vel"]
+		rot = atan2(vel.y, absf(vel.x)) * (-1.0 if cv.flip else 1.0)  # along the flight
+	_maw_piece(ci, cv, "maw_head", 0 if bool(st["open"]) else 1, tip, cv.flip, rot)
+
+
+## Frame `idx` of `anim` (drawn on the sheet with its middle at the neck's end) with that
+## middle at `at`, mirrored by `flip`, turned by `rot`.
+func _maw_piece(ci: CanvasItem, cv: CreatureView, anim: String, idx: int, at: Vector2, flip: bool, rot: float) -> void:
+	var fp := cv.frame_piece(anim, idx)
+	if fp.is_empty():
+		return
+	var e: Array = cv.layout["neck_end"].get(cv.view, [0, 0])
+	var ppu := int(fp["ppu"])
+	var mid: Vector2 = Vector2(fp["origin"]) + Vector2(float(e[0]), float(e[1])) * float(ppu)
+	var gs := ArtScale.scale_of(ppu)
+	ci.draw_set_transform(ArtScale.snap(at, ppu), rot, Vector2(-gs.x if flip else gs.x, gs.y))
+	ci.draw_texture_rect_region(fp["tex"], Rect2(-mid, fp["size"]), fp["region"])
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 ## Who's who, and how they're doing: a health bar over each fighter, League-style.
