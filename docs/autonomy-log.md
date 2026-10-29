@@ -1,3 +1,11 @@
+<!-- current-state:start -->
+## Current state (2026-10-28 23:45)
+
+- Doing: Task 1, CTF carrier speed, branch `ctf-carry-speed` (not created yet).
+- Done: skills on main (b2cc8c3), run setup, findings written in "Run 2026-10-28" at the end of this file.
+- Next: create the branch, add CreatureSim.carry_mult, rewrite the carry slow in TeamSim._ctf_step, tests, bench, PR.
+<!-- current-state:end -->
+
 # Autonomy log: unattended run of 2026-10-27
 
 Kevin's standing approval (pasted in chat, 2026-10-27, local time ~evening): complete every task
@@ -462,3 +470,91 @@ worktree `creature-arena-audio-cc0` is waiting.
    `-dummy-2x`, `-team-intent-3`, `-cpu-goals`, `-burrow-pits`, `-accessibility`, `-replay-tools`,
    `-view-draw-perf`, `-android-warmup` stay until their PRs merge or close (an agent can only be resumed on
    its own worktree); `git worktree remove` them afterwards. The main checkout is still on `odin-perf-cpu-gap`.
+
+
+## Run 2026-10-28 (CTF carrier speed, Normal bot nerf)
+
+Started 2026-10-28 23:30 local. Skills: autonomous-complete + context-hygiene (added on
+main in b2cc8c3 this run). Start tag `autonomy-start-20261028-2330`. The working tree
+was on `odin-perf-cpu-gap` with two modified files (src/game/main.gd, tools/odin_perf.py):
+stashed as `autonomy-stash-20261028` (stash@{0}), then `main` fast-forwarded to
+origin/main (57e1d44) and checked out. Pushing `main` was refused by the session's
+permission classifier (CLAUDE.md says never push to main), so main stays local-only; the
+skills commit and this log reach origin through a PR at the end.
+
+Tasks (from Kevin's brief; one PR per section):
+
+1. PENDING — CTF flag carrier speed 0.80 for everyone (branch `ctf-carry-speed`): a single
+   tunable, applied with the other speed modifiers so it stacks multiplicatively, base
+   walk only (dashes/blinks/leaps untouched), gone the tick the flag leaves; a carrier
+   status indicator reusing an existing look; report whether passing exists and its
+   hidden costs (change nothing); list every mobility move a carrier could escape with
+   (distance, cooldown), especially Pete's; CTF bench Pete as carrier before/after vs the
+   roster median; a test for 0.8x, stacking with one slow and one haste, and instant clear
+   on drop/pass/capture.
+2. PENDING — Normal bots nerf (branch `normal-bots-nerf`): report every Normal knob next
+   to Easy and Hard; nerf Normal to sit clearly between (no knob equal to Hard), levers in
+   order: reaction, aim/prediction error, decision cadence, cooldown tracking, focus-fire;
+   don't touch Easy/Hard/Rage; land Normal at 25–35% vs Hard and 65–75% vs Easy in the
+   existing bench (report actuals, or the closest achievable); every changed value an
+   exported tunable; before/after table; re-run the balance matrix + determinism soak,
+   store as the new baseline, note in docs that pre-change numbers aren't comparable;
+   check nightly CI's expected ranges; a CTF-specific bench run.
+3. Verification for both: full test suite, headless script-error check on every mode/map,
+   journey test, sim-check.
+
+Both PRs are behavioral: they stay open for Kevin's review.
+
+### Findings before any change (current values)
+
+CTF (`data/rules/ctf.json`, applied in `src/sim/team_sim.gd:_ctf_step`):
+- `carry_slow` 0.88; class perk `assassin.carry_slow` 0.97 (Pete and Digby carry at 97%);
+  `overtime_carry_slow` 1.0 (no slow in sudden death).
+- How it's applied today: each tick the carrier gets `c.slow = 2`, `c.slow_mult = carry_slow`
+  unless a real slow is already on (`c.slow > 1`): so it does NOT stack with a slow (the
+  bigger slow replaces it) and it lingers 1 tick after a drop. `walk_speed()` =
+  speed x speed_mult x boost_speed x slow_mult (if slow) x exhaust x haste_mult.
+- Passing exists: TAG while carrying (`_try_pass`), `pass_range` 150, `pass_cone` 0.7,
+  `pass_speed` 4.5 px/tick, skirmisher perk `pass` 1.3; catch from `catch_from` 0.5 of
+  the flight; fumble on hard hits (`fumble_pop` 34, `fumble_lock` 60).
+- Views: "slowed" look = pebbles at the feet + a cool tint (`fx_view.gd`), from the
+  creature's `slow > 0`.
+
+CPU tiers (`src/ai/cpu_controller.gd:LEVELS`):
+| knob | Easy | Normal | Hard | Rage |
+| reaction (ticks) | 22 | 13 | 7 | 1 |
+| defend | 0.25 | 0.55 | 0.85 | 1.0 |
+| combo | 0.35 | 0.75 | 0.95 | 1.0 |
+| mistake | 0.25 | 0.1 | 0.02 | 0.0 |
+| breakaway | 0.05 | 0.25 | 0.5 | 1.0 |
+| aggression | 0.35 | 0.55 | 0.7 | 0.9 |
+| think (ticks) | 18 | 12 | 7 | 2 |
+| gap (pit roll chance) | 0.03 | 0.12 | 0.35 | 1.0 |
+Other level-gated behaviour (to be listed): Easy aims 8 ways, Normal+ 360°; Normal mages
+strafe and lead shots half way; Hard/Rage dodge through waves.
+
+Benches: `tests/bench_cpu.gd --a=<lvl> --b=<lvl>` (0 Easy, 1 Normal, 2 Hard, 3 Rage; roster
+vs roster); `tests/bench_ctf.gd`, `tests/bench_modes.gd --modes=ctf3 --level=1`; nightly CI
+`.github/workflows/nightly.yml` runs the Normal matrix, pinned pairs and mode pacing and
+fails only on a crash, never on numbers (no expected ranges to update). Pins:
+`tests/test_balance.gd` (Normal vs Normal). Baselines: `docs/plans/mode-metrics.md` (Normal),
+`docs/plans/combat-metrics.md` (Rage, stale).
+
+Godot: `C:\Users\Kevin\dev\godot\Godot_v4.7.2-stable_win64_console.exe`. Python:
+`C:\Users\Kevin\dev\python\python.exe -I`. Parallel Godot runs need separate `APPDATA` dirs.
+
+## Decisions I made that the user may disagree with
+
+- The carrier speed lives as the data key `carry_slow` in `data/rules/ctf.json` (set to
+  0.8), not a GDScript constant: the project rule is "tuning is data, not code" and the key
+  already exists. Alternative: `const FLAG_CARRY_SPEED_MULT := 0.8` on TeamSim.
+- The assassin class perk `carry_slow` 0.97 is removed ("no per-fighter overrides"); the
+  assassin keeps no CTF perk. Alternative: keep a perk text with no effect.
+- `overtime_carry_slow` 1.0 (sudden death removes the slow) is kept: it's a pacing rule,
+  not a per-fighter exception. Flagged for Kevin.
+- Normal's knobs are changed in `LEVELS` (the only tier table); "exported tunable" = the
+  table entry, as every tier already is.
+
+## Found, not fixed
+
+(none yet)
