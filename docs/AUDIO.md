@@ -66,6 +66,7 @@ buses at start-up; `play(name, ..., ui = true)` sends a sound to Menu sounds.
 | [ ] | `stoneskin` | Craglash's Stoneskin shield comes back | Gravel clicking into place |
 | [ ] | `shield_break` | Stoneskin shield breaks | Stone cracking off |
 | [ ] | `lash` | Boulder Lash hits | Whip crack + stone segments clattering |
+| [ ] | `bite` | Mountain Maw's flying jaws shut, every 8 ticks of the flight (the move's fx `flight_sound`) | A heavy stone jaw clacking shut, teeth on teeth, short and dry (it repeats 2-3 times a throw); placeholder until Kevin picks one |
 | [ ] | `avalanche` | Avalanche Coil crashes down | Deep boom, rocks raining and rolling |
 | [ ] | `snag` | Barkley's Branch Grab hooks someone | Branch whip, a creak, a yank |
 | [ ] | `pinecone` | Pinecone Bomb lands and bursts | Dry crunchy pop, scales scattering |
@@ -132,7 +133,9 @@ buses at start-up; `play(name, ..., ui = true)` sends a sound to Menu sounds.
 | [ ] | (`crack`, low) | The fault grinds shut (`hazard_end`, shape fault) | A grinding rumble that settles; needs its own sound |
 
 Craglash, Barkley, Gillbert, Chef Cerebro, Hissy Fitz, Digby, Sneaky Pete and Sno Mercy have signature sounds; Gillbert also has footsteps
-(`"step_sound"` in his JSON). Cries and footsteps don't exist
+(`"step_sound"` in his JSON). A thrown thing can chomp or hum while it flies: a move's fx
+`"flight_sound": {"id", "every", "at", "volume_db"}` plays `id` every `every` ticks of the flight from
+`at` (AudioView `_flight_sounds`; Mountain Maw's `bite`). Cries and footsteps don't exist
 yet; when the new roster arrives, add them to `data/audio.json` and this table.
 
 ## Music

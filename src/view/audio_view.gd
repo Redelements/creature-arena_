@@ -376,8 +376,10 @@ func on_event(e: Dictionary) -> void:
 
 
 ## A swing sound each time a strike becomes active (once per hit of a multi-hit move),
-## and footsteps for creatures whose JSON names a "step_sound" (Gillbert's wet flops).
+## footsteps for creatures whose JSON names a "step_sound" (Gillbert's wet flops), and
+## a projectile's "flight_sound" while it flies (Mountain Maw's chomps).
 func watch(sim: MatchSim) -> void:
+	_flight_sounds(sim)
 	for c in sim.creatures:
 		var step: Dictionary = c.def.get("step_sound", {})
 		if not step.is_empty() and c.state == CreatureSim.State.MOVE \
@@ -387,6 +389,24 @@ func watch(sim: MatchSim) -> void:
 		if seg >= 0 and seg != int(_seg.get(c.id, -1)):
 			play("swing_light" if c.move_type() == "light" else "swing_heavy")
 		_seg[c.id] = seg
+
+
+## A move's fx "flight_sound" {"id", "every", "at"}: sound `id` plays every `every` ticks of
+## a projectile's flight, first `at` ticks after the throw (Mountain Maw: a chomp each time
+## the flying jaws shut). Counted on the projectile's own life, so a replay chomps alike.
+func _flight_sounds(sim: MatchSim) -> void:
+	for pr in sim.projectiles:
+		var o := int(pr["owner"])
+		if o < 0 or o >= sim.creatures.size():
+			continue
+		var mv: Dictionary = sim.creatures[o].moves().get(String(pr.get("move", "")), {})
+		var fs: Dictionary = mv.get("fx", {}).get("flight_sound", {})
+		if fs.is_empty():
+			continue
+		var flown := int(pr.get("life_total", int(mv.get("projectile", {}).get("life", pr["life"])))) - int(pr["life"])
+		var k := flown - int(fs.get("at", 0))
+		if k >= 0 and k % maxi(1, int(fs.get("every", 8))) == 0:
+			play(String(fs["id"]), float(fs.get("volume_db", 0.0)))
 
 
 func _exit_tree() -> void:

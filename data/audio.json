@@ -426,6 +426,11 @@
       "file": "res://assets/audio/apple_spoiled.wav",
       "volume_db": -7,
       "pitch_jitter": 0.06
+    },
+    "bite": {
+      "file": "res://assets/audio/bite.wav",
+      "volume_db": -8,
+      "pitch_jitter": 0.1
     }
   }
 }

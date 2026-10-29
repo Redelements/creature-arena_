@@ -63,6 +63,7 @@ var view := "side"  ## "side", "up", "down", "down_side" or "up_side": which she
 var mat := ShaderMaterial.new()
 var _views := {}  ## view name -> {tex, size, cols, origin, anims}
 var _cur: Dictionary = {}  ## the view whose sheet the sprite is showing
+var _shown := ["", 0]  ## the animation (named as the side sheet names it) and frame showing now
 ## Set by FxView when a death animation replaces the sprite (Cairn's stones scatter).
 var ko_hidden := false
 ## Set by main when this fighter stands in front of a shorter one and covers it.
@@ -378,6 +379,7 @@ func refresh() -> void:
 	var count := int(anim[2])
 	var idx: int = pick[1] % count if pick[2] else clampi(pick[1], 0, count - 1)
 	sprite.frame = int(anim[0]) * int(v["cols"]) + int(anim[1]) + idx
+	_shown = [_named(pick[0], _views["side"]["anims"]), idx]
 	if sprite.flip_h != flip:
 		sprite.flip_h = flip  # (a Sprite2D redraws on every set)
 	var o: Vector2 = v["origin"]
@@ -917,6 +919,37 @@ func _attack_frame() -> Array:
 	var rec_start := first_at + active
 	var rec_len := maxi(1, length - rec_start)
 	return [name, n - 2 if t - rec_start < rec_len / 2 else n - 1, false]
+
+
+## Whether the frame showing now draws no head: the sprite block's "headless" {anim: [frames]}
+## (Craglash's Mountain Maw, lash 5-7: FxView draws his head on, from "neck_end").
+func headless() -> bool:
+	var h: Dictionary = layout.get("headless", {})
+	if not h.has(_shown[0]):
+		return false
+	for f in h[_shown[0]]:
+		if int(f) == int(_shown[1]):
+			return true
+	return false
+
+
+## One frame of `anim_name` from the sheet showing now (the side sheet when this view lacks
+## it): {tex, region, origin, size, ppu}, the texture the sprite draws with (its normals
+## too), for pieces FxView draws beside the sprite (Mountain Maw's head and neck stones).
+## {} when no sheet has the animation.
+func frame_piece(anim_name: String, idx: int) -> Dictionary:
+	if _views.is_empty():
+		return {}
+	var res := _resolve(anim_name)
+	var v: Dictionary = res[0]
+	if not (v["anims"] as Dictionary).has(anim_name):
+		return {}
+	var a: Array = res[1]
+	var vc := int(v["cols"])
+	var size: Vector2 = v["size"]
+	var f := int(a[0]) * vc + int(a[1]) + clampi(idx, 0, int(a[2]) - 1)
+	return {"tex": v["lit"], "region": Rect2((f % vc) * size.x, (f / vc) * size.y, size.x, size.y),
+		"origin": v["origin"], "size": size, "ppu": int(v["ppu"])}
 
 
 ## The frame count of an animation, from whichever sheet will show it.
