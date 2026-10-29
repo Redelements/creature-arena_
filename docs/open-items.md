@@ -63,6 +63,7 @@ Priorities are in the Game Plan doc, "Game modes". Refreshed 2026-10-27 (unatten
   skipped on Kevin's call) and the two arenas that need them (Saltflat Ring, Night Market
   Roof), Raid (needs a boss sheet), a Steam transport. Everything else in that plan is in.
   Priorities: Game Plan doc, "Game modes".
+- **Council backlog:** `docs/plans/council-backlog.md` sequences the Oct 28 design council's twelve items in three waves with the rulings each needs.
 - **Modes, in flight:** `docs/plans/mode-ideas.md` is the living plan (shrines, the Brawl crown,
   Team Deathmatch sprees and shutdowns, hazards are shipped; the "idea" rows await evidence and
   Kevin's decision). Metrics: `tests/bench_modes.gd`, `docs/plans/mode-metrics.md`. Combat
@@ -75,6 +76,18 @@ Priorities are in the Game Plan doc, "Game modes". Refreshed 2026-10-27 (unatten
   already (#159, #161). Caravan CPUs play the wagon (attackers push and stay on it, defenders hold the road
   ahead; `_caravan_go`): the push still never finishes with Normal bots (about a third of the track),
   because both sides crowd the caravan and a contested caravan doesn't move.
+- **Fixed (Oct 28): ambush openers into the lights.** Burrow and Pickpocket didn't combo into
+  the assassins' lights (found writing the ambush trials, #296): Digby's first two lights are
+  `no_flinch`, so the target Burrow launched landed into a knockdown before light_2, and
+  Pickpocket's 28 hitstun ran out one tick before Pete's first jab landed. Kevin's ruling R10:
+  creature key `ambush_flinch` (Digby, Pete) makes his jabs stagger while the ambush window is
+  open (`ambush_t`, 90 ticks), and Pickpocket's hitstun went 28 to 30. Burrow > light, light,
+  light and Burrow > light, light > heavy are now 4-hit combos; Tiptoe > Pickpocket > three
+  lights too. Burrow > three lights > heavy still ends at the third light: three juggle moves
+  use up `JUGGLE_MAX`, so the heavy whiffs on the airborne foe. Digby's CPU route
+  `skill_2, light, light, light, heavy` would be a real combo as `skill_2, light, light, heavy`
+  (left for Kevin). Burrow's 16 recovery ticks leave one tick to spare for the first light
+  (a buffered press makes it).
 - **Known issues:** Sneaky Pete loses to Mister Crease almost every game *Rage vs Rage* (0 of 12
   on the Stadium, Oct 23): Tiptoe is up every 5 s and the knives chip him down in between.
   `bench_fighter.gd --fighter=pete --foes=crease --seeds=6`: Pete wins 1 of 6 and takes 2x what

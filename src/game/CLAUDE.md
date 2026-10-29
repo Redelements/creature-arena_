@@ -129,7 +129,8 @@ player and live here, outside the sim.
   objective → `TouchTarget.ctf_objective`)
 - Showcases → a `SCRIPTS` entry in `showcase.gd` (steps: wait, press, walk, together,
   dodge, guard, approach, until, place); trials → `trials.gd:after_step`,
-  `data/trials.json`; drills → `drills.gd:_judge`, `SETS`, `REPS`
+  `data/trials.json` (keys in its `_doc`: `gap`, `energy`, `partner_jab`, `ambush`, `approach`;
+  a step's third item is a `via` move, `"hold"` or `"sneak"`); drills → `drills.gd:_judge`, `SETS`, `REPS`
 - Ladders → `ladder.gd` (the shared questions), `arcade.gd`, `gauntlet.gd`, `daily.gd`, `weekly.gd` (a `Daily` seeded by the ISO week, UTC: three mutators, the week's map and look via `_match_look`; scored like the Daily, retried all week, best in progress.json `weekly`; no server board, no saved replay);
   main plays them stage by stage (`_start_arcade_stage`, `_arcade_result`)
 - Spawns → `MatchSim.spawn(side)` (the map's, else `match_factory.gd:SPAWN_LEFT/RIGHT`)
