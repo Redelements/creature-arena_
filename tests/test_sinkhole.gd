@@ -91,11 +91,14 @@ func test_the_cpu_steps_off_the_doomed_edge() -> void:
 	var me := t.sim.creatures[0]
 	var foe := t.sim.creatures[1]
 	me.pos = t.sim.terrain.cell_center(Vector2i(2, 2))
-	foe.pos = t.sim.terrain.cell_center(Vector2i(5, 1))  # the foe idles on ring 1
+	var ring1 := t.sim.terrain.cell_center(Vector2i(5, 1))
+	foe.pos = ring1  # the foe idles on ring 1
 	var survived_first := false
 	for i in _every() * 2 + _warn() * 2 + CreatureSim.FALL_TICKS + 10:
 		if foe.state != CreatureSim.State.KO:
 			foe.hp = foe.max_hp  # the idle foe only goes down with the floor
+		if foe.state != CreatureSim.State.FALLING and foe.state != CreatureSim.State.KO:
+			foe.pos = ring1  # and stays on ring 1 whatever the CPU's hits push him (Oct 29: the slower Normal's play moved him)
 		t.step(PackedInt32Array([cpu.bits(t.sim), 0]))
 		if t.ring == 1 and t.sim.sink_ring < 0:
 			survived_first = survived_first or me.state != CreatureSim.State.KO
