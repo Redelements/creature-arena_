@@ -191,3 +191,21 @@ lights and 28% from skills.
 - Should Cerebro's lights be weaker at point blank (under about 40 px), so his strength stays at knife range?
 - Should Flip Out stay a guard-beating grab at Cerebro's speed, or get a longer startup?
 - Or is it fine as it is: a mage that wins the plain brawl on an open floor, with the assassin meant to win by the sneak engage (brush, Burrow)? Then this needs a playtest on the Greenhouse (brush) rather than a kit change.
+
+## After `light-cancel-refund` (Oct 28 2026, NET_VERSION 62, Normal vs Normal)
+
+Kevin's ruling R3: a fighter, tank or bruiser that dodges out of a light that connected (hit or
+blocked) pays the plain dodge price (`dodge_cancel_connected_mult` 1.0) instead of 1.25x
+(`dodge_cancel_refund_roles` in `data/rules/stamina.json`). `--combat --seeds=4 --only=<id>`,
+before (main at NET_VERSION 61) and after:
+
+```
+fighter    light  heavy  skill  surge  other  combo types    2+  surge/m  dmg/m
+cairn        44%    11%    26%    20%     0%   1.34  1.08    7%     1.71  338.1
+hissy        51%     9%     4%     5%    32%   1.34  1.18   13%     1.39  354.6
+craglash     31%    39%    30%     0%     0%   2.01  1.96   62%     1.91  167.8
+```
+
+Identical before and after, to the digit, as are `--matrix --seeds=5` and the named pairs. The CPU
+never dodges out of its own attack (`CpuController` only presses Dodge from idle or moving), so
+the change is only felt by players. A CPU that jabs and dodges out would be an AI pass of its own.
