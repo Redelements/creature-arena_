@@ -147,8 +147,10 @@ static func _replay_file(main: Main) -> String:
 	var watching: String = main.replay_ctl.path
 	if main._replaying() and watching != "" and FileAccess.file_exists(watching):
 		return watching
-	var newest := _newest(String(main.replays_dir), ".json", 1)
-	return String(newest[0]) if not newest.is_empty() else ""
+	for p in _newest(String(main.replays_dir), ".json", 8):
+		if not ClipMarks.is_sidecar(String(p).get_file()):  # (not a replay's clip markers)
+			return String(p)
+	return ""
 
 
 static func _newest_logs() -> Array:
