@@ -3560,6 +3560,12 @@ func _draw_tongue(ci: CanvasItem, pr: Dictionary) -> void:
 ## vanishing behind it; whenever a headless
 ## frame shows and no head of his flies, his head sits on the neck's end, so he is never
 ## headless on screen. The sprite's frames 8-11 (head attached) take over from tick 48.
+## Hit mid-flight: while the head is out (flying, or snapping home after a flight that ended
+## with him in a reaction), `head_out` on his view swaps his hurt and guard rows for their
+## headless twins (hurt_nohead, guard_nohead: the neck stretched to the same neck_end), so the
+## chain carries on from his neck as in the throw. The head and chain are drawn only while
+## the sprite shows a headless frame: in any other row (a knockdown or knockout, a dodge,
+## idle after a short stun) the flying head is not drawn and his sprite keeps its own.
 ##
 ## Drawn on two children of his CreatureView (`_update_maws`), with his material, light
 ## mask, modulate and the sprite's weather tint, so the chain flashes, turns to stone,
@@ -3569,7 +3575,10 @@ const MAW_SNAP := 5  ## ticks for the head to snap home
 const MAW_SLAB := 5.0  ## px between the chain's stones (the rig's SLAB_SPACING)
 const MAW_DROP := 14.0  ## how far the head drops toward the bite...
 const MAW_DROP_RUN := 60.0  ## ...over this much of its flight
-var _maw := {}  ## creature id -> {"serial", "rel" (the head from the neck's end), "vel", "tick"}: the last flight seen
+## creature id -> {"serial", "rel" (the head from the neck's end), "vel", "tick", "off" (the
+## projectile's offset), "flying", "react" (a snap back that started outside his Maw)}: the
+## last flight seen
+var _maw := {}
 
 
 ## Gives each view whose sprite block has "neck_end" its two maw layers and redraws them.
@@ -3580,6 +3589,7 @@ func _update_maws() -> void:
 		if v == null or not (v as CreatureView).layout.has("neck_end"):
 			continue
 		var cv: CreatureView = v
+		cv.head_out = _maw_out(cv.c)
 		var back := cv.get_node_or_null("MawBack") as Node2D
 		if back == null:
 			back = _maw_layer(cv, "MawBack", false)
@@ -3599,6 +3609,23 @@ func _maw_layer(cv: CreatureView, node_name: String, front: bool) -> Node2D:
 	n.material = cv.mat
 	n.draw.connect(func() -> void: _draw_long_bite(n, cv, front))
 	return n
+
+
+## Whether `c`'s head is off his neck now (his head projectile flies, or a snap back that began
+## outside his Maw is running), recording the flight while it lasts so `_maw_end` can snap
+## the head home from where it was even when he is no longer throwing.
+func _maw_out(c: CreatureSim) -> bool:
+	if c == null:
+		return false
+	var pr := _maw_projectile(c)
+	if not pr.is_empty():
+		var fwd := Vector2(pr["vel"]).normalized()
+		var off := float(c.moves().get(String(pr.get("move", "")), {}).get("projectile", {}).get("offset", 16))
+		_maw[c.id] = {"serial": int(pr["serial"]), "vel": pr["vel"], "tick": sim.tick, "off": off, "flying": true,
+			"rel": _maw_rel(fwd, maxf(0.0, (Vector2(pr["pos"]) - c.pos).dot(fwd) - off))}
+		return true
+	var m: Dictionary = _maw.get(c.id, {})
+	return bool(m.get("react", false)) and sim.tick < int(m["tick"]) + MAW_SNAP
 
 
 ## Where the head is from the neck's end, `s` px along the flight `fwd`.
@@ -3626,13 +3653,14 @@ func _maw_state(c: CreatureSim, cv: CreatureView) -> Dictionary:
 	var home := cv.pivot.position + Vector2(float(e[0]) * sx, float(e[1]))
 	var out := {"home": home, "dir": Vector2(float(nd[0]) * sx, float(nd[1])), "head": home, "open": false,
 		"vel": Vector2(sx, 0), "front": not cv.view in ["up", "up_side"], "flying": false}
+	if not cv.headless():
+		return {}  # his sprite has its own head showing: draw no other
 	var pr := _maw_projectile(c)
 	if not pr.is_empty():
 		var vel: Vector2 = pr["vel"]
 		var fwd := vel.normalized()
 		var off := float(c.moves().get(String(pr.get("move", "")), {}).get("projectile", {}).get("offset", 16))
 		var rel := _maw_rel(fwd, maxf(0.0, (Vector2(pr["pos"]) - c.pos).dot(fwd) - off))
-		_maw[c.id] = {"serial": int(pr["serial"]), "rel": rel, "vel": vel, "tick": sim.tick}
 		var flown := int(pr.get("life_total", pr["life"])) - int(pr["life"])
 		out["head"] = home + rel
 		out["open"] = (flown / 4) % 2 == 0
@@ -3640,10 +3668,8 @@ func _maw_state(c: CreatureSim, cv: CreatureView) -> Dictionary:
 		out["flying"] = true
 		out["floor"] = Vector2(pr["pos"]) - cv.position
 		return out
-	if not cv.headless():
-		return {}
 	var m: Dictionary = _maw.get(c.id, {})
-	if not m.is_empty() and int(m["serial"]) == c.attack_serial:
+	if not m.is_empty() and not bool(m.get("flying", false)) 			and (bool(m.get("react", false)) or int(m["serial"]) == c.attack_serial):
 		# the snap back: slow to start, fast home, keyed on the sim's tick
 		var u := clampf(float(sim.tick - int(m["tick"])) / MAW_SNAP, 0.0, 1.0)
 		out["head"] = home + Vector2(m["rel"]) * (1.0 - u * u)
@@ -3654,10 +3680,19 @@ func _maw_state(c: CreatureSim, cv: CreatureView) -> Dictionary:
 ## The projectile ended (hit or not): where his head was, so the snap back starts there even
 ## when it bit on its first tick and was never drawn in flight.
 func _maw_end(c: CreatureSim, p: Vector2) -> void:
-	if sim == null or not c.def.get("sprite", {}).has("neck_end") or c.state != CreatureSim.State.ATTACK:
+	if sim == null or not c.def.get("sprite", {}).has("neck_end"):
 		return
-	var mv := c.move_def()
+	var mv := c.move_def() if c.state == CreatureSim.State.ATTACK else {}
 	if String(mv.get("fx", {}).get("projectile", "")) != "head":
+		# hit (or otherwise out of his Maw) while the head flew: snap it home from where it
+		# was, onto the headless reaction row his view shows while head_out
+		var last: Dictionary = _maw.get(c.id, {})
+		if not bool(last.get("flying", false)):
+			return
+		var lf := Vector2(last["vel"]).normalized()
+		_maw[c.id] = {"serial": -1, "react": true, "vel": last["vel"], "off": last["off"],
+			"rel": _maw_rel(lf, maxf(0.0, (p - c.pos).dot(lf) - float(last["off"]))),
+			"tick": sim.tick + maxi(sim.hitstop, c.hitstop)}
 		return
 	var fwd := c.facing.normalized()
 	var off := float(mv.get("projectile", {}).get("offset", 16))
