@@ -1,58 +1,50 @@
 ---
 name: context-hygiene
-description: Keeps compaction cheap and safe. Use when /context shows usage above ~60%, before any /compact or /clear, at the end of a phase or after a decision, whenever a file read returns more than ~500 lines, and as the first action after a compaction or clear. Refreshes docs/STATUS.md (the handoff), compacts at boundaries with focus instructions, and keeps heavy reads out of the main window.
+description: Keep a long or unattended Claude Code session from drowning in context. Use for any multi-task run, any job expected to outlive one context window, or when invoked as /context-hygiene. Covers checkpointing state to disk, keeping tool output small, delegating noisy work to subagents, and surviving automatic compaction without losing the goal.
 ---
 
-# Context hygiene
+# Context Hygiene
 
-The handoff file is `docs/STATUS.md`. It is a snapshot (overwrite, never append), under
-150 lines, committed with every phase. A fresh session or another Claude surface reads it to
-pick up the work. Docs: https://code.claude.com/docs/en/context-window.md and
-https://code.claude.com/docs/en/hooks.md (PreCompact, SessionStart `compact`).
+Long runs fail in two ways: context fills with stale tool output and automatic compaction drops the one thing you needed. Both are prevented by keeping state on disk and keeping context lean.
 
-## 1. Handoff first
+## 1. State lives on disk, not in context
 
-When context passes 60%, and before any `/compact` or `/clear`, rewrite `docs/STATUS.md`
-before anything else: current phase and what is done; decisions this session and why; open
-questions and who they wait on; the exact next step; file paths touched this session; the
-last `/context` reading. Then run `python3 tools/write_status.py --trigger phase` (stamps
-time, branch, commit) and commit it.
+- The run's state file (default `docs/autonomy-log.md`, or whatever the current job names) is authoritative. Anything you'd be sad to lose in a compaction goes there the moment you learn it: current task, branch name, open PR number, values chosen, decisions, the next concrete step.
+- Write a checkpoint before every verification run, before every PR, and before every task switch. A checkpoint is three lines: what I'm doing, what's done, what's next.
+- After a compaction, the first action is to read the state file and continue from its last checkpoint. Do not reconstruct from memory.
 
-## 2. Compact or clear at boundaries, never mid-edit
+## 2. Keep tool output small
 
-Prefer a manual `/compact` at the end of a phase or after a decision. Pass instructions:
+- Never cat a whole file you only need part of. Grep for the symbol, read the range.
+- Pipe long commands through a tail or a summary: test runners, benches, headless mode sweeps, git logs. Keep only pass/fail counts and the failing lines. Write the full output to a file under `tmp/` or the run's artifacts folder and reference the path.
+- Never paste large JSON, CSV, or bench matrices into the conversation. Save to a file, read back only the rows you need.
+- Do not re-read a file you just edited to verify the edit; the edit tool already confirmed it.
+- When a command produces more than a screen of output, redo it with a filter before reading it.
 
-```
-/compact Preserve verbatim: decisions, constraints, file paths, pending items, test results. Drop tool output, file contents and exploratory reasoning. docs/STATUS.md is the source of truth; point to it.
-```
+## 3. Delegate noisy work to subagents
 
-If the next task is unrelated to the current one, write STATUS.md and then `/clear`
-instead: a summary of irrelevant history still costs context.
+Spawn a subagent, with a tight prompt and "return only the result", for:
+- Full test suite, journey test, sim-check, headless mode/map sweeps.
+- Balance benches and determinism soaks.
+- Searching across many files for a pattern.
+- Reviewing a large diff.
 
-## 3. Backstop hook
+The subagent eats the output; you receive a short summary. Never run two subagents that edit the same files.
 
-`.claude/settings.json` runs `tools/write_status.py` on PreCompact (manual and auto), so an
-auto-compact never fires without a fresh stamp, and prints a one-line reminder on
-SessionStart `compact`. The hook only stamps; rule 1 is the real mechanism, done with judgment.
-Hook edits in settings files take effect on the next session start.
+## 4. Compaction behavior
 
-## 4. Keep the window from filling
+- Expect automatic compaction during a long run and plan for it rather than fighting it.
+- Keep a short `## Current state` block at the top of the state file, rewritten at every checkpoint, so a post-compaction read of the first 20 lines is enough to resume.
+- If a compaction brief is requested (manual `/compact` or a compaction hook), it must carry: the goal, the current task and its branch, the next concrete step, files touched this task, decisions logged, and the path to the state file. Nothing else.
+- Never store anything in context that only exists in context. If it matters, it is in the file.
 
-- Delegate heavy reads to subagents: inventories, audits, searching an extracted pack,
-  constants sweeps, anything that means many files or large outputs. Only the agent's
-  one-paragraph conclusion enters the main context.
-- Never Read image, PSD, audio or zip files. Inspect them with a script that prints
-  dimensions, frame counts, palette size.
-- Read large text files with offset/limit: grep first, read the hit.
-- Do not re-read a file already read this session unless it changed.
-- Summarise long tool output in one line in the reply instead of quoting it.
+## 5. Session boundaries
 
-## 5. After a compaction or clear
+- Treat every task boundary as a possible session end. Finish the PR, write the checkpoint, then start the next task.
+- If the session ends mid-task, the next session resumes from the state file; the branch and any open PR tell it how far the work got.
 
-First action: read `docs/STATUS.md` and `CLAUDE.md`, state the next step in one line, and
-continue. No re-exploration of the repo.
+## 6. Signals you are doing it wrong
 
-## 6. Measure it
-
-Run `/context` before and after the first compaction of a session and record both numbers in
-the "Context readings" table of `docs/STATUS.md`.
+- You scroll back in the conversation to find a value → it should have been in the state file.
+- A tool result is longer than the task description → filter it.
+- You are about to summarize what happened earlier for yourself → read the state file instead.
