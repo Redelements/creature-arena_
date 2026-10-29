@@ -529,6 +529,9 @@ class Pose:
         self.c2 = kw.get("c2")
         self.face = kw.get("face", "angry")
         self.tilt = kw.get("tilt", 0)            # head offset of the face (-1 looks up)
+        # Side view only: the whole head turned about its centre, degrees (+ tips the face up
+        # and back: Mountain Maw's fling).
+        self.head_rot = kw.get("head_rot", 0.0)
         self.glow = kw.get("glow", 0.0)          # cracks lit up (Bedrock, charge)
         self.scatter = kw.get("scatter", False)  # KO: the neck has fallen apart
         self.lying = kw.get("lying", False)
@@ -945,6 +948,9 @@ def draw_head(rig):
     det = layer()
     _face(Draw(det), cx, cy + p.tilt, p.face)
     img.alpha_composite(clip_to(det, img))
+    if p.head_rot:
+        # turned whole, nearest pixel: the palette and the outline markers stay as drawn
+        img = img.rotate(p.head_rot, resample=Image.NEAREST, center=(cx * DENSITY, cy * DENSITY))
     return img
 
 
@@ -2028,22 +2034,24 @@ MAW_END = dict(head=(32, -33), c2=(19, -33))
 
 
 def maw_new():
-    """Mountain Maw (skill 2), 12 frames: the neck coils back (0-3: 0 held through the raw
-    windup, 3 the deepest), the head snaps out ahead of its neck (4), then the neck at full
-    stretch with no head (5-7, a shiver down the neck: the game draws the head flying on
-    from the neck's end, MAW_END), then the neck reels back in with the head home (8-11)."""
-    cr = dict(lean=-8)
+    """Mountain Maw (skill 2), 12 frames: the fling back (0: the gather, held through the raw
+    windup; 1: the head snapped hard back and up, mouth opening, the neck coiled behind the
+    shoulders, the body leaning back; 2-3: held there with a shiver, jaws wide), the throw
+    (4: the head forward, the neck whipping on behind it over the shoulders), then the neck
+    at full stretch with no head (5-7, a shiver down the neck: the game draws the head flying
+    on from the neck's end, MAW_END), then the neck reels back in with the head home (8-11)."""
+    fling = dict(hip=(-2, -9), feet=((-9, 0), (7, 0)), tilt=-1)
     return [
-        K(hip=(-1, -9), lean=-8, head=(-6, -49), c1=(2, -62), c2=(8, -56), face="angry",
+        K(hip=(-1, -9), lean=-6, head=(-3, -48), c1=(2, -61), c2=(7, -56), face="angry",
           hands=[(-8, -4), (8, -6)], mane=-0.3),
-        K(hip=(-2, -9), lean=-10, head=(-9, -47), c1=(3, -63), c2=(7, -57), face="strain",
-          hands=[(-8, -3), (8, -7)], mane=-0.5),
-        K(hip=(-2, -9), lean=-12, head=(-12, -44), c1=(4, -64), c2=(6, -58), face="strain",
-          hands=[(-8, -2), (8, -8)], mane=-0.7),
-        K(hip=(-2, -9), lean=-14, head=(-15, -47), c1=(4, -66), c2=(-6, -60), face="strain",
-          hands=[(-8, -1), (8, -9)], mane=-1.0, feet=((-9, 0), (7, 0))),
-        K(hip=(1, -9), lean=7, head=(14, -53), c1=(-6, -63), c2=(-14, -60), face="roar",
-          hands=[(-9, -3), (9, -2)], mane=0.4, feet=((-9, 0), (8, 0))),
+        K(lean=-17, head=(-16, -60), c1=(-6, -56), c2=(-18, -62), face="strain", head_rot=35,
+          hands=[(-8, -1), (8, -10)], mane=-1.0, **fling),
+        K(lean=-18, head=(-17, -59), c1=(-5, -55), c2=(-19, -61), face="roar", head_rot=30,
+          hands=[(-8, 0), (8, -9)], mane=-0.9, **fling),
+        K(lean=-17, head=(-16, -61), c1=(-6, -57), c2=(-18, -63), face="roar", head_rot=33,
+          hands=[(-8, -1), (8, -10)], mane=-1.0, **fling),
+        K(hip=(1, -9), lean=9, head=(24, -42), c1=(-4, -60), c2=(6, -54), face="roar", head_rot=-8,
+          hands=[(-9, -3), (9, -2)], mane=0.6, feet=((-9, 0), (8, 0))),
         K(hip=(2, -9), lean=12, c1=(8, -52), face="roar", headless=True,
           hands=[(-9, -1), (9, 0)], mane=1.0, feet=((-9, 0), (8, 0)), **MAW_END),
         K(hip=(2, -9), lean=11, c1=(10, -49), face="roar", headless=True,
@@ -2072,6 +2080,23 @@ def maw_slab():
     """The chain's stones (maw_slab row): one full-thickness neck stone at MAW_END per
     angle on screen, 0 to 162 degrees in 18-degree steps."""
     return [K(part="slab", slab_ang=k * 180.0 / MAW_SLABS, c1=(5, -50), **MAW_END) for k in range(MAW_SLABS)]
+
+
+def nohead(poses):
+    """A reaction row while his head is off flying (Mountain Maw, hit mid-flight): the same
+    poses with the neck stretched out to MAW_END and no head, so the game's flying head
+    and chain carry on from the same neck_end as lash 5-7 (rows hurt_nohead, guard_nohead;
+    the game shows them in place of hurt and guard while the head is out)."""
+    out = []
+    for q in poses:
+        q = copy.copy(q)
+        lift = q.head_lift
+        q.headless = True
+        q.head = (MAW_END["head"][0], MAW_END["head"][1] - lift)
+        q.c2 = (MAW_END["c2"][0], MAW_END["c2"][1] - lift)
+        q.c1 = (5, -50 - lift * 0.5)
+        out.append(q)
+    return out
 
 
 def bedrock_new():
@@ -2182,6 +2207,8 @@ ROWS = [
     ("idle_alt", idle_alt_new()),
     ("maw_head", maw_head()),    # Mountain Maw's flying head and its chain: drawn by the game (fx_view)
     ("maw_slab", maw_slab()),
+    ("hurt_nohead", nohead(hurt())),    # hurt and guard while the head flies (hit mid-Maw)
+    ("guard_nohead", nohead(guard())),
     ("ko", ko()),
 ]
 # Up and down sheets: every row but the knockout, which falls over sideways in any view.
@@ -2242,10 +2269,12 @@ NEW_AT = {
     "heavy": [[0, 4], [10, 5], [14, 6], [16, 7], [21, 8], [27, 9], [35, 10], [46, 11]],
     "skill_1": [[0, 0], [3, 1], [6, 2], [9, 3], [12, 4], [15, 5], [18, 2], [21, 3], [24, 4], [27, 5], [29, 6],
                 [34, 7], [38, 8], [44, 9], [52, 10], [60, 11]],
-    # 5-7 headless from the throw (tick 21, the head flies) until the head has snapped home:
-    # the flight ends by tick 42 and fx_view's snap back takes 5 ticks, then 8-11 reel in
-    "skill_2": [[0, 0], [4, 1], [9, 2], [14, 3], [18, 4], [21, 5], [27, 6], [33, 5], [38, 7], [48, 8], [53, 9],
-                [58, 10], [62, 11]],
+    # the fling back: 0 (held through the raw windup) for two ticks, 1 the snap back by tick 2,
+    # 1-3 held with a shiver (2 and 3 trade every 3 ticks), 4 the throw at tick 18; 5-7
+    # headless from the projectile's spawn (tick 21) until the head has snapped home: the
+    # flight ends by tick 42 and fx_view's snap back takes 5 ticks, then 8-11 reel in
+    "skill_2": [[0, 0], [2, 1], [5, 2], [8, 3], [11, 2], [14, 3], [18, 4], [21, 5], [27, 6], [33, 5], [38, 7],
+                [48, 8], [53, 9], [58, 10], [62, 11]],
     "surge": _bedrock_at(),
 }
 NEW_CHARGE = [0, 4, 6]  # the heavy's held charge: frames 0-3, 6 ticks each (today [0, 2, 6])
@@ -2335,7 +2364,7 @@ def _clips():
                   [(0, 24, "held charge"), (24, 34, "top of the lift (armor)"), hit("heavy", 24, "hit (Rockslide Stomp)")]),
         "charge": move("skill_1", "charge", pre=14, marks=[(0, 14, "windup (red tell)"), hit("skill_1", 14, "hit (Landslide Charge)"),
                                                              (14 + 3, 14 + 28, "dash")]),
-        "lash": move("skill_2", "lash", pre=12, marks=[(0, 12, "windup (red tell)"), (12 + 14, 12 + 21, "deepest coil"),
+        "lash": move("skill_2", "lash", pre=12, marks=[(0, 12, "windup (red tell)"), (12 + 2, 12 + 18, "fling back (held)"), (12 + 18, 12 + 21, "throw"),
                                                        (12 + 21, 12 + 38, "head flies out")]),
         "bedrock": move("surge", "bedrock", pre=8, tail=20, marks=[(0, 8, "windup"), (8 + 4, 8 + 172, "rooted (armor)")]),
     }
@@ -2429,12 +2458,14 @@ def maw_keys():
             dirs[view] = [round(t[0] / ln, 3), round(t[1] / ln, 3)]
     finally:
         F, FH, OX, OY = saved
-    lash = rows["lash"]
-    heads = [k for k, q in enumerate(lash) if getattr(q, "headless", False)]
-    ends_ok = all(whole_pixels(lash[k]).head == pose.head and whole_pixels(lash[k]).c2 == pose.c2 for k in heads)
-    if not ends_ok:
-        raise RuntimeError("every headless lash frame must end its neck at MAW_END")
-    return {"neck_end": ends, "neck_dir": dirs, "headless": {"lash": heads}}
+    out = {}
+    for name in ("lash", "hurt_nohead", "guard_nohead"):
+        row = rows[name]
+        heads = [k for k, q in enumerate(row) if getattr(q, "headless", False)]
+        if not all(whole_pixels(row[k]).head == pose.head and whole_pixels(row[k]).c2 == pose.c2 for k in heads):
+            raise RuntimeError("every headless %s frame must end its neck at MAW_END" % name)
+        out[name] = heads
+    return {"neck_end": ends, "neck_dir": dirs, "headless": out}
 
 
 def maw_problems(sprite):
