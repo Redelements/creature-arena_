@@ -45,6 +45,9 @@ extends Resource
 @export var loop_ticks := 0
 ## Drawn scale on top of the ppu (1: as cut).
 @export var scale := 1.0
+## The scale when the move came out of a full charge (its "hold" values: Runoff's wave);
+## 0 keeps `scale`.
+@export var scale_held := 0.0
 
 
 ## How many ticks it plays: every frame once, or the loop's length.
@@ -73,7 +76,7 @@ func frame_at(t: float) -> int:
 ## {"path": "res://assets/vfx/<name>.tres", "on": "hit", "scale": 0.6, ...}), so one cut
 ## serves many moves with their own hook, size and spot.
 const OVERRIDES := ["on", "at", "offset", "follow", "flip_with_facing", "loop", "loop_ticks", "scale",
-	"ticks_per_frame"]
+	"scale_held", "ticks_per_frame"]
 
 
 ## The MoveFx one `fx.move_fx` entry names: a path, or {"path": ..., <OVERRIDES>...} (a copy of
@@ -97,8 +100,8 @@ static func from_entry(v) -> MoveFx:
 				f.on = String(x)
 			"follow", "flip_with_facing", "loop":
 				f.set(k, bool(x))
-			"scale":
-				f.scale = float(x)
+			"scale", "scale_held":
+				f.set(k, float(x))
 			_:
 				f.set(k, int(x))
 	return f

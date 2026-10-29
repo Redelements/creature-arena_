@@ -123,7 +123,10 @@ func _spawn(f: MoveFx, c: CreatureSim, at: Vector2, move_length: int) -> void:
 	if _fx[i] == null:
 		_live += 1
 	var flip := c != null and f.flip_with_facing and c.facing.x < 0.0
-	var off := Vector2(-f.offset.x if flip else f.offset.x, f.offset.y)
+	var held := c != null and f.scale_held > 0.0 and c.charge_ratio >= 1.0
+	var k := f.scale_held if held else f.scale
+	# A held one grows from the same spot: its offset scales with it.
+	var off := Vector2(-f.offset.x if flip else f.offset.x, f.offset.y) * (k / f.scale if held and f.scale > 0.0 else 1.0)
 	var follow := c != null and f.follow
 	_fx[i] = f
 	_t[i] = 0.0
@@ -135,7 +138,7 @@ func _spawn(f: MoveFx, c: CreatureSim, at: Vector2, move_length: int) -> void:
 	s.sprite_frames = f.frames
 	s.animation = f.animation
 	s.flip_h = flip
-	s.scale = ArtScale.scale_of(f.ppu) * f.scale
+	s.scale = ArtScale.scale_of(f.ppu) * k
 	s.frame = 0
 	s.visible = true
 	_place(i)

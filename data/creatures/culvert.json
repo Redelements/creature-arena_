@@ -128,10 +128,10 @@
       "name": "Runoff", "anim": "runoff", "anim_at": [[0, 2], [4, 3], [8, 4], [9, 5], [15, 6], [22, 7]], "anim_charge": [0, 2, 6], "windup": 6, "tell": "strong", "cooldown": 240,
       "startup": 9, "active": 4, "recovery": 18, "charge_max": 12,
       "damage": 3, "knockback": 6.8, "hitstun": 24, "hitstop": 6,
-      "reach": 12, "hit_radius": 22, "cone": 0.45,
-      "hold": { "reach": 22, "hit_radius": 42, "damage": 9, "knockback": 4.5, "hitstun": 28,
+      "reach": 24, "hit_radius": 44, "cone": 0.45,
+      "hold": { "reach": 44, "hit_radius": 84, "damage": 9, "knockback": 4.5, "hitstun": 28,
         "slow_ticks": 120, "slow_mult": 0.6 },
-      "fx": { "wave_cone": true, "move_fx": {"path": "res://assets/vfx/water_wave.tres", "on": "strike", "follow": false, "scale": 1.2, "offset": [6, -18]} }
+      "fx": { "wave_cone": true, "move_fx": {"path": "res://assets/vfx/water_wave.tres", "on": "strike", "follow": false, "scale": 2.4, "scale_held": 4.4, "offset": [12, -36]} }
     },
     "surge": {
       "name": "Storm Drain", "anim": "storm",
