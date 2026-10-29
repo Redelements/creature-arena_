@@ -1254,7 +1254,7 @@ func _update_attack(buttons: int, pressed: int, dir: Vector2, sim: MatchSim) -> 
 		_move(walk_vel, sim, true)
 	var dash: Dictionary = mv.get("dash", {})
 	if not dash.is_empty() and t >= int(dash["from"]) and t <= int(dash["to"]) and dash.has("home"):
-		_home(dash, t, sim)
+		_home(dash, t, dir, sim)
 	elif not dash.is_empty() and t >= int(dash["from"]) and t <= int(dash["to"]) \
 			and (not connected or bool(dash.get("ghost", false))):  # a ghost dash runs on past
 		# A steerable dash (Burrow): the stick turns it a little each tick.
@@ -1301,7 +1301,7 @@ func _update_attack(buttons: int, pressed: int, dir: Vector2, sim: MatchSim) -> 
 	# A vanish and reappear behind the foe (The Big Heist).
 	var bl: Dictionary = mv.get("blink", {})
 	if not bl.is_empty() and t == int(bl["at"]):
-		_blink(bl, sim)
+		_blink(bl, dir, sim)
 
 	# A gaze (Stone Gaze): every few ticks, slow whoever is in front and looking back.
 	var gaze: Dictionary = mv.get("gaze", {})
@@ -1409,13 +1409,27 @@ func _aim(cone: float, sim: MatchSim) -> void:
 		facing = n
 
 
+## Who a homing dash or a blink goes for. With a "lock_on" block ({dot}, Sneaky Pete's
+## dives) it's the foe the held aim points at (MatchSim.aimed_opponent, as a lob's
+## lock_on), so he can dive past a nearer foe; with none in the cone, or no aim held, or
+## no "lock_on", the nearest foe as before.
+func _dive_target(spec: Dictionary, aim: Vector2, sim: MatchSim) -> CreatureSim:
+	if spec.has("lock_on") and aim != Vector2.ZERO:
+		var lk: Dictionary = spec["lock_on"]
+		var picked := sim.aimed_opponent(self, aim.normalized(), float(lk.get("dot", 0.92)))
+		if picked != null:
+			return picked
+	return sim.nearest_opponent(self)
+
+
 ## A homing dash (The One That Got Away): until "home.until" it steers for the nearest
 ## foe and paces itself to arrive as the dash ends (no faster than "home.max"); after that
-## the landing spot is locked, so a late sidestep or dodge still beats it.
-func _home(dash: Dictionary, t: int, sim: MatchSim) -> void:
+## the landing spot is locked, so a late sidestep or dodge still beats it. With
+## "home.lock_on" it steers for the foe the held aim points at instead (_dive_target).
+func _home(dash: Dictionary, t: int, aim: Vector2, sim: MatchSim) -> void:
 	var hm: Dictionary = dash["home"]
 	var spd := float(dash["speed"])
-	var foe := sim.nearest_opponent(self)
+	var foe := _dive_target(hm, aim, sim)
 	if foe != null and t <= int(hm.get("until", int(dash["to"]))):
 		var to := foe.pos - pos
 		var dist := to.length()
@@ -1434,8 +1448,9 @@ func _home(dash: Dictionary, t: int, sim: MatchSim) -> void:
 
 ## Reappears behind the nearest foe (opposite the way it faces), or on its far side when
 ## that spot is a hole or off the floor; stays put when neither will do. Then faces it.
-func _blink(bl: Dictionary, sim: MatchSim) -> void:
-	var foe := sim.nearest_opponent(self)
+## With "blink.lock_on" it picks the foe the held aim points at instead (_dive_target).
+func _blink(bl: Dictionary, aim: Vector2, sim: MatchSim) -> void:
+	var foe := _dive_target(bl, aim, sim)
 	if foe == null:
 		return
 	var gap := float(foe.radius + radius) + float(bl.get("gap", 2.0))
