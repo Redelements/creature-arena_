@@ -660,10 +660,14 @@ back exactly; swapping your fighter starts a fresh replay from the swap.
 
 ### Learning the game: Combo Trials and Reaction Drills
 
-- **Combo Trials** (`data/trials.json`, 31 trials): each trial plays a demo of the route,
+- **Combo Trials** (`data/trials.json`, 36 trials): each trial plays a demo of the route,
   then it's your turn. Every move must come out in order and connect, and the combo can't
   drop. The caption shows the route with your buttons and ticks off each move. F2 shows
   the demo again, F4 skips to the next trial.
+- **Ambush trials** teach the sneak engage. They start far apart, and the first hit must
+  land out of hiding, so the ambush bonus applies; get seen first and it's SPOTTED. Digby
+  burrows in and cancels into Cave-In. Sneaky Pete Tiptoes ("sneak in" on the caption),
+  walks up unseen and opens with jabs or Pickpocket.
 - **Reaction Drills:** the partner throws random raw big moves; answer red by rolling
   away (or hitting first) and gold by guarding. 20 reps, scored with your streak and
   average reaction time from the tell. *Read Culvert* mixes Gulp, Slam and Runoff;
@@ -836,7 +840,7 @@ Voice line: a placeholder "I DIG IT!" (see the PR).
 | Light | Claw Swipe, Claw Swipe, Pickaxe Swing | A quick double slash with his claws, then the pickaxe |
 | Heavy | Pickaxe Pop-Up | He digs in and bursts up **under a foe about 40 px ahead** with the pickaxe, in a burst wide enough to catch anyone standing close: launches (10 damage, 14 charged). A ring on the floor marks the spot. Hold to charge |
 | Skill 1 | Headlamp Flash | Flicks on his helmet light: a foe it catches is **blinded**, and **their next attack misses** (or the blind wears off after 4 s). Guarding stops it |
-| Skill 2 | Burrow | Dives underground and tunnels about 130 px, steering harder than it used to, **steered with the stick**: out of reach, under bodies and across pits, under a moving mound of dirt. Pops up at the end and knocks up whoever is on top; an uppercut from below, it **breaks guards**. Underground he is **out of sight** (the CPU loses him and goes where it last saw him; you still see the mound), so the pop-up is an **ambush: 25% harder, and so is everything he lands in the next 1.5 s** |
+| Skill 2 | Burrow | Dives underground and tunnels about 130 px, steering harder than it used to, **steered with the stick**: out of reach, under bodies and across pits, under a moving mound of dirt. Pops up at the end and knocks up whoever is on top; an uppercut from below, it **breaks guards**. Underground he is **out of sight** (the CPU loses him and goes where it last saw him; you still see the mound), so the pop-up is an **ambush: 25% harder, and so is everything he lands in the next 1.5 s**, and in that window his swipes stagger, so the pop-up runs into Swipe, Swipe, Pickaxe |
 | Surge | Cave-In | Rears up and slams the floor: the ground caves in all around the spot ahead, (65 px wide, cracking the floor) damaging and **rooting** everyone caught for 2.5 s (they can still attack and guard, but can't walk or dodge) |
 
 No passive on the sheet. His victory emote (jumping out of the ground with a flip) waits
@@ -854,7 +858,7 @@ shoulder. He wins by not being where you're looking. Voice line: "Finders keeper
 | --- | --- | --- |
 | Light | Sucker Punch, Cheap Shot, Bag Swing | Two quick jabs, then the bag comes round |
 | Heavy | Sack Smack | A big wound-up swing of the money bag that knocks the foe well back. Hold to charge: tapped it's an ordinary heavy that can be blocked; **held to a full charge it breaks guards**, and he flashes red with "GUARD BREAK" over his head the moment the charge is full |
-| Skill 1 | Tiptoe | He sneaks forward and goes **invisible** for 3 s (a faint shimmer is all you see) and **35% quicker** (every 7 s). A staggering hit gives him away (a knife flick doesn't); so does his own attack, but only as it lands, and that **ambush hits 20% harder, and so does everything he lands in the next 1.5 s**. The CPU loses track of him and goes where it last saw him |
+| Skill 1 | Tiptoe | He sneaks forward and goes **invisible** for 3 s (a faint shimmer is all you see) and **35% quicker** (every 7 s). A staggering hit gives him away (a knife flick doesn't); so does his own attack, but only as it lands, and that **ambush hits 20% harder, and so does everything he lands in the next 1.5 s**; in that window his jabs stagger, so Pickpocket out of Tiptoe runs into the string. The CPU loses track of him and goes where it last saw him |
 | Skill 2 | Pickpocket | A low dash that **steers onto** the nearest foe, runs right **through**, hits on the way past and **steals 10% of their attack power** for 5 s (every 4 s): his hits land 10% harder, theirs 10% softer. A gold windup tell gives it away |
 | Surge | The Big Heist | A puff of smoke and he's gone, then he **reappears behind the foe** (on their far side if the spot behind is a pit or a wall) for a flurry of bag hits and a big finishing smack that knocks down, its smoke **blinding** everyone within 45 px |
 | Passive | Five-Finger Discount | **Lifesteal:** he heals 8% of the health every hit of his takes (clean hits and hits on armor; a blocked hit takes none, so it heals none), up to his max HP |

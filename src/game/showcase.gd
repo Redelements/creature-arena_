@@ -16,7 +16,7 @@ extends RefCounted
 ##   together bits        press [left, right] on the same tick
 ##   dodge who dir        roll "away" from, "through", or "flank" (up and toward) the other fighter
 ##   guard who            hold guard until an attack is blocked
-##   approach who         walk until in jab range, lined up horizontally
+##   approach who [gap]   walk until in jab range (or "gap" px apart), lined up horizontally
 ##   until cond           wait for "settled" (both free) or "move:<side>:<id>"
 ##   place                fade out, repair the floor, put both back at the start, fade in
 ##                        ("dir": "right" | "up" | "down" puts the right-hand fighter
@@ -728,7 +728,7 @@ func inputs(sim: MatchSim) -> PackedInt32Array:
 			var c := sim.creatures[who]
 			var o := sim.creatures[1 - who]
 			var d := o.pos - c.pos
-			var reach := c.radius + o.radius + 4.0
+			var reach := c.radius + o.radius + float(s.get("gap", 4.0))
 			if absf(d.y) > 3.0:
 				out[who] = SimDefs.bits_from_dir(Vector2(0, signf(d.y)))
 			elif absf(d.x) > reach:

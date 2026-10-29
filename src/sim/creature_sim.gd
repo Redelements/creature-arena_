@@ -1006,9 +1006,15 @@ func can_dodge_cancel() -> bool:
 
 
 ## What a dodge out of your own attack costs: the dodge's cost × `dodge_cancel_cost_mult`
-## (data/rules/stamina.json), so a whiff can't be made safe for free every time.
+## (data/rules/stamina.json), so a whiff can't be made safe for free every time. A light
+## that connected on this use (hit or blocked: `connected`) is left for
+## `dodge_cancel_connected_mult` × the cost instead, for the roles in
+## `dodge_cancel_refund_roles` (fighters, tanks, bruisers: a jab and out).
 func dodge_cancel_cost() -> float:
-	return dodge_cost * float(stamina_rules().get("dodge_cancel_cost_mult", 1.25))
+	var r := stamina_rules()
+	if connected and move_type() == "light" 			and (r.get("dodge_cancel_refund_roles", []) as Array).has(String(def.get("role", "fighter"))):
+		return dodge_cost * float(r.get("dodge_cancel_connected_mult", 1.0))
+	return dodge_cost * float(r.get("dodge_cancel_cost_mult", 1.25))
 
 
 ## Stamina to block with. Exhausted (at 0) a guard can't start.
@@ -1070,9 +1076,11 @@ func dodge_cooldown_ratio() -> float:
 	return float(cooldowns.get("dodge", 0)) / total if total > 0.0 else 0.0
 
 
-func _start_dodge(dir: Vector2, sim: MatchSim, cancel := false) -> void:
+## `cost` < 0 is the plain dodge price; a dodge cancel passes its `dodge_cancel_cost`,
+## priced before `cancel_attack` clears the move's `connected`.
+func _start_dodge(dir: Vector2, sim: MatchSim, cancel := false, cost := -1.0) -> void:
 	var dg: Dictionary = def["dodge"]
-	spend_stamina(dodge_cancel_cost() if cancel else dodge_cost)
+	spend_stamina(cost if cost >= 0.0 else dodge_cost)
 	if int(dg.get("cooldown", 0)) > 0:
 		cooldowns["dodge"] = int(dg["cooldown"])
 	if dg.has("ram"):
@@ -1184,8 +1192,9 @@ func _update_attack(buttons: int, pressed: int, dir: Vector2, sim: MatchSim) -> 
 	if (pressed & SimDefs.IN_DODGE) or dodge_buffer > 0:
 		var ddir := SimDefs.move_from_bits(buttons)
 		if can_dodge_cancel():
+			var cost := dodge_cancel_cost()
 			cancel_attack()
-			_start_dodge(ddir if ddir != Vector2.ZERO else dodge_buffer_dir, sim, true)
+			_start_dodge(ddir if ddir != Vector2.ZERO else dodge_buffer_dir, sim, true, cost)
 			return
 		if pressed & SimDefs.IN_DODGE:
 			dodge_buffer = BUFFER_TICKS
@@ -1588,7 +1597,8 @@ func _ram_step(ram: Dictionary, sim: MatchSim, moved: Vector2, wanted: Vector2) 
 
 
 func _update_guard(buttons: int, pressed: int, dir: Vector2, aim: Vector2, sim: MatchSim) -> void:
-	var foe := sim.nearest_opponent(self)
+	# Faces the nearest foe it can see; with none in sight it keeps the way it faced.
+	var foe := sim.nearest_seen(self)
 	if foe != null and foe.pos.distance_squared_to(pos) > 0.0001:
 		facing = (foe.pos - pos).normalized()
 	if stun > 0:

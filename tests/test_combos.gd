@@ -283,3 +283,63 @@ func test_sno_flavor_blast() -> void:
 	sim.creatures[0].energy = 100.0
 	var dmg := route(sim, 0, [[L, "light_1"], [L, "light_2"], [L, "light_3"], [H, "heavy"], [SU, "surge"]])
 	assert_near(dmg, 21 + 12 * 1.15 + 22.4 * 1.3, 0.05, "... > Shaved Ice > Flavor Blast:")  # x1.4: an area Surge
+
+
+## Ambush openers into the lights ("ambush_flinch"): out of stealth, Digby's and Pete's jabs
+## stagger for the ambush window, so the opener starts a real combo. A training dummy stands
+## still; the attacker holds toward it like a player and mashes each button until its move
+## starts. Returns the "combo" count of every hit he lands, in order; `downed` is set when
+## the dummy is knocked down (invulnerable) before the last step's move starts.
+func _ambush_string(fighter: String, gap: float, steps: Array) -> Dictionary:
+	var sim := MatchFactory.training(fighter)
+	var a := sim.creatures[0]
+	var d := sim.creatures[1]
+	a.pos = Vector2(200, 164)
+	d.pos = Vector2(200 + a.radius + d.radius + gap, 164)
+	var combos: Array[int] = []
+	var downed := false
+	for s in steps:
+		var serial := a.attack_serial
+		var press := true
+		var started := false
+		for i in 160:
+			sim.step(PackedInt32Array([(int(s[0]) if press else 0) | SimDefs.move_bits(d.pos - a.pos), 0]))
+			press = not press
+			for e in sim.events:
+				if String(e["type"]) == "hit" and int(e["attacker"]) == a.id:
+					combos.append(int(e["combo"]))
+			if d.state == CreatureSim.State.KNOCKDOWN:
+				downed = true
+			if a.attack_serial != serial and a.move_id == String(s[1]):
+				started = true
+				break
+		if not started:
+			fail("%s never reached %s (combo %d)" % [fighter, s[1], d.combo_hits])
+			return {"combos": combos, "downed": downed}
+	for i in 60:  # the last move plays out
+		sim.step(PackedInt32Array([0, 0]))
+		for e in sim.events:
+			if String(e["type"]) == "hit" and int(e["attacker"]) == a.id:
+				combos.append(int(e["combo"]))
+	return {"combos": combos, "downed": downed}
+
+
+func test_digby_burrow_into_the_claws() -> void:
+	# The pop-up launches; out of the ambush his first two swipes juggle like the Pickaxe.
+	# Each of the three lights uses a juggle point (JUGGLE_MAX), so the string ends there.
+	var r := _ambush_string("digby", 96.0, [[S2, "skill_2"], [L, "light_1"], [L, "light_2"], [L, "light_3"]])
+	assert_eq(r["combos"], [1, 2, 3, 4], "Burrow > Swipe, Swipe, Pickaxe, one combo:")
+	assert_false(r["downed"], "the dummy is kept up until the last light")
+
+
+func test_digby_burrow_into_the_pop_up() -> void:
+	# His real Burrow route: two swipes, then the Pickaxe Pop-Up takes the third juggle point.
+	var r := _ambush_string("digby", 96.0, [[S2, "skill_2"], [L, "light_1"], [L, "light_2"], [H, "heavy"]])
+	assert_eq(r["combos"], [1, 2, 3, 4], "Burrow > Swipe, Swipe > Pickaxe Pop-Up, one combo:")
+	assert_false(r["downed"], "no knockdown mid-string")
+
+
+func test_pete_pickpocket_into_the_jabs() -> void:
+	var r := _ambush_string("pete", 40.0, [[S1, "skill_1"], [S2, "skill_2"], [L, "light_1"], [L, "light_2"], [L, "light_3"]])
+	assert_eq(r["combos"], [1, 2, 3, 4], "Tiptoe > Pickpocket > Jab, Jab, Bag Swing, one combo:")
+	assert_false(r["downed"], "no knockdown mid-string")

@@ -94,6 +94,9 @@ var storms: Array[Dictionary] = []
 var plants: Array = []
 var plant_seq := 0
 var events: Array[Dictionary] = []
+## Scratch, rebuilt at the start of every step from the creatures' state (so not saved):
+## per creature 1 if it was in stealth as the tick began. `nearest_seen` reads it.
+var hidden_at_step := PackedByteArray()
 ## The map's bridges ("bridges" in its JSON: {rect, strain, reform_seconds, crack}): per
 ## bridge [ticks until it stands again (0: standing), warned]. A heavy hit on someone
 ## standing on one cracks the floor under them (`crack` px, and the cell they're on a
@@ -303,6 +306,9 @@ func step(inputs: PackedInt32Array) -> void:
 	if every > 0 and tick % every == 0:
 		for c in creatures:  # Surge rush: everyone's meter fills
 			gain_energy(c, CreatureSim.MAX_ENERGY)
+	hidden_at_step.resize(creatures.size())
+	for i in creatures.size():
+		hidden_at_step[i] = 1 if creatures[i].stealth > 0 else 0
 	for i in creatures.size():
 		var c := creatures[i]
 		if c.hitstop > 0:
@@ -371,6 +377,28 @@ func nearest_opponent(c: CreatureSim) -> CreatureSim:
 	var best_d := INF
 	for o in creatures:
 		if not c.is_foe(o) or o.state == CreatureSim.State.KO:
+			continue
+		var d := o.pos.distance_squared_to(c.pos)
+		if d < best_d:
+			best_d = d
+			best = o
+	return best
+
+
+## The nearest foe `c` can see, for the guard's facing: like `nearest_opponent`, but a foe
+## in stealth (Tiptoe, a hidden Burrow) doesn't count. Who's hidden is read as it was at the
+## start of the tick (`hidden_at_step`), so a foe whose strike gives it away this tick is
+## faced the next tick whichever of the two steps first. A foe in brush (`covered`) still
+## counts: the ground hides it, not a skill. Null when every foe is down or hidden.
+func nearest_seen(c: CreatureSim) -> CreatureSim:
+	var best: CreatureSim = null
+	var best_d := INF
+	var known := hidden_at_step.size() == creatures.size()
+	for i in creatures.size():
+		var o := creatures[i]
+		if not c.is_foe(o) or o.state == CreatureSim.State.KO:
+			continue
+		if (hidden_at_step[i] != 0) if known else (o.stealth > 0):
 			continue
 		var d := o.pos.distance_squared_to(c.pos)
 		if d < best_d:
@@ -699,6 +727,10 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	if no_flinch and d.has_mark(String(hit.get("stagger_if", ""))):
 		no_flinch = false
 		paid_off = true
+	# Out of an ambush ("ambush_flinch": Digby, Pete): while the window is open his jabs
+	# stagger like ordinary lights, so the opener from stealth starts a real combo.
+	if no_flinch and a.ambush_t > 0 and bool(a.def.get("ambush_flinch", false)) and String(hit["type"]) == "light":
+		no_flinch = false
 	var was_stunned := d.is_stunned()
 	var n := d.combo_hits + 1
 	var types := d.combo_types | int(SimDefs.TYPE_BIT[String(hit["type"])])

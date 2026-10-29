@@ -7,13 +7,15 @@ const ACTION_BIT := ComboTrials.ACTION_BIT
 
 
 ## Plays the current trial like a player: watch the demo, then perform the route.
-func _attempt(t: ComboTrials, wrong_first := false) -> String:
+## After a "sneak" step it walks in to the trial's "approach" range, `linger` ticks late.
+func _attempt(t: ComboTrials, wrong_first := false, linger := 0) -> String:
 	var sim := t.sim
 	var r := t.route()
 	var step := 0
 	var press := false
 	var serial := -1
 	var hold_left := 0  ## a "hold" step: keep its button down this many more ticks
+	var waited := 0
 	for i in 3000:
 		var bits := 0
 		if t.phase == ComboTrials.Phase.PLAY:
@@ -27,9 +29,20 @@ func _attempt(t: ComboTrials, wrong_first := false) -> String:
 						hold_left = int(a.move_def().get("charge_max", 0))
 						bits = ACTION_BIT[String(r[step][0])]
 					step += 1
+			var o := sim.creatures[1]
+			var gap := a.pos.distance_to(o.pos) - a.radius - o.radius
 			if hold_left > 0:
 				hold_left -= 1
 				bits = ACTION_BIT[String(r[step - 1][0])]
+			elif step > 0 and step < r.size() and ComboTrials.sneak(r[step - 1]) 					and (a.state == CreatureSim.State.ATTACK or waited < linger
+						or gap > float(t.trial().get("approach", 4.0))):
+				# Hidden: let the sneak move finish, then creep up (lined up first, like the demo).
+				if a.state != CreatureSim.State.ATTACK:
+					waited += 1
+					if waited > linger:
+						var d := o.pos - a.pos
+						var dir := Vector2(0, signf(d.y)) if absf(d.y) > 3.0 else Vector2(signf(d.x), 0)
+						bits = SimDefs.bits_from_dir(dir)
 			elif step < r.size():
 				var want := String(r[step][0])
 				if wrong_first and step == 0:
@@ -42,6 +55,8 @@ func _attempt(t: ComboTrials, wrong_first := false) -> String:
 				else:
 					press = not press
 					bits = ACTION_BIT[want] if press else 0
+					if bool(t.trial().get("ambush", false)) and press:
+						bits |= SimDefs.bits_from_dir((o.pos - a.pos).normalized())  # face him again
 		sim.step(t.inputs(bits))
 		t.after_step()
 		if t.phase == ComboTrials.Phase.RESULT:
@@ -65,6 +80,32 @@ func test_a_wrong_move_fails_the_attempt() -> void:
 	t.build()
 	var result := _attempt(t, true)
 	assert_true(result.begins_with("WRONG MOVE"), "pressing heavy first should fail, got " + result)
+
+
+func _ambush_trials(t: ComboTrials) -> Array:
+	var out := []
+	for i in t.trials.size():
+		if bool(t.trials[i].get("ambush", false)):
+			out.append(i)
+	return out
+
+
+## The sneak-engage trials (Digby's Burrow, Pete's Tiptoe): five of them, each fails on a
+## wrong opener, and the Tiptoe ones fail when the stealth runs out before the first hit.
+func test_ambush_trials_judge_the_opener() -> void:
+	var t := ComboTrials.new()
+	var ids := _ambush_trials(t)
+	assert_eq(ids.size(), 5, "ambush trials")
+	for i in ids:
+		t.index = i
+		t.build()
+		var result := _attempt(t, true)
+		assert_true(result.begins_with("WRONG MOVE"), "trial %d (%s), heavy first should fail, got %s"
+			% [i + 1, String(t.trial()["name"]), result])
+		if ComboTrials.sneak(t.route()[0]):
+			t.build()
+			result = _attempt(t, false, 240)  # Tiptoe lasts 180 ticks: walk in too late
+			assert_eq(result, "SPOTTED", "trial %d (%s), stealth ran out:" % [i + 1, String(t.trial()["name"])])
 
 
 ## Answers each tell the way the drill teaches: roll away from red, guard gold.

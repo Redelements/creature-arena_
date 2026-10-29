@@ -95,6 +95,7 @@ func test_the_best_and_the_streak_round_trip() -> void:
 	Progress.day_override = 20261027
 	Progress.award(_fight())
 	Progress.reset_for_tests(p)  # read back from the file
+	Progress.day_override = 20261027  # the reset clears it, and the streak is judged against today
 	assert_eq(Progress.weekly_best(202644), 1100, "the best per week is saved:")
 	assert_eq(Progress.weekly_best(202645), 300, "each week its own:")
 	assert_eq(Progress.streak_days(), 1, "the streak is saved:")

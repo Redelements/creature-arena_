@@ -6,6 +6,7 @@
   "role": "assassin",
   "ambush": 1.2,
   "ambush_ticks": 90,
+  "ambush_flinch": true,
   "lifesteal": 0.08,
   "max_hp": 170,
   "speed": 2.99,
@@ -128,7 +129,7 @@
     "skill_2": {
       "name": "Pickpocket", "anim": "pick", "windup": 9, "tell": "strong", "cooldown": 240,
       "startup": 6, "active": 14, "recovery": 10,
-      "damage": 5, "knockback": 0.6, "hitstun": 28, "hitstop": 5, "juggle": true,
+      "damage": 5, "knockback": 0.6, "hitstun": 30, "hitstop": 5, "juggle": true,
       "steal_ticks": 300, "steal": 0.1,
       "reach": 4, "hit_radius": 14,
       "dash": { "speed": 4.6, "from": 4, "to": 18, "ghost": true, "home": { "until": 12, "max": 4.6, "through": true, "lock_on": { "dot": 0.92 } } },
