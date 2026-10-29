@@ -428,6 +428,27 @@ func test_tap_uses_the_wider_touch_assist_with_the_stick_held() -> void:
 	assert_false(stick & SimDefs.IN_AIM, "the pad's stick assist would not have")
 
 
+## The whole touch path: a tap 20 degrees off a Tiptoed Pete (main marks him hidden, so
+## the lock skips him) goes where the thumb aimed; aim assist doesn't find him either.
+func test_tap_is_not_assisted_onto_a_stealthed_foe() -> void:
+	var sim := MatchFactory.versus("cairn", "pete")
+	var me := sim.creatures[0]
+	var pete := sim.creatures[1]
+	pete.pos = me.pos + Vector2(60, 0)
+	pete.stealth = 180
+	var pin := _touch_input()
+	pin.target.chase_on = false
+	pin.touch_hidden = [false, true]
+	var p := pin.touch
+	var walk := Vector2(cos(deg_to_rad(20.0)), sin(deg_to_rad(20.0)))
+	_down(p, 0, p.rest_spot())
+	_drag(p, 0, p.rest_spot() + walk * 25.0)
+	_down(p, 1, p.center("light"))
+	var b := pin.bits(sim, 0, Vector2.ZERO)
+	assert_true(b & SimDefs.IN_LIGHT, "light")
+	assert_false(b & SimDefs.IN_AIM, "not bent onto the hidden Pete")
+
+
 func test_drag_aim_throws_the_move_that_way_in_the_sim() -> void:
 	var sim := MatchFactory.training("cairn")
 	var me := sim.creatures[0]

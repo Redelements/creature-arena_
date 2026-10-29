@@ -2,7 +2,8 @@ extends RefCounted
 class_name ReplayViewer
 ## The Replay theater's playback controls, for main (`replay_ctl`), only while a replay
 ## is watched (`main._replaying()`): pause and resume, one tick forward or back, slow
-## motion and fast forward (`SPEEDS`), and jumps (5 s back or on, the start). Views only:
+## motion and fast forward (`SPEEDS`), jumps (5 s back or on, the start) and Export clip
+## (`replay_clip`, clip_export.gd). Views only:
 ## the recorded inputs are never changed, and a jump rebuilds the match exactly.
 ##
 ## Speed: `ticks_now()` is how many sim ticks main runs this physics frame (0 when paused
@@ -41,6 +42,7 @@ const KEYS := [
 	["replay_back", "Left", "D-pad left", "back 5 s"],
 	["replay_forward", "Right", "D-pad right", "on 5 s"],
 	["replay_start", "Home", "Y", "from the start"],
+	["replay_clip", "C", "R3", "export a clip"],
 ]
 
 var main: Main
@@ -161,6 +163,8 @@ func handle(event: InputEvent) -> bool:
 	elif event.is_action_pressed("replay_start"):
 		seek(0)
 		main.hud.show_toast("From the start")
+	elif event.is_action_pressed("replay_clip"):
+		main.clip_ctl.open_screen(true)  # (clip_export.gd: the replay holds while it's open)
 	else:
 		return false
 	update_hud()

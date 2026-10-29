@@ -88,6 +88,7 @@ const BINDINGS := {
 	"replay_back": {"keys": [KEY_LEFT], "buttons": [JOY_BUTTON_DPAD_LEFT]},
 	"replay_forward": {"keys": [KEY_RIGHT], "buttons": [JOY_BUTTON_DPAD_RIGHT]},
 	"replay_start": {"keys": [KEY_HOME], "buttons": [JOY_BUTTON_Y]},
+	"replay_clip": {"keys": [KEY_C], "buttons": [JOY_BUTTON_RIGHT_STICK]},
 }
 
 const CLASSIC_BITS := {
