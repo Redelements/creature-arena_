@@ -1582,7 +1582,8 @@ func _ram_step(ram: Dictionary, sim: MatchSim, moved: Vector2, wanted: Vector2) 
 
 
 func _update_guard(buttons: int, pressed: int, dir: Vector2, aim: Vector2, sim: MatchSim) -> void:
-	var foe := sim.nearest_opponent(self)
+	# Faces the nearest foe it can see; with none in sight it keeps the way it faced.
+	var foe := sim.nearest_seen(self)
 	if foe != null and foe.pos.distance_squared_to(pos) > 0.0001:
 		facing = (foe.pos - pos).normalized()
 	if stun > 0:
