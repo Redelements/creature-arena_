@@ -43,6 +43,7 @@ var _serial := -1
 var _landed: Array = []
 var _combo_seen := false
 var _result_clear := false
+var _first_hit := false
 
 
 static func load_trials() -> Array:
@@ -68,6 +69,12 @@ func route() -> Array:
 ## A route step to hold to a full charge: ["skill_2", "skill_2", "hold"].
 static func held(step: Array) -> bool:
 	return step.size() > 2 and String(step[2]) == "hold"
+
+
+## A route step that hides the fighter and needn't hit (Tiptoe): ["skill_1", "skill_1", "sneak"].
+## After it the player walks in, still unseen, to throw the next move.
+static func sneak(step: Array) -> bool:
+	return step.size() > 2 and String(step[2]) == "sneak"
 
 
 ## A fresh match for the current trial: the fighter facing its training partner.
@@ -100,9 +107,14 @@ func _start_demo() -> void:
 	var moves: Dictionary = MatchFactory.load_def(String(trial()["fighter"])).get("moves", {})
 	for i in range(first, r.size()):
 		var st := {"do": "press", "who": 0, "bit": ACTION_BIT[String(r[i][0])], "move": String(r[i][1]), "show": i}
+		if bool(trial().get("ambush", false)):
+			st["aim"] = true  # a dash out of hiding can carry him past: turn back to the partner
 		if held(r[i]):  # hold it to a full charge (Runoff's wave)
 			st["charge"] = int(moves.get(String(r[i][1]), {}).get("charge_max", 0))
 		steps.append(st)
+		if sneak(r[i]):  # out of sight: let it finish, then creep up to "approach" px away
+			steps.append({"do": "until", "cond": "free:0"})
+			steps.append({"do": "approach", "who": 0, "gap": float(trial().get("approach", 4.0))})
 	steps.append({"do": "until", "cond": "settled"})
 	steps.append({"do": "wait", "t": 40, "show": r.size()})
 	_demo = Showcase.new("trial", {"left": "", "right": "", "title": "", "captions": [[]], "steps": steps})
@@ -120,6 +132,7 @@ func _reset_attempt() -> void:
 	_landed.resize(route().size())
 	_landed.fill(false)
 	_combo_seen = false
+	_first_hit = false
 	banner = ""
 	_refresh_caption()
 	callouts.append([sim.creatures[0].pos + Vector2(0, -32), "YOUR TURN!" if from_demo else "TRY AGAIN",
@@ -136,7 +149,8 @@ func _refresh_caption() -> void:
 		var mv: Dictionary = def.get("moves", {}).get(String(step[1]), {})
 		var lbl := String(_labels.call(String(step[0]))) if _labels.is_valid() else ""
 		var how := "hold " + lbl if held(step) and lbl != "" else ("hold" if held(step) else lbl)
-		caption_items.append("%s%s" % [String(mv.get("name", step[1])), " (%s)" % how if how != "" else ""])
+		caption_items.append("%s%s%s" % [String(mv.get("name", step[1])), " (%s)" % how if how != "" else "",
+			", sneak in" if sneak(step) else ""])
 	caption_index = _progress if phase != Phase.DEMO else maxi(0, _demo.show if _demo != null else 0)
 
 
@@ -180,6 +194,8 @@ func after_step() -> void:
 		_serial = a.attack_serial
 		if _progress < r.size() and a.move_id == String(r[_progress][1]):
 			_progress += 1
+			if sneak(r[_progress - 1]):
+				_landed[_progress - 1] = true  # nothing to hit: it only has to hide him
 		elif _progress < r.size() and r[_progress].size() > 2 and a.move_id == String(r[_progress][2]):
 			pass  # an allowed lead-in (Slip before its counter)
 		else:
@@ -190,6 +206,15 @@ func after_step() -> void:
 			_landed[_progress - 1] = true
 			if not bool(e.get("no_flinch", false)):  # a hit that doesn't stagger starts no combo
 				_combo_seen = true
+			# "ambush": the opening hit has to come out of hiding (the sim's ambush window is open).
+			if not _first_hit and bool(trial().get("ambush", false)) and a.ambush_t <= 0:
+				_fail("Spotted")
+				return
+			_first_hit = true
+	# "ambush": the stealth ran out before the first hit.
+	if bool(trial().get("ambush", false)) and not _first_hit and _progress > 0 			and a.stealth == 0 and a.ambush_t <= 0 and a.state != CreatureSim.State.ATTACK:
+		_fail("Spotted")
+		return
 	caption_index = _progress
 	if _progress == r.size() and _landed[r.size() - 1]:
 		_clear()

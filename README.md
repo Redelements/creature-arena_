@@ -660,10 +660,14 @@ back exactly; swapping your fighter starts a fresh replay from the swap.
 
 ### Learning the game: Combo Trials and Reaction Drills
 
-- **Combo Trials** (`data/trials.json`, 31 trials): each trial plays a demo of the route,
+- **Combo Trials** (`data/trials.json`, 36 trials): each trial plays a demo of the route,
   then it's your turn. Every move must come out in order and connect, and the combo can't
   drop. The caption shows the route with your buttons and ticks off each move. F2 shows
   the demo again, F4 skips to the next trial.
+- **Ambush trials** teach the sneak engage. They start far apart, and the first hit must
+  land out of hiding, so the ambush bonus applies; get seen first and it's SPOTTED. Digby
+  burrows in and cancels into Cave-In. Sneaky Pete Tiptoes ("sneak in" on the caption),
+  walks up unseen and opens with jabs or Pickpocket.
 - **Reaction Drills:** the partner throws random raw big moves; answer red by rolling
   away (or hitting first) and gold by guarding. 20 reps, scored with your streak and
   average reaction time from the tell. *Read Culvert* mixes Gulp, Slam and Runoff;
