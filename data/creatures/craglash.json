@@ -311,6 +311,7 @@
       "anim_at": [[0,0],[4,1],[9,2],[14,3],[18,4],[21,5],[27,6],[33,5],[38,7],[48,8],[53,9],[58,10],[62,11]],
       "fx": {
         "projectile": "head",
+        "flight_sound": {"id": "bite", "every": 8, "at": 4},
         "speedlines": true,
         "telegraph_line": true,
         "move_fx": {"path": "res://assets/vfx/slash_red.tres", "on": "projectile_end", "follow": false, "offset": [0, -12]}

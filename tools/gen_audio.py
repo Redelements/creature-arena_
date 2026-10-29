@@ -952,6 +952,16 @@ def apple_spoiled():
     return mix(squish, lowpass(droop, 1500))
 
 
+def bite():
+    """Mountain Maw's flying jaws shutting: a stone clack, teeth on teeth, and a short grind.
+    No random draws, so every sound made before it keeps its own."""
+    total = 0.16
+    clack = (osc(sweep(900, 520, 0.03), 0.03, "square", 0.4) * 0.5 + osc(1750, 0.03) * 0.3) * env(0.03, curve=5)
+    thud = thump(160, 70, 0.08, 3.0) * 0.8
+    grind = np.sign(np.sin(2 * np.pi * 37 * t(0.07))) * osc(2400, 0.07, "saw") * env(0.07, curve=3) * 0.12
+    return mix(at(clack, 0.0, total), at(thud, 0.0, total), at(grind, 0.025, total))
+
+
 NEW_SOUNDS = {
     "roar": roar, "stoneskin": stoneskin, "shield_break": shield_break, "lash": lash,
     "avalanche": avalanche,
@@ -971,6 +981,8 @@ NEW_SOUNDS = {
     # Barkley's plants (added last so every sound above keeps its random draws)
     "sprout": sprout, "plant_hit": plant_hit, "plant_sprung": plant_sprung, "tree_grow": tree_grow,
     "apple_munch": apple_munch, "apple_spoiled": apple_spoiled,
+    # Craglash's Mountain Maw chomps in flight (fx flight_sound)
+    "bite": bite,
 }
 
 
