@@ -4415,7 +4415,7 @@ func _draw_status(ci: CanvasItem, c: CreatureSim) -> void:
 			var at := Vector2(x0 + i * 4, roundf(c.pos.y + 5.0))
 			ci.draw_rect(Rect2(at - Vector2(1, 1), Vector2(5, 5)), C_OUTLINE)
 			ci.draw_rect(Rect2(at, Vector2(3, 3)), C_VENOM[1] if (_tick / 8 + i) % 4 != 0 else C_VENOM[2])
-	if c.slow > 0:
+	if c.slow > 0 or c.carry_mult < 1.0:  # slowed, or weighed down by a flag it carries
 		for i in 3:
 			var a := _tick * 0.12 + TAU * i / 3.0
 			var at := (c.pos + Vector2(cos(a) * (c.radius + 2.0), sin(a) * 3.0 - 1.0)).round()

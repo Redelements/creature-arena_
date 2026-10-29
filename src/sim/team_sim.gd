@@ -1076,6 +1076,11 @@ func _ctf_step(ins := PackedInt32Array(), pressed := PackedInt32Array()) -> void
 	for slot in mini(pressed.size(), slot_count()):
 		if pressed[slot] & SimDefs.IN_TAG:
 			_try_pass(sim.creatures[slot], ins[slot])
+	# The carry slow is rebuilt every tick: whoever holds a flag at the end of this step
+	# walks at `carry_slow` (`CreatureSim.carry_mult`, multiplied in with every other speed
+	# modifier), and the tick the flag drops, flies or is captured it's gone.
+	for c in sim.creatures:
+		c.carry_mult = 1.0
 	for side in 2:  # side: whose flag
 		match int(flag_state[side]):
 			FLAG_CARRIED:
@@ -1090,12 +1095,8 @@ func _ctf_step(ins := PackedInt32Array(), pressed := PackedInt32Array()) -> void
 					_fumble(side, c)
 				else:
 					flag_pos[side] = c.pos
-					var slow_m := float(rules.get("overtime_carry_slow", rules.get("carry_slow", 0.88))) if overtime \
-						else float(rules.get("carry_slow", 0.88))
-					slow_m = maxf(slow_m, float(perk(c, "carry_slow", 0.0)))  # a class that carries light
-					if slow_m < 1.0 and c.slow <= 1:  # carrying slows you (a real slow already on you wins)
-						c.slow = 2
-						c.slow_mult = slow_m
+					c.carry_mult = float(rules.get("overtime_carry_slow", rules.get("carry_slow", 0.8))) if overtime \
+						else float(rules.get("carry_slow", 0.8))
 			FLAG_THROWN:
 				_fly(side)
 			FLAG_DROPPED:
@@ -1127,6 +1128,7 @@ func _ctf_step(ins := PackedInt32Array(), pressed := PackedInt32Array()) -> void
 		if c.pos.distance_to(base_of(s)) <= float(rules.get("pickup_radius", 14)) + float(c.radius) + 8.0:
 			score[s] += 1
 			_flag_home(other)
+			c.carry_mult = 1.0  # the flag is gone: full speed this very tick
 			sim.slowmo = maxi(sim.slowmo, int(rules.get("capture_slowmo", 0)))
 			sim.emit_event("capture", c.pos, float(score[s]), {"team": s, "who": c.id, "score": score.duplicate()})
 			if int(score[s]) >= score_to_win() or overtime:

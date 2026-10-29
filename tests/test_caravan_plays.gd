@@ -242,9 +242,14 @@ func test_a_skirmisher_respawns_sooner() -> void:
 
 
 func test_every_class_has_a_perk_in_both_modes() -> void:
+	# Capture the Flag's assassin perk (a lighter carry) went in Oct 2026: every fighter
+	# carries at the same speed, so the assassin has none there until Kevin picks another.
 	for path in [TeamSim.CARAVAN_PATH, TeamSim.CTF_PATH]:
 		var perks: Dictionary = TeamSim.load_rules(path).get("class_perks", {})
 		for role in ["tank", "bruiser", "fighter", "mage", "assassin", "skirmisher"]:
+			if path == TeamSim.CTF_PATH and role == "assassin":
+				assert_false(perks.has(role), "ctf.json: no assassin perk (no class carries light)")
+				continue
 			assert_true(perks.has(role) and String((perks[role] as Dictionary).get("text", "")) != "",
 				"%s: %s has a perk with words for the screen" % [path.get_file(), role])
 	for f in MatchFactory.FIGHTERS:
@@ -259,12 +264,15 @@ func _carry_slow(who: String) -> float:
 	var c := t.sim.creatures[0]
 	c.pos = t.base_of(1)
 	_idle(t, 3)
-	return c.slow_mult if c.slow > 0 else 1.0
+	return c.carry_mult
 
 
-func test_an_assassin_carries_light() -> void:
-	assert_near(_carry_slow("pete"), 0.97, 0.001, "Pete (assassin):")
-	assert_near(_carry_slow("hissy"), 0.88, 0.001, "Hissy (fighter):")
+func test_every_class_carries_at_the_same_speed() -> void:
+	# No class perk lightens the carry (the assassin's 0.97 went in Oct 2026: a carrier
+	# who outruns everyone makes a solo run the best plan, and escorts and passes pointless).
+	assert_near(_carry_slow("pete"), 0.8, 0.001, "Pete (assassin):")
+	assert_near(_carry_slow("hissy"), 0.8, 0.001, "Hissy (fighter):")
+	assert_near(_carry_slow("culvert"), 0.8, 0.001, "Culvert (tank):")
 
 
 func test_a_tank_carrier_is_steady() -> void:
