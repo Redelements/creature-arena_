@@ -191,10 +191,16 @@ func test_mountain_maw_bites_from_far_hauls_in_and_crumples() -> void:
 	assert_eq(cairn.state, CreatureSim.State.CRUMPLE, "still crumpled when it arrives:")
 
 
-func test_mountain_maw_is_shorter_than_it_was_as_a_surge() -> void:
-	var sim := _duel("cairn", 200.0)
+func test_mountain_maw_reaches_about_250_px() -> void:
+	# Kevin, Oct 29: half again the reach it had (26 + 8 x 17 = 162 px of flight to the head's
+	# centre, now 26 + 10 x 22 = 246), still a hook, not a ranged poke: it bites well past
+	# 230 px and nothing at 320.
+	var sim := _duel("cairn", 230.0)
 	var bit := run_until(sim, func(): return _has_event(sim, "pull"), 120, S2)
-	assert_false(bit, "200 px is out of the hook's reach now")
+	assert_true(bit, "230 px is within the hook's reach")
+	sim = _duel("cairn", 320.0)
+	bit = run_until(sim, func(): return _has_event(sim, "pull"), 120, S2)
+	assert_false(bit, "320 px is out of the hook's reach")
 
 
 func test_mountain_maw_cant_be_blocked() -> void:
