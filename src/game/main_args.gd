@@ -68,6 +68,10 @@ func _parse_args() -> int:
 			main.range_rings = true
 		elif a.begins_with("--a11y="):
 			Accessibility.cli = Accessibility.parse_flag(a.substr("--a11y=".length()))
+		elif a.begins_with("--progression="):  # Settings > Game > Progression for this session only (not saved)
+			var v := a.get_slice("=", 1)
+			if v in ["on", "off"]:
+				Progress.set_enabled(v == "on")
 		elif a.begins_with("--lighting="):
 			main._lighting_cli = ["off", "low", "high"].find(a.get_slice("=", 1))
 		elif a.begins_with("--mode="):
@@ -146,6 +150,12 @@ func _parse_args() -> int:
 			main._rematch_after = maxi(0, int(a.get_slice("=", 1)))
 		elif a.begins_with("--print-vram="):
 			main._print_vram_at = int(a.get_slice("=", 1))
+		elif a.begins_with("--replay="):
+			main._clip_cli["path"] = a.substr("--replay=".length())
+		elif a.begins_with("--from="):
+			main._clip_cli["from"] = maxi(0, int(a.get_slice("=", 1)))
+		elif a.begins_with("--to="):
+			main._clip_cli["to"] = maxi(0, int(a.get_slice("=", 1)))
 		elif a.begins_with("--quit-after="):
 			main._quit_after = int(a.get_slice("=", 1))
 		elif a == "--bug-report" or a.begins_with("--bug-report="):
@@ -209,3 +219,47 @@ func _parse_args() -> int:
 	if pick:
 		main._skip_select = false
 	return start
+
+
+## --replay=<file> [--from=A] [--to=B]: watch one saved replay (absolute path or user://)
+## from tick A (default 0) to tick B (default its end), at 1x, then quit (`clip_over`,
+## checked in main's `_capture`). The match is rebuilt and its inputs re-simulated
+## (`_play_replay`, then `ReplayViewer.seek(A)` headless), so every frame is the replay's.
+## Frame 1 (the first physics frame: `--shots`, `--quit-after`, the movie maker's first
+## frame) shows tick A + 1. The HUD's replay key strip is hidden for a clean picture.
+## The Replay theater's Export clip and `tools/clip.py` run this with `--write-movie`.
+func start_replay_cli() -> void:
+	var path := String(main._clip_cli.get("path", ""))
+	if not FileAccess.file_exists(path):
+		printerr("--replay: no file ", path)
+		main.get_tree().quit(1)
+		return
+	main._play_replay(path)
+	if not main._replaying():
+		printerr("--replay: can't play ", path)
+		main.get_tree().quit(1)
+		return
+	var n: int = main.replay_ctl.frames().size()
+	var from := clampi(int(main._clip_cli.get("from", 0)), 0, n)
+	var to := clampi(int(main._clip_cli.get("to", n)), from, n)
+	main._clip_cli["from"] = from
+	main._clip_cli["to"] = to
+	main._clip_cli["frame0"] = main.frame_count
+	if from > 0:
+		main.replay_ctl.seek(from)
+	main._cam_zoom = 0.0  # frame the fight where it stands, no pan in from the last view
+	main._cam_prev = []
+	main.hud.show_help = false
+	print("REPLAY CLIP ticks %d to %d of %d" % [from, to, n])
+
+
+## Whether a --replay range has played to its end (and say so); main quits on it.
+func clip_over() -> bool:
+	if not main._clip_cli.has("frame0") or main._clip_cli.get("done", false):
+		return false
+	var t: int = main.replay_ctl.tick() if main._replaying() else int(main._clip_cli["to"])
+	if t < int(main._clip_cli["to"]):
+		return false
+	main._clip_cli["done"] = true
+	print("REPLAY CLIP END tick %d frame %d" % [t, main.frame_count - int(main._clip_cli["frame0"])])
+	return true

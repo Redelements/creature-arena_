@@ -10,6 +10,9 @@ class_name MainSettings
 const Main := preload("res://src/game/main.gd")
 
 var main: Main
+## Settings > Game > Progression as saved (and as the row last set it): what the file keeps.
+## `--progression=on|off` turns it on or off for the session only, so it's never written.
+var progression_saved := true
 
 
 func _init(p_main: Main) -> void:
@@ -405,7 +408,8 @@ func _set_setting(key: String, i: int) -> void:
 			"intros":
 				main.match_intros = i == 1
 			"progression":
-				Progress.set_enabled(i == 1)
+				progression_saved = i == 1
+				Progress.set_enabled(progression_saved)
 			"rumble":
 				main.rumble = i == 1
 				if main.rumble and main.player_input.device == PlayerInput.Device.GAMEPAD:
@@ -487,9 +491,12 @@ func _load_settings() -> void:
 	Accessibility.teams_saved = 0
 	Accessibility.outlines_saved = 0
 	Accessibility.markers_saved = 0
-	Progress.set_enabled(false)  # Settings > Game > Progression: Off unless saved On (static, like the above)
-	if cfg.load(main.settings_path) == OK:
-		Progress.set_enabled(bool(cfg.get_value("game", "progression", false)))
+	var loaded := cfg.load(main.settings_path) == OK
+	# Settings > Game > Progression: On unless saved Off (a fresh install starts On; Progress's
+	# switch is static, like the above, so a second game in one run starts from the file too)
+	progression_saved = bool(cfg.get_value("game", "progression", true)) if loaded else true
+	Progress.set_enabled(progression_saved)
+	if loaded:
 		Accessibility.teams_saved = clampi(int(cfg.get_value("accessibility", "teams", 0)), 0, Accessibility.TEAM_NAMES.size() - 1)
 		Accessibility.outlines_saved = clampi(int(cfg.get_value("accessibility", "outlines", 0)), 0, Accessibility.OUTLINE_NAMES.size() - 1)
 		Accessibility.markers_saved = clampi(int(cfg.get_value("accessibility", "markers", 0)), 0, Accessibility.MARKER_NAMES.size() - 1)
@@ -622,7 +629,7 @@ func _save_settings() -> void:
 	cfg.set_value("accessibility", "markers", Accessibility.markers_saved)
 	cfg.set_value("game", "rumble", main.rumble)
 	cfg.set_value("game", "intros", main.match_intros)
-	cfg.set_value("game", "progression", Progress.enabled())
+	cfg.set_value("game", "progression", progression_saved)  # (not a --progression session value)
 	cfg.set_value("game", "shake", main.shake_scale)
 	cfg.set_value("game", "range_rings", main.range_rings)
 	cfg.set_value("touch", "opacity", main.touch_opacity)

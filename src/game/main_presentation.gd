@@ -10,6 +10,9 @@ class_name MainPresentation
 const Main := preload("res://src/game/main.gd")
 
 var main: Main
+## The `won` the paid match's award was given (the Arcade's stage result), for the results'
+## title and line: a ladder fight ends on one won round, not the best of three's two.
+var _paid_won: Variant = null
 
 
 func _init(p_main: Main) -> void:
@@ -277,9 +280,9 @@ static func _skips_intro(event: InputEvent) -> bool:
 ## (trials, drills), replays, spectating and CPU vs CPU. `won` (the Arcade's stage result)
 ## overrides who won; `extra` adds the ladder's keys (clear_arcade, waves, daily_score, weekly_clear).
 func progress_report(won: Variant = null, extra := {}) -> Dictionary:
-	var none := {"kind": "none", "players": []}
+	var none := {Progress.R_KIND: "none", Progress.R_PLAYERS: []}
 	if main.sim == null or main.watch != null or main._replaying() or main.mode == Main.REPLAY_MODE \
-			or main.showcase != null or main.coach != null or Main.MODES[main.mode].get("training", false):
+			or main.showcase != null or main.coach != null or Main.MODES[main.mode].get("training", false) 			or main._cpu_vs_cpu:  # --cpu-vs-cpu (demos, captures, soak runs): online too, where the sides stay human
 		return none
 	var humans: Array = []
 	if main.online != null:
@@ -295,15 +298,28 @@ func progress_report(won: Variant = null, extra := {}) -> Dictionary:
 		if slot >= main.sim.creatures.size():
 			continue
 		var fighters: Array = []
-		if main.duel != null:  # a Duel's whole team (every member of side s has id s)
+		if main.arcade != null and slot == 0:
+			# A ladder's own fighter earns everything (mastery, its wins, the clear bonus):
+			# never the two allies the Arcade's boss Duel draws.
+			fighters.append(String(main.arcade.fighter))
+		elif main.duel != null:  # a Duel's whole team (every member of side s has id s)
 			for c in main.duel.teams[slot]:
 				fighters.append(String(c.def.get("id", "")))
 		else:
 			fighters.append(String(main.sim.creatures[slot].def.get("id", "")))
-		players.append({"slot": slot, "fighters": fighters, "kos": int(main.stats.row(slot)["kos"]),
-			"won": bool(won) if won != null else _slot_won(slot)})
-	var r := {"kind": "online" if main.online != null else ("local" if humans.size() > 1 else "cpu"),
-		"cpu_level": main._cpu_level_override if main._cpu_level_override >= 0 else main.level, "players": players}
+		players.append({Progress.P_SLOT: slot, Progress.P_FIGHTERS: fighters, Progress.P_KOS: int(main.stats.row(slot)["kos"]),
+			Progress.P_WON: bool(won) if won != null else _slot_won(slot)})
+	var r := {Progress.R_KIND: "online" if main.online != null else ("local" if humans.size() > 1 else "cpu"),
+		Progress.R_CPU_LEVEL: main._cpu_level_override if main._cpu_level_override >= 0 else main.level, Progress.R_PLAYERS: players}
+	if main.online == null and main.sides.has(Main.Side.CPU):
+		r[Progress.R_CPUS] = true  # local players with CPUs in the match: paid at the CPU level, like one human
+	if main.arcade != null:
+		r[Progress.R_LADDER] = true  # a single-round stage (Arcade, Gauntlet, Daily, Weekly): ladder_mult
+	if main.arcade is Arcade:
+		# The run's chosen level, not the stage's: the boss plays one level up, but an Easy
+		# run's clear is an Easy clear (its challenge, and the XP multiplier of every stage).
+		r[Progress.R_ARCADE_LEVEL] = int(main.arcade.level)
+		r[Progress.R_CPU_LEVEL] = int(main.arcade.level)
 	r.merge(extra, true)
 	return r
 
@@ -316,7 +332,8 @@ func _slot_won(slot: int) -> bool:
 		return main.team_battle.winner >= 0 and main.sim.creatures[slot].team == main.team_battle.winner
 	if main.brawl != null:
 		return main.brawl.winner == slot
-	return slot < 2 and int(main.wins[slot]) >= Main.WINS_NEEDED and int(main.wins[1 - slot]) < Main.WINS_NEEDED
+	var needed := 1 if main.arcade != null else Main.WINS_NEEDED  # (a ladder fight is one round, as main's flow)
+	return slot < 2 and int(main.wins[slot]) >= needed and int(main.wins[1 - slot]) < needed
 
 
 ## Pays this match once (Settings > Game > Progression on): a second call for the same
@@ -326,6 +343,7 @@ func award_match(won: Variant = null, extra := {}) -> void:
 	if main.sim == null or main._progress_for == main.sim.get_instance_id():
 		return
 	main._progress_for = main.sim.get_instance_id()
+	_paid_won = won
 	var report := progress_report(won, extra)
 	var got := Progress.award(report)
 	# Challenges count the same match (their rewards add to the rows: XP, a title).
@@ -338,20 +356,20 @@ func award_match(won: Variant = null, extra := {}) -> void:
 ## the mode, the arena, their health share at the end, their team (and everyone's), and
 ## in King of the Crater their team's zone time.
 func challenge_context(report: Dictionary) -> Dictionary:
-	var players: Array = report.get("players", [])
+	var players: Array = report.get(Progress.R_PLAYERS, [])
 	if main.sim == null or players.is_empty():
 		return {}
-	var slot := int(players[0].get("slot", 0))
-	var ctx := {"mode": _challenge_mode(), "arena": String(main.sim.arena_id), "hp": -1.0, "team": -1,
-		"teams": {}}
+	var slot := int(players[0].get(Progress.P_SLOT, 0))
+	var ctx := {Challenges.C_MODE: _challenge_mode(), Challenges.C_ARENA: String(main.sim.arena_id), Challenges.C_HP: -1.0,
+		Challenges.C_TEAM: -1, Challenges.C_TEAMS: {}}
 	for c in main.sim.creatures:
-		ctx["teams"][c.id] = c.team
+		ctx[Challenges.C_TEAMS][c.id] = c.team
 	if slot < main.sim.creatures.size():
 		var me: CreatureSim = main.sim.creatures[slot]
-		ctx["team"] = me.team
-		ctx["hp"] = clampf(me.hp / me.max_hp, 0.0, 1.0) if me.max_hp > 0.0 else -1.0
-	if main.team_battle != null and main.team_battle.crater and int(ctx["team"]) in [0, 1]:
-		ctx["crater_ticks"] = int(main.team_battle.score[int(ctx["team"])])
+		ctx[Challenges.C_TEAM] = me.team
+		ctx[Challenges.C_HP] = clampf(me.hp / me.max_hp, 0.0, 1.0) if me.max_hp > 0.0 else -1.0
+	if main.team_battle != null and main.team_battle.crater and int(ctx[Challenges.C_TEAM]) in [0, 1]:
+		ctx[Challenges.C_CRATER_TICKS] = int(main.team_battle.score[int(ctx[Challenges.C_TEAM])])
 	return ctx
 
 
@@ -390,6 +408,20 @@ func progress_lines() -> Array:
 	return lines
 
 
+## Online (no results screen): one line for the toast, "+N XP" with a level-up, and a
+## pointer to the Profile when anything unlocked or a challenge was done ("" when off or
+## nothing was paid).
+func progress_toast() -> String:
+	var lines := progress_lines()
+	if lines.is_empty():
+		return ""
+	var t := String(lines[0])
+	var got: Array = main._progress_shown.get("unlocked", [])
+	if not got.is_empty() or not main._challenges_shown.is_empty():
+		t += "   ·   new on your Profile"
+	return t
+
+
 ## Progression: the title and victory line the results screen shows for a player here
 ## who won (their fighter's own title, else the account's; their fighter's line), or ""
 ## for each when Progression is off, nobody here won, or nothing is worn. `pose` (the
@@ -399,10 +431,11 @@ func winner_flair(pose := "") -> Dictionary:
 	var out := {"title": "", "line": ""}
 	if not Progress.enabled():
 		return out
-	for p in progress_report().get("players", []):
-		if not bool(p.get("won", false)):
+	var paid := main.sim != null and main._progress_for == main.sim.get_instance_id()
+	for p in progress_report(_paid_won if paid else null).get(Progress.R_PLAYERS, []):
+		if not bool(p.get(Progress.P_WON, false)):
 			continue
-		var fs: Array = p.get("fighters", [])
+		var fs: Array = p.get(Progress.P_FIGHTERS, [])
 		if fs.is_empty():
 			continue
 		var f := pose if pose in fs else String(fs[0])
@@ -463,6 +496,8 @@ func results_data() -> Dictionary:
 		"badge": flair["title"], "line": flair["line"],
 		"title": title, "sub": main.hud.banner_sub, "color": col,
 		"fighter": String(pose.def.get("id", "")) if pose != null else "",
+		# The pose in the palette it fought in (the local player's worn one, as its CreatureView).
+		"palette": main.views[pose.id].palette if pose != null and pose.id < main.views.size() else 0,
 		"mvp": best if main.team_battle != null and best_score > 0.0 else -1,
 		"extra": ["CAP", "RET", "STOP"] if ctf else [],
 		"rows": rows,
@@ -482,6 +517,10 @@ func _show_match_over() -> void:
 	var cfg: Dictionary = Main.MODES[main.mode]
 	award_match()  # (a ladder's stage already paid in _arcade_result: once per sim)
 	var results := main.online == null and main.watch == null and not (main._replaying() or main.mode == Main.REPLAY_MODE)
+	if main.online != null:  # no results screen online: what the match paid, in a toast
+		var said := progress_toast()
+		if said != "":
+			main.hud.show_toast(said)
 	if results:  # the results screen: the stats panel, then the same buttons
 		scr.dim = 0.62
 		scr.column_shift = 0.0

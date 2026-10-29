@@ -35,6 +35,10 @@ extends Node2D
 ##   --cam-lead=0|1 --cam-clash=0|1 --cam-settle=0|1  camera behaviour off / on (Normal) for
 ##                         this session, not saved (also low|normal|high; Settings > Video > Camera)
 ##   --quit-after=N        exit after N frames
+##   --replay=FILE --from=A --to=B  watch one saved replay (an absolute path or user://) from
+##                         tick A to tick B at 1x, then quit (main_args.gd `start_replay_cli`);
+##                         frame 1 shows tick A + 1, so --shots and Godot's --write-movie record
+##                         exactly that range with sound (Export clip, tools/clip.py)
 ##   --lighting=off|low|high  real 2D lights this session, not saved (Settings > Video >
 ##                         Lighting otherwise; Light2DView, BloomView)
 ##   --a11y=teams,outlines,markers  Settings > Accessibility this session, not saved: colour-safe
@@ -608,6 +612,10 @@ var _shots := {}
 var _shot_dir := "user://shots"
 var _cam_force := Vector3.ZERO  ## --cam=x,y,zoom: the camera held here (screenshots)
 var _quit_after := 0
+## --replay / --from / --to: one replay range to play and quit on ({path, from, to}; main_args.gd).
+var _clip_cli := {}
+var clips := ClipMarks.new()  ## this match's clip markers (F6, combo KOs), saved beside its replay (clip_marks.gd)
+var clip_ctl := ClipExport.new(self)  ## the Replay theater's Export clip (clip_export.gd)
 ## --bug-report[=DIR]: where the bug-report zip goes ("" when the flag isn't given).
 var _bug_report_dir := ""
 var _print_vram_at := 0  ## --print-vram=N: print texture memory at frame N
@@ -895,7 +903,10 @@ func _ready() -> void:
 	_apply_discord()
 	_apply_range_rings()
 	touch_ctl._apply_touch()
+	add_child(clip_ctl)
 	_open_menu(_menu_arg)  # also starts the background match the pick screen sits on
+	if _clip_cli.has("path"):
+		args_ctl.start_replay_cli()  # --replay: one range of a saved fight, then quit
 	if start_mode >= 0:
 		_start_match(start_mode)
 		if in_training():
@@ -1236,17 +1247,17 @@ func _match_look(s: MatchSim) -> Dictionary:
 
 
 ## The Weekly Challenge row's card (three lines under the fighter): who and where this
-## week, then its three mutators over two lines with the week's best.
+## week, then its three mutators over two lines (no dangling comma) with the week's best.
 func _weekly_facts(w: Weekly) -> Array:
 	var best := Progress.weekly_best(w.week)
 	var names := w.mutator_names_list()
 	return ["vs %s, %s" % [String(MatchFactory.load_def(w.opponent()).get("name", w.opponent())), w.arena_id.capitalize()],
-		", ".join(PackedStringArray(names.slice(0, names.size() - 1))) + ",",
+		", ".join(PackedStringArray(names.slice(0, names.size() - 1))),
 		"%s  ·  %s" % [names.back(), ("best %d" % best) if best > 0 else "no score yet"]]
 
 
 ## The "today" card on the Single player hub's Challenges card (Progression on): today's
-## Daily (played, best), this week's Weekly (best) and its mutators, one a line (the hub's
+## Daily (played, best), this week's Weekly (its map, best) and its mutators, one a line (the hub's
 ## arena picture is taller, so the card never grows the panel).
 func _today_facts() -> Array:
 	var day := Daily.today()
@@ -1255,7 +1266,8 @@ func _today_facts() -> Array:
 		"Daily: played, no score yet" if FileAccess.file_exists("user://daily/daily_%d.json" % day) else "Daily: not played today")
 	var w := Weekly.new("cairn")
 	var wb := Progress.weekly_best(w.week)
-	return [daily, ("Weekly: best %d, with" % wb) if wb > 0 else "Weekly: no score yet, with"] + w.mutator_names_list()
+	var weekly := "Weekly: best %d" % wb if wb > 0 else "Weekly: no score yet"
+	return [daily, weekly, "on " + ArenaMap.name_of(w.arena_id)] + w.mutator_names_list()
 
 
 ## A row's card in the panel: the fighter the row's choice names, and the mode's facts
@@ -1665,13 +1677,17 @@ func _arcade_result(won: bool) -> bool:
 	var share := clampf(me.hp / me.max_hp, 0.0, 1.0)
 	if arcade is Weekly:
 		# One fight, scored like the Daily, as often as you like this week; the best is kept.
+		# (A near copy of the Daily's branch below, kept apart: it has no replay file and no
+		# server submission, and merging the two would hide that.)
 		var w := arcade as Weekly
 		var w_tick := int(_round_end[0]) if _round_end.size() == 2 else sim.tick
 		var w_share := float(_round_end[1]) if _round_end.size() == 2 else share
 		var w_score := w.score_fight(won, w_share, w_tick)
-		var first_clear := won and w_score > 0 and Progress.weekly_best(w.week) <= 0
-		show_ctl.award_match(won, {"daily_score": w_score, "weekly_clear": first_clear})
+		var w_old := Progress.weekly_best(w.week)
+		var first_clear := won and w_score > 0 and w_old <= 0
 		var w_best := Progress.record_weekly(w.week, w_score)
+		# The score pays only what it adds to the week's best (a retry that doesn't beat it: 0).
+		show_ctl.award_match(won, {Progress.R_DAILY_SCORE: maxi(0, w_score - w_old) if w_best else 0, Progress.R_WEEKLY_CLEAR: first_clear})
 		flow = Flow.MATCH_OVER
 		flow_t = 0
 		hud.banner = "SCORE  %d" % w_score if won else "NO SCORE"
@@ -1684,8 +1700,9 @@ func _arcade_result(won: bool) -> bool:
 		var end_tick := int(_round_end[0]) if _round_end.size() == 2 else sim.tick
 		var end_share := float(_round_end[1]) if _round_end.size() == 2 else share
 		var score := d.score_fight(won, end_share, end_tick)
-		show_ctl.award_match(won, {"daily_score": score})
+		var old_best := Progress.daily_best(d.date)
 		var best := Progress.record_daily(d.date, score)
+		show_ctl.award_match(won, {Progress.R_DAILY_SCORE: maxi(0, score - old_best) if best else 0})  # (as the Weekly's)
 		var path := "user://daily/daily_%d.json" % d.date
 		DirAccess.make_dir_recursive_absolute("user://daily")
 		var f := FileAccess.open(path, FileAccess.WRITE)
@@ -1702,7 +1719,7 @@ func _arcade_result(won: bool) -> bool:
 		return true
 	# Progression pays each stage as a fight (a Gauntlet wave won, an Arcade clear on top).
 	var cleared := won and arcade is Arcade and arcade.is_boss()
-	show_ctl.award_match(won, {"waves": 1 if won and arcade is Gauntlet else 0, "clear_arcade": cleared})
+	show_ctl.award_match(won, {Progress.R_WAVES: 1 if won and arcade is Gauntlet else 0, Progress.R_CLEAR_ARCADE: cleared})
 	if not won:
 		flow = Flow.MATCH_OVER
 		flow_t = 0
@@ -1719,12 +1736,15 @@ func _arcade_result(won: bool) -> bool:
 		return true
 	# The boss is down: the Arcade is cleared on this level.
 	_arcade_cleared = true
+	var had := Progress.palettes_unlocked(arcade.fighter)
 	var new_best := Progress.record_clear(arcade.fighter, arcade.level)
 	flow = Flow.MATCH_OVER
 	flow_t = 0
 	hud.banner = "ARCADE CLEAR!"
-	hud.banner_sub = ("New palette unlocked: F5 in a fight to wear it" if new_best
-		else "Cleared on %s" % CpuController.LEVELS[arcade.level]["name"])
+	# A new palette only when the clear gave one (mastery may have given it already).
+	var level_name := String(CpuController.LEVELS[arcade.level]["name"])
+	hud.banner_sub = ("New palette unlocked: F5 in a fight to wear it" if Progress.palettes_unlocked(arcade.fighter) > had
+		else ("Cleared on %s: a new best" % level_name if new_best else "Cleared on %s" % level_name))
 	audio.play("round_end")
 	return true
 
@@ -1737,13 +1757,28 @@ func _open_ending() -> bool:
 	if not (_arcade_cleared and arcade is Arcade and Progress.enabled() and online == null and watch == null) \
 			or _replaying() or Endings.of(arcade.fighter).is_empty():
 		return false
-	Endings.show(arcade.fighter)
+	var first := Endings.show(arcade.fighter)
+	var t := String(Endings.of(arcade.fighter).get("unlock_title", ""))
 	hud.banner_hidden = true  # the card says it
-	ui.push(EndingScreen.new(arcade.fighter, false, func():
+	var card := EndingScreen.new(arcade.fighter, false, func():
 		ui.clear()
 		hud.banner_hidden = false
-		show_ctl._show_match_over()))
+		show_ctl._show_match_over())
+	if first and t != "" and Progress.unlocked(t):
+		card.unlocked_title = t  # the card says it, and so does the results' "Unlocked:" row
+		var lvl := Progress.account_level()
+		_progress_shown = Progress.merge_results(_progress_shown,
+			{"xp": 0, "level_from": lvl, "level_to": lvl, "mastery": {}, "unlocked": [t]})
+	ui.push(card)
 	return true
+
+
+## F5's toast: the palette worn of those unlocked, and how more unlock while some are locked.
+static func palette_toast(i: int, n: int) -> String:
+	var t := "Palette %d of %d" % [i + 1, n]
+	if n < Progress.PALETTES:
+		t += "   ·   more from mastery or Arcade clears" if Progress.enabled() else "   ·   clear the Arcade to unlock more"
+	return t
 
 
 ## Duel: the rules (intro, tags, swaps, timer, winner) all run inside DuelSim; this
@@ -1888,7 +1923,7 @@ func _open_replays() -> void:
 		var dir := DirAccess.open(replays_dir) if DirAccess.dir_exists_absolute(replays_dir) else null
 		if dir != null:
 			for f in dir.get_files():
-				if f.ends_with(".json"):
+				if f.ends_with(".json") and not ClipMarks.is_sidecar(f):
 					files.append(f)
 		files.sort()
 		files.reverse()
@@ -1916,7 +1951,9 @@ func _replay_label(path: String) -> String:
 	var names: Array = []
 	for id in st.get("ids", []):
 		names.append(String(MatchFactory.load_def(String(id)).get("name", id)))
-	return "%s   %s   %s" % [stamp.left(16), String(st.get("kind", "versus")), " v ".join(names)]
+	var marks := ClipMarks.load_for(path).size()
+	return "%s   %s   %s%s" % [stamp.left(16), String(st.get("kind", "versus")), " v ".join(names),
+		("   %d clip%s" % [marks, "" if marks == 1 else "s"]) if marks > 0 else ""]
 
 
 ## Watches a replay: the match it was recorded on is rebuilt and every side plays its
@@ -2622,6 +2659,7 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 		s.apply_mutators(session, seed_base)  # --mutators, or Arena options > Hazards
 	replay = Replay.new()
 	replay.setup = _replay_setup(s)
+	clips.reset()  # (markers are kept per match, as its replay is)
 	cpus = []
 	cpus.resize(sides.size())
 	hud.resize_slots(sides.size())
@@ -2644,12 +2682,14 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 	for v in views:
 		v.queue_free()
 	views.clear()
+	hud.palettes = {}
 	for c in sim.creatures:
 		var v := CreatureView.new()
 		entities.add_child(v)
 		v.setup(c)
 		if c.id < sides.size() and sides[c.id] == Side.PLAYER:
 			v.palette = Progress.palette(String(c.def.get("id", "")))
+			hud.palettes[c.id] = v.palette  # the HUD portrait wears it too
 		views.append(v)
 	debug.sim = sim
 	rings.set_sim(sim)
@@ -2719,7 +2759,8 @@ func _new_sim(s: MatchSim, p_sides: Array) -> void:
 			Side.PLAYER:
 				hud.tags[i] = "P1"
 			Side.CPU:
-				hud.tags[i] = "CPU " + LEVEL_NAMES[level]
+				# The level it plays at: a ladder stage's own (the Arcade boss one up), else the setting's.
+				hud.tags[i] = "CPU " + LEVEL_NAMES[_cpu_level_override if _cpu_level_override >= 0 else level]
 				hud.key_labels[i] = ["", "", ""]
 			Side.SCRIPT:
 				hud.tags[i] = "DEMO"
@@ -3336,6 +3377,8 @@ func _react(e: Dictionary) -> void:
 			_shrine_toast(e)
 		elif String(e["type"]) in ["spree", "shutdown", "crown"]:
 			_wanted_toast(e)
+	if flow != Flow.MENU and not _replaying() and sim != null:
+		clips.note(e, sim.tick, _is_local_fighter)  # a combo KO by a player here: a clip marker
 	fx.spawn(e)
 	light2d.on_event(e)  # a big hit's or a Surge's flash of light (Lighting Low / High)
 	audio.on_event(e)
@@ -3700,7 +3743,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			var n := Progress.palettes_unlocked(id)
 			var i := Progress.next_palette(id)
 			(views[me] as CreatureView).palette = i
-			hud.show_toast("Palette %d of %d" % [i + 1, n] + ("" if n > 1 else "   ·   clear the Arcade to unlock more"))
+			hud.palettes[me] = i
+			hud.show_toast(palette_toast(i, n))
 	elif event.is_action_pressed("save_replay"):
 		_save_replay()
 	elif event.is_action_pressed("reset") and MODES[mode].get("training", false):
@@ -3708,10 +3752,22 @@ func _unhandled_input(event: InputEvent) -> void:
 		hud.show_toast("Reset")
 
 
-## F6: save the fight so far (or just finished) to the Replay theater.
-func _save_replay() -> void:
+## Whether slot `i` is a player on this machine (online: the local slot).
+func _is_local_fighter(i: int) -> bool:
+	if online != null:
+		return i == online.local_slot
+	return i >= 0 and i < sides.size() and sides[i] in LOCAL_SIDES
+
+
+## F6: save the fight so far (or just finished) to the Replay theater, with a clip marker
+## here (and the match's other markers) in its sidecar (ClipMarks). Returns the path.
+func _save_replay() -> String:
 	var stamp := Time.get_datetime_string_from_system().replace(":", "-")
 	var path := replays_dir.path_join("replay_%s.json" % stamp)
+	var k := 2
+	while FileAccess.file_exists(path):  # (two saves in one second)
+		path = replays_dir.path_join("replay_%s_%d.json" % [stamp, k])
+		k += 1
 	if online != null:
 		# Online: the confirmed inputs (what both machines agreed on), with the setup.
 		replay = Replay.new()
@@ -3724,10 +3780,13 @@ func _save_replay() -> void:
 		for row in watch.log:
 			replay.record(row)
 	if replay.save(path) == OK:
-		hud.show_toast("Replay saved: %d ticks" % replay.frames.size())
+		clips.add(replay.frames.size(), "F6")
+		ClipMarks.save_for(path, clips.marks)
+		hud.show_toast("Replay saved: %d ticks (a clip marker here)" % replay.frames.size())
 		print("Replay saved to ", ProjectSettings.globalize_path(path))
-	else:
-		hud.show_toast("Could not save replay")
+		return path
+	hud.show_toast("Could not save replay")
+	return ""
 
 
 ## Back in a menu: Esc, B or View.
@@ -3755,6 +3814,7 @@ func _open_pause() -> void:
 			["Speed: %s" % ReplayViewer.SPEED_NAMES[replay_ctl.speed_i], func():
 				_close_ui()
 				replay_ctl.cycle_speed(), "Slow motion or fast forward: 1/4, 1/2, 1x, 2x"],
+			["Export clip", func(): clip_ctl.open_screen(), "Save a video of a marked moment (C, pad R3)"],
 			["Save a bug report", func(): _save_bug_report(true), BugReport.BLURB],
 			["Replay theater", func():
 				_close_ui()
@@ -4382,6 +4442,9 @@ func _capture() -> void:
 			Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED) / 1048576.0,
 			Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0,
 			CreatureView.sheet_report()])
+	if args_ctl.clip_over():
+		get_tree().quit()  # --replay: the range has played
+		return
 	if _quit_after > 0 and t >= _quit_after:
 		online_ctl._write_net_report()
 		_print_perf()

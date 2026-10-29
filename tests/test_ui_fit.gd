@@ -297,10 +297,12 @@ func test_the_profile_pages_and_the_winners_title_fit_every_screen() -> void:
 	for size in SIZES:
 		_screen(size)
 		var g := _game()
-		Progress.set_enabled(true)  # (the settings load reads it Off)
+		Progress.set_enabled(true)  # (set after the settings load, never left to its default)
 		for page in PROFILE_PAGES:
 			g._open_menu(page)
 			_check(g, size, page)
+			if String(page).begins_with("ending:"):
+				_check_continue(g.ui.top() as EndingScreen, size, page)
 			# Each picker's every value, for the panel's card and the row.
 			var top: UiScreen = g.ui.top()
 			for r in top.rows():
@@ -316,7 +318,16 @@ func test_the_profile_pages_and_the_winners_title_fit_every_screen() -> void:
 						var w := font.get_string_size(o.label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 12.0 \
 							+ font.get_string_size("<  %s  >" % v, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 8.0
 						assert_true(w <= o.size.x, "%s: '%s' and '%s' fit the row (%d > %d)" % [page, o.label, v, w, o.size.x])
-		# The results of a win as Crease, with the title and line.
+		# An ending card that says the title it gave (the longest name and ending title).
+		var card := EndingScreen.new("crease", true)
+		card.unlocked_title = "title:crease_ending"
+		g.ui.push(card)
+		_check(g, size, "ending:crease with its title unlocked")
+		_check_continue(card, size, "ending:crease with its title unlocked")
+		# The results of a win as Crease, with the title and line (the pickers above stepped
+		# through Crease's own lines and wore them: the longest, another fighter's, again).
+		Progress.set_equipped("crease", "title", long_title)
+		Progress._data["equipped"]["crease"]["line"] = long_line
 		g._open_menu()
 		g._skip_select = true
 		g._start_match(g.mode_index("Mister Crease  vs  CPU Chef Cerebro"))
@@ -332,6 +343,16 @@ func test_the_profile_pages_and_the_winners_title_fit_every_screen() -> void:
 		g.free()
 	_restore()
 	_end_progress(p)
+
+
+## The ending card's Continue, focused, shows whole: its glow (UiTheme's focus shadow, 3)
+## inside the column, which clips at its edge (QC, Oct 2026: it was cut off at the bottom).
+func _check_continue(card: EndingScreen, size: Vector2i, what: String) -> void:
+	_layout(card)
+	card.continue_button.grab_focus()
+	var b := card.continue_button.get_global_rect()
+	var col := card._scroll.get_global_rect()
+	assert_true(b.end.y + 3.0 <= col.end.y + 0.01, "%s at %s: Continue and its glow inside the card (%.1f > %.1f)" % [what, size, b.end.y + 3.0, col.end.y])
 
 
 ## Every card's facts, for every row and every choice on it (a page only shows the
@@ -359,8 +380,9 @@ func test_every_rows_facts_fit_on_a_line_of_the_panel() -> void:
 		var lines: Array = g._weekly_facts(w).map(func(t): return [t, room])
 		for n in w.mutator_names_list():
 			lines.append([String(n), hub_room])
-		lines.append(["Weekly: best 9999, with", hub_room])
-		lines.append(["Weekly: no score yet, with", hub_room])
+		lines.append(["Weekly: best 9999", hub_room])  # main.gd:_today_facts
+		lines.append(["Weekly: no score yet", hub_room])
+		lines.append(["on " + ArenaMap.name_of(w.arena_id), hub_room])
 		lines.append(["Daily: played, no score yet", hub_room])
 		for pair in lines:
 			var s := String(pair[0])
@@ -395,3 +417,23 @@ func _find_results(n: Node) -> Node:
 		if f != null:
 			return f
 	return null
+
+
+## The title's last row clears the description line under it at every size, with the
+## Profile row there (Progression on, the default): a 16:9 1080p screen and a phone are
+## 270 canvas units high, where Exit sat on the line (Oct 2026, task F's screenshots).
+func test_the_title_rows_clear_the_description_line() -> void:
+	for size in SIZES:
+		_screen(size)
+		var g := _game()
+		Progress.set_enabled(true)
+		g._open_menu()
+		var t: TitleScreen = g.ui.top()
+		_layout(g.ui)
+		var exit_r := (t._rows_by_name["exit"] as Control).get_global_rect()
+		var desc_r := t._desc.get_global_rect()
+		assert_true(exit_r.end.y <= desc_r.position.y + 0.01, "%s: Exit (to %.1f) above the description (from %.1f)" % [size, exit_r.end.y, desc_r.position.y])
+		assert_true(t._scroll.size.y >= t._list.get_combined_minimum_size().y - 0.5, "%s: the five rows fit unscrolled" % size)
+		g.free()
+	_restore()
+	Progress.set_enabled(false)

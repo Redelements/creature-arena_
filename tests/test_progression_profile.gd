@@ -34,7 +34,7 @@ func _game(on := true) -> Node:
 	var g: Node = load("res://scenes/main.tscn").instantiate()
 	g.settings_path = TEST_SETTINGS
 	_root().add_child(g)
-	Progress.set_enabled(on)  # (after the settings load, which reads it Off)
+	Progress.set_enabled(on)  # (set after the settings load, never left to its default)
 	return g
 
 
@@ -208,7 +208,9 @@ func test_the_title_and_line_worn_reach_the_results_and_the_pick_screen() -> voi
 func test_new_marks_clear_once_the_page_is_seen() -> void:
 	_fresh()
 	Progress.set_enabled(true)
-	assert_false(Progress.new_anywhere(), "an empty save: nothing new")
+	assert_true(Progress.new_anywhere(), "an empty save: the first-run New!, until the Profile is opened")
+	Progress.see_profile()
+	assert_false(Progress.new_anywhere(), "then nothing new")
 	Progress._ensure()
 	Progress._data["mastery"]["sno"] = Progress.xp_for_level(Progress.table()["mastery_curve"], 2)
 	Progress.award({"kind": "cpu", "cpu_level": 1, "players": [{"slot": 0, "fighters": ["sno"], "won": false, "kos": 0}]})
@@ -253,10 +255,31 @@ func test_the_profile_row_is_there_only_with_progression_on() -> void:
 	g.ui.top().back()
 	g.ui.top().back()
 	assert_true(g.ui.top() is TitleScreen, "back on the title")
-	assert_eq(_labels(g.ui.top()), ["Single player", "Online", "Profile", "Settings", "Exit"], "On: the Profile row, by Settings:")
+	assert_eq(_labels(g.ui.top()), ["Single player", "Online", "Profile   New!", "Settings", "Exit"],
+		"On: the Profile row, by Settings (New! on a profile never opened):")
 	g.free()
 	g = _game(true)
 	g._open_menu()
-	assert_true("Profile" in _labels(g.ui.top()), "On from the start: there too")
+	assert_true("Profile   New!" in _labels(g.ui.top()), "On from the start: there too")
+	g.free()
+	_done()
+
+
+## The first-run pointer: a new player's title says "Profile   New!" until the Profile is
+## opened once; after that (and on the next launch) only real news brings it back.
+func test_a_new_player_sees_new_on_the_profile_row_once() -> void:
+	_fresh()
+	var g := _game(true)
+	g._open_menu()
+	var title: TitleScreen = g.ui.top()
+	assert_eq(title._rows_by_name["profile"].text, "Profile   New!", "a fresh profile:")
+	g._open_menu("profile")
+	g.ui.top().back()
+	assert_eq((g.ui.top() as TitleScreen)._rows_by_name["profile"].text, "Profile", "opened once: gone")
+	g.free()
+	Progress._loaded = false  # the next launch
+	g = _game(true)
+	g._open_menu()
+	assert_eq((g.ui.top() as TitleScreen)._rows_by_name["profile"].text, "Profile", "and it stays gone:")
 	g.free()
 	_done()

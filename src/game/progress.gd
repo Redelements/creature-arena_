@@ -4,8 +4,8 @@ extends RefCounted
 ## the best CPU level each fighter has cleared the Arcade ladder on, the palette each
 ## fighter wears, Gauntlet and Daily bests, and (Settings > Game > Progression) the
 ## account's XP, each fighter's mastery XP, the rewards unlocked and what is equipped.
-## Palettes unlock with Arcade clears (one per level cleared, up to four) and, with
-## Progression on, with mastery: a palette counts as unlocked if either rule grants it.
+## Palettes unlock with Arcade clears (one per level cleared, up to four) and with mastery
+## (earned with Progression on, kept when it's off): a palette is unlocked if either rule grants it.
 ## The numbers and tables are data: data/progression.json.
 ##
 ## Progression API (every award, line and toast checks `enabled()` first):
@@ -23,6 +23,8 @@ extends RefCounted
 ##   account_title() / set_account_title(id)   the title worn by the account (any fighter without its own)
 ##   shown_title(f) / shown_line(f)    the words the versus and results screens show ("" when off or none)
 ##   is_new(id), new_of(f), new_anywhere(), mark_seen(ids)   the Profile's "New!" marks (save key "seen")
+##   profile_seen() / see_profile()    the Profile opened once (save key "profile_seen"): until then the
+##                                     title's Profile row says New! (a new player's first-run pointer)
 ##   grant_xp(amount, reason) -> Dictionary   account XP from outside a match's award (a challenge's
 ##                                     reward; account-level rewards it reaches unlock), shaped like `award`'s
 ##   grant_unlock(reward_id) -> bool   a reward given outright (a challenge's title); false when off or had
@@ -37,16 +39,38 @@ extends RefCounted
 const PATH := "user://progress.json"
 const DATA_PATH := "res://data/progression.json"
 const PALETTES := 4
+## The most XP (or any count) a save holds: a hand-edited 1e30 reads as this, never as an overflow.
+const XP_MAX := 1000000000
 ## Every key of the save and its default (an old file without some of them still loads).
+## A match report's keys (`award`, `xp_for`; built by main_presentation.gd `progress_report`,
+## read by Challenges.note_match too): named once here, so a typo is an error, not a 0.
+const R_KIND := "kind"
+const R_CPU_LEVEL := "cpu_level"
+const R_ARCADE_LEVEL := "arcade_level"
+const R_PLAYERS := "players"
+const R_CLEAR_ARCADE := "clear_arcade"
+const R_WAVES := "waves"
+const R_DAILY_SCORE := "daily_score"
+const R_WEEKLY_CLEAR := "weekly_clear"
+const R_LADDER := "ladder"
+const R_CPUS := "cpus"
+## A report's player's keys.
+const P_SLOT := "slot"
+const P_FIGHTERS := "fighters"
+const P_WON := "won"
+const P_KOS := "kos"
 const SAVE_KEYS := {"arcade": {}, "palette": {}, "gauntlet": {}, "daily": {}, "xp": 0, "mastery": {},
 	"unlocked": [], "equipped": {}, "account_title": "", "seen": [], "challenges": {},
-	"weekly": {}, "streak": {}, "endings": []}
+	"weekly": {}, "streak": {}, "endings": [], "profile_seen": false}
 
 static var _data := {}
 static var _loaded := false
 static var path := PATH
 static var _enabled := false
 static var _table := {}
+## The streak's last day may be this many days after today and still count as today (a
+## clock set back, a trip west across midnight); a later one (a clock far off) starts again.
+const CLOCK_SLACK_DAYS := 2
 ## The local calendar day (YYYYMMDD) the streak counts with; 0 = the system clock. Tests set it.
 static var day_override := 0
 
@@ -54,24 +78,142 @@ static var day_override := 0
 static func read() -> void:
 	_loaded = true
 	_data = SAVE_KEYS.duplicate(true)
-	var f := FileAccess.open(path, FileAccess.READ)
-	if f == null:
-		return
-	var d = JSON.parse_string(f.get_as_text())
+	var d = _read_file(path)
+	if d == null and FileAccess.file_exists(path):
+		# There but unreadable (empty, cut off, not a save): never write over it. Move it
+		# aside, say so, and fall back on the last good save before it.
+		var aside := "%s.corrupt-%d" % [path, int(Time.get_unix_time_from_system())]
+		DirAccess.rename_absolute(path, aside)
+		printerr("progress: %s was unreadable, moved to %s" % [path, aside])
+		d = _read_file(path + ".bak")
+		if d != null:
+			printerr("progress: restored from %s.bak (the save before)" % path)
 	if d is Dictionary:
-		for k in _data:
-			var v = d.get(k, null)
-			if k == "xp":
-				if v is float or v is int:
-					_data[k] = maxi(0, int(v))
-			elif typeof(v) == typeof(SAVE_KEYS[k]):
-				_data[k] = v
+		_data = clean(d)
+	_catch_up()
 
 
+## The rewards of every level the account and these fighters hold (reward ids).
+static func _due(fighters: Array) -> Array:
+	var due: Array = []
+	for r in account_rewards():
+		if int(r["level"]) <= account_level():
+			due.append(String(r["id"]))
+	for f in fighters:
+		for r in mastery_rewards(String(f)):
+			if int(r["level"]) <= mastery_level(String(f)):
+				due.append(String(r["id"]))
+	return due
+
+
+## On reading the save: a reward added to the tables after the player passed its level is
+## theirs now (marked New! on the Profile), not at the next paid fight. A palette an Arcade
+## clear already gave is recorded as seen. Written with the next save.
+static func _catch_up() -> void:
+	var fighters: Array = (_data["mastery"] as Dictionary).keys().filter(func(f): return f in MatchFactory.FIGHTERS)
+	for id in _due(fighters):
+		if _unlocked_list().has(id):
+			continue
+		_unlocked_list().append(id)
+		var p := String(id).split(":")
+		if p[0] == "palette" and p.size() == 3 and int(p[2]) <= 1 + arcade_best(p[1]) and not (_data["seen"] as Array).has(id):
+			(_data["seen"] as Array).append(id)
+
+
+## The save in `file`, or null when it's missing or not a save.
+static func _read_file(file: String) -> Variant:
+	if not FileAccess.file_exists(file):
+		return null
+	var f := FileAccess.open(file, FileAccess.READ)
+	if f == null:
+		return null
+	var json := JSON.new()  # (not parse_string: a bad file is handled here, not an engine error)
+	if json.parse(f.get_as_text()) != OK:
+		return null
+	return json.data if json.data is Dictionary else null
+
+
+## The save as the game reads it: every known key with its type, whatever the file held
+## (a hand-edited or damaged file never reaches the getters as a wrong type). Numbers are
+## whole and in range (JSON reads them as floats: they are stored back as ints), lists
+## hold strings, an odd entry is dropped and a missing key gets its default.
+static func clean(d: Dictionary) -> Dictionary:
+	var out := SAVE_KEYS.duplicate(true)
+	out["xp"] = _num(d.get("xp"), 0, XP_MAX, 0)
+	out["arcade"] = _num_map(d.get("arcade"), -1, CpuController.LEVELS.size() - 1)
+	out["palette"] = _num_map(d.get("palette"), 0, PALETTES - 1)
+	for k in ["gauntlet", "daily", "weekly", "mastery"]:
+		out[k] = _num_map(d.get(k), 0, XP_MAX)
+	for k in ["unlocked", "seen", "endings"]:
+		out[k] = _str_list(d.get(k))
+	var eq = d.get("equipped")
+	if eq is Dictionary:
+		for fid in eq:
+			var e = eq[fid]
+			if e is Dictionary:
+				out["equipped"][String(fid)] = {
+					"title": String(e["title"]) if e.get("title") is String else "",
+					"line": String(e["line"]) if e.get("line") is String else ""}
+	out["account_title"] = String(d["account_title"]) if d.get("account_title") is String else ""
+	out["profile_seen"] = d.get("profile_seen") is bool and bool(d["profile_seen"])
+	var ch = d.get("challenges")
+	if ch is Dictionary:
+		out["challenges"] = {"counts": _num_map(ch.get("counts"), 0, XP_MAX), "done": _str_list(ch.get("done"))}
+	var st = d.get("streak")
+	if st is Dictionary:
+		out["streak"] = {"days": _num(st.get("days"), 0, 100000, 0), "last_day": _num(st.get("last_day"), 0, 99991231, 0)}
+	return out
+
+
+## A whole number from a save value in [lo, hi], or `fallback` when it isn't a number.
+static func _num(v: Variant, lo: int, hi: int, fallback: int) -> int:
+	if v is int:
+		return clampi(v, lo, hi)
+	if v is float and is_finite(v):
+		return int(clampf(v, lo, hi))
+	return fallback
+
+
+## {key: whole number}: the entries that are numbers, kept in [lo, hi].
+static func _num_map(v: Variant, lo: int, hi: int) -> Dictionary:
+	var out := {}
+	if v is Dictionary:
+		for k in v:
+			if v[k] is int or v[k] is float:
+				out[String(k)] = _num(v[k], lo, hi, lo)
+	return out
+
+
+## The strings of a list, each once.
+static func _str_list(v: Variant) -> Array:
+	var out: Array = []
+	if v is Array:
+		for s in v:
+			if s is String and not out.has(s):
+				out.append(s)
+	return out
+
+
+## Written whole to <path>.tmp, the old file copied to <path>.bak, then the temporary file
+## renamed over it (as the server's ratings.json): a crash mid-write never loses the profile.
 static func save() -> void:
-	var f := FileAccess.open(path, FileAccess.WRITE)
-	if f != null:
-		f.store_string(JSON.stringify(_data, "\t"))
+	var tmp := path + ".tmp"
+	var f := FileAccess.open(tmp, FileAccess.WRITE)
+	if f == null:
+		printerr("progress not saved: can't write %s (%s)" % [tmp, error_string(FileAccess.get_open_error())])
+		return
+	f.store_string(JSON.stringify(_data, "\t"))
+	var err := f.get_error()
+	f.close()
+	if err != OK:
+		printerr("progress not saved: writing %s failed (%s)" % [tmp, error_string(err)])
+		DirAccess.remove_absolute(tmp)
+		return
+	if FileAccess.file_exists(path):
+		DirAccess.copy_absolute(path, path + ".bak")
+	err = DirAccess.rename_absolute(tmp, path)
+	if err != OK:
+		printerr("progress not saved: renaming %s failed (%s)" % [tmp, error_string(err)])
 
 
 static func _ensure() -> void:
@@ -96,7 +238,8 @@ static func record_clear(fighter: String, level: int) -> bool:
 
 
 ## Palette `index` (0 always) is this fighter's under either rule: Arcade clears (one per
-## level cleared) or, with Progression on, its mastery reward "palette:<fighter>:<index>".
+## level cleared) or its mastery reward "palette:<fighter>:<index>" once earned. An earned
+## palette stays wearable with Progression off (Off stops new earning, never takes one away).
 static func palette_unlocked(fighter: String, index: int) -> bool:
 	if index <= 0:
 		return true
@@ -104,7 +247,7 @@ static func palette_unlocked(fighter: String, index: int) -> bool:
 		return false
 	if index <= 1 + arcade_best(fighter):
 		return true
-	return enabled() and _unlocked_list().has("palette:%s:%d" % [fighter, index])
+	return _unlocked_list().has("palette:%s:%d" % [fighter, index])
 
 
 ## How many palettes this fighter can wear: the unbroken run 0, 1, .. that is unlocked.
@@ -183,13 +326,15 @@ static func reset_for_tests(p: String) -> void:
 	path = p
 	_loaded = false
 	_data = {}
+	day_override = 0
 
 
 # --- Progression ----------------------------------------------------------------------
 
 
-## Settings > Game > Progression. Off: `award` gives nothing and changes nothing, and
-## palettes unlock by Arcade clears only (as before the setting existed).
+## Settings > Game > Progression. Off: `award` gives nothing and changes nothing, new
+## palettes unlock by Arcade clears only (as before the setting existed), and the ones
+## mastery already gave stay wearable (F5 and a saved choice keep them).
 static func enabled() -> bool:
 	return _enabled
 
@@ -240,7 +385,7 @@ static func progress_of(curve: Dictionary, xp: int) -> Array:
 
 static func account_xp() -> int:
 	_ensure()
-	return int(_data["xp"])
+	return clampi(int(_data["xp"]), 0, XP_MAX)
 
 
 static func account_level() -> int:
@@ -253,7 +398,7 @@ static func level_progress() -> Array:
 
 static func mastery_xp(fighter: String) -> int:
 	_ensure()
-	return int((_data["mastery"] as Dictionary).get(fighter, 0))
+	return clampi(int((_data["mastery"] as Dictionary).get(fighter, 0)), 0, XP_MAX)
 
 
 static func mastery_level(fighter: String) -> int:
@@ -374,23 +519,25 @@ static func set_equipped(fighter: String, key: String, value) -> bool:
 
 ## The XP one player earns from a report (see `award`); nothing is added.
 static func xp_for(report: Dictionary, player: Dictionary) -> int:
-	var kind := String(report.get("kind", "none"))
+	var kind := String(report.get(R_KIND, "none"))
 	if not kind in ["cpu", "local", "online"]:
 		return 0
 	var x: Dictionary = table().get("xp", {})
-	var kos := mini(int(player.get("kos", 0)), int(x.get("ko_cap", 99)))
+	var kos := mini(int(player.get(P_KOS, 0)), int(x.get("ko_cap", 99)))
 	var total := float(x.get("fight", 0)) + kos * float(x.get("ko", 0))
-	if bool(player.get("won", false)):
+	if bool(player.get(P_WON, false)):
 		total += float(x.get("win", 0))
-	if bool(report.get("clear_arcade", false)):
+	if bool(report.get(R_CLEAR_ARCADE, false)):
 		total += float(x.get("clear_arcade", 0))
-	total += int(report.get("waves", 0)) * float(x.get("gauntlet_wave", 0))
-	total += int(report.get("daily_score", 0)) / 100.0 * float(x.get("daily_score_mult", 0))
-	if bool(report.get("weekly_clear", false)):
+	total += int(report.get(R_WAVES, 0)) * float(x.get("gauntlet_wave", 0))
+	if bool(report.get(R_LADDER, false)):  # a single-round stage: about half a best-of-three's time
+		total *= float(x.get("ladder_mult", 1.0))
+	total += int(report.get(R_DAILY_SCORE, 0)) / 100.0 * float(x.get("daily_score_mult", 0))
+	if bool(report.get(R_WEEKLY_CLEAR, false)):
 		total += float(x.get("weekly_clear", 0))
-	if kind == "cpu":
+	if kind == "cpu" or (kind == "local" and bool(report.get(R_CPUS, false))):
 		var mults: Array = x.get("level_mult", [1.0])
-		total *= float(mults[clampi(int(report.get("cpu_level", 1)), 0, mults.size() - 1)])
+		total *= float(mults[clampi(int(report.get(R_CPU_LEVEL, 1)), 0, mults.size() - 1)])
 	return roundi(total)
 
 
@@ -398,10 +545,16 @@ static func xp_for(report: Dictionary, player: Dictionary) -> int:
 ##   "kind": "cpu" (one human against CPUs: times the CPU level's `level_mult`), "local"
 ##           (two or more humans on this machine: each paid fully), "online" (the local
 ##           human, fully) or "none" (training, showcases, replays, CPU vs CPU, coaches)
-##   "cpu_level": 0 Easy .. 3 Rage (kind "cpu")
+##   "cpu_level": 0 Easy .. 3 Rage (kind "cpu", or "local" with "cpus")
+##   "cpus": bool, kind "local" with CPU sides too (a 2-player Brawl against CPUs): the
+##           CPU level's `level_mult` applies to every player, as for one human
 ##   "players": [{"slot": int, "fighters": [ids], "won": bool, "kos": int}], the humans
 ##   "clear_arcade": bool, "waves": int (Gauntlet waves this fight cleared), "daily_score": int
-##   (the Daily's or the Weekly's score), "weekly_clear": bool (the week's first scoring win)
+##   (what the Daily's or the Weekly's score adds to the best so far: a retry that doesn't beat
+##   it adds 0), "weekly_clear": bool (the week's first scoring win)
+##   "ladder": bool, a stage of the Arcade, Gauntlet, Daily or Weekly: the fight, its win, KOs,
+##   waves and the clear bonus are times `ladder_mult` (the score and weekly_clear are not)
+##   "arcade_level": the Arcade run's chosen level (the boss stage plays one up)
 ## A paid fight keeps the play streak (`streak_days`); from `streak_min_days` days in a row
 ## every player's XP is times `streak_mult`.
 ## The account gains the best player's XP (one account per machine, so four local players
@@ -418,14 +571,14 @@ static func award(report: Dictionary) -> Dictionary:
 	var best := 0
 	var per_fighter := {}
 	var paid := false
-	for p in report.get("players", []):
+	for p in report.get(R_PLAYERS, []):
 		paid = paid or xp_for(report, p) > 0
 	var streak_up := _note_streak() if paid else false
 	var bonus := streak_bonus()
-	for p in report.get("players", []):
+	for p in report.get(R_PLAYERS, []):
 		var gain := roundi(xp_for(report, p) * bonus)
 		best = maxi(best, gain)
-		var fs: Array = p.get("fighters", [])
+		var fs: Array = p.get(P_FIGHTERS, [])
 		if fs.is_empty() or gain <= 0:
 			continue
 		var share := ceili(float(gain) / fs.size())
@@ -446,19 +599,13 @@ static func award(report: Dictionary) -> Dictionary:
 		_data["mastery"][f] = mastery_xp(f) + int(per_fighter[f])
 		out["mastery"][f] = {"xp": int(per_fighter[f]), "from": m0, "to": mastery_level(f)}
 	# Everything at or under the levels now held (so a table that grows later catches up).
-	var due: Array = []
-	for r in account_rewards():
-		if int(r["level"]) <= account_level():
-			due.append(String(r["id"]))
-	for f in per_fighter:
-		for r in mastery_rewards(f):
-			if int(r["level"]) <= mastery_level(f):
-				due.append(String(r["id"]))
-	for id in due:
+	for id in _due(per_fighter.keys()):
 		if not _unlocked_list().has(id):
 			_unlocked_list().append(id)
 			if not had.has(id):
 				out["unlocked"].append(id)
+			elif not (_data["seen"] as Array).has(id):
+				(_data["seen"] as Array).append(id)  # had already: no "New!" either
 	save()
 	return out
 
@@ -535,7 +682,7 @@ static func streak_days() -> int:
 	if last <= 0:
 		return 0
 	var gap := Daily.day_number(today_local()) - Daily.day_number(last)
-	return maxi(0, int(st.get("days", 0))) if gap >= 0 and gap <= 1 else 0
+	return maxi(0, int(st.get("days", 0))) if gap >= -CLOCK_SLACK_DAYS and gap <= 1 else 0
 
 
 ## The XP multiplier a paid fight gets now: `streak_mult` once the streak reaches
@@ -562,10 +709,11 @@ static func _note_streak() -> bool:
 	var st: Dictionary = _data["streak"]
 	var today := today_local()
 	var last := int(st.get("last_day", 0))
-	if last == today:
-		return false
+	var gap := Daily.day_number(today) - Daily.day_number(last) if last > 0 else 99
+	if gap <= 0 and gap >= -CLOCK_SLACK_DAYS:
+		return false  # today, or a clock a day or two behind the last fight: the same day (never moves back)
 	var days := 1
-	if last > 0 and Daily.day_number(today) - Daily.day_number(last) == 1:
+	if gap == 1:
 		days = maxi(0, int(st.get("days", 0))) + 1
 	st["days"] = days
 	st["last_day"] = today
@@ -617,12 +765,19 @@ static func is_new(reward_id: String) -> bool:
 	return _unlocked_list().has(reward_id) and not (_data["seen"] as Array).has(reward_id)
 
 
-## This fighter's new rewards; "" for the account's.
+## This fighter's new rewards; "" for the account's (its level titles, and the titles
+## challenges and Arcade endings give: the Account page's title picker offers them all).
 static func new_of(fighter: String) -> Array:
-	var out: Array = []
+	var ids: Array = []
 	for r in (account_rewards() if fighter == "" else mastery_rewards(fighter)):
-		if is_new(String(r["id"])):
-			out.append(String(r["id"]))
+		ids.append(String(r["id"]))
+	if fighter == "":
+		ids.append_array(Challenges.titles())
+		ids.append_array(Endings.titles())
+	var out: Array = []
+	for id in ids:
+		if is_new(String(id)) and not out.has(id):
+			out.append(String(id))
 	return out
 
 
@@ -630,12 +785,27 @@ static func new_of(fighter: String) -> Array:
 static func new_anywhere() -> bool:
 	if not enabled():
 		return false
+	if not profile_seen():
+		return true  # the first launch: the title's Profile row says New! until it is opened once
 	if not new_of("").is_empty():
 		return true
 	for f in MatchFactory.FIGHTERS:
 		if not new_of(String(f)).is_empty():
 			return true
 	return false
+
+
+## The Profile has been opened at least once (save key "profile_seen"; a new player's title
+## menu shows "Profile  New!" until then, so they find it).
+static func profile_seen() -> bool:
+	_ensure()
+	return bool(_data["profile_seen"])
+
+
+static func see_profile() -> void:
+	if not profile_seen():
+		_data["profile_seen"] = true
+		save()
 
 
 ## The Profile showed these: they stop being new.
@@ -675,9 +845,8 @@ static func grant_xp(amount: int, reason := "") -> Dictionary:
 	_data["xp"] = account_xp() + amount
 	var out := {"xp": amount, "level_from": before, "level_to": account_level(), "mastery": {}, "unlocked": [],
 		"reason": reason}
-	for r in account_rewards():
-		var id := String(r["id"])
-		if int(r["level"]) <= account_level() and not _unlocked_list().has(id):
+	for id in _due([]):  # the account's rewards it reaches (as `award`)
+		if not _unlocked_list().has(id):
 			_unlocked_list().append(id)
 			out["unlocked"].append(id)
 	save()

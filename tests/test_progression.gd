@@ -45,6 +45,19 @@ func test_the_data_loads_and_its_curves_climb_to_their_caps() -> void:
 	var mas_hours := Progress.xp_for_level(t["mastery_curve"], 10) / per_hour
 	assert_true(acc_hours > 35.0 and acc_hours < 45.0, "the account cap takes about 40 hours (%.1f)" % acc_hours)
 	assert_true(mas_hours > 3.0 and mas_hours < 5.0, "a fighter's mastery about 4 (%.1f)" % mas_hours)
+	# Ladder modes (Arcade, Gauntlet, Daily, Weekly) are single-round stages of about a
+	# minute with the banners: each pays the fight, the win and the KOs times ladder_mult.
+	# An Arcade run on Normal with half the stages lost and retried (twelve tries a run)
+	# and the clear bonus (times ladder_mult too) stays near the same pace.
+	var lm := float(x["ladder_mult"])
+	var stage_try := per_fight * lm
+	var arcade_hour := 60.0 * stage_try + 60.0 / (2.0 * Arcade.STAGES) * float(x["clear_arcade"]) * lm
+	var arcade_hours := Progress.xp_for_level(t["account_curve"], 50) / arcade_hour
+	assert_true(arcade_hours > 30.0 and arcade_hours < 50.0, "the Arcade reaches the cap in 30 to 50 hours too (%.1f)" % arcade_hours)
+	var stage_report := {"kind": "cpu", "cpu_level": 1, "ladder": true, "clear_arcade": true,
+		"players": [{"slot": 0, "fighters": ["cairn"], "won": true, "kos": 0}]}
+	assert_eq(Progress.xp_for(stage_report, stage_report["players"][0]),
+		roundi((float(x["fight"]) + float(x["win"]) + float(x["clear_arcade"])) * lm), "a ladder stage pays times ladder_mult:")
 	var first := Progress.level_cost(t["account_curve"], 1)
 	var win := Progress.xp_for(_cpu(true, 1), _cpu(true, 1)["players"][0])
 	var loss := Progress.xp_for(_cpu(false, 0), _cpu(false, 0)["players"][0])
@@ -165,11 +178,18 @@ func test_palettes_unlock_by_an_arcade_clear_or_by_mastery() -> void:
 		n += 1
 	assert_eq(Progress.palettes_unlocked("sno"), 3, "mastery 5 adds the third:")
 	assert_false("palette:sno:1" in r["unlocked"], "the palette the clear gave is no news")
+	assert_false(Progress.is_new("palette:sno:1"), "nor New! on the Profile")
+	assert_true(Progress.is_new("palette:sno:2"), "the new one is")
 	assert_true("palette:sno:2" in r["unlocked"], "the one mastery gave is:")
 	Progress.set_palette("sno", 2)
 	assert_eq(Progress.palette("sno"), 2, "and it can be worn:")
 	Progress.set_enabled(false)
-	assert_eq(Progress.palettes_unlocked("sno"), 2, "Off: the Arcade's rule alone, as today:")
+	assert_eq(Progress.palettes_unlocked("sno"), 3, "Off: what mastery gave stays wearable:")
+	assert_eq(Progress.palette("sno"), 2, "a saved choice is kept, not clamped:")
+	Progress.next_palette("sno")
+	Progress.reset_for_tests(Progress.path)
+	assert_eq(Progress.palette("sno"), 0, "F5 steps through all three and wraps:")
+	assert_true(Progress.award(_cpu(true, 0, 1, "sno")).is_empty(), "but nothing new is earned Off")
 	Progress.record_clear("sno", 2)
 	assert_eq(Progress.palettes_unlocked("sno"), 4, "a Hard clear still gives the lot:")
 	_done()
@@ -186,7 +206,7 @@ func test_off_pays_nothing_and_changes_nothing() -> void:
 	_done()
 
 
-func test_the_setting_is_off_by_default_and_saved() -> void:
+func test_the_setting_is_on_by_default_and_a_saved_off_is_kept() -> void:
 	var cfg_path := "user://test_progression_settings.cfg"
 	if FileAccess.file_exists(cfg_path):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg_path))
@@ -194,15 +214,248 @@ func test_the_setting_is_off_by_default_and_saved() -> void:
 	var g: Node = load("res://scenes/main.tscn").instantiate()
 	g.settings_path = cfg_path
 	(Engine.get_main_loop() as SceneTree).root.add_child(g)
-	assert_false(Progress.enabled(), "Progression starts Off")
+	assert_true(Progress.enabled(), "a fresh install starts with Progression On")
 	assert_true("progression" in g.SETTING_PAGES["game"], "a row on Settings > Game")
-	assert_eq(g.settings_ctl._setting("progression")["index"], 0, "")
-	g.settings_ctl._set_setting("progression", 1)
-	assert_true(Progress.enabled(), "On")
+	assert_eq(g.settings_ctl._setting("progression")["index"], 1, "")
+	g.settings_ctl._set_setting("progression", 0)
+	assert_false(Progress.enabled(), "Off")
 	g.settings_ctl._save_settings()
+	Progress.set_enabled(true)
+	g.settings_ctl._load_settings()
+	assert_false(Progress.enabled(), "a saved Off is kept")
+	g.settings_ctl._set_setting("progression", 1)
 	Progress.set_enabled(false)
 	g.settings_ctl._load_settings()
-	assert_true(Progress.enabled(), "and saved")
+	assert_true(Progress.enabled(), "and a saved On")
+	# A settings file from before the setting existed (no game/progression): On.
+	var cfg := ConfigFile.new()
+	cfg.load(cfg_path)
+	cfg.erase_section_key("game", "progression")
+	cfg.save(cfg_path)
+	Progress.set_enabled(false)
+	g.settings_ctl._load_settings()
+	assert_true(Progress.enabled(), "an older settings file without it: On")
 	g.free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg_path))
 	_done()
+
+
+## Hand-edited and damaged saves (the QC's crafted files): every getter reads them as the
+## right type (no script error: the runner fails a test on any), an award still pays and
+## saves, and the numbers go back as whole numbers.
+const ODD_SAVES := {
+	"old": "{\"arcade\": {\"cairn\": 1}, \"palette\": {\"cairn\": 2}, \"gauntlet\": {\"cairn\": 3}, \"daily\": {\"20261027\": 500}}",
+	"xp_text": "{\"xp\": \"abc\"}",
+	"xp_negative": "{\"xp\": -50}",
+	"xp_huge": "{\"xp\": 1000000000000.0}",
+	"unlocked_mixed": "{\"xp\": 500, \"unlocked\": [\"title:bogus\", 5, null, {\"a\": 1}, \"palette:cairn:9\", \"palette:nobody:1\", \"line:zzz\", \"title:rookie\"]}",
+	"equipped_odd": "{\"xp\": 500, \"unlocked\": [\"title:rookie\"], \"equipped\": {\"cairn\": {\"palette\": 99, \"title\": \"title:legend\", \"line\": \"line:cairn_2\"}}, \"palette\": {\"cairn\": 99}, \"account_title\": \"title:legend\"}",
+	"equipped_not_dicts": "{\"equipped\": {\"cairn\": \"title:rookie\", \"culvert\": 5, \"sno\": {\"title\": 5, \"line\": null}}, \"palette\": {\"cairn\": \"abc\", \"culvert\": {\"x\": 1}}}",
+	"challenges_list": "{\"challenges\": [1, 2, 3]}",
+	"counts_list": "{\"challenges\": {\"counts\": [1, 2], \"done\": \"first_fight\"}}",
+	"counts_odd": "{\"challenges\": {\"counts\": {\"bogus_stat\": 5, \"fights\": 2.5, \"wins\": \"x\", \"kos\": null, \"wins_on:storm_drain\": {\"a\": 1}}, \"done\": [\"nope\", 3, \"first_fight\"]}}",
+	"streak_text": "{\"streak\": {\"days\": \"x\", \"last_day\": \"y\"}}",
+	"streak_future": "{\"streak\": {\"days\": 5, \"last_day\": 20991231}}",
+	"weekly_odd": "{\"weekly\": {\"garbage\": \"x\", \"202644\": \"abc\", \"999999\": -5}}",
+	"endings_odd": "{\"endings\": [\"nobody\", 7, null, \"cairn\"]}",
+	"mastery_odd": "{\"mastery\": {\"cairn\": \"lots\", \"culvert\": -100, \"nobody\": 500, \"digby\": 1000000000000000.0, \"sno\": 1e30}}",
+	"seen_text": "{\"seen\": \"x\", \"arcade\": {\"cairn\": \"hard\"}, \"gauntlet\": {\"cairn\": [1]}}",
+	"arcade_dicts": "{\"arcade\": {\"cairn\": {\"x\": 1}}, \"daily\": {\"20261028\": {\"y\": 2}}}",
+	"top_level_array": "[1, 2, 3]",
+	"empty": "",
+	"cut_off": "{\"xp\": 5, \"unlocked\": [",
+}
+
+
+func _read_everything() -> void:
+	Progress.account_xp()
+	Progress.account_level()
+	Progress.level_progress()
+	Progress.account_title()
+	Progress.new_anywhere()
+	Progress.streak_days()
+	Progress.streak_bonus()
+	Progress.weekly_best(202644)
+	Progress.daily_best(20261028)
+	for f in MatchFactory.FIGHTERS:
+		var fs := String(f)
+		assert_true(Progress.mastery_xp(fs) >= 0, "%s's mastery XP is never below 0" % fs)
+		Progress.mastery_progress(fs)
+		Progress.arcade_best(fs)
+		Progress.gauntlet_best(fs)
+		assert_true(Progress.palette(fs) >= 0 and Progress.palette(fs) < Progress.PALETTES, "")
+		Progress.equipped(fs)
+		Progress.shown_title(fs)
+		Progress.shown_line(fs)
+		Progress.unlocks_of(fs)
+		Progress.ending_seen(fs)
+	for g in Challenges.goals():
+		Challenges.progress(String(g["id"]))
+	Challenges.done_count()
+	Challenges.count("maps_won")
+
+
+func test_odd_and_damaged_saves_read_as_the_right_types() -> void:
+	for name in ODD_SAVES:
+		var p := _fresh()
+		var f := FileAccess.open(p, FileAccess.WRITE)
+		f.store_string(String(ODD_SAVES[name]))
+		f.close()
+		Progress.reset_for_tests(p)
+		_read_everything()
+		assert_true(Progress.account_xp() >= 0 and Progress.account_xp() <= Progress.XP_MAX, "%s: the XP is in range (%d)" % [name, Progress.account_xp()])
+		assert_false(Progress.award(_cpu(true, 1)).is_empty(), "%s: a fight still pays" % name)
+		Progress.reset_for_tests(p)
+		_read_everything()
+		var text := FileAccess.get_file_as_string(p)
+		assert_false(RegEx.create_from_string(r"\d\.0\b").search(text) != null, "%s: whole numbers are saved whole:\n%s" % [name, text])
+		_cleanup(p)
+	_done()
+
+
+func test_the_saves_numbers_stay_whole_after_a_load_and_a_save() -> void:
+	var p := _fresh()
+	Progress.award(_cpu(true, 2))
+	Progress.record_daily(20261028, 900)
+	Progress.reset_for_tests(p)
+	Progress.award(_cpu(true, 2))
+	var d: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(p))
+	assert_false(FileAccess.get_file_as_string(p).contains(".0"), "no 4.0 for 4 in the file")
+	assert_true(Progress.clean(d)["xp"] is int, "")
+	_cleanup(p)
+	_done()
+
+
+## The save and its side files (.bak, .tmp, a moved-aside .corrupt-<time>).
+func _cleanup(p: String) -> void:
+	var dir := ProjectSettings.globalize_path(p).get_base_dir()
+	var base := p.get_file()
+	for n in DirAccess.get_files_at(dir):
+		if String(n).begins_with(base):
+			DirAccess.remove_absolute(dir.path_join(n))
+
+
+func test_an_unreadable_save_is_moved_aside_and_the_backup_read() -> void:
+	var p := _fresh()
+	Progress.award(_cpu(true, 2))
+	Progress.award(_cpu(true, 2))  # a second save: the first is the .bak
+	var xp := Progress.account_xp()
+	assert_true(FileAccess.file_exists(p + ".bak"), "the save before is kept as .bak")
+	assert_false(FileAccess.file_exists(p + ".tmp"), "the temporary file was renamed over the save")
+	var f := FileAccess.open(p, FileAccess.WRITE)
+	f.store_string("{\"xp\": 5, \"unlock")  # a crash mid-write, by hand
+	f.close()
+	Progress.reset_for_tests(p)
+	assert_true(Progress.account_xp() > 0 and Progress.account_xp() < xp, "the backup is read: %d" % Progress.account_xp())
+	var aside := DirAccess.get_files_at(ProjectSettings.globalize_path(p).get_base_dir())
+	assert_true(Array(aside).any(func(n): return String(n).begins_with(p.get_file() + ".corrupt-")), "the bad file is moved aside, not lost")
+	# No backup: an empty file starts a new profile, and the empty file is kept aside too.
+	_cleanup(p)
+	f = FileAccess.open(p, FileAccess.WRITE)
+	f.close()
+	Progress.reset_for_tests(p)
+	assert_eq(Progress.account_xp(), 0, "an empty file: a new profile:")
+	assert_false(FileAccess.file_exists(p), "moved aside before anything is written")
+	_cleanup(p)
+	_done()
+
+
+func test_mastery_xp_is_clamped_like_the_accounts() -> void:
+	var p := _fresh()
+	var f := FileAccess.open(p, FileAccess.WRITE)
+	f.store_string("{\"xp\": 1e30, \"mastery\": {\"cairn\": -500, \"sno\": 1e30}}")
+	f.close()
+	Progress.reset_for_tests(p)
+	assert_eq(Progress.mastery_xp("cairn"), 0, "below 0 reads as 0:")
+	assert_eq(Progress.mastery_progress("cairn")[0], 0, "so the bar never shows -500 / 300:")
+	assert_eq(Progress.mastery_xp("sno"), Progress.XP_MAX, "far past the top reads as the top, never an overflow:")
+	assert_eq(Progress.mastery_level("sno"), int(Progress.table()["mastery_curve"]["cap"]), "")
+	assert_eq(Progress.account_xp(), Progress.XP_MAX, "the account the same:")
+	Progress._data["mastery"]["pete"] = -20  # (a value set in memory, not from the file)
+	assert_eq(Progress.mastery_xp("pete"), 0, "")
+	_cleanup(p)
+	_done()
+
+
+func test_rewards_already_earned_are_granted_on_reading_the_save() -> void:
+	var p := _fresh()
+	var acc: Dictionary = Progress.table()["account_curve"]
+	var f := FileAccess.open(p, FileAccess.WRITE)
+	# Past level 10 and Cairn's mastery 3, but nothing recorded: rows added to the data later.
+	f.store_string(JSON.stringify({"xp": Progress.xp_for_level(acc, 11), "unlocked": [], "arcade": {"cairn": 0},
+		"mastery": {"cairn": Progress.xp_for_level(Progress.table()["mastery_curve"], 3)}}))
+	f.close()
+	Progress.reset_for_tests(p)
+	for r in Progress.account_rewards():
+		assert_eq(Progress.unlocked(String(r["id"])), int(r["level"]) <= 11, "%s (level %d) at level 11:" % [r["id"], r["level"]])
+	assert_true(Progress.unlocked("title:pit_dodger") and Progress.is_new("title:pit_dodger"), "level 10's title is there and New!")
+	assert_true(Progress.unlocked("line:cairn_1"), "Cairn's mastery 3 line too")
+	assert_false(Progress.is_new("palette:cairn:1"), "the palette the Easy clear gave is no news")
+	assert_true(Progress.set_account_title("title:pit_dodger"), "and it can be worn straight away")
+	_cleanup(p)
+	_done()
+
+
+func test_the_progression_flag_is_for_the_session_only() -> void:
+	var cfg_path := "user://test_progression_flag.cfg"
+	if FileAccess.file_exists(cfg_path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg_path))
+	_fresh()
+	var g: Node = load("res://scenes/main.tscn").instantiate()
+	g.settings_path = cfg_path
+	(Engine.get_main_loop() as SceneTree).root.add_child(g)
+	g.settings_ctl._set_setting("progression", 0)  # saved Off
+	var saved: bool = g.settings_ctl.progression_saved
+	Progress.set_enabled(true)  # what --progression=on does (main_args.gd: the switch alone, not the saved value)
+	g.settings_ctl._save_settings()
+	var cfg := ConfigFile.new()
+	cfg.load(cfg_path)
+	assert_false(bool(cfg.get_value("game", "progression", true)), "a session's --progression=on is never written")
+	assert_eq(saved, false, "")
+	g.free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg_path))
+	_done()
+
+
+## The content: every reward id in every table (the account's, each fighter's mastery, the
+## challenges', the endings') has words; every fighter has its own two victory lines and
+## mastery title, short and none shared; every palette a table gives is one the fight draws.
+func test_every_reward_in_every_table_has_words() -> void:
+	var ids: Array = []
+	for r in Progress.account_rewards():
+		ids.append(String(r["id"]))
+	for f in MatchFactory.FIGHTERS:
+		for r in Progress.mastery_rewards(String(f)):
+			ids.append(String(r["id"]))
+	for g in Challenges.goals():
+		var rid := String(g.get("reward", {}).get("id", ""))
+		if rid != "":
+			ids.append(rid)
+	ids.append_array(Endings.titles())
+	assert_gt(float(ids.size()), 80.0, "the tables were read (%d ids)" % ids.size())
+	for id in ids:
+		var words := Progress.reward_text(String(id))
+		assert_true(words != String(id) and not words.contains("{") and words.strip_edges() != "", "%s has words: '%s'" % [id, words])
+		if String(id).begins_with("title:"):
+			assert_true(Progress.title_text(String(id)) != String(id).trim_prefix("title:"), "%s's title is written" % id)
+		if String(id).begins_with("line:"):
+			assert_true(Progress.line_text(String(id)) != String(id).trim_prefix("line:"), "%s's line is written" % id)
+		if String(id).begins_with("palette:"):
+			assert_true(int(String(id).get_slice(":", 2)) < CreatureView.PALETTE_HUES.size(), "%s is a palette the fight draws" % id)
+	assert_eq(CreatureView.PALETTE_HUES.size(), Progress.PALETTES, "every fighter has the four palettes (the hue turn):")
+	var t: Dictionary = Progress.table()
+	var titles := {}
+	for f in MatchFactory.FIGHTERS:
+		var fs := String(f)
+		for k in [fs + "_1", fs + "_2"]:
+			assert_true((t["lines"] as Dictionary).has(k), "%s has its own line '%s'" % [fs, k])
+			assert_true(String(t["lines"].get(k, "")).length() < 50, "%s: under 50 characters" % k)
+		assert_true((t["titles"] as Dictionary).has(fs + "_master"), "%s has its own mastery title" % fs)
+	for k in t["titles"]:
+		var words := String(t["titles"][k])
+		if not String(k).contains("{"):
+			assert_false(titles.has(words), "'%s' is one title, not two (%s)" % [words, k])
+			titles[words] = true
+			assert_true(words.length() < 50, "")
+	for r in Progress.account_rewards():
+		assert_true(String(r["id"]).begins_with("title:"), "every account level gives a title")

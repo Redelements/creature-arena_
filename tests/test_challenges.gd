@@ -98,7 +98,7 @@ func test_a_won_match_completes_first_win_and_pays_its_xp() -> void:
 	var g: Node = load("res://scenes/main.tscn").instantiate()
 	g.settings_path = TEST_SETTINGS
 	(Engine.get_main_loop() as SceneTree).root.add_child(g)
-	Progress.set_enabled(true)  # (after the settings load, which reads it Off)
+	Progress.set_enabled(true)  # (set after the settings load, never left to its default)
 	g._skip_select = true
 	g._start_match(0)  # Cairn vs CPU Culvert
 	for i in 30:
