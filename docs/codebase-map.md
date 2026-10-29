@@ -42,6 +42,7 @@ update the map in the same change.
 | stamina, dash cost, exhaustion, block drain, regen pause | `data/rules/stamina.json`; `src/sim/creature_sim.gd:spend_stamina`, `can_guard`; `src/sim/match_sim.gd:block_drain` | stamina |
 | guard, blocking, guard break, block chip (none: blocks cost stamina) | `src/sim/match_sim.gd:_apply_hit` (guard branch); `src/sim/creature_sim.gd:_update_guard` | combat, stamina, balance |
 | dodge, dash, blink, roll, dodge cancel | `src/sim/creature_sim.gd:_start_dodge`, `_update_dodge`, `can_dodge`, `can_dodge_cancel` | combat, stamina, dodge_cancel |
+| homing dash, Big Heist blink, aimed dive (`lock_on`) | `src/sim/creature_sim.gd:_home`, `_blink`, `_dive_target`; `src/sim/match_sim.gd:aimed_opponent` (shared with a lob's `lob_lock`) | kit_keys, pete, combos |
 | combos, cancels, input buffer, windup | `src/sim/creature_sim.gd:_start_attack`, `buffer_input`, `_try_start_buffered`; rules in `docs/MECHANICS.md` | combo_rules, combos, counterplay |
 | projectiles, skill shots, hooks, lobs, burst | `src/sim/match_sim.gd:spawn_projectile`, `_step_projectiles`, `_burst`; size `data/rules/projectiles.json` | projectiles |
 | puddles, ground zones, storms | `src/sim/match_sim.gd:add_zone`, `_step_zones`, `_add_storm` | sno, crease |

@@ -3,7 +3,8 @@ extends TestCase
 ## target carrying a mark: Chef Cerebro's Mallet Toss on a tenderized foe), a projectile's
 ## "bounce" (on to a second foe once, weaker: Cleaver Toss) and a light's "branches" (a
 ## button pressed at that point of the string starts another move in place of the usual
-## rank cancel). Keys in docs/MECHANICS.md.
+## rank cancel), and "lock_on" on a "dash.home" or a "blink" (an aimed dive: Sneaky Pete goes
+## for the foe he aims at, else the nearest). Keys in docs/MECHANICS.md.
 
 const L := SimDefs.IN_LIGHT
 const H := SimDefs.IN_HEAVY
@@ -270,3 +271,134 @@ func test_a_branch_needs_contact_like_any_rank_cancel() -> void:
 	for i in 30:
 		run(sim, H if i % 2 == 0 else 0, 1)
 		assert_true(a.move_id != "heavy_alt" or a.state != CreatureSim.State.ATTACK, "no branch out of a whiff")
+
+
+# ------------------------------------------------------------------ lock_on on dash.home and blink
+# Sneaky Pete's aimed dives: Pickpocket's homing dash and The Big Heist's blink go for the
+# foe the held aim points at (within the cone), else the nearest as before.
+
+const S2 := SimDefs.IN_SKILL2
+const SU := SimDefs.IN_SURGE
+
+
+## The attacker on team 0 at (200, 164); Culvert (team 1) right in front of it, the nearest
+## foe; Cerebro (team 1) further off, up and to the right at 45 degrees.
+func _dive_sim(attacker = "pete") -> MatchSim:
+	var def: Dictionary = MatchFactory.load_def(attacker) if attacker is String else attacker
+	var sim := MatchSim.new()
+	sim.set_arena(MatchFactory.arena)
+	var a := sim.add_creature(def, Vector2(200, 164))
+	a.team = 0
+	var tank := sim.add_creature(MatchFactory.load_def("culvert"), Vector2.ZERO)
+	tank.pos = Vector2(200 + a.radius + tank.radius + 4.0, 164)
+	tank.facing = Vector2.LEFT
+	tank.team = 1
+	var mage := sim.add_creature(MatchFactory.load_def("cerebro"), Vector2(250, 114))
+	mage.facing = Vector2.LEFT
+	mage.team = 1
+	return sim
+
+
+## Presses `button` with the aim held toward `aim` (zero: no aim, no stick) for the first
+## 4 ticks, then holds only the aim, for `ticks`. Returns who the attacker hit, the
+## first blink's landing spot and where the move ended (a Surge on a crowded field winds
+## up first, so give those time).
+func _dive(sim: MatchSim, button: int, aim: Vector2, ticks: int) -> Dictionary:
+	var aim_b := SimDefs.aim_bits(aim)
+	var hit := {}
+	var landed := Vector2.INF
+	var ended := Vector2.INF
+	var a := sim.creatures[0]
+	var started := false
+	var gaps := {1: INF, 2: INF}
+	for i in ticks:
+		sim.step(PackedInt32Array([(button if i < 4 else 0) | aim_b, 0, 0]))
+		if a.state == CreatureSim.State.ATTACK:
+			started = true
+		elif started and ended == Vector2.INF:
+			ended = a.pos
+		for e in sim.events:
+			if String(e["type"]) == "hit" and int(e.get("attacker", -1)) == 0:
+				hit[int(e["target"])] = true
+			elif String(e["type"]) == "blink" and landed == Vector2.INF:
+				landed = e["pos"]
+				for j in [1, 2]:  # how far the landing is from each foe, as they stand then
+					gaps[j] = landed.distance_to(sim.creatures[j].pos) - float(sim.creatures[j].radius + a.radius)
+	return {"hit": hit, "landed": landed, "ended": ended, "gaps": gaps}
+
+
+func test_lock_on_pickpocket_dives_past_the_tank_onto_the_aimed_mage() -> void:
+	var sim := _dive_sim()
+	var pete := sim.creatures[0]
+	var r := _dive(sim, S2, sim.creatures[2].pos - pete.pos, 70)
+	assert_true(r["hit"].has(2), "Pickpocket homes onto Cerebro, the one he aims at")
+	assert_lt(r["ended"].distance_to(sim.creatures[2].pos), r["ended"].distance_to(sim.creatures[1].pos),
+		"and runs on past Culvert")
+
+
+func test_lock_on_big_heist_blinks_to_the_aimed_mage() -> void:
+	var sim := _dive_sim()
+	var pete := sim.creatures[0]
+	pete.energy = 100.0
+	var r := _dive(sim, SU, sim.creatures[2].pos - pete.pos, 90)
+	assert_true(r["landed"] != Vector2.INF, "he blinks")
+	assert_lt(r["gaps"][2], 4.0, "beside Cerebro")
+
+
+func test_lock_on_with_no_foe_in_the_cone_takes_the_nearest() -> void:
+	for aim in [Vector2.DOWN, Vector2.ZERO]:
+		var sim := _dive_sim()
+		var r := _dive(sim, S2, aim, 70)
+		assert_true(r["hit"].has(1), "aimed at nobody (%s): Pickpocket takes Culvert, the nearest" % aim)
+		assert_false(r["hit"].has(2), "not Cerebro (%s)" % aim)
+		sim = _dive_sim()
+		sim.creatures[0].energy = 100.0
+		r = _dive(sim, SU, aim, 90)
+		assert_lt(r["gaps"][1], 4.0, "and The Big Heist blinks to Culvert (%s)" % aim)
+
+
+func test_lock_on_skips_a_stealthed_foe_in_the_cone() -> void:
+	var sim := _dive_sim()
+	var pete := sim.creatures[0]
+	sim.creatures[2].stealth = 600
+	assert_eq(sim.aimed_opponent(pete, (sim.creatures[2].pos - pete.pos).normalized(), 0.92), null,
+		"hidden Cerebro doesn't count")
+	var r := _dive(sim, S2, sim.creatures[2].pos - pete.pos, 70)
+	assert_true(r["hit"].has(1), "Pickpocket falls back to the nearest, Culvert")
+	assert_false(r["hit"].has(2), "not the hidden Cerebro")
+	sim = _dive_sim()
+	sim.creatures[2].stealth = 600
+	sim.creatures[0].energy = 100.0
+	r = _dive(sim, SU, sim.creatures[2].pos - sim.creatures[0].pos, 90)
+	assert_lt(r["gaps"][1], 4.0, "and The Big Heist blinks to Culvert")
+
+
+func test_lock_on_picks_the_foe_closest_to_the_aim_line() -> void:
+	var sim := _dive_sim()
+	var pete := sim.creatures[0]
+	# Both in a wide cone: the one nearer the aim line wins, not the nearer one.
+	var aim := (sim.creatures[2].pos - pete.pos).normalized()
+	assert_eq(sim.aimed_opponent(pete, aim, 0.5), sim.creatures[2], "Cerebro is on the aim line")
+	assert_eq(sim.aimed_opponent(pete, Vector2.RIGHT, 0.5), sim.creatures[1], "Culvert is on this one")
+
+
+func test_a_homing_dash_without_lock_on_still_takes_the_nearest() -> void:
+	var sim := _dive_sim("gillbert")
+	var g := sim.creatures[0]
+	assert_false((g.def["moves"]["surge"]["dash"]["home"] as Dictionary).has("lock_on"), "Gillbert's has none")
+	g.energy = 100.0
+	var r := _dive(sim, SU, sim.creatures[2].pos - g.pos, 120)
+	assert_true(r["hit"].has(1), "The One That Got Away lands on Culvert, the nearest, aim or not")
+	assert_lt(r["ended"].distance_to(sim.creatures[1].pos), r["ended"].distance_to(sim.creatures[2].pos),
+		"its landing is by Culvert")
+
+
+func test_lock_on_works_on_any_homing_dash() -> void:
+	var def: Dictionary = MatchFactory.load_def("gillbert").duplicate(true)
+	def["moves"]["surge"]["dash"]["home"]["lock_on"] = {"dot": 0.92}
+	var sim := _dive_sim(def)
+	var g := sim.creatures[0]
+	g.energy = 100.0
+	var r := _dive(sim, SU, sim.creatures[2].pos - g.pos, 120)
+	assert_lt(r["ended"].distance_to(sim.creatures[2].pos), r["ended"].distance_to(sim.creatures[1].pos),
+		"with the key, Gillbert's dash steers for the aimed foe instead")

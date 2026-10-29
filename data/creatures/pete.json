@@ -131,7 +131,7 @@
       "damage": 5, "knockback": 0.6, "hitstun": 28, "hitstop": 5, "juggle": true,
       "steal_ticks": 300, "steal": 0.1,
       "reach": 4, "hit_radius": 14,
-      "dash": { "speed": 4.6, "from": 4, "to": 18, "ghost": true, "home": { "until": 12, "max": 4.6, "through": true } },
+      "dash": { "speed": 4.6, "from": 4, "to": 18, "ghost": true, "home": { "until": 12, "max": 4.6, "through": true, "lock_on": { "dot": 0.92 } } },
       "anim_at": [[0, 0], [4, 1], [6, 2], [10, 3], [14, 4], [19, 5], [22, 6], [26, 7]],
       "fx": { "afterimage": [4, 18], "ghost_color": "#7fd67f", "steal": true, "move_fx": {"path": "res://assets/vfx/hit_star_cyan.tres", "scale": 0.8} }
     },
@@ -140,7 +140,7 @@
       "startup": 12, "length": 56, "reach": 14, "hit_radius": 24, "juggle": true,
       "self": { "stealth": 10 },
       "leap": { "from": 2, "to": 10 },
-      "blink": { "at": 10, "gap": 2 },
+      "blink": { "at": 10, "gap": 2, "lock_on": { "dot": 0.92 } },
       "damage": 6, "knockback": 0.2, "hitstun": 22, "hitstop": 3,
       "hits": [
         {"at": 13, "active": 2}, {"at": 17, "active": 2}, {"at": 21, "active": 2}, {"at": 25, "active": 2},

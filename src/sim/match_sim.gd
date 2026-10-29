@@ -1078,6 +1078,17 @@ func lob_lock(owner: CreatureSim, p: Dictionary) -> CreatureSim:
 	var min_dot := float((p["lock_on"] as Dictionary).get("dot", 0.92))
 	var area := float((p.get("storm", {}) as Dictionary).get("radius", p.get("burst", 0.0)))
 	var reach := float(p.get("range_charged", p.get("range", 0.0))) + float(p.get("offset", 16)) + area
+	return aimed_opponent(owner, owner.facing, min_dot, reach)
+
+
+## The living foe the unit direction `aim` points at: the line to it within the aim (dot of
+## the two >= `min_dot`) and within `reach`; closest to the aim line wins, then nearer.
+## Stealthed and brush-covered foes don't count. null when none does (or no aim is held).
+## Shared by a lob's `lock_on` and the `lock_on` of `dash.home` and `blink` (dot products
+## only, no trig).
+func aimed_opponent(owner: CreatureSim, aim: Vector2, min_dot: float, reach := INF) -> CreatureSim:
+	if aim == Vector2.ZERO:
+		return null
 	var best: CreatureSim = null
 	var best_dot := -2.0
 	var best_d := INF
@@ -1088,7 +1099,7 @@ func lob_lock(owner: CreatureSim, p: Dictionary) -> CreatureSim:
 		var d := to.length()
 		if d < 0.0001 or d > reach:
 			continue
-		var dt := to.dot(owner.facing) / d
+		var dt := to.dot(aim) / d
 		if dt < min_dot:
 			continue
 		if dt > best_dot + 0.0001 or (absf(dt - best_dot) <= 0.0001 and d < best_d):
