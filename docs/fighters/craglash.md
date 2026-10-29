@@ -23,3 +23,4 @@
 
 ## Changelog
 - 2026-10-27 — created
+- 2026-10-29 — data tune toward Kevin's R4 target (PR `craglash-tune`, NET_VERSION 69): stamina regen 0.35 -> 0.5, Rake cooldown 120 -> 90, roll speed 2.7 -> 3.2, Bedrock armor 0.75 -> 0.85; HP and damage unchanged. Normal 1v1 field 29% -> 41%; the slot bench (tank slot of culvert / cerebro / pete) had him at 50% before

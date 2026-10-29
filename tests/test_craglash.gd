@@ -360,8 +360,11 @@ func test_a_blocked_hit_counts_as_combat() -> void:
 	assert_lt(float(crag.calm_t), 2.0, "the hit he had blocked reset his calm:")
 
 
-func test_mashed_light_comes_out_once_every_two_seconds() -> void:
-	# One Rake, then a 2 s cooldown: mashing light can't string or spam it (Oct 25 2026 nerf).
+func test_mashed_light_comes_out_once_per_cooldown() -> void:
+	# One Rake, then its cooldown (2 s in the Oct 25 2026 nerf, 1.5 s since the Oct 29 tune):
+	# mashing light can't string or spam it.
+	var cd := int(MatchFactory.load_def("craglash")["moves"]["light_1"]["cooldown"])
+	assert_gt(float(cd), 59.0, "the Rake keeps a cooldown of at least a second:")
 	var sim := _duel("cairn", 2.0)
 	var crag := sim.creatures[0]
 	var starts := []
@@ -374,9 +377,9 @@ func test_mashed_light_comes_out_once_every_two_seconds() -> void:
 		if now == "light_1" and was != "light_1":
 			starts.append(i)
 		was = now
-	assert_eq(starts.size(), 3, "three Rakes in 5 s of mashing:")
+	assert_gt(starts.size(), 300 / (cd + 10), "mashing still gets a Rake every cooldown:")
 	for k in range(1, starts.size()):
-		assert_gt(float(starts[k] - starts[k - 1]), 119.0, "at least 2 s apart:")
+		assert_gt(float(starts[k] - starts[k - 1]), float(cd - 1), "at least one cooldown apart:")
 
 
 func test_landslide_charge_cancels_from_the_rake() -> void:

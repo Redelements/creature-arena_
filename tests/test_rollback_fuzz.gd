@@ -288,7 +288,8 @@ func test_1v1_rounds() -> void:
 func test_duel_3v3_tag() -> void:
 	# "glass" 2.5 since the Oct 29 Normal nerf: a Normal CPU against a masher took more than the
 	# duel's 180 s to a first KO at the shared 1.5 (the long soak saw 8 KOs in 10 full matches).
-	_fuzz({"name": "Duel 3v3", "kind": "duel", "size": 3, "ticks": 6000, "glass": 2.5, "want": ["ko", "enter"]})
+	# 3.0 since the Oct 29 Craglash tune (a sturdier tank lead outlasted the 6000 ticks at 2.5).
+	_fuzz({"name": "Duel 3v3", "kind": "duel", "size": 3, "ticks": 6000, "glass": 3.0, "want": ["ko", "enter"]})
 
 
 func test_team_2v2() -> void:

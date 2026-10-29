@@ -14,6 +14,13 @@ extends SceneTree
 ##     per team (a baseline for team AI)
 ##     --intent=a: only the first-picks side plays to a team focus (TeamIntent), the other side
 ##     picks targets alone; --intent=off: nobody does (the old baseline)
+##   --slot=<role>: the slot bench, team win rate per fighter in a 3v3 (Normal or --a): every
+##     fighter (or --only=<id>) fills the <role> slot (tank, mage or assassin) of the reference
+##     team culvert / cerebro / pete; its two teammates and the three foes (that reference team)
+##     are fixed Normal CPUs. Both sides, --seeds games a side; a draw or a timeout counts half.
+##     The reference pick itself is a mirror (about 50%), so 50% means "as good as the reference
+##     in that slot". Team rules from data/rules/team.json (150 s, last team standing).
+##   --matrix --only=<id>: play just that fighter's row (the same seeds as the full matrix)
 ##   --combat: how each fighter deals its damage, Normal (or --a) against Normal, every pair of the
 ##     roster from both sides (--seeds games a side, --only=<id> for its pairs): the share of
 ##     damage from light / heavy / skill / surge hits (clean, chip and on armor; from the
@@ -41,6 +48,7 @@ func _init() -> void:
 	var pairs := ""
 	var teams := 0
 	var combat := false
+	var slot := ""
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--a="):
 			a_lv = int(arg.get_slice("=", 1))
@@ -68,8 +76,14 @@ func _init() -> void:
 			_intent = arg.get_slice("=", 1)
 		elif arg == "--combat":
 			combat = true
+		elif arg.begins_with("--slot="):
+			slot = arg.get_slice("=", 1)
 	if combat:
 		_combat(MatchFactory.FIGHTERS, a_lv, seeds, only)
+		quit()
+		return
+	if slot != "":
+		_slot(slot, a_lv, seeds, only)
 		quit()
 		return
 	if teams > 0:
@@ -78,7 +92,7 @@ func _init() -> void:
 		return
 	var field: Array = MatchFactory.FIGHTERS
 	if matrix:
-		_matrix(field, a_lv, seeds)
+		_matrix(field, a_lv, seeds, only)
 		quit()
 		return
 	if pairs != "":
@@ -243,11 +257,67 @@ func _teams(size: int, lv: int, seeds: int) -> void:
 		roundi(100.0 * on_focus / maxf(1.0, on_focus_n)), roundi(100.0 * space / n)])
 
 
+## The reference team for --slot: a tank, a mage and an assassin, in slot order.
+const SLOT_REF := {"tank": "culvert", "mage": "cerebro", "assassin": "pete"}
+
+
+## --slot=<role>: each fighter (or `only`) takes the `role` slot of the reference team against
+## the reference team, everyone else fixed CPUs at level `lv`, both sides, `seeds` games a side.
+func _slot(role: String, lv: int, seeds: int, only: String) -> void:
+	if not SLOT_REF.has(role):
+		print("--slot: role must be one of %s" % [SLOT_REF.keys()])
+		return
+	var ref: Array = SLOT_REF.values()
+	var k: int = SLOT_REF.keys().find(role)
+	var rows := []
+	for f in MatchFactory.FIGHTERS:
+		if only != "" and f != only:
+			continue
+		var mine := ref.duplicate()
+		mine[k] = f
+		var score := 0.0
+		var w := 0
+		var d := 0
+		var n := 0
+		var ticks_sum := 0
+		for s in seeds:
+			for side in 2:
+				var t_ids := [[], []]
+				t_ids[side] = mine
+				t_ids[1 - side] = ref
+				var t := TeamSim.new(t_ids, 3)
+				var cpus: Array = []
+				for i in t.slot_count():
+					cpus.append(CpuController.new(i, lv, 1100 + s * 37 + side * 11 + i))
+				var ticks := 0
+				while t.phase != TeamSim.Phase.OVER and ticks < 12000:
+					var ins := PackedInt32Array()
+					for i in t.slot_count():
+						ins.append((cpus[i] as CpuController).bits(t.sim))
+					t.step(ins)
+					ticks += 1
+				if t.winner == side:
+					w += 1
+					score += 1.0
+				elif t.winner < 0:
+					d += 1
+					score += 0.5
+				n += 1
+				ticks_sum += ticks
+		rows.append({"fighter": f, "score": score / n, "w": w, "d": d, "n": n, "secs": ticks_sum / float(n) / 60.0})
+		print("%-9s in the %s slot of %s vs %s: won %2d drew %d of %2d  %3d%%  avg %5.1f s" % [f, role, mine, ref,
+			w, d, n, roundi(100.0 * score / n), ticks_sum / float(n) / 60.0])
+	rows.sort_custom(func(x, y): return float(x["score"]) > float(y["score"]))
+	print("SLOT %s %s: %s" % [role, CpuController.LEVELS[lv]["name"],
+		", ".join(rows.map(func(r): return "%s %d%%" % [r["fighter"], roundi(100.0 * float(r["score"]))]))])
+
+
 ## Every pair at one level, both sides: a grid of win rates (row beats column) and the
 ## average distance, as JSON on one line (for scripts) after a readable table.
-func _matrix(field: Array, lv: int, seeds: int) -> void:
+func _matrix(field: Array, lv: int, seeds: int, only := "") -> void:
 	var grid := {}
-	for f in field:
+	var rows: Array = field if only == "" else [only]
+	for f in rows:
 		grid[f] = {}
 		for o in field:
 			if o == f:
@@ -270,7 +340,7 @@ func _matrix(field: Array, lv: int, seeds: int) -> void:
 	for o in field:
 		head += "%5s" % String(o).substr(0, 4)
 	print(head)
-	for f in field:
+	for f in rows:
 		var line := "%-9s" % f
 		var tot := 0
 		var tn := 0
