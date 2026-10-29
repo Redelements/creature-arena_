@@ -116,4 +116,5 @@ jaw more visible, not less. This plan is view and sheet work only: no sim change
   tilted up, mouth opening), frames 2-3 hold it with a shiver, frame 4 the throw.
 
 ## Inspection notes
-(filled in by phase 0)
+Phase 0 (Oct 29): `docs/maw-range/phase0/findings.md` (previews, in-game shots, the frame table;
+tool `tools/craglash_phase0.py`, showcase `maw_reach`).
