@@ -2,7 +2,8 @@ class_name Showcase
 extends RefCounted
 ## Scripted demos that show each fighter's whole kit, and how to answer the big moves.
 ##   godot --path . -- --showcase=cairn | culvert | craglash | barkley | gillbert | cerebro | hissy | digby | pete | sno | counterplay
-## (crease_storm and pete_flank are trailer beats: tools/trailer_shots.json)
+## (crease_storm and pete_flank are trailer beats: tools/trailer_shots.json; maw_reach is an
+## inspection beat for docs/maw-range/phase0)
 ## Both fighters are driven by input bitmasks, exactly like players: each "press" step
 ## mashes its button until that move actually starts, so the combos shown are real
 ## inputs through the real rules. tests/test_showcase.gd plays every script headless.
@@ -519,6 +520,32 @@ const SCRIPTS := {
 			{"do": "press", "who": 0, "bit": H, "move": "heavy", "hold": "down", "show": 1},
 			{"do": "until", "cond": "settled"},
 			{"do": "wait", "t": 70},
+		],
+	},
+	# Inspection beat (docs/maw-range/phase0): Mountain Maw at full reach facing right, down
+	# and up, the foe ~255 px off so the bite lands at the end of the flight. Craglash walks
+	# to the far edge first (a projectile dies at the floor's edge).
+	"maw_reach": {
+		"left": "craglash", "right": "cairn", "energy": [0, 0], "gap": 233.0,
+		"title": "MOUNTAIN MAW  -  FULL REACH",
+		"captions": [["Mountain Maw facing right"], ["Mountain Maw facing down"], ["Mountain Maw facing up"]],
+		"steps": [
+			{"do": "wait", "t": 30, "part": 0},
+			{"do": "press", "who": 0, "bit": S2, "move": "skill_2", "aim_at": true, "show": 0},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 120},
+			{"do": "place", "part": 1, "dir": "down", "gap": 104.0},
+			{"do": "walk", "who": 0, "hold": "up", "t": 64},
+			{"do": "wait", "t": 20},
+			{"do": "press", "who": 0, "bit": S2, "move": "skill_2", "aim_at": true, "show": 0},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 120},
+			{"do": "place", "part": 2, "dir": "up", "gap": 131.0},
+			{"do": "walk", "who": 0, "hold": "down", "t": 56},
+			{"do": "wait", "t": 20},
+			{"do": "press", "who": 0, "bit": S2, "move": "skill_2", "aim_at": true, "show": 0},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 60},
 		],
 	},
 	"twinstick": {
