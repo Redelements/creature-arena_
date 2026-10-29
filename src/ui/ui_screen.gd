@@ -91,7 +91,9 @@ func _ready() -> void:
 	var col := VBoxContainer.new()
 	col.set_anchors_preset(PRESET_FULL_RECT)
 	col.offset_top = 12 + column_shift
-	col.offset_bottom = -30 + column_shift
+	# An unframed page (the title) keeps its description line at the foot (-38..-28): the
+	# column ends above it, or its last row sits on the line at a 270-unit-high screen.
+	col.offset_bottom = (-30 if framed or not show_desc else -40) + column_shift
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.mouse_filter = MOUSE_FILTER_IGNORE
 	add_child(col)

@@ -157,6 +157,25 @@ func test_the_streak_counts_days_in_a_row_and_resets_after_a_gap() -> void:
 	_done()
 
 
+func test_a_clock_set_back_keeps_the_streak() -> void:
+	_fresh()
+	for day in [20261027, 20261028, 20261029, 20261030]:
+		Progress.day_override = day
+		Progress.award(_fight())
+	assert_eq(Progress.streak_days(), 4, "four days in a row:")
+	Progress.day_override = 20261029  # the clock a day back (or a trip west across midnight)
+	assert_eq(Progress.streak_days(), 4, "a day behind the last fight still counts as its day:")
+	Progress.award(_fight())
+	assert_eq(Progress.streak_days(), 4, "a fight then changes nothing:")
+	assert_eq(int(Progress._data["streak"]["last_day"]), 20261030, "the last day never moves back:")
+	Progress.day_override = 20261031
+	Progress.award(_fight())
+	assert_eq(Progress.streak_days(), 5, "and the next real day goes on:")
+	Progress.day_override = 20261020  # far off: the streak starts again, as after a gap
+	assert_eq(Progress.streak_days(), 0, "")
+	_done()
+
+
 func test_the_weekly_clear_pays_on_top_of_the_score() -> void:
 	_fresh()
 	var x: Dictionary = Progress.table()["xp"]
@@ -194,7 +213,8 @@ func test_off_there_is_no_row_and_no_streak() -> void:
 		if c is CardButton and (c as Button).text == "Challenges":
 			assert_true((c as CardButton).subtitle.contains("Weekly"), "the card names it: " + (c as CardButton).subtitle)
 			facts = hub.card(c).facts
-	assert_eq(facts.size(), 2 + Weekly.WEEK_PICKS, "On: the today card, the Daily, the Weekly and its mutators: %s" % [facts])
+	assert_eq(facts.size(), 3 + Weekly.WEEK_PICKS, "On: the today card, the Daily, the Weekly, its map and its mutators: %s" % [facts])
+	assert_true(String(facts[2]).begins_with("on "), "the map named: %s" % [facts])
 	assert_true(String(facts[0]).begins_with("Daily:") and String(facts[1]).begins_with("Weekly:"), str(facts))
 	g.free()
 	_done()

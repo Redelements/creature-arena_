@@ -448,8 +448,7 @@ func test_team_battle_row_opens_the_pick_then_fights_with_cpu_teammates() -> voi
 func test_back_from_a_page_returns_to_the_title_on_the_same_row() -> void:
 	var g := _game()
 	g._open_menu()
-	_press("ui_down")
-	_press("ui_down")  # Settings
+	((g.ui.top() as TitleScreen)._rows_by_name["settings"] as Control).grab_focus()  # (by name: the Profile row comes and goes)
 	_press("ui_accept")
 	assert_true(g.ui.top().title == "SETTINGS", "Settings opened")
 	_press("ui_cancel")
@@ -1745,6 +1744,8 @@ func test_the_arcade_boss_has_its_own_intro_and_a_clear_offers_a_new_run() -> vo
 	assert_true(g._arcade_result(true), "the boss falls")
 	g.flow_t = 0
 	_tick(g, g.MATCH_OVER_MENU_AT + 1)
+	if g.ui.top() is EndingScreen:  # Progression on: the fighter's ending card first (tests/test_endings.gd)
+		(g.ui.top() as EndingScreen).continue_button.pressed.emit()
 	var labels: Array = []
 	for r in g.ui.top().rows():
 		labels.append((r as Button).text)
@@ -1776,7 +1777,8 @@ func test_f6_saves_the_replay_at_the_match_over_screen() -> void:
 	_press("save_replay")
 	assert_true(DirAccess.dir_exists_absolute(dir), "F6 made the folder")
 	var added := Array(DirAccess.get_files_at(dir))
-	assert_eq(added.size(), 1, "F6 saved the fight just finished:")
+	assert_eq(added.size(), 2, "F6 saved the fight just finished (and its clip markers beside it):")
+	assert_eq(added.filter(func(f): return ClipMarks.is_sidecar(String(f))).size(), 1, "one of them the sidecar:")
 	g.ui.clear()
 	g._open_replays()
 	assert_eq(g.ui.top().rows().size(), 2, "the theater lists it (and Back):")
@@ -1801,7 +1803,7 @@ func test_pausing_a_watched_replay_or_a_spectated_room_has_no_restart() -> void:
 	for r in g.ui.top().rows():
 		labels.append((r as Button).text)
 	# No Restart; the replay viewer's jumps, speed and keys (replay_viewer.gd), a bug report.
-	assert_eq(labels, ["Resume", "Back 5 seconds", "Watch from the start", "Speed: 1x", "Save a bug report",
+	assert_eq(labels, ["Resume", "Back 5 seconds", "Watch from the start", "Speed: 1x", "Export clip", "Save a bug report",
 		"Replay theater", "Controls", "Main menu"], "")
 	_press("ui_cancel")
 	assert_false(g.paused, "Resume")

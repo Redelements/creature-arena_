@@ -23,6 +23,8 @@ const GRID_Y := 170.0
 const PANEL_Y := 30.0
 const PANEL_H := 132.0
 const PANEL_W := 226.0
+## The room right of the big preview for the class and matchup lines.
+const MATCHUP_W := PANEL_W - 108.0
 const RANDOM := "random"
 const C_TILE := Color(0.13, 0.15, 0.19, 0.95)
 ## A beat to see the last pick before the fight starts (B still takes it back).
@@ -60,6 +62,7 @@ var _big: Array = []  ## the two panels' big previews
 var _names: Array = []
 var _blurbs: Array = []
 var _infos: Array = []
+var _matchups: Array = []  ## "Beats mages  ·  Loses to fighters" under the class line
 var _tex := {}
 var _font: Font:  ## read each draw, so Settings > Video > Text font shows at once
 	get: return UiTheme.font()
@@ -119,6 +122,7 @@ func _ready() -> void:
 		blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_blurbs.append(blurb)
 		_infos.append(_make_label(Vector2(x + 102, PANEL_Y + 64), 6, UiTheme.C_ACCENT))
+		_matchups.append(_make_label(Vector2(x + 102, PANEL_Y + 73), 6, UiTheme.C_DIM))
 	for i in roster.size():
 		var r := _tile_rect(i)
 		var t := FighterPreview.new()
@@ -378,6 +382,7 @@ func _refresh() -> void:
 			(_names[1] as Label).text = solo_heading
 			(_blurbs[1] as Label).text = solo_info
 			(_infos[1] as Label).text = ""
+			(_matchups[1] as Label).text = ""
 			continue
 		var id := String(roster[cursor[side]])
 		var show := id != RANDOM
@@ -391,7 +396,62 @@ func _refresh() -> void:
 			if v != null and String(v) != "" and String(v) != "none":
 				bits.append(String(v).capitalize())
 		(_infos[side] as Label).text = "  ·  ".join(bits)
+		(_matchups[side] as Label).text = matchup_text(String(def.get("role", "")), UiTheme.font(),
+			MATCHUP_W) if show else ""
 	queue_redraw()
+
+
+## The class triangle from `role`'s side, read from the CPU's table (CpuController.BEATS)
+## so the menu can't drift from it: {"beats": [classes], "loses": [classes]}.
+static func matchups(role: String) -> Dictionary:
+	var loses: Array = []
+	for other in CpuController.BEATS:
+		if role in CpuController.BEATS[other]:
+			loses.append(String(other))
+	return {"beats": (CpuController.BEATS.get(role, []) as Array).duplicate(), "loses": loses}
+
+
+## "Beats mages  ·  Loses to fighters, tanks, bruisers, skirmishers", shortened until it
+## is at most `room` wide in `font` at the line's size: a list that names every other
+## class but the other side's becomes "the rest", then "Beats: x / Loses to: y". "" for a
+## class not in the triangle.
+static func matchup_text(role: String, font: Font = null, room := INF) -> String:
+	var m := matchups(role)
+	var beats: Array = m["beats"]
+	var loses: Array = m["loses"]
+	if beats.is_empty() and loses.is_empty():
+		return ""
+	var b := _plural_list(beats)
+	var l := _plural_list(loses)
+	var tries: Array = [_matchup_line(b, l, false)]
+	# "the rest": the longer list, when the two name every class but this one.
+	var others: Array = CpuController.BEATS.keys().filter(func(r): return r != role)
+	var b2 := b
+	var l2 := l
+	if not beats.is_empty() and not loses.is_empty() and beats.size() + loses.size() == others.size():
+		if beats.size() >= loses.size():
+			b2 = "the rest"
+		else:
+			l2 = "the rest"
+	tries.append(_matchup_line(b2, l2, false))
+	tries.append(_matchup_line(b2, l2, true))
+	for t in tries:
+		if font == null or font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, UiTheme.px(6)).x <= room:
+			return t
+	return tries[-1]
+
+
+static func _plural_list(classes: Array) -> String:
+	return ", ".join(PackedStringArray(classes.map(func(c): return String(c) + "s")))
+
+
+static func _matchup_line(b: String, l: String, short: bool) -> String:
+	var parts := PackedStringArray()
+	if b != "":
+		parts.append(("Beats: " if short else "Beats ") + b)
+	if l != "":
+		parts.append(("Loses to: " if short else "Loses to ") + l)
+	return (" / " if short else "  ·  ").join(parts)
 
 
 func _place_stage() -> void:

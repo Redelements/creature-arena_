@@ -160,6 +160,7 @@ func reset() -> void:
 func bits(sim: MatchSim, me_idx: int, cursor: Vector2) -> int:
 	var me := sim.creatures[me_idx]
 	var foe := sim.nearest_opponent(me)
+	var aim_foe := assist_foe(sim, me)
 	var out := 0
 	if device == Device.TOUCH and keyboard:
 		touch_charges(me, touch)
@@ -171,7 +172,7 @@ func bits(sim: MatchSim, me_idx: int, cursor: Vector2) -> int:
 		if pad_device == ANY_PAD:
 			out |= _gamepad_bits(me)
 		# No keyboard or mouse: a tap also arrives as a mouse click (League's light attack).
-		return assist(out, me, foe, ASSIST_DEG)
+		return assist(out, me, aim_foe, ASSIST_DEG)
 	if pad_device == ANY_PAD:
 		out |= _gamepad_bits(me)
 	elif pad_device >= 0:
@@ -183,7 +184,7 @@ func bits(sim: MatchSim, me_idx: int, cursor: Vector2) -> int:
 				out |= SimDefs.IN_TAG
 		else:
 			out |= _classic_bits()
-	return assist(out, me, foe)
+	return assist(out, me, aim_foe)
 
 
 ## Tells the touch pad which of its drag buttons start a charging move for `me` (held
@@ -192,6 +193,23 @@ static func touch_charges(me: CreatureSim, pad: TouchPad) -> void:
 	var mv := me.moves()
 	for b in ["heavy", "skill_1", "skill_2"]:
 		pad.charges[b] = (mv.get(b, {}) as Dictionary).has("charge_max")
+
+
+## The foe aim assist bends toward: the nearest one standing that isn't stealthed (Pete's
+## Tiptoe must not pull the aim mark onto a fighter the screen hides). A
+## `covered` foe in brush still counts. Input-layer only; the sim's `nearest_opponent`
+## (guard facing, homing, blinks) is unchanged. null when none.
+static func assist_foe(sim: MatchSim, me: CreatureSim) -> CreatureSim:
+	var best: CreatureSim = null
+	var best_d := INF
+	for o in sim.creatures:
+		if not me.is_foe(o) or o.state == CreatureSim.State.KO or o.stealth > 0:
+			continue
+		var d := o.pos.distance_squared_to(me.pos)
+		if d < best_d:
+			best_d = d
+			best = o
+	return best
 
 
 ## Aim assist: an attack aimed within ASSIST_DEG (ASSIST_DEG_STICK for a 360-degree left

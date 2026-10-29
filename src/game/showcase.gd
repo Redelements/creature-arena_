@@ -2,6 +2,7 @@ class_name Showcase
 extends RefCounted
 ## Scripted demos that show each fighter's whole kit, and how to answer the big moves.
 ##   godot --path . -- --showcase=cairn | culvert | craglash | barkley | gillbert | cerebro | hissy | digby | pete | sno | counterplay
+## (crease_storm and pete_flank are trailer beats: tools/trailer_shots.json)
 ## Both fighters are driven by input bitmasks, exactly like players: each "press" step
 ## mashes its button until that move actually starts, so the combos shown are real
 ## inputs through the real rules. tests/test_showcase.gd plays every script headless.
@@ -440,6 +441,39 @@ const SCRIPTS := {
 			{"do": "press", "who": 0, "bit": H, "move": "heavy", "show": 8},
 			{"do": "until", "cond": "settled"},
 			{"do": "wait", "t": 150, "show": 9},
+		],
+	},
+	"crease_storm": {
+		"left": "crease", "right": "cairn", "energy": [100, 0], "gap": 96.0,
+		"extra": [{"id": "culvert", "off": [22, -40]}, {"id": "gillbert", "off": [24, 40]}],
+		"title": "MISTER CREASE  -  THOUSAND CRANES",
+		"captions": [
+			["Three foes bunched up", "Thousand Cranes: the storm lands on all of them"],
+		],
+		"steps": [
+			{"do": "wait", "t": 50, "part": 0, "show": 0},
+			{"do": "press", "who": 0, "bit": SU, "move": "surge", "show": 1},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 240},
+		],
+	},
+	"pete_flank": {
+		"left": "pete", "right": "cerebro", "energy": [100, 0], "gap": 150.0, "hp": [-1, 45],
+		"extra": [{"id": "craglash", "off": [-60, 0]}],
+		"title": "SNEAKY PETE  -  THE FLANK",
+		"captions": [
+			["Tiptoe: out of sight", "Round the tank", "Pickpocket from behind", "The Big Heist"],
+		],
+		"steps": [
+			{"do": "wait", "t": 40, "part": 0},
+			{"do": "press", "who": 0, "bit": S1, "move": "skill_1", "hold": "down", "show": 0},
+			{"do": "until", "cond": "free:0"},
+			{"do": "walk", "who": 0, "hold": "right", "t": 52, "show": 1},
+			{"do": "press", "who": 0, "bit": S2, "move": "skill_2", "aim_at": true, "show": 2},
+			{"do": "until", "cond": "free:0"},
+			{"do": "press", "who": 0, "bit": SU, "move": "surge", "aim_at": true, "show": 3},
+			{"do": "until", "cond": "settled"},
+			{"do": "wait", "t": 150},
 		],
 	},
 	"angles": {

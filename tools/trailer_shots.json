@@ -8,9 +8,11 @@
 		{"id": "floodgate_night", "note": "the Floodgate at night under the floodlights", "mode": 30, "arena": "floodgate", "time": "night", "weather": "clear", "from": 480, "to": 840, "every": 2},
 		{"id": "counterplay", "note": "how to answer the big moves (warnings, dodges, guard)", "showcase": "counterplay", "from": 200, "to": 636, "every": 2},
 		{"id": "greenhouse_rain", "note": "the Greenhouse in the rain", "mode": 30, "arena": "greenhouse", "time": "day", "weather": "rain", "from": 400, "to": 760, "every": 2},
+		{"id": "crease_storm", "note": "Mister Crease's Thousand Cranes on three bunched foes: the cranes fall inside the floor ring, then the end burst cracks the floor", "showcase": "crease_storm", "time": "day", "weather": "clear", "cam": [405, 208, 1.4], "from": 60, "to": 330, "every": 2},
 		{"id": "craglash_finisher", "note": "Craglash's charge and finisher", "showcase": "craglash", "from": 800, "to": 1102, "every": 2},
 		{"id": "caravan_push", "note": "Caravan on Dustwind Pass at sunset: pushing the wagon", "mode": 50, "time": "sunset", "weather": "clear", "from": 300, "to": 700, "every": 2},
 		{"id": "twinstick_aim", "note": "aiming all the way round (twin-stick)", "showcase": "twinstick", "from": 60, "to": 505, "every": 2},
+		{"id": "pete_flank", "note": "Sneaky Pete's flank: Tiptoe out of sight, round the tank, Pickpocket into Chef Cerebro from behind, The Big Heist", "showcase": "pete_flank", "time": "day", "weather": "clear", "from": 40, "to": 300, "every": 2},
 		{"id": "ctf_keeps", "note": "Capture the Flag at Twin Keeps", "mode": 52, "time": "day", "weather": "clear", "from": 600, "to": 1000, "every": 2},
 		{"id": "sno_close", "note": "Sno Mercy's finisher to close", "showcase": "sno", "from": 330, "to": 630, "every": 2}
 	]

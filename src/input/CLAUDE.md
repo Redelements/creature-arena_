@@ -5,7 +5,9 @@ Local devices become one bitmask per tick, the same thing the CPU and the networ
 ## Gotchas
 
 - Aim assist is applied here, in `PlayerInput`, so online peers receive the assisted aim.
-  Exact aims (`IN_AIM`) bypass it.
+  Exact aims (`IN_AIM`) bypass it. It bends only toward `assist_foe` (nearest foe standing
+  with `stealth` 0; brush-`covered` foes still count), never `sim.nearest_opponent`, or a
+  Tiptoed Pete pulls the aim mark. The mouse chase still gets `nearest_opponent`.
 - `MouseOrders` and `PlayerInput.combine_pad` are pure logic (no `Input` calls) so tests
   can drive them.
 - `TouchPad` is pure logic too: main feeds it `InputEventScreenTouch` / `InputEventScreenDrag`
@@ -38,7 +40,7 @@ Local devices become one bitmask per tick, the same thing the CPU and the networ
 - Keyboard layouts (`LAYOUTS`: league, classic), pad layouts (`PAD_LAYOUTS`: standard,
   twinstick), prompt labels → `player_input.gd` (`label`, `label_for`, `help_text`)
 - Aim assist → `player_input.gd:ASSIST_DEG` (25), `ASSIST_DEG_STICK` (12), `ASSIST_RANGE`
-  (90), `assist()`
+  (90), `assist()`, `assist_foe()` (skips stealthed foes)
 - Twin-stick right stick, strafe, autofire → `combine_pad` (`TWIN_DEADZONE` 0.35),
   `autofire` (`AUTO_QUIET` 12, `AUTO_PEND` 40: an attack pressed mid-light is re-pressed
   until it starts, since a light outlasts the 10-tick buffer); pad aim timer packing → `PAD_T_SHIFT` (27)
