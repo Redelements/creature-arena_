@@ -77,11 +77,11 @@ the tank's number is measured on the game he will actually play in.
 
 | PR | Branch | Change | Status |
 | --- | --- | --- | --- |
-| Guard faces only the foes it can see | `guard-ignores-stealth` | `nearest_seen` beside `nearest_opponent` (skips `stealth > 0`, brush stays visible), used by `_update_guard` only; MECHANICS.md:301 leak list shrinks to homing and blinks | agent started Oct 28 |
-| Ambush openers combo | `ambush-flinch` | creature key `ambush_flinch` (digby, pete): while `ambush_t > 0` the no_flinch lights stagger; if Burrow's 16 recovery ticks still drop the string, the PR reports the numbers and proposes the smallest second data change | agent started Oct 28 |
-| Dodge out of a landed light at the plain price | `light-cancel-refund` | stamina.json `dodge_cancel_connected_mult` 1.0 and `dodge_cancel_refund_roles` [fighter, tank, bruiser]; lights only; whiffs, heavies, skills, Surges keep 1.25x | agent started Oct 28 |
-| Sneaky Pete aims his dives | `pete-lock-on` | optional `lock_on {dot}` on `dash.home` and `blink`, lob_lock's cone test shared, nearest foe as the fallback; pete.json only | agent started Oct 28 |
-| Craglash data tune + slot bench | `craglash-tune` | `bench_cpu.gd --slot=<role>` first (team win rate per fighter, five Normal CPUs fixed), then data only in craglash.json (stamina_regen, Rake cooldown, dash, Bedrock armor; HP last); target R4; no new pin | after the four above merge |
+| Guard faces only the foes it can see | `guard-ignores-stealth` | `nearest_seen` beside `nearest_opponent` (skips `stealth > 0`, brush stays visible), used by `_update_guard` only; MECHANICS.md:301 leak list shrinks to homing and blinks | PR #298 open; bench unchanged (CPUs never guarded against stealth) |
+| Ambush openers combo | `ambush-flinch` | creature key `ambush_flinch` (digby, pete): while `ambush_t > 0` the no_flinch lights stagger; if Burrow's 16 recovery ticks still drop the string, the PR reports the numbers and proposes the smallest second data change | PR #301 open; Pickpocket hitstun 28 -> 30 was the one extra number; Digby 65 -> 72% on the matrix (top), Pete vs Cerebro 10 -> 16 of 24; Digby vs Cerebro unchanged (Normal Digby rarely Burrows) |
+| Dodge out of a landed light at the plain price | `light-cancel-refund` | stamina.json `dodge_cancel_connected_mult` 1.0 and `dodge_cancel_refund_roles` [fighter, tank, bruiser]; lights only; whiffs, heavies, skills, Surges keep 1.25x | PR #299 open; bench unchanged (CPUs never dodge-cancel) |
+| Sneaky Pete aims his dives | `pete-lock-on` | optional `lock_on {dot}` on `dash.home` and `blink`, lob_lock's cone test shared, nearest foe as the fallback; pete.json only | PR #300 open; bench unchanged (CPU Pete never aims past the tank); The Big Heist lock has no range limit, a `range` key is offered |
+| Craglash data tune + slot bench | `craglash-tune` | `bench_cpu.gd --slot=<role>` first (team win rate per fighter, five Normal CPUs fixed), then data only in craglash.json (stamina_regen, Rake cooldown, dash, Bedrock armor; HP last); target R4; no new pin | waits for #298-#301 to merge |
 
 After the fifth merge: rebuild the server (`tools/server/update.sh`, check the protocol in
 `journalctl`), then a playtest from the main build: Cairn guarding against a CPU Pete who
