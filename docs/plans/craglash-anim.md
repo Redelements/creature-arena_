@@ -95,13 +95,25 @@ jaw more visible, not less. This plan is view and sheet work only: no sim change
 - Rules of the road: route A 2x only (`fighter-2x` skill), `tools/gen_craglash.py`,
   re-import before screenshots, no sim change, no numbers in this doc.
 
-## Rulings needed from Kevin
-- R1. Does the head stay **attached** to a visible neck all the way to 250 px (a stone
-  neck twelve slabs long), or does the neck thin to a stone "chain" past the sprite edge?
-  Plan assumes full slabs.
-- R2. Reel-in: head slides back over the recovery (~0.3 s) or snaps home? Plan assumes slides.
-- R3. The rear-back pose: the head goes back and **up** (a cobra) or back and **down**
-  (a ram)? Plan assumes up, mouth opening.
+## Rulings (Kevin, Oct 29)
+- R1. **Same thickness all the way.** He is rock: the chain just gets more rocks as it
+  extends. Full slabs to 250 px, never thinning.
+- R2. **A fairly quick snap back** to Craglash. Not a slide over the recovery: the head is
+  home within a handful of ticks, then the mouth closes.
+- R3. **Fling the head back (a quick head tilt), then throw it forward.** The rear-back is
+  a snap, not a slow lean: the head tilts back hard in a few ticks and holds.
+- R4. **Jaw-biting sounds as the head flies.** A chomp every few ticks of flight.
+
+## Changes to the phases from the rulings
+- Phase 1: the view draws slabs at the rig's spacing from `neck_end` to the head with no
+  taper; the reel-in on `projectile_end` runs the head home in ~4-6 ticks (so a
+  view-only slide, but short), then frames 8-11 close the mouth. Add a flight chomp:
+  a data key on the projectile fx (e.g. `"flight_sound": {"id": "bite", "every": 6}`)
+  played by `AudioView` while a `head` projectile lives, sound in `data/audio.json`;
+  document in `docs/MECHANICS.md` (fx keys) and `docs/AUDIO.md`. The bite sound itself
+  is a placeholder until Kevin picks one (see `docs/open-items.md`, audio).
+- Phase 2: frames 0-3 become fling-back: frame 1 already at the deep tilt (head back and
+  tilted up, mouth opening), frames 2-3 hold it with a shiver, frame 4 the throw.
 
 ## Inspection notes
 (filled in by phase 0)
