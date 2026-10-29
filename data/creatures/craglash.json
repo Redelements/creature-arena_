@@ -10,12 +10,12 @@
   "radius": 12,
   "weight": 1.5,
   "stamina": 100,
-  "stamina_regen": 0.35,
+  "stamina_regen": 0.5,
   "dodge": {
     "frames": 20,
     "iframes_start": 3,
     "iframes_end": 12,
-    "speed": 2.7,
+    "speed": 3.2,
     "ram": {
       "name": "Landslide Ram",
       "breaks": ["wall"],
@@ -197,7 +197,7 @@
       "startup": 12,
       "active": 5,
       "recovery": 24,
-      "cooldown": 120,
+      "cooldown": 90,
       "damage": 6,
       "knockback": 0.9,
       "hitstun": 36,
@@ -324,7 +324,7 @@
       "armor": {
         "from": 4,
         "to": 172,
-        "reduction": 0.75,
+        "reduction": 0.85,
         "release_from": 18
       },
       "taunt": {
