@@ -11,6 +11,7 @@
   "weight": 0.9,
   "ambush": 1.25,
   "ambush_ticks": 90,
+  "ambush_flinch": true,
   "stamina": 100,
   "stamina_regen": 0.6,
   "dodge": { "frames": 15, "iframes_start": 2, "iframes_end": 11, "speed": 3.8 },

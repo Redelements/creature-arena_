@@ -699,6 +699,10 @@ func _apply_hit(a: CreatureSim, d: CreatureSim, hit: Dictionary, push: Vector2, 
 	if no_flinch and d.has_mark(String(hit.get("stagger_if", ""))):
 		no_flinch = false
 		paid_off = true
+	# Out of an ambush ("ambush_flinch": Digby, Pete): while the window is open his jabs
+	# stagger like ordinary lights, so the opener from stealth starts a real combo.
+	if no_flinch and a.ambush_t > 0 and bool(a.def.get("ambush_flinch", false)) and String(hit["type"]) == "light":
+		no_flinch = false
 	var was_stunned := d.is_stunned()
 	var n := d.combo_hits + 1
 	var types := d.combo_types | int(SimDefs.TYPE_BIT[String(hit["type"])])

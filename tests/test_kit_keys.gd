@@ -3,7 +3,8 @@ extends TestCase
 ## target carrying a mark: Chef Cerebro's Mallet Toss on a tenderized foe), a projectile's
 ## "bounce" (on to a second foe once, weaker: Cleaver Toss) and a light's "branches" (a
 ## button pressed at that point of the string starts another move in place of the usual
-## rank cancel). Keys in docs/MECHANICS.md.
+## rank cancel), and "ambush_flinch" (an assassin's jabs stagger while his ambush window is
+## open). Keys in docs/MECHANICS.md.
 
 const L := SimDefs.IN_LIGHT
 const H := SimDefs.IN_HEAVY
@@ -35,6 +36,72 @@ func _count(sim: MatchSim, kind: String, key := "", value = null) -> int:
 		if String(e["type"]) == kind and (key == "" or e.get(key) == value):
 			n += 1
 	return n
+
+
+# ------------------------------------------------------------------ ambush_flinch
+
+## A plain no_flinch jab (no mark to pay off).
+func _jab(extra := {}) -> Dictionary:
+	var h := _hit({"move_id": "light_1", "stagger_if": "", "knockback": 0.8})
+	h.merge(extra, true)
+	return h
+
+
+func test_ambush_flinch_jabs_stagger_inside_the_window() -> void:
+	var sim := _duel("digby", "culvert")
+	var a := sim.creatures[0]
+	var d := sim.creatures[1]
+	assert_true(bool(a.def.get("ambush_flinch", false)), "Digby has the key")
+	a.ambush_t = 30
+	sim._apply_hit(a, d, _jab(), Vector2.RIGHT, d.pos)
+	assert_eq(d.state, CreatureSim.State.HITSTUN, "out of an ambush the jab staggers")
+	assert_eq(d.stun, 20, "for its own hitstun:")
+	assert_eq(d.combo_hits, 1, "and starts a combo:")
+	sim._apply_hit(a, d, _jab({"move_id": "light_2", "serial": 2}), Vector2.RIGHT, d.pos)
+	assert_eq(d.combo_hits, 2, "the next jab continues it:")
+
+
+func test_ambush_flinch_jabs_dont_stagger_outside_the_window() -> void:
+	for who in ["digby", "pete"]:
+		var sim := _duel(who, "culvert")
+		var a := sim.creatures[0]
+		var d := sim.creatures[1]
+		a.ambush_t = 0
+		var hp := d.hp
+		sim._apply_hit(a, d, _jab(), Vector2.RIGHT, d.pos)
+		assert_lt(d.hp, hp, "%s's jab still deals damage" % who)
+		assert_false(d.is_stunned(), "%s, no ambush window: the jab is no_flinch as ever" % who)
+		assert_eq(d.combo_hits, 0, "%s: no combo on a free foe:" % who)
+
+
+func test_ambush_flinch_keeps_a_juggle_up() -> void:
+	var sim := _duel("pete", "culvert")
+	var a := sim.creatures[0]
+	var d := sim.creatures[1]
+	d.enter_air(4, Vector2.ZERO)
+	a.ambush_t = 30
+	sim._apply_hit(a, d, _jab({"juggle": true}), Vector2.RIGHT, d.pos)
+	assert_eq(d.air_total - d.air_t, CreatureSim.JUGGLE_FLOAT, "an airborne foe floats on, like any juggle hit:")
+
+
+func test_ambush_flinch_only_turns_lights() -> void:
+	var sim := _duel("pete", "culvert")
+	var a := sim.creatures[0]
+	var d := sim.creatures[1]
+	a.ambush_t = 30
+	sim._apply_hit(a, d, _jab({"type": "skill", "move_id": "skill_1"}), Vector2.RIGHT, d.pos)
+	assert_false(d.is_stunned(), "a no_flinch hit that isn't a light stays no_flinch")
+
+
+func test_a_fighter_without_ambush_flinch_is_unaffected() -> void:
+	var sim := _duel("cairn", "culvert")
+	var a := sim.creatures[0]
+	var d := sim.creatures[1]
+	assert_false(a.def.has("ambush_flinch"), "Cairn has no key")
+	a.ambush_t = 30  # even with a window open
+	sim._apply_hit(a, d, _jab(), Vector2.RIGHT, d.pos)
+	assert_false(d.is_stunned(), "his jab is no_flinch as ever")
+	assert_eq(d.combo_hits, 0, "no combo:")
 
 
 # ------------------------------------------------------------------ stagger_if
